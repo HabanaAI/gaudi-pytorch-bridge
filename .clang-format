@@ -1,0 +1,8 @@
+## Based on https://chromium.googlesource.com/external/github.com/tensorflow/tensorflow/+/refs/heads/master/tensorflow/.clang-format
+# Run manually to reformat a file:
+# clang-format -i --style=file <file>
+BasedOnStyle: Google
+DerivePointerAlignment: false
+
+# Default style overrides
+ColumnLimit: 119
