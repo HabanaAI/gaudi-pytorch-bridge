@@ -3,5 +3,5 @@
 __pycache__/
 data/
 .pytest_cache/
-**/build/**
+**/*build*/**
 *.so
