@@ -2,8 +2,18 @@ import torch
 torch.ops.load_library("libhabana_device.so")
 torch.ops.load_library("libhabana_kernels.so")
 
+# @torch.jit.script
 def test_hpu_device():
-    device = torch.device('habana')
-    tensor = torch.randn(5)
+    hpu = torch.device('habana')
+    cpu = torch.device('cpu')
 
-    tensor.to(device)
+    cpu_tensor = torch.randn(5)
+
+    print(cpu_tensor)
+    hpu_tensor = cpu_tensor.to(hpu)
+    cpu_tensor2 = hpu_tensor.to(cpu)
+
+    print(cpu_tensor2)
+    pass
+
+test_hpu_device()

@@ -1,4 +1,5 @@
 #include <torch/script.h>
+#include <ATen/InferSize.h>
 
 using namespace torch;
 
@@ -12,7 +13,7 @@ Tensor set_one(Tensor image) {
 }
 
 Tensor empty_habana(IntArrayRef size, const TensorOptions& options, c10::optional<MemoryFormat> optional_memory_format) {
-  AT_ASSERT(options.backend() == at::Backend::HABANA);
+  // AT_ASSERT(options.backend() == at::Backend::HABANA);
   AT_ASSERT(options.device().type() == DeviceType::HABANA);
 
   // TODO: how does 'is_variable' affecting us?
@@ -51,9 +52,28 @@ Tensor empty_habana(IntArrayRef size, const TensorOptions& options, c10::optiona
   return tensor;
 }
 
+Tensor view_habana(const Tensor& self, IntArrayRef size) {
+  auto inferred_size = at::infer_size(size, self.numel());
+  auto stride = at::detail::computeStride(self.sizes(),
+                                          self.strides(),
+                                          inferred_size);
+  TORCH_CHECK(stride.has_value(), "view size is "
+    "not compatible with input tensor's size and stride (at least one dimension"
+    " spans across two contiguous subspaces). Use .reshape(...) instead.");
+  auto stride_value = *stride;
+  auto self_ = self.alias();
+  self_.set_(
+    self.storage(), self.storage_offset(), inferred_size, stride_value);
+  return self_;
+}
+
 static auto registry = torch::RegisterOperators()
   .op("habana_kernels::set_one", &set_one)
   .op(torch::RegisterOperators::options()
     .schema("aten::empty.memory_format(int[] size, *, ScalarType? dtype=None, Layout? layout=None, Device? device=None, bool? pin_memory=None, MemoryFormat? memory_format=None) -> Tensor")
     .impl_unboxedOnlyKernel<decltype(empty_habana), &empty_habana>(TensorTypeId::HABANATensorId)
+    .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+  .op(torch::RegisterOperators::options()
+    .schema("aten::view(Tensor(a) self, int[] size) -> Tensor(a)")
+    .impl_unboxedOnlyKernel<decltype(view_habana), &view_habana>(TensorTypeId::HABANATensorId)
     .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));
