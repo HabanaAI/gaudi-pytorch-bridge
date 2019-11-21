@@ -3,6 +3,8 @@ torch.ops.load_library("libhabana_device.so")
 torch.ops.load_library("libhabana_kernels.so")
 
 # @torch.jit.script
+
+
 def test_hpu_device():
     hpu = torch.device('habana')
     cpu = torch.device('cpu')
@@ -15,5 +17,6 @@ def test_hpu_device():
 
     print(cpu_tensor2)
     pass
+
 
 test_hpu_device()
