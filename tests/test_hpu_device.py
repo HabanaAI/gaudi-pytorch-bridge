@@ -1,6 +1,5 @@
 import torch
-torch.ops.load_library("libhabana_device.so")
-torch.ops.load_library("libhabana_kernels.so")
+torch.ops.load_library("libhabana_pytorch_plugin.so")
 
 # @torch.jit.script
 

@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-torch.ops.load_library("libhabana_kernels.so")
+torch.ops.load_library("libhabana_pytorch_plugin.so")
 
 
 def test_set_one():

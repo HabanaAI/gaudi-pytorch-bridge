@@ -1,4 +1,5 @@
 #include "HPUAllocator.h"
+#include "HPUCheck.h"
 #include "synapse/include/synapse_api.h"
 
 namespace at {
@@ -13,9 +14,8 @@ void* HabanaAllocator::malloc(size_t num_bytes) {
   {
     std::unique_lock<std::mutex> lock(allocation_lock_);
     auto status{synDeviceMalloc(device_id_, num_bytes, 0, 0, &ptr)};
-    if (status != synStatus::synSuccess) {
-      VLOG(1) << "synDeviceMalloc failed for " << num_bytes << " bytes.";
-    }
+    TORCH_HABANA_CHECK(
+        status, "synDeviceMalloc failed to allocate ", num_bytes, " bytes");
   }
 
   void* v_ptr = reinterpret_cast<void*>(ptr);
@@ -35,35 +35,11 @@ void HabanaAllocator::free(void* ptr) {
   }
 }
 
-HabanaAllocator habana_allocator;
+static HabanaAllocator habana_allocator;
 
-// static void HabanaHostDeleter(void* ptr) {
-//   habana_allocator.free(ptr);
-// }
 static void HabanaDeviceDeleter(void* ptr) {
   habana_allocator.free(ptr);
 }
-
-// struct HPUHostAllocator final : public at::Allocator {
-//   at::DataPtr allocate(size_t size) const override {
-//     void* ptr = nullptr;
-//     // TODO: get device id
-
-//     if (size != 0) {
-//       std::unique_lock<std::mutex> lock(allocation_lock_);
-//       auto status{synDeviceMalloc(device_id_, 0, 0, 0, &ptr)};
-//       if (status != synStatus::synSuccess)
-//         VLOG(1) << "synDeviceMalloc failed for " << size << " bytes.";
-//     }
-
-//     return {
-//         ptr, ptr, &HabanaHostDeleter, Device(DeviceType::HABANA,
-//         device_id_)};
-//   }
-//   at::DeleterFnPtr raw_deleter() const override {
-//     return &HabanaHostDeleter;
-//   }
-// }; // namespace habana
 
 at::DataPtr HPUDeviceAllocator::allocate(size_t size) const {
   // TODO: get device id
