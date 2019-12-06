@@ -13,6 +13,8 @@
 namespace at {
 namespace detail {
 
+extern bool synapse_init;
+
 struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
   HABANAGuardImpl() = default;
   DeviceType type() const override {
@@ -29,12 +31,20 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
   Device getDevice() const override {
     std::unique_lock<std::mutex> lock(device_lock);
     if (acquired_devices.size() == 0) {
+      if (synapse_init == false) {
+        TORCH_HABANA_CHECK(synInitialize());
+        synapse_init = true;
+      }
+
       // TODO: we are leaking this device, our architecture is not suitable for
       // guard impl
-      auto status = synDeviceAcquireByDeviceType(
-          &active_device, synDeviceType::synDeviceGaudi);
-      TORCH_HABANA_CHECK(status, "Device acquire failed");
+      TORCH_HABANA_CHECK(
+          synDeviceAcquireByDeviceType(
+              &active_device, synDeviceType::synDeviceGaudi),
+          "Device acquire failed");
       acquired_devices.emplace(active_device);
+
+      TORCH_HABANA_CHECK(synConfigurationSet("GAUDI_ADDRESS_PATCHING", "true"));
     } else if (acquired_devices.size() == 1)
       active_device = *acquired_devices.begin();
     else

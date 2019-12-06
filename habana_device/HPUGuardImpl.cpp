@@ -4,5 +4,7 @@ namespace at {
 namespace detail {
 
 C10_REGISTER_GUARD_IMPL(HABANA, HABANAGuardImpl);
+bool synapse_init = false;
 
-}} // namespace at::detail
+} // namespace detail
+} // namespace at
