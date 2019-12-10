@@ -6,15 +6,6 @@
 
 using namespace torch;
 
-Tensor set_one(Tensor image) {
-  Tensor output = image;
-  for (size_t i = 0; i < image.numel(); ++i) {
-    output[i] = 1;
-  }
-
-  return output;
-}
-
 Tensor empty_habana(
     IntArrayRef size,
     const TensorOptions& options,
@@ -35,8 +26,7 @@ Tensor empty_habana(
 
   c10::Allocator* allocator;
   if (options.pinned_memory()) {
-    // allocator = at::detail::getCUDAHooks().getPinnedMemoryAllocator();
-    TORCH_CHECK(false, "fail, this code will be removed");
+    TORCH_CHECK(false, "habana allocator doesn't supported pinned memory");
   } else {
     allocator = at::habana::getHABANADeviceAllocator();
   }
@@ -61,22 +51,6 @@ Tensor empty_habana(
       optional_memory_format.value_or(MemoryFormat::Contiguous);
   tensor.unsafeGetTensorImpl()->empty_tensor_restride(memory_format);
   return tensor;
-}
-
-Tensor view_habana(const Tensor& self, IntArrayRef size) {
-  auto inferred_size = at::infer_size(size, self.numel());
-  auto stride =
-      at::detail::computeStride(self.sizes(), self.strides(), inferred_size);
-  TORCH_CHECK(
-      stride.has_value(),
-      "view size is "
-      "not compatible with input tensor's size and stride (at least one dimension"
-      " spans across two contiguous subspaces). Use .reshape(...) instead.");
-  auto stride_value = *stride;
-  auto self_ = self.alias();
-  self_.set_(
-      self.storage(), self.storage_offset(), inferred_size, stride_value);
-  return self_;
 }
 
 // cpu->hpu and hpu->cpu copy implementation
@@ -155,29 +129,8 @@ Tensor& hpu_copy_(Tensor& self, const Tensor& src, bool non_blocking) {
 
   return dst;
 }
-
-// - func: _copy_from(Tensor self, Tensor dst, bool non_blocking=False) ->
-// Tensor
-//   use_c10_dispatcher: full
-//   dispatch: {}
-// Tensor hpu__copy_from(
-//     const Tensor& self,
-//     const Tensor& dst,
-//     bool non_blocking) {
-//   TORCH_CHECK(self.defined(), "self is undefined");
-//   TORCH_CHECK(dst.defined(), "src is undefined");
-
-//   if (self.is_same(dst)) {
-//     return dst;
-//   }
-
-//   throw "UNIMPLEMENTED";
-//   return dst;
-// }
-
 static auto registry =
     torch::RegisterOperators()
-        .op("habana_kernels::set_one", &set_one)
         .op(torch::RegisterOperators::options()
                 .schema(
                     "aten::empty.memory_format(int[] size, *, ScalarType? dtype=None, Layout? layout=None, Device? device=None, bool? pin_memory=None, MemoryFormat? memory_format=None) -> Tensor")
@@ -189,17 +142,12 @@ static auto registry =
                     "aten::copy_(Tensor(a!) self, Tensor src, bool non_blocking=False) -> Tensor(a!)")
                 .impl_unboxedOnlyKernel<decltype(hpu_copy_), &hpu_copy_>(
                     TensorTypeId::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema(
+                    "aten::as_strided(Tensor(a) self, int[] size, int[] stride, int? storage_offset=None) -> Tensor(a)")
+                .impl_unboxedOnlyKernel<
+                    decltype(at::native::as_strided_tensorimpl),
+                    &at::native::as_strided_tensorimpl>(
+                    TensorTypeId::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));
-// .op(torch::RegisterOperators::options()
-//         .schema(
-//             "aten::_copy_from(Tensor self, Tensor dst, bool
-//             non_blocking=False) -> Tensor")
-//         .impl_unboxedOnlyKernel<
-//             decltype(hpu__copy_from),
-//             &hpu__copy_from>(TensorTypeId::HABANATensorId)
-//         .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));
-// .op(torch::RegisterOperators::options()
-//         .schema("aten::view(Tensor(a) self, int[] size) -> Tensor(a)")
-//         .impl_unboxedOnlyKernel<decltype(view_habana), &view_habana>(
-//             TensorTypeId::HABANATensorId)
-//         .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));

@@ -10,6 +10,7 @@ add_library(habana_pytorch_plugin SHARED
   habana_device/HPUContext.cpp
   habana_device/HPUGuardImpl.cpp
   habana_kernels/basic_kernels.cpp
+  habana_kernels/strided_window_kernels.cpp
 )
 
 # Enable C++11
