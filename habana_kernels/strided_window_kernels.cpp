@@ -115,7 +115,7 @@ void synapse_convolution(
     const std::vector<std::string> input_names{"input", "filter", "bias"};
     const std::vector<std::string> output_names{"output"};
 
-    const std::vector<synTensorDescriptorTr> syn_input_descriptors{
+    std::vector<synTensorDescriptorTr> syn_input_descriptors{
         synapse_tensor_descriptor_builder(
             input.sizes(), synDataType::syn_type_float, input_names[0], true),
         synapse_tensor_descriptor_builder(
@@ -123,13 +123,40 @@ void synapse_convolution(
         synapse_tensor_descriptor_builder(
             bias.sizes(), synDataType::syn_type_float, input_names[2], true)};
 
-    const std::vector<synTensorDescriptorTr> syn_output_descriptors{
+    std::vector<synTensorDescriptorTr> syn_output_descriptors{
         synapse_tensor_descriptor_builder(
             output.sizes(),
             synDataType::syn_type_float,
             output_names[0],
             true)};
+#ifndef TRANSPOSE_IMPLEMENTED
+    auto weight_size_hacked = IntArrayRef{weight.sizes()[2], // KCHW -> HWCK
+                                          weight.sizes()[3],
+                                          weight.sizes()[1],
+                                          weight.sizes()[0]};
+    { // TODO: remove. Dirty hack to adjust shapes so synapse doesn't crash,
+      // results will be incorrect.
 
+      // function to match existing pytorch shapes to synapse requirements,
+      auto hack_pytorch_nhwc_shapes = [](synTensorDescriptorTr& descriptor,
+                                         const IntArrayRef& sizes) {
+        // pytorch data format is NCHW, synapse require NHWC but it is reading
+        // backwards
+        descriptor.m_sizes[3] = sizes[0];
+        descriptor.m_sizes[2] = sizes[2];
+        descriptor.m_sizes[1] = sizes[3];
+        descriptor.m_sizes[0] = sizes[1];
+      };
+      hack_pytorch_nhwc_shapes(syn_input_descriptors[0], input.sizes());
+      hack_pytorch_nhwc_shapes(syn_output_descriptors[0], output.sizes());
+
+      // pytorch data format is KCHW, synapse require HWCK but it is reading
+      // backwards
+      for (int i = 0; i < weight_size_hacked.size(); ++i)
+        syn_input_descriptors[1].m_sizes[i] =
+            weight_size_hacked[weight_size_hacked.size() - i - 1];
+    }
+#endif
     for (int i = 0; i < syn_inputs.size(); ++i)
       TORCH_HABANA_CHECK(
           synTensorCreate(&syn_inputs[i], &syn_input_descriptors[i]),
@@ -261,10 +288,10 @@ void synapse_convolution(
         synTransposeParams params_NHWC_to_NCHW;
         {
           params_NHWC_to_NCHW.tensorDim = 4;
-          params_NHWC_to_NCHW.permutation[0] = TransposePermutationDim(0);
-          params_NHWC_to_NCHW.permutation[1] = TransposePermutationDim(3);
-          params_NHWC_to_NCHW.permutation[2] = TransposePermutationDim(2);
-          params_NHWC_to_NCHW.permutation[3] = TransposePermutationDim(1);
+          params_NHWC_to_NCHW.permutation[0] = TransposePermutationDim{0};
+          params_NHWC_to_NCHW.permutation[1] = TransposePermutationDim{3};
+          params_NHWC_to_NCHW.permutation[2] = TransposePermutationDim{2};
+          params_NHWC_to_NCHW.permutation[3] = TransposePermutationDim{1};
         }
         // dimshuffle output
         TORCH_HABANA_CHECK(
@@ -304,12 +331,12 @@ void synapse_convolution(
             synWorkspaceGetSize(&workspace_size_bytes, recipe_handle),
             "synWorkspaceGetSize failed");
 
-        auto hpu_RAII_allocator = at::habana::getHABANADeviceAllocator();
+        auto hpu_raii_allocator = at::habana::getHABANADeviceAllocator();
 
         at::DataPtr workspace_buffer,
-            topology_buffer = hpu_RAII_allocator->allocate(topology_size_bytes);
+            topology_buffer = hpu_raii_allocator->allocate(topology_size_bytes);
         if (workspace_size_bytes)
-          workspace_buffer = hpu_RAII_allocator->allocate(workspace_size_bytes);
+          workspace_buffer = hpu_raii_allocator->allocate(workspace_size_bytes);
         { // recipe upload scope
           const synRecipeInfo recipe_info{
               recipe_name.c_str(),
