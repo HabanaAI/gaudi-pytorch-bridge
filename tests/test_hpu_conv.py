@@ -2,9 +2,9 @@ import torch
 import torch.nn as nn
 import numpy as np
 torch.ops.load_library("libhabana_pytorch_plugin.so")
+
+
 # @torch.jit.script
-
-
 def test_hpu_device():
     hpu = torch.device('habana')
     cpu = torch.device('cpu')
