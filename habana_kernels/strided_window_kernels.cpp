@@ -7,6 +7,7 @@
 
 #include "habana_device/HPUCheck.h"
 #include "habana_device/HPUContext.h"
+
 #include "synapse/include/synapse_api.h"
 
 // #define TRANSPOSE_IMPLEMENTED
@@ -404,6 +405,64 @@ void synapse_convolution(
   TORCH_HABANA_CHECK(synGraphDestroy(graph_handle), "synGraphDestroy failed");
 }
 
+void check_convolution_params(
+    const Tensor& input,
+    const Tensor& weight,
+    const Tensor& bias,
+    const IntArrayRef stride,
+    const IntArrayRef padding,
+    const IntArrayRef dilation,
+    const bool transposed,
+    const IntArrayRef output_padding,
+    const int64_t groups) {
+  TORCH_CHECK(groups == 1, "habana_convolution doesn't support groups");
+  TORCH_CHECK(
+      transposed == false, "habana_convolution doesn't support transposition");
+  TORCH_CHECK(
+      std::all_of(
+          dilation.cbegin(), dilation.cend(), [](int64_t x) { return x == 1; }),
+      "habana_convolution doesn't support dilation");
+  TORCH_CHECK(
+      std::all_of(
+          padding.cbegin(), padding.cend(), [](int64_t x) { return x == 0; }),
+      "habana_convolution doesn't support input padding");
+  TORCH_CHECK(
+      std::all_of(
+          output_padding.cbegin(),
+          output_padding.cend(),
+          [](int64_t x) { return x == 0; }),
+      "habana_convolution doesn't support output padding");
+  TORCH_CHECK(
+      input.device().type() == c10::DeviceType::HABANA,
+      "input is not habana tensor");
+  TORCH_CHECK(
+      weight.device().type() == c10::DeviceType::HABANA,
+      "weight is not habana tensor");
+  TORCH_CHECK(
+      bias.device().type() == c10::DeviceType::HABANA,
+      "bias is not habana tensor");
+  TORCH_CHECK(
+      stride.size() == 2, "stride size != 2 unsupported by habana_convolution");
+  TORCH_CHECK(
+      padding.size() == 2,
+      "padding size != 2 unsupported by habana_convolution");
+  TORCH_CHECK(
+      input.scalar_type() == c10::ScalarType::Float,
+      "input tensor is not float32");
+  TORCH_CHECK(
+      weight.scalar_type() == c10::ScalarType::Float,
+      "weight tensor is not float32");
+  TORCH_CHECK(
+      bias.scalar_type() == c10::ScalarType::Float,
+      "bias tensor is not float32");
+  TORCH_CHECK(input.ndimension() == 4, "input tensor dimension count != 4");
+  TORCH_CHECK(weight.ndimension() == 4, "weight tensordimension count != 4");
+  TORCH_CHECK(bias.ndimension() == 1, "bias tensor idimension count != 1");
+  TORCH_CHECK(
+      weight.size(1) == input.size(1),
+      "Number of input channels doesn't match weight channels");
+}
+
 Tensor habana_convolution(
     const Tensor& input,
     const Tensor& weight,
@@ -414,58 +473,19 @@ Tensor habana_convolution(
     bool transposed,
     IntArrayRef output_padding,
     int64_t groups) {
-  std::cout << "habana_convolution called\n";
+  std::cout << "habana_convolution called\n"; // TODO: remove
 
-  { // check dimensions
-    TORCH_CHECK(groups == 1, "habana_convolution doesn't support groups");
-    TORCH_CHECK(
-        transposed == false,
-        "habana_convolution doesn't support transposition");
-    TORCH_CHECK(
-        std::all_of(
-            dilation.cbegin(),
-            dilation.cend(),
-            [](int64_t x) { return x == 1; }),
-        "habana_convolution doesn't support dilation");
-    TORCH_CHECK(
-        std::all_of(
-            padding.cbegin(), padding.cend(), [](int64_t x) { return x == 0; }),
-        "habana_convolution doesn't support input padding");
-    TORCH_CHECK(
-        std::all_of(
-            output_padding.cbegin(),
-            output_padding.cend(),
-            [](int64_t x) { return x == 0; }),
-        "habana_convolution doesn't support output padding");
-    TORCH_CHECK(
-        input.device().type() == c10::DeviceType::HABANA,
-        "input is not habana tensor");
-    TORCH_CHECK(
-        weight.device().type() == c10::DeviceType::HABANA,
-        "weight is not habana tensor");
-    TORCH_CHECK(
-        bias.device().type() == c10::DeviceType::HABANA,
-        "bias is not habana tensor");
-    TORCH_CHECK(
-        stride.size() == 2,
-        "stride size != 2 unsupported by habana_convolution");
-    TORCH_CHECK(
-        padding.size() == 2,
-        "padding size != 2 unsupported by habana_convolution");
-    TORCH_CHECK(
-        input.scalar_type() == c10::ScalarType::Float,
-        "input tensor is not float32");
-    TORCH_CHECK(
-        weight.scalar_type() == c10::ScalarType::Float,
-        "weight tensor is not float32");
-    TORCH_CHECK(
-        bias.scalar_type() == c10::ScalarType::Float,
-        "bias tensor is not float32");
-    TORCH_CHECK(input.ndimension() == 4, "input tensor dimension count != 4");
-    TORCH_CHECK(weight.ndimension() == 4, "weight tensordimension count != 4");
-    TORCH_CHECK(bias.ndimension() == 1, "bias tensor idimension count != 1");
-    //   at::native::check_shape_forward(input, weight, bias, params, false);
-  }
+  check_convolution_params(
+      input,
+      weight,
+      bias,
+      stride,
+      padding,
+      dilation,
+      transposed,
+      output_padding,
+      groups);
+
   // input, output NCHW
   // weight KCHW, where K - output channels
   // pad, stride HW
@@ -474,9 +494,6 @@ Tensor habana_convolution(
   const int64_t input_H = input.size(2);
   const int64_t input_W = input.size(3);
   const int64_t K = weight.size(0);
-  TORCH_CHECK(
-      weight.size(1) == C,
-      "Number of input channels doesn't match weight channels");
   const int64_t filter_H = weight.size(2);
   const int64_t filter_W = weight.size(3);
   const int64_t stride_H = stride[0];
@@ -486,7 +503,7 @@ Tensor habana_convolution(
   const auto output_H = compute_output_size(input_H, pad_H, filter_H, stride_H);
   const auto output_W = compute_output_size(input_W, pad_W, filter_W, stride_W);
   std::cout << "input_size N " << N << ", C " << C << ", H " << input_H
-            << ", W " << input_W << '\n';
+            << ", W " << input_W << '\n'; // TODO: remove
   const auto output_tensor_options = TensorOptions()
                                          .dtype(input.dtype())
                                          .device(input.device())

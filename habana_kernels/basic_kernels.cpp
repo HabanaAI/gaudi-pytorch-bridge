@@ -1,7 +1,9 @@
 #include <ATen/InferSize.h>
 #include <torch/script.h>
+
 #include "habana_device/HPUCheck.h"
 #include "habana_device/HPUContext.h"
+
 #include "synapse/include/synapse_api.h"
 
 using namespace torch;
@@ -129,6 +131,7 @@ Tensor& hpu_copy_(Tensor& self, const Tensor& src, bool non_blocking) {
 
   return dst;
 }
+
 static auto registry =
     torch::RegisterOperators()
         .op(torch::RegisterOperators::options()
