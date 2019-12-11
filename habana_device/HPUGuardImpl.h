@@ -4,6 +4,7 @@
 #include <c10/macros/Macros.h>
 #include <c10/util/Exception.h>
 
+#include "habana_device/HPUAllocator.h"
 #include "habana_device/HPUCheck.h"
 
 #include "synapse/include/synapse_api.h"
@@ -24,7 +25,7 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
     TORCH_INTERNAL_ASSERT(d.type() == type());
     Device old_device = getDevice();
     if (old_device.index() != d.index()) {
-      active_device = d.index();
+      habana::allocator_active_device_id = d.index();
     }
     return old_device;
   }
@@ -40,13 +41,14 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
       // guard impl
       TORCH_HABANA_CHECK(
           synDeviceAcquireByDeviceType(
-              &active_device, synDeviceType::synDeviceGaudi),
+              &habana::allocator_active_device_id,
+              synDeviceType::synDeviceGaudi),
           "Device acquire failed");
-      acquired_devices.emplace(active_device);
+      acquired_devices.emplace(habana::allocator_active_device_id);
 
       TORCH_HABANA_CHECK(synConfigurationSet("GAUDI_ADDRESS_PATCHING", "true"));
     } else if (acquired_devices.size() == 1)
-      active_device = *acquired_devices.begin();
+      habana::allocator_active_device_id = *acquired_devices.begin();
     else
       TORCH_CHECK(
           acquired_devices.size(),
@@ -54,7 +56,7 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
           acquired_devices.size(),
           " != 1");
 
-    return Device(DeviceType::HABANA, active_device);
+    return Device(DeviceType::HABANA, habana::allocator_active_device_id);
   }
   void setDevice(Device d) const override {
     TORCH_INTERNAL_ASSERT(d.type() == type());
@@ -62,10 +64,10 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
     TORCH_CHECK(
         acquired_devices.find(d.index()) != acquired_devices.end(),
         "device you want to use wasn't acquired");
-    active_device = d.index();
+    habana::allocator_active_device_id = d.index();
   }
   void uncheckedSetDevice(Device d) const noexcept override {
-    active_device = d.index();
+    habana::allocator_active_device_id = d.index();
   }
   Stream getStream(Device d) const noexcept override {
     // no-op
@@ -101,7 +103,6 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
   // all methods are declared foo() const, so I workaround
   // it with mutable
   mutable std::unordered_set<synDeviceId> acquired_devices;
-  mutable synDeviceId active_device = -1;
   mutable std::mutex device_lock;
 };
 

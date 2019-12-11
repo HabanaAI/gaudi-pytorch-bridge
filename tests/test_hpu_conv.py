@@ -27,15 +27,16 @@ def test_hpu_conv(N, H, W, C, R, S, K, stride):
 
     assert R == S, "filter is not square"
     conv1 = nn.Conv2d(C, K, R, stride)
+
     in_tensor = torch.randn(N, C, H, W)
     hpu_result = conv1.to(hpu)(in_tensor.to(hpu)).to(cpu)
     cpu_result = conv1.to(cpu)(in_tensor.to(cpu))
 
-    print("input", in_tensor)
-    print("weight", conv1.weight)
-    print("bias", conv1.bias)
-    print("result cpu", cpu_result)
-    print("result hpu", hpu_result)
+    # print("input", in_tensor)
+    # print("weight", conv1.weight)
+    # print("bias", conv1.bias)
+    # print("result cpu", cpu_result)
+    # print("result hpu", hpu_result)
     np.testing.assert_allclose(hpu_result.detach().numpy(), cpu_result.detach().numpy(), atol=0.001, rtol=1.e-3)
 
 if __name__ == '__main__':

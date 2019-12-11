@@ -7,10 +7,11 @@
 
 #include "habana_device/HPUCheck.h"
 #include "habana_device/HPUContext.h"
+#include "habana_device/fake_tensor_builder.h"
 
 #include "synapse/include/synapse_api.h"
 
-// #define TRANSPOSE_IMPLEMENTED
+#define TRANSPOSE_IMPLEMENTED false
 
 using namespace torch;
 
@@ -63,8 +64,8 @@ synTensorDescriptorTr synapse_tensor_descriptor_builder(
 }
 
 synConvolutionParams synapse_conv_params_builder(
-    const IntArrayRef& input,
-    const IntArrayRef& weight,
+    const IntArrayRef& input, // NCHW
+    const IntArrayRef& weight, // HWCK
     const IntArrayRef& stride,
     const IntArrayRef& padding,
     const IntArrayRef& dilation) {
@@ -105,106 +106,138 @@ void synapse_convolution(
     const IntArrayRef& stride,
     const IntArrayRef& padding,
     const IntArrayRef& dilation) {
+  const auto device_id = input.device().index();
   // graph_handle scope
   synGraphHandle graph_handle;
   TORCH_HABANA_CHECK(
       synGraphCreate(&graph_handle, synDeviceType::synDeviceGaudi),
       "synGraphCreate failed");
   { // tensors scope
-    std::vector<synTensor> syn_inputs(3); // input, filter, bias
-    std::vector<synTensor> syn_outputs(1); //  output
     const std::vector<std::string> input_names{"input", "filter", "bias"};
     const std::vector<std::string> output_names{"output"};
 
-    std::vector<synTensorDescriptorTr> syn_input_descriptors{
-        synapse_tensor_descriptor_builder(
-            input.sizes(), synDataType::syn_type_float, input_names[0], true),
-        synapse_tensor_descriptor_builder(
-            weight.sizes(), synDataType::syn_type_float, input_names[1], true),
-        synapse_tensor_descriptor_builder(
-            bias.sizes(), synDataType::syn_type_float, input_names[2], true)};
-
-    std::vector<synTensorDescriptorTr> syn_output_descriptors{
-        synapse_tensor_descriptor_builder(
-            output.sizes(),
-            synDataType::syn_type_float,
-            output_names[0],
-            true)};
-#ifndef TRANSPOSE_IMPLEMENTED
-    auto weight_size_hacked = IntArrayRef{weight.sizes()[2], // KCHW -> HWCK
-                                          weight.sizes()[3],
-                                          weight.sizes()[1],
-                                          weight.sizes()[0]};
-    { // TODO: remove. Dirty hack to adjust shapes so synapse doesn't crash,
-      // results will be incorrect.
-
-      // function to match existing pytorch shapes to synapse requirements,
-      auto hack_pytorch_nhwc_shapes = [](synTensorDescriptorTr& descriptor,
-                                         const IntArrayRef& sizes) {
+    auto hack_pytorch_nhwc_shapes =
+        [](const IntArrayRef& sizes, bool hack_shapes) -> std::vector<int64_t> {
+      if (hack_shapes)
         // pytorch data format is NCHW, synapse require NHWC but it is reading
         // backwards
-        descriptor.m_sizes[3] = sizes[0];
-        descriptor.m_sizes[2] = sizes[2];
-        descriptor.m_sizes[1] = sizes[3];
-        descriptor.m_sizes[0] = sizes[1];
-      };
-      hack_pytorch_nhwc_shapes(syn_input_descriptors[0], input.sizes());
-      hack_pytorch_nhwc_shapes(syn_output_descriptors[0], output.sizes());
+        return std::vector<int64_t>{sizes[0], sizes[2], sizes[3], sizes[1]};
+      else
+        return sizes.vec();
+    };
 
-      // pytorch data format is KCHW, synapse require HWCK but it is reading
-      // backwards
-      for (int i = 0; i < weight_size_hacked.size(); ++i)
-        syn_input_descriptors[1].m_sizes[i] =
-            weight_size_hacked[weight_size_hacked.size() - i - 1];
-    }
-#endif
-    for (int i = 0; i < syn_inputs.size(); ++i)
-      TORCH_HABANA_CHECK(
-          synTensorCreate(&syn_inputs[i], &syn_input_descriptors[i]),
-          "synTensorCreate failed");
-    for (int i = 0; i < syn_outputs.size(); ++i)
-      TORCH_HABANA_CHECK(
-          synTensorCreate(&syn_outputs[i], &syn_output_descriptors[i]),
-          "synTensorCreate failed");
+    auto hack_pytorch_kchw_shapes =
+        [](const IntArrayRef& sizes, bool hack_shapes) -> std::vector<int64_t> {
+      if (hack_shapes)
+        // KCHW -> HWCK
+        return std::vector<int64_t>{sizes[2], sizes[3], sizes[1], sizes[0]};
+      else
+        return sizes.vec();
+    };
+
+    std::vector<synapse_helpers::tensor> syn_helper_inputs{};
+    syn_helper_inputs.push_back(synapse_helpers::tensor_builder::create_tensor(
+        device_id,
+        synDataType::syn_type_float,
+        input.nbytes(),
+        input.sizes().size(),
+        hack_pytorch_nhwc_shapes(input.sizes(), TRANSPOSE_IMPLEMENTED == false),
+        input_names[0],
+        true));
+    syn_helper_inputs.push_back(synapse_helpers::tensor_builder::create_tensor(
+        device_id,
+        synDataType::syn_type_float,
+        weight.nbytes(),
+        weight.sizes().size(),
+        hack_pytorch_kchw_shapes(
+            weight.sizes(), TRANSPOSE_IMPLEMENTED == false),
+        input_names[1],
+        true));
+    syn_helper_inputs.push_back(synapse_helpers::tensor_builder::create_tensor(
+        device_id,
+        synDataType::syn_type_float,
+        bias.nbytes(),
+        bias.sizes().size(),
+        bias.sizes(),
+        input_names[2],
+        true));
+    std::vector<synapse_helpers::tensor> syn_helper_outputs{};
+    syn_helper_outputs.push_back(synapse_helpers::tensor_builder::create_tensor(
+        device_id,
+        synDataType::syn_type_float,
+        output.nbytes(),
+        output.sizes().size(),
+        hack_pytorch_nhwc_shapes(
+            output.sizes(), TRANSPOSE_IMPLEMENTED == false),
+        output_names[0],
+        true));
+
+    // workaround for missing synapse_helpers::graph support
+    std::vector<synTensor> syn_inputs(
+        syn_helper_inputs.size()); // input, filter, bias
+    std::vector<synTensor> syn_outputs(syn_helper_outputs.size()); //  output
+    std::transform(
+        syn_helper_inputs.begin(),
+        syn_helper_inputs.end(),
+        syn_inputs.begin(),
+        [](auto& x) { return x.get(); });
+    std::transform(
+        syn_helper_outputs.begin(),
+        syn_helper_outputs.end(),
+        syn_outputs.begin(),
+        [](auto& x) { return x.get(); });
 
     { // dimshuffled tensors scope
-#ifdef TRANSPOSE_IMPLEMENTED
+#if TRANSPOSE_IMPLEMENTED
       // input, filter Note: I will use original bias
-      std::vector<synTensor> syn_tmp_inputs(2);
-      std::vector<synTensor> syn_tmp_outputs(1); //  output
+      std::vector<synapse_helpers::tensor> syn_tmp_helper_inputs;
+      std::vector<synapse_helpers::tensor> syn_tmp_helper_outputs;
       const std::vector<std::string> input_tmp_names{"input_tmp", "filter_tmp"};
       const std::vector<std::string> output_tmp_names{"output_tmp"};
 
-      const std::vector<synTensorDescriptorTr> syn_input_tmp_descriptors{
-          synapse_tensor_descriptor_builder(
-              NCHW_to_NHWC_shape(input.sizes()),
+      syn_tmp_helper_inputs.push_back(
+          synapse_helpers::tensor_builder::create_tensor(
+              device_id,
               synDataType::syn_type_float,
+              input.nbytes(),
+              input.sizes().size(),
+              hack_pytorch_nhwc_shapes(
+                  input.sizes(), TRANSPOSE_IMPLEMENTED == true),
               input_tmp_names[0],
-              false),
-          synapse_tensor_descriptor_builder(
-              {weight.sizes()[2], // KCHW -> HWCK
-               weight.sizes()[3],
-               weight.sizes()[1],
-               weight.sizes()[0]},
+              false));
+      syn_tmp_helper_inputs.push_back(
+          synapse_helpers::tensor_builder::create_tensor(
+              device_id,
               synDataType::syn_type_float,
+              weight.nbytes(),
+              weight.sizes().size(),
+              hack_pytorch_nhwc_shapes(
+                  weight.sizes(), TRANSPOSE_IMPLEMENTED == true),
               input_tmp_names[1],
-              false)};
-      const std::vector<synTensorDescriptorTr> syn_output_tmp_descriptors{
-          synapse_tensor_descriptor_builder(
-              NCHW_to_NHWC_shape(output.sizes()),
+              false));
+      syn_tmp_helper_outputs.push_back(
+          synapse_helpers::tensor_builder::create_tensor(
+              device_id,
               synDataType::syn_type_float,
+              output.nbytes(),
+              output.sizes().size(),
+              hack_pytorch_nhwc_shapes(
+                  output.sizes(), TRANSPOSE_IMPLEMENTED == true),
               output_tmp_names[0],
-              false)};
+              false));
 
-      for (int i = 0; i < syn_tmp_inputs.size(); ++i)
-        TORCH_HABANA_CHECK(
-            synTensorCreate(&syn_tmp_inputs[i], &syn_input_tmp_descriptors[i]),
-            "synTensorCreate failed");
-      for (int i = 0; i < syn_tmp_outputs.size(); ++i)
-        TORCH_HABANA_CHECK(
-            synTensorCreate(
-                &syn_tmp_outputs[i], &syn_output_tmp_descriptors[i]),
-            "synTensorCreate failed");
+      std::vector<synTensor> syn_tmp_inputs(syn_tmp_helper_inputs.size());
+      std::vector<synTensor> syn_tmp_outputs(syn_tmp_helper_outputs.size());
+      std::transform(
+          syn_tmp_helper_inputs.begin(),
+          syn_tmp_helper_inputs.end(),
+          syn_tmp_inputs.begin(),
+          [](auto& x) { return x.get(); });
+      std::transform(
+          syn_tmp_helper_outputs.begin(),
+          syn_tmp_helper_outputs.end(),
+          syn_tmp_outputs.begin(),
+          [](auto& x) { return x.get(); });
 
       const std::string transpose_node_type = "transpose";
 
@@ -284,15 +317,15 @@ void synapse_convolution(
                 conv2D_out_layouts),
             "synNodeCreate failed");
       }
-#ifdef TRANSPOSE_IMPLEMENTED
+#if TRANSPOSE_IMPLEMENTED
       { // add output transpose node
         synTransposeParams params_NHWC_to_NCHW;
         {
           params_NHWC_to_NCHW.tensorDim = 4;
-          params_NHWC_to_NCHW.permutation[0] = TransposePermutationDim{0};
-          params_NHWC_to_NCHW.permutation[1] = TransposePermutationDim{3};
-          params_NHWC_to_NCHW.permutation[2] = TransposePermutationDim{2};
-          params_NHWC_to_NCHW.permutation[3] = TransposePermutationDim{1};
+          params_NHWC_to_NCHW.permutation[0] = TransposePermutationDim(0);
+          params_NHWC_to_NCHW.permutation[1] = TransposePermutationDim(3);
+          params_NHWC_to_NCHW.permutation[2] = TransposePermutationDim(2);
+          params_NHWC_to_NCHW.permutation[3] = TransposePermutationDim(1);
         }
         // dimshuffle output
         TORCH_HABANA_CHECK(
@@ -311,7 +344,8 @@ void synapse_convolution(
       }
 #endif
 
-      { // graph compilation, workspace buffer and topology buffer allocation
+      { // graph compilation, workspace buffer and topology buffer
+        // allocation
         synRecipeHandle recipe_handle;
         const auto recipe_name = unique_recipe_name_generator(conv_node_type);
         TORCH_HABANA_CHECK(
@@ -342,14 +376,13 @@ void synapse_convolution(
           const synRecipeInfo recipe_info{
               recipe_name.c_str(),
               reinterpret_cast<uint64_t>(topology_buffer.get())};
-          const auto device_idx = input.device().index();
           TORCH_HABANA_CHECK(
-              synRecipeUpload(recipe_handle, &recipe_info, device_idx),
+              synRecipeUpload(recipe_handle, &recipe_info, device_id),
               "synRecipeUpload failed");
           { // stream handle scope
             synStreamHandle stream_handle;
             TORCH_HABANA_CHECK(
-                synStreamCreate(&stream_handle, device_idx, 0),
+                synStreamCreate(&stream_handle, device_id, 0),
                 "synStreamCreate failed");
 
             std::vector<synLaunchTensorInfo> syn_inputs_info{
@@ -381,26 +414,11 @@ void synapse_convolution(
                 synStreamDestroy(stream_handle), "synStreamDestroy failed");
           }
           TORCH_HABANA_CHECK(
-              synRecipeUnload(recipe_handle, &recipe_info, device_idx),
+              synRecipeUnload(recipe_handle, &recipe_info, device_id),
               "synRecipeUnload failed");
         }
       }
-#ifdef TRANSPOSE_IMPLEMENTED
-      for (int i = 0; i < syn_tmp_inputs.size(); ++i)
-        TORCH_HABANA_CHECK(
-            synTensorDestroy(syn_tmp_inputs[i]), "synTensorDestroy failed");
-      for (int i = 0; i < syn_tmp_outputs.size(); ++i)
-        TORCH_HABANA_CHECK(
-            synTensorDestroy(syn_tmp_outputs[i]), "synTensorDestroy failed");
-#endif
     }
-
-    for (int i = 0; i < syn_inputs.size(); ++i)
-      TORCH_HABANA_CHECK(
-          synTensorDestroy(syn_inputs[i]), "synTensorDestroy failed");
-    for (int i = 0; i < syn_outputs.size(); ++i)
-      TORCH_HABANA_CHECK(
-          synTensorDestroy(syn_outputs[i]), "synTensorDestroy failed");
   }
   TORCH_HABANA_CHECK(synGraphDestroy(graph_handle), "synGraphDestroy failed");
 }

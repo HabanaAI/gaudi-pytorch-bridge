@@ -1,27 +1,25 @@
 #pragma once
 #include <ATen/ATen.h>
 #include <c10/core/Allocator.h>
+#include <synapse/include/synapse_api_types.h>
 #include <mutex>
 
 namespace at {
 namespace habana {
 
-class HabanaAllocator {
-  int device_id_ = 0; // TODO:
-  std::mutex allocation_lock_;
+// user must manually set active device before calling allocator functions
+extern synDeviceId allocator_active_device_id;
 
+class HabanaAllocator {
  public:
   void* malloc(size_t num_bytes);
   void free(void* ptr);
 };
 
 class HPUDeviceAllocator final : public at::Allocator {
-  std::mutex allocation_lock_;
-
  public:
   at::DataPtr allocate(size_t size) const override;
   at::DeleterFnPtr raw_deleter() const override;
-  int device_id_ = 0; // TODO:
 };
 
 } // namespace habana
