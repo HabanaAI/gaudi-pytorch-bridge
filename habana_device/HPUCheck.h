@@ -1,4 +1,7 @@
+#pragma once
+
 #include <c10/util/Exception.h>
+
 #include "synapse/include/synapse_common_types.h"
 
 // const std::vector<const std::string> synStatusToStr{

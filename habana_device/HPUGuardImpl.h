@@ -3,13 +3,11 @@
 #include <c10/core/impl/DeviceGuardImplInterface.h>
 #include <c10/macros/Macros.h>
 #include <c10/util/Exception.h>
+#include <unordered_set>
 
 #include "habana_device/HPUAllocator.h"
 #include "habana_device/HPUCheck.h"
-
 #include "synapse/include/synapse_api.h"
-
-#include <unordered_set>
 
 namespace at {
 namespace detail {

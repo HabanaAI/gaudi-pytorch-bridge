@@ -1,24 +1,18 @@
+#include <ATen/InferSize.h>
+#include <torch/script.h>
 #include <algorithm>
 #include <iostream>
 #include <string>
 
-#include <ATen/InferSize.h>
-#include <torch/script.h>
-
 #include "habana_device/HPUCheck.h"
 #include "habana_device/HPUContext.h"
 #include "habana_device/fake_tensor_builder.h"
-
+#include "kernel_utils.h"
 #include "synapse/include/synapse_api.h"
 
 #define TRANSPOSE_IMPLEMENTED false
 
 using namespace torch;
-
-std::string unique_recipe_name_generator(std::string recipe_name) {
-  static std::unordered_map<std::string, unsigned> map;
-  return recipe_name + std::to_string(map[recipe_name]++);
-}
 
 int64_t compute_output_size(
     int64_t input,
@@ -30,37 +24,6 @@ int64_t compute_output_size(
 
 IntArrayRef NCHW_to_NHWC_shape(const IntArrayRef& shape) {
   return {shape[0], shape[2], shape[3], shape[1]};
-}
-
-synTensorDescriptorTr synapse_tensor_descriptor_builder(
-    const IntArrayRef& shape,
-    const synDataType dtype,
-    const std::string& name,
-    const bool persistent) {
-  synTensorDescriptorTr descriptor;
-  descriptor.m_dataType = dtype;
-  descriptor.m_dims = shape.size();
-
-  TORCH_CHECK(
-      shape.size() <= SYN_MAX_TENSOR_DIM,
-      name,
-      " tensor has more than ",
-      SYN_MAX_TENSOR_DIM,
-      " dimensions");
-  // write NHWC as CWHN and write 0 at the end
-  for (int i = 0; i < shape.size(); ++i)
-    descriptor.m_sizes[i] = shape[shape.size() - i - 1];
-  for (int i = shape.size(); i < SYN_MAX_TENSOR_DIM; ++i)
-    descriptor.m_sizes[i] = 0;
-
-  //   descriptor.m_strides[SYN_MAX_TENSOR_DIM]; // TODO: not needed?
-  descriptor.m_name = name.c_str(); // TODO: we take only pointer, so make sure
-                                    // name object will be alive
-  descriptor.m_deviceMemAddress = 0; // It will be patched during runtime
-  descriptor.m_isOutput = persistent;
-  descriptor.m_isPersistent = persistent;
-
-  return descriptor;
 }
 
 synConvolutionParams synapse_conv_params_builder(
@@ -347,7 +310,8 @@ void synapse_convolution(
       { // graph compilation, workspace buffer and topology buffer
         // allocation
         synRecipeHandle recipe_handle;
-        const auto recipe_name = unique_recipe_name_generator(conv_node_type);
+        const auto recipe_name =
+            habana_helpers::unique_recipe_name_generator(conv_node_type);
         TORCH_HABANA_CHECK(
             synGraphCompile(
                 &recipe_handle,
@@ -368,10 +332,12 @@ void synapse_convolution(
 
         auto hpu_raii_allocator = at::habana::getHABANADeviceAllocator();
 
-        at::DataPtr workspace_buffer,
-            topology_buffer = hpu_raii_allocator->allocate(topology_size_bytes);
+        at::DataPtr topology_buffer =
+            hpu_raii_allocator->allocate(topology_size_bytes);
+        at::DataPtr workspace_buffer;
         if (workspace_size_bytes)
           workspace_buffer = hpu_raii_allocator->allocate(workspace_size_bytes);
+
         { // recipe upload scope
           const synRecipeInfo recipe_info{
               recipe_name.c_str(),
