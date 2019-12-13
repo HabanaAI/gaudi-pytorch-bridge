@@ -1,30 +1,16 @@
 #include <ATen/InferSize.h>
+#include <synapse/include/synapse_api.h>
 #include <torch/script.h>
-#include <algorithm>
 #include <iostream>
 #include <string>
 
+#include "conv_pool_utils.h"
 #include "habana_device/HPUCheck.h"
 #include "habana_device/HPUContext.h"
 #include "habana_device/fake_tensor_builder.h"
 #include "kernel_utils.h"
-#include "synapse/include/synapse_api.h"
-
-#define TRANSPOSE_IMPLEMENTED false
 
 using namespace torch;
-
-int64_t compute_output_size(
-    int64_t input,
-    int64_t pad,
-    int64_t filter,
-    int64_t stride) {
-  return (input + 2 * pad - filter) / stride + 1;
-}
-
-IntArrayRef NCHW_to_NHWC_shape(const IntArrayRef& shape) {
-  return {shape[0], shape[2], shape[3], shape[1]};
-}
 
 synConvolutionParams synapse_conv_params_builder(
     const IntArrayRef& input, // NCHW
@@ -79,16 +65,6 @@ void synapse_convolution(
     const std::vector<std::string> input_names{"input", "filter", "bias"};
     const std::vector<std::string> output_names{"output"};
 
-    auto hack_pytorch_nhwc_shapes =
-        [](const IntArrayRef& sizes, bool hack_shapes) -> std::vector<int64_t> {
-      if (hack_shapes)
-        // pytorch data format is NCHW, synapse require NHWC but it is reading
-        // backwards
-        return std::vector<int64_t>{sizes[0], sizes[2], sizes[3], sizes[1]};
-      else
-        return sizes.vec();
-    };
-
     auto hack_pytorch_kchw_shapes =
         [](const IntArrayRef& sizes, bool hack_shapes) -> std::vector<int64_t> {
       if (hack_shapes)
@@ -104,7 +80,8 @@ void synapse_convolution(
         synDataType::syn_type_float,
         input.nbytes(),
         input.sizes().size(),
-        hack_pytorch_nhwc_shapes(input.sizes(), TRANSPOSE_IMPLEMENTED == false),
+        habana_helpers::hack_pytorch_nhwc_shapes(
+            input.sizes(), TRANSPOSE_IMPLEMENTED == false),
         input_names[0],
         true));
     syn_helper_inputs.push_back(synapse_helpers::tensor_builder::create_tensor(
@@ -130,7 +107,7 @@ void synapse_convolution(
         synDataType::syn_type_float,
         output.nbytes(),
         output.sizes().size(),
-        hack_pytorch_nhwc_shapes(
+        habana_helpers::hack_pytorch_nhwc_shapes(
             output.sizes(), TRANSPOSE_IMPLEMENTED == false),
         output_names[0],
         true));
@@ -164,7 +141,7 @@ void synapse_convolution(
               synDataType::syn_type_float,
               input.nbytes(),
               input.sizes().size(),
-              hack_pytorch_nhwc_shapes(
+              habana_helpers::hack_pytorch_nhwc_shapes(
                   input.sizes(), TRANSPOSE_IMPLEMENTED == true),
               input_tmp_names[0],
               false));
@@ -174,7 +151,7 @@ void synapse_convolution(
               synDataType::syn_type_float,
               weight.nbytes(),
               weight.sizes().size(),
-              hack_pytorch_nhwc_shapes(
+              habana_helpers::hack_pytorch_nhwc_shapes(
                   weight.sizes(), TRANSPOSE_IMPLEMENTED == true),
               input_tmp_names[1],
               false));
@@ -184,7 +161,7 @@ void synapse_convolution(
               synDataType::syn_type_float,
               output.nbytes(),
               output.sizes().size(),
-              hack_pytorch_nhwc_shapes(
+              habana_helpers::hack_pytorch_nhwc_shapes(
                   output.sizes(), TRANSPOSE_IMPLEMENTED == true),
               output_tmp_names[0],
               false));
@@ -389,64 +366,6 @@ void synapse_convolution(
   TORCH_HABANA_CHECK(synGraphDestroy(graph_handle), "synGraphDestroy failed");
 }
 
-void check_convolution_params(
-    const Tensor& input,
-    const Tensor& weight,
-    const Tensor& bias,
-    const IntArrayRef stride,
-    const IntArrayRef padding,
-    const IntArrayRef dilation,
-    const bool transposed,
-    const IntArrayRef output_padding,
-    const int64_t groups) {
-  TORCH_CHECK(groups == 1, "habana_convolution doesn't support groups");
-  TORCH_CHECK(
-      transposed == false, "habana_convolution doesn't support transposition");
-  TORCH_CHECK(
-      std::all_of(
-          dilation.cbegin(), dilation.cend(), [](int64_t x) { return x == 1; }),
-      "habana_convolution doesn't support dilation");
-  TORCH_CHECK(
-      std::all_of(
-          padding.cbegin(), padding.cend(), [](int64_t x) { return x == 0; }),
-      "habana_convolution doesn't support input padding");
-  TORCH_CHECK(
-      std::all_of(
-          output_padding.cbegin(),
-          output_padding.cend(),
-          [](int64_t x) { return x == 0; }),
-      "habana_convolution doesn't support output padding");
-  TORCH_CHECK(
-      input.device().type() == c10::DeviceType::HABANA,
-      "input is not habana tensor");
-  TORCH_CHECK(
-      weight.device().type() == c10::DeviceType::HABANA,
-      "weight is not habana tensor");
-  TORCH_CHECK(
-      bias.device().type() == c10::DeviceType::HABANA,
-      "bias is not habana tensor");
-  TORCH_CHECK(
-      stride.size() == 2, "stride size != 2 unsupported by habana_convolution");
-  TORCH_CHECK(
-      padding.size() == 2,
-      "padding size != 2 unsupported by habana_convolution");
-  TORCH_CHECK(
-      input.scalar_type() == c10::ScalarType::Float,
-      "input tensor is not float32");
-  TORCH_CHECK(
-      weight.scalar_type() == c10::ScalarType::Float,
-      "weight tensor is not float32");
-  TORCH_CHECK(
-      bias.scalar_type() == c10::ScalarType::Float,
-      "bias tensor is not float32");
-  TORCH_CHECK(input.ndimension() == 4, "input tensor dimension count != 4");
-  TORCH_CHECK(weight.ndimension() == 4, "weight tensordimension count != 4");
-  TORCH_CHECK(bias.ndimension() == 1, "bias tensor idimension count != 1");
-  TORCH_CHECK(
-      weight.size(1) == input.size(1),
-      "Number of input channels doesn't match weight channels");
-}
-
 Tensor habana_convolution(
     const Tensor& input,
     const Tensor& weight,
@@ -459,7 +378,7 @@ Tensor habana_convolution(
     int64_t groups) {
   std::cout << "habana_convolution called\n"; // TODO: remove
 
-  check_convolution_params(
+  habana_helpers::check_convolution_params(
       input,
       weight,
       bias,
@@ -484,8 +403,10 @@ Tensor habana_convolution(
   const int64_t stride_W = stride[1];
   const int64_t pad_H = padding[0];
   const int64_t pad_W = padding[1];
-  const auto output_H = compute_output_size(input_H, pad_H, filter_H, stride_H);
-  const auto output_W = compute_output_size(input_W, pad_W, filter_W, stride_W);
+  const auto output_H = habana_helpers::compute_output_size(
+      input_H, pad_H, filter_H, stride_H, false);
+  const auto output_W = habana_helpers::compute_output_size(
+      input_W, pad_W, filter_W, stride_W, false);
   std::cout << "input_size N " << N << ", C " << C << ", H " << input_H
             << ", W " << input_W << '\n'; // TODO: remove
   const auto output_tensor_options = TensorOptions()
