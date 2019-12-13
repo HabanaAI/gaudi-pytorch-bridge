@@ -13,6 +13,8 @@ void* HabanaAllocator::malloc(size_t num_bytes) {
   }
 
   uint64_t ptr{0};
+  TORCH_CHECK(
+      habana::allocator_active_device_id == 0, "habana active device != 0");
   auto status{
       synDeviceMalloc(allocator_active_device_id, num_bytes, 0, 0, &ptr)};
   TORCH_HABANA_CHECK(
@@ -27,6 +29,8 @@ void HabanaAllocator::free(void* ptr) {
     return;
   }
   uint64_t ptr_address{reinterpret_cast<uint64_t>(ptr)};
+  TORCH_CHECK(
+      habana::allocator_active_device_id == 0, "habana active device != 0");
   auto status{synDeviceFree(allocator_active_device_id, ptr_address, 0)};
   VLOG(1) << "HabanaAllocator::Free for " << std::hex << ptr_address;
   TORCH_HABANA_CHECK(status, "synDeviceFree failed");
@@ -40,7 +44,8 @@ static void HabanaDeviceDeleter(void* ptr) {
 
 at::DataPtr HPUDeviceAllocator::allocate(size_t size) const {
   void* ptr = habana_allocator.malloc(size);
-
+  TORCH_CHECK(
+      habana::allocator_active_device_id == 0, "habana active device != 0");
   return {ptr,
           ptr,
           &HabanaDeviceDeleter,

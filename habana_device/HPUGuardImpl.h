@@ -26,6 +26,8 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
     Device old_device = getDevice();
     if (old_device.index() != d.index()) {
       habana::allocator_active_device_id = d.index();
+      TORCH_CHECK(
+          habana::allocator_active_device_id == 0, "habana active device != 0");
     }
     return old_device;
   }
@@ -56,6 +58,8 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
           acquired_devices.size(),
           " != 1");
 
+    TORCH_CHECK(
+        habana::allocator_active_device_id == 0, "habana active device != 0");
     return Device(DeviceType::HABANA, habana::allocator_active_device_id);
   }
   void setDevice(Device d) const override {
@@ -65,9 +69,13 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
         acquired_devices.find(d.index()) != acquired_devices.end(),
         "device you want to use wasn't acquired");
     habana::allocator_active_device_id = d.index();
+    TORCH_CHECK(
+        habana::allocator_active_device_id == 0, "habana active device != 0");
   }
   void uncheckedSetDevice(Device d) const noexcept override {
     habana::allocator_active_device_id = d.index();
+    TORCH_CHECK(
+        habana::allocator_active_device_id == 0, "habana active device != 0");
   }
   Stream getStream(Device d) const noexcept override {
     // no-op
