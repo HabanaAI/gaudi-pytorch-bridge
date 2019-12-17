@@ -34,4 +34,4 @@ def test_hpu_unary_op(N, H, W, C, unary_op):
     np.testing.assert_allclose(hpu_result.detach().numpy(), cpu_result.detach().numpy(), atol=0.001, rtol=1.e-3)
 
 if __name__ == '__main__':
-    pass
+    test_hpu_unary_op(*test_case_list[0], unary_op_list[0])

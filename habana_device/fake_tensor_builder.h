@@ -1,8 +1,7 @@
 #pragma once
 
-#include <c10/util/ArrayRef.h>
-
 #include <absl/types/optional.h>
+#include <c10/util/ArrayRef.h>
 
 #include "synapse_helpers/habana_tensor.h"
 

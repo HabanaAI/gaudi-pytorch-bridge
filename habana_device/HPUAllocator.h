@@ -2,6 +2,7 @@
 #include <ATen/ATen.h>
 #include <c10/core/Allocator.h>
 #include <synapse/include/synapse_api_types.h>
+#include <synapse_helpers/habana_tensor.h>
 #include <mutex>
 
 namespace at {
@@ -24,3 +25,18 @@ class HPUDeviceAllocator final : public at::Allocator {
 
 } // namespace habana
 } // namespace at
+
+namespace habana_helpers {
+class HabanaAllocator : public synapse_helpers::device_allocator {
+ public:
+  HabanaAllocator(synDeviceId);
+
+  void reset(uint32_t device_id) override;
+  void release() override;
+  void* alloc(size_t size) override;
+  void free(void* ptr) override;
+
+ private:
+  synDeviceId device_id{synapse_helpers::device_handle::INVALID_ID};
+};
+} // namespace habana_helpers

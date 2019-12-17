@@ -1,20 +1,26 @@
+#include <synapse/include/synapse_api.h>
 #include <torch/script.h>
 
 #include "habana_device/HPUCheck.h"
 #include "habana_device/HPUContext.h"
 #include "habana_device/fake_tensor_builder.h"
+#include "habana_device/hpu_cached_devices.h"
+#include "habana_helpers/graph.h"
 #include "habana_kernels/kernel_utils.h"
-#include "synapse/include/synapse_api.h"
 
 using namespace torch;
 
 void synapse_relu(const Tensor& output, const Tensor& input) {
+  auto& device =
+      synapse_helpers::HPURegistrar::get_device(input.device().index());
+  const auto device_id = device.id();
+
   // graph_handle scope
-  const auto device_id = input.device().index();
   synGraphHandle graph_handle;
   TORCH_HABANA_CHECK(
       synGraphCreate(&graph_handle, synDeviceType::synDeviceGaudi),
       "synGraphCreate failed");
+
   { // tensors scope
     const std::vector<std::string> input_names{"input"};
     const std::vector<std::string> output_names{"output"};

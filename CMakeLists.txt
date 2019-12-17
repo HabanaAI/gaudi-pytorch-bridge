@@ -23,6 +23,7 @@ add_library(habana_pytorch_plugin SHARED
 
 # Enable C++11
 target_compile_features(habana_pytorch_plugin PRIVATE cxx_std_11)
+target_compile_definitions(habana_pytorch_plugin PRIVATE "GENERIC_HELPERS" MAX_DEVICES_PER_BOX=8)
 
 # Link against LibTorch and synapse
 target_link_libraries(habana_pytorch_plugin PRIVATE "${TORCH_LIBRARIES}"
