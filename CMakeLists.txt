@@ -27,6 +27,7 @@ target_compile_features(habana_pytorch_plugin PRIVATE cxx_std_11)
 # Link against LibTorch and synapse
 target_link_libraries(habana_pytorch_plugin PRIVATE "${TORCH_LIBRARIES}"
   absl::flags
+  absl::variant
   synapse_helpers::synapse_helpers
 )
 

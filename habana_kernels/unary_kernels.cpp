@@ -61,6 +61,7 @@ void synapse_relu(const Tensor& output, const Tensor& input) {
                 syn_inputs.size(),
                 syn_outputs.size(),
                 nullptr,
+                0,
                 node_type.c_str(),
                 "",
                 nullptr,
