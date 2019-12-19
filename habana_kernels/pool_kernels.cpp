@@ -1,11 +1,8 @@
 #include <ATen/InferSize.h>
-#include <synapse/include/synapse_api.h>
 #include <torch/script.h>
 #include <tpc_kernels/include/perf_lib_layer_params.h>
 #include <algorithm>
 #include <iostream>
-#include <string>
-#include <tuple>
 
 #include "conv_pool_utils.h"
 #include "habana_device/HPUCheck.h"
@@ -198,7 +195,7 @@ void synapse_pool(
         // TODO: support pytorch layouts, uncomment when it is supported and
         // remove transpositions
         //   char const* pool2D_in_layouts[]{"WHCN"};
-        //   char const* pool2D_out_layouts[]{"WHCN"};
+        //   char const* pool2D_out_layouts[]{"WHCN", "WHCN"};
 
         auto syn_pool_params =
             synapse_pool_params_builder(kernel_size, stride, padding, dilation);
@@ -247,81 +244,14 @@ void synapse_pool(
       }
 #endif
 
-      { // graph compilation, workspace buffer and topology buffer
-        // allocation
-        synRecipeHandle recipe_handle;
-        const auto recipe_name =
-            habana_helpers::unique_recipe_name_generator(pool_node_type);
-        TORCH_HABANA_CHECK(
-            synGraphCompile(
-                &recipe_handle,
-                graph_handle,
-                recipe_name.c_str(),
-                nullptr,
-                0,
-                0),
-            "synGraphCompile failed");
-
-        uint64_t topology_size_bytes, workspace_size_bytes;
-        TORCH_HABANA_CHECK(
-            synRecipeGetSize(&topology_size_bytes, recipe_handle),
-            "synRecipeGetSize failed");
-        TORCH_HABANA_CHECK(
-            synWorkspaceGetSize(&workspace_size_bytes, recipe_handle),
-            "synWorkspaceGetSize failed");
-
-        auto hpu_raii_allocator = at::habana::getHABANADeviceAllocator();
-
-        at::DataPtr topology_buffer =
-            hpu_raii_allocator->allocate(topology_size_bytes);
-        at::DataPtr workspace_buffer;
-        if (workspace_size_bytes)
-          workspace_buffer = hpu_raii_allocator->allocate(workspace_size_bytes);
-
-        { // recipe upload scope
-          const synRecipeInfo recipe_info{
-              recipe_name.c_str(),
-              reinterpret_cast<uint64_t>(topology_buffer.get())};
-          TORCH_HABANA_CHECK(
-              synRecipeUpload(recipe_handle, &recipe_info, device_id),
-              "synRecipeUpload failed");
-          { // stream handle scope
-            synStreamHandle stream_handle;
-            TORCH_HABANA_CHECK(
-                synStreamCreate(&stream_handle, device_id, 0),
-                "synStreamCreate failed");
-
-            std::vector<synLaunchTensorInfo> syn_inputs_info{
-                {input_names[0].c_str(),
-                 reinterpret_cast<uint64_t>(input.data_ptr())}};
-            std::vector<synLaunchTensorInfo> syn_outputs_info{
-                {output_names[0].c_str(),
-                 reinterpret_cast<uint64_t>(output_idx.data_ptr())},
-                {output_names[1].c_str(),
-                 reinterpret_cast<uint64_t>(output.data_ptr())}};
-
-            TORCH_HABANA_CHECK(
-                synLaunch(
-                    stream_handle,
-                    syn_inputs_info.data(),
-                    syn_inputs_info.size(),
-                    syn_outputs_info.data(),
-                    syn_outputs_info.size(),
-                    reinterpret_cast<uint64_t>(workspace_buffer.get()),
-                    &recipe_info),
-                "synLaunch failed");
-            TORCH_HABANA_CHECK(
-                synStreamSynchronize(stream_handle),
-                "synStreamSynchronize failed");
-
-            TORCH_HABANA_CHECK(
-                synStreamDestroy(stream_handle), "synStreamDestroy failed");
-          }
-          TORCH_HABANA_CHECK(
-              synRecipeUnload(recipe_handle, &recipe_info, device_id),
-              "synRecipeUnload failed");
-        }
-      }
+      habana_helpers::compile_and_run(
+          pool_node_type,
+          graph_handle,
+          input_names,
+          output_names,
+          {input.data_ptr()},
+          {output_idx.data_ptr(), output.data_ptr()},
+          device_id);
     }
   }
   TORCH_HABANA_CHECK(synGraphDestroy(graph_handle), "synGraphDestroy failed");

@@ -14,6 +14,7 @@ torch.ops.load_library("libhabana_pytorch_plugin.so")
 # str - stride
 conv_test_case_list = [
     # N,   H,   W,   C, R, S,   K, str
+    pytest.param( 1,   1,   1,   1, 1, 1,   1, 1, marks=pytest.mark.xfail(reason="SW-8303")),
     ( 1,   1,   1,   1, 1, 1,   1, 1),
     pytest.param( 2,   3,   4,   5, 2, 2,   6, 1, marks=pytest.mark.xfail(reason="SW-8097")),
     pytest.param( 8,  28,  28,   3, 2, 2,  16, 1, marks=pytest.mark.xfail(reason="SW-8097")),
