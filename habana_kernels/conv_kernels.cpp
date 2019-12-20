@@ -7,7 +7,8 @@
 #include "conv_pool_utils.h"
 #include "habana_device/HPUCheck.h"
 #include "habana_device/HPUContext.h"
-#include "habana_device/fake_tensor_builder.h"
+#include "habana_device/fake_tensor_builder.h" // TODO: remove after layout support is implemented
+#include "habana_helpers/tensor_utils.h"
 #include "kernel_utils.h"
 
 using namespace torch;
@@ -93,14 +94,8 @@ void synapse_convolution(
             weight.sizes(), TRANSPOSE_IMPLEMENTED == false),
         input_names[1],
         true));
-    syn_helper_inputs.push_back(synapse_helpers::tensor_builder::create_tensor(
-        device_id,
-        synDataType::syn_type_float,
-        bias.nbytes(),
-        bias.sizes().size(),
-        bias.sizes(),
-        input_names[2],
-        true));
+    syn_helper_inputs.push_back(
+        habana_helpers::create_tensor(bias, input_names[2], true));
     std::vector<synapse_helpers::tensor> syn_helper_outputs{};
     syn_helper_outputs.push_back(synapse_helpers::tensor_builder::create_tensor(
         device_id,

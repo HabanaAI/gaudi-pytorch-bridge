@@ -2,8 +2,8 @@
 
 #include "habana_device/HPUCheck.h"
 #include "habana_device/HPUContext.h"
-#include "habana_device/fake_tensor_builder.h"
 #include "habana_device/hpu_cached_devices.h"
+#include "habana_helpers/tensor_utils.h"
 #include "habana_kernels/kernel_utils.h"
 
 using namespace torch;
@@ -24,22 +24,10 @@ void synapse_relu(const Tensor& output, const Tensor& input) {
     const std::vector<std::string> output_names{"output"};
     std::vector<synapse_helpers::tensor> syn_helper_inputs{};
     std::vector<synapse_helpers::tensor> syn_helper_outputs{};
-    syn_helper_inputs.push_back(synapse_helpers::tensor_builder::create_tensor(
-        device_id,
-        synDataType::syn_type_float,
-        input.nbytes(),
-        input.sizes().size(),
-        input.sizes(),
-        input_names[0],
-        true));
-    syn_helper_outputs.push_back(synapse_helpers::tensor_builder::create_tensor(
-        device_id,
-        synDataType::syn_type_float,
-        output.nbytes(),
-        output.sizes().size(),
-        output.sizes(),
-        output_names[0],
-        true));
+    syn_helper_inputs.push_back(
+        habana_helpers::create_tensor(input, input_names[0], true));
+    syn_helper_outputs.push_back(
+        habana_helpers::create_tensor(output, output_names[0], true));
 
     std::vector<synTensor> syn_inputs(syn_helper_inputs.size());
     std::vector<synTensor> syn_outputs(syn_helper_outputs.size());

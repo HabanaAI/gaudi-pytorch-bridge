@@ -3,7 +3,7 @@
 #include <absl/types/optional.h>
 #include <c10/util/ArrayRef.h>
 
-#include "synapse_helpers/habana_tensor.h"
+#include <synapse_helpers/habana_tensor.h>
 
 #define SYNAPSE_HELPERS_ASSERT_OPTIONAL(error_optional_for_eval)            \
   do {                                                                      \

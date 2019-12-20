@@ -19,6 +19,7 @@ add_library(habana_pytorch_plugin SHARED
   habana_kernels/kernel_utils.cpp
   habana_kernels/pool_kernels.cpp
   habana_kernels/unary_kernels.cpp
+  habana_helpers/tensor_utils.cpp
 )
 
 # Enable C++11

@@ -7,6 +7,7 @@
 #include "conv_pool_utils.h"
 #include "habana_device/HPUCheck.h"
 #include "habana_device/HPUContext.h"
+// TODO: remove after layout support is implemented, use habana_helpers/tensor_utils.h instead
 #include "habana_device/fake_tensor_builder.h"
 #include "kernel_utils.h"
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <synapse/include/synapse_api_types.h>
+#include <synapse_helpers/device.h>
 #include <array>
 #include <memory>
 
