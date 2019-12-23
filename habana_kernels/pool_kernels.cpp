@@ -142,13 +142,13 @@ void synapse_pool(
 
       { // add input transpositions
         // Transpose(0,2,3,1), transform NCHW data format to NHWC
-        synTransposeParams params_NCHW_to_NHWC;
+        synTransposeParams params_nchw_to_nhwc;
         {
-          params_NCHW_to_NHWC.tensorDim = 4;
-          params_NCHW_to_NHWC.permutation[0] = TransposePermutationDim(0);
-          params_NCHW_to_NHWC.permutation[1] = TransposePermutationDim(2);
-          params_NCHW_to_NHWC.permutation[2] = TransposePermutationDim(3);
-          params_NCHW_to_NHWC.permutation[3] = TransposePermutationDim(1);
+          params_nchw_to_nhwc.tensorDim = 4;
+          params_nchw_to_nhwc.permutation[0] = TransposePermutationDim(0);
+          params_nchw_to_nhwc.permutation[1] = TransposePermutationDim(2);
+          params_nchw_to_nhwc.permutation[2] = TransposePermutationDim(3);
+          params_nchw_to_nhwc.permutation[3] = TransposePermutationDim(1);
         }
 
         // dimshuffle input
@@ -159,8 +159,8 @@ void synapse_pool(
                 &syn_tmp_inputs[0],
                 1,
                 1,
-                &params_NCHW_to_NHWC,
-                sizeof(params_NCHW_to_NHWC),
+                &params_nchw_to_nhwc,
+                sizeof(params_nchw_to_nhwc),
                 transpose_node_type.c_str(),
                 "",
                 nullptr,
@@ -195,13 +195,13 @@ void synapse_pool(
       }
 #if TRANSPOSE_IMPLEMENTED
       { // add output transpose node
-        synTransposeParams params_NHWC_to_NCHW;
+        synTransposeParams params_nhwc_to_nchw;
         {
-          params_NHWC_to_NCHW.tensorDim = 4;
-          params_NHWC_to_NCHW.permutation[0] = TransposePermutationDim(0);
-          params_NHWC_to_NCHW.permutation[1] = TransposePermutationDim(3);
-          params_NHWC_to_NCHW.permutation[2] = TransposePermutationDim(2);
-          params_NHWC_to_NCHW.permutation[3] = TransposePermutationDim(1);
+          params_nhwc_to_nchw.tensorDim = 4;
+          params_nhwc_to_nchw.permutation[0] = TransposePermutationDim(0);
+          params_nhwc_to_nchw.permutation[1] = TransposePermutationDim(3);
+          params_nhwc_to_nchw.permutation[2] = TransposePermutationDim(2);
+          params_nhwc_to_nchw.permutation[3] = TransposePermutationDim(1);
         }
         // dimshuffle output
         for (int i = 0; i < syn_outputs.size(); ++i)
@@ -212,8 +212,8 @@ void synapse_pool(
                   &syn_outputs[i],
                   1,
                   1,
-                  &params_NHWC_to_NCHW,
-                  sizeof(params_NHWC_to_NCHW),
+                  &params_nhwc_to_nchw,
+                  sizeof(params_nhwc_to_nchw),
                   transpose_node_type.c_str(),
                   "",
                   nullptr,
@@ -270,25 +270,25 @@ std::tuple<Tensor, Tensor> habana_max_pool2d_with_indices(
             << ", W " << input_W << '\n'; // TODO: remove
 
   //   NCHW -> NHWC
-  auto input_NHWC = input.permute({0, 2, 3, 1});
-  auto output_NHWC = at::empty({N, output_H, output_W, C}, input.options());
+  auto input_nhwc = input.permute({0, 2, 3, 1});
+  auto output_nhwc = at::empty({N, output_H, output_W, C}, input.options());
   // TODO: cpu and cuda implementations hold indices as kLong (int64). I am
   // using uint8
-  auto output_idx_NHWC =
+  auto output_idx_nhwc =
       at::empty({N, output_H, output_W, C}, input.options().dtype(kByte));
 
   synapse_pool(
-      output_idx_NHWC,
-      output_NHWC,
-      input_NHWC,
+      output_idx_nhwc,
+      output_nhwc,
+      input_nhwc,
       kernel_size,
       stride,
       padding,
       dilation);
 
   //   NHWC -> NCHW
-  auto output = output_NHWC.permute({0, 3, 1, 2});
-  auto output_idx = output_idx_NHWC.permute({0, 3, 1, 2});
+  auto output = output_nhwc.permute({0, 3, 1, 2});
+  auto output_idx = output_idx_nhwc.permute({0, 3, 1, 2});
 
   return {output, output_idx};
 }

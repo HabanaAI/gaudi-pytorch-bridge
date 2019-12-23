@@ -148,22 +148,22 @@ void synapse_convolution(
 
       { // add input and weight transpositions
         // Transpose(0,2,3,1), transform NCHW data format to NHWC
-        synTransposeParams params_NCHW_to_NHWC;
+        synTransposeParams params_nchw_to_nhwc;
         {
-          params_NCHW_to_NHWC.tensorDim = 4;
-          params_NCHW_to_NHWC.permutation[0] = TransposePermutationDim(0);
-          params_NCHW_to_NHWC.permutation[1] = TransposePermutationDim(2);
-          params_NCHW_to_NHWC.permutation[2] = TransposePermutationDim(3);
-          params_NCHW_to_NHWC.permutation[3] = TransposePermutationDim(1);
+          params_nchw_to_nhwc.tensorDim = 4;
+          params_nchw_to_nhwc.permutation[0] = TransposePermutationDim(0);
+          params_nchw_to_nhwc.permutation[1] = TransposePermutationDim(2);
+          params_nchw_to_nhwc.permutation[2] = TransposePermutationDim(3);
+          params_nchw_to_nhwc.permutation[3] = TransposePermutationDim(1);
         }
 
-        synTransposeParams params_KCHW_to_HWCK;
+        synTransposeParams params_kchw_to_hwck;
         {
-          params_KCHW_to_HWCK.tensorDim = 4;
-          params_KCHW_to_HWCK.permutation[0] = TransposePermutationDim(2);
-          params_KCHW_to_HWCK.permutation[1] = TransposePermutationDim(3);
-          params_KCHW_to_HWCK.permutation[2] = TransposePermutationDim(1);
-          params_KCHW_to_HWCK.permutation[3] = TransposePermutationDim(0);
+          params_kchw_to_hwck.tensorDim = 4;
+          params_kchw_to_hwck.permutation[0] = TransposePermutationDim(2);
+          params_kchw_to_hwck.permutation[1] = TransposePermutationDim(3);
+          params_kchw_to_hwck.permutation[2] = TransposePermutationDim(1);
+          params_kchw_to_hwck.permutation[3] = TransposePermutationDim(0);
         }
         // dimshuffle input
         TORCH_HABANA_CHECK(
@@ -173,8 +173,8 @@ void synapse_convolution(
                 &syn_tmp_inputs[0],
                 1,
                 1,
-                &params_NCHW_to_NHWC,
-                sizeof(params_NCHW_to_NHWC),
+                &params_nchw_to_nhwc,
+                sizeof(params_nchw_to_nhwc),
                 transpose_node_type.c_str(),
                 "",
                 nullptr,
@@ -189,8 +189,8 @@ void synapse_convolution(
                 &syn_tmp_inputs[1],
                 1,
                 1,
-                &params_KCHW_to_HWCK,
-                sizeof(params_KCHW_to_HWCK),
+                &params_kchw_to_hwck,
+                sizeof(params_kchw_to_hwck),
                 transpose_node_type.c_str(),
                 "",
                 nullptr,
@@ -225,13 +225,13 @@ void synapse_convolution(
       }
 #if TRANSPOSE_IMPLEMENTED
       { // add output transpose node
-        synTransposeParams params_NHWC_to_NCHW;
+        synTransposeParams params_nhwc_to_nchw;
         {
-          params_NHWC_to_NCHW.tensorDim = 4;
-          params_NHWC_to_NCHW.permutation[0] = TransposePermutationDim(0);
-          params_NHWC_to_NCHW.permutation[1] = TransposePermutationDim(3);
-          params_NHWC_to_NCHW.permutation[2] = TransposePermutationDim(1);
-          params_NHWC_to_NCHW.permutation[3] = TransposePermutationDim(2);
+          params_nhwc_to_nchw.tensorDim = 4;
+          params_nhwc_to_nchw.permutation[0] = TransposePermutationDim(0);
+          params_nhwc_to_nchw.permutation[1] = TransposePermutationDim(3);
+          params_nhwc_to_nchw.permutation[2] = TransposePermutationDim(1);
+          params_nhwc_to_nchw.permutation[3] = TransposePermutationDim(2);
         }
         // dimshuffle output
         TORCH_HABANA_CHECK(
@@ -241,8 +241,8 @@ void synapse_convolution(
                 &syn_outputs[0],
                 1,
                 1,
-                &params_NHWC_to_NCHW,
-                sizeof(params_NHWC_to_NCHW),
+                &params_nhwc_to_nchw,
+                sizeof(params_nhwc_to_nchw),
                 transpose_node_type.c_str(),
                 "",
                 nullptr,
@@ -311,20 +311,20 @@ Tensor habana_convolution(
                                          .device(input.device())
                                          .layout(input.layout());
 
-  auto output_NHWC =
+  auto output_nhwc =
       at::empty({N, output_H, output_W, K}, output_tensor_options);
 
   // Create dimshuffled inputs and outputs to match synapse data layout
   //   NCHW -> NHWC
-  auto input_NHWC = input.permute({0, 2, 3, 1});
+  auto input_nhwc = input.permute({0, 2, 3, 1});
   //   KCHW -> HWCK
-  auto weight_HWCK = weight.permute({2, 3, 1, 0});
+  auto weight_hwck = weight.permute({2, 3, 1, 0});
 
   synapse_convolution(
-      output_NHWC, input_NHWC, weight_HWCK, bias, stride, padding, dilation);
+      output_nhwc, input_nhwc, weight_hwck, bias, stride, padding, dilation);
 
   //   NHWC -> NCHW
-  auto output = output_NHWC.permute({0, 3, 1, 2});
+  auto output = output_nhwc.permute({0, 3, 1, 2});
   return output;
 }
 
