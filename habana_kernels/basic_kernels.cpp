@@ -8,7 +8,12 @@
 
 using namespace torch;
 
-Tensor empty_habana(
+Tensor habana_permute(const Tensor& self, IntArrayRef dims) {
+  std::cout << "habana_permute called\n";
+  return self.to(DeviceType::CPU).permute(dims).contiguous().to(self.device());
+}
+
+Tensor habana_empty(
     IntArrayRef size,
     const TensorOptions& options,
     c10::optional<MemoryFormat> optional_memory_format) {
@@ -137,7 +142,7 @@ static auto registry =
         .op(torch::RegisterOperators::options()
                 .schema(
                     "aten::empty.memory_format(int[] size, *, ScalarType? dtype=None, Layout? layout=None, Device? device=None, bool? pin_memory=None, MemoryFormat? memory_format=None) -> Tensor")
-                .impl_unboxedOnlyKernel<decltype(empty_habana), &empty_habana>(
+                .impl_unboxedOnlyKernel<decltype(habana_empty), &habana_empty>(
                     TensorTypeId::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
@@ -153,4 +158,17 @@ static auto registry =
                     decltype(at::native::as_strided_tensorimpl),
                     &at::native::as_strided_tensorimpl>(
                     TensorTypeId::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema(
+                    "aten::permute(Tensor(a) self, int[] dims) -> Tensor(a)")
+                .impl_unboxedOnlyKernel<
+                    decltype(habana_permute),
+                    &habana_permute>(TensorTypeId::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema("aten::view(Tensor(a) self, int[] size) -> Tensor(a)")
+                .impl_unboxedOnlyKernel<
+                    decltype(at::native::view),
+                    &at::native::view>(TensorTypeId::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));

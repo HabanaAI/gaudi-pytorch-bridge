@@ -7,24 +7,23 @@
 #include "conv_pool_utils.h"
 #include "habana_device/HPUCheck.h"
 #include "habana_device/HPUContext.h"
-#include "habana_device/fake_tensor_builder.h" // TODO: remove after layout support is implemented
 #include "habana_helpers/tensor_utils.h"
 #include "kernel_utils.h"
 
 using namespace torch;
 
 synConvolutionParams synapse_conv_params_builder(
-    const IntArrayRef& input, // NCHW
+    const IntArrayRef& input, // NHWC
     const IntArrayRef& weight, // HWCK
     const IntArrayRef& stride,
     const IntArrayRef& padding,
     const IntArrayRef& dilation) {
-  const int64_t C = input[1];
-  const int64_t input_H = input[2];
-  const int64_t input_W = input[3];
-  const int64_t K = weight[0];
-  const int64_t filter_H = weight[2];
-  const int64_t filter_W = weight[3];
+  const int64_t C = input[3];
+  const int64_t input_H = input[1];
+  const int64_t input_W = input[2];
+  const int64_t K = weight[3];
+  const int64_t filter_H = weight[0];
+  const int64_t filter_W = weight[1];
   const int64_t stride_H = stride[0];
   const int64_t stride_W = stride[1];
   const int64_t pad_H = padding[0];
@@ -66,46 +65,17 @@ void synapse_convolution(
     const std::vector<std::string> input_names{"input", "filter", "bias"};
     const std::vector<std::string> output_names{"output"};
 
-    auto hack_pytorch_kchw_shapes =
-        [](const IntArrayRef& sizes, bool hack_shapes) -> std::vector<int64_t> {
-      if (hack_shapes)
-        // KCHW -> HWCK
-        return std::vector<int64_t>{sizes[2], sizes[3], sizes[1], sizes[0]};
-      else
-        return sizes.vec();
-    };
-
     std::vector<synapse_helpers::tensor> syn_helper_inputs{};
-    syn_helper_inputs.push_back(synapse_helpers::tensor_builder::create_tensor(
-        device_id,
-        synDataType::syn_type_float,
-        input.nbytes(),
-        input.sizes().size(),
-        habana_helpers::hack_pytorch_nhwc_shapes(
-            input.sizes(), TRANSPOSE_IMPLEMENTED == false),
-        input_names[0],
-        true));
-    syn_helper_inputs.push_back(synapse_helpers::tensor_builder::create_tensor(
-        device_id,
-        synDataType::syn_type_float,
-        weight.nbytes(),
-        weight.sizes().size(),
-        hack_pytorch_kchw_shapes(
-            weight.sizes(), TRANSPOSE_IMPLEMENTED == false),
-        input_names[1],
-        true));
+    syn_helper_inputs.push_back(
+        habana_helpers::create_tensor(input, input_names[0], true));
+    syn_helper_inputs.push_back(
+        habana_helpers::create_tensor(weight, input_names[1], true));
     syn_helper_inputs.push_back(
         habana_helpers::create_tensor(bias, input_names[2], true));
+
     std::vector<synapse_helpers::tensor> syn_helper_outputs{};
-    syn_helper_outputs.push_back(synapse_helpers::tensor_builder::create_tensor(
-        device_id,
-        synDataType::syn_type_float,
-        output.nbytes(),
-        output.sizes().size(),
-        habana_helpers::hack_pytorch_nhwc_shapes(
-            output.sizes(), TRANSPOSE_IMPLEMENTED == false),
-        output_names[0],
-        true));
+    syn_helper_outputs.push_back(
+        habana_helpers::create_tensor(output, output_names[0], true));
 
     // workaround for missing synapse_helpers::graph support
     std::vector<synTensor> syn_inputs(
@@ -230,8 +200,6 @@ void synapse_convolution(
 #endif
       const std::string conv_node_type = "spatial_convolution";
       { // add conv node
-        // char const* conv2D_in_layouts{nullptr};
-        // char const* conv2D_out_layouts{nullptr};
         // TODO: support pytorch layouts, uncomment when it is supported and
         // remove transpositions
         //   char const* conv2D_in_layouts[]{"WHCN", "RSCK", "", "WHCN"};
@@ -262,8 +230,8 @@ void synapse_convolution(
           params_NHWC_to_NCHW.tensorDim = 4;
           params_NHWC_to_NCHW.permutation[0] = TransposePermutationDim(0);
           params_NHWC_to_NCHW.permutation[1] = TransposePermutationDim(3);
-          params_NHWC_to_NCHW.permutation[2] = TransposePermutationDim(2);
-          params_NHWC_to_NCHW.permutation[3] = TransposePermutationDim(1);
+          params_NHWC_to_NCHW.permutation[2] = TransposePermutationDim(1);
+          params_NHWC_to_NCHW.permutation[3] = TransposePermutationDim(2);
         }
         // dimshuffle output
         TORCH_HABANA_CHECK(
@@ -337,15 +305,26 @@ Tensor habana_convolution(
       input_H, pad_H, filter_H, stride_H, false);
   const auto output_W = habana_helpers::compute_output_size(
       input_W, pad_W, filter_W, stride_W, false);
-  std::cout << "input_size N " << N << ", C " << C << ", H " << input_H
-            << ", W " << input_W << '\n'; // TODO: remove
+
   const auto output_tensor_options = TensorOptions()
                                          .dtype(input.dtype())
                                          .device(input.device())
                                          .layout(input.layout());
-  auto output = at::empty({N, K, output_H, output_W}, output_tensor_options);
-  synapse_convolution(output, input, weight, bias, stride, padding, dilation);
 
+  auto output_NHWC =
+      at::empty({N, output_H, output_W, K}, output_tensor_options);
+
+  // Create dimshuffled inputs and outputs to match synapse data layout
+  //   NCHW -> NHWC
+  auto input_NHWC = input.permute({0, 2, 3, 1});
+  //   KCHW -> HWCK
+  auto weight_HWCK = weight.permute({2, 3, 1, 0});
+
+  synapse_convolution(
+      output_NHWC, input_NHWC, weight_HWCK, bias, stride, padding, dilation);
+
+  //   NHWC -> NCHW
+  auto output = output_NHWC.permute({0, 3, 1, 2});
   return output;
 }
 

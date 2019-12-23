@@ -7,8 +7,7 @@
 #include "conv_pool_utils.h"
 #include "habana_device/HPUCheck.h"
 #include "habana_device/HPUContext.h"
-// TODO: remove after layout support is implemented, use habana_helpers/tensor_utils.h instead
-#include "habana_device/fake_tensor_builder.h"
+#include "habana_helpers/tensor_utils.h"
 #include "kernel_utils.h"
 
 using namespace torch;
@@ -63,35 +62,15 @@ void synapse_pool(
     const std::vector<std::string> output_names{"output_idx", "output"};
 
     std::vector<synapse_helpers::tensor> syn_helper_inputs{};
-    syn_helper_inputs.push_back(synapse_helpers::tensor_builder::create_tensor(
-        device_id,
-        synDataType::syn_type_float,
-        input.nbytes(),
-        input.sizes().size(),
-        habana_helpers::hack_pytorch_nhwc_shapes(
-            input.sizes(), TRANSPOSE_IMPLEMENTED == false),
-        input_names[0],
-        true));
+    syn_helper_inputs.push_back(
+        habana_helpers::create_tensor(input, input_names[0], true));
 
     std::vector<synapse_helpers::tensor> syn_helper_outputs{};
-    syn_helper_outputs.push_back(synapse_helpers::tensor_builder::create_tensor(
-        device_id,
-        synDataType::syn_type_uint8,
-        output_idx.nbytes(),
-        output_idx.sizes().size(),
-        habana_helpers::hack_pytorch_nhwc_shapes(
-            output_idx.sizes(), TRANSPOSE_IMPLEMENTED == false),
-        output_names[0],
-        true));
-    syn_helper_outputs.push_back(synapse_helpers::tensor_builder::create_tensor(
-        device_id,
-        synDataType::syn_type_float,
-        output.nbytes(),
-        output.sizes().size(),
-        habana_helpers::hack_pytorch_nhwc_shapes(
-            output.sizes(), TRANSPOSE_IMPLEMENTED == false),
-        output_names[1],
-        true));
+    syn_helper_outputs.push_back(
+        habana_helpers::create_tensor(output_idx, output_names[0], true));
+    syn_helper_outputs.push_back(
+        habana_helpers::create_tensor(output, output_names[1], true));
+
     // workaround for missing synapse_helpers::graph support
     std::vector<synTensor> syn_inputs(syn_helper_inputs.size());
     std::vector<synTensor> syn_outputs(syn_helper_outputs.size());
@@ -290,13 +269,26 @@ std::tuple<Tensor, Tensor> habana_max_pool2d_with_indices(
   std::cout << "input_size N " << N << ", C " << C << ", H " << input_H
             << ", W " << input_W << '\n'; // TODO: remove
 
-  auto output = at::empty({N, C, output_H, output_W}, input.options());
+  //   NCHW -> NHWC
+  auto input_NHWC = input.permute({0, 2, 3, 1});
+  auto output_NHWC = at::empty({N, output_H, output_W, C}, input.options());
   // TODO: cpu and cuda implementations hold indices as kLong (int64). I am
   // using uint8
-  auto output_idx =
-      at::empty({N, C, output_H, output_W}, input.options().dtype(kByte));
+  auto output_idx_NHWC =
+      at::empty({N, output_H, output_W, C}, input.options().dtype(kByte));
+
   synapse_pool(
-      output_idx, output, input, kernel_size, stride, padding, dilation);
+      output_idx_NHWC,
+      output_NHWC,
+      input_NHWC,
+      kernel_size,
+      stride,
+      padding,
+      dilation);
+
+  //   NHWC -> NCHW
+  auto output = output_NHWC.permute({0, 3, 1, 2});
+  auto output_idx = output_idx_NHWC.permute({0, 3, 1, 2});
 
   return {output, output_idx};
 }
