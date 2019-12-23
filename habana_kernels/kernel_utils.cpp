@@ -1,5 +1,4 @@
 #include <torch/script.h>
-#include <tuple>
 
 #include "habana_device/HPUCheck.h"
 #include "habana_device/HPUContext.h" // TODO: remove after changing allocator
@@ -38,35 +37,38 @@ synTensorDescriptorTr habana_helpers::synapse_tensor_descriptor_builder(
   return descriptor;
 }
 
-std::tuple<at::DataPtr, at::DataPtr> allocate_workspace_and_topology_buffers(
+at::DataPtr allocate_workspace_buffer(
     const synRecipeHandle recipe_handle,
     at::Allocator* allocator) {
-  uint64_t topology_size_bytes, workspace_size_bytes;
-  TORCH_HABANA_CHECK(
-      synRecipeGetSize(&topology_size_bytes, recipe_handle),
-      "synRecipeGetSize failed");
+  uint64_t workspace_size_bytes;
   TORCH_HABANA_CHECK(
       synWorkspaceGetSize(&workspace_size_bytes, recipe_handle),
       "synWorkspaceGetSize failed");
 
-  at::DataPtr topology_buffer = allocator->allocate(topology_size_bytes);
   at::DataPtr workspace_buffer;
   if (workspace_size_bytes)
     workspace_buffer = allocator->allocate(workspace_size_bytes);
 
-  return {std::move(topology_buffer), std::move(workspace_buffer)};
+  return std::move(workspace_buffer);
 }
 
 std::vector<synLaunchTensorInfo> generate_syn_launch_tensor_info(
-    const std::vector<std::string>& names,
-    const std::vector<void*>& buffers) {
-  TORCH_CHECK(names.size() == buffers.size());
+    const std::vector<std::string>& in_names,
+    const std::vector<void*>& in_buffers,
+    const std::vector<std::string>& out_names,
+    const std::vector<void*>& out_buffers) {
+  TORCH_CHECK(in_names.size() == in_buffers.size());
+  TORCH_CHECK(out_names.size() == out_buffers.size());
 
   std::vector<synLaunchTensorInfo> syn_info;
-  syn_info.reserve(names.size());
-  for (size_t i = 0; i < names.size(); ++i)
+  syn_info.reserve(in_names.size() + out_names.size());
+
+  for (size_t i = 0; i < in_names.size(); ++i)
     syn_info.emplace_back(synLaunchTensorInfo{
-        names[i].c_str(), reinterpret_cast<uint64_t>(buffers[i])});
+        in_names[i].c_str(), reinterpret_cast<uint64_t>(in_buffers[i])});
+  for (size_t i = 0; i < out_names.size(); ++i)
+    syn_info.emplace_back(synLaunchTensorInfo{
+        out_names[i].c_str(), reinterpret_cast<uint64_t>(out_buffers[i])});
 
   return syn_info;
 }
@@ -93,39 +95,27 @@ void habana_helpers::compile_and_run(
           &recipe_handle, graph_handle, recipe_name.c_str(), nullptr, 0, 0),
       "synGraphCompile failed");
 
-  at::DataPtr topology_buffer, workspace_buffer;
-  std::tie(topology_buffer, workspace_buffer) =
-      allocate_workspace_and_topology_buffers(
+  at::DataPtr workspace_buffer =
+      allocate_workspace_buffer(
           recipe_handle,
           at::habana::getHABANADeviceAllocator()); // TODO: use different
                                                    // allocator
-
-  { // recipe upload scope
-    const synRecipeInfo recipe_info{
-        recipe_name.c_str(), reinterpret_cast<uint64_t>(topology_buffer.get())};
-    TORCH_HABANA_CHECK(
-        synRecipeUpload(recipe_handle, &recipe_info, device_id),
-        "synRecipeUpload failed");
     { // stream handle scope
       synStreamHandle stream_handle;
       TORCH_HABANA_CHECK(
           synStreamCreate(&stream_handle, device_id, 0),
           "synStreamCreate failed");
 
-      auto syn_inputs_info =
-          generate_syn_launch_tensor_info(input_names, input_buffers);
-      auto syn_outputs_info =
-          generate_syn_launch_tensor_info(output_names, output_buffers);
+      auto syn_launch_info =
+          generate_syn_launch_tensor_info(input_names, input_buffers, output_names, output_buffers);
 
       TORCH_HABANA_CHECK(
           synLaunch(
               stream_handle,
-              syn_inputs_info.data(),
-              syn_inputs_info.size(),
-              syn_outputs_info.data(),
-              syn_outputs_info.size(),
+              syn_launch_info.data(),
+              syn_launch_info.size(),
               reinterpret_cast<uint64_t>(workspace_buffer.get()),
-              &recipe_info),
+              recipe_handle),
           "synLaunch failed");
       TORCH_HABANA_CHECK(
           synStreamSynchronize(stream_handle), "synStreamSynchronize failed");
@@ -133,8 +123,4 @@ void habana_helpers::compile_and_run(
       TORCH_HABANA_CHECK(
           synStreamDestroy(stream_handle), "synStreamDestroy failed");
     }
-    TORCH_HABANA_CHECK(
-        synRecipeUnload(recipe_handle, &recipe_info, device_id),
-        "synRecipeUnload failed");
-  }
 }

@@ -191,8 +191,6 @@ void synapse_pool(
 #endif
       const std::string pool_node_type = "maxpool_2d_fwd_f32";
       { // add pool node
-        char const* pool2D_in_layouts[]{"CWHN"};
-        char const* pool2D_out_layouts[]{"CWHN", "CWHN"};
         // TODO: support pytorch layouts, uncomment when it is supported and
         // remove transpositions
         //   char const* pool2D_in_layouts[]{"WHCN"};
@@ -212,8 +210,8 @@ void synapse_pool(
                 sizeof(syn_pool_params),
                 pool_node_type.c_str(),
                 "",
-                pool2D_in_layouts,
-                pool2D_out_layouts),
+                nullptr,
+                nullptr),
             "synNodeCreate failed");
       }
 #if TRANSPOSE_IMPLEMENTED

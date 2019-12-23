@@ -230,8 +230,8 @@ void synapse_convolution(
 #endif
       const std::string conv_node_type = "spatial_convolution";
       { // add conv node
-        char const* conv2D_in_layouts[]{"CWHN", "KCSR", "", "CWHN"};
-        char const* conv2D_out_layouts[]{"CWHN"};
+        // char const* conv2D_in_layouts{nullptr};
+        // char const* conv2D_out_layouts{nullptr};
         // TODO: support pytorch layouts, uncomment when it is supported and
         // remove transpositions
         //   char const* conv2D_in_layouts[]{"WHCN", "RSCK", "", "WHCN"};
@@ -251,8 +251,8 @@ void synapse_convolution(
                 sizeof(syn_conv_params),
                 conv_node_type.c_str(),
                 "",
-                conv2D_in_layouts,
-                conv2D_out_layouts),
+                nullptr,
+                nullptr),
             "synNodeCreate failed");
       }
 #if TRANSPOSE_IMPLEMENTED
