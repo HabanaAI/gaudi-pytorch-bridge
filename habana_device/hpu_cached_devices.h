@@ -26,6 +26,17 @@ class HPURegistrar {
     return *ret;
   }
 
+  static synapse_helpers::device& get_device() {
+    const auto& end = get_hpu_registrar().acquired_devices.end();
+    auto ret = std::find_if(
+        get_hpu_registrar().acquired_devices.begin(), end, [](auto& x) {
+          return x != nullptr;
+        });
+
+    TORCH_CHECK(ret != end, "Habana device not initialized");
+    return *(ret->get());
+  }
+
   static void insert_device(std::unique_ptr<synapse_helpers::device> device) {
     get_hpu_registrar().acquired_devices[device->id()] = std::move(device);
   }

@@ -6,7 +6,6 @@ torch.ops.load_library("libhabana_pytorch_plugin.so")
 
 test_case_list = [
     # N,   H,   W,   C, dim
-    pytest.param( 1,   1,   1,   1,  1, marks=pytest.mark.xfail(reason="SW-8303")),
     pytest.param( 2,   3,   4,   5,  1, marks=pytest.mark.xfail(reason="SW-8560")),
 ]
 

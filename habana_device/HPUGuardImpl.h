@@ -55,11 +55,9 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
             std::move(device_ptr_or_error));
         synapse_helpers::HPURegistrar::insert_device(std::move(device_ptr));
       }
-    } else {
-      // TODO: we are always asking for device 0, it may change in the future
-      auto& device = synapse_helpers::HPURegistrar::get_device(0);
-      habana::allocator_active_device_id = device.id();
     }
+    auto& device = synapse_helpers::HPURegistrar::get_device();
+    habana::allocator_active_device_id = device.id();
 
     TORCH_CHECK(
         habana::allocator_active_device_id == 0,

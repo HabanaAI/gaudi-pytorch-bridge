@@ -13,8 +13,6 @@ torch.ops.load_library("libhabana_pytorch_plugin.so")
 # str - stride
 pool_test_case_list = [
     # N,   H,   W,   C, R, S, str_H, str_W
-    pytest.param( 1,   1,   1,   1, 1, 1,     1,     1, marks=pytest.mark.xfail(reason="SW-8303")),
-    ( 1,   1,   1,   1, 1, 1,    1,    1),
     ( 2,   3,   4,   5, 2, 2,    1,    1),
     ( 8,  28,  28,   3, 2, 2,    1,    1),
 ]

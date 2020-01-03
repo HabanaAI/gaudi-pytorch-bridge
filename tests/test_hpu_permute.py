@@ -9,7 +9,6 @@ torch.ops.load_library("libhabana_pytorch_plugin.so")
 # C - input channels
 test_case_list = [
     # N,   H,   W,   C
-    pytest.param( 1,   1,   1,   1, marks=pytest.mark.xfail(reason="SW-8303")),
     ( 8,  28,  28,   3),
 ]
 
