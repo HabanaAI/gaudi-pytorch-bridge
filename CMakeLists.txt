@@ -4,6 +4,12 @@ cmake_policy(SET CMP0076 OLD)
 project(habana_pytorch_plugin VERSION 0.5.0 LANGUAGES CXX)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
+option(SANITIZER "build sanitizer configuration" OFF)
+if(SANITIZER)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -fsanitize=undefined -fsanitize-address-use-after-scope -O0")
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address -fsanitize=leak")
+endif(SANITIZER)
+
 add_subdirectory("$ENV{ABSEIL_CPP_INCLUDE_DIR}" absl)
 find_package(Torch REQUIRED)
 find_package(synapse_helpers REQUIRED)
