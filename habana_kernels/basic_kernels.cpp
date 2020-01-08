@@ -1,10 +1,10 @@
 #include <ATen/InferSize.h>
+#include <synapse/include/synapse_api.h>
 #include <torch/script.h>
 
 #include "habana_device/HPUCheck.h"
 #include "habana_device/HPUContext.h"
-
-#include "synapse/include/synapse_api.h"
+#include "resize.h"
 
 using namespace torch;
 
@@ -137,6 +137,62 @@ Tensor& hpu_copy_(Tensor& self, const Tensor& src, bool non_blocking) {
   return dst;
 }
 
+Tensor& habana_set(
+    Tensor& self,
+    Storage source,
+    int64_t storage_offset,
+    IntArrayRef size,
+    IntArrayRef stride) {
+  std::cout << "habana_set called\n";
+  if (stride.data()) {
+    TORCH_CHECK(size.size() == stride.size(), "inconsistent size/stride sizes");
+  }
+
+  auto scalar_type = self.scalar_type();
+  auto self_ = checked_dense_tensor_unwrap(
+      self, "self", 1, "_th_set_", false, DeviceType::HABANA, scalar_type);
+  auto source_ = checked_storage(
+      source,
+      "source",
+      2,
+      DeviceType::HABANA,
+      at::scalarTypeToTypeMeta(scalar_type));
+
+  // Code below is based on THCTensor_setStorage
+  TORCH_CHECK(
+      self_->storage(),
+      "Cannot use PyTorch operations on a half-constructed "
+      "tensor.  If this tensor came from Caffe2, please call GetMutableData on "
+      "it first; otherwise, this is a bug, please report it.");
+  auto self_storage = self_->storage().unsafeGetStorageImpl();
+  auto source_storage = source_.unsafeGetStorageImpl();
+  if (self_storage != source_storage) {
+    TORCH_CHECK(self_storage, "Invalid null storage");
+    auto data_type = self_storage->dtype();
+    if (self_storage) {
+      c10::raw::intrusive_ptr::incref(source_storage);
+      THTensor_stealAndSetStoragePtr(self_, source_storage);
+    } else {
+      auto THHStorage_new = [](caffe2::TypeMeta data_type) -> THStorage* {
+        THStorage* storage =
+            c10::make_intrusive<at::StorageImpl>(
+                data_type, 0, habana::getHABANADeviceAllocator(), true)
+                .release();
+        return storage;
+      };
+      THTensor_stealAndSetStoragePtr(self_, THHStorage_new(data_type));
+    }
+  }
+
+  TORCH_CHECK(storage_offset >= 0, "Invalid storage offset: ", storage_offset);
+  self_->set_storage_offset(storage_offset);
+
+  /* size and stride */
+  THHTensor_resizeNd(self_, stride.size(), size.data(), stride.data());
+
+  return self;
+}
+
 static auto registry =
     torch::RegisterOperators()
         .op(torch::RegisterOperators::options()
@@ -165,6 +221,12 @@ static auto registry =
                 .impl_unboxedOnlyKernel<
                     decltype(habana_permute),
                     &habana_permute>(TensorTypeId::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema(
+                    "aten::set_.source_Storage_storage_offset( Tensor(a !) self, Storage source, int storage_offset, int[] size, int[] stride = []) ->Tensor(a !)")
+                .impl_unboxedOnlyKernel<decltype(habana_set), &habana_set>(
+                    TensorTypeId::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema("aten::view(Tensor(a) self, int[] size) -> Tensor(a)")

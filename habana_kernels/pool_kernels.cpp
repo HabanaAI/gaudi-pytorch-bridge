@@ -266,13 +266,11 @@ std::tuple<Tensor, Tensor> habana_max_pool2d_with_indices(
       input_H, pad_H, filter_H, stride_H, ceil_mode);
   const auto output_W = habana_helpers::compute_output_size(
       input_W, pad_W, filter_W, stride_W, ceil_mode);
-  std::cout << "input_size N " << N << ", C " << C << ", H " << input_H
-            << ", W " << input_W << '\n'; // TODO: remove
 
   //   NCHW -> NHWC
   auto input_nhwc = input.permute({0, 2, 3, 1});
   auto output_nhwc = at::empty({N, output_H, output_W, C}, input.options());
-  // TODO: cpu and cuda implementations hold indices as kLong (int64). I am
+  // NOTE: cpu and cuda implementations hold indices as kLong (int64). I am
   // using uint8
   auto output_idx_nhwc =
       at::empty({N, output_H, output_W, C}, input.options().dtype(kByte));
