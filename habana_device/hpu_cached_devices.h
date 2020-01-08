@@ -30,7 +30,7 @@ class HPURegistrar {
     const auto& end = get_hpu_registrar().acquired_devices.end();
     auto ret = std::find_if(
         get_hpu_registrar().acquired_devices.begin(), end, [](auto& x) {
-          return x != nullptr;
+          return x.get() != nullptr;
         });
 
     TORCH_CHECK(ret != end, "Habana device not initialized");
