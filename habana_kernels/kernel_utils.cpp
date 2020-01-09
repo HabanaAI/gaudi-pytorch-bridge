@@ -95,32 +95,31 @@ void habana_helpers::compile_and_run(
           &recipe_handle, graph_handle, recipe_name.c_str(), nullptr, 0, 0),
       "synGraphCompile failed");
 
-  at::DataPtr workspace_buffer =
-      allocate_workspace_buffer(
-          recipe_handle,
-          at::habana::getHABANADeviceAllocator()); // TODO: use different
-                                                   // allocator
-    { // stream handle scope
-      synStreamHandle stream_handle;
-      TORCH_HABANA_CHECK(
-          synStreamCreate(&stream_handle, device_id, 0),
-          "synStreamCreate failed");
+  at::DataPtr workspace_buffer = allocate_workspace_buffer(
+      recipe_handle,
+      at::habana::getHABANADeviceAllocator()); // TODO: use different
+                                               // allocator
+  { // stream handle scope
+    synStreamHandle stream_handle;
+    TORCH_HABANA_CHECK(
+        synStreamCreate(&stream_handle, device_id, 0),
+        "synStreamCreate failed");
 
-      auto syn_launch_info =
-          generate_syn_launch_tensor_info(input_names, input_buffers, output_names, output_buffers);
+    auto syn_launch_info = generate_syn_launch_tensor_info(
+        input_names, input_buffers, output_names, output_buffers);
 
-      TORCH_HABANA_CHECK(
-          synLaunch(
-              stream_handle,
-              syn_launch_info.data(),
-              syn_launch_info.size(),
-              reinterpret_cast<uint64_t>(workspace_buffer.get()),
-              recipe_handle),
-          "synLaunch failed");
-      TORCH_HABANA_CHECK(
-          synStreamSynchronize(stream_handle), "synStreamSynchronize failed");
+    TORCH_HABANA_CHECK(
+        synLaunch(
+            stream_handle,
+            syn_launch_info.data(),
+            syn_launch_info.size(),
+            reinterpret_cast<uint64_t>(workspace_buffer.get()),
+            recipe_handle),
+        "synLaunch failed");
+    TORCH_HABANA_CHECK(
+        synStreamSynchronize(stream_handle), "synStreamSynchronize failed");
 
-      TORCH_HABANA_CHECK(
-          synStreamDestroy(stream_handle), "synStreamDestroy failed");
-    }
+    TORCH_HABANA_CHECK(
+        synStreamDestroy(stream_handle), "synStreamDestroy failed");
+  }
 }

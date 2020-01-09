@@ -2,10 +2,10 @@
 
 #include <c10/util/ArrayRef.h>
 #include <synapse/include/synapse_api.h>
+#include <synapse/include/synapse_api_types.h>
+#include <synapse_helpers/habana_tensor.h>
 #include <string>
 #include <unordered_map>
-
-#include "synapse/include/synapse_api_types.h"
 
 namespace habana_helpers {
 std::string unique_recipe_name_generator(std::string recipe_name);

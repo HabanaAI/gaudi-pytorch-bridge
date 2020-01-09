@@ -20,27 +20,13 @@ void synapse_relu(const Tensor& output, const Tensor& input) {
       "synGraphCreate failed");
 
   { // tensors scope
-    const std::vector<std::string> input_names{"input"};
-    const std::vector<std::string> output_names{"output"};
-    std::vector<synapse_helpers::tensor> syn_helper_inputs{};
-    std::vector<synapse_helpers::tensor> syn_helper_outputs{};
-    syn_helper_inputs.push_back(
-        habana_helpers::create_tensor(input, input_names[0], true));
-    syn_helper_outputs.push_back(
-        habana_helpers::create_tensor(output, output_names[0], true));
+    std::vector<synapse_helpers::tensor> syn_helper_inputs, syn_helper_outputs;
+    std::vector<synTensor> syn_inputs, syn_outputs;
 
-    std::vector<synTensor> syn_inputs(syn_helper_inputs.size());
-    std::vector<synTensor> syn_outputs(syn_helper_outputs.size());
-    std::transform(
-        syn_helper_inputs.begin(),
-        syn_helper_inputs.end(),
-        syn_inputs.begin(),
-        [](auto& x) { return x.get(); });
-    std::transform(
-        syn_helper_outputs.begin(),
-        syn_helper_outputs.end(),
-        syn_outputs.begin(),
-        [](auto& x) { return x.get(); });
+    std::tie(syn_helper_inputs, syn_inputs) = habana_helpers::create_tensors(
+        std::vector<const at::Tensor*>{&input}, {"input"}, {true});
+    std::tie(syn_helper_outputs, syn_outputs) = habana_helpers::create_tensors(
+        std::vector<const at::Tensor*>{&output}, {"output"}, {true});
 
     {
       const std::string node_type = "relu_fwd_f32";
@@ -64,8 +50,8 @@ void synapse_relu(const Tensor& output, const Tensor& input) {
       habana_helpers::compile_and_run(
           node_type,
           graph_handle,
-          input_names,
-          output_names,
+          habana_helpers::names(syn_helper_inputs),
+          habana_helpers::names(syn_helper_outputs),
           {input.data_ptr()},
           {output.data_ptr()},
           device_id);

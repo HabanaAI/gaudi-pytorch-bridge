@@ -23,60 +23,44 @@ void synapse_matmul(
       synGraphCreate(&graph_handle, synDeviceType::synDeviceGaudi),
       "synGraphCreate failed");
   { // tensors scope
-    const std::vector<std::string> input_names{"mat1", "mat2"};
-    const std::vector<std::string> output_names{"output"};
+    std::vector<synapse_helpers::tensor> syn_helper_inputs, syn_helper_outputs;
+    std::vector<synTensor> syn_inputs, syn_outputs;
 
-    std::vector<synapse_helpers::tensor> syn_helper_inputs{};
-    syn_helper_inputs.push_back(
-        habana_helpers::create_tensor(mat1, input_names[0], true));
-    syn_helper_inputs.push_back(
-        habana_helpers::create_tensor(mat2, input_names[1], true));
-    std::vector<synapse_helpers::tensor> syn_helper_outputs{};
-    syn_helper_outputs.push_back(
-        habana_helpers::create_tensor(output, output_names[0], true));
-    // workaround for missing synapse_helpers::graph support
-    std::vector<synTensor> syn_inputs(syn_helper_inputs.size());
-    std::vector<synTensor> syn_outputs(syn_helper_outputs.size());
-    std::transform(
-        syn_helper_inputs.begin(),
-        syn_helper_inputs.end(),
-        syn_inputs.begin(),
-        [](auto& x) { return x.get(); });
-    std::transform(
-        syn_helper_outputs.begin(),
-        syn_helper_outputs.end(),
-        syn_outputs.begin(),
-        [](auto& x) { return x.get(); });
+    std::tie(syn_helper_inputs, syn_inputs) = habana_helpers::create_tensors(
+        std::vector<const at::Tensor*>{&mat1, &mat2},
+        {"mat1", "mat2"},
+        {true, true});
+    std::tie(syn_helper_outputs, syn_outputs) = habana_helpers::create_tensors(
+        std::vector<const at::Tensor*>{&output}, {"output"}, {true});
 
+    const std::string node_type = "gemm";
+    { // add node
+      synGEMMParams params{false, false};
 
-      const std::string node_type = "gemm";
-      { // add node
-        synGEMMParams params{false, false};
+      TORCH_HABANA_CHECK(
+          synNodeCreate(
+              graph_handle,
+              syn_inputs.data(),
+              syn_outputs.data(),
+              syn_inputs.size(),
+              syn_outputs.size(),
+              &params,
+              sizeof(params),
+              node_type.c_str(),
+              "",
+              nullptr,
+              nullptr),
+          "synNodeCreate failed");
+    }
 
-        TORCH_HABANA_CHECK(
-            synNodeCreate(
-                graph_handle,
-                syn_inputs.data(),
-                syn_outputs.data(),
-                syn_inputs.size(),
-                syn_outputs.size(),
-                &params,
-                sizeof(params),
-                node_type.c_str(),
-                "",
-                nullptr,
-                nullptr),
-            "synNodeCreate failed");
-      }
-
-      habana_helpers::compile_and_run(
-          node_type,
-          graph_handle,
-          input_names,
-          output_names,
-          {mat1.data_ptr(), mat2.data_ptr()},
-          {output.data_ptr()},
-          device_id);
+    habana_helpers::compile_and_run(
+        node_type,
+        graph_handle,
+        habana_helpers::names(syn_helper_inputs),
+        habana_helpers::names(syn_helper_outputs),
+        {mat1.data_ptr(), mat2.data_ptr()},
+        {output.data_ptr()},
+        device_id);
   }
   TORCH_HABANA_CHECK(synGraphDestroy(graph_handle), "synGraphDestroy failed");
 }

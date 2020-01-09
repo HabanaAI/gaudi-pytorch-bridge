@@ -58,32 +58,15 @@ void synapse_pool(
       synGraphCreate(&graph_handle, synDeviceType::synDeviceGaudi),
       "synGraphCreate failed");
   { // tensors scope
-    const std::vector<std::string> input_names{"input"};
-    const std::vector<std::string> output_names{"output_idx", "output"};
+    std::vector<synapse_helpers::tensor> syn_helper_inputs, syn_helper_outputs;
+    std::vector<synTensor> syn_inputs, syn_outputs;
 
-    std::vector<synapse_helpers::tensor> syn_helper_inputs{};
-    syn_helper_inputs.push_back(
-        habana_helpers::create_tensor(input, input_names[0], true));
-
-    std::vector<synapse_helpers::tensor> syn_helper_outputs{};
-    syn_helper_outputs.push_back(
-        habana_helpers::create_tensor(output_idx, output_names[0], true));
-    syn_helper_outputs.push_back(
-        habana_helpers::create_tensor(output, output_names[1], true));
-
-    // workaround for missing synapse_helpers::graph support
-    std::vector<synTensor> syn_inputs(syn_helper_inputs.size());
-    std::vector<synTensor> syn_outputs(syn_helper_outputs.size());
-    std::transform(
-        syn_helper_inputs.begin(),
-        syn_helper_inputs.end(),
-        syn_inputs.begin(),
-        [](auto& x) { return x.get(); });
-    std::transform(
-        syn_helper_outputs.begin(),
-        syn_helper_outputs.end(),
-        syn_outputs.begin(),
-        [](auto& x) { return x.get(); });
+    std::tie(syn_helper_inputs, syn_inputs) = habana_helpers::create_tensors(
+        std::vector<const at::Tensor*>{&input}, {"input"}, {true});
+    std::tie(syn_helper_outputs, syn_outputs) = habana_helpers::create_tensors(
+        std::vector<const at::Tensor*>{&output_idx, &output},
+        {"output_idx", "output"},
+        {true, true});
 
     { // dimshuffled tensors scope
 #if TRANSPOSE_IMPLEMENTED
@@ -225,8 +208,8 @@ void synapse_pool(
       habana_helpers::compile_and_run(
           pool_node_type,
           graph_handle,
-          input_names,
-          output_names,
+          habana_helpers::names(syn_helper_inputs),
+          habana_helpers::names(syn_helper_outputs),
           {input.data_ptr()},
           {output_idx.data_ptr(), output.data_ptr()},
           device_id);
