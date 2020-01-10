@@ -37,9 +37,6 @@ void check_pool_params(
   TORCH_CHECK(
       padding.size() == 2,
       "padding size != 2 unsupported by habana_convolution");
-  TORCH_CHECK(
-      input.scalar_type() == c10::ScalarType::Float,
-      "input at::Tensor is not float32");
 }
 
 void check_convolution_params(
@@ -67,12 +64,6 @@ void check_convolution_params(
   TORCH_CHECK(
       bias.device().type() == c10::DeviceType::HABANA,
       "bias is not habana at::Tensor");
-  TORCH_CHECK(
-      weight.scalar_type() == c10::ScalarType::Float,
-      "weight at::Tensor is not float32");
-  TORCH_CHECK(
-      bias.scalar_type() == c10::ScalarType::Float,
-      "bias at::Tensor is not float32");
   TORCH_CHECK(
       input.ndimension() == 4, "input at::Tensor dimension count !=  4");
   TORCH_CHECK(weight.ndimension() == 4, "weight tensordimension count  != 4");

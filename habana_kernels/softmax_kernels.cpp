@@ -46,8 +46,10 @@ void synapse_log_softmax(
         [](auto& x) { return x.get(); });
     {
       // TODO: use logsoftmax_fwd_f32 instead of log + softmax
-      const std::string node1_type = "softmax_fwd_f32";
-      const std::string node2_type = "log_fwd_f32";
+      const std::string node1_type = "softmax_fwd_" +
+          habana_helpers::name_suffix_from_type(input.scalar_type());
+      const std::string node2_type = "log_fwd_" +
+          habana_helpers::name_suffix_from_type(input.scalar_type());
 
       TORCH_CHECK(
           dim == 1, "Trying to run softmax with dim other than channels");
@@ -106,9 +108,6 @@ Tensor habana_log_softmax(
   TORCH_CHECK(
       !half_to_float,
       "softmax with half to float conversion is not supported on HPU");
-  TORCH_CHECK(
-      self.scalar_type() == c10::ScalarType::Float,
-      "input tensor is not float32");
 
   // TODO: consider changing layout like it is done in convolution
   auto output = at::empty(self.sizes(), self.options());

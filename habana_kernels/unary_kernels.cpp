@@ -29,7 +29,8 @@ void synapse_relu(const Tensor& output, const Tensor& input) {
         std::vector<const at::Tensor*>{&output}, {"output"}, {true});
 
     {
-      const std::string node_type = "relu_fwd_f32";
+      const std::string node_type = "relu_fwd_" +
+          habana_helpers::name_suffix_from_type(input.scalar_type());
       { // add relu node
         TORCH_HABANA_CHECK(
             synNodeCreate(
@@ -62,9 +63,6 @@ void synapse_relu(const Tensor& output, const Tensor& input) {
 
 Tensor habana_relu(const Tensor& input) {
   std::cout << "habana_relu called\n"; // TODO: remove
-  TORCH_CHECK(
-      input.scalar_type() == c10::ScalarType::Float,
-      "input tensor is not float32");
   auto output = at::empty(input.sizes(), input.options());
   synapse_relu(output, input);
 

@@ -151,7 +151,8 @@ void synapse_pool(
             "synNodeCreate failed");
       }
 #endif
-      const std::string pool_node_type = "maxpool_2d_fwd_f32";
+      const std::string pool_node_type = "maxpool_2d_fwd_" +
+          habana_helpers::name_suffix_from_type(input.scalar_type());
       { // add pool node
         // TODO: support pytorch layouts, uncomment when it is supported and
         // remove transpositions
