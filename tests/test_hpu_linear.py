@@ -32,6 +32,7 @@ def atest_hpu_linear(N, C, K):
     # print("result hpu", hpu_result)
     np.testing.assert_allclose(hpu_result.detach().numpy(), cpu_result.detach().numpy(), atol=0.001, rtol=1.e-3)
 
+@pytest.mark.skip(reason="SW-8819")
 @pytest.mark.parametrize("N, C, K", test_case_list)
 def test_hpu_linear_no_bias(N, C, K):
     hpu = torch.device('habana')
