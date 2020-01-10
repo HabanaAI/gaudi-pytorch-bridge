@@ -1,9 +1,11 @@
 #include <algorithm>
+#include <synapse_helpers/graph.h>
 
-#include "tensor_utils.h"
 #include "habana_device/fake_tensor_builder.h"
+#include "habana_device/HPUCheck.h"
+#include "tensor_utils.h"
 
-synDataType habana_helpers::pytorch_to_synapse_type(c10::ScalarType pt_type) {
+synDataType habana_helpers::pytorch_to_synapse_type(const c10::ScalarType pt_type) {
   static const std::unordered_map<c10::ScalarType, synDataType> map{
       {c10::ScalarType::Byte, synDataType::syn_type_uint8},
       {c10::ScalarType::Char, synDataType::syn_type_int8},
@@ -73,4 +75,15 @@ std::vector<std::string> habana_helpers::names(const std::vector<synapse_helpers
       [](auto& x) { return x.tensor_name_; });
 
   return names;
+}
+
+std::string habana_helpers::name_suffix_from_type(
+    const c10::ScalarType pt_type) {
+      auto string_or_error = synapse_helpers::graph::name_suffix_from_type(pytorch_to_synapse_type(pt_type));
+  if (absl::holds_alternative<synapse_helpers::synapse_error>(string_or_error)) {
+    auto error = absl::get<synapse_helpers::synapse_error>(string_or_error);
+    TORCH_HABANA_CHECK(error.status, error.error);
+  } else {
+    return absl::get<std::string>(string_or_error);
+  }
 }

@@ -7,7 +7,7 @@
 #include <vector>
 
 namespace habana_helpers {
-synDataType pytorch_to_synapse_type(c10::ScalarType pt_type);
+synDataType pytorch_to_synapse_type(const c10::ScalarType pt_type);
 
 synapse_helpers::tensor create_tensor(
     const at::Tensor& t,
@@ -21,4 +21,6 @@ create_tensors(
     const std::vector<bool> persistents);
 
 std::vector<std::string> names(const std::vector<synapse_helpers::tensor>&);
+
+std::string name_suffix_from_type(const c10::ScalarType pt_type);
 } // namespace habana_helpers

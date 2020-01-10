@@ -7,15 +7,14 @@ torch.ops.load_library("libhabana_pytorch_plugin.so")
 # Multiply matrices NxC * CxK = NxK
 test_case_list = [
     # N, C, K
-    ( 9, 8, 1),
+     pytest.param( 9, 8, 1, marks=pytest.mark.xfail(reason="SW-8820")),
     ( 1, 1, 3),
     pytest.param( 1, 2, 3, marks=pytest.mark.xfail(reason="SW-8560")),
     pytest.param( 8, 2, 3, marks=pytest.mark.xfail(reason="SW-8560")),
 ]
 
-@pytest.mark.skip
 @pytest.mark.parametrize("N, C, K", test_case_list)
-def atest_hpu_linear(N, C, K):
+def test_hpu_linear(N, C, K):
     hpu = torch.device('habana')
     cpu = torch.device('cpu')
 
