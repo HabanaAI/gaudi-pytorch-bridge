@@ -7,7 +7,7 @@ torch.ops.load_library("libhabana_pytorch_plugin.so")
 # Multiply matrices NxC * CxK = NxK
 test_case_list = [
     # N, C, K
-     pytest.param( 9, 8, 1, marks=pytest.mark.xfail(reason="SW-8820")),
+    pytest.param( 9, 8, 1, marks=pytest.mark.xfail(reason="SW-8820")),
     ( 1, 1, 3),
     pytest.param( 1, 2, 3, marks=pytest.mark.xfail(reason="SW-8560")),
     pytest.param( 8, 2, 3, marks=pytest.mark.xfail(reason="SW-8560")),

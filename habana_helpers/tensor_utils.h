@@ -12,12 +12,14 @@ synDataType pytorch_to_synapse_type(const c10::ScalarType pt_type);
 synapse_helpers::tensor create_tensor(
     const at::Tensor& t,
     std::string name,
+    synGraphHandle graph,
     bool persistent);
 
 std::tuple<std::vector<synapse_helpers::tensor>, std::vector<synTensor>>
 create_tensors(
     const std::vector<const at::Tensor*> tensors,
     const std::vector<std::string> names,
+    synGraphHandle graph,
     const std::vector<bool> persistents);
 
 std::vector<std::string> names(const std::vector<synapse_helpers::tensor>&);

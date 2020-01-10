@@ -14,7 +14,10 @@ void* HabanaAllocator::malloc(size_t num_bytes) {
 
   uint64_t ptr{0};
   TORCH_CHECK(
-      habana::allocator_active_device_id == 0, "habana active device: ", habana::allocator_active_device_id, " != 0");
+      habana::allocator_active_device_id == 0,
+      "habana active device: ",
+      habana::allocator_active_device_id,
+      " != 0");
   auto status{
       synDeviceMalloc(allocator_active_device_id, num_bytes, 0, 0, &ptr)};
   TORCH_HABANA_CHECK(
@@ -30,7 +33,10 @@ void HabanaAllocator::free(void* ptr) {
   }
   uint64_t ptr_address{reinterpret_cast<uint64_t>(ptr)};
   TORCH_CHECK(
-      habana::allocator_active_device_id == 0, "habana active device: ", habana::allocator_active_device_id, " != 0");
+      habana::allocator_active_device_id == 0,
+      "habana active device: ",
+      habana::allocator_active_device_id,
+      " != 0");
   auto status{synDeviceFree(allocator_active_device_id, ptr_address, 0)};
   TORCH_HABANA_CHECK(status, "synDeviceFree failed");
 }
@@ -44,7 +50,10 @@ static void HabanaDeviceDeleter(void* ptr) {
 at::DataPtr HPUDeviceAllocator::allocate(size_t size) const {
   void* ptr = habana_allocator.malloc(size);
   TORCH_CHECK(
-      habana::allocator_active_device_id == 0, "habana active device: ", habana::allocator_active_device_id, " != 0");
+      habana::allocator_active_device_id == 0,
+      "habana active device: ",
+      habana::allocator_active_device_id,
+      " != 0");
   return {ptr,
           ptr,
           &HabanaDeviceDeleter,
@@ -61,17 +70,17 @@ at::DeleterFnPtr HPUDeviceAllocator::raw_deleter() const {
 habana_helpers::HabanaAllocator::HabanaAllocator(uint32_t device)
     : device_id(device) {}
 
-void habana_helpers::HabanaAllocator::reset(uint32_t device) {
-  device_id = device;
+void habana_helpers::HabanaAllocator::reset() {
   TORCH_WARN(
-      "You probably shouldn't call HabanaAllocator::reset. If you really need to do it then remove this assert.\nDevice id: ",
-      device);
+      "You probably shouldn't call HabanaAllocator::reset. This function does nothing. Maybe you should implement it?");
 }
+
 void habana_helpers::HabanaAllocator::release() {
-  device_id = synapse_helpers::device_handle::INVALID_ID;
+  device_id = synapse_helpers::device::INVALID_ID;
   TORCH_WARN(
       "You probably shouldn't call HabanaAllocator::release. If you really need to do it then remove this assert");
 }
+
 void* habana_helpers::HabanaAllocator::alloc(size_t num_bytes) {
   if (num_bytes == 0) {
     return nullptr;

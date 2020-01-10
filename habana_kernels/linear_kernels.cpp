@@ -42,9 +42,13 @@ void synapse_matmul(
     std::tie(syn_helper_inputs, syn_inputs) = habana_helpers::create_tensors(
         std::vector<const at::Tensor*>{&mat1, &mat2},
         {"mat1", "mat2"},
+        graph_handle,
         {true, true});
     std::tie(syn_helper_outputs, syn_outputs) = habana_helpers::create_tensors(
-        std::vector<const at::Tensor*>{&output}, {"output"}, {true});
+        std::vector<const at::Tensor*>{&output},
+        {"output"},
+        graph_handle,
+        {true});
 
     const std::string node_type = "gemm";
     { // add node
@@ -107,9 +111,13 @@ void synapse_matmul(
     std::tie(syn_helper_inputs, syn_inputs) = habana_helpers::create_tensors(
         std::vector<const at::Tensor*>{&mat1, &mat2, &bias},
         {"mat1", "mat2", "bias"},
+        graph_handle,
         {true, true, true});
     std::tie(syn_helper_outputs, syn_outputs) = habana_helpers::create_tensors(
-        std::vector<const at::Tensor*>{&output}, {"output"}, {true});
+        std::vector<const at::Tensor*>{&output},
+        {"output"},
+        graph_handle,
+        {true});
 
     std::vector<synapse_helpers::tensor> syn_tmp_helper_tensors;
     const std::vector<std::string> tensor_tmp_names{"mm_out"};
@@ -121,6 +129,7 @@ void synapse_matmul(
             output.sizes().size(),
             output.sizes(),
             tensor_tmp_names[0],
+            graph_handle,
             false));
     std::vector<synTensor> syn_tmp_tensors(syn_tmp_helper_tensors.size());
     std::transform(
@@ -211,7 +220,8 @@ Tensor habana_matmul_with_bias(
 
   auto output = at::empty({mat1.size(0), mat2.size(1)}, mat1.options());
   Tensor bias_expanded;
-  std::tie(bias_expanded) = at::expand_size(self, output.sizes(), "habana_matmul_with_bias");
+  std::tie(bias_expanded) =
+      at::expand_size(self, output.sizes(), "habana_matmul_with_bias");
   synapse_matmul(output, mat1, mat2, bias_expanded, beta, alpha);
 
   return output;

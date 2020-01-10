@@ -8,7 +8,7 @@
 namespace synapse_helpers {
 class HPURegistrar {
   HPURegistrar() = default;
-  std::array<std::unique_ptr<synapse_helpers::device>, MAX_DEVICES_PER_BOX>
+  std::array<std::shared_ptr<synapse_helpers::device>, MAX_DEVICES_PER_BOX>
       acquired_devices;
   static HPURegistrar& get_hpu_registrar() {
     static HPURegistrar instance;
@@ -37,8 +37,8 @@ class HPURegistrar {
     return *(ret->get());
   }
 
-  static void insert_device(std::unique_ptr<synapse_helpers::device> device) {
-    get_hpu_registrar().acquired_devices[device->id()] = std::move(device);
+  static void insert_device(std::shared_ptr<synapse_helpers::device> device) {
+    get_hpu_registrar().acquired_devices[device->id()] = device;
   }
 
   static bool empty() {

@@ -62,10 +62,14 @@ void synapse_pool(
     std::vector<synTensor> syn_inputs, syn_outputs;
 
     std::tie(syn_helper_inputs, syn_inputs) = habana_helpers::create_tensors(
-        std::vector<const at::Tensor*>{&input}, {"input"}, {true});
+        std::vector<const at::Tensor*>{&input},
+        {"input"},
+        graph_handle,
+        {true});
     std::tie(syn_helper_outputs, syn_outputs) = habana_helpers::create_tensors(
         std::vector<const at::Tensor*>{&output_idx, &output},
         {"output_idx", "output"},
+        graph_handle,
         {true, true});
 
     { // dimshuffled tensors scope
@@ -86,6 +90,7 @@ void synapse_pool(
               habana_helpers::hack_pytorch_nhwc_shapes(
                   input.sizes(), TRANSPOSE_IMPLEMENTED == true),
               input_tmp_names[0],
+              graph_handle,
               false));
       syn_tmp_helper_outputs.push_back(
           synapse_helpers::tensor_builder::create_tensor(
@@ -96,6 +101,7 @@ void synapse_pool(
               habana_helpers::hack_pytorch_nhwc_shapes(
                   output.sizes(), TRANSPOSE_IMPLEMENTED == true),
               output_tmp_names[0],
+              graph_handle,
               false));
       syn_tmp_helper_outputs.push_back(
           synapse_helpers::tensor_builder::create_tensor(
@@ -106,6 +112,7 @@ void synapse_pool(
               habana_helpers::hack_pytorch_nhwc_shapes(
                   output_idx.sizes(), TRANSPOSE_IMPLEMENTED == true),
               output_tmp_names[1],
+              graph_handle,
               false));
 
       std::vector<synTensor> syn_tmp_inputs(syn_tmp_helper_inputs.size());

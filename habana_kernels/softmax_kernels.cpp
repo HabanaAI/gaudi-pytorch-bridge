@@ -28,15 +28,21 @@ void synapse_log_softmax(
     std::vector<synTensor> syn_inputs, syn_outputs;
 
     std::tie(syn_helper_inputs, syn_inputs) = habana_helpers::create_tensors(
-        std::vector<const at::Tensor*>{&input}, {"input"}, {true});
+        std::vector<const at::Tensor*>{&input},
+        {"input"},
+        graph_handle,
+        {true});
     std::tie(syn_helper_outputs, syn_outputs) = habana_helpers::create_tensors(
-        std::vector<const at::Tensor*>{&output}, {"output"}, {true});
+        std::vector<const at::Tensor*>{&output},
+        {"output"},
+        graph_handle,
+        {true});
 
     const std::vector<std::string> temp_names{"tmp"};
     std::vector<synapse_helpers::tensor> syn_helper_temps{};
     // temp tensor will have the same properties as output
-    syn_helper_temps.push_back(
-        habana_helpers::create_tensor(output, temp_names[0], false));
+    syn_helper_temps.push_back(habana_helpers::create_tensor(
+        output, temp_names[0], graph_handle, false));
 
     std::vector<synTensor> syn_temps(syn_helper_temps.size());
     std::transform(

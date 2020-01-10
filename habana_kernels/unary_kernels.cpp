@@ -24,9 +24,15 @@ void synapse_relu(const Tensor& output, const Tensor& input) {
     std::vector<synTensor> syn_inputs, syn_outputs;
 
     std::tie(syn_helper_inputs, syn_inputs) = habana_helpers::create_tensors(
-        std::vector<const at::Tensor*>{&input}, {"input"}, {true});
+        std::vector<const at::Tensor*>{&input},
+        {"input"},
+        graph_handle,
+        {true});
     std::tie(syn_helper_outputs, syn_outputs) = habana_helpers::create_tensors(
-        std::vector<const at::Tensor*>{&output}, {"output"}, {true});
+        std::vector<const at::Tensor*>{&output},
+        {"output"},
+        graph_handle,
+        {true});
 
     {
       const std::string node_type = "relu_fwd_" +

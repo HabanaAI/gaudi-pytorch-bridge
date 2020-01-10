@@ -1,11 +1,12 @@
-#include <algorithm>
 #include <synapse_helpers/graph.h>
+#include <algorithm>
 
-#include "habana_device/fake_tensor_builder.h"
 #include "habana_device/HPUCheck.h"
+#include "habana_device/fake_tensor_builder.h"
 #include "tensor_utils.h"
 
-synDataType habana_helpers::pytorch_to_synapse_type(const c10::ScalarType pt_type) {
+synDataType habana_helpers::pytorch_to_synapse_type(
+    const c10::ScalarType pt_type) {
   static const std::unordered_map<c10::ScalarType, synDataType> map{
       {c10::ScalarType::Byte, synDataType::syn_type_uint8},
       {c10::ScalarType::Char, synDataType::syn_type_int8},
@@ -27,6 +28,7 @@ synDataType habana_helpers::pytorch_to_synapse_type(const c10::ScalarType pt_typ
 synapse_helpers::tensor habana_helpers::create_tensor(
     const at::Tensor& tensor,
     std::string name,
+    synGraphHandle graph,
     bool persistent) {
   return synapse_helpers::tensor_builder::create_tensor(
       tensor.device().index(),
@@ -35,6 +37,7 @@ synapse_helpers::tensor habana_helpers::create_tensor(
       tensor.sizes().size(),
       tensor.sizes(),
       name,
+      graph,
       persistent);
 }
 
@@ -42,6 +45,7 @@ std::tuple<std::vector<synapse_helpers::tensor>, std::vector<synTensor>>
 habana_helpers::create_tensors(
     const std::vector<const at::Tensor*> tensors,
     const std::vector<std::string> names,
+    synGraphHandle graph,
     const std::vector<bool> persistents) {
   const auto num_tensors = tensors.size();
   TORCH_CHECK(names.size() == num_tensors);
@@ -56,31 +60,33 @@ habana_helpers::create_tensors(
   syn_tensors.reserve(num_tensors);
 
   for (size_t i = 0; i < num_tensors; ++i) {
-    tensor_helpers.push_back(
-        habana_helpers::create_tensor(*tensors[i], names[i], persistents[i]));
+    tensor_helpers.push_back(habana_helpers::create_tensor(
+        *tensors[i], names[i], graph, persistents[i]));
     syn_tensors.push_back(tensor_helpers[i].get());
   }
 
   return {std::move(tensor_helpers), std::move(syn_tensors)};
 }
 
-std::vector<std::string> habana_helpers::names(const std::vector<synapse_helpers::tensor>& vec){
+std::vector<std::string> habana_helpers::names(
+    const std::vector<synapse_helpers::tensor>& vec) {
   std::vector<std::string> names;
   names.reserve(vec.size());
 
   std::transform(
-      vec.begin(),
-      vec.end(),
-      std::back_inserter(names),
-      [](auto& x) { return x.tensor_name_; });
+      vec.begin(), vec.end(), std::back_inserter(names), [](auto& x) {
+        return x.tensor_name_;
+      });
 
   return names;
 }
 
 std::string habana_helpers::name_suffix_from_type(
     const c10::ScalarType pt_type) {
-      auto string_or_error = synapse_helpers::graph::name_suffix_from_type(pytorch_to_synapse_type(pt_type));
-  if (absl::holds_alternative<synapse_helpers::synapse_error>(string_or_error)) {
+  auto string_or_error = synapse_helpers::graph::name_suffix_from_type(
+      pytorch_to_synapse_type(pt_type));
+  if (absl::holds_alternative<synapse_helpers::synapse_error>(
+          string_or_error)) {
     auto error = absl::get<synapse_helpers::synapse_error>(string_or_error);
     TORCH_HABANA_CHECK(error.status, error.error);
   } else {

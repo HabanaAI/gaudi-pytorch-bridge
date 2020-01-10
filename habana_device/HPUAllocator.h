@@ -31,12 +31,12 @@ class HabanaAllocator : public synapse_helpers::device_allocator {
  public:
   HabanaAllocator(synDeviceId);
 
-  void reset(uint32_t device_id) override;
+  void reset() override;
   void release() override;
   void* alloc(size_t size) override;
   void free(void* ptr) override;
 
  private:
-  synDeviceId device_id{synapse_helpers::device_handle::INVALID_ID};
+  synDeviceId device_id{synapse_helpers::device::INVALID_ID};
 };
 } // namespace habana_helpers

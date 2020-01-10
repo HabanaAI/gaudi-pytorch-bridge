@@ -12,8 +12,6 @@
 namespace at {
 namespace detail {
 
-extern bool synapse_init;
-
 struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
   HABANAGuardImpl() = default;
   DeviceType type() const override {
@@ -34,16 +32,12 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
   }
   Device getDevice() const override {
     if (synapse_helpers::HPURegistrar::empty()) {
-      if (!synapse_init) {
-        TORCH_HABANA_CHECK(synInitialize());
-        synapse_init = true;
-      }
-
-      // TODO: create shouldn't get device id as input, I don't know which
-      // device will be acquired
-      auto device_ptr_or_error = synapse_helpers::device::create(
+      auto device_ptr_or_error = synapse_helpers::device::get_or_create(
           synDeviceType::synDeviceGaudi,
-          std::make_unique<habana_helpers::HabanaAllocator>(0));
+          [](synDeviceId id)
+              -> std::unique_ptr<synapse_helpers::device_allocator> {
+            return std::make_unique<habana_helpers::HabanaAllocator>(id);
+          });
 
       if (absl::holds_alternative<synapse_helpers::synapse_error>(
               device_ptr_or_error)) {
@@ -51,9 +45,9 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
             absl::get<synapse_helpers::synapse_error>(device_ptr_or_error);
         TORCH_HABANA_CHECK(error.status, error.error);
       } else {
-        auto device_ptr = absl::get<std::unique_ptr<synapse_helpers::device>>(
-            std::move(device_ptr_or_error));
-        synapse_helpers::HPURegistrar::insert_device(std::move(device_ptr));
+        auto device_ptr = absl::get<std::shared_ptr<synapse_helpers::device>>(
+            device_ptr_or_error);
+        synapse_helpers::HPURegistrar::insert_device(device_ptr);
       }
     }
     auto& device = synapse_helpers::HPURegistrar::get_device();

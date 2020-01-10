@@ -23,6 +23,7 @@ class tensor_builder final {
       unsigned dimension_count,
       c10::IntArrayRef shape,
       std::string tensor_name,
+      synGraphHandle graph,
       bool is_persistent) {
     return create_tensor(
         device_id,
@@ -31,6 +32,7 @@ class tensor_builder final {
         dimension_count,
         shape.vec(),
         tensor_name,
+        graph,
         is_persistent);
   }
 
@@ -41,6 +43,7 @@ class tensor_builder final {
       unsigned dimension_count,
       std::vector<int64_t> shape,
       std::string tensor_name,
+      synGraphHandle graph,
       bool is_persistent) {
     TORCH_CHECK(dimension_count == shape.size());
     TORCH_CHECK(
@@ -62,7 +65,11 @@ class tensor_builder final {
         dimension_count,
         dimensions,
         tensor_name,
-        is_persistent);
+        graph,
+        is_persistent
+        //TODO: investigate this, afaik nullptr means it is workspace but eveyrhting seems to work
+        // ,synSectionHandle memory_section = nullptr
+        );
 
     auto error = result_tensor.create();
     SYNAPSE_HELPERS_ASSERT_OPTIONAL(error);
