@@ -52,9 +52,9 @@ void synapse_log_softmax(
         [](auto& x) { return x.get(); });
     {
       // TODO: use logsoftmax_fwd_f32 instead of log + softmax
-      const std::string node1_type = "softmax_fwd_" +
+      const std::string node1_type = "log_fwd_" +
           habana_helpers::name_suffix_from_type(input.scalar_type());
-      const std::string node2_type = "log_fwd_" +
+      const std::string node2_type = "softmax_fwd_" +
           habana_helpers::name_suffix_from_type(input.scalar_type());
 
       TORCH_CHECK(
@@ -68,8 +68,8 @@ void synapse_log_softmax(
                 syn_temps.data(),
                 syn_inputs.size(),
                 syn_temps.size(),
-                &params,
-                sizeof(params),
+                nullptr,
+                0,
                 node1_type.c_str(),
                 "",
                 nullptr,
@@ -83,8 +83,8 @@ void synapse_log_softmax(
                 syn_outputs.data(),
                 syn_temps.size(),
                 syn_outputs.size(),
-                nullptr,
-                0,
+                &params,
+                sizeof(params),
                 node2_type.c_str(),
                 "",
                 nullptr,
