@@ -14,7 +14,7 @@ Tensor permute_hpu(const Tensor& self, IntArrayRef dims) {
 }
 
 // cpu->hpu and hpu->cpu copy implementation
-Tensor& copy_hpu(Tensor& self, const Tensor& src, bool non_blocking) {
+Tensor& copy_hpu_(Tensor& self, const Tensor& src, bool non_blocking) {
   // TODO: (from torch code) this should be handled during dispatch, but that's
   // missing...
   Tensor& dst = self;
@@ -52,12 +52,12 @@ Tensor& copy_hpu(Tensor& self, const Tensor& src, bool non_blocking) {
     device_id = dst.device().index();
     TORCH_CHECK(
         dst.device().index() == src.device().index(),
-        "Tensors can't be copied between devices using copy_hpu");
+        "Tensors can't be copied between devices using copy_hpu_");
     dma_type = synDmaDir::DRAM_TO_DRAM;
   } else {
     TORCH_CHECK(
         false,
-        "copy_hpu doesn't support ",
+        "copy_hpu_ doesn't support ",
         src_device,
         " to ",
         dst_device,
@@ -90,13 +90,13 @@ Tensor& copy_hpu(Tensor& self, const Tensor& src, bool non_blocking) {
   return dst;
 }
 
-Tensor& set_hpu(
+Tensor& set_hpu_(
     Tensor& self,
     Storage source,
     int64_t storage_offset,
     IntArrayRef size,
     IntArrayRef stride) {
-  std::cout << "set_hpu called\n";
+  std::cout << "set_hpu_ called\n";
   if (stride.data()) {
     TORCH_CHECK(size.size() == stride.size(), "inconsistent size/stride sizes");
   }
@@ -151,7 +151,7 @@ static auto registry =
         .op(torch::RegisterOperators::options()
                 .schema(
                     "aten::copy_(Tensor(a!) self, Tensor src, bool non_blocking=False) -> Tensor(a!)")
-                .impl_unboxedOnlyKernel<decltype(copy_hpu), &copy_hpu>(
+                .impl_unboxedOnlyKernel<decltype(copy_hpu_), &copy_hpu_>(
                     TensorTypeId::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
@@ -171,7 +171,7 @@ static auto registry =
         .op(torch::RegisterOperators::options()
                 .schema(
                     "aten::set_.source_Storage_storage_offset( Tensor(a !) self, Storage source, int storage_offset, int[] size, int[] stride = []) ->Tensor(a !)")
-                .impl_unboxedOnlyKernel<decltype(set_hpu), &set_hpu>(
+                .impl_unboxedOnlyKernel<decltype(set_hpu_), &set_hpu_>(
                     TensorTypeId::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
