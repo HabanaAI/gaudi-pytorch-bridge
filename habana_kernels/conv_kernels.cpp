@@ -255,7 +255,7 @@ void synapse_convolution(
   TORCH_HABANA_CHECK(synGraphDestroy(graph_handle), "synGraphDestroy failed");
 }
 
-Tensor habana_convolution(
+Tensor convolution_hpu(
     const Tensor& input,
     const Tensor& weight,
     const Tensor& bias,
@@ -265,7 +265,7 @@ Tensor habana_convolution(
     bool transposed,
     IntArrayRef output_padding,
     int64_t groups) {
-  std::cout << "habana_convolution called\n"; // TODO: remove
+  std::cout << "convolution_hpu called\n"; // TODO: remove
 
   habana_helpers::check_convolution_params(
       input,
@@ -323,7 +323,6 @@ static auto registry = torch::RegisterOperators().op(
     torch::RegisterOperators::options()
         .schema(
             "aten::convolution_overrideable(Tensor input, Tensor weight, Tensor? bias, int[] stride, int[] padding, int[] dilation, bool transposed, int[] output_padding, int groups) -> Tensor")
-        .impl_unboxedOnlyKernel<
-            decltype(habana_convolution),
-            &habana_convolution>(TensorTypeId::HABANATensorId)
+        .impl_unboxedOnlyKernel<decltype(convolution_hpu), &convolution_hpu>(
+            TensorTypeId::HABANATensorId)
         .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));

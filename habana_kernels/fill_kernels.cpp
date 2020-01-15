@@ -8,9 +8,9 @@
 
 using namespace torch;
 
-Tensor& habana_fill_(Tensor& self, Scalar value) {
-  std::cout << "habana_fill_ called\n";
-  TORCH_WARN("habana_fill_ executes CPU kernel internally");
+Tensor& fill_hpu(Tensor& self, Scalar value) {
+  std::cout << "fill_hpu called\n";
+  TORCH_WARN("fill_hpu executes CPU kernel internally");
 
   auto hpu = self.device();
   auto self_ = self.to(DeviceType::CPU);
@@ -24,6 +24,6 @@ static auto registry = torch::RegisterOperators().op(
     torch::RegisterOperators::options()
         .schema(
             "aten::fill_.Scalar(Tensor(a!) self, Scalar value) -> Tensor(a!)")
-        .impl_unboxedOnlyKernel<decltype(habana_fill_), &habana_fill_>(
+        .impl_unboxedOnlyKernel<decltype(fill_hpu), &fill_hpu>(
             TensorTypeId::HABANATensorId)
         .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));

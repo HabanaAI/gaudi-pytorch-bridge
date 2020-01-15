@@ -24,19 +24,19 @@ void check_pool_params(
   TORCH_CHECK(
       std::all_of(
           dilation.cbegin(), dilation.cend(), [](int64_t x) { return x == 1; }),
-      "habana_convolution doesn't support dilation");
+      "convolution_hpu doesn't support dilation");
   TORCH_CHECK(
       std::all_of(
           padding.cbegin(), padding.cend(), [](int64_t x) { return x == 0; }),
-      "habana_convolution doesn't support input padding");
+      "convolution_hpu doesn't support input padding");
   TORCH_CHECK(
       input.device().type() == c10::DeviceType::HABANA,
       "input is not habana at::Tensor");
   TORCH_CHECK(
-      stride.size() == 2, "stride size != 2 unsupported by habana_convolution");
+      stride.size() == 2, "stride size != 2 unsupported by convolution_hpu");
   TORCH_CHECK(
       padding.size() == 2,
-      "padding size != 2 unsupported by habana_convolution");
+      "padding size != 2 unsupported by convolution_hpu");
 }
 
 void check_convolution_params(
@@ -49,15 +49,15 @@ void check_convolution_params(
     const bool transposed,
     const at::IntArrayRef output_padding,
     const int64_t groups) {
-  TORCH_CHECK(groups == 1, "habana_convolution doesn't support groups");
+  TORCH_CHECK(groups == 1, "convolution_hpu doesn't support groups");
   TORCH_CHECK(
-      transposed == false, "habana_convolution doesn't support transposition");
+      transposed == false, "convolution_hpu doesn't support transposition");
   TORCH_CHECK(
       std::all_of(
           output_padding.cbegin(),
           output_padding.cend(),
           [](int64_t x) { return x == 0; }),
-      "habana_convolution doesn't support output padding");
+      "convolution_hpu doesn't support output padding");
   TORCH_CHECK(
       weight.device().type() == c10::DeviceType::HABANA,
       "weight is not habana at::Tensor");

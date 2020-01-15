@@ -67,8 +67,8 @@ void synapse_relu(const Tensor& output, const Tensor& input) {
   TORCH_HABANA_CHECK(synGraphDestroy(graph_handle), "synGraphDestroy failed");
 }
 
-Tensor habana_relu(const Tensor& input) {
-  std::cout << "habana_relu called\n"; // TODO: remove
+Tensor relu_hpu(const Tensor& input) {
+  std::cout << "relu_hpu called\n"; // TODO: remove
   auto output = at::empty(input.sizes(), input.options());
   synapse_relu(output, input);
 
@@ -78,6 +78,6 @@ Tensor habana_relu(const Tensor& input) {
 static auto registry = torch::RegisterOperators().op(
     torch::RegisterOperators::options()
         .schema("aten::relu(Tensor self) -> Tensor")
-        .impl_unboxedOnlyKernel<decltype(habana_relu), &habana_relu>(
+        .impl_unboxedOnlyKernel<decltype(relu_hpu), &relu_hpu>(
             TensorTypeId::HABANATensorId)
         .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));

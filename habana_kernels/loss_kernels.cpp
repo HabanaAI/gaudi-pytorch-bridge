@@ -9,13 +9,13 @@
 
 using namespace torch;
 
-std::tuple<Tensor, Tensor> habana_nll_loss_forward(
+std::tuple<Tensor, Tensor> nll_loss_forward_hpu(
     const Tensor& self,
     const Tensor& target,
     const Tensor& weight,
     int64_t reduction,
     int64_t ignore_index) {
-  TORCH_WARN("habana_nll_loss_forward executes CPU kernel internally");
+  TORCH_WARN("nll_loss_forward_hpu executes CPU kernel internally");
   auto hpu = self.device();
   auto self_ = self.to(DeviceType::CPU);
   auto target_ = target.to(DeviceType::CPU);
@@ -34,6 +34,6 @@ static auto registry = torch::RegisterOperators().op(
         .schema(
             "aten::nll_loss_forward(Tensor self, Tensor target, Tensor? weight, int reduction, int ignore_index) ->(Tensor output, Tensor total_weight) ")
         .impl_unboxedOnlyKernel<
-            decltype(habana_nll_loss_forward),
-            &habana_nll_loss_forward>(TensorTypeId::HABANATensorId)
+            decltype(nll_loss_forward_hpu),
+            &nll_loss_forward_hpu>(TensorTypeId::HABANATensorId)
         .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));

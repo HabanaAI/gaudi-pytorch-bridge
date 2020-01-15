@@ -226,14 +226,14 @@ void synapse_pool(
   TORCH_HABANA_CHECK(synGraphDestroy(graph_handle), "synGraphDestroy failed");
 }
 
-std::tuple<Tensor, Tensor> habana_max_pool2d_with_indices(
+std::tuple<Tensor, Tensor> max_pool2d_with_indices_hpu(
     const Tensor& input,
     IntArrayRef kernel_size,
     IntArrayRef stride,
     IntArrayRef padding,
     IntArrayRef dilation,
     bool ceil_mode) {
-  std::cout << "habana_max_pool2d_with_indices called\n"; // TODO: remove
+  std::cout << "max_pool2d_with_indices_hpu called\n"; // TODO: remove
 
   // TODO:: add support for ceil mode
   TORCH_CHECK(ceil_mode == false, "Pooling ceil_mode is not yet implemented");
@@ -287,6 +287,6 @@ static auto registry = torch::RegisterOperators().op(
         .schema(
             "aten::max_pool2d_with_indices(Tensor self, int[2] kernel_size, int[2] stride = [], int[2] padding = 0, int[2] dilation = 1, bool ceil_mode = False) ->(Tensor, Tensor) ")
         .impl_unboxedOnlyKernel<
-            decltype(habana_max_pool2d_with_indices),
-            &habana_max_pool2d_with_indices>(TensorTypeId::HABANATensorId)
+            decltype(max_pool2d_with_indices_hpu),
+            &max_pool2d_with_indices_hpu>(TensorTypeId::HABANATensorId)
         .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));

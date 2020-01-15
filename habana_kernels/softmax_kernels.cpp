@@ -105,11 +105,11 @@ void synapse_log_softmax(
   TORCH_HABANA_CHECK(synGraphDestroy(graph_handle), "synGraphDestroy failed");
 }
 
-Tensor habana_log_softmax(
+Tensor log_softmax_hpu(
     const Tensor& self,
     const int64_t dim,
     const bool half_to_float) {
-  std::cout << "habana_log_softmax called\n"; // TODO: remove
+  std::cout << "log_softmax_hpu called\n"; // TODO: remove
 
   TORCH_CHECK(
       !half_to_float,
@@ -126,7 +126,6 @@ static auto registry = torch::RegisterOperators().op(
     torch::RegisterOperators::options()
         .schema(
             "aten::_log_softmax(Tensor self, int dim, bool half_to_float) -> Tensor")
-        .impl_unboxedOnlyKernel<
-            decltype(habana_log_softmax),
-            &habana_log_softmax>(TensorTypeId::HABANATensorId)
+        .impl_unboxedOnlyKernel<decltype(log_softmax_hpu), &log_softmax_hpu>(
+            TensorTypeId::HABANATensorId)
         .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));

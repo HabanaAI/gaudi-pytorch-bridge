@@ -8,13 +8,13 @@
 
 using namespace torch;
 
-Tensor habana_permute(const Tensor& self, IntArrayRef dims) {
-  std::cout << "habana_permute called\n";
+Tensor permute_hpu(const Tensor& self, IntArrayRef dims) {
+  std::cout << "permute_hpu called\n";
   return self.to(DeviceType::CPU).permute(dims).contiguous().to(self.device());
 }
 
 // cpu->hpu and hpu->cpu copy implementation
-Tensor& hpu_copy_(Tensor& self, const Tensor& src, bool non_blocking) {
+Tensor& copy_hpu(Tensor& self, const Tensor& src, bool non_blocking) {
   // TODO: (from torch code) this should be handled during dispatch, but that's
   // missing...
   Tensor& dst = self;
@@ -52,12 +52,12 @@ Tensor& hpu_copy_(Tensor& self, const Tensor& src, bool non_blocking) {
     device_id = dst.device().index();
     TORCH_CHECK(
         dst.device().index() == src.device().index(),
-        "Tensors can't be copied between devices using hpu_copy_");
+        "Tensors can't be copied between devices using copy_hpu");
     dma_type = synDmaDir::DRAM_TO_DRAM;
   } else {
     TORCH_CHECK(
         false,
-        "hpu_copy_ doesn't support ",
+        "copy_hpu doesn't support ",
         src_device,
         " to ",
         dst_device,
@@ -90,13 +90,13 @@ Tensor& hpu_copy_(Tensor& self, const Tensor& src, bool non_blocking) {
   return dst;
 }
 
-Tensor& habana_set(
+Tensor& set_hpu(
     Tensor& self,
     Storage source,
     int64_t storage_offset,
     IntArrayRef size,
     IntArrayRef stride) {
-  std::cout << "habana_set called\n";
+  std::cout << "set_hpu called\n";
   if (stride.data()) {
     TORCH_CHECK(size.size() == stride.size(), "inconsistent size/stride sizes");
   }
@@ -151,7 +151,7 @@ static auto registry =
         .op(torch::RegisterOperators::options()
                 .schema(
                     "aten::copy_(Tensor(a!) self, Tensor src, bool non_blocking=False) -> Tensor(a!)")
-                .impl_unboxedOnlyKernel<decltype(hpu_copy_), &hpu_copy_>(
+                .impl_unboxedOnlyKernel<decltype(copy_hpu), &copy_hpu>(
                     TensorTypeId::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
@@ -165,14 +165,13 @@ static auto registry =
         .op(torch::RegisterOperators::options()
                 .schema(
                     "aten::permute(Tensor(a) self, int[] dims) -> Tensor(a)")
-                .impl_unboxedOnlyKernel<
-                    decltype(habana_permute),
-                    &habana_permute>(TensorTypeId::HABANATensorId)
+                .impl_unboxedOnlyKernel<decltype(permute_hpu), &permute_hpu>(
+                    TensorTypeId::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema(
                     "aten::set_.source_Storage_storage_offset( Tensor(a !) self, Storage source, int storage_offset, int[] size, int[] stride = []) ->Tensor(a !)")
-                .impl_unboxedOnlyKernel<decltype(habana_set), &habana_set>(
+                .impl_unboxedOnlyKernel<decltype(set_hpu), &set_hpu>(
                     TensorTypeId::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()

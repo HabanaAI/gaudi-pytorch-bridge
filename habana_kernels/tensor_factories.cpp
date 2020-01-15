@@ -21,7 +21,7 @@ static inline void check_size_nonnegative(IntArrayRef size) {
 
 namespace at {
 namespace native {
-Tensor habana_empty(
+Tensor empty_hpu(
     IntArrayRef size,
     const TensorOptions& options,
     c10::optional<MemoryFormat> optional_memory_format) {
@@ -67,13 +67,13 @@ Tensor habana_empty(
   return tensor;
 }
 
-Tensor habana_empty_strided(
+Tensor empty_strided_hpu(
     IntArrayRef size,
     IntArrayRef stride,
     const TensorOptions& options) {
   check_size_nonnegative(size);
-  auto t = at::native::habana_empty({0}, options, c10::nullopt);
-  at::native::resize_impl_habana_(t.unsafeGetTensorImpl(), size, stride);
+  auto t = at::native::empty_hpu({0}, options, c10::nullopt);
+  at::native::resize_impl_hpu_(t.unsafeGetTensorImpl(), size, stride);
   return t;
 }
 } // namespace native
@@ -85,14 +85,14 @@ static auto registry =
                 .schema(
                     "aten::empty.memory_format(int[] size, *, ScalarType? dtype=None, Layout? layout=None, Device? device=None, bool? pin_memory=None, MemoryFormat? memory_format=None) -> Tensor")
                 .impl_unboxedOnlyKernel<
-                    decltype(at::native::habana_empty),
-                    &at::native::habana_empty>(TensorTypeId::HABANATensorId)
+                    decltype(at::native::empty_hpu),
+                    &at::native::empty_hpu>(TensorTypeId::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema(
                     "aten::empty_strided(int[] size, int[] stride, *, ScalarType? dtype=None, Layout? layout=None, Device? device=None, bool? pin_memory=None) -> Tensor")
                 .impl_unboxedOnlyKernel<
-                    decltype(at::native::habana_empty_strided),
-                    &at::native::habana_empty_strided>(
+                    decltype(at::native::empty_strided_hpu),
+                    &at::native::empty_strided_hpu>(
                     TensorTypeId::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));

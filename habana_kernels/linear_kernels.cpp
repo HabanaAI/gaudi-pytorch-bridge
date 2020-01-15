@@ -15,10 +15,8 @@
 using namespace torch;
 
 void check_matmul_params(const Tensor& mat1, const Tensor& mat2) {
-  TORCH_CHECK(
-      mat1.ndimension() == 2, "habana_matmul supports only 2d matrices");
-  TORCH_CHECK(
-      mat2.ndimension() == 2, "habana_matmul supports only 2d matrices");
+  TORCH_CHECK(mat1.ndimension() == 2, "matmul_hpu supports only 2d matrices");
+  TORCH_CHECK(mat2.ndimension() == 2, "matmul_hpu supports only 2d matrices");
   TORCH_CHECK(
       mat1.size(1) == mat2.size(0), "matmul inner dimensions doesn't match");
 }
@@ -93,11 +91,9 @@ void synapse_matmul(
     const Scalar& alpha) {
   // TODO: implement support for scalars
   TORCH_CHECK(
-      beta.to<int>() == 1,
-      "habana_matmul_with_bias doesn't support scalars yet");
+      beta.to<int>() == 1, "matmul_with_bias_hpu doesn't support scalars yet");
   TORCH_CHECK(
-      alpha.to<int>() == 1,
-      "habana_matmul_with_bias doesn't support scalars yet");
+      alpha.to<int>() == 1, "matmul_with_bias_hpu doesn't support scalars yet");
   const auto device_id = mat1.device().index();
   // graph_handle scope
   synGraphHandle graph_handle;
@@ -188,8 +184,8 @@ void synapse_matmul(
   TORCH_HABANA_CHECK(synGraphDestroy(graph_handle), "synGraphDestroy failed");
 }
 
-Tensor habana_matmul(const Tensor& mat1, const Tensor& mat2) {
-  std::cout << "habana_matmul called\n"; // TODO: remove
+Tensor matmul_hpu(const Tensor& mat1, const Tensor& mat2) {
+  std::cout << "matmul_hpu called\n"; // TODO: remove
   check_matmul_params(mat1, mat2);
 
   auto output = at::empty({mat1.size(0), mat2.size(1)}, mat1.options());
@@ -198,13 +194,13 @@ Tensor habana_matmul(const Tensor& mat1, const Tensor& mat2) {
   return output;
 }
 
-Tensor habana_matmul_with_bias(
+Tensor matmul_with_bias_hpu(
     const Tensor& self,
     const Tensor& mat1,
     const Tensor& mat2,
     Scalar beta,
     Scalar alpha) {
-  std::cout << "habana_matmul_with_bias called\n"; // TODO: remove
+  std::cout << "matmul_with_bias_hpu called\n"; // TODO: remove
   check_matmul_params(mat1, mat2);
   TORCH_CHECK(
       self.sizes().size() == 1,
@@ -221,7 +217,7 @@ Tensor habana_matmul_with_bias(
   auto output = at::empty({mat1.size(0), mat2.size(1)}, mat1.options());
   Tensor bias_expanded;
   std::tie(bias_expanded) =
-      at::expand_size(self, output.sizes(), "habana_matmul_with_bias");
+      at::expand_size(self, output.sizes(), "matmul_with_bias_hpu");
   synapse_matmul(output, mat1, mat2, bias_expanded, beta, alpha);
 
   return output;
@@ -231,14 +227,13 @@ static auto registry =
     torch::RegisterOperators()
         .op(torch::RegisterOperators::options()
                 .schema("aten::mm(Tensor self, Tensor mat2) -> Tensor")
-                .impl_unboxedOnlyKernel<
-                    decltype(habana_matmul),
-                    &habana_matmul>(TensorTypeId::HABANATensorId)
+                .impl_unboxedOnlyKernel<decltype(matmul_hpu), &matmul_hpu>(
+                    TensorTypeId::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema(
                     "aten::addmm(Tensor self, Tensor mat1, Tensor mat2, *, Scalar beta = 1, Scalar alpha = 1) ->Tensor")
                 .impl_unboxedOnlyKernel<
-                    decltype(habana_matmul_with_bias),
-                    &habana_matmul_with_bias>(TensorTypeId::HABANATensorId)
+                    decltype(matmul_with_bias_hpu),
+                    &matmul_with_bias_hpu>(TensorTypeId::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));

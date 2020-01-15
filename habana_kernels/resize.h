@@ -61,7 +61,7 @@ static void THHStorage_resize(THStorage* self, ptrdiff_t size) {
 // These functions are called by native::resize_ as well as (legacy) THC resize.
 // They are not in THC/THCTensor.cpp because the at namespace is easier
 // to benchmark than THC; I can't get gbenchmark to call fns from THTensor.cpp
-inline void maybe_resize_storage_habana(TensorImpl* self, int64_t new_size) {
+inline void maybe_resize_storage_hpu(TensorImpl* self, int64_t new_size) {
   // It does not make sense to try to resize a storage
   // to hold 0 elements, and this can break
   // if storage_offset is positive but
@@ -78,7 +78,7 @@ inline void maybe_resize_storage_habana(TensorImpl* self, int64_t new_size) {
   }
 }
 
-inline TensorImpl* resize_impl_habana_(
+inline TensorImpl* resize_impl_hpu_(
     TensorImpl* self,
     IntArrayRef size,
     c10::optional<IntArrayRef> stride,
@@ -111,7 +111,7 @@ inline TensorImpl* resize_impl_habana_(
     self->set_sizes_contiguous(size);
     storage_size = self->numel();
   }
-  maybe_resize_storage_habana(self, storage_size);
+  maybe_resize_storage_hpu(self, storage_size);
 
   return self;
 }
@@ -133,7 +133,7 @@ static void THHTensor_resizeNd(
   if (stride) {
     strides = at::IntArrayRef(stride, nDimension);
   }
-  at::native::resize_impl_habana_(
+  at::native::resize_impl_hpu_(
       self,
       sizes,
       strides,
