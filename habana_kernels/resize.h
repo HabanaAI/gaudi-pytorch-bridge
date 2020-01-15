@@ -10,8 +10,8 @@
 
 namespace at {
 namespace native {
-
-void THHStorage_resize(THStorage* self, ptrdiff_t size) {
+// TODO: remove static from this function
+static void THHStorage_resize(THStorage* self, ptrdiff_t size) {
   TORCH_CHECK(size >= 0, "invalid size");
   TORCH_CHECK(self->allocator() != nullptr);
   int device = habana::allocator_active_device_id;
@@ -61,9 +61,7 @@ void THHStorage_resize(THStorage* self, ptrdiff_t size) {
 // These functions are called by native::resize_ as well as (legacy) THC resize.
 // They are not in THC/THCTensor.cpp because the at namespace is easier
 // to benchmark than THC; I can't get gbenchmark to call fns from THTensor.cpp
-static inline void maybe_resize_storage_habana(
-    TensorImpl* self,
-    int64_t new_size) {
+inline void maybe_resize_storage_habana(TensorImpl* self, int64_t new_size) {
   // It does not make sense to try to resize a storage
   // to hold 0 elements, and this can break
   // if storage_offset is positive but
@@ -123,7 +121,8 @@ inline TensorImpl* resize_impl_habana_(
 
 // THH = TorcH Habana
 // TODO: put it in proper namespace
-void THHTensor_resizeNd(
+// TODO: remove static from this function
+static void THHTensor_resizeNd(
     THTensor* self,
     int nDimension,
     const int64_t* size,

@@ -23,11 +23,13 @@ add_library(habana_pytorch_plugin SHARED
   habana_kernels/basic_kernels.cpp
   habana_kernels/conv_kernels.cpp
   habana_kernels/conv_pool_utils.cpp
+  habana_kernels/fill_kernels.cpp
   habana_kernels/kernel_utils.cpp
   habana_kernels/linear_kernels.cpp
   habana_kernels/loss_kernels.cpp
   habana_kernels/pool_kernels.cpp
   habana_kernels/softmax_kernels.cpp
+  habana_kernels/tensor_factories.cpp
   habana_kernels/unary_kernels.cpp
 )
 
