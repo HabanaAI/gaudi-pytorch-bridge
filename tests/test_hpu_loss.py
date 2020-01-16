@@ -1,8 +1,7 @@
 import torch
 import torch.nn.functional as F
-import numpy as np
 import pytest
-torch.ops.load_library("libhabana_pytorch_plugin.so")
+from test_utils import evaluate_fwd_kernel, evaluate_fwd_bwd_kernel, reset_seed
 
 test_case_list = [
    #  N,   C,
@@ -11,22 +10,18 @@ test_case_list = [
 
 @pytest.mark.parametrize("N, C", test_case_list)
 def test_hpu_nllloss(N, C):
-    # TODO: extend that test to all features of nll_loss kernel
-    hpu = torch.device('habana')
-    cpu = torch.device('cpu')
-
+    # TODO: extend that test to all features
     kernel = F.nll_loss
-    in_tensor = torch.randn(N, C)
-    target = torch.randint(low=0, high=C-1, size=(N,))
+    in_tensors = [torch.randn(N, C), torch.randint(low=0, high=C-1, size=(N,))]
+    evaluate_fwd_kernel(kernel, in_tensors)
 
-    hpu_result = kernel(in_tensor.to(hpu), target.to(hpu))
-    cpu_result = kernel(in_tensor.to(cpu), target.to(cpu))
-
-    # print("input", in_tensor)
-    # print("target", target)
-    # print("result cpu", cpu_result)
-    # print("result hpu", hpu_result.to(cpu))
-    np.testing.assert_allclose(hpu_result.to(cpu).detach().numpy(), cpu_result.detach().numpy(), atol=0.001, rtol=1.e-3)
+@pytest.mark.parametrize("N, C", test_case_list)
+def test_hpu_nllloss_fwd_bwd(N, C):
+    # TODO: extend that test to all features
+    kernel = F.nll_loss
+    fwd_tensors = [torch.randn(N, C, requires_grad = True), torch.randint(low=0, high=C-1, size=(N,))]
+    bwd_tensors = [torch.randn(1, requires_grad = True)]
+    evaluate_fwd_bwd_kernel(kernel, fwd_tensors, bwd_tensors)
 
 if __name__ == '__main__':
     test_hpu_nllloss(*test_case_list[0])

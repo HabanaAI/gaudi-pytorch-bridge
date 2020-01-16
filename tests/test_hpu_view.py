@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 import pytest
-torch.ops.load_library("libhabana_pytorch_plugin.so")
+from test_utils import reset_seed, compare_tensors
 
 # N - batch
 # H - input height
@@ -20,9 +20,9 @@ def test_hpu_view(N, H, W, C):
 
     in_tensor = torch.randn(N, C, H, W)
 
-    hpu_result = in_tensor.to(hpu).view(-1, C*H*W).to(cpu)
+    hpu_result = in_tensor.to(hpu).view(-1, C*H*W)
     cpu_result = in_tensor.to(cpu).view(-1, C*H*W)
-    np.testing.assert_array_equal(hpu_result.detach().numpy(), cpu_result.detach().numpy())
+    compare_tensors(hpu_result, cpu_result, atol=0.001, rtol=1.e-3)
 
 if __name__ == '__main__':
-    test_case_list(*test_case_list[1])
+    test_case_list(*test_case_list[0])

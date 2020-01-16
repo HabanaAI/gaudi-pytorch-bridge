@@ -1,8 +1,8 @@
 import torch
 import torch.nn.functional as F
-import numpy as np
 import pytest
-torch.ops.load_library("libhabana_pytorch_plugin.so")
+from test_utils import evaluate_fwd_kernel, evaluate_fwd_bwd_kernel, reset_seed
+
 
 # N - batch
 # H - input height
@@ -20,17 +20,8 @@ unary_op_list = [
 @pytest.mark.parametrize("N, H, W, C", test_case_list)
 @pytest.mark.parametrize("unary_op", unary_op_list)
 def test_hpu_unary_op(N, H, W, C, unary_op):
-    hpu = torch.device('habana')
-    cpu = torch.device('cpu')
-
-    in_tensor = torch.randn(N, C, H, W)
-    hpu_result = unary_op(in_tensor.to(hpu)).to(cpu)
-    cpu_result = unary_op(in_tensor.to(cpu))
-
-    # print("input", in_tensor)
-    # print("result cpu", cpu_result)
-    # print("result hpu", hpu_result)
-    np.testing.assert_allclose(hpu_result.detach().numpy(), cpu_result.detach().numpy(), atol=0.001, rtol=1.e-3)
+    in_tensors = [torch.randn(N, C, H, W)]
+    evaluate_fwd_kernel(unary_op, in_tensors)
 
 if __name__ == '__main__':
     test_hpu_unary_op(*test_case_list[0], unary_op_list[0])
