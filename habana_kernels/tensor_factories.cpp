@@ -95,4 +95,10 @@ static auto registry =
                     decltype(at::native::empty_strided_hpu),
                     &at::native::empty_strided_hpu>(
                     TensorTypeId::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema("aten::zero_(Tensor(a!) self) -> Tensor(a!)")
+                .impl_unboxedOnlyKernel<
+                    decltype(at::native::zero_),
+                    &at::native::zero_>(TensorTypeId::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));
