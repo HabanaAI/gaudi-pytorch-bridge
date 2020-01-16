@@ -18,7 +18,6 @@ def test_hpu_linear(N, C, K):
     in_tensors = [torch.randn(N, C)]
     evaluate_fwd_kernel(kernel, in_tensors)
 
-@pytest.mark.skip(reason="SW-8819")
 @pytest.mark.parametrize("N, C, K", test_case_list)
 def test_hpu_linear_no_bias(N, C, K):
     kernel = nn.Linear(in_features = C, out_features = K, bias = False)
