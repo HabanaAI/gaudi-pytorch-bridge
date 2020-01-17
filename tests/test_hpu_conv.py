@@ -23,8 +23,10 @@ conv_test_case_list = [
 def test_hpu_conv(N, H, W, C, R, S, K, stride):
     # TODO: extend that test to all features
     kernel = nn.Conv2d(C, K, R, stride)
-    in_tensors = [torch.randn(N, C, H, W)]
-    evaluate_fwd_kernel(kernel=kernel, tensor_list=in_tensors)
+    kernel_params = {
+        'input': torch.randn(N, C, H, W),
+    }
+    evaluate_fwd_kernel(kernel=kernel, kernel_params=kernel_params)
 
 
 if __name__ == '__main__':

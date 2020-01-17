@@ -16,15 +16,15 @@ test_case_list = [
 @pytest.mark.parametrize("N, C, K", test_case_list)
 def test_hpu_linear(N, C, K):
     kernel = nn.Linear(in_features=C, out_features=K, bias=True)
-    in_tensors = [torch.randn(N, C)]
-    evaluate_fwd_kernel(kernel, in_tensors)
+    kernel_params = {'input': torch.randn(N, C)}
+    evaluate_fwd_kernel(kernel=kernel, kernel_params=kernel_params)
 
 
 @pytest.mark.parametrize("N, C, K", test_case_list)
 def test_hpu_linear_no_bias(N, C, K):
     kernel = nn.Linear(in_features=C, out_features=K, bias=False)
-    in_tensors = [torch.randn(N, C)]
-    evaluate_fwd_kernel(kernel, in_tensors)
+    kernel_params = {'input': torch.randn(N, C)}
+    evaluate_fwd_kernel(kernel=kernel, kernel_params=kernel_params)
 
 
 if __name__ == '__main__':

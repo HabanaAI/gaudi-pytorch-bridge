@@ -21,8 +21,8 @@ pool_test_case_list = [
 def test_hpu_pool(N, H, W, C, R, S, str_H, str_W):
     # TODO: extend that test to all features
     kernel = F.max_pool2d
-    in_tensors = [torch.randn(N, C, H, W)]
     kernel_params = {
+        'input': torch.randn(N, C, H, W),
         'kernel_size': [R, S],
         'stride': [str_H, str_W],
         'return_indices': True
@@ -30,7 +30,7 @@ def test_hpu_pool(N, H, W, C, R, S, str_H, str_W):
 
     # don't check resuluts because indices can have different values
     hpu_result, cpu_result = evaluate_fwd_kernel(
-        kernel=kernel, tensor_list=in_tensors, kernel_params=kernel_params, check_results=False)
+        kernel=kernel, kernel_params=kernel_params, check_results=False)
     compare_tensors(hpu_result[0], cpu_result[0], atol=0.001, rtol=1.e-3)
 
 
