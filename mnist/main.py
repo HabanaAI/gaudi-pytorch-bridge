@@ -6,6 +6,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torchvision import datasets, transforms
 
+
 class Net(nn.Module):
     def __init__(self):
         super(Net, self).__init__()
@@ -23,6 +24,7 @@ class Net(nn.Module):
         x = F.relu(self.fc1(x))
         x = self.fc2(x)
         return F.log_softmax(x, dim=1)
+
 
 def train(args, model, device, train_loader, optimizer, epoch):
     model.train()
@@ -93,7 +95,7 @@ def main():
     device = torch.device("habana" if use_habana else "cpu")
 
     # kwargs = {'num_workers': 1, 'pin_memory': True} if use_habana else {}
-    kwargs = {} # TODO: do we need any kwargs?
+    kwargs = {}  # TODO: do we need any kwargs?
     train_loader = torch.utils.data.DataLoader(
         datasets.MNIST('../data', train=True, download=True,
                        transform=transforms.Compose([

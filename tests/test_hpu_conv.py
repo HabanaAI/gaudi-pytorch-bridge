@@ -13,9 +13,9 @@ from test_utils import evaluate_fwd_kernel, evaluate_fwd_bwd_kernel, reset_seed
 # K - output channels
 # str - stride
 conv_test_case_list = [
-    # N,   H,   W,   C, R, S,   K, str
-    ( 2,   3,   4,   5, 2, 2,   6, 1),
-    ( 8,  28,  28,   3, 2, 2,  16, 1),
+    # N, H, W, C, R, S, K, str
+    (2, 3, 4, 5, 2, 2, 6, 1),
+    (8, 28, 28, 3, 2, 2, 16, 1),
 ]
 
 # @torch.jit.script
@@ -25,6 +25,7 @@ def test_hpu_conv(N, H, W, C, R, S, K, stride):
     kernel = nn.Conv2d(C, K, R, stride)
     in_tensors = [torch.randn(N, C, H, W)]
     evaluate_fwd_kernel(kernel=kernel, tensor_list=in_tensors)
+
 
 if __name__ == '__main__':
     test_hpu_conv(*conv_test_case_list[1])
