@@ -10,8 +10,7 @@
 
 namespace at {
 namespace native {
-// TODO: remove static from this function
-static void THHStorage_resize(THStorage* self, ptrdiff_t size) {
+inline void THHStorage_resize(THStorage* self, ptrdiff_t size) {
   TORCH_CHECK(size >= 0, "invalid size");
   TORCH_CHECK(self->allocator() != nullptr);
   int device = habana::allocator_active_device_id;
@@ -121,8 +120,7 @@ inline TensorImpl* resize_impl_hpu_(
 
 // THH = TorcH Habana
 // TODO: put it in proper namespace
-// TODO: remove static from this function
-static void THHTensor_resizeNd(
+inline void THHTensor_resizeNd(
     THTensor* self,
     int nDimension,
     const int64_t* size,

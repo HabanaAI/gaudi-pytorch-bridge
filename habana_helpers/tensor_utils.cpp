@@ -5,6 +5,13 @@
 #include "habana_device/fake_tensor_builder.h"
 #include "tensor_utils.h"
 
+at::Tensor habana_helpers::to_cpu(const at::Tensor& hpu_tensor) {
+  if (hpu_tensor.defined())
+    return hpu_tensor.to(at::DeviceType::CPU);
+  else
+    return hpu_tensor;
+}
+
 synDataType habana_helpers::pytorch_to_synapse_type(
     const c10::ScalarType pt_type) {
   static const std::unordered_map<c10::ScalarType, synDataType> map{

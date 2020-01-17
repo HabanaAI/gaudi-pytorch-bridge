@@ -25,4 +25,6 @@ create_tensors(
 std::vector<std::string> names(const std::vector<synapse_helpers::tensor>&);
 
 std::string name_suffix_from_type(const c10::ScalarType pt_type);
+
+at::Tensor to_cpu(const at::Tensor& hpu_tensor);
 } // namespace habana_helpers

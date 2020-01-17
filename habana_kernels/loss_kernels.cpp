@@ -9,13 +9,6 @@
 
 using namespace torch;
 
-Tensor to_cpu(const Tensor& hpu_tensor) {
-  if (hpu_tensor.defined())
-    return hpu_tensor.to(DeviceType::CPU);
-  else
-    return hpu_tensor;
-}
-
 std::tuple<Tensor, Tensor> nll_loss_forward_hpu(
     const Tensor& self,
     const Tensor& target,
@@ -25,7 +18,11 @@ std::tuple<Tensor, Tensor> nll_loss_forward_hpu(
   TORCH_WARN("nll_loss_forward_hpu executes CPU kernel internally");
   auto hpu = self.device();
   auto result = at::native::nll_loss_forward_cpu(
-      to_cpu(self), to_cpu(target), to_cpu(weight), reduction, ignore_index);
+      habana_helpers::to_cpu(self),
+      habana_helpers::to_cpu(target),
+      habana_helpers::to_cpu(weight),
+      reduction,
+      ignore_index);
   return std::make_tuple(
       std::get<0>(result).to(hpu), std::get<1>(result).to(hpu));
 }
@@ -40,17 +37,17 @@ Tensor nll_loss_backward_hpu(
     const Tensor& total_weight) {
   TORCH_WARN("nll_loss_backward_hpu executes CPU kernel internally");
   auto hpu = self.device();
-  auto grad_input =
-      to_cpu(at::zeros_like(self, LEGACY_CONTIGUOUS_MEMORY_FORMAT));
+  auto grad_input = habana_helpers::to_cpu(
+      at::zeros_like(self, LEGACY_CONTIGUOUS_MEMORY_FORMAT));
   at::native::nll_loss_backward_out_cpu(
       grad_input,
-      to_cpu(grad_output),
-      to_cpu(self),
-      to_cpu(target),
-      to_cpu(weight),
+      habana_helpers::to_cpu(grad_output),
+      habana_helpers::to_cpu(self),
+      habana_helpers::to_cpu(target),
+      habana_helpers::to_cpu(weight),
       reduction,
       ignore_index,
-      to_cpu(total_weight));
+      habana_helpers::to_cpu(total_weight));
   return grad_input.to(hpu);
 }
 
