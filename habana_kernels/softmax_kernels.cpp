@@ -122,10 +122,34 @@ Tensor log_softmax_hpu(
   return output;
 }
 
-static auto registry = torch::RegisterOperators().op(
-    torch::RegisterOperators::options()
-        .schema(
-            "aten::_log_softmax(Tensor self, int dim, bool half_to_float) -> Tensor")
-        .impl_unboxedOnlyKernel<decltype(log_softmax_hpu), &log_softmax_hpu>(
-            TensorTypeId::HABANATensorId)
-        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));
+Tensor log_softmax_backward_hpu(
+    const Tensor& grad,
+    const Tensor& output,
+    int64_t dim,
+    const Tensor& input) {
+  TORCH_WARN("log_softmax_backward_hpu executes CPU kernel internally");
+  auto hpu = grad.device();
+  auto result = at::native::log_softmax_backward_cpu(
+      habana_helpers::to_cpu(grad),
+      habana_helpers::to_cpu(output),
+      dim,
+      habana_helpers::to_cpu(input));
+  return result.to(hpu);
+}
+
+static auto registry =
+    torch::RegisterOperators()
+        .op(torch::RegisterOperators::options()
+                .schema(
+                    "aten::_log_softmax(Tensor self, int dim, bool half_to_float) -> Tensor")
+                .impl_unboxedOnlyKernel<
+                    decltype(log_softmax_hpu),
+                    &log_softmax_hpu>(TensorTypeId::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema(
+                    "aten::_log_softmax_backward_data(Tensor grad_output, Tensor output, int dim, Tensor self) -> Tensor")
+                .impl_unboxedOnlyKernel<
+                    decltype(log_softmax_backward_hpu),
+                    &log_softmax_backward_hpu>(TensorTypeId::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));

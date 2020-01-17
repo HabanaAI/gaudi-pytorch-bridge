@@ -79,8 +79,8 @@ def compare_tensors(hpu_tensors, cpu_tensors, atol, rtol):
 
     assert len(hpu_tensors) == len(cpu_tensors)
     for i in range(len(hpu_tensors)):
-        np.testing.assert_allclose(hpu_tensors[i].to(cpu).detach(
-        ).numpy(), cpu_tensors[i].detach().numpy(), atol=atol, rtol=rtol)
+        np.testing.assert_allclose(hpu_tensors[i].to(cpu).detach().numpy(),
+                                   cpu_tensors[i].detach().numpy(), atol=atol, rtol=rtol)
 
 
 @pytest.fixture(autouse=True)
