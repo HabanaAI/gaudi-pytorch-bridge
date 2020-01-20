@@ -17,7 +17,7 @@ def test_hpu_log_softmax(N, H, W, C, dim):
     evaluate_fwd_kernel(kernel=F.log_softmax, kernel_params=kernel_params)
 
 
-pytest.mark.parametrize("N, H, W, C, dim", test_case_list)
+@pytest.mark.parametrize("N, H, W, C, dim", test_case_list)
 def test_hpu_log_softmax_fwd_bwd(N, H, W, C, dim):
     kernel_params = {'input': torch.randn(N, C, H, W, requires_grad=True),
                      'dim': dim}

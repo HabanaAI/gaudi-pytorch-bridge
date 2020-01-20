@@ -28,6 +28,7 @@ add_library(habana_pytorch_plugin SHARED
   habana_kernels/linear_kernels.cpp
   habana_kernels/loss_kernels.cpp
   habana_kernels/pool_kernels.cpp
+  habana_kernels/reduction_kernels.cpp
   habana_kernels/softmax_kernels.cpp
   habana_kernels/tensor_factories.cpp
   habana_kernels/unary_kernels.cpp
