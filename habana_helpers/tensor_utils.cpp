@@ -3,6 +3,7 @@
 
 #include "habana_device/HPUCheck.h"
 #include "habana_device/fake_tensor_builder.h"
+#include "habana_device/hpu_cached_devices.h"
 #include "tensor_utils.h"
 
 at::Tensor habana_helpers::to_cpu(const at::Tensor& hpu_tensor) {
@@ -32,15 +33,63 @@ synDataType habana_helpers::pytorch_to_synapse_type(
   return result->second;
 }
 
+synDataType habana_helpers::pytorch_to_synapse_type(const c10::Scalar& s) {
+  return habana_helpers::pytorch_to_synapse_type(
+      habana_helpers::scalar_type(s));
+}
+
+c10::ScalarType habana_helpers::scalar_type(const c10::Scalar& s) {
+  if (s.isFloatingPoint()) {
+    return c10::ScalarType::Float;
+  } else if (s.isIntegral(false)) {
+    return c10::ScalarType::Int;
+  } else if (s.isBoolean()) {
+    return c10::ScalarType::Bool;
+  } else
+    TORCH_CHECK(!s.isComplex(), "Habana doesn't support complex types");
+  throw std::runtime_error("Unknown type");
+}
+
+at::Tensor habana_helpers::scalar_to_device_tensor(
+    const at::Scalar& scalar,
+    const at::TensorOptions& options,
+    const unsigned num_dimensions) {
+  TORCH_CHECK(
+      scalar.isFloatingPoint(),
+      "scalar_to_device_tensor currently supports only float");
+  TORCH_CHECK(
+      options.device().type() == c10::DeviceType::HABANA,
+      "Wrong device: ",
+      options.device().type());
+  auto output = at::empty(std::vector<int64_t>(num_dimensions, 1), options);
+  auto val = scalar.to<float>();
+  synapse_helpers::HPURegistrar::get_device(options.device().index())
+      .copy_data_to_device(
+          &val, reinterpret_cast<synapse_helpers::device_ptr>(output.data_ptr()), output.nbytes());
+
+  return output;
+}
+
 synapse_helpers::tensor habana_helpers::create_tensor(
     const at::Tensor& tensor,
-    std::string name,
-    synGraphHandle graph,
-    bool persistent) {
+    const std::string& name,
+    const synGraphHandle graph,
+    const bool persistent) {
+  return habana_helpers::create_tensor(
+      tensor, name, graph, persistent, tensor.scalar_type());
+}
+
+synapse_helpers::tensor habana_helpers::create_tensor(
+    const at::Tensor& tensor,
+    const std::string& name,
+    const synGraphHandle graph,
+    const bool persistent,
+    const c10::ScalarType dtype) {
+  auto syn_type = habana_helpers::pytorch_to_synapse_type(dtype);
   return synapse_helpers::tensor_builder::create_tensor(
       tensor.device().index(),
-      pytorch_to_synapse_type(tensor.scalar_type()),
-      tensor.nbytes(),
+      syn_type,
+      tensor.numel() * sizeof(syn_type),
       tensor.sizes().size(),
       tensor.sizes(),
       name,
@@ -50,13 +99,30 @@ synapse_helpers::tensor habana_helpers::create_tensor(
 
 std::tuple<std::vector<synapse_helpers::tensor>, std::vector<synTensor>>
 habana_helpers::create_tensors(
-    const std::vector<const at::Tensor*> tensors,
-    const std::vector<std::string> names,
-    synGraphHandle graph,
-    const std::vector<bool> persistents) {
+    const std::vector<const at::Tensor*>& tensors,
+    const std::vector<std::string>& names,
+    const synGraphHandle graph,
+    const std::vector<bool>& persistents) {
+  return habana_helpers::create_tensors(
+      tensors,
+      names,
+      graph,
+      persistents,
+      std::vector<c10::optional<c10::ScalarType>>(
+          tensors.size(), c10::nullopt));
+}
+
+std::tuple<std::vector<synapse_helpers::tensor>, std::vector<synTensor>>
+habana_helpers::create_tensors(
+    const std::vector<const at::Tensor*>& tensors,
+    const std::vector<std::string>& names,
+    const synGraphHandle graph,
+    const std::vector<bool>& persistents,
+    const std::vector<c10::optional<c10::ScalarType>>& dtypes) {
   const auto num_tensors = tensors.size();
   TORCH_CHECK(names.size() == num_tensors);
   TORCH_CHECK(persistents.size() == num_tensors);
+  TORCH_CHECK(dtypes.size() == num_tensors);
 
   // tensor_helpers are used for tenor lifetime managment
   // syn_tensors are convinient to use with synapse API
@@ -68,7 +134,11 @@ habana_helpers::create_tensors(
 
   for (size_t i = 0; i < num_tensors; ++i) {
     tensor_helpers.push_back(habana_helpers::create_tensor(
-        *tensors[i], names[i], graph, persistents[i]));
+        *tensors[i],
+        names[i],
+        graph,
+        persistents[i],
+        dtypes[i].value_or(tensors[i]->scalar_type())));
     syn_tensors.push_back(tensor_helpers[i].get());
   }
 
