@@ -2,8 +2,8 @@
 #include <algorithm>
 
 #include "habana_device/HPUCheck.h"
-#include "habana_device/fake_tensor_builder.h"
 #include "habana_device/hpu_cached_devices.h"
+#include "habana_device/tensor_builder.h"
 #include "tensor_utils.h"
 
 at::Tensor habana_helpers::to_cpu(const at::Tensor& hpu_tensor) {
@@ -13,8 +13,7 @@ at::Tensor habana_helpers::to_cpu(const at::Tensor& hpu_tensor) {
     return hpu_tensor;
 }
 
-synDataType habana_helpers::pytorch_to_synapse_type(
-    const c10::ScalarType pt_type) {
+synDataType pytorch_to_synapse_type(const c10::ScalarType pt_type) {
   static const std::unordered_map<c10::ScalarType, synDataType> map{
       {c10::ScalarType::Byte, synDataType::syn_type_uint8},
       {c10::ScalarType::Char, synDataType::syn_type_int8},
@@ -33,9 +32,8 @@ synDataType habana_helpers::pytorch_to_synapse_type(
   return result->second;
 }
 
-synDataType habana_helpers::pytorch_to_synapse_type(const c10::Scalar& s) {
-  return habana_helpers::pytorch_to_synapse_type(
-      habana_helpers::scalar_type(s));
+synDataType pytorch_to_synapse_type(const c10::Scalar& s) {
+  return pytorch_to_synapse_type(habana_helpers::scalar_type(s));
 }
 
 c10::ScalarType habana_helpers::scalar_type(const c10::Scalar& s) {
@@ -65,62 +63,50 @@ at::Tensor habana_helpers::scalar_to_device_tensor(
   auto val = scalar.to<float>();
   synapse_helpers::HPURegistrar::get_device(options.device().index())
       .copy_data_to_device(
-          &val, reinterpret_cast<synapse_helpers::device_ptr>(output.data_ptr()), output.nbytes());
+          &val,
+          reinterpret_cast<synapse_helpers::device_ptr>(output.data_ptr()),
+          output.nbytes());
 
   return output;
 }
 
 synapse_helpers::tensor habana_helpers::create_tensor(
     const at::Tensor& tensor,
-    const std::string& name,
     const synGraphHandle graph,
-    const bool persistent) {
-  return habana_helpers::create_tensor(
-      tensor, name, graph, persistent, tensor.scalar_type());
-}
-
-synapse_helpers::tensor habana_helpers::create_tensor(
-    const at::Tensor& tensor,
-    const std::string& name,
-    const synGraphHandle graph,
-    const bool persistent,
-    const c10::ScalarType dtype) {
-  auto syn_type = habana_helpers::pytorch_to_synapse_type(dtype);
-  return synapse_helpers::tensor_builder::create_tensor(
-      tensor.device().index(),
-      syn_type,
-      tensor.numel() * sizeof(syn_type),
-      tensor.sizes().size(),
-      tensor.sizes(),
-      name,
-      graph,
-      persistent);
+    bool persistent,
+    const c10::optional<c10::ScalarType> dtype) {
+  auto variant =
+      synapse_helpers::tensor_builder(
+          tensor.sizes(),
+          pytorch_to_synapse_type(dtype.value_or(tensor.scalar_type())))
+          .mark_persistence(persistent)
+          .build(
+              synapse_helpers::HPURegistrar::get_device(
+                  tensor.device().index()),
+              graph);
+  return absl::get<synapse_helpers::tensor>(std::move(variant));
 }
 
 std::tuple<std::vector<synapse_helpers::tensor>, std::vector<synTensor>>
 habana_helpers::create_tensors(
-    const std::vector<const at::Tensor*>& tensors,
-    const std::vector<std::string>& names,
-    const synGraphHandle graph,
-    const std::vector<bool>& persistents) {
+    const std::vector<const at::Tensor*> tensors,
+    synGraphHandle graph,
+    bool persistent) {
   return habana_helpers::create_tensors(
       tensors,
-      names,
       graph,
-      persistents,
+      std::vector<bool>(tensors.size(), persistent),
       std::vector<c10::optional<c10::ScalarType>>(
           tensors.size(), c10::nullopt));
 }
 
 std::tuple<std::vector<synapse_helpers::tensor>, std::vector<synTensor>>
 habana_helpers::create_tensors(
-    const std::vector<const at::Tensor*>& tensors,
-    const std::vector<std::string>& names,
-    const synGraphHandle graph,
-    const std::vector<bool>& persistents,
-    const std::vector<c10::optional<c10::ScalarType>>& dtypes) {
+    const std::vector<const at::Tensor*> tensors,
+    synGraphHandle graph,
+    const std::vector<bool> persistents,
+    const std::vector<c10::optional<c10::ScalarType>> dtypes) {
   const auto num_tensors = tensors.size();
-  TORCH_CHECK(names.size() == num_tensors);
   TORCH_CHECK(persistents.size() == num_tensors);
   TORCH_CHECK(dtypes.size() == num_tensors);
 
@@ -135,7 +121,6 @@ habana_helpers::create_tensors(
   for (size_t i = 0; i < num_tensors; ++i) {
     tensor_helpers.push_back(habana_helpers::create_tensor(
         *tensors[i],
-        names[i],
         graph,
         persistents[i],
         dtypes[i].value_or(tensors[i]->scalar_type())));

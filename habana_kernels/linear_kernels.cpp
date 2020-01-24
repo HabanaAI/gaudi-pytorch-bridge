@@ -8,7 +8,6 @@
 #include "conv_pool_utils.h"
 #include "habana_device/HPUCheck.h"
 #include "habana_device/HPUContext.h"
-#include "habana_device/fake_tensor_builder.h"
 #include "habana_helpers/tensor_utils.h"
 #include "kernel_utils.h"
 
@@ -38,15 +37,9 @@ void synapse_matmul(
     std::vector<synTensor> syn_inputs, syn_outputs;
 
     std::tie(syn_helper_inputs, syn_inputs) = habana_helpers::create_tensors(
-        std::vector<const at::Tensor*>{&mat1, &mat2},
-        {"mat1", "mat2"},
-        graph_handle,
-        {true, true});
+        std::vector<const at::Tensor*>{&mat1, &mat2}, graph_handle, true);
     std::tie(syn_helper_outputs, syn_outputs) = habana_helpers::create_tensors(
-        std::vector<const at::Tensor*>{&output},
-        {"output"},
-        graph_handle,
-        {true});
+        std::vector<const at::Tensor*>{&output}, graph_handle, true);
 
     const std::string node_type = "gemm";
     { // add node
@@ -101,38 +94,19 @@ void synapse_matmul(
       synGraphCreate(&graph_handle, synDeviceType::synDeviceGaudi),
       "synGraphCreate failed");
   { // tensors scope
-    std::vector<synapse_helpers::tensor> syn_helper_inputs, syn_helper_outputs;
-    std::vector<synTensor> syn_inputs, syn_outputs;
+    std::vector<synapse_helpers::tensor> syn_helper_inputs, syn_helper_outputs,
+        syn_tmp_helper_tensors;
+    std::vector<synTensor> syn_inputs, syn_outputs, syn_tmp_tensors;
 
     std::tie(syn_helper_inputs, syn_inputs) = habana_helpers::create_tensors(
         std::vector<const at::Tensor*>{&mat1, &mat2, &bias},
-        {"mat1", "mat2", "bias"},
         graph_handle,
-        {true, true, true});
+        true);
     std::tie(syn_helper_outputs, syn_outputs) = habana_helpers::create_tensors(
-        std::vector<const at::Tensor*>{&output},
-        {"output"},
-        graph_handle,
-        {true});
-
-    std::vector<synapse_helpers::tensor> syn_tmp_helper_tensors;
-    const std::vector<std::string> tensor_tmp_names{"mm_out"};
-    syn_tmp_helper_tensors.push_back(
-        synapse_helpers::tensor_builder::create_tensor(
-            device_id,
-            habana_helpers::pytorch_to_synapse_type(output.scalar_type()),
-            output.nbytes(),
-            output.sizes().size(),
-            output.sizes(),
-            tensor_tmp_names[0],
-            graph_handle,
-            false));
-    std::vector<synTensor> syn_tmp_tensors(syn_tmp_helper_tensors.size());
-    std::transform(
-        syn_tmp_helper_tensors.begin(),
-        syn_tmp_helper_tensors.end(),
-        syn_tmp_tensors.begin(),
-        [](auto& x) { return x.get(); });
+        std::vector<const at::Tensor*>{&output}, graph_handle, true);
+    std::tie(syn_tmp_helper_tensors, syn_tmp_tensors) =
+        habana_helpers::create_tensors(
+            std::vector<const at::Tensor*>{&output}, graph_handle, {false});
 
     const std::string node_type1 = "gemm";
     const std::string node_type2 =

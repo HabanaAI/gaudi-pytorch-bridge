@@ -71,14 +71,10 @@ void synapse_convolution(
             &weight,
             &bias,
         },
-        {"input", "filter", "bias"},
         graph_handle,
-        {true, true, true});
+        true);
     std::tie(syn_helper_outputs, syn_outputs) = habana_helpers::create_tensors(
-        std::vector<const at::Tensor*>{&output},
-        {"output"},
-        graph_handle,
-        {true});
+        std::vector<const at::Tensor*>{&output}, graph_handle, true);
 
     { // dimshuffled tensors scope
 #if TRANSPOSE_IMPLEMENTED

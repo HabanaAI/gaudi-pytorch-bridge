@@ -2,7 +2,7 @@
 
 #include "habana_device/HPUCheck.h"
 #include "habana_device/HPUContext.h"
-#include "habana_device/fake_tensor_builder.h"
+// #include "habana_device/fake_tensor_builder.h"
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_helpers/tensor_utils.h"
 #include "habana_kernels/kernel_utils.h"
@@ -37,25 +37,15 @@ Tensor synapse_threshold_out(
 
     std::tie(syn_helper_inputs, syn_inputs) = habana_helpers::create_tensors(
         std::vector<const at::Tensor*>{&input, &threshold, &value, &other},
-        {"input", "threshold", "value", "other"},
         graph_handle,
-        {true, true, true, true});
+        true);
     std::tie(syn_helper_outputs, syn_outputs) = habana_helpers::create_tensors(
-        std::vector<const at::Tensor*>{&output},
-        {"output"},
-        graph_handle,
-        {true});
+        std::vector<const at::Tensor*>{&output}, graph_handle, true);
     std::tie(syn_helper_tmp, syn_tmp) = habana_helpers::create_tensors(
         std::vector<const at::Tensor*>{
             &output, &output, &output, &output, &output, &output},
-        {"mask",
-         "inv_mask",
-         "mask*val",
-         "inv_mask*other",
-         "mask_i8",
-         "inv_mask_i8"},
         graph_handle,
-        {false, false, false, false, false, false},
+        std::vector<bool>(6, false),
         {{}, {}, {}, {}, c10::ScalarType::Char, c10::ScalarType::Char});
     {
       const auto kernel_suffix =
