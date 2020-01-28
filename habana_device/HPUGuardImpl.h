@@ -7,6 +7,7 @@
 
 #include "HPUAllocator.h"
 #include "HPUCheck.h"
+#include "habana_helpers/unused_macro.h"
 #include "hpu_cached_devices.h"
 
 namespace at {
@@ -78,12 +79,12 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
         habana::allocator_active_device_id,
         " != 0");
   }
-  Stream getStream(Device d) const noexcept override {
+  Stream getStream(UNUSED Device d) const noexcept override {
     // no-op
     return Stream(Stream::DEFAULT, Device(DeviceType::HABANA, -1));
   }
   // NB: These do NOT set the current device
-  Stream exchangeStream(Stream s) const noexcept override {
+  Stream exchangeStream(UNUSED Stream s) const noexcept override {
     // no-op
     return Stream(Stream::DEFAULT, Device(DeviceType::HABANA, -1));
   }
@@ -93,20 +94,20 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
 
   // Event-related functions
   void record(
-      void** event,
-      const Stream& stream,
-      const DeviceIndex device_index,
-      const EventFlag flag) const override {
+      UNUSED void** event,
+      UNUSED const Stream& stream,
+      UNUSED const DeviceIndex device_index,
+      UNUSED const EventFlag flag) const override {
     TORCH_CHECK(false, "HABANA backend doesn't support events.");
   }
-  void block(void* event, const Stream& stream) const override {
+  void block(UNUSED void* event, UNUSED const Stream& stream) const override {
     TORCH_CHECK(false, "HABANA backend doesn't support events.")
   }
-  bool queryEvent(void* event) const override {
+  bool queryEvent(UNUSED void* event) const override {
     TORCH_CHECK(false, "HABANA backend doesn't support events.")
   }
-  void destroyEvent(void* event, const DeviceIndex device_index) const
-      noexcept override {}
+  void destroyEvent(UNUSED void* event, UNUSED const DeviceIndex device_index)
+      const noexcept override {}
 }; // namespace detail
 
 } // namespace detail

@@ -8,26 +8,21 @@
 #include "habana_device/HPUCheck.h"
 #include "habana_device/HPUContext.h"
 #include "habana_helpers/tensor_utils.h"
+#include "habana_helpers/unused_macro.h"
 #include "kernel_utils.h"
 
 using namespace torch;
 
 synConvolutionParams synapse_conv_params_builder(
-    const IntArrayRef& input, // NHWC
     const IntArrayRef& weight, // HWCK
-    const IntArrayRef& stride,
-    const IntArrayRef& padding,
-    const IntArrayRef& dilation) {
-  const int64_t C = input[3];
-  const int64_t input_H = input[1];
-  const int64_t input_W = input[2];
-  const int64_t K = weight[3];
+    const IntArrayRef& stride, // HW
+    UNUSED const IntArrayRef& padding, // HW
+    const IntArrayRef& dilation // HW
+) {
   const int64_t filter_H = weight[0];
   const int64_t filter_W = weight[1];
   const int64_t stride_H = stride[0];
   const int64_t stride_W = stride[1];
-  const int64_t pad_H = padding[0];
-  const int64_t pad_W = padding[1];
   const int64_t dilation_H = dilation[0];
   const int64_t dilation_W = dilation[1];
   // TODO: calculate paddings
@@ -187,13 +182,8 @@ void synapse_convolution(
 #endif
       const std::string conv_node_type = "spatial_convolution";
       { // add conv node
-        // TODO: support pytorch layouts, uncomment when it is supported and
-        // remove transpositions
-        //   char const* conv2D_in_layouts[]{"WHCN", "RSCK", "", "WHCN"};
-        //   char const* conv2D_out_layouts[]{"WHCN"};
-
         synConvolutionParams syn_conv_params = synapse_conv_params_builder(
-            input.sizes(), weight.sizes(), stride, padding, dilation);
+            weight.sizes(), stride, padding, dilation);
 
         TORCH_HABANA_CHECK(
             synNodeCreate(
@@ -278,7 +268,6 @@ Tensor convolution_hpu(
   // weight KCHW, where K - output channels
   // pad, stride HW
   const int64_t N = input.size(0);
-  const int64_t C = input.size(1);
   const int64_t input_H = input.size(2);
   const int64_t input_W = input.size(3);
   const int64_t K = weight.size(0);

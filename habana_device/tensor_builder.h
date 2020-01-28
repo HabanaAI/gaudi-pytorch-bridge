@@ -17,7 +17,7 @@ class tensor_builder : public tensor_builder_base<tensor_builder> {
 
     tensor::dimension_sizes_t dimensions{};
     // write dimension backwards, e.g. NHWC as CWHN
-    for (int i = 0; i < shape.size(); ++i)
+    for (size_t i = 0; i < shape.size(); ++i)
       dimensions[i] = shape[shape.size() - i - 1];
 
     return dimensions;

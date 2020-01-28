@@ -16,7 +16,6 @@ int64_t compute_output_size(
 
 void check_pool_params(
     const at::Tensor& input,
-    const at::IntArrayRef kernel_size,
     const at::IntArrayRef stride,
     const at::IntArrayRef padding,
     const at::IntArrayRef dilation);

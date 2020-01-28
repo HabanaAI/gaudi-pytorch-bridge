@@ -20,6 +20,9 @@ Tensor permute_hpu(const Tensor& self, IntArrayRef dims) {
 // cpu->hpu and hpu->cpu copy implementation
 Tensor& copy_hpu_(Tensor& self, const Tensor& src, bool non_blocking) {
   LOG_FUNC_BEGIN;
+  if (non_blocking)
+    TORCH_WARN(
+        "non_blocking flag is not supported, copy_hpu_ is always blocking");
   // TODO: (from torch code) this should be handled during dispatch, but that's
   // missing...
   Tensor& dst = self;

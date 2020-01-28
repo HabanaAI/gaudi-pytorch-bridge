@@ -10,6 +10,7 @@
 #include "habana_device/HPUCheck.h"
 #include "habana_device/HPUContext.h"
 #include "habana_helpers/tensor_utils.h"
+#include "habana_helpers/unused_macro.h"
 #include "kernel_utils.h"
 
 using namespace torch;
@@ -62,16 +63,14 @@ static inline T pooling_output_shape(
 } // namespace
 
 ns_SpatialReduction::Params synapse_pool_params_builder(
-    const IntArrayRef& kernel_size,
-    const IntArrayRef& stride,
-    const IntArrayRef& padding,
-    const IntArrayRef& dilation) {
+    const IntArrayRef& kernel_size, // HW
+    const IntArrayRef& stride, // HW
+    const IntArrayRef& dilation // HW
+) {
   const int64_t filter_H = kernel_size[0];
   const int64_t filter_W = kernel_size[1];
   const int64_t stride_H = stride[0];
   const int64_t stride_W = stride[1];
-  const int64_t pad_H = padding[0];
-  const int64_t pad_W = padding[1];
   const int64_t dilation_H = dilation[0];
   const int64_t dilation_W = dilation[1];
 
@@ -97,9 +96,10 @@ void synapse_pool2d_generic_implementation(
     std::vector<const Tensor*> pt_inputs, // NHWC
     IntArrayRef kernel_size, // HW
     IntArrayRef stride, // HW
-    IntArrayRef padding, // HW
+    UNUSED IntArrayRef padding, // HW
     IntArrayRef dilation, // HW
     bool forward_pass) {
+  // TODO: implement support for padding
   const auto device_id = pt_inputs[0]->device().index();
   // graph_handle scope
   synGraphHandle graph_handle;
@@ -121,7 +121,7 @@ void synapse_pool2d_generic_implementation(
           habana_helpers::name_suffix_from_type(pt_inputs[0]->scalar_type());
       { // add node
         auto syn_pool_params =
-            synapse_pool_params_builder(kernel_size, stride, padding, dilation);
+            synapse_pool_params_builder(kernel_size, stride, dilation);
 
         TORCH_HABANA_CHECK(
             synNodeCreate(
@@ -174,8 +174,7 @@ std::tuple<Tensor, Tensor> max_pool2d_with_indices_hpu(
 
   // TODO:: add support for ceil mode
   TORCH_CHECK(ceil_mode == false, "Pooling ceil_mode is not yet implemented");
-  habana_helpers::check_pool_params(
-      input, kernel_size, stride, padding, dilation);
+  habana_helpers::check_pool_params(input, stride, padding, dilation);
 
   // input, output NCHW
   // weight KCHW, where K - output channels
@@ -235,7 +234,7 @@ Tensor& max_pool2d_with_indices_backward_out_hpu(
   // TODO: merge pt contriants check with check_pool_params function
   TORCH_CHECK(!ceil_mode, "Pooling ceil_mode is not yet implemented");
   habana_helpers::check_pool_params(
-      input, kernel_size, stride, padding, dilation);
+      input, stride, padding, dilation);
 
   // ############### Copy paste check from PT code
   // #20866, #22032: Guarantee this for the official C++ API?

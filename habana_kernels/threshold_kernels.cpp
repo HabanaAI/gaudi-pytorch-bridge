@@ -22,7 +22,6 @@ void synapse_threshold_out(
   // 1. mask = input <= threshold
   // 2. output = mask*val + !mask*other
   const auto device_id = input.device().index();
-  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
 
   // graph_handle scope
   synGraphHandle graph_handle;

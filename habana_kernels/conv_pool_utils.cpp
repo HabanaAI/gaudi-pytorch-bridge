@@ -17,7 +17,6 @@ int64_t compute_output_size(
 
 void check_pool_params(
     const at::Tensor& input,
-    const at::IntArrayRef kernel_size,
     const at::IntArrayRef stride,
     const at::IntArrayRef padding,
     const at::IntArrayRef dilation) {
@@ -70,7 +69,7 @@ void check_convolution_params(
   TORCH_CHECK(
       weight.size(1) == input.size(1),
       "Number of input channels doesn't match weight channels");
-  check_pool_params(input, weight.sizes(), stride, padding, dilation);
+  check_pool_params(input, stride, padding, dilation);
 }
 
 std::vector<int64_t> hack_pytorch_nhwc_shapes(

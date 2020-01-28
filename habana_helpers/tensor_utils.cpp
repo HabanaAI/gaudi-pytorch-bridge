@@ -151,7 +151,6 @@ std::string habana_helpers::name_suffix_from_type(
           string_or_error)) {
     auto error = absl::get<synapse_helpers::synapse_error>(string_or_error);
     TORCH_HABANA_CHECK(error.status, error.error);
-  } else {
-    return absl::get<std::string>(string_or_error);
   }
+  return absl::get<std::string>(string_or_error);
 }

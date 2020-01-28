@@ -7,6 +7,7 @@
 #include <TH/THTensor.hpp>
 
 #include "habana_device/HPUAllocator.h"
+#include "habana_helpers/unused_macro.h"
 
 namespace at {
 namespace native {
@@ -81,7 +82,7 @@ inline TensorImpl* resize_impl_hpu_(
     TensorImpl* self,
     IntArrayRef size,
     c10::optional<IntArrayRef> stride,
-    bool device_guard = true) {
+    UNUSED bool device_guard = true) {
   if (self->sizes() == size && (!stride || self->strides() == stride)) {
     return self;
   }
