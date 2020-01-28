@@ -11,7 +11,7 @@ using namespace torch;
 
 // computes `output = input <= threshold ? value : other`
 // other is `input` in threshold() and `grad` in threshold_backward()
-Tensor synapse_threshold_out(
+void synapse_threshold_out(
     Tensor& output,
     const Tensor& input,
     const Tensor& threshold,
