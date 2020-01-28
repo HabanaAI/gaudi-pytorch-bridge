@@ -106,7 +106,7 @@ void synapse_matmul(
         std::vector<const at::Tensor*>{&output}, graph_handle, true);
     std::tie(syn_tmp_helper_tensors, syn_tmp_tensors) =
         habana_helpers::create_tensors(
-            std::vector<const at::Tensor*>{&output}, graph_handle, {false});
+            std::vector<const at::Tensor*>{&output}, graph_handle, false);
 
     const std::string node_type1 = "gemm";
     const std::string node_type2 =

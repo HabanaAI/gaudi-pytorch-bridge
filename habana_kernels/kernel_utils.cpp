@@ -1,12 +1,11 @@
 #include <torch/script.h>
 
-#include "habana_device/hpu_cached_devices.h"
 #include "habana_device/HPUCheck.h"
 #include "habana_device/HPUContext.h" // TODO: remove after changing allocator
+#include "habana_device/hpu_cached_devices.h"
 #include "kernel_utils.h"
 
 using namespace torch;
-
 
 std::vector<synLaunchTensorInfo> generate_syn_launch_tensor_info(
     const std::vector<std::string>& in_names,
@@ -70,7 +69,8 @@ void habana_helpers::compile_and_run(
             stream_handle,
             syn_launch_info.data(),
             syn_launch_info.size(),
-            synapse_helpers::HPURegistrar::get_device(device_id).get_workspace_buffer(workspace_size_bytes),
+            synapse_helpers::HPURegistrar::get_device(device_id)
+                .get_workspace_buffer(workspace_size_bytes),
             recipe_handle),
         "synLaunch failed");
     TORCH_HABANA_CHECK(
