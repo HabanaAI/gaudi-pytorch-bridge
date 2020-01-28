@@ -170,7 +170,7 @@ std::tuple<Tensor, Tensor> max_pool2d_with_indices_hpu(
     IntArrayRef padding,
     IntArrayRef dilation,
     bool ceil_mode) {
-  std::cout << "max_pool2d_with_indices_hpu called\n"; // TODO: remove
+  LOG_FUNC_BEGIN;
 
   // TODO:: add support for ceil mode
   TORCH_CHECK(ceil_mode == false, "Pooling ceil_mode is not yet implemented");
@@ -215,7 +215,7 @@ std::tuple<Tensor, Tensor> max_pool2d_with_indices_hpu(
   //   NHWC -> NCHW
   auto output = output_nhwc.permute({0, 3, 1, 2});
   auto output_idx = output_idx_nhwc.permute({0, 3, 1, 2});
-
+  LOG_FUNC_END;
   return {output, output_idx};
 }
 
@@ -229,8 +229,7 @@ Tensor& max_pool2d_with_indices_backward_out_hpu(
     IntArrayRef padding,
     IntArrayRef dilation,
     bool ceil_mode) {
-  // TODO: remove
-  std::cout << "max_pool2d_with_indices_backward_out_hpu called\n";
+  LOG_FUNC_BEGIN;
 // TODO: enable when SW-9230 is resolved
 #if 0
   // TODO: merge pt contriants check with check_pool_params function
@@ -309,7 +308,6 @@ Tensor& max_pool2d_with_indices_backward_out_hpu(
 
   //   NHWC -> NCHW
   grad_input = grad_input_nhwc.permute({0, 3, 1, 2});
-  return grad_input;
 #else
   TORCH_WARN(
       "max_pool2d_with_indices_backward_out_hpu executes CPU kernel internally");
@@ -329,8 +327,10 @@ Tensor& max_pool2d_with_indices_backward_out_hpu(
       habana_helpers::to_cpu(indices).toType(c10::ScalarType::Long));
 
   grad_input = grad_input_cpu.to(hpu);
-  return grad_input;
 #endif
+
+  LOG_FUNC_END;
+  return grad_input;
 }
 
 Tensor max_pool2d_with_indices_backward_hpu(
@@ -342,7 +342,7 @@ Tensor max_pool2d_with_indices_backward_hpu(
     IntArrayRef dilation,
     bool ceil_mode,
     const Tensor& indices) {
-  std::cout << "max_pool2d_with_indices_backward_hpu called\n"; // TODO: remove
+  LOG_FUNC_BEGIN;
   // TODO: if TPC kernel write zeros than we don't have fo call zero_like. Try
   // to call some function without fill
   auto grad_input = at::zeros_like(input, LEGACY_CONTIGUOUS_MEMORY_FORMAT);
@@ -356,6 +356,7 @@ Tensor max_pool2d_with_indices_backward_hpu(
       padding,
       dilation,
       ceil_mode);
+  LOG_FUNC_END;
   return grad_input;
 }
 

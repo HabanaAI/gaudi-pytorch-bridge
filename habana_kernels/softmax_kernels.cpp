@@ -102,7 +102,7 @@ Tensor log_softmax_hpu(
     const Tensor& self,
     const int64_t dim,
     const bool half_to_float) {
-  std::cout << "log_softmax_hpu called\n"; // TODO: remove
+  LOG_FUNC_BEGIN;
 
   TORCH_CHECK(
       !half_to_float,
@@ -111,7 +111,7 @@ Tensor log_softmax_hpu(
   // TODO: consider changing layout like it is done in convolution
   auto output = at::empty(self.sizes(), self.options());
   synapse_log_softmax(output, self, dim);
-
+  LOG_FUNC_END;
   return output;
 }
 
@@ -120,6 +120,7 @@ Tensor log_softmax_backward_hpu(
     const Tensor& output,
     int64_t dim,
     const Tensor& input) {
+  LOG_FUNC_BEGIN;
   TORCH_WARN("log_softmax_backward_hpu executes CPU kernel internally");
   auto hpu = grad.device();
   auto result = at::native::log_softmax_backward_cpu(
@@ -127,6 +128,7 @@ Tensor log_softmax_backward_hpu(
       habana_helpers::to_cpu(output),
       dim,
       habana_helpers::to_cpu(input));
+  LOG_FUNC_END;
   return result.to(hpu);
 }
 

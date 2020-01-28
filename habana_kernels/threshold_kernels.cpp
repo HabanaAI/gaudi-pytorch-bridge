@@ -195,7 +195,7 @@ Tensor threshold_backward_hpu(
     const Tensor& grad_output,
     const Tensor& self,
     Scalar threshold) {
-  std::cout << "threshold_backward_hpu called\n"; // TODO: remove
+  LOG_FUNC_BEGIN;
   TORCH_CHECK(self.scalar_type() == c10::ScalarType::Float);
 
   Scalar threshold_converted = threshold;
@@ -211,7 +211,7 @@ Tensor threshold_backward_hpu(
   auto output = at::empty(self.sizes(), options);
   synapse_threshold_out(
       output, self, threshold_tensor, value_tensor, grad_output);
-
+  LOG_FUNC_END;
   return output;
 }
 

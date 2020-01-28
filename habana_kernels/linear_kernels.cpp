@@ -159,12 +159,12 @@ void synapse_matmul(
 }
 
 Tensor matmul_hpu(const Tensor& mat1, const Tensor& mat2) {
-  std::cout << "matmul_hpu called\n"; // TODO: remove
+  LOG_FUNC_BEGIN;
   check_matmul_params(mat1, mat2);
 
   auto output = at::empty({mat1.size(0), mat2.size(1)}, mat1.options());
   synapse_matmul(output, mat1, mat2);
-
+  LOG_FUNC_END;
   return output;
 }
 
@@ -174,7 +174,7 @@ Tensor matmul_with_bias_hpu(
     const Tensor& mat2,
     Scalar beta,
     Scalar alpha) {
-  std::cout << "matmul_with_bias_hpu called\n"; // TODO: remove
+  LOG_FUNC_BEGIN;
   check_matmul_params(mat1, mat2);
   TORCH_CHECK(
       self.sizes().size() == 1,
@@ -193,7 +193,7 @@ Tensor matmul_with_bias_hpu(
   std::tie(bias_expanded) =
       at::expand_size(self, output.sizes(), "matmul_with_bias_hpu");
   synapse_matmul(output, mat1, mat2, bias_expanded, beta, alpha);
-
+  LOG_FUNC_END;
   return output;
 }
 

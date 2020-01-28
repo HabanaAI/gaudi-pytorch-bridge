@@ -4,17 +4,22 @@
 
 #include "habana_device/HPUCheck.h"
 #include "habana_device/HPUContext.h"
+#include "habana_helpers/logging.h"
 #include "resize.h"
 
 using namespace torch;
 
 Tensor permute_hpu(const Tensor& self, IntArrayRef dims) {
-  std::cout << "permute_hpu called\n";
-  return self.to(DeviceType::CPU).permute(dims).contiguous().to(self.device());
+  LOG_FUNC_BEGIN;
+  auto ret =
+      self.to(DeviceType::CPU).permute(dims).contiguous().to(self.device());
+  LOG_FUNC_END;
+  return ret;
 }
 
 // cpu->hpu and hpu->cpu copy implementation
 Tensor& copy_hpu_(Tensor& self, const Tensor& src, bool non_blocking) {
+  LOG_FUNC_BEGIN;
   // TODO: (from torch code) this should be handled during dispatch, but that's
   // missing...
   Tensor& dst = self;
@@ -87,6 +92,7 @@ Tensor& copy_hpu_(Tensor& self, const Tensor& src, bool non_blocking) {
   TORCH_HABANA_CHECK(
       synStreamDestroy(stream), "Destroying synapse stream failed");
 
+  LOG_FUNC_END;
   return dst;
 }
 
@@ -96,7 +102,7 @@ Tensor& set_hpu_(
     int64_t storage_offset,
     IntArrayRef size,
     IntArrayRef stride) {
-  std::cout << "set_hpu_ called\n";
+  LOG_FUNC_BEGIN;
   if (stride.data()) {
     TORCH_CHECK(size.size() == stride.size(), "inconsistent size/stride sizes");
   }
@@ -143,6 +149,7 @@ Tensor& set_hpu_(
   /* size and stride */
   THHTensor_resizeNd(self_, stride.size(), size.data(), stride.data());
 
+  LOG_FUNC_END;
   return self;
 }
 

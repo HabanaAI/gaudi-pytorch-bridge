@@ -160,7 +160,7 @@ Tensor sum_dim_IntList_habana(
     IntArrayRef dim,
     bool keepdim,
     c10::optional<ScalarType> dtype) {
-  std::cout << "sum_dim_IntList_habana called\n"; // TODO: remove
+  LOG_FUNC_BEGIN;
 
   Tensor output;
   auto ndim = self.dim();
@@ -179,7 +179,7 @@ Tensor sum_dim_IntList_habana(
   // reduction but it will be slower. I don't know if synapse support multi axis
   // reduction. Keep dim can be implemented just by modifing metadata of PT
   // tensor, synapse requires to always keep them
-
+  LOG_FUNC_END;
   return viewed_result;
 }
 

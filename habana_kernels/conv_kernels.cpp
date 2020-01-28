@@ -261,7 +261,7 @@ Tensor convolution_hpu(
     bool transposed,
     IntArrayRef output_padding,
     int64_t groups) {
-  std::cout << "convolution_hpu called\n"; // TODO: remove
+  LOG_FUNC_BEGIN;
 
   habana_helpers::check_convolution_params(
       input,
@@ -312,6 +312,7 @@ Tensor convolution_hpu(
 
   //   NHWC -> NCHW
   auto output = output_nhwc.permute({0, 3, 1, 2});
+  LOG_FUNC_END;
   return output;
 }
 

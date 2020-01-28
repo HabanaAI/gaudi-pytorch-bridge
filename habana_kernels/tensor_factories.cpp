@@ -4,6 +4,7 @@
 
 #include "habana_device/HPUCheck.h"
 #include "habana_device/HPUContext.h"
+#include "habana_helpers/logging.h"
 #include "resize.h"
 
 using namespace torch;
@@ -25,7 +26,7 @@ Tensor empty_hpu(
     IntArrayRef size,
     const TensorOptions& options,
     c10::optional<MemoryFormat> optional_memory_format) {
-  std::cout << "empty_hpu called\n"; // TODO: remove
+  LOG_FUNC_BEGIN;
   // AT_ASSERT(options.backend() == at::Backend::HABANA);
   AT_ASSERT(options.device().type() == DeviceType::HABANA);
 
@@ -65,6 +66,7 @@ Tensor empty_hpu(
   auto memory_format =
       optional_memory_format.value_or(MemoryFormat::Contiguous);
   tensor.unsafeGetTensorImpl()->empty_tensor_restride(memory_format);
+  LOG_FUNC_END;
   return tensor;
 }
 
@@ -72,10 +74,11 @@ Tensor empty_strided_hpu(
     IntArrayRef size,
     IntArrayRef stride,
     const TensorOptions& options) {
-  std::cout << "empty_strided_hpu called\n"; // TODO: remove
+  LOG_FUNC_BEGIN;
   check_size_nonnegative(size);
   auto t = at::native::empty_hpu({0}, options, c10::nullopt);
   at::native::resize_impl_hpu_(t.unsafeGetTensorImpl(), size, stride);
+  LOG_FUNC_END;
   return t;
 }
 } // namespace native

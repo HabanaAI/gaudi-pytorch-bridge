@@ -62,10 +62,11 @@ void synapse_relu(const Tensor& output, const Tensor& input) {
 }
 
 Tensor relu_hpu(const Tensor& input) {
-  std::cout << "relu_hpu called\n"; // TODO: remove
+  LOG_FUNC_BEGIN;
   auto output = at::empty(input.sizes(), input.options());
   synapse_relu(output, input);
 
+  LOG_FUNC_END;
   return output;
 }
 

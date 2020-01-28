@@ -7,6 +7,8 @@
 #include <string>
 #include <unordered_map>
 
+#include "habana_helpers/logging.h"
+
 namespace habana_helpers {
 std::string unique_recipe_name_generator(std::string recipe_name);
 

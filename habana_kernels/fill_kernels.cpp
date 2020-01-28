@@ -9,7 +9,7 @@
 using namespace torch;
 
 Tensor& fill_hpu(Tensor& self, Scalar value) {
-  std::cout << "fill_hpu called\n";
+  LOG_FUNC_BEGIN;
   TORCH_WARN("fill_hpu executes CPU kernel internally");
 
   auto hpu = self.device();
@@ -17,6 +17,7 @@ Tensor& fill_hpu(Tensor& self, Scalar value) {
 
   auto result = at::native::fill_(self_, value);
   self = self_.to(hpu);
+  LOG_FUNC_END;
   return self;
 }
 
