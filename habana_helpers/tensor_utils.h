@@ -33,6 +33,9 @@ create_tensors(
     synGraphHandle graph,
     bool persistent);
 
+synapse_helpers::tensor duplicate_tensor_in_memory_section(
+    const synapse_helpers::tensor& tensor);
+
 std::vector<void*> extract_data_ptrs(const std::vector<const at::Tensor*>& vec);
 
 std::vector<std::string> names(const std::vector<synapse_helpers::tensor>&);

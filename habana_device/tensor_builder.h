@@ -32,9 +32,18 @@ class tensor_builder : public tensor_builder_base<tensor_builder> {
   explicit tensor_builder(
       const std::vector<int64_t>& shape,
       synDataType data_type)
-      : tensor_builder_base(
+      : tensor_builder(
             to_dimension_sizes_t(shape),
             shape.size(),
+            data_type) {}
+
+  explicit tensor_builder(
+      const tensor::dimension_sizes_t& shape,
+      unsigned ndims,
+      synDataType data_type)
+      : tensor_builder_base(
+            shape,
+            ndims,
             data_type) {}
 };
 

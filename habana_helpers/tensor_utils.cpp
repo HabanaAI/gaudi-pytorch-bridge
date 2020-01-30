@@ -130,6 +130,22 @@ habana_helpers::create_tensors(
   return {std::move(tensor_helpers), std::move(syn_tensors)};
 }
 
+synapse_helpers::tensor habana_helpers::duplicate_tensor_in_memory_section(
+    const synapse_helpers::tensor& tensor) {
+  TORCH_CHECK(
+      tensor.is_persistent(),
+      "What would you like to create another tensor in the same memory section for non persistent tensor?");
+
+  auto variant =
+      synapse_helpers::tensor_builder(tensor.dimension_sizes(), tensor.dims(), tensor.type())
+          .with_memory_section(tensor.memorysection())
+          .mark_persistence(tensor.is_persistent())
+          .build(
+              synapse_helpers::HPURegistrar::get_device(tensor.device_id()),
+              tensor.graph());
+  return absl::get<synapse_helpers::tensor>(std::move(variant));
+}
+
 std::vector<std::string> habana_helpers::names(
     const std::vector<synapse_helpers::tensor>& vec) {
   std::vector<std::string> names;

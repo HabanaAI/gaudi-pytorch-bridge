@@ -155,7 +155,7 @@ void synapse_reduce_sum(
   TORCH_HABANA_CHECK(synGraphDestroy(graph_handle), "synGraphDestroy failed");
 }
 
-Tensor sum_dim_IntList_habana(
+Tensor sum_dim_IntList_hpu(
     const Tensor& self,
     IntArrayRef dim,
     bool keepdim,
@@ -188,6 +188,6 @@ static auto registry = torch::RegisterOperators().op(
         .schema(
             "aten::sum.dim_IntList(Tensor self, int[1] dim, bool keepdim=False, *, ScalarType? dtype=None) -> Tensor")
         .impl_unboxedOnlyKernel<
-            decltype(sum_dim_IntList_habana),
-            &sum_dim_IntList_habana>(TensorTypeId::HABANATensorId)
+            decltype(sum_dim_IntList_hpu),
+            &sum_dim_IntList_hpu>(TensorTypeId::HABANATensorId)
         .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));

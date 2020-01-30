@@ -88,6 +88,13 @@ static auto registry =
     torch::RegisterOperators()
         .op(torch::RegisterOperators::options()
                 .schema(
+                    "aten::clone(Tensor self, *, MemoryFormat? memory_format=None) -> Tensor")
+                .impl_unboxedOnlyKernel<
+                    decltype(at::native::clone),
+                    &at::native::clone>(TensorTypeId::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema(
                     "aten::empty.memory_format(int[] size, *, ScalarType? dtype=None, Layout? layout=None, Device? device=None, bool? pin_memory=None, MemoryFormat? memory_format=None) -> Tensor")
                 .impl_unboxedOnlyKernel<
                     decltype(at::native::empty_hpu),

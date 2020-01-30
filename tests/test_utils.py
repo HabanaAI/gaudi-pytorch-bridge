@@ -19,7 +19,7 @@ def evaluate_fwd_kernel(kernel, kernel_params, check_results=True):
     # we are still safe because we already copied tensors to HPU before running
     # CPU kernel.
     hpu_result = _run_kernel_on_device(device=hpu,
-                                       kernel=_kernel_copy_to_device(kernel, hpu),
+                                       kernel=kernel,
                                        kernel_params=kernel_params)
 
     cpu_result = _run_kernel_on_device(device=cpu, kernel=kernel, kernel_params=kernel_params)
@@ -44,7 +44,7 @@ def evaluate_fwd_bwd_kernel(kernel, kernel_params_fwd, tensor_list_bwd, check_re
     # we are still safe because we already copied tensors to HPU before running
     # CPU kernel.
     hpu_result_fwd = _run_kernel_on_device(device=hpu,
-                                           kernel=_kernel_copy_to_device(kernel, hpu),
+                                           kernel=kernel,
                                            kernel_params=kernel_params_fwd)
     hpu_tensor_list_bwd = [t.to(hpu) for t in tensor_list_bwd]
     # TODO: add suport for multiple gradients
@@ -69,6 +69,23 @@ def evaluate_fwd_bwd_kernel(kernel, kernel_params_fwd, tensor_list_bwd, check_re
         compare_tensors(hpu_result_bwd, cpu_result_bwd, atol=0.001, rtol=1.e-3)
 
     return (hpu_result_fwd, hpu_result_bwd), (cpu_result_fwd, cpu_result_bwd)
+
+
+def evaluate_fwd_inplace_kernel(in_out_tensor, kernel_name, kernel_params, check_results=True):
+    hpu_result = _run_inplace_kernel_on_device(device=hpu,
+                                               in_out_tensor=in_out_tensor,
+                                               kernel_name=kernel_name,
+                                               kernel_params=kernel_params)
+
+    cpu_result = _run_inplace_kernel_on_device(device=cpu,
+                                               in_out_tensor=in_out_tensor,
+                                               kernel_name=kernel_name,
+                                               kernel_params=kernel_params)
+
+    if check_results:
+        compare_tensors(hpu_result, cpu_result, atol=0.001, rtol=1.e-3)
+
+    return hpu_result, cpu_result
 
 
 def compare_tensors(hpu_tensors, cpu_tensors, atol, rtol, assert_enable=True):
@@ -110,6 +127,7 @@ def _assert_tensors_on_device(tensor_list, device):
 def _run_kernel_on_device(device, kernel, tensor_list=None, kernel_params=None):
     # print("tensor_list", tensor_list)
     # print("kernel_params", kernel_params)
+    kernel = _kernel_copy_to_device(kernel, device)
 
     if kernel_params and tensor_list:
         raise RuntimeError("Pass tensors using kernel_params")
@@ -121,6 +139,26 @@ def _run_kernel_on_device(device, kernel, tensor_list=None, kernel_params=None):
                 kernel_params[k] = v.to(device)
 
     result = kernel(**kernel_params) if kernel_params else kernel(*tensor_list)
+
+    return _convert_to_tensor_list(result)
+
+
+def _run_inplace_kernel_on_device(device, in_out_tensor, kernel_name, tensor_list=None, kernel_params=None):
+    assert isinstance(in_out_tensor, torch.Tensor)
+    if kernel_params and tensor_list:
+        raise RuntimeError("Pass tensors using kernel_params")
+
+    in_out_tensor = in_out_tensor.to(device)
+    if kernel_params:
+        assert isinstance(kernel_params, dict)
+        for k, v in kernel_params.items():
+            if isinstance(v, torch.Tensor):
+                kernel_params[k] = v.to(device)
+
+    if kernel_params:
+        result = getattr(in_out_tensor, kernel_name)(**kernel_params)
+    else:
+        result = getattr(in_out_tensor, kernel_name)(*tensor_list)
 
     return _convert_to_tensor_list(result)
 
