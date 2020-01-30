@@ -71,18 +71,20 @@ def evaluate_fwd_bwd_kernel(kernel, kernel_params_fwd, tensor_list_bwd, check_re
     return (hpu_result_fwd, hpu_result_bwd), (cpu_result_fwd, cpu_result_bwd)
 
 
-def compare_tensors(hpu_tensors, cpu_tensors, atol, rtol):
-    if not isinstance(hpu_tensors, list):
-        hpu_tensors = list(hpu_tensors)
-    if not isinstance(cpu_tensors, list):
-        cpu_tensors = list(cpu_tensors)
+def compare_tensors(hpu_tensors, cpu_tensors, atol, rtol, assert_enable=True):
+    hpu_tensors = _convert_to_tensor_list(hpu_tensors)
+    cpu_tensors = _convert_to_tensor_list(cpu_tensors)
 
     assert len(hpu_tensors) == len(cpu_tensors)
     for i in range(len(hpu_tensors)):
-        # print('hpu_result[{}]'.format(i), hpu_tensors[i].to(cpu).detach().numpy())
-        # print('cpu_result[{}]'.format(i), cpu_tensors[i].detach().numpy())
-        np.testing.assert_allclose(hpu_tensors[i].to(cpu).detach().numpy(),
-                                   cpu_tensors[i].detach().numpy(), atol=atol, rtol=rtol)
+        if assert_enable:
+            np.testing.assert_allclose(hpu_tensors[i].to(cpu).detach().numpy(),
+                                       cpu_tensors[i].detach().numpy(), atol=atol, rtol=rtol)
+        else:
+            print('hpu_result[{}]'.format(i), hpu_tensors[i].to(cpu).detach().numpy())
+            print('cpu_result[{}]'.format(i), cpu_tensors[i].detach().numpy())
+            return np.allclose(hpu_tensors[i].to(cpu).detach().numpy(),
+                               cpu_tensors[i].detach().numpy(), atol=atol, rtol=rtol, equal_nan=True)
 
 
 @pytest.fixture(autouse=True)
@@ -120,15 +122,7 @@ def _run_kernel_on_device(device, kernel, tensor_list=None, kernel_params=None):
 
     result = kernel(**kernel_params) if kernel_params else kernel(*tensor_list)
 
-    if isinstance(result, tuple):
-        return list(result)
-    elif isinstance(result, torch.Tensor):
-        # You can't return list(result), because it will fail on 0-d tensors
-        result_list = []
-        result_list.append(result)
-        return result_list
-    else:
-        raise TypeError("Can not convert outputs")
+    return _convert_to_tensor_list(result)
 
 
 def _kernel_copy_to_device(kernel, device):
@@ -137,3 +131,17 @@ def _kernel_copy_to_device(kernel, device):
         return kernel_copy.to(device)
     else:
         return kernel
+
+
+def _convert_to_tensor_list(tensor_or_tensors):
+    if isinstance(tensor_or_tensors, tuple):
+        return list(tensor_or_tensors)
+    elif isinstance(tensor_or_tensors, list):
+        return tensor_or_tensors
+    elif isinstance(tensor_or_tensors, torch.Tensor):
+        # You can't return list(tensor_or_tensors), because it will fail on 0-d tensors
+        result_list = []
+        result_list.append(tensor_or_tensors)
+        return result_list
+    else:
+        raise TypeError("Can not convert outputs")

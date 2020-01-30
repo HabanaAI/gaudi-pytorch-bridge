@@ -23,7 +23,7 @@ void check_pool_params(
 void check_convolution_params(
     const at::Tensor& input,
     const at::Tensor& weight,
-    const at::Tensor& bias,
+    c10::optional<const at::Tensor*> bias,
     const at::IntArrayRef stride,
     const at::IntArrayRef padding,
     const at::IntArrayRef dilation,

@@ -154,3 +154,16 @@ std::string habana_helpers::name_suffix_from_type(
   }
   return absl::get<std::string>(string_or_error);
 }
+
+std::vector<void*> habana_helpers::extract_data_ptrs(
+    const std::vector<const at::Tensor*>& vec) {
+  std::vector<void*> ptrs;
+  ptrs.reserve(vec.size());
+
+  std::transform(
+      vec.cbegin(),
+      vec.cend(),
+      std::back_inserter(ptrs),
+      [](const auto& tensor) { return tensor->data_ptr(); });
+  return ptrs;
+};

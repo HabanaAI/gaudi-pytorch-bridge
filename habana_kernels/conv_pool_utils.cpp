@@ -42,7 +42,7 @@ void check_pool_params(
 void check_convolution_params(
     const at::Tensor& input,
     const at::Tensor& weight,
-    const at::Tensor& bias,
+    c10::optional<const at::Tensor*> bias,
     const at::IntArrayRef stride,
     const at::IntArrayRef padding,
     const at::IntArrayRef dilation,
@@ -61,14 +61,19 @@ void check_convolution_params(
   TORCH_CHECK(
       weight.device().type() == c10::DeviceType::HABANA,
       "weight is not habana at::Tensor");
-  TORCH_CHECK(
-      bias.device().type() == c10::DeviceType::HABANA,
-      "bias is not habana at::Tensor");
   TORCH_CHECK(weight.ndimension() == 4, "weight tensordimension count  != 4");
-  TORCH_CHECK(bias.ndimension() == 1, "bias at::Tensor idimension count  != 1");
   TORCH_CHECK(
       weight.size(1) == input.size(1),
       "Number of input channels doesn't match weight channels");
+  if (bias.has_value()) {
+    TORCH_CHECK(
+        bias.value()->device().type() == c10::DeviceType::HABANA,
+        "bias is not habana at::Tensor");
+    TORCH_CHECK(
+        bias.value()->ndimension() == 1,
+        "bias at::Tensor idimension count  != 1");
+  }
+
   check_pool_params(input, stride, padding, dilation);
 }
 

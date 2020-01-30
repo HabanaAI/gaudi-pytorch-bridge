@@ -139,24 +139,13 @@ void synapse_pool2d_generic_implementation(
             "synNodeCreate failed");
       }
 
-      auto extract_data_ptrs = [](std::vector<const Tensor*>& vec) {
-        std::vector<void*> ptrs;
-        ptrs.reserve(vec.size());
-
-        std::transform(
-            vec.begin(), vec.end(), std::back_inserter(ptrs), [](auto& x) {
-              return x->data_ptr();
-            });
-        return ptrs;
-      };
-
       habana_helpers::compile_and_run(
           node_type,
           graph_handle,
           habana_helpers::names(syn_helper_inputs),
           habana_helpers::names(syn_helper_outputs),
-          extract_data_ptrs(pt_inputs),
-          extract_data_ptrs(pt_outputs),
+          habana_helpers::extract_data_ptrs(pt_inputs),
+          habana_helpers::extract_data_ptrs(pt_outputs),
           device_id);
     }
   }
