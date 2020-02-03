@@ -50,33 +50,26 @@ void habana_helpers::compile_and_run(
           &recipe_handle, graph_handle, recipe_name.c_str(), nullptr),
       "synGraphCompile failed");
 
-  { // stream handle scope
-    synStreamHandle stream_handle;
-    TORCH_HABANA_CHECK(
-        synStreamCreate(&stream_handle, device_id, 0),
-        "synStreamCreate failed");
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  // TODO: decide if PT will use streams from helpers or stream pool like GPU
+  synStreamHandle stream_handle = device.get_compute_stream();
 
-    auto syn_launch_info = generate_syn_launch_tensor_info(
-        input_names, input_buffers, output_names, output_buffers);
+  auto syn_launch_info = generate_syn_launch_tensor_info(
+      input_names, input_buffers, output_names, output_buffers);
 
-    uint64_t workspace_size_bytes;
-    TORCH_HABANA_CHECK(
-        synWorkspaceGetSize(&workspace_size_bytes, recipe_handle),
-        "synWorkspaceGetSize failed");
+  uint64_t workspace_size_bytes;
+  TORCH_HABANA_CHECK(
+      synWorkspaceGetSize(&workspace_size_bytes, recipe_handle),
+      "synWorkspaceGetSize failed");
 
-    TORCH_HABANA_CHECK(
-        synLaunch(
-            stream_handle,
-            syn_launch_info.data(),
-            syn_launch_info.size(),
-            synapse_helpers::HPURegistrar::get_device(device_id)
-                .get_workspace_buffer(workspace_size_bytes),
-            recipe_handle),
-        "synLaunch failed");
-    TORCH_HABANA_CHECK(
-        synStreamSynchronize(stream_handle), "synStreamSynchronize failed");
-
-    TORCH_HABANA_CHECK(
-        synStreamDestroy(stream_handle), "synStreamDestroy failed");
-  }
+  TORCH_HABANA_CHECK(
+      synLaunch(
+          stream_handle,
+          syn_launch_info.data(),
+          syn_launch_info.size(),
+          device.get_workspace_buffer(workspace_size_bytes),
+          recipe_handle),
+      "synLaunch failed");
+  TORCH_HABANA_CHECK(
+      synStreamSynchronize(stream_handle), "synStreamSynchronize failed");
 }
