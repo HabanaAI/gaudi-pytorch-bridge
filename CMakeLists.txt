@@ -30,6 +30,7 @@ add_library(habana_pytorch_plugin SHARED
   habana_kernels/loss_kernels.cpp
   habana_kernels/pool_kernels.cpp
   habana_kernels/reduction_kernels.cpp
+  habana_kernels/scalar.cpp
   habana_kernels/softmax_kernels.cpp
   habana_kernels/tensor_factories.cpp
   habana_kernels/threshold_kernels.cpp
