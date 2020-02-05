@@ -3,7 +3,6 @@
 #include <c10/core/Allocator.h>
 #include <synapse/include/synapse_api_types.h>
 #include <synapse_helpers/habana_tensor.h>
-#include <mutex>
 
 namespace at {
 namespace habana {

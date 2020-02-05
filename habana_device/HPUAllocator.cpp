@@ -1,6 +1,7 @@
+#include <synapse/include/synapse_api.h>
+
 #include "HPUAllocator.h"
 #include "HPUCheck.h"
-#include "synapse/include/synapse_api.h"
 
 namespace at {
 namespace habana {

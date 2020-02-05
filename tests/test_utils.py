@@ -8,7 +8,7 @@ hpu = torch.device('habana')
 cpu = torch.device('cpu')
 
 
-def evaluate_fwd_kernel(kernel, kernel_params, check_results=True):
+def evaluate_fwd_kernel(kernel, kernel_params, check_results=True, atol=0.001, rtol=1.e-3):
     '''Run given kernel with tensor_list as arguments on HPU and
     then CPU. Optionally check results and return them if user wants
     to process them latter e.g. to use custom comparison function.
@@ -25,12 +25,12 @@ def evaluate_fwd_kernel(kernel, kernel_params, check_results=True):
     cpu_result = _run_kernel_on_device(device=cpu, kernel=kernel, kernel_params=kernel_params)
 
     if check_results:
-        compare_tensors(hpu_result, cpu_result, atol=0.001, rtol=1.e-3)
+        compare_tensors(hpu_result, cpu_result, atol=atol, rtol=rtol)
 
     return hpu_result, cpu_result
 
 
-def evaluate_fwd_bwd_kernel(kernel, kernel_params_fwd, tensor_list_bwd, check_results_fwd=True, check_results_bwd=True):
+def evaluate_fwd_bwd_kernel(kernel, kernel_params_fwd, tensor_list_bwd, check_results_fwd=True, check_results_bwd=True, atol=0.001, rtol=1.e-3):
     '''Run given kernel fwd and bwd pass on HPU and then on CPU.
     Optionally check results and return them if user wants
     to process them latter e.g. to use custom comparison function'''
@@ -63,15 +63,15 @@ def evaluate_fwd_bwd_kernel(kernel, kernel_params_fwd, tensor_list_bwd, check_re
         tensor_list=tensor_list_bwd)
 
     if check_results_fwd:
-        compare_tensors(hpu_result_fwd, cpu_result_fwd, atol=0.001, rtol=1.e-3)
+        compare_tensors(hpu_result_fwd, cpu_result_fwd, atol=atol, rtol=rtol)
 
     if check_results_bwd:
-        compare_tensors(hpu_result_bwd, cpu_result_bwd, atol=0.001, rtol=1.e-3)
+        compare_tensors(hpu_result_bwd, cpu_result_bwd, atol=atol, rtol=rtol)
 
     return (hpu_result_fwd, hpu_result_bwd), (cpu_result_fwd, cpu_result_bwd)
 
 
-def evaluate_fwd_inplace_kernel(in_out_tensor, kernel_name, kernel_params, check_results=True):
+def evaluate_fwd_inplace_kernel(in_out_tensor, kernel_name, kernel_params, check_results=True, atol=0.001, rtol=1.e-3):
     hpu_result = _run_inplace_kernel_on_device(device=hpu,
                                                in_out_tensor=in_out_tensor,
                                                kernel_name=kernel_name,
@@ -83,7 +83,7 @@ def evaluate_fwd_inplace_kernel(in_out_tensor, kernel_name, kernel_params, check
                                                kernel_params=kernel_params)
 
     if check_results:
-        compare_tensors(hpu_result, cpu_result, atol=0.001, rtol=1.e-3)
+        compare_tensors(hpu_result, cpu_result, atol=atol, rtol=rtol)
 
     return hpu_result, cpu_result
 
