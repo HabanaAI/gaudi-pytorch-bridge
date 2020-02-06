@@ -91,7 +91,7 @@ ns_SpatialReduction::Params synapse_pool_params_builder(
   return pool_params;
 }
 
-void synapse_pool2d_generic_implementation(
+void synapse_pool2d_generic_impl(
     std::vector<const Tensor*> pt_outputs, // NHWC
     std::vector<const Tensor*> pt_inputs, // NHWC
     IntArrayRef kernel_size, // HW
@@ -191,7 +191,7 @@ std::tuple<Tensor, Tensor> max_pool2d_with_indices_hpu(
   auto output_idx_nhwc =
       at::empty({N, output_H, output_W, C}, input.options().dtype(kByte));
 
-  synapse_pool2d_generic_implementation(
+  synapse_pool2d_generic_impl(
       {&output_idx_nhwc, &output_nhwc},
       {&input_nhwc},
       kernel_size,
@@ -285,7 +285,7 @@ Tensor& max_pool2d_with_indices_backward_out_hpu(
   auto input_nhwc = input.permute({0, 2, 3, 1});
   auto indices_nhwc = indices.permute({0, 2, 3, 1});
 
-  synapse_pool2d_generic_implementation(
+  synapse_pool2d_generic_impl(
       {&grad_input_nhwc},
       {&grad_output_nhwc, &indices_nhwc},
       kernel_size,

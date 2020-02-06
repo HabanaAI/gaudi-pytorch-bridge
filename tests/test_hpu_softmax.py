@@ -2,29 +2,32 @@ import torch
 import torch.nn.functional as F
 import pytest
 from test_utils import evaluate_fwd_kernel, evaluate_fwd_bwd_kernel, reset_seed
+from test_utils import compare_tensors
 
 
 test_case_list = [
-    # N, H, W, C, dim
-    pytest.param(2, 3, 4, 5, 1, marks=pytest.mark.xfail(reason="SW-8560")),
+    # N, C, dim
+    pytest.param(64, 10, 1),
+    pytest.param(64, 10, 0),
 ]
 
 
-@pytest.mark.parametrize("N, H, W, C, dim", test_case_list)
-def test_hpu_log_softmax(N, H, W, C, dim):
-    kernel_params = {'input': torch.randn(N, C, H, W),
+@pytest.mark.parametrize("N, C, dim", test_case_list)
+def test_hpu_log_softmax(N, C, dim):
+    kernel_params = {'input': torch.randn(N, C),
                      'dim': dim}
+    print("kernel params", kernel_params)
     evaluate_fwd_kernel(kernel=F.log_softmax, kernel_params=kernel_params)
 
 
-@pytest.mark.parametrize("N, H, W, C, dim", test_case_list)
-def test_hpu_log_softmax_fwd_bwd(N, H, W, C, dim):
-    kernel_params = {'input': torch.randn(N, C, H, W, requires_grad=True),
+@pytest.mark.xfail(reason="SW-8642")
+@pytest.mark.parametrize("N, C, dim", test_case_list)
+def test_hpu_log_softmax_fwd_bwd(N, C, dim):
+    kernel_params = {'input': torch.randn(N, C, requires_grad=True),
                      'dim': dim}
-    bwd_tensors = [torch.randn(N, C, H, W)]
-    # TODO: after fixing fwd we can enable checking fwd results
+    bwd_tensors = [torch.randn(N, C)]
     evaluate_fwd_bwd_kernel(kernel=F.log_softmax, tensor_list_bwd=bwd_tensors,
-                            kernel_params_fwd=kernel_params, check_results_fwd=0)
+                            kernel_params_fwd=kernel_params)
 
 
 if __name__ == '__main__':
