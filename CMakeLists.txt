@@ -10,9 +10,10 @@ if(SANITIZER)
   set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address -fsanitize=leak")
 endif(SANITIZER)
 
-add_subdirectory("$ENV{ABSEIL_CPP_INCLUDE_DIR}" absl)
 find_package(Torch REQUIRED)
+find_package(abseil REQUIRED)
 find_package(synapse_helpers REQUIRED)
+
 
 # workaround for cmake3.5. Starting from 3.13 sources are optional and we can add them in add_subdirectories
 add_library(habana_pytorch_plugin SHARED
