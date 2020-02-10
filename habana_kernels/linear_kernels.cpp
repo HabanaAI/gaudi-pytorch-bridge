@@ -2,22 +2,55 @@
 #include <ATen/InferSize.h>
 #include <torch/script.h>
 #include <tpc_kernels/include/perf_lib_layer_params.h>
-#include <algorithm>
-#include <iostream>
 
-#include "conv_pool_utils.h"
 #include "habana_device/HPUCheck.h"
 #include "habana_device/HPUContext.h"
+#include "habana_device/hpu_cached_devices.h"
+#include "habana_device/tensor_builder.h"
 #include "habana_helpers/tensor_utils.h"
 #include "kernel_utils.h"
 
 using namespace torch;
 
-void check_matmul_params(const Tensor& mat1, const Tensor& mat2) {
+void check_matmul_params(
+    const Tensor& mat1,
+    const Tensor& mat2,
+    c10::optional<const at::Tensor*> bias) {
   TORCH_CHECK(mat1.ndimension() == 2, "matmul_hpu supports only 2d matrices");
   TORCH_CHECK(mat2.ndimension() == 2, "matmul_hpu supports only 2d matrices");
   TORCH_CHECK(
       mat1.size(1) == mat2.size(0), "matmul inner dimensions doesn't match");
+  // Note: valid for 2d matrices matmul.
+  // mat2 doesn't have to be contiuguous
+  TORCH_CHECK(mat1.is_contiguous());
+  if (bias)
+    TORCH_CHECK(
+        bias.value()->ndimension() == 1, "matmul_hpu supports only 1d bias");
+}
+
+synapse_helpers::tensor create_mat2_tensor(
+    const Tensor& mat2,
+    const synGraphHandle graph_handle,
+    const unsigned device_id) {
+  if (mat2.is_contiguous())
+    return habana_helpers::create_tensor(
+        mat2, graph_handle, true, c10::nullopt);
+  else {
+    // Matrix is 2d and not contiguous, it means tensor has sizes(x,y) and
+    // strides (1,y) It won't work because we except strides (y,1).
+    // The trick here is to reverse dimensions, but not the data!
+    // This way after transposition actuall data layout will match synapse
+    // requirements
+    auto maybe_tensor =
+        synapse_helpers::tensor_builder(
+            {mat2.sizes().rbegin(), mat2.sizes().rend()},
+            habana_helpers::pytorch_to_synapse_type(mat2.scalar_type()))
+            .mark_persistence(true)
+            .build(
+                synapse_helpers::HPURegistrar::get_device(device_id),
+                graph_handle);
+    return absl::get<synapse_helpers::tensor>(std::move(maybe_tensor));
+  }
 }
 
 // TODO: mat2 transposed or not?
@@ -37,13 +70,17 @@ void synapse_matmul(
     std::vector<synTensor> syn_inputs, syn_outputs;
 
     std::tie(syn_helper_inputs, syn_inputs) = habana_helpers::create_tensors(
-        std::vector<const at::Tensor*>{&mat1, &mat2}, graph_handle, true);
+        std::vector<const at::Tensor*>{&mat1}, graph_handle, true);
+    syn_helper_inputs.push_back(
+        create_mat2_tensor(mat2, graph_handle, device_id));
+    syn_inputs.push_back(syn_helper_inputs[syn_helper_inputs.size() - 1].get());
+
     std::tie(syn_helper_outputs, syn_outputs) = habana_helpers::create_tensors(
         std::vector<const at::Tensor*>{&output}, graph_handle, true);
 
     const std::string node_type = "gemm";
     { // add node
-      synGEMMParams params{false, false};
+      synGEMMParams params{false, !mat2.is_contiguous()};
 
       TORCH_HABANA_CHECK(
           synNodeCreate(
@@ -99,9 +136,14 @@ void synapse_matmul(
     std::vector<synTensor> syn_inputs, syn_outputs, syn_tmp_tensors;
 
     std::tie(syn_helper_inputs, syn_inputs) = habana_helpers::create_tensors(
-        std::vector<const at::Tensor*>{&mat1, &mat2, &bias},
-        graph_handle,
-        true);
+        std::vector<const at::Tensor*>{&mat1}, graph_handle, true);
+    syn_helper_inputs.push_back(
+        create_mat2_tensor(mat2, graph_handle, device_id));
+    syn_inputs.push_back(syn_helper_inputs[syn_helper_inputs.size() - 1].get());
+    syn_helper_inputs.push_back(
+        habana_helpers::create_tensor(bias, graph_handle, true));
+    syn_inputs.push_back(syn_helper_inputs[syn_helper_inputs.size() - 1].get());
+
     std::tie(syn_helper_outputs, syn_outputs) = habana_helpers::create_tensors(
         std::vector<const at::Tensor*>{&output}, graph_handle, true);
     std::tie(syn_tmp_helper_tensors, syn_tmp_tensors) =
@@ -112,7 +154,7 @@ void synapse_matmul(
     const std::string node_type2 =
         "add_fwd_" + habana_helpers::name_suffix_from_type(mat1.scalar_type());
     { // add node
-      synGEMMParams params{false, false};
+      synGEMMParams params{false, !mat2.is_contiguous()};
 
       TORCH_HABANA_CHECK(
           synNodeCreate(
@@ -160,10 +202,11 @@ void synapse_matmul(
 
 Tensor matmul_hpu(const Tensor& mat1, const Tensor& mat2) {
   LOG_FUNC_BEGIN;
-  check_matmul_params(mat1, mat2);
+  check_matmul_params(mat1, mat2, c10::nullopt);
 
   auto output = at::empty({mat1.size(0), mat2.size(1)}, mat1.options());
   synapse_matmul(output, mat1, mat2);
+
   LOG_FUNC_END;
   return output;
 }
@@ -175,7 +218,7 @@ Tensor matmul_with_bias_hpu(
     Scalar beta,
     Scalar alpha) {
   LOG_FUNC_BEGIN;
-  check_matmul_params(mat1, mat2);
+  check_matmul_params(mat1, mat2, &self);
   TORCH_CHECK(
       self.sizes().size() == 1,
       "Bias must be 1D tensor, but it has ",
@@ -189,10 +232,21 @@ Tensor matmul_with_bias_hpu(
       mat2.size(1));
 
   auto output = at::empty({mat1.size(0), mat2.size(1)}, mat1.options());
+
+  // Note: bias expanded has rank equal to output, but we don't need to actually
+  // broadcast data. Putting ones in additional dimensions is enaugh for synapse
+  // to handle bcast for us.
+  // I am not sure if changing sizes here (tensor metadata) is safe. If
+  // something will fail because of that, than you should try to just copy
+  // tensor (tensor is metada, not storage) and changed dimensions of copy.
+  // Another option is just handling this case inside synapse_matmul
   Tensor bias_expanded;
+  auto bias_expanded_sizes = std::vector<int64_t>(output.ndimension(), 1);
+  bias_expanded_sizes[output.ndimension() - 1] = self.sizes()[0];
   std::tie(bias_expanded) =
-      at::expand_size(self, output.sizes(), "matmul_with_bias_hpu");
+      at::expand_size(self, bias_expanded_sizes, "matmul_with_bias_hpu");
   synapse_matmul(output, mat1, mat2, bias_expanded, beta, alpha);
+
   LOG_FUNC_END;
   return output;
 }

@@ -13,7 +13,8 @@ at::Tensor habana_helpers::to_cpu(const at::Tensor& hpu_tensor) {
     return hpu_tensor;
 }
 
-synDataType pytorch_to_synapse_type(const c10::ScalarType pt_type) {
+synDataType habana_helpers::pytorch_to_synapse_type(
+    const c10::ScalarType pt_type) {
   static const std::unordered_map<c10::ScalarType, synDataType> map{
       {c10::ScalarType::Byte, synDataType::syn_type_uint8},
       {c10::ScalarType::Char, synDataType::syn_type_int8},
@@ -33,7 +34,8 @@ synDataType pytorch_to_synapse_type(const c10::ScalarType pt_type) {
 }
 
 synDataType pytorch_to_synapse_type(const c10::Scalar& s) {
-  return pytorch_to_synapse_type(habana_helpers::scalar_type(s));
+  return habana_helpers::pytorch_to_synapse_type(
+      habana_helpers::scalar_type(s));
 }
 
 c10::ScalarType habana_helpers::scalar_type(const c10::Scalar& s) {

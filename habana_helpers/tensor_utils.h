@@ -9,6 +9,8 @@
 namespace habana_helpers {
 c10::ScalarType scalar_type(const c10::Scalar& s);
 
+synDataType pytorch_to_synapse_type(const c10::ScalarType pt_type);
+
 at::Tensor scalar_to_device_tensor(
     const at::Scalar& scalar,
     const at::TensorOptions& options,
