@@ -5,6 +5,7 @@ endif()
 
 project(habana_pytorch_plugin VERSION 0.5.0 LANGUAGES CXX)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 option(SANITIZER "build sanitizer configuration" OFF)
 if(SANITIZER)
@@ -40,7 +41,7 @@ add_library(habana_pytorch_plugin SHARED
   habana_kernels/unary_kernels.cpp
 )
 
-target_compile_features(habana_pytorch_plugin PRIVATE cxx_std_11)
+target_compile_features(habana_pytorch_plugin PRIVATE cxx_std_14)
 target_compile_definitions(habana_pytorch_plugin PRIVATE "GENERIC_HELPERS" MAX_DEVICES_PER_BOX=8)
 target_compile_options(habana_pytorch_plugin PRIVATE -Wall -Wextra -Werror)
 

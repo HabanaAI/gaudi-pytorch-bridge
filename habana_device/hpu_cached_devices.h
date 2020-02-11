@@ -29,9 +29,9 @@ class HPURegistrar {
   static synapse_helpers::device& get_device() {
     const auto& end = get_hpu_registrar().acquired_devices.end();
     auto ret = std::find_if(
-        get_hpu_registrar().acquired_devices.begin(), end, [](auto& x) {
-          return x.get() != nullptr;
-        });
+        get_hpu_registrar().acquired_devices.begin(),
+        end,
+        [](auto& device_ptr) { return device_ptr.get() != nullptr; });
 
     TORCH_CHECK(ret != end, "Habana device not initialized");
     return *(ret->get());

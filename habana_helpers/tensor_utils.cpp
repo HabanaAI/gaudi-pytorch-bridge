@@ -155,8 +155,8 @@ std::vector<std::string> habana_helpers::names(
   names.reserve(vec.size());
 
   std::transform(
-      vec.begin(), vec.end(), std::back_inserter(names), [](auto& x) {
-        return x.tensor_name_;
+      vec.begin(), vec.end(), std::back_inserter(names), [](auto& tensor) {
+        return tensor.tensor_name_;
       });
 
   return names;
