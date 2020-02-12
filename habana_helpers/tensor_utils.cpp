@@ -140,7 +140,7 @@ synapse_helpers::tensor habana_helpers::duplicate_tensor_in_memory_section(
 
   auto maybe_tensor =
       synapse_helpers::tensor_builder(
-          tensor.dimension_sizes(), tensor.dims(), tensor.type())
+          tensor.shape(), tensor.type())
           .with_memory_section(tensor.memorysection())
           .mark_persistence(tensor.is_persistent())
           .build(

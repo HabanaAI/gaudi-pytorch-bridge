@@ -7,15 +7,9 @@
 
 namespace synapse_helpers {
 class tensor_builder : public tensor_builder_base<tensor_builder> {
-  tensor::dimension_sizes_t to_dimension_sizes_t(
-      const std::vector<int64_t>& shape) {
-    TORCH_CHECK(
-        shape.size() <= SYN_MAX_TENSOR_DIM,
-        " tensor has more than ",
-        SYN_MAX_TENSOR_DIM,
-        " dimensions");
-
-    tensor::dimension_sizes_t dimensions{};
+  tensor::shape_t to_shape_t(const std::vector<int64_t>& shape) {
+    tensor::shape_t dimensions{tensor::shape_t::dimension_count_t{
+        static_cast<unsigned>(shape.size())}}; // TODO make it more readable
     // write dimension backwards, e.g. NHWC as CWHN
     for (size_t i = 0; i < shape.size(); ++i)
       dimensions[i] = shape[shape.size() - i - 1];
@@ -32,19 +26,10 @@ class tensor_builder : public tensor_builder_base<tensor_builder> {
   explicit tensor_builder(
       const std::vector<int64_t>& shape,
       synDataType data_type)
-      : tensor_builder(
-            to_dimension_sizes_t(shape),
-            shape.size(),
-            data_type) {}
+      : tensor_builder(to_shape_t(shape), data_type) {}
 
-  explicit tensor_builder(
-      const tensor::dimension_sizes_t& shape,
-      unsigned ndims,
-      synDataType data_type)
-      : tensor_builder_base(
-            shape,
-            ndims,
-            data_type) {}
+  explicit tensor_builder(const tensor::shape_t& shape, synDataType data_type)
+      : tensor_builder_base(shape, data_type) {}
 };
 
 }; // namespace synapse_helpers
