@@ -13,12 +13,14 @@ from numpy import floor
 # str - stride
 mnist_dimensions = [
     # N, H, W, C, R, S, str_H, str_W
-    (2, 24, 24, 20, 2, 2, 2, 2),
-    (2, 8, 8, 50, 2, 2, 2, 2),
+    (2, 24, 24, 20, 3, 3, 2, 2),
+    (2, 7, 7, 50, 3, 3, 2, 2),
 ]
 pool_test_case_list = [
     # N, H, W, C, R, S, str_H, str_W
     (8, 27, 27, 3, 3, 3, 2, 2),
+    pytest.param(2, 8, 8, 50, 2, 2, 2, 2, marks=pytest.mark.xfail(
+        reason="only 3x3 window with 2x2 stride is supported")),
 ] + mnist_dimensions
 
 
@@ -43,7 +45,6 @@ def test_hpu_pool(N, H, W, C, R, S, str_H, str_W):
     compare_tensors(hpu_result[0], cpu_result[0], atol=0.001, rtol=1.e-3)
 
 
-@pytest.mark.xfail(reason="SW-9230")
 @pytest.mark.parametrize("N, H, W, C, R, S, str_H, str_W", pool_test_case_list)
 def test_hpu_pool_fwd_bwd(N, H, W, C, R, S, str_H, str_W):
     # TODO: extend that test to all features

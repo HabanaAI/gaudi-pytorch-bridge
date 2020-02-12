@@ -65,6 +65,7 @@ static inline T pooling_output_shape(
 ns_SpatialReduction::Params synapse_pool_params_builder(
     const IntArrayRef& kernel_size, // HW
     const IntArrayRef& stride, // HW
+    const IntArrayRef& padding, // HW
     const IntArrayRef& dilation // HW
 ) {
   const int64_t filter_H = kernel_size[0];
@@ -73,6 +74,9 @@ ns_SpatialReduction::Params synapse_pool_params_builder(
   const int64_t stride_W = stride[1];
   const int64_t dilation_H = dilation[0];
   const int64_t dilation_W = dilation[1];
+
+  TORCH_CHECK(padding[0] == 0);
+  TORCH_CHECK(padding[1] == 0);
 
   ns_SpatialReduction::Params pool_params{};
   pool_params.kernel_w = filter_W;
@@ -96,7 +100,7 @@ void synapse_pool2d_generic_impl(
     std::vector<const Tensor*> pt_inputs, // NHWC
     IntArrayRef kernel_size, // HW
     IntArrayRef stride, // HW
-    UNUSED IntArrayRef padding, // HW
+    IntArrayRef padding, // HW
     IntArrayRef dilation, // HW
     bool forward_pass) {
   // TODO: implement support for padding
@@ -121,7 +125,7 @@ void synapse_pool2d_generic_impl(
           habana_helpers::name_suffix_from_type(pt_inputs[0]->scalar_type());
       { // add node
         auto syn_pool_params =
-            synapse_pool_params_builder(kernel_size, stride, dilation);
+            synapse_pool_params_builder(kernel_size, stride, padding, dilation);
 
         TORCH_HABANA_CHECK(
             synNodeCreate(
@@ -218,12 +222,9 @@ Tensor& max_pool2d_with_indices_backward_out_hpu(
     IntArrayRef dilation,
     bool ceil_mode) {
   LOG_FUNC_BEGIN;
-// TODO: enable when SW-9230 is resolved
-#if 0
-  // TODO: merge pt contriants check with check_pool_params function
+  // TODO: merge pt constriants check with check_pool_params function
   TORCH_CHECK(!ceil_mode, "Pooling ceil_mode is not yet implemented");
-  habana_helpers::check_pool_params(
-      input, stride, padding, dilation);
+  habana_helpers::check_pool_params(input, stride, padding, dilation);
 
   // ############### Copy paste check from PT code
   // #20866, #22032: Guarantee this for the official C++ API?
@@ -296,26 +297,6 @@ Tensor& max_pool2d_with_indices_backward_out_hpu(
 
   //   NHWC -> NCHW
   grad_input = grad_input_nhwc.permute({0, 3, 1, 2});
-#else
-  TORCH_WARN(
-      "max_pool2d_with_indices_backward_out_hpu executes CPU kernel internally");
-
-  auto hpu = input.device();
-  auto grad_input_cpu = habana_helpers::to_cpu(grad_input);
-
-  at::native::max_pool2d_with_indices_backward_out_cpu(
-      grad_input_cpu,
-      habana_helpers::to_cpu(grad_output),
-      habana_helpers::to_cpu(input),
-      kernel_size,
-      stride,
-      padding,
-      dilation,
-      ceil_mode,
-      habana_helpers::to_cpu(indices).toType(c10::ScalarType::Long));
-
-  grad_input = grad_input_cpu.to(hpu);
-#endif
 
   LOG_FUNC_END;
   return grad_input;
@@ -331,7 +312,7 @@ Tensor max_pool2d_with_indices_backward_hpu(
     bool ceil_mode,
     const Tensor& indices) {
   LOG_FUNC_BEGIN;
-  // TODO: if TPC kernel write zeros than we don't have fo call zero_like. Try
+  // TODO: if TPC kernel write zeros than we don't have to call zero_like. Try
   // to call some function without fill
   auto grad_input = at::zeros_like(input, LEGACY_CONTIGUOUS_MEMORY_FORMAT);
   max_pool2d_with_indices_backward_out_hpu(
