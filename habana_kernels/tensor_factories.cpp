@@ -1,3 +1,12 @@
+/******************************************************************************
+ * Copyright (C) 2020 HabanaLabs, Ltd.
+ * All Rights Reserved.
+ *
+ * Unauthorized copying of this file, via any medium is strictly prohibited.
+ * Proprietary and confidential.
+ *
+ ******************************************************************************
+ */
 #include <ATen/InferSize.h>
 #include <synapse/include/synapse_api.h>
 #include <torch/script.h>
@@ -8,6 +17,13 @@
 #include "resize.h"
 
 using namespace torch;
+
+#ifdef LOG_FUNC_END
+#undef LOG_FUNC_BEGIN
+#define LOG_FUNC_BEGIN (void)(0)
+#undef LOG_FUNC_END
+#define LOG_FUNC_END (void)(0)
+#endif
 
 static inline void check_size_nonnegative(IntArrayRef size) {
   for (auto x : size) {

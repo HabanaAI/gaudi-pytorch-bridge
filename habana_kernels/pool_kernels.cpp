@@ -1,3 +1,12 @@
+/******************************************************************************
+ * Copyright (C) 2020 HabanaLabs, Ltd.
+ * All Rights Reserved.
+ *
+ * Unauthorized copying of this file, via any medium is strictly prohibited.
+ * Proprietary and confidential.
+ *
+ ******************************************************************************
+ */
 #include <ATen/InferSize.h>
 // #include <ATen/native/Pool.h> // TODO: fix this include
 #include <ATen/div_rtn.h> // TODO: remove this header after ATen/native/Pool.h is included
