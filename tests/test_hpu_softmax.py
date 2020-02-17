@@ -16,7 +16,6 @@ test_case_list = [
 def test_hpu_log_softmax(N, C, dim):
     kernel_params = {'input': torch.randn(N, C),
                      'dim': dim}
-    print("kernel params", kernel_params)
     evaluate_fwd_kernel(kernel=F.log_softmax, kernel_params=kernel_params)
 
 

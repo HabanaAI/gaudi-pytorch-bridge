@@ -205,7 +205,6 @@ Tensor threshold_backward_hpu(
     Scalar threshold) {
   LOG_FUNC_BEGIN;
   TORCH_CHECK(self.scalar_type() == c10::ScalarType::Float);
-
   Scalar threshold_converted = threshold;
   if (self.scalar_type() != habana_helpers::scalar_type(threshold))
     threshold_converted = threshold.toFloat();

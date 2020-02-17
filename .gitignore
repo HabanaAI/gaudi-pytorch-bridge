@@ -4,6 +4,7 @@ __pycache__/
 data/
 .pytest_cache/
 **/*build*/**
+*.log
 *.so
 *.bin
 *.used
