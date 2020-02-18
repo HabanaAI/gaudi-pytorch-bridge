@@ -17,8 +17,8 @@
 
 using namespace torch;
 
-template <typename T, typename U>
-void synapse_fill(const Tensor& output, const T val, U memset_function) {
+template <typename T, typename F>
+void synapse_fill(const Tensor& output, const T val, F memset_function) {
   auto& device =
       synapse_helpers::HPURegistrar::get_device(output.device().index());
 
