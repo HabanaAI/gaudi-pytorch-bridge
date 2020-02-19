@@ -31,13 +31,21 @@ void check_matmul_params(
       mat1.size(1) == mat2.size(0), "matmul inner dimensions doesn't match");
   // Note: valid for 2d matrices matmul.
   // mat2 doesn't have to be contiuguous
-  if (!mat1.is_contiguous())
+  if (!mat1.is_contiguous() || !mat2.is_contiguous())
     TORCH_WARN(
         "mat1.is_contiguous() returned: ",
         mat1.is_contiguous(),
-        "\nat2.is_contiguous() returned: ",
+        "\nmat2.is_contiguous() returned: ",
         mat2.is_contiguous(),
-        "\ncheck in unittests if this configuration return correct results");
+        "\ncheck in unittests if this configuration return correct results",
+        "\nmat1 sizes: ",
+        mat1.sizes(),
+        "mat1 strides: ",
+        mat1.strides(),
+        "\nmat2 sizes: ",
+        mat2.sizes(),
+        "mat2 strides: ",
+        mat2.strides());
   if (bias)
     TORCH_CHECK(
         bias.value()->ndimension() == 1, "matmul_hpu supports only 1d bias");

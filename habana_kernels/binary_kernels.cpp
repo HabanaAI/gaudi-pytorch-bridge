@@ -226,7 +226,10 @@ Tensor& mul_tensor_hpu_(Tensor& self, const Tensor& other) {
     habana_helpers::pytorch_to_synapse_type(other.scalar_type());
   } catch (c10::Error& e) {
     if (e.msg_without_backtrace().find("Unsupported pytorch type") == 0) {
-      std::cout << "UNSUPPORTED TYPE";
+      TORCH_WARN(
+          e.msg_without_backtrace(),
+          ". It will be casted to ",
+          self.scalar_type());
       *modified_other = other.to(self.scalar_type());
     } else {
       throw;
