@@ -12,11 +12,13 @@ test_case_list = [
 @pytest.mark.parametrize("N, C", test_case_list)
 def test_hpu_nllloss(N, C):
     # TODO: extend that test to all features
+    kernel = F.nll_loss
     kernel_params = {'input': torch.randn(N, C),
                      'target': torch.randint(low=0, high=C - 1, size=(N,))}
-    evaluate_fwd_kernel(kernel=F.nll_loss, kernel_params=kernel_params)
+    evaluate_fwd_kernel(kernel=kernel, kernel_params=kernel_params)
 
 
+@pytest.mark.xfail(reason="SW-8891")
 @pytest.mark.parametrize("N, C", test_case_list)
 def test_hpu_nllloss_fwd_bwd(N, C):
     # TODO: extend that test to all features

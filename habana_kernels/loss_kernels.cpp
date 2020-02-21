@@ -7,16 +7,28 @@
  *
  ******************************************************************************
  */
-#include <torch/script.h>
+#include <ATen/core/Reduction.h>
 #include <tpc_kernels/include/perf_lib_layer_params.h>
 
-#include "habana_device/HPUCheck.h"
-#include "habana_device/HPUContext.h"
-#include "habana_device/hpu_cached_devices.h"
 #include "habana_helpers/tensor_utils.h"
-#include "habana_kernels/kernel_utils.h"
+#include "habana_helpers/unused_macro.h"
+#include "simple_generic_kernel.h"
 
 using namespace torch;
+
+ns_NLLLossKernel::Params synapse_nll_loss_params_builder(int64_t reduction) {
+  auto param = ns_NLLLossKernel::Params{};
+  if (reduction == at::Reduction::Reduction::None) {
+    param.mode = NLLLossMode_t::NLL_LOSS_MODE_NONE;
+  } else if (reduction == at::Reduction::Reduction::Mean) {
+    param.mode = NLLLossMode_t::NLL_LOSS_MODE_MEAN;
+  } else if (reduction == at::Reduction::Reduction::Sum) {
+    param.mode = NLLLossMode_t::NLL_LOSS_MODE_SUM;
+  } else
+    TORCH_CHECK(false, "nll_loss got unsuported reduction type: ", reduction);
+
+  return param;
+}
 
 std::tuple<Tensor, Tensor> nll_loss_forward_hpu(
     const Tensor& self,
@@ -24,16 +36,27 @@ std::tuple<Tensor, Tensor> nll_loss_forward_hpu(
     const Tensor& weight,
     int64_t reduction,
     int64_t ignore_index) {
-  TORCH_WARN("nll_loss_forward_hpu executes CPU kernel internally");
-  auto hpu = self.device();
-  auto result = at::native::nll_loss_forward_cpu(
-      habana_helpers::to_cpu(self),
-      habana_helpers::to_cpu(target),
-      habana_helpers::to_cpu(weight),
-      reduction,
-      ignore_index);
-  return std::make_tuple(
-      std::get<0>(result).to(hpu), std::get<1>(result).to(hpu));
+  LOG_FUNC_BEGIN;
+  TORCH_CHECK(!weight.defined(), "weighted nll_loss is not yet supported")
+  TORCH_CHECK(ignore_index == -100, "ignore_index is not yet supported")
+
+  auto param = synapse_nll_loss_params_builder(reduction);
+  auto output = at::empty({1}, self.options());
+  auto modified_target = std::make_unique<Tensor>();
+  if (target.scalar_type() == c10::ScalarType::Long)
+    *modified_target =
+        target.to("cpu").to(c10::ScalarType::Int).to(target.device());
+
+  synapse_simple_generic_kernel(
+      {&output},
+      {&self, modified_target->defined() ? &*modified_target : &target},
+      "nll_loss",
+      &param,
+      sizeof(param),
+      true);
+  LOG_FUNC_END;
+  // Note: 2nd output is used in weighted version of this kernel
+  return std::make_tuple(output, at::empty({0}, self.options()));
 }
 
 Tensor nll_loss_backward_hpu(
@@ -43,21 +66,28 @@ Tensor nll_loss_backward_hpu(
     const Tensor& weight,
     int64_t reduction,
     int64_t ignore_index,
-    const Tensor& total_weight) {
-  TORCH_WARN("nll_loss_backward_hpu executes CPU kernel internally");
-  auto hpu = self.device();
-  auto grad_input = habana_helpers::to_cpu(
-      at::zeros_like(self, LEGACY_CONTIGUOUS_MEMORY_FORMAT));
-  at::native::nll_loss_backward_out_cpu(
-      grad_input,
-      habana_helpers::to_cpu(grad_output),
-      habana_helpers::to_cpu(self),
-      habana_helpers::to_cpu(target),
-      habana_helpers::to_cpu(weight),
-      reduction,
-      ignore_index,
-      habana_helpers::to_cpu(total_weight));
-  return grad_input.to(hpu);
+    UNUSED const Tensor& total_weight) {
+  LOG_FUNC_BEGIN;
+  TORCH_CHECK(!weight.defined(), "weighted nll_loss is not yet supported")
+  TORCH_CHECK(ignore_index == -100, "ignore_index is not yet supported")
+
+  auto param = synapse_nll_loss_params_builder(reduction);
+  auto grad_input = at::empty(self.sizes(), self.options());
+  auto modified_target = std::make_unique<Tensor>();
+  if (target.scalar_type() == c10::ScalarType::Long)
+    *modified_target =
+        target.to("cpu").to(c10::ScalarType::Int).to(target.device());
+
+  synapse_simple_generic_kernel(
+      {&grad_input},
+      {&grad_output, modified_target->defined() ? &*modified_target : &target},
+      "nll_loss",
+      &param,
+      sizeof(param),
+      false);
+
+  LOG_FUNC_END;
+  return grad_input;
 }
 
 static auto registry =
