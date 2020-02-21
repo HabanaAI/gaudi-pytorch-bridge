@@ -18,11 +18,11 @@ def evaluate_fwd_kernel(kernel, kernel_params, check_results=True, atol=0.001, r
     # in case of missing kernel. Furtheremore if we test inplace operators
     # we are still safe because we already copied tensors to HPU before running
     # CPU kernel.
-    hpu_result = _run_kernel_on_device(device=hpu,
-                                       kernel=kernel,
-                                       kernel_params=kernel_params)
+    hpu_result = run_kernel_on_device(device=hpu,
+                                      kernel=kernel,
+                                      kernel_params=kernel_params)
 
-    cpu_result = _run_kernel_on_device(device=cpu, kernel=kernel, kernel_params=kernel_params)
+    cpu_result = run_kernel_on_device(device=cpu, kernel=kernel, kernel_params=kernel_params)
 
     if check_results:
         compare_tensors(hpu_result, cpu_result, atol=atol, rtol=rtol)
@@ -36,28 +36,24 @@ def evaluate_fwd_bwd_kernel(kernel, kernel_params_fwd, tensor_list_bwd, check_re
     to process them latter e.g. to use custom comparison function'''
     # TODO: figure out how can we define kernel_params_bwd and use it instead of tensor_list_bwd
 
-    hpu = torch.device('habana')
-    cpu = torch.device('cpu')
-
     # Order of operations matters. I am executing HPU first to fail early
     # in case of missing kernel. Furtheremore if we test inplace operators
     # we are still safe because we already copied tensors to HPU before running
     # CPU kernel.
-    hpu_result_fwd = _run_kernel_on_device(device=hpu,
-                                           kernel=kernel,
-                                           kernel_params=kernel_params_fwd)
-    hpu_tensor_list_bwd = [t.to(hpu) for t in tensor_list_bwd]
+    hpu_result_fwd = run_kernel_on_device(device=hpu,
+                                          kernel=kernel,
+                                          kernel_params=kernel_params_fwd)
     # TODO: add suport for multiple gradients
-    hpu_result_bwd = _run_kernel_on_device(
+    hpu_result_bwd = run_kernel_on_device(
         device=hpu,
         kernel=hpu_result_fwd[0].grad_fn,
-        tensor_list=hpu_tensor_list_bwd)
+        tensor_list=tensor_list_bwd)
 
-    cpu_result_fwd = _run_kernel_on_device(
+    cpu_result_fwd = run_kernel_on_device(
         device=cpu,
         kernel=kernel,
         kernel_params=kernel_params_fwd)
-    cpu_result_bwd = _run_kernel_on_device(
+    cpu_result_bwd = run_kernel_on_device(
         device=cpu,
         kernel=cpu_result_fwd[0].grad_fn,
         tensor_list=tensor_list_bwd)
@@ -105,11 +101,10 @@ def compare_tensors(hpu_tensors, cpu_tensors, atol, rtol, assert_enable=True):
 
 
 @pytest.fixture(autouse=True)
-def reset_seed(seed=[0xC001A1]):
-    print("Using seed: ", seed[0])
-    torch.manual_seed(seed[0])
-    np.random.seed(seed[0])
-    seed[0] += 1  # I want to change data between runs not only shapes
+def reset_seed(seed=0xC001A1):
+    print("Using seed: ", seed)
+    torch.manual_seed(seed)
+    np.random.seed(seed)
 
     # TODO: for future use
     # random.seed(seed)
@@ -124,7 +119,7 @@ def _assert_tensors_on_device(tensor_list, device):
         assert t.device.type == device.type
 
 
-def _run_kernel_on_device(device, kernel, tensor_list=None, kernel_params=None):
+def run_kernel_on_device(device, kernel, tensor_list=None, kernel_params=None):
     # print("tensor_list", tensor_list)
     # print("kernel_params", kernel_params)
     kernel = _kernel_copy_to_device(kernel, device)
@@ -137,6 +132,8 @@ def _run_kernel_on_device(device, kernel, tensor_list=None, kernel_params=None):
         for k, v in kernel_params.items():
             if isinstance(v, torch.Tensor):
                 kernel_params[k] = v.to(device)
+    elif tensor_list:
+        tensor_list = [tensor.to(device) for tensor in tensor_list]
 
     result = kernel(**kernel_params) if kernel_params else kernel(*tensor_list)
 
@@ -154,6 +151,8 @@ def _run_inplace_kernel_on_device(device, in_out_tensor, kernel_name, tensor_lis
         for k, v in kernel_params.items():
             if isinstance(v, torch.Tensor):
                 kernel_params[k] = v.to(device)
+    elif tensor_list:
+        tensor_list = [tensor.to(device) for tensor in tensor_list]
 
     if kernel_params:
         result = getattr(in_out_tensor, kernel_name)(**kernel_params)
