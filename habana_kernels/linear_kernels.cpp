@@ -21,6 +21,28 @@
 
 using namespace torch;
 
+// TODO: remove this function. Workaround for SW-9962
+Tensor contiguous_tensor(const Tensor& tensor) {
+  if (tensor.is_contiguous())
+    return tensor;
+
+  auto device = tensor.device();
+  auto tensor_contiguous = tensor.to("cpu");
+  tensor_contiguous.unsafeGetTensorImpl()->set_sizes_and_strides(
+      tensor.sizes(), tensor.strides());
+  auto tensor_contiguous2 = tensor_contiguous.contiguous();
+  return tensor_contiguous2.to(device);
+}
+
+// TODO: remove this function. Workaround for SW-9962
+void adjust_output_tensor_(Tensor& tensor) {
+  tensor.unsafeGetTensorImpl()->set_sizes_and_strides(
+      {tensor.size(1), tensor.size(0)}, {1, tensor.size(1)});
+  tensor = contiguous_tensor(tensor);
+  tensor.unsafeGetTensorImpl()->set_sizes_and_strides(
+      {tensor.size(1), tensor.size(0)}, {tensor.size(0), 1});
+};
+
 void check_matmul_params(
     const Tensor& mat1,
     const Tensor& mat2,
@@ -29,29 +51,27 @@ void check_matmul_params(
   TORCH_CHECK(mat2.ndimension() == 2, "matmul_hpu supports only 2d matrices");
   TORCH_CHECK(
       mat1.size(1) == mat2.size(0), "matmul inner dimensions doesn't match");
-  // Note: valid for 2d matrices matmul.
-  // mat2 doesn't have to be contiuguous
-  if (!mat1.is_contiguous() || !mat2.is_contiguous())
-    TORCH_WARN(
-        "mat1.is_contiguous() returned: ",
-        mat1.is_contiguous(),
-        "\nmat2.is_contiguous() returned: ",
-        mat2.is_contiguous(),
-        "\ncheck in unittests if this configuration return correct results",
-        "\nmat1 sizes: ",
-        mat1.sizes(),
-        "mat1 strides: ",
-        mat1.strides(),
-        "\nmat2 sizes: ",
-        mat2.sizes(),
-        "mat2 strides: ",
-        mat2.strides());
+  TORCH_CHECK(
+      static_cast<int>(mat1.is_contiguous()) + mat2.is_contiguous() > 0,
+      "Only one matrix can me non contiguous.",
+      "\nmat1.is_contiguous() returned: ",
+      mat1.is_contiguous(),
+      "\nmat2.is_contiguous() returned: ",
+      mat2.is_contiguous(),
+      "\nmat1 sizes: ",
+      mat1.sizes(),
+      "mat1 strides: ",
+      mat1.strides(),
+      "\nmat2 sizes: ",
+      mat2.sizes(),
+      "mat2 strides: ",
+      mat2.strides());
   if (bias)
     TORCH_CHECK(
         bias.value()->ndimension() == 1, "matmul_hpu supports only 1d bias");
 }
 
-synapse_helpers::tensor create_mat2_tensor(
+synapse_helpers::tensor create_hacked_matmul_tensor(
     const Tensor& mat2,
     const synGraphHandle graph_handle,
     const unsigned device_id) {
@@ -76,7 +96,6 @@ synapse_helpers::tensor create_mat2_tensor(
   }
 }
 
-// TODO: mat2 transposed or not?
 // output = mat1 x mat2
 void synapse_matmul(
     const Tensor& output,
@@ -92,10 +111,11 @@ void synapse_matmul(
     std::vector<synapse_helpers::tensor> syn_helper_inputs, syn_helper_outputs;
     std::vector<synTensor> syn_inputs, syn_outputs;
 
-    std::tie(syn_helper_inputs, syn_inputs) = habana_helpers::create_tensors(
-        std::vector<const at::Tensor*>{&mat1}, graph_handle, true);
     syn_helper_inputs.push_back(
-        create_mat2_tensor(mat2, graph_handle, device_id));
+        create_hacked_matmul_tensor(mat1, graph_handle, device_id));
+    syn_inputs.push_back(syn_helper_inputs[syn_helper_inputs.size() - 1].get());
+    syn_helper_inputs.push_back(
+        create_hacked_matmul_tensor(mat2, graph_handle, device_id));
     syn_inputs.push_back(syn_helper_inputs[syn_helper_inputs.size() - 1].get());
 
     std::tie(syn_helper_outputs, syn_outputs) = habana_helpers::create_tensors(
@@ -103,7 +123,7 @@ void synapse_matmul(
 
     const std::string node_type = "gemm";
     { // add node
-      synGEMMParams params{false, !mat2.is_contiguous()};
+      synGEMMParams params{!mat1.is_contiguous(), !mat2.is_contiguous()};
 
       TORCH_HABANA_CHECK(
           synNodeCreate(
@@ -133,7 +153,6 @@ void synapse_matmul(
   TORCH_HABANA_CHECK(synGraphDestroy(graph_handle), "synGraphDestroy failed");
 }
 
-// TODO: mat2 transposed or not?
 // output = alpha * mat1 x mat2 + beta * bias
 void synapse_matmul(
     const Tensor& output,
@@ -158,10 +177,11 @@ void synapse_matmul(
         syn_tmp_helper_tensors;
     std::vector<synTensor> syn_inputs, syn_outputs, syn_tmp_tensors;
 
-    std::tie(syn_helper_inputs, syn_inputs) = habana_helpers::create_tensors(
-        std::vector<const at::Tensor*>{&mat1}, graph_handle, true);
     syn_helper_inputs.push_back(
-        create_mat2_tensor(mat2, graph_handle, device_id));
+        create_hacked_matmul_tensor(mat1, graph_handle, device_id));
+    syn_inputs.push_back(syn_helper_inputs[syn_helper_inputs.size() - 1].get());
+    syn_helper_inputs.push_back(
+        create_hacked_matmul_tensor(mat2, graph_handle, device_id));
     syn_inputs.push_back(syn_helper_inputs[syn_helper_inputs.size() - 1].get());
     syn_helper_inputs.push_back(
         habana_helpers::create_tensor(bias, graph_handle, true));
@@ -177,7 +197,7 @@ void synapse_matmul(
     const std::string node_type2 =
         "add_fwd_" + habana_helpers::name_suffix_from_type(mat1.scalar_type());
     { // add node
-      synGEMMParams params{false, !mat2.is_contiguous()};
+      synGEMMParams params{!mat1.is_contiguous(), !mat2.is_contiguous()};
 
       TORCH_HABANA_CHECK(
           synNodeCreate(
@@ -226,9 +246,12 @@ void synapse_matmul(
 Tensor matmul_hpu(const Tensor& mat1, const Tensor& mat2) {
   LOG_FUNC_BEGIN;
   check_matmul_params(mat1, mat2, c10::nullopt);
-
   auto output = at::empty({mat1.size(0), mat2.size(1)}, mat1.options());
   synapse_matmul(output, mat1, mat2);
+
+  // TODO: remove . Workaround for SW-9962
+  if (!mat1.is_contiguous())
+    adjust_output_tensor_(output);
 
   LOG_FUNC_END;
   return output;
@@ -260,15 +283,20 @@ Tensor matmul_with_bias_hpu(
   // broadcast data. Putting ones in additional dimensions is enaugh for synapse
   // to handle bcast for us.
   // I am not sure if changing sizes here (tensor metadata) is safe. If
-  // something will fail because of that, than you should try to just copy
-  // tensor (tensor is metada, not storage) and changed dimensions of copy.
-  // Another option is just handling this case inside synapse_matmul
+  // something will fail because of that, than you should try to just
+  // copy tensor (tensor is metada, not storage) and changed dimensions
+  // of copy. Another option is just handling this case inside
+  // synapse_matmul
   Tensor bias_expanded;
   auto bias_expanded_sizes = std::vector<int64_t>(output.ndimension(), 1);
   bias_expanded_sizes[output.ndimension() - 1] = self.sizes()[0];
   std::tie(bias_expanded) =
       at::expand_size(self, bias_expanded_sizes, "matmul_with_bias_hpu");
   synapse_matmul(output, mat1, mat2, bias_expanded, beta, alpha);
+
+  // TODO: remove . Workaround for SW-9962
+  if (!mat1.is_contiguous())
+    adjust_output_tensor_(output);
 
   LOG_FUNC_END;
   return output;

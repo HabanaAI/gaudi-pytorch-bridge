@@ -39,7 +39,7 @@ def test_hpu_conv_fwd_bwd(N, H, W, C, R, S, K, stride):
     }
     bwd_tensors = [torch.randn(N, K, output_size(H, 0, 1, R, stride), output_size(W, 0, 1, S, stride))]
     (_, hpu_result_bwd), (_, cpu_result_bwd) = evaluate_fwd_bwd_kernel(kernel=kernel, tensor_list_bwd=bwd_tensors,
-                                                                       kernel_params_fwd=kernel_params_fwd, check_results_bwd=1)
+                                                                       kernel_params_fwd=kernel_params_fwd)
 
 
 if __name__ == '__main__':

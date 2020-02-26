@@ -87,16 +87,26 @@ def evaluate_fwd_inplace_kernel(in_out_tensor, kernel_name, kernel_params, check
 def compare_tensors(hpu_tensors, cpu_tensors, atol, rtol, assert_enable=True):
     hpu_tensors = _convert_to_tensor_list(hpu_tensors)
     cpu_tensors = _convert_to_tensor_list(cpu_tensors)
-
     assert len(hpu_tensors) == len(cpu_tensors)
     for i in range(len(hpu_tensors)):
-        if assert_enable:
-            np.testing.assert_allclose(hpu_tensors[i].to(cpu).detach().numpy(),
+        if cpu_tensors[i] is None and hpu_tensors[i] is None:
+            continue
+        else:
+            # TODO: remove this check. Workaround for SW-9962
+            assert(cpu_tensors[i].stride() == hpu_tensors[i].stride())
+
+    hpu_tensors = [tensor.to(cpu) if tensor is not None else tensor for tensor in hpu_tensors]
+
+    for i in range(len(hpu_tensors)):
+        if cpu_tensors[i] is None and hpu_tensors[i] is None:
+            continue
+        elif assert_enable:
+            np.testing.assert_allclose(hpu_tensors[i].detach().numpy(),
                                        cpu_tensors[i].detach().numpy(), atol=atol, rtol=rtol)
         else:
-            print('hpu_result[{}]'.format(i), hpu_tensors[i].to(cpu).detach().numpy())
+            print('hpu_result[{}]'.format(i), hpu_tensors[i].detach().numpy())
             print('cpu_result[{}]'.format(i), cpu_tensors[i].detach().numpy())
-            return np.allclose(hpu_tensors[i].to(cpu).detach().numpy(),
+            return np.allclose(hpu_tensors[i].detach().numpy(),
                                cpu_tensors[i].detach().numpy(), atol=atol, rtol=rtol, equal_nan=True)
 
 

@@ -88,6 +88,14 @@ Tensor& copy_hpu_(Tensor& self, const Tensor& src, bool non_blocking) {
         "copy");
   }
 
+  if (src.strides() != dst.strides())
+    TORCH_WARN(
+        "src.strides(): ",
+        src.strides(),
+        "\ndst.strides(): ",
+        dst.strides(),
+        "\nData will be copied with with basic memcopy so you can expect wrong results");
+
   synStreamHandle stream{};
   TORCH_HABANA_CHECK(
       synStreamCreate(&stream, device_id, 0), "Creating synapse stream failed");
