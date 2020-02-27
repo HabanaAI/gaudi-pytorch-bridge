@@ -50,7 +50,7 @@ target_compile_options(habana_pytorch_plugin PRIVATE -Wall -Wextra -Werror)
 target_link_libraries(habana_pytorch_plugin PRIVATE "${TORCH_LIBRARIES}"
   absl::flags
   absl::variant
-  synapse_helpers::synapse_helpers
+  synapse_helpers::synapse_helpers_abi11
 )
 
 add_library(Synapse SHARED IMPORTED)
