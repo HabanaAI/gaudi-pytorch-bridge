@@ -105,8 +105,17 @@ Tensor log_softmax_backward_hpu(
   auto input_grad = at::empty(grad.sizes(), grad.options());
   synapse_log_softmax_generic_impl({&input_grad}, {&output, &grad}, dim, false);
 
+  TORCH_WARN("log_softmax_backward_hpu executes CPU kernel internally");
+  auto hpu = grad.device();
+  auto result = at::native::log_softmax_backward_cpu(
+      habana_helpers::to_cpu(grad),
+      habana_helpers::to_cpu(output),
+      dim,
+      habana_helpers::to_cpu(input));
+
   LOG_FUNC_END;
-  return input_grad;
+  return result.to(hpu);
+  //   return input_grad;
 }
 
 static auto registry =

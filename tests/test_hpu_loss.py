@@ -26,7 +26,8 @@ def test_hpu_nllloss_fwd_bwd(N, C):
     kernel_params_fwd = {'input': torch.randn(N, C, requires_grad=True),
                          'target': torch.randint(low=0, high=C - 1, size=(N,))}
     bwd_tensors = [torch.randn(1)]
-    evaluate_fwd_bwd_kernel(kernel=kernel, tensor_list_bwd=bwd_tensors, kernel_params_fwd=kernel_params_fwd)
+    evaluate_fwd_bwd_kernel(kernel=kernel, tensor_list_bwd=bwd_tensors,
+                            kernel_params_fwd=kernel_params_fwd)
 
 
 if __name__ == '__main__':

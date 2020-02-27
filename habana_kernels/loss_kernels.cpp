@@ -37,26 +37,40 @@ std::tuple<Tensor, Tensor> nll_loss_forward_hpu(
     int64_t reduction,
     int64_t ignore_index) {
   LOG_FUNC_BEGIN;
-  TORCH_CHECK(!weight.defined(), "weighted nll_loss is not yet supported")
-  TORCH_CHECK(ignore_index == -100, "ignore_index is not yet supported")
+  // TORCH_CHECK(!weight.defined(), "weighted nll_loss is not yet supported")
+  // TORCH_CHECK(ignore_index == -100, "ignore_index is not yet supported")
 
-  auto param = synapse_nll_loss_params_builder(reduction);
-  auto output = at::empty({1}, self.options());
-  auto modified_target = std::make_unique<Tensor>();
-  if (target.scalar_type() == c10::ScalarType::Long)
-    *modified_target =
-        target.to("cpu").to(c10::ScalarType::Int).to(target.device());
+  // auto param = synapse_nll_loss_params_builder(reduction);
+  // auto output = at::empty({1}, self.options());
+  // auto modified_target = std::make_unique<Tensor>();
+  // if (target.scalar_type() == c10::ScalarType::Long)
+  //   *modified_target =
+  //       target.to("cpu").to(c10::ScalarType::Int).to(target.device());
 
-  synapse_simple_generic_kernel(
-      {&output},
-      {&self, modified_target->defined() ? &*modified_target : &target},
-      "nll_loss",
-      &param,
-      sizeof(param),
-      true);
-  LOG_FUNC_END;
+  // synapse_simple_generic_kernel(
+  //     {&output},
+  //     {&self, modified_target->defined() ? &*modified_target : &target},
+  //     "nll_loss",
+  //     &param,
+  //     sizeof(param),
+  //     true);
+  // LOG_FUNC_END;
   // Note: 2nd output is used in weighted version of this kernel
-  return std::make_tuple(output, at::empty({0}, self.options()));
+  // return std::make_tuple(output, at::empty({0}, self.options()));
+
+  TORCH_WARN("nll_loss_forward_hpu executes CPU kernel internally");
+  auto hpu = self.device();
+  auto result = at::native::nll_loss_forward_cpu(
+      habana_helpers::to_cpu(self),
+      habana_helpers::to_cpu(target),
+      habana_helpers::to_cpu(weight),
+      reduction,
+      ignore_index);
+  auto ret1 = std::get<0>(result);
+  auto ret2 = std::get<1>(result);
+  return std::make_tuple(ret1.to(hpu), ret2.to(hpu));
+  // return std::make_tuple(
+  //     std::get<0>(result).to(hpu), std::get<1>(result).to(hpu));
 }
 
 Tensor nll_loss_backward_hpu(
@@ -68,26 +82,44 @@ Tensor nll_loss_backward_hpu(
     int64_t ignore_index,
     UNUSED const Tensor& total_weight) {
   LOG_FUNC_BEGIN;
-  TORCH_CHECK(!weight.defined(), "weighted nll_loss is not yet supported")
-  TORCH_CHECK(ignore_index == -100, "ignore_index is not yet supported")
+  // TORCH_CHECK(!weight.defined(), "weighted nll_loss is not yet supported")
+  // TORCH_CHECK(ignore_index == -100, "ignore_index is not yet supported")
 
-  auto param = synapse_nll_loss_params_builder(reduction);
-  auto grad_input = at::empty(self.sizes(), self.options());
-  auto modified_target = std::make_unique<Tensor>();
-  if (target.scalar_type() == c10::ScalarType::Long)
-    *modified_target =
-        target.to("cpu").to(c10::ScalarType::Int).to(target.device());
+  // auto param = synapse_nll_loss_params_builder(reduction);
+  // auto grad_input = at::empty(self.sizes(), self.options());
+  // auto modified_target = std::make_unique<Tensor>();
+  // if (target.scalar_type() == c10::ScalarType::Long)
+  //   *modified_target =
+  //       target.to("cpu").to(c10::ScalarType::Int).to(target.device());
 
-  synapse_simple_generic_kernel(
-      {&grad_input},
-      {&grad_output, modified_target->defined() ? &*modified_target : &target},
-      "nll_loss",
-      &param,
-      sizeof(param),
-      false);
+  // synapse_simple_generic_kernel(
+  //     {&grad_input},
+  //     {&grad_output, modified_target->defined() ? &*modified_target :
+  //     &target}, "nll_loss", &param, sizeof(param), false);
+  // auto grad_input_hpu = habana_helpers::to_cpu(grad_input);
+
+  auto hpu = self.device();
+  auto cpu_grad_output = habana_helpers::to_cpu(grad_output);
+  auto cpu_self = habana_helpers::to_cpu(self);
+  auto cpu_target = habana_helpers::to_cpu(target);
+  auto cpu_weight = habana_helpers::to_cpu(weight);
+  auto cpu_total_weight = habana_helpers::to_cpu(total_weight);
+
+  auto cpu_grad_input =
+      habana_helpers::to_cpu(at::empty(self.sizes(), self.options()));
+  at::native::nll_loss_backward_out_cpu(
+      cpu_grad_input,
+      cpu_grad_output,
+      cpu_self,
+      cpu_target,
+      cpu_weight,
+      reduction,
+      ignore_index,
+      cpu_total_weight);
 
   LOG_FUNC_END;
-  return grad_input;
+  // return grad_input;
+  return cpu_grad_input.to(hpu);
 }
 
 static auto registry =

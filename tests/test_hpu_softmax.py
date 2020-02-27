@@ -19,7 +19,7 @@ def test_hpu_log_softmax(N, C, dim):
     evaluate_fwd_kernel(kernel=F.log_softmax, kernel_params=kernel_params)
 
 
-@pytest.mark.xfail(reason="SW-8642")
+# @pytest.mark.xfail(reason="SW-8642")
 @pytest.mark.parametrize("N, C, dim", test_case_list)
 def test_hpu_log_softmax_fwd_bwd(N, C, dim):
     kernel_params = {'input': torch.randn(N, C, requires_grad=True),
