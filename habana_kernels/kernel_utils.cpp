@@ -70,7 +70,6 @@ void habana_helpers::compile_and_run(
   TORCH_HABANA_CHECK(
       synWorkspaceGetSize(&workspace_size_bytes, recipe_handle),
       "synWorkspaceGetSize failed");
-
   TORCH_HABANA_CHECK(
       synLaunch(
           stream_handle,
@@ -81,4 +80,6 @@ void habana_helpers::compile_and_run(
       "synLaunch failed");
   TORCH_HABANA_CHECK(
       synStreamSynchronize(stream_handle), "synStreamSynchronize failed");
+  TORCH_HABANA_CHECK(
+      synRecipeDestroy(recipe_handle), "Failed to destroy recipe");
 }
