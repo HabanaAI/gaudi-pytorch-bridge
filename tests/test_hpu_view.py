@@ -7,6 +7,11 @@ from test_utils import reset_seed, compare_tensors
 # H - input height
 # W - input width
 # C - input channels
+mnist_test_cast_list = [
+    # N, H, W, C
+    (64, 3, 3, 50),
+]
+
 test_case_list = [
     # N, H, W, C
     (8, 28, 28, 3),

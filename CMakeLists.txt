@@ -44,7 +44,8 @@ add_library(habana_pytorch_plugin SHARED
 
 target_compile_features(habana_pytorch_plugin PRIVATE cxx_std_14)
 target_compile_definitions(habana_pytorch_plugin PRIVATE "GENERIC_HELPERS" MAX_DEVICES_PER_BOX=8)
-target_compile_options(habana_pytorch_plugin PRIVATE -Wall -Wextra -Werror)
+#TODO: remove -Wno-error=deprecated-declarations after removing functions marked [[deprecated]]
+target_compile_options(habana_pytorch_plugin PRIVATE -Wall -Wextra -Werror -Wno-error=deprecated-declarations)
 
 # Link against LibTorch and synapse
 target_link_libraries(habana_pytorch_plugin PRIVATE "${TORCH_LIBRARIES}"

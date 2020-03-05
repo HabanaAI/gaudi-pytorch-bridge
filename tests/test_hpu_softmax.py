@@ -2,14 +2,16 @@ import torch
 import torch.nn.functional as F
 import pytest
 from test_utils import evaluate_fwd_kernel, evaluate_fwd_bwd_kernel, reset_seed
-from test_utils import compare_tensors
 
+mnist_test_cast_list = [
+    # N, C, dim
+    (64, 10, 1),
+]
 
 test_case_list = [
     # N, C, dim
-    pytest.param(64, 10, 1),
-    pytest.param(64, 10, 0),
-]
+    (64, 10, 0),
+] + mnist_test_cast_list
 
 
 @pytest.mark.parametrize("N, C, dim", test_case_list)

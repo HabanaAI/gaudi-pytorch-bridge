@@ -11,17 +11,18 @@ from numpy import floor
 # R - filter height
 # S - filter width
 # str - stride
-mnist_dimensions = [
+mnist_test_cast_list = [
     # N, H, W, C, R, S, str_H, str_W
-    (2, 24, 24, 20, 3, 3, 2, 2),
-    (2, 7, 7, 50, 3, 3, 2, 2),
+    (64, 24, 24, 20, 3, 3, 2, 2),
+    (64, 7, 7, 50, 3, 3, 2, 2),
 ]
+
 pool_test_case_list = [
     # N, H, W, C, R, S, str_H, str_W
     (8, 27, 27, 3, 3, 3, 2, 2),
     pytest.param(2, 8, 8, 50, 2, 2, 2, 2, marks=pytest.mark.xfail(
         reason="only 3x3 window with 2x2 stride is supported")),
-] + mnist_dimensions
+] + mnist_test_cast_list
 
 
 def output_size(spatial_size, pad, dilation, kernel_size, stride):

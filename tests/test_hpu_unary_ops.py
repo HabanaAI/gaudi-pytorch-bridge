@@ -8,10 +8,17 @@ from test_utils import evaluate_fwd_kernel, evaluate_fwd_bwd_kernel, reset_seed
 # H - input height
 # W - input width
 # C - input channels
+mnist_test_cast_list = [
+    # N, H, W, C
+    (64, 24, 24, 20),
+    (64, 7, 7, 50),
+    (64, 500),
+]
+
 test_case_list = [
     #  N, H, W, C,
     (8, 24, 24, 3,),
-]
+] + mnist_test_cast_list
 
 unary_op_list = [
     F.relu,

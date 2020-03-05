@@ -54,4 +54,7 @@ std::vector<std::string> names(const std::vector<synapse_helpers::tensor>&);
 std::string name_suffix_from_type(const c10::ScalarType pt_type);
 
 at::Tensor to_cpu(const at::Tensor& hpu_tensor);
+
+// TODO: remove this function. Workaround for SW-9962
+[[deprecated]] at::Tensor contiguous_tensor(const at::Tensor& tensor);
 } // namespace habana_helpers

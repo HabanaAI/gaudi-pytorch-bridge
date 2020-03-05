@@ -92,8 +92,12 @@ Tensor& copy_hpu_(Tensor& self, const Tensor& src, bool non_blocking) {
     TORCH_WARN(
         "src.strides(): ",
         src.strides(),
+        " src.sizes(): ",
+        src.sizes(),
         "\ndst.strides(): ",
         dst.strides(),
+        " dst.sizes(): ",
+        dst.sizes(),
         "\nData will be copied with with basic memcopy so you can expect wrong results");
 
   synStreamHandle stream{};

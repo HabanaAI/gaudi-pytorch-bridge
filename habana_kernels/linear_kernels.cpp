@@ -22,23 +22,10 @@
 using namespace torch;
 
 // TODO: remove this function. Workaround for SW-9962
-Tensor contiguous_tensor(const Tensor& tensor) {
-  if (tensor.is_contiguous())
-    return tensor;
-
-  auto device = tensor.device();
-  auto tensor_contiguous = tensor.to("cpu");
-  tensor_contiguous.unsafeGetTensorImpl()->set_sizes_and_strides(
-      tensor.sizes(), tensor.strides());
-  auto tensor_contiguous2 = tensor_contiguous.contiguous();
-  return tensor_contiguous2.to(device);
-}
-
-// TODO: remove this function. Workaround for SW-9962
-void adjust_output_tensor_(Tensor& tensor) {
+[[deprecated]] void adjust_output_tensor_(Tensor& tensor) {
   tensor.unsafeGetTensorImpl()->set_sizes_and_strides(
       {tensor.size(1), tensor.size(0)}, {1, tensor.size(1)});
-  tensor = contiguous_tensor(tensor);
+  tensor = habana_helpers::contiguous_tensor(tensor);
   tensor.unsafeGetTensorImpl()->set_sizes_and_strides(
       {tensor.size(1), tensor.size(0)}, {tensor.size(0), 1});
 };

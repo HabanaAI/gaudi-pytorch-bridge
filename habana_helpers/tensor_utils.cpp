@@ -194,3 +194,17 @@ std::vector<void*> habana_helpers::extract_data_ptrs(
       [](const auto& tensor) { return tensor->data_ptr(); });
   return ptrs;
 };
+
+at::Tensor habana_helpers::contiguous_tensor(const at::Tensor& tensor) {
+  if (tensor.is_contiguous())
+    return tensor;
+
+  auto device = tensor.device();
+  // Note: HPU can't perform strided memcopy so I copy data to CPU,
+  // override strides, shuffle data accoridngly copy and them back
+  auto tensor_contiguous = tensor.to("cpu");
+  tensor_contiguous.unsafeGetTensorImpl()->set_sizes_and_strides(
+      tensor.sizes(), tensor.strides());
+  auto tensor_contiguous2 = tensor_contiguous.contiguous();
+  return tensor_contiguous2.to(device);
+};

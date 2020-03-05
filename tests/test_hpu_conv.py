@@ -13,11 +13,17 @@ from test_hpu_pool import output_size
 # S - filter width
 # K - output channels
 # str - stride
+mnist_test_cast_list = [
+    # N, H, W, C, R, S, K, str
+    (64, 28, 28, 1, 5, 5, 20, 1),
+    (64, 11, 11, 20, 5, 5, 50, 1),
+]
+
 conv_test_case_list = [
     # N, H, W, C, R, S, K, str
     (2, 3, 4, 5, 2, 2, 6, 1),
     (8, 28, 28, 3, 2, 2, 16, 1),
-]
+] + mnist_test_cast_list
 
 
 @pytest.mark.parametrize("N, H, W, C, R, S, K, stride", conv_test_case_list)

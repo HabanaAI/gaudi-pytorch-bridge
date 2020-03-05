@@ -3,12 +3,18 @@ import torch.nn as nn
 import pytest
 from test_utils import evaluate_fwd_kernel, evaluate_fwd_bwd_kernel, reset_seed
 
+mnist_test_cast_list = [
+    # N, C, K
+    (64, 450, 500),
+    (64, 500, 10),
+]
+
 # Multiply matrices NxC * CxK = NxK
 test_case_list = [
     # N, C, K
     # (10, 20, 30),
     (800, 500, 10),
-]
+] + mnist_test_cast_list
 
 
 @pytest.mark.parametrize("N, C, K", test_case_list)
