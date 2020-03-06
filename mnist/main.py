@@ -6,6 +6,10 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torchvision import datasets, transforms
 
+global_device = None
+conv1_weights = None
+iteration = 0
+
 
 class Net(nn.Module):
     def __init__(self):
@@ -16,14 +20,77 @@ class Net(nn.Module):
         self.fc2 = nn.Linear(500, 10)
 
     def forward(self, x):
-        x = F.relu(self.conv1(x))
-        x = F.max_pool2d(x, kernel_size=3, stride=2)
-        x = F.relu(self.conv2(x))
-        x = F.max_pool2d(x, kernel_size=3, stride=2)
-        x = x.view(-1, 3 * 3 * 50)
-        x = F.relu(self.fc1(x))
-        x = self.fc2(x)
-        return F.log_softmax(x, dim=1)
+        import sys
+        import numpy as np
+        sys.path.append('/home/jgrzybek/development/pytorch-integration/tests')
+        from test_utils import compare_tensors
+
+        # import pudb
+        # pudb.set_trace()
+        global conv1_weights
+        global iteration
+        if conv1_weights is None:
+            conv1_weights = self.conv1.weight.to('cpu').detach().numpy()
+        x_in = x
+        x = self.conv1.to(global_device)(x_in)
+        if iteration > 0:
+            mask = self.conv1.weight.to('cpu').detach().numpy() != conv1_weights
+            assert not np.all(mask)
+        y = self.conv1.to('cpu')(x_in.to('cpu'))
+        compare_tensors(x, y, atol=0.001, rtol=1.e-3)
+        x_in = x
+
+        x = F.relu(x_in)
+        y = F.relu(x_in.to('cpu'))
+        compare_tensors(x, y, atol=0.001, rtol=1.e-3)
+        x_in = x
+
+        x = F.max_pool2d(x_in, kernel_size=3, stride=2)
+        y = F.max_pool2d(x_in.to('cpu'), kernel_size=3, stride=2)
+        compare_tensors(x, y, atol=0.001, rtol=1.e-3)
+        x_in = x
+
+        x = self.conv2.to(global_device)(x_in)
+        y = self.conv2.to('cpu')(x_in.to('cpu'))
+        compare_tensors(x, y, atol=0.001, rtol=1.e-3)
+        x_in = x
+
+        x = F.relu(x_in)
+        y = F.relu(x_in.to('cpu'))
+        compare_tensors(x, y, atol=0.001, rtol=1.e-3)
+        x_in = x
+
+        x = F.max_pool2d(x_in, kernel_size=3, stride=2)
+        y = F.max_pool2d(x_in.to('cpu'), kernel_size=3, stride=2)
+        compare_tensors(x, y, atol=0.001, rtol=1.e-3)
+        x_in = x
+
+        x = x_in.view(-1, 3 * 3 * 50)
+        y = x_in.to('cpu').view(-1, 3 * 3 * 50)
+        compare_tensors(x, y, atol=0.001, rtol=1.e-3)
+        x_in = x
+
+        x = self.fc1.to(global_device)(x_in)
+        y = self.fc1.to('cpu')(x_in.to('cpu'))
+        compare_tensors(x, y, atol=0.001, rtol=1.e-3)
+        x_in = x
+
+        x = F.relu(x_in)
+        y = F.relu(x_in.to('cpu'))
+        compare_tensors(x, y, atol=0.001, rtol=1.e-3)
+        x_in = x
+
+        x = self.fc2.to(global_device)(x_in)
+        y = self.fc2.to('cpu')(x_in.to('cpu'))
+        compare_tensors(x, y, atol=0.001, rtol=1.e-3)
+        x_in = x
+
+        x = F.log_softmax(x_in, dim=1)
+        y = F.log_softmax(x_in.to('cpu'), dim=1)
+        compare_tensors(x, y, atol=0.001, rtol=1.e-3)
+
+        iteration = iteration + 1
+        return x
 
 
 def train(args, model, device, train_loader, optimizer, epoch):
@@ -117,6 +184,8 @@ def main():
     model = Net().to(device)
     optimizer = optim.SGD(model.parameters(), lr=args.lr,
                           momentum=args.momentum)
+    global global_device
+    global_device = device
 
     for epoch in range(1, args.epochs + 1):
         train(args, model, device, train_loader, optimizer, epoch)
