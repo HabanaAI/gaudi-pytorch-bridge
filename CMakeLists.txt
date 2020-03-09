@@ -24,6 +24,18 @@ if(SANITIZER)
   set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address -fsanitize=leak")
 endif(SANITIZER)
 
+find_program(CCACHE ccache)
+if (CCACHE)
+  set(CMAKE_CXX_COMPILER_LAUNCHER "${CCACHE}")
+endif()
+
+find_program(CLANG_TIDY clang-tidy)
+if (CLANG_TIDY)
+  set(CMAKE_CXX_CLANG_TIDY "${CLANG_TIDY}")
+else ()
+  message(AUTHOR_WARNING "clang-tidy was not detected. Please install it and rerun CMake or set CLANG_TIDY to a valid path")
+endif ()
+
 find_package(Torch REQUIRED)
 find_package(abseil REQUIRED)
 find_package(synapse_helpers REQUIRED)
