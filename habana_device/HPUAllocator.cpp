@@ -7,7 +7,7 @@
  *
  ******************************************************************************
  */
-#include <synapse/include/synapse_api.h>
+#include <synapse_api.h>
 
 #include "HPUAllocator.h"
 #include "HPUCheck.h"

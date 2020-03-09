@@ -8,7 +8,7 @@
  ******************************************************************************
  */
 #include <torch/script.h>
-#include <tpc_kernels/include/perf_lib_layer_params.h>
+#include <perf_lib_layer_params.h>
 
 #include "habana_device/HPUCheck.h"
 #include "habana_device/HPUContext.h"

@@ -11,7 +11,7 @@
 
 #include <c10/core/impl/DeviceGuardImplInterface.h>
 #include <c10/macros/Macros.h>
-#include <synapse/include/synapse_api.h>
+#include <synapse_api.h>
 #include <unordered_set>
 
 #include "HPUAllocator.h"

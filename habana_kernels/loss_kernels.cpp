@@ -8,7 +8,7 @@
  ******************************************************************************
  */
 #include <ATen/core/Reduction.h>
-#include <tpc_kernels/include/perf_lib_layer_params.h>
+#include <perf_lib_layer_params.h>
 
 #include "habana_helpers/tensor_utils.h"
 #include "habana_helpers/unused_macro.h"

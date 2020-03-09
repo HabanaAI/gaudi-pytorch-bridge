@@ -1,9 +1,20 @@
+###############################################################################
+# Copyright (C) 2020 HabanaLabs, Ltd.
+# All Rights Reserved.
+#
+# Unauthorized copying of this file, via any medium is strictly prohibited.
+# Proprietary and confidential.
+#
+################################################################################
+
 cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
+
 if(POLICY CMP0076)
   cmake_policy(SET CMP0076 OLD)
 endif()
 
-project(habana_pytorch_plugin VERSION 0.5.0 LANGUAGES CXX)
+project(habana_pytorch_plugin VERSION 0.8.0 LANGUAGES CXX)
+
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -17,6 +28,8 @@ find_package(Torch REQUIRED)
 find_package(abseil REQUIRED)
 find_package(synapse_helpers REQUIRED)
 
+list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
+include(AddNPUStackDependencies)
 
 # workaround for cmake3.5. Starting from 3.13 sources are optional and we can add them in add_subdirectories
 add_library(habana_pytorch_plugin SHARED
@@ -54,11 +67,6 @@ target_link_libraries(habana_pytorch_plugin PRIVATE "${TORCH_LIBRARIES}"
   synapse_helpers::synapse_helpers_abi11
 )
 
-add_library(Synapse SHARED IMPORTED)
-set_target_properties(Synapse PROPERTIES
-  IMPORTED_LOCATION "$ENV{BUILD_ROOT_LATEST}/libSynapse.so"
-  INTERFACE_INCLUDE_DIRECTORIES "$ENV{HABANA_NPU_STACK_PATH}"
-)
 target_include_directories(habana_pytorch_plugin PRIVATE ${CMAKE_SOURCE_DIR})
 
 # Create symlink to latest build from tests dir

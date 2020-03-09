@@ -11,7 +11,7 @@
 // #include <ATen/native/Pool.h> // TODO: fix this include
 #include <ATen/div_rtn.h> // TODO: remove this header after ATen/native/Pool.h is included
 #include <torch/script.h>
-#include <tpc_kernels/include/perf_lib_layer_params.h>
+#include <perf_lib_layer_params.h>
 #include <algorithm>
 #include <iostream>
 

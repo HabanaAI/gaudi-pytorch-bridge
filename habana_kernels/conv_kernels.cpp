@@ -8,7 +8,7 @@
  ******************************************************************************
  */
 #include <ATen/InferSize.h>
-#include <synapse/include/synapse_api.h>
+#include <synapse_api.h>
 #include <torch/script.h>
 #include <iostream>
 #include <string>
