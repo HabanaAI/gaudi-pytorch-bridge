@@ -61,12 +61,7 @@ target_compile_definitions(habana_pytorch_plugin PRIVATE "GENERIC_HELPERS" MAX_D
 target_compile_options(habana_pytorch_plugin PRIVATE -Wall -Wextra -Werror -Wno-error=deprecated-declarations)
 
 # Link against LibTorch and synapse
-target_link_libraries(habana_pytorch_plugin PRIVATE "${TORCH_LIBRARIES}"
-  absl::flags
-  absl::variant
-  synapse_helpers::synapse_helpers_abi11
-)
-
+target_link_libraries(habana_pytorch_plugin PRIVATE "${TORCH_LIBRARIES}" synapse_helpers::synapse_helpers_abi11)
 target_include_directories(habana_pytorch_plugin PRIVATE ${CMAKE_SOURCE_DIR})
 
 # Create symlink to latest build from tests dir
