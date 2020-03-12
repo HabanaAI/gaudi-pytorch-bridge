@@ -5,29 +5,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from torchvision import datasets, transforms
-import numpy as np
-
-generic_path = './dumped_tensors/'
-iteration = 0
-
-
-def save_tensor(torch_tensor, tensor_name, path):
-    import os
-    os.makedirs(path, exist_ok=True)
-
-    with open(path + tensor_name + '_metadata', 'w') as file:  # reset file
-        file.write(str(torch_tensor.size()) + '\n' + str(torch_tensor.stride()))
-
-    np_tensor = torch_tensor.to('cpu').detach().numpy()
-    np.save(path + tensor_name + '_data', np_tensor)
-
-
-def save_gradients(model):
-    path = generic_path + 'iter_' + str(iteration) + '/'
-    save_tensor(model.conv1.weight.grad, 'conv1.grad', path)
-    save_tensor(model.conv2.weight.grad, 'conv2.grad', path)
-    save_tensor(model.fc1.weight.grad, 'fc1.grad', path)
-    save_tensor(model.fc2.weight.grad, 'fc2.grad', path)
 
 
 class Net(nn.Module):
@@ -39,88 +16,33 @@ class Net(nn.Module):
         self.fc2 = nn.Linear(500, 10)
 
     def forward(self, x):
-        # import sys
-        # import numpy as np
-        # sys.path.append('/home/jgrzybek/development/pytorch-integration/tests')
-        # from test_utils import compare_tensors
-
-        # import pudb
-        # pudb.set_trace()
-        path = generic_path + 'iter_' + str(iteration) + '/'
-        tensor_nr = 0
-
-        save_tensor(x, str(tensor_nr) + '_input', path)
-        tensor_nr += 1
-        save_tensor(self.conv1.weight, str(tensor_nr) + '_conv1_weights', path)
-        tensor_nr += 1
-        x = self.conv1(x)
-        save_tensor(x, str(tensor_nr) + '_conv1_out', path)
-        tensor_nr += 1
-        x = F.relu(x)
-        save_tensor(x, str(tensor_nr) + '_relu1_out', path)
-        tensor_nr += 1
+        x = F.relu(self.conv1(x))
         x = F.max_pool2d(x, kernel_size=3, stride=2)
-        save_tensor(x, str(tensor_nr) + '_maxpool1_out', path)
-        tensor_nr += 1
-        save_tensor(self.conv2.weight, str(tensor_nr) + '_conv2_weights', path)
-        tensor_nr += 1
-        x = self.conv2(x)
-        save_tensor(x, str(tensor_nr) + '_conv2_out', path)
-        tensor_nr += 1
-        x = F.relu(x)
-        save_tensor(x, str(tensor_nr) + '_relu2_out', path)
-        tensor_nr += 1
+        x = F.relu(self.conv2(x))
         x = F.max_pool2d(x, kernel_size=3, stride=2)
-        save_tensor(x, str(tensor_nr) + '_maxpool2_out', path)
-        tensor_nr += 1
         x = x.view(-1, 3 * 3 * 50)
-        save_tensor(x, str(tensor_nr) + '_view_out', path)
-        tensor_nr += 1
-        save_tensor(self.fc1.weight, str(tensor_nr) + '_fc1_weights', path)
-        tensor_nr += 1
-        x = self.fc1(x)
-        save_tensor(x, str(tensor_nr) + '_fc1_out', path)
-        tensor_nr += 1
-        x = F.relu(x)
-        save_tensor(x, str(tensor_nr) + '_relu3_out', path)
-        tensor_nr += 1
-        save_tensor(self.fc2.weight, str(tensor_nr) + '_fc2_weights', path)
-        tensor_nr += 1
+        x = F.relu(self.fc1(x))
         x = self.fc2(x)
-        save_tensor(x, str(tensor_nr) + '_fc2_out', path)
-        tensor_nr += 1
-        x = F.log_softmax(x, dim=1)
-        save_tensor(x, str(tensor_nr) + '_logsoftmax_out', path)
-        tensor_nr += 1
-
-        return x
+        return F.log_softmax(x, dim=1)
 
 
 def train(args, model, device, train_loader, optimizer, epoch):
     model.train()
-    global iteration
     with open('mnistpy.log', 'w') as file:  # reset file
         file.write('')
 
     for batch_idx, (data, target) in enumerate(train_loader):
-        import pudb
-        pudb.set_trace()
         data, target = data.to(device), target.to(device)
         optimizer.zero_grad()
         output = model(data)
         loss = F.nll_loss(output, target)
         loss.backward()
-        save_gradients(model)
         optimizer.step()
         # if batch_idx % args.log_interval == 0:
         with open('mnistpy.log', 'a') as file:
             file.write('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}\n'.format(
                 epoch, batch_idx * len(data), len(train_loader.dataset),
                 100. * batch_idx / len(train_loader), loss.item()))
-
-        iteration = iteration + 1
-        if iteration == 2:
-            raise 'FINISH'
 
 
 def test(args, model, device, test_loader):
@@ -175,8 +97,6 @@ def main():
     torch.manual_seed(args.seed)
 
     device = torch.device("habana" if use_habana else "cpu")
-    global generic_path
-    generic_path = generic_path + ("hpu/" if use_habana else "cpu/")
 
     # kwargs = {'num_workers': 1, 'pin_memory': True} if use_habana else {}
     kwargs = {}  # TODO: do we need any kwargs?
