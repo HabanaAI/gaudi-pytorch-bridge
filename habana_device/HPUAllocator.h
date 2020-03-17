@@ -11,6 +11,7 @@
 #include <ATen/ATen.h>
 #include <c10/core/Allocator.h>
 #include <synapse_api_types.h>
+#include <synapse_helpers/device.h>
 #include <synapse_helpers/habana_tensor.h>
 
 namespace at {

@@ -82,11 +82,11 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
   }
   void uncheckedSetDevice(Device d) const noexcept override {
     habana::allocator_active_device_id = d.index();
-    TORCH_CHECK(
-        habana::allocator_active_device_id == 0,
-        "habana active device: ",
-        habana::allocator_active_device_id,
-        " != 0");
+    if (habana::allocator_active_device_id != 0)
+      TORCH_WARN(
+          "habana active device: ",
+          habana::allocator_active_device_id,
+          " != 0");
   }
   Stream getStream(UNUSED Device d) const noexcept override {
     // no-op
