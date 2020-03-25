@@ -25,6 +25,18 @@ at::Tensor scalar_to_device_tensor(
     const at::TensorOptions& options,
     unsigned num_dimensions);
 
+/* 
+@brief This function can be used to create an intermediate
+       synapse_helper tensor of required shape (which is
+       different from shape of input & output tensors)
+*/
+synapse_helpers::tensor create_tensor(
+    const c10::IntArrayRef& shape,
+    synGraphHandle graph,
+    bool persistent,
+    int devid,
+    const c10::ScalarType dtype);
+
 synapse_helpers::tensor create_tensor(
     const at::Tensor& tensor,
     const synGraphHandle graph,

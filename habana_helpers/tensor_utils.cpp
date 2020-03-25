@@ -82,6 +82,19 @@ at::Tensor habana_helpers::scalar_to_device_tensor(
 }
 
 synapse_helpers::tensor habana_helpers::create_tensor(
+    const c10::IntArrayRef& shape,
+    synGraphHandle graph,
+    bool persistent,
+    int devid,
+    const c10::ScalarType dtype) {
+  auto variant =
+      synapse_helpers::tensor_builder(shape, pytorch_to_synapse_type(dtype))
+          .mark_persistence(persistent)
+          .build(synapse_helpers::HPURegistrar::get_device(devid), graph);
+  return absl::get<synapse_helpers::tensor>(std::move(variant));
+}
+
+synapse_helpers::tensor habana_helpers::create_tensor(
     const at::Tensor& tensor,
     const synGraphHandle graph,
     bool persistent,

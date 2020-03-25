@@ -10,14 +10,15 @@
 // #include <ATen/native/TensorIterator.h> // TODO: fix this include
 #include <bitset>
 
-#include <torch/script.h>
 #include <perf_lib_layer_params.h>
+#include <torch/script.h>
 
 #include "habana_device/HPUCheck.h"
 #include "habana_device/HPUContext.h"
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_helpers/tensor_utils.h"
 #include "habana_kernels/kernel_utils.h"
+#include "habana_kernels/resize.h"
 
 using namespace torch;
 // TODO: DimMask = TensorIterator::DimMask
@@ -60,8 +61,18 @@ void allocate_reduction_result(
       }
     }
   }
+
+  // Following code is required to convert Pytorch 0d tensor
+  // to a 1d tensor. This is required because synapse_helpers
+  // tensor_builder does not support 0d tensors
+  if (shape.size() == 0) {
+    shape.push_back(1);
+  }
+
   if (result.defined()) {
-    result.resize_(shape);
+    auto tht_result = result.unsafeGetTensorImpl();
+    THHTensor_resizeNd(tht_result, shape.size(), shape.data(), nullptr);
+    // result.resize_(shape);
   } else {
     result = at::empty(shape, self.options().dtype(dtype));
   }
@@ -85,7 +96,7 @@ ScalarType get_dtype(
   return src_type;
 }
 
-Tensor review_reduce_result(
+/*Tensor review_reduce_result(
     const Tensor& result,
     int ndim,
     DimMask mask,
@@ -102,17 +113,20 @@ Tensor review_reduce_result(
     }
   }
   return result.as_strided(shape, stride);
-}
+}*/
 } // namespace
 
-void synapse_reduce_sum(
+void synapse_reduce_generic(
     const Tensor& output,
     const Tensor& input,
-    unsigned dim) {
+    const IntArrayRef& dim,
+    bool keepdim,
+    std::string nodetype) {
   std::cout << "Reduction axis " << dim << std::endl;
   auto& device =
       synapse_helpers::HPURegistrar::get_device(input.device().index());
   const auto device_id = device.id();
+  auto ndim = input.dim();
 
   // graph_handle scope
   synGraphHandle graph_handle;
@@ -121,38 +135,77 @@ void synapse_reduce_sum(
       "synGraphCreate failed");
 
   { // tensors scope
-    std::vector<synapse_helpers::tensor> syn_helper_inputs, syn_helper_outputs;
-    std::vector<synTensor> syn_inputs, syn_outputs;
+    std::vector<synapse_helpers::tensor> syn_helper_inputs, syn_helper_outputs,
+        syn_helper_intermediate;
+    std::vector<synTensor> syn_inputs, syn_outputs, syn_intermediate;
 
     std::tie(syn_helper_inputs, syn_inputs) = habana_helpers::create_tensors(
         std::vector<const at::Tensor*>{&input}, graph_handle, true);
+    syn_intermediate.push_back(syn_helper_inputs[0].get());
     std::tie(syn_helper_outputs, syn_outputs) = habana_helpers::create_tensors(
         std::vector<const at::Tensor*>{&output}, graph_handle, true);
 
+    unsigned loopend = keepdim ? dim.size() - 1 : dim.size();
+    std::vector<int64_t> dims = input.sizes().vec();
+    for (unsigned i = 0; i < loopend; i++) {
+      dims[dim[i]] = 1;
+      c10::IntArrayRef shape(dims.data(), input.dim());
+      syn_helper_intermediate.push_back(habana_helpers::create_tensor(
+          shape,
+          graph_handle,
+          false,
+          input.device().index(),
+          input.scalar_type()));
+      syn_intermediate.push_back(syn_helper_intermediate[i].get());
+    }
+
+    syn_intermediate.push_back(syn_helper_outputs[0].get());
+
     {
-      const std::string node_type = "reduce_sum_fwd_" +
-          habana_helpers::name_suffix_from_type(input.scalar_type());
-      ns_Reduction::Params params{};
-      params.reductionDimension = dim;
-      { // add node
-        TORCH_HABANA_CHECK(
-            synNodeCreate(
-                graph_handle,
-                syn_inputs.data(),
-                syn_outputs.data(),
-                syn_inputs.size(),
-                syn_outputs.size(),
-                &params,
-                sizeof(params),
-                node_type.c_str(),
-                "",
-                nullptr,
-                nullptr),
-            "synNodeCreate failed");
+      for (unsigned i = 0; i < dim.size(); i++) {
+        const std::string node_type = nodetype;
+        ns_Reduction::Params params{};
+        params.reductionDimension = ndim - dim[i] - 1;
+        { // add node
+          TORCH_HABANA_CHECK(
+              synNodeCreate(
+                  graph_handle,
+                  syn_intermediate.data() + i,
+                  syn_intermediate.data() + i + 1,
+                  1,
+                  1,
+                  &params,
+                  sizeof(params),
+                  node_type.c_str(),
+                  "",
+                  nullptr,
+                  nullptr),
+              "synNodeCreate failed");
+        }
+      }
+
+      if (!keepdim) {
+        const std::string node_type = "reshape";
+        { // add node
+          TORCH_HABANA_CHECK(
+              synNodeCreate(
+                  graph_handle,
+                  syn_intermediate.data() + dim.size(),
+                  syn_intermediate.data() + dim.size() + 1,
+                  1,
+                  1,
+                  nullptr,
+                  0,
+                  node_type.c_str(),
+                  "",
+                  nullptr,
+                  nullptr),
+              "synNodeCreate failed");
+        }
       }
 
       habana_helpers::compile_and_run(
-          node_type,
+          nodetype,
           graph_handle,
           habana_helpers::names(syn_helper_inputs),
           habana_helpers::names(syn_helper_outputs),
@@ -176,27 +229,196 @@ Tensor sum_dim_IntList_hpu(
   auto mask = make_dim_mask(dim, ndim);
   allocate_reduction_result(
       output, self, mask, keepdim, get_dtype(output, self, dtype, false));
-  auto viewed_result = review_reduce_result(output, ndim, mask, keepdim);
+  // auto viewed_result = review_reduce_result(output, ndim, mask, keepdim);
   TORCH_CHECK(
-      viewed_result.scalar_type() == self.scalar_type(),
+      output.scalar_type() == self.scalar_type(),
       "Habana reduction ops don't support casts yet");
-  TORCH_CHECK(dim.size() == 1, "Habana support only single dim reduction");
-  TORCH_CHECK(keepdim, "Habana reduction keepdim must be turned on");
-  synapse_reduce_sum(viewed_result, self, ndim - dim[0] - 1);
-  // TODO: implement support for keepdim = false and multiple dims to reduce
-  // One way of implementing it is calling multiple times kernel with single
-  // reduction but it will be slower. I don't know if synapse support multi axis
-  // reduction. Keep dim can be implemented just by modifing metadata of PT
-  // tensor, synapse requires to always keep them
+  TORCH_CHECK(
+      keepdim || static_cast<int64_t>(dim.size()) != ndim,
+      "Reduction to 0d tensor not supported yet");
+
+  std::string nodetype = "reduce_sum_fwd_" +
+      habana_helpers::name_suffix_from_type(self.scalar_type());
+  synapse_reduce_generic(output, self, dim, keepdim, nodetype);
+
   LOG_FUNC_END;
-  return viewed_result;
+  return output;
 }
 
-static auto registry = torch::RegisterOperators().op(
-    torch::RegisterOperators::options()
-        .schema(
-            "aten::sum.dim_IntList(Tensor self, int[1] dim, bool keepdim=False, *, ScalarType? dtype=None) -> Tensor")
-        .impl_unboxedOnlyKernel<
-            decltype(sum_dim_IntList_hpu),
-            &sum_dim_IntList_hpu>(TensorTypeId::HABANATensorId)
-        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));
+Tensor& sum_IntList_out_hpu(
+    Tensor& output,
+    const Tensor& self,
+    IntArrayRef dim,
+    bool keepdim,
+    c10::optional<ScalarType> dtype) {
+  LOG_FUNC_BEGIN;
+
+  auto ndim = self.dim();
+  auto mask = make_dim_mask(dim, ndim);
+  allocate_reduction_result(
+      output, self, mask, keepdim, get_dtype(output, self, dtype, false));
+  // auto viewed_result = review_reduce_result(output, ndim, mask, keepdim);
+  TORCH_CHECK(
+      output.scalar_type() == self.scalar_type(),
+      "Habana reduction ops don't support casts yet");
+  TORCH_CHECK(
+      keepdim || static_cast<int64_t>(dim.size()) != ndim,
+      "Reduction to 0d tensor not supported yet");
+
+  std::string nodetype = "reduce_sum_fwd_" +
+      habana_helpers::name_suffix_from_type(self.scalar_type());
+  synapse_reduce_generic(output, self, dim, keepdim, nodetype);
+
+  LOG_FUNC_END;
+  return output;
+}
+
+Tensor mean_dim_hpu(
+    const Tensor& self,
+    IntArrayRef dim,
+    bool keepdim,
+    c10::optional<ScalarType> dtype) {
+  LOG_FUNC_BEGIN;
+
+  Tensor output;
+  auto ndim = self.dim();
+  auto mask = make_dim_mask(dim, ndim);
+  allocate_reduction_result(
+      output, self, mask, keepdim, get_dtype(output, self, dtype, false));
+  // auto viewed_result = review_reduce_result(output, ndim, mask, keepdim);
+  TORCH_CHECK(
+      output.scalar_type() == self.scalar_type(),
+      "Habana reduction ops don't support casts yet");
+  TORCH_CHECK(
+      keepdim || static_cast<int64_t>(dim.size()) != ndim,
+      "Reduction to 0d tensor not supported yet");
+
+  std::string nodetype = "reduce_mean_fwd_" +
+      habana_helpers::name_suffix_from_type(self.scalar_type());
+  synapse_reduce_generic(output, self, dim, keepdim, nodetype);
+
+  LOG_FUNC_END;
+  return output;
+}
+
+Tensor& mean_dim_out_hpu(
+    Tensor& output,
+    const Tensor& self,
+    IntArrayRef dim,
+    bool keepdim,
+    c10::optional<ScalarType> dtype) {
+  LOG_FUNC_BEGIN;
+
+  auto ndim = self.dim();
+  auto mask = make_dim_mask(dim, ndim);
+  allocate_reduction_result(
+      output, self, mask, keepdim, get_dtype(output, self, dtype, false));
+  // auto viewed_result = review_reduce_result(output, ndim, mask, keepdim);
+  TORCH_CHECK(
+      output.scalar_type() == self.scalar_type(),
+      "Habana reduction ops don't support casts yet");
+  TORCH_CHECK(
+      keepdim || static_cast<int64_t>(dim.size()) != ndim,
+      "Reduction to 0d tensor not supported yet");
+
+  std::string nodetype = "reduce_mean_fwd_" +
+      habana_helpers::name_suffix_from_type(self.scalar_type());
+  synapse_reduce_generic(output, self, dim, keepdim, nodetype);
+
+  LOG_FUNC_END;
+  return output;
+}
+
+Tensor sum_hpu(const Tensor& self, c10::optional<ScalarType> dtype) {
+  LOG_FUNC_BEGIN;
+
+  Tensor output;
+  auto ndim = self.dim();
+  int64_t data[4];
+  for (int i = 0; i < ndim; i++) {
+    data[i] = i;
+  }
+  IntArrayRef dim(data, ndim);
+  auto mask = make_dim_mask(dim, ndim);
+  allocate_reduction_result(
+      output, self, mask, 0, get_dtype(output, self, dtype, false));
+  // auto viewed_result = review_reduce_result(output, ndim, mask, keepdim);
+  TORCH_CHECK(
+      output.scalar_type() == self.scalar_type(),
+      "Habana reduction ops don't support casts yet");
+
+  std::string nodetype = "reduce_sum_fwd_" +
+      habana_helpers::name_suffix_from_type(self.scalar_type());
+  synapse_reduce_generic(output, self, dim, 0, nodetype);
+
+  LOG_FUNC_END;
+  return output[0];
+}
+
+Tensor mean_hpu(const Tensor& self, c10::optional<ScalarType> dtype) {
+  LOG_FUNC_BEGIN;
+
+  Tensor output;
+  auto ndim = self.dim();
+  int64_t data[4];
+  for (int i = 0; i < ndim; i++) {
+    data[i] = i;
+  }
+  IntArrayRef dim(data, ndim);
+  auto mask = make_dim_mask(dim, ndim);
+  allocate_reduction_result(
+      output, self, mask, 0, get_dtype(output, self, dtype, false));
+  // auto viewed_result = review_reduce_result(output, ndim, mask, keepdim);
+  TORCH_CHECK(
+      output.scalar_type() == self.scalar_type(),
+      "Habana reduction ops don't support casts yet");
+
+  std::string nodetype = "reduce_mean_fwd_" +
+      habana_helpers::name_suffix_from_type(self.scalar_type());
+  synapse_reduce_generic(output, self, dim, 0, nodetype);
+
+  LOG_FUNC_END;
+  return output[0];
+}
+
+static auto registry =
+    torch::RegisterOperators()
+        .op(torch::RegisterOperators::options()
+                .schema(
+                    "aten::sum.dim_IntList(Tensor self, int[1] dim, bool keepdim=False, *, ScalarType? dtype=None) -> Tensor")
+                .impl_unboxedOnlyKernel<
+                    decltype(sum_dim_IntList_hpu),
+                    &sum_dim_IntList_hpu>(TensorTypeId::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema(
+                    "aten::sum.IntList_out(Tensor self, int[1] dim, bool keepdim=False, *, ScalarType? dtype=None, Tensor(a!) out) -> Tensor(a!)")
+                .impl_unboxedOnlyKernel<
+                    decltype(sum_IntList_out_hpu),
+                    &sum_IntList_out_hpu>(TensorTypeId::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema(
+                    "aten::mean.dim(Tensor self, int[1] dim, bool keepdim=False, *, ScalarType? dtype=None) -> Tensor")
+                .impl_unboxedOnlyKernel<decltype(mean_dim_hpu), &mean_dim_hpu>(
+                    TensorTypeId::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema(
+                    "aten::mean.out(Tensor self, int[1] dim, bool keepdim=False, *, ScalarType? dtype=None, Tensor(a!) out) -> Tensor(a!)")
+                .impl_unboxedOnlyKernel<
+                    decltype(mean_dim_out_hpu),
+                    &mean_dim_out_hpu>(TensorTypeId::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema(
+                    "aten::sum(Tensor self, *, ScalarType? dtype=None) -> Tensor")
+                .impl_unboxedOnlyKernel<decltype(sum_hpu), &sum_hpu>(
+                    TensorTypeId::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema(
+                    "aten::mean(Tensor self, *, ScalarType? dtype=None) -> Tensor")
+                .impl_unboxedOnlyKernel<decltype(mean_hpu), &mean_hpu>(
+                    TensorTypeId::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));
