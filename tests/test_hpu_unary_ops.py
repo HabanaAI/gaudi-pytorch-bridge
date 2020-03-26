@@ -1,7 +1,7 @@
 import torch
 import torch.nn.functional as F
 import pytest
-from test_utils import evaluate_fwd_kernel, evaluate_fwd_bwd_kernel, reset_seed
+from test_utils import evaluate_fwd_kernel, evaluate_fwd_bwd_kernel, reset_seed, evaluate_fwd_inplace_kernel
 
 
 # N - batch
@@ -12,7 +12,6 @@ mnist_test_cast_list = [
     # N, H, W, C
     (64, 24, 24, 20),
     (64, 7, 7, 50),
-    (64, 500),
 ]
 
 test_case_list = [
@@ -24,6 +23,9 @@ unary_op_list = [
     F.relu,
 ]
 
+unary_inplace_op_list = [
+    ('relu_'),
+]
 
 @pytest.mark.parametrize("N, H, W, C", test_case_list)
 @pytest.mark.parametrize("unary_op", unary_op_list)
@@ -41,6 +43,12 @@ def test_hpu_unary_op_fwd_bwd(N, H, W, C, unary_op):
     evaluate_fwd_bwd_kernel(kernel=unary_op, tensor_list_bwd=bwd_tensors,
                             kernel_params_fwd=kernel_params_fwd)
 
+@pytest.mark.parametrize("N, H, W, C", test_case_list)
+@pytest.mark.parametrize("unary_inplace_op", unary_inplace_op_list)
+def test_hpu_unary_inplace_op(N, H, W, C, unary_inplace_op):
+    in_out_tensor = torch.randn(N, C, H, W)
+    evaluate_fwd_inplace_kernel(in_out_tensor=in_out_tensor, kernel_name=unary_inplace_op, kernel_params=None)
 
 if __name__ == '__main__':
     test_hpu_unary_op(*test_case_list[0], unary_op_list[0])
+    test_hpu_unary_inplace_op(*test_case_list[0], unary_inplace_op_list[0])

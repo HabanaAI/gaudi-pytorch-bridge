@@ -166,8 +166,11 @@ def _run_inplace_kernel_on_device(device, in_out_tensor, kernel_name, tensor_lis
 
     if kernel_params:
         result = getattr(in_out_tensor, kernel_name)(**kernel_params)
-    else:
+    elif tensor_list:
         result = getattr(in_out_tensor, kernel_name)(*tensor_list)
+    else:
+        # unary in place kernels
+        result = getattr(in_out_tensor, kernel_name)()
 
     return _convert_to_tensor_list(result)
 

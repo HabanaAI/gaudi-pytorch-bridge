@@ -66,3 +66,59 @@ void synapse_simple_generic_kernel(
   }
   TORCH_HABANA_CHECK(synGraphDestroy(graph_handle), "synGraphDestroy failed");
 }
+
+void synapse_simple_generic_inplace_kernel(
+    std::vector<const at::Tensor*> pt_inputs, // NHWC
+    const std::string& node_guid,
+    const void* syn_param,
+    const size_t syn_param_size,
+    const bool forward_pass) {
+  const auto device_id = pt_inputs[0]->device().index();
+  // graph_handle scope
+  synGraphHandle graph_handle;
+  TORCH_HABANA_CHECK(
+      synGraphCreate(&graph_handle, synDeviceType::synDeviceGaudi),
+      "synGraphCreate failed");
+  { // tensors scope
+
+    std::vector<synapse_helpers::tensor> syn_helper_inputs;
+    std::vector<synTensor> syn_inputs, syn_outputs;
+
+    std::tie(syn_helper_inputs, syn_inputs) =
+        habana_helpers::create_tensors(pt_inputs, graph_handle, true);
+    auto syn_helper_output = habana_helpers::duplicate_tensor_in_memory_section(
+        syn_helper_inputs[0]);
+
+    {
+      const std::string node_type = node_guid +
+          std::string(forward_pass ? "_fwd_" : "_bwd_") +
+          habana_helpers::name_suffix_from_type(pt_inputs[0]->scalar_type());
+      { // add node
+        TORCH_HABANA_CHECK(
+            synNodeCreate(
+                graph_handle,
+                syn_inputs.data(),
+                &syn_helper_output.get(),
+                syn_inputs.size(),
+                1,
+                syn_param,
+                syn_param_size,
+                node_type.c_str(),
+                "",
+                nullptr,
+                nullptr),
+            "synNodeCreate failed");
+      }
+
+      habana_helpers::compile_and_run(
+          node_type,
+          graph_handle,
+          habana_helpers::names(syn_helper_inputs),
+          {syn_helper_output.tensor_name_},
+          habana_helpers::extract_data_ptrs(pt_inputs),
+          {pt_inputs[0]->data_ptr()},
+          device_id);
+    }
+  }
+  TORCH_HABANA_CHECK(synGraphDestroy(graph_handle), "synGraphDestroy failed");
+}
