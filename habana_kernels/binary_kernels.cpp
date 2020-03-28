@@ -16,6 +16,7 @@
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_helpers/tensor_utils.h"
 #include "habana_kernels/kernel_utils.h"
+#include "habana_kernels/simple_generic_kernel.h"
 
 using namespace torch;
 
@@ -256,6 +257,53 @@ Tensor& mul_tensor_hpu_(Tensor& self, const Tensor& other) {
   return self;
 }
 
+/*************************************************************************
+ * @brief Kernel implementation for torch.eq(self,other, out)
+ * @param self - first input
+ * @param other - second input
+ * @param out -  output tensor of bool dtype
+ ************************************************************************/
+void eq_tensor_out_hpu(
+    const Tensor& output,
+    const Tensor& self,
+    const Tensor& other) {
+  LOG_FUNC_BEGIN;
+
+  // change dtype bool to int8 to match TPC kernel signature
+  // NOTE: This works because both bool and int8 uses 1 byte per element
+  // Else we need to overload .to operator with an explicit TPC kernel for typecasting
+  output.to(c10::ScalarType::Char);
+
+  std::vector<const at::Tensor*> pt_inputs{&self, &other};
+  std::vector<const at::Tensor*> pt_outputs{&output};
+
+  synapse_simple_generic_kernel(
+      pt_outputs, pt_inputs, "equal", nullptr, 0, true);
+
+  // convert back to bool
+  output.to(c10::ScalarType::Bool);
+
+  LOG_FUNC_END;
+}
+
+/*************************************************************************
+ * @brief Kernel implementation for out = torch.eq(self,other)
+ * @param self - first input
+ * @param other - second input
+ ************************************************************************/
+Tensor eq_tensor_hpu(Tensor& self, Tensor& other) {
+  LOG_FUNC_BEGIN;
+
+  auto tensor_options = self.options();
+  auto output =
+      at::empty(self.sizes(), tensor_options.dtype(c10::ScalarType::Char));
+
+  eq_tensor_out_hpu(output, self, other);
+
+  LOG_FUNC_END;
+  return output;
+}
+
 static auto registry =
     torch::RegisterOperators()
         .op(torch::RegisterOperators::options()
@@ -271,4 +319,17 @@ static auto registry =
                 .impl_unboxedOnlyKernel<
                     decltype(mul_tensor_hpu_),
                     &mul_tensor_hpu_>(TensorTypeId::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema("aten::eq.Tensor(Tensor self, Tensor other) -> Tensor")
+                .impl_unboxedOnlyKernel<
+                    decltype(eq_tensor_hpu),
+                    &eq_tensor_hpu>(TensorTypeId::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema(
+                    "aten::eq.Tensor_out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)")
+                .impl_unboxedOnlyKernel<
+                    decltype(eq_tensor_out_hpu),
+                    &eq_tensor_out_hpu>(TensorTypeId::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));
