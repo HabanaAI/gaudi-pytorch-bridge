@@ -138,14 +138,28 @@ def run_kernel_on_device(device, kernel, tensor_list=None, kernel_params=None):
         raise RuntimeError("Pass tensors using kernel_params")
 
     if kernel_params:
+        # create local version of kernel params dict,
+        # else some values are retained across calls
+        kernel_params_local = {}
         assert isinstance(kernel_params, dict)
         for k, v in kernel_params.items():
             if isinstance(v, torch.Tensor):
-                kernel_params[k] = v.to(device)
+                kernel_params_local[k] = v.to(device)
+            elif isinstance(v, tuple):
+                if device == cpu:
+                    # HPU does not support dtype=long, therefore use dtype=int
+                    # in test-cases and convert it to dtype=long for CPU (CPU
+                    # works for dtype=long only)
+                    kernel_params_local[k] = tuple([i.to(device,dtype=torch.long) if i.type() == 'torch.IntTensor' else i.to(device) for i in v])
+                else:
+                    kernel_params_local[k] = tuple([i.to(device) for i in v])
+            else:
+                kernel_params_local[k] = kernel_params[k]
+
     elif tensor_list:
         tensor_list = [tensor.to(device) for tensor in tensor_list]
 
-    result = kernel(**kernel_params) if kernel_params else kernel(*tensor_list)
+    result = kernel(**kernel_params_local) if kernel_params else kernel(*tensor_list)
 
     return _convert_to_tensor_list(result)
 

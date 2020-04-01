@@ -64,6 +64,7 @@ add_library(habana_pytorch_plugin SHARED
   habana_kernels/softmax_kernels.cpp
   habana_kernels/tensor_factories.cpp
   habana_kernels/threshold_kernels.cpp
+  habana_kernels/topk_kernels.cpp
   habana_kernels/unary_kernels.cpp
 )
 
