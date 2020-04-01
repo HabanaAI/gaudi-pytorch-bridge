@@ -57,6 +57,7 @@ add_library(habana_pytorch_plugin SHARED
   habana_kernels/kernel_utils.cpp
   habana_kernels/linear_kernels.cpp
   habana_kernels/loss_kernels.cpp
+  habana_kernels/norm_kernels.cpp
   habana_kernels/pool_kernels.cpp
   habana_kernels/reduction_kernels.cpp
   habana_kernels/scalar.cpp

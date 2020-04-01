@@ -8,7 +8,7 @@ hpu = torch.device('habana')
 cpu = torch.device('cpu')
 
 
-def evaluate_fwd_kernel(kernel, kernel_params, check_results=True, atol=0.001, rtol=1.e-3):
+def evaluate_fwd_kernel(kernel, kernel_params, check_results=True, atol=0.001, rtol=1.e-3, copy_kernel=True):
     '''Run given kernel with tensor_list as arguments on HPU and
     then CPU. Optionally check results and return them if user wants
     to process them latter e.g. to use custom comparison function.
@@ -20,7 +20,7 @@ def evaluate_fwd_kernel(kernel, kernel_params, check_results=True, atol=0.001, r
     # CPU kernel.
     hpu_result = run_kernel_on_device(device=hpu,
                                       kernel=kernel,
-                                      kernel_params=kernel_params)
+                                      kernel_params=kernel_params, copy_kernel=copy_kernel)
 
     cpu_result = run_kernel_on_device(device=cpu, kernel=kernel, kernel_params=kernel_params)
 
@@ -30,7 +30,7 @@ def evaluate_fwd_kernel(kernel, kernel_params, check_results=True, atol=0.001, r
     return hpu_result, cpu_result
 
 
-def evaluate_fwd_bwd_kernel(kernel, kernel_params_fwd, tensor_list_bwd, check_results_fwd=True, check_results_bwd=True, atol=0.001, rtol=1.e-3):
+def evaluate_fwd_bwd_kernel(kernel, kernel_params_fwd, tensor_list_bwd, check_results_fwd=True, check_results_bwd=True, atol=0.001, rtol=1.e-3, copy_kernel=True):
     '''Run given kernel fwd and bwd pass on HPU and then on CPU.
     Optionally check results and return them if user wants
     to process them latter e.g. to use custom comparison function'''
@@ -42,21 +42,21 @@ def evaluate_fwd_bwd_kernel(kernel, kernel_params_fwd, tensor_list_bwd, check_re
     # CPU kernel.
     hpu_result_fwd = run_kernel_on_device(device=hpu,
                                           kernel=kernel,
-                                          kernel_params=kernel_params_fwd)
+                                          kernel_params=kernel_params_fwd, copy_kernel=copy_kernel)
     # TODO: add suport for multiple gradients
     hpu_result_bwd = run_kernel_on_device(
         device=hpu,
         kernel=hpu_result_fwd[0].grad_fn,
-        tensor_list=tensor_list_bwd)
+        tensor_list=tensor_list_bwd, copy_kernel=copy_kernel)
 
     cpu_result_fwd = run_kernel_on_device(
         device=cpu,
         kernel=kernel,
-        kernel_params=kernel_params_fwd)
+        kernel_params=kernel_params_fwd, copy_kernel=copy_kernel)
     cpu_result_bwd = run_kernel_on_device(
         device=cpu,
         kernel=cpu_result_fwd[0].grad_fn,
-        tensor_list=tensor_list_bwd)
+        tensor_list=tensor_list_bwd, copy_kernel=copy_kernel)
 
     if check_results_fwd:
         compare_tensors(hpu_result_fwd, cpu_result_fwd, atol=atol, rtol=rtol)
@@ -129,10 +129,11 @@ def _assert_tensors_on_device(tensor_list, device):
         assert t.device.type == device.type
 
 
-def run_kernel_on_device(device, kernel, tensor_list=None, kernel_params=None):
+def run_kernel_on_device(device, kernel, tensor_list=None, kernel_params=None, copy_kernel=True):
     # print("tensor_list", tensor_list)
     # print("kernel_params", kernel_params)
-    kernel = _kernel_copy_to_device(kernel, device)
+    if copy_kernel:
+        kernel = _kernel_copy_to_device(kernel, device)
 
     if kernel_params and tensor_list:
         raise RuntimeError("Pass tensors using kernel_params")
@@ -150,7 +151,8 @@ def run_kernel_on_device(device, kernel, tensor_list=None, kernel_params=None):
                     # HPU does not support dtype=long, therefore use dtype=int
                     # in test-cases and convert it to dtype=long for CPU (CPU
                     # works for dtype=long only)
-                    kernel_params_local[k] = tuple([i.to(device,dtype=torch.long) if i.type() == 'torch.IntTensor' else i.to(device) for i in v])
+                    kernel_params_local[k] = tuple(
+                        [i.to(device, dtype=torch.long) if i.type() == 'torch.IntTensor' else i.to(device) for i in v])
                 else:
                     kernel_params_local[k] = tuple([i.to(device) for i in v])
             else:
