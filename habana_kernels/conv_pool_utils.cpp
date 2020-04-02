@@ -34,10 +34,6 @@ void check_pool_params(
           dilation.cbegin(), dilation.cend(), [](int64_t x) { return x == 1; }),
       "convolution_hpu doesn't support dilation");
   TORCH_CHECK(
-      std::all_of(
-          padding.cbegin(), padding.cend(), [](int64_t x) { return x == 0; }),
-      "convolution_hpu doesn't support input padding");
-  TORCH_CHECK(
       input.device().type() == c10::DeviceType::HABANA,
       "input is not habana at::Tensor");
   TORCH_CHECK(
@@ -49,15 +45,15 @@ void check_pool_params(
 }
 
 void check_convolution_params(
-    const at::Tensor& input,
-    const at::Tensor& weight,
-    c10::optional<const at::Tensor*> bias,
+    const std::vector<at::Tensor>& inputs,
     const at::IntArrayRef stride,
     const at::IntArrayRef padding,
     const at::IntArrayRef dilation,
     const bool transposed,
     const at::IntArrayRef output_padding,
     const int64_t groups) {
+  at::Tensor input = inputs[0];
+  at::Tensor weight = inputs[1];
   TORCH_CHECK(groups == 1, "convolution_hpu doesn't support groups");
   TORCH_CHECK(
       transposed == false, "convolution_hpu doesn't support transposition");
@@ -74,13 +70,12 @@ void check_convolution_params(
   TORCH_CHECK(
       weight.size(1) == input.size(1),
       "Number of input channels doesn't match weight channels");
-  if (bias.has_value()) {
+  if (inputs.size() > 2) {
+    at::Tensor bias = inputs[2];
     TORCH_CHECK(
-        bias.value()->device().type() == c10::DeviceType::HABANA,
+        bias.device().type() == c10::DeviceType::HABANA,
         "bias is not habana at::Tensor");
-    TORCH_CHECK(
-        bias.value()->ndimension() == 1,
-        "bias at::Tensor idimension count  != 1");
+    TORCH_CHECK(bias.dim() == 1, "bias at::Tensor idimension count  != 1");
   }
 
   check_pool_params(input, stride, padding, dilation);

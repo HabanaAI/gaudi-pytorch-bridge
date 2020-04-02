@@ -10,8 +10,8 @@
 #include <ATen/InferSize.h>
 // #include <ATen/native/Pool.h> // TODO: fix this include
 #include <ATen/div_rtn.h> // TODO: remove this header after ATen/native/Pool.h is included
-#include <torch/script.h>
 #include <perf_lib_layer_params.h>
+#include <torch/script.h>
 #include <algorithm>
 #include <iostream>
 
@@ -84,19 +84,15 @@ ns_SpatialReduction::Params synapse_pool_params_builder(
   const int64_t dilation_H = dilation[0];
   const int64_t dilation_W = dilation[1];
 
-  TORCH_CHECK(padding[0] == 0);
-  TORCH_CHECK(padding[1] == 0);
-
   ns_SpatialReduction::Params pool_params{};
   pool_params.kernel_w = filter_W;
   pool_params.kernel_h = filter_H;
   pool_params.stride_w = stride_W;
   pool_params.stride_h = stride_H;
-  // TODO: add padding support
-  pool_params.pad_w_begin = 0;
-  pool_params.pad_w_end = 0;
-  pool_params.pad_h_begin = 0;
-  pool_params.pad_h_end = 0;
+  pool_params.pad_w_begin = padding[1];
+  pool_params.pad_w_end = padding[1];
+  pool_params.pad_h_begin = padding[0];
+  pool_params.pad_h_end = padding[0];
   pool_params.dilation_w = dilation_W;
   pool_params.dilation_h = dilation_H;
   pool_params.pooling_convention = POOLING_CONVENTION_VALID;
@@ -292,7 +288,6 @@ Tensor& max_pool2d_with_indices_backward_out_hpu(
   //   NCHW -> NHWC
   auto grad_input_nhwc = grad_input.permute({0, 2, 3, 1});
   auto grad_output_nhwc = grad_output.permute({0, 2, 3, 1});
-  auto input_nhwc = input.permute({0, 2, 3, 1});
   auto indices_nhwc = indices.permute({0, 2, 3, 1});
 
   synapse_pool2d_generic_impl(

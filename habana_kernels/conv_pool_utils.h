@@ -30,9 +30,7 @@ void check_pool_params(
     const at::IntArrayRef dilation);
 
 void check_convolution_params(
-    const at::Tensor& input,
-    const at::Tensor& weight,
-    c10::optional<const at::Tensor*> bias,
+    const std::vector<at::Tensor>& inputs,
     const at::IntArrayRef stride,
     const at::IntArrayRef padding,
     const at::IntArrayRef dilation,

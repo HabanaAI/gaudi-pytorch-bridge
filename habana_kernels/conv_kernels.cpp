@@ -18,16 +18,15 @@
 #include "habana_device/HPUContext.h"
 #include "habana_helpers/tensor_utils.h"
 #include "habana_helpers/unused_macro.h"
+#include "habana_kernels/simple_generic_kernel.h"
 #include "kernel_utils.h"
 
 using namespace torch;
 
-enum class ConvGradType { input, filter };
-
 synConvolutionParams synapse_conv_params_builder(
     const IntArrayRef& weight, // HWCK
     const IntArrayRef& stride, // HW
-    UNUSED const IntArrayRef& padding, // HW
+    const IntArrayRef& padding, // HW
     const IntArrayRef& dilation // HW
 ) {
   const int64_t filter_H = weight[0];
@@ -36,7 +35,6 @@ synConvolutionParams synapse_conv_params_builder(
   const int64_t stride_W = stride[1];
   const int64_t dilation_H = dilation[0];
   const int64_t dilation_W = dilation[1];
-  // TODO: calculate paddings
 
   synConvolutionParams syn_conv_params{};
   syn_conv_params.dH = stride_H;
@@ -45,211 +43,12 @@ synConvolutionParams synapse_conv_params_builder(
   syn_conv_params.kW = filter_W;
   syn_conv_params.dilH = dilation_H;
   syn_conv_params.dilW = dilation_W;
-  syn_conv_params.setPadT(0);
-  syn_conv_params.setPadB(0);
-  syn_conv_params.setPadL(0);
-  syn_conv_params.setPadR(0);
+  syn_conv_params.setPadT(padding[0]);
+  syn_conv_params.setPadB(padding[0]);
+  syn_conv_params.setPadL(padding[1]);
+  syn_conv_params.setPadR(padding[1]);
 
   return syn_conv_params;
-}
-
-void synapse_convolution(
-    const Tensor& output,
-    const Tensor& input,
-    const Tensor& weight,
-    const Tensor& bias,
-    const IntArrayRef& stride,
-    const IntArrayRef& padding,
-    const IntArrayRef& dilation) {
-  const auto device_id = input.device().index();
-  // graph_handle scope
-  synGraphHandle graph_handle;
-  TORCH_HABANA_CHECK(
-      synGraphCreate(&graph_handle, synDeviceType::synDeviceGaudi),
-      "synGraphCreate failed");
-  { // tensors scope
-    std::vector<synapse_helpers::tensor> syn_helper_inputs, syn_helper_outputs;
-    std::vector<synTensor> syn_inputs, syn_outputs;
-
-    std::tie(syn_helper_inputs, syn_inputs) = habana_helpers::create_tensors(
-        std::vector<const at::Tensor*>{
-            &input,
-            &weight,
-            &bias,
-        },
-        graph_handle,
-        true);
-    std::tie(syn_helper_outputs, syn_outputs) = habana_helpers::create_tensors(
-        std::vector<const at::Tensor*>{&output}, graph_handle, true);
-
-    { // dimshuffled tensors scope
-#if TRANSPOSE_IMPLEMENTED
-      // input, filter Note: I will use original bias
-      std::vector<synapse_helpers::tensor> syn_tmp_helper_inputs;
-      std::vector<synapse_helpers::tensor> syn_tmp_helper_outputs;
-      const std::vector<std::string> input_tmp_names{"input_tmp", "filter_tmp"};
-      const std::vector<std::string> output_tmp_names{"output_tmp"};
-
-      syn_tmp_helper_inputs.push_back(
-          synapse_helpers::tensor_builder::create_tensor(
-              device_id,
-              synDataType::syn_type_float,
-              input.nbytes(),
-              input.sizes().size(),
-              habana_helpers::hack_pytorch_nhwc_shapes(
-                  input.sizes(), TRANSPOSE_IMPLEMENTED == true),
-              input_tmp_names[0],
-              graph_handle,
-              false));
-      syn_tmp_helper_inputs.push_back(
-          synapse_helpers::tensor_builder::create_tensor(
-              device_id,
-              synDataType::syn_type_float,
-              weight.nbytes(),
-              weight.sizes().size(),
-              habana_helpers::hack_pytorch_nhwc_shapes(
-                  weight.sizes(), TRANSPOSE_IMPLEMENTED == true),
-              input_tmp_names[1],
-              graph_handle,
-              false));
-      syn_tmp_helper_outputs.push_back(
-          synapse_helpers::tensor_builder::create_tensor(
-              device_id,
-              synDataType::syn_type_float,
-              output.nbytes(),
-              output.sizes().size(),
-              habana_helpers::hack_pytorch_nhwc_shapes(
-                  output.sizes(), TRANSPOSE_IMPLEMENTED == true),
-              output_tmp_names[0],
-              graph_handle,
-              false));
-
-      std::vector<synTensor> syn_tmp_inputs(syn_tmp_helper_inputs.size());
-      std::vector<synTensor> syn_tmp_outputs(syn_tmp_helper_outputs.size());
-      std::transform(
-          syn_tmp_helper_inputs.begin(),
-          syn_tmp_helper_inputs.end(),
-          syn_tmp_inputs.begin(),
-          [](auto& x) { return x.get(); });
-      std::transform(
-          syn_tmp_helper_outputs.begin(),
-          syn_tmp_helper_outputs.end(),
-          syn_tmp_outputs.begin(),
-          [](auto& x) { return x.get(); });
-
-      const std::string transpose_node_type = "transpose";
-
-      { // add input and weight transpositions
-        // Transpose(0,2,3,1), transform NCHW data format to NHWC
-        synTransposeParams params_nchw_to_nhwc;
-        {
-          params_nchw_to_nhwc.tensorDim = 4;
-          params_nchw_to_nhwc.permutation[0] = TransposePermutationDim(0);
-          params_nchw_to_nhwc.permutation[1] = TransposePermutationDim(2);
-          params_nchw_to_nhwc.permutation[2] = TransposePermutationDim(3);
-          params_nchw_to_nhwc.permutation[3] = TransposePermutationDim(1);
-        }
-
-        synTransposeParams params_kchw_to_hwck;
-        {
-          params_kchw_to_hwck.tensorDim = 4;
-          params_kchw_to_hwck.permutation[0] = TransposePermutationDim(2);
-          params_kchw_to_hwck.permutation[1] = TransposePermutationDim(3);
-          params_kchw_to_hwck.permutation[2] = TransposePermutationDim(1);
-          params_kchw_to_hwck.permutation[3] = TransposePermutationDim(0);
-        }
-        // dimshuffle input
-        TORCH_HABANA_CHECK(
-            synNodeCreate(
-                graph_handle,
-                &syn_inputs[0],
-                &syn_tmp_inputs[0],
-                1,
-                1,
-                &params_nchw_to_nhwc,
-                sizeof(params_nchw_to_nhwc),
-                transpose_node_type.c_str(),
-                "",
-                nullptr,
-                nullptr),
-            "synNodeCreate failed");
-
-        // dimshuffle weights
-        TORCH_HABANA_CHECK(
-            synNodeCreate(
-                graph_handle,
-                &syn_inputs[1],
-                &syn_tmp_inputs[1],
-                1,
-                1,
-                &params_kchw_to_hwck,
-                sizeof(params_kchw_to_hwck),
-                transpose_node_type.c_str(),
-                "",
-                nullptr,
-                nullptr),
-            "synNodeCreate failed");
-      }
-#endif
-      const std::string conv_node_type = "spatial_convolution";
-      { // add conv node
-        synConvolutionParams syn_conv_params = synapse_conv_params_builder(
-            weight.sizes(), stride, padding, dilation);
-
-        TORCH_HABANA_CHECK(
-            synNodeCreate(
-                graph_handle,
-                syn_inputs.data(),
-                syn_outputs.data(),
-                syn_inputs.size(),
-                syn_outputs.size(),
-                &syn_conv_params,
-                sizeof(syn_conv_params),
-                conv_node_type.c_str(),
-                "",
-                nullptr,
-                nullptr),
-            "synNodeCreate failed");
-      }
-#if TRANSPOSE_IMPLEMENTED
-      { // add output transpose node
-        synTransposeParams params_nhwc_to_nchw;
-        {
-          params_nhwc_to_nchw.tensorDim = 4;
-          params_nhwc_to_nchw.permutation[0] = TransposePermutationDim(0);
-          params_nhwc_to_nchw.permutation[1] = TransposePermutationDim(3);
-          params_nhwc_to_nchw.permutation[2] = TransposePermutationDim(1);
-          params_nhwc_to_nchw.permutation[3] = TransposePermutationDim(2);
-        }
-        // dimshuffle output
-        TORCH_HABANA_CHECK(
-            synNodeCreate(
-                graph_handle,
-                &syn_tmp_outputs[0],
-                &syn_outputs[0],
-                1,
-                1,
-                &params_nhwc_to_nchw,
-                sizeof(params_nhwc_to_nchw),
-                transpose_node_type.c_str(),
-                "",
-                nullptr,
-                nullptr),
-            "synNodeCreate failed");
-      }
-#endif
-
-      habana_helpers::compile_and_run(
-          conv_node_type,
-          graph_handle,
-          habana_helpers::names(syn_helper_inputs),
-          habana_helpers::names(syn_helper_outputs),
-          {input.data_ptr(), weight.data_ptr(), bias.data_ptr()},
-          {output.data_ptr()},
-          device_id);
-    }
-  }
-  TORCH_HABANA_CHECK(synGraphDestroy(graph_handle), "synGraphDestroy failed");
 }
 
 Tensor convolution_hpu(
@@ -264,16 +63,12 @@ Tensor convolution_hpu(
     int64_t groups) {
   LOG_FUNC_BEGIN;
 
+  std::vector<at::Tensor> inputs{input, weight};
+  if (bias.defined()) {
+    inputs.push_back(bias);
+  }
   habana_helpers::check_convolution_params(
-      input,
-      weight,
-      &bias,
-      stride,
-      padding,
-      dilation,
-      transposed,
-      output_padding,
-      groups);
+      inputs, stride, padding, dilation, transposed, output_padding, groups);
 
   // input, output NCHW
   // weight KCHW, where K - output channels
@@ -307,82 +102,27 @@ Tensor convolution_hpu(
   //   KCHW -> HWCK
   auto weight_hwck = weight.permute({2, 3, 1, 0});
 
-  synapse_convolution(
-      output_nhwc, input_nhwc, weight_hwck, bias, stride, padding, dilation);
+  std::vector<const at::Tensor*> pt_inputs{&input_nhwc, &weight_hwck};
+  if (bias.defined()) {
+    pt_inputs.push_back(&bias);
+  }
+  std::vector<const at::Tensor*> pt_outputs{&output_nhwc};
+
+  synConvolutionParams syn_conv_params = synapse_conv_params_builder(
+      weight_hwck.sizes(), stride, padding, dilation);
+
+  synapse_simple_generic_kernel(
+      pt_outputs,
+      pt_inputs,
+      "spatial_convolution",
+      &syn_conv_params,
+      0,
+      SynapsePassType::NO_PASS);
 
   //   NHWC -> NCHW
   auto output = output_nhwc.permute({0, 3, 1, 2});
   LOG_FUNC_END;
   return output;
-}
-
-void synapse_convolution_backward_generic_implementation(
-    // grad_input NHWC or grad_weight HWCK
-    std::vector<const Tensor*> pt_outputs,
-    // grad_output NHWC, weight HWCK or grad_output NHWC, input NHWC
-    std::vector<const Tensor*> pt_inputs,
-    IntArrayRef filter_size, // HWCK
-    IntArrayRef stride, // HW
-    UNUSED IntArrayRef padding, // HW
-    IntArrayRef dilation, // HW
-    ConvGradType grad_type) {
-  TORCH_CHECK(
-      pt_outputs.size() == 1,
-      "You can compute only grad_input or grad_weight at once.");
-  TORCH_CHECK(
-      pt_inputs.size() == 2,
-      "Weight and grad_output are required to compute gradients.");
-
-  // TODO: implement support for padding
-  const auto device_id = pt_inputs[0]->device().index();
-  // graph_handle scope
-  synGraphHandle graph_handle;
-  TORCH_HABANA_CHECK(
-      synGraphCreate(&graph_handle, synDeviceType::synDeviceGaudi),
-      "synGraphCreate failed");
-  { // tensors scope
-    std::vector<synapse_helpers::tensor> syn_helper_inputs, syn_helper_outputs;
-    std::vector<synTensor> syn_inputs, syn_outputs;
-
-    std::tie(syn_helper_inputs, syn_inputs) =
-        habana_helpers::create_tensors(pt_inputs, graph_handle, true);
-    std::tie(syn_helper_outputs, syn_outputs) =
-        habana_helpers::create_tensors(pt_outputs, graph_handle, true);
-
-    {
-      const std::string node_type =
-          grad_type == ConvGradType::input ? "dedx" : "dedw";
-      { // add node
-        synConvolutionParams syn_params =
-            synapse_conv_params_builder(filter_size, stride, padding, dilation);
-
-        TORCH_HABANA_CHECK(
-            synNodeCreate(
-                graph_handle,
-                syn_inputs.data(),
-                syn_outputs.data(),
-                syn_inputs.size(),
-                syn_outputs.size(),
-                &syn_params,
-                sizeof(syn_params),
-                node_type.c_str(),
-                "",
-                nullptr,
-                nullptr),
-            "synNodeCreate failed");
-      }
-
-      habana_helpers::compile_and_run(
-          node_type,
-          graph_handle,
-          habana_helpers::names(syn_helper_inputs),
-          habana_helpers::names(syn_helper_outputs),
-          habana_helpers::extract_data_ptrs(pt_inputs),
-          habana_helpers::extract_data_ptrs(pt_outputs),
-          device_id);
-    }
-  }
-  TORCH_HABANA_CHECK(synGraphDestroy(graph_handle), "synGraphDestroy failed");
 }
 
 Tensor convolution_backward_input(
@@ -400,14 +140,13 @@ Tensor convolution_backward_input(
   // KCHW -> HWCK
   auto weight_hwck = weight_kchw.permute({2, 3, 1, 0});
 
-  synapse_convolution_backward_generic_implementation(
-      {&grad_input_nhwc},
-      {&grad_output_nhwc, &weight_hwck},
-      weight_hwck.sizes(),
-      stride,
-      padding,
-      dilation,
-      ConvGradType::input);
+  synConvolutionParams syn_params = synapse_conv_params_builder(
+      weight_hwck.sizes(), stride, padding, dilation);
+
+  std::vector<const at::Tensor*> pt_outputs{&grad_input_nhwc};
+  std::vector<const at::Tensor*> pt_inputs{&grad_output_nhwc, &weight_hwck};
+  synapse_simple_generic_kernel(
+      pt_outputs, pt_inputs, "dedx", &syn_params, 0, SynapsePassType::NO_PASS);
 
   // NHWC -> NCHW
   return grad_input_nhwc.permute({0, 3, 1, 2});
@@ -427,14 +166,13 @@ Tensor convolution_backward_filter(
   // KCHW -> HWCK
   auto grad_weight_hwck = grad_weight.permute({2, 3, 1, 0});
 
-  synapse_convolution_backward_generic_implementation(
-      {&grad_weight_hwck},
-      {&grad_output_nhwc, &input_nhwc},
-      grad_weight_hwck.sizes(),
-      stride,
-      padding,
-      dilation,
-      ConvGradType::filter);
+  synConvolutionParams syn_params = synapse_conv_params_builder(
+      grad_weight_hwck.sizes(), stride, padding, dilation);
+
+  std::vector<const at::Tensor*> pt_outputs{&grad_weight_hwck};
+  std::vector<const at::Tensor*> pt_inputs{&grad_output_nhwc, &input_nhwc};
+  synapse_simple_generic_kernel(
+      pt_outputs, pt_inputs, "dedw", &syn_params, 0, SynapsePassType::NO_PASS);
 
   // HWCK -> KCHW
   return grad_weight_hwck.permute({3, 2, 0, 1});
@@ -452,16 +190,10 @@ std::tuple<Tensor, Tensor, Tensor> convolution_backward_hpu(
     int64_t groups,
     std::array<bool, 3> output_mask) {
   LOG_FUNC_BEGIN;
+
+  std::vector<at::Tensor> inputs{input, weight};
   habana_helpers::check_convolution_params(
-      input,
-      weight,
-      c10::nullopt,
-      stride,
-      padding,
-      dilation,
-      transposed,
-      output_padding,
-      groups);
+      inputs, stride, padding, dilation, transposed, output_padding, groups);
 
   // input, output NCHW
   // weight KCHW, where K - output channels
@@ -500,13 +232,13 @@ std::tuple<Tensor, Tensor, Tensor> convolution_backward_hpu(
   }
   if (output_mask[2]) {
     grad_bias = grad_output;
+    std::vector<int64_t> dim_to_reduce;
     for (int64_t i = 0; i < grad_output.ndimension(); ++i) {
       if (i != 1) // skip C dimension
-        // TODO: after our implementation of sum will implement support for
-        // keepdim = false and reduction for mutliple axes we should change
-        // this call and simplify code
-        grad_bias = grad_bias.sum(i, true);
+        dim_to_reduce.push_back(i);
     }
+    c10::IntArrayRef shape(dim_to_reduce.data(), dim_to_reduce.size());
+    grad_bias = grad_bias.sum(shape, false);
 
     TORCH_CHECK(
         grad_bias.numel() == grad_output.size(1),
@@ -514,7 +246,6 @@ std::tuple<Tensor, Tensor, Tensor> convolution_backward_hpu(
         grad_bias.numel(),
         "expected: ",
         grad_output.size(1));
-    grad_bias.unsafeGetTensorImpl()->Resize(grad_output.size(1));
   }
 
   LOG_FUNC_END;

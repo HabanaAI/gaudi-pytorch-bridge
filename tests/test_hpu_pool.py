@@ -11,33 +11,40 @@ from numpy import floor
 # R - filter height
 # S - filter width
 # str - stride
-mnist_test_cast_list = [
-    # N, H, W, C, R, S, str_H, str_W
-    (64, 24, 24, 20, 3, 3, 2, 2),
-    (64, 7, 7, 50, 3, 3, 2, 2),
+# pad - padding
+mnist_test_case_list = [
+    # N, H, W, C, R, S, str_H, str_W, padding
+    (64, 24, 24, 20, 3, 3, 2, 2, 0),
+    (64, 7, 7, 50, 3, 3, 2, 2, 0),
+]
+
+resnet50_test_case_list = [
+    # N, H, W, C, R, S, str_H, str_W, padding
+    (64, 112, 112, 64, 3, 3, 2, 2, 1)
 ]
 
 pool_test_case_list = [
-    # N, H, W, C, R, S, str_H, str_W
-    (8, 27, 27, 3, 3, 3, 2, 2),
-    pytest.param(2, 8, 8, 50, 2, 2, 2, 2, marks=pytest.mark.xfail(
+    # N, H, W, C, R, S, str_H, str_W, padding
+    (8, 27, 27, 3, 3, 3, 2, 2, 0),
+    pytest.param(2, 8, 8, 50, 2, 2, 2, 2, 0, marks=pytest.mark.xfail(
         reason="only 3x3 window with 2x2 stride is supported")),
-] + mnist_test_cast_list
+] + mnist_test_case_list + resnet50_test_case_list
 
 
 def output_size(spatial_size, pad, dilation, kernel_size, stride):
     return int(floor((spatial_size + 2 * pad - dilation * (kernel_size - 1) - 1) / stride + 1))
 
 
-@pytest.mark.parametrize("N, H, W, C, R, S, str_H, str_W", pool_test_case_list)
-def test_hpu_pool(N, H, W, C, R, S, str_H, str_W):
+@pytest.mark.parametrize("N, H, W, C, R, S, str_H, str_W, padding", pool_test_case_list)
+def test_hpu_pool(N, H, W, C, R, S, str_H, str_W, padding):
     # TODO: extend that test to all features
     kernel = F.max_pool2d
     kernel_params = {
         'input': torch.randn(N, C, H, W),
         'kernel_size': [R, S],
         'stride': [str_H, str_W],
-        'return_indices': True
+        'return_indices': True,
+        'padding': padding
     }
 
     # don't check resuluts because indices can have different values
@@ -46,17 +53,18 @@ def test_hpu_pool(N, H, W, C, R, S, str_H, str_W):
     compare_tensors(hpu_result[0], cpu_result[0], atol=0.001, rtol=1.e-3)
 
 
-@pytest.mark.parametrize("N, H, W, C, R, S, str_H, str_W", pool_test_case_list)
-def test_hpu_pool_fwd_bwd(N, H, W, C, R, S, str_H, str_W):
+@pytest.mark.parametrize("N, H, W, C, R, S, str_H, str_W, padding", pool_test_case_list)
+def test_hpu_pool_fwd_bwd(N, H, W, C, R, S, str_H, str_W, padding):
     # TODO: extend that test to all features
     kernel = F.max_pool2d
     kernel_params_fwd = {
         'input': torch.randn(N, C, H, W, requires_grad=True),
         'kernel_size': [R, S],
         'stride': [str_H, str_W],
-        'return_indices': True
+        'return_indices': True,
+        'padding':padding
     }
-    bwd_tensors = [torch.randn(N, C, output_size(H, 0, 1, R, str_H), output_size(W, 0, 1, S, str_W))]
+    bwd_tensors = [torch.randn(N, C, output_size(H, padding, 1, R, str_H), output_size(W, padding, 1, S, str_W))]
     # don't check fwd resuluts because indices can have different values
     (hpu_result_fwd, _), (cpu_result_fwd, _) = evaluate_fwd_bwd_kernel(kernel=kernel, tensor_list_bwd=bwd_tensors,
                                                                        kernel_params_fwd=kernel_params_fwd, check_results_fwd=False)
@@ -64,4 +72,4 @@ def test_hpu_pool_fwd_bwd(N, H, W, C, R, S, str_H, str_W):
 
 
 if __name__ == '__main__':
-    test_hpu_pool(*pool_test_case_list[0])
+    test_hpu_pool_fwd_bwd(*resnet50_test_case_list[0])
