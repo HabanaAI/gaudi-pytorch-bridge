@@ -20,7 +20,7 @@
 
 using namespace torch;
 
-void check_ew_kernel_constraints(Tensor& arg1, const Tensor& arg2) {
+void check_ew_kernel_constraints(const Tensor& arg1, const Tensor& arg2) {
   TORCH_CHECK(
       arg1.device() == arg2.device(),
       "Devices don't match. arg1 device: ",
@@ -304,6 +304,158 @@ Tensor eq_tensor_hpu(Tensor& self, Tensor& other) {
   return output;
 }
 
+/*************************************************************************
+ * @brief Kernel implementation for out = torch.div(self,other)
+ * @param self - first input
+ * @param other - second input
+ ************************************************************************/
+Tensor div_tensor_hpu(const Tensor& self, const Tensor& other) {
+  LOG_FUNC_BEGIN;
+  auto divisor_sizes = other.sizes();
+  auto divisor_tot_elems = other.numel();
+  auto out = at::empty(self.sizes(), self.options());
+  std::vector<const at::Tensor*> pt_inputs;
+  pt_inputs.push_back(&self);
+
+  Tensor other_tensor;
+  if (1 == divisor_tot_elems) {//case where a single element tensor comes as divisor
+    Scalar other_converted = other.item<float>();
+    other_tensor = habana_helpers::scalar_to_device_tensor(
+        other_converted, self.options(), self.ndimension());
+    pt_inputs.push_back(&other_tensor);
+  }
+  else if (divisor_sizes != self.sizes()) {
+    //TO DO: Return error or try to broadcast along appropriate dim
+    check_ew_kernel_constraints((const at::Tensor&) self, other);
+    return out;
+  }
+  else {
+    pt_inputs.push_back(&other);
+  }
+  std::vector<const at::Tensor*> pt_outputs;
+  pt_outputs.push_back(&out);
+  synapse_simple_generic_kernel(pt_outputs, pt_inputs, "div", nullptr, 0, true);
+  LOG_FUNC_END;
+  return out;
+}
+
+/****************************************************************************
+ * @brief Kernel implementation for result = torch.div(input, denom, out=out)
+ * @param result - output
+ * @param self - first input
+ * @param other - second input
+ ***************************************************************************/
+Tensor& div_tensor_hpu_out(Tensor& result, const Tensor& self, const Tensor& other) {
+  LOG_FUNC_BEGIN;
+  auto divisor_sizes = other.sizes();
+  auto divisor_tot_elems = other.numel();
+  auto out = at::empty(self.sizes(), self.options());
+  std::vector<const at::Tensor*> pt_inputs;
+  pt_inputs.push_back(&self);
+
+  Tensor other_tensor;
+  if (1 == divisor_tot_elems) {//case where a single element tensor comes as divisor
+    Scalar other_converted = other.item<float>();
+    other_tensor = habana_helpers::scalar_to_device_tensor(
+        other_converted, self.options(), self.ndimension());
+    pt_inputs.push_back(&other_tensor);
+  }
+  else if (divisor_sizes != self.sizes()) {
+    //TO DO: Return error or try to broadcast along appropriate dim
+    check_ew_kernel_constraints(self, other);
+    return result;
+  }
+  else {
+    pt_inputs.push_back(&other);
+  }
+  std::vector<const at::Tensor*> pt_outputs;
+  pt_outputs.push_back(&result);
+  synapse_simple_generic_kernel(pt_outputs, pt_inputs, "div", nullptr, 0, true);
+
+  LOG_FUNC_END;
+  return result;
+}
+/*************************************************************************
+ * @brief Kernel implementation for inplace torch.div_(self,other)
+ * @param self - first input
+ * @param other - second input
+ ************************************************************************/
+Tensor& div_tensor_hpu_(Tensor& self, const Tensor& other) {
+  LOG_FUNC_BEGIN;
+  auto divisor_sizes = other.sizes();
+  auto divisor_tot_elems = other.numel();
+  auto out = at::empty(self.sizes(), self.options());
+  std::vector<const at::Tensor*> pt_inputs;
+  pt_inputs.push_back(&self);
+
+  Tensor other_tensor;
+  if (1 == divisor_tot_elems) {//case where a single element tensor comes as divisor
+    Scalar other_converted = other.item<float>();
+    other_tensor = habana_helpers::scalar_to_device_tensor(
+        other_converted, self.options(), self.ndimension());
+    pt_inputs.push_back(&other_tensor);
+  }
+  else if (divisor_sizes != self.sizes()) {
+    //TO DO: Return error or try to broadcast along appropriate dim
+    check_ew_kernel_constraints(self, other);
+    return self;
+  }
+  else {
+    pt_inputs.push_back(&other);
+  }
+  synapse_simple_generic_inplace_kernel(pt_inputs, "div", nullptr, 0, true);
+
+  LOG_FUNC_END;
+  return self;
+}
+
+Tensor div_scalar_hpu(const Tensor& self, Scalar other) {//TODO: No way to test this yet from python
+  LOG_FUNC_BEGIN;
+  TORCH_CHECK(
+      self.scalar_type() != habana_helpers::scalar_type(other),
+      "Types don't match. arg1 type: ",
+      self.scalar_type(),
+      " arg2 type: ",
+      habana_helpers::scalar_type(other));
+  Scalar divisor_converted = other;
+  auto divisor_tensor = habana_helpers::scalar_to_device_tensor(
+      divisor_converted, self.options(), self.ndimension());
+
+  std::vector<const at::Tensor*> pt_inputs;
+  pt_inputs.push_back(&self);
+  pt_inputs.push_back(&divisor_tensor);
+  auto out = at::empty(self.sizes(), self.options());
+  std::vector<const at::Tensor*> pt_outputs;
+  pt_outputs.push_back(&out);
+
+  synapse_simple_generic_kernel(pt_outputs, pt_inputs, "div", nullptr, 0, true);
+
+  LOG_FUNC_END;
+  return out;
+}
+
+Tensor& div_scalar_hpu_(Tensor& self, Scalar other) {//TODO: No way to test this yet from python
+  LOG_FUNC_BEGIN;
+  std::vector<const at::Tensor*> pt_inputs;
+  TORCH_CHECK(
+      self.scalar_type() != habana_helpers::scalar_type(other),
+      "Types don't match. arg1 type: ",
+      self.scalar_type(),
+      " arg2 type: ",
+      habana_helpers::scalar_type(other));
+  Scalar divisor_converted = other;
+  auto divisor_tensor = habana_helpers::scalar_to_device_tensor(
+      divisor_converted, self.options(), self.ndimension());
+
+  pt_inputs.push_back(&self);
+  pt_inputs.push_back(&divisor_tensor);
+
+  synapse_simple_generic_inplace_kernel(pt_inputs, "div", nullptr, 0, true);
+
+  LOG_FUNC_END;
+  return self;
+}
+
 static auto registry =
     torch::RegisterOperators()
         .op(torch::RegisterOperators::options()
@@ -332,4 +484,39 @@ static auto registry =
                 .impl_unboxedOnlyKernel<
                     decltype(eq_tensor_out_hpu),
                     &eq_tensor_out_hpu>(TensorTypeId::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema(
+                    "aten::div.Tensor(Tensor self, Tensor other) -> Tensor")
+                .impl_unboxedOnlyKernel<
+                    decltype(div_tensor_hpu),
+                    &div_tensor_hpu>(TensorTypeId::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema(
+                    "aten::div.out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)")
+                .impl_unboxedOnlyKernel<
+                    decltype(div_tensor_hpu_out),
+                    &div_tensor_hpu_out>(TensorTypeId::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema(
+                    "aten::div_.Tensor(Tensor(a!) self, Tensor other) -> (Tensor(a!))")
+                .impl_unboxedOnlyKernel<
+                    decltype(div_tensor_hpu_),
+                    &div_tensor_hpu_>(TensorTypeId::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema(
+                    "aten::div.Scalar(Tensor self, Scalar other) -> Tensor")
+                .impl_unboxedOnlyKernel<
+                    decltype(div_scalar_hpu),
+                    &div_scalar_hpu>(TensorTypeId::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema(
+                    "aten::div_.Scalar(Tensor(a!) self, Scalar other) -> (Tensor(a!))")
+                .impl_unboxedOnlyKernel<
+                    decltype(div_scalar_hpu_),
+                    &div_scalar_hpu_>(TensorTypeId::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));
