@@ -14,6 +14,7 @@
 #include "habana_device/HPUCheck.h"
 #include "habana_device/HPUContext.h"
 #include "habana_helpers/logging.h"
+#include "habana_kernels/simple_generic_kernel.h"
 #include "resize.h"
 
 using namespace torch;
@@ -184,6 +185,96 @@ Tensor& set_hpu_(
   return self;
 }
 
+void validate_tensor_dim_sizes(const TensorList tensors, int64_t dim) {
+  unsigned i = 0;
+  auto tensor_count = tensors.size();
+  auto out_size = tensors[0].sizes().vec();
+
+  Tensor tempT = tensors[0];
+  for (i = 0; i < tensor_count; i++) {
+    //check whether sizes along dimensions match except for cat dimension.
+    unsigned j = 0;
+    auto sz1 = tensors[i].sizes().vec();
+    auto sz2 = tempT.sizes().vec();
+    for (j = 0; j < tensors[i].dim(); j++) {
+      if (j != dim) {
+        if ((sz1[j] - sz2[j]) != 0)
+          std::cout << "Sizes of tensors along one of the non-cat dimensions don't match" << std::endl;
+        TORCH_CHECK(((sz1[j] - sz2[j]) == 0), "Sizes of tensors along one of the non-cat dimensions don't match");
+      }
+    }
+    tempT = tensors[i];
+  }
+}
+/*************************************************************************
+ * @brief Kernel implementation for torch.cat(tensors, dim)
+ * @param tensors - tensor list/tuple of inputs
+ * @param dim - dimension along which to concatenate the tensors
+ ************************************************************************/
+Tensor cat_hpu(const TensorList tensors, int64_t dim_=0) {
+  LOG_FUNC_BEGIN;
+  std::vector<const at::Tensor*> pt_inputs;
+  std::vector<const at::Tensor*> pt_outputs;
+  int64_t dim = at::maybe_wrap_dim(dim_, tensors[0].dim(), /*wrap_scalar=*/true);
+  validate_tensor_dim_sizes(tensors, dim);
+
+  auto out_size = tensors[0].sizes().vec();
+  out_size[dim] = 0;
+  unsigned i = 0;
+  auto tensor_count = tensors.size();
+  for (i = 0; i < tensor_count; i++) {
+    pt_inputs.push_back(&tensors[i]);
+    out_size[dim] += tensors[i].sizes()[dim];
+  }
+  auto out = at::empty(out_size, tensors[0].options());
+  pt_outputs.push_back(&out);
+  //python level cat matches dim num with the order of sizes in tensor creation
+  auto kernel_dim = (out_size.size() - dim) - 1;
+  synapse_simple_generic_kernel(pt_outputs, pt_inputs, "concat", &kernel_dim, sizeof(kernel_dim), SynapsePassType::NO_PASS);
+
+  LOG_FUNC_END;
+  return out;
+}
+
+/*************************************************************************
+ * @brief Kernel implementation for torch.cat(tensors, dim, out=result)
+ * @param result - result of concatenate
+ * @param tensors - tensor list/tuple of inputs
+ * @param dim - dimension along which to concatenate the tensors
+ ************************************************************************/
+Tensor& cat_hpu_out(Tensor& result, const TensorList tensors, int64_t dim_=0) {
+  LOG_FUNC_BEGIN;
+  std::vector<const at::Tensor*> pt_inputs;
+  std::vector<const at::Tensor*> pt_outputs;
+  int64_t dim = at::maybe_wrap_dim(dim_, tensors[0].dim(), /*wrap_scalar=*/true);
+  validate_tensor_dim_sizes(tensors, dim);
+
+  auto out_size = tensors[0].sizes().vec();
+  out_size[dim] = 0;
+  unsigned i = 0;
+  auto tensor_count = tensors.size();
+  for (i = 0; i < tensor_count; i++) {
+    pt_inputs.push_back(&tensors[i]);
+    out_size[dim] += tensors[i].sizes()[dim];
+  }
+  if (result.defined()) {
+    TORCH_CHECK(
+        tensors[0].type() == result.type(),
+        "output values must be of same type as input");
+    auto tht_result = result.unsafeGetTensorImpl();
+    THHTensor_resizeNd(tht_result, tensors[0].dim(), out_size.data(), nullptr);
+  } else {
+    result = at::empty(out_size, tensors[0].options());
+  }
+  pt_outputs.push_back(&result);
+  //python level cat matches dim num with the order of sizes in tensor creation
+  auto kernel_dim = (out_size.size() - dim) - 1;
+  synapse_simple_generic_kernel(pt_outputs, pt_inputs, "concat", &kernel_dim, sizeof(kernel_dim), SynapsePassType::NO_PASS);
+
+  LOG_FUNC_END;
+  return result;
+}
+
 static auto registry =
     torch::RegisterOperators()
         .op(torch::RegisterOperators::options()
@@ -217,4 +308,24 @@ static auto registry =
                 .impl_unboxedOnlyKernel<
                     decltype(at::native::view),
                     &at::native::view>(TensorTypeId::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema("aten::cat(Tensor[] tensors, int dim=0) -> Tensor")
+                .impl_unboxedOnlyKernel<
+                    decltype(cat_hpu), &cat_hpu>(TensorTypeId::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema("aten::cat.out(Tensor[] tensors, int dim=0, *, Tensor(a!) out) -> Tensor(a!)")
+                .impl_unboxedOnlyKernel<
+                    decltype(cat_hpu_out), &cat_hpu_out>(TensorTypeId::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema("aten::_cat(Tensor[] tensors, int dim=0) -> Tensor")
+                .impl_unboxedOnlyKernel<
+                    decltype(cat_hpu), &cat_hpu>(TensorTypeId::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema("aten::_cat.out(Tensor[] tensors, int dim=0, *, Tensor(a!) out) -> Tensor(a!)")
+                .impl_unboxedOnlyKernel<
+                    decltype(cat_hpu_out), &cat_hpu_out>(TensorTypeId::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));

@@ -25,7 +25,7 @@ Tensor relu_hpu(const Tensor& input) {
   std::vector<const at::Tensor*> pt_inputs{&input};
 
   synapse_simple_generic_kernel(
-      pt_outputs, pt_inputs, "relu", nullptr, 0, true);
+      pt_outputs, pt_inputs, "relu", nullptr, 0, SynapsePassType::FORWARD_PASS);
 
   LOG_FUNC_END;
   return output;
@@ -35,7 +35,7 @@ Tensor& relu_hpu_(Tensor& self) {
   LOG_FUNC_BEGIN;
   std::vector<const at::Tensor*> pt_inputs{&self};
 
-  synapse_simple_generic_inplace_kernel(pt_inputs, "relu", nullptr, 0, true);
+  synapse_simple_generic_inplace_kernel(pt_inputs, "relu", nullptr, 0, SynapsePassType::FORWARD_PASS);
 
   LOG_FUNC_END;
   return self;

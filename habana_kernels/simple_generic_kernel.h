@@ -15,6 +15,11 @@
 #include "habana_helpers/tensor_utils.h"
 #include "kernel_utils.h"
 
+enum class SynapsePassType {
+    NO_PASS = 0,
+    FORWARD_PASS,
+    BACKWARD_PASS
+};
 // synapse kernel with single op
 void synapse_simple_generic_kernel(
     std::vector<const at::Tensor*> pt_outputs, // NHWC
@@ -22,7 +27,7 @@ void synapse_simple_generic_kernel(
     const std::string& node_guid,
     const void* syn_param,
     size_t syn_param_size,
-    bool forward_pass);
+    SynapsePassType pass_type);
 
 /*********************************************************************************
 @brief generic function to support inplace kernels
@@ -40,4 +45,4 @@ void synapse_simple_generic_inplace_kernel(
     const std::string& node_guid,
     const void* syn_param,
     size_t syn_param_size,
-    bool forward_pass);
+    SynapsePassType pass_type);

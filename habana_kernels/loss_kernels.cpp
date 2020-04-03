@@ -53,7 +53,7 @@ std::tuple<Tensor, Tensor> nll_loss_forward_hpu(
   //     "nll_loss",
   //     &param,
   //     sizeof(param),
-  //     true);
+  //     SynapsePassType::FORWARD_PASS);
   // LOG_FUNC_END;
 
   // // Note: pytorch expects 0d tensor (scalar)
@@ -96,7 +96,7 @@ Tensor nll_loss_backward_hpu(
   // synapse_simple_generic_kernel(
   //     {&grad_input},
   //     {&grad_output, modified_target->defined() ? &*modified_target :
-  //     &target}, "nll_loss", &param, sizeof(param), false);
+  //     &target}, "nll_loss", &param, sizeof(param), SynapsePassType::BACKWARD_PASS);
   // LOG_FUNC_END;
   // return grad_input;
 

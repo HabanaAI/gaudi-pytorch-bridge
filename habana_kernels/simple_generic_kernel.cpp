@@ -17,7 +17,7 @@ void synapse_simple_generic_kernel(
     const std::string& node_guid,
     const void* syn_param,
     const size_t syn_param_size,
-    const bool forward_pass) {
+    const SynapsePassType pass_type) {
   const auto device_id = pt_inputs[0]->device().index();
   // graph_handle scope
   synGraphHandle graph_handle;
@@ -32,10 +32,9 @@ void synapse_simple_generic_kernel(
         habana_helpers::create_tensors(pt_inputs, graph_handle, true);
     std::tie(syn_helper_outputs, syn_outputs) =
         habana_helpers::create_tensors(pt_outputs, graph_handle, true);
-
     {
-      const std::string node_type = node_guid +
-          std::string(forward_pass ? "_fwd_" : "_bwd_") +
+      const std::string node_type = (SynapsePassType::NO_PASS == pass_type) ? node_guid:
+          node_guid + std::string((SynapsePassType::FORWARD_PASS == pass_type)  ? "_fwd_" : "_bwd_") +
           habana_helpers::name_suffix_from_type(pt_inputs[0]->scalar_type());
       { // add node
         TORCH_HABANA_CHECK(
@@ -72,7 +71,7 @@ void synapse_simple_generic_inplace_kernel(
     const std::string& node_guid,
     const void* syn_param,
     const size_t syn_param_size,
-    const bool forward_pass) {
+    const SynapsePassType pass_type) {
   const auto device_id = pt_inputs[0]->device().index();
   // graph_handle scope
   synGraphHandle graph_handle;
@@ -90,8 +89,8 @@ void synapse_simple_generic_inplace_kernel(
         syn_helper_inputs[0]);
 
     {
-      const std::string node_type = node_guid +
-          std::string(forward_pass ? "_fwd_" : "_bwd_") +
+      const std::string node_type = (SynapsePassType::NO_PASS == pass_type) ? node_guid:
+          node_guid + std::string((SynapsePassType::FORWARD_PASS == pass_type)  ? "_fwd_" : "_bwd_") +
           habana_helpers::name_suffix_from_type(pt_inputs[0]->scalar_type());
       { // add node
         TORCH_HABANA_CHECK(

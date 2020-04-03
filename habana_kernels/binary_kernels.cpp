@@ -278,7 +278,7 @@ void eq_tensor_out_hpu(
   std::vector<const at::Tensor*> pt_outputs{&output};
 
   synapse_simple_generic_kernel(
-      pt_outputs, pt_inputs, "equal", nullptr, 0, true);
+      pt_outputs, pt_inputs, "equal", nullptr, 0, SynapsePassType::FORWARD_PASS);
 
   // convert back to bool
   output.to(c10::ScalarType::Bool);
@@ -334,7 +334,7 @@ Tensor div_tensor_hpu(const Tensor& self, const Tensor& other) {
   }
   std::vector<const at::Tensor*> pt_outputs;
   pt_outputs.push_back(&out);
-  synapse_simple_generic_kernel(pt_outputs, pt_inputs, "div", nullptr, 0, true);
+  synapse_simple_generic_kernel(pt_outputs, pt_inputs, "div", nullptr, 0, SynapsePassType::FORWARD_PASS);
   LOG_FUNC_END;
   return out;
 }
@@ -370,7 +370,7 @@ Tensor& div_tensor_hpu_out(Tensor& result, const Tensor& self, const Tensor& oth
   }
   std::vector<const at::Tensor*> pt_outputs;
   pt_outputs.push_back(&result);
-  synapse_simple_generic_kernel(pt_outputs, pt_inputs, "div", nullptr, 0, true);
+  synapse_simple_generic_kernel(pt_outputs, pt_inputs, "div", nullptr, 0, SynapsePassType::FORWARD_PASS);
 
   LOG_FUNC_END;
   return result;
@@ -403,7 +403,7 @@ Tensor& div_tensor_hpu_(Tensor& self, const Tensor& other) {
   else {
     pt_inputs.push_back(&other);
   }
-  synapse_simple_generic_inplace_kernel(pt_inputs, "div", nullptr, 0, true);
+  synapse_simple_generic_inplace_kernel(pt_inputs, "div", nullptr, 0, SynapsePassType::FORWARD_PASS);
 
   LOG_FUNC_END;
   return self;
@@ -428,7 +428,7 @@ Tensor div_scalar_hpu(const Tensor& self, Scalar other) {//TODO: No way to test 
   std::vector<const at::Tensor*> pt_outputs;
   pt_outputs.push_back(&out);
 
-  synapse_simple_generic_kernel(pt_outputs, pt_inputs, "div", nullptr, 0, true);
+  synapse_simple_generic_kernel(pt_outputs, pt_inputs, "div", nullptr, 0, SynapsePassType::FORWARD_PASS);
 
   LOG_FUNC_END;
   return out;
@@ -450,7 +450,7 @@ Tensor& div_scalar_hpu_(Tensor& self, Scalar other) {//TODO: No way to test this
   pt_inputs.push_back(&self);
   pt_inputs.push_back(&divisor_tensor);
 
-  synapse_simple_generic_inplace_kernel(pt_inputs, "div", nullptr, 0, true);
+  synapse_simple_generic_inplace_kernel(pt_inputs, "div", nullptr, 0, SynapsePassType::FORWARD_PASS);
 
   LOG_FUNC_END;
   return self;
