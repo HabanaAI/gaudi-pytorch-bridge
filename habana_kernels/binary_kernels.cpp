@@ -137,6 +137,107 @@ void synapse_add_tensor_(
   TORCH_HABANA_CHECK(synGraphDestroy(graph_handle), "synGraphDestroy failed");
 }
 
+
+/*************************************************************************
+ * @brief Synapse implementation for output = torch.add(arg1, alpha, arg2)
+ * @param arg1 - first input
+ * @param arg2 - second input
+ * @param alpha - optional input
+ * @param output - output
+ * output = arg1 + alpha * arg2
+ * or output = arg1 + arg2
+ ************************************************************************/
+void synapse_add_tensor(
+    const Tensor& output,
+    const Tensor& arg1,
+    const Tensor& arg2,
+    c10::optional<const Tensor*> alpha) {
+  auto& device =
+      synapse_helpers::HPURegistrar::get_device(arg1.device().index());
+  const auto device_id = device.id();
+
+  // graph_handle scope
+  synGraphHandle graph_handle;
+  TORCH_HABANA_CHECK(
+      synGraphCreate(&graph_handle, synDeviceType::synDeviceGaudi),
+      "synGraphCreate failed");
+
+  { // tensors scope
+    std::vector<synapse_helpers::tensor> syn_helper_inputs, syn_helper_tmps, syn_helper_outputs;
+    std::vector<synTensor> syn_inputs, syn_tmps, syn_outputs;
+
+    std::vector<const at::Tensor*> pt_inputs{&arg1, &arg2};
+    std::vector<const at::Tensor*> pt_outputs{&output};
+
+    if (alpha.has_value()) {
+      pt_inputs.push_back(alpha.value());
+
+      std::tie(syn_helper_tmps, syn_tmps) =
+          habana_helpers::create_tensors({&arg2}, graph_handle, false);
+    }
+
+    std::tie(syn_helper_inputs, syn_inputs) =
+        habana_helpers::create_tensors(pt_inputs, graph_handle, true);
+
+    std::tie(syn_helper_outputs, syn_outputs) =
+        habana_helpers::create_tensors(pt_outputs, graph_handle, true);
+
+    {
+      const auto kernel_suffix =
+          habana_helpers::name_suffix_from_type(arg1.scalar_type());
+      const std::string mult_node_type = "mult_fwd_" + kernel_suffix,
+                        add_node_type = "add_fwd_" + kernel_suffix;
+      { // add node
+        if (alpha.has_value()) {
+          std::vector<synTensor> syn_mul_inputs{syn_inputs[1], syn_inputs[2]};
+
+          TORCH_HABANA_CHECK(
+              synNodeCreate(
+                  graph_handle,
+                  syn_mul_inputs.data(),
+                  syn_tmps.data(),
+                  syn_mul_inputs.size(),
+                  syn_tmps.size(),
+                  nullptr,
+                  0,
+                  mult_node_type.c_str(),
+                  "",
+                  nullptr,
+                  nullptr),
+              "synNodeCreate failed");
+        }
+        std::vector<synTensor> syn_add_inputs{
+            syn_inputs[0], alpha.has_value() ? syn_tmps[0] : syn_inputs[1]};
+
+        TORCH_HABANA_CHECK(
+            synNodeCreate(
+                graph_handle,
+                syn_add_inputs.data(),
+                syn_outputs.data(),
+                syn_add_inputs.size(),
+                syn_outputs.size(),
+                nullptr,
+                0,
+                add_node_type.c_str(),
+                "",
+                nullptr,
+                nullptr),
+            "synNodeCreate failed");
+      }
+
+      habana_helpers::compile_and_run(
+          add_node_type,
+          graph_handle,
+          habana_helpers::names(syn_helper_inputs),
+          habana_helpers::names(syn_helper_outputs),
+          habana_helpers::extract_data_ptrs(pt_inputs),
+          habana_helpers::extract_data_ptrs(pt_outputs),
+          device_id);
+    }
+  }
+  TORCH_HABANA_CHECK(synGraphDestroy(graph_handle), "synGraphDestroy failed");
+}
+
 // arg1 *= arg2
 void synapse_mul_tensor_(const Tensor& arg1, const Tensor& arg2) {
   auto& device =
@@ -211,6 +312,30 @@ Tensor& add_tensor_hpu_(Tensor& self, const Tensor& other, Scalar alpha) {
   return self;
 }
 
+/*************************************************************************
+ * @brief Kernel implementation for out = torch.add(self, alpha, other)
+ * @param self - first input
+ * @param other - second input
+ * @param alpha - optional input
+ * out = self + alpha * other
+ ************************************************************************/
+Tensor add_tensor_hpu(Tensor& self, const Tensor& other, Scalar alpha) {
+  LOG_FUNC_BEGIN;
+  check_ew_kernel_constraints(self, other);
+
+  Scalar alpha_converted = alpha;
+  if (self.scalar_type() != habana_helpers::scalar_type(alpha))
+    alpha_converted = alpha.toFloat();
+
+  auto alpha_tensor = habana_helpers::scalar_to_device_tensor(
+      alpha_converted, self.options(), self.ndimension());
+
+   auto output = at::empty(self.sizes(), self.options());
+   synapse_add_tensor(output, self, other, &alpha_tensor);
+
+  LOG_FUNC_END;
+  return output;
+}
 // Elementwise multiplication
 // self *= other
 Tensor& mul_tensor_hpu_(Tensor& self, const Tensor& other) {
@@ -464,6 +589,13 @@ static auto registry =
                 .impl_unboxedOnlyKernel<
                     decltype(add_tensor_hpu_),
                     &add_tensor_hpu_>(TensorTypeId::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema(
+                    "aten::add.Tensor(Tensor self, Tensor other, *, Scalar alpha=1) -> Tensor")
+                .impl_unboxedOnlyKernel<
+                    decltype(add_tensor_hpu),
+                    &add_tensor_hpu>(TensorTypeId::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema(
