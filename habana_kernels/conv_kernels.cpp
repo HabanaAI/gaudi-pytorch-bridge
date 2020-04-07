@@ -116,7 +116,7 @@ Tensor convolution_hpu(
       pt_inputs,
       "spatial_convolution",
       &syn_conv_params,
-      0,
+      sizeof(syn_conv_params),
       SynapsePassType::NO_PASS);
 
   //   NHWC -> NCHW
@@ -146,7 +146,7 @@ Tensor convolution_backward_input(
   std::vector<const at::Tensor*> pt_outputs{&grad_input_nhwc};
   std::vector<const at::Tensor*> pt_inputs{&grad_output_nhwc, &weight_hwck};
   synapse_simple_generic_kernel(
-      pt_outputs, pt_inputs, "dedx", &syn_params, 0, SynapsePassType::NO_PASS);
+      pt_outputs, pt_inputs, "dedx", &syn_params, sizeof(syn_params), SynapsePassType::NO_PASS);
 
   // NHWC -> NCHW
   return grad_input_nhwc.permute({0, 3, 1, 2});
@@ -172,7 +172,7 @@ Tensor convolution_backward_filter(
   std::vector<const at::Tensor*> pt_outputs{&grad_weight_hwck};
   std::vector<const at::Tensor*> pt_inputs{&grad_output_nhwc, &input_nhwc};
   synapse_simple_generic_kernel(
-      pt_outputs, pt_inputs, "dedw", &syn_params, 0, SynapsePassType::NO_PASS);
+      pt_outputs, pt_inputs, "dedw", &syn_params, sizeof(syn_params), SynapsePassType::NO_PASS);
 
   // HWCK -> KCHW
   return grad_weight_hwck.permute({3, 2, 0, 1});

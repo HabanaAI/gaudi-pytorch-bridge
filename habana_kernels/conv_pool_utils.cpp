@@ -26,22 +26,39 @@ int64_t compute_output_size(
 
 void check_pool_params(
     const at::Tensor& input,
+    const at::IntArrayRef kernel,
     const at::IntArrayRef stride,
     const at::IntArrayRef padding,
-    const at::IntArrayRef dilation) {
-  TORCH_CHECK(
-      std::all_of(
-          dilation.cbegin(), dilation.cend(), [](int64_t x) { return x == 1; }),
-      "convolution_hpu doesn't support dilation");
+    const at::IntArrayRef dilation,
+    bool ceil_mode) {
+
   TORCH_CHECK(
       input.device().type() == c10::DeviceType::HABANA,
       "input is not habana at::Tensor");
+
   TORCH_CHECK(
-      stride.size() == 2, "stride size != 2 unsupported by convolution_hpu");
+      (input.ndimension() == 4),
+      "pool2d: non-empty 4D tensor expected for input");
+
   TORCH_CHECK(
-      padding.size() == 2, "padding size != 2 unsupported by convolution_hpu");
+      ceil_mode == false, "pool2d: ceil_mode is not yet implemented");
+
   TORCH_CHECK(
-      input.ndimension() == 4, "input at::Tensor dimension count !=  4");
+      kernel.size() == 1 || kernel.size() == 2,
+      "pool2d: kernel_size must either be a single int, or a tuple of two ints");
+
+  TORCH_CHECK(
+      stride.empty() || stride.size() == 1 || stride.size() == 2,
+      "pool2d: stride must either be omitted, a single int, or a tuple of two ints");
+
+  TORCH_CHECK(
+      padding.size() == 1 || padding.size() == 2,
+      "pool2d: padding must either be a single int, or a tuple of two ints");
+
+  TORCH_CHECK(
+      std::all_of(
+          dilation.cbegin(), dilation.cend(), [](int64_t x) { return x == 1; }),
+      "pool2d: dilation not supported, only valid value is 1");
 }
 
 void check_convolution_params(
@@ -78,7 +95,20 @@ void check_convolution_params(
     TORCH_CHECK(bias.dim() == 1, "bias at::Tensor idimension count  != 1");
   }
 
-  check_pool_params(input, stride, padding, dilation);
+  TORCH_CHECK(
+      std::all_of(
+          dilation.cbegin(), dilation.cend(), [](int64_t x) { return x == 1; }),
+      "convolution_hpu doesn't support dilation");
+  TORCH_CHECK(
+      input.device().type() == c10::DeviceType::HABANA,
+      "input is not habana at::Tensor");
+  TORCH_CHECK(
+      stride.size() == 2, "stride size != 2 unsupported by convolution_hpu");
+  TORCH_CHECK(
+      padding.size() == 2, "padding size != 2 unsupported by convolution_hpu");
+  TORCH_CHECK(
+      input.ndimension() == 4, "input at::Tensor dimension count !=  4");
+
 }
 
 std::vector<int64_t> hack_pytorch_nhwc_shapes(

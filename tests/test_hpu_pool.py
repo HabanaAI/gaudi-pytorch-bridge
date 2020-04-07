@@ -12,40 +12,44 @@ from numpy import floor
 # S - filter width
 # str - stride
 # pad - padding
+# type - pooltype
 mnist_test_case_list = [
-    # N, H, W, C, R, S, str_H, str_W, padding
-    (64, 24, 24, 20, 3, 3, 2, 2, 0),
-    (64, 7, 7, 50, 3, 3, 2, 2, 0),
+    # N, H, W, C, R, S, str_H, str_W, padding, type
+    (64, 24, 24, 20, 3, 3, 2, 2, 0, 'maxpool2d'),
+    (64, 7, 7, 50, 3, 3, 2, 2, 0, 'maxpool2d')
 ]
 
 resnet50_test_case_list = [
     # N, H, W, C, R, S, str_H, str_W, padding
-    (64, 112, 112, 64, 3, 3, 2, 2, 1)
+    (64, 112, 112, 64, 3, 3, 2, 2, 1, 'maxpool2d'),
+    # Note: TPC does not support any other configuration as of now
+    (8, 7, 7, 2048, 7, 7, 7, 7, 0, 'avgpool2d'),
 ]
 
 pool_test_case_list = [
     # N, H, W, C, R, S, str_H, str_W, padding
-    (8, 27, 27, 3, 3, 3, 2, 2, 0),
-    pytest.param(2, 8, 8, 50, 2, 2, 2, 2, 0, marks=pytest.mark.xfail(
+    (8, 27, 27, 3, 3, 3, 2, 2, 0, 'maxpool2d'),
+    pytest.param(2, 8, 8, 50, 2, 2, 2, 2, 0, 'maxpool2d', marks=pytest.mark.xfail(
         reason="only 3x3 window with 2x2 stride is supported")),
 ] + mnist_test_case_list + resnet50_test_case_list
-
 
 def output_size(spatial_size, pad, dilation, kernel_size, stride):
     return int(floor((spatial_size + 2 * pad - dilation * (kernel_size - 1) - 1) / stride + 1))
 
 
-@pytest.mark.parametrize("N, H, W, C, R, S, str_H, str_W, padding", pool_test_case_list)
-def test_hpu_pool(N, H, W, C, R, S, str_H, str_W, padding):
+@pytest.mark.parametrize("N, H, W, C, R, S, str_H, str_W, padding, type", pool_test_case_list)
+def test_hpu_pool(N, H, W, C, R, S, str_H, str_W, padding, type):
     # TODO: extend that test to all features
-    kernel = F.max_pool2d
     kernel_params = {
         'input': torch.randn(N, C, H, W),
         'kernel_size': [R, S],
         'stride': [str_H, str_W],
-        'return_indices': True,
         'padding': padding
     }
+    if (type == 'maxpool2d'):
+         kernel = F.max_pool2d
+    else:
+         kernel = F.avg_pool2d
 
     # don't check resuluts because indices can have different values
     hpu_result, cpu_result = evaluate_fwd_kernel(
@@ -53,17 +57,20 @@ def test_hpu_pool(N, H, W, C, R, S, str_H, str_W, padding):
     compare_tensors(hpu_result[0], cpu_result[0], atol=0.001, rtol=1.e-3)
 
 
-@pytest.mark.parametrize("N, H, W, C, R, S, str_H, str_W, padding", pool_test_case_list)
-def test_hpu_pool_fwd_bwd(N, H, W, C, R, S, str_H, str_W, padding):
+@pytest.mark.parametrize("N, H, W, C, R, S, str_H, str_W, padding, type", pool_test_case_list)
+def test_hpu_pool_fwd_bwd(N, H, W, C, R, S, str_H, str_W, padding, type):
     # TODO: extend that test to all features
-    kernel = F.max_pool2d
     kernel_params_fwd = {
         'input': torch.randn(N, C, H, W, requires_grad=True),
         'kernel_size': [R, S],
         'stride': [str_H, str_W],
-        'return_indices': True,
         'padding':padding
     }
+    if (type == 'maxpool2d'):
+         kernel = F.max_pool2d
+    else:
+         kernel = F.avg_pool2d
+
     bwd_tensors = [torch.randn(N, C, output_size(H, padding, 1, R, str_H), output_size(W, padding, 1, S, str_W))]
     # don't check fwd resuluts because indices can have different values
     (hpu_result_fwd, _), (cpu_result_fwd, _) = evaluate_fwd_bwd_kernel(kernel=kernel, tensor_list_bwd=bwd_tensors,
@@ -72,4 +79,4 @@ def test_hpu_pool_fwd_bwd(N, H, W, C, R, S, str_H, str_W, padding):
 
 
 if __name__ == '__main__':
-    test_hpu_pool_fwd_bwd(*resnet50_test_case_list[0])
+    test_hpu_pool_fwd_bwd(*resnet50_test_case_list[2])

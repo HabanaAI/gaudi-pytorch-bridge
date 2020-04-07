@@ -25,9 +25,11 @@ int64_t compute_output_size(
 
 void check_pool_params(
     const at::Tensor& input,
+    const at::IntArrayRef kernel,
     const at::IntArrayRef stride,
     const at::IntArrayRef padding,
-    const at::IntArrayRef dilation);
+    const at::IntArrayRef dilation,
+    bool ceil_mode);
 
 void check_convolution_params(
     const std::vector<at::Tensor>& inputs,
