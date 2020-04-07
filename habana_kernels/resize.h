@@ -41,8 +41,8 @@ inline void THHStorage_resize(THStorage* self, ptrdiff_t size) {
 
       synStreamHandle stream{};
       TORCH_HABANA_CHECK(
-          synStreamCreate(&stream, device, 0),
-          "Creating synapse stream failed");
+          synStreamCreate(&stream, device, STREAM_TYPE_COPY_DEVICE_TO_DEVICE, 0),
+                          "Creating synapse stream failed");
 
       TORCH_HABANA_CHECK(
           synMemCopyAsync(

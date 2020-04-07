@@ -53,11 +53,13 @@ Tensor& copy_hpu_(Tensor& self, const Tensor& src, bool non_blocking) {
   const auto src_device = src.device().type();
   const auto dst_device = dst.device().type();
   synDmaDir dma_type;
+  synStreamType stream_type;
   void* mapped_addr = nullptr;
   if (src_device == c10::DeviceType::CPU &&
       dst_device == c10::DeviceType::HABANA) {
     device_id = dst.device().index();
     dma_type = synDmaDir::HOST_TO_DRAM;
+    stream_type = synStreamType::STREAM_TYPE_COPY_HOST_TO_DEVICE;
     mapped_addr = src.data_ptr();
     TORCH_HABANA_CHECK(
         synHostMap(device_id, dst.nbytes(), mapped_addr),
@@ -67,6 +69,7 @@ Tensor& copy_hpu_(Tensor& self, const Tensor& src, bool non_blocking) {
       dst_device == c10::DeviceType::CPU) {
     device_id = src.device().index();
     dma_type = synDmaDir::DRAM_TO_HOST;
+    stream_type = synStreamType::STREAM_TYPE_COPY_DEVICE_TO_HOST;
     mapped_addr = dst.data_ptr();
     TORCH_HABANA_CHECK(
         synHostMap(device_id, dst.nbytes(), mapped_addr),
@@ -79,6 +82,7 @@ Tensor& copy_hpu_(Tensor& self, const Tensor& src, bool non_blocking) {
         dst.device().index() == src.device().index(),
         "Tensors can't be copied between devices using copy_hpu_");
     dma_type = synDmaDir::DRAM_TO_DRAM;
+    stream_type = synStreamType::STREAM_TYPE_COPY_DEVICE_TO_DEVICE;
   } else {
     TORCH_CHECK(
         false,
@@ -103,7 +107,7 @@ Tensor& copy_hpu_(Tensor& self, const Tensor& src, bool non_blocking) {
 
   synStreamHandle stream{};
   TORCH_HABANA_CHECK(
-      synStreamCreate(&stream, device_id, 0), "Creating synapse stream failed");
+      synStreamCreate(&stream, device_id, stream_type, 0), "Creating synapse stream failed");
 
   TORCH_HABANA_CHECK(
       synMemCopyAsync(
