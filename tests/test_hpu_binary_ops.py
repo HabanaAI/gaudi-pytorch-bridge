@@ -29,7 +29,7 @@ binary_op_list = [
     (torch.eq, {}),
     (torch.add, {}),
     (torch.add, {'alpha': 0.1}),
-
+    (torch.mul, {}),
 ]
 
 # This list is used to test tensor_out variants of operators
