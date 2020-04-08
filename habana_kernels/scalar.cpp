@@ -20,6 +20,8 @@ namespace native {
 Scalar _local_scalar_dense_hpu(const Tensor& self) {
   LOG_FUNC_BEGIN;
   Scalar r;
+  // defined a empty call-back function 
+  std::function<void()> cb = [](){};
   // Note: this macro expands to more types than HPU supports, but this is not
   // an issue
   // Note: this kernel intentionally doesn't check if numel == 1, dunno why,
@@ -34,7 +36,8 @@ Scalar _local_scalar_dense_hpu(const Tensor& self) {
             .copy_data_to_host(
                 reinterpret_cast<synapse_helpers::device_ptr>(self.data_ptr()),
                 &value,
-                self.nbytes());
+                self.nbytes(),
+                cb);
         r = Scalar(value);
       });
   LOG_FUNC_END;

@@ -72,11 +72,14 @@ at::Tensor habana_helpers::scalar_to_device_tensor(
       options.device().type());
   auto output = at::empty(std::vector<int64_t>(num_dimensions, 1), options);
   auto val = scalar.to<float>();
+  //define an empty call-back function
+  std::function<void()> cb = [](){};
   synapse_helpers::HPURegistrar::get_device(options.device().index())
       .copy_data_to_device(
           &val,
           reinterpret_cast<synapse_helpers::device_ptr>(output.data_ptr()),
-          output.nbytes());
+          output.nbytes(),
+          cb);
 
   return output;
 }
