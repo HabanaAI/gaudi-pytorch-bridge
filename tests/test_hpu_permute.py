@@ -1,7 +1,8 @@
+import os
 import torch
 import numpy as np
 import pytest
-torch.ops.load_library("libhabana_pytorch_plugin.so")
+torch.ops.load_library(os.path.join(os.environ['BUILD_ROOT_LATEST'], "libhabana_pytorch_plugin.so"))
 
 # N - batch
 # H - input height
