@@ -46,12 +46,22 @@ void check_ew_kernel_constraints(const Tensor& arg1, const Tensor& arg2) {
       arg2.sizes());
 }
 
-// arg1 += arg2
-// or arg1 += arg2 * alpha
-void synapse_add_tensor_(
+/*************************************************************************
+ * @brief Synapse Generic implementation for inplace add & sub
+ * @param arg1 - first input
+ * @param arg2 - second input
+ * @param alpha - optional input
+ * @param node_guid - type of operation (add or sub)
+ * arg1 = arg1 + alpha * arg2
+ * or arg1 = arg1 + arg2
+ * or arg1 = arg1 - alpha * arg2
+ * or arg1 = arg1 - arg2
+ ************************************************************************/
+void synapse_add_sub_tensor_(
     const Tensor& arg1,
     const Tensor& arg2,
-    c10::optional<const Tensor*> alpha) {
+    c10::optional<const Tensor*> alpha,
+    const std::string& node_guid) {
   auto& device =
       synapse_helpers::HPURegistrar::get_device(arg1.device().index());
   const auto device_id = device.id();
@@ -83,7 +93,7 @@ void synapse_add_tensor_(
       const auto kernel_suffix =
           habana_helpers::name_suffix_from_type(arg1.scalar_type());
       const std::string mult_node_type = "mult_fwd_" + kernel_suffix,
-                        add_node_type = "add_fwd_" + kernel_suffix;
+                        add_node_type = node_guid + "_fwd_" + kernel_suffix;
       { // add node
         if (alpha.has_value()) {
           TORCH_HABANA_CHECK(
@@ -238,7 +248,6 @@ void synapse_add_tensor(
   TORCH_HABANA_CHECK(synGraphDestroy(graph_handle), "synGraphDestroy failed");
 }
 
-
 // self += alpha * other
 Tensor& add_tensor_hpu_(Tensor& self, const Tensor& other, Scalar alpha) {
   LOG_FUNC_BEGIN;
@@ -251,7 +260,7 @@ Tensor& add_tensor_hpu_(Tensor& self, const Tensor& other, Scalar alpha) {
   auto alpha_tensor = habana_helpers::scalar_to_device_tensor(
       alpha_converted, self.options(), self.ndimension());
 
-  synapse_add_tensor_(self, other, &alpha_tensor);
+  synapse_add_sub_tensor_(self, other, &alpha_tensor, "add");
 
   LOG_FUNC_END;
   return self;
@@ -281,6 +290,66 @@ Tensor add_tensor_hpu(Tensor& self, const Tensor& other, Scalar alpha) {
   LOG_FUNC_END;
   return output;
 }
+
+/*************************************************************************
+ * @brief Kernel implementation for inplace torch.sub_(self, alpha, other)
+ * @param self - first input
+ * @param other - second input
+ * @param alpha - optional input
+ * self -= alpha * other
+ ************************************************************************/
+Tensor& sub_tensor_hpu_(Tensor& self, const Tensor& other, Scalar alpha) {
+  LOG_FUNC_BEGIN;
+  check_ew_kernel_constraints(self, other);
+
+  Scalar alpha_converted = alpha;
+  if (self.scalar_type() != habana_helpers::scalar_type(alpha))
+    alpha_converted = alpha.toFloat();
+
+  auto alpha_tensor = habana_helpers::scalar_to_device_tensor(
+      alpha_converted, self.options(), self.ndimension());
+
+  synapse_add_sub_tensor_(self, other, &alpha_tensor, "sub");
+
+  LOG_FUNC_END;
+  return self;
+}
+
+/*************************************************************************
+ * @brief Kernel implementation for inplace Scalar torch.sub_(self, alpha, other)
+ * @param self - first input
+ * @param other - second input
+ * @param alpha - optional input
+ * self -= alpha * other
+ ************************************************************************/
+Tensor& sub_scalar_hpu_(Tensor& self, Scalar other, Scalar alpha) { //TODO: No way to test this yet from python
+  LOG_FUNC_BEGIN;
+
+  TORCH_CHECK(
+      self.scalar_type() != habana_helpers::scalar_type(other),
+      "Types don't match. arg1 type: ",
+      self.scalar_type(),
+      " arg2 type: ",
+      habana_helpers::scalar_type(other));
+  Scalar sub_converted = other;
+  auto sub_tensor = habana_helpers::scalar_to_device_tensor(
+      sub_converted, self.options(), self.ndimension());
+
+  check_ew_kernel_constraints(self, sub_tensor);
+
+  Scalar alpha_converted = alpha;
+  if (self.scalar_type() != habana_helpers::scalar_type(alpha))
+    alpha_converted = alpha.toFloat();
+
+  auto alpha_tensor = habana_helpers::scalar_to_device_tensor(
+      alpha_converted, self.options(), self.ndimension());
+
+  synapse_add_sub_tensor_(self, sub_tensor, &alpha_tensor, "sub");
+
+  LOG_FUNC_END;
+  return self;
+}
+
 // Elementwise multiplication
 // self *= other
 /*************************************************************************
@@ -607,6 +676,20 @@ static auto registry =
                 .impl_unboxedOnlyKernel<
                     decltype(add_tensor_hpu),
                     &add_tensor_hpu>(TensorTypeId::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema(
+                    "aten::sub_.Tensor(Tensor(a!) self, Tensor other, *, Scalar alpha=1) -> Tensor(a!)")
+                .impl_unboxedOnlyKernel<
+                    decltype(sub_tensor_hpu_),
+                    &sub_tensor_hpu_>(TensorTypeId::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema(
+                    "aten::sub.Scalar(Tensor self, Scalar other, Scalar alpha=1) -> Tensor")
+                .impl_unboxedOnlyKernel<
+                    decltype(sub_scalar_hpu_),
+                    &sub_scalar_hpu_>(TensorTypeId::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema(

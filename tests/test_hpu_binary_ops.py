@@ -20,6 +20,8 @@ binary_inplace_op_list = [
     # op, op params dict
     ('add_', {'alpha': 1}),
     ('add_', {'alpha': 0.1}),
+    ('sub_', {'alpha': 1}),
+    ('sub_', {'alpha': 0.1}),
     ('mul_', {}),
     ('div_', {})
 ]
