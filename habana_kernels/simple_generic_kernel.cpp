@@ -18,7 +18,18 @@ void synapse_simple_generic_kernel(
     const void* syn_param,
     const size_t syn_param_size,
     const SynapsePassType pass_type) {
-  const auto device_id = pt_inputs[0]->device().index();
+  size_t device_id;
+  at::ScalarType scalar_type;
+
+  // RNG kernels have 0 inputs and 1 output
+  if (pt_inputs.size()) {
+    device_id = pt_inputs[0]->device().index();
+    scalar_type = pt_inputs[0]->scalar_type();
+  } else {
+    device_id = pt_outputs[0]->device().index();
+    scalar_type = pt_outputs[0]->scalar_type();
+  }
+
   // graph_handle scope
   synGraphHandle graph_handle;
   TORCH_HABANA_CHECK(
@@ -33,9 +44,13 @@ void synapse_simple_generic_kernel(
     std::tie(syn_helper_outputs, syn_outputs) =
         habana_helpers::create_tensors(pt_outputs, graph_handle, true);
     {
-      const std::string node_type = (SynapsePassType::NO_PASS == pass_type) ? node_guid:
-          node_guid + std::string((SynapsePassType::FORWARD_PASS == pass_type)  ? "_fwd_" : "_bwd_") +
-          habana_helpers::name_suffix_from_type(pt_inputs[0]->scalar_type());
+      const std::string node_type =
+          (SynapsePassType::NO_PASS == pass_type) ? node_guid
+                                                  : node_guid +
+              std::string((SynapsePassType::FORWARD_PASS == pass_type)
+                              ? "_fwd_"
+                              : "_bwd_") +
+              habana_helpers::name_suffix_from_type(scalar_type);
       { // add node
         TORCH_HABANA_CHECK(
             synNodeCreate(
@@ -89,9 +104,14 @@ void synapse_simple_generic_inplace_kernel(
         syn_helper_inputs[0]);
 
     {
-      const std::string node_type = (SynapsePassType::NO_PASS == pass_type) ? node_guid:
-          node_guid + std::string((SynapsePassType::FORWARD_PASS == pass_type)  ? "_fwd_" : "_bwd_") +
-          habana_helpers::name_suffix_from_type(pt_inputs[0]->scalar_type());
+      const std::string node_type = (SynapsePassType::NO_PASS == pass_type)
+          ? node_guid
+          : node_guid +
+              std::string(
+                  (SynapsePassType::FORWARD_PASS == pass_type) ? "_fwd_"
+                                                               : "_bwd_") +
+              habana_helpers::name_suffix_from_type(
+                  pt_inputs[0]->scalar_type());
       { // add node
         TORCH_HABANA_CHECK(
             synNodeCreate(
