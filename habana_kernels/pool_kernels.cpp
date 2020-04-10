@@ -74,7 +74,7 @@ static inline T pooling_output_shape(
 /**
  * @brief Compute shape for output tensor(s) from given input tensor shape
  *         & pooling params such as kernel, stride, pad, dilation, ceil_mode
-*/
+ */
 static std::vector<int64_t> compute_output_shape(
     const at::Tensor& input,
     const at::IntArrayRef kernel_size,
@@ -120,6 +120,9 @@ static std::vector<int64_t> compute_output_shape(
 
 } // namespace
 
+/**
+ * @brief Fill generic pooling params structure
+ */
 ns_SpatialReduction::Params synapse_pool_params_builder(
     const IntArrayRef& kernel_size, // HW
     const IntArrayRef& stride, // HW
@@ -150,13 +153,34 @@ ns_SpatialReduction::Params synapse_pool_params_builder(
 }
 
 /**
- * @brief MaxPool2d.with_indices_hpu (Forward Pass) implementation for Habana device
+ * @brief Fill Average pooling params structure
+ */
+ns_AveragePooling::Params synapse_avg_pool_params_builder(
+    const IntArrayRef& kernel_size, // HW
+    const IntArrayRef& stride, // HW
+    const IntArrayRef& padding, // HW
+    const IntArrayRef& dilation, // HW
+    int include_padding) {
+  ns_SpatialReduction::Params* pt_pool_params;
+  ns_AveragePooling::Params avg_pool_params{};
+  pt_pool_params = &avg_pool_params;
+  *pt_pool_params =
+      synapse_pool_params_builder(kernel_size, stride, padding, dilation);
+  avg_pool_params.includePadding = include_padding;
+
+  return avg_pool_params;
+}
+
+/**
+ * @brief MaxPool2d.with_indices_hpu (Forward Pass) implementation for Habana
+ * device
  * @param [In] Input Tensor. 4D, bf16/fp32
  * @param [In] size of the window. int64 or int64 tuple
  * @param [In] stride of the window. int64 or int64 tuple. Default: kernel_size
  * @param [In] zero padding on both sides. int64 or int64 tuple. Default: 0
  * @param [In] parameter that controls stride of elements in window. Default: 1
- * @param [In] when true use ceil instead of floor to compute output shape. Default: false
+ * @param [In] when true use ceil instead of floor to compute output shape.
+ * Default: false
  * @param [Out] Output Tensor. 4D, bf16/fp32
  * @param [Out] Output Indices. 1D, uint8
  */
@@ -208,7 +232,8 @@ std::tuple<Tensor, Tensor> max_pool2d_with_indices_hpu(
 }
 
 /**
- * @brief MaxPool2d.with_indices_hpu.out (Backward Pass) implementation for Habana device
+ * @brief MaxPool2d.with_indices_hpu.out (Backward Pass) implementation for
+ * Habana device
  * @param [In/Out] Backward pass Output Tensor. 4D, bf16/fp32
  * @param [In] Backward pass Input Tensor. 4D, bf16/fp32
  * @param [In] Forward pass Input Tensor. 4D, bf16/fp32
@@ -217,7 +242,8 @@ std::tuple<Tensor, Tensor> max_pool2d_with_indices_hpu(
  * @param [In] stride of the window. int64 or int64 tuple. Default: kernel_size
  * @param [In] zero padding on both sides. int64 or int64 tuple. Default: 0
  * @param [In] parameter that controls stride of elements in window. Default: 1
- * @param [In] when true use ceil instead of floor to compute output shape. Default: false
+ * @param [In] when true use ceil instead of floor to compute output shape.
+ * Default: false
  */
 Tensor& max_pool2d_with_indices_backward_out_hpu(
     Tensor& grad_input,
@@ -270,14 +296,16 @@ Tensor& max_pool2d_with_indices_backward_out_hpu(
 }
 
 /**
- * @brief MaxPool2d.with_indices_hpu (Backward Pass) implementation for Habana device
+ * @brief MaxPool2d.with_indices_hpu (Backward Pass) implementation for Habana
+ * device
  * @param [In] Backward pass Input Tensor. 4D, bf16/fp32
  * @param [In] Forward pass Input Tensor. 4D, bf16/fp32
  * @param [In] size of the window. int64 or int64 tuple
  * @param [In] stride of the window. int64 or int64 tuple. Default: kernel_size
  * @param [In] zero padding on both sides. int64 or int64 tuple. Default: 0
  * @param [In] parameter that controls stride of elements in window. Default: 1
- * @param [In] when true use ceil instead of floor to compute output shape. Default: false
+ * @param [In] when true use ceil instead of floor to compute output shape.
+ * Default: false
  * @param [In] Forward pass Indices Tensor. 1D, uint8
  * @param [Out] Backward pass Output Tensor. 4D, bf16/fp32
  */
@@ -314,7 +342,8 @@ Tensor max_pool2d_with_indices_backward_hpu(
  * @param [In] size of the window. int64 or int64 tuple
  * @param [In] stride of the window. int64 or int64 tuple. Default: kernel_size
  * @param [In] zero padding on both sides. int64 or int64 tuple. Default: 0
- * @param [In] when true use ceil instead of floor to compute output shape. Default: false
+ * @param [In] when true use ceil instead of floor to compute output shape.
+ * Default: false
  * @param [In] when true will include zero-padding in averaging. Default: true
  * @param [In] if specified, this value will be used as divisor. Default: None
  * @param [Out] Output Tensor. 4D, bf16/fp32
@@ -328,11 +357,6 @@ Tensor avg_pool2d_hpu(
     bool count_include_pad,
     c10::optional<int64_t> divisor_override) {
   LOG_FUNC_BEGIN;
-
-  // TODO check if TPC kernel implements count_include_pad = true or false
-  TORCH_CHECK(
-      count_include_pad == true,
-      "avg_pool2d: count_include_pad is not yet implemented");
 
   TORCH_CHECK(
       !divisor_override.has_value(),
@@ -356,8 +380,8 @@ Tensor avg_pool2d_hpu(
       input.options());
 
   // Populate pool params structure
-  auto syn_pool_params =
-      synapse_pool_params_builder(kernel_size, stride, padding, dilation);
+  auto syn_pool_params = synapse_avg_pool_params_builder(
+      kernel_size, stride, padding, dilation, count_include_pad);
 
   std::vector<const at::Tensor*> pt_inputs{&input_nhwc};
   std::vector<const at::Tensor*> pt_outputs{&output_nhwc};
@@ -384,7 +408,8 @@ Tensor avg_pool2d_hpu(
  * @param [In] size of the window. int64 or int64 tuple
  * @param [In] stride of the window. int64 or int64 tuple. Default: kernel_size
  * @param [In] zero padding on both sides. int64 or int64 tuple. Default: 0
- * @param [In] when true use ceil instead of floor to compute output shape. Default: false
+ * @param [In] when true use ceil instead of floor to compute output shape.
+ * Default: false
  * @param [In] when true will include zero-padding in averaging. Default: true
  * @param [In] if specified, this value will be used as divisor. Default: None
  */
@@ -399,10 +424,6 @@ Tensor& avg_pool2d_backward_out_hpu(
     bool count_include_pad,
     c10::optional<int64_t> divisor_override) {
   LOG_FUNC_BEGIN;
-
-  TORCH_CHECK(
-      count_include_pad == true,
-      "avg_pool2d: Pooling count_include_pad = false is not yet implemented");
 
   TORCH_CHECK(
       !divisor_override.has_value(),
@@ -428,8 +449,8 @@ Tensor& avg_pool2d_backward_out_hpu(
   auto grad_input_nhwc = grad_input.permute({0, 2, 3, 1});
   auto grad_output_nhwc = grad_output.permute({0, 2, 3, 1});
 
-  auto syn_pool_params =
-      synapse_pool_params_builder(kernel_size, stride, padding, dilation);
+  auto syn_pool_params = synapse_avg_pool_params_builder(
+      kernel_size, stride, padding, dilation, count_include_pad);
 
   std::vector<const at::Tensor*> pt_inputs{&grad_output_nhwc};
   std::vector<const at::Tensor*> pt_outputs{&grad_input_nhwc};
@@ -456,7 +477,8 @@ Tensor& avg_pool2d_backward_out_hpu(
  * @param [In] size of the window. int64 or int64 tuple
  * @param [In] stride of the window. int64 or int64 tuple. Default: kernel_size
  * @param [In] zero padding on both sides. int64 or int64 tuple. Default: 0
- * @param [In] when true use ceil instead of floor to compute output shape. Default: false
+ * @param [In] when true use ceil instead of floor to compute output shape.
+ * Default: false
  * @param [In] when true will include zero-padding in averaging. Default: true
  * @param [In] if specified, this value will be used as divisor. Default: None
  * @param [Out] Backward pass Output Tensor. 4D, bf16/fp32
