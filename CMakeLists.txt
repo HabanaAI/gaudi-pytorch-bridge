@@ -37,8 +37,6 @@ else ()
 endif ()
 
 find_package(Torch REQUIRED)
-find_package(abseil REQUIRED)
-find_package(synapse_helpers REQUIRED)
 
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 include(AddNPUStackDependencies)
