@@ -20,8 +20,8 @@ class HPURegistrar {
   std::array<std::shared_ptr<synapse_helpers::device>, MAX_DEVICES_PER_BOX>
       acquired_devices;
   static HPURegistrar& get_hpu_registrar() {
-    static HPURegistrar instance;
-    return instance;
+    static HPURegistrar *instance = new HPURegistrar();
+    return *instance;
   }
 
  public:
