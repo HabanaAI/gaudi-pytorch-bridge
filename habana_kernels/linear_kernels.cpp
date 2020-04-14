@@ -9,14 +9,15 @@
  */
 #include <ATen/ExpandUtils.h>
 #include <ATen/InferSize.h>
-#include <torch/script.h>
 #include <perf_lib_layer_params.h>
+#include <torch/script.h>
 
 #include "habana_device/HPUCheck.h"
 #include "habana_device/HPUContext.h"
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_device/tensor_builder.h"
 #include "habana_helpers/tensor_utils.h"
+#include "habana_kernels/simple_generic_kernel.h"
 #include "kernel_utils.h"
 
 using namespace torch;
@@ -289,6 +290,92 @@ Tensor matmul_with_bias_hpu(
   return output;
 }
 
+/*****************************************************************************************************
+ * @brief asserts the validity of batched gemm parameters
+ * @param[in] mat1 - first matrix
+ * @param[in] mat2 - second matrix
+ * @param[in] bias - optional bias parameter for affine transformation
+ *****************************************************************************************************/
+void check_bmm_matmul_params(
+    const Tensor& mat1,
+    const Tensor& mat2,
+    c10::optional<const at::Tensor*> bias) {
+  LOG_FUNC_BEGIN;
+  TORCH_CHECK(mat1.ndimension() == 3, "Batched gemm supports only 3d matrices");
+  TORCH_CHECK(mat2.ndimension() == 3, "Batched gemm supports only 3d matrices");
+  TORCH_CHECK(
+      mat1.size(2) == mat2.size(1), "matmul inner dimensions doesn't match");
+  TORCH_CHECK(
+      static_cast<int>(mat1.is_contiguous()) + mat2.is_contiguous() == 2,
+      "Both matrices should be contiguous.",
+      "\nmat1.is_contiguous() returned: ",
+      mat1.is_contiguous(),
+      "\nmat2.is_contiguous() returned: ",
+      mat2.is_contiguous(),
+      "\nmat1 sizes: ",
+      mat1.sizes(),
+      "mat1 strides: ",
+      mat1.strides(),
+      "\nmat2 sizes: ",
+      mat2.sizes(),
+      "mat2 strides: ",
+      mat2.strides());
+  if (bias)
+    TORCH_CHECK(
+        bias.value()->ndimension() == 1, "matmul_hpu supports only 1d bias");
+  LOG_FUNC_END;
+}
+
+/*****************************************************************************************************
+ * @brief Implements batched matrix multiplication _out version
+ * @param[in] self - First Tensor, 3D, NHW, bf16/FP32
+ * @param[in] mat2 - Second Tensor, 3D, NWC, bf16/FP32
+ * @param[in,out] out - Result tensor, 3D, NHC, bf16/FP32
+ *****************************************************************************************************/
+void batch_gemm_out_hpu(Tensor& out, const Tensor& self, const Tensor& mat2) {
+  LOG_FUNC_BEGIN;
+
+  check_bmm_matmul_params(self, mat2, c10::nullopt);
+
+  std::vector<const at::Tensor*> pt_inputs{&self, &mat2};
+  std::vector<const at::Tensor*> pt_outputs{&out};
+
+  synGEMMParams params{0, 0};
+
+  synapse_simple_generic_kernel(
+      pt_outputs,
+      pt_inputs,
+      "batch_gemm",
+      &params,
+      sizeof(params),
+      SynapsePassType::NO_PASS);
+
+  LOG_FUNC_END;
+}
+
+/*****************************************************************************************************
+ * @brief Implements batched matrix multiplication
+ * @param[in] self - First Tensor, 3D, NHW, bf16/FP32
+ * @param[in] mat2 - Second Tensor, 3D, NWC, bf16/FP32
+ * @param[out] output - Result tensor, 3D, NHC, bf16/FP32
+ *****************************************************************************************************/
+
+Tensor batch_gemm_hpu(const Tensor& self, const Tensor& mat2) {
+  LOG_FUNC_BEGIN;
+
+  // If input is a b×n×m tensor, mat2 is a b×m×p tensor, out will be a b×n×p
+  // tensor
+  auto self_sizes = self.sizes();
+  auto mat2_sizes = mat2.sizes();
+  auto out =
+      at::empty({self_sizes[0], self_sizes[1], mat2_sizes[2]}, self.options());
+  batch_gemm_out_hpu(out, self, mat2);
+
+  LOG_FUNC_END;
+
+  return out;
+}
+
 static auto registry =
     torch::RegisterOperators()
         .op(torch::RegisterOperators::options()
@@ -302,4 +389,17 @@ static auto registry =
                 .impl_unboxedOnlyKernel<
                     decltype(matmul_with_bias_hpu),
                     &matmul_with_bias_hpu>(TensorTypeId::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema(
+                    "aten::bmm.out(Tensor self, Tensor mat2, *, Tensor(a!) out) -> Tensor(a!)")
+                .impl_unboxedOnlyKernel<
+                    decltype(batch_gemm_out_hpu),
+                    &batch_gemm_out_hpu>(TensorTypeId::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema("aten::bmm(Tensor self, Tensor mat2) -> Tensor")
+                .impl_unboxedOnlyKernel<
+                    decltype(batch_gemm_hpu),
+                    &batch_gemm_hpu>(TensorTypeId::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));

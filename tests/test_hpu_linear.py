@@ -16,6 +16,12 @@ test_case_list = [
     (800, 500, 10),
 ] + mnist_test_cast_list
 
+# mat - NxHxW, mat2 - NxWxC, out - NxHxC
+test_case_list_bmm = [
+    # N, H, W, C
+    (8, 24, 3, 10)
+]
+
 
 @pytest.mark.parametrize("N, C, K", test_case_list)
 def test_hpu_linear(N, C, K):
@@ -45,6 +51,21 @@ def test_hpu_linear_no_bias_fwd_bwd(N, C, K):
     kernel_params_fwd = {'input': torch.randn(N, C)}
     bwd_tensors = [torch.randn(N, K)]
     evaluate_fwd_bwd_kernel(kernel=kernel, kernel_params_fwd=kernel_params_fwd, tensor_list_bwd=bwd_tensors)
+
+
+@pytest.mark.parametrize("N, H, W, C", test_case_list_bmm)
+def test_hpu_linear_bmm(N, H, W, C):
+    kernel_params_fwd = {'input': torch.randn((N, H, W), requires_grad=True),
+                         'mat2': torch.randn((N, W, C), requires_grad=True)}
+    bwd_tensors = [torch.randn((N, H, C))]
+    evaluate_fwd_bwd_kernel(kernel=torch.bmm, kernel_params_fwd=kernel_params_fwd, tensor_list_bwd=bwd_tensors)
+
+# Functions with out = arguments don't support automatic differentiation
+@pytest.mark.parametrize("N, H, W, C", test_case_list_bmm)
+def test_hpu_linear_bmm_out(N, H, W, C):
+    kernel_params = {'input': torch.randn((N, H, W), requires_grad=False), 'mat2': torch.randn(
+        (N, W, C), requires_grad=False), 'out': torch.empty((N, H, C), requires_grad=False)}
+    evaluate_fwd_kernel(kernel=torch.bmm, kernel_params=kernel_params)
 
 
 if __name__ == '__main__':
