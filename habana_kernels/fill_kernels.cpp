@@ -17,20 +17,36 @@
 
 using namespace torch;
 
-template <typename T, typename F>
-void synapse_fill(const Tensor& output, const T val, F memset_function) {
+template <typename T>
+void synapse_fill(const Tensor& output, const T val) {
   auto& device =
       synapse_helpers::HPURegistrar::get_device(output.device().index());
 
-  TORCH_HABANA_CHECK(memset_function(
-      reinterpret_cast<uint64_t>(output.data_ptr()),
-      val,
-      output.numel(),
-      device.get_host_to_device_stream()));
+  // Using below approach of filling a buffer on HOST and then copying
+  // to Device memory instead of doing a synMemSetD[]Async due to SW-11757
+  // TODO revert to synMemSet once SW-11757 is resolved
+  auto size = output.numel() * output.element_size();
+  std::vector<T> buffer(size, val);
+  std::mutex mtx;
+  std::condition_variable cv;
+  bool copyDone = false;
+  std::function<void()> cb = [&copyDone, &mtx, &cv]() {
+    std::unique_lock<std::mutex> lck(mtx);
+    copyDone = true;
+    cv.notify_all();
+  };
 
-  TORCH_HABANA_CHECK(
-      synStreamSynchronize(device.get_host_to_device_stream()),
-      "Stream synchronization failed");
+  auto syn_error = device.copy_data_to_device(
+      buffer.data(),
+      reinterpret_cast<synapse_helpers::device_ptr>(output.data_ptr()),
+      size,
+      cb);
+  TORCH_CHECK(syn_error.status == 0, syn_error.error);
+
+  while (!copyDone) {
+    std::unique_lock<std::mutex> lck(mtx);
+    cv.wait(lck);
+  }
 }
 
 Tensor& fill_hpu_(Tensor& self, Scalar value) {
@@ -49,7 +65,7 @@ Tensor& fill_hpu_(Tensor& self, Scalar value) {
     case 1: {
       TORCH_CHECK(value.isIntegral(false));
       auto memset_val = value.to<unsigned char>();
-      synapse_fill(self, memset_val, synMemsetD8Async);
+      synapse_fill(self, memset_val);
     } break;
     case 2: {
       TORCH_CHECK(value.isFloatingPoint() || value.isIntegral(false));
@@ -58,7 +74,7 @@ Tensor& fill_hpu_(Tensor& self, Scalar value) {
             0, "HPU is unable to differentatiate between fp16 and bf16");
       } else {
         auto memset_val = value.to<uint16_t>();
-        synapse_fill(self, memset_val, synMemsetD16Async);
+        synapse_fill(self, memset_val);
       }
     } break;
     case 4: {
@@ -70,7 +86,7 @@ Tensor& fill_hpu_(Tensor& self, Scalar value) {
         auto float_val = value.to<float>();
         memcpy(&memset_val, &float_val, sizeof(float_val));
       }
-      synapse_fill(self, memset_val, synMemsetD32Async);
+      synapse_fill(self, memset_val);
     } break;
     default:
       TORCH_CHECK(

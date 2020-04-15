@@ -13,8 +13,10 @@
 
 #include "habana_device/HPUCheck.h"
 #include "habana_device/HPUContext.h"
+#include "habana_device/hpu_cached_devices.h"
 #include "habana_helpers/logging.h"
 #include "habana_kernels/simple_generic_kernel.h"
+#include "kernel_utils.h"
 #include "resize.h"
 
 using namespace torch;
@@ -52,37 +54,48 @@ Tensor& copy_hpu_(Tensor& self, const Tensor& src, bool non_blocking) {
 
   const auto src_device = src.device().type();
   const auto dst_device = dst.device().type();
-  synDmaDir dma_type;
-  synStreamType stream_type;
-  void* mapped_addr = nullptr;
+
+  std::mutex mtx;
+  std::condition_variable cv;
+  bool copyDone = false;
+  std::function<void()> cb = [&copyDone, &mtx, &cv]() {
+    std::unique_lock<std::mutex> lck(mtx);
+    copyDone = true;
+    cv.notify_all();
+  };
+
   if (src_device == c10::DeviceType::CPU &&
       dst_device == c10::DeviceType::HABANA) {
     device_id = dst.device().index();
-    dma_type = synDmaDir::HOST_TO_DRAM;
-    stream_type = synStreamType::STREAM_TYPE_COPY_HOST_TO_DEVICE;
-    mapped_addr = src.data_ptr();
-    TORCH_HABANA_CHECK(
-        synHostMap(device_id, dst.nbytes(), mapped_addr),
-        "Synapse failed to map tensor");
+    auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+    auto syn_error = device.copy_data_to_device(
+        src.data_ptr(),
+        reinterpret_cast<synapse_helpers::device_ptr>(dst.data_ptr()),
+        src.nbytes(),
+        cb);
+    TORCH_CHECK(syn_error.status == 0, syn_error.error);
   } else if (
       src_device == c10::DeviceType::HABANA &&
       dst_device == c10::DeviceType::CPU) {
     device_id = src.device().index();
-    dma_type = synDmaDir::DRAM_TO_HOST;
-    stream_type = synStreamType::STREAM_TYPE_COPY_DEVICE_TO_HOST;
-    mapped_addr = dst.data_ptr();
-    TORCH_HABANA_CHECK(
-        synHostMap(device_id, dst.nbytes(), mapped_addr),
-        "Synapse failed to map tensor");
+    auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+    auto syn_error = device.copy_data_to_host(
+        reinterpret_cast<synapse_helpers::device_ptr>(src.data_ptr()),
+        dst.data_ptr(),
+        src.nbytes(),
+        cb);
+    TORCH_CHECK(syn_error.status == 0, syn_error.error);
   } else if (
       src_device == c10::DeviceType::HABANA &&
       dst_device == c10::DeviceType::HABANA) {
     device_id = dst.device().index();
-    TORCH_CHECK(
-        dst.device().index() == src.device().index(),
-        "Tensors can't be copied between devices using copy_hpu_");
-    dma_type = synDmaDir::DRAM_TO_DRAM;
-    stream_type = synStreamType::STREAM_TYPE_COPY_DEVICE_TO_DEVICE;
+    auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+    auto syn_error = device.copy_data_within_device(
+        reinterpret_cast<synapse_helpers::device_ptr>(src.data_ptr()),
+        reinterpret_cast<synapse_helpers::device_ptr>(dst.data_ptr()),
+        src.nbytes(),
+        cb);
+    TORCH_CHECK(syn_error.status == 0, syn_error.error);
   } else {
     TORCH_CHECK(
         false,
@@ -91,6 +104,11 @@ Tensor& copy_hpu_(Tensor& self, const Tensor& src, bool non_blocking) {
         " to ",
         dst_device,
         "copy");
+  }
+
+  while (!copyDone) {
+    std::unique_lock<std::mutex> lck(mtx);
+    cv.wait(lck);
   }
 
   if (src.strides() != dst.strides())
@@ -104,29 +122,6 @@ Tensor& copy_hpu_(Tensor& self, const Tensor& src, bool non_blocking) {
         " dst.sizes(): ",
         dst.sizes(),
         "\nData will be copied with with basic memcopy so you can expect wrong results");
-
-  synStreamHandle stream{};
-  TORCH_HABANA_CHECK(
-      synStreamCreate(&stream, device_id, stream_type, 0), "Creating synapse stream failed");
-
-  TORCH_HABANA_CHECK(
-      synMemCopyAsync(
-          stream,
-          reinterpret_cast<uint64_t>(src.data_ptr()),
-          src.nbytes(),
-          reinterpret_cast<uint64_t>(dst.data_ptr()),
-          dma_type),
-      "Synapse DMA: ",
-      dma_type,
-      "start failed");
-
-  TORCH_HABANA_CHECK(
-      synStreamSynchronize(stream), "Stream synchronization failed");
-
-  TORCH_HABANA_CHECK(
-      synHostUnmap(device_id, mapped_addr), "Synapse failed to unmap tensor");
-  TORCH_HABANA_CHECK(
-      synStreamDestroy(stream), "Destroying synapse stream failed");
 
   LOG_FUNC_END;
   return dst;
@@ -196,15 +191,19 @@ void validate_tensor_dim_sizes(const TensorList tensors, int64_t dim) {
 
   Tensor tempT = tensors[0];
   for (i = 0; i < tensor_count; i++) {
-    //check whether sizes along dimensions match except for cat dimension.
+    // check whether sizes along dimensions match except for cat dimension.
     unsigned j = 0;
     auto sz1 = tensors[i].sizes().vec();
     auto sz2 = tempT.sizes().vec();
     for (j = 0; j < tensors[i].dim(); j++) {
       if (j != dim) {
         if ((sz1[j] - sz2[j]) != 0)
-          std::cout << "Sizes of tensors along one of the non-cat dimensions don't match" << std::endl;
-        TORCH_CHECK(((sz1[j] - sz2[j]) == 0), "Sizes of tensors along one of the non-cat dimensions don't match");
+          std::cout
+              << "Sizes of tensors along one of the non-cat dimensions don't match"
+              << std::endl;
+        TORCH_CHECK(
+            ((sz1[j] - sz2[j]) == 0),
+            "Sizes of tensors along one of the non-cat dimensions don't match");
       }
     }
     tempT = tensors[i];
@@ -215,11 +214,12 @@ void validate_tensor_dim_sizes(const TensorList tensors, int64_t dim) {
  * @param tensors - tensor list/tuple of inputs
  * @param dim - dimension along which to concatenate the tensors
  ************************************************************************/
-Tensor cat_hpu(const TensorList tensors, int64_t dim_=0) {
+Tensor cat_hpu(const TensorList tensors, int64_t dim_ = 0) {
   LOG_FUNC_BEGIN;
   std::vector<const at::Tensor*> pt_inputs;
   std::vector<const at::Tensor*> pt_outputs;
-  int64_t dim = at::maybe_wrap_dim(dim_, tensors[0].dim(), /*wrap_scalar=*/true);
+  int64_t dim =
+      at::maybe_wrap_dim(dim_, tensors[0].dim(), /*wrap_scalar=*/true);
   validate_tensor_dim_sizes(tensors, dim);
 
   auto out_size = tensors[0].sizes().vec();
@@ -232,9 +232,15 @@ Tensor cat_hpu(const TensorList tensors, int64_t dim_=0) {
   }
   auto out = at::empty(out_size, tensors[0].options());
   pt_outputs.push_back(&out);
-  //python level cat matches dim num with the order of sizes in tensor creation
+  // python level cat matches dim num with the order of sizes in tensor creation
   auto kernel_dim = (out_size.size() - dim) - 1;
-  synapse_simple_generic_kernel(pt_outputs, pt_inputs, "concat", &kernel_dim, sizeof(kernel_dim), SynapsePassType::NO_PASS);
+  synapse_simple_generic_kernel(
+      pt_outputs,
+      pt_inputs,
+      "concat",
+      &kernel_dim,
+      sizeof(kernel_dim),
+      SynapsePassType::NO_PASS);
 
   LOG_FUNC_END;
   return out;
@@ -246,11 +252,15 @@ Tensor cat_hpu(const TensorList tensors, int64_t dim_=0) {
  * @param tensors - tensor list/tuple of inputs
  * @param dim - dimension along which to concatenate the tensors
  ************************************************************************/
-Tensor& cat_hpu_out(Tensor& result, const TensorList tensors, int64_t dim_=0) {
+Tensor& cat_hpu_out(
+    Tensor& result,
+    const TensorList tensors,
+    int64_t dim_ = 0) {
   LOG_FUNC_BEGIN;
   std::vector<const at::Tensor*> pt_inputs;
   std::vector<const at::Tensor*> pt_outputs;
-  int64_t dim = at::maybe_wrap_dim(dim_, tensors[0].dim(), /*wrap_scalar=*/true);
+  int64_t dim =
+      at::maybe_wrap_dim(dim_, tensors[0].dim(), /*wrap_scalar=*/true);
   validate_tensor_dim_sizes(tensors, dim);
 
   auto out_size = tensors[0].sizes().vec();
@@ -271,11 +281,15 @@ Tensor& cat_hpu_out(Tensor& result, const TensorList tensors, int64_t dim_=0) {
     result = at::empty(out_size, tensors[0].options());
   }
   pt_outputs.push_back(&result);
-  //python level cat matches dim num with the order of sizes in tensor creation
+  // python level cat matches dim num with the order of sizes in tensor creation
   auto kernel_dim = (out_size.size() - dim) - 1;
-  synapse_simple_generic_kernel(pt_outputs, pt_inputs, "concat", &kernel_dim, sizeof(kernel_dim), SynapsePassType::NO_PASS);
-
-  LOG_FUNC_END;
+  synapse_simple_generic_kernel(
+      pt_outputs,
+      pt_inputs,
+      "concat",
+      &kernel_dim,
+      sizeof(kernel_dim),
+      SynapsePassType::NO_PASS);
   return result;
 }
 
@@ -315,21 +329,23 @@ static auto registry =
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema("aten::cat(Tensor[] tensors, int dim=0) -> Tensor")
-                .impl_unboxedOnlyKernel<
-                    decltype(cat_hpu), &cat_hpu>(TensorTypeId::HABANATensorId)
+                .impl_unboxedOnlyKernel<decltype(cat_hpu), &cat_hpu>(
+                    TensorTypeId::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
-                .schema("aten::cat.out(Tensor[] tensors, int dim=0, *, Tensor(a!) out) -> Tensor(a!)")
-                .impl_unboxedOnlyKernel<
-                    decltype(cat_hpu_out), &cat_hpu_out>(TensorTypeId::HABANATensorId)
+                .schema(
+                    "aten::cat.out(Tensor[] tensors, int dim=0, *, Tensor(a!) out) -> Tensor(a!)")
+                .impl_unboxedOnlyKernel<decltype(cat_hpu_out), &cat_hpu_out>(
+                    TensorTypeId::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema("aten::_cat(Tensor[] tensors, int dim=0) -> Tensor")
-                .impl_unboxedOnlyKernel<
-                    decltype(cat_hpu), &cat_hpu>(TensorTypeId::HABANATensorId)
+                .impl_unboxedOnlyKernel<decltype(cat_hpu), &cat_hpu>(
+                    TensorTypeId::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
-                .schema("aten::_cat.out(Tensor[] tensors, int dim=0, *, Tensor(a!) out) -> Tensor(a!)")
-                .impl_unboxedOnlyKernel<
-                    decltype(cat_hpu_out), &cat_hpu_out>(TensorTypeId::HABANATensorId)
+                .schema(
+                    "aten::_cat.out(Tensor[] tensors, int dim=0, *, Tensor(a!) out) -> Tensor(a!)")
+                .impl_unboxedOnlyKernel<decltype(cat_hpu_out), &cat_hpu_out>(
+                    TensorTypeId::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));

@@ -16,7 +16,9 @@
 #include <TH/THTensor.hpp>
 
 #include "habana_device/HPUAllocator.h"
+#include "habana_device/hpu_cached_devices.h"
 #include "habana_helpers/unused_macro.h"
+#include "kernel_utils.h"
 
 namespace at {
 namespace native {
@@ -37,28 +39,26 @@ inline void THHStorage_resize(THStorage* self, ptrdiff_t size) {
     at::DataPtr data = self->allocator()->allocate(size * itemsize);
 
     if (self->data_ptr()) {
-      auto dma_type = synDmaDir::DRAM_TO_DRAM;
+      auto& Device = synapse_helpers::HPURegistrar::get_device(device);
+      std::mutex mtx;
+      std::condition_variable cv;
+      bool copyDone = false;
+      std::function<void()> cb = [&copyDone, &mtx, &cv]() {
+        std::unique_lock<std::mutex> lck(mtx);
+        copyDone = true;
+        cv.notify_all();
+      };
+      auto syn_error = Device.copy_data_within_device(
+          reinterpret_cast<synapse_helpers::device_ptr>(self->data()),
+          reinterpret_cast<synapse_helpers::device_ptr>(data.get()),
+          THMin(self->numel(), size) * itemsize,
+          cb);
+      TORCH_CHECK(syn_error.status == 0, syn_error.error);
 
-      synStreamHandle stream{};
-      TORCH_HABANA_CHECK(
-          synStreamCreate(&stream, device, STREAM_TYPE_COPY_DEVICE_TO_DEVICE, 0),
-                          "Creating synapse stream failed");
-
-      TORCH_HABANA_CHECK(
-          synMemCopyAsync(
-              stream,
-              reinterpret_cast<uint64_t>(self->data()),
-              THMin(self->numel(), size) * itemsize,
-              reinterpret_cast<uint64_t>(data.get()),
-              dma_type),
-          "Synapse DMA: ",
-          dma_type,
-          "start failed");
-      TORCH_HABANA_CHECK(
-          synStreamSynchronize(stream), "Stream synchronization failed");
-
-      TORCH_HABANA_CHECK(
-          synStreamDestroy(stream), "Destroying synapse stream failed");
+      while (!copyDone) {
+        std::unique_lock<std::mutex> lck(mtx);
+        cv.wait(lck);
+      }
     }
 
     // Destructively overwrite data_ptr
