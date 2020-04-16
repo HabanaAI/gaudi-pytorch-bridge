@@ -13,16 +13,14 @@
 #include <synapse_helpers/graph.h>
 
 namespace habana_helpers {
-static synapse_helpers::graph create_graph(
-    synapse_helpers::device& device,
-    std::string name) {
+static synapse_helpers::graph create_graph(int device_id, std::string name) {
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
   auto graph_or_error = synapse_helpers::graph::create(device, name);
 
   if (absl::holds_alternative<synapse_helpers::synapse_error>(graph_or_error)) {
     auto error = absl::get<synapse_helpers::synapse_error>(graph_or_error);
     TORCH_HABANA_CHECK(error.status, error.error);
-  } else {
-    return absl::get<synapse_helpers::graph>(std::move(graph_or_error));
   }
+  return absl::get<synapse_helpers::graph>(std::move(graph_or_error));
 }
 } // namespace habana_helpers

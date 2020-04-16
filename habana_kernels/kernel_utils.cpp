@@ -83,3 +83,26 @@ void habana_helpers::compile_and_run(
   TORCH_HABANA_CHECK(
       synRecipeDestroy(recipe_handle), "Failed to destroy recipe");
 }
+
+void habana_helpers::compile_and_run(
+    synapse_helpers::graph&& graph,
+    const std::vector<std::string>& input_names,
+    const std::vector<std::string>& output_names,
+    const std::vector<void*>& input_buffers,
+    const std::vector<void*>& output_buffers,
+    const uint32_t device_id) {
+  TORCH_CHECK(!graph.is_empty(), "Trying to compile and run an empty graph");
+
+  auto compile_result = graph.compile();
+  auto syn_launch_info = generate_syn_launch_tensor_info(
+      input_names, input_buffers, output_names, output_buffers);
+
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  synStreamHandle stream_handle = device.get_compute_stream();
+  synapse_helpers::graph::launch_info handle(
+      get_value(compile_result)->device_);
+  graph.create_launch_info(handle, *get_value(compile_result));
+  graph.launch(handle, *get_value(compile_result), syn_launch_info);
+  TORCH_HABANA_CHECK(
+      synStreamSynchronize(stream_handle), "synStreamSynchronize failed");
+}

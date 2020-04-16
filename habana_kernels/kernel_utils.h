@@ -16,14 +16,23 @@
 #include <string>
 #include <unordered_map>
 
+#include <synapse_helpers/graph.h>
 #include "habana_helpers/logging.h"
 
 namespace habana_helpers {
 std::string unique_recipe_name_generator(std::string recipe_name);
 
-void compile_and_run(
+[[deprecated]] void compile_and_run(
     const std::string& recipe_prefix,
-    synGraphHandle graph_handle,
+    const synGraphHandle graph_handle,
+    const std::vector<std::string>& input_names,
+    const std::vector<std::string>& output_names,
+    const std::vector<void*>& input_buffers,
+    const std::vector<void*>& output_buffers,
+    const uint32_t device_id);
+
+void compile_and_run(
+    synapse_helpers::graph&& graph,
     const std::vector<std::string>& input_names,
     const std::vector<std::string>& output_names,
     const std::vector<void*>& input_buffers,
