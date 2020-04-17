@@ -159,8 +159,33 @@ class MetricLogger(object):
         total_time_str = str(datetime.timedelta(seconds=int(total_time)))
         print('{} Total time: {}'.format(header, total_time_str))
 
-
+# Modified version of accuracy. target and pred tensors are pytorch Long
+# which is not supported by habana kernels yet. So fall back to CPU for
+# ops involving these(and remain on CPU since this is the last oprton of
+# iteration and we need the accuracy values to be printed out on host)
 def accuracy(output, target, topk=(1,)):
+    """Computes the accuracy over the k top predictions for the specified values of k"""
+    with torch.no_grad():
+        #pdb.set_trace()
+        maxk = max(topk)
+        batch_size = target.size(0)
+
+        _, pred = output.topk(maxk, 1, True, True)
+
+        pred = pred.t()
+        pred_cpu = torch.tensor(pred, device='cpu')
+        target_cpu = torch.tensor(target, device='cpu')
+
+        correct = pred_cpu.eq(target_cpu[None])
+
+        res = []
+        for k in topk:
+            correct_k = correct[:k].flatten().sum(dtype=torch.float32)
+            res.append(correct_k * (100.0 / batch_size))
+        return res
+
+#Original accuracy code
+def accuracy_orig(output, target, topk=(1,)):
     """Computes the accuracy over the k top predictions for the specified values of k"""
     with torch.no_grad():
         maxk = max(topk)
