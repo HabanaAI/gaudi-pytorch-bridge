@@ -15,6 +15,7 @@
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_helpers/tensor_utils.h"
 #include "habana_kernels/kernel_utils.h"
+#include "habana_kernels/simple_generic_kernel.h"
 
 using namespace torch;
 
@@ -211,13 +212,26 @@ Tensor threshold_backward_hpu(
 
   auto dims = self.ndimension();
   auto options = self.options();
-  auto threshold_tensor = habana_helpers::scalar_to_device_tensor(
-      threshold_converted, options, dims);
-  auto value_tensor =
-      habana_helpers::scalar_to_device_tensor(Scalar(0.0), options, dims);
   auto output = at::empty(self.sizes(), options);
-  synapse_threshold_out(
-      output, self, threshold_tensor, value_tensor, grad_output);
+  if (threshold.to<int>() != 0) {
+    auto threshold_tensor = habana_helpers::scalar_to_device_tensor(
+        threshold_converted, options, dims);
+    auto value_tensor =
+        habana_helpers::scalar_to_device_tensor(Scalar(0.0), options, dims);
+    synapse_threshold_out(
+        output, self, threshold_tensor, value_tensor, grad_output);
+  } else {
+    std::vector<const at::Tensor*> pt_inputs{&grad_output, &self};
+    std::vector<const at::Tensor*> pt_outputs{&output};
+    synapse_simple_generic_kernel(
+        pt_outputs,
+        pt_inputs,
+        "relu",
+        nullptr,
+        0,
+        SynapsePassType::BACKWARD_PASS);
+  }
+
   LOG_FUNC_END;
   return output;
 }
