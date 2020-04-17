@@ -12,6 +12,11 @@ from torchvision import transforms
 
 import utils
 
+#Instead of importing resnet model from the standard torchvision package,
+#import from a local copy. A local copy of resnet model file is used so that
+#modifications can be done to the resnet model if necessary.
+import model as resnet_models
+
 try:
     from apex import amp
 except ImportError:
@@ -175,7 +180,11 @@ def main(args):
         sampler=test_sampler, num_workers=args.workers, pin_memory=True)
 
     print("Creating model")
-    model = torchvision.models.__dict__[args.model](pretrained=args.pretrained)
+    #model = torchvision.models.__dict__[args.model](pretrained=args.pretrained)
+    #Instead of importing resnet model from the standard torchvision package,
+    #import from a local copy. A local copy of resnet model file is used so that
+    #modifications can be done to the resnet model if necessary.
+    model = resnet_models.__dict__[args.model](pretrained=args.pretrained)
     model.to(device)
     if args.distributed and args.sync_bn:
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
