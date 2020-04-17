@@ -92,9 +92,6 @@ def compare_tensors(hpu_tensors, cpu_tensors, atol, rtol, assert_enable=True):
     for i in range(len(hpu_tensors)):
         if cpu_tensors[i] is None and hpu_tensors[i] is None:
             continue
-        else:
-            # TODO: remove this check. Workaround for SW-9962
-            assert(cpu_tensors[i].stride() == hpu_tensors[i].stride())
 
     hpu_tensors = [tensor.to(cpu) if tensor is not None else tensor for tensor in hpu_tensors]
 
