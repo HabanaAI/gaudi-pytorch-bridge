@@ -154,6 +154,10 @@ def main(args):
     utils.init_distributed_mode(args)
     print(args)
 
+    if args.device == 'habana':
+        print("Attempting to load library from path ", os.environ['BUILD_ROOT_LATEST'], flush=True)
+        torch.ops.load_library(os.path.join(os.environ['BUILD_ROOT_LATEST'], "libhabana_pytorch_plugin.so"))
+
     device = torch.device(args.device)
 
     torch.backends.cudnn.benchmark = True
