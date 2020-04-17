@@ -19,6 +19,7 @@
 #include "habana_helpers/tensor_utils.h"
 #include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/resize.h"
+#include "habana_kernels/simple_generic_kernel.h"
 
 using namespace torch;
 // TODO: DimMask = TensorIterator::DimMask
@@ -94,6 +95,17 @@ ScalarType get_dtype(
     return kLong;
   }
   return src_type;
+}
+
+/**
+ * @brief CastKernel params structure
+ */
+ns_CastKernel::Params synapse_cast_params_builder(){
+
+  ns_CastKernel::Params cast_params{};
+  cast_params.round_mode = CAST_ROUND_HALF_NE;
+
+  return cast_params;
 }
 
 /*Tensor review_reduce_result(
@@ -381,6 +393,134 @@ Tensor mean_hpu(const Tensor& self, c10::optional<ScalarType> dtype) {
   return output[0];
 }
 
+/*************************************************************************
+ * @brief Kernel implementation for reduction kernel torch.any(output, self, dim, keepdim)
+ * @param [out] output - output tensor, bool
+ * @param [in] self - input tensor, bool
+ * @param [in] dim - along which dimension to reduce, int64_t
+ * @param [in] keepdim - output tensor has dim retained or not, bool, default = false
+ ************************************************************************/
+Tensor& any_dim_out_hpu(
+    Tensor& output,
+    const Tensor& self,
+    int64_t dim,
+    bool keepdim) {
+  LOG_FUNC_BEGIN;
+
+  self.to(c10::ScalarType::Char);
+
+  auto self_float =
+      at::empty(self.sizes(), self.options().dtype(c10::ScalarType::Float));
+
+  std::vector<const at::Tensor*> pt_outputs{&self_float};
+  std::vector<const at::Tensor*> pt_inputs{&self};
+
+  auto syn_cast_params =
+      synapse_cast_params_builder();
+
+  synapse_simple_generic_kernel(
+      pt_outputs, pt_inputs, "cast_i8_to_f32", &syn_cast_params,
+      sizeof(syn_cast_params), SynapsePassType::NO_PASS);
+
+  pt_inputs.clear();
+  pt_outputs.clear();
+
+  int64_t data[1];
+  data[0] = dim;
+  IntArrayRef dim_arr(data, 1);
+
+  Tensor output_reduce =
+      sum_dim_IntList_hpu( self_float,dim_arr,keepdim, self_float.scalar_type());
+
+  output.to(c10::ScalarType::Char);
+  pt_outputs.push_back(&output);
+  pt_inputs.push_back(&output_reduce);
+
+  synapse_simple_generic_kernel(
+      pt_outputs, pt_inputs, "cast_f32_to_i8", &syn_cast_params,
+      sizeof(syn_cast_params), SynapsePassType::NO_PASS);
+
+  output.to(c10::ScalarType::Bool);
+
+  LOG_FUNC_END;
+  return output;
+}
+
+/*************************************************************************
+ * @brief Kernel implementation for reduction kernel output = torch.any(self, dim, keepdim)
+ * @param [out] output - output tensor, bool
+ * @param [in] self - input tensor, bool
+ * @param [in] dim - along which dimension to reduce, int64_t
+ * @param [in] keepdim - output tensor has dim retained or not, bool, default = false
+ ************************************************************************/
+Tensor any_dim_hpu(
+    const Tensor& self,
+    int64_t dim,
+    bool keepdim) {
+  LOG_FUNC_BEGIN;
+
+  Tensor output ;
+  int64_t data[1];
+  data[0] = dim;
+  IntArrayRef dim_arr(data, 1);
+
+  auto ndim = self.dim();
+  auto mask = make_dim_mask(dim_arr, ndim);
+  allocate_reduction_result(
+      output, self, mask, keepdim, self.scalar_type());
+
+  any_dim_out_hpu(output,self,dim,keepdim);
+
+  LOG_FUNC_END;
+  return output;
+}
+
+
+/*************************************************************************
+ * @brief Kernel implementation for reduction kernel output = torch.any(self)
+ * @param [out] output - output tensor, bool
+ * @param [in] self - input tensor, bool
+ ************************************************************************/
+Tensor any_hpu(const Tensor& self) {
+  LOG_FUNC_BEGIN;
+
+  self.to(c10::ScalarType::Char);
+
+  auto self_float =
+      at::empty(self.sizes(), self.options().dtype(c10::ScalarType::Float));
+
+  std::vector<const at::Tensor*> pt_outputs{&self_float};
+  std::vector<const at::Tensor*> pt_inputs{&self};
+
+  auto syn_cast_params =
+      synapse_cast_params_builder();
+
+  synapse_simple_generic_kernel(
+      pt_outputs, pt_inputs, "cast_i8_to_f32", &syn_cast_params,
+      sizeof(syn_cast_params), SynapsePassType::NO_PASS);
+
+  pt_inputs.clear();
+  pt_outputs.clear();
+
+  Tensor output_reduce = sum_hpu(self_float,self_float.scalar_type());
+
+  //coverting 0d tensor to 1d tensor
+  output_reduce.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+
+  auto output =
+      at::empty(output_reduce.sizes(), output_reduce.options().dtype(c10::ScalarType::Char));
+
+  pt_outputs.push_back(&output);
+  pt_inputs.push_back(&output_reduce);
+
+  synapse_simple_generic_kernel(
+      pt_outputs, pt_inputs, "cast_f32_to_i8", &syn_cast_params,
+      sizeof(syn_cast_params), SynapsePassType::NO_PASS);
+
+  LOG_FUNC_END;
+  return output[0].to(c10::ScalarType::Bool);
+}
+
 static auto registry =
     torch::RegisterOperators()
         .op(torch::RegisterOperators::options()
@@ -420,5 +560,24 @@ static auto registry =
                 .schema(
                     "aten::mean(Tensor self, *, ScalarType? dtype=None) -> Tensor")
                 .impl_unboxedOnlyKernel<decltype(mean_hpu), &mean_hpu>(
+                    TensorTypeId::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema(
+                    "aten::any.dim(Tensor self, int dim, bool keepdim=False) -> Tensor")
+                .impl_unboxedOnlyKernel<
+                    decltype(any_dim_hpu),
+                    &any_dim_hpu>(TensorTypeId::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema(
+                    "aten::any(Tensor self) -> Tensor")
+                .impl_unboxedOnlyKernel<decltype(any_hpu), &any_hpu>(
+                    TensorTypeId::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema(
+                    "aten::any.out(Tensor self, int dim, bool keepdim=False, *, Tensor(a!) out) -> Tensor(a!)")
+                .impl_unboxedOnlyKernel<decltype(any_dim_out_hpu), &any_dim_out_hpu>(
                     TensorTypeId::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));
