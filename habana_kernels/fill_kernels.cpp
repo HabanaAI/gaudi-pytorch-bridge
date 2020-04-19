@@ -19,34 +19,13 @@ using namespace torch;
 
 template <typename T>
 void synapse_fill(const Tensor& output, const T val) {
-  auto& device =
-      synapse_helpers::HPURegistrar::get_device(output.device().index());
-
   // Using below approach of filling a buffer on HOST and then copying
   // to Device memory instead of doing a synMemSetD[]Async due to SW-11757
   // TODO revert to synMemSet once SW-11757 is resolved
   auto size = output.numel() * output.element_size();
   std::vector<T> buffer(size, val);
-  std::mutex mtx;
-  std::condition_variable cv;
-  bool copyDone = false;
-  std::function<void()> cb = [&copyDone, &mtx, &cv]() {
-    std::unique_lock<std::mutex> lck(mtx);
-    copyDone = true;
-    cv.notify_all();
-  };
 
-  auto syn_error = device.copy_data_to_device(
-      buffer.data(),
-      reinterpret_cast<synapse_helpers::device_ptr>(output.data_ptr()),
-      size,
-      cb);
-  TORCH_CHECK(syn_error.status == 0, syn_error.error);
-
-  while (!copyDone) {
-    std::unique_lock<std::mutex> lck(mtx);
-    cv.wait(lck);
-  }
+  habana_helpers::copy_data_to_device(buffer.data(), output, size);
 }
 
 Tensor& fill_hpu_(Tensor& self, Scalar value) {

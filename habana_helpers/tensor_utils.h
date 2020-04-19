@@ -25,7 +25,7 @@ at::Tensor scalar_to_device_tensor(
     const at::TensorOptions& options,
     unsigned num_dimensions);
 
-/* 
+/*
 @brief This function can be used to create an intermediate
        synapse_helper tensor of required shape (which is
        different from shape of input & output tensors)
@@ -69,4 +69,11 @@ at::Tensor to_cpu(const at::Tensor& hpu_tensor);
 
 // TODO: remove this function. Workaround for SW-9962
 [[deprecated]] at::Tensor contiguous_tensor(const at::Tensor& tensor);
+
+void copy_data_to_host(const at::Tensor& src, void* dst_ptr, uint32_t size);
+
+void copy_data_to_device(void* src_ptr, const at::Tensor& dst, uint32_t size);
+
+void copy_data_within_device(const at::Tensor& src, const at::Tensor& dst);
+
 } // namespace habana_helpers

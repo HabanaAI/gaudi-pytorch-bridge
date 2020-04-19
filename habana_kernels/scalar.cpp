@@ -11,6 +11,7 @@
 
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_helpers/logging.h"
+#include "habana_helpers/tensor_utils.h"
 
 using namespace torch;
 
@@ -20,30 +21,23 @@ namespace native {
 Scalar _local_scalar_dense_hpu(const Tensor& self) {
   LOG_FUNC_BEGIN;
   Scalar r;
-  // defined a empty call-back function 
-  std::function<void()> cb = [](){};
+
   // Note: this macro expands to more types than HPU supports, but this is not
   // an issue
-  // Note: this kernel intentionally doesn't check if numel == 1, dunno why,
-  // it's just pytorch
+  // Note: Pytorch uses this function to check a specific emement of a tensor
+  // eg. embedding_bag validates the first value offsets using this function
   AT_DISPATCH_ALL_TYPES_AND(
       at::ScalarType::BFloat16,
       self.scalar_type(),
       "_local_scalar_dense_hpu",
       [&] {
-        scalar_t value;
-        synapse_helpers::HPURegistrar::get_device(self.device().index())
-            .copy_data_to_host(
-                reinterpret_cast<synapse_helpers::device_ptr>(self.data_ptr()),
-                &value,
-                self.nbytes(),
-                cb);
-        r = Scalar(value);
+        habana_helpers::copy_data_to_host(self, &r, sizeof(self.dtype()));
       });
+
   LOG_FUNC_END;
+
   return r;
 }
-
 } // namespace native
 } // namespace at
 

@@ -72,14 +72,28 @@ at::Tensor habana_helpers::scalar_to_device_tensor(
       options.device().type());
   auto output = at::empty(std::vector<int64_t>(num_dimensions, 1), options);
   auto val = scalar.to<float>();
-  //define an empty call-back function
-  std::function<void()> cb = [](){};
+  std::mutex mtx;
+  std::condition_variable cv;
+  bool copyDone = false;
+
+  std::function<void()> cb = [&copyDone, &mtx, &cv]() {
+    std::unique_lock<std::mutex> lck(mtx);
+    copyDone = true;
+    cv.notify_all();
+  };
+
   synapse_helpers::HPURegistrar::get_device(options.device().index())
       .copy_data_to_device(
           &val,
           reinterpret_cast<synapse_helpers::device_ptr>(output.data_ptr()),
           output.nbytes(),
           cb);
+
+  // wait for copy completion
+  while (!copyDone) {
+    std::unique_lock<std::mutex> lck(mtx);
+    cv.wait(lck);
+  }
 
   return output;
 }
@@ -224,3 +238,112 @@ at::Tensor habana_helpers::contiguous_tensor(const at::Tensor& tensor) {
   auto tensor_contiguous2 = tensor_contiguous.contiguous();
   return tensor_contiguous2.to(device);
 };
+
+/******************************************************************************
+ * @brief helper function for copying data from device to host
+ * @param[in] src - source tensor in device
+ * @param[in] size - transfer data size in bytes
+ * @param[out] dst_ptr - destination memory address in cpu
+ *****************************************************************************/
+void habana_helpers::copy_data_to_host(
+    const at::Tensor& src,
+    void* dst_ptr,
+    uint32_t size) {
+  std::mutex mtx;
+  std::condition_variable cv;
+  bool copyDone = false;
+
+  // callback for copy completion
+  std::function<void()> cb = [&copyDone, &mtx, &cv]() {
+    std::unique_lock<std::mutex> lck(mtx);
+    copyDone = true;
+    cv.notify_all();
+  };
+
+  auto syn_error =
+      synapse_helpers::HPURegistrar::get_device(src.device().index())
+          .copy_data_to_host(
+              reinterpret_cast<synapse_helpers::device_ptr>(src.data_ptr()),
+              dst_ptr,
+              size,
+              cb);
+  TORCH_CHECK(syn_error.status == 0, syn_error.error);
+
+  // wait for copy completion
+  while (!copyDone) {
+    std::unique_lock<std::mutex> lck(mtx);
+    cv.wait(lck);
+  }
+}
+
+/******************************************************************************
+ * @brief helper function for copying data from host to device
+ * @param[in] src_ptr - source memory address in cpu
+ * @param[in] size - transfer data size in bytes
+ * @param[out] dst - destination tensor in device
+ *****************************************************************************/
+void habana_helpers::copy_data_to_device(
+    void* src_ptr,
+    const at::Tensor& dst,
+    uint32_t size) {
+  std::mutex mtx;
+  std::condition_variable cv;
+  bool copyDone = false;
+
+  // callback for copy completion
+  std::function<void()> cb = [&copyDone, &mtx, &cv]() {
+    std::unique_lock<std::mutex> lck(mtx);
+    copyDone = true;
+    cv.notify_all();
+  };
+
+  auto device_id = dst.device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  auto syn_error = device.copy_data_to_device(
+      src_ptr,
+      reinterpret_cast<synapse_helpers::device_ptr>(dst.data_ptr()),
+      size,
+      cb);
+  TORCH_CHECK(syn_error.status == 0, syn_error.error);
+
+  // wait for copy completion
+  while (!copyDone) {
+    std::unique_lock<std::mutex> lck(mtx);
+    cv.wait(lck);
+  }
+}
+
+/******************************************************************************
+ * @brief helper function for copying data across DRAM within device
+ * @param[in] src - source tensor in device
+ * @param[out] dst - destination tensor in device
+ *****************************************************************************/
+void habana_helpers::copy_data_within_device(
+    const at::Tensor& src,
+    const at::Tensor& dst) {
+  std::mutex mtx;
+  std::condition_variable cv;
+  bool copyDone = false;
+
+  // callback for copy completion
+  std::function<void()> cb = [&copyDone, &mtx, &cv]() {
+    std::unique_lock<std::mutex> lck(mtx);
+    copyDone = true;
+    cv.notify_all();
+  };
+
+  auto device_id = dst.device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  auto syn_error = device.copy_data_within_device(
+      reinterpret_cast<synapse_helpers::device_ptr>(src.data_ptr()),
+      reinterpret_cast<synapse_helpers::device_ptr>(dst.data_ptr()),
+      src.nbytes(),
+      cb);
+  TORCH_CHECK(syn_error.status == 0, syn_error.error);
+
+  // wait for copy completion
+  while (!copyDone) {
+    std::unique_lock<std::mutex> lck(mtx);
+    cv.wait(lck);
+  }
+}

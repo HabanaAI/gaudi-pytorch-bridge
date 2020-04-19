@@ -15,6 +15,7 @@
 #include "habana_device/HPUContext.h"
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_helpers/logging.h"
+#include "habana_helpers/tensor_utils.h"
 #include "habana_kernels/simple_generic_kernel.h"
 #include "kernel_utils.h"
 #include "resize.h"
@@ -50,52 +51,20 @@ Tensor& copy_hpu_(Tensor& self, const Tensor& src, bool non_blocking) {
   TORCH_CHECK(
       dst.nbytes() == src.nbytes(), "src and dst buffers size don't match");
 
-  int device_id = -1;
-
   const auto src_device = src.device().type();
   const auto dst_device = dst.device().type();
 
-  std::mutex mtx;
-  std::condition_variable cv;
-  bool copyDone = false;
-  std::function<void()> cb = [&copyDone, &mtx, &cv]() {
-    std::unique_lock<std::mutex> lck(mtx);
-    copyDone = true;
-    cv.notify_all();
-  };
-
   if (src_device == c10::DeviceType::CPU &&
       dst_device == c10::DeviceType::HABANA) {
-    device_id = dst.device().index();
-    auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-    auto syn_error = device.copy_data_to_device(
-        src.data_ptr(),
-        reinterpret_cast<synapse_helpers::device_ptr>(dst.data_ptr()),
-        src.nbytes(),
-        cb);
-    TORCH_CHECK(syn_error.status == 0, syn_error.error);
+    habana_helpers::copy_data_to_device(src.data_ptr(), dst, src.nbytes());
   } else if (
       src_device == c10::DeviceType::HABANA &&
       dst_device == c10::DeviceType::CPU) {
-    device_id = src.device().index();
-    auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-    auto syn_error = device.copy_data_to_host(
-        reinterpret_cast<synapse_helpers::device_ptr>(src.data_ptr()),
-        dst.data_ptr(),
-        src.nbytes(),
-        cb);
-    TORCH_CHECK(syn_error.status == 0, syn_error.error);
+    habana_helpers::copy_data_to_host(src, dst.data_ptr(), src.nbytes());
   } else if (
       src_device == c10::DeviceType::HABANA &&
       dst_device == c10::DeviceType::HABANA) {
-    device_id = dst.device().index();
-    auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-    auto syn_error = device.copy_data_within_device(
-        reinterpret_cast<synapse_helpers::device_ptr>(src.data_ptr()),
-        reinterpret_cast<synapse_helpers::device_ptr>(dst.data_ptr()),
-        src.nbytes(),
-        cb);
-    TORCH_CHECK(syn_error.status == 0, syn_error.error);
+    habana_helpers::copy_data_within_device(src, dst);
   } else {
     TORCH_CHECK(
         false,
@@ -104,11 +73,6 @@ Tensor& copy_hpu_(Tensor& self, const Tensor& src, bool non_blocking) {
         " to ",
         dst_device,
         "copy");
-  }
-
-  while (!copyDone) {
-    std::unique_lock<std::mutex> lck(mtx);
-    cv.wait(lck);
   }
 
   if (src.strides() != dst.strides())
@@ -293,11 +257,13 @@ Tensor& cat_hpu_out(
   return result;
 }
 
-inline void recalc_strides(std::vector<int64_t>& self_strides, const std::vector<int64_t>& self_sizes) {
+inline void recalc_strides(
+    std::vector<int64_t>& self_strides,
+    const std::vector<int64_t>& self_sizes) {
   int k;
   self_strides[self_strides.size() - 1] = 1;
   for (k = self_strides.size() - 2; k >= 0; k--) {
-    self_strides[k] = self_strides[k+1]*self_sizes[k+1];
+    self_strides[k] = self_strides[k + 1] * self_sizes[k + 1];
   }
   return;
 }
@@ -310,16 +276,18 @@ inline void recalc_strides(std::vector<int64_t>& self_strides, const std::vector
  ***************************************************************************/
 Tensor transpose_hpu(const Tensor& self, int64_t dim0_, int64_t dim1_) {
   LOG_FUNC_BEGIN;
-  //handle negative dimensions (backward indexing) in pytorch
+  // handle negative dimensions (backward indexing) in pytorch
   int64_t dim0 = at::maybe_wrap_dim(dim0_, self.dim(), /*wrap_scalar=*/true);
   int64_t dim1 = at::maybe_wrap_dim(dim1_, self.dim(), /*wrap_scalar=*/true);
-  TORCH_CHECK((dim0 < self.dim()) && (dim1 < self.dim()), "Specified dims are beyond tensor dims");
+  TORCH_CHECK(
+      (dim0 < self.dim()) && (dim1 < self.dim()),
+      "Specified dims are beyond tensor dims");
 
   auto self_sizes = self.sizes().vec();
   auto self_strides = self.strides().vec();
   std::swap(self_sizes[dim0], self_sizes[dim1]);
-  //Recalculate the strides to account for transpose size changes
-  //In effect, keep the tensor contiguous.
+  // Recalculate the strides to account for transpose size changes
+  // In effect, keep the tensor contiguous.
   recalc_strides(self_strides, self_sizes);
   std::vector<const at::Tensor*> pt_inputs;
   std::vector<const at::Tensor*> pt_outputs;
@@ -333,9 +301,16 @@ Tensor transpose_hpu(const Tensor& self, int64_t dim0_, int64_t dim1_) {
   for (i = 0; i < MAX_DIMENSIONS_NUM; i++) {
     params.permutation[i] = static_cast<TransposePermutationDim>(i);
   }
-  std::swap(params.permutation[self.dim() - 1  - dim0], params.permutation[self.dim() - 1 - dim1]);
-  synapse_simple_generic_kernel(pt_outputs, pt_inputs, "transpose",
-                              &params, sizeof(synTransposeParams), SynapsePassType::FORWARD_PASS);
+  std::swap(
+      params.permutation[self.dim() - 1 - dim0],
+      params.permutation[self.dim() - 1 - dim1]);
+  synapse_simple_generic_kernel(
+      pt_outputs,
+      pt_inputs,
+      "transpose",
+      &params,
+      sizeof(synTransposeParams),
+      SynapsePassType::FORWARD_PASS);
   LOG_FUNC_END;
   return out;
 }
@@ -348,38 +323,38 @@ Tensor transpose_hpu(const Tensor& self, int64_t dim0_, int64_t dim1_) {
  *******************************************************************************/
 Tensor& transpose_hpu_(Tensor& self, int64_t dim0_, int64_t dim1_) {
   LOG_FUNC_BEGIN;
-  /*NOTE: The normal inplace op implementation approach to through a duplicate synapse tensor
-  * for input won't work as synapse backend does block transposes - so if your matrix is
-  * AB
-  * CD
-  * then C will overwrite B before B is written or vice-versa.
-  * So, we do the following (inefficient way, but helps to support the functionality).
-  * tempTensor = transpose_outofplace(inTensor)
-  * Reshape inTensor to transposed sizes for required dims.
-  * Use synapse memcpy guid to do a transfer data from tempTensor to inTensor
-  * Return inTensor back to PyTorch frontend
-  */
+  /*NOTE: The normal inplace op implementation approach to through a duplicate
+   * synapse tensor for input won't work as synapse backend does block
+   * transposes - so if your matrix is AB CD then C will overwrite B before B is
+   * written or vice-versa. So, we do the following (inefficient way, but helps
+   * to support the functionality). tempTensor = transpose_outofplace(inTensor)
+   * Reshape inTensor to transposed sizes for required dims.
+   * Use synapse memcpy guid to do a transfer data from tempTensor to inTensor
+   * Return inTensor back to PyTorch frontend
+   */
   auto tempT = transpose_hpu(self, dim0_, dim1_);
 
   std::vector<const at::Tensor*> pt_inputs;
   std::vector<const at::Tensor*> pt_outputs;
   pt_inputs.push_back(&tempT);
 
-  //handle negative dimensions (backward indexing) in pytorch
+  // handle negative dimensions (backward indexing) in pytorch
   int64_t dim0 = at::maybe_wrap_dim(dim0_, self.dim(), /*wrap_scalar=*/true);
   int64_t dim1 = at::maybe_wrap_dim(dim1_, self.dim(), /*wrap_scalar=*/true);
 
   auto self_sizes = self.sizes().vec();
   auto self_strides = self.strides().vec();
   std::swap(self_sizes[dim0], self_sizes[dim1]);
-  //Recalculate the strides to account for transpose size changes
-  //In effect, keep the tensor contiguous.
+  // Recalculate the strides to account for transpose size changes
+  // In effect, keep the tensor contiguous.
   recalc_strides(self_strides, self_sizes);
   auto tht_result = self.unsafeGetTensorImpl();
-  THHTensor_resizeNd(tht_result, self.dim(), self_sizes.data(), self_strides.data());
+  THHTensor_resizeNd(
+      tht_result, self.dim(), self_sizes.data(), self_strides.data());
   pt_outputs.push_back(&self);
 
-  synapse_simple_generic_kernel(pt_outputs, pt_inputs, "memcpy", nullptr, 0, SynapsePassType::NO_PASS);
+  synapse_simple_generic_kernel(
+      pt_outputs, pt_inputs, "memcpy", nullptr, 0, SynapsePassType::NO_PASS);
 
   LOG_FUNC_END;
   return self;
@@ -391,7 +366,7 @@ Tensor& transpose_hpu_(Tensor& self, int64_t dim0_, int64_t dim1_) {
  * @param dim0 - first dimension to swap
  * @param dim0 - second dimension to swap
  ************************************************************************/
-Tensor t_hpu(const Tensor& self) {//t() is defined only for dims <= 2
+Tensor t_hpu(const Tensor& self) { // t() is defined only for dims <= 2
   LOG_FUNC_BEGIN;
   if ((1 == self.dim())) {
     Tensor out = self;
@@ -409,7 +384,7 @@ Tensor t_hpu(const Tensor& self) {//t() is defined only for dims <= 2
  * @param dim0 - first dimension to swap
  * @param dim0 - second dimension to swap
  ************************************************************************/
-Tensor& t_hpu_(Tensor& self) {//t_() is defined only for dims <= 2
+Tensor& t_hpu_(Tensor& self) { // t_() is defined only for dims <= 2
   LOG_FUNC_BEGIN;
   if (1 == self.dim()) {
     LOG_FUNC_END;
@@ -457,45 +432,47 @@ static auto registry =
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema("aten::cat(Tensor[] tensors, int dim=0) -> Tensor")
-                .impl_unboxedOnlyKernel<
-                    decltype(cat_hpu), &cat_hpu>(TensorTypeId::HABANATensorId)
+                .impl_unboxedOnlyKernel<decltype(cat_hpu), &cat_hpu>(
+                    TensorTypeId::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
-                .schema("aten::cat.out(Tensor[] tensors, int dim=0, *, Tensor(a!) out) -> Tensor(a!)")
-                .impl_unboxedOnlyKernel<
-                    decltype(cat_hpu_out), &cat_hpu_out>(TensorTypeId::HABANATensorId)
+                .schema(
+                    "aten::cat.out(Tensor[] tensors, int dim=0, *, Tensor(a!) out) -> Tensor(a!)")
+                .impl_unboxedOnlyKernel<decltype(cat_hpu_out), &cat_hpu_out>(
+                    TensorTypeId::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema("aten::_cat(Tensor[] tensors, int dim=0) -> Tensor")
-                .impl_unboxedOnlyKernel<
-                    decltype(cat_hpu), &cat_hpu>(TensorTypeId::HABANATensorId)
+                .impl_unboxedOnlyKernel<decltype(cat_hpu), &cat_hpu>(
+                    TensorTypeId::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
-                .schema("aten::_cat.out(Tensor[] tensors, int dim=0, *, Tensor(a!) out) -> Tensor(a!)")
-                .impl_unboxedOnlyKernel<
-                    decltype(cat_hpu_out), &cat_hpu_out>(TensorTypeId::HABANATensorId)
+                .schema(
+                    "aten::_cat.out(Tensor[] tensors, int dim=0, *, Tensor(a!) out) -> Tensor(a!)")
+                .impl_unboxedOnlyKernel<decltype(cat_hpu_out), &cat_hpu_out>(
+                    TensorTypeId::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
-                .schema("aten::transpose.int(Tensor(a) self, int dim0, int dim1) -> Tensor(a)")
+                .schema(
+                    "aten::transpose.int(Tensor(a) self, int dim0, int dim1) -> Tensor(a)")
                 .impl_unboxedOnlyKernel<
                     decltype(transpose_hpu),
                     &transpose_hpu>(TensorTypeId::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
-                .schema("aten::transpose_(Tensor(a!) self, int dim0, int dim1) -> Tensor(a!)")
+                .schema(
+                    "aten::transpose_(Tensor(a!) self, int dim0, int dim1) -> Tensor(a!)")
                 .impl_unboxedOnlyKernel<
                     decltype(transpose_hpu_),
                     &transpose_hpu_>(TensorTypeId::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema("aten::t(Tensor(a) self) -> Tensor(a)")
-                .impl_unboxedOnlyKernel<
-                    decltype(t_hpu),
-                    &t_hpu>(TensorTypeId::HABANATensorId)
+                .impl_unboxedOnlyKernel<decltype(t_hpu), &t_hpu>(
+                    TensorTypeId::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema("aten::t_(Tensor(a!) self) -> Tensor(a!)")
-                .impl_unboxedOnlyKernel<
-                    decltype(t_hpu_),
-                    &t_hpu_>(TensorTypeId::HABANATensorId)
+                .impl_unboxedOnlyKernel<decltype(t_hpu_), &t_hpu_>(
+                    TensorTypeId::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));
