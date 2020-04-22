@@ -29,14 +29,6 @@ using namespace torch;
 #define LOG_FUNC_END (void)(0)
 #endif
 
-Tensor permute_hpu(const Tensor& self, IntArrayRef dims) {
-  LOG_FUNC_BEGIN;
-  auto ret =
-      self.to(DeviceType::CPU).permute(dims).contiguous().to(self.device());
-  LOG_FUNC_END;
-  return ret;
-}
-
 // cpu->hpu and hpu->cpu copy implementation
 Tensor& copy_hpu_(Tensor& self, const Tensor& src, bool non_blocking) {
   LOG_FUNC_BEGIN;
@@ -394,6 +386,80 @@ Tensor& t_hpu_(Tensor& self) { // t_() is defined only for dims <= 2
   LOG_FUNC_END;
 
   return self;
+}
+
+Tensor permute_4d(const Tensor& self, int* dims) {
+  LOG_FUNC_BEGIN;
+  auto self_sizes = self.sizes().vec();
+  // calculate new sizes and strides after permute for out tensor
+  auto new_sizes = self.sizes().vec();
+  auto new_strides = self.strides().vec();
+  int i;
+  new_sizes[new_sizes.size() - 1] = self_sizes[dims[new_sizes.size() - 1]];
+  new_strides[new_sizes.size() - 1] = 1;
+  for (i = new_strides.size() - 2; i >= 0; i--) {
+    new_sizes[i] = self_sizes[dims[i]];
+    new_strides[i] = new_strides[i + 1] * new_sizes[i + 1];
+  }
+  std::vector<const at::Tensor*> pt_inputs;
+  std::vector<const at::Tensor*> pt_outputs;
+  pt_inputs.push_back(&self);
+  auto out = at::empty_strided(new_sizes, new_strides, self.options());
+  pt_outputs.push_back(&out);
+
+  synTransposeParams params;
+  params.tensorDim = self.dim();
+  // params.permute has to be populated in a reverse order for HPU FCD-LCD order
+  for (i = 0; i < self.dim(); i++) {
+    params.permutation[self.dim() - 1 - dims[i]] =
+        static_cast<TransposePermutationDim>(self.dim() - 1 - i);
+  }
+  for (i = self.dim(); i < MAX_DIMENSIONS_NUM; i++) {
+    params.permutation[i] = static_cast<TransposePermutationDim>(i);
+  }
+  synapse_simple_generic_kernel(
+      pt_outputs,
+      pt_inputs,
+      "transpose",
+      &params,
+      sizeof(synTransposeParams),
+      SynapsePassType::FORWARD_PASS);
+  LOG_FUNC_END;
+  return out;
+}
+
+inline int is_hpu_supported_transpose_type(const c10::ScalarType pt_type) {
+  int ret = -1;
+  switch (pt_type) {
+    case c10::ScalarType::Float:
+    case c10::ScalarType::BFloat16:
+    case c10::ScalarType::Int:
+      ret = 0;
+      break;
+    default:
+      break;
+  }
+  return ret;
+}
+
+Tensor permute_hpu(const Tensor& self, IntArrayRef dims_) {
+  LOG_FUNC_BEGIN;
+  TORCH_CHECK(
+      static_cast<unsigned>(dims_.size()) == self.dim(),
+      "Number of dims in tensor don't match in permute");
+  int dims[self.dim()];
+  for (unsigned i = 0; i < self.dim(); i++) {
+    dims[i] = dims_[i];
+  }
+  if ((self.dim() <= 4) &&
+      !is_hpu_supported_transpose_type(self.scalar_type())) {
+    // single transpose "permute" from synapse
+    return permute_4d(self, dims);
+  }
+  // HPU won't support permute for larger num of dims - do it on CPU
+  auto ret =
+      self.to(DeviceType::CPU).permute(dims_).contiguous().to(self.device());
+  return ret;
 }
 
 static auto registry =

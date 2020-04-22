@@ -79,8 +79,30 @@ def test_hpu_transpose_of_transpose(N, H, W, C):
     print(is_eq_tensor.to(cpu))
 
 
+# @torch.jit.script
+@pytest.mark.parametrize("N, H, W, C", test_case_list)
+def test_hpu_permute(N, H, W, C):
+    hpu = torch.device('habana')
+    cpu = torch.device('cpu')
+
+    in_tensor = torch.randn(N, C, H, W)
+    hpu_result = in_tensor.to(hpu).permute((0, 2, 3, 1)).to(cpu)
+    cpu_result = in_tensor.to(cpu).permute((0, 2, 3, 1))
+    np.testing.assert_allclose(hpu_result.detach().numpy(), cpu_result.detach().numpy(), atol=0.001, rtol=1.e-3)
+
+    hpu_result = in_tensor.to(hpu).permute((0, 3, 1, 2)).to(cpu)
+    cpu_result = in_tensor.to(cpu).permute((0, 3, 1, 2))
+    np.testing.assert_allclose(hpu_result.detach().numpy(), cpu_result.detach().numpy(), atol=0.001, rtol=1.e-3)
+
+    in_tensor = torch.randn(N, H, W)
+    hpu_result = in_tensor.to(hpu).permute((2, 0, 1)).to(cpu)
+    cpu_result = in_tensor.to(cpu).permute((2, 0, 1))
+    np.testing.assert_allclose(hpu_result.detach().numpy(), cpu_result.detach().numpy(), atol=0.001, rtol=1.e-3)
+
+
 if __name__ == '__main__':
     test_hpu_transpose(*t_op_list[0])
     test_hpu_t_inplace(*test_case_t_list[0], t_inplace_op_list[0])
     test_hpu_transpose_inplace(*test_case_list[0], *transpose_inplace_op_list[0])
     test_hpu_transpose_of_transpose(*test_case_list[0])
+    test_hpu_permute(*test_case_list[0])
