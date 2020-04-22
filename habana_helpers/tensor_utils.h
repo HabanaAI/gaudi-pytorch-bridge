@@ -16,6 +16,8 @@
 #include <vector>
 
 namespace habana_helpers {
+at::Tensor cast_tensor_to_integer(const at::Tensor& long_tensor);
+
 c10::ScalarType scalar_type(const c10::Scalar& s);
 
 synDataType pytorch_to_synapse_type(const c10::ScalarType pt_type);

@@ -15,6 +15,23 @@
 #include "habana_device/tensor_builder.h"
 #include "tensor_utils.h"
 
+/*************************************************************************
+ * @brief This helper function casts a long tensor to int (on CPU)
+ ************************************************************************/
+at::Tensor habana_helpers::cast_tensor_to_integer(
+    const at::Tensor& long_tensor) {
+  // TODO Remove this cast on CPU when int64_t->int32 cast available on
+  // HPU
+  auto int_tensor = std::make_unique<at::Tensor>();
+  if (long_tensor.scalar_type() == c10::ScalarType::Long)
+    *int_tensor =
+        long_tensor.to("cpu").to(c10::ScalarType::Int).to(long_tensor.device());
+  else
+    *int_tensor = long_tensor;
+
+  return *int_tensor;
+}
+
 at::Tensor habana_helpers::to_cpu(const at::Tensor& hpu_tensor) {
   if (hpu_tensor.defined())
     return hpu_tensor.to(at::DeviceType::CPU);
