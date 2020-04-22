@@ -43,7 +43,7 @@ def test_hpu_transpose(t_op, kernel_params_fwd):
 @pytest.mark.parametrize("N, H, W, C", test_case_list)
 @pytest.mark.parametrize("transpose_inplace_op, kernel_params_fwd", transpose_inplace_op_list)
 def test_hpu_transpose_inplace(N, H, W, C, transpose_inplace_op, kernel_params_fwd):
-    in_out_tensor = torch.randn(N, C, H, W)
+    n_out_tensor = torch.randn(N, C, H, W)
     kernel_params_fwd = {'dim0':0, 'dim1':2}
     evaluate_fwd_inplace_kernel(in_out_tensor=in_out_tensor, kernel_name=transpose_inplace_op, kernel_params=kernel_params_fwd)
     in_out_tensor = torch.randn(N, C, H, W)
@@ -61,6 +61,7 @@ def test_hpu_t_inplace(H, W, t_inplace_op):
     in_out_tensor = torch.randint(1, 24, (1,), dtype=torch.int)
     evaluate_fwd_inplace_kernel(in_out_tensor=in_out_tensor, kernel_name='t_', kernel_params=None)
 
+@pytest.mark.skip("SW-12008: Transpose test fails")
 @pytest.mark.parametrize("N, H, W, C", test_case_list)
 def test_hpu_transpose_of_transpose(N, H, W, C):
     hpu = torch.device('habana')

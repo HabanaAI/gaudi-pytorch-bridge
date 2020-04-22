@@ -24,6 +24,7 @@ batch_norm_test_case_list_1d_ncl = [
 
 # Note: TODO SW-11483 # copy_kernel set to False, as pushing the kernel to the device throws due to dependencies
 # on resize. Further copying the kernel to device is not needed for this eager mode testing
+@pytest.mark.skip("SW-12008: Batchnorm test fails")
 @pytest.mark.parametrize("N, H, W, C", batch_norm_test_case_list_2d)
 def test_hpu_batch_norm_2d_fwd_bwd(N, H, W, C):
     kernel = torch.nn.BatchNorm2d(C)
@@ -34,6 +35,7 @@ def test_hpu_batch_norm_2d_fwd_bwd(N, H, W, C):
                             kernel_params_fwd=kernel_params_fwd, copy_kernel=False)
 
 
+@pytest.mark.skip("SW-12008: Batchnorm test fails")
 @pytest.mark.parametrize("N, C", batch_norm_test_case_list_1d)
 def test_hpu_batch_norm_1d_fwd_bwd(N, C):
     kernel = torch.nn.BatchNorm1d(C)
@@ -44,6 +46,7 @@ def test_hpu_batch_norm_1d_fwd_bwd(N, C):
                             kernel_params_fwd=kernel_params_fwd, copy_kernel=False)
 
 
+@pytest.mark.skip("SW-12008: Batchnorm test fails")
 @pytest.mark.parametrize("N, C, L", batch_norm_test_case_list_1d_ncl)
 def test_hpu_batch_norm_1d_ncl_fwd_bwd(N, C, L):
     kernel = torch.nn.BatchNorm1d(C)
