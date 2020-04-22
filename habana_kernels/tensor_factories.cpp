@@ -12,7 +12,6 @@
 #include <torch/script.h>
 
 #include "habana_device/HPUCheck.h"
-#include "habana_device/HPUContext.h"
 #include "habana_helpers/logging.h"
 #include "resize.h"
 

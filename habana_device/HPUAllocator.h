@@ -17,35 +17,31 @@
 namespace at {
 namespace habana {
 
-// user must manually set active device before calling allocator functions
-extern synDeviceId allocator_active_device_id;
+at::Allocator* getHABANADeviceAllocator();
 
-class HabanaAllocator {
+class HPUAllocator : public synapse_helpers::device_allocator {
  public:
-  void* malloc(size_t num_bytes);
-  void free(void* ptr);
-};
+  HPUAllocator(synDeviceId);
 
-class HPUDeviceAllocator final : public at::Allocator {
- public:
-  at::DataPtr allocate(size_t size) const override;
-  at::DeleterFnPtr raw_deleter() const override;
-};
-
-} // namespace habana
-} // namespace at
-
-namespace habana_helpers {
-class HabanaAllocator : public synapse_helpers::device_allocator {
- public:
-  HabanaAllocator(synDeviceId);
-
-  void reset() override;
-  void release() override;
+  void  reset() override;
+  void  release() override;
   void* alloc(size_t size) override;
-  void free(void* ptr) override;
+  void  free(void* ptr) override;
 
  private:
   synDeviceId device_id{synapse_helpers::device::INVALID_ID};
 };
-} // namespace habana_helpers
+
+class HPUDeviceAllocator final : public at::Allocator {
+ public:
+  HPUDeviceAllocator();
+  at::DataPtr allocate(size_t size) const override;
+  at::DeleterFnPtr raw_deleter() const override;
+  static void deleter(void *ptr);
+
+  // user must manually set active device before calling allocator functions
+  static synDeviceId allocator_active_device_id;
+};
+
+} // namespace habana
+} // namespace at

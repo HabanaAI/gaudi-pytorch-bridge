@@ -25,7 +25,7 @@ namespace native {
 inline void THHStorage_resize(THStorage* self, ptrdiff_t size) {
   TORCH_CHECK(size >= 0, "invalid size");
   TORCH_CHECK(self->allocator() != nullptr);
-  int device = habana::allocator_active_device_id;
+  int device = habana::HPUDeviceAllocator::allocator_active_device_id;
 
   TORCH_CHECK(
       self->resizable(), "Trying to resize storage that is not resizable");

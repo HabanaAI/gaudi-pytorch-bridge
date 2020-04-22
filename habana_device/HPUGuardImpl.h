@@ -31,23 +31,24 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
     TORCH_INTERNAL_ASSERT(d.type() == type());
     Device old_device = getDevice();
     if (old_device.index() != d.index()) {
-      habana::allocator_active_device_id = d.index();
+      habana::HPUDeviceAllocator::allocator_active_device_id = d.index();
       TORCH_CHECK(
-          habana::allocator_active_device_id == 0,
+          habana::HPUDeviceAllocator::allocator_active_device_id == 0,
           "habana active device: ",
-          habana::allocator_active_device_id,
+          habana::HPUDeviceAllocator::allocator_active_device_id,
           " != 0");
     }
     return old_device;
   }
   Device getDevice() const override {
     if (synapse_helpers::HPURegistrar::empty()) {
+      auto allocatorVar = [](synDeviceId id)->std::unique_ptr<synapse_helpers::device_allocator> {
+        return std::make_unique<at::habana::HPUAllocator>(id);
+      };
       auto device_ptr_or_error = synapse_helpers::device::get_or_create(
           synDeviceType::synDeviceGaudi,
-          [](synDeviceId id)
-              -> std::unique_ptr<synapse_helpers::device_allocator> {
-            return std::make_unique<habana_helpers::HabanaAllocator>(id);
-          });
+          allocatorVar
+      );
 
       if (absl::holds_alternative<synapse_helpers::synapse_error>(
               device_ptr_or_error)) {
@@ -61,31 +62,31 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
       }
     }
     auto& device = synapse_helpers::HPURegistrar::get_device();
-    habana::allocator_active_device_id = device.id();
+    habana::HPUDeviceAllocator::allocator_active_device_id = device.id();
 
     TORCH_CHECK(
-        habana::allocator_active_device_id == 0,
+        habana::HPUDeviceAllocator::allocator_active_device_id == 0,
         "habana active device: ",
-        habana::allocator_active_device_id,
+        habana::HPUDeviceAllocator::allocator_active_device_id,
         " != 0");
-    return Device(DeviceType::HABANA, habana::allocator_active_device_id);
+    return Device(DeviceType::HABANA, habana::HPUDeviceAllocator::allocator_active_device_id);
   }
   void setDevice(Device d) const override {
     TORCH_INTERNAL_ASSERT(d.type() == type());
-    habana::allocator_active_device_id =
+    habana::HPUDeviceAllocator::allocator_active_device_id =
         synapse_helpers::HPURegistrar::get_device(d.index()).id();
     TORCH_CHECK(
-        habana::allocator_active_device_id == 0,
+        habana::HPUDeviceAllocator::allocator_active_device_id == 0,
         "habana active device: ",
-        habana::allocator_active_device_id,
+        habana::HPUDeviceAllocator::allocator_active_device_id,
         " != 0");
   }
   void uncheckedSetDevice(Device d) const noexcept override {
-    habana::allocator_active_device_id = d.index();
-    if (habana::allocator_active_device_id != 0)
+    habana::HPUDeviceAllocator::allocator_active_device_id = d.index();
+    if (habana::HPUDeviceAllocator::allocator_active_device_id != 0)
       TORCH_WARN(
           "habana active device: ",
-          habana::allocator_active_device_id,
+          habana::HPUDeviceAllocator::allocator_active_device_id,
           " != 0");
   }
   Stream getStream(UNUSED Device d) const noexcept override {

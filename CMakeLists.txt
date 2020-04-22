@@ -44,8 +44,6 @@ include(AddNPUStackDependencies)
 # workaround for cmake3.5. Starting from 3.13 sources are optional and we can add them in add_subdirectories
 add_library(habana_pytorch_plugin SHARED
   habana_device/HPUAllocator.cpp
-  habana_device/HPUContext.cpp
-  habana_device/HPUGuardImpl.cpp
   habana_helpers/tensor_utils.cpp
   habana_kernels/basic_kernels.cpp
   habana_kernels/binary_kernels.cpp

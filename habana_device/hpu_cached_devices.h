@@ -19,10 +19,7 @@ class HPURegistrar {
   HPURegistrar() = default;
   std::array<std::shared_ptr<synapse_helpers::device>, MAX_DEVICES_PER_BOX>
       acquired_devices;
-  static HPURegistrar& get_hpu_registrar() {
-    static HPURegistrar *instance = new HPURegistrar();
-    return *instance;
-  }
+  static HPURegistrar& get_hpu_registrar();
 
  public:
   HPURegistrar(HPURegistrar const&) = delete;

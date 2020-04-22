@@ -13,7 +13,6 @@
 #include <torch/script.h>
 
 #include "habana_device/HPUCheck.h"
-#include "habana_device/HPUContext.h"
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_device/tensor_builder.h"
 #include "habana_helpers/tensor_utils.h"
