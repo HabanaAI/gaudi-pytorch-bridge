@@ -16,6 +16,7 @@
 #include "habana_helpers/tensor_utils.h"
 #include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/resize.h"
+#include "habana_kernels/simple_generic_kernel.h"
 
 using namespace torch;
 
@@ -54,118 +55,6 @@ inline void _allocate_or_resize_output_with_indices(
   }
 }
 
-void topk_impl(
-    const Tensor& values,
-    const Tensor& indices,
-    const Tensor& self,
-    int64_t k,
-    int64_t dim_,
-    bool largest,
-    bool sorted) {
-  std::cout << "TopK axis " << dim_ << std::endl;
-  std::cout << "largest " << largest << std::endl;
-  std::cout << "sorted " << sorted << std::endl;
-  auto& device =
-      synapse_helpers::HPURegistrar::get_device(self.device().index());
-  const auto device_id = device.id();
-
-  // graph_handle scope
-  synGraphHandle graph_handle;
-  TORCH_HABANA_CHECK(
-      synGraphCreate(&graph_handle, synDeviceType::synDeviceGaudi),
-      "synGraphCreate failed");
-
-  { // tensors scope
-    std::vector<synapse_helpers::tensor> syn_helper_inputs, syn_helper_outputs,
-        syn_helper_intermediate;
-    std::vector<synTensor> syn_inputs, syn_outputs, syn_intermediate;
-
-    std::tie(syn_helper_inputs, syn_inputs) = habana_helpers::create_tensors(
-        std::vector<const at::Tensor*>{&self}, graph_handle, true);
-    std::tie(syn_helper_outputs, syn_outputs) = habana_helpers::create_tensors(
-        std::vector<const at::Tensor*>{&values, &indices}, graph_handle, true);
-
-    // Choose chunkSize to be min(inputSize/8,k)
-    // chunkSize must be a multiple of 4 (TPC kernel requirement)
-    auto chunkSize = (std::ceil(self.size(dim_) / 8) < k)
-        ? k
-        : std::ceil(self.size(dim_) / 8);
-    chunkSize = std::ceil(chunkSize / 4) * 4;
-
-    // Output tensors must of same size as input tensors
-    // except dim in give axis should be ceil(inputSize/chunkSize)*k
-    std::vector<int64_t> dims = self.sizes().vec();
-    dims[dim_] = std::ceil(self.size(dim_) / chunkSize) * k;
-    c10::IntArrayRef shape(dims.data(), self.dim());
-    // Create intermediate chunk output & chunk indices tensors
-    syn_helper_intermediate.push_back(habana_helpers::create_tensor(
-        shape,
-        graph_handle,
-        false,
-        values.device().index(),
-        values.scalar_type()));
-    syn_intermediate.push_back(syn_helper_intermediate[0].get());
-    syn_helper_intermediate.push_back(habana_helpers::create_tensor(
-        shape,
-        graph_handle,
-        false,
-        indices.device().index(),
-        indices.scalar_type()));
-    syn_intermediate.push_back(syn_helper_intermediate[1].get());
-
-    {
-      ns_TopK::Params params{};
-      params.kSize = k;
-      params.axis = self.dim() - dim_ - 1;
-      params.chunkSize = chunkSize;
-      {
-        std::string nodetype = "top_k_st1_fwd_" +
-            habana_helpers::name_suffix_from_type(self.scalar_type());
-        TORCH_HABANA_CHECK(
-            synNodeCreate(
-                graph_handle,
-                syn_inputs.data(),
-                syn_intermediate.data(),
-                syn_inputs.size(),
-                syn_intermediate.size(),
-                &params,
-                sizeof(params),
-                nodetype.c_str(),
-                "",
-                nullptr,
-                nullptr),
-            "synNodeCreate failed");
-
-        nodetype = "top_k_st2_fwd_" +
-            habana_helpers::name_suffix_from_type(self.scalar_type());
-        TORCH_HABANA_CHECK(
-            synNodeCreate(
-                graph_handle,
-                syn_intermediate.data(),
-                syn_outputs.data(),
-                syn_intermediate.size(),
-                syn_outputs.size(),
-                &params,
-                sizeof(params),
-                nodetype.c_str(),
-                "",
-                nullptr,
-                nullptr),
-            "synNodeCreate failed");
-      }
-
-      habana_helpers::compile_and_run(
-          "top_k",
-          graph_handle,
-          habana_helpers::names(syn_helper_inputs),
-          habana_helpers::names(syn_helper_outputs),
-          {self.data_ptr()},
-          {values.data_ptr(), indices.data_ptr()},
-          device_id);
-    }
-  }
-}
-
 std::tuple<Tensor&, Tensor&> topk_out_hpu(
     Tensor& values,
     Tensor& indices,
@@ -174,7 +63,11 @@ std::tuple<Tensor&, Tensor&> topk_out_hpu(
     int64_t dim_,
     bool largest,
     bool sorted) {
+  LOG_FUNC_BEGIN;
+
   int64_t dim = at::maybe_wrap_dim(dim_, self.dim(), /*wrap_scalar=*/true);
+  TORCH_CHECK(dim == self.dim()-1, "topk supports sort along fastest changing dim only")
+  TORCH_CHECK(self.dim() == 2, "topk supports 2D input tensors only")
   TORCH_CHECK(
       k >= 0 && k <= (self.dim() > 0 ? self.size(dim) : 1),
       "selected index k out of range");
@@ -188,8 +81,20 @@ std::tuple<Tensor&, Tensor&> topk_out_hpu(
     return std::forward_as_tuple(values, indices);
   }
 
-  topk_impl(values, indices, self, k, dim, largest, sorted);
+  ns_TopK::Params params{};
+  params.kSize = k;
+  params.axis = self.dim() - dim - 1;
+  std::vector<const at::Tensor*> pt_inputs{&self};
+  std::vector<const at::Tensor*> pt_outputs{&values, &indices};
+  synapse_simple_generic_kernel(
+      pt_outputs,
+      pt_inputs,
+      "topk",
+      &params,
+      sizeof(params),
+      SynapsePassType::NO_PASS);
 
+  LOG_FUNC_END;
   return std::forward_as_tuple(values, indices);
 }
 
@@ -199,9 +104,46 @@ std::tuple<Tensor, Tensor> topk_hpu(
     int64_t dim,
     bool largest,
     bool sorted) {
+  LOG_FUNC_BEGIN;
+
   Tensor values = at::empty({0}, self.options());
   Tensor indices = at::empty({0}, self.options().dtype(c10::ScalarType::Int));
   topk_out_hpu(values, indices, self, k, dim, largest, sorted);
+
+  LOG_FUNC_END;
+  return std::make_tuple(values, indices);
+}
+
+/*************************************************************************
+ * @brief Kernel implementation for sort OP
+ *        out_sorted, out_indices = torch.sort(self, dim, descending)
+ * @param [out] sorted - output tensor, 1-4D, FP32
+ * @param [out] indices - output tensor, 1-4D, I32
+ * @param [in] self - input tensor, 1-4D, FP32
+ * @param [in] dim - along which dimension to sort, int64_t, default = -1
+ * @param [in] descending - sorting order (ascending or descending), bool,
+ *default = false
+ ************************************************************************/
+std::tuple<Tensor, Tensor> sort_hpu(
+    const Tensor& self,
+    int64_t dim,
+    bool descending) {
+  LOG_FUNC_BEGIN;
+
+  int64_t dim_ = at::maybe_wrap_dim(dim, self.dim(), /*wrap_scalar=*/true);
+  TORCH_CHECK(
+      descending == true,
+      "sort in descending order is only supported currently")
+  TORCH_CHECK(dim_ == self.dim()-1,
+      "sort is supported along fastest changing dim only")
+  TORCH_CHECK(self.dim() == 2,
+      "sort supports 2D input tensors only")
+
+  Tensor values, indices;
+  std::tie(values, indices) =
+      at::topk(self, self.size(dim_), dim_, descending, true);
+
+  LOG_FUNC_END;
   return std::make_tuple(values, indices);
 }
 
@@ -217,5 +159,11 @@ static auto registry =
                 .schema(
                     "aten::topk.values(Tensor self, int k, int dim=-1, bool largest=True, bool sorted=True, *, Tensor(a!) values, Tensor(b!) indices) ->(Tensor(a!) values, Tensor(b!) indices)")
                 .impl_unboxedOnlyKernel<decltype(topk_out_hpu), &topk_out_hpu>(
+                    TensorTypeId::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema(
+                    "aten::sort(Tensor self, int dim=-1, bool descending=False) -> (Tensor values, Tensor indices)")
+                .impl_unboxedOnlyKernel<decltype(sort_hpu), &sort_hpu>(
                     TensorTypeId::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));
