@@ -145,16 +145,27 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu(
   Tensor running_var_hpu = get_batch_norm_optional_tensors(
       running_var, input.sizes()[1], input.device());
 
-  std::vector<const at::Tensor*> pt_inputs{
-      &input_nhwc, &bias_hpu, &wt_hpu, &running_mean_hpu, &running_var_hpu};
+  // running mean and running var cannot be in input and output list
+  // simultaneously. create a copy
+  auto running_mean_hpu_in =
+      at::empty(running_mean_hpu.sizes(), running_mean_hpu.options());
+  habana_helpers::copy_data_within_device(
+      running_mean_hpu, running_mean_hpu_in);
+  auto running_var_hpu_in =
+      at::empty(running_var_hpu.sizes(), running_var_hpu.options());
+  habana_helpers::copy_data_within_device(running_var_hpu, running_var_hpu_in);
+
+  std::vector<const at::Tensor*> pt_inputs{&input_nhwc,
+                                           &bias_hpu,
+                                           &wt_hpu,
+                                           &running_mean_hpu_in,
+                                           &running_var_hpu_in};
 
   auto output_nhwc = at::empty(input_nhwc.sizes(), input_nhwc.options());
 
   auto mean = at::empty(running_mean_hpu.sizes(), running_mean_hpu.options());
   auto istd = at::empty(running_var_hpu.sizes(), running_var_hpu.options());
 
-  // TODO: Check if inplace operations on running mean and var can be computed
-  // without duplicating memory sections
   std::vector<const at::Tensor*> pt_outputs{
       &output_nhwc, &mean, &istd, &running_mean_hpu, &running_var_hpu};
 
