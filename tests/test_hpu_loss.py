@@ -18,7 +18,6 @@ def test_hpu_nllloss(N, C):
     evaluate_fwd_kernel(kernel=kernel, kernel_params=kernel_params)
 
 
-@pytest.mark.xfail(reason="SW-8891")
 @pytest.mark.parametrize("N, C", test_case_list)
 def test_hpu_nllloss_fwd_bwd(N, C):
     # TODO: extend that test to all features
@@ -31,4 +30,4 @@ def test_hpu_nllloss_fwd_bwd(N, C):
 
 
 if __name__ == '__main__':
-    test_hpu_nllloss(*test_case_list[0])
+    test_hpu_nllloss_fwd_bwd(*test_case_list[0])

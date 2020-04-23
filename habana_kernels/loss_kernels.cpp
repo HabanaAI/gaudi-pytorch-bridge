@@ -30,6 +30,17 @@ ns_NLLLossKernel::Params synapse_nll_loss_params_builder(int64_t reduction) {
   return param;
 }
 
+/** @brief Function implements forward pass for torch.nn.NLLLoss
+ *  @param self: Input tensor of shape (N,C), where C = Number of classes.
+ *  @param target: Input tensor of shape (N), where each value 0 <= i < C.
+ *  @param weight: (Tensor, Optional) a manual rescaling weight given to each
+ * class. If given, it has to be a Tensor of size C. Otherwise, it is treated as
+ * if having all ones.
+ *  @param reduction: (String, Optional) Specifies the reduction to apply to the
+ * output: 'none' | 'mean' | 'sum'.
+ *  @param ignore_index: (Long, Optional) Specifies a target value that is
+ * ignored and does not contribute to the input gradient.
+ */
 std::tuple<Tensor, Tensor> nll_loss_forward_hpu(
     const Tensor& self,
     const Tensor& target,
@@ -37,43 +48,43 @@ std::tuple<Tensor, Tensor> nll_loss_forward_hpu(
     int64_t reduction,
     int64_t ignore_index) {
   LOG_FUNC_BEGIN;
-  // TORCH_CHECK(!weight.defined(), "weighted nll_loss is not yet supported")
-  // TORCH_CHECK(ignore_index == -100, "ignore_index is not yet supported")
+  TORCH_CHECK(!weight.defined(), "weighted nll_loss is not yet supported")
+  TORCH_CHECK(ignore_index == -100, "ignore_index is not yet supported")
 
-  // auto param = synapse_nll_loss_params_builder(reduction);
-  // auto output = at::empty({1}, self.options());
-  // auto modified_target = std::make_unique<Tensor>();
-  // if (target.scalar_type() == c10::ScalarType::Long)
-  //   *modified_target =
-  //       target.to("cpu").to(c10::ScalarType::Int).to(target.device());
+  auto param = synapse_nll_loss_params_builder(reduction);
+  auto output = at::empty({1}, self.options());
+  auto modified_target = habana_helpers::cast_tensor_to_integer(target);
 
-  // synapse_simple_generic_kernel(
-  //     {&output},
-  //     {&self, modified_target->defined() ? &*modified_target : &target},
-  //     "nll_loss",
-  //     &param,
-  //     sizeof(param),
-  //     SynapsePassType::FORWARD_PASS);
-  // LOG_FUNC_END;
+  synapse_simple_generic_kernel(
+      {&output},
+      {&self, &modified_target},
+      "nll_loss",
+      &param,
+      sizeof(param),
+      SynapsePassType::FORWARD_PASS);
+  LOG_FUNC_END;
 
-  // // Note: pytorch expects 0d tensor (scalar)
-  // output.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
-  // // Note: 2nd output is used in weighted version of this kernel
-  // return std::make_tuple(output, at::empty({0}, self.options()));
-
-  TORCH_WARN("nll_loss_forward_hpu executes CPU kernel internally");
-  auto hpu = self.device();
-  auto result = at::native::nll_loss_forward_cpu(
-      habana_helpers::to_cpu(self),
-      habana_helpers::to_cpu(target),
-      habana_helpers::to_cpu(weight),
-      reduction,
-      ignore_index);
-  auto ret1 = std::get<0>(result);
-  auto ret2 = std::get<1>(result);
-  return std::make_tuple(ret1.to(hpu), ret2.to(hpu));
+  // Note: pytorch expects 0d tensor (scalar)
+  output.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+  // Note: 2nd output is used in weighted version of this kernel
+  return std::make_tuple(output, at::empty({0}, self.options()));
 }
 
+/** @brief Function implements backward pass for torch.nn.NLLLoss
+ *  @param grad_output: Input (bwd_pass) tensor of shape N or 1.
+ *  @param self: Input (fwd_pass) tensor of shape (N,C), where C = Number of
+ * classes.
+ *  @param target: Input tensor (fwd_pass) of shape (N), where each value 0 <= i
+ * < C.
+ *  @param weight: (Tensor, Optional) a manual rescaling weight given to each
+ * class. If given, it has to be a Tensor of size C. Otherwise, it is treated as
+ * if having all ones.
+ *  @param reduction: (String, Optional) Specifies the reduction to apply to the
+ * output: 'none' | 'mean' | 'sum'.
+ *  @param ignore_index: (Long, Optional) Specifies a target value that is
+ * ignored and does not contribute to the input gradient.
+ *  @param total_weight: (single element tensor) sum of weights used in fwd_pass
+ */
 Tensor nll_loss_backward_hpu(
     const Tensor& grad_output,
     const Tensor& self,
@@ -87,42 +98,18 @@ Tensor nll_loss_backward_hpu(
   TORCH_CHECK(ignore_index == -100, "ignore_index is not yet supported")
   auto grad_input = at::empty(self.sizes(), self.options());
 
-  // auto param = synapse_nll_loss_params_builder(reduction);
-  // auto modified_target = std::make_unique<Tensor>();
-  // if (target.scalar_type() == c10::ScalarType::Long)
-  //   *modified_target =
-  //       target.to("cpu").to(c10::ScalarType::Int).to(target.device());
+  auto param = synapse_nll_loss_params_builder(reduction);
+  auto modified_target = habana_helpers::cast_tensor_to_integer(target);
 
-  // synapse_simple_generic_kernel(
-  //     {&grad_input},
-  //     {&grad_output, modified_target->defined() ? &*modified_target :
-  //     &target}, "nll_loss", &param, sizeof(param), SynapsePassType::BACKWARD_PASS);
-  // LOG_FUNC_END;
-  // return grad_input;
-
-  TORCH_WARN("nll_loss_backward_hpu executes CPU kernel internally");
-  auto grad_input_hpu = habana_helpers::to_cpu(grad_input);
-  auto hpu = self.device();
-  auto cpu_grad_output = habana_helpers::to_cpu(grad_output);
-  auto cpu_self = habana_helpers::to_cpu(self);
-  auto cpu_target = habana_helpers::to_cpu(target);
-  auto cpu_weight = habana_helpers::to_cpu(weight);
-  auto cpu_total_weight = habana_helpers::to_cpu(total_weight);
-
-  auto cpu_grad_input =
-      habana_helpers::to_cpu(at::empty(self.sizes(), self.options()));
-  at::native::nll_loss_backward_out_cpu(
-      cpu_grad_input,
-      cpu_grad_output,
-      cpu_self,
-      cpu_target,
-      cpu_weight,
-      reduction,
-      ignore_index,
-      cpu_total_weight);
-
+  synapse_simple_generic_kernel(
+      {&grad_input},
+      {&grad_output, &modified_target},
+      "nll_loss",
+      &param,
+      sizeof(param),
+      SynapsePassType::BACKWARD_PASS);
   LOG_FUNC_END;
-  return cpu_grad_input.to(hpu);
+  return grad_input;
 }
 
 static auto registry =
