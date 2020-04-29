@@ -25,13 +25,16 @@ Scalar _local_scalar_dense_hpu(const Tensor& self) {
   // Note: this macro expands to more types than HPU supports, but this is not
   // an issue
   // Note: Pytorch uses this function to check a specific emement of a tensor
-  // eg. embedding_bag validates the first value offsets using this function
+  // eg. embedding_bag validates the first value offsets to be 0 using this
+  // function
   AT_DISPATCH_ALL_TYPES_AND(
       at::ScalarType::BFloat16,
       self.scalar_type(),
       "_local_scalar_dense_hpu",
       [&] {
-        habana_helpers::copy_data_to_host(self, &r, sizeof(self.dtype()));
+        scalar_t val;
+        habana_helpers::copy_data_to_host(self, &val, sizeof(self.dtype()));
+        r = Scalar(val);
       });
 
   LOG_FUNC_END;

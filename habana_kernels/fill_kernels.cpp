@@ -66,11 +66,20 @@ Tensor& fill_hpu_(Tensor& self, Scalar value) {
       }
       synapse_fill(self, memset_val);
     } break;
+    case 8: {
+      // Even though HPU doesnt support long/double. Intermediate tensors in
+      // embedding_bag used by PyT needs this fill functionality
+      if (value.isIntegral(true)) {
+        uint64_t memset_val = value.to<long>();
+        synapse_fill(self, memset_val);
+      } else {
+        // double
+        double memset_val = value.to<double>();
+        synapse_fill(self, memset_val);
+      }
+    } break;
     default:
-      TORCH_CHECK(
-          self.element_size() < 4,
-          "HPU doesn't support data types bigger than 4 bytes. Unsupported type: ",
-          self.scalar_type());
+      TORCH_WARN("Unsupported data type used in fill");
   }
   LOG_FUNC_END;
   return self;
