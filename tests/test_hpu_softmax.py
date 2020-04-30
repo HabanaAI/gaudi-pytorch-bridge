@@ -13,20 +13,27 @@ test_case_list = [
     (64, 10, 0),
 ] + mnist_test_cast_list
 
+op_list = [
+    # op, op params dict
+    (F.log_softmax),
+    (F.softmax),
+]
 
 @pytest.mark.parametrize("N, C, dim", test_case_list)
-def test_hpu_log_softmax(N, C, dim):
+@pytest.mark.parametrize("kernel_op", op_list)
+def test_hpu_log_softmax(N, C, kernel_op, dim):
     kernel_params = {'input': torch.randn(N, C),
                      'dim': dim}
-    evaluate_fwd_kernel(kernel=F.log_softmax, kernel_params=kernel_params)
+    evaluate_fwd_kernel(kernel=kernel_op, kernel_params=kernel_params)
 
 
 @pytest.mark.parametrize("N, C, dim", test_case_list)
-def test_hpu_log_softmax_fwd_bwd(N, C, dim):
+@pytest.mark.parametrize("kernel_op", op_list)
+def test_hpu_log_softmax_fwd_bwd(N, C, kernel_op, dim):
     kernel_params = {'input': torch.randn(N, C, requires_grad=True),
                      'dim': dim}
     bwd_tensors = [torch.randn(N, C)]
-    evaluate_fwd_bwd_kernel(kernel=F.log_softmax, tensor_list_bwd=bwd_tensors,
+    evaluate_fwd_bwd_kernel(kernel=kernel_op, tensor_list_bwd=bwd_tensors,
                             kernel_params_fwd=kernel_params)
 
 
