@@ -7,6 +7,7 @@
  *
  ******************************************************************************
  */
+#include <ATen/ExpandUtils.h>
 #include <ATen/InferSize.h>
 #include <synapse_api.h>
 #include <torch/script.h>
@@ -441,6 +442,11 @@ inline int is_hpu_supported_transpose_type(const c10::ScalarType pt_type) {
   return ret;
 }
 
+/*************************************************************************
+ * @brief Kernel implementation for torch.Tensor.permute(dims)
+ * @param self - input on which permute needs to be applied
+ * @param dims_ - permute dims array
+ ************************************************************************/
 Tensor permute_hpu(const Tensor& self, IntArrayRef dims_) {
   LOG_FUNC_BEGIN;
   TORCH_CHECK(
@@ -459,6 +465,76 @@ Tensor permute_hpu(const Tensor& self, IntArrayRef dims_) {
   auto ret =
       self.to(DeviceType::CPU).permute(dims_).contiguous().to(self.device());
   return ret;
+}
+
+/*************************************************************************
+ * @brief Kernel implementation for torch.Tensor.expand(*sizes)
+ * @param self - input that needs to be expanded to a larger size.
+ * @param dims_ - expanded dim sizes
+ * NOTE: Tensor can be also expanded to a larger number of dimensions, and the
+ * new ones will be appended at the front. For the new dimensions, the size
+ * cannot be set to -1. We are using expand for braodcast op implementation
+ * and we differ from the PyTorch expand that says "does not allocate new
+ * memory, but only creates a new view on the existing tensor where a dimension
+ * of size one is expanded to a larger size by setting the stride to 0. "
+ ************************************************************************/
+Tensor expand_hpu(const Tensor& self, IntArrayRef size, bool implicit) {
+  // [expand implicit]
+  // The implicit flag is set to true for any expand calls inserted by broadcast
+  // operators in ExpandUtils.h This flag is recorded by the tracer to
+  // distinguish between expands inserted by broadcasts and those explicitly
+  // requested by the user, because it is legal to remove implicit expands
+  // from the graph, but not legal to remove the explicit ones.
+  // implicit is not used in this kernel.
+  LOG_FUNC_BEGIN;
+  TORCH_CHECK(
+      size.size() >= (size_t)self.dim(),
+      "expand(",
+      self.toString(),
+      "{",
+      self.sizes(),
+      "}, size=",
+      size,
+      "): the number of sizes provided (",
+      size.size(),
+      ") ",
+      "must be greater or equal to the number of dimensions in the tensor (",
+      self.dim(),
+      ")",
+      "implicit = ",
+      implicit);
+  std::vector<int64_t> expandedSizes;
+  std::vector<int64_t> expandedStrides;
+  std::tie(expandedSizes, expandedStrides) =
+      at::inferExpandGeometry(self.sizes(), self.strides(), size);
+
+  // expandedStrides will be set to 0 by inferExpandGeometry.
+  // Since we give back a contiguous tensor, we will set strides
+  // to proper values.
+  recalc_strides(expandedStrides, expandedSizes);
+  Tensor result; //(tensors.size());
+  if (self.sizes().equals(expandedSizes)) {
+    result = self;
+  } else {
+    result = at::empty_strided(expandedSizes, expandedStrides, self.options());
+    auto expanded_self_view_sizes =
+        std::vector<int64_t>(expandedSizes.size(), 1);
+    for (unsigned i = 0; i < self.dim(); i++) {
+      expanded_self_view_sizes[expandedSizes.size() - self.dim() + i] =
+          self.sizes()[i];
+    }
+    auto self_view =
+        self.view(expanded_self_view_sizes); // prepend dims of size 1
+    synapse_simple_generic_kernel(
+        {&result},
+        {&self_view},
+        "broadcast",
+        nullptr,
+        0,
+        SynapsePassType::NO_PASS);
+  }
+  LOG_FUNC_END;
+  return result;
 }
 
 static auto registry =
@@ -494,6 +570,12 @@ static auto registry =
                 .impl_unboxedOnlyKernel<
                     decltype(at::native::view),
                     &at::native::view>(TensorTypeId::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema(
+                    "aten::expand(Tensor(a) self, int[] size, *, bool implicit=False) -> Tensor(a)")
+                .impl_unboxedOnlyKernel<decltype(expand_hpu), &expand_hpu>(
+                    TensorTypeId::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema("aten::cat(Tensor[] tensors, int dim=0) -> Tensor")

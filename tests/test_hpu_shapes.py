@@ -17,6 +17,12 @@ test_case_list = [
     (8, 28, 28, 3),
 ]
 
+broadcast_test_case_list = [
+    [torch.randn(8, 3, 28, 28), torch.randn(1), torch.randn(1)],
+    [torch.randn(1, 4), torch.randn(3, 1), torch.randn(1)],
+    [torch.randn(1, 4), torch.randn(3, 1), torch.randn(2, 1, 1)]
+]
+
 # @torch.jit.script
 @pytest.mark.parametrize("N, H, W, C", test_case_list)
 def test_hpu_view(N, H, W, C):
@@ -81,9 +87,22 @@ def test_hpu_index_add(N, H, W, C, dim):
     bwd_tensors = [torch.randn(tuple(dim_list))]
     evaluate_fwd_bwd_kernel(kernel=kernel, tensor_list_bwd=bwd_tensors, kernel_params_fwd=kernel_params_fwd)
 
+@pytest.mark.parametrize("test_case_list", broadcast_test_case_list)
+def test_hpu_broadcast(test_case_list):
+    hpu = torch.device('habana')
+    cpu = torch.device('cpu')
+
+    t1 = test_case_list[0]
+    t2 = test_case_list[1]
+    t3 = test_case_list[2]
+
+    tcpu_out = torch.broadcast_tensors(t1, t2, t3)
+    thpu_out = torch.broadcast_tensors(t1.to(hpu), t2.to(hpu), t3.to(hpu))
+    compare_tensors(thpu_out, tcpu_out, atol=0, rtol=0)
 
 if __name__ == '__main__':
     test_hpu_view(*test_case_list[0])
     test_hpu_index_select(*test_case_list[0], 0)
     test_hpu_index_put(*test_case_list[0])
     test_hpu_index_add(*test_case_list[0], 0)
+    test_hpu_broadcast(broadcast_test_case_list[2])
