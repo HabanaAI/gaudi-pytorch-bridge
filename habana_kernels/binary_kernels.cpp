@@ -146,7 +146,6 @@ void synapse_add_sub_tensor_(
   TORCH_HABANA_CHECK(synGraphDestroy(graph_handle), "synGraphDestroy failed");
 }
 
-
 /*************************************************************************
  * @brief Synapse implementation for output = torch.add(arg1, alpha, arg2)
  * @param arg1 - first input
@@ -172,7 +171,8 @@ void synapse_add_tensor(
       "synGraphCreate failed");
 
   { // tensors scope
-    std::vector<synapse_helpers::tensor> syn_helper_inputs, syn_helper_tmps, syn_helper_outputs;
+    std::vector<synapse_helpers::tensor> syn_helper_inputs, syn_helper_tmps,
+        syn_helper_outputs;
     std::vector<synTensor> syn_inputs, syn_tmps, syn_outputs;
 
     std::vector<const at::Tensor*> pt_inputs{&arg1, &arg2};
@@ -274,17 +274,34 @@ Tensor& add_tensor_hpu_(Tensor& self, const Tensor& other, Scalar alpha) {
  ************************************************************************/
 Tensor add_tensor_hpu(Tensor& self, const Tensor& other, Scalar alpha) {
   LOG_FUNC_BEGIN;
-  check_ew_kernel_constraints(self, other);
 
-  Scalar alpha_converted = alpha;
-  if (self.scalar_type() != habana_helpers::scalar_type(alpha))
-    alpha_converted = alpha.toFloat();
+  auto output = at::empty(self.sizes(), self.options());
 
-  auto alpha_tensor = habana_helpers::scalar_to_device_tensor(
-      alpha_converted, self.options(), self.ndimension());
+  if ((other.dim() == 0) && (other.scalar_type() == c10::ScalarType::Long) &&
+      (other.device().type() == c10::DeviceType::CPU)) {
+    /*Fix for BN copy kernel issue. This is getting generated from unused code
+    in pytorch when momentum is configured. For now return w/o addition
+    // Ref:
+    https://github.com/pytorch/pytorch/blob/master/torch/nn/modules/batchnorm.py,
+    line - 446 should ideally be placed within if condition
+    TPC kernel are not invoked because add and mul kernels do not support
+    integer tensors. */
 
-   auto output = at::empty(self.sizes(), self.options());
-   synapse_add_tensor(output, self, other, &alpha_tensor);
+    auto output_cpu = self;
+    output = output_cpu.to(c10::DeviceType::HABANA);
+  } else {
+    check_ew_kernel_constraints(self, other);
+
+    Scalar alpha_converted = alpha;
+    if (self.scalar_type() != habana_helpers::scalar_type(alpha))
+      alpha_converted = alpha.toFloat();
+
+    auto alpha_tensor = habana_helpers::scalar_to_device_tensor(
+        alpha_converted, self.options(), self.ndimension());
+
+    output = at::empty(self.sizes(), self.options());
+    synapse_add_tensor(output, self, other, &alpha_tensor);
+  }
 
   LOG_FUNC_END;
   return output;
@@ -315,13 +332,17 @@ Tensor& sub_tensor_hpu_(Tensor& self, const Tensor& other, Scalar alpha) {
 }
 
 /*************************************************************************
- * @brief Kernel implementation for inplace Scalar torch.sub_(self, alpha, other)
+ * @brief Kernel implementation for inplace Scalar torch.sub_(self, alpha,
+ *other)
  * @param self - first input
  * @param other - second input
  * @param alpha - optional input
  * self -= alpha * other
  ************************************************************************/
-Tensor& sub_scalar_hpu_(Tensor& self, Scalar other, Scalar alpha) { //TODO: No way to test this yet from python
+Tensor& sub_scalar_hpu_(
+    Tensor& self,
+    Scalar other,
+    Scalar alpha) { // TODO: No way to test this yet from python
   LOG_FUNC_BEGIN;
 
   TORCH_CHECK(
@@ -400,7 +421,8 @@ Tensor& mul_tensor_hpu_(Tensor& self, const Tensor& other) {
   pt_inputs.push_back(&self);
   pt_inputs.push_back(modified_other->defined() ? &(*modified_other) : &other);
 
-  synapse_simple_generic_inplace_kernel(pt_inputs, "mult", nullptr, 0, SynapsePassType::FORWARD_PASS);
+  synapse_simple_generic_inplace_kernel(
+      pt_inputs, "mult", nullptr, 0, SynapsePassType::FORWARD_PASS);
 
   LOG_FUNC_END;
   return self;
@@ -455,7 +477,8 @@ Tensor mul_tensor_hpu(Tensor& self, const Tensor& other) {
   pt_inputs.push_back(modified_other->defined() ? &(*modified_other) : &other);
   pt_outputs.push_back(&output);
 
-  synapse_simple_generic_kernel(pt_outputs, pt_inputs, "mult", nullptr, 0, SynapsePassType::FORWARD_PASS);
+  synapse_simple_generic_kernel(
+      pt_outputs, pt_inputs, "mult", nullptr, 0, SynapsePassType::FORWARD_PASS);
   LOG_FUNC_END;
 
   return output;
@@ -475,14 +498,20 @@ void eq_tensor_out_hpu(
 
   // change dtype bool to int8 to match TPC kernel signature
   // NOTE: This works because both bool and int8 uses 1 byte per element
-  // Else we need to overload .to operator with an explicit TPC kernel for typecasting
+  // Else we need to overload .to operator with an explicit TPC kernel for
+  // typecasting
   output.to(c10::ScalarType::Char);
 
   std::vector<const at::Tensor*> pt_inputs{&self, &other};
   std::vector<const at::Tensor*> pt_outputs{&output};
 
   synapse_simple_generic_kernel(
-      pt_outputs, pt_inputs, "equal", nullptr, 0, SynapsePassType::FORWARD_PASS);
+      pt_outputs,
+      pt_inputs,
+      "equal",
+      nullptr,
+      0,
+      SynapsePassType::FORWARD_PASS);
 
   // convert back to bool
   output.to(c10::ScalarType::Bool);
@@ -522,23 +551,23 @@ Tensor div_tensor_hpu(const Tensor& self, const Tensor& other) {
   pt_inputs.push_back(&self);
 
   Tensor other_tensor;
-  if (1 == divisor_tot_elems) {//case where a single element tensor comes as divisor
+  if (1 == divisor_tot_elems) { // case where a single element tensor comes as
+                                // divisor
     Scalar other_converted = other.item<float>();
     other_tensor = habana_helpers::scalar_to_device_tensor(
         other_converted, self.options(), self.ndimension());
     pt_inputs.push_back(&other_tensor);
-  }
-  else if (divisor_sizes != self.sizes()) {
-    //TO DO: Return error or try to broadcast along appropriate dim
-    check_ew_kernel_constraints((const at::Tensor&) self, other);
+  } else if (divisor_sizes != self.sizes()) {
+    // TO DO: Return error or try to broadcast along appropriate dim
+    check_ew_kernel_constraints((const at::Tensor&)self, other);
     return out;
-  }
-  else {
+  } else {
     pt_inputs.push_back(&other);
   }
   std::vector<const at::Tensor*> pt_outputs;
   pt_outputs.push_back(&out);
-  synapse_simple_generic_kernel(pt_outputs, pt_inputs, "div", nullptr, 0, SynapsePassType::FORWARD_PASS);
+  synapse_simple_generic_kernel(
+      pt_outputs, pt_inputs, "div", nullptr, 0, SynapsePassType::FORWARD_PASS);
   LOG_FUNC_END;
   return out;
 }
@@ -549,7 +578,10 @@ Tensor div_tensor_hpu(const Tensor& self, const Tensor& other) {
  * @param self - first input
  * @param other - second input
  ***************************************************************************/
-Tensor& div_tensor_hpu_out(Tensor& result, const Tensor& self, const Tensor& other) {
+Tensor& div_tensor_hpu_out(
+    Tensor& result,
+    const Tensor& self,
+    const Tensor& other) {
   LOG_FUNC_BEGIN;
   auto divisor_sizes = other.sizes();
   auto divisor_tot_elems = other.numel();
@@ -558,23 +590,23 @@ Tensor& div_tensor_hpu_out(Tensor& result, const Tensor& self, const Tensor& oth
   pt_inputs.push_back(&self);
 
   Tensor other_tensor;
-  if (1 == divisor_tot_elems) {//case where a single element tensor comes as divisor
+  if (1 == divisor_tot_elems) { // case where a single element tensor comes as
+                                // divisor
     Scalar other_converted = other.item<float>();
     other_tensor = habana_helpers::scalar_to_device_tensor(
         other_converted, self.options(), self.ndimension());
     pt_inputs.push_back(&other_tensor);
-  }
-  else if (divisor_sizes != self.sizes()) {
-    //TO DO: Return error or try to broadcast along appropriate dim
+  } else if (divisor_sizes != self.sizes()) {
+    // TO DO: Return error or try to broadcast along appropriate dim
     check_ew_kernel_constraints(self, other);
     return result;
-  }
-  else {
+  } else {
     pt_inputs.push_back(&other);
   }
   std::vector<const at::Tensor*> pt_outputs;
   pt_outputs.push_back(&result);
-  synapse_simple_generic_kernel(pt_outputs, pt_inputs, "div", nullptr, 0, SynapsePassType::FORWARD_PASS);
+  synapse_simple_generic_kernel(
+      pt_outputs, pt_inputs, "div", nullptr, 0, SynapsePassType::FORWARD_PASS);
 
   LOG_FUNC_END;
   return result;
@@ -593,27 +625,29 @@ Tensor& div_tensor_hpu_(Tensor& self, const Tensor& other) {
   pt_inputs.push_back(&self);
 
   Tensor other_tensor;
-  if (1 == divisor_tot_elems) {//case where a single element tensor comes as divisor
+  if (1 == divisor_tot_elems) { // case where a single element tensor comes as
+                                // divisor
     Scalar other_converted = other.item<float>();
     other_tensor = habana_helpers::scalar_to_device_tensor(
         other_converted, self.options(), self.ndimension());
     pt_inputs.push_back(&other_tensor);
-  }
-  else if (divisor_sizes != self.sizes()) {
-    //TO DO: Return error or try to broadcast along appropriate dim
+  } else if (divisor_sizes != self.sizes()) {
+    // TO DO: Return error or try to broadcast along appropriate dim
     check_ew_kernel_constraints(self, other);
     return self;
-  }
-  else {
+  } else {
     pt_inputs.push_back(&other);
   }
-  synapse_simple_generic_inplace_kernel(pt_inputs, "div", nullptr, 0, SynapsePassType::FORWARD_PASS);
+  synapse_simple_generic_inplace_kernel(
+      pt_inputs, "div", nullptr, 0, SynapsePassType::FORWARD_PASS);
 
   LOG_FUNC_END;
   return self;
 }
 
-Tensor div_scalar_hpu(const Tensor& self, Scalar other) {//TODO: No way to test this yet from python
+Tensor div_scalar_hpu(
+    const Tensor& self,
+    Scalar other) { // TODO: No way to test this yet from python
   LOG_FUNC_BEGIN;
   TORCH_CHECK(
       self.scalar_type() != habana_helpers::scalar_type(other),
@@ -632,13 +666,16 @@ Tensor div_scalar_hpu(const Tensor& self, Scalar other) {//TODO: No way to test 
   std::vector<const at::Tensor*> pt_outputs;
   pt_outputs.push_back(&out);
 
-  synapse_simple_generic_kernel(pt_outputs, pt_inputs, "div", nullptr, 0, SynapsePassType::FORWARD_PASS);
+  synapse_simple_generic_kernel(
+      pt_outputs, pt_inputs, "div", nullptr, 0, SynapsePassType::FORWARD_PASS);
 
   LOG_FUNC_END;
   return out;
 }
 
-Tensor& div_scalar_hpu_(Tensor& self, Scalar other) {//TODO: No way to test this yet from python
+Tensor& div_scalar_hpu_(
+    Tensor& self,
+    Scalar other) { // TODO: No way to test this yet from python
   LOG_FUNC_BEGIN;
   std::vector<const at::Tensor*> pt_inputs;
   TORCH_CHECK(
@@ -654,7 +691,8 @@ Tensor& div_scalar_hpu_(Tensor& self, Scalar other) {//TODO: No way to test this
   pt_inputs.push_back(&self);
   pt_inputs.push_back(&divisor_tensor);
 
-  synapse_simple_generic_inplace_kernel(pt_inputs, "div", nullptr, 0, SynapsePassType::FORWARD_PASS);
+  synapse_simple_generic_inplace_kernel(
+      pt_inputs, "div", nullptr, 0, SynapsePassType::FORWARD_PASS);
 
   LOG_FUNC_END;
   return self;
@@ -698,8 +736,7 @@ static auto registry =
                     &mul_tensor_hpu_>(TensorTypeId::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
-                .schema(
-                    "aten::mul.Tensor(Tensor self, Tensor other) -> Tensor")
+                .schema("aten::mul.Tensor(Tensor self, Tensor other) -> Tensor")
                 .impl_unboxedOnlyKernel<
                     decltype(mul_tensor_hpu),
                     &mul_tensor_hpu>(TensorTypeId::HABANATensorId)
@@ -718,8 +755,7 @@ static auto registry =
                     &eq_tensor_out_hpu>(TensorTypeId::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
-                .schema(
-                    "aten::div.Tensor(Tensor self, Tensor other) -> Tensor")
+                .schema("aten::div.Tensor(Tensor self, Tensor other) -> Tensor")
                 .impl_unboxedOnlyKernel<
                     decltype(div_tensor_hpu),
                     &div_tensor_hpu>(TensorTypeId::HABANATensorId)
@@ -739,8 +775,7 @@ static auto registry =
                     &div_tensor_hpu_>(TensorTypeId::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
-                .schema(
-                    "aten::div.Scalar(Tensor self, Scalar other) -> Tensor")
+                .schema("aten::div.Scalar(Tensor self, Scalar other) -> Tensor")
                 .impl_unboxedOnlyKernel<
                     decltype(div_scalar_hpu),
                     &div_scalar_hpu>(TensorTypeId::HABANATensorId)
