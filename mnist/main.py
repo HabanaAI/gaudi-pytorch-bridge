@@ -36,13 +36,14 @@ def train(args, model, device, train_loader, optimizer, epoch):
         optimizer.zero_grad()
         output = model(data)
         loss = F.nll_loss(output, target)
+        loss_cpu = loss
         loss.backward()
         optimizer.step()
         # if batch_idx % args.log_interval == 0:
         with open('mnistpy.log', 'a') as file:
             file.write('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}\n'.format(
                 epoch, batch_idx * len(data), len(train_loader.dataset),
-                100. * batch_idx / len(train_loader), loss.item()))
+                100. * batch_idx / len(train_loader), loss_cpu.to(torch.device('cpu')).item()))
 
 
 def test(args, model, device, test_loader):
