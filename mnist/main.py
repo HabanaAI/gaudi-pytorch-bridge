@@ -1,11 +1,58 @@
 from __future__ import print_function
 import argparse
+import os
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+import sys
 from torchvision import datasets, transforms
 
+class TrainMetaData():
+    def __init__(self):
+        self.current_train_step = 0
+        self.current_eval_step = 0
+        self.num_train_steps = sys.maxsize
+        self.num_eval_steps = sys.maxsize
+        self.logging = True #Enable - default
+
+    def increment_train_step(self):
+        self.current_train_step += 1
+        return self.current_train_step
+
+    def increment_eval_step(self):
+        self.current_eval_step += 1
+        return self.current_eval_step
+
+    def set_num_train_steps(self, x):
+        self.num_train_steps = x
+
+    def set_num_eval_steps(self, x):
+        self.num_eval_steps = x
+
+    def end_train(self):
+        if (self.current_train_step == self.num_train_steps):
+            return True
+        else:
+            return False
+
+    def end_eval(self):
+        if (self.current_eval_step == self.num_eval_steps):
+            return True
+        else:
+            return False
+
+    def end_train_n_eval(self):
+        if (self.end_train() and self.end_eval()):
+            return True
+        else:
+            return False
+
+    def set_logging(self, x):
+        self.logging = x
+
+    def is_logging(self):
+        return self.logging
 
 class Net(nn.Module):
     def __init__(self):
@@ -26,10 +73,11 @@ class Net(nn.Module):
         return F.log_softmax(x, dim=1)
 
 
-def train(args, model, device, train_loader, optimizer, epoch):
+def train(args, model, device, train_loader, optimizer, epoch, trainMetaData):
     model.train()
-    with open('mnistpy.log', 'w') as file:  # reset file
-        file.write('')
+    if(trainMetaData.is_logging()):
+        with open('mnistpy.log', 'w') as file:  # reset file
+            file.write('')
 
     for batch_idx, (data, target) in enumerate(train_loader):
         data, target = data.to(device), target.to(device)
@@ -40,13 +88,20 @@ def train(args, model, device, train_loader, optimizer, epoch):
         loss.backward()
         optimizer.step()
         # if batch_idx % args.log_interval == 0:
-        with open('mnistpy.log', 'a') as file:
-            file.write('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}\n'.format(
-                epoch, batch_idx * len(data), len(train_loader.dataset),
-                100. * batch_idx / len(train_loader), loss_cpu.to(torch.device('cpu')).item()))
+        if(trainMetaData.is_logging()):
+            with open('mnistpy.log', 'a') as file:
+                file.write('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}\n'.format(
+                    epoch, batch_idx * len(data), len(train_loader.dataset),
+                    100. * batch_idx / len(train_loader), loss_cpu.to(torch.device('cpu')).item()))
+        print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}\n'.format(
+            epoch, batch_idx * len(data), len(train_loader.dataset),
+                    100. * batch_idx / len(train_loader), loss_cpu.to(torch.device('cpu')).item()))
+        trainMetaData.increment_train_step()
+        if trainMetaData.end_train() is True:
+            break
 
 
-def test(args, model, device, test_loader):
+def test(args, model, device, test_loader, trainMetaData):
     model.eval()
     test_loss = 0
     correct = 0
@@ -57,8 +112,16 @@ def test(args, model, device, test_loader):
             # sum up batch loss
             test_loss += F.nll_loss(output, target, reduction='sum').item()
             # get the index of the max log-probability
-            pred = output.argmax(dim=1, keepdim=True)
-            correct += pred.eq(target.view_as(pred)).sum().item()
+            output_cpu = output
+            pred = output_cpu.to(torch.device('cpu')).argmax(dim=1, keepdim=True)
+            target_cpu = target
+            target_cpu = target_cpu.to(torch.device('cpu'))
+            new_view = target_cpu.view_as(pred)
+            correct += pred.eq(new_view).sum().item()
+            trainMetaData.increment_eval_step()
+            if trainMetaData.end_eval() is True:
+                break
+
 
     test_loss /= len(test_loader.dataset)
 
@@ -89,11 +152,17 @@ def main():
 
     parser.add_argument('--save-model', action='store_true', default=False,
                         help='For Saving the current Model')
+    parser.add_argument('--num-train-steps', type=int, default=sys.maxsize, metavar='T',
+                        help='number of steps for training')
+    parser.add_argument('--num-eval-steps', type=int, default=sys.maxsize, metavar='E',
+                        help='number of steps for evaluation')
+    parser.add_argument('--no-log', action='store_true', default=False,
+                        help='disable log')
     args = parser.parse_args()
 
     use_habana = not args.no_habana
     if use_habana:
-        torch.ops.load_library("libhabana_pytorch_plugin.so")
+        torch.ops.load_library(os.path.join(os.environ['BUILD_ROOT_LATEST'], "libhabana_pytorch_plugin.so"))
 
     torch.manual_seed(args.seed)
 
@@ -116,15 +185,22 @@ def main():
         batch_size=args.test_batch_size, shuffle=True, **kwargs)
 
     model = Net().to(device)
+    trainMetaData = TrainMetaData()
+    trainMetaData.set_num_train_steps(args.num_train_steps)
+    trainMetaData.set_num_eval_steps(args.num_eval_steps)
+    log = not args.no_log
+    trainMetaData.set_logging(True if log else False)
     optimizer = optim.SGD(model.parameters(), lr=args.lr,
                           momentum=args.momentum)
 
     for epoch in range(1, args.epochs + 1):
-        train(args, model, device, train_loader, optimizer, epoch)
-        test(args, model, device, test_loader)
-
+        train(args, model, device, train_loader, optimizer, epoch, trainMetaData)
+        test(args, model, device, test_loader, trainMetaData)
+        if (trainMetaData.end_train_n_eval()):
+            break
     if args.save_model:
-        torch.save(model.state_dict(), "mnist_cnn.pt")
+        model_cpu = model
+        torch.save(model_cpu.to('cpu').state_dict(), "mnist_cnn.pt")
 
 
 if __name__ == '__main__':
