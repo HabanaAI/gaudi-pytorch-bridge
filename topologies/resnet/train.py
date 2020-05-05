@@ -23,7 +23,57 @@ except ImportError:
     amp = None
 
 
-def train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, print_freq, apex=False):
+#TrainMetaData is to set additional configurations/flags on top of those offered by the standard training script.
+#example uses include specifying the number of steps to train rather than training a full epoch.
+class TrainMetaData():
+    def __init__(self):
+        self.current_train_step = 0
+        self.current_eval_step = 0
+        #use a large value for num_train_steps  by default so that if the num_train_steps is not set,
+        #the default behaviour of running training for all the iterations is maintained.
+        self.num_train_steps = sys.maxsize
+        self.num_eval_steps = sys.maxsize
+        self.logging = True #Enable - default
+
+    def increment_train_step(self):
+        self.current_train_step += 1
+        return self.current_train_step
+
+    def increment_eval_step(self):
+        self.current_eval_step += 1
+        return self.current_eval_step
+
+    def set_num_train_steps(self, x):
+        self.num_train_steps = x
+
+    def set_num_eval_steps(self, x):
+        self.num_eval_steps = x
+
+    def end_train(self):
+        if (self.current_train_step == self.num_train_steps):
+            return True
+        else:
+            return False
+
+    def end_eval(self):
+        if (self.current_eval_step == self.num_eval_steps):
+            return True
+        else:
+            return False
+
+    def end_train_n_eval(self):
+        if (self.end_train() and self.end_eval()):
+            return True
+        else:
+            return False
+
+    def set_logging(self, x):
+        self.logging = x
+
+    def is_logging(self):
+        return self.logging
+
+def train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, print_freq, trainMetaData, apex=False):
     model.train()
     metric_logger = utils.MetricLogger(delimiter="  ")
     metric_logger.add_meter('lr', utils.SmoothedValue(window_size=1, fmt='{value}'))
@@ -52,9 +102,14 @@ def train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, pri
         metric_logger.meters['acc1'].update(acc1.item(), n=batch_size)
         metric_logger.meters['acc5'].update(acc5.item(), n=batch_size)
         metric_logger.meters['img/s'].update(batch_size / (time.time() - start_time))
+        #If only the specified number of steps are to be executed, check if those many steps are
+        #done and if yes, break the training loop
+        trainMetaData.increment_train_step()
+        if trainMetaData.end_train() is True:
+            break
 
 
-def evaluate(model, criterion, data_loader, device, print_freq=100):
+def evaluate(model, criterion, data_loader, trainMetaData, device, print_freq=100):
     model.eval()
     metric_logger = utils.MetricLogger(delimiter="  ")
     header = 'Test:'
@@ -74,6 +129,11 @@ def evaluate(model, criterion, data_loader, device, print_freq=100):
             metric_logger.update(loss=loss_cpu.item())
             metric_logger.meters['acc1'].update(acc1.item(), n=batch_size)
             metric_logger.meters['acc5'].update(acc5.item(), n=batch_size)
+            #If only the specified number of steps are to be executed, check if those many steps are
+            #done and if yes, break the evaluation loop
+            trainMetaData.increment_eval_step()
+            if trainMetaData.end_eval() is True:
+                break
     # gather the stats from all processes
     metric_logger.synchronize_between_processes()
 
@@ -163,6 +223,9 @@ def main(args):
     utils.init_distributed_mode(args)
     print(args)
 
+    trainMetaData = TrainMetaData()
+    trainMetaData.set_num_train_steps(args.num_train_steps)
+    trainMetaData.set_num_eval_steps(args.num_eval_steps)
     if args.device == 'habana':
         print("Attempting to load library from path ", os.environ['BUILD_ROOT_LATEST'], flush=True)
         torch.ops.load_library(os.path.join(os.environ['BUILD_ROOT_LATEST'], "libhabana_pytorch_plugin.so"))
@@ -218,7 +281,7 @@ def main(args):
         args.start_epoch = checkpoint['epoch'] + 1
 
     if args.test_only:
-        evaluate(model, criterion, data_loader_test, device=device)
+        evaluate(model, criterion, data_loader_test, trainMetaData, device=device)
         return
 
     print("Start training")
@@ -226,9 +289,9 @@ def main(args):
     for epoch in range(args.start_epoch, args.epochs):
         if args.distributed:
             train_sampler.set_epoch(epoch)
-        train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, args.print_freq, args.apex)
+        train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, args.print_freq, trainMetaData, args.apex)
         lr_scheduler.step()
-        evaluate(model, criterion, data_loader_test, device=device)
+        evaluate(model, criterion, data_loader_test, trainMetaData, device=device)
         if args.output_dir:
             #Bring the model back to CPU before storing. Needed if running on Habana.
             model_without_ddp_cpu = model_without_ddp.to('cpu')
@@ -244,6 +307,10 @@ def main(args):
             utils.save_on_master(
                 checkpoint,
                 os.path.join(args.output_dir, 'checkpoint.pth'))
+            #If only the specified number of steps are to be executed, check if those many steps are
+            #done for train and eval and if yes, break the epoch loop
+            if (trainMetaData.end_train_n_eval()):
+                break
 
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
@@ -313,7 +380,10 @@ def parse_args():
     parser.add_argument('--world-size', default=1, type=int,
                         help='number of distributed processes')
     parser.add_argument('--dist-url', default='env://', help='url used to set up distributed training')
-
+    parser.add_argument('--num-train-steps', type=int, default=sys.maxsize, metavar='T',
+                        help='number of steps a.k.a iterations to run in training phase')
+    parser.add_argument('--num-eval-steps', type=int, default=sys.maxsize, metavar='E',
+                        help='number of steps a.k.a iterations to run in evaluation phase')
     args = parser.parse_args()
 
     return args
