@@ -46,7 +46,9 @@ def train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, pri
 
         acc1, acc5 = utils.accuracy(output, target, topk=(1, 5))
         batch_size = image.shape[0]
-        metric_logger.update(loss=loss.item(), lr=optimizer.param_groups[0]["lr"])
+        #Bring the loss tensor back to CPU before printing. Certainly needed if running on Habana.
+        loss_cpu = loss.to('cpu').detach()
+        metric_logger.update(loss=loss_cpu.item(), lr=optimizer.param_groups[0]["lr"])
         metric_logger.meters['acc1'].update(acc1.item(), n=batch_size)
         metric_logger.meters['acc5'].update(acc5.item(), n=batch_size)
         metric_logger.meters['img/s'].update(batch_size / (time.time() - start_time))
@@ -67,7 +69,9 @@ def evaluate(model, criterion, data_loader, device, print_freq=100):
             # FIXME need to take into account that the datasets
             # could have been padded in distributed setup
             batch_size = image.shape[0]
-            metric_logger.update(loss=loss.item())
+            #Bring the loss tensor back to CPU before printing. Certainly needed if running on Habana.
+            loss_cpu = loss.to('cpu').detach()
+            metric_logger.update(loss=loss_cpu.item())
             metric_logger.meters['acc1'].update(acc1.item(), n=batch_size)
             metric_logger.meters['acc5'].update(acc5.item(), n=batch_size)
     # gather the stats from all processes
@@ -226,8 +230,10 @@ def main(args):
         lr_scheduler.step()
         evaluate(model, criterion, data_loader_test, device=device)
         if args.output_dir:
+            #Bring the model back to CPU before storing. Needed if running on Habana.
+            model_without_ddp_cpu = model_without_ddp.to('cpu')
             checkpoint = {
-                'model': model_without_ddp.state_dict(),
+                'model': model_without_ddp_cpu.state_dict(),
                 'optimizer': optimizer.state_dict(),
                 'lr_scheduler': lr_scheduler.state_dict(),
                 'epoch': epoch,
