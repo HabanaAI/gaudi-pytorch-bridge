@@ -96,6 +96,12 @@ Tensor nll_loss_backward_hpu(
   LOG_FUNC_BEGIN;
   TORCH_CHECK(!weight.defined(), "weighted nll_loss is not yet supported")
   TORCH_CHECK(ignore_index == -100, "ignore_index is not yet supported")
+
+  // Convert 0D tensor to 1D tensor before passing to Synapse
+  if (grad_output.dim() == 0) {
+    grad_output.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+  }
+
   auto grad_input = at::empty(self.sizes(), self.options());
 
   auto param = synapse_nll_loss_params_builder(reduction);
