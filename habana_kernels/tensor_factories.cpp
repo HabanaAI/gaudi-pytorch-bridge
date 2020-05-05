@@ -72,7 +72,7 @@ Tensor empty_hpu(
       /*resizeable=*/true);
 
   auto tensor = at::detail::make_tensor<TensorImpl>(
-      std::move(storage_impl), at::TensorTypeId::HABANATensorId);
+      std::move(storage_impl), at::DispatchKey::HABANATensorId);
   // Default TensorImpl has size [0]
   if (size.size() != 1 || size[0] != 0) {
     tensor.unsafeGetTensorImpl()->set_sizes_contiguous(size);
@@ -106,14 +106,14 @@ static auto registry =
                     "aten::clone(Tensor self, *, MemoryFormat? memory_format=None) -> Tensor")
                 .impl_unboxedOnlyKernel<
                     decltype(at::native::clone),
-                    &at::native::clone>(TensorTypeId::HABANATensorId)
+                    &at::native::clone>(DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema(
                     "aten::empty.memory_format(int[] size, *, ScalarType? dtype=None, Layout? layout=None, Device? device=None, bool? pin_memory=None, MemoryFormat? memory_format=None) -> Tensor")
                 .impl_unboxedOnlyKernel<
                     decltype(at::native::empty_hpu),
-                    &at::native::empty_hpu>(TensorTypeId::HABANATensorId)
+                    &at::native::empty_hpu>(DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema(
@@ -121,11 +121,11 @@ static auto registry =
                 .impl_unboxedOnlyKernel<
                     decltype(at::native::empty_strided_hpu),
                     &at::native::empty_strided_hpu>(
-                    TensorTypeId::HABANATensorId)
+                    DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema("aten::zero_(Tensor(a!) self) -> Tensor(a!)")
                 .impl_unboxedOnlyKernel<
                     decltype(at::native::zero_),
-                    &at::native::zero_>(TensorTypeId::HABANATensorId)
+                    &at::native::zero_>(DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));

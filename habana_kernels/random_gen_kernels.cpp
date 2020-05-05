@@ -124,11 +124,11 @@ static auto registry =
                 .schema(
                     "aten::uniform_(Tensor(a!) self, float from=0, float to=1, *, Generator? generator=None) -> Tensor(a!)")
                 .impl_unboxedOnlyKernel<decltype(uniform_hpu), &uniform_hpu>(
-                    TensorTypeId::HABANATensorId)
+                    DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema(
                     "aten::normal_(Tensor(a!) self, float mean=0, float std=1, *, Generator? generator=None) -> Tensor(a!)")
                 .impl_unboxedOnlyKernel<decltype(normal_hpu), &normal_hpu>(
-                    TensorTypeId::HABANATensorId)
+                    DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));

@@ -209,26 +209,26 @@ static auto registry =
                     "aten::index_select(Tensor self, int dim, Tensor index) -> Tensor")
                 .impl_unboxedOnlyKernel<
                     decltype(index_select_hpu),
-                    &index_select_hpu>(TensorTypeId::HABANATensorId)
+                    &index_select_hpu>(DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema(
                     "aten::_index_put_impl_(Tensor(a!) self, Tensor?[] indices, Tensor values, bool accumulate=False, bool unsafe=False) -> Tensor(a!)")
                 .impl_unboxedOnlyKernel<
                     decltype(index_put_impl_hpu_),
-                    &index_put_impl_hpu_>(TensorTypeId::HABANATensorId)
+                    &index_put_impl_hpu_>(DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema(
                     "aten::index_add_(Tensor(a!) self, int dim, Tensor index, Tensor source) -> Tensor(a!)")
                 .impl_unboxedOnlyKernel<
                     decltype(index_add_hpu_),
-                    &index_add_hpu_>(TensorTypeId::HABANATensorId)
+                    &index_add_hpu_>(DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema(
                     "aten::scatter_.src(Tensor(a!) self, int dim, Tensor index, Tensor src) -> Tensor(a!)")
                 .impl_unboxedOnlyKernel<
                     decltype(scatter_inplace_src_hpu),
-                    &scatter_inplace_src_hpu>(TensorTypeId::HABANATensorId)
+                    &scatter_inplace_src_hpu>(DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));

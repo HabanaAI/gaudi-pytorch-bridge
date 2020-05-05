@@ -380,25 +380,25 @@ static auto registry =
         .op(torch::RegisterOperators::options()
                 .schema("aten::mm(Tensor self, Tensor mat2) -> Tensor")
                 .impl_unboxedOnlyKernel<decltype(matmul_hpu), &matmul_hpu>(
-                    TensorTypeId::HABANATensorId)
+                    DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema(
                     "aten::addmm(Tensor self, Tensor mat1, Tensor mat2, *, Scalar beta = 1, Scalar alpha = 1) ->Tensor")
                 .impl_unboxedOnlyKernel<
                     decltype(matmul_with_bias_hpu),
-                    &matmul_with_bias_hpu>(TensorTypeId::HABANATensorId)
+                    &matmul_with_bias_hpu>(DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema(
                     "aten::bmm.out(Tensor self, Tensor mat2, *, Tensor(a!) out) -> Tensor(a!)")
                 .impl_unboxedOnlyKernel<
                     decltype(batch_gemm_out_hpu),
-                    &batch_gemm_out_hpu>(TensorTypeId::HABANATensorId)
+                    &batch_gemm_out_hpu>(DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema("aten::bmm(Tensor self, Tensor mat2) -> Tensor")
                 .impl_unboxedOnlyKernel<
                     decltype(batch_gemm_hpu),
-                    &batch_gemm_hpu>(TensorTypeId::HABANATensorId)
+                    &batch_gemm_hpu>(DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));

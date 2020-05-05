@@ -516,7 +516,7 @@ static auto registry =
                     "aten::max_pool2d_with_indices(Tensor self, int[2] kernel_size, int[2] stride = [], int[2] padding = 0, int[2] dilation = 1, bool ceil_mode = False) ->(Tensor, Tensor)")
                 .impl_unboxedOnlyKernel<
                     decltype(max_pool2d_with_indices_hpu),
-                    &max_pool2d_with_indices_hpu>(TensorTypeId::HABANATensorId)
+                    &max_pool2d_with_indices_hpu>(DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema(
@@ -524,7 +524,7 @@ static auto registry =
                 .impl_unboxedOnlyKernel<
                     decltype(max_pool2d_with_indices_backward_hpu),
                     &max_pool2d_with_indices_backward_hpu>(
-                    TensorTypeId::HABANATensorId)
+                    DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema(
@@ -532,19 +532,19 @@ static auto registry =
                 .impl_unboxedOnlyKernel<
                     decltype(max_pool2d_with_indices_backward_out_hpu),
                     &max_pool2d_with_indices_backward_out_hpu>(
-                    TensorTypeId::HABANATensorId)
+                    DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema(
                     "aten::avg_pool2d(Tensor self, int[2] kernel_size, int[2] stride=[], int[2] padding=0, bool ceil_mode=False, bool count_include_pad=True, int? divisor_override=None) -> Tensor")
                 .impl_unboxedOnlyKernel<
                     decltype(avg_pool2d_hpu),
-                    &avg_pool2d_hpu>(TensorTypeId::HABANATensorId)
+                    &avg_pool2d_hpu>(DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema(
                     "aten::avg_pool2d_backward(Tensor grad_output, Tensor self, int[2] kernel_size, int[2] stride, int[2] padding, bool ceil_mode, bool count_include_pad, int? divisor_override) -> Tensor")
                 .impl_unboxedOnlyKernel<
                     decltype(avg_pool2d_backward_hpu),
-                    &avg_pool2d_backward_hpu>(TensorTypeId::HABANATensorId)
+                    &avg_pool2d_backward_hpu>(DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));

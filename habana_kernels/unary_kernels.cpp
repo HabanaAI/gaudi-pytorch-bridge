@@ -120,25 +120,25 @@ static auto registry =
         .op(torch::RegisterOperators::options()
                 .schema("aten::relu_(Tensor(a!) self) -> Tensor(a!)")
                 .impl_unboxedOnlyKernel<decltype(relu_hpu_), &relu_hpu_>(
-                    TensorTypeId::HABANATensorId)
+                    DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema("aten::relu(Tensor self) -> Tensor")
                 .impl_unboxedOnlyKernel<decltype(relu_hpu), &relu_hpu>(
-                    TensorTypeId::HABANATensorId)
+                    DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema("aten::sigmoid(Tensor self) -> Tensor")
                 .impl_unboxedOnlyKernel<decltype(sigmoid_hpu), &sigmoid_hpu>(
-                    TensorTypeId::HABANATensorId)
+                    DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema("aten::sigmoid_backward(Tensor grad_output, Tensor output) -> Tensor")
                 .impl_unboxedOnlyKernel<decltype(sigmoid_backward_hpu), &sigmoid_backward_hpu>(
-                    TensorTypeId::HABANATensorId)
+                    DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema("aten::sqrt(Tensor self) -> Tensor")
                 .impl_unboxedOnlyKernel<decltype(sqrt_hpu), &sqrt_hpu>(
-                    TensorTypeId::HABANATensorId)
+                    DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));

@@ -527,56 +527,56 @@ static auto registry =
                     "aten::sum.dim_IntList(Tensor self, int[1] dim, bool keepdim=False, *, ScalarType? dtype=None) -> Tensor")
                 .impl_unboxedOnlyKernel<
                     decltype(sum_dim_IntList_hpu),
-                    &sum_dim_IntList_hpu>(TensorTypeId::HABANATensorId)
+                    &sum_dim_IntList_hpu>(DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema(
                     "aten::sum.IntList_out(Tensor self, int[1] dim, bool keepdim=False, *, ScalarType? dtype=None, Tensor(a!) out) -> Tensor(a!)")
                 .impl_unboxedOnlyKernel<
                     decltype(sum_IntList_out_hpu),
-                    &sum_IntList_out_hpu>(TensorTypeId::HABANATensorId)
+                    &sum_IntList_out_hpu>(DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema(
                     "aten::mean.dim(Tensor self, int[1] dim, bool keepdim=False, *, ScalarType? dtype=None) -> Tensor")
                 .impl_unboxedOnlyKernel<decltype(mean_dim_hpu), &mean_dim_hpu>(
-                    TensorTypeId::HABANATensorId)
+                    DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema(
                     "aten::mean.out(Tensor self, int[1] dim, bool keepdim=False, *, ScalarType? dtype=None, Tensor(a!) out) -> Tensor(a!)")
                 .impl_unboxedOnlyKernel<
                     decltype(mean_dim_out_hpu),
-                    &mean_dim_out_hpu>(TensorTypeId::HABANATensorId)
+                    &mean_dim_out_hpu>(DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema(
                     "aten::sum(Tensor self, *, ScalarType? dtype=None) -> Tensor")
                 .impl_unboxedOnlyKernel<decltype(sum_hpu), &sum_hpu>(
-                    TensorTypeId::HABANATensorId)
+                    DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema(
                     "aten::mean(Tensor self, *, ScalarType? dtype=None) -> Tensor")
                 .impl_unboxedOnlyKernel<decltype(mean_hpu), &mean_hpu>(
-                    TensorTypeId::HABANATensorId)
+                    DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema(
                     "aten::any.dim(Tensor self, int dim, bool keepdim=False) -> Tensor")
                 .impl_unboxedOnlyKernel<
                     decltype(any_dim_hpu),
-                    &any_dim_hpu>(TensorTypeId::HABANATensorId)
+                    &any_dim_hpu>(DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema(
                     "aten::any(Tensor self) -> Tensor")
                 .impl_unboxedOnlyKernel<decltype(any_hpu), &any_hpu>(
-                    TensorTypeId::HABANATensorId)
+                    DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema(
                     "aten::any.out(Tensor self, int dim, bool keepdim=False, *, Tensor(a!) out) -> Tensor(a!)")
                 .impl_unboxedOnlyKernel<decltype(any_dim_out_hpu), &any_dim_out_hpu>(
-                    TensorTypeId::HABANATensorId)
+                    DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));

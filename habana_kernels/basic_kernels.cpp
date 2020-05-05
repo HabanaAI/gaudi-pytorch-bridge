@@ -97,13 +97,18 @@ Tensor& set_hpu_(
   auto scalar_type = self.scalar_type();
   auto self_ = checked_dense_tensor_unwrap(
       self, "self", 1, "_th_set_", false, DeviceType::HABANA, scalar_type);
+ //TODO: remove this commented section
+ //part of 1.5 migration related change - revert once not needed
+ #if 0
   auto source_ = checked_storage(
       source,
       "source",
       2,
       DeviceType::HABANA,
       at::scalarTypeToTypeMeta(scalar_type));
-
+#else
+  auto source_ = source;
+#endif
   // Code below is based on THCTensor_setStorage
   TORCH_CHECK(
       self_->storage(),
@@ -543,7 +548,7 @@ static auto registry =
                 .schema(
                     "aten::copy_(Tensor(a!) self, Tensor src, bool non_blocking=False) -> Tensor(a!)")
                 .impl_unboxedOnlyKernel<decltype(copy_hpu_), &copy_hpu_>(
-                    TensorTypeId::HABANATensorId)
+                    DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema(
@@ -551,75 +556,75 @@ static auto registry =
                 .impl_unboxedOnlyKernel<
                     decltype(at::native::as_strided_tensorimpl),
                     &at::native::as_strided_tensorimpl>(
-                    TensorTypeId::HABANATensorId)
+                    DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema(
                     "aten::permute(Tensor(a) self, int[] dims) -> Tensor(a)")
                 .impl_unboxedOnlyKernel<decltype(permute_hpu), &permute_hpu>(
-                    TensorTypeId::HABANATensorId)
+                    DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema(
                     "aten::set_.source_Storage_storage_offset( Tensor(a !) self, Storage source, int storage_offset, int[] size, int[] stride = []) ->Tensor(a !)")
                 .impl_unboxedOnlyKernel<decltype(set_hpu_), &set_hpu_>(
-                    TensorTypeId::HABANATensorId)
+                    DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema("aten::view(Tensor(a) self, int[] size) -> Tensor(a)")
                 .impl_unboxedOnlyKernel<
                     decltype(at::native::view),
-                    &at::native::view>(TensorTypeId::HABANATensorId)
+                    &at::native::view>(DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema(
                     "aten::expand(Tensor(a) self, int[] size, *, bool implicit=False) -> Tensor(a)")
                 .impl_unboxedOnlyKernel<decltype(expand_hpu), &expand_hpu>(
-                    TensorTypeId::HABANATensorId)
+                    DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema("aten::cat(Tensor[] tensors, int dim=0) -> Tensor")
                 .impl_unboxedOnlyKernel<decltype(cat_hpu), &cat_hpu>(
-                    TensorTypeId::HABANATensorId)
+                    DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema(
                     "aten::cat.out(Tensor[] tensors, int dim=0, *, Tensor(a!) out) -> Tensor(a!)")
                 .impl_unboxedOnlyKernel<decltype(cat_hpu_out), &cat_hpu_out>(
-                    TensorTypeId::HABANATensorId)
+                    DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema("aten::_cat(Tensor[] tensors, int dim=0) -> Tensor")
                 .impl_unboxedOnlyKernel<decltype(cat_hpu), &cat_hpu>(
-                    TensorTypeId::HABANATensorId)
+                    DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema(
                     "aten::_cat.out(Tensor[] tensors, int dim=0, *, Tensor(a!) out) -> Tensor(a!)")
                 .impl_unboxedOnlyKernel<decltype(cat_hpu_out), &cat_hpu_out>(
-                    TensorTypeId::HABANATensorId)
+                    DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema(
                     "aten::transpose.int(Tensor(a) self, int dim0, int dim1) -> Tensor(a)")
                 .impl_unboxedOnlyKernel<
                     decltype(transpose_hpu),
-                    &transpose_hpu>(TensorTypeId::HABANATensorId)
+                    &transpose_hpu>(DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema(
                     "aten::transpose_(Tensor(a!) self, int dim0, int dim1) -> Tensor(a!)")
                 .impl_unboxedOnlyKernel<
                     decltype(transpose_hpu_),
-                    &transpose_hpu_>(TensorTypeId::HABANATensorId)
+                    &transpose_hpu_>(DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema("aten::t(Tensor(a) self) -> Tensor(a)")
                 .impl_unboxedOnlyKernel<decltype(t_hpu), &t_hpu>(
-                    TensorTypeId::HABANATensorId)
+                    DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema("aten::t_(Tensor(a!) self) -> Tensor(a!)")
                 .impl_unboxedOnlyKernel<decltype(t_hpu_), &t_hpu_>(
-                    TensorTypeId::HABANATensorId)
+                    DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));

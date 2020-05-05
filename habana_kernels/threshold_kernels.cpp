@@ -241,5 +241,5 @@ static auto registry = torch::RegisterOperators().op(
             "aten::threshold_backward(Tensor grad_output, Tensor self, Scalar threshold) -> Tensor")
         .impl_unboxedOnlyKernel<
             decltype(threshold_backward_hpu),
-            &threshold_backward_hpu>(TensorTypeId::HABANATensorId)
+            &threshold_backward_hpu>(DispatchKey::HABANATensorId)
         .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));

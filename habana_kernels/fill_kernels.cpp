@@ -89,6 +89,5 @@ static auto registry = torch::RegisterOperators().op(
     torch::RegisterOperators::options()
         .schema(
             "aten::fill_.Scalar(Tensor(a!) self, Scalar value) -> Tensor(a!)")
-        .impl_unboxedOnlyKernel<decltype(fill_hpu_), &fill_hpu_>(
-            TensorTypeId::HABANATensorId)
+        .impl_unboxedOnlyKernel<decltype(fill_hpu_), &fill_hpu_>(DispatchKey::HABANATensorId)
         .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));

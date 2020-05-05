@@ -313,12 +313,12 @@ static auto registry =
                     "aten::native_batch_norm(Tensor input, Tensor? weight, Tensor? bias, Tensor? running_mean, Tensor? running_var, bool training, float momentum, float eps) -> (Tensor, Tensor, Tensor)")
                 .impl_unboxedOnlyKernel<
                     decltype(batch_norm_hpu),
-                    &batch_norm_hpu>(TensorTypeId::HABANATensorId)
+                    &batch_norm_hpu>(DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema(
                     "aten::native_batch_norm_backward(Tensor grad_out, Tensor input, Tensor? weight, Tensor? running_mean, Tensor? running_var, Tensor? save_mean, Tensor? save_invstd, bool train, float eps, bool[3] output_mask) -> (Tensor, Tensor, Tensor)")
                 .impl_unboxedOnlyKernel<
                     decltype(batch_norm_bwd_hpu),
-                    &batch_norm_bwd_hpu>(TensorTypeId::HABANATensorId)
+                    &batch_norm_bwd_hpu>(DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));

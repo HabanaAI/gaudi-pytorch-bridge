@@ -173,19 +173,20 @@ Tensor embedding_bag_bwd_hpu(
   return momentum_out;
 }
 
-static auto registry =
+/*static auto registry =
     torch::RegisterOperators()
         .op(torch::RegisterOperators::options()
                 .schema(
                     "aten::_embedding_bag(Tensor weight, Tensor indices, Tensor offsets, bool scale_grad_by_freq=False, int mode=0, bool sparse=False, Tensor? per_sample_weights=None) -> (Tensor, Tensor, Tensor, Tensor)")
                 .impl_unboxedOnlyKernel<
                     decltype(embedding_bag_hpu),
-                    &embedding_bag_hpu>(TensorTypeId::HABANATensorId)
+                    &embedding_bag_hpu>(DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema(
                     "aten::_embedding_bag_dense_backward(Tensor grad, Tensor indices, Tensor offsets, Tensor offset2bag, Tensor bag_size, Tensor maximum_indices, int num_weights, bool scale_grad_by_freq, int mode, Tensor? per_sample_weights) -> Tensor")
                 .impl_unboxedOnlyKernel<
                     decltype(embedding_bag_bwd_hpu),
-                    &embedding_bag_bwd_hpu>(TensorTypeId::HABANATensorId)
+                    &embedding_bag_bwd_hpu>(DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));
+*/

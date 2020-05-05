@@ -213,26 +213,26 @@ static auto registry =
                     "aten::nll_loss_forward(Tensor self, Tensor target, Tensor? weight, int reduction, int ignore_index) ->(Tensor output, Tensor total_weight)")
                 .impl_unboxedOnlyKernel<
                     decltype(nll_loss_forward_hpu),
-                    &nll_loss_forward_hpu>(TensorTypeId::HABANATensorId)
+                    &nll_loss_forward_hpu>(DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema(
                     "aten::nll_loss_backward(Tensor grad_output, Tensor self, Tensor target, Tensor? weight, int reduction, int ignore_index, Tensor total_weight) -> Tensor")
                 .impl_unboxedOnlyKernel<
                     decltype(nll_loss_backward_hpu),
-                    &nll_loss_backward_hpu>(TensorTypeId::HABANATensorId)
+                    &nll_loss_backward_hpu>(DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema(
                     "aten::mse_loss(Tensor self, Tensor target, int reduction=Mean) -> Tensor")
                 .impl_unboxedOnlyKernel<
                     decltype(mse_loss_forward_hpu),
-                    &mse_loss_forward_hpu>(TensorTypeId::HABANATensorId)
+                    &mse_loss_forward_hpu>(DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema(
                     "aten::mse_loss_backward(Tensor grad_output, Tensor self, Tensor target, int reduction) -> Tensor")
                 .impl_unboxedOnlyKernel<
                     decltype(mse_loss_backward_hpu),
-                    &mse_loss_backward_hpu>(TensorTypeId::HABANATensorId)
+                    &mse_loss_backward_hpu>(DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));

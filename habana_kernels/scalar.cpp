@@ -49,5 +49,5 @@ static auto registry = torch::RegisterOperators().op(
         .schema("aten::_local_scalar_dense(Tensor self) -> Scalar")
         .impl_unboxedOnlyKernel<
             decltype(at::native::_local_scalar_dense_hpu),
-            &at::native::_local_scalar_dense_hpu>(TensorTypeId::HABANATensorId)
+            &at::native::_local_scalar_dense_hpu>(DispatchKey::HABANATensorId)
         .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));
