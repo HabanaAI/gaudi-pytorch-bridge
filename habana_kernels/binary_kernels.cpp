@@ -289,6 +289,7 @@ Tensor add_tensor_hpu(Tensor& self, const Tensor& other, Scalar alpha) {
 
     auto output_cpu = self;
     output = output_cpu.to(c10::DeviceType::HABANA);
+    TORCH_WARN("Unsupported long int addition");
   } else {
     check_ew_kernel_constraints(self, other);
 

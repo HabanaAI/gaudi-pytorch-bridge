@@ -103,8 +103,8 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu(
     const Tensor& running_mean,
     const Tensor& running_var,
     bool training,
-    float momentum,
-    float eps) {
+    double momentum,
+    double eps) {
   LOG_FUNC_BEGIN;
 
   TORCH_CHECK(training == true, "Training flag is expected to true")
@@ -112,11 +112,6 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu(
   auto num_input_dim = input.dim();
 
   TORCH_CHECK(num_input_dim > 1, "Expected range of input dimensions is [2,4]");
-
-  // TODO PyT sends incorrect values for momentum and eps. For now, fix them to
-  // default values. Revisit after upmerging to latest PyT versions
-  momentum = 0.1;
-  eps = 0.00001;
 
   // Resize input to 4D to match TPC kernel requirement.
   auto input_resize = input;
@@ -144,41 +139,64 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu(
   Tensor running_var_hpu = get_batch_norm_optional_tensors(
       running_var, input.sizes()[1], input.device());
 
-  // running mean and running var cannot be in input and output list
-  // simultaneously. create a copy
-  auto running_mean_hpu_in =
-      at::empty(running_mean_hpu.sizes(), running_mean_hpu.options());
-  habana_helpers::copy_data_within_device(
-      running_mean_hpu, running_mean_hpu_in);
-  auto running_var_hpu_in =
-      at::empty(running_var_hpu.sizes(), running_var_hpu.options());
-  habana_helpers::copy_data_within_device(running_var_hpu, running_var_hpu_in);
-
-  std::vector<const at::Tensor*> pt_inputs{&input_nhwc,
-                                           &bias_hpu,
-                                           &wt_hpu,
-                                           &running_mean_hpu_in,
-                                           &running_var_hpu_in};
+  std::vector<const at::Tensor*> pt_inputs{
+      &input_nhwc,
+      &wt_hpu,
+      &bias_hpu,
+  };
 
   auto output_nhwc = at::empty(input_nhwc.sizes(), input_nhwc.options());
+  std::vector<const at::Tensor*> pt_outputs{&output_nhwc};
 
-  auto mean = at::empty(running_mean_hpu.sizes(), running_mean_hpu.options());
-  auto istd = at::empty(running_var_hpu.sizes(), running_var_hpu.options());
+  auto current_mean =
+      at::empty(running_mean_hpu.sizes(), running_mean_hpu.options());
+  auto current_istd =
+      at::empty(running_mean_hpu.sizes(), running_mean_hpu.options());
 
-  std::vector<const at::Tensor*> pt_outputs{
-      &output_nhwc, &mean, &istd, &running_mean_hpu, &running_var_hpu};
+  Tensor running_mean_hpu_in, running_var_hpu_in, residualAdd;
 
-  struct ns_BatchNormKernel::Params param;
-  param.momentum = momentum;
-  param.epsilon = eps;
+  if (running_mean.defined()) {
+    running_mean_hpu_in =
+        at::empty(running_mean_hpu.sizes(), running_mean_hpu.options());
+
+    running_var_hpu_in =
+        at::empty(running_var_hpu.sizes(), running_var_hpu.options());
+
+    residualAdd = at::empty(input_nhwc.sizes(), input_nhwc.options());
+
+    // This residual add is dummy tensor to match the API requirements
+    pt_inputs.push_back(&residualAdd);
+
+    // running mean and running var cannot be in input and output list
+    // simultaneously. create a copy
+    habana_helpers::copy_data_within_device(
+        running_mean_hpu, running_mean_hpu_in);
+
+    habana_helpers::copy_data_within_device(
+        running_var_hpu, running_var_hpu_in);
+
+    pt_inputs.push_back(&running_mean_hpu_in);
+    pt_inputs.push_back(&running_var_hpu_in);
+
+    pt_outputs.push_back(&running_mean_hpu);
+    pt_outputs.push_back(&running_var_hpu);
+
+    pt_outputs.push_back(&current_mean);
+    pt_outputs.push_back(&current_istd);
+  }
+
+  // synapse uses expAvgfactor = 1 - momentum
+  struct synCudBnExParams param = {synBnOps::BN_OPS_BN,
+                                   static_cast<float>(1 - momentum),
+                                   static_cast<float>(eps)};
 
   synapse_simple_generic_kernel(
       pt_outputs,
       pt_inputs,
-      "batch_norm",
+      "cud_bn_fwd_ex",
       &param,
       sizeof(param),
-      SynapsePassType::FORWARD_PASS);
+      SynapsePassType::NO_PASS);
 
   // NHWC -> NCHW to match PyT layout
   auto output = output_nhwc.permute({0, 3, 1, 2});
@@ -188,7 +206,7 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu(
 
   LOG_FUNC_END;
 
-  return std::make_tuple(output, mean, istd);
+  return std::make_tuple(output, current_mean, current_istd);
 }
 
 /*******************************************************************
@@ -209,7 +227,6 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu(
 *UNUSED variables will be enabled later once evaluation/inference mode is
 *implemented
 *******************************************************************/
-
 std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu(
     Tensor& grad_out,
     Tensor& input,
@@ -219,7 +236,7 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu(
     Tensor& save_mean,
     Tensor& save_invstd,
     bool train,
-    UNUSED float eps,
+    double eps,
     UNUSED bool output_mask[3]) {
   LOG_FUNC_BEGIN;
 
@@ -244,13 +261,20 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu(
 
   Tensor wt_hpu =
       get_batch_norm_optional_tensors(weight, input.sizes()[1], input.device());
+  Tensor bias_hpu = at::zeros(wt_hpu.sizes(), wt_hpu.options());
   Tensor save_mean_hpu = get_batch_norm_optional_tensors(
       save_mean, input.sizes()[1], input.device());
   Tensor save_invstd_hpu = get_batch_norm_optional_tensors(
       save_invstd, input.sizes()[1], input.device());
 
   std::vector<const at::Tensor*> pt_inputs{
-      &input_nhwc, &grad_out_nhwc, &save_mean_hpu, &save_invstd_hpu, &wt_hpu};
+      &input_nhwc,
+      &grad_out_nhwc,
+      &wt_hpu,
+      &bias_hpu,
+      &save_mean_hpu,
+      &save_invstd_hpu,
+  };
 
   // Prepare output tensor vector
   auto grad_in_nhwc = at::empty(input_nhwc.sizes(), input_nhwc.options());
@@ -258,20 +282,18 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu(
   auto grad_gamma = at::empty(wt_hpu.sizes(), wt_hpu.options());
 
   std::vector<const at::Tensor*> pt_outputs{
-      &grad_in_nhwc, &grad_beta, &grad_gamma};
+      &grad_in_nhwc, &grad_gamma, &grad_beta};
 
-  struct ns_BatchNormKernel::Params param;
-  // TODO UNUSED eps variable should be used here once the incoming value is
-  // validated
-  param.epsilon = 1e-5;
+  struct synCudBnExParams param = {
+      synBnOps::BN_OPS_BN, 0, static_cast<float>(eps)};
 
   synapse_simple_generic_kernel(
       pt_outputs,
       pt_inputs,
-      "batch_norm",
+      "cud_bn_bwd_ex",
       &param,
       sizeof(param),
-      SynapsePassType::BACKWARD_PASS);
+      SynapsePassType::NO_PASS);
 
   // NHWC -> NCHW to match PyT layout
   auto grad_in = grad_in_nhwc.permute({0, 3, 1, 2});
