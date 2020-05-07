@@ -34,6 +34,8 @@ using namespace torch;
  * @param[in] per_sample_weights - not supported
  * @param[out] output - 2D, Fp32/FP16
  * @param[out] offset2bag, bag_size - dummy tensors used by CPU Op
+ * @param[in] include_last_offset - bool flag to get the size of indices
+ * as last element. not supported
  ************************************************************************/
 std::tuple<Tensor, Tensor, Tensor, Tensor> embedding_bag_hpu(
     const Tensor& weight,
@@ -42,7 +44,8 @@ std::tuple<Tensor, Tensor, Tensor, Tensor> embedding_bag_hpu(
     bool scale_grad_by_freq,
     int64_t mode,
     UNUSED bool sparse,
-    Tensor& per_sample_weights) {
+    Tensor& per_sample_weights,
+    UNUSED bool include_last_offset) {
   LOG_FUNC_BEGIN;
 
   TORCH_CHECK(
@@ -173,11 +176,11 @@ Tensor embedding_bag_bwd_hpu(
   return momentum_out;
 }
 
-/*static auto registry =
+static auto registry =
     torch::RegisterOperators()
         .op(torch::RegisterOperators::options()
                 .schema(
-                    "aten::_embedding_bag(Tensor weight, Tensor indices, Tensor offsets, bool scale_grad_by_freq=False, int mode=0, bool sparse=False, Tensor? per_sample_weights=None) -> (Tensor, Tensor, Tensor, Tensor)")
+                    "aten::_embedding_bag(Tensor weight, Tensor indices, Tensor offsets, bool scale_grad_by_freq=False, int mode=0, bool sparse=False, Tensor? per_sample_weights=None, bool include_last_offset=False) -> (Tensor, Tensor, Tensor, Tensor)")
                 .impl_unboxedOnlyKernel<
                     decltype(embedding_bag_hpu),
                     &embedding_bag_hpu>(DispatchKey::HABANATensorId)
@@ -189,4 +192,3 @@ Tensor embedding_bag_bwd_hpu(
                     decltype(embedding_bag_bwd_hpu),
                     &embedding_bag_bwd_hpu>(DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));
-*/
