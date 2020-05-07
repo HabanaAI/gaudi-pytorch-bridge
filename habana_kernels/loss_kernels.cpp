@@ -16,7 +16,8 @@
 
 using namespace torch;
 
-ns_NLLLossKernel::Params synapse_nll_loss_params_builder(int64_t reduction) {
+static ns_NLLLossKernel::Params synapse_nll_loss_params_builder(
+    int64_t reduction) {
   auto param = ns_NLLLossKernel::Params{};
   if (reduction == at::Reduction::Reduction::None) {
     param.mode = NLLLossMode_t::NLL_LOSS_MODE_NONE;
@@ -26,6 +27,21 @@ ns_NLLLossKernel::Params synapse_nll_loss_params_builder(int64_t reduction) {
     param.mode = NLLLossMode_t::NLL_LOSS_MODE_SUM;
   } else
     TORCH_CHECK(false, "nll_loss got unsuported reduction type: ", reduction);
+
+  return param;
+}
+
+static ns_MSELossKernel::Params synapse_mse_loss_params_builder(
+    int64_t reduction) {
+  auto param = ns_MSELossKernel::Params{};
+  if (reduction == at::Reduction::Reduction::None) {
+    param.mode = MSELossMode_t::MSE_LOSS_REDUCTION_MODE_NONE;
+  } else if (reduction == at::Reduction::Reduction::Mean) {
+    param.mode = MSELossMode_t::MSE_LOSS_REDUCTION_MODE_MEAN;
+  } else if (reduction == at::Reduction::Reduction::Sum) {
+    param.mode = MSELossMode_t::MSE_LOSS_REDUCTION_MODE_SUM;
+  } else
+    TORCH_CHECK(false, "mse_loss got unsuported reduction type: ", reduction);
 
   return param;
 }
@@ -115,6 +131,78 @@ Tensor nll_loss_backward_hpu(
       sizeof(param),
       SynapsePassType::BACKWARD_PASS);
   LOG_FUNC_END;
+
+  return grad_input;
+}
+
+/** @brief Function implements forward pass for torch.nn.MSELoss
+ *  @param self: Input tensor of shape (N,C)
+ *  @param target: Input tensor of shape (N,C)
+ *  @param reduction: (String, Optional) Specifies the reduction to apply to the
+ * output: 'none' | 'mean' | 'sum'.
+ */
+Tensor mse_loss_forward_hpu(
+    const Tensor& self,
+    const Tensor& target,
+    int64_t reduction) {
+  LOG_FUNC_BEGIN;
+
+  auto param = synapse_mse_loss_params_builder(reduction);
+
+  Tensor output;
+  if (reduction == at::Reduction::Reduction::None) {
+    output = at::empty(self.sizes(), self.options());
+  } else {
+    output = at::empty({1}, self.options());
+  }
+
+  synapse_simple_generic_kernel(
+      {&output},
+      {&self, &target},
+      "mse_loss",
+      &param,
+      sizeof(param),
+      SynapsePassType::FORWARD_PASS);
+  LOG_FUNC_END;
+
+  if (reduction != at::Reduction::Reduction::None) {
+    // Note: pytorch expects 0d tensor (scalar)
+    output.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+  }
+  return output;
+}
+
+/** @brief Function implements backward pass for torch.nn.MSELoss
+ *  @param grad_output: Input (bwd_pass) tensor of shape (N,C) or 1.
+ *  @param self: Input (fwd_pass) tensor of shape (N,C)
+ *  @param target: Input tensor (fwd_pass) of shape (N,C)
+ *  @param reduction: (String, Optional) Specifies the reduction to apply to the
+ * output: 'none' | 'mean' | 'sum'.
+ */
+Tensor mse_loss_backward_hpu(
+    const Tensor& grad_output,
+    const Tensor& self,
+    const Tensor& target,
+    int64_t reduction) {
+  LOG_FUNC_BEGIN;
+
+  // Convert 0D tensor to 1D tensor before passing to Synapse
+  if (grad_output.dim() == 0) {
+    grad_output.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+  }
+
+  auto grad_input = at::empty(self.sizes(), self.options());
+
+  auto param = synapse_mse_loss_params_builder(reduction);
+
+  synapse_simple_generic_kernel(
+      {&grad_input},
+      {&grad_output, &self, &target},
+      "mse_loss",
+      &param,
+      sizeof(param),
+      SynapsePassType::BACKWARD_PASS);
+  LOG_FUNC_END;
   return grad_input;
 }
 
@@ -133,4 +221,18 @@ static auto registry =
                 .impl_unboxedOnlyKernel<
                     decltype(nll_loss_backward_hpu),
                     &nll_loss_backward_hpu>(TensorTypeId::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema(
+                    "aten::mse_loss(Tensor self, Tensor target, int reduction=Mean) -> Tensor")
+                .impl_unboxedOnlyKernel<
+                    decltype(mse_loss_forward_hpu),
+                    &mse_loss_forward_hpu>(TensorTypeId::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema(
+                    "aten::mse_loss_backward(Tensor grad_output, Tensor self, Tensor target, int reduction) -> Tensor")
+                .impl_unboxedOnlyKernel<
+                    decltype(mse_loss_backward_hpu),
+                    &mse_loss_backward_hpu>(TensorTypeId::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));
