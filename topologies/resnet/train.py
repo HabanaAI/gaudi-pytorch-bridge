@@ -34,6 +34,7 @@ class TrainMetaData():
         self.num_train_steps = sys.maxsize
         self.num_eval_steps = sys.maxsize
         self.logging = True #Enable - default
+        self.save_checkpt = True
 
     def increment_train_step(self):
         self.current_train_step += 1
@@ -72,6 +73,14 @@ class TrainMetaData():
 
     def is_logging(self):
         return self.logging
+
+    #Enable/disable saving of checkpoint/model
+    def set_save_checkpoint_enable(self, enable=True):
+        self.save_checkpt = enable
+
+    def is_save_checkpoint(self):
+        return self.save_checkpt
+
 
 def train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, print_freq, trainMetaData, apex=False):
     model.train()
@@ -226,6 +235,7 @@ def main(args):
     trainMetaData = TrainMetaData()
     trainMetaData.set_num_train_steps(args.num_train_steps)
     trainMetaData.set_num_eval_steps(args.num_eval_steps)
+    trainMetaData.set_save_checkpoint_enable(args.save_checkpoint)
     if args.device == 'habana':
         print("Attempting to load library from path ", os.environ['BUILD_ROOT_LATEST'], flush=True)
         torch.ops.load_library(os.path.join(os.environ['BUILD_ROOT_LATEST'], "libhabana_pytorch_plugin.so"))
@@ -292,7 +302,7 @@ def main(args):
         train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, args.print_freq, trainMetaData, args.apex)
         lr_scheduler.step()
         evaluate(model, criterion, data_loader_test, trainMetaData, device=device)
-        if args.output_dir:
+        if (args.output_dir and trainMetaData.is_save_checkpoint()):
             #Bring the model back to CPU before storing. Needed if running on Habana.
             model_without_ddp_cpu = model_without_ddp.to('cpu')
             checkpoint = {
@@ -307,10 +317,10 @@ def main(args):
             utils.save_on_master(
                 checkpoint,
                 os.path.join(args.output_dir, 'checkpoint.pth'))
-            #If only the specified number of steps are to be executed, check if those many steps are
-            #done for train and eval and if yes, break the epoch loop
-            if (trainMetaData.end_train_n_eval()):
-                break
+        #If only the specified number of steps are to be executed, check if those many steps are
+        #done for train and eval and if yes, break the epoch loop
+        if (trainMetaData.end_train_n_eval()):
+            break
 
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
@@ -384,6 +394,8 @@ def parse_args():
                         help='number of steps a.k.a iterations to run in training phase')
     parser.add_argument('--num-eval-steps', type=int, default=sys.maxsize, metavar='E',
                         help='number of steps a.k.a iterations to run in evaluation phase')
+    parser.add_argument('--save-checkpoint',  action="store_true",
+                        help='Whether or not to save model/checkpont; True: to save, False to avoid saving')
     args = parser.parse_args()
 
     return args
