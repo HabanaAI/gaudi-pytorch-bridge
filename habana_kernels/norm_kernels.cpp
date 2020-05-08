@@ -327,6 +327,59 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu(
   return std::make_tuple(grad_in, grad_gamma, grad_beta);
 }
 
+/** @brief This function implements forward pass for torch.nn.LayerNorm()
+ * @param input (bf16/fp32 tensor) input tensor
+ * @param weight (fp32 tensor) per element scale value tensor
+ * @param bias (fp32 tensor) per element bias value tensor
+ * @param m (int) num of elements in outer dims not used in LayerNorm
+ * @param n (int) num of elements used for computing LayerNorm
+ * @param eps (double) a value added to the denominator for numerical stability.
+ * Default: 1e-5
+ */
+std::tuple<Tensor, Tensor, Tensor> layer_norm_hpu(
+    const Tensor& input,
+    const Tensor& weight,
+    const Tensor& bias,
+    int64_t m,
+    int64_t n,
+    double eps) {
+  LOG_FUNC_BEGIN;
+
+  auto wt_reshaped = weight.view(-1);
+  auto bias_reshaped = bias.view(-1);
+  std::vector<int64_t> shape{m, n};
+  auto input_reshaped = input.view(shape);
+
+  std::vector<const at::Tensor*> pt_inputs{
+      &input_reshaped, &bias_reshaped, &wt_reshaped};
+
+  std::vector<int64_t> shape_mean{m, 1};
+  IntArrayRef meanArray(shape_mean.data(), shape_mean.size());
+  auto output = at::empty(input_reshaped.sizes(), input_reshaped.options());
+  auto mean = at::empty(meanArray, wt_reshaped.options());
+  auto istd = at::empty(meanArray, bias_reshaped.options());
+
+  std::vector<const at::Tensor*> pt_outputs{&output, &mean, &istd};
+
+  struct ns_LayerNormKernel::Params param;
+  param.eps = static_cast<float>(eps);
+  param.epsValid = true;
+
+  synapse_simple_generic_kernel(
+      pt_outputs,
+      pt_inputs,
+      "layer_norm",
+      &param,
+      sizeof(param),
+      SynapsePassType::FORWARD_PASS);
+
+  auto output_reshaped = output.view(input.sizes().vec());
+
+  LOG_FUNC_END;
+  return std::make_tuple(
+      std::move(output_reshaped), std::move(mean), std::move(istd));
+}
+
 static auto registry =
     torch::RegisterOperators()
         .op(torch::RegisterOperators::options()
@@ -342,4 +395,11 @@ static auto registry =
                 .impl_unboxedOnlyKernel<
                     decltype(batch_norm_bwd_hpu),
                     &batch_norm_bwd_hpu>(DispatchKey::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema(
+                    "aten::native_layer_norm(Tensor input, Tensor? weight, Tensor? bias, int M, int N, float eps) -> (Tensor, Tensor, Tensor)")
+                .impl_unboxedOnlyKernel<
+                    decltype(layer_norm_hpu),
+                    &layer_norm_hpu>(DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));

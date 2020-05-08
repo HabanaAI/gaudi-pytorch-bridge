@@ -23,6 +23,25 @@ batch_norm_test_case_list_1d_ncl = [
     (32, 64, 5),
 ]
 
+layer_norm_test_case_list = [
+    (2, 5, 10, 10)
+]
+
+@pytest.mark.parametrize("N, H, W, C", layer_norm_test_case_list)
+@pytest.mark.parametrize("split_dim", [1, 2, 3])
+def test_hpu_layer_norm_fwd_bwd(N, H, W, C, split_dim):
+    shape = [N, H, W, C]
+    shape_norm = shape[split_dim:] 
+    kernel = torch.nn.LayerNorm(shape_norm)
+    kernel_params_fwd = {'input': torch.randn(shape, requires_grad=True)}
+
+    bwd_tensor1 = torch.randn(shape)
+    bwd_tensor2 = torch.randn(shape[0:split_dim])
+    bwd_tensor3 = torch.randn(shape[0:split_dim])
+    bwd_tensors  = [bwd_tensor1, bwd_tensor2, bwd_tensor3]
+    evaluate_fwd_bwd_kernel(kernel=kernel, tensor_list_bwd=bwd_tensors,
+                            kernel_params_fwd=kernel_params_fwd, copy_kernel=True)
+
 
 @pytest.mark.parametrize("N, H, W, C", batch_norm_test_case_list_2d)
 def test_hpu_batch_norm_2d_fwd_bwd(N, H, W, C):

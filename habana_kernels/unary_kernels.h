@@ -35,3 +35,18 @@ class SigmoidOperator : public UnaryOperator {
  public:
   SigmoidOperator(int device_id, c10::ScalarType scalarType);
 };
+
+// Clamp Operator
+class ClampOperator : public HabanaOperator {
+ public:
+  ClampOperator(int device_id, const std::string& guid) : HabanaOperator(guid) {
+    this->CreateSynContext(device_id);
+    kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
+    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
+  }
+
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) final;
+};

@@ -74,14 +74,11 @@ static Scalar convert_scalar_dtype(const Tensor& self, Scalar value) {
             "Scalar value exceeds tensor element size - uint32");
         result = value.to<int32_t>();
       } else {
-        TORCH_WARN(
-            value.toFloat() <= INT32_MAX * 1.0,
-            "Scalar value exceeds tensor element size - float");
         result = value.to<float>();
       }
       break;
     default:
-      TORCH_WARN("Unsupported data type used in fill");
+      TORCH_WARN("Unsupported data type used in binary op");
   }
   LOG_FUNC_END;
   return result;
@@ -364,6 +361,24 @@ Tensor& addcdiv_hpu_(
   self.add_(tensor1, alpha);
   LOG_FUNC_END;
   return self;
+}
+
+/*************************************************************************
+ * @brief Kernel implementation for out = torch.sub(self, alpha, other)
+ * @param self - first input
+ * @param other - second input
+ * @param alpha - optional input
+ * out = self - alpha * other
+ ************************************************************************/
+Tensor sub_tensor_hpu(const Tensor& self, const Tensor& other, Scalar alpha) {
+  LOG_FUNC_BEGIN;
+
+  auto out_mul = do_tensor_scalar_mul(other, alpha);
+  auto output = do_generic_tensor_binary_op(
+      self, out_mul, "sub", SynapsePassType::FORWARD_PASS);
+
+  LOG_FUNC_END;
+  return output;
 }
 
 /*************************************************************************
@@ -749,6 +764,13 @@ static auto registry =
                     "aten::addcdiv_(Tensor(a!) self, Tensor tensor1, Tensor tensor2, *, Scalar value=1) -> Tensor(a!)")
                 .impl_unboxedOnlyKernel<decltype(addcdiv_hpu_), &addcdiv_hpu_>(
                     DispatchKey::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema(
+                    "aten::sub.Tensor(Tensor self, Tensor other, *, Scalar alpha=1) -> Tensor")
+                .impl_unboxedOnlyKernel<
+                    decltype(sub_tensor_hpu),
+                    &sub_tensor_hpu>(DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema(

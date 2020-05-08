@@ -7,6 +7,7 @@
  *
  ******************************************************************************
  */
+#include <perf_lib_layer_params.h>
 #include <torch/script.h>
 
 #include <ATen/ExpandUtils.h>
@@ -438,6 +439,65 @@ Tensor& reciprocal_out_hpu(Tensor& result, const Tensor& self) {
   return result;
 }
 
+void ClampOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 3,
+      "Incorrect size of inputs expected for Clamp operator");
+  TORCH_CHECK(inputs[0].isTensor(), "Input type expected to be tensor");
+
+  auto input = inputs[0].toTensor();
+  auto min = inputs[1].toDouble();
+  auto max = inputs[2].toDouble();
+
+  ns_ClampKernel::Params param;
+  param.upperBound.f = static_cast<float>(max);
+  param.lowerBound.f = static_cast<float>(min);
+
+  auto output = at::empty(input.sizes(), input.options());
+  AllocateSynapseOutput(graph, output, is_output_persistent);
+  AddNodeToSynapseGraph(graph, &param, sizeof(param));
+}
+
+/** @brief This function implements torch.clamp_min()
+ * @param self (bf16, fp32 tensor) Input tensor
+ * @param min (int, float) Minimum value at which input will be clamped
+ */
+Tensor clamp_min_hpu(const Tensor& self, Scalar min) {
+  LOG_FUNC_BEGIN;
+  at::ScalarType scalar_type = self.scalar_type();
+  std::string node_type =
+      "clamp_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+
+  size_t device_id = self.device().index();
+
+  ClampOperator Op(device_id, node_type);
+
+  // Create Graph
+  auto graph = habana_helpers::create_graph(device_id, node_type);
+
+  // Assign Inputs to the Operator
+  std::vector<const at::Tensor*> pt_inputs{&self};
+  Op.AllocateSynapseInputs(graph, pt_inputs, true);
+
+  // Build Params for the graph
+  double max = std::numeric_limits<float>::max();
+  std::vector<c10::IValue> stack = {
+      IValue(self), IValue(min.to<double>()), IValue(max)};
+  Op.AllocateAndAddSynapseNode(graph, stack, true);
+
+  // compile and execute the graph
+  Op.Compile(graph);
+
+  std::vector<at::Tensor> out = Op.GetOutputs();
+  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
+
+  LOG_FUNC_END;
+  return out.at(0);
+}
+
 static auto registry =
     torch::RegisterOperators()
         .op(torch::RegisterOperators::options()
@@ -529,4 +589,10 @@ static auto registry =
                 .impl_unboxedOnlyKernel<
                     decltype(reciprocal_out_hpu),
                     &reciprocal_out_hpu>(DispatchKey::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema("aten::clamp_min(Tensor self, Scalar min) -> Tensor")
+                .impl_unboxedOnlyKernel<
+                    decltype(clamp_min_hpu),
+                    &clamp_min_hpu>(DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));
