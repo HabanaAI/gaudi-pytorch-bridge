@@ -647,10 +647,11 @@ Tensor& div_tensor_hpu_(Tensor& self, const Tensor& other) {
 
 Tensor div_scalar_hpu(
     const Tensor& self,
-    Scalar other) { // TODO: No way to test this yet from python
+    Scalar other) { // TODO: Add test by using an extension module for new op at
+                    // python level
   LOG_FUNC_BEGIN;
   TORCH_CHECK(
-      self.scalar_type() != habana_helpers::scalar_type(other),
+      self.scalar_type() == habana_helpers::scalar_type(other),
       "Types don't match. arg1 type: ",
       self.scalar_type(),
       " arg2 type: ",
@@ -658,16 +659,16 @@ Tensor div_scalar_hpu(
   Scalar divisor_converted = other;
   auto divisor_tensor = habana_helpers::scalar_to_device_tensor(
       divisor_converted, self.options(), self.ndimension());
+  auto expanded_div_tensor = divisor_tensor.expand(self.sizes());
 
   std::vector<const at::Tensor*> pt_inputs;
   pt_inputs.push_back(&self);
-  pt_inputs.push_back(&divisor_tensor);
+  pt_inputs.push_back(&expanded_div_tensor);
   auto out = at::empty(self.sizes(), self.options());
   std::vector<const at::Tensor*> pt_outputs;
   pt_outputs.push_back(&out);
 
-  synapse_simple_generic_kernel(
-      pt_outputs, pt_inputs, "div", nullptr, 0, SynapsePassType::FORWARD_PASS);
+  out = div_tensor_hpu(self, expanded_div_tensor);
 
   LOG_FUNC_END;
   return out;
@@ -675,11 +676,12 @@ Tensor div_scalar_hpu(
 
 Tensor& div_scalar_hpu_(
     Tensor& self,
-    Scalar other) { // TODO: No way to test this yet from python
+    Scalar other) { // TODO: Add test by using an extension module for new op at
+                    // python level
   LOG_FUNC_BEGIN;
   std::vector<const at::Tensor*> pt_inputs;
   TORCH_CHECK(
-      self.scalar_type() != habana_helpers::scalar_type(other),
+      self.scalar_type() == habana_helpers::scalar_type(other),
       "Types don't match. arg1 type: ",
       self.scalar_type(),
       " arg2 type: ",
@@ -687,12 +689,12 @@ Tensor& div_scalar_hpu_(
   Scalar divisor_converted = other;
   auto divisor_tensor = habana_helpers::scalar_to_device_tensor(
       divisor_converted, self.options(), self.ndimension());
+  auto expanded_div_tensor = divisor_tensor.expand(self.sizes());
 
   pt_inputs.push_back(&self);
   pt_inputs.push_back(&divisor_tensor);
 
-  synapse_simple_generic_inplace_kernel(
-      pt_inputs, "div", nullptr, 0, SynapsePassType::FORWARD_PASS);
+  self = div_tensor_hpu_(self, expanded_div_tensor);
 
   LOG_FUNC_END;
   return self;
