@@ -1,5 +1,6 @@
 import torch
 import pytest
+import random
 from test_utils import evaluate_fwd_inplace_kernel, reset_seed, evaluate_fwd_kernel
 
 N = 8
@@ -23,7 +24,7 @@ binary_inplace_op_list = [
     ('sub_', {'alpha': 1}),
     ('sub_', {'alpha': 0.1}),
     ('mul_', {}),
-    ('div_', {})
+    ('div_', {}),
 ]
 
 binary_op_list = [
@@ -32,6 +33,7 @@ binary_op_list = [
     (torch.add, {}),
     (torch.add, {'alpha': 0.1}),
     (torch.mul, {}),
+    (torch.div, {}),
 ]
 
 # This list is used to test tensor_out variants of operators
@@ -75,11 +77,37 @@ def test_hpu_binary_inplace_op(N, H, W, C, binary_op, kernel_params_fwd):
 
 
 @pytest.mark.parametrize("N, H, W, C", test_case_list)
+def test_hpu_binary_inplace_op_pow(N, H, W, C):
+    kernel_params_fwd = {}
+    in_out_tensor = torch.randn(N, C, H, W)
+    kernel_params_fwd['exponent'] = torch.randn(N, C, H, W)
+    evaluate_fwd_inplace_kernel(in_out_tensor=in_out_tensor,
+                                kernel_name='pow_',
+                                kernel_params=kernel_params_fwd)
+
+
+@pytest.mark.parametrize("N, H, W, C", test_case_list)
 @pytest.mark.parametrize("binary_op, kernel_params_fwd", binary_op_list)
 def test_hpu_binary_op(N, H, W, C, binary_op, kernel_params_fwd):
     kernel_params_fwd['input'] = torch.randn(N, C, H, W)
     kernel_params_fwd['other'] = torch.randn(N, C, H, W)
     evaluate_fwd_kernel(kernel=binary_op, kernel_params=kernel_params_fwd)
+
+
+@pytest.mark.parametrize("N, H, W, C", test_case_list)
+def test_hpu_binary_op_pow(N, H, W, C):
+    kernel_params_fwd = {}
+    kernel_params_fwd['input'] = torch.randn(N, C, H, W)
+    kernel_params_fwd['exponent'] = torch.randn(N, C, H, W)
+    evaluate_fwd_kernel(kernel=torch.pow, kernel_params=kernel_params_fwd)
+
+
+@pytest.mark.parametrize("N, H, W, C", test_case_list)
+def test_hpu_binary_op_pow_scalar(N, H, W, C):
+    kernel_params_fwd = {}
+    kernel_params_fwd['input'] = torch.randn(N, C, H, W)
+    kernel_params_fwd['exponent'] = random.random()
+    evaluate_fwd_kernel(kernel=torch.pow, kernel_params=kernel_params_fwd)
 
 
 if __name__ == '__main__':
