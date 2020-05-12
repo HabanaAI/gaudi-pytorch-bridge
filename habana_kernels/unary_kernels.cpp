@@ -97,6 +97,24 @@ Tensor sigmoid_backward_hpu(const Tensor& grad_in, const Tensor& input) {
   return grad_output;
 }
 
+/*************************************************************************
+ * @brief Kernel implementation for output = torch.sqrt(input)
+ * @param [out] output - output tensor, 1-4D, BF16/FP32
+ * @param [in] input - input tensor, 1-4D, BF16/FP32
+ ************************************************************************/
+Tensor sqrt_hpu(const Tensor& input) {
+  LOG_FUNC_BEGIN;
+
+  auto output = at::empty(input.sizes(), input.options());
+  std::vector<const at::Tensor*> pt_outputs{&output};
+  std::vector<const at::Tensor*> pt_inputs{&input};
+
+  synapse_simple_generic_kernel(
+      pt_outputs, pt_inputs, "sqrt", nullptr, 0, SynapsePassType::FORWARD_PASS);
+
+  LOG_FUNC_END;
+  return output;
+}
 static auto registry =
     torch::RegisterOperators()
         .op(torch::RegisterOperators::options()
@@ -117,5 +135,10 @@ static auto registry =
         .op(torch::RegisterOperators::options()
                 .schema("aten::sigmoid_backward(Tensor grad_output, Tensor output) -> Tensor")
                 .impl_unboxedOnlyKernel<decltype(sigmoid_backward_hpu), &sigmoid_backward_hpu>(
+                    TensorTypeId::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema("aten::sqrt(Tensor self) -> Tensor")
+                .impl_unboxedOnlyKernel<decltype(sqrt_hpu), &sqrt_hpu>(
                     TensorTypeId::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));

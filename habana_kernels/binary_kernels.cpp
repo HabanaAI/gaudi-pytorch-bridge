@@ -435,7 +435,7 @@ Tensor& mul_tensor_hpu_(Tensor& self, const Tensor& other) {
  * @param other - second input
  * output = self * other
  ************************************************************************/
-Tensor mul_tensor_hpu(Tensor& self, const Tensor& other) {
+Tensor mul_tensor_hpu(const Tensor& self, const Tensor& other) {
   LOG_FUNC_BEGIN;
 
   auto modified_other = std::make_unique<Tensor>();
@@ -701,6 +701,29 @@ Tensor& div_scalar_hpu_(
   return self;
 }
 
+/*************************************************************************
+ * @brief Kernel implementation for output = torch.mul(self, Scalar other)
+ * @param self - first input
+ * @param other - second input
+ * output = self * other
+ ************************************************************************/
+Tensor mul_scalar_hpu(const Tensor& self, Scalar other) {
+  LOG_FUNC_BEGIN;
+
+  Scalar other_converted = other;
+  if (self.scalar_type() != habana_helpers::scalar_type(other))
+      other_converted = other.toFloat();
+
+  auto multiplier_tensor = habana_helpers::scalar_to_device_tensor(
+      other_converted, self.options(), self.ndimension());
+
+  auto expanded_mul_tensor = multiplier_tensor.expand(self.sizes());
+  auto out = mul_tensor_hpu(self, expanded_mul_tensor);
+
+  LOG_FUNC_END;
+  return out;
+}
+
 static auto registry =
     torch::RegisterOperators()
         .op(torch::RegisterOperators::options()
@@ -789,4 +812,10 @@ static auto registry =
                 .impl_unboxedOnlyKernel<
                     decltype(div_scalar_hpu_),
                     &div_scalar_hpu_>(TensorTypeId::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema("aten::mul.Scalar(Tensor self, Scalar other) -> Tensor")
+                .impl_unboxedOnlyKernel<
+                    decltype(mul_scalar_hpu),
+                    &mul_scalar_hpu>(TensorTypeId::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));
