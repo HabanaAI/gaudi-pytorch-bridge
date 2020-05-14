@@ -89,27 +89,18 @@ at::Tensor habana_helpers::scalar_to_device_tensor(
       options.device().type());
   auto output = at::empty(std::vector<int64_t>(num_dimensions, 1), options);
   auto val = scalar.to<float>();
-  std::mutex mtx;
-  std::condition_variable cv;
-  bool copyDone = false;
-
-  std::function<void()> cb = [&copyDone, &mtx, &cv]() {
-    std::unique_lock<std::mutex> lck(mtx);
-    copyDone = true;
-    cv.notify_all();
-  };
+  std::atomic<bool>copyDone{false};
 
   synapse_helpers::HPURegistrar::get_device(options.device().index())
       .copy_data_to_device(
           &val,
           reinterpret_cast<synapse_helpers::device_ptr>(output.data_ptr()),
           output.nbytes(),
-          cb);
+          [&copyDone]() { copyDone = true; });
 
   // wait for copy completion
   while (!copyDone) {
-    std::unique_lock<std::mutex> lck(mtx);
-    cv.wait(lck);
+    std::this_thread::yield();
   }
 
   return output;
@@ -266,16 +257,7 @@ void habana_helpers::copy_data_to_host(
     const at::Tensor& src,
     void* dst_ptr,
     uint32_t size) {
-  std::mutex mtx;
-  std::condition_variable cv;
-  bool copyDone = false;
-
-  // callback for copy completion
-  std::function<void()> cb = [&copyDone, &mtx, &cv]() {
-    std::unique_lock<std::mutex> lck(mtx);
-    copyDone = true;
-    cv.notify_all();
-  };
+  std::atomic<bool>copyDone{false};
 
   auto syn_error =
       synapse_helpers::HPURegistrar::get_device(src.device().index())
@@ -283,13 +265,12 @@ void habana_helpers::copy_data_to_host(
               reinterpret_cast<synapse_helpers::device_ptr>(src.data_ptr()),
               dst_ptr,
               size,
-              cb);
+              [&copyDone]() { copyDone = true; });
   TORCH_CHECK(syn_error.status == 0, syn_error.error);
 
   // wait for copy completion
   while (!copyDone) {
-    std::unique_lock<std::mutex> lck(mtx);
-    cv.wait(lck);
+    std::this_thread::yield();
   }
 }
 
@@ -303,16 +284,7 @@ void habana_helpers::copy_data_to_device(
     void* src_ptr,
     const at::Tensor& dst,
     uint32_t size) {
-  std::mutex mtx;
-  std::condition_variable cv;
-  bool copyDone = false;
-
-  // callback for copy completion
-  std::function<void()> cb = [&copyDone, &mtx, &cv]() {
-    std::unique_lock<std::mutex> lck(mtx);
-    copyDone = true;
-    cv.notify_all();
-  };
+  std::atomic<bool>copyDone{false};
 
   auto device_id = dst.device().index();
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
@@ -320,13 +292,12 @@ void habana_helpers::copy_data_to_device(
       src_ptr,
       reinterpret_cast<synapse_helpers::device_ptr>(dst.data_ptr()),
       size,
-      cb);
+      [&copyDone]() { copyDone = true; });
   TORCH_CHECK(syn_error.status == 0, syn_error.error);
 
   // wait for copy completion
   while (!copyDone) {
-    std::unique_lock<std::mutex> lck(mtx);
-    cv.wait(lck);
+      std::this_thread::yield();
   }
 }
 
@@ -338,16 +309,7 @@ void habana_helpers::copy_data_to_device(
 void habana_helpers::copy_data_within_device(
     const at::Tensor& src,
     const at::Tensor& dst) {
-  std::mutex mtx;
-  std::condition_variable cv;
-  bool copyDone = false;
-
-  // callback for copy completion
-  std::function<void()> cb = [&copyDone, &mtx, &cv]() {
-    std::unique_lock<std::mutex> lck(mtx);
-    copyDone = true;
-    cv.notify_all();
-  };
+  std::atomic<bool>copyDone{false};
 
   auto device_id = dst.device().index();
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
@@ -355,12 +317,11 @@ void habana_helpers::copy_data_within_device(
       reinterpret_cast<synapse_helpers::device_ptr>(src.data_ptr()),
       reinterpret_cast<synapse_helpers::device_ptr>(dst.data_ptr()),
       src.nbytes(),
-      cb);
+      [&copyDone]() { copyDone = true; });
   TORCH_CHECK(syn_error.status == 0, syn_error.error);
 
   // wait for copy completion
   while (!copyDone) {
-    std::unique_lock<std::mutex> lck(mtx);
-    cv.wait(lck);
+    std::this_thread::yield();
   }
 }
