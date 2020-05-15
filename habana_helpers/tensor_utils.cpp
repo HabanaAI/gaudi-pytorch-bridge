@@ -7,13 +7,64 @@
  *
  ******************************************************************************
  */
+#include <perf_lib_layer_params.h>
 #include <synapse_helpers/graph.h>
 #include <algorithm>
 
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_device/tensor_builder.h"
+#include "habana_kernels/simple_generic_kernel.h"
 #include "tensor_utils.h"
+
+/*************************************************************************
+ * @brief Generic helper function to cast tensors on HPU
+ ************************************************************************/
+at::Tensor habana_helpers::hpu_cast_tensor(
+    const at::Tensor& Input,
+    caffe2::TypeMeta type) {
+  auto Output = at::empty(Input.sizes(), Input.options().dtype(type));
+
+  std::string node_type;
+  if (Input.dtype() == c10::ScalarType::Bool &&
+      type == c10::ScalarType::Float) {
+    node_type = "cast_i8_to_f32";
+  } else if (
+      Input.dtype() == c10::ScalarType::Char &&
+      type == c10::ScalarType::Float) {
+    node_type = "cast_i8_to_f32";
+  } else if (
+      Input.dtype() == c10::ScalarType::Int && type == c10::ScalarType::Float) {
+    node_type = "cast_i32_to_f32";
+  } else if (
+      type == c10::ScalarType::Bool &&
+      Input.dtype() == c10::ScalarType::Float) {
+    node_type = "cast_f32_to_i8";
+  } else if (
+      type == c10::ScalarType::Char &&
+      Input.dtype() == c10::ScalarType::Float) {
+    node_type = "cast_f32_to_i8";
+  } else if (
+      type == c10::ScalarType::Int && Input.dtype() == c10::ScalarType::Float) {
+    node_type = "cast_f32_to_i32";
+  }
+
+  std::vector<const at::Tensor*> pt_outputs{&Output};
+  std::vector<const at::Tensor*> pt_inputs{&Input};
+
+  ns_CastKernel::Params cast_params{};
+  cast_params.round_mode = CAST_ROUND_DEFAULT;
+
+  synapse_simple_generic_kernel(
+      pt_outputs,
+      pt_inputs,
+      node_type,
+      &cast_params,
+      sizeof(cast_params),
+      SynapsePassType::NO_PASS);
+
+  return Output;
+}
 
 /*************************************************************************
  * @brief This helper function casts a long tensor to int (on CPU)
@@ -89,7 +140,7 @@ at::Tensor habana_helpers::scalar_to_device_tensor(
       options.device().type());
   auto output = at::empty(std::vector<int64_t>(num_dimensions, 1), options);
   auto val = scalar.to<float>();
-  std::atomic<bool>copyDone{false};
+  std::atomic<bool> copyDone{false};
 
   synapse_helpers::HPURegistrar::get_device(options.device().index())
       .copy_data_to_device(
@@ -257,7 +308,7 @@ void habana_helpers::copy_data_to_host(
     const at::Tensor& src,
     void* dst_ptr,
     uint32_t size) {
-  std::atomic<bool>copyDone{false};
+  std::atomic<bool> copyDone{false};
 
   auto syn_error =
       synapse_helpers::HPURegistrar::get_device(src.device().index())
@@ -284,7 +335,7 @@ void habana_helpers::copy_data_to_device(
     void* src_ptr,
     const at::Tensor& dst,
     uint32_t size) {
-  std::atomic<bool>copyDone{false};
+  std::atomic<bool> copyDone{false};
 
   auto device_id = dst.device().index();
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
@@ -297,7 +348,7 @@ void habana_helpers::copy_data_to_device(
 
   // wait for copy completion
   while (!copyDone) {
-      std::this_thread::yield();
+    std::this_thread::yield();
   }
 }
 
@@ -309,7 +360,7 @@ void habana_helpers::copy_data_to_device(
 void habana_helpers::copy_data_within_device(
     const at::Tensor& src,
     const at::Tensor& dst) {
-  std::atomic<bool>copyDone{false};
+  std::atomic<bool> copyDone{false};
 
   auto device_id = dst.device().index();
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);

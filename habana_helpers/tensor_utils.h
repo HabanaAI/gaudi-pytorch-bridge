@@ -16,6 +16,8 @@
 #include <vector>
 
 namespace habana_helpers {
+at::Tensor hpu_cast_tensor(const at::Tensor& Input, caffe2::TypeMeta type);
+
 at::Tensor cast_tensor_to_integer(const at::Tensor& long_tensor);
 
 c10::ScalarType scalar_type(const c10::Scalar& s);

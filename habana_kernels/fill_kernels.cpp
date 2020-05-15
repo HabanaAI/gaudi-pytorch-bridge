@@ -85,9 +85,86 @@ Tensor& fill_hpu_(Tensor& self, Scalar value) {
   return self;
 }
 
-static auto registry = torch::RegisterOperators().op(
-    torch::RegisterOperators::options()
-        .schema(
-            "aten::fill_.Scalar(Tensor(a!) self, Scalar value) -> Tensor(a!)")
-        .impl_unboxedOnlyKernel<decltype(fill_hpu_), &fill_hpu_>(DispatchKey::HABANATensorId)
-        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));
+/** @brief Function implementing torch.Tensor.masked_fill_(mask, value)
+ * @param self: (fp32/bf16, 1-4D) Input tensor
+ * @param mask: (BoolTensor) the boolean mask
+ * @param value: (floatTensor, 0D) the value to fill with
+ */
+Tensor& masked_fill_hpu_(
+    Tensor& self,
+    const Tensor& mask,
+    const Tensor& value) {
+  LOG_FUNC_BEGIN;
+
+  TORCH_CHECK(
+      value.dim() == 0, "value supports only 0D tensor to match CPU behavior");
+
+  auto mask_expand = mask;
+  if (self.sizes() != mask.sizes()) {
+    // this explicit broadcast can be removed when
+    // binary kernels start supporting broadcase
+    mask_expand = mask.expand(self.sizes());
+  }
+
+  TORCH_CHECK(
+      self.sizes() == mask_expand.sizes(),
+      "input & mask tensor shapes not matching");
+
+  // mask (datatype "bool") needs to be casted because TPC kernels support
+  // fp32/bf16 only
+  auto new_mask = habana_helpers::hpu_cast_tensor(mask_expand, self.dtype());
+  // create a inverted mask
+  auto zero_tensor = at::zeros_like(new_mask, LEGACY_CONTIGUOUS_MEMORY_FORMAT);
+  auto inv_mask = habana_helpers::hpu_cast_tensor(
+      at::eq(new_mask, zero_tensor), self.dtype());
+
+  // broadcast value to same shape as input tensor
+  // this explicit broadcast can be removed when
+  // binary kernels start supporting broadcase
+  auto value_expand = value.expand(self.sizes());
+
+  // mask_fill computation
+  self.mul_(inv_mask);
+  self.add_(new_mask * value_expand);
+
+  LOG_FUNC_END;
+  return self;
+}
+
+/** @brief Function implementing torch.Tensor.masked_fill_(mask, value)
+ * @param self: (fp32/bf16, 1-4D) Input tensor
+ * @param mask: (BoolTensor) the boolean mask
+ * @param value: (float) the value to fill with
+ */
+Tensor& masked_fill_scalar_hpu_(
+    Tensor& self,
+    const Tensor& mask,
+    Scalar value) {
+  // convert scalar fill value to device tensor
+  auto value_tensor = habana_helpers::scalar_to_device_tensor(
+      value.to<float>(), self.options(), 0);
+
+  return masked_fill_hpu_(self, mask, value_tensor);
+}
+
+static auto registry =
+    torch::RegisterOperators()
+        .op(torch::RegisterOperators::options()
+                .schema(
+                    "aten::fill_.Scalar(Tensor(a!) self, Scalar value) -> Tensor(a!)")
+                .impl_unboxedOnlyKernel<decltype(fill_hpu_), &fill_hpu_>(DispatchKey::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema(
+                    "aten::masked_fill_.Tensor(Tensor(a!) self, Tensor mask, Tensor value) -> Tensor(a!)")
+                .impl_unboxedOnlyKernel<
+                    decltype(masked_fill_hpu_),
+                    &masked_fill_hpu_>(DispatchKey::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema(
+                    "aten::masked_fill_.Scalar(Tensor(a!) self, Tensor mask, Scalar value) -> Tensor(a!)")
+                .impl_unboxedOnlyKernel<
+                    decltype(masked_fill_scalar_hpu_),
+                    &masked_fill_scalar_hpu_>(DispatchKey::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));
