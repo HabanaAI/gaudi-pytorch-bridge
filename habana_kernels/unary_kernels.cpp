@@ -14,6 +14,7 @@
 #include "habana_helpers/tensor_utils.h"
 #include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/simple_generic_kernel.h"
+#include "habana_kernels/resize.h"
 
 using namespace torch;
 
@@ -282,6 +283,29 @@ Tensor& exp_hpu_(Tensor& self) {
   return self;
 }
 
+/*************************************************************************
+ * @brief Kernel implementation for torch.neg(input,out)
+ * @param [out] out - output tensor, 1-4D, BF16/FP32
+ * @param [in] input - input tensor, 1-4D, BF16/FP32
+ ************************************************************************/
+Tensor& neg_out_hpu( Tensor& result, const Tensor& input) {
+  LOG_FUNC_BEGIN;
+
+  // Resize result to correct size (if required)
+  auto shape = DimVector(input.sizes());
+  auto tht_result = result.unsafeGetTensorImpl();
+  THHTensor_resizeNd(tht_result, shape.size(), shape.data(), nullptr);
+
+  std::vector<const at::Tensor*> pt_outputs{&result};
+  std::vector<const at::Tensor*> pt_inputs{&input};
+
+  synapse_simple_generic_kernel(
+      pt_outputs, pt_inputs, "neg", nullptr, 0, SynapsePassType::FORWARD_PASS);
+
+  LOG_FUNC_END;
+  return result;
+
+}
 static auto registry =
     torch::RegisterOperators()
         .op(torch::RegisterOperators::options()
@@ -347,5 +371,10 @@ static auto registry =
         .op(torch::RegisterOperators::options()
                 .schema("aten::exp_(Tensor(a!) self) -> Tensor(a!)")
                 .impl_unboxedOnlyKernel<decltype(exp_hpu_), &exp_hpu_>(
+                    DispatchKey::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema("aten::neg.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)")
+                .impl_unboxedOnlyKernel<decltype(neg_out_hpu), &neg_out_hpu>(
                     DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));

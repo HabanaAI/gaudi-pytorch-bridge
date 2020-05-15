@@ -45,6 +45,9 @@ unary_op_out_list = [
     (torch.tanh, {}),
 ]
 
+neg_op_list = [
+    torch.neg
+]
 
 @pytest.mark.parametrize("N, H, W, C", test_case_list)
 @pytest.mark.parametrize("unary_op", unary_op_list)
@@ -110,6 +113,12 @@ def test_hpu_binary_op_out_intype(N, H, W, C, unary_op, kernel_params_fwd):
     kernel_params_fwd['out'] = torch.empty((N, C, H, W))
     evaluate_fwd_kernel(kernel=unary_op, kernel_params=kernel_params_fwd)
 
+@pytest.mark.parametrize("N, C, H, W", test_case_list)
+@pytest.mark.parametrize("neg_op", neg_op_list)
+def test_hpu_neg_out_op(N, C, H, W, neg_op):
+    kernel_params = {'input': torch.randn(N, C, H, W)}
+    kernel_params['out'] = torch.empty(N, C, H, W)
+    evaluate_fwd_kernel(kernel=neg_op, kernel_params=kernel_params)
 
 if __name__ == '__main__':
     test_hpu_unary_op(*test_case_list[0], unary_op_list[0])
