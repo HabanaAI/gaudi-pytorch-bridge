@@ -176,6 +176,74 @@ Tensor embedding_bag_bwd_hpu(
   return momentum_out;
 }
 
+/** @brief Function implementing torch.nn.functional.pad(input, pad,
+ * mode='constant', value=0)
+ *  @param self N-dimensional input tensor
+ *  @param pad m-elements tuple, where m/2 ≤ input dimensions and m is even
+ *  @param value fill value for "constant" padding
+ */
+Tensor constant_pad_hpu(const Tensor& self, IntArrayRef pad, Scalar value) {
+  LOG_FUNC_BEGIN;
+
+  auto ndim = self.dim();
+  auto lpad = pad.size() / 2;
+
+  TORCH_CHECK(
+      pad.size() % 2 == 0,
+      "Length of pad must be even but instead it equals ",
+      pad.size());
+
+  TORCH_CHECK(
+      ndim >= (int64_t)lpad,
+      "Length of pad should be no more than twice the number of "
+      "dimensions of the input. Pad length is ",
+      pad.size(),
+      "while the input has ",
+      ndim,
+      "dimensions.");
+
+  auto shape = self.sizes().vec();
+
+  ns_PadKernel::Params param;
+  param.value.f = value.to<float>();
+  memset(param.pads, 0, sizeof(param.pads));
+  for (unsigned int i = 0; i < lpad; i++) {
+    auto pad_start = pad[2 * i];
+    auto pad_end = pad[2 * i + 1];
+    param.pads[i] = pad_start;
+    param.pads[i + ndim] = pad_end;
+    shape[ndim - i - 1] += (pad_start + pad_end);
+    TORCH_CHECK(
+        shape[ndim - i - 1] > 0,
+        "The input size ",
+        self.sizes()[i],
+        ", plus negative padding ",
+        pad_start,
+        " and ",
+        pad_end,
+        " resulted in a invalid output size, "
+        "Check dimension ",
+        i,
+        " of your input.");
+  }
+
+  auto output = at::empty(shape, self.options());
+
+  std::vector<const at::Tensor*> pt_outputs{&output};
+  std::vector<const at::Tensor*> pt_inputs{&self};
+
+  synapse_simple_generic_kernel(
+      pt_outputs,
+      pt_inputs,
+      "pad",
+      &param,
+      sizeof(param),
+      SynapsePassType::FORWARD_PASS);
+
+  LOG_FUNC_END;
+  return output;
+}
+
 static auto registry =
     torch::RegisterOperators()
         .op(torch::RegisterOperators::options()
@@ -191,4 +259,11 @@ static auto registry =
                 .impl_unboxedOnlyKernel<
                     decltype(embedding_bag_bwd_hpu),
                     &embedding_bag_bwd_hpu>(DispatchKey::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema(
+                    "aten::constant_pad_nd(Tensor self, int[] pad, Scalar value=0) -> Tensor")
+                .impl_unboxedOnlyKernel<
+                    decltype(constant_pad_hpu),
+                    &constant_pad_hpu>(DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));
