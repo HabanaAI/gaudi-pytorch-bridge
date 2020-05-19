@@ -7,6 +7,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 import sys
 from torchvision import datasets, transforms
+import time
 
 class TrainMetaData():
     def __init__(self):
@@ -54,6 +55,32 @@ class TrainMetaData():
     def is_logging(self):
         return self.logging
 
+    @staticmethod
+    def accuracy(output, target, topk=(1,)):
+        """
+        Computes the accuracy over the k top
+        predictions for the specified values of k
+        """
+        with torch.no_grad():
+            maxk = max(topk)
+            batch_size = target.size(0)
+
+            _, pred = output.topk(maxk, 1, True, True)
+
+            pred = pred.t()
+            pred_cpu = torch.tensor(pred, device='cpu')
+            target_cpu = torch.tensor(target, device='cpu')
+
+            correct = pred_cpu.eq(target_cpu[None])
+
+            res = []
+            for k in topk:
+                correct_k = correct[:k].flatten().sum(dtype=torch.float32)
+                res.append(correct_k * (100.0 / batch_size))
+            return res
+
+
+
 class Net(nn.Module):
     def __init__(self):
         super(Net, self).__init__()
@@ -80,6 +107,7 @@ def train(args, model, device, train_loader, optimizer, epoch, trainMetaData):
             file.write('')
 
     for batch_idx, (data, target) in enumerate(train_loader):
+        iter_timer_start = time.time()
         data, target = data.to(device), target.to(device)
         optimizer.zero_grad()
         output = model(data)
@@ -87,15 +115,20 @@ def train(args, model, device, train_loader, optimizer, epoch, trainMetaData):
         loss_cpu = loss
         loss.backward()
         optimizer.step()
+        iter_duration = time.time() - iter_timer_start
         # if batch_idx % args.log_interval == 0:
+        acc1, acc5 = trainMetaData.accuracy(output, target, topk=(1, 5))
+        log_msg = 'Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f} '\
+                  'acc1: {:.6f} acc5: {:.6f} time: {:.6f}\n'.format(
+                  epoch, batch_idx * len(data), len(train_loader.dataset),
+                  100. * batch_idx / len(train_loader),
+                  loss_cpu.to(torch.device('cpu')).item(), acc1, acc5,
+                  iter_duration)
+
         if(trainMetaData.is_logging()):
             with open('mnistpy.log', 'a') as file:
-                file.write('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}\n'.format(
-                    epoch, batch_idx * len(data), len(train_loader.dataset),
-                    100. * batch_idx / len(train_loader), loss_cpu.to(torch.device('cpu')).item()))
-        print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}\n'.format(
-            epoch, batch_idx * len(data), len(train_loader.dataset),
-                    100. * batch_idx / len(train_loader), loss_cpu.to(torch.device('cpu')).item()))
+                file.write(log_msg)
+        print(log_msg)
         trainMetaData.increment_train_step()
         if trainMetaData.end_train() is True:
             break
