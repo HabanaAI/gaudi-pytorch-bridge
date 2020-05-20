@@ -34,8 +34,10 @@ Tensor log_softmax_hpu(
       !half_to_float,
       "softmax with half to float conversion is not supported on HPU");
 
+  int64_t dim_ = at::maybe_wrap_dim(dim, self.dim(), /*wrap_scalar=*/true);
+
   auto output = at::empty(self.sizes(), self.options());
-  ns_Softmax::Params params{static_cast<int>(self.ndimension() - 1 - dim)};
+  ns_Softmax::Params params{static_cast<int>(self.ndimension() - 1 - dim_)};
 
   std::vector<const at::Tensor*> pt_inputs{&self};
   std::vector<const at::Tensor*> pt_outputs{&output};
@@ -64,8 +66,10 @@ Tensor log_softmax_backward_hpu(
     const Tensor& input) {
   LOG_FUNC_BEGIN;
 
+  int64_t dim_ = at::maybe_wrap_dim(dim, input.dim(), /*wrap_scalar=*/true);
+
   auto input_grad = at::empty(input.sizes(), input.options());
-  ns_Softmax::Params params{static_cast<int>(input.ndimension() - 1 - dim)};
+  ns_Softmax::Params params{static_cast<int>(input.ndimension() - 1 - dim_)};
 
   std::vector<const at::Tensor*> pt_inputs{&output, &grad};
   std::vector<const at::Tensor*> pt_outputs{&input_grad};
@@ -96,11 +100,38 @@ Tensor softmax_hpu(
       !half_to_float,
       "softmax with half to float conversion is not supported on HPU");
 
-  auto output = at::empty(self.sizes(), self.options());
-  ns_Softmax::Params params{static_cast<int>(self.ndimension() - 1 - dim)};
+  int64_t dim_ = at::maybe_wrap_dim(dim, self.dim(), /*wrap_scalar=*/true);
 
-  std::vector<const at::Tensor*> pt_inputs{&self};
-  std::vector<const at::Tensor*> pt_outputs{&output};
+  std::vector<const at::Tensor*> pt_inputs;
+  std::vector<const at::Tensor*> pt_outputs;
+
+  ns_Softmax::Params params{};
+
+  Tensor output, self_casted;
+
+  // This part implements softmax.int
+  if(self.scalar_type()==c10::ScalarType::Int
+        || self.scalar_type()==c10::ScalarType::Bool)
+  {
+      self_casted = habana_helpers::hpu_cast_tensor(
+          self,at::scalarTypeToTypeMeta(c10::ScalarType::Float));
+
+      output = at::empty(self_casted.sizes(), self_casted.options());
+      pt_inputs.push_back(&self_casted);
+      pt_outputs.push_back(&output);
+
+      params.dim=(static_cast<int>(self_casted.ndimension() - 1 - dim_));
+
+  }
+  else
+  {
+      output = at::empty(self.sizes(), self.options());
+      pt_inputs.push_back(&self);
+      pt_outputs.push_back(&output);
+      params.dim=(static_cast<int>(self.ndimension() - 1 - dim_));
+
+  }
+
   synapse_simple_generic_kernel(
       pt_outputs,
       pt_inputs,
@@ -111,6 +142,7 @@ Tensor softmax_hpu(
 
   LOG_FUNC_END;
   return output;
+
 }
 
 /** softmax (backward pass) implementation for Habana device
@@ -126,8 +158,10 @@ Tensor softmax_backward_hpu(
     const Tensor& input) {
   LOG_FUNC_BEGIN;
 
+  int64_t dim_ = at::maybe_wrap_dim(dim, input.dim(), /*wrap_scalar=*/true);
+
   auto input_grad = at::empty(input.sizes(), input.options());
-  ns_Softmax::Params params{static_cast<int>(input.ndimension() - 1 - dim)};
+  ns_Softmax::Params params{static_cast<int>(input.ndimension() - 1 - dim_)};
 
   std::vector<const at::Tensor*> pt_inputs{&output, &grad};
   std::vector<const at::Tensor*> pt_outputs{&input_grad};
