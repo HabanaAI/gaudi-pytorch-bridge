@@ -244,6 +244,86 @@ Tensor constant_pad_hpu(const Tensor& self, IntArrayRef pad, Scalar value) {
   return output;
 }
 
+/** @brief simple lookup table that looks up embeddings in a fixed dictionary
+ * and size.
+ * @param weight (Tensor) The embedding matrix with number of rows equal to the
+ * maximum possible index + 1, and number of columns equal to the embedding size
+ * @param indices (LongTensor)  Tensor containing indices into the embedding
+ * matrix
+ * @param padding_idx (int, optional) If given, pads the output with the
+ * embedding vector at padding_idx (initialized to zeros) whenever it encounters
+ * the index
+ * @param scale_grad_by_freq (boolean, optional) If given, this will scale
+ * gradients by the inverse of frequency of the words in the mini-batch
+ * @param sparse (boolean, optional)  If True, gradient w.r.t. weight will be a
+ * sparse tensor.
+ */
+Tensor embedding_hpu(
+    const Tensor& weight,
+    const Tensor& indices,
+    int64_t padding_idx,
+    bool scale_grad_by_freq,
+    bool sparse) {
+  LOG_FUNC_BEGIN;
+
+  TORCH_CHECK(
+      scale_grad_by_freq == false, "scale_grad_by_value = true not supported")
+  TORCH_CHECK(sparse == false, "sparse embedding not supported")
+  TORCH_CHECK(padding_idx == -1, "padding index not supported")
+
+  Tensor output;
+  if (indices.dim() == 1) {
+    output = weight.index_select(0, indices);
+  } else {
+    auto size = indices.sizes().vec();
+    // append size of last N-1 dimensions of weight (assuming its a Nd tensor)
+    for (auto d : weight.sizes().slice(1)) {
+      size.push_back(d);
+    }
+    output = weight.index_select(0, indices.view(-1)).view(size);
+  }
+
+  LOG_FUNC_END;
+  return output;
+}
+
+/** @brief Function implements embedding backward (for dense-tensors)
+ * @param grad (Tensor) Input gradient for bwd pass
+ * @param indices (LongTensor) Tensor containing indices into the embedding
+ * matrix
+ * @param num_weights (int) Number fo rows in the weight tensor
+ * @param padding_idx (int, optional) If given, pads the output with the
+ * embedding vector at padding_idx (initialized to zeros) whenever it encounters
+ * the index
+ * @param scale_grad_by_freq (boolean, optional) If given, this will scale
+ * gradients by the inverse of frequency of the words in the mini-batch
+ */
+Tensor embedding_dense_backward_hpu(
+    const Tensor& grad,
+    const Tensor& indices,
+    int64_t num_weights,
+    int64_t padding_idx,
+    bool scale_grad_by_freq) {
+  LOG_FUNC_BEGIN;
+
+  TORCH_CHECK(
+      scale_grad_by_freq == false, "scale_grad_by_value = true not supported")
+  TORCH_CHECK(padding_idx == -1, "padding index not supported")
+
+  auto grad_weight = at::zeros({num_weights, grad.size(-1)}, grad.options());
+
+  Tensor output;
+  if (indices.dim() == 1) {
+    output = grad_weight.index_put_(indices, grad);
+  } else {
+    std::vector<int64_t> size{-1, grad.size(-1)};
+    output = grad_weight.index_put_(indices.view(-1), grad.view(size));
+  }
+
+  LOG_FUNC_END;
+  return output;
+}
+
 static auto registry =
     torch::RegisterOperators()
         .op(torch::RegisterOperators::options()
@@ -266,4 +346,18 @@ static auto registry =
                 .impl_unboxedOnlyKernel<
                     decltype(constant_pad_hpu),
                     &constant_pad_hpu>(DispatchKey::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema(
+                    "aten::embedding(Tensor weight, Tensor indices, int padding_idx=-1, bool scale_grad_by_freq=False, bool sparse=False) -> Tensor")
+                .impl_unboxedOnlyKernel<
+                    decltype(embedding_hpu),
+                    &embedding_hpu>(DispatchKey::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema(
+                    "aten::embedding_dense_backward(Tensor grad_output, Tensor indices, int num_weights, int padding_idx, bool scale_grad_by_freq) -> Tensor")
+                .impl_unboxedOnlyKernel<
+                    decltype(embedding_dense_backward_hpu),
+                    &embedding_dense_backward_hpu>(DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));

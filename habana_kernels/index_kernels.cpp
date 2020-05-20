@@ -52,6 +52,45 @@ static Tensor make_index_same_size_as_value(
 }
 
 /*************************************************************************
+ * @brief Kernel implementation for torch.gather
+ * @param self - Input tensor 1-4D bf16/fp32
+ * @param dim - dimension along which to index
+ * @param index - Tensor used to index into self
+ * @param sparse_grad - Boolean to indicate if sparse grad is supported
+ ************************************************************************/
+Tensor gather_src_hpu(const Tensor & self, int64_t dim_, const Tensor & index, bool sparse_grad) {
+  LOG_FUNC_BEGIN;
+
+  TORCH_CHECK(sparse_grad == false, "spare_grad is not supported")
+
+  auto dim = at::maybe_wrap_dim(dim_, self.dim(), /*wrap_scalar=*/true);
+
+  auto index_int = habana_helpers::cast_tensor_to_integer(index);
+
+  auto shape = DimVector(self.sizes());
+  shape.erase(shape.begin() + dim);
+  shape.insert(shape.begin() + dim, index.numel());
+  auto output = at::empty(shape, self.options());
+
+  ns_GatherKernel::Params params;
+  params.axis = self.dim() - dim - 1;
+
+  std::vector<const at::Tensor*> pt_inputs{&self, &index_int};
+  std::vector<const at::Tensor*> pt_outputs{&output};
+
+  synapse_simple_generic_kernel(
+      pt_outputs,
+      pt_inputs,
+      "gather",
+      &params,
+      sizeof(params),
+      SynapsePassType::FORWARD_PASS);
+
+  LOG_FUNC_END;
+  return output;
+}
+
+/*************************************************************************
  * @brief Kernel implementation for scatter_.src(Tensor(a!) self, int dim,
  *Tensor index, Tensor src) -> Tensor(a!)
  * @param self - Input tensor 1-4D bf16/fp32
@@ -64,6 +103,7 @@ Tensor& scatter_inplace_src_hpu(
     int64_t dim_,
     const Tensor& index,
     const Tensor& src) {
+  LOG_FUNC_BEGIN;
   auto dim = at::maybe_wrap_dim(dim_, self.dim(), /*wrap_scalar=*/true);
 
   ns_ScatterKernel::Params params;
@@ -78,6 +118,7 @@ Tensor& scatter_inplace_src_hpu(
       sizeof(params),
       SynapsePassType::FORWARD_PASS);
 
+  LOG_FUNC_END;
   return self;
 }
 
@@ -177,26 +218,7 @@ Tensor index_select_hpu(const Tensor& self, int64_t dim, const Tensor& index) {
 
   dim = at::maybe_wrap_dim(dim, self.dim(), /*wrap_scalar=*/true);
 
-  auto index_int = habana_helpers::cast_tensor_to_integer(index);
-
-  auto shape = DimVector(self.sizes());
-  shape.erase(shape.begin() + dim);
-  shape.insert(shape.begin() + dim, index.numel());
-  auto output = at::empty(shape, self.options());
-
-  ns_GatherKernel::Params params;
-  params.axis = self.dim() - dim - 1;
-
-  std::vector<const at::Tensor*> pt_inputs{&self, &index_int};
-  std::vector<const at::Tensor*> pt_outputs{&output};
-
-  synapse_simple_generic_kernel(
-      pt_outputs,
-      pt_inputs,
-      "gather",
-      &params,
-      sizeof(params),
-      SynapsePassType::FORWARD_PASS);
+  auto output = self.gather(dim, index, false);
 
   LOG_FUNC_END;
   return output;
@@ -231,4 +253,11 @@ static auto registry =
                 .impl_unboxedOnlyKernel<
                     decltype(scatter_inplace_src_hpu),
                     &scatter_inplace_src_hpu>(DispatchKey::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema(
+                    "aten::gather(Tensor self, int dim, Tensor index, *, bool sparse_grad=False) -> Tensor")
+                .impl_unboxedOnlyKernel<
+                    decltype(gather_src_hpu),
+                    &gather_src_hpu>(DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));
