@@ -306,6 +306,65 @@ Tensor& neg_out_hpu( Tensor& result, const Tensor& input) {
   return result;
 
 }
+
+
+/*************************************************************************
+ * @brief Kernel implementation for inplace torch.reciprocal_(self)
+ * @param [in] self - input tensor, 1-4D, BF16/FP32
+ ************************************************************************/
+Tensor& reciprocal_hpu_(Tensor& self) {
+  LOG_FUNC_BEGIN;
+  std::vector<const at::Tensor*> pt_inputs{&self};
+
+  synapse_simple_generic_inplace_kernel(
+      pt_inputs, "reciprocal", nullptr, 0, SynapsePassType::FORWARD_PASS);
+
+  LOG_FUNC_END;
+  return self;
+}
+
+/*************************************************************************
+ * @brief Kernel implementation for output = torch.reciprocal(self)
+ * @param [out] output - output tensor, 1-4D, BF16/FP32
+ * @param [in] self - input tensor, 1-4D, BF16/FP32
+ ************************************************************************/
+Tensor reciprocal_hpu(const Tensor& self) {
+  LOG_FUNC_BEGIN;
+
+  auto output = at::empty(self.sizes(), self.options());
+  std::vector<const at::Tensor*> pt_outputs{&output};
+  std::vector<const at::Tensor*> pt_inputs{&self};
+
+  synapse_simple_generic_kernel(
+      pt_outputs, pt_inputs, "reciprocal", nullptr, 0, SynapsePassType::FORWARD_PASS);
+
+  LOG_FUNC_END;
+  return output;
+}
+
+/*************************************************************************
+ * @brief Kernel implementation for torch.reciprocal(self,out)
+ * @param [out] out - output tensor, 1-4D, BF16/FP32
+ * @param [in] self - input tensor, 1-4D, BF16/FP32
+ ************************************************************************/
+Tensor& reciprocal_out_hpu( Tensor& result, const Tensor& self) {
+  LOG_FUNC_BEGIN;
+
+  // Resize result to correct size (if required)
+  auto shape = DimVector(self.sizes());
+  auto tht_result = result.unsafeGetTensorImpl();
+  THHTensor_resizeNd(tht_result, shape.size(), shape.data(), nullptr);
+
+  std::vector<const at::Tensor*> pt_outputs{&result};
+  std::vector<const at::Tensor*> pt_inputs{&self};
+
+  synapse_simple_generic_kernel(
+      pt_outputs, pt_inputs, "reciprocal", nullptr, 0, SynapsePassType::FORWARD_PASS);
+
+  LOG_FUNC_END;
+  return result;
+}
+
 static auto registry =
     torch::RegisterOperators()
         .op(torch::RegisterOperators::options()
@@ -376,5 +435,20 @@ static auto registry =
         .op(torch::RegisterOperators::options()
                 .schema("aten::neg.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)")
                 .impl_unboxedOnlyKernel<decltype(neg_out_hpu), &neg_out_hpu>(
+                    DispatchKey::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema("aten::reciprocal_(Tensor(a!) self) -> Tensor(a!)")
+                .impl_unboxedOnlyKernel<decltype(reciprocal_hpu_), &reciprocal_hpu_>(
+                    DispatchKey::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema("aten::reciprocal(Tensor self) -> Tensor")
+                .impl_unboxedOnlyKernel<decltype(reciprocal_hpu), &reciprocal_hpu>(
+                    DispatchKey::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema("aten::reciprocal.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)")
+                .impl_unboxedOnlyKernel<decltype(reciprocal_out_hpu), &reciprocal_out_hpu>(
                     DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));
