@@ -11,7 +11,7 @@
 
 #include <cstdint>
 #include <hcl_api_types.h>
-#include <stddef.h>
+#include <cstddef>
 #include <synapse_api_types.h>
 #include <synapse_common_types.h>
 #include <algorithm>
@@ -63,20 +63,25 @@ class hcl_communicator {
   ~hcl_communicator();
 
   synapse_error_o allreduce(device_ptr input_address, device_ptr output_address, size_t elem_cnt,
-                            synDataType data_type, std::function<void()> tensor_cleanup_callback = [] {});
+                            synDataType data_type, const std::function<void()>& tensor_cleanup_callback = [] {});
+
+  synapse_error_o reduce(HCL_Rank dest_rank, device_ptr input_address, device_ptr output_address, size_t elem_cnt,
+                         synDataType data_type, const std::function<void()>& tensor_cleanup_callback = [] {});
 
   synapse_error_o broadcast(HCL_Rank root_rank, uint64_t address, size_t elem_cnt, synDataType data_type,
-                            std::function<void()> tensor_cleanup_callback = [] {});
+                            const std::function<void()>& tensor_cleanup_callback = [] {});
 
   synapse_error_o allgather(device_ptr input_address, device_ptr output_address, size_t elem_cnt,
-                            synDataType data_type, std::function<void()> tensor_cleanup_callback = [] {});
+                            synDataType data_type, const std::function<void()>& tensor_cleanup_callback = [] {});
 
+  synapse_error_o reduce_scatter(device_ptr input_address, device_ptr output_address, size_t elem_cnt,
+                                 synDataType data_type, const std::function<void()>& tensor_cleanup_callback = [] {});
 
   synapse_error_o send(device_ptr send_buffer, size_t sizeInBytes,HCL_Rank remoteRank,uint32_t tag,
-                       std::function<void()> tensor_cleanup_callback  = [] {});
+                       const std::function<void()>& tensor_cleanup_callback = [] {});
 
   synapse_error_o receive(device_ptr receive_buffer, size_t sizeInBytes,HCL_Rank remoteRank,uint32_t tag,
-                          std::function<void()> tensor_cleanup_callback  = [] {});
+                          const std::function<void()>& tensor_cleanup_callback = [] {});
 
   HCL_Rank my_hcl_rank() const { return my_hcl_rank_; };
 
@@ -101,11 +106,9 @@ class hcl_communicator {
 
   std::string comm_name_;
   int size_{0};
+  std::shared_ptr<device> my_device_{nullptr};
   HCL_Rank my_hcl_rank_{HCL_RANK_UNASSIGNED};
   HCL_Rank root_hcl_rank_{HCL_RANK_UNASSIGNED};
-
- protected:
-   std::shared_ptr<device> my_device_{nullptr};
 };
 
 }  // namespace synapse_helpers
