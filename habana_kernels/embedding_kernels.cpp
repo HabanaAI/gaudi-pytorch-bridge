@@ -324,6 +324,74 @@ Tensor embedding_dense_backward_hpu(
   return output;
 }
 
+/**********************************************************
+*@brief
+@param [in]  input 2D tensor, FP32/FP16
+@param [in]  indices 0-1D, FP32/FP16
+@param [in]  offsets 0-1D, FP32/FP16
+@param [in]  valid_count  - contains 2 elements namely valid_count_offsets and valid_count_indices
+**********************************************************/
+Tensor embedding_bag_sum_hpu(
+    const Tensor& input,
+    const Tensor& indices,
+    const Tensor& offsets,
+    const Tensor& valid_count,
+    int64_t kernel_mode) {
+  LOG_FUNC_BEGIN;
+
+  TORCH_CHECK(indices.dim() <= 1, "index tensor cannot be more than 1D")
+  // Convert index tensor from 0D to 1D if required
+  if (indices.dim() == 0) {
+    indices.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+  }
+
+  TORCH_CHECK(offsets.dim() <= 1, "index tensor cannot be more than 1D")
+  // Convert offsets tensor from 0D to 1D if required
+  if (offsets.dim() == 0) {
+    offsets.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+  }
+
+  TORCH_CHECK(valid_count.numel() == 2, "valid_count should have two elements")
+  TORCH_CHECK(input.dim() == 2, "Input tensor should be 2D")
+
+  auto indices_i32 = habana_helpers::cast_tensor_to_integer(indices);
+  auto offsets_i32 = habana_helpers::cast_tensor_to_integer(offsets);
+  auto valid_count_i32 = habana_helpers::cast_tensor_to_integer(valid_count);
+
+  std::vector<const at::Tensor*> pt_inputs{
+      &input, &indices_i32, &offsets_i32, &valid_count_i32};
+
+  auto data_ptr = static_cast<int64_t*>(valid_count.to("cpu").data_ptr());
+
+  auto valid_count_offset = data_ptr[1]; // valid offset
+  TORCH_CHECK(
+      valid_count_offset > 0, "valid_count_offset should be greater than 0");
+
+  auto output =
+      at::empty({valid_count_offset - 1, input.size(1)}, input.options());
+
+  std::vector<const at::Tensor*> pt_outputs{&output};
+
+  std::string node_guid;
+  if (kernel_mode == 0) {
+    node_guid = "embedding_bag_sum_2d";
+  } else {
+    node_guid = "embedding_bag_sum_small_lengths_2d";
+  }
+
+  synapse_simple_generic_kernel(
+      pt_outputs,
+      pt_inputs,
+      node_guid,
+      nullptr,
+      0,
+      SynapsePassType::FORWARD_PASS);
+
+  LOG_FUNC_END;
+
+  return output;
+}
+
 static auto registry =
     torch::RegisterOperators()
         .op(torch::RegisterOperators::options()
@@ -360,4 +428,11 @@ static auto registry =
                 .impl_unboxedOnlyKernel<
                     decltype(embedding_dense_backward_hpu),
                     &embedding_dense_backward_hpu>(DispatchKey::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema(
+                    "aten::embedding_bag_sum(Tensor ifm, Tensor indices, Tensor offsets, Tensor valid_count, int kernel_mode) ->Tensor")
+                .impl_unboxedOnlyKernel<
+                    decltype(embedding_bag_sum_hpu),
+                    &embedding_bag_sum_hpu>(DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));

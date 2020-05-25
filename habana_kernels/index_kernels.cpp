@@ -223,6 +223,54 @@ Tensor index_select_hpu(const Tensor& self, int64_t dim, const Tensor& index) {
   LOG_FUNC_END;
   return output;
 }
+/*************************************************************************
+ * @brief Kernel implementation for gather2d custom OP
+ * @param self - Input tensor 2D fp32
+ * @param indices - 1D tensor containing the indices to index
+ * @param validCount - number of valid indices in indices tensor
+ ************************************************************************/
+Tensor gather2d_hpu(
+    const Tensor& input,
+    const Tensor& indices,
+    int64_t validCount) {
+  LOG_FUNC_BEGIN;
+
+  TORCH_CHECK(indices.dim() <= 1, "index tensor cannot be more than 1D")
+  // Convert index tensor from 0D to 1D if required
+  if (indices.dim() == 0) {
+    indices.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+  }
+
+  TORCH_CHECK(
+      indices.numel() >= validCount,
+      "validCount cannot be greater than number of indices provided")
+  TORCH_CHECK(input.dim() == 2, "Input tensor should be 2D")
+
+  auto shape = DimVector(input.sizes());
+  shape.erase(shape.begin() + 0);
+  shape.insert(shape.begin() + 0, std::min(indices.numel(), validCount));
+  auto output = at::empty(shape, input.options());
+
+  auto indices_int = habana_helpers::cast_tensor_to_integer(indices);
+  auto validCount_int = at::empty({1}, indices_int.options());
+  validCount_int.fill_(static_cast<int32_t>(validCount));
+
+  std::vector<const at::Tensor*> pt_inputs{
+      &input, &indices_int, &validCount_int};
+  std::vector<const at::Tensor*> pt_outputs{&output};
+
+  synapse_simple_generic_kernel(
+      pt_outputs,
+      pt_inputs,
+      "gather_with_valid_count_2d_f32",
+      nullptr,
+      0,
+      SynapsePassType::NO_PASS);
+
+  LOG_FUNC_END;
+  return output;
+}
+
 
 static auto registry =
     torch::RegisterOperators()
@@ -253,6 +301,13 @@ static auto registry =
                 .impl_unboxedOnlyKernel<
                     decltype(scatter_inplace_src_hpu),
                     &scatter_inplace_src_hpu>(DispatchKey::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema(
+                    "aten::gather2D(Tensor input, Tensor indices, int validCount) -> Tensor")
+                .impl_unboxedOnlyKernel<
+                    decltype(gather2d_hpu),
+                    &gather2d_hpu>(DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema(

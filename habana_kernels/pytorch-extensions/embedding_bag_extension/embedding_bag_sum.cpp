@@ -1,0 +1,41 @@
+#include <torch/extension.h>
+
+#include <ATen/ATen.h>
+#include <ATen/NativeFunctions.h>
+
+#include <iostream>
+
+using namespace std;
+
+// Input tensor 1	Input feature map	BF16/FP32	2D
+// Input tensor 2	Indices Tensor	I32	1D
+// Input tensor 3	Valid Count Tensor	I32	1D
+// Enum kernel_mode
+// Output tensor 1	Output feature map	FP32	2D
+// GUID: gather_with_valid_count_2d_<bf16/ f32>
+/*typedef enum {
+  EMBEDDING_BAG_MODE_SUM = 0,
+  EMBEDDING_BAG_MODE_SUM_SMALL_LENGTHS = 1
+} HabanaEmbeddingBagKernelMode_t;
+*/
+
+torch::Tensor embedding_bag_sum_with_valid_count_f32(
+    torch::Tensor input,
+    torch::Tensor indices,
+    torch::Tensor offsets,
+    torch::Tensor validCount,
+    int64_t kernelMode) {
+  torch::Tensor out;
+  std::cout << "Inside New Op :: embedding_bag_sum_with_valid_count_f32"
+            << std::endl;
+  out = at::embedding_bag_sum(input, indices, offsets, validCount, kernelMode);
+  return out;
+}
+
+PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
+  m.def(
+      "forward",
+      &embedding_bag_sum_with_valid_count_f32,
+      "embedding bag sum forward");
+  m.def("backward", &embedding_bag_sum_with_valid_count_f32, "TO BE REMOVED");
+}

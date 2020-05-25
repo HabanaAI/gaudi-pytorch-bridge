@@ -53,7 +53,7 @@ Tensor& fill_hpu_(Tensor& self, Scalar value) {
       uint32_t memset_val;
       TORCH_CHECK(value.isFloatingPoint() || value.isIntegral(false));
       if (value.isIntegral(false) && self.scalar_type() == dtype) {
-        memset_val = value.to<uint32_t>();
+        memset_val = value.to<int32_t>();
       } else {
         auto float_val = value.to<float>();
         memcpy(&memset_val, &float_val, sizeof(float_val));

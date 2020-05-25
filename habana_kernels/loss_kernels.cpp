@@ -362,6 +362,151 @@ Tensor mse_loss_backward_hpu(
   return out.at(0);
 }
 
+// Input tensors
+// 1	Gradient             FP32/FP16/BF16	2D
+// 2	Weights              FP32	2D
+// 3	Moments              FP32	2D
+// 4	Indices              I32	1D
+// 5	Learning rate	       FP32	1D
+// 6	Valid count	         I32	1D
+//
+// Output tensors
+// 1	Weights              FP32/FP16/BF16	2D
+// 2	Moments              FP32	2D
+#if 0 // TODO: TPC kernel seems to give wrong results.
+std::tuple<torch::Tensor, torch::Tensor>
+optimizer_sparse_sgd_with_valid_count_hpu(
+    torch::Tensor gradients,
+    torch::Tensor weights_in,
+    torch::Tensor moments_in,
+    torch::Tensor indices,
+    torch::Tensor learning_rate,
+    int64_t valid_count,
+    float mom,
+    bool nesterov) {
+  LOG_FUNC_BEGIN;
+  std::cout
+      << "Inside New Op :: optimizer_sparse_sgd_with_valid_count_hpu valid_count = "
+      << valid_count << std::endl;
+  ns_OptimizerSparseSGD::Params params;
+  params.mom = mom;
+  params.nesterov = nesterov;
+  auto weights_out = at::empty(weights_in.sizes(), weights_in.options());
+  auto moments_out = at::empty(moments_in.sizes(), moments_in.options());
+  weights_out.copy_(weights_in, false);
+  moments_out.copy_(moments_in, false);
+  auto cast_indices = habana_helpers::cast_tensor_to_integer(indices);
+  auto long_tensor = at::empty({1}, indices.options());
+  auto lcpu = long_tensor.to("cpu");
+  int64_t* lptr = static_cast<int64_t*>(lcpu.data_ptr());
+  *lptr = valid_count;
+  auto valid_count_tensor =
+      lcpu.to(c10::ScalarType::Int).to(long_tensor.device());
+  std::vector<const Tensor*> pt_inputs;
+  pt_inputs.push_back(&gradients);
+  pt_inputs.push_back(&weights_in);
+  pt_inputs.push_back(&moments_in);
+  pt_inputs.push_back(&cast_indices);
+  pt_inputs.push_back(&learning_rate);
+  pt_inputs.push_back(&valid_count_tensor);
+  std::vector<const Tensor*> pt_outputs{&weights_out, &moments_out};
+
+  synapse_simple_generic_kernel(
+      pt_outputs,
+      pt_inputs,
+      "optimizer_sparse_sgd_with_valid_count_2d_",
+      &params,
+      sizeof(params),
+      SynapsePassType::NO_PASS_WITH_TYPE);
+  LOG_FUNC_END;
+  return std::tie(weights_out, moments_out);
+}
+#else
+std::tuple<torch::Tensor, torch::Tensor, torch::Tensor>
+optimizer_sparse_sgd_with_valid_count_cpu(
+    torch::Tensor gradients,
+    torch::Tensor weights_in,
+    torch::Tensor moments_in,
+    torch::Tensor indices,
+    torch::Tensor learning_rate,
+    int64_t valid_count,
+    float mom,
+    bool nesterov) {
+  /*
+  moments_out[sparse_indices] = momentum_in[sparse_indices] * state.mom +
+                                gradients[sparse_indices];
+  gradients_out[sparse_indices] = momentum_out[sparse_indices];
+  weights_out[sparse_indices] =
+    weights_in[sparse_indices] - state.lr * gradients_out[sparse_indices];
+  */
+  auto sizes = weights_in.sizes().vec();
+  float* gp = static_cast<float*>(gradients.data_ptr());
+  float* winp = static_cast<float*>(weights_in.data_ptr());
+  float* minp = static_cast<float*>(moments_in.data_ptr());
+  Tensor weights_out = at::empty(weights_in.sizes(), weights_in.options());
+  Tensor moments_out = at::empty(moments_in.sizes(), moments_in.options());
+  Tensor grad_output = at::empty(gradients.sizes(), gradients.options());
+  weights_out.copy_(weights_in, false);
+  moments_out.copy_(moments_in, false);
+  grad_output.copy_(gradients, false);
+  float* woutp = static_cast<float*>(weights_out.data_ptr());
+  float* moutp = static_cast<float*>(moments_out.data_ptr());
+  float* goutp = static_cast<float*>(grad_output.data_ptr());
+  int* inp = static_cast<int*>(indices.data_ptr());
+  float* lrp = static_cast<float*>(learning_rate.data_ptr());
+  float gtemp;
+  unsigned vec_len = sizes[1];
+  for (unsigned i = 0; i < valid_count; i++) {
+    for (unsigned k = 0; k < vec_len; k++) {
+      // momentum update
+      moutp[inp[i] * vec_len + k] =
+          minp[inp[i] * vec_len + k] * mom + gp[inp[i] * vec_len + k];
+      gtemp = moutp[inp[i] * vec_len + k];
+      // grad update
+      if (nesterov) {
+        goutp[inp[i] * vec_len + k] = gp[inp[i] * vec_len + k] + mom * gtemp;
+      } else {
+        goutp[inp[i] * vec_len + k] = gtemp;
+      }
+      // weight update
+      woutp[inp[i] * vec_len + k] = winp[inp[i] * vec_len + k] - *lrp * gtemp;
+    }
+  }
+  return std::make_tuple(weights_out, moments_out, grad_output);
+}
+
+std::tuple<torch::Tensor, torch::Tensor>
+optimizer_sparse_sgd_with_valid_count_hpu(
+    torch::Tensor gradients,
+    torch::Tensor weights_in,
+    torch::Tensor moments_in,
+    torch::Tensor indices,
+    torch::Tensor learning_rate,
+    int64_t valid_count,
+    float mom,
+    bool nesterov) {
+  LOG_FUNC_BEGIN;
+  auto sizes = weights_in.sizes().vec();
+  for (unsigned int i = 0; i < weights_in.dim(); i++)
+    std::cout << "sizes = " << sizes[i] << std::endl;
+  auto cast_indices = habana_helpers::cast_tensor_to_integer(indices);
+  auto hpu = indices.device();
+  auto result = optimizer_sparse_sgd_with_valid_count_cpu(
+      gradients.to("cpu"),
+      weights_in.to("cpu"),
+      moments_in.to("cpu"),
+      cast_indices.to("cpu"),
+      learning_rate.to("cpu"),
+      valid_count,
+      mom,
+      nesterov);
+  auto ret1 = std::get<0>(result);
+  auto ret2 = std::get<1>(result);
+  LOG_FUNC_END;
+  return std::make_tuple(ret1.to(hpu), ret2.to(hpu));
+}
+
+#endif
 static auto registry =
     torch::RegisterOperators()
         .op(torch::RegisterOperators::options()
