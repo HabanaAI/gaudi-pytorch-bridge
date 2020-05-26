@@ -8,10 +8,10 @@
  ******************************************************************************
  */
 #pragma once
-#include <torch/csrc/jit/passes/alias_analysis.h>
+#include <torch/csrc/jit/ir/alias_analysis.h>
 #include <torch/csrc/jit/passes/graph_fuser.h>
 #include <torch/csrc/jit/passes/utils/subgraph_utils.h>
-#include <torch/csrc/jit/ir.h>
+#include <torch/csrc/jit/ir/ir.h>
 
 namespace torch{
 

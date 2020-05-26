@@ -9,9 +9,9 @@
  */
 #pragma once
 
-#include <torch/csrc/jit/argument_spec.h>
-#include <torch/csrc/jit/interpreter.h>
-#include <torch/csrc/jit/ir.h>
+#include <torch/csrc/jit/runtime/argument_spec.h>
+#include <torch/csrc/jit/runtime/interpreter.h>
+#include <torch/csrc/jit/ir/ir.h>
 #include <ATen/Tensor.h>
 
 class HbCompiler {

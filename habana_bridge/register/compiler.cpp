@@ -10,8 +10,8 @@
 #include "compiler.h"
 
 #include <torch/csrc/autograd/record_function.h>
-#include <torch/csrc/jit/constants.h>
-#include <torch/csrc/jit/interpreter.h>
+#include <torch/csrc/jit/ir/constants.h>
+
 #include "habana_helpers/logging.h"
 
 #include <algorithm>
