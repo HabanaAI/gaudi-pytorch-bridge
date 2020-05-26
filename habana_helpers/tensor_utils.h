@@ -71,9 +71,6 @@ std::string name_suffix_from_type(const c10::ScalarType pt_type);
 
 at::Tensor to_cpu(const at::Tensor& hpu_tensor);
 
-// TODO: remove this function. Workaround for SW-9962
-[[deprecated]] at::Tensor contiguous_tensor(const at::Tensor& tensor);
-
 void copy_data_to_host(const at::Tensor& src, void* dst_ptr, uint32_t size);
 
 void copy_data_to_device(void* src_ptr, const at::Tensor& dst, uint32_t size);

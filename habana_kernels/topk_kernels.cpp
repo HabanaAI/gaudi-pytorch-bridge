@@ -33,7 +33,7 @@ inline void _allocate_or_resize_output_with_indices(
   }
   if (values.defined()) {
     TORCH_CHECK(
-        self.type() == values.type(),
+        self.options().type_equal(values.options()),
         "output values must be of same type as input");
     auto tht_values = values.unsafeGetTensorImpl();
     THHTensor_resizeNd(tht_values, self.dim(), result_sizes.data(), nullptr);

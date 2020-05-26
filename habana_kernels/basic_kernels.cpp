@@ -234,7 +234,7 @@ Tensor& cat_hpu_out(
   }
   if (result.defined()) {
     TORCH_CHECK(
-        tensors[0].type() == result.type(),
+        tensors[0].options().type_equal(result.options()),
         "output values must be of same type as input");
     auto tht_result = result.unsafeGetTensorImpl();
     THHTensor_resizeNd(tht_result, tensors[0].dim(), out_size.data(), nullptr);

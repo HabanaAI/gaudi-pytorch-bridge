@@ -15,20 +15,12 @@
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_device/tensor_builder.h"
+#include "habana_helpers/graph.h"
 #include "habana_helpers/tensor_utils.h"
 #include "habana_kernels/simple_generic_kernel.h"
 #include "kernel_utils.h"
 
 using namespace torch;
-
-// TODO: remove this function. Workaround for SW-9962
-[[deprecated]] void adjust_output_tensor_(Tensor& tensor) {
-  tensor.unsafeGetTensorImpl()->set_sizes_and_strides(
-      {tensor.size(1), tensor.size(0)}, {1, tensor.size(1)});
-  tensor = habana_helpers::contiguous_tensor(tensor);
-  tensor.unsafeGetTensorImpl()->set_sizes_and_strides(
-      {tensor.size(1), tensor.size(0)}, {tensor.size(0), 1});
-};
 
 void check_matmul_params(
     const Tensor& mat1,
@@ -58,86 +50,51 @@ void check_matmul_params(
         bias.value()->ndimension() == 1, "matmul_hpu supports only 1d bias");
 }
 
-synapse_helpers::tensor create_hacked_matmul_tensor(
-    const Tensor& mat2,
-    const synGraphHandle graph_handle,
-    const unsigned device_id) {
-  if (mat2.is_contiguous())
-    return habana_helpers::create_tensor(
-        mat2, graph_handle, true, c10::nullopt);
-  else {
-    // Matrix is 2d and not contiguous, it means tensor has sizes(x,y) and
-    // strides (1,y) It won't work because we except strides (y,1).
-    // The trick here is to reverse dimensions, but not the data!
-    // This way after transposition actuall data layout will match synapse
-    // requirements
-    auto maybe_tensor =
-        synapse_helpers::tensor_builder(
-            {mat2.sizes().rbegin(), mat2.sizes().rend()},
-            habana_helpers::pytorch_to_synapse_type(mat2.scalar_type()))
-            .mark_persistence(true)
-            .build(
-                synapse_helpers::HPURegistrar::get_device(device_id),
-                graph_handle);
-    return absl::get<synapse_helpers::tensor>(std::move(maybe_tensor));
-  }
-}
-
 // output = mat1 x mat2
 void synapse_matmul(
     const Tensor& output,
     const Tensor& mat1,
     const Tensor& mat2) {
   const auto device_id = mat1.device().index();
+  std::string node_type = "gemm";
   // graph_handle scope
-  synGraphHandle graph_handle;
-  TORCH_HABANA_CHECK(
-      synGraphCreate(&graph_handle, synDeviceType::synDeviceGaudi),
-      "synGraphCreate failed");
+  auto graph = habana_helpers::create_graph(device_id, node_type);
+
   { // tensors scope
     std::vector<synapse_helpers::tensor> syn_helper_inputs, syn_helper_outputs;
     std::vector<synTensor> syn_inputs, syn_outputs;
 
     syn_helper_inputs.push_back(
-        create_hacked_matmul_tensor(mat1, graph_handle, device_id));
+        habana_helpers::create_tensor(mat1, graph.get_graph_handle(), true));
     syn_inputs.push_back(syn_helper_inputs[syn_helper_inputs.size() - 1].get());
     syn_helper_inputs.push_back(
-        create_hacked_matmul_tensor(mat2, graph_handle, device_id));
+        habana_helpers::create_tensor(mat2, graph.get_graph_handle(), true));
     syn_inputs.push_back(syn_helper_inputs[syn_helper_inputs.size() - 1].get());
 
     std::tie(syn_helper_outputs, syn_outputs) = habana_helpers::create_tensors(
-        std::vector<const at::Tensor*>{&output}, graph_handle, true);
+        std::vector<const at::Tensor*>{&output},
+        graph.get_graph_handle(),
+        true);
 
-    const std::string node_type = "gemm";
     { // add node
-      synGEMMParams params{!mat1.is_contiguous(), !mat2.is_contiguous()};
+      synGEMMParams params{0, 0};
 
-      TORCH_HABANA_CHECK(
-          synNodeCreate(
-              graph_handle,
-              syn_inputs.data(),
-              syn_outputs.data(),
-              syn_inputs.size(),
-              syn_outputs.size(),
-              &params,
-              sizeof(params),
-              node_type.c_str(),
-              "",
-              nullptr,
-              nullptr),
-          "synNodeCreate failed");
+      graph.add_node(
+          std::move(syn_inputs),
+          std::move(syn_outputs),
+          (void*)&params,
+          sizeof(params),
+          std::move(node_type));
     }
 
     habana_helpers::compile_and_run(
-        node_type,
-        graph_handle,
+        std::move(graph),
         habana_helpers::names(syn_helper_inputs),
         habana_helpers::names(syn_helper_outputs),
         {mat1.data_ptr(), mat2.data_ptr()},
         {output.data_ptr()},
         device_id);
   }
-  TORCH_HABANA_CHECK(synGraphDestroy(graph_handle), "synGraphDestroy failed");
 }
 
 // output = alpha * mat1 x mat2 + beta * bias
@@ -154,80 +111,64 @@ void synapse_matmul(
   TORCH_CHECK(
       alpha.to<int>() == 1, "matmul_with_bias_hpu doesn't support scalars yet");
   const auto device_id = mat1.device().index();
+  std::string node_type1 = "gemm";
+  std::string node_type2 =
+      "add_fwd_" + habana_helpers::name_suffix_from_type(mat1.scalar_type());
   // graph_handle scope
-  synGraphHandle graph_handle;
-  TORCH_HABANA_CHECK(
-      synGraphCreate(&graph_handle, synDeviceType::synDeviceGaudi),
-      "synGraphCreate failed");
+  auto graph = habana_helpers::create_graph(device_id, node_type1 + node_type2);
   { // tensors scope
     std::vector<synapse_helpers::tensor> syn_helper_inputs, syn_helper_outputs,
         syn_tmp_helper_tensors;
     std::vector<synTensor> syn_inputs, syn_outputs, syn_tmp_tensors;
 
     syn_helper_inputs.push_back(
-        create_hacked_matmul_tensor(mat1, graph_handle, device_id));
+        habana_helpers::create_tensor(mat1, graph.get_graph_handle(), true));
     syn_inputs.push_back(syn_helper_inputs[syn_helper_inputs.size() - 1].get());
     syn_helper_inputs.push_back(
-        create_hacked_matmul_tensor(mat2, graph_handle, device_id));
-    syn_inputs.push_back(syn_helper_inputs[syn_helper_inputs.size() - 1].get());
-    syn_helper_inputs.push_back(
-        habana_helpers::create_tensor(bias, graph_handle, true));
+        habana_helpers::create_tensor(mat2, graph.get_graph_handle(), true));
     syn_inputs.push_back(syn_helper_inputs[syn_helper_inputs.size() - 1].get());
 
     std::tie(syn_helper_outputs, syn_outputs) = habana_helpers::create_tensors(
-        std::vector<const at::Tensor*>{&output}, graph_handle, true);
+        std::vector<const at::Tensor*>{&output},
+        graph.get_graph_handle(),
+        true);
     std::tie(syn_tmp_helper_tensors, syn_tmp_tensors) =
         habana_helpers::create_tensors(
-            std::vector<const at::Tensor*>{&output}, graph_handle, false);
+            std::vector<const at::Tensor*>{&output},
+            graph.get_graph_handle(),
+            false);
 
-    const std::string node_type1 = "gemm";
-    const std::string node_type2 =
-        "add_fwd_" + habana_helpers::name_suffix_from_type(mat1.scalar_type());
     { // add node
-      synGEMMParams params{!mat1.is_contiguous(), !mat2.is_contiguous()};
+      synGEMMParams params{0, 0};
 
-      TORCH_HABANA_CHECK(
-          synNodeCreate(
-              graph_handle,
-              syn_inputs.data(),
-              syn_tmp_tensors.data(),
-              2, // syn_inputs has bias add at the end
-              syn_tmp_tensors.size(),
-              &params,
-              sizeof(params),
-              node_type1.c_str(),
-              "",
-              nullptr,
-              nullptr),
-          "synNodeCreate failed");
+      graph.add_node(
+          std::move(syn_inputs),
+          std::move(syn_tmp_tensors),
+          (void*)&params,
+          sizeof(params),
+          std::move(node_type1));
     }
     { // add node
+      syn_helper_inputs.push_back(
+          habana_helpers::create_tensor(bias, graph.get_graph_handle(), true));
+      syn_inputs.push_back(
+          syn_helper_inputs[syn_helper_inputs.size() - 1].get());
       syn_tmp_tensors.push_back(syn_inputs[2]); // mm_out + bias
-      TORCH_HABANA_CHECK(
-          synNodeCreate(
-              graph_handle,
-              syn_tmp_tensors.data(),
-              syn_outputs.data(),
-              syn_tmp_tensors.size(),
-              syn_outputs.size(),
-              nullptr,
-              0,
-              node_type2.c_str(),
-              "",
-              nullptr,
-              nullptr),
-          "synNodeCreate failed");
+      graph.add_node(
+          std::move(syn_tmp_tensors),
+          std::move(syn_outputs),
+          nullptr,
+          0,
+          std::move(node_type2));
     }
     habana_helpers::compile_and_run(
-        node_type1 + node_type2,
-        graph_handle,
+        std::move(graph),
         habana_helpers::names(syn_helper_inputs),
         habana_helpers::names(syn_helper_outputs),
         {mat1.data_ptr(), mat2.data_ptr(), bias.data_ptr()},
         {output.data_ptr()},
         device_id);
   }
-  TORCH_HABANA_CHECK(synGraphDestroy(graph_handle), "synGraphDestroy failed");
 }
 
 Tensor matmul_hpu(const Tensor& mat1, const Tensor& mat2) {
@@ -235,10 +176,6 @@ Tensor matmul_hpu(const Tensor& mat1, const Tensor& mat2) {
   check_matmul_params(mat1, mat2, c10::nullopt);
   auto output = at::empty({mat1.size(0), mat2.size(1)}, mat1.options());
   synapse_matmul(output, mat1, mat2);
-
-  // TODO: remove . Workaround for SW-9962
-  if (!mat1.is_contiguous())
-    adjust_output_tensor_(output);
 
   LOG_FUNC_END;
   return output;
@@ -280,10 +217,6 @@ Tensor matmul_with_bias_hpu(
   std::tie(bias_expanded) =
       at::expand_size(self, bias_expanded_sizes, "matmul_with_bias_hpu");
   synapse_matmul(output, mat1, mat2, bias_expanded, beta, alpha);
-
-  // TODO: remove . Workaround for SW-9962
-  if (!mat1.is_contiguous())
-    adjust_output_tensor_(output);
 
   LOG_FUNC_END;
   return output;
