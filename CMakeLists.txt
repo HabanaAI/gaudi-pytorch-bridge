@@ -58,6 +58,7 @@ add_library(habana_pytorch_plugin SHARED
   habana_kernels/threshold_kernels.cpp
   habana_kernels/topk_kernels.cpp
   habana_kernels/unary_kernels.cpp
+  habana_kernels/create_habana_operator.cpp
 )
 target_compile_features(habana_pytorch_plugin PRIVATE cxx_std_14)
 target_compile_definitions(habana_pytorch_plugin PRIVATE "GENERIC_HELPERS" MAX_DEVICES_PER_BOX=8)
@@ -69,7 +70,7 @@ target_include_directories(habana_pytorch_plugin PRIVATE ${CMAKE_SOURCE_DIR})
 
 set(SOURCES habana_bridge/register/register.cpp
                 habana_bridge/passes/habana_fuser.cpp
-		habana_bridge/register/compiler.cpp)
+		habana_bridge/kernel/hpu_habana_launch_op_pt.cpp)
 pybind11_add_module(hb_torch SHARED ${SOURCES})
 target_compile_definitions(hb_torch PRIVATE "GENERIC_HELPERS" MAX_DEVICES_PER_BOX=8)
 target_link_libraries(hb_torch PRIVATE "${TORCH_LIBRARIES}" habana_pytorch_plugin synapse_helpers::synapse_helpers_abi11)

@@ -11,6 +11,8 @@
 
 #include <synapse_helpers/device.h>
 #include <synapse_helpers/graph.h>
+#include <habana_device/hpu_cached_devices.h>
+
 
 namespace habana_helpers {
 static synapse_helpers::graph create_graph(int device_id, std::string name) {
@@ -19,7 +21,7 @@ static synapse_helpers::graph create_graph(int device_id, std::string name) {
 
   if (absl::holds_alternative<synapse_helpers::synapse_error>(graph_or_error)) {
     auto error = absl::get<synapse_helpers::synapse_error>(graph_or_error);
-    TORCH_HABANA_CHECK(error.status, error.error);
+    TORCH_CHECK(error.status, error.error);
   }
   return absl::get<synapse_helpers::graph>(std::move(graph_or_error));
 }

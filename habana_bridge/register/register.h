@@ -19,7 +19,7 @@
 
 #include "habana_helpers/logging.h"
 
-#include "compiler.h"
+#include "habana_bridge/kernel/hpu_habana_launch_op_pt.h"
 
 namespace habana {
 namespace {
@@ -29,7 +29,7 @@ namespace {
             // TODO: Change this to HabanaFusionOp
             torch::jit::Symbol::fromQualString("prim::HabanaFusedOp"),
             [](const torch::jit::Node* node) -> torch::jit::Operation {
-                const auto cc = std::make_shared<HbCompiler>(node, false);
+                const auto cc = std::make_shared<HabanaLaunchOpPT>(node, false);
                 return [cc](torch::jit::Stack &stack) {
                     RECORD_FUNCTION("HabanaFusedOp", std::vector<c10::IValue>());
                     cc->run(stack);
@@ -37,7 +37,7 @@ namespace {
                 };
             },
             c10::AliasAnalysisKind::INTERNAL_SPECIAL_CASE)});
-        LOG_FUNC_END; 
+        LOG_FUNC_END;
     }
 
     void torch_habana_enable(std::function<bool()> enableHabanaCompile) {

@@ -130,4 +130,10 @@ class HabanaOperator {
   KernelMetaData kernel_meta_data_;
 };
 
+using HabanaOperatorPtr = std::shared_ptr<HabanaOperator>;
+
+HabanaOperatorPtr CreateHabanaOperator(const int device_id,
+                                       const std::string& node_name,
+                                       c10::ScalarType node_type);
+
 }; // namespace habana

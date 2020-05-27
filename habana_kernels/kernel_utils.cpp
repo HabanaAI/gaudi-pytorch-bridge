@@ -15,7 +15,7 @@
 
 using namespace torch;
 
-std::vector<synLaunchTensorInfo> generate_syn_launch_tensor_info(
+std::vector<synLaunchTensorInfo> habana_helpers::generate_syn_launch_tensor_info(
     const std::vector<std::string>& in_names,
     const std::vector<void*>& in_buffers,
     const std::vector<std::string>& out_names,
@@ -62,7 +62,7 @@ void habana_helpers::compile_and_run(
   // TODO: decide if PT will use streams from helpers or stream pool like GPU
   synStreamHandle stream_handle = device.get_compute_stream();
 
-  auto syn_launch_info = generate_syn_launch_tensor_info(
+  auto syn_launch_info = habana_helpers::generate_syn_launch_tensor_info(
       input_names, input_buffers, output_names, output_buffers);
 
   uint64_t workspace_size_bytes;
@@ -93,7 +93,7 @@ void habana_helpers::compile_and_run(
   TORCH_CHECK(!graph.is_empty(), "Trying to compile and run an empty graph");
 
   auto compile_result = graph.compile();
-  auto syn_launch_info = generate_syn_launch_tensor_info(
+  auto syn_launch_info = habana_helpers::generate_syn_launch_tensor_info(
       input_names, input_buffers, output_names, output_buffers);
 
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);

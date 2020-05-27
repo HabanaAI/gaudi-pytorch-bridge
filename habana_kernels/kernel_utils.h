@@ -38,4 +38,10 @@ void compile_and_run(
     const std::vector<void*>& input_buffers,
     const std::vector<void*>& output_buffers,
     uint32_t device_id);
+
+std::vector<synLaunchTensorInfo> generate_syn_launch_tensor_info(
+    const std::vector<std::string>& in_names,
+    const std::vector<void*>& in_buffers,
+    const std::vector<std::string>& out_names,
+    const std::vector<void*>& out_buffers);
 } // namespace habana_helpers
