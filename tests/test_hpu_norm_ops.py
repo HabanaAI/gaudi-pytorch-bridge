@@ -2,6 +2,7 @@ import torch
 import torch.nn.functional as F
 import pytest
 from test_utils import evaluate_fwd_kernel, evaluate_fwd_bwd_kernel, reset_seed, evaluate_fwd_inplace_kernel
+import numpy
 
 # N - batch
 # H - input height
@@ -22,8 +23,7 @@ batch_norm_test_case_list_1d_ncl = [
     (32, 64, 5),
 ]
 
-# Note: TODO SW-11483 # copy_kernel set to False, as pushing the kernel to the device throws due to dependencies
-# on resize. Further copying the kernel to device is not needed for this eager mode testing
+
 @pytest.mark.parametrize("N, H, W, C", batch_norm_test_case_list_2d)
 def test_hpu_batch_norm_2d_fwd_bwd(N, H, W, C):
     kernel = torch.nn.BatchNorm2d(C)
@@ -52,6 +52,40 @@ def test_hpu_batch_norm_1d_ncl_fwd_bwd(N, C, L):
 
     evaluate_fwd_bwd_kernel(kernel=kernel, tensor_list_bwd=bwd_tensors,
                             kernel_params_fwd=kernel_params_fwd, copy_kernel=True)
+
+
+@pytest.mark.parametrize("N, H, W, C", batch_norm_test_case_list_2d)
+def test_hpu_batch_norm_2d_eval_fwd_bwd(N, H, W, C):
+    hpu = torch.device('habana')
+    cpu = torch.device('cpu')
+
+    class bn(torch.nn.Module):
+        def __init__(self):
+            super(bn, self).__init__()
+            self.bn1 = torch.nn.BatchNorm2d(C)
+
+        def _forward_impl(self, x):
+            x = self.bn1(x)
+            return x
+
+        def forward(self, x):
+            return self._forward_impl(x)
+
+    model = bn()
+    model = model.train()
+    x = torch.randn((N, C, H, W))
+    output = model(x)
+
+    model = model.eval()
+    output = model(x)
+
+    model_hpu = model.to(hpu)
+    model_hpu = model_hpu.eval()
+    x_hpu = x.to(hpu)
+    output_hpu = model_hpu(x_hpu)
+    output_hpu_cpu = output_hpu.to(cpu)
+    numpy.testing.assert_allclose(output_hpu_cpu.detach().numpy(),
+                                  output.detach().numpy(), atol=0.001, rtol=0.001)
 
 
 if __name__ == '__main__':

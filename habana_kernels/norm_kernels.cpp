@@ -107,8 +107,6 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu(
     double eps) {
   LOG_FUNC_BEGIN;
 
-  TORCH_CHECK(training == true, "Training flag is expected to true")
-
   auto num_input_dim = input.dim();
 
   TORCH_CHECK(num_input_dim > 1, "Expected range of input dimensions is [2,4]");
@@ -139,64 +137,88 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu(
   Tensor running_var_hpu = get_batch_norm_optional_tensors(
       running_var, input.sizes()[1], input.device());
 
-  std::vector<const at::Tensor*> pt_inputs{
-      &input_nhwc,
-      &wt_hpu,
-      &bias_hpu,
-  };
-
-  auto output_nhwc = at::empty(input_nhwc.sizes(), input_nhwc.options());
-  std::vector<const at::Tensor*> pt_outputs{&output_nhwc};
-
   auto current_mean =
       at::empty(running_mean_hpu.sizes(), running_mean_hpu.options());
   auto current_istd =
       at::empty(running_mean_hpu.sizes(), running_mean_hpu.options());
 
-  Tensor running_mean_hpu_in, running_var_hpu_in, residualAdd;
+  auto output_nhwc = at::empty(input_nhwc.sizes(), input_nhwc.options());
+  std::vector<const at::Tensor*> pt_outputs{&output_nhwc};
 
-  if (running_mean.defined()) {
-    running_mean_hpu_in =
-        at::empty(running_mean_hpu.sizes(), running_mean_hpu.options());
+  if (training == true) {
+    std::vector<const at::Tensor*> pt_inputs{
+        &input_nhwc,
+        &wt_hpu,
+        &bias_hpu,
+    };
 
-    running_var_hpu_in =
-        at::empty(running_var_hpu.sizes(), running_var_hpu.options());
+    Tensor running_mean_hpu_in, running_var_hpu_in, residualAdd;
 
-    residualAdd = at::empty(input_nhwc.sizes(), input_nhwc.options());
+    if (running_mean.defined()) {
+      running_mean_hpu_in =
+          at::empty(running_mean_hpu.sizes(), running_mean_hpu.options());
 
-    // This residual add is dummy tensor to match the API requirements
-    pt_inputs.push_back(&residualAdd);
+      running_var_hpu_in =
+          at::empty(running_var_hpu.sizes(), running_var_hpu.options());
 
-    // running mean and running var cannot be in input and output list
-    // simultaneously. create a copy
-    habana_helpers::copy_data_within_device(
-        running_mean_hpu, running_mean_hpu_in);
+      residualAdd = at::empty(input_nhwc.sizes(), input_nhwc.options());
 
-    habana_helpers::copy_data_within_device(
-        running_var_hpu, running_var_hpu_in);
+      // This residual add is dummy tensor to match the API requirements
+      pt_inputs.push_back(&residualAdd);
 
-    pt_inputs.push_back(&running_mean_hpu_in);
-    pt_inputs.push_back(&running_var_hpu_in);
+      // running mean and running var cannot be in input and output list
+      // simultaneously. create a copy
+      habana_helpers::copy_data_within_device(
+          running_mean_hpu, running_mean_hpu_in);
 
-    pt_outputs.push_back(&running_mean_hpu);
-    pt_outputs.push_back(&running_var_hpu);
+      habana_helpers::copy_data_within_device(
+          running_var_hpu, running_var_hpu_in);
 
-    pt_outputs.push_back(&current_mean);
-    pt_outputs.push_back(&current_istd);
+      pt_inputs.push_back(&running_mean_hpu_in);
+      pt_inputs.push_back(&running_var_hpu_in);
+
+      pt_outputs.push_back(&running_mean_hpu);
+      pt_outputs.push_back(&running_var_hpu);
+
+      pt_outputs.push_back(&current_mean);
+      pt_outputs.push_back(&current_istd);
+    }
+
+    // synapse uses expAvgfactor = 1 - momentum
+    struct synCudBnExParams param = {synBnOps::BN_OPS_BN,
+                                     static_cast<float>(1 - momentum),
+                                     static_cast<float>(eps)};
+
+    synapse_simple_generic_kernel(
+        pt_outputs,
+        pt_inputs,
+        "cud_bn_fwd_ex",
+        &param,
+        sizeof(param),
+        SynapsePassType::NO_PASS);
+  } else {
+    // training=false - Evaluation mode
+    std::vector<const at::Tensor*> pt_inputs{
+        &input_nhwc,
+        &bias_hpu,
+        &wt_hpu,
+        &running_mean_hpu,
+        &running_var_hpu,
+    };
+
+    struct ns_BatchNormKernel::Params param;
+    param.threshold.f = 0.0;
+    param.momentum = momentum;
+    param.epsilon = eps;
+
+    synapse_simple_generic_kernel(
+        pt_outputs,
+        pt_inputs,
+        "batch_norm_inf",
+        &param,
+        sizeof(param),
+        SynapsePassType::NO_PASS);
   }
-
-  // synapse uses expAvgfactor = 1 - momentum
-  struct synCudBnExParams param = {synBnOps::BN_OPS_BN,
-                                   static_cast<float>(1 - momentum),
-                                   static_cast<float>(eps)};
-
-  synapse_simple_generic_kernel(
-      pt_outputs,
-      pt_inputs,
-      "cud_bn_fwd_ex",
-      &param,
-      sizeof(param),
-      SynapsePassType::NO_PASS);
 
   // NHWC -> NCHW to match PyT layout
   auto output = output_nhwc.permute({0, 3, 1, 2});
@@ -242,7 +264,6 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu(
 
   auto num_input_dim = input.dim();
 
-  TORCH_CHECK(train == true, "Training flag is expected to true")
   TORCH_CHECK(num_input_dim > 1, "Expected range of input dimensions is [2,4]");
   TORCH_CHECK(
       num_input_dim == grad_out.dim(),

@@ -11,12 +11,12 @@
 #include <torch/script.h>
 #include <memory>
 
+#include <ATen/core/TensorBody.h>
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_helpers/tensor_utils.h"
 #include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/simple_generic_kernel.h"
-#include <ATen/core/TensorBody.h>
 
 using namespace torch;
 
@@ -317,9 +317,9 @@ Tensor add_tensor_hpu(const Tensor& self, const Tensor& other, Scalar alpha) {
       alpha_tensor = habana_helpers::scalar_to_device_tensor(
           alpha_converted, self.options(), self.ndimension());
     }
-  }
 
-  synapse_add_tensor(output, self, other, alpha_tensor_ptr);
+    synapse_add_tensor(output, self, other, alpha_tensor_ptr);
+  }
 
   LOG_FUNC_END;
   return output;
@@ -557,15 +557,20 @@ Tensor mul_tensor_hpu(const Tensor& self, const Tensor& other) {
 
   pt_inputs.push_back(&self);
 
-  if(self.is_same(other)){
-    output = at::pow(self,2.0);
-  }
-  else{
-    pt_inputs.push_back(modified_other->defined() ? &(*modified_other) : &other);
+  if (self.is_same(other)) {
+    output = at::pow(self, 2.0);
+  } else {
+    pt_inputs.push_back(
+        modified_other->defined() ? &(*modified_other) : &other);
     pt_outputs.push_back(&output);
 
     synapse_simple_generic_kernel(
-      pt_outputs, pt_inputs, "mult", nullptr, 0, SynapsePassType::FORWARD_PASS);
+        pt_outputs,
+        pt_inputs,
+        "mult",
+        nullptr,
+        0,
+        SynapsePassType::FORWARD_PASS);
   }
 
   LOG_FUNC_END;
@@ -1025,34 +1030,41 @@ Tensor mul_scalar_hpu(const Tensor& self, Scalar other) {
  * @param [in] tensor2 - input tensor, 1-4D, FP32/BF16
  * @param [in] alpha - optional input, default = 1
  ************************************************************************/
-Tensor addcdiv_hpu(Tensor& self, const Tensor& tensor1, const Tensor& tensor2, Scalar alpha) {
+Tensor addcdiv_hpu(
+    Tensor& self,
+    const Tensor& tensor1,
+    const Tensor& tensor2,
+    Scalar alpha) {
   LOG_FUNC_BEGIN;
 
   auto output_div = at::div(tensor1, tensor2);
-  auto output = at::add(self,output_div,alpha);
+  auto output = at::add(self, output_div, alpha);
 
   LOG_FUNC_END;
   return output;
 }
 
 /*************************************************************************
- * @brief Kernel implementation for inplace torch.addcdiv_(self,tensor1,tensor2,alpha)
+ * @brief Kernel implementation for inplace
+ *torch.addcdiv_(self,tensor1,tensor2,alpha)
  * @param [in] self - input tensor, 1-4D, FP32/BF16
  * @param [in] tensor1 - input tensor, 1-4D, FP32/BF16
  * @param [in] tensor2 - input tensor, 1-4D, FP32/BF16
  * @param [in] alpha - optional input, default = 1
  ************************************************************************/
-Tensor& addcdiv_hpu_(Tensor& self, const Tensor& tensor1, const Tensor& tensor2, Scalar alpha) {
+Tensor& addcdiv_hpu_(
+    Tensor& self,
+    const Tensor& tensor1,
+    const Tensor& tensor2,
+    Scalar alpha) {
   LOG_FUNC_BEGIN;
 
   tensor1.div_(tensor2);
-  self.add_(tensor1,alpha);
+  self.add_(tensor1, alpha);
 
   LOG_FUNC_END;
   return self;
 }
-
-
 
 static auto registry =
     torch::RegisterOperators()
@@ -1214,14 +1226,12 @@ static auto registry =
         .op(torch::RegisterOperators::options()
                 .schema(
                     "aten::addcdiv(Tensor self, Tensor tensor1, Tensor tensor2, *, Scalar value=1) -> Tensor")
-                .impl_unboxedOnlyKernel<
-                    decltype(addcdiv_hpu),
-                    &addcdiv_hpu>(DispatchKey::HABANATensorId)
+                .impl_unboxedOnlyKernel<decltype(addcdiv_hpu), &addcdiv_hpu>(
+                    DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema(
                     "aten::addcdiv_(Tensor(a!) self, Tensor tensor1, Tensor tensor2, *, Scalar value=1) -> Tensor(a!)")
-                .impl_unboxedOnlyKernel<
-                    decltype(addcdiv_hpu_),
-                    &addcdiv_hpu_>(DispatchKey::HABANATensorId)
+                .impl_unboxedOnlyKernel<decltype(addcdiv_hpu_), &addcdiv_hpu_>(
+                    DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));
