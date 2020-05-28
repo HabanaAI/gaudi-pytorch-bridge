@@ -36,6 +36,13 @@ class SigmoidOperator : public UnaryOperator {
   SigmoidOperator(int device_id, c10::ScalarType scalarType);
 };
 
+//
+// Abs Operator
+class AbsOperator : public UnaryOperator {
+ public:
+  AbsOperator(int device_id, c10::ScalarType scalarType);
+};
+
 // Clamp Operator
 class ClampOperator : public HabanaOperator {
  public:

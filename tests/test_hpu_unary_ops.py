@@ -23,6 +23,10 @@ unary_op_list = [
     F.relu,
     torch.tanh,
     torch.nn.functional.gelu,
+    torch.norm,
+    torch.sigmoid,
+    torch.sqrt,
+    torch.reciprocal,
 ]
 
 unary_inplace_op_list = [
@@ -30,32 +34,16 @@ unary_inplace_op_list = [
     ('tanh_'),
     ('erf_'),
     ('exp_'),
-]
-
-sigmiod_op_list = [
-    torch.sigmoid
-]
-
-sqrt_op_list = [
-    torch.sqrt
+    ('reciprocal_'),
 ]
 
 unary_op_out_list = [
     # op, op params dict
     (torch.tanh, {}),
+    (torch.reciprocal, {}),
+    (torch.neg, {}),
 ]
 
-neg_op_list = [
-    torch.neg
-]
-
-reciprocal_op_list = [
-    torch.reciprocal
-]
-
-reciprocal_inplace_op_list = [
-    ('reciprocal_')
-]
 
 @pytest.mark.parametrize("N, H, W, C", test_case_list)
 @pytest.mark.parametrize("unary_op", unary_op_list)
@@ -81,39 +69,6 @@ def test_hpu_unary_inplace_op(N, H, W, C, unary_inplace_op):
     evaluate_fwd_inplace_kernel(in_out_tensor=in_out_tensor, kernel_name=unary_inplace_op, kernel_params=None)
 
 
-@pytest.mark.parametrize("N, C, H, W", test_case_list)
-@pytest.mark.parametrize("sigmoid_op", sigmiod_op_list)
-def test_hpu_sigmoid_op(N, C, H, W, sigmoid_op):
-    kernel_params = {'input': torch.randn(N, C, H, W)}
-    evaluate_fwd_kernel(kernel=sigmoid_op, kernel_params=kernel_params)
-
-
-@pytest.mark.parametrize("N, H, W, C", test_case_list)
-@pytest.mark.parametrize("sigmoid_op", sigmiod_op_list)
-def test_hpu_sigmoid_op_fwd_bwd(N, H, W, C, sigmoid_op):
-    # TODO: extend that test to all features
-    kernel_params_fwd = {'input': torch.randn(N, C, H, W, requires_grad=True)}
-    bwd_tensors = [torch.randn(N, C, H, W)]
-    evaluate_fwd_bwd_kernel(kernel=sigmoid_op, tensor_list_bwd=bwd_tensors,
-                            kernel_params_fwd=kernel_params_fwd)
-
-
-@pytest.mark.parametrize("N, C, H, W", test_case_list)
-@pytest.mark.parametrize("sqrt_op", sqrt_op_list)
-def test_hpu_sqrt_op(N, C, H, W, sqrt_op):
-    kernel_params = {'input': torch.randn(N, C, H, W)}
-    evaluate_fwd_kernel(kernel=sqrt_op, kernel_params=kernel_params)
-
-
-@pytest.mark.parametrize("N, H, W, C", test_case_list)
-@pytest.mark.parametrize("sqrt_op", sqrt_op_list)
-def test_hpu_sqrt_op_fwd_bwd(N, H, W, C, sqrt_op):
-    kernel_params_fwd = {'input': torch.randn(N, C, H, W, requires_grad=True)}
-    bwd_tensors = [torch.randn(N, C, H, W)]
-    evaluate_fwd_bwd_kernel(kernel=sqrt_op, tensor_list_bwd=bwd_tensors,
-                            kernel_params_fwd=kernel_params_fwd)
-
-
 @pytest.mark.parametrize("N, H, W, C", test_case_list)
 @pytest.mark.parametrize("unary_op, kernel_params_fwd", unary_op_out_list)
 def test_hpu_binary_op_out_intype(N, H, W, C, unary_op, kernel_params_fwd):
@@ -121,41 +76,18 @@ def test_hpu_binary_op_out_intype(N, H, W, C, unary_op, kernel_params_fwd):
     kernel_params_fwd['out'] = torch.empty((N, C, H, W))
     evaluate_fwd_kernel(kernel=unary_op, kernel_params=kernel_params_fwd)
 
-@pytest.mark.parametrize("N, C, H, W", test_case_list)
-@pytest.mark.parametrize("neg_op", neg_op_list)
-def test_hpu_neg_out_op(N, C, H, W, neg_op):
-    kernel_params = {'input': torch.randn(N, C, H, W)}
-    kernel_params['out'] = torch.empty(N, C, H, W)
-    evaluate_fwd_kernel(kernel=neg_op, kernel_params=kernel_params)
-
 @pytest.mark.parametrize("N, H, W, C", test_case_list)
-@pytest.mark.parametrize("reciprocal_op", reciprocal_op_list)
-def test_hpu_reciprocal_op_fwd(N, H, W, C, reciprocal_op):
-    kernel_params = {'input': torch.randn(N, C, H, W)}
-    evaluate_fwd_kernel(kernel=reciprocal_op, kernel_params=kernel_params)
-
-@pytest.mark.parametrize("N, H, W, C", test_case_list)
-@pytest.mark.parametrize("reciprocal_op", reciprocal_op_list)
-def test_hpu_reciprocal_op_fwd_bwd(N, H, W, C, reciprocal_op):
-    kernel_params_fwd = {'input': torch.randn(N, C, H, W, requires_grad=True)}
+@pytest.mark.parametrize("lp_norm_op", [torch.norm])
+@pytest.mark.parametrize("value", [11.0, 6.0])
+def test_hpu_lp_norm_op_fwd_bwd(N, H, W, C, lp_norm_op, value):
+    kernel_params_fwd = {'input': torch.randn(N, C, H, W, requires_grad=True),
+                         'p':value}
     bwd_tensors = [torch.randn(N, C, H, W)]
-    evaluate_fwd_bwd_kernel(kernel=reciprocal_op, tensor_list_bwd=bwd_tensors,
+    evaluate_fwd_bwd_kernel(kernel=lp_norm_op, tensor_list_bwd=bwd_tensors,
                             kernel_params_fwd=kernel_params_fwd)
-
-@pytest.mark.parametrize("N, H, W, C", test_case_list)
-@pytest.mark.parametrize("reciprocal_inplace_op", reciprocal_inplace_op_list)
-def test_hpu_reciprocal_inplace_op(N, H, W, C, reciprocal_inplace_op):
-    in_out_tensor = torch.randn(N, C, H, W)
-    evaluate_fwd_inplace_kernel(in_out_tensor=in_out_tensor, kernel_name=reciprocal_inplace_op, kernel_params=None)
-
-@pytest.mark.parametrize("N, C, H, W", test_case_list)
-@pytest.mark.parametrize("reciprocal_op", reciprocal_op_list)
-def test_hpu_reciprocal_out_op(N, C, H, W, reciprocal_op):
-    kernel_params = {'input': torch.randn(N, C, H, W)}
-    kernel_params['out'] = torch.empty(N, C, H, W)
-    evaluate_fwd_kernel(kernel=reciprocal_op, kernel_params=kernel_params)
-
 
 if __name__ == '__main__':
     test_hpu_unary_op(*test_case_list[0], unary_op_list[0])
+    test_hpu_unary_op_fwd_bwd(*test_case_list[0], unary_op_list[0])
     test_hpu_unary_inplace_op(*test_case_list[0], unary_inplace_op_list[0])
+    test_hpu_binary_op_out_intype(*test_case_list[0], unary_op_out_list[0])

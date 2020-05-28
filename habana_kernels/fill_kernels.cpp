@@ -30,13 +30,7 @@ void synapse_fill(const Tensor& output, const T val) {
 Tensor& fill_hpu_(Tensor& self, Scalar value) {
   LOG_FUNC_BEGIN;
   auto dtype = habana_helpers::scalar_type(value);
-  if (self.scalar_type() != dtype)
-    TORCH_WARN(
-        "Self tensor's type: ",
-        self.scalar_type(),
-        ". Value type: ",
-        dtype,
-        "\nfill_hpu will use cast provided value");
+
   TORCH_CHECK(dtype != c10::ScalarType::Bool);
 
   switch (self.element_size()) {

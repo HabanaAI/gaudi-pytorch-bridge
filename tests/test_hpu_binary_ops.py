@@ -124,6 +124,13 @@ def test_hpu_binary_op_broadcast_case2(N, H, W, C, binary_op, kernel_params_fwd)
     kernel_params_fwd['other'] = torch.randn(H, 1)
     evaluate_fwd_kernel(kernel=binary_op, kernel_params=kernel_params_fwd)
 
+@pytest.mark.parametrize("N, H, W, C", test_case_list)
+def test_hpu_binary_op_eq_scalar(N, H, W, C):
+    kernel_params_fwd = {}
+    kernel_params_fwd['input'] = torch.randn(N, C, H, W)
+    kernel_params_fwd['other'] = 2.0
+    evaluate_fwd_kernel(kernel=torch.eq, kernel_params=kernel_params_fwd)
+
 
 @pytest.mark.parametrize("N, H, W, C", test_case_list)
 def test_hpu_binary_op_pow(N, H, W, C):

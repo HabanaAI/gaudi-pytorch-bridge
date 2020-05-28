@@ -43,6 +43,11 @@ SigmoidOperator::SigmoidOperator(int device_id, c10::ScalarType scalarType)
           device_id,
           "sigmoid_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {}
 
+AbsOperator::AbsOperator(int device_id, c10::ScalarType scalarType)
+    : UnaryOperator(
+          device_id,
+          "abs_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {}
+
 void UnaryOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
@@ -498,6 +503,29 @@ Tensor clamp_min_hpu(const Tensor& self, Scalar min) {
   return out.at(0);
 }
 
+
+/*************************************************************************
+ * @brief Kernel implementation for output = torch.abs(self)
+ * @param [out] output - output tensor, 1-4D, BF16/FP32
+ * @param [in] self - input tensor, 1-4D, BF16/FP32
+ ************************************************************************/
+Tensor abs_hpu(const Tensor& self) {
+  LOG_FUNC_BEGIN;
+
+  at::ScalarType scalar_type = self.scalar_type();
+  std::string node_type =
+      "abs_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+
+  // Create the operator
+  size_t device_id = self.device().index();
+  AbsOperator Op(device_id, scalar_type);
+
+  auto out = unary_op_hpu(self, node_type, &Op);
+
+  LOG_FUNC_END;
+  return out;
+}
+
 static auto registry =
     torch::RegisterOperators()
         .op(torch::RegisterOperators::options()
@@ -595,4 +623,10 @@ static auto registry =
                 .impl_unboxedOnlyKernel<
                     decltype(clamp_min_hpu),
                     &clamp_min_hpu>(DispatchKey::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema("aten::abs(Tensor self) -> Tensor")
+                .impl_unboxedOnlyKernel<
+                    decltype(abs_hpu),
+                    &abs_hpu>(DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));

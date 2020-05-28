@@ -380,6 +380,49 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_hpu(
       std::move(output_reshaped), std::move(mean), std::move(istd));
 }
 
+/*************************************************************************
+ * @brief Kernel implementation for LP Norm (Frobenius norm) kernel
+          output = torch.norm(self, p=2)
+ * @param [in] self - input tensor, 1-4D, FP32/BF16
+ * @param [in] output - output tensor, 1-4D, FP32/BF16
+ * @param [in] p - optional input, default = 2
+ ************************************************************************/
+Tensor norm_scalar_hpu(
+    const Tensor& self,
+    Scalar p) {
+  LOG_FUNC_BEGIN;
+
+  TORCH_CHECK(p.toFloat() > 0.0, "norm with p > 0.0 is only supported");
+
+  auto self_hpu=self.view(-1);
+  auto output = at::empty(self_hpu.sizes(), self.options());
+  auto retain = at::empty(self_hpu.sizes(), self.options());
+
+  ns_LpNormKernel::Params params{};
+  params.p=p.to<float>();
+  params.dim=0;
+  params.eps=1e-5;
+
+  std::vector<const at::Tensor*> pt_inputs{&self_hpu};
+  std::vector<const at::Tensor*> pt_outputs{&output, &retain};
+
+  synapse_simple_generic_kernel(
+      pt_outputs,
+      pt_inputs,
+      "lpnorm",
+      &params,
+      sizeof(params),
+      SynapsePassType::FORWARD_PASS);
+
+  at::reciprocal_(retain);
+
+  // PT expects 0-D
+  retain.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+
+  LOG_FUNC_END;
+  return retain;
+}
+
 static auto registry =
     torch::RegisterOperators()
         .op(torch::RegisterOperators::options()
@@ -402,4 +445,11 @@ static auto registry =
                 .impl_unboxedOnlyKernel<
                     decltype(layer_norm_hpu),
                     &layer_norm_hpu>(DispatchKey::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema(
+                    "aten::norm.Scalar(Tensor self, Scalar p=2) -> Tensor")
+                .impl_unboxedOnlyKernel<
+                    decltype(norm_scalar_hpu),
+                    &norm_scalar_hpu>(DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));

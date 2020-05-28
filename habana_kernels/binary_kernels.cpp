@@ -585,6 +585,26 @@ Tensor eq_tensor_hpu(Tensor& self, Tensor& other) {
 }
 
 /*************************************************************************
+ * @brief Kernel implementation for out = torch.eq(self,other)
+ * @param self [in] - input tensor, 1-4D, FP32/BF16
+ * @param other [in] - Scalar
+ ************************************************************************/
+Tensor eq_scalar_tensor_hpu(Tensor& self, Scalar other) {
+  LOG_FUNC_BEGIN;
+
+  if(self.dim() == 0)
+  {
+    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+  }
+
+  auto device_tensor = convert_scalar_to_tensor_using_self(self,other);
+  auto out = at::eq(self, device_tensor);
+
+  LOG_FUNC_END;
+  return out;
+}
+
+/*************************************************************************
  * @brief Kernel implementation for out = torch.div(self,other)
  * @param self - first input
  * @param other - second input
@@ -664,6 +684,11 @@ Tensor& div_scalar_hpu_(
  ************************************************************************/
 Tensor pow_tensor_tensor_hpu(const Tensor& self, const Tensor& other) {
   LOG_FUNC_BEGIN;
+
+  if(self.dim() == 0)
+  {
+    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+  }
   auto out = do_generic_tensor_binary_op(
       self, other, "pow", SynapsePassType::FORWARD_PASS);
   LOG_FUNC_END;
@@ -831,6 +856,13 @@ static auto registry =
                 .impl_unboxedOnlyKernel<
                     decltype(eq_tensor_out_hpu),
                     &eq_tensor_out_hpu>(DispatchKey::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema(
+                    "aten::eq.Scalar(Tensor self, Scalar other) -> Tensor")
+                .impl_unboxedOnlyKernel<
+                    decltype(eq_scalar_tensor_hpu),
+                    &eq_scalar_tensor_hpu>(DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema("aten::div.Tensor(Tensor self, Tensor other) -> Tensor")

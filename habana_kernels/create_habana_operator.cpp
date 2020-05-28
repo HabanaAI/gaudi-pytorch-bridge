@@ -24,7 +24,9 @@ HabanaOperatorPtr CreateHabanaOperator(const int device_id,
     else if ("aten::sigmoid" == node_name) {
         op = std::make_shared<SigmoidOperator>(device_id, node_type);
     }
-
+    else if ("aten::abs" == node_name) {
+        op = std::make_shared<AbsOperator>(device_id, node_type);
+    }
     // Returning a null pointer for cases not added yet,
     // we can add assert once all kernels are added
     return op;
