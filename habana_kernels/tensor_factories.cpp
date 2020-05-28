@@ -50,8 +50,6 @@ Tensor empty_hpu(
   // is_variable should have been 'unpacked'  TODO: remove this when Variable
   // and Tensor are merged
   // AT_ASSERT(!options.is_variable());
-  // TORCH_CHECK(!optional_memory_format.has_value(),"'memory_format' argument
-  // is incompatible with HABANA tensor");
   TORCH_CHECK(!options.pinned_memory(), "Only dense CPU tensors can be pinned");
   check_size_nonnegative(size);
 
@@ -78,8 +76,9 @@ Tensor empty_hpu(
     tensor.unsafeGetTensorImpl()->set_sizes_contiguous(size);
   }
 
-  auto memory_format =
-      optional_memory_format.value_or(MemoryFormat::Contiguous);
+  auto memory_format = optional_memory_format.has_value()
+      ? optional_memory_format.value_or(MemoryFormat::Contiguous)
+      : options.memory_format_opt().value_or(MemoryFormat::Contiguous);
   tensor.unsafeGetTensorImpl()->empty_tensor_restride(memory_format);
   LOG_FUNC_END;
   return tensor;
@@ -120,8 +119,7 @@ static auto registry =
                     "aten::empty_strided(int[] size, int[] stride, *, ScalarType? dtype=None, Layout? layout=None, Device? device=None, bool? pin_memory=None) -> Tensor")
                 .impl_unboxedOnlyKernel<
                     decltype(at::native::empty_strided_hpu),
-                    &at::native::empty_strided_hpu>(
-                    DispatchKey::HABANATensorId)
+                    &at::native::empty_strided_hpu>(DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema("aten::zero_(Tensor(a!) self) -> Tensor(a!)")

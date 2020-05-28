@@ -81,6 +81,50 @@ def test_hpu_pool_fwd_bwd(N, H, W, C, R, S, str_H, str_W, padding, type, inpad):
                                                                        kernel_params_fwd=kernel_params_fwd, check_results_fwd=False)
     compare_tensors(hpu_result_fwd[0], cpu_result_fwd[0], atol=0.001, rtol=1.e-3)
 
+@pytest.mark.parametrize("N, H, W, C, R, S, str_H, str_W, padding, type, inpad", pool_test_case_list)
+def test_hpu_chlast_pool(N, H, W, C, R, S, str_H, str_W, padding, type, inpad):
+    # TODO: extend that test to all features
+    in_tensor = torch.randn(N, C, H, W)
+    kernel_params = {
+        'input': in_tensor.contiguous(memory_format=torch.channels_last),
+        'kernel_size': [R, S],
+        'stride': [str_H, str_W],
+        'padding': padding
+    }
+    if (type == 'maxpool2d'):
+         kernel = F.max_pool2d
+    else:
+         kernel_params['count_include_pad'] = inpad
+         kernel = F.avg_pool2d
+
+    # don't check resuluts because indices can have different values
+    hpu_result, cpu_result = evaluate_fwd_kernel(
+        kernel=kernel, kernel_params=kernel_params, check_results=False)
+    compare_tensors(hpu_result[0], cpu_result[0], atol=0.001, rtol=1.e-3)
+
+
+@pytest.mark.parametrize("N, H, W, C, R, S, str_H, str_W, padding, type, inpad", pool_test_case_list)
+def test_hpu_pool_chlast_fwd_bwd(N, H, W, C, R, S, str_H, str_W, padding, type, inpad):
+    # TODO: extend that test to all features
+    in_tensor = torch.randn(N, C, H, W, requires_grad=True)
+    kernel_params_fwd = {
+        'input': in_tensor.contiguous(memory_format=torch.channels_last),
+        'kernel_size': [R, S],
+        'stride': [str_H, str_W],
+        'padding':padding
+    }
+    if (type == 'maxpool2d'):
+         kernel = F.max_pool2d
+    else:
+         kernel_params_fwd['count_include_pad'] = inpad
+         kernel = F.avg_pool2d
+
+    bwd_tensor = torch.randn(N, C, output_size(H, padding, 1, R, str_H), output_size(W, padding, 1, S, str_W))
+    bwd_tensors = [bwd_tensor.contiguous(memory_format=torch.channels_last)]
+    # don't check fwd resuluts because indices can have different values
+    (hpu_result_fwd, _), (cpu_result_fwd, _) = evaluate_fwd_bwd_kernel(kernel=kernel, tensor_list_bwd=bwd_tensors,
+                                                                       kernel_params_fwd=kernel_params_fwd, check_results_fwd=False)
+    compare_tensors(hpu_result_fwd[0], cpu_result_fwd[0], atol=0.001, rtol=1.e-3)
 
 if __name__ == '__main__':
     test_hpu_pool_fwd_bwd(*resnet50_test_case_list[1])

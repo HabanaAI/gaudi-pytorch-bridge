@@ -42,7 +42,6 @@ def test_hpu_layer_norm_fwd_bwd(N, H, W, C, split_dim):
     evaluate_fwd_bwd_kernel(kernel=kernel, tensor_list_bwd=bwd_tensors,
                             kernel_params_fwd=kernel_params_fwd, copy_kernel=True)
 
-
 @pytest.mark.parametrize("N, H, W, C", batch_norm_test_case_list_2d)
 def test_hpu_batch_norm_2d_fwd_bwd(N, H, W, C):
     kernel = torch.nn.BatchNorm2d(C)
@@ -71,7 +70,6 @@ def test_hpu_batch_norm_1d_ncl_fwd_bwd(N, C, L):
 
     evaluate_fwd_bwd_kernel(kernel=kernel, tensor_list_bwd=bwd_tensors,
                             kernel_params_fwd=kernel_params_fwd, copy_kernel=True)
-
 
 @pytest.mark.parametrize("N, H, W, C", batch_norm_test_case_list_2d)
 def test_hpu_batch_norm_2d_eval_fwd_bwd(N, H, W, C):
@@ -105,6 +103,17 @@ def test_hpu_batch_norm_2d_eval_fwd_bwd(N, H, W, C):
     output_hpu_cpu = output_hpu.to(cpu)
     numpy.testing.assert_allclose(output_hpu_cpu.detach().numpy(),
                                   output.detach().numpy(), atol=0.001, rtol=0.001)
+
+@pytest.mark.parametrize("N, H, W, C", batch_norm_test_case_list_2d)
+def test_hpu_batch_norm_2d_chlast_fwd_bwd(N, H, W, C):
+    kernel = torch.nn.BatchNorm2d(C)
+    in_tensor = torch.randn(N, C, H, W, requires_grad=True)
+    kernel_params_fwd = {'input': in_tensor.contiguous(memory_format=torch.channels_last)}
+    bwd_tensor = torch.randn(N, C, H, W)
+    bwd_tensors = [bwd_tensor.contiguous(memory_format=torch.channels_last)]
+
+    evaluate_fwd_bwd_kernel(kernel=kernel, tensor_list_bwd=bwd_tensors,
+                            kernel_params_fwd=kernel_params_fwd, copy_kernel=True)
 
 
 if __name__ == '__main__':

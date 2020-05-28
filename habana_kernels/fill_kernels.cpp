@@ -108,7 +108,8 @@ Tensor& masked_fill_hpu_(
   // fp32/bf16 only
   auto new_mask = habana_helpers::hpu_cast_tensor(mask_expand, self.dtype());
   // create a inverted mask
-  auto zero_tensor = at::zeros_like(new_mask, LEGACY_CONTIGUOUS_MEMORY_FORMAT);
+  auto zero_tensor = at::zeros_like(
+      new_mask, new_mask.options(), new_mask.suggest_memory_format());
   auto inv_mask = habana_helpers::hpu_cast_tensor(
       at::eq(new_mask, zero_tensor), self.dtype());
 
@@ -146,7 +147,8 @@ static auto registry =
         .op(torch::RegisterOperators::options()
                 .schema(
                     "aten::fill_.Scalar(Tensor(a!) self, Scalar value) -> Tensor(a!)")
-                .impl_unboxedOnlyKernel<decltype(fill_hpu_), &fill_hpu_>(DispatchKey::HABANATensorId)
+                .impl_unboxedOnlyKernel<decltype(fill_hpu_), &fill_hpu_>(
+                    DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema(

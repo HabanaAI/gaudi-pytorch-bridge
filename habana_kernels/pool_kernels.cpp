@@ -101,7 +101,7 @@ static std::vector<int64_t> compute_output_shape(
       ? dilation_H
       : safe_downcast<int, int64_t>(dilation[1]);
 
-  // input, output NCHW
+  // input NCHW, output NHWC
   // weight KCHW, where K - output channels
   // pad, stride HW
   const int64_t N = input.size(0);
@@ -191,23 +191,28 @@ std::tuple<Tensor, Tensor> max_pool2d_with_indices_hpu(
     IntArrayRef dilation,
     bool ceil_mode) {
   LOG_FUNC_BEGIN;
-
   habana_helpers::check_pool_params(
       input, kernel_size, stride, padding, dilation, ceil_mode);
-
   auto out_shape = compute_output_shape(
       input, kernel_size, stride, padding, dilation, ceil_mode);
 
-  //   NCHW -> NHWC
-  auto input_nhwc = input.permute({0, 2, 3, 1});
+  Tensor input_nhwc;
+  std::vector<const at::Tensor*> pt_in = {&input};
+  std::vector<at::Tensor*> pt_out = {&input_nhwc};
+  IntArrayRef new_dim_pos_out = {0, 2, 3, 1};
+  std::vector<const IntArrayRef*> pt_new_pos = {&new_dim_pos_out};
+  c10::MemoryFormat memory_format = habana_helpers::get_memory_format({&input});
+  habana_helpers::change_tensors_to_memory_format(
+      pt_out, pt_in, pt_new_pos, memory_format);
+
   auto output_nhwc = at::empty(
       {out_shape[0], out_shape[1], out_shape[2], out_shape[3]},
-      input.options());
+      input_nhwc.options());
   // NOTE: cpu and cuda implementations hold indices as kLong (int64). I am
   // using uint8 (to match TPC kernel requirement)
   auto output_idx_nhwc = at::empty(
       {out_shape[0], out_shape[1], out_shape[2], out_shape[3]},
-      input.options().dtype(kByte));
+      input_nhwc.options().dtype(kByte));
 
   auto syn_pool_params =
       synapse_pool_params_builder(kernel_size, stride, padding, dilation);
@@ -223,9 +228,14 @@ std::tuple<Tensor, Tensor> max_pool2d_with_indices_hpu(
       sizeof(syn_pool_params),
       SynapsePassType::FORWARD_PASS);
 
-  //   NHWC -> NCHW
-  auto output = output_nhwc.permute({0, 3, 1, 2});
-  auto output_idx = output_idx_nhwc.permute({0, 3, 1, 2});
+  Tensor output;
+  Tensor output_idx;
+  pt_in = {&output_nhwc, &output_idx_nhwc};
+  pt_out = {&output, &output_idx};
+  new_dim_pos_out = {0, 3, 1, 2};
+  pt_new_pos = {&new_dim_pos_out, &new_dim_pos_out};
+  habana_helpers::change_tensors_to_memory_format(
+      pt_out, pt_in, pt_new_pos, memory_format);
   LOG_FUNC_END;
   return {output, output_idx};
 }
@@ -257,26 +267,34 @@ Tensor& max_pool2d_with_indices_backward_out_hpu(
   LOG_FUNC_BEGIN;
   habana_helpers::check_pool_params(
       input, kernel_size, stride, padding, dilation, ceil_mode);
-
   auto out_shape = compute_output_shape(
       input, kernel_size, stride, padding, dilation, ceil_mode);
+  // convert tensors to synapse memory format
+  Tensor input_nhwc;
+  Tensor grad_input_nhwc;
+  Tensor grad_out_nhwc;
+  Tensor indices_nhwc;
+  std::vector<const at::Tensor*> pt_in{
+      &input, &grad_input, &grad_output, &indices};
+  std::vector<at::Tensor*> pt_out{
+      &input_nhwc, &grad_input_nhwc, &grad_out_nhwc, &indices_nhwc};
+  IntArrayRef new_dim_pos = {0, 2, 3, 1};
+  std::vector<const IntArrayRef*> pt_new_pos{
+      &new_dim_pos, &new_dim_pos, &new_dim_pos, &new_dim_pos};
+  c10::MemoryFormat memory_format = habana_helpers::get_memory_format({&input});
+  habana_helpers::change_tensors_to_memory_format(
+      pt_out, pt_in, pt_new_pos, memory_format);
 
   std::vector<int64_t> expected_output_size{
-      out_shape[0], out_shape[3], out_shape[1], out_shape[2]};
-  TORCH_CHECK(input.sizes() == grad_input.sizes());
-  TORCH_CHECK(grad_output.sizes() == indices.sizes());
-  TORCH_CHECK(grad_output.sizes().vec() == expected_output_size);
-  TORCH_CHECK(indices.scalar_type() == c10::ScalarType::Byte);
-
-  //   NCHW -> NHWC
-  auto grad_input_nhwc = grad_input.permute({0, 2, 3, 1});
-  auto grad_output_nhwc = grad_output.permute({0, 2, 3, 1});
-  auto indices_nhwc = indices.permute({0, 2, 3, 1});
-
+      out_shape[0], out_shape[1], out_shape[2], out_shape[3]};
+  TORCH_CHECK(grad_out_nhwc.sizes().vec() == expected_output_size);
+  TORCH_CHECK(input_nhwc.sizes() == grad_input_nhwc.sizes());
+  TORCH_CHECK(grad_out_nhwc.sizes() == indices_nhwc.sizes());
+  TORCH_CHECK(indices_nhwc.scalar_type() == c10::ScalarType::Byte);
   auto syn_pool_params =
       synapse_pool_params_builder(kernel_size, stride, padding, dilation);
 
-  std::vector<const at::Tensor*> pt_inputs{&grad_output_nhwc, &indices_nhwc};
+  std::vector<const at::Tensor*> pt_inputs{&grad_out_nhwc, &indices_nhwc};
   std::vector<const at::Tensor*> pt_outputs{&grad_input_nhwc};
 
   synapse_simple_generic_kernel(
@@ -287,8 +305,12 @@ Tensor& max_pool2d_with_indices_backward_out_hpu(
       sizeof(syn_pool_params),
       SynapsePassType::BACKWARD_PASS);
 
-  //   NHWC -> NCHW
-  grad_input = grad_input_nhwc.permute({0, 3, 1, 2});
+  pt_in = {&grad_input_nhwc};
+  pt_out = {&grad_input};
+  IntArrayRef new_dim_pos_out = {0, 3, 1, 2};
+  pt_new_pos = {&new_dim_pos_out};
+  habana_helpers::change_tensors_to_memory_format(
+      pt_out, pt_in, pt_new_pos, memory_format);
 
   LOG_FUNC_END;
   return grad_input;
@@ -318,9 +340,9 @@ Tensor max_pool2d_with_indices_backward_hpu(
     bool ceil_mode,
     const Tensor& indices) {
   LOG_FUNC_BEGIN;
-  // TODO: if TPC kernel write zeros than we don't have to call zero_like. Try
-  // to call some function without fill
-  auto grad_input = at::zeros_like(input, LEGACY_CONTIGUOUS_MEMORY_FORMAT);
+  auto grad_input =
+      at::zeros_like(input, input.options(), input.suggest_memory_format());
+
   max_pool2d_with_indices_backward_out_hpu(
       grad_input,
       grad_output,
@@ -360,27 +382,30 @@ Tensor avg_pool2d_hpu(
   TORCH_CHECK(
       !divisor_override.has_value(),
       "avgpool_2d: divisor override is not supported");
-
   // Dilation set to 1, since for AvgPool Pytorch API does not give dilation
   // values
   std::vector<int64_t> d{1, 1};
   IntArrayRef dilation(d.data(), d.size());
-
   habana_helpers::check_pool_params(
       input, kernel_size, stride, padding, dilation, ceil_mode);
-
   auto out_shape = compute_output_shape(
       input, kernel_size, stride, padding, dilation, ceil_mode);
-
-  // NCHW -> NHWC
-  auto input_nhwc = input.permute({0, 2, 3, 1});
-  auto output_nhwc = at::empty(
-      {out_shape[0], out_shape[1], out_shape[2], out_shape[3]},
-      input.options());
-
   // Populate pool params structure
   auto syn_pool_params = synapse_avg_pool_params_builder(
       kernel_size, stride, padding, dilation, count_include_pad);
+
+  // convert tensors to synapse memory format
+  Tensor input_nhwc;
+  std::vector<const at::Tensor*> pt_in = {&input};
+  std::vector<at::Tensor*> pt_out = {&input_nhwc};
+  IntArrayRef new_dim_pos_out = {0, 2, 3, 1};
+  std::vector<const IntArrayRef*> pt_new_pos = {&new_dim_pos_out};
+  c10::MemoryFormat memory_format = habana_helpers::get_memory_format({&input});
+  habana_helpers::change_tensors_to_memory_format(
+      pt_out, pt_in, pt_new_pos, memory_format);
+  auto output_nhwc = at::empty(
+      {out_shape[0], out_shape[1], out_shape[2], out_shape[3]},
+      input_nhwc.options());
 
   std::vector<const at::Tensor*> pt_inputs{&input_nhwc};
   std::vector<const at::Tensor*> pt_outputs{&output_nhwc};
@@ -393,8 +418,13 @@ Tensor avg_pool2d_hpu(
       sizeof(syn_pool_params),
       SynapsePassType::FORWARD_PASS);
 
-  //   NHWC -> NCHW
-  auto output = output_nhwc.permute({0, 3, 1, 2});
+  Tensor output;
+  pt_in = {&output_nhwc};
+  pt_out = {&output};
+  new_dim_pos_out = {0, 3, 1, 2};
+  pt_new_pos = {&new_dim_pos_out};
+  habana_helpers::change_tensors_to_memory_format(
+      pt_out, pt_in, pt_new_pos, memory_format);
   LOG_FUNC_END;
   return output;
 }
@@ -423,7 +453,6 @@ Tensor& avg_pool2d_backward_out_hpu(
     bool count_include_pad,
     c10::optional<int64_t> divisor_override) {
   LOG_FUNC_BEGIN;
-
   TORCH_CHECK(
       !divisor_override.has_value(),
       "avg_pool2d: divisor override is not supported");
@@ -432,26 +461,35 @@ Tensor& avg_pool2d_backward_out_hpu(
   // values
   std::vector<int64_t> d{1, 1};
   IntArrayRef dilation(d.data(), d.size());
-
   habana_helpers::check_pool_params(
       input, kernel_size, stride, padding, dilation, ceil_mode);
-
   auto out_shape = compute_output_shape(
       input, kernel_size, stride, padding, dilation, ceil_mode);
-
   std::vector<int64_t> expected_output_size{
-      out_shape[0], out_shape[3], out_shape[1], out_shape[2]};
-  TORCH_CHECK(input.sizes() == grad_input.sizes());
-  TORCH_CHECK(grad_output.sizes().vec() == expected_output_size);
+      out_shape[0], out_shape[1], out_shape[2], out_shape[3]};
 
-  //   NCHW -> NHWC
-  auto grad_input_nhwc = grad_input.permute({0, 2, 3, 1});
-  auto grad_output_nhwc = grad_output.permute({0, 2, 3, 1});
+  // convert tensors to synapse memory format
+  Tensor input_nhwc;
+  Tensor grad_input_nhwc;
+  Tensor grad_out_nhwc;
+  std::vector<const at::Tensor*> pt_in{&input, &grad_input, &grad_output};
+  std::vector<at::Tensor*> pt_out{
+      &input_nhwc, &grad_input_nhwc, &grad_out_nhwc};
+  IntArrayRef new_dim_pos = {0, 2, 3, 1};
+  std::vector<const IntArrayRef*> pt_new_pos{
+      &new_dim_pos, &new_dim_pos, &new_dim_pos};
+  c10::MemoryFormat memory_format = habana_helpers::get_memory_format({&input});
+  habana_helpers::change_tensors_to_memory_format(
+      pt_out, pt_in, pt_new_pos, memory_format);
 
+  TORCH_CHECK(
+      input_nhwc.sizes() == grad_input_nhwc.sizes(),
+      "Input and grad_input sizes don't match");
+  TORCH_CHECK(grad_out_nhwc.sizes().vec() == expected_output_size);
   auto syn_pool_params = synapse_avg_pool_params_builder(
       kernel_size, stride, padding, dilation, count_include_pad);
 
-  std::vector<const at::Tensor*> pt_inputs{&grad_output_nhwc};
+  std::vector<const at::Tensor*> pt_inputs{&grad_out_nhwc};
   std::vector<const at::Tensor*> pt_outputs{&grad_input_nhwc};
 
   synapse_simple_generic_kernel(
@@ -462,8 +500,12 @@ Tensor& avg_pool2d_backward_out_hpu(
       sizeof(syn_pool_params),
       SynapsePassType::BACKWARD_PASS);
 
-  //   NHWC -> NCHW
-  grad_input = grad_input_nhwc.permute({0, 3, 1, 2});
+  pt_in = {&grad_input_nhwc};
+  pt_out = {&grad_input};
+  IntArrayRef new_dim_pos_out = {0, 3, 1, 2};
+  pt_new_pos = {&new_dim_pos_out};
+  habana_helpers::change_tensors_to_memory_format(
+      pt_out, pt_in, pt_new_pos, memory_format);
 
   LOG_FUNC_END;
   return grad_input;
@@ -492,9 +534,8 @@ Tensor avg_pool2d_backward_hpu(
     bool count_include_pad,
     c10::optional<int64_t> divisor_override) {
   LOG_FUNC_BEGIN;
-  // TODO: if TPC kernel write zeros than we don't have to call zero_like. Try
-  // to call some function without fill
-  auto grad_input = at::zeros_like(input, LEGACY_CONTIGUOUS_MEMORY_FORMAT);
+  auto grad_input =
+      at::zeros_like(input, input.options(), input.suggest_memory_format());
   avg_pool2d_backward_out_hpu(
       grad_input,
       grad_output,

@@ -7,6 +7,7 @@
  *
  ******************************************************************************
  */
+#include <ATen/InferSize.h>
 #include <perf_lib_layer_params.h>
 #include <synapse_helpers/graph.h>
 #include <algorithm>
@@ -17,6 +18,7 @@
 #include "habana_kernels/simple_generic_kernel.h"
 #include "tensor_utils.h"
 
+using namespace torch;
 /*************************************************************************
  * @brief Generic helper function to cast tensors on HPU
  ************************************************************************/
@@ -394,4 +396,59 @@ void habana_helpers::copy_data_within_device(
   while (!copyDone) {
     std::this_thread::yield();
   }
+}
+
+void habana_helpers::change_tensors_to_memory_format(
+    std::vector<at::Tensor*> pt_outputs,
+    std::vector<const at::Tensor*> pt_inputs,
+    std::vector<const IntArrayRef*> pt_new_pos,
+    c10::MemoryFormat memory_format) {
+  auto count = pt_inputs.size();
+  for (unsigned i = 0; i < count; i++) {
+    switch (memory_format) {
+      case c10::MemoryFormat::ChannelsLast: {
+        auto sizes = pt_inputs[i]->sizes().vec();
+        auto new_pos = *pt_new_pos[i];
+        std::vector<long int> swapped_sizes = {sizes[new_pos[0]],
+                                               sizes[new_pos[1]],
+                                               sizes[new_pos[2]],
+                                               sizes[new_pos[3]]};
+        auto strides = pt_inputs[i]->strides().vec();
+        std::vector<long int> swapped_strides = {strides[new_pos[0]],
+                                                 strides[new_pos[1]],
+                                                 strides[new_pos[2]],
+                                                 strides[new_pos[3]]};
+        *pt_outputs[i] = *pt_inputs[i];
+        pt_outputs[i]->unsafeGetTensorImpl()->set_sizes_and_strides(
+            swapped_sizes, swapped_strides);
+        break;
+      }
+      case c10::MemoryFormat::Contiguous: {
+        // Create dimshuffled inputs and outputs to match synapse data layout
+        auto new_pos = *pt_new_pos[i];
+        *pt_outputs[i] = (*pt_inputs[i]).permute(new_pos);
+        break;
+      }
+      default:
+        TORCH_CHECK(
+            false,
+            "Unsupported memory format. Supports only ChannelsLast, Contiguous");
+    }
+  }
+  return;
+}
+
+c10::MemoryFormat habana_helpers::get_memory_format(
+    std::vector<const at::Tensor*> pt_inputs) {
+  auto count = pt_inputs.size();
+  TORCH_CHECK(count > 0, "Empty input tensor list given to get_memory_format");
+  c10::MemoryFormat memory_format = pt_inputs[0]->suggest_memory_format();
+  for (unsigned i = 0; i < count; i++) {
+    if (pt_inputs[i]->suggest_memory_format() ==
+        c10::MemoryFormat::ChannelsLast) {
+      memory_format = c10::MemoryFormat::ChannelsLast;
+      break;
+    }
+  }
+  return memory_format;
 }

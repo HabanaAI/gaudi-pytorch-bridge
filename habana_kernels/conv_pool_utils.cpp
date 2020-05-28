@@ -31,7 +31,6 @@ void check_pool_params(
     const at::IntArrayRef padding,
     const at::IntArrayRef dilation,
     bool ceil_mode) {
-
   TORCH_CHECK(
       input.device().type() == c10::DeviceType::HABANA,
       "input is not habana at::Tensor");
@@ -40,8 +39,7 @@ void check_pool_params(
       (input.ndimension() == 4),
       "pool2d: non-empty 4D tensor expected for input");
 
-  TORCH_CHECK(
-      ceil_mode == false, "pool2d: ceil_mode is not yet implemented");
+  TORCH_CHECK(ceil_mode == false, "pool2d: ceil_mode is not yet implemented");
 
   TORCH_CHECK(
       kernel.size() == 1 || kernel.size() == 2,
@@ -108,7 +106,6 @@ void check_convolution_params(
       padding.size() == 2, "padding size != 2 unsupported by convolution_hpu");
   TORCH_CHECK(
       input.ndimension() == 4, "input at::Tensor dimension count !=  4");
-
 }
 
 std::vector<int64_t> hack_pytorch_nhwc_shapes(

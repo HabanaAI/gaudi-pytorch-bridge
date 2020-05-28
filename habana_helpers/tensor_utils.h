@@ -81,4 +81,12 @@ void copy_data_to_device(void* src_ptr, const at::Tensor& dst, uint32_t size);
 
 void copy_data_within_device(const at::Tensor& src, const at::Tensor& dst);
 
+void change_tensors_to_memory_format(
+    std::vector<at::Tensor*> pt_outputs,
+    std::vector<const at::Tensor*> pt_inputs,
+    std::vector<const at::IntArrayRef*> pt_new_pos,
+    c10::MemoryFormat memory_format);
+
+c10::MemoryFormat get_memory_format(std::vector<const at::Tensor*> pt_inputs);
+
 } // namespace habana_helpers
