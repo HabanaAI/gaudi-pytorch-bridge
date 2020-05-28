@@ -284,6 +284,19 @@ std::vector<void*> habana_helpers::extract_data_ptrs(
   return ptrs;
 };
 
+std::vector<void*> habana_helpers::extract_data_ptrs(
+    const std::vector<at::Tensor>& vec) {
+  std::vector<void*> ptrs;
+  ptrs.reserve(vec.size());
+
+  std::transform(
+      vec.cbegin(),
+      vec.cend(),
+      std::back_inserter(ptrs),
+      [](const auto& tensor) { return tensor.data_ptr(); });
+  return ptrs;
+};
+
 /******************************************************************************
  * @brief helper function for copying data from device to host
  * @param[in] src - source tensor in device

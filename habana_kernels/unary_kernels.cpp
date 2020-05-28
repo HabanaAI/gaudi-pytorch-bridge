@@ -9,26 +9,115 @@
  */
 #include <torch/script.h>
 
+#include <ATen/ExpandUtils.h>
+#include <ATen/InferSize.h>
+#include <ATen/WrapDimUtils.h>
+
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
+#include "habana_helpers/graph.h"
 #include "habana_helpers/tensor_utils.h"
 #include "habana_kernels/kernel_utils.h"
-#include "habana_kernels/simple_generic_kernel.h"
 #include "habana_kernels/resize.h"
+#include "habana_kernels/simple_generic_kernel.h"
+#include "habana_kernels/unary_kernels.h"
 
 using namespace torch;
+using namespace torch::jit;
+
+UnaryOperator::UnaryOperator(int device_id, const std::string& guid)
+    : HabanaOperator(guid) {
+  this->CreateSynContext(device_id);
+  kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
+  kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
+}
+
+ReluOperator::ReluOperator(int device_id, c10::ScalarType scalarType)
+    : UnaryOperator(
+          device_id,
+          "relu_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {}
+
+SigmoidOperator::SigmoidOperator(int device_id, c10::ScalarType scalarType)
+    : UnaryOperator(
+          device_id,
+          "sigmoid_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {}
+
+void UnaryOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 1,
+      "Incorrect size of inpust expected for Relu operator");
+  TORCH_CHECK(inputs[0].isTensor(), "Input type expected to be tensor");
+
+  at::Tensor input = inputs[0].toTensor();
+
+  auto output = at::empty(input.sizes(), input.options());
+  AllocateSynapseOutput(graph, output, is_output_persistent);
+  AddNodeToSynapseGraph(graph, nullptr, 0);
+}
+
+Tensor unary_op_hpu(
+    const Tensor& input,
+    std::string& node_type,
+    UnaryOperator* Op) {
+  size_t device_id = input.device().index();
+
+  //
+  // Create Graph
+  auto graph = habana_helpers::create_graph(device_id, node_type);
+
+  // Assign Inputs to the Operator
+  std::vector<const at::Tensor*> pt_inputs{&input};
+  Op->AllocateSynapseInputs(graph, pt_inputs, true);
+
+  // Build Params for the graph
+  std::vector<c10::IValue> stack = {IValue(input)};
+  Op->AllocateAndAddSynapseNode(graph, stack, true);
+
+  // compile and execute the graph
+  Op->Compile(graph);
+
+  std::vector<at::Tensor> out = Op->GetOutputs();
+  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
+
+  return out.at(0);
+}
 
 Tensor relu_hpu(const Tensor& input) {
   LOG_FUNC_BEGIN;
-  auto output = at::empty(input.sizes(), input.options());
-  std::vector<const at::Tensor*> pt_outputs{&output};
-  std::vector<const at::Tensor*> pt_inputs{&input};
+  at::ScalarType scalar_type = input.scalar_type();
+  std::string node_type =
+      "relu_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
 
-  synapse_simple_generic_kernel(
-      pt_outputs, pt_inputs, "relu", nullptr, 0, SynapsePassType::FORWARD_PASS);
+  // Create the operator
+  size_t device_id = input.device().index();
+  ReluOperator Op(device_id, scalar_type);
 
+  auto out = unary_op_hpu(input, node_type, &Op);
   LOG_FUNC_END;
-  return output;
+  return out;
+}
+
+/*************************************************************************
+ * @brief Kernel implementation for output = torch.sigmoid(input)
+ * @param [out] output - output tensor, 1-4D, BF16/FP32
+ * @param [in] input - input tensor, 1-4D, BF16/FP32
+ ************************************************************************/
+Tensor sigmoid_hpu(const Tensor& input) {
+  LOG_FUNC_BEGIN;
+  at::ScalarType scalar_type = input.scalar_type();
+  std::string node_type =
+      "sigmoid_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+
+  // Create the operator
+  size_t device_id = input.device().index();
+  SigmoidOperator Op(device_id, scalar_type);
+
+  auto out = unary_op_hpu(input, node_type, &Op);
+  LOG_FUNC_END;
+  return out;
 }
 
 Tensor& relu_hpu_(Tensor& self) {
@@ -40,30 +129,6 @@ Tensor& relu_hpu_(Tensor& self) {
 
   LOG_FUNC_END;
   return self;
-}
-
-/*************************************************************************
- * @brief Kernel implementation for output = torch.sigmoid(input)
- * @param [out] output - output tensor, 1-4D, BF16/FP32
- * @param [in] input - input tensor, 1-4D, BF16/FP32
- ************************************************************************/
-Tensor sigmoid_hpu(const Tensor& input) {
-  LOG_FUNC_BEGIN;
-
-  auto output = at::empty(input.sizes(), input.options());
-  std::vector<const at::Tensor*> pt_outputs{&output};
-  std::vector<const at::Tensor*> pt_inputs{&input};
-
-  synapse_simple_generic_kernel(
-      pt_outputs,
-      pt_inputs,
-      "sigmoid",
-      nullptr,
-      0,
-      SynapsePassType::FORWARD_PASS);
-
-  LOG_FUNC_END;
-  return output;
 }
 
 /*************************************************************************
@@ -288,7 +353,7 @@ Tensor& exp_hpu_(Tensor& self) {
  * @param [out] out - output tensor, 1-4D, BF16/FP32
  * @param [in] input - input tensor, 1-4D, BF16/FP32
  ************************************************************************/
-Tensor& neg_out_hpu( Tensor& result, const Tensor& input) {
+Tensor& neg_out_hpu(Tensor& result, const Tensor& input) {
   LOG_FUNC_BEGIN;
 
   // Resize result to correct size (if required)
@@ -304,9 +369,7 @@ Tensor& neg_out_hpu( Tensor& result, const Tensor& input) {
 
   LOG_FUNC_END;
   return result;
-
 }
-
 
 /*************************************************************************
  * @brief Kernel implementation for inplace torch.reciprocal_(self)
@@ -336,7 +399,12 @@ Tensor reciprocal_hpu(const Tensor& self) {
   std::vector<const at::Tensor*> pt_inputs{&self};
 
   synapse_simple_generic_kernel(
-      pt_outputs, pt_inputs, "reciprocal", nullptr, 0, SynapsePassType::FORWARD_PASS);
+      pt_outputs,
+      pt_inputs,
+      "reciprocal",
+      nullptr,
+      0,
+      SynapsePassType::FORWARD_PASS);
 
   LOG_FUNC_END;
   return output;
@@ -347,7 +415,7 @@ Tensor reciprocal_hpu(const Tensor& self) {
  * @param [out] out - output tensor, 1-4D, BF16/FP32
  * @param [in] self - input tensor, 1-4D, BF16/FP32
  ************************************************************************/
-Tensor& reciprocal_out_hpu( Tensor& result, const Tensor& self) {
+Tensor& reciprocal_out_hpu(Tensor& result, const Tensor& self) {
   LOG_FUNC_BEGIN;
 
   // Resize result to correct size (if required)
@@ -359,7 +427,12 @@ Tensor& reciprocal_out_hpu( Tensor& result, const Tensor& self) {
   std::vector<const at::Tensor*> pt_inputs{&self};
 
   synapse_simple_generic_kernel(
-      pt_outputs, pt_inputs, "reciprocal", nullptr, 0, SynapsePassType::FORWARD_PASS);
+      pt_outputs,
+      pt_inputs,
+      "reciprocal",
+      nullptr,
+      0,
+      SynapsePassType::FORWARD_PASS);
 
   LOG_FUNC_END;
   return result;
@@ -433,22 +506,27 @@ static auto registry =
                     DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
-                .schema("aten::neg.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)")
+                .schema(
+                    "aten::neg.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)")
                 .impl_unboxedOnlyKernel<decltype(neg_out_hpu), &neg_out_hpu>(
                     DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema("aten::reciprocal_(Tensor(a!) self) -> Tensor(a!)")
-                .impl_unboxedOnlyKernel<decltype(reciprocal_hpu_), &reciprocal_hpu_>(
-                    DispatchKey::HABANATensorId)
+                .impl_unboxedOnlyKernel<
+                    decltype(reciprocal_hpu_),
+                    &reciprocal_hpu_>(DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema("aten::reciprocal(Tensor self) -> Tensor")
-                .impl_unboxedOnlyKernel<decltype(reciprocal_hpu), &reciprocal_hpu>(
-                    DispatchKey::HABANATensorId)
+                .impl_unboxedOnlyKernel<
+                    decltype(reciprocal_hpu),
+                    &reciprocal_hpu>(DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
-                .schema("aten::reciprocal.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)")
-                .impl_unboxedOnlyKernel<decltype(reciprocal_out_hpu), &reciprocal_out_hpu>(
-                    DispatchKey::HABANATensorId)
+                .schema(
+                    "aten::reciprocal.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)")
+                .impl_unboxedOnlyKernel<
+                    decltype(reciprocal_out_hpu),
+                    &reciprocal_out_hpu>(DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));
