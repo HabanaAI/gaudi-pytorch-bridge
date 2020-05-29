@@ -11,7 +11,6 @@
 #include <torch/script.h>
 #include <memory>
 
-#include <ATen/core/TensorBody.h>
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_helpers/tensor_utils.h"
@@ -33,242 +32,210 @@ void check_ew_kernel_constraints(const Tensor& arg1, const Tensor& arg2) {
       arg1.scalar_type(),
       " arg2 type: ",
       arg2.scalar_type());
+  // Since binary ops are required to broadcast, we don't check tensor sizes
+}
+
+static Scalar convert_scalar_dtype(const Tensor& self, Scalar value) {
+  LOG_FUNC_BEGIN;
+  Scalar result;
+  auto dtype = habana_helpers::scalar_type(value);
+  if (self.scalar_type() != dtype)
+    TORCH_WARN(
+        "Self tensor's type: ",
+        self.scalar_type(),
+        ". Value type: ",
+        dtype,
+        "\nwill use cast provided value");
   TORCH_CHECK(
-      (arg1.sizes() == arg2.sizes()) ||
-          (arg1.ndimension() == arg2.ndimension() &&
-           std::all_of(
-               arg2.sizes().cbegin(),
-               arg2.sizes().cend(),
-               [](auto val) { return val == 1; })),
-      "Sizes in elementwise kernel don't match. arg1 sizes: ",
-      arg1.sizes(),
-      ", arg2 sizes: ",
-      arg2.sizes());
+      dtype != c10::ScalarType::Bool, "Bool type not supported for cast");
+
+  switch (self.element_size()) {
+    case 1:
+      TORCH_CHECK(value.isIntegral(false));
+      result = value.to<unsigned char>();
+      break;
+    case 2:
+      TORCH_CHECK(value.isFloatingPoint() || value.isIntegral(false));
+      if (value.isFloatingPoint()) {
+        TORCH_CHECK(
+            0, "HPU is unable to differentatiate between fp16 and bf16");
+      } else {
+        TORCH_CHECK(
+            value.toFloat() <= INT16_MAX * 1.0,
+            "Scalar value exceeds tensor element size - uint16");
+        result = value.to<int16_t>();
+      }
+      break;
+    case 4:
+      TORCH_CHECK(value.isFloatingPoint() || value.isIntegral(false));
+      if (value.isIntegral(false) && self.scalar_type() == dtype) {
+        TORCH_CHECK(
+            value.toFloat() <= INT32_MAX * 1.0,
+            "Scalar value exceeds tensor element size - uint32");
+        result = value.to<int32_t>();
+      } else {
+        TORCH_WARN(
+            value.toFloat() <= INT32_MAX * 1.0,
+            "Scalar value exceeds tensor element size - float");
+        result = value.to<float>();
+      }
+      break;
+    default:
+      TORCH_WARN("Unsupported data type used in fill");
+  }
+  LOG_FUNC_END;
+  return result;
 }
 
-/*************************************************************************
- * @brief Synapse Generic implementation for inplace add & sub
- * @param arg1 - first input
- * @param arg2 - second input
- * @param alpha - optional input
- * @param node_guid - type of operation (add or sub)
- * arg1 = arg1 + alpha * arg2
- * or arg1 = arg1 + arg2
- * or arg1 = arg1 - alpha * arg2
- * or arg1 = arg1 - arg2
- ************************************************************************/
-void synapse_add_sub_tensor_(
-    const Tensor& arg1,
-    const Tensor& arg2,
-    c10::optional<const Tensor*> alpha,
-    const std::string& node_guid) {
-  auto& device =
-      synapse_helpers::HPURegistrar::get_device(arg1.device().index());
-  const auto device_id = device.id();
-
-  // graph_handle scope
-  synGraphHandle graph_handle;
-  TORCH_HABANA_CHECK(
-      synGraphCreate(&graph_handle, synDeviceType::synDeviceGaudi),
-      "synGraphCreate failed");
-
-  { // tensors scope
-    std::vector<synapse_helpers::tensor> syn_helper_inputs, syn_helper_tmps;
-    std::vector<synTensor> syn_inputs, syn_tmps;
-
-    std::vector<const at::Tensor*> pt_inputs{&arg1, &arg2};
-    if (alpha.has_value()) {
-      pt_inputs.push_back(alpha.value());
-
-      std::tie(syn_helper_tmps, syn_tmps) =
-          habana_helpers::create_tensors({&arg2}, graph_handle, false);
-    }
-
-    std::tie(syn_helper_inputs, syn_inputs) =
-        habana_helpers::create_tensors(pt_inputs, graph_handle, true);
-    auto syn_helper_output = habana_helpers::duplicate_tensor_in_memory_section(
-        syn_helper_inputs[0]);
-
-    {
-      const auto kernel_suffix =
-          habana_helpers::name_suffix_from_type(arg1.scalar_type());
-      const std::string mult_node_type = "mult_fwd_" + kernel_suffix,
-                        add_node_type = node_guid + "_fwd_" + kernel_suffix;
-      { // add node
-        if (alpha.has_value()) {
-          TORCH_HABANA_CHECK(
-              synNodeCreate(
-                  graph_handle,
-                  &syn_inputs[1],
-                  syn_tmps.data(),
-                  2,
-                  syn_tmps.size(),
-                  nullptr,
-                  0,
-                  mult_node_type.c_str(),
-                  "",
-                  nullptr,
-                  nullptr),
-              "synNodeCreate failed");
-        }
-        std::vector<synTensor> syn_add_inputs{
-            syn_inputs[0], alpha.has_value() ? syn_tmps[0] : syn_inputs[1]};
-
-        TORCH_HABANA_CHECK(
-            synNodeCreate(
-                graph_handle,
-                syn_add_inputs.data(),
-                &syn_helper_output.get(),
-                syn_add_inputs.size(),
-                1,
-                nullptr,
-                0,
-                add_node_type.c_str(),
-                "",
-                nullptr,
-                nullptr),
-            "synNodeCreate failed");
-      }
-
-      habana_helpers::compile_and_run(
-          add_node_type,
-          graph_handle,
-          habana_helpers::names(syn_helper_inputs),
-          {syn_helper_output.tensor_name_},
-          alpha.has_value()
-              ? std::vector<void*>{arg1.data_ptr(),
-                                   arg2.data_ptr(),
-                                   alpha.value()->data_ptr()}
-              : std::vector<void*>{arg1.data_ptr(), arg2.data_ptr()},
-          {arg1.data_ptr()},
-          device_id);
-    }
-  }
-  TORCH_HABANA_CHECK(synGraphDestroy(graph_handle), "synGraphDestroy failed");
+static inline Tensor convert_scalar_to_tensor_using_self(
+    const Tensor& self,
+    Scalar other) {
+  auto result = habana_helpers::scalar_to_device_tensor(
+      convert_scalar_dtype(self, other), self.options(), self.ndimension());
+  return result;
 }
 
-/*************************************************************************
- * @brief Synapse implementation for output = torch.add(arg1, alpha, arg2)
- * @param arg1 - first input
- * @param arg2 - second input
- * @param alpha - optional input
- * @param output - output
- * output = arg1 + alpha * arg2
- * or output = arg1 + arg2
- ************************************************************************/
-void synapse_add_tensor(
-    const Tensor& output,
-    const Tensor& arg1,
-    const Tensor& arg2,
-    c10::optional<const Tensor*> alpha) {
-  auto& device =
-      synapse_helpers::HPURegistrar::get_device(arg1.device().index());
-  const auto device_id = device.id();
+// helper that finally interfaces with synapse generic kernel
+static inline Tensor& do_binary_op(
+    Tensor& out,
+    const Tensor& operand1,
+    const Tensor& operand2,
+    const std::string& op,
+    SynapsePassType pass_type) {
+  std::vector<const at::Tensor*> pt_inputs;
+  pt_inputs.push_back(&operand1);
+  pt_inputs.push_back(&operand2);
+  std::vector<const at::Tensor*> pt_outputs;
+  pt_outputs.push_back(&out);
+  synapse_simple_generic_kernel(
+      pt_outputs, pt_inputs, op, nullptr, 0, pass_type);
+  return out;
+}
 
-  // graph_handle scope
-  synGraphHandle graph_handle;
-  TORCH_HABANA_CHECK(
-      synGraphCreate(&graph_handle, synDeviceType::synDeviceGaudi),
-      "synGraphCreate failed");
+// helper that finally interfaces with synapse generic inplace kernel
+static inline Tensor& do_binary_inplace_op(
+    Tensor& self,
+    const Tensor& other,
+    const std::string& op,
+    SynapsePassType pass_type) {
+  std::vector<const at::Tensor*> pt_inputs;
+  pt_inputs.push_back(&self);
+  pt_inputs.push_back(&other);
+  synapse_simple_generic_inplace_kernel(pt_inputs, op, nullptr, 0, pass_type);
+  return self;
+}
 
-  { // tensors scope
-    std::vector<synapse_helpers::tensor> syn_helper_inputs, syn_helper_tmps,
-        syn_helper_outputs;
-    std::vector<synTensor> syn_inputs, syn_tmps, syn_outputs;
+// generic binary tensor op interface that takes care of broadcasting semantics
+// requirements
+static inline void do_generic_tensor_binary_op_inplace(
+    Tensor& self,
+    const Tensor& operand2,
+    const std::string& op,
+    SynapsePassType pass_type) {
+  check_ew_kernel_constraints(self, operand2);
+  TORCH_CHECK(
+      self.ndimension() >= operand2.ndimension(),
+      "Binary inplace ops shouldn't get self.ndimension() < other.ndimension()")
+  auto out_dims = self.ndimension();
+  // Make sure that we give tensors that match dims to Synapse
+  auto operand2_sizes = operand2.sizes().vec();
+  // Create view_sizes initialized to part which has size=1 for upper dims
+  auto view_sizes = std::vector<int64_t>(out_dims - operand2.ndimension(), 1);
+  // and append the smaller tensor dims
+  view_sizes.insert(
+      view_sizes.end(), operand2_sizes.begin(), operand2_sizes.end());
+  auto expanded_operand2_tensor = operand2.view(view_sizes);
+  do_binary_inplace_op(self, expanded_operand2_tensor, op, pass_type);
+  return;
+}
 
-    std::vector<const at::Tensor*> pt_inputs{&arg1, &arg2};
-    std::vector<const at::Tensor*> pt_outputs{&output};
-
-    if (alpha.has_value()) {
-      pt_inputs.push_back(alpha.value());
-
-      std::tie(syn_helper_tmps, syn_tmps) =
-          habana_helpers::create_tensors({&arg2}, graph_handle, false);
-    }
-
-    std::tie(syn_helper_inputs, syn_inputs) =
-        habana_helpers::create_tensors(pt_inputs, graph_handle, true);
-
-    std::tie(syn_helper_outputs, syn_outputs) =
-        habana_helpers::create_tensors(pt_outputs, graph_handle, true);
-
-    {
-      const auto kernel_suffix =
-          habana_helpers::name_suffix_from_type(arg1.scalar_type());
-      const std::string mult_node_type = "mult_fwd_" + kernel_suffix,
-                        add_node_type = "add_fwd_" + kernel_suffix;
-      { // add node
-        if (alpha.has_value()) {
-          std::vector<synTensor> syn_mul_inputs{syn_inputs[1], syn_inputs[2]};
-
-          TORCH_HABANA_CHECK(
-              synNodeCreate(
-                  graph_handle,
-                  syn_mul_inputs.data(),
-                  syn_tmps.data(),
-                  syn_mul_inputs.size(),
-                  syn_tmps.size(),
-                  nullptr,
-                  0,
-                  mult_node_type.c_str(),
-                  "",
-                  nullptr,
-                  nullptr),
-              "synNodeCreate failed");
-        }
-        std::vector<synTensor> syn_add_inputs{
-            syn_inputs[0], alpha.has_value() ? syn_tmps[0] : syn_inputs[1]};
-
-        TORCH_HABANA_CHECK(
-            synNodeCreate(
-                graph_handle,
-                syn_add_inputs.data(),
-                syn_outputs.data(),
-                syn_add_inputs.size(),
-                syn_outputs.size(),
-                nullptr,
-                0,
-                add_node_type.c_str(),
-                "",
-                nullptr,
-                nullptr),
-            "synNodeCreate failed");
-      }
-
-      habana_helpers::compile_and_run(
-          add_node_type,
-          graph_handle,
-          habana_helpers::names(syn_helper_inputs),
-          habana_helpers::names(syn_helper_outputs),
-          habana_helpers::extract_data_ptrs(pt_inputs),
-          habana_helpers::extract_data_ptrs(pt_outputs),
-          device_id);
-    }
+// generic binary tensor op interface that takes care of broadcasting semantics
+// requirements
+static inline void do_generic_tensor_binary_op_out(
+    Tensor& output,
+    const Tensor& operand1,
+    const Tensor& operand2,
+    const std::string& op,
+    SynapsePassType pass_type) {
+  check_ew_kernel_constraints(operand1, operand2);
+  auto out_sizes = output.sizes().vec();
+  auto out_dims = output.ndimension();
+  // Make sure that we give tensors that match dims to Synapse
+  if (operand1.ndimension() > operand2.ndimension()) {
+    auto operand2_sizes = operand2.sizes().vec();
+    // Create view_sizes initialized to part which has size=1 for upper dims
+    auto view_sizes = std::vector<int64_t>(out_dims - operand2.ndimension(), 1);
+    // and append the smaller tensor dims
+    view_sizes.insert(
+        view_sizes.end(), operand2_sizes.begin(), operand2_sizes.end());
+    auto expanded_operand2_tensor = operand2.view(view_sizes);
+    output =
+        do_binary_op(output, operand1, expanded_operand2_tensor, op, pass_type);
+  } else {
+    auto operand1_sizes = operand1.sizes().vec();
+    // Create view_sizes initialized to part which has size=1 for upper dims
+    auto view_sizes = std::vector<int64_t>(out_dims - operand1.ndimension(), 1);
+    view_sizes.insert(
+        view_sizes.end(), operand1_sizes.begin(), operand1_sizes.end());
+    auto operand1_expanded = operand1.view(view_sizes);
+    output = do_binary_op(output, operand1_expanded, operand2, op, pass_type);
   }
-  TORCH_HABANA_CHECK(synGraphDestroy(graph_handle), "synGraphDestroy failed");
+}
+
+static inline Tensor do_generic_tensor_binary_op(
+    const Tensor& operand1,
+    const Tensor& operand2,
+    const std::string& op,
+    SynapsePassType pass_type) {
+  auto out_sizes = at::infer_size(operand1.sizes(), operand2.sizes());
+  auto output = at::empty(out_sizes, operand1.options());
+  do_generic_tensor_binary_op_out(output, operand1, operand2, op, pass_type);
+  return output;
+}
+
+// scalar*tensor helper
+static inline Tensor do_tensor_scalar_mul(const Tensor& tensor, Scalar alpha) {
+  if (alpha.toFloat() == 1.0)
+    return tensor;
+  auto alpha_tensor = habana_helpers::scalar_to_device_tensor(
+      convert_scalar_dtype(tensor, alpha),
+      tensor.options(),
+      tensor.ndimension());
+  auto out_mul = at::mul(tensor, alpha_tensor);
+  return out_mul;
+}
+
+// scalar*scalar helper
+static inline Tensor do_scalar_scalar_mul(
+    const Tensor& self,
+    Scalar other,
+    Scalar alpha) {
+  if (alpha.toFloat() == 1.0) {
+    return habana_helpers::scalar_to_device_tensor(
+        convert_scalar_dtype(self, other), self.options(), self.ndimension());
+  }
+  if (other.toFloat() == 1.0) {
+    return habana_helpers::scalar_to_device_tensor(
+        convert_scalar_dtype(self, alpha), self.options(), self.ndimension());
+  }
+  auto other_tensor = habana_helpers::scalar_to_device_tensor(
+      convert_scalar_dtype(self, other), self.options(), self.ndimension());
+  auto alpha_tensor = habana_helpers::scalar_to_device_tensor(
+      convert_scalar_dtype(self, alpha), self.options(), self.ndimension());
+  auto out_mul = at::mul(other_tensor, alpha_tensor);
+
+  return out_mul;
 }
 
 // self += alpha * other
 Tensor& add_tensor_hpu_(Tensor& self, const Tensor& other, Scalar alpha) {
   LOG_FUNC_BEGIN;
-  check_ew_kernel_constraints(self, other);
+  auto alpha_tensor = habana_helpers::scalar_to_device_tensor(
+      convert_scalar_dtype(self, alpha), self.options(), self.ndimension());
+  auto out_mul = at::mul(other, alpha_tensor);
 
-  Tensor alpha_tensor;
-  c10::optional<const Tensor*> alpha_tensor_ptr = &alpha_tensor;
-
-  if (alpha.toFloat() == 1.0) {
-    alpha_tensor_ptr.reset();
-  } else {
-    auto alpha_converted = alpha;
-    if (self.scalar_type() != habana_helpers::scalar_type(alpha)) {
-      alpha_converted = alpha.toFloat();
-    }
-
-    alpha_tensor = habana_helpers::scalar_to_device_tensor(
-        alpha_converted, self.options(), self.ndimension());
-  }
-
-  synapse_add_sub_tensor_(self, other, alpha_tensor_ptr, "add");
+  do_generic_tensor_binary_op_inplace(
+      self, out_mul, "add", SynapsePassType::FORWARD_PASS);
 
   LOG_FUNC_END;
   return self;
@@ -283,11 +250,7 @@ Tensor& add_tensor_hpu_(Tensor& self, const Tensor& other, Scalar alpha) {
  ************************************************************************/
 Tensor add_tensor_hpu(const Tensor& self, const Tensor& other, Scalar alpha) {
   LOG_FUNC_BEGIN;
-
-  auto output = at::empty(self.sizes(), self.options());
-  Tensor alpha_tensor;
-  c10::optional<const Tensor*> alpha_tensor_ptr = &alpha_tensor;
-
+  Tensor output;
   if ((other.dim() == 0) && (other.scalar_type() == c10::ScalarType::Long) &&
       (other.device().type() == c10::DeviceType::CPU)) {
     /*Fix for BN copy kernel issue. This is getting generated from unused code
@@ -302,23 +265,9 @@ Tensor add_tensor_hpu(const Tensor& self, const Tensor& other, Scalar alpha) {
     output = output_cpu.to(c10::DeviceType::HABANA);
     TORCH_WARN("Unsupported long int addition");
   } else {
-    check_ew_kernel_constraints(self, other);
-
-    output = at::empty(self.sizes(), self.options());
-
-    if (alpha.toFloat() == 1.0) {
-      alpha_tensor_ptr.reset();
-    } else {
-      auto alpha_converted = alpha;
-      if (self.scalar_type() != habana_helpers::scalar_type(alpha)) {
-        alpha_converted = alpha.toFloat();
-      }
-
-      alpha_tensor = habana_helpers::scalar_to_device_tensor(
-          alpha_converted, self.options(), self.ndimension());
-    }
-
-    synapse_add_tensor(output, self, other, alpha_tensor_ptr);
+    auto out_mul = do_tensor_scalar_mul(other, alpha);
+    output = do_generic_tensor_binary_op(
+        self, out_mul, "add", SynapsePassType::FORWARD_PASS);
   }
 
   LOG_FUNC_END;
@@ -326,65 +275,93 @@ Tensor add_tensor_hpu(const Tensor& self, const Tensor& other, Scalar alpha) {
 }
 
 /*************************************************************************
- * @brief Kernel implementation for Scalar torch.add(self, other, alpha)
- * output = self + alpha * other
- * @param self - first input, Tensor 1-4D
- * @param other - Scalar
- * @param alpha - optional input, scalar
+ * @brief Kernel implementation for out = add.Scalar(self, alpha, other)
+ * @param self - first input
+ * @param other - second input
+ * @param alpha - optional input
+ * out = self + alpha * other
  ************************************************************************/
-Tensor add_scalar_hpu(
-    const Tensor& self,
-    Scalar other) { // TODO: Add test by using an extension module for new op
-                    // at python level
+Tensor add_scalar_hpu(const Tensor& self, Scalar other, Scalar alpha) {
   LOG_FUNC_BEGIN;
-  TORCH_CHECK(
-      self.scalar_type() == habana_helpers::scalar_type(other),
-      "Types don't match. arg1 type: ",
-      self.scalar_type(),
-      " arg2 type: ",
-      habana_helpers::scalar_type(other));
-
-  auto other_tensor = habana_helpers::scalar_to_device_tensor(
-      other, self.options(), self.ndimension());
-  auto expanded_add_tensor = other_tensor.expand(self.sizes());
-
-  std::vector<const at::Tensor*> pt_inputs;
-  pt_inputs.push_back(&self);
-  pt_inputs.push_back(&expanded_add_tensor);
-  auto out = at::empty(self.sizes(), self.options());
-  std::vector<const at::Tensor*> pt_outputs;
-  pt_outputs.push_back(&out);
-
-  out = add_tensor_hpu(self, expanded_add_tensor, 1);
+  auto out_mul = do_scalar_scalar_mul(self, other, alpha);
+  auto output = do_generic_tensor_binary_op(
+      self, out_mul, "add", SynapsePassType::FORWARD_PASS);
 
   LOG_FUNC_END;
-  return out;
+  return output;
 }
 
 /*************************************************************************
  * @brief Kernel implementation for inplace Scalar self.add_(other)
  * output = self + alpha * other
- * @param self - first input, tensor 1-4D
- * @param other - second input, scalar
- * @param alpha - optional input, scalar
+ * @param self - first input
+ * @param other - second input
+ * @param alpha - optional input
  ************************************************************************/
 Tensor& add_scalar_hpu_(
     Tensor& self,
-    Scalar other) { // TODO: Add test by using an extension module for new op
-                    // at python level
+    Scalar other) { // TODO: Add test by using an extension module for new op at
+                    // python level
   LOG_FUNC_BEGIN;
-  TORCH_CHECK(
-      self.scalar_type() == habana_helpers::scalar_type(other),
-      "Types don't match. arg1 type: ",
-      self.scalar_type(),
-      " arg2 type: ",
-      habana_helpers::scalar_type(other));
-  auto other_tensor = habana_helpers::scalar_to_device_tensor(
-      other, self.options(), self.ndimension());
-  auto expanded_add_tensor = other_tensor.expand(self.sizes());
+  auto other_tensor = convert_scalar_to_tensor_using_self(self, other);
+  self.add_(other_tensor, 1);
+  LOG_FUNC_END;
+  return self;
+}
 
-  self = add_tensor_hpu_(self, expanded_add_tensor, 1);
+/***************************************************************************
+ * @brief Kernel implementation for out = self.addcmul(tensor1, tensor2,alpha)
+ * out = self + value*tensor1*tensor2
+ * @param other [in] - Scalar
+ * @param self [in,out]- Tensor 1D bf16/FP32
+ ****************************************************************************/
+Tensor& addcmul_hpu_(
+    Tensor& self,
+    const Tensor& tensor1,
+    const Tensor& tensor2,
+    Scalar alpha) {
+  LOG_FUNC_BEGIN;
+  auto prod = at::mul(tensor1, tensor2);
+  self.add_(prod, alpha);
+  LOG_FUNC_END;
+  return self;
+}
 
+/*************************************************************************
+ * @brief Kernel implementation for torch.addcdiv_(self,tensor1,tensor2,alpha)
+ * @param [in] self - input tensor, 1-4D, FP32/BF16
+ * @param [in] tensor1 - input tensor, 1-4D, FP32/BF16
+ * @param [in] tensor2 - input tensor, 1-4D, FP32/BF16
+ * @param [in] alpha - optional input, default = 1
+ ************************************************************************/
+Tensor addcdiv_hpu(
+    Tensor& self,
+    const Tensor& tensor1,
+    const Tensor& tensor2,
+    Scalar alpha) {
+  LOG_FUNC_BEGIN;
+  auto output_div = at::div(tensor1, tensor2);
+  auto output = at::add(self, output_div, alpha);
+  LOG_FUNC_END;
+  return output;
+}
+
+/*************************************************************************
+ * @brief Kernel implementation for inplace
+ *torch.addcdiv_(self,tensor1,tensor2,alpha)
+ * @param [in] self - input tensor, 1-4D, FP32/BF16
+ * @param [in] tensor1 - input tensor, 1-4D, FP32/BF16
+ * @param [in] tensor2 - input tensor, 1-4D, FP32/BF16
+ * @param [in] alpha - optional input, default = 1
+ ************************************************************************/
+Tensor& addcdiv_hpu_(
+    Tensor& self,
+    const Tensor& tensor1,
+    const Tensor& tensor2,
+    Scalar alpha) {
+  LOG_FUNC_BEGIN;
+  tensor1.div_(tensor2);
+  self.add_(tensor1, alpha);
   LOG_FUNC_END;
   return self;
 }
@@ -398,19 +375,31 @@ Tensor& add_scalar_hpu_(
  ************************************************************************/
 Tensor& sub_tensor_hpu_(Tensor& self, const Tensor& other, Scalar alpha) {
   LOG_FUNC_BEGIN;
-  check_ew_kernel_constraints(self, other);
-
-  Scalar alpha_converted = alpha;
-  if (self.scalar_type() != habana_helpers::scalar_type(alpha))
-    alpha_converted = alpha.toFloat();
-
-  auto alpha_tensor = habana_helpers::scalar_to_device_tensor(
-      alpha_converted, self.options(), self.ndimension());
-
-  synapse_add_sub_tensor_(self, other, &alpha_tensor, "sub");
-
+  auto out_mul = do_tensor_scalar_mul(other, alpha);
+  do_generic_tensor_binary_op_inplace(
+      self, out_mul, "sub", SynapsePassType::FORWARD_PASS);
   LOG_FUNC_END;
   return self;
+}
+
+/*************************************************************************
+ * @brief Kernel implementation for inplace Scalar torch.sub_(self, alpha,
+ *other)
+ * @param self - first input
+ * @param other - second input
+ * @param alpha - optional input
+ * self -= alpha * other
+ ************************************************************************/
+Tensor sub_scalar_hpu(
+    const Tensor& self,
+    Scalar other,
+    Scalar alpha) { // TODO: No way to test this yet from python
+  LOG_FUNC_BEGIN;
+  auto out_mul = do_scalar_scalar_mul(self, other, alpha);
+  auto out = do_generic_tensor_binary_op(
+      self, out_mul, "sub", SynapsePassType::FORWARD_PASS);
+  LOG_FUNC_END;
+  return out;
 }
 
 /*************************************************************************
@@ -426,28 +415,9 @@ Tensor& sub_scalar_hpu_(
     Scalar other,
     Scalar alpha) { // TODO: No way to test this yet from python
   LOG_FUNC_BEGIN;
-
-  TORCH_CHECK(
-      self.scalar_type() != habana_helpers::scalar_type(other),
-      "Types don't match. arg1 type: ",
-      self.scalar_type(),
-      " arg2 type: ",
-      habana_helpers::scalar_type(other));
-  Scalar sub_converted = other;
-  auto sub_tensor = habana_helpers::scalar_to_device_tensor(
-      sub_converted, self.options(), self.ndimension());
-
-  check_ew_kernel_constraints(self, sub_tensor);
-
-  Scalar alpha_converted = alpha;
-  if (self.scalar_type() != habana_helpers::scalar_type(alpha))
-    alpha_converted = alpha.toFloat();
-
-  auto alpha_tensor = habana_helpers::scalar_to_device_tensor(
-      alpha_converted, self.options(), self.ndimension());
-
-  synapse_add_sub_tensor_(self, sub_tensor, &alpha_tensor, "sub");
-
+  auto out_mul = do_scalar_scalar_mul(self, other, alpha);
+  do_generic_tensor_binary_op_inplace(
+      self, out_mul, "sub", SynapsePassType::FORWARD_PASS);
   LOG_FUNC_END;
   return self;
 }
@@ -461,7 +431,9 @@ Tensor& sub_scalar_hpu_(
  ************************************************************************/
 Tensor& mul_tensor_hpu_(Tensor& self, const Tensor& other) {
   LOG_FUNC_BEGIN;
-
+  if (self.is_same(other)) {
+    return self.pow_(2.0);
+  }
   // TODO: [SW-9849] I am confused why in MNIST example we are multipling self
   // tensor with other, which is 0dim tensor (scalar), with different type
   // (double) on different device (cpu). IMO pytorch should call mul_(Tensor,
@@ -487,25 +459,9 @@ Tensor& mul_tensor_hpu_(Tensor& self, const Tensor& other) {
     *modified_other =
         (modified_other->defined() ? *modified_other : other).to(self.device());
 
-  if (other.ndimension() == 0) {
-    auto expanded_sizes = std::vector<int64_t>(self.ndimension(), 1);
-    std::tie(*modified_other) = at::expand_size(
-        modified_other->defined() ? *modified_other : other,
-        expanded_sizes,
-        "matmul_with_bias_hpu");
-  }
-
-  check_ew_kernel_constraints(
-      self, modified_other->defined() ? *modified_other : other);
-
-  std::vector<const at::Tensor*> pt_inputs;
-
-  pt_inputs.push_back(&self);
-  pt_inputs.push_back(modified_other->defined() ? &(*modified_other) : &other);
-
-  synapse_simple_generic_inplace_kernel(
-      pt_inputs, "mult", nullptr, 0, SynapsePassType::FORWARD_PASS);
-
+  auto other_tensor = modified_other->defined() ? *modified_other : other;
+  do_generic_tensor_binary_op_inplace(
+      self, other_tensor, "mult", SynapsePassType::FORWARD_PASS);
   LOG_FUNC_END;
   return self;
 }
@@ -518,7 +474,9 @@ Tensor& mul_tensor_hpu_(Tensor& self, const Tensor& other) {
  ************************************************************************/
 Tensor mul_tensor_hpu(const Tensor& self, const Tensor& other) {
   LOG_FUNC_BEGIN;
-
+  if (self.is_same(other)) {
+    return at::pow(self, 2.0);
+  }
   auto modified_other = std::make_unique<Tensor>();
   try {
     // Throws if synapse doesn't support given type
@@ -539,42 +497,24 @@ Tensor mul_tensor_hpu(const Tensor& self, const Tensor& other) {
     *modified_other =
         (modified_other->defined() ? *modified_other : other).to(self.device());
 
-  if (other.ndimension() == 0) {
-    auto expanded_sizes = std::vector<int64_t>(self.ndimension(), 1);
-    std::tie(*modified_other) = at::expand_size(
-        modified_other->defined() ? *modified_other : other,
-        expanded_sizes,
-        "matmul_with_bias_hpu");
-  }
-
-  check_ew_kernel_constraints(
-      self, modified_other->defined() ? *modified_other : other);
-
-  auto output = at::empty(self.sizes(), self.options());
-
-  std::vector<const at::Tensor*> pt_inputs;
-  std::vector<const at::Tensor*> pt_outputs;
-
-  pt_inputs.push_back(&self);
-
-  if (self.is_same(other)) {
-    output = at::pow(self, 2.0);
-  } else {
-    pt_inputs.push_back(
-        modified_other->defined() ? &(*modified_other) : &other);
-    pt_outputs.push_back(&output);
-
-    synapse_simple_generic_kernel(
-        pt_outputs,
-        pt_inputs,
-        "mult",
-        nullptr,
-        0,
-        SynapsePassType::FORWARD_PASS);
-  }
-
+  auto other_tensor = modified_other->defined() ? *modified_other : other;
+  auto output = do_generic_tensor_binary_op(
+      self, other_tensor, "mult", SynapsePassType::FORWARD_PASS);
   LOG_FUNC_END;
   return output;
+}
+
+/*************************************************************************
+ * @brief Kernel implementation for output = torch.mul(self, Scalar other)
+ * @param self - first input
+ * @param other - second input
+ * output = self * other
+ ************************************************************************/
+Tensor mul_scalar_hpu(const Tensor& self, Scalar other) {
+  LOG_FUNC_BEGIN;
+  auto out = do_tensor_scalar_mul(self, other);
+  LOG_FUNC_END;
+  return out;
 }
 
 /*************************************************************************
@@ -585,19 +525,8 @@ Tensor mul_tensor_hpu(const Tensor& self, const Tensor& other) {
  ************************************************************************/
 Tensor& mul_scalar_hpu_(Tensor& self, Scalar other) {
   LOG_FUNC_BEGIN;
-  TORCH_CHECK(
-      self.scalar_type() == habana_helpers::scalar_type(other),
-      "Types don't match. arg1 type: ",
-      self.scalar_type(),
-      " arg2 type: ",
-      habana_helpers::scalar_type(other));
-  Scalar multiplier_converted = other;
-  auto multiplier_tensor = habana_helpers::scalar_to_device_tensor(
-      multiplier_converted, self.options(), self.ndimension());
-  auto expanded_mul_tensor = multiplier_tensor.expand(self.sizes());
-
-  self = mul_tensor_hpu_(self, expanded_mul_tensor);
-
+  auto multiplier_tensor = convert_scalar_to_tensor_using_self(self, other);
+  self.mul_(multiplier_tensor);
   LOG_FUNC_END;
   return self;
 }
@@ -609,31 +538,19 @@ Tensor& mul_scalar_hpu_(Tensor& self, Scalar other) {
  * @param out -  output tensor of bool dtype
  ************************************************************************/
 void eq_tensor_out_hpu(
-    const Tensor& output,
+    Tensor& output,
     const Tensor& self,
     const Tensor& other) {
   LOG_FUNC_BEGIN;
-
   // change dtype bool to int8 to match TPC kernel signature
   // NOTE: This works because both bool and int8 uses 1 byte per element
   // Else we need to overload .to operator with an explicit TPC kernel for
   // typecasting
   output.to(c10::ScalarType::Char);
-
-  std::vector<const at::Tensor*> pt_inputs{&self, &other};
-  std::vector<const at::Tensor*> pt_outputs{&output};
-
-  synapse_simple_generic_kernel(
-      pt_outputs,
-      pt_inputs,
-      "equal",
-      nullptr,
-      0,
-      SynapsePassType::FORWARD_PASS);
-
+  do_generic_tensor_binary_op_out(
+      output, self, other, "equal", SynapsePassType::FORWARD_PASS);
   // convert back to bool
   output.to(c10::ScalarType::Bool);
-
   LOG_FUNC_END;
 }
 
@@ -644,13 +561,10 @@ void eq_tensor_out_hpu(
  ************************************************************************/
 Tensor eq_tensor_hpu(Tensor& self, Tensor& other) {
   LOG_FUNC_BEGIN;
-
   auto tensor_options = self.options();
   auto output =
       at::empty(self.sizes(), tensor_options.dtype(c10::ScalarType::Char));
-
-  eq_tensor_out_hpu(output, self, other);
-
+  at::eq_out(output, self, other);
   LOG_FUNC_END;
   return output;
 }
@@ -662,30 +576,8 @@ Tensor eq_tensor_hpu(Tensor& self, Tensor& other) {
  ************************************************************************/
 Tensor div_tensor_hpu(const Tensor& self, const Tensor& other) {
   LOG_FUNC_BEGIN;
-  auto divisor_sizes = other.sizes();
-  auto divisor_tot_elems = other.numel();
-  auto out = at::empty(self.sizes(), self.options());
-  std::vector<const at::Tensor*> pt_inputs;
-  pt_inputs.push_back(&self);
-
-  Tensor other_tensor;
-  if (1 == divisor_tot_elems) { // case where a single element tensor comes as
-                                // divisor
-    Scalar other_converted = other.item<float>();
-    other_tensor = habana_helpers::scalar_to_device_tensor(
-        other_converted, self.options(), self.ndimension());
-    pt_inputs.push_back(&other_tensor);
-  } else if (divisor_sizes != self.sizes()) {
-    // TO DO: Return error or try to broadcast along appropriate dim
-    check_ew_kernel_constraints((const at::Tensor&)self, other);
-    return out;
-  } else {
-    pt_inputs.push_back(&other);
-  }
-  std::vector<const at::Tensor*> pt_outputs;
-  pt_outputs.push_back(&out);
-  synapse_simple_generic_kernel(
-      pt_outputs, pt_inputs, "div", nullptr, 0, SynapsePassType::FORWARD_PASS);
+  auto out = do_generic_tensor_binary_op(
+      self, other, "div", SynapsePassType::FORWARD_PASS);
   LOG_FUNC_END;
   return out;
 }
@@ -701,31 +593,8 @@ Tensor& div_tensor_hpu_out(
     const Tensor& self,
     const Tensor& other) {
   LOG_FUNC_BEGIN;
-  auto divisor_sizes = other.sizes();
-  auto divisor_tot_elems = other.numel();
-  auto out = at::empty(self.sizes(), self.options());
-  std::vector<const at::Tensor*> pt_inputs;
-  pt_inputs.push_back(&self);
-
-  Tensor other_tensor;
-  if (1 == divisor_tot_elems) { // case where a single element tensor comes as
-                                // divisor
-    Scalar other_converted = other.item<float>();
-    other_tensor = habana_helpers::scalar_to_device_tensor(
-        other_converted, self.options(), self.ndimension());
-    pt_inputs.push_back(&other_tensor);
-  } else if (divisor_sizes != self.sizes()) {
-    // TO DO: Return error or try to broadcast along appropriate dim
-    check_ew_kernel_constraints(self, other);
-    return result;
-  } else {
-    pt_inputs.push_back(&other);
-  }
-  std::vector<const at::Tensor*> pt_outputs;
-  pt_outputs.push_back(&result);
-  synapse_simple_generic_kernel(
-      pt_outputs, pt_inputs, "div", nullptr, 0, SynapsePassType::FORWARD_PASS);
-
+  do_generic_tensor_binary_op_out(
+      result, self, other, "div", SynapsePassType::FORWARD_PASS);
   LOG_FUNC_END;
   return result;
 }
@@ -736,186 +605,67 @@ Tensor& div_tensor_hpu_out(
  ************************************************************************/
 Tensor& div_tensor_hpu_(Tensor& self, const Tensor& other) {
   LOG_FUNC_BEGIN;
-  auto divisor_sizes = other.sizes();
-  auto divisor_tot_elems = other.numel();
-  auto out = at::empty(self.sizes(), self.options());
-  std::vector<const at::Tensor*> pt_inputs;
-  pt_inputs.push_back(&self);
-
-  Tensor other_tensor;
-  if (1 == divisor_tot_elems) { // case where a single element tensor comes as
-                                // divisor
-    Scalar other_converted = other.item<float>();
-    other_tensor = habana_helpers::scalar_to_device_tensor(
-        other_converted, self.options(), self.ndimension());
-    pt_inputs.push_back(&other_tensor);
-  } else if (divisor_sizes != self.sizes()) {
-    // TO DO: Return error or try to broadcast along appropriate dim
-    check_ew_kernel_constraints(self, other);
-    return self;
-  } else {
-    pt_inputs.push_back(&other);
-  }
-  synapse_simple_generic_inplace_kernel(
-      pt_inputs, "div", nullptr, 0, SynapsePassType::FORWARD_PASS);
-
+  do_generic_tensor_binary_op_inplace(
+      self, other, "div", SynapsePassType::FORWARD_PASS);
   LOG_FUNC_END;
   return self;
 }
 
+/*************************************************************************
+ * @brief Kernel implementation for inplace div.Scalar(self,other)
+ * @param self - first input
+ * @param other - second input of scalar type
+ ************************************************************************/
 Tensor div_scalar_hpu(
     const Tensor& self,
-    Scalar other) { // TODO: Add test by using an extension module for new op
-                    // at python level
+    Scalar other) { // TODO: Add test by using an extension module for new op at
+                    // python level
   LOG_FUNC_BEGIN;
-  TORCH_CHECK(
-      self.scalar_type() == habana_helpers::scalar_type(other),
-      "Types don't match. arg1 type: ",
-      self.scalar_type(),
-      " arg2 type: ",
-      habana_helpers::scalar_type(other));
-  Scalar divisor_converted = other;
-  auto divisor_tensor = habana_helpers::scalar_to_device_tensor(
-      divisor_converted, self.options(), self.ndimension());
-  auto expanded_div_tensor = divisor_tensor.expand(self.sizes());
-
-  std::vector<const at::Tensor*> pt_inputs;
-  pt_inputs.push_back(&self);
-  pt_inputs.push_back(&expanded_div_tensor);
-  auto out = at::empty(self.sizes(), self.options());
-  std::vector<const at::Tensor*> pt_outputs;
-  pt_outputs.push_back(&out);
-
-  out = div_tensor_hpu(self, expanded_div_tensor);
-
+  auto out = at::div(self, convert_scalar_to_tensor_using_self(self, other));
   LOG_FUNC_END;
   return out;
 }
 
+/*************************************************************************
+ * @brief Kernel implementation for inplace div_.Scalar(self,other)
+ * @param self - first input
+ * @param other - second input of scalar type
+ ************************************************************************/
 Tensor& div_scalar_hpu_(
     Tensor& self,
-    Scalar other) { // TODO: Add test by using an extension module for new op
-                    // at python level
+    Scalar other) { // TODO: Add test by using an extension module for new op at
+                    // python level
   LOG_FUNC_BEGIN;
-  std::vector<const at::Tensor*> pt_inputs;
-  TORCH_CHECK(
-      self.scalar_type() == habana_helpers::scalar_type(other),
-      "Types don't match. arg1 type: ",
-      self.scalar_type(),
-      " arg2 type: ",
-      habana_helpers::scalar_type(other));
-
-  auto divisor_tensor = habana_helpers::scalar_to_device_tensor(
-      other, self.options(), self.ndimension());
-  auto expanded_div_tensor = divisor_tensor.expand(self.sizes());
-
-  pt_inputs.push_back(&self);
-  pt_inputs.push_back(&divisor_tensor);
-
-  self = div_tensor_hpu_(self, expanded_div_tensor);
-
-  LOG_FUNC_END;
-  return self;
-}
-
-/*************************************************************************
- * @brief Kernel implementation for out = torch.pow(self,other) = self^other
- * @param self - first input, tensor 1-4D
- * @param other - second input, tensor 1-4D
- ************************************************************************/
-Tensor pow_tensor_tensor_hpu(const Tensor& self, const Tensor& other) {
-  LOG_FUNC_BEGIN;
-  auto exponent_sizes = other.sizes();
-  auto exponent_tot_elems = other.numel();
-  auto out = at::empty(self.sizes(), self.options());
-  std::vector<const at::Tensor*> pt_inputs;
-  pt_inputs.push_back(&self);
-
-  Tensor other_tensor;
-  if (1 == exponent_tot_elems) { // case where a single element tensor comes
-                                 // as exponent
-    Scalar other_converted = other.item<float>();
-    other_tensor = habana_helpers::scalar_to_device_tensor(
-        other_converted, self.options(), self.ndimension());
-    pt_inputs.push_back(&other_tensor);
-  } else if (exponent_sizes != self.sizes()) {
-    // TO DO: Return error or try to broadcast along appropriate dim
-    check_ew_kernel_constraints((const at::Tensor&)self, other);
-    return out;
-  } else {
-    pt_inputs.push_back(&other);
-  }
-  std::vector<const at::Tensor*> pt_outputs;
-  pt_outputs.push_back(&out);
-  synapse_simple_generic_kernel(
-      pt_outputs, pt_inputs, "pow", nullptr, 0, SynapsePassType::FORWARD_PASS);
-  LOG_FUNC_END;
-  return out;
-}
-
-/*************************************************************************
- * @brief Kernel implementation for out = self.pow(other)
- * @param self - first input, tensor 1-4D
- * @param other - second input, tensor 1-4D
- ************************************************************************/
-Tensor& pow_tensor_tensor_hpu_(Tensor& self, const Tensor& other) {
-  LOG_FUNC_BEGIN;
-  auto exponent_sizes = other.sizes();
-  auto exponent_tot_elems = other.numel();
-  std::vector<const at::Tensor*> pt_inputs;
-  pt_inputs.push_back(&self);
-
-  Tensor other_tensor;
-  if (1 == exponent_tot_elems) { // case where a single element tensor comes
-                                 // as exponent
-    Scalar other_converted = other.item<float>();
-    other_tensor = habana_helpers::scalar_to_device_tensor(
-        other_converted, self.options(), self.ndimension());
-    pt_inputs.push_back(&other_tensor);
-  } else if (exponent_sizes != self.sizes()) {
-    // TO DO: Return error or try to broadcast along appropriate dim
-    check_ew_kernel_constraints((const at::Tensor&)self, other);
-    return self;
-  } else {
-    pt_inputs.push_back(&other);
-  }
-
-  synapse_simple_generic_inplace_kernel(
-      pt_inputs, "pow", nullptr, 0, SynapsePassType::FORWARD_PASS);
-
+  auto divisor_tensor = convert_scalar_to_tensor_using_self(self, other);
+  self = self.div_(divisor_tensor);
   LOG_FUNC_END;
   return self;
 }
 
 /*************************************************************************
  * @brief Kernel implementation for out = torch.pow(self,other)
- * @param self [in] - Tensor 1D bf16/FP32
- * @param other [in] - Scalar bf16/FP32
+ * @param self - first input
+ * @param other - second input
  ************************************************************************/
-Tensor pow_tensor_scalar_hpu(const Tensor& self, Scalar other) {
+Tensor pow_tensor_tensor_hpu(const Tensor& self, const Tensor& other) {
   LOG_FUNC_BEGIN;
-  TORCH_CHECK(
-      self.scalar_type() == habana_helpers::scalar_type(other),
-      "Types don't match. arg1 type: ",
-      self.scalar_type(),
-      " arg2 type: ",
-      habana_helpers::scalar_type(other));
-  Scalar exponent_converted = other;
-  auto exponent_tensor = habana_helpers::scalar_to_device_tensor(
-      exponent_converted, self.options(), self.ndimension());
-  auto expanded_exponent_tensor = exponent_tensor.expand(self.sizes());
-
-  std::vector<const at::Tensor*> pt_inputs;
-  pt_inputs.push_back(&self);
-  pt_inputs.push_back(&expanded_exponent_tensor);
-  auto out = at::empty(self.sizes(), self.options());
-  std::vector<const at::Tensor*> pt_outputs;
-  pt_outputs.push_back(&out);
-
-  out = pow_tensor_tensor_hpu(self, expanded_exponent_tensor);
-
+  auto out = do_generic_tensor_binary_op(
+      self, other, "pow", SynapsePassType::FORWARD_PASS);
   LOG_FUNC_END;
   return out;
+}
+
+/*************************************************************************
+ * @brief Kernel implementation for out = self.pow(other)
+ * @param self - first input
+ * @param other - second input
+ ************************************************************************/
+Tensor& pow_tensor_tensor_hpu_(Tensor& self, const Tensor& other) {
+  LOG_FUNC_BEGIN;
+  do_generic_tensor_binary_op_inplace(
+      self, other, "pow", SynapsePassType::FORWARD_PASS);
+  LOG_FUNC_END;
+  return self;
 }
 
 /*************************************************************************
@@ -923,28 +673,18 @@ Tensor pow_tensor_scalar_hpu(const Tensor& self, Scalar other) {
  * @param self [in,out]- Tensor 1D bf16/FP32
  * @param other [in] - Scalar
  ************************************************************************/
+Tensor pow_tensor_scalar_hpu(const Tensor& self, Scalar other) {
+  LOG_FUNC_BEGIN;
+  auto exponent_tensor = convert_scalar_to_tensor_using_self(self, other);
+  auto out = at::pow(self, exponent_tensor);
+  LOG_FUNC_END;
+  return out;
+}
+
 Tensor& pow_tensor_scalar_hpu_(Tensor& self, Scalar other) {
   LOG_FUNC_BEGIN;
-  TORCH_CHECK(
-      self.scalar_type() == habana_helpers::scalar_type(other),
-      "Types don't match. arg1 type: ",
-      self.scalar_type(),
-      " arg2 type: ",
-      habana_helpers::scalar_type(other));
-  Scalar exponent_converted = other;
-  auto exponent_tensor = habana_helpers::scalar_to_device_tensor(
-      exponent_converted, self.options(), self.ndimension());
-  auto expanded_exponent_tensor = exponent_tensor.expand(self.sizes());
-
-  std::vector<const at::Tensor*> pt_inputs;
-  pt_inputs.push_back(&self);
-  pt_inputs.push_back(&expanded_exponent_tensor);
-  auto out = at::empty(self.sizes(), self.options());
-  std::vector<const at::Tensor*> pt_outputs;
-  pt_outputs.push_back(&out);
-
-  pow_tensor_tensor_hpu_(self, expanded_exponent_tensor);
-
+  auto exponent_tensor = convert_scalar_to_tensor_using_self(self, other);
+  self.pow_(exponent_tensor);
   LOG_FUNC_END;
   return self;
 }
@@ -956,114 +696,10 @@ Tensor& pow_tensor_scalar_hpu_(Tensor& self, Scalar other) {
  ****************************************************************************/
 Tensor pow_scalar_tensor_hpu(Scalar other, const Tensor& self) {
   LOG_FUNC_BEGIN;
-  TORCH_CHECK(
-      self.scalar_type() == habana_helpers::scalar_type(other),
-      "Types don't match. arg1 type: ",
-      self.scalar_type(),
-      " arg2 type: ",
-      habana_helpers::scalar_type(other));
-
-  auto base_tensor = habana_helpers::scalar_to_device_tensor(
-      other, self.options(), self.ndimension());
-  auto expanded_base_tensor = base_tensor.expand(self.sizes());
-
-  std::vector<const at::Tensor*> pt_inputs;
-  pt_inputs.push_back(&self);
-  pt_inputs.push_back(&base_tensor);
-  auto out = at::empty(self.sizes(), self.options());
-  std::vector<const at::Tensor*> pt_outputs;
-  pt_outputs.push_back(&out);
-
-  out = pow_tensor_tensor_hpu(self, expanded_base_tensor);
-
+  auto base_tensor = convert_scalar_to_tensor_using_self(self, other);
+  auto out = at::pow(base_tensor, self);
   LOG_FUNC_END;
   return out;
-}
-
-/***************************************************************************
- * @brief Kernel implementation for out = self.addcmul(tensor1, tensor2,alpha)
- * out = self + value*tensor1*tensor2
- * @param other [in] - Scalar
- * @param self [in,out]- Tensor 1D bf16/FP32
- ****************************************************************************/
-Tensor& addcmul_hpu_(
-    Tensor& self,
-    const Tensor& tensor1,
-    const Tensor& tensor2,
-    Scalar alpha) {
-  LOG_FUNC_BEGIN;
-
-  auto prod = at::mul(tensor1, tensor2);
-  self.add_(prod, alpha);
-
-  LOG_FUNC_END;
-  return self;
-}
-
-/*************************************************************************
- * @brief Kernel implementation for output = torch.mul(self, Scalar other)
- * @param self - first input
- * @param other - second input
- * output = self * other
- ************************************************************************/
-Tensor mul_scalar_hpu(const Tensor& self, Scalar other) {
-  LOG_FUNC_BEGIN;
-
-  Scalar other_converted = other;
-  if (self.scalar_type() != habana_helpers::scalar_type(other))
-    other_converted = other.toFloat();
-
-  auto multiplier_tensor = habana_helpers::scalar_to_device_tensor(
-      other_converted, self.options(), self.ndimension());
-
-  auto expanded_mul_tensor = multiplier_tensor.expand(self.sizes());
-  auto out = mul_tensor_hpu(self, expanded_mul_tensor);
-
-  LOG_FUNC_END;
-  return out;
-}
-
-/*************************************************************************
- * @brief Kernel implementation for torch.addcdiv_(self,tensor1,tensor2,alpha)
- * @param [in] self - input tensor, 1-4D, FP32/BF16
- * @param [in] tensor1 - input tensor, 1-4D, FP32/BF16
- * @param [in] tensor2 - input tensor, 1-4D, FP32/BF16
- * @param [in] alpha - optional input, default = 1
- ************************************************************************/
-Tensor addcdiv_hpu(
-    Tensor& self,
-    const Tensor& tensor1,
-    const Tensor& tensor2,
-    Scalar alpha) {
-  LOG_FUNC_BEGIN;
-
-  auto output_div = at::div(tensor1, tensor2);
-  auto output = at::add(self, output_div, alpha);
-
-  LOG_FUNC_END;
-  return output;
-}
-
-/*************************************************************************
- * @brief Kernel implementation for inplace
- *torch.addcdiv_(self,tensor1,tensor2,alpha)
- * @param [in] self - input tensor, 1-4D, FP32/BF16
- * @param [in] tensor1 - input tensor, 1-4D, FP32/BF16
- * @param [in] tensor2 - input tensor, 1-4D, FP32/BF16
- * @param [in] alpha - optional input, default = 1
- ************************************************************************/
-Tensor& addcdiv_hpu_(
-    Tensor& self,
-    const Tensor& tensor1,
-    const Tensor& tensor2,
-    Scalar alpha) {
-  LOG_FUNC_BEGIN;
-
-  tensor1.div_(tensor2);
-  self.add_(tensor1, alpha);
-
-  LOG_FUNC_END;
-  return self;
 }
 
 static auto registry =
@@ -1098,6 +734,24 @@ static auto registry =
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema(
+                    "aten::addcmul_(Tensor(a !) self, Tensor tensor1, Tensor tensor2, *, Scalar value = 1) -> Tensor(a !)")
+                .impl_unboxedOnlyKernel<decltype(addcmul_hpu_), &addcmul_hpu_>(
+                    DispatchKey::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema(
+                    "aten::addcdiv(Tensor self, Tensor tensor1, Tensor tensor2, *, Scalar value=1) -> Tensor")
+                .impl_unboxedOnlyKernel<decltype(addcdiv_hpu), &addcdiv_hpu>(
+                    DispatchKey::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema(
+                    "aten::addcdiv_(Tensor(a!) self, Tensor tensor1, Tensor tensor2, *, Scalar value=1) -> Tensor(a!)")
+                .impl_unboxedOnlyKernel<decltype(addcdiv_hpu_), &addcdiv_hpu_>(
+                    DispatchKey::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema(
                     "aten::sub_.Tensor(Tensor(a!) self, Tensor other, *, Scalar alpha=1) -> Tensor(a!)")
                 .impl_unboxedOnlyKernel<
                     decltype(sub_tensor_hpu_),
@@ -1106,6 +760,13 @@ static auto registry =
         .op(torch::RegisterOperators::options()
                 .schema(
                     "aten::sub.Scalar(Tensor self, Scalar other, Scalar alpha=1) -> Tensor")
+                .impl_unboxedOnlyKernel<
+                    decltype(sub_scalar_hpu),
+                    &sub_scalar_hpu>(DispatchKey::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema(
+                    "aten::sub_.Scalar(Tensor(a!) self, Scalar other, Scalar alpha=1) -> Tensor(a!)")
                 .impl_unboxedOnlyKernel<
                     decltype(sub_scalar_hpu_),
                     &sub_scalar_hpu_>(DispatchKey::HABANATensorId)
@@ -1122,6 +783,19 @@ static auto registry =
                 .impl_unboxedOnlyKernel<
                     decltype(mul_tensor_hpu),
                     &mul_tensor_hpu>(DispatchKey::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema("aten::mul.Scalar(Tensor self, Scalar other) -> Tensor")
+                .impl_unboxedOnlyKernel<
+                    decltype(mul_scalar_hpu),
+                    &mul_scalar_hpu>(DispatchKey::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema(
+                    "aten::mul_.Scalar(Tensor(a!) self, Scalar other) -> Tensor(a!)")
+                .impl_unboxedOnlyKernel<
+                    decltype(mul_scalar_hpu_),
+                    &mul_scalar_hpu_>(DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema("aten::eq.Tensor(Tensor self, Tensor other) -> Tensor")
@@ -1170,19 +844,6 @@ static auto registry =
                     &div_scalar_hpu_>(DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
-                .schema("aten::mul.Scalar(Tensor self, Scalar other) -> Tensor")
-                .impl_unboxedOnlyKernel<
-                    decltype(mul_scalar_hpu),
-                    &mul_scalar_hpu>(DispatchKey::HABANATensorId)
-                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-        .op(torch::RegisterOperators::options()
-                .schema(
-                    "aten::mul_.Scalar(Tensor(a!) self, Scalar other) -> Tensor(a!)")
-                .impl_unboxedOnlyKernel<
-                    decltype(mul_scalar_hpu_),
-                    &mul_scalar_hpu_>(DispatchKey::HABANATensorId)
-                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-        .op(torch::RegisterOperators::options()
                 .schema(
                     "aten::pow.Tensor_Tensor(Tensor self, Tensor exponent) -> Tensor")
                 .impl_unboxedOnlyKernel<
@@ -1216,22 +877,4 @@ static auto registry =
                 .impl_unboxedOnlyKernel<
                     decltype(pow_scalar_tensor_hpu),
                     &pow_scalar_tensor_hpu>(DispatchKey::HABANATensorId)
-                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-        .op(torch::RegisterOperators::options()
-                .schema(
-                    "aten::addcmul_(Tensor(a !) self, Tensor tensor1, Tensor tensor2, *, Scalar value = 1) -> Tensor(a !)")
-                .impl_unboxedOnlyKernel<decltype(addcmul_hpu_), &addcmul_hpu_>(
-                    DispatchKey::HABANATensorId)
-                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-        .op(torch::RegisterOperators::options()
-                .schema(
-                    "aten::addcdiv(Tensor self, Tensor tensor1, Tensor tensor2, *, Scalar value=1) -> Tensor")
-                .impl_unboxedOnlyKernel<decltype(addcdiv_hpu), &addcdiv_hpu>(
-                    DispatchKey::HABANATensorId)
-                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-        .op(torch::RegisterOperators::options()
-                .schema(
-                    "aten::addcdiv_(Tensor(a!) self, Tensor tensor1, Tensor tensor2, *, Scalar value=1) -> Tensor(a!)")
-                .impl_unboxedOnlyKernel<decltype(addcdiv_hpu_), &addcdiv_hpu_>(
-                    DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));
