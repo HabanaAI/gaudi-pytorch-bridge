@@ -240,6 +240,8 @@ def main(args):
         print("Attempting to load library from path ", os.environ['BUILD_ROOT_LATEST'], flush=True)
         torch.ops.load_library(os.path.join(os.environ['BUILD_ROOT_LATEST'], "libhabana_pytorch_plugin.so"))
 
+    torch.manual_seed(args.seed)
+
     device = torch.device(args.device)
 
     torch.backends.cudnn.benchmark = True
@@ -352,6 +354,7 @@ def parse_args():
     parser.add_argument('--resume', default='', help='resume from checkpoint')
     parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                         help='start epoch')
+    parser.add_argument('--seed', type=int, default=123, help='random seed')
     parser.add_argument(
         "--cache-dataset",
         dest="cache_dataset",
