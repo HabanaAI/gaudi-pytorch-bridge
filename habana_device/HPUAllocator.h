@@ -25,7 +25,7 @@ class HPUAllocator : public synapse_helpers::device_allocator {
 
   void  reset() override;
   void  release() override;
-  void* alloc(size_t size) override;
+  void* alloc(size_t num_bytes) override;
   void  free(void* ptr) override;
 
  private:

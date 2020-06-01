@@ -73,6 +73,7 @@ set(SOURCES habana_bridge/register/register.cpp
 		habana_bridge/kernel/hpu_habana_launch_op_pt.cpp)
 pybind11_add_module(hb_torch SHARED ${SOURCES})
 target_compile_definitions(hb_torch PRIVATE "GENERIC_HELPERS" MAX_DEVICES_PER_BOX=8)
+target_compile_options(hb_torch PRIVATE -Wall -Wextra -Werror -Wno-error=deprecated-declarations)
 target_link_libraries(hb_torch PRIVATE "${TORCH_LIBRARIES}" habana_pytorch_plugin synapse_helpers::synapse_helpers_abi11)
 target_include_directories(hb_torch PRIVATE ${CMAKE_SOURCE_DIR})
 target_compile_features(hb_torch PRIVATE cxx_std_14)

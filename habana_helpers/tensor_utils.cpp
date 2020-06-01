@@ -74,20 +74,22 @@ at::Tensor habana_helpers::cast_tensor_to_integer(
   // TODO Remove this cast on CPU when int64_t->int32 cast available on
   // HPU
   auto int_tensor = std::make_unique<at::Tensor>();
-  if (long_tensor.scalar_type() == c10::ScalarType::Long)
+  if (long_tensor.scalar_type() == c10::ScalarType::Long) {
     *int_tensor =
         long_tensor.to("cpu").to(c10::ScalarType::Int).to(long_tensor.device());
-  else
+  } else {
     *int_tensor = long_tensor;
+  }
 
   return *int_tensor;
 }
 
 at::Tensor habana_helpers::to_cpu(const at::Tensor& hpu_tensor) {
-  if (hpu_tensor.defined())
+  if (hpu_tensor.defined()) {
     return hpu_tensor.to(at::DeviceType::CPU);
-  else
-    return hpu_tensor;
+  }
+
+  return hpu_tensor;
 }
 
 synDataType habana_helpers::pytorch_to_synapse_type(
@@ -116,15 +118,20 @@ synDataType pytorch_to_synapse_type(const c10::Scalar& s) {
 }
 
 c10::ScalarType habana_helpers::scalar_type(const c10::Scalar& s) {
+  c10::ScalarType type = c10::ScalarType::Undefined;
+
   if (s.isFloatingPoint()) {
-    return c10::ScalarType::Float;
+    type = c10::ScalarType::Float;
   } else if (s.isIntegral(false)) {
-    return c10::ScalarType::Int;
+    type = c10::ScalarType::Int;
   } else if (s.isBoolean()) {
-    return c10::ScalarType::Bool;
-  } else
+    type = c10::ScalarType::Bool;
+  } else {
     TORCH_CHECK(!s.isComplex(), "Habana doesn't support complex types");
-  throw std::runtime_error("Unknown type");
+    throw std::runtime_error("Unknown type");
+  }
+
+  return type;
 }
 
 at::Tensor habana_helpers::scalar_to_device_tensor(

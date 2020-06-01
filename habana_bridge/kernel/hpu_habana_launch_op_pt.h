@@ -65,9 +65,9 @@ class HabanaLaunchOpPT {
   void postProcessOutputs(synapse_helpers::graph& syn_graph);
   at::Tensor permuteTensor(
       synapse_helpers::graph& syn_graph,
-      torch::jit::Value* node_val,
+      torch::jit::Value* value_in,
       const at::Tensor &input,
-      habana::LayoutFormat permute_oder);
+      habana::LayoutFormat permute_order);
   torch::jit::Stack getStackForNode(torch::jit::Node* node);
   void compile();
   void clear();

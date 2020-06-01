@@ -89,7 +89,6 @@ void HabanaLaunchOpPT::GetSynapseOutputs(
     const HabanaOperatorPtr &habana_op,
     torch::jit::Node* node) {
 
-    auto &habana_kernel_meta_data = habana_op->GetKernelMetaData();
     auto output_tensors_pt = habana_op->GetOutputs();
     auto &output_tensors_syn = habana_op->GetSynOutputs();
     auto output_nodes = node->outputs();
@@ -111,12 +110,13 @@ void HabanaLaunchOpPT::GetSynapseOutputs(
 at::IntArrayRef getDimsForLayout(habana::LayoutFormat channel_order)
 {
   at::IntArrayRef dims;
-  if(channel_order == habana::LayoutFormat::NCHW)
+  if(channel_order == habana::LayoutFormat::NCHW) {
      dims = {0, 3, 1, 2};
-  else if(channel_order == habana::LayoutFormat::NHWC)
+  } else if(channel_order == habana::LayoutFormat::NHWC) {
      dims = {0, 2, 3, 1};
-  else
-      TORCH_CHECK(" Habana Fusion op permute called for unsupported channel order");
+  } else {
+     TORCH_CHECK(" Habana Fusion op permute called for unsupported channel order");
+  }
   return dims;
 }
 // For now, we permute tensors at graph leaves once
@@ -126,7 +126,7 @@ at::Tensor HabanaLaunchOpPT::permuteTensor(
     synapse_helpers::graph& syn_graph,
     torch::jit::Value* value_in,
     const at::Tensor &input,
-    habana::LayoutFormat permute_oder) {
+    habana::LayoutFormat permute_order) {
 
   auto& device = synapse_helpers::HPURegistrar::get_device();
   synDeviceId device_id = device.id();
@@ -155,7 +155,7 @@ at::Tensor HabanaLaunchOpPT::permuteTensor(
     input_buffers.push_back(pt_tensor.data_ptr());
   }
 
-  auto dims = getDimsForLayout(permute_oder);
+  auto dims = getDimsForLayout(permute_order);
 
   torch::jit::Stack input_stack = {IValue(input), IValue(dims)};
   // setup the config params for the kernels
@@ -168,7 +168,7 @@ at::Tensor HabanaLaunchOpPT::permuteTensor(
     // make the output of permute the input for next synapse kernel
     // permute has a single output
     value_to_ivalue[value_in] = IValue(outputs_permute[0]);
-    value_to_tensor_layout[value_in] = permute_oder;
+    value_to_tensor_layout[value_in] = permute_order;
     pt_to_synapse_tensors.erase(&value_to_ivalue[value_in]);
     pt_to_synapse_tensors.emplace(
             &value_to_ivalue[value_in], out_tensor_syn);
@@ -263,8 +263,9 @@ c10::ScalarType HabanaLaunchOpPT::getNodeScalarType(torch::jit::Node* node)
   //return the data type of first input tensor
   for (auto input : node->inputs())
     {
-      if(value_to_ivalue[input].isTensor())
+      if (value_to_ivalue[input].isTensor()) {
         return value_to_ivalue[input].toTensor().scalar_type();
+      }
     }
   //Default return float for now if no tensor found
   return c10::ScalarType::Float;
@@ -328,8 +329,8 @@ void HabanaLaunchOpPT::compile() {
     synStreamHandle stream_handle = device.get_compute_stream();
 
     synapse_helpers::graph::launch_info launchInfo(pRecipe->device_);
-    syn_graph.create_launch_info(launchInfo, *pRecipe);
-    syn_graph.launch(launchInfo, *pRecipe, syn_launch_info);
+    synapse_helpers::graph::create_launch_info(launchInfo, *pRecipe);
+    synapse_helpers::graph::launch(launchInfo, *pRecipe, syn_launch_info);
     TORCH_HABANA_CHECK(
         synStreamSynchronize(stream_handle), "synStreamSynchronize failed");
   }
@@ -340,10 +341,7 @@ bool HabanaLaunchOpPT::CompileSynapseGraph(
     std::shared_ptr<synapse_helpers::graph::recipe_handle>& recipeId) {
   auto compile_result = synGraph.compile();
   recipeId = get_value(std::move(compile_result));
-  if (recipeId == nullptr) {
-    return false;
-  }
-  return true;
+  return (recipeId != nullptr);
 }
 
 habana::LayoutFormat getPTTensorLayout() {

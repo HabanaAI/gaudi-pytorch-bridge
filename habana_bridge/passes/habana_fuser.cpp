@@ -30,7 +30,7 @@ struct HabanaGraphFuser {
 
   HabanaGraphFuser(Block* block, std::shared_ptr<Graph> graph, Symbol kind)
       : block_(block), graph_(std::move(graph)), kind_(kind) {
-    this->aliasDb_ = std::unique_ptr<AliasDb>(new AliasDb(graph_));
+    aliasDb_ = std::unique_ptr<AliasDb>(new AliasDb(graph_));
   }
 
   HabanaGraphFuser(
@@ -40,7 +40,7 @@ struct HabanaGraphFuser {
       Symbol kind)
       : block_(block),
         graph_(std::move(graph)),
-        callback_(callback),
+        callback_(std::move(callback)),
         kind_(kind) {}
 
   bool isFusable(Node* node) {
@@ -48,8 +48,9 @@ struct HabanaGraphFuser {
   }
 
   bool isFusableOp(Node* node) {
-    if (node->owningBlock() != block_)
+    if (node->owningBlock() != block_) {
       return false;
+    }
 
     // Looking up the Op to see if it is whitelisted
     bool res = node->kind() == kind_ ||
@@ -84,8 +85,9 @@ struct HabanaGraphFuser {
       temporary_nodes.emplace_back(outer);
       auto inner_outputs = inner->outputs();
       auto outer_outputs = outer->outputs();
-      for (size_t i = 0; i < inner_outputs.size(); ++i)
+      for (size_t i = 0; i < inner_outputs.size(); ++i) {
         inner_to_outer[inner_outputs[i]] = outer_outputs[i];
+      }
     }
 
     // Replace uses of producer_group outputs and destroy the producer
@@ -109,8 +111,9 @@ struct HabanaGraphFuser {
       auto outputs = node->outputs();
       for (size_t i = 0; i < outputs.size(); ++i) {
         auto output = outputs[i];
-        if (output->uses().size() == 0)
+        if (output->uses().empty()) {
           continue;
+        }
         consumer_subgraph->registerOutput(consumer_group->outputs()[i]);
         auto new_output = consumer_group->addOutput();
         output->replaceAllUsesWith(new_output);
@@ -202,8 +205,9 @@ struct HabanaGraphFuser {
     auto soutputs = subgraph->outputs();
     AT_ASSERT(outputs.size() == soutputs.size());
     for (size_t i = 0; i < outputs.size(); ++i) {
-      if (usedOnlyInSize(outputs[i]))
+      if (usedOnlyInSize(outputs[i])) {
         continue;
+      }
       shape_of[soutputs[i]] = graph->insert(aten::size, {outputs[i]});
     }
 
@@ -249,8 +253,9 @@ struct HabanaGraphFuser {
   }
 
   void removeOutputsUsedOnlyInSize(Node* fusion_group) {
-    if (fusion_group->kind() != kind_)
+    if (fusion_group->kind() != kind_) {
       return;
+    }
     auto subgraph = fusion_group->g(attr::Subgraph);
 
     auto shape_of = buildShapeExpressions(fusion_group);

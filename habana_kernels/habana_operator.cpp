@@ -41,7 +41,7 @@ void habana::HabanaOperator::AllocateSynapseInputs(
     synapse_helpers::graph& graph,
     const std::vector<const at::Tensor*> inputs,
     bool is_persistent) {
-  TORCH_CHECK(inputs.size() != 0, "Inputs cannot be null");
+  TORCH_CHECK(!inputs.empty(), "Inputs cannot be null");
 
   for (auto& input : inputs) {
     AllocateSynapseInput(graph, input, is_persistent);
@@ -90,4 +90,4 @@ void habana::HabanaOperator::AddNodeToSynapseGraph(
       std::move(guid_));
 }
 
-habana::HabanaOperator::~HabanaOperator() {}
+habana::HabanaOperator::~HabanaOperator() = default;

@@ -69,7 +69,7 @@ void* HPUAllocator::alloc(size_t num_bytes) {
 }
 
 void HPUAllocator::free(void* ptr) {
-  if (!ptr) {
+  if (nullptr == ptr) {
     return;
   }
   uint64_t ptr_address{reinterpret_cast<uint64_t>(ptr)};
@@ -77,10 +77,10 @@ void HPUAllocator::free(void* ptr) {
   TORCH_HABANA_CHECK(status, "synDeviceFree failed");
 }
 
-HPUDeviceAllocator::HPUDeviceAllocator() {}
+HPUDeviceAllocator::HPUDeviceAllocator() = default;
 
 void HPUDeviceAllocator::deleter(void* ptr) {
-  if (!ptr) {
+  if (nullptr == ptr) {
     return;
   }
   uint64_t ptr_address{reinterpret_cast<uint64_t>(ptr)};
