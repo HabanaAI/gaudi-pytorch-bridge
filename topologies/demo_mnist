@@ -1,0 +1,67 @@
+#!/bin/bash
+function help()
+{
+        echo -e "help: mnist [arguments]\n"
+        echo -e "  -b <batch_size>,   --batch-size <batchsize>     default: 64"
+        echo -e "  -e <epochs>,       --epochs <epochs>            default: 1"
+        echo -e "  -lr <learning rate >, 		           default: 0.01"
+	echo -e "  -s <seed>,         --seed <seed>                default: None"
+	echo -e "  --num-train-steps <train_step>                  default: maxsize"
+        echo -e ""
+}
+
+while [ -n "$1" ];
+    do
+        case $1 in
+	-b  | --batch-size )
+            shift
+            __batch_size=$1
+            ;;
+	-e  | --epochs )
+            shift
+            __epochs=$1
+            ;;
+	-lr )
+            shift
+            __lr=$1
+            ;;
+	-s  | --seed )
+            shift
+            __seed=$1
+            ;;
+        --num-train-steps )
+            shift
+            __train_step=$1
+            ;;
+        -h  | --help )
+            help
+            exit 1;
+            ;;
+        *)
+            echo "The parameter $1 is not allowed"
+            help
+            exit 1;
+            ;;
+        esac
+        shift
+    done
+
+BATCH_SIZE=${__batch_size:-64}
+EPOCHS=${__epochs:-1}
+LR=${__lr:-0.01}
+SEED_VAL=${__seed:--1}
+TRAIN_STEP=${__train_step:--1}
+
+if [ ${SEED_VAL} -ne -1 ]; then
+  SEED="--seed=${SEED_VAL}"
+fi
+if [ ${TRAIN_STEP} -ne -1 ]; then
+  NUM_TRAIN_STEP="--num-train-steps=${TRAIN_STEP}"
+fi
+echo -e "Train MNIST with parameters: batch_size: ${BATCH_SIZE} epochs: ${EPOCHS} lr: ${LR} seed: ${SEED_VAL} train_step: ${TRAIN_STEP}"
+printf "*** Starting training...\n\n"
+python mnist/main.py --batch-size=${BATCH_SIZE} \
+	--epochs=${EPOCHS} \
+	--lr=${LR} \
+	${SEED} \
+        $NUM_TRAIN_STEP
