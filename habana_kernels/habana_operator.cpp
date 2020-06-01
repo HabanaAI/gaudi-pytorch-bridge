@@ -10,6 +10,35 @@
 #include "habana_operator.h"
 #include "habana_kernels/kernel_utils.h"
 
+const at::IntArrayRef& habana::HabanaOperator::getPermuteOrder(
+    const LayoutFormat target_layout,
+    bool to_device) {
+    static const std::unordered_map<const LayoutFormat,
+                                  const at::IntArrayRef> toDevicePermuteOrder =
+    {                                     // Host -> Device
+      {LayoutFormat::NHWC, {0, 2, 3, 1}}, // NCHW -> NHWC
+      {LayoutFormat::NCHW, {0, 1, 2, 3}}, // NCHW -> NCHW (No Change)
+      {LayoutFormat::HWCK, {2, 3, 1, 0}}, // KCHW -> HWCK
+      {LayoutFormat::ANY,  {0, 1, 2, 3}}  // XXXX -> XXXX (No Change)
+    };
+
+    static const std::unordered_map<const LayoutFormat,
+                                    const at::IntArrayRef> toHostPermuteOrder =
+    {                                     // Device -> Host
+      {LayoutFormat::NCHW, {0, 1, 2, 3}}, // NCHW   -> NCHW (No Change)
+      {LayoutFormat::NHWC, {0, 3, 1, 2}}, // NHWC   -> NCHW
+      {LayoutFormat::HWCK, {3, 2, 0, 1}}, // HWCK   -> KCHW
+      {LayoutFormat::ANY,  {0, 1, 2, 3}}  // XXXX   -> XXXX (No Change)
+    };
+
+    const auto& permuteOrder
+      = (to_device ? toDevicePermuteOrder : toHostPermuteOrder);
+
+    TORCH_CHECK(permuteOrder.find(target_layout) != permuteOrder.end(),
+                "Unknown layout in getPermuteOrder");
+    return permuteOrder.find(target_layout)->second;
+}
+
 void habana::HabanaOperator::Compile(synapse_helpers::graph& graph) {
   //
   // compile the graph
@@ -56,6 +85,17 @@ void habana::HabanaOperator::AllocateSynapseOutput(
       output, graph.get_graph_handle(), is_persistent, c10::nullopt));
 
   p_context_->pt_outputs_.emplace_back(output);
+}
+
+void habana::HabanaOperator::AllocateSynapseOutputs(
+    synapse_helpers::graph& graph,
+    const std::vector<at::Tensor>& outputs,
+    bool is_persistent) {
+  TORCH_CHECK(outputs.size() != 0, "Outputs cannot be null");
+
+  for (auto& output : outputs) {
+    AllocateSynapseOutput(graph, output, is_persistent);
+  }
 }
 
 synapse_helpers::tensor& habana::HabanaOperator::SetSynapseInput(

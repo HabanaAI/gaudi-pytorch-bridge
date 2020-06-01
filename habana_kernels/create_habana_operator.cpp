@@ -13,6 +13,8 @@
 #include "habana_kernels/softmax_kernels.h"
 #include "habana_kernels/unary_kernels.h"
 #include "habana_kernels/linear_kernels.h"
+#include "habana_kernels/pool_kernels.h"
+#include "habana_kernels/basic_kernels.h"
 
 namespace habana {
 using HabanaOperatorPtr = std::shared_ptr<HabanaOperator>;
@@ -24,7 +26,7 @@ HabanaOperatorPtr CreateHabanaOperator(
   HabanaOperatorPtr op = nullptr;
 
   if ("aten::relu" == node_name) {
-    op = std::make_shared<ReluOperator>(device_id, node_type);
+      op = std::make_shared<ReluOperator>(device_id, node_type);
   } else if ("aten::sigmoid" == node_name) {
       op = std::make_shared<SigmoidOperator>(device_id, node_type);
   } else if ("aten::abs" == node_name) {
@@ -33,11 +35,18 @@ HabanaOperatorPtr CreateHabanaOperator(
       op = std::make_shared<LogSoftmaxOperator>(device_id, node_type);
   } else if ("aten::conv2d" == node_name) {
       op = std::make_shared<Conv2dOperator>(device_id, node_type);
-  } else if ("aten::permute" == node_name) {
-      op = std::make_shared<PermuteOperator>(device_id, node_type);
   } else if ("aten::mm" == node_name) {
       op = std::make_shared<MMOperator>(device_id);
+  } else if ("aten::max_pool2d_with_indices" == node_name) {
+      op = std::make_shared<MaxPool2dWithIndicesOperator>(device_id, node_type);
+  } else if ("aten::max_pool2d" == node_name) {
+      op = std::make_shared<MaxPool2dOperator>(device_id, node_type);
+  } else if ("aten::permute" == node_name) {
+      op = std::make_shared<PermuteOperator>(device_id, node_type);
+  } else if ("aten::t" == node_name) {
+      op = std::make_shared<TransposeOperator>(device_id, node_type);
   }
+
   // Returning a null pointer for cases not added yet,
   // we can add assert once all kernels are added
   return op;

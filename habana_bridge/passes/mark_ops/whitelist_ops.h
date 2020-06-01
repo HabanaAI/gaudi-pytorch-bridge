@@ -54,6 +54,7 @@ const std::unordered_set<std::string> HabanaWhiteList::HabanaWhiteListOps = {
         "aten::native_batch_norm_backward",
         "aten::max_pool2d_with_indices",
         "aten::max_pool2d_with_indices_backward",
+        "aten::max_pool2d",
         "aten::avg_pool2d",
         "aten::avg_pool2d_backward",
         "aten::uniform_",

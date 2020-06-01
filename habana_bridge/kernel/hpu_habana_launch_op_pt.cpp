@@ -104,29 +104,35 @@ void HabanaLaunchOpPT::GetSynapseOutputs(
     torch::jit::Node* node) {
     auto output_tensors_pt = habana_op->GetOutputs();
     auto &output_tensors_syn = habana_op->GetSynOutputs();
+    auto &excluded_out_indices = habana_op->GetSynOutputIndicesExcludedInNode();
     auto output_nodes = node->outputs();
     auto habana_kernel_meta_data = habana_op->GetKernelMetaData();
-    int i = 0;
     habana::LayoutFormat out_layout;
-    TORCH_CHECK(output_nodes.size() == output_tensors_pt.size(), "HabanaFusionOp Lowering: Number of output nodes generated doesnt match the graph");
+    int output_nodes_idx = 0, output_tensor_idx = 0;
+    TORCH_CHECK(output_nodes.size() == output_tensors_pt.size() - excluded_out_indices.size(),
+                "HabanaFusionOp Lowering: Number of output nodes generated doesnt match the graph");
     for (synapse_helpers::tensor &out_tensor_syn : output_tensors_syn) {
-      value_to_ivalue[output_nodes[i]] = new IValue(output_tensors_pt[i]);
-      //Get the layout from the kernels, this has to be passed from kernel meta data which is WIP.
-      try
-      {
-        out_layout = habana_kernel_meta_data.output_layout.at(i);
+      if (excluded_out_indices.find(output_tensor_idx) == excluded_out_indices.end()) {
+        value_to_ivalue[output_nodes[output_nodes_idx]] = new IValue(output_tensors_pt[output_tensor_idx]);
+        //Get the layout from the kernels, this has to be passed from kernel meta data which is WIP.
+        try
+        {
+          out_layout = habana_kernel_meta_data.output_layout.at(output_tensor_idx);
+        }
+        catch (const std::out_of_range & ex)
+        {
+          out_layout = habana::LayoutFormat::ANY;
+        }
+        //TODO : we can check what format to fill in case of ANY. as it may be channel last
+        value_to_tensor_layout[output_nodes[output_nodes_idx]]
+          = out_layout == habana::LayoutFormat::ANY ? habana::LayoutFormat::NCHW : out_layout;
+        pt_to_synapse_tensors.emplace(
+                value_to_ivalue[output_nodes[output_nodes_idx]], out_tensor_syn);
+        output_nodes_idx++;
       }
-      catch (const std::out_of_range & ex)
-      {
-        out_layout = habana::LayoutFormat::ANY;
-      }
-      //TODO : we can check what format to fill in case of ANY. as it may be channel last
-      value_to_tensor_layout[output_nodes[i]] = out_layout == habana::LayoutFormat::ANY ? habana::LayoutFormat::NCHW : out_layout;
-      pt_to_synapse_tensors.emplace(
-              value_to_ivalue[output_nodes[i]], out_tensor_syn);
       output_names.push_back(out_tensor_syn.tensor_name_);
-      output_buffers.push_back(output_tensors_pt[i].data_ptr());
-    i++;
+      output_buffers.push_back(output_tensors_pt[output_tensor_idx].data_ptr());
+      output_tensor_idx++;
   }
 }
 
@@ -243,6 +249,9 @@ void HabanaLaunchOpPT::processInputs(
         {
           in_layout = habana::LayoutFormat::ANY;
         }
+        // TODO: For channel_last order, we need not do the permute but need to change
+        // the input tensor size, stride as done in habana_helpers::change_tensors_to_memory_format.
+        // Need to check the input tensor memory_format to drive this.
         if ((value_in->type()->kind() == c10::TypeKind::TensorType) &&
             !(isChannelOrderSupported(value_in, in_layout))) {
             //permute

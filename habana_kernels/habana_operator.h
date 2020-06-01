@@ -17,6 +17,7 @@
 
 #include <ATen/Tensor.h>
 #include <torch/csrc/jit/ir/ir.h>
+#include <c10/util/ArrayRef.h>
 
 #include <absl/types/any.h>
 
@@ -37,7 +38,7 @@ class PytorchKernelContext {
   std::vector<at::Tensor> pt_outputs_;
   std::vector<synapse_helpers::tensor_or_ref> syn_inputs_;
   std::vector<synapse_helpers::tensor_or_ref> syn_outputs_;
-
+  std::set<unsigned int> excluded_output_indices_;
   absl::any params_;
   size_t params_size_;
 };
@@ -57,6 +58,18 @@ class HabanaOperator {
  public:
   //
   HabanaOperator(const std::string guid) : guid_(guid) {}
+
+  //
+  // Given a target layout, get the permute order.
+  // If the tensor is to be sent to device from host
+  //    - the target_layout is the one expected inside device
+  //    - to_device is true
+  // If the tensor is to be sent to host from device
+  //    - the target_layout is the one expected in host
+  //    - to_device is false
+  static const at::IntArrayRef& getPermuteOrder(
+      const LayoutFormat target_layout,
+      bool to_device=true);
 
   //
   // Creates graph builder context, based on the device
@@ -98,6 +111,13 @@ class HabanaOperator {
       const at::Tensor& output,
       bool is_persistent = false);
 
+  //
+  // Method to add muliple output tensors to graph builder context
+  virtual void AllocateSynapseOutputs(
+    synapse_helpers::graph& graph,
+    const std::vector<at::Tensor>& outputs,
+    bool is_persistent);
+
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
@@ -113,6 +133,10 @@ class HabanaOperator {
 
   virtual std::vector<synapse_helpers::tensor_or_ref>& GetSynOutputs() const {
     return p_context_->syn_outputs_;
+  }
+
+  virtual std::set<unsigned int>& GetSynOutputIndicesExcludedInNode() const {
+    return p_context_->excluded_output_indices_;
   }
 
   virtual const KernelMetaData& GetKernelMetaData() const {

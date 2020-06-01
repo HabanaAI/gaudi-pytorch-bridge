@@ -19,8 +19,11 @@
 #include "habana_device/HPUCheck.h"
 #include "habana_helpers/tensor_utils.h"
 #include "habana_helpers/unused_macro.h"
+#include "habana_helpers/graph.h"
 #include "habana_kernels/simple_generic_kernel.h"
 #include "kernel_utils.h"
+#include "pool_kernels.h"
+#include "basic_kernels.h"
 
 using namespace torch;
 
@@ -80,7 +83,8 @@ static std::vector<int64_t> compute_output_shape(
     const at::IntArrayRef stride,
     const at::IntArrayRef padding,
     const at::IntArrayRef dilation,
-    bool ceil_mode) {
+    bool ceil_mode,
+    bool is_input_nhwc=false) {
   const int filter_H = safe_downcast<int, int64_t>(kernel_size[0]);
   const int filter_W = kernel_size.size() == 1
       ? filter_H
@@ -104,10 +108,24 @@ static std::vector<int64_t> compute_output_shape(
   // input NCHW, output NHWC
   // weight KCHW, where K - output channels
   // pad, stride HW
-  const int64_t N = input.size(0);
-  const int64_t C = input.size(1);
-  const int64_t input_H = input.size(2);
-  const int64_t input_W = input.size(3);
+  unsigned int input_dim0 = 0;
+  unsigned int input_dim1 = 1;
+  unsigned int input_dim2 = 2;
+  unsigned int input_dim3 = 3;
+
+  // If the input is already converted to NHWC, then the
+  // input dimensions should be picked up in {0, 3, 1, 2}
+  // order.
+  if (is_input_nhwc) {
+    input_dim0 = 0;
+    input_dim1 = 3;
+    input_dim2 = 1;
+    input_dim3 = 2;
+  }
+  const int64_t N = input.size(input_dim0);
+  const int64_t C = input.size(input_dim1);
+  const int64_t input_H = input.size(input_dim2);
+  const int64_t input_W = input.size(input_dim3);
   const int64_t output_H = pooling_output_shape<int64_t>(
       input_H, filter_H, pad_H, stride_H, dilation_H, ceil_mode);
   const int64_t output_W = pooling_output_shape<int64_t>(
@@ -170,6 +188,50 @@ ns_AveragePooling::Params synapse_avg_pool_params_builder(
   return avg_pool_params;
 }
 
+void MaxPool2dWithIndicesOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    Stack&                  inputs,
+    bool                    is_output_persistent) {
+
+  TORCH_CHECK(inputs[0].isTensor(), "Input type expected to be tensor");
+  TORCH_CHECK(inputs[1].isIntList(), "Input type expected to be IntList");
+  TORCH_CHECK(inputs[2].isIntList(), "Input type expected to be IntList");
+  TORCH_CHECK(inputs[3].isIntList(), "Input type expected to be IntList");
+  TORCH_CHECK(inputs[4].isIntList(), "Input type expected to be IntList");
+  TORCH_CHECK(inputs[5].isBool(), "Input type expected to be Bool");
+
+  at::Tensor input          = inputs[0].toTensor();
+  const auto kernel_size    = inputs[1].toIntList().vec();
+  const auto stride         = inputs[2].toIntList().vec();
+  const auto padding        = inputs[3].toIntList().vec();
+  const auto dilation       = inputs[4].toIntList().vec();
+  bool       ceil_mode      = inputs[5].toBool();
+
+  // Setup pool params
+  auto syn_pool_params =
+      synapse_pool_params_builder(kernel_size, stride, padding, dilation);
+
+  p_context_->params_.emplace<ns_SpatialReduction::Params>(syn_pool_params);
+  p_context_->params_size_ = sizeof(syn_pool_params);
+
+  auto out_shape = compute_output_shape(
+      input, kernel_size, stride, padding, dilation, ceil_mode, true);
+
+  // Setup output tensors
+  auto output_nhwc = at::empty(
+      {out_shape[0], out_shape[1], out_shape[2], out_shape[3]},
+      input.options());
+
+  // NOTE: cpu and cuda implementations hold indices as kLong (int64). I am
+  // using uint8 (to match TPC kernel requirement)
+  auto output_idx_nhwc = at::empty(
+      {out_shape[0], out_shape[1], out_shape[2], out_shape[3]},
+      input.options().dtype(kByte));
+
+  AllocateSynapseOutputs(graph, {output_idx_nhwc, output_nhwc}, is_output_persistent);
+  AddNodeToSynapseGraph(graph, &syn_pool_params, sizeof(syn_pool_params));
+}
+
 /**
  * @brief MaxPool2d.with_indices_hpu (Forward Pass) implementation for Habana
  * device
@@ -193,47 +255,69 @@ std::tuple<Tensor, Tensor> max_pool2d_with_indices_hpu(
   LOG_FUNC_BEGIN;
   habana_helpers::check_pool_params(
       input, kernel_size, stride, padding, dilation, ceil_mode);
-  auto out_shape = compute_output_shape(
-      input, kernel_size, stride, padding, dilation, ceil_mode);
+
+  int device_id = input.device().index();
+  at::ScalarType scalar_type = input.scalar_type();
+  std::string node_type =
+      "maxpool_2d_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
 
   Tensor input_nhwc = input;
   std::vector<const at::Tensor*> pt_in = {&input};
   std::vector<at::Tensor*> pt_out = {&input_nhwc};
-  IntArrayRef new_dim_pos_in = {0, 2, 3, 1};
+  // TBD: these layout requirements are properties of the operator, and should
+  // be declared static class member variables rathe than per-object data.
+  // Once this change is made, the layout would be retrieved from the operator class.
+  IntArrayRef new_dim_pos_in // = {0, 2, 3, 1};
+    = HabanaOperator::getPermuteOrder(LayoutFormat::NHWC, true);
   std::vector<const IntArrayRef*> pt_new_pos = {&new_dim_pos_in};
   c10::MemoryFormat memory_format = habana_helpers::get_memory_format({&input});
   habana_helpers::change_tensors_to_memory_format(
       pt_out, pt_in, pt_new_pos, memory_format);
 
-  auto output_nhwc = at::empty(
-      {out_shape[0], out_shape[1], out_shape[2], out_shape[3]},
-      input_nhwc.options());
-  // NOTE: cpu and cuda implementations hold indices as kLong (int64). I am
-  // using uint8 (to match TPC kernel requirement)
-  auto output_idx_nhwc = at::empty(
-      {out_shape[0], out_shape[1], out_shape[2], out_shape[3]},
-      input_nhwc.options().dtype(kByte));
+  auto maxpool_2d = [&] {
+    //
+    // Create Graph
+    auto graph = habana_helpers::create_graph(device_id, node_type);
 
-  auto syn_pool_params =
-      synapse_pool_params_builder(kernel_size, stride, padding, dilation);
+    // Create the operator
+    MaxPool2dWithIndicesOperator Op(device_id, scalar_type);
 
-  std::vector<const at::Tensor*> pt_inputs{&input_nhwc};
-  std::vector<const at::Tensor*> pt_outputs{&output_idx_nhwc, &output_nhwc};
+    // Allocate synapse inputs
+    std::vector<const at::Tensor*> pt_inputs{&input_nhwc};
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
-  synapse_simple_generic_kernel(
-      pt_outputs,
-      pt_inputs,
-      "maxpool_2d",
-      &syn_pool_params,
-      sizeof(syn_pool_params),
-      SynapsePassType::FORWARD_PASS);
+    // Build Params for the graph
+    std::vector<c10::IValue> stack = {IValue(input_nhwc),
+                                      IValue(kernel_size),
+                                      IValue(stride), IValue(padding),
+                                      IValue(dilation), IValue(ceil_mode)};
 
-  Tensor output = output_nhwc;
-  Tensor output_idx = output_idx_nhwc;
+    Op.AllocateAndAddSynapseNode(graph, stack, true);
+
+    // compile and execute the graph
+    Op.Compile(graph);
+
+    return Op.GetOutputs();
+  };
+
+  std::vector<at::Tensor> out = maxpool_2d();
+
+  at::Tensor& output_idx_nhwc = out.at(0);
+  at::Tensor& output_nhwc = out.at(1);
+
+  TORCH_CHECK(out.size() == 2, "Incorrect size of outputs");
+  at::Tensor output = output_nhwc;
+  at::Tensor output_idx = output_idx_nhwc;
   pt_in = {&output_nhwc, &output_idx_nhwc};
   pt_out = {&output, &output_idx};
-  IntArrayRef new_dim_pos = {0, 3, 1, 2};
-  pt_new_pos = {&new_dim_pos, &new_dim_pos};
+  // TBD: these layout requirements are properties of the operator, and should
+  // be declared static class member variables rathe than per-object data.
+  // Once this change is made, the layout would be retrieved from the operator class.
+  IntArrayRef new_dim_pos_out // = {0, 3, 1, 2};
+     = HabanaOperator::getPermuteOrder(LayoutFormat::NHWC, false);
+  // Both the outputs require same layout, hence using the first output's
+  // layout positions
+  pt_new_pos = {&new_dim_pos_out, &new_dim_pos_out};
   habana_helpers::change_tensors_to_memory_format(
       pt_out, pt_in, pt_new_pos, memory_format);
   LOG_FUNC_END;
@@ -403,6 +487,7 @@ Tensor avg_pool2d_hpu(
   c10::MemoryFormat memory_format = habana_helpers::get_memory_format({&input});
   habana_helpers::change_tensors_to_memory_format(
       pt_out, pt_in, pt_new_pos, memory_format);
+
   auto output_nhwc = at::empty(
       {out_shape[0], out_shape[1], out_shape[2], out_shape[3]},
       input_nhwc.options());
@@ -425,6 +510,7 @@ Tensor avg_pool2d_hpu(
   pt_new_pos = {&new_dim_pos};
   habana_helpers::change_tensors_to_memory_format(
       pt_out, pt_in, pt_new_pos, memory_format);
+
   LOG_FUNC_END;
   return output;
 }
