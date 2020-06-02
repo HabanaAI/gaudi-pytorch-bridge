@@ -94,7 +94,7 @@ void HabanaLaunchOpPT::GetSynapseOutputs(
     auto output_nodes = node->outputs();
     int i = 0;
     TORCH_CHECK(output_nodes.size() == output_tensors_pt.size(), "HabanaFusionOp Lowering: Number of output nodes generated doesnt match the graph");
-    for (auto &out_tensor_syn : output_tensors_syn) {
+    for (synapse_helpers::tensor& out_tensor_syn : output_tensors_syn) {
       value_to_ivalue[output_nodes[i]] = IValue(output_tensors_pt[i]);
       //Get the layout from the kernels, this has to be passed from kernel meta data which is WIP.
       value_to_tensor_layout[output_nodes[i]] = habana::LayoutFormat::NCHW /*habana_kernel_meta_data.output_layout[i]*/;

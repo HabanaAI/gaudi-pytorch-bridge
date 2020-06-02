@@ -69,6 +69,8 @@ std::vector<void*> extract_data_ptrs(const std::vector<at::Tensor>& vec);
 
 std::vector<std::string> names(const std::vector<synapse_helpers::tensor>&);
 
+std::vector<std::string> names(const std::vector<synapse_helpers::tensor_or_ref>&);
+
 std::string name_suffix_from_type(const c10::ScalarType pt_type);
 
 at::Tensor to_cpu(const at::Tensor& hpu_tensor);

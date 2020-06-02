@@ -35,8 +35,8 @@ class PytorchKernelContext {
   int device_id_;
   std::vector<const at::Tensor*> pt_inputs_;
   std::vector<at::Tensor> pt_outputs_;
-  std::vector<synapse_helpers::tensor> syn_inputs_;
-  std::vector<synapse_helpers::tensor> syn_outputs_;
+  std::vector<synapse_helpers::tensor_or_ref> syn_inputs_;
+  std::vector<synapse_helpers::tensor_or_ref> syn_outputs_;
 
   absl::any params_;
   size_t params_size_;
@@ -67,7 +67,7 @@ class HabanaOperator {
 
   //
   // Executes the synapse graph
-  void Compile(synapse_helpers::graph& graph);
+  virtual void Compile(synapse_helpers::graph& graph);
 
   //
   // Method to add tensors to graph builder context, also populates the context
@@ -81,7 +81,7 @@ class HabanaOperator {
   // Method to add a single tensor to graph builder context, also populates the
   // context params -- this is needed when we need the address of syn_tensor
   // being created
-  synapse_helpers::tensor& AllocateSynapseInput(
+  virtual synapse_helpers::tensor& AllocateSynapseInput(
       synapse_helpers::graph& graph,
       const at::Tensor* input,
       bool is_persistent = false);
@@ -89,7 +89,7 @@ class HabanaOperator {
   //
   // If Synapse tensor is already exists for the py torch tensor, we just add
   // the synapse tensor to the context
-  synapse_helpers::tensor& SetSynapseInput(synapse_helpers::tensor&& tensor);
+  virtual synapse_helpers::tensor& SetSynapseInput(synapse_helpers::tensor&& tensor);
 
   //
   // Method to add output tensors to graph builder context
@@ -107,15 +107,15 @@ class HabanaOperator {
   // destructor
   virtual ~HabanaOperator();
 
-  std::vector<at::Tensor>& GetOutputs() const {
+  virtual std::vector<at::Tensor>& GetOutputs() const {
     return p_context_->pt_outputs_;
   }
 
-  std::vector<synapse_helpers::tensor>& GetSynOutputs() const {
+  virtual std::vector<synapse_helpers::tensor_or_ref>& GetSynOutputs() const {
     return p_context_->syn_outputs_;
   }
 
-  const KernelMetaData& GetKernelMetaData() const {
+  virtual const KernelMetaData& GetKernelMetaData() const {
     return kernel_meta_data_;
   }
 

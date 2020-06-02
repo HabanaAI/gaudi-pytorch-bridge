@@ -74,11 +74,11 @@ void habana::HabanaOperator::AddNodeToSynapseGraph(
   std::vector<synTensor> syn_inputs;
   std::vector<synTensor> syn_outputs;
 
-  for (auto& tensor : p_context_->syn_inputs_) {
+  for (synapse_helpers::tensor& tensor : p_context_->syn_inputs_) {
     syn_inputs.emplace_back(tensor.get());
   }
 
-  for (auto& tensor : p_context_->syn_outputs_) {
+  for (synapse_helpers::tensor& tensor : p_context_->syn_outputs_) {
     syn_outputs.emplace_back(tensor.get());
   }
 
