@@ -21,12 +21,6 @@ using namespace torch;
 
 void check_ew_kernel_constraints(const Tensor& arg1, const Tensor& arg2) {
   TORCH_CHECK(
-      arg1.device() == arg2.device(),
-      "Devices don't match. arg1 device: ",
-      arg1.device(),
-      " arg2 device: ",
-      arg2.device());
-  TORCH_CHECK(
       arg1.scalar_type() == arg2.scalar_type(),
       "Types don't match. arg1 type: ",
       arg1.scalar_type(),
@@ -122,6 +116,24 @@ static inline Tensor& do_binary_inplace_op(
   return self;
 }
 
+// if the tensor is in CPU push it to HPU. Further if the CPU tensor is of
+// double dtype typecast to float. This workaround needed if
+// one the binary operand of torch op is scalar. TODO: [SW-9849]
+static inline Tensor get_hpu_tensor(Tensor input) {
+  Tensor output;
+  if (input.device().type() == c10::DeviceType::CPU) {
+    if (input.scalar_type() == c10::ScalarType::Double) {
+      output = input.to(c10::ScalarType::Float).to(c10::DeviceType::HABANA);
+    } else {
+      output = input.to(c10::DeviceType::HABANA);
+    }
+  } else {
+    output = input;
+  }
+
+  return output;
+}
+
 // generic binary tensor op interface that takes care of broadcasting semantics
 // requirements
 static inline void do_generic_tensor_binary_op_inplace(
@@ -129,7 +141,8 @@ static inline void do_generic_tensor_binary_op_inplace(
     const Tensor& operand2,
     const std::string& op,
     SynapsePassType pass_type) {
-  check_ew_kernel_constraints(self, operand2);
+  auto operand2_hpu = get_hpu_tensor(operand2);
+  check_ew_kernel_constraints(self, operand2_hpu);
   TORCH_CHECK(
       self.ndimension() >= operand2.ndimension(),
       "Binary inplace ops shouldn't get self.ndimension() < other.ndimension()")
@@ -141,20 +154,24 @@ static inline void do_generic_tensor_binary_op_inplace(
   // and append the smaller tensor dims
   view_sizes.insert(
       view_sizes.end(), operand2_sizes.begin(), operand2_sizes.end());
-  auto expanded_operand2_tensor = operand2.view(view_sizes);
+  auto expanded_operand2_tensor = operand2_hpu.view(view_sizes);
   do_binary_inplace_op(self, expanded_operand2_tensor, op, pass_type);
   return;
 }
 
-// generic binary tensor op interface that takes care of broadcasting semantics
-// requirements
+// generic binary tensor op interface that takes care of broadcasting
+// semantics requirements
 static inline void do_generic_tensor_binary_op_out(
     Tensor& output,
     const Tensor& operand1,
     const Tensor& operand2,
     const std::string& op,
     SynapsePassType pass_type) {
-  check_ew_kernel_constraints(operand1, operand2);
+  auto operand1_hpu = get_hpu_tensor(operand1);
+  auto operand2_hpu = get_hpu_tensor(operand2);
+
+  check_ew_kernel_constraints(operand1_hpu, operand2_hpu);
+
   auto out_sizes = output.sizes().vec();
   auto out_dims = output.ndimension();
   // Make sure that we give tensors that match dims to Synapse
@@ -165,17 +182,18 @@ static inline void do_generic_tensor_binary_op_out(
     // and append the smaller tensor dims
     view_sizes.insert(
         view_sizes.end(), operand2_sizes.begin(), operand2_sizes.end());
-    auto expanded_operand2_tensor = operand2.view(view_sizes);
-    output =
-        do_binary_op(output, operand1, expanded_operand2_tensor, op, pass_type);
+    auto expanded_operand2_tensor = operand2_hpu.view(view_sizes);
+    output = do_binary_op(
+        output, operand1_hpu, expanded_operand2_tensor, op, pass_type);
   } else {
     auto operand1_sizes = operand1.sizes().vec();
     // Create view_sizes initialized to part which has size=1 for upper dims
     auto view_sizes = std::vector<int64_t>(out_dims - operand1.ndimension(), 1);
     view_sizes.insert(
         view_sizes.end(), operand1_sizes.begin(), operand1_sizes.end());
-    auto operand1_expanded = operand1.view(view_sizes);
-    output = do_binary_op(output, operand1_expanded, operand2, op, pass_type);
+    auto operand1_expanded = operand1_hpu.view(view_sizes);
+    output =
+        do_binary_op(output, operand1_expanded, operand2_hpu, op, pass_type);
   }
 }
 
@@ -297,8 +315,8 @@ Tensor add_scalar_hpu(const Tensor& self, Scalar other, Scalar alpha) {
  ************************************************************************/
 Tensor& add_scalar_hpu_(
     Tensor& self,
-    Scalar other) { // TODO: Add test by using an extension module for new op at
-                    // python level
+    Scalar other) { // TODO: Add test by using an extension module for new op
+                    // at python level
   LOG_FUNC_BEGIN;
   auto other_tensor = convert_scalar_to_tensor_using_self(self, other);
   self.add_(other_tensor, 1);
@@ -449,34 +467,9 @@ Tensor& mul_tensor_hpu_(Tensor& self, const Tensor& other) {
   if (self.is_same(other)) {
     return self.pow_(2.0);
   }
-  // TODO: [SW-9849] I am confused why in MNIST example we are multipling self
-  // tensor with other, which is 0dim tensor (scalar), with different type
-  // (double) on different device (cpu). IMO pytorch should call mul_(Tensor,
-  // Scalar) instead of this function. Check this after upgrading to PT1.4
-  // [SW-8961]
-  auto modified_other = std::make_unique<Tensor>();
-  try {
-    // Throws if synapse doesn't support given type
-    habana_helpers::pytorch_to_synapse_type(other.scalar_type());
-  } catch (c10::Error& e) {
-    if (e.msg_without_backtrace().find("Unsupported pytorch type") == 0) {
-      TORCH_WARN(
-          e.msg_without_backtrace(),
-          ". It will be casted to ",
-          self.scalar_type());
-      *modified_other = other.to(self.scalar_type());
-    } else {
-      throw;
-    }
-  }
 
-  if (self.device() != other.device())
-    *modified_other =
-        (modified_other->defined() ? *modified_other : other).to(self.device());
-
-  auto other_tensor = modified_other->defined() ? *modified_other : other;
   do_generic_tensor_binary_op_inplace(
-      self, other_tensor, "mult", SynapsePassType::FORWARD_PASS);
+      self, other, "mult", SynapsePassType::FORWARD_PASS);
   LOG_FUNC_END;
   return self;
 }
@@ -492,29 +485,9 @@ Tensor mul_tensor_hpu(const Tensor& self, const Tensor& other) {
   if (self.is_same(other)) {
     return at::pow(self, 2.0);
   }
-  auto modified_other = std::make_unique<Tensor>();
-  try {
-    // Throws if synapse doesn't support given type
-    habana_helpers::pytorch_to_synapse_type(other.scalar_type());
-  } catch (c10::Error& e) {
-    if (e.msg_without_backtrace().find("Unsupported pytorch type") == 0) {
-      TORCH_WARN(
-          e.msg_without_backtrace(),
-          ". It will be casted to ",
-          self.scalar_type());
-      *modified_other = other.to(self.scalar_type());
-    } else {
-      throw;
-    }
-  }
 
-  if (self.device() != other.device())
-    *modified_other =
-        (modified_other->defined() ? *modified_other : other).to(self.device());
-
-  auto other_tensor = modified_other->defined() ? *modified_other : other;
   auto output = do_generic_tensor_binary_op(
-      self, other_tensor, "mult", SynapsePassType::FORWARD_PASS);
+      self, other, "mult", SynapsePassType::FORWARD_PASS);
   LOG_FUNC_END;
   return output;
 }
@@ -592,12 +565,11 @@ Tensor eq_tensor_hpu(Tensor& self, Tensor& other) {
 Tensor eq_scalar_tensor_hpu(Tensor& self, Scalar other) {
   LOG_FUNC_BEGIN;
 
-  if(self.dim() == 0)
-  {
+  if (self.dim() == 0) {
     self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
   }
 
-  auto device_tensor = convert_scalar_to_tensor_using_self(self,other);
+  auto device_tensor = convert_scalar_to_tensor_using_self(self, other);
   auto out = at::eq(self, device_tensor);
 
   LOG_FUNC_END;
@@ -653,8 +625,8 @@ Tensor& div_tensor_hpu_(Tensor& self, const Tensor& other) {
  ************************************************************************/
 Tensor div_scalar_hpu(
     const Tensor& self,
-    Scalar other) { // TODO: Add test by using an extension module for new op at
-                    // python level
+    Scalar other) { // TODO: Add test by using an extension module for new op
+                    // at python level
   LOG_FUNC_BEGIN;
   auto out = at::div(self, convert_scalar_to_tensor_using_self(self, other));
   LOG_FUNC_END;
@@ -668,8 +640,8 @@ Tensor div_scalar_hpu(
  ************************************************************************/
 Tensor& div_scalar_hpu_(
     Tensor& self,
-    Scalar other) { // TODO: Add test by using an extension module for new op at
-                    // python level
+    Scalar other) { // TODO: Add test by using an extension module for new op
+                    // at python level
   LOG_FUNC_BEGIN;
   auto divisor_tensor = convert_scalar_to_tensor_using_self(self, other);
   self = self.div_(divisor_tensor);
@@ -685,8 +657,7 @@ Tensor& div_scalar_hpu_(
 Tensor pow_tensor_tensor_hpu(const Tensor& self, const Tensor& other) {
   LOG_FUNC_BEGIN;
 
-  if(self.dim() == 0)
-  {
+  if (self.dim() == 0) {
     self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
   }
   auto out = do_generic_tensor_binary_op(
@@ -858,8 +829,7 @@ static auto registry =
                     &eq_tensor_out_hpu>(DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
-                .schema(
-                    "aten::eq.Scalar(Tensor self, Scalar other) -> Tensor")
+                .schema("aten::eq.Scalar(Tensor self, Scalar other) -> Tensor")
                 .impl_unboxedOnlyKernel<
                     decltype(eq_scalar_tensor_hpu),
                     &eq_scalar_tensor_hpu>(DispatchKey::HABANATensorId)

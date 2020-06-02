@@ -308,6 +308,55 @@ Tensor batch_gemm_hpu(const Tensor& self, const Tensor& mat2) {
   return out;
 }
 
+/*****************************************************************************************************
+*@brief Implements torch.dot(vector,vector)
+self - 1D m
+other - 1D m
+output - 0-D tensor
+*****************************************************************************************************/
+Tensor dot_hpu(const Tensor& self, const Tensor& other) {
+  LOG_FUNC_BEGIN;
+
+  Tensor output = at::empty({1, 1}, self.options());
+
+  // synapse expects 2-D matrices
+  auto self_hpu = self.view({1, self.sizes()[0]});
+  auto other_hpu = other.view({other.sizes()[0], 1});
+
+  synapse_matmul(output, self_hpu, other_hpu);
+
+  // PT expects 0-D
+  output.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+
+  LOG_FUNC_END;
+  return output;
+}
+
+/*****************************************************************************************************
+*@brief Implements torch.mv(tensor,vector)
+self - 2D nxm
+other - 1D m
+output - 1D n
+*****************************************************************************************************/
+Tensor mv_hpu(const Tensor& self, const Tensor& other) {
+  LOG_FUNC_BEGIN;
+
+  auto self_sizes = self.sizes();
+  auto other_sizes = other.sizes();
+
+  // synapse expects 2-D matrices
+  Tensor output = at::empty({self_sizes[0], 1}, self.options());
+  auto other_hpu = other.view({other_sizes[0], 1});
+
+  synapse_matmul(output, self, other_hpu);
+
+  // PT expects 1-D
+  output = output.view(-1);
+
+  LOG_FUNC_END;
+  return output;
+}
+
 static auto registry =
     torch::RegisterOperators()
         .op(torch::RegisterOperators::options()
@@ -334,4 +383,14 @@ static auto registry =
                 .impl_unboxedOnlyKernel<
                     decltype(batch_gemm_hpu),
                     &batch_gemm_hpu>(DispatchKey::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema("aten::dot(Tensor self, Tensor tensor) -> Tensor")
+                .impl_unboxedOnlyKernel<decltype(dot_hpu), &dot_hpu>(
+                    DispatchKey::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema("aten::mv(Tensor self, Tensor vec)->Tensor")
+                .impl_unboxedOnlyKernel<decltype(mv_hpu), &mv_hpu>(
+                    DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));
