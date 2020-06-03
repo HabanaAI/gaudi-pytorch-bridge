@@ -49,6 +49,7 @@ const std::unordered_set<std::string> HabanaWhiteList::HabanaWhiteListOps = {
         "aten::convolution_backward_overrideable",
         "aten::fill_",
         "aten::mm",
+        "aten::matmul",
         "aten::addmm",
         "aten::native_batch_norm",
         "aten::native_batch_norm_backward",

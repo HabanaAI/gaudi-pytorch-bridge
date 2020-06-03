@@ -12,6 +12,8 @@
 #include <torch/csrc/jit/passes/common_subexpression_elimination.h>
 #include <torch/csrc/jit/passes/constant_pooling.h>
 #include <torch/csrc/jit/passes/dead_code_elimination.h>
+#include <torch/csrc/jit/passes/lower_tuples.h>
+#include <torch/csrc/jit/passes/peephole.h>
 #include "habana_bridge/passes/mark_ops/whitelist_ops.h"
 #include "habana_helpers/logging.h"
 
@@ -53,9 +55,7 @@ struct HabanaGraphFuser {
     }
 
     // Looking up the Op to see if it is whitelisted
-    bool res = node->kind() == kind_ ||
-        HabanaWhiteList::is_op_habana_whitelisted(node->kind().toQualString());
-    return res;
+    return HabanaWhiteList::is_op_habana_whitelisted(node->kind().toQualString());
   }
 
   std::shared_ptr<Graph> getSubgraph(Node* n) {
@@ -307,6 +307,7 @@ struct HabanaGraphFuser {
   }
 
   void run() {
+    LowerAllTuples(graph_);
     bool any_changed = true;
     while (any_changed) {
       any_changed = false;
@@ -320,13 +321,65 @@ struct HabanaGraphFuser {
     optimizeFusedGraphs();
 
     // Remove outputs that have been added only because we need their size
-    for (Node* n : block_->nodes()) {
+    /*for (Node* n : block_->nodes()) {
       removeOutputsUsedOnlyInSize(n);
-    }
+    }*/
 
     for (Node* node : block_->nodes()) {
       for (Block* sub_block : node->blocks()) {
         HabanaGraphFuser(sub_block, graph_, kind_).run();
+      }
+    }
+  }
+
+void PeepholeOptimizeShapeExpressions(Block* block) {
+    auto nodes = block->nodes();
+    for (auto it = nodes.begin(); it != nodes.end(); ++it) {
+      Node* node = *it;
+      for (Block* subblock : node->blocks()) {
+        PeepholeOptimizeShapeExpressions(subblock);
+      }
+      if (node->kind() == prim::BroadcastSizes) {
+        // Remove no-op broadcasts.
+        if (node->inputs().size() == 1) {
+          node->output()->replaceAllUsesWith(node->input());
+          it.destroyCurrent();
+          continue;
+        }
+        // Deduplicate inputs, but use their unique() values to ensure
+        // this process only depends on the graph.
+        std::map<size_t, Value*> unique_to_value;
+        for (Value* input : node->inputs()) {
+          unique_to_value.emplace(input->unique(), input);
+        }
+        if (unique_to_value.size() != node->inputs().size()) {
+          std::vector<Value*> inputs;
+          inputs.reserve(unique_to_value.size());
+          for (auto& entry : unique_to_value) {
+            inputs.push_back(entry.second);
+          }
+          if (inputs.size() == 1) {
+            node->output()->replaceAllUsesWith(inputs[0]);
+          } else {
+            WithInsertPoint insert_guard{node};
+            node->output()->replaceAllUsesWith(broadcastSizes(inputs));
+          }
+          it.destroyCurrent();
+          --it; // Revisit the node with deduplicated inputs
+          continue;
+        }
+        // Remove compose simple chains of broadcasts into a single node.
+        const auto& uses = node->output()->uses();
+        if (uses.size() == 1 && uses[0].user->kind() == prim::BroadcastSizes) {
+          Node* user = uses[0].user;
+          user->removeInput(uses[0].offset);
+          // NB: we don't care about deduplication in here, as we will visit
+          // user later.
+          for (Value* i : node->inputs()) {
+            user->addInput(i);
+          }
+          it.destroyCurrent();
+        }
       }
     }
   }
@@ -339,7 +392,11 @@ void HabanaFuseGraph(std::shared_ptr<torch::jit::Graph>& graph) {
   // First call HPU graph fuser to fuse ops for HPU
   torch::jit::Symbol kind =
       getHabanaFusedOpSymbol();
-  habana::HabanaGraphFuser(graph->block(), graph, kind).run();
+  auto g = habana::HabanaGraphFuser(graph->block(), graph, kind);
+  g.run();
+  EliminateCommonSubexpression(graph);
+  EliminateDeadCode(graph);
+  g.PeepholeOptimizeShapeExpressions(graph->block());
   LOG_FUNC_END;
 }
 
