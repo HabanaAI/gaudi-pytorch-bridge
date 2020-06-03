@@ -14,8 +14,10 @@
 
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
+#include "habana_helpers/graph.h"
 #include "habana_helpers/logging.h"
 #include "habana_helpers/tensor_utils.h"
+#include "habana_kernels/basic_kernels.h"
 #include "habana_kernels/simple_generic_kernel.h"
 #include "kernel_utils.h"
 #include "resize.h"
@@ -97,9 +99,9 @@ Tensor& set_hpu_(
   auto scalar_type = self.scalar_type();
   auto self_ = checked_dense_tensor_unwrap(
       self, "self", 1, "_th_set_", false, DeviceType::HABANA, scalar_type);
- //TODO: remove this commented section
- //part of 1.5 migration related change - revert once not needed
- #if 0
+// TODO: remove this commented section
+// part of 1.5 migration related change - revert once not needed
+#if 0
   auto source_ = checked_storage(
       source,
       "source",
@@ -127,7 +129,7 @@ Tensor& set_hpu_(
       auto THHStorage_new = [](caffe2::TypeMeta data_type) -> THStorage* {
         THStorage* storage =
             c10::make_intrusive<at::StorageImpl>(
-                data_type, 0, habana::getHABANADeviceAllocator(), true)
+                data_type, 0, at::habana::getHABANADeviceAllocator(), true)
                 .release();
         return storage;
       };
@@ -271,11 +273,36 @@ inline void recalc_strides(
  * @param dim0 - first dimension to swap
  * @param dim0 - second dimension to swap
  ***************************************************************************/
-Tensor transpose_hpu(const Tensor& self, int64_t dim0_, int64_t dim1_) {
-  LOG_FUNC_BEGIN;
+TransposeOperator::TransposeOperator(int device_id, c10::ScalarType scalarType)
+    : HabanaOperator(
+          "transpose_fwd_" +
+          habana_helpers::name_suffix_from_type(scalarType)) {
+  this->CreateSynContext(device_id);
+}
+
+void TransposeOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 3,
+      "Incorrect size of input arguments for Transpose Operator");
+  TORCH_CHECK(
+      inputs[0].isTensor(),
+      "Input arg 1 for transpose op needs to be tensor type");
+  TORCH_CHECK(
+      inputs[1].isInt(),
+      "Input arg 2 for transpose op needs to be of Int type");
+  TORCH_CHECK(
+      inputs[2].isInt(),
+      "Input arg 3 for transpose op needs to be of Int type");
+  Tensor self = inputs[0].toTensor();
+  auto dim0_ = inputs[1].toInt();
+  auto dim1_ = inputs[2].toInt();
   // handle negative dimensions (backward indexing) in pytorch
   int64_t dim0 = at::maybe_wrap_dim(dim0_, self.dim(), /*wrap_scalar=*/true);
   int64_t dim1 = at::maybe_wrap_dim(dim1_, self.dim(), /*wrap_scalar=*/true);
+
   TORCH_CHECK(
       (dim0 < self.dim()) && (dim1 < self.dim()),
       "Specified dims are beyond tensor dims");
@@ -286,11 +313,7 @@ Tensor transpose_hpu(const Tensor& self, int64_t dim0_, int64_t dim1_) {
   // Recalculate the strides to account for transpose size changes
   // In effect, keep the tensor contiguous.
   recalc_strides(self_strides, self_sizes);
-  std::vector<const at::Tensor*> pt_inputs;
-  std::vector<const at::Tensor*> pt_outputs;
-  pt_inputs.push_back(&self);
   auto out = at::empty_strided(self_sizes, self_strides, self.options());
-  pt_outputs.push_back(&out);
 
   synTransposeParams params;
   params.tensorDim = self.dim();
@@ -301,15 +324,42 @@ Tensor transpose_hpu(const Tensor& self, int64_t dim0_, int64_t dim1_) {
   std::swap(
       params.permutation[self.dim() - 1 - dim0],
       params.permutation[self.dim() - 1 - dim1]);
-  synapse_simple_generic_kernel(
-      pt_outputs,
-      pt_inputs,
-      "transpose",
-      &params,
-      sizeof(synTransposeParams),
-      SynapsePassType::FORWARD_PASS);
+
+  p_context_->params_.emplace<synTransposeParams>(params);
+  p_context_->params_size_ = sizeof(params);
+  AllocateSynapseOutput(graph, out, is_output_persistent);
+  AddNodeToSynapseGraph(graph, &params, sizeof(params));
+}
+
+Tensor transpose_hpu(const Tensor& self, int64_t dim0_, int64_t dim1_) {
+  LOG_FUNC_BEGIN;
+  size_t device_id = self.device().index();
+  at::ScalarType scalar_type = self.scalar_type();
+  std::string node_type =
+      "transpose_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+
+  //
+  // Create Graph
+  auto graph = habana_helpers::create_graph(device_id, node_type);
+
+  // Create operator
+  TransposeOperator Op(device_id, scalar_type);
+
+  // Assign Inputs to the Operator
+  std::vector<const at::Tensor*> pt_inputs{&self};
+  Op.AllocateSynapseInputs(graph, pt_inputs, true);
+
+  // Build Params for the graph
+  std::vector<c10::IValue> stack = {IValue(self), IValue(dim0_), IValue(dim1_)};
+  Op.AllocateAndAddSynapseNode(graph, stack, true);
+
+  // compile and execute the graph
+  Op.Compile(graph);
+
+  std::vector<at::Tensor> out = Op.GetOutputs();
+  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
   LOG_FUNC_END;
-  return out;
+  return out.at(0);
 }
 
 /*******************************************************************************
@@ -393,46 +443,6 @@ Tensor& t_hpu_(Tensor& self) { // t_() is defined only for dims <= 2
   return self;
 }
 
-Tensor permute_4d(const Tensor& self, int* dims) {
-  LOG_FUNC_BEGIN;
-  auto self_sizes = self.sizes().vec();
-  // calculate new sizes and strides after permute for out tensor
-  auto new_sizes = self.sizes().vec();
-  auto new_strides = self.strides().vec();
-  int i;
-  new_sizes[new_sizes.size() - 1] = self_sizes[dims[new_sizes.size() - 1]];
-  new_strides[new_sizes.size() - 1] = 1;
-  for (i = new_strides.size() - 2; i >= 0; i--) {
-    new_sizes[i] = self_sizes[dims[i]];
-    new_strides[i] = new_strides[i + 1] * new_sizes[i + 1];
-  }
-  std::vector<const at::Tensor*> pt_inputs;
-  std::vector<const at::Tensor*> pt_outputs;
-  pt_inputs.push_back(&self);
-  auto out = at::empty_strided(new_sizes, new_strides, self.options());
-  pt_outputs.push_back(&out);
-
-  synTransposeParams params;
-  params.tensorDim = self.dim();
-  // params.permute has to be populated in a reverse order for HPU FCD-LCD order
-  for (i = 0; i < self.dim(); i++) {
-    params.permutation[self.dim() - 1 - dims[i]] =
-        static_cast<TransposePermutationDim>(self.dim() - 1 - i);
-  }
-  for (i = self.dim(); i < MAX_DIMENSIONS_NUM; i++) {
-    params.permutation[i] = static_cast<TransposePermutationDim>(i);
-  }
-  synapse_simple_generic_kernel(
-      pt_outputs,
-      pt_inputs,
-      "transpose",
-      &params,
-      sizeof(synTransposeParams),
-      SynapsePassType::FORWARD_PASS);
-  LOG_FUNC_END;
-  return out;
-}
-
 inline int is_hpu_supported_transpose_type(const c10::ScalarType pt_type) {
   int ret = -1;
   switch (pt_type) {
@@ -452,23 +462,110 @@ inline int is_hpu_supported_transpose_type(const c10::ScalarType pt_type) {
  * @param self - input on which permute needs to be applied
  * @param dims_ - permute dims array
  ************************************************************************/
+PermuteOperator::PermuteOperator(int device_id, c10::ScalarType scalarType)
+    : HabanaOperator(
+          "transpose_fwd_" +
+          habana_helpers::name_suffix_from_type(scalarType)) {
+  this->CreateSynContext(device_id);
+}
+
+void PermuteOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 2,
+      "Incorrect size of input arguments for Permute Operator");
+  TORCH_CHECK(
+      inputs[0].isTensor(),
+      "Input arg 1 for permute op needs to be tensor type");
+  TORCH_CHECK(
+      inputs[1].isIntList(),
+      "Input arg 2 for permute op needs to be of Int List type");
+  Tensor self = inputs[0].toTensor();
+  const auto dims = inputs[1].toIntList();
+
+  TORCH_CHECK(
+      dims.size() == static_cast<size_t>(self.dim()),
+      "Number of dims in tensor don't match in permute");
+  TORCH_CHECK(
+      (self.dim() <= 4) && !is_hpu_supported_transpose_type(self.scalar_type()),
+      "Unsupported permute operation on Habana device");
+
+  auto self_sizes = self.sizes().vec();
+  // calculate new sizes and strides after permute for out tensor
+  auto new_sizes = self.sizes().vec();
+  auto new_strides = self.strides().vec();
+  new_sizes[new_sizes.size() - 1] = self_sizes[dims[new_sizes.size() - 1]];
+  new_strides[new_sizes.size() - 1] = 1;
+  for (int i = new_strides.size() - 2; i >= 0; i--) {
+    new_sizes[i] = self_sizes[dims[i]];
+    new_strides[i] = new_strides[i + 1] * new_sizes[i + 1];
+  }
+  auto output = at::empty_strided(new_sizes, new_strides, self.options());
+
+  synTransposeParams params;
+  params.tensorDim = self.dim();
+  // params.permute has to be populated in a reverse order for HPU FCD-LCD order
+  for (int i = 0; i < self.dim(); i++) {
+    params.permutation[self.dim() - 1 - dims[i]] =
+        static_cast<TransposePermutationDim>(self.dim() - 1 - i);
+  }
+  for (int i = self.dim(); i < MAX_DIMENSIONS_NUM; i++) {
+    params.permutation[i] = static_cast<TransposePermutationDim>(i);
+  }
+
+  p_context_->params_.emplace<synTransposeParams>(params);
+  p_context_->params_size_ = sizeof(params);
+  AllocateSynapseOutput(graph, output, is_output_persistent);
+  AddNodeToSynapseGraph(graph, &params, sizeof(params));
+}
+
 Tensor permute_hpu(const Tensor& self, IntArrayRef dims_) {
   LOG_FUNC_BEGIN;
   TORCH_CHECK(
-      static_cast<unsigned>(dims_.size()) == self.dim(),
+      dims_.size() == static_cast<size_t>(self.dim()),
       "Number of dims in tensor don't match in permute");
-  int dims[self.dim()];
-  for (unsigned i = 0; i < self.dim(); i++) {
-    dims[i] = dims_[i];
-  }
+
+  auto permute = [&] {
+    size_t device_id = self.device().index();
+    at::ScalarType scalar_type = self.scalar_type();
+    std::string node_type =
+        "transpose_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+
+    //
+    // Create Graph
+    auto graph = habana_helpers::create_graph(device_id, node_type);
+
+    // Create the operator
+    PermuteOperator Op(device_id, scalar_type);
+
+    // Assign Inputs to the Operator
+    std::vector<const at::Tensor*> pt_inputs{&self};
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
+
+    // Build Params for the graph
+    std::vector<c10::IValue> stack = {IValue(self), IValue(dims_)};
+    Op.AllocateAndAddSynapseNode(graph, stack, true /*is_output_persistent*/);
+
+    // compile and execute the graph
+    Op.Compile(graph);
+
+    std::vector<at::Tensor> out = Op.GetOutputs();
+    TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
+    LOG_FUNC_END;
+    return out.at(0);
+  };
+
   if ((self.dim() <= 4) &&
       !is_hpu_supported_transpose_type(self.scalar_type())) {
-    // single transpose "permute" from synapse
-    return permute_4d(self, dims);
+    return permute();
   }
+
   // HPU won't support permute for larger num of dims - do it on CPU
   auto ret =
       self.to(DeviceType::CPU).permute(dims_).contiguous().to(self.device());
+  LOG_FUNC_END;
   return ret;
 }
 
