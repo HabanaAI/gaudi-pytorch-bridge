@@ -455,6 +455,24 @@ Tensor& sub_scalar_hpu_(
   return self;
 }
 
+/*************************************************************************
+ * @brief Kernel implementation for rsub Scalar torch.rsub(self, other,
+ *  alpha)
+ * @param self - first input tensor, 1-4D, FP32/BF16
+ * @param other - second input Scalar
+ * @param alpha - optional input Scalar, default = 1
+ * output = other - self * alpha
+ ************************************************************************/
+Tensor rsub_scalar_hpu(const Tensor& self, Scalar other, Scalar alpha) {
+  LOG_FUNC_BEGIN;
+
+  auto other_tensor = convert_scalar_to_tensor_using_self(self, other);
+  auto out = at::sub(other_tensor, self, alpha);
+
+  LOG_FUNC_END;
+  return out;
+}
+
 // Elementwise multiplication
 // self *= other
 /*************************************************************************
@@ -901,4 +919,11 @@ static auto registry =
                 .impl_unboxedOnlyKernel<
                     decltype(pow_scalar_tensor_hpu),
                     &pow_scalar_tensor_hpu>(DispatchKey::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema(
+                    "aten::rsub.Scalar(Tensor self, Scalar other, Scalar alpha=1) -> Tensor")
+                .impl_unboxedOnlyKernel<
+                    decltype(rsub_scalar_hpu),
+                    &rsub_scalar_hpu>(DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));
