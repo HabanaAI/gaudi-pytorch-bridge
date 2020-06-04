@@ -38,7 +38,9 @@ void check_convolution_params(
     const at::IntArrayRef dilation,
     const bool transposed,
     const at::IntArrayRef output_padding,
-    const int64_t groups);
+    const int64_t groups,
+    const int input_channel = 1,
+    const int weight_channel = 1);
 
 std::vector<int64_t> hack_pytorch_nhwc_shapes(
     const at::IntArrayRef& sizes,

@@ -66,7 +66,9 @@ void check_convolution_params(
     const at::IntArrayRef dilation,
     const bool transposed,
     const at::IntArrayRef output_padding,
-    const int64_t groups) {
+    const int64_t groups,
+    const int input_channel,
+    const int weight_channel) {
   at::Tensor input = inputs[0];
   at::Tensor weight = inputs[1];
   TORCH_CHECK(groups == 1, "convolution_hpu doesn't support groups");
@@ -83,7 +85,7 @@ void check_convolution_params(
       "weight is not habana at::Tensor");
   TORCH_CHECK(weight.ndimension() == 4, "weight tensordimension count  != 4");
   TORCH_CHECK(
-      weight.size(1) == input.size(1),
+      weight.size(weight_channel) == input.size(input_channel),
       "Number of input channels doesn't match weight channels");
   if (inputs.size() > 2) {
     at::Tensor bias = inputs[2];

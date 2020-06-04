@@ -15,8 +15,10 @@
 
 #include "conv_pool_utils.h"
 #include "habana_device/HPUCheck.h"
+#include "habana_helpers/graph.h"
 #include "habana_helpers/tensor_utils.h"
 #include "habana_helpers/unused_macro.h"
+#include "habana_kernels/conv_kernels.h"
 #include "habana_kernels/simple_generic_kernel.h"
 #include "kernel_utils.h"
 
@@ -50,6 +52,101 @@ synConvolutionParams synapse_conv_params_builder(
   return syn_conv_params;
 }
 
+ConvOperator::ConvOperator(int device_id, c10::ScalarType scalarType)
+    : HabanaOperator("spatial_convolution") {
+  this->CreateSynContext(device_id);
+  scalarType_ = scalarType;
+  kernel_meta_data_.input_layout.assign({habana::LayoutFormat::NHWC,
+                                         habana::LayoutFormat::HWCK,
+                                         habana::LayoutFormat::ANY});
+  kernel_meta_data_.output_layout.assign({habana::LayoutFormat::NHWC});
+}
+
+void ConvOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 9,
+      "Incorrect size of inpust expected for Conv operator");
+  TORCH_CHECK(inputs[0].isTensor(), "Input type expected to be tensor");
+  TORCH_CHECK(inputs[1].isTensor(), "Input type expected to be int");
+  TORCH_CHECK(inputs[3].isIntList(), "Input type expected to be IntList");
+  TORCH_CHECK(inputs[4].isIntList(), "Input type expected to be IntList");
+  TORCH_CHECK(inputs[5].isIntList(), "Input type expected to be IntList");
+  TORCH_CHECK(inputs[6].isBool(), "Input type expected to be bool");
+  TORCH_CHECK(inputs[7].isIntList(), "Input type expected to be IntList");
+  TORCH_CHECK(inputs[8].isInt(), "Input type expected to be Int");
+
+  at::Tensor bias;
+  at::Tensor input = inputs[0].toTensor();
+  at::Tensor weight = inputs[1].toTensor();
+  const auto stride = inputs[3].toIntList().vec();
+  const auto padding = inputs[4].toIntList().vec();
+  const auto dilation = inputs[5].toIntList().vec();
+  const bool transposed = inputs[6].toBool();
+  const auto output_padding = inputs[7].toIntList().vec();
+  const int64_t groups = inputs[8].toInt();
+
+  // bias input is optional, it can either be a Tensor or should be None
+  if (inputs[2].isTensor()) {
+    bias = inputs[2].toTensor();
+  } else {
+    TORCH_CHECK(
+        inputs[2].isNone(), "Input[2]/bias is either None or Tensor Type");
+  }
+
+  std::vector<at::Tensor> pt_inputs{input, weight};
+  if (bias.defined()) {
+    pt_inputs.emplace_back(bias);
+  }
+  habana_helpers::check_convolution_params(
+      pt_inputs,
+      IntArrayRef(stride),
+      IntArrayRef(padding),
+      IntArrayRef(dilation),
+      transposed,
+      IntArrayRef(output_padding),
+      groups,
+      3 /*input_channel*/,
+      2 /*weight_channel*/);
+
+  // input, output NCHW
+  // weight KCHW, where K - output channels
+  // pad, stride HW
+  const int64_t N = input.size(0);
+  const int64_t input_H = input.size(1);
+  const int64_t input_W = input.size(2);
+  const int64_t K = weight.size(3);
+  const int64_t filter_H = weight.size(0);
+  const int64_t filter_W = weight.size(1);
+  const int64_t stride_H = stride[0];
+  const int64_t stride_W = stride[1];
+  const int64_t pad_H = padding[0];
+  const int64_t pad_W = padding[1];
+  const auto output_H = habana_helpers::compute_output_size(
+      input_H, pad_H, filter_H, stride_H, false);
+  const auto output_W = habana_helpers::compute_output_size(
+      input_W, pad_W, filter_W, stride_W, false);
+
+  c10::MemoryFormat memory_format =
+      habana_helpers::get_memory_format({&input, &weight});
+
+  auto output =
+      at::empty({N, output_H, output_W, K}, input.options(), memory_format);
+
+  synConvolutionParams params = synapse_conv_params_builder(
+      weight.sizes(),
+      IntArrayRef(stride),
+      IntArrayRef(padding),
+      IntArrayRef(dilation));
+
+  p_context_->params_.emplace<synConvolutionParams>(params);
+  p_context_->params_size_ = sizeof(params);
+  AllocateSynapseOutput(graph, output, is_output_persistent);
+  AddNodeToSynapseGraph(graph, &params, sizeof(params));
+}
+
 Tensor convolution_hpu(
     const Tensor& input,
     const Tensor& weight,
@@ -65,23 +162,6 @@ Tensor convolution_hpu(
   if (bias.defined()) {
     inputs.push_back(bias);
   }
-  habana_helpers::check_convolution_params(
-      inputs, stride, padding, dilation, transposed, output_padding, groups);
-  // pad, stride HW
-  const int64_t N = input.size(0);
-  const int64_t input_H = input.size(2);
-  const int64_t input_W = input.size(3);
-  const int64_t K = weight.size(0);
-  const int64_t filter_H = weight.size(2);
-  const int64_t filter_W = weight.size(3);
-  const int64_t stride_H = stride[0];
-  const int64_t stride_W = stride[1];
-  const int64_t pad_H = padding[0];
-  const int64_t pad_W = padding[1];
-  const auto output_H = habana_helpers::compute_output_size(
-      input_H, pad_H, filter_H, stride_H, false);
-  const auto output_W = habana_helpers::compute_output_size(
-      input_W, pad_W, filter_W, stride_W, false);
   // convert tensors to synapse memory format
   Tensor input_nhwc;
   Tensor weight_hwck;
@@ -95,27 +175,46 @@ Tensor convolution_hpu(
   habana_helpers::change_tensors_to_memory_format(
       pt_out, pt_in, pt_new_pos, memory_format);
 
-  auto output_nhwc = at::empty(
-      {N, output_H, output_W, K}, input_nhwc.options(), memory_format);
+  auto convolution = [&] {
+    size_t device_id = input.device().index();
+    at::ScalarType scalar_type = input.scalar_type();
+    std::string node_type = "spatial_convolution";
 
-  std::vector<const at::Tensor*> pt_inputs{&input_nhwc, &weight_hwck};
-  if (bias.defined()) {
-    pt_inputs.push_back(&bias);
-  }
-  std::vector<const at::Tensor*> pt_outputs{&output_nhwc};
+    //
+    // Create Graph
+    auto graph = habana_helpers::create_graph(device_id, node_type);
 
-  synConvolutionParams syn_conv_params = synapse_conv_params_builder(
-      weight_hwck.sizes(), stride, padding, dilation);
+    // Create the operator
+    ConvOperator Op(device_id, scalar_type);
 
-  synapse_simple_generic_kernel(
-      pt_outputs,
-      pt_inputs,
-      "spatial_convolution",
-      &syn_conv_params,
-      sizeof(syn_conv_params),
-      SynapsePassType::NO_PASS);
+    // Assign Inputs to the Operator
+    std::vector<const at::Tensor*> pt_inputs{&input_nhwc, &weight_hwck};
+    if (bias.defined()) {
+      pt_inputs.emplace_back(&bias);
+    }
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
+
+    // Build Params for the graph
+    std::vector<c10::IValue> stack = {IValue(input_nhwc),
+                                      IValue(weight_hwck),
+                                      IValue(bias),
+                                      IValue(stride),
+                                      IValue(padding),
+                                      IValue(dilation),
+                                      IValue(transposed),
+                                      IValue(output_padding),
+                                      IValue(groups)};
+    Op.AllocateAndAddSynapseNode(graph, stack, true);
+
+    Op.Compile(graph);
+
+    std::vector<at::Tensor> out = Op.GetOutputs();
+    TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
+    return out[0];
+  };
 
   Tensor output;
+  auto output_nhwc = convolution();
   pt_in = {&output_nhwc};
   pt_out = {&output};
   IntArrayRef new_dim_pos_out = {0, 3, 1, 2};
