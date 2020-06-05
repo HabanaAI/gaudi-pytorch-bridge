@@ -88,7 +88,6 @@ void HabanaLaunchOpPT::GetSynapseInputs(
 void HabanaLaunchOpPT::GetSynapseOutputs(
     const HabanaOperatorPtr &habana_op,
     torch::jit::Node* node) {
-
     auto output_tensors_pt = habana_op->GetOutputs();
     auto &output_tensors_syn = habana_op->GetSynOutputs();
     auto output_nodes = node->outputs();
@@ -249,6 +248,20 @@ void HabanaLaunchOpPT::postProcessOutputs(synapse_helpers::graph& syn_graph) {
   }
 }
 
+void HabanaLaunchOpPT::handlePrimNodes(torch::jit::Node* node)
+{
+  TORCH_CHECK(node->kind() == torch::jit::prim::Constant,
+              " Habana Fusion only supports constant type prim nodes");
+  auto node_vals = node->outputs();
+  for (const auto value : node_vals) {
+    const auto val = toIValue(value).value();
+    if (val.isNone()) {
+      continue;
+    }
+    value_to_ivalue[value] = val;
+  }
+}
+
 torch::jit::Stack HabanaLaunchOpPT::getStackForNode(torch::jit::Node* node) {
   torch::jit::Stack stack_in;
   auto inputs = node->inputs();
@@ -284,6 +297,14 @@ void HabanaLaunchOpPT::compile() {
   // TODO: check if we need to reorder nodes in any case
   torch::jit::graph_node_list graph_nodes = subgraph_->nodes();
   for (auto* node : graph_nodes) {
+
+    //Prim nodes require special handling and are a special case
+    if(node->kind().is_prim())
+    {
+      handlePrimNodes(node);
+      continue;
+    }
+
     // Get kernel context
     habana::HabanaOperatorPtr HabanaKernel = habana::CreateHabanaOperator(
         device_id, node->kind().toQualString(), getNodeScalarType(node));

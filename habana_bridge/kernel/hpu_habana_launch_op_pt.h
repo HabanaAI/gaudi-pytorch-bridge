@@ -88,5 +88,5 @@ class HabanaLaunchOpPT {
     torch::jit::Value* val,
     const habana::LayoutFormat &supported_channel_order);
   c10::ScalarType getNodeScalarType(torch::jit::Node* node);
-
+  void handlePrimNodes(torch::jit::Node* node);
 };
