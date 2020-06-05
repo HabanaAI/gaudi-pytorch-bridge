@@ -19,6 +19,7 @@
 #include "habana_helpers/tensor_utils.h"
 #include "habana_kernels/simple_generic_kernel.h"
 #include "kernel_utils.h"
+#include "linear_kernels.h"
 
 using namespace torch;
 
@@ -171,14 +172,52 @@ void synapse_matmul(
   }
 }
 
-Tensor matmul_hpu(const Tensor& mat1, const Tensor& mat2) {
-  LOG_FUNC_BEGIN;
+habana::MMOperator::MMOperator(int device_id): HabanaOperator("gemm") {
+  this->CreateSynContext(device_id);
+  kernel_meta_data_.input_layout.assign({LayoutFormat::ANY, LayoutFormat::ANY});
+  kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
+}
+
+void habana::MMOperator::AllocateAndAddSynapseNode(synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK( inputs.size() == 2,
+      "Incorrect size of inputs expected for matmul operator");
+
+  TORCH_CHECK(inputs[0].isTensor(), "Input type expected to be tensor");
+  TORCH_CHECK(inputs[1].isTensor(), "Input type expected to be tensor");
+
+  auto mat1 = inputs[0].toTensor();
+  auto mat2 = inputs[1].toTensor();
   check_matmul_params(mat1, mat2, c10::nullopt);
   auto output = at::empty({mat1.size(0), mat2.size(1)}, mat1.options());
-  synapse_matmul(output, mat1, mat2);
+  AllocateSynapseOutput(graph, output, is_output_persistent);
+  synGEMMParams params{false, false};
+  AddNodeToSynapseGraph(graph, &params, sizeof(params));
+}
 
+at::Tensor matmul_hpu(const at::Tensor& mat1, const at::Tensor& mat2) {
+  LOG_FUNC_BEGIN;
+
+  const auto device_id = mat1.device().index();
+  std::string node_type = "gemm";
+
+  auto graph = habana_helpers::create_graph(device_id, node_type);
+
+  habana::MMOperator op(device_id);
+
+  std::vector<const at::Tensor*> inputs = {&mat1, &mat2};
+  torch::jit::Stack stack = {c10::IValue(mat1), c10::IValue(mat2)};
+
+  op.AllocateSynapseInputs(graph, inputs, true);
+
+  op.AllocateAndAddSynapseNode(graph, stack, true);
+
+  op.Compile(graph);
+  std::vector<at::Tensor> out = op.GetOutputs();
+  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
   LOG_FUNC_END;
-  return output;
+  return out.at(0);
 }
 
 Tensor matmul_with_bias_hpu(
