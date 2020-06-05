@@ -33,8 +33,6 @@
 #include <unordered_map>
 #include "habana_kernels/kernel_utils.h"
 #include "habana_bridge/kernel/hpu_habana_meta_op_list.h"
-#include "synapse_helpers/graph_builder/graph_build_context.h"
-#include "synapse_helpers/graph_builder/shape_adjust.h"
 #include "habana_device/tensor_builder.h"
 #include "habana_helpers/tensor_utils.h"
 

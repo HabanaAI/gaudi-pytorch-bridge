@@ -32,10 +32,21 @@ find_package(Torch REQUIRED)
 add_subdirectory(third_party/pybind11)
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 include(AddNPUStackDependencies)
+include(SeparateDebugSymbols)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+add_subdirectory(cmake/absl_abi98)
+add_subdirectory(cmake/absl_abi11)
+
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+add_subdirectory(pytorch_helpers)
+
 # workaround for cmake3.5. Starting from 3.13 sources are optional and we can add them in add_subdirectories
 add_library(habana_pytorch_plugin SHARED
-  habana_device/HPUAllocator.cpp
-  habana_helpers/tensor_utils.cpp
+  pytorch_helpers/habana_device/HPUAllocator.cpp
+  pytorch_helpers/habana_helpers/tensor_utils.cpp
   habana_kernels/basic_kernels.cpp
   habana_kernels/binary_kernels.cpp
   habana_kernels/conv_kernels.cpp
@@ -65,7 +76,7 @@ target_compile_definitions(habana_pytorch_plugin PRIVATE "GENERIC_HELPERS" MAX_D
 #TODO: remove -Wno-error=deprecated-declarations after removing functions marked [[deprecated]]
 target_compile_options(habana_pytorch_plugin PRIVATE -Wall -Wextra -Werror -Wno-error=deprecated-declarations)
 # Link against LibTorch and synapse
-target_link_libraries(habana_pytorch_plugin PRIVATE "${TORCH_LIBRARIES}" synapse_helpers::synapse_helpers_abi11)
+target_link_libraries(habana_pytorch_plugin PRIVATE "${TORCH_LIBRARIES}" pytorch_synapse_helpers_abi11)
 target_include_directories(habana_pytorch_plugin PRIVATE ${CMAKE_SOURCE_DIR})
 
 set(SOURCES habana_bridge/register/register.cpp
@@ -74,7 +85,7 @@ set(SOURCES habana_bridge/register/register.cpp
 pybind11_add_module(hb_torch SHARED ${SOURCES})
 target_compile_definitions(hb_torch PRIVATE "GENERIC_HELPERS" MAX_DEVICES_PER_BOX=8)
 target_compile_options(hb_torch PRIVATE -Wall -Wextra -Werror -Wno-error=deprecated-declarations)
-target_link_libraries(hb_torch PRIVATE "${TORCH_LIBRARIES}" habana_pytorch_plugin synapse_helpers::synapse_helpers_abi11)
+target_link_libraries(hb_torch PRIVATE "${TORCH_LIBRARIES}" habana_pytorch_plugin pytorch_synapse_helpers_abi11)
 target_include_directories(hb_torch PRIVATE ${CMAKE_SOURCE_DIR})
 target_compile_features(hb_torch PRIVATE cxx_std_14)
 
