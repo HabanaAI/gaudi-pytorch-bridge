@@ -196,11 +196,11 @@ std::tuple<Tensor, Tensor> max_pool2d_with_indices_hpu(
   auto out_shape = compute_output_shape(
       input, kernel_size, stride, padding, dilation, ceil_mode);
 
-  Tensor input_nhwc;
+  Tensor input_nhwc = input;
   std::vector<const at::Tensor*> pt_in = {&input};
   std::vector<at::Tensor*> pt_out = {&input_nhwc};
-  IntArrayRef new_dim_pos_out = {0, 2, 3, 1};
-  std::vector<const IntArrayRef*> pt_new_pos = {&new_dim_pos_out};
+  IntArrayRef new_dim_pos_in = {0, 2, 3, 1};
+  std::vector<const IntArrayRef*> pt_new_pos = {&new_dim_pos_in};
   c10::MemoryFormat memory_format = habana_helpers::get_memory_format({&input});
   habana_helpers::change_tensors_to_memory_format(
       pt_out, pt_in, pt_new_pos, memory_format);
@@ -228,12 +228,12 @@ std::tuple<Tensor, Tensor> max_pool2d_with_indices_hpu(
       sizeof(syn_pool_params),
       SynapsePassType::FORWARD_PASS);
 
-  Tensor output;
-  Tensor output_idx;
+  Tensor output = output_nhwc;
+  Tensor output_idx = output_idx_nhwc;
   pt_in = {&output_nhwc, &output_idx_nhwc};
   pt_out = {&output, &output_idx};
-  new_dim_pos_out = {0, 3, 1, 2};
-  pt_new_pos = {&new_dim_pos_out, &new_dim_pos_out};
+  IntArrayRef new_dim_pos = {0, 3, 1, 2};
+  pt_new_pos = {&new_dim_pos, &new_dim_pos};
   habana_helpers::change_tensors_to_memory_format(
       pt_out, pt_in, pt_new_pos, memory_format);
   LOG_FUNC_END;
@@ -270,10 +270,10 @@ Tensor& max_pool2d_with_indices_backward_out_hpu(
   auto out_shape = compute_output_shape(
       input, kernel_size, stride, padding, dilation, ceil_mode);
   // convert tensors to synapse memory format
-  Tensor input_nhwc;
-  Tensor grad_input_nhwc;
-  Tensor grad_out_nhwc;
-  Tensor indices_nhwc;
+  Tensor input_nhwc = input;
+  Tensor grad_input_nhwc = grad_input;
+  Tensor grad_out_nhwc = grad_output;
+  Tensor indices_nhwc = indices;
   std::vector<const at::Tensor*> pt_in{
       &input, &grad_input, &grad_output, &indices};
   std::vector<at::Tensor*> pt_out{
@@ -307,8 +307,8 @@ Tensor& max_pool2d_with_indices_backward_out_hpu(
 
   pt_in = {&grad_input_nhwc};
   pt_out = {&grad_input};
-  IntArrayRef new_dim_pos_out = {0, 3, 1, 2};
-  pt_new_pos = {&new_dim_pos_out};
+  new_dim_pos = {0, 3, 1, 2};
+  pt_new_pos = {&new_dim_pos};
   habana_helpers::change_tensors_to_memory_format(
       pt_out, pt_in, pt_new_pos, memory_format);
 
@@ -395,11 +395,11 @@ Tensor avg_pool2d_hpu(
       kernel_size, stride, padding, dilation, count_include_pad);
 
   // convert tensors to synapse memory format
-  Tensor input_nhwc;
+  Tensor input_nhwc = input;
   std::vector<const at::Tensor*> pt_in = {&input};
   std::vector<at::Tensor*> pt_out = {&input_nhwc};
-  IntArrayRef new_dim_pos_out = {0, 2, 3, 1};
-  std::vector<const IntArrayRef*> pt_new_pos = {&new_dim_pos_out};
+  IntArrayRef new_dim_pos = {0, 2, 3, 1};
+  std::vector<const IntArrayRef*> pt_new_pos = {&new_dim_pos};
   c10::MemoryFormat memory_format = habana_helpers::get_memory_format({&input});
   habana_helpers::change_tensors_to_memory_format(
       pt_out, pt_in, pt_new_pos, memory_format);
@@ -418,11 +418,11 @@ Tensor avg_pool2d_hpu(
       sizeof(syn_pool_params),
       SynapsePassType::FORWARD_PASS);
 
-  Tensor output;
+  Tensor output = output_nhwc;
   pt_in = {&output_nhwc};
   pt_out = {&output};
-  new_dim_pos_out = {0, 3, 1, 2};
-  pt_new_pos = {&new_dim_pos_out};
+  new_dim_pos = {0, 3, 1, 2};
+  pt_new_pos = {&new_dim_pos};
   habana_helpers::change_tensors_to_memory_format(
       pt_out, pt_in, pt_new_pos, memory_format);
   LOG_FUNC_END;
@@ -469,9 +469,9 @@ Tensor& avg_pool2d_backward_out_hpu(
       out_shape[0], out_shape[1], out_shape[2], out_shape[3]};
 
   // convert tensors to synapse memory format
-  Tensor input_nhwc;
-  Tensor grad_input_nhwc;
-  Tensor grad_out_nhwc;
+  Tensor input_nhwc = input;
+  Tensor grad_input_nhwc = grad_input;
+  Tensor grad_out_nhwc = grad_output;
   std::vector<const at::Tensor*> pt_in{&input, &grad_input, &grad_output};
   std::vector<at::Tensor*> pt_out{
       &input_nhwc, &grad_input_nhwc, &grad_out_nhwc};
@@ -502,8 +502,8 @@ Tensor& avg_pool2d_backward_out_hpu(
 
   pt_in = {&grad_input_nhwc};
   pt_out = {&grad_input};
-  IntArrayRef new_dim_pos_out = {0, 3, 1, 2};
-  pt_new_pos = {&new_dim_pos_out};
+  new_dim_pos = {0, 3, 1, 2};
+  pt_new_pos = {&new_dim_pos};
   habana_helpers::change_tensors_to_memory_format(
       pt_out, pt_in, pt_new_pos, memory_format);
 

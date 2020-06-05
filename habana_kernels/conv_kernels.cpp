@@ -163,8 +163,8 @@ Tensor convolution_hpu(
     inputs.push_back(bias);
   }
   // convert tensors to synapse memory format
-  Tensor input_nhwc;
-  Tensor weight_hwck;
+  Tensor input_nhwc = input;
+  Tensor weight_hwck = weight;
   std::vector<const at::Tensor*> pt_in{&input, &weight};
   std::vector<at::Tensor*> pt_out{&input_nhwc, &weight_hwck};
   IntArrayRef new_dim_pos_in = {0, 2, 3, 1};
@@ -249,7 +249,7 @@ Tensor convolution_backward_input(
       sizeof(syn_params),
       SynapsePassType::NO_PASS);
 
-  Tensor grad_in;
+  Tensor grad_in = grad_input_nhwc;
   std::vector<const at::Tensor*> pt_in = {&grad_input_nhwc};
   std::vector<at::Tensor*> pt_out = {&grad_in};
   IntArrayRef new_dim_pos_out = {0, 3, 1, 2};
@@ -282,7 +282,7 @@ Tensor convolution_backward_filter(
       sizeof(syn_params),
       SynapsePassType::NO_PASS);
 
-  Tensor grad_w;
+  Tensor grad_w = grad_weight;
   std::vector<const at::Tensor*> pt_in = {&grad_weight};
   std::vector<at::Tensor*> pt_out = {&grad_w};
   IntArrayRef new_dim_pos_out = {3, 2, 0, 1};
@@ -329,9 +329,9 @@ std::tuple<Tensor, Tensor, Tensor> convolution_backward_hpu(
           input_W, pad_W, filter_W, stride_W, false));
 
   // convert tensors to synapse memory format
-  Tensor input_nhwc;
-  Tensor grad_out_nhwc;
-  Tensor weight_hwck;
+  Tensor input_nhwc = input;
+  Tensor grad_out_nhwc = grad_output;
+  Tensor weight_hwck = weight;
   std::vector<const at::Tensor*> pt_in{&input, &grad_output, &weight};
   std::vector<at::Tensor*> pt_out{&input_nhwc, &grad_out_nhwc, &weight_hwck};
   IntArrayRef new_dim_pos_in = {0, 2, 3, 1};

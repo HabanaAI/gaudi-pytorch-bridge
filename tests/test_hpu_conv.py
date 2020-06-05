@@ -110,7 +110,7 @@ def test_hpu_conv_chlast_fwd_bwd(N, H, W, C, R, S, K, stride, padding, bias):
                 out_cpu_bwd[0].detach().numpy(), atol=0.01, rtol=0.01, equal_nan=True)
 
 @pytest.mark.parametrize("N, H, W, C, R, S, K, stride, padding, bias", conv_test_case_list)
-def test_hpu_chain_conv_chlast_fwd_bwd(N, H, W, C, R, S, K, stride, padding, bias):
+def test_hpu_chain_loop_conv_chlast_fwd_bwd(N, H, W, C, R, S, K, stride, padding, bias):
     hpu = torch.device('habana')
     cpu = torch.device('cpu')
     input_nchw = torch.randn((N,C,H,W),dtype=torch.float, requires_grad=True)
@@ -119,9 +119,6 @@ def test_hpu_chain_conv_chlast_fwd_bwd(N, H, W, C, R, S, K, stride, padding, bia
     kernel1_copy = deepcopy(kernel1_cpu)
     kernel2_cpu = nn.Conv2d(K,K,R,stride,padding, 1, 1, bias)
     kernel2_copy = deepcopy(kernel2_cpu)
-    #cpu forward
-    out_cpu_nchw_1 = kernel1_cpu(input_nchw)
-    out_cpu_nchw_2 = kernel2_cpu(out_cpu_nchw_1)
 
     input_c_last_hpu = input_nchw.contiguous(memory_format=torch.channels_last).to(hpu)
     kernel1_hpu = kernel1_copy.to(hpu)
@@ -131,17 +128,23 @@ def test_hpu_chain_conv_chlast_fwd_bwd(N, H, W, C, R, S, K, stride, padding, bia
     kernel1_hpu.weight.data.copy_(weights_inter_hwck_1)
     weights_inter_hwck_2 = kernel2_cpu.weight.data.to(hpu).permute((2, 3, 1, 0))
     kernel2_hpu.weight.data.copy_(weights_inter_hwck_2)
-    #hpu forward
-    out_hpu_nhwc_1 = kernel1_hpu(input_c_last_hpu)
-    out_hpu_nhwc_2 = kernel2_hpu(out_hpu_nhwc_1)
 
-    #create bwd input tensor
-    bwd_in = torch.randn(out_cpu_nchw_2.shape)
-    out_cpu_bwd = out_cpu_nchw_1.grad_fn(out_cpu_nchw_2.grad_fn(bwd_in)[0])
-    out_hpu_bwd = out_hpu_nhwc_1.grad_fn(out_hpu_nhwc_2.grad_fn(bwd_in.contiguous(memory_format=torch.channels_last).to(hpu))[0])
-    np.allclose(out_hpu_bwd[0].view(out_cpu_bwd[0].shape).to(cpu).detach().numpy(),
-                out_cpu_bwd[0].detach().numpy(), atol=0.01, rtol=0.01, equal_nan=True)
+    for i in range(2):
+        #cpu forward
+        out_cpu_nchw_1 = kernel1_cpu(input_nchw)
+        out_cpu_nchw_2 = kernel2_cpu(out_cpu_nchw_1)
+
+        #hpu forward
+        out_hpu_nhwc_1 = kernel1_hpu(input_c_last_hpu)
+        out_hpu_nhwc_2 = kernel2_hpu(out_hpu_nhwc_1)
+
+        #create bwd input tensor
+        bwd_in = torch.randn(out_cpu_nchw_2.shape)
+        out_cpu_bwd = out_cpu_nchw_1.grad_fn(out_cpu_nchw_2.grad_fn(bwd_in)[0])
+        out_hpu_bwd = out_hpu_nhwc_1.grad_fn(out_hpu_nhwc_2.grad_fn(bwd_in.contiguous(memory_format=torch.channels_last).to(hpu))[0])
+        np.allclose(out_hpu_bwd[0].view(out_cpu_bwd[0].shape).to(cpu).detach().numpy(),
+                    out_cpu_bwd[0].detach().numpy(), atol=0.01, rtol=0.01, equal_nan=True)
 
 if __name__ == '__main__':
-    test_hpu_conv_fwd_bwd(*resnet50_test_case_list[0])
-    test_hpu_conv_chlast(*conv_test_case_list[0])
+    #test_hpu_conv_fwd_bwd(*resnet50_test_case_list[0])
+    test_hpu_chain_loop_conv_chlast_fwd_bwd(*conv_test_case_list[0])

@@ -31,13 +31,15 @@ using namespace torch;
 @param num_out_dim - uint, Range ~[2,4]
 ***********************************************************************/
 
-void batch_norm_resize(
-    Tensor& input,
+Tensor batch_norm_resize(
+    const Tensor& input,
     uint num_out_dim,
     c10::MemoryFormat memory_format) {
   auto num_in_dim = input.dim();
+  Tensor input_resize = at::alias(input);
 
-  auto shape = DimVector(input.sizes());
+  auto shape = DimVector(input_resize.sizes());
+  auto strides = DimVector(input_resize.strides());
   switch (memory_format) {
     case c10::MemoryFormat::ChannelsLast: {
       if (num_out_dim > num_in_dim) {
@@ -48,7 +50,7 @@ void batch_norm_resize(
         // and append to shape
         shape.insert(shape.end(), view_sizes.begin(), view_sizes.end());
         shape.push_back(last);
-        input = input.view(shape);
+        input_resize = input_resize.view(shape);
       } else {
         // Remove the additional x1 dimensions
         // TODO: The logic here won't work when size of any intermediate
@@ -60,7 +62,7 @@ void batch_norm_resize(
             new_shape.push_back(shape[cnt]);
         }
         new_shape.push_back(shape[num_out_dim - 1]);
-        input = input.view(new_shape);
+        input_resize = input_resize.view(new_shape);
       }
       break;
     }
@@ -70,14 +72,14 @@ void batch_norm_resize(
         auto view_sizes = std::vector<int64_t>(num_out_dim - num_in_dim, 1);
         // and append to shape
         shape.insert(shape.end(), view_sizes.begin(), view_sizes.end());
-        input = input.view(shape);
+        input_resize = input_resize.view(shape);
       } else {
         // Remove the additional x1 dimensions
         std::vector<int64_t> new_shape;
         for (uint cnt = 0; cnt < num_out_dim; cnt++) {
           new_shape.push_back(shape[cnt]);
         }
-        input = input.view(new_shape);
+        input_resize = input_resize.view(new_shape);
       }
       break;
     }
@@ -86,6 +88,7 @@ void batch_norm_resize(
           false,
           "Unsupported memory format. Supports only ChannelsLast, Contiguous");
   }
+  return input_resize;
 }
 
 /**********************************************************************
@@ -142,15 +145,14 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu(
   LOG_FUNC_BEGIN;
   auto num_input_dim = input.dim();
   TORCH_CHECK(num_input_dim > 1, "Expected range of input dimensions is [2,4]");
-  Tensor input_nhwc;
-  auto input_resize = input;
   c10::MemoryFormat memory_format = habana_helpers::get_memory_format({&input});
   // Resize input to 4D to match TPC kernel requirement.
-  batch_norm_resize(input_resize, 4, memory_format);
+  auto input_resize = batch_norm_resize(input, 4, memory_format);
+  Tensor input_nhwc = input_resize;
   std::vector<const at::Tensor*> pt_in = {&input_resize};
   std::vector<at::Tensor*> pt_out = {&input_nhwc};
-  IntArrayRef new_dim_pos_out = {0, 2, 3, 1};
-  std::vector<const IntArrayRef*> pt_new_pos = {&new_dim_pos_out};
+  IntArrayRef new_dim_pos = {0, 2, 3, 1};
+  std::vector<const IntArrayRef*> pt_new_pos = {&new_dim_pos};
   habana_helpers::change_tensors_to_memory_format(
       pt_out, pt_in, pt_new_pos, memory_format);
 
@@ -253,19 +255,19 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu(
         sizeof(param),
         SynapsePassType::NO_PASS);
   }
-  Tensor output;
+  Tensor output = output_nhwc;
   pt_in = {&output_nhwc};
   pt_out = {&output};
-  new_dim_pos_out = {0, 3, 1, 2};
-  pt_new_pos = {&new_dim_pos_out};
+  new_dim_pos = {0, 3, 1, 2};
+  pt_new_pos = {&new_dim_pos};
   habana_helpers::change_tensors_to_memory_format(
       pt_out, pt_in, pt_new_pos, memory_format);
   // Resize output
-  batch_norm_resize(output, num_input_dim, memory_format);
+  auto output_resized = batch_norm_resize(output, num_input_dim, memory_format);
 
   LOG_FUNC_END;
 
-  return std::make_tuple(output, current_mean, current_istd);
+  return std::make_tuple(output_resized, current_mean, current_istd);
 }
 
 /*******************************************************************
@@ -307,18 +309,15 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu(
       "Grad out dimension not matching that of input");
   c10::MemoryFormat memory_format = habana_helpers::get_memory_format({&input});
   // Resize input and grad in to 4D to match TPC kernel requirement.
-  auto input_resize = input;
-  batch_norm_resize(input_resize, 4, memory_format);
+  auto input_resize = batch_norm_resize(input, 4, memory_format);
+  auto grad_out_resize = batch_norm_resize(grad_out, 4, memory_format);
 
-  auto grad_out_resize = grad_out;
-  batch_norm_resize(grad_out_resize, 4, memory_format);
-  Tensor input_nhwc;
-  Tensor grad_out_nhwc;
+  Tensor input_nhwc = input_resize;
+  Tensor grad_out_nhwc = grad_out_resize;
   std::vector<const at::Tensor*> pt_in{&input_resize, &grad_out_resize};
   std::vector<at::Tensor*> pt_out{&input_nhwc, &grad_out_nhwc};
-  IntArrayRef new_dim_pos_in = {0, 2, 3, 1};
-  IntArrayRef new_dim_pos_w = {0, 2, 3, 1};
-  std::vector<const IntArrayRef*> pt_new_pos{&new_dim_pos_in, &new_dim_pos_w};
+  IntArrayRef new_dim_pos = {0, 2, 3, 1};
+  std::vector<const IntArrayRef*> pt_new_pos{&new_dim_pos, &new_dim_pos};
   habana_helpers::change_tensors_to_memory_format(
       pt_out, pt_in, pt_new_pos, memory_format);
 
@@ -355,18 +354,19 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu(
       &param,
       sizeof(param),
       SynapsePassType::NO_PASS);
-  Tensor grad_in;
+  Tensor grad_in = grad_in_nhwc;
   pt_in = {&grad_in_nhwc};
   pt_out = {&grad_in};
-  IntArrayRef new_dim_pos_out = {0, 3, 1, 2};
-  pt_new_pos = {&new_dim_pos_out};
+  new_dim_pos = {0, 3, 1, 2};
+  pt_new_pos = {&new_dim_pos};
   habana_helpers::change_tensors_to_memory_format(
       pt_out, pt_in, pt_new_pos, memory_format);
   // Resize output
-  batch_norm_resize(grad_in, num_input_dim, memory_format);
+  auto grad_in_resized =
+      batch_norm_resize(grad_in, num_input_dim, memory_format);
 
   LOG_FUNC_END;
-  return std::make_tuple(grad_in, grad_gamma, grad_beta);
+  return std::make_tuple(grad_in_resized, grad_gamma, grad_beta);
 }
 
 /** @brief This function implements forward pass for torch.nn.LayerNorm()
@@ -429,21 +429,19 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_hpu(
  * @param [in] output - output tensor, 1-4D, FP32/BF16
  * @param [in] p - optional input, default = 2
  ************************************************************************/
-Tensor norm_scalar_hpu(
-    const Tensor& self,
-    Scalar p) {
+Tensor norm_scalar_hpu(const Tensor& self, Scalar p) {
   LOG_FUNC_BEGIN;
 
   TORCH_CHECK(p.toFloat() > 0.0, "norm with p > 0.0 is only supported");
 
-  auto self_hpu=self.view(-1);
+  auto self_hpu = self.view(-1);
   auto output = at::empty(self_hpu.sizes(), self.options());
   auto retain = at::empty(self_hpu.sizes(), self.options());
 
   ns_LpNormKernel::Params params{};
-  params.p=p.to<float>();
-  params.dim=0;
-  params.eps=1e-5;
+  params.p = p.to<float>();
+  params.dim = 0;
+  params.eps = 1e-5;
 
   std::vector<const at::Tensor*> pt_inputs{&self_hpu};
   std::vector<const at::Tensor*> pt_outputs{&output, &retain};
@@ -489,8 +487,7 @@ static auto registry =
                     &layer_norm_hpu>(DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
-                .schema(
-                    "aten::norm.Scalar(Tensor self, Scalar p=2) -> Tensor")
+                .schema("aten::norm.Scalar(Tensor self, Scalar p=2) -> Tensor")
                 .impl_unboxedOnlyKernel<
                     decltype(norm_scalar_hpu),
                     &norm_scalar_hpu>(DispatchKey::HABANATensorId)

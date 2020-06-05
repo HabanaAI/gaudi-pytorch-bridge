@@ -274,7 +274,10 @@ std::vector<std::string> habana_helpers::names(
   names.reserve(vec.size());
 
   std::transform(
-      vec.begin(), vec.end(), std::back_inserter(names), [](const synapse_helpers::tensor& tensor) {
+      vec.begin(),
+      vec.end(),
+      std::back_inserter(names),
+      [](const synapse_helpers::tensor& tensor) {
         return tensor.tensor_name_;
       });
 
@@ -418,15 +421,23 @@ void habana_helpers::change_tensors_to_memory_format(
                                                  strides[new_pos[1]],
                                                  strides[new_pos[2]],
                                                  strides[new_pos[3]]};
-        *pt_outputs[i] = *pt_inputs[i];
+        /* The following method of using 'alias' followed by
+         * set_sizes_and_strides is necessary to "dereference" pt_outputs[i]
+         * from pt_inputs[i] and create new copies of sizes and strides.
+         * Using unsafeGetTensorImpl directly on pt_outputs[i] will
+         * reference pt_inputs[i] itself because 'pt_output[i] = pt_input[i]' is
+         * a reference copy*/
+        *pt_outputs[i] = at::alias(*pt_inputs[i]);
         pt_outputs[i]->unsafeGetTensorImpl()->set_sizes_and_strides(
             swapped_sizes, swapped_strides);
         break;
       }
       case c10::MemoryFormat::Contiguous: {
         // Create dimshuffled inputs and outputs to match synapse data layout
-        auto new_pos = *pt_new_pos[i];
-        *pt_outputs[i] = (*pt_inputs[i]).permute(new_pos);
+        if (pt_outputs[i] != pt_inputs[i]) {
+          auto new_pos = *pt_new_pos[i];
+          *pt_outputs[i] = (*pt_inputs[i]).permute(new_pos);
+        }
         break;
       }
       default:
