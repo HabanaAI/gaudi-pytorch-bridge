@@ -146,7 +146,7 @@ synapse_error_o hcl_communicator::reduce_scatter(device_ptr input_address, devic
 }
 
 synapse_error_o hcl_communicator::reduce(HCL_Rank dest_rank, device_ptr input_address, device_ptr output_address,
-                                         size_t elem_cnt, synDataType data_type,
+                                         size_t elem_cnt, synDataType data_type,HCL_Op hclop,
                                          const std::function<void()>& tensor_cleanup_callback) {
   HCLStatus status{eHCLSuccess};
   trace_start("IntermediateBufferAlloc");
@@ -165,7 +165,7 @@ synapse_error_o hcl_communicator::reduce(HCL_Rank dest_rank, device_ptr input_ad
   my_device_->add_wait_events_on_stream({input_address}, collective_stream);
 
   status = HCL_Reduce(collective_stream, input_address, output_address, elem_cnt, data_type, intermediate_buffer.get(),
-                      intermediate_buffer.size(), dest_rank, eHCLSum, hcl_comm(), false);
+                      intermediate_buffer.size(), dest_rank, hclop, hcl_comm(), false);
   VERIFY_HCL_STATUS("HCL_Reduce(...) failed.", status);
 
   my_device_->register_producer_on_stream({output_address}, collective_stream, dependant_events,
@@ -177,7 +177,7 @@ synapse_error_o hcl_communicator::reduce(HCL_Rank dest_rank, device_ptr input_ad
   }
 
   status = HCL_Reduce(nullptr, input_address, output_address, elem_cnt, data_type, intermediate_buffer.get(),
-                      intermediate_buffer.size(), dest_rank, eHCLSum, hcl_comm(), false);
+                      intermediate_buffer.size(), dest_rank, hclop, hcl_comm(), false);
   VERIFY_HCL_STATUS("HCL_Reduce_Scatter(...) failed.", status);
 
   tensor_cleanup_callback();

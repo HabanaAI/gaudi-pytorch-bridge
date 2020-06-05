@@ -66,7 +66,7 @@ class hcl_communicator {
                             synDataType data_type, const std::function<void()>& tensor_cleanup_callback = [] {});
 
   synapse_error_o reduce(HCL_Rank dest_rank, device_ptr input_address, device_ptr output_address, size_t elem_cnt,
-                         synDataType data_type, const std::function<void()>& tensor_cleanup_callback = [] {});
+                         synDataType data_type, HCL_Op hclop, const std::function<void()>& tensor_cleanup_callback = [] {});
 
   synapse_error_o broadcast(HCL_Rank root_rank, uint64_t address, size_t elem_cnt, synDataType data_type,
                             const std::function<void()>& tensor_cleanup_callback = [] {});
