@@ -10,11 +10,16 @@
 #include <ATen/core/Reduction.h>
 #include <perf_lib_layer_params.h>
 
+#include "habana_device/HPUCheck.h"
+#include "habana_device/hpu_cached_devices.h"
+#include "habana_helpers/graph.h"
 #include "habana_helpers/tensor_utils.h"
 #include "habana_helpers/unused_macro.h"
+#include "habana_kernels/loss_kernels.h"
 #include "simple_generic_kernel.h"
 
 using namespace torch;
+using namespace habana;
 
 static ns_NLLLossKernel::Params synapse_nll_loss_params_builder(
     int64_t reduction) {
@@ -46,6 +51,36 @@ static ns_MSELossKernel::Params synapse_mse_loss_params_builder(
   return param;
 }
 
+void NLLLossFwdOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 3,
+      "Incorrect size of inputs expected for nll_loss operator");
+  TORCH_CHECK(inputs[0].isTensor(), "Input arg1 expected to be tensor");
+  TORCH_CHECK(inputs[1].isTensor(), "Input arg2 expected to be tensor");
+  TORCH_CHECK(
+      inputs[2].isInt(),
+      "Input arg 3 expected to be of type Int for nll_loss operator");
+
+  auto self = inputs[0].toTensor();
+  auto target = inputs[1].toTensor();
+  int64_t reduction = inputs[2].toInt();
+
+  TORCH_CHECK(
+      target.scalar_type() == c10::ScalarType::Int,
+      "Input arg 2 expected to be of Int Tensor for nll_loss operator");
+
+  ns_NLLLossKernel::Params param = synapse_nll_loss_params_builder(reduction);
+  p_context_->params_.emplace<ns_NLLLossKernel::Params>(param);
+  p_context_->params_size_ = sizeof(param);
+
+  auto output = at::empty({1}, self.options());
+  AllocateSynapseOutput(graph, output, is_output_persistent);
+  AddNodeToSynapseGraph(graph, &param, sizeof(param));
+}
+
 /** @brief Function implements forward pass for torch.nn.NLLLoss
  *  @param self: Input tensor of shape (N,C), where C = Number of classes.
  *  @param target: Input tensor of shape (N), where each value 0 <= i < C.
@@ -64,26 +99,63 @@ std::tuple<Tensor, Tensor> nll_loss_forward_hpu(
     int64_t reduction,
     int64_t ignore_index) {
   LOG_FUNC_BEGIN;
+
   TORCH_CHECK(!weight.defined(), "weighted nll_loss is not yet supported")
   TORCH_CHECK(ignore_index == -100, "ignore_index is not yet supported")
 
-  auto param = synapse_nll_loss_params_builder(reduction);
-  auto output = at::empty({1}, self.options());
   auto modified_target = habana_helpers::cast_tensor_to_integer(target);
 
-  synapse_simple_generic_kernel(
-      {&output},
-      {&self, &modified_target},
-      "nll_loss",
-      &param,
-      sizeof(param),
-      SynapsePassType::FORWARD_PASS);
-  LOG_FUNC_END;
+  at::ScalarType scalar_type = self.scalar_type();
+  std::string node_type =
+      "nll_loss_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+
+  size_t device_id = self.device().index();
+
+  NLLLossFwdOperator Op(device_id, node_type);
+  // Create Graph
+  auto graph = habana_helpers::create_graph(device_id, node_type);
+
+  // Assign Inputs to the Operator
+  std::vector<const at::Tensor*> pt_inputs{&self, &modified_target};
+  Op.AllocateSynapseInputs(graph, pt_inputs, true);
+
+  // Build Params for the graph
+  std::vector<c10::IValue> stack = {
+      IValue(self), IValue(modified_target), IValue(reduction)};
+  Op.AllocateAndAddSynapseNode(graph, stack, true);
+
+  // compile and execute the graph
+  Op.Compile(graph);
+
+  std::vector<at::Tensor> out = Op.GetOutputs();
+  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
 
   // Note: pytorch expects 0d tensor (scalar)
-  output.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
-  // Note: 2nd output is used in weighted version of this kernel
-  return std::make_tuple(output, at::empty({0}, self.options()));
+  out.at(0).unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+
+  LOG_FUNC_END;
+  return std::make_tuple(out.at(0), at::empty({0}, self.options()));
+}
+
+void NLLLossBwdOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 2,
+      "Incorrect size of inputs expected for nll_loss operator");
+  TORCH_CHECK(inputs[0].isTensor(), "Input type expected to be tensor");
+
+  auto self = inputs[0].toTensor();
+  int64_t reduction = inputs[1].toInt();
+
+  ns_NLLLossKernel::Params param = synapse_nll_loss_params_builder(reduction);
+  p_context_->params_.emplace<ns_NLLLossKernel::Params>(param);
+  p_context_->params_size_ = sizeof(param);
+
+  auto output = at::empty(self.sizes(), self.options());
+  AllocateSynapseOutput(graph, output, is_output_persistent);
+  AddNodeToSynapseGraph(graph, &param, sizeof(param));
 }
 
 /** @brief Function implements backward pass for torch.nn.NLLLoss
@@ -118,21 +190,62 @@ Tensor nll_loss_backward_hpu(
     grad_output.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
   }
 
-  auto grad_input = at::empty(self.sizes(), self.options());
-
-  auto param = synapse_nll_loss_params_builder(reduction);
   auto modified_target = habana_helpers::cast_tensor_to_integer(target);
 
-  synapse_simple_generic_kernel(
-      {&grad_input},
-      {&grad_output, &modified_target},
-      "nll_loss",
-      &param,
-      sizeof(param),
-      SynapsePassType::BACKWARD_PASS);
-  LOG_FUNC_END;
+  at::ScalarType scalar_type = grad_output.scalar_type();
+  std::string node_type =
+      "nll_loss_bwd_" + habana_helpers::name_suffix_from_type(scalar_type);
 
-  return grad_input;
+  size_t device_id = grad_output.device().index();
+
+  NLLLossBwdOperator Op(device_id, node_type);
+
+  // Create Graph
+  auto graph = habana_helpers::create_graph(device_id, node_type);
+
+  // Assign Inputs to the Operator
+  std::vector<const at::Tensor*> pt_inputs{&grad_output, &modified_target};
+  Op.AllocateSynapseInputs(graph, pt_inputs, true);
+
+  // Build Params for the graph
+  std::vector<c10::IValue> stack = {IValue(self), IValue(reduction)};
+  Op.AllocateAndAddSynapseNode(graph, stack, true);
+
+  // compile and execute the graph
+  Op.Compile(graph);
+
+  std::vector<at::Tensor> out = Op.GetOutputs();
+  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
+
+  LOG_FUNC_END;
+  return out.at(0);
+}
+
+void MSELossFwdOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 2,
+      "Incorrect size of inputs expected for mse_loss operator");
+  TORCH_CHECK(inputs[0].isTensor(), "Input type expected to be tensor");
+
+  auto self = inputs[0].toTensor();
+  int64_t reduction = inputs[1].toInt();
+
+  ns_MSELossKernel::Params param = synapse_mse_loss_params_builder(reduction);
+  p_context_->params_.emplace<ns_MSELossKernel::Params>(param);
+  p_context_->params_size_ = sizeof(param);
+
+  Tensor output;
+  if (reduction == at::Reduction::Reduction::None) {
+    output = at::empty(self.sizes(), self.options());
+  } else {
+    output = at::empty({1}, self.options());
+  }
+
+  AllocateSynapseOutput(graph, output, is_output_persistent);
+  AddNodeToSynapseGraph(graph, &param, sizeof(param));
 }
 
 /** @brief Function implements forward pass for torch.nn.MSELoss
@@ -147,29 +260,59 @@ Tensor mse_loss_forward_hpu(
     int64_t reduction) {
   LOG_FUNC_BEGIN;
 
-  auto param = synapse_mse_loss_params_builder(reduction);
+  at::ScalarType scalar_type = self.scalar_type();
+  std::string node_type =
+      "mse_loss_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
 
-  Tensor output;
-  if (reduction == at::Reduction::Reduction::None) {
-    output = at::empty(self.sizes(), self.options());
-  } else {
-    output = at::empty({1}, self.options());
-  }
+  size_t device_id = self.device().index();
 
-  synapse_simple_generic_kernel(
-      {&output},
-      {&self, &target},
-      "mse_loss",
-      &param,
-      sizeof(param),
-      SynapsePassType::FORWARD_PASS);
-  LOG_FUNC_END;
+  MSELossFwdOperator Op(device_id, node_type);
+  // Create Graph
+  auto graph = habana_helpers::create_graph(device_id, node_type);
+
+  // Assign Inputs to the Operator
+  std::vector<const at::Tensor*> pt_inputs{&self, &target};
+  Op.AllocateSynapseInputs(graph, pt_inputs, true);
+
+  // Build Params for the graph
+  std::vector<c10::IValue> stack = {IValue(self), IValue(reduction)};
+  Op.AllocateAndAddSynapseNode(graph, stack, true);
+
+  // compile and execute the graph
+  Op.Compile(graph);
+
+  std::vector<at::Tensor> out = Op.GetOutputs();
+  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
 
   if (reduction != at::Reduction::Reduction::None) {
     // Note: pytorch expects 0d tensor (scalar)
-    output.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+    out.at(0).unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
   }
-  return output;
+
+  LOG_FUNC_END;
+  return out.at(0);
+}
+
+void MSELossBwdOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 2,
+      "Incorrect size of inputs expected for mse_loss operator");
+  TORCH_CHECK(inputs[0].isTensor(), "Input type expected to be tensor");
+
+  auto self = inputs[0].toTensor();
+  int64_t reduction = inputs[1].toInt();
+
+  ns_MSELossKernel::Params param = synapse_mse_loss_params_builder(reduction);
+  p_context_->params_.emplace<ns_MSELossKernel::Params>(param);
+  p_context_->params_size_ = sizeof(param);
+
+  auto output = at::empty(self.sizes(), self.options());
+
+  AllocateSynapseOutput(graph, output, is_output_persistent);
+  AddNodeToSynapseGraph(graph, &param, sizeof(param));
 }
 
 /** @brief Function implements backward pass for torch.nn.MSELoss
@@ -191,19 +334,32 @@ Tensor mse_loss_backward_hpu(
     grad_output.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
   }
 
-  auto grad_input = at::empty(self.sizes(), self.options());
+  at::ScalarType scalar_type = self.scalar_type();
+  std::string node_type =
+      "mse_loss_bwd_" + habana_helpers::name_suffix_from_type(scalar_type);
 
-  auto param = synapse_mse_loss_params_builder(reduction);
+  size_t device_id = self.device().index();
 
-  synapse_simple_generic_kernel(
-      {&grad_input},
-      {&grad_output, &self, &target},
-      "mse_loss",
-      &param,
-      sizeof(param),
-      SynapsePassType::BACKWARD_PASS);
+  MSELossBwdOperator Op(device_id, node_type);
+  // Create Graph
+  auto graph = habana_helpers::create_graph(device_id, node_type);
+
+  // Assign Inputs to the Operator
+  std::vector<const at::Tensor*> pt_inputs{&grad_output, &self, &target};
+  Op.AllocateSynapseInputs(graph, pt_inputs, true);
+
+  // Build Params for the graph
+  std::vector<c10::IValue> stack = {IValue(self), IValue(reduction)};
+  Op.AllocateAndAddSynapseNode(graph, stack, true);
+
+  // compile and execute the graph
+  Op.Compile(graph);
+
+  std::vector<at::Tensor> out = Op.GetOutputs();
+  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
+
   LOG_FUNC_END;
-  return grad_input;
+  return out.at(0);
 }
 
 static auto registry =
