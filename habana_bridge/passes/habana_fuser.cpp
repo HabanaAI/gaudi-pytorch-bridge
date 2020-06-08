@@ -128,7 +128,7 @@ struct HabanaGraphFuser {
   at::optional<Node*> tryFuse(Node* consumer, Value* producer) {
     // Check if incoming producer node is fusable and if adding the producer
     // will result in cycles in the graph
-    bool shouldFuse = isFusable(producer->node()) &&
+    bool shouldFuse = isFusable(consumer) && isFusable(producer->node()) &&
         aliasDb_->moveBeforeTopologicallyValid(producer->node(), consumer);
 
     if (!shouldFuse) {
@@ -307,7 +307,6 @@ struct HabanaGraphFuser {
   }
 
   void run() {
-    LowerAllTuples(graph_);
     bool any_changed = true;
     while (any_changed) {
       any_changed = false;

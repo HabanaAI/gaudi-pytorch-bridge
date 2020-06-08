@@ -133,6 +133,38 @@ def train(args, model, device, train_loader, optimizer, epoch, trainMetaData):
         if trainMetaData.end_train() is True:
             break
 
+def train_jit(args, model_trace, device, train_loader, optimizer, epoch, trainMetaData):
+    model_trace.train()
+    if(trainMetaData.is_logging()):
+        with open('mnistpy.log', 'w') as file:  # reset file
+            file.write('')
+
+    for batch_idx, (data, target) in enumerate(train_loader):
+        iter_timer_start = time.time()
+        data, target = data.to(device), target.to(device)
+        optimizer.zero_grad()
+        output = model_trace(data)
+        loss = F.nll_loss(output, target)
+        loss_cpu = loss
+        loss.backward()
+        optimizer.step()
+        iter_duration = time.time() - iter_timer_start
+        # if batch_idx % args.log_interval == 0:
+        acc1, acc5 = trainMetaData.accuracy(output, target, topk=(1, 5))
+        log_msg = 'Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f} '\
+                  'acc1: {:.6f} acc5: {:.6f} time: {:.6f}\n'.format(
+                  epoch, batch_idx * len(data), len(train_loader.dataset),
+                  100. * batch_idx / len(train_loader),
+                  loss_cpu.to(torch.device('cpu')).item(), acc1, acc5,
+                  iter_duration)
+
+        if(trainMetaData.is_logging()):
+            with open('mnistpy.log', 'a') as file:
+                file.write(log_msg)
+        print(log_msg)
+        trainMetaData.increment_train_step()
+        if trainMetaData.end_train() is True:
+            break
 
 def test(args, model, device, test_loader, trainMetaData):
     model.eval()
@@ -162,6 +194,33 @@ def test(args, model, device, test_loader, trainMetaData):
         test_loss, correct, len(test_loader.dataset),
         100. * correct / len(test_loader.dataset)))
 
+def test_jit(args, model_trace, device, test_loader, trainMetaData):
+    model_trace.eval()
+    test_loss = 0
+    correct = 0
+    with torch.no_grad():
+        for data, target in test_loader:
+            data, target = data.to(device), target.to(device)
+            output = model(data)
+            # sum up batch loss
+            test_loss += F.nll_loss(output, target, reduction='sum').item()
+            # get the index of the max log-probability
+            output_cpu = output
+            pred = output_cpu.to(torch.device('cpu')).argmax(dim=1, keepdim=True)
+            target_cpu = target
+            target_cpu = target_cpu.to(torch.device('cpu'))
+            new_view = target_cpu.view_as(pred)
+            correct += pred.eq(new_view).sum().item()
+            trainMetaData.increment_eval_step()
+            if trainMetaData.end_eval() is True:
+                break
+
+
+    test_loss /= len(test_loader.dataset)
+
+    print('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
+        test_loss, correct, len(test_loader.dataset),
+        100. * correct / len(test_loader.dataset)))
 
 def main():
     # Training settings
@@ -182,7 +241,8 @@ def main():
                         help='random seed (default: 1)')
     parser.add_argument('--log-interval', type=int, default=10, metavar='N',
                         help='how many batches to wait before logging training status')
-
+    parser.add_argument('--run-trace-mode', action='store_true', default=False,
+                        help='run JIT mode with fusion enabled')                    
     parser.add_argument('--save-model', action='store_true', default=False,
                         help='For Saving the current Model')
     parser.add_argument('--num-train-steps', type=int, default=sys.maxsize, metavar='T',
@@ -196,6 +256,7 @@ def main():
     use_habana = not args.no_habana
     if use_habana:
         torch.ops.load_library(os.path.join(os.environ['BUILD_ROOT_LATEST'], "libhabana_pytorch_plugin.so"))
+        sys.path.insert(0, os.path.join(os.environ['BUILD_ROOT_LATEST']))
 
     torch.manual_seed(args.seed)
 
@@ -227,8 +288,20 @@ def main():
                           momentum=args.momentum)
 
     for epoch in range(1, args.epochs + 1):
-        train(args, model, device, train_loader, optimizer, epoch, trainMetaData)
-        test(args, model, device, test_loader, trainMetaData)
+        if args.run_trace_mode:
+            with torch.jit.optimized_execution(True):
+                import hb_torch
+                torch._C._jit_override_can_fuse_on_cpu(False)
+                torch._C._jit_set_profiling_executor(False)
+                torch._C._jit_set_profiling_mode(False)
+                hb_torch.enable()
+                sample_trace_tensor = torch.FloatTensor(64, 1, 28, 28).to(device)
+                model_trace = torch.jit.trace(model, sample_trace_tensor, check_trace=False)
+                train_jit(args, model_trace, device, train_loader, optimizer, epoch, trainMetaData)
+                test_jit(args, model_trace, device, test_loader, trainMetaData)
+        else:
+            train(args, model, device, train_loader, optimizer, epoch, trainMetaData)    
+            test(args, model, device, test_loader, trainMetaData)    
         if (trainMetaData.end_train_n_eval()):
             break
     if args.save_model:
