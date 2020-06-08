@@ -27,6 +27,11 @@
 #include "absl/types/optional.h"
 #include <unordered_map>
 #include "habana_kernels/kernel_utils.h"
+#include "habana_bridge/kernel/hpu_habana_meta_op_list.h"
+#include "synapse_helpers/graph_builder/graph_build_context.h"
+#include "synapse_helpers/graph_builder/shape_adjust.h"
+#include "habana_device/tensor_builder.h"
+#include "habana_helpers/tensor_utils.h"
 
 using namespace torch::jit;
 
@@ -330,6 +335,74 @@ c10::ScalarType HabanaLaunchOpPT::getNodeScalarType(torch::jit::Node* node) {
   return c10::ScalarType::Float;
 }
 
+void HabanaLaunchOpPT::handleMetaOps(torch::jit::Node* node, synapse_helpers::graph& syn_graph)
+{
+    //Call the meta op via CPU impl
+    //Some ops dont support c10 op.callBoxed so we need to call via JIT
+    torch::jit::Stack stack;
+    void *in_data, *out_data;
+    auto node_ins = node->inputs();
+    for (const auto value_in : node_ins) {
+      stack.insert(stack.end(), *value_to_ivalue[value_in]);
+      if(value_to_ivalue[value_in]->isTensor())
+      {
+        auto tensor = value_to_ivalue[value_in]->toTensor();
+        if(pt_to_synapse_tensors.find(value_to_ivalue[value_in]) ==
+          std::end(pt_to_synapse_tensors))
+          {
+              in_data = tensor.data_ptr();
+              auto dtype =  tensor.scalar_type();
+              meta_syn_tensors.push_back(habana_helpers::create_tensor(tensor,
+                                        syn_graph.get_graph_handle(),
+                                        true, dtype));
+              pt_to_synapse_tensors.emplace(value_to_ivalue[value_in], meta_syn_tensors.back());
+              input_names.push_back(meta_syn_tensors.back().tensor_name_);
+              input_buffers.push_back(tensor.data_ptr());
+          }
+
+      }
+    }
+    torch::jit::Operator jit_op = node->getOperator();
+    auto offset = jit_op.getOperation()(stack);
+
+    auto syn_tensor_input = pt_to_synapse_tensors.find(value_to_ivalue[node_ins[0]]);
+    TORCH_CHECK(offset == 0);
+    auto node_outs = node->outputs();
+    auto outputs = last(stack, node_outs.size());
+    int i = 0;
+    for(const auto val_out : node_outs) {
+      IValue *ival = new IValue;
+      *ival = outputs[i];
+      value_to_ivalue[val_out] = ival;
+      if(ival->isTensor())
+      {
+        value_to_tensor_layout[val_out] = getPTTensorLayout();
+
+        auto tensor = ival->toTensor();
+        auto dtype =  tensor.scalar_type();
+        //create a tensor variant on the same memory section as the input
+        auto variant =  synapse_helpers::tensor_builder(
+                          tensor.sizes(),
+                          habana_helpers::pytorch_to_synapse_type(dtype))
+                          .mark_persistence(true)
+                          .with_memory_section(syn_tensor_input->second.memorysection())
+                          .build(
+                          synapse_helpers::HPURegistrar::get_device(
+                          tensor.device().index()),
+                          syn_tensor_input->second.graph());
+
+        meta_syn_tensors.push_back(absl::get<synapse_helpers::tensor>(std::move(variant)));
+        auto &syn_tensor = meta_syn_tensors.back();
+
+        pt_to_synapse_tensors.emplace(value_to_ivalue[val_out], syn_tensor);
+        output_names.push_back(syn_tensor.tensor_name_);
+        output_buffers.push_back(tensor.data_ptr());
+        out_data = tensor.data_ptr();
+      }
+      i++;
+    }
+    TORCH_CHECK(in_data == out_data, "HabanaFusion : Data pointer changed in Meta op");
+}
 
 void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
   LOG_FUNC_BEGIN;
@@ -354,6 +427,14 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
       continue;
     }
 
+    //if its a meta op we need to call the CPU impl and capture changes
+    //only valid for single tensor ops
+    //Can we avoid the string match here?
+    if(HabanaMetaOpList::isHabanaMetaOp(node->kind().toQualString()))
+    {
+      handleMetaOps(node, syn_graph);
+      continue;
+    }
     // Get kernel context
     habana::HabanaOperatorPtr HabanaKernel = habana::CreateHabanaOperator(
         device_id, node->kind().toQualString(), getNodeScalarType(node));

@@ -52,6 +52,7 @@ class HabanaLaunchOpPT {
   std::unordered_map<const torch::jit::Value*, habana::LayoutFormat> value_to_tensor_layout;
   //map between PT and synapse tensors
   PTToSynapseTensorMap pt_to_synapse_tensors;
+  std::vector<synapse_helpers::tensor> meta_syn_tensors;
 
   // caching :: begin
 
@@ -112,6 +113,7 @@ class HabanaLaunchOpPT {
     const habana::LayoutFormat &supported_channel_order);
   c10::ScalarType getNodeScalarType(torch::jit::Node* node);
   void handlePrimNodes(torch::jit::Node* node);
+  void handleMetaOps(torch::jit::Node* node, synapse_helpers::graph& syn_graph);
   void UpdateSubgraphOutput();
   bool IsCacheHit(torch::jit::CompleteArgumentSpec &key);
 
