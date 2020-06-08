@@ -1,0 +1,34 @@
+import torch
+from test_utils import reset_seed, compare_tensors
+import hb_torch
+
+@torch.jit.script
+def test_transpose(x):
+    return torch.t(x)
+
+hpu = torch.device("habana")
+cpu = torch.device("cpu")
+in_t = torch.randn(8, 10)
+
+with torch.jit.optimized_execution(True):
+    torch._C._jit_override_can_fuse_on_cpu(False)
+    torch._C._jit_set_profiling_executor(False)
+    torch._C._jit_set_profiling_mode(False)
+    model_trace = torch.jit.trace(test_transpose, in_t)
+    torch.jit.save(model_trace, "cpu_trace.pt")
+    model = test_transpose(in_t)
+    cpu_result = model
+
+try:  
+    hb_torch.enable()
+    torch._C._jit_set_profiling_mode(False)
+    torch._C._jit_set_profiling_executor(False)
+    hpu_t = in_t.to(hpu)
+    model_trace_hpu = torch.jit.load("cpu_trace.pt", map_location=torch.device("habana"))
+    print(model_trace_hpu.graph_for(hpu_t))
+    out = model_trace_hpu(hpu_t)
+    hpu_result = out.to(cpu)
+    compare_tensors(hpu_result, cpu_result, atol=0.001, rtol=1.e-3)
+except RuntimeError as err:
+    print ("Exiting after printing Fused Graph post fusion pass")
+    print("OS error: {0}".format(err))
