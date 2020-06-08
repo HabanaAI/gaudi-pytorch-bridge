@@ -70,7 +70,7 @@ class HabanaLaunchOpPT {
   // 6. Expose the enable_caching flag to python
   // 7. Switch to general logging from std::cout
 
-  bool enable_caching = true;
+  bool enable_caching = false;
   size_t num_inputs = 0;
   torch::jit::Stack *pt_stack = nullptr;
   std::vector<torch::jit::CompleteArgumentSpec> last_input_spec;

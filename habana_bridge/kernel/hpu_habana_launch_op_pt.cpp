@@ -35,12 +35,16 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(const torch::jit::Node* node, bool debug) {
   debug_ = debug;
 }
 
+habana::LayoutFormat getPTTensorLayout() {
+  return habana::LayoutFormat::NCHW;
+}
+
 habana::LayoutFormat HabanaLaunchOpPT::getTensorChannelOrder(
     torch::jit::Value* val) {
   // The value of the node keeps the tensor physical layout memorized
   // We can update this later if we see any changes to the way layouts are
   // handled
-  TORCH_CHECK(value_to_tensor_layout.find(val) != value_to_tensor_layout.end(), "Value pointer doesnt have a valid tensor Layout");
+  TORCH_CHECK(value_to_tensor_layout.find(val) != std::end(value_to_tensor_layout), " HabanaFusion : Channel order not updated");
   return value_to_tensor_layout[val];
 }
 
@@ -52,13 +56,23 @@ bool HabanaLaunchOpPT::isChannelOrderSupported(
       || (supported_channel_order == getTensorChannelOrder(val));
 }
 
+bool HabanaLaunchOpPT::isInGraphOutputs(torch::jit::Value* value) {
+  auto graph_outs = subgraph_->outputs();
+  for (auto value_out : graph_outs) {
+    if (value->unique() == value_out->unique()) {
+      return true;
+    }
+  }
+  return false;
+}
+
 void HabanaLaunchOpPT::GetSynapseInputs(
     const HabanaOperatorPtr &habana_op,
     synapse_helpers::graph& graph,
     torch::jit::Node* node) {
   auto node_ins = node->inputs();
   for (const auto value_in : node_ins) {
-    if (value_to_ivalue[value_in]->isTensor()) {
+    if (value_to_ivalue[value_in] && value_to_ivalue[value_in]->isTensor()) {
       auto pt_tensor = value_to_ivalue[value_in]->toTensor();
 
       // Find if an input tensor is already mapped
@@ -91,12 +105,23 @@ void HabanaLaunchOpPT::GetSynapseOutputs(
     auto output_tensors_pt = habana_op->GetOutputs();
     auto &output_tensors_syn = habana_op->GetSynOutputs();
     auto output_nodes = node->outputs();
+    auto habana_kernel_meta_data = habana_op->GetKernelMetaData();
     int i = 0;
+    habana::LayoutFormat out_layout;
     TORCH_CHECK(output_nodes.size() == output_tensors_pt.size(), "HabanaFusionOp Lowering: Number of output nodes generated doesnt match the graph");
     for (synapse_helpers::tensor &out_tensor_syn : output_tensors_syn) {
       value_to_ivalue[output_nodes[i]] = new IValue(output_tensors_pt[i]);
       //Get the layout from the kernels, this has to be passed from kernel meta data which is WIP.
-      value_to_tensor_layout[output_nodes[i]] = habana::LayoutFormat::NCHW /*habana_kernel_meta_data.output_layout[i]*/;
+      try
+      {
+        out_layout = habana_kernel_meta_data.output_layout.at(i);
+      }
+      catch (const std::out_of_range & ex)
+      {
+        out_layout = habana::LayoutFormat::ANY;
+      }
+      //TODO : we can check what format to fill in case of ANY. as it may be channel last
+      value_to_tensor_layout[output_nodes[i]] = out_layout == habana::LayoutFormat::ANY ? habana::LayoutFormat::NCHW : out_layout;
       pt_to_synapse_tensors.emplace(
               value_to_ivalue[output_nodes[i]], out_tensor_syn);
       output_names.push_back(out_tensor_syn.tensor_name_);
@@ -112,6 +137,8 @@ at::IntArrayRef getDimsForLayout(habana::LayoutFormat channel_order) {
      dims = {0, 3, 1, 2};
   } else if(channel_order == habana::LayoutFormat::NHWC) {
      dims = {0, 2, 3, 1};
+  } else if(channel_order == habana::LayoutFormat::HWCK) {
+     dims = {2, 3, 1, 0};
   } else {
      TORCH_CHECK(" Habana Fusion op permute called for unsupported channel order");
   }
@@ -157,12 +184,13 @@ at::Tensor HabanaLaunchOpPT::permuteTensor(
 
   torch::jit::Stack input_stack = {IValue(input), IValue(dims)};
   // setup the config params for the kernels
-  permute_kernel->AllocateAndAddSynapseNode(syn_graph, input_stack, false);
+  bool persistent = isInGraphOutputs(value_in);
+  permute_kernel->AllocateAndAddSynapseNode(syn_graph, input_stack, persistent);
   auto outputs_permute = permute_kernel->GetOutputs();
 
   //set output synapse tensor
-  auto &output_tensors_syn = permute_kernel->GetSynOutputs();
-  for (auto &out_tensor_syn : output_tensors_syn) {
+  auto& output_tensors_syn = permute_kernel->GetSynOutputs();
+  for (synapse_helpers::tensor &out_tensor_syn : output_tensors_syn) {
     // make the output of permute the input for next synapse kernel
     // permute has a single output
     value_to_ivalue[value_in] = new IValue(outputs_permute[0]);
@@ -170,6 +198,12 @@ at::Tensor HabanaLaunchOpPT::permuteTensor(
     pt_to_synapse_tensors.erase(value_to_ivalue[value_in]);
     pt_to_synapse_tensors.emplace(
             value_to_ivalue[value_in], out_tensor_syn);
+    if(persistent)
+    {
+        output_names.push_back(out_tensor_syn.tensor_name_);
+        output_buffers.push_back(outputs_permute[0].data_ptr());
+    }
+
   }
   return outputs_permute[0];
 }
@@ -193,35 +227,36 @@ void HabanaLaunchOpPT::processInputs(
   auto &habana_kernel_meta_data = habana_kernel->GetKernelMetaData();
   // Check if its ok to change teh input tensor in the graph attached to value
   auto node_ins = node->inputs();
-  TORCH_CHECK(node_ins.size() == habana_kernel_meta_data.input_layout.size(), "HabanaFusionOp : Error in Habana Kernel Meta data");
   int tensor_idx = 0;
+  habana::LayoutFormat in_layout;
   for (const auto value_in : node_ins) {
     // TODO:If a tensor is permuted in first iteration and thats same
     // everytime, like weight in conv We need a way to remember that and used
     // pre-permuted memory/tensor in next iterations
-    if ((value_in->type()->kind() == c10::TypeKind::TensorType) &&
-        !(isChannelOrderSupported(value_in, habana_kernel_meta_data.input_layout[tensor_idx]))) {
-        //permute
-        permuteTensor(
-            syn_graph,
-            value_in,
-            value_to_ivalue[value_in]->toTensor(),
-            habana_kernel_meta_data.input_layout[tensor_idx]);
-        tensor_idx++;
+    if(value_to_ivalue[value_in])
+    {
+        try
+        {
+          in_layout = habana_kernel_meta_data.input_layout.at(tensor_idx);
+        }
+        catch (const std::out_of_range & ex)
+        {
+          in_layout = habana::LayoutFormat::ANY;
+        }
+        if ((value_in->type()->kind() == c10::TypeKind::TensorType) &&
+            !(isChannelOrderSupported(value_in, in_layout))) {
+            //permute
+            permuteTensor(
+                syn_graph,
+                value_in,
+                value_to_ivalue[value_in]->toTensor(),
+                in_layout);
+            tensor_idx++;
+        }
     }
     // TODO : add checks for doing flattening/slicing anything that is
     // required.
   }
-}
-
-bool HabanaLaunchOpPT::isInGraphOutputs(torch::jit::Value* value) {
-  auto graph_outs = subgraph_->outputs();
-  for (auto value_out : graph_outs) {
-    if (value->unique() == value_out->unique()) {
-      return true;
-    }
-  }
-  return false;
 }
 
 void HabanaLaunchOpPT::postProcessOutputs(synapse_helpers::graph& syn_graph) {
@@ -232,7 +267,7 @@ void HabanaLaunchOpPT::postProcessOutputs(synapse_helpers::graph& syn_graph) {
       // TODO:If a tensor is permuted in first iteration and thats same
       // everytime, like weight in conv We need a way to remember that and
       // used pre-permuted memory/tensor in next iterations
-      if (value_out->type()->kind() == c10::TypeKind::TensorType &&
+      if (value_to_ivalue[value_out] && value_out->type()->kind() == c10::TypeKind::TensorType &&
           getTensorChannelOrder(value_out) != habana::LayoutFormat::NCHW &&
           isInGraphOutputs(value_out)) {
         permuteTensor(
@@ -265,7 +300,11 @@ torch::jit::Stack HabanaLaunchOpPT::getStackForNode(torch::jit::Node* node) {
   torch::jit::Stack stack_in;
   auto node_inputs = node->inputs();
   for (auto input : node_inputs) {
-    stack_in.insert(stack_in.end(), *value_to_ivalue[input]);
+    if(value_to_ivalue[input])
+        stack_in.insert(stack_in.end(), *value_to_ivalue[input]);
+    else
+        stack_in.insert(stack_in.end(), IValue());
+
   }
   return stack_in;
 }
@@ -274,7 +313,7 @@ c10::ScalarType HabanaLaunchOpPT::getNodeScalarType(torch::jit::Node* node) {
   //return the data type of first input tensor
   for (auto input : node->inputs())
     {
-      if (value_to_ivalue[input]->isTensor()) {
+      if (value_to_ivalue[input] && value_to_ivalue[input]->isTensor()) {
         return value_to_ivalue[input]->toTensor().scalar_type();
       }
     }
@@ -394,10 +433,6 @@ void HabanaLaunchOpPT::ExecuteRecipe() {
       synStreamSynchronize(stream_handle), "synStreamSynchronize failed");
 }
 
-habana::LayoutFormat getPTTensorLayout() {
-  return habana::LayoutFormat::NCHW;
-}
-
 void HabanaLaunchOpPT::clear() {
   pt_stack = nullptr;
   habana_kernels.clear();
@@ -414,7 +449,10 @@ void HabanaLaunchOpPT::UpdateSubgraphOutput() {
   drop(*pt_stack, num_inputs);
   auto outputs = subgraph_->outputs();
   for (auto output : outputs) {
-    pt_stack->insert(pt_stack->end(), *value_to_ivalue[output]);
+    if(value_to_ivalue[output])
+        pt_stack->insert(pt_stack->end(), *value_to_ivalue[output]);
+    else
+        pt_stack->insert(pt_stack->end(), IValue());
   }
 }
 
@@ -495,6 +533,7 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
       auto value_input = subgraph_inputs[i];
       value_to_ivalue[value_input] = &stack[j];
       value_to_tensor_layout[value_input] = getPTTensorLayout();
+      i++;
     }
   }
 
