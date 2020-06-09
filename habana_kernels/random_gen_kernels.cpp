@@ -148,7 +148,7 @@ BF16/FP32.
 *******************************************************************/
 Tensor& bernoulli_scalar_hpu(
     Tensor& self,
-    float p,
+    double p,
     CPUGenerator* gen = nullptr) {
   LOG_FUNC_BEGIN;
 
@@ -159,7 +159,8 @@ Tensor& bernoulli_scalar_hpu(
           (self_scalar_type == c10::ScalarType::Float),
       "Expected float or int data type");
 
-  Scalar p_converted = p;
+  Scalar p_converted = static_cast<float>(p);
+
   auto p_tensor = habana_helpers::scalar_to_device_tensor(
       p_converted,
       self.options().dtype(c10::ScalarType::Float),
@@ -181,7 +182,6 @@ Tensor& bernoulli_scalar_hpu(
   }
 
   std::vector<const at::Tensor*> pt_outputs{output_ptr};
-
   ns_RandomBernoulli::Params params;
   params.seed = get_seed_hpu(gen);
 
@@ -194,7 +194,8 @@ Tensor& bernoulli_scalar_hpu(
       SynapsePassType::FORWARD_PASS);
 
   if (self_scalar_type == c10::ScalarType::Float) {
-    habana_helpers::copy_data_within_device(self_int, self);
+    auto self_float = habana_helpers::hpu_cast_tensor(self_int, self.dtype());
+    habana_helpers::copy_data_within_device(self_float, self);
   }
 
   LOG_FUNC_END;

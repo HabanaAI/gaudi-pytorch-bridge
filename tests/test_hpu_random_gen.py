@@ -91,7 +91,6 @@ def test_hpu_rand_gen_normal_fwd(N, H, W, C, mean, std, seed):
     # verify if two tensors are same across runs for the same manual seed
     output4 = in3_hpu.normal_(mean=mean, std=std)
     output4_hpu = output4.to(cpu).detach().numpy()
-    print(output4_hpu)
 
     torch.manual_seed(seed)
     output5 = in3_hpu.normal_(mean=mean, std=std)
@@ -124,14 +123,17 @@ def test_hpu_rand_gen_bernoulli_fwd(N, H, W, C, min, max, seed):
     testing.assert_equal((np.min(output2_hpu) >= 0) & (np.max(output2_hpu) <= 1), True)
 
     # Test bernoulli._float
+    g.manual_seed(seed)
+    p = 0.5
     input_i32 = torch.empty((N, C, H, W), dtype=torch.int32)
     input_i32_hpu = input_i32.to(hpu)
-    output1 = input_i32_hpu.bernoulli(0.5, generator=g)
+    output1 = input_i32_hpu.bernoulli(p, generator=g)
     output1_hpu = output1.to(cpu).detach().numpy()
 
+    g.manual_seed(seed)
     input_f32 = torch.empty((N, C, H, W), dtype=torch.float32)
     input_f32_hpu = input_f32.to(hpu)
-    output2 = input_f32_hpu.bernoulli(0.5, generator=g)
+    output2 = input_f32_hpu.bernoulli(p, generator=g)
     output2_hpu = output2.to(cpu).detach().numpy()
 
     # verify if the two tensors are same for same seed
