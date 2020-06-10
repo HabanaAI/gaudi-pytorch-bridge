@@ -302,8 +302,21 @@ std::tuple<Tensor, Tensor, Tensor> convolution_backward_hpu(
     bool transposed,
     IntArrayRef output_padding,
     int64_t groups,
-    std::array<bool, 3> output_mask) {
+    bool output_mask[3]) {
   PT_KERNEL_BEGIN;
+
+  // Build Params for the graph
+  std::vector<c10::IValue> stack = {IValue(grad_output),
+                                    IValue(input),
+                                    IValue(weight),
+                                    IValue(stride),
+                                    IValue(padding),
+                                    IValue(dilation),
+                                    IValue(transposed),
+                                    IValue(output_padding),
+                                    IValue(groups),
+                                    IValue(output_mask)};
+
   std::vector<at::Tensor> inputs{input, weight};
   habana_helpers::check_convolution_params(
       inputs, stride, padding, dilation, transposed, output_padding, groups);
