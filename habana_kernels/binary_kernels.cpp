@@ -13,7 +13,9 @@
 
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
+#include "habana_helpers/graph.h"
 #include "habana_helpers/tensor_utils.h"
+#include "habana_kernels/binary_kernels.h"
 #include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/simple_generic_kernel.h"
 
@@ -492,6 +494,128 @@ Tensor& mul_tensor_hpu_(Tensor& self, const Tensor& other) {
   return self;
 }
 
+//after view operation input shapes get changed
+//creating output based on new tensor creates output with wrong size
+auto get_correct_input_tensor(const Tensor &a, const Tensor &b) {
+  TORCH_CHECK(a.ndimension() == b.ndimension(), "Tensor dims don't match");
+  size_t size1 = 0, size2 = 0;
+  auto sizes1 = a.sizes();
+  auto sizes2 = b.sizes();
+  for(int64_t i = 0; i < a.ndimension(); i++) {
+    if(sizes1[i] > sizes2[i] ) {
+      size1++;
+    }
+    else if(sizes1[i] < sizes2[i]) {
+      size2++;
+    }
+  }
+  return size1 > size2 ? a:b;
+}
+void habana::BinaryOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  // this check is for stack during graph execution
+  TORCH_CHECK(
+      inputs.size() == 2,
+      "Incorrect size of input expected for Binary operator");
+  TORCH_CHECK(inputs[0].isTensor(), "Input type expected to be tensor");
+  TORCH_CHECK(inputs[1].isTensor(), "Input type expected to be tensor");
+
+  Tensor operand1 = inputs[0].toTensor();
+  Tensor operand2 = inputs[1].toTensor();
+
+  //fix for graph compiler error INCOMPATIBLE_OUTPUT_SIZE
+  auto operand = get_correct_input_tensor(operand1, operand2);
+  auto output = at::empty(operand.sizes(), operand.options());
+  AllocateSynapseOutput(graph, output, is_output_persistent);
+  AddNodeToSynapseGraph(graph, nullptr, 0);
+}
+
+Tensor binary_op_hpu(
+    const std::vector<const at::Tensor*> &pt_inputs,
+    const std::string& node_type,
+    size_t device_id,
+    habana::BinaryOperator* Op) {
+  LOG_FUNC_BEGIN;
+  // Create Graph
+  auto graph = habana_helpers::create_graph(device_id, node_type);
+
+  // Assign Inputs to the Operator
+  Op->AllocateSynapseInputs(graph, pt_inputs, true);
+
+  // both inputs are not required, just to match graph mode stack
+  std::vector<c10::IValue> stack = {IValue(*pt_inputs[0]), IValue(*pt_inputs[1])};
+  Op->AllocateAndAddSynapseNode(graph, stack, true);
+
+  // compile and execute the graph
+  Op->Compile(graph);
+
+  std::vector<at::Tensor> out = Op->GetOutputs();
+  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
+  LOG_FUNC_END;
+  return out.at(0);
+}
+
+template<class BinaryOp>
+Tensor process_generic_tensor_binary_op(
+    const Tensor& operand1,
+    const Tensor& operand2,
+    const std::string& node_guid,
+    const SynapsePassType pass_type) {
+  LOG_FUNC_BEGIN;
+
+  auto out_sizes = at::infer_size(operand1.sizes(), operand2.sizes());
+  auto output = at::empty(out_sizes, operand1.options());
+  auto out_dims = output.ndimension();
+
+  std::vector<const at::Tensor*> pt_inputs;
+  Tensor expanded_operand;
+  auto operand1_hpu = get_hpu_tensor(operand1);
+  auto operand2_hpu = get_hpu_tensor(operand2);
+
+  check_ew_kernel_constraints(operand1_hpu, operand2_hpu);
+
+  // Make sure that we give tensors that match dims to Synapse
+  if (operand1.ndimension() > operand2.ndimension()) {
+    auto operand2_sizes = operand2.sizes().vec();
+    // Create view_sizes initialized to part which has size=1 for upper dims
+    auto view_sizes = std::vector<int64_t>(out_dims - operand2.ndimension(), 1);
+    // and append the smaller tensor dims
+    view_sizes.insert(
+        view_sizes.end(), operand2_sizes.begin(), operand2_sizes.end());
+    expanded_operand = operand2_hpu.view(view_sizes);
+    pt_inputs.push_back(&operand1_hpu);
+    pt_inputs.push_back(&expanded_operand);
+  } else if (operand1.ndimension() < operand2.ndimension()) {
+    auto operand1_sizes = operand1.sizes().vec();
+    // Create view_sizes initialized to part which has size=1 for upper dims
+    auto view_sizes = std::vector<int64_t>(out_dims - operand1.ndimension(), 1);
+    view_sizes.insert(
+        view_sizes.end(), operand1_sizes.begin(), operand1_sizes.end());
+    expanded_operand = operand1_hpu.view(view_sizes);
+    pt_inputs.push_back(&expanded_operand);
+    pt_inputs.push_back(&operand2_hpu);
+  }
+  else {
+    pt_inputs.push_back(&operand1_hpu);
+    pt_inputs.push_back(&operand2_hpu);
+  }
+  size_t device_id = pt_inputs[0]->device().index();
+  at::ScalarType scalar_type = pt_inputs[0]->scalar_type();
+
+  // can we hard code _fwd_ ?
+  std::string node_type = (SynapsePassType::NO_PASS == pass_type) ? node_guid
+                                                                  : node_guid +
+          std::string((SynapsePassType::FORWARD_PASS == pass_type) ? "_fwd_"
+                                                                   : "_bwd_") +
+          habana_helpers::name_suffix_from_type(scalar_type);
+
+  BinaryOp op(device_id, scalar_type);
+  auto out = binary_op_hpu(pt_inputs, node_type, device_id, &op);
+  LOG_FUNC_END;
+  return out;
+}
 /*************************************************************************
  * @brief Kernel implementation for output = torch.mul(self, other)
  * @param self - first input
@@ -500,12 +624,15 @@ Tensor& mul_tensor_hpu_(Tensor& self, const Tensor& other) {
  ************************************************************************/
 Tensor mul_tensor_hpu(const Tensor& self, const Tensor& other) {
   LOG_FUNC_BEGIN;
+
+  //TODO: Add pow operator for graph mode
   if (self.is_same(other)) {
     return at::pow(self, 2.0);
   }
 
-  auto output = do_generic_tensor_binary_op(
+  auto output = process_generic_tensor_binary_op<habana::MulOperator>(
       self, other, "mult", SynapsePassType::FORWARD_PASS);
+
   LOG_FUNC_END;
   return output;
 }
@@ -601,7 +728,7 @@ Tensor eq_scalar_tensor_hpu(Tensor& self, Scalar other) {
  ************************************************************************/
 Tensor div_tensor_hpu(const Tensor& self, const Tensor& other) {
   LOG_FUNC_BEGIN;
-  auto out = do_generic_tensor_binary_op(
+  auto out = process_generic_tensor_binary_op<habana::DivOperator>(
       self, other, "div", SynapsePassType::FORWARD_PASS);
   LOG_FUNC_END;
   return out;

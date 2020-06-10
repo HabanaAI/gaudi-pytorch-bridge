@@ -8,6 +8,7 @@
  ******************************************************************************
  */
 #include "habana_kernels/basic_kernels.h"
+#include "habana_kernels/binary_kernels.h"
 #include "habana_kernels/conv_kernels.h"
 #include "habana_kernels/habana_operator.h"
 #include "habana_kernels/linear_kernels.h"
@@ -46,6 +47,10 @@ HabanaOperatorPtr CreateHabanaOperator(
     op = std::make_shared<PermuteOperator>(device_id, node_type);
   } else if ("aten::t" == node_name) {
     op = std::make_shared<TOperator>(device_id, node_type);
+  } else if ("aten::mul" == node_name) {
+    op = std::make_shared<MulOperator>(device_id, node_type);
+  } else if ("aten::div" == node_name) {
+    op = std::make_shared<DivOperator>(device_id, node_type);
   }
 
   // Returning a null pointer for cases not added yet,
