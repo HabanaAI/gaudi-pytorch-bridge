@@ -36,7 +36,7 @@ class HabanaLaunchOpPT {
 
  private:
   std::shared_ptr<torch::jit::Graph> subgraph_;
-  std::string opname;
+  std::string opname_;
   bool debug_;
 
   std::vector<std::string> input_names;

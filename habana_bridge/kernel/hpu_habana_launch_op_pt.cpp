@@ -37,6 +37,7 @@ using namespace torch::jit;
 
 HabanaLaunchOpPT::HabanaLaunchOpPT(const torch::jit::Node* node, bool debug) {
   subgraph_ = node->g(attr::Subgraph);
+  opname_ = node->kind().toQualString();
   debug_ = debug;
 }
 
@@ -410,9 +411,8 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
   // figure out the right device id
   auto& device = synapse_helpers::HPURegistrar::get_device();
   synDeviceId device_id = device.id();
-  //TODO : get the correct name from the graph
   synapse_helpers::graph syn_graph =
-      habana_helpers::create_graph(device_id, "habana_op"/*subgraph_->block()->owningNode()->kind().toQualString()*/);
+      habana_helpers::create_graph(device_id, opname_);
 
   // for each node in IR graph, at this point the graph is a list with nodes
   // topoloically sorted
