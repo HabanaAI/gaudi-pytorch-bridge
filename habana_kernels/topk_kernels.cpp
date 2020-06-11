@@ -13,10 +13,12 @@
 
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
+#include "habana_helpers/graph.h"
 #include "habana_helpers/tensor_utils.h"
 #include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/resize.h"
 #include "habana_kernels/simple_generic_kernel.h"
+#include "habana_kernels/topk_kernels.h"
 
 using namespace torch;
 
@@ -55,6 +57,60 @@ inline void _allocate_or_resize_output_with_indices(
   }
 }
 
+void TopkOutOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 7,
+      "Incorrect size of inputs expected for topk operator");
+  TORCH_CHECK(inputs[0].isTensor(), "Input arg1 expected to be tensor for topk operator");
+  TORCH_CHECK(inputs[1].isTensor(), "Input arg2 expected to be tensor for topk operator");
+  TORCH_CHECK(inputs[2].isTensor(), "Input arg3 expected to be tensor for topk operator");
+  TORCH_CHECK(
+      inputs[3].isInt(),
+      "Input arg4 expected to be of type Int for topk operator");
+  TORCH_CHECK(
+      inputs[4].isInt(),
+      "Input arg5 expected to be of type Int for topk operator");
+   TORCH_CHECK(
+      inputs[5].isBool(),
+      "Input arg6 expected to be of type Bool for topk operator");
+  TORCH_CHECK(
+      inputs[6].isBool(),
+      "Input arg7 expected to be of type Bool for topk operator");
+
+  auto values = inputs[0].toTensor();
+  auto indices = inputs[1].toTensor();
+  auto self = inputs[2].toTensor();
+  int64_t k = inputs[3].toInt();
+  int64_t dim_ = inputs[4].toInt();
+  bool largest = inputs[5].toBool();
+  bool sorted = inputs[6].toBool();
+
+  int64_t dim = at::maybe_wrap_dim(dim_, self.dim(), /*wrap_scalar=*/true);
+
+  TORCH_CHECK(dim == self.dim()-1, "topk supports sort along fastest changing dim only")
+  TORCH_CHECK(self.dim() == 2, "topk supports 2D input tensors only")
+  TORCH_CHECK(
+      k >= 0 && k <= (self.dim() > 0 ? self.size(dim) : 1),
+      "selected index k out of range");
+  TORCH_CHECK(largest == true, "smallest k element not supported")
+  TORCH_CHECK(sorted == true, "unsorted output not supported")
+
+  _allocate_or_resize_output_with_indices(values, indices, self, dim, k);
+  ns_TopK::Params params{};
+  params.kSize = k;
+  params.axis = self.dim() - dim - 1;
+
+  p_context_->params_.emplace<ns_TopK::Params>(params);
+  p_context_->params_size_ = sizeof(params);
+
+  std::vector<at::Tensor> outputs{values, indices};
+  AllocateSynapseOutputs(graph, outputs, is_output_persistent);
+  AddNodeToSynapseGraph(graph, &params, sizeof(params));
+}
+
 std::tuple<Tensor&, Tensor&> topk_out_hpu(
     Tensor& values,
     Tensor& indices,
@@ -65,37 +121,55 @@ std::tuple<Tensor&, Tensor&> topk_out_hpu(
     bool sorted) {
   PT_KERNEL_BEGIN;
 
-  int64_t dim = at::maybe_wrap_dim(dim_, self.dim(), /*wrap_scalar=*/true);
-  TORCH_CHECK(dim == self.dim()-1, "topk supports sort along fastest changing dim only")
-  TORCH_CHECK(self.dim() == 2, "topk supports 2D input tensors only")
-  TORCH_CHECK(
-      k >= 0 && k <= (self.dim() > 0 ? self.size(dim) : 1),
-      "selected index k out of range");
-  TORCH_CHECK(largest == true, "smallest k element not supported")
-  TORCH_CHECK(sorted == true, "unsorted output not supported")
+  std::string node_type ="topk";
 
-  _allocate_or_resize_output_with_indices(values, indices, self, dim, k);
-  if (self.dim() == 0 && self.numel() == 1) {
-    values.copy_(self);
-    indices.zero_();
-    return std::forward_as_tuple(values, indices);
-  }
+  size_t device_id = self.device().index();
 
-  ns_TopK::Params params{};
-  params.kSize = k;
-  params.axis = self.dim() - dim - 1;
+  TopkOutOperator Op(device_id, node_type);
+  // Create Graph
+  auto graph = habana_helpers::create_graph(device_id, node_type);
+
+  // Assign Inputs to the Operator
   std::vector<const at::Tensor*> pt_inputs{&self};
-  std::vector<const at::Tensor*> pt_outputs{&values, &indices};
-  synapse_simple_generic_kernel(
-      pt_outputs,
-      pt_inputs,
-      "topk",
-      &params,
-      sizeof(params),
-      SynapsePassType::NO_PASS);
+  Op.AllocateSynapseInputs(graph, pt_inputs, true);
+
+  // Build Params for the graph
+  std::vector<c10::IValue> stack = {IValue(values),
+                                    IValue(indices),
+                                    IValue(self),
+                                    IValue(k),
+                                    IValue(dim_),
+                                    IValue(largest),
+                                    IValue(sorted)};
+  Op.AllocateAndAddSynapseNode(graph, stack, true);
+
+  // compile and execute the graph
+  Op.Compile(graph);
+
+  std::vector<at::Tensor> out = Op.GetOutputs();
+  TORCH_CHECK(out.size() == 2, "Incorrect size of outputs");
 
   PT_KERNEL_END;
-  return std::forward_as_tuple(values, indices);
+  return std::forward_as_tuple(out.at(0),out.at(1));
+}
+
+void TopkOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 5,
+      "Incorrect size of inputs expected for topk operator");
+  TORCH_CHECK(inputs[0].isTensor(), "Input arg1 expected to be tensor for topk operator");
+
+  Tensor self = inputs[0].toTensor();
+  Tensor values = at::empty({0}, self.options());
+  Tensor indices = at::empty({0}, self.options().dtype(c10::ScalarType::Int));
+
+  inputs.insert(inputs.begin(), IValue(indices));
+  inputs.insert(inputs.begin(), IValue(values));
+
+  TopkOutOperator::AllocateAndAddSynapseNode(graph, inputs, is_output_persistent);
 }
 
 std::tuple<Tensor, Tensor> topk_hpu(
@@ -106,12 +180,66 @@ std::tuple<Tensor, Tensor> topk_hpu(
     bool sorted) {
   PT_KERNEL_BEGIN;
 
-  Tensor values = at::empty({0}, self.options());
-  Tensor indices = at::empty({0}, self.options().dtype(c10::ScalarType::Int));
-  topk_out_hpu(values, indices, self, k, dim, largest, sorted);
+  std::string node_type = "topk";
+
+  // Create the operator
+  size_t device_id = self.device().index();
+  TopkOperator Op(device_id, node_type);
+
+  // Create Graph
+  auto graph = habana_helpers::create_graph(device_id, node_type);
+
+  // Assign Inputs to the Operator
+  std::vector<const at::Tensor*> pt_inputs{&self};
+  Op.AllocateSynapseInputs(graph, pt_inputs, true);
+
+  // Build Params for the graph
+  std::vector<c10::IValue> stack = {IValue(self),
+                                    IValue(k),
+                                    IValue(dim),
+                                    IValue(largest),
+                                    IValue(sorted)};
+  Op.AllocateAndAddSynapseNode(graph, stack, true);
+
+  // compile and execute the graph
+  Op.Compile(graph);
+
+  std::vector<at::Tensor> out = Op.GetOutputs();
+  TORCH_CHECK(out.size() == 2, "Incorrect size of outputs");
 
   PT_KERNEL_END;
-  return std::make_tuple(values, indices);
+  return std::forward_as_tuple(out.at(0),out.at(1));
+}
+
+void SortOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 3,
+      "Incorrect size of inputs expected for sort operator");
+  TORCH_CHECK(inputs[0].isTensor(), "Input arg1 expected to be tensor for sort operator");
+  TORCH_CHECK(inputs[1].isInt(), "Input arg2 expected to be of type Int for sort operator");
+  TORCH_CHECK(inputs[2].isBool(), "Input arg3 expected to be of type Bool for sort operator");
+
+  Tensor self = inputs[0].toTensor();
+  int64_t dim_ = inputs[1].toInt();
+  bool descending = inputs[2].toBool();
+  bool sorted =true; //topk supports only sorted output
+
+  TORCH_CHECK(descending == true, "sort in descending order is only supported currently");
+
+  int64_t dim = at::maybe_wrap_dim(dim_, self.dim(), /*wrap_scalar=*/true);
+  inputs.insert(inputs.begin()+1, IValue(self.size(dim)));
+  inputs.emplace_back(IValue(sorted));
+
+  Tensor values = at::empty({0}, self.options());
+  Tensor indices = at::empty({0}, self.options().dtype(c10::ScalarType::Int));
+
+  inputs.insert(inputs.begin(), IValue(indices));
+  inputs.insert(inputs.begin(), IValue(values));
+
+  TopkOutOperator::AllocateAndAddSynapseNode(graph, inputs, is_output_persistent);
 }
 
 /*************************************************************************
@@ -130,21 +258,33 @@ std::tuple<Tensor, Tensor> sort_hpu(
     bool descending) {
   PT_KERNEL_BEGIN;
 
-  int64_t dim_ = at::maybe_wrap_dim(dim, self.dim(), /*wrap_scalar=*/true);
-  TORCH_CHECK(
-      descending == true,
-      "sort in descending order is only supported currently")
-  TORCH_CHECK(dim_ == self.dim()-1,
-      "sort is supported along fastest changing dim only")
-  TORCH_CHECK(self.dim() == 2,
-      "sort supports 2D input tensors only")
+  std::string node_type = "topk";
 
-  Tensor values, indices;
-  std::tie(values, indices) =
-      at::topk(self, self.size(dim_), dim_, descending, true);
+  // Create the operator
+  size_t device_id = self.device().index();
+  SortOperator Op(device_id, node_type);
+
+  // Create Graph
+  auto graph = habana_helpers::create_graph(device_id, node_type);
+
+  // Assign Inputs to the Operator
+  std::vector<const at::Tensor*> pt_inputs{&self};
+  Op.AllocateSynapseInputs(graph, pt_inputs, true);
+
+  // Build Params for the graph
+  std::vector<c10::IValue> stack = {IValue(self),
+                                    IValue(dim),
+                                    IValue(descending)};
+  Op.AllocateAndAddSynapseNode(graph, stack, true);
+
+  // compile and execute the graph
+  Op.Compile(graph);
+
+  std::vector<at::Tensor> out = Op.GetOutputs();
+  TORCH_CHECK(out.size() == 2, "Incorrect size of outputs");
 
   PT_KERNEL_END;
-  return std::make_tuple(values, indices);
+  return std::forward_as_tuple(out.at(0),out.at(1));
 }
 
 static auto registry =
