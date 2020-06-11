@@ -62,6 +62,7 @@ const std::unordered_set<std::string> HabanaWhiteList::HabanaWhiteListOps = {
         "aten::sum",
         "aten::mean",
         "aten::_log_softmax",
+        "aten::log_softmax",
         "aten::_log_softmax_backward_data",
         "aten::clone",
         "aten::empty",

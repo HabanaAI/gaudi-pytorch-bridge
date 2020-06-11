@@ -35,6 +35,8 @@ HabanaOperatorPtr CreateHabanaOperator(
     op = std::make_shared<LogSoftmaxOperator>(device_id, node_type);
   } else if ("aten::convolution_overrideable" == node_name) {
     op = std::make_shared<ConvOperator>(device_id, node_type);
+  } else if ("aten::_log_softmax_backward_data" == node_name) {
+    op = std::make_shared<LogSoftmaxBackwardOperator>(device_id, node_type);
   } else if ("aten::conv2d" == node_name) {
     op = std::make_shared<Conv2dOperator>(device_id, node_type);
   } else if ("aten::mm" == node_name) {

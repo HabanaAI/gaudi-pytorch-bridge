@@ -16,11 +16,37 @@ namespace habana {
 //
 class LogSoftmaxOperator : public HabanaOperator {
  public:
-  LogSoftmaxOperator(int device_id, c10::ScalarType scalarType);
+  LogSoftmaxOperator(int device_id, c10::ScalarType scalarType)
+    : HabanaOperator(
+          "logsoftmax_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
+    this->CreateSynContext(device_id);
+    kernel_meta_data_.input_layout.assign({LayoutFormat::ANY,
+                                           LayoutFormat::ANY,
+                                           LayoutFormat::ANY});
+    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
+  }
+  virtual void AllocateAndAddSynapseNode(
+        synapse_helpers::graph& graph,
+        torch::jit::Stack& inputs,
+        bool is_output_persistent = false);
+};
+
+class LogSoftmaxBackwardOperator : public HabanaOperator {
+ public:
+  LogSoftmaxBackwardOperator(int device_id, c10::ScalarType scalarType)
+    : HabanaOperator(
+          "logsoftmax_bwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
+    this->CreateSynContext(device_id);
+    kernel_meta_data_.input_layout.assign({LayoutFormat::ANY,
+                                           LayoutFormat::ANY,
+                                           LayoutFormat::ANY});
+    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
+  }
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       bool is_output_persistent = false);
+ ;
 };
 
 // Sofmax Operator

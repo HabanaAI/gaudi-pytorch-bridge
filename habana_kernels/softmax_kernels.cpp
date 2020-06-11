@@ -19,18 +19,11 @@
 #include "habana_kernels/simple_generic_kernel.h"
 #include "habana_kernels/softmax_kernels.h"
 
+#include <algorithm>
+
 using namespace torch;
 
 namespace habana {
-LogSoftmaxOperator::LogSoftmaxOperator(int device_id, c10::ScalarType scalarType)
-    : HabanaOperator(
-          "logsoftmax_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
-  this->CreateSynContext(device_id);
-  kernel_meta_data_.input_layout.assign({LayoutFormat::ANY,
-                                         LayoutFormat::ANY,
-                                         LayoutFormat::ANY});
-  kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
-}
 
 void LogSoftmaxOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
@@ -65,6 +58,53 @@ void LogSoftmaxOperator::AllocateAndAddSynapseNode(
 
   auto output = at::empty(self.sizes(), self.options());
   AllocateSynapseOutput(graph, output, is_output_persistent);
+  AddNodeToSynapseGraph(graph, &params, sizeof(params));
+}
+
+void LogSoftmaxBackwardOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    Stack& inputs,
+    bool is_output_persistent) {
+
+  TORCH_CHECK(
+      inputs.size() == 4, "Incorrect size of input expected for softmax operator");
+  TORCH_CHECK(inputs[0].isTensor(), "Input type expected to be tensor");
+  TORCH_CHECK(inputs[1].isTensor(), "Input type expected to be tensor");
+  TORCH_CHECK(inputs[2].isInt(), "Input type expected to be int");
+  TORCH_CHECK(inputs[3].isTensor(), "Input type expected to be tensor");
+
+  at::Tensor grad = inputs[0].toTensor();
+  at::Tensor output = inputs[1].toTensor();
+  int dim = inputs[2].toInt();
+  at::Tensor input = inputs[3].toTensor();
+
+  dim = at::maybe_wrap_dim(dim, input.dim(), /*wrap_scalar=*/true);
+
+  ns_Softmax::Params params{static_cast<int>(input.ndimension() - 1 - dim)};
+
+  p_context_->params_.emplace<ns_Softmax::Params>(params);
+  p_context_->params_size_ = sizeof(params);
+
+  // For logsoftmax_bwd_ kernel, the node inputs are in order {grad, output, input}
+  // The synapse graph needs only the grad and output, and i the order {output, grad}
+  // The p_context_->pt_inputs_ abd p_context_->syn_inputs_ are modified here
+  // to ensure this.
+
+  TORCH_CHECK(p_context_->pt_inputs_.size() == 3,
+             "logsoftmax_bwd node should have 3 input pytorch tensors");
+  TORCH_CHECK(p_context_->syn_inputs_.size() == 3,
+             "logsoftmax_bwd node should have 3 input synapse tensors");
+  // Remove the "input" tensor at the end
+  p_context_->pt_inputs_.pop_back();
+  p_context_->syn_inputs_.pop_back();
+
+  // Reorder the grad and output
+  std::swap(p_context_->pt_inputs_[0], p_context_->pt_inputs_[1]);
+  std::swap(p_context_->syn_inputs_[0], p_context_->syn_inputs_[1]);
+
+  auto grad_output = at::empty(input.sizes(), input.options());
+
+  AllocateSynapseOutput(graph, grad_output, is_output_persistent);
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
@@ -111,7 +151,6 @@ Tensor log_softmax_hpu(
 
   return out.at(0);
 }
-} // end namespace habana
 
 /** log_softmax (backward pass) implementation for Habana device
  * @params [In] grad: Backward pass Input tensor. 2-4D. bf16, fp32
@@ -126,24 +165,35 @@ Tensor log_softmax_backward_hpu(
     const Tensor& input) {
   LOG_FUNC_BEGIN;
 
-  int64_t dim_ = at::maybe_wrap_dim(dim, input.dim(), /*wrap_scalar=*/true);
+  size_t device_id = grad.device().index();
+  at::ScalarType scalar_type = grad.scalar_type();
+  std::string node_type =
+      "logsoftmax_bwd_" + habana_helpers::name_suffix_from_type(scalar_type);
 
-  auto input_grad = at::empty(input.sizes(), input.options());
-  ns_Softmax::Params params{static_cast<int>(input.ndimension() - 1 - dim_)};
+  // create graph
+  auto graph = habana_helpers::create_graph(device_id, node_type);
 
-  std::vector<const at::Tensor*> pt_inputs{&output, &grad};
-  std::vector<const at::Tensor*> pt_outputs{&input_grad};
-  synapse_simple_generic_kernel(
-      pt_outputs,
-      pt_inputs,
-      "logsoftmax",
-      &params,
-      sizeof(params),
-      SynapsePassType::BACKWARD_PASS);
+  // create the operator
+  LogSoftmaxBackwardOperator Op(device_id, scalar_type);
 
+  // Assign Inputs to the Operator
+  std::vector<const at::Tensor*> pt_inputs{&grad, &output, &input};
+  Op.AllocateSynapseInputs(graph, pt_inputs, true);
+
+  // Build Params for the graph
+  std::vector<c10::IValue> stack = {IValue(grad), IValue(output), IValue(dim), IValue(input)};
+  Op.AllocateAndAddSynapseNode(graph, stack, true);
+
+  // compile and execute the graph
+  Op.Compile(graph);
+
+  std::vector<at::Tensor> out = Op.GetOutputs();
+  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
   LOG_FUNC_END;
-  return input_grad;
+
+  return out.at(0);
 }
+} // end namespace habana
 
 namespace habana {
 SoftmaxOperator::SoftmaxOperator(int device_id, c10::ScalarType scalarType)
@@ -174,7 +224,6 @@ void SoftmaxOperator::AllocateAndAddSynapseNode(
       !half_to_float,
       "softmax with half to float conversion is not supported on HPU");
   dim = at::maybe_wrap_dim(dim, self.dim(), /*wrap_scalar=*/true);
-
 
   ns_Softmax::Params params{static_cast<int>(self.ndimension() - 1 - dim)};
 
@@ -286,8 +335,8 @@ static auto registry =
                 .schema(
                     "aten::_log_softmax_backward_data(Tensor grad_output, Tensor output, int dim, Tensor self) -> Tensor")
                 .impl_unboxedOnlyKernel<
-                    decltype(log_softmax_backward_hpu),
-                    &log_softmax_backward_hpu>(DispatchKey::HABANATensorId)
+                    decltype(habana::log_softmax_backward_hpu),
+                    &habana::log_softmax_backward_hpu>(DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema(
