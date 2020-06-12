@@ -93,6 +93,15 @@ def _get_cache_path(filepath):
     cache_path = os.path.expanduser(cache_path)
     return cache_path
 
+def enable_tracing(device):
+    with torch.jit.optimized_execution(True):
+        import hb_torch
+        torch._C._jit_override_can_fuse_on_cpu(False)
+        torch._C._jit_set_profiling_executor(False)
+        torch._C._jit_set_profiling_mode(False)
+        hb_torch.enable()
+        sample_trace_tensor = torch.FloatTensor(8, 3, 224, 224).to(device)
+        return sample_trace_tensor
 
 def load_data(traindir, valdir, cache_dataset, distributed):
     # Data loading code
@@ -176,6 +185,7 @@ def main(args):
     if args.device == 'habana':
         print("Attempting to load library from path ", os.environ['BUILD_ROOT_LATEST'], flush=True)
         torch.ops.load_library(os.path.join(os.environ['BUILD_ROOT_LATEST'], "libhabana_pytorch_plugin.so"))
+        sys.path.insert(0, os.path.join(os.environ['BUILD_ROOT_LATEST']))
 
     device = torch.device(args.device)
 
@@ -249,14 +259,23 @@ def main(args):
         evaluate(model, criterion, data_loader_test, device=device)
         return
 
+    if args.run_trace_mode:
+        sample_trace_tensor = enable_tracing(device)
+        model_trace = torch.jit.trace(model, sample_trace_tensor, check_trace=False)
+
     print("Start training")
     start_time = time.time()
     for epoch in range(args.start_epoch, args.epochs):
         if args.distributed:
             train_sampler.set_epoch(epoch)
-        train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, args.print_freq, args.apex)
-        lr_scheduler.step()
-        evaluate(model, criterion, data_loader_test, device=device)
+        if args.run_trace_mode:
+            train_one_epoch(model_trace, criterion, optimizer, data_loader, device, epoch, args.print_freq, args.apex)
+            lr_scheduler.step()
+            evaluate(model_trace, criterion, data_loader_test, device=device)
+        else: 
+            train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, args.print_freq, args.apex)
+            lr_scheduler.step()
+            evaluate(model, criterion, data_loader_test, device=device)
         if (args.output_dir and args.save_checkpoint):
             #Bring the model back to CPU before storing. Needed if running on Habana.
             model_without_ddp_cpu = model_without_ddp.to('cpu')
@@ -346,6 +365,8 @@ def parse_args():
     parser.add_argument('--dist-url', default='env://', help='url used to set up distributed training')
     parser.add_argument('--save-checkpoint',  action="store_true",
                         help='Whether or not to save model/checkpont; True: to save, False to avoid saving')
+    parser.add_argument('--run-trace-mode', action='store_true', default=False,
+                        help='run JIT mode with fusion enabled') 
     args = parser.parse_args()
 
     return args
