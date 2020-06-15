@@ -91,6 +91,9 @@ def train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, pri
     header = 'Epoch: [{}]'.format(epoch)
     for image, target in metric_logger.log_every(data_loader, print_freq, header):
         start_time = time.time()
+        if args.channels_last:
+            image = image.contiguous(memory_format=torch.channels_last)
+
         image, target = image.to(device), target.to(device)
         output = model(image)
         loss = criterion(output, target)
@@ -226,6 +229,12 @@ def load_data(traindir, valdir, cache_dataset, distributed):
 
     return dataset, dataset_test, train_sampler, test_sampler
 
+def permute_params_on_device(model):
+    with torch.no_grad():
+        for name, param in model.named_parameters():
+            if(param.ndim == 4):
+                permuted_data = param.data.permute((2,3,1,0))
+                param.data.copy_(permuted_data)
 
 def main(args):
     if args.apex:
@@ -274,7 +283,23 @@ def main(args):
     #import from a local copy. A local copy of resnet model file is used so that
     #modifications can be done to the resnet model if necessary.
     model = resnet_models.__dict__[args.model](pretrained=args.pretrained)
-    model.to(device)
+
+    if args.channels_last:
+        model.to(device)
+        if(device==torch.device('cuda')):
+            print('Converting model to channels_last format on CUDA')
+            model.to(memory_format=torch.channels_last)
+        elif(device==torch.device('habana')):
+            print('Converting model params to channels_last format on Habana')
+            #TODO:
+            #model.to(device).to(memory_format=torch.channels_last)
+            #The above model conversion doesn't change the model params
+            #to channels_last for many components - e.g. convolution.
+            #So we are forced to rearrange such tensors ourselves.
+            permute_params_on_device(model)
+    else:
+        model.to(device)
+
     if args.distributed and args.sync_bn:
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
 
@@ -301,6 +326,8 @@ def main(args):
         optimizer.load_state_dict(checkpoint['optimizer'])
         lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
         args.start_epoch = checkpoint['epoch'] + 1
+        if(args.channels_last and device==torch.device('habana')):
+            permute_params_on_device(model_without_ddp)
 
     if args.test_only:
         evaluate(model, criterion, data_loader_test, trainMetaData, device=device)
@@ -370,6 +397,9 @@ def parse_args():
     parser.add_argument('--lr-gamma', default=0.1, type=float, help='decrease lr by a factor of lr-gamma')
     parser.add_argument('--print-freq', default=10, type=int, help='print frequency')
     parser.add_argument('--output-dir', default='.', help='path where to save')
+
+    parser.add_argument('--channels-last',action="store_true",
+                                     help='Whether input in channels last format')
     parser.add_argument('--resume', default='', help='resume from checkpoint')
     parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                         help='start epoch')
