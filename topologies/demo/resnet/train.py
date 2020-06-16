@@ -26,7 +26,7 @@ except ImportError:
 
 def train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, print_freq, apex=False):
     model.train()
-    metric_logger = utils.MetricLogger(delimiter="  ")
+    metric_logger = utils.MetricLogger(delimiter="  ",device=device)
     metric_logger.add_meter('lr', utils.SmoothedValue(window_size=1, fmt='{value}'))
     metric_logger.add_meter('img/s', utils.SmoothedValue(window_size=10, fmt='{value}'))
 
@@ -60,7 +60,7 @@ def train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, pri
 
 def evaluate(model, criterion, data_loader, device, print_freq=100):
     model.eval()
-    metric_logger = utils.MetricLogger(delimiter="  ")
+    metric_logger = utils.MetricLogger(delimiter="  ",device=device)
     header = 'Test:'
     with torch.no_grad():
         for image, target in metric_logger.log_every(data_loader, print_freq, header):
@@ -247,9 +247,11 @@ def main(args):
 
     model_without_ddp = model
     if args.distributed:
-        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
+        if args.device == 'habana':
+            model = torch.nn.parallel.DistributedDataParallel(model)
+        else:
+            model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
         model_without_ddp = model.module
-
     if args.resume:
         checkpoint = torch.load(args.resume, map_location='cpu')
         model_without_ddp.load_state_dict(checkpoint['model'])

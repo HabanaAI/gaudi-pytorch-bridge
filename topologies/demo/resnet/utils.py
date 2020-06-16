@@ -27,14 +27,18 @@ class SmoothedValue(object):
         self.count += n
         self.total += value * n
 
-    def synchronize_between_processes(self):
+    def synchronize_between_processes(self,device):
         """
         Warning: does not synchronize the deque!
         """
         if not is_dist_avail_and_initialized():
             return
-        t = torch.tensor([self.count, self.total], dtype=torch.float64, device='cuda')
-        dist.barrier()
+        if device.type == 'habana':
+            t = torch.tensor([self.count, self.total], dtype=torch.float32).to('habana')
+        else:
+            t = torch.tensor([self.count, self.total], dtype=torch.float64, device='cuda')
+            dist.barrier()
+
         dist.all_reduce(t)
         t = t.tolist()
         self.count = int(t[0])
@@ -72,9 +76,10 @@ class SmoothedValue(object):
 
 
 class MetricLogger(object):
-    def __init__(self, delimiter="\t"):
+    def __init__(self, delimiter="\t",device=torch.device('cuda')):
         self.meters = defaultdict(SmoothedValue)
         self.delimiter = delimiter
+        self.device = device
 
     def update(self, **kwargs):
         for k, v in kwargs.items():
@@ -101,7 +106,7 @@ class MetricLogger(object):
 
     def synchronize_between_processes(self):
         for meter in self.meters.values():
-            meter.synchronize_between_processes()
+            meter.synchronize_between_processes(self.device)
 
     def add_meter(self, name, meter):
         self.meters[name] = meter
@@ -270,11 +275,17 @@ def init_distributed_mode(args):
         return
 
     args.distributed = True
-
-    torch.cuda.set_device(args.gpu)
-    args.dist_backend = 'nccl'
     print('| distributed init (rank {}): {}'.format(
         args.rank, args.dist_url), flush=True)
-    torch.distributed.init_process_group(backend=args.dist_backend, init_method=args.dist_url,
-                                         world_size=args.world_size, rank=args.rank)
+
+    if args.device == 'habana' and 'RANK' in os.environ and 'WORLD_SIZE' in os.environ:
+        args.dist_backend = 'hcl'
+        os.environ["ID"] = str(args.rank)
+        torch.distributed.init_process_group(args.dist_backend, rank=args.rank, world_size=args.world_size)
+    else:
+        torch.cuda.set_device(args.gpu)
+        args.dist_backend = 'nccl'
+        torch.distributed.init_process_group(backend=args.dist_backend, init_method=args.dist_url,
+                                             world_size=args.world_size, rank=args.rank)
+
     setup_for_distributed(args.rank == 0)
