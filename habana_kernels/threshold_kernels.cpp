@@ -220,15 +220,24 @@ Tensor threshold_backward_hpu(
     synapse_threshold_out(
         output, self, threshold_tensor, value_tensor, grad_output);
   } else {
+    // Build Params for the graph
+    std::vector<c10::IValue> stack = {IValue(grad_output), IValue(self)};
+    size_t device_id = self[0].device().index();
+    auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+    at::ScalarType scalar_type = self.scalar_type();
+    std::string nodeType =
+        "relu_bwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+    size_t key = habana_helpers::getRecipeKey(nodeType, stack);
     std::vector<const at::Tensor*> pt_inputs{&grad_output, &self};
     std::vector<const at::Tensor*> pt_outputs{&output};
-    synapse_simple_generic_kernel(
-        pt_outputs,
-        pt_inputs,
-        "relu",
-        nullptr,
-        0,
-        SynapsePassType::BACKWARD_PASS);
+    if (device.get_recipe_handle_cache().isCached(key)) {
+      PT_KERNEL_DEBUG("Cache hit key:", key);
+      synapse_execute_cached_kernel(pt_outputs, pt_inputs, device_id, key);
+    } else {
+      PT_KERNEL_DEBUG("Key:", key);
+      synapse_execute_kernel(
+          pt_outputs, pt_inputs, nodeType, nullptr, 0, device_id, key);
+    }
   }
 
   PT_KERNEL_END;

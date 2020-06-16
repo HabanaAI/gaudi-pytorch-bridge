@@ -154,6 +154,10 @@ class graph {
     return *graph_handle_;
   }
 
+  std::vector<std::string> get_nodes() {
+    return nodeType_;
+  }
+
  private:
   using Op2NodeContainer =
       absl::flat_hash_map<std::string, absl::flat_hash_set<synNodeId>>;
@@ -177,6 +181,7 @@ class graph {
   EdgeContainer control_edges_container_;
   EdgeContainer data_edges_container_;
   absl::optional<std::string> current_op_name_;
+  std::vector<std::string> nodeType_{};
 };
 
 } // namespace synapse_helpers

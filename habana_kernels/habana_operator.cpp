@@ -13,30 +13,31 @@
 const at::IntArrayRef& habana::HabanaOperator::getPermuteOrder(
     const LayoutFormat target_layout,
     bool to_device) {
-    static const std::unordered_map<const LayoutFormat,
-                                  const at::IntArrayRef> toDevicePermuteOrder =
-    {                                     // Host -> Device
-      {LayoutFormat::NHWC, {0, 2, 3, 1}}, // NCHW -> NHWC
-      {LayoutFormat::NCHW, {0, 1, 2, 3}}, // NCHW -> NCHW (No Change)
-      {LayoutFormat::HWCK, {2, 3, 1, 0}}, // KCHW -> HWCK
-      {LayoutFormat::ANY,  {0, 1, 2, 3}}  // XXXX -> XXXX (No Change)
-    };
+  static const std::unordered_map<const LayoutFormat, const at::IntArrayRef>
+      toDevicePermuteOrder = {
+          // Host -> Device
+          {LayoutFormat::NHWC, {0, 2, 3, 1}}, // NCHW -> NHWC
+          {LayoutFormat::NCHW, {0, 1, 2, 3}}, // NCHW -> NCHW (No Change)
+          {LayoutFormat::HWCK, {2, 3, 1, 0}}, // KCHW -> HWCK
+          {LayoutFormat::ANY, {0, 1, 2, 3}} // XXXX -> XXXX (No Change)
+      };
 
-    static const std::unordered_map<const LayoutFormat,
-                                    const at::IntArrayRef> toHostPermuteOrder =
-    {                                     // Device -> Host
-      {LayoutFormat::NCHW, {0, 1, 2, 3}}, // NCHW   -> NCHW (No Change)
-      {LayoutFormat::NHWC, {0, 3, 1, 2}}, // NHWC   -> NCHW
-      {LayoutFormat::HWCK, {3, 2, 0, 1}}, // HWCK   -> KCHW
-      {LayoutFormat::ANY,  {0, 1, 2, 3}}  // XXXX   -> XXXX (No Change)
-    };
+  static const std::unordered_map<const LayoutFormat, const at::IntArrayRef>
+      toHostPermuteOrder = {
+          // Device -> Host
+          {LayoutFormat::NCHW, {0, 1, 2, 3}}, // NCHW   -> NCHW (No Change)
+          {LayoutFormat::NHWC, {0, 3, 1, 2}}, // NHWC   -> NCHW
+          {LayoutFormat::HWCK, {3, 2, 0, 1}}, // HWCK   -> KCHW
+          {LayoutFormat::ANY, {0, 1, 2, 3}} // XXXX   -> XXXX (No Change)
+      };
 
-    const auto& permuteOrder
-      = (to_device ? toDevicePermuteOrder : toHostPermuteOrder);
+  const auto& permuteOrder =
+      (to_device ? toDevicePermuteOrder : toHostPermuteOrder);
 
-    TORCH_CHECK(permuteOrder.find(target_layout) != permuteOrder.end(),
-                "Unknown layout in getPermuteOrder");
-    return permuteOrder.find(target_layout)->second;
+  TORCH_CHECK(
+      permuteOrder.find(target_layout) != permuteOrder.end(),
+      "Unknown layout in getPermuteOrder");
+  return permuteOrder.find(target_layout)->second;
 }
 
 void habana::HabanaOperator::Compile(synapse_helpers::graph& graph) {
@@ -48,7 +49,47 @@ void habana::HabanaOperator::Compile(synapse_helpers::graph& graph) {
       habana_helpers::names(p_context_->syn_outputs_),
       habana_helpers::extract_data_ptrs(p_context_->pt_inputs_),
       habana_helpers::extract_data_ptrs(p_context_->pt_outputs_),
-      p_context_->device_id_);
+      p_context_->device_id_,
+      p_context_->recipe_key_);
+}
+
+void habana::HabanaOperator::Execute(size_t key) {
+  //
+  // Execute the graph
+  habana_helpers::execute_recipe(
+      habana_helpers::extract_data_ptrs(p_context_->pt_inputs_),
+      habana_helpers::extract_data_ptrs(p_context_->pt_outputs_),
+      p_context_->device_id_,
+      p_context_->recipe_key_);
+}
+
+void habana::HabanaOperator::SetPTInputs(
+    const std::vector<const at::Tensor*> inputs) {
+  for (auto& input : inputs) {
+    p_context_->pt_inputs_.emplace_back(input);
+  }
+}
+
+void habana::HabanaOperator::SetPTOutput(const at::Tensor& output) {
+  p_context_->pt_outputs_.emplace_back(output);
+}
+
+void habana::HabanaOperator::SetPTOutputs(
+    const std::vector<at::Tensor>& outputs) {
+  TORCH_CHECK(outputs.size() != 0, "Outputs cannot be null");
+
+  for (auto& output : outputs) {
+    p_context_->pt_outputs_.emplace_back(output);
+  }
+}
+
+size_t habana::HabanaOperator::GetRecipeKey(
+    std::string node,
+    std::vector<c10::IValue> stack,
+    bool inPlaceOp) {
+  size_t key = habana_helpers::getRecipeKey(node, stack, inPlaceOp);
+  p_context_->recipe_key_ = key;
+  return key;
 }
 
 synapse_helpers::tensor& habana::HabanaOperator::AllocateSynapseInput(

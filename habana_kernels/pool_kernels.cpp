@@ -312,6 +312,7 @@ std::tuple<Tensor, Tensor> max_pool2d_with_indices_hpu(
       input, kernel_size, stride, padding, dilation, ceil_mode);
 
   int device_id = input.device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
   at::ScalarType scalar_type = input.scalar_type();
   std::string node_type =
       "maxpool_2d_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
@@ -331,29 +332,50 @@ std::tuple<Tensor, Tensor> max_pool2d_with_indices_hpu(
       pt_out, pt_in, pt_new_pos, memory_format);
 
   auto maxpool_2d = [&] {
-    //
-    // Create Graph
-    auto graph = habana_helpers::create_graph(device_id, node_type);
-
-    // Create the operator
-    MaxPool2dWithIndicesOperator Op(device_id, scalar_type);
-
-    // Allocate synapse inputs
-    std::vector<const at::Tensor*> pt_inputs{&input_nhwc};
-    Op.AllocateSynapseInputs(graph, pt_inputs, true);
-
-    // Build Params for the graph
     std::vector<c10::IValue> stack = {IValue(input_nhwc),
                                       IValue(kernel_size),
                                       IValue(stride),
                                       IValue(padding),
                                       IValue(dilation),
                                       IValue(ceil_mode)};
+    std::vector<const at::Tensor*> pt_inputs{&input_nhwc};
+    MaxPool2dWithIndicesOperator Op(device_id, scalar_type);
+    size_t key = Op.GetRecipeKey(node_type, stack);
 
-    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    if (device.get_recipe_handle_cache().isCached(key)) {
+      PT_KERNEL_DEBUG("Cache hit key:", key);
+      auto out_shape = compute_output_shape(
+          input_nhwc, kernel_size, stride, padding, dilation, ceil_mode, true);
 
-    // compile and execute the graph
-    Op.Compile(graph);
+      // Setup output tensors
+      auto output_nhwc = at::empty(
+          {out_shape[0], out_shape[1], out_shape[2], out_shape[3]},
+          input.options());
+
+      // NOTE: cpu and cuda implementations hold indices as kLong (int64). I am
+      // using uint8 (to match TPC kernel requirement)
+      auto output_idx_nhwc = at::empty(
+          {out_shape[0], out_shape[1], out_shape[2], out_shape[3]},
+          input.options().dtype(kByte));
+      Op.SetPTInputs(pt_inputs);
+      Op.SetPTOutputs({output_idx_nhwc, output_nhwc});
+      Op.Execute(key);
+
+    } else {
+      PT_KERNEL_DEBUG("key:", key);
+      //
+      // Create Graph
+      auto graph = habana_helpers::create_graph(device_id, node_type);
+
+      // Allocate synapse inputs
+      Op.AllocateSynapseInputs(graph, pt_inputs, true);
+
+      // Build Params for the graph
+      Op.AllocateAndAddSynapseNode(graph, stack, true);
+
+      // compile and execute the graph
+      Op.Compile(graph);
+    }
 
     return Op.GetOutputs();
   };
@@ -412,6 +434,7 @@ Tensor& max_pool2d_with_indices_backward_out_hpu(
       input, kernel_size, stride, padding, dilation, ceil_mode);
 
   int device_id = input.device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
   at::ScalarType scalar_type = input.scalar_type();
   std::string node_type =
       "maxpool_2d_bwd_" + habana_helpers::name_suffix_from_type(scalar_type);
@@ -442,18 +465,7 @@ Tensor& max_pool2d_with_indices_backward_out_hpu(
   std::vector<const at::Tensor*> pt_outputs{&grad_input_nhwc};
 
   auto maxpool_2d_bwd = [&] {
-    //
-    // Create Graph
-    auto graph = habana_helpers::create_graph(device_id, node_type);
-
-    // Create the operator
-    MaxPool2dWithIndicesBackwardOperator Op(device_id, scalar_type);
-
-    // Allocate synapse inputs
     std::vector<const at::Tensor*> pt_inputs{&grad_out_nhwc, &indices_nhwc};
-    Op.AllocateSynapseInputs(graph, pt_inputs, true);
-
-    // Build Params for the graph
     std::vector<c10::IValue> stack = {IValue(grad_input_nhwc),
                                       IValue(grad_out_nhwc),
                                       IValue(input_nhwc),
@@ -463,11 +475,41 @@ Tensor& max_pool2d_with_indices_backward_out_hpu(
                                       IValue(padding),
                                       IValue(dilation),
                                       IValue(ceil_mode)};
+    // Create the operator
+    MaxPool2dWithIndicesBackwardOperator Op(device_id, scalar_type);
+    size_t key = Op.GetRecipeKey(node_type, stack);
 
-    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    if (device.get_recipe_handle_cache().isCached(key)) {
+      PT_KERNEL_DEBUG("Cache hit key:", key);
+      auto out_shape = compute_output_shape(
+          input_nhwc, kernel_size, stride, padding, dilation, ceil_mode, true);
 
-    // compile and execute the graph
-    Op.Compile(graph);
+      std::vector<int64_t> expected_output_size{
+          out_shape[0], out_shape[1], out_shape[2], out_shape[3]};
+      TORCH_CHECK(grad_out_nhwc.sizes().vec() == expected_output_size);
+      TORCH_CHECK(input_nhwc.sizes() == grad_input_nhwc.sizes());
+      TORCH_CHECK(grad_out_nhwc.sizes() == indices_nhwc.sizes());
+      TORCH_CHECK(indices_nhwc.scalar_type() == c10::ScalarType::Byte);
+
+      Op.SetPTInputs(pt_inputs);
+      Op.SetPTOutputs({grad_input_nhwc});
+      Op.Execute(key);
+
+    } else {
+      PT_KERNEL_DEBUG("key:", key);
+      //
+      // Create Graph
+      auto graph = habana_helpers::create_graph(device_id, node_type);
+
+      // Allocate synapse inputs
+      Op.AllocateSynapseInputs(graph, pt_inputs, true);
+
+      // Build Params for the graph
+      Op.AllocateAndAddSynapseNode(graph, stack, true);
+
+      // compile and execute the graph
+      Op.Compile(graph);
+    }
 
     return Op.GetOutputs();
   };

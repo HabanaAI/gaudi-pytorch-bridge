@@ -39,6 +39,8 @@ class PytorchKernelContext {
   std::deque<synapse_helpers::tensor_or_ref> syn_inputs_;
   std::deque<synapse_helpers::tensor_or_ref> syn_outputs_;
   std::set<unsigned int> excluded_output_indices_;
+  size_t recipe_key_;
+
   absl::any params_;
   size_t params_size_;
 };
@@ -76,12 +78,21 @@ class HabanaOperator {
   void CreateSynContext(int device_id) {
     p_context_ = std::make_shared<PytorchKernelContext>();
     p_context_->device_id_ = device_id;
+    p_context_->recipe_key_ = 0;
   }
 
   //
   // Executes the synapse graph
   virtual void Compile(synapse_helpers::graph& graph);
 
+  virtual void Execute(size_t key);
+  virtual void SetPTInputs(const std::vector<const at::Tensor*> inputs);
+  virtual void SetPTOutput(const at::Tensor& output);
+  virtual void SetPTOutputs(const std::vector<at::Tensor>& outputs);
+  virtual size_t GetRecipeKey(
+      std::string node,
+      std::vector<c10::IValue> stack,
+      bool inPlaceOp = false);
   //
   // Method to add tensors to graph builder context, also populates the context
   // params

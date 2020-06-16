@@ -102,3 +102,98 @@ void synapse_simple_generic_inplace_kernel(
     }
   }
 }
+
+void synapse_execute_kernel(
+    std::vector<const at::Tensor*> pt_outputs, // NHWC
+    std::vector<const at::Tensor*> pt_inputs, // NHWC
+    std::string node_type,
+    void* syn_param,
+    const size_t syn_param_size,
+    size_t device_id,
+    size_t key) {
+  auto graph = habana_helpers::create_graph(device_id, node_type);
+  { // tensors scope
+    std::vector<synapse_helpers::tensor> syn_helper_inputs, syn_helper_outputs;
+    std::vector<synTensor> syn_inputs, syn_outputs;
+
+    std::tie(syn_helper_inputs, syn_inputs) = habana_helpers::create_tensors(
+        pt_inputs, graph.get_graph_handle(), true);
+    std::tie(syn_helper_outputs, syn_outputs) = habana_helpers::create_tensors(
+        pt_outputs, graph.get_graph_handle(), true);
+    graph.add_node(
+        std::move(syn_inputs),
+        std::move(syn_outputs),
+        syn_param,
+        syn_param_size,
+        std::move(node_type));
+
+    habana_helpers::compile_and_run(
+        std::move(graph),
+        habana_helpers::names(syn_helper_inputs),
+        habana_helpers::names(syn_helper_outputs),
+        habana_helpers::extract_data_ptrs(pt_inputs),
+        habana_helpers::extract_data_ptrs(pt_outputs),
+        device_id,
+        key);
+  }
+}
+
+void synapse_execute_cached_kernel(
+    std::vector<const at::Tensor*> pt_outputs, // NHWC
+    std::vector<const at::Tensor*> pt_inputs, // NHWC
+    size_t device_id,
+    size_t key) {
+  habana_helpers::execute_recipe(
+      habana_helpers::extract_data_ptrs(pt_inputs),
+      habana_helpers::extract_data_ptrs(pt_outputs),
+      device_id,
+      key);
+}
+
+void synapse_execute_inplace_kernel(
+    std::vector<const at::Tensor*> pt_inputs, // NHWC
+    std::string node_type,
+    void* syn_param,
+    const size_t syn_param_size,
+    size_t device_id,
+    size_t key) {
+  auto graph = habana_helpers::create_graph(device_id, node_type);
+  { // tensors scope
+    std::vector<synapse_helpers::tensor> syn_helper_inputs, syn_helper_outputs;
+    std::vector<synTensor> syn_inputs, syn_outputs;
+
+    std::tie(syn_helper_inputs, syn_inputs) = habana_helpers::create_tensors(
+        pt_inputs, graph.get_graph_handle(), true);
+    auto syn_helper_output = habana_helpers::duplicate_tensor_in_memory_section(
+        syn_helper_inputs[0]);
+    syn_outputs.push_back(syn_helper_output.get());
+    {
+      graph.add_node(
+          std::move(syn_inputs),
+          std::move(syn_outputs),
+          syn_param,
+          syn_param_size,
+          std::move(node_type));
+
+      habana_helpers::compile_and_run(
+          std::move(graph),
+          habana_helpers::names(syn_helper_inputs),
+          {syn_helper_output.tensor_name_},
+          habana_helpers::extract_data_ptrs(pt_inputs),
+          {pt_inputs[0]->data_ptr()},
+          device_id,
+          key);
+    }
+  }
+}
+
+void synapse_execute_cached_inplace_kernel(
+    std::vector<const at::Tensor*> pt_inputs, // NHWC
+    size_t device_id,
+    size_t key) {
+  habana_helpers::execute_recipe(
+      habana_helpers::extract_data_ptrs(pt_inputs),
+      {pt_inputs[0]->data_ptr()},
+      device_id,
+      key);
+}

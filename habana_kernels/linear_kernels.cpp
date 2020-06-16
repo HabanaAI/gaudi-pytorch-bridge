@@ -56,45 +56,65 @@ void synapse_matmul(
     const Tensor& output,
     const Tensor& mat1,
     const Tensor& mat2) {
+  PT_KERNEL_BEGIN;
   const auto device_id = mat1.device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
   std::string node_type = "gemm";
-  // graph_handle scope
-  auto graph = habana_helpers::create_graph(device_id, node_type);
+  // Build Params for the graph
+  std::vector<c10::IValue> stack = {IValue(output), IValue(mat1), IValue(mat2)};
+  size_t key = habana_helpers::getRecipeKey(node_type, stack);
 
-  { // tensors scope
-    std::vector<synapse_helpers::tensor> syn_helper_inputs, syn_helper_outputs;
-    std::vector<synTensor> syn_inputs, syn_outputs;
-
-    syn_helper_inputs.push_back(
-        habana_helpers::create_tensor(mat1, graph.get_graph_handle(), true));
-    syn_inputs.push_back(syn_helper_inputs[syn_helper_inputs.size() - 1].get());
-    syn_helper_inputs.push_back(
-        habana_helpers::create_tensor(mat2, graph.get_graph_handle(), true));
-    syn_inputs.push_back(syn_helper_inputs[syn_helper_inputs.size() - 1].get());
-
-    std::tie(syn_helper_outputs, syn_outputs) = habana_helpers::create_tensors(
-        std::vector<const at::Tensor*>{&output},
-        graph.get_graph_handle(),
-        true);
-
-    { // add node
-      synGEMMParams params{0, 0};
-
-      graph.add_node(
-          std::move(syn_inputs),
-          std::move(syn_outputs),
-          (void*)&params,
-          sizeof(params),
-          std::move(node_type));
-    }
-
-    habana_helpers::compile_and_run(
-        std::move(graph),
-        habana_helpers::names(syn_helper_inputs),
-        habana_helpers::names(syn_helper_outputs),
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    habana_helpers::execute_recipe(
         {mat1.data_ptr(), mat2.data_ptr()},
         {output.data_ptr()},
-        device_id);
+        device_id,
+        key);
+  } else {
+    PT_KERNEL_DEBUG("Key:", key);
+    // graph_handle scope
+    auto graph = habana_helpers::create_graph(device_id, node_type);
+    { // tensors scope
+      std::vector<synapse_helpers::tensor> syn_helper_inputs,
+          syn_helper_outputs;
+      std::vector<synTensor> syn_inputs, syn_outputs;
+
+      syn_helper_inputs.push_back(
+          habana_helpers::create_tensor(mat1, graph.get_graph_handle(), true));
+      syn_inputs.push_back(
+          syn_helper_inputs[syn_helper_inputs.size() - 1].get());
+      syn_helper_inputs.push_back(
+          habana_helpers::create_tensor(mat2, graph.get_graph_handle(), true));
+      syn_inputs.push_back(
+          syn_helper_inputs[syn_helper_inputs.size() - 1].get());
+
+      std::tie(syn_helper_outputs, syn_outputs) =
+          habana_helpers::create_tensors(
+              std::vector<const at::Tensor*>{&output},
+              graph.get_graph_handle(),
+              true);
+
+      { // add node
+        synGEMMParams params{0, 0};
+
+        graph.add_node(
+            std::move(syn_inputs),
+            std::move(syn_outputs),
+            (void*)&params,
+            sizeof(params),
+            std::move(node_type));
+      }
+
+      habana_helpers::compile_and_run(
+          std::move(graph),
+          habana_helpers::names(syn_helper_inputs),
+          habana_helpers::names(syn_helper_outputs),
+          {mat1.data_ptr(), mat2.data_ptr()},
+          {output.data_ptr()},
+          device_id,
+          key);
+    }
   }
 }
 
@@ -106,82 +126,111 @@ void synapse_matmul(
     const Tensor& bias,
     const Scalar& beta,
     const Scalar& alpha) {
+  PT_KERNEL_BEGIN;
   // TODO: implement support for scalars
   TORCH_CHECK(
       beta.to<int>() == 1, "matmul_with_bias_hpu doesn't support scalars yet");
   TORCH_CHECK(
       alpha.to<int>() == 1, "matmul_with_bias_hpu doesn't support scalars yet");
   const auto device_id = mat1.device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
   std::string node_type1 = "gemm";
   std::string node_type2 =
       "add_fwd_" + habana_helpers::name_suffix_from_type(mat1.scalar_type());
-  // graph_handle scope
-  auto graph = habana_helpers::create_graph(device_id, node_type1 + node_type2);
-  { // tensors scope
-    std::vector<synapse_helpers::tensor> syn_helper_inputs, syn_helper_outputs,
-        syn_tmp_helper_tensors;
-    std::vector<synTensor> syn_inputs, syn_outputs, syn_tmp_tensors;
+  // Build Params for the graph
+  std::vector<c10::IValue> stack = {IValue(output),
+                                    IValue(mat1),
+                                    IValue(mat2),
+                                    IValue(bias),
+                                    IValue(beta),
+                                    IValue(alpha)};
+  std::vector<std::string> nodes = {node_type1 + node_type2};
+  size_t key = habana_helpers::getRecipeKey(node_type1 + node_type2, stack);
 
-    syn_helper_inputs.push_back(
-        habana_helpers::create_tensor(mat1, graph.get_graph_handle(), true));
-    syn_inputs.push_back(syn_helper_inputs[syn_helper_inputs.size() - 1].get());
-    syn_helper_inputs.push_back(
-        habana_helpers::create_tensor(mat2, graph.get_graph_handle(), true));
-    syn_inputs.push_back(syn_helper_inputs[syn_helper_inputs.size() - 1].get());
-
-    std::tie(syn_helper_outputs, syn_outputs) = habana_helpers::create_tensors(
-        std::vector<const at::Tensor*>{&output},
-        graph.get_graph_handle(),
-        true);
-    std::tie(syn_tmp_helper_tensors, syn_tmp_tensors) =
-        habana_helpers::create_tensors(
-            std::vector<const at::Tensor*>{&output},
-            graph.get_graph_handle(),
-            false);
-
-    { // add node
-      synGEMMParams params{0, 0};
-
-      graph.add_node(
-          std::move(syn_inputs),
-          std::move(syn_tmp_tensors),
-          (void*)&params,
-          sizeof(params),
-          std::move(node_type1));
-    }
-    { // add node
-      syn_helper_inputs.push_back(
-          habana_helpers::create_tensor(bias, graph.get_graph_handle(), true));
-      syn_inputs.push_back(
-          syn_helper_inputs[syn_helper_inputs.size() - 1].get());
-      syn_tmp_tensors.push_back(syn_inputs[2]); // mm_out + bias
-      graph.add_node(
-          std::move(syn_tmp_tensors),
-          std::move(syn_outputs),
-          nullptr,
-          0,
-          std::move(node_type2));
-    }
-    habana_helpers::compile_and_run(
-        std::move(graph),
-        habana_helpers::names(syn_helper_inputs),
-        habana_helpers::names(syn_helper_outputs),
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    habana_helpers::execute_recipe(
         {mat1.data_ptr(), mat2.data_ptr(), bias.data_ptr()},
         {output.data_ptr()},
-        device_id);
+        device_id,
+        key);
+  } else {
+    PT_KERNEL_DEBUG("Key:", key);
+    // graph_handle scope
+    auto graph =
+        habana_helpers::create_graph(device_id, node_type1 + node_type2);
+    { // tensors scope
+      std::vector<synapse_helpers::tensor> syn_helper_inputs,
+          syn_helper_outputs, syn_tmp_helper_tensors;
+      std::vector<synTensor> syn_inputs, syn_outputs, syn_tmp_tensors;
+
+      syn_helper_inputs.push_back(
+          habana_helpers::create_tensor(mat1, graph.get_graph_handle(), true));
+      syn_inputs.push_back(
+          syn_helper_inputs[syn_helper_inputs.size() - 1].get());
+      syn_helper_inputs.push_back(
+          habana_helpers::create_tensor(mat2, graph.get_graph_handle(), true));
+      syn_inputs.push_back(
+          syn_helper_inputs[syn_helper_inputs.size() - 1].get());
+
+      std::tie(syn_helper_outputs, syn_outputs) =
+          habana_helpers::create_tensors(
+              std::vector<const at::Tensor*>{&output},
+              graph.get_graph_handle(),
+              true);
+      std::tie(syn_tmp_helper_tensors, syn_tmp_tensors) =
+          habana_helpers::create_tensors(
+              std::vector<const at::Tensor*>{&output},
+              graph.get_graph_handle(),
+              false);
+
+      { // add node
+        synGEMMParams params{0, 0};
+
+        graph.add_node(
+            std::move(syn_inputs),
+            std::move(syn_tmp_tensors),
+            (void*)&params,
+            sizeof(params),
+            std::move(node_type1));
+      }
+      { // add node
+        syn_helper_inputs.push_back(habana_helpers::create_tensor(
+            bias, graph.get_graph_handle(), true));
+        syn_inputs.push_back(
+            syn_helper_inputs[syn_helper_inputs.size() - 1].get());
+        syn_tmp_tensors.push_back(syn_inputs[2]); // mm_out + bias
+        graph.add_node(
+            std::move(syn_tmp_tensors),
+            std::move(syn_outputs),
+            nullptr,
+            0,
+            std::move(node_type2));
+      }
+      habana_helpers::compile_and_run(
+          std::move(graph),
+          habana_helpers::names(syn_helper_inputs),
+          habana_helpers::names(syn_helper_outputs),
+          {mat1.data_ptr(), mat2.data_ptr(), bias.data_ptr()},
+          {output.data_ptr()},
+          device_id,
+          key);
+    }
   }
 }
 
-habana::MMOperator::MMOperator(int device_id): HabanaOperator("gemm") {
+habana::MMOperator::MMOperator(int device_id) : HabanaOperator("gemm") {
   this->CreateSynContext(device_id);
   kernel_meta_data_.input_layout.assign({LayoutFormat::ANY, LayoutFormat::ANY});
   kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
 }
 
-void habana::MMOperator::AllocateAndAddSynapseNode(synapse_helpers::graph& graph,
+void habana::MMOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     bool is_output_persistent) {
-  TORCH_CHECK( inputs.size() == 2,
+  TORCH_CHECK(
+      inputs.size() == 2,
       "Incorrect size of inputs expected for matmul operator");
 
   TORCH_CHECK(inputs[0].isTensor(), "Input type expected to be tensor");
@@ -200,20 +249,29 @@ at::Tensor matmul_hpu(const at::Tensor& mat1, const at::Tensor& mat2) {
   PT_KERNEL_BEGIN;
 
   const auto device_id = mat1.device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
   std::string node_type = "gemm";
-
-  auto graph = habana_helpers::create_graph(device_id, node_type);
-
+  torch::jit::Stack stack = {c10::IValue(mat1), c10::IValue(mat2)};
   habana::MMOperator op(device_id);
+  size_t key = op.GetRecipeKey(node_type, stack);
 
   std::vector<const at::Tensor*> inputs = {&mat1, &mat2};
-  torch::jit::Stack stack = {c10::IValue(mat1), c10::IValue(mat2)};
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    auto output = at::empty({mat1.size(0), mat2.size(1)}, mat1.options());
+    op.SetPTInputs(inputs);
+    op.SetPTOutput(output);
+    op.Execute(key);
+  } else {
+    PT_KERNEL_DEBUG("Key:", key);
+    auto graph = habana_helpers::create_graph(device_id, node_type);
 
-  op.AllocateSynapseInputs(graph, inputs, true);
+    op.AllocateSynapseInputs(graph, inputs, true);
 
-  op.AllocateAndAddSynapseNode(graph, stack, true);
+    op.AllocateAndAddSynapseNode(graph, stack, true);
 
-  op.Compile(graph);
+    op.Compile(graph);
+  }
   std::vector<at::Tensor> out = op.GetOutputs();
   TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
   PT_KERNEL_END;

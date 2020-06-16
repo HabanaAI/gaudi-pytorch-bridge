@@ -114,7 +114,24 @@ static inline Tensor& do_binary_inplace_op(
   std::vector<const at::Tensor*> pt_inputs;
   pt_inputs.push_back(&self);
   pt_inputs.push_back(&other);
-  synapse_simple_generic_inplace_kernel(pt_inputs, op, nullptr, 0, pass_type);
+  // Build Params for the graph
+  std::vector<c10::IValue> stack = {IValue(self), IValue(other)};
+  std::string node_type = (SynapsePassType::NO_PASS == pass_type) ? op
+                                                                  : op +
+          std::string((SynapsePassType::FORWARD_PASS == pass_type) ? "_fwd_"
+                                                                   : "_bwd_") +
+          habana_helpers::name_suffix_from_type(pt_inputs[0]->scalar_type());
+  const auto device_id = pt_inputs[0]->device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  size_t key = habana_helpers::getRecipeKey(node_type, stack, true);
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    synapse_execute_cached_inplace_kernel(pt_inputs, device_id, key);
+  } else {
+    PT_KERNEL_DEBUG("key:", key);
+    synapse_execute_inplace_kernel(
+        pt_inputs, node_type, nullptr, 0, device_id, key);
+  }
   return self;
 }
 
@@ -258,22 +275,21 @@ Tensor& add_tensor_hpu_(Tensor& self, const Tensor& other, Scalar alpha) {
   return self;
 }
 
-//after view operation input shapes get changed
-//creating output based on new tensor creates output with wrong size
-auto get_correct_input_tensor(const Tensor &a, const Tensor &b) {
+// after view operation input shapes get changed
+// creating output based on new tensor creates output with wrong size
+auto get_correct_input_tensor(const Tensor& a, const Tensor& b) {
   TORCH_CHECK(a.ndimension() == b.ndimension(), "Tensor dims don't match");
   size_t size1 = 0, size2 = 0;
   auto sizes1 = a.sizes();
   auto sizes2 = b.sizes();
-  for(int64_t i = 0; i < a.ndimension(); i++) {
-    if(sizes1[i] > sizes2[i] ) {
+  for (int64_t i = 0; i < a.ndimension(); i++) {
+    if (sizes1[i] > sizes2[i]) {
       size1++;
-    }
-    else if(sizes1[i] < sizes2[i]) {
+    } else if (sizes1[i] < sizes2[i]) {
       size2++;
     }
   }
-  return size1 > size2 ? a:b;
+  return size1 > size2 ? a : b;
 }
 
 void habana::AddOperator::AllocateAndAddSynapseNode(
@@ -282,8 +298,7 @@ void habana::AddOperator::AllocateAndAddSynapseNode(
     bool is_output_persistent) {
   // this check is for stack during graph execution
   TORCH_CHECK(
-      inputs.size() == 3,
-      "Incorrect size of input expected for add operator");
+      inputs.size() == 3, "Incorrect size of input expected for add operator");
   TORCH_CHECK(inputs[0].isTensor(), "Input 0 type expected to be tensor");
   TORCH_CHECK(inputs[1].isTensor(), "Input 1 type expected to be tensor");
   TORCH_CHECK(inputs[2].isTensor(), "Input 2 type expected to be tensor");
@@ -294,10 +309,11 @@ void habana::AddOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(alpha.numel() == 1, "Input 2 should be tensor of size 1");
 
   habana::MulOperator mulOp(this->p_context_->device_id_, this->scalarType_);
-  auto& arg2_syn  = mulOp.SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
-  auto& alpha_syn = mulOp.SetSynapseInput(std::move(p_context_->syn_inputs_[2]));
+  auto& arg2_syn = mulOp.SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
+  auto& alpha_syn =
+      mulOp.SetSynapseInput(std::move(p_context_->syn_inputs_[2]));
 
-  torch::jit::Stack mulOp_stack  = {IValue(arg2), IValue(alpha)};
+  torch::jit::Stack mulOp_stack = {IValue(arg2), IValue(alpha)};
   mulOp.AllocateAndAddSynapseNode(graph, mulOp_stack, false);
 
   p_context_->syn_inputs_[1] = std::move(arg2_syn);
@@ -309,36 +325,51 @@ void habana::AddOperator::AllocateAndAddSynapseNode(
 
   synapse_helpers::tensor& arg1_syn_tensor = p_context_->syn_inputs_[0];
   synapse_helpers::tensor& mulOp_out_syn_tensor = mulOp.GetSynOutputs()[0];
-  std::vector<synTensor> syn_inputs{arg1_syn_tensor.get(), mulOp_out_syn_tensor.get()};
+  std::vector<synTensor> syn_inputs{arg1_syn_tensor.get(),
+                                    mulOp_out_syn_tensor.get()};
 
   synapse_helpers::tensor& output_syn_tensor = p_context_->syn_outputs_[0];
   std::vector<synTensor> syn_outputs{output_syn_tensor.get()};
 
-  graph.add_node(std::move(syn_inputs),
-                 std::move(syn_outputs),
-                 nullptr,
-                 0,
-                 std::move(guid_));
+  graph.add_node(
+      std::move(syn_inputs),
+      std::move(syn_outputs),
+      nullptr,
+      0,
+      std::move(guid_));
 }
 
 Tensor add_op_hpu(
-    const std::vector<const at::Tensor*> &pt_inputs,
+    const std::vector<const at::Tensor*>& pt_inputs,
     const std::string& node_type,
     size_t device_id,
     habana::AddOperator* Op) {
   PT_KERNEL_BEGIN;
-  // Create Graph
-  auto graph = habana_helpers::create_graph(device_id, node_type);
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  std::vector<c10::IValue> stack = {
+      IValue(*pt_inputs[0]), IValue(*pt_inputs[1]), IValue(*pt_inputs[2])};
+  size_t key = Op->GetRecipeKey(node_type, stack);
 
-  // Assign Inputs to the Operator
-  Op->AllocateSynapseInputs(graph, pt_inputs, true);
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    auto operand = get_correct_input_tensor(*pt_inputs[0], *pt_inputs[1]);
+    auto output = at::empty(operand.sizes(), operand.options());
+    Op->SetPTInputs(pt_inputs);
+    Op->SetPTOutput(output);
+    Op->Execute(key);
+  } else {
+    PT_KERNEL_DEBUG("key:", key);
+    // Create Graph
+    auto graph = habana_helpers::create_graph(device_id, node_type);
 
-  std::vector<c10::IValue> stack = {IValue(*pt_inputs[0]), IValue(*pt_inputs[1]), IValue(*pt_inputs[2])};
-  Op->AllocateAndAddSynapseNode(graph, stack, true);
+    // Assign Inputs to the Operator
+    Op->AllocateSynapseInputs(graph, pt_inputs, true);
 
-  // compile and execute the graph
-  Op->Compile(graph);
+    Op->AllocateAndAddSynapseNode(graph, stack, true);
 
+    // compile and execute the graph
+    Op->Compile(graph);
+  }
   std::vector<at::Tensor> out = Op->GetOutputs();
   TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
   PT_KERNEL_END;
@@ -349,10 +380,11 @@ void expand_size_binary_op(
     const Tensor& operand1,
     const Tensor& operand2,
     Tensor& expanded_operand,
-    std::vector<const at::Tensor*> &pt_inputs) {
+    std::vector<const at::Tensor*>& pt_inputs) {
   auto out_sizes = at::infer_size(operand1.sizes(), operand2.sizes());
   auto out_dims = operand1.ndimension() > operand2.ndimension()
-      ? operand1.ndimension() : operand2.ndimension();
+      ? operand1.ndimension()
+      : operand2.ndimension();
 
   check_ew_kernel_constraints(operand1, operand2);
 
@@ -376,8 +408,7 @@ void expand_size_binary_op(
     expanded_operand = operand1.view(view_sizes);
     pt_inputs.push_back(&expanded_operand);
     pt_inputs.push_back(&operand2);
-  }
-  else {
+  } else {
     pt_inputs.push_back(&operand1);
     pt_inputs.push_back(&operand2);
   }
@@ -395,9 +426,10 @@ Tensor process_generic_tensor_add_op(
   auto alpha_hpu = get_hpu_tensor(alpha);
   Tensor expanded_operand;
   std::vector<const at::Tensor*> pt_inputs;
-  expand_size_binary_op(operand1_hpu, operand2_hpu, expanded_operand, pt_inputs);
+  expand_size_binary_op(
+      operand1_hpu, operand2_hpu, expanded_operand, pt_inputs);
   pt_inputs.push_back(&alpha_hpu);
-  
+
   size_t device_id = pt_inputs[0]->device().index();
   at::ScalarType scalar_type = pt_inputs[0]->scalar_type();
 
@@ -439,10 +471,8 @@ Tensor add_tensor_hpu(const Tensor& self, const Tensor& other, Scalar alpha) {
     output = output_cpu.to(c10::DeviceType::HABANA);
     PT_KERNEL_WARN("Unsupported long int addition");
   } else {
-    //TODO: Optimize for alpha == 1
-    auto alpha_tensor = convert_scalar_to_tensor_using_self(
-        self,
-        alpha);
+    // TODO: Optimize for alpha == 1
+    auto alpha_tensor = convert_scalar_to_tensor_using_self(self, alpha);
     output = process_generic_tensor_add_op(
         self, other, alpha_tensor, "add", SynapsePassType::FORWARD_PASS);
   }
@@ -668,7 +698,7 @@ void habana::BinaryOperator::AllocateAndAddSynapseNode(
   Tensor operand1 = inputs[0].toTensor();
   Tensor operand2 = inputs[1].toTensor();
 
-  //fix for graph compiler error INCOMPATIBLE_OUTPUT_SIZE
+  // fix for graph compiler error INCOMPATIBLE_OUTPUT_SIZE
   auto operand = get_correct_input_tensor(operand1, operand2);
   auto output = at::empty(operand.sizes(), operand.options());
   AllocateSynapseOutput(graph, output, is_output_persistent);
@@ -676,31 +706,44 @@ void habana::BinaryOperator::AllocateAndAddSynapseNode(
 }
 
 Tensor binary_op_hpu(
-    const std::vector<const at::Tensor*> &pt_inputs,
+    const std::vector<const at::Tensor*>& pt_inputs,
     const std::string& node_type,
     size_t device_id,
     habana::BinaryOperator* Op) {
   PT_KERNEL_BEGIN;
-  // Create Graph
-  auto graph = habana_helpers::create_graph(device_id, node_type);
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  std::vector<c10::IValue> stack = {IValue(*pt_inputs[0]),
+                                    IValue(*pt_inputs[1])};
+  size_t key = Op->GetRecipeKey(node_type, stack);
 
-  // Assign Inputs to the Operator
-  Op->AllocateSynapseInputs(graph, pt_inputs, true);
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    auto operand = get_correct_input_tensor(*pt_inputs[0], *pt_inputs[1]);
+    auto output = at::empty(operand.sizes(), operand.options());
+    Op->SetPTInputs(pt_inputs);
+    Op->SetPTOutput(output);
+    Op->Execute(key);
+  } else {
+    PT_KERNEL_DEBUG("key:", key);
+    // Create Graph
+    auto graph = habana_helpers::create_graph(device_id, node_type);
 
-  // both inputs are not required, just to match graph mode stack
-  std::vector<c10::IValue> stack = {IValue(*pt_inputs[0]), IValue(*pt_inputs[1])};
-  Op->AllocateAndAddSynapseNode(graph, stack, true);
+    // Assign Inputs to the Operator
+    Op->AllocateSynapseInputs(graph, pt_inputs, true);
 
-  // compile and execute the graph
-  Op->Compile(graph);
+    // both inputs are not required, just to match graph mode stack
+    Op->AllocateAndAddSynapseNode(graph, stack, true);
 
+    // compile and execute the graph
+    Op->Compile(graph);
+  }
   std::vector<at::Tensor> out = Op->GetOutputs();
   TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
   PT_KERNEL_END;
   return out.at(0);
 }
 
-template<class BinaryOp>
+template <class BinaryOp>
 Tensor process_generic_tensor_binary_op(
     const Tensor& operand1,
     const Tensor& operand2,
@@ -712,7 +755,8 @@ Tensor process_generic_tensor_binary_op(
   auto operand2_hpu = get_hpu_tensor(operand2);
   Tensor expanded_operand;
   std::vector<const at::Tensor*> pt_inputs;
-  expand_size_binary_op(operand1_hpu, operand2_hpu, expanded_operand, pt_inputs);
+  expand_size_binary_op(
+      operand1_hpu, operand2_hpu, expanded_operand, pt_inputs);
 
   size_t device_id = pt_inputs[0]->device().index();
   at::ScalarType scalar_type = pt_inputs[0]->scalar_type();
@@ -739,7 +783,7 @@ Tensor process_generic_tensor_binary_op(
 Tensor mul_tensor_hpu(const Tensor& self, const Tensor& other) {
   PT_KERNEL_BEGIN;
 
-  //TODO: Add pow operator for graph mode
+  // TODO: Add pow operator for graph mode
   if (self.is_same(other)) {
     return at::pow(self, 2.0);
   }

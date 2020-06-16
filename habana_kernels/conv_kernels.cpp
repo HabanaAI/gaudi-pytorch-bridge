@@ -179,20 +179,9 @@ Tensor convolution_hpu(
     size_t device_id = input.device().index();
     at::ScalarType scalar_type = input.scalar_type();
     std::string node_type = "spatial_convolution";
-
-    //
-    // Create Graph
-    auto graph = habana_helpers::create_graph(device_id, node_type);
-
+    auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
     // Create the operator
     ConvOperator Op(device_id, scalar_type);
-
-    // Assign Inputs to the Operator
-    std::vector<const at::Tensor*> pt_inputs{&input_nhwc, &weight_hwck};
-    if (bias.defined()) {
-      pt_inputs.emplace_back(&bias);
-    }
-    Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
     // Build Params for the graph
     std::vector<c10::IValue> stack = {IValue(input_nhwc),
@@ -204,9 +193,47 @@ Tensor convolution_hpu(
                                       IValue(transposed),
                                       IValue(output_padding),
                                       IValue(groups)};
-    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    size_t key = Op.GetRecipeKey(node_type, stack);
 
-    Op.Compile(graph);
+    // Assign Inputs to the Operator
+    std::vector<const at::Tensor*> pt_inputs{&input_nhwc, &weight_hwck};
+    if (bias.defined()) {
+      pt_inputs.emplace_back(&bias);
+    }
+
+    if (device.get_recipe_handle_cache().isCached(key)) {
+      PT_KERNEL_DEBUG("Cache hit key:", key);
+      const int64_t N = input_nhwc.size(0);
+      const int64_t input_H = input_nhwc.size(1);
+      const int64_t input_W = input_nhwc.size(2);
+      const int64_t K = weight_hwck.size(3);
+      const int64_t filter_H = weight_hwck.size(0);
+      const int64_t filter_W = weight_hwck.size(1);
+      const int64_t stride_H = stride[0];
+      const int64_t stride_W = stride[1];
+      const int64_t pad_H = padding[0];
+      const int64_t pad_W = padding[1];
+      const auto output_H = habana_helpers::compute_output_size(
+          input_H, pad_H, filter_H, stride_H, false);
+      const auto output_W = habana_helpers::compute_output_size(
+          input_W, pad_W, filter_W, stride_W, false);
+
+      c10::MemoryFormat memory_format =
+          habana_helpers::get_memory_format({&input_nhwc, &weight_hwck});
+      auto output =
+          at::empty({N, output_H, output_W, K}, input.options(), memory_format);
+      Op.SetPTInputs(pt_inputs);
+      Op.SetPTOutput(output);
+      Op.Execute(key);
+    } else {
+      PT_KERNEL_DEBUG("key:", key);
+      //
+      // Create Graph
+      auto graph = habana_helpers::create_graph(device_id, node_type);
+      Op.AllocateSynapseInputs(graph, pt_inputs, true);
+      Op.AllocateAndAddSynapseNode(graph, stack, true);
+      Op.Compile(graph);
+    }
 
     std::vector<at::Tensor> out = Op.GetOutputs();
     TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
@@ -232,22 +259,34 @@ Tensor convolution_backward_input(
     IntArrayRef stride,
     IntArrayRef padding,
     IntArrayRef dilation,
-    c10::MemoryFormat memory_format) {
+    c10::MemoryFormat memory_format,
+    Stack& inputs) {
+  size_t device_id = grad_output_nhwc[0].device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  size_t key = habana_helpers::getRecipeKey("dedx", inputs);
   auto grad_input_nhwc =
       at::empty(input_sizes_nhwc, grad_output_nhwc.options(), memory_format);
 
-  synConvolutionParams syn_params = synapse_conv_params_builder(
-      weight_hwck.sizes(), stride, padding, dilation);
-
   std::vector<const at::Tensor*> pt_outputs{&grad_input_nhwc};
   std::vector<const at::Tensor*> pt_inputs{&grad_output_nhwc, &weight_hwck};
-  synapse_simple_generic_kernel(
-      pt_outputs,
-      pt_inputs,
-      "dedx",
-      &syn_params,
-      sizeof(syn_params),
-      SynapsePassType::NO_PASS);
+
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    synapse_execute_cached_kernel(pt_outputs, pt_inputs, device_id, key);
+  } else {
+    PT_KERNEL_DEBUG("key:", key);
+    synConvolutionParams syn_params = synapse_conv_params_builder(
+        weight_hwck.sizes(), stride, padding, dilation);
+
+    synapse_execute_kernel(
+        pt_outputs,
+        pt_inputs,
+        "dedx",
+        &syn_params,
+        sizeof(syn_params),
+        device_id,
+        key);
+  }
 
   Tensor grad_in = grad_input_nhwc;
   std::vector<const at::Tensor*> pt_in = {&grad_input_nhwc};
@@ -266,22 +305,34 @@ Tensor convolution_backward_filter(
     IntArrayRef stride,
     IntArrayRef padding,
     IntArrayRef dilation,
-    c10::MemoryFormat memory_format) {
+    c10::MemoryFormat memory_format,
+    Stack& inputs) {
+  size_t device_id = input_nhwc[0].device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  size_t key = habana_helpers::getRecipeKey("dedw", inputs);
   auto grad_weight =
       at::empty(weight_size_hwck, grad_out_nhwc.options(), memory_format);
-  synConvolutionParams syn_params = synapse_conv_params_builder(
-      grad_weight.sizes(), stride, padding, dilation);
 
   std::vector<const at::Tensor*> pt_outputs{&grad_weight};
   std::vector<const at::Tensor*> pt_inputs{&grad_out_nhwc, &input_nhwc};
-  synapse_simple_generic_kernel(
-      pt_outputs,
-      pt_inputs,
-      "dedw",
-      &syn_params,
-      sizeof(syn_params),
-      SynapsePassType::NO_PASS);
 
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    synapse_execute_cached_kernel(pt_outputs, pt_inputs, device_id, key);
+  } else {
+    PT_KERNEL_DEBUG("Key:", key);
+    synConvolutionParams syn_params = synapse_conv_params_builder(
+        grad_weight.sizes(), stride, padding, dilation);
+
+    synapse_execute_kernel(
+        pt_outputs,
+        pt_inputs,
+        "dedw",
+        &syn_params,
+        sizeof(syn_params),
+        device_id,
+        key);
+  }
   Tensor grad_w = grad_weight;
   std::vector<const at::Tensor*> pt_in = {&grad_weight};
   std::vector<at::Tensor*> pt_out = {&grad_w};
@@ -309,17 +360,6 @@ std::tuple<Tensor, Tensor, Tensor> convolution_backward_hpu(
   output_mask_in[0] = output_mask[0];
   output_mask_in[1] = output_mask[1];
   output_mask_in[2] = output_mask[2];
-  // Build Params for the graph
-  std::vector<c10::IValue> stack = {IValue(grad_output),
-                                    IValue(input),
-                                    IValue(weight),
-                                    IValue(stride),
-                                    IValue(padding),
-                                    IValue(dilation),
-                                    IValue(transposed),
-                                    IValue(output_padding),
-                                    IValue(groups),
-                                    IValue(output_mask_in)};
   std::vector<at::Tensor> inputs{input, weight};
   habana_helpers::check_convolution_params(
       inputs, stride, padding, dilation, transposed, output_padding, groups);
@@ -362,6 +402,19 @@ std::tuple<Tensor, Tensor, Tensor> convolution_backward_hpu(
 
   Tensor grad_input, grad_weight, grad_bias;
 
+  // Build Params for the graph
+  std::vector<c10::IValue> stack = {
+      IValue(grad_out_nhwc),
+      IValue(input_nhwc),
+      IValue(weight_hwck),
+      IValue(stride),
+      IValue(padding),
+      IValue(dilation),
+      IValue(transposed),
+      IValue(output_padding),
+      IValue(groups),
+      IValue(output_mask_in),
+  };
   if (output_mask[0])
     grad_input = convolution_backward_input(
         input_nhwc.sizes(),
@@ -370,7 +423,8 @@ std::tuple<Tensor, Tensor, Tensor> convolution_backward_hpu(
         stride,
         padding,
         dilation,
-        memory_format);
+        memory_format,
+        stack);
   if (output_mask[1]) {
     grad_weight = convolution_backward_filter(
         input_nhwc,
@@ -379,7 +433,8 @@ std::tuple<Tensor, Tensor, Tensor> convolution_backward_hpu(
         stride,
         padding,
         dilation,
-        memory_format);
+        memory_format,
+        stack);
   }
   if (output_mask[2]) {
     grad_bias = grad_out_nhwc;

@@ -15,6 +15,8 @@ foreach (FLAVOR abi11)
     env_utils.cpp
     event.cpp
     event_handle_cache.cpp
+    recipe.cpp
+    recipe_handle_cache.cpp
     graph.cpp
     habana_tensor.cpp
     hcl_communicator.cpp

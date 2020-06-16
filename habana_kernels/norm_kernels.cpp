@@ -144,6 +144,9 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu(
     double eps) {
   PT_KERNEL_BEGIN;
 
+  auto num_input_dim = input.dim();
+  TORCH_CHECK(num_input_dim > 1, "Expected range of input dimensions is [2,4]");
+  c10::MemoryFormat memory_format = habana_helpers::get_memory_format({&input});
   // Build Params for the graph
   std::vector<c10::IValue> stack = {IValue(input),
                                     IValue(weight),
@@ -153,10 +156,9 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu(
                                     IValue(training),
                                     IValue(momentum),
                                     IValue(eps)};
+  size_t device_id = input[0].device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
 
-  auto num_input_dim = input.dim();
-  TORCH_CHECK(num_input_dim > 1, "Expected range of input dimensions is [2,4]");
-  c10::MemoryFormat memory_format = habana_helpers::get_memory_format({&input});
   // Resize input to 4D to match TPC kernel requirement.
   auto input_resize = batch_norm_resize(input, 4, memory_format);
   Tensor input_nhwc = input_resize;
@@ -231,19 +233,31 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu(
       pt_outputs.push_back(&current_mean);
       pt_outputs.push_back(&current_istd);
     }
-    // synapse uses expAvgfactor = 1 - momentum
-    struct synCudBnExParams param = {synBnOps::BN_OPS_BN,
-                                     static_cast<float>(1 - momentum),
-                                     static_cast<float>(eps)};
+    std::string nodeType = "cud_bn_fwd_ex";
+    size_t key = habana_helpers::getRecipeKey(nodeType, stack);
 
-    synapse_simple_generic_kernel(
-        pt_outputs,
-        pt_inputs,
-        "cud_bn_fwd_ex",
-        &param,
-        sizeof(param),
-        SynapsePassType::NO_PASS);
+    if (device.get_recipe_handle_cache().isCached(key)) {
+      PT_KERNEL_DEBUG("Cache hit key:", key);
+      synapse_execute_cached_kernel(pt_outputs, pt_inputs, device_id, key);
+    } else {
+      PT_KERNEL_DEBUG("Key:", key);
+      // synapse uses expAvgfactor = 1 - momentum
+      struct synCudBnExParams param = {synBnOps::BN_OPS_BN,
+                                       static_cast<float>(1 - momentum),
+                                       static_cast<float>(eps)};
+
+      synapse_execute_kernel(
+          pt_outputs,
+          pt_inputs,
+          nodeType,
+          &param,
+          sizeof(param),
+          device_id,
+          key);
+    }
   } else {
+    std::string nodeType = "batch_norm_inf";
+    size_t key = habana_helpers::getRecipeKey(nodeType, stack);
     // training=false - Evaluation mode
     std::vector<const at::Tensor*> pt_inputs{
         &input_nhwc,
@@ -252,19 +266,25 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu(
         &running_mean_hpu,
         &running_var_hpu,
     };
+    if (device.get_recipe_handle_cache().isCached(key)) {
+      PT_KERNEL_DEBUG("Cache hit key:", key);
+      synapse_execute_cached_kernel(pt_outputs, pt_inputs, device_id, key);
+    } else {
+      PT_KERNEL_DEBUG("Key:", key);
+      struct ns_BatchNormKernel::Params param;
+      param.threshold.f = 0.0;
+      param.momentum = momentum;
+      param.epsilon = eps;
 
-    struct ns_BatchNormKernel::Params param;
-    param.threshold.f = 0.0;
-    param.momentum = momentum;
-    param.epsilon = eps;
-
-    synapse_simple_generic_kernel(
-        pt_outputs,
-        pt_inputs,
-        "batch_norm_inf",
-        &param,
-        sizeof(param),
-        SynapsePassType::NO_PASS);
+      synapse_execute_kernel(
+          pt_outputs,
+          pt_inputs,
+          nodeType,
+          &param,
+          sizeof(param),
+          device_id,
+          key);
+    }
   }
   Tensor output = output_nhwc;
   pt_in = {&output_nhwc};
@@ -329,6 +349,8 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu(
                                     IValue(eps),
                                     IValue(output_mask_in)};
 
+  size_t device_id = input[0].device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
   auto num_input_dim = input.dim();
   TORCH_CHECK(num_input_dim > 1, "Expected range of input dimensions is [2,4]");
   TORCH_CHECK(
@@ -363,6 +385,7 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu(
       &save_mean_hpu,
       &save_invstd_hpu,
   };
+
   // Prepare output tensor vector
   auto grad_in_nhwc = at::empty(input_nhwc.sizes(), input_nhwc.options());
   auto grad_beta = at::empty(wt_hpu.sizes(), wt_hpu.options());
@@ -371,16 +394,19 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu(
   std::vector<const at::Tensor*> pt_outputs{
       &grad_in_nhwc, &grad_gamma, &grad_beta};
 
-  struct synCudBnExParams param = {
-      synBnOps::BN_OPS_BN, 0, static_cast<float>(eps)};
+  std::string nodeType = "cud_bn_bwd_ex";
+  size_t key = habana_helpers::getRecipeKey(nodeType, stack);
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    synapse_execute_cached_kernel(pt_outputs, pt_inputs, device_id, key);
+  } else {
+    PT_KERNEL_DEBUG("Key:", key);
+    struct synCudBnExParams param = {
+        synBnOps::BN_OPS_BN, 0, static_cast<float>(eps)};
 
-  synapse_simple_generic_kernel(
-      pt_outputs,
-      pt_inputs,
-      "cud_bn_bwd_ex",
-      &param,
-      sizeof(param),
-      SynapsePassType::NO_PASS);
+    synapse_execute_kernel(
+        pt_outputs, pt_inputs, nodeType, &param, sizeof(param), device_id, key);
+  }
   Tensor grad_in = grad_in_nhwc;
   pt_in = {&grad_in_nhwc};
   pt_out = {&grad_in};

@@ -26,6 +26,7 @@
 #include "synapse_helpers/event.h"
 #include "synapse_helpers/event_handle_cache.h"
 #include "synapse_helpers/memory_mapping.h"
+#include "synapse_helpers/recipe_handle_cache.h"
 #include "synapse_helpers/stream.h"
 #include "synapse_helpers/stream_event_manager.h"
 #include "synapse_helpers/synapse_error.h"
@@ -170,6 +171,10 @@ class device {
     return event_handle_cache_;
   }
 
+  recipe_handle_cache& get_recipe_handle_cache() {
+    return recipe_handle_cache_;
+  }
+
  private:
   static synapse_error_v<std::shared_ptr<device>> create(
       synDeviceType device_type,
@@ -200,6 +205,7 @@ class device {
   stream stream_h2d_;
   stream stream_d2h_;
   stream_event_manager sem_;
+  recipe_handle_cache recipe_handle_cache_;
 
   // Empty be default, framework can register its function to be called before
   // device is released

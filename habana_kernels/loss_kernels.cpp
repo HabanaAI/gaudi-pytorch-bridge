@@ -17,6 +17,7 @@
 #include "habana_helpers/unused_macro.h"
 #include "habana_kernels/loss_kernels.h"
 #include "simple_generic_kernel.h"
+#include "synapse_helpers/recipe.h"
 
 using namespace torch;
 using namespace habana;
@@ -110,22 +111,34 @@ std::tuple<Tensor, Tensor> nll_loss_forward_hpu(
       "nll_loss_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
 
   size_t device_id = self.device().index();
-
-  NLLLossFwdOperator Op(device_id, node_type);
-  // Create Graph
-  auto graph = habana_helpers::create_graph(device_id, node_type);
-
-  // Assign Inputs to the Operator
-  std::vector<const at::Tensor*> pt_inputs{&self, &modified_target};
-  Op.AllocateSynapseInputs(graph, pt_inputs, true);
-
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
   // Build Params for the graph
   std::vector<c10::IValue> stack = {
       IValue(self), IValue(modified_target), IValue(reduction)};
-  Op.AllocateAndAddSynapseNode(graph, stack, true);
+  NLLLossFwdOperator Op(device_id, node_type);
+  size_t key = Op.GetRecipeKey(node_type, stack);
 
-  // compile and execute the graph
-  Op.Compile(graph);
+  std::vector<const at::Tensor*> pt_inputs{&self, &modified_target};
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    auto output = at::empty(self.sizes(), self.options());
+    Op.SetPTInputs(pt_inputs);
+    Op.SetPTOutput(output);
+    Op.Execute(key);
+  } else {
+    PT_KERNEL_DEBUG("Key:", key);
+    // Create Graph
+    auto graph = habana_helpers::create_graph(device_id, node_type);
+
+    // Assign Inputs to the Operator
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
+
+    // Build Params for the graph
+    Op.AllocateAndAddSynapseNode(graph, stack, true);
+
+    // compile and execute the graph
+    Op.Compile(graph);
+  }
 
   std::vector<at::Tensor> out = Op.GetOutputs();
   TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
@@ -197,22 +210,31 @@ Tensor nll_loss_backward_hpu(
       "nll_loss_bwd_" + habana_helpers::name_suffix_from_type(scalar_type);
 
   size_t device_id = grad_output.device().index();
-
-  NLLLossBwdOperator Op(device_id, node_type);
-
-  // Create Graph
-  auto graph = habana_helpers::create_graph(device_id, node_type);
-
-  // Assign Inputs to the Operator
-  std::vector<const at::Tensor*> pt_inputs{&grad_output, &modified_target};
-  Op.AllocateSynapseInputs(graph, pt_inputs, true);
-
-  // Build Params for the graph
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
   std::vector<c10::IValue> stack = {IValue(self), IValue(reduction)};
-  Op.AllocateAndAddSynapseNode(graph, stack, true);
+  NLLLossBwdOperator Op(device_id, node_type);
+  size_t key = Op.GetRecipeKey(node_type, stack);
 
-  // compile and execute the graph
-  Op.Compile(graph);
+  std::vector<const at::Tensor*> pt_inputs{&grad_output, &modified_target};
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    auto output = at::empty(self.sizes(), self.options());
+    Op.SetPTInputs(pt_inputs);
+    Op.SetPTOutput(output);
+    Op.Execute(key);
+  } else {
+    // Create Graph
+    auto graph = habana_helpers::create_graph(device_id, node_type);
+
+    // Assign Inputs to the Operator
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
+
+    // Build Params for the graph
+    Op.AllocateAndAddSynapseNode(graph, stack, true);
+
+    // compile and execute the graph
+    Op.Compile(graph);
+  }
 
   std::vector<at::Tensor> out = Op.GetOutputs();
   TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");

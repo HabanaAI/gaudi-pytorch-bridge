@@ -22,6 +22,7 @@
 #include "habana_kernels/resize.h"
 #include "habana_kernels/simple_generic_kernel.h"
 #include "habana_kernels/unary_kernels.h"
+#include "synapse_helpers/recipe.h"
 
 using namespace torch;
 using namespace torch::jit;
@@ -47,21 +48,32 @@ Tensor unary_op_hpu(
     std::string& node_type,
     UnaryOperator* Op) {
   size_t device_id = input.device().index();
-
-  // Create Graph
-  auto graph = habana_helpers::create_graph(device_id, node_type);
-
-  // Assign Inputs to the Operator
-  std::vector<const at::Tensor*> pt_inputs{&input};
-  Op->AllocateSynapseInputs(graph, pt_inputs, true);
-
-  // Build Params for the graph
   std::vector<c10::IValue> stack = {IValue(input)};
-  Op->AllocateAndAddSynapseNode(graph, stack, true);
+  std::vector<const at::Tensor*> pt_inputs{&input};
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  size_t key = Op->GetRecipeKey(node_type, stack);
 
-  // compile and execute the graph
-  Op->Compile(graph);
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    auto output = at::empty(input.sizes(), input.options());
+    Op->SetPTInputs(pt_inputs);
+    Op->SetPTOutput(output);
+    Op->Execute(key);
+  } else {
+    PT_KERNEL_DEBUG("Key:", key);
+    //
+    // Create Graph
+    auto graph = habana_helpers::create_graph(device_id, node_type);
 
+    // Assign Inputs to the Operator
+    Op->AllocateSynapseInputs(graph, pt_inputs, true);
+
+    // Build Params for the graph
+    Op->AllocateAndAddSynapseNode(graph, stack, true);
+
+    // compile and execute the graph
+    Op->Compile(graph);
+  }
   std::vector<at::Tensor> out = Op->GetOutputs();
   TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
 

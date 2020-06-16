@@ -161,7 +161,8 @@ void validate_tensor_dim_sizes(const TensorList tensors, int64_t dim) {
     for (j = 0; j < tensors[i].dim(); j++) {
       if (j != dim) {
         if ((sz1[j] - sz2[j]) != 0)
-          PT_KERNEL_WARN("Sizes of tensors along one of the non-cat dimensions don't match");
+          PT_KERNEL_WARN(
+              "Sizes of tensors along one of the non-cat dimensions don't match");
         TORCH_CHECK(
             ((sz1[j] - sz2[j]) == 0),
             "Sizes of tensors along one of the non-cat dimensions don't match");
@@ -332,28 +333,46 @@ void TransposeOperator::AllocateAndAddSynapseNode(
 Tensor transpose_hpu(const Tensor& self, int64_t dim0_, int64_t dim1_) {
   PT_KERNEL_BEGIN;
   size_t device_id = self.device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
   at::ScalarType scalar_type = self.scalar_type();
   std::string node_type =
       "transpose_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
-
-  //
-  // Create Graph
-  auto graph = habana_helpers::create_graph(device_id, node_type);
-
   // Create operator
   TransposeOperator Op(device_id, scalar_type);
-
-  // Assign Inputs to the Operator
-  std::vector<const at::Tensor*> pt_inputs{&self};
-  Op.AllocateSynapseInputs(graph, pt_inputs, true);
-
   // Build Params for the graph
   std::vector<c10::IValue> stack = {IValue(self), IValue(dim0_), IValue(dim1_)};
-  Op.AllocateAndAddSynapseNode(graph, stack, true);
+  std::vector<const at::Tensor*> pt_inputs{&self};
+  size_t key = Op.GetRecipeKey(node_type, stack);
 
-  // compile and execute the graph
-  Op.Compile(graph);
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    // handle negative dimensions (backward indexing) in pytorch
+    int64_t dim0 = at::maybe_wrap_dim(dim0_, self.dim(), /*wrap_scalar=*/true);
+    int64_t dim1 = at::maybe_wrap_dim(dim1_, self.dim(), /*wrap_scalar=*/true);
+    auto self_sizes = self.sizes().vec();
+    auto self_strides = self.strides().vec();
+    std::swap(self_sizes[dim0], self_sizes[dim1]);
+    // Recalculate the strides to account for transpose size changes
+    // In effect, keep the tensor contiguous.
+    recalc_strides(self_strides, self_sizes);
+    auto output = at::empty_strided(self_sizes, self_strides, self.options());
+    Op.SetPTInputs(pt_inputs);
+    Op.SetPTOutput(output);
+    Op.Execute(key);
+  } else {
+    PT_KERNEL_DEBUG("key:", key);
+    //
+    // Create Graph
+    auto graph = habana_helpers::create_graph(device_id, node_type);
 
+    // Assign Inputs to the Operator
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
+
+    Op.AllocateAndAddSynapseNode(graph, stack, true);
+
+    // compile and execute the graph
+    Op.Compile(graph);
+  }
   std::vector<at::Tensor> out = Op.GetOutputs();
   TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
   PT_KERNEL_END;
@@ -527,27 +546,48 @@ Tensor permute_hpu(const Tensor& self, IntArrayRef dims_) {
 
   auto permute = [&] {
     size_t device_id = self.device().index();
+    auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
     at::ScalarType scalar_type = self.scalar_type();
     std::string node_type =
         "transpose_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
-
-    //
-    // Create Graph
-    auto graph = habana_helpers::create_graph(device_id, node_type);
-
     // Create the operator
     PermuteOperator Op(device_id, scalar_type);
-
-    // Assign Inputs to the Operator
-    std::vector<const at::Tensor*> pt_inputs{&self};
-    Op.AllocateSynapseInputs(graph, pt_inputs, true);
-
     // Build Params for the graph
     std::vector<c10::IValue> stack = {IValue(self), IValue(dims_)};
-    Op.AllocateAndAddSynapseNode(graph, stack, true /*is_output_persistent*/);
+    std::vector<const at::Tensor*> pt_inputs{&self};
+    size_t key = Op.GetRecipeKey(node_type, stack);
 
-    // compile and execute the graph
-    Op.Compile(graph);
+    if (device.get_recipe_handle_cache().isCached(key)) {
+      PT_KERNEL_DEBUG("Cache hit key:", key);
+      auto self_sizes = self.sizes().vec();
+      // calculate new sizes and strides after permute for out tensor
+      auto new_sizes = self.sizes().vec();
+      auto new_strides = self.strides().vec();
+      new_sizes[new_sizes.size() - 1] = self_sizes[dims_[new_sizes.size() - 1]];
+      new_strides[new_sizes.size() - 1] = 1;
+      for (int i = new_strides.size() - 2; i >= 0; i--) {
+        new_sizes[i] = self_sizes[dims_[i]];
+        new_strides[i] = new_strides[i + 1] * new_sizes[i + 1];
+      }
+      auto output = at::empty_strided(new_sizes, new_strides, self.options());
+      Op.SetPTInputs(pt_inputs);
+      Op.SetPTOutput(output);
+      Op.Execute(key);
+    } else {
+      PT_KERNEL_DEBUG("key:", key);
+
+      //
+      // Create Graph
+      auto graph = habana_helpers::create_graph(device_id, node_type);
+
+      // Assign Inputs to the Operator
+      Op.AllocateSynapseInputs(graph, pt_inputs, true);
+
+      Op.AllocateAndAddSynapseNode(graph, stack, true /*is_output_persistent*/);
+
+      // compile and execute the graph
+      Op.Compile(graph);
+    }
 
     std::vector<at::Tensor> out = Op.GetOutputs();
     TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");

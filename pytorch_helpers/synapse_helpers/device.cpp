@@ -47,7 +47,8 @@ device::device(
       stream_network_collective_{*this, stream_flavor::COLLECTIVE_0},
       stream_d2d_{*this, stream_flavor::DMA_D2D},
       stream_h2d_{*this, stream_flavor::DMA_H2D},
-      stream_d2h_{*this, stream_flavor::DMA_D2H} {
+      stream_d2h_{*this, stream_flavor::DMA_D2H},
+      recipe_handle_cache_{*this} {
   HABANA_ASSERT(create_allocator != nullptr);
   allocator_ = create_allocator(id_);
 

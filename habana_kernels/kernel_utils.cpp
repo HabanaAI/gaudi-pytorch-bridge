@@ -11,15 +11,18 @@
 
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
+#include "habana_kernels/kernel_recipe_signature.h"
 #include "kernel_utils.h"
+#include "synapse_helpers/recipe.h"
 
 using namespace torch;
 
-std::vector<synLaunchTensorInfo> habana_helpers::generate_syn_launch_tensor_info(
-    const std::vector<std::string>& in_names,
-    const std::vector<void*>& in_buffers,
-    const std::vector<std::string>& out_names,
-    const std::vector<void*>& out_buffers) {
+std::vector<synLaunchTensorInfo> habana_helpers::
+    generate_syn_launch_tensor_info(
+        const std::vector<std::string>& in_names,
+        const std::vector<void*>& in_buffers,
+        const std::vector<std::string>& out_names,
+        const std::vector<void*>& out_buffers) {
   TORCH_CHECK(in_names.size() == in_buffers.size());
   TORCH_CHECK(out_names.size() == out_buffers.size());
 
@@ -89,19 +92,49 @@ void habana_helpers::compile_and_run(
     const std::vector<std::string>& output_names,
     const std::vector<void*>& input_buffers,
     const std::vector<void*>& output_buffers,
-    const uint32_t device_id) {
+    const uint32_t device_id,
+    size_t key) {
   TORCH_CHECK(!graph.is_empty(), "Trying to compile and run an empty graph");
 
-  auto compile_result = graph.compile();
-  auto syn_launch_info = habana_helpers::generate_syn_launch_tensor_info(
-      input_names, input_buffers, output_names, output_buffers);
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  std::shared_ptr<synapse_helpers::recipe> recipe = nullptr;
+  if (key > 0 && synapse_helpers::IsCachingEnabled()) {
+    recipe = device.get_recipe_handle_cache().get_recipe(key, graph);
+  } else {
+    recipe = std::make_shared<synapse_helpers::recipe>();
+    recipe->create(graph);
+  }
+  AT_ASSERT(recipe != nullptr);
+  if (recipe != nullptr) {
+    synStreamHandle stream_handle = device.get_compute_stream();
+    recipe->create_launch_info();
+    recipe->set_inputs_outputs_names(input_names, output_names);
+    recipe->launch(input_buffers, output_buffers);
+    TORCH_HABANA_CHECK(
+        synStreamSynchronize(stream_handle), "synStreamSynchronize failed");
+  }
+}
 
+void habana_helpers::execute_recipe(
+    const std::vector<void*>& input_buffers,
+    const std::vector<void*>& output_buffers,
+    const uint32_t device_id,
+    size_t key) {
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
   synStreamHandle stream_handle = device.get_compute_stream();
-  synapse_helpers::graph::launch_info handle(
-      get_value(compile_result)->device_);
-  graph.create_launch_info(handle, *get_value(compile_result));
-  graph.launch(handle, *get_value(compile_result), syn_launch_info);
-  TORCH_HABANA_CHECK(
-      synStreamSynchronize(stream_handle), "synStreamSynchronize failed");
+  auto g_recipe = device.get_recipe_handle_cache().get_recipe(key);
+  AT_ASSERT(g_recipe != nullptr);
+  if (g_recipe != nullptr) {
+    g_recipe->launch(input_buffers, output_buffers);
+    TORCH_HABANA_CHECK(
+        synStreamSynchronize(stream_handle), "synStreamSynchronize failed");
+  }
+}
+
+size_t habana_helpers::getRecipeKey(
+    std::string node,
+    std::vector<c10::IValue> stack,
+    bool inPlaceOp) {
+  RecipeSignature rs(true, stack, {node}, inPlaceOp);
+  return rs.hash();
 }
