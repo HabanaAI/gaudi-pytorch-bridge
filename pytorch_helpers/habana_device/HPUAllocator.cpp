@@ -12,8 +12,11 @@
 #include "HPUAllocator.h"
 #include "HPUCheck.h"
 #include "HPUGuardImpl.h"
+#include "habana_helpers/logging.h"
 #include "hpu_cached_devices.h"
 #include "synapse_helpers/logging.h"
+
+PtLogger* PtLogger::instance = 0;
 
 namespace at {
 namespace habana {
@@ -29,7 +32,7 @@ at::Allocator* getHABANADeviceAllocator() {
 // TODO: it might be not the best place to put this macro. I am confused how
 // allocators are registered.
 REGISTER_ALLOCATOR(DeviceType::HABANA, &at::habana::hpu_device_allocator);
-}
+} // namespace habana
 
 namespace detail {
 
@@ -37,21 +40,17 @@ C10_REGISTER_GUARD_IMPL(HABANA, HABANAGuardImpl);
 
 } // namespace detail
 
-
 namespace habana {
 
-
-HPUAllocator::HPUAllocator(uint32_t device)
-  : device_id(device)
-{}
+HPUAllocator::HPUAllocator(uint32_t device) : device_id(device) {}
 
 void HPUAllocator::reset() {
-  TORCH_WARN("HPUAllocator::reset should not be invoked.");
+  PT_DEVICE_WARN("HPUAllocator::reset should not be invoked.");
 }
 
 void HPUAllocator::release() {
   device_id = synapse_helpers::device::INVALID_ID;
-  TORCH_WARN("HPUAllocator::release should not be invoked.");
+  PT_DEVICE_WARN("HPUAllocator::release should not be invoked.");
 }
 
 void* HPUAllocator::alloc(size_t num_bytes) {
@@ -130,8 +129,8 @@ at::DeleterFnPtr HPUDeviceAllocator::raw_deleter() const {
 namespace synapse_helpers {
 
 HPURegistrar& HPURegistrar::get_hpu_registrar() {
-  static HPURegistrar *instance = new HPURegistrar();
+  static HPURegistrar* instance = new HPURegistrar();
   return *instance;
 }
 
-}
+} // namespace synapse_helpers

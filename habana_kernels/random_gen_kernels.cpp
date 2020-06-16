@@ -48,7 +48,7 @@ void uniform_hpu(
     double from = 0,
     double to = 1,
     CPUGenerator* gen = nullptr) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
 
   std::vector<const at::Tensor*> pt_inputs{};
   std::vector<const at::Tensor*> pt_outputs{&self};
@@ -66,7 +66,7 @@ void uniform_hpu(
       sizeof(params),
       SynapsePassType::FORWARD_PASS);
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
 }
 
 /*******************************************************************
@@ -83,7 +83,9 @@ void normal_hpu(
     double mean = 0,
     double std = 1,
     CPUGenerator* gen = nullptr) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
+
+  PT_KERNEL_DEBUG("mean ", mean, " ", "std ", std);
 
   std::vector<const at::Tensor*> pt_inputs{};
   std::vector<const at::Tensor*> pt_outputs{&self};
@@ -101,7 +103,7 @@ void normal_hpu(
       sizeof(params),
       SynapsePassType::FORWARD_PASS);
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
 }
 
 /*******************************************************************
@@ -113,7 +115,7 @@ BF16/FP32
 input probabilities , I16/I32, 1-4D
 *******************************************************************/
 Tensor bernoulli_hpu(const Tensor& self, CPUGenerator* gen = nullptr) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
 
   Tensor output =
       at::empty(self.sizes(), self.options().dtype(c10::ScalarType::Int));
@@ -132,7 +134,7 @@ Tensor bernoulli_hpu(const Tensor& self, CPUGenerator* gen = nullptr) {
       sizeof(params),
       SynapsePassType::FORWARD_PASS);
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
 
   return output;
 }
@@ -150,7 +152,7 @@ Tensor& bernoulli_scalar_hpu(
     Tensor& self,
     double p,
     CPUGenerator* gen = nullptr) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
 
   auto self_scalar_type = self.scalar_type();
 
@@ -198,7 +200,7 @@ Tensor& bernoulli_scalar_hpu(
     habana_helpers::copy_data_within_device(self_float, self);
   }
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
 
   return self;
 }
