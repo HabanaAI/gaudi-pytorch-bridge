@@ -258,6 +258,163 @@ Tensor& add_tensor_hpu_(Tensor& self, const Tensor& other, Scalar alpha) {
   return self;
 }
 
+//after view operation input shapes get changed
+//creating output based on new tensor creates output with wrong size
+auto get_correct_input_tensor(const Tensor &a, const Tensor &b) {
+  TORCH_CHECK(a.ndimension() == b.ndimension(), "Tensor dims don't match");
+  size_t size1 = 0, size2 = 0;
+  auto sizes1 = a.sizes();
+  auto sizes2 = b.sizes();
+  for(int64_t i = 0; i < a.ndimension(); i++) {
+    if(sizes1[i] > sizes2[i] ) {
+      size1++;
+    }
+    else if(sizes1[i] < sizes2[i]) {
+      size2++;
+    }
+  }
+  return size1 > size2 ? a:b;
+}
+
+void habana::AddOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  // this check is for stack during graph execution
+  TORCH_CHECK(
+      inputs.size() == 3,
+      "Incorrect size of input expected for add operator");
+  TORCH_CHECK(inputs[0].isTensor(), "Input 0 type expected to be tensor");
+  TORCH_CHECK(inputs[1].isTensor(), "Input 1 type expected to be tensor");
+  TORCH_CHECK(inputs[2].isTensor(), "Input 2 type expected to be tensor");
+
+  Tensor arg1 = inputs[0].toTensor();
+  Tensor arg2 = inputs[1].toTensor();
+  Tensor alpha = inputs[2].toTensor();
+  TORCH_CHECK(alpha.numel() == 1, "Input 2 should be tensor of size 1");
+
+  habana::MulOperator mulOp(this->p_context_->device_id_, this->scalarType_);
+  auto& arg2_syn  = mulOp.SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
+  auto& alpha_syn = mulOp.SetSynapseInput(std::move(p_context_->syn_inputs_[2]));
+
+  torch::jit::Stack mulOp_stack  = {IValue(arg2), IValue(alpha)};
+  mulOp.AllocateAndAddSynapseNode(graph, mulOp_stack, false);
+
+  p_context_->syn_inputs_[1] = std::move(arg2_syn);
+  p_context_->syn_inputs_[2] = std::move(alpha_syn);
+
+  auto operand = get_correct_input_tensor(arg1, arg2);
+  auto output = at::empty(operand.sizes(), operand.options());
+  AllocateSynapseOutput(graph, output, is_output_persistent);
+
+  synapse_helpers::tensor& arg1_syn_tensor = p_context_->syn_inputs_[0];
+  synapse_helpers::tensor& mulOp_out_syn_tensor = mulOp.GetSynOutputs()[0];
+  std::vector<synTensor> syn_inputs{arg1_syn_tensor.get(), mulOp_out_syn_tensor.get()};
+
+  synapse_helpers::tensor& output_syn_tensor = p_context_->syn_outputs_[0];
+  std::vector<synTensor> syn_outputs{output_syn_tensor.get()};
+
+  graph.add_node(std::move(syn_inputs),
+                 std::move(syn_outputs),
+                 nullptr,
+                 0,
+                 std::move(guid_));
+}
+
+Tensor add_op_hpu(
+    const std::vector<const at::Tensor*> &pt_inputs,
+    const std::string& node_type,
+    size_t device_id,
+    habana::AddOperator* Op) {
+  PT_KERNEL_BEGIN;
+  // Create Graph
+  auto graph = habana_helpers::create_graph(device_id, node_type);
+
+  // Assign Inputs to the Operator
+  Op->AllocateSynapseInputs(graph, pt_inputs, true);
+
+  std::vector<c10::IValue> stack = {IValue(*pt_inputs[0]), IValue(*pt_inputs[1]), IValue(*pt_inputs[2])};
+  Op->AllocateAndAddSynapseNode(graph, stack, true);
+
+  // compile and execute the graph
+  Op->Compile(graph);
+
+  std::vector<at::Tensor> out = Op->GetOutputs();
+  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
+  PT_KERNEL_END;
+  return out.at(0);
+}
+
+void expand_size_binary_op(
+    const Tensor& operand1,
+    const Tensor& operand2,
+    Tensor& expanded_operand,
+    std::vector<const at::Tensor*> &pt_inputs) {
+  auto out_sizes = at::infer_size(operand1.sizes(), operand2.sizes());
+  auto out_dims = operand1.ndimension() > operand2.ndimension()
+      ? operand1.ndimension() : operand2.ndimension();
+
+  check_ew_kernel_constraints(operand1, operand2);
+
+  // Make sure that we give tensors that match dims to Synapse
+  if (operand1.ndimension() > operand2.ndimension()) {
+    auto operand2_sizes = operand2.sizes().vec();
+    // Create view_sizes initialized to part which has size=1 for upper dims
+    auto view_sizes = std::vector<int64_t>(out_dims - operand2.ndimension(), 1);
+    // and append the smaller tensor dims
+    view_sizes.insert(
+        view_sizes.end(), operand2_sizes.begin(), operand2_sizes.end());
+    expanded_operand = operand2.view(view_sizes);
+    pt_inputs.push_back(&operand1);
+    pt_inputs.push_back(&expanded_operand);
+  } else if (operand1.ndimension() < operand2.ndimension()) {
+    auto operand1_sizes = operand1.sizes().vec();
+    // Create view_sizes initialized to part which has size=1 for upper dims
+    auto view_sizes = std::vector<int64_t>(out_dims - operand1.ndimension(), 1);
+    view_sizes.insert(
+        view_sizes.end(), operand1_sizes.begin(), operand1_sizes.end());
+    expanded_operand = operand1.view(view_sizes);
+    pt_inputs.push_back(&expanded_operand);
+    pt_inputs.push_back(&operand2);
+  }
+  else {
+    pt_inputs.push_back(&operand1);
+    pt_inputs.push_back(&operand2);
+  }
+}
+
+Tensor process_generic_tensor_add_op(
+    const Tensor& operand1,
+    const Tensor& operand2,
+    const Tensor& alpha,
+    const std::string& node_guid,
+    const SynapsePassType pass_type) {
+  PT_KERNEL_BEGIN;
+  auto operand1_hpu = get_hpu_tensor(operand1);
+  auto operand2_hpu = get_hpu_tensor(operand2);
+  auto alpha_hpu = get_hpu_tensor(alpha);
+  Tensor expanded_operand;
+  std::vector<const at::Tensor*> pt_inputs;
+  expand_size_binary_op(operand1_hpu, operand2_hpu, expanded_operand, pt_inputs);
+  pt_inputs.push_back(&alpha_hpu);
+  
+  size_t device_id = pt_inputs[0]->device().index();
+  at::ScalarType scalar_type = pt_inputs[0]->scalar_type();
+
+  // can we hard code _fwd_ ?
+  std::string node_type = (SynapsePassType::NO_PASS == pass_type) ? node_guid
+                                                                  : node_guid +
+          std::string((SynapsePassType::FORWARD_PASS == pass_type) ? "_fwd_"
+                                                                   : "_bwd_") +
+          habana_helpers::name_suffix_from_type(scalar_type);
+
+  habana::AddOperator op(device_id, scalar_type);
+
+  auto out = add_op_hpu(pt_inputs, node_type, device_id, &op);
+  PT_KERNEL_END;
+  return out;
+}
+
 /*************************************************************************
  * @brief Kernel implementation for out = torch.add(self, alpha, other)
  * @param self - first input
@@ -282,9 +439,12 @@ Tensor add_tensor_hpu(const Tensor& self, const Tensor& other, Scalar alpha) {
     output = output_cpu.to(c10::DeviceType::HABANA);
     PT_KERNEL_WARN("Unsupported long int addition");
   } else {
-    auto out_mul = do_tensor_scalar_mul(other, alpha);
-    output = do_generic_tensor_binary_op(
-        self, out_mul, "add", SynapsePassType::FORWARD_PASS);
+    //TODO: Optimize for alpha == 1
+    auto alpha_tensor = convert_scalar_to_tensor_using_self(
+        self,
+        alpha);
+    output = process_generic_tensor_add_op(
+        self, other, alpha_tensor, "add", SynapsePassType::FORWARD_PASS);
   }
 
   PT_KERNEL_END;
@@ -494,23 +654,6 @@ Tensor& mul_tensor_hpu_(Tensor& self, const Tensor& other) {
   return self;
 }
 
-//after view operation input shapes get changed
-//creating output based on new tensor creates output with wrong size
-auto get_correct_input_tensor(const Tensor &a, const Tensor &b) {
-  TORCH_CHECK(a.ndimension() == b.ndimension(), "Tensor dims don't match");
-  size_t size1 = 0, size2 = 0;
-  auto sizes1 = a.sizes();
-  auto sizes2 = b.sizes();
-  for(int64_t i = 0; i < a.ndimension(); i++) {
-    if(sizes1[i] > sizes2[i] ) {
-      size1++;
-    }
-    else if(sizes1[i] < sizes2[i]) {
-      size2++;
-    }
-  }
-  return size1 > size2 ? a:b;
-}
 void habana::BinaryOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
@@ -565,42 +708,12 @@ Tensor process_generic_tensor_binary_op(
     const SynapsePassType pass_type) {
   PT_KERNEL_BEGIN;
 
-  auto out_sizes = at::infer_size(operand1.sizes(), operand2.sizes());
-  auto output = at::empty(out_sizes, operand1.options());
-  auto out_dims = output.ndimension();
-
-  std::vector<const at::Tensor*> pt_inputs;
-  Tensor expanded_operand;
   auto operand1_hpu = get_hpu_tensor(operand1);
   auto operand2_hpu = get_hpu_tensor(operand2);
+  Tensor expanded_operand;
+  std::vector<const at::Tensor*> pt_inputs;
+  expand_size_binary_op(operand1_hpu, operand2_hpu, expanded_operand, pt_inputs);
 
-  check_ew_kernel_constraints(operand1_hpu, operand2_hpu);
-
-  // Make sure that we give tensors that match dims to Synapse
-  if (operand1.ndimension() > operand2.ndimension()) {
-    auto operand2_sizes = operand2.sizes().vec();
-    // Create view_sizes initialized to part which has size=1 for upper dims
-    auto view_sizes = std::vector<int64_t>(out_dims - operand2.ndimension(), 1);
-    // and append the smaller tensor dims
-    view_sizes.insert(
-        view_sizes.end(), operand2_sizes.begin(), operand2_sizes.end());
-    expanded_operand = operand2_hpu.view(view_sizes);
-    pt_inputs.push_back(&operand1_hpu);
-    pt_inputs.push_back(&expanded_operand);
-  } else if (operand1.ndimension() < operand2.ndimension()) {
-    auto operand1_sizes = operand1.sizes().vec();
-    // Create view_sizes initialized to part which has size=1 for upper dims
-    auto view_sizes = std::vector<int64_t>(out_dims - operand1.ndimension(), 1);
-    view_sizes.insert(
-        view_sizes.end(), operand1_sizes.begin(), operand1_sizes.end());
-    expanded_operand = operand1_hpu.view(view_sizes);
-    pt_inputs.push_back(&expanded_operand);
-    pt_inputs.push_back(&operand2_hpu);
-  }
-  else {
-    pt_inputs.push_back(&operand1_hpu);
-    pt_inputs.push_back(&operand2_hpu);
-  }
   size_t device_id = pt_inputs[0]->device().index();
   at::ScalarType scalar_type = pt_inputs[0]->scalar_type();
 
@@ -616,6 +729,7 @@ Tensor process_generic_tensor_binary_op(
   PT_KERNEL_END;
   return out;
 }
+
 /*************************************************************************
  * @brief Kernel implementation for output = torch.mul(self, other)
  * @param self - first input

@@ -36,8 +36,8 @@ class PytorchKernelContext {
   int device_id_;
   std::vector<const at::Tensor*> pt_inputs_;
   std::vector<at::Tensor> pt_outputs_;
-  std::vector<synapse_helpers::tensor_or_ref> syn_inputs_;
-  std::vector<synapse_helpers::tensor_or_ref> syn_outputs_;
+  std::deque<synapse_helpers::tensor_or_ref> syn_inputs_;
+  std::deque<synapse_helpers::tensor_or_ref> syn_outputs_;
   std::set<unsigned int> excluded_output_indices_;
   absl::any params_;
   size_t params_size_;
@@ -102,8 +102,8 @@ class HabanaOperator {
   //
   // If Synapse tensor is already exists for the py torch tensor, we just add
   // the synapse tensor to the context
-  virtual synapse_helpers::tensor& SetSynapseInput(
-      synapse_helpers::tensor&& tensor);
+  virtual synapse_helpers::tensor_or_ref& SetSynapseInput(
+      synapse_helpers::tensor_or_ref&& tensor);
 
   //
   // Method to add output tensors to graph builder context
@@ -132,7 +132,7 @@ class HabanaOperator {
     return p_context_->pt_outputs_;
   }
 
-  virtual std::vector<synapse_helpers::tensor_or_ref>& GetSynOutputs() const {
+  virtual std::deque<synapse_helpers::tensor_or_ref>& GetSynOutputs() const {
     return p_context_->syn_outputs_;
   }
 

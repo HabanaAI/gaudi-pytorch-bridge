@@ -284,6 +284,22 @@ std::vector<std::string> habana_helpers::names(
   return names;
 }
 
+std::vector<std::string> habana_helpers::names(
+    const std::deque<synapse_helpers::tensor_or_ref>& vec) {
+  std::vector<std::string> names;
+  names.reserve(vec.size());
+
+  std::transform(
+      vec.begin(),
+      vec.end(),
+      std::back_inserter(names),
+      [](const synapse_helpers::tensor& tensor) {
+        return tensor.tensor_name_;
+      });
+
+  return names;
+}
+
 std::string habana_helpers::name_suffix_from_type(
     const c10::ScalarType pt_type) {
   auto string_or_error = synapse_helpers::graph::name_suffix_from_type(

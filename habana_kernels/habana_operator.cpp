@@ -98,8 +98,8 @@ void habana::HabanaOperator::AllocateSynapseOutputs(
   }
 }
 
-synapse_helpers::tensor& habana::HabanaOperator::SetSynapseInput(
-    synapse_helpers::tensor&& tensor) {
+synapse_helpers::tensor_or_ref& habana::HabanaOperator::SetSynapseInput(
+    synapse_helpers::tensor_or_ref&& tensor) {
   //
   // The tensor already exists and hence we just add this to the context
   // no need to convert to synapse tensor

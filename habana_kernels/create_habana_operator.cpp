@@ -54,6 +54,12 @@ HabanaOperatorPtr CreateHabanaOperator(
   } else if ("aten::div" == node_name) {
     op = std::make_shared<DivOperator>(device_id, node_type);
   }
+  // TODO: Currently, add op extended with HabanaOperator functions fine 
+  // for eager mode; however, it needs more work (involving view size adjustment)
+  // before it can be enabled for graph mode.
+  /* else if ("aten::add" == node_name) {
+    op = std::make_shared<AddOperator>(device_id, node_type);
+  } */
 
   // Returning a null pointer for cases not added yet,
   // we can add assert once all kernels are added

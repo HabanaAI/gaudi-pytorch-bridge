@@ -43,4 +43,21 @@ class DivOperator : public BinaryOperator {
         device_id,
         "div_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {}
 };
+
+class AddOperator : public habana::HabanaOperator {
+  public:
+  AddOperator(int device_id, c10::ScalarType scalarType)
+    : HabanaOperator("add_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
+    this->CreateSynContext(device_id);
+    scalarType_ = scalarType;
+  }
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false);
+
+ private:
+  c10::ScalarType scalarType_;
+};
+
 } //namespace habana
