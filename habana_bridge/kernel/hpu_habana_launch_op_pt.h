@@ -218,4 +218,5 @@ class HabanaLaunchOpPT {
   void LaunchRecipe(RecipeValueSpec &rv);
   bool IsCached(std::shared_ptr<RecipeArgumentSpec> &spec);
   void handleMetaOps(torch::jit::Node* node);
+  void UpdateOutputs();
 };

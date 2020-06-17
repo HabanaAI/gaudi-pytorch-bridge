@@ -493,6 +493,12 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
 
   postProcessOutputs();
 
+  if (syn_graph.is_empty()) {
+    UpdateOutputs();
+    LOG_FUNC_END;
+    return;
+  }
+
   // set outputs to output structure
   std::shared_ptr<synapse_helpers::graph::recipe_handle> synh_recipe;
   if (CompileSynapseGraph(synh_recipe)) {
@@ -530,11 +536,7 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
 
     LaunchRecipe(rv);
 
-    // Update the stack
-    drop(*pt_stack, num_inputs);
-    for (auto output : subgraph_->outputs()) {
-      pt_stack->insert(pt_stack->end(), *value_to_ivalue[output]);
-    }
+    UpdateOutputs();
 
     // Add the <key,value> pair to the map
     std::shared_ptr<RecipeArgumentSpec> ra_spec =
@@ -577,6 +579,14 @@ void HabanaLaunchOpPT::LaunchRecipe(RecipeValueSpec &rv) {
   synapse_helpers::graph::launch(ln_info, *last_recipe, syn_launch_info);
 
   TORCH_HABANA_CHECK(synStreamSynchronize(stream_handle), "synStreamSynchronize failed");
+}
+
+void HabanaLaunchOpPT::UpdateOutputs() {
+  // Update the stack
+  drop(*pt_stack, num_inputs);
+  for (auto output : subgraph_->outputs()) {
+    pt_stack->insert(pt_stack->end(), *value_to_ivalue[output]);
+  }
 }
 
 void HabanaLaunchOpPT::clear() {
