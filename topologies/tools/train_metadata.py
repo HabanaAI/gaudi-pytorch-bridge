@@ -1,5 +1,6 @@
 import sys
 from .tensor_probe import *
+from .tracepoint import *
 
 #TrainMetaData is to set additional configurations/flags on top of those offered by the standard training script.
 #example uses include specifying the number of steps to train rather than training a full epoch.
@@ -15,6 +16,7 @@ class TrainMetaData():
         self.save_checkpt = True
         self.ParamsDump = ModelParamsDump()
         self.hooks = tp_hooks_register(model, device)
+        self.tracept = TracePoint()
 
     def increment_train_step(self):
         self.current_train_step += 1
