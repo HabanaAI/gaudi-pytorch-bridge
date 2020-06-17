@@ -32,11 +32,7 @@ find_package(Torch REQUIRED)
 add_subdirectory(third_party/pybind11)
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 include(AddNPUStackDependencies)
-include(SeparateDebugSymbols)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-add_subdirectory(cmake/absl_abi98)
-add_subdirectory(cmake/absl_abi11)
 
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})

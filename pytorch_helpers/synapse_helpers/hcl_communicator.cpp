@@ -32,6 +32,8 @@
 
 #include "synapse_helpers/runtime_tracing.h"
 
+PtLogger* PtLogger::instance = nullptr;
+
 namespace synapse_helpers {
 
 #define VERIFY_HCL_STATUS(msg, status)                         \
