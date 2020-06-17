@@ -44,7 +44,7 @@ namespace lib_hcl {
 void LoadSymbols(void* lib_handle_);
 }
 #ifndef BINARY_NAME
-#define BINARY_NAME "synapse_logger.so"
+#define BINARY_NAME "pytorch_synapse_logger.so"
 #endif
 
 namespace {

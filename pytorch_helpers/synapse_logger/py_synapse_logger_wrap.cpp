@@ -2919,7 +2919,7 @@ static swig_module_info swig_module = {swig_types, 1, 0, 0, 0, 0};
 #endif
 
 /*-----------------------------------------------
-              @(target):= _py_synapse_logger.so
+              @(target):= _py_pytorch_synapse_logger.so
   ------------------------------------------------*/
 #if PY_VERSION_HEX >= 0x03000000
 #define SWIG_init PyInit__py_synapse_logger
@@ -2928,7 +2928,7 @@ static swig_module_info swig_module = {swig_types, 1, 0, 0, 0, 0};
 #define SWIG_init init_py_synapse_logger
 
 #endif
-#define SWIG_name "_py_synapse_logger"
+#define SWIG_name "_py_pytorch_synapse_logger"
 
 #define SWIGVERSION 0x030012
 #define SWIG_VERSION SWIGVERSION
