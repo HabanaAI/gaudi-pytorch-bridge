@@ -142,7 +142,7 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu(
     bool training,
     double momentum,
     double eps) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
   auto num_input_dim = input.dim();
   TORCH_CHECK(num_input_dim > 1, "Expected range of input dimensions is [2,4]");
   c10::MemoryFormat memory_format = habana_helpers::get_memory_format({&input});
@@ -265,7 +265,7 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu(
   // Resize output
   auto output_resized = batch_norm_resize(output, num_input_dim, memory_format);
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
 
   return std::make_tuple(output_resized, current_mean, current_istd);
 }
@@ -300,7 +300,7 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu(
     bool train,
     double eps,
     UNUSED bool output_mask[3]) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
 
   auto num_input_dim = input.dim();
   TORCH_CHECK(num_input_dim > 1, "Expected range of input dimensions is [2,4]");
@@ -365,7 +365,7 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu(
   auto grad_in_resized =
       batch_norm_resize(grad_in, num_input_dim, memory_format);
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return std::make_tuple(grad_in_resized, grad_gamma, grad_beta);
 }
 
@@ -385,7 +385,7 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_hpu(
     int64_t m,
     int64_t n,
     double eps) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
 
   auto wt_reshaped = weight.view(-1);
   auto bias_reshaped = bias.view(-1);
@@ -417,7 +417,7 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_hpu(
 
   auto output_reshaped = output.view(input.sizes().vec());
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return std::make_tuple(
       std::move(output_reshaped), std::move(mean), std::move(istd));
 }
@@ -430,7 +430,7 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_hpu(
  * @param [in] p - optional input, default = 2
  ************************************************************************/
 Tensor norm_scalar_hpu(const Tensor& self, Scalar p) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
 
   TORCH_CHECK(p.toFloat() > 0.0, "norm with p > 0.0 is only supported");
 
@@ -459,7 +459,7 @@ Tensor norm_scalar_hpu(const Tensor& self, Scalar p) {
   // PT expects 0-D
   retain.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return retain;
 }
 

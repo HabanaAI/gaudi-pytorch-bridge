@@ -163,10 +163,3 @@ class PtLogger {
   PT_MOD_DEBUG(PtLogger::ModuleMask::HELPER, __VA_ARGS__)
 #define PT_DISTRIBUTED_DEBUG(...) \
   PT_MOD_DEBUG(PtLogger::ModuleMask::DISTRIBUTED, __VA_ARGS__)
-
-#define LOG_FUNC_BEGIN        \
-  std::clog << "DEPRECATED! " \
-            << "HABANA_LOG: begin of " << __PRETTY_FUNCTION__ << "\n"
-#define LOG_FUNC_END          \
-  std::clog << "DEPRECATED! " \
-            << "HABANA_LOG: end of " << __PRETTY_FUNCTION__ << "\n"

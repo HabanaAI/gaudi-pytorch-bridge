@@ -92,7 +92,7 @@ Tensor unary_op_hpu(
 }
 
 Tensor relu_hpu(const Tensor& input) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
   at::ScalarType scalar_type = input.scalar_type();
   std::string node_type =
       "relu_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
@@ -102,7 +102,7 @@ Tensor relu_hpu(const Tensor& input) {
   ReluOperator Op(device_id, scalar_type);
 
   auto out = unary_op_hpu(input, node_type, &Op);
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return out;
 }
 
@@ -112,7 +112,7 @@ Tensor relu_hpu(const Tensor& input) {
  * @param [in] input - input tensor, 1-4D, BF16/FP32
  ************************************************************************/
 Tensor sigmoid_hpu(const Tensor& input) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
   at::ScalarType scalar_type = input.scalar_type();
   std::string node_type =
       "sigmoid_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
@@ -122,18 +122,18 @@ Tensor sigmoid_hpu(const Tensor& input) {
   SigmoidOperator Op(device_id, scalar_type);
 
   auto out = unary_op_hpu(input, node_type, &Op);
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return out;
 }
 
 Tensor& relu_hpu_(Tensor& self) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
   std::vector<const at::Tensor*> pt_inputs{&self};
 
   synapse_simple_generic_inplace_kernel(
       pt_inputs, "relu", nullptr, 0, SynapsePassType::FORWARD_PASS);
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return self;
 }
 
@@ -144,7 +144,7 @@ Tensor& relu_hpu_(Tensor& self) {
  * @param [in] input - input tensor, 1-4D, BF16/FP32
  ************************************************************************/
 Tensor sigmoid_backward_hpu(const Tensor& grad_in, const Tensor& input) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
 
   TORCH_CHECK(
       grad_in.scalar_type() == input.scalar_type(),
@@ -176,7 +176,7 @@ Tensor sigmoid_backward_hpu(const Tensor& grad_in, const Tensor& input) {
       0,
       SynapsePassType::BACKWARD_PASS);
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return grad_output;
 }
 
@@ -186,7 +186,7 @@ Tensor sigmoid_backward_hpu(const Tensor& grad_in, const Tensor& input) {
  * @param [in] input - input tensor, 1-4D, BF16/FP32
  ************************************************************************/
 Tensor sqrt_hpu(const Tensor& input) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
 
   auto output = at::empty(input.sizes(), input.options());
   std::vector<const at::Tensor*> pt_outputs{&output};
@@ -195,7 +195,7 @@ Tensor sqrt_hpu(const Tensor& input) {
   synapse_simple_generic_kernel(
       pt_outputs, pt_inputs, "sqrt", nullptr, 0, SynapsePassType::FORWARD_PASS);
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return output;
 }
 
@@ -205,7 +205,7 @@ Tensor sqrt_hpu(const Tensor& input) {
  * @param [in] input - input tensor, 1-4D, BF16/FP32
  ************************************************************************/
 Tensor tanh_hpu(const Tensor& input) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
 
   auto output = at::empty(input.sizes(), input.options());
   std::vector<const at::Tensor*> pt_outputs{&output};
@@ -214,7 +214,7 @@ Tensor tanh_hpu(const Tensor& input) {
   synapse_simple_generic_kernel(
       pt_outputs, pt_inputs, "tanh", nullptr, 0, SynapsePassType::FORWARD_PASS);
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return output;
 }
 
@@ -225,13 +225,13 @@ Tensor tanh_hpu(const Tensor& input) {
  ************************************************************************/
 
 Tensor& tanh_hpu_(Tensor& self) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
   std::vector<const at::Tensor*> pt_inputs{&self};
 
   synapse_simple_generic_inplace_kernel(
       pt_inputs, "tanh", nullptr, 0, SynapsePassType::FORWARD_PASS);
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return self;
 }
 
@@ -242,14 +242,14 @@ Tensor& tanh_hpu_(Tensor& self) {
  ************************************************************************/
 
 Tensor& tanh_out_hpu(Tensor& out, Tensor& self) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
   std::vector<const at::Tensor*> pt_inputs{&self};
   std::vector<const at::Tensor*> pt_outputs{&out};
 
   synapse_simple_generic_kernel(
       pt_outputs, pt_inputs, "tanh", nullptr, 0, SynapsePassType::FORWARD_PASS);
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return self;
 }
 
@@ -260,7 +260,7 @@ Tensor& tanh_out_hpu(Tensor& out, Tensor& self) {
  * @param [in] input - input tensor, 1-4D, BF16/FP32
  ************************************************************************/
 Tensor tanh_backward_hpu(const Tensor& grad_in, const Tensor& input) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
 
   TORCH_CHECK(
       grad_in.scalar_type() == input.scalar_type(),
@@ -292,7 +292,7 @@ Tensor tanh_backward_hpu(const Tensor& grad_in, const Tensor& input) {
       0,
       SynapsePassType::BACKWARD_PASS);
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return grad_output;
 }
 
@@ -304,13 +304,13 @@ Tensor tanh_backward_hpu(const Tensor& grad_in, const Tensor& input) {
  * @param [in] self - input tensor, 1-4D, BF16/FP32
  ************************************************************************/
 Tensor gelu_hpu(const Tensor& self) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
 
   auto output = at::pow(self, 3.0);
   output = at::add(self, output, 0.044715);
   output.mul_(M_2_SQRTPI * M_SQRT1_2).tanh_().add_(1.0).mul_(0.5).mul_(self);
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return output;
 }
 
@@ -322,14 +322,14 @@ Tensor gelu_hpu(const Tensor& self) {
  * @param [in] input - input tensor, 1-4D, BF16/FP32
  ************************************************************************/
 Tensor& erf_hpu_(Tensor& self) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
 
   Tensor self_copy = at::empty(self.sizes(), self.options());
   habana_helpers::copy_data_within_device(self, self_copy);
 
   self.pow_(3.0).mul_(0.08943).add_(self_copy).mul_(M_2_SQRTPI).tanh_();
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return self;
 }
 
@@ -339,7 +339,7 @@ Tensor& erf_hpu_(Tensor& self) {
  * @param [out, in]  1-4D, BF16/FP32
  ************************************************************************/
 Tensor& exp_hpu_(Tensor& self) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
 
   auto self_copy = at::empty(self.sizes(), self.options());
   habana_helpers::copy_data_within_device(self, self_copy);
@@ -350,7 +350,7 @@ Tensor& exp_hpu_(Tensor& self) {
   synapse_simple_generic_kernel(
       pt_outputs, pt_inputs, "exp", nullptr, 0, SynapsePassType::FORWARD_PASS);
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return self;
 }
 
@@ -360,7 +360,7 @@ Tensor& exp_hpu_(Tensor& self) {
  * @param [in] input - input tensor, 1-4D, BF16/FP32
  ************************************************************************/
 Tensor& neg_out_hpu(Tensor& result, const Tensor& input) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
 
   // Resize result to correct size (if required)
   auto shape = DimVector(input.sizes());
@@ -373,7 +373,7 @@ Tensor& neg_out_hpu(Tensor& result, const Tensor& input) {
   synapse_simple_generic_kernel(
       pt_outputs, pt_inputs, "neg", nullptr, 0, SynapsePassType::FORWARD_PASS);
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return result;
 }
 
@@ -382,13 +382,13 @@ Tensor& neg_out_hpu(Tensor& result, const Tensor& input) {
  * @param [in] self - input tensor, 1-4D, BF16/FP32
  ************************************************************************/
 Tensor& reciprocal_hpu_(Tensor& self) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
   std::vector<const at::Tensor*> pt_inputs{&self};
 
   synapse_simple_generic_inplace_kernel(
       pt_inputs, "reciprocal", nullptr, 0, SynapsePassType::FORWARD_PASS);
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return self;
 }
 
@@ -398,7 +398,7 @@ Tensor& reciprocal_hpu_(Tensor& self) {
  * @param [in] self - input tensor, 1-4D, BF16/FP32
  ************************************************************************/
 Tensor reciprocal_hpu(const Tensor& self) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
 
   auto output = at::empty(self.sizes(), self.options());
   std::vector<const at::Tensor*> pt_outputs{&output};
@@ -412,7 +412,7 @@ Tensor reciprocal_hpu(const Tensor& self) {
       0,
       SynapsePassType::FORWARD_PASS);
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return output;
 }
 
@@ -422,7 +422,7 @@ Tensor reciprocal_hpu(const Tensor& self) {
  * @param [in] self - input tensor, 1-4D, BF16/FP32
  ************************************************************************/
 Tensor& reciprocal_out_hpu(Tensor& result, const Tensor& self) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
 
   // Resize result to correct size (if required)
   auto shape = DimVector(self.sizes());
@@ -440,7 +440,7 @@ Tensor& reciprocal_out_hpu(Tensor& result, const Tensor& self) {
       0,
       SynapsePassType::FORWARD_PASS);
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return result;
 }
 
@@ -471,7 +471,7 @@ void ClampOperator::AllocateAndAddSynapseNode(
  * @param min (int, float) Minimum value at which input will be clamped
  */
 Tensor clamp_min_hpu(const Tensor& self, Scalar min) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
   at::ScalarType scalar_type = self.scalar_type();
   std::string node_type =
       "clamp_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
@@ -499,7 +499,7 @@ Tensor clamp_min_hpu(const Tensor& self, Scalar min) {
   std::vector<at::Tensor> out = Op.GetOutputs();
   TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return out.at(0);
 }
 
@@ -510,7 +510,7 @@ Tensor clamp_min_hpu(const Tensor& self, Scalar min) {
  * @param [in] self - input tensor, 1-4D, BF16/FP32
  ************************************************************************/
 Tensor abs_hpu(const Tensor& self) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
 
   at::ScalarType scalar_type = self.scalar_type();
   std::string node_type =
@@ -522,7 +522,7 @@ Tensor abs_hpu(const Tensor& self) {
 
   auto out = unary_op_hpu(self, node_type, &Op);
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return out;
 }
 

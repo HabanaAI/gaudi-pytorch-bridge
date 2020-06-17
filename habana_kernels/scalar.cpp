@@ -19,7 +19,7 @@ namespace at {
 namespace native {
 
 Scalar _local_scalar_dense_hpu(const Tensor& self) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
   Scalar r;
 
   // Note: this macro expands to more types than HPU supports, but this is not
@@ -37,7 +37,7 @@ Scalar _local_scalar_dense_hpu(const Tensor& self) {
         r = Scalar(val);
       });
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
 
   return r;
 }

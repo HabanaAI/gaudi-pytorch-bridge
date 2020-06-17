@@ -197,7 +197,7 @@ void habana::MMOperator::AllocateAndAddSynapseNode(synapse_helpers::graph& graph
 }
 
 at::Tensor matmul_hpu(const at::Tensor& mat1, const at::Tensor& mat2) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
 
   const auto device_id = mat1.device().index();
   std::string node_type = "gemm";
@@ -216,7 +216,7 @@ at::Tensor matmul_hpu(const at::Tensor& mat1, const at::Tensor& mat2) {
   op.Compile(graph);
   std::vector<at::Tensor> out = op.GetOutputs();
   TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return out.at(0);
 }
 
@@ -226,7 +226,7 @@ Tensor matmul_with_bias_hpu(
     const Tensor& mat2,
     Scalar beta,
     Scalar alpha) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
   check_matmul_params(mat1, mat2, &self);
   TORCH_CHECK(
       self.sizes().size() == 1,
@@ -257,7 +257,7 @@ Tensor matmul_with_bias_hpu(
       at::expand_size(self, bias_expanded_sizes, "matmul_with_bias_hpu");
   synapse_matmul(output, mat1, mat2, bias_expanded, beta, alpha);
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return output;
 }
 
@@ -271,7 +271,7 @@ void check_bmm_matmul_params(
     const Tensor& mat1,
     const Tensor& mat2,
     c10::optional<const at::Tensor*> bias) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
   TORCH_CHECK(mat1.ndimension() == 3, "Batched gemm supports only 3d matrices");
   TORCH_CHECK(mat2.ndimension() == 3, "Batched gemm supports only 3d matrices");
   TORCH_CHECK(
@@ -294,7 +294,7 @@ void check_bmm_matmul_params(
   if (bias)
     TORCH_CHECK(
         bias.value()->ndimension() == 1, "matmul_hpu supports only 1d bias");
-  LOG_FUNC_END;
+  PT_KERNEL_END;
 }
 
 /*****************************************************************************************************
@@ -304,7 +304,7 @@ void check_bmm_matmul_params(
  * @param[in,out] out - Result tensor, 3D, NHC, bf16/FP32
  *****************************************************************************************************/
 void batch_gemm_out_hpu(Tensor& out, const Tensor& self, const Tensor& mat2) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
 
   check_bmm_matmul_params(self, mat2, c10::nullopt);
 
@@ -321,7 +321,7 @@ void batch_gemm_out_hpu(Tensor& out, const Tensor& self, const Tensor& mat2) {
       sizeof(params),
       SynapsePassType::NO_PASS);
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
 }
 
 /*****************************************************************************************************
@@ -332,7 +332,7 @@ void batch_gemm_out_hpu(Tensor& out, const Tensor& self, const Tensor& mat2) {
  *****************************************************************************************************/
 
 Tensor batch_gemm_hpu(const Tensor& self, const Tensor& mat2) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
 
   // If input is a b×n×m tensor, mat2 is a b×m×p tensor, out will be a b×n×p
   // tensor
@@ -342,7 +342,7 @@ Tensor batch_gemm_hpu(const Tensor& self, const Tensor& mat2) {
       at::empty({self_sizes[0], self_sizes[1], mat2_sizes[2]}, self.options());
   batch_gemm_out_hpu(out, self, mat2);
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
 
   return out;
 }
@@ -354,7 +354,7 @@ other - 1D m
 output - 0-D tensor
 *****************************************************************************************************/
 Tensor dot_hpu(const Tensor& self, const Tensor& other) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
 
   Tensor output = at::empty({1, 1}, self.options());
 
@@ -367,7 +367,7 @@ Tensor dot_hpu(const Tensor& self, const Tensor& other) {
   // PT expects 0-D
   output.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return output;
 }
 
@@ -378,7 +378,7 @@ other - 1D m
 output - 1D n
 *****************************************************************************************************/
 Tensor mv_hpu(const Tensor& self, const Tensor& other) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
 
   auto self_sizes = self.sizes();
   auto other_sizes = other.sizes();
@@ -392,7 +392,7 @@ Tensor mv_hpu(const Tensor& self, const Tensor& other) {
   // PT expects 1-D
   output = output.view(-1);
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return output;
 }
 

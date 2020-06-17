@@ -28,7 +28,7 @@ void synapse_fill(const Tensor& output, const T val) {
 }
 
 Tensor& fill_hpu_(Tensor& self, Scalar value) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
   auto dtype = habana_helpers::scalar_type(value);
 
   TORCH_CHECK(dtype != c10::ScalarType::Bool);
@@ -73,9 +73,9 @@ Tensor& fill_hpu_(Tensor& self, Scalar value) {
       }
     } break;
     default:
-      TORCH_WARN("Unsupported data type used in fill");
+      PT_KERNEL_WARN("Unsupported data type used in fill");
   }
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return self;
 }
 
@@ -88,7 +88,7 @@ Tensor& masked_fill_hpu_(
     Tensor& self,
     const Tensor& mask,
     const Tensor& value) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
 
   TORCH_CHECK(
       value.dim() == 0, "value supports only 0D tensor to match CPU behavior");
@@ -122,7 +122,7 @@ Tensor& masked_fill_hpu_(
   self.mul_(inv_mask);
   self.add_(new_mask * value_expand);
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return self;
 }
 

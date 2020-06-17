@@ -252,7 +252,7 @@ std::tuple<Tensor, Tensor> max_pool2d_with_indices_hpu(
     IntArrayRef padding,
     IntArrayRef dilation,
     bool ceil_mode) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
   habana_helpers::check_pool_params(
       input, kernel_size, stride, padding, dilation, ceil_mode);
 
@@ -320,7 +320,7 @@ std::tuple<Tensor, Tensor> max_pool2d_with_indices_hpu(
   pt_new_pos = {&new_dim_pos_out, &new_dim_pos_out};
   habana_helpers::change_tensors_to_memory_format(
       pt_out, pt_in, pt_new_pos, memory_format);
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return {output, output_idx};
 }
 
@@ -348,7 +348,7 @@ Tensor& max_pool2d_with_indices_backward_out_hpu(
     IntArrayRef padding,
     IntArrayRef dilation,
     bool ceil_mode) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
   habana_helpers::check_pool_params(
       input, kernel_size, stride, padding, dilation, ceil_mode);
   auto out_shape = compute_output_shape(
@@ -396,7 +396,7 @@ Tensor& max_pool2d_with_indices_backward_out_hpu(
   habana_helpers::change_tensors_to_memory_format(
       pt_out, pt_in, pt_new_pos, memory_format);
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return grad_input;
 }
 
@@ -423,7 +423,7 @@ Tensor max_pool2d_with_indices_backward_hpu(
     IntArrayRef dilation,
     bool ceil_mode,
     const Tensor& indices) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
   auto grad_input =
       at::zeros_like(input, input.options(), input.suggest_memory_format());
 
@@ -437,7 +437,7 @@ Tensor max_pool2d_with_indices_backward_hpu(
       padding,
       dilation,
       ceil_mode);
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return grad_input;
 }
 
@@ -461,7 +461,7 @@ Tensor avg_pool2d_hpu(
     bool ceil_mode,
     bool count_include_pad,
     c10::optional<int64_t> divisor_override) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
 
   TORCH_CHECK(
       !divisor_override.has_value(),
@@ -511,7 +511,7 @@ Tensor avg_pool2d_hpu(
   habana_helpers::change_tensors_to_memory_format(
       pt_out, pt_in, pt_new_pos, memory_format);
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return output;
 }
 
@@ -538,7 +538,7 @@ Tensor& avg_pool2d_backward_out_hpu(
     bool ceil_mode,
     bool count_include_pad,
     c10::optional<int64_t> divisor_override) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
   TORCH_CHECK(
       !divisor_override.has_value(),
       "avg_pool2d: divisor override is not supported");
@@ -593,7 +593,7 @@ Tensor& avg_pool2d_backward_out_hpu(
   habana_helpers::change_tensors_to_memory_format(
       pt_out, pt_in, pt_new_pos, memory_format);
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return grad_input;
 }
 
@@ -619,7 +619,7 @@ Tensor avg_pool2d_backward_hpu(
     bool ceil_mode,
     bool count_include_pad,
     c10::optional<int64_t> divisor_override) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
   auto grad_input =
       at::zeros_like(input, input.options(), input.suggest_memory_format());
   avg_pool2d_backward_out_hpu(
@@ -632,7 +632,7 @@ Tensor avg_pool2d_backward_hpu(
       ceil_mode,
       count_include_pad,
       divisor_override);
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return grad_input;
 }
 

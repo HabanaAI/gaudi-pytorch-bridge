@@ -24,18 +24,18 @@
 
 using namespace torch;
 
-#ifdef LOG_FUNC_END
-#undef LOG_FUNC_BEGIN
-#define LOG_FUNC_BEGIN (void)(0)
-#undef LOG_FUNC_END
-#define LOG_FUNC_END (void)(0)
+#ifdef PT_KERNEL_END
+#undef PT_KERNEL_BEGIN
+#define PT_KERNEL_BEGIN (void)(0)
+#undef PT_KERNEL_END
+#define PT_KERNEL_END (void)(0)
 #endif
 
 // cpu->hpu and hpu->cpu copy implementation
 Tensor& copy_hpu_(Tensor& self, const Tensor& src, bool non_blocking) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
   if (non_blocking)
-    TORCH_WARN(
+    PT_KERNEL_WARN(
         "non_blocking flag is not supported, copy_hpu_ is always blocking");
   // TODO: (from torch code) this should be handled during dispatch, but that's
   // missing...
@@ -70,7 +70,7 @@ Tensor& copy_hpu_(Tensor& self, const Tensor& src, bool non_blocking) {
   }
 
   if (src.strides() != dst.strides())
-    TORCH_WARN(
+    PT_KERNEL_WARN(
         "src.strides(): ",
         src.strides(),
         " src.sizes(): ",
@@ -81,7 +81,7 @@ Tensor& copy_hpu_(Tensor& self, const Tensor& src, bool non_blocking) {
         dst.sizes(),
         "\nData will be copied with with basic memcopy so you can expect wrong results");
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return dst;
 }
 
@@ -91,7 +91,7 @@ Tensor& set_hpu_(
     int64_t storage_offset,
     IntArrayRef size,
     IntArrayRef stride) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
   if (stride.data()) {
     TORCH_CHECK(size.size() == stride.size(), "inconsistent size/stride sizes");
   }
@@ -143,7 +143,7 @@ Tensor& set_hpu_(
   /* size and stride */
   THHTensor_resizeNd(self_, stride.size(), size.data(), stride.data());
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return self;
 }
 
@@ -178,7 +178,7 @@ void validate_tensor_dim_sizes(const TensorList tensors, int64_t dim) {
  * @param dim - dimension along which to concatenate the tensors
  ************************************************************************/
 Tensor cat_hpu(const TensorList tensors, int64_t dim_ = 0) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
   std::vector<const at::Tensor*> pt_inputs;
   std::vector<const at::Tensor*> pt_outputs;
   int64_t dim =
@@ -205,7 +205,7 @@ Tensor cat_hpu(const TensorList tensors, int64_t dim_ = 0) {
       sizeof(kernel_dim),
       SynapsePassType::NO_PASS);
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return out;
 }
 
@@ -219,7 +219,7 @@ Tensor& cat_hpu_out(
     Tensor& result,
     const TensorList tensors,
     int64_t dim_ = 0) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
   std::vector<const at::Tensor*> pt_inputs;
   std::vector<const at::Tensor*> pt_outputs;
   int64_t dim =
@@ -332,7 +332,7 @@ void TransposeOperator::AllocateAndAddSynapseNode(
 }
 
 Tensor transpose_hpu(const Tensor& self, int64_t dim0_, int64_t dim1_) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
   size_t device_id = self.device().index();
   at::ScalarType scalar_type = self.scalar_type();
   std::string node_type =
@@ -358,7 +358,7 @@ Tensor transpose_hpu(const Tensor& self, int64_t dim0_, int64_t dim1_) {
 
   std::vector<at::Tensor> out = Op.GetOutputs();
   TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return out.at(0);
 }
 
@@ -369,7 +369,7 @@ Tensor transpose_hpu(const Tensor& self, int64_t dim0_, int64_t dim1_) {
  * @param dim0 - second dimension to swap
  *******************************************************************************/
 Tensor& transpose_hpu_(Tensor& self, int64_t dim0_, int64_t dim1_) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
   /*NOTE: The normal inplace op implementation approach to through a duplicate
    * synapse tensor for input won't work as synapse backend does block
    * transposes - so if your matrix is AB CD then C will overwrite B before B is
@@ -403,7 +403,7 @@ Tensor& transpose_hpu_(Tensor& self, int64_t dim0_, int64_t dim1_) {
   synapse_simple_generic_kernel(
       pt_outputs, pt_inputs, "memcpy", nullptr, 0, SynapsePassType::NO_PASS);
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return self;
 }
 
@@ -414,14 +414,14 @@ Tensor& transpose_hpu_(Tensor& self, int64_t dim0_, int64_t dim1_) {
  * @param dim0 - second dimension to swap
  ************************************************************************/
 Tensor t_hpu(const Tensor& self) { // t() is defined only for dims <= 2
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
   if ((1 == self.dim())) {
     Tensor out = self;
-    LOG_FUNC_END;
+    PT_KERNEL_END;
     return out;
   }
   auto ret = transpose_hpu(self, 0, 1);
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return ret;
 }
 
@@ -432,13 +432,13 @@ Tensor t_hpu(const Tensor& self) { // t() is defined only for dims <= 2
  * @param dim0 - second dimension to swap
  ************************************************************************/
 Tensor& t_hpu_(Tensor& self) { // t_() is defined only for dims <= 2
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
   if (1 == self.dim()) {
-    LOG_FUNC_END;
+    PT_KERNEL_END;
     return self;
   }
   self = transpose_hpu_(self, 0, 1);
-  LOG_FUNC_END;
+  PT_KERNEL_END;
 
   return self;
 }
@@ -522,7 +522,7 @@ void PermuteOperator::AllocateAndAddSynapseNode(
 }
 
 Tensor permute_hpu(const Tensor& self, IntArrayRef dims_) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
   TORCH_CHECK(
       dims_.size() == static_cast<size_t>(self.dim()),
       "Number of dims in tensor don't match in permute");
@@ -553,7 +553,7 @@ Tensor permute_hpu(const Tensor& self, IntArrayRef dims_) {
 
     std::vector<at::Tensor> out = Op.GetOutputs();
     TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
-    LOG_FUNC_END;
+    PT_KERNEL_END;
     return out.at(0);
   };
 
@@ -565,7 +565,7 @@ Tensor permute_hpu(const Tensor& self, IntArrayRef dims_) {
   // HPU won't support permute for larger num of dims - do it on CPU
   auto ret =
       self.to(DeviceType::CPU).permute(dims_).contiguous().to(self.device());
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return ret;
 }
 
@@ -588,7 +588,7 @@ Tensor expand_hpu(const Tensor& self, IntArrayRef size, bool implicit) {
   // requested by the user, because it is legal to remove implicit expands
   // from the graph, but not legal to remove the explicit ones.
   // implicit is not used in this kernel.
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
   TORCH_CHECK(
       size.size() >= (size_t)self.dim(),
       "expand(",
@@ -635,7 +635,7 @@ Tensor expand_hpu(const Tensor& self, IntArrayRef size, bool implicit) {
         0,
         SynapsePassType::NO_PASS);
   }
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return result;
 }
 

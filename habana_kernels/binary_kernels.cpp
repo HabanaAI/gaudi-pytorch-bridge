@@ -32,11 +32,11 @@ void check_ew_kernel_constraints(const Tensor& arg1, const Tensor& arg2) {
 }
 
 static Scalar convert_scalar_dtype(const Tensor& self, Scalar value) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
   Scalar result;
   auto dtype = habana_helpers::scalar_type(value);
   if (self.scalar_type() != dtype)
-    TORCH_WARN(
+    PT_KERNEL_WARN(
         "Self tensor's type: ",
         self.scalar_type(),
         ". Value type: ",
@@ -74,9 +74,9 @@ static Scalar convert_scalar_dtype(const Tensor& self, Scalar value) {
       }
       break;
     default:
-      TORCH_WARN("Unsupported data type used in binary op");
+      PT_KERNEL_WARN("Unsupported data type used in binary op");
   }
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return result;
 }
 
@@ -246,7 +246,7 @@ static inline Tensor do_scalar_scalar_mul(
 
 // self += alpha * other
 Tensor& add_tensor_hpu_(Tensor& self, const Tensor& other, Scalar alpha) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
   auto alpha_tensor = habana_helpers::scalar_to_device_tensor(
       convert_scalar_dtype(self, alpha), self.options(), self.ndimension());
   auto out_mul = at::mul(other, alpha_tensor);
@@ -254,7 +254,7 @@ Tensor& add_tensor_hpu_(Tensor& self, const Tensor& other, Scalar alpha) {
   do_generic_tensor_binary_op_inplace(
       self, out_mul, "add", SynapsePassType::FORWARD_PASS);
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return self;
 }
 
@@ -266,7 +266,7 @@ Tensor& add_tensor_hpu_(Tensor& self, const Tensor& other, Scalar alpha) {
  * out = self + alpha * other
  ************************************************************************/
 Tensor add_tensor_hpu(const Tensor& self, const Tensor& other, Scalar alpha) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
   Tensor output;
   if ((other.dim() == 0) && (other.scalar_type() == c10::ScalarType::Long) &&
       (other.device().type() == c10::DeviceType::CPU)) {
@@ -280,14 +280,14 @@ Tensor add_tensor_hpu(const Tensor& self, const Tensor& other, Scalar alpha) {
 
     auto output_cpu = self;
     output = output_cpu.to(c10::DeviceType::HABANA);
-    TORCH_WARN("Unsupported long int addition");
+    PT_KERNEL_WARN("Unsupported long int addition");
   } else {
     auto out_mul = do_tensor_scalar_mul(other, alpha);
     output = do_generic_tensor_binary_op(
         self, out_mul, "add", SynapsePassType::FORWARD_PASS);
   }
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return output;
 }
 
@@ -299,12 +299,12 @@ Tensor add_tensor_hpu(const Tensor& self, const Tensor& other, Scalar alpha) {
  * out = self + alpha * other
  ************************************************************************/
 Tensor add_scalar_hpu(const Tensor& self, Scalar other, Scalar alpha) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
   auto out_mul = do_scalar_scalar_mul(self, other, alpha);
   auto output = do_generic_tensor_binary_op(
       self, out_mul, "add", SynapsePassType::FORWARD_PASS);
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return output;
 }
 
@@ -319,10 +319,10 @@ Tensor& add_scalar_hpu_(
     Tensor& self,
     Scalar other) { // TODO: Add test by using an extension module for new op
                     // at python level
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
   auto other_tensor = convert_scalar_to_tensor_using_self(self, other);
   self.add_(other_tensor, 1);
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return self;
 }
 
@@ -337,10 +337,10 @@ Tensor& addcmul_hpu_(
     const Tensor& tensor1,
     const Tensor& tensor2,
     Scalar alpha) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
   auto prod = at::mul(tensor1, tensor2);
   self.add_(prod, alpha);
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return self;
 }
 
@@ -356,10 +356,10 @@ Tensor addcdiv_hpu(
     const Tensor& tensor1,
     const Tensor& tensor2,
     Scalar alpha) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
   auto output_div = at::div(tensor1, tensor2);
   auto output = at::add(self, output_div, alpha);
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return output;
 }
 
@@ -376,10 +376,10 @@ Tensor& addcdiv_hpu_(
     const Tensor& tensor1,
     const Tensor& tensor2,
     Scalar alpha) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
   tensor1.div_(tensor2);
   self.add_(tensor1, alpha);
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return self;
 }
 
@@ -391,13 +391,13 @@ Tensor& addcdiv_hpu_(
  * out = self - alpha * other
  ************************************************************************/
 Tensor sub_tensor_hpu(const Tensor& self, const Tensor& other, Scalar alpha) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
 
   auto out_mul = do_tensor_scalar_mul(other, alpha);
   auto output = do_generic_tensor_binary_op(
       self, out_mul, "sub", SynapsePassType::FORWARD_PASS);
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return output;
 }
 
@@ -409,11 +409,11 @@ Tensor sub_tensor_hpu(const Tensor& self, const Tensor& other, Scalar alpha) {
  * self -= alpha * other
  ************************************************************************/
 Tensor& sub_tensor_hpu_(Tensor& self, const Tensor& other, Scalar alpha) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
   auto out_mul = do_tensor_scalar_mul(other, alpha);
   do_generic_tensor_binary_op_inplace(
       self, out_mul, "sub", SynapsePassType::FORWARD_PASS);
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return self;
 }
 
@@ -429,11 +429,11 @@ Tensor sub_scalar_hpu(
     const Tensor& self,
     Scalar other,
     Scalar alpha) { // TODO: No way to test this yet from python
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
   auto out_mul = do_scalar_scalar_mul(self, other, alpha);
   auto out = do_generic_tensor_binary_op(
       self, out_mul, "sub", SynapsePassType::FORWARD_PASS);
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return out;
 }
 
@@ -449,11 +449,11 @@ Tensor& sub_scalar_hpu_(
     Tensor& self,
     Scalar other,
     Scalar alpha) { // TODO: No way to test this yet from python
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
   auto out_mul = do_scalar_scalar_mul(self, other, alpha);
   do_generic_tensor_binary_op_inplace(
       self, out_mul, "sub", SynapsePassType::FORWARD_PASS);
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return self;
 }
 
@@ -466,12 +466,12 @@ Tensor& sub_scalar_hpu_(
  * output = other - self * alpha
  ************************************************************************/
 Tensor rsub_scalar_hpu(const Tensor& self, Scalar other, Scalar alpha) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
 
   auto other_tensor = convert_scalar_to_tensor_using_self(self, other);
   auto out = at::sub(other_tensor, self, alpha);
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return out;
 }
 
@@ -483,14 +483,14 @@ Tensor rsub_scalar_hpu(const Tensor& self, Scalar other, Scalar alpha) {
  * @param other - second input
  ************************************************************************/
 Tensor& mul_tensor_hpu_(Tensor& self, const Tensor& other) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
   if (self.is_same(other)) {
     return self.pow_(2.0);
   }
 
   do_generic_tensor_binary_op_inplace(
       self, other, "mult", SynapsePassType::FORWARD_PASS);
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return self;
 }
 
@@ -537,7 +537,7 @@ Tensor binary_op_hpu(
     const std::string& node_type,
     size_t device_id,
     habana::BinaryOperator* Op) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
   // Create Graph
   auto graph = habana_helpers::create_graph(device_id, node_type);
 
@@ -553,7 +553,7 @@ Tensor binary_op_hpu(
 
   std::vector<at::Tensor> out = Op->GetOutputs();
   TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return out.at(0);
 }
 
@@ -563,7 +563,7 @@ Tensor process_generic_tensor_binary_op(
     const Tensor& operand2,
     const std::string& node_guid,
     const SynapsePassType pass_type) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
 
   auto out_sizes = at::infer_size(operand1.sizes(), operand2.sizes());
   auto output = at::empty(out_sizes, operand1.options());
@@ -613,7 +613,7 @@ Tensor process_generic_tensor_binary_op(
 
   BinaryOp op(device_id, scalar_type);
   auto out = binary_op_hpu(pt_inputs, node_type, device_id, &op);
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return out;
 }
 /*************************************************************************
@@ -623,7 +623,7 @@ Tensor process_generic_tensor_binary_op(
  * output = self * other
  ************************************************************************/
 Tensor mul_tensor_hpu(const Tensor& self, const Tensor& other) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
 
   //TODO: Add pow operator for graph mode
   if (self.is_same(other)) {
@@ -633,7 +633,7 @@ Tensor mul_tensor_hpu(const Tensor& self, const Tensor& other) {
   auto output = process_generic_tensor_binary_op<habana::MulOperator>(
       self, other, "mult", SynapsePassType::FORWARD_PASS);
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return output;
 }
 
@@ -644,9 +644,9 @@ Tensor mul_tensor_hpu(const Tensor& self, const Tensor& other) {
  * output = self * other
  ************************************************************************/
 Tensor mul_scalar_hpu(const Tensor& self, Scalar other) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
   auto out = do_tensor_scalar_mul(self, other);
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return out;
 }
 
@@ -657,10 +657,10 @@ Tensor mul_scalar_hpu(const Tensor& self, Scalar other) {
  * self = self * other
  ************************************************************************/
 Tensor& mul_scalar_hpu_(Tensor& self, Scalar other) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
   auto multiplier_tensor = convert_scalar_to_tensor_using_self(self, other);
   self.mul_(multiplier_tensor);
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return self;
 }
 
@@ -674,7 +674,7 @@ void eq_tensor_out_hpu(
     Tensor& output,
     const Tensor& self,
     const Tensor& other) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
   // change dtype bool to int8 to match TPC kernel signature
   // NOTE: This works because both bool and int8 uses 1 byte per element
   // Else we need to overload .to operator with an explicit TPC kernel for
@@ -684,7 +684,7 @@ void eq_tensor_out_hpu(
       output, self, other, "equal", SynapsePassType::FORWARD_PASS);
   // convert back to bool
   output.to(c10::ScalarType::Bool);
-  LOG_FUNC_END;
+  PT_KERNEL_END;
 }
 
 /*************************************************************************
@@ -693,12 +693,12 @@ void eq_tensor_out_hpu(
  * @param other - second input
  ************************************************************************/
 Tensor eq_tensor_hpu(Tensor& self, Tensor& other) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
   auto tensor_options = self.options();
   auto output =
       at::empty(self.sizes(), tensor_options.dtype(c10::ScalarType::Char));
   at::eq_out(output, self, other);
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return output;
 }
 
@@ -708,7 +708,7 @@ Tensor eq_tensor_hpu(Tensor& self, Tensor& other) {
  * @param other [in] - Scalar
  ************************************************************************/
 Tensor eq_scalar_tensor_hpu(Tensor& self, Scalar other) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
 
   if (self.dim() == 0) {
     self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
@@ -717,7 +717,7 @@ Tensor eq_scalar_tensor_hpu(Tensor& self, Scalar other) {
   auto device_tensor = convert_scalar_to_tensor_using_self(self, other);
   auto out = at::eq(self, device_tensor);
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return out;
 }
 
@@ -727,10 +727,10 @@ Tensor eq_scalar_tensor_hpu(Tensor& self, Scalar other) {
  * @param other - second input
  ************************************************************************/
 Tensor div_tensor_hpu(const Tensor& self, const Tensor& other) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
   auto out = process_generic_tensor_binary_op<habana::DivOperator>(
       self, other, "div", SynapsePassType::FORWARD_PASS);
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return out;
 }
 
@@ -744,10 +744,10 @@ Tensor& div_tensor_hpu_out(
     Tensor& result,
     const Tensor& self,
     const Tensor& other) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
   do_generic_tensor_binary_op_out(
       result, self, other, "div", SynapsePassType::FORWARD_PASS);
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return result;
 }
 /*************************************************************************
@@ -756,10 +756,10 @@ Tensor& div_tensor_hpu_out(
  * @param other - second input
  ************************************************************************/
 Tensor& div_tensor_hpu_(Tensor& self, const Tensor& other) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
   do_generic_tensor_binary_op_inplace(
       self, other, "div", SynapsePassType::FORWARD_PASS);
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return self;
 }
 
@@ -772,9 +772,9 @@ Tensor div_scalar_hpu(
     const Tensor& self,
     Scalar other) { // TODO: Add test by using an extension module for new op
                     // at python level
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
   auto out = at::div(self, convert_scalar_to_tensor_using_self(self, other));
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return out;
 }
 
@@ -787,10 +787,10 @@ Tensor& div_scalar_hpu_(
     Tensor& self,
     Scalar other) { // TODO: Add test by using an extension module for new op
                     // at python level
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
   auto divisor_tensor = convert_scalar_to_tensor_using_self(self, other);
   self = self.div_(divisor_tensor);
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return self;
 }
 
@@ -800,14 +800,14 @@ Tensor& div_scalar_hpu_(
  * @param other - second input
  ************************************************************************/
 Tensor pow_tensor_tensor_hpu(const Tensor& self, const Tensor& other) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
 
   if (self.dim() == 0) {
     self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
   }
   auto out = do_generic_tensor_binary_op(
       self, other, "pow", SynapsePassType::FORWARD_PASS);
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return out;
 }
 
@@ -817,10 +817,10 @@ Tensor pow_tensor_tensor_hpu(const Tensor& self, const Tensor& other) {
  * @param other - second input
  ************************************************************************/
 Tensor& pow_tensor_tensor_hpu_(Tensor& self, const Tensor& other) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
   do_generic_tensor_binary_op_inplace(
       self, other, "pow", SynapsePassType::FORWARD_PASS);
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return self;
 }
 
@@ -830,18 +830,18 @@ Tensor& pow_tensor_tensor_hpu_(Tensor& self, const Tensor& other) {
  * @param other [in] - Scalar
  ************************************************************************/
 Tensor pow_tensor_scalar_hpu(const Tensor& self, Scalar other) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
   auto exponent_tensor = convert_scalar_to_tensor_using_self(self, other);
   auto out = at::pow(self, exponent_tensor);
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return out;
 }
 
 Tensor& pow_tensor_scalar_hpu_(Tensor& self, Scalar other) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
   auto exponent_tensor = convert_scalar_to_tensor_using_self(self, other);
   self.pow_(exponent_tensor);
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return self;
 }
 
@@ -851,10 +851,10 @@ Tensor& pow_tensor_scalar_hpu_(Tensor& self, Scalar other) {
  * @param self [in,out]- Tensor 1D bf16/FP32
  ****************************************************************************/
 Tensor pow_scalar_tensor_hpu(Scalar other, const Tensor& self) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
   auto base_tensor = convert_scalar_to_tensor_using_self(self, other);
   auto out = at::pow(base_tensor, self);
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return out;
 }
 

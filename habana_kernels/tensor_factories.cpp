@@ -17,11 +17,11 @@
 
 using namespace torch;
 
-#ifdef LOG_FUNC_END
-#undef LOG_FUNC_BEGIN
-#define LOG_FUNC_BEGIN (void)(0)
-#undef LOG_FUNC_END
-#define LOG_FUNC_END (void)(0)
+#ifdef PT_KERNEL_END
+#undef PT_KERNEL_BEGIN
+#define PT_KERNEL_BEGIN (void)(0)
+#undef PT_KERNEL_END
+#define PT_KERNEL_END (void)(0)
 #endif
 
 static inline void check_size_nonnegative(IntArrayRef size) {
@@ -41,7 +41,7 @@ Tensor empty_hpu(
     IntArrayRef size,
     const TensorOptions& options,
     c10::optional<MemoryFormat> optional_memory_format) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
   // AT_ASSERT(options.backend() == at::Backend::HABANA);
   AT_ASSERT(options.device().type() == DeviceType::HABANA);
 
@@ -80,7 +80,7 @@ Tensor empty_hpu(
       ? optional_memory_format.value_or(MemoryFormat::Contiguous)
       : options.memory_format_opt().value_or(MemoryFormat::Contiguous);
   tensor.unsafeGetTensorImpl()->empty_tensor_restride(memory_format);
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return tensor;
 }
 
@@ -88,11 +88,11 @@ Tensor empty_strided_hpu(
     IntArrayRef size,
     IntArrayRef stride,
     const TensorOptions& options) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
   check_size_nonnegative(size);
   auto t = at::native::empty_hpu({0}, options, c10::nullopt);
   at::native::resize_impl_hpu_(t.unsafeGetTensorImpl(), size, stride);
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return t;
 }
 } // namespace native

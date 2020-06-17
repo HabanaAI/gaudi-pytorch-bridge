@@ -63,7 +63,7 @@ std::tuple<Tensor&, Tensor&> topk_out_hpu(
     int64_t dim_,
     bool largest,
     bool sorted) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
 
   int64_t dim = at::maybe_wrap_dim(dim_, self.dim(), /*wrap_scalar=*/true);
   TORCH_CHECK(dim == self.dim()-1, "topk supports sort along fastest changing dim only")
@@ -94,7 +94,7 @@ std::tuple<Tensor&, Tensor&> topk_out_hpu(
       sizeof(params),
       SynapsePassType::NO_PASS);
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return std::forward_as_tuple(values, indices);
 }
 
@@ -104,13 +104,13 @@ std::tuple<Tensor, Tensor> topk_hpu(
     int64_t dim,
     bool largest,
     bool sorted) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
 
   Tensor values = at::empty({0}, self.options());
   Tensor indices = at::empty({0}, self.options().dtype(c10::ScalarType::Int));
   topk_out_hpu(values, indices, self, k, dim, largest, sorted);
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return std::make_tuple(values, indices);
 }
 
@@ -128,7 +128,7 @@ std::tuple<Tensor, Tensor> sort_hpu(
     const Tensor& self,
     int64_t dim,
     bool descending) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
 
   int64_t dim_ = at::maybe_wrap_dim(dim, self.dim(), /*wrap_scalar=*/true);
   TORCH_CHECK(
@@ -143,7 +143,7 @@ std::tuple<Tensor, Tensor> sort_hpu(
   std::tie(values, indices) =
       at::topk(self, self.size(dim_), dim_, descending, true);
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return std::make_tuple(values, indices);
 }
 

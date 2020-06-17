@@ -58,8 +58,12 @@ static Tensor make_index_same_size_as_value(
  * @param index - Tensor used to index into self
  * @param sparse_grad - Boolean to indicate if sparse grad is supported
  ************************************************************************/
-Tensor gather_src_hpu(const Tensor & self, int64_t dim_, const Tensor & index, bool sparse_grad) {
-  LOG_FUNC_BEGIN;
+Tensor gather_src_hpu(
+    const Tensor& self,
+    int64_t dim_,
+    const Tensor& index,
+    bool sparse_grad) {
+  PT_KERNEL_BEGIN;
 
   TORCH_CHECK(sparse_grad == false, "spare_grad is not supported")
 
@@ -86,7 +90,7 @@ Tensor gather_src_hpu(const Tensor & self, int64_t dim_, const Tensor & index, b
       sizeof(params),
       SynapsePassType::FORWARD_PASS);
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return output;
 }
 
@@ -103,7 +107,7 @@ Tensor& scatter_inplace_src_hpu(
     int64_t dim_,
     const Tensor& index,
     const Tensor& src) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
   auto dim = at::maybe_wrap_dim(dim_, self.dim(), /*wrap_scalar=*/true);
 
   ns_ScatterKernel::Params params;
@@ -118,7 +122,7 @@ Tensor& scatter_inplace_src_hpu(
       sizeof(params),
       SynapsePassType::FORWARD_PASS);
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return self;
 }
 
@@ -134,7 +138,7 @@ Tensor& index_add_hpu_(
     int64_t dim_,
     const Tensor& indices,
     const Tensor& source) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
 
   TORCH_CHECK(indices.dim() <= 1, "index tensor cannot be more than 1D")
   // Convert index tensor from 0D to 1D if required
@@ -154,7 +158,7 @@ Tensor& index_add_hpu_(
       make_index_same_size_as_value(index_int, value_acc, dim);
   self = scatter_inplace_src_hpu(self, dim, index_broadcast, value_acc);
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return self;
 }
 
@@ -173,7 +177,7 @@ Tensor& index_put_impl_hpu_(
     const Tensor& value,
     bool accumulate,
     bool unsafe) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
 
   TORCH_CHECK(unsafe == false, "Unsafe not supported in index_put");
   TORCH_CHECK(indices[0].dim() <= 1, "index tensor cannot be more than 1D")
@@ -196,7 +200,7 @@ Tensor& index_put_impl_hpu_(
       make_index_same_size_as_value(index_int, value_acc, dim);
   self = scatter_inplace_src_hpu(self, dim, index_broadcast, value_acc);
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return self;
 }
 
@@ -208,7 +212,7 @@ Tensor& index_put_impl_hpu_(
  * @param index - 1D tensor containing the indices to index
  ************************************************************************/
 Tensor index_select_hpu(const Tensor& self, int64_t dim, const Tensor& index) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
 
   TORCH_CHECK(index.dim() <= 1, "index tensor cannot be more than 1D")
   // Convert index tensor from 0D to 1D if required
@@ -220,7 +224,7 @@ Tensor index_select_hpu(const Tensor& self, int64_t dim, const Tensor& index) {
 
   auto output = self.gather(dim, index, false);
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return output;
 }
 /*************************************************************************
@@ -233,7 +237,7 @@ Tensor gather2d_hpu(
     const Tensor& input,
     const Tensor& indices,
     int64_t validCount) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
 
   TORCH_CHECK(indices.dim() <= 1, "index tensor cannot be more than 1D")
   // Convert index tensor from 0D to 1D if required
@@ -267,10 +271,9 @@ Tensor gather2d_hpu(
       0,
       SynapsePassType::NO_PASS);
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return output;
 }
-
 
 static auto registry =
     torch::RegisterOperators()
@@ -305,9 +308,8 @@ static auto registry =
         .op(torch::RegisterOperators::options()
                 .schema(
                     "aten::gather2D(Tensor input, Tensor indices, int validCount) -> Tensor")
-                .impl_unboxedOnlyKernel<
-                    decltype(gather2d_hpu),
-                    &gather2d_hpu>(DispatchKey::HABANATensorId)
+                .impl_unboxedOnlyKernel<decltype(gather2d_hpu), &gather2d_hpu>(
+                    DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema(

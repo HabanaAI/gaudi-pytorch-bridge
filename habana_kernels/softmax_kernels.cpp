@@ -117,7 +117,7 @@ Tensor log_softmax_hpu(
     const Tensor& self,
     const int64_t dim,
     const bool half_to_float) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
 
   TORCH_CHECK(
       !half_to_float,
@@ -147,7 +147,7 @@ Tensor log_softmax_hpu(
 
   std::vector<at::Tensor> out = Op.GetOutputs();
   TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
-  LOG_FUNC_END;
+  PT_KERNEL_END;
 
   return out.at(0);
 }
@@ -163,7 +163,7 @@ Tensor log_softmax_backward_hpu(
     const Tensor& output,
     int64_t dim,
     const Tensor& input) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
 
   size_t device_id = grad.device().index();
   at::ScalarType scalar_type = grad.scalar_type();
@@ -189,7 +189,7 @@ Tensor log_softmax_backward_hpu(
 
   std::vector<at::Tensor> out = Op.GetOutputs();
   TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
-  LOG_FUNC_END;
+  PT_KERNEL_END;
 
   return out.at(0);
 }
@@ -242,7 +242,7 @@ void SoftmaxOperator::AllocateAndAddSynapseNode(
  * @params [In] half_to_float:
  */
 Tensor softmax_hpu(const Tensor& self, int64_t dim, const bool half_to_float) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
   TORCH_CHECK(
       !half_to_float,
       "softmax with half to float conversion is not supported on HPU");
@@ -284,7 +284,7 @@ Tensor softmax_hpu(const Tensor& self, int64_t dim, const bool half_to_float) {
 
   std::vector<at::Tensor> out = Op.GetOutputs();
   TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
-  LOG_FUNC_END;
+  PT_KERNEL_END;
 
   return out.at(0);
 }
@@ -301,7 +301,7 @@ Tensor softmax_backward_hpu(
     const Tensor& output,
     int64_t dim,
     const Tensor& input) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
 
   int64_t dim_ = at::maybe_wrap_dim(dim, input.dim(), /*wrap_scalar=*/true);
 
@@ -318,7 +318,7 @@ Tensor softmax_backward_hpu(
       sizeof(params),
       SynapsePassType::BACKWARD_PASS);
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return input_grad;
 }
 

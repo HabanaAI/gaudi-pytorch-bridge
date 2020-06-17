@@ -430,7 +430,7 @@ void HabanaLaunchOpPT::handleMetaOps(torch::jit::Node* node) {
 }
 
 void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
-  LOG_FUNC_BEGIN;
+  PT_BRIDGE_BEGIN;
 
   // figure out the right device id
   auto& device = synapse_helpers::HPURegistrar::get_device();
@@ -495,7 +495,7 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
 
   if (syn_graph.is_empty()) {
     UpdateOutputs();
-    LOG_FUNC_END;
+    PT_BRIDGE_END;
     return;
   }
 
@@ -549,7 +549,7 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
     TORCH_CHECK(false && "synapse graph compilation failed");
   }
 
-  LOG_FUNC_END;
+  PT_BRIDGE_END;
 }
 
 bool HabanaLaunchOpPT::CompileSynapseGraph(
@@ -627,7 +627,7 @@ bool HabanaLaunchOpPT::IsCached(std::shared_ptr<RecipeArgumentSpec> &spec) {
 }
 
 void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
-  LOG_FUNC_BEGIN;
+  PT_BRIDGE_BEGIN;
   num_inputs = subgraph_->inputs().size();
   auto subgraph_inputs = subgraph_->inputs();
   input_refs = last(stack, num_inputs);
@@ -697,5 +697,5 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
   // TODO : See if we need to add a contect to this object pointer or clearing like this is good?
   clear();
 
-  LOG_FUNC_END;
+  PT_BRIDGE_END;
 }

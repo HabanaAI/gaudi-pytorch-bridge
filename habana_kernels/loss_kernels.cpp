@@ -98,7 +98,7 @@ std::tuple<Tensor, Tensor> nll_loss_forward_hpu(
     const Tensor& weight,
     int64_t reduction,
     int64_t ignore_index) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
 
   TORCH_CHECK(!weight.defined(), "weighted nll_loss is not yet supported")
   TORCH_CHECK(ignore_index == -100, "ignore_index is not yet supported")
@@ -133,7 +133,7 @@ std::tuple<Tensor, Tensor> nll_loss_forward_hpu(
   // Note: pytorch expects 0d tensor (scalar)
   out.at(0).unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return std::make_tuple(out.at(0), at::empty({0}, self.options()));
 }
 
@@ -181,7 +181,7 @@ Tensor nll_loss_backward_hpu(
     int64_t reduction,
     int64_t ignore_index,
     UNUSED const Tensor& total_weight) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
   TORCH_CHECK(!weight.defined(), "weighted nll_loss is not yet supported")
   TORCH_CHECK(ignore_index == -100, "ignore_index is not yet supported")
 
@@ -217,7 +217,7 @@ Tensor nll_loss_backward_hpu(
   std::vector<at::Tensor> out = Op.GetOutputs();
   TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return out.at(0);
 }
 
@@ -258,7 +258,7 @@ Tensor mse_loss_forward_hpu(
     const Tensor& self,
     const Tensor& target,
     int64_t reduction) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
 
   at::ScalarType scalar_type = self.scalar_type();
   std::string node_type =
@@ -289,7 +289,7 @@ Tensor mse_loss_forward_hpu(
     out.at(0).unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
   }
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return out.at(0);
 }
 
@@ -327,7 +327,7 @@ Tensor mse_loss_backward_hpu(
     const Tensor& self,
     const Tensor& target,
     int64_t reduction) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
 
   // Convert 0D tensor to 1D tensor before passing to Synapse
   if (grad_output.dim() == 0) {
@@ -358,7 +358,7 @@ Tensor mse_loss_backward_hpu(
   std::vector<at::Tensor> out = Op.GetOutputs();
   TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return out.at(0);
 }
 
@@ -485,7 +485,7 @@ optimizer_sparse_sgd_with_valid_count_hpu(
     int64_t valid_count,
     float mom,
     bool nesterov) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
   auto sizes = weights_in.sizes().vec();
   for (unsigned int i = 0; i < weights_in.dim(); i++)
     std::cout << "sizes = " << sizes[i] << std::endl;
@@ -502,7 +502,7 @@ optimizer_sparse_sgd_with_valid_count_hpu(
       nesterov);
   auto ret1 = std::get<0>(result);
   auto ret2 = std::get<1>(result);
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return std::make_tuple(ret1.to(hpu), ret2.to(hpu));
 }
 

@@ -46,7 +46,7 @@ std::tuple<Tensor, Tensor, Tensor, Tensor> embedding_bag_hpu(
     UNUSED bool sparse,
     Tensor& per_sample_weights,
     UNUSED bool include_last_offset) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
 
   TORCH_CHECK(
       scale_grad_by_freq == false,
@@ -87,7 +87,7 @@ std::tuple<Tensor, Tensor, Tensor, Tensor> embedding_bag_hpu(
   Tensor offset2bag = at::empty({}, offsets.options());
   auto bag_size = at::empty({}, indices.options());
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
 
   return std::tuple<Tensor, Tensor, Tensor, Tensor>(
       output, offset2bag, bag_size, bag_size);
@@ -116,7 +116,7 @@ Tensor embedding_bag_bwd_hpu(
     bool scale_grad_by_freq,
     int mode,
     Tensor per_sample_weights) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
 
   TORCH_CHECK(
       scale_grad_by_freq == false,
@@ -171,7 +171,7 @@ Tensor embedding_bag_bwd_hpu(
       sizeof(param),
       SynapsePassType::BACKWARD_PASS);
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
 
   return momentum_out;
 }
@@ -183,7 +183,7 @@ Tensor embedding_bag_bwd_hpu(
  *  @param value fill value for "constant" padding
  */
 Tensor constant_pad_hpu(const Tensor& self, IntArrayRef pad, Scalar value) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
 
   auto ndim = self.dim();
   auto lpad = pad.size() / 2;
@@ -240,7 +240,7 @@ Tensor constant_pad_hpu(const Tensor& self, IntArrayRef pad, Scalar value) {
       sizeof(param),
       SynapsePassType::FORWARD_PASS);
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return output;
 }
 
@@ -264,7 +264,7 @@ Tensor embedding_hpu(
     int64_t padding_idx,
     bool scale_grad_by_freq,
     bool sparse) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
 
   TORCH_CHECK(
       scale_grad_by_freq == false, "scale_grad_by_value = true not supported")
@@ -283,7 +283,7 @@ Tensor embedding_hpu(
     output = weight.index_select(0, indices.view(-1)).view(size);
   }
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return output;
 }
 
@@ -304,7 +304,7 @@ Tensor embedding_dense_backward_hpu(
     int64_t num_weights,
     int64_t padding_idx,
     bool scale_grad_by_freq) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
 
   TORCH_CHECK(
       scale_grad_by_freq == false, "scale_grad_by_value = true not supported")
@@ -320,7 +320,7 @@ Tensor embedding_dense_backward_hpu(
     output = grad_weight.index_put_(indices.view(-1), grad.view(size));
   }
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return output;
 }
 
@@ -329,7 +329,8 @@ Tensor embedding_dense_backward_hpu(
 @param [in]  input 2D tensor, FP32/FP16
 @param [in]  indices 0-1D, FP32/FP16
 @param [in]  offsets 0-1D, FP32/FP16
-@param [in]  valid_count  - contains 2 elements namely valid_count_offsets and valid_count_indices
+@param [in]  valid_count  - contains 2 elements namely valid_count_offsets and
+valid_count_indices
 **********************************************************/
 Tensor embedding_bag_sum_hpu(
     const Tensor& input,
@@ -337,7 +338,7 @@ Tensor embedding_bag_sum_hpu(
     const Tensor& offsets,
     const Tensor& valid_count,
     int64_t kernel_mode) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
 
   TORCH_CHECK(indices.dim() <= 1, "index tensor cannot be more than 1D")
   // Convert index tensor from 0D to 1D if required
@@ -387,7 +388,7 @@ Tensor embedding_bag_sum_hpu(
       0,
       SynapsePassType::FORWARD_PASS);
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
 
   return output;
 }

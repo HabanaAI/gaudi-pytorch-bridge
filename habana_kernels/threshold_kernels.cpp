@@ -203,7 +203,7 @@ Tensor threshold_backward_hpu(
     const Tensor& grad_output,
     const Tensor& self,
     Scalar threshold) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
   TORCH_CHECK(self.scalar_type() == c10::ScalarType::Float);
   Scalar threshold_converted = threshold;
   if (self.scalar_type() != habana_helpers::scalar_type(threshold))
@@ -231,7 +231,7 @@ Tensor threshold_backward_hpu(
         SynapsePassType::BACKWARD_PASS);
   }
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return output;
 }
 

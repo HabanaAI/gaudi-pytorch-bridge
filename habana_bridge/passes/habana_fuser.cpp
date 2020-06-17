@@ -55,7 +55,8 @@ struct HabanaGraphFuser {
     }
 
     // Looking up the Op to see if it is whitelisted
-    return HabanaWhiteList::is_op_habana_whitelisted(node->kind().toQualString());
+    return HabanaWhiteList::is_op_habana_whitelisted(
+        node->kind().toQualString());
   }
 
   std::shared_ptr<Graph> getSubgraph(Node* n) {
@@ -331,7 +332,7 @@ struct HabanaGraphFuser {
     }
   }
 
-void PeepholeOptimizeShapeExpressions(Block* block) {
+  void PeepholeOptimizeShapeExpressions(Block* block) {
     auto nodes = block->nodes();
     for (auto it = nodes.begin(); it != nodes.end(); ++it) {
       Node* node = *it;
@@ -387,19 +388,18 @@ void PeepholeOptimizeShapeExpressions(Block* block) {
 } // namespace habana
 
 void HabanaFuseGraph(std::shared_ptr<torch::jit::Graph>& graph) {
-  LOG_FUNC_BEGIN;
+  PT_BRIDGE_BEGIN;
   // First call HPU graph fuser to fuse ops for HPU
-  torch::jit::Symbol kind =
-      getHabanaFusedOpSymbol();
+  torch::jit::Symbol kind = getHabanaFusedOpSymbol();
   auto g = habana::HabanaGraphFuser(graph->block(), graph, kind);
   g.run();
   EliminateCommonSubexpression(graph);
   EliminateDeadCode(graph);
   g.PeepholeOptimizeShapeExpressions(graph->block());
-  LOG_FUNC_END;
+  PT_BRIDGE_END;
 }
 
-Symbol getHabanaFusedOpSymbol(){
+Symbol getHabanaFusedOpSymbol() {
   Symbol habanafusedop_sym =
       torch::jit::Symbol::fromQualString("prim::HabanaFusedOp");
   return habanafusedop_sym;

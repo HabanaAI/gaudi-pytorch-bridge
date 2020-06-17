@@ -157,7 +157,7 @@ Tensor convolution_hpu(
     bool transposed,
     IntArrayRef output_padding,
     int64_t groups) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
   std::vector<at::Tensor> inputs{input, weight};
   if (bias.defined()) {
     inputs.push_back(bias);
@@ -221,7 +221,7 @@ Tensor convolution_hpu(
   pt_new_pos = {&new_dim_pos_out};
   habana_helpers::change_tensors_to_memory_format(
       pt_out, pt_in, pt_new_pos, memory_format);
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return output;
 }
 
@@ -303,7 +303,7 @@ std::tuple<Tensor, Tensor, Tensor> convolution_backward_hpu(
     IntArrayRef output_padding,
     int64_t groups,
     std::array<bool, 3> output_mask) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
   std::vector<at::Tensor> inputs{input, weight};
   habana_helpers::check_convolution_params(
       inputs, stride, padding, dilation, transposed, output_padding, groups);
@@ -382,7 +382,7 @@ std::tuple<Tensor, Tensor, Tensor> convolution_backward_hpu(
         "expected: ",
         grad_out_nhwc.size(3));
   }
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return std::tuple<Tensor, Tensor, Tensor>(grad_input, grad_weight, grad_bias);
 }
 

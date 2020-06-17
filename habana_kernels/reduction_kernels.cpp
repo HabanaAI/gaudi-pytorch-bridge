@@ -233,7 +233,7 @@ Tensor sum_dim_IntList_hpu(
     IntArrayRef dim,
     bool keepdim,
     c10::optional<ScalarType> dtype) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
 
   Tensor output;
   auto ndim = self.dim();
@@ -252,7 +252,7 @@ Tensor sum_dim_IntList_hpu(
       habana_helpers::name_suffix_from_type(self.scalar_type());
   synapse_reduce_generic(output, self, dim, keepdim, nodetype);
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return output;
 }
 
@@ -262,7 +262,7 @@ Tensor& sum_IntList_out_hpu(
     IntArrayRef dim,
     bool keepdim,
     c10::optional<ScalarType> dtype) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
 
   auto ndim = self.dim();
   auto mask = make_dim_mask(dim, ndim);
@@ -280,7 +280,7 @@ Tensor& sum_IntList_out_hpu(
       habana_helpers::name_suffix_from_type(self.scalar_type());
   synapse_reduce_generic(output, self, dim, keepdim, nodetype);
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return output;
 }
 
@@ -289,7 +289,7 @@ Tensor mean_dim_hpu(
     IntArrayRef dim,
     bool keepdim,
     c10::optional<ScalarType> dtype) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
 
   Tensor output;
   auto ndim = self.dim();
@@ -308,7 +308,7 @@ Tensor mean_dim_hpu(
       habana_helpers::name_suffix_from_type(self.scalar_type());
   synapse_reduce_generic(output, self, dim, keepdim, nodetype);
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return output;
 }
 
@@ -318,7 +318,7 @@ Tensor& mean_dim_out_hpu(
     IntArrayRef dim,
     bool keepdim,
     c10::optional<ScalarType> dtype) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
 
   auto ndim = self.dim();
   auto mask = make_dim_mask(dim, ndim);
@@ -336,12 +336,12 @@ Tensor& mean_dim_out_hpu(
       habana_helpers::name_suffix_from_type(self.scalar_type());
   synapse_reduce_generic(output, self, dim, keepdim, nodetype);
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return output;
 }
 
 Tensor sum_hpu(const Tensor& self, c10::optional<ScalarType> dtype) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
 
   Tensor output;
   auto ndim = self.dim();
@@ -362,12 +362,12 @@ Tensor sum_hpu(const Tensor& self, c10::optional<ScalarType> dtype) {
       habana_helpers::name_suffix_from_type(self.scalar_type());
   synapse_reduce_generic(output, self, dim, 0, nodetype);
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return output[0];
 }
 
 Tensor mean_hpu(const Tensor& self, c10::optional<ScalarType> dtype) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
 
   Tensor output;
   auto ndim = self.dim();
@@ -388,7 +388,7 @@ Tensor mean_hpu(const Tensor& self, c10::optional<ScalarType> dtype) {
       habana_helpers::name_suffix_from_type(self.scalar_type());
   synapse_reduce_generic(output, self, dim, 0, nodetype);
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return output[0];
 }
 
@@ -404,7 +404,7 @@ Tensor& any_dim_out_hpu(
     const Tensor& self,
     int64_t dim,
     bool keepdim) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
 
   self.to(c10::ScalarType::Char);
 
@@ -441,7 +441,7 @@ Tensor& any_dim_out_hpu(
 
   output.to(c10::ScalarType::Bool);
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return output;
 }
 
@@ -456,7 +456,7 @@ Tensor any_dim_hpu(
     const Tensor& self,
     int64_t dim,
     bool keepdim) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
 
   Tensor output ;
   int64_t data[1];
@@ -470,7 +470,7 @@ Tensor any_dim_hpu(
 
   any_dim_out_hpu(output,self,dim,keepdim);
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return output;
 }
 
@@ -481,7 +481,7 @@ Tensor any_dim_hpu(
  * @param [in] self - input tensor, bool
  ************************************************************************/
 Tensor any_hpu(const Tensor& self) {
-  LOG_FUNC_BEGIN;
+  PT_KERNEL_BEGIN;
 
   self.to(c10::ScalarType::Char);
 
@@ -516,7 +516,7 @@ Tensor any_hpu(const Tensor& self) {
       pt_outputs, pt_inputs, "cast_f32_to_i8", &syn_cast_params,
       sizeof(syn_cast_params), SynapsePassType::NO_PASS);
 
-  LOG_FUNC_END;
+  PT_KERNEL_END;
   return output[0].to(c10::ScalarType::Bool);
 }
 
