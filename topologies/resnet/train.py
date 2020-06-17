@@ -41,6 +41,7 @@ def train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, pri
     header = 'Epoch: [{}]'.format(epoch)
     for image, target in metric_logger.log_every(data_loader, print_freq, header):
         start_time = time.time()
+        trainMetaData.tracept.start(start_time, 'train_iteration_'+str(trainMetaData.current_train_step))
         if args.channels_last:
             image = image.contiguous(memory_format=torch.channels_last)
 
@@ -62,6 +63,7 @@ def train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, pri
         tp_probe_tensors_iteration_end(model, device, output, loss, trainMetaData.ParamsDump, False)
 
         acc1, acc5 = utils.accuracy(output, target, topk=(1, 5))
+        trainMetaData.tracept.end(time.time(), 'train_iteration_'+str(trainMetaData.current_train_step))
         batch_size = image.shape[0]
         #Bring the loss tensor back to CPU before printing. Certainly needed if running on Habana.
         loss_cpu = loss.to('cpu').detach()
@@ -84,10 +86,12 @@ def evaluate(model, criterion, data_loader, trainMetaData, device, print_freq=10
         for image, target in metric_logger.log_every(data_loader, print_freq, header):
             image = image.to(device, non_blocking=True)
             target = target.to(device, non_blocking=True)
+            trainMetaData.tracept.start(time.time(), 'val_iteration_'+str(trainMetaData.current_eval_step))
             output = model(image)
             loss = criterion(output, target)
 
             acc1, acc5 = utils.accuracy(output, target, topk=(1, 5))
+            trainMetaData.tracept.end(time.time(), 'val_iteration_'+str(trainMetaData.current_eval_step))
             # FIXME need to take into account that the datasets
             # could have been padded in distributed setup
             batch_size = image.shape[0]
