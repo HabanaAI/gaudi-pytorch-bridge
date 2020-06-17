@@ -54,6 +54,14 @@ struct HabanaGraphFuser {
       return false;
     }
 
+    //Since we do consumer checks, there is a possibility that
+    //consumer may be a FusedOp, in that case, must return true
+    //to increase the size of encapsulation
+
+    if (node->kind() == kind_){
+      return true;
+    }
+
     // Looking up the Op to see if it is whitelisted
     return HabanaWhiteList::is_op_habana_whitelisted(
         node->kind().toQualString());
