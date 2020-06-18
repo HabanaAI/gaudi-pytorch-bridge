@@ -12,8 +12,8 @@
 #include <synapse_api.h>
 #include <synapse_common_types.h>
 
-#include <algorithm>
 #include <absl/types/variant.h>
+#include <algorithm>
 #include <cstdint>
 #include <iterator>
 #include <ostream>
@@ -52,26 +52,39 @@ synapse_error_v<synStreamType> convertInternalStreamType(stream_flavor flavor) {
     case RECV:
       return STREAM_TYPE_NETWORK_RECEIVE;
     default:
-      return synapse_error{"Unsupported stream flavor: " + std::to_string(flavor), synFail};
+      return synapse_error{
+          "Unsupported stream flavor: " + std::to_string(flavor), synFail};
   }
 }
 
-void try_sync_event(const synapse_helpers::shared_event& e, const std::string& msg) {
+void try_sync_event(
+    const synapse_helpers::shared_event& e,
+    const std::string& msg) {
   if (e) {
     auto status = e->synchronize();
     if (synStatus::synSuccess != status)
-      LOG_(FATAL) << "EventSynchronize failed with status: " << status << ", Message: " << msg;
+      LOG_(FATAL) << "EventSynchronize failed with status: " << status
+                  << ", Message: " << msg;
   }
 }
-}  // namespace
+} // namespace
 
 stream::stream(class device& device, stream_flavor flavor)
-    : pending_cleanups_{}, device_{device}, mut_{}, continue_{true}, cond_var_{}, handle_{nullptr} {
+    : pending_cleanups_{},
+      device_{device},
+      mut_{},
+      continue_{true},
+      cond_var_{},
+      handle_{nullptr} {
   gc_worker_ = std::thread(&stream::gc_thread_proc, this);
   auto syn_flavor = convertInternalStreamType(flavor);
-  if (!ok(syn_flavor)) LOG_(FATAL) << "Stream type conversion failed with error: " << get_error(syn_flavor).error;
-  auto status = synStreamCreate(&handle_, device_.id(), get_value(syn_flavor), STREAM_EMPTY_FLAGS);
-  if (synStatus::synSuccess != status) LOG_(FATAL) << "Stream creation failed with status: " << status;
+  if (!ok(syn_flavor))
+    LOG_(FATAL) << "Stream type conversion failed with error: "
+                << get_error(syn_flavor).error;
+  auto status = synStreamCreate(
+      &handle_, device_.id(), get_value(syn_flavor), STREAM_EMPTY_FLAGS);
+  if (synStatus::synSuccess != status)
+    LOG_(FATAL) << "Stream creation failed with status: " << status;
 }
 
 void stream::register_pending_event(const shared_event& event) {
@@ -79,7 +92,8 @@ void stream::register_pending_event(const shared_event& event) {
     std::lock_guard<std::mutex> lock_guard(mut_);
     auto status = synEventRecord(*event, handle_);
     if (synStatus::synSuccess != status) {
-      LOG_(FATAL) << "Event record failed on stream " << handle_ << " with status: " << status;
+      LOG_(FATAL) << "Event record failed on stream " << handle_
+                  << " with status: " << status;
     }
     pending_cleanups_.push_back(event);
   }
@@ -98,13 +112,18 @@ void stream::gc_thread_proc() {
         break;
       }
 
-      std::move(std::begin(pending_cleanups_), std::end(pending_cleanups_), std::back_inserter(events_to_clean));
+      std::move(
+          std::begin(pending_cleanups_),
+          std::end(pending_cleanups_),
+          std::back_inserter(events_to_clean));
       pending_cleanups_.clear();
     }
 
-    std::string failed_sync_msg{"Failed to synchronize an event in gc thread of a stream " +
-                                std::to_string(reinterpret_cast<uintptr_t>(handle_))};
-    for (const auto& e : events_to_clean) try_sync_event(e, failed_sync_msg);
+    std::string failed_sync_msg{
+        "Failed to synchronize an event in gc thread of a stream " +
+        std::to_string(reinterpret_cast<uintptr_t>(handle_))};
+    for (const auto& e : events_to_clean)
+      try_sync_event(e, failed_sync_msg);
   }
 }
 
@@ -118,9 +137,11 @@ stream::~stream() {
   cond_var_.notify_one();
   gc_worker_.join();
   lock.lock();
-  std::string failed_sync_msg{"Failed to synchronize an event in destructor of a stream " +
-                              std::to_string(reinterpret_cast<uintptr_t>(handle_))};
-  for (auto& e : pending_cleanups_) try_sync_event(e, failed_sync_msg);
+  std::string failed_sync_msg{
+      "Failed to synchronize an event in destructor of a stream " +
+      std::to_string(reinterpret_cast<uintptr_t>(handle_))};
+  for (auto& e : pending_cleanups_)
+    try_sync_event(e, failed_sync_msg);
   pending_cleanups_.clear();
   synStreamSynchronize(handle_);
   synStreamDestroy(handle_);

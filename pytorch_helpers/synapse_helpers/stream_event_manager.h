@@ -14,8 +14,8 @@
 #include <vector>
 
 #include "absl/hash/hash.h"
-#include "synapse_helpers/event.h"
 #include "synapse_helpers/device_types.h"
+#include "synapse_helpers/event.h"
 
 namespace synapse_helpers {
 class stream;
@@ -27,30 +27,35 @@ class stream_event_manager {
 
  public:
   /*! \brief Tries to record Event on a given stream
-   *  \param device_addresses identifier of Events - tensor pointers in device memory space
-   *                          that single Event is recorded for
-   *  \param stream           given stream on which Event will be recorded
-   *  \param done_cb          function to be invoked, once the event is synchronized. Used for
-   *                          releasing ownership of Input Tensors dependant on this event
-   *  \return True, if WaitForEvent was recorded on stream, false otherwise
+   *  \param device_addresses identifier of Events - tensor pointers in device
+   * memory space that single Event is recorded for \param stream given stream
+   * on which Event will be recorded \param done_cb          function to be
+   * invoked, once the event is synchronized. Used for releasing ownership of
+   * Input Tensors dependant on this event \return True, if WaitForEvent was
+   * recorded on stream, false otherwise
    */
-  void add_producer(const std::vector<device_ptr>& device_addresses, stream& stream, event_done_callback done_cb);
+  void add_producer(
+      const std::vector<device_ptr>& device_addresses,
+      stream& stream,
+      event_done_callback done_cb);
 
-  /*! \brief Makes \p stream wait until \p device_address is ready to be used if it wasn't ready already
-   *  \param device_address tensor pointer in device memory space to wait for
-   *  \param stream         given stream that should wait for \p device_address
-   *  \return True if \p device_address is ready, false otherwise
+  /*! \brief Makes \p stream wait until \p device_address is ready to be used if
+   * it wasn't ready already \param device_address tensor pointer in device
+   * memory space to wait for \param stream         given stream that should
+   * wait for \p device_address \return True if \p device_address is ready,
+   * false otherwise
    */
   bool record_wait_event(device_ptr device_address, stream& stream);
 
-  /*! \brief Invokes blocking EventSynchronize for a given tenor pointer in device memory space
-   *  \param device_address identifier of Event - tensor pointer in device memory space
+  /*! \brief Invokes blocking EventSynchronize for a given tenor pointer in
+   * device memory space \param device_address identifier of Event - tensor
+   * pointer in device memory space
    */
   void wait_until_done(device_ptr device_address);
 
   /*! \brief Returns reference to Event, if exists
-   *  \param device_address identifier of Event - tensor pointer in device memory space
-   *  \return shared_event if exists, nullptr otherwise
+   *  \param device_address identifier of Event - tensor pointer in device
+   * memory space \return shared_event if exists, nullptr otherwise
    */
   shared_event get_event(device_ptr device_address);
 
@@ -66,4 +71,4 @@ class stream_event_manager {
   void clear_if_done();
 };
 
-}  // namespace synapse_helpers
+} // namespace synapse_helpers

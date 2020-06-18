@@ -20,20 +20,20 @@
 #include <utility>
 #include <vector>
 
-#include "absl/types/optional.h"
-#include "absl/types/variant.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
+#include "absl/types/optional.h"
+#include "absl/types/variant.h"
 #include "synapse_helpers/synapse_error.h"
 
 namespace absl {
 template <typename... Ts>
 class variant;
-}  // namespace absl
+} // namespace absl
 namespace synapse_helpers {
 class device;
 class tensor;
-}  // namespace synapse_helpers
+} // namespace synapse_helpers
 
 #define UNUSED __attribute__((unused))
 
@@ -50,16 +50,30 @@ class graph {
 
   static synapse_error_v<graph> create(device& device, std::string name);
 
-  synapse_error_o add_node(std::vector<synTensor>&& inputs, std::vector<synTensor>&& outputs, void* const params,
-                           const unsigned params_size, std::string&& node_type);
+  synapse_error_o add_node(
+      std::vector<synTensor>&& inputs,
+      std::vector<synTensor>&& outputs,
+      void* const params,
+      const unsigned params_size,
+      std::string&& node_type);
 
   template <typename ParamsT>
-  synapse_error_o add_node(std::vector<synTensor>&& inputs, std::vector<synTensor>&& outputs, ParamsT* const params,
-                           std::string&& node_type) {
-    return add_node(std::move(inputs), std::move(outputs), params, sizeof(*params), std::move(node_type));
+  synapse_error_o add_node(
+      std::vector<synTensor>&& inputs,
+      std::vector<synTensor>&& outputs,
+      ParamsT* const params,
+      std::string&& node_type) {
+    return add_node(
+        std::move(inputs),
+        std::move(outputs),
+        params,
+        sizeof(*params),
+        std::move(node_type));
   }
 
-  bool is_empty() const { return graph_is_empty_; }
+  bool is_empty() const {
+    return graph_is_empty_;
+  }
 
   struct recipe_handle {
     synRecipeHandle syn_recipe_handle_{nullptr};
@@ -99,36 +113,55 @@ class graph {
   };
 
   struct OpNameContext {
-    OpNameContext(graph& graph, const std::string& opName) : graph_(graph) { graph_.current_op_name_ = opName; }
-    ~OpNameContext() { graph_.current_op_name_.reset(); }
+    OpNameContext(graph& graph, const std::string& opName) : graph_(graph) {
+      graph_.current_op_name_ = opName;
+    }
+    ~OpNameContext() {
+      graph_.current_op_name_.reset();
+    }
     graph& graph_;
   };
 
   friend OpNameContext;
 
-  void add_control_edge(const std::string& src_node_name, const std::string& dst_node_name) {
+  void add_control_edge(
+      const std::string& src_node_name,
+      const std::string& dst_node_name) {
     control_edges_container_[src_node_name].emplace(dst_node_name);
   };
 
-  void add_data_edge(const std::string& src_node_name, const std::string& dst_node_name) {
+  void add_data_edge(
+      const std::string& src_node_name,
+      const std::string& dst_node_name) {
     data_edges_container_[src_node_name].insert(dst_node_name);
   };
 
   static synapse_error_v<std::string> name_suffix_from_type(synDataType type);
 
-  static synapse_error_o create_launch_info(launch_info& handle, const graph::recipe_handle& recipe_handle);
+  static synapse_error_o create_launch_info(
+      launch_info& handle,
+      const graph::recipe_handle& recipe_handle);
 
-  static synapse_error_o launch(launch_info& handle, const graph::recipe_handle& recipe_handle,
-                                const std::vector<synLaunchTensorInfo>& inputs_and_outputs_info);
+  static synapse_error_o launch(
+      launch_info& handle,
+      const graph::recipe_handle& recipe_handle,
+      const std::vector<synLaunchTensorInfo>& inputs_and_outputs_info);
 
-  const std::string& name() const { return name_; }
-  synGraphHandle get_graph_handle() const { return *graph_handle_; }
+  const std::string& name() const {
+    return name_;
+  }
+  synGraphHandle get_graph_handle() const {
+    return *graph_handle_;
+  }
 
  private:
-  using Op2NodeContainer = absl::flat_hash_map<std::string, absl::flat_hash_set<synNodeId>>;
-  using EdgeContainer = absl::flat_hash_map<std::string, absl::flat_hash_set<std::string>>;
-  void collect_dst_synapse_nodes(graph::Op2NodeContainer::mapped_type& dst_synapse_node_ids,
-                                 const std::string& dst_node);
+  using Op2NodeContainer =
+      absl::flat_hash_map<std::string, absl::flat_hash_set<synNodeId>>;
+  using EdgeContainer =
+      absl::flat_hash_map<std::string, absl::flat_hash_set<std::string>>;
+  void collect_dst_synapse_nodes(
+      graph::Op2NodeContainer::mapped_type& dst_synapse_node_ids,
+      const std::string& dst_node);
   synStatus set_synapse_control_edges();
   graph(device& device, std::string name);
 
@@ -146,4 +179,4 @@ class graph {
   absl::optional<std::string> current_op_name_;
 };
 
-}  // namespace synapse_helpers
+} // namespace synapse_helpers

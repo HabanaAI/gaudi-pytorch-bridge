@@ -18,8 +18,11 @@ namespace synapse_helpers {
 // TODO: replace with tl::expected or something similar
 struct synapse_error {
   std::string error;
-  synStatus status;  // TODO: uncomment once we have C++14 and remove assert below: = synStatus::synSuccess
-  static_assert(synStatus::synSuccess == 0, "default-initialized synapse_error shouldn't contain an error code");
+  synStatus status; // TODO: uncomment once we have C++14 and remove assert
+                    // below: = synStatus::synSuccess
+  static_assert(
+      synStatus::synSuccess == 0,
+      "default-initialized synapse_error shouldn't contain an error code");
 };
 
 using synapse_error_o = absl::optional<synapse_error>;
@@ -34,8 +37,9 @@ inline T& get_value(synapse_error_v<T>& variant) {
 class tensor;
 
 // Bug-prone case -- prohibit.
-// Usually such a variant gets returned from functions creating tensors, so we should extract the tensor to somewhere
-// instead of just getting a reference. When the variant goes out of scope, the tensor would get destroyed.
+// Usually such a variant gets returned from functions creating tensors, so we
+// should extract the tensor to somewhere instead of just getting a reference.
+// When the variant goes out of scope, the tensor would get destroyed.
 template <>
 inline tensor& get_value(synapse_error_v<tensor>& variant) = delete;
 
@@ -62,7 +66,7 @@ inline T& get_value(synapse_error_v<std::reference_wrapper<T>>&& variant) {
 template <typename alternative_t>
 inline bool ok(synapse_error_v<alternative_t>& error_variant) {
   return !absl::holds_alternative<synapse_error>(error_variant) ||
-         absl::get<synapse_error>(error_variant).status == synSuccess;
+      absl::get<synapse_error>(error_variant).status == synSuccess;
 }
 
 template <typename alternative_t>
@@ -71,31 +75,40 @@ inline synapse_error& get_error(synapse_error_v<alternative_t>& error_variant) {
 }
 
 inline bool ok(synapse_error_o& error_optional) {
-  return !error_optional.has_value() || error_optional.value().status == synSuccess;
+  return !error_optional.has_value() ||
+      error_optional.value().status == synSuccess;
 }
 
-inline synapse_error& get_error(synapse_error_o& error_optional) { return error_optional.value(); }
+inline synapse_error& get_error(synapse_error_o& error_optional) {
+  return error_optional.value();
+}
 
-inline bool ok(const synapse_error& error) { return error.status == synSuccess; }
+inline bool ok(const synapse_error& error) {
+  return error.status == synSuccess;
+}
 
-inline synapse_error& get_error(synapse_error& error) { return error; }
-inline bool ok(bool success) { return success; }
+inline synapse_error& get_error(synapse_error& error) {
+  return error;
+}
+inline bool ok(bool success) {
+  return success;
+}
 
 inline synapse_error& get_error(bool /*success*/) {
   static synapse_error e{"fail", synFail};
   return e;
 }
-}  // namespace synapse_helpers
+} // namespace synapse_helpers
 
 #define SYNAPSE_SUCCESS_CHECK(error, status)                 \
   if (ABSL_PREDICT_FALSE(status != synStatus::synSuccess)) { \
-    LOG_(ERROR) << error << " Err: " << status;               \
+    LOG_(ERROR) << error << " Err: " << status;              \
     return synapse_helpers::synapse_error{error, status};    \
   }
 
 #define SYNAPSE_SUCCESS_CHECK_WITH_OP(error, status, op)     \
   if (ABSL_PREDICT_FALSE(status != synStatus::synSuccess)) { \
-    LOG_(ERROR) << error << " Err: " << status;               \
+    LOG_(ERROR) << error << " Err: " << status;              \
     op;                                                      \
     return synapse_helpers::synapse_error{error, status};    \
   }
@@ -108,12 +121,13 @@ inline synapse_error& get_error(bool /*success*/) {
     }                                                   \
   } while (false)
 
-#define SYNAPSE_RETURN_IF_ERROR_V(error_variant_for_eval)                            \
-  do {                                                                               \
-    auto&& error_variant{error_variant_for_eval};                                    \
-    if (ABSL_PREDICT_FALSE(absl::holds_alternative<synapse_error>(error_variant))) { \
-      return absl::get<synapse_error>(error_variant);                                \
-    }                                                                                \
+#define SYNAPSE_RETURN_IF_ERROR_V(error_variant_for_eval)             \
+  do {                                                                \
+    auto&& error_variant{error_variant_for_eval};                     \
+    if (ABSL_PREDICT_FALSE(                                           \
+            absl::holds_alternative<synapse_error>(error_variant))) { \
+      return absl::get<synapse_error>(error_variant);                 \
+    }                                                                 \
   } while (false)
 
 #define SYNAPSE_RETURN_IF_ERROR_O(error_optional_for_eval) \
@@ -132,79 +146,103 @@ inline synapse_error& get_error(bool /*success*/) {
     }                                                           \
   } while (false)
 
-#define OP_REQUIRES_SYNAPSE(CTX, error_carrier_for_eval)                                      \
-  do {                                                                                        \
-    auto&& error_carrier{error_carrier_for_eval};                                             \
-    if (TF_PREDICT_FALSE(!ok(error_carrier))) {                                               \
-      CheckNotInComputeAsync((CTX), "OP_REQUIRES_ASYNC");                                     \
-      auto& error = get_error(error_carrier);                                                 \
-      (CTX)->CtxFailure(__FILE__, __LINE__, errors::Aborted(error.error, " ", error.status)); \
-      return;                                                                                 \
-    }                                                                                         \
+#define OP_REQUIRES_SYNAPSE(CTX, error_carrier_for_eval)    \
+  do {                                                      \
+    auto&& error_carrier{error_carrier_for_eval};           \
+    if (TF_PREDICT_FALSE(!ok(error_carrier))) {             \
+      CheckNotInComputeAsync((CTX), "OP_REQUIRES_ASYNC");   \
+      auto& error = get_error(error_carrier);               \
+      (CTX)->CtxFailure(                                    \
+          __FILE__,                                         \
+          __LINE__,                                         \
+          errors::Aborted(error.error, " ", error.status)); \
+      return;                                               \
+    }                                                       \
   } while (false)
 
-#define OP_REQUIRES_SYNAPSE_ASYNC(CTX, error_variant_for_eval, CALLBACK)                      \
-  do {                                                                                        \
-    auto&& error_carrier{error_carrier_for_eval};                                             \
-    if (TF_PREDICT_FALSE(!ok(error_carrier))) {                                               \
-      auto& error = get_error(error_carrier);                                                 \
-      (CTX)->CtxFailure(__FILE__, __LINE__, errors::Aborted(error.error, " ", error.status)); \
-      CALLBACK();                                                                             \
-      return;                                                                                 \
-    }                                                                                         \
+#define OP_REQUIRES_SYNAPSE_ASYNC(CTX, error_variant_for_eval, CALLBACK) \
+  do {                                                                   \
+    auto&& error_carrier{error_carrier_for_eval};                        \
+    if (TF_PREDICT_FALSE(!ok(error_carrier))) {                          \
+      auto& error = get_error(error_carrier);                            \
+      (CTX)->CtxFailure(                                                 \
+          __FILE__,                                                      \
+          __LINE__,                                                      \
+          errors::Aborted(error.error, " ", error.status));              \
+      CALLBACK();                                                        \
+      return;                                                            \
+    }                                                                    \
   }
 
-#define OP_REQUIRES_SYNAPSE_V(CTX, error_variant_for_eval)                                          \
-  do {                                                                                              \
-    auto&& error_variant{error_variant_for_eval};                                                   \
-    if (TF_PREDICT_FALSE(absl::holds_alternative<synapse_helpers::synapse_error>(error_variant))) { \
-      CheckNotInComputeAsync((CTX), "OP_REQUIRES_ASYNC");                                           \
-      auto& error = absl::get<synapse_helpers::synapse_error>(error_variant);                       \
-      (CTX)->CtxFailure(__FILE__, __LINE__, errors::Aborted(error.error, " ", error.status));       \
-      return;                                                                                       \
-    }                                                                                               \
+#define OP_REQUIRES_SYNAPSE_V(CTX, error_variant_for_eval)                    \
+  do {                                                                        \
+    auto&& error_variant{error_variant_for_eval};                             \
+    if (TF_PREDICT_FALSE(                                                     \
+            absl::holds_alternative<synapse_helpers::synapse_error>(          \
+                error_variant))) {                                            \
+      CheckNotInComputeAsync((CTX), "OP_REQUIRES_ASYNC");                     \
+      auto& error = absl::get<synapse_helpers::synapse_error>(error_variant); \
+      (CTX)->CtxFailure(                                                      \
+          __FILE__,                                                           \
+          __LINE__,                                                           \
+          errors::Aborted(error.error, " ", error.status));                   \
+      return;                                                                 \
+    }                                                                         \
   } while (false)
 
-#define OP_REQUIRES_SYNAPSE_V_ASYNC(CTX, error_variant_for_eval, CALLBACK)                          \
-  do {                                                                                              \
-    auto&& error_variant{error_variant_for_eval};                                                   \
-    if (TF_PREDICT_FALSE(absl::holds_alternative<synapse_helpers::synapse_error>(error_variant))) { \
-      auto& error = absl::get<synapse_helpers::synapse_error>(error_variant);                       \
-      (CTX)->CtxFailure(__FILE__, __LINE__, errors::Aborted(error.error, " ", error.status));       \
-      CALLBACK();                                                                                   \
-      return;                                                                                       \
-    }                                                                                               \
+#define OP_REQUIRES_SYNAPSE_V_ASYNC(CTX, error_variant_for_eval, CALLBACK)    \
+  do {                                                                        \
+    auto&& error_variant{error_variant_for_eval};                             \
+    if (TF_PREDICT_FALSE(                                                     \
+            absl::holds_alternative<synapse_helpers::synapse_error>(          \
+                error_variant))) {                                            \
+      auto& error = absl::get<synapse_helpers::synapse_error>(error_variant); \
+      (CTX)->CtxFailure(                                                      \
+          __FILE__,                                                           \
+          __LINE__,                                                           \
+          errors::Aborted(error.error, " ", error.status));                   \
+      CALLBACK();                                                             \
+      return;                                                                 \
+    }                                                                         \
   } while (false)
 
-#define TF_RETURN_IF_SYNAPSE_ERROR_V(error_variant_for_eval)                                        \
-  do {                                                                                              \
-    auto&& error_variant{error_variant_for_eval};                                                   \
-    if (TF_PREDICT_FALSE(absl::holds_alternative<synapse_helpers::synapse_error>(error_variant))) { \
-      auto& error = absl::get<synapse_helpers::synapse_error>(error_variant);                       \
-      return errors::Aborted(error.error, " ", error.status);                                       \
-    }                                                                                               \
+#define TF_RETURN_IF_SYNAPSE_ERROR_V(error_variant_for_eval)                  \
+  do {                                                                        \
+    auto&& error_variant{error_variant_for_eval};                             \
+    if (TF_PREDICT_FALSE(                                                     \
+            absl::holds_alternative<synapse_helpers::synapse_error>(          \
+                error_variant))) {                                            \
+      auto& error = absl::get<synapse_helpers::synapse_error>(error_variant); \
+      return errors::Aborted(error.error, " ", error.status);                 \
+    }                                                                         \
   } while (false)
 
-#define OP_REQUIRES_SYNAPSE_O(CTX, error_optional_for_eval)                                   \
-  do {                                                                                        \
-    auto&& error_optional{error_optional_for_eval};                                           \
-    if (TF_PREDICT_FALSE(error_optional.has_value())) {                                       \
-      CheckNotInComputeAsync((CTX), "OP_REQUIRES_ASYNC");                                     \
-      auto& error = error_optional.value();                                                   \
-      (CTX)->CtxFailure(__FILE__, __LINE__, errors::Aborted(error.error, " ", error.status)); \
-      return;                                                                                 \
-    }                                                                                         \
+#define OP_REQUIRES_SYNAPSE_O(CTX, error_optional_for_eval) \
+  do {                                                      \
+    auto&& error_optional{error_optional_for_eval};         \
+    if (TF_PREDICT_FALSE(error_optional.has_value())) {     \
+      CheckNotInComputeAsync((CTX), "OP_REQUIRES_ASYNC");   \
+      auto& error = error_optional.value();                 \
+      (CTX)->CtxFailure(                                    \
+          __FILE__,                                         \
+          __LINE__,                                         \
+          errors::Aborted(error.error, " ", error.status)); \
+      return;                                               \
+    }                                                       \
   } while (false)
 
-#define OP_REQUIRES_SYNAPSE_O_ASYNC(CTX, error_optional_for_eval, CALLBACK)                   \
-  do {                                                                                        \
-    auto&& error_optional{error_optional_for_eval};                                           \
-    if (TF_PREDICT_FALSE(error_optional.has_value())) {                                       \
-      auto& error = error_optional.value();                                                   \
-      (CTX)->CtxFailure(__FILE__, __LINE__, errors::Aborted(error.error, " ", error.status)); \
-      CALLBACK();                                                                             \
-      return;                                                                                 \
-    }                                                                                         \
+#define OP_REQUIRES_SYNAPSE_O_ASYNC(CTX, error_optional_for_eval, CALLBACK) \
+  do {                                                                      \
+    auto&& error_optional{error_optional_for_eval};                         \
+    if (TF_PREDICT_FALSE(error_optional.has_value())) {                     \
+      auto& error = error_optional.value();                                 \
+      (CTX)->CtxFailure(                                                    \
+          __FILE__,                                                         \
+          __LINE__,                                                         \
+          errors::Aborted(error.error, " ", error.status));                 \
+      CALLBACK();                                                           \
+      return;                                                               \
+    }                                                                       \
   } while (false)
 
 #define OP_RETURN_IF_FALSE(v)       \

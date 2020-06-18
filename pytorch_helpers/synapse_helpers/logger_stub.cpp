@@ -13,7 +13,11 @@
 
 namespace synapse_logger {
 enum class data_dump_category : unsigned {};
-bool logger_is_enabled(UNUSED data_dump_category cat) { return false; }
+bool logger_is_enabled(UNUSED data_dump_category cat) {
+  return false;
+}
 
-void log(absl::string_view payload) { (void)(payload); }
-}  // namespace synapse_logger
+void log(absl::string_view payload) {
+  (void)(payload);
+}
+} // namespace synapse_logger

@@ -13,12 +13,12 @@
 #include <mutex>
 
 #include "absl/types/variant.h"
-#include "synapse_helpers/synapse_error.h"  // IWYU pragma: keep
+#include "synapse_helpers/synapse_error.h" // IWYU pragma: keep
 
 namespace absl {
 template <typename... Ts>
 class variant;
-}  // namespace absl
+} // namespace absl
 
 namespace synapse_helpers {
 
@@ -38,4 +38,4 @@ class session {
   session() = default;
 };
 
-}  // namespace synapse_helpers
+} // namespace synapse_helpers

@@ -24,9 +24,15 @@ class value_or_ref {
   value_or_ref(std::reference_wrapper<T> input) : value_(input) {}
   value_or_ref(T&& input) : value_(std::move(input)) {}
 
-  operator T&() { return ref(); }
-  operator const T&() const { return absl::visit(value_ref_caster{}, value_); }
-  T& ref() { return absl::visit(value_ref_caster{}, value_); }
+  operator T&() {
+    return ref();
+  }
+  operator const T&() const {
+    return absl::visit(value_ref_caster{}, value_);
+  }
+  T& ref() {
+    return absl::visit(value_ref_caster{}, value_);
+  }
 
  private:
   struct value_ref_caster {
@@ -43,4 +49,4 @@ class value_or_ref {
   underlying_type value_;
 };
 
-}  // namespace synapse_helpers
+} // namespace synapse_helpers

@@ -8,8 +8,8 @@
  ******************************************************************************
  */
 #include "synapse_helpers/tensor_builder_base.h"
-#include "synapse_helpers/type_conversions.h"
 #include "synapse_helpers/logging.h"
+#include "synapse_helpers/type_conversions.h"
 
 #include <string>
 
@@ -21,7 +21,9 @@ std::string generate_name() {
   return "tensor_" + std::to_string(id++);
 }
 
-uint64_t size_bytes_from_shape(const tensor::shape_t& shape, synDataType dataType) {
+uint64_t size_bytes_from_shape(
+    const tensor::shape_t& shape,
+    synDataType dataType) {
   HABANA_ASSERT(shape.rank().value <= 5U);
   uint64_t size = size_of_syn_data_type(dataType);
   for (auto i{0U}; i < shape.rank().value; ++i) {
@@ -30,5 +32,5 @@ uint64_t size_bytes_from_shape(const tensor::shape_t& shape, synDataType dataTyp
   return size;
 }
 
-}  // namespace detail
-}  // namespace synapse_helpers
+} // namespace detail
+} // namespace synapse_helpers

@@ -15,18 +15,25 @@
 
 namespace synapse_helpers {
 
-bool is_env_var_equal(const char* variable_name, const char* value, bool unset_default) {
+bool is_env_var_equal(
+    const char* variable_name,
+    const char* value,
+    bool unset_default) {
   auto* env_value = std::getenv(variable_name);
-  if (env_value == nullptr) return unset_default;
+  if (env_value == nullptr)
+    return unset_default;
   return std::strcmp(env_value, value) == 0;
 }
 
 bool get_bool_env_var(const char* variable_name, bool unset_default) {
   auto* env_value = std::getenv(variable_name);
-  if (env_value == nullptr) return unset_default;
+  if (env_value == nullptr)
+    return unset_default;
 
-  bool true_found = absl::EqualsIgnoreCase(env_value, "1") || absl::EqualsIgnoreCase(env_value, "true");
-  bool false_found = absl::EqualsIgnoreCase(env_value, "0") || absl::EqualsIgnoreCase(env_value, "false");
+  bool true_found = absl::EqualsIgnoreCase(env_value, "1") ||
+      absl::EqualsIgnoreCase(env_value, "true");
+  bool false_found = absl::EqualsIgnoreCase(env_value, "0") ||
+      absl::EqualsIgnoreCase(env_value, "false");
 
   if (true_found)
     return true;
@@ -38,4 +45,4 @@ bool get_bool_env_var(const char* variable_name, bool unset_default) {
   }
 }
 
-}  // namespace synapse_helpers
+} // namespace synapse_helpers

@@ -46,9 +46,10 @@ class memory_mapper {
   using lock_t = std::unique_lock<std::mutex>;
 
   struct mapped_entry {
-    mapped_entry(bool in_use, std::unique_ptr<uint8_t[]> buf) : in_use{in_use}, buf{std::move(buf)} {}  // NOLINT
+    mapped_entry(bool in_use, std::unique_ptr<uint8_t[]> buf)
+        : in_use{in_use}, buf{std::move(buf)} {} // NOLINT
     bool in_use = false;
-    std::unique_ptr<uint8_t[]> buf;  // NOLINT
+    std::unique_ptr<uint8_t[]> buf; // NOLINT
   };
 
   struct acquired_entry {
@@ -76,8 +77,9 @@ class memory_mapper {
 
   device& device_;
 
-  absl::flat_hash_map<mapping_size_t, std::shared_ptr<fixed_size_entries>> mapped_locations_;
+  absl::flat_hash_map<mapping_size_t, std::shared_ptr<fixed_size_entries>>
+      mapped_locations_;
   std::mutex locations_access_;
 };
 
-}  // namespace synapse_helpers
+} // namespace synapse_helpers

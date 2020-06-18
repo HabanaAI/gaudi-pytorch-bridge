@@ -19,15 +19,20 @@
 
 namespace synapse_helpers {
 
-std::ostream& operator<<(std::ostream& out, const synTensorDescriptor& syn_tensor) {
-  out << "synapse_tensor" << (syn_tensor.m_name ? std::string(" ") + syn_tensor.m_name : "<unnamed>") << " at "
-      << std::hex << syn_tensor.m_ptr << std::dec << ", dims=(";
+std::ostream& operator<<(
+    std::ostream& out,
+    const synTensorDescriptor& syn_tensor) {
+  out << "synapse_tensor"
+      << (syn_tensor.m_name ? std::string(" ") + syn_tensor.m_name
+                            : "<unnamed>")
+      << " at " << std::hex << syn_tensor.m_ptr << std::dec << ", dims=(";
   unsigned dim;
   for (dim = 0; dim + 1 < syn_tensor.m_dims; ++dim) {
     out << syn_tensor.m_sizes[dim] << ", ";
   }
   out << syn_tensor.m_sizes[dim] << ")";
-  out << ", dtype=" << syn_tensor.m_dataType << ", weights=" << (syn_tensor.m_isWeights ? "T" : "F")
+  out << ", dtype=" << syn_tensor.m_dataType
+      << ", weights=" << (syn_tensor.m_isWeights ? "T" : "F")
       << ", quantized=" << (syn_tensor.m_isQuantized ? "T" : "F");
   if (syn_tensor.m_batchPos == INVALID_BATCH_POS) {
     out << ", batchPos=INVALID";
@@ -42,9 +47,17 @@ void tensor::shape_t::set_rank(dimension_count_t rank) noexcept {
   rank_ = rank;
 }
 
-tensor::tensor(synDeviceId device_id, synDataType data_type, uint64_t total_size_bytes, shape_t shape,
-               std::string tensor_name, synGraphHandle graph, bool is_persistent, shared_memory_section section,
-               bool is_const, void* host_ptr)
+tensor::tensor(
+    synDeviceId device_id,
+    synDataType data_type,
+    uint64_t total_size_bytes,
+    shape_t shape,
+    std::string tensor_name,
+    synGraphHandle graph,
+    bool is_persistent,
+    shared_memory_section section,
+    bool is_const,
+    void* host_ptr)
     : tensor_name_{std::move(tensor_name)},
       device_id_{device_id},
       data_type_{data_type},
@@ -76,7 +89,8 @@ tensor::tensor(tensor&& other) noexcept
 }
 
 tensor& tensor::operator=(tensor&& other) noexcept {
-  if (this == &other) return *this;
+  if (this == &other)
+    return *this;
   cleanup();
   tensor_name_ = std::move(other.tensor_name_);
   device_id_ = other.device_id_;
@@ -103,7 +117,8 @@ synapse_error_o tensor::create() {
   synTensorDescriptor trdescriptor{};
 
   VLOG_(4) << "Allocate host memory handle.";
-  // descriptor_.m_ptr = reinterpret_cast<void*>(device_id_.get().get_next_index());
+  // descriptor_.m_ptr =
+  // reinterpret_cast<void*>(device_id_.get().get_next_index());
   // TODO: define create inputs function
 
   trdescriptor.m_name = tensor_name_.c_str();
@@ -114,7 +129,8 @@ synapse_error_o tensor::create() {
     trdescriptor.m_isQuantized = true;
     trdescriptor.m_ptr = host_ptr_;
   }
-  std::copy_n(shape_.data(), shape_.rank().value, std::begin(trdescriptor.m_sizes));
+  std::copy_n(
+      shape_.data(), shape_.rank().value, std::begin(trdescriptor.m_sizes));
 
   if (is_const_) {
     HABANA_ASSERT(!is_persistent_);
@@ -122,17 +138,20 @@ synapse_error_o tensor::create() {
   } else {
     HABANA_ASSERT(!memory_section_ || (memory_section_ && is_persistent_));
     if (!memory_section_ && is_persistent_) {
-      auto memory_attributes{synMemoryAttribute::MEMORY_ATTRIBUTE_DEVICE |
-                             (is_persistent_ ? synMemoryAttribute::MEMORY_ATTRIBUTE_PERSISTENT : 0)};
+      auto memory_attributes{
+          synMemoryAttribute::MEMORY_ATTRIBUTE_DEVICE |
+          (is_persistent_ ? synMemoryAttribute::MEMORY_ATTRIBUTE_PERSISTENT
+                          : 0)};
       synSectionHandle section;
       HABANA_ASSERT(graph_ != nullptr);
       status = synSectionCreate(&section, memory_attributes, graph_);
-      SYNAPSE_SUCCESS_CHECK_WITH_OP("Memory section create failed.", status, cleanup());
+      SYNAPSE_SUCCESS_CHECK_WITH_OP(
+          "Memory section create failed.", status, cleanup());
       memory_section_ = std::make_shared<memory_section>(section);
       status = synTensorCreate(&tensor_, &trdescriptor, *memory_section_, 0);
     } else if (memory_section_ && is_persistent_) {
-      // the only valid use case for today with user-defined memory section is to do in-place update,
-      // therefore offset parameter is 0
+      // the only valid use case for today with user-defined memory section is
+      // to do in-place update, therefore offset parameter is 0
       status = synTensorCreate(&tensor_, &trdescriptor, *memory_section_, 0);
     } else {
       status = synTensorCreate(&tensor_, &trdescriptor, nullptr, 0);
@@ -145,7 +164,9 @@ synapse_error_o tensor::create() {
   return {};
 }
 
-tensor::~tensor() { cleanup(); }
+tensor::~tensor() {
+  cleanup();
+}
 
 void tensor::cleanup() {
   if (tensor_) {
@@ -160,7 +181,8 @@ tensor tensor::create_placeholder(synDeviceId syn_device) {
   static uint64_t id = -1;
   std::string name = absl::StrFormat("placeholder_tensor_%d", ++id);
 
-  tensor tensor{syn_device, synDataType::syn_type_na, 0, shape_t{0_D}, name, nullptr};
+  tensor tensor{
+      syn_device, synDataType::syn_type_na, 0, shape_t{0_D}, name, nullptr};
   tensor.set_placeholder();
 
   return tensor;
@@ -172,18 +194,21 @@ uint64_t tensor::num_elements() const {
     if (dim != 0) {
       ret *= dim;
     }
-    if (dim == static_cast<decltype(dim)>(-1)) return -1;
+    if (dim == static_cast<decltype(dim)>(-1))
+      return -1;
   }
   return ret;
 }
 
-memory_section::memory_section(uint64_t memory_attributes, synGraphHandle graph) : memory_section_{} {
+memory_section::memory_section(uint64_t memory_attributes, synGraphHandle graph)
+    : memory_section_{} {
   auto status = synSectionCreate(&memory_section_, memory_attributes, graph);
-  if (synSuccess != status) LOG_(FATAL) << "Unable to create a memory section with err: " << status;
+  if (synSuccess != status)
+    LOG_(FATAL) << "Unable to create a memory section with err: " << status;
 }
 
 tensor::shape_t::dimension_count_t operator"" _D(unsigned long long arg) {
   return tensor::shape_t::dimension_count_t{static_cast<unsigned>(arg)};
 }
 
-}  // namespace synapse_helpers
+} // namespace synapse_helpers

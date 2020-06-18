@@ -18,7 +18,10 @@ namespace synapse_helpers {
  * @param   unset_default   Value to return if variable is unset.
  * @return                  True if value of variable is same as value.
  */
-bool is_env_var_equal(const char* variable_name, const char* value, bool unset_default = false);
+bool is_env_var_equal(
+    const char* variable_name,
+    const char* value,
+    bool unset_default = false);
 
 /**
  * Checks environment variable state.
@@ -26,9 +29,10 @@ bool is_env_var_equal(const char* variable_name, const char* value, bool unset_d
  * False, if set to '0' or case-insensitive 'false'.
  * 'unset_default' if unset or contains unexpected data.
  * @param   variable_name   Name of the environment variable.
- * @param   unset_default   Value to return if variable is unset or contains unexpected data.
+ * @param   unset_default   Value to return if variable is unset or contains
+ * unexpected data.
  * @return                  Environment variable state.
  */
 bool get_bool_env_var(const char* variable_name, bool unset_default = false);
 
-}  // namespace synapse_helpers
+} // namespace synapse_helpers

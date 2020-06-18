@@ -26,15 +26,20 @@ namespace synapse_helpers {
 
 class ostream_flag_guard {
  public:
-  static NODISCARD ostream_flag_guard create(std::ostream& stream) { return ostream_flag_guard{stream}; }
+  static NODISCARD ostream_flag_guard create(std::ostream& stream) {
+    return ostream_flag_guard{stream};
+  }
 
-  ~ostream_flag_guard() { stream_.flags(flags_); }
+  ~ostream_flag_guard() {
+    stream_.flags(flags_);
+  }
 
  private:
-  explicit ostream_flag_guard(std::ostream& stream) : stream_{stream}, flags_{stream.flags()} {}
+  explicit ostream_flag_guard(std::ostream& stream)
+      : stream_{stream}, flags_{stream.flags()} {}
 
   std::ostream& stream_;
   std::ios_base::fmtflags flags_;
 };
 
-}  // namespace synapse_helpers
+} // namespace synapse_helpers

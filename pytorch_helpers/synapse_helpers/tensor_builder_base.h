@@ -30,8 +30,10 @@ namespace synapse_helpers {
 
 namespace detail {
 std::string generate_name();
-uint64_t size_bytes_from_shape(const tensor::shape_t& shape, synDataType dataType);
-}  // namespace detail
+uint64_t size_bytes_from_shape(
+    const tensor::shape_t& shape,
+    synDataType dataType);
+} // namespace detail
 
 template <typename ConcreteBuilder>
 class tensor_builder_base {
@@ -41,7 +43,9 @@ class tensor_builder_base {
     with_data_type(tensor.type());
   }
 
-  explicit tensor_builder_base(const tensor::shape_t& shape, synDataType data_type = synDataType::syn_type_float)
+  explicit tensor_builder_base(
+      const tensor::shape_t& shape,
+      synDataType data_type = synDataType::syn_type_float)
       : data_type_{data_type} {
     with_shape(shape);
   };
@@ -60,7 +64,8 @@ class tensor_builder_base {
 
   ConcreteBuilder& with_rank_at_least(unsigned required_rank) {
     const auto previous_rank = shape_.rank().value;
-    shape_.set_rank(tensor::shape_t::dimension_count_t{std::max(required_rank, previous_rank)});
+    shape_.set_rank(tensor::shape_t::dimension_count_t{
+        std::max(required_rank, previous_rank)});
 
     for (auto i = previous_rank; i < shape_.rank().value; i++) {
       shape_[i] = 1;
@@ -69,7 +74,8 @@ class tensor_builder_base {
     return static_cast<ConcreteBuilder&>(*this);
   }
 
-  // NOLINTNEXTLINE // we're move()'ing, so no const& is needed. TODO remove this line when we switch to tidy-10.
+  // NOLINTNEXTLINE // we're move()'ing, so no const& is needed. TODO remove
+  // this line when we switch to tidy-10.
   ConcreteBuilder& with_name(std::string name) {
     tensor_name_ = std::move(name);
     return static_cast<ConcreteBuilder&>(*this);
@@ -80,21 +86,34 @@ class tensor_builder_base {
     return static_cast<ConcreteBuilder&>(*this);
   }
 
-  ConcreteBuilder& mark_const(const bool is_const = true, void* host_ptr = nullptr) {
+  ConcreteBuilder& mark_const(
+      const bool is_const = true,
+      void* host_ptr = nullptr) {
     is_const_ = is_const;
     host_ptr_ = host_ptr;
     return static_cast<ConcreteBuilder&>(*this);
   }
 
-  // NOLINTNEXTLINE // we're move()'ing, so no const& is needed. TODO remove this line when we switch to tidy-10.
+  // NOLINTNEXTLINE // we're move()'ing, so no const& is needed. TODO remove
+  // this line when we switch to tidy-10.
   ConcreteBuilder& with_memory_section(shared_memory_section memory_section) {
     memory_section_ = std::move(memory_section);
     return static_cast<ConcreteBuilder&>(*this);
   }
 
-  synapse_error_v<tensor> build(device& syn_device, synGraphHandle graph) const {
-    auto t = tensor(syn_device.id(), data_type_, total_size_bytes(), shape_, tensor_name_, graph, is_persistent_,
-                    memory_section_, is_const_, host_ptr_);
+  synapse_error_v<tensor> build(device& syn_device, synGraphHandle graph)
+      const {
+    auto t = tensor(
+        syn_device.id(),
+        data_type_,
+        total_size_bytes(),
+        shape_,
+        tensor_name_,
+        graph,
+        is_persistent_,
+        memory_section_,
+        is_const_,
+        host_ptr_);
 
     auto create_result{t.create()};
 
@@ -117,14 +136,19 @@ class tensor_builder_base {
   shared_memory_section memory_section_{nullptr};
   void* host_ptr_{nullptr};
 
-  uint64_t total_size_bytes() const { return detail::size_bytes_from_shape(shape_, data_type_); }
+  uint64_t total_size_bytes() const {
+    return detail::size_bytes_from_shape(shape_, data_type_);
+  }
 
-  static std::string generate_name() { return detail::generate_name(); }
+  static std::string generate_name() {
+    return detail::generate_name();
+  }
 };
 
-class generic_tensor_builder : public tensor_builder_base<generic_tensor_builder> {
+class generic_tensor_builder
+    : public tensor_builder_base<generic_tensor_builder> {
  public:
   using tensor_builder_base::tensor_builder_base;
 };
 
-}  // namespace synapse_helpers
+} // namespace synapse_helpers

@@ -20,7 +20,10 @@
 
 using namespace synapse_helpers;
 
-event::event(event_handle_cache& event_handle_cache, stream& stream, event_done_callback done_cb)
+event::event(
+    event_handle_cache& event_handle_cache,
+    stream& stream,
+    event_done_callback done_cb)
     : event_handle_cache_{event_handle_cache},
       handle_{event_handle_cache_.get_free_handle()},
       done_cb_{std::move(done_cb)},
@@ -29,7 +32,8 @@ event::event(event_handle_cache& event_handle_cache, stream& stream, event_done_
 synStatus event::synchronize() {
   std::unique_lock<std::mutex> sync_lock(sync_mutex_);
   std::unique_lock<std::mutex> lock(mutex_);
-  if (done_) return synSuccess;
+  if (done_)
+    return synSuccess;
   lock.unlock();
   auto status = synEventSynchronize(handle_);
   lock.lock();
@@ -37,12 +41,14 @@ synStatus event::synchronize() {
     LOG_(FATAL) << "Event synchronization failed with: " << status;
   }
   done_ = true;
-  if (done_cb_) done_cb_();
+  if (done_cb_)
+    done_cb_();
   if (handle_) {
     event_handle_cache_.release_handle(handle_);
     handle_ = nullptr;
   }
-  done_cb_ = nullptr;  // explicit destruction of cb to release any internally held objects
+  done_cb_ = nullptr; // explicit destruction of cb to release any internally
+                      // held objects
   return status;
 }
 

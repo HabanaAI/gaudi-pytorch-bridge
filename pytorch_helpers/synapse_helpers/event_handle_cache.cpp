@@ -16,14 +16,17 @@
 #include "synapse_helpers/logging.h"
 // IWYU pragma: no_include <ostream>
 
-// There is a hard limit in Synapse for number of silmuntaneously recorded events on streams. Since, in TF, each event
-// corresponds to single tensor, either being transfered or worked on, we can easily reach the point, where we have
-// too many events used at once, hence the limit. In the future, to be on a safe side, we might consider creating
-// bundles of tensors for single event, thus reducing overall number of events in use.
+// There is a hard limit in Synapse for number of silmuntaneously recorded
+// events on streams. Since, in TF, each event corresponds to single tensor,
+// either being transfered or worked on, we can easily reach the point, where we
+// have too many events used at once, hence the limit. In the future, to be on a
+// safe side, we might consider creating bundles of tensors for single event,
+// thus reducing overall number of events in use.
 constexpr std::size_t MAX_NUM_EVENTS = 1000;
 
 namespace synapse_helpers {
-event_handle_cache::event_handle_cache(device& device) : mutex_{}, cond_var_{}, device_{device}, events_count_{0} {
+event_handle_cache::event_handle_cache(device& device)
+    : mutex_{}, cond_var_{}, device_{device}, events_count_{0} {
   free_handles_.reserve(MAX_NUM_EVENTS);
 }
 
@@ -73,4 +76,4 @@ event_handle_cache::~event_handle_cache() {
   free_handles_.clear();
 }
 
-}  // namespace synapse_helpers
+} // namespace synapse_helpers

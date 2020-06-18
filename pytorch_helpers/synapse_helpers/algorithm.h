@@ -27,8 +27,8 @@ UnaryFunction for_each(const T& container, UnaryFunction f) {
  * @param p Predicate to check when counting.
  */
 template <typename T, typename Predicate>
-auto count_if(const T& container, Predicate p) ->
-    typename std::iterator_traits<decltype(container.begin())>::difference_type {
+auto count_if(const T& container, Predicate p) -> typename std::iterator_traits<
+    decltype(container.begin())>::difference_type {
   return std::count_if(container.begin(), container.end(), p);
 }
 
@@ -50,7 +50,8 @@ bool none_of(const T& container, UnaryPredicate p) {
  * @param p Predicate to check when counting
  */
 template <typename T, typename UnaryPredicate>
-auto find_if(const T& container, UnaryPredicate p) -> decltype(container.begin()) {
+auto find_if(const T& container, UnaryPredicate p)
+    -> decltype(container.begin()) {
   return std::find_if(container.begin(), container.end(), p);
 }
-}  // namespace synh
+} // namespace synh

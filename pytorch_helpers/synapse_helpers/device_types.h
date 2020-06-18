@@ -9,9 +9,9 @@
  */
 #pragma once
 
-#include <memory>
-#include <functional>
 #include <cstdint>
+#include <functional>
+#include <memory>
 
 #include <synapse_api_types.h>
 
@@ -28,19 +28,30 @@ static constexpr auto device_nullptr = device_ptr{};
  * Requires that the device will outlive any pointer that it owns.
  */
 /* Implementation details:
- * It uses reinterpret_casting in order to use a unique_ptr as internal storage for the pointer and its deleter.
- * It's a dirty hack, but used only internally and not exposed through this classes interface.
+ * It uses reinterpret_casting in order to use a unique_ptr as internal storage
+ * for the pointer and its deleter. It's a dirty hack, but used only internally
+ * and not exposed through this classes interface.
  */
 class owned_device_ptr {
  public:
   owned_device_ptr(device_ptr buffer_ptr, size_t size, device& dev)
-      : ptr_{reinterpret_cast<device_ptr*>(buffer_ptr), device_ptr_deleter{dev}}, size_(size) {}
+      : ptr_{reinterpret_cast<device_ptr*>(buffer_ptr),
+             device_ptr_deleter{dev}},
+        size_(size) {}
 
-  device_ptr get() { return reinterpret_cast<device_ptr>(ptr_.get()); }
-  device_ptr release() { return reinterpret_cast<device_ptr>(ptr_.release()); }
-  size_t size() { return size_; }
+  device_ptr get() {
+    return reinterpret_cast<device_ptr>(ptr_.get());
+  }
+  device_ptr release() {
+    return reinterpret_cast<device_ptr>(ptr_.release());
+  }
+  size_t size() {
+    return size_;
+  }
 
-  explicit operator bool() { return bool(ptr_); }
+  explicit operator bool() {
+    return bool(ptr_);
+  }
 
  private:
   class device_ptr_deleter {
@@ -66,9 +77,10 @@ class device_allocator {
   virtual void free(void* pointer) = 0;
 };
 
-using create_allocator_fnc = std::function<std::unique_ptr<device_allocator>(synDeviceId device_id)>;
+using create_allocator_fnc =
+    std::function<std::unique_ptr<device_allocator>(synDeviceId device_id)>;
 using framework_specific_cleanup_fnc = std::function<void()>;
 
 using device_handle = std::shared_ptr<device>;
 
-}  // namespace synapse_helpers
+} // namespace synapse_helpers

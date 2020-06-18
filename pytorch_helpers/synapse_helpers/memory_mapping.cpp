@@ -23,21 +23,27 @@
 
 namespace synapse_helpers {
 
-memory_mapper::fixed_size_entries::fixed_size_entries(mapping_size_t size, device& dev) : size_(size), device_{dev} {}
+memory_mapper::fixed_size_entries::fixed_size_entries(
+    mapping_size_t size,
+    device& dev)
+    : size_(size), device_{dev} {}
 
 memory_mapper::fixed_size_entries::~fixed_size_entries() {
   if (unmap_all() != synStatus::synSuccess) {
     // At this point, we can just log that we failed
-    LOG_(ERROR) << "Failed to unmap host memory buffers with total_bytes=" << size_;
+    LOG_(ERROR) << "Failed to unmap host memory buffers with total_bytes="
+                << size_;
   }
 }
 
 memory_mapper::acquired_entry memory_mapper::fixed_size_entries::acquire() {
   lock_t lock(entries_lock_);
-  auto it = std::find_if(mapped_entries_.begin(), mapped_entries_.end(),
-                         [](const mapped_entry& elem) { return !elem.in_use; });
+  auto it = std::find_if(
+      mapped_entries_.begin(),
+      mapped_entries_.end(),
+      [](const mapped_entry& elem) { return !elem.in_use; });
   if (it == mapped_entries_.end()) {
-    auto allocated_buf = absl::make_unique<uint8_t[]>(size_);  // NOLINT
+    auto allocated_buf = absl::make_unique<uint8_t[]>(size_); // NOLINT
     auto status = synHostMap(device_.id(), size_, allocated_buf.get());
     if (status != synStatus::synSuccess) {
       return {size_, 0, nullptr, status};
@@ -49,8 +55,11 @@ memory_mapper::acquired_entry memory_mapper::fixed_size_entries::acquire() {
   } else {
     // alloc new
     it->in_use = true;
-    return {size_, static_cast<std::size_t>(std::distance(mapped_entries_.begin(), it)), it->buf.get(),
-            synStatus::synSuccess};
+    return {
+        size_,
+        static_cast<std::size_t>(std::distance(mapped_entries_.begin(), it)),
+        it->buf.get(),
+        synStatus::synSuccess};
   }
 }
 
@@ -79,19 +88,24 @@ synStatus memory_mapper::fixed_size_entries::unmap_all() {
     }
   }
   // clean up any buffers not in use anymore
-  mapped_entries_.erase(std::remove_if(mapped_entries_.begin(), mapped_entries_.end(),
-                                       [](const mapped_entry& entry) { return !entry.in_use; }),
-                        mapped_entries_.end());
+  mapped_entries_.erase(
+      std::remove_if(
+          mapped_entries_.begin(),
+          mapped_entries_.end(),
+          [](const mapped_entry& entry) { return !entry.in_use; }),
+      mapped_entries_.end());
   return retStatus;
 }
 
-memory_mapper::memory_mapper(device& device) : device_{device}, mapped_locations_{} {}
+memory_mapper::memory_mapper(device& device)
+    : device_{device}, mapped_locations_{} {}
 
 memory_mapper::acquired_entry memory_mapper::map(mapping_size_t size) {
   lock_t lock(locations_access_);
   auto it = mapped_locations_.find(size);
   if (it == mapped_locations_.end()) {
-    auto result = mapped_locations_.emplace(size, std::make_shared<fixed_size_entries>(size, device_));
+    auto result = mapped_locations_.emplace(
+        size, std::make_shared<fixed_size_entries>(size, device_));
     if (!result.second) {
       return {size, 0, nullptr, synStatus::synFail};
     }
@@ -106,7 +120,8 @@ void memory_mapper::unmap(acquired_entry entry) {
   lock_t lock(locations_access_);
   auto it = mapped_locations_.find(entry.acquired_size);
   if (it == mapped_locations_.end()) {
-    LOG_(WARNING) << "Warning: Table for entries with size: " << entry.acquired_size << " released before!";
+    LOG_(WARNING) << "Warning: Table for entries with size: "
+                  << entry.acquired_size << " released before!";
     return;
   }
   auto mapped_location_for_size = it->second;
@@ -126,4 +141,4 @@ synStatus memory_mapper::drop_cache() {
   return retStatus;
 }
 
-}  // namespace synapse_helpers
+} // namespace synapse_helpers

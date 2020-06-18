@@ -38,7 +38,8 @@ class event_handle_cache {
   std::mutex mutex_;
   std::condition_variable cond_var_;
   device& device_;
-  std::size_t events_count_;  // value to control the total number of synEventHandles created
+  std::size_t events_count_; // value to control the total number of
+                             // synEventHandles created
 };
 
-}  // namespace synapse_helpers
+} // namespace synapse_helpers

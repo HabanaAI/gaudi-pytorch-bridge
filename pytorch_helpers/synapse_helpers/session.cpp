@@ -13,7 +13,7 @@
 
 #include <string>
 
-#include "synapse_helpers/logging.h"  // IWYU pragma: keep
+#include "synapse_helpers/logging.h" // IWYU pragma: keep
 #include "synapse_helpers/synapse_error.h"
 
 namespace synapse_helpers {
@@ -21,7 +21,9 @@ namespace synapse_helpers {
 std::weak_ptr<session> session::opened_session;
 std::mutex session::session_create_mutex;
 
-session::~session() { synDestroy(); }  // namespace synapse_helpers
+session::~session() {
+  synDestroy();
+} // namespace synapse_helpers
 
 synapse_error_v<std::shared_ptr<session>> session::get_or_create() {
   std::lock_guard<std::mutex> lock(session_create_mutex);
@@ -37,4 +39,4 @@ synapse_error_v<std::shared_ptr<session>> session::get_or_create() {
   return session_ptr;
 }
 
-}  // namespace synapse_helpers
+} // namespace synapse_helpers
