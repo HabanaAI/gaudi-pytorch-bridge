@@ -10,6 +10,61 @@
 #pragma once
 
 #include <iostream>
+#include <sstream>
+#include <string>
+
+// Redefining c10 StringUtils functions here as distributed and syn
+// helpers are independent of  torch libraries
+namespace Logger {
+template <typename T>
+struct CanonicalizeStrTypes {
+  using type = const T&;
+};
+
+template <size_t N>
+struct CanonicalizeStrTypes<char[N]> {
+  using type = const char*;
+};
+
+inline std::ostream& _str(std::ostream& ss) {
+  return ss;
+}
+
+template <typename T>
+inline std::ostream& _str(std::ostream& ss, const T& t) {
+  ss << t;
+  return ss;
+}
+
+template <typename T, typename... Args>
+inline std::ostream& _str(std::ostream& ss, const T& t, const Args&... args) {
+  return _str(_str(ss, t), args...);
+}
+
+template <typename... Args>
+inline std::string _str_wrapper(const Args&... args) {
+  std::ostringstream ss;
+  _str(ss, args...);
+  return ss.str();
+}
+
+// Convert a list of string-like arguments into a single string.
+template <typename... Args>
+inline std::string str(const Args&... args) {
+  return _str_wrapper<typename CanonicalizeStrTypes<Args>::type...>(args...);
+}
+
+// Specializations for already-a-string types.
+template <>
+inline std::string str(const std::string& str) {
+  return str;
+}
+
+inline std::string str(const char* c_str) {
+  return c_str;
+}
+} // namespace Logger
+
 class PtLogger {
  private:
   static PtLogger* instance;
@@ -71,12 +126,13 @@ class PtLogger {
 };
 
 /************************CRITICAL MACROS************************/
-#define PT_MOD_FATAL(MOD, ...)                                          \
-  if (((PtLogger::getLogger()->getModuleMask() & (MOD)) &&              \
-       (PtLogger::getLogger()->getTypeMask() &                          \
-        (PtLogger::TypeMask::FATAL)))) {                                \
-    std::cerr << str(__VA_ARGS__) << " " << __FILE__ << ":" << __LINE__ \
-              << "\t" << __func__ << "\n";                              \
+#define PT_MOD_FATAL(MOD, ...)                                      \
+  if (((PtLogger::getLogger()->getModuleMask() & (MOD)) &&          \
+       (PtLogger::getLogger()->getTypeMask() &                      \
+        (PtLogger::TypeMask::FATAL)))) {                            \
+    std::cerr << Logger::str(__VA_ARGS__) << " " << __FILE__ << ":" \
+              << __LINE__ << "\t" << __func__ << "\n";              \
+    std::terminate();                                               \
   }
 
 #define PT_DEVICE_FATAL(...) \
@@ -94,13 +150,22 @@ class PtLogger {
 #define PT_DISTRIBUTED_FATAL(...) \
   PT_MOD_FATAL(PtLogger::ModuleMask::DISTRIBUTED, __VA_ARGS__)
 
+#define HABANA_ASSERT(condition)                                             \
+  {                                                                          \
+    if (!(condition)) {                                                      \
+      std::cerr << "Assertion (" << #condition << ") is false! " << __FILE__ \
+                << ":" << __LINE__ << "\t" << __func__ << "\n";              \
+      std::terminate();                                                      \
+    }                                                                        \
+  }
+
 /************************WARNING MACROS************************/
-#define PT_MOD_WARN(MOD, ...)                                           \
-  if (((PtLogger::getLogger()->getModuleMask() & (MOD)) &&              \
-       (PtLogger::getLogger()->getTypeMask() &                          \
-        (PtLogger::TypeMask::WARNING)))) {                              \
-    std::cerr << str(__VA_ARGS__) << " " << __FILE__ << ":" << __LINE__ \
-              << "\t" << __func__ << "\n";                              \
+#define PT_MOD_WARN(MOD, ...)                                       \
+  if (((PtLogger::getLogger()->getModuleMask() & (MOD)) &&          \
+       (PtLogger::getLogger()->getTypeMask() &                      \
+        (PtLogger::TypeMask::WARNING)))) {                          \
+    std::cerr << Logger::str(__VA_ARGS__) << " " << __FILE__ << ":" \
+              << __LINE__ << "\t" << __func__ << "\n";              \
   }
 
 #define PT_DEVICE_WARN(...) \
@@ -150,7 +215,7 @@ class PtLogger {
   if (((PtLogger::getLogger()->getModuleMask() & (MOD)) && \
        (PtLogger::getLogger()->getTypeMask() &             \
         (PtLogger::TypeMask::DEBUG)))) {                   \
-    std::clog << str(__VA_ARGS__) << "\n";                 \
+    std::clog << Logger::str(__VA_ARGS__) << "\n";         \
   };
 
 #define PT_DEVICE_DEBUG(...) \
@@ -159,7 +224,7 @@ class PtLogger {
   PT_MOD_DEBUG(PtLogger::ModuleMask::KERNEL, __VA_ARGS__)
 #define PT_BRIDGE_DEBUG(...) \
   PT_MOD_DEBUG(PtLogger::ModuleMask::BRIDGE, __VA_ARGS__)
-#define PT_HELPER_DEBUG(...) \
-  PT_MOD_DEBUG(PtLogger::ModuleMask::HELPER, __VA_ARGS__)
+#define PT_SYNHELPER_DEBUG(...) \
+  PT_MOD_DEBUG(PtLogger::ModuleMask::SYNHELPER, __VA_ARGS__)
 #define PT_DISTRIBUTED_DEBUG(...) \
   PT_MOD_DEBUG(PtLogger::ModuleMask::DISTRIBUTED, __VA_ARGS__)

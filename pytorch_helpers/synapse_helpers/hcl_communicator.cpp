@@ -22,7 +22,7 @@
 
 #include <hcl_api.h>
 
-#include "synapse_helpers/logging.h"
+#include "habana_helpers/logging.h"
 
 // At this moment the only thing we can do for collective is waiting for input
 // tensors to be ready (synEventWait) and end synchronoulsy when collective
@@ -57,18 +57,18 @@ hcl_communicator::hcl_communicator(
   if (config_path.empty()) {
     char* config_json_path = std::getenv("HCL_CONFIG_PATH");
     if (!config_json_path) {
-      LOG_(FATAL) << "Please export HCL_CONFIG_PATH...";
+      PT_SYNHELPER_FATAL("Please export HCL_CONFIG_PATH...");
     }
     config_path = config_json_path;
   }
 
-  LOG_(INFO) << "Opening communication. device_id:" << device_id << ".";
+  PT_SYNHELPER_DEBUG("Opening communication. device_id:", device_id, ".");
 
   auto device_get_result{synapse_helpers::device::get_by_id(device_id)};
   if (absl::holds_alternative<synapse_helpers::synapse_error>(
           device_get_result)) {
     auto error = absl::get<synapse_helpers::synapse_error>(device_get_result);
-    LOG_(FATAL) << error.error << " Err: " << error.status << "\n";
+    PT_SYNHELPER_FATAL(error.error, " Err: ", error.status, "\n");
   }
   my_device_ = synapse_helpers::get_value(device_get_result);
   HABANA_ASSERT(my_device_ != nullptr);
@@ -84,8 +84,7 @@ hcl_communicator::hcl_communicator(
   HABANA_ASSERT(hcl_status == eHCLSuccess);
   HABANA_ASSERT(my_hcl_rank_ != HCL_RANK_UNASSIGNED);
 
-  LOG_(INFO) << "Init done. Rank: " << my_hcl_rank_ << " Size: " << size_
-             << ".";
+  PT_SYNHELPER_DEBUG("Init done. Rank: ", my_hcl_rank_, " Size: ", size_, ".");
 } // namespace synapse_helpers
 
 synapse_error hcl_communicator::memcpy_within_device(
@@ -153,7 +152,7 @@ synapse_error_v<owned_device_ptr> hcl_communicator::alloc_intermediate_buffer(
     size_t elem_cnt,
     synDataType elem_type,
     HCL_CollectiveOp operation) {
-  VLOG_(5) << "alloc_intermediate_buffer entry()";
+  PT_SYNHELPER_DEBUG("alloc_intermediate_buffer entry()");
   HCLStatus status{eHCLSuccess};
 
   uint64_t required_size{0};
@@ -186,8 +185,12 @@ synapse_error_o hcl_communicator::reduce_scatter(
       alloc_intermediate_buffer(elem_cnt, data_type, eHCLReduceScatter)};
   if (!ok(maybe_buffer_ptr)) {
     synapse_error error = get_error(maybe_buffer_ptr);
-    LOG_(ERROR) << "Intermediate buffer allocation failed. " << error.error
-                << " Err: " << error.status << ".";
+    PT_SYNHELPER_WARN(
+        "Intermediate buffer allocation failed. ",
+        error.error,
+        " Err: ",
+        error.status,
+        ".");
     return error;
   }
   owned_device_ptr intermediate_buffer{std::move(get_value(maybe_buffer_ptr))};
@@ -251,8 +254,12 @@ synapse_error_o hcl_communicator::reduce(
       alloc_intermediate_buffer(elem_cnt, data_type, eHCLReduce)};
   if (!ok(maybe_buffer_ptr)) {
     synapse_error error = get_error(maybe_buffer_ptr);
-    LOG_(ERROR) << "Intermediate buffer allocation failed. " << error.error
-                << " Err: " << error.status << ".";
+    PT_SYNHELPER_WARN(
+        "Intermediate buffer allocation failed. ",
+        error.error,
+        " Err: ",
+        error.status,
+        ".");
     return error;
   }
   owned_device_ptr intermediate_buffer{std::move(get_value(maybe_buffer_ptr))};
@@ -319,8 +326,12 @@ synapse_error_o hcl_communicator::allreduce(
           intermediate_buffer_v)) {
     auto error =
         absl::get<synapse_helpers::synapse_error>(intermediate_buffer_v);
-    LOG_(ERROR) << "Intermediate buffer allocation failed. " << error.error
-                << " Err: " << error.status << ".";
+    PT_SYNHELPER_WARN(
+        "Intermediate buffer allocation failed. ",
+        error.error,
+        " Err: ",
+        error.status,
+        ".");
     return error;
   }
   auto intermediate_buffer{
@@ -471,9 +482,9 @@ synapse_error_o hcl_communicator::allgather(
 }
 
 hcl_communicator::~hcl_communicator() {
-  VLOG_(5) << "~hcl_communicator() entry.";
+  PT_SYNHELPER_DEBUG("~hcl_communicator() entry.");
   HCLStatus hcl_status{eHCLSuccess};
-  LOG_(INFO) << "Destroying HCL..";
+  PT_SYNHELPER_DEBUG("Destroying HCL..");
   hcl_status = HCL_Destroy();
   HABANA_ASSERT(hcl_status == eHCLSuccess);
 }

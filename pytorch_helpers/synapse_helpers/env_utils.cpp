@@ -11,7 +11,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <ostream>
-#include "synapse_helpers/logging.h"
+#include "habana_helpers/logging.h"
 
 namespace synapse_helpers {
 
@@ -40,7 +40,7 @@ bool get_bool_env_var(const char* variable_name, bool unset_default) {
   else if (false_found)
     return false;
   else {
-    LOG_(FATAL) << variable_name << " contains unexpected value.";
+    PT_SYNHELPER_FATAL(variable_name, " contains unexpected value.");
     return unset_default;
   }
 }

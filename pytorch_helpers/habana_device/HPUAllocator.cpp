@@ -14,7 +14,6 @@
 #include "HPUGuardImpl.h"
 #include "habana_helpers/logging.h"
 #include "hpu_cached_devices.h"
-#include "synapse_helpers/logging.h"
 
 PtLogger* PtLogger::instance = 0;
 

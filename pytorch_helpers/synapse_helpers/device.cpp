@@ -16,7 +16,7 @@
 #include <vector>
 
 #include <synapse_api.h>
-#include "synapse_helpers/logging.h"
+#include "habana_helpers/logging.h"
 #include "synapse_helpers/session.h"
 #include "synapse_helpers/util.h"
 
@@ -54,8 +54,8 @@ device::device(
   uint64_t total_memory, free_memory;
   auto status = synDeviceGetMemoryInfo(id_, &free_memory, &total_memory);
   if (synStatus::synSuccess != status) {
-    LOG_(FATAL)
-        << "Cannot obtain device memory size for allocation of global ws buffer";
+    PT_SYNHELPER_FATAL(
+        "Cannot obtain device memory size for allocation of global ws buffer");
   }
   // in case of simulator, there might not be 4GB of memory available, so as a
   // fallback solution workspace_buffer_ will be allocated to 70% of free memory
@@ -98,7 +98,7 @@ synapse_error_v<std::shared_ptr<device>> device::get_by_id(
 synapse_error_v<std::shared_ptr<device>> device::create(
     synDeviceType device_type,
     const create_allocator_fnc& create_allocator) {
-  VLOG_(4) << "synHPU Init";
+  PT_SYNHELPER_DEBUG("synHPU Init");
   uint32_t new_device_id;
   synStatus status{synStatus::synSuccess};
 
@@ -130,9 +130,10 @@ synapse_error_v<std::shared_ptr<device>> device::create(
   uint64_t free_mem, total_mem;
   status = synDeviceGetMemoryInfo(device_ptr->id(), &free_mem, &total_mem);
   if (synStatus::synSuccess != status) {
-    LOG_(FATAL) << "Cannot obtain device memory size. Status: " << status;
+    PT_SYNHELPER_FATAL("Cannot obtain device memory size. Status: ", status);
   }
-  VLOG_(4) << "Device memory size: total=" << total_mem << " free=" << free_mem;
+  PT_SYNHELPER_DEBUG(
+      "Device memory size: total=", total_mem, " free=", free_mem);
 
   // assign weak_ptr for future gets.
   device_in_use = device_ptr;
@@ -140,14 +141,14 @@ synapse_error_v<std::shared_ptr<device>> device::create(
 }
 
 device::~device() {
-  VLOG_(4) << "Device dectructor entry";
+  PT_SYNHELPER_DEBUG("Device dectructor entry");
 
   framework_specific_cleanup_();
 
   // We should unmap all buffers BEFORE device is released.
   auto status = memory_mapper_.drop_cache();
   if (synStatus::synSuccess != status) {
-    LOG_(FATAL) << "memory_mapper::drop_cache() failed. Status: " << status;
+    PT_SYNHELPER_FATAL("memory_mapper::drop_cache() failed. Status: ", status);
   }
 }
 
@@ -182,19 +183,24 @@ synapse_error device::copy_data_to_device(
     device_ptr destination,
     size_t total_bytes,
     const event_done_callback& done_cb) {
-  VLOG_(4) << "Copy CPU Tensor to Device " << cpu_data << " to "
-           << (void*)destination << ", total_bytes=" << total_bytes;
+  PT_SYNHELPER_DEBUG(
+      "Copy CPU Tensor to Device ",
+      cpu_data,
+      " to ",
+      (void*)destination,
+      ", total_bytes=",
+      total_bytes);
   synStatus status;
 
   auto res = memory_mapper_.map(total_bytes);
   if (res.status != synStatus::synSuccess) {
     // last resort option to drop cached mapped buffers
-    VLOG_(4)
-        << "Could not map memory on the device. Dropping cache for mapped buffers.";
+    PT_SYNHELPER_WARN(
+        "Could not map memory on the device. Dropping cache for mapped buffers.");
     status = memory_mapper_.drop_cache();
     if (status != synStatus::synSuccess) {
-      VLOG_(4) << "Could not drop cache for mapped memory on the device: "
-               << status;
+      PT_SYNHELPER_WARN(
+          "Could not drop cache for mapped memory on the device: ", status);
       return synapse_error{
           "Could not drop cache for mapped memory on the device.", status};
     }
@@ -211,7 +217,8 @@ synapse_error device::copy_data_to_device(
       reinterpret_cast<uint8_t*>(cpu_data) + total_bytes,
       res.ptr);
 
-  VLOG_(4) << "Used stream handle: " << stream_h2d_;
+  PT_SYNHELPER_DEBUG("Used stream handle: ", stream_h2d_);
+
   status = synMemCopyAsync(
       stream_h2d_,
       reinterpret_cast<uint64_t>(res.ptr),
@@ -236,22 +243,30 @@ synapse_error device::copy_data_to_host(
     void* destination,
     size_t total_bytes,
     const event_done_callback& done_cb) {
-  VLOG_(4) << "Copy Device Tensor to CPU " << (void*)device_data << " "
-           << destination << " total_bytes=" << total_bytes;
+  PT_SYNHELPER_DEBUG(
+      "Copy Device Tensor to CPU ",
+      (void*)device_data,
+      " ",
+      destination,
+      " total_bytes=",
+      total_bytes);
+
   synStatus status;
 
-  VLOG_(4) << "Used stream handle: " << stream_d2h_;
+  PT_SYNHELPER_DEBUG("Used stream handle: ", stream_d2h_);
   sem_.record_wait_event(device_data, stream_d2h_);
 
   auto res = memory_mapper_.map(total_bytes);
   if (synStatus::synSuccess != res.status) {
     // last resort option to drop cached mapped buffers
-    VLOG_(4)
-        << "Could not map memory on the device. Dropping cache for mapped buffers.";
+
+    PT_SYNHELPER_WARN(
+        "Could not map memory on the device. Dropping cache for mapped buffers.");
     status = memory_mapper_.drop_cache();
     if (synStatus::synSuccess != status)
       // return synapse_error{
-      LOG_(FATAL) << "Could not drop cache for mapped memory on the device.";
+      PT_SYNHELPER_WARN(
+          "Could not drop cache for mapped memory on the device.");
     res = memory_mapper_.map(total_bytes);
     if (synStatus::synSuccess != res.status) {
       return synapse_error{
@@ -340,9 +355,12 @@ synapse_error device::copy_data_within_device(
 
 device_ptr device::get_workspace_buffer(std::size_t size) const {
   if (size > workspace_size_) {
-    LOG_(FATAL) << "Requested buffer size for workspace(" << size
-                << ") is bigger than the available workspace size("
-                << workspace_size_ << ")!";
+    PT_SYNHELPER_FATAL(
+        "Requested buffer size for workspace(",
+        size,
+        ") is bigger than the available workspace size(",
+        workspace_size_,
+        ")!");
   }
 
   return workspace_buffer_;
@@ -373,8 +391,8 @@ void device::wait_until_address_ready(const device_ptr& address) {
 
 void owned_device_ptr::device_ptr_deleter::operator()(device_ptr* ptr) {
   if (ptr) {
-    VLOG_(4) << "Free buffer ptr " << std::hex
-             << reinterpret_cast<device_ptr>(ptr);
+    PT_SYNHELPER_DEBUG(
+        "Free buffer ptr ", std::hex, reinterpret_cast<device_ptr>(ptr));
     device_->free(reinterpret_cast<device_ptr>(ptr));
   }
 }
@@ -383,7 +401,7 @@ device_id::~device_id() {
   if (id_ != device::INVALID_ID) {
     auto status = synDeviceRelease(id_);
     if (status != synSuccess) {
-      LOG_(FATAL) << "synDeviceRelease failed with. Status: " << status;
+      PT_SYNHELPER_FATAL("synDeviceRelease failed with. Status: ", status);
     }
   }
 }

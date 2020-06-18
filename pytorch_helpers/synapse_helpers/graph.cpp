@@ -22,9 +22,8 @@
 #include <type_traits>
 
 #include "absl/memory/memory.h"
+#include "habana_helpers/logging.h"
 #include "synapse_helpers/device.h"
-#include "synapse_helpers/logging.h"
-#include "synapse_helpers/stream.h"
 #include "util/time_measure.h"
 
 namespace synapse_helpers {
@@ -53,7 +52,7 @@ bool check_and_prepare_graph_dir() {
   struct stat info {};
   if (stat(graph_prefix.c_str(), &info) != 0 ||
       !(info.st_mode & S_IFDIR)) { // NOLINT(hicpp-signed-bitwise))
-    VLOG_(0) << "Cannot create graph dump directory " << graph_prefix;
+    PT_SYNHELPER_WARN("Cannot create graph dump directory ", graph_prefix);
     return false;
   }
   return true;
@@ -105,7 +104,7 @@ std::mutex graph::instance_lock_{};
 
 synapse_error_v<graph> graph::create(device& device, std::string name) {
   graph syn_graph(device, std::move(name));
-  VLOG_(4) << "Graph Create.";
+  PT_SYNHELPER_DEBUG("Graph Create.");
   graph::instance_lock_.lock();
   auto status =
       synGraphCreate(syn_graph.graph_handle_.get(), syn_graph.device_.type());
@@ -128,7 +127,7 @@ graph::graph(graph&& other) noexcept
 
 graph::~graph() {
   if (is_valid_) {
-    VLOG_(4) << "Graph destroy.";
+    PT_SYNHELPER_DEBUG("Graph destroy.");
     synGraphDestroy(*graph_handle_);
     graph::instance_lock_.unlock();
 
@@ -159,11 +158,26 @@ synapse_error_o graph::add_node(
   if (!in_build_phase_) {
     return synapse_error{"Graph not in build phase.", synStatus::synFail};
   }
-  VLOG_(4) << "graph " << name_ << " synGenericNodeCreate(inputs=(" << inputs
-           << "), outputs=(" << outputs << "), sizeInputs=" << inputs.size()
-           << ", sizeOutputs=" << outputs.size() << ", userParams=" << params
-           << ", params_size=" << params_size << ", guid=" << node_type.c_str()
-           << ", name=\"\");";
+
+  PT_SYNHELPER_DEBUG(
+      "graph ",
+      name_,
+      " synGenericNodeCreate(inputs=(",
+      (&inputs[0]),
+      "), outputs=(",
+      (&outputs[0]),
+      "), sizeInputs=",
+      inputs.size(),
+      ", sizeOutputs=",
+      outputs.size(),
+      ", userParams=",
+      params,
+      ", params_size=",
+      params_size,
+      ", guid=",
+      node_type.c_str(),
+      ", name=\"\");");
+
   if (current_op_name_) {
     synNodeId nodeId;
     auto status = synNodeCreateWithId(
@@ -274,24 +288,29 @@ synapse_error_o graph::launch(
     return synapse_error{"Graph not in execution phase.", synStatus::synFail};
   }
   handle.runtime_measure_start_ = std::chrono::steady_clock::now();
-  VLOG_(4) << "in graph::launch, launch handle string:\n"
-           << absl::StrFormat(
-                  "------Launch-handle------\n"
-                  "input_outputs_names={%s}\n"
-                  "-------------------------",
-                  to_string(inputs_and_outputs_info));
+  PT_SYNHELPER_DEBUG(
+      "in graph::launch, launch handle string:\n",
+      absl::StrFormat(
+          "------Launch-handle------\n"
+          "input_outputs_names={%s}\n"
+          "-------------------------",
+          to_string(inputs_and_outputs_info)));
 
   auto table_checker{[&recipe_handle](const synLaunchTensorInfo& info) -> bool {
     if (info.pTensorAddress == 0 || info.tensorName == nullptr) {
-      LOG_(ERROR) << recipe_handle.recipe_name_
-                  << " null address:" << (info.pTensorAddress == 0)
-                  << " null name:" << (info.tensorName == nullptr) << " "
-                  << ((info.tensorName == nullptr) ? "" : info.tensorName);
+      PT_SYNHELPER_WARN(
+          recipe_handle.recipe_name_,
+          " null address:",
+          (info.pTensorAddress == 0),
+          " null name:",
+          (info.tensorName == nullptr),
+          " ",
+          ((info.tensorName == nullptr) ? "" : info.tensorName));
       return true;
     }
     return false;
   }};
-  VLOG_(10) << "checking input_output patching table";
+  PT_SYNHELPER_DEBUG("checking input_output patching table");
   SYNAPSE_RETURN_IF_ERROR(
       std::find_if(
           inputs_and_outputs_info.begin(),
@@ -333,7 +352,7 @@ synapse_error_v<std::string> graph::name_suffix_from_type(
 graph::recipe_handle::~recipe_handle() {
   if (syn_recipe_handle_ &&
       synRecipeDestroy(syn_recipe_handle_) != synStatus::synSuccess) {
-    LOG_(ERROR) << "Failed to destroy recipe!";
+    PT_SYNHELPER_WARN("Failed to destroy recipe!");
   }
 }
 
@@ -366,8 +385,9 @@ void graph::collect_dst_synapse_nodes(
 synStatus graph::set_synapse_control_edges() {
   synStatus status = synStatus::synSuccess;
   for (const auto& nodePair : control_edges_container_) {
-    VLOG_(4) << "Starting adding synapse control edges from node "
-             << nodePair.first;
+    PT_SYNHELPER_DEBUG(
+        "Starting adding synapse control edges from node ", nodePair.first);
+
     graph::Op2NodeContainer::mapped_type dst_synapse_node_ids;
     for (const auto& dst_node : nodePair.second) {
       collect_dst_synapse_nodes(dst_synapse_node_ids, dst_node);
@@ -378,8 +398,9 @@ synStatus graph::set_synapse_control_edges() {
         op_to_node_iter->second.empty() || dst_synapse_node_ids.empty()) {
       // Some ops like NoOp do not have underlying synapse nodes - it is handled
       // in collect_dst_synapse_nodes
-      VLOG_(4) << "Ommiting adding synapse control edges from node "
-               << nodePair.first;
+
+      PT_SYNHELPER_DEBUG(
+          "Ommiting adding synapse control edges from node ", nodePair.first);
       continue;
     }
     const auto& src_synapse_node_ids = op_to_node_iter->second;
@@ -388,7 +409,8 @@ synStatus graph::set_synapse_control_edges() {
     std::vector<synNodeId> dst_synapse_node_ids_vector(
         begin(dst_synapse_node_ids), end(dst_synapse_node_ids));
 
-    VLOG_(4) << "Adding synapse control edges from node " << nodePair.first;
+    PT_SYNHELPER_DEBUG(
+        "Adding synapse control edges from node ", nodePair.first);
     status = synNodeDependencySet(
         *graph_handle_,
         src_synapse_node_ids_vector.data(),
@@ -396,9 +418,13 @@ synStatus graph::set_synapse_control_edges() {
         src_synapse_node_ids_vector.size(),
         dst_synapse_node_ids_vector.size());
 
-    VLOG_(4) << "Added synapse control edges from node " << nodePair.first
-             << " src size = " << src_synapse_node_ids_vector.size()
-             << " dst size = " << dst_synapse_node_ids_vector.size();
+    PT_SYNHELPER_DEBUG(
+        "Added synapse control edges from node ",
+        nodePair.first,
+        " src size = ",
+        src_synapse_node_ids_vector.size(),
+        " dst size = ",
+        dst_synapse_node_ids_vector.size());
 
     if (status != synStatus::synSuccess) {
       break;

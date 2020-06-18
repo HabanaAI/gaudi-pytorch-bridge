@@ -7,13 +7,12 @@
  *
  ******************************************************************************
  */
-#include "synapse_helpers/session.h"
-
-#include <synapse.h>
 
 #include <string>
 
-#include "synapse_helpers/logging.h" // IWYU pragma: keep
+#include <synapse.h>
+#include "habana_helpers/logging.h" // IWYU pragma: keep
+#include "synapse_helpers/session.h"
 #include "synapse_helpers/synapse_error.h"
 
 namespace synapse_helpers {

@@ -18,8 +18,8 @@
 
 #include "absl/container/flat_hash_map.h"
 #include "absl/hash/hash.h"
+#include "habana_helpers/logging.h"
 #include "synapse_helpers/device.h"
-#include "synapse_helpers/logging.h"
 
 namespace synapse_helpers {
 
@@ -31,8 +31,8 @@ memory_mapper::fixed_size_entries::fixed_size_entries(
 memory_mapper::fixed_size_entries::~fixed_size_entries() {
   if (unmap_all() != synStatus::synSuccess) {
     // At this point, we can just log that we failed
-    LOG_(ERROR) << "Failed to unmap host memory buffers with total_bytes="
-                << size_;
+    PT_SYNHELPER_WARN(
+        "Failed to unmap host memory buffers with total_bytes=", size_);
   }
 }
 
@@ -66,11 +66,12 @@ memory_mapper::acquired_entry memory_mapper::fixed_size_entries::acquire() {
 void memory_mapper::fixed_size_entries::release(std::size_t idx) {
   lock_t lock(entries_lock_);
   if (idx >= mapped_entries_.size()) {
-    LOG_(WARNING) << "Warning: Entry not found in the cache of mapped buffers!";
+    PT_SYNHELPER_WARN(
+        "Warning: Entry not found in the cache of mapped buffers!");
     return;
   }
   if (!mapped_entries_[idx].in_use) {
-    LOG_(WARNING) << "Warning: Entry already released before!";
+    PT_SYNHELPER_WARN("Warning: Entry already released before!");
     return;
   }
   mapped_entries_[idx].in_use = false;
@@ -120,8 +121,10 @@ void memory_mapper::unmap(acquired_entry entry) {
   lock_t lock(locations_access_);
   auto it = mapped_locations_.find(entry.acquired_size);
   if (it == mapped_locations_.end()) {
-    LOG_(WARNING) << "Warning: Table for entries with size: "
-                  << entry.acquired_size << " released before!";
+    PT_SYNHELPER_WARN(
+        "Warning: Table for entries with size: ",
+        entry.acquired_size,
+        " released before!");
     return;
   }
   auto mapped_location_for_size = it->second;

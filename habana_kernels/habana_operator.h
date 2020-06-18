@@ -9,15 +9,15 @@
  */
 #pragma once
 #include <synapse_api_types.h>
+#include "habana_helpers/logging.h"
 #include "habana_helpers/tensor_utils.h"
 #include "synapse_helpers/device_types.h"
 #include "synapse_helpers/graph.h"
 #include "synapse_helpers/habana_tensor.h"
-#include "synapse_helpers/logging.h"
 
 #include <ATen/Tensor.h>
-#include <torch/csrc/jit/ir/ir.h>
 #include <c10/util/ArrayRef.h>
+#include <torch/csrc/jit/ir/ir.h>
 
 #include <absl/types/any.h>
 
@@ -69,7 +69,7 @@ class HabanaOperator {
   //    - to_device is false
   static const at::IntArrayRef& getPermuteOrder(
       const LayoutFormat target_layout,
-      bool to_device=true);
+      bool to_device = true);
 
   //
   // Creates graph builder context, based on the device
@@ -102,7 +102,8 @@ class HabanaOperator {
   //
   // If Synapse tensor is already exists for the py torch tensor, we just add
   // the synapse tensor to the context
-  virtual synapse_helpers::tensor& SetSynapseInput(synapse_helpers::tensor&& tensor);
+  virtual synapse_helpers::tensor& SetSynapseInput(
+      synapse_helpers::tensor&& tensor);
 
   //
   // Method to add output tensors to graph builder context
@@ -114,9 +115,9 @@ class HabanaOperator {
   //
   // Method to add muliple output tensors to graph builder context
   virtual void AllocateSynapseOutputs(
-    synapse_helpers::graph& graph,
-    const std::vector<at::Tensor>& outputs,
-    bool is_persistent);
+      synapse_helpers::graph& graph,
+      const std::vector<at::Tensor>& outputs,
+      bool is_persistent);
 
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
@@ -156,8 +157,9 @@ class HabanaOperator {
 
 using HabanaOperatorPtr = std::shared_ptr<HabanaOperator>;
 
-HabanaOperatorPtr CreateHabanaOperator(const int device_id,
-                                       const std::string& node_name,
-                                       c10::ScalarType node_type);
+HabanaOperatorPtr CreateHabanaOperator(
+    const int device_id,
+    const std::string& node_name,
+    c10::ScalarType node_type);
 
 }; // namespace habana

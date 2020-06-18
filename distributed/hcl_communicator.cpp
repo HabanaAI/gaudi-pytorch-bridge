@@ -22,7 +22,7 @@
 
 #include <hcl_api.h>
 
-#include "synapse_helpers/logging.h"
+#include "habana_helpers/logging.h"
 
 // At this moment the only thing we can do for collective is waiting for input tensors to be ready (synEventWait) and
 // end synchronoulsy when collective operation is done before returning from op.

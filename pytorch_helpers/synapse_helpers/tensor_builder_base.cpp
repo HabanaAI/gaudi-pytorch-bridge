@@ -8,7 +8,7 @@
  ******************************************************************************
  */
 #include "synapse_helpers/tensor_builder_base.h"
-#include "synapse_helpers/logging.h"
+#include "habana_helpers/logging.h"
 #include "synapse_helpers/type_conversions.h"
 
 #include <string>

@@ -12,8 +12,8 @@
 #include <synapse_api.h>
 #include <synapse_common_types.h>
 
+#include "habana_helpers/logging.h"
 #include "synapse_helpers/device.h"
-#include "synapse_helpers/logging.h"
 // IWYU pragma: no_include <ostream>
 
 // There is a hard limit in Synapse for number of silmuntaneously recorded
@@ -52,7 +52,7 @@ synEventHandle event_handle_cache::get_free_handle() {
 
   auto status{synEventCreate(&handle, device_.id(), EVENT_FLAGS)};
   if (synStatus::synSuccess != status) {
-    LOG_(FATAL) << "Event creation failed";
+    PT_SYNHELPER_FATAL("Event creation failed");
   } else {
     ++events_count_;
   }
@@ -62,7 +62,7 @@ synEventHandle event_handle_cache::get_free_handle() {
 void event_handle_cache::release_handle(synEventHandle handle) {
   std::lock_guard<std::mutex> lock(mutex_);
   if (!handle) {
-    LOG_(FATAL) << "attempt to release null event handle";
+    PT_SYNHELPER_FATAL("attempt to release null event handle");
   }
   free_handles_.push_back(handle);
   cond_var_.notify_one();

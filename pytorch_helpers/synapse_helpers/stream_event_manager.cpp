@@ -17,8 +17,8 @@
 #include <vector>
 
 #include "absl/container/flat_hash_map.h"
+#include "habana_helpers/logging.h"
 #include "synapse_helpers/device.h"
-#include "synapse_helpers/logging.h"
 #include "synapse_helpers/stream.h"
 
 using namespace synapse_helpers;
@@ -29,20 +29,26 @@ void stream_event_manager::add_producer(
     event_done_callback done_cb) {
   auto eref = std::make_shared<event>(
       stream.get_device().get_event_handle_cache(), stream, std::move(done_cb));
-  VLOG_(10) << "Adding new event " << *eref << " on stream " << stream;
+  PT_SYNHELPER_DEBUG("Adding new event ", *eref, " on stream ", stream);
   {
     std::lock_guard<std::mutex> lock_guard(mut_);
     for (const auto& device_address : device_ptrs) {
-      VLOG_(10) << "Adding producer for address " << std::hex << device_address
-                << " on event " << *eref;
+      PT_SYNHELPER_DEBUG(
+          "Adding producer for address ",
+          std::hex,
+          device_address,
+          " on event ",
+          *eref);
       auto found = events_.find(device_address);
 
       if (found != events_.end()) { // NOLINT
         if (found->second != nullptr && !found->second->done()) { // NOLINT
           if (synStatus::synSuccess != found->second->synchronize())
-            LOG_(FATAL)
-                << "Failed to synchronize event in order to register new producer to same tensor address (0x"
-                << std::hex << device_address << ")";
+            PT_SYNHELPER_FATAL(
+                "Failed to synchronize event in order to register new producer to same tensor address (0x",
+                std::hex,
+                device_address,
+                ")");
         }
         found->second = eref; // NOLINT
       } else {
@@ -56,8 +62,12 @@ void stream_event_manager::add_producer(
 bool stream_event_manager::record_wait_event(
     device_ptr device_address,
     stream& stream) {
-  VLOG_(10) << "Recording wait event on stream " << stream
-            << " for device address " << std::hex << device_address;
+  PT_SYNHELPER_DEBUG(
+      "Recording wait event on stream ",
+      stream,
+      " for device address ",
+      std::hex,
+      device_address);
   shared_event event;
   {
     std::lock_guard<std::mutex> lock_guard(mut_);
@@ -67,13 +77,13 @@ bool stream_event_manager::record_wait_event(
     }
   }
   if (event) {
-    VLOG_(10) << "Found event " << *event << " for address " << std::hex
-              << device_address;
+    PT_SYNHELPER_DEBUG(
+        "Found event ", *event, " for address ", std::hex, device_address);
     if (event->streamWaitEvent(stream)) {
       return true;
     } else {
-      VLOG_(10) << "Event " << *event
-                << " is already done. No wait event was recorded.";
+      PT_SYNHELPER_DEBUG(
+          "Event ", *event, " is already done. No wait event was recorded.");
       // event is already done
       std::lock_guard<std::mutex> lock_guard(mut_);
       events_.erase(device_address);

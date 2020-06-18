@@ -102,13 +102,13 @@ inline synapse_error& get_error(bool /*success*/) {
 
 #define SYNAPSE_SUCCESS_CHECK(error, status)                 \
   if (ABSL_PREDICT_FALSE(status != synStatus::synSuccess)) { \
-    LOG_(ERROR) << error << " Err: " << status;              \
+    PT_SYNHELPER_WARN(error, " Err: ", status);              \
     return synapse_helpers::synapse_error{error, status};    \
   }
 
 #define SYNAPSE_SUCCESS_CHECK_WITH_OP(error, status, op)     \
   if (ABSL_PREDICT_FALSE(status != synStatus::synSuccess)) { \
-    LOG_(ERROR) << error << " Err: " << status;              \
+    PT_SYNHELPER_WARN(error, " Err: ", status);              \
     op;                                                      \
     return synapse_helpers::synapse_error{error, status};    \
   }

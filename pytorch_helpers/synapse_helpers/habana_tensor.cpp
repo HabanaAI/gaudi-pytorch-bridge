@@ -15,7 +15,7 @@
 #include <algorithm>
 #include <iterator>
 
-#include "synapse_helpers/logging.h"
+#include "habana_helpers/logging.h"
 
 namespace synapse_helpers {
 
@@ -116,7 +116,7 @@ synapse_error_o tensor::create() {
   synStatus status;
   synTensorDescriptor trdescriptor{};
 
-  VLOG_(4) << "Allocate host memory handle.";
+  PT_SYNHELPER_DEBUG("Allocate host memory handle.");
   // descriptor_.m_ptr =
   // reinterpret_cast<void*>(device_id_.get().get_next_index());
   // TODO: define create inputs function
@@ -160,7 +160,7 @@ synapse_error_o tensor::create() {
 
   SYNAPSE_SUCCESS_CHECK_WITH_OP("Tensor create failed.", status, cleanup());
 
-  VLOG_(4) << "created " << *this;
+  PT_SYNHELPER_DEBUG("created ", *this);
   return {};
 }
 
@@ -170,7 +170,7 @@ tensor::~tensor() {
 
 void tensor::cleanup() {
   if (tensor_) {
-    VLOG_(4) << "cleaning " << *this;
+    PT_SYNHELPER_DEBUG("cleaning ", *this);
     memory_section_ = nullptr;
     synDestroyTensor(tensor_);
     tensor_ = nullptr;
@@ -204,7 +204,7 @@ memory_section::memory_section(uint64_t memory_attributes, synGraphHandle graph)
     : memory_section_{} {
   auto status = synSectionCreate(&memory_section_, memory_attributes, graph);
   if (synSuccess != status)
-    LOG_(FATAL) << "Unable to create a memory section with err: " << status;
+    PT_SYNHELPER_FATAL("Unable to create a memory section with err: ", status);
 }
 
 tensor::shape_t::dimension_count_t operator"" _D(unsigned long long arg) {

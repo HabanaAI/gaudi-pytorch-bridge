@@ -17,12 +17,13 @@
 #include <cstdint>
 #include <iterator>
 #include <ostream>
+#include <sstream>
 #include <string>
 #include <vector>
 
+#include "habana_helpers/logging.h"
 #include "synapse_helpers/device.h"
 #include "synapse_helpers/event.h"
-#include "synapse_helpers/logging.h"
 #include "synapse_helpers/synapse_error.h"
 
 using namespace synapse_helpers;
@@ -63,8 +64,8 @@ void try_sync_event(
   if (e) {
     auto status = e->synchronize();
     if (synStatus::synSuccess != status)
-      LOG_(FATAL) << "EventSynchronize failed with status: " << status
-                  << ", Message: " << msg;
+      PT_SYNHELPER_FATAL(
+          "EventSynchronize failed with status: ", status, ", Message: ", msg);
   }
 }
 } // namespace
@@ -79,12 +80,13 @@ stream::stream(class device& device, stream_flavor flavor)
   gc_worker_ = std::thread(&stream::gc_thread_proc, this);
   auto syn_flavor = convertInternalStreamType(flavor);
   if (!ok(syn_flavor))
-    LOG_(FATAL) << "Stream type conversion failed with error: "
-                << get_error(syn_flavor).error;
+    PT_SYNHELPER_FATAL(
+        "Stream type conversion failed with error: ",
+        get_error(syn_flavor).error);
   auto status = synStreamCreate(
       &handle_, device_.id(), get_value(syn_flavor), STREAM_EMPTY_FLAGS);
   if (synStatus::synSuccess != status)
-    LOG_(FATAL) << "Stream creation failed with status: " << status;
+    PT_SYNHELPER_FATAL("Stream creation failed with status: ", status);
 }
 
 void stream::register_pending_event(const shared_event& event) {
@@ -92,8 +94,8 @@ void stream::register_pending_event(const shared_event& event) {
     std::lock_guard<std::mutex> lock_guard(mut_);
     auto status = synEventRecord(*event, handle_);
     if (synStatus::synSuccess != status) {
-      LOG_(FATAL) << "Event record failed on stream " << handle_
-                  << " with status: " << status;
+      PT_SYNHELPER_FATAL(
+          "Event record failed on stream ", handle_, " with status: ", status);
     }
     pending_cleanups_.push_back(event);
   }
