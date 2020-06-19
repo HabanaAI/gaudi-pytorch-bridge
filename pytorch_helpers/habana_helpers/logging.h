@@ -94,7 +94,7 @@ class PtLogger {
   PtLogger& operator=(const PtLogger&) = delete;
 
   static PtLogger* getLogger() {
-    if (instance == 0) {
+    if (instance == nullptr) {
       instance = new PtLogger();
     }
 

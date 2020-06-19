@@ -15,8 +15,6 @@
 #include "habana_helpers/logging.h"
 #include "hpu_cached_devices.h"
 
-PtLogger* PtLogger::instance = 0;
-
 namespace at {
 namespace habana {
 
