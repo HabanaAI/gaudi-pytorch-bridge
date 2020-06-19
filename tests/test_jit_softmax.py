@@ -30,6 +30,7 @@ def test_log_softmax(D1, D2):
     compare_tensors(hpu_eager_result, cpu_eager_result, atol=0.001, rtol=1.e-3)
 
     with torch.jit.optimized_execution(True):
+        hb_torch.disable()
         torch._C._jit_override_can_fuse_on_cpu(False)
         torch._C._jit_set_profiling_executor(False)
         torch._C._jit_set_profiling_mode(False)

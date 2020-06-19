@@ -29,6 +29,7 @@ def test_jit_multiple_dbg():
   '''
 
   with torch.jit.optimized_execution(True):
+    hb_torch.disable()
     print("--------------------")
     print ("CPU IR Graph optimized")
     torch._C._jit_override_can_fuse_on_cpu(False)

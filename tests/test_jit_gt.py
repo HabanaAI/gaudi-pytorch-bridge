@@ -25,6 +25,7 @@ class Net(nn.Module):
 @pytest.mark.parametrize("in_tensors", data_list)
 def test_jit_gt(in_tensors):
   with torch.jit.optimized_execution(True):
+    hb_torch.disable()
     torch._C._jit_override_can_fuse_on_cpu(False)
     torch._C._jit_set_profiling_executor(False)
     torch._C._jit_set_profiling_mode(False)

@@ -11,6 +11,7 @@ cpu = torch.device("cpu")
 in_t = torch.randn(8, 10)
 
 with torch.jit.optimized_execution(True):
+    hb_torch.disable()
     torch._C._jit_override_can_fuse_on_cpu(False)
     torch._C._jit_set_profiling_executor(False)
     torch._C._jit_set_profiling_mode(False)

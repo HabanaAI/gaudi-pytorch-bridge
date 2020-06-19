@@ -22,6 +22,7 @@ print(m(in_t.to('habana'), ft_t.to('habana')).to('cpu'))
 with torch.jit.optimized_execution(True):
     print("--------------------")
     print ("CPU IR Graph optimized")
+    hb_torch.disable()
     torch._C._jit_override_can_fuse_on_cpu(False)
     torch._C._jit_set_profiling_executor(False)
     torch._C._jit_set_profiling_mode(False)
