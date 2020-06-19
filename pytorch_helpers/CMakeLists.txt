@@ -15,6 +15,7 @@ if (BUILD_DIST)
  list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
  find_package(PythonLibs REQUIRED)
  find_program(SWIG swig)
+ add_subdirectory(../third_party/pybind11 [${CMAKE_BINARY_DIR}])
 
  include(SeparateDebugSymbols)
  set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -27,6 +28,7 @@ if (BUILD_DIST)
 
 
  add_subdirectory(synapse_helpers)
+ find_package(NumPy)
 
  add_subdirectory(synapse_logger)
 else ()
