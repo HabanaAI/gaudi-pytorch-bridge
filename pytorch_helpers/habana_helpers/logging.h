@@ -12,6 +12,7 @@
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <synapse_helpers/runtime_tracing.h>
 
 // Redefining c10 StringUtils functions here as distributed and syn
 // helpers are independent of  torch libraries
@@ -189,7 +190,8 @@ class PtLogger {
        (PtLogger::getLogger()->getTypeMask() &                           \
         (PtLogger::TypeMask::TRACE)))) {                                 \
     std::clog << "HABANA_LOG: begin of " << __PRETTY_FUNCTION__ << "\n"; \
-  };
+  };                                                                     \
+  synapse_helpers::trace_start(__FUNCTION__);
 
 #define PT_DEVICE_BEGIN PT_MOD_BEGIN(PtLogger::ModuleMask::DEVICE)
 #define PT_KERNEL_BEGIN PT_MOD_BEGIN(PtLogger::ModuleMask::KERNEL)
@@ -202,7 +204,8 @@ class PtLogger {
        (PtLogger::getLogger()->getTypeMask() &                         \
         (PtLogger::TypeMask::TRACE)))) {                               \
     std::clog << "HABANA_LOG: end of " << __PRETTY_FUNCTION__ << "\n"; \
-  };
+  };                                                                   \
+  synapse_helpers::trace_end(__FUNCTION__);
 
 #define PT_DEVICE_END PT_MOD_END(PtLogger::ModuleMask::DEVICE)
 #define PT_KERNEL_END PT_MOD_END(PtLogger::ModuleMask::KERNEL)
