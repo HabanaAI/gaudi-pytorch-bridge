@@ -18,69 +18,19 @@ import utils
 import model as resnet_models
 
 try:
+    path = os.path.join(os.environ['PYTORCH_MODULES_ROOT_PATH'], 'topologies')
+    tools_path = os.path.join(path, 'tools')
+    if os.path.exists(path) is False or os.path.exists(tools_path) is False:
+        raise Exception("path for 'tools' NOT found")
+    sys.path.append(path)
+    from tools import *
+except:
+    assert False, ("tools directory should be availabe as somedir/topologies/tools",
+                     "PYTORCH_MODULES_ROOT_PATH should be set to 'somedir'")
+try:
     from apex import amp
 except ImportError:
     amp = None
-
-
-#TrainMetaData is to set additional configurations/flags on top of those offered by the standard training script.
-#example uses include specifying the number of steps to train rather than training a full epoch.
-class TrainMetaData():
-    def __init__(self):
-        self.current_train_step = 0
-        self.current_eval_step = 0
-        #use a large value for num_train_steps  by default so that if the num_train_steps is not set,
-        #the default behaviour of running training for all the iterations is maintained.
-        self.num_train_steps = sys.maxsize
-        self.num_eval_steps = sys.maxsize
-        self.logging = True #Enable - default
-        self.save_checkpt = True
-
-    def increment_train_step(self):
-        self.current_train_step += 1
-        return self.current_train_step
-
-    def increment_eval_step(self):
-        self.current_eval_step += 1
-        return self.current_eval_step
-
-    def set_num_train_steps(self, x):
-        self.num_train_steps = x
-
-    def set_num_eval_steps(self, x):
-        self.num_eval_steps = x
-
-    def end_train(self):
-        if (self.current_train_step == self.num_train_steps):
-            return True
-        else:
-            return False
-
-    def end_eval(self):
-        if (self.current_eval_step == self.num_eval_steps):
-            return True
-        else:
-            return False
-
-    def end_train_n_eval(self):
-        if (self.end_train() and self.end_eval()):
-            return True
-        else:
-            return False
-
-    def set_logging(self, x):
-        self.logging = x
-
-    def is_logging(self):
-        return self.logging
-
-    #Enable/disable saving of checkpoint/model
-    def set_save_checkpoint_enable(self, enable=True):
-        self.save_checkpt = enable
-
-    def is_save_checkpoint(self):
-        return self.save_checkpt
-
 
 def train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, print_freq, trainMetaData, apex=False):
     model.train()
@@ -95,6 +45,9 @@ def train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, pri
             image = image.contiguous(memory_format=torch.channels_last)
 
         image, target = image.to(device), target.to(device)
+
+        tp_probe_tensors_iteration_start(model, device, target, image, trainMetaData.ParamsDump, False)
+
         output = model(image)
         loss = criterion(output, target)
 
@@ -105,6 +58,8 @@ def train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, pri
         else:
             loss.backward()
         optimizer.step()
+
+        tp_probe_tensors_iteration_end(model, device, output, loss, trainMetaData.ParamsDump, False)
 
         acc1, acc5 = utils.accuracy(output, target, topk=(1, 5))
         batch_size = image.shape[0]
@@ -250,10 +205,6 @@ def main(args):
     utils.init_distributed_mode(args)
     print(args)
 
-    trainMetaData = TrainMetaData()
-    trainMetaData.set_num_train_steps(args.num_train_steps)
-    trainMetaData.set_num_eval_steps(args.num_eval_steps)
-    trainMetaData.set_save_checkpoint_enable(args.save_checkpoint)
     if args.device == 'habana':
         print("Attempting to load library from path ", os.environ['BUILD_ROOT_LATEST'], flush=True)
         torch.ops.load_library(os.path.join(os.environ['BUILD_ROOT_LATEST'], "libhabana_pytorch_plugin.so"))
@@ -299,6 +250,12 @@ def main(args):
             permute_params_on_device(model)
     else:
         model.to(device)
+
+
+    trainMetaData = TrainMetaData(model, device)
+    trainMetaData.set_num_train_steps(args.num_train_steps)
+    trainMetaData.set_num_eval_steps(args.num_eval_steps)
+    trainMetaData.set_save_checkpoint_enable(args.save_checkpoint)
 
     if args.distributed and args.sync_bn:
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
