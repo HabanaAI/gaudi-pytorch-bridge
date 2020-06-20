@@ -133,7 +133,6 @@ void synapse_reduce_generic(
     const IntArrayRef& dim,
     bool keepdim,
     std::string nodetype) {
-  std::cout << "Reduction axis " << dim << std::endl;
   auto& device =
       synapse_helpers::HPURegistrar::get_device(input.device().index());
   const auto device_id = device.id();

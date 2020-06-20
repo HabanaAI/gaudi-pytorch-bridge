@@ -161,9 +161,7 @@ void validate_tensor_dim_sizes(const TensorList tensors, int64_t dim) {
     for (j = 0; j < tensors[i].dim(); j++) {
       if (j != dim) {
         if ((sz1[j] - sz2[j]) != 0)
-          std::cout
-              << "Sizes of tensors along one of the non-cat dimensions don't match"
-              << std::endl;
+          PT_KERNEL_WARN("Sizes of tensors along one of the non-cat dimensions don't match");
         TORCH_CHECK(
             ((sz1[j] - sz2[j]) == 0),
             "Sizes of tensors along one of the non-cat dimensions don't match");

@@ -488,7 +488,7 @@ optimizer_sparse_sgd_with_valid_count_hpu(
   PT_KERNEL_BEGIN;
   auto sizes = weights_in.sizes().vec();
   for (unsigned int i = 0; i < weights_in.dim(); i++)
-    std::cout << "sizes = " << sizes[i] << std::endl;
+    PT_KERNEL_DEBUG("sizes = ", sizes[i]);
   auto cast_indices = habana_helpers::cast_tensor_to_integer(indices);
   auto hpu = indices.device();
   auto result = optimizer_sparse_sgd_with_valid_count_cpu(
