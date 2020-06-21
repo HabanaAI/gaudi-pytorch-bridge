@@ -29,8 +29,16 @@ embedding_size = 3
 num_indices =  4
 
 # indices = torch.randint(0,table_len,[num_indices])
-indices = torch.tensor([0,3,7,2,3,1,4,6,0,1,6],dtype=torch.int32)
-offsets = torch.tensor([0,3,5,6,8,11],dtype=torch.int32)
+useInt64 = False
+print('Starting test for preproc with useInt64={}'.format(useInt64))
+
+if (useInt64):
+    indices = torch.tensor([0,3,7,2,3,1,4,6,0,1,6],dtype=torch.int64).type(torch.IntTensor)
+    offsets = torch.tensor([0,3,5,6,8,11],dtype=torch.int64).type(torch.IntTensor)
+else:
+    indices = torch.tensor([0,3,7,2,3,1,4,6,0,1,6],dtype=torch.int32)
+    offsets = torch.tensor([0,3,5,6,8,11],dtype=torch.int32)
+
 # offsets = torch.tensor([0,3,5,6,8],dtype=torch.int32)
 print('Indices\n', indices.detach().cpu().numpy())
 print('Offsets\n', indices.detach().cpu().numpy())

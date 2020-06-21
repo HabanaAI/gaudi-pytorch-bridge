@@ -8,8 +8,8 @@
 #include <algorithm>
 #include <functional>
 #include <vector>
-  
- 
+
+
 using namespace std;
 typedef int T;
 
@@ -25,12 +25,12 @@ void gaudi_coalescing_preprocessing(
     /* out */ int* uniqueIdexesCount,
     /* in, modified */ std::pair<T, T>* scratch);
 
-// torch::Tensor 
+// torch::Tensor
 std::tuple<torch::Tensor,torch::Tensor,torch::Tensor,torch::Tensor>
 preproc(
     torch::Tensor indices,
     torch::Tensor offsets,
-    int embeddingTableLen) {
+    int64_t embeddingTableLen) {
 
   std::cout << "Inside New Op :: preproc " << std::endl;
   auto out = at::empty(indices.sizes(), indices.options());
@@ -42,21 +42,21 @@ preproc(
   auto p_indices = indices_cpu.data_ptr<int>();
   std::cout << "collected offsets #::" << numOffsets <<std::endl;
   auto p_offsets= offsets_cpu.data_ptr<int>();
- 
+
   vector<pair<T,T>> scratch;
   scratch.resize(numIndices*2);
-  
+
   auto uniqueIndexes = at::empty(indices_cpu.sizes(), indices_cpu.options());
   auto outputRows = at::empty(indices_cpu.sizes(), indices_cpu.options());
   auto outputRowOffsets = at::empty(indices_cpu.size(0)+1, indices_cpu.options());
-   
+
   int countUniqueIndexes;
   gaudi_coalescing_preprocessing(
         p_indices,
         p_offsets,
         numIndices,
         numOffsets,
-        embeddingTableLen,
+        (int32_t)embeddingTableLen,
         uniqueIndexes.data_ptr<int>(),
         outputRows.data_ptr<int>(),
         outputRowOffsets.data_ptr<int>(),
