@@ -19,6 +19,8 @@
 #include "habana_helpers/unused_macro.h"
 #include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/simple_generic_kernel.h"
+#include "habana_helpers/graph.h"
+#include "habana_kernels/random_gen_kernels.h"
 
 using namespace torch;
 
@@ -32,6 +34,44 @@ uint32_t get_seed_hpu(CPUGenerator* gen) {
   auto seed = gen->random();
 
   return seed;
+}
+
+void UniformOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+
+  TORCH_CHECK(inputs.size() == 4, "Incorrect size of inputs expected for Uniform Operator");
+  TORCH_CHECK(inputs[0].isTensor(), "Input arg1 expected to be tensor for Uniform Operator");
+  TORCH_CHECK(inputs[1].isDouble(), "Input arg2 expected to be Double for Uniform Operator");
+  TORCH_CHECK(inputs[2].isDouble(), "Input arg3 expected to be of type Double for Uniform Operator");
+  //For graph mode arg4 should be of type None
+  TORCH_CHECK(inputs[3].isInt() || inputs[3].isNone(),
+    "Input arg4 expected to be Int or None for Uniform Operator");
+
+  auto self = inputs[0].toTensor();
+  auto from = inputs[1].toDouble();
+  auto to = inputs[2].toDouble();
+
+  ns_RandomUniform::Params params;
+  params.low = static_cast<float>(from);
+  params.high = static_cast<float>(to);
+
+  if(inputs[3].isNone())
+  {
+    params.seed = get_seed_hpu(nullptr);
+  }
+  else
+  {
+    auto seed = inputs[3].toInt();
+    params.seed = seed;
+  }
+
+  p_context_->params_.emplace<ns_RandomUniform::Params>(params);
+  p_context_->params_size_ = sizeof(params);
+
+  AllocateSynapseOutput(graph, self, is_output_persistent);
+  AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
 /*******************************************************************
@@ -50,23 +90,71 @@ void uniform_hpu(
     CPUGenerator* gen = nullptr) {
   PT_KERNEL_BEGIN;
 
-  std::vector<const at::Tensor*> pt_inputs{};
-  std::vector<const at::Tensor*> pt_outputs{&self};
+  at::ScalarType scalar_type = self.scalar_type();
+  std::string node_type =
+      "random_uniform_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
 
-  ns_RandomUniform::Params params;
-  params.low = static_cast<float>(from);
-  params.high = static_cast<float>(to);
-  params.seed = get_seed_hpu(gen);
+  size_t device_id = self.device().index();
 
-  synapse_simple_generic_kernel(
-      pt_outputs,
-      pt_inputs,
-      "random_uniform",
-      &params,
-      sizeof(params),
-      SynapsePassType::FORWARD_PASS);
+  UniformOperator Op(device_id, node_type);
+  // Create Graph
+  auto graph = habana_helpers::create_graph(device_id, node_type);
+
+  int64_t seed = get_seed_hpu(gen);
+  // Build Params for the graph
+  std::vector<c10::IValue> stack = {IValue(self),
+                                    IValue(from),
+                                    IValue(to),
+                                    IValue(seed)};
+  Op.AllocateAndAddSynapseNode(graph, stack, true);
+
+  // compile and execute the graph
+  Op.Compile(graph);
+
+  std::vector<at::Tensor> out = Op.GetOutputs();
+  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
 
   PT_KERNEL_END;
+}
+
+void NormalOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+
+  TORCH_CHECK(inputs.size() == 4, "Incorrect size of inputs expected for Normal Operator");
+  TORCH_CHECK(inputs[0].isTensor(), "Input arg1 expected to be tensor for Normal Operator");
+  TORCH_CHECK(inputs[1].isDouble(), "Input arg2 expected to be Double for Normal Operator");
+  TORCH_CHECK(inputs[2].isDouble(), "Input arg3 expected to be of type Double for Normal Operator");
+  //For graph mode arg4 should be of type None
+  TORCH_CHECK(inputs[3].isInt() || inputs[3].isNone(),
+    "Input arg4 expected to be Int or None for Normal Operator");
+
+  auto self = inputs[0].toTensor();
+  auto mean = inputs[1].toDouble();
+  auto std = inputs[2].toDouble();
+
+  PT_KERNEL_DEBUG("mean ", mean, " ", "std ", std);
+
+  ns_RandomNormal::Params params;
+  params.mean = static_cast<float>(mean);
+  params.stddev = static_cast<float>(std);
+
+  if(inputs[3].isNone())
+  {
+    params.seed = get_seed_hpu(nullptr);
+  }
+  else
+  {
+    auto seed = inputs[3].toInt();
+    params.seed = seed;
+  }
+
+  p_context_->params_.emplace<ns_RandomNormal::Params>(params);
+  p_context_->params_size_ = sizeof(params);
+
+  AllocateSynapseOutput(graph, self, is_output_persistent);
+  AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
 /*******************************************************************
@@ -85,23 +173,29 @@ void normal_hpu(
     CPUGenerator* gen = nullptr) {
   PT_KERNEL_BEGIN;
 
-  PT_KERNEL_DEBUG("mean ", mean, " ", "std ", std);
+  at::ScalarType scalar_type = self.scalar_type();
+  std::string node_type =
+      "random_normal_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
 
-  std::vector<const at::Tensor*> pt_inputs{};
-  std::vector<const at::Tensor*> pt_outputs{&self};
+  size_t device_id = self.device().index();
 
-  ns_RandomNormal::Params params;
-  params.mean = static_cast<float>(mean);
-  params.stddev = static_cast<float>(std);
-  params.seed = get_seed_hpu(gen);
+  NormalOperator Op(device_id, node_type);
+  // Create Graph
+  auto graph = habana_helpers::create_graph(device_id, node_type);
 
-  synapse_simple_generic_kernel(
-      pt_outputs,
-      pt_inputs,
-      "random_normal",
-      &params,
-      sizeof(params),
-      SynapsePassType::FORWARD_PASS);
+  int64_t seed = get_seed_hpu(gen);
+  // Build Params for the graph
+  std::vector<c10::IValue> stack = {IValue(self),
+                                    IValue(mean),
+                                    IValue(std),
+                                    IValue(seed)};
+  Op.AllocateAndAddSynapseNode(graph, stack, true);
+
+  // compile and execute the graph
+  Op.Compile(graph);
+
+  std::vector<at::Tensor> out = Op.GetOutputs();
+  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
 
   PT_KERNEL_END;
 }
