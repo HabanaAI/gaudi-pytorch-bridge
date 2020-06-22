@@ -98,7 +98,7 @@ def test_hpu_rand_gen_normal_fwd(N, H, W, C, mean, std, seed):
 
     testing.assert_equal(output4_hpu, output5_hpu)
 
-
+@pytest.mark.skip("SW-14791: Bernoulli tests are failed in docker tests")
 @pytest.mark.parametrize("N, H, W, C, min, max, seed", test_cast_list_4d)
 def test_hpu_rand_gen_bernoulli_fwd(N, H, W, C, min, max, seed):
     # CPU and HPU uses different algorithm for RNG. Hence they are not compared

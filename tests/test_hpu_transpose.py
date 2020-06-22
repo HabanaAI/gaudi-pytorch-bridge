@@ -24,7 +24,8 @@ t_op_list = [
     (torch.transpose, {'input': torch.randint(1, 24, (2, 3, 4), dtype=torch.int), 'dim0': 1, 'dim1': 2}),
     (torch.transpose, {'input': torch.randint(1, 24, (1, 3, 2), dtype=torch.int), 'dim0': -1, 'dim1': -3}),
     (torch.transpose, {'input': torch.randn(3, 4), 'dim0': 1, 'dim1': 0}),
-    (torch.transpose, {'input': torch.randn(2), 'dim0': 0, 'dim1': 0}),
+    # Disable 1D tensor SW-12421
+    #(torch.transpose, {'input': torch.randn(2), 'dim0': 0, 'dim1': 0}),
 ]
 
 transpose_inplace_op_list = [
