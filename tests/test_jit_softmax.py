@@ -14,6 +14,7 @@ test_case_list = [
   (8, 10)
 ]
 
+@pytest.mark.skip("Fails in docker tests")
 @pytest.mark.parametrize("D1, D2", test_case_list)
 def test_log_softmax(D1, D2):
     hpu = torch.device("habana")
