@@ -150,20 +150,22 @@ void HabanaLaunchOpPT::GetSynapseOutputs(
     TORCH_CHECK(output_nodes.size() == output_tensors_pt.size() - excluded_out_indices.size(),
                 "HabanaFusionOp Lowering: Number of output nodes generated doesnt match the graph");
     for (synapse_helpers::tensor &out_tensor_syn : output_tensors_syn) {
+      //Get the layout from the kernels, this has to be passed from kernel meta data which is WIP.
+      try
+      {
+        out_layout = habana_kernel_meta_data.output_layout.at(output_tensor_idx);
+      }
+      catch (const std::out_of_range & ex)
+      {
+        out_layout = habana::LayoutFormat::ANY;
+      }
+      //TODO : we can check what format to fill in case of ANY. as it may be channel last
+      value_to_tensor_layout[output_nodes[output_nodes_idx]]
+        = out_layout == habana::LayoutFormat::ANY ? habana::LayoutFormat::NCHW : out_layout;
+
       if (excluded_out_indices.find(output_tensor_idx) == excluded_out_indices.end()) {
         value_to_ivalue[output_nodes[output_nodes_idx]] = new IValue(output_tensors_pt[output_tensor_idx]);
-        //Get the layout from the kernels, this has to be passed from kernel meta data which is WIP.
-        try
-        {
-          out_layout = habana_kernel_meta_data.output_layout.at(output_tensor_idx);
-        }
-        catch (const std::out_of_range & ex)
-        {
-          out_layout = habana::LayoutFormat::ANY;
-        }
-        //TODO : we can check what format to fill in case of ANY. as it may be channel last
-        value_to_tensor_layout[output_nodes[output_nodes_idx]]
-          = out_layout == habana::LayoutFormat::ANY ? habana::LayoutFormat::NCHW : out_layout;
+
         pt_to_synapse_tensors.emplace(
                 value_to_ivalue[output_nodes[output_nodes_idx]], out_tensor_syn);
         output_nodes_idx++;

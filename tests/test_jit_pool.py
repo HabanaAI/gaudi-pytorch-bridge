@@ -25,6 +25,8 @@ def test_maxpool_2d(D1, D2, D3, D4):
     cpu = torch.device("cpu")
     in_t = torch.randn(D1, D2, D3, D4)
     hpu_t = in_t.to(hpu)
+    #in_t.requires_grad_(True)
+    #hpu_t.requires_grad_(True)
 
     #Verify eager mode
     eager_model = MaxPool2dTestModule()
@@ -40,6 +42,7 @@ def test_maxpool_2d(D1, D2, D3, D4):
         cpu_result = model_trace(in_t)
         print("Result CPU: ")
         print(cpu_result)
+        #cpu_result.sum().backward()
 
         hb_torch.enable()
         torch._C._jit_set_profiling_mode(False)
@@ -50,6 +53,9 @@ def test_maxpool_2d(D1, D2, D3, D4):
         print(model_trace_hpu_graph)
         FileCheck().check_count("prim::HabanaFusedOp_0", 2, exactly=True).run(str(model_trace_hpu_graph))
         hpu_result = model_trace_hpu(hpu_t).to(cpu)
+        # Backward test is disabled as permute() of byte type in forward is not supported
+        # in graph mode yet
+        #hpu_result.sum().to(hpu).backward()
         compare_tensors(hpu_result, cpu_result, atol=0.001, rtol=1.e-3)
 
 if __name__ == '__main__':
