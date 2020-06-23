@@ -9,6 +9,7 @@ import torch.utils.data
 from torch import nn
 import torchvision
 from torchvision import transforms
+import random
 
 import utils
 
@@ -195,6 +196,11 @@ def permute_params_on_device(model):
                 permuted_data = param.data.permute((2,3,1,0))
                 param.data.copy_(permuted_data)
 
+#Data loader worker init function
+def dl_worker_init_fn(seed):
+    if seed is not None:
+        random.seed(seed)
+
 def main(args):
     if args.apex:
         if sys.version_info < (3, 0):
@@ -216,6 +222,13 @@ def main(args):
 
     torch.manual_seed(args.seed)
 
+    if args.deterministic:
+        seed = args.seed
+        if args.device == 'cuda':
+            torch.cuda.manual_seed(seed)
+    else:
+        seed = None
+
     device = torch.device(args.device)
 
     torch.backends.cudnn.benchmark = True
@@ -226,11 +239,11 @@ def main(args):
                                                                    args.cache_dataset, args.distributed)
     data_loader = torch.utils.data.DataLoader(
         dataset, batch_size=args.batch_size,
-        sampler=train_sampler, num_workers=args.workers, pin_memory=True)
+        sampler=train_sampler, num_workers=args.workers, worker_init_fn=dl_worker_init_fn(seed), pin_memory=True)
 
     data_loader_test = torch.utils.data.DataLoader(
         dataset_test, batch_size=args.batch_size,
-        sampler=test_sampler, num_workers=args.workers, pin_memory=True)
+        sampler=test_sampler, num_workers=args.workers, worker_init_fn=dl_worker_init_fn(seed), pin_memory=True)
 
     print("Creating model")
     #model = torchvision.models.__dict__[args.model](pretrained=args.pretrained)
@@ -413,6 +426,8 @@ def parse_args():
                         help='Whether or not to save model/checkpont; True: to save, False to avoid saving')
     parser.add_argument('--run-trace-mode', action='store_true', default=False,
                         help='run JIT mode with fusion enabled') 
+    parser.add_argument('--deterministic',  action="store_true",
+                        help='Whether or not to make data loading deterministic;This does not make execution deterministic')
     args = parser.parse_args()
 
     return args
