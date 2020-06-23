@@ -169,6 +169,10 @@ def permute_params_on_device(model):
                 param.data.copy_(permuted_data)
 
 def main(args):
+    if args.is_hmp:
+        from hmp import hmp
+        hmp.convert()
+
     if args.apex:
         if sys.version_info < (3, 0):
             raise RuntimeError("Apex currently only supports Python 3. Aborting.")
@@ -370,6 +374,7 @@ def parse_args():
                         help='Whether or not to save model/checkpont; True: to save, False to avoid saving')
     parser.add_argument('--run-trace-mode', action='store_true', default=False,
                         help='run JIT mode with fusion enabled') 
+    parser.add_argument('--hmp', dest='is_hmp', action='store_true',help='enable hmp mode')
     args = parser.parse_args()
 
     return args
