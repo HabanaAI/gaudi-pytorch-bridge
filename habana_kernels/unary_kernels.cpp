@@ -26,28 +26,6 @@
 using namespace torch;
 using namespace torch::jit;
 
-UnaryOperator::UnaryOperator(int device_id, const std::string& guid)
-    : HabanaOperator(guid) {
-  this->CreateSynContext(device_id);
-  kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
-  kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
-}
-
-ReluOperator::ReluOperator(int device_id, c10::ScalarType scalarType)
-    : UnaryOperator(
-          device_id,
-          "relu_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {}
-
-SigmoidOperator::SigmoidOperator(int device_id, c10::ScalarType scalarType)
-    : UnaryOperator(
-          device_id,
-          "sigmoid_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {}
-
-AbsOperator::AbsOperator(int device_id, c10::ScalarType scalarType)
-    : UnaryOperator(
-          device_id,
-          "abs_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {}
-
 void UnaryOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
@@ -70,7 +48,6 @@ Tensor unary_op_hpu(
     UnaryOperator* Op) {
   size_t device_id = input.device().index();
 
-  //
   // Create Graph
   auto graph = habana_helpers::create_graph(device_id, node_type);
 
@@ -91,6 +68,55 @@ Tensor unary_op_hpu(
   return out.at(0);
 }
 
+void ReluInplaceOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    Stack& inputs,
+    bool is_output_persistent) {
+  AllocateSynapseInplaceOutput(graph);
+  AddNodeToSynapseGraph(graph, nullptr, 0);
+}
+
+void SigmoidBackwardOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 2,
+      "Incorrect size of inpust expected for SigmoidBackward operator");
+  TORCH_CHECK(inputs[0].isTensor(), "Input type expected to be tensor");
+  TORCH_CHECK(inputs[1].isTensor(), "Input type expected to be tensor");
+
+  at::Tensor grad_in = inputs[0].toTensor();
+  at::Tensor input = inputs[1].toTensor();
+
+  TORCH_CHECK(
+      grad_in.scalar_type() == input.scalar_type(),
+      "Types don't match. grad_in type: ",
+      grad_in.scalar_type(),
+      " input type: ",
+      input.scalar_type());
+  TORCH_CHECK(
+      (grad_in.sizes() == input.sizes()) ||
+          (grad_in.ndimension() == input.ndimension() &&
+           std::all_of(
+               input.sizes().cbegin(),
+               input.sizes().cend(),
+               [](auto val) { return val == 1; })),
+      "Sizes in elementwise kernel don't match. grad_in sizes: ",
+      grad_in.sizes(),
+      ", input sizes: ",
+      grad_in.sizes());
+
+  auto grad_output = at::empty(input.sizes(), input.options());
+  AllocateSynapseOutput(graph, grad_output, is_output_persistent);
+  AddNodeToSynapseGraph(graph, nullptr, 0);
+}
+
+/*************************************************************************
+ * @brief Kernel implementation for output = torch.relu(input)
+ * @param [out] output - output tensor, 1-4D, BF16/FP32
+ * @param [in] input - input tensor, 1-4D, BF16/FP32
+ ************************************************************************/
 Tensor relu_hpu(const Tensor& input) {
   PT_KERNEL_BEGIN;
   at::ScalarType scalar_type = input.scalar_type();
@@ -104,6 +130,43 @@ Tensor relu_hpu(const Tensor& input) {
   auto out = unary_op_hpu(input, node_type, &Op);
   PT_KERNEL_END;
   return out;
+}
+
+/*************************************************************************
+ * @brief Kernel implementation for output = torch.relu_(input)
+ * @param [out] output - output tensor, 1-4D, BF16/FP32
+ * @param [in] input - input tensor, 1-4D, BF16/FP32
+ ************************************************************************/
+Tensor& relu_hpu_(Tensor& self) {
+  PT_KERNEL_BEGIN;
+
+  at::ScalarType scalar_type = self.scalar_type();
+  std::string node_type =
+      "relu_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+
+  // Create the operator
+  size_t device_id = self.device().index();
+  ReluInplaceOperator Op(device_id, node_type);
+
+  // Create Graph
+  auto graph = habana_helpers::create_graph(device_id, node_type);
+
+  // Assign Inputs to the Operator
+  std::vector<const at::Tensor*> pt_inputs{&self};
+  Op.AllocateSynapseInputs(graph, pt_inputs, true);
+
+  // Build Params for the graph
+  std::vector<c10::IValue> stack = {IValue(self)};
+  Op.AllocateAndAddSynapseNode(graph, stack, true);
+
+  // compile and execute the graph
+  Op.Compile(graph);
+
+  std::vector<at::Tensor> out = Op.GetOutputs();
+  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
+
+  PT_KERNEL_END;
+  return out.at(0);
 }
 
 /*************************************************************************
@@ -126,17 +189,6 @@ Tensor sigmoid_hpu(const Tensor& input) {
   return out;
 }
 
-Tensor& relu_hpu_(Tensor& self) {
-  PT_KERNEL_BEGIN;
-  std::vector<const at::Tensor*> pt_inputs{&self};
-
-  synapse_simple_generic_inplace_kernel(
-      pt_inputs, "relu", nullptr, 0, SynapsePassType::FORWARD_PASS);
-
-  PT_KERNEL_END;
-  return self;
-}
-
 /*************************************************************************
  * @brief Kernel implementation for output = torch.sigmoid(grad_in, input)
  * @param [out] output - output tensor, 1-4D, BF16/FP32
@@ -146,38 +198,33 @@ Tensor& relu_hpu_(Tensor& self) {
 Tensor sigmoid_backward_hpu(const Tensor& grad_in, const Tensor& input) {
   PT_KERNEL_BEGIN;
 
-  TORCH_CHECK(
-      grad_in.scalar_type() == input.scalar_type(),
-      "Types don't match. grad_in type: ",
-      grad_in.scalar_type(),
-      " input type: ",
-      input.scalar_type());
-  TORCH_CHECK(
-      (grad_in.sizes() == input.sizes()) ||
-          (grad_in.ndimension() == input.ndimension() &&
-           std::all_of(
-               input.sizes().cbegin(),
-               input.sizes().cend(),
-               [](auto val) { return val == 1; })),
-      "Sizes in elementwise kernel don't match. grad_in sizes: ",
-      grad_in.sizes(),
-      ", input sizes: ",
-      grad_in.sizes());
+  at::ScalarType scalar_type = input.scalar_type();
+  std::string node_type =
+      "sigmoid_bwd_" + habana_helpers::name_suffix_from_type(scalar_type);
 
-  auto grad_output = at::empty(input.sizes(), input.options());
-  std::vector<const at::Tensor*> pt_outputs{&grad_output};
+  // Create the operator
+  size_t device_id = input.device().index();
+  SigmoidBackwardOperator Op(device_id, scalar_type);
+
+  // Create Graph
+  auto graph = habana_helpers::create_graph(device_id, node_type);
+
+  // Assign Inputs to the Operator
   std::vector<const at::Tensor*> pt_inputs{&grad_in, &input};
+  Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
-  synapse_simple_generic_kernel(
-      pt_outputs,
-      pt_inputs,
-      "sigmoid",
-      nullptr,
-      0,
-      SynapsePassType::BACKWARD_PASS);
+  // Build Params for the graph
+  std::vector<c10::IValue> stack = {IValue(grad_in), IValue(input)};
+  Op.AllocateAndAddSynapseNode(graph, stack, true);
+
+  // compile and execute the graph
+  Op.Compile(graph);
+
+  std::vector<at::Tensor> out = Op.GetOutputs();
+  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
 
   PT_KERNEL_END;
-  return grad_output;
+  return out.at(0);
 }
 
 /*************************************************************************
@@ -503,7 +550,6 @@ Tensor clamp_min_hpu(const Tensor& self, Scalar min) {
   return out.at(0);
 }
 
-
 /*************************************************************************
  * @brief Kernel implementation for output = torch.abs(self)
  * @param [out] output - output tensor, 1-4D, BF16/FP32
@@ -626,7 +672,6 @@ static auto registry =
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema("aten::abs(Tensor self) -> Tensor")
-                .impl_unboxedOnlyKernel<
-                    decltype(abs_hpu),
-                    &abs_hpu>(DispatchKey::HABANATensorId)
+                .impl_unboxedOnlyKernel<decltype(abs_hpu), &abs_hpu>(
+                    DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));

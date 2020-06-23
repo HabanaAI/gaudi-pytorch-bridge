@@ -112,6 +112,10 @@ class HabanaOperator {
       const at::Tensor& output,
       bool is_persistent = false);
 
+  // Method to add output tensors to graph builder context
+  virtual void AllocateSynapseInplaceOutput(
+      synapse_helpers::graph& graph);
+
   //
   // Method to add muliple output tensors to graph builder context
   virtual void AllocateSynapseOutputs(

@@ -12,35 +12,77 @@
 using namespace habana;
 
 // Unary Operator
-//
 class UnaryOperator : public HabanaOperator {
  public:
-  UnaryOperator(int device_id, const std::string& guid);
+  UnaryOperator(int device_id, const std::string& guid) : HabanaOperator(guid) {
+    this->CreateSynContext(device_id);
+    kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
+    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
+  }
+
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       bool is_output_persistent = false);
 };
 
-//
 // Relu Operator
 class ReluOperator : public UnaryOperator {
  public:
-  ReluOperator(int device_id, c10::ScalarType scalarType);
+  ReluOperator(int device_id, c10::ScalarType scalarType)
+      : UnaryOperator(
+            device_id,
+            "relu_fwd_" + habana_helpers::name_suffix_from_type(scalarType)){};
 };
 
-//
+// Relu Operator
+class ReluInplaceOperator : public HabanaOperator {
+ public:
+  ReluInplaceOperator(int device_id, const std::string& guid)
+      : HabanaOperator(guid) {
+    this->CreateSynContext(device_id);
+    kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
+    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
+  }
+
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+};
+
 // Sigmoid Operator
 class SigmoidOperator : public UnaryOperator {
  public:
-  SigmoidOperator(int device_id, c10::ScalarType scalarType);
+  SigmoidOperator(int device_id, c10::ScalarType scalarType)
+      : UnaryOperator(
+            device_id,
+            "sigmoid_fwd_" +
+                habana_helpers::name_suffix_from_type(scalarType)){};
 };
 
-//
+// SigmoidBackward Operator
+class SigmoidBackwardOperator : public UnaryOperator {
+ public:
+  SigmoidBackwardOperator(int device_id, c10::ScalarType scalarType)
+      : UnaryOperator(
+            device_id,
+            "sigmoid_bwd_" +
+                habana_helpers::name_suffix_from_type(scalarType)){};
+
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+};
+
 // Abs Operator
 class AbsOperator : public UnaryOperator {
  public:
-  AbsOperator(int device_id, c10::ScalarType scalarType);
+  AbsOperator(int device_id, c10::ScalarType scalarType)
+      : UnaryOperator(
+            device_id,
+            "abs_fwd_" + habana_helpers::name_suffix_from_type(scalarType)){};
 };
 
 // Clamp Operator
@@ -55,5 +97,5 @@ class ClampOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) final;
+      bool is_output_persistent = false) override;
 };

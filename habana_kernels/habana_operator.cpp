@@ -87,6 +87,14 @@ void habana::HabanaOperator::AllocateSynapseOutput(
   p_context_->pt_outputs_.emplace_back(output);
 }
 
+void habana::HabanaOperator::AllocateSynapseInplaceOutput(
+    synapse_helpers::graph& graph) {
+  p_context_->syn_outputs_.emplace_back(habana_helpers::duplicate_tensor_in_memory_section(
+        p_context_->syn_inputs_[0]));
+
+  p_context_->pt_outputs_.emplace_back(*p_context_->pt_inputs_[0]);
+}
+
 void habana::HabanaOperator::AllocateSynapseOutputs(
     synapse_helpers::graph& graph,
     const std::vector<at::Tensor>& outputs,
