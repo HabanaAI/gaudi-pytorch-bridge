@@ -251,7 +251,12 @@ def main():
                         help='number of steps for evaluation')
     parser.add_argument('--no-log', action='store_true', default=False,
                         help='disable log')
+    parser.add_argument('--hmp', dest='is_hmp', action='store_true', help='enable hmp mode')
     args = parser.parse_args()
+
+    if args.is_hmp:
+        from hmp import hmp
+        hmp.convert()
 
     use_habana = not args.no_habana
     if use_habana:

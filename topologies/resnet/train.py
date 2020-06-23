@@ -202,6 +202,10 @@ def dl_worker_init_fn(seed):
         random.seed(seed)
 
 def main(args):
+    if args.is_hmp:
+        from hmp import hmp
+        hmp.convert()
+
     if args.apex:
         if sys.version_info < (3, 0):
             raise RuntimeError("Apex currently only supports Python 3. Aborting.")
@@ -429,6 +433,7 @@ def parse_args():
                         help='run JIT mode with fusion enabled') 
     parser.add_argument('--deterministic',  action="store_true",
                         help='Whether or not to make data loading deterministic;This does not make execution deterministic')
+    parser.add_argument('--hmp', dest='is_hmp', action='store_true',help='enable hmp mode')
     args = parser.parse_args()
 
     return args
