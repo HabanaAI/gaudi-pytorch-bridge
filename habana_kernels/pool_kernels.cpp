@@ -15,15 +15,15 @@
 #include <algorithm>
 #include <iostream>
 
+#include "basic_kernels.h"
 #include "conv_pool_utils.h"
 #include "habana_device/HPUCheck.h"
+#include "habana_helpers/graph.h"
 #include "habana_helpers/tensor_utils.h"
 #include "habana_helpers/unused_macro.h"
-#include "habana_helpers/graph.h"
 #include "habana_kernels/simple_generic_kernel.h"
 #include "kernel_utils.h"
 #include "pool_kernels.h"
-#include "basic_kernels.h"
 
 using namespace torch;
 
@@ -84,7 +84,7 @@ static std::vector<int64_t> compute_output_shape(
     const at::IntArrayRef padding,
     const at::IntArrayRef dilation,
     bool ceil_mode,
-    bool is_input_nhwc=false) {
+    bool is_input_nhwc = false) {
   const int filter_H = safe_downcast<int, int64_t>(kernel_size[0]);
   const int filter_W = kernel_size.size() == 1
       ? filter_H
@@ -190,25 +190,26 @@ ns_AveragePooling::Params synapse_avg_pool_params_builder(
 
 void MaxPool2dWithIndicesOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
-    Stack&                  inputs,
-    bool                    is_output_persistent) {
-
-TORCH_CHECK(
+    Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
       inputs.size() == 6,
       "Incorrect size of input expected for MaxPool2dWithIndicesOperator");
   TORCH_CHECK(inputs[0].isTensor(), "First input type expected to be tensor");
-  TORCH_CHECK(inputs[1].isIntList(), "Second input type expected to be IntList");
+  TORCH_CHECK(
+      inputs[1].isIntList(), "Second input type expected to be IntList");
   TORCH_CHECK(inputs[2].isIntList(), "Third input type expected to be IntList");
-  TORCH_CHECK(inputs[3].isIntList(), "Fourth input type expected to be IntList");
+  TORCH_CHECK(
+      inputs[3].isIntList(), "Fourth input type expected to be IntList");
   TORCH_CHECK(inputs[4].isIntList(), "Fifth input type expected to be IntList");
   TORCH_CHECK(inputs[5].isBool(), "Sixth input type expected to be Bool");
 
-  at::Tensor input          = inputs[0].toTensor();
-  const auto kernel_size    = inputs[1].toIntList().vec();
-  const auto stride         = inputs[2].toIntList().vec();
-  const auto padding        = inputs[3].toIntList().vec();
-  const auto dilation       = inputs[4].toIntList().vec();
-  bool       ceil_mode      = inputs[5].toBool();
+  at::Tensor input = inputs[0].toTensor();
+  const auto kernel_size = inputs[1].toIntList().vec();
+  const auto stride = inputs[2].toIntList().vec();
+  const auto padding = inputs[3].toIntList().vec();
+  const auto dilation = inputs[4].toIntList().vec();
+  bool ceil_mode = inputs[5].toBool();
 
   // Setup pool params
   auto syn_pool_params =
@@ -231,16 +232,15 @@ TORCH_CHECK(
       {out_shape[0], out_shape[1], out_shape[2], out_shape[3]},
       input.options().dtype(kByte));
 
-  AllocateSynapseOutputs(graph, {output_idx_nhwc, output_nhwc}, is_output_persistent);
+  AllocateSynapseOutputs(
+      graph, {output_idx_nhwc, output_nhwc}, is_output_persistent);
   AddNodeToSynapseGraph(graph, &syn_pool_params, sizeof(syn_pool_params));
 }
 
-
 void MaxPool2dWithIndicesBackwardOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
-    Stack&                  inputs,
-    bool                    is_output_persistent) {
-
+    Stack& inputs,
+    bool is_output_persistent) {
   TORCH_CHECK(
       inputs.size() == 9,
       "Incorrect size of input expected for MaxPool2dWithIndicesBackwardOperator");
@@ -250,19 +250,21 @@ void MaxPool2dWithIndicesBackwardOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(inputs[3].isTensor(), "Fourth input type expected to be tensor");
   TORCH_CHECK(inputs[4].isIntList(), "Fifth input type expected to be IntList");
   TORCH_CHECK(inputs[5].isIntList(), "Sixth input type expected to be IntList");
-  TORCH_CHECK(inputs[6].isIntList(), "Seventh input type expected to be IntList");
-  TORCH_CHECK(inputs[7].isIntList(), "Eighth input type expected to be IntList");
+  TORCH_CHECK(
+      inputs[6].isIntList(), "Seventh input type expected to be IntList");
+  TORCH_CHECK(
+      inputs[7].isIntList(), "Eighth input type expected to be IntList");
   TORCH_CHECK(inputs[8].isBool(), "Ninth input type expected to be Bool");
 
-  at::Tensor grad_input     = inputs[0].toTensor();
-  at::Tensor grad_out       = inputs[1].toTensor();
-  at::Tensor input          = inputs[2].toTensor();
-  at::Tensor indices        = inputs[3].toTensor();
-  const auto kernel_size    = inputs[4].toIntList().vec();
-  const auto stride         = inputs[5].toIntList().vec();
-  const auto padding        = inputs[6].toIntList().vec();
-  const auto dilation       = inputs[7].toIntList().vec();
-  bool       ceil_mode      = inputs[8].toBool();
+  at::Tensor grad_input = inputs[0].toTensor();
+  at::Tensor grad_out = inputs[1].toTensor();
+  at::Tensor input = inputs[2].toTensor();
+  at::Tensor indices = inputs[3].toTensor();
+  const auto kernel_size = inputs[4].toIntList().vec();
+  const auto stride = inputs[5].toIntList().vec();
+  const auto padding = inputs[6].toIntList().vec();
+  const auto dilation = inputs[7].toIntList().vec();
+  bool ceil_mode = inputs[8].toBool();
 
   // Setup pool params
   auto syn_pool_params =
@@ -319,9 +321,10 @@ std::tuple<Tensor, Tensor> max_pool2d_with_indices_hpu(
   std::vector<at::Tensor*> pt_out = {&input_nhwc};
   // TBD: these layout requirements are properties of the operator, and should
   // be declared static class member variables rathe than per-object data.
-  // Once this change is made, the layout would be retrieved from the operator class.
+  // Once this change is made, the layout would be retrieved from the operator
+  // class.
   IntArrayRef new_dim_pos_in // = {0, 2, 3, 1};
-    = HabanaOperator::getPermuteOrder(LayoutFormat::NHWC, true);
+      = HabanaOperator::getPermuteOrder(LayoutFormat::NHWC, true);
   std::vector<const IntArrayRef*> pt_new_pos = {&new_dim_pos_in};
   c10::MemoryFormat memory_format = habana_helpers::get_memory_format({&input});
   habana_helpers::change_tensors_to_memory_format(
@@ -342,8 +345,10 @@ std::tuple<Tensor, Tensor> max_pool2d_with_indices_hpu(
     // Build Params for the graph
     std::vector<c10::IValue> stack = {IValue(input_nhwc),
                                       IValue(kernel_size),
-                                      IValue(stride), IValue(padding),
-                                      IValue(dilation), IValue(ceil_mode)};
+                                      IValue(stride),
+                                      IValue(padding),
+                                      IValue(dilation),
+                                      IValue(ceil_mode)};
 
     Op.AllocateAndAddSynapseNode(graph, stack, true);
 
@@ -365,9 +370,10 @@ std::tuple<Tensor, Tensor> max_pool2d_with_indices_hpu(
   pt_out = {&output, &output_idx};
   // TBD: these layout requirements are properties of the operator, and should
   // be declared static class member variables rathe than per-object data.
-  // Once this change is made, the layout would be retrieved from the operator class.
+  // Once this change is made, the layout would be retrieved from the operator
+  // class.
   IntArrayRef new_dim_pos_out // = {0, 3, 1, 2};
-     = HabanaOperator::getPermuteOrder(LayoutFormat::NHWC, false);
+      = HabanaOperator::getPermuteOrder(LayoutFormat::NHWC, false);
   // Both the outputs require same layout, hence using the first output's
   // layout positions
   pt_new_pos = {&new_dim_pos_out, &new_dim_pos_out};
@@ -405,7 +411,7 @@ Tensor& max_pool2d_with_indices_backward_out_hpu(
   habana_helpers::check_pool_params(
       input, kernel_size, stride, padding, dilation, ceil_mode);
 
- int device_id = input.device().index();
+  int device_id = input.device().index();
   at::ScalarType scalar_type = input.scalar_type();
   std::string node_type =
       "maxpool_2d_bwd_" + habana_helpers::name_suffix_from_type(scalar_type);
@@ -422,9 +428,10 @@ Tensor& max_pool2d_with_indices_backward_out_hpu(
 
   // TBD: these layout requirements are properties of the operator, and should
   // be declared static class member variables rathe than per-object data.
-  // Once this change is made, the layout would be retrieved from the operator class.
+  // Once this change is made, the layout would be retrieved from the operator
+  // class.
   IntArrayRef new_dim_pos_in // = {0, 2, 3, 1};
-    = HabanaOperator::getPermuteOrder(LayoutFormat::NHWC, true);
+      = HabanaOperator::getPermuteOrder(LayoutFormat::NHWC, true);
   std::vector<const IntArrayRef*> pt_new_pos{
       &new_dim_pos_in, &new_dim_pos_in, &new_dim_pos_in, &new_dim_pos_in};
   c10::MemoryFormat memory_format = habana_helpers::get_memory_format({&input});
@@ -447,11 +454,15 @@ Tensor& max_pool2d_with_indices_backward_out_hpu(
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
     // Build Params for the graph
-    std::vector<c10::IValue> stack = {IValue(grad_input_nhwc), IValue(grad_out_nhwc),
-                                      IValue(input_nhwc), IValue(indices_nhwc),
+    std::vector<c10::IValue> stack = {IValue(grad_input_nhwc),
+                                      IValue(grad_out_nhwc),
+                                      IValue(input_nhwc),
+                                      IValue(indices_nhwc),
                                       IValue(kernel_size),
-                                      IValue(stride), IValue(padding),
-                                      IValue(dilation), IValue(ceil_mode)};
+                                      IValue(stride),
+                                      IValue(padding),
+                                      IValue(dilation),
+                                      IValue(ceil_mode)};
 
     Op.AllocateAndAddSynapseNode(graph, stack, true);
 
@@ -468,9 +479,10 @@ Tensor& max_pool2d_with_indices_backward_out_hpu(
   pt_out = {&grad_input};
   // TBD: these layout requirements are properties of the operator, and should
   // be declared static class member variables rathe than per-object data.
-  // Once this change is made, the layout would be retrieved from the operator class.
+  // Once this change is made, the layout would be retrieved from the operator
+  // class.
   IntArrayRef new_dim_pos_out // = {0, 3, 1, 2};
-     = HabanaOperator::getPermuteOrder(LayoutFormat::NHWC, false);
+      = HabanaOperator::getPermuteOrder(LayoutFormat::NHWC, false);
   pt_new_pos = {&new_dim_pos_out};
   habana_helpers::change_tensors_to_memory_format(
       pt_out, pt_in, pt_new_pos, memory_format);
@@ -520,6 +532,53 @@ Tensor max_pool2d_with_indices_backward_hpu(
   return grad_input;
 }
 
+void AvgPool2dOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(inputs[0].isTensor(), "Input0 type expected to be tensor");
+  TORCH_CHECK(inputs[1].isIntList(), "Input1 type expected to be IntList");
+  TORCH_CHECK(inputs[2].isIntList(), "Input2 type expected to be IntList");
+  TORCH_CHECK(inputs[3].isIntList(), "Input3 type expected to be IntList");
+  TORCH_CHECK(inputs[4].isBool(), "Input4 type expected to be Bool");
+  TORCH_CHECK(inputs[5].isBool(), "Input5 type expected to be Bool");
+
+  at::Tensor input = inputs[0].toTensor();
+  const auto kernel_size = inputs[1].toIntList().vec();
+  const auto stride = inputs[2].toIntList().vec();
+  const auto padding = inputs[3].toIntList().vec();
+  auto ceil_mode = inputs[4].toBool();
+  auto count_include_pad = inputs[5].toBool();
+  auto divisor_override = inputs[6].toOptional<int64_t>();
+
+  TORCH_CHECK(
+      !divisor_override.has_value(),
+      "avgpool_2d: divisor override is not supported");
+
+  // Dilation set to 1, since for AvgPool Pytorch API does not give dilation
+  // values
+  std::vector<int64_t> d{1, 1};
+  IntArrayRef dilation(d.data(), d.size());
+
+  // Setup pool params
+  auto syn_pool_params = synapse_avg_pool_params_builder(
+      kernel_size, stride, padding, dilation, count_include_pad);
+
+  p_context_->params_.emplace<ns_AveragePooling::Params>(syn_pool_params);
+  p_context_->params_size_ = sizeof(syn_pool_params);
+
+  auto out_shape = compute_output_shape(
+      input, kernel_size, stride, padding, dilation, ceil_mode, true);
+
+  // Setup output tensors
+  auto output_nhwc = at::empty(
+      {out_shape[0], out_shape[1], out_shape[2], out_shape[3]},
+      input.options());
+
+  AllocateSynapseOutputs(graph, {output_nhwc}, is_output_persistent);
+  AddNodeToSynapseGraph(graph, &syn_pool_params, sizeof(syn_pool_params));
+}
+
 /**
  * @brief AveragePool2d (Forward Pass) implementation for Habana device
  * @param [In] Input Tensor. 4D, bf16/fp32
@@ -542,56 +601,131 @@ Tensor avg_pool2d_hpu(
     c10::optional<int64_t> divisor_override) {
   PT_KERNEL_BEGIN;
 
-  TORCH_CHECK(
-      !divisor_override.has_value(),
-      "avgpool_2d: divisor override is not supported");
   // Dilation set to 1, since for AvgPool Pytorch API does not give dilation
   // values
   std::vector<int64_t> d{1, 1};
   IntArrayRef dilation(d.data(), d.size());
   habana_helpers::check_pool_params(
       input, kernel_size, stride, padding, dilation, ceil_mode);
-  auto out_shape = compute_output_shape(
-      input, kernel_size, stride, padding, dilation, ceil_mode);
-  // Populate pool params structure
-  auto syn_pool_params = synapse_avg_pool_params_builder(
-      kernel_size, stride, padding, dilation, count_include_pad);
 
   // convert tensors to synapse memory format
   Tensor input_nhwc = input;
   std::vector<const at::Tensor*> pt_in = {&input};
   std::vector<at::Tensor*> pt_out = {&input_nhwc};
-  IntArrayRef new_dim_pos = {0, 2, 3, 1};
-  std::vector<const IntArrayRef*> pt_new_pos = {&new_dim_pos};
+  // TBD: these layout requirements are properties of the operator, and should
+  // be declared static class member variables rathe than per-object data.
+  // Once this change is made, the layout would be retrieved from the operator
+  // class.
+  IntArrayRef new_dim_pos_in // = {0, 2, 3, 1};
+      = HabanaOperator::getPermuteOrder(LayoutFormat::NHWC, true);
+  std::vector<const IntArrayRef*> pt_new_pos = {&new_dim_pos_in};
   c10::MemoryFormat memory_format = habana_helpers::get_memory_format({&input});
   habana_helpers::change_tensors_to_memory_format(
       pt_out, pt_in, pt_new_pos, memory_format);
 
-  auto output_nhwc = at::empty(
-      {out_shape[0], out_shape[1], out_shape[2], out_shape[3]},
-      input_nhwc.options());
+  int device_id = input.device().index();
+  at::ScalarType scalar_type = input.scalar_type();
+  std::string node_type =
+      "avg_pool_2d_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
 
-  std::vector<const at::Tensor*> pt_inputs{&input_nhwc};
-  std::vector<const at::Tensor*> pt_outputs{&output_nhwc};
+  auto avgpool_2d = [&] {
+    //
+    // Create Graph
+    auto graph = habana_helpers::create_graph(device_id, node_type);
 
-  synapse_simple_generic_kernel(
-      pt_outputs,
-      pt_inputs,
-      "avg_pool_2d",
-      &syn_pool_params,
-      sizeof(syn_pool_params),
-      SynapsePassType::FORWARD_PASS);
+    // Create the operator
+    AvgPool2dOperator Op(device_id, node_type);
 
-  Tensor output = output_nhwc;
-  pt_in = {&output_nhwc};
+    // Allocate synapse inputs
+    std::vector<const at::Tensor*> pt_inputs{&input_nhwc};
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
+
+    // Build Params for the graph
+    std::vector<c10::IValue> stack = {IValue(input_nhwc),
+                                      IValue(kernel_size),
+                                      IValue(stride),
+                                      IValue(padding),
+                                      IValue(ceil_mode),
+                                      IValue(count_include_pad),
+                                      IValue(divisor_override)};
+
+    Op.AllocateAndAddSynapseNode(graph, stack, true);
+
+    // compile and execute the graph
+    Op.Compile(graph);
+
+    return Op.GetOutputs();
+  };
+
+  std::vector<at::Tensor> out = avgpool_2d();
+
+  Tensor output = out.at(0);
+  pt_in = {&out.at(0)};
   pt_out = {&output};
-  new_dim_pos = {0, 3, 1, 2};
-  pt_new_pos = {&new_dim_pos};
+  // TBD: these layout requirements are properties of the operator, and should
+  // be declared static class member variables rathe than per-object data.
+  // Once this change is made, the layout would be retrieved from the operator
+  // class.
+  IntArrayRef new_dim_pos_out // = {0, 3, 1, 2};
+      = HabanaOperator::getPermuteOrder(LayoutFormat::NHWC, false);
+  pt_new_pos = {&new_dim_pos_out};
   habana_helpers::change_tensors_to_memory_format(
       pt_out, pt_in, pt_new_pos, memory_format);
 
   PT_KERNEL_END;
   return output;
+}
+
+void AvgPool2dBackwardOutOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(inputs[0].isTensor(), "Input0 type expected to be tensor");
+  TORCH_CHECK(inputs[1].isTensor(), "Input1 type expected to be tensor");
+  TORCH_CHECK(inputs[2].isTensor(), "Input2 type expected to be tensor");
+  TORCH_CHECK(inputs[3].isIntList(), "Input3 type expected to be IntList");
+  TORCH_CHECK(inputs[4].isIntList(), "Input4 type expected to be IntList");
+  TORCH_CHECK(inputs[5].isIntList(), "Input5 type expected to be IntList");
+  TORCH_CHECK(inputs[6].isBool(), "Input6 type expected to be Bool");
+  TORCH_CHECK(inputs[7].isBool(), "Input7 type expected to be Bool");
+
+  at::Tensor grad_input_nhwc = inputs[0].toTensor();
+  at::Tensor grad_out_nhwc = inputs[1].toTensor();
+  at::Tensor input_nhwc = inputs[2].toTensor();
+  const auto kernel_size = inputs[3].toIntList().vec();
+  const auto stride = inputs[4].toIntList().vec();
+  const auto padding = inputs[5].toIntList().vec();
+  auto ceil_mode = inputs[6].toBool();
+  auto count_include_pad = inputs[7].toBool();
+  auto divisor_override = inputs[8].toOptional<int64_t>();
+
+  // Dilation set to 1, since for AvgPool Pytorch API does not give dilation
+  // values
+  std::vector<int64_t> d{1, 1};
+  IntArrayRef dilation(d.data(), d.size());
+
+  auto out_shape = compute_output_shape(
+      input_nhwc, kernel_size, stride, padding, dilation, ceil_mode, true);
+  std::vector<int64_t> expected_output_size{
+      out_shape[0], out_shape[1], out_shape[2], out_shape[3]};
+
+  TORCH_CHECK(
+      !divisor_override.has_value(),
+      "avgpool_2d: divisor override is not supported");
+  TORCH_CHECK(
+      input_nhwc.sizes() == grad_input_nhwc.sizes(),
+      "Input and grad_input sizes don't match");
+  TORCH_CHECK(grad_out_nhwc.sizes().vec() == expected_output_size);
+
+  // Setup pool params
+  auto syn_pool_params = synapse_avg_pool_params_builder(
+      kernel_size, stride, padding, dilation, count_include_pad);
+
+  p_context_->params_.emplace<ns_AveragePooling::Params>(syn_pool_params);
+  p_context_->params_size_ = sizeof(syn_pool_params);
+
+  AllocateSynapseOutputs(graph, {grad_input_nhwc}, is_output_persistent);
+  AddNodeToSynapseGraph(graph, &syn_pool_params, sizeof(syn_pool_params));
 }
 
 /**
@@ -618,9 +752,6 @@ Tensor& avg_pool2d_backward_out_hpu(
     bool count_include_pad,
     c10::optional<int64_t> divisor_override) {
   PT_KERNEL_BEGIN;
-  TORCH_CHECK(
-      !divisor_override.has_value(),
-      "avg_pool2d: divisor override is not supported");
 
   // Dilation set to 1, since for AvgPool Pytorch API does not give dilation
   // values
@@ -628,10 +759,6 @@ Tensor& avg_pool2d_backward_out_hpu(
   IntArrayRef dilation(d.data(), d.size());
   habana_helpers::check_pool_params(
       input, kernel_size, stride, padding, dilation, ceil_mode);
-  auto out_shape = compute_output_shape(
-      input, kernel_size, stride, padding, dilation, ceil_mode);
-  std::vector<int64_t> expected_output_size{
-      out_shape[0], out_shape[1], out_shape[2], out_shape[3]};
 
   // convert tensors to synapse memory format
   Tensor input_nhwc = input;
@@ -640,40 +767,85 @@ Tensor& avg_pool2d_backward_out_hpu(
   std::vector<const at::Tensor*> pt_in{&input, &grad_input, &grad_output};
   std::vector<at::Tensor*> pt_out{
       &input_nhwc, &grad_input_nhwc, &grad_out_nhwc};
-  IntArrayRef new_dim_pos = {0, 2, 3, 1};
+  // TBD: these layout requirements are properties of the operator, and should
+  // be declared static class member variables rathe than per-object data.
+  // Once this change is made, the layout would be retrieved from the operator
+  // class.
+  IntArrayRef new_dim_pos_in // = {0, 2, 3, 1};
+      = HabanaOperator::getPermuteOrder(LayoutFormat::NHWC, true);
   std::vector<const IntArrayRef*> pt_new_pos{
-      &new_dim_pos, &new_dim_pos, &new_dim_pos};
+      &new_dim_pos_in, &new_dim_pos_in, &new_dim_pos_in};
   c10::MemoryFormat memory_format = habana_helpers::get_memory_format({&input});
   habana_helpers::change_tensors_to_memory_format(
       pt_out, pt_in, pt_new_pos, memory_format);
 
-  TORCH_CHECK(
-      input_nhwc.sizes() == grad_input_nhwc.sizes(),
-      "Input and grad_input sizes don't match");
-  TORCH_CHECK(grad_out_nhwc.sizes().vec() == expected_output_size);
-  auto syn_pool_params = synapse_avg_pool_params_builder(
-      kernel_size, stride, padding, dilation, count_include_pad);
+  int device_id = input.device().index();
+  at::ScalarType scalar_type = input.scalar_type();
+  std::string node_type =
+      "avg_pool_2d_bwd_" + habana_helpers::name_suffix_from_type(scalar_type);
 
-  std::vector<const at::Tensor*> pt_inputs{&grad_out_nhwc};
-  std::vector<const at::Tensor*> pt_outputs{&grad_input_nhwc};
+  auto avgpool_bwd_out_2d = [&] {
+    //
+    // Create Graph
+    auto graph = habana_helpers::create_graph(device_id, node_type);
 
-  synapse_simple_generic_kernel(
-      pt_outputs,
-      pt_inputs,
-      "avg_pool_2d",
-      &syn_pool_params,
-      sizeof(syn_pool_params),
-      SynapsePassType::BACKWARD_PASS);
+    // Create the operator
+    AvgPool2dBackwardOutOperator Op(device_id, node_type);
 
-  pt_in = {&grad_input_nhwc};
+    // Allocate synapse inputs
+    std::vector<const at::Tensor*> pt_inputs{&grad_out_nhwc};
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
+
+    // Build Params for the graph
+    std::vector<c10::IValue> stack = {IValue(grad_input_nhwc),
+                                      IValue(grad_out_nhwc),
+                                      IValue(input_nhwc),
+                                      IValue(kernel_size),
+                                      IValue(stride),
+                                      IValue(padding),
+                                      IValue(ceil_mode),
+                                      IValue(count_include_pad),
+                                      IValue(divisor_override)};
+
+    Op.AllocateAndAddSynapseNode(graph, stack, true);
+
+    // compile and execute the graph
+    Op.Compile(graph);
+
+    return Op.GetOutputs();
+  };
+
+  std::vector<at::Tensor> out = avgpool_bwd_out_2d();
+
+  pt_in = {&out.at(0)};
   pt_out = {&grad_input};
-  new_dim_pos = {0, 3, 1, 2};
-  pt_new_pos = {&new_dim_pos};
+  // TBD: these layout requirements are properties of the operator, and should
+  // be declared static class member variables rathe than per-object data.
+  // Once this change is made, the layout would be retrieved from the operator
+  // class.
+  IntArrayRef new_dim_pos_out // = {0, 3, 1, 2};
+      = HabanaOperator::getPermuteOrder(LayoutFormat::NHWC, false);
+  pt_new_pos = {&new_dim_pos_out};
   habana_helpers::change_tensors_to_memory_format(
       pt_out, pt_in, pt_new_pos, memory_format);
 
   PT_KERNEL_END;
   return grad_input;
+}
+
+void AvgPool2dBackwardOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(inputs[1].isTensor(), "Input1 type expected to be tensor");
+
+  at::Tensor input_nhwc = inputs[1].toTensor();
+  auto grad_input_nhwc = at::zeros_like(
+      input_nhwc, input_nhwc.options(), input_nhwc.suggest_memory_format());
+
+  inputs.insert(inputs.begin(), IValue(grad_input_nhwc));
+  AvgPool2dBackwardOutOperator::AllocateAndAddSynapseNode(
+      graph, inputs, is_output_persistent);
 }
 
 /**
@@ -699,18 +871,79 @@ Tensor avg_pool2d_backward_hpu(
     bool count_include_pad,
     c10::optional<int64_t> divisor_override) {
   PT_KERNEL_BEGIN;
-  auto grad_input =
-      at::zeros_like(input, input.options(), input.suggest_memory_format());
-  avg_pool2d_backward_out_hpu(
-      grad_input,
-      grad_output,
-      input,
-      kernel_size,
-      stride,
-      padding,
-      ceil_mode,
-      count_include_pad,
-      divisor_override);
+  // Dilation set to 1, since for AvgPool Pytorch API does not give dilation
+  // values
+  std::vector<int64_t> d{1, 1};
+  IntArrayRef dilation(d.data(), d.size());
+  habana_helpers::check_pool_params(
+      input, kernel_size, stride, padding, dilation, ceil_mode);
+
+  // convert tensors to synapse memory format
+  Tensor input_nhwc = input;
+  Tensor grad_out_nhwc = grad_output;
+  std::vector<const at::Tensor*> pt_in{&input, &grad_output};
+  std::vector<at::Tensor*> pt_out{&input_nhwc, &grad_out_nhwc};
+  // TBD: these layout requirements are properties of the operator, and should
+  // be declared static class member variables rathe than per-object data.
+  // Once this change is made, the layout would be retrieved from the operator
+  // class.
+  IntArrayRef new_dim_pos_in // = {0, 2, 3, 1};
+      = HabanaOperator::getPermuteOrder(LayoutFormat::NHWC, true);
+  std::vector<const IntArrayRef*> pt_new_pos{&new_dim_pos_in, &new_dim_pos_in};
+  c10::MemoryFormat memory_format = habana_helpers::get_memory_format({&input});
+  habana_helpers::change_tensors_to_memory_format(
+      pt_out, pt_in, pt_new_pos, memory_format);
+
+  int device_id = input.device().index();
+  at::ScalarType scalar_type = input.scalar_type();
+  std::string node_type =
+      "avg_pool_2d_bwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+
+  auto avgpool_bwd_2d = [&] {
+    //
+    // Create Graph
+    auto graph = habana_helpers::create_graph(device_id, node_type);
+
+    // Create the operator
+    AvgPool2dBackwardOperator Op(device_id, node_type);
+
+    // Allocate synapse inputs
+    std::vector<const at::Tensor*> pt_inputs{&grad_out_nhwc};
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
+
+    // Build Params for the graph
+    std::vector<c10::IValue> stack = {IValue(grad_out_nhwc),
+                                      IValue(input_nhwc),
+                                      IValue(kernel_size),
+                                      IValue(stride),
+                                      IValue(padding),
+                                      IValue(ceil_mode),
+                                      IValue(count_include_pad),
+                                      IValue(divisor_override)};
+
+    Op.AllocateAndAddSynapseNode(graph, stack, true);
+
+    // compile and execute the graph
+    Op.Compile(graph);
+
+    return Op.GetOutputs();
+  };
+
+  std::vector<at::Tensor> out = avgpool_bwd_2d();
+
+  Tensor grad_input = out.at(0);
+  pt_in = {&out.at(0)};
+  pt_out = {&grad_input};
+  // TBD: these layout requirements are properties of the operator, and should
+  // be declared static class member variables rathe than per-object data.
+  // Once this change is made, the layout would be retrieved from the operator
+  // class.
+  IntArrayRef new_dim_pos_out // = {0, 3, 1, 2};
+      = HabanaOperator::getPermuteOrder(LayoutFormat::NHWC, false);
+  pt_new_pos = {&new_dim_pos_out};
+  habana_helpers::change_tensors_to_memory_format(
+      pt_out, pt_in, pt_new_pos, memory_format);
+
   PT_KERNEL_END;
   return grad_input;
 }
