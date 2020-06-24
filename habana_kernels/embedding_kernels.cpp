@@ -344,7 +344,7 @@ void EmbeddingBagSumOperator::AllocateAndAddSynapseNode(
   auto valid_count_offset = inputs[3].toInt();
 
   TORCH_CHECK(indices.dim() <= 1, "index tensor cannot be more than 1D")
-  TORCH_CHECK(offsets.dim() <= 1, "index tensor cannot be more than 1D")
+  TORCH_CHECK(offsets.dim() <= 1, "offsets tensor cannot be more than 1D")
   TORCH_CHECK(input.dim() == 2, "Input tensor should be 2D")
 
   TORCH_CHECK(

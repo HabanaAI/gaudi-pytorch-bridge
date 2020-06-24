@@ -34,48 +34,21 @@ void check_ew_kernel_constraints(const Tensor& arg1, const Tensor& arg2) {
 static Scalar convert_scalar_dtype(const Tensor& self, Scalar value) {
   PT_KERNEL_BEGIN;
   Scalar result;
-  auto dtype = habana_helpers::scalar_type(value);
-  if (self.scalar_type() != dtype)
-    PT_KERNEL_WARN(
-        "Self tensor's type: ",
-        self.scalar_type(),
-        ". Value type: ",
-        dtype,
-        "\nwill use cast provided value");
-  TORCH_CHECK(
-      dtype != c10::ScalarType::Bool, "Bool type not supported for cast");
-
+  // always use self tensor's dtype
+  auto self_scalar_type = self.scalar_type();
   switch (self.element_size()) {
-    case 1:
-      TORCH_CHECK(value.isIntegral(false));
-      result = value.to<unsigned char>();
-      break;
     case 2:
-      TORCH_CHECK(value.isFloatingPoint() || value.isIntegral(false));
-      if (value.isFloatingPoint()) {
-        TORCH_CHECK(
-            0, "HPU is unable to differentatiate between fp16 and bf16");
-      } else {
-        TORCH_CHECK(
-            value.toFloat() <= INT16_MAX * 1.0,
-            "Scalar value exceeds tensor element size - uint16");
-        result = value.to<int16_t>();
-      }
+      HABANA_ASSERT(self_scalar_type == c10::ScalarType::BFloat16);
+      result = value.to<at::BFloat16>();
       break;
     case 4:
-      TORCH_CHECK(value.isFloatingPoint() || value.isIntegral(false));
-      if (value.isIntegral(false) && self.scalar_type() == dtype) {
-        TORCH_CHECK(
-            value.toFloat() <= INT32_MAX * 1.0,
-            "Scalar value exceeds tensor element size - uint32");
-        result = value.to<int32_t>();
-      } else {
-        result = value.to<float>();
-      }
+      HABANA_ASSERT(self_scalar_type == c10::ScalarType::Float);
+      result = value.to<float>();
       break;
     default:
-      PT_KERNEL_WARN("Unsupported data type used in binary op");
+      PT_KERNEL_FATAL("Unsupported data type used in binary op");
   }
+
   PT_KERNEL_END;
   return result;
 }
@@ -153,8 +126,8 @@ static inline Tensor get_hpu_tensor(Tensor input) {
   return output;
 }
 
-// generic binary tensor op interface that takes care of broadcasting semantics
-// requirements
+// generic binary tensor op interface that takes care of broadcasting
+// semantics requirements
 static inline void do_generic_tensor_binary_op_inplace(
     Tensor& self,
     const Tensor& operand2,

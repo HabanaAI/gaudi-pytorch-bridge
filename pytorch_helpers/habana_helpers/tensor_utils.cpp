@@ -39,6 +39,10 @@ at::Tensor habana_helpers::hpu_cast_tensor(
       Input.dtype() == c10::ScalarType::Int && type == c10::ScalarType::Float) {
     node_type = "cast_i32_to_f32";
   } else if (
+      Input.dtype() == c10::ScalarType::BFloat16 &&
+      type == c10::ScalarType::Float) {
+    node_type = "cast_bf16_to_f32";
+  } else if (
       type == c10::ScalarType::Bool &&
       Input.dtype() == c10::ScalarType::Float) {
     node_type = "cast_f32_to_i8";
@@ -49,8 +53,11 @@ at::Tensor habana_helpers::hpu_cast_tensor(
   } else if (
       type == c10::ScalarType::Int && Input.dtype() == c10::ScalarType::Float) {
     node_type = "cast_f32_to_i32";
+  } else if (
+      type == c10::ScalarType::BFloat16 &&
+      Input.dtype() == c10::ScalarType::Float) {
+    node_type = "cast_f32_to_bf16";
   }
-
   std::vector<const at::Tensor*> pt_outputs{&Output};
   std::vector<const at::Tensor*> pt_inputs{&Input};
 

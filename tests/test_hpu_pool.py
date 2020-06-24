@@ -35,15 +35,22 @@ pool_test_case_list = [
         reason="only 3x3 window with 2x2 stride is supported")),
 ] + mnist_test_case_list + resnet50_test_case_list
 
+data_type_list = [
+  pytest.param(torch.bfloat16, 0.001, marks=pytest.mark.xfail(
+        reason="max_pool2d_with_indices_cpu not implemented for BFloat16")),
+  (torch.float, 0.001)
+]
+
 def output_size(spatial_size, pad, dilation, kernel_size, stride):
     return int(floor((spatial_size + 2 * pad - dilation * (kernel_size - 1) - 1) / stride + 1))
 
 
 @pytest.mark.parametrize("N, H, W, C, R, S, str_H, str_W, padding, type, inpad", pool_test_case_list)
-def test_hpu_pool(N, H, W, C, R, S, str_H, str_W, padding, type, inpad):
+@pytest.mark.parametrize("dtype, tol", data_type_list)
+def test_hpu_pool(N, H, W, C, R, S, str_H, str_W, padding, type, inpad, dtype, tol):
     # TODO: extend that test to all features
     kernel_params = {
-        'input': torch.randn(N, C, H, W),
+        'input': torch.randn(N, C, H, W).to(dtype),
         'kernel_size': [R, S],
         'stride': [str_H, str_W],
         'padding': padding
@@ -57,14 +64,15 @@ def test_hpu_pool(N, H, W, C, R, S, str_H, str_W, padding, type, inpad):
     # don't check resuluts because indices can have different values
     hpu_result, cpu_result = evaluate_fwd_kernel(
         kernel=kernel, kernel_params=kernel_params, check_results=False)
-    compare_tensors(hpu_result[0], cpu_result[0], atol=0.001, rtol=1.e-3)
+    compare_tensors(hpu_result[0], cpu_result[0], atol=tol, rtol=tol)
 
 
 @pytest.mark.parametrize("N, H, W, C, R, S, str_H, str_W, padding, type, inpad", pool_test_case_list)
-def test_hpu_pool_fwd_bwd(N, H, W, C, R, S, str_H, str_W, padding, type, inpad):
+@pytest.mark.parametrize("dtype, tol", data_type_list)
+def test_hpu_pool_fwd_bwd(N, H, W, C, R, S, str_H, str_W, padding, type, inpad, dtype, tol):
     # TODO: extend that test to all features
     kernel_params_fwd = {
-        'input': torch.randn(N, C, H, W, requires_grad=True),
+        'input': torch.randn(N, C, H, W, requires_grad=True).to(dtype),
         'kernel_size': [R, S],
         'stride': [str_H, str_W],
         'padding':padding
@@ -75,11 +83,11 @@ def test_hpu_pool_fwd_bwd(N, H, W, C, R, S, str_H, str_W, padding, type, inpad):
          kernel_params_fwd['count_include_pad'] = inpad
          kernel = F.avg_pool2d
 
-    bwd_tensors = [torch.randn(N, C, output_size(H, padding, 1, R, str_H), output_size(W, padding, 1, S, str_W))]
+    bwd_tensors = [torch.randn(N, C, output_size(H, padding, 1, R, str_H), output_size(W, padding, 1, S, str_W)).to(dtype)]
     # don't check fwd resuluts because indices can have different values
     (hpu_result_fwd, _), (cpu_result_fwd, _) = evaluate_fwd_bwd_kernel(kernel=kernel, tensor_list_bwd=bwd_tensors,
                                                                        kernel_params_fwd=kernel_params_fwd, check_results_fwd=False)
-    compare_tensors(hpu_result_fwd[0], cpu_result_fwd[0], atol=0.001, rtol=1.e-3)
+    compare_tensors(hpu_result_fwd[0], cpu_result_fwd[0], atol=tol, rtol=tol)
 
 @pytest.mark.parametrize("N, H, W, C, R, S, str_H, str_W, padding, type, inpad", pool_test_case_list)
 def test_hpu_chlast_pool(N, H, W, C, R, S, str_H, str_W, padding, type, inpad):

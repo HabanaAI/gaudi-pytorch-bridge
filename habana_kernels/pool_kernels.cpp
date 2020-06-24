@@ -228,9 +228,13 @@ void MaxPool2dWithIndicesOperator::AllocateAndAddSynapseNode(
 
   // NOTE: cpu and cuda implementations hold indices as kLong (int64). I am
   // using uint8 (to match TPC kernel requirement)
+  auto type = kByte;
+  if (input.scalar_type() == c10::ScalarType::BFloat16) {
+    type = kShort;
+  }
   auto output_idx_nhwc = at::empty(
       {out_shape[0], out_shape[1], out_shape[2], out_shape[3]},
-      input.options().dtype(kByte));
+      input.options().dtype(type));
 
   AllocateSynapseOutputs(
       graph, {output_idx_nhwc, output_nhwc}, is_output_persistent);

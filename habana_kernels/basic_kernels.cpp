@@ -42,31 +42,38 @@ Tensor& copy_hpu_(Tensor& self, const Tensor& src, bool non_blocking) {
   Tensor& dst = self;
   TORCH_CHECK(dst.defined(), "dst is undefined");
   TORCH_CHECK(src.defined(), "src is undefined");
-  TORCH_CHECK(
-      dst.nbytes() == src.nbytes(), "src and dst buffers size don't match");
 
   const auto src_device = src.device().type();
   const auto dst_device = dst.device().type();
 
   if (src_device == c10::DeviceType::CPU &&
       dst_device == c10::DeviceType::HABANA) {
+    HABANA_ASSERT(dst.nbytes() == src.nbytes());
     habana_helpers::copy_data_to_device(src.data_ptr(), dst, src.nbytes());
   } else if (
       src_device == c10::DeviceType::HABANA &&
       dst_device == c10::DeviceType::CPU) {
+    HABANA_ASSERT(dst.nbytes() == src.nbytes());
     habana_helpers::copy_data_to_host(src, dst.data_ptr(), src.nbytes());
   } else if (
       src_device == c10::DeviceType::HABANA &&
       dst_device == c10::DeviceType::HABANA) {
-    habana_helpers::copy_data_within_device(src, dst);
+    if ((src.scalar_type() == c10::ScalarType::Float) &&
+        (dst.scalar_type() == c10::ScalarType::BFloat16)) {
+      dst = habana_helpers::hpu_cast_tensor(
+          src, at::scalarTypeToTypeMeta(c10::ScalarType::BFloat16));
+    } else if (
+        (src.scalar_type() == c10::ScalarType::BFloat16) &&
+        (dst.scalar_type() == c10::ScalarType::Float)) {
+      dst = habana_helpers::hpu_cast_tensor(
+          src, at::scalarTypeToTypeMeta(c10::ScalarType::Float));
+    } else {
+      HABANA_ASSERT(dst.nbytes() == src.nbytes());
+      habana_helpers::copy_data_within_device(src, dst);
+    }
   } else {
-    TORCH_CHECK(
-        false,
-        "copy_hpu_ doesn't support ",
-        src_device,
-        " to ",
-        dst_device,
-        "copy");
+    PT_KERNEL_FATAL(
+        "copy_hpu_ doesn't support ", src_device, " to ", dst_device, "copy");
   }
 
   if (src.strides() != dst.strides())

@@ -42,10 +42,10 @@ Tensor& fill_hpu_(Tensor& self, Scalar value) {
     case 2: {
       TORCH_CHECK(value.isFloatingPoint() || value.isIntegral(false));
       if (value.isFloatingPoint()) {
-        TORCH_CHECK(
-            0, "HPU is unable to differentatiate between fp16 and bf16");
+        auto memset_val = value.to<at::BFloat16>();
+        synapse_fill(self, memset_val);
       } else {
-        auto memset_val = value.to<uint16_t>();
+        auto memset_val = value.to<int16_t>();
         synapse_fill(self, memset_val);
       }
     } break;

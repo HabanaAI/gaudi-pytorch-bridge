@@ -36,28 +36,33 @@ conv_test_case_list = [
     (8, 28, 28, 3, 2, 2, 16, 1, 1, False)
 ] + mnist_test_case_list + resnet50_test_case_list
 
+data_type_list = [
+  pytest.param(torch.bfloat16, 0.1, marks=pytest.mark.xfail(
+        reason="large difference w.r.t. CPU")),
+  (torch.float, 0.001)
+]
 
 @pytest.mark.parametrize("N, H, W, C, R, S, K, stride, padding, bias", conv_test_case_list)
-def test_hpu_conv(N, H, W, C, R, S, K, stride, padding, bias):
-    kernel = nn.Conv2d(C, K, R, stride, padding, 1, 1, bias)
+@pytest.mark.parametrize("dtype, tol", data_type_list)
+def test_hpu_conv(N, H, W, C, R, S, K, stride, padding, bias, dtype, tol):
+    kernel = nn.Conv2d(C, K, R, stride, padding, 1, 1, bias).to(dtype)
     kernel_params = {
-        'input': torch.randn(N, C, H, W),
+        'input': torch.randn(N, C, H, W).to(dtype),
     }
-    evaluate_fwd_kernel(kernel=kernel, kernel_params=kernel_params)
+    evaluate_fwd_kernel(kernel=kernel, kernel_params=kernel_params, atol=tol, rtol=tol)
 
 
 @pytest.mark.parametrize("N, H, W, C, R, S, K, stride, padding, bias", conv_test_case_list)
-def test_hpu_conv_fwd_bwd(N, H, W, C, R, S, K, stride, padding, bias):
-    kernel = nn.Conv2d(C, K, R, stride, padding, 1, 1, bias)
+@pytest.mark.parametrize("dtype, tol", data_type_list)
+def test_hpu_conv_fwd_bwd(N, H, W, C, R, S, K, stride, padding, bias, dtype, tol):
+    kernel = nn.Conv2d(C, K, R, stride, padding, 1, 1, bias).to(dtype)
     kernel_params_fwd = {
-        'input': torch.randn(N, C, H, W, requires_grad=True)
+        'input': torch.randn(N, C, H, W, requires_grad=True).to(dtype)
     }
-    bwd_tensors = [torch.randn(N, K, output_size(H, padding, 1, R, stride), output_size(W, padding, 1, S, stride))]
-    # Increase error tolerance from 1e-3 to 1e-1. For large IFM sizes (such as Resnet test cases) absolute & relative
-    # error for bwd pass output tensors is becoming large.
-    # [SW-11328] investigate this later
+    bwd_tensors = [torch.randn(N, K, output_size(H, padding, 1, R, stride), output_size(W, padding, 1, S, stride)).to(dtype)]
+    tol = max(0.1, tol)
     (_, hpu_result_bwd), (_, cpu_result_bwd) = evaluate_fwd_bwd_kernel(kernel=kernel, tensor_list_bwd=bwd_tensors,
-                                                                       kernel_params_fwd=kernel_params_fwd,atol=0.1, rtol=1.e-1)
+                                                                       kernel_params_fwd=kernel_params_fwd,atol=tol, rtol=tol)
 
 
 @pytest.mark.parametrize("N, H, W, C, R, S, K, stride, padding, bias", conv_test_case_list)
@@ -147,4 +152,4 @@ def test_hpu_chain_loop_conv_chlast_fwd_bwd(N, H, W, C, R, S, K, stride, padding
 
 if __name__ == '__main__':
     #test_hpu_conv_fwd_bwd(*resnet50_test_case_list[0])
-    test_hpu_chain_loop_conv_chlast_fwd_bwd(*conv_test_case_list[0])
+    test_hpu_conv(*conv_test_case_list[0], torch.bfloat16)

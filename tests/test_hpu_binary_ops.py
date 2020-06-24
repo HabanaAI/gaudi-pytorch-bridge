@@ -47,6 +47,11 @@ binary_op_out_list_bool = [
     (torch.eq, {}),
 ]
 
+data_type_list = [
+  pytest.param(torch.bfloat16, 0.001, marks=pytest.mark.xfail(
+        reason="Large difference w.r.t CPU for add & div")),
+  (torch.float, 0.001)
+]
 
 @pytest.mark.parametrize("N, H, W, C", test_case_list)
 @pytest.mark.parametrize("binary_op, kernel_params_fwd", binary_op_out_list)
@@ -118,9 +123,10 @@ def test_hpu_binary_inplace_op_pow(N, H, W, C):
 
 @pytest.mark.parametrize("N, H, W, C", test_case_list)
 @pytest.mark.parametrize("binary_op, kernel_params_fwd", binary_op_list)
-def test_hpu_binary_op(N, H, W, C, binary_op, kernel_params_fwd):
-    kernel_params_fwd["input"] = torch.randn(N, C, H, W)
-    kernel_params_fwd["other"] = torch.randn(N, C, H, W)
+@pytest.mark.parametrize("dtype, tol", data_type_list)
+def test_hpu_binary_op(N, H, W, C, binary_op, kernel_params_fwd, dtype, tol):
+    kernel_params_fwd["input"] = torch.randn(N, C, H, W).to(dtype)
+    kernel_params_fwd["other"] = torch.randn(N, C, H, W).to(dtype)
     evaluate_fwd_kernel(kernel=binary_op, kernel_params=kernel_params_fwd)
 
 

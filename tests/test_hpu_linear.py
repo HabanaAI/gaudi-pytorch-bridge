@@ -22,20 +22,27 @@ test_case_list_bmm = [
     (8, 24, 3, 10)
 ]
 
+data_type_list = [
+  pytest.param(torch.bfloat16, 0.1, marks=pytest.mark.xfail(
+        reason="large difference w.r.t. CPU")),
+  (torch.float, 0.001)
+]
 
 @pytest.mark.parametrize("N, C, K", test_case_list)
-def test_hpu_linear(N, C, K):
-    kernel = nn.Linear(in_features=C, out_features=K, bias=True)
-    kernel_params = {'input': torch.randn(N, C)}
-    evaluate_fwd_kernel(kernel=kernel, kernel_params=kernel_params)
+@pytest.mark.parametrize("dtype, tol", data_type_list)
+def test_hpu_linear(N, C, K, dtype, tol):
+    kernel = nn.Linear(in_features=C, out_features=K, bias=True).to(dtype)
+    kernel_params = {'input': torch.randn(N, C).to(dtype)}
+    evaluate_fwd_kernel(kernel=kernel, kernel_params=kernel_params, atol=tol, rtol=tol)
 
 
 @pytest.mark.parametrize("N, C, K", test_case_list)
-def test_hpu_linear_fwd_bwd(N, C, K):
-    kernel = nn.Linear(in_features=C, out_features=K, bias=True)
-    kernel_params_fwd = {'input': torch.randn(N, C)}
-    bwd_tensors = [torch.randn(N, K)]
-    evaluate_fwd_bwd_kernel(kernel=kernel, kernel_params_fwd=kernel_params_fwd, tensor_list_bwd=bwd_tensors)
+@pytest.mark.parametrize("dtype, tol", data_type_list)
+def test_hpu_linear_fwd_bwd(N, C, K, dtype, tol):
+    kernel = nn.Linear(in_features=C, out_features=K, bias=True).to(dtype)
+    kernel_params_fwd = {'input': torch.randn(N, C).to(dtype)}
+    bwd_tensors = [torch.randn(N, K).to(dtype)]
+    evaluate_fwd_bwd_kernel(kernel=kernel, kernel_params_fwd=kernel_params_fwd, tensor_list_bwd=bwd_tensors, atol=tol, rtol=tol)
 
 
 @pytest.mark.parametrize("N, C, K", test_case_list)
