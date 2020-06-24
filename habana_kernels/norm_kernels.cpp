@@ -143,6 +143,17 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu(
     double momentum,
     double eps) {
   PT_KERNEL_BEGIN;
+
+  // Build Params for the graph
+  std::vector<c10::IValue> stack = {IValue(input),
+                                    IValue(weight),
+                                    IValue(bias),
+                                    IValue(running_mean),
+                                    IValue(running_var),
+                                    IValue(training),
+                                    IValue(momentum),
+                                    IValue(eps)};
+
   auto num_input_dim = input.dim();
   TORCH_CHECK(num_input_dim > 1, "Expected range of input dimensions is [2,4]");
   c10::MemoryFormat memory_format = habana_helpers::get_memory_format({&input});
@@ -299,8 +310,24 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu(
     Tensor& save_invstd,
     bool train,
     double eps,
-    UNUSED bool output_mask[3]) {
+    UNUSED std::array<bool, 3> output_mask) {
   PT_KERNEL_BEGIN;
+
+  bool output_mask_in[3];
+  output_mask_in[0] = output_mask[0];
+  output_mask_in[1] = output_mask[1];
+  output_mask_in[2] = output_mask[2];
+  // Build Params for the graph
+  std::vector<c10::IValue> stack = {IValue(grad_out),
+                                    IValue(input),
+                                    IValue(weight),
+                                    IValue(running_mean),
+                                    IValue(running_var),
+                                    IValue(save_mean),
+                                    IValue(save_invstd),
+                                    IValue(train),
+                                    IValue(eps),
+                                    IValue(output_mask_in)};
 
   auto num_input_dim = input.dim();
   TORCH_CHECK(num_input_dim > 1, "Expected range of input dimensions is [2,4]");
