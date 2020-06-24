@@ -318,6 +318,38 @@ void ReduceOperator::AllocateAndAddSynapseNode(
   }
 }
 
+void SumDimOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 4,
+      "Incorrect size of inputs expected for SumDim operator");
+  TORCH_CHECK(
+      inputs[0].isTensor(),
+      "Input arg1 expected to be tensor for SumDim operator");
+  TORCH_CHECK(
+      inputs[1].isIntList(),
+      "Input arg3 expected to be IntList for SumDim operator");
+  TORCH_CHECK(
+      inputs[2].isBool(),
+      "Input arg4 expected to be Bool for SumDim operator");
+
+  Tensor self = inputs[0].toTensor();
+  auto dim = inputs[1].toIntList();
+  bool keepdim = inputs[2].toBool();
+
+  auto ndim = self.dim();
+  TORCH_CHECK(
+      keepdim || static_cast<int64_t>(dim.size()) != ndim,
+      "Reduction to 0d tensor not supported yet");
+
+  Tensor output;
+  inputs.insert(inputs.begin(), IValue(output));
+
+  ReduceOperator::AllocateAndAddSynapseNode(graph, inputs, is_output_persistent);
+}
+
 Tensor sum_dim_IntList_hpu(
     const Tensor& self,
     IntArrayRef dim,
@@ -325,25 +357,68 @@ Tensor sum_dim_IntList_hpu(
     c10::optional<ScalarType> dtype) {
   PT_KERNEL_BEGIN;
 
-  Tensor output;
-  auto ndim = self.dim();
-  auto mask = make_dim_mask(dim, ndim);
-  allocate_reduction_result(
-      output, self, mask, keepdim, get_dtype(output, self, dtype, false));
-  // auto viewed_result = review_reduce_result(output, ndim, mask, keepdim);
+  at::ScalarType scalar_type = self.scalar_type();
+  std::string node_type =
+      "reduce_sum_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+
+  // Create the operator
+  size_t device_id = self.device().index();
+  SumDimOperator Op(device_id, node_type);
+
+  // Create Graph
+  auto graph = habana_helpers::create_graph(device_id, node_type);
+
+  // Assign Inputs to the Operator
+  std::vector<const at::Tensor*> pt_inputs{&self};
+  Op.AllocateSynapseInputs(graph, pt_inputs, true);
+
+  // Build Params for the graph
+  std::vector<c10::IValue> stack = {IValue(self),
+                                    IValue(dim),
+                                    IValue(keepdim),
+                                    IValue(dtype)};
+  Op.AllocateAndAddSynapseNode(graph, stack, true);
+
+  // compile and execute the graph
+  Op.Compile(graph);
+
+  std::vector<at::Tensor> out = Op.GetOutputs();
+  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
+
+  PT_KERNEL_END;
+  return out.at(0);
+}
+
+void SumDimOutOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
   TORCH_CHECK(
-      output.scalar_type() == self.scalar_type(),
-      "Habana reduction ops don't support casts yet");
+      inputs.size() == 5,
+      "Incorrect size of inputs expected for SumDimOut operator");
+  TORCH_CHECK(
+      inputs[0].isTensor(),
+      "Input arg1 expected to be tensor for SumDimOut operator");
+  TORCH_CHECK(
+      inputs[1].isTensor(),
+      "Input arg2 expected to be tensor for SumDimOut operator");
+  TORCH_CHECK(
+      inputs[2].isIntList(),
+      "Input arg3 expected to be IntList for SumDimOut operator");
+  TORCH_CHECK(
+      inputs[3].isBool(),
+      "Input arg4 expected to be Bool for SumDimOut operator");
+
+  Tensor self = inputs[1].toTensor();
+  auto dim = inputs[2].toIntList();
+  bool keepdim = inputs[3].toBool();
+
+  auto ndim = self.dim();
   TORCH_CHECK(
       keepdim || static_cast<int64_t>(dim.size()) != ndim,
       "Reduction to 0d tensor not supported yet");
 
-  std::string nodetype = "reduce_sum_fwd_" +
-      habana_helpers::name_suffix_from_type(self.scalar_type());
-  synapse_reduce_generic(output, self, dim, keepdim, nodetype);
-
-  PT_KERNEL_END;
-  return output;
+  ReduceOperator::AllocateAndAddSynapseNode(graph, inputs, is_output_persistent);
 }
 
 Tensor& sum_IntList_out_hpu(
@@ -354,24 +429,36 @@ Tensor& sum_IntList_out_hpu(
     c10::optional<ScalarType> dtype) {
   PT_KERNEL_BEGIN;
 
-  auto ndim = self.dim();
-  auto mask = make_dim_mask(dim, ndim);
-  allocate_reduction_result(
-      output, self, mask, keepdim, get_dtype(output, self, dtype, false));
-  // auto viewed_result = review_reduce_result(output, ndim, mask, keepdim);
-  TORCH_CHECK(
-      output.scalar_type() == self.scalar_type(),
-      "Habana reduction ops don't support casts yet");
-  TORCH_CHECK(
-      keepdim || static_cast<int64_t>(dim.size()) != ndim,
-      "Reduction to 0d tensor not supported yet");
+  at::ScalarType scalar_type = self.scalar_type();
+  std::string node_type =
+      "reduce_sum_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
 
-  std::string nodetype = "reduce_sum_fwd_" +
-      habana_helpers::name_suffix_from_type(self.scalar_type());
-  synapse_reduce_generic(output, self, dim, keepdim, nodetype);
+  // Create the operator
+  size_t device_id = self.device().index();
+  SumDimOutOperator Op(device_id, node_type);
 
+  // Create Graph
+  auto graph = habana_helpers::create_graph(device_id, node_type);
+
+  // Assign Inputs to the Operator
+  std::vector<const at::Tensor*> pt_inputs{&self};
+  Op.AllocateSynapseInputs(graph, pt_inputs, true);
+
+  // Build Params for the graph
+  std::vector<c10::IValue> stack = {IValue(output),
+                                    IValue(self),
+                                    IValue(dim),
+                                    IValue(keepdim),
+                                    IValue(dtype)};
+  Op.AllocateAndAddSynapseNode(graph, stack, true);
+
+  // compile and execute the graph
+  Op.Compile(graph);
+
+  std::vector<at::Tensor> out = Op.GetOutputs();
+  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
   PT_KERNEL_END;
-  return output;
+  return out.at(0);
 }
 
 void MeanDimOperator::AllocateAndAddSynapseNode(
@@ -516,8 +603,18 @@ Tensor& mean_dim_out_hpu(
   return out.at(0);
 }
 
-Tensor sum_hpu(const Tensor& self, c10::optional<ScalarType> dtype) {
-  PT_KERNEL_BEGIN;
+void SumOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 2,
+      "Incorrect size of inputs expected for Sum operator");
+  TORCH_CHECK(
+      inputs[0].isTensor(),
+      "Input arg1 expected to be tensor for Sum operator");
+
+  Tensor self = inputs[0].toTensor();
 
   Tensor output;
   auto ndim = self.dim();
@@ -526,20 +623,46 @@ Tensor sum_hpu(const Tensor& self, c10::optional<ScalarType> dtype) {
     data[i] = i;
   }
   IntArrayRef dim(data, ndim);
-  auto mask = make_dim_mask(dim, ndim);
-  allocate_reduction_result(
-      output, self, mask, 0, get_dtype(output, self, dtype, false));
-  // auto viewed_result = review_reduce_result(output, ndim, mask, keepdim);
-  TORCH_CHECK(
-      output.scalar_type() == self.scalar_type(),
-      "Habana reduction ops don't support casts yet");
+  bool keepdim = false;
 
-  std::string nodetype = "reduce_sum_fwd_" +
-      habana_helpers::name_suffix_from_type(self.scalar_type());
-  synapse_reduce_generic(output, self, dim, 0, nodetype);
+  inputs.insert(inputs.begin(), IValue(output));
+  inputs.insert(inputs.begin()+2, IValue(dim));
+  inputs.insert(inputs.begin()+3, IValue(keepdim));
+
+  ReduceOperator::AllocateAndAddSynapseNode(graph, inputs, is_output_persistent);
+}
+
+Tensor sum_hpu(const Tensor& self, c10::optional<ScalarType> dtype) {
+  PT_KERNEL_BEGIN;
+
+  at::ScalarType scalar_type = self.scalar_type();
+  std::string node_type =
+      "reduce_sum_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+
+  // Create the operator
+  size_t device_id = self.device().index();
+  SumOperator Op(device_id, node_type);
+
+  // Create Graph
+  auto graph = habana_helpers::create_graph(device_id, node_type);
+
+  // Assign Inputs to the Operator
+  std::vector<const at::Tensor*> pt_inputs{&self};
+  Op.AllocateSynapseInputs(graph, pt_inputs, true);
+
+  // Build Params for the graph
+  std::vector<c10::IValue> stack = {IValue(self),
+                                    IValue(dtype)};
+  Op.AllocateAndAddSynapseNode(graph, stack, true);
+
+  // compile and execute the graph
+  Op.Compile(graph);
+
+  std::vector<at::Tensor> out = Op.GetOutputs();
+  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
 
   PT_KERNEL_END;
-  return output[0];
+  return out.at(0);
 }
 
 void MeanOperator::AllocateAndAddSynapseNode(

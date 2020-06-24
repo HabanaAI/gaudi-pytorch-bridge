@@ -71,3 +71,46 @@ class MeanOperator : public ReduceOperator {
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
 };
+
+//
+// SumDimOutOperator Operator
+class SumDimOutOperator : public ReduceOperator {
+ public:
+  SumDimOutOperator(int device_id, const std::string& guid)
+   : ReduceOperator(device_id, guid) {}
+
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+};
+
+//
+// SumDim Operator
+class SumDimOperator : public ReduceOperator {
+ public:
+  SumDimOperator(int device_id, const std::string& guid)
+   : ReduceOperator(device_id, guid) {
+       kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
+   }
+
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+};
+
+//
+// Sum Operator
+class SumOperator : public ReduceOperator {
+ public:
+  SumOperator(int device_id, const std::string& guid)
+   : ReduceOperator(device_id, guid) {
+       kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
+   }
+
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+};
