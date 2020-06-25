@@ -101,7 +101,7 @@ synDataType habana_helpers::pytorch_to_synapse_type(
       {c10::ScalarType::Char, synDataType::syn_type_int8},
       {c10::ScalarType::Short, synDataType::syn_type_int16},
       {c10::ScalarType::Int, synDataType::syn_type_int32},
-      //   {c10::ScalarType::Long , synDataType::},
+      {c10::ScalarType::Long , synDataType::syn_type_int32},
       {c10::ScalarType::Float, synDataType::syn_type_float},
       //   {c10::ScalarType::Double , synDataType::},
       {c10::ScalarType::Bool, synDataType::syn_type_int8},
