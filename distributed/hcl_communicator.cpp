@@ -155,7 +155,7 @@ synapse_error_o hcl_communicator::reduce(HCL_Rank dest_rank, device_ptr input_ad
                                          const std::function<void()>& tensor_cleanup_callback) {
   HCLStatus status{eHCLSuccess};
   trace_start("IntermediateBufferAlloc");
-  synapse_error_v<owned_device_ptr> maybe_buffer_ptr{alloc_intermediate_buffer(elem_cnt, data_type, eHCLAllReduce)};
+  synapse_error_v<owned_device_ptr> maybe_buffer_ptr{alloc_intermediate_buffer(elem_cnt, data_type, eHCLReduce)};
   if (!ok(maybe_buffer_ptr)) {
     synapse_error error = get_error(maybe_buffer_ptr);
     PT_SYNHELPER_WARN(
