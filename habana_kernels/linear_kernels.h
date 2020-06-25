@@ -11,12 +11,34 @@
 
 namespace habana {
 
-class MMOperator: public HabanaOperator {
-  public:
-  MMOperator(int device_id);
+class MMOperator : public HabanaOperator {
+ public:
+  MMOperator(int device_id) : HabanaOperator("gemm") {
+    this->CreateSynContext(device_id);
+    kernel_meta_data_.input_layout.assign(
+        {LayoutFormat::ANY, LayoutFormat::ANY});
+    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
+  }
+
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false);
+      bool is_output_persistent = false) override;
 };
-}
+
+class AddmmOperator : public HabanaOperator {
+ public:
+  AddmmOperator(int device_id, std::string guid) : HabanaOperator(guid) {
+    this->CreateSynContext(device_id);
+    kernel_meta_data_.input_layout.assign(
+        {LayoutFormat::ANY, LayoutFormat::ANY, LayoutFormat::ANY});
+    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
+  }
+
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+};
+
+} // namespace habana

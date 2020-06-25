@@ -17,9 +17,10 @@
 #include "habana_device/tensor_builder.h"
 #include "habana_helpers/graph.h"
 #include "habana_helpers/tensor_utils.h"
+#include "habana_kernels/binary_kernels.h"
+#include "habana_kernels/kernel_utils.h"
+#include "habana_kernels/linear_kernels.h"
 #include "habana_kernels/simple_generic_kernel.h"
-#include "kernel_utils.h"
-#include "linear_kernels.h"
 
 using namespace torch;
 
@@ -118,113 +119,6 @@ void synapse_matmul(
   }
 }
 
-// output = alpha * mat1 x mat2 + beta * bias
-void synapse_matmul(
-    const Tensor& output,
-    const Tensor& mat1,
-    const Tensor& mat2,
-    const Tensor& bias,
-    const Scalar& beta,
-    const Scalar& alpha) {
-  PT_KERNEL_BEGIN;
-  // TODO: implement support for scalars
-  TORCH_CHECK(
-      beta.to<int>() == 1, "matmul_with_bias_hpu doesn't support scalars yet");
-  TORCH_CHECK(
-      alpha.to<int>() == 1, "matmul_with_bias_hpu doesn't support scalars yet");
-  const auto device_id = mat1.device().index();
-  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-  std::string node_type1 = "gemm";
-  std::string node_type2 =
-      "add_fwd_" + habana_helpers::name_suffix_from_type(mat1.scalar_type());
-  // Build Params for the graph
-  std::vector<c10::IValue> stack = {IValue(output),
-                                    IValue(mat1),
-                                    IValue(mat2),
-                                    IValue(bias),
-                                    IValue(beta),
-                                    IValue(alpha)};
-  std::vector<std::string> nodes = {node_type1 + node_type2};
-  size_t key = habana_helpers::getRecipeKey(node_type1 + node_type2, stack);
-
-  if (device.get_recipe_handle_cache().isCached(key)) {
-    PT_KERNEL_DEBUG("Cache hit key:", key);
-    habana_helpers::execute_recipe(
-        {mat1.data_ptr(), mat2.data_ptr(), bias.data_ptr()},
-        {output.data_ptr()},
-        device_id,
-        key);
-  } else {
-    PT_KERNEL_DEBUG("Key:", key);
-    // graph_handle scope
-    auto graph =
-        habana_helpers::create_graph(device_id, node_type1 + node_type2);
-    { // tensors scope
-      std::vector<synapse_helpers::tensor> syn_helper_inputs,
-          syn_helper_outputs, syn_tmp_helper_tensors;
-      std::vector<synTensor> syn_inputs, syn_outputs, syn_tmp_tensors;
-
-      syn_helper_inputs.push_back(
-          habana_helpers::create_tensor(mat1, graph.get_graph_handle(), true));
-      syn_inputs.push_back(
-          syn_helper_inputs[syn_helper_inputs.size() - 1].get());
-      syn_helper_inputs.push_back(
-          habana_helpers::create_tensor(mat2, graph.get_graph_handle(), true));
-      syn_inputs.push_back(
-          syn_helper_inputs[syn_helper_inputs.size() - 1].get());
-
-      std::tie(syn_helper_outputs, syn_outputs) =
-          habana_helpers::create_tensors(
-              std::vector<const at::Tensor*>{&output},
-              graph.get_graph_handle(),
-              true);
-      std::tie(syn_tmp_helper_tensors, syn_tmp_tensors) =
-          habana_helpers::create_tensors(
-              std::vector<const at::Tensor*>{&output},
-              graph.get_graph_handle(),
-              false);
-
-      { // add node
-        synGEMMParams params{0, 0};
-
-        graph.add_node(
-            std::move(syn_inputs),
-            std::move(syn_tmp_tensors),
-            (void*)&params,
-            sizeof(params),
-            std::move(node_type1));
-      }
-      { // add node
-        syn_helper_inputs.push_back(habana_helpers::create_tensor(
-            bias, graph.get_graph_handle(), true));
-        syn_inputs.push_back(
-            syn_helper_inputs[syn_helper_inputs.size() - 1].get());
-        syn_tmp_tensors.push_back(syn_inputs[2]); // mm_out + bias
-        graph.add_node(
-            std::move(syn_tmp_tensors),
-            std::move(syn_outputs),
-            nullptr,
-            0,
-            std::move(node_type2));
-      }
-      habana_helpers::compile_and_run(
-          std::move(graph),
-          habana_helpers::names(syn_helper_inputs),
-          habana_helpers::names(syn_helper_outputs),
-          {mat1.data_ptr(), mat2.data_ptr(), bias.data_ptr()},
-          {output.data_ptr()},
-          device_id,
-          key);
-    }
-  }
-}
-
-habana::MMOperator::MMOperator(int device_id) : HabanaOperator("gemm") {
-  this->CreateSynContext(device_id);
-  kernel_meta_data_.input_layout.assign({LayoutFormat::ANY, LayoutFormat::ANY});
-  kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
-}
-
 void habana::MMOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
@@ -245,7 +139,12 @@ void habana::MMOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
-at::Tensor matmul_hpu(const at::Tensor& mat1, const at::Tensor& mat2) {
+/*****************************************************************************************************
+ *@brief Implements torch.mm(mat1, mat2) → Tensor
+ *@param mat1 : the first matrix to be multiplied
+ *@param mat2 : the second matrix to be multiplied
+ *****************************************************************************************************/
+at::Tensor mm_hpu(const at::Tensor& mat1, const at::Tensor& mat2) {
   PT_KERNEL_BEGIN;
 
   const auto device_id = mat1.device().index();
@@ -278,13 +177,83 @@ at::Tensor matmul_hpu(const at::Tensor& mat1, const at::Tensor& mat2) {
   return out.at(0);
 }
 
-Tensor matmul_with_bias_hpu(
+void habana::AddmmOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 5,
+      "Incorrect size of inputs expected for addmm operator");
+  TORCH_CHECK(inputs[0].isTensor(), "Input arg0 expected to be tensor");
+  TORCH_CHECK(inputs[1].isTensor(), "Input arg1 expected to be tensor");
+  TORCH_CHECK(inputs[2].isTensor(), "Input arg2 expected to be tensor");
+  TORCH_CHECK(inputs[3].isScalar(), "Input arg3 expected to be scalar");
+  TORCH_CHECK(inputs[4].isScalar(), "Input arg4 expected to be scalar");
+
+  auto self = inputs[0].toTensor();
+  auto mat1 = inputs[1].toTensor();
+  auto mat2 = inputs[2].toTensor();
+  auto beta = inputs[3].toScalar();
+  auto alpha = inputs[4].toScalar();
+
+  // TODO: implement support for non-default scalars
+  TORCH_CHECK(
+      beta.to<int>() == 1,
+      "matmul_with_bias_hpu doesn't support non-default scalars yet");
+  TORCH_CHECK(
+      alpha.to<int>() == 1,
+      "matmul_with_bias_hpu doesn't support non-default scalars yet");
+
+  auto device_id = p_context_->device_id_;
+
+  habana::MMOperator mm_op(device_id);
+  // input1 = mat1, input2 = mat2
+  auto& syn_arg1 = mm_op.SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
+  auto& syn_arg2 = mm_op.SetSynapseInput(std::move(p_context_->syn_inputs_[2]));
+  torch::jit::Stack stack1 = {c10::IValue(mat1), c10::IValue(mat2)};
+  mm_op.AllocateAndAddSynapseNode(graph, stack1, false);
+  // Restore original syn_inputs because these will be used in compile in eager
+  // mode
+  p_context_->syn_inputs_[1] = std::move(syn_arg1);
+  p_context_->syn_inputs_[2] = std::move(syn_arg2);
+
+  auto output = at::empty({mat1.size(0), mat2.size(1)}, mat1.options());
+  AllocateSynapseOutput(graph, output, is_output_persistent);
+
+  // TBD: Replace this with add.AllocateAndAddSynapseNode() once support for
+  // ignoring alpha=1.0 is added
+  synapse_helpers::tensor& syn_arg1_add = p_context_->syn_inputs_[0];
+  synapse_helpers::tensor& syn_arg2_add = mm_op.GetSynOutputs()[0];
+  std::vector<synTensor> syn_inputs{syn_arg1_add.get(), syn_arg2_add.get()};
+  synapse_helpers::tensor& syn_out_add = p_context_->syn_outputs_[0];
+  std::vector<synTensor> syn_outputs{syn_out_add.get()};
+  std::string guid_ =
+      "add_fwd_" + habana_helpers::name_suffix_from_type(mat1.scalar_type());
+  graph.add_node(
+      std::move(syn_inputs),
+      std::move(syn_outputs),
+      nullptr,
+      0,
+      std::move(guid_));
+}
+
+/*****************************************************************************************************
+ *@brief Implements torch.addmm(input, mat1, mat2, *, beta=1, alpha=1, out=None)
+ *→ Tensor
+ *@param self : matrix to be added
+ *@param mat1 : the first matrix to be multiplied
+ *@param mat2 : the second matrix to be multiplied
+ *@param beta : multiplier for input (β)
+ *@param alpha : multiplier for mat1 @ mat2mat1@mat2 (α)
+ *****************************************************************************************************/
+Tensor addmm_hpu(
     const Tensor& self,
     const Tensor& mat1,
     const Tensor& mat2,
     Scalar beta,
     Scalar alpha) {
   PT_KERNEL_BEGIN;
+
   check_matmul_params(mat1, mat2, &self);
   TORCH_CHECK(
       self.sizes().size() == 1,
@@ -298,25 +267,51 @@ Tensor matmul_with_bias_hpu(
       " vs ",
       mat2.size(1));
 
-  auto output = at::empty({mat1.size(0), mat2.size(1)}, mat1.options());
+  const auto device_id = mat1.device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  ScalarType scalar_type = mat1.scalar_type();
 
   // Note: bias expanded has rank equal to output, but we don't need to actually
   // broadcast data. Putting ones in additional dimensions is enaugh for synapse
   // to handle bcast for us.
-  // I am not sure if changing sizes here (tensor metadata) is safe. If
-  // something will fail because of that, than you should try to just
-  // copy tensor (tensor is metada, not storage) and changed dimensions
-  // of copy. Another option is just handling this case inside
-  // synapse_matmul
+  // TBD: Remove this when Add.AllocateAndAddSynapseNode() starts supporting
+  // this expansion of dimensions.
+  auto output = at::empty({mat1.size(0), mat2.size(1)}, mat1.options());
   Tensor bias_expanded;
   auto bias_expanded_sizes = std::vector<int64_t>(output.ndimension(), 1);
   bias_expanded_sizes[output.ndimension() - 1] = self.sizes()[0];
   std::tie(bias_expanded) =
       at::expand_size(self, bias_expanded_sizes, "matmul_with_bias_hpu");
-  synapse_matmul(output, mat1, mat2, bias_expanded, beta, alpha);
 
+  std::string node_type =
+      "gemm_add_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+
+  habana::AddmmOperator op(device_id, node_type);
+
+  std::vector<const at::Tensor*> inputs = {&bias_expanded, &mat1, &mat2};
+  torch::jit::Stack stack = {IValue(bias_expanded),
+                             IValue(mat1),
+                             IValue(mat2),
+                             IValue(beta),
+                             IValue(alpha)};
+
+  size_t key = op.GetRecipeKey(node_type, stack);
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    op.SetPTInputs(inputs);
+    op.SetPTOutput(output);
+    op.Execute(key);
+  } else {
+    PT_KERNEL_DEBUG("Key:", key);
+    auto graph = habana_helpers::create_graph(device_id, node_type);
+    op.AllocateSynapseInputs(graph, inputs, true);
+    op.AllocateAndAddSynapseNode(graph, stack, true);
+    op.Compile(graph);
+  }
+  std::vector<at::Tensor> out = op.GetOutputs();
+  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
   PT_KERNEL_END;
-  return output;
+  return out.at(0);
 }
 
 /*****************************************************************************************************
@@ -458,15 +453,14 @@ static auto registry =
     torch::RegisterOperators()
         .op(torch::RegisterOperators::options()
                 .schema("aten::mm(Tensor self, Tensor mat2) -> Tensor")
-                .impl_unboxedOnlyKernel<decltype(matmul_hpu), &matmul_hpu>(
+                .impl_unboxedOnlyKernel<decltype(mm_hpu), &mm_hpu>(
                     DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema(
                     "aten::addmm(Tensor self, Tensor mat1, Tensor mat2, *, Scalar beta = 1, Scalar alpha = 1) ->Tensor")
-                .impl_unboxedOnlyKernel<
-                    decltype(matmul_with_bias_hpu),
-                    &matmul_with_bias_hpu>(DispatchKey::HABANATensorId)
+                .impl_unboxedOnlyKernel<decltype(addmm_hpu), &addmm_hpu>(
+                    DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema(

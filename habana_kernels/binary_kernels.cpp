@@ -433,12 +433,7 @@ Tensor process_generic_tensor_add_op(
   size_t device_id = pt_inputs[0]->device().index();
   at::ScalarType scalar_type = pt_inputs[0]->scalar_type();
 
-  // can we hard code _fwd_ ?
-  std::string node_type = (SynapsePassType::NO_PASS == pass_type) ? node_guid
-                                                                  : node_guid +
-          std::string((SynapsePassType::FORWARD_PASS == pass_type) ? "_fwd_"
-                                                                   : "_bwd_") +
-          habana_helpers::name_suffix_from_type(scalar_type);
+  std::string node_type = node_guid + "_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
 
   habana::AddOperator op(device_id, scalar_type);
 
