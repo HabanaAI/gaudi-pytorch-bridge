@@ -15,15 +15,15 @@ test_case_list = [
 
 cat_op_list = [
     # op, op params dict
-    (torch.cat, {'tensors': (torch.randn(8, 3, 24, 24), torch.randn(8, 3, 24, 24)),
+    (torch.cat, {'tensors': (torch.randn(8, 3, 24, 24), torch.randn(8, 3, 24, 12)),
                 'dim': 3}),
     (torch.cat, {'tensors': (torch.randn(8, 3, 24, 24), torch.randn(8, 3, 24, 24)),
                 'dim': -1}),
-    (torch.cat, {'tensors':(torch.randn(8, 3, 24, 24), torch.randn(8, 3, 24, 24)),
+    (torch.cat, {'tensors':(torch.randn(8, 3, 24, 24), torch.randn(8, 3, 24, 12), torch.randn(8, 3, 24, 4)),
                 'out': torch.randn(8, 3, 24, 24),
                 'dim': 3}),
     (torch.cat, {'tensors':(torch.randn(8, 3, 24, 24), torch.randn(8, 3, 24, 24)),
-                'out': torch.randn(8, 3, 24, 24),
+                'out': torch.randn(8, 3),
                 'dim': 3}),
 ]
 

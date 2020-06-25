@@ -16,9 +16,9 @@
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_helpers/logging.h"
 #include "habana_helpers/tensor_utils.h"
-#include "habana_kernels/simple_generic_kernel.h"
 #include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/resize.h"
+#include "habana_kernels/simple_generic_kernel.h"
 
 using namespace torch;
 

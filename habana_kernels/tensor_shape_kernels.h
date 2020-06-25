@@ -11,6 +11,45 @@
 #include "habana_kernels/habana_operator.h"
 
 //
+// Cat Operator
+class CatOutOperator : public habana::HabanaOperator {
+ public:
+  CatOutOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator("concat") {
+    this->CreateSynContext(device_id);
+  }
+
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+
+  virtual void SetPTOutput(torch::jit::Stack& inputs);
+
+ private:
+  void validate_tensor_dim_sizes(const at::TensorList tensors, int64_t dim);
+  at::Tensor CheckAllocateOutput(torch::jit::Stack& inputs);
+};
+
+class CatOperator : public CatOutOperator {
+ public:
+  CatOperator(int device_id, c10::ScalarType scalarType)
+      : CatOutOperator(device_id, scalarType) {
+    this->CreateSynContext(device_id);
+  }
+
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+
+  virtual void SetPTOutput(torch::jit::Stack& inputs);
+
+ private:
+  at::Tensor CheckAllocateOutput(torch::jit::Stack& inputs);
+};
+
+//
 // Permute Operator
 class PermuteOperator : public habana::HabanaOperator {
  public:
