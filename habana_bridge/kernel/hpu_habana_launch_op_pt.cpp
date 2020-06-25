@@ -464,6 +464,7 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
       handleMetaOps(node);
       continue;
     }
+
     // Get kernel context
     habana::HabanaOperatorPtr HabanaKernel = habana::CreateHabanaOperator(
         device_id, node->kind().toQualString(), getNodeScalarType(node));
@@ -641,9 +642,12 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
   // habana device, we should assert
   bool is_all_hpu = true;
   for (auto &input : input_refs) {
-    is_all_hpu = input.toTensor().device().type() != c10::DeviceType::HABANA
+    if(input.isTensor())
+    {
+        is_all_hpu = input.toTensor().device().type() != c10::DeviceType::HABANA
         ? false
         : is_all_hpu;
+    }
   }
 
   // We dont support running some ops on CPU while running fused op on Habana

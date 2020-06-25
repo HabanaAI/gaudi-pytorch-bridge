@@ -47,6 +47,8 @@ HabanaOperatorPtr CreateHabanaOperator(
     op = std::make_shared<MaxPool2dOperator>(device_id, node_type);
   } else if ("aten::permute" == node_name) {
     op = std::make_shared<PermuteOperator>(device_id, node_type);
+  } else if ("aten::reshape" == node_name) {
+    op = std::make_shared<ReshapeOperator>(device_id, node_type);
   } else if ("aten::t" == node_name) {
     op = std::make_shared<TOperator>(device_id, node_type);
   } else if ("aten::mul" == node_name) {
@@ -54,7 +56,7 @@ HabanaOperatorPtr CreateHabanaOperator(
   } else if ("aten::div" == node_name) {
     op = std::make_shared<DivOperator>(device_id, node_type);
   }
-  // TODO: Currently, add op extended with HabanaOperator functions fine 
+  // TODO: Currently, add op extended with HabanaOperator functions fine
   // for eager mode; however, it needs more work (involving view size adjustment)
   // before it can be enabled for graph mode.
   /* else if ("aten::add" == node_name) {

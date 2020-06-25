@@ -22,6 +22,21 @@ class PermuteOperator : public habana::HabanaOperator {
 };
 
 //
+// Reshape Operator
+class ReshapeOperator : public habana::HabanaOperator {
+ public:
+  ReshapeOperator(int device_id, c10::ScalarType scalarType)
+    : HabanaOperator(
+          "reshape") {
+  this->CreateSynContext(device_id);
+}
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false);
+};
+
+//
 // Transpose Operator
 class TransposeOperator : public habana::HabanaOperator {
  public:

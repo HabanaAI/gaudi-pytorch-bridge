@@ -607,6 +607,32 @@ Tensor permute_hpu(const Tensor& self, IntArrayRef dims_) {
   return ret;
 }
 
+
+/*************************************************************************
+ * @brief Kernel implementation for torch.Tensor.reshape
+ * @param self - input on which reshape needs to be applied
+ * @param shape - reshape  shape array
+ ************************************************************************/
+void ReshapeOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 2,
+      "Incorrect size of input arguments for Reshape Operator");
+  Tensor self = inputs[0].toTensor();
+  TORCH_CHECK(
+        self.is_contiguous(),
+        "Right now Reshape is only supported for contiguous Tensor.");
+
+  auto shape = inputs[1].toIntList();
+  auto output = at::empty(shape.vec(), self.options(), c10::nullopt);
+  TORCH_CHECK(self.numel() == output.numel(),
+               "Reshape doesnt support change in number of elements");
+  p_context_->params_size_ = 0;
+  AllocateSynapseOutput(graph, output, is_output_persistent);
+  AddNodeToSynapseGraph(graph, NULL , 0);
+}
 /*************************************************************************
  * @brief Kernel implementation for torch.Tensor.expand(*sizes)
  * @param self - input that needs to be expanded to a larger size.

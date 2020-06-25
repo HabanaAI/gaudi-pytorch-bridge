@@ -71,6 +71,7 @@ const std::unordered_set<std::string> HabanaWhiteList::HabanaWhiteListOps = {
         "aten::topk",
         "aten::relu_",
         "aten::relu",
+        "aten::reshape",
         "prim::Constant"
 };
 
