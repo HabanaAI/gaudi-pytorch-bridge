@@ -12,7 +12,6 @@
 #include "HPUAllocator.h"
 #include "HPUCheck.h"
 #include "HPUGuardImpl.h"
-#include "habana_helpers/logging.h"
 #include "hpu_cached_devices.h"
 
 namespace at {
@@ -21,6 +20,13 @@ namespace habana {
 synDeviceId HPUDeviceAllocator::allocator_active_device_id = -1;
 
 static HPUDeviceAllocator hpu_device_allocator;
+
+// pool variables
+SubAllocator *HPUDeviceAllocator::suballoc = nullptr;
+void* HPUDeviceAllocator::mem_pool = nullptr;
+PoolStrategyType HPUDeviceAllocator::poolingType = strategy_none;
+size_t HPUDeviceAllocator::poolSize = DEFAULT_POOL_SIZE;
+///
 
 at::Allocator* getHABANADeviceAllocator() {
   return &hpu_device_allocator;
@@ -107,20 +113,69 @@ void HPUAllocator::free(void* ptr) {
   TORCH_HABANA_CHECK(status, "synDeviceFree failed");
 }
 
-HPUDeviceAllocator::HPUDeviceAllocator() = default;
+void HPUDeviceAllocator::create_pool(synDeviceId deviceID, size_t poolSize) {
+  switch (poolingType)
+  {
+    case strategy_bump:
+      if (!mem_pool) {
+        suballoc = new SubAllocator(new StaticPooling);
+        mem_pool = suballoc->pool_create(deviceID, poolSize);
+        if (mem_pool == nullptr) {
+          PT_DEVICE_FATAL("unable to create pool");
+        }
+      }
+    break;
+    case strategy_dynamic:
+      if (!suballoc) {
+        suballoc = new SubAllocator(new DynamicPooling);
+        mem_pool = suballoc->pool_create(deviceID, poolSize);
+      }
+    break;
+    case strategy_none:
+    default:
+      suballoc = nullptr;
+      mem_pool = nullptr;
+    break;
+  }
+}
+
+void HPUDeviceAllocator::delete_pool() {
+  suballoc->pool_destroy(mem_pool);
+  delete suballoc;
+  mem_pool = nullptr;
+  suballoc = nullptr;
+}
+
+HPUDeviceAllocator::HPUDeviceAllocator() {
+  mem_pool = nullptr;
+  suballoc = nullptr;
+  poolingType = get_pooling_strategy();
+  poolSize = get_pool_size();
+}
+
+HPUDeviceAllocator::~HPUDeviceAllocator() {
+  if (poolingType != strategy_none) {
+    delete_pool();
+  }
+}
 
 void HPUDeviceAllocator::deleter(void* ptr) {
   if (nullptr == ptr) {
     return;
   }
-  uint64_t ptr_address{reinterpret_cast<uint64_t>(ptr)};
-  TORCH_CHECK(
-      habana::HPUDeviceAllocator::allocator_active_device_id == 0,
-      "habana active device: ",
-      habana::HPUDeviceAllocator::allocator_active_device_id,
-      " != 0");
-  auto status{synDeviceFree(allocator_active_device_id, ptr_address, 0)};
-  TORCH_HABANA_CHECK(status, "synDeviceFree failed");
+
+  if (poolingType != strategy_none) {
+    suballoc->pool_free_chunk(ptr);
+  } else {
+      uint64_t ptr_address{reinterpret_cast<uint64_t>(ptr)};
+      TORCH_CHECK(
+          habana::HPUDeviceAllocator::allocator_active_device_id == 0,
+          "habana active device: ",
+          habana::HPUDeviceAllocator::allocator_active_device_id,
+          " != 0");
+      auto status{synDeviceFree(allocator_active_device_id, ptr_address, 0)};
+      TORCH_HABANA_CHECK(status, "synDeviceFree failed");
+  }
 }
 
 at::DataPtr HPUDeviceAllocator::allocate(size_t size) const {
@@ -134,16 +189,25 @@ at::DataPtr HPUDeviceAllocator::allocate(size_t size) const {
         "habana active device: ",
         habana::HPUDeviceAllocator::allocator_active_device_id,
         " != 0");
-    auto status{
-        synDeviceMalloc(allocator_active_device_id, num_bytes, 0, 0, &ptr)};
-    v_ptr = reinterpret_cast<void*>(ptr);
+    if (poolingType != strategy_none) {
+        create_pool(allocator_active_device_id, poolSize);
+        ptr = (uint64_t)suballoc->pool_alloc_chunk(mem_pool, num_bytes);
+        if ((void*)ptr == nullptr) {
+          PT_DEVICE_FATAL("pooling allocator failed");
+        }
+        v_ptr = reinterpret_cast<void*>(ptr);
+    } else {        
+        auto status{
+          synDeviceMalloc(allocator_active_device_id, num_bytes, 0, 0, &ptr)};
+        v_ptr = reinterpret_cast<void*>(ptr);
 
-    if (v_ptr == nullptr) {
-      waitTillRecipeExecution(allocator_active_device_id, num_bytes, v_ptr);
-      if (v_ptr == nullptr) {
-        TORCH_HABANA_CHECK(
-            status, "synDeviceMalloc failed to allocate ", num_bytes, " bytes");
-      }
+        if (v_ptr == nullptr) {
+          waitTillRecipeExecution(allocator_active_device_id, num_bytes, v_ptr);
+          if (v_ptr == nullptr) {
+             TORCH_HABANA_CHECK(
+                status, "synDeviceMalloc failed to allocate ", num_bytes, " bytes");
+          }
+        }
     }
   }
 
