@@ -18,6 +18,8 @@ class ConvOperator : public habana::HabanaOperator {
       torch::jit::Stack& inputs,
       bool is_output_persistent = false);
 
+  virtual void SetPTOutputs(torch::jit::Stack& inputs);
+
  private:
   c10::ScalarType scalarType_;
   std::vector<synapse_helpers::tensor_or_ref> tensors_;

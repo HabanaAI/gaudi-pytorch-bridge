@@ -158,21 +158,31 @@ Tensor& relu_hpu_(Tensor& self) {
 
   // Create the operator
   size_t device_id = self.device().index();
-  ReluInplaceOperator Op(device_id, node_type);
-
-  // Create Graph
-  auto graph = habana_helpers::create_graph(device_id, node_type);
-
-  // Assign Inputs to the Operator
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
   std::vector<const at::Tensor*> pt_inputs{&self};
-  Op.AllocateSynapseInputs(graph, pt_inputs, true);
-
   // Build Params for the graph
   std::vector<c10::IValue> stack = {IValue(self)};
-  Op.AllocateAndAddSynapseNode(graph, stack, true);
+  ReluInplaceOperator Op(device_id, node_type);
+  size_t key = Op.GetRecipeKey(node_type, stack, true);
 
-  // compile and execute the graph
-  Op.Compile(graph);
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    Op.SetPTInputs(pt_inputs);
+    Op.SetPTOutput(*pt_inputs[0]);
+    Op.Execute(key);
+  } else {
+    PT_KERNEL_DEBUG("Key:", key);
+    // Create Graph
+    auto graph = habana_helpers::create_graph(device_id, node_type);
+
+    // Assign Inputs to the Operator
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
+
+    Op.AllocateAndAddSynapseNode(graph, stack, true);
+
+    // compile and execute the graph
+    Op.Compile(graph);
+  }
 
   std::vector<at::Tensor> out = Op.GetOutputs();
   TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");

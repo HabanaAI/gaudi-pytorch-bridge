@@ -147,6 +147,39 @@ void ConvOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
+void ConvOperator::SetPTOutputs(torch::jit::Stack& inputs) {
+  at::Tensor input = inputs[0].toTensor();
+  at::Tensor weight = inputs[1].toTensor();
+  const auto stride = inputs[3].toIntList().vec();
+  const auto padding = inputs[4].toIntList().vec();
+  const auto dilation = inputs[5].toIntList().vec();
+  const auto output_padding = inputs[7].toIntList().vec();
+  // input, output NCHW
+  // weight KCHW, where K - output channels
+  // pad, stride HW
+  const int64_t N = input.size(0);
+  const int64_t input_H = input.size(1);
+  const int64_t input_W = input.size(2);
+  const int64_t K = weight.size(3);
+  const int64_t filter_H = weight.size(0);
+  const int64_t filter_W = weight.size(1);
+  const int64_t stride_H = stride[0];
+  const int64_t stride_W = stride[1];
+  const int64_t pad_H = padding[0];
+  const int64_t pad_W = padding[1];
+  const auto output_H = habana_helpers::compute_output_size(
+      input_H, pad_H, filter_H, stride_H, false);
+  const auto output_W = habana_helpers::compute_output_size(
+      input_W, pad_W, filter_W, stride_W, false);
+
+  c10::MemoryFormat memory_format =
+      habana_helpers::get_memory_format({&input, &weight});
+
+  auto output =
+      at::empty({N, output_H, output_W, K}, input.options(), memory_format);
+  HabanaOperator::SetPTOutputs({output});
+}
+
 Tensor convolution_hpu(
     const Tensor& input,
     const Tensor& weight,
@@ -203,27 +236,8 @@ Tensor convolution_hpu(
 
     if (device.get_recipe_handle_cache().isCached(key)) {
       PT_KERNEL_DEBUG("Cache hit key:", key);
-      const int64_t N = input_nhwc.size(0);
-      const int64_t input_H = input_nhwc.size(1);
-      const int64_t input_W = input_nhwc.size(2);
-      const int64_t K = weight_hwck.size(3);
-      const int64_t filter_H = weight_hwck.size(0);
-      const int64_t filter_W = weight_hwck.size(1);
-      const int64_t stride_H = stride[0];
-      const int64_t stride_W = stride[1];
-      const int64_t pad_H = padding[0];
-      const int64_t pad_W = padding[1];
-      const auto output_H = habana_helpers::compute_output_size(
-          input_H, pad_H, filter_H, stride_H, false);
-      const auto output_W = habana_helpers::compute_output_size(
-          input_W, pad_W, filter_W, stride_W, false);
-
-      c10::MemoryFormat memory_format =
-          habana_helpers::get_memory_format({&input_nhwc, &weight_hwck});
-      auto output =
-          at::empty({N, output_H, output_W, K}, input.options(), memory_format);
       Op.SetPTInputs(pt_inputs);
-      Op.SetPTOutput(output);
+      Op.SetPTOutputs(stack);
       Op.Execute(key);
     } else {
       PT_KERNEL_DEBUG("key:", key);

@@ -119,6 +119,27 @@ ScalarType get_dtype(
 }*/
 } // namespace
 
+void ReduceOperator::SetPTOutputs(torch::jit::Stack& inputs) {
+  Tensor output = inputs[0].toTensor();
+  Tensor self = inputs[1].toTensor();
+  auto dim = inputs[2].toIntList();
+  bool keepdim = inputs[3].toBool();
+  auto dtype = inputs[4].toOptional<ScalarType>();
+
+  int64_t data[dim.size()];
+  std::copy(dim.begin(), dim.end(), data);
+  IntArrayRef dim_arr(data, dim.size());
+  auto ndim = self.dim();
+  auto mask = make_dim_mask(dim_arr, ndim);
+
+  allocate_reduction_result(
+      output, self, mask, keepdim, get_dtype(output, self, dtype, false));
+  TORCH_CHECK(
+      output.scalar_type() == self.scalar_type(),
+      "Habana reduction ops don't support casts yet");
+  HabanaOperator::SetPTOutputs({output});
+}
+
 void ReduceOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
@@ -224,8 +245,7 @@ void SumDimOperator::AllocateAndAddSynapseNode(
       inputs[1].isIntList(),
       "Input arg3 expected to be IntList for SumDim operator");
   TORCH_CHECK(
-      inputs[2].isBool(),
-      "Input arg4 expected to be Bool for SumDim operator");
+      inputs[2].isBool(), "Input arg4 expected to be Bool for SumDim operator");
 
   Tensor self = inputs[0].toTensor();
   auto dim = inputs[1].toIntList();
@@ -239,7 +259,14 @@ void SumDimOperator::AllocateAndAddSynapseNode(
   Tensor output;
   inputs.insert(inputs.begin(), IValue(output));
 
-  ReduceOperator::AllocateAndAddSynapseNode(graph, inputs, is_output_persistent);
+  ReduceOperator::AllocateAndAddSynapseNode(
+      graph, inputs, is_output_persistent);
+}
+
+void SumDimOperator::SetPTOutputs(torch::jit::Stack& inputs) {
+  Tensor output;
+  inputs.insert(inputs.begin(), IValue(output));
+  ReduceOperator::SetPTOutputs(inputs);
 }
 
 Tensor sum_dim_IntList_hpu(
@@ -255,24 +282,32 @@ Tensor sum_dim_IntList_hpu(
 
   // Create the operator
   size_t device_id = self.device().index();
-  SumDimOperator Op(device_id, node_type);
-
-  // Create Graph
-  auto graph = habana_helpers::create_graph(device_id, node_type);
-
-  // Assign Inputs to the Operator
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
   std::vector<const at::Tensor*> pt_inputs{&self};
-  Op.AllocateSynapseInputs(graph, pt_inputs, true);
+  std::vector<c10::IValue> stack = {
+      IValue(self), IValue(dim), IValue(keepdim), IValue(dtype)};
+  // Create the operator
+  SumDimOperator Op(device_id, node_type);
+  size_t key = Op.GetRecipeKey(node_type, stack);
 
-  // Build Params for the graph
-  std::vector<c10::IValue> stack = {IValue(self),
-                                    IValue(dim),
-                                    IValue(keepdim),
-                                    IValue(dtype)};
-  Op.AllocateAndAddSynapseNode(graph, stack, true);
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    Op.SetPTInputs(pt_inputs);
+    Op.SetPTOutputs(stack);
+    Op.Execute(key);
+  } else {
+    PT_KERNEL_DEBUG("key:", key);
+    // Create Graph
+    auto graph = habana_helpers::create_graph(device_id, node_type);
 
-  // compile and execute the graph
-  Op.Compile(graph);
+    // Assign Inputs to the Operator
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
+
+    Op.AllocateAndAddSynapseNode(graph, stack, true);
+
+    // compile and execute the graph
+    Op.Compile(graph);
+  }
 
   std::vector<at::Tensor> out = Op.GetOutputs();
   TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
@@ -310,7 +345,12 @@ void SumDimOutOperator::AllocateAndAddSynapseNode(
       keepdim || static_cast<int64_t>(dim.size()) != ndim,
       "Reduction to 0d tensor not supported yet");
 
-  ReduceOperator::AllocateAndAddSynapseNode(graph, inputs, is_output_persistent);
+  ReduceOperator::AllocateAndAddSynapseNode(
+      graph, inputs, is_output_persistent);
+}
+
+void SumDimOutOperator::SetPTOutputs(torch::jit::Stack& inputs) {
+  ReduceOperator::SetPTOutputs(inputs);
 }
 
 Tensor& sum_IntList_out_hpu(
@@ -325,32 +365,48 @@ Tensor& sum_IntList_out_hpu(
   std::string node_type =
       "reduce_sum_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
 
-  // Create the operator
   size_t device_id = self.device().index();
-  SumDimOutOperator Op(device_id, node_type);
-
-  // Create Graph
-  auto graph = habana_helpers::create_graph(device_id, node_type);
-
-  // Assign Inputs to the Operator
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
   std::vector<const at::Tensor*> pt_inputs{&self};
-  Op.AllocateSynapseInputs(graph, pt_inputs, true);
-
   // Build Params for the graph
   std::vector<c10::IValue> stack = {IValue(output),
                                     IValue(self),
                                     IValue(dim),
                                     IValue(keepdim),
                                     IValue(dtype)};
-  Op.AllocateAndAddSynapseNode(graph, stack, true);
+  // Create the operator
+  SumDimOutOperator Op(device_id, node_type);
+  size_t key = Op.GetRecipeKey(node_type, stack);
 
-  // compile and execute the graph
-  Op.Compile(graph);
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    Op.SetPTInputs(pt_inputs);
+    Op.SetPTOutputs(stack);
+    Op.Execute(key);
+  } else {
+    PT_KERNEL_DEBUG("key:", key);
+    // Create Graph
+    auto graph = habana_helpers::create_graph(device_id, node_type);
+
+    // Assign Inputs to the Operator
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
+
+    Op.AllocateAndAddSynapseNode(graph, stack, true);
+
+    // compile and execute the graph
+    Op.Compile(graph);
+  }
 
   std::vector<at::Tensor> out = Op.GetOutputs();
   TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
   PT_KERNEL_END;
   return out.at(0);
+}
+
+void MeanDimOperator::SetPTOutputs(torch::jit::Stack& inputs) {
+  Tensor output;
+  inputs.insert(inputs.begin(), IValue(output));
+  ReduceOperator::SetPTOutputs(inputs);
 }
 
 void MeanDimOperator::AllocateAndAddSynapseNode(
@@ -382,7 +438,8 @@ void MeanDimOperator::AllocateAndAddSynapseNode(
   Tensor output;
   inputs.insert(inputs.begin(), IValue(output));
 
-  ReduceOperator::AllocateAndAddSynapseNode(graph, inputs, is_output_persistent);
+  ReduceOperator::AllocateAndAddSynapseNode(
+      graph, inputs, is_output_persistent);
 }
 
 Tensor mean_dim_hpu(
@@ -396,32 +453,46 @@ Tensor mean_dim_hpu(
   std::string node_type =
       "reduce_mean_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
 
-  // Create the operator
   size_t device_id = self.device().index();
-  MeanDimOperator Op(device_id, node_type);
-
-  // Create Graph
-  auto graph = habana_helpers::create_graph(device_id, node_type);
-
-  // Assign Inputs to the Operator
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
   std::vector<const at::Tensor*> pt_inputs{&self};
-  Op.AllocateSynapseInputs(graph, pt_inputs, true);
-
   // Build Params for the graph
-  std::vector<c10::IValue> stack = {IValue(self),
-                                    IValue(dim),
-                                    IValue(keepdim),
-                                    IValue(dtype)};
-  Op.AllocateAndAddSynapseNode(graph, stack, true);
+  std::vector<c10::IValue> stack = {
+      IValue(self), IValue(dim), IValue(keepdim), IValue(dtype)};
+  // Create the operator
+  MeanDimOperator Op(device_id, node_type);
+  size_t key = Op.GetRecipeKey(node_type, stack);
 
-  // compile and execute the graph
-  Op.Compile(graph);
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    Tensor output;
+    Op.SetPTInputs(pt_inputs);
+    Op.SetPTOutputs(stack);
+    Op.Execute(key);
+  } else {
+    PT_KERNEL_DEBUG("key:", key);
+    // Create Graph
+    auto graph = habana_helpers::create_graph(device_id, node_type);
+
+    // Assign Inputs to the Operator
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
+
+    // Add nodes to the graph
+    Op.AllocateAndAddSynapseNode(graph, stack, true);
+
+    // compile and execute the graph
+    Op.Compile(graph);
+  }
 
   std::vector<at::Tensor> out = Op.GetOutputs();
   TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
 
   PT_KERNEL_END;
   return out.at(0);
+}
+
+void MeanDimOutOperator::SetPTOutputs(torch::jit::Stack& inputs) {
+  ReduceOperator::SetPTOutputs(inputs);
 }
 
 void MeanDimOutOperator::AllocateAndAddSynapseNode(
@@ -453,7 +524,8 @@ void MeanDimOutOperator::AllocateAndAddSynapseNode(
       keepdim || static_cast<int64_t>(dim.size()) != ndim,
       "Reduction to 0d tensor not supported yet");
 
-  ReduceOperator::AllocateAndAddSynapseNode(graph, inputs, is_output_persistent);
+  ReduceOperator::AllocateAndAddSynapseNode(
+      graph, inputs, is_output_persistent);
 }
 Tensor& mean_dim_out_hpu(
     Tensor& output,
@@ -467,27 +539,39 @@ Tensor& mean_dim_out_hpu(
   std::string node_type =
       "reduce_mean_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
 
-  // Create the operator
   size_t device_id = self.device().index();
-  MeanDimOutOperator Op(device_id, node_type);
-
-  // Create Graph
-  auto graph = habana_helpers::create_graph(device_id, node_type);
-
-  // Assign Inputs to the Operator
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
   std::vector<const at::Tensor*> pt_inputs{&self};
-  Op.AllocateSynapseInputs(graph, pt_inputs, true);
-
   // Build Params for the graph
   std::vector<c10::IValue> stack = {IValue(output),
                                     IValue(self),
                                     IValue(dim),
                                     IValue(keepdim),
                                     IValue(dtype)};
-  Op.AllocateAndAddSynapseNode(graph, stack, true);
+  // Create the operator
+  MeanDimOutOperator Op(device_id, node_type);
+  size_t key = Op.GetRecipeKey(node_type, stack);
 
-  // compile and execute the graph
-  Op.Compile(graph);
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    Tensor output;
+    Op.SetPTInputs(pt_inputs);
+    Op.SetPTOutputs(stack);
+    Op.Execute(key);
+  } else {
+    PT_KERNEL_DEBUG("key:", key);
+    // Create Graph
+    auto graph = habana_helpers::create_graph(device_id, node_type);
+
+    // Assign Inputs to the Operator
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
+
+    // Add nodes to the graph
+    Op.AllocateAndAddSynapseNode(graph, stack, true);
+
+    // compile and execute the graph
+    Op.Compile(graph);
+  }
 
   std::vector<at::Tensor> out = Op.GetOutputs();
   TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
@@ -500,8 +584,7 @@ void SumOperator::AllocateAndAddSynapseNode(
     torch::jit::Stack& inputs,
     bool is_output_persistent) {
   TORCH_CHECK(
-      inputs.size() == 2,
-      "Incorrect size of inputs expected for Sum operator");
+      inputs.size() == 2, "Incorrect size of inputs expected for Sum operator");
   TORCH_CHECK(
       inputs[0].isTensor(),
       "Input arg1 expected to be tensor for Sum operator");
@@ -518,10 +601,28 @@ void SumOperator::AllocateAndAddSynapseNode(
   bool keepdim = false;
 
   inputs.insert(inputs.begin(), IValue(output));
-  inputs.insert(inputs.begin()+2, IValue(dim));
-  inputs.insert(inputs.begin()+3, IValue(keepdim));
+  inputs.insert(inputs.begin() + 2, IValue(dim));
+  inputs.insert(inputs.begin() + 3, IValue(keepdim));
 
-  ReduceOperator::AllocateAndAddSynapseNode(graph, inputs, is_output_persistent);
+  ReduceOperator::AllocateAndAddSynapseNode(
+      graph, inputs, is_output_persistent);
+}
+
+void SumOperator::SetPTOutputs(torch::jit::Stack& inputs) {
+  Tensor self = inputs[0].toTensor();
+  Tensor output;
+  auto ndim = self.dim();
+  int64_t data[4];
+  for (int i = 0; i < ndim; i++) {
+    data[i] = i;
+  }
+  IntArrayRef dim(data, ndim);
+  bool keepdim = false;
+
+  inputs.insert(inputs.begin(), IValue(output));
+  inputs.insert(inputs.begin() + 2, IValue(dim));
+  inputs.insert(inputs.begin() + 3, IValue(keepdim));
+  ReduceOperator::SetPTOutputs(inputs);
 }
 
 Tensor sum_hpu(const Tensor& self, c10::optional<ScalarType> dtype) {
@@ -531,24 +632,34 @@ Tensor sum_hpu(const Tensor& self, c10::optional<ScalarType> dtype) {
   std::string node_type =
       "reduce_sum_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
 
-  // Create the operator
-  size_t device_id = self.device().index();
-  SumOperator Op(device_id, node_type);
-
-  // Create Graph
-  auto graph = habana_helpers::create_graph(device_id, node_type);
-
-  // Assign Inputs to the Operator
   std::vector<const at::Tensor*> pt_inputs{&self};
-  Op.AllocateSynapseInputs(graph, pt_inputs, true);
+  std::vector<c10::IValue> stack = {IValue(self), IValue(dtype)};
+  size_t device_id = self.device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  // Create the operator
+  SumOperator Op(device_id, node_type);
+  size_t key = Op.GetRecipeKey(node_type, stack);
 
-  // Build Params for the graph
-  std::vector<c10::IValue> stack = {IValue(self),
-                                    IValue(dtype)};
-  Op.AllocateAndAddSynapseNode(graph, stack, true);
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    Op.SetPTInputs(pt_inputs);
+    Op.SetPTOutputs(stack);
+    Op.Execute(key);
+  } else {
+    PT_KERNEL_DEBUG("key:", key);
 
-  // compile and execute the graph
-  Op.Compile(graph);
+    // Create Graph
+    auto graph = habana_helpers::create_graph(device_id, node_type);
+
+    // Assign Inputs to the Operator
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
+
+    // Add nodes to the graph
+    Op.AllocateAndAddSynapseNode(graph, stack, true);
+
+    // compile and execute the graph
+    Op.Compile(graph);
+  }
 
   std::vector<at::Tensor> out = Op.GetOutputs();
   TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
@@ -581,10 +692,28 @@ void MeanOperator::AllocateAndAddSynapseNode(
   bool keepdim = false;
 
   inputs.insert(inputs.begin(), IValue(output));
-  inputs.insert(inputs.begin()+2, IValue(dim));
-  inputs.insert(inputs.begin()+3, IValue(keepdim));
+  inputs.insert(inputs.begin() + 2, IValue(dim));
+  inputs.insert(inputs.begin() + 3, IValue(keepdim));
 
-  ReduceOperator::AllocateAndAddSynapseNode(graph, inputs, is_output_persistent);
+  ReduceOperator::AllocateAndAddSynapseNode(
+      graph, inputs, is_output_persistent);
+}
+
+void MeanOperator::SetPTOutputs(torch::jit::Stack& inputs) {
+  Tensor self = inputs[0].toTensor();
+  Tensor output;
+  auto ndim = self.dim();
+  int64_t data[4];
+  for (int i = 0; i < ndim; i++) {
+    data[i] = i;
+  }
+  IntArrayRef dim(data, ndim);
+  bool keepdim = false;
+
+  inputs.insert(inputs.begin(), IValue(output));
+  inputs.insert(inputs.begin() + 2, IValue(dim));
+  inputs.insert(inputs.begin() + 3, IValue(keepdim));
+  ReduceOperator::SetPTOutputs(inputs);
 }
 
 Tensor mean_hpu(const Tensor& self, c10::optional<ScalarType> dtype) {
@@ -594,24 +723,35 @@ Tensor mean_hpu(const Tensor& self, c10::optional<ScalarType> dtype) {
   std::string node_type =
       "reduce_mean_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
 
-  // Create the operator
   size_t device_id = self.device().index();
-  MeanOperator Op(device_id, node_type);
-
-  // Create Graph
-  auto graph = habana_helpers::create_graph(device_id, node_type);
-
-  // Assign Inputs to the Operator
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
   std::vector<const at::Tensor*> pt_inputs{&self};
-  Op.AllocateSynapseInputs(graph, pt_inputs, true);
-
   // Build Params for the graph
-  std::vector<c10::IValue> stack = {IValue(self),
-                                    IValue(dtype)};
-  Op.AllocateAndAddSynapseNode(graph, stack, true);
+  std::vector<c10::IValue> stack = {IValue(self), IValue(dtype)};
+  // Create the operator
+  MeanOperator Op(device_id, node_type);
+  size_t key = Op.GetRecipeKey(node_type, stack);
 
-  // compile and execute the graph
-  Op.Compile(graph);
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    Tensor output;
+    Op.SetPTInputs(pt_inputs);
+    Op.SetPTOutputs(stack);
+    Op.Execute(key);
+  } else {
+    PT_KERNEL_DEBUG("key:", key);
+    // Create Graph
+    auto graph = habana_helpers::create_graph(device_id, node_type);
+
+    // Assign Inputs to the Operator
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
+
+    // Add nodes to the graph
+    Op.AllocateAndAddSynapseNode(graph, stack, true);
+
+    // compile and execute the graph
+    Op.Compile(graph);
+  }
 
   std::vector<at::Tensor> out = Op.GetOutputs();
   TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");

@@ -33,7 +33,7 @@ struct RecipeSignature {
     // if inplace is true add the value, normal and inplace operation
     // may have the same node and inputs. since the kernel generated
     // are different, need to do this.
-    hash_ += in_place;
+    hash_ = torch::hash_combine(hash_, in_place);
     const int32_t num_inputs = inputs.size();
     for (int32_t i = 0; i < num_inputs; i++) {
       if (!inputs[i].isTensor()) {
@@ -43,7 +43,7 @@ struct RecipeSignature {
           hash_ = torch::hash_combine(hash_, valhash(val));
         } else if (inputs[i].isBool()) {
           bool val = inputs[i].toBool();
-          hash_ += val;
+          hash_ = torch::hash_combine(hash_, val);
         } else if (inputs[i].isDouble()) {
           double val = inputs[i].toDouble();
           std::hash<double> valhash;
@@ -56,7 +56,7 @@ struct RecipeSignature {
               std::hash<int> valhash;
               hash_ = torch::hash_combine(hash_, valhash(val));
             } else if (v.isBool()) {
-              hash_ += v.toBool();
+              hash_ = torch::hash_combine(hash_, v.toBool());
             } else if (v.isDouble()) {
               double val = v.toDouble();
               std::hash<double> valhash;

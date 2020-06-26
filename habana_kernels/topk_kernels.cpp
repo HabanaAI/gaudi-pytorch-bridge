@@ -120,6 +120,19 @@ void TopkOutOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
+void TopkOutOperator::SetPTOutputs(torch::jit::Stack& inputs) {
+  auto values = inputs[0].toTensor();
+  auto indices = inputs[1].toTensor();
+  auto self = inputs[2].toTensor();
+  int64_t k = inputs[3].toInt();
+  int64_t dim_ = inputs[4].toInt();
+
+  int64_t dim = at::maybe_wrap_dim(dim_, self.dim(), /*wrap_scalar=*/true);
+  _allocate_or_resize_output_with_indices(values, indices, self, dim, k);
+
+  HabanaOperator::SetPTOutputs({values, indices});
+}
+
 std::tuple<Tensor&, Tensor&> topk_out_hpu(
     Tensor& values,
     Tensor& indices,
@@ -147,11 +160,8 @@ std::tuple<Tensor&, Tensor&> topk_out_hpu(
   std::vector<const at::Tensor*> pt_inputs{&self};
   if (device.get_recipe_handle_cache().isCached(key)) {
     PT_KERNEL_DEBUG("Cache hit key:", key);
-    int64_t dim = at::maybe_wrap_dim(dim_, self.dim(), /*wrap_scalar=*/true);
-    _allocate_or_resize_output_with_indices(values, indices, self, dim, k);
-    std::vector<at::Tensor> outputs{values, indices};
     Op.SetPTInputs(pt_inputs);
-    Op.SetPTOutputs(outputs);
+    Op.SetPTOutputs(stack);
     Op.Execute(key);
   } else {
     PT_KERNEL_DEBUG("Key:", key);
@@ -197,6 +207,16 @@ void TopkOperator::AllocateAndAddSynapseNode(
       graph, inputs, is_output_persistent);
 }
 
+void TopkOperator::SetPTOutputs(torch::jit::Stack& inputs) {
+  Tensor self = inputs[0].toTensor();
+  Tensor values = at::empty({0}, self.options());
+  Tensor indices = at::empty({0}, self.options().dtype(c10::ScalarType::Int));
+
+  inputs.insert(inputs.begin(), IValue(indices));
+  inputs.insert(inputs.begin(), IValue(values));
+
+  TopkOutOperator::SetPTOutputs(inputs);
+}
 std::tuple<Tensor, Tensor> topk_hpu(
     const Tensor& self,
     int64_t k,
@@ -218,13 +238,8 @@ std::tuple<Tensor, Tensor> topk_hpu(
   std::vector<const at::Tensor*> pt_inputs{&self};
   if (device.get_recipe_handle_cache().isCached(key)) {
     PT_KERNEL_DEBUG("Cache hit key:", key);
-    Tensor values = at::empty({0}, self.options());
-    Tensor indices = at::empty({0}, self.options().dtype(c10::ScalarType::Int));
-    int64_t dim_ = at::maybe_wrap_dim(dim, self.dim(), /*wrap_scalar=*/true);
-    _allocate_or_resize_output_with_indices(values, indices, self, dim_, k);
-    //std::vector<at::Tensor> outputs{values, indices};
     Op.SetPTInputs(pt_inputs);
-    Op.SetPTOutputs({values, indices});
+    Op.SetPTOutputs(stack);
     Op.Execute(key);
   } else {
     PT_KERNEL_DEBUG("Key:", key);
@@ -288,6 +303,24 @@ void SortOperator::AllocateAndAddSynapseNode(
       graph, inputs, is_output_persistent);
 }
 
+void SortOperator::SetPTOutputs(torch::jit::Stack& inputs) {
+  Tensor self = inputs[0].toTensor();
+  int64_t dim_ = inputs[1].toInt();
+  bool sorted = true; // topk supports only sorted output
+
+  int64_t dim = at::maybe_wrap_dim(dim_, self.dim(), /*wrap_scalar=*/true);
+  inputs.insert(inputs.begin() + 1, IValue(self.size(dim)));
+  inputs.emplace_back(IValue(sorted));
+
+  Tensor values = at::empty({0}, self.options());
+  Tensor indices = at::empty({0}, self.options().dtype(c10::ScalarType::Int));
+
+  inputs.insert(inputs.begin(), IValue(indices));
+  inputs.insert(inputs.begin(), IValue(values));
+
+  TopkOutOperator::SetPTOutputs(inputs);
+}
+
 /*************************************************************************
  * @brief Kernel implementation for sort OP
  *        out_sorted, out_indices = torch.sort(self, dim, descending)
@@ -317,13 +350,8 @@ std::tuple<Tensor, Tensor> sort_hpu(
   std::vector<const at::Tensor*> pt_inputs{&self};
   if (device.get_recipe_handle_cache().isCached(key)) {
     PT_KERNEL_DEBUG("Cache hit key:", key);
-    Tensor values = at::empty({0}, self.options());
-    Tensor indices = at::empty({0}, self.options().dtype(c10::ScalarType::Int));
-    int64_t dim_ = at::maybe_wrap_dim(dim, self.dim(), /*wrap_scalar=*/true);
-    _allocate_or_resize_output_with_indices(
-        values, indices, self, dim_, self.size(dim_));
     Op.SetPTInputs(pt_inputs);
-    Op.SetPTOutputs({values, indices});
+    Op.SetPTOutputs(stack);
     Op.Execute(key);
   } else {
     PT_KERNEL_DEBUG("Key:", key);

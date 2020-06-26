@@ -287,6 +287,55 @@ void MaxPool2dWithIndicesBackwardOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, &syn_pool_params, sizeof(syn_pool_params));
 }
 
+void MaxPool2dWithIndicesOperator::SetPTOutputs(torch::jit::Stack& inputs) {
+  at::Tensor input = inputs[0].toTensor();
+  const auto kernel_size = inputs[1].toIntList().vec();
+  const auto stride = inputs[2].toIntList().vec();
+  const auto padding = inputs[3].toIntList().vec();
+  const auto dilation = inputs[4].toIntList().vec();
+  bool ceil_mode = inputs[5].toBool();
+
+  auto out_shape = compute_output_shape(
+      input, kernel_size, stride, padding, dilation, ceil_mode, true);
+
+  // Setup output tensors
+  auto output_nhwc = at::empty(
+      {out_shape[0], out_shape[1], out_shape[2], out_shape[3]},
+      input.options());
+
+  // NOTE: cpu and cuda implementations hold indices as kLong (int64). I am
+  // using uint8 (to match TPC kernel requirement)
+  auto output_idx_nhwc = at::empty(
+      {out_shape[0], out_shape[1], out_shape[2], out_shape[3]},
+      input.options().dtype(kByte));
+  HabanaOperator::SetPTOutputs({output_idx_nhwc, output_nhwc});
+}
+
+void MaxPool2dWithIndicesBackwardOperator::SetPTOutputs(
+    torch::jit::Stack& inputs) {
+  at::Tensor grad_input = inputs[0].toTensor();
+  at::Tensor grad_out = inputs[1].toTensor();
+  at::Tensor input = inputs[2].toTensor();
+  at::Tensor indices = inputs[3].toTensor();
+  const auto kernel_size = inputs[4].toIntList().vec();
+  const auto stride = inputs[5].toIntList().vec();
+  const auto padding = inputs[6].toIntList().vec();
+  const auto dilation = inputs[7].toIntList().vec();
+  bool ceil_mode = inputs[8].toBool();
+
+  auto out_shape = compute_output_shape(
+      input, kernel_size, stride, padding, dilation, ceil_mode, true);
+
+  std::vector<int64_t> expected_output_size{
+      out_shape[0], out_shape[1], out_shape[2], out_shape[3]};
+  TORCH_CHECK(grad_out.sizes().vec() == expected_output_size);
+  TORCH_CHECK(input.sizes() == grad_input.sizes());
+  TORCH_CHECK(grad_out.sizes() == indices.sizes());
+  TORCH_CHECK(indices.scalar_type() == c10::ScalarType::Byte);
+
+  HabanaOperator::SetPTOutputs({grad_input});
+}
+
 /**
  * @brief MaxPool2d.with_indices_hpu (Forward Pass) implementation for Habana
  * device
@@ -344,21 +393,8 @@ std::tuple<Tensor, Tensor> max_pool2d_with_indices_hpu(
 
     if (device.get_recipe_handle_cache().isCached(key)) {
       PT_KERNEL_DEBUG("Cache hit key:", key);
-      auto out_shape = compute_output_shape(
-          input_nhwc, kernel_size, stride, padding, dilation, ceil_mode, true);
-
-      // Setup output tensors
-      auto output_nhwc = at::empty(
-          {out_shape[0], out_shape[1], out_shape[2], out_shape[3]},
-          input.options());
-
-      // NOTE: cpu and cuda implementations hold indices as kLong (int64). I am
-      // using uint8 (to match TPC kernel requirement)
-      auto output_idx_nhwc = at::empty(
-          {out_shape[0], out_shape[1], out_shape[2], out_shape[3]},
-          input.options().dtype(kByte));
       Op.SetPTInputs(pt_inputs);
-      Op.SetPTOutputs({output_idx_nhwc, output_nhwc});
+      Op.SetPTOutputs(stack);
       Op.Execute(key);
 
     } else {
@@ -481,18 +517,8 @@ Tensor& max_pool2d_with_indices_backward_out_hpu(
 
     if (device.get_recipe_handle_cache().isCached(key)) {
       PT_KERNEL_DEBUG("Cache hit key:", key);
-      auto out_shape = compute_output_shape(
-          input_nhwc, kernel_size, stride, padding, dilation, ceil_mode, true);
-
-      std::vector<int64_t> expected_output_size{
-          out_shape[0], out_shape[1], out_shape[2], out_shape[3]};
-      TORCH_CHECK(grad_out_nhwc.sizes().vec() == expected_output_size);
-      TORCH_CHECK(input_nhwc.sizes() == grad_input_nhwc.sizes());
-      TORCH_CHECK(grad_out_nhwc.sizes() == indices_nhwc.sizes());
-      TORCH_CHECK(indices_nhwc.scalar_type() == c10::ScalarType::Byte);
-
       Op.SetPTInputs(pt_inputs);
-      Op.SetPTOutputs({grad_input_nhwc});
+      Op.SetPTOutputs(stack);
       Op.Execute(key);
 
     } else {
@@ -621,6 +647,29 @@ void AvgPool2dOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, &syn_pool_params, sizeof(syn_pool_params));
 }
 
+void AvgPool2dOperator::SetPTOutputs(torch::jit::Stack& inputs) {
+  at::Tensor input = inputs[0].toTensor();
+  const auto kernel_size = inputs[1].toIntList().vec();
+  const auto stride = inputs[2].toIntList().vec();
+  const auto padding = inputs[3].toIntList().vec();
+  auto ceil_mode = inputs[4].toBool();
+  auto divisor_override = inputs[6].toOptional<int64_t>();
+  // Dilation set to 1, since for AvgPool Pytorch API does not give dilation
+  // values
+  std::vector<int64_t> d{1, 1};
+  IntArrayRef dilation(d.data(), d.size());
+
+  auto out_shape = compute_output_shape(
+      input, kernel_size, stride, padding, dilation, ceil_mode, true);
+
+  // Setup output tensors
+  auto output_nhwc = at::empty(
+      {out_shape[0], out_shape[1], out_shape[2], out_shape[3]},
+      input.options());
+
+  HabanaOperator::SetPTOutputs({output_nhwc});
+}
+
 /**
  * @brief AveragePool2d (Forward Pass) implementation for Habana device
  * @param [In] Input Tensor. 4D, bf16/fp32
@@ -666,22 +715,13 @@ Tensor avg_pool2d_hpu(
       pt_out, pt_in, pt_new_pos, memory_format);
 
   int device_id = input.device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
   at::ScalarType scalar_type = input.scalar_type();
   std::string node_type =
       "avg_pool_2d_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
 
   auto avgpool_2d = [&] {
-    //
-    // Create Graph
-    auto graph = habana_helpers::create_graph(device_id, node_type);
-
-    // Create the operator
-    AvgPool2dOperator Op(device_id, node_type);
-
-    // Allocate synapse inputs
     std::vector<const at::Tensor*> pt_inputs{&input_nhwc};
-    Op.AllocateSynapseInputs(graph, pt_inputs, true);
-
     // Build Params for the graph
     std::vector<c10::IValue> stack = {IValue(input_nhwc),
                                       IValue(kernel_size),
@@ -690,11 +730,30 @@ Tensor avg_pool2d_hpu(
                                       IValue(ceil_mode),
                                       IValue(count_include_pad),
                                       IValue(divisor_override)};
+    // Create the operator
+    AvgPool2dOperator Op(device_id, node_type);
+    size_t key = Op.GetRecipeKey(node_type, stack);
 
-    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    if (device.get_recipe_handle_cache().isCached(key)) {
+      PT_KERNEL_DEBUG("Cache hit key:", key);
+      Op.SetPTInputs(pt_inputs);
+      Op.SetPTOutputs(stack);
+      Op.Execute(key);
+    } else {
+      PT_KERNEL_DEBUG("key:", key);
+      //
+      // Create Graph
+      auto graph = habana_helpers::create_graph(device_id, node_type);
 
-    // compile and execute the graph
-    Op.Compile(graph);
+      // Allocate synapse inputs
+      Op.AllocateSynapseInputs(graph, pt_inputs, true);
+
+      // add node and allocate parms and output
+      Op.AllocateAndAddSynapseNode(graph, stack, true);
+
+      // compile and execute the graph
+      Op.Compile(graph);
+    }
 
     return Op.GetOutputs();
   };
@@ -770,6 +829,34 @@ void AvgPool2dBackwardOutOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, &syn_pool_params, sizeof(syn_pool_params));
 }
 
+void AvgPool2dBackwardOutOperator::SetPTOutputs(Stack& inputs) {
+  at::Tensor grad_input_nhwc = inputs[0].toTensor();
+  at::Tensor grad_out_nhwc = inputs[1].toTensor();
+  at::Tensor input_nhwc = inputs[2].toTensor();
+  const auto kernel_size = inputs[3].toIntList().vec();
+  const auto stride = inputs[4].toIntList().vec();
+  const auto padding = inputs[5].toIntList().vec();
+  auto ceil_mode = inputs[6].toBool();
+  auto divisor_override = inputs[8].toOptional<int64_t>();
+
+  // Dilation set to 1, since for AvgPool Pytorch API does not give dilation
+  // values
+  std::vector<int64_t> d{1, 1};
+  IntArrayRef dilation(d.data(), d.size());
+
+  auto out_shape = compute_output_shape(
+      input_nhwc, kernel_size, stride, padding, dilation, ceil_mode, true);
+  std::vector<int64_t> expected_output_size{
+      out_shape[0], out_shape[1], out_shape[2], out_shape[3]};
+
+  TORCH_CHECK(
+      input_nhwc.sizes() == grad_input_nhwc.sizes(),
+      "Input and grad_input sizes don't match");
+  TORCH_CHECK(grad_out_nhwc.sizes().vec() == expected_output_size);
+
+  HabanaOperator::SetPTOutputs({grad_input_nhwc});
+}
+
 /**
  * @brief AveragePool2d.out (Backward Pass) implementation for Habana device
  * @param [In/Out] Backward pass Output Tensor. 4D, bf16/fp32
@@ -822,22 +909,13 @@ Tensor& avg_pool2d_backward_out_hpu(
       pt_out, pt_in, pt_new_pos, memory_format);
 
   int device_id = input.device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
   at::ScalarType scalar_type = input.scalar_type();
   std::string node_type =
       "avg_pool_2d_bwd_" + habana_helpers::name_suffix_from_type(scalar_type);
 
   auto avgpool_bwd_out_2d = [&] {
-    //
-    // Create Graph
-    auto graph = habana_helpers::create_graph(device_id, node_type);
-
-    // Create the operator
-    AvgPool2dBackwardOutOperator Op(device_id, node_type);
-
-    // Allocate synapse inputs
     std::vector<const at::Tensor*> pt_inputs{&grad_out_nhwc};
-    Op.AllocateSynapseInputs(graph, pt_inputs, true);
-
     // Build Params for the graph
     std::vector<c10::IValue> stack = {IValue(grad_input_nhwc),
                                       IValue(grad_out_nhwc),
@@ -848,11 +926,30 @@ Tensor& avg_pool2d_backward_out_hpu(
                                       IValue(ceil_mode),
                                       IValue(count_include_pad),
                                       IValue(divisor_override)};
+    // Create the operator
+    AvgPool2dBackwardOutOperator Op(device_id, node_type);
+    size_t key = Op.GetRecipeKey(node_type, stack);
 
-    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    if (device.get_recipe_handle_cache().isCached(key)) {
+      PT_KERNEL_DEBUG("Cache hit key:", key);
+      Op.SetPTInputs(pt_inputs);
+      Op.SetPTOutputs(stack);
+      Op.Execute(key);
 
-    // compile and execute the graph
-    Op.Compile(graph);
+    } else {
+      PT_KERNEL_DEBUG("key:", key);
+      //
+      // Create Graph
+      auto graph = habana_helpers::create_graph(device_id, node_type);
+
+      // Allocate synapse inputs
+      Op.AllocateSynapseInputs(graph, pt_inputs, true);
+
+      Op.AllocateAndAddSynapseNode(graph, stack, true);
+
+      // compile and execute the graph
+      Op.Compile(graph);
+    }
 
     return Op.GetOutputs();
   };
@@ -888,6 +985,15 @@ void AvgPool2dBackwardOperator::AllocateAndAddSynapseNode(
   inputs.insert(inputs.begin(), IValue(grad_input_nhwc));
   AvgPool2dBackwardOutOperator::AllocateAndAddSynapseNode(
       graph, inputs, is_output_persistent);
+}
+
+void AvgPool2dBackwardOperator::SetPTOutputs(torch::jit::Stack& inputs) {
+  at::Tensor input_nhwc = inputs[1].toTensor();
+  auto grad_input_nhwc = at::zeros_like(
+      input_nhwc, input_nhwc.options(), input_nhwc.suggest_memory_format());
+
+  inputs.insert(inputs.begin(), IValue(grad_input_nhwc));
+  AvgPool2dBackwardOutOperator::SetPTOutputs(inputs);
 }
 
 /**
@@ -937,22 +1043,13 @@ Tensor avg_pool2d_backward_hpu(
       pt_out, pt_in, pt_new_pos, memory_format);
 
   int device_id = input.device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
   at::ScalarType scalar_type = input.scalar_type();
   std::string node_type =
       "avg_pool_2d_bwd_" + habana_helpers::name_suffix_from_type(scalar_type);
 
   auto avgpool_bwd_2d = [&] {
-    //
-    // Create Graph
-    auto graph = habana_helpers::create_graph(device_id, node_type);
-
-    // Create the operator
-    AvgPool2dBackwardOperator Op(device_id, node_type);
-
-    // Allocate synapse inputs
     std::vector<const at::Tensor*> pt_inputs{&grad_out_nhwc};
-    Op.AllocateSynapseInputs(graph, pt_inputs, true);
-
     // Build Params for the graph
     std::vector<c10::IValue> stack = {IValue(grad_out_nhwc),
                                       IValue(input_nhwc),
@@ -962,11 +1059,29 @@ Tensor avg_pool2d_backward_hpu(
                                       IValue(ceil_mode),
                                       IValue(count_include_pad),
                                       IValue(divisor_override)};
+    // Create the operator
+    AvgPool2dBackwardOperator Op(device_id, node_type);
+    size_t key = Op.GetRecipeKey(node_type, stack);
 
-    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    if (device.get_recipe_handle_cache().isCached(key)) {
+      PT_KERNEL_DEBUG("Cache hit key:", key);
+      Op.SetPTInputs(pt_inputs);
+      Op.SetPTOutputs(stack);
+      Op.Execute(key);
 
-    // compile and execute the graph
-    Op.Compile(graph);
+    } else {
+      PT_KERNEL_DEBUG("key:", key);
+      // Create Graph
+      auto graph = habana_helpers::create_graph(device_id, node_type);
+
+      // Allocate synapse inputs
+      Op.AllocateSynapseInputs(graph, pt_inputs, true);
+
+      Op.AllocateAndAddSynapseNode(graph, stack, true);
+
+      // compile and execute the graph
+      Op.Compile(graph);
+    }
 
     return Op.GetOutputs();
   };

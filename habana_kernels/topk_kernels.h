@@ -18,17 +18,18 @@ class TopkOutOperator : public HabanaOperator {
   TopkOutOperator(int device_id, const std::string& guid)
       : HabanaOperator(guid) {
     this->CreateSynContext(device_id);
-    kernel_meta_data_.input_layout.assign({LayoutFormat::ANY,
-                                           LayoutFormat::ANY,
-                                           LayoutFormat::ANY});
-    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY,LayoutFormat::ANY});
-
+    kernel_meta_data_.input_layout.assign(
+        {LayoutFormat::ANY, LayoutFormat::ANY, LayoutFormat::ANY});
+    kernel_meta_data_.output_layout.assign(
+        {LayoutFormat::ANY, LayoutFormat::ANY});
   }
 
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
+
+  virtual void SetPTOutputs(torch::jit::Stack& inputs);
 };
 
 //
@@ -36,14 +37,15 @@ class TopkOutOperator : public HabanaOperator {
 class TopkOperator : public TopkOutOperator {
  public:
   TopkOperator(int device_id, const std::string& guid)
-    : TopkOutOperator(
-          device_id, guid) {
-            kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
-          }
+      : TopkOutOperator(device_id, guid) {
+    kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
+  }
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
+
+  virtual void SetPTOutputs(torch::jit::Stack& inputs);
 };
 
 //
@@ -51,12 +53,13 @@ class TopkOperator : public TopkOutOperator {
 class SortOperator : public TopkOutOperator {
  public:
   SortOperator(int device_id, const std::string& guid)
-    : TopkOutOperator(
-          device_id, guid) {
-            kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
-          }
+      : TopkOutOperator(device_id, guid) {
+    kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
+  }
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
+
+  virtual void SetPTOutputs(torch::jit::Stack& inputs);
 };

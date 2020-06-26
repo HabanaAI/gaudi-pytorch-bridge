@@ -14,40 +14,41 @@
 namespace habana {
 
 class BinaryOperator : public habana::HabanaOperator {
-  public:
+ public:
   BinaryOperator(int device_id, const std::string& guid)
-    : HabanaOperator(guid) {
+      : HabanaOperator(guid) {
     this->CreateSynContext(device_id);
-    //TODO: add meta data for broadcasting in graph mode
+    // TODO: add meta data for broadcasting in graph mode
   }
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       bool is_output_persistent = false);
+  virtual void SetPTOutputs(torch::jit::Stack& inputs);
 };
 
 class MulOperator : public BinaryOperator {
-  public:
+ public:
   // Mul op
   MulOperator(int device_id, c10::ScalarType scalarType)
-    : BinaryOperator(
-        device_id,
-        "mult_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {}
-
+      : BinaryOperator(
+            device_id,
+            "mult_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {}
 };
 
 class DivOperator : public BinaryOperator {
-  public:
+ public:
   DivOperator(int device_id, c10::ScalarType scalarType)
-    : BinaryOperator(
-        device_id,
-        "div_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {}
+      : BinaryOperator(
+            device_id,
+            "div_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {}
 };
 
 class AddOperator : public habana::HabanaOperator {
-  public:
+ public:
   AddOperator(int device_id, c10::ScalarType scalarType)
-    : HabanaOperator("add_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
+      : HabanaOperator(
+            "add_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
     this->CreateSynContext(device_id);
     scalarType_ = scalarType;
   }
@@ -56,8 +57,10 @@ class AddOperator : public habana::HabanaOperator {
       torch::jit::Stack& inputs,
       bool is_output_persistent = false);
 
+  virtual void SetPTOutputs(torch::jit::Stack& inputs);
+
  private:
   c10::ScalarType scalarType_;
 };
 
-} //namespace habana
+} // namespace habana

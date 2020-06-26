@@ -18,15 +18,17 @@ class ReduceOperator : public HabanaOperator {
   ReduceOperator(int device_id, const std::string& guid)
       : HabanaOperator(guid) {
     this->CreateSynContext(device_id);
-    kernel_meta_data_.input_layout.assign({LayoutFormat::ANY, LayoutFormat::ANY});
+    kernel_meta_data_.input_layout.assign(
+        {LayoutFormat::ANY, LayoutFormat::ANY});
     kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
-
   }
 
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
+
+  virtual void SetPTOutputs(torch::jit::Stack& inputs);
 };
 
 //
@@ -34,12 +36,14 @@ class ReduceOperator : public HabanaOperator {
 class MeanDimOutOperator : public ReduceOperator {
  public:
   MeanDimOutOperator(int device_id, const std::string& guid)
-   : ReduceOperator(device_id, guid) {}
+      : ReduceOperator(device_id, guid) {}
 
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
+
+  virtual void SetPTOutputs(torch::jit::Stack& inputs);
 };
 
 //
@@ -47,14 +51,16 @@ class MeanDimOutOperator : public ReduceOperator {
 class MeanDimOperator : public ReduceOperator {
  public:
   MeanDimOperator(int device_id, const std::string& guid)
-   : ReduceOperator(device_id, guid) {
-       kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
-   }
+      : ReduceOperator(device_id, guid) {
+    kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
+  }
 
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
+
+  virtual void SetPTOutputs(torch::jit::Stack& inputs);
 };
 
 //
@@ -62,14 +68,16 @@ class MeanDimOperator : public ReduceOperator {
 class MeanOperator : public ReduceOperator {
  public:
   MeanOperator(int device_id, const std::string& guid)
-   : ReduceOperator(device_id, guid) {
-       kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
-   }
+      : ReduceOperator(device_id, guid) {
+    kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
+  }
 
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
+
+  virtual void SetPTOutputs(torch::jit::Stack& inputs);
 };
 
 //
@@ -77,12 +85,14 @@ class MeanOperator : public ReduceOperator {
 class SumDimOutOperator : public ReduceOperator {
  public:
   SumDimOutOperator(int device_id, const std::string& guid)
-   : ReduceOperator(device_id, guid) {}
+      : ReduceOperator(device_id, guid) {}
 
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
+
+  virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
 };
 
 //
@@ -90,14 +100,16 @@ class SumDimOutOperator : public ReduceOperator {
 class SumDimOperator : public ReduceOperator {
  public:
   SumDimOperator(int device_id, const std::string& guid)
-   : ReduceOperator(device_id, guid) {
-       kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
-   }
+      : ReduceOperator(device_id, guid) {
+    kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
+  }
 
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
+
+  virtual void SetPTOutputs(torch::jit::Stack& inputs);
 };
 
 //
@@ -105,14 +117,16 @@ class SumDimOperator : public ReduceOperator {
 class SumOperator : public ReduceOperator {
  public:
   SumOperator(int device_id, const std::string& guid)
-   : ReduceOperator(device_id, guid) {
-       kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
-   }
+      : ReduceOperator(device_id, guid) {
+    kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
+  }
 
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
+
+  virtual void SetPTOutputs(torch::jit::Stack& inputs);
 };
 
 //

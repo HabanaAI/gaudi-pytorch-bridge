@@ -33,6 +33,8 @@ class MaxPool2dWithIndicesOperator : public HabanaOperator {
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
+
+  virtual void SetPTOutputs(torch::jit::Stack& inputs);
 };
 
 class MaxPool2dOperator : public MaxPool2dWithIndicesOperator {
@@ -66,6 +68,7 @@ class MaxPool2dWithIndicesBackwardOperator : public HabanaOperator {
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
+  virtual void SetPTOutputs(torch::jit::Stack& inputs);
 };
 
 class AvgPool2dOperator : public HabanaOperator {
@@ -79,6 +82,8 @@ class AvgPool2dOperator : public HabanaOperator {
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
+
+  virtual void SetPTOutputs(torch::jit::Stack& inputs);
 };
 
 class AvgPool2dBackwardOutOperator : public HabanaOperator {
@@ -94,6 +99,7 @@ class AvgPool2dBackwardOutOperator : public HabanaOperator {
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
+  virtual void SetPTOutputs(torch::jit::Stack& inputs);
 };
 
 class AvgPool2dBackwardOperator : public AvgPool2dBackwardOutOperator {
@@ -107,4 +113,6 @@ class AvgPool2dBackwardOperator : public AvgPool2dBackwardOutOperator {
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
+
+  virtual void SetPTOutputs(torch::jit::Stack& inputs);
 };

@@ -338,6 +338,13 @@ void habana::AddOperator::AllocateAndAddSynapseNode(
       0,
       std::move(guid_));
 }
+void habana::AddOperator::SetPTOutputs(torch::jit::Stack& inputs) {
+  Tensor arg1 = inputs[0].toTensor();
+  Tensor arg2 = inputs[1].toTensor();
+  auto operand = get_correct_input_tensor(arg1, arg2);
+  auto output = at::empty(operand.sizes(), operand.options());
+  HabanaOperator::SetPTOutputs({output});
+}
 
 Tensor add_op_hpu(
     const std::vector<const at::Tensor*>& pt_inputs,
@@ -352,10 +359,8 @@ Tensor add_op_hpu(
 
   if (device.get_recipe_handle_cache().isCached(key)) {
     PT_KERNEL_DEBUG("Cache hit key:", key);
-    auto operand = get_correct_input_tensor(*pt_inputs[0], *pt_inputs[1]);
-    auto output = at::empty(operand.sizes(), operand.options());
     Op->SetPTInputs(pt_inputs);
-    Op->SetPTOutput(output);
+    Op->SetPTOutputs(stack);
     Op->Execute(key);
   } else {
     PT_KERNEL_DEBUG("key:", key);
@@ -433,7 +438,8 @@ Tensor process_generic_tensor_add_op(
   size_t device_id = pt_inputs[0]->device().index();
   at::ScalarType scalar_type = pt_inputs[0]->scalar_type();
 
-  std::string node_type = node_guid + "_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+  std::string node_type =
+      node_guid + "_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
 
   habana::AddOperator op(device_id, scalar_type);
 
@@ -700,6 +706,15 @@ void habana::BinaryOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, nullptr, 0);
 }
 
+void habana::BinaryOperator::SetPTOutputs(torch::jit::Stack& inputs) {
+  Tensor operand1 = inputs[0].toTensor();
+  Tensor operand2 = inputs[1].toTensor();
+
+  auto operand = get_correct_input_tensor(operand1, operand2);
+  auto output = at::empty(operand.sizes(), operand.options());
+  HabanaOperator::SetPTOutputs({output});
+}
+
 Tensor binary_op_hpu(
     const std::vector<const at::Tensor*>& pt_inputs,
     const std::string& node_type,
@@ -713,10 +728,8 @@ Tensor binary_op_hpu(
 
   if (device.get_recipe_handle_cache().isCached(key)) {
     PT_KERNEL_DEBUG("Cache hit key:", key);
-    auto operand = get_correct_input_tensor(*pt_inputs[0], *pt_inputs[1]);
-    auto output = at::empty(operand.sizes(), operand.options());
     Op->SetPTInputs(pt_inputs);
-    Op->SetPTOutput(output);
+    Op->SetPTOutputs(stack);
     Op->Execute(key);
   } else {
     PT_KERNEL_DEBUG("key:", key);
