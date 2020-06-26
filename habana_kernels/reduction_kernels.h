@@ -114,3 +114,54 @@ class SumOperator : public ReduceOperator {
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
 };
+
+//
+// AnyDimOut Operator
+class AnyDimOutOperator : public HabanaOperator {
+ public:
+  AnyDimOutOperator(int device_id, const std::string& guid)
+      : HabanaOperator(guid) {
+    this->CreateSynContext(device_id);
+    kernel_meta_data_.input_layout.assign({LayoutFormat::ANY, LayoutFormat::ANY});
+    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
+
+  }
+
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+};
+
+//
+// AnyDim Operator
+class AnyDimOperator : public AnyDimOutOperator {
+ public:
+  AnyDimOperator(int device_id, const std::string& guid)
+      : AnyDimOutOperator(device_id, guid) {
+    kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
+  }
+
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+};
+
+//
+// Any Operator
+class AnyOperator : public HabanaOperator {
+ public:
+  AnyOperator(int device_id, const std::string& guid)
+      : HabanaOperator(guid) {
+    this->CreateSynContext(device_id);
+    kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
+    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
+
+  }
+
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+};

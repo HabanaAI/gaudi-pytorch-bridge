@@ -14,6 +14,7 @@
 #include "habana_kernels/kernel_recipe_signature.h"
 #include "kernel_utils.h"
 #include "synapse_helpers/recipe.h"
+#include <perf_lib_layer_params.h>
 
 using namespace torch;
 
@@ -138,3 +139,43 @@ size_t habana_helpers::getRecipeKey(
   RecipeSignature rs(true, stack, {node}, inPlaceOp);
   return rs.hash();
 }
+
+namespace habana {
+
+/**
+ * @brief CastKernel params structure
+ */
+ns_CastKernel::Params CastOperator::synapse_cast_params_builder() {
+  ns_CastKernel::Params cast_params{};
+  cast_params.round_mode = CAST_ROUND_HALF_NE;
+
+  return cast_params;
+}
+
+void CastOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 2,
+      "Incorrect size of inputs expected for cast operator");
+  TORCH_CHECK(
+      inputs[0].isTensor(),
+      "Input arg1 expected to be tensor for cast operator");
+  TORCH_CHECK(
+      inputs[1].isTensor(),
+      "Input arg2 expected to be tensor for cast operator");
+
+  auto self = inputs[0].toTensor();
+  auto output = inputs[1].toTensor();
+
+  ns_CastKernel::Params params = synapse_cast_params_builder();
+  p_context_->params_.emplace<ns_CastKernel::Params>(params);
+  p_context_->params_size_ = sizeof(params);
+
+  std::vector<at::Tensor> outputs{output};
+  AllocateSynapseOutputs(graph, outputs, is_output_persistent);
+  AddNodeToSynapseGraph(graph, &params, sizeof(params));
+}
+
+} // namespace habana

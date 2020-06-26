@@ -21,6 +21,7 @@
 #include "habana_kernels/reduction_kernels.h"
 #include "habana_kernels/resize.h"
 #include "habana_kernels/simple_generic_kernel.h"
+#include "habana_kernels/kernel_utils.h"
 
 using namespace torch;
 // TODO: DimMask = TensorIterator::DimMask
@@ -98,16 +99,6 @@ ScalarType get_dtype(
   return src_type;
 }
 
-/**
- * @brief CastKernel params structure
- */
-ns_CastKernel::Params synapse_cast_params_builder() {
-  ns_CastKernel::Params cast_params{};
-  cast_params.round_mode = CAST_ROUND_HALF_NE;
-
-  return cast_params;
-}
-
 /*Tensor review_reduce_result(
     const Tensor& result,
     int ndim,
@@ -128,105 +119,6 @@ ns_CastKernel::Params synapse_cast_params_builder() {
 }*/
 } // namespace
 
-void synapse_reduce_generic(
-    const Tensor& output,
-    const Tensor& input,
-    const IntArrayRef& dim,
-    bool keepdim,
-    std::string nodetype) {
-  auto& device =
-      synapse_helpers::HPURegistrar::get_device(input.device().index());
-  const auto device_id = device.id();
-  auto ndim = input.dim();
-
-  // graph_handle scope
-  synGraphHandle graph_handle;
-  TORCH_HABANA_CHECK(
-      synGraphCreate(&graph_handle, synDeviceType::synDeviceGaudi),
-      "synGraphCreate failed");
-
-  { // tensors scope
-    std::vector<synapse_helpers::tensor> syn_helper_inputs, syn_helper_outputs,
-        syn_helper_intermediate;
-    std::vector<synTensor> syn_inputs, syn_outputs, syn_intermediate;
-
-    std::tie(syn_helper_inputs, syn_inputs) = habana_helpers::create_tensors(
-        std::vector<const at::Tensor*>{&input}, graph_handle, true);
-    syn_intermediate.push_back(syn_helper_inputs[0].get());
-    std::tie(syn_helper_outputs, syn_outputs) = habana_helpers::create_tensors(
-        std::vector<const at::Tensor*>{&output}, graph_handle, true);
-
-    unsigned loopend = keepdim ? dim.size() - 1 : dim.size();
-    std::vector<int64_t> dims = input.sizes().vec();
-    for (unsigned i = 0; i < loopend; i++) {
-      dims[dim[i]] = 1;
-      c10::IntArrayRef shape(dims.data(), input.dim());
-      syn_helper_intermediate.push_back(habana_helpers::create_tensor(
-          shape,
-          graph_handle,
-          false,
-          input.device().index(),
-          input.scalar_type()));
-      syn_intermediate.push_back(syn_helper_intermediate[i].get());
-    }
-
-    syn_intermediate.push_back(syn_helper_outputs[0].get());
-
-    {
-      for (unsigned i = 0; i < dim.size(); i++) {
-        const std::string node_type = nodetype;
-        ns_Reduction::Params params{};
-        params.reductionDimension = ndim - dim[i] - 1;
-        { // add node
-          TORCH_HABANA_CHECK(
-              synNodeCreate(
-                  graph_handle,
-                  syn_intermediate.data() + i,
-                  syn_intermediate.data() + i + 1,
-                  1,
-                  1,
-                  &params,
-                  sizeof(params),
-                  node_type.c_str(),
-                  "",
-                  nullptr,
-                  nullptr),
-              "synNodeCreate failed");
-        }
-      }
-
-      if (!keepdim) {
-        const std::string node_type = "reshape";
-        { // add node
-          TORCH_HABANA_CHECK(
-              synNodeCreate(
-                  graph_handle,
-                  syn_intermediate.data() + dim.size(),
-                  syn_intermediate.data() + dim.size() + 1,
-                  1,
-                  1,
-                  nullptr,
-                  0,
-                  node_type.c_str(),
-                  "",
-                  nullptr,
-                  nullptr),
-              "synNodeCreate failed");
-        }
-      }
-
-      habana_helpers::compile_and_run(
-          nodetype,
-          graph_handle,
-          habana_helpers::names(syn_helper_inputs),
-          habana_helpers::names(syn_helper_outputs),
-          {input.data_ptr()},
-          {output.data_ptr()},
-          device_id);
-    }
-  }
-  TORCH_HABANA_CHECK(synGraphDestroy(graph_handle), "synGraphDestroy failed");
-}
 void ReduceOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
@@ -272,23 +164,23 @@ void ReduceOperator::AllocateAndAddSynapseNode(
 
   // add syn_input tensor
   synapse_helpers::tensor& synInput = p_context_->syn_inputs_[0];
-  syn_intermediate.push_back(synInput.get());
+  syn_intermediate.emplace_back(synInput.get());
   // create syn_intermediate tensors of required shape
   unsigned loopend = keepdim ? dim.size() - 1 : dim.size();
   for (unsigned i = 0; i < loopend; i++) {
     dims[dim[i]] = 1;
     c10::IntArrayRef shape(dims.data(), self.dim());
-    syn_helper_intermediate.push_back(habana_helpers::create_tensor(
+    syn_helper_intermediate.emplace_back(habana_helpers::create_tensor(
         shape,
         graph.get_graph_handle(),
         false,
         self.device().index(),
         self.scalar_type()));
-    syn_intermediate.push_back(syn_helper_intermediate[i].get());
+    syn_intermediate.emplace_back(syn_helper_intermediate[i].get());
   }
   // add syn_output tensor
   synapse_helpers::tensor& synOutput = p_context_->syn_outputs_[0];
-  syn_intermediate.push_back(synOutput.get());
+  syn_intermediate.emplace_back(synOutput.get());
 
   std::string node_type = this->guid_;
   for (unsigned i = 0; i < dim.size(); i++) {
@@ -661,6 +553,7 @@ Tensor sum_hpu(const Tensor& self, c10::optional<ScalarType> dtype) {
   std::vector<at::Tensor> out = Op.GetOutputs();
   TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
 
+  out.at(0).unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
   PT_KERNEL_END;
   return out.at(0);
 }
@@ -723,8 +616,119 @@ Tensor mean_hpu(const Tensor& self, c10::optional<ScalarType> dtype) {
   std::vector<at::Tensor> out = Op.GetOutputs();
   TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
 
+  out.at(0).unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
   PT_KERNEL_END;
   return out.at(0);
+}
+
+void AnyDimOutOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 4,
+      "Incorrect size of inputs expected for AnyDimOut operator");
+  TORCH_CHECK(
+      inputs[0].isTensor(),
+      "Input arg1 expected to be tensor for AnyDimOut operator");
+  TORCH_CHECK(
+      inputs[1].isTensor(),
+      "Input arg2 expected to be tensor for AnyDimOut operator");
+  TORCH_CHECK(
+      inputs[2].isInt(),
+      "Input arg3 expected to be Int for AnyDimOut operator");
+  TORCH_CHECK(
+      inputs[3].isBool(),
+      "Input arg4 expected to be Bool for AnyDimOut operator");
+
+  auto output = inputs[0].toTensor();
+  auto self = inputs[1].toTensor();
+  auto dim = inputs[2].toInt();
+  auto keepdim = inputs[3].toBool();
+
+  // Converting dim to dim array
+  // SumDimOperator accepts dim array only
+  // dim array has been used to resize output tensor along the input dim
+  int64_t data[1];
+  data[0] = dim;
+  IntArrayRef dim_arr(data, 1);
+
+  TORCH_CHECK(
+      self.scalar_type() == c10::ScalarType::Bool,
+      "Input arg2 expected to be of type Bool Tensor for AnyDimOut operator");
+
+
+
+  // Cast Input tensor to Float tensor
+  auto out_float=at::empty(self.sizes(), self.options().dtype(c10::ScalarType::Float));
+  std::string node_type = "cast_i8_to_f32";
+
+  // Create the operator
+  CastOperator intToFloatOp(this->p_context_->device_id_,node_type);
+  auto& float_syn = intToFloatOp.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+
+  // Build Params for the graph
+  std::vector<c10::IValue> stack{IValue(self), IValue(out_float)};
+  intToFloatOp.AllocateAndAddSynapseNode(graph, stack, false);
+
+  synapse_helpers::tensor& float_syn_tensor = intToFloatOp.GetSynOutputs()[0];
+  std::vector<at::Tensor> out = intToFloatOp.GetOutputs();
+  Tensor output_float = out.at(0);
+  p_context_->syn_inputs_[0] = std::move(float_syn);
+
+  stack.clear();
+  out.clear();
+
+
+
+  //Reduction operation
+  at::ScalarType scalar_type =c10::ScalarType::Float;
+  node_type =
+      "reduce_sum_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+
+  // Create the operator
+  SumDimOperator sumOp(this->p_context_->device_id_,node_type);
+  sumOp.SetSynapseInput(std::move(float_syn_tensor));
+
+  // Build Params for the graph
+  c10::optional<ScalarType> dtype = output_float.scalar_type();
+  stack.emplace_back(IValue(output_float));
+  stack.emplace_back(IValue(dim_arr));
+  stack.emplace_back(IValue(keepdim));
+  stack.emplace_back(IValue(dtype));
+
+  sumOp.AllocateAndAddSynapseNode(graph, stack, false);
+
+  synapse_helpers::tensor& reduce_syn_tensor = sumOp.GetSynOutputs()[0];
+  out = sumOp.GetOutputs();
+  Tensor output_reduce = out.at(0);
+  stack.clear();
+  out.clear();
+
+
+  // Resize output tensor based on reduction dimension
+  auto ndim = self.dim();
+  auto mask = make_dim_mask(dim_arr, ndim);
+  allocate_reduction_result(output, self, mask, keepdim, c10::ScalarType::Char);
+
+
+
+  // Cast Reduced Float tensor to Int tensor
+  node_type = "cast_f32_to_i8";
+
+  // Create the operator
+  CastOperator floatToIntOp(this->p_context_->device_id_,node_type);
+  floatToIntOp.SetSynapseInput(std::move(reduce_syn_tensor));
+
+  // Build Params for the graph
+  stack.emplace_back(IValue(output_reduce));
+  stack.emplace_back(IValue(output));
+
+  floatToIntOp.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+  synapse_helpers::tensor& int_syn_tensor = floatToIntOp.GetSynOutputs()[0];
+
+  p_context_->syn_outputs_.emplace_back(std::move(int_syn_tensor));
+  p_context_->pt_outputs_.emplace_back(std::move(output));
 }
 
 /*************************************************************************
@@ -745,48 +749,59 @@ Tensor& any_dim_out_hpu(
 
   self.to(c10::ScalarType::Char);
 
-  auto self_float =
-      at::empty(self.sizes(), self.options().dtype(c10::ScalarType::Float));
+  std::string node_type = "reduce_any"; // No TPC kernel is present for any
 
-  std::vector<const at::Tensor*> pt_outputs{&self_float};
+  // Create the operator
+  size_t device_id = self.device().index();
+  AnyDimOutOperator Op(device_id, node_type);
+
+  // Create Graph
+  auto graph = habana_helpers::create_graph(device_id, node_type);
+
+  // Assign Inputs to the Operator
   std::vector<const at::Tensor*> pt_inputs{&self};
+  Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
-  auto syn_cast_params = synapse_cast_params_builder();
+  // Build Params for the graph
+  std::vector<c10::IValue> stack = {IValue(output),
+                                    IValue(self),
+                                    IValue(dim),
+                                    IValue(keepdim)};
+  Op.AllocateAndAddSynapseNode(graph, stack, true);
 
-  synapse_simple_generic_kernel(
-      pt_outputs,
-      pt_inputs,
-      "cast_i8_to_f32",
-      &syn_cast_params,
-      sizeof(syn_cast_params),
-      SynapsePassType::NO_PASS);
+  // compile and execute the graph
+  Op.Compile(graph);
 
-  pt_inputs.clear();
-  pt_outputs.clear();
+  std::vector<at::Tensor> out = Op.GetOutputs();
+  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
 
-  int64_t data[1];
-  data[0] = dim;
-  IntArrayRef dim_arr(data, 1);
-
-  Tensor output_reduce = sum_dim_IntList_hpu(
-      self_float, dim_arr, keepdim, self_float.scalar_type());
-
-  output.to(c10::ScalarType::Char);
-  pt_outputs.push_back(&output);
-  pt_inputs.push_back(&output_reduce);
-
-  synapse_simple_generic_kernel(
-      pt_outputs,
-      pt_inputs,
-      "cast_f32_to_i8",
-      &syn_cast_params,
-      sizeof(syn_cast_params),
-      SynapsePassType::NO_PASS);
-
-  output.to(c10::ScalarType::Bool);
-
+  out.at(0).to(c10::ScalarType::Bool);
   PT_KERNEL_END;
-  return output;
+  return out.at(0);
+}
+
+void AnyDimOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 3,
+      "Incorrect size of inputs expected for AnyDim operator");
+  TORCH_CHECK(
+      inputs[0].isTensor(),
+      "Input arg1 expected to be tensor for AnyDim operator");
+  TORCH_CHECK(
+      inputs[1].isInt(),
+      "Input arg2 expected to be Int for AnyDim operator");
+  TORCH_CHECK(
+      inputs[2].isBool(),
+      "Input arg3 expected to be Bool for AnyDim operator");
+
+  auto self = inputs[0].toTensor();
+  Tensor output =at::empty({0}, self.options().dtype(c10::ScalarType::Char));
+  inputs.insert(inputs.begin(), IValue(output));
+
+  AnyDimOutOperator::AllocateAndAddSynapseNode(graph, inputs, is_output_persistent);
 }
 
 /*************************************************************************
@@ -801,21 +816,131 @@ Tensor& any_dim_out_hpu(
 Tensor any_dim_hpu(const Tensor& self, int64_t dim, bool keepdim) {
   PT_KERNEL_BEGIN;
 
-  Tensor output;
-  int64_t data[1];
-  data[0] = dim;
-  IntArrayRef dim_arr(data, 1);
+  self.to(c10::ScalarType::Char);
 
-  auto ndim = self.dim();
-  auto mask = make_dim_mask(dim_arr, ndim);
-  allocate_reduction_result(output, self, mask, keepdim, self.scalar_type());
+  std::string node_type = "reduce_any"; // No TPC kernel is present for any
 
-  any_dim_out_hpu(output, self, dim, keepdim);
+  // Create the operator
+  size_t device_id = self.device().index();
+  AnyDimOperator Op(device_id, node_type);
 
+  // Create Graph
+  auto graph = habana_helpers::create_graph(device_id, node_type);
+
+  // Assign Inputs to the Operator
+  std::vector<const at::Tensor*> pt_inputs{&self};
+  Op.AllocateSynapseInputs(graph, pt_inputs, true);
+
+  // Build Params for the graph
+  std::vector<c10::IValue> stack = {IValue(self),
+                                    IValue(dim),
+                                    IValue(keepdim)};
+  Op.AllocateAndAddSynapseNode(graph, stack, true);
+
+  // compile and execute the graph
+  Op.Compile(graph);
+
+  std::vector<at::Tensor> out = Op.GetOutputs();
+  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
   PT_KERNEL_END;
-  return output;
+  return out.at(0).to(c10::ScalarType::Bool);
 }
 
+void AnyOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 1,
+      "Incorrect size of inputs expected for Any operator");
+  TORCH_CHECK(
+      inputs[0].isTensor(),
+      "Input arg1 expected to be tensor for Any operator");
+
+  auto self = inputs[0].toTensor();
+  Tensor output;
+
+  TORCH_CHECK(
+      self.scalar_type() == c10::ScalarType::Bool,
+      "Input arg2 expected to be of type Bool Tensor for AnyDimOut operator");
+
+
+
+  // Cast Input tensor to Float tensor
+  auto out_float=at::empty(self.sizes(), self.options().dtype(c10::ScalarType::Float));
+  std::string node_type = "cast_i8_to_f32";
+
+  // Create the operator
+  CastOperator intToFloatOp(this->p_context_->device_id_,node_type);
+  auto& float_syn = intToFloatOp.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+
+  // Build Params for the graph
+  std::vector<c10::IValue> stack{IValue(self), IValue(out_float)};
+
+  intToFloatOp.AllocateAndAddSynapseNode(graph, stack, false);
+
+  synapse_helpers::tensor& float_syn_tensor = intToFloatOp.GetSynOutputs()[0];
+  std::vector<at::Tensor> out = intToFloatOp.GetOutputs();
+  Tensor output_float = out.at(0);
+  p_context_->syn_inputs_[0] = std::move(float_syn);
+
+  stack.clear();
+  out.clear();
+
+
+
+  //Reduction operation
+  at::ScalarType scalar_type =c10::ScalarType::Float;
+  node_type =
+      "reduce_sum_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+
+  // Create the operator
+  SumOperator sumOp(this->p_context_->device_id_,node_type);
+  sumOp.SetSynapseInput(std::move(float_syn_tensor));
+
+  // Build Params for the graph
+  c10::optional<ScalarType> dtype = output_float.scalar_type();
+  stack.emplace_back(IValue(output_float));
+  stack.emplace_back(IValue(dtype));
+
+  sumOp.AllocateAndAddSynapseNode(graph, stack, false);
+
+  synapse_helpers::tensor& reduce_syn_tensor = sumOp.GetSynOutputs()[0];
+  out = sumOp.GetOutputs();
+  Tensor output_reduce = out.at(0);
+  stack.clear();
+  out.clear();
+
+
+
+  // Resize output tensor based on reduction dimension
+  auto ndim = self.dim();
+  int64_t data[4];
+  for (int i = 0; i < ndim; i++) {
+    data[i] = i;
+  }
+  IntArrayRef dim_arr(data, ndim);
+  auto mask = make_dim_mask(dim_arr, ndim);
+  allocate_reduction_result(output, self, mask, false, c10::ScalarType::Char);
+
+
+
+  // Cast Reduced Float tensor to Int tensor
+  node_type = "cast_f32_to_i8";
+
+  // Create the operator
+  CastOperator floatToIntOp(this->p_context_->device_id_,node_type);
+  floatToIntOp.SetSynapseInput(std::move(reduce_syn_tensor));
+
+  // Build Params for the graph
+  stack.emplace_back(IValue(output_reduce));
+  stack.emplace_back(IValue(output));
+
+  floatToIntOp.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+  synapse_helpers::tensor& int_syn_tensor = floatToIntOp.GetSynOutputs()[0];
+  p_context_->syn_outputs_.emplace_back(std::move(int_syn_tensor));
+  p_context_->pt_outputs_.emplace_back(std::move(output));
+}
 /*************************************************************************
  * @brief Kernel implementation for reduction kernel output =
  *torch.any(self)
@@ -827,47 +952,32 @@ Tensor any_hpu(const Tensor& self) {
 
   self.to(c10::ScalarType::Char);
 
-  auto self_float =
-      at::empty(self.sizes(), self.options().dtype(c10::ScalarType::Float));
+  std::string node_type = "reduce_any"; // No TPC kernel is present for any
 
-  std::vector<const at::Tensor*> pt_outputs{&self_float};
+  // Create the operator
+  size_t device_id = self.device().index();
+  AnyOperator Op(device_id, node_type);
+
+  // Create Graph
+  auto graph = habana_helpers::create_graph(device_id, node_type);
+
+  // Assign Inputs to the Operator
   std::vector<const at::Tensor*> pt_inputs{&self};
+  Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
-  auto syn_cast_params = synapse_cast_params_builder();
+  // Build Params for the graph
+  std::vector<c10::IValue> stack = {IValue(self)};
+  Op.AllocateAndAddSynapseNode(graph, stack, true);
 
-  synapse_simple_generic_kernel(
-      pt_outputs,
-      pt_inputs,
-      "cast_i8_to_f32",
-      &syn_cast_params,
-      sizeof(syn_cast_params),
-      SynapsePassType::NO_PASS);
+  // compile and execute the graph
+  Op.Compile(graph);
 
-  pt_inputs.clear();
-  pt_outputs.clear();
-
-  Tensor output_reduce = sum_hpu(self_float, self_float.scalar_type());
-
-  // coverting 0d tensor to 1d tensor
-  output_reduce.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
-
-  auto output = at::empty(
-      output_reduce.sizes(),
-      output_reduce.options().dtype(c10::ScalarType::Char));
-
-  pt_outputs.push_back(&output);
-  pt_inputs.push_back(&output_reduce);
-
-  synapse_simple_generic_kernel(
-      pt_outputs,
-      pt_inputs,
-      "cast_f32_to_i8",
-      &syn_cast_params,
-      sizeof(syn_cast_params),
-      SynapsePassType::NO_PASS);
-
+  std::vector<at::Tensor> out = Op.GetOutputs();
+  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
+  out.at(0).unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
   PT_KERNEL_END;
-  return output[0].to(c10::ScalarType::Bool);
+  return out.at(0).to(c10::ScalarType::Bool);
+
 }
 
 static auto registry =
