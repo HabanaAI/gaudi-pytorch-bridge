@@ -374,7 +374,7 @@ def parse_args():
     parser.add_argument('--print-freq', default=10, type=int, help='print frequency')
     parser.add_argument('--output-dir', default='.', help='path where to save')
 
-    parser.add_argument('--channels-last',action="store_true",
+    parser.add_argument('--channels-last', default=True, type=bool,
                                      help='Whether input in channels last format')
     parser.add_argument('--resume', default='', help='resume from checkpoint')
     parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
