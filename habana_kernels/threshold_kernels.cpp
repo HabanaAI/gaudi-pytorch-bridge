@@ -10,238 +10,84 @@
 #include <torch/script.h>
 
 #include "habana_device/HPUCheck.h"
-// #include "habana_device/fake_tensor_builder.h"
 #include "habana_device/hpu_cached_devices.h"
+#include "habana_helpers/graph.h"
 #include "habana_helpers/tensor_utils.h"
 #include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/simple_generic_kernel.h"
+#include "habana_kernels/threshold_kernels.h"
 
 using namespace torch;
 
-// computes `output = input <= threshold ? value : other`
-// other is `input` in threshold() and `grad` in threshold_backward()
-void synapse_threshold_out(
-    Tensor& output,
-    const Tensor& input,
-    const Tensor& threshold,
-    const Tensor& value,
-    const Tensor& other) {
-  // TODO: request threshold TPC kernel, current implementation is not optimized
-  // current implementation algorithm:
-  // 1. mask = input <= threshold
-  // 2. output = mask*val + !mask*other
-  const auto device_id = input.device().index();
+void habana::ThresholdBackwardOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 3,
+      "Incorrect size of inputs expected for threshold operator");
 
-  // graph_handle scope
-  synGraphHandle graph_handle;
-  TORCH_HABANA_CHECK(
-      synGraphCreate(&graph_handle, synDeviceType::synDeviceGaudi),
-      "synGraphCreate failed");
+  TORCH_CHECK(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
+  TORCH_CHECK(inputs[1].isTensor(), "Input arg2 type expected to be tensor");
+  TORCH_CHECK(inputs[2].isScalar(), "Input arg3 type expected to be scalar");
 
-  { // tensors scope
-    std::vector<synapse_helpers::tensor> syn_helper_inputs, syn_helper_outputs,
-        syn_helper_tmp;
-    std::vector<synTensor> syn_inputs, syn_outputs, syn_tmp;
+  auto grad_output = inputs[0].toTensor();
+  auto self = inputs[1].toTensor();
+  auto threshold = inputs[2].toScalar();
 
-    std::tie(syn_helper_inputs, syn_inputs) = habana_helpers::create_tensors(
-        std::vector<const at::Tensor*>{&input, &threshold, &value, &other},
-        graph_handle,
-        true);
-    std::tie(syn_helper_outputs, syn_outputs) = habana_helpers::create_tensors(
-        std::vector<const at::Tensor*>{&output}, graph_handle, true);
-    std::tie(syn_helper_tmp, syn_tmp) = habana_helpers::create_tensors(
-        std::vector<const at::Tensor*>{
-            &output, &output, &output, &output, &output, &output},
-        graph_handle,
-        std::vector<bool>(6, false),
-        {{}, {}, {}, {}, c10::ScalarType::Char, c10::ScalarType::Char});
-    {
-      const auto kernel_suffix =
-          "_fwd_" + habana_helpers::name_suffix_from_type(input.scalar_type());
-      const std::string leq_node_type = "less_equal" + kernel_suffix,
-                        greater_node_type = "greater" + kernel_suffix,
-                        mult_node_type = "mult" + kernel_suffix,
-                        add_node_type = "add" + kernel_suffix,
-                        cast_i8_to_fp32 = "cast_i8_to_f32";
+  TORCH_CHECK(
+      threshold.to<float>() == 0.0,
+      "Threshold values other than 0 are not supported")
 
-      { // add nodes
-        { // create mask and inv_mask
-          // mask_i8 = input <= threshold
-          // inv_mask_i8 = input > threshold
-          TORCH_HABANA_CHECK(
-              synNodeCreate(
-                  graph_handle,
-                  &syn_inputs[0],
-                  &syn_tmp[4],
-                  2,
-                  1,
-                  nullptr,
-                  0,
-                  leq_node_type.c_str(),
-                  "",
-                  nullptr,
-                  nullptr),
-              "synNodeCreate failed");
-          TORCH_HABANA_CHECK(
-              synNodeCreate(
-                  graph_handle,
-                  &syn_inputs[0],
-                  &syn_tmp[5],
-                  2,
-                  1,
-                  nullptr,
-                  0,
-                  greater_node_type.c_str(),
-                  "",
-                  nullptr,
-                  nullptr),
-              "synNodeCreate failed");
-        }
-        { // convert masks to fp32
-          // mask = float(mask_i8)
-          // inv_mask = float(inv_mask_i8)
-          TORCH_HABANA_CHECK(
-              synNodeCreate(
-                  graph_handle,
-                  &syn_tmp[4],
-                  &syn_tmp[0],
-                  1,
-                  1,
-                  nullptr,
-                  0,
-                  cast_i8_to_fp32.c_str(),
-                  "",
-                  nullptr,
-                  nullptr),
-              "synNodeCreate failed");
-          TORCH_HABANA_CHECK(
-              synNodeCreate(
-                  graph_handle,
-                  &syn_tmp[5],
-                  &syn_tmp[1],
-                  1,
-                  1,
-                  nullptr,
-                  0,
-                  cast_i8_to_fp32.c_str(),
-                  "",
-                  nullptr,
-                  nullptr),
-              "synNodeCreate failed");
-        }
-        { // mask*val
-          // mask*val = mask * val
-          std::vector<synTensor> syn_tmp_in{syn_tmp[0], syn_inputs[2]};
-          TORCH_HABANA_CHECK(
-              synNodeCreate(
-                  graph_handle,
-                  syn_tmp_in.data(),
-                  &syn_tmp[2],
-                  syn_tmp_in.size(),
-                  1,
-                  nullptr,
-                  0,
-                  mult_node_type.c_str(),
-                  "",
-                  nullptr,
-                  nullptr),
-              "synNodeCreate failed");
-        }
-        { // inv_mask*other
-          // inv_mask*other = inv_mask*other
-          std::vector<synTensor> syn_tmp_in{syn_tmp[1], syn_inputs[3]};
-          TORCH_HABANA_CHECK(
-              synNodeCreate(
-                  graph_handle,
-                  syn_tmp_in.data(),
-                  &syn_tmp[3],
-                  syn_tmp_in.size(),
-                  1,
-                  nullptr,
-                  0,
-                  mult_node_type.c_str(),
-                  "",
-                  nullptr,
-                  nullptr),
-              "synNodeCreate failed");
-        }
-        { // output
-          // output = mask*val + inv_mask*inv_mask
-          TORCH_HABANA_CHECK(
-              synNodeCreate(
-                  graph_handle,
-                  &syn_tmp[2],
-                  syn_outputs.data(),
-                  2,
-                  syn_outputs.size(),
-                  nullptr,
-                  0,
-                  add_node_type.c_str(),
-                  "",
-                  nullptr,
-                  nullptr),
-              "synNodeCreate failed");
-        }
-      }
-    }
-    habana_helpers::compile_and_run(
-        "threshold",
-        graph_handle,
-        habana_helpers::names(syn_helper_inputs),
-        habana_helpers::names(syn_helper_outputs),
-        {input.data_ptr(),
-         threshold.data_ptr(),
-         value.data_ptr(),
-         other.data_ptr()},
-        {output.data_ptr()},
-        device_id);
-  }
-  TORCH_HABANA_CHECK(synGraphDestroy(graph_handle), "synGraphDestroy failed");
+  auto grad_input = at::empty(self.sizes(), self.options());
+  AllocateSynapseOutput(graph, grad_input, is_output_persistent);
+  AddNodeToSynapseGraph(graph, nullptr, 0);
 }
 
+/***************************************************************************
+ * @brief Implements backward pass for torch.nn.Threshold(threshold: float,
+ *value: float)
+ * @param grad_output: Input tensor for backward pass
+ * @param self: Input tensor for forward pass
+ * @param threshold:The value to threshold at
+ ****************************************************************************/
 Tensor threshold_backward_hpu(
     const Tensor& grad_output,
     const Tensor& self,
     Scalar threshold) {
   PT_KERNEL_BEGIN;
-  TORCH_CHECK(self.scalar_type() == c10::ScalarType::Float);
-  Scalar threshold_converted = threshold;
-  if (self.scalar_type() != habana_helpers::scalar_type(threshold))
-    threshold_converted = threshold.toFloat();
 
-  auto dims = self.ndimension();
-  auto options = self.options();
-  auto output = at::empty(self.sizes(), options);
-  if (threshold.to<int>() != 0) {
-    auto threshold_tensor = habana_helpers::scalar_to_device_tensor(
-        threshold_converted, options, dims);
-    auto value_tensor =
-        habana_helpers::scalar_to_device_tensor(Scalar(0.0), options, dims);
-    synapse_threshold_out(
-        output, self, threshold_tensor, value_tensor, grad_output);
+  size_t device_id = self[0].device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  at::ScalarType scalar_type = self.scalar_type();
+  std::string nodeType =
+      "relu_bwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+
+  habana::ThresholdBackwardOperator Op(device_id, nodeType);
+  std::vector<c10::IValue> stack = {
+      IValue(grad_output), IValue(self), IValue(threshold)};
+  std::vector<const at::Tensor*> pt_inputs{&grad_output, &self};
+
+  size_t key = habana_helpers::getRecipeKey(nodeType, stack);
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    auto output = at::empty(self.sizes(), self.options());
+    Op.SetPTInputs(pt_inputs);
+    Op.SetPTOutputs({output});
+    Op.Execute(key);
   } else {
-    // Build Params for the graph
-    std::vector<c10::IValue> stack = {IValue(grad_output), IValue(self)};
-    size_t device_id = self[0].device().index();
-    auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-    at::ScalarType scalar_type = self.scalar_type();
-    std::string nodeType =
-        "relu_bwd_" + habana_helpers::name_suffix_from_type(scalar_type);
-    size_t key = habana_helpers::getRecipeKey(nodeType, stack);
-    std::vector<const at::Tensor*> pt_inputs{&grad_output, &self};
-    std::vector<const at::Tensor*> pt_outputs{&output};
-    if (device.get_recipe_handle_cache().isCached(key)) {
-      PT_KERNEL_DEBUG("Cache hit key:", key);
-      synapse_execute_cached_kernel(pt_outputs, pt_inputs, device_id, key);
-    } else {
-      PT_KERNEL_DEBUG("Key:", key);
-      synapse_execute_kernel(
-          pt_outputs, pt_inputs, nodeType, nullptr, 0, device_id, key);
-    }
+    PT_KERNEL_DEBUG("Key:", key);
+    auto graph = habana_helpers::create_graph(device_id, nodeType);
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
+    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    Op.Compile(graph);
   }
 
+  std::vector<at::Tensor> out = Op.GetOutputs();
+  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
+
   PT_KERNEL_END;
-  return output;
+  return out.at(0);
 }
 
 static auto registry = torch::RegisterOperators().op(
