@@ -39,4 +39,5 @@ class recipe_handle_cache {
 };
 
 bool IsCachingEnabled();
+bool IsStreamSyncOptEnabled();
 } // namespace synapse_helpers

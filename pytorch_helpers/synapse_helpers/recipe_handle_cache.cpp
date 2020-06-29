@@ -67,4 +67,8 @@ recipe_handle_cache::~recipe_handle_cache() {
 bool IsCachingEnabled() {
   return synapse_helpers::get_bool_env_var("PT_ENABLE_HABANA_CACHING", true);
 }
+
+bool IsStreamSyncOptEnabled() {
+  return synapse_helpers::get_bool_env_var("PT_ENABLE_HABANA_STREAMSYNC", true);
+}
 } // namespace synapse_helpers

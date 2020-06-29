@@ -75,20 +75,26 @@ void habana_helpers::compile_and_run(
   }
 }
 
+//Note:StreamSync is removed b/w Ops and compute stream sync happens
+//before any DMA operation.
 void habana_helpers::execute_recipe(
     const std::vector<void*>& input_buffers,
     const std::vector<void*>& output_buffers,
     const uint32_t device_id,
     size_t key) {
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-  synStreamHandle stream_handle = device.get_compute_stream();
   auto g_recipe = device.get_recipe_handle_cache().get_recipe(key);
   AT_ASSERT(g_recipe != nullptr);
   if (g_recipe != nullptr) {
     g_recipe->launch(input_buffers, output_buffers);
-    TORCH_HABANA_CHECK(
+  }
+  if(!(synapse_helpers::IsStreamSyncOptEnabled()))
+  {
+      synStreamHandle stream_handle = device.get_compute_stream();
+      TORCH_HABANA_CHECK(
         synStreamSynchronize(stream_handle), "synStreamSynchronize failed");
   }
+
 }
 
 size_t habana_helpers::getRecipeKey(

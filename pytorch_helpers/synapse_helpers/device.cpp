@@ -189,6 +189,9 @@ void device::free(device_ptr ptr) {
   return allocator_->free(reinterpret_cast<void*>(ptr));
 }
 
+//Note:StreamSync is removed b/w Ops and compute stream sync happens
+//before any DMA operation. This can be changed or optimized further
+//when we manage the tensor and recipe liftime in the kernel
 synapse_error device::copy_data_to_device(
     void* cpu_data,
     device_ptr destination,
@@ -202,6 +205,14 @@ synapse_error device::copy_data_to_device(
       ", total_bytes=",
       total_bytes);
   synStatus status;
+  if((synapse_helpers::IsStreamSyncOptEnabled()))
+  {
+    PT_SYNHELPER_DEBUG("Sync on compute stream: ", stream_comp_);
+    status= synStreamSynchronize(stream_comp_);
+    if (synStatus::synSuccess != status) {
+       return synapse_error{"copy_data_to_device: Compute stream sync failed.", status};
+    }
+  }
 
   auto res = memory_mapper_.map(total_bytes);
   if (res.status != synStatus::synSuccess) {
@@ -263,7 +274,14 @@ synapse_error device::copy_data_to_host(
       total_bytes);
 
   synStatus status;
-
+  if((synapse_helpers::IsStreamSyncOptEnabled()))
+  {
+    PT_SYNHELPER_DEBUG("Sync on compute stream: ", stream_comp_);
+    status= synStreamSynchronize(stream_comp_);
+    if (synStatus::synSuccess != status) {
+       return synapse_error{"copy_data_to_host:Compute stream sync failed.", status};
+    }
+  }
   PT_SYNHELPER_DEBUG("Used stream handle: ", stream_d2h_);
   sem_.record_wait_event(device_data, stream_d2h_);
 
@@ -323,9 +341,18 @@ synapse_error device::copy_data_within_device(
     device_ptr destination,
     size_t total_bytes,
     event_done_callback unref_cb) {
-  sem_.record_wait_event(source, stream_d2d_);
+  synStatus status;
+  if((synapse_helpers::IsStreamSyncOptEnabled()))
+  {
+    PT_SYNHELPER_DEBUG("Sync on compute stream: ", stream_comp_);
+    status= synStreamSynchronize(stream_comp_);
+    if (synStatus::synSuccess != status) {
+       return synapse_error{"copy_data_within_device-Compute stream sync failed.", status};
+    }
+  }
 
-  auto status = synMemCopyAsync(
+  sem_.record_wait_event(source, stream_d2d_);
+  status = synMemCopyAsync(
       stream_d2d_, source, total_bytes, destination, synDmaDir::DRAM_TO_DRAM);
   if (synStatus::synSuccess != status) {
     return synapse_error{"DMA inside HPU start failed.", status};
@@ -341,10 +368,19 @@ synapse_error device::copy_data_within_device(
     event_done_callback unref_cb) {
   std::vector<device_ptr> destinations;
   destinations.reserve(transfers.size());
+  synStatus status;
+  if((synapse_helpers::IsStreamSyncOptEnabled()))
+  {
+    PT_SYNHELPER_DEBUG("Sync on compute stream: ", stream_comp_);
+    status= synStreamSynchronize(stream_comp_);
+    if (synStatus::synSuccess != status) {
+       return synapse_error{"copy_data_within_device:Compute stream sync failed.", status};
+    }
+  }
 
   for (auto& transfer : transfers) {
     sem_.record_wait_event(transfer.src, stream_d2d_);
-    auto status = synMemCopyAsync(
+    status = synMemCopyAsync(
         stream_d2d_,
         transfer.src,
         transfer.bytes_to_transfer,
