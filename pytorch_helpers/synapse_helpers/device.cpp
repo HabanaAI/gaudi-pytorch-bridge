@@ -120,7 +120,17 @@ synapse_error_v<std::shared_ptr<device>> device::create(
   auto synapse_session =
       synapse_helpers::get_value(std::move(synapse_session_create_result));
 
-  status = synDeviceAcquireByDeviceType(&new_device_id, device_type);
+
+  if(std::getenv("ID") != nullptr)
+  {
+    //Required for  multi chip configuration
+    status = synDeviceAcquireByModuleId(&new_device_id, std::stoll(std::getenv("ID")));
+  }
+  else
+  {
+    status = synDeviceAcquireByDeviceType(&new_device_id, device_type);
+  }
+
   if (status != synSuccess) {
     return synapse_error{"Device acquire failed.", status};
   }
