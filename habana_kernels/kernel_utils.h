@@ -28,15 +28,6 @@
 namespace habana_helpers {
 std::string unique_recipe_name_generator(std::string recipe_name);
 
-[[deprecated]] void compile_and_run(
-    const std::string& recipe_prefix,
-    const synGraphHandle graph_handle,
-    const std::vector<std::string>& input_names,
-    const std::vector<std::string>& output_names,
-    const std::vector<void*>& input_buffers,
-    const std::vector<void*>& output_buffers,
-    const uint32_t device_id);
-
 void compile_and_run(
     synapse_helpers::graph&& graph,
     const std::vector<std::string>& input_names,

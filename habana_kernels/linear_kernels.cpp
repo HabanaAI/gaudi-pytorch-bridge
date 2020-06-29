@@ -24,7 +24,7 @@
 
 using namespace torch;
 
-void check_matmul_params(
+static void check_matmul_params(
     const Tensor& mat1,
     const Tensor& mat2,
     c10::optional<const at::Tensor*> bias) {
@@ -35,6 +35,40 @@ void check_matmul_params(
   TORCH_CHECK(
       static_cast<int>(mat1.is_contiguous()) + mat2.is_contiguous() > 0,
       "Only one matrix can me non contiguous.",
+      "\nmat1.is_contiguous() returned: ",
+      mat1.is_contiguous(),
+      "\nmat2.is_contiguous() returned: ",
+      mat2.is_contiguous(),
+      "\nmat1 sizes: ",
+      mat1.sizes(),
+      "mat1 strides: ",
+      mat1.strides(),
+      "\nmat2 sizes: ",
+      mat2.sizes(),
+      "mat2 strides: ",
+      mat2.strides());
+  if (bias)
+    TORCH_CHECK(
+        bias.value()->ndimension() == 1, "matmul_hpu supports only 1d bias");
+}
+
+/*****************************************************************************************************
+ * @brief asserts the validity of batched gemm parameters
+ * @param[in] mat1 - first matrix
+ * @param[in] mat2 - second matrix
+ * @param[in] bias - optional bias parameter for affine transformation
+ *****************************************************************************************************/
+static void check_bmm_matmul_params(
+    const Tensor& mat1,
+    const Tensor& mat2,
+    c10::optional<const at::Tensor*> bias) {
+  TORCH_CHECK(mat1.ndimension() == 3, "Batched gemm supports only 3d matrices");
+  TORCH_CHECK(mat2.ndimension() == 3, "Batched gemm supports only 3d matrices");
+  TORCH_CHECK(
+      mat1.size(2) == mat2.size(1), "matmul inner dimensions doesn't match");
+  TORCH_CHECK(
+      static_cast<int>(mat1.is_contiguous()) + mat2.is_contiguous() == 2,
+      "Both matrices should be contiguous.",
       "\nmat1.is_contiguous() returned: ",
       mat1.is_contiguous(),
       "\nmat2.is_contiguous() returned: ",
@@ -314,40 +348,27 @@ Tensor addmm_hpu(
   return out.at(0);
 }
 
-/*****************************************************************************************************
- * @brief asserts the validity of batched gemm parameters
- * @param[in] mat1 - first matrix
- * @param[in] mat2 - second matrix
- * @param[in] bias - optional bias parameter for affine transformation
- *****************************************************************************************************/
-void check_bmm_matmul_params(
-    const Tensor& mat1,
-    const Tensor& mat2,
-    c10::optional<const at::Tensor*> bias) {
-  PT_KERNEL_BEGIN;
-  TORCH_CHECK(mat1.ndimension() == 3, "Batched gemm supports only 3d matrices");
-  TORCH_CHECK(mat2.ndimension() == 3, "Batched gemm supports only 3d matrices");
+void habana::BmmOutOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
   TORCH_CHECK(
-      mat1.size(2) == mat2.size(1), "matmul inner dimensions doesn't match");
-  TORCH_CHECK(
-      static_cast<int>(mat1.is_contiguous()) + mat2.is_contiguous() == 2,
-      "Both matrices should be contiguous.",
-      "\nmat1.is_contiguous() returned: ",
-      mat1.is_contiguous(),
-      "\nmat2.is_contiguous() returned: ",
-      mat2.is_contiguous(),
-      "\nmat1 sizes: ",
-      mat1.sizes(),
-      "mat1 strides: ",
-      mat1.strides(),
-      "\nmat2 sizes: ",
-      mat2.sizes(),
-      "mat2 strides: ",
-      mat2.strides());
-  if (bias)
-    TORCH_CHECK(
-        bias.value()->ndimension() == 1, "matmul_hpu supports only 1d bias");
-  PT_KERNEL_END;
+      inputs.size() == 3,
+      "Incorrect size of inputs expected for BmmOut operator");
+
+  TORCH_CHECK(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
+  TORCH_CHECK(inputs[1].isTensor(), "Input arg2 type expected to be tensor");
+  TORCH_CHECK(inputs[2].isTensor(), "Input arg3 type expected to be tensor");
+
+  auto out = inputs[0].toTensor();
+  auto self = inputs[1].toTensor();
+  auto mat2 = inputs[2].toTensor();
+
+  check_bmm_matmul_params(self, mat2, c10::nullopt);
+
+  AllocateSynapseOutput(graph, out, is_output_persistent);
+  synGEMMParams params{false, false};
+  AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
 /*****************************************************************************************************
@@ -356,25 +377,57 @@ void check_bmm_matmul_params(
  * @param[in] mat2 - Second Tensor, 3D, NWC, bf16/FP32
  * @param[in,out] out - Result tensor, 3D, NHC, bf16/FP32
  *****************************************************************************************************/
-void batch_gemm_out_hpu(Tensor& out, const Tensor& self, const Tensor& mat2) {
+Tensor& batch_gemm_out_hpu(Tensor& out, const Tensor& self, const Tensor& mat2) {
   PT_KERNEL_BEGIN;
 
-  check_bmm_matmul_params(self, mat2, c10::nullopt);
-
+  const auto device_id = self.device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  std::string node_type = "batch_gemm";
+  torch::jit::Stack stack = {IValue(out), IValue(self), IValue(mat2)};
+  habana::BmmOutOperator op(device_id, node_type);
   std::vector<const at::Tensor*> pt_inputs{&self, &mat2};
-  std::vector<const at::Tensor*> pt_outputs{&out};
 
-  synGEMMParams params{0, 0};
-
-  synapse_simple_generic_kernel(
-      pt_outputs,
-      pt_inputs,
-      "batch_gemm",
-      &params,
-      sizeof(params),
-      SynapsePassType::NO_PASS);
-
+  size_t key = op.GetRecipeKey(node_type, stack);
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    op.SetPTInputs(pt_inputs);
+    op.SetPTOutput(out);
+    op.Execute(key);
+  } else {
+    PT_KERNEL_DEBUG("Key:", key);
+    auto graph = habana_helpers::create_graph(device_id, node_type);
+    op.AllocateSynapseInputs(graph, pt_inputs, true);
+    op.AllocateAndAddSynapseNode(graph, stack, true);
+    op.Compile(graph);
+  }
+  std::vector<at::Tensor> output = op.GetOutputs();
+  TORCH_CHECK(output.size() == 1, "Incorrect size of outputs");
   PT_KERNEL_END;
+  return output.at(0);
+}
+
+void habana::BmmOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 2,
+      "Incorrect size of inputs expected for Bmm operator");
+
+  TORCH_CHECK(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
+  TORCH_CHECK(inputs[1].isTensor(), "Input arg2 type expected to be tensor");
+
+  auto self = inputs[0].toTensor();
+  auto mat2 = inputs[1].toTensor();
+
+  auto self_sizes = self.sizes();
+  auto mat2_sizes = mat2.sizes();
+  auto output =
+      at::empty({self_sizes[0], self_sizes[1], mat2_sizes[2]}, self.options());
+  inputs.insert(inputs.begin(), IValue(output));
+
+  habana::BmmOutOperator::AllocateAndAddSynapseNode(
+      graph, inputs, is_output_persistent);
 }
 
 /*****************************************************************************************************
@@ -387,17 +440,34 @@ void batch_gemm_out_hpu(Tensor& out, const Tensor& self, const Tensor& mat2) {
 Tensor batch_gemm_hpu(const Tensor& self, const Tensor& mat2) {
   PT_KERNEL_BEGIN;
 
-  // If input is a b×n×m tensor, mat2 is a b×m×p tensor, out will be a b×n×p
-  // tensor
-  auto self_sizes = self.sizes();
-  auto mat2_sizes = mat2.sizes();
-  auto out =
-      at::empty({self_sizes[0], self_sizes[1], mat2_sizes[2]}, self.options());
-  batch_gemm_out_hpu(out, self, mat2);
+  const auto device_id = self.device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  std::string node_type = "batch_gemm";
+  torch::jit::Stack stack = {IValue(self), IValue(mat2)};
+  habana::BmmOperator op(device_id, node_type);
+  std::vector<const at::Tensor*> pt_inputs{&self, &mat2};
 
+  size_t key = op.GetRecipeKey(node_type, stack);
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    auto self_sizes = self.sizes();
+    auto mat2_sizes = mat2.sizes();
+    auto out = at::empty(
+        {self_sizes[0], self_sizes[1], mat2_sizes[2]}, self.options());
+    op.SetPTInputs(pt_inputs);
+    op.SetPTOutput(out);
+    op.Execute(key);
+  } else {
+    PT_KERNEL_DEBUG("Key:", key);
+    auto graph = habana_helpers::create_graph(device_id, node_type);
+    op.AllocateSynapseInputs(graph, pt_inputs, true);
+    op.AllocateAndAddSynapseNode(graph, stack, true);
+    op.Compile(graph);
+  }
+  std::vector<at::Tensor> output = op.GetOutputs();
+  TORCH_CHECK(output.size() == 1, "Incorrect size of outputs");
   PT_KERNEL_END;
-
-  return out;
+  return output.at(0);
 }
 
 /*****************************************************************************************************

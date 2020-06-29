@@ -41,4 +41,32 @@ class AddmmOperator : public HabanaOperator {
       bool is_output_persistent = false) override;
 };
 
-} // namespace habana
+class BmmOutOperator : public HabanaOperator {
+ public:
+  BmmOutOperator(int device_id, std::string guid) : HabanaOperator(guid) {
+    this->CreateSynContext(device_id);
+    kernel_meta_data_.input_layout.assign(
+        {LayoutFormat::ANY, LayoutFormat::ANY, LayoutFormat::ANY});
+    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
+  }
+
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+};
+
+class BmmOperator : public BmmOutOperator {
+ public:
+  BmmOperator(int device_id, std::string guid) : BmmOutOperator(device_id, guid) {
+    kernel_meta_data_.input_layout.assign(
+        {LayoutFormat::ANY, LayoutFormat::ANY});
+  }
+
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+};
+
+}
