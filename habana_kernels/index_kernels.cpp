@@ -16,8 +16,10 @@
 
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
+#include "habana_helpers/graph.h"
 #include "habana_helpers/logging.h"
 #include "habana_helpers/tensor_utils.h"
+#include "habana_kernels/index_kernels.h"
 #include "habana_kernels/simple_generic_kernel.h"
 #include "kernel_utils.h"
 
@@ -227,6 +229,38 @@ Tensor index_select_hpu(const Tensor& self, int64_t dim, const Tensor& index) {
   PT_KERNEL_END;
   return output;
 }
+
+void Gather2dOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 3,
+      "Incorrect size of inputs expected for gather2d operator");
+  TORCH_CHECK(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
+  TORCH_CHECK(inputs[1].isTensor(), "Input arg2 type expected to be tensor");
+  TORCH_CHECK(inputs[2].isInt(), "Input arg4 type expected to be integer");
+
+  auto input = inputs[0].toTensor();
+  auto indices = inputs[1].toTensor();
+  auto validCount = inputs[2].toInt();
+
+  TORCH_CHECK(indices.dim() <= 1, "index tensor cannot be more than 1D")
+
+  TORCH_CHECK(
+      indices.numel() >= validCount,
+      "validCount cannot be greater than number of indices provided")
+  TORCH_CHECK(input.dim() == 2, "Input tensor should be 2D")
+
+  auto shape = DimVector(input.sizes());
+  shape.erase(shape.begin() + 0);
+  shape.insert(shape.begin() + 0, std::min(indices.numel(), validCount));
+  auto output = at::empty(shape, input.options());
+
+  AllocateSynapseOutput(graph, output, is_output_persistent);
+  AddNodeToSynapseGraph(graph, nullptr, 0);
+}
+
 /*************************************************************************
  * @brief Kernel implementation for gather2d custom OP
  * @param self - Input tensor 2D fp32
@@ -239,40 +273,47 @@ Tensor gather2d_hpu(
     int64_t validCount) {
   PT_KERNEL_BEGIN;
 
-  TORCH_CHECK(indices.dim() <= 1, "index tensor cannot be more than 1D")
   // Convert index tensor from 0D to 1D if required
   if (indices.dim() == 0) {
     indices.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
   }
 
-  TORCH_CHECK(
-      indices.numel() >= validCount,
-      "validCount cannot be greater than number of indices provided")
-  TORCH_CHECK(input.dim() == 2, "Input tensor should be 2D")
-
-  auto shape = DimVector(input.sizes());
-  shape.erase(shape.begin() + 0);
-  shape.insert(shape.begin() + 0, std::min(indices.numel(), validCount));
-  auto output = at::empty(shape, input.options());
-
   auto indices_int = habana_helpers::cast_tensor_to_integer(indices);
+
+  // This conversion from scalar to tensor not done within
+  // AllocateAndAddSynapseNode because graph mode does not have
+  // support for DMA handling.
   auto validCount_int = at::empty({1}, indices_int.options());
   validCount_int.fill_(static_cast<int32_t>(validCount));
 
+  at::ScalarType scalar_type = input.scalar_type();
+  std::string node_type = "gather_with_valid_count_2d_" +
+      habana_helpers::name_suffix_from_type(scalar_type);
+
+  size_t device_id = input.device().index();
+
+  Gather2dOperator Op(device_id, node_type);
+  // Create Graph
+  auto graph = habana_helpers::create_graph(device_id, node_type);
+
+  // Assign Inputs to the Operator
   std::vector<const at::Tensor*> pt_inputs{
       &input, &indices_int, &validCount_int};
-  std::vector<const at::Tensor*> pt_outputs{&output};
+  Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
-  synapse_simple_generic_kernel(
-      pt_outputs,
-      pt_inputs,
-      "gather_with_valid_count_2d_f32",
-      nullptr,
-      0,
-      SynapsePassType::NO_PASS);
+  // Build Params for the graph
+  std::vector<c10::IValue> stack = {
+      IValue(input), IValue(indices_int), IValue(validCount)};
+  Op.AllocateAndAddSynapseNode(graph, stack, true);
+
+  // compile and execute the graph
+  Op.Compile(graph);
+
+  std::vector<at::Tensor> out = Op.GetOutputs();
+  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
 
   PT_KERNEL_END;
-  return output;
+  return out.at(0);
 }
 
 static auto registry =
@@ -304,12 +345,6 @@ static auto registry =
                 .impl_unboxedOnlyKernel<
                     decltype(scatter_inplace_src_hpu),
                     &scatter_inplace_src_hpu>(DispatchKey::HABANATensorId)
-                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-        .op(torch::RegisterOperators::options()
-                .schema(
-                    "aten::gather2D(Tensor input, Tensor indices, int validCount) -> Tensor")
-                .impl_unboxedOnlyKernel<decltype(gather2d_hpu), &gather2d_hpu>(
-                    DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema(

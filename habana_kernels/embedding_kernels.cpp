@@ -14,9 +14,11 @@
 
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
+#include "habana_helpers/graph.h"
 #include "habana_helpers/logging.h"
 #include "habana_helpers/tensor_utils.h"
 #include "habana_helpers/unused_macro.h"
+#include "habana_kernels/embedding_kernels.h"
 #include "habana_kernels/simple_generic_kernel.h"
 #include "kernel_utils.h"
 
@@ -324,6 +326,36 @@ Tensor embedding_dense_backward_hpu(
   return output;
 }
 
+void EmbeddingBagSumOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 4,
+      "Incorrect size of inputs expected for gather2d operator");
+  TORCH_CHECK(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
+  TORCH_CHECK(inputs[1].isTensor(), "Input arg2 type expected to be tensor");
+  TORCH_CHECK(inputs[2].isTensor(), "Input arg3 type expected to be tensor");
+  TORCH_CHECK(inputs[3].isInt(), "Input arg4 type expected to be tensor");
+
+  auto input = inputs[0].toTensor();
+  auto indices = inputs[1].toTensor();
+  auto offsets = inputs[2].toTensor();
+  auto valid_count_offset = inputs[3].toInt();
+
+  TORCH_CHECK(indices.dim() <= 1, "index tensor cannot be more than 1D")
+  TORCH_CHECK(offsets.dim() <= 1, "index tensor cannot be more than 1D")
+  TORCH_CHECK(input.dim() == 2, "Input tensor should be 2D")
+
+  TORCH_CHECK(
+      valid_count_offset > 0, "valid_count_offset should be greater than 0");
+  auto output =
+      at::empty({valid_count_offset - 1, input.size(1)}, input.options());
+
+  AllocateSynapseOutput(graph, output, is_output_persistent);
+  AddNodeToSynapseGraph(graph, nullptr, 0);
+}
+
 /**********************************************************
 *@brief
 @param [in]  input 2D tensor, FP32/FP16
@@ -340,57 +372,65 @@ Tensor embedding_bag_sum_hpu(
     int64_t kernel_mode) {
   PT_KERNEL_BEGIN;
 
-  TORCH_CHECK(indices.dim() <= 1, "index tensor cannot be more than 1D")
   // Convert index tensor from 0D to 1D if required
   if (indices.dim() == 0) {
     indices.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
   }
 
-  TORCH_CHECK(offsets.dim() <= 1, "index tensor cannot be more than 1D")
   // Convert offsets tensor from 0D to 1D if required
   if (offsets.dim() == 0) {
     offsets.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
   }
 
-  TORCH_CHECK(valid_count.numel() == 2, "valid_count should have two elements")
-  TORCH_CHECK(input.dim() == 2, "Input tensor should be 2D")
-
   auto indices_i32 = habana_helpers::cast_tensor_to_integer(indices);
   auto offsets_i32 = habana_helpers::cast_tensor_to_integer(offsets);
   auto valid_count_i32 = habana_helpers::cast_tensor_to_integer(valid_count);
 
-  std::vector<const at::Tensor*> pt_inputs{
-      &input, &indices_i32, &offsets_i32, &valid_count_i32};
-
+  // This extraction of scalar value from tensor not done within
+  // AllocateAndAddSynapseNode because this cannot be done on device
+  // and doing it on CPU will not work in graph mode.
+  TORCH_CHECK(valid_count.numel() == 2, "valid_count should have two elements")
   auto data_ptr = static_cast<int64_t*>(valid_count.to("cpu").data_ptr());
-
   auto valid_count_offset = data_ptr[1]; // valid offset
-  TORCH_CHECK(
-      valid_count_offset > 0, "valid_count_offset should be greater than 0");
 
-  auto output =
-      at::empty({valid_count_offset - 1, input.size(1)}, input.options());
-
-  std::vector<const at::Tensor*> pt_outputs{&output};
-
-  std::string node_guid;
+  at::ScalarType scalar_type = input.scalar_type();
+  std::string node_type;
   if (kernel_mode == 0) {
-    node_guid = "embedding_bag_sum_2d";
+    node_type = "embedding_bag_sum_2d_fwd_" +
+        habana_helpers::name_suffix_from_type(scalar_type);
+    ;
   } else {
-    node_guid = "embedding_bag_sum_small_lengths_2d";
+    node_type = "embedding_bag_sum_small_lengths_2d_fwd_" +
+        habana_helpers::name_suffix_from_type(scalar_type);
+    ;
   }
 
-  synapse_simple_generic_kernel(
-      pt_outputs,
-      pt_inputs,
-      node_guid,
-      nullptr,
-      0,
-      SynapsePassType::FORWARD_PASS);
+  size_t device_id = input.device().index();
+
+  EmbeddingBagSumOperator Op(device_id, node_type);
+  // Create Graph
+  auto graph = habana_helpers::create_graph(device_id, node_type);
+
+  // Assign Inputs to the Operator
+  std::vector<const at::Tensor*> pt_inputs{
+      &input, &indices_i32, &offsets_i32, &valid_count_i32};
+  Op.AllocateSynapseInputs(graph, pt_inputs, true);
+
+  // Build Params for the graph
+  std::vector<c10::IValue> stack = {IValue(input),
+                                    IValue(indices_i32),
+                                    IValue(offsets_i32),
+                                    IValue(valid_count_offset)};
+  Op.AllocateAndAddSynapseNode(graph, stack, true);
+
+  // compile and execute the graph
+  Op.Compile(graph);
+
+  std::vector<at::Tensor> out = Op.GetOutputs();
+  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
 
   PT_KERNEL_END;
-
-  return output;
+  return out.at(0);
 }
 
 static auto registry =
@@ -429,11 +469,4 @@ static auto registry =
                 .impl_unboxedOnlyKernel<
                     decltype(embedding_dense_backward_hpu),
                     &embedding_dense_backward_hpu>(DispatchKey::HABANATensorId)
-                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-        .op(torch::RegisterOperators::options()
-                .schema(
-                    "aten::embedding_bag_sum(Tensor ifm, Tensor indices, Tensor offsets, Tensor valid_count, int kernel_mode) ->Tensor")
-                .impl_unboxedOnlyKernel<
-                    decltype(embedding_bag_sum_hpu),
-                    &embedding_bag_sum_hpu>(DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));

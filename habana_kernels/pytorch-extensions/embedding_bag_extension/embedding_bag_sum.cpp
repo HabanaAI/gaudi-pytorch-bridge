@@ -7,6 +7,13 @@
 
 using namespace std;
 
+extern torch::Tensor embedding_bag_sum_hpu(
+    const torch::Tensor& input,
+    const torch::Tensor& indices,
+    const torch::Tensor& offsets,
+    const torch::Tensor& valid_count,
+    int64_t kernel_mode);
+
 // Input tensor 1	Input feature map	BF16/FP32	2D
 // Input tensor 2	Indices Tensor	I32	1D
 // Input tensor 3	Valid Count Tensor	I32	1D
@@ -28,7 +35,7 @@ torch::Tensor embedding_bag_sum_with_valid_count_f32(
   torch::Tensor out;
   std::cout << "Inside New Op :: embedding_bag_sum_with_valid_count_f32"
             << std::endl;
-  out = at::embedding_bag_sum(input, indices, offsets, validCount, kernelMode);
+  out = embedding_bag_sum_hpu(input, indices, offsets, validCount, kernelMode);
   return out;
 }
 
