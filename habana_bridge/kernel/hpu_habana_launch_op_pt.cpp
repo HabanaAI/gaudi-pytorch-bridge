@@ -10,6 +10,7 @@
 
 #include <algorithm>
 #include <sstream>
+#include <typeinfo>
 #include <unordered_map>
 
 #include <torch/csrc/autograd/record_function.h>
@@ -30,7 +31,6 @@
 #include "absl/hash/hash.h"
 #include "absl/memory/memory.h"
 #include "absl/types/optional.h"
-#include <unordered_map>
 #include "habana_kernels/kernel_utils.h"
 #include "habana_bridge/kernel/hpu_habana_meta_op_list.h"
 #include "habana_device/tensor_builder.h"
@@ -38,20 +38,27 @@
 
 using namespace torch::jit;
 
+size_t HabanaLaunchOpPT::instance_count_ = 1;
+size_t HabanaLaunchOpPT::iteration_count_ = 1;
+
 std::ostream &operator<< (std::ostream &O, const RecipeArgumentSpec &v) {
   O << v.hash_code << '\n';
   return O;
 }
 
 std::ostream &operator<< (std::ostream &O, const RecipeValueSpec &v) {
-  O << "recipe addr : " << v.recipe.get() << ' ';
-  if (v.syn_tensor_names != nullptr && v.syn_tensor_buffers != nullptr) {
-    O << "(";
+  O << "addr : " << v.recipe.get() << ", use_count : " << v.recipe.use_count() << '\n';
+  if (v.syn_tensor_names != nullptr && v.syn_tensor_buffers != nullptr && v.aten_outputs != nullptr) {
+    O << "name:buffer :: (";
     size_t j = 0;
     for (auto & i : *v.syn_tensor_names) { O << " " << i << ':' << v.syn_tensor_buffers->at(j++); }
     O << " )";
+    O << '\n';
+    O << "aten_outputs ::";
+    for (auto &a : *v.aten_outputs) {
+      std::cout << " <dim : " << a->toTensor().dim() << " : " << a->toTensor().sizes() << '>';
+    }
   }
-  O << '\n';
 
   return O;
 }
@@ -72,6 +79,15 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(const torch::jit::Node* node, bool debug) {
   subgraph_ = node->g(attr::Subgraph);
   opname_ = node->kind().toQualString();
   debug_ = debug;
+  std::ostringstream oss;
+  oss << opname_ << '_' << instance_count_ << '_' << this;
+  id_str = oss.str();
+  std::cout << "---- " << " constructing HabanaLaunchOpPT for : " << id_str << '\n';
+  instance_count_++;
+}
+
+HabanaLaunchOpPT::~HabanaLaunchOpPT() {
+  std::cout << "---- " << " destructing HabanaLaunchOpPT for : " << id_str << '\n';
 }
 
 habana::LayoutFormat getPTTensorLayout() {
@@ -129,6 +145,7 @@ void HabanaLaunchOpPT::GetSynapseInputs(
             *syn_graph_ptr, &pt_tensor, true);
 
         pt_to_synapse_tensors.emplace(value_to_ivalue[value_in], syn_tensor);
+        syntensor_name_map.emplace(value_to_ivalue[value_in], syn_tensor.tensor_name_);
         input_names.push_back(syn_tensor.tensor_name_);
         input_buffers.push_back(pt_tensor.data_ptr());
 
@@ -170,9 +187,9 @@ void HabanaLaunchOpPT::GetSynapseOutputs(
                 value_to_ivalue[output_nodes[output_nodes_idx]], out_tensor_syn);
         output_nodes_idx++;
       }
-    output_names.push_back(out_tensor_syn.tensor_name_);
-    output_buffers.push_back(output_tensors_pt[output_tensor_idx].data_ptr());
-    output_tensor_idx++;
+      output_names.push_back(out_tensor_syn.tensor_name_);
+      output_buffers.push_back(output_tensors_pt[output_tensor_idx].data_ptr());
+      output_tensor_idx++;
   }
 }
 
@@ -215,12 +232,15 @@ at::Tensor HabanaLaunchOpPT::permuteTensor(
     auto syn_tensor_input = pt_to_synapse_tensors.find(value_to_ivalue[value_in]);
     auto &syn_tensor = permute_kernel->SetSynapseInput(std::move(syn_tensor_input->second));
     pt_to_synapse_tensors.erase(value_to_ivalue[value_in]);
+    //syntensor_name_map.erase(value_to_ivalue[value_in]);
     pt_to_synapse_tensors.emplace(value_to_ivalue[value_in], syn_tensor);
+    //syntensor_name_map.emplace(value_to_ivalue[value_in], syn_tensor.tensor_name_);
   } else {
     auto pt_tensor = value_to_ivalue[value_in]->toTensor();
     auto &syn_tensor = permute_kernel->AllocateSynapseInput(
         *syn_graph_ptr, &pt_tensor, true);
     pt_to_synapse_tensors.emplace(value_to_ivalue[value_in], syn_tensor);
+    syntensor_name_map.emplace(value_to_ivalue[value_in], syn_tensor.tensor_name_);
     input_names.push_back(syn_tensor.tensor_name_);
     input_buffers.push_back(pt_tensor.data_ptr());
   }
@@ -363,7 +383,8 @@ c10::ScalarType HabanaLaunchOpPT::getNodeScalarType(torch::jit::Node* node) {
   return c10::ScalarType::Float;
 }
 
-void HabanaLaunchOpPT::handleMetaOps(torch::jit::Node* node) {
+void HabanaLaunchOpPT::handleMetaOps(torch::jit::Node* node)
+{
   //Call the meta op via CPU impl
   //Some ops dont support c10 op.callBoxed so we need to call via JIT
   torch::jit::Stack stack;
@@ -383,6 +404,7 @@ void HabanaLaunchOpPT::handleMetaOps(torch::jit::Node* node) {
                                       syn_graph_ptr->get_graph_handle(),
                                       true, dtype));
             pt_to_synapse_tensors.emplace(value_to_ivalue[value_in], meta_syn_tensors.back());
+            syntensor_name_map.emplace(value_to_ivalue[value_in], meta_syn_tensors.back().tensor_name_);
             input_names.push_back(meta_syn_tensors.back().tensor_name_);
             input_buffers.push_back(tensor.data_ptr());
         }
@@ -422,6 +444,7 @@ void HabanaLaunchOpPT::handleMetaOps(torch::jit::Node* node) {
       auto &syn_tensor = meta_syn_tensors.back();
 
       pt_to_synapse_tensors.emplace(value_to_ivalue[val_out], syn_tensor);
+
       output_names.push_back(syn_tensor.tensor_name_);
       output_buffers.push_back(tensor.data_ptr());
       out_data = tensor.data_ptr();
@@ -431,16 +454,30 @@ void HabanaLaunchOpPT::handleMetaOps(torch::jit::Node* node) {
   TORCH_CHECK(in_data == out_data, "HabanaFusion : Data pointer changed in Meta op");
 }
 
+void HabanaLaunchOpPT::PrintSynTensors() {
+  //std::cout << "---- " << "[name buffers] pt_to_synapse_tensors";
+  //for (auto &v : pt_to_synapse_tensors) {
+    //std::cout << ' ' << '<' << v.second.tensor_name_ << ':' << v.first->toTensor().data_ptr() << '>';
+  //}
+  //std::cout << '\n';
+
+  std::cout << "---- " << "[name buffers]    syntensor_name_map";
+  for (auto &v : syntensor_name_map) {
+    std::cout << ' ' << '<' << v.second << ':' << v.first->toTensor().data_ptr() << '>';
+  }
+  std::cout << '\n';
+}
+
 void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
   PT_BRIDGE_BEGIN;
 
   // figure out the right device id
   auto& device = synapse_helpers::HPURegistrar::get_device();
   synDeviceId device_id = device.id();
-  std::ostringstream ostream;
-  ostream << opname_ << '_' << graph_id;
-  graph_id++;
-  synapse_helpers::graph syn_graph = habana_helpers::create_graph(device_id, ostream.str().c_str());
+  std::ostringstream oss;
+  oss << opname_ << "_" << instance_count_;
+  synapse_helpers::graph syn_graph = habana_helpers::create_graph(device_id, oss.str());
+  std::cout << subgraph_->toString() << '\n';
   syn_graph_ptr = &syn_graph;
 
   // for each node in IR graph, at this point the graph is a list with nodes
@@ -468,6 +505,9 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
     // Get kernel context
     habana::HabanaOperatorPtr HabanaKernel = habana::CreateHabanaOperator(
         device_id, node->kind().toQualString(), getNodeScalarType(node));
+
+    //std::cout << "---- " << __FUNCTION__ << " : "
+              //<< "Creating operator for " << node->kind().toQualString() << '\n';
 
     TORCH_CHECK(
         HabanaKernel != nullptr, std::string(" \n  kernel ")
@@ -502,56 +542,68 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
     return;
   }
 
-  // set outputs to output structure
-  std::shared_ptr<synapse_helpers::graph::recipe_handle> synh_recipe;
-  if (CompileSynapseGraph(synh_recipe)) {
-    RecipeValueSpec rv(synh_recipe);
+
+  auto&& error_variant{
+    syn_graph.compile()
+  };
+  if (ABSL_PREDICT_FALSE(absl::holds_alternative<synapse_helpers::synapse_error>(error_variant))) {
+    auto& error = absl::get<synapse_helpers::synapse_error>(error_variant);
+    std::cout << "syn compile encountered : " << error.error << " " << error.status << '\n';
+    TORCH_CHECK(false, "syn compile failed");
+  }
+  auto cur_recipe = get_value(std::move(error_variant));
+  RecipeValueSpec rv(cur_recipe);
+
+  if (enable_caching) {
     // reoroder the input_names and input_buffers
+    std::cout << "reordering the inputs" << '\n';
     input_names.clear();
     input_buffers.clear();
 
+    bool has_empty_name = false;
+
     for (size_t i = pt_stack->size()-num_inputs; i < pt_stack->size(); i++) {
       torch::jit::IValue *input_ptr = &(pt_stack->at(i));
-      auto it = pt_to_synapse_tensors.find(input_ptr);
-      if (it != std::end(pt_to_synapse_tensors)) {
-        auto &syn_tensor = it->second;
-        input_names.push_back(syn_tensor.tensor_name_);
+      auto it = syntensor_name_map.find(input_ptr);
+      if (it != syntensor_name_map.end()) {
+        input_names.push_back(it->second);
         input_buffers.push_back(input_ptr->toTensor().data_ptr());
+        if (it->second.empty()) {
+          has_empty_name = true;
+        }
       }
       else {
         TORCH_CHECK(false && "synapse tensor not found");
       }
     }
 
-    TORCH_CHECK(input_names.size() == input_buffers.size());
-    TORCH_CHECK(output_names.size() == output_buffers.size());
+    TORCH_CHECK(!has_empty_name && "empty tensor name");
+  }
 
-    rv.syn_tensor_names = std::make_shared<std::vector<std::string>> (input_names);
-    rv.syn_tensor_names->insert(rv.syn_tensor_names->end(), output_names.begin(), output_names.end());
+  rv.syn_tensor_names = std::make_shared<std::vector<std::string>> (input_names);
+  rv.syn_tensor_names->insert(rv.syn_tensor_names->end(), output_names.begin(), output_names.end());
 
-    rv.syn_tensor_buffers = std::make_shared<std::vector<void *>> (input_buffers);
-    rv.syn_tensor_buffers->insert(rv.syn_tensor_buffers->end(), output_buffers.begin(), output_buffers.end());
+  rv.syn_tensor_buffers = std::make_shared<std::vector<void *>> (input_buffers);
+  rv.syn_tensor_buffers->insert(rv.syn_tensor_buffers->end(), output_buffers.begin(), output_buffers.end());
 
-    rv.aten_outputs = std::make_shared<std::vector<torch::jit::IValue*>>(std::vector<torch::jit::IValue*>());
-    for (auto output : subgraph_->outputs()) {
-      rv.aten_outputs->push_back(value_to_ivalue[output]);
-    }
+  rv.aten_outputs = std::make_shared<std::vector<torch::jit::IValue*>>(std::vector<torch::jit::IValue*>());
+  for (auto output : subgraph_->outputs()) {
+    rv.aten_outputs->push_back(value_to_ivalue[output]);
+  }
 
-    LaunchRecipe(rv);
+  LaunchRecipe(rv);
 
-    UpdateOutputs();
-
-    // Add the <key,value> pair to the map
-    std::shared_ptr<RecipeArgumentSpec> ra_spec =
-      std::make_shared<RecipeArgumentSpec>(false, input_refs, subgraph_);
-
-    //recipe_cache.map_.emplace(ra_spec, rv);
+  //rval_vec.push_back(rv);
+  //torch::jit::CompleteArgumentSpec spec(false, input_refs);
+  //recipe_cache.emplace(spec, rval_vec.size()-1);
+  //recipe_cache.emplace(spec, 1);
+  // Add the <key,value> pair to the map
+  if (enable_caching) {
+    std::shared_ptr<RecipeArgumentSpec> ra_spec = std::make_shared<RecipeArgumentSpec>(false, input_refs, subgraph_);
     recipe_cache.add(ra_spec, rv);
   }
-  else {
-    TORCH_CHECK(false && "synapse graph compilation failed");
-  }
 
+  UpdateOutputs();
   PT_BRIDGE_END;
 }
 
@@ -564,11 +616,9 @@ bool HabanaLaunchOpPT::CompileSynapseGraph(
 
 void HabanaLaunchOpPT::LaunchRecipe(RecipeValueSpec &rv) {
   rv.SelfCheck();
-  std::shared_ptr<synapse_helpers::graph::recipe_handle> last_recipe = rv.recipe;
 
   std::vector<synLaunchTensorInfo> syn_launch_info;
   syn_launch_info.reserve(rv.syn_tensor_names->size());
-
   for (size_t i = 0; i < rv.syn_tensor_names->size(); ++i)
     syn_launch_info.emplace_back(synLaunchTensorInfo{
         rv.syn_tensor_names->at(i).c_str(), reinterpret_cast<uint64_t>(rv.syn_tensor_buffers->at(i))});
@@ -577,9 +627,17 @@ void HabanaLaunchOpPT::LaunchRecipe(RecipeValueSpec &rv) {
 
   synStreamHandle stream_handle = device.get_compute_stream();
 
-  synapse_helpers::graph::launch_info ln_info(last_recipe->device_);
-  synapse_helpers::graph::create_launch_info(ln_info, *last_recipe);
-  synapse_helpers::graph::launch(ln_info, *last_recipe, syn_launch_info);
+  synapse_helpers::graph::launch_info ln_info(rv.recipe->device_);
+  synapse_helpers::graph::create_launch_info(ln_info, *rv.recipe);
+
+  auto&& error_optional {
+    synapse_helpers::graph::launch(ln_info, *rv.recipe, syn_launch_info)
+  };
+  if (ABSL_PREDICT_FALSE(error_optional.has_value())) {
+    auto& error = error_optional.value();
+    std::cout << "syn launch encountered : " << error.error << " " << error.status << '\n';
+    TORCH_CHECK(false, "syn launch failed");
+  }
 
   TORCH_HABANA_CHECK(synStreamSynchronize(stream_handle), "synStreamSynchronize failed");
 }
@@ -588,7 +646,11 @@ void HabanaLaunchOpPT::UpdateOutputs() {
   // Update the stack
   drop(*pt_stack, num_inputs);
   for (auto output : subgraph_->outputs()) {
-    pt_stack->insert(pt_stack->end(), *value_to_ivalue[output]);
+    //pt_stack->insert(pt_stack->end(), *value_to_ivalue[output]);
+    if(value_to_ivalue[output])
+        pt_stack->insert(pt_stack->end(), *value_to_ivalue[output]);
+    else
+        pt_stack->insert(pt_stack->end(), IValue());
   }
 }
 
@@ -601,9 +663,12 @@ void HabanaLaunchOpPT::clear() {
   output_buffers.clear();
   value_to_tensor_layout.clear();
   pt_to_synapse_tensors.clear();
+  syntensor_name_map.clear();
 }
 
 bool HabanaLaunchOpPT::IsCached(std::shared_ptr<RecipeArgumentSpec> &spec) {
+  //Check whether the input signature is changed
+  std::cout << "---- id_str : " << id_str << ", iteration : " << iteration_count_++ << '\n';
   bool is_found(false);
   std::cout << '\n';
   if (!recipe_cache.empty()) {
@@ -620,9 +685,9 @@ bool HabanaLaunchOpPT::IsCached(std::shared_ptr<RecipeArgumentSpec> &spec) {
     }
   }
   else {
-    std::cout << "       ------------------" << '\n';
-    std::cout << "       | first iteration |" << '\n';
-    std::cout << "       ------------------" << '\n';
+    std::cout << "       --------------" << '\n';
+    std::cout << "       | first time |" << '\n';
+    std::cout << "       --------------" << '\n';
   }
   std::cout << '\n';
 
@@ -635,8 +700,6 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
   auto subgraph_inputs = subgraph_->inputs();
   input_refs = last(stack, num_inputs);
 
-  // Keep a handle to the stack for future use
-  pt_stack = &stack;
 
   // Fusion pass should ensure all nodes are on Habana, if all nodes not on
   // habana device, we should assert
@@ -656,26 +719,29 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
 
   // caching :: begin
   if (enable_caching) {
-    std::shared_ptr<RecipeArgumentSpec> spec =
-      std::make_shared<RecipeArgumentSpec>(false, input_refs, subgraph_);
+    std::shared_ptr<RecipeArgumentSpec> spec = std::make_shared<RecipeArgumentSpec>(false, input_refs, subgraph_);
 
     if (IsCached(spec)) {
       // This is cache hit. Run the cached recipe
       RecipeValueSpec rv = recipe_cache.get(spec);
+      std::cout << "---- id_str : " << id_str << " will use the cached recipe" << '\n' << rv << '\n';
 
       // Patch the input buffers
+      std::cout << "---- id_str : " << id_str << " patching buffers within cached recipe" << '\n';
       std::shared_ptr<std::vector<void *>> buffers = rv.syn_tensor_buffers;
       size_t i = 0;
       for (auto const &input : input_refs) {
         buffers->at(i++) = input.toTensor().data_ptr();
       }
 
+      std::cout << "---- id_str : " << id_str << " launching cached recipe" << '\n';
       LaunchRecipe(rv);
 
       // Update the stack from the recipe itself
-      drop(*pt_stack, num_inputs);
+      std::cout << "---- id_str : " << id_str << " updating output from cached recipe" << '\n';
+      drop(stack, num_inputs);
       for (auto ival_ptr : *(rv.aten_outputs)) {
-        pt_stack->insert(pt_stack->end(), *ival_ptr);
+        stack.insert(stack.end(), *ival_ptr);
       }
       clear();
       return;
@@ -684,6 +750,9 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
   }
 
   {
+  // Keep a handle to the stack for future use
+  pt_stack = &stack;
+
     size_t i = 0;
     size_t j = stack.size()-num_inputs;
     for ( ; j < stack.size(); j++) {

@@ -21,12 +21,13 @@
 #include <string>
 #include <unordered_set>
 #include "habana_kernels/habana_operator.h"
+
 using namespace habana;
 
 //For now its a simple map with PT tensor
 //We can extend this structure later to map to add extra capabilities for debug etc.
-typedef std::unordered_map<torch::jit::IValue*, synapse_helpers::tensor&>
-    PTToSynapseTensorMap;
+typedef std::unordered_map<torch::jit::IValue*, synapse_helpers::tensor&> PTToSynapseTensorMap;
+typedef std::unordered_map<torch::jit::IValue*, std::string> IvalPtrToSynTensorNameMap;
 
 // Adding the op strings to the key for recipe
 // Later the drop the storage for the vector of strings
@@ -96,7 +97,6 @@ struct RecipeValueSpec {
   std::shared_ptr<synapse_helpers::graph::recipe_handle> recipe;
   std::shared_ptr<std::vector<std::string>> syn_tensor_names;
   std::shared_ptr<std::vector<void *>> syn_tensor_buffers;
-  // Is it possible to make a unique_ptr for aten_outputs
   std::shared_ptr<std::vector<torch::jit::IValue *>> aten_outputs;
 
   RecipeValueSpec(std::shared_ptr<synapse_helpers::graph::recipe_handle> r = nullptr)
@@ -144,23 +144,25 @@ struct RecipeCacheSimple {
 class HabanaLaunchOpPT {
  public:
   explicit HabanaLaunchOpPT(const torch::jit::Node* node, bool debug);
+  ~HabanaLaunchOpPT();
   void evaluate(torch::jit::Stack& stack);
   void run(torch::jit::Stack& stack);
 
  private:
   std::shared_ptr<torch::jit::Graph> subgraph_;
   std::string opname_;
+  std::string id_str;
+  static size_t instance_count_;
+  static size_t iteration_count_;
   bool debug_;
 
   std::vector<std::string> input_names;
-  std::vector<std::string> output_names;
   std::vector<void*> input_buffers;
+  std::vector<std::string> output_names;
   std::vector<void*> output_buffers;
-  // We keep a vector of kernels so that the context memory
-  // for each kernel is retained till graph execution
-  // This is done to enable reuse of PT and synapse tensors and their processing
+  //We keep a vector of kernels so that the context memory for each kernel is retained till graph execution
+  //This is done to enable reuse of PT and synapse tensors and their processing
   std::vector<HabanaOperatorPtr> habana_kernels;
-
   // A map between the abstract value containers in graph and actual Ivalues in
   // stack
   std::unordered_map<const torch::jit::Value*, torch::jit::IValue *> value_to_ivalue;
@@ -175,13 +177,12 @@ class HabanaLaunchOpPT {
   // 1. Manage the newly created IValues
   // 2. Expose the enable_caching flag to python
   // 3. Switch to general logging from std::cout
-
-  bool enable_caching = false;
+  bool enable_caching = getenv("HABANA_ENABLE_GRAPH_CACHE") ? true : false;
   size_t num_inputs = 0;
-  torch::jit::Stack *pt_stack = nullptr;
-
   at::ArrayRef<torch::jit::IValue> input_refs;
-  size_t graph_id = 0;
+  torch::jit::Stack *pt_stack = nullptr;
+  IvalPtrToSynTensorNameMap syntensor_name_map;
+
   synapse_helpers::graph *syn_graph_ptr = nullptr;
   RecipeCacheSimple recipe_cache;
 
@@ -215,8 +216,9 @@ class HabanaLaunchOpPT {
     const habana::LayoutFormat &supported_channel_order);
   c10::ScalarType getNodeScalarType(torch::jit::Node* node);
   void handlePrimNodes(torch::jit::Node* node);
-  void LaunchRecipe(RecipeValueSpec &rv);
-  bool IsCached(std::shared_ptr<RecipeArgumentSpec> &spec);
   void handleMetaOps(torch::jit::Node* node);
+  bool IsCached(std::shared_ptr<RecipeArgumentSpec> &spec);
+  void PrintSynTensors();
+  void LaunchRecipe(RecipeValueSpec &rv);
   void UpdateOutputs();
 };
