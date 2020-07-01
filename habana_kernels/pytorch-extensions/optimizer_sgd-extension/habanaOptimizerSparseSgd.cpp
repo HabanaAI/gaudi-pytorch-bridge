@@ -19,13 +19,12 @@ using namespace std;
 // 1	Weights              FP32/FP16/BF16	2D
 // 2	Moments              FP32	2D
 
-
 extern std::tuple<torch::Tensor, torch::Tensor> optimizer_sparse_sgd_with_valid_count_hpu(
-    torch::Tensor gradients,
-    torch::Tensor weights_in,
-    torch::Tensor moments_in,
-    torch::Tensor indices,
-    torch::Tensor learning_rate,
+    const torch::Tensor& gradients,
+    const torch::Tensor& weights_in,
+    const torch::Tensor& moments_in,
+    const torch::Tensor& indices,
+    const torch::Tensor& learning_rate,
     int64_t valid_count,
     float mom,
     bool nesterov);
