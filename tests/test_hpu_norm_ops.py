@@ -111,10 +111,50 @@ def test_hpu_batch_norm_2d_chlast_fwd_bwd(N, H, W, C):
     kernel_params_fwd = {'input': in_tensor.contiguous(memory_format=torch.channels_last)}
     bwd_tensor = torch.randn(N, C, H, W)
     bwd_tensors = [bwd_tensor.contiguous(memory_format=torch.channels_last)]
-
     evaluate_fwd_bwd_kernel(kernel=kernel, tensor_list_bwd=bwd_tensors,
                             kernel_params_fwd=kernel_params_fwd, copy_kernel=True)
 
+@pytest.mark.parametrize("N, H, W, C", batch_norm_test_case_list_2d)
+def test_hpu_batch_norm_2d_chlast_withcache_fwd_bwd(N, H, W, C):
+    for i in range(2):
+        kernel = torch.nn.BatchNorm2d(C)
+        in_tensor = torch.randn(N, C, H, W, requires_grad=True)
+        kernel_params_fwd = {'input': in_tensor.contiguous(memory_format=torch.channels_last)}
+        bwd_tensor = torch.randn(N, C, H, W)
+        bwd_tensors = [bwd_tensor.contiguous(memory_format=torch.channels_last)]
+        evaluate_fwd_bwd_kernel(kernel=kernel, tensor_list_bwd=bwd_tensors,
+                            kernel_params_fwd=kernel_params_fwd, copy_kernel=True)
+
+@pytest.mark.parametrize("N, H, W, C", batch_norm_test_case_list_2d)
+def test_hpu_batch_norm_2d_eval_withcache_fwd_bwd(N, H, W, C):
+    hpu = torch.device('habana')
+    cpu = torch.device('cpu')
+
+    class bn(torch.nn.Module):
+        def __init__(self):
+            super(bn, self).__init__()
+            self.bn1 = torch.nn.BatchNorm2d(C)
+
+        def _forward_impl(self, x):
+            x = self.bn1(x)
+            return x
+
+        def forward(self, x):
+            return self._forward_impl(x)
+    for i in range(2):
+        model = bn()
+        model = model.train()
+        x = torch.randn((N, C, H, W))
+        output = model(x)
+        model = model.eval()
+        output = model(x)
+        model_hpu = model.to(hpu)
+        model_hpu = model_hpu.eval()
+        x_hpu = x.to(hpu)
+        output_hpu = model_hpu(x_hpu)
+        output_hpu_cpu = output_hpu.to(cpu)
+        numpy.testing.assert_allclose(output_hpu_cpu.detach().numpy(),
+                                  output.detach().numpy(), atol=0.001, rtol=0.001)
 
 if __name__ == '__main__':
     test_hpu_batch_norm_2d_fwd_bwd(*batch_norm_test_case_list_2d[0])

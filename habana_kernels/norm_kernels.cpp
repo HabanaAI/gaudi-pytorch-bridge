@@ -15,14 +15,15 @@
 
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
+#include "habana_helpers/graph.h"
 #include "habana_helpers/tensor_utils.h"
 #include "habana_helpers/unused_macro.h"
 #include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/resize.h"
 #include "habana_kernels/simple_generic_kernel.h"
+#include "norm_kernels.h"
 
 using namespace torch;
-
 /**********************************************************************
 *@brief Changes dimensions of the input tensor as per specified dimension.
 *This is done by adding dummy x1 dimensions. Eg: NC -> NCHW is done by
@@ -114,6 +115,148 @@ inline Tensor get_batch_norm_optional_tensors(
   return output;
 }
 
+std::vector<at::Tensor> BatchNormForwardOperator::preProcessInputs(
+    Stack& inputs) {
+  TORCH_CHECK(
+      inputs.size() == 8,
+      "Incorrect number of inputs against expected count for BatchNormForward operator");
+  TORCH_CHECK(inputs[0].isTensor(), "Input type expected to be tensor");
+  TORCH_CHECK(inputs[1].isTensor(), "Input type expected to be tensor");
+  TORCH_CHECK(inputs[2].isTensor(), "Input type expected to be tensor");
+  TORCH_CHECK(inputs[3].isTensor(), "Input type expected to be tensor");
+  TORCH_CHECK(inputs[4].isTensor(), "Input type expected to be tensor");
+  TORCH_CHECK(inputs[5].isBool(), "Input type expected to be bool");
+  TORCH_CHECK(inputs[6].isDouble(), "Input type expected to be double");
+  TORCH_CHECK(inputs[7].isDouble(), "Input type expected to be double");
+  const auto input = inputs[0].toTensor();
+  const auto weight = inputs[1].toTensor();
+  const auto bias = inputs[2].toTensor();
+  const auto running_mean = inputs[3].toTensor();
+  const auto running_var = inputs[4].toTensor();
+  const auto training = inputs[5].toBool();
+
+  Tensor wt_hpu =
+      get_batch_norm_optional_tensors(weight, input.sizes()[3], input.device());
+
+  Tensor bias_hpu =
+      get_batch_norm_optional_tensors(bias, input.sizes()[3], input.device());
+
+  Tensor running_mean_hpu = get_batch_norm_optional_tensors(
+      running_mean, input.sizes()[3], input.device());
+
+  Tensor running_var_hpu = get_batch_norm_optional_tensors(
+      running_var, input.sizes()[3], input.device());
+  Tensor running_mean_hpu_in, running_var_hpu_in, residualAdd;
+  std::vector<const at::Tensor*> pt_inputs;
+  if (training == true) {
+    if (running_mean.defined()) {
+      running_mean_hpu_in =
+          at::empty(running_mean_hpu.sizes(), running_mean_hpu.options());
+
+      running_var_hpu_in =
+          at::empty(running_var_hpu.sizes(), running_var_hpu.options());
+
+      residualAdd = at::empty(input.sizes(), input.options());
+
+      // This residual add is dummy tensor to match the API requirements
+
+      // running mean and running var cannot be in input and output list
+      // simultaneously. create a copy
+      habana_helpers::copy_data_within_device(
+          running_mean_hpu, running_mean_hpu_in);
+
+      habana_helpers::copy_data_within_device(
+          running_var_hpu, running_var_hpu_in);
+    }
+    return {std::move(input),
+            std::move(wt_hpu),
+            std::move(bias_hpu),
+            std::move(residualAdd),
+            std::move(running_mean_hpu),
+            std::move(running_var_hpu),
+            std::move(running_mean_hpu_in),
+            std::move(running_var_hpu_in)};
+  } else {
+    // training=false - Evaluation mode
+    return {std::move(input),
+            std::move(bias_hpu),
+            std::move(wt_hpu),
+            std::move(running_mean_hpu),
+            std::move(running_var_hpu)};
+  }
+}
+
+void BatchNormForwardOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 6,
+      "Incorrect number of inputs against expected count for BatchNormForward operator");
+  TORCH_CHECK(inputs[0].isTensor(), "Input type expected to be tensor");
+  TORCH_CHECK(inputs[1].isTensor(), "Input type expected to be tensor");
+  TORCH_CHECK(inputs[2].isTensor(), "Input type expected to be tensor");
+  TORCH_CHECK(inputs[3].isBool(), "Input type expected to be bool");
+  TORCH_CHECK(inputs[4].isDouble(), "Input type expected to be double");
+  TORCH_CHECK(inputs[5].isDouble(), "Input type expected to be double");
+  const auto input = inputs[0].toTensor();
+  const auto running_mean_hpu = inputs[1].toTensor();
+  const auto running_var_hpu = inputs[2].toTensor();
+  const auto training = inputs[3].toBool();
+  const auto momentum = inputs[4].toDouble();
+  const auto eps = inputs[5].toDouble();
+
+  auto output = at::empty(input.sizes(), input.options());
+  auto current_mean =
+      at::empty(running_mean_hpu.sizes(), running_mean_hpu.options());
+  auto current_istd =
+      at::empty(running_mean_hpu.sizes(), running_mean_hpu.options());
+
+  if (training == true) {
+    // synapse uses expAvgfactor = 1 - momentum
+    struct synCudBnExParams params = {synBnOps::BN_OPS_BN,
+                                      static_cast<float>(1 - momentum),
+                                      static_cast<float>(eps)};
+    p_context_->params_.emplace<synCudBnExParams>(params);
+    p_context_->params_size_ = sizeof(params);
+    AllocateSynapseOutputs(
+        graph,
+        {output, running_mean_hpu, running_var_hpu, current_mean, current_istd},
+        is_output_persistent);
+    AddNodeToSynapseGraph(graph, &params, sizeof(params));
+  } else {
+    struct ns_BatchNormKernel::Params params;
+    params.threshold.f = 0.0;
+    params.momentum = static_cast<float>(momentum);
+    params.epsilon = static_cast<float>(eps);
+    p_context_->params_.emplace<ns_BatchNormKernel::Params>(params);
+    p_context_->params_size_ = sizeof(params);
+    AllocateSynapseOutput(graph, output, is_output_persistent);
+    AddNodeToSynapseGraph(graph, &params, sizeof(params));
+  }
+}
+
+void BatchNormForwardOperator::SetPTOutputs(torch::jit::Stack& inputs) {
+  const auto input = inputs[0].toTensor();
+  const auto running_mean_hpu = inputs[1].toTensor();
+  const auto running_var_hpu = inputs[2].toTensor();
+  const auto training = inputs[3].toBool();
+  // Prepare output tensor vector
+  auto output = at::empty(input.sizes(), input.options());
+  if (training == true) {
+    auto current_mean =
+        at::empty(running_mean_hpu.sizes(), running_mean_hpu.options());
+    auto current_istd =
+        at::empty(running_mean_hpu.sizes(), running_mean_hpu.options());
+    HabanaOperator::SetPTOutputs({output,
+                                  running_mean_hpu,
+                                  running_var_hpu,
+                                  current_mean,
+                                  current_istd});
+  } else {
+    HabanaOperator::SetPTOutput(output);
+  }
+}
 /*******************************************************************
 *@brief Implements forward pass for batch norm
 *INPUTS
@@ -132,7 +275,6 @@ divisions)
 *UNUSED variables will be enabled later once evaluation/inference mode is
 *implemented
 *******************************************************************/
-
 std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu(
     const Tensor& input,
     const Tensor& weight,
@@ -143,22 +285,18 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu(
     double momentum,
     double eps) {
   PT_KERNEL_BEGIN;
-
+  // Build Params for the graph
+  Stack cache_stack = {IValue(input),
+                       IValue(weight),
+                       IValue(bias),
+                       IValue(running_mean),
+                       IValue(running_var),
+                       IValue(training),
+                       IValue(momentum),
+                       IValue(eps)};
   auto num_input_dim = input.dim();
   TORCH_CHECK(num_input_dim > 1, "Expected range of input dimensions is [2,4]");
   c10::MemoryFormat memory_format = habana_helpers::get_memory_format({&input});
-  // Build Params for the graph
-  std::vector<c10::IValue> stack = {IValue(input),
-                                    IValue(weight),
-                                    IValue(bias),
-                                    IValue(running_mean),
-                                    IValue(running_var),
-                                    IValue(training),
-                                    IValue(momentum),
-                                    IValue(eps)};
-  size_t device_id = input[0].device().index();
-  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-
   // Resize input to 4D to match TPC kernel requirement.
   auto input_resize = batch_norm_resize(input, 4, memory_format);
   Tensor input_nhwc = input_resize;
@@ -176,116 +314,90 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu(
   // Nevertheless, if we don't receive the optional tensors from PyT, create
   // empty ones to satify TPC kernel input constraints
 
-  Tensor wt_hpu =
-      get_batch_norm_optional_tensors(weight, input.sizes()[1], input.device());
+  size_t device_id = input.device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  at::ScalarType scalar_type = input.scalar_type();
+  std::string node_type = training ? "cud_bn_fwd_ex" : "batch_norm_inf";
+  auto batch_norm = [&] {
+    // Create the operator
+    BatchNormForwardOperator Op(device_id, scalar_type, node_type);
 
-  Tensor bias_hpu =
-      get_batch_norm_optional_tensors(bias, input.sizes()[1], input.device());
-
-  Tensor running_mean_hpu = get_batch_norm_optional_tensors(
-      running_mean, input.sizes()[1], input.device());
-
-  Tensor running_var_hpu = get_batch_norm_optional_tensors(
-      running_var, input.sizes()[1], input.device());
-  auto output_nhwc = at::empty(input_nhwc.sizes(), input_nhwc.options());
-  std::vector<const at::Tensor*> pt_outputs{&output_nhwc};
-
-  auto current_mean =
-      at::empty(running_mean_hpu.sizes(), running_mean_hpu.options());
-  auto current_istd =
-      at::empty(running_mean_hpu.sizes(), running_mean_hpu.options());
-
-  if (training == true) {
-    std::vector<const at::Tensor*> pt_inputs{
-        &input_nhwc,
-        &wt_hpu,
-        &bias_hpu,
-    };
-
-    Tensor running_mean_hpu_in, running_var_hpu_in, residualAdd;
-
-    if (running_mean.defined()) {
-      running_mean_hpu_in =
-          at::empty(running_mean_hpu.sizes(), running_mean_hpu.options());
-
-      running_var_hpu_in =
-          at::empty(running_var_hpu.sizes(), running_var_hpu.options());
-
-      residualAdd = at::empty(input_nhwc.sizes(), input_nhwc.options());
-
-      // This residual add is dummy tensor to match the API requirements
-      pt_inputs.push_back(&residualAdd);
-
-      // running mean and running var cannot be in input and output list
-      // simultaneously. create a copy
-      habana_helpers::copy_data_within_device(
-          running_mean_hpu, running_mean_hpu_in);
-
-      habana_helpers::copy_data_within_device(
-          running_var_hpu, running_var_hpu_in);
-
-      pt_inputs.push_back(&running_mean_hpu_in);
-      pt_inputs.push_back(&running_var_hpu_in);
-
-      pt_outputs.push_back(&running_mean_hpu);
-      pt_outputs.push_back(&running_var_hpu);
-
-      pt_outputs.push_back(&current_mean);
-      pt_outputs.push_back(&current_istd);
+    // Build Params for the graph
+    Stack preprocess_stack = {IValue(input_nhwc),
+                              IValue(weight),
+                              IValue(bias),
+                              IValue(running_mean),
+                              IValue(running_var),
+                              IValue(training),
+                              IValue(momentum),
+                              IValue(eps)};
+    // Assign Inputs to the Operator
+    auto pre_inputs = Op.preProcessInputs(preprocess_stack);
+    std::vector<const at::Tensor*> pt_inputs;
+    // Build Params for the graph
+    Stack input_stack;
+    if (training == true) {
+      pt_inputs = {&pre_inputs[0],
+                   &pre_inputs[1],
+                   &pre_inputs[2],
+                   &pre_inputs[3],
+                   &pre_inputs[6],
+                   &pre_inputs[7]};
+      input_stack = {IValue(input_nhwc),
+                     IValue(pre_inputs[4]),
+                     IValue(pre_inputs[5]),
+                     IValue(training),
+                     IValue(momentum),
+                     IValue(eps)};
+    } else {
+      pt_inputs = {&pre_inputs[0],
+                   &pre_inputs[1],
+                   &pre_inputs[2],
+                   &pre_inputs[3],
+                   &pre_inputs[4]};
+      input_stack = {IValue(input_nhwc),
+                     IValue(pre_inputs[3]),
+                     IValue(pre_inputs[4]),
+                     IValue(training),
+                     IValue(momentum),
+                     IValue(eps)};
     }
-    std::string nodeType = "cud_bn_fwd_ex";
-    size_t key = habana_helpers::getRecipeKey(nodeType, stack);
+    size_t key = Op.GetRecipeKey(node_type, cache_stack);
 
     if (device.get_recipe_handle_cache().isCached(key)) {
       PT_KERNEL_DEBUG("Cache hit key:", key);
-      synapse_execute_cached_kernel(pt_outputs, pt_inputs, device_id, key);
+      Op.SetPTInputs(pt_inputs);
+      Stack out_stack;
+      if (training) {
+        out_stack = {IValue(input_nhwc),
+                     IValue(pre_inputs[4]),
+                     IValue(pre_inputs[5]),
+                     IValue(training)};
+      } else {
+        out_stack = {IValue(input_nhwc),
+                     IValue(pre_inputs[3]),
+                     IValue(pre_inputs[4]),
+                     IValue(training)};
+      }
+      Op.SetPTOutputs(out_stack);
+      Op.Execute(key);
     } else {
-      PT_KERNEL_DEBUG("Key:", key);
-      // synapse uses expAvgfactor = 1 - momentum
-      struct synCudBnExParams param = {synBnOps::BN_OPS_BN,
-                                       static_cast<float>(1 - momentum),
-                                       static_cast<float>(eps)};
+      // Create Graph
+      auto graph = habana_helpers::create_graph(device_id, node_type);
 
-      synapse_execute_kernel(
-          pt_outputs,
-          pt_inputs,
-          nodeType,
-          &param,
-          sizeof(param),
-          device_id,
-          key);
-    }
-  } else {
-    std::string nodeType = "batch_norm_inf";
-    size_t key = habana_helpers::getRecipeKey(nodeType, stack);
-    // training=false - Evaluation mode
-    std::vector<const at::Tensor*> pt_inputs{
-        &input_nhwc,
-        &bias_hpu,
-        &wt_hpu,
-        &running_mean_hpu,
-        &running_var_hpu,
-    };
-    if (device.get_recipe_handle_cache().isCached(key)) {
-      PT_KERNEL_DEBUG("Cache hit key:", key);
-      synapse_execute_cached_kernel(pt_outputs, pt_inputs, device_id, key);
-    } else {
-      PT_KERNEL_DEBUG("Key:", key);
-      struct ns_BatchNormKernel::Params param;
-      param.threshold.f = 0.0;
-      param.momentum = momentum;
-      param.epsilon = eps;
+      Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
-      synapse_execute_kernel(
-          pt_outputs,
-          pt_inputs,
-          nodeType,
-          &param,
-          sizeof(param),
-          device_id,
-          key);
+      Op.AllocateAndAddSynapseNode(graph, input_stack, true);
+
+      Op.Compile(graph);
     }
-  }
+
+    std::vector<at::Tensor> out = Op.GetOutputs();
+    return out;
+  };
+
+  auto bn_outputs = batch_norm();
+  auto output_nhwc = bn_outputs[0];
   Tensor output = output_nhwc;
   pt_in = {&output_nhwc};
   pt_out = {&output};
@@ -297,10 +409,87 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu(
   auto output_resized = batch_norm_resize(output, num_input_dim, memory_format);
 
   PT_KERNEL_END;
+  if (training == false) {
+    // for eval, return mean and var are not used and we can return anything
+    // give back any tensor of same shape
+    Tensor running_mean_hpu = get_batch_norm_optional_tensors(
+        running_mean, input.sizes()[3], input.device());
 
-  return std::make_tuple(output_resized, current_mean, current_istd);
+    Tensor running_var_hpu = get_batch_norm_optional_tensors(
+        running_var, input.sizes()[3], input.device());
+    return std::make_tuple(output_resized, running_mean_hpu, running_var_hpu);
+  }
+  return std::make_tuple(output_resized, bn_outputs[3], bn_outputs[4]);
 }
 
+std::vector<at::Tensor> BatchNormBackwardOperator::preProcessInputs(
+    Stack& inputs) {
+  TORCH_CHECK(
+      inputs.size() == 5,
+      "Incorrect number of inputs against expected count for BatchNormBackward operator");
+  TORCH_CHECK(inputs[0].isTensor(), "Input type expected to be tensor");
+  TORCH_CHECK(inputs[1].isTensor(), "Input type expected to be tensor");
+  TORCH_CHECK(inputs[2].isTensor(), "Input type expected to be tensor");
+  TORCH_CHECK(inputs[3].isTensor(), "Input type expected to be tensor");
+  TORCH_CHECK(inputs[4].isTensor(), "Input type expected to be tensor");
+  const auto input = inputs[0].toTensor();
+  const auto grad_out = inputs[1].toTensor();
+  const auto weight = inputs[2].toTensor();
+  const auto save_mean = inputs[3].toTensor();
+  const auto save_invstd = inputs[4].toTensor();
+
+  Tensor wt_hpu =
+      get_batch_norm_optional_tensors(weight, input.sizes()[3], input.device());
+  Tensor bias_hpu = at::zeros(wt_hpu.sizes(), wt_hpu.options());
+  Tensor save_mean_hpu = get_batch_norm_optional_tensors(
+      save_mean, input.sizes()[3], input.device());
+  Tensor save_invstd_hpu = get_batch_norm_optional_tensors(
+      save_invstd, input.sizes()[3], input.device());
+  return {std::move(input),
+          std::move(grad_out),
+          std::move(wt_hpu),
+          std::move(bias_hpu),
+          std::move(save_mean_hpu),
+          std::move(save_invstd_hpu)};
+}
+
+void BatchNormBackwardOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 3,
+      "Incorrect number of inputs against expected count for BatchNormBackward operator");
+  TORCH_CHECK(inputs[0].isTensor(), "Input type expected to be tensor");
+  TORCH_CHECK(inputs[1].isTensor(), "Input type expected to be tensor");
+  TORCH_CHECK(inputs[2].isDouble(), "Input type expected to be double");
+  const auto input = inputs[0].toTensor();
+  const auto weight = inputs[1].toTensor();
+  const auto eps = inputs[2].toDouble();
+
+  // Prepare output tensor vector
+  auto grad_in_nhwc = at::empty(input.sizes(), input.options());
+  auto grad_beta = at::empty(weight.sizes(), weight.options());
+  auto grad_gamma = at::empty(weight.sizes(), weight.options());
+
+  struct synCudBnExParams params = {
+      synBnOps::BN_OPS_BN, 0, static_cast<float>(eps)};
+  p_context_->params_.emplace<synCudBnExParams>(params);
+  p_context_->params_size_ = sizeof(params);
+  AllocateSynapseOutputs(
+      graph, {grad_in_nhwc, grad_gamma, grad_beta}, is_output_persistent);
+  AddNodeToSynapseGraph(graph, &params, sizeof(params));
+}
+
+void BatchNormBackwardOperator::SetPTOutputs(torch::jit::Stack& inputs) {
+  const auto input = inputs[0].toTensor();
+  const auto wt_hpu = inputs[1].toTensor();
+  // Prepare output tensor vector
+  auto grad_in_nhwc = at::empty(input.sizes(), input.options());
+  auto grad_beta = at::empty(wt_hpu.sizes(), wt_hpu.options());
+  auto grad_gamma = at::empty(wt_hpu.sizes(), wt_hpu.options());
+  HabanaOperator::SetPTOutputs({grad_in_nhwc, grad_gamma, grad_beta});
+}
 /*******************************************************************
 *@brief Implements backward pass for batch norm
 *INPUTS
@@ -332,25 +521,21 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu(
     double eps,
     UNUSED std::array<bool, 3> output_mask) {
   PT_KERNEL_BEGIN;
-
   bool output_mask_in[3];
   output_mask_in[0] = output_mask[0];
   output_mask_in[1] = output_mask[1];
   output_mask_in[2] = output_mask[2];
   // Build Params for the graph
-  std::vector<c10::IValue> stack = {IValue(grad_out),
-                                    IValue(input),
-                                    IValue(weight),
-                                    IValue(running_mean),
-                                    IValue(running_var),
-                                    IValue(save_mean),
-                                    IValue(save_invstd),
-                                    IValue(train),
-                                    IValue(eps),
-                                    IValue(output_mask_in)};
-
-  size_t device_id = input[0].device().index();
-  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  Stack cache_stack = {IValue(grad_out),
+                       IValue(input),
+                       IValue(weight),
+                       IValue(running_mean),
+                       IValue(running_var),
+                       IValue(save_mean),
+                       IValue(save_invstd),
+                       IValue(train),
+                       IValue(eps),
+                       IValue(output_mask_in)};
   auto num_input_dim = input.dim();
   TORCH_CHECK(num_input_dim > 1, "Expected range of input dimensions is [2,4]");
   TORCH_CHECK(
@@ -370,43 +555,53 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu(
   habana_helpers::change_tensors_to_memory_format(
       pt_out, pt_in, pt_new_pos, memory_format);
 
-  Tensor wt_hpu =
-      get_batch_norm_optional_tensors(weight, input.sizes()[1], input.device());
-  Tensor bias_hpu = at::zeros(wt_hpu.sizes(), wt_hpu.options());
-  Tensor save_mean_hpu = get_batch_norm_optional_tensors(
-      save_mean, input.sizes()[1], input.device());
-  Tensor save_invstd_hpu = get_batch_norm_optional_tensors(
-      save_invstd, input.sizes()[1], input.device());
-  std::vector<const at::Tensor*> pt_inputs{
-      &input_nhwc,
-      &grad_out_nhwc,
-      &wt_hpu,
-      &bias_hpu,
-      &save_mean_hpu,
-      &save_invstd_hpu,
+  size_t device_id = input.device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  at::ScalarType scalar_type = input.scalar_type();
+  std::string node_type = "cud_bn_bwd_ex";
+  auto batch_norm_bwd = [&] {
+    // Create the operator
+    BatchNormBackwardOperator Op(device_id, scalar_type, node_type);
+
+    // Build Params for the graph
+    Stack preprocess_stack = {IValue(input_nhwc),
+                              IValue(grad_out_nhwc),
+                              IValue(weight),
+                              IValue(save_mean),
+                              IValue(save_invstd)};
+    auto pre_inputs = Op.preProcessInputs(preprocess_stack);
+    std::vector<const at::Tensor*> pt_inputs = {&pre_inputs[0],
+                                                &pre_inputs[1],
+                                                &pre_inputs[2],
+                                                &pre_inputs[3],
+                                                &pre_inputs[4],
+                                                &pre_inputs[5]};
+
+    size_t key = Op.GetRecipeKey(node_type, cache_stack);
+    if (device.get_recipe_handle_cache().isCached(key)) {
+      PT_KERNEL_DEBUG("Cache hit key:", key);
+      Op.SetPTInputs(pt_inputs);
+      Stack out_stack = {IValue(pre_inputs[0]), IValue(pre_inputs[2])};
+      Op.SetPTOutputs(out_stack);
+      Op.Execute(key);
+    } else {
+      PT_KERNEL_DEBUG("Key:", key);
+      // Create Graph
+      auto graph = habana_helpers::create_graph(device_id, node_type);
+
+      Op.AllocateSynapseInputs(graph, pt_inputs, true);
+      // Build Params for the graph
+      Stack input_stack = {
+          IValue(pre_inputs[0]), IValue(pre_inputs[2]), IValue(eps)};
+      Op.AllocateAndAddSynapseNode(graph, input_stack, true);
+      Op.Compile(graph);
+    }
+
+    std::vector<at::Tensor> out = Op.GetOutputs();
+    return out;
   };
-
-  // Prepare output tensor vector
-  auto grad_in_nhwc = at::empty(input_nhwc.sizes(), input_nhwc.options());
-  auto grad_beta = at::empty(wt_hpu.sizes(), wt_hpu.options());
-  auto grad_gamma = at::empty(wt_hpu.sizes(), wt_hpu.options());
-
-  std::vector<const at::Tensor*> pt_outputs{
-      &grad_in_nhwc, &grad_gamma, &grad_beta};
-
-  std::string nodeType = "cud_bn_bwd_ex";
-  size_t key = habana_helpers::getRecipeKey(nodeType, stack);
-  if (device.get_recipe_handle_cache().isCached(key)) {
-    PT_KERNEL_DEBUG("Cache hit key:", key);
-    synapse_execute_cached_kernel(pt_outputs, pt_inputs, device_id, key);
-  } else {
-    PT_KERNEL_DEBUG("Key:", key);
-    struct synCudBnExParams param = {
-        synBnOps::BN_OPS_BN, 0, static_cast<float>(eps)};
-
-    synapse_execute_kernel(
-        pt_outputs, pt_inputs, nodeType, &param, sizeof(param), device_id, key);
-  }
+  auto bn_outputs = batch_norm_bwd();
+  auto grad_in_nhwc = bn_outputs[0];
   Tensor grad_in = grad_in_nhwc;
   pt_in = {&grad_in_nhwc};
   pt_out = {&grad_in};
@@ -419,7 +614,7 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu(
       batch_norm_resize(grad_in, num_input_dim, memory_format);
 
   PT_KERNEL_END;
-  return std::make_tuple(grad_in_resized, grad_gamma, grad_beta);
+  return std::make_tuple(grad_in_resized, bn_outputs[1], bn_outputs[2]);
 }
 
 /** @brief This function implements forward pass for torch.nn.LayerNorm()
