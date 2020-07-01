@@ -60,7 +60,7 @@ if [ ${TRAIN_STEP} -ne -1 ]; then
 fi
 echo -e "Train MNIST with parameters: batch_size: ${BATCH_SIZE} epochs: ${EPOCHS} lr: ${LR} seed: ${SEED_VAL} train_step: ${TRAIN_STEP}"
 printf "*** Starting training...\n\n"
-python mnist/main.py --batch-size=${BATCH_SIZE} \
+PT_HPU_LOG_MOD_MASK=FFFF PT_HPU_LOG_TYPE_MASK=1 python mnist/main.py --batch-size=${BATCH_SIZE} \
 	--epochs=${EPOCHS} \
 	--lr=${LR} \
 	${SEED} \

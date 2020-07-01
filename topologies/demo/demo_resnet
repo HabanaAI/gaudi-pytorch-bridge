@@ -5,12 +5,9 @@ function help()
         echo -e "  -p <data-path>,    --data-path <data_path>      default: '/software/data/pytorch/imagenet/ILSVRC2012_micro/'"
         echo -e "  -m <model>,        --model <model>              default: 'resnet50'"
         echo -e "  -d <device>,       --device <device>            default: 'habana'"
-        echo -e "  -b <batch_size>,   --batch-size <batchsize>     default: 8"
+        echo -e "  -b <batch_size>,   --batch-size <batchsize>     default: 128"
         echo -e "  -e <epochs>,       --epochs <epochs>            default: 1"
         echo -e "  -j <workers>,      --workers <workers>          default: 0"
-        echo -e "  -s <seed>,         --seed <seed>                default: None"
-        echo -e "  --num-train-steps <train_step>                  default: maxsize"
-        echo -e "  --num-eval-steps <eval_step>                    default: maxsize"
         echo -e "  --print-freq <print_freq>                       default: 1"
         echo -e ""
 }
@@ -42,18 +39,6 @@ while [ -n "$1" ];
             shift
             __workers=$1
             ;;
-	-s  | --seed )
-            shift
-            __seed=$1
-            ;;
-	--num-train-steps )
-            shift
-            __train_step=$1
-            ;;
-	--num-eval-steps )
-            shift
-            __eval_step=$1
-            ;;
 	--print-freq )
             shift
             __print_freq=$1
@@ -74,33 +59,18 @@ while [ -n "$1" ];
 DATA_PATH=${__data_path:-'/software/data/pytorch/imagenet/ILSVRC2012_micro/'}
 MODEL=${__model:-'resnet50'}
 DEVICE=${__device:-'habana'}
-BATCH_SIZE=${__batch_size:-8}
+BATCH_SIZE=${__batch_size:-128}
 EPOCHS=${__epochs:-1}
 WORKERS=${__workers:-0}
-SEED_VAL=${__seed:--1}
-TRAIN_STEP=${__train_step:--1}
-EVAL_STEP=${__eval_step:--1}
 PRINT_FREQ=${__print_freq:-1}
 
-if [ ${SEED_VAL} -ne -1 ]; then
-  SEED="--seed=${SEED_VAL}"
-fi
-if [ ${TRAIN_STEP} -ne -1 ]; then
-  NUM_TRAIN_STEP="--num-train-steps=${TRAIN_STEP}"
-fi
-if [ ${EVAL_STEP} -ne -1 ]; then
-  NUM_EVAL_STEP="--num-eval-steps=${EVAL_STEP}"
-fi
 
 printf "*** Starting training...\n\n"
-python resnet/train.py \
+PT_HPU_LOG_MOD_MASK=FFFF PT_HPU_LOG_TYPE_MASK=1 python resnet/train.py \
 	--data-path=${DATA_PATH} \
 	--model=${MODEL} \
 	--device=${DEVICE} \
 	--batch-size=${BATCH_SIZE} \
 	--epochs=${EPOCHS} \
 	--workers=${WORKERS} \
-	--print-freq=${PRINT_FREQ} \
-	${SEED} \
-	${NUM_TRAIN_STEP} \
-	${NUM_EVAL_STEP}
+	--print-freq=${PRINT_FREQ}
