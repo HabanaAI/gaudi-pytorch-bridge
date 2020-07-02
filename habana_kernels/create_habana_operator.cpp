@@ -9,6 +9,7 @@
  */
 #include "habana_kernels/basic_kernels.h"
 #include "habana_kernels/binary_kernels.h"
+#include "habana_kernels/compare_kernels.h"
 #include "habana_kernels/conv_kernels.h"
 #include "habana_kernels/embedding_kernels.h"
 #include "habana_kernels/habana_operator.h"
@@ -86,6 +87,8 @@ HabanaOperatorPtr CreateHabanaOperator(
     op = std::make_shared<TanhBackwardOperator>(device_id, node_type);
   } else if ("aten::sqrt" == node_name) {
     op = std::make_shared<SqrtOperator>(device_id, node_type);
+  } else if ("aten::gt" == node_name) {
+    op = std::make_shared<GtOperator>(device_id, node_type);
   }
   // Returning a null pointer for cases not added yet,
   // we can add assert once all kernels are added

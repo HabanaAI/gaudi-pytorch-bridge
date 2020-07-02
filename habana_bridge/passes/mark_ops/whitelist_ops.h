@@ -76,6 +76,7 @@ const std::unordered_set<std::string> HabanaWhiteList::HabanaWhiteListOps = {
         // "aten::transpose_",
         // "aten::uniform_",
         "aten::view",
+        "aten::gt",
         "prim::Constant"
 };
 
