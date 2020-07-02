@@ -7,7 +7,7 @@
  *
  ******************************************************************************
  */
-#include "habana_kernels/basic_kernels.h"
+#include "habana_kernels/tensor_shape_kernels.h"
 #include "habana_kernels/binary_kernels.h"
 #include "habana_kernels/conv_kernels.h"
 #include "habana_kernels/habana_operator.h"

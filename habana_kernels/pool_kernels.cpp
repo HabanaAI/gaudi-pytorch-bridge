@@ -15,15 +15,15 @@
 #include <algorithm>
 #include <iostream>
 
-#include "basic_kernels.h"
-#include "conv_pool_utils.h"
+#include "habana_kernels/tensor_shape_kernels.h"
+#include "habana_kernels/conv_pool_utils.h"
 #include "habana_device/HPUCheck.h"
 #include "habana_helpers/graph.h"
 #include "habana_helpers/tensor_utils.h"
 #include "habana_helpers/unused_macro.h"
 #include "habana_kernels/simple_generic_kernel.h"
-#include "kernel_utils.h"
-#include "pool_kernels.h"
+#include "habana_kernels/kernel_utils.h"
+#include "habana_kernels/pool_kernels.h"
 
 using namespace torch;
 

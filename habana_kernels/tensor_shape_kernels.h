@@ -18,7 +18,7 @@ class PermuteOperator : public habana::HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false);
+      bool is_output_persistent = false) override;
 };
 
 //
@@ -26,14 +26,13 @@ class PermuteOperator : public habana::HabanaOperator {
 class ReshapeOperator : public habana::HabanaOperator {
  public:
   ReshapeOperator(int device_id, c10::ScalarType scalarType)
-    : HabanaOperator(
-          "reshape") {
-  this->CreateSynContext(device_id);
-}
+      : HabanaOperator("reshape") {
+    this->CreateSynContext(device_id);
+  }
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false);
+      bool is_output_persistent = false) override;
 };
 
 //
@@ -44,7 +43,7 @@ class TransposeOperator : public habana::HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false);
+      bool is_output_persistent = false) override;
 };
 
 //
@@ -57,7 +56,7 @@ class TOperator : public TransposeOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent) {
+      bool is_output_persistent) override {
     TORCH_CHECK(
         inputs.size() == 1, "aten::t Operation expects 1 arguments as input")
     inputs.insert(inputs.begin() + 1, c10::IValue(0));
@@ -65,4 +64,17 @@ class TOperator : public TransposeOperator {
     TransposeOperator::AllocateAndAddSynapseNode(
         graph, inputs, is_output_persistent);
   }
+};
+
+// Broadcast Operator
+class BroadcastOperator : public habana::HabanaOperator {
+ public:
+  BroadcastOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator("broadcast") {
+    this->CreateSynContext(device_id);
+  }
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
 };

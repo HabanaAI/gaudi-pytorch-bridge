@@ -1,0 +1,707 @@
+/******************************************************************************
+ * Copyright (C) 2020 HabanaLabs, Ltd.
+ * All Rights Reserved.
+ *
+ * Unauthorized copying of this file, via any medium is strictly prohibited.
+ * Proprietary and confidential.
+ *
+ ******************************************************************************
+ */
+#include <ATen/ExpandUtils.h>
+#include <ATen/InferSize.h>
+#include <synapse_api.h>
+#include <torch/script.h>
+
+#include "habana_device/HPUCheck.h"
+#include "habana_device/hpu_cached_devices.h"
+#include "habana_helpers/graph.h"
+#include "habana_helpers/logging.h"
+#include "habana_helpers/tensor_utils.h"
+#include "habana_kernels/simple_generic_kernel.h"
+#include "habana_kernels/tensor_shape_kernels.h"
+#include "kernel_utils.h"
+#include "resize.h"
+
+using namespace torch;
+
+static void validate_tensor_dim_sizes(const TensorList tensors, int64_t dim) {
+  unsigned i = 0;
+  auto tensor_count = tensors.size();
+  auto out_size = tensors[0].sizes().vec();
+
+  Tensor tempT = tensors[0];
+  for (i = 0; i < tensor_count; i++) {
+    // check whether sizes along dimensions match except for cat dimension.
+    unsigned j = 0;
+    auto sz1 = tensors[i].sizes().vec();
+    auto sz2 = tempT.sizes().vec();
+    for (j = 0; j < tensors[i].dim(); j++) {
+      if (j != dim) {
+        if ((sz1[j] - sz2[j]) != 0)
+          PT_KERNEL_WARN(
+              "Sizes of tensors along one of the non-cat dimensions don't match");
+        TORCH_CHECK(
+            ((sz1[j] - sz2[j]) == 0),
+            "Sizes of tensors along one of the non-cat dimensions don't match");
+      }
+    }
+    tempT = tensors[i];
+  }
+}
+/*************************************************************************
+ * @brief Kernel implementation for torch.cat(tensors, dim)
+ * @param tensors - tensor list/tuple of inputs
+ * @param dim - dimension along which to concatenate the tensors
+ ************************************************************************/
+Tensor cat_hpu(const TensorList tensors, int64_t dim_ = 0) {
+  PT_KERNEL_BEGIN;
+  std::vector<const at::Tensor*> pt_inputs;
+  std::vector<const at::Tensor*> pt_outputs;
+  int64_t dim =
+      at::maybe_wrap_dim(dim_, tensors[0].dim(), /*wrap_scalar=*/true);
+  validate_tensor_dim_sizes(tensors, dim);
+
+  auto out_size = tensors[0].sizes().vec();
+  out_size[dim] = 0;
+  unsigned i = 0;
+  auto tensor_count = tensors.size();
+  for (i = 0; i < tensor_count; i++) {
+    pt_inputs.push_back(&tensors[i]);
+    out_size[dim] += tensors[i].sizes()[dim];
+  }
+  auto out = at::empty(out_size, tensors[0].options());
+  pt_outputs.push_back(&out);
+  // python level cat matches dim num with the order of sizes in tensor creation
+  auto kernel_dim = (out_size.size() - dim) - 1;
+  synapse_simple_generic_kernel(
+      pt_outputs,
+      pt_inputs,
+      "concat",
+      &kernel_dim,
+      sizeof(kernel_dim),
+      SynapsePassType::NO_PASS);
+
+  PT_KERNEL_END;
+  return out;
+}
+
+/*************************************************************************
+ * @brief Kernel implementation for torch.cat(tensors, dim, out=result)
+ * @param result - result of concatenate
+ * @param tensors - tensor list/tuple of inputs
+ * @param dim - dimension along which to concatenate the tensors
+ ************************************************************************/
+Tensor& cat_hpu_out(
+    Tensor& result,
+    const TensorList tensors,
+    int64_t dim_ = 0) {
+  PT_KERNEL_BEGIN;
+  std::vector<const at::Tensor*> pt_inputs;
+  std::vector<const at::Tensor*> pt_outputs;
+  int64_t dim =
+      at::maybe_wrap_dim(dim_, tensors[0].dim(), /*wrap_scalar=*/true);
+  validate_tensor_dim_sizes(tensors, dim);
+
+  auto out_size = tensors[0].sizes().vec();
+  out_size[dim] = 0;
+  unsigned i = 0;
+  auto tensor_count = tensors.size();
+  for (i = 0; i < tensor_count; i++) {
+    pt_inputs.push_back(&tensors[i]);
+    out_size[dim] += tensors[i].sizes()[dim];
+  }
+  if (result.defined()) {
+    TORCH_CHECK(
+        tensors[0].options().type_equal(result.options()),
+        "output values must be of same type as input");
+    auto tht_result = result.unsafeGetTensorImpl();
+    THHTensor_resizeNd(tht_result, tensors[0].dim(), out_size.data(), nullptr);
+  } else {
+    result = at::empty(out_size, tensors[0].options());
+  }
+  pt_outputs.push_back(&result);
+  // python level cat matches dim num with the order of sizes in tensor creation
+  auto kernel_dim = (out_size.size() - dim) - 1;
+  synapse_simple_generic_kernel(
+      pt_outputs,
+      pt_inputs,
+      "concat",
+      &kernel_dim,
+      sizeof(kernel_dim),
+      SynapsePassType::NO_PASS);
+  return result;
+}
+
+inline void recalc_strides(
+    std::vector<int64_t>& self_strides,
+    const std::vector<int64_t>& self_sizes) {
+  int k;
+  self_strides[self_strides.size() - 1] = 1;
+  for (k = self_strides.size() - 2; k >= 0; k--) {
+    self_strides[k] = self_strides[k + 1] * self_sizes[k + 1];
+  }
+  return;
+}
+
+/****************************************************************************
+ * @brief Kernel implementation for N-D out = torch.transpose(self,dim0,dim1)
+ * @param self - input
+ * @param dim0 - first dimension to swap
+ * @param dim0 - second dimension to swap
+ ***************************************************************************/
+TransposeOperator::TransposeOperator(int device_id, c10::ScalarType scalarType)
+    : HabanaOperator(
+          "transpose_fwd_" +
+          habana_helpers::name_suffix_from_type(scalarType)) {
+  this->CreateSynContext(device_id);
+}
+
+void TransposeOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 3,
+      "Incorrect size of input arguments for Transpose Operator");
+  TORCH_CHECK(
+      inputs[0].isTensor(),
+      "Input arg 1 for transpose op needs to be tensor type");
+  TORCH_CHECK(
+      inputs[1].isInt(),
+      "Input arg 2 for transpose op needs to be of Int type");
+  TORCH_CHECK(
+      inputs[2].isInt(),
+      "Input arg 3 for transpose op needs to be of Int type");
+  Tensor self = inputs[0].toTensor();
+  auto dim0_ = inputs[1].toInt();
+  auto dim1_ = inputs[2].toInt();
+  // handle negative dimensions (backward indexing) in pytorch
+  int64_t dim0 = at::maybe_wrap_dim(dim0_, self.dim(), /*wrap_scalar=*/true);
+  int64_t dim1 = at::maybe_wrap_dim(dim1_, self.dim(), /*wrap_scalar=*/true);
+
+  TORCH_CHECK(
+      (dim0 < self.dim()) && (dim1 < self.dim()),
+      "Specified dims are beyond tensor dims");
+
+  auto self_sizes = self.sizes().vec();
+  auto self_strides = self.strides().vec();
+  std::swap(self_sizes[dim0], self_sizes[dim1]);
+  // Recalculate the strides to account for transpose size changes
+  // In effect, keep the tensor contiguous.
+  recalc_strides(self_strides, self_sizes);
+  auto out = at::empty_strided(self_sizes, self_strides, self.options());
+
+  synTransposeParams params;
+  params.tensorDim = self.dim();
+  int i;
+  for (i = 0; i < MAX_DIMENSIONS_NUM; i++) {
+    params.permutation[i] = static_cast<TransposePermutationDim>(i);
+  }
+  std::swap(
+      params.permutation[self.dim() - 1 - dim0],
+      params.permutation[self.dim() - 1 - dim1]);
+
+  p_context_->params_.emplace<synTransposeParams>(params);
+  p_context_->params_size_ = sizeof(params);
+  AllocateSynapseOutput(graph, out, is_output_persistent);
+  AddNodeToSynapseGraph(graph, &params, sizeof(params));
+}
+
+Tensor transpose_hpu(const Tensor& self, int64_t dim0_, int64_t dim1_) {
+  PT_KERNEL_BEGIN;
+  size_t device_id = self.device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  at::ScalarType scalar_type = self.scalar_type();
+  std::string node_type =
+      "transpose_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+  // Create operator
+  TransposeOperator Op(device_id, scalar_type);
+  // Build Params for the graph
+  std::vector<c10::IValue> stack = {IValue(self), IValue(dim0_), IValue(dim1_)};
+  std::vector<const at::Tensor*> pt_inputs{&self};
+  size_t key = Op.GetRecipeKey(node_type, stack);
+
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    // handle negative dimensions (backward indexing) in pytorch
+    int64_t dim0 = at::maybe_wrap_dim(dim0_, self.dim(), /*wrap_scalar=*/true);
+    int64_t dim1 = at::maybe_wrap_dim(dim1_, self.dim(), /*wrap_scalar=*/true);
+    auto self_sizes = self.sizes().vec();
+    auto self_strides = self.strides().vec();
+    std::swap(self_sizes[dim0], self_sizes[dim1]);
+    // Recalculate the strides to account for transpose size changes
+    // In effect, keep the tensor contiguous.
+    recalc_strides(self_strides, self_sizes);
+    auto output = at::empty_strided(self_sizes, self_strides, self.options());
+    Op.SetPTInputs(pt_inputs);
+    Op.SetPTOutput(output);
+    Op.Execute(key);
+  } else {
+    PT_KERNEL_DEBUG("key:", key);
+    //
+    // Create Graph
+    auto graph = habana_helpers::create_graph(device_id, node_type);
+
+    // Assign Inputs to the Operator
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
+
+    Op.AllocateAndAddSynapseNode(graph, stack, true);
+
+    // compile and execute the graph
+    Op.Compile(graph);
+  }
+  std::vector<at::Tensor> out = Op.GetOutputs();
+  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
+  PT_KERNEL_END;
+  return out.at(0);
+}
+
+/*******************************************************************************
+ * @brief Kernel implementation for N-D inplace torch.transpose_(self,dim0,dim1)
+ * @param self - input as well as output
+ * @param dim0 - first dimension to swap
+ * @param dim0 - second dimension to swap
+ *******************************************************************************/
+Tensor& transpose_hpu_(Tensor& self, int64_t dim0_, int64_t dim1_) {
+  PT_KERNEL_BEGIN;
+  /*NOTE: The normal inplace op implementation approach to through a duplicate
+   * synapse tensor for input won't work as synapse backend does block
+   * transposes - so if your matrix is AB CD then C will overwrite B before B is
+   * written or vice-versa. So, we do the following (inefficient way, but helps
+   * to support the functionality). tempTensor = transpose_outofplace(inTensor)
+   * Reshape inTensor to transposed sizes for required dims.
+   * Use synapse memcpy guid to do a transfer data from tempTensor to inTensor
+   * Return inTensor back to PyTorch frontend
+   */
+  auto tempT = transpose_hpu(self, dim0_, dim1_);
+
+  std::vector<const at::Tensor*> pt_inputs;
+  std::vector<const at::Tensor*> pt_outputs;
+  pt_inputs.push_back(&tempT);
+
+  // handle negative dimensions (backward indexing) in pytorch
+  int64_t dim0 = at::maybe_wrap_dim(dim0_, self.dim(), /*wrap_scalar=*/true);
+  int64_t dim1 = at::maybe_wrap_dim(dim1_, self.dim(), /*wrap_scalar=*/true);
+
+  auto self_sizes = self.sizes().vec();
+  auto self_strides = self.strides().vec();
+  std::swap(self_sizes[dim0], self_sizes[dim1]);
+  // Recalculate the strides to account for transpose size changes
+  // In effect, keep the tensor contiguous.
+  recalc_strides(self_strides, self_sizes);
+  auto tht_result = self.unsafeGetTensorImpl();
+  THHTensor_resizeNd(
+      tht_result, self.dim(), self_sizes.data(), self_strides.data());
+  pt_outputs.push_back(&self);
+
+  synapse_simple_generic_kernel(
+      pt_outputs, pt_inputs, "memcpy", nullptr, 0, SynapsePassType::NO_PASS);
+
+  PT_KERNEL_END;
+  return self;
+}
+
+/*************************************************************************
+ * @brief Kernel implementation for 2D torch.t(self,dim0,dim1)
+ * @param self - input
+ * @param dim0 - first dimension to swap
+ * @param dim0 - second dimension to swap
+ ************************************************************************/
+Tensor t_hpu(const Tensor& self) { // t() is defined only for dims <= 2
+  PT_KERNEL_BEGIN;
+  if ((1 == self.dim())) {
+    Tensor out = self;
+    PT_KERNEL_END;
+    return out;
+  }
+  auto ret = transpose_hpu(self, 0, 1);
+  PT_KERNEL_END;
+  return ret;
+}
+
+/*************************************************************************
+ * @brief Kernel implementation for 2D inplace torch.t_(self,dim0,dim1)
+ * @param self - input as well as output
+ * @param dim0 - first dimension to swap
+ * @param dim0 - second dimension to swap
+ ************************************************************************/
+Tensor& t_hpu_(Tensor& self) { // t_() is defined only for dims <= 2
+  PT_KERNEL_BEGIN;
+  if (1 == self.dim()) {
+    PT_KERNEL_END;
+    return self;
+  }
+  self = transpose_hpu_(self, 0, 1);
+  PT_KERNEL_END;
+
+  return self;
+}
+
+inline int is_hpu_supported_transpose_type(const c10::ScalarType pt_type) {
+  int ret = -1;
+  switch (pt_type) {
+    case c10::ScalarType::Float:
+    case c10::ScalarType::BFloat16:
+    case c10::ScalarType::Int:
+      ret = 0;
+      break;
+    default:
+      break;
+  }
+  return ret;
+}
+
+/*************************************************************************
+ * @brief Kernel implementation for torch.Tensor.permute(dims)
+ * @param self - input on which permute needs to be applied
+ * @param dims_ - permute dims array
+ ************************************************************************/
+PermuteOperator::PermuteOperator(int device_id, c10::ScalarType scalarType)
+    : HabanaOperator(
+          "transpose_fwd_" +
+          habana_helpers::name_suffix_from_type(scalarType)) {
+  this->CreateSynContext(device_id);
+}
+
+void PermuteOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 2,
+      "Incorrect size of input arguments for Permute Operator");
+  TORCH_CHECK(
+      inputs[0].isTensor(),
+      "Input arg 1 for permute op needs to be tensor type");
+  TORCH_CHECK(
+      inputs[1].isIntList(),
+      "Input arg 2 for permute op needs to be of Int List type");
+  Tensor self = inputs[0].toTensor();
+  const auto dims = inputs[1].toIntList();
+
+  TORCH_CHECK(
+      dims.size() == static_cast<size_t>(self.dim()),
+      "Number of dims in tensor don't match in permute");
+  TORCH_CHECK(
+      (self.dim() <= 4) && !is_hpu_supported_transpose_type(self.scalar_type()),
+      "Unsupported permute operation on Habana device");
+
+  auto self_sizes = self.sizes().vec();
+  // calculate new sizes and strides after permute for out tensor
+  auto new_sizes = self.sizes().vec();
+  auto new_strides = self.strides().vec();
+  new_sizes[new_sizes.size() - 1] = self_sizes[dims[new_sizes.size() - 1]];
+  new_strides[new_sizes.size() - 1] = 1;
+  for (int i = new_strides.size() - 2; i >= 0; i--) {
+    new_sizes[i] = self_sizes[dims[i]];
+    new_strides[i] = new_strides[i + 1] * new_sizes[i + 1];
+  }
+  auto output = at::empty_strided(new_sizes, new_strides, self.options());
+
+  synTransposeParams params;
+  params.tensorDim = self.dim();
+  // params.permute has to be populated in a reverse order for HPU FCD-LCD order
+  for (int i = 0; i < self.dim(); i++) {
+    params.permutation[self.dim() - 1 - dims[i]] =
+        static_cast<TransposePermutationDim>(self.dim() - 1 - i);
+  }
+  for (int i = self.dim(); i < MAX_DIMENSIONS_NUM; i++) {
+    params.permutation[i] = static_cast<TransposePermutationDim>(i);
+  }
+
+  p_context_->params_.emplace<synTransposeParams>(params);
+  p_context_->params_size_ = sizeof(params);
+  AllocateSynapseOutput(graph, output, is_output_persistent);
+  AddNodeToSynapseGraph(graph, &params, sizeof(params));
+}
+
+Tensor permute_hpu(const Tensor& self, IntArrayRef dims_) {
+  PT_KERNEL_BEGIN;
+  TORCH_CHECK(
+      dims_.size() == static_cast<size_t>(self.dim()),
+      "Number of dims in tensor don't match in permute");
+
+  auto permute = [&] {
+    size_t device_id = self.device().index();
+    auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+    at::ScalarType scalar_type = self.scalar_type();
+    std::string node_type =
+        "transpose_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+    // Create the operator
+    PermuteOperator Op(device_id, scalar_type);
+    // Build Params for the graph
+    std::vector<c10::IValue> stack = {IValue(self), IValue(dims_)};
+    std::vector<const at::Tensor*> pt_inputs{&self};
+    size_t key = Op.GetRecipeKey(node_type, stack);
+
+    if (device.get_recipe_handle_cache().isCached(key)) {
+      PT_KERNEL_DEBUG("Cache hit key:", key);
+      auto self_sizes = self.sizes().vec();
+      // calculate new sizes and strides after permute for out tensor
+      auto new_sizes = self.sizes().vec();
+      auto new_strides = self.strides().vec();
+      new_sizes[new_sizes.size() - 1] = self_sizes[dims_[new_sizes.size() - 1]];
+      new_strides[new_sizes.size() - 1] = 1;
+      for (int i = new_strides.size() - 2; i >= 0; i--) {
+        new_sizes[i] = self_sizes[dims_[i]];
+        new_strides[i] = new_strides[i + 1] * new_sizes[i + 1];
+      }
+      auto output = at::empty_strided(new_sizes, new_strides, self.options());
+      Op.SetPTInputs(pt_inputs);
+      Op.SetPTOutput(output);
+      Op.Execute(key);
+    } else {
+      PT_KERNEL_DEBUG("key:", key);
+
+      //
+      // Create Graph
+      auto graph = habana_helpers::create_graph(device_id, node_type);
+
+      // Assign Inputs to the Operator
+      Op.AllocateSynapseInputs(graph, pt_inputs, true);
+
+      Op.AllocateAndAddSynapseNode(graph, stack, true /*is_output_persistent*/);
+
+      // compile and execute the graph
+      Op.Compile(graph);
+    }
+
+    std::vector<at::Tensor> out = Op.GetOutputs();
+    TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
+    PT_KERNEL_END;
+    return out.at(0);
+  };
+
+  if ((self.dim() <= 4) &&
+      !is_hpu_supported_transpose_type(self.scalar_type())) {
+    return permute();
+  }
+
+  // HPU won't support permute for larger num of dims - do it on CPU
+  auto ret =
+      self.to(DeviceType::CPU).permute(dims_).contiguous().to(self.device());
+  PT_KERNEL_END;
+  return ret;
+}
+
+/*************************************************************************
+ * @brief Kernel implementation for torch.Tensor.reshape
+ * @param self - input on which reshape needs to be applied
+ * @param shape - reshape  shape array
+ ************************************************************************/
+void ReshapeOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 2,
+      "Incorrect size of input arguments for Reshape Operator");
+  Tensor self = inputs[0].toTensor();
+  TORCH_CHECK(
+      self.is_contiguous(),
+      "Right now Reshape is only supported for contiguous Tensor.");
+
+  auto shape = inputs[1].toIntList();
+  auto output = at::empty(shape.vec(), self.options(), c10::nullopt);
+  TORCH_CHECK(
+      self.numel() == output.numel(),
+      "Reshape doesnt support change in number of elements");
+  p_context_->params_size_ = 0;
+  AllocateSynapseOutput(graph, output, is_output_persistent);
+  AddNodeToSynapseGraph(graph, NULL, 0);
+}
+
+void BroadcastOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 3,
+      "Incorrect size of input arguments for Broadcast Operator");
+  auto self = inputs[0].toTensor();
+  auto size = inputs[1].toIntList();
+  auto implicit = inputs[2].toBool();
+
+  // [expand implicit]
+  // The implicit flag is set to true for any expand calls inserted by broadcast
+  // operators in ExpandUtils.h This flag is recorded by the tracer to
+  // distinguish between expands inserted by broadcasts and those explicitly
+  // requested by the user, because it is legal to remove implicit expands
+  // from the graph, but not legal to remove the explicit ones.
+  // implicit is not used in this kernel.
+  auto sizeI = IntArrayRef(size.vec());
+  TORCH_CHECK(
+      sizeI.size() >= (size_t)self.dim(),
+      "expand(",
+      self.toString(),
+      "{",
+      self.sizes(),
+      "}, size=",
+      sizeI,
+      "): the number of sizes provided (",
+      sizeI.size(),
+      ") ",
+      "must be greater or equal to the number of dimensions in the tensor (",
+      self.dim(),
+      ")",
+      "implicit = ",
+      implicit);
+
+  std::vector<int64_t> expandedSizes;
+  std::vector<int64_t> expandedStrides;
+  std::tie(expandedSizes, expandedStrides) = at::inferExpandGeometry(
+      self.sizes(), self.strides(), IntArrayRef(size.vec()));
+
+  // expandedStrides will be set to 0 by inferExpandGeometry.
+  // Since we give back a contiguous tensor, we will set strides
+  // to proper values.
+  recalc_strides(expandedStrides, expandedSizes);
+  Tensor result;
+  if (self.sizes().equals(expandedSizes)) {
+    // Nothing to do
+  } else {
+    result = at::empty_strided(expandedSizes, expandedStrides, self.options());
+    auto expanded_self_view_sizes =
+        std::vector<int64_t>(expandedSizes.size(), 1);
+    for (unsigned i = 0; i < self.dim(); i++) {
+      expanded_self_view_sizes[expandedSizes.size() - self.dim() + i] =
+          self.sizes()[i];
+    }
+
+    // Add Reshape node to graph
+    ReshapeOperator reshape_op(self.device().index(), self.scalar_type());
+    auto& syn_in =
+        reshape_op.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+    torch::jit::Stack stack = {c10::IValue(self),
+                               c10::IValue(expanded_self_view_sizes)};
+    reshape_op.AllocateAndAddSynapseNode(graph, stack, false);
+    p_context_->syn_inputs_[0] = std::move(syn_in);
+
+    // Add broadcast node to graph
+    AllocateSynapseOutput(graph, result, is_output_persistent);
+    synapse_helpers::tensor& syn_in_broadcast = reshape_op.GetSynOutputs()[0];
+    std::vector<synTensor> syn_inputs{syn_in_broadcast.get()};
+    synapse_helpers::tensor& syn_out_broadcast = p_context_->syn_outputs_[0];
+    std::vector<synTensor> syn_outputs{syn_out_broadcast.get()};
+    std::string guid_ = "broadcast";
+    graph.add_node(
+        std::move(syn_inputs),
+        std::move(syn_outputs),
+        nullptr,
+        0,
+        std::move(guid_));
+  }
+}
+
+/*************************************************************************
+ * @brief Kernel implementation for torch.Tensor.expand(*sizes)
+ * @param self - input that needs to be expanded to a larger size.
+ * @param dims_ - expanded dim sizes
+ * NOTE: Tensor can be also expanded to a larger number of dimensions, and the
+ * new ones will be appended at the front. For the new dimensions, the size
+ * cannot be set to -1. We are using expand for braodcast op implementation
+ * and we differ from the PyTorch expand that says "does not allocate new
+ * memory, but only creates a new view on the existing tensor where a dimension
+ * of size one is expanded to a larger size by setting the stride to 0. "
+ ************************************************************************/
+Tensor expand_hpu(const Tensor& self, IntArrayRef size, bool implicit) {
+  PT_KERNEL_BEGIN;
+
+  auto scalar_type = self.scalar_type();
+  std::string node_type = "broadcast";
+
+  size_t device_id = self.device().index();
+
+  BroadcastOperator Op(device_id, scalar_type);
+  // Create Graph
+  auto graph = habana_helpers::create_graph(device_id, node_type);
+
+  // Convert index tensor from 0D to 1D if required
+  if (self.dim() == 0) {
+    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+  }
+
+  // Return early for trivial case
+  if (self.sizes().equals(size)) {
+    return self;
+  }
+
+  // Assign Inputs to the Operator
+  std::vector<const at::Tensor*> pt_inputs{&self};
+  Op.AllocateSynapseInputs(graph, pt_inputs, true);
+
+  // Build Params for the graph
+  std::vector<c10::IValue> stack = {
+      IValue(self), IValue(size), IValue(implicit)};
+  Op.AllocateAndAddSynapseNode(graph, stack, true);
+
+  // compile and execute the graph
+  Op.Compile(graph);
+
+  std::vector<at::Tensor> out = Op.GetOutputs();
+  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
+
+  PT_KERNEL_END;
+  return out.at(0);
+}
+
+static auto registry =
+    torch::RegisterOperators()
+        .op(torch::RegisterOperators::options()
+                .schema(
+                    "aten::permute(Tensor(a) self, int[] dims) -> Tensor(a)")
+                .impl_unboxedOnlyKernel<decltype(permute_hpu), &permute_hpu>(
+                    DispatchKey::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema(
+                    "aten::expand(Tensor(a) self, int[] size, *, bool implicit=False) -> Tensor(a)")
+                .impl_unboxedOnlyKernel<decltype(expand_hpu), &expand_hpu>(
+                    DispatchKey::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema("aten::cat(Tensor[] tensors, int dim=0) -> Tensor")
+                .impl_unboxedOnlyKernel<decltype(cat_hpu), &cat_hpu>(
+                    DispatchKey::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema(
+                    "aten::cat.out(Tensor[] tensors, int dim=0, *, Tensor(a!) out) -> Tensor(a!)")
+                .impl_unboxedOnlyKernel<decltype(cat_hpu_out), &cat_hpu_out>(
+                    DispatchKey::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema("aten::_cat(Tensor[] tensors, int dim=0) -> Tensor")
+                .impl_unboxedOnlyKernel<decltype(cat_hpu), &cat_hpu>(
+                    DispatchKey::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema(
+                    "aten::_cat.out(Tensor[] tensors, int dim=0, *, Tensor(a!) out) -> Tensor(a!)")
+                .impl_unboxedOnlyKernel<decltype(cat_hpu_out), &cat_hpu_out>(
+                    DispatchKey::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema(
+                    "aten::transpose.int(Tensor(a) self, int dim0, int dim1) -> Tensor(a)")
+                .impl_unboxedOnlyKernel<
+                    decltype(transpose_hpu),
+                    &transpose_hpu>(DispatchKey::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema(
+                    "aten::transpose_(Tensor(a!) self, int dim0, int dim1) -> Tensor(a!)")
+                .impl_unboxedOnlyKernel<
+                    decltype(transpose_hpu_),
+                    &transpose_hpu_>(DispatchKey::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema("aten::t(Tensor(a) self) -> Tensor(a)")
+                .impl_unboxedOnlyKernel<decltype(t_hpu), &t_hpu>(
+                    DispatchKey::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema("aten::t_(Tensor(a!) self) -> Tensor(a!)")
+                .impl_unboxedOnlyKernel<decltype(t_hpu_), &t_hpu_>(
+                    DispatchKey::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));
