@@ -10,6 +10,7 @@
 #pragma once
 #include <torch/script.h>
 #include "habana_kernels/habana_operator.h"
+#include "habana_kernels/tensor_shape_kernels.h"
 
 namespace habana {
 
@@ -56,7 +57,12 @@ class AddOperator : public habana::HabanaOperator {
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       bool is_output_persistent = false);
-
+  void insert_reshape_op(
+      synapse_helpers::graph& graph,
+      ReshapeOperator reshapeOp,
+      at::Tensor& arg,
+      int position,
+      int64_t out_dims);
   virtual void SetPTOutputs(torch::jit::Stack& inputs);
 
  private:

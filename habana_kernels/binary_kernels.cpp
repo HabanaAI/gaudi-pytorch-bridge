@@ -18,6 +18,7 @@
 #include "habana_kernels/binary_kernels.h"
 #include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/simple_generic_kernel.h"
+#include "habana_kernels/tensor_shape_kernels.h"
 
 using namespace torch;
 
@@ -248,21 +249,34 @@ Tensor& add_tensor_hpu_(Tensor& self, const Tensor& other, Scalar alpha) {
   return self;
 }
 
-// after view operation input shapes get changed
-// creating output based on new tensor creates output with wrong size
-auto get_correct_input_tensor(const Tensor& a, const Tensor& b) {
-  TORCH_CHECK(a.ndimension() == b.ndimension(), "Tensor dims don't match");
-  size_t size1 = 0, size2 = 0;
-  auto sizes1 = a.sizes();
-  auto sizes2 = b.sizes();
-  for (int64_t i = 0; i < a.ndimension(); i++) {
-    if (sizes1[i] > sizes2[i]) {
-      size1++;
-    } else if (sizes1[i] < sizes2[i]) {
-      size2++;
-    }
-  }
-  return size1 > size2 ? a : b;
+inline Tensor get_correct_input_tensor(
+    const Tensor& arg1,
+    const Tensor& arg2) {
+  auto arg_final = arg1.ndimension() > arg2.ndimension()
+        ? arg1 : arg1.numel() > arg2.numel()
+        ? arg1 : arg2;
+  return arg_final;
+}
+
+void habana::AddOperator::insert_reshape_op(
+    synapse_helpers::graph& graph,
+    ReshapeOperator reshapeOp,
+    Tensor& arg,
+    int position,
+    int64_t out_dims) {
+    auto arg_sizes = arg.sizes().vec();
+    // Create view_sizes initialized to part which has size=1 for upper dims
+    auto view_sizes = std::vector<int64_t>(out_dims - arg.ndimension(), 1);
+    // and append the smaller tensor dims
+    view_sizes.insert(
+        view_sizes.end(), arg_sizes.begin(), arg_sizes.end());
+
+    //ReshapeOperator reshapeOp(this->p_context_->device_id_, this->scalarType_);
+    auto& reshape_syn_input = reshapeOp.SetSynapseInput(std::move(p_context_->syn_inputs_[position]));
+
+    torch::jit::Stack reshapeOp_stack = {IValue(arg), IValue(view_sizes)};
+    reshapeOp.AllocateAndAddSynapseNode(graph, reshapeOp_stack, false);
+    p_context_->syn_inputs_[position] = std::move(reshape_syn_input);
 }
 
 void habana::AddOperator::AllocateAndAddSynapseNode(
@@ -274,47 +288,99 @@ void habana::AddOperator::AllocateAndAddSynapseNode(
       inputs.size() == 3, "Incorrect size of input expected for add operator");
   TORCH_CHECK(inputs[0].isTensor(), "Input 0 type expected to be tensor");
   TORCH_CHECK(inputs[1].isTensor(), "Input 1 type expected to be tensor");
-  TORCH_CHECK(inputs[2].isTensor(), "Input 2 type expected to be tensor");
-
   Tensor arg1 = inputs[0].toTensor();
   Tensor arg2 = inputs[1].toTensor();
-  Tensor alpha = inputs[2].toTensor();
-  TORCH_CHECK(alpha.numel() == 1, "Input 2 should be tensor of size 1");
+  bool isArg1modified = false, isArg2modified = false;
+  std::vector<synapse_helpers::tensor_or_ref> reshape_syn_output;
+  auto out_dims = arg1.ndimension() > arg2.ndimension()
+      ? arg1.ndimension()
+      : arg2.ndimension();
+  ReshapeOperator reshapeOp(this->p_context_->device_id_, this->scalarType_);
+  // Make sure that we give tensors that match dims to Synapse
+  if (arg1.ndimension() > arg2.ndimension()) {
+    isArg2modified = true;
+    insert_reshape_op(graph, reshapeOp, arg2, 1, out_dims);
+    reshape_syn_output.push_back(std::move(reshapeOp.GetSynOutputs()[0]));
+  } else if (arg1.ndimension() < arg2.ndimension()) {
+    isArg1modified = true;
+    insert_reshape_op(graph, reshapeOp, arg1, 0, out_dims);
+    reshape_syn_output.push_back(std::move(reshapeOp.GetSynOutputs()[0]));
+  }
 
-  habana::MulOperator mulOp(this->p_context_->device_id_, this->scalarType_);
-  auto& arg2_syn = mulOp.SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
-  auto& alpha_syn =
-      mulOp.SetSynapseInput(std::move(p_context_->syn_inputs_[2]));
+  if (inputs[2].isTensor()) {
+    Tensor alpha = inputs[2].toTensor();
+    TORCH_CHECK(alpha.numel() == 1, "Alpha should be tensor of size 1");
 
-  torch::jit::Stack mulOp_stack = {IValue(arg2), IValue(alpha)};
-  mulOp.AllocateAndAddSynapseNode(graph, mulOp_stack, false);
+    habana::MulOperator mulOp(this->p_context_->device_id_, this->scalarType_);
+    auto& arg2_syn = isArg2modified
+        ? mulOp.SetSynapseInput(std::move(reshape_syn_output[0]))
+        : mulOp.SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
+    auto& alpha_syn =
+        mulOp.SetSynapseInput(std::move(p_context_->syn_inputs_[2]));
 
-  p_context_->syn_inputs_[1] = std::move(arg2_syn);
-  p_context_->syn_inputs_[2] = std::move(alpha_syn);
+    torch::jit::Stack mulOp_stack = {IValue(arg2), IValue(alpha)};
+    mulOp.AllocateAndAddSynapseNode(graph, mulOp_stack, false);
 
-  auto operand = get_correct_input_tensor(arg1, arg2);
-  auto output = at::empty(operand.sizes(), operand.options());
-  AllocateSynapseOutput(graph, output, is_output_persistent);
+    if (!isArg2modified) {
+      p_context_->syn_inputs_[1] = std::move(arg2_syn);
+    }
+    p_context_->syn_inputs_[2] = std::move(alpha_syn);
 
-  synapse_helpers::tensor& arg1_syn_tensor = p_context_->syn_inputs_[0];
-  synapse_helpers::tensor& mulOp_out_syn_tensor = mulOp.GetSynOutputs()[0];
-  std::vector<synTensor> syn_inputs{arg1_syn_tensor.get(),
-                                    mulOp_out_syn_tensor.get()};
+    auto operand = get_correct_input_tensor(arg1, arg2);
+    auto output = at::empty(operand.sizes(), operand.options());
+    AllocateSynapseOutput(graph, output, is_output_persistent);
 
-  synapse_helpers::tensor& output_syn_tensor = p_context_->syn_outputs_[0];
-  std::vector<synTensor> syn_outputs{output_syn_tensor.get()};
+    synapse_helpers::tensor& arg1_syn_tensor = isArg1modified
+        ? reshape_syn_output[0]
+        : p_context_->syn_inputs_[0];
+    synapse_helpers::tensor& mulOp_out_syn_tensor = mulOp.GetSynOutputs()[0];
+    std::vector<synTensor> syn_inputs{arg1_syn_tensor.get(),
+                                      mulOp_out_syn_tensor.get()};
 
-  graph.add_node(
-      std::move(syn_inputs),
-      std::move(syn_outputs),
-      nullptr,
-      0,
-      std::move(guid_));
+    synapse_helpers::tensor& output_syn_tensor = p_context_->syn_outputs_[0];
+    std::vector<synTensor> syn_outputs{output_syn_tensor.get()};
+
+    graph.add_node(
+        std::move(syn_inputs),
+        std::move(syn_outputs),
+        nullptr,
+        0,
+        std::move(guid_));
+  } else {
+    //TODO: [SW-15658] Handle alpha != 1 for add operator in graph mode
+    TORCH_CHECK(inputs[2].toScalar().toFloat() == 1.0,
+        "Alpha is scalar and not equal to 1 - this configuration is not currently supported");
+    auto operand = get_correct_input_tensor(arg1, arg2);
+    auto output = at::empty(operand.sizes(), operand.options());
+    AllocateSynapseOutput(graph, output, is_output_persistent);
+
+    synapse_helpers::tensor& arg1_syn_tensor = isArg1modified
+        ? reshape_syn_output[0]
+        : p_context_->syn_inputs_[0];
+    synapse_helpers::tensor& arg2_syn_tensor = isArg2modified
+        ? reshape_syn_output[0]
+        : p_context_->syn_inputs_[1];
+    std::vector<synTensor> syn_inputs{arg1_syn_tensor.get(),
+                                      arg2_syn_tensor.get()};
+
+    synapse_helpers::tensor& output_syn_tensor = p_context_->syn_outputs_[0];
+    std::vector<synTensor> syn_outputs{output_syn_tensor.get()};
+
+    graph.add_node(
+        std::move(syn_inputs),
+        std::move(syn_outputs),
+        nullptr,
+        0,
+        std::move(guid_));
+  }
 }
+
 void habana::AddOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   Tensor arg1 = inputs[0].toTensor();
   Tensor arg2 = inputs[1].toTensor();
-  auto operand = get_correct_input_tensor(arg1, arg2);
+  auto operand = arg1.ndimension() > arg2.ndimension()
+      ? arg1 : arg1.numel() > arg2.numel()
+      ? arg1 : arg2;
   auto output = at::empty(operand.sizes(), operand.options());
   HabanaOperator::SetPTOutputs({output});
 }
@@ -446,7 +512,9 @@ Tensor add_tensor_hpu(const Tensor& self, const Tensor& other, Scalar alpha) {
     PT_KERNEL_WARN("Unsupported long int addition");
   } else {
     // TODO: Optimize for alpha == 1
-    auto alpha_tensor = convert_scalar_to_tensor_using_self(self, alpha);
+    auto alpha_tensor = convert_scalar_to_tensor_using_self(
+        self.ndimension() >= other.ndimension()
+        ? self : other, alpha);
     output = process_generic_tensor_add_op(
         self, other, alpha_tensor, "add", SynapsePassType::FORWARD_PASS);
   }
