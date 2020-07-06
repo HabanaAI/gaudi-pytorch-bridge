@@ -15,15 +15,15 @@
 #include <algorithm>
 #include <iostream>
 
-#include "habana_kernels/tensor_shape_kernels.h"
-#include "habana_kernels/conv_pool_utils.h"
 #include "habana_device/HPUCheck.h"
 #include "habana_helpers/graph.h"
 #include "habana_helpers/tensor_utils.h"
 #include "habana_helpers/unused_macro.h"
-#include "habana_kernels/simple_generic_kernel.h"
+#include "habana_kernels/conv_pool_utils.h"
 #include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/pool_kernels.h"
+#include "habana_kernels/simple_generic_kernel.h"
+#include "habana_kernels/tensor_shape_kernels.h"
 
 using namespace torch;
 
@@ -227,7 +227,8 @@ void MaxPool2dWithIndicesOperator::AllocateAndAddSynapseNode(
       input.options());
 
   // NOTE: cpu and cuda implementations hold indices as kLong (int64). I am
-  // using uint8 (to match TPC kernel requirement)
+  // using uint8 and short for float and bf16 input tensors respectively (to
+  // match TPC kernel requirement).
   auto type = kByte;
   if (input.scalar_type() == c10::ScalarType::BFloat16) {
     type = kShort;
@@ -285,7 +286,10 @@ void MaxPool2dWithIndicesBackwardOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(grad_out.sizes().vec() == expected_output_size);
   TORCH_CHECK(input.sizes() == grad_input.sizes());
   TORCH_CHECK(grad_out.sizes() == indices.sizes());
-  TORCH_CHECK(indices.scalar_type() == c10::ScalarType::Byte);
+
+  TORCH_CHECK(
+      (indices.scalar_type() == c10::ScalarType::Byte) ||
+      (indices.scalar_type() == c10::ScalarType::Short));
 
   AllocateSynapseOutput(graph, {grad_input}, is_output_persistent);
   AddNodeToSynapseGraph(graph, &syn_pool_params, sizeof(syn_pool_params));
@@ -308,10 +312,16 @@ void MaxPool2dWithIndicesOperator::SetPTOutputs(torch::jit::Stack& inputs) {
       input.options());
 
   // NOTE: cpu and cuda implementations hold indices as kLong (int64). I am
-  // using uint8 (to match TPC kernel requirement)
+  // using uint8 and short for float and bf16 input tensors respectively (to
+  // match TPC kernel requirement).
+  auto type = kByte;
+  if (input.scalar_type() == c10::ScalarType::BFloat16) {
+    type = kShort;
+  }
   auto output_idx_nhwc = at::empty(
       {out_shape[0], out_shape[1], out_shape[2], out_shape[3]},
-      input.options().dtype(kByte));
+      input.options().dtype(type));
+
   HabanaOperator::SetPTOutputs({output_idx_nhwc, output_nhwc});
 }
 
@@ -335,7 +345,10 @@ void MaxPool2dWithIndicesBackwardOperator::SetPTOutputs(
   TORCH_CHECK(grad_out.sizes().vec() == expected_output_size);
   TORCH_CHECK(input.sizes() == grad_input.sizes());
   TORCH_CHECK(grad_out.sizes() == indices.sizes());
-  TORCH_CHECK(indices.scalar_type() == c10::ScalarType::Byte);
+
+  TORCH_CHECK(
+      (indices.scalar_type() == c10::ScalarType::Byte) ||
+      (indices.scalar_type() == c10::ScalarType::Short));
 
   HabanaOperator::SetPTOutputs({grad_input});
 }
