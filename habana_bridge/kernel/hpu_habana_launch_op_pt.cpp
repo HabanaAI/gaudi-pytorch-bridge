@@ -90,8 +90,15 @@ HabanaLaunchOpPT::~HabanaLaunchOpPT() {
   std::cout << "---- " << " destructing HabanaLaunchOpPT for : " << id_str << '\n';
 }
 
-habana::LayoutFormat getPTTensorLayout() {
-  return habana::LayoutFormat::NCHW;
+habana::LayoutFormat getPTTensorLayout(at::Tensor& tensor) {
+
+  auto mem_format = tensor.suggest_memory_format();
+  if(mem_format == at::MemoryFormat::ChannelsLast ||
+     mem_format == at::MemoryFormat::ChannelsLast3d)
+      return habana::LayoutFormat::NHWC;
+  else
+      return habana::LayoutFormat::NCHW;
+
 }
 
 habana::LayoutFormat HabanaLaunchOpPT::getTensorChannelOrder(
@@ -160,25 +167,41 @@ void HabanaLaunchOpPT::GetSynapseOutputs(
     auto output_tensors_pt = habana_op->GetOutputs();
     auto &output_tensors_syn = habana_op->GetSynOutputs();
     auto &excluded_out_indices = habana_op->GetSynOutputIndicesExcludedInNode();
+
     auto output_nodes = node->outputs();
     auto habana_kernel_meta_data = habana_op->GetKernelMetaData();
     habana::LayoutFormat out_layout;
+
+    /* Note the input layout information for the node to pass on to output edge */
+    auto node_ins = node->inputs();
+    habana::LayoutFormat assigned_input_layout = habana::LayoutFormat::NCHW;
+    /* If there is a single tensor input and output, note the input layout spec.
+       TBD: There isn't a way to pass on the permute requirement for ops
+       that have multiple inputs and/or multiple output, for layout agnostic
+       operands. Hence, for those ops, the permute information is not passed
+       from input to output.*/
+    if ((node_ins.size() == 1) && (output_nodes.size() == 1)) {
+      const auto value_in = node_ins[0];
+      if (value_to_ivalue[value_in] && value_in->type()->kind() == c10::TypeKind::TensorType) {
+        /* Get the input tensor layout information */
+        assigned_input_layout = getTensorChannelOrder(value_in);
+      }
+    }
+
     int output_nodes_idx = 0, output_tensor_idx = 0;
     TORCH_CHECK(output_nodes.size() == output_tensors_pt.size() - excluded_out_indices.size(),
                 "HabanaFusionOp Lowering: Number of output nodes generated doesnt match the graph");
+
+    int meta_size = habana_kernel_meta_data.output_layout.size();
     for (synapse_helpers::tensor &out_tensor_syn : output_tensors_syn) {
-      //Get the layout from the kernels, this has to be passed from kernel meta data which is WIP.
-      try
-      {
-        out_layout = habana_kernel_meta_data.output_layout.at(output_tensor_idx);
-      }
-      catch (const std::out_of_range & ex)
-      {
-        out_layout = habana::LayoutFormat::ANY;
-      }
-      //TODO : we can check what format to fill in case of ANY. as it may be channel last
+
+      out_layout = output_tensor_idx >= meta_size ? habana::LayoutFormat::ANY :
+                              habana_kernel_meta_data.output_layout.at(output_tensor_idx);
+
+      /* Pass down the layout information from input to output for layout agnostic
+         output (only for single input ans single output op nodes) */
       value_to_tensor_layout[output_nodes[output_nodes_idx]]
-        = out_layout == habana::LayoutFormat::ANY ? habana::LayoutFormat::NCHW : out_layout;
+        = out_layout == habana::LayoutFormat::ANY ? assigned_input_layout : out_layout;
 
       if (excluded_out_indices.find(output_tensor_idx) == excluded_out_indices.end()) {
         value_to_ivalue[output_nodes[output_nodes_idx]] = new IValue(output_tensors_pt[output_tensor_idx]);
@@ -210,6 +233,7 @@ at::IntArrayRef getDimsForLayout(habana::LayoutFormat channel_order) {
 // For now, we permute tensors at graph leaves once
 // THis function permutes a given tensor to desired layout and modifies
 // input_tensor list to have the new tensor
+
 at::Tensor HabanaLaunchOpPT::permuteTensor(
     torch::jit::Value* value_in,
     const at::Tensor &input,
@@ -289,26 +313,30 @@ void HabanaLaunchOpPT::processInputs(
   // Check if its ok to change teh input tensor in the graph attached to value
   auto node_ins = node->inputs();
   int tensor_idx = 0;
-  habana::LayoutFormat in_layout;
+  habana::LayoutFormat in_layout, prev_layout = habana::LayoutFormat::ANY;
+  int meta_size = habana_kernel_meta_data.input_layout.size();
   for (const auto value_in : node_ins) {
     // TODO:If a tensor is permuted in first iteration and thats same
     // everytime, like weight in conv We need a way to remember that and used
     // pre-permuted memory/tensor in next iterations
-    if(value_to_ivalue[value_in])
+    if(value_to_ivalue[value_in] && value_in->type()->kind() == c10::TypeKind::TensorType)
     {
-        try
+
+        in_layout = tensor_idx >= meta_size ? habana::LayoutFormat::ANY :
+                              habana_kernel_meta_data.input_layout.at(tensor_idx);
+
+        if(in_layout == habana::LayoutFormat::ANY && tensor_idx > 0)
         {
-          in_layout = habana_kernel_meta_data.input_layout.at(tensor_idx);
+          //ATTENTION : We will support only homogeneous layouts for kernels which dont pass meta data requirements for inputs
+          // We make inputs homogeneous layouts in case kernel doesnt specify any layout
+          //TODO : Add a debug log heres
+          in_layout = prev_layout;
         }
-        catch (const std::out_of_range & ex)
-        {
-          in_layout = habana::LayoutFormat::ANY;
-        }
+
         // TODO: For channel_last order, we need not do the permute but need to change
         // the input tensor size, stride as done in habana_helpers::change_tensors_to_memory_format.
         // Need to check the input tensor memory_format to drive this.
-        if ((value_in->type()->kind() == c10::TypeKind::TensorType) &&
-            !(isChannelOrderSupported(value_in, in_layout))) {
+        if (!(isChannelOrderSupported(value_in, in_layout))) {
             //permute
             permuteTensor(
                 value_in,
@@ -316,6 +344,9 @@ void HabanaLaunchOpPT::processInputs(
                 in_layout);
             tensor_idx++;
         }
+        prev_layout = tensor_idx == 0 ?
+                      getTensorChannelOrder(value_in):
+                      prev_layout;
     }
     // TODO : add checks for doing flattening/slicing anything that is
     // required.
@@ -330,13 +361,22 @@ void HabanaLaunchOpPT::postProcessOutputs() {
       // TODO : If a tensor is permuted in first iteration and thats same
       // everytime, like weight in conv We need a way to remember that and
       // used pre-permuted memory/tensor in next iterations
+      if(!value_to_ivalue[value_out])
+        continue;
+      if(!(value_to_ivalue[value_out]->isTensor()))
+        continue;
+
+      auto tensor = value_to_ivalue[value_out]->toTensor();
       if (value_to_ivalue[value_out] && value_out->type()->kind() == c10::TypeKind::TensorType &&
-          getTensorChannelOrder(value_out) != habana::LayoutFormat::NCHW &&
+          getTensorChannelOrder(value_out) != getPTTensorLayout(tensor) &&
           isInGraphOutputs(value_out)) {
         permuteTensor(
             value_out,
             value_to_ivalue[value_out]->toTensor(),
-            habana::LayoutFormat::NCHW);
+            //We never change the logical layout supplied by PT tensors as its user's choice
+            //All tensors wills till have the original value here
+            //We use that value to convert back to NCHW/NHWC as required
+            getPTTensorLayout(tensor));
       }
       // TODO : add checks for doing flattening/slicing anything that is
       // required.
@@ -390,6 +430,7 @@ void HabanaLaunchOpPT::handleMetaOps(torch::jit::Node* node)
   torch::jit::Stack stack;
   void *in_data, *out_data;
   auto node_ins = node->inputs();
+  habana::LayoutFormat out_layout;
   for (const auto value_in : node_ins) {
     stack.insert(stack.end(), *value_to_ivalue[value_in]);
     if(value_to_ivalue[value_in]->isTensor())
@@ -407,6 +448,7 @@ void HabanaLaunchOpPT::handleMetaOps(torch::jit::Node* node)
             syntensor_name_map.emplace(value_to_ivalue[value_in], meta_syn_tensors.back().tensor_name_);
             input_names.push_back(meta_syn_tensors.back().tensor_name_);
             input_buffers.push_back(tensor.data_ptr());
+            out_layout = value_to_tensor_layout[value_in];
         }
 
     }
@@ -425,9 +467,8 @@ void HabanaLaunchOpPT::handleMetaOps(torch::jit::Node* node)
     value_to_ivalue[val_out] = ival;
     if(ival->isTensor())
     {
-      value_to_tensor_layout[val_out] = getPTTensorLayout();
-
       auto tensor = ival->toTensor();
+      value_to_tensor_layout[val_out] = out_layout;
       auto dtype =  tensor.scalar_type();
       //create a tensor variant on the same memory section as the input
       auto variant =  synapse_helpers::tensor_builder(
@@ -455,12 +496,7 @@ void HabanaLaunchOpPT::handleMetaOps(torch::jit::Node* node)
 }
 
 void HabanaLaunchOpPT::PrintSynTensors() {
-  //std::cout << "---- " << "[name buffers] pt_to_synapse_tensors";
-  //for (auto &v : pt_to_synapse_tensors) {
-    //std::cout << ' ' << '<' << v.second.tensor_name_ << ':' << v.first->toTensor().data_ptr() << '>';
-  //}
-  //std::cout << '\n';
-
+  
   std::cout << "---- " << "[name buffers]    syntensor_name_map";
   for (auto &v : syntensor_name_map) {
     std::cout << ' ' << '<' << v.second << ':' << v.first->toTensor().data_ptr() << '>';
@@ -593,10 +629,6 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
 
   LaunchRecipe(rv);
 
-  //rval_vec.push_back(rv);
-  //torch::jit::CompleteArgumentSpec spec(false, input_refs);
-  //recipe_cache.emplace(spec, rval_vec.size()-1);
-  //recipe_cache.emplace(spec, 1);
   // Add the <key,value> pair to the map
   if (enable_caching) {
     std::shared_ptr<RecipeArgumentSpec> ra_spec = std::make_shared<RecipeArgumentSpec>(false, input_refs, subgraph_);
@@ -758,7 +790,15 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
     for ( ; j < stack.size(); j++) {
       auto value_input = subgraph_inputs[i];
       value_to_ivalue[value_input] = &stack[j];
-      value_to_tensor_layout[value_input] = getPTTensorLayout();
+      if(value_to_ivalue[value_input]->isTensor())
+      {
+          auto tensor = value_to_ivalue[value_input]->toTensor();
+          //Get  the logical layout from PT tensor
+          //We dont touch this, even while doing permutes, the PT logical tensor is retained
+          //For us all tensors are contiguous
+          //PT doesnt let us mark logical layout directly so we dont change them
+          value_to_tensor_layout[value_input] = getPTTensorLayout(tensor);
+      }
       i++;
     }
   }
