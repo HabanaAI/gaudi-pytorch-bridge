@@ -15,8 +15,9 @@
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_device/tensor_builder.h"
-#include "habana_kernels/simple_generic_kernel.h"
-#include "tensor_utils.h"
+#include "habana_helpers/graph.h"
+#include "habana_helpers/tensor_utils.h"
+#include "habana_kernels/kernel_utils.h"
 
 using namespace torch;
 /*************************************************************************
@@ -25,7 +26,7 @@ using namespace torch;
 at::Tensor habana_helpers::hpu_cast_tensor(
     const at::Tensor& Input,
     caffe2::TypeMeta type) {
-  auto Output = at::empty(Input.sizes(), Input.options().dtype(type));
+  PT_KERNEL_BEGIN;
 
   std::string node_type;
   if (Input.dtype() == c10::ScalarType::Bool &&
@@ -58,21 +59,34 @@ at::Tensor habana_helpers::hpu_cast_tensor(
       Input.dtype() == c10::ScalarType::Float) {
     node_type = "cast_f32_to_bf16";
   }
-  std::vector<const at::Tensor*> pt_outputs{&Output};
+
+  int device_id = Input.device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  habana::CastOperator Op(device_id, node_type);
+  std::vector<c10::IValue> stack = {IValue(Input),
+                                    IValue(typeMetaToScalarType(type))};
   std::vector<const at::Tensor*> pt_inputs{&Input};
 
-  ns_CastKernel::Params cast_params{};
-  cast_params.round_mode = CAST_ROUND_DEFAULT;
+  size_t key = Op.GetRecipeKey(node_type, stack);
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    auto Output = at::empty(Input.sizes(), Input.options().dtype(type));
+    Op.SetPTInputs(pt_inputs);
+    Op.SetPTOutputs({Output});
+    Op.Execute(key);
+  } else {
+    PT_KERNEL_DEBUG("key:", key);
+    // Create Graph
+    auto graph = habana_helpers::create_graph(device_id, node_type);
+    // Allocate synapse inputs
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
+    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    // compile and execute the graph
+    Op.Compile(graph);
+  }
 
-  synapse_simple_generic_kernel(
-      pt_outputs,
-      pt_inputs,
-      node_type,
-      &cast_params,
-      sizeof(cast_params),
-      SynapsePassType::NO_PASS);
-
-  return Output;
+  PT_KERNEL_END;
+  return Op.GetOutputs()[0];
 }
 
 /*************************************************************************
@@ -108,7 +122,7 @@ synDataType habana_helpers::pytorch_to_synapse_type(
       {c10::ScalarType::Char, synDataType::syn_type_int8},
       {c10::ScalarType::Short, synDataType::syn_type_int16},
       {c10::ScalarType::Int, synDataType::syn_type_int32},
-      {c10::ScalarType::Long , synDataType::syn_type_int32},
+      {c10::ScalarType::Long, synDataType::syn_type_int32},
       {c10::ScalarType::Float, synDataType::syn_type_float},
       //   {c10::ScalarType::Double , synDataType::},
       {c10::ScalarType::Bool, synDataType::syn_type_int8},

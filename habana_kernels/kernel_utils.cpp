@@ -9,12 +9,12 @@
  */
 #include <torch/script.h>
 
+#include <perf_lib_layer_params.h>
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_kernels/kernel_recipe_signature.h"
 #include "kernel_utils.h"
 #include "synapse_helpers/recipe.h"
-#include <perf_lib_layer_params.h>
 
 using namespace torch;
 
@@ -75,8 +75,8 @@ void habana_helpers::compile_and_run(
   }
 }
 
-//Note:StreamSync is removed b/w Ops and compute stream sync happens
-//before any DMA operation.
+// Note:StreamSync is removed b/w Ops and compute stream sync happens
+// before any DMA operation.
 void habana_helpers::execute_recipe(
     const std::vector<void*>& input_buffers,
     const std::vector<void*>& output_buffers,
@@ -88,13 +88,11 @@ void habana_helpers::execute_recipe(
   if (g_recipe != nullptr) {
     g_recipe->launch(input_buffers, output_buffers);
   }
-  if(!(synapse_helpers::IsStreamSyncOptEnabled()))
-  {
-      synStreamHandle stream_handle = device.get_compute_stream();
-      TORCH_HABANA_CHECK(
+  if (!(synapse_helpers::IsStreamSyncOptEnabled())) {
+    synStreamHandle stream_handle = device.get_compute_stream();
+    TORCH_HABANA_CHECK(
         synStreamSynchronize(stream_handle), "synStreamSynchronize failed");
   }
-
 }
 
 size_t habana_helpers::getRecipeKey(
@@ -110,7 +108,7 @@ namespace habana {
 /**
  * @brief CastKernel params structure
  */
-ns_CastKernel::Params CastOperator::synapse_cast_params_builder() {
+ns_CastKernel::Params CastOutOperator::synapse_cast_params_builder() {
   ns_CastKernel::Params cast_params{};
   cast_params.round_mode = CAST_ROUND_HALF_NE;
 
@@ -118,6 +116,26 @@ ns_CastKernel::Params CastOperator::synapse_cast_params_builder() {
 }
 
 void CastOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 2,
+      "Incorrect size of inputs expected for cast operator");
+  TORCH_CHECK(
+      inputs[0].isTensor(),
+      "Input arg1 expected to be tensor for cast operator");
+
+  auto self = inputs[0].toTensor();
+  auto type = inputs[1].toScalarType();
+  auto output = at::empty(self.sizes(), self.options().dtype(type));
+  inputs.pop_back();
+  inputs.push_back(output);
+  CastOutOperator::AllocateAndAddSynapseNode(
+      graph, inputs, is_output_persistent);
+}
+
+void CastOutOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     bool is_output_persistent) {
