@@ -26,6 +26,15 @@ class BinaryOperator : public habana::HabanaOperator {
       torch::jit::Stack& inputs,
       bool is_output_persistent = false);
   virtual void SetPTOutputs(torch::jit::Stack& inputs);
+  void insert_reshape_op(
+      synapse_helpers::graph& graph,
+      ReshapeOperator& reshapeOp,
+      at::Tensor& arg,
+      int32_t position,
+      int64_t out_dims);
+
+ protected:
+  c10::ScalarType scalarType_;
 };
 
 class MulOperator : public BinaryOperator {
@@ -34,7 +43,9 @@ class MulOperator : public BinaryOperator {
   MulOperator(int device_id, c10::ScalarType scalarType)
       : BinaryOperator(
             device_id,
-            "mult_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {}
+            "mult_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
+    scalarType_ = scalarType;
+  }
 };
 
 class DivOperator : public BinaryOperator {
@@ -42,31 +53,23 @@ class DivOperator : public BinaryOperator {
   DivOperator(int device_id, c10::ScalarType scalarType)
       : BinaryOperator(
             device_id,
-            "div_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {}
+            "div_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
+    scalarType_ = scalarType;
+  }
 };
 
-class AddOperator : public habana::HabanaOperator {
+class AddOperator : public BinaryOperator {
  public:
   AddOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(
+      : BinaryOperator(
+            device_id,
             "add_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
-    this->CreateSynContext(device_id);
     scalarType_ = scalarType;
   }
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       bool is_output_persistent = false);
-  void insert_reshape_op(
-      synapse_helpers::graph& graph,
-      ReshapeOperator reshapeOp,
-      at::Tensor& arg,
-      int position,
-      int64_t out_dims);
-  virtual void SetPTOutputs(torch::jit::Stack& inputs);
-
- private:
-  c10::ScalarType scalarType_;
 };
 
 } // namespace habana
