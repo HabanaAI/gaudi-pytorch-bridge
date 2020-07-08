@@ -136,8 +136,7 @@ Tensor& masked_fill_scalar_hpu_(
     const Tensor& mask,
     Scalar value) {
   // convert scalar fill value to device tensor
-  auto value_tensor = habana_helpers::scalar_to_device_tensor(
-      value.to<float>(), self.options(), 0);
+  auto value_tensor = habana_helpers::scalar_to_device_tensor(value, self, 0);
 
   return masked_fill_hpu_(self, mask, value_tensor);
 }

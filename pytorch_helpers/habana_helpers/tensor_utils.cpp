@@ -159,25 +159,44 @@ c10::ScalarType habana_helpers::scalar_type(const c10::Scalar& s) {
 
 at::Tensor habana_helpers::scalar_to_device_tensor(
     const at::Scalar& scalar,
-    const at::TensorOptions& options,
+    const at::Tensor& self,
     const unsigned num_dimensions) {
-  TORCH_CHECK(
-      scalar.isFloatingPoint(),
-      "scalar_to_device_tensor currently supports only float");
+  auto options = self.options();
   TORCH_CHECK(
       options.device().type() == c10::DeviceType::HABANA,
       "Wrong device: ",
       options.device().type());
   auto output = at::empty(std::vector<int64_t>(num_dimensions, 1), options);
-  auto val = scalar.to<float>();
   std::atomic<bool> copyDone{false};
 
-  synapse_helpers::HPURegistrar::get_device(options.device().index())
-      .copy_data_to_device(
-          &val,
-          reinterpret_cast<synapse_helpers::device_ptr>(output.data_ptr()),
-          output.nbytes(),
-          [&copyDone]() { copyDone = true; });
+  auto self_scalar_type = self.scalar_type();
+  if (self_scalar_type == c10::ScalarType::BFloat16) {
+    auto val = scalar.to<at::BFloat16>();
+    synapse_helpers::HPURegistrar::get_device(options.device().index())
+        .copy_data_to_device(
+            &val,
+            reinterpret_cast<synapse_helpers::device_ptr>(output.data_ptr()),
+            output.nbytes(),
+            [&copyDone]() { copyDone = true; });
+  } else if (self_scalar_type == c10::ScalarType::Float) {
+    auto val = scalar.to<float>();
+    synapse_helpers::HPURegistrar::get_device(options.device().index())
+        .copy_data_to_device(
+            &val,
+            reinterpret_cast<synapse_helpers::device_ptr>(output.data_ptr()),
+            output.nbytes(),
+            [&copyDone]() { copyDone = true; });
+  } else if (self_scalar_type == c10::ScalarType::Int) {
+    auto val = scalar.to<int>();
+    synapse_helpers::HPURegistrar::get_device(options.device().index())
+        .copy_data_to_device(
+            &val,
+            reinterpret_cast<synapse_helpers::device_ptr>(output.data_ptr()),
+            output.nbytes(),
+            [&copyDone]() { copyDone = true; });
+  } else {
+    PT_KERNEL_FATAL("Unsupported data type used in binary op");
+  }
 
   // wait for copy completion
   while (!copyDone) {
@@ -462,8 +481,8 @@ void habana_helpers::change_tensors_to_memory_format(
          * set_sizes_and_strides is necessary to "dereference" pt_outputs[i]
          * from pt_inputs[i] and create new copies of sizes and strides.
          * Using unsafeGetTensorImpl directly on pt_outputs[i] will
-         * reference pt_inputs[i] itself because 'pt_output[i] = pt_input[i]' is
-         * a reference copy*/
+         * reference pt_inputs[i] itself because 'pt_output[i] = pt_input[i]'
+         * is a reference copy*/
         *pt_outputs[i] = at::alias(*pt_inputs[i]);
         pt_outputs[i]->unsafeGetTensorImpl()->set_sizes_and_strides(
             swapped_sizes, swapped_strides);

@@ -15,12 +15,12 @@
 
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
+#include "habana_helpers/graph.h"
 #include "habana_helpers/tensor_utils.h"
 #include "habana_helpers/unused_macro.h"
 #include "habana_kernels/kernel_utils.h"
-#include "habana_kernels/simple_generic_kernel.h"
-#include "habana_helpers/graph.h"
 #include "habana_kernels/random_gen_kernels.h"
+#include "habana_kernels/simple_generic_kernel.h"
 
 using namespace torch;
 
@@ -40,14 +40,22 @@ void UniformOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     bool is_output_persistent) {
-
-  TORCH_CHECK(inputs.size() == 4, "Incorrect size of inputs expected for Uniform Operator");
-  TORCH_CHECK(inputs[0].isTensor(), "Input arg1 expected to be tensor for Uniform Operator");
-  TORCH_CHECK(inputs[1].isDouble(), "Input arg2 expected to be Double for Uniform Operator");
-  TORCH_CHECK(inputs[2].isDouble(), "Input arg3 expected to be of type Double for Uniform Operator");
-  //For graph mode arg4 should be of type None
-  TORCH_CHECK(inputs[3].isInt() || inputs[3].isNone(),
-    "Input arg4 expected to be Int or None for Uniform Operator");
+  TORCH_CHECK(
+      inputs.size() == 4,
+      "Incorrect size of inputs expected for Uniform Operator");
+  TORCH_CHECK(
+      inputs[0].isTensor(),
+      "Input arg1 expected to be tensor for Uniform Operator");
+  TORCH_CHECK(
+      inputs[1].isDouble(),
+      "Input arg2 expected to be Double for Uniform Operator");
+  TORCH_CHECK(
+      inputs[2].isDouble(),
+      "Input arg3 expected to be of type Double for Uniform Operator");
+  // For graph mode arg4 should be of type None
+  TORCH_CHECK(
+      inputs[3].isInt() || inputs[3].isNone(),
+      "Input arg4 expected to be Int or None for Uniform Operator");
 
   auto self = inputs[0].toTensor();
   auto from = inputs[1].toDouble();
@@ -57,12 +65,9 @@ void UniformOperator::AllocateAndAddSynapseNode(
   params.low = static_cast<float>(from);
   params.high = static_cast<float>(to);
 
-  if(inputs[3].isNone())
-  {
+  if (inputs[3].isNone()) {
     params.seed = get_seed_hpu(nullptr);
-  }
-  else
-  {
+  } else {
     auto seed = inputs[3].toInt();
     params.seed = seed;
   }
@@ -91,8 +96,8 @@ void uniform_hpu(
   PT_KERNEL_BEGIN;
 
   at::ScalarType scalar_type = self.scalar_type();
-  std::string node_type =
-      "random_uniform_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+  std::string node_type = "random_uniform_fwd_" +
+      habana_helpers::name_suffix_from_type(scalar_type);
 
   size_t device_id = self.device().index();
 
@@ -102,10 +107,8 @@ void uniform_hpu(
 
   int64_t seed = get_seed_hpu(gen);
   // Build Params for the graph
-  std::vector<c10::IValue> stack = {IValue(self),
-                                    IValue(from),
-                                    IValue(to),
-                                    IValue(seed)};
+  std::vector<c10::IValue> stack = {
+      IValue(self), IValue(from), IValue(to), IValue(seed)};
   Op.AllocateAndAddSynapseNode(graph, stack, true);
 
   // compile and execute the graph
@@ -121,14 +124,22 @@ void NormalOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     bool is_output_persistent) {
-
-  TORCH_CHECK(inputs.size() == 4, "Incorrect size of inputs expected for Normal Operator");
-  TORCH_CHECK(inputs[0].isTensor(), "Input arg1 expected to be tensor for Normal Operator");
-  TORCH_CHECK(inputs[1].isDouble(), "Input arg2 expected to be Double for Normal Operator");
-  TORCH_CHECK(inputs[2].isDouble(), "Input arg3 expected to be of type Double for Normal Operator");
-  //For graph mode arg4 should be of type None
-  TORCH_CHECK(inputs[3].isInt() || inputs[3].isNone(),
-    "Input arg4 expected to be Int or None for Normal Operator");
+  TORCH_CHECK(
+      inputs.size() == 4,
+      "Incorrect size of inputs expected for Normal Operator");
+  TORCH_CHECK(
+      inputs[0].isTensor(),
+      "Input arg1 expected to be tensor for Normal Operator");
+  TORCH_CHECK(
+      inputs[1].isDouble(),
+      "Input arg2 expected to be Double for Normal Operator");
+  TORCH_CHECK(
+      inputs[2].isDouble(),
+      "Input arg3 expected to be of type Double for Normal Operator");
+  // For graph mode arg4 should be of type None
+  TORCH_CHECK(
+      inputs[3].isInt() || inputs[3].isNone(),
+      "Input arg4 expected to be Int or None for Normal Operator");
 
   auto self = inputs[0].toTensor();
   auto mean = inputs[1].toDouble();
@@ -140,12 +151,9 @@ void NormalOperator::AllocateAndAddSynapseNode(
   params.mean = static_cast<float>(mean);
   params.stddev = static_cast<float>(std);
 
-  if(inputs[3].isNone())
-  {
+  if (inputs[3].isNone()) {
     params.seed = get_seed_hpu(nullptr);
-  }
-  else
-  {
+  } else {
     auto seed = inputs[3].toInt();
     params.seed = seed;
   }
@@ -185,10 +193,8 @@ void normal_hpu(
 
   int64_t seed = get_seed_hpu(gen);
   // Build Params for the graph
-  std::vector<c10::IValue> stack = {IValue(self),
-                                    IValue(mean),
-                                    IValue(std),
-                                    IValue(seed)};
+  std::vector<c10::IValue> stack = {
+      IValue(self), IValue(mean), IValue(std), IValue(seed)};
   Op.AllocateAndAddSynapseNode(graph, stack, true);
 
   // compile and execute the graph
@@ -258,9 +264,7 @@ Tensor& bernoulli_scalar_hpu(
   Scalar p_converted = static_cast<float>(p);
 
   auto p_tensor = habana_helpers::scalar_to_device_tensor(
-      p_converted,
-      self.options().dtype(c10::ScalarType::Float),
-      self.ndimension());
+      p_converted, self, self.ndimension());
   auto expanded_p_tensor = p_tensor.expand(self.sizes());
 
   Tensor* output_ptr;

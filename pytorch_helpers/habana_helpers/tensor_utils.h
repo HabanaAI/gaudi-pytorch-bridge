@@ -26,7 +26,7 @@ synDataType pytorch_to_synapse_type(const c10::ScalarType pt_type);
 
 at::Tensor scalar_to_device_tensor(
     const at::Scalar& scalar,
-    const at::TensorOptions& options,
+    const at::Tensor& self,
     unsigned num_dimensions);
 
 /*
@@ -69,9 +69,11 @@ std::vector<void*> extract_data_ptrs(const std::vector<at::Tensor>& vec);
 
 std::vector<std::string> names(const std::vector<synapse_helpers::tensor>&);
 
-std::vector<std::string> names(const std::vector<synapse_helpers::tensor_or_ref>&);
+std::vector<std::string> names(
+    const std::vector<synapse_helpers::tensor_or_ref>&);
 
-std::vector<std::string> names(const std::deque<synapse_helpers::tensor_or_ref>&);
+std::vector<std::string> names(
+    const std::deque<synapse_helpers::tensor_or_ref>&);
 
 std::string name_suffix_from_type(const c10::ScalarType pt_type);
 
