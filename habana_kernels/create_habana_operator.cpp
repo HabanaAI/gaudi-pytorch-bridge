@@ -57,6 +57,8 @@ HabanaOperatorPtr CreateHabanaOperator(
     op = std::make_shared<DivOperator>(device_id, node_type);
   } else if ("aten::add" == node_name) {
     op = std::make_shared<AddOperator>(device_id, node_type);
+  } else if ("aten::addmm" == node_name) {
+    op = std::make_shared<AddmmOperator>(device_id, node_type);
   }
 
   // Returning a null pointer for cases not added yet,

@@ -28,7 +28,8 @@ class MMOperator : public HabanaOperator {
 
 class AddmmOperator : public HabanaOperator {
  public:
-  AddmmOperator(int device_id, std::string guid) : HabanaOperator(guid) {
+  AddmmOperator(int device_id, c10::ScalarType scalarType)
+    : HabanaOperator("gemm_add_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign(
         {LayoutFormat::ANY, LayoutFormat::ANY, LayoutFormat::ANY});

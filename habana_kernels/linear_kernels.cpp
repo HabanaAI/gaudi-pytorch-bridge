@@ -320,7 +320,7 @@ Tensor addmm_hpu(
   std::string node_type =
       "gemm_add_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
 
-  habana::AddmmOperator op(device_id, node_type);
+  habana::AddmmOperator op(device_id, scalar_type);
 
   std::vector<const at::Tensor*> inputs = {&bias_expanded, &mat1, &mat2};
   torch::jit::Stack stack = {IValue(bias_expanded),
