@@ -28,7 +28,7 @@ class TracePoint(object):
     def end(self, wall_time, name):
         if self.tracepoint_enabled:
             self.entry['ts'] = wall_time * 10**6
-            self.entry['ph'] = 'B'
+            self.entry['ph'] = 'E'
             self.entry['name'] = name
             self.outfile.write(json.dumps(self.entry))
             self.outfile.write(",\n")
