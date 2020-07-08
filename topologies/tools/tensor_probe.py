@@ -1,3 +1,38 @@
+#TensorProbe tool can be used to dump relevant tensors for, say,
+#convergence analysis/Debug.
+#
+#This tool has two parts:
+#
+#1.ModelParamsDump: Dumps model level tensors like:
+#model input, target, outout, loss, trainable params, gradients etc.
+#i.e. tensors accessible from outside the model
+#
+#2.Hooks
+#Using the pytorch hooks framework, this tool can dump intermediate
+#i/o tensors and gradients b/w pytorch nn modules of the model
+#
+#Use the following env variables to configure the tool:
+#
+#TP_HOOKS_ENABLE :
+#1 - Enable; 0 - Disable
+#
+#TP_HOOKS_ITER_INDICES_TO_DUMP:
+#iteration indices for which the intermediate tensors are to be dumped.
+#'ALL' -dump for all iterations
+#Or,
+#list of comma separated indices - specific iters to dump.
+#Eg:  0,1,6,9
+#
+#TP_MODEL_PARAM_DUMP_ENABLE :
+#1 - Enable; 0 - Disable
+#
+#TP_MODEL_PARAM_DUMP_ITER_INDICES_TO_DUMP:
+#Similar def as above, but for model level tensors.
+#
+#TP_DATA_DUMP_PATH:
+#path of directory to dump the tensor data into
+
+
 from __future__ import print_function
 import datetime
 import os
@@ -61,6 +96,7 @@ class ModelParamsDump(object):
     def __init__(self):
         tp_set_config_from_env()
         self.curr_iter_idx = 0
+        self.current_epoch = 0
 
     def get_data_dump_path(self):
         return tp_config['TP_DATA_DUMP_PATH']
@@ -73,6 +109,14 @@ class ModelParamsDump(object):
             elif self.curr_iter_idx in tp_config['TP_MODEL_PARAM_DUMP_ITER_INDICES_TO_DUMP']:
                 dump = True
         return dump
+
+    def set_current_epoch_no(self, epoch):
+        #possibly one epoch completed and moving to the next epoch or starting
+        #from a checkpoint. So reset the iteration counter
+        if epoch != self.current_epoch:
+            self.curr_iter_idx = 0
+
+        self.current_epoch = epoch
 
     def increment_curr_iter_idx(self):
         self.curr_iter_idx = self.curr_iter_idx + 1
@@ -124,6 +168,7 @@ class ModelParamsDump(object):
         if path_modifier is not None:
                 path = os.path.join(path, path_modifier)
 
+        path = os.path.join(path,'e'+str(self.current_epoch))
         path = os.path.join(path,'i'+str(self.curr_iter_idx))
         #print(path)
 
@@ -150,6 +195,7 @@ class Hook():
         self.name = name
         self.device = device
         self.curr_iter_idx = 0
+        self.current_epoch = 0
 
         self.hook = self.register_hook(module, hook_fn, is_forward)
 
@@ -240,6 +286,7 @@ class Hook():
 
         if path_modifier is not None:
                 path = os.path.join(path, path_modifier)
+        path = os.path.join(path,'e'+str(self.current_epoch))
         path = os.path.join(path,'i'+str(self.curr_iter_idx))
         #print(path)
 
@@ -282,6 +329,23 @@ def tp_hooks_increment_iteration_idx(hooks):
         hk.increment_iteration_idx()
     for hk in hooks[1]:
         hk.increment_iteration_idx()
+
+def tp_hooks_set_current_epoch_no(hooks, epoch):
+    if hooks == None:
+        return
+    if tp_config['TP_HOOKS_ENABLE'] == 0:
+        return
+    for hk in hooks[0]:
+        #possibly one epoch completed and moving to the next epoch or starting
+        #from a checkpoint. So reset the iteration counter
+        if hk.current_epoch != epoch:
+            hk.curr_iter_idx = 0
+        hk.current_epoch = epoch
+    for hk in hooks[1]:
+        if hk.current_epoch != epoch:
+            hk.curr_iter_idx = 0
+        hk.current_epoch = epoch
+
 
 # some utility functions to dump important tensors at the beginning and end of a iteration.
 def tp_probe_tensors_iteration_start(model, device, target, inp, ParamsDump, force_dump):

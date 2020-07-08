@@ -320,6 +320,7 @@ def main(args):
     print("Start training")
     start_time = time.time()
     for epoch in range(args.start_epoch, args.epochs):
+        trainMetaData.set_current_epoch_no(epoch)
         if args.distributed:
             train_sampler.set_epoch(epoch)
         if args.run_trace_mode:

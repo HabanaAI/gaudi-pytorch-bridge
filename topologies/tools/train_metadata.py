@@ -8,6 +8,7 @@ class TrainMetaData():
     def __init__(self, model, device):
         self.current_train_step = 0
         self.current_eval_step = 0
+        self.current_epoch = 0
         #use a large value for num_train_steps  by default so that if the num_train_steps is not set,
         #the default behaviour of running training for all the iterations is maintained.
         self.num_train_steps = sys.maxsize
@@ -17,6 +18,18 @@ class TrainMetaData():
         self.ParamsDump = ModelParamsDump()
         self.hooks = tp_hooks_register(model, device)
         self.tracept = TracePoint()
+
+    def set_current_epoch_no(self, epoch):
+        #possibly one epoch completed and moving to the next epoch or starting
+        #from a checkpoint. So reset the iteration counter
+        if epoch != self.current_epoch:
+            self.current_train_step = 0
+            self.current_eval_step = 0
+
+        self.current_epoch = epoch
+
+        self.ParamsDump.set_current_epoch_no(epoch)
+        tp_hooks_set_current_epoch_no(self.hooks, epoch)
 
     def increment_train_step(self):
         self.current_train_step += 1
