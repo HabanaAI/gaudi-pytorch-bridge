@@ -237,17 +237,21 @@ def main(args):
 
     torch.backends.cudnn.benchmark = True
 
-    train_dir = os.path.join(args.data_path, 'train')
-    val_dir = os.path.join(args.data_path, 'val')
-    dataset, dataset_test, train_sampler, test_sampler = load_data(train_dir, val_dir,
-                                                                   args.cache_dataset, args.distributed)
-    data_loader = torch.utils.data.DataLoader(
-        dataset, batch_size=args.batch_size,
-        sampler=train_sampler, num_workers=args.workers, worker_init_fn=dl_worker_init_fn(seed), pin_memory=True)
+    if not args.synthetic_data:
+        train_dir = os.path.join(args.data_path, 'train')
+        val_dir = os.path.join(args.data_path, 'val')
+        dataset, dataset_test, train_sampler, test_sampler = load_data(train_dir, val_dir,
+                                                                       args.cache_dataset, args.distributed)
+        data_loader = torch.utils.data.DataLoader(
+            dataset, batch_size=args.batch_size,
+            sampler=train_sampler, num_workers=args.workers, worker_init_fn=dl_worker_init_fn(seed), pin_memory=True)
 
-    data_loader_test = torch.utils.data.DataLoader(
-        dataset_test, batch_size=args.batch_size,
-        sampler=test_sampler, num_workers=args.workers, worker_init_fn=dl_worker_init_fn(seed), pin_memory=True)
+        data_loader_test = torch.utils.data.DataLoader(
+            dataset_test, batch_size=args.batch_size,
+            sampler=test_sampler, num_workers=args.workers, worker_init_fn=dl_worker_init_fn(seed), pin_memory=True)
+    else:
+        data_loader      = ImageRandomDataLoader(batch_size=args.batch_size, train=True)
+        data_loader_test = ImageRandomDataLoader(batch_size=args.batch_size, train=False)
 
     print("Creating model")
     #model = torchvision.models.__dict__[args.model](pretrained=args.pretrained)
@@ -435,6 +439,9 @@ def parse_args():
     parser.add_argument('--deterministic',  action="store_true",
                         help='Whether or not to make data loading deterministic;This does not make execution deterministic')
     parser.add_argument('--hmp', dest='is_hmp', action='store_true',help='enable hmp mode')
+    parser.add_argument('--synthetic-data',  action="store_true",
+                        help='If enabled, uses random data as image input and target instead of imagenet data set'
+                            'Use associated env vars to set dataset size/num classes if necessary')
     args = parser.parse_args()
 
     return args
