@@ -402,18 +402,20 @@ void BatchNormForwardOperator::preProcessInputs(
 void BatchNormForwardOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& in_stack,
-    bool is_output_persistent) {
+    std::vector<bool> is_output_persistent) {
   // Add intermediate tensors and add to op
   preProcessInputs(graph, in_stack);
 
   TORCH_CHECK(in_stack[5].isBool(), "Input type expected to be bool");
   TORCH_CHECK(in_stack[6].isDouble(), "Input type expected to be double");
   TORCH_CHECK(in_stack[7].isDouble(), "Input type expected to be double");
+  TORCH_CHECK(is_output_persistent.size() == 3,
+              "BatchNormForwardOperator: is_output_persistent should be 3");
   const auto training = in_stack[5].toBool();
   const auto momentum = in_stack[6].toDouble();
   const auto eps = in_stack[7].toDouble();
 
-  auto output = at::empty(pre_inputs[0].sizes(), pre_inputs[0].options());
+  auto output = habana_helpers::createPTTensor(pre_inputs[0], is_output_persistent[0]);
 
   if (training == true) {
     // synapse uses expAvgfactor = 1 - momentum
@@ -423,12 +425,10 @@ void BatchNormForwardOperator::AllocateAndAddSynapseNode(
     p_context_->params_.emplace<synCudBnExParams>(params);
     p_context_->params_size_ = sizeof(params);
 
-    AllocateSynapseOutputs(graph, {output}, is_output_persistent);
+    AllocateSynapseOutput(graph, output, is_output_persistent[0]);
 
-    auto current_mean =
-        at::empty(pre_inputs[4].sizes(), pre_inputs[4].options());
-    auto current_istd =
-        at::empty(pre_inputs[5].sizes(), pre_inputs[5].options());
+    auto current_mean = habana_helpers::createPTTensor(pre_inputs[4], is_output_persistent[1]);
+    auto current_istd = habana_helpers::createPTTensor(pre_inputs[5], is_output_persistent[2]);
     // Intermediate tensors are non-persistent
     // Modifit the PT tensors too to not allocate mem
     if (running_vars_def) {
@@ -462,8 +462,9 @@ void BatchNormForwardOperator::AllocateAndAddSynapseNode(
     p_context_->pt_outputs_.emplace_back(pre_inputs[4]);
     p_context_->pt_outputs_.emplace_back(pre_inputs[5]);
 
+    std::vector<bool> persistent_output_flags{is_output_persistent[1], is_output_persistent[2]};
     AllocateSynapseOutputs(
-        graph, {current_mean, current_istd}, is_output_persistent);
+        graph, {current_mean, current_istd}, persistent_output_flags);
 
     AddNodeToSynapseGraph(graph, &params, sizeof(params));
     // We need to put original syn tensors for mean and Var in patching
@@ -479,7 +480,7 @@ void BatchNormForwardOperator::AllocateAndAddSynapseNode(
     params.epsilon = static_cast<float>(eps);
     p_context_->params_.emplace<ns_BatchNormKernel::Params>(params);
     p_context_->params_size_ = sizeof(params);
-    AllocateSynapseOutput(graph, output, is_output_persistent);
+    AllocateSynapseOutput(graph, output, is_output_persistent[0]);
     AddNodeToSynapseGraph(graph, &params, sizeof(params));
     // for eval, return mean and var are not used and we can return anything
     // give back any tensor of same shape
@@ -608,7 +609,8 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu(
           Op.AllocateSynapseInput(graph, in, true);
         }
       }
-      Op.AllocateAndAddSynapseNode(graph, in_stack, true);
+      Op.AllocateAndAddSynapseNode(graph, in_stack, {true, true, true});
+
       Op.Compile(graph);
     }
     std::vector<at::Tensor> out = Op.GetOutputs();
@@ -769,12 +771,14 @@ void BatchNormBackwardOperator::preProcessInputs(
 void BatchNormBackwardOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
-    bool is_output_persistent) {
+    std::vector<bool> is_output_persistent) {
   TORCH_CHECK(
       inputs.size() == 10,
       "Incorrect number of inputs against expected count for BatchNormBackward AllocateAndAddSynapseNode");
   TORCH_CHECK(
       inputs[8].isDouble(), "Input type for eps is expected to be double");
+  TORCH_CHECK(is_output_persistent.size() == 3,
+              "BatchNormBackwardOperator: #is_output_persistent should be 3");
   if (CheckProprocessingDone() == false) {
     Stack preprocess_in = {};
     for (auto& input : inputs) {
@@ -787,10 +791,11 @@ void BatchNormBackwardOperator::AllocateAndAddSynapseNode(
   const auto input = pt_inputs[0];
   const auto weight = pt_inputs[2];
   const auto eps = inputs[8].toDouble();
+
   // Prepare output tensor vector
-  auto grad_in_nhwc = at::empty(input.sizes(), input.options());
-  auto grad_beta = at::empty(weight.sizes(), weight.options());
-  auto grad_gamma = at::empty(weight.sizes(), weight.options());
+  auto grad_in_nhwc = habana_helpers::createPTTensor(input, is_output_persistent[0]);
+  auto grad_beta = habana_helpers::createPTTensor(weight, is_output_persistent[1]);
+  auto grad_gamma = habana_helpers::createPTTensor(weight, is_output_persistent[2]);
 
   struct synCudBnExParams params = {
       synBnOps::BN_OPS_BN, 0, static_cast<float>(eps)};
@@ -969,7 +974,7 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu(
         }
       }
       // Build Params for the graph
-      Op.AllocateAndAddSynapseNode(graph, preprocess_stack, true);
+      Op.AllocateAndAddSynapseNode(graph, preprocess_stack, {true, true, true});
       Op.Compile(graph);
     }
 
@@ -1110,7 +1115,7 @@ void NormOperator::AllocateAndAddSynapseNode(
   // Build Params for the graph
   stack.emplace_back(IValue(output_reshape));
   stack.emplace_back(IValue(p));
-  LpNormOp.AllocateAndAddSynapseNode(graph, stack, false);
+  LpNormOp.AllocateAndAddSynapseNode(graph, stack, {false, false});
 
   synapse_helpers::tensor& norm_syn_tensor = LpNormOp.GetSynOutputs()[1];
   auto output_norm = LpNormOp.GetOutputs()[1];
@@ -1134,7 +1139,7 @@ void NormOperator::AllocateAndAddSynapseNode(
 void LpNormOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    std::vector<bool> is_output_persistent) {
   TORCH_CHECK(
       inputs.size() == 2,
       "Incorrect size of inputs expected for LpNorm Operator");
@@ -1144,6 +1149,8 @@ void LpNormOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(
       inputs[1].isScalar(),
       "Input arg2 expected to be Scalar for LpNorm Operator");
+  TORCH_CHECK(is_output_persistent.size() == 2,
+              "LpNormOperator: #is_output_persistent should be 2");
 
   auto self = inputs[0].toTensor();
   auto p = inputs[1].toScalar();

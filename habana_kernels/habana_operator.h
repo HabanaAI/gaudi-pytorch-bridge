@@ -144,12 +144,17 @@ class HabanaOperator {
   virtual void AllocateSynapseOutputs(
       synapse_helpers::graph& graph,
       const std::vector<at::Tensor>& outputs,
-      bool is_persistent);
+      std::vector<bool> is_persistent);
 
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) = 0;
+      bool is_output_persistent = false);
+
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      std::vector<bool> is_output_persistent);
 
   //
   // destructor

@@ -33,7 +33,7 @@ class BatchNormForwardOperator : public habana::HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false);
+      std::vector<bool> is_output_persistent);
 
   // virtual std::vector<at::Tensor> preProcessInputs(torch::jit::Stack&
   // inputs);
@@ -101,7 +101,7 @@ class BatchNormBackwardOperator : public habana::HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false);
+      std::vector<bool> is_output_persistent);
 
   void preProcessInputs(
       synapse_helpers::graph& graph,
@@ -191,5 +191,5 @@ class LpNormOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      std::vector<bool> is_output_persistent) override;
 };

@@ -133,8 +133,11 @@ void ConvOperator::AllocateAndAddSynapseNode(
   c10::MemoryFormat memory_format =
       habana_helpers::get_memory_format({&input, &weight});
 
-  auto output =
-      at::empty({N, output_H, output_W, K}, input.options(), memory_format);
+  auto output = habana_helpers::createPTTensor(input,
+                                               {N, output_H, output_W, K},
+                                               input.options(),
+                                               memory_format,
+                                               is_output_persistent);
 
   synConvolutionParams params = synapse_conv_params_builder(
       weight.sizes(),
@@ -386,7 +389,7 @@ void ConvWeightDifferentiationOperator::AllocateAndAddSynapseNode(
 void ConvBackwardOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    std::vector<bool> is_output_persistent) {
   TORCH_CHECK(
       inputs.size() == 10,
       "Incorrect size of inputs expected for ConvInputDifferentiation operator");
@@ -420,6 +423,8 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(
       inputs[9].isBoolList(),
       "Input arg10 expected to be BoolList for ConvInputDifferentiation operator");
+  TORCH_CHECK(is_output_persistent.size() == 3,
+              "ConvBackwardOperator: #is_output_persistent should be 3");
 
   auto grad_out_nhwc = inputs[0].toTensor();
   auto input_nhwc = inputs[1].toTensor();
@@ -435,12 +440,21 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
   c10::MemoryFormat memory_format = habana_helpers::get_memory_format(
       {&input_nhwc, &grad_out_nhwc, &weight_hwck});
 
-  Tensor grad_weight =
-      at::empty(weight_hwck.sizes(), grad_out_nhwc.options(), memory_format);
-  Tensor grad_input_nhwc =
-      at::empty(input_nhwc.sizes(), grad_out_nhwc.options(), memory_format);
-  Tensor grad_bias =
-      at::empty({grad_out_nhwc.size(3)}, grad_out_nhwc.options());
+  auto grad_weight = habana_helpers::createPTTensor(weight_hwck,
+                                                    weight_hwck.sizes(),
+                                                    grad_out_nhwc.options(),
+                                                    memory_format,
+                                                    is_output_persistent[1]);
+  auto grad_input_nhwc = habana_helpers::createPTTensor(input_nhwc,
+                                                        input_nhwc.sizes(),
+                                                        grad_out_nhwc.options(),
+                                                        memory_format,
+                                                        is_output_persistent[0]);
+  auto grad_bias = habana_helpers::createPTTensor(grad_out_nhwc,
+                                                  {grad_out_nhwc.size(3)},
+                                                  grad_out_nhwc.options(),
+                                                  c10::nullopt,
+                                                  is_output_persistent[2]);
 
   // Add "dedw" node followed by "dedx" node. Adding in reverse order causes a
   // simulator crash (TBD: investigate later if required)
@@ -467,7 +481,7 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
                                       IValue(output_mask_in),
                                       IValue(grad_weight)};
     ConvWeightDiffOp.AllocateAndAddSynapseNode(
-        graph, stack, is_output_persistent);
+        graph, stack, is_output_persistent[1]);
 
     p_context_->syn_inputs_[0] = std::move(grad_out_nhwc_syn);
     p_context_->syn_inputs_[1] = std::move(input_nhwc_syn);
@@ -495,7 +509,7 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
                                       IValue(output_mask_in),
                                       IValue(grad_input_nhwc)};
     ConvInputDiffOp.AllocateAndAddSynapseNode(
-        graph, stack, is_output_persistent);
+        graph, stack, is_output_persistent[0]);
 
     p_context_->syn_inputs_[0] = std::move(grad_out_nhwc_syn);
     p_context_->syn_inputs_[2] = std::move(weight_hwck_syn);
@@ -513,7 +527,7 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
     p_context_->syn_outputs_.emplace_back(habana_helpers::create_tensor(
         grad_input_nhwc,
         graph.get_graph_handle(),
-        is_output_persistent,
+        is_output_persistent[0],
         c10::nullopt));
     p_context_->pt_outputs_.emplace_back(grad_input_nhwc);
   }
@@ -529,7 +543,7 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
     p_context_->syn_outputs_.emplace_back(habana_helpers::create_tensor(
         grad_weight,
         graph.get_graph_handle(),
-        is_output_persistent,
+        is_output_persistent[1],
         c10::nullopt));
     p_context_->pt_outputs_.emplace_back(grad_weight);
   }
@@ -558,7 +572,7 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
                                       IValue(shape),
                                       IValue(false),
                                       IValue(scalar_type)};
-    SumOp.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+    SumOp.AllocateAndAddSynapseNode(graph, stack, is_output_persistent[0]);
 
     synapse_helpers::tensor& bias_syn_tensor = SumOp.GetSynOutputs()[0];
 
@@ -571,7 +585,7 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
     p_context_->syn_outputs_.emplace_back(habana_helpers::create_tensor(
         grad_bias,
         graph.get_graph_handle(),
-        is_output_persistent,
+        is_output_persistent[2],
         c10::nullopt));
     p_context_->pt_outputs_.emplace_back(grad_bias);
   }
@@ -702,7 +716,7 @@ std::tuple<Tensor, Tensor, Tensor> convolution_backward_hpu(
       // Create Graph
       auto graph = habana_helpers::create_graph(device_id, node_type);
       convBwdOp.AllocateSynapseInputs(graph, pt_inputs, true);
-      convBwdOp.AllocateAndAddSynapseNode(graph, stack, true);
+      convBwdOp.AllocateAndAddSynapseNode(graph, stack, {true, true, true});
       convBwdOp.Compile(graph);
     }
 

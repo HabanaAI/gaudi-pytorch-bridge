@@ -156,8 +156,7 @@ void CastOutOperator::AllocateAndAddSynapseNode(
   p_context_->params_.emplace<ns_CastKernel::Params>(params);
   p_context_->params_size_ = sizeof(params);
 
-  std::vector<at::Tensor> outputs{output};
-  AllocateSynapseOutputs(graph, outputs, is_output_persistent);
+  AllocateSynapseOutput(graph, output, is_output_persistent);
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 

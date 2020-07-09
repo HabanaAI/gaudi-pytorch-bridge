@@ -314,6 +314,8 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(const torch::jit::Node* node, bool debug) {
 
   PT_BRIDGE_DEBUG("Creating : ", id_str);
 
+  value_to_persistent_flag = {};
+
   tensor_dump_numel_ = -2;
 
   char* snumel = getenv("HABANA_PGM_DUMP_TENSOR_NUMEL");
@@ -322,6 +324,15 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(const torch::jit::Node* node, bool debug) {
   }
 
   enable_tensor_dump_ = (tensor_dump_numel_ >= -1) ? true : false;
+  enable_caching_ = false;
+  if (const auto envp = getenv("HABANA_PGM_ENABLE_CACHE")) {
+    enable_caching_ = atoi(envp) == 1;
+  }
+
+  use_persistent_tensors = false;
+  if (const auto envp = getenv("HABANA_USE_PERSISTENT_TENSOR")) {
+    use_persistent_tensors = atoi(envp) == 1;
+  }
 
   if (enable_tensor_dump_) {
     struct stat st = {0};
@@ -413,6 +424,31 @@ bool HabanaLaunchOpPT::isInGraphOutputs(torch::jit::Value* value) {
     }
   }
   return false;
+}
+
+bool HabanaLaunchOpPT::isInGraphOutputs(torch::jit::Node* node, size_t index) {
+  auto node_outs = node->outputs();
+  TORCH_CHECK(index <= node_outs.size());
+
+  return isInGraphOutputs(node_outs[index]);
+}
+
+std::vector<bool> HabanaLaunchOpPT::nodeOutputPersistence(torch::jit::Node* node) {
+  auto node_outs = node->outputs();
+  std::vector<bool> is_persistent{};
+  for (auto value_out : node_outs) {
+    if (use_persistent_tensors) {
+      // Highest priority is given to the env variable
+      is_persistent.emplace_back(true);
+    } else if (value_to_persistent_flag.find(value_out) != value_to_persistent_flag.end()) {
+      // If we use per tensor persistence flag, it takes next higher priority
+      is_persistent.emplace_back(value_to_persistent_flag[value_out]);
+    } else {
+      // If no specific flag is set, a tensor is persistent if it goes to graph output
+      is_persistent.emplace_back(isInGraphOutputs(value_out));
+    }
+  }
+  return is_persistent;
 }
 
 void HabanaLaunchOpPT::GetSynapseInputs(
@@ -525,8 +561,10 @@ void HabanaLaunchOpPT::GetSynapseOutputs(
       pt_to_synapse_tensors.emplace(
           value_to_ivalue[output_nodes[output_nodes_idx]], out_tensor_syn);
 
-      output_tensorinfos.emplace_back(TensorInfo(
-          ivpsh, out_tensor_syn.tensor_name_, output_nodes[output_nodes_idx]));
+      if (use_persistent_tensors ? true : isInGraphOutputs(node, output_nodes_idx)) {
+        output_tensorinfos.emplace_back(TensorInfo(
+            ivpsh, out_tensor_syn.tensor_name_, output_nodes[output_nodes_idx]));
+      }
 
       output_nodes_idx++;
     }
@@ -1001,7 +1039,12 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
     torch::jit::Stack input_stack = getStackForNode(node);
 
     // setup the config params for the kernels
-    HabanaKernel->AllocateAndAddSynapseNode(syn_graph, input_stack, true);
+    auto outputPersistent = nodeOutputPersistence(node);
+    if (outputPersistent.size() == 1) {
+      HabanaKernel->AllocateAndAddSynapseNode(syn_graph, input_stack, outputPersistent[0]);
+    } else {
+      HabanaKernel->AllocateAndAddSynapseNode(syn_graph, input_stack, outputPersistent);
+    }
 
     // Get the output tensors created back from the kernel
     // We set type so that the created tensor is propagated throughout graph
@@ -1193,6 +1236,7 @@ void HabanaLaunchOpPT::clear() {
   interim_tensorinfos.clear();
   output_tensorinfos.clear();
   value_to_tensor_layout.clear();
+  value_to_persistent_flag.clear();
 
   value_to_ivalue.clear();
   pt_to_synapse_tensors.clear();

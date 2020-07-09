@@ -38,8 +38,7 @@ void UnaryOperator::AllocateAndAddSynapseNode(
 
   at::Tensor input = inputs[0].toTensor();
 
-  auto output =
-      at::empty(input.sizes(), input.options(), input.suggest_memory_format());
+  auto output = habana_helpers::createPTTensor(input, is_output_persistent);
   AllocateSynapseOutput(graph, output, is_output_persistent);
   AddNodeToSynapseGraph(graph, nullptr, 0);
 }
@@ -121,8 +120,7 @@ void UnaryBackwardOperator::AllocateAndAddSynapseNode(
       ", input sizes: ",
       grad_in.sizes());
 
-  auto grad_output =
-      at::empty(input.sizes(), input.options(), input.suggest_memory_format());
+  auto grad_output = habana_helpers::createPTTensor(input, is_output_persistent);
   AllocateSynapseOutput(graph, grad_output, is_output_persistent);
   AddNodeToSynapseGraph(graph, nullptr, 0);
 }
@@ -648,8 +646,7 @@ void ClampOperator::AllocateAndAddSynapseNode(
   param.upperBound.f = static_cast<float>(max);
   param.lowerBound.f = static_cast<float>(min);
 
-  auto output =
-      at::empty(input.sizes(), input.options(), input.suggest_memory_format());
+  auto output = habana_helpers::createPTTensor(input, is_output_persistent);
   AllocateSynapseOutput(graph, output, is_output_persistent);
   AddNodeToSynapseGraph(graph, &param, sizeof(param));
 }

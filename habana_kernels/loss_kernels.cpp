@@ -77,7 +77,11 @@ void NLLLossFwdOperator::AllocateAndAddSynapseNode(
   p_context_->params_.emplace<ns_NLLLossKernel::Params>(param);
   p_context_->params_size_ = sizeof(param);
 
-  auto output = at::empty({1}, self.options());
+  auto output = habana_helpers::createPTTensor(self,
+                                               {1},
+                                               self.options(),
+                                               self.suggest_memory_format(),
+                                               is_output_persistent);
   AllocateSynapseOutput(graph, output, is_output_persistent);
   AddNodeToSynapseGraph(graph, &param, sizeof(param));
 }
@@ -167,8 +171,7 @@ void NLLLossBwdOperator::AllocateAndAddSynapseNode(
   p_context_->params_.emplace<ns_NLLLossKernel::Params>(param);
   p_context_->params_size_ = sizeof(param);
 
-  auto output =
-      at::empty(self.sizes(), self.options(), self.suggest_memory_format());
+  auto output = habana_helpers::createPTTensor(self, is_output_persistent);
   AllocateSynapseOutput(graph, output, is_output_persistent);
   AddNodeToSynapseGraph(graph, &param, sizeof(param));
 }
@@ -264,10 +267,13 @@ void MSELossFwdOperator::AllocateAndAddSynapseNode(
 
   Tensor output;
   if (reduction == at::Reduction::Reduction::None) {
-    output =
-        at::empty(self.sizes(), self.options(), self.suggest_memory_format());
+    output = habana_helpers::createPTTensor(self, is_output_persistent);
   } else {
-    output = at::empty({1}, self.options());
+    output = habana_helpers::createPTTensor(self,
+                                            {1},
+                                            self.options(),
+                                            self.suggest_memory_format(),
+                                            is_output_persistent);
   }
 
   AllocateSynapseOutput(graph, output, is_output_persistent);
@@ -335,8 +341,7 @@ void MSELossBwdOperator::AllocateAndAddSynapseNode(
   p_context_->params_.emplace<ns_MSELossKernel::Params>(param);
   p_context_->params_size_ = sizeof(param);
 
-  auto output =
-      at::empty(self.sizes(), self.options(), self.suggest_memory_format());
+  auto output = habana_helpers::createPTTensor(self, is_output_persistent);
 
   AllocateSynapseOutput(graph, output, is_output_persistent);
   AddNodeToSynapseGraph(graph, &param, sizeof(param));

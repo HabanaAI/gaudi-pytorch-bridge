@@ -9,6 +9,11 @@
  */
 #pragma once
 
+#include <c10/util/ArrayRef.h>
+#include <c10/core/TensorOptions.h>
+#include <ATen/ATen.h>
+#include <c10/core/Allocator.h>
+
 #include <synapse_helpers/habana_tensor.h>
 #include <torch/script.h>
 #include <tuple>
@@ -16,6 +21,26 @@
 #include <vector>
 
 namespace habana_helpers {
+struct StorageLessWrapperTensorImpl : public c10::TensorImpl {
+  explicit StorageLessWrapperTensorImpl(const at::Tensor& rep,
+                                        at::optional<caffe2::TypeMeta> data_type = c10::nullopt)
+    : TensorImpl(
+        c10::DispatchKeySet(c10::DispatchKey::HABANATensorId),
+        data_type.has_value() ? data_type.value() : rep.dtype(),
+        rep.device()
+      ){}
+
+  void release_resources() override {}
+
+  bool has_storage() const override {
+    return false;
+  }
+
+  const at::Storage& storage() const override{
+    TORCH_CHECK(0, "StorageLessWrapperTensorImpl tensors do not have storage");
+  }
+};
+
 at::Tensor hpu_cast_tensor(const at::Tensor& Input, caffe2::TypeMeta type);
 
 at::Tensor cast_tensor_to_integer(const at::Tensor& long_tensor);
@@ -28,6 +53,56 @@ at::Tensor scalar_to_device_tensor(
     const at::Scalar& scalar,
     const at::Tensor& self,
     unsigned num_dimensions);
+
+bool alwaysAllocOnDevice();
+
+at::Tensor nonPersistentTensor(
+    const at::Tensor& input,
+    at::IntArrayRef size,
+    const at::TensorOptions& options = {},
+    at::optional<c10::MemoryFormat> optional_memory_format = c10::nullopt,
+    at::optional<caffe2::TypeMeta> data_type = c10::nullopt);
+
+at::Tensor nonPersistentTensor(
+    const at::Tensor& input,
+    at::IntArrayRef size,
+    at::IntArrayRef strides,
+    const at::TensorOptions& options = {},
+    at::optional<c10::MemoryFormat> optional_memory_format = c10::nullopt,
+    at::optional<caffe2::TypeMeta> data_type = c10::nullopt);
+
+at::Tensor createPTTensor(
+   const at::Tensor& input,
+   bool is_persistent);
+
+at::Tensor createPTTensor(
+   const at::Tensor& input,
+   at::IntArrayRef size,
+   const at::TensorOptions& options,
+   bool is_persistent);
+
+at::Tensor createPTTensor(
+   const at::Tensor& input,
+   at::IntArrayRef size,
+   const at::TensorOptions& options,
+   at::optional<c10::MemoryFormat> optional_memory_format,
+   bool is_persistent);
+
+at::Tensor createPTTensor(
+    const at::Tensor& input,
+    at::IntArrayRef size,
+    const at::TensorOptions& options,
+    at::optional<c10::MemoryFormat> optional_memory_format,
+    c10::ScalarType data_type,
+    bool is_persistent);
+
+at::Tensor createPTTensor(
+   const at::Tensor& input,
+   at::IntArrayRef size,
+   at::IntArrayRef strides,
+   const at::TensorOptions& options,
+   at::optional<c10::MemoryFormat> optional_memory_format,
+   bool is_persistent);
 
 /*
 @brief This function can be used to create an intermediate

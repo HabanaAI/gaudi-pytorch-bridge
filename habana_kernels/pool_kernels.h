@@ -32,7 +32,7 @@ class MaxPool2dWithIndicesOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      std::vector<bool> is_output_persistent) override;
 
   virtual void SetPTOutputs(torch::jit::Stack& inputs);
 };

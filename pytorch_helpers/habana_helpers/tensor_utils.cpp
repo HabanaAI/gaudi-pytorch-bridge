@@ -11,6 +11,7 @@
 #include <perf_lib_layer_params.h>
 #include <synapse_helpers/graph.h>
 #include <algorithm>
+#include <mutex>
 
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
@@ -207,6 +208,161 @@ at::Tensor habana_helpers::scalar_to_device_tensor(
   }
 
   return output;
+}
+
+bool habana_helpers::alwaysAllocOnDevice() {
+  static std::once_flag flag;
+  static bool allocOnDevice;
+  std::call_once(flag, [&] () {
+    allocOnDevice = false;
+    if (const auto envp = std::getenv("HABANA_USE_PERSISTENT_TENSOR")) {
+      allocOnDevice = atoi(envp) == 1;
+    }
+  });
+  return allocOnDevice;
+}
+at::Tensor habana_helpers::nonPersistentTensor(
+    const at::Tensor& input,
+    at::IntArrayRef size,
+    const at::TensorOptions& options,
+    at::optional<c10::MemoryFormat> optional_memory_format,
+    at::optional<caffe2::TypeMeta> data_type) {
+  auto t = at::detail::make_tensor<habana_helpers::StorageLessWrapperTensorImpl>(input, data_type);
+  t.unsafeGetTensorImpl()->set_sizes_contiguous((size.size() == 0) ? input.sizes() : size);
+
+  if (optional_memory_format.has_value()) {
+    t.unsafeGetTensorImpl()->empty_tensor_restride(optional_memory_format.value_or(MemoryFormat::Contiguous));
+  } else {
+    auto memory_format = input.options().memory_format_opt().value_or(MemoryFormat::Contiguous);
+    t.unsafeGetTensorImpl()->empty_tensor_restride(memory_format);
+  }
+
+  PT_SYNHELPER_DEBUG("Allocating non persistent tensor: size = ", size);
+  return t;
+}
+
+at::Tensor habana_helpers::nonPersistentTensor(
+    const at::Tensor& input,
+    at::IntArrayRef size,
+    at::IntArrayRef strides,
+    const at::TensorOptions& options,
+    at::optional<c10::MemoryFormat> optional_memory_format,
+    at::optional<caffe2::TypeMeta> data_type) {
+  auto t = at::detail::make_tensor<habana_helpers::StorageLessWrapperTensorImpl>(input, data_type);
+  t.unsafeGetTensorImpl()->set_sizes_and_strides((size.size() == 0) ? input.sizes() : size, strides);
+  if (optional_memory_format.has_value()) {
+  t.unsafeGetTensorImpl()->empty_tensor_restride(optional_memory_format.value_or(MemoryFormat::Contiguous));
+  } else {
+    auto memory_format = input.options().memory_format_opt().value_or(MemoryFormat::Contiguous);
+    t.unsafeGetTensorImpl()->empty_tensor_restride(memory_format);
+  }
+
+  PT_SYNHELPER_DEBUG("Allocating non persistent tensor: size = ", size);
+  return t;
+}
+
+at::Tensor habana_helpers::createPTTensor(
+   const at::Tensor& input,
+   bool is_persistent) {
+  at::Tensor t;
+
+  if (is_persistent || alwaysAllocOnDevice()) {
+    t = at::empty(input.sizes(),
+                  input.options(),
+                  input.suggest_memory_format());
+  } else {
+    t = habana_helpers::nonPersistentTensor(input,
+                                            input.sizes(),
+                                            input.options(),
+                                            input.suggest_memory_format());
+  }
+
+  return t;
+}
+
+at::Tensor habana_helpers::createPTTensor(
+   const at::Tensor& input,
+   at::IntArrayRef size,
+   const at::TensorOptions& options,
+   bool is_persistent) {
+  at::Tensor t;
+  if (is_persistent || alwaysAllocOnDevice()) {
+    t = at::empty(size,
+                  options,
+                  input.suggest_memory_format());
+  } else {
+    t = habana_helpers::nonPersistentTensor(input,
+                                            size,
+                                            options,
+                                            input.suggest_memory_format());
+  }
+
+  return t;
+}
+
+at::Tensor habana_helpers::createPTTensor(
+   const at::Tensor& input,
+   at::IntArrayRef size,
+   const at::TensorOptions& options,
+   at::optional<c10::MemoryFormat> optional_memory_format,
+   bool is_persistent) {
+  at::Tensor t;
+  if (is_persistent || alwaysAllocOnDevice()) {
+    t = at::empty(size,
+                  options,
+                  optional_memory_format.value_or(MemoryFormat::Contiguous));
+  } else {
+    t = habana_helpers::nonPersistentTensor(input,
+                                            size,
+                                            options,
+                                            optional_memory_format.value_or(MemoryFormat::Contiguous));
+  }
+
+  return t;
+}
+
+at::Tensor habana_helpers::createPTTensor(
+   const at::Tensor& input,
+   at::IntArrayRef size,
+   at::IntArrayRef strides,
+   const at::TensorOptions& options,
+   at::optional<c10::MemoryFormat> optional_memory_format,
+   bool is_persistent) {
+  at::Tensor t;
+  if (is_persistent || alwaysAllocOnDevice()) {
+    t = at::empty_strided(size,
+                          strides,
+                          options);
+  } else {
+    t = habana_helpers::nonPersistentTensor(input,
+                                            size,
+                                            strides,
+                                            options,
+                                            optional_memory_format.value_or(MemoryFormat::Contiguous));
+  }
+
+  return t;
+}
+
+at::Tensor habana_helpers::createPTTensor(
+    const at::Tensor& input,
+    at::IntArrayRef size,
+    const at::TensorOptions& options,
+    at::optional<c10::MemoryFormat> optional_memory_format,
+    c10::ScalarType data_type,
+    bool is_persistent) {
+  at::Tensor t;
+  if (is_persistent || alwaysAllocOnDevice()) {
+    t = at::empty(size, input.options().dtype(data_type));
+  } else {
+    t = habana_helpers::nonPersistentTensor(input,
+                                            size,
+                                            options,
+                                            optional_memory_format.value_or(MemoryFormat::Contiguous),
+                                            scalarTypeToTypeMeta(data_type));
+  }
+
+  return t;
 }
 
 synapse_helpers::tensor habana_helpers::create_tensor(

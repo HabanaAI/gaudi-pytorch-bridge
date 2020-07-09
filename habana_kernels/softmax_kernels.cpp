@@ -58,8 +58,7 @@ void LogSoftmaxOperator::AllocateAndAddSynapseNode(
   p_context_->params_.emplace<ns_Softmax::Params>(params);
   p_context_->params_size_ = sizeof(params);
 
-  auto output =
-      at::empty(self.sizes(), self.options(), self.suggest_memory_format());
+  auto output = habana_helpers::createPTTensor(self, is_output_persistent);
   AllocateSynapseOutput(graph, output, is_output_persistent);
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
@@ -107,8 +106,7 @@ void LogSoftmaxBackwardOperator::AllocateAndAddSynapseNode(
   std::swap(p_context_->pt_inputs_[0], p_context_->pt_inputs_[1]);
   std::swap(p_context_->syn_inputs_[0], p_context_->syn_inputs_[1]);
 
-  auto grad_output =
-      at::empty(input.sizes(), input.options(), input.suggest_memory_format());
+  auto grad_output = habana_helpers::createPTTensor(input, is_output_persistent);
 
   AllocateSynapseOutput(graph, grad_output, is_output_persistent);
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
@@ -297,8 +295,7 @@ void SoftmaxOperator::AllocateAndAddSynapseNode(
     p_context_->params_.emplace<ns_Softmax::Params>(params);
     p_context_->params_size_ = sizeof(params);
 
-    auto output =
-        at::empty(self.sizes(), self.options(), self.suggest_memory_format());
+    auto output = habana_helpers::createPTTensor(self, is_output_persistent);
     AllocateSynapseOutput(graph, output, is_output_persistent);
     AddNodeToSynapseGraph(graph, &params, sizeof(params));
   }

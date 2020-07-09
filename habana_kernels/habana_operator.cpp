@@ -148,12 +148,28 @@ void habana::HabanaOperator::AllocateSynapseInplaceOutput(
 void habana::HabanaOperator::AllocateSynapseOutputs(
     synapse_helpers::graph& graph,
     const std::vector<at::Tensor>& outputs,
-    bool is_persistent) {
+    std::vector<bool> is_persistent) {
   TORCH_CHECK(outputs.size() != 0, "Outputs cannot be null");
-
+  TORCH_CHECK(outputs.size() == is_persistent.size(),
+              "#output should match #persistent flag");
+  auto i = 0;
   for (auto& output : outputs) {
-    AllocateSynapseOutput(graph, output, is_persistent);
+    AllocateSynapseOutput(graph, output, is_persistent[i++]);
   }
+}
+
+void habana::HabanaOperator::AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent) {
+  TORCH_CHECK(0, "Shuold never reach this empty base AllocateAndAddSynapseNode");
+}
+
+void habana::HabanaOperator::AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      std::vector<bool> is_output_persistent) {
+  TORCH_CHECK(0, "Shuold never reach this empty base AllocateAndAddSynapseNode");
 }
 
 synapse_helpers::tensor_or_ref& habana::HabanaOperator::SetSynapseInput(

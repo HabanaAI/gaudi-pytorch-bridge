@@ -76,6 +76,7 @@ void allocate_reduction_result(
     THHTensor_resizeNd(tht_result, shape.size(), shape.data(), nullptr);
     // result.resize_(shape);
   } else {
+    // TBD: Add a non-persistent tensor allocation
     result = at::empty(
         shape, self.options().dtype(dtype), self.suggest_memory_format());
   }
@@ -920,7 +921,12 @@ void AnyDimOperator::AllocateAndAddSynapseNode(
       inputs[2].isBool(), "Input arg3 expected to be Bool for AnyDim operator");
 
   auto self = inputs[0].toTensor();
-  Tensor output = at::empty({0}, self.options().dtype(c10::ScalarType::Char));
+  auto output = habana_helpers::createPTTensor(self,
+                                               {0},
+                                               self.options(),
+                                               self.suggest_memory_format(),
+                                               c10::ScalarType::Char,
+                                               is_output_persistent);
   inputs.insert(inputs.begin(), IValue(output));
 
   AnyDimOutOperator::AllocateAndAddSynapseNode(

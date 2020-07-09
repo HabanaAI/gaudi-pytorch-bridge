@@ -61,7 +61,7 @@ inline void _allocate_or_resize_output_with_indices(
 void TopkOutOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    std::vector<bool> is_output_persistent) {
   TORCH_CHECK(
       inputs.size() == 7,
       "Incorrect size of inputs expected for topk operator");
@@ -86,6 +86,8 @@ void TopkOutOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(
       inputs[6].isBool(),
       "Input arg7 expected to be of type Bool for topk operator");
+  TORCH_CHECK(is_output_persistent.size() == 2,
+              "TopkOutOperator: #is_output_persistent should be 2");
 
   auto values = inputs[0].toTensor();
   auto indices = inputs[1].toTensor();
@@ -172,7 +174,7 @@ std::tuple<Tensor&, Tensor&> topk_out_hpu(
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
     // Build Params for the graph
-    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    Op.AllocateAndAddSynapseNode(graph, stack, {true, true});
 
     // compile and execute the graph
     Op.Compile(graph);
@@ -188,18 +190,28 @@ std::tuple<Tensor&, Tensor&> topk_out_hpu(
 void TopkOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    std::vector<bool> is_output_persistent) {
   TORCH_CHECK(
       inputs.size() == 5,
       "Incorrect size of inputs expected for topk operator");
   TORCH_CHECK(
       inputs[0].isTensor(),
       "Input arg1 expected to be tensor for topk operator");
+  TORCH_CHECK(is_output_persistent.size() == 2,
+              "TopkOperator: #is_output_persistent should be 2");
 
   Tensor self = inputs[0].toTensor();
-  Tensor values = at::empty({0}, self.options());
-  Tensor indices = at::empty({0}, self.options().dtype(c10::ScalarType::Int));
-
+  auto values = habana_helpers::createPTTensor(self,
+                                               {0},
+                                               self.options(),
+                                               self.suggest_memory_format(),
+                                               is_output_persistent[0]);
+  auto indices = habana_helpers::createPTTensor(self,
+                                                {0},
+                                                self.options(),
+                                                self.suggest_memory_format(),
+                                                c10::ScalarType::Int,
+                                                is_output_persistent[1]);
   inputs.insert(inputs.begin(), IValue(indices));
   inputs.insert(inputs.begin(), IValue(values));
 
@@ -250,7 +262,7 @@ std::tuple<Tensor, Tensor> topk_hpu(
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
     // Build Params for the graph
-    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    Op.AllocateAndAddSynapseNode(graph, stack, {true, true});
 
     // compile and execute the graph
     Op.Compile(graph);
@@ -266,7 +278,7 @@ std::tuple<Tensor, Tensor> topk_hpu(
 void SortOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    std::vector<bool> is_output_persistent) {
   TORCH_CHECK(
       inputs.size() == 3,
       "Incorrect size of inputs expected for sort operator");
@@ -279,6 +291,8 @@ void SortOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(
       inputs[2].isBool(),
       "Input arg3 expected to be of type Bool for sort operator");
+  TORCH_CHECK(is_output_persistent.size() == 2,
+              "SortOperator: #is_output_persistent should be 2");
 
   Tensor self = inputs[0].toTensor();
   int64_t dim_ = inputs[1].toInt();
@@ -293,8 +307,17 @@ void SortOperator::AllocateAndAddSynapseNode(
   inputs.insert(inputs.begin() + 1, IValue(self.size(dim)));
   inputs.emplace_back(IValue(sorted));
 
-  Tensor values = at::empty({0}, self.options());
-  Tensor indices = at::empty({0}, self.options().dtype(c10::ScalarType::Int));
+  auto values = habana_helpers::createPTTensor(self,
+                                               {0},
+                                               self.options(),
+                                               self.suggest_memory_format(),
+                                               is_output_persistent[0]);
+  auto indices = habana_helpers::createPTTensor(self,
+                                                {0},
+                                                self.options(),
+                                                self.suggest_memory_format(),
+                                                c10::ScalarType::Int,
+                                                is_output_persistent[1]);
 
   inputs.insert(inputs.begin(), IValue(indices));
   inputs.insert(inputs.begin(), IValue(values));
@@ -362,7 +385,7 @@ std::tuple<Tensor, Tensor> sort_hpu(
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
     // Build Params for the graph
-    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    Op.AllocateAndAddSynapseNode(graph, stack, {true, true});
 
     // compile and execute the graph
     Op.Compile(graph);

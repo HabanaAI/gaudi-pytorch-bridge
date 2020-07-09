@@ -37,7 +37,7 @@ using namespace habana;
 void OptimizerSparseSgdOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    std::vector<bool> is_output_persistent) {
   TORCH_CHECK(
       inputs.size() == 5,
       "Incorrect size of inputs expected for optimizer_sparse_sgd operator");
@@ -46,6 +46,8 @@ void OptimizerSparseSgdOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(inputs[2].isTensor(), "Input arg3 type expected to be tensor");
   TORCH_CHECK(inputs[3].isDouble(), "Input arg4 type expected to be float");
   TORCH_CHECK(inputs[4].isBool(), "Input arg5 type expected to be bool");
+  TORCH_CHECK(is_output_persistent.size() == 2,
+              "OptimizerSparseSgdOperator: #is_output_persistent should be 2");
 
   auto weights_in = inputs[1].toTensor();
   auto moments_in = inputs[2].toTensor();
@@ -56,14 +58,8 @@ void OptimizerSparseSgdOperator::AllocateAndAddSynapseNode(
   params.mom = mom;
   params.nesterov = nesterov;
 
-  auto weights_out = at::empty(
-      weights_in.sizes(),
-      weights_in.options(),
-      weights_in.suggest_memory_format());
-  auto moments_out = at::empty(
-      moments_in.sizes(),
-      moments_in.options(),
-      moments_in.suggest_memory_format());
+  auto weights_out = habana_helpers::createPTTensor(weights_in, is_output_persistent[0]);
+  auto moments_out = habana_helpers::createPTTensor(moments_in, is_output_persistent[1]);
 
   AllocateSynapseOutputs(
       graph, {weights_out, moments_out}, is_output_persistent);
@@ -111,7 +107,7 @@ optimizer_sparse_sgd_with_valid_count_hpu(
                                     IValue(moments_in),
                                     IValue(mom),
                                     IValue(nesterov)};
-  Op.AllocateAndAddSynapseNode(graph, stack, true);
+  Op.AllocateAndAddSynapseNode(graph, stack, {true, true});
   // compile and execute the graph
   Op.Compile(graph);
   std::vector<at::Tensor> out = Op.GetOutputs();

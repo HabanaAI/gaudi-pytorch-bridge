@@ -268,8 +268,7 @@ void habana::BinaryOperator::AllocateAndAddSynapseNode(
   }
 
   auto operand = get_correct_input_tensor(arg1, arg2);
-  auto output = at::empty(
-      operand.sizes(), operand.options(), operand.suggest_memory_format());
+  auto output = habana_helpers::createPTTensor(operand, is_output_persistent);
   AllocateSynapseOutput(graph, output, is_output_persistent);
   synapse_helpers::tensor& arg1_syn_tensor =
       isArg1modified ? reshape_syn_output[0] : p_context_->syn_inputs_[0];
@@ -410,8 +409,8 @@ void habana::BinaryOperatorWithAlpha::AllocateAndAddSynapseNode(
     p_context_->syn_inputs_[1] = std::move(arg2_syn);
 
     auto operand = get_correct_input_tensor(arg1, arg2);
-    auto output = at::empty(
-        operand.sizes(), operand.options(), operand.suggest_memory_format());
+    auto output = habana_helpers::createPTTensor(operand, is_output_persistent);
+
     AllocateSynapseOutput(graph, output, is_output_persistent);
 
     synapse_helpers::tensor& arg1_syn_tensor =
@@ -449,8 +448,7 @@ void habana::BinaryOperatorWithAlpha::AllocateAndAddSynapseNode(
     }
 
     auto operand = get_correct_input_tensor(arg1, arg2);
-    auto output = at::empty(
-        operand.sizes(), operand.options(), operand.suggest_memory_format());
+    auto output = habana_helpers::createPTTensor(operand, is_output_persistent);
     AllocateSynapseOutput(graph, output, is_output_persistent);
 
     synapse_helpers::tensor& arg1_syn_tensor =

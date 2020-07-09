@@ -340,8 +340,12 @@ void TransposeOperator::AllocateAndAddSynapseNode(
   // Recalculate the strides to account for transpose size changes
   // In effect, keep the tensor contiguous.
   recalc_strides(self_strides, self_sizes);
-  auto out = at::empty_strided(self_sizes, self_strides, self.options());
-
+  auto out = habana_helpers::createPTTensor(self,
+                                            self_sizes,
+                                            self_strides,
+                                            self.options(),
+                                            self.suggest_memory_format(),
+                                            is_output_persistent);
   synTransposeParams params;
   params.tensorDim = self.dim();
   int i;
@@ -548,8 +552,12 @@ void PermuteOperator::AllocateAndAddSynapseNode(
     new_strides[i] = new_strides[i + 1] * new_sizes[i + 1];
   }
 
-  auto output = at::empty_strided(new_sizes, new_strides, self.options());
-
+  auto output = habana_helpers::createPTTensor(self,
+                                               new_sizes,
+                                               new_strides,
+                                               self.options(),
+                                               self.suggest_memory_format(),
+                                               is_output_persistent);
   synTransposeParams params;
   params.tensorDim = self.dim();
   // params.permute has to be populated in a reverse order for HPU FCD-LCD order
@@ -654,8 +662,11 @@ void ReshapeOperator::AllocateAndAddSynapseNode(
       "Right now Reshape is only supported for contiguous Tensor.");
 
   auto shape = inputs[1].toIntList();
-  auto output =
-      at::empty(shape.vec(), self.options(), self.suggest_memory_format());
+  auto output = habana_helpers::createPTTensor(self,
+                                               shape.vec(),
+                                               self.options(),
+                                               self.suggest_memory_format(),
+                                               is_output_persistent);
   TORCH_CHECK(
       self.numel() == output.numel(),
       "Reshape doesnt support change in number of elements");
@@ -796,7 +807,12 @@ void BroadcastOperator::AllocateAndAddSynapseNode(
   if (self.sizes().equals(expandedSizes)) {
     // Nothing to do
   } else {
-    result = at::empty_strided(expandedSizes, expandedStrides, self.options());
+    result = habana_helpers::createPTTensor(self,
+                                            expandedSizes,
+                                            expandedStrides,
+                                            self.options(),
+                                            self.suggest_memory_format(),
+                                            is_output_persistent);
     auto expanded_self_view_sizes =
         std::vector<int64_t>(expandedSizes.size(), 1);
     for (unsigned i = 0; i < self.dim(); i++) {

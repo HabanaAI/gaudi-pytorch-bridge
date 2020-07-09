@@ -229,6 +229,9 @@ class HabanaLaunchOpPT {
   std::unordered_map<CValPtr, habana::LayoutFormat> value_to_tensor_layout;
   habana::LayoutFormat pt_input_layout;
 
+  // A map for value to persistent flag
+  std::unordered_map<CValPtr, bool> value_to_persistent_flag;
+
   // map between PT and synapse tensors
   std::vector<synapse_helpers::tensor> meta_syn_tensors;
 
@@ -261,6 +264,7 @@ class HabanaLaunchOpPT {
 
   size_t num_inputs = 0;
   size_t num_tensor_inputs = 0;
+  bool   use_persistent_tensors;
   at::ArrayRef<torch::jit::IValue> input_refs;
   torch::jit::Stack* pt_stack = nullptr;
 
@@ -273,7 +277,7 @@ class HabanaLaunchOpPT {
 
   // caching :: end
 
-  bool enable_caching_ = getenv("HABANA_PGM_ENABLE_CACHE") ? true : false;
+  bool enable_caching_;
   int tensor_dump_numel_;
   bool enable_tensor_dump_;
 
@@ -297,6 +301,8 @@ class HabanaLaunchOpPT {
   void clear();
   bool isInGraphInputs(torch::jit::Value* value);
   bool isInGraphOutputs(torch::jit::Value* value);
+  bool isInGraphOutputs(torch::jit::Node* node, size_t index);
+  std::vector<bool> nodeOutputPersistence(torch::jit::Node* node);
   void CompileAndExecuteHabanaFusedOpKernel();
   bool CompileSynapseGraph(
       std::shared_ptr<synapse_helpers::graph::recipe_handle>& synh_recipe);

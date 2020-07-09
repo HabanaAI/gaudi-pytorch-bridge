@@ -39,8 +39,7 @@ void habana::ThresholdBackwardOperator::AllocateAndAddSynapseNode(
       threshold.to<float>() == 0.0,
       "Threshold values other than 0 are not supported")
 
-  auto grad_input =
-      at::empty(self.sizes(), self.options(), self.suggest_memory_format());
+  auto grad_input = habana_helpers::createPTTensor(self, is_output_persistent);
   AllocateSynapseOutput(graph, grad_input, is_output_persistent);
   AddNodeToSynapseGraph(graph, nullptr, 0);
 }

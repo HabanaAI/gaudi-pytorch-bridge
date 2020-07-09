@@ -191,7 +191,7 @@ ns_AveragePooling::Params synapse_avg_pool_params_builder(
 void MaxPool2dWithIndicesOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
-    bool is_output_persistent) {
+    std::vector<bool> is_output_persistent) {
   TORCH_CHECK(
       inputs.size() == 6,
       "Incorrect size of input expected for MaxPool2dWithIndicesOperator");
@@ -203,6 +203,8 @@ void MaxPool2dWithIndicesOperator::AllocateAndAddSynapseNode(
       inputs[3].isIntList(), "Fourth input type expected to be IntList");
   TORCH_CHECK(inputs[4].isIntList(), "Fifth input type expected to be IntList");
   TORCH_CHECK(inputs[5].isBool(), "Sixth input type expected to be Bool");
+  TORCH_CHECK(is_output_persistent.size() == 2,
+              "MaxPool2dWithIndicesOperator: #is_output_persistent should be 2");
 
   at::Tensor input = inputs[0].toTensor();
   const auto kernel_size = inputs[1].toIntList().vec();
@@ -222,10 +224,11 @@ void MaxPool2dWithIndicesOperator::AllocateAndAddSynapseNode(
       input, kernel_size, stride, padding, dilation, ceil_mode, true);
 
   // Setup output tensors
-  auto output_nhwc = at::empty(
-      {out_shape[0], out_shape[1], out_shape[2], out_shape[3]},
-      input.options());
-
+  auto output_nhwc = habana_helpers::createPTTensor(input,
+                                                    {out_shape[0], out_shape[1], out_shape[2], out_shape[3]},
+                                                    input.options(),
+                                                    input.suggest_memory_format(),
+                                                    is_output_persistent[0]);
   // NOTE: cpu and cuda implementations hold indices as kLong (int64). I am
   // using uint8 and short for float and bf16 input tensors respectively (to
   // match TPC kernel requirement).
@@ -233,10 +236,13 @@ void MaxPool2dWithIndicesOperator::AllocateAndAddSynapseNode(
   if (input.scalar_type() == c10::ScalarType::BFloat16) {
     type = kShort;
   }
-  auto output_idx_nhwc = at::empty(
-      {out_shape[0], out_shape[1], out_shape[2], out_shape[3]},
-      input.options().dtype(type));
 
+  auto output_idx_nhwc = habana_helpers::createPTTensor(input,
+                                                        {out_shape[0], out_shape[1], out_shape[2], out_shape[3]},
+                                                        input.options(),
+                                                        input.suggest_memory_format(),
+                                                        type,
+                                                        is_output_persistent[1]);
   AllocateSynapseOutputs(
       graph, {output_idx_nhwc, output_nhwc}, is_output_persistent);
   AddNodeToSynapseGraph(graph, &syn_pool_params, sizeof(syn_pool_params));
@@ -426,7 +432,7 @@ std::tuple<Tensor, Tensor> max_pool2d_with_indices_hpu(
       Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
       // Build Params for the graph
-      Op.AllocateAndAddSynapseNode(graph, stack, true);
+      Op.AllocateAndAddSynapseNode(graph, stack, {true, true});
 
       // compile and execute the graph
       Op.Compile(graph);
@@ -769,11 +775,12 @@ void AvgPool2dOperator::AllocateAndAddSynapseNode(
       input, kernel_size, stride, padding, dilation, ceil_mode, true);
 
   // Setup output tensors
-  auto output_nhwc = at::empty(
-      {out_shape[0], out_shape[1], out_shape[2], out_shape[3]},
-      input.options());
-
-  AllocateSynapseOutputs(graph, {output_nhwc}, is_output_persistent);
+  auto output_nhwc = habana_helpers::createPTTensor(input,
+                                                    {out_shape[0], out_shape[1], out_shape[2], out_shape[3]},
+                                                    input.options(),
+                                                    input.suggest_memory_format(),
+                                                    is_output_persistent);
+  AllocateSynapseOutput(graph, output_nhwc, is_output_persistent);
   AddNodeToSynapseGraph(graph, &syn_pool_params, sizeof(syn_pool_params));
 }
 
@@ -955,7 +962,7 @@ void AvgPool2dBackwardOutOperator::AllocateAndAddSynapseNode(
   p_context_->params_.emplace<ns_AveragePooling::Params>(syn_pool_params);
   p_context_->params_size_ = sizeof(syn_pool_params);
 
-  AllocateSynapseOutputs(graph, {grad_input_nhwc}, is_output_persistent);
+  AllocateSynapseOutput(graph, grad_input_nhwc, is_output_persistent);
   AddNodeToSynapseGraph(graph, &syn_pool_params, sizeof(syn_pool_params));
 }
 
