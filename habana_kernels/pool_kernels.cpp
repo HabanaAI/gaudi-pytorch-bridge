@@ -242,13 +242,13 @@ void MaxPool2dWithIndicesOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, &syn_pool_params, sizeof(syn_pool_params));
 }
 
-void MaxPool2dWithIndicesBackwardOperator::AllocateAndAddSynapseNode(
+void MaxPool2dWithIndicesBackwardOutOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
     bool is_output_persistent) {
   TORCH_CHECK(
       inputs.size() == 9,
-      "Incorrect size of input expected for MaxPool2dWithIndicesBackwardOperator");
+      "Incorrect size of input expected for MaxPool2dWithIndicesBackwardOutOperator");
   TORCH_CHECK(inputs[0].isTensor(), "First input type expected to be tensor");
   TORCH_CHECK(inputs[1].isTensor(), "Second input type expected to be tensor");
   TORCH_CHECK(inputs[2].isTensor(), "Third input type expected to be tensor");
@@ -325,7 +325,7 @@ void MaxPool2dWithIndicesOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   HabanaOperator::SetPTOutputs({output_idx_nhwc, output_nhwc});
 }
 
-void MaxPool2dWithIndicesBackwardOperator::SetPTOutputs(
+void MaxPool2dWithIndicesBackwardOutOperator::SetPTOutputs(
     torch::jit::Stack& inputs) {
   at::Tensor grad_input = inputs[0].toTensor();
   at::Tensor grad_out = inputs[1].toTensor();
@@ -529,7 +529,7 @@ Tensor& max_pool2d_with_indices_backward_out_hpu(
                                       IValue(dilation),
                                       IValue(ceil_mode)};
     // Create the operator
-    MaxPool2dWithIndicesBackwardOperator Op(device_id, scalar_type);
+    MaxPool2dWithIndicesBackwardOutOperator Op(device_id, scalar_type);
     size_t key = Op.GetRecipeKey(node_type, stack);
 
     if (device.get_recipe_handle_cache().isCached(key)) {
@@ -576,6 +576,40 @@ Tensor& max_pool2d_with_indices_backward_out_hpu(
   return grad_input;
 }
 
+void MaxPool2dWithIndicesBackwardOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 8,
+      "Incorrect size of input expected for MaxPool2dWithIndicesBackwardOperator");
+  TORCH_CHECK(inputs[1].isTensor(), "Second input type expected to be tensor");
+
+  at::Tensor input = inputs[1].toTensor();
+  auto grad_input =
+      at::zeros_like(input, input.options(), input.suggest_memory_format());
+  inputs.insert(inputs.begin(), IValue(grad_input));
+
+  MaxPool2dWithIndicesBackwardOutOperator::AllocateAndAddSynapseNode(
+      graph, inputs, is_output_persistent);
+}
+
+void MaxPool2dWithIndicesBackwardOperator::SetPTOutputs(
+    torch::jit::Stack& inputs) {
+  TORCH_CHECK(
+      inputs.size() == 8,
+      "Incorrect size of input expected for MaxPool2dWithIndicesBackwardOperator");
+  TORCH_CHECK(inputs[1].isTensor(), "Second input type expected to be tensor");
+
+  at::Tensor input = inputs[1].toTensor();
+  auto grad_input =
+      at::zeros_like(input, input.options(), input.suggest_memory_format());
+  inputs.insert(inputs.begin(), IValue(grad_input));
+
+  MaxPool2dWithIndicesBackwardOutOperator::SetPTOutputs(inputs);
+
+}
+
 /**
  * @brief MaxPool2d.with_indices_hpu (Backward Pass) implementation for Habana
  * device
@@ -600,19 +634,92 @@ Tensor max_pool2d_with_indices_backward_hpu(
     bool ceil_mode,
     const Tensor& indices) {
   PT_KERNEL_BEGIN;
-  auto grad_input =
-      at::zeros_like(input, input.options(), input.suggest_memory_format());
+  habana_helpers::check_pool_params(
+      input, kernel_size, stride, padding, dilation, ceil_mode);
 
-  max_pool2d_with_indices_backward_out_hpu(
-      grad_input,
-      grad_output,
-      input,
-      indices,
-      kernel_size,
-      stride,
-      padding,
-      dilation,
-      ceil_mode);
+  int device_id = input.device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  at::ScalarType scalar_type = input.scalar_type();
+  std::string node_type =
+      "maxpool_2d_bwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+
+  // convert tensors to synapse memory format
+  Tensor input_nhwc = input;
+  Tensor grad_out_nhwc = grad_output;
+  Tensor indices_nhwc = indices;
+  std::vector<const at::Tensor*> pt_in{
+      &input, &grad_output, &indices};
+  std::vector<at::Tensor*> pt_out{
+      &input_nhwc, &grad_out_nhwc, &indices_nhwc};
+
+  // TBD: these layout requirements are properties of the operator, and should
+  // be declared static class member variables rathe than per-object data.
+  // Once this change is made, the layout would be retrieved from the operator
+  // class.
+  IntArrayRef new_dim_pos_in // = {0, 2, 3, 1};
+      = HabanaOperator::getPermuteOrder(LayoutFormat::NHWC, true);
+  std::vector<const IntArrayRef*> pt_new_pos{
+      &new_dim_pos_in, &new_dim_pos_in, &new_dim_pos_in};
+  c10::MemoryFormat memory_format = habana_helpers::get_memory_format({&input});
+  habana_helpers::change_tensors_to_memory_format(
+      pt_out, pt_in, pt_new_pos, memory_format);
+
+
+  auto maxpool_2d_bwd = [&] {
+    std::vector<const at::Tensor*> pt_inputs{&grad_out_nhwc, &indices_nhwc};
+    std::vector<c10::IValue> stack = {IValue(grad_out_nhwc),
+                                      IValue(input_nhwc),
+                                      IValue(indices_nhwc),
+                                      IValue(kernel_size),
+                                      IValue(stride),
+                                      IValue(padding),
+                                      IValue(dilation),
+                                      IValue(ceil_mode)};
+    // Create the operator
+    MaxPool2dWithIndicesBackwardOperator Op(device_id, scalar_type);
+    size_t key = Op.GetRecipeKey(node_type, stack);
+
+    if (device.get_recipe_handle_cache().isCached(key)) {
+      PT_KERNEL_DEBUG("Cache hit key:", key);
+      Op.SetPTInputs(pt_inputs);
+      Op.SetPTOutputs(stack);
+      Op.Execute(key);
+
+    } else {
+      PT_KERNEL_DEBUG("key:", key);
+      //
+      // Create Graph
+      auto graph = habana_helpers::create_graph(device_id, node_type);
+
+      // Allocate synapse inputs
+      Op.AllocateSynapseInputs(graph, pt_inputs, true);
+
+      // Build Params for the graph
+      Op.AllocateAndAddSynapseNode(graph, stack, true);
+
+      // compile and execute the graph
+      Op.Compile(graph);
+    }
+
+    return Op.GetOutputs();
+  };
+
+  std::vector<at::Tensor> out = maxpool_2d_bwd();
+
+  Tensor grad_input;
+  Tensor grad_input_nhwc = out.at(0);
+  pt_in = {&grad_input_nhwc};
+  pt_out = {&grad_input};
+  // TBD: these layout requirements are properties of the operator, and should
+  // be declared static class member variables rathe than per-object data.
+  // Once this change is made, the layout would be retrieved from the operator
+  // class.
+  IntArrayRef new_dim_pos_out // = {0, 3, 1, 2};
+      = HabanaOperator::getPermuteOrder(LayoutFormat::NHWC, false);
+  pt_new_pos = {&new_dim_pos_out};
+  habana_helpers::change_tensors_to_memory_format(
+      pt_out, pt_in, pt_new_pos, memory_format);
+
   PT_KERNEL_END;
   return grad_input;
 }

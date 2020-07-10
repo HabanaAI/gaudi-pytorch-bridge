@@ -48,9 +48,9 @@ class MaxPool2dOperator : public MaxPool2dWithIndicesOperator {
   }
 };
 
-class MaxPool2dWithIndicesBackwardOperator : public HabanaOperator {
+class MaxPool2dWithIndicesBackwardOutOperator : public HabanaOperator {
  public:
-  MaxPool2dWithIndicesBackwardOperator(
+  MaxPool2dWithIndicesBackwardOutOperator(
       int device_id,
       c10::ScalarType scalarType)
       : HabanaOperator(
@@ -68,6 +68,24 @@ class MaxPool2dWithIndicesBackwardOperator : public HabanaOperator {
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
+  virtual void SetPTOutputs(torch::jit::Stack& inputs);
+};
+
+//
+// MaxPool2dWithIndicesBackward Operator
+class MaxPool2dWithIndicesBackwardOperator : public MaxPool2dWithIndicesBackwardOutOperator {
+ public:
+  MaxPool2dWithIndicesBackwardOperator(int device_id, c10::ScalarType scalarType)
+      : MaxPool2dWithIndicesBackwardOutOperator(device_id, scalarType) {
+    kernel_meta_data_.input_layout.assign({LayoutFormat::NHWC,
+                                           LayoutFormat::NHWC,
+                                           LayoutFormat::NHWC});
+  }
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+
   virtual void SetPTOutputs(torch::jit::Stack& inputs);
 };
 
