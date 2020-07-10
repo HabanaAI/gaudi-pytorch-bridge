@@ -86,8 +86,9 @@ void habana::HabanaOperator::SetPTOutputs(
 size_t habana::HabanaOperator::GetRecipeKey(
     std::string node,
     std::vector<c10::IValue> stack,
-    bool inPlaceOp) {
-  size_t key = habana_helpers::getRecipeKey(node, stack, inPlaceOp);
+    bool inPlaceOp,
+    bool outOp) {
+  size_t key = habana_helpers::getRecipeKey(node, stack, inPlaceOp, outOp);
   p_context_->recipe_key_ = key;
   return key;
 }
@@ -130,8 +131,9 @@ void habana::HabanaOperator::AllocateSynapseOutput(
 
 void habana::HabanaOperator::AllocateSynapseInplaceOutput(
     synapse_helpers::graph& graph) {
-  p_context_->syn_outputs_.emplace_back(habana_helpers::duplicate_tensor_in_memory_section(
-        p_context_->syn_inputs_[0]));
+  p_context_->syn_outputs_.emplace_back(
+      habana_helpers::duplicate_tensor_in_memory_section(
+          p_context_->syn_inputs_[0]));
 
   p_context_->pt_outputs_.emplace_back(*p_context_->pt_inputs_[0]);
 }

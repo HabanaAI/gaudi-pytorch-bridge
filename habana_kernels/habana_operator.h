@@ -92,7 +92,8 @@ class HabanaOperator {
   virtual size_t GetRecipeKey(
       std::string node,
       std::vector<c10::IValue> stack,
-      bool inPlaceOp = false);
+      bool inPlaceOp = false,
+      bool outOp = false);
   //
   // Method to add tensors to graph builder context, also populates the context
   // params
@@ -124,8 +125,7 @@ class HabanaOperator {
       bool is_persistent = false);
 
   // Method to add output tensors to graph builder context
-  virtual void AllocateSynapseInplaceOutput(
-      synapse_helpers::graph& graph);
+  virtual void AllocateSynapseInplaceOutput(synapse_helpers::graph& graph);
 
   //
   // Method to add muliple output tensors to graph builder context

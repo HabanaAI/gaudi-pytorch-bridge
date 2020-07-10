@@ -249,8 +249,15 @@ Tensor& cat_hpu_out(
     stack.push_back(IValue(tensors[i]));
   }
   stack.push_back(IValue(dim_));
-
-  size_t key = Op.GetRecipeKey(node_type, stack);
+  /*Cache generation requires unique parameter distinctions which are not
+   * guaranteed by tensors alone for ops like cat/cat.out because their guids
+   * are same. cat and cat.out have same guid "concat". In habanaqa tests the
+   * "cat" tests with 3 inputs generate same cache-key as "cat.out" test with 2
+   * inputs + 1 out tensor. This causes cat.out to use same cached recipe as
+   * cat. So, we set outOp=true for cache key generation.
+   */
+  size_t key =
+      Op.GetRecipeKey(node_type, stack, /*inPlaceOp*/ false, /*outOp*/ true);
   if (device.get_recipe_handle_cache().isCached(key)) {
     PT_KERNEL_DEBUG("Cache hit key:", key);
     Op.SetPTInputs(pt_inputs);

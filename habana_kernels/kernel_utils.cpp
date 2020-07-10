@@ -98,8 +98,9 @@ void habana_helpers::execute_recipe(
 size_t habana_helpers::getRecipeKey(
     std::string node,
     std::vector<c10::IValue> stack,
-    bool inPlaceOp) {
-  RecipeSignature rs(true, stack, {node}, inPlaceOp);
+    bool inPlaceOp,
+    bool outOp) {
+  RecipeSignature rs(true, stack, {node}, inPlaceOp, outOp);
   return rs.hash();
 }
 

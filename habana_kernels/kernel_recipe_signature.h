@@ -22,7 +22,8 @@ struct RecipeSignature {
       bool with_grad,
       torch::jit::Stack inputs,
       std::vector<std::string> nodeTypes,
-      bool in_place = false)
+      bool in_place = false,
+      bool outOp = false)
       : nodeTypes_(nodeTypes), cas_(with_grad, inputs), hash_(cas_.hashCode()) {
     // calcualte operator cache
     for (auto name : nodeTypes) {
@@ -34,6 +35,7 @@ struct RecipeSignature {
     // may have the same node and inputs. since the kernel generated
     // are different, need to do this.
     hash_ = torch::hash_combine(hash_, in_place);
+    hash_ = torch::hash_combine(hash_, outOp);
     const int32_t num_inputs = inputs.size();
     for (int32_t i = 0; i < num_inputs; i++) {
       if (!inputs[i].isTensor()) {

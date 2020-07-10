@@ -52,11 +52,11 @@ void execute_recipe(
 size_t getRecipeKey(
     std::string node,
     std::vector<c10::IValue> stack,
-    bool inPlaceOp = false);
+    bool inPlaceOp = false,
+    bool outOp = false);
 } // namespace habana_helpers
 
 namespace habana {
-
 // CastOut Operator
 class CastOutOperator : public HabanaOperator {
  public:
