@@ -104,7 +104,6 @@ size_t habana_helpers::getRecipeKey(
   return rs.hash();
 }
 
-namespace habana {
 
 /**
  * @brief CastKernel params structure
@@ -161,5 +160,3 @@ void CastOutOperator::AllocateAndAddSynapseNode(
   AllocateSynapseOutputs(graph, outputs, is_output_persistent);
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
-
-} // namespace habana

@@ -56,16 +56,15 @@ size_t getRecipeKey(
     bool outOp = false);
 } // namespace habana_helpers
 
-namespace habana {
 // CastOut Operator
-class CastOutOperator : public HabanaOperator {
+class CastOutOperator : public habana::HabanaOperator {
  public:
   CastOutOperator(int device_id, const std::string& guid)
       : HabanaOperator(guid) {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign(
-        {LayoutFormat::ANY, LayoutFormat::ANY});
-    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
+        {habana::LayoutFormat::ANY, habana::LayoutFormat::ANY});
+    kernel_meta_data_.output_layout.assign({habana::LayoutFormat::ANY});
   }
 
   virtual void AllocateAndAddSynapseNode(
@@ -82,7 +81,7 @@ class CastOperator : public CastOutOperator {
  public:
   CastOperator(int device_id, const std::string& guid)
       : CastOutOperator(device_id, guid) {
-    kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
+    kernel_meta_data_.input_layout.assign({habana::LayoutFormat::ANY});
   }
 
   virtual void AllocateAndAddSynapseNode(
@@ -90,5 +89,3 @@ class CastOperator : public CastOutOperator {
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
 };
-
-} // namespace habana

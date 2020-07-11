@@ -16,6 +16,7 @@
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_helpers/logging.h"
 #include "habana_helpers/tensor_utils.h"
+#include "habana_kernels/basic_kernels.h"
 #include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/resize.h"
 #include "habana_kernels/simple_generic_kernel.h"
@@ -150,6 +151,57 @@ Tensor& set_hpu_(
 
   PT_KERNEL_END;
   return self;
+}
+
+void ToDtypeOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  // This function can handle following 2 schemas only:
+  // (1) to.device(Tensor self, Device device, ScalarType dtype, bool
+  // non_blocking=False, bool copy=False, MemoryFormat? memory_format=None) ->
+  // (2) Tensor to.dtype(Tensor self, ScalarType dtype, bool non_blocking=False,
+  // bool copy=False, MemoryFormat? memory_format=None) -> Tensor
+  TORCH_CHECK(
+      inputs.size() >= 5,
+      "Incorrect size of inputs expected for cast operator");
+  TORCH_CHECK(
+      inputs[0].isTensor(),
+      "Input arg1 expected to be tensor for toDtype operator");
+
+  if (inputs.size() == 6) {
+    // Erase device information to unify subsequent code for both schemas.
+    // Should be ok since we come here only for Habana device
+    inputs.erase(inputs.cbegin() + 1);
+  }
+
+  auto self = inputs[0].toTensor();
+  auto type = inputs[1].toScalarType();
+
+  std::string node_type;
+  if (self.dtype() == c10::ScalarType::BFloat16 &&
+      type == c10::ScalarType::Float) {
+    node_type = "cast_bf16_to_f32";
+  } else if (
+      type == c10::ScalarType::BFloat16 &&
+      self.dtype() == c10::ScalarType::Float) {
+    node_type = "cast_f32_to_bf16";
+  } else {
+    // Casts between other types are not supported for now
+    HABANA_ASSERT(0);
+  }
+
+  // we do not care about last 3 entries dtype conversion, so throw them away
+  inputs.pop_back();
+  inputs.pop_back();
+  inputs.pop_back();
+
+  CastOperator Op(self.device().index(), node_type);
+  auto& syn_arg1 = Op.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+  Op.AllocateAndAddSynapseNode(graph, inputs, is_output_persistent);
+  p_context_->syn_inputs_[0] = std::move(syn_arg1);
+  p_context_->syn_outputs_.emplace_back(std::move(Op.GetSynOutputs()[0]));
+  p_context_->pt_outputs_.emplace_back(std::move(Op.GetOutputs()[0]));
 }
 
 static auto registry =

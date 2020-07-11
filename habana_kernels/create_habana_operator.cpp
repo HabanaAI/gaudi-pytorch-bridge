@@ -7,6 +7,7 @@
  *
  ******************************************************************************
  */
+#include "habana_kernels/basic_kernels.h"
 #include "habana_kernels/binary_kernels.h"
 #include "habana_kernels/conv_kernels.h"
 #include "habana_kernels/embedding_kernels.h"
@@ -31,6 +32,8 @@ HabanaOperatorPtr CreateHabanaOperator(
     op = std::make_shared<ReluOperator>(device_id, node_type);
   } else if ("aten::sigmoid" == node_name) {
     op = std::make_shared<SigmoidOperator>(device_id, node_type);
+  } else if ("aten::to" == node_name) {
+    op = std::make_shared<ToDtypeOperator>(device_id, node_type);
   } else if ("aten::abs" == node_name) {
     op = std::make_shared<AbsOperator>(device_id, node_type);
   } else if ("aten::log_softmax" == node_name) {

@@ -62,7 +62,7 @@ at::Tensor habana_helpers::hpu_cast_tensor(
 
   int device_id = Input.device().index();
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-  habana::CastOperator Op(device_id, node_type);
+  CastOperator Op(device_id, node_type);
   std::vector<c10::IValue> stack = {IValue(Input),
                                     IValue(typeMetaToScalarType(type))};
   std::vector<const at::Tensor*> pt_inputs{&Input};

@@ -22,6 +22,7 @@ class HabanaWhiteList {
 };
 
 const std::unordered_set<std::string> HabanaWhiteList::HabanaWhiteListOps = {
+        "aten::to",
         "aten::copy_",
         "aten::as_strided",
         "aten::set_",
