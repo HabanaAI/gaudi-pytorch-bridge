@@ -221,4 +221,6 @@ class HabanaLaunchOpPT {
   void PrintSynTensors();
   void LaunchRecipe(RecipeValueSpec &rv);
   void UpdateOutputs();
+  template <class T>
+  void clearMember(T& m_container);
 };

@@ -686,8 +686,31 @@ void HabanaLaunchOpPT::UpdateOutputs() {
   }
 }
 
+template<typename T>
+void HabanaLaunchOpPT::clearMember(T& m_container)
+{
+  T empty;
+  using std::swap;
+  swap(m_container, empty);
+}
+
 void HabanaLaunchOpPT::clear() {
   pt_stack = nullptr;
+  syn_graph_ptr = nullptr;
+  // Delete all the values created by new
+  for (auto output : subgraph_->outputs()) {
+    if (value_to_ivalue[output]) {
+      delete value_to_ivalue[output];
+    }
+  }
+  // Call explicit erase on the maps
+  pt_to_synapse_tensors.erase(
+      pt_to_synapse_tensors.begin(), pt_to_synapse_tensors.end());
+  value_to_ivalue.erase(value_to_ivalue.begin(), value_to_ivalue.end());
+  value_to_tensor_layout.erase(
+      value_to_tensor_layout.begin(), value_to_tensor_layout.end());
+
+  //Clear them    
   habana_kernels.clear();
   input_names.clear();
   output_names.clear();
@@ -696,6 +719,20 @@ void HabanaLaunchOpPT::clear() {
   value_to_tensor_layout.clear();
   pt_to_synapse_tensors.clear();
   syntensor_name_map.clear();
+  meta_syn_tensors.clear();
+
+  //Sometimes clear doesn't clear everything
+  // This makes sure everything stl cleaned 
+  clearMember(habana_kernels);
+  clearMember(input_names);
+  clearMember(output_names);
+  clearMember(input_buffers);
+  clearMember(output_buffers);
+  clearMember(value_to_tensor_layout);
+  clearMember(value_to_ivalue);
+  clearMember(pt_to_synapse_tensors);
+  clearMember(syntensor_name_map);
+  clearMember(meta_syn_tensors);
 }
 
 bool HabanaLaunchOpPT::IsCached(std::shared_ptr<RecipeArgumentSpec> &spec) {
