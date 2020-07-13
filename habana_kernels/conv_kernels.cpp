@@ -454,7 +454,7 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
                                       IValue(output_padding),
                                       IValue(output_mask_in),
                                       IValue(grad_weight)};
-    ConvWeightDiffOp.AllocateAndAddSynapseNode(graph, stack, true);
+    ConvWeightDiffOp.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
 
     synapse_helpers::tensor& grad_weight_syn_tensor = ConvWeightDiffOp.GetSynOutputs()[0];
 
@@ -488,7 +488,7 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
                                       IValue(output_padding),
                                       IValue(output_mask_in),
                                       IValue(grad_input_nhwc)};
-    ConvInputDiffOp.AllocateAndAddSynapseNode(graph, stack, true);
+    ConvInputDiffOp.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
 
 
     synapse_helpers::tensor& grad_in_nhwc_syn_tensor = ConvInputDiffOp.GetSynOutputs()[0];
@@ -524,7 +524,7 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
                                       IValue(shape),
                                       IValue(false),
                                       IValue(scalar_type)};
-    SumOp.AllocateAndAddSynapseNode(graph, stack, true);
+    SumOp.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
 
     synapse_helpers::tensor& bias_syn_tensor = SumOp.GetSynOutputs()[0];
 
