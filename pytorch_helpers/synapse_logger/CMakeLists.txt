@@ -27,7 +27,7 @@ add_custom_command(TARGET pytorch_synapse_logger POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E create_symlink
   "$<TARGET_FILE:pytorch_synapse_logger>" "$ENV{BUILD_ROOT_LATEST}/$<TARGET_FILE_NAME:pytorch_synapse_logger>")
 separate_debug_symbols(pytorch_synapse_logger)
-target_link_libraries(pytorch_synapse_logger PRIVATE ${CMAKE_DL_LIBS} absl::strings absl::variant)
+target_link_libraries(pytorch_synapse_logger PRIVATE ${CMAKE_DL_LIBS} absl::strings absl::str_format absl::variant)
 
 set(PY_SYNAPSE_LOGGER_I ${CMAKE_CURRENT_SOURCE_DIR}/py_synapse_logger.i)
 #set(SWIG "SWIG-NOTFOUND")
@@ -79,6 +79,7 @@ target_link_libraries(_py_pytorch_synapse_logger
   $<TARGET_OBJECTS:py_pytorch_synapse_logger_wrap>
   ${CMAKE_DL_LIBS}
   absl::strings
+  absl::str_format
   absl::variant)
 
 set_target_properties(pytorch_synapse_logger _py_pytorch_synapse_logger py_pytorch_synapse_logger_wrap PROPERTIES

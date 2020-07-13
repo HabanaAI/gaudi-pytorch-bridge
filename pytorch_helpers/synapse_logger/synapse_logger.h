@@ -8,30 +8,27 @@
  ******************************************************************************
  */
 #pragma once
+#include <absl/strings/string_view.h>
+#include <absl/types/variant.h>
+#include <dlfcn.h>
+#include <hcl_api_types.h>
+#include <unistd.h>
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <cstdint>
 #include <ctime>
 #include <deque>
-#include <atomic>
-#include <limits>
 #include <exception>
 #include <fstream>
 #include <iostream>
 #include <iterator>
+#include <limits>
 #include <memory>
 #include <mutex>
 #include <string>
-#include <cstddef>
-#include <unistd.h>
 #include <unordered_map>
 #include <utility>
-
-#include <absl/strings/string_view.h>
-#include <absl/types/variant.h>
-#include <dlfcn.h>
-
-#include <hcl_api_types.h>
 
 #include "object_dump.h"
 #include "synapse_api_types.h"
@@ -41,7 +38,7 @@ enum ErrorLevel { S_ERROR = 0, S_INFO = 1, S_TRACE = 2 };
 
 namespace synapse_logger {
 
-constexpr std::array<const char*, 3> slog_levels = {"ERROR", "INFO", "TRACE"};
+constexpr std::array<const char*, 3> slog_levels = {{"ERROR", "INFO", "TRACE"}};
 const int enabled_slog_level = S_INFO;
 constexpr const char* get_slog_level(ErrorLevel level) { return synapse_logger::slog_levels[level]; }
 

@@ -9,6 +9,10 @@
  */
 #include "synapse_logger.h"
 
+#include <dlfcn.h>
+#include <sys/time.h>
+#include <syscall.h>
+#include <unistd.h>
 #include <chrono>
 #include <csignal>
 #include <cstdint>
@@ -20,13 +24,10 @@
 #include <iterator>
 #include <mutex>
 #include <string>
-#include <sys/time.h>
-#include <syscall.h>
 #include <type_traits>
-#include <unistd.h>
-#include <dlfcn.h>
 
-#include "absl/strings/string_view.h"
+#include <absl/strings/string_view.h>
+#include <absl/strings/str_format.h>
 
 #include "object_dump.h"
 #include "synapse_api.h"
@@ -46,6 +47,7 @@ void LoadSymbols(void* lib_handle_);
 #ifndef BINARY_NAME
 #define BINARY_NAME "pytorch_synapse_logger.so"
 #endif
+const char* base_file_name = ".local.synapse_log";
 
 namespace {
 void checked_dlclose(void* lib_handle) {
@@ -63,8 +65,8 @@ std::unique_ptr<void, void (&)(void*)> dlopen_or_die(const char* name, int flag)
 
 SynapseLogger::SynapseLogger()
     : log_start_time_{},
-      log_file_name_(".local.synapse_log.json"),
-      data_file_name_(".local.synapse_log.data"),
+      log_file_name_(absl::StrFormat("%s.json", absl::string_view(base_file_name))),
+      data_file_name_(absl::StrFormat("%s.data", absl::string_view(base_file_name))),
       logger_lib_handle_(dlopen_or_die("${ORIGIN}/" BINARY_NAME, RTLD_GLOBAL | RTLD_NOLOAD | RTLD_NOW)),
       synapse_lib_handle_(dlopen_or_die("libSynapse.so", RTLD_GLOBAL | RTLD_NOW)) {
   SLOG(S_TRACE) << __FUNCTION__ << "\n";
@@ -133,7 +135,7 @@ void SynapseLogger::dump_host_data(const void* ptr, int byte_size, data_dump_cat
   if (is_enabled(data_category)) {
     auto offset = dump_data(ptr, byte_size);
     ostr_t out{get_ostr()};
-    out << R"("name":"object", "ph":"i", "args":{"type":"host_data", "at":")" << ptr << "\"";
+    out << R"("name":"object", "ph":"i", "args":{"type":"uint8_t*", "at":")" << ptr << "\"";
     out << ", \"data_offset\":" << offset << ", \"byte_size\":" << byte_size << "}";
     log(out.str());
   }
@@ -222,6 +224,10 @@ void SynapseLogger::command(absl::string_view cmd) {
     eager_flush_ = true;
   } else if (cmd_name == "no_eager_flush") {
     eager_flush_ = false;
+  } else if (cmd_name == "use_pid_suffix") {
+    // make sure you send this before 'restart'
+    log_file_name_ = absl::StrFormat("%s.%d.json", base_file_name, getpid());
+    data_file_name_ = absl::StrFormat("%s.%d.data", base_file_name, getpid());
   } else if (cmd_name == "file_name") {
     std::lock_guard<std::mutex> lock(log_lock_);
     std::ostringstream log_file_name_ss, data_file_name_ss;

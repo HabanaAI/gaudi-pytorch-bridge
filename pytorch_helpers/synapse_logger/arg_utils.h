@@ -58,6 +58,7 @@ enum arg_print_way {
   print_quote_deref,
   print_array,
   print_hex,
+  print_hex_array,
   print_hex_deref
 };
 
@@ -95,14 +96,17 @@ using a_argument_t = _v_argument_t<print_array, V>;
 template <typename V>
 using x_argument_t = _argument_t<print_hex, V>;
 
+template <typename V>
+using xa_argument_t = _v_argument_t<print_hex_array, V>;
+
 // TODO: Remove this hack when new HCL_Request definition is ready.
 //       The following code is a hack to easen the process of changing the definition of symbol HCL_Request.
 namespace hack {
 template <typename ObjectT>
-struct FormattebleObject {
+struct FormattableObject {
   ObjectT obj;
 
-  friend std::ostream& operator<<(std::ostream& out, const FormattebleObject<ObjectT>& fobj) {
+  friend std::ostream& operator<<(std::ostream& out, const FormattableObject<ObjectT>& fobj) {
     return fobj.Format(out, std::integral_constant<bool, std::is_same<ObjectT, HCL_Request>::value>{});
   }
 
@@ -114,10 +118,21 @@ struct FormattebleObject {
 };
 
 template <typename ObjectT>
-FormattebleObject<ObjectT> MakeFormattableObject(ObjectT obj) {
+FormattableObject<ObjectT> MakeFormattableObject(ObjectT obj) {
   return {std::move(obj)};
 }
 }  // namespace hack
+
+template <typename T>
+struct FormattableAsHex {
+  T t;
+};
+
+template <typename T>
+inline std::ostream& operator<<(std::ostream& os, const FormattableAsHex<T>& v) {
+  os << "\"0x" << std::hex << hack::MakeFormattableObject(v.t) << std::dec << '"';
+  return os;
+}
 
 template <typename V>
 inline std::ostream& operator<<(std::ostream& out, argument_t<V>&& v) {
@@ -145,17 +160,31 @@ inline std::ostream& operator<<(std::ostream& out, qd_argument_t<V>&& v) {
 
 template <typename V>
 inline std::ostream& operator<<(std::ostream& out, xd_argument_t<V>&& v) {
-  return out << '"' << v.name_ << "\":\"0x" << std::hex << hack::MakeFormattableObject(*v.value_) << std::dec << '"';
+  return out << '"' << v.name_ << "\":" << FormattableAsHex<decltype(*v.value_)>{*v.value_};
 }
 
 template <typename V>
 inline std::ostream& operator<<(std::ostream& out, x_argument_t<V>&& v) {
-  return out << '"' << v.name_ << "\":\"0x" << std::hex << hack::MakeFormattableObject(v.value_) << std::dec << '"';
+  return out << '"' << v.name_ << "\":" << FormattableAsHex<decltype(v.value_)>{v.value_};
 }
 
 template <typename V>
 inline std::ostream& operator<<(std::ostream& out, a_argument_t<V>&& v) {
   return out << '"' << v.name_ << "\":[" << v.value_ << ']';
+}
+
+template <typename V>
+inline std::ostream& operator<<(std::ostream& out, xa_argument_t<absl::Span<V>>&& v) {
+  out << '"' << v.name_ << "\":[";
+  auto& buffer = v.value_;
+  if (buffer.size() && buffer.begin()) {
+    for (unsigned long i = 0; i < buffer.size() - 1; ++i) {
+      out << FormattableAsHex<V>{buffer[i]} << ", ";
+    }
+    out << FormattableAsHex<V>{buffer[buffer.size() - 1]};
+  }
+
+  return out << ']';
 }
 
 template <typename Arg, typename... Args>
@@ -220,3 +249,5 @@ inline void concat_args(UNUSED std::ostream& out) {}
   xd_argument_t<decltype(x)> { #x, x }
 #define M_ARG(x, c) \
   a_argument_t<decltype(absl::MakeSpan(x, c))> { #x, absl::MakeSpan(x, c) }
+#define M_ARG_X(x, c) \
+  xa_argument_t<decltype(absl::MakeSpan(x, c))> { #x, absl::MakeSpan(x, c) }

@@ -44,6 +44,7 @@ SYN_API_PTR(synEventElapsedTime);
 SYN_API_PTR(synLaunch);
 SYN_API_PTR(synWorkspaceGetSize);
 SYN_API_PTR(synMemCopyAsync);
+SYN_API_PTR(synMemCopyAsyncMultiple);
 SYN_API_PTR(synDeviceGetCount);
 SYN_API_PTR(synDeviceGetCountByDeviceType);
 SYN_API_PTR(synDeviceAcquireByDeviceType);
@@ -100,6 +101,7 @@ void LoadSymbols(void* lib_handle) {
   SYN_API_INIT_PTR(synLaunch);
   SYN_API_INIT_PTR(synWorkspaceGetSize);
   SYN_API_INIT_PTR(synMemCopyAsync);
+  SYN_API_INIT_PTR(synMemCopyAsyncMultiple);
   SYN_API_INIT_PTR(synDeviceGetCount);
   SYN_API_INIT_PTR(synDeviceGetCountByDeviceType);
   SYN_API_INIT_PTR(synDeviceAcquireByDeviceType);
@@ -306,6 +308,33 @@ synStatus SYN_API_CALL synMemCopyAsync(const synStreamHandle streamHandle, const
   return status;
 }
 
+synStatus SYN_API_CALL synMemCopyAsyncMultiple(const synStreamHandle streamHandle, const uint64_t* src,
+                                               const uint64_t* size, const uint64_t* dst, const synDmaDir direction,
+                                               const size_t numCopies) {
+  LOG_TRACE("SYN_API", "{}", __FUNCTION__);
+
+  switch (direction) {
+    case HOST_TO_DRAM:
+      for (std::size_t i = 0; i < numCopies; ++i) {
+        synapse_logger::logger.dump_host_data(reinterpret_cast<void*>(src[i]), size[i]);
+      }
+      break;
+    case DRAM_TO_HOST:
+      for (std::size_t i = 0; i < numCopies; ++i) {
+        synapse_logger::logger.store_transfer_to_host(streamHandle, src[i], size[i], dst[i]);
+      }
+      break;
+    default:
+      break;
+  }
+
+  API_LOG_CALL(ARG(streamHandle), M_ARG_X(src, numCopies), M_ARG_X(size, numCopies), M_ARG_X(dst, numCopies),
+               ARG(direction), ARG(numCopies));
+  synStatus status = lib_synapse::synMemCopyAsyncMultiple(streamHandle, src, size, dst, direction, numCopies);
+  API_LOG_RESULT();
+  return status;
+}
+
 synStatus SYN_API_CALL synDeviceGetCount(uint32_t* pCount) {
   LOG_TRACE("SYN_API", "{}", __FUNCTION__);
   API_LOG_CALL(ARG(pCount));
@@ -448,10 +477,19 @@ inline void dump_object<std::vector<TransposePermutationDim>>(const std::vector<
   }
   static auto type_name{type_name_from_pretty_function(__PRETTY_FUNCTION__)};
   synapse_logger::ostr_t out{synapse_logger::get_ostr()};
-  out << R"("name":"object", "args":{"at":")" << (void*)obj << R"(", "type":")" << type_name << R"(", "fields":)"
-      << absl::MakeSpan(*obj) << "}";
+  out << R"("name":"object", "args":{"at":")" << (void*)obj << R"(", "type":")" << type_name << R"(", "fields":[)"
+      << absl::MakeSpan(*obj) << "]}";
   synapse_logger::log(out.str());
 }
+
+void dump_node_create_params(const char* pGuid, const void* pUserParams, const unsigned paramsSize) {
+  if (absl::string_view(pGuid) == "transpose_logic") {
+    dump_object(reinterpret_cast<const std::vector<TransposePermutationDim>*>(pUserParams));
+  } else {
+    dump_object((uint8_t*)(pUserParams), paramsSize);
+  }
+}
+
 }  // namespace synapse_logger
 
 synStatus SYN_API_CALL synNodeCreate(const synGraphHandle graphHandle, const synTensor* pInputsTensorList,
@@ -461,11 +499,7 @@ synStatus SYN_API_CALL synNodeCreate(const synGraphHandle graphHandle, const syn
                                      const char** outputLayouts) {
   LOG_TRACE("SYN_API", "{}", __FUNCTION__);
 
-  if (absl::string_view(pGuid) == "transpose_logic") {
-    synapse_logger::dump_object(reinterpret_cast<const std::vector<TransposePermutationDim>*>(pUserParams));
-  } else {
-    synapse_logger::dump_object((uint8_t*)(pUserParams), paramsSize);
-  }
+  synapse_logger::dump_node_create_params(pGuid, pUserParams, paramsSize);
   API_LOG_CALL(ARG(graphHandle), M_ARG(pInputsTensorList, numberInputs), M_ARG(pOutputsTensorList, numberOutputs),
                ARG(numberInputs), ARG(numberOutputs), ARG_Q(pUserParams), ARG_X(paramsSize), ARG_Q(pGuid),
                ARG_Q(pName), M_ARG(inputLayouts, numberInputs), M_ARG(outputLayouts, numberOutputs));
@@ -484,7 +518,7 @@ synStatus SYN_API_CALL synNodeCreateWithId(const synGraphHandle graphHandle, con
                                            const char** outputLayouts) {
   LOG_TRACE("SYN_API", "{}", __FUNCTION__);
 
-  synapse_logger::dump_object((uint8_t*)(pUserParams), paramsSize);
+  synapse_logger::dump_node_create_params(pGuid, pUserParams, paramsSize);
   API_LOG_CALL(ARG(graphHandle), M_ARG(pInputsTensorList, numberInputs), M_ARG(pOutputsTensorList, numberOutputs),
                ARG(numberInputs), ARG(numberOutputs), ARG_Q(pUserParams), ARG_X(paramsSize), ARG_Q(pGuid),
                ARG_Q(pName), ARG(nodeUniqueId), M_ARG(inputLayouts, numberInputs),

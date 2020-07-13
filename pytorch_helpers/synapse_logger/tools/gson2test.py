@@ -8,7 +8,8 @@
 #
 # ******************************************************************************
 import json
-from collections import OrderedDict, defaultdict, Mapping
+from collections import OrderedDict, defaultdict
+from collections.abc import Mapping
 import os
 import sys
 import logging
@@ -19,6 +20,12 @@ from gson_parsing import func_def_from_pretty_function, gson_iterator, syn_types
 from io import StringIO
 
 log = logging.getLogger("synapse_logger.gson2test")
+
+
+class ReferenceData:
+    def __init__(self, recipe_name, output_tensor_name):
+        self.recipe_name, self.output_tensor_name = recipe_name, output_tensor_name
+        self.graph, self.dev_pointer, self.host_addr = (None,) * 3
 
 
 class synDmaDir(Enum):
@@ -62,106 +69,43 @@ def descriptor_byte_size(descriptor):
     return size * syn_types[descriptor["fields"]["m_dataType"]][2]
 
 
+def generate_array(no, type, name, nitems, items):
+    var_name = f"{name}{no}"
+    var_items = ", ".join(items)
+    var_body = "{%s}" % var_items
+    var_def = f"{type} {var_name}[{nitems}] = {var_body};"
+    return var_name, var_def
+
+
 class Flow:
-    def __init__(self, input_iterator=".local.synapse_log.json"):
-        self.objs = dict()
-        self.devmem_objs = defaultdict(list)
-        self.functions = defaultdict()
+    class ComputationResult:
+        LAST_COMPILED_RECIPE = 1
+
+    def _return_last_compiled_recipe(self):
+        if self.last_compiled_recipe is None:
+            raise Exception("Flow is executed with computation_result==LAST_COMPILED_RECIPE, but no recipe has been compiled")
+        var = self.last_compiled_recipe
+        if var[0] != '&':
+            raise Exception("self.last_compiled_recipe is not an address of member field")
+        var = var[1:]
+        return f'return {var};'
+
+    def __init__(self, input_iterator, computation_result = None):
+        self.references = list()
+        self.objs = {}
         self.bin_file_size = 0
+        self.last_compiled_recipe = None
+        if computation_result == Flow.ComputationResult.LAST_COMPILED_RECIPE:
+            self.return_type = 'synRecipeHandle'
+            self.get_return_statement = self._return_last_compiled_recipe
+        else:
+            self.return_type = 'void'
+            self.get_return_statement = lambda: ""
+
         if isinstance(input_iterator, str):
-            input_iterator = gson_iterator(input_iterator)
-        self.log = list(input_iterator)
-        log.info("loaded log lenght %i", len(self.log))
-        try:
-            for line, entry in self.log:
-                args = entry.get("args", {})
-                if entry["name"][:4] == "call":
-                    pass
-                elif entry["name"] == "object":
-                    self.objs[args["at"]] = entry
-                    new_max_offset = args["data_offset"] + args["byte_size"] if "data_offset" in args else 0
-                    self.bin_file_size = max(self.bin_file_size, new_max_offset)
-                elif entry["name"] in ("reference", "event"):
-                    pass
-        except Exception as e:
-            log.error(f"Error when processing entry line {line}\n{entry}")
-            raise
+            input_iterator = gson_iterator(input_iterator, False)
         self.var_idx = 0
-        log.info("done preprocessing")
-
-    @staticmethod
-    def find(where, what, skip=0, reverse=False, debug_func=""):
-        """ Produces collection of log entries that match some parameters.
-        This is used to search the log for messages related to the one being processed.
-        An example would be looking for a synGraphCompile of a graph that is
-        beeing launched based on the graph handle, or for a previous memcopy to a
-        given destination address.
-
-        Parameters
-            where : iterable with traces
-            what:  iterable of 2-tuples (<property_path>, <value>).
-                property_path is a string of dot-separated identifiers and <value>
-                is the expected value.
-                Eg what=(("func.name", "synFunc"),) searches for element['func'].name == "synFunc".
-            skip: number of log entries to be ignored
-            reverse (bool): whether to search the log in reverse order
-            debug_func: a helper to enter debug mode when looking for a certain function
-                When set to a function name this enables detailed log on relevant queries
-                that may reveal why some query doesn't hit a match.
-
-        """
-        rng = range(skip - 1, 0, -1) if reverse else range(skip, len(where), 1)
-
-        def null_log(*_):
-            pass
-
-        debug_log = null_log
-        for no in rng:
-            _, entry = where[no]
-            for pno, (prop, value) in enumerate(what):
-                debug_log(f"looking for {value} in {prop}")
-                e = entry
-                for p in prop:
-
-                    if isinstance(e, Mapping):
-                        debug_log(f"going to '{p}' among {e.keys()}")
-                        sub = e.get(p, None)
-                    elif isinstance(e, tuple) and isinstance(p, int):
-                        debug_log(f"going to index '{p}' of list lenght {len(e)}")
-                        sub = e[p]
-                    else:
-                        debug_log(f"going to atribute '{p}' of object >>>{e}<<< ")
-                        sub = getattr(e, p, None)
-                    if sub != None:
-                        e = sub
-                    else:
-                        break
-                if e != value:
-                    debug_log(f"miss because {e} != {value}")
-                    e = None
-                    debug_log = null_log
-                    break
-                if prop == ("func", "name") and value == debug_func:
-                    debug_log = log.info
-            if e != None:
-                yield no, entry
-
-    @staticmethod
-    def find_first(where, what, skip=0, reverse=False):
-        try:
-            lookup = Flow.find(where, what, skip, reverse)
-            return next(lookup)
-        except StopIteration:
-            log.error(f"failed to find {what} starting at {skip} in {'reverse' if reverse else 'normal'} order")
-            raise
-
-    def find_first_call(self, func_name, what, skip=0, reverse=False):
-        return Flow.find_first(
-            self.log,
-            ((("name",), "call"), (("ph",), "B"), (("func", "name"), func_name)) + what,
-            skip=skip,
-            reverse=reverse,
-        )
+        self.log = input_iterator
 
     @staticmethod
     def arg_type(entry, arg):
@@ -191,79 +135,134 @@ class Flow:
         return result
 
     class SpacesMap:
+        class Space:
+            def __init__(self, renderer, initial={}):
+                self._space = defaultdict(str)
+                self._space.update(initial)
+                self.renderer = renderer
+
+            def get(self, key, value_type):
+                replacement, replacement_type = self._space.get(key, (f"MAP_FAIL({key})", "void*"))
+                cast = ""
+                repl_type_is_ptr, arg_type_is_ptr = (replacement_type.find("*") > 0, value_type.find("*") > 0)
+                if arg_type_is_ptr and not repl_type_is_ptr:
+                    cast = "&"
+                elif replacement_type != value_type:
+                    cast = f"({value_type})"
+                return f"{cast}{replacement}"
+
+            def add(self, key, var_type, var_name, size="", initializer="", local=False, extra_comment=""):
+                if key in self._space.keys() and not local:  # local overrides current contents of map
+                    var = self._space[key]
+                else:
+                    var = var_name, var_type
+                    extra_comment = extra_comment if extra_comment else f"replacement of {key}"
+                    self.renderer.var(f"{var_type} {var_name}{size}", extra_comment)
+
+                    if initializer:
+                        self.renderer.out(f"{var_name}{size}{initializer};  // {extra_comment}")
+
+                self._space[key] = var
+                return var[0]
+
         # maps objects from the log (pointers at time of log collection) to names of variables in C code
         def __init__(self, objs, renderer):
-            self.memory = defaultdict(str)
-            self.memory["0"] = "nullptr", "nullptr_t*"
+            self.memory = Flow.SpacesMap.Space(renderer, {"0": ("nullptr", "nullptr_t*")})
+            self.node_id = Flow.SpacesMap.Space(renderer)
+
             self.device_allocations = dict()
+            self.host_allocations = dict()
             self.objs = objs
             self.renderer = renderer
             # measure maximum accessed addr to possibly run test in environment
             # with less memory (e.g. capture on asic and reproduce in simulator)
             self.max_used_device_address = 0
 
+        @staticmethod
+        def is_typeptr(s):
+            return s.find("*") > 0
+
+        @staticmethod
+        def unref_type(s):
+            s = s.strip()
+            if s[-1] != "*":
+                raise Exception("cannot unreference type: " + s)
+            return s[:-1]
+
+        def get_one(self, key, value_type):
+            return self.memory.get(key, value_type)
+
         def get(self, key, value_type):
-            replacement, replacement_type = self.memory.get(key, (f"MAP_FAIL({key})", "void*"))
-            cast = ""
-            repl_type_is_ptr, arg_type_is_ptr = (replacement_type.find("*") > 0, value_type.find("*") > 0)
-            if arg_type_is_ptr and not repl_type_is_ptr:
-                cast = "&"
-            elif replacement_type != value_type:
-                cast = f"({value_type})"
-            return f"{cast}{replacement}"
+            if type(key) is list:
+                if self.is_typeptr(value_type):
+                    referenced_value_type = self.unref_type(value_type)
+                    elems = map(lambda x: self.get_one(x, referenced_value_type), key)
+                    return list(elems)
+                else:
+                    raise Exception(
+                        "Cannot handle argument --  key is a list, but the type is not recognized as pointer"
+                    )
+            else:
+                return self.get_one(key, value_type)
 
         def get_args(self, entry, args):
-            return {arg: self.get(entry["args"][arg], entry["func"].args[arg]) for arg in args}
+            return {arg: self.memory.get(entry["args"][arg], entry["func"].args[arg]) for arg in args}
 
         def add(self, key, var_type, var_name, size="", initializer="", local=False, extra_comment=""):
-            if key in self.memory.keys() and not local:  # local overrides current contents of map
-                var = self.memory[key]
-            else:
-                var = var_name, var_type
-                extra_comment = extra_comment if extra_comment else f"replacement of {key}"
-                self.renderer.var(f"{var_type} {var_name}{size}")
-                self.renderer.out(f"{var_name}{size}{initializer};  // {extra_comment}")
-
-            self.memory[key] = var
-            return var[0]
+            return self.memory.add(
+                key, var_type, var_name, size=size, initializer=initializer, local=local, extra_comment=extra_comment
+            )
 
         def map_host_data(self, ptr, size, name):
-            entry = self.objs.get(ptr, dict())
-            if not entry:
-                self.renderer.out(f"std::vector<uint8_t> {name}_buffer({size}, 0);")
-                initializer = f" = {name}_buffer.data()"
-            else:
-                initializer = f" = data_adr + {entry['args']['data_offset']}" if entry else "= {0}"
+            self.renderer.out(f"std::vector<uint8_t> {name}_buffer({size}, 0);")
+            initializer = f" = {name}_buffer.data()"
             ret = self.add(ptr, "uint8_t*", name, "", initializer)
+            self.host_allocations[ptr] = size
             return ret
 
+        def map_host_suballocation(self, no, host_address, size=0, src=False):
+            result, _ = self.map_suballocation(
+                f"hostmem_{no}", "uint8_t*", host_address, self.host_allocations, size=size
+            )
+            if src:
+                entry = self.objs.get(host_address, False)
+                offset = entry["args"]["data_offset"] if entry else 0
+                self.renderer.out(f"std::copy(data_adr+{offset}, data_adr+{offset}+{size}, {result});")
+            return result
+
         def map_device_suballocation(self, no, device_address, size=0):
-            int_device_address = int(device_address[2:], 16)
-            for str_alloc_addr, alloc_size in self.device_allocations.items():
+            result, allocation_end = self.map_suballocation(
+                f"devmem_{no}", "uint64_t", device_address, self.device_allocations, size=size
+            )
+            self.max_used_device_address = max(self.max_used_device_address, allocation_end)
+            return result
+
+        def map_suballocation(self, variable_name, variable_type, address, allocation_map, size=0):
+            int_address = int(address[2:], 16)
+            for str_alloc_addr, alloc_size in allocation_map.items():
                 alloc_addr = int(str_alloc_addr[2:], 16)
-                if int_device_address >= alloc_addr and int_device_address < alloc_addr + alloc_size:
-                    base = self.get(str_alloc_addr, "uint64_t")
-                    offset = int_device_address - alloc_addr
+                if int_address >= alloc_addr and int_address < alloc_addr + alloc_size:
+                    base = self.get(str_alloc_addr, variable_type)
+                    offset = int_address - alloc_addr
                     v = self.add(
-                        device_address,
-                        "uint64_t",
-                        f"devmem_{no}",
+                        address,
+                        variable_type,
+                        variable_name,
                         initializer=f"={base} + 0x{offset:X}",
                         extra_comment=f"allocation {str_alloc_addr}+0x{offset:X}, pool end 0x{alloc_size:X}",
                     )
-                    self.max_used_device_address = max(self.max_used_device_address, int(device_address[2:], 16) + size)
-                    return v
-            log.error(f"Cannot map device suballocation at address {device_address}, seems it wasn't allocated")
-            return f"MAP_FAIL({device_address})"
+                    return v, int(address[2:], 16) + size
+            log.error(f"Cannot map suballocation at address {address}, seems it wasn't allocated")
+            return f"MAP_FAIL({address})", 0
 
         def add_device_pool(self, no, device_ptr: str, size):
-            self.device_allocations[device_ptr] = size
-            alloc_end = int(device_ptr, 16) + size
+            return self.add_pool(self.device_allocations, device_ptr, f"devmem_{no}", "uint64_t", size)
+
+        def add_pool(self, allocation_map, ptr: str, variable_name, variable_type, size):
+            allocation_map[ptr] = size
+            alloc_end = int(ptr, 16) + size
             v = self.add(
-                device_ptr,
-                "uint64_t",
-                f"devmem_{no}",
-                extra_comment=f"allocation {device_ptr}:0x{alloc_end:x} ({size} bytes)",
+                ptr, variable_type, variable_name, extra_comment=f"allocation {ptr}:0x{alloc_end:x} ({size} bytes)"
             )
 
     class MultiThreadedRenderer:
@@ -366,67 +365,251 @@ class Flow:
             out("};")
             self._render_main(out)
 
-    class SingleThreadedRenderer:
+    class SingleThreadedV2Renderer:
         def __init__(self):
+            self.vars = ""
             self.bin_file_size = "x"
-            self.out_file = StringIO()
+            self.body = StringIO()
+            self.return_type = 'void'
+            self.get_return_statement = None
+            self.disable_bin_file = False
+
 
         def set_tid(self, tid):
             pass
 
+        def out(self, *args, **kwargs):
+            print(" ", *args, **kwargs, file=self.body)
+
         def sync(self, no):
             pass
 
-        def out(self, *args, **kwargs):
-            print(" ", *args, **kwargs, file=self.out_file)
-
         def var(self, var_def, comment="", initializer="{}"):
-            self.out(f"{var_def}{initializer};  // {comment}\n  ")
+            self.vars += f"{var_def}{initializer};  // {comment}\n  "
+
+        def str_render_main(self):
+            lines = [
+                "TEST(sample_test_case, sample_test) {",
+                "  { std::unique_ptr<logger_test> t{new logger_test()};\n  t->run(); }",
+                '  std::clog << "Finished\\n";',
+                "}",
+            ]
+            return '\n'.join(lines)
+
+        def str_render_preambule(self):
+            lines = [
+                "#include <gtest/gtest.h>",
+                "#include <iostream>",
+                "#include <vector>",
+                "#include <sys/mman.h>",
+                "#include <fcntl.h>",
+                "#include <sys/stat.h>",
+                "#include <unistd.h>",
+                "#include <hcl_api.h>",
+                "#include <memory>",
+                "#include <synapse.h>",
+                "#include <synapse_api.h>",
+                "#include <synapse_api_types.h>",
+                '#include "../compare.h"',
+                "#include <perf_lib_layer_params.h>",
+                "",
+                "",
+            ]
+
+            return '\n'.join(lines)
+
+        def str_render_class_ctor_dtor(self):
+            lines = [
+                "logger_test() {",
+                "  initialize();",
+                "}",
+                "",
+                "void initialize() {",
+                f"  size_t data_file_size={self.bin_file_size};",
+                "  struct stat data_file_stat;",
+                '  const char* bin_file_name=".local.synapse_log.data";',
+                "  data_fd = open(bin_file_name, O_RDWR, 0);",
+                "  int mmap_flags = MAP_PRIVATE | MAP_POPULATE;",
+                "  if (data_fd != -1) {",
+                "      ASSERT_EQ(fstat(data_fd, &data_file_stat), 0);",
+                "      data_file_size = data_file_stat.st_size;",
+                "  } else if (errno == ENOENT) {",
+                '      printf("WARNING: cannot open `%s` so I am using zeros. This may affect test behavior.\", bin_file_name);',
+                "      mmap_flags |= MAP_ANONYMOUS;",
+                "  } else",
+                '      ASSERT_EQ(errno, 0) << "failed to open binary file";',
+                "  data_adr = (unsigned char*) mmap(NULL, data_file_size, PROT_READ | PROT_WRITE, mmap_flags, data_fd, 0);",
+                '  printf("mmap\'ed 0x%zx bytes data file at %p\", data_file_size, data_adr);',
+                '  close(data_fd);'
+                '  ASSERT_NE(data_adr, MAP_FAILED) << "mmapping of bin file failed " << errno;',
+                "} // constructor",
+                "",
+                "",
+                "~logger_test() {"
+                "  munmap(data_adr, data_file_size);"
+                "}"
+            ]
+            return '\n'.join(lines)
+
+        def str_render_class_code(self):
+            lines = [
+                f"{self.return_type} run() {{",
+                self.body.getvalue(),
+                "}",
+            ]
+            return '\n'.join(lines)
+
+        def str_render_class(self):
+            lines = [
+                "struct logger_test {",
+                "int data_fd;",
+                "unsigned char* data_adr;",
+                "size_t data_file_size{};",
+                "uint32_t device_id;",
+                self.vars,
+                "",
+                ""
+            ]
+
+            if self.bin_file_size and not self.disable_bin_file:
+                lines.append(self.str_render_class_ctor_dtor())
+
+            lines.append(self.str_render_class_code())
+            lines.append("};")
+            return '\n'.join(lines)
 
         def render(self, out):
-            out(
-                "#include <gtest/gtest.h>\n"
-                "#include <iostream>\n"
-                "#include <vector>\n"
-                "#include <sys/mman.h>\n"
-                "#include <fcntl.h>\n"
-                "#include <sys/stat.h>\n"
-                "#include <unistd.h>\n"
-                "#include <hcl_api.h>\n"
-                "#include <synapse.h>\n"
-                "#include <synapse_api.h>\n"
-                "#include <synapse_api_types.h>\n"
-                '#include "../compare.h"\n'
-                "#include <perf_lib_layer_params.h>\n"
-            )
+            out(self.str_render_preambule())
+            out(self.str_render_class())
+            out(self.str_render_main())
 
-            out("TEST(sample_test_case, sample_test) {")
-            if self.bin_file_size:
-                out(f"size_t data_file_size={self.bin_file_size};")
-                out("struct stat data_file_stat;")
-                out('const char* bin_file_name=".local.synapse_log.data";')
-                out(
-                    "int data_fd = open(bin_file_name, O_RDWR, 0);\n"
-                    "int mmap_flags = MAP_PRIVATE | MAP_POPULATE;\n"
-                    "if (data_fd != -1) {\n"
-                    "    ASSERT_EQ(fstat(data_fd, &data_file_stat), 0);\n"
-                    "    data_file_size = data_file_stat.st_size;\n"
-                    "} else if (errno == ENOENT) {\n"
-                    '    printf("WARNING: cannot open `%s` so I am using zeros. This may affect test behavior.\\n", bin_file_name);'
-                    "    mmap_flags |= MAP_ANONYMOUS;\n"
-                    "} else\n"
-                    '    ASSERT_EQ(errno, 0) << "failed to open binary file";\n'
-                    "unsigned char* data_adr = (unsigned char*) mmap(NULL, data_file_size, PROT_READ | PROT_WRITE, mmap_flags, data_fd, 0);"
-                    'printf("mmap\'ed data file at %p\\n", data_adr);\n'
+    class RecipeDumpingRenderer(SingleThreadedV2Renderer):
+        def str_render_main(self):
+            lines = [
+                "int main(int argc, char **argv) {",
+                "   if (argc != 2) {",
+                '       printf("usage: %s [output-filename]\\n", argv[0]);',
+                "       return -1;",
+                "   }",
+                "   logger_test t;",
+                "   auto rh = t.run();",
+                "   unlink(argv[1]);",
+                "   synRecipeSerialize(rh, argv[1]);",
+                "   return 0;"
+                "}",
+            ]
+            return '\n'.join(lines)
+
+        def str_render_preambule(self):
+            lines = [
+                "#include <iostream>",
+                "#include <vector>",
+                "#include <unistd.h>",
+                "#include <synapse.h>",
+                "#include <synapse_api.h>",
+                "",
+                '#define ASSERT_EQ(expected, expr) do { if ((expected) != (expr)) { printf("%s: failed!\\n", #expr); exit(1); }} while (0)',
+                '#define EXPECT_EQ(expected, expr) do { if ((expected) != (expr)) { printf("%s: failed!\\n", #expr); exit(1); }} while (0)',
+                "",
+                "",
+            ]
+            return '\n'.join(lines)
+
+
+    def configure_renderer(self, renderer):
+        renderer.return_type = self.return_type
+        renderer.get_return_statement = self.get_return_statement
+
+    def _handle_node_create(self, space, out, no, entry, replacements=None):
+        args = entry["args"]
+        out("{")
+        if not replacements:
+            replacements = dict()
+        mapped_inputs = ", ".join([space.get(tensor, "synTensor") for tensor in args["pInputsTensorList"]])
+        if mapped_inputs:
+            out(f"synTensor node{no}_inputs[] = {{{mapped_inputs}}};")
+            replacements["pInputsTensorList"] = f"node{no}_inputs"
+        else:
+            replacements["pInputsTensorList"] = "nullptr"
+
+        mapped_outputs = ", ".join([space.get(tensor, "synTensor") for tensor in args["pOutputsTensorList"]])
+        if mapped_outputs:
+            out(f"synTensor node{no}_outputs[] = {{{mapped_outputs}}};\n")
+            replacements["pOutputsTensorList"] = f"node{no}_outputs"
+        else:
+            replacements["pOutputsTensorList"] = "nullptr"
+
+        if args["inputLayouts"]:
+            input_layouts = '"' + '", "'.join(args["inputLayouts"]) + '", ""'
+            out(f"const char* node{no}_input_layouts[] = {{{input_layouts}}};")
+            replacements["inputLayouts"] = f"node{no}_input_layouts"
+        else:
+            replacements["inputLayouts"] = "nullptr"
+
+        if args["outputLayouts"]:
+            output_layouts = '"' + '", "'.join(args["outputLayouts"]) + '", ""'
+            out(f"const char* node{no}_output_layouts[] = {{{output_layouts}}};")
+            replacements["outputLayouts"] = f"node{no}_output_layouts"
+        else:
+            replacements["outputLayouts"] = "nullptr"
+
+        replacements.update(space.get_args(entry, ("pUserParams", "graphHandle")))
+        out(Flow.call(entry, replacements))
+        out("}")
+
+    def _handle_reference(self, no, entry):
+        assert entry["name"] == "reference"
+        recipe_name, output_tensor_name = entry["args"]["to"].split(
+            ":"
+        )  # e.g. ".graph_dumps/habana_cluster_0_1-recipe_0:tensor3"
+        self.references.append(ReferenceData(recipe_name, output_tensor_name))
+
+    def _reference_match_graph(self, no, entry):
+        for ref in self.references:
+            if entry["args"]["pRecipeName"] == ref.recipe_name:
+                ref.graph = entry
+
+    def _reference_match_launch(self, no, entry):
+        for ref, graph in ((ref, ref.graph) for ref in self.references if ref.graph):
+            if entry["args"]["pRecipeHandle"] == graph["args"]["pRecipeHandle"]:
+                out_patching = entry["args"]["launchTensorsInfo"]
+                out_patching = zip(out_patching[::2], out_patching[1::2])
+                dev_pointer = next(
+                    dev_addr for enq_tensor_name, dev_addr in out_patching if enq_tensor_name == tensor_name
                 )
-                out('ASSERT_NE(data_adr, MAP_FAILED) << "mappping of bin file failed" << errno;')
-            out("uint32_t device_id;")
-            out(self.out_file.getvalue())
-            out('  std::clog << "Finished\\n";')
-            if self.bin_file_size:
-                out("ASSERT_EQ(munmap(data_adr, data_file_size), 0);")
-                out("close(data_fd);")
-            out("}\n")
+                ref.dev_pointer = dev_pointer
+
+    def _reference_match_memcopy(self, no, src, dst, size):
+        for ref, dev_pointer in ((ref, ref.dev_pointer) for ref in self.references if ref.dev_pointer):
+            if entry["args"]["src"] == dev_pointer:
+                ref.host_addr = entry["args"]["dst"]
+
+    def _reference_match_object(self, space, no, entry, out):
+        for ref, host_addr in ((ref, ref.host_addr) for ref in self.references if ref.host_addr):
+            if entry["at"] != host_addr:
+                continue
+
+            v = f"ref{no}"
+            out(f"float* {v} = (float*)(data_adr + {args['data_offset']});\n")
+            log.info(
+                f"comparing against destination of a mamcpy {memcpy[1]['args']['src']} to {memcpy[1]['args']['dst']}"
+            )
+            data_ptr = space.get(memcpy[1]["args"]["dst"], args["data_cast"] + "*")
+            out(f"ASSERT_TRUE(compare({v}, {data_ptr}, {args['length']}));")
+
+    def map_memcopy(self, no, space, src, dst, size, dma_dir):
+        if dma_dir == synDmaDir.HOST_TO_DRAM:
+            space.map_host_suballocation(no, src, size, src=True)
+            space.map_device_suballocation(no, dst, size)
+        elif dma_dir == synDmaDir.DRAM_TO_HOST:
+            space.map_device_suballocation(no, src, size)
+            space.map_host_suballocation(no, dst, size)
+            self._reference_match_memcopy(no, src, dst, size)
+        elif dma_dir == synDmaDir.DRAM_TO_DRAM:
+            space.map_device_suballocation(no, src, size)
+            space.map_device_suballocation(no, dst, size)
+        else:
+            assert False, f"Unknown mem copy direction {dma_dir}"
 
     def dump_c(self, renderer, device_address_limit=None):
         class MSPACE:
@@ -441,48 +624,23 @@ class Flow:
                 out = renderer.out
                 renderer.sync(no)
                 args = entry.get("args", {})
-                if entry["name"] == "reference":  # training api
+                if entry["name"] == "reference":
+                    self._handle_reference(no, entry)
 
-                    v = f"ref{no}"
-                    out(f"float* {v} = (float*)(data_adr + {args['data_offset']});\n")
-
-                    recipe_name, tensor_name = args["to"].split(
-                        ":"
-                    )  # e.g. ".graph_dumps/habana_cluster_0_1-recipe_0:tensor3"
-                    compile_no, compile_node = self.find_first_call(
-                        "synGraphCompile", ((("args", "pRecipeName"), f'"{recipe_name}"'),), skip=no, reverse=True
-                    )
-                    upload_no, upload_node = self.find_first_call(
-                        "synLaunch",
-                        ((("args", "pRecipehandle"), compile_node["result"]["pRecipeHandle"]),),
-                        skip=no,
-                        reverse=True,
-                    )
-                    out_patching = upload_node["args"]["launchTensorsInfo"]
-                    out_patching = zip(out_patching[::2], out_patching[1::2])
-                    dev_mem = next(
-                        dev_addr for enq_tensor_name, dev_addr in out_patching if enq_tensor_name == tensor_name
-                    )
-
-                    memcpy = self.find_first_call(
-                        "synMemCopyAsync", ((("args", "src"), dev_mem),), skip=no, reverse=True
-                    )
-                    log.info(
-                        f"comparing against destination of a mamcpy {memcpy[1]['args']['src']} to {memcpy[1]['args']['dst']}"
-                    )
-                    data_ptr = space.memory[memcpy[1]["args"]["dst"]][0]
-                    out(f"ASSERT_TRUE(compare({v}, ({args['data_cast']}*){data_ptr}, {args['length']}));")
                 elif entry["name"] == "object":
+                    self.objs[args["at"]] = entry
+                    new_max_offset = args["data_offset"] + args["byte_size"] if "data_offset" in args else 0
+                    self.bin_file_size = max(self.bin_file_size, new_max_offset)
+
                     if args["type"] == "std::vector<TransposePermutationDim>":
-                        renderer.var(
-                            f"{args['type']} params_{no}",
-                            "",
-                            initializer="{"
+                        space.memory.add(
+                            args["at"],
+                            args["type"],
+                            f"object_{no}",
+                            initializer=f"={args['type']}{{"
                             + ",".join((TransposePermutationDim.from_int(p) for p in args["fields"]))
                             + "}",
                         )
-                        renderer.var(f"{args['type']}* object_{no}", "", initializer=f"{{&params_{no}}}")
-                        space.memory[args["at"]] = (f"object_{no}", args["type"] + "*")
 
                     if args["type"] == "synTensorDescriptor":
                         descriptor = args["fields"]
@@ -503,7 +661,7 @@ class Flow:
                         else:
                             fields["m_ptr"] = f"nullptr"
                         fields = ", ".join(f"/*.{k}*/{v}" for k, v in fields.items())
-                        v = space.add(
+                        v = space.memory.add(
                             args["at"],
                             args["type"],
                             f"tensor_descriptor_{no}",
@@ -519,14 +677,16 @@ class Flow:
 
                         if "value" in args:
                             out(f"uint8_t {v}_data[] = {args['value']};")
-                            v = space.add(
+                            v = space.memory.add(
                                 args["at"],
                                 args["type"] + "*",
                                 v,
                                 initializer=f"=({args['type']}*) {v}_data",
                                 local=True,
                             )
-                        v = space.add(args["at"], args["type"], v)
+                        else:
+                            v = space.map_host_suballocation(no, args["at"], args["byte_size"])
+                        v = space.memory.add(args["at"], args["type"], v)
 
                 elif entry["name"] == "call" and entry["ph"] == "B":
                     func_def = entry["func"]
@@ -558,117 +718,17 @@ class Flow:
                         out(Flow.call(entry, space.get_args(entry, ("buffer",))))
                     elif func_def.name in ("synHostUnmap", "synDeviceFree"):
                         out(Flow.call(entry, space.get_args(entry, ("buffer",))))
-                    elif func_def.name == "synCreateGenericNodeEx":  # old API
-                        replacements = dict()
-                        mapped_inputs = ", ".join([space.memory[tensor][0] for tensor in args["inputs"]])
-                        if mapped_inputs:
-                            out(f"synTensor node{no}_inputs[] = {{{mapped_inputs}}};")
-                            replacements["inputs"] = f"node{no}_inputs"
-                        else:
-                            replacements["inputs"] = "nullptr"
-
-                        mapped_outputs = ", ".join([space.memory[tensor][0] for tensor in args["outputs"]])
-                        if mapped_outputs:
-                            out(f"synTensor node{no}_outputs[] = {{{mapped_outputs}}};\n")
-                            replacements["outputs"] = f"node{no}_outputs"
-                        else:
-                            replacements["outputs"] = "nullptr"
-
-                        if args["inputLayouts"]:
-                            input_layouts = '"' + '", "'.join(args["inputLayouts"]) + '", ""'
-                            out(f"const char* node{no}_input_layouts[] = {{{input_layouts}}};")
-                            replacements["inputLayouts"] = f"node{no}_input_layouts"
-                        else:
-                            replacements["inputLayouts"] = "nullptr"
-
-                        if args["outputLayouts"]:
-                            output_layouts = '"' + '", "'.join(args["outputLayouts"]) + '", ""'
-                            out(f"const char* node{no}_output_layouts[] = {{{output_layouts}}};")
-                            replacements["outputLayouts"] = f"node{no}_output_layouts"
-                        else:
-                            replacements["outputLayouts"] = "nullptr"
-
-                        replacements.update(space.get_args(entry, ("userParams",)))
-                        out(Flow.call(entry, replacements))
                     elif func_def.name == "synNodeCreate":
-                        replacements = dict()
-                        mapped_inputs = ", ".join(
-                            [space.get(tensor, "synTensor") for tensor in args["pInputsTensorList"]]
-                        )
-                        if mapped_inputs:
-                            out(f"synTensor node{no}_inputs[] = {{{mapped_inputs}}};")
-                            replacements["pInputsTensorList"] = f"node{no}_inputs"
-                        else:
-                            replacements["pInputsTensorList"] = "nullptr"
-
-                        mapped_outputs = ", ".join(
-                            [space.get(tensor, "synTensor") for tensor in args["pOutputsTensorList"]]
-                        )
-                        if mapped_outputs:
-                            out(f"synTensor node{no}_outputs[] = {{{mapped_outputs}}};\n")
-                            replacements["pOutputsTensorList"] = f"node{no}_outputs"
-                        else:
-                            replacements["pOutputsTensorList"] = "nullptr"
-
-                        if args["inputLayouts"]:
-                            input_layouts = '"' + '", "'.join(args["inputLayouts"]) + '", ""'
-                            out(f"const char* node{no}_input_layouts[] = {{{input_layouts}}};")
-                            replacements["inputLayouts"] = f"node{no}_input_layouts"
-                        else:
-                            replacements["inputLayouts"] = "nullptr"
-
-                        if args["outputLayouts"]:
-                            output_layouts = '"' + '", "'.join(args["outputLayouts"]) + '", ""'
-                            out(f"const char* node{no}_output_layouts[] = {{{output_layouts}}};")
-                            replacements["outputLayouts"] = f"node{no}_output_layouts"
-                        else:
-                            replacements["outputLayouts"] = "nullptr"
-
-                        replacements.update(space.get_args(entry, ("pUserParams", "graphHandle")))
-                        out(Flow.call(entry, replacements))
+                        self._handle_node_create(space, out, no, entry)
                     elif func_def.name == "synNodeCreateWithId":
-                        v = space.add(entry["result"]["nodeUniqueId"], "synNodeId", f"node_id{no}", local=True)
-                        args["nodeUniqueId"] = entry["result"]["nodeUniqueId"]
-
-                        replacements = dict()
-                        mapped_inputs = ", ".join(
-                            [space.get(tensor, "synTensor") for tensor in args["pInputsTensorList"]]
-                        )
-                        if mapped_inputs:
-                            out(f"synTensor node{no}_inputs[] = {{{mapped_inputs}}};")
-                            replacements["pInputsTensorList"] = f"node{no}_inputs"
-                        else:
-                            replacements["pInputsTensorList"] = "nullptr"
-
-                        mapped_outputs = ", ".join(
-                            [space.get(tensor, "synTensor") for tensor in args["pOutputsTensorList"]]
-                        )
-                        if mapped_outputs:
-                            out(f"synTensor node{no}_outputs[] = {{{mapped_outputs}}};\n")
-                            replacements["pOutputsTensorList"] = f"node{no}_outputs"
-                        else:
-                            replacements["pOutputsTensorList"] = "nullptr"
-
-                        if args["inputLayouts"]:
-                            input_layouts = '"' + '", "'.join(args["inputLayouts"]) + '", ""'
-                            out(f"const char* node{no}_input_layouts[] = {{{input_layouts}}};")
-                            replacements["inputLayouts"] = f"node{no}_input_layouts"
-                        else:
-                            replacements["inputLayouts"] = "nullptr"
-
-                        if args["outputLayouts"]:
-                            output_layouts = '"' + '", "'.join(args["outputLayouts"]) + '", ""'
-                            out(f"const char* node{no}_output_layouts[] = {{{output_layouts}}};")
-                            replacements["outputLayouts"] = f"node{no}_output_layouts"
-                        else:
-                            replacements["outputLayouts"] = "nullptr"
-                        replacements.update(space.get_args(entry, ("pUserParams", "graphHandle", "nodeUniqueId")))
-                        out(Flow.call(entry, replacements))
+                        v = space.node_id.add(entry["result"]["nodeUniqueId"], "synNodeId", f"node_id{no}", local=True)
+                        replacements = {"nodeUniqueId": f"&{v}"}
+                        self._handle_node_create(space, out, no, entry, replacements=replacements)
 
                     elif func_def.name == "synNodeDependencySet":
                         replacements = dict()
                         mapped_blocking = ", ".join(
-                            [space.get(str(node_id), "synNodeId") for node_id in args["pBlockingNodesIdList"]]
+                            [space.node_id.get(str(node_id), "synNodeId") for node_id in args["pBlockingNodesIdList"]]
                         )
 
                         if mapped_blocking:
@@ -678,7 +738,7 @@ class Flow:
                             replacements["pBlockingNodesIdList"] = "nullptr"
 
                         mapped_blocked = ", ".join(
-                            [space.get(str(node_id), "synNodeId") for node_id in args["pBlockedNodesIdList"]]
+                            [space.node_id.get(str(node_id), "synNodeId") for node_id in args["pBlockedNodesIdList"]]
                         )
                         if mapped_blocked:
                             out(f"synNodeId node{no}_blocked[] = {{{mapped_blocked}}};\n")
@@ -690,18 +750,40 @@ class Flow:
                         out(Flow.call(entry, replacements))
 
                     elif func_def.name == "synMemCopyAsync":
-
                         dma_dir = synDmaDir(args["direction"])
-                        if dma_dir in (synDmaDir.HOST_TO_DRAM, synDmaDir.DRAM_TO_DRAM):
-                            space.map_device_suballocation(no, args["dst"], entry["args"]["size"])
-                        elif dma_dir in (synDmaDir.DRAM_TO_HOST, synDmaDir.DRAM_TO_DRAM):
-                            space.map_device_suballocation(no, args["src"], entry["args"]["size"])
-                        else:
-                            assert False, f"Unknown mem copy direction {args['direction']}"
+                        self.map_memcopy(no, space, args["src"], args["dst"], args["size"], dma_dir)
 
                         replacements = space.get_args(entry, ("streamHandle", "src", "dst"))
                         replacements["direction"] = f"synDmaDir::{dma_dir.name}"
                         out(Flow.call(entry, replacements))
+
+                    elif func_def.name == "synMemCopyAsyncMultiple":
+                        dma_dir = synDmaDir(args["direction"])
+                        src = args["src"]
+                        dst = args["dst"]
+                        size = args["size"]
+                        numCopies = args["numCopies"]
+
+                        for i in range(numCopies):
+                            self.map_memcopy(no, space, src[i], dst[i], size[i], dma_dir)
+
+                        replacements = space.get_args(entry, ("streamHandle", "src", "dst"))
+                        replacements["direction"] = f"synDmaDir::{dma_dir.name}"
+
+                        size_replacement, size_def = generate_array(no, "uint64_t", "size", numCopies, map(str, size))
+                        src_replacement, src_def = generate_array(no, "uint64_t", "src", numCopies, replacements["src"])
+                        dst_replacement, dst_def = generate_array(no, "uint64_t", "dst", numCopies, replacements["dst"])
+
+                        replacements["size"] = size_replacement
+                        replacements["src"] = src_replacement
+                        replacements["dst"] = dst_replacement
+
+                        out(size_def)
+                        out(src_def)
+                        out(dst_def)
+
+                        out(Flow.call(entry, replacements))
+
                     elif func_def.name == "synTrainingEnqueue":
                         v = space.add(entry["result"]["handle"], "synWaitHandle", f"waitEvent{no}", local=True)
                         args["handle"] = entry["result"]["handle"]
@@ -714,9 +796,14 @@ class Flow:
                         args["pGraphHandle"] = entry["result"]["pGraphHandle"]
                         out(Flow.call(entry, space.get_args(entry, ("pGraphHandle",))))
                     elif func_def.name == "synGraphCompile":
+                        self._reference_match_graph(no, entry)
+                        if entry["result"]["status"] == "incomplete":
+                            entry["result"]["pRecipeHandle"] = "0xdeadbeef"
                         v = space.add(entry["result"]["pRecipeHandle"], "synRecipeHandle", f"recipe{no}", local=True)
                         args["pRecipeHandle"] = entry["result"]["pRecipeHandle"]
-                        out(Flow.call(entry, space.get_args(entry, ("graphHandle", "pRecipeHandle"))))
+                        replacements = space.get_args(entry, ("graphHandle", "pRecipeHandle"))
+                        self.last_compiled_recipe = replacements['pRecipeHandle']
+                        out(Flow.call(entry, replacements))
                     elif func_def.name == "synGraphDestroy":
                         out(Flow.call(entry, space.get_args(entry, ("graphHandle",))))
                     elif func_def.name == "synCreateTensorEx":
@@ -751,6 +838,7 @@ class Flow:
                     elif func_def.name in ("synSectionDestroy"):
                         out(Flow.call(entry, space.get_args(entry, ("sectionHandle",))))
                     elif func_def.name == "synLaunch":
+                        self._reference_match_launch(no, entry)
                         replacements = space.get_args(entry, ("streamHandle", "pRecipehandle"))
                         mapped_tensors = [
                             space.map_device_suballocation(f"{no}_{i}", ptr)
@@ -859,9 +947,11 @@ class Flow:
             f"You may rerun this generator with --device_address_limit=0x{space.max_used_device_address} to limit memory usage"
         )
 
+        if self.get_return_statement is not None:
+            out(self.get_return_statement())
+
 
 def main():
-    logging.basicConfig(level=logging.DEBUG)
     path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "logger_test", ".local.src")
     parser = argparse.ArgumentParser(description="Produce bare synapse API gtest from synapse_logger trace")
     parser.add_argument("--input_file", default=".local.synapse_log.json")
@@ -878,9 +968,8 @@ def main():
     log.info(f"writing output to {out_file}")
     log.debug(f"writing output to {out_file}")
     with open(out_file, "w") as src_file:
-
         if args.test_flavour == "singlethreaded":
-            renderer = Flow.SingleThreadedRenderer()
+            renderer = Flow.SingleThreadedV2Renderer()
         elif args.test_flavour == "multithreaded":
             renderer = Flow.MultiThreadedRenderer()
 

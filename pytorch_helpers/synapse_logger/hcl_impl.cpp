@@ -8,8 +8,8 @@
  ******************************************************************************
  */
 #include <dlfcn.h>
-
 #include <cstdint>
+#include <ostream>
 
 #include "arg_utils.h"
 #include "hcl_api_types.h"
