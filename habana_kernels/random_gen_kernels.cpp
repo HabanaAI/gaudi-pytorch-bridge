@@ -263,8 +263,13 @@ Tensor& bernoulli_scalar_hpu(
 
   Scalar p_converted = static_cast<float>(p);
 
+  // self_float ensures that expanded_p_tensor is of float dtype
+  // independent of self's dtype
+  Tensor self_float =
+      at::empty(self.sizes(), self.options().dtype(c10::ScalarType::Float));
+
   auto p_tensor = habana_helpers::scalar_to_device_tensor(
-      p_converted, self, self.ndimension());
+      p_converted, self_float, self_float.ndimension());
   auto expanded_p_tensor = p_tensor.expand(self.sizes());
 
   Tensor* output_ptr;
@@ -294,7 +299,7 @@ Tensor& bernoulli_scalar_hpu(
       SynapsePassType::FORWARD_PASS);
 
   if (self_scalar_type == c10::ScalarType::Float) {
-    auto self_float = habana_helpers::hpu_cast_tensor(self_int, self.dtype());
+    self_float = habana_helpers::hpu_cast_tensor(self_int, self.dtype());
     habana_helpers::copy_data_within_device(self_float, self);
   }
 
