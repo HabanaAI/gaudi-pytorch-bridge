@@ -7,14 +7,15 @@
  *
  ******************************************************************************
  */
-#include "habana_kernels/tensor_shape_kernels.h"
 #include "habana_kernels/binary_kernels.h"
 #include "habana_kernels/conv_kernels.h"
 #include "habana_kernels/embedding_kernels.h"
 #include "habana_kernels/habana_operator.h"
 #include "habana_kernels/linear_kernels.h"
 #include "habana_kernels/pool_kernels.h"
+#include "habana_kernels/random_gen_kernels.h"
 #include "habana_kernels/softmax_kernels.h"
+#include "habana_kernels/tensor_shape_kernels.h"
 #include "habana_kernels/unary_kernels.h"
 
 namespace habana {
@@ -66,6 +67,12 @@ HabanaOperatorPtr CreateHabanaOperator(
     op = std::make_shared<BmmOperator>(device_id, node_type);
   } else if ("aten::sub" == node_name) {
     op = std::make_shared<SubOperator>(device_id, node_type);
+  } else if ("aten::uniform_" == node_name) {
+    op = std::make_shared<UniformOperator>(device_id, node_type);
+  } else if ("aten::normal_" == node_name) {
+    op = std::make_shared<NormalOperator>(device_id, node_type);
+  } else if ("aten::bernoulli" == node_name) {
+    op = std::make_shared<BernoulliOperator>(device_id, node_type);
   }
   // Returning a null pointer for cases not added yet,
   // we can add assert once all kernels are added

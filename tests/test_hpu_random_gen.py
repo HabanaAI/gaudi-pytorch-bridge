@@ -100,7 +100,7 @@ def test_hpu_rand_gen_normal_fwd(N, H, W, C, mean, std, seed):
 
 
 @pytest.mark.parametrize("N, H, W, C, min, max, seed", test_cast_list_4d)
-def test_hpu_rand_gen_bernoulli_fwd(N, H, W, C, min, max, seed):
+def test_hpu_rand_gen_bernoulli_fwd_scalar(N, H, W, C, min, max, seed):
     # CPU and HPU uses different algorithm for RNG. Hence they are not compared
     # Instead basic sanity like range and staleness are checked
     torch.manual_seed(seed)
@@ -138,6 +138,30 @@ def test_hpu_rand_gen_bernoulli_fwd(N, H, W, C, min, max, seed):
 
     # verify if the two tensors are same for same seed
     testing.assert_equal(output1_hpu, output2_hpu)
+
+
+@pytest.mark.parametrize("N, H, W, C, min, max, seed", test_cast_list_4d)
+def test_hpu_rand_gen_bernoulli_fwd(N, H, W, C, min, max, seed):
+    # CPU and HPU uses different algorithm for RNG. Hence they are not compared
+    # Instead basic sanity like range and staleness are checked
+    torch.manual_seed(seed)
+    g = torch.Generator()
+
+    input = torch.empty(N, C, H, W, dtype=torch.float)
+    in_hpu = input.uniform_(0, 1).to(hpu)
+    g.manual_seed(seed)
+    output1 = torch.bernoulli(in_hpu, generator=g)
+    output1_hpu = output1.to(cpu).detach().numpy()
+
+    g.manual_seed(seed)
+    output2 = torch.bernoulli(in_hpu, generator=g)
+    output2_hpu = output2.to(cpu).detach().numpy()
+
+    # verify if the two tensors are same for same seed
+    testing.assert_equal(output1_hpu, output2_hpu)
+
+    # verify if the output values exceeds the range
+    testing.assert_equal((np.min(output2_hpu) >= 0) & (np.max(output2_hpu) <= 1), True)
 
 
 if __name__ == '__main__':

@@ -14,8 +14,9 @@ using namespace habana;
 // Uniform Operator
 class UniformOperator : public HabanaOperator {
  public:
-  UniformOperator(int device_id, const std::string& guid)
-      : HabanaOperator(guid) {
+  UniformOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator("random_uniform_fwd_" +
+        habana_helpers::name_suffix_from_type(scalarType)) {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
     kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
@@ -24,14 +25,15 @@ class UniformOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false);
+      bool is_output_persistent = false) override;
 };
 
 // Normal Operator
 class NormalOperator : public HabanaOperator {
  public:
-  NormalOperator(int device_id, const std::string& guid)
-      : HabanaOperator(guid) {
+  NormalOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator("random_normal_fwd_" +
+        habana_helpers::name_suffix_from_type(scalarType)) {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
     kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
@@ -40,7 +42,25 @@ class NormalOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false);
+      bool is_output_persistent = false) override;
 };
+
+// Bernoulli Operator
+class BernoulliOperator : public HabanaOperator {
+ public:
+  BernoulliOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator("random_bernoulli_fwd_" +
+        habana_helpers::name_suffix_from_type(scalarType)) {
+    this->CreateSynContext(device_id);
+    kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
+    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
+  }
+
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+};
+
 
 
