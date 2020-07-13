@@ -38,7 +38,7 @@ void UnaryOperator::AllocateAndAddSynapseNode(
 
   at::Tensor input = inputs[0].toTensor();
 
-  auto output = at::empty(input.sizes(), input.options());
+  auto output = at::empty(input.sizes(), input.options(), input.suggest_memory_format());
   AllocateSynapseOutput(graph, output, is_output_persistent);
   AddNodeToSynapseGraph(graph, nullptr, 0);
 }
@@ -55,7 +55,7 @@ Tensor unary_op_hpu(
 
   if (device.get_recipe_handle_cache().isCached(key)) {
     PT_KERNEL_DEBUG("Cache hit key:", key);
-    auto output = at::empty(input.sizes(), input.options());
+    auto output = at::empty(input.sizes(), input.options(), input.suggest_memory_format());
     Op->SetPTInputs(pt_inputs);
     Op->SetPTOutput(output);
     Op->Execute(key);
@@ -119,7 +119,7 @@ void UnaryBackwardOperator::AllocateAndAddSynapseNode(
       ", input sizes: ",
       grad_in.sizes());
 
-  auto grad_output = at::empty(input.sizes(), input.options());
+  auto grad_output = at::empty(input.sizes(), input.options(), input.suggest_memory_format());
   AllocateSynapseOutput(graph, grad_output, is_output_persistent);
   AddNodeToSynapseGraph(graph, nullptr, 0);
 }
@@ -154,7 +154,7 @@ Tensor unary_backward_op_hpu(
 
   if (device.get_recipe_handle_cache().isCached(key)) {
     PT_KERNEL_DEBUG("Cache hit key:", key);
-    auto output = at::empty(input.sizes(), input.options());
+    auto output = at::empty(input.sizes(), input.options(), input.suggest_memory_format());
     Op->SetPTInputs(pt_inputs);
     Op->SetPTOutput(output);
     Op->Execute(key);
@@ -417,7 +417,7 @@ Tensor gelu_hpu(const Tensor& self) {
 Tensor& erf_hpu_(Tensor& self) {
   PT_KERNEL_BEGIN;
 
-  Tensor self_copy = at::empty(self.sizes(), self.options());
+  Tensor self_copy = at::empty(self.sizes(), self.options(), self.suggest_memory_format());
   habana_helpers::copy_data_within_device(self, self_copy);
 
   self.pow_(3.0).mul_(0.08943).add_(self_copy).mul_(M_2_SQRTPI).tanh_();
@@ -434,7 +434,7 @@ Tensor& erf_hpu_(Tensor& self) {
 Tensor& exp_hpu_(Tensor& self) {
   PT_KERNEL_BEGIN;
 
-  auto self_copy = at::empty(self.sizes(), self.options());
+  auto self_copy = at::empty(self.sizes(), self.options(), self.suggest_memory_format());
   habana_helpers::copy_data_within_device(self, self_copy);
 
   std::vector<const at::Tensor*> pt_outputs{&self};
@@ -493,7 +493,7 @@ Tensor& reciprocal_hpu_(Tensor& self) {
 Tensor reciprocal_hpu(const Tensor& self) {
   PT_KERNEL_BEGIN;
 
-  auto output = at::empty(self.sizes(), self.options());
+  auto output = at::empty(self.sizes(), self.options(), self.suggest_memory_format());
   std::vector<const at::Tensor*> pt_outputs{&output};
   std::vector<const at::Tensor*> pt_inputs{&self};
 
@@ -554,7 +554,7 @@ void ClampOperator::AllocateAndAddSynapseNode(
   param.upperBound.f = static_cast<float>(max);
   param.lowerBound.f = static_cast<float>(min);
 
-  auto output = at::empty(input.sizes(), input.options());
+  auto output = at::empty(input.sizes(), input.options(), input.suggest_memory_format());
   AllocateSynapseOutput(graph, output, is_output_persistent);
   AddNodeToSynapseGraph(graph, &param, sizeof(param));
 }

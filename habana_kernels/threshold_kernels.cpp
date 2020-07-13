@@ -39,7 +39,7 @@ void habana::ThresholdBackwardOperator::AllocateAndAddSynapseNode(
       threshold.to<float>() == 0.0,
       "Threshold values other than 0 are not supported")
 
-  auto grad_input = at::empty(self.sizes(), self.options());
+  auto grad_input = at::empty(self.sizes(), self.options(), self.suggest_memory_format());
   AllocateSynapseOutput(graph, grad_input, is_output_persistent);
   AddNodeToSynapseGraph(graph, nullptr, 0);
 }
@@ -71,7 +71,7 @@ Tensor threshold_backward_hpu(
   size_t key = Op.GetRecipeKey(nodeType, stack);
   if (device.get_recipe_handle_cache().isCached(key)) {
     PT_KERNEL_DEBUG("Cache hit key:", key);
-    auto output = at::empty(self.sizes(), self.options());
+    auto output = at::empty(self.sizes(), self.options(), self.suggest_memory_format());
     Op.SetPTInputs(pt_inputs);
     Op.SetPTOutputs({output});
     Op.Execute(key);

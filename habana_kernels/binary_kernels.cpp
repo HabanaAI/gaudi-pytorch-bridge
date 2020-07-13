@@ -179,7 +179,7 @@ static inline Tensor do_generic_tensor_binary_op(
     const std::string& op,
     SynapsePassType pass_type) {
   auto out_sizes = at::infer_size(operand1.sizes(), operand2.sizes());
-  auto output = at::empty(out_sizes, operand1.options());
+  auto output = at::empty(out_sizes, operand1.options(), operand1.suggest_memory_format());
   do_generic_tensor_binary_op_out(output, operand1, operand2, op, pass_type);
   return output;
 }
@@ -288,7 +288,7 @@ void habana::BinaryOperator::AllocateAndAddSynapseNode(
   }
 
   auto operand = get_correct_input_tensor(arg1, arg2);
-  auto output = at::empty(operand.sizes(), operand.options());
+  auto output = at::empty(operand.sizes(), operand.options(), operand.suggest_memory_format());
   AllocateSynapseOutput(graph, output, is_output_persistent);
   synapse_helpers::tensor& arg1_syn_tensor =
       isArg1modified ? reshape_syn_output[0] : p_context_->syn_inputs_[0];
@@ -314,7 +314,7 @@ void habana::BinaryOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   Tensor operand2 = inputs[1].toTensor();
 
   auto operand = get_correct_input_tensor(operand1, operand2);
-  auto output = at::empty(operand.sizes(), operand.options());
+  auto output = at::empty(operand.sizes(), operand.options(), operand.suggest_memory_format());
   HabanaOperator::SetPTOutputs({output});
 }
 
@@ -437,7 +437,7 @@ void habana::BinaryOperatorWithAlpha::AllocateAndAddSynapseNode(
     p_context_->syn_inputs_[1] = std::move(arg2_syn);
 
     auto operand = get_correct_input_tensor(arg1, arg2);
-    auto output = at::empty(operand.sizes(), operand.options());
+    auto output = at::empty(operand.sizes(), operand.options(), operand.suggest_memory_format());
     AllocateSynapseOutput(graph, output, is_output_persistent);
 
     synapse_helpers::tensor& arg1_syn_tensor = isArg1modified
@@ -482,7 +482,7 @@ void habana::BinaryOperatorWithAlpha::AllocateAndAddSynapseNode(
     }
 
     auto operand = get_correct_input_tensor(arg1, arg2);
-    auto output = at::empty(operand.sizes(), operand.options());
+    auto output = at::empty(operand.sizes(), operand.options(), operand.suggest_memory_format());
     AllocateSynapseOutput(graph, output, is_output_persistent);
 
     synapse_helpers::tensor& arg1_syn_tensor =
@@ -857,7 +857,7 @@ Tensor eq_tensor_hpu(Tensor& self, Tensor& other) {
   PT_KERNEL_BEGIN;
   auto tensor_options = self.options();
   auto output =
-      at::empty(self.sizes(), tensor_options.dtype(c10::ScalarType::Char));
+      at::empty(self.sizes(), tensor_options.dtype(c10::ScalarType::Char), self.suggest_memory_format());
   at::eq_out(output, self, other);
   PT_KERNEL_END;
   return output;

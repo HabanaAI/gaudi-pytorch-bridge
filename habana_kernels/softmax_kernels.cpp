@@ -58,7 +58,7 @@ void LogSoftmaxOperator::AllocateAndAddSynapseNode(
   p_context_->params_.emplace<ns_Softmax::Params>(params);
   p_context_->params_size_ = sizeof(params);
 
-  auto output = at::empty(self.sizes(), self.options());
+  auto output = at::empty(self.sizes(), self.options(), self.suggest_memory_format());
   AllocateSynapseOutput(graph, output, is_output_persistent);
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
@@ -106,7 +106,7 @@ void LogSoftmaxBackwardOperator::AllocateAndAddSynapseNode(
   std::swap(p_context_->pt_inputs_[0], p_context_->pt_inputs_[1]);
   std::swap(p_context_->syn_inputs_[0], p_context_->syn_inputs_[1]);
 
-  auto grad_output = at::empty(input.sizes(), input.options());
+  auto grad_output = at::empty(input.sizes(), input.options(), input.suggest_memory_format());
 
   AllocateSynapseOutput(graph, grad_output, is_output_persistent);
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
@@ -141,7 +141,7 @@ Tensor log_softmax_hpu(
   if (device.get_recipe_handle_cache().isCached(key)) {
     PT_KERNEL_DEBUG("Cache hit key:", key);
     std::vector<const at::Tensor*> inputs{&self};
-    auto output = at::empty(self.sizes(), self.options());
+    auto output = at::empty(self.sizes(), self.options(), self.suggest_memory_format());
     Op.SetPTInputs(inputs);
     Op.SetPTOutput(output);
     Op.Execute(key);
@@ -194,7 +194,7 @@ Tensor log_softmax_backward_hpu(
   if (device.get_recipe_handle_cache().isCached(key)) {
     PT_KERNEL_DEBUG("Cache hit key:", key);
     std::vector<const at::Tensor*> pt_inputs{&output, &grad};
-    auto output = at::empty(input.sizes(), input.options());
+    auto output = at::empty(input.sizes(), input.options(), input.suggest_memory_format());
     Op.SetPTInputs(pt_inputs);
     Op.SetPTOutput(output);
     Op.Execute(key);
@@ -255,7 +255,7 @@ void SoftmaxOperator::AllocateAndAddSynapseNode(
   p_context_->params_.emplace<ns_Softmax::Params>(params);
   p_context_->params_size_ = sizeof(params);
 
-  auto output = at::empty(self.sizes(), self.options());
+  auto output = at::empty(self.sizes(), self.options(), self.suggest_memory_format());
   AllocateSynapseOutput(graph, output, is_output_persistent);
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
@@ -331,7 +331,7 @@ Tensor softmax_backward_hpu(
 
   int64_t dim_ = at::maybe_wrap_dim(dim, input.dim(), /*wrap_scalar=*/true);
 
-  auto input_grad = at::empty(input.sizes(), input.options());
+  auto input_grad = at::empty(input.sizes(), input.options(), input.suggest_memory_format());
   ns_Softmax::Params params{static_cast<int>(input.ndimension() - 1 - dim_)};
 
   std::vector<const at::Tensor*> pt_inputs{&output, &grad};

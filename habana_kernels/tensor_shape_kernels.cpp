@@ -81,7 +81,7 @@ Tensor CatOperator::CheckAllocateOutput(Stack& inputs) {
   for (unsigned i = 0; i < tensor_count; i++) {
     out_size[dim] += tensors[i].sizes()[dim];
   }
-  return std::move(at::empty(out_size, first_tensor.options()));
+  return std::move(at::empty(out_size, first_tensor.options(), first_tensor.suggest_memory_format()));
 }
 
 void CatOperator::AllocateAndAddSynapseNode(
@@ -196,7 +196,7 @@ at::Tensor CatOutOperator::CheckAllocateOutput(Stack& inputs) {
     THHTensor_resizeNd(
         tht_result, first_tensor.dim(), out_size.data(), nullptr);
   } else {
-    out = at::empty(out_size, first_tensor.options());
+    out = at::empty(out_size, first_tensor.options(), first_tensor.suggest_memory_format());
   }
   return std::move(out);
 }
@@ -539,10 +539,11 @@ void PermuteOperator::AllocateAndAddSynapseNode(
   auto new_strides = self.strides().vec();
   new_sizes[new_sizes.size() - 1] = self_sizes[dims[new_sizes.size() - 1]];
   new_strides[new_sizes.size() - 1] = 1;
-  for (int i = new_strides.size() - 2; i >= 0; i--) {
+  for (int i = new_sizes.size() - 2; i >= 0; i--) {
     new_sizes[i] = self_sizes[dims[i]];
     new_strides[i] = new_strides[i + 1] * new_sizes[i + 1];
   }
+
   auto output = at::empty_strided(new_sizes, new_strides, self.options());
 
   synTransposeParams params;
@@ -649,7 +650,7 @@ void ReshapeOperator::AllocateAndAddSynapseNode(
       "Right now Reshape is only supported for contiguous Tensor.");
 
   auto shape = inputs[1].toIntList();
-  auto output = at::empty(shape.vec(), self.options(), c10::nullopt);
+  auto output = at::empty(shape.vec(), self.options(), self.suggest_memory_format());
   TORCH_CHECK(
       self.numel() == output.numel(),
       "Reshape doesnt support change in number of elements");

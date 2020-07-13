@@ -143,8 +143,8 @@ Tensor embedding_bag_bwd_hpu(
   // epoch_number = 0, momentum factor = 1 and fetch output momentum vector
   // Note: Duplicate indices are not supported by this kernel due to RMW issue.
   // In such cases custom op for embedding bag should be used
-  auto momentum_in = at::zeros(weights_out.sizes(), weights_out.options());
-  auto momentum_out = at::zeros(weights_out.sizes(), weights_out.options());
+  auto momentum_in = at::zeros(weights_out.sizes(), weights_out.options().memory_format(weights_out.suggest_memory_format()));
+  auto momentum_out = at::zeros(weights_out.sizes(), weights_out.options().memory_format(weights_out.suggest_memory_format()));
   // at::zeros works only for float
   auto learning_rate = at::zeros({1}, grad.options());
   auto epoch_num_i32 = learning_rate.toType(c10::ScalarType::Int);

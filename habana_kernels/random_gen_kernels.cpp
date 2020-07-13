@@ -236,7 +236,7 @@ void BernoulliOperator::AllocateAndAddSynapseNode(
   p_context_->params_size_ = sizeof(params);
 
   Tensor output =
-      at::empty(self.sizes(), self.options().dtype(c10::ScalarType::Int));
+      at::empty(self.sizes(), self.options().dtype(c10::ScalarType::Int), self.suggest_memory_format());
   AllocateSynapseOutput(graph, output, is_output_persistent);
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
@@ -307,7 +307,7 @@ Tensor& bernoulli_scalar_hpu(
   // self_float ensures that expanded_p_tensor is of float dtype
   // independent of self's dtype
   Tensor self_float =
-      at::empty(self.sizes(), self.options().dtype(c10::ScalarType::Float));
+      at::empty(self.sizes(), self.options().dtype(c10::ScalarType::Float), self.suggest_memory_format());
 
   auto p_tensor = habana_helpers::scalar_to_device_tensor(
       p_converted, self_float, self_float.ndimension());
@@ -320,7 +320,7 @@ Tensor& bernoulli_scalar_hpu(
 
   if (self_scalar_type == c10::ScalarType::Float) {
     self_int =
-        at::empty(self.sizes(), self.options().dtype(c10::ScalarType::Int));
+        at::empty(self.sizes(), self.options().dtype(c10::ScalarType::Int), self.suggest_memory_format());
     output_ptr = &self_int;
   } else {
     // Int

@@ -76,7 +76,7 @@ void allocate_reduction_result(
     THHTensor_resizeNd(tht_result, shape.size(), shape.data(), nullptr);
     // result.resize_(shape);
   } else {
-    result = at::empty(shape, self.options().dtype(dtype));
+    result = at::empty(shape, self.options().dtype(dtype), self.suggest_memory_format());
   }
 }
 
@@ -919,7 +919,7 @@ void AnyDimOperator::AllocateAndAddSynapseNode(
       inputs[2].isBool(), "Input arg3 expected to be Bool for AnyDim operator");
 
   auto self = inputs[0].toTensor();
-  Tensor output = at::empty({0}, self.options().dtype(c10::ScalarType::Char));
+  Tensor output =at::empty({0}, self.options().dtype(c10::ScalarType::Char));
   inputs.insert(inputs.begin(), IValue(output));
 
   AnyDimOutOperator::AllocateAndAddSynapseNode(

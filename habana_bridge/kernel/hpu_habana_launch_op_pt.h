@@ -210,6 +210,7 @@ class HabanaLaunchOpPT {
   // A map between the abstract value containers in graph and actual Ivalues in stack
   std::unordered_map<const torch::jit::Value*, torch::jit::IValue *> value_to_ivalue;
   std::unordered_map<const torch::jit::Value*, habana::LayoutFormat> value_to_tensor_layout;
+  habana::LayoutFormat pt_input_layout;
   //map between PT and synapse tensors
   PTToSynapseTensorMap pt_to_synapse_tensors;
   std::vector<synapse_helpers::tensor> meta_syn_tensors;

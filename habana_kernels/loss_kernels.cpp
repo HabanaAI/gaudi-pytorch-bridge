@@ -121,7 +121,7 @@ std::tuple<Tensor, Tensor> nll_loss_forward_hpu(
   std::vector<const at::Tensor*> pt_inputs{&self, &modified_target};
   if (device.get_recipe_handle_cache().isCached(key)) {
     PT_KERNEL_DEBUG("Cache hit key:", key);
-    auto output = at::empty(self.sizes(), self.options());
+    auto output = at::empty(self.sizes(), self.options(), self.suggest_memory_format());
     Op.SetPTInputs(pt_inputs);
     Op.SetPTOutput(output);
     Op.Execute(key);
@@ -166,7 +166,7 @@ void NLLLossBwdOperator::AllocateAndAddSynapseNode(
   p_context_->params_.emplace<ns_NLLLossKernel::Params>(param);
   p_context_->params_size_ = sizeof(param);
 
-  auto output = at::empty(self.sizes(), self.options());
+  auto output = at::empty(self.sizes(), self.options(), self.suggest_memory_format());
   AllocateSynapseOutput(graph, output, is_output_persistent);
   AddNodeToSynapseGraph(graph, &param, sizeof(param));
 }
@@ -218,7 +218,7 @@ Tensor nll_loss_backward_hpu(
   std::vector<const at::Tensor*> pt_inputs{&grad_output, &modified_target};
   if (device.get_recipe_handle_cache().isCached(key)) {
     PT_KERNEL_DEBUG("Cache hit key:", key);
-    auto output = at::empty(self.sizes(), self.options());
+    auto output = at::empty(self.sizes(), self.options(), self.suggest_memory_format());
     Op.SetPTInputs(pt_inputs);
     Op.SetPTOutput(output);
     Op.Execute(key);
@@ -261,7 +261,7 @@ void MSELossFwdOperator::AllocateAndAddSynapseNode(
 
   Tensor output;
   if (reduction == at::Reduction::Reduction::None) {
-    output = at::empty(self.sizes(), self.options());
+    output = at::empty(self.sizes(), self.options(), self.suggest_memory_format());
   } else {
     output = at::empty({1}, self.options());
   }
@@ -331,7 +331,7 @@ void MSELossBwdOperator::AllocateAndAddSynapseNode(
   p_context_->params_.emplace<ns_MSELossKernel::Params>(param);
   p_context_->params_size_ = sizeof(param);
 
-  auto output = at::empty(self.sizes(), self.options());
+  auto output = at::empty(self.sizes(), self.options(), self.suggest_memory_format());
 
   AllocateSynapseOutput(graph, output, is_output_persistent);
   AddNodeToSynapseGraph(graph, &param, sizeof(param));

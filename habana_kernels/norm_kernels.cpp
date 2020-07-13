@@ -440,7 +440,7 @@ std::vector<at::Tensor> BatchNormBackwardOperator::preProcessInputs(
 
   Tensor wt_hpu =
       get_batch_norm_optional_tensors(weight, input.sizes()[3], input.device());
-  Tensor bias_hpu = at::zeros(wt_hpu.sizes(), wt_hpu.options());
+  Tensor bias_hpu = at::zeros(wt_hpu.sizes(), wt_hpu.options().memory_format(wt_hpu.suggest_memory_format()));
   Tensor save_mean_hpu = get_batch_norm_optional_tensors(
       save_mean, input.sizes()[3], input.device());
   Tensor save_invstd_hpu = get_batch_norm_optional_tensors(
@@ -683,8 +683,8 @@ Tensor norm_scalar_hpu(const Tensor& self, Scalar p) {
   TORCH_CHECK(p.toFloat() > 0.0, "norm with p > 0.0 is only supported");
 
   auto self_hpu = self.view(-1);
-  auto output = at::empty(self_hpu.sizes(), self.options());
-  auto retain = at::empty(self_hpu.sizes(), self.options());
+  auto output = at::empty(self_hpu.sizes(), self.options(), self.suggest_memory_format());
+  auto retain = at::empty(self_hpu.sizes(), self.options(), self.suggest_memory_format());
 
   ns_LpNormKernel::Params params{};
   params.p = p.to<float>();

@@ -76,7 +76,7 @@ Tensor gather_src_hpu(
   auto shape = DimVector(self.sizes());
   shape.erase(shape.begin() + dim);
   shape.insert(shape.begin() + dim, index.numel());
-  auto output = at::empty(shape, self.options());
+  auto output = at::empty(shape, self.options(), self.suggest_memory_format());
 
   ns_GatherKernel::Params params;
   params.axis = self.dim() - dim - 1;
@@ -255,7 +255,7 @@ void Gather2dOperator::AllocateAndAddSynapseNode(
   auto shape = DimVector(input.sizes());
   shape.erase(shape.begin() + 0);
   shape.insert(shape.begin() + 0, std::min(indices.numel(), validCount));
-  auto output = at::empty(shape, input.options());
+  auto output = at::empty(shape, input.options(), input.suggest_memory_format());
 
   AllocateSynapseOutput(graph, output, is_output_persistent);
   AddNodeToSynapseGraph(graph, nullptr, 0);

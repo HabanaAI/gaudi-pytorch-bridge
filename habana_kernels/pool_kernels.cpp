@@ -1104,7 +1104,7 @@ void AvgPool2dBackwardOperator::AllocateAndAddSynapseNode(
 
   at::Tensor input_nhwc = inputs[1].toTensor();
   auto grad_input_nhwc = at::zeros_like(
-      input_nhwc, input_nhwc.options(), input_nhwc.suggest_memory_format());
+      input_nhwc, input_nhwc.options());
 
   inputs.insert(inputs.begin(), IValue(grad_input_nhwc));
   AvgPool2dBackwardOutOperator::AllocateAndAddSynapseNode(
@@ -1114,7 +1114,7 @@ void AvgPool2dBackwardOperator::AllocateAndAddSynapseNode(
 void AvgPool2dBackwardOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   at::Tensor input_nhwc = inputs[1].toTensor();
   auto grad_input_nhwc = at::zeros_like(
-      input_nhwc, input_nhwc.options(), input_nhwc.suggest_memory_format());
+      input_nhwc, input_nhwc.options());
 
   inputs.insert(inputs.begin(), IValue(grad_input_nhwc));
   AvgPool2dBackwardOutOperator::SetPTOutputs(inputs);

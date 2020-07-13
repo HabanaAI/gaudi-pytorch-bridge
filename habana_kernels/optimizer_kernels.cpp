@@ -56,8 +56,8 @@ void OptimizerSparseSgdOperator::AllocateAndAddSynapseNode(
   params.mom = mom;
   params.nesterov = nesterov;
 
-  auto weights_out = at::empty(weights_in.sizes(), weights_in.options());
-  auto moments_out = at::empty(moments_in.sizes(), moments_in.options());
+  auto weights_out = at::empty(weights_in.sizes(), weights_in.options(), weights_in.suggest_memory_format());
+  auto moments_out = at::empty(moments_in.sizes(), moments_in.options(), moments_in.suggest_memory_format());
 
   AllocateSynapseOutputs(
       graph, {weights_out, moments_out}, is_output_persistent);
@@ -140,10 +140,9 @@ optimizer_sparse_sgd_with_valid_count_cpu(
   float* gp = static_cast<float*>(gradients.data_ptr());
   float* winp = static_cast<float*>(weights_in.data_ptr());
   float* minp = static_cast<float*>(moments_in.data_ptr());
-  Tensor weights_out = at::empty(weights_in.sizes(), weights_in.options());
-  Tensor moments_out = at::empty(moments_in.sizes(), moments_in.options());
-  Tensor grad_output = at::empty(weights_in.sizes(), gradients.options());
-
+  Tensor weights_out = at::empty(weights_in.sizes(), weights_in.options(), weights_in.suggest_memory_format());
+  Tensor moments_out = at::empty(moments_in.sizes(), moments_in.options(), moments_in.suggest_memory_format());
+  Tensor grad_output = at::empty(gradients.sizes(), gradients.options(), gradients.suggest_memory_format());
   weights_out.copy_(weights_in, false);
   moments_out.copy_(moments_in, false);
   grad_output.copy_(weights_in, false);
