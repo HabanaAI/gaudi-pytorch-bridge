@@ -8,6 +8,10 @@ import torch.optim as optim
 import sys
 from torchvision import datasets, transforms
 import time
+from torch.utils import data
+import torch.distributed as dist
+from torch.nn.parallel import DistributedDataParallel as DDP
+
 
 class TrainMetaData():
     def __init__(self):
@@ -100,9 +104,9 @@ class Net(nn.Module):
         return F.log_softmax(x, dim=1)
 
 
-def train(args, model, device, train_loader, optimizer, epoch, trainMetaData):
+def train(args, model, device, train_loader, optimizer, epoch, trainMetaData,rank):
     model.train()
-    if(trainMetaData.is_logging()):
+    if(trainMetaData.is_logging() and rank==0):
         with open('mnistpy.log', 'w') as file:  # reset file
             file.write('')
 
@@ -125,7 +129,7 @@ def train(args, model, device, train_loader, optimizer, epoch, trainMetaData):
                   loss_cpu.to(torch.device('cpu')).item(), acc1, acc5,
                   iter_duration)
 
-        if(trainMetaData.is_logging()):
+        if(trainMetaData.is_logging() and rank==0):
             with open('mnistpy.log', 'a') as file:
                 file.write(log_msg)
         print(log_msg)
@@ -133,9 +137,9 @@ def train(args, model, device, train_loader, optimizer, epoch, trainMetaData):
         if trainMetaData.end_train() is True:
             break
 
-def train_jit(args, model_trace, device, train_loader, optimizer, epoch, trainMetaData):
+def train_jit(args, model_trace, device, train_loader, optimizer, epoch, trainMetaData,rank):
     model_trace.train()
-    if(trainMetaData.is_logging()):
+    if(trainMetaData.is_logging() and rank==0):
         with open('mnistpy.log', 'w') as file:  # reset file
             file.write('')
 
@@ -158,7 +162,7 @@ def train_jit(args, model_trace, device, train_loader, optimizer, epoch, trainMe
                   loss_cpu.to(torch.device('cpu')).item(), acc1, acc5,
                   iter_duration)
 
-        if(trainMetaData.is_logging()):
+        if(trainMetaData.is_logging() and rank==0 ):
             with open('mnistpy.log', 'a') as file:
                 file.write(log_msg)
         print(log_msg)
@@ -222,7 +226,18 @@ def test_jit(args, model_trace, device, test_loader, trainMetaData):
         test_loss, correct, len(test_loader.dataset),
         100. * correct / len(test_loader.dataset)))
 
-def main():
+
+def setup_dist(rank, world_size,backend):
+    os.environ['MASTER_ADDR'] = 'localhost'
+    os.environ['MASTER_PORT'] = '12355'
+    os.environ["ID"] = str(rank)
+    dist.init_process_group(backend, rank=rank, world_size=world_size)
+
+
+def cleanup_dist():
+    dist.destroy_process_group()
+
+def parse_args():
     # Training settings
     parser = argparse.ArgumentParser(description='PyTorch MNIST Example')
     parser.add_argument('--batch-size', type=int, default=64, metavar='N',
@@ -242,7 +257,7 @@ def main():
     parser.add_argument('--log-interval', type=int, default=10, metavar='N',
                         help='how many batches to wait before logging training status')
     parser.add_argument('--run-trace-mode', action='store_true', default=False,
-                        help='run JIT mode with fusion enabled')                    
+                        help='run JIT mode with fusion enabled')
     parser.add_argument('--save-model', action='store_true', default=False,
                         help='For Saving the current Model')
     parser.add_argument('--num-train-steps', type=int, default=sys.maxsize, metavar='T',
@@ -252,7 +267,14 @@ def main():
     parser.add_argument('--no-log', action='store_true', default=False,
                         help='disable log')
     parser.add_argument('--hmp', dest='is_hmp', action='store_true', help='enable hmp mode')
+    #Distributed parameters
+    parser.add_argument('--backend',default='hcl', help='Device backend for distributed')
     args = parser.parse_args()
+    return args
+
+def main(args):
+
+    rank = args.rank
 
     if args.is_hmp:
         from hmp import hmp
@@ -267,15 +289,19 @@ def main():
 
     device = torch.device("habana" if use_habana else "cpu")
 
+    model = Net().to(device)
     # kwargs = {'num_workers': 1, 'pin_memory': True} if use_habana else {}
     kwargs = {}  # TODO: do we need any kwargs?
-    train_loader = torch.utils.data.DataLoader(
-        datasets.MNIST('../data', train=True, download=True,
-                       transform=transforms.Compose([
-                           transforms.ToTensor(),
-                           transforms.Normalize((0.1307,), (0.3081,))
-                       ])),
-        batch_size=args.batch_size, shuffle=True, **kwargs)
+
+    if(args.distributed == True):
+        sampler = data.DistributedSampler(args.train_dataset)
+        train_loader = torch.utils.data.DataLoader(
+            args.train_dataset, sampler = sampler,
+            batch_size = args.batch_size, shuffle = (sampler is None), **kwargs)
+        model = DDP(model)
+    else:
+        train_loader = torch.utils.data.DataLoader(args.train_dataset,batch_size=args.batch_size, shuffle=True, **kwargs)
+
     test_loader = torch.utils.data.DataLoader(
         datasets.MNIST('../data', train=False, transform=transforms.Compose([
             transforms.ToTensor(),
@@ -283,7 +309,6 @@ def main():
         ])),
         batch_size=args.test_batch_size, shuffle=True, **kwargs)
 
-    model = Net().to(device)
     trainMetaData = TrainMetaData()
     trainMetaData.set_num_train_steps(args.num_train_steps)
     trainMetaData.set_num_eval_steps(args.num_eval_steps)
@@ -305,14 +330,49 @@ def main():
                 train_jit(args, model_trace, device, train_loader, optimizer, epoch, trainMetaData)
                 test_jit(args, model_trace, device, test_loader, trainMetaData)
         else:
-            train(args, model, device, train_loader, optimizer, epoch, trainMetaData)    
-            test(args, model, device, test_loader, trainMetaData)    
+            train(args, model, device, train_loader, optimizer, epoch, trainMetaData,rank)
+            test(args, model, device, test_loader, trainMetaData)
         if (trainMetaData.end_train_n_eval()):
             break
-    if args.save_model:
+    if args.save_model and rank==0:
         model_cpu = model
         torch.save(model_cpu.to('cpu').state_dict(), "mnist_cnn.pt")
 
+    if(args.distributed == True):
+        cleanup_dist()
+
 
 if __name__ == '__main__':
-    main()
+    args = parse_args()
+
+    if 'RANK' in os.environ and 'WORLD_SIZE' in os.environ:
+        if os.getenv('HCL_CONFIG_PATH') is None:
+            print("HCL_CONFIG_PATH is not set")
+            exit(0)
+        args.rank = int(os.environ["RANK"])
+        args.world_size = int(os.environ['WORLD_SIZE'])
+        args.distributed = True
+    else:
+        print('Not using distributed mode')
+        args.rank=0
+        args.distributed = False
+
+    if args.rank == 0:
+        #If in distributed mode download once. Assuming setup_dist will be a blocking call
+        train_dataset = datasets.MNIST('../data', train=True, download=True, transform=transforms.Compose([
+                                transforms.ToTensor(),
+                                transforms.Normalize((0.1307,), (0.3081,))
+                                ]))
+
+    if args.distributed == True:
+        setup_dist(args.rank, args.world_size,args.backend)
+
+    #If distributed mode data should be downloaded before the control reaches here.
+    if args.rank != 0:
+        train_dataset = datasets.MNIST('../data', train=True, download=False, transform=transforms.Compose([
+                                transforms.ToTensor(),
+                                transforms.Normalize((0.1307,), (0.3081,))
+                                ]))
+
+    args.train_dataset = train_dataset
+    main(args)
