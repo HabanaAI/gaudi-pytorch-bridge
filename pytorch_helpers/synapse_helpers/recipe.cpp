@@ -18,6 +18,7 @@
 #include <string>
 #include <vector>
 
+#include "habana_helpers/logging.h"
 #include "synapse_helpers/device.h"
 #include "synapse_helpers/event.h"
 #include "synapse_helpers/recipe.h"
@@ -58,7 +59,7 @@ void recipe::set_inputs_outputs_names(
   }
 }
 
-void recipe::launch(
+bool recipe::launch(
     const std::vector<void*>& in_buffers,
     const std::vector<void*>& out_buffers) {
   std::vector<synLaunchTensorInfo> syn_info;
@@ -71,8 +72,15 @@ void recipe::launch(
         output_names_[i].c_str(), reinterpret_cast<uint64_t>(out_buffers[i])});
 
   synapse_helpers::graph::launch_info handle(recipe_handle_->device_);
-  synapse_helpers::graph::launch(handle, *recipe_handle_, syn_info);
-  ref_count_++;
+  auto&& error_optional{
+      synapse_helpers::graph::launch(handle, *recipe_handle_, syn_info)};
+  if (ABSL_PREDICT_FALSE(error_optional.has_value())) {
+    auto& error = error_optional.value();
+    PT_SYNHELPER_FATAL(
+        "syn launch encountered : ", error.error, " ", error.status);
+    return false;
+  }
+  return true;
 }
 
 recipe::~recipe() {}

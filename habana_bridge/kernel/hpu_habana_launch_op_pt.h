@@ -168,6 +168,7 @@ struct RecipeValueSpec {
   size_t iter_idx{0};
   size_t num_tensors{0};
   size_t num_inputs{0};
+  size_t num_outputs{0};
 
   static size_t count;
 };
@@ -318,7 +319,9 @@ class HabanaLaunchOpPT {
   void handlePrimNodes(torch::jit::Node* node);
   void handleMetaOps(torch::jit::Node* node);
 
-  void LaunchRecipe(RecipeValueSpec& rv);
+  void LaunchRecipe(
+      RecipeValueSpec& rv,
+      at::ArrayRef<torch::jit::IValue> input_refs);
   void UpdateOutputs();
   template <class T>
   void clearMember(T& m_container);

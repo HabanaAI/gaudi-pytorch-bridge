@@ -206,14 +206,13 @@ at::Tensor habana_helpers::scalar_to_device_tensor(
   while (!copyDone) {
     std::this_thread::yield();
   }
-
   return output;
 }
 
 bool habana_helpers::alwaysAllocOnDevice() {
   static std::once_flag flag;
   static bool allocOnDevice;
-  std::call_once(flag, [&] () {
+  std::call_once(flag, [&]() {
     allocOnDevice = false;
     if (const auto envp = std::getenv("HABANA_USE_PERSISTENT_TENSOR")) {
       allocOnDevice = atoi(envp) == 1;
@@ -227,13 +226,18 @@ at::Tensor habana_helpers::nonPersistentTensor(
     const at::TensorOptions& options,
     at::optional<c10::MemoryFormat> optional_memory_format,
     at::optional<caffe2::TypeMeta> data_type) {
-  auto t = at::detail::make_tensor<habana_helpers::StorageLessWrapperTensorImpl>(input, data_type);
-  t.unsafeGetTensorImpl()->set_sizes_contiguous((size.size() == 0) ? input.sizes() : size);
+  auto t =
+      at::detail::make_tensor<habana_helpers::StorageLessWrapperTensorImpl>(
+          input, data_type);
+  t.unsafeGetTensorImpl()->set_sizes_contiguous(
+      (size.size() == 0) ? input.sizes() : size);
 
   if (optional_memory_format.has_value()) {
-    t.unsafeGetTensorImpl()->empty_tensor_restride(optional_memory_format.value_or(MemoryFormat::Contiguous));
+    t.unsafeGetTensorImpl()->empty_tensor_restride(
+        optional_memory_format.value_or(MemoryFormat::Contiguous));
   } else {
-    auto memory_format = input.options().memory_format_opt().value_or(MemoryFormat::Contiguous);
+    auto memory_format =
+        input.options().memory_format_opt().value_or(MemoryFormat::Contiguous);
     t.unsafeGetTensorImpl()->empty_tensor_restride(memory_format);
   }
 
@@ -248,12 +252,17 @@ at::Tensor habana_helpers::nonPersistentTensor(
     const at::TensorOptions& options,
     at::optional<c10::MemoryFormat> optional_memory_format,
     at::optional<caffe2::TypeMeta> data_type) {
-  auto t = at::detail::make_tensor<habana_helpers::StorageLessWrapperTensorImpl>(input, data_type);
-  t.unsafeGetTensorImpl()->set_sizes_and_strides((size.size() == 0) ? input.sizes() : size, strides);
+  auto t =
+      at::detail::make_tensor<habana_helpers::StorageLessWrapperTensorImpl>(
+          input, data_type);
+  t.unsafeGetTensorImpl()->set_sizes_and_strides(
+      (size.size() == 0) ? input.sizes() : size, strides);
   if (optional_memory_format.has_value()) {
-  t.unsafeGetTensorImpl()->empty_tensor_restride(optional_memory_format.value_or(MemoryFormat::Contiguous));
+    t.unsafeGetTensorImpl()->empty_tensor_restride(
+        optional_memory_format.value_or(MemoryFormat::Contiguous));
   } else {
-    auto memory_format = input.options().memory_format_opt().value_or(MemoryFormat::Contiguous);
+    auto memory_format =
+        input.options().memory_format_opt().value_or(MemoryFormat::Contiguous);
     t.unsafeGetTensorImpl()->empty_tensor_restride(memory_format);
   }
 
@@ -262,83 +271,77 @@ at::Tensor habana_helpers::nonPersistentTensor(
 }
 
 at::Tensor habana_helpers::createPTTensor(
-   const at::Tensor& input,
-   bool is_persistent) {
+    const at::Tensor& input,
+    bool is_persistent) {
   at::Tensor t;
 
   if (is_persistent || alwaysAllocOnDevice()) {
-    t = at::empty(input.sizes(),
-                  input.options(),
-                  input.suggest_memory_format());
+    t = at::empty(
+        input.sizes(), input.options(), input.suggest_memory_format());
   } else {
-    t = habana_helpers::nonPersistentTensor(input,
-                                            input.sizes(),
-                                            input.options(),
-                                            input.suggest_memory_format());
+    t = habana_helpers::nonPersistentTensor(
+        input, input.sizes(), input.options(), input.suggest_memory_format());
   }
 
   return t;
 }
 
 at::Tensor habana_helpers::createPTTensor(
-   const at::Tensor& input,
-   at::IntArrayRef size,
-   const at::TensorOptions& options,
-   bool is_persistent) {
+    const at::Tensor& input,
+    at::IntArrayRef size,
+    const at::TensorOptions& options,
+    bool is_persistent) {
   at::Tensor t;
   if (is_persistent || alwaysAllocOnDevice()) {
-    t = at::empty(size,
-                  options,
-                  input.suggest_memory_format());
+    t = at::empty(size, options, input.suggest_memory_format());
   } else {
-    t = habana_helpers::nonPersistentTensor(input,
-                                            size,
-                                            options,
-                                            input.suggest_memory_format());
+    t = habana_helpers::nonPersistentTensor(
+        input, size, options, input.suggest_memory_format());
   }
 
   return t;
 }
 
 at::Tensor habana_helpers::createPTTensor(
-   const at::Tensor& input,
-   at::IntArrayRef size,
-   const at::TensorOptions& options,
-   at::optional<c10::MemoryFormat> optional_memory_format,
-   bool is_persistent) {
+    const at::Tensor& input,
+    at::IntArrayRef size,
+    const at::TensorOptions& options,
+    at::optional<c10::MemoryFormat> optional_memory_format,
+    bool is_persistent) {
   at::Tensor t;
   if (is_persistent || alwaysAllocOnDevice()) {
-    t = at::empty(size,
-                  options,
-                  optional_memory_format.value_or(MemoryFormat::Contiguous));
+    t = at::empty(
+        size,
+        options,
+        optional_memory_format.value_or(MemoryFormat::Contiguous));
   } else {
-    t = habana_helpers::nonPersistentTensor(input,
-                                            size,
-                                            options,
-                                            optional_memory_format.value_or(MemoryFormat::Contiguous));
+    t = habana_helpers::nonPersistentTensor(
+        input,
+        size,
+        options,
+        optional_memory_format.value_or(MemoryFormat::Contiguous));
   }
 
   return t;
 }
 
 at::Tensor habana_helpers::createPTTensor(
-   const at::Tensor& input,
-   at::IntArrayRef size,
-   at::IntArrayRef strides,
-   const at::TensorOptions& options,
-   at::optional<c10::MemoryFormat> optional_memory_format,
-   bool is_persistent) {
+    const at::Tensor& input,
+    at::IntArrayRef size,
+    at::IntArrayRef strides,
+    const at::TensorOptions& options,
+    at::optional<c10::MemoryFormat> optional_memory_format,
+    bool is_persistent) {
   at::Tensor t;
   if (is_persistent || alwaysAllocOnDevice()) {
-    t = at::empty_strided(size,
-                          strides,
-                          options);
+    t = at::empty_strided(size, strides, options);
   } else {
-    t = habana_helpers::nonPersistentTensor(input,
-                                            size,
-                                            strides,
-                                            options,
-                                            optional_memory_format.value_or(MemoryFormat::Contiguous));
+    t = habana_helpers::nonPersistentTensor(
+        input,
+        size,
+        strides,
+        options,
+        optional_memory_format.value_or(MemoryFormat::Contiguous));
   }
 
   return t;
@@ -355,14 +358,69 @@ at::Tensor habana_helpers::createPTTensor(
   if (is_persistent || alwaysAllocOnDevice()) {
     t = at::empty(size, input.options().dtype(data_type));
   } else {
-    t = habana_helpers::nonPersistentTensor(input,
-                                            size,
-                                            options,
-                                            optional_memory_format.value_or(MemoryFormat::Contiguous),
-                                            scalarTypeToTypeMeta(data_type));
+    t = habana_helpers::nonPersistentTensor(
+        input,
+        size,
+        options,
+        optional_memory_format.value_or(MemoryFormat::Contiguous),
+        scalarTypeToTypeMeta(data_type));
   }
 
   return t;
+}
+
+/******************************************************************************
+ * @brief helper function for copying data from device to host
+ * @param[in] src - source tensor in device
+ * @param[in] size - transfer data size in bytes
+ * @param[out] dst_ptr - destination memory address in cpu
+ *****************************************************************************/
+void habana_helpers::copy_scalar_to_host(
+    const at::Tensor& src,
+    void* dst_ptr,
+    uint32_t size) {
+  std::atomic<bool> copyDone{false};
+
+  auto syn_error =
+      synapse_helpers::HPURegistrar::get_device(src.device().index())
+          .copy_data_to_host(
+              reinterpret_cast<synapse_helpers::device_ptr>(src.data_ptr()),
+              dst_ptr,
+              size,
+              [&copyDone]() { copyDone = true; });
+  TORCH_CHECK(syn_error.status == 0, syn_error.error);
+
+  // wait for copy completion
+  while (!copyDone) {
+    std::this_thread::yield();
+  }
+}
+
+/******************************************************************************
+ * @brief helper function for copying data from host to device
+ * @param[in] src_ptr - source memory address in cpu
+ * @param[in] size - transfer data size in bytes
+ * @param[out] dst - destination tensor in device
+ *****************************************************************************/
+void habana_helpers::copy_scalar_to_device(
+    void* src_ptr,
+    const at::Tensor& dst,
+    uint32_t size) {
+  std::atomic<bool> copyDone{false};
+
+  auto device_id = dst.device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  auto syn_error = device.copy_data_to_device(
+      src_ptr,
+      reinterpret_cast<synapse_helpers::device_ptr>(dst.data_ptr()),
+      size,
+      [&copyDone]() { copyDone = true; });
+  TORCH_CHECK(syn_error.status == 0, syn_error.error);
+
+  // wait for copy completion
+  while (!copyDone) {
+    std::this_thread::yield();
+  }
 }
 
 synapse_helpers::tensor habana_helpers::create_tensor(
@@ -545,22 +603,32 @@ std::vector<void*> habana_helpers::extract_data_ptrs(
  *****************************************************************************/
 void habana_helpers::copy_data_to_host(
     const at::Tensor& src,
-    void* dst_ptr,
-    uint32_t size) {
-  std::atomic<bool> copyDone{false};
+    const at::Tensor& dst,
+    bool non_blocking) {
+  const at::Tensor srcRef = src;
+  const at::Tensor dstRef = dst;
 
-  auto syn_error =
-      synapse_helpers::HPURegistrar::get_device(src.device().index())
-          .copy_data_to_host(
-              reinterpret_cast<synapse_helpers::device_ptr>(src.data_ptr()),
-              dst_ptr,
-              size,
-              [&copyDone]() { copyDone = true; });
-  TORCH_CHECK(syn_error.status == 0, syn_error.error);
-
-  // wait for copy completion
-  while (!copyDone) {
-    std::this_thread::yield();
+  size_t device_id = src.device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  if (non_blocking) {
+    auto syn_error = device.copy_data_to_host(
+        reinterpret_cast<synapse_helpers::device_ptr>(src.data_ptr()),
+        dst.data_ptr(),
+        src.nbytes(),
+        [srcRef, dstRef]() { return; });
+    TORCH_CHECK(syn_error.status == 0, syn_error.error);
+  } else {
+    std::atomic<bool> copyDone{false};
+    auto syn_error = device.copy_data_to_host(
+        reinterpret_cast<synapse_helpers::device_ptr>(src.data_ptr()),
+        dst.data_ptr(),
+        src.nbytes(),
+        [srcRef, dstRef, &copyDone]() { copyDone = true; });
+    TORCH_CHECK(syn_error.status == 0, syn_error.error);
+    // wait for copy completion
+    while (!copyDone) {
+      std::this_thread::yield();
+    }
   }
 }
 
@@ -571,23 +639,35 @@ void habana_helpers::copy_data_to_host(
  * @param[out] dst - destination tensor in device
  *****************************************************************************/
 void habana_helpers::copy_data_to_device(
-    void* src_ptr,
+    const at::Tensor& src,
     const at::Tensor& dst,
-    uint32_t size) {
+    bool non_blocking) {
   std::atomic<bool> copyDone{false};
 
+  const at::Tensor srcRef = src;
+  const at::Tensor dstRef = dst;
   auto device_id = dst.device().index();
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-  auto syn_error = device.copy_data_to_device(
-      src_ptr,
-      reinterpret_cast<synapse_helpers::device_ptr>(dst.data_ptr()),
-      size,
-      [&copyDone]() { copyDone = true; });
-  TORCH_CHECK(syn_error.status == 0, syn_error.error);
 
-  // wait for copy completion
-  while (!copyDone) {
-    std::this_thread::yield();
+  if (non_blocking) {
+    auto syn_error = device.copy_data_to_device(
+        src.data_ptr(),
+        reinterpret_cast<synapse_helpers::device_ptr>(dst.data_ptr()),
+        src.nbytes(),
+        [srcRef, dstRef]() { return; });
+    TORCH_CHECK(syn_error.status == 0, syn_error.error);
+  } else {
+    std::atomic<bool> copyDone{false};
+    auto syn_error = device.copy_data_to_device(
+        src.data_ptr(),
+        reinterpret_cast<synapse_helpers::device_ptr>(dst.data_ptr()),
+        src.nbytes(),
+        [srcRef, dstRef, &copyDone]() { copyDone = true; });
+    TORCH_CHECK(syn_error.status == 0, syn_error.error);
+    // wait for copy completion
+    while (!copyDone) {
+      std::this_thread::yield();
+    }
   }
 }
 
@@ -598,50 +678,59 @@ void habana_helpers::copy_data_to_device(
  *****************************************************************************/
 void habana_helpers::copy_data_within_device(
     const at::Tensor& src,
-    const at::Tensor& dst) {
-  std::atomic<bool> copyDone{false};
-
+    const at::Tensor& dst,
+    bool non_blocking) {
+  const at::Tensor srcRef = src;
+  const at::Tensor dstRef = dst;
   auto device_id = dst.device().index();
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-  auto syn_error = device.copy_data_within_device(
-      reinterpret_cast<synapse_helpers::device_ptr>(src.data_ptr()),
-      reinterpret_cast<synapse_helpers::device_ptr>(dst.data_ptr()),
-      src.nbytes(),
-      [&copyDone]() { copyDone = true; });
-  TORCH_CHECK(syn_error.status == 0, syn_error.error);
 
-  // wait for copy completion
-  while (!copyDone) {
-    std::this_thread::yield();
+  if (non_blocking) {
+    auto syn_error = device.copy_data_within_device(
+        reinterpret_cast<synapse_helpers::device_ptr>(src.data_ptr()),
+        reinterpret_cast<synapse_helpers::device_ptr>(dst.data_ptr()),
+        src.nbytes(),
+        [srcRef, dstRef]() { return; });
+    TORCH_CHECK(syn_error.status == 0, syn_error.error);
+  } else {
+    std::atomic<bool> copyDone{false};
+    auto syn_error = device.copy_data_within_device(
+        reinterpret_cast<synapse_helpers::device_ptr>(src.data_ptr()),
+        reinterpret_cast<synapse_helpers::device_ptr>(dst.data_ptr()),
+        src.nbytes(),
+        [srcRef, dstRef, &copyDone]() { copyDone = true; });
+    TORCH_CHECK(syn_error.status == 0, syn_error.error);
+    // wait for copy completion
+    while (!copyDone) {
+      std::this_thread::yield();
+    }
   }
 }
 
 void habana_helpers::change_tensor_strides(
-        at::Tensor* pt_output,
-        const at::Tensor* pt_input,
-        const at::IntArrayRef* pt_new_pos){
-
-    auto sizes = pt_input->sizes().vec();
-    auto new_pos = *pt_new_pos;
-    std::vector<long int> swapped_sizes = {sizes[new_pos[0]],
-                                           sizes[new_pos[1]],
-                                           sizes[new_pos[2]],
-                                           sizes[new_pos[3]]};
-    auto strides = pt_input->strides().vec();
-    std::vector<long int> swapped_strides = {strides[new_pos[0]],
-                                             strides[new_pos[1]],
-                                             strides[new_pos[2]],
-                                             strides[new_pos[3]]};
-    /* The following method of using 'alias' followed by
-     * set_sizes_and_strides is necessary to "dereference" pt_outputs[i]
-     * from pt_inputs[i] and create new copies of sizes and strides.
-     * Using unsafeGetTensorImpl directly on pt_outputs[i] will
-     * reference pt_inputs[i] itself because 'pt_output[i] = pt_input[i]'
-     * is a reference copy*/
-    *pt_output = at::alias(*pt_input);
-    pt_output->unsafeGetTensorImpl()->set_sizes_and_strides(
-        swapped_sizes, swapped_strides);
-
+    at::Tensor* pt_output,
+    const at::Tensor* pt_input,
+    const at::IntArrayRef* pt_new_pos) {
+  auto sizes = pt_input->sizes().vec();
+  auto new_pos = *pt_new_pos;
+  std::vector<long int> swapped_sizes = {sizes[new_pos[0]],
+                                         sizes[new_pos[1]],
+                                         sizes[new_pos[2]],
+                                         sizes[new_pos[3]]};
+  auto strides = pt_input->strides().vec();
+  std::vector<long int> swapped_strides = {strides[new_pos[0]],
+                                           strides[new_pos[1]],
+                                           strides[new_pos[2]],
+                                           strides[new_pos[3]]};
+  /* The following method of using 'alias' followed by
+   * set_sizes_and_strides is necessary to "dereference" pt_outputs[i]
+   * from pt_inputs[i] and create new copies of sizes and strides.
+   * Using unsafeGetTensorImpl directly on pt_outputs[i] will
+   * reference pt_inputs[i] itself because 'pt_output[i] = pt_input[i]'
+   * is a reference copy*/
+  *pt_output = at::alias(*pt_input);
+  pt_output->unsafeGetTensorImpl()->set_sizes_and_strides(
+      swapped_sizes, swapped_strides);
 }
 
 void habana_helpers::change_tensors_to_memory_format(

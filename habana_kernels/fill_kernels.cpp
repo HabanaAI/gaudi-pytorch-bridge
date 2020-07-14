@@ -25,7 +25,7 @@ void synapse_fill(const Tensor& output, const T val) {
   auto size = output.numel() * output.element_size();
   std::vector<T> buffer(size, val);
 
-  habana_helpers::copy_data_to_device(buffer.data(), output, size);
+  habana_helpers::copy_scalar_to_device(buffer.data(), output, size);
 }
 
 /**

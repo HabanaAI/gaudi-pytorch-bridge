@@ -20,6 +20,7 @@
 
 #include <synapse_api.h>
 #include "habana_helpers/logging.h"
+#include "synapse_helpers/env_utils.h"
 #include "synapse_helpers/session.h"
 #include "synapse_helpers/util.h"
 
@@ -38,6 +39,25 @@ constexpr std::size_t GLOBAL_WORKSPACE_SIZE = 5e9;
 
 std::weak_ptr<device> device::device_in_use;
 std::mutex device::device_mtx;
+
+void active_recipe_counter::increase() {
+  std::unique_lock<std::mutex> cond_lock(counter_mutex_);
+  ++counter_state_;
+}
+
+void active_recipe_counter::decrease_and_notify() {
+  std::unique_lock<std::mutex> cond_lock(counter_mutex_);
+  --counter_state_;
+  cv_.notify_all();
+}
+
+uint32_t active_recipe_counter::wait_for_next_decrease_call() {
+  std::unique_lock<std::mutex> cond_lock(counter_mutex_);
+  if (counter_state_ > 0) {
+    cv_.wait_for(cond_lock, std::chrono::seconds(1));
+  }
+  return counter_state_;
+}
 
 device::device(
     std::shared_ptr<session> synapse_session,
@@ -71,6 +91,10 @@ device::device(
                                                         : 0.7 * free_memory;
   workspace_buffer_ =
       reinterpret_cast<device_ptr>(allocator_->alloc(workspace_size_));
+  is_caching_enabled_ =
+      synapse_helpers::get_bool_env_var("PT_ENABLE_HABANA_CACHING", true);
+  is_stream_async_enabled_ =
+      synapse_helpers::get_bool_env_var("PT_ENABLE_HABANA_STREAMASYNC", true);
 }
 
 synapse_error_v<std::shared_ptr<device>> device::get_or_create(
@@ -223,9 +247,6 @@ void device::free(device_ptr ptr) {
   return allocator_->free(reinterpret_cast<void*>(ptr));
 }
 
-// Note:StreamSync is removed b/w Ops and compute stream sync happens
-// before any DMA operation. This can be changed or optimized further
-// when we manage the tensor and recipe liftime in the kernel
 synapse_error device::copy_data_to_device(
     void* cpu_data,
     device_ptr destination,
@@ -239,16 +260,7 @@ synapse_error device::copy_data_to_device(
       ", total_bytes=",
       total_bytes);
   synStatus status;
-  if ((synapse_helpers::IsStreamSyncOptEnabled())) {
-    PT_SYNHELPER_DEBUG("Sync on compute stream: ", stream_comp_);
-    status = synStreamSynchronize(stream_comp_);
-    if (synStatus::synSuccess != status) {
-      return synapse_error{"copy_data_to_device: Compute stream sync failed.",
-                           status};
-    }
-  }
 
-  sem_.enqueue_wait_event(destination, stream_h2d_);
   memory_mapper::acquired_entry res{};
   void* mapped_cpu_data = cpu_data;
 
@@ -313,14 +325,6 @@ synapse_error device::copy_data_to_host(
       total_bytes);
 
   synStatus status;
-  if ((synapse_helpers::IsStreamSyncOptEnabled())) {
-    PT_SYNHELPER_DEBUG("Sync on compute stream: ", stream_comp_);
-    status = synStreamSynchronize(stream_comp_);
-    if (synStatus::synSuccess != status) {
-      return synapse_error{"copy_data_to_host:Compute stream sync failed.",
-                           status};
-    }
-  }
   PT_SYNHELPER_DEBUG("Used stream handle: ", stream_d2h_);
   sem_.enqueue_wait_event(device_data, stream_d2h_);
 
@@ -374,14 +378,6 @@ synapse_error device::copy_data_within_device(
     size_t total_bytes,
     event_done_callback unref_cb) {
   synStatus status;
-  if ((synapse_helpers::IsStreamSyncOptEnabled())) {
-    PT_SYNHELPER_DEBUG("Sync on compute stream: ", stream_comp_);
-    status = synStreamSynchronize(stream_comp_);
-    if (synStatus::synSuccess != status) {
-      return synapse_error{
-          "copy_data_within_device-Compute stream sync failed.", status};
-    }
-  }
 
   sem_.enqueue_wait_event(source, stream_d2d_);
   status = synMemCopyAsync(
@@ -400,14 +396,6 @@ synapse_error device::copy_data_within_device(
     event_done_callback unref_cb,
     stream* const next_operation_stream) {
   synStatus status;
-  if ((synapse_helpers::IsStreamSyncOptEnabled())) {
-    PT_SYNHELPER_DEBUG("Sync on compute stream: ", stream_comp_);
-    status = synStreamSynchronize(stream_comp_);
-    if (synStatus::synSuccess != status) {
-      return synapse_error{
-          "copy_data_within_device:Compute stream sync failed.", status};
-    }
-  }
 
   std::vector<std::uint64_t> srcs(transfers.size());
   std::vector<std::uint64_t> dsts(transfers.size());

@@ -562,7 +562,7 @@ Tensor& erf_hpu_(Tensor& self) {
 
   Tensor self_copy =
       at::empty(self.sizes(), self.options(), self.suggest_memory_format());
-  habana_helpers::copy_data_within_device(self, self_copy);
+  habana_helpers::copy_data_within_device(self, self_copy, false);
 
   self.pow_(3.0).mul_(0.08943).add_(self_copy).mul_(M_2_SQRTPI).tanh_();
 
@@ -703,7 +703,7 @@ Tensor& exp_hpu_(Tensor& self) {
 
   auto self_copy =
       at::empty(self.sizes(), self.options(), self.suggest_memory_format());
-  habana_helpers::copy_data_within_device(self, self_copy);
+  habana_helpers::copy_data_within_device(self, self_copy, false);
 
   std::vector<at::Tensor> pt_outputs{self};
   std::vector<at::Tensor> pt_inputs{self_copy};

@@ -33,11 +33,6 @@ using namespace torch;
 // cpu->hpu and hpu->cpu copy implementation
 Tensor& copy_hpu_(Tensor& self, const Tensor& src, bool non_blocking) {
   PT_KERNEL_BEGIN;
-  if (non_blocking)
-    PT_KERNEL_WARN(
-        "non_blocking flag is not supported, copy_hpu_ is always blocking");
-  // TODO: (from torch code) this should be handled during dispatch, but that's
-  // missing...
   Tensor& dst = self;
   TORCH_CHECK(dst.defined(), "dst is undefined");
   TORCH_CHECK(src.defined(), "src is undefined");
@@ -48,12 +43,12 @@ Tensor& copy_hpu_(Tensor& self, const Tensor& src, bool non_blocking) {
   if (src_device == c10::DeviceType::CPU &&
       dst_device == c10::DeviceType::HABANA) {
     HABANA_ASSERT(dst.nbytes() == src.nbytes());
-    habana_helpers::copy_data_to_device(src.data_ptr(), dst, src.nbytes());
+    habana_helpers::copy_data_to_device(src, dst, non_blocking);
   } else if (
       src_device == c10::DeviceType::HABANA &&
       dst_device == c10::DeviceType::CPU) {
     HABANA_ASSERT(dst.nbytes() == src.nbytes());
-    habana_helpers::copy_data_to_host(src, dst.data_ptr(), src.nbytes());
+    habana_helpers::copy_data_to_host(src, dst, non_blocking);
   } else if (
       src_device == c10::DeviceType::HABANA &&
       dst_device == c10::DeviceType::HABANA) {
@@ -68,7 +63,7 @@ Tensor& copy_hpu_(Tensor& self, const Tensor& src, bool non_blocking) {
           src, at::scalarTypeToTypeMeta(c10::ScalarType::Float));
     } else {
       HABANA_ASSERT(dst.nbytes() == src.nbytes());
-      habana_helpers::copy_data_within_device(src, dst);
+      habana_helpers::copy_data_within_device(src, dst, non_blocking);
     }
   } else {
     PT_KERNEL_FATAL(

@@ -269,24 +269,18 @@ void RecipeValueSpec::d2h_dbuff(size_t buf_idx) {
         device_id, buf_size, 0, (void**)&(htensor_wbuffers->at(buf_idx)));
     TORCH_CHECK(status == synSuccess, "host-malloc failed");
   }
-  synEventHandle upldEvntDone;
-  synStreamHandle upStrmHdl = device.get_device_to_host_stream();
-  status = synEventCreate(&upldEvntDone, device_id, 0);
-  TORCH_CHECK(status == synSuccess, "create upldEvntDone failed");
 
-  status = synMemCopyAsync(
-      upStrmHdl,
+  std::atomic<bool> copyDone{false};
+  auto syn_error = device.copy_data_to_host(
       (uint64_t)dtensorinfos->at(buf_idx).buffer,
+      (void*)&htensor_wbuffers->at(buf_idx),
       buf_size,
-      -htensor_wbuffers->at(buf_idx),
-      DRAM_TO_HOST);
-  TORCH_CHECK(status == synSuccess, "synMemCopyAsync failed");
-
-  status = synEventRecord(upldEvntDone, upStrmHdl);
-  TORCH_CHECK(status == synSuccess, "register to signal on d2h copy done");
-
-  status = synStreamSynchronize(upStrmHdl);
-  TORCH_CHECK(status == synSuccess, "wait on completion of d2h copy");
+      [&copyDone]() { copyDone = true; });
+  TORCH_CHECK(syn_error.status == 0, syn_error.error);
+  // wait for copy completion
+  while (!copyDone) {
+    std::this_thread::yield();
+  }
 }
 
 std::ostream& operator<<(std::ostream& O, const RecipeCacheSimple& v) {
@@ -1109,8 +1103,8 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
           absl::holds_alternative<synapse_helpers::synapse_error>(
               error_variant))) {
     auto& error = absl::get<synapse_helpers::synapse_error>(error_variant);
-    PT_BRIDGE_FATAL("syn compile encountered : ", error.error, " ",
-              error.status);
+    PT_BRIDGE_FATAL(
+        "syn compile encountered : ", error.error, " ", error.status);
     TORCH_CHECK(false, "syn compile failed");
   }
 
@@ -1120,6 +1114,7 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
   ReorderInputs(rv);
 
   rv.num_inputs = input_tensorinfos.size();
+  rv.num_outputs = output_tensorinfos.size();
 
   rv.dtensorinfos =
       std::make_shared<std::vector<TensorInfo>>(input_tensorinfos);
@@ -1160,7 +1155,7 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
     DumpTensors_pre(rv);
   }
 
-  LaunchRecipe(rv);
+  LaunchRecipe(rv, input_refs);
 
   if (enable_tensor_dump_) {
     DumpTensors(rv);
@@ -1211,11 +1206,40 @@ bool HabanaLaunchOpPT::CompileSynapseGraph(
   return (synh_recipe != nullptr);
 }
 
-void HabanaLaunchOpPT::LaunchRecipe(RecipeValueSpec& rv) {
+void HabanaLaunchOpPT::LaunchRecipe(
+    RecipeValueSpec& rv,
+    at::ArrayRef<torch::jit::IValue> input_refs) {
   rv.SelfCheck();
 
   auto& device = synapse_helpers::HPURegistrar::get_device();
   auto& stream_handle = device.get_compute_stream();
+  std::vector<at::Tensor> ptRefs;
+  std::vector<synapse_helpers::device_ptr> outDevPtr;
+
+  if (device.IsStreamASyncEnabled()) {
+    // Get the reference to the tensor it is operating on to prevent
+    // it from being deallocated while the operation is still in flight.
+    std::vector<synapse_helpers::device_ptr> inDevPtr;
+    inDevPtr.reserve(rv.num_inputs);
+    for (auto& input : input_refs) {
+      if (input.isTensor()) {
+        at::Tensor tensor = input.toTensor();
+        ptRefs.push_back(std::move(tensor));
+        inDevPtr.push_back(
+            reinterpret_cast<uint64_t>(input.toTensor().data_ptr()));
+      }
+    }
+    // wait for input DMA to complete before launching the compute.
+    device.add_wait_events_on_stream(inDevPtr, stream_handle);
+    outDevPtr.reserve(rv.num_outputs);
+    for (auto& output : *rv.aten_outputs) {
+      if (output && output->isTensor()) {
+        outDevPtr.push_back(
+            reinterpret_cast<uint64_t>(output->toTensor().data_ptr()));
+      }
+    }
+  }
+
   std::vector<synLaunchTensorInfo> syn_launch_info;
 
   // Populate the <name,buffer> pairs from TensorInfo for synLaunch
@@ -1227,16 +1251,29 @@ void HabanaLaunchOpPT::LaunchRecipe(RecipeValueSpec& rv) {
   synapse_helpers::graph::launch_info ln_info(rv.recipe->device_);
   synapse_helpers::graph::create_launch_info(ln_info, *rv.recipe);
 
+  auto& recipe_counter = device.get_active_recipe_counter();
+  recipe_counter.increase();
   auto&& error_optional{
       synapse_helpers::graph::launch(ln_info, *rv.recipe, syn_launch_info)};
   if (ABSL_PREDICT_FALSE(error_optional.has_value())) {
+    recipe_counter.decrease_and_notify();
     auto& error = error_optional.value();
-    PT_BRIDGE_FATAL("syn launch encountered : ", error.error, " ",
-              error.status);
+    PT_BRIDGE_FATAL(
+        "syn launch encountered : ", error.error, " ", error.status);
     TORCH_CHECK(false, "syn launch failed");
   }
-  TORCH_HABANA_CHECK(
-      synStreamSynchronize(stream_handle), "synStreamSynchronize failed");
+
+  if (device.IsStreamASyncEnabled()) {
+    // regsiter an event on the compute
+    device.register_producer_on_stream(
+        std::move(outDevPtr), stream_handle, [ptRefs, rv, &recipe_counter]() {
+          recipe_counter.decrease_and_notify();
+          return;
+        });
+  } else {
+    TORCH_HABANA_CHECK(
+        synStreamSynchronize(stream_handle), "synStreamSynchronize failed");
+  }
 }
 
 void HabanaLaunchOpPT::UpdateOutputs() {
@@ -1343,7 +1380,7 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
         DumpTensors_pre(rv);
       }
 
-      LaunchRecipe(rv);
+      LaunchRecipe(rv, input_refs);
 
       if (enable_tensor_dump_) {
         DumpTensors(rv);

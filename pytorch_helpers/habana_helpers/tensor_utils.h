@@ -9,10 +9,10 @@
  */
 #pragma once
 
-#include <c10/util/ArrayRef.h>
-#include <c10/core/TensorOptions.h>
 #include <ATen/ATen.h>
 #include <c10/core/Allocator.h>
+#include <c10/core/TensorOptions.h>
+#include <c10/util/ArrayRef.h>
 
 #include <synapse_helpers/habana_tensor.h>
 #include <torch/script.h>
@@ -22,13 +22,13 @@
 
 namespace habana_helpers {
 struct StorageLessWrapperTensorImpl : public c10::TensorImpl {
-  explicit StorageLessWrapperTensorImpl(const at::Tensor& rep,
-                                        at::optional<caffe2::TypeMeta> data_type = c10::nullopt)
-    : TensorImpl(
-        c10::DispatchKeySet(c10::DispatchKey::HABANATensorId),
-        data_type.has_value() ? data_type.value() : rep.dtype(),
-        rep.device()
-      ){}
+  explicit StorageLessWrapperTensorImpl(
+      const at::Tensor& rep,
+      at::optional<caffe2::TypeMeta> data_type = c10::nullopt)
+      : TensorImpl(
+            c10::DispatchKeySet(c10::DispatchKey::HABANATensorId),
+            data_type.has_value() ? data_type.value() : rep.dtype(),
+            rep.device()) {}
 
   void release_resources() override {}
 
@@ -36,7 +36,7 @@ struct StorageLessWrapperTensorImpl : public c10::TensorImpl {
     return false;
   }
 
-  const at::Storage& storage() const override{
+  const at::Storage& storage() const override {
     TORCH_CHECK(0, "StorageLessWrapperTensorImpl tensors do not have storage");
   }
 };
@@ -71,22 +71,20 @@ at::Tensor nonPersistentTensor(
     at::optional<c10::MemoryFormat> optional_memory_format = c10::nullopt,
     at::optional<caffe2::TypeMeta> data_type = c10::nullopt);
 
-at::Tensor createPTTensor(
-   const at::Tensor& input,
-   bool is_persistent);
+at::Tensor createPTTensor(const at::Tensor& input, bool is_persistent);
 
 at::Tensor createPTTensor(
-   const at::Tensor& input,
-   at::IntArrayRef size,
-   const at::TensorOptions& options,
-   bool is_persistent);
+    const at::Tensor& input,
+    at::IntArrayRef size,
+    const at::TensorOptions& options,
+    bool is_persistent);
 
 at::Tensor createPTTensor(
-   const at::Tensor& input,
-   at::IntArrayRef size,
-   const at::TensorOptions& options,
-   at::optional<c10::MemoryFormat> optional_memory_format,
-   bool is_persistent);
+    const at::Tensor& input,
+    at::IntArrayRef size,
+    const at::TensorOptions& options,
+    at::optional<c10::MemoryFormat> optional_memory_format,
+    bool is_persistent);
 
 at::Tensor createPTTensor(
     const at::Tensor& input,
@@ -97,12 +95,12 @@ at::Tensor createPTTensor(
     bool is_persistent);
 
 at::Tensor createPTTensor(
-   const at::Tensor& input,
-   at::IntArrayRef size,
-   at::IntArrayRef strides,
-   const at::TensorOptions& options,
-   at::optional<c10::MemoryFormat> optional_memory_format,
-   bool is_persistent);
+    const at::Tensor& input,
+    at::IntArrayRef size,
+    at::IntArrayRef strides,
+    const at::TensorOptions& options,
+    at::optional<c10::MemoryFormat> optional_memory_format,
+    bool is_persistent);
 
 /*
 @brief This function can be used to create an intermediate
@@ -154,11 +152,23 @@ std::string name_suffix_from_type(const c10::ScalarType pt_type);
 
 at::Tensor to_cpu(const at::Tensor& hpu_tensor);
 
-void copy_data_to_host(const at::Tensor& src, void* dst_ptr, uint32_t size);
+void copy_data_to_host(
+    const at::Tensor& src,
+    const at::Tensor& dst,
+    bool non_blocking);
 
-void copy_data_to_device(void* src_ptr, const at::Tensor& dst, uint32_t size);
+void copy_data_to_device(
+    const at::Tensor& src,
+    const at::Tensor& dst,
+    bool non_blocking);
 
-void copy_data_within_device(const at::Tensor& src, const at::Tensor& dst);
+void copy_data_within_device(
+    const at::Tensor& src,
+    const at::Tensor& dst,
+    bool non_blocking);
+
+void copy_scalar_to_host(const at::Tensor& src, void* dst_ptr, uint32_t size);
+void copy_scalar_to_device(void* src_ptr, const at::Tensor& dst, uint32_t size);
 
 void change_tensors_to_memory_format(
     std::vector<at::Tensor*> pt_outputs,
@@ -167,9 +177,9 @@ void change_tensors_to_memory_format(
     c10::MemoryFormat memory_format);
 
 void change_tensor_strides(
-        at::Tensor* pt_output,
-        const at::Tensor* pt_input,
-        const at::IntArrayRef* pt_new_pos);
+    at::Tensor* pt_output,
+    const at::Tensor* pt_input,
+    const at::IntArrayRef* pt_new_pos);
 
 c10::MemoryFormat get_memory_format(std::vector<const at::Tensor*> pt_inputs);
 

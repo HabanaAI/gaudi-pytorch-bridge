@@ -38,6 +38,4 @@ class recipe_handle_cache {
   absl::flat_hash_map<size_t, std::shared_ptr<recipe>> cache_map_;
 };
 
-bool IsCachingEnabled();
-bool IsStreamSyncOptEnabled();
 } // namespace synapse_helpers

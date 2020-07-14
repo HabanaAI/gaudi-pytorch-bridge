@@ -28,7 +28,7 @@ class recipe {
   void set_inputs_outputs_names(
       std::vector<std::string> input_names,
       std::vector<std::string> output_names);
-  void launch(
+  bool launch(
       const std::vector<void*>& in_buffers,
       const std::vector<void*>& out_buffers);
   std::shared_ptr<synapse_helpers::graph::recipe_handle> getRecipeHandle();
@@ -39,6 +39,5 @@ class recipe {
   absl::optional<synapse_helpers::graph::launch_info> launch_info_;
   std::vector<std::string> input_names_;
   std::vector<std::string> output_names_;
-  uint64_t ref_count_ = 1;
 };
 } // namespace synapse_helpers

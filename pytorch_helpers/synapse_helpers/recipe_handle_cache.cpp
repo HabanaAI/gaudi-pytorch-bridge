@@ -9,7 +9,6 @@
  ******************************************************************************
  */
 #include "synapse_helpers/recipe_handle_cache.h"
-#include "synapse_helpers/env_utils.h"
 
 constexpr std::size_t MAX_CACHE_SIZE = 10000;
 
@@ -64,11 +63,4 @@ recipe_handle_cache::~recipe_handle_cache() {
   cache_map_.clear();
 }
 
-bool IsCachingEnabled() {
-  return synapse_helpers::get_bool_env_var("PT_ENABLE_HABANA_CACHING", true);
-}
-
-bool IsStreamSyncOptEnabled() {
-  return synapse_helpers::get_bool_env_var("PT_ENABLE_HABANA_STREAMSYNC", true);
-}
 } // namespace synapse_helpers

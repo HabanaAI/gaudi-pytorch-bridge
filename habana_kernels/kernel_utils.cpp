@@ -46,6 +46,15 @@ std::string habana_helpers::unique_recipe_name_generator(
   return recipe_name + std::to_string(map[recipe_name]++);
 }
 
+static std::vector<at::Tensor> getTensorRef(std::vector<at::Tensor>& pt) {
+  std::vector<at::Tensor> ptRefs;
+  ptRefs.reserve(pt.size());
+  for (auto& t : pt) {
+    ptRefs.push_back(std::move(t));
+  }
+  return ptRefs;
+}
+
 void habana_helpers::compile_and_run(
     synapse_helpers::graph&& graph,
     const std::vector<std::string>& input_names,
@@ -59,7 +68,7 @@ void habana_helpers::compile_and_run(
 
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
   std::shared_ptr<synapse_helpers::recipe> recipe = nullptr;
-  if (key > 0 && synapse_helpers::IsCachingEnabled()) {
+  if (key > 0 && device.IsCachingEnabled()) {
     recipe = device.get_recipe_handle_cache().get_recipe(key, graph);
   } else {
     recipe = std::make_shared<synapse_helpers::recipe>();
@@ -68,11 +77,54 @@ void habana_helpers::compile_and_run(
   AT_ASSERT(recipe != nullptr);
   if (recipe != nullptr) {
     auto& stream_handle = device.get_compute_stream();
-    recipe->create_launch_info();
-    recipe->set_inputs_outputs_names(input_names, output_names);
-    recipe->launch(input_buffers, output_buffers);
-    TORCH_HABANA_CHECK(
-        synStreamSynchronize(stream_handle), "synStreamSynchronize failed");
+    if (device.IsStreamASyncEnabled()) {
+      // Get the reference to the tensor it is operating on to prevent
+      // it from being deallocated while the operation is still in flight.
+      std::vector<at::Tensor> ptRefs = getTensorRef(pt_inputs);
+      std::vector<synapse_helpers::device_ptr> inDevPtr;
+      inDevPtr.reserve(input_buffers.size());
+      std::transform(
+          input_buffers.begin(),
+          input_buffers.end(),
+          std::back_inserter(inDevPtr),
+          [](void* t) {
+            return reinterpret_cast<synapse_helpers::device_ptr>(t);
+          });
+      // wait for input DMA to complete before launching the compute.
+      device.add_wait_events_on_stream(inDevPtr, stream_handle);
+      std::vector<synapse_helpers::device_ptr> outDevPtr;
+      outDevPtr.reserve(output_buffers.size());
+      std::transform(
+          output_buffers.begin(),
+          output_buffers.end(),
+          std::back_inserter(outDevPtr),
+          [](void* t) {
+            return reinterpret_cast<synapse_helpers::device_ptr>(t);
+          });
+      recipe->create_launch_info();
+      recipe->set_inputs_outputs_names(input_names, output_names);
+      auto& recipe_counter = device.get_active_recipe_counter();
+      recipe_counter.increase();
+      bool status = recipe->launch(input_buffers, output_buffers);
+      if (!status) {
+        recipe_counter.decrease_and_notify();
+        TORCH_CHECK(false, "syn launch failed");
+      }
+      // regsiter an event on the compute
+      device.register_producer_on_stream(
+          std::move(outDevPtr),
+          stream_handle,
+          [ptRefs, recipe, &recipe_counter]() {
+            recipe_counter.decrease_and_notify();
+            return;
+          });
+    } else {
+      recipe->create_launch_info();
+      recipe->set_inputs_outputs_names(input_names, output_names);
+      recipe->launch(input_buffers, output_buffers);
+      TORCH_HABANA_CHECK(
+          synStreamSynchronize(stream_handle), "synStreamSynchronize failed");
+    }
   }
 }
 
@@ -87,8 +139,48 @@ void habana_helpers::execute_recipe(
   AT_ASSERT(g_recipe != nullptr);
   if (g_recipe != nullptr) {
     auto& stream_handle = device.get_compute_stream();
-    g_recipe->launch(input_buffers, output_buffers);
-    if (!(synapse_helpers::IsStreamSyncOptEnabled())) {
+    if (device.IsStreamASyncEnabled()) {
+      // Get the reference to the tensor it is operating on to prevent
+      // it from being deallocated while the operation is still in flight.
+      std::vector<at::Tensor> ptRefs = getTensorRef(pt_inputs);
+      auto& stream_handle = device.get_compute_stream();
+      std::vector<synapse_helpers::device_ptr> inDevPtr;
+      inDevPtr.reserve(input_buffers.size());
+      std::transform(
+          input_buffers.begin(),
+          input_buffers.end(),
+          std::back_inserter(inDevPtr),
+          [](void* t) {
+            return reinterpret_cast<synapse_helpers::device_ptr>(t);
+          });
+      // to make sure DMA are done, Wait on the input address.
+      device.add_wait_events_on_stream(inDevPtr, stream_handle);
+      std::vector<synapse_helpers::device_ptr> outDevPtr;
+      outDevPtr.reserve(output_buffers.size());
+      std::transform(
+          output_buffers.begin(),
+          output_buffers.end(),
+          std::back_inserter(outDevPtr),
+          [](void* t) {
+            return reinterpret_cast<synapse_helpers::device_ptr>(t);
+          });
+      auto& recipe_counter = device.get_active_recipe_counter();
+      recipe_counter.increase();
+      bool status = g_recipe->launch(input_buffers, output_buffers);
+      if (!status) {
+        recipe_counter.decrease_and_notify();
+        TORCH_CHECK(false, "syn launch failed");
+      }
+      // regsiter an event on the compute
+      device.register_producer_on_stream(
+          std::move(outDevPtr),
+          stream_handle,
+          [ptRefs, g_recipe, &recipe_counter]() {
+            recipe_counter.decrease_and_notify();
+            return;
+          });
+    } else {
+      g_recipe->launch(input_buffers, output_buffers);
       TORCH_HABANA_CHECK(
           synStreamSynchronize(stream_handle), "synStreamSynchronize failed");
     }

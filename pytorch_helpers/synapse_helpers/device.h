@@ -58,6 +58,18 @@ class device_id {
   synDeviceId id_;
 };
 
+class active_recipe_counter {
+ public:
+  void increase();
+  void decrease_and_notify();
+  uint32_t wait_for_next_decrease_call();
+
+ private:
+  uint32_t counter_state_{0};
+  std::condition_variable cv_;
+  std::mutex counter_mutex_;
+};
+
 class device {
  public:
   struct transfer_desc {
@@ -213,6 +225,18 @@ class device {
     return recipe_handle_cache_;
   }
 
+  bool IsCachingEnabled() {
+    return is_caching_enabled_;
+  }
+
+  bool IsStreamASyncEnabled() {
+    return is_stream_async_enabled_;
+  }
+
+  active_recipe_counter& get_active_recipe_counter() {
+    return recipe_counter_;
+  }
+
  private:
   friend class stream;
   static synapse_error_v<std::shared_ptr<device>> create(
@@ -249,6 +273,9 @@ class device {
   stream stream_d2h_;
   stream_event_manager sem_;
   recipe_handle_cache recipe_handle_cache_;
+  bool is_caching_enabled_;
+  bool is_stream_async_enabled_;
+  active_recipe_counter recipe_counter_;
 
   // Empty be default, framework can register its function to be called before
   // device is released

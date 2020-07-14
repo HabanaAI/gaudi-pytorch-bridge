@@ -50,6 +50,34 @@ void HPUAllocator::release() {
   PT_DEVICE_WARN("HPUAllocator::release should not be invoked.");
 }
 
+static void waitTillRecipeExecution(
+    synDeviceId device_id,
+    size_t num_bytes,
+    void*& v_ptr) {
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  // Allocation has failed, if there are still recipies in queue to execute,
+  // there is a chance to recover. Wait for next recipe to finish and try to
+  // allocate again, continue until malloc succeeds, or there are no more
+  // recipes executing (unrecoverable case).
+  auto& recipe_counter = device.get_active_recipe_counter();
+  uint32_t counter_state{0};
+  do {
+    uint64_t ptr{0};
+    counter_state = recipe_counter.wait_for_next_decrease_call();
+    PT_DEVICE_DEBUG(
+        "retrying to memory alloc, Waiting for recipes to finish execution recipe count:",
+        counter_state,
+        "requested size",
+        num_bytes);
+    auto status = synDeviceMalloc(device_id, num_bytes, 0, 0, &ptr);
+    if (!status)
+      v_ptr = reinterpret_cast<void*>(ptr);
+    // It is not guaranted that device will have more memory avaliable at exit
+    // point, since framework might called multiple new allocations from other
+    // threads, or wakeup might be spurious.
+  } while (counter_state > 0 && v_ptr == nullptr);
+}
+
 void* HPUAllocator::alloc(size_t num_bytes) {
   if (num_bytes == 0) {
     return nullptr;
@@ -57,10 +85,16 @@ void* HPUAllocator::alloc(size_t num_bytes) {
 
   uint64_t ptr{0};
   auto status{synDeviceMalloc(device_id, num_bytes, 0, 0, &ptr)};
-  TORCH_HABANA_CHECK(
-      status, "synDeviceMalloc failed to allocate ", num_bytes, " bytes");
-
   void* v_ptr = reinterpret_cast<void*>(ptr);
+
+  if (v_ptr == nullptr) {
+    waitTillRecipeExecution(device_id, num_bytes, v_ptr);
+    if (v_ptr == nullptr) {
+      TORCH_HABANA_CHECK(
+          status, "synDeviceMalloc failed to allocate ", num_bytes, " bytes");
+    }
+  }
+
   return v_ptr;
 }
 
@@ -92,6 +126,8 @@ void HPUDeviceAllocator::deleter(void* ptr) {
 at::DataPtr HPUDeviceAllocator::allocate(size_t size) const {
   size_t num_bytes = size;
   uint64_t ptr{0};
+  void* v_ptr = nullptr;
+
   if (num_bytes != 0) {
     TORCH_CHECK(
         habana::HPUDeviceAllocator::allocator_active_device_id == 0,
@@ -100,11 +136,17 @@ at::DataPtr HPUDeviceAllocator::allocate(size_t size) const {
         " != 0");
     auto status{
         synDeviceMalloc(allocator_active_device_id, num_bytes, 0, 0, &ptr)};
-    TORCH_HABANA_CHECK(
-        status, "synDeviceMalloc failed to allocate ", num_bytes, " bytes");
+    v_ptr = reinterpret_cast<void*>(ptr);
+
+    if (v_ptr == nullptr) {
+      waitTillRecipeExecution(allocator_active_device_id, num_bytes, v_ptr);
+      if (v_ptr == nullptr) {
+        TORCH_HABANA_CHECK(
+            status, "synDeviceMalloc failed to allocate ", num_bytes, " bytes");
+      }
+    }
   }
 
-  void* v_ptr = reinterpret_cast<void*>(ptr);
   TORCH_CHECK(
       habana::HPUDeviceAllocator::allocator_active_device_id == 0,
       "habana active device: ",
@@ -133,8 +175,9 @@ HPURegistrar& HPURegistrar::get_hpu_registrar() {
 } // namespace synapse_helpers
 
 void print_live_allocations() {
-  std::cout << "\nNo log for device memory allocation is collected. Use the following commands "
-               "to enable allocation tracking and reporting with hb_torch.memstat_livealloc() - \n"
-               "HBN_SYNAPSE_LOGGER_COMMANDS=log_device_alloc "
-               "LD_PRELOAD=$BUILD_ROOT_LATEST/pytorch_synapse_logger.so a.out...\n\n";
+  std::cout
+      << "\nNo log for device memory allocation is collected. Use the following commands "
+         "to enable allocation tracking and reporting with hb_torch.memstat_livealloc() - \n"
+         "HBN_SYNAPSE_LOGGER_COMMANDS=log_device_alloc "
+         "LD_PRELOAD=$BUILD_ROOT_LATEST/pytorch_synapse_logger.so a.out...\n\n";
 }

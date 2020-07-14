@@ -33,7 +33,7 @@ Scalar _local_scalar_dense_hpu(const Tensor& self) {
       "_local_scalar_dense_hpu",
       [&] {
         scalar_t val;
-        habana_helpers::copy_data_to_host(self, &val, sizeof(self.dtype()));
+        habana_helpers::copy_scalar_to_host(self, &val, sizeof(self.dtype()));
         r = Scalar(val);
       });
 
