@@ -178,14 +178,26 @@ Tensor embedding_bag_bwd_hpu(
   return momentum_out;
 }
 
-/** @brief Function implementing torch.nn.functional.pad(input, pad,
- * mode='constant', value=0)
- *  @param self N-dimensional input tensor
- *  @param pad m-elements tuple, where m/2 ≤ input dimensions and m is even
- *  @param value fill value for "constant" padding
- */
-Tensor constant_pad_hpu(const Tensor& self, IntArrayRef pad, Scalar value) {
-  PT_KERNEL_BEGIN;
+void PadOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 3,
+      "Incorrect size of inputs expected for PadOperator Operator");
+  TORCH_CHECK(
+      inputs[0].isTensor(),
+      "Input arg1 expected to be Tensor for PadOperator Operator");
+  TORCH_CHECK(
+      inputs[1].isIntList(),
+      "Input arg2 expected to be IntList for PadOperator Operator");
+  TORCH_CHECK(
+      inputs[2].isScalar(),
+      "Input arg3 expected to be Scalar for PadOperator Operator");
+
+  auto self = inputs[0].toTensor();
+  auto pad = inputs[1].toIntList().vec();
+  auto value = inputs[2].toScalar();
 
   auto ndim = self.dim();
   auto lpad = pad.size() / 2;
@@ -230,20 +242,45 @@ Tensor constant_pad_hpu(const Tensor& self, IntArrayRef pad, Scalar value) {
   }
 
   auto output = at::empty(shape, self.options());
+  AllocateSynapseOutput(graph, output, is_output_persistent);
+  AddNodeToSynapseGraph(graph, &param, sizeof(param));
+}
 
-  std::vector<const at::Tensor*> pt_outputs{&output};
+/** @brief Function implementing torch.nn.functional.pad(input, pad,
+ * mode='constant', value=0)
+ *  @param self N-dimensional input tensor
+ *  @param pad m-elements tuple, where m/2 ≤ input dimensions and m is even
+ *  @param value fill value for "constant" padding
+ */
+Tensor constant_pad_hpu(const Tensor& self, IntArrayRef pad, Scalar value) {
+  PT_KERNEL_BEGIN;
+
+  at::ScalarType scalar_type = self.scalar_type();
+  std::string node_type =
+      "pad_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+
+  size_t device_id = self.device().index();
+
+  PadOperator Op(device_id, scalar_type);
+  // Create Graph
+  auto graph = habana_helpers::create_graph(device_id, node_type);
+
+  // Assign Inputs to the Operator
   std::vector<const at::Tensor*> pt_inputs{&self};
+  Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
-  synapse_simple_generic_kernel(
-      pt_outputs,
-      pt_inputs,
-      "pad",
-      &param,
-      sizeof(param),
-      SynapsePassType::FORWARD_PASS);
+  // Build Params for the graph
+  std::vector<c10::IValue> stack = {IValue(self), IValue(pad), IValue(value)};
+  Op.AllocateAndAddSynapseNode(graph, stack, true);
+
+  // compile and execute the graph
+  Op.Compile(graph);
+
+  std::vector<at::Tensor> out = Op.GetOutputs();
+  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
 
   PT_KERNEL_END;
-  return output;
+  return out.at(0);
 }
 
 /** @brief simple lookup table that looks up embeddings in a fixed dictionary

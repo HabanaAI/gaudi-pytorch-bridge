@@ -10,6 +10,7 @@
 #include "habana_kernels/tensor_shape_kernels.h"
 #include "habana_kernels/binary_kernels.h"
 #include "habana_kernels/conv_kernels.h"
+#include "habana_kernels/embedding_kernels.h"
 #include "habana_kernels/habana_operator.h"
 #include "habana_kernels/linear_kernels.h"
 #include "habana_kernels/pool_kernels.h"
@@ -59,6 +60,8 @@ HabanaOperatorPtr CreateHabanaOperator(
     op = std::make_shared<AddOperator>(device_id, node_type);
   } else if ("aten::addmm" == node_name) {
     op = std::make_shared<AddmmOperator>(device_id, node_type);
+  } else if ("aten::pad" == node_name) {
+    op = std::make_shared<PadOperator>(device_id, node_type);
   }
 
   // Returning a null pointer for cases not added yet,
