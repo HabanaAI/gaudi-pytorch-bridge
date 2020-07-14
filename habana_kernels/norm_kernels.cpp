@@ -21,6 +21,8 @@
 #include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/resize.h"
 #include "habana_kernels/simple_generic_kernel.h"
+#include "habana_kernels/tensor_shape_kernels.h"
+#include "habana_kernels/unary_kernels.h"
 #include "norm_kernels.h"
 
 using namespace torch;
@@ -670,6 +672,124 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_hpu(
       std::move(output_reshaped), std::move(mean), std::move(istd));
 }
 
+void NormOperator::SetPTOutputs(torch::jit::Stack& inputs) {
+  TORCH_CHECK(
+      inputs.size() == 2,
+      "Incorrect size of inputs expected for Norm Operator");
+  TORCH_CHECK(
+      inputs[0].isTensor(),
+      "Input arg1 expected to be Tensor for Norm Operator");
+  TORCH_CHECK(
+      inputs[1].isScalar(),
+      "Input arg2 expected to be Scalar for Norm Operator");
+
+  auto self = inputs[0].toTensor();
+  int64_t data[1];
+  data[0] = self.numel();
+  c10::IntArrayRef shape(data, 1);
+
+  auto output = at::empty(shape.vec(), self.options(), c10::nullopt);
+  HabanaOperator::SetPTOutput(output);
+}
+void NormOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 2,
+      "Incorrect size of inputs expected for Norm Operator");
+  TORCH_CHECK(
+      inputs[0].isTensor(),
+      "Input arg1 expected to be Tensor for Norm Operator");
+  TORCH_CHECK(
+      inputs[1].isScalar(),
+      "Input arg2 expected to be Scalar for Norm Operator");
+
+  auto self = inputs[0].toTensor();
+  auto p = inputs[1].toScalar();
+
+  // ReShape Operator
+  at::ScalarType scalar_type = self.scalar_type();
+
+  int64_t data[1];
+  data[0] = self.numel();
+  c10::IntArrayRef shape(data, 1);
+
+  // Create the operator
+  ReshapeOperator ReShapeOp(this->p_context_->device_id_, scalar_type);
+  auto& reShape_syn =
+      ReShapeOp.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+
+  // Build Params for the graph
+  std::vector<c10::IValue> stack{IValue(self), IValue(shape)};
+  ReShapeOp.AllocateAndAddSynapseNode(graph, stack, false);
+
+  synapse_helpers::tensor& reshape_syn_tensor = ReShapeOp.GetSynOutputs()[0];
+  auto output_reshape = ReShapeOp.GetOutputs()[0];
+  p_context_->syn_inputs_[0] = std::move(reShape_syn);
+  stack.clear();
+
+  // LpNorm Operator
+  // Create the operator
+  LpNormOperator LpNormOp(this->p_context_->device_id_, scalar_type);
+  LpNormOp.SetSynapseInput(std::move(reshape_syn_tensor));
+
+  // Build Params for the graph
+  stack.emplace_back(IValue(output_reshape));
+  stack.emplace_back(IValue(p));
+  LpNormOp.AllocateAndAddSynapseNode(graph, stack, false);
+
+  synapse_helpers::tensor& norm_syn_tensor = LpNormOp.GetSynOutputs()[1];
+  auto output_norm = LpNormOp.GetOutputs()[1];
+  stack.clear();
+
+  // Reciprocal Operator
+  // Create the operator
+  ReciprocalOperator reciprocalOp(this->p_context_->device_id_, scalar_type);
+  reciprocalOp.SetSynapseInput(std::move(norm_syn_tensor));
+
+  // Build Params for the graph
+  stack.emplace_back(IValue(output_norm));
+  reciprocalOp.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+
+  synapse_helpers::tensor& reciprocal_syn_tensor =
+      reciprocalOp.GetSynOutputs()[0];
+  p_context_->syn_outputs_.emplace_back(std::move(reciprocal_syn_tensor));
+  p_context_->pt_outputs_.emplace_back(reciprocalOp.GetOutputs()[0]);
+}
+
+void LpNormOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 2,
+      "Incorrect size of inputs expected for LpNorm Operator");
+  TORCH_CHECK(
+      inputs[0].isTensor(),
+      "Input arg1 expected to be Tensor for LpNorm Operator");
+  TORCH_CHECK(
+      inputs[1].isScalar(),
+      "Input arg2 expected to be Scalar for LpNorm Operator");
+
+  auto self = inputs[0].toTensor();
+  auto p = inputs[1].toScalar();
+
+  TORCH_CHECK(p.toFloat() > 0.0, "norm with p > 0.0 is only supported");
+
+  auto output = at::empty(self.sizes(), self.options(), self.suggest_memory_format());
+  auto retain = at::empty(self.sizes(), self.options(), self.suggest_memory_format());
+
+  ns_LpNormKernel::Params params{};
+  params.p = p.to<float>();
+  params.dim = 0;
+  params.eps = 1e-5;
+
+  std::vector<at::Tensor> outputs{output, retain};
+  AllocateSynapseOutputs(graph, outputs, is_output_persistent);
+  AddNodeToSynapseGraph(graph, &params, sizeof(params));
+}
+
 /*************************************************************************
  * @brief Kernel implementation for LP Norm (Frobenius norm) kernel
           output = torch.norm(self, p=2)
@@ -680,35 +800,43 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_hpu(
 Tensor norm_scalar_hpu(const Tensor& self, Scalar p) {
   PT_KERNEL_BEGIN;
 
-  TORCH_CHECK(p.toFloat() > 0.0, "norm with p > 0.0 is only supported");
+  at::ScalarType scalar_type = self.scalar_type();
+  std::string node_type =
+      "lpnorm_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
 
-  auto self_hpu = self.view(-1);
-  auto output = at::empty(self_hpu.sizes(), self.options(), self.suggest_memory_format());
-  auto retain = at::empty(self_hpu.sizes(), self.options(), self.suggest_memory_format());
+  size_t device_id = self.device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
 
-  ns_LpNormKernel::Params params{};
-  params.p = p.to<float>();
-  params.dim = 0;
-  params.eps = 1e-5;
+  NormOperator Op(device_id, scalar_type);
 
-  std::vector<const at::Tensor*> pt_inputs{&self_hpu};
-  std::vector<const at::Tensor*> pt_outputs{&output, &retain};
+  // Build Params for the graph
+  std::vector<c10::IValue> stack = {IValue(self), IValue(p)};
+  size_t key = Op.GetRecipeKey(node_type, stack);
 
-  synapse_simple_generic_kernel(
-      pt_outputs,
-      pt_inputs,
-      "lpnorm",
-      &params,
-      sizeof(params),
-      SynapsePassType::FORWARD_PASS);
+  // Assign Inputs to the Operator
+  std::vector<const at::Tensor*> pt_inputs{&self};
 
-  at::reciprocal_(retain);
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    Op.SetPTInputs(pt_inputs);
+    Op.SetPTOutputs(stack);
+    Op.Execute(key);
+  } else {
+    PT_KERNEL_DEBUG("Key:", key);
+    // Create Graph
+    auto graph = habana_helpers::create_graph(device_id, node_type);
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
+    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    // compile and execute the graph
+    Op.Compile(graph);
+  }
 
-  // PT expects 0-D
-  retain.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+  std::vector<at::Tensor> out = Op.GetOutputs();
+  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
+  out.at(0).unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
 
   PT_KERNEL_END;
-  return retain;
+  return out.at(0);
 }
 
 static auto registry =

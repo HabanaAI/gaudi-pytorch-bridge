@@ -14,6 +14,7 @@
 #include "habana_kernels/embedding_kernels.h"
 #include "habana_kernels/habana_operator.h"
 #include "habana_kernels/linear_kernels.h"
+#include "habana_kernels/norm_kernels.h"
 #include "habana_kernels/pool_kernels.h"
 #include "habana_kernels/random_gen_kernels.h"
 #include "habana_kernels/softmax_kernels.h"
@@ -91,6 +92,10 @@ HabanaOperatorPtr CreateHabanaOperator(
     op = std::make_shared<GtOperator>(device_id, node_type);
   } else if ("aten::neg" == node_name) {
     op = std::make_shared<NegOperator>(device_id, node_type);
+  } else if ("aten::norm.scalar" == node_name) {
+    op = std::make_shared<NormOperator>(device_id, node_type);
+  } else if ("aten::reciprocal" == node_name) {
+    op = std::make_shared<ReciprocalOperator>(device_id, node_type);
   }
   // Returning a null pointer for cases not added yet,
   // we can add assert once all kernels are added

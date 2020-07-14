@@ -147,3 +147,36 @@ class NegOperator : public UnaryOperator {
             device_id,
             "neg_fwd_" + habana_helpers::name_suffix_from_type(scalarType)){};
 };
+//
+// ReciprocalOut Operator
+class ReciprocalOutOperator : public HabanaOperator {
+ public:
+  ReciprocalOutOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator(
+            "reciprocal_fwd_" +
+            habana_helpers::name_suffix_from_type(scalarType)) {
+    this->CreateSynContext(device_id);
+    kernel_meta_data_.input_layout.assign(
+        {LayoutFormat::ANY, LayoutFormat::ANY});
+    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
+  }
+
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+};
+
+//
+// Reciprocal Operator
+class ReciprocalOperator : public ReciprocalOutOperator {
+ public:
+  ReciprocalOperator(int device_id, c10::ScalarType scalarType)
+      : ReciprocalOutOperator(device_id, scalarType) {
+    kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
+  }
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+};

@@ -485,6 +485,25 @@ Tensor& reciprocal_hpu_(Tensor& self) {
   return self;
 }
 
+void ReciprocalOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 1,
+      "Incorrect size of inputs expected for Reciprocal operator");
+  TORCH_CHECK(
+      inputs[0].isTensor(),
+      "Input arg1 expected to be tensor for Reciprocal operator");
+
+  auto self = inputs[0].toTensor();
+  auto result = at::empty(self.sizes(), self.options(), self.suggest_memory_format());
+  inputs.insert(inputs.begin(), IValue(result));
+
+  ReciprocalOutOperator::AllocateAndAddSynapseNode(
+      graph, inputs, is_output_persistent);
+}
+
 /*************************************************************************
  * @brief Kernel implementation for output = torch.reciprocal(self)
  * @param [out] output - output tensor, 1-4D, BF16/FP32
@@ -493,20 +512,69 @@ Tensor& reciprocal_hpu_(Tensor& self) {
 Tensor reciprocal_hpu(const Tensor& self) {
   PT_KERNEL_BEGIN;
 
-  auto output = at::empty(self.sizes(), self.options(), self.suggest_memory_format());
-  std::vector<const at::Tensor*> pt_outputs{&output};
+  at::ScalarType scalar_type = self.scalar_type();
+  std::string node_type =
+      "reciprocal_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+
+  size_t device_id = self.device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+
+  // create the operator
+  ReciprocalOperator Op(device_id, scalar_type);
+
+  // Build Params for the graph
+  std::vector<c10::IValue> stack = {IValue(self)};
+  size_t key = Op.GetRecipeKey(node_type, stack);
+
+  // Assign Inputs to the Operator
   std::vector<const at::Tensor*> pt_inputs{&self};
 
-  synapse_simple_generic_kernel(
-      pt_outputs,
-      pt_inputs,
-      "reciprocal",
-      nullptr,
-      0,
-      SynapsePassType::FORWARD_PASS);
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    auto result = at::empty(self.sizes(), self.options(), self.suggest_memory_format());
+    Op.SetPTInputs(pt_inputs);
+    Op.SetPTOutput(result);
+    Op.Execute(key);
+  } else {
+    PT_KERNEL_DEBUG("Key:", key);
+    // Create Graph
+    auto graph = habana_helpers::create_graph(device_id, node_type);
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
+    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    // compile and execute the graph
+    Op.Compile(graph);
+  }
+
+  std::vector<at::Tensor> out = Op.GetOutputs();
+  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
 
   PT_KERNEL_END;
-  return output;
+  return out.at(0);
+}
+
+void ReciprocalOutOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 2,
+      "Incorrect size of inputs expected for ReciprocalOut operator");
+  TORCH_CHECK(
+      inputs[0].isTensor(),
+      "Input arg1 expected to be tensor for ReciprocalOut operator");
+  TORCH_CHECK(
+      inputs[1].isTensor(),
+      "Input arg2 expected to be tensor for ReciprocalOut operator");
+
+  auto result = inputs[0].toTensor();
+  auto self = inputs[1].toTensor();
+
+  auto shape = DimVector(self.sizes());
+  auto tht_result = result.unsafeGetTensorImpl();
+  THHTensor_resizeNd(tht_result, shape.size(), shape.data(), nullptr);
+
+  AllocateSynapseOutput(graph, result, is_output_persistent);
+  AddNodeToSynapseGraph(graph, nullptr, 0);
 }
 
 /*************************************************************************
@@ -517,24 +585,42 @@ Tensor reciprocal_hpu(const Tensor& self) {
 Tensor& reciprocal_out_hpu(Tensor& result, const Tensor& self) {
   PT_KERNEL_BEGIN;
 
-  // Resize result to correct size (if required)
-  auto shape = DimVector(self.sizes());
-  auto tht_result = result.unsafeGetTensorImpl();
-  THHTensor_resizeNd(tht_result, shape.size(), shape.data(), nullptr);
+  at::ScalarType scalar_type = self.scalar_type();
+  std::string node_type =
+      "reciprocal_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
 
-  std::vector<const at::Tensor*> pt_outputs{&result};
+  size_t device_id = self.device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+
+  ReciprocalOutOperator Op(device_id, scalar_type);
+
+  // Build Params for the graph
+  std::vector<c10::IValue> stack = {IValue(result), IValue(self)};
+  size_t key = Op.GetRecipeKey(node_type, stack);
+
+  // Assign Inputs to the Operator
   std::vector<const at::Tensor*> pt_inputs{&self};
 
-  synapse_simple_generic_kernel(
-      pt_outputs,
-      pt_inputs,
-      "reciprocal",
-      nullptr,
-      0,
-      SynapsePassType::FORWARD_PASS);
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    Op.SetPTInputs(pt_inputs);
+    Op.SetPTOutput(result);
+    Op.Execute(key);
+  } else {
+    PT_KERNEL_DEBUG("Key:", key);
+    // Create Graph
+    auto graph = habana_helpers::create_graph(device_id, node_type);
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
+    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    // compile and execute the graph
+    Op.Compile(graph);
+  }
+
+  std::vector<at::Tensor> out = Op.GetOutputs();
+  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
 
   PT_KERNEL_END;
-  return result;
+  return out.at(0);
 }
 
 void ClampOperator::AllocateAndAddSynapseNode(

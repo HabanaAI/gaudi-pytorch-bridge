@@ -81,3 +81,40 @@ class BatchNormBackwardOperator : public habana::HabanaOperator {
   c10::ScalarType scalarType_;
   std::vector<synapse_helpers::tensor_or_ref> tensors_;
 };
+
+// Norm Operator
+class NormOperator : public HabanaOperator {
+ public:
+  NormOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator(
+            "norm_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
+    this->CreateSynContext(device_id);
+    kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
+    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
+  }
+
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+
+  virtual void SetPTOutputs(torch::jit::Stack& inputs);
+};
+
+// LpNorm Operator
+class LpNormOperator : public HabanaOperator {
+ public:
+  LpNormOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator(
+            "lpnorm_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
+    this->CreateSynContext(device_id);
+    kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
+    kernel_meta_data_.output_layout.assign(
+        {LayoutFormat::ANY, LayoutFormat::ANY});
+  }
+
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+};
