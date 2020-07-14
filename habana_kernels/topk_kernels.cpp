@@ -157,7 +157,7 @@ std::tuple<Tensor&, Tensor&> topk_out_hpu(
   TopkOutOperator Op(device_id, node_type);
   size_t key = Op.GetRecipeKey(node_type, stack);
 
-  std::vector<const at::Tensor*> pt_inputs{&self};
+  std::vector<at::Tensor> pt_inputs{self};
   if (device.get_recipe_handle_cache().isCached(key)) {
     PT_KERNEL_DEBUG("Cache hit key:", key);
     Op.SetPTInputs(pt_inputs);
@@ -235,7 +235,7 @@ std::tuple<Tensor, Tensor> topk_hpu(
   TopkOperator Op(device_id, node_type);
   size_t key = Op.GetRecipeKey(node_type, stack);
 
-  std::vector<const at::Tensor*> pt_inputs{&self};
+  std::vector<at::Tensor> pt_inputs{self};
   if (device.get_recipe_handle_cache().isCached(key)) {
     PT_KERNEL_DEBUG("Cache hit key:", key);
     Op.SetPTInputs(pt_inputs);
@@ -347,7 +347,7 @@ std::tuple<Tensor, Tensor> sort_hpu(
   SortOperator Op(device_id, node_type);
   size_t key = Op.GetRecipeKey(node_type, stack);
 
-  std::vector<const at::Tensor*> pt_inputs{&self};
+  std::vector<at::Tensor> pt_inputs{self};
   if (device.get_recipe_handle_cache().isCached(key)) {
     PT_KERNEL_DEBUG("Cache hit key:", key);
     Op.SetPTInputs(pt_inputs);

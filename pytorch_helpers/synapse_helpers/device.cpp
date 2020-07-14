@@ -31,7 +31,8 @@ namespace synapse_helpers {
 // barrier on the computation stream and reallocation of this buffer. For now
 // it's fixed to 10GB, since for BERT SQUAD, batch12 on fp32, the largest recipe
 // requires WS of size ~9.7GB
-// TODO: as a WA for memory issue, modified it to 5GB for the resnet run of BS=64,
+// TODO: as a WA for memory issue, modified it to 5GB for the resnet run of
+// BS=64,
 //       may require changes or revert in future
 constexpr std::size_t GLOBAL_WORKSPACE_SIZE = 5e9;
 
@@ -125,14 +126,11 @@ synapse_error_v<std::shared_ptr<device>> device::create(
   auto synapse_session =
       synapse_helpers::get_value(std::move(synapse_session_create_result));
 
-
-  if(std::getenv("ID") != nullptr)
-  {
-    //Required for  multi chip configuration
-    status = synDeviceAcquireByModuleId(&new_device_id, std::stoll(std::getenv("ID")));
-  }
-  else
-  {
+  if (std::getenv("ID") != nullptr) {
+    // Required for  multi chip configuration
+    status = synDeviceAcquireByModuleId(
+        &new_device_id, std::stoll(std::getenv("ID")));
+  } else {
     status = synDeviceAcquireByDeviceType(&new_device_id, device_type);
   }
 
@@ -223,9 +221,9 @@ void device::free(device_ptr ptr) {
   return allocator_->free(reinterpret_cast<void*>(ptr));
 }
 
-//Note:StreamSync is removed b/w Ops and compute stream sync happens
-//before any DMA operation. This can be changed or optimized further
-//when we manage the tensor and recipe liftime in the kernel
+// Note:StreamSync is removed b/w Ops and compute stream sync happens
+// before any DMA operation. This can be changed or optimized further
+// when we manage the tensor and recipe liftime in the kernel
 synapse_error device::copy_data_to_device(
     void* cpu_data,
     device_ptr destination,
@@ -239,12 +237,12 @@ synapse_error device::copy_data_to_device(
       ", total_bytes=",
       total_bytes);
   synStatus status;
-  if((synapse_helpers::IsStreamSyncOptEnabled()))
-  {
+  if ((synapse_helpers::IsStreamSyncOptEnabled())) {
     PT_SYNHELPER_DEBUG("Sync on compute stream: ", stream_comp_);
-    status= synStreamSynchronize(stream_comp_);
+    status = synStreamSynchronize(stream_comp_);
     if (synStatus::synSuccess != status) {
-       return synapse_error{"copy_data_to_device: Compute stream sync failed.", status};
+      return synapse_error{"copy_data_to_device: Compute stream sync failed.",
+                           status};
     }
   }
 
@@ -313,12 +311,12 @@ synapse_error device::copy_data_to_host(
       total_bytes);
 
   synStatus status;
-  if((synapse_helpers::IsStreamSyncOptEnabled()))
-  {
+  if ((synapse_helpers::IsStreamSyncOptEnabled())) {
     PT_SYNHELPER_DEBUG("Sync on compute stream: ", stream_comp_);
-    status= synStreamSynchronize(stream_comp_);
+    status = synStreamSynchronize(stream_comp_);
     if (synStatus::synSuccess != status) {
-       return synapse_error{"copy_data_to_host:Compute stream sync failed.", status};
+      return synapse_error{"copy_data_to_host:Compute stream sync failed.",
+                           status};
     }
   }
   PT_SYNHELPER_DEBUG("Used stream handle: ", stream_d2h_);
@@ -374,12 +372,12 @@ synapse_error device::copy_data_within_device(
     size_t total_bytes,
     event_done_callback unref_cb) {
   synStatus status;
-  if((synapse_helpers::IsStreamSyncOptEnabled()))
-  {
+  if ((synapse_helpers::IsStreamSyncOptEnabled())) {
     PT_SYNHELPER_DEBUG("Sync on compute stream: ", stream_comp_);
-    status= synStreamSynchronize(stream_comp_);
+    status = synStreamSynchronize(stream_comp_);
     if (synStatus::synSuccess != status) {
-       return synapse_error{"copy_data_within_device-Compute stream sync failed.", status};
+      return synapse_error{
+          "copy_data_within_device-Compute stream sync failed.", status};
     }
   }
 
@@ -399,12 +397,12 @@ synapse_error device::copy_data_within_device(
     transfer_manifest const& transfers,
     event_done_callback unref_cb) {
   synStatus status;
-  if((synapse_helpers::IsStreamSyncOptEnabled()))
-  {
+  if ((synapse_helpers::IsStreamSyncOptEnabled())) {
     PT_SYNHELPER_DEBUG("Sync on compute stream: ", stream_comp_);
-    status= synStreamSynchronize(stream_comp_);
+    status = synStreamSynchronize(stream_comp_);
     if (synStatus::synSuccess != status) {
-       return synapse_error{"copy_data_within_device:Compute stream sync failed.", status};
+      return synapse_error{
+          "copy_data_within_device:Compute stream sync failed.", status};
     }
   }
 

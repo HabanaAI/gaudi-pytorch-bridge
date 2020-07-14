@@ -120,7 +120,7 @@ void CompareOperator::AllocateAndAddSynapseNode(
 }
 
 Tensor compare_op_hpu(
-    const std::vector<const at::Tensor*>& pt_inputs,
+    const std::vector<at::Tensor>& pt_inputs,
     const std::string& node_type,
     size_t device_id,
     CompareOutOperator* Op) {
@@ -128,7 +128,7 @@ Tensor compare_op_hpu(
   // Build Params for the graph
   std::vector<c10::IValue> stack;
   for (auto pt_input : pt_inputs) {
-    stack.emplace_back(IValue(*pt_input));
+    stack.emplace_back(IValue(pt_input));
   }
 
   // Create Graph
@@ -136,7 +136,7 @@ Tensor compare_op_hpu(
 
   // temp_pt_inputs is created because EqOut has 3 Tensors in pt_inputs
   // which makes GC throw an error because it expects 2 inputs for equal
-  std::vector<const at::Tensor*> temp_pt_inputs{pt_inputs[0], pt_inputs[1]};
+  std::vector<at::Tensor> temp_pt_inputs{pt_inputs[0], pt_inputs[1]};
   // Assign Inputs to the Operator
   Op->AllocateSynapseInputs(graph, temp_pt_inputs, true);
 
@@ -162,13 +162,12 @@ Tensor gt_hpu(Tensor& self, Tensor& other) {
   at::ScalarType scalar_type = self.scalar_type();
   std::string node_type =
       "gt_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
-  std::vector<const at::Tensor*> pt_inputs{&self, &other};
+  std::vector<at::Tensor> pt_inputs{self, other};
 
   GtOperator op(device_id, scalar_type);
   auto out = compare_op_hpu(pt_inputs, node_type, device_id, &op);
   PT_KERNEL_END;
   return out;
-
 }
 
 /*************************************************************************
@@ -186,7 +185,7 @@ void eq_tensor_out_hpu(
   at::ScalarType scalar_type = self.scalar_type();
   std::string node_type =
       "equal_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
-  std::vector<const at::Tensor*> pt_inputs{&self, &other, &output};
+  std::vector<at::Tensor> pt_inputs{self, other, output};
 
   EqOutOperator op(device_id, scalar_type);
   compare_op_hpu(pt_inputs, node_type, device_id, &op);
@@ -204,7 +203,7 @@ Tensor eq_tensor_hpu(Tensor& self, Tensor& other) {
   at::ScalarType scalar_type = self.scalar_type();
   std::string node_type =
       "equal_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
-  std::vector<const at::Tensor*> pt_inputs{&self, &other};
+  std::vector<at::Tensor> pt_inputs{self, other};
 
   EqOperator op(device_id, scalar_type);
   auto output = compare_op_hpu(pt_inputs, node_type, device_id, &op);
@@ -231,20 +230,23 @@ Tensor eq_scalar_tensor_hpu(Tensor& self, Scalar other) {
   return out;
 }
 
-static auto& KernelRegistry = habana::KernelRegistry()
-    .add("aten::gt",
-    [](const int device_id, c10::ScalarType node_type) {
-      return std::make_shared<GtOperator>(device_id, node_type);})
-    .add("aten::eq",
-    [](const int device_id, c10::ScalarType node_type) {
-      return std::make_shared<EqOperator>(device_id, node_type);});
+static auto& KernelRegistry =
+    habana::KernelRegistry()
+        .add(
+            "aten::gt",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<GtOperator>(device_id, node_type);
+            })
+        .add("aten::eq", [](const int device_id, c10::ScalarType node_type) {
+          return std::make_shared<EqOperator>(device_id, node_type);
+        });
 
-static auto registry = torch::RegisterOperators()
+static auto registry =
+    torch::RegisterOperators()
         .op(torch::RegisterOperators::options()
                 .schema("aten::gt.Tensor(Tensor self, Tensor other) -> Tensor")
-                .impl_unboxedOnlyKernel<
-                    decltype(gt_hpu),
-                    &gt_hpu>(DispatchKey::HABANATensorId)
+                .impl_unboxedOnlyKernel<decltype(gt_hpu), &gt_hpu>(
+                    DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema("aten::eq.Tensor(Tensor self, Tensor other) -> Tensor")

@@ -206,7 +206,6 @@ void normal_hpu(
   PT_KERNEL_END;
 }
 
-
 void BernoulliOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
@@ -235,8 +234,10 @@ void BernoulliOperator::AllocateAndAddSynapseNode(
   p_context_->params_.emplace<ns_RandomBernoulli::Params>(params);
   p_context_->params_size_ = sizeof(params);
 
-  Tensor output =
-      at::empty(self.sizes(), self.options().dtype(c10::ScalarType::Int), self.suggest_memory_format());
+  Tensor output = at::empty(
+      self.sizes(),
+      self.options().dtype(c10::ScalarType::Int),
+      self.suggest_memory_format());
   AllocateSynapseOutput(graph, output, is_output_persistent);
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
@@ -252,8 +253,8 @@ Tensor bernoulli_hpu(const Tensor& self, CPUGenerator* gen = nullptr) {
   PT_KERNEL_BEGIN;
 
   at::ScalarType scalar_type = self.scalar_type();
-  std::string node_type =
-      "random_bernoulli_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+  std::string node_type = "random_bernoulli_fwd_" +
+      habana_helpers::name_suffix_from_type(scalar_type);
 
   size_t device_id = self.device().index();
 
@@ -262,7 +263,7 @@ Tensor bernoulli_hpu(const Tensor& self, CPUGenerator* gen = nullptr) {
   auto graph = habana_helpers::create_graph(device_id, node_type);
 
   // Assign Inputs to the Operator
-  std::vector<const at::Tensor*> pt_inputs{&self};
+  std::vector<at::Tensor> pt_inputs{self};
   Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
   int64_t seed = get_seed_hpu(gen);
@@ -306,28 +307,32 @@ Tensor& bernoulli_scalar_hpu(
 
   // self_float ensures that expanded_p_tensor is of float dtype
   // independent of self's dtype
-  Tensor self_float =
-      at::empty(self.sizes(), self.options().dtype(c10::ScalarType::Float), self.suggest_memory_format());
+  Tensor self_float = at::empty(
+      self.sizes(),
+      self.options().dtype(c10::ScalarType::Float),
+      self.suggest_memory_format());
 
   auto p_tensor = habana_helpers::scalar_to_device_tensor(
       p_converted, self_float, self_float.ndimension());
   auto expanded_p_tensor = p_tensor.expand(self.sizes());
 
-  Tensor* output_ptr;
+  Tensor output_ptr;
   Tensor self_int;
 
-  std::vector<const at::Tensor*> pt_inputs{&expanded_p_tensor};
+  std::vector<at::Tensor> pt_inputs{expanded_p_tensor};
 
   if (self_scalar_type == c10::ScalarType::Float) {
-    self_int =
-        at::empty(self.sizes(), self.options().dtype(c10::ScalarType::Int), self.suggest_memory_format());
-    output_ptr = &self_int;
+    self_int = at::empty(
+        self.sizes(),
+        self.options().dtype(c10::ScalarType::Int),
+        self.suggest_memory_format());
+    output_ptr = self_int;
   } else {
     // Int
-    output_ptr = &self;
+    output_ptr = self;
   }
 
-  std::vector<const at::Tensor*> pt_outputs{output_ptr};
+  std::vector<at::Tensor> pt_outputs{output_ptr};
   ns_RandomBernoulli::Params params;
   params.seed = get_seed_hpu(gen);
 
@@ -349,16 +354,23 @@ Tensor& bernoulli_scalar_hpu(
   return self;
 }
 
-static auto& KernelRegistry = habana::KernelRegistry()
-    .add("aten::uniform_",
-    [](const int device_id, c10::ScalarType node_type) {
-      return std::make_shared<UniformOperator>(device_id, node_type);})
-    .add("aten::normal_",
-    [](const int device_id, c10::ScalarType node_type) {
-      return std::make_shared<NormalOperator>(device_id, node_type);})
-    .add("aten::bernoulli",
-    [](const int device_id, c10::ScalarType node_type) {
-      return std::make_shared<BernoulliOperator>(device_id, node_type);});
+static auto& KernelRegistry =
+    habana::KernelRegistry()
+        .add(
+            "aten::uniform_",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<UniformOperator>(device_id, node_type);
+            })
+        .add(
+            "aten::normal_",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<NormalOperator>(device_id, node_type);
+            })
+        .add(
+            "aten::bernoulli",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<BernoulliOperator>(device_id, node_type);
+            });
 
 static auto registry =
     torch::RegisterOperators()

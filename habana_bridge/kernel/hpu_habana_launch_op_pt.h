@@ -10,8 +10,8 @@
 
 #pragma once
 
-#include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/types.h>
 #include <unistd.h>
 
 #include <cstdlib>
@@ -25,9 +25,9 @@
 
 #include <ATen/Tensor.h>
 #include <absl/hash/hash.h>
+#include <torch/csrc/jit/ir/ir.h>
 #include <torch/csrc/jit/runtime/argument_spec.h>
 #include <torch/csrc/jit/runtime/interpreter.h>
-#include <torch/csrc/jit/ir/ir.h>
 
 #include "habana_kernels/habana_operator.h"
 
@@ -35,29 +35,32 @@ using namespace habana;
 
 struct TensorInfo;
 
-using IVal =  torch::jit::IValue;
+using IVal = torch::jit::IValue;
 using IValPtrShared = std::shared_ptr<IVal>;
 
 using IValPtr = torch::jit::IValue*;
-using ValPtr  = torch::jit::Value*;
+using ValPtr = torch::jit::Value*;
 using CValPtr = const torch::jit::Value*;
-using IdxVec  = std::vector<size_t>;
+using IdxVec = std::vector<size_t>;
 
-using PTToSynapseTensorMap        = std::unordered_map<IValPtr, synapse_helpers::tensor&>;
-using IValPtrToSynTensorNameMap   = std::unordered_map<IValPtr, std::string>             ;
-using IValPtrToSynTensorSizeMap   = std::unordered_map<IValPtr, unsigned>                ;
-using IValPtrToTesorInfoMap       = std::unordered_map<IValPtr, TensorInfo>              ;
+using PTToSynapseTensorMap =
+    std::unordered_map<IValPtr, synapse_helpers::tensor&>;
+using IValPtrToSynTensorNameMap = std::unordered_map<IValPtr, std::string>;
+using IValPtrToSynTensorSizeMap = std::unordered_map<IValPtr, unsigned>;
+using IValPtrToTesorInfoMap = std::unordered_map<IValPtr, TensorInfo>;
 
-using IValPtrSharedToTesorInfoMap = std::unordered_map<IValPtrShared, TensorInfo>        ;
+using IValPtrSharedToTesorInfoMap =
+    std::unordered_map<IValPtrShared, TensorInfo>;
 ;
 // Adding the op strings to the key for recipe
 // Later the drop the storage for the vector of strings
 //   if possible pass the subgraph as argument
 //   compute the hash directly from the subgraph within the constructor
 struct RecipeArgumentSpec {
-  RecipeArgumentSpec(bool with_grad,
-    at::ArrayRef<torch::jit::IValue> input_refs,
-    const std::shared_ptr<torch::jit::Graph> &irgraph);
+  RecipeArgumentSpec(
+      bool with_grad,
+      at::ArrayRef<torch::jit::IValue> input_refs,
+      const std::shared_ptr<torch::jit::Graph>& irgraph);
 
   bool operator==(const RecipeArgumentSpec& arg) const {
     bool ret = (cas == arg.cas && opstrs == arg.opstrs);
@@ -68,7 +71,7 @@ struct RecipeArgumentSpec {
     return hash_code;
   }
 
-  friend std::ostream &operator<< (std::ostream &O, const RecipeArgumentSpec &v);
+  friend std::ostream& operator<<(std::ostream& O, const RecipeArgumentSpec& v);
 
  private:
   torch::jit::CompleteArgumentSpec cas;
@@ -78,18 +81,18 @@ struct RecipeArgumentSpec {
 
 // Hash functor for RecipeArgumentSpec
 struct RecipeArgumentSpecHash {
-public:
-  size_t operator()(const std::shared_ptr<RecipeArgumentSpec> & v) const {
+ public:
+  size_t operator()(const std::shared_ptr<RecipeArgumentSpec>& v) const {
     return v->hashCode();
   }
 };
 
 // Comparator for RecipeArgumentSpec
 struct RecipeArgumentSpecEqual {
-public:
+ public:
   bool operator()(
-    const std::shared_ptr<RecipeArgumentSpec> & v1,
-    const std::shared_ptr<RecipeArgumentSpec> & v2) const {
+      const std::shared_ptr<RecipeArgumentSpec>& v1,
+      const std::shared_ptr<RecipeArgumentSpec>& v2) const {
     if (nullptr == v1 && nullptr == v2)
       return true;
     if (nullptr == v1)
@@ -102,31 +105,32 @@ public:
 };
 
 struct TensorInfo {
-  TensorInfo (const IValPtr &ivp, const std::string &sn, const ValPtr &vp);
-  TensorInfo (const IValPtrShared &ivp, const std::string &sn, const ValPtr &vp);
+  TensorInfo(const IValPtr& ivp, const std::string& sn, const ValPtr& vp);
+  TensorInfo(const IValPtrShared& ivp, const std::string& sn, const ValPtr& vp);
 
-  friend std::ostream &operator<< (std::ostream &O, const TensorInfo &t);
+  friend std::ostream& operator<<(std::ostream& O, const TensorInfo& t);
 
-  std::string   ir_name;
-  std::string   syn_name;
-  std::string   shape_str;
-  void         *buffer = nullptr;
-  unsigned      numel = 0;
-  unsigned      size = 0;
+  std::string ir_name;
+  std::string syn_name;
+  std::string shape_str;
+  void* buffer = nullptr;
+  unsigned numel = 0;
+  unsigned size = 0;
 };
 
 // Memory management is outside the scope of caching
 // Input and output buffers need to be passed to the recipe
 // The order of the inputs are according to the input stack
-// The order of the outputs will match the order they appears within the subgraph
+// The order of the outputs will match the order they appears within the
+// subgraph
 struct RecipeValueSpec {
-  RecipeValueSpec(std::shared_ptr<synapse_helpers::graph::recipe_handle> r = nullptr)
-  : recipe(r),
-    dtensorinfos(nullptr),
-    aten_outputs(nullptr),
-    pinput_indices(nullptr),
-    htensor_wbuffers(nullptr)
-  {
+  RecipeValueSpec(
+      std::shared_ptr<synapse_helpers::graph::recipe_handle> r = nullptr)
+      : recipe(r),
+        dtensorinfos(nullptr),
+        aten_outputs(nullptr),
+        pinput_indices(nullptr),
+        htensor_wbuffers(nullptr) {
     count++;
     id = count;
   }
@@ -138,51 +142,58 @@ struct RecipeValueSpec {
     TORCH_CHECK(!aten_outputs->empty());
   }
 
-  void print_hbuff(size_t buf_idx, std::ofstream &out, size_t iteration_count, int numel = -1);
+  void print_hbuff(
+      size_t buf_idx,
+      std::ofstream& out,
+      size_t iteration_count,
+      int numel = -1);
   void d2h_dbuff(size_t buf_idx);
 
-  friend std::ostream &operator<< (std::ostream &O, const RecipeValueSpec &v);
+  friend std::ostream& operator<<(std::ostream& O, const RecipeValueSpec& v);
 
   std::shared_ptr<synapse_helpers::graph::recipe_handle> recipe;
-  std::shared_ptr<std::vector<TensorInfo>>               dtensorinfos;
-  std::shared_ptr<std::vector<IValPtrShared>>            aten_outputs;
-  std::shared_ptr<std::vector<std::vector<size_t>>>      pinput_indices;
-  std::shared_ptr<std::vector<uint64_t>>                 htensor_wbuffers;
+  std::shared_ptr<std::vector<TensorInfo>> dtensorinfos;
+  std::shared_ptr<std::vector<IValPtrShared>> aten_outputs;
+  std::shared_ptr<std::vector<std::vector<size_t>>> pinput_indices;
+  std::shared_ptr<std::vector<uint64_t>> htensor_wbuffers;
 
-  size_t id {0};
-  size_t iter_idx {0};
-  size_t num_tensors {0};
-  size_t num_inputs {0};
+  size_t id{0};
+  size_t iter_idx{0};
+  size_t num_tensors{0};
+  size_t num_inputs{0};
 
   static size_t count;
 };
 
 struct RecipeCacheSimple {
   std::unordered_map<
-    std::shared_ptr<RecipeArgumentSpec>,
-    RecipeValueSpec,
-    RecipeArgumentSpecHash,
-    RecipeArgumentSpecEqual> map_;
+      std::shared_ptr<RecipeArgumentSpec>,
+      RecipeValueSpec,
+      RecipeArgumentSpecHash,
+      RecipeArgumentSpecEqual>
+      map_;
 
-  bool empty() { return (map_.size() == 0); }
+  bool empty() {
+    return (map_.size() == 0);
+  }
 
-  bool exists(std::shared_ptr<RecipeArgumentSpec> &key) {
-    bool ret_flag { false };
+  bool exists(std::shared_ptr<RecipeArgumentSpec>& key) {
+    bool ret_flag{false};
     if (!empty() && map_.end() != map_.find(key)) {
       ret_flag = true;
     }
     return ret_flag;
   }
 
-  RecipeValueSpec& get(std::shared_ptr<RecipeArgumentSpec> &key) {
+  RecipeValueSpec& get(std::shared_ptr<RecipeArgumentSpec>& key) {
     return map_[key];
   }
 
-  void add(std::shared_ptr<RecipeArgumentSpec> &key, RecipeValueSpec &val) {
+  void add(std::shared_ptr<RecipeArgumentSpec>& key, RecipeValueSpec& val) {
     map_.emplace(key, val);
   }
 
-  friend std::ostream &operator<< (std::ostream &O, const RecipeCacheSimple &v);
+  friend std::ostream& operator<<(std::ostream& O, const RecipeCacheSimple& v);
 };
 
 class HabanaLaunchOpPT {
@@ -193,40 +204,42 @@ class HabanaLaunchOpPT {
   void run(torch::jit::Stack& stack);
 
  private:
-  static size_t                       instance_count_;
+  static size_t instance_count_;
 
-  std::shared_ptr<torch::jit::Graph>  subgraph_;
-  std::string                         opname_;
-  std::string                         id_str;
-  size_t                              ref_count_ = 0;
-  bool                                debug_;
+  std::shared_ptr<torch::jit::Graph> subgraph_;
+  std::string opname_;
+  std::string id_str;
+  size_t ref_count_ = 0;
+  bool debug_;
 
-  //Temp additions to enable BatchNorm..tensors created that are not in graph
-  //We get this to enable correct patching
-  //Right now our patching is tightly coupled to graph nodes
-  //BN is exception case, we can review our patching design for this
+  // Temp additions to enable BatchNorm..tensors created that are not in graph
+  // We get this to enable correct patching
+  // Right now our patching is tightly coupled to graph nodes
+  // BN is exception case, we can review our patching design for this
   std::vector<std::pair<std::string, void*>> appended_tensors_info;
   // We keep a vector of kernels so that the context memory
   //   for each kernel is retained till graph execution
   // This is done to enable reuse of PT and synapse tensors and their processing
   std::vector<HabanaOperatorPtr> habana_kernels;
 
-  // A map between the abstract value containers in graph and actual Ivalues in stack
+  // A map between the abstract value containers in graph and actual Ivalues in
+  // stack
   std::unordered_map<CValPtr, habana::LayoutFormat> value_to_tensor_layout;
   habana::LayoutFormat pt_input_layout;
 
-  //map between PT and synapse tensors
+  // map between PT and synapse tensors
   std::vector<synapse_helpers::tensor> meta_syn_tensors;
 
-  std::vector<IValPtrShared>                                  pt_stack_sh;
-  std::unordered_map<CValPtr, IValPtrShared>                  value_to_ivalue;
-  std::unordered_map<IValPtrShared, synapse_helpers::tensor&> pt_to_synapse_tensors;
+  std::vector<IValPtrShared> pt_stack_sh;
+  std::unordered_map<CValPtr, IValPtrShared> value_to_ivalue;
+  std::unordered_map<IValPtrShared, synapse_helpers::tensor&>
+      pt_to_synapse_tensors;
 
   // TensorInfos for launcing the recipe
-  std::vector<TensorInfo>          input_tensorinfos;
-  std::vector<TensorInfo>          pinput_tensorinfos;
-  std::vector<TensorInfo>          output_tensorinfos;
-  synapse_helpers::graph          *syn_graph_ptr = nullptr;
+  std::vector<TensorInfo> input_tensorinfos;
+  std::vector<TensorInfo> pinput_tensorinfos;
+  std::vector<TensorInfo> output_tensorinfos;
+  synapse_helpers::graph* syn_graph_ptr = nullptr;
 
   // caching :: begin
 
@@ -235,38 +248,38 @@ class HabanaLaunchOpPT {
   // 2. Expose the enable_caching_ flag to python
   // 3. Switch to general logging from std::cout
 
-  size_t                           num_inputs = 0;
-  size_t                           num_tensor_inputs = 0;
+  size_t num_inputs = 0;
+  size_t num_tensor_inputs = 0;
   at::ArrayRef<torch::jit::IValue> input_refs;
-  torch::jit::Stack               *pt_stack = nullptr;
+  torch::jit::Stack* pt_stack = nullptr;
 
-  //IValPtrToTesorInfoMap            input_tensorinfo_map;
-  IValPtrSharedToTesorInfoMap      input_tensorinfo_map;
+  // IValPtrToTesorInfoMap            input_tensorinfo_map;
+  IValPtrSharedToTesorInfoMap input_tensorinfo_map;
 
-  RecipeCacheSimple                recipe_cache;
+  RecipeCacheSimple recipe_cache;
 
   std::unordered_map<IValPtrShared, IdxVec> input_to_pinput_indices;
 
   // caching :: end
 
-  bool                             enable_caching_ = getenv("HABANA_PGM_ENABLE_CACHE") ? true : false;
-  int                              tensor_dump_numel_;
-  bool                             enable_tensor_dump_;
+  bool enable_caching_ = getenv("HABANA_PGM_ENABLE_CACHE") ? true : false;
+  int tensor_dump_numel_;
+  bool enable_tensor_dump_;
 
-  std::string                      tdmp_dir_name_;
-  std::string                      tdmp_file_name_pre_;
-  std::string                      tdmp_file_name_;
-  size_t                           iteration_count_ = 0;
+  std::string tdmp_dir_name_;
+  std::string tdmp_file_name_pre_;
+  std::string tdmp_file_name_;
+  size_t iteration_count_ = 0;
 
   habana::LayoutFormat getTensorChannelOrder(torch::jit::Value* val);
   void preProcessInputs();
   void processInputs(
       torch::jit::Node* node,
-      const HabanaOperatorPtr &habana_kernel);
+      const HabanaOperatorPtr& habana_kernel);
   void postProcessOutputs();
   at::Tensor permuteTensor(
       torch::jit::Value* value_in,
-      const at::Tensor &input,
+      const at::Tensor& input,
       habana::LayoutFormat permute_order);
   torch::jit::Stack getStackForNode(torch::jit::Node* node);
   void compile();
@@ -274,28 +287,29 @@ class HabanaLaunchOpPT {
   bool isInGraphInputs(torch::jit::Value* value);
   bool isInGraphOutputs(torch::jit::Value* value);
   void CompileAndExecuteHabanaFusedOpKernel();
-  bool CompileSynapseGraph(std::shared_ptr<synapse_helpers::graph::recipe_handle>& synh_recipe);
+  bool CompileSynapseGraph(
+      std::shared_ptr<synapse_helpers::graph::recipe_handle>& synh_recipe);
   void GetSynapseInputs(
-      const HabanaOperatorPtr &habana_op,
+      const HabanaOperatorPtr& habana_op,
       torch::jit::Node* node);
   void GetSynapseOutputs(
-    const HabanaOperatorPtr &habana_op,
-    torch::jit::Node* node);
+      const HabanaOperatorPtr& habana_op,
+      torch::jit::Node* node);
   bool isChannelOrderSupported(
-    torch::jit::Value* val,
-    const habana::LayoutFormat &supported_channel_order);
+      torch::jit::Value* val,
+      const habana::LayoutFormat& supported_channel_order);
   c10::ScalarType getNodeScalarType(torch::jit::Node* node);
   void handlePrimNodes(torch::jit::Node* node);
   void handleMetaOps(torch::jit::Node* node);
 
-  void LaunchRecipe(RecipeValueSpec &rv);
+  void LaunchRecipe(RecipeValueSpec& rv);
   void UpdateOutputs();
   template <class T>
   void clearMember(T& m_container);
 
-  bool IsCached(std::shared_ptr<RecipeArgumentSpec> &spec);
-  void ReorderInputs(RecipeValueSpec &rv);
+  bool IsCached(std::shared_ptr<RecipeArgumentSpec>& spec);
+  void ReorderInputs(RecipeValueSpec& rv);
 
-  void DumpTensors_pre(RecipeValueSpec &rv);
-  void DumpTensors(RecipeValueSpec &rv);
+  void DumpTensors_pre(RecipeValueSpec& rv);
+  void DumpTensors(RecipeValueSpec& rv);
 };

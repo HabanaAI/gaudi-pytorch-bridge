@@ -49,14 +49,14 @@ synapse_helpers::tensor create_tensor(
 
 std::tuple<std::vector<synapse_helpers::tensor>, std::vector<synTensor>>
 create_tensors(
-    const std::vector<const at::Tensor*> tensors,
+    const std::vector<at::Tensor>& tensors,
     synGraphHandle graph,
     const std::vector<bool> persistents,
     const std::vector<c10::optional<c10::ScalarType>> dtypes);
 
 std::tuple<std::vector<synapse_helpers::tensor>, std::vector<synTensor>>
 create_tensors(
-    const std::vector<const at::Tensor*> tensors,
+    const std::vector<at::Tensor>& tensors,
     synGraphHandle graph,
     bool persistent);
 

@@ -45,8 +45,8 @@ static Tensor make_index_same_size_as_value(
 
   // Broadcast index tensor to same shape as value tensor
   auto index_broadcast = at::empty(DimVector(value.sizes()), index.options());
-  std::vector<const at::Tensor*> pt_inputs{&index_expanded};
-  std::vector<const at::Tensor*> pt_outputs{&index_broadcast};
+  std::vector<at::Tensor> pt_inputs{index_expanded};
+  std::vector<at::Tensor> pt_outputs{index_broadcast};
   synapse_simple_generic_kernel(
       pt_outputs, pt_inputs, "broadcast", nullptr, 0, SynapsePassType::NO_PASS);
 
@@ -81,8 +81,8 @@ Tensor gather_src_hpu(
   ns_GatherKernel::Params params;
   params.axis = self.dim() - dim - 1;
 
-  std::vector<const at::Tensor*> pt_inputs{&self, &index_int};
-  std::vector<const at::Tensor*> pt_outputs{&output};
+  std::vector<at::Tensor> pt_inputs{self, index_int};
+  std::vector<at::Tensor> pt_outputs{output};
 
   synapse_simple_generic_kernel(
       pt_outputs,
@@ -115,7 +115,7 @@ Tensor& scatter_inplace_src_hpu(
   ns_ScatterKernel::Params params;
   params.axis = self.dim() - dim - 1;
 
-  std::vector<const at::Tensor*> pt_inputs{&self, &index, &src};
+  std::vector<at::Tensor> pt_inputs{self, index, src};
 
   synapse_simple_generic_inplace_kernel(
       pt_inputs,
@@ -298,8 +298,7 @@ Tensor gather2d_hpu(
   auto graph = habana_helpers::create_graph(device_id, node_type);
 
   // Assign Inputs to the Operator
-  std::vector<const at::Tensor*> pt_inputs{
-      &input, &indices_int, &validCount_int};
+  std::vector<at::Tensor> pt_inputs{input, indices_int, validCount_int};
   Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
   // Build Params for the graph
@@ -433,7 +432,7 @@ Tensor slice_hpu(
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
 
   SliceOperator Op(device_id, scalar_type);
-  std::vector<const at::Tensor*> pt_inputs{&self};
+  std::vector<at::Tensor> pt_inputs{self};
   std::vector<c10::IValue> stack = {
       IValue(self), IValue(dim), IValue(start), IValue(end), IValue(step)};
 

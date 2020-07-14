@@ -18,8 +18,8 @@
 enum class SynapsePassType { NO_PASS = 0, FORWARD_PASS, BACKWARD_PASS };
 // synapse kernel with single op
 void synapse_simple_generic_kernel(
-    std::vector<const at::Tensor*> pt_outputs, // NHWC
-    std::vector<const at::Tensor*> pt_inputs, // NHWC
+    std::vector<at::Tensor>& pt_outputs, // NHWC
+    std::vector<at::Tensor>& pt_inputs, // NHWC
     const std::string& node_guid,
     void* syn_param,
     size_t syn_param_size,
@@ -27,8 +27,8 @@ void synapse_simple_generic_kernel(
 
 // synapse kernel with single op
 void synapse_execute_kernel(
-    std::vector<const at::Tensor*> pt_outputs, // NHWC
-    std::vector<const at::Tensor*> pt_inputs, // NHWC
+    std::vector<at::Tensor>& pt_outputs, // NHWC
+    std::vector<at::Tensor>& pt_inputs, // NHWC
     std::string node_type,
     void* syn_param,
     size_t syn_param_size,
@@ -37,8 +37,8 @@ void synapse_execute_kernel(
 
 // execute cached recipe
 void synapse_execute_cached_kernel(
-    std::vector<const at::Tensor*> pt_outputs, // NHWC
-    std::vector<const at::Tensor*> pt_inputs, // NHWC
+    std::vector<at::Tensor>& pt_outputs, // NHWC
+    std::vector<at::Tensor>& pt_inputs, // NHWC
     size_t device_id,
     size_t key);
 
@@ -54,14 +54,14 @@ parameters are not needed
 @param forward_pass - boolean flag to specify forward or backward operator
 **********************************************************************************/
 void synapse_simple_generic_inplace_kernel(
-    std::vector<const at::Tensor*> pt_inputs, // NHWC
+    std::vector<at::Tensor>& pt_inputs, // NHWC
     const std::string& node_guid,
     void* syn_param,
     size_t syn_param_size,
     SynapsePassType pass_type);
 
 void synapse_execute_inplace_kernel(
-    std::vector<const at::Tensor*> pt_inputs, // NHWC
+    std::vector<at::Tensor>& pt_inputs, // NHWC
     std::string node_type,
     void* syn_param,
     const size_t syn_param_size,
@@ -69,6 +69,6 @@ void synapse_execute_inplace_kernel(
     size_t key);
 
 void synapse_execute_cached_inplace_kernel(
-    std::vector<const at::Tensor*> pt_inputs, // NHWC
+    std::vector<at::Tensor>& pt_inputs, // NHWC
     size_t device_id,
     size_t key);

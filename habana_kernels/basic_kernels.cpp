@@ -223,13 +223,16 @@ void MemCopyOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, NULL, 0);
 }
 
-static auto& KernelRegistry = ::habana::KernelRegistry()
-    .add("hababna_d2d_memcpy",
-    [](const int device_id, c10::ScalarType node_type) {
-      return std::make_shared<MemCopyOperator>(device_id, node_type);})
-    .add("aten::to",
-    [](const int device_id, c10::ScalarType node_type) {
-      return std::make_shared<ToDtypeOperator>(device_id, node_type);});
+static auto& KernelRegistry =
+    ::habana::KernelRegistry()
+        .add(
+            "hababna_d2d_memcpy",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<MemCopyOperator>(device_id, node_type);
+            })
+        .add("aten::to", [](const int device_id, c10::ScalarType node_type) {
+          return std::make_shared<ToDtypeOperator>(device_id, node_type);
+        });
 
 static auto registry =
     torch::RegisterOperators()

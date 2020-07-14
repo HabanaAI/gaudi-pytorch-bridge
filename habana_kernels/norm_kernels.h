@@ -45,8 +45,8 @@ class BatchNormForwardOperator : public habana::HabanaOperator {
   void remove_non_persistent_patching_info();
   virtual void SetPTOutputs(torch::jit::Stack& inputs);
 
-  std::vector<const at::Tensor*>& GetBNInputs();
-  std::vector<const at::Tensor*>& GetBNOutputs();
+  std::vector<at::Tensor>& GetBNInputs();
+  std::vector<at::Tensor>& GetBNOutputs();
 
   torch::jit::Stack& GetInputstack();
 
@@ -69,8 +69,8 @@ class BatchNormForwardOperator : public habana::HabanaOperator {
 
   c10::ScalarType scalarType_;
   std::vector<synapse_helpers::tensor_or_ref> tensors_;
-  std::vector<const at::Tensor*> pt_inputs;
-  std::vector<const at::Tensor*> pt_outputs;
+  std::vector<at::Tensor> pt_inputs;
+  std::vector<at::Tensor> pt_outputs;
   torch::jit::Stack input_stack;
   std::vector<at::Tensor> pre_inputs;
   //This has been added so that the input mean/var synapse tensors are preserved
@@ -121,7 +121,7 @@ class BatchNormBackwardOperator : public habana::HabanaOperator {
   // To communicate patching info for tensors which are not part of graph
   virtual std::vector<std::pair<std::string, void*>> getAppendedTensorInfo();
 
-  std::vector<const at::Tensor*>& GetBNInputs() {
+  std::vector<at::Tensor>& GetBNInputs() {
     return pt_inputs;
   };
 
@@ -159,7 +159,7 @@ class BatchNormBackwardOperator : public habana::HabanaOperator {
 
   c10::ScalarType scalarType_;
   std::vector<synapse_helpers::tensor_or_ref> reordered_syn_inputs_;
-  std::vector<const at::Tensor*> pt_inputs;
+  std::vector<at::Tensor> pt_inputs;
   torch::jit::Stack input_stack;
   std::vector<at::Tensor> pre_inputs;
   bool resize_done;

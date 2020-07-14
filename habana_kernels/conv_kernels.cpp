@@ -230,9 +230,9 @@ Tensor convolution_hpu(
     size_t key = Op.GetRecipeKey(node_type, stack);
 
     // Assign Inputs to the Operator
-    std::vector<const at::Tensor*> pt_inputs{&input_nhwc, &weight_hwck};
+    std::vector<at::Tensor> pt_inputs{input_nhwc, weight_hwck};
     if (bias.defined()) {
-      pt_inputs.emplace_back(&bias);
+      pt_inputs.emplace_back(bias);
     }
 
     if (device.get_recipe_handle_cache().isCached(key)) {
@@ -689,8 +689,7 @@ std::tuple<Tensor, Tensor, Tensor> convolution_backward_hpu(
     size_t key = convBwdOp.GetRecipeKey(node_type, stack);
 
     // Assign Inputs to the Operator
-    std::vector<const at::Tensor*> pt_inputs{
-        &grad_out_nhwc, &input_nhwc, &weight_hwck};
+    std::vector<at::Tensor> pt_inputs{grad_out_nhwc, input_nhwc, weight_hwck};
 
     if (device.get_recipe_handle_cache().isCached(key)) {
       PT_KERNEL_DEBUG("Cache hit key:", key);

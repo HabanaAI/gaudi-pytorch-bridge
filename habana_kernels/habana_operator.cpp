@@ -49,6 +49,7 @@ void habana::HabanaOperator::Compile(synapse_helpers::graph& graph) {
       habana_helpers::names(p_context_->syn_outputs_),
       habana_helpers::extract_data_ptrs(p_context_->pt_inputs_),
       habana_helpers::extract_data_ptrs(p_context_->pt_outputs_),
+      p_context_->pt_inputs_,
       p_context_->device_id_,
       p_context_->recipe_key_);
 }
@@ -59,12 +60,13 @@ void habana::HabanaOperator::Execute(size_t key) {
   habana_helpers::execute_recipe(
       habana_helpers::extract_data_ptrs(p_context_->pt_inputs_),
       habana_helpers::extract_data_ptrs(p_context_->pt_outputs_),
+      p_context_->pt_inputs_,
       p_context_->device_id_,
       p_context_->recipe_key_);
 }
 
 void habana::HabanaOperator::SetPTInputs(
-    const std::vector<const at::Tensor*> inputs) {
+    const std::vector<at::Tensor>& inputs) {
   for (auto& input : inputs) {
     p_context_->pt_inputs_.emplace_back(input);
   }
@@ -95,12 +97,12 @@ size_t habana::HabanaOperator::GetRecipeKey(
 
 synapse_helpers::tensor& habana::HabanaOperator::AllocateSynapseInput(
     synapse_helpers::graph& graph,
-    const at::Tensor* input,
+    const at::Tensor& input,
     bool is_persistent) {
-  TORCH_CHECK(input != nullptr, "Input cannot be null");
+  // TORCH_CHECK(input != nullptr, "Input cannot be null");
 
   auto syn_tensor_input = habana_helpers::create_tensor(
-      *input, graph.get_graph_handle(), is_persistent, c10::nullopt);
+      input, graph.get_graph_handle(), is_persistent, c10::nullopt);
 
   p_context_->syn_inputs_.emplace_back(std::move(syn_tensor_input));
 
@@ -110,9 +112,9 @@ synapse_helpers::tensor& habana::HabanaOperator::AllocateSynapseInput(
 
 void habana::HabanaOperator::AllocateSynapseInputs(
     synapse_helpers::graph& graph,
-    const std::vector<const at::Tensor*> inputs,
+    const std::vector<at::Tensor>& inputs,
     bool is_persistent) {
-  TORCH_CHECK(!inputs.empty(), "Inputs cannot be null");
+  // TORCH_CHECK(!inputs.empty(), "Inputs cannot be null");
 
   for (auto& input : inputs) {
     AllocateSynapseInput(graph, input, is_persistent);
@@ -129,8 +131,8 @@ void habana::HabanaOperator::AllocateSynapseOutput(
   p_context_->pt_outputs_.emplace_back(output);
 }
 
-std::vector<std::pair<std::string, void*>> habana::HabanaOperator::getAppendedTensorInfo()
-{
+std::vector<std::pair<std::string, void*>> habana::HabanaOperator::
+    getAppendedTensorInfo() {
   return appended_tensor_info;
 }
 
@@ -140,7 +142,7 @@ void habana::HabanaOperator::AllocateSynapseInplaceOutput(
       habana_helpers::duplicate_tensor_in_memory_section(
           p_context_->syn_inputs_[0]));
 
-  p_context_->pt_outputs_.emplace_back(*p_context_->pt_inputs_[0]);
+  p_context_->pt_outputs_.emplace_back(p_context_->pt_inputs_[0]);
 }
 
 void habana::HabanaOperator::AllocateSynapseOutputs(

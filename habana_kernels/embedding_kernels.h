@@ -56,7 +56,7 @@ class EmbeddingBagSumForwardOperator : public HabanaOperator {
 
   void AllocateSynapseInputs(
       synapse_helpers::graph& graph,
-      const std::vector<const at::Tensor*> inputs,
+      const std::vector<at::Tensor>& inputs,
       bool is_persistent = false) override;
 
   void AllocateAndAddSynapseNode(
@@ -66,7 +66,7 @@ class EmbeddingBagSumForwardOperator : public HabanaOperator {
 
   synapse_helpers::tensor& AllocateSynapseInput(
       synapse_helpers::graph& graph,
-      const at::Tensor* input,
+      const at::Tensor& input,
       bool is_persistent = false) override;
 
   synapse_helpers::tensor_or_ref& SetSynapseInput(
@@ -102,7 +102,7 @@ class EmbeddingBagSumBackwardOperator : public HabanaOperator {
 
   void AllocateSynapseInputs(
       synapse_helpers::graph& graph,
-      const std::vector<const at::Tensor*> inputs,
+      const std::vector<at::Tensor>& inputs,
       bool is_persistent = false) override;
 
   void AllocateAndAddSynapseNode(
@@ -112,7 +112,7 @@ class EmbeddingBagSumBackwardOperator : public HabanaOperator {
 
   synapse_helpers::tensor& AllocateSynapseInput(
       synapse_helpers::graph& graph,
-      const at::Tensor* input,
+      const at::Tensor& input,
       bool is_persistent = false) override;
 
   synapse_helpers::tensor_or_ref& SetSynapseInput(

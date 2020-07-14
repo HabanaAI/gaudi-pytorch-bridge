@@ -404,7 +404,7 @@ std::tuple<Tensor, Tensor> max_pool2d_with_indices_hpu(
                                       IValue(padding),
                                       IValue(dilation),
                                       IValue(ceil_mode)};
-    std::vector<const at::Tensor*> pt_inputs{&input_nhwc};
+    std::vector<at::Tensor> pt_inputs{input_nhwc};
     MaxPool2dWithIndicesOperator Op(device_id, scalar_type);
     size_t key = Op.GetRecipeKey(node_type, stack);
 
@@ -518,7 +518,7 @@ Tensor& max_pool2d_with_indices_backward_out_hpu(
   std::vector<const at::Tensor*> pt_outputs{&grad_input_nhwc};
 
   auto maxpool_2d_bwd = [&] {
-    std::vector<const at::Tensor*> pt_inputs{&grad_out_nhwc, &indices_nhwc};
+    std::vector<at::Tensor> pt_inputs{grad_out_nhwc, indices_nhwc};
     std::vector<c10::IValue> stack = {IValue(grad_input_nhwc),
                                       IValue(grad_out_nhwc),
                                       IValue(input_nhwc),
@@ -607,7 +607,6 @@ void MaxPool2dWithIndicesBackwardOperator::SetPTOutputs(
   inputs.insert(inputs.begin(), IValue(grad_input));
 
   MaxPool2dWithIndicesBackwardOutOperator::SetPTOutputs(inputs);
-
 }
 
 /**
@@ -647,10 +646,8 @@ Tensor max_pool2d_with_indices_backward_hpu(
   Tensor input_nhwc = input;
   Tensor grad_out_nhwc = grad_output;
   Tensor indices_nhwc = indices;
-  std::vector<const at::Tensor*> pt_in{
-      &input, &grad_output, &indices};
-  std::vector<at::Tensor*> pt_out{
-      &input_nhwc, &grad_out_nhwc, &indices_nhwc};
+  std::vector<const at::Tensor*> pt_in{&input, &grad_output, &indices};
+  std::vector<at::Tensor*> pt_out{&input_nhwc, &grad_out_nhwc, &indices_nhwc};
 
   // TBD: these layout requirements are properties of the operator, and should
   // be declared static class member variables rathe than per-object data.
@@ -664,9 +661,8 @@ Tensor max_pool2d_with_indices_backward_hpu(
   habana_helpers::change_tensors_to_memory_format(
       pt_out, pt_in, pt_new_pos, memory_format);
 
-
   auto maxpool_2d_bwd = [&] {
-    std::vector<const at::Tensor*> pt_inputs{&grad_out_nhwc, &indices_nhwc};
+    std::vector<at::Tensor> pt_inputs{grad_out_nhwc, indices_nhwc};
     std::vector<c10::IValue> stack = {IValue(grad_out_nhwc),
                                       IValue(input_nhwc),
                                       IValue(indices_nhwc),
@@ -845,7 +841,7 @@ Tensor avg_pool2d_hpu(
       "avg_pool_2d_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
 
   auto avgpool_2d = [&] {
-    std::vector<const at::Tensor*> pt_inputs{&input_nhwc};
+    std::vector<at::Tensor> pt_inputs{input_nhwc};
     // Build Params for the graph
     std::vector<c10::IValue> stack = {IValue(input_nhwc),
                                       IValue(kernel_size),
@@ -1039,7 +1035,7 @@ Tensor& avg_pool2d_backward_out_hpu(
       "avg_pool_2d_bwd_" + habana_helpers::name_suffix_from_type(scalar_type);
 
   auto avgpool_bwd_out_2d = [&] {
-    std::vector<const at::Tensor*> pt_inputs{&grad_out_nhwc};
+    std::vector<at::Tensor> pt_inputs{grad_out_nhwc};
     // Build Params for the graph
     std::vector<c10::IValue> stack = {IValue(grad_input_nhwc),
                                       IValue(grad_out_nhwc),
@@ -1103,8 +1099,7 @@ void AvgPool2dBackwardOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(inputs[1].isTensor(), "Input1 type expected to be tensor");
 
   at::Tensor input_nhwc = inputs[1].toTensor();
-  auto grad_input_nhwc = at::empty_like(
-      input_nhwc, input_nhwc.options());
+  auto grad_input_nhwc = at::empty_like(input_nhwc, input_nhwc.options());
 
   inputs.insert(inputs.begin(), IValue(grad_input_nhwc));
   AvgPool2dBackwardOutOperator::AllocateAndAddSynapseNode(
@@ -1113,8 +1108,7 @@ void AvgPool2dBackwardOperator::AllocateAndAddSynapseNode(
 
 void AvgPool2dBackwardOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   at::Tensor input_nhwc = inputs[1].toTensor();
-  auto grad_input_nhwc = at::zeros_like(
-      input_nhwc, input_nhwc.options());
+  auto grad_input_nhwc = at::zeros_like(input_nhwc, input_nhwc.options());
 
   inputs.insert(inputs.begin(), IValue(grad_input_nhwc));
   AvgPool2dBackwardOutOperator::SetPTOutputs(inputs);
@@ -1173,7 +1167,7 @@ Tensor avg_pool2d_backward_hpu(
       "avg_pool_2d_bwd_" + habana_helpers::name_suffix_from_type(scalar_type);
 
   auto avgpool_bwd_2d = [&] {
-    std::vector<const at::Tensor*> pt_inputs{&grad_out_nhwc};
+    std::vector<at::Tensor> pt_inputs{grad_out_nhwc};
     // Build Params for the graph
     std::vector<c10::IValue> stack = {IValue(grad_out_nhwc),
                                       IValue(input_nhwc),
@@ -1229,19 +1223,30 @@ Tensor avg_pool2d_backward_hpu(
   return grad_input;
 }
 
-static auto& KernelRegistry = habana::KernelRegistry()
-    .add("aten::max_pool2d_with_indices",
-    [](const int device_id, c10::ScalarType node_type) {
-      return std::make_shared<MaxPool2dWithIndicesOperator>(device_id, node_type);})
-    .add("aten::max_pool2d",
-    [](const int device_id, c10::ScalarType node_type) {
-      return std::make_shared<MaxPool2dOperator>(device_id, node_type);})
-    .add("aten::avg_pool2d",
-    [](const int device_id, c10::ScalarType node_type) {
-      return std::make_shared<AvgPool2dOperator>(device_id, node_type);})
-    .add("aten::avg_pool2d_backward",
-    [](const int device_id, c10::ScalarType node_type) {
-      return std::make_shared<AvgPool2dBackwardOperator>(device_id, node_type);});
+static auto& KernelRegistry =
+    habana::KernelRegistry()
+        .add(
+            "aten::max_pool2d_with_indices",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<MaxPool2dWithIndicesOperator>(
+                  device_id, node_type);
+            })
+        .add(
+            "aten::max_pool2d",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<MaxPool2dOperator>(device_id, node_type);
+            })
+        .add(
+            "aten::avg_pool2d",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<AvgPool2dOperator>(device_id, node_type);
+            })
+        .add(
+            "aten::avg_pool2d_backward",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<AvgPool2dBackwardOperator>(
+                  device_id, node_type);
+            });
 
 static auto registry =
     torch::RegisterOperators()

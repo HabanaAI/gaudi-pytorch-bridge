@@ -35,7 +35,7 @@ enum class LayoutFormat { NHWC = 0, NCHW = 1, HWCK = 2, ANY = 3, INVALID = 4 };
 class PytorchKernelContext {
  public:
   int device_id_;
-  std::vector<const at::Tensor*> pt_inputs_;
+  std::vector<at::Tensor> pt_inputs_;
   std::vector<at::Tensor> pt_outputs_;
   std::deque<synapse_helpers::tensor_or_ref> syn_inputs_;
   std::deque<synapse_helpers::tensor_or_ref> syn_outputs_;
@@ -91,7 +91,7 @@ class HabanaOperator {
   virtual void Compile(synapse_helpers::graph& graph);
 
   virtual void Execute(size_t key);
-  virtual void SetPTInputs(const std::vector<const at::Tensor*> inputs);
+  virtual void SetPTInputs(const std::vector<at::Tensor>& inputs);
   virtual void SetPTOutput(const at::Tensor& output);
   virtual void SetPTOutputs(const std::vector<at::Tensor>& outputs);
   virtual size_t GetRecipeKey(
@@ -104,7 +104,7 @@ class HabanaOperator {
   // params
   virtual void AllocateSynapseInputs(
       synapse_helpers::graph& graph,
-      const std::vector<const at::Tensor*> inputs,
+      const std::vector<at::Tensor>& inputs,
       bool is_persistent = false);
 
   //
@@ -113,7 +113,7 @@ class HabanaOperator {
   // being created
   virtual synapse_helpers::tensor& AllocateSynapseInput(
       synapse_helpers::graph& graph,
-      const at::Tensor* input,
+      const at::Tensor& input,
       bool is_persistent = false);
 
   //
@@ -121,7 +121,7 @@ class HabanaOperator {
   // the synapse tensor to the context
   virtual synapse_helpers::tensor_or_ref& SetSynapseInput(
       synapse_helpers::tensor_or_ref&& tensor);
-  
+
   //
   // If Synapse tensor is already exists for the py torch tensor, we just add
   // the synapse tensor to the context
@@ -170,7 +170,7 @@ class HabanaOperator {
     return kernel_meta_data_;
   }
 
-  //To communicate patching info for tensors which are not part of graph
+  // To communicate patching info for tensors which are not part of graph
   virtual std::vector<std::pair<std::string, void*>> getAppendedTensorInfo();
 
   virtual const std::vector<std::pair<at::Tensor, at::Tensor>>
@@ -190,11 +190,10 @@ class HabanaOperator {
   std::string guid_;
   PytorchKernelContextPtr p_context_;
   KernelMetaData kernel_meta_data_;
-  //Store the info on intermediate tensors inserted(not part of graph)
-  //THis needs to be communicated to lowering kernel as these additions
-  //are invisible there(only graph mappings are queried)
-  std::vector<std::pair<std::string, void*>> appended_tensor_info; 
-
+  // Store the info on intermediate tensors inserted(not part of graph)
+  // THis needs to be communicated to lowering kernel as these additions
+  // are invisible there(only graph mappings are queried)
+  std::vector<std::pair<std::string, void*>> appended_tensor_info;
 };
 
 using HabanaOperatorPtr = std::shared_ptr<HabanaOperator>;
@@ -225,6 +224,7 @@ class RegisterKernel {
   RegisterKernel() = default;
   RegisterKernel(const RegisterKernel&) = delete;
   RegisterKernel& operator=(const RegisterKernel&) = delete;
+
  private:
   std::map<const std::string, RegisterFunc> kernels_;
 };

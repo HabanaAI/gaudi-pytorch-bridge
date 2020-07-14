@@ -56,8 +56,14 @@ void OptimizerSparseSgdOperator::AllocateAndAddSynapseNode(
   params.mom = mom;
   params.nesterov = nesterov;
 
-  auto weights_out = at::empty(weights_in.sizes(), weights_in.options(), weights_in.suggest_memory_format());
-  auto moments_out = at::empty(moments_in.sizes(), moments_in.options(), moments_in.suggest_memory_format());
+  auto weights_out = at::empty(
+      weights_in.sizes(),
+      weights_in.options(),
+      weights_in.suggest_memory_format());
+  auto moments_out = at::empty(
+      moments_in.sizes(),
+      moments_in.options(),
+      moments_in.suggest_memory_format());
 
   AllocateSynapseOutputs(
       graph, {weights_out, moments_out}, is_output_persistent);
@@ -92,12 +98,12 @@ optimizer_sparse_sgd_with_valid_count_hpu(
   auto graph = habana_helpers::create_graph(device_id, node_type);
 
   // Assign Inputs to the Operator
-  std::vector<const at::Tensor*> pt_inputs{&gradients,
-                                           &weights_in,
-                                           &moments_in,
-                                           &cast_indices,
-                                           &learning_rate,
-                                           &valid_count_tensor};
+  std::vector<at::Tensor> pt_inputs{gradients,
+                                    weights_in,
+                                    moments_in,
+                                    cast_indices,
+                                    learning_rate,
+                                    valid_count_tensor};
   Op.AllocateSynapseInputs(graph, pt_inputs, true);
   // Build Params for the graph
   std::vector<c10::IValue> stack = {IValue(gradients),
@@ -136,9 +142,18 @@ optimizer_sparse_sgd_with_valid_count_cpu(
   float* gp = static_cast<float*>(gradients.data_ptr());
   float* winp = static_cast<float*>(weights_in.data_ptr());
   float* minp = static_cast<float*>(moments_in.data_ptr());
-  Tensor weights_out = at::empty(weights_in.sizes(), weights_in.options(), weights_in.suggest_memory_format());
-  Tensor moments_out = at::empty(moments_in.sizes(), moments_in.options(), moments_in.suggest_memory_format());
-  Tensor grad_output = at::empty(weights_in.sizes(), gradients.options(), gradients.suggest_memory_format());
+  Tensor weights_out = at::empty(
+      weights_in.sizes(),
+      weights_in.options(),
+      weights_in.suggest_memory_format());
+  Tensor moments_out = at::empty(
+      moments_in.sizes(),
+      moments_in.options(),
+      moments_in.suggest_memory_format());
+  Tensor grad_output = at::empty(
+      weights_in.sizes(),
+      gradients.options(),
+      gradients.suggest_memory_format());
   weights_out.copy_(weights_in, false);
   moments_out.copy_(moments_in, false);
   grad_output.copy_(weights_in, false);
@@ -153,7 +168,7 @@ optimizer_sparse_sgd_with_valid_count_cpu(
     for (unsigned k = 0; k < vec_len; k++) {
       // momentum update
       moutp[inp[i] * vec_len + k] =
-          minp[inp[i] * vec_len + k] * mom + gp[i* vec_len + k];
+          minp[inp[i] * vec_len + k] * mom + gp[i * vec_len + k];
       gtemp = moutp[inp[i] * vec_len + k];
       // grad update
       if (nesterov) {

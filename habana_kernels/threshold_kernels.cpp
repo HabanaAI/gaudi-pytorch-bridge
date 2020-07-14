@@ -67,7 +67,7 @@ Tensor threshold_backward_hpu(
   habana::ThresholdBackwardOperator Op(device_id, scalar_type);
   std::vector<c10::IValue> stack = {
       IValue(grad_output), IValue(self), IValue(threshold)};
-  std::vector<const at::Tensor*> pt_inputs{&grad_output, &self};
+  std::vector<at::Tensor> pt_inputs{grad_output, self};
 
   size_t key = Op.GetRecipeKey(nodeType, stack);
   if (device.get_recipe_handle_cache().isCached(key)) {

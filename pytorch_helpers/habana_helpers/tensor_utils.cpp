@@ -65,7 +65,7 @@ at::Tensor habana_helpers::hpu_cast_tensor(
   CastOperator Op(device_id, node_type);
   std::vector<c10::IValue> stack = {IValue(Input),
                                     IValue(typeMetaToScalarType(type))};
-  std::vector<const at::Tensor*> pt_inputs{&Input};
+  std::vector<at::Tensor> pt_inputs{Input};
 
   size_t key = Op.GetRecipeKey(node_type, stack);
   if (device.get_recipe_handle_cache().isCached(key)) {
@@ -241,7 +241,7 @@ synapse_helpers::tensor habana_helpers::create_tensor(
 
 std::tuple<std::vector<synapse_helpers::tensor>, std::vector<synTensor>>
 habana_helpers::create_tensors(
-    const std::vector<const at::Tensor*> tensors,
+    const std::vector<at::Tensor>& tensors,
     synGraphHandle graph,
     bool persistent) {
   return habana_helpers::create_tensors(
@@ -254,7 +254,7 @@ habana_helpers::create_tensors(
 
 std::tuple<std::vector<synapse_helpers::tensor>, std::vector<synTensor>>
 habana_helpers::create_tensors(
-    const std::vector<const at::Tensor*> tensors,
+    const std::vector<at::Tensor>& tensors,
     synGraphHandle graph,
     const std::vector<bool> persistents,
     const std::vector<c10::optional<c10::ScalarType>> dtypes) {
@@ -272,10 +272,10 @@ habana_helpers::create_tensors(
 
   for (size_t i = 0; i < num_tensors; ++i) {
     tensor_helpers.push_back(habana_helpers::create_tensor(
-        *tensors[i],
+        tensors[i],
         graph,
         persistents[i],
-        dtypes[i].value_or(tensors[i]->scalar_type())));
+        dtypes[i].value_or(tensors[i].scalar_type())));
     syn_tensors.push_back(tensor_helpers[i].get());
   }
 

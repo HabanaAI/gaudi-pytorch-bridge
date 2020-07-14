@@ -58,7 +58,8 @@ void LogSoftmaxOperator::AllocateAndAddSynapseNode(
   p_context_->params_.emplace<ns_Softmax::Params>(params);
   p_context_->params_size_ = sizeof(params);
 
-  auto output = at::empty(self.sizes(), self.options(), self.suggest_memory_format());
+  auto output =
+      at::empty(self.sizes(), self.options(), self.suggest_memory_format());
   AllocateSynapseOutput(graph, output, is_output_persistent);
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
@@ -106,7 +107,8 @@ void LogSoftmaxBackwardOperator::AllocateAndAddSynapseNode(
   std::swap(p_context_->pt_inputs_[0], p_context_->pt_inputs_[1]);
   std::swap(p_context_->syn_inputs_[0], p_context_->syn_inputs_[1]);
 
-  auto grad_output = at::empty(input.sizes(), input.options(), input.suggest_memory_format());
+  auto grad_output =
+      at::empty(input.sizes(), input.options(), input.suggest_memory_format());
 
   AllocateSynapseOutput(graph, grad_output, is_output_persistent);
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
@@ -138,11 +140,12 @@ Tensor log_softmax_hpu(
       IValue(self), IValue(dim), IValue(half_to_float)};
   size_t key = Op.GetRecipeKey(node_type, stack);
 
+  std::vector<at::Tensor> pt_inputs{self};
   if (device.get_recipe_handle_cache().isCached(key)) {
     PT_KERNEL_DEBUG("Cache hit key:", key);
-    std::vector<const at::Tensor*> inputs{&self};
-    auto output = at::empty(self.sizes(), self.options(), self.suggest_memory_format());
-    Op.SetPTInputs(inputs);
+    auto output =
+        at::empty(self.sizes(), self.options(), self.suggest_memory_format());
+    Op.SetPTInputs(pt_inputs);
     Op.SetPTOutput(output);
     Op.Execute(key);
   } else {
@@ -151,7 +154,6 @@ Tensor log_softmax_hpu(
     auto graph = habana_helpers::create_graph(device_id, node_type);
 
     // Assign Inputs to the Operator
-    std::vector<const at::Tensor*> pt_inputs{&self};
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
     // Build Params for the graph
@@ -193,8 +195,9 @@ Tensor log_softmax_backward_hpu(
 
   if (device.get_recipe_handle_cache().isCached(key)) {
     PT_KERNEL_DEBUG("Cache hit key:", key);
-    std::vector<const at::Tensor*> pt_inputs{&output, &grad};
-    auto output = at::empty(input.sizes(), input.options(), input.suggest_memory_format());
+    std::vector<at::Tensor> pt_inputs{output, grad};
+    auto output = at::empty(
+        input.sizes(), input.options(), input.suggest_memory_format());
     Op.SetPTInputs(pt_inputs);
     Op.SetPTOutput(output);
     Op.Execute(key);
@@ -204,7 +207,7 @@ Tensor log_softmax_backward_hpu(
     auto graph = habana_helpers::create_graph(device_id, node_type);
 
     // Assign Inputs to the Operator
-    std::vector<const at::Tensor*> pt_inputs{&grad, &output, &input};
+    std::vector<at::Tensor> pt_inputs{grad, output, input};
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
     Op.AllocateAndAddSynapseNode(graph, stack, true);
@@ -271,7 +274,9 @@ void SoftmaxOperator::AllocateAndAddSynapseNode(
     p_context_->syn_inputs_[0] = std::move(float_syn);
 
     auto output = at::empty(
-      output_float.sizes(), output_float.options(), output_float.suggest_memory_format());
+        output_float.sizes(),
+        output_float.options(),
+        output_float.suggest_memory_format());
     AllocateSynapseOutput(graph, output, is_output_persistent);
     synapse_helpers::tensor& synOutput = p_context_->syn_outputs_[0];
 
@@ -279,8 +284,8 @@ void SoftmaxOperator::AllocateAndAddSynapseNode(
     std::vector<synTensor> syn_out{synOutput.get()};
 
     at::ScalarType scalar_type = output_float.scalar_type();
-    node_type = "softmax_fwd_" +
-            habana_helpers::name_suffix_from_type(scalar_type);
+    node_type =
+        "softmax_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
     graph.add_node(
         std::move(syn_in),
         std::move(syn_out),
@@ -292,15 +297,15 @@ void SoftmaxOperator::AllocateAndAddSynapseNode(
     p_context_->params_.emplace<ns_Softmax::Params>(params);
     p_context_->params_size_ = sizeof(params);
 
-    auto output = at::empty(
-      self.sizes(), self.options(), self.suggest_memory_format());
+    auto output =
+        at::empty(self.sizes(), self.options(), self.suggest_memory_format());
     AllocateSynapseOutput(graph, output, is_output_persistent);
     AddNodeToSynapseGraph(graph, &params, sizeof(params));
   }
 }
 
 void SoftmaxOperator::SetPTOutputs(torch::jit::Stack& inputs) {
-TORCH_CHECK(
+  TORCH_CHECK(
       inputs.size() == 3,
       "Incorrect size of input expected for Softmax operator");
   TORCH_CHECK(
@@ -313,8 +318,10 @@ TORCH_CHECK(
       "Input type expected to be Bool for Softmax operator");
 
   auto self = inputs[0].toTensor();
-  auto output = at::empty(self.sizes(), self.options().dtype(c10::ScalarType::Float),
-                          self.suggest_memory_format());
+  auto output = at::empty(
+      self.sizes(),
+      self.options().dtype(c10::ScalarType::Float),
+      self.suggest_memory_format());
   HabanaOperator::SetPTOutput(output);
 }
 /** softmax (forward pass) implementation for Habana device
@@ -335,13 +342,13 @@ Tensor softmax_hpu(const Tensor& self, int64_t dim, const bool half_to_float) {
   SoftmaxOperator Op(device_id, scalar_type);
 
   std::vector<c10::IValue> stack = {
-        IValue(self), IValue(dim), IValue(half_to_float)};
+      IValue(self), IValue(dim), IValue(half_to_float)};
   size_t key = Op.GetRecipeKey(node_type, stack);
 
   // Assign Inputs to the Operator
-  std::vector<const at::Tensor*> pt_inputs{&self};
+  std::vector<at::Tensor> pt_inputs{self};
 
- if (device.get_recipe_handle_cache().isCached(key)) {
+  if (device.get_recipe_handle_cache().isCached(key)) {
     PT_KERNEL_DEBUG("Cache hit key:", key);
     Op.SetPTInputs(pt_inputs);
     Op.SetPTOutputs(stack);
@@ -396,7 +403,7 @@ void SoftmaxBackwardOperator::AllocateAndAddSynapseNode(
 
   // For softmax_bwd_ kernel, the node inputs are in order {grad, output,
   // input} The synapse graph needs only the grad and output, and in the order
-  // {output, grad} The p_context_->pt_inputs_ and p_context_->syn_inputs_ need 
+  // {output, grad} The p_context_->pt_inputs_ and p_context_->syn_inputs_ need
   // to be modified to ensure this. Correct approch to do this is TBD.
 
   TORCH_CHECK(
@@ -406,7 +413,8 @@ void SoftmaxBackwardOperator::AllocateAndAddSynapseNode(
       p_context_->syn_inputs_.size() == 2,
       "softmax_bwd node should have 2 input synapse tensors");
 
-  auto input_grad = at::empty(input.sizes(), input.options(), input.suggest_memory_format());
+  auto input_grad =
+      at::empty(input.sizes(), input.options(), input.suggest_memory_format());
 
   AllocateSynapseOutput(graph, input_grad, is_output_persistent);
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
@@ -440,11 +448,12 @@ Tensor softmax_backward_hpu(
   // For softmax_bwd_ kernel, the node inputs are in order {grad, output,
   // input} The synapse graph needs only the grad and output, and in the order
   // {output, grad}. Correct way to set the Inputs is TBD
-  std::vector<const at::Tensor*> pt_inputs{&output, &grad};
+  std::vector<at::Tensor> pt_inputs{output, grad};
 
   if (device.get_recipe_handle_cache().isCached(key)) {
     PT_KERNEL_DEBUG("Cache hit key:", key);
-    auto input_grad = at::empty(input.sizes(), input.options(), input.suggest_memory_format());
+    auto input_grad = at::empty(
+        input.sizes(), input.options(), input.suggest_memory_format());
     Op.SetPTInputs(pt_inputs);
     Op.SetPTOutput(input_grad);
     Op.Execute(key);
@@ -466,19 +475,32 @@ Tensor softmax_backward_hpu(
 }
 } // end namespace habana
 
-static auto& KernelRegistry = habana::KernelRegistry()
-    .add("aten::log_softmax",
-    [](const int device_id, c10::ScalarType node_type) {
-      return std::make_shared<habana::LogSoftmaxOperator>(device_id, node_type);})
-    .add("aten::_log_softmax_backward_data",
-    [](const int device_id, c10::ScalarType node_type) {
-      return std::make_shared<habana::LogSoftmaxBackwardOperator>(device_id, node_type);})
-    .add("aten::aten::_softmax",
-    [](const int device_id, c10::ScalarType node_type) {
-      return std::make_shared<habana::SoftmaxOperator>(device_id, node_type);})
-    .add("aten::_softmax_backward_data",
-    [](const int device_id, c10::ScalarType node_type) {
-      return std::make_shared<habana::SoftmaxBackwardOperator>(device_id, node_type);});
+static auto& KernelRegistry =
+    habana::KernelRegistry()
+        .add(
+            "aten::log_softmax",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<habana::LogSoftmaxOperator>(
+                  device_id, node_type);
+            })
+        .add(
+            "aten::_log_softmax_backward_data",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<habana::LogSoftmaxBackwardOperator>(
+                  device_id, node_type);
+            })
+        .add(
+            "aten::aten::_softmax",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<habana::SoftmaxOperator>(
+                  device_id, node_type);
+            })
+        .add(
+            "aten::_softmax_backward_data",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<habana::SoftmaxBackwardOperator>(
+                  device_id, node_type);
+            });
 
 static auto registry =
     torch::RegisterOperators()

@@ -250,12 +250,12 @@ void BatchNormForwardOperator::generateCacheInputs(Stack& inputs) {
                   std::move(running_var_hpu)};
     // Mean and var only passed once as intermediate ones are non-persistent
     // adn dont go for patching
-    pt_inputs = {&pre_inputs[0],
-                 &pre_inputs[1],
-                 &pre_inputs[2],
-                 &pre_inputs[3],
-                 &pre_inputs[4],
-                 &pre_inputs[5]};
+    pt_inputs = {pre_inputs[0],
+                 pre_inputs[1],
+                 pre_inputs[2],
+                 pre_inputs[3],
+                 pre_inputs[4],
+                 pre_inputs[5]};
     input_stack = {IValue(pre_inputs[0]),
                    IValue(pre_inputs[4]),
                    IValue(pre_inputs[5]),
@@ -269,11 +269,11 @@ void BatchNormForwardOperator::generateCacheInputs(Stack& inputs) {
                   std::move(wt_hpu),
                   std::move(running_mean_hpu),
                   std::move(running_var_hpu)};
-    pt_inputs = {&pre_inputs[0],
-                 &pre_inputs[1],
-                 &pre_inputs[2],
-                 &pre_inputs[3],
-                 &pre_inputs[4]};
+    pt_inputs = {pre_inputs[0],
+                 pre_inputs[1],
+                 pre_inputs[2],
+                 pre_inputs[3],
+                 pre_inputs[4]};
     input_stack = {IValue(pre_inputs[0]),
                    IValue(pre_inputs[3]),
                    IValue(pre_inputs[4]),
@@ -365,14 +365,14 @@ void BatchNormForwardOperator::preProcessInputs(
                   std::move(residualAdd),
                   std::move(running_mean_hpu),
                   std::move(running_var_hpu)};
-    pt_inputs = {&pre_inputs[0],
-                 &pre_inputs[1],
-                 &pre_inputs[2],
-                 &pre_inputs[3],
-                 &pre_inputs[4],
-                 &pre_inputs[5],
-                 &pre_inputs[4],
-                 &pre_inputs[5]};
+    pt_inputs = {pre_inputs[0],
+                 pre_inputs[1],
+                 pre_inputs[2],
+                 pre_inputs[3],
+                 pre_inputs[4],
+                 pre_inputs[5],
+                 pre_inputs[4],
+                 pre_inputs[5]};
     input_stack = {IValue(pre_inputs[0]),
                    IValue(pre_inputs[4]),
                    IValue(pre_inputs[5]),
@@ -386,11 +386,11 @@ void BatchNormForwardOperator::preProcessInputs(
                   std::move(wt_hpu),
                   std::move(running_mean_hpu),
                   std::move(running_var_hpu)};
-    pt_inputs = {&pre_inputs[0],
-                 &pre_inputs[1],
-                 &pre_inputs[2],
-                 &pre_inputs[3],
-                 &pre_inputs[4]};
+    pt_inputs = {pre_inputs[0],
+                 pre_inputs[1],
+                 pre_inputs[2],
+                 pre_inputs[3],
+                 pre_inputs[4]};
     input_stack = {IValue(pre_inputs[0]),
                    IValue(pre_inputs[3]),
                    IValue(pre_inputs[4]),
@@ -531,7 +531,7 @@ void BatchNormForwardOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   }
 }
 
-std::vector<const at::Tensor*>& BatchNormForwardOperator::GetBNInputs() {
+std::vector<at::Tensor>& BatchNormForwardOperator::GetBNInputs() {
   return pt_inputs;
 }
 
@@ -619,12 +619,13 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu(
       Op.SetPTOutputs(Op.GetInputstack());
       Op.Execute(key);
     } else {
+      PT_KERNEL_DEBUG("key:", key);
       // Create Graph
       auto graph = habana_helpers::create_graph(device_id, node_type);
       for (auto ival : in_stack) {
         if (ival.isTensor() && ival.toTensor().defined()) {
           at::Tensor in = ival.toTensor().to(DeviceType::HABANA);
-          Op.AllocateSynapseInput(graph, &in, true);
+          Op.AllocateSynapseInput(graph, in, true);
         }
       }
       Op.AllocateAndAddSynapseNode(graph, in_stack, true);
@@ -774,12 +775,12 @@ void BatchNormBackwardOperator::preProcessInputs(
   pre_inputs = {
       input, grad_out, wt_hpu, bias_hpu, save_mean_hpu, save_invstd_hpu};
 
-  pt_inputs = {&pre_inputs[0],
-               &pre_inputs[1],
-               &pre_inputs[2],
-               &pre_inputs[3],
-               &pre_inputs[4],
-               &pre_inputs[5]};
+  pt_inputs = {pre_inputs[0],
+               pre_inputs[1],
+               pre_inputs[2],
+               pre_inputs[3],
+               pre_inputs[4],
+               pre_inputs[5]};
   p_context_->syn_inputs_.clear();
   for (auto& st : reordered_syn_inputs_) {
     // p_context_->syn_inputs_.emplace_back(std::move(st));
@@ -810,8 +811,8 @@ void BatchNormBackwardOperator::AllocateAndAddSynapseNode(
     }
     preProcessInputs(graph, preprocess_in);
   }
-  const auto input = *pt_inputs[0];
-  const auto weight = *pt_inputs[2];
+  const auto input = pt_inputs[0];
+  const auto weight = pt_inputs[2];
   const auto eps = inputs[8].toDouble();
   // Prepare output tensor vector
   auto grad_in_nhwc = at::empty(input.sizes(), input.options());
@@ -863,12 +864,12 @@ void BatchNormBackwardOperator::generateCacheInputs(Stack& inputs) {
   pre_inputs = {
       input, grad_out, wt_hpu, bias_hpu, save_mean_hpu, save_invstd_hpu};
 
-  pt_inputs = {&pre_inputs[0],
-               &pre_inputs[1],
-               &pre_inputs[2],
-               &pre_inputs[3],
-               &pre_inputs[4],
-               &pre_inputs[5]};
+  pt_inputs = {pre_inputs[0],
+               pre_inputs[1],
+               pre_inputs[2],
+               pre_inputs[3],
+               pre_inputs[4],
+               pre_inputs[5]};
 
   p_context_->pt_inputs_.clear();
   SetPTInputs(pt_inputs);
@@ -991,7 +992,7 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu(
       for (auto ival : preprocess_stack) {
         if (ival.isTensor() && ival.toTensor().defined()) {
           at::Tensor in = ival.toTensor().to(DeviceType::HABANA);
-          Op.AllocateSynapseInput(graph, &in, true);
+          Op.AllocateSynapseInput(graph, in, true);
         }
       }
       // Build Params for the graph
@@ -1042,8 +1043,7 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_hpu(
   std::vector<int64_t> shape{m, n};
   auto input_reshaped = input.view(shape);
 
-  std::vector<const at::Tensor*> pt_inputs{
-      &input_reshaped, &bias_reshaped, &wt_reshaped};
+  std::vector<at::Tensor> pt_inputs{input_reshaped, bias_reshaped, wt_reshaped};
 
   std::vector<int64_t> shape_mean{m, 1};
   IntArrayRef meanArray(shape_mean.data(), shape_mean.size());
@@ -1051,7 +1051,7 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_hpu(
   auto mean = at::empty(meanArray, wt_reshaped.options());
   auto istd = at::empty(meanArray, bias_reshaped.options());
 
-  std::vector<const at::Tensor*> pt_outputs{&output, &mean, &istd};
+  std::vector<at::Tensor> pt_outputs{output, mean, istd};
 
   struct ns_LayerNormKernel::Params param;
   param.eps = static_cast<float>(eps);
@@ -1216,7 +1216,7 @@ Tensor norm_scalar_hpu(const Tensor& self, Scalar p) {
   size_t key = Op.GetRecipeKey(node_type, stack);
 
   // Assign Inputs to the Operator
-  std::vector<const at::Tensor*> pt_inputs{&self};
+  std::vector<at::Tensor> pt_inputs{self};
 
   if (device.get_recipe_handle_cache().isCached(key)) {
     PT_KERNEL_DEBUG("Cache hit key:", key);

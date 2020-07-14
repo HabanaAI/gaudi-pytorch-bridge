@@ -52,6 +52,7 @@ void habana_helpers::compile_and_run(
     const std::vector<std::string>& output_names,
     const std::vector<void*>& input_buffers,
     const std::vector<void*>& output_buffers,
+    std::vector<at::Tensor>& pt_inputs,
     const uint32_t device_id,
     size_t key) {
   TORCH_CHECK(!graph.is_empty(), "Trying to compile and run an empty graph");
@@ -66,7 +67,7 @@ void habana_helpers::compile_and_run(
   }
   AT_ASSERT(recipe != nullptr);
   if (recipe != nullptr) {
-    synStreamHandle stream_handle = device.get_compute_stream();
+    auto& stream_handle = device.get_compute_stream();
     recipe->create_launch_info();
     recipe->set_inputs_outputs_names(input_names, output_names);
     recipe->launch(input_buffers, output_buffers);
@@ -75,23 +76,22 @@ void habana_helpers::compile_and_run(
   }
 }
 
-// Note:StreamSync is removed b/w Ops and compute stream sync happens
-// before any DMA operation.
 void habana_helpers::execute_recipe(
     const std::vector<void*>& input_buffers,
     const std::vector<void*>& output_buffers,
+    std::vector<at::Tensor>& pt_inputs,
     const uint32_t device_id,
     size_t key) {
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
   auto g_recipe = device.get_recipe_handle_cache().get_recipe(key);
   AT_ASSERT(g_recipe != nullptr);
   if (g_recipe != nullptr) {
+    auto& stream_handle = device.get_compute_stream();
     g_recipe->launch(input_buffers, output_buffers);
-  }
-  if (!(synapse_helpers::IsStreamSyncOptEnabled())) {
-    synStreamHandle stream_handle = device.get_compute_stream();
-    TORCH_HABANA_CHECK(
-        synStreamSynchronize(stream_handle), "synStreamSynchronize failed");
+    if (!(synapse_helpers::IsStreamSyncOptEnabled())) {
+      TORCH_HABANA_CHECK(
+          synStreamSynchronize(stream_handle), "synStreamSynchronize failed");
+    }
   }
 }
 

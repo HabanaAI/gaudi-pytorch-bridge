@@ -99,11 +99,13 @@ void synapse_matmul(
   std::vector<c10::IValue> stack = {IValue(output), IValue(mat1), IValue(mat2)};
   size_t key = habana_helpers::getRecipeKey(node_type, stack);
 
+  std::vector<at::Tensor> pt_inputs{mat1, mat2};
   if (device.get_recipe_handle_cache().isCached(key)) {
     PT_KERNEL_DEBUG("Cache hit key:", key);
     habana_helpers::execute_recipe(
         {mat1.data_ptr(), mat2.data_ptr()},
         {output.data_ptr()},
+        pt_inputs,
         device_id,
         key);
   } else {
@@ -126,9 +128,7 @@ void synapse_matmul(
 
       std::tie(syn_helper_outputs, syn_outputs) =
           habana_helpers::create_tensors(
-              std::vector<const at::Tensor*>{&output},
-              graph.get_graph_handle(),
-              true);
+              std::vector<at::Tensor>{output}, graph.get_graph_handle(), true);
 
       { // add node
         synGEMMParams params{0, 0};
@@ -147,6 +147,7 @@ void synapse_matmul(
           habana_helpers::names(syn_helper_outputs),
           {mat1.data_ptr(), mat2.data_ptr()},
           {output.data_ptr()},
+          pt_inputs,
           device_id,
           key);
     }
@@ -188,7 +189,7 @@ at::Tensor mm_hpu(const at::Tensor& mat1, const at::Tensor& mat2) {
   habana::MMOperator op(device_id);
   size_t key = op.GetRecipeKey(node_type, stack);
 
-  std::vector<const at::Tensor*> inputs = {&mat1, &mat2};
+  std::vector<at::Tensor> inputs = {mat1, mat2};
   if (device.get_recipe_handle_cache().isCached(key)) {
     PT_KERNEL_DEBUG("Cache hit key:", key);
     auto output = at::empty({mat1.size(0), mat2.size(1)}, mat1.options());
@@ -322,7 +323,7 @@ Tensor addmm_hpu(
 
   habana::AddmmOperator op(device_id, scalar_type);
 
-  std::vector<const at::Tensor*> inputs = {&bias_expanded, &mat1, &mat2};
+  std::vector<at::Tensor> inputs = {bias_expanded, mat1, mat2};
   torch::jit::Stack stack = {IValue(bias_expanded),
                              IValue(mat1),
                              IValue(mat2),
@@ -388,7 +389,7 @@ Tensor& batch_gemm_out_hpu(
   std::string node_type = "batch_gemm";
   torch::jit::Stack stack = {IValue(out), IValue(self), IValue(mat2)};
   habana::BmmOutOperator op(device_id, self.scalar_type());
-  std::vector<const at::Tensor*> pt_inputs{&self, &mat2};
+  std::vector<at::Tensor> pt_inputs{self, mat2};
 
   size_t key = op.GetRecipeKey(node_type, stack);
   if (device.get_recipe_handle_cache().isCached(key)) {
@@ -447,7 +448,7 @@ Tensor batch_gemm_hpu(const Tensor& self, const Tensor& mat2) {
   std::string node_type = "batch_gemm";
   torch::jit::Stack stack = {IValue(self), IValue(mat2)};
   habana::BmmOperator op(device_id, self.scalar_type());
-  std::vector<const at::Tensor*> pt_inputs{&self, &mat2};
+  std::vector<at::Tensor> pt_inputs{self, mat2};
 
   size_t key = op.GetRecipeKey(node_type, stack);
   if (device.get_recipe_handle_cache().isCached(key)) {
@@ -521,16 +522,22 @@ Tensor mv_hpu(const Tensor& self, const Tensor& other) {
   return output;
 }
 
-static auto& KernelRegistry = habana::KernelRegistry()
-    .add("aten::mm",
-    [](const int device_id, c10::ScalarType node_type) {
-      return std::make_shared<habana::MMOperator>(device_id);})
-    .add("aten::addmm",
-    [](const int device_id, c10::ScalarType node_type) {
-      return std::make_shared<habana::AddmmOperator>(device_id, node_type);})
-    .add("aten::bmm",
-    [](const int device_id, c10::ScalarType node_type) {
-      return std::make_shared<habana::BmmOperator>(device_id, node_type);});
+static auto& KernelRegistry =
+    habana::KernelRegistry()
+        .add(
+            "aten::mm",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<habana::MMOperator>(device_id);
+            })
+        .add(
+            "aten::addmm",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<habana::AddmmOperator>(
+                  device_id, node_type);
+            })
+        .add("aten::bmm", [](const int device_id, c10::ScalarType node_type) {
+          return std::make_shared<habana::BmmOperator>(device_id, node_type);
+        });
 
 static auto registry =
     torch::RegisterOperators()

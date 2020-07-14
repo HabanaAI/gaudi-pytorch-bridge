@@ -76,7 +76,8 @@ void allocate_reduction_result(
     THHTensor_resizeNd(tht_result, shape.size(), shape.data(), nullptr);
     // result.resize_(shape);
   } else {
-    result = at::empty(shape, self.options().dtype(dtype), self.suggest_memory_format());
+    result = at::empty(
+        shape, self.options().dtype(dtype), self.suggest_memory_format());
   }
 }
 
@@ -282,7 +283,7 @@ Tensor sum_dim_IntList_hpu(
   // Create the operator
   size_t device_id = self.device().index();
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-  std::vector<const at::Tensor*> pt_inputs{&self};
+  std::vector<at::Tensor> pt_inputs{self};
   std::vector<c10::IValue> stack = {
       IValue(self), IValue(dim), IValue(keepdim), IValue(dtype)};
   // Create the operator
@@ -366,7 +367,7 @@ Tensor& sum_IntList_out_hpu(
 
   size_t device_id = self.device().index();
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-  std::vector<const at::Tensor*> pt_inputs{&self};
+  std::vector<at::Tensor> pt_inputs{self};
   // Build Params for the graph
   std::vector<c10::IValue> stack = {IValue(output),
                                     IValue(self),
@@ -454,7 +455,7 @@ Tensor mean_dim_hpu(
 
   size_t device_id = self.device().index();
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-  std::vector<const at::Tensor*> pt_inputs{&self};
+  std::vector<at::Tensor> pt_inputs{self};
   // Build Params for the graph
   std::vector<c10::IValue> stack = {
       IValue(self), IValue(dim), IValue(keepdim), IValue(dtype)};
@@ -540,7 +541,7 @@ Tensor& mean_dim_out_hpu(
 
   size_t device_id = self.device().index();
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-  std::vector<const at::Tensor*> pt_inputs{&self};
+  std::vector<at::Tensor> pt_inputs{self};
   // Build Params for the graph
   std::vector<c10::IValue> stack = {IValue(output),
                                     IValue(self),
@@ -631,7 +632,7 @@ Tensor sum_hpu(const Tensor& self, c10::optional<ScalarType> dtype) {
   std::string node_type =
       "reduce_sum_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
 
-  std::vector<const at::Tensor*> pt_inputs{&self};
+  std::vector<at::Tensor> pt_inputs{self};
   std::vector<c10::IValue> stack = {IValue(self), IValue(dtype)};
   size_t device_id = self.device().index();
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
@@ -724,7 +725,7 @@ Tensor mean_hpu(const Tensor& self, c10::optional<ScalarType> dtype) {
 
   size_t device_id = self.device().index();
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-  std::vector<const at::Tensor*> pt_inputs{&self};
+  std::vector<at::Tensor> pt_inputs{self};
   // Build Params for the graph
   std::vector<c10::IValue> stack = {IValue(self), IValue(dtype)};
   // Create the operator
@@ -884,7 +885,7 @@ Tensor& any_dim_out_hpu(
   auto graph = habana_helpers::create_graph(device_id, node_type);
 
   // Assign Inputs to the Operator
-  std::vector<const at::Tensor*> pt_inputs{&self};
+  std::vector<at::Tensor> pt_inputs{self};
   Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
   // Build Params for the graph
@@ -919,7 +920,7 @@ void AnyDimOperator::AllocateAndAddSynapseNode(
       inputs[2].isBool(), "Input arg3 expected to be Bool for AnyDim operator");
 
   auto self = inputs[0].toTensor();
-  Tensor output =at::empty({0}, self.options().dtype(c10::ScalarType::Char));
+  Tensor output = at::empty({0}, self.options().dtype(c10::ScalarType::Char));
   inputs.insert(inputs.begin(), IValue(output));
 
   AnyDimOutOperator::AllocateAndAddSynapseNode(
@@ -950,7 +951,7 @@ Tensor any_dim_hpu(const Tensor& self, int64_t dim, bool keepdim) {
   auto graph = habana_helpers::create_graph(device_id, node_type);
 
   // Assign Inputs to the Operator
-  std::vector<const at::Tensor*> pt_inputs{&self};
+  std::vector<at::Tensor> pt_inputs{self};
   Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
   // Build Params for the graph
@@ -1052,7 +1053,7 @@ Tensor any_hpu(const Tensor& self) {
   auto graph = habana_helpers::create_graph(device_id, node_type);
 
   // Assign Inputs to the Operator
-  std::vector<const at::Tensor*> pt_inputs{&self};
+  std::vector<at::Tensor> pt_inputs{self};
   Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
   // Build Params for the graph

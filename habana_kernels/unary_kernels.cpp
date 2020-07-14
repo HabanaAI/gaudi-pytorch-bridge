@@ -38,7 +38,8 @@ void UnaryOperator::AllocateAndAddSynapseNode(
 
   at::Tensor input = inputs[0].toTensor();
 
-  auto output = at::empty(input.sizes(), input.options(), input.suggest_memory_format());
+  auto output =
+      at::empty(input.sizes(), input.options(), input.suggest_memory_format());
   AllocateSynapseOutput(graph, output, is_output_persistent);
   AddNodeToSynapseGraph(graph, nullptr, 0);
 }
@@ -49,13 +50,14 @@ Tensor unary_op_hpu(
     UnaryOperator* Op) {
   size_t device_id = input.device().index();
   std::vector<c10::IValue> stack = {IValue(input)};
-  std::vector<const at::Tensor*> pt_inputs{&input};
+  std::vector<at::Tensor> pt_inputs{input};
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
   size_t key = Op->GetRecipeKey(node_type, stack);
 
   if (device.get_recipe_handle_cache().isCached(key)) {
     PT_KERNEL_DEBUG("Cache hit key:", key);
-    auto output = at::empty(input.sizes(), input.options(), input.suggest_memory_format());
+    auto output = at::empty(
+        input.sizes(), input.options(), input.suggest_memory_format());
     Op->SetPTInputs(pt_inputs);
     Op->SetPTOutput(output);
     Op->Execute(key);
@@ -119,7 +121,8 @@ void UnaryBackwardOperator::AllocateAndAddSynapseNode(
       ", input sizes: ",
       grad_in.sizes());
 
-  auto grad_output = at::empty(input.sizes(), input.options(), input.suggest_memory_format());
+  auto grad_output =
+      at::empty(input.sizes(), input.options(), input.suggest_memory_format());
   AllocateSynapseOutput(graph, grad_output, is_output_persistent);
   AddNodeToSynapseGraph(graph, nullptr, 0);
 }
@@ -148,13 +151,14 @@ Tensor unary_backward_op_hpu(
       input.sizes());
   size_t device_id = input.device().index();
   std::vector<c10::IValue> stack = {IValue(grad_in), IValue(input)};
-  std::vector<const at::Tensor*> pt_inputs{&grad_in, &input};
+  std::vector<at::Tensor> pt_inputs{grad_in, input};
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
   size_t key = Op->GetRecipeKey(node_type, stack);
 
   if (device.get_recipe_handle_cache().isCached(key)) {
     PT_KERNEL_DEBUG("Cache hit key:", key);
-    auto output = at::empty(input.sizes(), input.options(), input.suggest_memory_format());
+    auto output = at::empty(
+        input.sizes(), input.options(), input.suggest_memory_format());
     Op->SetPTInputs(pt_inputs);
     Op->SetPTOutput(output);
     Op->Execute(key);
@@ -214,7 +218,7 @@ Tensor& relu_hpu_(Tensor& self) {
   // Create the operator
   size_t device_id = self.device().index();
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-  std::vector<const at::Tensor*> pt_inputs{&self};
+  std::vector<at::Tensor> pt_inputs{self};
   // Build Params for the graph
   std::vector<c10::IValue> stack = {IValue(self)};
   ReluInplaceOperator Op(device_id, node_type);
@@ -223,7 +227,7 @@ Tensor& relu_hpu_(Tensor& self) {
   if (device.get_recipe_handle_cache().isCached(key)) {
     PT_KERNEL_DEBUG("Cache hit key:", key);
     Op.SetPTInputs(pt_inputs);
-    Op.SetPTOutput(*pt_inputs[0]);
+    Op.SetPTOutput(pt_inputs[0]);
     Op.Execute(key);
   } else {
     PT_KERNEL_DEBUG("Key:", key);
@@ -339,7 +343,7 @@ Tensor tanh_hpu(const Tensor& input) {
 
 Tensor& tanh_hpu_(Tensor& self) {
   PT_KERNEL_BEGIN;
-  std::vector<const at::Tensor*> pt_inputs{&self};
+  std::vector<at::Tensor> pt_inputs{self};
 
   synapse_simple_generic_inplace_kernel(
       pt_inputs, "tanh", nullptr, 0, SynapsePassType::FORWARD_PASS);
@@ -356,8 +360,8 @@ Tensor& tanh_hpu_(Tensor& self) {
 
 Tensor& tanh_out_hpu(Tensor& out, Tensor& self) {
   PT_KERNEL_BEGIN;
-  std::vector<const at::Tensor*> pt_inputs{&self};
-  std::vector<const at::Tensor*> pt_outputs{&out};
+  std::vector<at::Tensor> pt_inputs{self};
+  std::vector<at::Tensor> pt_outputs{out};
 
   synapse_simple_generic_kernel(
       pt_outputs, pt_inputs, "tanh", nullptr, 0, SynapsePassType::FORWARD_PASS);
@@ -417,7 +421,8 @@ Tensor gelu_hpu(const Tensor& self) {
 Tensor& erf_hpu_(Tensor& self) {
   PT_KERNEL_BEGIN;
 
-  Tensor self_copy = at::empty(self.sizes(), self.options(), self.suggest_memory_format());
+  Tensor self_copy =
+      at::empty(self.sizes(), self.options(), self.suggest_memory_format());
   habana_helpers::copy_data_within_device(self, self_copy);
 
   self.pow_(3.0).mul_(0.08943).add_(self_copy).mul_(M_2_SQRTPI).tanh_();
@@ -434,11 +439,12 @@ Tensor& erf_hpu_(Tensor& self) {
 Tensor& exp_hpu_(Tensor& self) {
   PT_KERNEL_BEGIN;
 
-  auto self_copy = at::empty(self.sizes(), self.options(), self.suggest_memory_format());
+  auto self_copy =
+      at::empty(self.sizes(), self.options(), self.suggest_memory_format());
   habana_helpers::copy_data_within_device(self, self_copy);
 
-  std::vector<const at::Tensor*> pt_outputs{&self};
-  std::vector<const at::Tensor*> pt_inputs{&self_copy};
+  std::vector<at::Tensor> pt_outputs{self};
+  std::vector<at::Tensor> pt_inputs{self_copy};
 
   synapse_simple_generic_kernel(
       pt_outputs, pt_inputs, "exp", nullptr, 0, SynapsePassType::FORWARD_PASS);
@@ -460,8 +466,8 @@ Tensor& neg_out_hpu(Tensor& result, const Tensor& input) {
   auto tht_result = result.unsafeGetTensorImpl();
   THHTensor_resizeNd(tht_result, shape.size(), shape.data(), nullptr);
 
-  std::vector<const at::Tensor*> pt_outputs{&result};
-  std::vector<const at::Tensor*> pt_inputs{&input};
+  std::vector<at::Tensor> pt_outputs{result};
+  std::vector<at::Tensor> pt_inputs{input};
 
   synapse_simple_generic_kernel(
       pt_outputs, pt_inputs, "neg", nullptr, 0, SynapsePassType::FORWARD_PASS);
@@ -476,7 +482,7 @@ Tensor& neg_out_hpu(Tensor& result, const Tensor& input) {
  ************************************************************************/
 Tensor& reciprocal_hpu_(Tensor& self) {
   PT_KERNEL_BEGIN;
-  std::vector<const at::Tensor*> pt_inputs{&self};
+  std::vector<at::Tensor> pt_inputs{self};
 
   synapse_simple_generic_inplace_kernel(
       pt_inputs, "reciprocal", nullptr, 0, SynapsePassType::FORWARD_PASS);
@@ -497,7 +503,8 @@ void ReciprocalOperator::AllocateAndAddSynapseNode(
       "Input arg1 expected to be tensor for Reciprocal operator");
 
   auto self = inputs[0].toTensor();
-  auto result = at::empty(self.sizes(), self.options(), self.suggest_memory_format());
+  auto result =
+      at::empty(self.sizes(), self.options(), self.suggest_memory_format());
   inputs.insert(inputs.begin(), IValue(result));
 
   ReciprocalOutOperator::AllocateAndAddSynapseNode(
@@ -527,11 +534,12 @@ Tensor reciprocal_hpu(const Tensor& self) {
   size_t key = Op.GetRecipeKey(node_type, stack);
 
   // Assign Inputs to the Operator
-  std::vector<const at::Tensor*> pt_inputs{&self};
+  std::vector<at::Tensor> pt_inputs{self};
 
   if (device.get_recipe_handle_cache().isCached(key)) {
     PT_KERNEL_DEBUG("Cache hit key:", key);
-    auto result = at::empty(self.sizes(), self.options(), self.suggest_memory_format());
+    auto result =
+        at::empty(self.sizes(), self.options(), self.suggest_memory_format());
     Op.SetPTInputs(pt_inputs);
     Op.SetPTOutput(result);
     Op.Execute(key);
@@ -599,7 +607,7 @@ Tensor& reciprocal_out_hpu(Tensor& result, const Tensor& self) {
   size_t key = Op.GetRecipeKey(node_type, stack);
 
   // Assign Inputs to the Operator
-  std::vector<const at::Tensor*> pt_inputs{&self};
+  std::vector<at::Tensor> pt_inputs{self};
 
   if (device.get_recipe_handle_cache().isCached(key)) {
     PT_KERNEL_DEBUG("Cache hit key:", key);
@@ -640,7 +648,8 @@ void ClampOperator::AllocateAndAddSynapseNode(
   param.upperBound.f = static_cast<float>(max);
   param.lowerBound.f = static_cast<float>(min);
 
-  auto output = at::empty(input.sizes(), input.options(), input.suggest_memory_format());
+  auto output =
+      at::empty(input.sizes(), input.options(), input.suggest_memory_format());
   AllocateSynapseOutput(graph, output, is_output_persistent);
   AddNodeToSynapseGraph(graph, &param, sizeof(param));
 }
@@ -663,7 +672,7 @@ Tensor clamp_min_hpu(const Tensor& self, Scalar min) {
   auto graph = habana_helpers::create_graph(device_id, node_type);
 
   // Assign Inputs to the Operator
-  std::vector<const at::Tensor*> pt_inputs{&self};
+  std::vector<at::Tensor> pt_inputs{self};
   Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
   // Build Params for the graph
@@ -726,34 +735,55 @@ Tensor neg_hpu(const Tensor& self) {
   return out;
 }
 
-static auto& KernelRegistry = ::habana::KernelRegistry()
-    .add("aten::relu",
-    [](const int device_id, c10::ScalarType node_type) {
-      return std::make_shared<ReluOperator>(device_id, node_type);})
-    .add("aten::sigmoid",
-    [](const int device_id, c10::ScalarType node_type) {
-      return std::make_shared<SigmoidOperator>(device_id, node_type);})
-    .add("aten::sigmoid_backward",
-    [](const int device_id, c10::ScalarType node_type) {
-      return std::make_shared<SigmoidBackwardOperator>(device_id, node_type);})
-    .add("aten::abs",
-    [](const int device_id, c10::ScalarType node_type) {
-      return std::make_shared<AbsOperator>(device_id, node_type);})
-    .add("aten::tanh",
-    [](const int device_id, c10::ScalarType node_type) {
-      return std::make_shared<TanhOperator>(device_id, node_type);})
-    .add("aten::tanh_backward",
-    [](const int device_id, c10::ScalarType node_type) {
-      return std::make_shared<TanhBackwardOperator>(device_id, node_type);})
-    .add("aten::sqrt",
-    [](const int device_id, c10::ScalarType node_type) {
-      return std::make_shared<SqrtOperator>(device_id, node_type);})
-    .add("aten::neg",
-    [](const int device_id, c10::ScalarType node_type) {
-      return std::make_shared<NegOperator>(device_id, node_type);})
-    .add("aten::reciprocal",
-    [](const int device_id, c10::ScalarType node_type) {
-      return std::make_shared<ReciprocalOperator>(device_id, node_type);});
+static auto& KernelRegistry =
+    ::habana::KernelRegistry()
+        .add(
+            "aten::relu",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<ReluOperator>(device_id, node_type);
+            })
+        .add(
+            "aten::sigmoid",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<SigmoidOperator>(device_id, node_type);
+            })
+        .add(
+            "aten::sigmoid_backward",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<SigmoidBackwardOperator>(
+                  device_id, node_type);
+            })
+        .add(
+            "aten::abs",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<AbsOperator>(device_id, node_type);
+            })
+        .add(
+            "aten::tanh",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<TanhOperator>(device_id, node_type);
+            })
+        .add(
+            "aten::tanh_backward",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<TanhBackwardOperator>(
+                  device_id, node_type);
+            })
+        .add(
+            "aten::sqrt",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<SqrtOperator>(device_id, node_type);
+            })
+        .add(
+            "aten::neg",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<NegOperator>(device_id, node_type);
+            })
+        .add(
+            "aten::reciprocal",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<ReciprocalOperator>(device_id, node_type);
+            });
 
 static auto registry =
     torch::RegisterOperators()
@@ -860,7 +890,6 @@ static auto registry =
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema("aten::neg(Tensor self) -> Tensor")
-                .impl_unboxedOnlyKernel<
-                    decltype(neg_hpu),
-                    &neg_hpu>(DispatchKey::HABANATensorId)
+                .impl_unboxedOnlyKernel<decltype(neg_hpu), &neg_hpu>(
+                    DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));

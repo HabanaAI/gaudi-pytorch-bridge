@@ -70,11 +70,11 @@ static inline Tensor& do_binary_op(
     const Tensor& operand2,
     const std::string& op,
     SynapsePassType pass_type) {
-  std::vector<const at::Tensor*> pt_inputs;
-  pt_inputs.push_back(&operand1);
-  pt_inputs.push_back(&operand2);
-  std::vector<const at::Tensor*> pt_outputs;
-  pt_outputs.push_back(&out);
+  std::vector<at::Tensor> pt_inputs;
+  pt_inputs.push_back(operand1);
+  pt_inputs.push_back(operand2);
+  std::vector<at::Tensor> pt_outputs;
+  pt_outputs.push_back(out);
   synapse_simple_generic_kernel(
       pt_outputs, pt_inputs, op, nullptr, 0, pass_type);
   return out;
@@ -86,17 +86,17 @@ static inline Tensor& do_binary_inplace_op(
     const Tensor& other,
     const std::string& op,
     SynapsePassType pass_type) {
-  std::vector<const at::Tensor*> pt_inputs;
-  pt_inputs.push_back(&self);
-  pt_inputs.push_back(&other);
+  std::vector<at::Tensor> pt_inputs;
+  pt_inputs.push_back(self);
+  pt_inputs.push_back(other);
   // Build Params for the graph
   std::vector<c10::IValue> stack = {IValue(self), IValue(other)};
   std::string node_type = (SynapsePassType::NO_PASS == pass_type) ? op
                                                                   : op +
           std::string((SynapsePassType::FORWARD_PASS == pass_type) ? "_fwd_"
                                                                    : "_bwd_") +
-          habana_helpers::name_suffix_from_type(pt_inputs[0]->scalar_type());
-  const auto device_id = pt_inputs[0]->device().index();
+          habana_helpers::name_suffix_from_type(pt_inputs[0].scalar_type());
+  const auto device_id = pt_inputs[0].device().index();
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
   size_t key = habana_helpers::getRecipeKey(node_type, stack, true);
   if (device.get_recipe_handle_cache().isCached(key)) {
@@ -550,11 +550,11 @@ void habana::BinaryWrapperOperatorWithAlpha::SetPTOutputs(
  ************************************************************************/
 template <class BinaryOp>
 Tensor process_generic_tensor_binary_op(
-    const std::vector<const at::Tensor*>& pt_inputs,
+    const std::vector<at::Tensor>& pt_inputs,
     torch::jit::Stack& stack,
     const std::string& node_guid) {
-  size_t device_id = pt_inputs[0]->device().index();
-  at::ScalarType scalar_type = pt_inputs[0]->scalar_type();
+  size_t device_id = pt_inputs[0].device().index();
+  at::ScalarType scalar_type = pt_inputs[0].scalar_type();
   std::string node_type =
       node_guid + "_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
 
@@ -619,7 +619,7 @@ Tensor add_tensor_hpu(const Tensor& self, const Tensor& other, Scalar alpha) {
     }
     auto self_hpu = get_hpu_tensor(self);
     auto other_hpu = get_hpu_tensor(other);
-    std::vector<const at::Tensor*> pt_inputs{&self_hpu, &other_hpu};
+    std::vector<at::Tensor> pt_inputs{self_hpu, other_hpu};
     torch::jit::Stack stack{IValue(self_hpu), IValue(other_hpu), IValue(alpha)};
     output = process_generic_tensor_binary_op<habana::AddOperator>(
         pt_inputs, stack, "add");
@@ -643,7 +643,7 @@ Tensor add_scalar_hpu(const Tensor& self, Scalar other, Scalar alpha) {
     self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
   }
   auto self_hpu = get_hpu_tensor(self);
-  std::vector<const at::Tensor*> pt_inputs{&self_hpu};
+  std::vector<at::Tensor> pt_inputs{self_hpu};
   torch::jit::Stack stack{IValue(self_hpu), IValue(other), IValue(alpha)};
   auto output = process_generic_tensor_binary_op<habana::AddOperator>(
       pt_inputs, stack, "add");
@@ -759,7 +759,7 @@ Tensor sub_tensor_hpu(const Tensor& self, const Tensor& other, Scalar alpha) {
   }
   auto self_hpu = get_hpu_tensor(self);
   auto other_hpu = get_hpu_tensor(other);
-  std::vector<const at::Tensor*> pt_inputs{&self_hpu, &other_hpu};
+  std::vector<at::Tensor> pt_inputs{self_hpu, other_hpu};
   torch::jit::Stack stack{IValue(self_hpu), IValue(other_hpu), IValue(alpha)};
   auto output = process_generic_tensor_binary_op<habana::SubOperator>(
       pt_inputs, stack, "sub");
@@ -802,7 +802,7 @@ Tensor sub_scalar_hpu(
     self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
   }
   auto self_hpu = get_hpu_tensor(self);
-  std::vector<const at::Tensor*> pt_inputs{&self_hpu};
+  std::vector<at::Tensor> pt_inputs{self_hpu};
   torch::jit::Stack stack{IValue(self_hpu), IValue(other), IValue(alpha)};
   auto output = process_generic_tensor_binary_op<habana::SubOperator>(
       pt_inputs, stack, "sub");
@@ -890,7 +890,7 @@ Tensor mul_tensor_hpu(const Tensor& self, const Tensor& other) {
   }
   auto self_hpu = get_hpu_tensor(self);
   auto other_hpu = get_hpu_tensor(other);
-  std::vector<const at::Tensor*> pt_inputs{&self_hpu, &other_hpu};
+  std::vector<at::Tensor> pt_inputs{self_hpu, other_hpu};
   torch::jit::Stack stack{IValue(self_hpu), IValue(other_hpu)};
   auto output = process_generic_tensor_binary_op<habana::MulOperator>(
       pt_inputs, stack, "mult");
@@ -912,7 +912,7 @@ Tensor mul_scalar_hpu(const Tensor& self, Scalar other) {
     self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
   }
   auto self_hpu = get_hpu_tensor(self);
-  std::vector<const at::Tensor*> pt_inputs{&self_hpu};
+  std::vector<at::Tensor> pt_inputs{self_hpu};
   torch::jit::Stack stack{IValue(self_hpu), IValue(other)};
   auto output = process_generic_tensor_binary_op<habana::MulOperator>(
       pt_inputs, stack, "mult");
@@ -951,7 +951,7 @@ Tensor div_tensor_hpu(const Tensor& self, const Tensor& other) {
   }
   auto self_hpu = get_hpu_tensor(self);
   auto other_hpu = get_hpu_tensor(other);
-  std::vector<const at::Tensor*> pt_inputs{&self_hpu, &other_hpu};
+  std::vector<at::Tensor> pt_inputs{self_hpu, other_hpu};
   torch::jit::Stack stack{IValue(self_hpu), IValue(other_hpu)};
   auto output = process_generic_tensor_binary_op<habana::DivOperator>(
       pt_inputs, stack, "div");
@@ -1004,7 +1004,7 @@ Tensor div_scalar_hpu(
     self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
   }
   auto self_hpu = get_hpu_tensor(self);
-  std::vector<const at::Tensor*> pt_inputs{&self_hpu};
+  std::vector<at::Tensor> pt_inputs{self_hpu};
   torch::jit::Stack stack{IValue(self_hpu), IValue(other)};
   auto output = process_generic_tensor_binary_op<habana::DivOperator>(
       pt_inputs, stack, "div");
@@ -1045,7 +1045,7 @@ Tensor pow_tensor_tensor_hpu(const Tensor& self, const Tensor& other) {
   }
   auto self_hpu = get_hpu_tensor(self);
   auto other_hpu = get_hpu_tensor(other);
-  std::vector<const at::Tensor*> pt_inputs{&self_hpu, &other_hpu};
+  std::vector<Tensor> pt_inputs{self_hpu, other_hpu};
   torch::jit::Stack stack{IValue(self_hpu), IValue(other_hpu)};
   auto output = process_generic_tensor_binary_op<habana::PowOperator>(
       pt_inputs, stack, "pow");
@@ -1079,7 +1079,7 @@ Tensor pow_tensor_scalar_hpu(const Tensor& self, Scalar other) {
     self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
   }
   auto self_hpu = get_hpu_tensor(self);
-  std::vector<const at::Tensor*> pt_inputs{&self_hpu};
+  std::vector<at::Tensor> pt_inputs{self_hpu};
   torch::jit::Stack stack{IValue(self_hpu), IValue(other)};
   auto output = process_generic_tensor_binary_op<habana::PowOperator>(
       pt_inputs, stack, "pow");
@@ -1135,10 +1135,8 @@ static auto& KernelRegistry =
               return std::make_shared<habana::DivOperator>(
                   device_id, node_type);
             })
-        .add("aten::pow",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<habana::PowOperator>(
-                  device_id, node_type);
+        .add("aten::pow", [](const int device_id, c10::ScalarType node_type) {
+          return std::make_shared<habana::PowOperator>(device_id, node_type);
         });
 
 static auto registry =

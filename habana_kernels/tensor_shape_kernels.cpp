@@ -81,7 +81,8 @@ Tensor CatOperator::CheckAllocateOutput(Stack& inputs) {
   for (unsigned i = 0; i < tensor_count; i++) {
     out_size[dim] += tensors[i].sizes()[dim];
   }
-  return std::move(at::empty(out_size, first_tensor.options(), first_tensor.suggest_memory_format()));
+  return std::move(at::empty(
+      out_size, first_tensor.options(), first_tensor.suggest_memory_format()));
 }
 
 void CatOperator::AllocateAndAddSynapseNode(
@@ -112,7 +113,7 @@ Tensor cat_hpu(const TensorList tensors, int64_t dim_ = 0) {
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
   at::ScalarType scalar_type = tensors[0].scalar_type();
   std::string node_type = "concat";
-  std::vector<const at::Tensor*> pt_inputs;
+  std::vector<at::Tensor> pt_inputs;
 
   // Create operator
   CatOperator Op(device_id, scalar_type);
@@ -120,7 +121,7 @@ Tensor cat_hpu(const TensorList tensors, int64_t dim_ = 0) {
   // Assign Tensor Inputs to the Operator
   std::vector<c10::IValue> stack;
   for (unsigned i = 0; i < tensors.size(); i++) {
-    pt_inputs.push_back(&tensors[i]);
+    pt_inputs.push_back(tensors[i]);
     stack.push_back(IValue(tensors[i]));
   }
   stack.push_back(IValue(dim_));
@@ -196,7 +197,8 @@ at::Tensor CatOutOperator::CheckAllocateOutput(Stack& inputs) {
     THHTensor_resizeNd(
         tht_result, first_tensor.dim(), out_size.data(), nullptr);
   } else {
-    out = at::empty(out_size, first_tensor.options(), first_tensor.suggest_memory_format());
+    out = at::empty(
+        out_size, first_tensor.options(), first_tensor.suggest_memory_format());
   }
   return std::move(out);
 }
@@ -241,11 +243,11 @@ Tensor& cat_hpu_out(
   // Create operator
   CatOutOperator Op(device_id, scalar_type);
 
-  std::vector<const at::Tensor*> pt_inputs;
+  std::vector<at::Tensor> pt_inputs;
   std::vector<c10::IValue> stack;
   stack.push_back(IValue(result));
   for (unsigned i = 0; i < tensors.size(); i++) {
-    pt_inputs.push_back(&tensors[i]);
+    pt_inputs.push_back(tensors[i]);
     stack.push_back(IValue(tensors[i]));
   }
   stack.push_back(IValue(dim_));
@@ -367,7 +369,7 @@ Tensor transpose_hpu(const Tensor& self, int64_t dim0_, int64_t dim1_) {
   TransposeOperator Op(device_id, scalar_type);
   // Build Params for the graph
   std::vector<c10::IValue> stack = {IValue(self), IValue(dim0_), IValue(dim1_)};
-  std::vector<const at::Tensor*> pt_inputs{&self};
+  std::vector<at::Tensor> pt_inputs{self};
   size_t key = Op.GetRecipeKey(node_type, stack);
 
   if (device.get_recipe_handle_cache().isCached(key)) {
@@ -424,9 +426,9 @@ Tensor& transpose_hpu_(Tensor& self, int64_t dim0_, int64_t dim1_) {
    */
   auto tempT = transpose_hpu(self, dim0_, dim1_);
 
-  std::vector<const at::Tensor*> pt_inputs;
-  std::vector<const at::Tensor*> pt_outputs;
-  pt_inputs.push_back(&tempT);
+  std::vector<at::Tensor> pt_inputs;
+  std::vector<at::Tensor> pt_outputs;
+  pt_inputs.push_back(tempT);
 
   // handle negative dimensions (backward indexing) in pytorch
   int64_t dim0 = at::maybe_wrap_dim(dim0_, self.dim(), /*wrap_scalar=*/true);
@@ -441,7 +443,7 @@ Tensor& transpose_hpu_(Tensor& self, int64_t dim0_, int64_t dim1_) {
   auto tht_result = self.unsafeGetTensorImpl();
   THHTensor_resizeNd(
       tht_result, self.dim(), self_sizes.data(), self_strides.data());
-  pt_outputs.push_back(&self);
+  pt_outputs.push_back(self);
 
   synapse_simple_generic_kernel(
       pt_outputs, pt_inputs, "memcpy", nullptr, 0, SynapsePassType::NO_PASS);
@@ -581,7 +583,7 @@ Tensor permute_hpu(const Tensor& self, IntArrayRef dims_) {
     PermuteOperator Op(device_id, scalar_type);
     // Build Params for the graph
     std::vector<c10::IValue> stack = {IValue(self), IValue(dims_)};
-    std::vector<const at::Tensor*> pt_inputs{&self};
+    std::vector<at::Tensor> pt_inputs{self};
     size_t key = Op.GetRecipeKey(node_type, stack);
 
     if (device.get_recipe_handle_cache().isCached(key)) {
@@ -652,7 +654,8 @@ void ReshapeOperator::AllocateAndAddSynapseNode(
       "Right now Reshape is only supported for contiguous Tensor.");
 
   auto shape = inputs[1].toIntList();
-  auto output = at::empty(shape.vec(), self.options(), self.suggest_memory_format());
+  auto output =
+      at::empty(shape.vec(), self.options(), self.suggest_memory_format());
   TORCH_CHECK(
       self.numel() == output.numel(),
       "Reshape doesnt support change in number of elements");
@@ -833,7 +836,7 @@ Tensor expand_hpu(const Tensor& self, IntArrayRef size, bool implicit) {
   }
 
   // Assign Inputs to the Operator
-  std::vector<const at::Tensor*> pt_inputs{&self};
+  std::vector<at::Tensor> pt_inputs{self};
   Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
   // Build Params for the graph
@@ -851,19 +854,28 @@ Tensor expand_hpu(const Tensor& self, IntArrayRef size, bool implicit) {
   return out.at(0);
 }
 
-static auto& KernelRegistry = ::habana::KernelRegistry()
-    .add("aten::permute",
-    [](const int device_id, c10::ScalarType node_type) {
-      return std::make_shared<PermuteOperator>(device_id, node_type);})
-    .add("aten::t",
-    [](const int device_id, c10::ScalarType node_type) {
-      return std::make_shared<TOperator>(device_id, node_type);})
-    .add("aten::reshape",
-    [](const int device_id, c10::ScalarType node_type) {
-      return std::make_shared<ReshapeOperator>(device_id, node_type);})
-    .add("aten::flatten",
-    [](const int device_id, c10::ScalarType node_type) {
-      return std::make_shared<FlattenOperator>(device_id, node_type);});
+static auto& KernelRegistry =
+    ::habana::KernelRegistry()
+        .add(
+            "aten::permute",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<PermuteOperator>(device_id, node_type);
+            })
+        .add(
+            "aten::t",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<TOperator>(device_id, node_type);
+            })
+        .add(
+            "aten::reshape",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<ReshapeOperator>(device_id, node_type);
+            })
+        .add(
+            "aten::flatten",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<FlattenOperator>(device_id, node_type);
+            });
 
 static auto registry =
     torch::RegisterOperators()

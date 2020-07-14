@@ -13,8 +13,8 @@
 #include "habana_helpers/graph.h"
 
 void synapse_simple_generic_kernel(
-    std::vector<const at::Tensor*> pt_outputs, // NHWC
-    std::vector<const at::Tensor*> pt_inputs, // NHWC
+    std::vector<at::Tensor>& pt_outputs, // NHWC
+    std::vector<at::Tensor>& pt_inputs, // NHWC
     const std::string& node_guid,
     void* syn_param,
     const size_t syn_param_size,
@@ -23,11 +23,11 @@ void synapse_simple_generic_kernel(
   at::ScalarType scalar_type;
   // RNG kernels have 0 inputs and 1 output
   if (pt_inputs.size()) {
-    device_id = pt_inputs[0]->device().index();
-    scalar_type = pt_inputs[0]->scalar_type();
+    device_id = pt_inputs[0].device().index();
+    scalar_type = pt_inputs[0].scalar_type();
   } else {
-    device_id = pt_outputs[0]->device().index();
-    scalar_type = pt_outputs[0]->scalar_type();
+    device_id = pt_outputs[0].device().index();
+    scalar_type = pt_outputs[0].scalar_type();
   }
   std::string node_type = (SynapsePassType::NO_PASS == pass_type) ? node_guid
                                                                   : node_guid +
@@ -57,23 +57,24 @@ void synapse_simple_generic_kernel(
           habana_helpers::names(syn_helper_outputs),
           habana_helpers::extract_data_ptrs(pt_inputs),
           habana_helpers::extract_data_ptrs(pt_outputs),
+          pt_inputs,
           device_id);
     }
   }
 }
 
 void synapse_simple_generic_inplace_kernel(
-    std::vector<const at::Tensor*> pt_inputs, // NHWC
+    std::vector<at::Tensor>& pt_inputs, // NHWC
     const std::string& node_guid,
     void* syn_param,
     const size_t syn_param_size,
     const SynapsePassType pass_type) {
-  const auto device_id = pt_inputs[0]->device().index();
+  const auto device_id = pt_inputs[0].device().index();
   std::string node_type = (SynapsePassType::NO_PASS == pass_type) ? node_guid
                                                                   : node_guid +
           std::string((SynapsePassType::FORWARD_PASS == pass_type) ? "_fwd_"
                                                                    : "_bwd_") +
-          habana_helpers::name_suffix_from_type(pt_inputs[0]->scalar_type());
+          habana_helpers::name_suffix_from_type(pt_inputs[0].scalar_type());
   auto graph = habana_helpers::create_graph(device_id, node_type);
   { // tensors scope
     std::vector<synapse_helpers::tensor> syn_helper_inputs, syn_helper_outputs;
@@ -97,15 +98,16 @@ void synapse_simple_generic_inplace_kernel(
           habana_helpers::names(syn_helper_inputs),
           {syn_helper_output.tensor_name_},
           habana_helpers::extract_data_ptrs(pt_inputs),
-          {pt_inputs[0]->data_ptr()},
+          {pt_inputs[0].data_ptr()},
+          pt_inputs,
           device_id);
     }
   }
 }
 
 void synapse_execute_kernel(
-    std::vector<const at::Tensor*> pt_outputs, // NHWC
-    std::vector<const at::Tensor*> pt_inputs, // NHWC
+    std::vector<at::Tensor>& pt_outputs, // NHWC
+    std::vector<at::Tensor>& pt_inputs, // NHWC
     std::string node_type,
     void* syn_param,
     const size_t syn_param_size,
@@ -133,25 +135,27 @@ void synapse_execute_kernel(
         habana_helpers::names(syn_helper_outputs),
         habana_helpers::extract_data_ptrs(pt_inputs),
         habana_helpers::extract_data_ptrs(pt_outputs),
+        pt_inputs,
         device_id,
         key);
   }
 }
 
 void synapse_execute_cached_kernel(
-    std::vector<const at::Tensor*> pt_outputs, // NHWC
-    std::vector<const at::Tensor*> pt_inputs, // NHWC
+    std::vector<at::Tensor>& pt_outputs, // NHWC
+    std::vector<at::Tensor>& pt_inputs, // NHWC
     size_t device_id,
     size_t key) {
   habana_helpers::execute_recipe(
       habana_helpers::extract_data_ptrs(pt_inputs),
       habana_helpers::extract_data_ptrs(pt_outputs),
+      pt_inputs,
       device_id,
       key);
 }
 
 void synapse_execute_inplace_kernel(
-    std::vector<const at::Tensor*> pt_inputs, // NHWC
+    std::vector<at::Tensor>& pt_inputs, // NHWC
     std::string node_type,
     void* syn_param,
     const size_t syn_param_size,
@@ -180,7 +184,8 @@ void synapse_execute_inplace_kernel(
           habana_helpers::names(syn_helper_inputs),
           {syn_helper_output.tensor_name_},
           habana_helpers::extract_data_ptrs(pt_inputs),
-          {pt_inputs[0]->data_ptr()},
+          {pt_inputs[0].data_ptr()},
+          pt_inputs,
           device_id,
           key);
     }
@@ -188,12 +193,13 @@ void synapse_execute_inplace_kernel(
 }
 
 void synapse_execute_cached_inplace_kernel(
-    std::vector<const at::Tensor*> pt_inputs, // NHWC
+    std::vector<at::Tensor>& pt_inputs, // NHWC
     size_t device_id,
     size_t key) {
   habana_helpers::execute_recipe(
       habana_helpers::extract_data_ptrs(pt_inputs),
-      {pt_inputs[0]->data_ptr()},
+      {pt_inputs[0].data_ptr()},
+      pt_inputs,
       device_id,
       key);
 }

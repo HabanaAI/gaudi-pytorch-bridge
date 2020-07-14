@@ -68,8 +68,8 @@ std::tuple<Tensor, Tensor, Tensor, Tensor> embedding_bag_hpu(
 
   auto output = at::empty({offsets.size(0), weight.size(1)}, weight.options());
 
-  std::vector<const at::Tensor*> pt_outputs{&output};
-  std::vector<const at::Tensor*> pt_inputs{&weight, &indices_i32, &offsets_i32};
+  std::vector<at::Tensor> pt_outputs{output};
+  std::vector<at::Tensor> pt_inputs{weight, indices_i32, offsets_i32};
 
   ns_EmbeddingWithSgdKernel::Params param;
   param.mode = static_cast<EmbeddingBagMode_t>(mode);
@@ -153,15 +153,15 @@ Tensor embedding_bag_bwd_hpu(
   auto learning_rate = at::zeros({1}, grad.options());
   auto epoch_num_i32 = learning_rate.toType(c10::ScalarType::Int);
 
-  std::vector<const at::Tensor*> pt_outputs{&weights_out, &momentum_out};
-  std::vector<const at::Tensor*> pt_inputs{
-      &grad,
-      &weights_in,
-      &momentum_in,
-      &indices_i32,
-      &offsets_i32,
-      &epoch_num_i32,
-      &learning_rate,
+  std::vector<at::Tensor> pt_outputs{weights_out, momentum_out};
+  std::vector<at::Tensor> pt_inputs{
+      grad,
+      weights_in,
+      momentum_in,
+      indices_i32,
+      offsets_i32,
+      epoch_num_i32,
+      learning_rate,
   };
 
   ns_EmbeddingWithSgdKernel::Params param;
@@ -270,7 +270,7 @@ Tensor constant_pad_hpu(const Tensor& self, IntArrayRef pad, Scalar value) {
   auto graph = habana_helpers::create_graph(device_id, node_type);
 
   // Assign Inputs to the Operator
-  std::vector<const at::Tensor*> pt_inputs{&self};
+  std::vector<at::Tensor> pt_inputs{self};
   Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
   // Build Params for the graph
@@ -453,8 +453,8 @@ Tensor embedding_bag_sum_hpu(
   auto graph = habana_helpers::create_graph(device_id, node_type);
 
   // Assign Inputs to the Operator
-  std::vector<const at::Tensor*> pt_inputs{
-      &input, &indices_i32, &offsets_i32, &valid_count_i32};
+  std::vector<at::Tensor> pt_inputs{
+      input, indices_i32, offsets_i32, valid_count_i32};
   Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
   // Build Params for the graph
@@ -476,7 +476,7 @@ Tensor embedding_bag_sum_hpu(
 
 void EmbeddingBagSumForwardOperator::AllocateSynapseInputs(
     synapse_helpers::graph& graph,
-    const std::vector<const at::Tensor*> inputs,
+    const std::vector<at::Tensor>& inputs,
     bool is_persistent) {
   HABANA_ASSERT(inputs.size() == 8);
 
@@ -490,12 +490,11 @@ void EmbeddingBagSumForwardOperator::AllocateSynapseInputs(
 /*AllocateSynapseInput needs to be overloaded as it is used in PT bridge code*/
 synapse_helpers::tensor& EmbeddingBagSumForwardOperator::AllocateSynapseInput(
     synapse_helpers::graph& graph,
-    const at::Tensor* input,
+    const at::Tensor& input,
     bool is_persistent) {
   if (valid_input_idx.count(input_idx)) {
-    HABANA_ASSERT(input != nullptr);
     auto syn_tensor_input = habana_helpers::create_tensor(
-        *input, graph.get_graph_handle(), is_persistent, c10::nullopt);
+        input, graph.get_graph_handle(), is_persistent, c10::nullopt);
 
     p_context_->syn_inputs_.emplace_back(std::move(syn_tensor_input));
 
@@ -581,14 +580,14 @@ Tensor embedding_bag_sum_fwd_hpu(
   auto graph = habana_helpers::create_graph(device_id, node_type);
 
   // Assign Inputs to the Operator
-  std::vector<const at::Tensor*> pt_inputs{&input,
-                                           &indices_fwd,
-                                           &offsets_fwd,
-                                           &valid_count,
-                                           &indices_bwd,
-                                           &offsets_bwd,
-                                           &valid_count_bwd,
-                                           &grad_weight};
+  std::vector<at::Tensor> pt_inputs{input,
+                                    indices_fwd,
+                                    offsets_fwd,
+                                    valid_count,
+                                    indices_bwd,
+                                    offsets_bwd,
+                                    valid_count_bwd,
+                                    grad_weight};
   Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
   // Build Params for the graph
@@ -614,7 +613,7 @@ Tensor embedding_bag_sum_fwd_hpu(
 
 void EmbeddingBagSumBackwardOperator::AllocateSynapseInputs(
     synapse_helpers::graph& graph,
-    const std::vector<const at::Tensor*> inputs,
+    const std::vector<at::Tensor>& inputs,
     bool is_persistent) {
   HABANA_ASSERT(inputs.size() == 5);
 
@@ -627,12 +626,11 @@ void EmbeddingBagSumBackwardOperator::AllocateSynapseInputs(
 /*AllocateSynapseInput needs to be overloaded as it is used in PT bridge code*/
 synapse_helpers::tensor& EmbeddingBagSumBackwardOperator::AllocateSynapseInput(
     synapse_helpers::graph& graph,
-    const at::Tensor* input,
+    const at::Tensor& input,
     bool is_persistent) {
   if (valid_input_idx.count(input_idx)) {
-    HABANA_ASSERT(input != nullptr);
     auto syn_tensor_input = habana_helpers::create_tensor(
-        *input, graph.get_graph_handle(), is_persistent, c10::nullopt);
+        input, graph.get_graph_handle(), is_persistent, c10::nullopt);
 
     p_context_->syn_inputs_.emplace_back(std::move(syn_tensor_input));
 
@@ -713,8 +711,8 @@ Tensor& embedding_bag_sum_bwd_out_hpu(
   auto graph = habana_helpers::create_graph(device_id, node_type);
 
   // Assign Inputs to the Operator
-  std::vector<const at::Tensor*> pt_inputs{
-      &out, &input, &indices_bwd, &offsets_bwd, &valid_count_bwd};
+  std::vector<at::Tensor> pt_inputs{
+      out, input, indices_bwd, offsets_bwd, valid_count_bwd};
   Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
   // Build Params for the graph
