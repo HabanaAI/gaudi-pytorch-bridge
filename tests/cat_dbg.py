@@ -1,0 +1,80 @@
+import torch
+import torch.nn as nn
+from test_utils import reset_seed, compare_tensors
+import hb_torch
+import pytest
+
+data_list = [
+    (torch.randn(2, 4), torch.randn(4, 4), torch.randn(3, 4)),
+    (torch.randn(2, 4, 4), torch.randn(4, 4, 4), torch.randn(3, 4, 4))
+]
+
+@torch.jit.script
+def test_cat(x1, x2, x3):
+  z = torch.cat((x1, x2, x3), 0)
+  y = torch.relu(z)
+  return y
+
+#class Net(nn.Module):
+    #def __init__(self):
+        #super(Net, self).__init__()
+
+    #def forward(self, x1, x2, x3):
+        #z = torch.cat((x1, x2, x3), 0)
+        #y = nn.functional.relu(z)
+        #return y
+
+@pytest.mark.parametrize("in_tensors", data_list)
+def test_jit_cat_dbg(in_tensors):
+  import os
+  from inspect import currentframe, getframeinfo
+  fi = getframeinfo(currentframe())
+  src = fi.filename
+  base = os.path.splitext(src)[0]
+  trace_file_name = base + '_trace.pt'
+
+  hpu = torch.device("habana")
+  cpu = torch.device("cpu")
+
+  with torch.jit.optimized_execution(True):
+    torch._C._jit_override_can_fuse_on_cpu(False)
+    torch._C._jit_set_profiling_executor(False)
+    torch._C._jit_set_profiling_mode(False)
+
+    #model = Net()
+    #model_trace = torch.jit.trace(model, [in_tensors[0], in_tensors[1], in_tensors[2]])
+
+    model_trace = torch.jit.trace(test_cat, [in_tensors[0], in_tensors[1], in_tensors[2]])
+
+    torch.jit.save(model_trace, trace_file_name)
+
+    cpu_result = test_cat(in_tensors[0], in_tensors[1], in_tensors[2])
+
+    print("--------------------")
+    print(f"Input\n{in_tensors[0]}\n{in_tensors[1]}\n{in_tensors[2]}")
+    print("--------------------")
+    print(f"Result CPU:\n{cpu_result}")
+    print("--------------------")
+
+    hb_torch.enable()
+    torch._C._jit_set_profiling_mode(False)
+    torch._C._jit_set_profiling_executor(False)
+    hpu_t1 = in_tensors[0].to(hpu)
+    hpu_t2 = in_tensors[1].to(hpu)
+    hpu_t3 = in_tensors[2].to(hpu)
+    model_trace_hpu = torch.jit.load(trace_file_name, map_location=torch.device("habana"))
+    out = model_trace_hpu(hpu_t1, hpu_t2, hpu_t3)
+    hpu_result = out.to(cpu)
+
+    print("--------------------")
+    print(f"Input\n{in_tensors[0]}\n{in_tensors[1]}\n{in_tensors[2]}")
+    print("--------------------")
+    print(f"Result HPU:\n{hpu_result}")
+    print("--------------------")
+    compare_tensors(hpu_result, cpu_result, atol=0.001, rtol=1.e-3)
+
+  print("Successful termination")
+# ------------------------------------------------------------------------------
+
+if __name__ == '__main__':
+  test_jit_cat_dbg(data_list[0])

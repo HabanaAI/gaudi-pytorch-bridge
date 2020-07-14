@@ -27,8 +27,8 @@ class CatOutOperator : public habana::HabanaOperator {
   virtual void SetPTOutput(torch::jit::Stack& inputs);
 
  private:
-  void validate_tensor_dim_sizes(const at::TensorList tensors, int64_t dim);
-  at::Tensor CheckAllocateOutput(torch::jit::Stack& inputs);
+  void validate_tensor_dim_sizes(c10::List<at::Tensor> tensors, int64_t dim);
+  int64_t CheckAllocateOutput(torch::jit::Stack& inputs);
 };
 
 class CatOperator : public CatOutOperator {

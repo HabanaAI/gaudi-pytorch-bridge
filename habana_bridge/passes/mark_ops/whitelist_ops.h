@@ -58,7 +58,7 @@ void HabanaWhiteList::load_whitelisted_ops() {
           // "aten::as_strided",
           "aten::avg_pool2d",
           "aten::avg_pool2d_backward",
-          // "aten::cat",
+          "aten::cat",
           // "aten::_cat",
           // "aten::clone",
           // "aten::copy_",

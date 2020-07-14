@@ -44,6 +44,74 @@ size_t RecipeValueSpec::count = 0;
 size_t HabanaLaunchOpPT::instance_count_ = 0;
 //--------------------------------------
 
+TensorInfo::TensorInfo(
+    const IValPtrShared& ivpsh,
+    const std::string& sn,
+    const ValPtr& vp) {
+  TORCH_CHECK(ivpsh->isTensor(), "aten tensor is expected");
+  ir_name = "%" +  vp->debugName();
+
+  syn_name = sn;
+
+  auto pt_tensor = ivpsh->toTensor();
+  {
+    std::ostringstream oss;
+    oss << pt_tensor.sizes();
+    shape_str = oss.str();
+  }
+
+  buffer = pt_tensor.data_ptr();
+  numel = pt_tensor.numel();
+  size = pt_tensor.nbytes();
+}
+
+TensorInfo::TensorInfo(
+    const at::Tensor& pt_tensor,
+    const std::string& sn,
+    const std::string& irn) {
+  ir_name = irn;
+  syn_name = sn;
+
+  std::ostringstream oss;
+  oss << pt_tensor.sizes();
+  shape_str = oss.str();
+
+  buffer = pt_tensor.data_ptr();
+  numel = pt_tensor.numel();
+  size = pt_tensor.nbytes();
+}
+
+std::ostream& operator<<(std::ostream& O, const TensorInfo& t) {
+  O << '<' << t.ir_name << ':' << t.shape_str << ':' << t.numel << ':' << '('
+    << t.size << " b)"
+    << " :: " << t.syn_name << ':' << t.buffer << '>';
+
+  if (t.is_duplicate) {
+    O << " duplicate";
+  }
+
+  return O;
+}
+
+void PrintATenTensor(const at::Tensor& a) {
+  std::ostream& O = std::cout;
+  O << " Tensor -> ";
+  if (a.has_storage()) {
+    O << " @ " << a.data_ptr() << " : "
+      << " dim " << a.dim() << " : " << a.sizes();
+  } else {
+    O << " does not have storage";
+  }
+  O << ',' << " use_count " << a.use_count()
+    << '\n';
+}
+
+void PrintATenTensor(const IValPtrShared &a) {
+  if (a->isTensor()) {
+    PrintATenTensor(a->toTensor());
+  }
+}
+
 RecipeArgumentSpec::RecipeArgumentSpec(
     bool with_grad,
     at::ArrayRef<torch::jit::IValue> input_refs,
@@ -93,80 +161,6 @@ std::ostream& operator<<(std::ostream& O, const RecipeArgumentSpec& v) {
   return O;
 }
 
-TensorInfo::TensorInfo(
-    const IValPtr& ivp,
-    const std::string& sn,
-    const ValPtr& vp) {
-  TORCH_CHECK(ivp->isTensor(), "aten tensor is expected");
-  {
-    std::ostringstream oss;
-    oss << "%" << vp->debugName();
-    ir_name = oss.str();
-  }
-
-  syn_name = sn;
-
-  auto pt_tensor = ivp->toTensor();
-  {
-    std::ostringstream oss;
-    oss << pt_tensor.sizes();
-    shape_str = oss.str();
-  }
-
-  buffer = pt_tensor.data_ptr();
-  numel = pt_tensor.numel();
-  size = pt_tensor.nbytes();
-}
-
-TensorInfo::TensorInfo(
-    const IValPtrShared& ivpsh,
-    const std::string& sn,
-    const ValPtr& vp) {
-  TORCH_CHECK(ivpsh->isTensor(), "aten tensor is expected");
-  {
-    std::ostringstream oss;
-    oss << "%" << vp->debugName();
-    ir_name = oss.str();
-  }
-
-  syn_name = sn;
-
-  auto pt_tensor = ivpsh->toTensor();
-  {
-    std::ostringstream oss;
-    oss << pt_tensor.sizes();
-    shape_str = oss.str();
-  }
-
-  buffer = pt_tensor.data_ptr();
-  numel = pt_tensor.numel();
-  size = pt_tensor.nbytes();
-}
-
-TensorInfo::TensorInfo(
-    const at::Tensor& pt_tensor,
-    const std::string& sn,
-    const std::string& irn) {
-  ir_name = irn;
-  syn_name = sn;
-
-  std::ostringstream oss;
-  oss << pt_tensor.sizes();
-  shape_str = oss.str();
-
-  buffer = pt_tensor.data_ptr();
-  numel = pt_tensor.numel();
-  size = pt_tensor.nbytes();
-}
-
-std::ostream& operator<<(std::ostream& O, const TensorInfo& t) {
-  O << '<' << t.ir_name << ':' << t.shape_str << ':' << t.numel << ':' << '('
-    << t.size << " b)"
-    << " :: " << t.syn_name << ':' << t.buffer << '>';
-
-  return O;
-}
-
 std::ostream& operator<<(std::ostream& O, const RecipeValueSpec& v) {
   O << "recipe details ::"
     << " <id : " << v.id << "> "
@@ -174,39 +168,27 @@ std::ostream& operator<<(std::ostream& O, const RecipeValueSpec& v) {
     << " <addr : " << v.recipe.get() << "> "
     << " <use_count : " << v.recipe.use_count() << "> " << '\n';
 
-  O << '\n';
-  O << "aten_intermediates ::";
-  for (auto& a : v.aten_intermediates) {
-    O << " <dim : " << a.dim() << " : " << a.sizes() << '>';
-  }
-
-  if (v.aten_outputs) {
+  if (v.aten_intermediates.size()) {
+    O << "aten_intermediates #" << v.aten_intermediates.size() << " ::";
     O << '\n';
-    O << "aten_outputs ::";
-    for (auto& a : *v.aten_outputs) {
-      O << " <dim : " << a->toTensor().dim() << " : " << a->toTensor().sizes()
-        << '>';
+    for (auto& a : v.aten_intermediates) {
+      PrintATenTensor(a);
     }
   }
 
-  if (v.pinput_indices) {
+  if (v.aten_outputs) {
+    O << "aten_outputs #" << v.aten_outputs->size() << " ::";
     O << '\n';
-    O << "pinput_indices ::";
-    size_t j{0};
-    for (auto& a : *v.pinput_indices) {
-      O << '\n' << j << " : <";
-      for (auto& i : a) {
-        O << ' ' << i;
-      }
-      O << " >";
+    for (auto& a : *v.aten_outputs) {
+      PrintATenTensor(a);
     }
   }
 
   if (v.dtensorinfos) {
+    O << "dtensorinfos #" << v.dtensorinfos->size() << "::";
     O << '\n';
-    O << "dtensorinfos ::";
     for (auto& a : *v.dtensorinfos) {
-      O << '\n' << "    " << a;
+      O << a << '\n';
     }
   }
 
@@ -284,7 +266,7 @@ void RecipeValueSpec::d2h_dbuff(size_t buf_idx) {
 }
 
 std::ostream& operator<<(std::ostream& O, const RecipeCacheSimple& v) {
-  PT_BRIDGE_DEBUG("number of recipes : ", v.map_.size());
+  O << "number of recipes : " << v.map_.size() << '\n';
   for (auto& i : v.map_) {
     O << "-------------------" << '\n';
     O << "key :: " << *(i.first);
@@ -454,16 +436,12 @@ void HabanaLaunchOpPT::GetSynapseInputs(
   auto node_ins = node->inputs();
   int input_idx = 0;
   for (const auto value_in : node_ins) {
-    if (value_to_ivalue[value_in] && value_to_ivalue[value_in]->isTensor()) {
-      auto pt_tensor = value_to_ivalue[value_in]->toTensor();
+    if (value_to_ivalue[value_in] && (value_to_ivalue[value_in]->isTensor() ||
+                                      value_to_ivalue[value_in]->isTensorList())) {
       // special case for avg pool backward, we only need to set 1 input, since
       // TPC kernel expects only 1 input
       if (!strcmp("aten::avg_pool2d_backward", node->kind().toQualString()) &&
           (input_idx > 0)) {
-        continue;
-      }
-
-      if (!pt_tensor.defined()) {
         continue;
       }
 
@@ -474,29 +452,59 @@ void HabanaLaunchOpPT::GetSynapseInputs(
           pt_to_synapse_tensors.find(value_to_ivalue[value_in]) !=
           std::end(pt_to_synapse_tensors);
 
+      SharedSynTensorOrRefListPtr tensorList = std::make_shared<SynTensorOrRefList>();
       if (is_already_mapped) {
         auto syn_tensor_input =
             pt_to_synapse_tensors.find(value_to_ivalue[value_in]);
-        auto& syn_tensor =
-            habana_op->SetSynapseInput(std::move(syn_tensor_input->second));
-        pt_to_synapse_tensors.erase(value_to_ivalue[value_in]);
-        pt_to_synapse_tensors.emplace(value_to_ivalue[value_in], syn_tensor);
-      } else {
-        auto& syn_tensor =
-            habana_op->AllocateSynapseInput(*syn_graph_ptr, pt_tensor, true);
+        for (synapse_helpers::tensor& tensor : *(syn_tensor_input->second)) {
+          synapse_helpers::tensor& syn_tensor =
+              habana_op->SetSynapseInput(std::move(tensor));
+          tensorList->emplace_back(tensor_or_ref(syn_tensor));
+        }
 
-        pt_to_synapse_tensors.emplace(value_to_ivalue[value_in], syn_tensor);
+        pt_to_synapse_tensors.erase(value_to_ivalue[value_in]);
+        pt_to_synapse_tensors.emplace(value_to_ivalue[value_in], tensorList);
+      } else {
+        std::vector<at::Tensor> pyTensorList;
+        if (value_to_ivalue[value_in]->isTensor()) {
+          pyTensorList.emplace_back(value_to_ivalue[value_in]->toTensor());
+        }
+        else {
+          c10::List<at::Tensor> pytList = value_to_ivalue[value_in]->toTensorList();
+          for (at::Tensor pyTensor : pytList) {
+            pyTensorList.emplace_back(pyTensor);
+          }
+        }
+
+        std::vector<TensorInfo> tiv;
+        for (auto& pt_tensor : pyTensorList) {
+          if (!pt_tensor.defined()) {
+            continue;
+          }
+          auto& syn_tensor =
+              habana_op->AllocateSynapseInput(*syn_graph_ptr, pt_tensor, true);
+
+          tensorList->emplace_back(tensor_or_ref(syn_tensor));
+
+          std::string irn = "%"+value_in->debugName();
+          TensorInfo ti (pt_tensor, syn_tensor.tensor_name_, irn);
+          tiv.push_back(ti);
+        }
+
+        if (tensorList->empty()) {
+          continue;
+        }
+
+        pt_to_synapse_tensors.emplace(value_to_ivalue[value_in], tensorList);
+
+        //if (value_to_ivalue[value_in]->isTensorList()) {
+          //TORCH_CHECK(0, "Patching not supported for tensorList\n");
+        //}
 
         if (enable_caching_) {
-          input_tensorinfo_map.emplace(
-              value_to_ivalue[value_in],
-              TensorInfo(
-                  value_to_ivalue[value_in],
-                  syn_tensor.tensor_name_,
-                  value_in));
+          input_tiv_map.emplace(value_to_ivalue[value_in], tiv);
         } else {
-          input_tensorinfos.emplace_back(TensorInfo(
-              value_to_ivalue[value_in], syn_tensor.tensor_name_, value_in));
+          input_tivs.emplace_back(tiv);
         }
       }
       input_idx++;
@@ -565,8 +573,10 @@ void HabanaLaunchOpPT::GetSynapseOutputs(
       if (false == isInGraphOutputs(output_nodes[output_nodes_idx])) {
         aten_intermediates.push_back(ivpsh->toTensor());
       }
+      SharedSynTensorOrRefListPtr tensorList = std::make_shared<SynTensorOrRefList>();
+      tensorList->emplace_back(tensor_or_ref(out_tensor_syn));
       pt_to_synapse_tensors.emplace(
-          value_to_ivalue[output_nodes[output_nodes_idx]], out_tensor_syn);
+          value_to_ivalue[output_nodes[output_nodes_idx]], tensorList);
 
       if (use_persistent_tensors ? true
                                  : isInGraphOutputs(node, output_nodes_idx)) {
@@ -638,33 +648,39 @@ at::Tensor HabanaLaunchOpPT::permuteTensor(
       permute_kernel != nullptr,
       " \n Permute kernel isnt supported in graph mode ");
 
+  TORCH_CHECK(value_to_ivalue[value_in]->isTensor(),
+      "non tensor input for permute");
+
   habana_kernels.push_back(permute_kernel);
   // set input synapse tensors
   auto is_already_mapped =
       pt_to_synapse_tensors.find(value_to_ivalue[value_in]) !=
       std::end(pt_to_synapse_tensors);
 
+  SharedSynTensorOrRefListPtr tensorList = std::make_shared<SynTensorOrRefList>();
   if (is_already_mapped) {
     auto syn_tensor_input =
         pt_to_synapse_tensors.find(value_to_ivalue[value_in]);
-    auto& syn_tensor =
-        permute_kernel->SetSynapseInput(std::move(syn_tensor_input->second));
+
+    for (synapse_helpers::tensor& tensor : *(syn_tensor_input->second)) {
+      synapse_helpers::tensor& syn_tensor =
+        permute_kernel->SetSynapseInput(std::move(tensor));
+      tensorList->emplace_back(tensor_or_ref(syn_tensor));
+    }
     pt_to_synapse_tensors.erase(value_to_ivalue[value_in]);
-    pt_to_synapse_tensors.emplace(value_to_ivalue[value_in], syn_tensor);
+    pt_to_synapse_tensors.emplace(value_to_ivalue[value_in], tensorList);
   } else {
     auto pt_tensor = value_to_ivalue[value_in]->toTensor();
     auto& syn_tensor =
         permute_kernel->AllocateSynapseInput(*syn_graph_ptr, pt_tensor, true);
-    pt_to_synapse_tensors.emplace(value_to_ivalue[value_in], syn_tensor);
+    tensorList->emplace_back(tensor_or_ref(syn_tensor));
+    pt_to_synapse_tensors.emplace(value_to_ivalue[value_in], tensorList);
 
+    TensorInfo ti(value_to_ivalue[value_in], syn_tensor.tensor_name_, value_in);
     if (enable_caching_) {
-      input_tensorinfo_map.emplace(
-          value_to_ivalue[value_in],
-          TensorInfo(
-              value_to_ivalue[value_in], syn_tensor.tensor_name_, value_in));
+      input_tiv_map.emplace(value_to_ivalue[value_in], ti);
     } else {
-      input_tensorinfos.emplace_back(TensorInfo(
-          value_to_ivalue[value_in], syn_tensor.tensor_name_, value_in));
+      input_tivs.emplace_back(ti);
     }
   }
 
@@ -682,13 +698,15 @@ at::Tensor HabanaLaunchOpPT::permuteTensor(
   for (synapse_helpers::tensor& out_tensor_syn : output_tensors_syn) {
     // make the output of permute the input for next synapse kernel
     // permute has a single output
+    SharedSynTensorOrRefListPtr tensorList = std::make_shared<SynTensorOrRefList>();
+    tensorList->emplace_back(tensor_or_ref(out_tensor_syn));
     if (persistent) {
       aten_intermediates.push_back(value_to_ivalue[value_in]->toTensor());
     }
     value_to_ivalue[value_in] = std::make_shared<IVal>(outputs_permute[0]);
     value_to_tensor_layout[value_in].layout = permute_order;
     pt_to_synapse_tensors.erase(value_to_ivalue[value_in]);
-    pt_to_synapse_tensors.emplace(value_to_ivalue[value_in], out_tensor_syn);
+    pt_to_synapse_tensors.emplace(value_to_ivalue[value_in], tensorList);
 
     if (persistent) {
       output_tensorinfos.emplace_back(TensorInfo(
@@ -712,37 +730,48 @@ void HabanaLaunchOpPT::create_duplicate_syn_tensor(
     at::Tensor* tensor,
     torch::jit::Value* value_in,
     bool persistence) {
-  auto syn_tensor_input = pt_to_synapse_tensors.find(value_to_ivalue[value_in]);
+  auto syn_tensorlist_input = pt_to_synapse_tensors.find(value_to_ivalue[value_in]);
+  TORCH_CHECK(syn_tensorlist_input->second->size() == 1,
+      "not implemented the handling of syn_tensorlist_input size ", syn_tensorlist_input->second->size());
+  synapse_helpers::tensor& syn_tensor_input = syn_tensorlist_input->second->back();
+
   auto dtype = tensor->scalar_type();
   // if both are persistent, use same memeory section
-  if (syn_tensor_input->second.is_persistent() && persistence) {
+  if (syn_tensor_input.is_persistent() && persistence) {
     // create a tensor variant on the same memory section as the input
     auto variant =
         synapse_helpers::tensor_builder(
             tensor->sizes(), habana_helpers::pytorch_to_synapse_type(dtype))
             .mark_persistence(true)
-            .with_memory_section(syn_tensor_input->second.memorysection())
+            .with_memory_section(syn_tensor_input.memorysection())
             .build(
                 synapse_helpers::HPURegistrar::get_device(
                     tensor->device().index()),
-                syn_tensor_input->second.graph());
+                syn_tensor_input.graph());
 
     meta_syn_tensors.push_back(
         absl::get<synapse_helpers::tensor>(std::move(variant)));
+
+    TensorInfo ti(value_to_ivalue[value_in], meta_syn_tensors.back().tensor_name_, value_in);
+    if (!isInGraphOutputs(value_in)) {
+      duplicate_tivs.emplace_back(ti);
+    }
+    else {
+      output_tensorinfos.emplace_back(ti);
+    }
   } else {
     pt_to_synapse_tensors.erase(value_to_ivalue[value_in]);
     auto variant = habana_helpers::create_tensor(
-        *tensor, syn_tensor_input->second.graph(), persistence);
+        *tensor, syn_tensor_input.graph(), persistence);
     meta_syn_tensors.push_back((std::move(variant)));
   }
 
   auto& syn_tensor = meta_syn_tensors.back();
   pt_to_synapse_tensors.erase(value_to_ivalue[value_in]);
-  pt_to_synapse_tensors.emplace(value_to_ivalue[value_in], syn_tensor);
-  if (persistence) {
-    pinput_tensorinfos.emplace_back(TensorInfo(
-        value_to_ivalue[value_in], syn_tensor.tensor_name_, value_in));
-  }
+
+  SharedSynTensorOrRefListPtr tensorList = std::make_shared<SynTensorOrRefList>();
+  tensorList->emplace_back(tensor_or_ref(syn_tensor));
+  pt_to_synapse_tensors.emplace(value_to_ivalue[value_in], tensorList);
 }
 void adjustInputWeight(at::Tensor* tensor, bool is_input) {
   if (tensor->dim() != 4)
@@ -766,12 +795,13 @@ void adjustInputWeight(at::Tensor* tensor, bool is_input) {
   tensor->unsafeGetTensorImpl()->set_sizes_and_strides(
       swapped_sizes, swapped_strides);
 }
+
 void HabanaLaunchOpPT::processInputs(
     torch::jit::Node* node,
     const HabanaOperatorPtr& habana_kernel) {
   // Get the metadata for all inputs, used for preprocessing inputs
   auto& habana_kernel_meta_data = habana_kernel->GetKernelMetaData();
-  // Check if its ok to change teh input tensor in the graph attached to value
+  // Check if its ok to change the input tensor in the graph attached to value
   auto node_ins = node->inputs();
   size_t tensor_idx = 0;
   habana::LayoutFormat in_layout, prev_layout = habana::LayoutFormat::ANY;
@@ -884,9 +914,6 @@ void HabanaLaunchOpPT::handlePrimNodes(torch::jit::Node* node) {
   auto node_vals = node->outputs();
   for (const auto value : node_vals) {
     IValPtrShared ivptrsh = std::make_shared<IVal>(toIValue(value).value());
-    if (ivptrsh->isNone()) {
-      continue;
-    }
     value_to_ivalue[value] = ivptrsh;
   }
 }
@@ -922,7 +949,7 @@ void HabanaLaunchOpPT::handleMetaOps(torch::jit::Node* node) {
   auto node_ins = node->inputs();
   habana::LayoutFormat out_layout, out_origin_layout;
   IValPtrShared input_ptr{nullptr};
-  size_t pinput_count{0};
+
 
   for (const auto value_in : node_ins) {
     stack.insert(stack.end(), *value_to_ivalue[value_in]);
@@ -937,23 +964,24 @@ void HabanaLaunchOpPT::handleMetaOps(torch::jit::Node* node) {
         auto dtype = tensor.scalar_type();
         meta_syn_tensors.push_back(habana_helpers::create_tensor(
             tensor, syn_graph_ptr->get_graph_handle(), true, dtype));
+        SharedSynTensorOrRefListPtr tensorList = std::make_shared<SynTensorOrRefList>();
+        tensorList->emplace_back(tensor_or_ref(meta_syn_tensors.back()));
         pt_to_synapse_tensors.emplace(
-            value_to_ivalue[value_in], meta_syn_tensors.back());
+            value_to_ivalue[value_in], tensorList);
 
         if (enable_caching_) {
-          input_tensorinfo_map.emplace(
+          input_tiv_map.emplace(
               value_to_ivalue[value_in],
               TensorInfo(
                   value_to_ivalue[value_in],
                   meta_syn_tensors.back().tensor_name_,
                   value_in));
         } else {
-          input_tensorinfos.emplace_back(TensorInfo(
+          input_tivs.emplace_back(TensorInfo(
               value_to_ivalue[value_in],
               meta_syn_tensors.back().tensor_name_,
               value_in));
         }
-        pinput_count++;
       }
     }
   }
@@ -973,13 +1001,6 @@ void HabanaLaunchOpPT::handleMetaOps(torch::jit::Node* node) {
       value_to_tensor_layout[val_out].layout = out_layout;
       value_to_tensor_layout[val_out].layout_at_graph_entry = out_origin_layout;
       create_duplicate_syn_tensor(&tensor, val_out, true);
-
-      if (input_to_pinput_indices.end() ==
-          input_to_pinput_indices.find(input_ptr)) {
-        input_to_pinput_indices.emplace(input_ptr, IdxVec());
-      }
-      input_to_pinput_indices[input_ptr].push_back(
-          pinput_tensorinfos.size() - 1);
       out_data = tensor.data_ptr();
     }
     i++;
@@ -988,50 +1009,92 @@ void HabanaLaunchOpPT::handleMetaOps(torch::jit::Node* node) {
       in_data == out_data, "HabanaFusion : Data pointer changed in Meta op");
 }
 
-void HabanaLaunchOpPT::ReorderInputs(RecipeValueSpec& rv) {
+void HabanaLaunchOpPT::OrderInputs(RecipeValueSpec& rv) {
   if (enable_caching_) {
-    std::vector<IdxVec> pinput_indices;
-    // reoroder input_tensorinfos
-    bool has_empty_name = false;
-
-    // for (size_t i = pt_stack->size()-num_inputs; i < pt_stack->size(); i++) {
-    // torch::jit::IValue *input_ptr = &(pt_stack->at(i));
-    for (size_t i = pt_stack_sh.size() - num_inputs; i < pt_stack_sh.size();
-         i++) {
-      IValPtrShared input_ptr = pt_stack_sh.at(i);
-      if (input_ptr->isTensor()) {
-        auto it = input_tensorinfo_map.find(input_ptr);
-        if (it != input_tensorinfo_map.end()) {
-          input_tensorinfos.push_back(it->second);
-          if (input_to_pinput_indices.end() !=
-              input_to_pinput_indices.find(input_ptr)) {
-            pinput_indices.push_back(input_to_pinput_indices[input_ptr]);
-          } else {
-            pinput_indices.emplace_back(IdxVec());
-          }
-
-          if (it->second.syn_name.empty()) {
-            has_empty_name = true;
-          }
+    // Order the input_tivs according to the order of suggraph inputs
+    size_t i = pt_stack_sh.size() - num_inputs;
+    for (; i < pt_stack_sh.size(); i++) {
+      IValPtrShared ivpsh = pt_stack_sh.at(i);
+      if (ivpsh->isTensor() || ivpsh->isTensorList()) {
+        auto it = input_tiv_map.find(ivpsh);
+        if (it != input_tiv_map.end()) {
+          input_tivs.push_back(it->second);
         } else {
           TORCH_CHECK(false, "synapse tensor not found");
         }
       }
     }
-
-    TORCH_CHECK(!has_empty_name, "empty tensor name");
     TORCH_CHECK(
-        input_tensorinfos.size() == num_tensor_inputs,
-        "number of input tensors are not matching");
-
-    rv.pinput_indices =
-        std::make_shared<std::vector<std::vector<size_t>>>(pinput_indices);
+        input_tivs.size() == num_tensor_inputs,
+        "number of input tensors ", num_tensor_inputs, " mismatch with #input_tivs ", input_tivs.size());
   }
 }
 
-void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
-  // PT_BRIDGE_BEGIN;
+void HabanaLaunchOpPT::FlattenAndLinkInputTIVs(RecipeValueSpec& rv) {
+  // dtensorinfos maintain the flattened tinfo list
+  rv.dtensorinfos =
+      std::make_shared<std::vector<TensorInfo>>(std::vector<TensorInfo>());
 
+  std::unordered_map<void *, size_t> buff_to_inputtividx_map;
+  for (auto & tiv : input_tivs) {
+    if (absl::holds_alternative<TensorInfo>(tiv)) {
+      const auto ti = absl::get<TensorInfo>(tiv);
+      rv.dtensorinfos->push_back(ti);
+      if (enable_caching_) {
+       buff_to_inputtividx_map.emplace(ti.buffer, rv.dtensorinfos->size()-1);
+      }
+    }
+    else if (absl::holds_alternative<std::vector<TensorInfo>>(tiv)) {
+      for (const auto & ti : absl::get<std::vector<TensorInfo>>(tiv)) {
+        rv.dtensorinfos->push_back(ti);
+        if (enable_caching_) {
+         buff_to_inputtividx_map.emplace(ti.buffer, rv.dtensorinfos->size()-1);
+        }
+      }
+    }
+    else {
+      TORCH_CHECK(false, "Error condition for input tiv");
+    }
+  }
+  // At this point inputs tinfos are populated
+  rv.num_inputs = rv.dtensorinfos->size();
+
+  // Link the input tivs with the duplicate
+  size_t nduplicates {0};
+  for (auto & tiv : duplicate_tivs) {
+    if (absl::holds_alternative<TensorInfo>(tiv)) {
+      auto ti = absl::get<TensorInfo>(tiv);
+      if (enable_caching_) {
+        auto it_parent = buff_to_inputtividx_map.find(ti.buffer);
+        TORCH_CHECK(buff_to_inputtividx_map.end() != it_parent,
+            "parent tinfo is missing for input duplicate");
+        ti.is_duplicate = true;
+        size_t parent_idx = it_parent->second;
+        TORCH_CHECK(parent_idx < num_inputs,
+            "out of bound parent index : ", parent_idx, " for ", ti.syn_name);
+        ti.parent_index = parent_idx;
+      }
+      rv.dtensorinfos->push_back(ti);
+      nduplicates++;
+    }
+    else {
+      TORCH_CHECK(false, "duplicate tiv must be a tensor");
+    }
+  }
+  TORCH_CHECK(nduplicates == duplicate_tivs.size(),
+      "#duplicate_tivs ", duplicate_tivs.size(),
+      " is not matching with num_duplicates ", nduplicates);
+
+  rv.num_duplicates = nduplicates;
+
+  // At this point inputs and duplicate tinfos are populated
+  TORCH_CHECK((rv.num_inputs + rv.num_duplicates == rv.dtensorinfos->size()),
+      "num_inputs ", rv.num_inputs,
+      "num_duplicates ", rv.num_duplicates,
+      " are not adding up to #dtensorinfos ", rv.dtensorinfos->size());
+}
+
+void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
   // figure out the right device id
   auto& device = synapse_helpers::HPURegistrar::get_device();
   synDeviceId device_id = device.id();
@@ -1105,10 +1168,7 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
 
   postProcessOutputs();
 
-  if (syn_graph.is_empty()) {
-    UpdateOutputs();
-    return;
-  }
+  TORCH_CHECK(false == syn_graph.is_empty(), "empty graph encountered");
 
   auto&& error_variant{syn_graph.compile()};
   if (ABSL_PREDICT_FALSE(
@@ -1123,29 +1183,45 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
   auto cur_recipe = get_value(std::move(error_variant));
   RecipeValueSpec rv(cur_recipe);
 
-  ReorderInputs(rv);
+  // output_tensorinfos is populated during compile and does not need any post
+  // processing, whereas input_tivs need to be reordered
 
-  rv.num_inputs = input_tensorinfos.size();
-  rv.num_outputs = output_tensorinfos.size();
+  OrderInputs(rv);
 
-  rv.dtensorinfos =
-      std::make_shared<std::vector<TensorInfo>>(input_tensorinfos);
-  rv.dtensorinfos->insert(
-      rv.dtensorinfos->end(),
-      pinput_tensorinfos.begin(),
-      pinput_tensorinfos.end());
+  // rv.num_inputs and rv.num_duplicates will be set by FlattenAndLinkInputTIVs
+  FlattenAndLinkInputTIVs(rv);
+
   if (!interim_tensorinfos.empty()) {
+    rv.num_interims = interim_tensorinfos.size();
     rv.dtensorinfos->insert(
         rv.dtensorinfos->end(),
         interim_tensorinfos.begin(),
         interim_tensorinfos.end());
   }
+
+  // At this point inputs, duplicate and interim tinfos are populated
+  TORCH_CHECK((rv.num_inputs + rv.num_duplicates + rv.num_interims == rv.dtensorinfos->size()),
+      "num_inputs ", rv.num_inputs,
+      "num_duplicates ", rv.num_duplicates,
+      "num_interims ", rv.num_interims,
+      " are not adding up to #dtensorinfos ", rv.dtensorinfos->size());
+
   rv.dtensorinfos->insert(
       rv.dtensorinfos->end(),
       output_tensorinfos.begin(),
       output_tensorinfos.end());
 
+  rv.num_outputs = output_tensorinfos.size();
   rv.num_tensors = rv.dtensorinfos->size();
+
+  // At this point the inputs, duplicate, interim and output tinfos are populated
+  TORCH_CHECK(
+      (rv.num_inputs + rv.num_duplicates + rv.num_interims + rv.num_outputs) ==
+      rv.dtensorinfos->size(),
+      "num_inputs ", rv.num_inputs,
+      "num_duplicates ", rv.num_duplicates,
+      "num_interims ", rv.num_interims,
+      " are not adding up to #dtensorinfos ", rv.dtensorinfos->size());
 
   if (enable_tensor_dump_) {
     rv.htensor_wbuffers = std::make_shared<std::vector<uint64_t>>(
@@ -1155,11 +1231,19 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
   rv.aten_outputs = std::make_shared<std::vector<IValPtrShared>>(
       std::vector<IValPtrShared>());
   for (auto output : subgraph_->outputs()) {
-    rv.aten_outputs->push_back(value_to_ivalue[output]);
+    auto oit = value_to_ivalue.find(output);
+    TORCH_CHECK(
+        oit != value_to_ivalue.end(),
+        "value_to_ivalue does not have an entry for %",
+        output->debugName());
+    if (oit != value_to_ivalue.end()) {
+      IValPtrShared ivpsh = oit->second;
+      rv.aten_outputs->push_back(ivpsh);
+    }
   }
 
   if (enable_caching_) {
-    for (auto t : aten_intermediates) {
+    for (const auto & t : aten_intermediates) {
       rv.aten_intermediates.push_back(t);
     }
   }
@@ -1183,7 +1267,7 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
     aten_intermediates.clear();
   }
 
-  UpdateOutputs();
+  UpdateOutputs(rv);
 }
 
 void HabanaLaunchOpPT::DumpTensors_pre(RecipeValueSpec& rv) {
@@ -1216,6 +1300,30 @@ bool HabanaLaunchOpPT::CompileSynapseGraph(
   auto compile_result = syn_graph_ptr->compile();
   synh_recipe = get_value(std::move(compile_result));
   return (synh_recipe != nullptr);
+}
+
+void HabanaLaunchOpPT::PrintATenTensors(RecipeValueSpec& rv) {
+  std::ostream& O = std::cout;
+
+  O << "aten_inputs #" << num_inputs << "::" << '\n';
+  for (size_t i = pt_stack_sh.size() - num_inputs; i < pt_stack_sh.size();
+       i++) {
+    PrintATenTensor(pt_stack_sh.at(i));
+  }
+
+  if (rv.aten_intermediates.size()) {
+    O << "aten_intermediates #" << rv.aten_intermediates.size() << "::" << '\n';
+    for (auto& a : rv.aten_intermediates) {
+      PrintATenTensor(a);
+    }
+  }
+
+  if (rv.aten_outputs) {
+    O << "aten_outputs #" << rv.aten_outputs->size() << "::" << '\n';
+    for (auto& a : *rv.aten_outputs) {
+      PrintATenTensor(a);
+    }
+  }
 }
 
 void HabanaLaunchOpPT::LaunchRecipe(
@@ -1301,6 +1409,14 @@ void HabanaLaunchOpPT::UpdateOutputs() {
   }
 }
 
+void HabanaLaunchOpPT::UpdateOutputs(RecipeValueSpec& rv) {
+  // Update the stack from the recipe itself
+  drop(*pt_stack, num_inputs);
+  for (const auto& ivpsh : *(rv.aten_outputs)) {
+    pt_stack->insert(pt_stack->end(), *ivpsh);
+  }
+}
+
 template <typename T>
 void HabanaLaunchOpPT::clearMember(T& m_container) {
   T empty;
@@ -1315,8 +1431,10 @@ void HabanaLaunchOpPT::clear() {
 
   habana_kernels.clear();
 
-  input_tensorinfos.clear();
-  pinput_tensorinfos.clear();
+  input_tivs.clear();
+  duplicate_tivs.clear();
+  input_tiv_map.clear();
+
   interim_tensorinfos.clear();
   output_tensorinfos.clear();
   value_to_tensor_layout.clear();
@@ -1324,9 +1442,7 @@ void HabanaLaunchOpPT::clear() {
 
   value_to_ivalue.clear();
   pt_to_synapse_tensors.clear();
-  input_tensorinfo_map.clear();
   meta_syn_tensors.clear();
-  input_to_pinput_indices.clear();
 
   num_tensor_inputs = 0;
 }
@@ -1343,10 +1459,23 @@ bool HabanaLaunchOpPT::IsCached(std::shared_ptr<RecipeArgumentSpec>& spec) {
 void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
   PT_BRIDGE_BEGIN;
   num_inputs = subgraph_->inputs().size();
+  num_tensor_inputs = 0;
   auto subgraph_inputs = subgraph_->inputs();
   input_refs = last(stack, num_inputs);
   ref_count_++;
   iteration_count_++;
+
+  // Keep a handle to the stack for future use
+  pt_stack = &stack;
+
+  size_t j = stack.size() - num_inputs;
+  for (; j < stack.size(); j++) {
+    IValPtrShared ivpsh = std::make_shared<IVal>(stack[j]);
+    pt_stack_sh.push_back(ivpsh);
+    if (ivpsh->isTensor() || ivpsh->isTensorList()) {
+      num_tensor_inputs++;
+    }
+  }
 
   // Fusion pass should ensure all nodes are on Habana, if all nodes not on
   // habana device, we should assert
@@ -1375,16 +1504,30 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
       PT_BRIDGE_DEBUG("Cache hit key:", spec->hashCode());
 
       // Patch the input buffers
-      size_t i = 0;
+      // Running index on rv.dtensorinfos
+      size_t ridx = 0;
 
       for (auto const& input : input_refs) {
         if (input.isTensor()) {
-          rv.dtensorinfos->at(i).buffer = input.toTensor().data_ptr();
-          for (size_t j = 0; j < rv.pinput_indices->at(i).size(); j++) {
-            size_t k = rv.num_inputs + (*rv.pinput_indices)[i][j];
-            rv.dtensorinfos->at(k).buffer = input.toTensor().data_ptr();
+          rv.dtensorinfos->at(ridx).buffer = input.toTensor().data_ptr();
+          ridx++;
+        } else if (input.isTensorList()) {
+          for (at::Tensor t : input.toTensorList()) {
+            rv.dtensorinfos->at(ridx).buffer = t.data_ptr();
+            ridx++;
           }
-          i++;
+        }
+      }
+
+      TORCH_CHECK(ridx ==  rv.num_inputs,
+          "running index ", ridx, " mismatch with num_inputs ", rv.num_inputs);
+
+      // Patch the duplicates if there are any
+      if (rv.num_duplicates) {
+        size_t duplicates_index_end = rv.num_inputs+rv.num_duplicates;
+        for (; ridx < duplicates_index_end; ridx++) {
+          size_t parent_idx = rv.dtensorinfos->at(ridx).parent_index;
+          rv.dtensorinfos->at(ridx).buffer = rv.dtensorinfos->at(parent_idx).buffer;
         }
       }
 
@@ -1399,10 +1542,7 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
       }
 
       // Update the stack from the recipe itself
-      drop(stack, num_inputs);
-      for (const auto& ivptrsh : *(rv.aten_outputs)) {
-        stack.insert(stack.end(), *ivptrsh);
-      }
+      UpdateOutputs(rv);
 
       clear();
       PT_BRIDGE_END;
@@ -1411,14 +1551,6 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
   }
   // caching :: end
   {
-    // Keep a handle to the stack for future use
-    pt_stack = &stack;
-
-    size_t j = stack.size() - num_inputs;
-    for (; j < stack.size(); j++) {
-      IValPtrShared ivptrsh = std::make_shared<IVal>(stack[j]);
-      pt_stack_sh.push_back(ivptrsh);
-    }
 
     for (size_t j = 0; j < pt_stack_sh.size(); j++) {
       auto value_input = subgraph_inputs[j];
@@ -1453,7 +1585,6 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
           value_to_ivalue[value_input] = ivptrsh;
           pt_stack_sh[j] = ivptrsh;
         }
-        num_tensor_inputs++;
       } else {
         value_to_ivalue[value_input] = pt_stack_sh[j];
       }

@@ -51,9 +51,34 @@ using IValPtrToSynTensorNameMap = std::unordered_map<IValPtr, std::string>;
 using IValPtrToSynTensorSizeMap = std::unordered_map<IValPtr, unsigned>;
 using IValPtrToTesorInfoMap = std::unordered_map<IValPtr, TensorInfo>;
 
+using tensor_or_ref = synapse_helpers::tensor_or_ref;
+using SynTensorOrRefList = std::vector<tensor_or_ref>;
+using SharedSynTensorOrRefListPtr = std::shared_ptr<SynTensorOrRefList>;
+
 using IValPtrSharedToTesorInfoMap =
     std::unordered_map<IValPtrShared, TensorInfo>;
-;
+
+struct TensorInfo {
+  TensorInfo(const IValPtrShared& ivp, const std::string& sn, const ValPtr& vp);
+  TensorInfo(
+      const at::Tensor& pt_tensor,
+      const std::string& sn,
+      const std::string& irn);
+
+  friend std::ostream& operator<<(std::ostream& O, const TensorInfo& t);
+
+  std::string ir_name;
+  std::string syn_name;
+  std::string shape_str;
+  void* buffer{nullptr};
+  unsigned numel{0};
+  unsigned size{0};
+
+  // Will hold the index of parent tensor info for aliases
+  bool is_duplicate{false};
+  size_t parent_index{ULONG_MAX};
+};
+
 // Adding the op strings to the key for recipe
 // Later the drop the storage for the vector of strings
 //   if possible pass the subgraph as argument
@@ -106,24 +131,6 @@ struct RecipeArgumentSpecEqual {
   }
 };
 
-struct TensorInfo {
-  TensorInfo(const IValPtr& ivp, const std::string& sn, const ValPtr& vp);
-  TensorInfo(const IValPtrShared& ivp, const std::string& sn, const ValPtr& vp);
-  TensorInfo(
-      const at::Tensor& pt_tensor,
-      const std::string& sn,
-      const std::string& irn);
-
-  friend std::ostream& operator<<(std::ostream& O, const TensorInfo& t);
-
-  std::string ir_name;
-  std::string syn_name;
-  std::string shape_str;
-  void* buffer = nullptr;
-  unsigned numel = 0;
-  unsigned size = 0;
-};
-
 // Memory management is outside the scope of caching
 // Input and output buffers need to be passed to the recipe
 // The order of the inputs are according to the input stack
@@ -135,7 +142,6 @@ struct RecipeValueSpec {
       : recipe(r),
         dtensorinfos(nullptr),
         aten_outputs(nullptr),
-        pinput_indices(nullptr),
         htensor_wbuffers(nullptr) {
     count++;
     id = count;
@@ -161,13 +167,15 @@ struct RecipeValueSpec {
   std::shared_ptr<std::vector<TensorInfo>> dtensorinfos;
   std::shared_ptr<std::vector<IValPtrShared>> aten_outputs;
   std::vector<at::Tensor> aten_intermediates;
-  std::shared_ptr<std::vector<std::vector<size_t>>> pinput_indices;
   std::shared_ptr<std::vector<uint64_t>> htensor_wbuffers;
 
   size_t id{0};
   size_t iter_idx{0};
   size_t num_tensors{0};
+
   size_t num_inputs{0};
+  size_t num_duplicates{0};
+  size_t num_interims{0};
   size_t num_outputs{0};
 
   static size_t count;
@@ -243,12 +251,16 @@ class HabanaLaunchOpPT {
 
   std::vector<IValPtrShared> pt_stack_sh;
   std::unordered_map<CValPtr, IValPtrShared> value_to_ivalue;
-  std::unordered_map<IValPtrShared, synapse_helpers::tensor&>
+  std::unordered_map<IValPtrShared, SharedSynTensorOrRefListPtr>
       pt_to_synapse_tensors;
 
-  // TensorInfos for launcing the recipe
-  std::vector<TensorInfo> input_tensorinfos;
-  std::vector<TensorInfo> pinput_tensorinfos;
+
+  // TIVs for launcing the recipe
+  // tiv : absl::variant<TensorInfo, std::vector<TensorInfo>> objects
+  std::unordered_map<IValPtrShared,
+      absl::variant<TensorInfo, std::vector<TensorInfo>>> input_tiv_map;
+  std::vector<absl::variant<TensorInfo, std::vector<TensorInfo>>> input_tivs;
+  std::vector<absl::variant<TensorInfo, std::vector<TensorInfo>>> duplicate_tivs;
 
   // Temp additions to enable BatchNorm..tensors created that are not in graph
   // We get this to enable correct patching
@@ -263,22 +275,16 @@ class HabanaLaunchOpPT {
 
   // caching :: begin
 
-  // TODO :
-  // 1. Manage the newly created IValues
-  // 2. Expose the enable_caching_ flag to python
-
   size_t num_inputs = 0;
+  // The inputs holding data usually are of type tensor and tensorList.
+  // The following member keeps track of total number of tensor and tensorList inputs
   size_t num_tensor_inputs = 0;
+
   bool use_persistent_tensors;
   at::ArrayRef<torch::jit::IValue> input_refs;
   torch::jit::Stack* pt_stack = nullptr;
 
-  // IValPtrToTesorInfoMap            input_tensorinfo_map;
-  IValPtrSharedToTesorInfoMap input_tensorinfo_map;
-
   RecipeCacheSimple recipe_cache;
-
-  std::unordered_map<IValPtrShared, IdxVec> input_to_pinput_indices;
 
   // caching :: end
 
@@ -324,14 +330,20 @@ class HabanaLaunchOpPT {
   void handlePrimNodes(torch::jit::Node* node);
   void handleMetaOps(torch::jit::Node* node);
 
+  void PrintATenTensors(RecipeValueSpec& rv);
   void LaunchRecipe(
       RecipeValueSpec& rv,
       at::ArrayRef<torch::jit::IValue> input_refs);
   void UpdateOutputs();
+  void UpdateOutputs(RecipeValueSpec& rv);
   template <class T>
   void clearMember(T& m_container);
 
   bool IsCached(std::shared_ptr<RecipeArgumentSpec>& spec);
+
+  void OrderInputs(RecipeValueSpec& rv);
+  void FlattenAndLinkInputTIVs(RecipeValueSpec& rv);
+
   void ReorderInputs(RecipeValueSpec& rv);
 
   void DumpTensors_pre(RecipeValueSpec& rv);

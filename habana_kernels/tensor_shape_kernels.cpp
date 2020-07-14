@@ -25,18 +25,18 @@
 using namespace torch;
 
 void CatOutOperator::validate_tensor_dim_sizes(
-    const TensorList tensors,
+    c10::List<at::Tensor> tensors,
     int64_t dim) {
   unsigned i = 0;
   // tensors[0] is out tensor
   auto tensor_count = tensors.size();
-  Tensor tempT = tensors[0];
+  auto tempT = tensors.get(0);
   for (i = 1; i < tensor_count; i++) {
     // check whether sizes along dimensions match except for cat dimension.
     unsigned j = 0;
-    auto sz1 = tensors[i].sizes().vec();
+    auto sz1 = tensors.get(i).sizes().vec();
     auto sz2 = tempT.sizes().vec();
-    for (j = 0; j < tensors[i].dim(); j++) {
+    for (j = 0; j < tensors.get(i).dim(); j++) {
       if (j != dim) {
         if ((sz1[j] - sz2[j]) != 0)
           TORCH_CHECK(
@@ -49,26 +49,21 @@ void CatOutOperator::validate_tensor_dim_sizes(
 }
 
 Tensor CatOperator::CheckAllocateOutput(Stack& inputs) {
-  auto tensor_count = inputs.size() - 1;
-  std::vector<at::Tensor> tensors;
-  TORCH_CHECK(tensor_count >= 1, "Cat op needs atleast 1 input tensor");
-  for (unsigned i = 0; i < tensor_count; i++) {
-    TORCH_CHECK(
-        inputs[i].isTensor(),
-        "Input args ",
-        i,
-        " for cat op need to be Tensor type");
-    tensors.push_back(inputs[i].toTensor());
-  }
+  TORCH_CHECK(
+      inputs.size() == 2,
+      "Incorrect size of inputs expected for matmul operator");
 
   TORCH_CHECK(
-      inputs[tensor_count].isInt(),
-      "Input arg ",
-      tensor_count,
-      " for cat op needs to be Int type");
-  auto first_tensor = tensors[0];
-  int64_t dim = at::maybe_wrap_dim(
-      inputs[tensor_count].toInt(), first_tensor.dim(), /*wrap_scalar=*/true);
+      inputs[0].isTensorList(), "Input arg2 type expected to be tensor list");
+  TORCH_CHECK(inputs[1].isInt(), "Input arg3 type expected to be int");
+
+  auto tensors = inputs[0].toTensorList();
+  auto dim_ = inputs[1].toInt();
+  auto tensor_count = tensors.size();
+
+  auto first_tensor = tensors.get(0);
+  int64_t dim =
+      at::maybe_wrap_dim(dim_, first_tensor.dim(), /*wrap_scalar=*/true);
   TORCH_CHECK(
       dim < first_tensor.ndimension(),
       "Cat dimension specified exceeds tensors dimensions");
@@ -77,9 +72,8 @@ Tensor CatOperator::CheckAllocateOutput(Stack& inputs) {
   // along the dim in which to cat
   auto out_size = first_tensor.sizes().vec();
   out_size[dim] = 0;
-  // loop starts with i=1 as i=0 is the dimension to cat
   for (unsigned i = 0; i < tensor_count; i++) {
-    out_size[dim] += tensors[i].sizes()[dim];
+    out_size[dim] += tensors.get(i).sizes()[dim];
   }
   return std::move(at::empty(
       out_size, first_tensor.options(), first_tensor.suggest_memory_format()));
@@ -122,8 +116,9 @@ Tensor cat_hpu(const TensorList tensors, int64_t dim_ = 0) {
   std::vector<c10::IValue> stack;
   for (unsigned i = 0; i < tensors.size(); i++) {
     pt_inputs.push_back(tensors[i]);
-    stack.push_back(IValue(tensors[i]));
   }
+  // Push tensorlist as it is
+  stack.push_back(IValue(tensors));
   stack.push_back(IValue(dim_));
   size_t key = Op.GetRecipeKey(node_type, stack);
   if (device.get_recipe_handle_cache().isCached(key)) {
@@ -151,43 +146,34 @@ Tensor cat_hpu(const TensorList tensors, int64_t dim_ = 0) {
   return out.at(0);
 }
 
-at::Tensor CatOutOperator::CheckAllocateOutput(Stack& inputs) {
-  auto in_tensor_count = inputs.size() - 2; // num input tensors
-  auto dim_pos = in_tensor_count + 1; // last in inputs
+int64_t CatOutOperator::CheckAllocateOutput(Stack& inputs) {
   TORCH_CHECK(
-      (in_tensor_count + 1) >= 2,
-      "CatOut op needs atleast 1 output and 1 input tensor");
-  std::vector<at::Tensor> in_tensors;
-  // inputs pos : 0 = out, 2,3,... = cat inputs, "tensor_count"th elem = dim
-  // put all input tensors into in_tensors
-  for (unsigned i = 1; i <= in_tensor_count; i++) {
-    TORCH_CHECK(
-        inputs[i].isTensor(),
-        "Input args ",
-        i,
-        " for cat_out op need to be Tensor type");
-    in_tensors.push_back(inputs[i].toTensor());
-  }
+      inputs.size() == 3,
+      "Incorrect size of inputs expected for matmul operator");
 
+  TORCH_CHECK(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
   TORCH_CHECK(
-      inputs[dim_pos].isInt(),
-      "Input arg ",
-      in_tensor_count,
-      " for cat op needs to be Int type");
-
-  int64_t dim = at::maybe_wrap_dim(
-      inputs[dim_pos].toInt(),
-      in_tensors[0].dim(),
-      /*wrap_scalar=*/true);
+      inputs[1].isTensorList(), "Input arg2 type expected to be tensor list");
+  TORCH_CHECK(inputs[2].isInt(), "Input arg3 type expected to be int");
 
   auto out = inputs[0].toTensor();
-  auto first_tensor = in_tensors[0];
+  auto tensors = inputs[1].toTensorList();
+  auto dim_ = inputs[2].toInt();
+
+  int64_t dim = at::maybe_wrap_dim(
+      dim_,
+      tensors.get(0).dim(),
+      /*wrap_scalar=*/true);
+
+  auto in_tensor_count = tensors.size(); // num input tensors
+
+  auto first_tensor = tensors.get(0);
   auto out_size = first_tensor.sizes().vec();
   out_size[dim] = 0;
   for (unsigned i = 0; i < in_tensor_count; i++) {
-    out_size[dim] += in_tensors[i].sizes()[dim];
+    out_size[dim] += tensors.get(i).sizes()[dim];
   }
-  validate_tensor_dim_sizes(in_tensors, dim);
+  validate_tensor_dim_sizes(tensors, dim);
 
   if (out.defined()) {
     TORCH_CHECK(
@@ -200,18 +186,20 @@ at::Tensor CatOutOperator::CheckAllocateOutput(Stack& inputs) {
     out = at::empty(
         out_size, first_tensor.options(), first_tensor.suggest_memory_format());
   }
-  return std::move(out);
+
+  // insert allocated output tensor back
+  inputs.erase(inputs.cbegin());
+  inputs.emplace(inputs.cbegin(), out);
+
+  return dim;
 }
 
 void CatOutOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
     bool is_output_persistent) {
-  int64_t dim = at::maybe_wrap_dim(
-      inputs[inputs.size() - 1].toInt(),
-      inputs[1].toTensor().dim(),
-      /*wrap_scalar=*/true);
-  auto out = CheckAllocateOutput(inputs);
+  auto dim = CheckAllocateOutput(inputs);
+  auto out = inputs[0].toTensor();
   auto kernel_dim = (out.ndimension() - dim) - 1;
   p_context_->params_.emplace<int64_t>(kernel_dim);
   p_context_->params_size_ = sizeof(kernel_dim);
@@ -220,7 +208,8 @@ void CatOutOperator::AllocateAndAddSynapseNode(
 }
 
 void CatOutOperator::SetPTOutput(torch::jit::Stack& inputs) {
-  auto out = CheckAllocateOutput(inputs);
+  CheckAllocateOutput(inputs);
+  auto out = inputs[0].toTensor();
   HabanaOperator::SetPTOutput(out);
 }
 
@@ -248,9 +237,11 @@ Tensor& cat_hpu_out(
   stack.push_back(IValue(result));
   for (unsigned i = 0; i < tensors.size(); i++) {
     pt_inputs.push_back(tensors[i]);
-    stack.push_back(IValue(tensors[i]));
   }
+  // Tensorlist should be pushed as it is
+  stack.push_back(IValue(tensors));
   stack.push_back(IValue(dim_));
+
   /*Cache generation requires unique parameter distinctions which are not
    * guaranteed by tensors alone for ops like cat/cat.out because their guids
    * are same. cat and cat.out have same guid "concat". In habanaqa tests the
@@ -903,6 +894,11 @@ Tensor expand_hpu(const Tensor& self, IntArrayRef size, bool implicit) {
 
 static auto& KernelRegistry =
     ::habana::KernelRegistry()
+        .add(
+            "aten::cat",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<CatOperator>(device_id, node_type);
+            })
         .add(
             "aten::permute",
             [](const int device_id, c10::ScalarType node_type) {
