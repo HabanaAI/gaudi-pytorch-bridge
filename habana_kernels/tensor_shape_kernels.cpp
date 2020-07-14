@@ -299,7 +299,8 @@ inline void recalc_strides(
  * @param dim0 - second dimension to swap
  ***************************************************************************/
 TransposeOperator::TransposeOperator(int device_id, c10::ScalarType scalarType)
-    : HabanaOperator("transpose") {
+    : HabanaOperator(
+          "transpose_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
   this->CreateSynContext(device_id);
 }
 
