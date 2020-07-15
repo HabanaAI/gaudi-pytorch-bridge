@@ -29,7 +29,9 @@ class MMOperator : public HabanaOperator {
 class AddmmOperator : public HabanaOperator {
  public:
   AddmmOperator(int device_id, c10::ScalarType scalarType)
-    : HabanaOperator("gemm_add_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
+      : HabanaOperator(
+            "gemm_add_fwd_" +
+            habana_helpers::name_suffix_from_type(scalarType)) {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign(
         {LayoutFormat::ANY, LayoutFormat::ANY, LayoutFormat::ANY});
@@ -44,7 +46,8 @@ class AddmmOperator : public HabanaOperator {
 
 class BmmOutOperator : public HabanaOperator {
  public:
-  BmmOutOperator(int device_id, std::string guid) : HabanaOperator(guid) {
+  BmmOutOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator("batch_gemm") {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign(
         {LayoutFormat::ANY, LayoutFormat::ANY, LayoutFormat::ANY});
@@ -59,7 +62,8 @@ class BmmOutOperator : public HabanaOperator {
 
 class BmmOperator : public BmmOutOperator {
  public:
-  BmmOperator(int device_id, std::string guid) : BmmOutOperator(device_id, guid) {
+  BmmOperator(int device_id, c10::ScalarType scalarType)
+      : BmmOutOperator(device_id, scalarType) {
     kernel_meta_data_.input_layout.assign(
         {LayoutFormat::ANY, LayoutFormat::ANY});
   }
@@ -70,4 +74,4 @@ class BmmOperator : public BmmOutOperator {
       bool is_output_persistent = false) override;
 };
 
-}
+} // namespace habana

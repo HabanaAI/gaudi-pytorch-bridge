@@ -377,14 +377,17 @@ void habana::BmmOutOperator::AllocateAndAddSynapseNode(
  * @param[in] mat2 - Second Tensor, 3D, NWC, bf16/FP32
  * @param[in,out] out - Result tensor, 3D, NHC, bf16/FP32
  *****************************************************************************************************/
-Tensor& batch_gemm_out_hpu(Tensor& out, const Tensor& self, const Tensor& mat2) {
+Tensor& batch_gemm_out_hpu(
+    Tensor& out,
+    const Tensor& self,
+    const Tensor& mat2) {
   PT_KERNEL_BEGIN;
 
   const auto device_id = self.device().index();
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
   std::string node_type = "batch_gemm";
   torch::jit::Stack stack = {IValue(out), IValue(self), IValue(mat2)};
-  habana::BmmOutOperator op(device_id, node_type);
+  habana::BmmOutOperator op(device_id, self.scalar_type());
   std::vector<const at::Tensor*> pt_inputs{&self, &mat2};
 
   size_t key = op.GetRecipeKey(node_type, stack);
@@ -411,8 +414,7 @@ void habana::BmmOperator::AllocateAndAddSynapseNode(
     torch::jit::Stack& inputs,
     bool is_output_persistent) {
   TORCH_CHECK(
-      inputs.size() == 2,
-      "Incorrect size of inputs expected for Bmm operator");
+      inputs.size() == 2, "Incorrect size of inputs expected for Bmm operator");
 
   TORCH_CHECK(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
   TORCH_CHECK(inputs[1].isTensor(), "Input arg2 type expected to be tensor");
@@ -444,7 +446,7 @@ Tensor batch_gemm_hpu(const Tensor& self, const Tensor& mat2) {
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
   std::string node_type = "batch_gemm";
   torch::jit::Stack stack = {IValue(self), IValue(mat2)};
-  habana::BmmOperator op(device_id, node_type);
+  habana::BmmOperator op(device_id, self.scalar_type());
   std::vector<const at::Tensor*> pt_inputs{&self, &mat2};
 
   size_t key = op.GetRecipeKey(node_type, stack);
