@@ -299,17 +299,21 @@ class DLRM_Net(nn.Module):
     def sequential_forward(self, dense_x, lS_o, lS_i):
         # process dense features (using bottom mlp), resulting in a row vector
         x = self.apply_mlp(dense_x, self.bot_l)
-
+        #print("X")
+        #print(x.detach().cpu().numpy())
         # process sparse features(using embeddings), resulting in a list of row vectors
         ly = self.apply_emb(lS_o, lS_i, self.emb_l)
-        print("intermediate")
-        print(x.detach().cpu().numpy())
+        #print("intermediate ly")
+        #for a in ly:
+        #    print(a.detach().cpu().numpy())
 
         # process sparse features(using embeddings), resulting in a list of row vectors
-        print('lS_o')
-        print(lS_o.detach().cpu().numpy())
+        #print('lS_o')
+        #print(lS_o.detach().cpu().numpy())
 
-        print('lS_i')
+        #print('lS_i')
+        #for a in lS_i:
+        #    print(a.detach().cpu().numpy())
 
         # interact features (dense and sparse)
         z = self.interact_features(x, ly)
@@ -322,6 +326,10 @@ class DLRM_Net(nn.Module):
             z = torch.clamp(p, min=self.loss_threshold, max=(1.0 - self.loss_threshold))
         else:
             z = p
+        #print("p ")
+        #print(p.detach().cpu().numpy())
+        #print("z ")
+        #print(z.detach().cpu().numpy())
 
         return z
 
@@ -520,6 +528,8 @@ if __name__ == "__main__":
     parser.add_argument("--mlperf-bin-shuffle", action='store_true', default=False)
     parser.add_argument('--no-habana', action='store_true', default=False,
                         help='disables habana training')
+    parser.add_argument("--use-jit-trace", action='store_true', default=False,
+                        help='run with torch jit trace mode')
     args = parser.parse_args()
 
     use_hpu = not args.no_habana
@@ -552,6 +562,7 @@ if __name__ == "__main__":
     elif use_hpu:
         torch.ops.load_library(os.path.join(os.environ['BUILD_ROOT_LATEST'], "libhabana_pytorch_plugin.so"))
         device = torch.device('habana')
+        sys.path.insert(0, os.path.join(os.environ['BUILD_ROOT_LATEST']))
         print('Using HPU...')
     else:
         device = torch.device("cpu")
@@ -770,9 +781,22 @@ if __name__ == "__main__":
             torch.cuda.synchronize()
         return time.time()
 
-    def dlrm_wrap(X, lS_o, lS_i, use_gpu,use_hpu, device):
+    def enable_tracing(dlrm,X, lS_o, lS_i, device):
+        lS2_i = [S_i.to(device) for S_i in lS_i] if isinstance(lS_i, list) \
+            else lS_i.to(device)
+        lS2_o = [S_o.to(device) for S_o in lS_o] if isinstance(lS_o, list) \
+            else lS_o.to(device)
+        X_device = X.to(device)
+        import hb_torch
+        torch._C._jit_set_profiling_executor(False)
+        torch._C._jit_set_profiling_mode(False)
+        hb_torch.enable()
+        dlrm_trace = torch.jit.trace(dlrm, (X_device, lS2_o, lS2_i), check_trace=False)
+        return dlrm_trace
+
+    def dlrm_wrap(dlrm, X, lS_o, lS_i, use_gpu,use_hpu, device):
         if use_gpu or use_hpu:
-            import pudb
+            #import pudb
             # pudb.set_trace()
             # lS_i can be either a list of tensors or a stacked tensor.
             # Handle each case below:
@@ -780,11 +804,8 @@ if __name__ == "__main__":
                 else lS_i.to(device)
             lS2_o = [S_o.to(device) for S_o in lS_o] if isinstance(lS_o, list) \
                 else lS_o.to(device)
-            return dlrm(
-                X.to(device),
-                lS2_o,
-                lS2_i
-            )
+            X_device = X.to(device)
+            return dlrm(X_device, lS2_o, lS2_i)
         else:
             return dlrm(X, lS_o, lS_i)
 
@@ -881,6 +902,8 @@ if __name__ == "__main__":
 
     print("time/loss/accuracy (if enabled):")
     with torch.autograd.profiler.profile(args.enable_profiling, use_gpu) as prof:
+        model_to_run = dlrm
+        is_first_it = True
         while k < args.nepochs:
             if k < skip_upto_epoch:
                 continue
@@ -894,6 +917,9 @@ if __name__ == "__main__":
                 if j < skip_upto_batch:
                     continue
 
+                if args.use_jit_trace and is_first_it:
+                    model_to_run = enable_tracing(dlrm, X, lS_o, lS_i, device)
+                    is_first_it = False
                 if args.mlperf_logging:
                     current_time = time_wrap(use_gpu)
                     if previous_iteration_time:
@@ -918,7 +944,7 @@ if __name__ == "__main__":
                 '''
 
                 # forward pass
-                Z = dlrm_wrap(X, lS_o, lS_i, use_gpu, use_hpu, device)
+                Z = dlrm_wrap(model_to_run, X, lS_o, lS_i, use_gpu, use_hpu, device)
 
                 # loss
                 E = loss_fn_wrap(Z, T, use_gpu,use_hpu, device)
@@ -1013,7 +1039,7 @@ if __name__ == "__main__":
 
                         # forward pass
                         Z_test = dlrm_wrap(
-                            X_test, lS_o_test, lS_i_test, use_gpu, use_hpu,device
+                            model_to_run, X_test, lS_o_test, lS_i_test, use_gpu, use_hpu,device
                         )
                         if args.mlperf_logging:
                             S_test = Z_test.detach().cpu().numpy()  # numpy array
