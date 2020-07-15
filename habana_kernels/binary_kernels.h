@@ -58,18 +58,34 @@ class DivOperator : public BinaryOperator {
   }
 };
 
-class AddOperator : public BinaryOperator {
+class BinaryOperatorWithAlpha : public BinaryOperator {
  public:
-  AddOperator(int device_id, c10::ScalarType scalarType)
-      : BinaryOperator(
-            device_id,
-            "add_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
-    scalarType_ = scalarType;
-  }
+  BinaryOperatorWithAlpha(int device_id, const std::string& guid)
+      : BinaryOperator(device_id, guid) {}
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       bool is_output_persistent = false);
+};
+
+class AddOperator : public BinaryOperatorWithAlpha {
+ public:
+  AddOperator(int device_id, c10::ScalarType scalarType)
+      : BinaryOperatorWithAlpha(
+            device_id,
+            "add_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
+    scalarType_ = scalarType;
+  }
+};
+
+class SubOperator : public BinaryOperatorWithAlpha {
+ public:
+  SubOperator(int device_id, c10::ScalarType scalarType)
+      : BinaryOperatorWithAlpha(
+            device_id,
+            "sub_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
+    scalarType_ = scalarType;
+  }
 };
 
 } // namespace habana

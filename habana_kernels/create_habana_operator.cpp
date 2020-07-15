@@ -64,6 +64,8 @@ HabanaOperatorPtr CreateHabanaOperator(
     op = std::make_shared<PadOperator>(device_id, node_type);
   } else if ("aten::bmm" == node_name) {
     op = std::make_shared<BmmOperator>(device_id, node_type);
+  } else if ("aten::sub" == node_name) {
+    op = std::make_shared<SubOperator>(device_id, node_type);
   }
   // Returning a null pointer for cases not added yet,
   // we can add assert once all kernels are added

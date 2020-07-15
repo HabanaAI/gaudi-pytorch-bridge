@@ -35,6 +35,7 @@ const std::unordered_set<std::string> HabanaWhiteList::HabanaWhiteListOps = {
         // "aten::add_",
         "aten::add",
         "aten::sub_",
+        "aten::sub",
         "aten::sub.Scalar",
         "aten::mul_",
         "aten::mul",

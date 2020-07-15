@@ -360,8 +360,7 @@ template <class BinaryOp>
 Tensor process_generic_tensor_binary_op(
     const Tensor& operand1,
     const Tensor& operand2,
-    const std::string& node_guid,
-    const SynapsePassType pass_type) {
+    const std::string& node_guid) {
   PT_KERNEL_BEGIN;
   if (operand1.dim() == 0) {
     operand1.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
@@ -388,7 +387,7 @@ Tensor process_generic_tensor_binary_op(
   return out;
 }
 
-void habana::AddOperator::AllocateAndAddSynapseNode(
+void habana::BinaryOperatorWithAlpha::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     bool is_output_persistent) {
@@ -511,8 +510,7 @@ Tensor process_generic_tensor_binary_op(
     const Tensor& operand1,
     const Tensor& operand2,
     const Tensor& alpha,
-    const std::string& node_guid,
-    const SynapsePassType pass_type) {
+    const std::string& node_guid) {
   PT_KERNEL_BEGIN;
   if (operand1.dim() == 0) {
     operand1.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
@@ -568,7 +566,7 @@ Tensor add_tensor_hpu(const Tensor& self, const Tensor& other, Scalar alpha) {
     // TODO: Optimize for alpha == 1
     auto alpha_tensor = convert_scalar_to_tensor_using_self(other, alpha);
     output = process_generic_tensor_binary_op<habana::AddOperator>(
-        self, other, alpha_tensor, "add", SynapsePassType::FORWARD_PASS);
+        self, other, alpha_tensor, "add");
   }
 
   PT_KERNEL_END;
@@ -677,9 +675,10 @@ Tensor& addcdiv_hpu_(
 Tensor sub_tensor_hpu(const Tensor& self, const Tensor& other, Scalar alpha) {
   PT_KERNEL_BEGIN;
 
-  auto out_mul = do_tensor_scalar_mul(other, alpha);
-  auto output = do_generic_tensor_binary_op(
-      self, out_mul, "sub", SynapsePassType::FORWARD_PASS);
+  // TODO: Optimize for alpha == 1
+  auto alpha_tensor = convert_scalar_to_tensor_using_self(other, alpha);
+  auto output = process_generic_tensor_binary_op<habana::SubOperator>(
+      self, other, alpha_tensor, "sub");
 
   PT_KERNEL_END;
   return output;
@@ -793,7 +792,7 @@ Tensor mul_tensor_hpu(const Tensor& self, const Tensor& other) {
   }
 
   auto output = process_generic_tensor_binary_op<habana::MulOperator>(
-      self, other, "mult", SynapsePassType::FORWARD_PASS);
+      self, other, "mult");
 
   PT_KERNEL_END;
   return output;
@@ -895,7 +894,7 @@ Tensor div_tensor_hpu(const Tensor& self, const Tensor& other) {
   }
 
   auto out = process_generic_tensor_binary_op<habana::DivOperator>(
-      self, other, "div", SynapsePassType::FORWARD_PASS);
+      self, other, "div");
   PT_KERNEL_END;
   return out;
 }
