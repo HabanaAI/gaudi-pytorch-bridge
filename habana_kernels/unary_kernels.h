@@ -138,3 +138,12 @@ class ClampOperator : public HabanaOperator {
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
 };
+
+// Neg Operator
+class NegOperator : public UnaryOperator {
+ public:
+  NegOperator(int device_id, c10::ScalarType scalarType)
+      : UnaryOperator(
+            device_id,
+            "neg_fwd_" + habana_helpers::name_suffix_from_type(scalarType)){};
+};

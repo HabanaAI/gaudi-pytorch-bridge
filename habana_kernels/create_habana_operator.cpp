@@ -89,6 +89,8 @@ HabanaOperatorPtr CreateHabanaOperator(
     op = std::make_shared<SqrtOperator>(device_id, node_type);
   } else if ("aten::gt" == node_name) {
     op = std::make_shared<GtOperator>(device_id, node_type);
+  } else if ("aten::neg" == node_name) {
+    op = std::make_shared<NegOperator>(device_id, node_type);
   }
   // Returning a null pointer for cases not added yet,
   // we can add assert once all kernels are added

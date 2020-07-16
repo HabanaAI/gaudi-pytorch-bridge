@@ -618,6 +618,28 @@ Tensor abs_hpu(const Tensor& self) {
   return out;
 }
 
+/*************************************************************************
+ * @brief Kernel implementation for output = torch.neg(self)
+ * @param [out] output - output tensor, 1-4D, BF16/FP32
+ * @param [in] self - input tensor, 1-4D, BF16/FP32
+ ************************************************************************/
+Tensor neg_hpu(const Tensor& self) {
+  PT_KERNEL_BEGIN;
+
+  at::ScalarType scalar_type = self.scalar_type();
+  std::string node_type =
+      "neg_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+
+  // Create the operator
+  size_t device_id = self.device().index();
+  NegOperator Op(device_id, scalar_type);
+
+  auto out = unary_op_hpu(self, node_type, &Op);
+
+  PT_KERNEL_END;
+  return out;
+}
+
 static auto registry =
     torch::RegisterOperators()
         .op(torch::RegisterOperators::options()
@@ -720,4 +742,10 @@ static auto registry =
                 .schema("aten::abs(Tensor self) -> Tensor")
                 .impl_unboxedOnlyKernel<decltype(abs_hpu), &abs_hpu>(
                     DispatchKey::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema("aten::neg(Tensor self) -> Tensor")
+                .impl_unboxedOnlyKernel<
+                    decltype(neg_hpu),
+                    &neg_hpu>(DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));
