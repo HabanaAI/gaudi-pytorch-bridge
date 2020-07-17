@@ -44,6 +44,7 @@ const std::unordered_set<std::string> HabanaWhiteList::HabanaWhiteListOps = {
         // "aten::empty",
         // "aten::empty_strided",
         // "aten::fill_",
+        "aten::flatten",
         "aten::log_softmax",
         // "aten::_log_softmax",
         "aten::_log_softmax_backward_data",

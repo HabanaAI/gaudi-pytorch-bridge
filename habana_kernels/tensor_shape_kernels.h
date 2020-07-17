@@ -117,3 +117,14 @@ class BroadcastOperator : public habana::HabanaOperator {
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
 };
+
+// Flatten Operator
+class FlattenOperator : public ReshapeOperator {
+ public:
+  FlattenOperator(int device_id, c10::ScalarType scalarType)
+      : ReshapeOperator(device_id, scalarType) {}
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+};

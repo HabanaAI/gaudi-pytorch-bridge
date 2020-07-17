@@ -56,6 +56,8 @@ HabanaOperatorPtr CreateHabanaOperator(
     op = std::make_shared<PermuteOperator>(device_id, node_type);
   } else if ("aten::reshape" == node_name) {
     op = std::make_shared<ReshapeOperator>(device_id, node_type);
+  } else if ("aten::flatten" == node_name) {
+    op = std::make_shared<FlattenOperator>(device_id, node_type);
   } else if ("aten::t" == node_name) {
     op = std::make_shared<TOperator>(device_id, node_type);
   } else if ("aten::mul" == node_name) {

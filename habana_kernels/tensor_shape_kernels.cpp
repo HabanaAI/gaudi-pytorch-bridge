@@ -300,7 +300,8 @@ inline void recalc_strides(
  ***************************************************************************/
 TransposeOperator::TransposeOperator(int device_id, c10::ScalarType scalarType)
     : HabanaOperator(
-          "transpose_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
+          "transpose_fwd_" +
+          habana_helpers::name_suffix_from_type(scalarType)) {
   this->CreateSynContext(device_id);
 }
 
@@ -655,6 +656,62 @@ void ReshapeOperator::AllocateAndAddSynapseNode(
   p_context_->params_size_ = 0;
   AllocateSynapseOutput(graph, output, is_output_persistent);
   AddNodeToSynapseGraph(graph, NULL, 0);
+}
+
+void FlattenOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 3,
+      "Incorrect size of input arguments for Flatten Operator");
+  TORCH_CHECK(
+      inputs[0].isTensor(),
+      "Input arg 1 for Flatten op needs to be tensor type");
+  TORCH_CHECK(
+      inputs[1].isInt(), "Input arg 2 for Flatten op needs to be Int type");
+  TORCH_CHECK(
+      inputs[1].isInt(), "Input arg 3 for Flatten op needs to be Int type");
+
+  auto self = inputs[0].toTensor();
+  auto start_dim = inputs[1].toInt();
+  auto end_dim = inputs[2].toInt();
+
+  start_dim = at::maybe_wrap_dim(start_dim, self.dim());
+  end_dim = at::maybe_wrap_dim(end_dim, self.dim());
+  TORCH_CHECK(
+      start_dim <= end_dim,
+      "flatten() has invalid args: start_dim cannot come after end_dim");
+  std::vector<int64_t> shape;
+
+  if (self.dim() != 0) {
+    // We don't want to infer_size on the entire shape, because that can give us
+    // an extra degree of freedom we don't want; for example, consider shape [0,
+    // 1, 3, 0], with start_dim=1, end_dim=2. It's clear we want result shape
+    // [0, 3, 0] but passing [0, -1, 0] to infer_size means the -1 can take on
+    // any value and satisfy the constraints.
+    auto slice_numel =
+        prod_intlist(self.sizes().slice(start_dim, end_dim - start_dim + 1));
+    shape.reserve(self.dim() - end_dim + start_dim);
+    for (int64_t i = 0; i < start_dim; i++) {
+      shape.push_back(self.size(i));
+    }
+    shape.push_back(slice_numel);
+    for (int64_t i = end_dim + 1; i < self.dim(); i++) {
+      shape.push_back(self.size(i));
+    }
+  } else { // handle 0-d tensor
+    shape.push_back(1);
+  }
+
+  // remove start_dim & end_dim. we have already used these to compute shape
+  inputs.pop_back();
+  inputs.pop_back();
+  // insert computed shape into inputs stack before calling reshape
+  inputs.push_back(IValue(shape));
+
+  ReshapeOperator::AllocateAndAddSynapseNode(
+      graph, inputs, is_output_persistent);
 }
 
 void BroadcastOperator::AllocateAndAddSynapseNode(
