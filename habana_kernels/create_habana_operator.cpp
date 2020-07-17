@@ -32,6 +32,8 @@ HabanaOperatorPtr CreateHabanaOperator(
     op = std::make_shared<ReluOperator>(device_id, node_type);
   } else if ("aten::sigmoid" == node_name) {
     op = std::make_shared<SigmoidOperator>(device_id, node_type);
+  } else if ("aten::sigmoid_backward" == node_name) {
+    op = std::make_shared<SigmoidBackwardOperator>(device_id, node_type);
   } else if ("aten::to" == node_name) {
     op = std::make_shared<ToDtypeOperator>(device_id, node_type);
   } else if ("aten::abs" == node_name) {
@@ -76,6 +78,10 @@ HabanaOperatorPtr CreateHabanaOperator(
     op = std::make_shared<NormalOperator>(device_id, node_type);
   } else if ("aten::bernoulli" == node_name) {
     op = std::make_shared<BernoulliOperator>(device_id, node_type);
+  } else if ("aten::tanh" == node_name) {
+    op = std::make_shared<TanhOperator>(device_id, node_type);
+  } else if ("aten::tanh_backward" == node_name) {
+    op = std::make_shared<TanhBackwardOperator>(device_id, node_type);
   }
   // Returning a null pointer for cases not added yet,
   // we can add assert once all kernels are added

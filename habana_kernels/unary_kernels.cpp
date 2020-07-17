@@ -88,13 +88,13 @@ void ReluInplaceOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, nullptr, 0);
 }
 
-void SigmoidBackwardOperator::AllocateAndAddSynapseNode(
+void UnaryBackwardOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
     bool is_output_persistent) {
   TORCH_CHECK(
       inputs.size() == 2,
-      "Incorrect size of inpust expected for SigmoidBackward operator");
+      "Incorrect size of inpust expected for UnaryBackward operator");
   TORCH_CHECK(inputs[0].isTensor(), "Input type expected to be tensor");
   TORCH_CHECK(inputs[1].isTensor(), "Input type expected to be tensor");
 
@@ -122,6 +122,61 @@ void SigmoidBackwardOperator::AllocateAndAddSynapseNode(
   auto grad_output = at::empty(input.sizes(), input.options());
   AllocateSynapseOutput(graph, grad_output, is_output_persistent);
   AddNodeToSynapseGraph(graph, nullptr, 0);
+}
+
+Tensor unary_backward_op_hpu(
+    const Tensor& grad_in,
+    const Tensor& input,
+    std::string& node_type,
+    UnaryBackwardOperator* Op) {
+  TORCH_CHECK(
+      grad_in.scalar_type() == input.scalar_type(),
+      "Types don't match. grad_in type: ",
+      grad_in.scalar_type(),
+      " input type: ",
+      input.scalar_type());
+  TORCH_CHECK(
+      (grad_in.sizes() == input.sizes()) ||
+          (grad_in.ndimension() == input.ndimension() &&
+           std::all_of(
+               input.sizes().cbegin(),
+               input.sizes().cend(),
+               [](auto val) { return val == 1; })),
+      "Sizes in elementwise kernel don't match. grad_in sizes: ",
+      grad_in.sizes(),
+      ", input sizes: ",
+      input.sizes());
+  size_t device_id = input.device().index();
+  std::vector<c10::IValue> stack = {IValue(grad_in), IValue(input)};
+  std::vector<const at::Tensor*> pt_inputs{&grad_in, &input};
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  size_t key = Op->GetRecipeKey(node_type, stack);
+
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    auto output = at::empty(input.sizes(), input.options());
+    Op->SetPTInputs(pt_inputs);
+    Op->SetPTOutput(output);
+    Op->Execute(key);
+  } else {
+    PT_KERNEL_DEBUG("Key:", key);
+    //
+    // Create Graph
+    auto graph = habana_helpers::create_graph(device_id, node_type);
+
+    // Assign Inputs to the Operator
+    Op->AllocateSynapseInputs(graph, pt_inputs, true);
+
+    // Build Params for the graph
+    Op->AllocateAndAddSynapseNode(graph, stack, true);
+
+    // compile and execute the graph
+    Op->Compile(graph);
+  }
+  std::vector<at::Tensor> out = Op->GetOutputs();
+  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
+
+  return out.at(0);
 }
 
 /*************************************************************************
@@ -228,25 +283,10 @@ Tensor sigmoid_backward_hpu(const Tensor& grad_in, const Tensor& input) {
   size_t device_id = input.device().index();
   SigmoidBackwardOperator Op(device_id, scalar_type);
 
-  // Create Graph
-  auto graph = habana_helpers::create_graph(device_id, node_type);
-
-  // Assign Inputs to the Operator
-  std::vector<const at::Tensor*> pt_inputs{&grad_in, &input};
-  Op.AllocateSynapseInputs(graph, pt_inputs, true);
-
-  // Build Params for the graph
-  std::vector<c10::IValue> stack = {IValue(grad_in), IValue(input)};
-  Op.AllocateAndAddSynapseNode(graph, stack, true);
-
-  // compile and execute the graph
-  Op.Compile(graph);
-
-  std::vector<at::Tensor> out = Op.GetOutputs();
-  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
+  auto out = unary_backward_op_hpu(grad_in, input, node_type, &Op);
 
   PT_KERNEL_END;
-  return out.at(0);
+  return out;
 }
 
 /*************************************************************************
@@ -275,14 +315,15 @@ Tensor sqrt_hpu(const Tensor& input) {
  ************************************************************************/
 Tensor tanh_hpu(const Tensor& input) {
   PT_KERNEL_BEGIN;
+  at::ScalarType scalar_type = input.scalar_type();
+  std::string node_type =
+      "tanh_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
 
-  auto output = at::empty(input.sizes(), input.options());
-  std::vector<const at::Tensor*> pt_outputs{&output};
-  std::vector<const at::Tensor*> pt_inputs{&input};
+  // Create the operator
+  size_t device_id = input.device().index();
+  TanhOperator Op(device_id, scalar_type);
 
-  synapse_simple_generic_kernel(
-      pt_outputs, pt_inputs, "tanh", nullptr, 0, SynapsePassType::FORWARD_PASS);
-
+  auto output = unary_op_hpu(input, node_type, &Op);
   PT_KERNEL_END;
   return output;
 }
@@ -331,35 +372,15 @@ Tensor& tanh_out_hpu(Tensor& out, Tensor& self) {
 Tensor tanh_backward_hpu(const Tensor& grad_in, const Tensor& input) {
   PT_KERNEL_BEGIN;
 
-  TORCH_CHECK(
-      grad_in.scalar_type() == input.scalar_type(),
-      "Types don't match. grad_in type: ",
-      grad_in.scalar_type(),
-      " input type: ",
-      input.scalar_type());
-  TORCH_CHECK(
-      (grad_in.sizes() == input.sizes()) ||
-          (grad_in.ndimension() == input.ndimension() &&
-           std::all_of(
-               input.sizes().cbegin(),
-               input.sizes().cend(),
-               [](auto val) { return val == 1; })),
-      "Sizes in elementwise kernel don't match. grad_in sizes: ",
-      grad_in.sizes(),
-      ", input sizes: ",
-      grad_in.sizes());
+  at::ScalarType scalar_type = input.scalar_type();
+  std::string node_type =
+      "tanh_bwd_" + habana_helpers::name_suffix_from_type(scalar_type);
 
-  auto grad_output = at::empty(input.sizes(), input.options());
-  std::vector<const at::Tensor*> pt_outputs{&grad_output};
-  std::vector<const at::Tensor*> pt_inputs{&grad_in, &input};
+  // Create the operator
+  size_t device_id = input.device().index();
+  TanhBackwardOperator Op(device_id, scalar_type);
 
-  synapse_simple_generic_kernel(
-      pt_outputs,
-      pt_inputs,
-      "tanh",
-      nullptr,
-      0,
-      SynapsePassType::BACKWARD_PASS);
+  auto grad_output = unary_backward_op_hpu(grad_in, input, node_type, &Op);
 
   PT_KERNEL_END;
   return grad_output;
