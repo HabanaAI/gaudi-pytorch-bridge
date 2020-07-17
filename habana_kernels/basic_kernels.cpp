@@ -223,16 +223,28 @@ void MemCopyOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, NULL, 0);
 }
 
-static auto& KernelRegistry =
-    ::habana::KernelRegistry()
-        .add(
-            "hababna_d2d_memcpy",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<MemCopyOperator>(device_id, node_type);
-            })
-        .add("aten::to", [](const int device_id, c10::ScalarType node_type) {
-          return std::make_shared<ToDtypeOperator>(device_id, node_type);
-        });
+Tensor as_strided_hpu(
+    const Tensor& self,
+    IntArrayRef size,
+    IntArrayRef stride,
+    c10::optional<int64_t> storage_offset) {
+  // DeviceGuard omitted
+  return at::native::as_strided_tensorimpl(self, size, stride, storage_offset);
+}
+
+Tensor view_hpu(const Tensor& self, IntArrayRef size) {
+  // DeviceGuard omitted
+  return at::native::view(self, size);
+}
+
+static auto& KernelRegistry = ::habana::KernelRegistry()
+    .add("hababna_d2d_memcpy",
+    [](const int device_id, c10::ScalarType node_type) {
+      return std::make_shared<MemCopyOperator>(device_id, node_type);})
+    .add("aten::to",
+    [](const int device_id, c10::ScalarType node_type) {
+      return std::make_shared<ToDtypeOperator>(device_id, node_type);
+    });
 
 static auto registry =
     torch::RegisterOperators()
@@ -246,9 +258,8 @@ static auto registry =
                 .schema(
                     "aten::as_strided(Tensor(a) self, int[] size, int[] stride, int? storage_offset=None) -> Tensor(a)")
                 .impl_unboxedOnlyKernel<
-                    decltype(at::native::as_strided_tensorimpl),
-                    &at::native::as_strided_tensorimpl>(
-                    DispatchKey::HABANATensorId)
+                    decltype(as_strided_hpu),
+                    &as_strided_hpu>(DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema(
@@ -258,7 +269,6 @@ static auto registry =
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema("aten::view(Tensor(a) self, int[] size) -> Tensor(a)")
-                .impl_unboxedOnlyKernel<
-                    decltype(at::native::view),
-                    &at::native::view>(DispatchKey::HABANATensorId)
+                .impl_unboxedOnlyKernel<decltype(view_hpu), &view_hpu>(
+                    DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));

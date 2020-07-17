@@ -98,14 +98,24 @@ Tensor empty_strided_hpu(
 } // namespace native
 } // namespace at
 
+Tensor clone_hpu(
+    const Tensor& self,
+    c10::optional<MemoryFormat> memory_format) {
+  const OptionalDeviceGuard device_guard(device_of(self));
+  return at::native::clone(self, memory_format);
+}
+
+Tensor& zero_hpu(Tensor& self) {
+  const OptionalDeviceGuard device_guard(device_of(self));
+  return at::native::zero_(self);
+}
 static auto registry =
     torch::RegisterOperators()
         .op(torch::RegisterOperators::options()
                 .schema(
                     "aten::clone(Tensor self, *, MemoryFormat? memory_format=None) -> Tensor")
-                .impl_unboxedOnlyKernel<
-                    decltype(at::native::clone),
-                    &at::native::clone>(DispatchKey::HABANATensorId)
+                .impl_unboxedOnlyKernel<decltype(clone_hpu), &clone_hpu>(
+                    DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema(
@@ -123,7 +133,6 @@ static auto registry =
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema("aten::zero_(Tensor(a!) self) -> Tensor(a!)")
-                .impl_unboxedOnlyKernel<
-                    decltype(at::native::zero_),
-                    &at::native::zero_>(DispatchKey::HABANATensorId)
+                .impl_unboxedOnlyKernel<decltype(zero_hpu), &zero_hpu>(
+                    DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));
