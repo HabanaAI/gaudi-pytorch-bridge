@@ -142,10 +142,11 @@ optimizer_sparse_sgd_with_valid_count_cpu(
   float* minp = static_cast<float*>(moments_in.data_ptr());
   Tensor weights_out = at::empty(weights_in.sizes(), weights_in.options());
   Tensor moments_out = at::empty(moments_in.sizes(), moments_in.options());
-  Tensor grad_output = at::empty(gradients.sizes(), gradients.options());
+  Tensor grad_output = at::empty(weights_in.sizes(), gradients.options());
+
   weights_out.copy_(weights_in, false);
   moments_out.copy_(moments_in, false);
-  grad_output.copy_(gradients, false);
+  grad_output.copy_(weights_in, false);
   float* woutp = static_cast<float*>(weights_out.data_ptr());
   float* moutp = static_cast<float*>(moments_out.data_ptr());
   float* goutp = static_cast<float*>(grad_output.data_ptr());
@@ -157,7 +158,7 @@ optimizer_sparse_sgd_with_valid_count_cpu(
     for (unsigned k = 0; k < vec_len; k++) {
       // momentum update
       moutp[inp[i] * vec_len + k] =
-          minp[inp[i] * vec_len + k] * mom + gp[inp[i] * vec_len + k];
+          minp[inp[i] * vec_len + k] * mom + gp[i* vec_len + k];
       gtemp = moutp[inp[i] * vec_len + k];
       // grad update
       if (nesterov) {
