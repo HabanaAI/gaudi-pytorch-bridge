@@ -313,14 +313,16 @@ void ConvInputDifferentiationOperator::AllocateAndAddSynapseNode(
   auto grad_input_nhwc = inputs[8].toTensor();
 
   synConvolutionParams syn_params = synapse_conv_params_builder(
-        weight_hwck.sizes(), IntArrayRef(stride), IntArrayRef(padding), IntArrayRef(dilation));
+      weight_hwck.sizes(),
+      IntArrayRef(stride),
+      IntArrayRef(padding),
+      IntArrayRef(dilation));
 
   p_context_->params_.emplace<synConvolutionParams>(syn_params);
   p_context_->params_size_ = sizeof(syn_params);
 
   AllocateSynapseOutput(graph, grad_input_nhwc, is_output_persistent);
   AddNodeToSynapseGraph(graph, &syn_params, sizeof(syn_params));
-
 }
 
 void ConvWeightDifferentiationOperator::AllocateAndAddSynapseNode(
@@ -369,14 +371,16 @@ void ConvWeightDifferentiationOperator::AllocateAndAddSynapseNode(
   auto grad_weight = inputs[8].toTensor();
 
   synConvolutionParams syn_params = synapse_conv_params_builder(
-        grad_weight.sizes(), IntArrayRef(stride), IntArrayRef(padding), IntArrayRef(dilation));
+      grad_weight.sizes(),
+      IntArrayRef(stride),
+      IntArrayRef(padding),
+      IntArrayRef(dilation));
 
   p_context_->params_.emplace<synConvolutionParams>(syn_params);
   p_context_->params_size_ = sizeof(syn_params);
 
   AllocateSynapseOutput(graph, grad_weight, is_output_persistent);
   AddNodeToSynapseGraph(graph, &syn_params, sizeof(syn_params));
-
 }
 
 void ConvBackwardOperator::AllocateAndAddSynapseNode(
@@ -428,22 +432,29 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
   UNUSED auto groups = inputs[8].toInt();
   auto output_mask_in = inputs[9].toBoolList();
 
-  c10::MemoryFormat memory_format =
-        habana_helpers::get_memory_format({&input_nhwc, &grad_out_nhwc, &weight_hwck});
-  Tensor grad_input_nhwc, grad_weight, grad_bias;
+  c10::MemoryFormat memory_format = habana_helpers::get_memory_format(
+      {&input_nhwc, &grad_out_nhwc, &weight_hwck});
 
-  if(output_mask_in[1])
-  {
+  Tensor grad_weight =
+      at::empty(weight_hwck.sizes(), grad_out_nhwc.options(), memory_format);
+  Tensor grad_input_nhwc =
+      at::empty(input_nhwc.sizes(), grad_out_nhwc.options(), memory_format);
+  Tensor grad_bias =
+      at::empty({grad_out_nhwc.size(3)}, grad_out_nhwc.options());
+
+  if (output_mask_in[1]) {
     std::string node_type = "dedw";
 
     // Create the operator
-    ConvWeightDifferentiationOperator ConvWeightDiffOp(this->p_context_->device_id_, node_type);
+    ConvWeightDifferentiationOperator ConvWeightDiffOp(
+        this->p_context_->device_id_, node_type);
 
     // Assign Inputs to the Operator
-    auto& grad_out_nhwc_syn = ConvWeightDiffOp.SetSynapseInput(std::move( p_context_->syn_inputs_[0]));
-    auto& input_nhwc_syn = ConvWeightDiffOp.SetSynapseInput(std::move( p_context_->syn_inputs_[1]));
+    auto& grad_out_nhwc_syn =
+        ConvWeightDiffOp.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+    auto& input_nhwc_syn =
+        ConvWeightDiffOp.SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
 
-    grad_weight = at::empty(weight_hwck.sizes(), grad_out_nhwc.options(), memory_format);
     // Build Params for the graph
     std::vector<c10::IValue> stack = {IValue(grad_out_nhwc),
                                       IValue(input_nhwc),
@@ -454,9 +465,11 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
                                       IValue(output_padding),
                                       IValue(output_mask_in),
                                       IValue(grad_weight)};
-    ConvWeightDiffOp.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+    ConvWeightDiffOp.AllocateAndAddSynapseNode(
+        graph, stack, is_output_persistent);
 
-    synapse_helpers::tensor& grad_weight_syn_tensor = ConvWeightDiffOp.GetSynOutputs()[0];
+    synapse_helpers::tensor& grad_weight_syn_tensor =
+        ConvWeightDiffOp.GetSynOutputs()[0];
 
     p_context_->syn_inputs_[0] = std::move(grad_out_nhwc_syn);
     p_context_->syn_inputs_[1] = std::move(input_nhwc_syn);
@@ -464,20 +477,23 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
     p_context_->syn_outputs_.emplace_back(std::move(grad_weight_syn_tensor));
     p_context_->pt_outputs_.emplace_back(std::move(grad_weight));
 
+  } else {
+    AllocateSynapseOutput(graph, grad_weight, is_output_persistent);
   }
 
-  if(output_mask_in[0])
-  {
+  if (output_mask_in[0]) {
     std::string node_type = "dedx";
 
     // Create the operator
-    ConvInputDifferentiationOperator ConvInputDiffOp(this->p_context_->device_id_, node_type);
+    ConvInputDifferentiationOperator ConvInputDiffOp(
+        this->p_context_->device_id_, node_type);
 
     // Assign Inputs to the Operator
-    auto& grad_out_nhwc_syn = ConvInputDiffOp.SetSynapseInput(std::move( p_context_->syn_inputs_[0]));
-    auto& weight_hwck_syn = ConvInputDiffOp.SetSynapseInput(std::move( p_context_->syn_inputs_[2]));
+    auto& grad_out_nhwc_syn =
+        ConvInputDiffOp.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+    auto& weight_hwck_syn =
+        ConvInputDiffOp.SetSynapseInput(std::move(p_context_->syn_inputs_[2]));
 
-    grad_input_nhwc = at::empty(input_nhwc.sizes(), grad_out_nhwc.options(), memory_format);
     // Build Params for the graph
     std::vector<c10::IValue> stack = {IValue(grad_out_nhwc),
                                       IValue(input_nhwc),
@@ -488,19 +504,21 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
                                       IValue(output_padding),
                                       IValue(output_mask_in),
                                       IValue(grad_input_nhwc)};
-    ConvInputDiffOp.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+    ConvInputDiffOp.AllocateAndAddSynapseNode(
+        graph, stack, is_output_persistent);
 
-
-    synapse_helpers::tensor& grad_in_nhwc_syn_tensor = ConvInputDiffOp.GetSynOutputs()[0];
+    synapse_helpers::tensor& grad_in_nhwc_syn_tensor =
+        ConvInputDiffOp.GetSynOutputs()[0];
     p_context_->syn_inputs_[0] = std::move(grad_out_nhwc_syn);
     p_context_->syn_inputs_[2] = std::move(weight_hwck_syn);
 
     p_context_->syn_outputs_.emplace_back(std::move(grad_in_nhwc_syn_tensor));
     p_context_->pt_outputs_.emplace_back(std::move(grad_input_nhwc));
+  } else {
+    AllocateSynapseOutput(graph, grad_input_nhwc, is_output_persistent);
   }
 
-  if (output_mask_in[2])
-  {
+  if (output_mask_in[2]) {
     std::vector<int64_t> dim_to_reduce;
     for (int64_t i = 0; i < grad_out_nhwc.ndimension(); ++i) {
       if (i != 3) // skip C dimension
@@ -510,15 +528,15 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
 
     at::ScalarType scalar_type = grad_out_nhwc.scalar_type();
     std::string node_type =
-      "reduce_sum_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+        "reduce_sum_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
 
     // Create the operator
     SumDimOutOperator SumOp(this->p_context_->device_id_, node_type);
 
     // Assign Inputs to the Operator
-    auto& grad_out_nhwc_syn = SumOp.SetSynapseInput(std::move( p_context_->syn_inputs_[0]));
+    auto& grad_out_nhwc_syn =
+        SumOp.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
 
-    grad_bias = at::empty({grad_out_nhwc.size(3)}, grad_out_nhwc.options());
     std::vector<c10::IValue> stack = {IValue(grad_bias),
                                       IValue(grad_out_nhwc),
                                       IValue(shape),
@@ -533,8 +551,9 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
     p_context_->syn_outputs_.emplace_back(std::move(bias_syn_tensor));
     p_context_->pt_outputs_.emplace_back(std::move(grad_bias));
 
+  } else {
+    AllocateSynapseOutput(graph, grad_bias, is_output_persistent);
   }
-
 }
 
 void ConvBackwardOperator::SetPTOutputs(torch::jit::Stack& inputs) {
@@ -549,26 +568,19 @@ void ConvBackwardOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   UNUSED auto groups = inputs[8].toInt();
   auto output_mask_in = inputs[9].toBoolList();
 
-  c10::MemoryFormat memory_format =
-        habana_helpers::get_memory_format({&input_nhwc, &grad_out_nhwc, &weight_hwck});
-  if(output_mask_in[1])
-  {
-    auto grad_weight =
-        at::empty(weight_hwck.sizes(), grad_out_nhwc.options(), memory_format);
-    HabanaOperator::SetPTOutput(grad_weight);
-  }
-  if(output_mask_in[0])
-  {
-      auto grad_input_nhwc =
-        at::empty(input_nhwc.sizes(), grad_out_nhwc.options(), memory_format);
-      HabanaOperator::SetPTOutput(grad_input_nhwc);
-  }
-  if(output_mask_in[2])
-  {
-      auto grad_bias =
-        at::empty( {grad_out_nhwc.size(3)}, grad_out_nhwc.options(), memory_format);
-      HabanaOperator::SetPTOutput(grad_bias);
-  }
+  c10::MemoryFormat memory_format = habana_helpers::get_memory_format(
+      {&input_nhwc, &grad_out_nhwc, &weight_hwck});
+
+  auto grad_weight =
+      at::empty(weight_hwck.sizes(), grad_out_nhwc.options(), memory_format);
+  auto grad_input_nhwc =
+      at::empty(input_nhwc.sizes(), grad_out_nhwc.options(), memory_format);
+  auto grad_bias = at::empty(
+      {grad_out_nhwc.size(3)}, grad_out_nhwc.options(), memory_format);
+
+  HabanaOperator::SetPTOutput(grad_weight);
+  HabanaOperator::SetPTOutput(grad_input_nhwc);
+  HabanaOperator::SetPTOutput(grad_bias);
 }
 
 std::tuple<Tensor, Tensor, Tensor> convolution_backward_hpu(
@@ -642,23 +654,22 @@ std::tuple<Tensor, Tensor, Tensor> convolution_backward_hpu(
 
     // Build Params for the graph
     std::vector<c10::IValue> stack = {
-                                    IValue(grad_out_nhwc),
-                                    IValue(input_nhwc),
-                                    IValue(weight_hwck),
-                                    IValue(stride),
-                                    IValue(padding),
-                                    IValue(dilation),
-                                    IValue(transposed),
-                                    IValue(output_padding),
-                                    IValue(groups),
-                                    IValue(output_mask_in),
-                                    };
+        IValue(grad_out_nhwc),
+        IValue(input_nhwc),
+        IValue(weight_hwck),
+        IValue(stride),
+        IValue(padding),
+        IValue(dilation),
+        IValue(transposed),
+        IValue(output_padding),
+        IValue(groups),
+        IValue(output_mask_in),
+    };
     size_t key = convBwdOp.GetRecipeKey(node_type, stack);
 
     // Assign Inputs to the Operator
-    std::vector<const at::Tensor*> pt_inputs{&grad_out_nhwc,
-                                           &input_nhwc,
-                                           &weight_hwck};
+    std::vector<const at::Tensor*> pt_inputs{
+        &grad_out_nhwc, &input_nhwc, &weight_hwck};
 
     if (device.get_recipe_handle_cache().isCached(key)) {
       PT_KERNEL_DEBUG("Cache hit key:", key);
@@ -681,11 +692,11 @@ std::tuple<Tensor, Tensor, Tensor> convolution_backward_hpu(
 
   std::vector<at::Tensor> conv_out = convolution_backward();
 
-  if (output_mask[1])
-  {
-    auto grad_weight_hwck = conv_out.front();
-    conv_out.erase(conv_out.begin());
+  auto grad_weight_hwck = conv_out.at(0);
+  auto grad_input_nhwc = conv_out.at(1);
+  grad_bias = conv_out.at(2);
 
+  if (output_mask[1]) {
     Tensor grad_w;
     pt_in = {&grad_weight_hwck};
     pt_out = {&grad_w};
@@ -696,11 +707,7 @@ std::tuple<Tensor, Tensor, Tensor> convolution_backward_hpu(
     grad_weight = grad_w;
   }
 
-  if (output_mask[0])
-  {
-    auto grad_input_nhwc = conv_out.front();
-    conv_out.erase(conv_out.begin());
-
+  if (output_mask[0]) {
     Tensor grad_in;
     pt_in = {&grad_input_nhwc};
     pt_out = {&grad_in};
@@ -711,11 +718,7 @@ std::tuple<Tensor, Tensor, Tensor> convolution_backward_hpu(
     grad_input = grad_in;
   }
 
-  if (output_mask[2])
-  {
-    grad_bias = conv_out.front();
-    conv_out.erase(conv_out.begin());
-
+  if (output_mask[2]) {
     TORCH_CHECK(
         grad_bias.numel() == grad_out_nhwc.size(3),
         "Bias grad numelements must equal to number of conv output channels. Got: ",
