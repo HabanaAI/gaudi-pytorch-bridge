@@ -329,6 +329,8 @@ def main(args):
 
     if args.run_trace_mode:
         sample_trace_tensor = enable_tracing(device)
+        if args.channels_last:
+            sample_trace_tensor = sample_trace_tensor.contiguous(memory_format=torch.channels_last)
         model_trace = torch.jit.trace(model, sample_trace_tensor, check_trace=False)
 
     print("Start training")
