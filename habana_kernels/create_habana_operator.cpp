@@ -84,6 +84,8 @@ HabanaOperatorPtr CreateHabanaOperator(
     op = std::make_shared<TanhOperator>(device_id, node_type);
   } else if ("aten::tanh_backward" == node_name) {
     op = std::make_shared<TanhBackwardOperator>(device_id, node_type);
+  } else if ("aten::sqrt" == node_name) {
+    op = std::make_shared<SqrtOperator>(device_id, node_type);
   }
   // Returning a null pointer for cases not added yet,
   // we can add assert once all kernels are added

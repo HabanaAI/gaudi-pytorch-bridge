@@ -115,6 +115,15 @@ class AbsOperator : public UnaryOperator {
             "abs_fwd_" + habana_helpers::name_suffix_from_type(scalarType)){};
 };
 
+// Sqrt Operator
+class SqrtOperator : public UnaryOperator {
+ public:
+  SqrtOperator(int device_id, c10::ScalarType scalarType)
+      : UnaryOperator(
+            device_id,
+            "sqrt_fwd_" + habana_helpers::name_suffix_from_type(scalarType)){};
+};
+
 // Clamp Operator
 class ClampOperator : public HabanaOperator {
  public:

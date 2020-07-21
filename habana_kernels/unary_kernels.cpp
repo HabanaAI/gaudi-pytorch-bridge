@@ -297,12 +297,15 @@ Tensor sigmoid_backward_hpu(const Tensor& grad_in, const Tensor& input) {
 Tensor sqrt_hpu(const Tensor& input) {
   PT_KERNEL_BEGIN;
 
-  auto output = at::empty(input.sizes(), input.options());
-  std::vector<const at::Tensor*> pt_outputs{&output};
-  std::vector<const at::Tensor*> pt_inputs{&input};
+  at::ScalarType scalar_type = input.scalar_type();
+  std::string node_type =
+      "sqrt_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
 
-  synapse_simple_generic_kernel(
-      pt_outputs, pt_inputs, "sqrt", nullptr, 0, SynapsePassType::FORWARD_PASS);
+  // Create the operator
+  size_t device_id = input.device().index();
+  SqrtOperator Op(device_id, scalar_type);
+
+  auto output = unary_op_hpu(input, node_type, &Op);
 
   PT_KERNEL_END;
   return output;
