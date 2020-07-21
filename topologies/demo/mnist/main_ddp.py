@@ -117,14 +117,25 @@ def main(rank, world_size):
 
     device = torch.device("habana" if use_habana else "cpu")
 
-    setup(rank, world_size)
+
     # kwargs = {'num_workers': 1, 'pin_memory': True} if use_habana else {}
     kwargs = {}  # TODO: do we need any kwargs?
-    dataset = datasets.MNIST('../data', train=True, download=True,
+    if(rank == 0):
+        dataset = datasets.MNIST('../data', train=True, download=True,
                        transform=transforms.Compose([
                            transforms.ToTensor(),
                            transforms.Normalize((0.1307,), (0.3081,))
                        ]))
+
+    setup(rank, world_size)
+
+    if(rank != 0):
+        dataset = datasets.MNIST('../data', train=True, download=False,
+                       transform=transforms.Compose([
+                           transforms.ToTensor(),
+                           transforms.Normalize((0.1307,), (0.3081,))
+                       ]))
+
     sampler = data.DistributedSampler(dataset)
     train_loader = torch.utils.data.DataLoader(
         dataset, sampler = sampler,
