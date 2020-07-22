@@ -20,6 +20,7 @@ class TrainMetaData():
         self.num_train_steps = sys.maxsize
         self.num_eval_steps = sys.maxsize
         self.logging = True #Enable - default
+        self.log_live_mem_alloc_enabled = False
 
     def increment_train_step(self):
         self.current_train_step += 1
@@ -58,6 +59,14 @@ class TrainMetaData():
 
     def is_logging(self):
         return self.logging
+
+    def set_live_mem_alloc_logging(self, x):
+        self.log_live_mem_alloc_enabled = x
+
+    def log_live_mem_alloc(self):
+        if self.log_live_mem_alloc_enabled:
+            import hb_torch
+            hb_torch.memstat_livealloc()
 
     @staticmethod
     def accuracy(output, target, topk=(1,)):
@@ -133,6 +142,7 @@ def train(args, model, device, train_loader, optimizer, epoch, trainMetaData,ran
             with open('mnistpy.log', 'a') as file:
                 file.write(log_msg)
         print(log_msg)
+        trainMetaData.log_live_mem_alloc()
         trainMetaData.increment_train_step()
         if trainMetaData.end_train() is True:
             break
@@ -166,6 +176,7 @@ def train_jit(args, model_trace, device, train_loader, optimizer, epoch, trainMe
             with open('mnistpy.log', 'a') as file:
                 file.write(log_msg)
         print(log_msg)
+        trainMetaData.log_live_mem_alloc()
         trainMetaData.increment_train_step()
         if trainMetaData.end_train() is True:
             break
@@ -187,6 +198,7 @@ def test(args, model, device, test_loader, trainMetaData):
             target_cpu = target_cpu.to(torch.device('cpu'))
             new_view = target_cpu.view_as(pred)
             correct += pred.eq(new_view).sum().item()
+            trainMetaData.log_live_mem_alloc()
             trainMetaData.increment_eval_step()
             if trainMetaData.end_eval() is True:
                 break
@@ -215,6 +227,7 @@ def test_jit(args, model_trace, device, test_loader, trainMetaData):
             target_cpu = target_cpu.to(torch.device('cpu'))
             new_view = target_cpu.view_as(pred)
             correct += pred.eq(new_view).sum().item()
+            trainMetaData.log_live_mem_alloc()
             trainMetaData.increment_eval_step()
             if trainMetaData.end_eval() is True:
                 break
@@ -266,6 +279,8 @@ def parse_args():
                         help='number of steps for evaluation')
     parser.add_argument('--no-log', action='store_true', default=False,
                         help='disable log')
+    parser.add_argument('--log-device-mem-alloc', action='store_true',
+                        help='log live memory allocations on device at the given point')
     parser.add_argument('--hmp', dest='is_hmp', action='store_true', help='enable hmp mode')
     #Distributed parameters
     parser.add_argument('--backend',default='hcl', help='Device backend for distributed')
@@ -314,6 +329,7 @@ def main(args):
     trainMetaData.set_num_eval_steps(args.num_eval_steps)
     log = not args.no_log
     trainMetaData.set_logging(True if log else False)
+    trainMetaData.set_live_mem_alloc_logging(args.log_device_mem_alloc and use_habana)
     optimizer = optim.SGD(model.parameters(), lr=args.lr,
                           momentum=args.momentum)
 

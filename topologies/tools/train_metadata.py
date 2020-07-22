@@ -14,6 +14,7 @@ class TrainMetaData():
         self.num_train_steps = sys.maxsize
         self.num_eval_steps = sys.maxsize
         self.logging = True #Enable - default
+        self.log_live_mem_alloc_enabled = False
         self.save_checkpt = True
         self.ParamsDump = ModelParamsDump()
         self.hooks = tp_hooks_register(model, device)
@@ -70,6 +71,14 @@ class TrainMetaData():
 
     def is_logging(self):
         return self.logging
+
+    def set_live_mem_alloc_logging(self, x):
+        self.log_live_mem_alloc_enabled = x
+
+    def log_live_mem_alloc(self):
+        if self.log_live_mem_alloc_enabled:
+            import hb_torch
+            hb_torch.memstat_livealloc()
 
     #Enable/disable saving of checkpoint/model
     def set_save_checkpoint_enable(self, enable=True):
