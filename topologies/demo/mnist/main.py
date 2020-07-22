@@ -327,7 +327,7 @@ def main(args):
                 hb_torch.enable()
                 sample_trace_tensor = torch.FloatTensor(64, 1, 28, 28).to(device)
                 model_trace = torch.jit.trace(model, sample_trace_tensor, check_trace=False)
-                train_jit(args, model_trace, device, train_loader, optimizer, epoch, trainMetaData)
+                train_jit(args, model_trace, device, train_loader, optimizer, epoch, trainMetaData, rank)
                 test_jit(args, model_trace, device, test_loader, trainMetaData)
         else:
             train(args, model, device, train_loader, optimizer, epoch, trainMetaData,rank)
