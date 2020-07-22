@@ -157,9 +157,9 @@ void SynapseLogger::dump_device_alloc_data(const uint64_t ptr, size_t num_bytes,
   }
 }
 
-void SynapseLogger::dump_device_free_data(const uint64_t ptr, data_dump_category data_category) {
+void SynapseLogger::dump_device_free_data(const uint64_t ptr, synStatus status, data_dump_category data_category) {
   if (is_enabled(data_category)) {
-    log_synDeviceFree(ptr);
+    log_synDeviceFree(ptr, (synSuccess != status));
   }
 }
 

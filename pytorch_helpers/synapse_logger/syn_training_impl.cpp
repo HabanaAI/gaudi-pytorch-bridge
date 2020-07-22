@@ -204,8 +204,8 @@ synStatus SYN_API_CALL synStreamSynchronize(const synStreamHandle streamHandle) 
   LOG_TRACE("SYN_API", "{}", __FUNCTION__);
   API_LOG_CALL(ARG(streamHandle));
   synStatus status = lib_synapse::synStreamSynchronize(streamHandle);
-  synapse_logger::logger.stream_synchronized(streamHandle);
   API_LOG_RESULT();
+  synapse_logger::logger.stream_synchronized(streamHandle);
   return status;
 }
 
@@ -237,8 +237,8 @@ synStatus SYN_API_CALL synEventRecord(synEventHandle eventHandle, const synStrea
   LOG_TRACE("SYN_API", "{}", __FUNCTION__);
   API_LOG_CALL(ARG(eventHandle), ARG(streamHandle));
   synStatus status = lib_synapse::synEventRecord(eventHandle, streamHandle);
-  synapse_logger::logger.event_recorded(streamHandle, eventHandle);
   API_LOG_RESULT();
+  synapse_logger::logger.event_recorded(streamHandle, eventHandle);
   return status;
 }
 
@@ -254,8 +254,8 @@ synStatus SYN_API_CALL synEventSynchronize(const synEventHandle eventHandle) {
   LOG_TRACE("SYN_API", "{}", __FUNCTION__);
   API_LOG_CALL(ARG(eventHandle));
   synStatus status = lib_synapse::synEventSynchronize(eventHandle);
-  synapse_logger::logger.event_synchronized(eventHandle);
   API_LOG_RESULT();
+  synapse_logger::logger.event_synchronized(eventHandle);
   return status;
 }
 
@@ -641,8 +641,8 @@ synStatus SYN_API_CALL synDeviceMalloc(const synDeviceId deviceId, const uint64_
   LOG_TRACE("SYN_API", "{}", __FUNCTION__);
   API_LOG_CALL(ARG(deviceId), ARG_X(size), ARG_X(reqAddr), ARG(flags), ARG(buffer));
   synStatus status = lib_synapse::synDeviceMalloc(deviceId, size, reqAddr, flags, buffer);
-  synapse_logger::logger.dump_device_alloc_data(*buffer, size, deviceId, status);
   API_LOG_RESULT(S_ARG_X(buffer));
+  synapse_logger::logger.dump_device_alloc_data(*buffer, size, deviceId, status);
   return status;
 }
 
@@ -650,8 +650,8 @@ synStatus SYN_API_CALL synDeviceFree(const synDeviceId deviceId, const uint64_t 
   LOG_TRACE("SYN_API", "{}", __FUNCTION__);
   API_LOG_CALL(ARG(deviceId), ARG_X(buffer), ARG_X(flags));
   synStatus status = lib_synapse::synDeviceFree(deviceId, buffer, flags);
-  synapse_logger::logger.dump_device_free_data(buffer);
   API_LOG_RESULT();
+  synapse_logger::logger.dump_device_free_data(buffer, status);
   return status;
 }
 
@@ -660,8 +660,8 @@ synStatus SYN_API_CALL synDeviceGetAttribute(uint64_t* retVal, const synDeviceAt
   LOG_TRACE("SYN_API", "{}", __FUNCTION__);
   API_LOG_CALL(ARG(retVal), ARG(deviceAttr), ARG_X(querySize), ARG(deviceId));
   synStatus status = lib_synapse::synDeviceGetAttribute(retVal, deviceAttr, querySize, deviceId);
-  synapse_logger::logger.dump_device_attr(deviceAttr, retVal, querySize);
   API_LOG_RESULT();
+  synapse_logger::logger.dump_device_attr(deviceAttr, retVal, querySize);
   return status;
 }
 

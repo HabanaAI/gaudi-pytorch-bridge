@@ -88,4 +88,4 @@ void torch_habana_register_fusion_pass(
 
 // This function is resolved to pre-loaded synapse_logger.
 // Otherwise, this function doesn't do anything.
-void print_live_allocations() __attribute__((weak));
+void print_live_allocations(const char* msg = "") __attribute__((weak));

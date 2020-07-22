@@ -29,7 +29,7 @@ PYBIND11_MODULE(hb_torch, m) {
   m.def("remove_inplace_ops", []() { opts.remove_inplace_ops = true; });
 
   // python API to report device memory live allocation details
-  m.def("memstat_livealloc", []() { print_live_allocations(); });
+  m.def("memstat_livealloc", [](const char* msg = "") { print_live_allocations(msg); });
 
   m.doc() = "This module registers habana backend.";
 }

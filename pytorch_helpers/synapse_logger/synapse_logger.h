@@ -111,7 +111,7 @@ class SynapseLogger {
 
   void dump_device_alloc_data(const uint64_t ptr, size_t num_bytes, const synDeviceId deviceId, synStatus status,
                               data_dump_category data_category = data_dump_category::DEVICE_ALLOC_TRACKING);
-  void dump_device_free_data(const uint64_t ptr,
+  void dump_device_free_data(const uint64_t ptr, synStatus status,
                              data_dump_category data_category = data_dump_category::DEVICE_ALLOC_TRACKING);
   void dump_device_attr(const synDeviceAttribute* deviceAttr, uint64_t* val, const unsigned querySize,
                         data_dump_category data_category = data_dump_category::DEVICE_ALLOC_TRACKING);

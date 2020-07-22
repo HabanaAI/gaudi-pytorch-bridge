@@ -13,6 +13,7 @@
 #include <string>
 #include <vector>
 #include <algorithm>
+#include <mutex>
 
 class deviceMallocData final {
  private:
@@ -26,7 +27,7 @@ class deviceMallocData final {
 
     const char *filename = "habana_log.livealloc.log";
     const char *fragment_csv_file = "habana_log.fragment.csv";
-    bool take_bt, print_bt, print_free_bt;
+    bool take_bt, print_bt, print_free_bt, print_alloc_bt;
     size_t bt_depth;
 
     uint64_t dram_start_, dram_size_;
@@ -44,18 +45,22 @@ class deviceMallocData final {
     static bool sort_by_ptr(std::pair<uint64_t, size_bt_pair_t> a,
                             std::pair<uint64_t, size_bt_pair_t> b);
     bool interesting_function(const std::string& name);
-    void print_an_entry(const std::pair<uint64_t, size_bt_pair_t>& entry);
+    void print_an_entry(const std::pair<uint64_t, size_bt_pair_t>& entry,
+                        bool print_all_frames=false);
     void collect_backtrace(uint64_t ptr, bool alloc, size_t size=0, bool alloc_failure=false);
-    void print_live_allocations();
-    void report_fragmentation();
+    void print_live_allocations(const char* msg = "");
+    void report_fragmentation(bool from_free=false);
     void set_dram_start(uint64_t dram_start) {dram_start_ = dram_start;}
     void set_dram_size(uint64_t dram_size)   {dram_size_ = dram_size;}
+
+    // TBD:: Make it private
+    std::mutex m;
  private:
     deviceMallocData();
 };
 
 void log_synDeviceMalloc(uint64_t ptr, size_t size, bool failed=false);
-void log_synDeviceFree(uint64_t ptr);
-void print_live_allocations();
+void log_synDeviceFree(uint64_t ptr, bool failed=false);
+void print_live_allocations(const char* msg = "");
 void log_DRAM_start(uint64_t dram_start);
 void log_DRAM_size(uint64_t dram_size);
