@@ -70,7 +70,10 @@ at::Tensor habana_helpers::hpu_cast_tensor(
   size_t key = Op.GetRecipeKey(node_type, stack);
   if (device.get_recipe_handle_cache().isCached(key)) {
     PT_KERNEL_DEBUG("Cache hit key:", key);
-    auto Output = at::empty(Input.sizes(), Input.options().dtype(type));
+    auto Output = at::empty(
+        Input.sizes(),
+        Input.options().dtype(type),
+        Input.suggest_memory_format());
     Op.SetPTInputs(pt_inputs);
     Op.SetPTOutputs({Output});
     Op.Execute(key);

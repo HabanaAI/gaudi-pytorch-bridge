@@ -104,7 +104,6 @@ size_t habana_helpers::getRecipeKey(
   return rs.hash();
 }
 
-
 /**
  * @brief CastKernel params structure
  */
@@ -128,7 +127,8 @@ void CastOperator::AllocateAndAddSynapseNode(
 
   auto self = inputs[0].toTensor();
   auto type = inputs[1].toScalarType();
-  auto output = at::empty(self.sizes(), self.options().dtype(type));
+  auto output = at::empty(
+      self.sizes(), self.options().dtype(type), self.suggest_memory_format());
   inputs.pop_back();
   inputs.push_back(output);
   CastOutOperator::AllocateAndAddSynapseNode(
