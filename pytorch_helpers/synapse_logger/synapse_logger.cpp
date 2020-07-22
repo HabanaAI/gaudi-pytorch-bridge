@@ -8,6 +8,7 @@
  ******************************************************************************
  */
 #include "synapse_logger.h"
+#include "HPUAllocate_wrapper.h"
 
 #include <dlfcn.h>
 #include <sys/time.h>
@@ -68,7 +69,8 @@ SynapseLogger::SynapseLogger()
       log_file_name_(absl::StrFormat("%s.json", absl::string_view(base_file_name))),
       data_file_name_(absl::StrFormat("%s.data", absl::string_view(base_file_name))),
       logger_lib_handle_(dlopen_or_die("${ORIGIN}/" BINARY_NAME, RTLD_GLOBAL | RTLD_NOLOAD | RTLD_NOW)),
-      synapse_lib_handle_(dlopen_or_die("libSynapse.so", RTLD_GLOBAL | RTLD_NOW)) {
+      synapse_lib_handle_(dlopen_or_die("libSynapse.so", RTLD_GLOBAL | RTLD_NOW)),
+      dev_attr_recorded(false) {
   SLOG(S_TRACE) << __FUNCTION__ << "\n";
   std::signal(SIGUSR1, SynapseLogger::command_signal_handler);
   lib_synapse::LoadSymbols(synapse_lib_handle_.get());
@@ -138,6 +140,45 @@ void SynapseLogger::dump_host_data(const void* ptr, int byte_size, data_dump_cat
     out << R"("name":"object", "ph":"i", "args":{"type":"uint8_t*", "at":")" << ptr << "\"";
     out << ", \"data_offset\":" << offset << ", \"byte_size\":" << byte_size << "}";
     log(out.str());
+  }
+}
+
+void SynapseLogger::dump_device_alloc_data(const uint64_t ptr, size_t num_bytes, const synDeviceId deviceId,
+                                           synStatus status, data_dump_category data_category) {
+  if (is_enabled(data_category)) {
+    log_synDeviceMalloc(ptr, num_bytes, (synSuccess != status));
+    if (!dev_attr_recorded) {
+      uint64_t val[2];
+      const synDeviceAttribute deviceAttr[2] = {DEVICE_ATTRIBUTE_DRAM_BASE_ADDRESS,
+                                                DEVICE_ATTRIBUTE_DRAM_SIZE};
+      synDeviceGetAttribute(val, deviceAttr, 2, deviceId);
+      dev_attr_recorded = true;
+    }
+  }
+}
+
+void SynapseLogger::dump_device_free_data(const uint64_t ptr, data_dump_category data_category) {
+  if (is_enabled(data_category)) {
+    log_synDeviceFree(ptr);
+  }
+}
+
+void SynapseLogger::dump_device_attr(const synDeviceAttribute* deviceAttr, uint64_t* val, const unsigned querySize,
+                                     data_dump_category data_category) {
+  if (is_enabled(data_category)) {
+    for (unsigned i = 0; i < querySize; ++i) {
+      switch (deviceAttr[i]) {
+        case DEVICE_ATTRIBUTE_DRAM_BASE_ADDRESS:
+          log_DRAM_start(val[i]);
+          break;
+        case DEVICE_ATTRIBUTE_DRAM_SIZE:
+          log_DRAM_size(val[i]);
+          break;
+        default:
+          // No action taken
+          break;
+      }
+    }
   }
 }
 
@@ -218,6 +259,10 @@ void SynapseLogger::command(absl::string_view cmd) {
     transfers_.clear();
   } else if (cmd_name == "start_ctensor_capture") {
     source_cat_mask_ |= static_cast<uint64_t>(data_dump_category::CONST_TENSOR_DATA);
+    std::lock_guard<std::mutex> tlock(transfer_lock_);
+    transfers_.clear();
+  } else if (cmd_name == "log_device_alloc") {
+    source_cat_mask_ |= static_cast<uint64_t>(data_dump_category::DEVICE_ALLOC_TRACKING);
     std::lock_guard<std::mutex> tlock(transfer_lock_);
     transfers_.clear();
   } else if (cmd_name == "eager_flush") {

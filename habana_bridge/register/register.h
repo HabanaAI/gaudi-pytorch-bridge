@@ -59,3 +59,8 @@ void torch_habana_enable(std::function<bool()> enableHabanaCompile) {
 
 } // namespace
 } // namespace habana
+
+// This function is resolved to pre-loaded synapse_logger.
+// Otherwise, this function doesn't do anything.
+void print_live_allocations() __attribute__((weak));
+

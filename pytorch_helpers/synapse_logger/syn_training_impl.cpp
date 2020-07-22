@@ -70,6 +70,7 @@ SYN_API_PTR(synHostMap);
 SYN_API_PTR(synHostUnmap);
 SYN_API_PTR(synDeviceMalloc);
 SYN_API_PTR(synDeviceFree);
+SYN_API_PTR(synDeviceGetAttribute);
 SYN_API_PTR(synInitialize);
 SYN_API_PTR(synDestroy);
 SYN_API_PTR(synDeviceRelease);
@@ -127,6 +128,7 @@ void LoadSymbols(void* lib_handle) {
   SYN_API_INIT_PTR(synHostUnmap);
   SYN_API_INIT_PTR(synDeviceMalloc);
   SYN_API_INIT_PTR(synDeviceFree);
+  SYN_API_INIT_PTR(synDeviceGetAttribute);
   SYN_API_INIT_PTR(synInitialize);
   SYN_API_INIT_PTR(synDestroy);
   SYN_API_INIT_PTR(synDeviceRelease);
@@ -639,6 +641,7 @@ synStatus SYN_API_CALL synDeviceMalloc(const synDeviceId deviceId, const uint64_
   LOG_TRACE("SYN_API", "{}", __FUNCTION__);
   API_LOG_CALL(ARG(deviceId), ARG_X(size), ARG_X(reqAddr), ARG(flags), ARG(buffer));
   synStatus status = lib_synapse::synDeviceMalloc(deviceId, size, reqAddr, flags, buffer);
+  synapse_logger::logger.dump_device_alloc_data(*buffer, size, deviceId, status);
   API_LOG_RESULT(S_ARG_X(buffer));
   return status;
 }
@@ -647,6 +650,17 @@ synStatus SYN_API_CALL synDeviceFree(const synDeviceId deviceId, const uint64_t 
   LOG_TRACE("SYN_API", "{}", __FUNCTION__);
   API_LOG_CALL(ARG(deviceId), ARG_X(buffer), ARG_X(flags));
   synStatus status = lib_synapse::synDeviceFree(deviceId, buffer, flags);
+  synapse_logger::logger.dump_device_free_data(buffer);
+  API_LOG_RESULT();
+  return status;
+}
+
+synStatus SYN_API_CALL synDeviceGetAttribute(uint64_t* retVal, const synDeviceAttribute* deviceAttr,
+                                             const unsigned querySize, const synDeviceId deviceId) {
+  LOG_TRACE("SYN_API", "{}", __FUNCTION__);
+  API_LOG_CALL(ARG(retVal), ARG(deviceAttr), ARG_X(querySize), ARG(deviceId));
+  synStatus status = lib_synapse::synDeviceGetAttribute(retVal, deviceAttr, querySize, deviceId);
+  synapse_logger::logger.dump_device_attr(deviceAttr, retVal, querySize);
   API_LOG_RESULT();
   return status;
 }

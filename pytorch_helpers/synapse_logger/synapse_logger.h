@@ -109,6 +109,13 @@ class SynapseLogger {
 
   void dump_reference(const std::string& ref, const std::string& ref_type, float* vec, int n);
 
+  void dump_device_alloc_data(const uint64_t ptr, size_t num_bytes, const synDeviceId deviceId, synStatus status,
+                              data_dump_category data_category = data_dump_category::DEVICE_ALLOC_TRACKING);
+  void dump_device_free_data(const uint64_t ptr,
+                             data_dump_category data_category = data_dump_category::DEVICE_ALLOC_TRACKING);
+  void dump_device_attr(const synDeviceAttribute* deviceAttr, uint64_t* val, const unsigned querySize,
+                        data_dump_category data_category = data_dump_category::DEVICE_ALLOC_TRACKING);
+
   struct recorded_event {
     synStreamHandle stream_handle;
     synEventHandle event_handle;
@@ -220,6 +227,7 @@ class SynapseLogger {
   std::atomic_bool eager_flush_{true};
   std::atomic_bool lazy_open_{false};
   static void command_signal_handler(int);
+  bool dev_attr_recorded;
 };
 
 extern SynapseLogger logger;

@@ -131,3 +131,10 @@ HPURegistrar& HPURegistrar::get_hpu_registrar() {
 }
 
 } // namespace synapse_helpers
+
+void print_live_allocations() {
+  std::cout << "\nNo log for device memory allocation is collected. Use the following commands "
+               "to enable allocation tracking and reporting with hb_torch.memstat_livealloc() - \n"
+               "HBN_SYNAPSE_LOGGER_COMMANDS=log_device_alloc "
+               "LD_PRELOAD=$BUILD_ROOT_LATEST/pytorch_synapse_logger.so a.out...\n\n";
+}

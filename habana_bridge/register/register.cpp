@@ -28,5 +28,8 @@ PYBIND11_MODULE(hb_torch, m) {
     m.def("enable", []() { fusion_enabled = true; });
     m.def("disable", []() { fusion_enabled = false; });
 
+    // python API to report device memory live allocation details
+    m.def("memstat_livealloc", []() { print_live_allocations(); });
+
     m.doc() = "This module registers habana backend.";
 }
