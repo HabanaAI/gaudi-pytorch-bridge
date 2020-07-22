@@ -35,17 +35,21 @@ using namespace habana;
 
 struct TensorInfo;
 
-//For now its a simple map with PT tensor
-//We can extend this structure later to map to add extra capabilities for debug etc.
-typedef torch::jit::IValue*  IValPtr;
-typedef torch::jit::Value*   ValPtr;
-typedef std::vector<size_t>  IdxVec;
+using IVal =  torch::jit::IValue;
+using IValPtrShared = std::shared_ptr<IVal>;
 
-typedef std::unordered_map<IValPtr, synapse_helpers::tensor&> PTToSynapseTensorMap;
-typedef std::unordered_map<IValPtr, std::string>              IValPtrToSynTensorNameMap;
-typedef std::unordered_map<IValPtr, unsigned>                 IValPtrToSynTensorSizeMap;
-typedef std::unordered_map<IValPtr, TensorInfo>               IValPtrToTesorInfoMap;
+using IValPtr = torch::jit::IValue*;
+using ValPtr  = torch::jit::Value*;
+using CValPtr = const torch::jit::Value*;
+using IdxVec  = std::vector<size_t>;
 
+using PTToSynapseTensorMap        = std::unordered_map<IValPtr, synapse_helpers::tensor&>;
+using IValPtrToSynTensorNameMap   = std::unordered_map<IValPtr, std::string>             ;
+using IValPtrToSynTensorSizeMap   = std::unordered_map<IValPtr, unsigned>                ;
+using IValPtrToTesorInfoMap       = std::unordered_map<IValPtr, TensorInfo>              ;
+
+using IValPtrSharedToTesorInfoMap = std::unordered_map<IValPtrShared, TensorInfo>        ;
+;
 // Adding the op strings to the key for recipe
 // Later the drop the storage for the vector of strings
 //   if possible pass the subgraph as argument
@@ -99,6 +103,7 @@ public:
 
 struct TensorInfo {
   TensorInfo (const IValPtr &ivp, const std::string &sn, const ValPtr &vp);
+  TensorInfo (const IValPtrShared &ivp, const std::string &sn, const ValPtr &vp);
 
   friend std::ostream &operator<< (std::ostream &O, const TensorInfo &t);
 
@@ -118,7 +123,6 @@ struct RecipeValueSpec {
   RecipeValueSpec(std::shared_ptr<synapse_helpers::graph::recipe_handle> r = nullptr)
   : recipe(r),
     dtensorinfos(nullptr),
-    aten_inputs(nullptr),
     aten_outputs(nullptr),
     pinput_indices(nullptr),
     htensor_wbuffers(nullptr)
@@ -131,7 +135,6 @@ struct RecipeValueSpec {
     TORCH_CHECK(recipe != nullptr)
     TORCH_CHECK(dtensorinfos != nullptr);
     TORCH_CHECK(dtensorinfos->size() == num_tensors);
-    TORCH_CHECK(!aten_inputs->empty());
     TORCH_CHECK(!aten_outputs->empty());
   }
 
@@ -141,14 +144,9 @@ struct RecipeValueSpec {
   friend std::ostream &operator<< (std::ostream &O, const RecipeValueSpec &v);
 
   std::shared_ptr<synapse_helpers::graph::recipe_handle> recipe;
-
   std::shared_ptr<std::vector<TensorInfo>>               dtensorinfos;
-
-  std::shared_ptr<std::vector<IValPtr>>                  aten_inputs;
-  std::shared_ptr<std::vector<IValPtr>>                  aten_outputs;
-
+  std::shared_ptr<std::vector<IValPtrShared>>            aten_outputs;
   std::shared_ptr<std::vector<std::vector<size_t>>>      pinput_indices;
-
   std::shared_ptr<std::vector<uint64_t>>                 htensor_wbuffers;
 
   size_t id {0};
@@ -207,13 +205,17 @@ class HabanaLaunchOpPT {
   //   for each kernel is retained till graph execution
   // This is done to enable reuse of PT and synapse tensors and their processing
   std::vector<HabanaOperatorPtr> habana_kernels;
+
   // A map between the abstract value containers in graph and actual Ivalues in stack
-  std::unordered_map<const torch::jit::Value*, torch::jit::IValue *> value_to_ivalue;
-  std::unordered_map<const torch::jit::Value*, habana::LayoutFormat> value_to_tensor_layout;
+  std::unordered_map<CValPtr, habana::LayoutFormat> value_to_tensor_layout;
   habana::LayoutFormat pt_input_layout;
+
   //map between PT and synapse tensors
-  PTToSynapseTensorMap pt_to_synapse_tensors;
   std::vector<synapse_helpers::tensor> meta_syn_tensors;
+
+  std::vector<IValPtrShared>                                  pt_stack_sh;
+  std::unordered_map<CValPtr, IValPtrShared>                  value_to_ivalue;
+  std::unordered_map<IValPtrShared, synapse_helpers::tensor&> pt_to_synapse_tensors;
 
   // TensorInfos for launcing the recipe
   std::vector<TensorInfo>          input_tensorinfos;
@@ -233,11 +235,12 @@ class HabanaLaunchOpPT {
   at::ArrayRef<torch::jit::IValue> input_refs;
   torch::jit::Stack               *pt_stack = nullptr;
 
-  IValPtrToTesorInfoMap            input_tensorinfo_map;
+  //IValPtrToTesorInfoMap            input_tensorinfo_map;
+  IValPtrSharedToTesorInfoMap      input_tensorinfo_map;
 
   RecipeCacheSimple                recipe_cache;
 
-  std::unordered_map<IValPtr, IdxVec> input_to_pinput_indices;
+  std::unordered_map<IValPtrShared, IdxVec> input_to_pinput_indices;
 
   // caching :: end
 

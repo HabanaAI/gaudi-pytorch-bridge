@@ -115,6 +115,28 @@ TensorInfo::TensorInfo (const IValPtr &ivp, const std::string &sn, const ValPtr 
   size   = pt_tensor.nbytes();
 }
 
+TensorInfo::TensorInfo (const IValPtrShared &ivpsh, const std::string &sn, const ValPtr &vp) {
+  TORCH_CHECK(ivpsh->isTensor(), "aten tensor is expected");
+  {
+    std::ostringstream oss;
+    oss << "%" << vp->debugName();
+    ir_name = oss.str();
+  }
+
+  syn_name = sn;
+
+  auto pt_tensor = ivpsh->toTensor();
+  {
+    std::ostringstream oss;
+    oss << pt_tensor.sizes();
+    shape_str = oss.str();
+  }
+
+  buffer = pt_tensor.data_ptr();
+  numel  = pt_tensor.numel();
+  size   = pt_tensor.nbytes();
+}
+
 std::ostream& operator<< (std::ostream &O, const TensorInfo &t) {
   O << '<'
     << t.ir_name << ':'
@@ -136,19 +158,6 @@ std::ostream& operator<< (std::ostream &O, const RecipeValueSpec &v) {
     << " <addr : "      << v.recipe.get() << "> "
     << " <use_count : " << v.recipe.use_count() << "> "
     << '\n';
-
-  if (v.aten_inputs) {
-    O << '\n';
-    O << "aten_inputs ::";
-    for (auto &a : *v.aten_inputs) {
-      if (a->isTensor()) {
-        O << " <dim : " << a->toTensor().dim() << " : " << a->toTensor().sizes() << '>';
-      }
-      else {
-        O << " <" << *a << '>';
-      }
-    }
-  }
 
   if (v.aten_outputs) {
     O << '\n';
@@ -270,6 +279,9 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(const torch::jit::Node* node, bool debug) {
   std::ostringstream oss;
   oss << opname_ << '_' << instance_count_;
   id_str = oss.str();
+  pt_input_layout = habana::LayoutFormat::NCHW;
+
+  PT_BRIDGE_DEBUG("Creating : ", id_str);
 
   tensor_dump_numel_ = -2;
 
@@ -330,6 +342,7 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(const torch::jit::Node* node, bool debug) {
 }
 
 HabanaLaunchOpPT::~HabanaLaunchOpPT() {
+  PT_BRIDGE_DEBUG("Destroying : ", id_str);
 }
 
 habana::LayoutFormat getPTTensorLayout(at::Tensor& tensor) {
@@ -452,14 +465,14 @@ void HabanaLaunchOpPT::GetSynapseOutputs(
         = out_layout == habana::LayoutFormat::ANY ? assigned_input_layout : out_layout;
 
       if (excluded_out_indices.find(output_tensor_idx) == excluded_out_indices.end()) {
-        IValPtr ivp = new IValue(output_tensors_pt[output_tensor_idx]);
-        value_to_ivalue[output_nodes[output_nodes_idx]] = ivp;
+        IValPtrShared ivpsh = std::make_shared<IVal>(output_tensors_pt[output_tensor_idx]);
+        value_to_ivalue[output_nodes[output_nodes_idx]] = ivpsh;
 
         pt_to_synapse_tensors.emplace(value_to_ivalue[output_nodes[output_nodes_idx]], out_tensor_syn);
 
         output_tensorinfos.emplace_back(
            TensorInfo(
-               ivp,
+               ivpsh,
                out_tensor_syn.tensor_name_,
                output_nodes[output_nodes_idx]));
 
@@ -565,7 +578,7 @@ at::Tensor HabanaLaunchOpPT::permuteTensor(
   for (synapse_helpers::tensor &out_tensor_syn : output_tensors_syn) {
     // make the output of permute the input for next synapse kernel
     // permute has a single output
-    value_to_ivalue[value_in] = new IValue(outputs_permute[0]);
+    value_to_ivalue[value_in] = std::make_shared<IVal>(outputs_permute[0]);
     value_to_tensor_layout[value_in] = permute_order;
     pt_to_synapse_tensors.erase(value_to_ivalue[value_in]);
     pt_to_synapse_tensors.emplace(value_to_ivalue[value_in], out_tensor_syn);
@@ -674,7 +687,7 @@ void HabanaLaunchOpPT::postProcessOutputs() {
   for (auto node : subgraph_->nodes()) {
     auto node_outs = node->outputs();
     for (const auto value_out : node_outs) {
-      IValue* ival = value_to_ivalue[value_out];
+      IValPtrShared ival = value_to_ivalue[value_out];
       if(!ival)
         continue;
       if(!(ival->isTensor()))
@@ -696,7 +709,7 @@ void HabanaLaunchOpPT::postProcessOutputs() {
                 //Whereas we process internally as NHWC shape only
                 adjustSizesforPT(&tensor, true);
                 value_to_ivalue.erase(value_out);
-                value_to_ivalue[value_out] = new IValue(tensor);
+                value_to_ivalue[value_out] = std::make_shared<IVal>(tensor);
               }
           }
           else
@@ -707,7 +720,7 @@ void HabanaLaunchOpPT::postProcessOutputs() {
                 //Whereas we process internally as NHWC shape only
                 adjustSizesforPT(&tensor, true);
                 value_to_ivalue.erase(value_out);
-                value_to_ivalue[value_out] = new IValue(tensor);
+                value_to_ivalue[value_out] = std::make_shared<IVal>(tensor);
               }
 
           }
@@ -725,11 +738,11 @@ void HabanaLaunchOpPT::handlePrimNodes(torch::jit::Node* node)
               "Habana Fusion only supports constant type prim nodes");
   auto node_vals = node->outputs();
   for (const auto value : node_vals) {
-    auto val = new IValue(toIValue(value).value());
-    if (val->isNone()) {
+    IValPtrShared ivptrsh = std::make_shared<IVal>(toIValue(value).value());
+    if (ivptrsh->isNone()) {
       continue;
     }
-    value_to_ivalue[value] = val;
+    value_to_ivalue[value] = ivptrsh;
   }
 }
 
@@ -765,7 +778,7 @@ void HabanaLaunchOpPT::handleMetaOps(torch::jit::Node* node)
   void *in_data, *out_data;
   auto node_ins = node->inputs();
   habana::LayoutFormat out_layout;
-  IValPtr input_ptr {nullptr};
+  IValPtrShared input_ptr {nullptr};
   size_t pinput_count {0};
 
   for (const auto value_in : node_ins) {
@@ -811,8 +824,7 @@ void HabanaLaunchOpPT::handleMetaOps(torch::jit::Node* node)
   auto outputs = last(stack, node_outs.size());
   int i = 0;
   for (const auto val_out : node_outs) {
-    IValue *ival = new IValue;
-    *ival = outputs[i];
+    IValPtrShared ival = std::make_shared<IVal>(outputs[i]);
     value_to_ivalue[val_out] = ival;
     if (ival->isTensor()) {
       auto tensor = ival->toTensor();
@@ -857,8 +869,10 @@ void HabanaLaunchOpPT::ReorderInputs(RecipeValueSpec &rv) {
     // reoroder input_tensorinfos
     bool has_empty_name = false;
 
-    for (size_t i = pt_stack->size()-num_inputs; i < pt_stack->size(); i++) {
-      torch::jit::IValue *input_ptr = &(pt_stack->at(i));
+    //for (size_t i = pt_stack->size()-num_inputs; i < pt_stack->size(); i++) {
+      //torch::jit::IValue *input_ptr = &(pt_stack->at(i));
+    for (size_t i = pt_stack_sh.size()-num_inputs; i < pt_stack_sh.size(); i++) {
+      IValPtrShared input_ptr = pt_stack_sh.at(i);
       if (input_ptr->isTensor()) {
         auto it = input_tensorinfo_map.find(input_ptr);
         if (it != input_tensorinfo_map.end()) {
@@ -974,15 +988,11 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
 
   rv.num_tensors = rv.dtensorinfos->size();
 
-  rv.htensor_wbuffers = std::make_shared<std::vector<uint64_t>>(std::vector<uint64_t>(rv.num_tensors, 0));
-
-  rv.aten_inputs = std::make_shared<std::vector<torch::jit::IValue*>>(std::vector<torch::jit::IValue*>());
-  for (size_t i = pt_stack->size()-num_inputs; i < pt_stack->size(); i++) {
-    auto ivptr = new IValue(pt_stack->at(i));
-    rv.aten_inputs->push_back(ivptr);
+  if (enable_tensor_dump_) {
+    rv.htensor_wbuffers = std::make_shared<std::vector<uint64_t>>(std::vector<uint64_t>(rv.num_tensors, 0));
   }
 
-  rv.aten_outputs = std::make_shared<std::vector<torch::jit::IValue*>>(std::vector<torch::jit::IValue*>());
+  rv.aten_outputs = std::make_shared<std::vector<IValPtrShared>>(std::vector<IValPtrShared>());
   for (auto output : subgraph_->outputs()) {
     rv.aten_outputs->push_back(value_to_ivalue[output]);
   }
@@ -1092,46 +1102,23 @@ void HabanaLaunchOpPT::clearMember(T& m_container)
 
 void HabanaLaunchOpPT::clear() {
   pt_stack = nullptr;
+  pt_stack_sh.clear();
   syn_graph_ptr = nullptr;
 
-  // Delete all the values created by new
-  if (!enable_caching_) {
-    for (auto output : subgraph_->outputs()) {
-      if (value_to_ivalue[output]) {
-        delete value_to_ivalue[output];
-      }
-    }
-  }
-  // Call explicit erase on the maps
-  pt_to_synapse_tensors.erase(pt_to_synapse_tensors.begin(), pt_to_synapse_tensors.end());
-  value_to_ivalue.erase(value_to_ivalue.begin(), value_to_ivalue.end());
-  value_to_tensor_layout.erase(value_to_tensor_layout.begin(), value_to_tensor_layout.end());
-
-  //Clear them
   habana_kernels.clear();
-
-  value_to_tensor_layout.clear();
-  pt_to_synapse_tensors.clear();
-
-  input_tensorinfo_map.clear();
 
   input_tensorinfos.clear();
   pinput_tensorinfos.clear();
   output_tensorinfos.clear();
+  value_to_tensor_layout.clear();
+
+  value_to_ivalue.clear();
+  pt_to_synapse_tensors.clear();
+  input_tensorinfo_map.clear();
   meta_syn_tensors.clear();
+  input_to_pinput_indices.clear();
 
   num_tensor_inputs = 0;
-
-
-  // Sometimes clear doesn't clear everything. This makes sure everything stl cleaned.
-  clearMember(habana_kernels);
-  clearMember(input_tensorinfos);
-  clearMember(pinput_tensorinfos);
-  clearMember(output_tensorinfos);
-  clearMember(value_to_tensor_layout);
-  clearMember(value_to_ivalue);
-  clearMember(pt_to_synapse_tensors);
-  clearMember(meta_syn_tensors);
 }
 
 bool HabanaLaunchOpPT::IsCached(std::shared_ptr<RecipeArgumentSpec> &spec) {
@@ -1144,7 +1131,7 @@ bool HabanaLaunchOpPT::IsCached(std::shared_ptr<RecipeArgumentSpec> &spec) {
 }
 
 void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
-  //PT_BRIDGE_BEGIN;
+  PT_BRIDGE_BEGIN;
   num_inputs = subgraph_->inputs().size();
   auto subgraph_inputs = subgraph_->inputs();
   input_refs = last(stack, num_inputs);
@@ -1201,12 +1188,12 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
 
       // Update the stack from the recipe itself
       drop(stack, num_inputs);
-      for (auto ival_ptr : *(rv.aten_outputs)) {
-        stack.insert(stack.end(), *ival_ptr);
+      for (const auto & ivptrsh: *(rv.aten_outputs)) {
+        stack.insert(stack.end(), *ivptrsh);
       }
 
-
       clear();
+      PT_BRIDGE_END;
       return;
     }
   }
@@ -1215,43 +1202,48 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
     // Keep a handle to the stack for future use
     pt_stack = &stack;
 
-    size_t i = 0;
     size_t j = stack.size()-num_inputs;
-    pt_input_layout = habana::LayoutFormat::NCHW;
     for ( ; j < stack.size(); j++) {
-      auto value_input = subgraph_inputs[i];
+      IValPtrShared ivptrsh = std::make_shared<IVal>(stack[j]);
+      pt_stack_sh.push_back(ivptrsh);
+    }
 
-      if(stack[j].isTensor())
-      {
-          //Taking alias as that allows us to detach it from PT and do metadata changes
-          //It gives us more control over tensor changes, but caution is needed.
-          //Its might be a bit dangerous, but only way to communicate layour changes
-          //PT doesnt allow any stride changes we want, we can review it with PT folks
-          auto tensor = at::alias(stack[j].toTensor());
-          //Get  the logical layout from PT tensor
-          //We dont touch this, even while doing permutes, the PT logical tensor is retained
-          //For us all tensors are contiguous
-          //PT doesnt let us mark logical layout directly so we dont change them
-          value_to_tensor_layout[value_input] = getPTTensorLayout(tensor);
-          num_tensor_inputs++;
-          if(getPTTensorLayout(tensor) == habana::LayoutFormat::NHWC)
-          {
-            //Make the sizes according to NCHW as PT maintains
-            //NCHW shapes even for NHWC tensors(It doesnt change shape)
-            value_to_ivalue[value_input] = new IValue(tensor);
-            adjustSizesforPT(&tensor, false);
-            pt_input_layout = habana::LayoutFormat::NHWC;
-          }
-          else
-          {
-            value_to_ivalue[value_input] = new IValue(tensor);
-          }
+    pt_input_layout = habana::LayoutFormat::NCHW;
+    for (size_t j = 0; j < pt_stack_sh.size(); j++) {
+      auto value_input = subgraph_inputs[j];
+
+      if (pt_stack_sh[j]->isTensor()) {
+
+        // Taking alias as that allows us to detach it from PT and do metadata changes
+        // It gives us more control over tensor changes, but caution is needed.
+        // Its might be a bit dangerous, but only way to communicate layour changes
+        // PT doesnt allow any stride changes we want, we can review it with PT folks
+
+        auto tensor = at::alias(pt_stack_sh[j]->toTensor());
+
+        //Get  the logical layout from PT tensor
+        //We dont touch this, even while doing permutes, the PT logical tensor is retained
+        //For us all tensors are contiguous
+        //PT doesnt let us mark logical layout directly so we dont change them
+
+        value_to_tensor_layout[value_input] = getPTTensorLayout(tensor);
+        if (getPTTensorLayout(tensor) == habana::LayoutFormat::NHWC) {
+          // Make the sizes according to NCHW as PT maintains
+          // NCHW shapes even for NHWC tensors(It doesnt change shape)
+          adjustSizesforPT(&tensor, false);
+          IValPtrShared ivptrsh = std::make_shared<IVal>(tensor);
+          value_to_ivalue[value_input] = ivptrsh;
+          pt_stack_sh[j] = ivptrsh;
+          pt_input_layout = habana::LayoutFormat::NHWC;
+        }
+        else {
+          value_to_ivalue[value_input] = pt_stack_sh[j];
+        }
+        num_tensor_inputs++;
       }
-      else
-      {
-        value_to_ivalue[value_input] = &stack[j];
+      else {
+        value_to_ivalue[value_input] = pt_stack_sh[j];
       }
-      i++;
     }
   }
 
