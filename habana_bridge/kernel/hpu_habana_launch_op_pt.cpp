@@ -661,15 +661,14 @@ void HabanaLaunchOpPT::processInputs(
         }
 
         if (!(isChannelOrderSupported(value_in, in_layout))) {
-          {
-            //We only support 4D tensors
-            TORCH_CHECK(tensor.dim() == 4, "WARNING: Kernel wants permute on non 4D tensor, not supproted");
+          //We only support 4D tensors
+          TORCH_CHECK(tensor.dim() <= 4, "WARNING: permute for tensors with dim higher than 4D is not supproted");
+          if (tensor.dim() == 4) {
             //permute
             permuteTensor(
                   value_in,
                   tensor,
                   in_layout);
-
           }
         }
         prev_layout = tensor_idx == 0 ?
