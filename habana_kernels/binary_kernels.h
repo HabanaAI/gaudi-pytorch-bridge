@@ -10,6 +10,7 @@
 #pragma once
 #include <torch/script.h>
 #include "habana_kernels/habana_operator.h"
+#include "habana_kernels/simple_generic_kernel.h"
 #include "habana_kernels/tensor_shape_kernels.h"
 
 namespace habana {
@@ -89,3 +90,18 @@ class SubOperator : public BinaryOperatorWithAlpha {
 };
 
 } // namespace habana
+
+// The following function definitions are added because compare_kernels.cpp
+// has dependence on these.
+at::Tensor convert_scalar_to_tensor_using_self(
+    const at::Tensor& self,
+    c10::Scalar other);
+
+void do_generic_tensor_binary_op_out(
+    at::Tensor& output,
+    const at::Tensor& operand1,
+    const at::Tensor& operand2,
+    const std::string& op,
+    SynapsePassType pass_type);
+
+at::Tensor get_correct_input_tensor(const at::Tensor& arg1, const at::Tensor& arg2);

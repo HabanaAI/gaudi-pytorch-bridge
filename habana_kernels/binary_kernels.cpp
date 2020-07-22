@@ -50,7 +50,7 @@ static inline Tensor get_hpu_tensor(Tensor input) {
   return output;
 }
 
-static inline Tensor convert_scalar_to_tensor_using_self(
+inline Tensor convert_scalar_to_tensor_using_self(
     const Tensor& self,
     Scalar other) {
   if (self.dim() == 0) {
@@ -137,7 +137,7 @@ static inline void do_generic_tensor_binary_op_inplace(
 
 // generic binary tensor op interface that takes care of broadcasting
 // semantics requirements
-static inline void do_generic_tensor_binary_op_out(
+inline void do_generic_tensor_binary_op_out(
     Tensor& output,
     const Tensor& operand1,
     const Tensor& operand2,
@@ -826,63 +826,6 @@ Tensor& mul_scalar_hpu_(Tensor& self, Scalar other) {
 }
 
 /*************************************************************************
- * @brief Kernel implementation for torch.eq(self,other, out)
- * @param self - first input
- * @param other - second input
- * @param out -  output tensor of bool dtype
- ************************************************************************/
-void eq_tensor_out_hpu(
-    Tensor& output,
-    const Tensor& self,
-    const Tensor& other) {
-  PT_KERNEL_BEGIN;
-  // change dtype bool to int8 to match TPC kernel signature
-  // NOTE: This works because both bool and int8 uses 1 byte per element
-  // Else we need to overload .to operator with an explicit TPC kernel for
-  // typecasting
-  output.to(c10::ScalarType::Char);
-  do_generic_tensor_binary_op_out(
-      output, self, other, "equal", SynapsePassType::FORWARD_PASS);
-  // convert back to bool
-  output.to(c10::ScalarType::Bool);
-  PT_KERNEL_END;
-}
-
-/*************************************************************************
- * @brief Kernel implementation for out = torch.eq(self,other)
- * @param self - first input
- * @param other - second input
- ************************************************************************/
-Tensor eq_tensor_hpu(Tensor& self, Tensor& other) {
-  PT_KERNEL_BEGIN;
-  auto tensor_options = self.options();
-  auto output =
-      at::empty(self.sizes(), tensor_options.dtype(c10::ScalarType::Char), self.suggest_memory_format());
-  at::eq_out(output, self, other);
-  PT_KERNEL_END;
-  return output;
-}
-
-/*************************************************************************
- * @brief Kernel implementation for out = torch.eq(self,other)
- * @param self [in] - input tensor, 1-4D, FP32/BF16
- * @param other [in] - Scalar
- ************************************************************************/
-Tensor eq_scalar_tensor_hpu(Tensor& self, Scalar other) {
-  PT_KERNEL_BEGIN;
-
-  if (self.dim() == 0) {
-    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
-  }
-
-  auto device_tensor = convert_scalar_to_tensor_using_self(self, other);
-  auto out = at::eq(self, device_tensor);
-
-  PT_KERNEL_END;
-  return out;
-}
-
-/*************************************************************************
  * @brief Kernel implementation for out = torch.div(self,other)
  * @param self - first input
  * @param other - second input
@@ -1124,25 +1067,6 @@ static auto registry =
                 .impl_unboxedOnlyKernel<
                     decltype(mul_scalar_hpu_),
                     &mul_scalar_hpu_>(DispatchKey::HABANATensorId)
-                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-        .op(torch::RegisterOperators::options()
-                .schema("aten::eq.Tensor(Tensor self, Tensor other) -> Tensor")
-                .impl_unboxedOnlyKernel<
-                    decltype(eq_tensor_hpu),
-                    &eq_tensor_hpu>(DispatchKey::HABANATensorId)
-                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-        .op(torch::RegisterOperators::options()
-                .schema(
-                    "aten::eq.Tensor_out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)")
-                .impl_unboxedOnlyKernel<
-                    decltype(eq_tensor_out_hpu),
-                    &eq_tensor_out_hpu>(DispatchKey::HABANATensorId)
-                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-        .op(torch::RegisterOperators::options()
-                .schema("aten::eq.Scalar(Tensor self, Scalar other) -> Tensor")
-                .impl_unboxedOnlyKernel<
-                    decltype(eq_scalar_tensor_hpu),
-                    &eq_scalar_tensor_hpu>(DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema("aten::div.Tensor(Tensor self, Tensor other) -> Tensor")

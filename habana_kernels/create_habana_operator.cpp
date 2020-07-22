@@ -96,6 +96,8 @@ HabanaOperatorPtr CreateHabanaOperator(
     op = std::make_shared<NormOperator>(device_id, node_type);
   } else if ("aten::reciprocal" == node_name) {
     op = std::make_shared<ReciprocalOperator>(device_id, node_type);
+  } else if ("aten::eq" == node_name) {
+    op = std::make_shared<EqOperator>(device_id, node_type);
   }
   // Returning a null pointer for cases not added yet,
   // we can add assert once all kernels are added

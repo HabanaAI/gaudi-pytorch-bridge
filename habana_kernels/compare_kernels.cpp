@@ -16,26 +16,32 @@
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_helpers/graph.h"
 #include "habana_helpers/logging.h"
+#include "habana_kernels/binary_kernels.h"
 #include "habana_kernels/compare_kernels.h"
+#include "habana_kernels/simple_generic_kernel.h"
 #include "habana_kernels/tensor_shape_kernels.h"
 
 using namespace torch;
 
-void CompareOperator::AllocateAndAddSynapseNode(
+void CompareOutOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     bool is_output_persistent) {
   TORCH_CHECK(
-      inputs.size() == 2,
-      "Incorrect size of input arguments for aten::gt Operator");
+      inputs.size() == 3,
+      "Incorrect size of input arguments for Compare Out Operator");
   TORCH_CHECK(
       inputs[0].isTensor(),
       "Input arg 1 for compare op needs to be tensor type");
   TORCH_CHECK(
       inputs[1].isTensor(),
       "Input arg 2 for compare op needs to be of tensor type");
+  TORCH_CHECK(
+      inputs[2].isTensor(),
+      "Input arg 3 for compare op needs to be of tensor type");
   Tensor self = inputs[0].toTensor();
   Tensor other = inputs[1].toTensor();
+  Tensor output = inputs[2].toTensor();
 
   if (self.ndimension() != other.ndimension()) {
     //
@@ -57,10 +63,6 @@ void CompareOperator::AllocateAndAddSynapseNode(
         reshaped_sizes.end(),
         reshape_tensor_sizes.begin(),
         reshape_tensor_sizes.end());
-    auto output = at::empty(
-        reshaped_sizes,
-        self.options().dtype(c10::ScalarType::Bool),
-        self.suggest_memory_format());
 
     ReshapeOperator reshape(this->p_context_->device_id_, this->scalarType_);
     auto& reshape_in_syn_tensor = reshape.SetSynapseInput(
@@ -87,13 +89,66 @@ void CompareOperator::AllocateAndAddSynapseNode(
         0,
         std::move(guid_));
   } else {
-    auto output = at::empty(
-        self.sizes(),
-        self.options().dtype(c10::ScalarType::Bool),
-        self.suggest_memory_format());
     AllocateSynapseOutput(graph, output, is_output_persistent);
     AddNodeToSynapseGraph(graph, nullptr, 0);
   }
+}
+
+void CompareOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 2,
+      "Incorrect size of input arguments for Compare Operator");
+  TORCH_CHECK(
+      inputs[0].isTensor(),
+      "Input arg 1 for compare op needs to be tensor type");
+  TORCH_CHECK(
+      inputs[1].isTensor(),
+      "Input arg 2 for compare op needs to be of tensor type");
+  Tensor self = inputs[0].toTensor();
+  Tensor other = inputs[1].toTensor();
+  auto operand = get_correct_input_tensor(self, other);
+  auto output = at::empty(
+      operand.sizes(),
+      operand.options().dtype(c10::ScalarType::Bool),
+      operand.suggest_memory_format());
+  inputs.push_back(output);
+  CompareOutOperator::AllocateAndAddSynapseNode(
+      graph, inputs, is_output_persistent);
+}
+
+Tensor compare_op_hpu(
+    const std::vector<const at::Tensor*>& pt_inputs,
+    const std::string& node_type,
+    size_t device_id,
+    CompareOutOperator* Op) {
+  PT_KERNEL_BEGIN;
+  // Build Params for the graph
+  std::vector<c10::IValue> stack;
+  for (auto pt_input : pt_inputs) {
+    stack.emplace_back(IValue(*pt_input));
+  }
+
+  // Create Graph
+  auto graph = habana_helpers::create_graph(device_id, node_type);
+
+  // temp_pt_inputs is created because EqOut has 3 Tensors in pt_inputs
+  // which makes GC throw an error because it expects 2 inputs for equal
+  std::vector<const at::Tensor*> temp_pt_inputs{pt_inputs[0], pt_inputs[1]};
+  // Assign Inputs to the Operator
+  Op->AllocateSynapseInputs(graph, temp_pt_inputs, true);
+
+  Op->AllocateAndAddSynapseNode(graph, stack, true);
+
+  // compile and execute the graph
+  Op->Compile(graph);
+
+  std::vector<at::Tensor> out = Op->GetOutputs();
+  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
+  PT_KERNEL_END;
+  return out.at(0);
 }
 
 /*************************************************************************
@@ -107,34 +162,98 @@ Tensor gt_hpu(Tensor& self, Tensor& other) {
   at::ScalarType scalar_type = self.scalar_type();
   std::string node_type =
       "gt_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
-
-  //
-  // Create Graph
-  auto graph = habana_helpers::create_graph(device_id, node_type);
-
-  // Create operator
-  GtOperator Op(device_id, scalar_type);
-
-  // Assign Inputs to the Operator
   std::vector<const at::Tensor*> pt_inputs{&self, &other};
-  Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
-  // Build Params for the graph
-  std::vector<c10::IValue> stack = {IValue(self), IValue(other)};
-  Op.AllocateAndAddSynapseNode(graph, stack, true);
-
-  // compile and execute the graph
-  Op.Compile(graph);
-
-  std::vector<at::Tensor> out = Op.GetOutputs();
-  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
+  GtOperator op(device_id, scalar_type);
+  auto out = compare_op_hpu(pt_inputs, node_type, device_id, &op);
   PT_KERNEL_END;
-  return out.at(0);
+  return out;
+
 }
 
-static auto registry = torch::RegisterOperators().op(
-    torch::RegisterOperators::options()
-        .schema("aten::gt.Tensor(Tensor self, Tensor other) -> Tensor")
-        .impl_unboxedOnlyKernel<decltype(gt_hpu), &gt_hpu>(
-            DispatchKey::HABANATensorId)
-        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));
+/*************************************************************************
+ * @brief Kernel implementation for torch.eq(self,other, out)
+ * @param self - first input
+ * @param other - second input
+ * @param out -  output tensor of bool dtype
+ ************************************************************************/
+void eq_tensor_out_hpu(
+    Tensor& output,
+    const Tensor& self,
+    const Tensor& other) {
+  PT_KERNEL_BEGIN;
+  size_t device_id = self.device().index();
+  at::ScalarType scalar_type = self.scalar_type();
+  std::string node_type =
+      "equal_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+  std::vector<const at::Tensor*> pt_inputs{&self, &other, &output};
+
+  EqOutOperator op(device_id, scalar_type);
+  compare_op_hpu(pt_inputs, node_type, device_id, &op);
+  PT_KERNEL_END;
+}
+
+/*************************************************************************
+ * @brief Kernel implementation for out = torch.eq(self,other)
+ * @param self - first input
+ * @param other - second input
+ ************************************************************************/
+Tensor eq_tensor_hpu(Tensor& self, Tensor& other) {
+  PT_KERNEL_BEGIN;
+  size_t device_id = self.device().index();
+  at::ScalarType scalar_type = self.scalar_type();
+  std::string node_type =
+      "equal_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+  std::vector<const at::Tensor*> pt_inputs{&self, &other};
+
+  EqOperator op(device_id, scalar_type);
+  auto output = compare_op_hpu(pt_inputs, node_type, device_id, &op);
+  PT_KERNEL_END;
+  return output;
+}
+
+/*************************************************************************
+ * @brief Kernel implementation for out = torch.eq(self,other)
+ * @param self [in] - input tensor, 1-4D, FP32/BF16
+ * @param other [in] - Scalar
+ ************************************************************************/
+Tensor eq_scalar_tensor_hpu(Tensor& self, Scalar other) {
+  PT_KERNEL_BEGIN;
+
+  if (self.dim() == 0) {
+    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+  }
+
+  auto device_tensor = convert_scalar_to_tensor_using_self(self, other);
+  auto out = at::eq(self, device_tensor);
+
+  PT_KERNEL_END;
+  return out;
+}
+
+static auto registry = torch::RegisterOperators()
+        .op(torch::RegisterOperators::options()
+                .schema("aten::gt.Tensor(Tensor self, Tensor other) -> Tensor")
+                .impl_unboxedOnlyKernel<
+                    decltype(gt_hpu),
+                    &gt_hpu>(DispatchKey::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema("aten::eq.Tensor(Tensor self, Tensor other) -> Tensor")
+                .impl_unboxedOnlyKernel<
+                    decltype(eq_tensor_hpu),
+                    &eq_tensor_hpu>(DispatchKey::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema(
+                    "aten::eq.Tensor_out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)")
+                .impl_unboxedOnlyKernel<
+                    decltype(eq_tensor_out_hpu),
+                    &eq_tensor_out_hpu>(DispatchKey::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema("aten::eq.Scalar(Tensor self, Scalar other) -> Tensor")
+                .impl_unboxedOnlyKernel<
+                    decltype(eq_scalar_tensor_hpu),
+                    &eq_scalar_tensor_hpu>(DispatchKey::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));
