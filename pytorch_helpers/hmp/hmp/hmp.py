@@ -57,7 +57,7 @@ def convert(opt_level='O1', bf16_file_path='', fp32_file_path='', isVerbose=Fals
         cast_ops_list(ops_any_list, ops_dict)
 
     elif (opt_level == 'O2'):
-        ops_bf16_list = ['conv1d', 'conv2d', 'conv3d', 'linear', 'bmm', 'mm', 'matmul', 'mv', 'dot']
+        ops_bf16_list = ['conv1d', 'conv2d', 'conv3d', 'bmm', 'addmm', 'mm', 'mv', 'dot']
         ops_fp32_list = []
 
         for key in ops_dict:

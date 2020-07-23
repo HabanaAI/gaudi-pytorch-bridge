@@ -8,14 +8,24 @@ ops_dict = {
     'conv2d': [torch.nn.functional, torch],
     'conv3d': [torch.nn.functional, torch],
 
+    # pool
+    'avg_pool2d': [torch.nn.functional],
+    'max_pool2d': [torch.nn.functional], 
+    'max_pool2d_with_indices': [torch.nn.functional],
+
+    # reductions
+    'sum': [torch, torch.Tensor],
+    'mean': [torch, torch.Tensor],
+    'any': [torch, torch.Tensor],
+
     # GEMM
+    'addmm': [torch, torch.Tensor],
     'bmm': [torch, torch.Tensor],
     'dot': [torch, torch.Tensor],
     'linear': [torch.nn.functional],
     'matmul': [torch, torch.Tensor],
     'mm': [torch, torch.Tensor],
     'mv': [torch, torch.Tensor],
-
 
     # Misc nn modules
     'batch_norm': [torch.nn.functional],
@@ -25,6 +35,8 @@ ops_dict = {
     'log_softmax': [torch.nn.functional],
     'softmax': [torch.nn.functional],
     'topk': [torch, torch.Tensor],
+    'nll_loss': [torch.nn.functional],
+    'mse_loss': [torch.nn.functional],
 
     # Binary
     'add': [torch, torch.Tensor],
@@ -35,8 +47,15 @@ ops_dict = {
     'mul': [torch, torch.Tensor],
     'pow': [torch, torch.Tensor],
     'sub': [torch, torch.Tensor],
+    'eq': [torch, torch.Tensor],
+    'gt': [torch, torch.Tensor],
 
     # Activations
     'gelu': [torch.nn.functional],
     'relu': [torch.nn.functional],
+
+    # Shapes
+    't': [torch, torch.Tensor],
+    'flatten': [torch, torch.Tensor],
+    'view': [torch.Tensor]
 }

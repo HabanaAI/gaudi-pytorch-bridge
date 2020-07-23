@@ -1,9 +1,8 @@
+addmm
+bmm
 conv1d
 conv2d
 conv3d
-linear
-bmm
-mm
-matmul
-mv
 dot
+mm
+mv
