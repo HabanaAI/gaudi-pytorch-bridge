@@ -82,6 +82,10 @@ class HabanaOperator {
     p_context_->recipe_key_ = 0;
   }
 
+  // Set the op guid - useful on cases where there might have to be
+  void SetGuid(std::string guid) {
+    guid_ = guid;
+  }
   //
   // Executes the synapse graph
   virtual void Compile(synapse_helpers::graph& graph);
@@ -116,6 +120,12 @@ class HabanaOperator {
   // If Synapse tensor is already exists for the py torch tensor, we just add
   // the synapse tensor to the context
   virtual synapse_helpers::tensor_or_ref& SetSynapseInput(
+      synapse_helpers::tensor_or_ref&& tensor);
+  
+  //
+  // If Synapse tensor is already exists for the py torch tensor, we just add
+  // the synapse tensor to the context
+  virtual synapse_helpers::tensor_or_ref& SetSynapseOutput(
       synapse_helpers::tensor_or_ref&& tensor);
 
   //
@@ -160,6 +170,17 @@ class HabanaOperator {
     return kernel_meta_data_;
   }
 
+  //To communicate patching info for tensors which are not part of graph
+  virtual std::vector<std::pair<std::string, void*>> getAppendedTensorInfo();
+
+  virtual const std::vector<std::pair<at::Tensor, at::Tensor>>
+  GetDMACandidates() {
+    // returns a vector of pairs of tensors
+    // first in the pair is 'from' tensor for dma
+    // second is the 'target' tensor
+    return {};
+  }
+
  protected:
   virtual void AddNodeToSynapseGraph(
       synapse_helpers::graph& graph,
@@ -169,6 +190,11 @@ class HabanaOperator {
   std::string guid_;
   PytorchKernelContextPtr p_context_;
   KernelMetaData kernel_meta_data_;
+  //Store the info on intermediate tensors inserted(not part of graph)
+  //THis needs to be communicated to lowering kernel as these additions
+  //are invisible there(only graph mappings are queried)
+  std::vector<std::pair<std::string, void*>> appended_tensor_info; 
+
 };
 
 using HabanaOperatorPtr = std::shared_ptr<HabanaOperator>;

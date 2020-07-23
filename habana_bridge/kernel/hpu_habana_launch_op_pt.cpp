@@ -8,8 +8,8 @@
  ******************************************************************************
  */
 
-#include <algorithm>
 #include <iomanip>
+#include <algorithm>
 #include <sstream>
 #include <typeinfo>
 #include <unordered_map>
@@ -392,10 +392,16 @@ void HabanaLaunchOpPT::GetSynapseInputs(
       auto pt_tensor = value_to_ivalue[value_in]->toTensor();
       // special case for avg pool backward, we only need to set 1 input, since
       // TPC kernel expects only 1 input
-      if (!strcmp("aten::avg_pool2d_backward", node->kind().toQualString()) && 
+      if (!strcmp("aten::avg_pool2d_backward", node->kind().toQualString()) &&
           (input_idx > 0)) {
         continue;
       }
+
+      if(!pt_tensor.defined())
+      {
+        continue;
+      }
+
       // Find if an input tensor is already mapped
       // NB: It seems Habana doesn't support shared input to
       // different nodes in graph
@@ -622,6 +628,9 @@ bool HabanaLaunchOpPT::isInGraphInputs(torch::jit::Value* value) {
 
 void adjustInputWeight(at::Tensor* tensor)
 {
+
+  if(tensor->dim() != 4)
+    return;
   auto sizes = tensor->sizes().vec();
   auto strides = tensor->strides().vec();
   //TODO : Remove these hardcoded dims, maybe take it from config file?
@@ -677,14 +686,18 @@ void HabanaLaunchOpPT::processInputs(
         }
 
         if (!(isChannelOrderSupported(value_in, in_layout))) {
-          //We only support 4D tensors
-          TORCH_CHECK(tensor.dim() <= 4, "WARNING: permute for tensors with dim higher than 4D is not supproted");
-          if (tensor.dim() == 4) {
+          {
+            //We only support 4D tensors
+            TORCH_CHECK(tensor.dim() <= 4, "WARNING: Kernel wants permute on non 4D tensor, not supproted");
             //permute
-            permuteTensor(
+            if(tensor.dim() == 4)
+            {
+              permuteTensor(
                   value_in,
                   tensor,
                   in_layout);
+            }
+
           }
         }
         prev_layout = tensor_idx == 0 ?
@@ -712,32 +725,35 @@ void HabanaLaunchOpPT::postProcessOutputs() {
           isInGraphOutputs(value_out)) {
 
           auto tensor = ival->toTensor();
-          if(getTensorChannelOrder(value_out) != pt_input_layout)
+          if(tensor.dim() == 4)
           {
-              permuteTensor(
-                value_out,
-                tensor,
-                pt_input_layout);
-              if(pt_input_layout == habana::LayoutFormat::NHWC)
+            if(getTensorChannelOrder(value_out) != pt_input_layout)
               {
-                //Make the shape according to NCHW again as PT maintains that even for NHWC tensors
-                //Whereas we process internally as NHWC shape only
-                adjustSizesforPT(&tensor, true);
-                value_to_ivalue.erase(value_out);
-                value_to_ivalue[value_out] = std::make_shared<IVal>(tensor);
-              }
-          }
-          else
-          {
-              if(getTensorChannelOrder(value_out) == habana::LayoutFormat::NHWC)
-              {
-                //Make the shape according to NCHW again as PT maintains that even for NHWC tensors
-                //Whereas we process internally as NHWC shape only
-                adjustSizesforPT(&tensor, true);
-                value_to_ivalue.erase(value_out);
-                value_to_ivalue[value_out] = std::make_shared<IVal>(tensor);
-              }
+                permuteTensor(
+                  value_out,
+                  tensor,
+                  pt_input_layout);
+                if(pt_input_layout == habana::LayoutFormat::NHWC)
+                {
+                  //Make the shape according to NCHW again as PT maintains that even for NHWC tensors
+                  //Whereas we process internally as NHWC shape only
+                  adjustSizesforPT(&tensor, true);
+                  value_to_ivalue.erase(value_out);
+                  value_to_ivalue[value_out] = std::make_shared<IVal>(tensor);
+                }
+            }
+            else
+            {
+                if(getTensorChannelOrder(value_out) == habana::LayoutFormat::NHWC)
+                {
+                  //Make the shape according to NCHW again as PT maintains that even for NHWC tensors
+                  //Whereas we process internally as NHWC shape only
+                  adjustSizesforPT(&tensor, true);
+                  value_to_ivalue.erase(value_out);
+                  value_to_ivalue[value_out] = std::make_shared<IVal>(tensor);
+                }
 
+            }
           }
 
       }
@@ -971,6 +987,9 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
 
     //Adding to a vector as we share context through shared pointers and we dont want to
     //call delete untill we are done with whole graph
+    auto patch_info = HabanaKernel->getAppendedTensorInfo();
+    for(size_t i = 0 ; i < patch_info.size(); i++)
+        appended_tensors_info.emplace_back(patch_info[i]);
     habana_kernels.push_back(HabanaKernel);
   }
 
@@ -1068,12 +1087,21 @@ void HabanaLaunchOpPT::LaunchRecipe(RecipeValueSpec &rv) {
   std::vector<synLaunchTensorInfo> syn_launch_info;
 
   // Populate the <name,buffer> pairs from TensorInfo for synLaunch
-  syn_launch_info.reserve(rv.num_tensors);
   for (size_t i = 0; i < rv.num_tensors; ++i)
     syn_launch_info.emplace_back(
         synLaunchTensorInfo{
             rv.dtensorinfos->at(i).syn_name.c_str(),
             reinterpret_cast<uint64_t>(rv.dtensorinfos->at(i).buffer)});
+
+  //Append additional tensor info
+  //TODO:remember this in caching
+  for(size_t j = 0; j < appended_tensors_info.size(); j++)
+  {
+    synLaunchTensorInfo temp;
+    temp.tensorName = appended_tensors_info[j].first.c_str();
+    temp.pTensorAddress = reinterpret_cast<uint64_t>(appended_tensors_info[j].second);
+    syn_launch_info.push_back(temp);
+  }
 
   auto & device = synapse_helpers::HPURegistrar::get_device();
 

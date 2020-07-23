@@ -204,7 +204,29 @@ void ToDtypeOperator::AllocateAndAddSynapseNode(
   p_context_->pt_outputs_.emplace_back(std::move(Op.GetOutputs()[0]));
 }
 
+/*************************************************************************
+ * @brief Kernel implementation for memcpy, used for D2D mem transfers
+ * @param self - input which needs to be transferred
+ * @param dest - Destination tensor
+ ************************************************************************/
+void MemCopyOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 2,
+      "Incorrect size of input arguments for Reshape Operator");
+  auto self = inputs[0].toTensor();
+  auto output = inputs[1].toTensor();
+  p_context_->params_size_ = 0;
+  AllocateSynapseOutput(graph, output, is_output_persistent);
+  AddNodeToSynapseGraph(graph, NULL, 0);
+}
+
 static auto& KernelRegistry = ::habana::KernelRegistry()
+    .add("hababna_d2d_memcpy",
+    [](const int device_id, c10::ScalarType node_type) {
+      return std::make_shared<MemCopyOperator>(device_id, node_type);})
     .add("aten::to",
     [](const int device_id, c10::ScalarType node_type) {
       return std::make_shared<ToDtypeOperator>(device_id, node_type);});

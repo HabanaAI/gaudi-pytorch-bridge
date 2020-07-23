@@ -26,3 +26,18 @@ class ToDtypeOperator : public habana::HabanaOperator {
 
   // virtual void SetPTOutput(torch::jit::Stack& inputs) override;
 };
+
+//
+// Reshape Operator
+class MemCopyOperator : public habana::HabanaOperator {
+ public:
+  MemCopyOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator("memcpy") {
+    this->CreateSynContext(device_id);
+  }
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+};
+

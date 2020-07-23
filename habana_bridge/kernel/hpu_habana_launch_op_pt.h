@@ -201,6 +201,11 @@ class HabanaLaunchOpPT {
   size_t                              ref_count_ = 0;
   bool                                debug_;
 
+  //Temp additions to enable BatchNorm..tensors created that are not in graph
+  //We get this to enable correct patching
+  //Right now our patching is tightly coupled to graph nodes
+  //BN is exception case, we can review our patching design for this
+  std::vector<std::pair<std::string, void*>> appended_tensors_info;
   // We keep a vector of kernels so that the context memory
   //   for each kernel is retained till graph execution
   // This is done to enable reuse of PT and synapse tensors and their processing

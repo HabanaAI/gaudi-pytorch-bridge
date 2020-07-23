@@ -129,6 +129,11 @@ void habana::HabanaOperator::AllocateSynapseOutput(
   p_context_->pt_outputs_.emplace_back(output);
 }
 
+std::vector<std::pair<std::string, void*>> habana::HabanaOperator::getAppendedTensorInfo()
+{
+  return appended_tensor_info;
+}
+
 void habana::HabanaOperator::AllocateSynapseInplaceOutput(
     synapse_helpers::graph& graph) {
   p_context_->syn_outputs_.emplace_back(
@@ -156,6 +161,15 @@ synapse_helpers::tensor_or_ref& habana::HabanaOperator::SetSynapseInput(
   // no need to convert to synapse tensor
   p_context_->syn_inputs_.emplace_back(std::move(tensor));
   return p_context_->syn_inputs_.back();
+}
+
+synapse_helpers::tensor_or_ref& habana::HabanaOperator::SetSynapseOutput(
+    synapse_helpers::tensor_or_ref&& tensor) {
+  //
+  // The tensor already exists and hence we just add this to the context
+  // no need to convert to synapse tensor
+  p_context_->syn_outputs_.emplace_back(std::move(tensor));
+  return p_context_->syn_outputs_.back();
 }
 
 void habana::HabanaOperator::AddNodeToSynapseGraph(
