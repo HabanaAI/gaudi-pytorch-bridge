@@ -839,6 +839,11 @@ Tensor norm_scalar_hpu(const Tensor& self, Scalar p) {
   return out.at(0);
 }
 
+static auto& KernelRegistry = ::habana::KernelRegistry()
+    .add("aten::norm.scalar",
+    [](const int device_id, c10::ScalarType node_type) {
+      return std::make_shared<NormOperator>(device_id, node_type);});
+
 static auto registry =
     torch::RegisterOperators()
         .op(torch::RegisterOperators::options()

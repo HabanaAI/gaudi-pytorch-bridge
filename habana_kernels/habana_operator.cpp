@@ -181,4 +181,9 @@ void habana::HabanaOperator::AddNodeToSynapseGraph(
       std::move(guid_));
 }
 
+habana::RegisterKernel& habana::KernelRegistry() {
+  static habana::RegisterKernel* Registry = new habana::RegisterKernel();
+  return *Registry;
+}
+
 habana::HabanaOperator::~HabanaOperator() = default;

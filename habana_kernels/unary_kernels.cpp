@@ -726,6 +726,35 @@ Tensor neg_hpu(const Tensor& self) {
   return out;
 }
 
+static auto& KernelRegistry = ::habana::KernelRegistry()
+    .add("aten::relu",
+    [](const int device_id, c10::ScalarType node_type) {
+      return std::make_shared<ReluOperator>(device_id, node_type);})
+    .add("aten::sigmoid",
+    [](const int device_id, c10::ScalarType node_type) {
+      return std::make_shared<SigmoidOperator>(device_id, node_type);})
+    .add("aten::sigmoid_backward",
+    [](const int device_id, c10::ScalarType node_type) {
+      return std::make_shared<SigmoidBackwardOperator>(device_id, node_type);})
+    .add("aten::abs",
+    [](const int device_id, c10::ScalarType node_type) {
+      return std::make_shared<AbsOperator>(device_id, node_type);})
+    .add("aten::tanh",
+    [](const int device_id, c10::ScalarType node_type) {
+      return std::make_shared<TanhOperator>(device_id, node_type);})
+    .add("aten::tanh_backward",
+    [](const int device_id, c10::ScalarType node_type) {
+      return std::make_shared<TanhBackwardOperator>(device_id, node_type);})
+    .add("aten::sqrt",
+    [](const int device_id, c10::ScalarType node_type) {
+      return std::make_shared<SqrtOperator>(device_id, node_type);})
+    .add("aten::neg",
+    [](const int device_id, c10::ScalarType node_type) {
+      return std::make_shared<NegOperator>(device_id, node_type);})
+    .add("aten::reciprocal",
+    [](const int device_id, c10::ScalarType node_type) {
+      return std::make_shared<ReciprocalOperator>(device_id, node_type);});
+
 static auto registry =
     torch::RegisterOperators()
         .op(torch::RegisterOperators::options()

@@ -535,7 +535,7 @@ at::Tensor HabanaLaunchOpPT::permuteTensor(
 
   auto& device = synapse_helpers::HPURegistrar::get_device();
   synDeviceId device_id = device.id();
-  HabanaOperatorPtr permute_kernel = habana::CreateHabanaOperator(
+  HabanaOperatorPtr permute_kernel = habana::KernelRegistry().get(
       device_id, "aten::permute", input.scalar_type());
   TORCH_CHECK(
       permute_kernel != nullptr,
@@ -939,7 +939,7 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
       continue;
     }
     // Get kernel context
-    habana::HabanaOperatorPtr HabanaKernel = habana::CreateHabanaOperator(
+    habana::HabanaOperatorPtr HabanaKernel = habana::KernelRegistry().get(
         device_id, node->kind().toQualString(), getNodeScalarType(node));
 
     TORCH_CHECK(HabanaKernel != nullptr,

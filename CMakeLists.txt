@@ -68,7 +68,6 @@ add_library(habana_pytorch_plugin SHARED
   habana_kernels/threshold_kernels.cpp
   habana_kernels/topk_kernels.cpp
   habana_kernels/unary_kernels.cpp
-  habana_kernels/create_habana_operator.cpp
 )
 target_compile_features(habana_pytorch_plugin PRIVATE cxx_std_14)
 target_compile_definitions(habana_pytorch_plugin PRIVATE "GENERIC_HELPERS" MAX_DEVICES_PER_BOX=8)

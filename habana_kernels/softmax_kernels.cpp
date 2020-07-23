@@ -348,6 +348,14 @@ Tensor softmax_backward_hpu(
   return input_grad;
 }
 
+static auto& KernelRegistry = habana::KernelRegistry()
+    .add("aten::log_softmax",
+    [](const int device_id, c10::ScalarType node_type) {
+      return std::make_shared<habana::LogSoftmaxOperator>(device_id, node_type);})
+    .add("aten::_log_softmax_backward_data",
+    [](const int device_id, c10::ScalarType node_type) {
+      return std::make_shared<habana::LogSoftmaxBackwardOperator>(device_id, node_type);});
+
 static auto registry =
     torch::RegisterOperators()
         .op(torch::RegisterOperators::options()

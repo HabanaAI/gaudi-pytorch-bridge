@@ -1229,6 +1229,14 @@ Tensor avg_pool2d_backward_hpu(
   return grad_input;
 }
 
+static auto& KernelRegistry = habana::KernelRegistry()
+    .add("aten::max_pool2d_with_indices",
+    [](const int device_id, c10::ScalarType node_type) {
+      return std::make_shared<MaxPool2dWithIndicesOperator>(device_id, node_type);})
+    .add("aten::max_pool2d",
+    [](const int device_id, c10::ScalarType node_type) {
+      return std::make_shared<MaxPool2dOperator>(device_id, node_type);});
+
 static auto registry =
     torch::RegisterOperators()
         .op(torch::RegisterOperators::options()

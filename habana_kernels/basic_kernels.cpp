@@ -204,6 +204,11 @@ void ToDtypeOperator::AllocateAndAddSynapseNode(
   p_context_->pt_outputs_.emplace_back(std::move(Op.GetOutputs()[0]));
 }
 
+static auto& KernelRegistry = ::habana::KernelRegistry()
+    .add("aten::to",
+    [](const int device_id, c10::ScalarType node_type) {
+      return std::make_shared<ToDtypeOperator>(device_id, node_type);});
+
 static auto registry =
     torch::RegisterOperators()
         .op(torch::RegisterOperators::options()

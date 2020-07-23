@@ -731,6 +731,14 @@ std::tuple<Tensor, Tensor, Tensor> convolution_backward_hpu(
   return std::tuple<Tensor, Tensor, Tensor>(grad_input, grad_weight, grad_bias);
 }
 
+static auto& KernelRegistry = habana::KernelRegistry()
+    .add("aten::convolution_overrideable",
+    [](const int device_id, c10::ScalarType node_type) {
+      return std::make_shared<ConvOperator>(device_id, node_type);})
+    .add("aten::conv2d",
+    [](const int device_id, c10::ScalarType node_type) {
+      return std::make_shared<Conv2dOperator>(device_id, node_type);});
+
 static auto registry =
     torch::RegisterOperators()
         .op(torch::RegisterOperators::options()

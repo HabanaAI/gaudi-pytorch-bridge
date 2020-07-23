@@ -521,6 +521,17 @@ Tensor mv_hpu(const Tensor& self, const Tensor& other) {
   return output;
 }
 
+static auto& KernelRegistry = habana::KernelRegistry()
+    .add("aten::mm",
+    [](const int device_id, c10::ScalarType node_type) {
+      return std::make_shared<habana::MMOperator>(device_id);})
+    .add("aten::addmm",
+    [](const int device_id, c10::ScalarType node_type) {
+      return std::make_shared<habana::AddmmOperator>(device_id, node_type);})
+    .add("aten::bmm",
+    [](const int device_id, c10::ScalarType node_type) {
+      return std::make_shared<habana::BmmOperator>(device_id, node_type);});
+
 static auto registry =
     torch::RegisterOperators()
         .op(torch::RegisterOperators::options()

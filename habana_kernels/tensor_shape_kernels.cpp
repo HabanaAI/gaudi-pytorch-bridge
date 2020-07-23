@@ -849,6 +849,20 @@ Tensor expand_hpu(const Tensor& self, IntArrayRef size, bool implicit) {
   return out.at(0);
 }
 
+static auto& KernelRegistry = ::habana::KernelRegistry()
+    .add("aten::permute",
+    [](const int device_id, c10::ScalarType node_type) {
+      return std::make_shared<PermuteOperator>(device_id, node_type);})
+    .add("aten::t",
+    [](const int device_id, c10::ScalarType node_type) {
+      return std::make_shared<TOperator>(device_id, node_type);})
+    .add("aten::reshape",
+    [](const int device_id, c10::ScalarType node_type) {
+      return std::make_shared<ReshapeOperator>(device_id, node_type);})
+    .add("aten::flatten",
+    [](const int device_id, c10::ScalarType node_type) {
+      return std::make_shared<FlattenOperator>(device_id, node_type);});
+
 static auto registry =
     torch::RegisterOperators()
         .op(torch::RegisterOperators::options()

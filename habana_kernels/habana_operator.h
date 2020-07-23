@@ -21,6 +21,7 @@
 
 #include <absl/types/any.h>
 
+#include <functional>
 #include <iostream>
 #include <memory>
 
@@ -171,10 +172,37 @@ class HabanaOperator {
 };
 
 using HabanaOperatorPtr = std::shared_ptr<HabanaOperator>;
+using RegisterFunc =
+    std::function<HabanaOperatorPtr(const int, c10::ScalarType)>;
 
-HabanaOperatorPtr CreateHabanaOperator(
-    const int device_id,
-    const std::string& node_name,
-    c10::ScalarType node_type);
+class RegisterKernel {
+ public:
+  RegisterKernel& add(const std::string& node_name, RegisterFunc func) {
+    TORCH_CHECK(
+        !kernels_.count(node_name),
+        "Kernel ",
+        node_name,
+        " is already registered");
+    kernels_.emplace(node_name, func);
+    return *this;
+  }
+
+  HabanaOperatorPtr get(
+      const int device_id,
+      const std::string& node_name,
+      c10::ScalarType node_type) {
+    TORCH_CHECK(
+        kernels_.count(node_name), "Kernel ", node_name, " is not registered");
+    return kernels_[node_name](device_id, node_type);
+  }
+
+  RegisterKernel() = default;
+  RegisterKernel(const RegisterKernel&) = delete;
+  RegisterKernel& operator=(const RegisterKernel&) = delete;
+ private:
+  std::map<const std::string, RegisterFunc> kernels_;
+};
+
+RegisterKernel& KernelRegistry();
 
 }; // namespace habana

@@ -966,6 +966,20 @@ Tensor pow_scalar_tensor_hpu(Scalar other, const Tensor& self) {
   return out;
 }
 
+static auto& KernelRegistry = habana::KernelRegistry()
+    .add("aten::add",
+    [](const int device_id, c10::ScalarType node_type) {
+      return std::make_shared<habana::AddOperator>(device_id, node_type);})
+    .add("aten::sub",
+    [](const int device_id, c10::ScalarType node_type) {
+      return std::make_shared<habana::SubOperator>(device_id, node_type);})
+    .add("aten::mul",
+    [](const int device_id, c10::ScalarType node_type) {
+      return std::make_shared<habana::MulOperator>(device_id, node_type);})
+    .add("aten::div",
+    [](const int device_id, c10::ScalarType node_type) {
+      return std::make_shared<habana::DivOperator>(device_id, node_type);});
+
 static auto registry =
     torch::RegisterOperators()
         .op(torch::RegisterOperators::options()

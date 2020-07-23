@@ -470,6 +470,11 @@ Tensor embedding_bag_sum_hpu(
   return out.at(0);
 }
 
+static auto& KernelRegistry = habana::KernelRegistry()
+    .add("aten::pad",
+    [](const int device_id, c10::ScalarType node_type) {
+      return std::make_shared<PadOperator>(device_id, node_type);});
+
 static auto registry =
     torch::RegisterOperators()
         .op(torch::RegisterOperators::options()

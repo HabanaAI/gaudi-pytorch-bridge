@@ -349,6 +349,17 @@ Tensor& bernoulli_scalar_hpu(
   return self;
 }
 
+static auto& KernelRegistry = habana::KernelRegistry()
+    .add("aten::uniform_",
+    [](const int device_id, c10::ScalarType node_type) {
+      return std::make_shared<UniformOperator>(device_id, node_type);})
+    .add("aten::normal_",
+    [](const int device_id, c10::ScalarType node_type) {
+      return std::make_shared<NormalOperator>(device_id, node_type);})
+    .add("aten::bernoulli",
+    [](const int device_id, c10::ScalarType node_type) {
+      return std::make_shared<BernoulliOperator>(device_id, node_type);});
+
 static auto registry =
     torch::RegisterOperators()
         .op(torch::RegisterOperators::options()
