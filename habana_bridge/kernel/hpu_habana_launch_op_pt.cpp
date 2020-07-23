@@ -493,7 +493,7 @@ at::IntArrayRef getDimsForLayout(habana::LayoutFormat channel_order, habana::Lay
     } else if(channel_order == habana::LayoutFormat::HWCK) {
       dims = {2, 3, 1, 0};
     } else {
-      TORCH_CHECK(" Habana Fusion op permute called for unsupported channel order");
+      TORCH_CHECK(0, " Habana Fusion op permute called for unsupported channel order");
     }
   }
   else if(current_order == habana::LayoutFormat::NHWC)
@@ -503,12 +503,21 @@ at::IntArrayRef getDimsForLayout(habana::LayoutFormat channel_order, habana::Lay
     } else if(channel_order == habana::LayoutFormat::HWCK) {
       dims = {1, 2, 3, 0};
     } else {
-      TORCH_CHECK(" Habana Fusion op permute called for unsupported channel order");
+      TORCH_CHECK(0, " Habana Fusion op permute called for unsupported channel order");
+    }
+  }
+  else if (current_order == habana::LayoutFormat::HWCK) {
+    if(channel_order == habana::LayoutFormat::NCHW) {
+      dims = {3, 2, 0, 1};
+    } else if(channel_order == habana::LayoutFormat::NHWC) {
+      dims = {3, 0, 1, 2};
+    } else {
+      TORCH_CHECK(0, " Habana Fusion op permute called for unsupported channel order");
     }
   }
   else
   {
-    TORCH_CHECK(" Habana Fusion op permute called for unsupported channel order");
+    TORCH_CHECK(0, " Habana Fusion op permute called for unsupported channel order");
   }
 
 
