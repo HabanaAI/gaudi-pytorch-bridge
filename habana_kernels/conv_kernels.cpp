@@ -442,13 +442,14 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
   Tensor grad_bias =
       at::empty({grad_out_nhwc.size(3)}, grad_out_nhwc.options());
 
+  // Add "dedw" node followed by "dedx" node. Adding in reverse order causes a
+  // simulator crash (TBD: investigate later if required)
+
+  // Create the operator
+  std::string node_type = "dedw";
+  ConvWeightDifferentiationOperator ConvWeightDiffOp(
+      this->p_context_->device_id_, node_type);
   if (output_mask_in[1]) {
-    std::string node_type = "dedw";
-
-    // Create the operator
-    ConvWeightDifferentiationOperator ConvWeightDiffOp(
-        this->p_context_->device_id_, node_type);
-
     // Assign Inputs to the Operator
     auto& grad_out_nhwc_syn =
         ConvWeightDiffOp.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
@@ -468,26 +469,15 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
     ConvWeightDiffOp.AllocateAndAddSynapseNode(
         graph, stack, is_output_persistent);
 
-    synapse_helpers::tensor& grad_weight_syn_tensor =
-        ConvWeightDiffOp.GetSynOutputs()[0];
-
     p_context_->syn_inputs_[0] = std::move(grad_out_nhwc_syn);
     p_context_->syn_inputs_[1] = std::move(input_nhwc_syn);
-
-    p_context_->syn_outputs_.emplace_back(std::move(grad_weight_syn_tensor));
-    p_context_->pt_outputs_.emplace_back(std::move(grad_weight));
-
-  } else {
-    AllocateSynapseOutput(graph, grad_weight, is_output_persistent);
   }
 
+  // Create the operator
+  node_type = "dedx";
+  ConvInputDifferentiationOperator ConvInputDiffOp(
+      this->p_context_->device_id_, node_type);
   if (output_mask_in[0]) {
-    std::string node_type = "dedx";
-
-    // Create the operator
-    ConvInputDifferentiationOperator ConvInputDiffOp(
-        this->p_context_->device_id_, node_type);
-
     // Assign Inputs to the Operator
     auto& grad_out_nhwc_syn =
         ConvInputDiffOp.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
@@ -507,15 +497,41 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
     ConvInputDiffOp.AllocateAndAddSynapseNode(
         graph, stack, is_output_persistent);
 
-    synapse_helpers::tensor& grad_in_nhwc_syn_tensor =
-        ConvInputDiffOp.GetSynOutputs()[0];
     p_context_->syn_inputs_[0] = std::move(grad_out_nhwc_syn);
     p_context_->syn_inputs_[2] = std::move(weight_hwck_syn);
+  }
 
+  // Although we have "dedw" node first in the graph followed by "dedw", when
+  // pushing outputs we want to maintain correct order
+  if (output_mask_in[0]) {
+    synapse_helpers::tensor& grad_in_nhwc_syn_tensor =
+        ConvInputDiffOp.GetSynOutputs()[0];
     p_context_->syn_outputs_.emplace_back(std::move(grad_in_nhwc_syn_tensor));
-    p_context_->pt_outputs_.emplace_back(std::move(grad_input_nhwc));
+    p_context_->pt_outputs_.emplace_back(
+        std::move(ConvInputDiffOp.GetOutputs()[0]));
   } else {
-    AllocateSynapseOutput(graph, grad_input_nhwc, is_output_persistent);
+    p_context_->syn_outputs_.emplace_back(habana_helpers::create_tensor(
+        grad_input_nhwc,
+        graph.get_graph_handle(),
+        is_output_persistent,
+        c10::nullopt));
+    p_context_->pt_outputs_.emplace_back(grad_input_nhwc);
+  }
+
+  if (output_mask_in[1]) {
+    synapse_helpers::tensor& grad_weight_syn_tensor =
+        ConvWeightDiffOp.GetSynOutputs()[0];
+
+    p_context_->syn_outputs_.emplace_back(std::move(grad_weight_syn_tensor));
+    p_context_->pt_outputs_.emplace_back(
+        std::move(ConvWeightDiffOp.GetOutputs()[0]));
+  } else {
+    p_context_->syn_outputs_.emplace_back(habana_helpers::create_tensor(
+        grad_weight,
+        graph.get_graph_handle(),
+        is_output_persistent,
+        c10::nullopt));
+    p_context_->pt_outputs_.emplace_back(grad_weight);
   }
 
   if (output_mask_in[2]) {
@@ -549,10 +565,15 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
     p_context_->syn_inputs_[0] = std::move(grad_out_nhwc_syn);
 
     p_context_->syn_outputs_.emplace_back(std::move(bias_syn_tensor));
-    p_context_->pt_outputs_.emplace_back(std::move(grad_bias));
+    p_context_->pt_outputs_.emplace_back(std::move(SumOp.GetOutputs()[0]));
 
   } else {
-    AllocateSynapseOutput(graph, grad_bias, is_output_persistent);
+    p_context_->syn_outputs_.emplace_back(habana_helpers::create_tensor(
+        grad_bias,
+        graph.get_graph_handle(),
+        is_output_persistent,
+        c10::nullopt));
+    p_context_->pt_outputs_.emplace_back(grad_bias);
   }
 }
 
@@ -578,8 +599,8 @@ void ConvBackwardOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   auto grad_bias = at::empty(
       {grad_out_nhwc.size(3)}, grad_out_nhwc.options(), memory_format);
 
-  HabanaOperator::SetPTOutput(grad_weight);
   HabanaOperator::SetPTOutput(grad_input_nhwc);
+  HabanaOperator::SetPTOutput(grad_weight);
   HabanaOperator::SetPTOutput(grad_bias);
 }
 
@@ -650,7 +671,7 @@ std::tuple<Tensor, Tensor, Tensor> convolution_backward_hpu(
     size_t device_id = grad_out_nhwc.device().index();
     auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
 
-    ConvBackwardOperator convBwdOp(device_id, node_type);
+    ConvBackwardOperator convBwdOp(device_id, input_nhwc.scalar_type());
 
     // Build Params for the graph
     std::vector<c10::IValue> stack = {
@@ -692,20 +713,9 @@ std::tuple<Tensor, Tensor, Tensor> convolution_backward_hpu(
 
   std::vector<at::Tensor> conv_out = convolution_backward();
 
-  auto grad_weight_hwck = conv_out.at(0);
-  auto grad_input_nhwc = conv_out.at(1);
+  auto grad_input_nhwc = conv_out.at(0);
+  auto grad_weight_hwck = conv_out.at(1);
   grad_bias = conv_out.at(2);
-
-  if (output_mask[1]) {
-    Tensor grad_w;
-    pt_in = {&grad_weight_hwck};
-    pt_out = {&grad_w};
-    IntArrayRef new_dim_pos_out = {3, 2, 0, 1};
-    std::vector<const IntArrayRef*> pt_new_pos = {&new_dim_pos_out};
-    habana_helpers::change_tensors_to_memory_format(
-        pt_out, pt_in, pt_new_pos, memory_format);
-    grad_weight = grad_w;
-  }
 
   if (output_mask[0]) {
     Tensor grad_in;
@@ -716,6 +726,17 @@ std::tuple<Tensor, Tensor, Tensor> convolution_backward_hpu(
     habana_helpers::change_tensors_to_memory_format(
         pt_out, pt_in, pt_new_pos, memory_format);
     grad_input = grad_in;
+  }
+
+  if (output_mask[1]) {
+    Tensor grad_w;
+    pt_in = {&grad_weight_hwck};
+    pt_out = {&grad_w};
+    IntArrayRef new_dim_pos_out = {3, 2, 0, 1};
+    std::vector<const IntArrayRef*> pt_new_pos = {&new_dim_pos_out};
+    habana_helpers::change_tensors_to_memory_format(
+        pt_out, pt_in, pt_new_pos, memory_format);
+    grad_weight = grad_w;
   }
 
   if (output_mask[2]) {
@@ -731,13 +752,24 @@ std::tuple<Tensor, Tensor, Tensor> convolution_backward_hpu(
   return std::tuple<Tensor, Tensor, Tensor>(grad_input, grad_weight, grad_bias);
 }
 
-static auto& KernelRegistry = habana::KernelRegistry()
-    .add("aten::convolution_overrideable",
-    [](const int device_id, c10::ScalarType node_type) {
-      return std::make_shared<ConvOperator>(device_id, node_type);})
-    .add("aten::conv2d",
-    [](const int device_id, c10::ScalarType node_type) {
-      return std::make_shared<Conv2dOperator>(device_id, node_type);});
+static auto& KernelRegistry =
+    habana::KernelRegistry()
+        .add(
+            "aten::convolution_overrideable",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<ConvOperator>(device_id, node_type);
+            })
+        .add(
+            "aten::conv2d",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<Conv2dOperator>(device_id, node_type);
+            })
+        .add(
+            "aten::convolution_backward_overrideable",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<ConvBackwardOperator>(
+                  device_id, node_type);
+            });
 
 static auto registry =
     torch::RegisterOperators()

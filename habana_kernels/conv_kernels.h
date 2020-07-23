@@ -48,8 +48,8 @@ class Conv2dOperator : public ConvOperator {
 
 class ConvBackwardOperator : public HabanaOperator {
  public:
-  ConvBackwardOperator(int device_id, const std::string& guid)
-      : HabanaOperator(guid) {
+  ConvBackwardOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator("convolution_bwd") {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign({LayoutFormat::NHWC,
                                            LayoutFormat::NHWC,

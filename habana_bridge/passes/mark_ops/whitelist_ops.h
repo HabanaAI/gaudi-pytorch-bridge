@@ -24,7 +24,7 @@ class HabanaWhiteList {
 
 const std::unordered_set<std::string> HabanaWhiteList::HabanaWhiteListOps = {
     "aten::abs",
-    "aten::add",
+    //"aten::add",
     "aten::addmm",
     // "aten::as_strided",
     "aten::avg_pool2d",
@@ -34,7 +34,7 @@ const std::unordered_set<std::string> HabanaWhiteList::HabanaWhiteListOps = {
     // "aten::clone",
     // "aten::copy_",
     "aten::convolution_overrideable",
-    // "aten::convolution_backward_overrideable",
+    "aten::convolution_backward_overrideable",
     "aten::div",
     // "aten::div_",
     // "aten::div.Scalar",
