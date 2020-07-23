@@ -79,7 +79,8 @@ target_include_directories(habana_pytorch_plugin PRIVATE ${CMAKE_SOURCE_DIR})
 
 set(SOURCES habana_bridge/register/register.cpp
                 habana_bridge/passes/habana_fuser.cpp
-		habana_bridge/kernel/hpu_habana_launch_op_pt.cpp)
+		habana_bridge/kernel/hpu_habana_launch_op_pt.cpp
+    habana_bridge/passes/remove_inplace_ops.cpp)
 pybind11_add_module(hb_torch SHARED ${SOURCES})
 target_compile_definitions(hb_torch PRIVATE "GENERIC_HELPERS" MAX_DEVICES_PER_BOX=8)
 target_compile_options(hb_torch PRIVATE -Wall -Wextra -Werror -Wno-error=deprecated-declarations)

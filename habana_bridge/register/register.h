@@ -16,6 +16,7 @@
 #include <torch/csrc/jit/runtime/custom_operator.h>
 #include <torch/csrc/jit/runtime/operator_options.h>
 #include "habana_bridge/passes/habana_fuser.h"
+#include "habana_bridge/passes/remove_inplace_ops.h"
 
 #include "habana_helpers/logging.h"
 
@@ -23,6 +24,12 @@
 
 namespace habana {
 namespace {
+
+struct hb_torch_opts {
+  bool fusion_enabled = false;
+  bool remove_inplace_ops = false;
+};
+
 void registerHabanaLaunchOp() {
   PT_BRIDGE_BEGIN;
   torch::jit::RegisterOperators op({torch::jit::Operator(
@@ -40,20 +47,39 @@ void registerHabanaLaunchOp() {
   PT_BRIDGE_END;
 }
 
-void torch_habana_enable(std::function<bool()> enableHabanaCompile) {
+void torch_habana_register_pre_diff_pass(
+    std::function<hb_torch_opts()> get_options) {
   PT_BRIDGE_BEGIN;
-  registerHabanaLaunchOp();
-  torch::jit::RegisterPass pass(
-      [enableHabanaCompile = std::move(enableHabanaCompile)](
-          std::shared_ptr<torch::jit::Graph>& g) {
-        if (enableHabanaCompile()) {
+  torch::jit::RegisterPreDiffPass preDiffPass(
+      [getOptions =
+           std::move(get_options)](std::shared_ptr<torch::jit::Graph>& g) {
+        auto opts = getOptions();
+        if (opts.remove_inplace_ops) {
           PT_BRIDGE_BEGIN;
-          torch::jit::HabanaFuseGraph(g);
+          ::habana::RemoveInplaceOps(g);
           PT_BRIDGE_END;
-          PT_BRIDGE_DEBUG("Habana Post Fusion Graph: ");
+          PT_BRIDGE_DEBUG("Habana Post Remove Inplace Pass Graph: ");
           PT_BRIDGE_DEBUG(g->toString());
         }
       });
+  PT_BRIDGE_END;
+}
+
+void torch_habana_register_fusion_pass(
+    std::function<hb_torch_opts()> get_options) {
+  PT_BRIDGE_BEGIN;
+  registerHabanaLaunchOp();
+  torch::jit::RegisterPass pass([getOptions = std::move(get_options)](
+                                    std::shared_ptr<torch::jit::Graph>& g) {
+    auto opts = getOptions();
+    if (opts.fusion_enabled) {
+      PT_BRIDGE_BEGIN;
+      torch::jit::HabanaFuseGraph(g);
+      PT_BRIDGE_END;
+      PT_BRIDGE_DEBUG("Habana Post Fusion Graph: ");
+      PT_BRIDGE_DEBUG(g->toString());
+    }
+  });
   PT_BRIDGE_END;
 }
 

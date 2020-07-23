@@ -16,6 +16,7 @@
 #include <torch/csrc/jit/passes/peephole.h>
 #include "habana_bridge/passes/mark_ops/whitelist_ops.h"
 #include "habana_helpers/logging.h"
+#include "remove_inplace_ops.h"
 
 namespace torch {
 namespace jit {
@@ -54,11 +55,11 @@ struct HabanaGraphFuser {
       return false;
     }
 
-    //Since we do consumer checks, there is a possibility that
-    //consumer may be a FusedOp, in that case, must return true
-    //to increase the size of encapsulation
+    // Since we do consumer checks, there is a possibility that
+    // consumer may be a FusedOp, in that case, must return true
+    // to increase the size of encapsulation
 
-    if (node->kind() == kind_){
+    if (node->kind() == kind_) {
       return true;
     }
 
