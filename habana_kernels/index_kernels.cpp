@@ -255,7 +255,8 @@ void Gather2dOperator::AllocateAndAddSynapseNode(
   auto shape = DimVector(input.sizes());
   shape.erase(shape.begin() + 0);
   shape.insert(shape.begin() + 0, std::min(indices.numel(), validCount));
-  auto output = at::empty(shape, input.options(), input.suggest_memory_format());
+  auto output =
+      at::empty(shape, input.options(), input.suggest_memory_format());
 
   AllocateSynapseOutput(graph, output, is_output_persistent);
   AddNodeToSynapseGraph(graph, nullptr, 0);
@@ -316,6 +317,147 @@ Tensor gather2d_hpu(
   return out.at(0);
 }
 
+Tensor SliceOperator::AllocateOutputTensor(
+    const Tensor& self,
+    int64_t& dim,
+    int64_t& start,
+    int64_t& end,
+    int64_t& step) {
+  // convert dim to positive value if required
+  dim = at::maybe_wrap_dim(dim, self.dim(), /*wrap_scalar=*/true);
+  auto sizes = self.sizes().vec();
+  if (start < 0) {
+    start += sizes[dim];
+  }
+  if (end < 0) {
+    end += sizes[dim];
+  }
+  if (start < 0) {
+    start = 0;
+  } else if (start >= sizes[dim]) {
+    start = sizes[dim];
+  }
+  if (end < start) {
+    end = start;
+  } else if (end >= sizes[dim]) {
+    end = sizes[dim];
+  }
+
+  // compute output shape
+  auto len = 0;
+  for (auto i = start; i < end; i += step) {
+    len++;
+  }
+  auto shape = DimVector(self.sizes());
+  shape.erase(shape.begin() + dim);
+  shape.insert(shape.begin() + dim, len);
+  // allocate output tensor
+  auto output = at::empty(shape, self.options(), self.suggest_memory_format());
+
+  return output;
+}
+
+void SliceOperator::SetPTOutputs(const torch::jit::Stack& inputs) {
+  auto self = inputs[0].toTensor();
+  auto dim = inputs[1].toInt();
+  auto start = inputs[2].toInt();
+  auto end = inputs[3].toInt();
+  auto step = inputs[4].toInt();
+  auto output = AllocateOutputTensor(self, dim, start, end, step);
+  HabanaOperator::SetPTOutputs({output});
+}
+
+void SliceOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 5,
+      "Incorrect size of inputs expected for slice operator");
+  TORCH_CHECK(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
+  TORCH_CHECK(inputs[1].isInt(), "Input arg2 type expected to be integer");
+  TORCH_CHECK(inputs[2].isInt(), "Input arg3 type expected to be integer");
+  TORCH_CHECK(inputs[3].isInt(), "Input arg4 type expected to be integer");
+  TORCH_CHECK(inputs[4].isInt(), "Input arg5 type expected to be integer");
+
+  auto self = inputs[0].toTensor();
+  auto dim = inputs[1].toInt();
+  auto start = inputs[2].toInt();
+  auto end = inputs[3].toInt();
+  auto step = inputs[4].toInt();
+
+  if (dim == self.dim() - 1) {
+    // check required due to GC limitation. Strided slice is possible on FCD
+    // only if there is another dimension with size 1 in the tensor.
+    TORCH_CHECK(step <= 1, "strided slice not supported on FCD");
+  }
+
+  auto output = AllocateOutputTensor(self, dim, start, end, step);
+  std::vector<const at::Tensor*> pt_outputs{&output};
+
+  synSliceParams params;
+  // set defaults
+  std::fill_n(params.axes, MAX_DIMENSIONS_NUM, 0);
+  std::fill_n(params.starts, MAX_DIMENSIONS_NUM, 0);
+  std::fill_n(params.ends, MAX_DIMENSIONS_NUM, 0);
+  std::fill_n(params.steps, MAX_DIMENSIONS_NUM, 1);
+  // slice triggered only on 1 dim, therefore use only index 0
+  params.axes[0] = self.dim() - dim - 1;
+  params.starts[0] = start;
+  params.ends[0] = end;
+  params.steps[0] = step;
+
+  AllocateSynapseOutput(graph, output, is_output_persistent);
+  AddNodeToSynapseGraph(graph, &params, sizeof(params));
+}
+
+/*************************************************************************
+ * @brief Kernel implementation for torch slice operator
+ * @param self - Input tensor
+ * @param dim - Axis to slice
+ * @param start - index of first element in given axis
+ * @param end - index of last element in given axis
+ * @param steps - number of elements to stride in given axis
+ ************************************************************************/
+Tensor slice_hpu(
+    const Tensor& self,
+    int64_t dim,
+    int64_t start,
+    int64_t end,
+    int64_t step) {
+  PT_KERNEL_BEGIN;
+
+  at::ScalarType scalar_type = self.scalar_type();
+  std::string node_type = "slice";
+  size_t device_id = self.device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+
+  SliceOperator Op(device_id, scalar_type);
+  std::vector<const at::Tensor*> pt_inputs{&self};
+  std::vector<c10::IValue> stack = {
+      IValue(self), IValue(dim), IValue(start), IValue(end), IValue(step)};
+
+  size_t key = Op.GetRecipeKey(node_type, stack);
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    Op.SetPTInputs(pt_inputs);
+    Op.SetPTOutputs(stack);
+    Op.Execute(key);
+  } else {
+    PT_KERNEL_DEBUG("key:", key);
+    auto graph = habana_helpers::create_graph(device_id, node_type);
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
+    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    Op.Compile(graph);
+  }
+
+  std::vector<at::Tensor> out = Op.GetOutputs();
+  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
+
+  PT_KERNEL_END;
+  return out.at(0);
+}
+
 static auto registry =
     torch::RegisterOperators()
         .op(torch::RegisterOperators::options()
@@ -352,4 +494,10 @@ static auto registry =
                 .impl_unboxedOnlyKernel<
                     decltype(gather_src_hpu),
                     &gather_src_hpu>(DispatchKey::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema(
+                    "aten::slice.Tensor(Tensor(a) self, int dim=0, int start=0, int end=9223372036854775807, int step=1) -> Tensor(a)")
+                .impl_unboxedOnlyKernel<decltype(slice_hpu), &slice_hpu>(
+                    DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));

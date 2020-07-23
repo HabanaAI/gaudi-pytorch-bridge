@@ -10,6 +10,7 @@
 #pragma once
 #include "habana_kernels/habana_operator.h"
 using namespace habana;
+using namespace torch;
 
 //
 // Gather2d Operator
@@ -27,4 +28,31 @@ class Gather2dOperator : public HabanaOperator {
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
+};
+
+//
+// Slice Operator
+class SliceOperator : public HabanaOperator {
+ public:
+  SliceOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator("slice") {
+    this->CreateSynContext(device_id);
+    kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
+    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
+  }
+
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+
+  void SetPTOutputs(const torch::jit::Stack& inputs);
+
+ private:
+  Tensor AllocateOutputTensor(
+      const Tensor& self,
+      int64_t& dim,
+      int64_t& start,
+      int64_t& end,
+      int64_t& step);
 };
