@@ -21,7 +21,7 @@ using namespace std;
 typedef int T;
 
 
-#define COALESCING_PREPROCESSING_VERBOSE 1
+#define COALESCING_PREPROCESSING_VERBOSE 0
 
 class CoalescingPreprocessingThreadState
 {
@@ -185,5 +185,7 @@ void gaudi_coalescing_preprocessing(
 #endif
   unsigned long long t6 = 600;//__rdtsc();
   //cout << "Post-processing: " << (t6-t5)*1e3/freq<< " ms" << endl;
+#if COALESCING_PREPROCESSING_VERBOSE
   cout << indexesCount << "," << ((t2-t1)+(t4-t3)+(t6-t5))*1e3/freq << "," << (t2-t1)*1e3/freq << "," << (t4-t3)*1e3/freq << "," << (t6-t5)*1e3/freq << endl;
+#endif
 }

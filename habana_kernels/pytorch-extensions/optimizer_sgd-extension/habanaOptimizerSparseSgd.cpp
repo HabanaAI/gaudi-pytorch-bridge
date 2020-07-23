@@ -38,7 +38,6 @@ std::tuple<torch::Tensor, torch::Tensor> optimizer_sparse_sgd_with_valid_count(
     torch::Tensor learning_rate,
     int64_t valid_count){
 
-  std::cout << "Inside New Op :: optimizer_sparse_sgd_with_valid_count " << std::endl;
   return optimizer_sparse_sgd_with_valid_count_hpu(
       gradients,
       weights_in,
@@ -48,7 +47,6 @@ std::tuple<torch::Tensor, torch::Tensor> optimizer_sparse_sgd_with_valid_count(
       valid_count,
       0.0f,
       false);
-  //return at::optimizer_sparse_sgd_with_valid_count(gradients, weights_in, moments_in, indices, learning_rate, valid_count);
 }
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {

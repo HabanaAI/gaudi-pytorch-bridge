@@ -142,7 +142,7 @@ optimizer_sparse_sgd_with_valid_count_cpu(
   float* minp = static_cast<float*>(moments_in.data_ptr());
   Tensor weights_out = at::empty(weights_in.sizes(), weights_in.options(), weights_in.suggest_memory_format());
   Tensor moments_out = at::empty(moments_in.sizes(), moments_in.options(), moments_in.suggest_memory_format());
-  Tensor grad_output = at::empty(gradients.sizes(), gradients.options(), gradients.suggest_memory_format());
+  Tensor grad_output = at::empty(weights_in.sizes(), gradients.options(), gradients.suggest_memory_format());
   weights_out.copy_(weights_in, false);
   moments_out.copy_(moments_in, false);
   grad_output.copy_(weights_in, false);

@@ -32,15 +32,12 @@ preproc(
     torch::Tensor offsets,
     int64_t embeddingTableLen) {
 
-  std::cout << "Inside New Op :: preproc " << std::endl;
   auto out = at::empty(indices.sizes(), indices.options());
   torch::Tensor indices_cpu = indices.to(at::DeviceType::CPU); //check if really needed
   auto numIndices = static_cast<uint32_t>(indices_cpu.numel());
   torch::Tensor offsets_cpu = offsets.to(at::DeviceType::CPU); //check if really needed
   auto numOffsets = static_cast<uint32_t>(offsets_cpu.numel());
-  std::cout << "collected indices #::" << numIndices <<std::endl;
   auto p_indices = indices_cpu.data_ptr<int>();
-  std::cout << "collected offsets #::" << numOffsets <<std::endl;
   auto p_offsets= offsets_cpu.data_ptr<int>();
 
   vector<pair<T,T>> scratch;

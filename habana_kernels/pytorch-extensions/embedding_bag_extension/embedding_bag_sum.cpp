@@ -33,8 +33,7 @@ torch::Tensor embedding_bag_sum_with_valid_count_f32(
     torch::Tensor validCount,
     int64_t kernelMode) {
   torch::Tensor out;
-  std::cout << "Inside New Op :: embedding_bag_sum_with_valid_count_f32"
-            << std::endl;
+
   out = embedding_bag_sum_hpu(input, indices, offsets, validCount, kernelMode);
   return out;
 }
