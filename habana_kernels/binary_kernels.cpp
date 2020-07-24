@@ -266,47 +266,76 @@ void habana::BinaryOperator::AllocateAndAddSynapseNode(
       inputs.size() == 2,
       "Incorrect size of input expected for Binary operator");
   TORCH_CHECK(inputs[0].isTensor(), "Input type expected to be tensor");
-  TORCH_CHECK(inputs[1].isTensor(), "Input type expected to be tensor");
   Tensor arg1 = inputs[0].toTensor();
-  Tensor arg2 = inputs[1].toTensor();
 
-  bool isArg1modified = false, isArg2modified = false;
-  std::vector<synapse_helpers::tensor_or_ref> reshape_syn_output;
-  auto out_dims = arg1.ndimension() > arg2.ndimension() ? arg1.ndimension()
-                                                        : arg2.ndimension();
+  if (inputs[1].isTensor()) {
+    Tensor arg2 = inputs[1].toTensor();
 
-  ReshapeOperator reshapeOp(this->p_context_->device_id_, this->scalarType_);
-  // Make sure that we give tensors that match dims to Synapse
-  if (arg1.ndimension() > arg2.ndimension()) {
-    isArg2modified = true;
-    insert_reshape_op(graph, reshapeOp, arg2, 1, out_dims);
-    reshape_syn_output.push_back(std::move(reshapeOp.GetSynOutputs()[0]));
-  } else if (arg1.ndimension() < arg2.ndimension()) {
-    isArg1modified = true;
-    insert_reshape_op(graph, reshapeOp, arg1, 0, out_dims);
-    reshape_syn_output.push_back(std::move(reshapeOp.GetSynOutputs()[0]));
+    bool isArg1modified = false, isArg2modified = false;
+    std::vector<synapse_helpers::tensor_or_ref> reshape_syn_output;
+    auto out_dims = arg1.ndimension() > arg2.ndimension() ? arg1.ndimension()
+                                                          : arg2.ndimension();
+
+    ReshapeOperator reshapeOp(this->p_context_->device_id_, this->scalarType_);
+    // Make sure that we give tensors that match dims to Synapse
+    if (arg1.ndimension() > arg2.ndimension()) {
+      isArg2modified = true;
+      insert_reshape_op(graph, reshapeOp, arg2, 1, out_dims);
+      reshape_syn_output.push_back(std::move(reshapeOp.GetSynOutputs()[0]));
+    } else if (arg1.ndimension() < arg2.ndimension()) {
+      isArg1modified = true;
+      insert_reshape_op(graph, reshapeOp, arg1, 0, out_dims);
+      reshape_syn_output.push_back(std::move(reshapeOp.GetSynOutputs()[0]));
+    }
+
+    auto operand = get_correct_input_tensor(arg1, arg2);
+    auto output = at::empty(operand.sizes(), operand.options(), operand.suggest_memory_format());
+    AllocateSynapseOutput(graph, output, is_output_persistent);
+    synapse_helpers::tensor& arg1_syn_tensor =
+        isArg1modified ? reshape_syn_output[0] : p_context_->syn_inputs_[0];
+    synapse_helpers::tensor& arg2_syn_tensor =
+        isArg2modified ? reshape_syn_output[0] : p_context_->syn_inputs_[1];
+
+    std::vector<synTensor> syn_inputs{arg1_syn_tensor.get(),
+                                      arg2_syn_tensor.get()};
+
+    synapse_helpers::tensor& output_syn_tensor = p_context_->syn_outputs_[0];
+    std::vector<synTensor> syn_outputs{output_syn_tensor.get()};
+
+    graph.add_node(
+        std::move(syn_inputs),
+        std::move(syn_outputs),
+        nullptr,
+        0,
+        std::move(guid_));
+  } else {
+    TORCH_CHECK(
+        guid_ == "mult_fwd_f32" || guid_ == "mult_fwd_bf16",
+        "Input 2 in BinaryOperator is scalar and op is not mult - this configuration is not currently supported");
+    TORCH_CHECK(
+        inputs[1].toScalar().toFloat() == 1.0,
+        "Input 2 in BinaryOperator is scalar and not equal to 1 - this configuration is not currently supported");
+
+    if (guid_ == "mult_fwd_f32") {
+      guid_ = "memcpy_f32";
+    } else {
+      guid_ = "memcpy_bf16";
+    }
+    auto output = at::empty(arg1.sizes(), arg1.options(), arg1.suggest_memory_format());
+    AllocateSynapseOutput(graph, output, is_output_persistent);
+
+    synapse_helpers::tensor& arg1_syn_tensor = p_context_->syn_inputs_[0];
+    std::vector<synTensor> syn_inputs{arg1_syn_tensor.get()};
+    synapse_helpers::tensor& output_syn_tensor = p_context_->syn_outputs_[0];
+    std::vector<synTensor> syn_outputs{output_syn_tensor.get()};
+
+    graph.add_node(
+        std::move(syn_inputs),
+        std::move(syn_outputs),
+        nullptr,
+        0,
+        std::move(guid_));
   }
-
-  auto operand = get_correct_input_tensor(arg1, arg2);
-  auto output = at::empty(operand.sizes(), operand.options(), operand.suggest_memory_format());
-  AllocateSynapseOutput(graph, output, is_output_persistent);
-  synapse_helpers::tensor& arg1_syn_tensor =
-      isArg1modified ? reshape_syn_output[0] : p_context_->syn_inputs_[0];
-  synapse_helpers::tensor& arg2_syn_tensor =
-      isArg2modified ? reshape_syn_output[0] : p_context_->syn_inputs_[1];
-
-  std::vector<synTensor> syn_inputs{arg1_syn_tensor.get(),
-                                    arg2_syn_tensor.get()};
-
-  synapse_helpers::tensor& output_syn_tensor = p_context_->syn_outputs_[0];
-  std::vector<synTensor> syn_outputs{output_syn_tensor.get()};
-
-  graph.add_node(
-      std::move(syn_inputs),
-      std::move(syn_outputs),
-      nullptr,
-      0,
-      std::move(guid_));
 }
 
 void habana::BinaryOperator::SetPTOutputs(torch::jit::Stack& inputs) {
