@@ -855,7 +855,7 @@ Tensor avg_pool2d_hpu(
                                       IValue(count_include_pad),
                                       IValue(divisor_override)};
     // Create the operator
-    AvgPool2dOperator Op(device_id, node_type);
+    AvgPool2dOperator Op(device_id, scalar_type);
     size_t key = Op.GetRecipeKey(node_type, stack);
 
     if (device.get_recipe_handle_cache().isCached(key)) {
@@ -1051,7 +1051,7 @@ Tensor& avg_pool2d_backward_out_hpu(
                                       IValue(count_include_pad),
                                       IValue(divisor_override)};
     // Create the operator
-    AvgPool2dBackwardOutOperator Op(device_id, node_type);
+    AvgPool2dBackwardOutOperator Op(device_id, scalar_type);
     size_t key = Op.GetRecipeKey(node_type, stack);
 
     if (device.get_recipe_handle_cache().isCached(key)) {
@@ -1184,7 +1184,7 @@ Tensor avg_pool2d_backward_hpu(
                                       IValue(count_include_pad),
                                       IValue(divisor_override)};
     // Create the operator
-    AvgPool2dBackwardOperator Op(device_id, node_type);
+    AvgPool2dBackwardOperator Op(device_id, scalar_type);
     size_t key = Op.GetRecipeKey(node_type, stack);
 
     if (device.get_recipe_handle_cache().isCached(key)) {
@@ -1235,7 +1235,13 @@ static auto& KernelRegistry = habana::KernelRegistry()
       return std::make_shared<MaxPool2dWithIndicesOperator>(device_id, node_type);})
     .add("aten::max_pool2d",
     [](const int device_id, c10::ScalarType node_type) {
-      return std::make_shared<MaxPool2dOperator>(device_id, node_type);});
+      return std::make_shared<MaxPool2dOperator>(device_id, node_type);})
+    .add("aten::avg_pool2d",
+    [](const int device_id, c10::ScalarType node_type) {
+      return std::make_shared<AvgPool2dOperator>(device_id, node_type);})
+    .add("aten::avg_pool2d_backward",
+    [](const int device_id, c10::ScalarType node_type) {
+      return std::make_shared<AvgPool2dBackwardOperator>(device_id, node_type);});
 
 static auto registry =
     torch::RegisterOperators()

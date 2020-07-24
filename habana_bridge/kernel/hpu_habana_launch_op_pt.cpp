@@ -386,10 +386,16 @@ void HabanaLaunchOpPT::GetSynapseInputs(
     const HabanaOperatorPtr &habana_op,
     torch::jit::Node* node) {
   auto node_ins = node->inputs();
+  int input_idx = 0;
   for (const auto value_in : node_ins) {
     if (value_to_ivalue[value_in] && value_to_ivalue[value_in]->isTensor()) {
       auto pt_tensor = value_to_ivalue[value_in]->toTensor();
-
+      // special case for avg pool backward, we only need to set 1 input, since
+      // TPC kernel expects only 1 input
+      if (!strcmp("aten::avg_pool2d_backward", node->kind().toQualString()) && 
+          (input_idx > 0)) {
+        continue;
+      }
       // Find if an input tensor is already mapped
       // NB: It seems Habana doesn't support shared input to
       // different nodes in graph
@@ -423,6 +429,7 @@ void HabanaLaunchOpPT::GetSynapseInputs(
                   value_in));
         }
       }
+      input_idx++;
     }
   }
 }

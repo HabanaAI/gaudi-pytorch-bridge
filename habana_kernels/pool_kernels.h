@@ -73,13 +73,15 @@ class MaxPool2dWithIndicesBackwardOutOperator : public HabanaOperator {
 
 //
 // MaxPool2dWithIndicesBackward Operator
-class MaxPool2dWithIndicesBackwardOperator : public MaxPool2dWithIndicesBackwardOutOperator {
+class MaxPool2dWithIndicesBackwardOperator
+    : public MaxPool2dWithIndicesBackwardOutOperator {
  public:
-  MaxPool2dWithIndicesBackwardOperator(int device_id, c10::ScalarType scalarType)
+  MaxPool2dWithIndicesBackwardOperator(
+      int device_id,
+      c10::ScalarType scalarType)
       : MaxPool2dWithIndicesBackwardOutOperator(device_id, scalarType) {
-    kernel_meta_data_.input_layout.assign({LayoutFormat::NHWC,
-                                           LayoutFormat::NHWC,
-                                           LayoutFormat::NHWC});
+    kernel_meta_data_.input_layout.assign(
+        {LayoutFormat::NHWC, LayoutFormat::NHWC, LayoutFormat::NHWC});
   }
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
@@ -91,7 +93,10 @@ class MaxPool2dWithIndicesBackwardOperator : public MaxPool2dWithIndicesBackward
 
 class AvgPool2dOperator : public HabanaOperator {
  public:
-  AvgPool2dOperator(int device_id, std::string guid) : HabanaOperator(guid) {
+  AvgPool2dOperator(int device_id, c10::ScalarType scalar_type)
+      : HabanaOperator(
+            "avg_pool_2d_fwd_" +
+            habana_helpers::name_suffix_from_type(scalar_type)) {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign({LayoutFormat::NHWC});
     kernel_meta_data_.output_layout.assign({LayoutFormat::NHWC});
@@ -106,8 +111,10 @@ class AvgPool2dOperator : public HabanaOperator {
 
 class AvgPool2dBackwardOutOperator : public HabanaOperator {
  public:
-  AvgPool2dBackwardOutOperator(int device_id, std::string guid)
-      : HabanaOperator(guid) {
+  AvgPool2dBackwardOutOperator(int device_id, c10::ScalarType scalar_type)
+      : HabanaOperator(
+            "avg_pool_2d_bwd_" +
+            habana_helpers::name_suffix_from_type(scalar_type)) {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign(
         {LayoutFormat::NHWC, LayoutFormat::NHWC, LayoutFormat::NHWC});
@@ -122,8 +129,8 @@ class AvgPool2dBackwardOutOperator : public HabanaOperator {
 
 class AvgPool2dBackwardOperator : public AvgPool2dBackwardOutOperator {
  public:
-  AvgPool2dBackwardOperator(int device_id, std::string guid)
-      : AvgPool2dBackwardOutOperator(device_id, guid) {
+  AvgPool2dBackwardOperator(int device_id, c10::ScalarType scalar_type)
+      : AvgPool2dBackwardOutOperator(device_id, scalar_type) {
     kernel_meta_data_.input_layout.assign(
         {LayoutFormat::NHWC, LayoutFormat::NHWC});
   }
