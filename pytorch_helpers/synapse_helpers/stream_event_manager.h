@@ -42,10 +42,9 @@ class stream_event_manager {
   /*! \brief Makes \p stream wait until \p device_address is ready to be used if
    * it wasn't ready already \param device_address tensor pointer in device
    * memory space to wait for \param stream         given stream that should
-   * wait for \p device_address \return True if \p device_address is ready,
-   * false otherwise
+   * wait for \p device_address
    */
-  bool enqueue_wait_event(device_ptr device_address, stream& stream);
+  void enqueue_wait_event(device_ptr device_address, stream& stream);
 
   /*! \brief Invokes blocking EventSynchronize for a given tenor pointer in
    * device memory space \param device_address identifier of Event - tensor

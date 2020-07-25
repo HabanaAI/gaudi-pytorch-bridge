@@ -24,6 +24,8 @@ class stream;
 
 using event_done_callback = std::function<void()>;
 
+enum class WaitEventState { Recorded, SameStream, EventDone };
+
 //! Wrapper Class for synEventHandle
 class event {
   event_handle_cache& event_handle_cache_;
@@ -61,10 +63,12 @@ class event {
 
   /*! \brief Invokes synStreamWaitEvent with its synEventHandle on a given
    * stream \param stream on which WaitEvent is recorded \param flags -
-   * currently not used \return true if WaitEvent was recorded, false if
-   * internal synEventHandle already happened and no wait is needed
+   * currently not used
+   *  \return Recorded if WaitEvent was recorded, SameStream if stream is the
+   * same as stream_recorded_ and no wait is needed or Done if event is already
+   * done and no wait is needed
    */
-  bool streamWaitEvent(stream& stream, uint32_t flags = 0);
+  WaitEventState streamWaitEvent(stream& stream, uint32_t flags = 0);
 
   /*! \return true if synEventHandle already happened, false otherwise
    */

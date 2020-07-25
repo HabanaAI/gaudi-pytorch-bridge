@@ -52,17 +52,21 @@ synStatus event::synchronize() {
   return status;
 }
 
-bool event::streamWaitEvent(stream& stream, const uint32_t flags) {
+WaitEventState event::streamWaitEvent(stream& stream, const uint32_t flags) {
   std::unique_lock<std::mutex> lock(mutex_);
 
-  if (!done_ && stream != stream_recorded_) {
-    auto status = synStreamWaitEvent(stream, handle_, flags);
-    if (synStatus::synSuccess != status) {
-      PT_SYNHELPER_FATAL("Recording of WaitEvent failed with: ", status);
-    }
-    return true;
+  if (done_) {
+    return WaitEventState::EventDone;
   }
-  return false;
+  if (stream == stream_recorded_) {
+    return WaitEventState::SameStream;
+  }
+
+  auto status = synStreamWaitEvent(stream, handle_, flags);
+  if (synStatus::synSuccess != status) {
+    PT_SYNHELPER_FATAL("Recording of WaitEvent failed with: ", status);
+  }
+  return WaitEventState::Recorded;
 }
 
 event::~event() {

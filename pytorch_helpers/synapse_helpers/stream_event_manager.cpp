@@ -59,7 +59,9 @@ void stream_event_manager::add_producer(
   stream.register_pending_event(eref);
 }
 
-bool stream_event_manager::enqueue_wait_event(device_ptr device_address, stream& stream) {
+void stream_event_manager::enqueue_wait_event(
+    device_ptr device_address,
+    stream& stream) {
   PT_SYNHELPER_DEBUG(
       "Recording wait event on stream ",
       stream,
@@ -77,19 +79,33 @@ bool stream_event_manager::enqueue_wait_event(device_ptr device_address, stream&
   if (event) {
     PT_SYNHELPER_DEBUG(
         "Found event ", *event, " for address ", std::hex, device_address);
-    if (event->streamWaitEvent(stream)) {
-      return true;
-    } else {
-      PT_SYNHELPER_DEBUG(
-          "Event ", *event, " is already done. No wait event was recorded.");
-      // event is already done
-      std::lock_guard<std::mutex> lock_guard(mut_);
-      events_.erase(device_address);
-      return false;
+    auto state = event->streamWaitEvent(stream);
+    switch (state) {
+      case WaitEventState::EventDone: {
+        PT_SYNHELPER_DEBUG(
+            "Event ", *event, " is already done. No wait event was recorded.");
+        // event is already done
+        std::lock_guard<std::mutex> lock_guard(mut_);
+        events_.erase(device_address);
+        break;
+      }
+      case WaitEventState::SameStream:
+        PT_SYNHELPER_DEBUG(
+            "Event ",
+            *event,
+            " was recorded on the same stream. No wait event was recorded.");
+        break;
+      case WaitEventState::Recorded:
+        PT_SYNHELPER_DEBUG("Wait event recorded for event ", *event);
+        break;
+      default:
+        PT_SYNHELPER_DEBUG(
+            "Invalid wait event state ",
+            static_cast<std::underlying_type<WaitEventState>::type>(state));
     }
+  } else {
+    PT_SYNHELPER_DEBUG("Event already done, as it's not in the map");
   }
-  // else already done, as it's not in the map
-  return false;
 }
 
 void stream_event_manager::wait_until_done(device_ptr device_address) {
