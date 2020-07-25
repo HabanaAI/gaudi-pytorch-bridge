@@ -370,8 +370,6 @@ synapse_error device::copy_data_within_device(
 synapse_error device::copy_data_within_device(
     transfer_manifest const& transfers,
     event_done_callback unref_cb) {
-  std::vector<device_ptr> destinations;
-  destinations.reserve(transfers.size());
   synStatus status;
   if((synapse_helpers::IsStreamSyncOptEnabled()))
   {
@@ -382,24 +380,29 @@ synapse_error device::copy_data_within_device(
     }
   }
 
-  for (auto& transfer : transfers) {
-    sem_.enqueue_wait_event(transfer.src, stream_d2d_);
-    status = synMemCopyAsync(
-        stream_d2d_,
-        transfer.src,
-        transfer.bytes_to_transfer,
-        transfer.dst,
-        synDmaDir::DRAM_TO_DRAM);
-    if (synStatus::synSuccess != status) {
-      return synapse_error{"DMA inside HPU start failed.", status};
-    }
-    destinations.emplace_back(transfer.dst);
+  std::vector<std::uint64_t> srcs(transfers.size());
+  std::vector<std::uint64_t> dsts(transfers.size());
+  std::vector<std::uint64_t> lens(transfers.size());
+
+  for (std::size_t i = 0; i < transfers.size(); ++i) {
+    sem_.enqueue_wait_event(transfers[i].src, stream_d2d_);
+    srcs[i] = transfers[i].src;
+    dsts[i] = transfers[i].dst;
+    lens[i] = transfers[i].bytes_to_transfer;
   }
 
-  // After passing list stream manager will have one entry in event map for
-  // every tensor - all entries will point to the same event recorded after last
-  // transaction is scheduled on stream.
-  sem_.add_producer(destinations, stream_d2d_, std::move(unref_cb));
+  status = synMemCopyAsyncMultiple(
+      stream_d2d_,
+      srcs.data(),
+      lens.data(),
+      dsts.data(),
+      synDmaDir::DRAM_TO_DRAM,
+      transfers.size());
+  if (synStatus::synSuccess != status) {
+    return synapse_error{"dma inside hpu start failed.", status};
+  }
+
+  sem_.add_producer(dsts, stream_d2d_, std::move(unref_cb));
 
   return {};
 }
