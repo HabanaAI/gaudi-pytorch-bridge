@@ -1103,7 +1103,7 @@ void AvgPool2dBackwardOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(inputs[1].isTensor(), "Input1 type expected to be tensor");
 
   at::Tensor input_nhwc = inputs[1].toTensor();
-  auto grad_input_nhwc = at::zeros_like(
+  auto grad_input_nhwc = at::empty_like(
       input_nhwc, input_nhwc.options());
 
   inputs.insert(inputs.begin(), IValue(grad_input_nhwc));
