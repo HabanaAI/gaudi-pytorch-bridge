@@ -70,7 +70,7 @@ const std::unordered_set<std::string> HabanaWhiteList::HabanaWhiteListOps = {
         // "aten::sum",
         "aten::t",
         // "aten::t_",
-        // "aten::threshold_backward",
+        "aten::threshold_backward",
         "aten::to",
         // "aten::topk",
         "aten::transpose",

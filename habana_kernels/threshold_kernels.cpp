@@ -39,7 +39,8 @@ void habana::ThresholdBackwardOperator::AllocateAndAddSynapseNode(
       threshold.to<float>() == 0.0,
       "Threshold values other than 0 are not supported")
 
-  auto grad_input = at::empty(self.sizes(), self.options(), self.suggest_memory_format());
+  auto grad_input =
+      at::empty(self.sizes(), self.options(), self.suggest_memory_format());
   AllocateSynapseOutput(graph, grad_input, is_output_persistent);
   AddNodeToSynapseGraph(graph, nullptr, 0);
 }
@@ -63,7 +64,7 @@ Tensor threshold_backward_hpu(
   std::string nodeType =
       "relu_bwd_" + habana_helpers::name_suffix_from_type(scalar_type);
 
-  habana::ThresholdBackwardOperator Op(device_id, nodeType);
+  habana::ThresholdBackwardOperator Op(device_id, scalar_type);
   std::vector<c10::IValue> stack = {
       IValue(grad_output), IValue(self), IValue(threshold)};
   std::vector<const at::Tensor*> pt_inputs{&grad_output, &self};
@@ -71,7 +72,8 @@ Tensor threshold_backward_hpu(
   size_t key = Op.GetRecipeKey(nodeType, stack);
   if (device.get_recipe_handle_cache().isCached(key)) {
     PT_KERNEL_DEBUG("Cache hit key:", key);
-    auto output = at::empty(self.sizes(), self.options(), self.suggest_memory_format());
+    auto output =
+        at::empty(self.sizes(), self.options(), self.suggest_memory_format());
     Op.SetPTInputs(pt_inputs);
     Op.SetPTOutputs({output});
     Op.Execute(key);
@@ -89,6 +91,13 @@ Tensor threshold_backward_hpu(
   PT_KERNEL_END;
   return out.at(0);
 }
+
+static auto& KernelRegistry = ::habana::KernelRegistry().add(
+    "aten::threshold_backward",
+    [](const int device_id, c10::ScalarType node_type) {
+      return std::make_shared<habana::ThresholdBackwardOperator>(
+          device_id, node_type);
+    });
 
 static auto registry = torch::RegisterOperators().op(
     torch::RegisterOperators::options()

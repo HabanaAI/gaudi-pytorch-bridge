@@ -13,8 +13,9 @@ namespace habana {
 
 class ThresholdBackwardOperator : public HabanaOperator {
  public:
-  ThresholdBackwardOperator(int device_id, std::string guid)
-      : HabanaOperator(guid) {
+  ThresholdBackwardOperator(int device_id, c10::ScalarType scalar_type)
+      : HabanaOperator(
+            "relu_bwd_" + habana_helpers::name_suffix_from_type(scalar_type)) {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign(
         {LayoutFormat::ANY, LayoutFormat::ANY});
