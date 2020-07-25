@@ -59,9 +59,7 @@ void stream_event_manager::add_producer(
   stream.register_pending_event(eref);
 }
 
-bool stream_event_manager::record_wait_event(
-    device_ptr device_address,
-    stream& stream) {
+bool stream_event_manager::enqueue_wait_event(device_ptr device_address, stream& stream) {
   PT_SYNHELPER_DEBUG(
       "Recording wait event on stream ",
       stream,

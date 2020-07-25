@@ -216,7 +216,9 @@ synapse_error device::copy_data_to_device(
     }
   }
 
+  sem_.enqueue_wait_event(destination, stream_d2h_);
   auto res = memory_mapper_.map(total_bytes);
+
   if (res.status != synStatus::synSuccess) {
     // last resort option to drop cached mapped buffers
     PT_SYNHELPER_WARN(
@@ -285,7 +287,7 @@ synapse_error device::copy_data_to_host(
     }
   }
   PT_SYNHELPER_DEBUG("Used stream handle: ", stream_d2h_);
-  sem_.record_wait_event(device_data, stream_d2h_);
+  sem_.enqueue_wait_event(device_data, stream_d2h_);
 
   auto res = memory_mapper_.map(total_bytes);
   if (synStatus::synSuccess != res.status) {
@@ -353,7 +355,7 @@ synapse_error device::copy_data_within_device(
     }
   }
 
-  sem_.record_wait_event(source, stream_d2d_);
+  sem_.enqueue_wait_event(source, stream_d2d_);
   status = synMemCopyAsync(
       stream_d2d_, source, total_bytes, destination, synDmaDir::DRAM_TO_DRAM);
   if (synStatus::synSuccess != status) {
@@ -381,7 +383,7 @@ synapse_error device::copy_data_within_device(
   }
 
   for (auto& transfer : transfers) {
-    sem_.record_wait_event(transfer.src, stream_d2d_);
+    sem_.enqueue_wait_event(transfer.src, stream_d2d_);
     status = synMemCopyAsync(
         stream_d2d_,
         transfer.src,
@@ -421,7 +423,7 @@ void device::add_wait_events_on_stream(
   for (const auto& input_addr : input_tensors) {
     auto evnt_ref = sem_.get_event(input_addr);
     if (evnt_ref && !evnt_ref->done()) {
-      sem_.record_wait_event(input_addr, stream);
+      sem_.enqueue_wait_event(input_addr, stream);
     }
   }
 }
