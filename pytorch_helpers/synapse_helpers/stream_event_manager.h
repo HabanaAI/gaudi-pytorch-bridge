@@ -24,6 +24,8 @@ class stream;
 class stream_event_manager {
   absl::flat_hash_map<device_ptr, shared_event> events_;
   std::mutex mut_;
+  absl::flat_hash_map<synStreamHandle, bool> used_streams_;
+  void sync_streams();
 
  public:
   /*! \brief Tries to record Event on a given stream

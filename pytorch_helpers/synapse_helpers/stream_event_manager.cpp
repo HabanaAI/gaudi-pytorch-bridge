@@ -55,6 +55,7 @@ void stream_event_manager::add_producer(
         events_.emplace(device_address, eref);
       }
     }
+    used_streams_[stream] = true;
   }
   stream.register_pending_event(eref);
 }
@@ -132,10 +133,12 @@ void stream_event_manager::wait_until_done(device_ptr device_address) {
 void stream_event_manager::flush() {
   bool events_not_empty = true;
   while (events_not_empty) {
+    sync_streams();
     clear_if_done();
     {
       std::lock_guard<std::mutex> lock_guard(mut_);
       events_not_empty = !events_.empty();
+      events_not_empty = !events_.empty() || !used_streams_.empty();
     }
   }
 }
@@ -164,5 +167,14 @@ void stream_event_manager::clear_if_done() {
         events_.erase(copy_it);
       }
     }
+  }
+}
+
+void stream_event_manager::sync_streams() {
+  std::lock_guard<std::mutex> lock_guard(mut_);
+  for (auto it = used_streams_.begin(); it != used_streams_.end();) {
+    auto copy_it = it++;
+    synStreamSynchronize(copy_it->first);
+    used_streams_.erase(copy_it->first);
   }
 }
