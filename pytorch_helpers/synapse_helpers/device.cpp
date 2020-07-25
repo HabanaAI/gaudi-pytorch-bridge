@@ -11,8 +11,11 @@
 
 #include <absl/types/variant.h>
 #include <algorithm>
+#include <chrono>
+#include <cmath>
 #include <ostream>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include <synapse_api.h>
@@ -166,9 +169,38 @@ device::~device() {
 }
 
 void device::flush_stream_events() {
-  sem_.flush();
+  for (int id = (int)stream_id::begin_; id < (int)stream_id::end_; id += 1) {
+    get_stream(static_cast<stream_id>(id)).flush();
+  }
+  auto start = std::chrono::steady_clock::now();
+  while (true) {
+    if (sem_.is_flushed())
+      break;
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  }
+  PT_SYNHELPER_DEBUG(
+      "stream flush completed in ",
+      std::chrono::duration_cast<std::chrono::milliseconds>(
+          std::chrono::steady_clock::now() - start)
+          .count());
 }
 
+stream& device::get_stream(stream_id id) {
+  switch (id) {
+    case stream_id::comp:
+      return stream_comp_;
+    case stream_id::network_collective:
+      return stream_network_collective_;
+    case stream_id::d2d:
+      return stream_d2d_;
+    case stream_id::h2d:
+      return stream_h2d_;
+    case stream_id::d2h:
+      return stream_d2h_;
+    default:
+      std::terminate(); // LOG(FATAL) << "Invalid stream id " << id;
+  }
+}
 std::ostream& operator<<(std::ostream& stream, const device& syn_device) {
   stream << "synDevice at " << &syn_device;
   switch (syn_device.type()) {
@@ -217,8 +249,10 @@ synapse_error device::copy_data_to_device(
   }
 
   sem_.enqueue_wait_event(destination, stream_d2h_);
-  auto res = memory_mapper_.map(total_bytes);
+  memory_mapper::acquired_entry res{};
+  void* mapped_cpu_data = cpu_data;
 
+  res = memory_mapper_.map(total_bytes);
   if (res.status != synStatus::synSuccess) {
     // last resort option to drop cached mapped buffers
     PT_SYNHELPER_WARN(
@@ -242,12 +276,13 @@ synapse_error device::copy_data_to_device(
       reinterpret_cast<uint8_t*>(cpu_data),
       reinterpret_cast<uint8_t*>(cpu_data) + total_bytes,
       res.ptr);
+  mapped_cpu_data = res.ptr;
 
   PT_SYNHELPER_DEBUG("Used stream handle: ", stream_h2d_);
 
   status = synMemCopyAsync(
       stream_h2d_,
-      reinterpret_cast<uint64_t>(res.ptr),
+      reinterpret_cast<uint64_t>(mapped_cpu_data),
       total_bytes,
       destination,
       synDmaDir::HOST_TO_DRAM);
@@ -289,7 +324,9 @@ synapse_error device::copy_data_to_host(
   PT_SYNHELPER_DEBUG("Used stream handle: ", stream_d2h_);
   sem_.enqueue_wait_event(device_data, stream_d2h_);
 
-  auto res = memory_mapper_.map(total_bytes);
+  memory_mapper::acquired_entry res{};
+  void* mapped_destination = destination;
+  res = memory_mapper_.map(total_bytes);
   if (synStatus::synSuccess != res.status) {
     // last resort option to drop cached mapped buffers
 
@@ -307,35 +344,26 @@ synapse_error device::copy_data_to_host(
           res.status};
     }
   }
+  mapped_destination = res.ptr;
 
   status = synMemCopyAsync(
       stream_d2h_,
       device_data,
       total_bytes,
-      reinterpret_cast<uint64_t>(res.ptr),
+      reinterpret_cast<uint64_t>(mapped_destination),
       synDmaDir::DRAM_TO_HOST);
   if (synStatus::synSuccess != status) {
     return synapse_error{"DMA from HPU start failed.", status};
   }
 
-  // magic to have unique key based on cpu address
-  auto destination_key =
-      reinterpret_cast<uint64_t>(destination) | (0xffffLLU << 48);
-
-  sem_.add_producer(
-      {destination_key}, stream_d2h_, [this, done_cb, res, destination]() {
-        std::copy(
-            res.ptr,
-            res.ptr + res.acquired_size,
-            reinterpret_cast<uint8_t*>(destination));
-        memory_mapper_.unmap(res);
-        done_cb();
-        // since there is no gc thread in sem, we explicitly call it after send
-        // back to host as some events are done by now Note: called after
-        // done_cb, since it might destroy events, which will free buffers and
-        // this can take longe time
-        sem_.clear_if_done();
-      });
+  sem_.add_producer({}, stream_d2h_, [this, done_cb, res, destination]() {
+    std::copy(
+        res.ptr,
+        res.ptr + res.acquired_size,
+        reinterpret_cast<uint8_t*>(destination));
+    memory_mapper_.unmap(res);
+    done_cb();
+  });
 
   return {};
 }
@@ -402,8 +430,7 @@ synapse_error device::copy_data_within_device(
     return synapse_error{"dma inside hpu start failed.", status};
   }
 
-  sem_.add_producer(dsts, stream_d2d_, std::move(unref_cb));
-
+  sem_.add_producer(std::move(dsts), stream_d2d_, std::move(unref_cb));
   return {};
 }
 
@@ -424,23 +451,24 @@ void device::add_wait_events_on_stream(
     const std::vector<device_ptr>& input_tensors,
     stream& stream) {
   for (const auto& input_addr : input_tensors) {
-    auto evnt_ref = sem_.get_event(input_addr);
-    if (evnt_ref && !evnt_ref->done()) {
-      sem_.enqueue_wait_event(input_addr, stream);
-    }
+    PT_SYNHELPER_DEBUG("Wait event address", std::hex, input_addr)
+    sem_.enqueue_wait_event(input_addr, stream);
   }
 }
 
 void device::register_producer_on_stream(
-    const std::vector<device_ptr>& bound_addresses,
+    std::vector<device_ptr>&& bound_addresses,
     stream& stream,
     event_done_callback done_cb) {
-  sem_.add_producer(bound_addresses, stream, std::move(done_cb));
+  sem_.add_producer(std::move(bound_addresses), stream, std::move(done_cb));
 }
 
-void device::wait_until_address_ready(const device_ptr& address) {
+void device::wait_until_address_ready(device_ptr address) {
   sem_.wait_until_done(address);
-  sem_.clear_if_done();
+}
+
+void device::wait_for_event(shared_event& event) {
+  sem_.wait_until_done(event);
 }
 
 void owned_device_ptr::device_ptr_deleter::operator()(device_ptr* ptr) {

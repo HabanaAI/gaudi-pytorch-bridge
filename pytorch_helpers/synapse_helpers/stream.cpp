@@ -24,6 +24,7 @@
 #include "habana_helpers/logging.h"
 #include "synapse_helpers/device.h"
 #include "synapse_helpers/event.h"
+#include "synapse_helpers/stream_event_manager.h"
 #include "synapse_helpers/synapse_error.h"
 
 using namespace synapse_helpers;
@@ -57,18 +58,15 @@ synapse_error_v<synStreamType> convertInternalStreamType(stream_flavor flavor) {
           "Unsupported stream flavor: " + std::to_string(flavor), synFail};
   }
 }
+} // namespace
 
-void try_sync_event(
-    const synapse_helpers::shared_event& e,
-    const std::string& msg) {
-  if (e) {
-    auto status = e->synchronize();
-    if (synStatus::synSuccess != status)
-      PT_SYNHELPER_FATAL(
-          "EventSynchronize failed with status: ", status, ", Message: ", msg);
+namespace synapse_helpers {
+template <typename collection_t>
+void stream::try_sync_events(collection_t& events_to_sync) {
+  for (auto& e : events_to_sync) {
+    device_.synchronize_event(e);
   }
 }
-} // namespace
 
 stream::stream(class device& device, stream_flavor flavor)
     : pending_cleanups_{},
@@ -107,6 +105,7 @@ void stream::gc_thread_proc() {
     std::vector<shared_event> events_to_clean;
     {
       std::unique_lock<std::mutex> lock(mut_);
+      gc_worker_is_busy_ = false;
       while (pending_cleanups_.empty() && continue_) {
         cond_var_.wait(lock);
       }
@@ -118,14 +117,20 @@ void stream::gc_thread_proc() {
           std::begin(pending_cleanups_),
           std::end(pending_cleanups_),
           std::back_inserter(events_to_clean));
+      gc_worker_is_busy_ = true;
       pending_cleanups_.clear();
     }
+    try_sync_events(events_to_clean);
+  }
+}
 
-    std::string failed_sync_msg{
-        "Failed to synchronize an event in gc thread of a stream " +
-        std::to_string(reinterpret_cast<uintptr_t>(handle_))};
-    for (const auto& e : events_to_clean)
-      try_sync_event(e, failed_sync_msg);
+void stream::flush(int timeout_ms, int poll_rate_ms) {
+  auto start = std::chrono::steady_clock::now();
+  while (std::chrono::steady_clock::now() - start <
+         std::chrono::milliseconds(timeout_ms)) {
+    if (!is_busy())
+      break;
+    std::this_thread::sleep_for(std::chrono::milliseconds(poll_rate_ms));
   }
 }
 
@@ -139,12 +144,9 @@ stream::~stream() {
   cond_var_.notify_one();
   gc_worker_.join();
   lock.lock();
-  std::string failed_sync_msg{
-      "Failed to synchronize an event in destructor of a stream " +
-      std::to_string(reinterpret_cast<uintptr_t>(handle_))};
-  for (auto& e : pending_cleanups_)
-    try_sync_event(e, failed_sync_msg);
+  try_sync_events(pending_cleanups_);
   pending_cleanups_.clear();
   synStreamSynchronize(handle_);
   synStreamDestroy(handle_);
 }
+} // namespace synapse_helpers

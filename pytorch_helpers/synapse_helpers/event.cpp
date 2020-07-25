@@ -23,23 +23,28 @@ using namespace synapse_helpers;
 event::event(
     event_handle_cache& event_handle_cache,
     stream& stream,
+    std::vector<device_ptr>&& device_ptrs,
     event_done_callback done_cb)
     : event_handle_cache_{event_handle_cache},
       handle_{event_handle_cache_.get_free_handle()},
       done_cb_{std::move(done_cb)},
+      device_ptrs_{std::move(device_ptrs)},
       stream_recorded_{stream} {}
 
-synStatus event::synchronize() {
-  std::unique_lock<std::mutex> sync_lock(sync_mutex_);
-  std::unique_lock<std::mutex> lock(mutex_);
+void event::synchronize() {
+  PT_SYNHELPER_DEBUG("synchronizing event ", handle_);
   if (done_)
-    return synSuccess;
-  lock.unlock();
+    PT_SYNHELPER_FATAL("Event ", this, " already done");
   auto status = synEventSynchronize(handle_);
-  lock.lock();
   if (synStatus::synSuccess != status) {
     PT_SYNHELPER_FATAL("Event synchronization failed with: ", status);
   }
+}
+
+void event::complete() {
+  std::unique_lock<std::mutex> lock(mutex_);
+  if (done_)
+    PT_SYNHELPER_FATAL("Event ", this, " already done");
   done_ = true;
   if (done_cb_)
     done_cb_();
@@ -49,36 +54,26 @@ synStatus event::synchronize() {
   }
   done_cb_ = nullptr; // explicit destruction of cb to release any internally
                       // held objects
-  return status;
+  ready_var_.notify_all();
 }
 
-WaitEventState event::streamWaitEvent(stream& stream, const uint32_t flags) {
+void event::stream_wait_event(stream& stream, const uint32_t flags) {
   std::unique_lock<std::mutex> lock(mutex_);
 
-  if (done_) {
-    return WaitEventState::EventDone;
-  }
-  if (stream == stream_recorded_) {
-    return WaitEventState::SameStream;
+  if (done_ || stream == stream_recorded_) {
+    return;
   }
 
   auto status = synStreamWaitEvent(stream, handle_, flags);
   if (synStatus::synSuccess != status) {
     PT_SYNHELPER_FATAL("Recording of WaitEvent failed with: ", status);
   }
-  return WaitEventState::Recorded;
 }
 
 event::~event() {
-  std::unique_lock<std::mutex> lock(mutex_);
   if (!done_) {
-    lock.unlock();
-    auto status = synchronize();
-    if (synStatus::synSuccess != status) {
-      PT_SYNHELPER_FATAL(
-          "Event synchronization failed at destruction of an event.");
-    }
-    lock.lock();
+    PT_SYNHELPER_FATAL(
+        "Destroying event ", this, " that is not synchronized yet");
   }
   if (handle_) {
     event_handle_cache_.release_handle(handle_);

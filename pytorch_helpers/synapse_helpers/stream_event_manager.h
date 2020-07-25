@@ -24,8 +24,6 @@ class stream;
 class stream_event_manager {
   absl::flat_hash_map<device_ptr, shared_event> events_;
   std::mutex mut_;
-  absl::flat_hash_map<synStreamHandle, bool> used_streams_;
-  void sync_streams();
 
  public:
   /*! \brief Tries to record Event on a given stream
@@ -37,7 +35,7 @@ class stream_event_manager {
    * recorded on stream, false otherwise
    */
   void add_producer(
-      const std::vector<device_ptr>& device_addresses,
+      std::vector<device_ptr>&& device_addresses,
       stream& stream,
       event_done_callback done_cb);
 
@@ -53,6 +51,7 @@ class stream_event_manager {
    * pointer in device memory space
    */
   void wait_until_done(device_ptr device_address);
+  void wait_until_done(shared_event& event);
 
   /*! \brief Returns reference to Event, if exists
    *  \param device_address identifier of Event - tensor pointer in device
@@ -60,16 +59,15 @@ class stream_event_manager {
    */
   shared_event get_event(device_ptr device_address);
 
-  /*! \brief Flushes pendings event.
-   *
-   *  Blocks execution of current thread until all events will be synchronized.
-   *  Does not return until list of pending events is empty.
-   */
-  void flush();
+  bool is_flushed();
 
-  /*! \brief Cleanup function, that cleans Events that were already done
+  friend class device;
+
+ private:
+  /*! \brief Waits for event completion and erases all its registrations from
+   * the map. \param event event to unmap
    */
-  void clear_if_done();
+  void synchronize_event(shared_event& event);
 };
 
 } // namespace synapse_helpers

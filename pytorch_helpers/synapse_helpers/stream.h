@@ -10,6 +10,7 @@
 #pragma once
 
 #include <synapse_api_types.h>
+#include <atomic>
 #include <condition_variable>
 #include <deque>
 #include <memory>
@@ -35,16 +36,20 @@ enum stream_flavor {
   RECV
 };
 
-//! Wrapper Class for synStreamHandle
+/*! Wrapper Class for synStreamHandle
+ keeps also cleaning thread (garbage collector thread)
+ one instance per synStream
+*/
 class stream {
-  // keeps also cleaning thread (garbage collector thread)
-  // one instance per synStream
+  static const int default_flush_timeout_ms = 1000;
+  static const int default_flush_poll_period_ms = 100;
 
   std::deque<shared_event> pending_cleanups_;
   device& device_;
   std::mutex mut_{};
-  bool continue_{true};
+  std::atomic<bool> continue_{true};
   std::condition_variable cond_var_;
+  std::atomic<bool> gc_worker_is_busy_{false};
   std::thread gc_worker_;
 
   synStreamHandle handle_;
@@ -86,6 +91,17 @@ class stream {
   bool operator!=(const stream& other) const {
     return handle_ != other.handle_;
   }
+  void flush(
+      int timeout_ms = default_flush_timeout_ms,
+      int poll_rate_ms = default_flush_poll_period_ms);
+  bool is_busy() {
+    std::lock_guard<std::mutex> lock_guard(mut_);
+    return !pending_cleanups_.empty() || gc_worker_is_busy_;
+  }
+
+ private:
+  template <typename collection_t>
+  void try_sync_events(collection_t& events_to_sync);
 };
 
 } // namespace synapse_helpers

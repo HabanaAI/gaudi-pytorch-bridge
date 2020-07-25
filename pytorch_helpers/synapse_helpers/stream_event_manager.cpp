@@ -24,15 +24,18 @@
 using namespace synapse_helpers;
 
 void stream_event_manager::add_producer(
-    const std::vector<device_ptr>& device_ptrs,
+    std::vector<device_ptr>&& device_ptrs,
     stream& stream,
     event_done_callback done_cb) {
   auto eref = std::make_shared<event>(
-      stream.get_device().get_event_handle_cache(), stream, std::move(done_cb));
+      stream.get_device().get_event_handle_cache(),
+      stream,
+      std::move(device_ptrs),
+      std::move(done_cb));
   PT_SYNHELPER_DEBUG("Adding new event ", *eref, " on stream ", stream);
   {
-    std::lock_guard<std::mutex> lock_guard(mut_);
-    for (const auto& device_address : device_ptrs) {
+    std::unique_lock<std::mutex> lock(mut_);
+    for (const auto& device_address : eref->get_device_ptrs()) {
       PT_SYNHELPER_DEBUG(
           "Adding producer for address ",
           std::hex,
@@ -41,21 +44,14 @@ void stream_event_manager::add_producer(
           *eref);
       auto found = events_.find(device_address);
 
-      if (found != events_.end()) { // NOLINT
-        if (found->second != nullptr && !found->second->done()) { // NOLINT
-          if (synStatus::synSuccess != found->second->synchronize())
-            PT_SYNHELPER_FATAL(
-                "Failed to synchronize event in order to register new producer to same tensor address (0x",
-                std::hex,
-                device_address,
-                ")");
-        }
-        found->second = eref; // NOLINT
-      } else {
-        events_.emplace(device_address, eref);
+      if (found != events_.end()) {
+        shared_event event = found->second;
+        lock.unlock();
+        wait_until_done(event);
+        lock.lock();
       }
+      events_.emplace(device_address, eref);
     }
-    used_streams_[stream] = true;
   }
   stream.register_pending_event(eref);
 }
@@ -80,30 +76,7 @@ void stream_event_manager::enqueue_wait_event(
   if (event) {
     PT_SYNHELPER_DEBUG(
         "Found event ", *event, " for address ", std::hex, device_address);
-    auto state = event->streamWaitEvent(stream);
-    switch (state) {
-      case WaitEventState::EventDone: {
-        PT_SYNHELPER_DEBUG(
-            "Event ", *event, " is already done. No wait event was recorded.");
-        // event is already done
-        std::lock_guard<std::mutex> lock_guard(mut_);
-        events_.erase(device_address);
-        break;
-      }
-      case WaitEventState::SameStream:
-        PT_SYNHELPER_DEBUG(
-            "Event ",
-            *event,
-            " was recorded on the same stream. No wait event was recorded.");
-        break;
-      case WaitEventState::Recorded:
-        PT_SYNHELPER_DEBUG("Wait event recorded for event ", *event);
-        break;
-      default:
-        PT_SYNHELPER_DEBUG(
-            "Invalid wait event state ",
-            static_cast<std::underlying_type<WaitEventState>::type>(state));
-    }
+    event->stream_wait_event(stream);
   } else {
     PT_SYNHELPER_DEBUG("Event already done, as it's not in the map");
   }
@@ -122,25 +95,35 @@ void stream_event_manager::wait_until_done(device_ptr device_address) {
   }
 
   if (evnt)
-    evnt->synchronize();
-
-  {
-    std::lock_guard<std::mutex> lock_guard(mut_);
-    events_.erase(device_address);
-  }
+    wait_until_done(evnt);
 }
 
-void stream_event_manager::flush() {
-  bool events_not_empty = true;
-  while (events_not_empty) {
-    sync_streams();
-    clear_if_done();
-    {
-      std::lock_guard<std::mutex> lock_guard(mut_);
-      events_not_empty = !events_.empty();
-      events_not_empty = !events_.empty() || !used_streams_.empty();
+void stream_event_manager::wait_until_done(shared_event& event) {
+  event->wait();
+}
+
+void stream_event_manager::synchronize_event(shared_event& event) {
+  event->synchronize();
+  {
+    std::lock_guard<std::mutex> lock_guard(mut_);
+    for (auto ptr : event->get_device_ptrs()) {
+      auto it = events_.find(ptr);
+      if (it == events_.end()) {
+        PT_SYNHELPER_FATAL("cannot find event for address ", std::hex, ptr);
+      }
+      if (it->second != event) {
+        PT_SYNHELPER_FATAL("pointer ", std::hex, ptr, " maps to another event");
+      }
+      PT_SYNHELPER_DEBUG("unmapping event for address ", std::hex, ptr);
+      events_.erase(it);
     }
   }
+  event->complete();
+}
+
+bool stream_event_manager::is_flushed() {
+  std::lock_guard<std::mutex> lock_guard(mut_);
+  return events_.empty();
 }
 
 shared_event stream_event_manager::get_event(device_ptr device_address) {
@@ -150,31 +133,5 @@ shared_event stream_event_manager::get_event(device_ptr device_address) {
     return it->second;
   } else {
     return nullptr;
-  }
-}
-
-void stream_event_manager::clear_if_done() {
-  std::vector<shared_event> done_events;
-  {
-    std::lock_guard<std::mutex> lock_guard(mut_);
-    done_events.reserve(events_.size());
-    for (auto it = events_.begin(); it != events_.end();) {
-      auto copy_it = it++;
-      if (copy_it->second->done()) {
-        // Events to delete are moved to separate container in order to
-        // be removed outside of lock_guard scope.
-        done_events.push_back(std::move(copy_it->second));
-        events_.erase(copy_it);
-      }
-    }
-  }
-}
-
-void stream_event_manager::sync_streams() {
-  std::lock_guard<std::mutex> lock_guard(mut_);
-  for (auto it = used_streams_.begin(); it != used_streams_.end();) {
-    auto copy_it = it++;
-    synStreamSynchronize(copy_it->first);
-    used_streams_.erase(copy_it->first);
   }
 }

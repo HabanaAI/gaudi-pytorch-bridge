@@ -13,6 +13,7 @@
 #include <synapse_common_types.h>
 
 #include <algorithm>
+#include <condition_variable>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
@@ -55,6 +56,16 @@ class device_id {
 
  private:
   synDeviceId id_;
+};
+
+enum class stream_id {
+  begin_ = 0,
+  comp = 0,
+  network_collective = 1,
+  d2d = 2,
+  h2d = 3,
+  d2h = 4,
+  end_ = 5
 };
 
 class device {
@@ -161,11 +172,12 @@ class device {
    *  \see stream_event_manager::add_producer
    */
   void register_producer_on_stream(
-      const std::vector<device_ptr>& bound_addresses,
+      std::vector<device_ptr>&& bound_addresses,
       stream& stream,
       event_done_callback done_cb);
 
-  void wait_until_address_ready(const device_ptr& address);
+  void wait_until_address_ready(device_ptr address);
+  void wait_for_event(shared_event& event);
 
   event_handle_cache& get_event_handle_cache() {
     return event_handle_cache_;
@@ -176,6 +188,7 @@ class device {
   }
 
  private:
+  friend class stream;
   static synapse_error_v<std::shared_ptr<device>> create(
       synDeviceType device_type,
       const create_allocator_fnc& create_allocator);
@@ -184,6 +197,12 @@ class device {
       synDeviceId device_id,
       synDeviceType device_type,
       const create_allocator_fnc& create_allocator);
+
+  void synchronize_event(shared_event& event) {
+    sem_.synchronize_event(event);
+  }
+
+  stream& get_stream(stream_id id);
 
   std::shared_ptr<session> synapse_session_;
 
