@@ -50,8 +50,8 @@ void torch_habana_enable(std::function<bool()> enableHabanaCompile) {
           PT_BRIDGE_BEGIN;
           torch::jit::HabanaFuseGraph(g);
           PT_BRIDGE_END;
-          std::cout << "Habana Post Fusion Graph: " << std::endl;
-          std::cout << g->toString() << std::endl;
+          PT_BRIDGE_DEBUG("Habana Post Fusion Graph: ");
+          PT_BRIDGE_DEBUG(g->toString());
         }
       });
   PT_BRIDGE_END;
