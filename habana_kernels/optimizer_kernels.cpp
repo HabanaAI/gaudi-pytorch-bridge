@@ -32,7 +32,7 @@ using namespace habana;
 // Output tensors
 // 1	Weights              FP32/FP16/BF16	2D
 // 2	Moments              FP32	2D
-#if 0 // TODO: TPC kernel seems to give wrong results.
+#if 1 // TODO: TPC kernel seems to give wrong results.
 #include "habana_helpers/graph.h"
 void OptimizerSparseSgdOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
@@ -87,7 +87,6 @@ optimizer_sparse_sgd_with_valid_count_hpu(
   auto scalar_type = gradients.scalar_type();
   std::string node_type = "optimizer_sparse_sgd_with_valid_count_2d_" +
       habana_helpers::name_suffix_from_type(scalar_type);
-
   OptimizerSparseSgdOperator Op(device_id, node_type);
   // Create Graph
   auto graph = habana_helpers::create_graph(device_id, node_type);
@@ -100,7 +99,6 @@ optimizer_sparse_sgd_with_valid_count_hpu(
                                            &learning_rate,
                                            &valid_count_tensor};
   Op.AllocateSynapseInputs(graph, pt_inputs, true);
-
   // Build Params for the graph
   std::vector<c10::IValue> stack = {IValue(gradients),
                                     IValue(weights_in),
@@ -108,10 +106,8 @@ optimizer_sparse_sgd_with_valid_count_hpu(
                                     IValue(mom),
                                     IValue(nesterov)};
   Op.AllocateAndAddSynapseNode(graph, stack, true);
-
   // compile and execute the graph
   Op.Compile(graph);
-
   std::vector<at::Tensor> out = Op.GetOutputs();
   TORCH_CHECK(out.size() == 2, "Incorrect size of outputs");
 
@@ -174,11 +170,11 @@ optimizer_sparse_sgd_with_valid_count_cpu(
 
 std::tuple<torch::Tensor, torch::Tensor>
 optimizer_sparse_sgd_with_valid_count_hpu(
-    torch::Tensor gradients,
-    torch::Tensor weights_in,
-    torch::Tensor moments_in,
-    torch::Tensor indices,
-    torch::Tensor learning_rate,
+    const torch::Tensor& gradients,
+    const torch::Tensor& weights_in,
+    const torch::Tensor& moments_in,
+    const torch::Tensor& indices,
+    const torch::Tensor& learning_rate,
     int64_t valid_count,
     float mom,
     bool nesterov) {

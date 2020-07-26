@@ -358,7 +358,8 @@ def apply_optimizer_update():
         # print(gv.uniqueIndexes[i])
         # print(gv.uniqueIndexes[i].device)
         old_moments = torch.zeros(dlrm_habana.emb_l[i].weights.shape).to(device)
-        lr = torch.tensor(args.learning_rate).to(device)
+        lr = torch.tensor([args.learning_rate]).to(device)
+
         # uniqueIndexes = torch.narrow(gv.uniqueIndexes[i], 0, 0, countUniqueIndices)
         # print('{} uniqueIndexes  are on {} , type={}'.format(countUniqueIndices,uniqueIndexes[i].device,uniqueIndexes[i].dtype))
         # pudb.set_trace()
