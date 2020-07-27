@@ -143,8 +143,12 @@ Tensor embedding_bag_bwd_hpu(
   // epoch_number = 0, momentum factor = 1 and fetch output momentum vector
   // Note: Duplicate indices are not supported by this kernel due to RMW issue.
   // In such cases custom op for embedding bag should be used
-  auto momentum_in = at::zeros(weights_out.sizes(), weights_out.options().memory_format(weights_out.suggest_memory_format()));
-  auto momentum_out = at::zeros(weights_out.sizes(), weights_out.options().memory_format(weights_out.suggest_memory_format()));
+  auto momentum_in = at::zeros(
+      weights_out.sizes(),
+      weights_out.options().memory_format(weights_out.suggest_memory_format()));
+  auto momentum_out = at::zeros(
+      weights_out.sizes(),
+      weights_out.options().memory_format(weights_out.suggest_memory_format()));
   // at::zeros works only for float
   auto learning_rate = at::zeros({1}, grad.options());
   auto epoch_num_i32 = learning_rate.toType(c10::ScalarType::Int);
@@ -470,10 +474,283 @@ Tensor embedding_bag_sum_hpu(
   return out.at(0);
 }
 
-static auto& KernelRegistry = habana::KernelRegistry()
-    .add("aten::pad",
-    [](const int device_id, c10::ScalarType node_type) {
-      return std::make_shared<PadOperator>(device_id, node_type);});
+void EmbeddingBagSumForwardOperator::AllocateSynapseInputs(
+    synapse_helpers::graph& graph,
+    const std::vector<const at::Tensor*> inputs,
+    bool is_persistent) {
+  HABANA_ASSERT(inputs.size() == 8);
+
+  // Allocate only the tensors needed for fwd operation
+  // index 0 is output tensor
+  for (int cnt = 0; cnt < 4; cnt++) {
+    HabanaOperator::AllocateSynapseInput(graph, inputs[cnt], is_persistent);
+  }
+}
+
+/*AllocateSynapseInput needs to be overloaded as it is used in PT bridge code*/
+synapse_helpers::tensor& EmbeddingBagSumForwardOperator::AllocateSynapseInput(
+    synapse_helpers::graph& graph,
+    const at::Tensor* input,
+    bool is_persistent) {
+  if (valid_input_idx.count(input_idx)) {
+    HABANA_ASSERT(input != nullptr);
+    auto syn_tensor_input = habana_helpers::create_tensor(
+        *input, graph.get_graph_handle(), is_persistent, c10::nullopt);
+
+    p_context_->syn_inputs_.emplace_back(std::move(syn_tensor_input));
+
+    p_context_->pt_inputs_.emplace_back(input);
+  }
+  input_idx++;
+  return p_context_->syn_inputs_.back();
+}
+
+/*SetSynapseInput needs to be overloaded as it is used in PT bridge code for
+ * intermediate nodes*/
+synapse_helpers::tensor_or_ref& EmbeddingBagSumForwardOperator::SetSynapseInput(
+    synapse_helpers::tensor_or_ref&& tensor) {
+  if (valid_input_idx.count(input_idx)) {
+    p_context_->syn_inputs_.emplace_back(std::move(tensor));
+  }
+
+  input_idx++;
+  return p_context_->syn_inputs_.back();
+}
+
+void EmbeddingBagSumForwardOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  HABANA_ASSERT(inputs.size() == 8);
+  HABANA_ASSERT(inputs[0].isTensor());
+  HABANA_ASSERT(inputs[1].isTensor());
+  HABANA_ASSERT(inputs[2].isTensor());
+  HABANA_ASSERT(inputs[3].isTensor());
+
+  auto input = inputs[0].toTensor();
+  auto indices = inputs[1].toTensor();
+  auto offsets = inputs[2].toTensor();
+  auto valid_count = inputs[3].toTensor();
+
+  HABANA_ASSERT(input.dim() == 2);
+  HABANA_ASSERT(indices.dim() == 1);
+  HABANA_ASSERT(offsets.dim() == 1);
+  HABANA_ASSERT(valid_count.numel() == 2);
+
+  auto out = at::empty(
+      {offsets.numel() - 1, input.sizes()[1]},
+      input.options(),
+      input.suggest_memory_format());
+
+  AllocateSynapseOutput(graph, out, is_output_persistent);
+  AddNodeToSynapseGraph(graph, nullptr, 0);
+}
+
+/**********************************************************
+*@brief
+@param [in]  input 2D tensor, FP32/BF16
+@param [in]  indices_fwd 0-1D, i32
+@param [in]  offsets_fwd 0-1D, i32
+@param [in]  valid_count_offsets. Needed because offsets_fwd is a persistent
+tensor across epochs its size can be larger than the valid_count_offset
+@param [in]  indices_bwd 0-1D, i32
+@param [in]  offsets_bwd 0-1D, i32
+@param [in]  valid_count_bwd, i32
+@param [in]  grad_weight FP32/BF16
+**********************************************************/
+Tensor embedding_bag_sum_fwd_hpu(
+    const Tensor& input,
+    const Tensor& indices_fwd,
+    const Tensor& offsets_fwd,
+    const Tensor& valid_count,
+    const Tensor& indices_bwd,
+    const Tensor& offsets_bwd,
+    const Tensor& valid_count_bwd,
+    const Tensor& grad_weight) {
+  PT_KERNEL_BEGIN;
+
+  at::ScalarType scalar_type = input.scalar_type();
+  // TODO support other kernel flavours
+  std::string node_type = "embedding_bag_sum_2d_fwd_" +
+      habana_helpers::name_suffix_from_type(scalar_type);
+  size_t device_id = input.device().index();
+
+  EmbeddingBagSumForwardOperator Op(device_id, scalar_type);
+
+  // Create Graph
+  auto graph = habana_helpers::create_graph(device_id, node_type);
+
+  // Assign Inputs to the Operator
+  std::vector<const at::Tensor*> pt_inputs{&input,
+                                           &indices_fwd,
+                                           &offsets_fwd,
+                                           &valid_count,
+                                           &indices_bwd,
+                                           &offsets_bwd,
+                                           &valid_count_bwd,
+                                           &grad_weight};
+  Op.AllocateSynapseInputs(graph, pt_inputs, true);
+
+  // Build Params for the graph
+  std::vector<c10::IValue> stack = {IValue(input),
+                                    IValue(indices_fwd),
+                                    IValue(offsets_fwd),
+                                    IValue(valid_count),
+                                    IValue(indices_bwd),
+                                    IValue(offsets_bwd),
+                                    IValue(valid_count_bwd),
+                                    IValue(grad_weight)};
+  Op.AllocateAndAddSynapseNode(graph, stack, true);
+
+  // compile and execute the graph
+  Op.Compile(graph);
+
+  std::vector<Tensor> out = Op.GetOutputs();
+  HABANA_ASSERT(out.size() == 1);
+
+  PT_KERNEL_END;
+  return out.at(0);
+}
+
+void EmbeddingBagSumBackwardOperator::AllocateSynapseInputs(
+    synapse_helpers::graph& graph,
+    const std::vector<const at::Tensor*> inputs,
+    bool is_persistent) {
+  HABANA_ASSERT(inputs.size() == 5);
+
+  // Allocate only the tensors needed for bwd operation in the right order
+  for (int cnt = 1; cnt < 5; cnt++) {
+    HabanaOperator::AllocateSynapseInput(graph, inputs[cnt], is_persistent);
+  }
+}
+
+/*AllocateSynapseInput needs to be overloaded as it is used in PT bridge code*/
+synapse_helpers::tensor& EmbeddingBagSumBackwardOperator::AllocateSynapseInput(
+    synapse_helpers::graph& graph,
+    const at::Tensor* input,
+    bool is_persistent) {
+  if (valid_input_idx.count(input_idx)) {
+    HABANA_ASSERT(input != nullptr);
+    auto syn_tensor_input = habana_helpers::create_tensor(
+        *input, graph.get_graph_handle(), is_persistent, c10::nullopt);
+
+    p_context_->syn_inputs_.emplace_back(std::move(syn_tensor_input));
+
+    p_context_->pt_inputs_.emplace_back(input);
+  }
+  input_idx++;
+  return p_context_->syn_inputs_.back();
+}
+
+/*SetSynapseInput needs to be overloaded as it is used in PT bridge code for
+ * intermediate nodes*/
+synapse_helpers::tensor_or_ref& EmbeddingBagSumBackwardOperator::
+    SetSynapseInput(synapse_helpers::tensor_or_ref&& tensor) {
+  if (valid_input_idx.count(input_idx)) {
+    p_context_->syn_inputs_.emplace_back(std::move(tensor));
+  }
+
+  input_idx++;
+  return p_context_->syn_inputs_.back();
+}
+
+void EmbeddingBagSumBackwardOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  HABANA_ASSERT(inputs.size() == 5);
+
+  HABANA_ASSERT(inputs[0].isTensor());
+  HABANA_ASSERT(inputs[1].isTensor());
+  HABANA_ASSERT(inputs[2].isTensor());
+  HABANA_ASSERT(inputs[3].isTensor());
+  HABANA_ASSERT(inputs[4].isTensor());
+
+  auto out = inputs[0].toTensor();
+  auto input = inputs[1].toTensor();
+  auto indices_bwd = inputs[2].toTensor();
+  auto offsets_bwd = inputs[3].toTensor();
+  auto valid_count_bwd = inputs[4].toTensor();
+
+  HABANA_ASSERT(out.dim() == 2);
+  HABANA_ASSERT(input.dim() == 2);
+  HABANA_ASSERT(indices_bwd.dim() == 1);
+  HABANA_ASSERT(offsets_bwd.dim() == 1);
+  HABANA_ASSERT(valid_count_bwd.numel() == 2);
+
+  AllocateSynapseOutput(graph, out, is_output_persistent);
+  AddNodeToSynapseGraph(graph, nullptr, 0);
+}
+
+/**********************************************************
+*@brief
+@param [in/out] out
+@param [in]  input 2D tensor, FP32/BF16
+@param [in]  indices_fwd 0-1D, i32
+@param [in]  offsets_fwd 0-1D, i32
+@param [in]  1D, i32
+@param [in]  indices_bwd 0-1D, i32
+@param [in]  offsets_bwd 0-1D, i32
+@param [in]  valid_count_bwd, i32
+**********************************************************/
+Tensor& embedding_bag_sum_bwd_out_hpu(
+    Tensor& out,
+    const Tensor& input,
+    const Tensor& indices_bwd,
+    const Tensor& offsets_bwd,
+    const Tensor& valid_count_bwd) {
+  PT_KERNEL_BEGIN;
+
+  at::ScalarType scalar_type = input.scalar_type();
+  // TODO support other kernel flavours
+  std::string node_type = "embedding_bag_sum_2d_fwd_" +
+      habana_helpers::name_suffix_from_type(scalar_type);
+  size_t device_id = indices_bwd.device().index();
+
+  EmbeddingBagSumBackwardOperator Op(device_id, scalar_type);
+
+  // Create Graph
+  auto graph = habana_helpers::create_graph(device_id, node_type);
+
+  // Assign Inputs to the Operator
+  std::vector<const at::Tensor*> pt_inputs{
+      &out, &input, &indices_bwd, &offsets_bwd, &valid_count_bwd};
+  Op.AllocateSynapseInputs(graph, pt_inputs, true);
+
+  // Build Params for the graph
+  std::vector<c10::IValue> stack = {IValue(out),
+                                    IValue(input),
+                                    IValue(indices_bwd),
+                                    IValue(offsets_bwd),
+                                    IValue(valid_count_bwd)};
+  Op.AllocateAndAddSynapseNode(graph, stack, true);
+
+  // compile and execute the graph
+  Op.Compile(graph);
+
+  PT_KERNEL_END;
+  return out;
+}
+
+static auto& KernelRegistry =
+    habana::KernelRegistry()
+        .add(
+            "aten::pad",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<PadOperator>(device_id, node_type);
+            })
+        .add(
+            "aten::embedding_bag_sum_fwd",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<EmbeddingBagSumForwardOperator>(
+                  device_id, node_type);
+            })
+        .add(
+            "aten::embedding_bag_sum_bwd.out",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<EmbeddingBagSumBackwardOperator>(
+                  device_id, node_type);
+            });
 
 static auto registry =
     torch::RegisterOperators()
@@ -511,4 +788,18 @@ static auto registry =
                 .impl_unboxedOnlyKernel<
                     decltype(embedding_dense_backward_hpu),
                     &embedding_dense_backward_hpu>(DispatchKey::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema(
+                    "aten::embedding_bag_sum_fwd(Tensor input, Tensor indices_fwd, Tensor offsets_fwd, Tensor valid_count_fwd, Tensor indices_bwd, Tensor offsets_bwd, Tensor valid_count_bwd, Tensor grad_weight) -> Tensor")
+                .impl_unboxedOnlyKernel<
+                    decltype(embedding_bag_sum_fwd_hpu),
+                    &embedding_bag_sum_fwd_hpu>(DispatchKey::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema(
+                    "aten::embedding_bag_sum_bwd.out(Tensor input, Tensor indices_bwd, Tensor offsets_bwd, Tensor valid_count_bwd, *, Tensor(a!) out) -> Tensor(a!)")
+                .impl_unboxedOnlyKernel<
+                    decltype(embedding_bag_sum_bwd_out_hpu),
+                    &embedding_bag_sum_bwd_out_hpu>(DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));
