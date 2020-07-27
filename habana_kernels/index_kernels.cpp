@@ -53,6 +53,67 @@ static Tensor make_index_same_size_as_value(
   return index_broadcast;
 }
 
+Tensor GatherOperator::AllocateOutput(torch::jit::Stack& inputs) {
+  auto self = inputs[0].toTensor();
+  auto dim_ = inputs[1].toInt();
+  auto index = inputs[2].toTensor();
+
+  auto dim = at::maybe_wrap_dim(dim_, self.dim(), /*wrap_scalar=*/true);
+
+  auto shape = DimVector(self.sizes());
+  shape.erase(shape.begin() + dim);
+  shape.insert(shape.begin() + dim, index.numel());
+  auto output = at::empty(shape, self.options(), self.suggest_memory_format());
+  return output;
+}
+
+void GatherOperator::SetPTOutputs(torch::jit::Stack& inputs) {
+  auto output = AllocateOutput(inputs);
+  HabanaOperator::SetPTOutput(output);
+}
+
+void GatherOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 4,
+      "Incorrect size of input expected for Gather operator");
+  TORCH_CHECK(
+      inputs[0].isTensor(),
+      "Input type expected to be Tensor for Gather operator");
+  TORCH_CHECK(
+      inputs[1].isInt(), "Input type expected to be Int for Gather operator");
+  TORCH_CHECK(
+      inputs[2].isTensor(),
+      "Input type expected to be Tensor for Gather operator");
+  TORCH_CHECK(
+      inputs[3].isBool(), "Input type expected to be Bool for Gather operator");
+
+  auto self = inputs[0].toTensor();
+  auto dim_ = inputs[1].toInt();
+  auto index = inputs[2].toTensor();
+  auto sparse_grad = inputs[3].toBool();
+
+  TORCH_CHECK(sparse_grad == false, "spare_grad is not supported")
+  if (index.dim() == 0) {
+    index.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+  }
+
+  auto dim = at::maybe_wrap_dim(dim_, self.dim(), /*wrap_scalar=*/true);
+
+  auto output = AllocateOutput(inputs);
+
+  ns_GatherKernel::Params params;
+  params.axis = self.dim() - dim - 1;
+
+  p_context_->params_.emplace<ns_GatherKernel::Params>(params);
+  p_context_->params_size_ = sizeof(params);
+
+  AllocateSynapseOutput(graph, output, is_output_persistent);
+  AddNodeToSynapseGraph(graph, &params, sizeof(params));
+}
+
 /*************************************************************************
  * @brief Kernel implementation for torch.gather
  * @param self - Input tensor 1-4D bf16/fp32
@@ -67,33 +128,46 @@ Tensor gather_src_hpu(
     bool sparse_grad) {
   PT_KERNEL_BEGIN;
 
-  TORCH_CHECK(sparse_grad == false, "spare_grad is not supported")
-
-  auto dim = at::maybe_wrap_dim(dim_, self.dim(), /*wrap_scalar=*/true);
-
   auto index_int = habana_helpers::cast_tensor_to_integer(index);
 
-  auto shape = DimVector(self.sizes());
-  shape.erase(shape.begin() + dim);
-  shape.insert(shape.begin() + dim, index.numel());
-  auto output = at::empty(shape, self.options(), self.suggest_memory_format());
+  size_t device_id = self.device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  at::ScalarType scalar_type = self.scalar_type();
+  std::string node_type =
+      "gather_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
 
-  ns_GatherKernel::Params params;
-  params.axis = self.dim() - dim - 1;
-
+  // create the operator
+  GatherOperator Op(device_id, scalar_type);
+  std::vector<c10::IValue> stack = {
+      IValue(self), IValue(dim_), IValue(index_int), IValue(sparse_grad)};
+  size_t key = Op.GetRecipeKey(node_type, stack);
+  /*
+    std::vector<at::Tensor> pt_inputs{self, index_int};
+    std::vector<at::Tensor> pt_outputs{output};*/
+  // Assign Inputs to the Operator
+  // std::vector<const at::Tensor*> pt_inputs{&self, &index_int};
   std::vector<at::Tensor> pt_inputs{self, index_int};
-  std::vector<at::Tensor> pt_outputs{output};
 
-  synapse_simple_generic_kernel(
-      pt_outputs,
-      pt_inputs,
-      "gather",
-      &params,
-      sizeof(params),
-      SynapsePassType::FORWARD_PASS);
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    Op.SetPTInputs(pt_inputs);
+    Op.SetPTOutputs(stack);
+    Op.Execute(key);
+  } else {
+    PT_KERNEL_DEBUG("Key:", key);
+    // create graph
+    auto graph = habana_helpers::create_graph(device_id, node_type);
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
+    Op.AllocateAndAddSynapseNode(graph, stack, true);
 
+    // compile and execute the graph
+    Op.Compile(graph);
+  }
+  std::vector<at::Tensor> out = Op.GetOutputs();
+  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
   PT_KERNEL_END;
-  return output;
+
+  return out.at(0);
 }
 
 /*************************************************************************
@@ -206,6 +280,38 @@ Tensor& index_put_impl_hpu_(
   return self;
 }
 
+void IndexSelectOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 3,
+      "Incorrect size of input expected for IndexSelect operator");
+  TORCH_CHECK(
+      inputs[0].isTensor(),
+      "Input type expected to be Tensor for IndexSelect operator");
+  TORCH_CHECK(
+      inputs[1].isInt(),
+      "Input type expected to be Int for IndexSelect operator");
+  TORCH_CHECK(
+      inputs[2].isTensor(),
+      "Input type expected to be Tensor for IndexSelect operator");
+
+  auto index = inputs[2].toTensor();
+  TORCH_CHECK(index.dim() <= 1, "index tensor cannot be more than 1D")
+  bool sparse_grad = false;
+  inputs.emplace_back(IValue(sparse_grad));
+  GatherOperator::AllocateAndAddSynapseNode(
+      graph, inputs, is_output_persistent);
+}
+
+void IndexSelectOperator::SetPTOutputs(torch::jit::Stack& inputs) {
+  auto index = inputs[2].toTensor();
+  TORCH_CHECK(index.dim() <= 1, "index tensor cannot be more than 1D")
+  bool sparse_grad = false;
+  inputs.emplace_back(IValue(sparse_grad));
+  GatherOperator::SetPTOutputs(inputs);
+}
 /*************************************************************************
  * @brief Kernel implementation for torch.index_select(input, dim, index) →
  *Tensor
@@ -216,18 +322,42 @@ Tensor& index_put_impl_hpu_(
 Tensor index_select_hpu(const Tensor& self, int64_t dim, const Tensor& index) {
   PT_KERNEL_BEGIN;
 
-  TORCH_CHECK(index.dim() <= 1, "index tensor cannot be more than 1D")
-  // Convert index tensor from 0D to 1D if required
-  if (index.dim() == 0) {
-    index.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+  auto index_int = habana_helpers::cast_tensor_to_integer(index);
+
+  size_t device_id = self.device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  at::ScalarType scalar_type = self.scalar_type();
+  std::string node_type =
+      "index_select_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+
+  // create the operator
+  IndexSelectOperator Op(device_id, scalar_type);
+  std::vector<c10::IValue> stack = {IValue(self), IValue(dim), IValue(index)};
+  size_t key = Op.GetRecipeKey(node_type, stack);
+
+  // Assign Inputs to the Operator
+  std::vector<at::Tensor> pt_inputs{self, index_int};
+
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    Op.SetPTInputs(pt_inputs);
+    Op.SetPTOutputs(stack);
+    Op.Execute(key);
+  } else {
+    PT_KERNEL_DEBUG("Key:", key);
+    // create graph
+    auto graph = habana_helpers::create_graph(device_id, node_type);
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
+    Op.AllocateAndAddSynapseNode(graph, stack, true);
+
+    // compile and execute the graph
+    Op.Compile(graph);
   }
-
-  dim = at::maybe_wrap_dim(dim, self.dim(), /*wrap_scalar=*/true);
-
-  auto output = self.gather(dim, index, false);
-
+  std::vector<at::Tensor> out = Op.GetOutputs();
+  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
   PT_KERNEL_END;
-  return output;
+
+  return out.at(0);
 }
 
 void Gather2dOperator::AllocateAndAddSynapseNode(
@@ -456,6 +586,20 @@ Tensor slice_hpu(
   PT_KERNEL_END;
   return out.at(0);
 }
+
+static auto& KernelRegistry =
+    habana::KernelRegistry()
+        .add(
+            "aten::index_select",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<IndexSelectOperator>(
+                  device_id, node_type);
+            })
+        .add(
+            "aten::gather",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<GatherOperator>(device_id, node_type);
+            });
 
 static auto registry =
     torch::RegisterOperators()

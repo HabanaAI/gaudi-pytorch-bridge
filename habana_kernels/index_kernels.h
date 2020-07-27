@@ -56,3 +56,41 @@ class SliceOperator : public HabanaOperator {
       int64_t& end,
       int64_t& step);
 };
+
+// Gather Operator
+//
+class GatherOperator : public HabanaOperator {
+ public:
+  GatherOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator(
+            "gather_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
+    this->CreateSynContext(device_id);
+    kernel_meta_data_.input_layout.assign(
+        {LayoutFormat::ANY, LayoutFormat::ANY});
+    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
+  }
+
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+
+  virtual void SetPTOutputs(torch::jit::Stack& inputs);
+
+ private:
+  Tensor AllocateOutput(torch::jit::Stack& inputs);
+};
+
+//
+// IndexSelect Operator
+class IndexSelectOperator : public GatherOperator {
+ public:
+  IndexSelectOperator(int device_id, c10::ScalarType scalarType)
+      : GatherOperator(device_id, scalarType) {}
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+
+  virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
+};
