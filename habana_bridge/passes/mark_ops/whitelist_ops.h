@@ -54,7 +54,7 @@ const std::unordered_set<std::string> HabanaWhiteList::HabanaWhiteListOps = {
         // "aten::mean",
         "aten::mm",
         "aten::neg",
-        // "aten::mul",
+        "aten::mul",
         // "aten::mul_",
         // "aten::native_batch_norm",
         // "aten::native_batch_norm_backward",
