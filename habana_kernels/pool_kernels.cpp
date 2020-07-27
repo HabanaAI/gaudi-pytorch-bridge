@@ -240,6 +240,8 @@ void MaxPool2dWithIndicesOperator::AllocateAndAddSynapseNode(
   AllocateSynapseOutputs(
       graph, {output_idx_nhwc, output_nhwc}, is_output_persistent);
   AddNodeToSynapseGraph(graph, &syn_pool_params, sizeof(syn_pool_params));
+  std::swap(p_context_->pt_outputs_[0], p_context_->pt_outputs_[1]);
+  std::swap(p_context_->syn_outputs_[0], p_context_->syn_outputs_[1]);
 }
 
 void MaxPool2dWithIndicesBackwardOutOperator::AllocateAndAddSynapseNode(
@@ -322,7 +324,7 @@ void MaxPool2dWithIndicesOperator::SetPTOutputs(torch::jit::Stack& inputs) {
       {out_shape[0], out_shape[1], out_shape[2], out_shape[3]},
       input.options().dtype(type));
 
-  HabanaOperator::SetPTOutputs({output_idx_nhwc, output_nhwc});
+  HabanaOperator::SetPTOutputs({output_nhwc, output_idx_nhwc});
 }
 
 void MaxPool2dWithIndicesBackwardOutOperator::SetPTOutputs(
@@ -435,8 +437,8 @@ std::tuple<Tensor, Tensor> max_pool2d_with_indices_hpu(
 
   std::vector<at::Tensor> out = maxpool_2d();
 
-  at::Tensor& output_idx_nhwc = out.at(0);
-  at::Tensor& output_nhwc = out.at(1);
+  at::Tensor& output_idx_nhwc = out.at(1);
+  at::Tensor& output_nhwc = out.at(0);
 
   TORCH_CHECK(out.size() == 2, "Incorrect size of outputs");
   at::Tensor output = output_nhwc;
