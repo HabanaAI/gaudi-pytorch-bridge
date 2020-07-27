@@ -59,6 +59,16 @@ class DivOperator : public BinaryOperator {
   }
 };
 
+class PowOperator : public BinaryOperator {
+ public:
+  PowOperator(int device_id, c10::ScalarType scalarType)
+      : BinaryOperator(
+            device_id,
+            "pow_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
+    scalarType_ = scalarType;
+  }
+};
+
 class BinaryOperatorWithAlpha : public BinaryOperator {
  public:
   BinaryOperatorWithAlpha(int device_id, const std::string& guid)

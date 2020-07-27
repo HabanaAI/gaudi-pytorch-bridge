@@ -316,11 +316,7 @@ void habana::BinaryOperator::AllocateAndAddSynapseNode(
         inputs[1].toScalar().toFloat() == 1.0,
         "Input 2 in BinaryOperator is scalar and not equal to 1 - this configuration is not currently supported");
 
-    if (guid_ == "mult_fwd_f32") {
-      guid_ = "memcpy_f32";
-    } else {
-      guid_ = "memcpy_bf16";
-    }
+    guid_ = (guid_ == "mult_fwd_f32") ? "memcpy_f32" : "memcpy_bf16";
     auto output = at::empty(arg1.sizes(), arg1.options(), arg1.suggest_memory_format());
     AllocateSynapseOutput(graph, output, is_output_persistent);
 
@@ -942,8 +938,9 @@ Tensor pow_tensor_tensor_hpu(const Tensor& self, const Tensor& other) {
   if (self.dim() == 0) {
     self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
   }
-  auto out = do_generic_tensor_binary_op(
-      self, other, "pow", SynapsePassType::FORWARD_PASS);
+  auto out = process_generic_tensor_binary_op<habana::PowOperator>(
+      self, other, "pow");
+
   PT_KERNEL_END;
   return out;
 }
@@ -1007,7 +1004,10 @@ static auto& KernelRegistry = habana::KernelRegistry()
       return std::make_shared<habana::MulOperator>(device_id, node_type);})
     .add("aten::div",
     [](const int device_id, c10::ScalarType node_type) {
-      return std::make_shared<habana::DivOperator>(device_id, node_type);});
+      return std::make_shared<habana::DivOperator>(device_id, node_type);})
+    .add("aten::pow",
+    [](const int device_id, c10::ScalarType node_type) {
+      return std::make_shared<habana::PowOperator>(device_id, node_type);});
 
 static auto registry =
     torch::RegisterOperators()
