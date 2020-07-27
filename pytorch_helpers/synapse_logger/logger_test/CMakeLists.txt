@@ -46,7 +46,7 @@ set_target_properties(Synapse PROPERTIES
 
 add_library(tpc_kernels SHARED IMPORTED)
 set_target_properties(tpc_kernels PROPERTIES
-  INTERFACE_INCLUDE_DIRECTORIES "$ENV{TPC_KERNELS_ROOT}/include")
+        INTERFACE_INCLUDE_DIRECTORIES "$ENV{SPECS_EXT_ROOT}")
 
 add_executable(Test test.cxx ../compare.cxx)
 target_include_directories(Test PRIVATE $<TARGET_PROPERTY:tpc_kernels,INTERFACE_INCLUDE_DIRECTORIES>)
