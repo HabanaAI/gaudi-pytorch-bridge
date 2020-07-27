@@ -275,8 +275,8 @@ def main(args):
     #modifications can be done to the resnet model if necessary.
     model = resnet_models.__dict__[args.model](pretrained=args.pretrained)
 
+    model.to(device)
     if args.channels_last:
-        model.to(device)
         if(device==torch.device('cuda')):
             print('Converting model to channels_last format on CUDA')
             model.to(memory_format=torch.channels_last)
@@ -288,9 +288,6 @@ def main(args):
             #to channels_last for many components - e.g. convolution.
             #So we are forced to rearrange such tensors ourselves.
             permute_params(model, True)
-    else:
-        model.to(device)
-
 
     trainMetaData = TrainMetaData(model, device)
     trainMetaData.set_num_train_steps(args.num_train_steps)
@@ -313,13 +310,22 @@ def main(args):
 
     lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=args.lr_step_size, gamma=args.lr_gamma)
 
+    if args.run_trace_mode:
+        sample_trace_tensor = enable_tracing(device)
+
+        if args.channels_last:
+            sample_trace_tensor = sample_trace_tensor.contiguous(memory_format=torch.channels_last)
+        model = torch.jit.trace(model, sample_trace_tensor, check_trace=False)
+
     model_without_ddp = model
+
     if args.distributed:
         if args.device == 'habana':
             model = torch.nn.parallel.DistributedDataParallel(model)
         else:
             model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
         model_without_ddp = model.module
+
     if args.resume:
         checkpoint = torch.load(args.resume, map_location='cpu')
         model_without_ddp.load_state_dict(checkpoint['model'])
@@ -333,26 +339,18 @@ def main(args):
         evaluate(model, criterion, data_loader_test, trainMetaData, device=device)
         return
 
-    if args.run_trace_mode:
-        sample_trace_tensor = enable_tracing(device)
-        if args.channels_last:
-            sample_trace_tensor = sample_trace_tensor.contiguous(memory_format=torch.channels_last)
-        model_trace = torch.jit.trace(model, sample_trace_tensor, check_trace=False)
-
     print("Start training")
     start_time = time.time()
     for epoch in range(args.start_epoch, args.epochs):
         trainMetaData.set_current_epoch_no(epoch)
+
         if args.distributed:
             train_sampler.set_epoch(epoch)
-        if args.run_trace_mode:
-            train_one_epoch(model_trace, criterion, optimizer, data_loader, device, epoch, args.print_freq, trainMetaData, args.apex)
-            lr_scheduler.step()
-            evaluate(model_trace, criterion, data_loader_test, trainMetaData, device=device)
-        else: 
-            train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, args.print_freq, trainMetaData, args.apex)
-            lr_scheduler.step()
-            evaluate(model, criterion, data_loader_test, trainMetaData, device=device)
+
+        train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, args.print_freq, trainMetaData, args.apex)
+        lr_scheduler.step()
+        evaluate(model, criterion, data_loader_test, trainMetaData, device=device)
+
         if (args.output_dir and args.save_checkpoint):
             if args.device == 'habana':
                 if args.channels_last:
@@ -435,7 +433,7 @@ def parse_args():
 
     parser.add_argument('--channels-last', default='True', type=lambda x:x.lower() == 'true',
                                                  help='Whether input is in channels last format.'
-						 'Any value other than True(case insensitive) disables channels-last')
+                                                'Any value other than True(case insensitive) disables channels-last')
     parser.add_argument('--resume', default='', help='resume from checkpoint')
     parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                         help='start epoch')
@@ -485,7 +483,7 @@ def parse_args():
     parser.add_argument('--save-checkpoint',  action="store_true",
                         help='Whether or not to save model/checkpont; True: to save, False to avoid saving')
     parser.add_argument('--run-trace-mode', action='store_true', default=False,
-                        help='run JIT mode with fusion enabled') 
+                        help='run JIT mode with fusion enabled')
     parser.add_argument('--deterministic',  action="store_true",
                         help='Whether or not to make data loading deterministic;This does not make execution deterministic')
     parser.add_argument('--hmp', dest='is_hmp', action='store_true',help='enable hmp mode')

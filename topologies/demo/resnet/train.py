@@ -215,8 +215,8 @@ def main(args):
     #modifications can be done to the resnet model if necessary.
     model = resnet_models.__dict__[args.model](pretrained=args.pretrained)
 
+    model.to(device)
     if args.channels_last:
-        model.to(device)
         if(device==torch.device('cuda')):
             print('Converting model to channels_last format on CUDA')
             model.to(memory_format=torch.channels_last)
@@ -228,8 +228,6 @@ def main(args):
             #to channels_last for many components - e.g. convolution.
             #So we are forced to rearrange such tensors ourselves.
             permute_params_on_device(model)
-    else:
-        model.to(device)
 
     if args.distributed and args.sync_bn:
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
@@ -246,7 +244,15 @@ def main(args):
 
     lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=args.lr_step_size, gamma=args.lr_gamma)
 
+    if args.run_trace_mode:
+        sample_trace_tensor = enable_tracing(device)
+
+        if args.channels_last:
+            sample_trace_tensor = sample_trace_tensor.contiguous(memory_format=torch.channels_last)
+        model = torch.jit.trace(model, sample_trace_tensor, check_trace=False)
+
     model_without_ddp = model
+
     if args.distributed:
         if args.device == 'habana':
             model = torch.nn.parallel.DistributedDataParallel(model)
@@ -266,25 +272,16 @@ def main(args):
         evaluate(model, criterion, data_loader_test, device=device)
         return
 
-    if args.run_trace_mode:
-        sample_trace_tensor = enable_tracing(device)
-        if args.channels_last:
-            sample_trace_tensor = sample_trace_tensor.contiguous(memory_format=torch.channels_last)
-        model_trace = torch.jit.trace(model, sample_trace_tensor, check_trace=False)
-
     print("Start training")
     start_time = time.time()
     for epoch in range(args.start_epoch, args.epochs):
         if args.distributed:
             train_sampler.set_epoch(epoch)
-        if args.run_trace_mode:
-            train_one_epoch(model_trace, criterion, optimizer, data_loader, device, epoch, args.print_freq, args.apex)
-            lr_scheduler.step()
-            evaluate(model_trace, criterion, data_loader_test, device=device)
-        else: 
-            train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, args.print_freq, args.apex)
-            lr_scheduler.step()
-            evaluate(model, criterion, data_loader_test, device=device)
+
+        train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, args.print_freq, args.apex)
+        lr_scheduler.step()
+        evaluate(model, criterion, data_loader_test, device=device)
+
         if (args.output_dir and args.save_checkpoint):
             #Bring the model back to CPU before storing. Needed if running on Habana.
             model_without_ddp_cpu = model_without_ddp.to('cpu')
