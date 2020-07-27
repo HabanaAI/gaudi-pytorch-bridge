@@ -9,6 +9,7 @@
  */
 #pragma once
 
+#include <algorithm>
 #include <synapse_api_types.h>
 #include <synapse_common_types.h>
 #include <atomic>
@@ -45,6 +46,7 @@ class event {
   std::atomic<bool> done_{false};
 
   std::vector<device_ptr> device_ptrs_{};
+  std::vector<std::string> event_ids_{};
   stream& stream_recorded_; // used to avoid waiting on the same stream which is
                             // forbidden by synapse
 
@@ -60,6 +62,7 @@ class event {
       event_handle_cache& event_handle_cache,
       stream& stream,
       std::vector<device_ptr>&& device_ptrs,
+      std::string event_id,
       event_done_callback done_cb);
   ~event();
 
@@ -75,6 +78,10 @@ class event {
    */
   void stream_wait_event(stream& stream, uint32_t flags = 0);
 
+  void push_id(std::string event_id) {
+    event_ids_.emplace_back(std::move(event_id));
+  }
+
   /*! \return true if synEventHandle already happened, false otherwise
    */
   bool done() {
@@ -83,12 +90,7 @@ class event {
 
   void wait() {
     std::unique_lock<std::mutex> lock(mutex_);
-    ready_var_.wait(lock, std::bind(&event::done, this));
-  }
-
-  /*! \brief Return and release device pointers mapped to this events. */
-  const std::vector<device_ptr>& get_device_ptrs() const {
-    return device_ptrs_;
+    ready_var_.wait(lock, [this]() -> bool { return done(); });
   }
 
   operator synEventHandle() const {
@@ -104,13 +106,23 @@ class event {
    * threads that wish to block until an event is ready, should call wait() via
    * device::wait_for_event().
    */
-  void synchronize();
+  void synchronize() const;
 
   /*! \brief completes state transition to done
    * Should be called by stream_event_manager exactly once after event is
    * synchronized and SEM completed its bookkeeping.
    */
   void complete();
+
+  /*! \brief Return and release device pointers mapped to this events.
+   * This is volatile information and SEM is doing properly synchronized use of
+   * it in such a way that SEM maps device_ptrs_/event_ids_ are in sync.
+   * NOTE: This implementation assumes that all of these three function are called within a single SEM mutex scope*/
+  const std::vector<device_ptr>& get_device_ptrs() const { return device_ptrs_; };
+  const std::vector<std::string>& get_event_ids() const { return event_ids_; };
+  void remove_device_ptr(const device_ptr ptr_to_remove) {
+    device_ptrs_.erase(std::remove(device_ptrs_.begin(), device_ptrs_.end(), ptr_to_remove), device_ptrs_.end());
+  }
 };
 
 using shared_event = std::shared_ptr<event>;

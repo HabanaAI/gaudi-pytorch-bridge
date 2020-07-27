@@ -24,14 +24,20 @@ event::event(
     event_handle_cache& event_handle_cache,
     stream& stream,
     std::vector<device_ptr>&& device_ptrs,
+    std::string event_id,
     event_done_callback done_cb)
     : event_handle_cache_{event_handle_cache},
       handle_{event_handle_cache_.get_free_handle()},
       done_cb_{std::move(done_cb)},
       device_ptrs_{std::move(device_ptrs)},
-      stream_recorded_{stream} {}
+      event_ids_{},
+      stream_recorded_{stream} {
+  if (!event_id.empty()) {
+    event_ids_.emplace_back(std::move(event_id));
+  }
+}
 
-void event::synchronize() {
+void event::synchronize() const {
   PT_SYNHELPER_DEBUG("synchronizing event ", handle_);
   if (done_)
     PT_SYNHELPER_FATAL("Event ", this, " already done");

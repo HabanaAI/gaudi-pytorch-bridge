@@ -42,17 +42,11 @@ synapse_error_v<synStreamType> convertInternalStreamType(stream_flavor flavor) {
     case DMA_D2H:
       return STREAM_TYPE_COPY_DEVICE_TO_HOST;
     case COMPUTE_0:
-    case COMPUTE_1:
       // TODO: Need to add specifier for secondary stream of the same type
       return STREAM_TYPE_COMPUTE;
     case COLLECTIVE_0:
-    case COLLECTIVE_1:
       // TODO: Need to add specifier for secondary stream of the same type
       return STREAM_TYPE_NETWORK_COLLECTIVE;
-    case SEND:
-      return STREAM_TYPE_NETWORK_SEND;
-    case RECV:
-      return STREAM_TYPE_NETWORK_RECEIVE;
     default:
       return synapse_error{
           "Unsupported stream flavor: " + std::to_string(flavor), synFail};
@@ -61,20 +55,13 @@ synapse_error_v<synStreamType> convertInternalStreamType(stream_flavor flavor) {
 } // namespace
 
 namespace synapse_helpers {
-template <typename collection_t>
-void stream::try_sync_events(collection_t& events_to_sync) {
-  for (auto& e : events_to_sync) {
-    device_.synchronize_event(e);
-  }
-}
-
 stream::stream(class device& device, stream_flavor flavor)
     : pending_cleanups_{},
       device_{device},
       mut_{},
-      continue_{true},
       cond_var_{},
       handle_{nullptr} {
+  pending_cleanups_.push({});
   gc_worker_ = std::thread(&stream::gc_thread_proc, this);
   auto syn_flavor = convertInternalStreamType(flavor);
   if (!ok(syn_flavor))
@@ -95,57 +82,43 @@ void stream::register_pending_event(const shared_event& event) {
       PT_SYNHELPER_FATAL(
           "Event record failed on stream ", handle_, " with status: ", status);
     }
-    pending_cleanups_.push_back(event);
+    pending_cleanups_.push(event);
   }
   cond_var_.notify_one();
 }
 
 void stream::gc_thread_proc() {
   while (true) {
-    std::vector<shared_event> events_to_clean;
-    {
-      std::unique_lock<std::mutex> lock(mut_);
-      gc_worker_is_busy_ = false;
-      while (pending_cleanups_.empty() && continue_) {
-        cond_var_.wait(lock);
-      }
-      if (!continue_) {
-        break;
-      }
+    std::unique_lock<std::mutex> lock(mut_);
 
-      std::move(
-          std::begin(pending_cleanups_),
-          std::end(pending_cleanups_),
-          std::back_inserter(events_to_clean));
-      gc_worker_is_busy_ = true;
-      pending_cleanups_.clear();
+    pending_cleanups_.pop();
+    if (pending_cleanups_.empty()) {
+      cond_var_empty.notify_all();
     }
-    try_sync_events(events_to_clean);
+    cond_var_.wait(lock, [this] { return !pending_cleanups_.empty(); });
+
+    auto event_to_clean = pending_cleanups_.front();
+    if (!event_to_clean) {
+      break;
+    }
+    lock.unlock();
+    device_.synchronize_event(event_to_clean);
   }
 }
 
-void stream::flush(int timeout_ms, int poll_rate_ms) {
-  auto start = std::chrono::steady_clock::now();
-  while (std::chrono::steady_clock::now() - start <
-         std::chrono::milliseconds(timeout_ms)) {
-    if (!is_busy())
-      break;
-    std::this_thread::sleep_for(std::chrono::milliseconds(poll_rate_ms));
-  }
+void stream::flush(int timeout_ms) {
+  std::unique_lock<std::mutex> lock(mut_);
+  cond_var_empty.wait_for(lock, std::chrono::milliseconds(timeout_ms), [this] {
+    return pending_cleanups_.empty();
+  });
 }
 
 stream::~stream() {
   std::unique_lock<std::mutex> lock(mut_);
-  if (!continue_) {
-    return;
-  }
-  continue_ = false;
+  pending_cleanups_.push({});
   lock.unlock();
   cond_var_.notify_one();
   gc_worker_.join();
-  lock.lock();
-  try_sync_events(pending_cleanups_);
-  pending_cleanups_.clear();
   synStreamSynchronize(handle_);
   synStreamDestroy(handle_);
 }

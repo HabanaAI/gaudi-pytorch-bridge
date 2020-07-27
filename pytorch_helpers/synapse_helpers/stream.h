@@ -12,9 +12,9 @@
 #include <synapse_api_types.h>
 #include <atomic>
 #include <condition_variable>
-#include <deque>
 #include <memory>
 #include <mutex>
+#include <queue>
 #include <thread>
 
 namespace synapse_helpers {
@@ -25,15 +25,13 @@ using shared_event = std::shared_ptr<event>;
 class device;
 
 enum stream_flavor {
+  _BEGIN = 0,
   COMPUTE_0 = 0,
-  COMPUTE_1,
-  DMA_D2D,
-  DMA_H2D,
-  DMA_D2H,
-  COLLECTIVE_0,
-  COLLECTIVE_1,
-  SEND,
-  RECV
+  DMA_D2D = 1,
+  DMA_H2D = 2,
+  DMA_D2H = 3,
+  COLLECTIVE_0 = 4,
+  _END = 5
 };
 
 /*! Wrapper Class for synStreamHandle
@@ -42,14 +40,11 @@ enum stream_flavor {
 */
 class stream {
   static const int default_flush_timeout_ms = 1000;
-  static const int default_flush_poll_period_ms = 100;
-
-  std::deque<shared_event> pending_cleanups_;
+  std::queue<shared_event> pending_cleanups_;
   device& device_;
   std::mutex mut_{};
-  std::atomic<bool> continue_{true};
   std::condition_variable cond_var_;
-  std::atomic<bool> gc_worker_is_busy_{false};
+  std::condition_variable cond_var_empty;
   std::thread gc_worker_;
 
   synStreamHandle handle_;
@@ -91,13 +86,7 @@ class stream {
   bool operator!=(const stream& other) const {
     return handle_ != other.handle_;
   }
-  void flush(
-      int timeout_ms = default_flush_timeout_ms,
-      int poll_rate_ms = default_flush_poll_period_ms);
-  bool is_busy() {
-    std::lock_guard<std::mutex> lock_guard(mut_);
-    return !pending_cleanups_.empty() || gc_worker_is_busy_;
-  }
+  void flush(int timeout_ms = default_flush_timeout_ms);
 
  private:
   template <typename collection_t>

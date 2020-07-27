@@ -22,7 +22,8 @@ class stream;
 
 //! Class responsible of recording events on any stream
 class stream_event_manager {
-  absl::flat_hash_map<device_ptr, shared_event> events_;
+  absl::flat_hash_map<device_ptr, shared_event> events_by_addr_;
+  absl::flat_hash_map<std::string, shared_event> events_by_str_;
   std::mutex mut_;
 
  public:
@@ -38,6 +39,13 @@ class stream_event_manager {
       std::vector<device_ptr>&& device_addresses,
       stream& stream,
       event_done_callback done_cb);
+  void add_producer(
+      std::vector<device_ptr>&& device_addresses,
+      std::string event_id,
+      stream& stream,
+      event_done_callback done_cb);
+
+  void add_event_id(const std::string& event_id, const std::string& new_id);
 
   /*! \brief Makes \p stream wait until \p device_address is ready to be used if
    * it wasn't ready already \param device_address tensor pointer in device
@@ -45,6 +53,7 @@ class stream_event_manager {
    * wait for \p device_address
    */
   void enqueue_wait_event(device_ptr device_address, stream& stream);
+  void enqueue_wait_event(const std::string& event_id, stream& stream);
 
   /*! \brief Invokes blocking EventSynchronize for a given tenor pointer in
    * device memory space \param device_address identifier of Event - tensor
@@ -52,6 +61,7 @@ class stream_event_manager {
    */
   void wait_until_done(device_ptr device_address);
   void wait_until_done(shared_event& event);
+  void wait_until_done(const std::string& event);
 
   /*! \brief Returns reference to Event, if exists
    *  \param device_address identifier of Event - tensor pointer in device

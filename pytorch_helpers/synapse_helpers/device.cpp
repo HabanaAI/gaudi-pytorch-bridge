@@ -167,8 +167,9 @@ device::~device() {
 }
 
 void device::flush_stream_events() {
-  for (int id = (int)stream_id::begin_; id < (int)stream_id::end_; id += 1) {
-    get_stream(static_cast<stream_id>(id)).flush();
+  for (int id = (int)stream_flavor::_BEGIN; id < (int)stream_flavor::_END;
+       id += 1) {
+    get_stream(static_cast<stream_flavor>(id)).flush();
   }
   auto start = std::chrono::steady_clock::now();
   while (true) {
@@ -183,20 +184,21 @@ void device::flush_stream_events() {
           .count());
 }
 
-stream& device::get_stream(stream_id id) {
+stream& device::get_stream(stream_flavor id) {
   switch (id) {
-    case stream_id::comp:
+    case stream_flavor::COMPUTE_0:
       return stream_comp_;
-    case stream_id::network_collective:
-      return stream_network_collective_;
-    case stream_id::d2d:
+    case stream_flavor::DMA_D2D:
       return stream_d2d_;
-    case stream_id::h2d:
+    case stream_flavor::DMA_H2D:
       return stream_h2d_;
-    case stream_id::d2h:
+    case stream_flavor::DMA_D2H:
       return stream_d2h_;
+    case stream_flavor::COLLECTIVE_0:
+      return stream_network_collective_;
     default:
-      std::terminate(); // LOG(FATAL) << "Invalid stream id " << id;
+      PT_SYNHELPER_FATAL("Invalid stream id ", id);
+      std::terminate();
   }
 }
 std::ostream& operator<<(std::ostream& stream, const device& syn_device) {
@@ -395,7 +397,8 @@ synapse_error device::copy_data_within_device(
 
 synapse_error device::copy_data_within_device(
     transfer_manifest const& transfers,
-    event_done_callback unref_cb) {
+    event_done_callback unref_cb,
+    stream* const next_operation_stream) {
   synStatus status;
   if ((synapse_helpers::IsStreamSyncOptEnabled())) {
     PT_SYNHELPER_DEBUG("Sync on compute stream: ", stream_comp_);
@@ -428,7 +431,14 @@ synapse_error device::copy_data_within_device(
     return synapse_error{"dma inside hpu start failed.", status};
   }
 
-  sem_.add_producer(std::move(dsts), stream_d2d_, std::move(unref_cb));
+  if (nullptr == next_operation_stream) {
+    sem_.add_producer(std::move(dsts), stream_d2d_, std::move(unref_cb));
+  } else {
+    // If next operation stream is known then user wants us to put event on this
+    // stream immediately and not pass it into the SEM.
+    record_and_wait_for_event(
+        stream_d2d_, *next_operation_stream, std::move(unref_cb));
+  }
   return {};
 }
 
@@ -454,11 +464,36 @@ void device::add_wait_events_on_stream(
   }
 }
 
+void device::add_wait_event_on_stream(
+    const std::string& event_id,
+    stream& stream) {
+  sem_.enqueue_wait_event(event_id, stream);
+}
+
 void device::register_producer_on_stream(
     std::vector<device_ptr>&& bound_addresses,
     stream& stream,
     event_done_callback done_cb) {
   sem_.add_producer(std::move(bound_addresses), stream, std::move(done_cb));
+}
+
+void device::register_producer_on_stream(
+    std::vector<device_ptr>&& bound_addresses,
+    const std::string& event_id,
+    stream& stream,
+    event_done_callback done_cb) {
+  sem_.add_producer(
+      std::move(bound_addresses), event_id, stream, std::move(done_cb));
+}
+
+void device::add_event_id(
+    const std::string& event_id,
+    const std::string& new_id) {
+  sem_.add_event_id(event_id, new_id);
+}
+
+void device::wait_until_event_ready(const std::string& event_id) {
+  sem_.wait_until_done(event_id);
 }
 
 void device::wait_until_address_ready(device_ptr address) {
@@ -467,6 +502,20 @@ void device::wait_until_address_ready(device_ptr address) {
 
 void device::wait_for_event(shared_event& event) {
   sem_.wait_until_done(event);
+}
+
+void device::record_and_wait_for_event(
+    stream& record_stream,
+    stream& other_stream,
+    event_done_callback done_callback) {
+  auto event_ref = std::make_shared<event>(
+      get_event_handle_cache(),
+      record_stream,
+      std::vector<device_ptr>{},
+      "",
+      std::move(done_callback));
+  record_stream.register_pending_event(event_ref);
+  event_ref->stream_wait_event(other_stream);
 }
 
 void owned_device_ptr::device_ptr_deleter::operator()(device_ptr* ptr) {

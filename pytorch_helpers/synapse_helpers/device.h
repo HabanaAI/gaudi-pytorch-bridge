@@ -58,16 +58,6 @@ class device_id {
   synDeviceId id_;
 };
 
-enum class stream_id {
-  begin_ = 0,
-  comp = 0,
-  network_collective = 1,
-  d2d = 2,
-  h2d = 3,
-  d2h = 4,
-  end_ = 5
-};
-
 class device {
  public:
   struct transfer_desc {
@@ -134,11 +124,21 @@ class device {
       size_t total_bytes,
       event_done_callback unref_cb);
 
-  // This function does entire list of transfers within device and records only
-  // single event after last of them is scheduled.
+  /*!
+   * \brief Copies data within device
+   * This function does entire list of transfers within device and records only
+   * single event after last of them is scheduled.
+   *
+   * \param manifest List of transfers to schedule
+   * \param unref_cb Callback for clearing input tensors
+   * \param next_operation_stream If this is not nullptr wait event will be
+   * signaled on given stream immediately after operation is scheduled on
+   * device2device stream. The event will not be tracked in SEM
+   */
   synapse_error copy_data_within_device(
-      transfer_manifest const&,
-      event_done_callback unref_cb);
+      transfer_manifest const& manifest,
+      event_done_callback unref_cb,
+      stream* const next_operation_stream = nullptr);
 
   stream& get_compute_stream() {
     return stream_comp_;
@@ -152,6 +152,10 @@ class device {
   stream& get_device_to_host_stream() {
     return stream_d2h_;
   }
+  stream& get_device_to_device_stream() {
+    return stream_d2d_;
+  };
+  stream& get_stream(stream_flavor id);
 
   /** \brief Returns global workspace buffer
    *  \param size checks if given size is bigger than global buffer, if so, logs
@@ -167,6 +171,20 @@ class device {
       const std::vector<device_ptr>& input_tensors,
       stream& stream);
 
+  void add_wait_event_on_stream(const std::string& event_id, stream& stream);
+
+  /** \brief Records event on a given stream and signals wait for this event on
+   * the other stream. Bypass sem \param record_stream stream for recording
+   * event \param wait_stream stream for signaling wait for recorded event
+   *  \param done_callback function to be invoked, once the event is
+   * synchronized. Used for releasing ownership of Input Tensors dependant on
+   * this event
+   */
+  void record_and_wait_for_event(
+      stream& record_stream,
+      stream& wait_stream,
+      event_done_callback done_callback);
+
   /** \brief Add Events on a given stream for a list of outputs of a stream
    * operation. It forwards the call to internal stream_event_manager object.
    *  \see stream_event_manager::add_producer
@@ -176,7 +194,15 @@ class device {
       stream& stream,
       event_done_callback done_cb);
 
+  void register_producer_on_stream(
+      std::vector<device_ptr>&& bound_addresses,
+      const std::string& event_id,
+      stream& stream,
+      event_done_callback done_cb);
+
+  void add_event_id(const std::string& event_id, const std::string& new_id);
   void wait_until_address_ready(device_ptr address);
+  void wait_until_event_ready(const std::string& event_id);
   void wait_for_event(shared_event& event);
 
   event_handle_cache& get_event_handle_cache() {
@@ -201,8 +227,6 @@ class device {
   void synchronize_event(shared_event& event) {
     sem_.synchronize_event(event);
   }
-
-  stream& get_stream(stream_id id);
 
   std::shared_ptr<session> synapse_session_;
 
