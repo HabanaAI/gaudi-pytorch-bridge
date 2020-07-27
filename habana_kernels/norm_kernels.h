@@ -88,11 +88,8 @@ class BatchNormForwardOperator : public habana::HabanaOperator {
 class BatchNormBackwardOperator : public habana::HabanaOperator {
  public:
   // NOTE: BatchNormBackwardOperator node_type differs for training and eval
-  BatchNormBackwardOperator(
-      int device_id,
-      c10::ScalarType scalarType,
-      std::string node_type)
-      : HabanaOperator(node_type) {
+  BatchNormBackwardOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator("cud_bn_bwd_ex") {
     this->CreateSynContext(device_id);
     scalarType_ = scalarType;
     // assign layouts for input and output tensors
@@ -104,6 +101,8 @@ class BatchNormBackwardOperator : public habana::HabanaOperator {
     kernel_meta_data_.output_layout.assign({habana::LayoutFormat::NHWC,
                                             habana::LayoutFormat::ANY,
                                             habana::LayoutFormat::ANY});
+    resize_done = false;
+    preprocessing_done = false;
   }
 
   virtual void AllocateAndAddSynapseNode(
@@ -111,13 +110,60 @@ class BatchNormBackwardOperator : public habana::HabanaOperator {
       torch::jit::Stack& inputs,
       bool is_output_persistent = false);
 
-  virtual std::vector<at::Tensor> preProcessInputs(torch::jit::Stack& inputs);
+  void preProcessInputs(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs);
 
-  virtual void SetPTOutputs(torch::jit::Stack& inputs);
+  void generateCacheInputs(torch::jit::Stack& inputs);
+
+  void SetPTOutputs(torch::jit::Stack& inputs);
+
+  // To communicate patching info for tensors which are not part of graph
+  virtual std::vector<std::pair<std::string, void*>> getAppendedTensorInfo();
+
+  std::vector<const at::Tensor*>& GetBNInputs() {
+    return pt_inputs;
+  };
+
+  torch::jit::Stack& GetInputstack() {
+    return input_stack;
+  };
+
+  bool CheckResizeDone() {
+    return resize_done;
+  };
+
+  void SetResizeDone() {
+    resize_done = true;
+  };
+
+  bool CheckProprocessingDone() {
+    return preprocessing_done;
+  }
+
+  void SetProprocessingDone() {
+    preprocessing_done = true;
+  };
 
  private:
+  at::Tensor create_or_return_input_tensor_bn_bwd(
+      synapse_helpers::graph& graph,
+      const at::Tensor& input,
+      uint size,
+      at::Device device,
+      int syn_index);
+  at::Tensor create_or_return_pt_tensor_bn(
+      const at::Tensor& input,
+      uint size,
+      at::Device device);
+
   c10::ScalarType scalarType_;
-  std::vector<synapse_helpers::tensor_or_ref> tensors_;
+  std::vector<synapse_helpers::tensor_or_ref> reordered_syn_inputs_;
+  std::vector<const at::Tensor*> pt_inputs;
+  torch::jit::Stack input_stack;
+  std::vector<at::Tensor> pre_inputs;
+  bool resize_done;
+  bool preprocessing_done;
 };
 
 // Norm Operator
