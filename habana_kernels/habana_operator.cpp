@@ -181,8 +181,12 @@ void habana::HabanaOperator::AddNodeToSynapseGraph(
   std::vector<synTensor> syn_inputs;
   std::vector<synTensor> syn_outputs;
 
-  for (synapse_helpers::tensor& tensor : p_context_->syn_inputs_) {
-    syn_inputs.emplace_back(tensor.get());
+  for (size_t i = 0; i < p_context_->syn_inputs_.size(); i++) {
+    synapse_helpers::tensor& tensor = p_context_->syn_inputs_[i];
+    if (kernel_meta_data_.valid_input_idx.empty() ||
+        kernel_meta_data_.valid_input_idx.count(i)) {
+      syn_inputs.emplace_back(tensor.get());
+    }
   }
 
   for (synapse_helpers::tensor& tensor : p_context_->syn_outputs_) {

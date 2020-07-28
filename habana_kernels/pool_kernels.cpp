@@ -516,11 +516,8 @@ Tensor& max_pool2d_with_indices_backward_out_hpu(
   habana_helpers::change_tensors_to_memory_format(
       pt_out, pt_in, pt_new_pos, memory_format);
 
-  std::vector<const at::Tensor*> pt_inputs{&grad_out_nhwc, &indices_nhwc};
-  std::vector<const at::Tensor*> pt_outputs{&grad_input_nhwc};
-
   auto maxpool_2d_bwd = [&] {
-    std::vector<at::Tensor> pt_inputs{grad_out_nhwc, indices_nhwc};
+    std::vector<at::Tensor> pt_inputs{grad_out_nhwc, input_nhwc, indices_nhwc};
     std::vector<c10::IValue> stack = {IValue(grad_input_nhwc),
                                       IValue(grad_out_nhwc),
                                       IValue(input_nhwc),
@@ -589,8 +586,16 @@ void MaxPool2dWithIndicesBackwardOperator::AllocateAndAddSynapseNode(
 
   at::Tensor input = inputs[1].toTensor();
   auto grad_input =
-      at::zeros_like(input, input.options(), input.suggest_memory_format());
+      at::empty_like(input, input.options(), input.suggest_memory_format());
+
+  // Re-order the inpust for:
+  // MaxPool2dWithIndicesBackwardOutOperator in the below order:
+  // {grad_input, grad_out, input, indices, kernel_size, stride, padding,
+  //  dialation, ceil_mode}
   inputs.insert(inputs.begin(), IValue(grad_input));
+  auto& indices = inputs.back();
+  inputs.pop_back();
+  inputs.insert(inputs.begin() + 3, indices);
 
   MaxPool2dWithIndicesBackwardOutOperator::AllocateAndAddSynapseNode(
       graph, inputs, is_output_persistent);
@@ -605,8 +610,11 @@ void MaxPool2dWithIndicesBackwardOperator::SetPTOutputs(
 
   at::Tensor input = inputs[1].toTensor();
   auto grad_input =
-      at::zeros_like(input, input.options(), input.suggest_memory_format());
+      at::empty_like(input, input.options(), input.suggest_memory_format());
   inputs.insert(inputs.begin(), IValue(grad_input));
+  auto& indices = inputs.back();
+  inputs.pop_back();
+  inputs.insert(inputs.begin() + 3, indices);
 
   MaxPool2dWithIndicesBackwardOutOperator::SetPTOutputs(inputs);
 }
@@ -664,15 +672,15 @@ Tensor max_pool2d_with_indices_backward_hpu(
       pt_out, pt_in, pt_new_pos, memory_format);
 
   auto maxpool_2d_bwd = [&] {
-    std::vector<at::Tensor> pt_inputs{grad_out_nhwc, indices_nhwc};
+    std::vector<at::Tensor> pt_inputs{grad_out_nhwc, input_nhwc, indices_nhwc};
     std::vector<c10::IValue> stack = {IValue(grad_out_nhwc),
                                       IValue(input_nhwc),
-                                      IValue(indices_nhwc),
                                       IValue(kernel_size),
                                       IValue(stride),
                                       IValue(padding),
                                       IValue(dilation),
-                                      IValue(ceil_mode)};
+                                      IValue(ceil_mode),
+                                      IValue(indices_nhwc)};
     // Create the operator
     MaxPool2dWithIndicesBackwardOperator Op(device_id, scalar_type);
     size_t key = Op.GetRecipeKey(node_type, stack);
@@ -1231,6 +1239,12 @@ static auto& KernelRegistry =
             "aten::max_pool2d_with_indices",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<MaxPool2dWithIndicesOperator>(
+                  device_id, node_type);
+            })
+        .add(
+            "aten::max_pool2d_with_indices_backward",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<MaxPool2dWithIndicesBackwardOperator>(
                   device_id, node_type);
             })
         .add(

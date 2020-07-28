@@ -63,6 +63,7 @@ class MaxPool2dWithIndicesBackwardOutOperator : public HabanaOperator {
                                            LayoutFormat::NHWC,
                                            LayoutFormat::NHWC});
     kernel_meta_data_.output_layout.assign({LayoutFormat::NHWC});
+    kernel_meta_data_.valid_input_idx.insert({0, 2});
   }
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
@@ -82,6 +83,7 @@ class MaxPool2dWithIndicesBackwardOperator
       : MaxPool2dWithIndicesBackwardOutOperator(device_id, scalarType) {
     kernel_meta_data_.input_layout.assign(
         {LayoutFormat::NHWC, LayoutFormat::NHWC, LayoutFormat::NHWC});
+    kernel_meta_data_.output_layout.assign({LayoutFormat::NHWC});
   }
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
