@@ -160,3 +160,31 @@ void CastOutOperator::AllocateAndAddSynapseNode(
   AllocateSynapseOutputs(graph, outputs, is_output_persistent);
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
+
+void ConstantOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() >= 2,
+      "Incorrect size of inputs expected for constant operator");
+  TORCH_CHECK(
+      inputs[0].isTensor(),
+      "Input arg1 expected to be Tensor for constant operator");
+  TORCH_CHECK(
+      inputs[1].isScalar(),
+      "Input arg2 expected to be scalar for constant operator");
+
+  auto input = inputs[0].toTensor();
+  auto value = inputs[1].toScalar();
+
+  ns_ConstantKernel::Params params;
+  params.constant.f = value.to<float>();
+
+  p_context_->params_.emplace<ns_ConstantKernel::Params>(params);
+  p_context_->params_size_ = sizeof(params);
+
+  auto output = at::empty(input.sizes(), input.options(), input.suggest_memory_format());
+  AllocateSynapseOutput(graph, output, is_output_persistent);
+  AddNodeToSynapseGraph(graph, &params, sizeof(params));
+}
