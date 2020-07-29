@@ -22,7 +22,18 @@ try:
 except ImportError:
     amp = None
 
+def train_model(model, criterion, optimizer, image, target, apex):
+    output = model(image)
+    loss = criterion(output, target)
+    optimizer.zero_grad()
+    if apex:
+       with amp.scale_loss(loss, optimizer) as scaled_loss:
+            scaled_loss.backward()
+    else:
+       loss.backward()
+    optimizer.step()
 
+    return loss.item(),output.detach().to('cpu')
 
 def train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, print_freq, apex=False):
     model.train()
@@ -37,22 +48,12 @@ def train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, pri
             image = image.contiguous(memory_format=torch.channels_last)
 
         image, target = image.to(device), target.to(device)
-        output = model(image)
-        loss = criterion(output, target)
+        loss_cpu,output_cpu = train_model(model, criterion, optimizer, image, target, apex)
 
-        optimizer.zero_grad()
-        if apex:
-            with amp.scale_loss(loss, optimizer) as scaled_loss:
-                scaled_loss.backward()
-        else:
-            loss.backward()
-        optimizer.step()
-
-        acc1, acc5 = utils.accuracy(output, target, topk=(1, 5))
+        acc1, acc5 = utils.accuracy(output_cpu, target, topk=(1, 5))
         batch_size = image.shape[0]
         #Bring the loss tensor back to CPU before printing. Certainly needed if running on Habana.
-        loss_cpu = loss.to('cpu').detach()
-        metric_logger.update(loss=loss_cpu.item(), lr=optimizer.param_groups[0]["lr"])
+        metric_logger.update(loss=loss_cpu, lr=optimizer.param_groups[0]["lr"])
         metric_logger.meters['acc1'].update(acc1.item(), n=batch_size)
         metric_logger.meters['acc5'].update(acc5.item(), n=batch_size)
         metric_logger.meters['img/s'].update(batch_size / (time.time() - start_time))

@@ -33,6 +33,19 @@ try:
 except ImportError:
     amp = None
 
+def train_model(model, criterion, optimizer, image, target, trainMetaData, apex):
+    output = model(image)
+    loss = criterion(output, target)
+    optimizer.zero_grad()
+    if apex:
+       with amp.scale_loss(loss, optimizer) as scaled_loss:
+            scaled_loss.backward()
+    else:
+       loss.backward()
+    optimizer.step()
+
+    return loss.item(),output.detach().to('cpu')
+
 def train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, print_freq, trainMetaData, apex=False):
     model.train()
     metric_logger = utils.MetricLogger(delimiter="  ",device=device)
@@ -50,25 +63,15 @@ def train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, pri
 
         tp_probe_tensors_iteration_start(model, device, target, image, trainMetaData.ParamsDump, False)
 
-        output = model(image)
-        loss = criterion(output, target)
+        loss_cpu,output_cpu = train_model(model, criterion, optimizer, image, target, trainMetaData, apex)
 
-        optimizer.zero_grad()
-        if apex:
-            with amp.scale_loss(loss, optimizer) as scaled_loss:
-                scaled_loss.backward()
-        else:
-            loss.backward()
-        optimizer.step()
+        tp_probe_tensors_iteration_end(model, device, output_cpu, loss_cpu, trainMetaData.ParamsDump, False)
 
-        tp_probe_tensors_iteration_end(model, device, output, loss, trainMetaData.ParamsDump, False)
-
-        acc1, acc5 = utils.accuracy(output, target, topk=(1, 5))
+        acc1, acc5 = utils.accuracy(output_cpu, target, topk=(1, 5))
         trainMetaData.tracept.end(time.time(), 'train_iteration_'+str(trainMetaData.current_train_step))
         batch_size = image.shape[0]
         #Bring the loss tensor back to CPU before printing. Certainly needed if running on Habana.
-        loss_cpu = loss.to('cpu').detach()
-        metric_logger.update(loss=loss_cpu.item(), lr=optimizer.param_groups[0]["lr"])
+        metric_logger.update(loss=loss_cpu, lr=optimizer.param_groups[0]["lr"])
         metric_logger.meters['acc1'].update(acc1.item(), n=batch_size)
         metric_logger.meters['acc5'].update(acc5.item(), n=batch_size)
         metric_logger.meters['img/s'].update(batch_size / (time.time() - start_time))
