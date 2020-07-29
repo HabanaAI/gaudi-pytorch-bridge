@@ -143,6 +143,22 @@ TensorInfo::TensorInfo(
   size = pt_tensor.nbytes();
 }
 
+TensorInfo::TensorInfo(
+    const at::Tensor& pt_tensor,
+    const std::string& sn,
+    const std::string& irn) {
+  ir_name = irn;
+  syn_name = sn;
+
+  std::ostringstream oss;
+  oss << pt_tensor.sizes();
+  shape_str = oss.str();
+
+  buffer = pt_tensor.data_ptr();
+  numel = pt_tensor.numel();
+  size = pt_tensor.nbytes();
+}
+
 std::ostream& operator<<(std::ostream& O, const TensorInfo& t) {
   O << '<' << t.ir_name << ':' << t.shape_str << ':' << t.numel << ':' << '('
     << t.size << " b)"
@@ -979,11 +995,16 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
     // We set type so that the created tensor is propagated throughout graph
     GetSynapseOutputs(HabanaKernel, node);
 
+    auto patch_info = HabanaKernel->getAppendedTensorInfos();
+    if (!patch_info.empty()) {
+      for (const auto& p : patch_info) {
+        std::string irn{"%interim"};
+        interim_tensorinfos.emplace_back(TensorInfo(p.second, p.first, irn));
+      }
+    }
+
     // Adding to a vector as we share context through shared pointers and we
     // dont want to call delete untill we are done with whole graph
-    auto patch_info = HabanaKernel->getAppendedTensorInfo();
-    for (size_t i = 0; i < patch_info.size(); i++)
-      appended_tensors_info.emplace_back(patch_info[i]);
     habana_kernels.push_back(HabanaKernel);
   }
 
@@ -1017,6 +1038,12 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
       rv.dtensorinfos->end(),
       pinput_tensorinfos.begin(),
       pinput_tensorinfos.end());
+  if (!interim_tensorinfos.empty()) {
+    rv.dtensorinfos->insert(
+        rv.dtensorinfos->end(),
+        interim_tensorinfos.begin(),
+        interim_tensorinfos.end());
+  }
   rv.dtensorinfos->insert(
       rv.dtensorinfos->end(),
       output_tensorinfos.begin(),
@@ -1100,15 +1127,6 @@ void HabanaLaunchOpPT::LaunchRecipe(RecipeValueSpec& rv) {
     syn_launch_info.emplace_back(synLaunchTensorInfo{
         rv.dtensorinfos->at(i).syn_name.c_str(),
         reinterpret_cast<uint64_t>(rv.dtensorinfos->at(i).buffer)});
-  // Append additional tensor info
-  // TODO:remember this in caching
-  for (size_t j = 0; j < appended_tensors_info.size(); j++) {
-    synLaunchTensorInfo temp;
-    temp.tensorName = appended_tensors_info[j].first.c_str();
-    temp.pTensorAddress =
-        reinterpret_cast<uint64_t>(appended_tensors_info[j].second);
-    syn_launch_info.push_back(temp);
-  }
 
   synapse_helpers::graph::launch_info ln_info(rv.recipe->device_);
   synapse_helpers::graph::create_launch_info(ln_info, *rv.recipe);
@@ -1154,6 +1172,7 @@ void HabanaLaunchOpPT::clear() {
 
   input_tensorinfos.clear();
   pinput_tensorinfos.clear();
+  interim_tensorinfos.clear();
   output_tensorinfos.clear();
   value_to_tensor_layout.clear();
 

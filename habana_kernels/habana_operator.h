@@ -170,8 +170,8 @@ class HabanaOperator {
     return kernel_meta_data_;
   }
 
-  // To communicate patching info for tensors which are not part of graph
-  virtual std::vector<std::pair<std::string, void*>> getAppendedTensorInfo();
+  //To communicate patching info for tensors which are not part of graph
+  virtual std::vector<std::pair<std::string, at::Tensor>> getAppendedTensorInfos();
 
   virtual const std::vector<std::pair<at::Tensor, at::Tensor>>
   GetDMACandidates() {
@@ -190,10 +190,11 @@ class HabanaOperator {
   std::string guid_;
   PytorchKernelContextPtr p_context_;
   KernelMetaData kernel_meta_data_;
-  // Store the info on intermediate tensors inserted(not part of graph)
-  // THis needs to be communicated to lowering kernel as these additions
-  // are invisible there(only graph mappings are queried)
-  std::vector<std::pair<std::string, void*>> appended_tensor_info;
+  //Store the info on intermediate tensors inserted(not part of graph)
+  //THis needs to be communicated to lowering kernel as these additions
+  //are invisible there(only graph mappings are queried)
+  std::vector<std::pair<std::string, at::Tensor>> appended_tensor_infos;
+
 };
 
 using HabanaOperatorPtr = std::shared_ptr<HabanaOperator>;

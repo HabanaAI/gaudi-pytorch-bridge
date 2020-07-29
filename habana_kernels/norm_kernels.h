@@ -35,9 +35,6 @@ class BatchNormForwardOperator : public habana::HabanaOperator {
       torch::jit::Stack& inputs,
       bool is_output_persistent = false);
 
-  //To communicate patching info for tensors which are not part of graph
-  virtual std::vector<std::pair<std::string, void*>> getAppendedTensorInfo();
-
   // virtual std::vector<at::Tensor> preProcessInputs(torch::jit::Stack&
   // inputs);
   virtual void preProcessInputs(synapse_helpers::graph& graph, torch::jit::Stack& inputs);
@@ -78,10 +75,6 @@ class BatchNormForwardOperator : public habana::HabanaOperator {
   //Need to pass along as GC will complain if they are missing in patching info
   std::vector<synapse_helpers::tensor_or_ref> mean_var_temp;
   std::vector<std::pair<at::Tensor, at::Tensor>> dma_candidates;
-  //Store the info on intermediate tensors inserted(not part of graph)
-  //THis needs to be communicated to lowering kernel as these additions
-  //are invisible there(only graph mappings are queried)
-  std::vector<std::pair<std::string, void*>> appended_tensor_info;
   bool running_vars_def;
 };
 
@@ -118,8 +111,6 @@ class BatchNormBackwardOperator : public habana::HabanaOperator {
 
   void SetPTOutputs(torch::jit::Stack& inputs);
 
-  // To communicate patching info for tensors which are not part of graph
-  virtual std::vector<std::pair<std::string, void*>> getAppendedTensorInfo();
 
   std::vector<at::Tensor>& GetBNInputs() {
     return pt_inputs;

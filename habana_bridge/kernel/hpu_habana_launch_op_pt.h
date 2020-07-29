@@ -105,8 +105,9 @@ struct RecipeArgumentSpecEqual {
 };
 
 struct TensorInfo {
-  TensorInfo(const IValPtr& ivp, const std::string& sn, const ValPtr& vp);
-  TensorInfo(const IValPtrShared& ivp, const std::string& sn, const ValPtr& vp);
+  TensorInfo (const IValPtr &ivp, const std::string &sn, const ValPtr &vp);
+  TensorInfo (const IValPtrShared &ivp, const std::string &sn, const ValPtr &vp);
+  TensorInfo (const at::Tensor &pt_tensor, const std::string &sn, const std::string &irn);
 
   friend std::ostream& operator<<(std::ostream& O, const TensorInfo& t);
 
@@ -204,19 +205,14 @@ class HabanaLaunchOpPT {
   void run(torch::jit::Stack& stack);
 
  private:
-  static size_t instance_count_;
+  static size_t                       instance_count_;
 
-  std::shared_ptr<torch::jit::Graph> subgraph_;
-  std::string opname_;
-  std::string id_str;
-  size_t ref_count_ = 0;
-  bool debug_;
+  std::shared_ptr<torch::jit::Graph>  subgraph_;
+  std::string                         opname_;
+  std::string                         id_str;
+  size_t                              ref_count_ = 0;
+  bool                                debug_;
 
-  // Temp additions to enable BatchNorm..tensors created that are not in graph
-  // We get this to enable correct patching
-  // Right now our patching is tightly coupled to graph nodes
-  // BN is exception case, we can review our patching design for this
-  std::vector<std::pair<std::string, void*>> appended_tensors_info;
   // We keep a vector of kernels so that the context memory
   //   for each kernel is retained till graph execution
   // This is done to enable reuse of PT and synapse tensors and their processing
@@ -236,10 +232,17 @@ class HabanaLaunchOpPT {
       pt_to_synapse_tensors;
 
   // TensorInfos for launcing the recipe
-  std::vector<TensorInfo> input_tensorinfos;
-  std::vector<TensorInfo> pinput_tensorinfos;
-  std::vector<TensorInfo> output_tensorinfos;
-  synapse_helpers::graph* syn_graph_ptr = nullptr;
+  std::vector<TensorInfo>          input_tensorinfos;
+  std::vector<TensorInfo>          pinput_tensorinfos;
+
+  // Temp additions to enable BatchNorm..tensors created that are not in graph
+  // We get this to enable correct patching
+  // Right now our patching is tightly coupled to graph nodes
+  // BN is exception case, we can review our patching design for this
+  std::vector<TensorInfo>          interim_tensorinfos;
+
+  std::vector<TensorInfo>          output_tensorinfos;
+  synapse_helpers::graph          *syn_graph_ptr = nullptr;
 
   // caching :: begin
 

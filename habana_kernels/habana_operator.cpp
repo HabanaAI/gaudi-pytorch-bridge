@@ -131,9 +131,9 @@ void habana::HabanaOperator::AllocateSynapseOutput(
   p_context_->pt_outputs_.emplace_back(output);
 }
 
-std::vector<std::pair<std::string, void*>> habana::HabanaOperator::
-    getAppendedTensorInfo() {
-  return appended_tensor_info;
+std::vector<std::pair<std::string, at::Tensor>> habana::HabanaOperator::getAppendedTensorInfos()
+{
+  return appended_tensor_infos;
 }
 
 void habana::HabanaOperator::AllocateSynapseInplaceOutput(
