@@ -248,7 +248,7 @@ synapse_error device::copy_data_to_device(
     }
   }
 
-  sem_.enqueue_wait_event(destination, stream_d2h_);
+  sem_.enqueue_wait_event(destination, stream_h2d_);
   memory_mapper::acquired_entry res{};
   void* mapped_cpu_data = cpu_data;
 
