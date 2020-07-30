@@ -103,6 +103,11 @@ class Net(nn.Module):
         x = self.fc2(x)
         return F.log_softmax(x, dim=1)
 
+def train_model(model, data, target):
+    output = model(data)
+    loss = F.nll_loss(output, target)
+    loss.backward()
+    return loss.item(), output.detach().to('cpu')
 
 def train(args, model, device, train_loader, optimizer, epoch, trainMetaData,rank):
     model.train()
@@ -114,19 +119,16 @@ def train(args, model, device, train_loader, optimizer, epoch, trainMetaData,ran
         iter_timer_start = time.time()
         data, target = data.to(device), target.to(device)
         optimizer.zero_grad()
-        output = model(data)
-        loss = F.nll_loss(output, target)
-        loss_cpu = loss
-        loss.backward()
+        loss_cpu, output_cpu = train_model(model, data, target)
         optimizer.step()
         iter_duration = time.time() - iter_timer_start
         # if batch_idx % args.log_interval == 0:
-        acc1, acc5 = trainMetaData.accuracy(output, target, topk=(1, 5))
+        acc1, acc5 = trainMetaData.accuracy(output_cpu, target, topk=(1, 5))
         log_msg = 'Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f} '\
                   'acc1: {:.6f} acc5: {:.6f} time: {:.6f}\n'.format(
                   epoch, batch_idx * len(data), len(train_loader.dataset),
                   100. * batch_idx / len(train_loader),
-                  loss_cpu.to(torch.device('cpu')).item(), acc1, acc5,
+                  loss_cpu, acc1, acc5,
                   iter_duration)
 
         if(trainMetaData.is_logging() and rank==0):
