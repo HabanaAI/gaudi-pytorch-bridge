@@ -79,7 +79,7 @@ const std::unordered_set<std::string> HabanaWhiteList::HabanaWhiteListOps = {
     // "aten::uniform_",
     "aten::view",
     "aten::gt",
-    "prim::Constant"
+    "prim::Constant",
     "aten::embedding_bag_sum_fwd",
     "aten::embedding_bag_sum_bwd.out"};
 
