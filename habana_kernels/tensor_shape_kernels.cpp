@@ -506,7 +506,9 @@ inline int is_hpu_supported_transpose_type(const c10::ScalarType pt_type) {
  * @param dims_ - permute dims array
  ************************************************************************/
 PermuteOperator::PermuteOperator(int device_id, c10::ScalarType scalarType)
-    : HabanaOperator("transpose") {
+    : HabanaOperator(
+          "transpose_fwd_" +
+          habana_helpers::name_suffix_from_type(scalarType)) {
   this->CreateSynContext(device_id);
 }
 
@@ -550,8 +552,8 @@ void PermuteOperator::AllocateAndAddSynapseNode(
   params.tensorDim = self.dim();
   // params.permute has to be populated in a reverse order for HPU FCD-LCD order
   for (int i = 0; i < self.dim(); i++) {
-    params.permutation[i] = static_cast<TransposePermutationDim>(
-        self.dim() - dims[dims.size() - i - 1] - 1);
+    params.permutation[self.dim() - 1 - dims[i]] =
+        static_cast<TransposePermutationDim>(self.dim() - 1 - i);
   }
   for (int i = self.dim(); i < MAX_DIMENSIONS_NUM; i++) {
     params.permutation[i] = static_cast<TransposePermutationDim>(i);
