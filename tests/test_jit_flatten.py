@@ -21,6 +21,7 @@ class Net(nn.Module):
         y = torch.flatten(z)
         return y
 
+@pytest.mark.skip("Skipping since flatten is not part of whitelist")
 @pytest.mark.parametrize("in_tensors", data_list)
 def test_jit_flatten(in_tensors):
   with torch.jit.optimized_execution(True):
