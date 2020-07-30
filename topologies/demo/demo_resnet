@@ -6,8 +6,9 @@ function help()
         echo -e "  -m <model>,        --model <model>              default: 'resnet50'"
         echo -e "  -d <device>,       --device <device>            default: 'habana'"
         echo -e "  -b <batch_size>,   --batch-size <batchsize>     default: 128"
+        echo -e "                     --mode <mode>                default: trace mode. Possible values: trace, eager"
+        echo -e "  -d <data type>,    --data_type <data type>      default: fp32. Possible values: fp32, bf16"
         echo -e "  -e <epochs>,       --epochs <epochs>            default: 1"
-        echo -e "  -j <workers>,      --workers <workers>          default: 0"
         echo -e "  --print-freq <print_freq>                       default: 1"
         echo -e ""
 }
@@ -30,6 +31,14 @@ while [ -n "$1" ];
 	-b  | --batch-size )
             shift
             __batch_size=$1
+            ;;
+	-d |  --dtype )
+            shift
+            __dtype=$1
+            ;;
+	    --mode )
+            shift
+            __mode=$1
             ;;
 	-e  | --epochs )
             shift
@@ -64,13 +73,52 @@ EPOCHS=${__epochs:-1}
 WORKERS=${__workers:-0}
 PRINT_FREQ=${__print_freq:-1}
 
+if [ -n "$__mode" ]; then
+    if [ "$__mode" == "trace" ]; then
+       MODE="--run-trace-mode"
+    elif [ "$__mode" == "eager" ]; then
+       MODE=""
+    else
+       echo "Invalid mode:"$__mode""
+       help
+       exit 1
+    fi
+else
+    MODE="--run-trace-mode"
+    __mode="trace"
+fi
+
+if [ -n "$__dtype" ]; then
+    if [ "$__dtype" == "bf16" ]; then
+       DTYPE="--hmp"
+    elif [ "$__dtype" == "fp32" ]; then
+       DTYPE=""
+    else
+       echo "Invalid data type:"$__dtype""
+       help
+       exit 1
+    fi
+else
+    DTYPE=""
+    __dtype="fp32"
+fi
+
+
+echo -e "Train ResNet with below parameters:"
+echo -e "Model: ${MODEL}"
+echo -e "batch_size: ${BATCH_SIZE}"
+echo -e "epochs: ${EPOCHS}"
+echo -e "data_type: "${__dtype}""
+echo -e "Mode: $__mode"
 
 printf "*** Starting training...\n\n"
-PT_HPU_LOG_MOD_MASK=FFFF PT_HPU_LOG_TYPE_MASK=1 python resnet/train.py \
+(set -x; PT_HPU_LOG_MOD_MASK=FFFF PT_HPU_LOG_TYPE_MASK=1 python resnet/train.py \
 	--data-path=${DATA_PATH} \
 	--model=${MODEL} \
 	--device=${DEVICE} \
 	--batch-size=${BATCH_SIZE} \
 	--epochs=${EPOCHS} \
 	--workers=${WORKERS} \
-	--print-freq=${PRINT_FREQ}
+	--print-freq=${PRINT_FREQ} \
+    $MODE \
+    $DTYPE)
