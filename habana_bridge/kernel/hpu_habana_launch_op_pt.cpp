@@ -174,6 +174,12 @@ std::ostream& operator<<(std::ostream& O, const RecipeValueSpec& v) {
     << " <addr : " << v.recipe.get() << "> "
     << " <use_count : " << v.recipe.use_count() << "> " << '\n';
 
+  O << '\n';
+  O << "aten_intermediates ::";
+  for (auto& a : v.aten_intermediates) {
+    O << " <dim : " << a.dim() << " : " << a.sizes() << '>';
+  }
+
   if (v.aten_outputs) {
     O << '\n';
     O << "aten_outputs ::";
@@ -513,6 +519,9 @@ void HabanaLaunchOpPT::GetSynapseOutputs(
           std::make_shared<IVal>(output_tensors_pt[output_tensor_idx]);
       value_to_ivalue[output_nodes[output_nodes_idx]] = ivpsh;
 
+      if (false == isInGraphOutputs(output_nodes[output_nodes_idx])) {
+        aten_intermediates.push_back(ivpsh->toTensor());
+      }
       pt_to_synapse_tensors.emplace(
           value_to_ivalue[output_nodes[output_nodes_idx]], out_tensor_syn);
 
@@ -625,6 +634,9 @@ at::Tensor HabanaLaunchOpPT::permuteTensor(
   for (synapse_helpers::tensor& out_tensor_syn : output_tensors_syn) {
     // make the output of permute the input for next synapse kernel
     // permute has a single output
+    if (persistent) {
+      aten_intermediates.push_back(value_to_ivalue[value_in]->toTensor());
+    }
     value_to_ivalue[value_in] = std::make_shared<IVal>(outputs_permute[0]);
     value_to_tensor_layout[value_in] = permute_order;
     pt_to_synapse_tensors.erase(value_to_ivalue[value_in]);
@@ -1062,6 +1074,11 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
     rv.aten_outputs->push_back(value_to_ivalue[output]);
   }
 
+  if (enable_caching_) {
+    for (auto t : aten_intermediates) {
+      rv.aten_intermediates.push_back(t);
+    }
+  }
   if (enable_tensor_dump_) {
     DumpTensors_pre(rv);
   }
@@ -1077,6 +1094,8 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
     std::shared_ptr<RecipeArgumentSpec> ra_spec =
         std::make_shared<RecipeArgumentSpec>(false, input_refs, subgraph_);
     recipe_cache.add(ra_spec, rv);
+  } else {
+    aten_intermediates.clear();
   }
 
   UpdateOutputs();
@@ -1119,15 +1138,14 @@ void HabanaLaunchOpPT::LaunchRecipe(RecipeValueSpec& rv) {
 
   auto& device = synapse_helpers::HPURegistrar::get_device();
   auto& stream_handle = device.get_compute_stream();
-
   std::vector<synLaunchTensorInfo> syn_launch_info;
 
   // Populate the <name,buffer> pairs from TensorInfo for synLaunch
-  for (size_t i = 0; i < rv.num_tensors; ++i)
+  for (size_t i = 0; i < rv.num_tensors; ++i) {
     syn_launch_info.emplace_back(synLaunchTensorInfo{
         rv.dtensorinfos->at(i).syn_name.c_str(),
         reinterpret_cast<uint64_t>(rv.dtensorinfos->at(i).buffer)});
-
+  }
   synapse_helpers::graph::launch_info ln_info(rv.recipe->device_);
   synapse_helpers::graph::create_launch_info(ln_info, *rv.recipe);
 
