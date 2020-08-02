@@ -128,3 +128,14 @@ class FlattenOperator : public ReshapeOperator {
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
 };
+
+// View Operator
+class ViewOperator : public ReshapeOperator {
+ public:
+  ViewOperator(int device_id, c10::ScalarType scalarType)
+      : ReshapeOperator(device_id, scalarType) {}
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+};

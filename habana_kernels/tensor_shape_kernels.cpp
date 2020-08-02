@@ -720,6 +720,33 @@ void FlattenOperator::AllocateAndAddSynapseNode(
       graph, inputs, is_output_persistent);
 }
 
+void ViewOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 2,
+      "Incorrect size of input arguments for View Operator");
+  TORCH_CHECK(
+      inputs[0].isTensor(),
+      "Input arg 1 for View op needs to be tensor type");
+  TORCH_CHECK(
+      inputs[1].isIntList(), "Input arg 2 for View op needs to be Int List");
+
+  auto self = inputs[0].toTensor();
+  auto dims = inputs[1].toIntVector();;
+
+  //Reshape Operator doesnt support -1 argument, remove it if present
+  auto inferred_dims = at::infer_size(dims, self.numel());
+  // remove start_dim & end_dim. we have already used these to compute shape
+  inputs.pop_back();
+  // insert computed shape into inputs stack before calling reshape
+  inputs.push_back(IValue(inferred_dims));
+
+  ReshapeOperator::AllocateAndAddSynapseNode(
+      graph, inputs, is_output_persistent);
+}
+
 void BroadcastOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
@@ -875,6 +902,11 @@ static auto& KernelRegistry =
             "aten::flatten",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<FlattenOperator>(device_id, node_type);
+            })
+        .add(
+            "aten::view",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<ViewOperator>(device_id, node_type);
             });
 
 static auto registry =
