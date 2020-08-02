@@ -67,6 +67,7 @@ class ReshapeOperator : public ::habana::HabanaOperator {
   ReshapeOperator(int device_id, c10::ScalarType scalarType)
       : HabanaOperator("reshape") {
     this->CreateSynContext(device_id);
+    kernel_meta_data_.changes_dims = true;
   }
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,

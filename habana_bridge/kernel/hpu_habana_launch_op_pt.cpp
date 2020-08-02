@@ -706,14 +706,28 @@ void HabanaLaunchOpPT::processInputs(
         value_to_tensor_layout[value_in].layout = habana::LayoutFormat::HWCK;
       }
 
-      if (!(isChannelOrderSupported(value_in, in_layout))) {
+      bool permute_required = !(isChannelOrderSupported(value_in, in_layout));
+      habana::LayoutFormat perm_layout = in_layout;
+      // If the kernel changes dims of tensor, get it to original PT format
+      // This is done as we cannot pass layout info for 4D tensors and it will
+      // get lost in translation.
+      if (habana_kernel_meta_data.changes_dims &&
+          std::getenv("PT_HPU_LAZY_MODE")) {
+        if (getTensorChannelOrder(value_in) !=
+            value_to_tensor_layout[value_in].layout_at_graph_entry) {
+          permute_required = true;
+          perm_layout = value_to_tensor_layout[value_in].layout_at_graph_entry;
+        }
+      }
+
+      if (permute_required) {
         // We only support 4D tensors
         TORCH_CHECK(
             tensor.dim() <= 4,
             "WARNING: Kernel wants permute on non 4D tensor, not supproted");
         // permute
         if (tensor.dim() == 4) {
-          permuteTensor(value_in, tensor, in_layout);
+          permuteTensor(value_in, tensor, perm_layout);
         }
       }
       prev_layout =

@@ -46,10 +46,14 @@ class PytorchKernelContext {
   size_t params_size_;
 };
 
-typedef struct {
+typedef struct KernelMetaData {
   std::vector<LayoutFormat> input_layout;
   std::vector<LayoutFormat> output_layout;
   std::set<int> valid_input_idx;
+  bool changes_dims;
+  KernelMetaData() {
+    changes_dims = false;
+  }
 } KernelMetaData;
 
 using PytorchKernelContextPtr = std::shared_ptr<PytorchKernelContext>;
