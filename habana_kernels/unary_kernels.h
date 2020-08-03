@@ -180,3 +180,61 @@ class ReciprocalOperator : public ReciprocalOutOperator {
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
 };
+
+//
+// Gelu Operator
+class GeluOperator : public HabanaOperator {
+ public:
+  GeluOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator(
+            "gelu_fwd_" +
+            habana_helpers::name_suffix_from_type(scalarType)) {
+    this->CreateSynContext(device_id);
+    kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
+    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
+  }
+
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+};
+
+//
+// Erf Operator
+class ErfOperator : public HabanaOperator {
+ public:
+  ErfOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator(
+            "erf_fwd_" +
+            habana_helpers::name_suffix_from_type(scalarType)) {
+    this->CreateSynContext(device_id);
+    kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
+    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
+  }
+
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+};
+
+//
+// Exp Operator
+class ExpOperator : public HabanaOperator {
+ public:
+  ExpOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator(
+            "exp_fwd_" +
+            habana_helpers::name_suffix_from_type(scalarType)) {
+    this->CreateSynContext(device_id);
+    kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
+    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
+  }
+
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+};
+

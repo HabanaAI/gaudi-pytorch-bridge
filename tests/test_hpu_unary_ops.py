@@ -95,6 +95,13 @@ def test_hpu_lp_norm_op_fwd_bwd(N, H, W, C, lp_norm_op, value):
     evaluate_fwd_bwd_kernel(kernel=lp_norm_op, tensor_list_bwd=bwd_tensors,
                             kernel_params_fwd=kernel_params_fwd)
 
+@pytest.mark.parametrize("N, H, W, C", test_case_list)
+@pytest.mark.parametrize("unary_op", [torch.erf, torch.exp])
+@pytest.mark.parametrize("dtype, tol", data_type_list)
+def test_hpu_unary_op_erf(N, H, W, C, unary_op, dtype, tol):
+    kernel_params = {'input': torch.randn(N, C, H, W).to(dtype)}
+    evaluate_fwd_kernel(kernel=unary_op, kernel_params=kernel_params, atol=tol, rtol=tol)
+
 
 if __name__ == '__main__':
     test_hpu_unary_op(*test_case_list[0], unary_op_list[0])
