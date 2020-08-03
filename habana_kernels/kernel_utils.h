@@ -106,3 +106,18 @@ class ConstantOperator : public habana::HabanaOperator {
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
 };
+
+// ConstantOut Operator
+class ConstantOutOperator : public habana::HabanaOperator {
+ public:
+  ConstantOutOperator(int device_id, c10::ScalarType scalarType)
+      : habana::HabanaOperator("constant_" + habana_helpers::name_suffix_from_type(scalarType)) {
+    this->CreateSynContext(device_id);
+    kernel_meta_data_.output_layout.assign({habana::LayoutFormat::ANY});
+  }
+
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+};

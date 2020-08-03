@@ -11,6 +11,7 @@
 
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
+#include "habana_helpers/graph.h"
 #include "habana_helpers/tensor_utils.h"
 #include "habana_kernels/kernel_utils.h"
 
@@ -27,6 +28,37 @@ void synapse_fill(const Tensor& output, const T val) {
   habana_helpers::copy_data_to_device(buffer.data(), output, size);
 }
 
+/** 
+ * @brief This function uses "constant" TPC kernel to fill input
+ * tensor with "value" provided. fp32, bf16 & i32 are the only
+ * support dtypes. Tensor shall be filled with values based on
+ * tensor's scalar type (value shall be casted to scalar type of
+ * tensor if it happens to be different)
+ */
+void fill_constant_hpu(Tensor& self, Scalar value) {
+  size_t device_id = self.device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  at::ScalarType scalar_type = self.scalar_type();
+  std::string node_type =
+      "constant_" + habana_helpers::name_suffix_from_type(scalar_type);
+
+  // Note that we fill the tensor based on its own scalar_type
+  // and not based on dtype of value
+  ConstantOutOperator Op(device_id, scalar_type);
+  std::vector<c10::IValue> stack = {IValue(self), IValue(value)};
+  size_t key = Op.GetRecipeKey(node_type, stack);
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    Op.SetPTOutputs({self});
+    Op.Execute(key);
+  } else {
+    PT_KERNEL_DEBUG("key:", key);
+    auto graph = habana_helpers::create_graph(device_id, node_type);
+    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    Op.Compile(graph);
+  }
+}
+
 Tensor& fill_hpu_(Tensor& self, Scalar value) {
   PT_KERNEL_BEGIN;
   auto dtype = habana_helpers::scalar_type(value);
@@ -40,26 +72,16 @@ Tensor& fill_hpu_(Tensor& self, Scalar value) {
       synapse_fill(self, memset_val);
     } break;
     case 2: {
-      TORCH_CHECK(value.isFloatingPoint() || value.isIntegral(false));
-      if (value.isFloatingPoint()) {
-        auto memset_val = value.to<at::BFloat16>();
-        synapse_fill(self, memset_val);
+      if (self.scalar_type() == c10::ScalarType::BFloat16) {
+        fill_constant_hpu(self, value);
       } else {
         auto memset_val = value.to<int16_t>();
         synapse_fill(self, memset_val);
       }
     } break;
-    case 4: {
-      uint32_t memset_val;
-      TORCH_CHECK(value.isFloatingPoint() || value.isIntegral(false));
-      if (value.isIntegral(false) && self.scalar_type() == dtype) {
-        memset_val = value.to<int32_t>();
-      } else {
-        auto float_val = value.to<float>();
-        memcpy(&memset_val, &float_val, sizeof(float_val));
-      }
-      synapse_fill(self, memset_val);
-    } break;
+    case 4:
+      fill_constant_hpu(self, value);
+      break;
     case 8: {
       // Even though HPU doesnt support long/double. Intermediate tensors in
       // embedding_bag used by PyT needs this fill functionality

@@ -161,6 +161,48 @@ void CastOutOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
+void ConstantOutOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() >= 2,
+      "Incorrect size of inputs expected for constant operator");
+  TORCH_CHECK(
+      inputs[0].isTensor(),
+      "Input arg1 expected to be Tensor for constant operator");
+  TORCH_CHECK(
+      inputs[1].isScalar(),
+      "Input arg2 expected to be scalar for constant operator");
+
+  auto output = inputs[0].toTensor();
+  auto value = inputs[1].toScalar();
+
+  TORCH_CHECK(
+      (output.scalar_type() == c10::ScalarType::BFloat16) ||
+          (output.scalar_type() == c10::ScalarType::Int) ||
+          (output.scalar_type() == c10::ScalarType::Float),
+      "Unsupported dtype provided for Constant kernel Input.scalar_type() = ",
+      output.scalar_type());
+
+  ns_ConstantKernel::Params params;
+  if (output.scalar_type() == c10::ScalarType::Int) {
+    params.constant.i = value.to<int32_t>();
+  } else {
+    params.constant.f = value.to<float>();
+  }
+
+  p_context_->params_.emplace<ns_ConstantKernel::Params>(params);
+  p_context_->params_size_ = sizeof(params);
+
+  if (output.dim() == 0) {
+    output.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+  }
+
+  AllocateSynapseOutput(graph, output, is_output_persistent);
+  AddNodeToSynapseGraph(graph, &params, sizeof(params));
+}
+
 void ConstantOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
@@ -178,13 +220,29 @@ void ConstantOperator::AllocateAndAddSynapseNode(
   auto input = inputs[0].toTensor();
   auto value = inputs[1].toScalar();
 
+  TORCH_CHECK(
+      (input.scalar_type() == c10::ScalarType::BFloat16) ||
+          (input.scalar_type() == c10::ScalarType::Int) ||
+          (input.scalar_type() == c10::ScalarType::Float),
+      "Unsupported dtype provided for Constant kernel Input.scalar_type() = ",
+      input.scalar_type());
+
   ns_ConstantKernel::Params params;
-  params.constant.f = value.to<float>();
+  if (input.scalar_type() == c10::ScalarType::Int) {
+    params.constant.i = value.to<int32_t>();
+  } else {
+    params.constant.f = value.to<float>();
+  }
 
   p_context_->params_.emplace<ns_ConstantKernel::Params>(params);
   p_context_->params_size_ = sizeof(params);
 
-  auto output = at::empty(input.sizes(), input.options(), input.suggest_memory_format());
+  if (input.dim() == 0) {
+    input.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+  }
+
+  auto output =
+      at::empty(input.sizes(), input.options(), input.suggest_memory_format());
   AllocateSynapseOutput(graph, output, is_output_persistent);
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
