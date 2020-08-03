@@ -159,6 +159,36 @@ class BatchNormBackwardOperator : public habana::HabanaOperator {
   bool preprocessing_done;
 };
 
+class LayerNormOperator : public habana::HabanaOperator {
+ public:
+  // NOTE: BatchNormForwardOperator node_type differs for training and eval
+  LayerNormOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator(
+            "layer_norm_fwd_" +
+            habana_helpers::name_suffix_from_type(scalarType)) {
+    this->CreateSynContext(device_id);
+    // assign layouts for input and output tensors
+
+    kernel_meta_data_.input_layout.assign({habana::LayoutFormat::ANY,
+                                           habana::LayoutFormat::ANY,
+                                           habana::LayoutFormat::ANY});
+    kernel_meta_data_.output_layout.assign({habana::LayoutFormat::ANY,
+                                            habana::LayoutFormat::ANY,
+                                            habana::LayoutFormat::ANY});
+  }
+
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+  void SetPTOutputs(torch::jit::Stack& inputs);
+  std::tuple<at::Tensor, at::Tensor, at::Tensor> AllocatePTOutputs(
+      const at::Tensor& input,
+      const at::Tensor& bias,
+      const at::Tensor& weight,
+      int64_t m);
+};
+
 // Norm Operator
 class NormOperator : public HabanaOperator {
  public:

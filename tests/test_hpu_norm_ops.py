@@ -27,20 +27,38 @@ layer_norm_test_case_list = [
     (2, 5, 10, 10)
 ]
 
+
 @pytest.mark.parametrize("N, H, W, C", layer_norm_test_case_list)
 @pytest.mark.parametrize("split_dim", [1, 2, 3])
 def test_hpu_layer_norm_fwd_bwd(N, H, W, C, split_dim):
     shape = [N, H, W, C]
-    shape_norm = shape[split_dim:] 
+    shape_norm = shape[split_dim:]
     kernel = torch.nn.LayerNorm(shape_norm)
     kernel_params_fwd = {'input': torch.randn(shape, requires_grad=True)}
 
     bwd_tensor1 = torch.randn(shape)
     bwd_tensor2 = torch.randn(shape[0:split_dim])
     bwd_tensor3 = torch.randn(shape[0:split_dim])
-    bwd_tensors  = [bwd_tensor1, bwd_tensor2, bwd_tensor3]
+    bwd_tensors = [bwd_tensor1, bwd_tensor2, bwd_tensor3]
     evaluate_fwd_bwd_kernel(kernel=kernel, tensor_list_bwd=bwd_tensors,
                             kernel_params_fwd=kernel_params_fwd, copy_kernel=True)
+
+
+@pytest.mark.parametrize("N, H, W, C", layer_norm_test_case_list)
+@pytest.mark.parametrize("split_dim", [1, 2, 3])
+def test_hpu_layer_norm_withcache_fwd_bwd(N, H, W, C, split_dim):
+    shape = [N, H, W, C]
+    shape_norm = shape[split_dim:]
+    for i in range(2):
+        kernel = torch.nn.LayerNorm(shape_norm)
+        kernel_params_fwd = {'input': torch.randn(shape, requires_grad=True)}
+        bwd_tensor1 = torch.randn(shape)
+        bwd_tensor2 = torch.randn(shape[0:split_dim])
+        bwd_tensor3 = torch.randn(shape[0:split_dim])
+        bwd_tensors = [bwd_tensor1, bwd_tensor2, bwd_tensor3]
+        evaluate_fwd_bwd_kernel(kernel=kernel, tensor_list_bwd=bwd_tensors,
+                                kernel_params_fwd=kernel_params_fwd, copy_kernel=True)
+
 
 @pytest.mark.parametrize("N, H, W, C", batch_norm_test_case_list_2d)
 def test_hpu_batch_norm_2d_fwd_bwd(N, H, W, C):
@@ -70,6 +88,7 @@ def test_hpu_batch_norm_1d_ncl_fwd_bwd(N, C, L):
 
     evaluate_fwd_bwd_kernel(kernel=kernel, tensor_list_bwd=bwd_tensors,
                             kernel_params_fwd=kernel_params_fwd, copy_kernel=True)
+
 
 @pytest.mark.parametrize("N, H, W, C", batch_norm_test_case_list_2d)
 def test_hpu_batch_norm_2d_eval_fwd_bwd(N, H, W, C):
@@ -104,6 +123,7 @@ def test_hpu_batch_norm_2d_eval_fwd_bwd(N, H, W, C):
     numpy.testing.assert_allclose(output_hpu_cpu.detach().numpy(),
                                   output.detach().numpy(), atol=0.001, rtol=0.001)
 
+
 @pytest.mark.parametrize("N, H, W, C", batch_norm_test_case_list_2d)
 def test_hpu_batch_norm_2d_chlast_fwd_bwd(N, H, W, C):
     kernel = torch.nn.BatchNorm2d(C)
@@ -114,6 +134,7 @@ def test_hpu_batch_norm_2d_chlast_fwd_bwd(N, H, W, C):
     evaluate_fwd_bwd_kernel(kernel=kernel, tensor_list_bwd=bwd_tensors,
                             kernel_params_fwd=kernel_params_fwd, copy_kernel=True)
 
+
 @pytest.mark.parametrize("N, H, W, C", batch_norm_test_case_list_2d)
 def test_hpu_batch_norm_2d_chlast_withcache_fwd_bwd(N, H, W, C):
     for i in range(2):
@@ -123,7 +144,8 @@ def test_hpu_batch_norm_2d_chlast_withcache_fwd_bwd(N, H, W, C):
         bwd_tensor = torch.randn(N, C, H, W)
         bwd_tensors = [bwd_tensor.contiguous(memory_format=torch.channels_last)]
         evaluate_fwd_bwd_kernel(kernel=kernel, tensor_list_bwd=bwd_tensors,
-                            kernel_params_fwd=kernel_params_fwd, copy_kernel=True)
+                                kernel_params_fwd=kernel_params_fwd, copy_kernel=True)
+
 
 @pytest.mark.parametrize("N, H, W, C", batch_norm_test_case_list_2d)
 def test_hpu_batch_norm_2d_eval_withcache_fwd_bwd(N, H, W, C):
@@ -154,9 +176,11 @@ def test_hpu_batch_norm_2d_eval_withcache_fwd_bwd(N, H, W, C):
         output_hpu = model_hpu(x_hpu)
         output_hpu_cpu = output_hpu.to(cpu)
         numpy.testing.assert_allclose(output_hpu_cpu.detach().numpy(),
-                                  output.detach().numpy(), atol=0.001, rtol=0.001)
+                                      output.detach().numpy(), atol=0.001, rtol=0.001)
+
 
 if __name__ == '__main__':
+    test_hpu_layer_norm_fwd_bwd(*layer_norm_test_case_list[0], 1)
     test_hpu_batch_norm_2d_fwd_bwd(*batch_norm_test_case_list_2d[0])
     test_hpu_batch_norm_1d_fwd_bwd(*batch_norm_test_case_list_1d[0])
     test_hpu_batch_norm_1d_ncl_fwd_bwd(*batch_norm_test_case_list_1d_ncl[0])
