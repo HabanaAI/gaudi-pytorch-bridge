@@ -226,6 +226,13 @@ def parse_args():
     args = parser.parse_args()
     return args
 
+def permute_params_on_device(model):
+    with torch.no_grad():
+        for name, param in model.named_parameters():
+            if(param.ndim == 4):
+                permuted_data = param.data.permute((2,3,1,0))
+                param.data.copy_(permuted_data)
+
 def main(args):
 
     rank = args.rank
@@ -256,6 +263,9 @@ def main(args):
             hb_torch.enable()
             sample_trace_tensor = torch.FloatTensor(64, 1, 28, 28).to(device)
             model = torch.jit.trace(model, sample_trace_tensor, check_trace=False)
+
+    if(device==torch.device('habana')):
+        permute_params_on_device(model)
 
     if(args.distributed == True):
         sampler = data.DistributedSampler(args.train_dataset)

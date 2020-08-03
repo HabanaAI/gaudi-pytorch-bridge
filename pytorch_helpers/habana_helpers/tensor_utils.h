@@ -166,6 +166,11 @@ void change_tensors_to_memory_format(
     std::vector<const at::IntArrayRef*> pt_new_pos,
     c10::MemoryFormat memory_format);
 
+void change_tensor_strides(
+        at::Tensor* pt_output,
+        const at::Tensor* pt_input,
+        const at::IntArrayRef* pt_new_pos);
+
 c10::MemoryFormat get_memory_format(std::vector<const at::Tensor*> pt_inputs);
 
 } // namespace habana_helpers

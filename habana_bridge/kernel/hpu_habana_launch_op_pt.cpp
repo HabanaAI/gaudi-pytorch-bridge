@@ -698,14 +698,55 @@ bool HabanaLaunchOpPT::isInGraphInputs(torch::jit::Value* value) {
   return false;
 }
 
-void adjustInputWeight(at::Tensor* tensor) {
+void HabanaLaunchOpPT::create_duplicate_syn_tensor(at::Tensor* tensor, torch::jit::Value* value_in, bool persistence)
+{
+    auto syn_tensor_input = pt_to_synapse_tensors.find(value_to_ivalue[value_in]);
+    auto dtype = tensor->scalar_type();
+    //if both are persistent, use same memeory section
+    if(syn_tensor_input->second.is_persistent() && persistence)
+    {
+      // create a tensor variant on the same memory section as the input
+      auto variant =
+          synapse_helpers::tensor_builder(
+              tensor->sizes(), habana_helpers::pytorch_to_synapse_type(dtype))
+              .mark_persistence(true)
+              .with_memory_section(syn_tensor_input->second.memorysection())
+              .build(
+                  synapse_helpers::HPURegistrar::get_device(
+                      tensor->device().index()),
+                  syn_tensor_input->second.graph());
+
+      meta_syn_tensors.push_back(
+          absl::get<synapse_helpers::tensor>(std::move(variant)));
+    }
+    else
+    {
+      pt_to_synapse_tensors.erase(value_to_ivalue[value_in]);
+      auto variant = habana_helpers::create_tensor(*tensor, syn_tensor_input->second.graph(),
+                                      persistence);
+      meta_syn_tensors.push_back((std::move(variant)));
+    }
+
+    auto& syn_tensor = meta_syn_tensors.back();
+    pt_to_synapse_tensors.erase(value_to_ivalue[value_in]);
+    pt_to_synapse_tensors.emplace(value_to_ivalue[value_in], syn_tensor);
+    if(persistence)
+    {
+      pinput_tensorinfos.emplace_back(
+        TensorInfo(value_to_ivalue[value_in], syn_tensor.tensor_name_, value_in));
+    }
+
+}
+void adjustInputWeight(at::Tensor* tensor, bool is_input) {
   if (tensor->dim() != 4)
     return;
 
   auto sizes = tensor->sizes().vec();
   auto strides = tensor->strides().vec();
+  at::IntArrayRef in = {2, 3, 1, 0};
+  at::IntArrayRef out = {3, 2, 0, 1};
   // TODO : Remove these hardcoded dims, maybe take it from config file?
-  at::IntArrayRef new_pos_arr = {2, 3, 1, 0};
+  at::IntArrayRef new_pos_arr = is_input ? in : out;
   auto new_pos = new_pos_arr.vec();
   std::vector<long int> swapped_sizes = {sizes[new_pos[0]],
                                          sizes[new_pos[1]],
@@ -750,12 +791,17 @@ void HabanaLaunchOpPT::processInputs(
       // already, so we just change size This should be changed to make it
       // consistent, but requires wider change in eager mode kernels too
       // TODO : Solve this the right way
-      if (in_layout == habana::LayoutFormat::HWCK &&
-          prev_layout == habana::LayoutFormat::NHWC &&
-          pt_input_layout == habana::LayoutFormat::NHWC) {
-        in_layout = habana::LayoutFormat::ANY;
-        adjustInputWeight(&tensor);
-      }
+      if (in_layout == habana::LayoutFormat::HWCK) {
+          in_layout = habana::LayoutFormat::ANY;
+          adjustInputWeight(&tensor, true);
+          value_to_tensor_layout[value_in] = habana::LayoutFormat::HWCK;
+          auto syn_tensor_input = pt_to_synapse_tensors.find(value_to_ivalue[value_in]);
+          if (syn_tensor_input != std::end(pt_to_synapse_tensors)) {
+            bool persistence = true;
+            create_duplicate_syn_tensor(&tensor, value_in, persistence);
+          }
+
+        }
 
       if (!(isChannelOrderSupported(value_in, in_layout))) {
         // We only support 4D tensors
@@ -790,8 +836,13 @@ void HabanaLaunchOpPT::postProcessOutputs() {
       if (ival && value_out->type()->kind() == c10::TypeKind::TensorType &&
           isInGraphOutputs(value_out)) {
         auto tensor = ival->toTensor();
+        //Add permutes only for 4D non weight tensors
         if (tensor.dim() == 4) {
-          if (getTensorChannelOrder(value_out) != pt_input_layout) {
+          if (getTensorChannelOrder(value_out) == habana::LayoutFormat::HWCK)
+          {
+            adjustInputWeight(&tensor, false);
+          }
+          else if (getTensorChannelOrder(value_out) != pt_input_layout) {
             permuteTensor(value_out, tensor, pt_input_layout);
             if (pt_input_layout == habana::LayoutFormat::NHWC) {
               // Make the shape according to NCHW again as PT maintains that
@@ -902,8 +953,6 @@ void HabanaLaunchOpPT::handleMetaOps(torch::jit::Node* node) {
   torch::jit::Operator jit_op = node->getOperator();
   auto offset = jit_op.getOperation()(stack);
 
-  auto syn_tensor_input =
-      pt_to_synapse_tensors.find(value_to_ivalue[node_ins[0]]);
   TORCH_CHECK(offset == 0);
 
   auto node_outs = node->outputs();
@@ -915,26 +964,7 @@ void HabanaLaunchOpPT::handleMetaOps(torch::jit::Node* node) {
     if (ival->isTensor()) {
       auto tensor = ival->toTensor();
       value_to_tensor_layout[val_out] = out_layout;
-      auto dtype = tensor.scalar_type();
-      // create a tensor variant on the same memory section as the input
-      auto variant =
-          synapse_helpers::tensor_builder(
-              tensor.sizes(), habana_helpers::pytorch_to_synapse_type(dtype))
-              .mark_persistence(true)
-              .with_memory_section(syn_tensor_input->second.memorysection())
-              .build(
-                  synapse_helpers::HPURegistrar::get_device(
-                      tensor.device().index()),
-                  syn_tensor_input->second.graph());
-
-      meta_syn_tensors.push_back(
-          absl::get<synapse_helpers::tensor>(std::move(variant)));
-      auto& syn_tensor = meta_syn_tensors.back();
-
-      pt_to_synapse_tensors.emplace(value_to_ivalue[val_out], syn_tensor);
-
-      pinput_tensorinfos.emplace_back(
-          TensorInfo(ival, syn_tensor.tensor_name_, val_out));
+      create_duplicate_syn_tensor(&tensor, val_out, true);
 
       if (input_to_pinput_indices.end() ==
           input_to_pinput_indices.find(input_ptr)) {
@@ -1363,7 +1393,9 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
           pt_stack_sh[j] = ivptrsh;
           pt_input_layout = habana::LayoutFormat::NHWC;
         } else {
-          value_to_ivalue[value_input] = pt_stack_sh[j];
+          IValPtrShared ivptrsh = std::make_shared<IVal>(tensor);
+          value_to_ivalue[value_input] = ivptrsh;
+          pt_stack_sh[j] = ivptrsh;
         }
         num_tensor_inputs++;
       } else {

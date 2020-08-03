@@ -202,15 +202,16 @@ Tensor convolution_hpu(
   // convert tensors to synapse memory format
   Tensor input_nhwc = input;
   Tensor weight_hwck = weight;
-  std::vector<const at::Tensor*> pt_in{&input, &weight};
-  std::vector<at::Tensor*> pt_out{&input_nhwc, &weight_hwck};
+  std::vector<const at::Tensor*> pt_in{&input};
+  std::vector<at::Tensor*> pt_out{&input_nhwc};
   IntArrayRef new_dim_pos_in = {0, 2, 3, 1};
   IntArrayRef new_dim_pos_w = {2, 3, 1, 0};
   std::vector<const IntArrayRef*> pt_new_pos{&new_dim_pos_in, &new_dim_pos_w};
   c10::MemoryFormat memory_format =
-      habana_helpers::get_memory_format({&input, &weight});
+      habana_helpers::get_memory_format({&input});
   habana_helpers::change_tensors_to_memory_format(
       pt_out, pt_in, pt_new_pos, memory_format);
+  habana_helpers::change_tensor_strides(&weight_hwck, &weight, &new_dim_pos_w);
 
   auto convolution = [&] {
     size_t device_id = input.device().index();
@@ -664,17 +665,19 @@ std::tuple<Tensor, Tensor, Tensor> convolution_backward_hpu(
   Tensor input_nhwc = input;
   Tensor grad_out_nhwc = grad_output;
   Tensor weight_hwck = weight;
-  std::vector<const at::Tensor*> pt_in{&input, &grad_output, &weight};
-  std::vector<at::Tensor*> pt_out{&input_nhwc, &grad_out_nhwc, &weight_hwck};
+  std::vector<const at::Tensor*> pt_in{&input, &grad_output};
+  std::vector<at::Tensor*> pt_out{&input_nhwc, &grad_out_nhwc};
   IntArrayRef new_dim_pos_in = {0, 2, 3, 1};
   IntArrayRef new_dim_pos_grad_out = {0, 2, 3, 1};
   IntArrayRef new_dim_pos_w = {2, 3, 1, 0};
   std::vector<const IntArrayRef*> pt_new_pos{
       &new_dim_pos_in, &new_dim_pos_grad_out, &new_dim_pos_w};
   c10::MemoryFormat memory_format =
-      habana_helpers::get_memory_format({&grad_output, &input, &weight});
+      habana_helpers::get_memory_format({&grad_output, &input});
   habana_helpers::change_tensors_to_memory_format(
       pt_out, pt_in, pt_new_pos, memory_format);
+  habana_helpers::change_tensor_strides(&weight_hwck, &weight,
+                 &new_dim_pos_w);
 
   Tensor grad_input, grad_weight, grad_bias;
 
@@ -746,9 +749,8 @@ std::tuple<Tensor, Tensor, Tensor> convolution_backward_hpu(
     pt_in = {&grad_weight_hwck};
     pt_out = {&grad_w};
     IntArrayRef new_dim_pos_out = {3, 2, 0, 1};
-    std::vector<const IntArrayRef*> pt_new_pos = {&new_dim_pos_out};
-    habana_helpers::change_tensors_to_memory_format(
-        pt_out, pt_in, pt_new_pos, memory_format);
+    habana_helpers::change_tensor_strides(&grad_w, &grad_weight_hwck,
+                  &new_dim_pos_out);
     grad_weight = grad_w;
   }
 

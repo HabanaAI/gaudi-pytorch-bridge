@@ -329,4 +329,5 @@ class HabanaLaunchOpPT {
 
   void DumpTensors_pre(RecipeValueSpec& rv);
   void DumpTensors(RecipeValueSpec& rv);
+  void create_duplicate_syn_tensor(at::Tensor* tensor, torch::jit::Value* value_in, bool persistence = true);
 };

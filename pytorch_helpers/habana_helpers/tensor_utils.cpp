@@ -616,6 +616,34 @@ void habana_helpers::copy_data_within_device(
   }
 }
 
+void habana_helpers::change_tensor_strides(
+        at::Tensor* pt_output,
+        const at::Tensor* pt_input,
+        const at::IntArrayRef* pt_new_pos){
+
+    auto sizes = pt_input->sizes().vec();
+    auto new_pos = *pt_new_pos;
+    std::vector<long int> swapped_sizes = {sizes[new_pos[0]],
+                                           sizes[new_pos[1]],
+                                           sizes[new_pos[2]],
+                                           sizes[new_pos[3]]};
+    auto strides = pt_input->strides().vec();
+    std::vector<long int> swapped_strides = {strides[new_pos[0]],
+                                             strides[new_pos[1]],
+                                             strides[new_pos[2]],
+                                             strides[new_pos[3]]};
+    /* The following method of using 'alias' followed by
+     * set_sizes_and_strides is necessary to "dereference" pt_outputs[i]
+     * from pt_inputs[i] and create new copies of sizes and strides.
+     * Using unsafeGetTensorImpl directly on pt_outputs[i] will
+     * reference pt_inputs[i] itself because 'pt_output[i] = pt_input[i]'
+     * is a reference copy*/
+    *pt_output = at::alias(*pt_input);
+    pt_output->unsafeGetTensorImpl()->set_sizes_and_strides(
+        swapped_sizes, swapped_strides);
+
+}
+
 void habana_helpers::change_tensors_to_memory_format(
     std::vector<at::Tensor*> pt_outputs,
     std::vector<const at::Tensor*> pt_inputs,
