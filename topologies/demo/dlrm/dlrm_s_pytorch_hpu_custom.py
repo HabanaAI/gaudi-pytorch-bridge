@@ -685,7 +685,17 @@ if __name__ == "__main__":
     parser.add_argument("--mlperf-bin-shuffle", action='store_true', default=False)
     parser.add_argument('--no-habana', action='store_true', default=False,
                         help='disables habana training')
+    parser.add_argument('--hmp', dest='is_hmp', action='store_true', help='enable hmp mode')
+    parser.add_argument('--hmp-bf16', default='', help='path to bf16 ops list in hmp O1 mode')
+    parser.add_argument('--hmp-fp32', default='', help='path to fp32 ops list in hmp O1 mode')
+    parser.add_argument('--hmp-opt-level', default='O1', help='choose optimization level for hmp')
+    parser.add_argument('--hmp-verbose', action='store_true', help='enable verbose mode for hmp')
     args = parser.parse_args()
+
+    if args.is_hmp:
+        from hmp import hmp
+        hmp.convert(opt_level=args.hmp_opt_level, bf16_file_path=args.hmp_bf16,
+                    fp32_file_path=args.hmp_fp32, isVerbose=args.hmp_verbose)
 
     use_hpu = not args.no_habana
 
@@ -1226,7 +1236,7 @@ if __name__ == "__main__":
                 '''
                 # compute loss and accuracy
                 L_habana = E_habana.detach().cpu().numpy()  # numpy array
-                S_habana = Z_habana.detach().cpu().numpy()  # numpy array
+                S_habana = Z_habana.float().detach().cpu().numpy()  # numpy array
                 T = T.detach().cpu().numpy()  # numpy array
                 mbs = T.shape[0]  # = args.mini_batch_size except maybe for last
                 A = np.sum((np.round(S_habana, 0) == T).astype(np.uint8))

@@ -122,10 +122,18 @@ def op_wrap_dynamic(op):
 
     @wraps(op)
     def wrapper_dynamic(*args, **kwds):
-        cast_fn = decide_cast_fn(*args, **kwds)
-        vprint("casting ", op, " to ", cast_fn.__name__)
-        args_cast = get_new_args(cast_fn, args, kwds)
-        return op(*args_cast, **kwds)
+        if isinstance(args[0], list):
+            # ops with tensorlist as input
+            cast_fn = decide_cast_fn(*args[0], **kwds)
+            vprint("casting ", op, " to ", cast_fn.__name__)
+            args_cast = get_new_args(cast_fn, args[0], kwds)
+            return op(args_cast, *args[1:], **kwds)
+        else:
+            # ops with tensors as input
+            cast_fn = decide_cast_fn(*args, **kwds)
+            vprint("casting ", op, " to ", cast_fn.__name__)
+            args_cast = get_new_args(cast_fn, args, kwds)
+            return op(*args_cast, **kwds)
 
     return wrapper_dynamic
 

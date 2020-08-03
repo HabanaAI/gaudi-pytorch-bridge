@@ -27,8 +27,10 @@ ops_dict = {
     'mm': [torch, torch.Tensor],
     'mv': [torch, torch.Tensor],
 
-    # Misc nn modules
+    # Misc modules
     'batch_norm': [torch.nn.functional],
+    'embedding_bag_sum_fwd': [torch],
+    'embedding_bag_sum_bwd': [torch],
 
     # Classifiers and loss metrics
     'cross_entropy': [torch.nn.functional],
@@ -57,5 +59,6 @@ ops_dict = {
     # Shapes
     't': [torch, torch.Tensor],
     'flatten': [torch, torch.Tensor],
-    'view': [torch.Tensor]
+    'view': [torch.Tensor],
+    'cat': [torch]
 }

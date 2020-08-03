@@ -41,8 +41,14 @@ def test_add_torch():
     a = torch.add(a, b)
     assert a.dtype == torch.float32
 
+def test_cat_torch():
+    a = torch.randn(3, 4).bfloat16().to(hpu)
+    b = torch.randn(4, 4).to(hpu)
+    c = torch.randn(5, 4).to(hpu)
+    a = torch.cat([a,b,c])
+    assert a.dtype == torch.float32
 
 if __name__ == "__main__":
-    hmp.convert(isVerbose=False)
-    test_add_inplace()
+    hmp.convert(isVerbose=True)
+    test_cat_torch()
 
