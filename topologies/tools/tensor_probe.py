@@ -349,13 +349,18 @@ def tp_hooks_set_current_epoch_no(hooks, epoch):
 
 # some utility functions to dump important tensors at the beginning and end of a iteration.
 def tp_probe_tensors_iteration_start(model, device, target, inp, ParamsDump, force_dump):
+    if ParamsDump.to_dump_data is False:
+        return
     ParamsDump.save_tensor(device, target, 'target', force_dump=force_dump)
     ParamsDump.save_tensor(device, inp, 'input', force_dump=force_dump)
     ParamsDump.dump_params_data(device, model, 'params_before_update')
     ParamsDump.dump_buffers_data(device, model, 'buffers_at_input')
 
 def tp_probe_tensors_iteration_end(model, device, output, loss, ParamsDump, force_dump):
+    if ParamsDump.to_dump_data is False:
+        return
     ParamsDump.save_tensor(device, output, 'output', force_dump=force_dump)
     ParamsDump.save_tensor(device, loss, 'loss', force_dump=force_dump)
     ParamsDump.dump_buffers_data(device, model, 'buffers_at_output')
     ParamsDump.dump_params_data(device, model, 'params_after_update')
+    ParamsDump.dump_grads(device, model, 'grads')
