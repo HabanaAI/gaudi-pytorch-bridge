@@ -18,6 +18,7 @@
 #include "habana_helpers/logging.h"
 #include "habana_kernels/binary_kernels.h"
 #include "habana_kernels/compare_kernels.h"
+#include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/simple_generic_kernel.h"
 #include "habana_kernels/tensor_shape_kernels.h"
 
@@ -94,61 +95,104 @@ void CompareOutOperator::AllocateAndAddSynapseNode(
   }
 }
 
-void CompareOperator::AllocateAndAddSynapseNode(
+void CompareOutWrapperOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  // this check is for stack during graph execution
+  TORCH_CHECK(
+      inputs.size() == 3,
+      "Incorrect size of input expected for Compare operator");
+  // Note that there is no (Scalar, Tensor) version for comparison ops
+  // in native_functions.yaml
+  TORCH_CHECK(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
+  TORCH_CHECK(
+      inputs[1].isTensor() || inputs[1].isScalar(),
+      "Input arg2 type expected to be a tensor or scalar");
+  TORCH_CHECK(inputs[2].isTensor(), "Input arg3 type expected to be tensor");
+
+  CompareOutOperator compareOp(
+      this->p_context_->device_id_, this->scalarType_, guid_);
+
+  if (inputs[0].isTensor() && inputs[1].isTensor()) { // Both inputs are tensors
+    auto& syn_arg1 =
+        compareOp.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+    auto& syn_arg2 =
+        compareOp.SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
+    compareOp.AllocateAndAddSynapseNode(graph, inputs, is_output_persistent);
+    p_context_->syn_inputs_[0] = std::move(syn_arg1);
+    p_context_->syn_inputs_[1] = std::move(syn_arg2);
+
+  } else { // 2nd input is a scalar
+    // add constant node to convert 2nd input to tensor
+    ConstantOperator constOp(this->p_context_->device_id_, this->scalarType_);
+    auto& syn_arg1 =
+        compareOp.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+    constOp.AllocateAndAddSynapseNode(graph, inputs, false);
+    UNUSED auto& syn_arg2 =
+        compareOp.SetSynapseInput(std::move(constOp.GetSynOutputs()[0]));
+    // replace 2nd scalar input with a tensor in stack
+    inputs.erase(inputs.cbegin() + 1);
+    inputs.emplace(inputs.cbegin() + 1, constOp.GetOutputs()[0]);
+    compareOp.AllocateAndAddSynapseNode(graph, inputs, is_output_persistent);
+    p_context_->syn_inputs_[0] = std::move(syn_arg1);
+  }
+
+  p_context_->pt_outputs_.emplace_back(compareOp.GetOutputs()[0]);
+  p_context_->syn_outputs_.emplace_back(
+      std::move(compareOp.GetSynOutputs()[0]));
+}
+
+void CompareWrapperOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     bool is_output_persistent) {
   TORCH_CHECK(
       inputs.size() == 2,
       "Incorrect size of input arguments for Compare Operator");
+  TORCH_CHECK(inputs[0].isTensor(), "Input arg1 type expected to be a tensor");
   TORCH_CHECK(
-      inputs[0].isTensor(),
-      "Input arg 1 for compare op needs to be tensor type");
-  TORCH_CHECK(
-      inputs[1].isTensor(),
-      "Input arg 2 for compare op needs to be of tensor type");
+      inputs[1].isTensor() || inputs[1].isScalar(),
+      "Input arg2 type expected to be a tensor or scalar");
   Tensor self = inputs[0].toTensor();
-  Tensor other = inputs[1].toTensor();
-  auto operand = get_correct_input_tensor(self, other);
   auto output = at::empty(
-      operand.sizes(),
-      operand.options().dtype(c10::ScalarType::Bool),
-      operand.suggest_memory_format());
+      self.sizes(),
+      self.options().dtype(c10::ScalarType::Bool),
+      self.suggest_memory_format());
   inputs.push_back(output);
-  CompareOutOperator::AllocateAndAddSynapseNode(
+  CompareOutWrapperOperator::AllocateAndAddSynapseNode(
       graph, inputs, is_output_persistent);
 }
 
+template <class CompareOp>
 Tensor compare_op_hpu(
     const std::vector<at::Tensor>& pt_inputs,
-    const std::string& node_type,
-    size_t device_id,
-    CompareOutOperator* Op) {
+    torch::jit::Stack& stack,
+    const std::string& node_guid) {
   PT_KERNEL_BEGIN;
-  // Build Params for the graph
-  std::vector<c10::IValue> stack;
-  for (auto pt_input : pt_inputs) {
-    stack.emplace_back(IValue(pt_input));
-  }
+  size_t device_id = pt_inputs[0].device().index();
+  at::ScalarType scalar_type = pt_inputs[0].scalar_type();
+  std::string node_type =
+      node_guid + "_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+
+  CompareOp Op(device_id, scalar_type);
 
   // Create Graph
   auto graph = habana_helpers::create_graph(device_id, node_type);
 
-  // temp_pt_inputs is created because EqOut has 3 Tensors in pt_inputs
-  // which makes GC throw an error because it expects 2 inputs for equal
-  std::vector<at::Tensor> temp_pt_inputs{pt_inputs[0], pt_inputs[1]};
   // Assign Inputs to the Operator
-  Op->AllocateSynapseInputs(graph, temp_pt_inputs, true);
+  Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
-  Op->AllocateAndAddSynapseNode(graph, stack, true);
+  // both inputs are not required, just to match graph mode stack
+  Op.AllocateAndAddSynapseNode(graph, stack, true);
 
   // compile and execute the graph
-  Op->Compile(graph);
+  Op.Compile(graph);
 
-  std::vector<at::Tensor> out = Op->GetOutputs();
+  std::vector<at::Tensor> out = Op.GetOutputs();
   TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
   PT_KERNEL_END;
-  return out.at(0);
+  return out[0];
 }
 
 /*************************************************************************
@@ -158,16 +202,11 @@ Tensor compare_op_hpu(
  ************************************************************************/
 Tensor gt_hpu(Tensor& self, Tensor& other) {
   PT_KERNEL_BEGIN;
-  size_t device_id = self.device().index();
-  at::ScalarType scalar_type = self.scalar_type();
-  std::string node_type =
-      "gt_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
   std::vector<at::Tensor> pt_inputs{self, other};
-
-  GtOperator op(device_id, scalar_type);
-  auto out = compare_op_hpu(pt_inputs, node_type, device_id, &op);
+  torch::jit::Stack stack{IValue(self), IValue(other)};
+  auto output = compare_op_hpu<GtOperator>(pt_inputs, stack, "gt");
   PT_KERNEL_END;
-  return out;
+  return output;
 }
 
 /*************************************************************************
@@ -181,14 +220,9 @@ void eq_tensor_out_hpu(
     const Tensor& self,
     const Tensor& other) {
   PT_KERNEL_BEGIN;
-  size_t device_id = self.device().index();
-  at::ScalarType scalar_type = self.scalar_type();
-  std::string node_type =
-      "equal_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
   std::vector<at::Tensor> pt_inputs{self, other, output};
-
-  EqOutOperator op(device_id, scalar_type);
-  compare_op_hpu(pt_inputs, node_type, device_id, &op);
+  torch::jit::Stack stack{IValue(self), IValue(other), IValue(output)};
+  compare_op_hpu<EqOutOperator>(pt_inputs, stack, "equal");
   PT_KERNEL_END;
 }
 
@@ -199,14 +233,9 @@ void eq_tensor_out_hpu(
  ************************************************************************/
 Tensor eq_tensor_hpu(Tensor& self, Tensor& other) {
   PT_KERNEL_BEGIN;
-  size_t device_id = self.device().index();
-  at::ScalarType scalar_type = self.scalar_type();
-  std::string node_type =
-      "equal_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
   std::vector<at::Tensor> pt_inputs{self, other};
-
-  EqOperator op(device_id, scalar_type);
-  auto output = compare_op_hpu(pt_inputs, node_type, device_id, &op);
+  torch::jit::Stack stack{IValue(self), IValue(other)};
+  auto output = compare_op_hpu<EqOperator>(pt_inputs, stack, "equal");
   PT_KERNEL_END;
   return output;
 }
@@ -216,29 +245,27 @@ Tensor eq_tensor_hpu(Tensor& self, Tensor& other) {
  * @param self [in] - input tensor, 1-4D, FP32/BF16
  * @param other [in] - Scalar
  ************************************************************************/
-Tensor eq_scalar_tensor_hpu(Tensor& self, Scalar other) {
+Tensor eq_tensor_scalar_hpu(Tensor& self, Scalar other) {
   PT_KERNEL_BEGIN;
-
   if (self.dim() == 0) {
     self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
   }
-
-  auto device_tensor = convert_scalar_to_tensor_using_self(self, other);
-  auto out = at::eq(self, device_tensor);
-
+  std::vector<at::Tensor> pt_inputs{self};
+  torch::jit::Stack stack{IValue(self), IValue(other)};
+  auto output = compare_op_hpu<EqOperator>(pt_inputs, stack, "equal");
   PT_KERNEL_END;
-  return out;
+  return output;
 }
 
 static auto& KernelRegistry =
     habana::KernelRegistry()
-        .add(
-            "aten::gt",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<GtOperator>(device_id, node_type);
-            })
-        .add("aten::eq", [](const int device_id, c10::ScalarType node_type) {
-          return std::make_shared<EqOperator>(device_id, node_type);
+        .add("aten::gt ",
+             [](const int device_id, c10::ScalarType node_type) {
+               return std::make_shared<GtOperator>(device_id, node_type);
+             })
+        .add("aten::eq",
+             [](const int device_id, c10::ScalarType node_type) {
+               return std::make_shared<EqOperator>(device_id, node_type);
         });
 
 static auto registry =
@@ -264,6 +291,6 @@ static auto registry =
         .op(torch::RegisterOperators::options()
                 .schema("aten::eq.Scalar(Tensor self, Scalar other) -> Tensor")
                 .impl_unboxedOnlyKernel<
-                    decltype(eq_scalar_tensor_hpu),
-                    &eq_scalar_tensor_hpu>(DispatchKey::HABANATensorId)
+                    decltype(eq_tensor_scalar_hpu),
+                    &eq_tensor_scalar_hpu>(DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));

@@ -30,42 +30,61 @@ class CompareOutOperator : public habana::HabanaOperator {
   c10::ScalarType scalarType_;
 };
 
-class CompareOperator : public CompareOutOperator {
+class CompareOutWrapperOperator : public habana::HabanaOperator {
  public:
-  CompareOperator(
+  CompareOutWrapperOperator(
       int device_id,
       c10::ScalarType scalarType,
       const std::string& guid)
-      : CompareOutOperator(device_id, scalarType, guid) {}
+      : HabanaOperator(guid) {
+    this->CreateSynContext(device_id);
+    this->scalarType_ = scalarType;
+  }
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
+
+ protected:
+  c10::ScalarType scalarType_;
 };
 
-class GtOperator : public CompareOperator {
+class CompareWrapperOperator : public CompareOutWrapperOperator {
+ public:
+  CompareWrapperOperator(
+      int device_id,
+      c10::ScalarType scalarType,
+      const std::string& guid)
+      : CompareOutWrapperOperator(device_id, scalarType, guid) {}
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) final;
+};
+
+class GtOperator : public CompareWrapperOperator {
  public:
   GtOperator(int device_id, c10::ScalarType scalarType)
-      : CompareOperator(
+      : CompareWrapperOperator(
             device_id,
             scalarType,
             "greater_fwd_" +
                 habana_helpers::name_suffix_from_type(scalarType)) {}
 };
 
-class EqOutOperator : public CompareOutOperator {
+class EqOutOperator : public CompareOutWrapperOperator {
  public:
   EqOutOperator(int device_id, c10::ScalarType scalarType)
-      : CompareOutOperator(
+      : CompareOutWrapperOperator(
             device_id,
             scalarType,
             "equal_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {}
 };
 
-class EqOperator : public CompareOperator {
+class EqOperator : public CompareWrapperOperator {
  public:
   EqOperator(int device_id, c10::ScalarType scalarType)
-      : CompareOperator(
+      : CompareWrapperOperator(
             device_id,
             scalarType,
             "equal_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {}
