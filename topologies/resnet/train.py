@@ -287,7 +287,9 @@ def main(args):
             #The above model conversion doesn't change the model params
             #to channels_last for many components - e.g. convolution.
             #So we are forced to rearrange such tensors ourselves.
-            permute_params(model, True)
+
+    if(device==torch.device('habana')):
+        permute_params(model, True)
 
     trainMetaData = TrainMetaData(model, device)
     trainMetaData.set_num_train_steps(args.num_train_steps)
@@ -332,7 +334,7 @@ def main(args):
         optimizer.load_state_dict(checkpoint['optimizer'])
         lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
         args.start_epoch = checkpoint['epoch'] + 1
-        if(args.channels_last and device==torch.device('habana')):
+        if(device==torch.device('habana')):
             permute_params(model_without_ddp, True)
 
     if args.test_only:
@@ -353,8 +355,7 @@ def main(args):
 
         if (args.output_dir and args.save_checkpoint):
             if args.device == 'habana':
-                if args.channels_last:
-                    permute_params(model_without_ddp, False)
+                permute_params(model_without_ddp, False)
                 #Use this model only to copy the state_dict of the actual model
                 copy_model = resnet_models.__dict__[args.model](pretrained=args.pretrained)
 
@@ -381,9 +382,8 @@ def main(args):
                   for k, v in state.items():
                     if isinstance(v, torch.Tensor):
                         state[k] = v.to('habana')
+                permute_params(model_without_ddp, True)
 
-                if args.channels_last:
-                    permute_params(model_without_ddp, True)
             else:
                 checkpoint = {
                     'model': model_without_ddp.state_dict(),

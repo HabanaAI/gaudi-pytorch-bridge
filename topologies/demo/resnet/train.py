@@ -227,7 +227,10 @@ def main(args):
             #The above model conversion doesn't change the model params
             #to channels_last for many components - e.g. convolution.
             #So we are forced to rearrange such tensors ourselves.
-            permute_params_on_device(model)
+    
+    if(device==torch.device('habana')):
+        permute_params_on_device(model)
+
 
     if args.distributed and args.sync_bn:
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
@@ -265,7 +268,7 @@ def main(args):
         optimizer.load_state_dict(checkpoint['optimizer'])
         lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
         args.start_epoch = checkpoint['epoch'] + 1
-        if(args.channels_last and device==torch.device('habana')):
+        if(device==torch.device('habana')):
             permute_params_on_device(model_without_ddp)
 
     if args.test_only:
