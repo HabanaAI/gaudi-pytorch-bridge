@@ -729,10 +729,10 @@ void HabanaLaunchOpPT::processInputs(
           permuteTensor(value_in, tensor, in_layout);
         }
       }
+      prev_layout =
+          tensor_idx == 0 ? getTensorChannelOrder(value_in) : prev_layout;
+      tensor_idx++;
     }
-    prev_layout =
-        tensor_idx == 0 ? getTensorChannelOrder(value_in) : prev_layout;
-    tensor_idx++;
   }
   // TODO : add checks for doing flattening/slicing anything that is
   // required.
