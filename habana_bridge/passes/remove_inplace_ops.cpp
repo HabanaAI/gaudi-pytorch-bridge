@@ -5,10 +5,11 @@ namespace habana {
 
 static const std::unordered_map<std::string, std::string> inPlaceToOutOfPlace =
     {{"aten::add_", "aten::add"},
-     {"aten::sub_", "aten::sub"},
      {"aten::div_", "aten::div"},
+     {"aten::index_put_", "aten::index_put"},
      {"aten::mul_", "aten::mul"},
-     {"aten::relu_", "aten::relu"}};
+     {"aten::relu_", "aten::relu"},
+     {"aten::sub_", "aten::sub"}};
 
 bool isInplaceOp(const Node* node) {
   return inPlaceToOutOfPlace.count(node->kind().toQualString()) != 0;

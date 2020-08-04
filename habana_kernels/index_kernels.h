@@ -105,9 +105,7 @@ class IndexSelectOperator : public GatherOperator {
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
 
-  virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
-
-  void SetPTOutputs(const torch::jit::Stack& inputs);
+  void SetPTOutputs(torch::jit::Stack& inputs) override;
 
  private:
   Tensor AllocateOutputTensor(const Tensor& self, int64_t& dim, int64_t& index);
@@ -130,6 +128,48 @@ class SelectOperator : public HabanaOperator {
       bool is_output_persistent = false) override;
 
   void SetPTOutputs(const torch::jit::Stack& inputs);
+};
+
+// Scatter Operator
+class ScatterOperator : public HabanaOperator {
+ public:
+  ScatterOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator(
+            "scatter_fwd_" +
+            habana_helpers::name_suffix_from_type(scalarType)) {
+    this->CreateSynContext(device_id);
+    kernel_meta_data_.input_layout.assign(
+        {LayoutFormat::ANY, LayoutFormat::ANY, LayoutFormat::ANY});
+    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
+  }
+
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+};
+
+// IndexPutOperator
+class IndexPutOperator : public HabanaOperator {
+ public:
+  IndexPutOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator(
+            "index_put_fwd_" +
+            habana_helpers::name_suffix_from_type(scalarType)) {
+    this->CreateSynContext(device_id);
+    scalarType_ = scalarType;
+    kernel_meta_data_.input_layout.assign(
+        {LayoutFormat::ANY, LayoutFormat::ANY, LayoutFormat::ANY});
+    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
+  }
+
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) final;
+
+ protected:
+  c10::ScalarType scalarType_;
 };
 
 //

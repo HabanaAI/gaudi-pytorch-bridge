@@ -28,7 +28,7 @@ class ToDtypeOperator : public habana::HabanaOperator {
 };
 
 //
-// Reshape Operator
+// MemCopy Operator
 class MemCopyOperator : public habana::HabanaOperator {
  public:
   MemCopyOperator(int device_id, c10::ScalarType scalarType)
