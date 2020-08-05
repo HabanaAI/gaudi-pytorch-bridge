@@ -114,7 +114,7 @@ void CompareOutWrapperOperator::AllocateAndAddSynapseNode(
   CompareOutOperator compareOp(
       this->p_context_->device_id_, this->scalarType_, guid_);
 
-  if (inputs[0].isTensor() && inputs[1].isTensor()) { // Both inputs are tensors
+  if (inputs[1].isTensor()) { // Both inputs are tensors
     auto& syn_arg1 =
         compareOp.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
     auto& syn_arg2 =
