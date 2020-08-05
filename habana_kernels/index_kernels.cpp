@@ -556,6 +556,15 @@ Tensor slice_hpu(
     int64_t step) {
   PT_KERNEL_BEGIN;
 
+  // for handling trivial cases, fall-back to simple tensor meta-data
+  // manipulation done in CPU implementation. This was added because
+  // distributed MNIST stops working if run synapse version of slice
+  // which creates new storage for output storage
+  if ((self.dim() <= 1) && (step == 1)) {
+    PT_KERNEL_END;
+    return at::native::slice(self, dim, start, end, step);
+  }
+
   at::ScalarType scalar_type = self.scalar_type();
   std::string node_type = "slice";
   size_t device_id = self.device().index();
