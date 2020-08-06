@@ -13,78 +13,100 @@
 #include <string>
 #include <unordered_set>
 #include "habana_helpers/logging.h"
+#include "yaml-cpp/yaml.h"
 
 class HabanaWhiteList {
  private:
-  const static std::unordered_set<std::string> HabanaWhiteListOps;
-
+  static std::unordered_set<std::string> HabanaWhiteListOps;
  public:
   static bool is_op_habana_whitelisted(std::string opName);
+  static void load_whitelisted_ops();
 };
 
-const std::unordered_set<std::string> HabanaWhiteList::HabanaWhiteListOps = {
-    "aten::abs",
-    //"aten::add",
-    "aten::addmm",
-    // "aten::as_strided",
-    "aten::avg_pool2d",
-    "aten::avg_pool2d_backward",
-    // "aten::cat",
-    // "aten::_cat",
-    // "aten::clone",
-    // "aten::copy_",
-    "aten::convolution_overrideable",
-    "aten::convolution_backward_overrideable",
-    "aten::div",
-    // "aten::div_",
-    // "aten::div.Scalar",
-    // "aten::div_.Scalar",
-    // "aten::div.out",
-    // "aten::eq",
-    // "aten::eq.Tensor_out",
-    // "aten::empty",
-    // "aten::empty_strided",
-    // "aten::fill_",
-    //"aten::flatten",
-    "aten::log_softmax",
-    // "aten::_log_softmax",
-    "aten::_log_softmax_backward_data",
-    // "aten::max_pool2d_with_indices",
-    // "aten::max_pool2d_with_indices_backward",
-    // "aten::max_pool2d",
-    // "aten::mean",
-    "aten::mm",
-    "aten::neg",
-    "aten::mul",
-    // "aten::mul_",
-    // "aten::native_batch_norm",
-    // "aten::native_batch_norm_backward",
-    // "aten::normal_",
-    "aten::reshape",
-    "aten::relu",
-    // "aten::relu_",
-    // "aten::set_",
-    "aten::sigmoid",
-    // "aten::sub",
-    // "aten::sub.Scalar",
-    // "aten::sub_",
-    // "aten::sum",
-    "aten::t",
-    // "aten::t_",
-    "aten::threshold_backward",
-    "aten::to",
-    // "aten::topk",
-    "aten::transpose",
-    // "aten::transpose_",
-    // "aten::uniform_",
-    "aten::view",
-    "aten::gt",
-    "prim::Constant",
-    "aten::embedding_bag_sum_fwd",
-    "aten::embedding_bag_sum_bwd.out"};
+std::unordered_set<std::string> HabanaWhiteList::HabanaWhiteListOps = {};
 
 bool HabanaWhiteList::is_op_habana_whitelisted(std::string opName) {
   if (HabanaWhiteListOps.find(opName) != HabanaWhiteListOps.end())
     return true;
   return false;
+}
+
+void HabanaWhiteList::load_whitelisted_ops()
+{
+    if (std::getenv("JIT_WL_OPS")){
+    const char* wl_filename = std::getenv("JIT_WL_OPS");
+    std::string wl_file = (wl_filename == NULL) ? std::string() : std::string(wl_filename);
+    YAML::Node config = YAML::LoadFile(wl_file);
+
+    if (config){
+        std::string opname;
+            YAML::Node ops = config["whitelisted_ops"];
+            for (std::size_t i=0; i<ops.size(); ++i){
+                opname = ops[i].as<std::string>();
+                HabanaWhiteList::HabanaWhiteListOps.insert(opname);
+            }
+    }
+  }
+    else{
+      HabanaWhiteList::HabanaWhiteListOps = {
+          "aten::abs",
+          //"aten::add",
+          "aten::addmm",
+          // "aten::as_strided",
+          "aten::avg_pool2d",
+          "aten::avg_pool2d_backward",
+          // "aten::cat",
+          // "aten::_cat",
+          // "aten::clone",
+          // "aten::copy_",
+          "aten::convolution_overrideable",
+          "aten::convolution_backward_overrideable",
+          "aten::div",
+          // "aten::div_",
+          // "aten::div.Scalar",
+          // "aten::div_.Scalar",
+          // "aten::div.out",
+          // "aten::eq",
+          // "aten::eq.Tensor_out",
+          // "aten::empty",
+          // "aten::empty_strided",
+          // "aten::fill_",
+          //"aten::flatten",
+          "aten::log_softmax",
+          // "aten::_log_softmax",
+          "aten::_log_softmax_backward_data",
+          // "aten::max_pool2d_with_indices",
+          // "aten::max_pool2d_with_indices_backward",
+          // "aten::max_pool2d",
+          // "aten::mean",
+          "aten::mm",
+          "aten::neg",
+          "aten::mul",
+          // "aten::mul_",
+          // "aten::native_batch_norm",
+          // "aten::native_batch_norm_backward",
+          // "aten::normal_",
+          "aten::reshape",
+          "aten::relu",
+          // "aten::relu_",
+          // "aten::set_",
+          "aten::sigmoid",
+          // "aten::sub",
+          // "aten::sub.Scalar",
+          // "aten::sub_",
+          // "aten::sum",
+          "aten::t",
+          // "aten::t_",
+          "aten::threshold_backward",
+          "aten::to",
+          // "aten::topk",
+          "aten::transpose",
+          // "aten::transpose_",
+          // "aten::uniform_",
+          "aten::view",
+          "aten::gt",
+          "prim::Constant",
+          "aten::embedding_bag_sum_fwd",
+          "aten::embedding_bag_sum_bwd.out"};
+    }
 }
