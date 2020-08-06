@@ -18,6 +18,7 @@
 #include "habana_helpers/graph.h"
 #include "habana_helpers/tensor_utils.h"
 #include "habana_helpers/unused_macro.h"
+#include "habana_kernels/basic_kernels.h"
 #include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/random_gen_kernels.h"
 #include "habana_kernels/simple_generic_kernel.h"
@@ -234,10 +235,13 @@ void BernoulliOperator::AllocateAndAddSynapseNode(
   p_context_->params_.emplace<ns_RandomBernoulli::Params>(params);
   p_context_->params_size_ = sizeof(params);
 
-  Tensor output = at::empty(
+  Tensor output = habana_helpers::createPTTensor(
+      self,
       self.sizes(),
-      self.options().dtype(c10::ScalarType::Int),
-      self.suggest_memory_format());
+      self.options(),
+      self.suggest_memory_format(),
+      c10::ScalarType::Int,
+      is_output_persistent);
   AllocateSynapseOutput(graph, output, is_output_persistent);
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
@@ -281,6 +285,101 @@ Tensor bernoulli_hpu(const Tensor& self, CPUGenerator* gen = nullptr) {
   return out.at(0);
 }
 
+void BernoulliScalarOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 3,
+      "Incorrect size of inputs expected for BernoulliScalar Operator");
+  TORCH_CHECK(
+      inputs[0].isTensor(),
+      "Input arg1 expected to be Tensor for BernoulliScalar Operator");
+  TORCH_CHECK(
+      inputs[1].isDouble(),
+      "Input arg2 expected to be Double for BernoulliScalar Operator");
+  TORCH_CHECK(
+      inputs[2].isInt() || inputs[2].isNone(),
+      "Input arg3 expected to be Int or None for BernoulliScalar Operator");
+
+  auto self = inputs[0].toTensor();
+  auto p = inputs[1].toDouble();
+
+  auto scalar_type = self.scalar_type();
+  TORCH_CHECK(
+      (scalar_type == c10::ScalarType::Int) ||
+          (scalar_type == c10::ScalarType::Float),
+      "Expected float or int data type");
+
+  Scalar p_converted = static_cast<float>(p);
+
+  // independent of self's dtype
+  Tensor self_float = habana_helpers::createPTTensor(
+      self,
+      self.sizes(),
+      self.options(),
+      self.suggest_memory_format(),
+      c10::ScalarType::Float,
+      false);
+
+  // Create Constant Operator to convert scalar to tensor
+  ConstantOperator constOp(this->p_context_->device_id_, self_float.scalar_type());
+  std::vector<c10::IValue> stack = {IValue(self_float), IValue(p_converted)};
+  constOp.AllocateAndAddSynapseNode(graph, stack, false);
+  stack.clear();
+
+
+
+  // Create Bernoulli operator
+  BernoulliOperator brnliOp(this->p_context_->device_id_, constOp.GetOutputs()[0].scalar_type());
+  brnliOp.SetSynapseInput(std::move(constOp.GetSynOutputs()[0]));
+  stack.emplace_back(IValue(constOp.GetOutputs()[0]));
+  stack.emplace_back(IValue(inputs[2]));
+  brnliOp.AllocateAndAddSynapseNode(graph, stack, false);
+  stack.clear();
+
+
+
+  if(scalar_type == c10::ScalarType::Float) {
+
+    // Cast Int tensor to Float tensor
+    std::string node_type = "cast_i32_to_f32";
+
+    // Create Cast operator
+    CastOperator castOp(this->p_context_->device_id_, node_type);
+    castOp.SetSynapseInput(std::move(brnliOp.GetSynOutputs()[0]));
+
+    stack.emplace_back(IValue(brnliOp.GetOutputs()[0]));
+    stack.emplace_back(IValue(c10::ScalarType::Float));
+    castOp.AllocateAndAddSynapseNode(graph, stack, false);
+    stack.clear();
+
+
+
+    // Create MemCopy operator
+    MemCopyOperator memcopyOp(this->p_context_->device_id_, castOp.GetOutputs()[0].scalar_type());
+    memcopyOp.SetSynapseInput(std::move(castOp.GetSynOutputs()[0]));
+    stack.emplace_back(IValue(castOp.GetOutputs()[0]));
+    stack.emplace_back(IValue(self));
+    memcopyOp.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+
+    p_context_->syn_outputs_.emplace_back(std::move(memcopyOp.GetSynOutputs()[0]));
+    p_context_->pt_outputs_.emplace_back(std::move(memcopyOp.GetOutputs()[0]));
+  }
+  else
+  {
+    // Create MemCopy operator
+    MemCopyOperator memcopyOp(this->p_context_->device_id_, brnliOp.GetOutputs()[0].scalar_type());
+    memcopyOp.SetSynapseInput(std::move(brnliOp.GetSynOutputs()[0]));
+    stack.emplace_back(IValue(brnliOp.GetOutputs()[0]));
+    stack.emplace_back(IValue(self));
+    memcopyOp.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+
+    p_context_->syn_outputs_.emplace_back(std::move(memcopyOp.GetSynOutputs()[0]));
+    p_context_->pt_outputs_.emplace_back(std::move(memcopyOp.GetOutputs()[0]));
+  }
+}
+
 /*******************************************************************
 *@brief Implements Bernoulli distribution generation kernel
 *INPUTS self.bernoulli_(p=0.5, *, generator=None) → Tensor
@@ -296,62 +395,32 @@ Tensor& bernoulli_scalar_hpu(
     CPUGenerator* gen = nullptr) {
   PT_KERNEL_BEGIN;
 
-  auto self_scalar_type = self.scalar_type();
+  at::ScalarType scalar_type = self.scalar_type();
+  std::string node_type = "random_bernoulli_fwd_" +
+      habana_helpers::name_suffix_from_type(scalar_type);
 
-  TORCH_CHECK(
-      (self_scalar_type == c10::ScalarType::Int) ||
-          (self_scalar_type == c10::ScalarType::Float),
-      "Expected float or int data type");
+  size_t device_id = self.device().index();
 
-  Scalar p_converted = static_cast<float>(p);
+  BernoulliScalarOperator Op(device_id, scalar_type);
+  // Create Graph
+  auto graph = habana_helpers::create_graph(device_id, node_type);
 
-  // self_float ensures that expanded_p_tensor is of float dtype
-  // independent of self's dtype
-  Tensor self_float = at::empty(
-      self.sizes(),
-      self.options().dtype(c10::ScalarType::Float),
-      self.suggest_memory_format());
+  std::vector<at::Tensor> pt_inputs{self};
+  Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
-  auto p_tensor = habana_helpers::scalar_to_device_tensor(
-      p_converted, self_float, self_float.ndimension());
-  auto expanded_p_tensor = p_tensor.expand(self.sizes());
+  int64_t seed = get_seed_hpu(gen);
+  // Build Params for the graph
+  std::vector<c10::IValue> stack = {IValue(self), IValue(p), IValue(seed)};
+  Op.AllocateAndAddSynapseNode(graph, stack, true);
 
-  Tensor output_ptr;
-  Tensor self_int;
+  // compile and execute the graph
+  Op.Compile(graph);
 
-  std::vector<at::Tensor> pt_inputs{expanded_p_tensor};
-
-  if (self_scalar_type == c10::ScalarType::Float) {
-    self_int = at::empty(
-        self.sizes(),
-        self.options().dtype(c10::ScalarType::Int),
-        self.suggest_memory_format());
-    output_ptr = self_int;
-  } else {
-    // Int
-    output_ptr = self;
-  }
-
-  std::vector<at::Tensor> pt_outputs{output_ptr};
-  ns_RandomBernoulli::Params params;
-  params.seed = get_seed_hpu(gen);
-
-  synapse_simple_generic_kernel(
-      pt_outputs,
-      pt_inputs,
-      "random_bernoulli",
-      &params,
-      sizeof(params),
-      SynapsePassType::FORWARD_PASS);
-
-  if (self_scalar_type == c10::ScalarType::Float) {
-    self_float = habana_helpers::hpu_cast_tensor(self_int, self.dtype());
-    habana_helpers::copy_data_within_device(self_float, self);
-  }
+  std::vector<at::Tensor> out = Op.GetOutputs();
+  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
 
   PT_KERNEL_END;
-
-  return self;
+  return out.at(0);
 }
 
 static auto& KernelRegistry =
@@ -370,6 +439,11 @@ static auto& KernelRegistry =
             "aten::bernoulli",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<BernoulliOperator>(device_id, node_type);
+            })
+        .add(
+            "aten::bernoulli_.float",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<BernoulliScalarOperator>(device_id, node_type);
             });
 
 static auto registry =
