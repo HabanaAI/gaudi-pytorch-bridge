@@ -921,12 +921,13 @@ void AnyDimOperator::AllocateAndAddSynapseNode(
       inputs[2].isBool(), "Input arg3 expected to be Bool for AnyDim operator");
 
   auto self = inputs[0].toTensor();
-  auto output = habana_helpers::createPTTensor(self,
-                                               {0},
-                                               self.options(),
-                                               self.suggest_memory_format(),
-                                               c10::ScalarType::Char,
-                                               is_output_persistent);
+  auto output = habana_helpers::createPTTensor(
+      self,
+      {0},
+      self.options(),
+      self.suggest_memory_format(),
+      c10::ScalarType::Char,
+      is_output_persistent);
   inputs.insert(inputs.begin(), IValue(output));
 
   AnyDimOutOperator::AllocateAndAddSynapseNode(

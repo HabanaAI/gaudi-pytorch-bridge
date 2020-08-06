@@ -264,7 +264,7 @@ class HabanaLaunchOpPT {
 
   size_t num_inputs = 0;
   size_t num_tensor_inputs = 0;
-  bool   use_persistent_tensors;
+  bool use_persistent_tensors;
   at::ArrayRef<torch::jit::IValue> input_refs;
   torch::jit::Stack* pt_stack = nullptr;
 
@@ -329,5 +329,8 @@ class HabanaLaunchOpPT {
 
   void DumpTensors_pre(RecipeValueSpec& rv);
   void DumpTensors(RecipeValueSpec& rv);
-  void create_duplicate_syn_tensor(at::Tensor* tensor, torch::jit::Value* value_in, bool persistence = true);
+  void create_duplicate_syn_tensor(
+      at::Tensor* tensor,
+      torch::jit::Value* value_in,
+      bool persistence = true);
 };

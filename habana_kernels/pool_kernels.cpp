@@ -203,8 +203,9 @@ void MaxPool2dWithIndicesOperator::AllocateAndAddSynapseNode(
       inputs[3].isIntList(), "Fourth input type expected to be IntList");
   TORCH_CHECK(inputs[4].isIntList(), "Fifth input type expected to be IntList");
   TORCH_CHECK(inputs[5].isBool(), "Sixth input type expected to be Bool");
-  TORCH_CHECK(is_output_persistent.size() == 2,
-              "MaxPool2dWithIndicesOperator: #is_output_persistent should be 2");
+  TORCH_CHECK(
+      is_output_persistent.size() == 2,
+      "MaxPool2dWithIndicesOperator: #is_output_persistent should be 2");
 
   at::Tensor input = inputs[0].toTensor();
   const auto kernel_size = inputs[1].toIntList().vec();
@@ -224,11 +225,12 @@ void MaxPool2dWithIndicesOperator::AllocateAndAddSynapseNode(
       input, kernel_size, stride, padding, dilation, ceil_mode, true);
 
   // Setup output tensors
-  auto output_nhwc = habana_helpers::createPTTensor(input,
-                                                    {out_shape[0], out_shape[1], out_shape[2], out_shape[3]},
-                                                    input.options(),
-                                                    input.suggest_memory_format(),
-                                                    is_output_persistent[0]);
+  auto output_nhwc = habana_helpers::createPTTensor(
+      input,
+      {out_shape[0], out_shape[1], out_shape[2], out_shape[3]},
+      input.options(),
+      input.suggest_memory_format(),
+      is_output_persistent[0]);
   // NOTE: cpu and cuda implementations hold indices as kLong (int64). I am
   // using uint8 and short for float and bf16 input tensors respectively (to
   // match TPC kernel requirement).
@@ -237,12 +239,13 @@ void MaxPool2dWithIndicesOperator::AllocateAndAddSynapseNode(
     type = kShort;
   }
 
-  auto output_idx_nhwc = habana_helpers::createPTTensor(input,
-                                                        {out_shape[0], out_shape[1], out_shape[2], out_shape[3]},
-                                                        input.options(),
-                                                        input.suggest_memory_format(),
-                                                        type,
-                                                        is_output_persistent[1]);
+  auto output_idx_nhwc = habana_helpers::createPTTensor(
+      input,
+      {out_shape[0], out_shape[1], out_shape[2], out_shape[3]},
+      input.options(),
+      input.suggest_memory_format(),
+      type,
+      is_output_persistent[1]);
   AllocateSynapseOutputs(
       graph, {output_idx_nhwc, output_nhwc}, is_output_persistent);
   AddNodeToSynapseGraph(graph, &syn_pool_params, sizeof(syn_pool_params));
@@ -775,11 +778,12 @@ void AvgPool2dOperator::AllocateAndAddSynapseNode(
       input, kernel_size, stride, padding, dilation, ceil_mode, true);
 
   // Setup output tensors
-  auto output_nhwc = habana_helpers::createPTTensor(input,
-                                                    {out_shape[0], out_shape[1], out_shape[2], out_shape[3]},
-                                                    input.options(),
-                                                    input.suggest_memory_format(),
-                                                    is_output_persistent);
+  auto output_nhwc = habana_helpers::createPTTensor(
+      input,
+      {out_shape[0], out_shape[1], out_shape[2], out_shape[3]},
+      input.options(),
+      input.suggest_memory_format(),
+      is_output_persistent);
   AllocateSynapseOutput(graph, output_nhwc, is_output_persistent);
   AddNodeToSynapseGraph(graph, &syn_pool_params, sizeof(syn_pool_params));
 }

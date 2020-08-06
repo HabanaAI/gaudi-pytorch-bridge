@@ -385,11 +385,12 @@ void Gather2dOperator::AllocateAndAddSynapseNode(
   auto shape = DimVector(input.sizes());
   shape.erase(shape.begin() + 0);
   shape.insert(shape.begin() + 0, std::min(indices.numel(), validCount));
-  auto output = habana_helpers::createPTTensor(input,
-                                               shape,
-                                               input.options(),
-                                               input.suggest_memory_format(),
-                                               is_output_persistent);
+  auto output = habana_helpers::createPTTensor(
+      input,
+      shape,
+      input.options(),
+      input.suggest_memory_format(),
+      is_output_persistent);
   AllocateSynapseOutput(graph, output, is_output_persistent);
   AddNodeToSynapseGraph(graph, nullptr, 0);
 }

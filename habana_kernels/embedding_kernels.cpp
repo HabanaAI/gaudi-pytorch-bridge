@@ -391,11 +391,12 @@ void EmbeddingBagSumOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(
       valid_count_offset > 0, "valid_count_offset should be greater than 0");
 
-  auto output = habana_helpers::createPTTensor(input,
-                                               {valid_count_offset - 1, input.size(1)},
-                                               input.options(),
-                                               input.suggest_memory_format(), // TBD: not reqd?
-                                               is_output_persistent);
+  auto output = habana_helpers::createPTTensor(
+      input,
+      {valid_count_offset - 1, input.size(1)},
+      input.options(),
+      input.suggest_memory_format(), // TBD: not reqd?
+      is_output_persistent);
   AllocateSynapseOutput(graph, output, is_output_persistent);
   AddNodeToSynapseGraph(graph, nullptr, 0);
 }

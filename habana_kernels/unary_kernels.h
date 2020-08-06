@@ -29,9 +29,11 @@ class UnaryOperator : public HabanaOperator {
 // Unary Backward Operator
 class UnaryBackwardOperator : public HabanaOperator {
  public:
-  UnaryBackwardOperator(int device_id, const std::string& guid) : HabanaOperator(guid) {
+  UnaryBackwardOperator(int device_id, const std::string& guid)
+      : HabanaOperator(guid) {
     this->CreateSynContext(device_id);
-    kernel_meta_data_.input_layout.assign({LayoutFormat::ANY, LayoutFormat::ANY});
+    kernel_meta_data_.input_layout.assign(
+        {LayoutFormat::ANY, LayoutFormat::ANY});
     kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
   }
 
@@ -92,8 +94,7 @@ class TanhOperator : public UnaryOperator {
   TanhOperator(int device_id, c10::ScalarType scalarType)
       : UnaryOperator(
             device_id,
-            "tanh_fwd_" +
-                habana_helpers::name_suffix_from_type(scalarType)){};
+            "tanh_fwd_" + habana_helpers::name_suffix_from_type(scalarType)){};
 };
 
 // TanhBackward Operator
@@ -102,8 +103,7 @@ class TanhBackwardOperator : public UnaryBackwardOperator {
   TanhBackwardOperator(int device_id, c10::ScalarType scalarType)
       : UnaryBackwardOperator(
             device_id,
-            "tanh_bwd_" +
-                habana_helpers::name_suffix_from_type(scalarType)){};
+            "tanh_bwd_" + habana_helpers::name_suffix_from_type(scalarType)){};
 };
 
 // Abs Operator

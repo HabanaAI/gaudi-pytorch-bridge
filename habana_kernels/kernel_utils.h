@@ -96,7 +96,8 @@ class CastOperator : public CastOutOperator {
 class ConstantOperator : public habana::HabanaOperator {
  public:
   ConstantOperator(int device_id, c10::ScalarType scalarType)
-      : habana::HabanaOperator("constant_" + habana_helpers::name_suffix_from_type(scalarType)) {
+      : habana::HabanaOperator(
+            "constant_" + habana_helpers::name_suffix_from_type(scalarType)) {
     this->CreateSynContext(device_id);
     kernel_meta_data_.output_layout.assign({habana::LayoutFormat::ANY});
   }
@@ -111,7 +112,8 @@ class ConstantOperator : public habana::HabanaOperator {
 class ConstantOutOperator : public habana::HabanaOperator {
  public:
   ConstantOutOperator(int device_id, c10::ScalarType scalarType)
-      : habana::HabanaOperator("constant_" + habana_helpers::name_suffix_from_type(scalarType)) {
+      : habana::HabanaOperator(
+            "constant_" + habana_helpers::name_suffix_from_type(scalarType)) {
     this->CreateSynContext(device_id);
     kernel_meta_data_.output_layout.assign({habana::LayoutFormat::ANY});
   }

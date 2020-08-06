@@ -131,8 +131,8 @@ void habana::HabanaOperator::AllocateSynapseOutput(
   p_context_->pt_outputs_.emplace_back(output);
 }
 
-std::vector<std::pair<std::string, at::Tensor>> habana::HabanaOperator::getAppendedTensorInfos()
-{
+std::vector<std::pair<std::string, at::Tensor>> habana::HabanaOperator::
+    getAppendedTensorInfos() {
   return appended_tensor_infos;
 }
 
@@ -150,8 +150,9 @@ void habana::HabanaOperator::AllocateSynapseOutputs(
     const std::vector<at::Tensor>& outputs,
     std::vector<bool> is_persistent) {
   TORCH_CHECK(outputs.size() != 0, "Outputs cannot be null");
-  TORCH_CHECK(outputs.size() == is_persistent.size(),
-              "#output should match #persistent flag");
+  TORCH_CHECK(
+      outputs.size() == is_persistent.size(),
+      "#output should match #persistent flag");
   auto i = 0;
   for (auto& output : outputs) {
     AllocateSynapseOutput(graph, output, is_persistent[i++]);
@@ -159,17 +160,19 @@ void habana::HabanaOperator::AllocateSynapseOutputs(
 }
 
 void habana::HabanaOperator::AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      bool is_output_persistent) {
-  TORCH_CHECK(0, "Shuold never reach this empty base AllocateAndAddSynapseNode");
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      0, "Shuold never reach this empty base AllocateAndAddSynapseNode");
 }
 
 void habana::HabanaOperator::AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      std::vector<bool> is_output_persistent) {
-  TORCH_CHECK(0, "Shuold never reach this empty base AllocateAndAddSynapseNode");
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    std::vector<bool> is_output_persistent) {
+  TORCH_CHECK(
+      0, "Shuold never reach this empty base AllocateAndAddSynapseNode");
 }
 
 synapse_helpers::tensor_or_ref& habana::HabanaOperator::SetSynapseInput(

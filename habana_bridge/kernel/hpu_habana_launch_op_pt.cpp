@@ -433,18 +433,22 @@ bool HabanaLaunchOpPT::isInGraphOutputs(torch::jit::Node* node, size_t index) {
   return isInGraphOutputs(node_outs[index]);
 }
 
-std::vector<bool> HabanaLaunchOpPT::nodeOutputPersistence(torch::jit::Node* node) {
+std::vector<bool> HabanaLaunchOpPT::nodeOutputPersistence(
+    torch::jit::Node* node) {
   auto node_outs = node->outputs();
   std::vector<bool> is_persistent{};
   for (auto value_out : node_outs) {
     if (use_persistent_tensors) {
       // Highest priority is given to the env variable
       is_persistent.emplace_back(true);
-    } else if (value_to_persistent_flag.find(value_out) != value_to_persistent_flag.end()) {
+    } else if (
+        value_to_persistent_flag.find(value_out) !=
+        value_to_persistent_flag.end()) {
       // If we use per tensor persistence flag, it takes next higher priority
       is_persistent.emplace_back(value_to_persistent_flag[value_out]);
     } else {
-      // If no specific flag is set, a tensor is persistent if it goes to graph output
+      // If no specific flag is set, a tensor is persistent if it goes to graph
+      // output
       is_persistent.emplace_back(isInGraphOutputs(value_out));
     }
   }
@@ -561,9 +565,12 @@ void HabanaLaunchOpPT::GetSynapseOutputs(
       pt_to_synapse_tensors.emplace(
           value_to_ivalue[output_nodes[output_nodes_idx]], out_tensor_syn);
 
-      if (use_persistent_tensors ? true : isInGraphOutputs(node, output_nodes_idx)) {
+      if (use_persistent_tensors ? true
+                                 : isInGraphOutputs(node, output_nodes_idx)) {
         output_tensorinfos.emplace_back(TensorInfo(
-            ivpsh, out_tensor_syn.tensor_name_, output_nodes[output_nodes_idx]));
+            ivpsh,
+            out_tensor_syn.tensor_name_,
+            output_nodes[output_nodes_idx]));
       }
 
       output_nodes_idx++;
@@ -698,44 +705,41 @@ bool HabanaLaunchOpPT::isInGraphInputs(torch::jit::Value* value) {
   return false;
 }
 
-void HabanaLaunchOpPT::create_duplicate_syn_tensor(at::Tensor* tensor, torch::jit::Value* value_in, bool persistence)
-{
-    auto syn_tensor_input = pt_to_synapse_tensors.find(value_to_ivalue[value_in]);
-    auto dtype = tensor->scalar_type();
-    //if both are persistent, use same memeory section
-    if(syn_tensor_input->second.is_persistent() && persistence)
-    {
-      // create a tensor variant on the same memory section as the input
-      auto variant =
-          synapse_helpers::tensor_builder(
-              tensor->sizes(), habana_helpers::pytorch_to_synapse_type(dtype))
-              .mark_persistence(true)
-              .with_memory_section(syn_tensor_input->second.memorysection())
-              .build(
-                  synapse_helpers::HPURegistrar::get_device(
-                      tensor->device().index()),
-                  syn_tensor_input->second.graph());
+void HabanaLaunchOpPT::create_duplicate_syn_tensor(
+    at::Tensor* tensor,
+    torch::jit::Value* value_in,
+    bool persistence) {
+  auto syn_tensor_input = pt_to_synapse_tensors.find(value_to_ivalue[value_in]);
+  auto dtype = tensor->scalar_type();
+  // if both are persistent, use same memeory section
+  if (syn_tensor_input->second.is_persistent() && persistence) {
+    // create a tensor variant on the same memory section as the input
+    auto variant =
+        synapse_helpers::tensor_builder(
+            tensor->sizes(), habana_helpers::pytorch_to_synapse_type(dtype))
+            .mark_persistence(true)
+            .with_memory_section(syn_tensor_input->second.memorysection())
+            .build(
+                synapse_helpers::HPURegistrar::get_device(
+                    tensor->device().index()),
+                syn_tensor_input->second.graph());
 
-      meta_syn_tensors.push_back(
-          absl::get<synapse_helpers::tensor>(std::move(variant)));
-    }
-    else
-    {
-      pt_to_synapse_tensors.erase(value_to_ivalue[value_in]);
-      auto variant = habana_helpers::create_tensor(*tensor, syn_tensor_input->second.graph(),
-                                      persistence);
-      meta_syn_tensors.push_back((std::move(variant)));
-    }
-
-    auto& syn_tensor = meta_syn_tensors.back();
+    meta_syn_tensors.push_back(
+        absl::get<synapse_helpers::tensor>(std::move(variant)));
+  } else {
     pt_to_synapse_tensors.erase(value_to_ivalue[value_in]);
-    pt_to_synapse_tensors.emplace(value_to_ivalue[value_in], syn_tensor);
-    if(persistence)
-    {
-      pinput_tensorinfos.emplace_back(
-        TensorInfo(value_to_ivalue[value_in], syn_tensor.tensor_name_, value_in));
-    }
+    auto variant = habana_helpers::create_tensor(
+        *tensor, syn_tensor_input->second.graph(), persistence);
+    meta_syn_tensors.push_back((std::move(variant)));
+  }
 
+  auto& syn_tensor = meta_syn_tensors.back();
+  pt_to_synapse_tensors.erase(value_to_ivalue[value_in]);
+  pt_to_synapse_tensors.emplace(value_to_ivalue[value_in], syn_tensor);
+  if (persistence) {
+    pinput_tensorinfos.emplace_back(TensorInfo(
+        value_to_ivalue[value_in], syn_tensor.tensor_name_, value_in));
+  }
 }
 void adjustInputWeight(at::Tensor* tensor, bool is_input) {
   if (tensor->dim() != 4)
@@ -792,16 +796,16 @@ void HabanaLaunchOpPT::processInputs(
       // consistent, but requires wider change in eager mode kernels too
       // TODO : Solve this the right way
       if (in_layout == habana::LayoutFormat::HWCK) {
-          in_layout = habana::LayoutFormat::ANY;
-          adjustInputWeight(&tensor, true);
-          value_to_tensor_layout[value_in] = habana::LayoutFormat::HWCK;
-          auto syn_tensor_input = pt_to_synapse_tensors.find(value_to_ivalue[value_in]);
-          if (syn_tensor_input != std::end(pt_to_synapse_tensors)) {
-            bool persistence = true;
-            create_duplicate_syn_tensor(&tensor, value_in, persistence);
-          }
-
+        in_layout = habana::LayoutFormat::ANY;
+        adjustInputWeight(&tensor, true);
+        value_to_tensor_layout[value_in] = habana::LayoutFormat::HWCK;
+        auto syn_tensor_input =
+            pt_to_synapse_tensors.find(value_to_ivalue[value_in]);
+        if (syn_tensor_input != std::end(pt_to_synapse_tensors)) {
+          bool persistence = true;
+          create_duplicate_syn_tensor(&tensor, value_in, persistence);
         }
+      }
 
       if (!(isChannelOrderSupported(value_in, in_layout))) {
         // We only support 4D tensors
@@ -836,13 +840,11 @@ void HabanaLaunchOpPT::postProcessOutputs() {
       if (ival && value_out->type()->kind() == c10::TypeKind::TensorType &&
           isInGraphOutputs(value_out)) {
         auto tensor = ival->toTensor();
-        //Add permutes only for 4D non weight tensors
+        // Add permutes only for 4D non weight tensors
         if (tensor.dim() == 4) {
-          if (getTensorChannelOrder(value_out) == habana::LayoutFormat::HWCK)
-          {
+          if (getTensorChannelOrder(value_out) == habana::LayoutFormat::HWCK) {
             adjustInputWeight(&tensor, false);
-          }
-          else if (getTensorChannelOrder(value_out) != pt_input_layout) {
+          } else if (getTensorChannelOrder(value_out) != pt_input_layout) {
             permuteTensor(value_out, tensor, pt_input_layout);
             if (pt_input_layout == habana::LayoutFormat::NHWC) {
               // Make the shape according to NCHW again as PT maintains that
@@ -1071,9 +1073,11 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
     // setup the config params for the kernels
     auto outputPersistent = nodeOutputPersistence(node);
     if (outputPersistent.size() == 1) {
-      HabanaKernel->AllocateAndAddSynapseNode(syn_graph, input_stack, outputPersistent[0]);
+      HabanaKernel->AllocateAndAddSynapseNode(
+          syn_graph, input_stack, outputPersistent[0]);
     } else {
-      HabanaKernel->AllocateAndAddSynapseNode(syn_graph, input_stack, outputPersistent);
+      HabanaKernel->AllocateAndAddSynapseNode(
+          syn_graph, input_stack, outputPersistent);
     }
 
     // Get the output tensors created back from the kernel

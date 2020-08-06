@@ -9,19 +9,17 @@
  */
 #pragma once
 
+#include <ATen/Tensor.h>
+#include <torch/csrc/jit/ir/ir.h>
 #include <torch/csrc/jit/runtime/argument_spec.h>
 #include <torch/csrc/jit/runtime/interpreter.h>
-#include <torch/csrc/jit/ir/ir.h>
-#include <ATen/Tensor.h>
 
 class HbCompiler {
-    public:
-        explicit HbCompiler(
-            const torch::jit::Node* node,
-            bool debug
-        );
-        void run(torch::jit::Stack& stack);
-    private:
-          std::shared_ptr<torch::jit::Graph> subgraph_;
-          bool debug_;
+ public:
+  explicit HbCompiler(const torch::jit::Node* node, bool debug);
+  void run(torch::jit::Stack& stack);
+
+ private:
+  std::shared_ptr<torch::jit::Graph> subgraph_;
+  bool debug_;
 };

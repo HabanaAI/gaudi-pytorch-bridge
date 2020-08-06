@@ -133,11 +133,12 @@ void ConvOperator::AllocateAndAddSynapseNode(
   c10::MemoryFormat memory_format =
       habana_helpers::get_memory_format({&input, &weight});
 
-  auto output = habana_helpers::createPTTensor(input,
-                                               {N, output_H, output_W, K},
-                                               input.options(),
-                                               memory_format,
-                                               is_output_persistent);
+  auto output = habana_helpers::createPTTensor(
+      input,
+      {N, output_H, output_W, K},
+      input.options(),
+      memory_format,
+      is_output_persistent);
 
   synConvolutionParams params = synapse_conv_params_builder(
       weight.sizes(),
@@ -207,8 +208,7 @@ Tensor convolution_hpu(
   IntArrayRef new_dim_pos_in = {0, 2, 3, 1};
   IntArrayRef new_dim_pos_w = {2, 3, 1, 0};
   std::vector<const IntArrayRef*> pt_new_pos{&new_dim_pos_in, &new_dim_pos_w};
-  c10::MemoryFormat memory_format =
-      habana_helpers::get_memory_format({&input});
+  c10::MemoryFormat memory_format = habana_helpers::get_memory_format({&input});
   habana_helpers::change_tensors_to_memory_format(
       pt_out, pt_in, pt_new_pos, memory_format);
   habana_helpers::change_tensor_strides(&weight_hwck, &weight, &new_dim_pos_w);
@@ -424,8 +424,9 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(
       inputs[9].isBoolList(),
       "Input arg10 expected to be BoolList for ConvInputDifferentiation operator");
-  TORCH_CHECK(is_output_persistent.size() == 3,
-              "ConvBackwardOperator: #is_output_persistent should be 3");
+  TORCH_CHECK(
+      is_output_persistent.size() == 3,
+      "ConvBackwardOperator: #is_output_persistent should be 3");
 
   auto grad_out_nhwc = inputs[0].toTensor();
   auto input_nhwc = inputs[1].toTensor();
@@ -441,21 +442,24 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
   c10::MemoryFormat memory_format = habana_helpers::get_memory_format(
       {&input_nhwc, &grad_out_nhwc, &weight_hwck});
 
-  auto grad_weight = habana_helpers::createPTTensor(weight_hwck,
-                                                    weight_hwck.sizes(),
-                                                    grad_out_nhwc.options(),
-                                                    memory_format,
-                                                    is_output_persistent[1]);
-  auto grad_input_nhwc = habana_helpers::createPTTensor(input_nhwc,
-                                                        input_nhwc.sizes(),
-                                                        grad_out_nhwc.options(),
-                                                        memory_format,
-                                                        is_output_persistent[0]);
-  auto grad_bias = habana_helpers::createPTTensor(grad_out_nhwc,
-                                                  {grad_out_nhwc.size(3)},
-                                                  grad_out_nhwc.options(),
-                                                  c10::nullopt,
-                                                  is_output_persistent[2]);
+  auto grad_weight = habana_helpers::createPTTensor(
+      weight_hwck,
+      weight_hwck.sizes(),
+      grad_out_nhwc.options(),
+      memory_format,
+      is_output_persistent[1]);
+  auto grad_input_nhwc = habana_helpers::createPTTensor(
+      input_nhwc,
+      input_nhwc.sizes(),
+      grad_out_nhwc.options(),
+      memory_format,
+      is_output_persistent[0]);
+  auto grad_bias = habana_helpers::createPTTensor(
+      grad_out_nhwc,
+      {grad_out_nhwc.size(3)},
+      grad_out_nhwc.options(),
+      c10::nullopt,
+      is_output_persistent[2]);
 
   // Add "dedw" node followed by "dedx" node. Adding in reverse order causes a
   // simulator crash (TBD: investigate later if required)
@@ -676,8 +680,7 @@ std::tuple<Tensor, Tensor, Tensor> convolution_backward_hpu(
       habana_helpers::get_memory_format({&grad_output, &input});
   habana_helpers::change_tensors_to_memory_format(
       pt_out, pt_in, pt_new_pos, memory_format);
-  habana_helpers::change_tensor_strides(&weight_hwck, &weight,
-                 &new_dim_pos_w);
+  habana_helpers::change_tensor_strides(&weight_hwck, &weight, &new_dim_pos_w);
 
   Tensor grad_input, grad_weight, grad_bias;
 
@@ -749,8 +752,8 @@ std::tuple<Tensor, Tensor, Tensor> convolution_backward_hpu(
     pt_in = {&grad_weight_hwck};
     pt_out = {&grad_w};
     IntArrayRef new_dim_pos_out = {3, 2, 0, 1};
-    habana_helpers::change_tensor_strides(&grad_w, &grad_weight_hwck,
-                  &new_dim_pos_out);
+    habana_helpers::change_tensor_strides(
+        &grad_w, &grad_weight_hwck, &new_dim_pos_out);
     grad_weight = grad_w;
   }
 

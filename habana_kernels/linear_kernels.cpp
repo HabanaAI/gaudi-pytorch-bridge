@@ -168,11 +168,12 @@ void habana::MMOperator::AllocateAndAddSynapseNode(
   auto mat1 = inputs[0].toTensor();
   auto mat2 = inputs[1].toTensor();
   check_matmul_params(mat1, mat2, c10::nullopt);
-  auto output = habana_helpers::createPTTensor(mat1,
-                                               {mat1.size(0), mat2.size(1)},
-                                               mat1.options(),
-                                               mat1.suggest_memory_format(),
-                                               is_output_persistent);
+  auto output = habana_helpers::createPTTensor(
+      mat1,
+      {mat1.size(0), mat2.size(1)},
+      mat1.options(),
+      mat1.suggest_memory_format(),
+      is_output_persistent);
   AllocateSynapseOutput(graph, output, is_output_persistent);
   synGEMMParams params{false, false};
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
@@ -256,11 +257,12 @@ void habana::AddmmOperator::AllocateAndAddSynapseNode(
   p_context_->syn_inputs_[1] = std::move(syn_arg1);
   p_context_->syn_inputs_[2] = std::move(syn_arg2);
 
-  auto output = habana_helpers::createPTTensor(mat1,
-                                               {mat1.size(0), mat2.size(1)},
-                                               mat1.options(),
-                                               mat1.suggest_memory_format(),
-                                               is_output_persistent);
+  auto output = habana_helpers::createPTTensor(
+      mat1,
+      {mat1.size(0), mat2.size(1)},
+      mat1.options(),
+      mat1.suggest_memory_format(),
+      is_output_persistent);
   AllocateSynapseOutput(graph, output, is_output_persistent);
 
   // TBD: Replace this with add.AllocateAndAddSynapseNode() once support for
@@ -433,11 +435,12 @@ void habana::BmmOperator::AllocateAndAddSynapseNode(
 
   auto self_sizes = self.sizes();
   auto mat2_sizes = mat2.sizes();
-  auto output = habana_helpers::createPTTensor(self,
-                                               {self_sizes[0], self_sizes[1], mat2_sizes[2]},
-                                               self.options(),
-                                               self.suggest_memory_format(),
-                                               is_output_persistent);
+  auto output = habana_helpers::createPTTensor(
+      self,
+      {self_sizes[0], self_sizes[1], mat2_sizes[2]},
+      self.options(),
+      self.suggest_memory_format(),
+      is_output_persistent);
   inputs.insert(inputs.begin(), IValue(output));
 
   habana::BmmOutOperator::AllocateAndAddSynapseNode(

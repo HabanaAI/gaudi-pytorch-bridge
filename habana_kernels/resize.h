@@ -42,7 +42,7 @@ inline void THHStorage_resize(THStorage* self, ptrdiff_t size) {
       auto& Device = synapse_helpers::HPURegistrar::get_device(device);
       std::mutex mtx;
       std::condition_variable cv;
-      std::atomic<bool>copyDone{false};
+      std::atomic<bool> copyDone{false};
       std::function<void()> cb = [&copyDone, &mtx, &cv]() {
         std::unique_lock<std::mutex> lck(mtx);
         copyDone = true;
@@ -56,7 +56,7 @@ inline void THHStorage_resize(THStorage* self, ptrdiff_t size) {
       TORCH_CHECK(syn_error.status == 0, syn_error.error);
 
       while (!copyDone) {
-	std::this_thread::yield();
+        std::this_thread::yield();
       }
     }
 

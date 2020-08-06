@@ -51,13 +51,10 @@ class ConvBackwardOperator : public HabanaOperator {
   ConvBackwardOperator(int device_id, c10::ScalarType scalarType)
       : HabanaOperator("convolution_bwd") {
     this->CreateSynContext(device_id);
-    kernel_meta_data_.input_layout.assign({LayoutFormat::NHWC,
-                                           LayoutFormat::NHWC,
-                                           LayoutFormat::HWCK});
-    kernel_meta_data_.output_layout.assign({LayoutFormat::NHWC,
-                                            LayoutFormat::HWCK,
-                                            LayoutFormat::ANY});
-
+    kernel_meta_data_.input_layout.assign(
+        {LayoutFormat::NHWC, LayoutFormat::NHWC, LayoutFormat::HWCK});
+    kernel_meta_data_.output_layout.assign(
+        {LayoutFormat::NHWC, LayoutFormat::HWCK, LayoutFormat::ANY});
   }
 
   virtual void SetPTOutputs(torch::jit::Stack& inputs);
@@ -72,11 +69,9 @@ class ConvInputDifferentiationOperator : public HabanaOperator {
   ConvInputDifferentiationOperator(int device_id, const std::string& guid)
       : HabanaOperator(guid) {
     this->CreateSynContext(device_id);
-    kernel_meta_data_.input_layout.assign({LayoutFormat::NHWC,
-                                           LayoutFormat::NHWC,
-                                           LayoutFormat::HWCK});
+    kernel_meta_data_.input_layout.assign(
+        {LayoutFormat::NHWC, LayoutFormat::NHWC, LayoutFormat::HWCK});
     kernel_meta_data_.output_layout.assign({LayoutFormat::NHWC});
-
   }
 
   virtual void AllocateAndAddSynapseNode(
@@ -90,11 +85,9 @@ class ConvWeightDifferentiationOperator : public HabanaOperator {
   ConvWeightDifferentiationOperator(int device_id, const std::string& guid)
       : HabanaOperator(guid) {
     this->CreateSynContext(device_id);
-    kernel_meta_data_.input_layout.assign({LayoutFormat::NHWC,
-                                           LayoutFormat::NHWC,
-                                           LayoutFormat::HWCK});
+    kernel_meta_data_.input_layout.assign(
+        {LayoutFormat::NHWC, LayoutFormat::NHWC, LayoutFormat::HWCK});
     kernel_meta_data_.output_layout.assign({LayoutFormat::HWCK});
-
   }
 
   virtual void AllocateAndAddSynapseNode(
@@ -102,4 +95,3 @@ class ConvWeightDifferentiationOperator : public HabanaOperator {
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
 };
-

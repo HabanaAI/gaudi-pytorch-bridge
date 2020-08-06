@@ -15,8 +15,9 @@ using namespace habana;
 class UniformOperator : public HabanaOperator {
  public:
   UniformOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator("random_uniform_fwd_" +
-        habana_helpers::name_suffix_from_type(scalarType)) {
+      : HabanaOperator(
+            "random_uniform_fwd_" +
+            habana_helpers::name_suffix_from_type(scalarType)) {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
     kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
@@ -32,8 +33,9 @@ class UniformOperator : public HabanaOperator {
 class NormalOperator : public HabanaOperator {
  public:
   NormalOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator("random_normal_fwd_" +
-        habana_helpers::name_suffix_from_type(scalarType)) {
+      : HabanaOperator(
+            "random_normal_fwd_" +
+            habana_helpers::name_suffix_from_type(scalarType)) {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
     kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
@@ -49,8 +51,9 @@ class NormalOperator : public HabanaOperator {
 class BernoulliOperator : public HabanaOperator {
  public:
   BernoulliOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator("random_bernoulli_fwd_" +
-        habana_helpers::name_suffix_from_type(scalarType)) {
+      : HabanaOperator(
+            "random_bernoulli_fwd_" +
+            habana_helpers::name_suffix_from_type(scalarType)) {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
     kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
@@ -61,6 +64,3 @@ class BernoulliOperator : public HabanaOperator {
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
 };
-
-
-

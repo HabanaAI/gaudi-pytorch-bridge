@@ -37,7 +37,9 @@ class BatchNormForwardOperator : public habana::HabanaOperator {
 
   // virtual std::vector<at::Tensor> preProcessInputs(torch::jit::Stack&
   // inputs);
-  virtual void preProcessInputs(synapse_helpers::graph& graph, torch::jit::Stack& inputs);
+  virtual void preProcessInputs(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs);
   void generateCacheInputs(torch::jit::Stack& inputs);
   void remove_non_persistent_patching_info();
   virtual void SetPTOutputs(torch::jit::Stack& inputs);
@@ -49,20 +51,20 @@ class BatchNormForwardOperator : public habana::HabanaOperator {
 
  private:
   void insert_memcopy_op(
-    synapse_helpers::graph& graph,
-    at::Tensor& src,
-    at::Tensor& dst,
-    int32_t in_position);
+      synapse_helpers::graph& graph,
+      at::Tensor& src,
+      at::Tensor& dst,
+      int32_t in_position);
   at::Tensor create_or_return_tensor_bn(
-    synapse_helpers::graph& graph,
-    const at::Tensor& input,
-    uint size,
-    at::Device device,
-    int syn_index);
+      synapse_helpers::graph& graph,
+      const at::Tensor& input,
+      uint size,
+      at::Device device,
+      int syn_index);
   at::Tensor create_or_return_pt_tensor_bn(
-    const at::Tensor& input,
-    uint size,
-    at::Device device);
+      const at::Tensor& input,
+      uint size,
+      at::Device device);
 
   c10::ScalarType scalarType_;
   std::vector<synapse_helpers::tensor_or_ref> tensors_;
@@ -70,9 +72,10 @@ class BatchNormForwardOperator : public habana::HabanaOperator {
   std::vector<at::Tensor> pt_outputs;
   torch::jit::Stack input_stack;
   std::vector<at::Tensor> pre_inputs;
-  //This has been added so that the input mean/var synapse tensors are preserved
-  //Because we create copies due to in-place restrictions, we replace these as inputs
-  //Need to pass along as GC will complain if they are missing in patching info
+  // This has been added so that the input mean/var synapse tensors are
+  // preserved Because we create copies due to in-place restrictions, we replace
+  // these as inputs Need to pass along as GC will complain if they are missing
+  // in patching info
   std::vector<synapse_helpers::tensor_or_ref> mean_var_temp;
   std::vector<std::pair<at::Tensor, at::Tensor>> dma_candidates;
   bool running_vars_def;
@@ -110,7 +113,6 @@ class BatchNormBackwardOperator : public habana::HabanaOperator {
   void generateCacheInputs(torch::jit::Stack& inputs);
 
   void SetPTOutputs(torch::jit::Stack& inputs);
-
 
   std::vector<at::Tensor>& GetBNInputs() {
     return pt_inputs;

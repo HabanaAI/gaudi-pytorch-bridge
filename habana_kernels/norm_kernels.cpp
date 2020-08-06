@@ -182,11 +182,10 @@ at::Tensor BatchNormForwardOperator::create_or_return_tensor_bn(
     p_context_->syn_inputs_.insert(it, std::move(syn_tensor));
 
     appended_tensor_infos.emplace_back((syn_tensor).tensor_name_, ret_tensor);
-  }
-  else if(input.defined() && input.device() != DeviceType::HABANA) {
-    ret_tensor =  input.to(DeviceType::HABANA);;
-  }
-  else {
+  } else if (input.defined() && input.device() != DeviceType::HABANA) {
+    ret_tensor = input.to(DeviceType::HABANA);
+    ;
+  } else {
     return input;
   }
 
@@ -353,7 +352,8 @@ void BatchNormForwardOperator::preProcessInputs(
 
     // This is to communicate to graph lowering that a new tensor was
     // added by the kernel and it can add to patching in lowering
-    appended_tensor_infos.emplace_back((syn_tensor_add).tensor_name_, residualAdd);
+    appended_tensor_infos.emplace_back(
+        (syn_tensor_add).tensor_name_, residualAdd);
     p_context_->syn_inputs_.insert(it, std::move(syn_tensor_add));
 
     pre_inputs = {std::move(input),
@@ -409,13 +409,15 @@ void BatchNormForwardOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(in_stack[5].isBool(), "Input type expected to be bool");
   TORCH_CHECK(in_stack[6].isDouble(), "Input type expected to be double");
   TORCH_CHECK(in_stack[7].isDouble(), "Input type expected to be double");
-  TORCH_CHECK(is_output_persistent.size() == 3,
-              "BatchNormForwardOperator: is_output_persistent should be 3");
+  TORCH_CHECK(
+      is_output_persistent.size() == 3,
+      "BatchNormForwardOperator: is_output_persistent should be 3");
   const auto training = in_stack[5].toBool();
   const auto momentum = in_stack[6].toDouble();
   const auto eps = in_stack[7].toDouble();
 
-  auto output = habana_helpers::createPTTensor(pre_inputs[0], is_output_persistent[0]);
+  auto output =
+      habana_helpers::createPTTensor(pre_inputs[0], is_output_persistent[0]);
 
   if (training == true) {
     // synapse uses expAvgfactor = 1 - momentum
@@ -427,8 +429,10 @@ void BatchNormForwardOperator::AllocateAndAddSynapseNode(
 
     AllocateSynapseOutput(graph, output, is_output_persistent[0]);
 
-    auto current_mean = habana_helpers::createPTTensor(pre_inputs[4], is_output_persistent[1]);
-    auto current_istd = habana_helpers::createPTTensor(pre_inputs[5], is_output_persistent[2]);
+    auto current_mean =
+        habana_helpers::createPTTensor(pre_inputs[4], is_output_persistent[1]);
+    auto current_istd =
+        habana_helpers::createPTTensor(pre_inputs[5], is_output_persistent[2]);
     // Intermediate tensors are non-persistent
     // Modifit the PT tensors too to not allocate mem
     if (running_vars_def) {
@@ -439,10 +443,12 @@ void BatchNormForwardOperator::AllocateAndAddSynapseNode(
       auto syn_tensor_var = habana_helpers::duplicate_tensor_in_memory_section(
           (mean_var_temp[1]));
 
-      appended_tensor_infos.emplace_back((syn_tensor_mean).tensor_name_, pre_inputs[4]);
+      appended_tensor_infos.emplace_back(
+          (syn_tensor_mean).tensor_name_, pre_inputs[4]);
       p_context_->syn_outputs_.emplace_back(std::move(syn_tensor_mean));
 
-      appended_tensor_infos.emplace_back((syn_tensor_var).tensor_name_, pre_inputs[5]);
+      appended_tensor_infos.emplace_back(
+          (syn_tensor_var).tensor_name_, pre_inputs[5]);
       p_context_->syn_outputs_.emplace_back(std::move(syn_tensor_var));
     } else {
       // As the tensors are used as IO and are persistent
@@ -452,17 +458,20 @@ void BatchNormForwardOperator::AllocateAndAddSynapseNode(
       auto syn_tensor_var = habana_helpers::duplicate_tensor_in_memory_section(
           p_context_->syn_inputs_[4]);
 
-      appended_tensor_infos.emplace_back((syn_tensor_mean).tensor_name_, pre_inputs[4]);
+      appended_tensor_infos.emplace_back(
+          (syn_tensor_mean).tensor_name_, pre_inputs[4]);
       p_context_->syn_outputs_.emplace_back(std::move(syn_tensor_mean));
 
-      appended_tensor_infos.emplace_back((syn_tensor_var).tensor_name_, pre_inputs[5]);
+      appended_tensor_infos.emplace_back(
+          (syn_tensor_var).tensor_name_, pre_inputs[5]);
       p_context_->syn_outputs_.emplace_back(std::move(syn_tensor_var));
     }
 
     p_context_->pt_outputs_.emplace_back(pre_inputs[4]);
     p_context_->pt_outputs_.emplace_back(pre_inputs[5]);
 
-    std::vector<bool> persistent_output_flags{is_output_persistent[1], is_output_persistent[2]};
+    std::vector<bool> persistent_output_flags{is_output_persistent[1],
+                                              is_output_persistent[2]};
     AllocateSynapseOutputs(
         graph, {current_mean, current_istd}, persistent_output_flags);
 
@@ -777,8 +786,9 @@ void BatchNormBackwardOperator::AllocateAndAddSynapseNode(
       "Incorrect number of inputs against expected count for BatchNormBackward AllocateAndAddSynapseNode");
   TORCH_CHECK(
       inputs[8].isDouble(), "Input type for eps is expected to be double");
-  TORCH_CHECK(is_output_persistent.size() == 3,
-              "BatchNormBackwardOperator: #is_output_persistent should be 3");
+  TORCH_CHECK(
+      is_output_persistent.size() == 3,
+      "BatchNormBackwardOperator: #is_output_persistent should be 3");
   if (CheckProprocessingDone() == false) {
     Stack preprocess_in = {};
     for (auto& input : inputs) {
@@ -793,9 +803,12 @@ void BatchNormBackwardOperator::AllocateAndAddSynapseNode(
   const auto eps = inputs[8].toDouble();
 
   // Prepare output tensor vector
-  auto grad_in_nhwc = habana_helpers::createPTTensor(input, is_output_persistent[0]);
-  auto grad_beta = habana_helpers::createPTTensor(weight, is_output_persistent[1]);
-  auto grad_gamma = habana_helpers::createPTTensor(weight, is_output_persistent[2]);
+  auto grad_in_nhwc =
+      habana_helpers::createPTTensor(input, is_output_persistent[0]);
+  auto grad_beta =
+      habana_helpers::createPTTensor(weight, is_output_persistent[1]);
+  auto grad_gamma =
+      habana_helpers::createPTTensor(weight, is_output_persistent[2]);
 
   struct synCudBnExParams params = {
       synBnOps::BN_OPS_BN, 0, static_cast<float>(eps)};
@@ -1149,8 +1162,9 @@ void LpNormOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(
       inputs[1].isScalar(),
       "Input arg2 expected to be Scalar for LpNorm Operator");
-  TORCH_CHECK(is_output_persistent.size() == 2,
-              "LpNormOperator: #is_output_persistent should be 2");
+  TORCH_CHECK(
+      is_output_persistent.size() == 2,
+      "LpNormOperator: #is_output_persistent should be 2");
 
   auto self = inputs[0].toTensor();
   auto p = inputs[1].toScalar();

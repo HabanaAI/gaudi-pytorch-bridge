@@ -59,8 +59,7 @@ class EqOutOperator : public CompareOutOperator {
       : CompareOutOperator(
             device_id,
             scalarType,
-            "equal_fwd_" +
-                habana_helpers::name_suffix_from_type(scalarType)) {}
+            "equal_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {}
 };
 
 class EqOperator : public CompareOperator {
@@ -69,6 +68,5 @@ class EqOperator : public CompareOperator {
       : CompareOperator(
             device_id,
             scalarType,
-            "equal_fwd_" +
-                habana_helpers::name_suffix_from_type(scalarType)) {}
+            "equal_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {}
 };

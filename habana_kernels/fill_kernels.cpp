@@ -28,7 +28,7 @@ void synapse_fill(const Tensor& output, const T val) {
   habana_helpers::copy_data_to_device(buffer.data(), output, size);
 }
 
-/** 
+/**
  * @brief This function uses "constant" TPC kernel to fill input
  * tensor with "value" provided. fp32, bf16 & i32 are the only
  * support dtypes. Tensor shall be filled with values based on

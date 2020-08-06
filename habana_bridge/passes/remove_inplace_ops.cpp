@@ -3,13 +3,12 @@
 
 namespace habana {
 
-static const std::unordered_map<std::string, std::string> inPlaceToOutOfPlace = {
-    {"aten::add_", "aten::add"},
-    {"aten::sub_", "aten::sub"},
-    {"aten::div_", "aten::div"},
-    {"aten::mul_", "aten::mul"},
-    {"aten::relu_", "aten::relu"}};
-
+static const std::unordered_map<std::string, std::string> inPlaceToOutOfPlace =
+    {{"aten::add_", "aten::add"},
+     {"aten::sub_", "aten::sub"},
+     {"aten::div_", "aten::div"},
+     {"aten::mul_", "aten::mul"},
+     {"aten::relu_", "aten::relu"}};
 
 bool isInplaceOp(const Node* node) {
   return inPlaceToOutOfPlace.count(node->kind().toQualString()) != 0;
@@ -36,7 +35,8 @@ void RemoveInplaceOps(Block* block) {
 
     if (isInplaceOp(node)) {
       // create a replacement out of place op
-      const std::string& newNodeStr = inPlaceToOutOfPlace.at(node->kind().toQualString());
+      const std::string& newNodeStr =
+          inPlaceToOutOfPlace.at(node->kind().toQualString());
       auto newNode = graph->create(Symbol::fromQualString(newNodeStr));
       newNode->insertBefore(node);
       newNode->setScope(node->scope());

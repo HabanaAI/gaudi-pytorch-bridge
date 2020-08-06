@@ -77,11 +77,12 @@ void NLLLossFwdOperator::AllocateAndAddSynapseNode(
   p_context_->params_.emplace<ns_NLLLossKernel::Params>(param);
   p_context_->params_size_ = sizeof(param);
 
-  auto output = habana_helpers::createPTTensor(self,
-                                               {1},
-                                               self.options(),
-                                               self.suggest_memory_format(),
-                                               is_output_persistent);
+  auto output = habana_helpers::createPTTensor(
+      self,
+      {1},
+      self.options(),
+      self.suggest_memory_format(),
+      is_output_persistent);
   AllocateSynapseOutput(graph, output, is_output_persistent);
   AddNodeToSynapseGraph(graph, &param, sizeof(param));
 }
@@ -269,11 +270,12 @@ void MSELossFwdOperator::AllocateAndAddSynapseNode(
   if (reduction == at::Reduction::Reduction::None) {
     output = habana_helpers::createPTTensor(self, is_output_persistent);
   } else {
-    output = habana_helpers::createPTTensor(self,
-                                            {1},
-                                            self.options(),
-                                            self.suggest_memory_format(),
-                                            is_output_persistent);
+    output = habana_helpers::createPTTensor(
+        self,
+        {1},
+        self.options(),
+        self.suggest_memory_format(),
+        is_output_persistent);
   }
 
   AllocateSynapseOutput(graph, output, is_output_persistent);

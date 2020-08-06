@@ -15,19 +15,20 @@
 #include "habana_helpers/logging.h"
 
 class HabanaMetaOpList {
-    private:
-    const static std::unordered_set<std::string> HabanaMetaOpsList;
-    public:
-    static bool isHabanaMetaOp(std::string opName);
+ private:
+  const static std::unordered_set<std::string> HabanaMetaOpsList;
+
+ public:
+  static bool isHabanaMetaOp(std::string opName);
 };
 
 const std::unordered_set<std::string> HabanaMetaOpList::HabanaMetaOpsList = {
-        //Add aten string here for ops to support
-        //e.g  :: "aten::view"
+    // Add aten string here for ops to support
+    // e.g  :: "aten::view"
 };
 
 bool HabanaMetaOpList::isHabanaMetaOp(std::string opName) {
-        if(HabanaMetaOpsList.find(opName) != HabanaMetaOpsList.end())
-            return true;
-        return false;
+  if (HabanaMetaOpsList.find(opName) != HabanaMetaOpsList.end())
+    return true;
+  return false;
 }

@@ -86,8 +86,9 @@ void TopkOutOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(
       inputs[6].isBool(),
       "Input arg7 expected to be of type Bool for topk operator");
-  TORCH_CHECK(is_output_persistent.size() == 2,
-              "TopkOutOperator: #is_output_persistent should be 2");
+  TORCH_CHECK(
+      is_output_persistent.size() == 2,
+      "TopkOutOperator: #is_output_persistent should be 2");
 
   auto values = inputs[0].toTensor();
   auto indices = inputs[1].toTensor();
@@ -197,21 +198,24 @@ void TopkOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(
       inputs[0].isTensor(),
       "Input arg1 expected to be tensor for topk operator");
-  TORCH_CHECK(is_output_persistent.size() == 2,
-              "TopkOperator: #is_output_persistent should be 2");
+  TORCH_CHECK(
+      is_output_persistent.size() == 2,
+      "TopkOperator: #is_output_persistent should be 2");
 
   Tensor self = inputs[0].toTensor();
-  auto values = habana_helpers::createPTTensor(self,
-                                               {0},
-                                               self.options(),
-                                               self.suggest_memory_format(),
-                                               is_output_persistent[0]);
-  auto indices = habana_helpers::createPTTensor(self,
-                                                {0},
-                                                self.options(),
-                                                self.suggest_memory_format(),
-                                                c10::ScalarType::Int,
-                                                is_output_persistent[1]);
+  auto values = habana_helpers::createPTTensor(
+      self,
+      {0},
+      self.options(),
+      self.suggest_memory_format(),
+      is_output_persistent[0]);
+  auto indices = habana_helpers::createPTTensor(
+      self,
+      {0},
+      self.options(),
+      self.suggest_memory_format(),
+      c10::ScalarType::Int,
+      is_output_persistent[1]);
   inputs.insert(inputs.begin(), IValue(indices));
   inputs.insert(inputs.begin(), IValue(values));
 
@@ -291,8 +295,9 @@ void SortOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(
       inputs[2].isBool(),
       "Input arg3 expected to be of type Bool for sort operator");
-  TORCH_CHECK(is_output_persistent.size() == 2,
-              "SortOperator: #is_output_persistent should be 2");
+  TORCH_CHECK(
+      is_output_persistent.size() == 2,
+      "SortOperator: #is_output_persistent should be 2");
 
   Tensor self = inputs[0].toTensor();
   int64_t dim_ = inputs[1].toInt();
@@ -307,17 +312,19 @@ void SortOperator::AllocateAndAddSynapseNode(
   inputs.insert(inputs.begin() + 1, IValue(self.size(dim)));
   inputs.emplace_back(IValue(sorted));
 
-  auto values = habana_helpers::createPTTensor(self,
-                                               {0},
-                                               self.options(),
-                                               self.suggest_memory_format(),
-                                               is_output_persistent[0]);
-  auto indices = habana_helpers::createPTTensor(self,
-                                                {0},
-                                                self.options(),
-                                                self.suggest_memory_format(),
-                                                c10::ScalarType::Int,
-                                                is_output_persistent[1]);
+  auto values = habana_helpers::createPTTensor(
+      self,
+      {0},
+      self.options(),
+      self.suggest_memory_format(),
+      is_output_persistent[0]);
+  auto indices = habana_helpers::createPTTensor(
+      self,
+      {0},
+      self.options(),
+      self.suggest_memory_format(),
+      c10::ScalarType::Int,
+      is_output_persistent[1]);
 
   inputs.insert(inputs.begin(), IValue(indices));
   inputs.insert(inputs.begin(), IValue(values));

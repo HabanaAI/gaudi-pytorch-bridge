@@ -340,12 +340,13 @@ void TransposeOperator::AllocateAndAddSynapseNode(
   // Recalculate the strides to account for transpose size changes
   // In effect, keep the tensor contiguous.
   recalc_strides(self_strides, self_sizes);
-  auto out = habana_helpers::createPTTensor(self,
-                                            self_sizes,
-                                            self_strides,
-                                            self.options(),
-                                            self.suggest_memory_format(),
-                                            is_output_persistent);
+  auto out = habana_helpers::createPTTensor(
+      self,
+      self_sizes,
+      self_strides,
+      self.options(),
+      self.suggest_memory_format(),
+      is_output_persistent);
   synTransposeParams params;
   params.tensorDim = self.dim();
   int i;
@@ -552,12 +553,13 @@ void PermuteOperator::AllocateAndAddSynapseNode(
     new_strides[i] = new_strides[i + 1] * new_sizes[i + 1];
   }
 
-  auto output = habana_helpers::createPTTensor(self,
-                                               new_sizes,
-                                               new_strides,
-                                               self.options(),
-                                               self.suggest_memory_format(),
-                                               is_output_persistent);
+  auto output = habana_helpers::createPTTensor(
+      self,
+      new_sizes,
+      new_strides,
+      self.options(),
+      self.suggest_memory_format(),
+      is_output_persistent);
   synTransposeParams params;
   params.tensorDim = self.dim();
   // params.permute has to be populated in a reverse order for HPU FCD-LCD order
@@ -662,11 +664,12 @@ void ReshapeOperator::AllocateAndAddSynapseNode(
       "Right now Reshape is only supported for contiguous Tensor.");
 
   auto shape = inputs[1].toIntList();
-  auto output = habana_helpers::createPTTensor(self,
-                                               shape.vec(),
-                                               self.options(),
-                                               self.suggest_memory_format(),
-                                               is_output_persistent);
+  auto output = habana_helpers::createPTTensor(
+      self,
+      shape.vec(),
+      self.options(),
+      self.suggest_memory_format(),
+      is_output_persistent);
   TORCH_CHECK(
       self.numel() == output.numel(),
       "Reshape doesnt support change in number of elements");
@@ -739,15 +742,15 @@ void ViewOperator::AllocateAndAddSynapseNode(
       inputs.size() == 2,
       "Incorrect size of input arguments for View Operator");
   TORCH_CHECK(
-      inputs[0].isTensor(),
-      "Input arg 1 for View op needs to be tensor type");
+      inputs[0].isTensor(), "Input arg 1 for View op needs to be tensor type");
   TORCH_CHECK(
       inputs[1].isIntList(), "Input arg 2 for View op needs to be Int List");
 
   auto self = inputs[0].toTensor();
-  auto dims = inputs[1].toIntVector();;
+  auto dims = inputs[1].toIntVector();
+  ;
 
-  //Reshape Operator doesnt support -1 argument, remove it if present
+  // Reshape Operator doesnt support -1 argument, remove it if present
   auto inferred_dims = at::infer_size(dims, self.numel());
   // remove start_dim & end_dim. we have already used these to compute shape
   inputs.pop_back();
@@ -807,12 +810,13 @@ void BroadcastOperator::AllocateAndAddSynapseNode(
   if (self.sizes().equals(expandedSizes)) {
     // Nothing to do
   } else {
-    result = habana_helpers::createPTTensor(self,
-                                            expandedSizes,
-                                            expandedStrides,
-                                            self.options(),
-                                            self.suggest_memory_format(),
-                                            is_output_persistent);
+    result = habana_helpers::createPTTensor(
+        self,
+        expandedSizes,
+        expandedStrides,
+        self.options(),
+        self.suggest_memory_format(),
+        is_output_persistent);
     auto expanded_self_view_sizes =
         std::vector<int64_t>(expandedSizes.size(), 1);
     for (unsigned i = 0; i < self.dim(); i++) {
@@ -919,11 +923,9 @@ static auto& KernelRegistry =
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<FlattenOperator>(device_id, node_type);
             })
-        .add(
-            "aten::view",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<ViewOperator>(device_id, node_type);
-            });
+        .add("aten::view", [](const int device_id, c10::ScalarType node_type) {
+          return std::make_shared<ViewOperator>(device_id, node_type);
+        });
 
 static auto registry =
     torch::RegisterOperators()

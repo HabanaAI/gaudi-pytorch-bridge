@@ -106,7 +106,8 @@ void LogSoftmaxBackwardOperator::AllocateAndAddSynapseNode(
   std::swap(p_context_->pt_inputs_[0], p_context_->pt_inputs_[1]);
   std::swap(p_context_->syn_inputs_[0], p_context_->syn_inputs_[1]);
 
-  auto grad_output = habana_helpers::createPTTensor(input, is_output_persistent);
+  auto grad_output =
+      habana_helpers::createPTTensor(input, is_output_persistent);
 
   AllocateSynapseOutput(graph, grad_output, is_output_persistent);
   AddNodeToSynapseGraph(graph, &params, sizeof(params));

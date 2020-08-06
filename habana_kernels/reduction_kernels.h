@@ -136,9 +136,9 @@ class AnyDimOutOperator : public HabanaOperator {
   AnyDimOutOperator(int device_id, const std::string& guid)
       : HabanaOperator(guid) {
     this->CreateSynContext(device_id);
-    kernel_meta_data_.input_layout.assign({LayoutFormat::ANY, LayoutFormat::ANY});
+    kernel_meta_data_.input_layout.assign(
+        {LayoutFormat::ANY, LayoutFormat::ANY});
     kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
-
   }
 
   virtual void AllocateAndAddSynapseNode(
@@ -166,12 +166,10 @@ class AnyDimOperator : public AnyDimOutOperator {
 // Any Operator
 class AnyOperator : public HabanaOperator {
  public:
-  AnyOperator(int device_id, const std::string& guid)
-      : HabanaOperator(guid) {
+  AnyOperator(int device_id, const std::string& guid) : HabanaOperator(guid) {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
     kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
-
   }
 
   virtual void AllocateAndAddSynapseNode(

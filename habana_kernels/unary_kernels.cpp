@@ -120,7 +120,8 @@ void UnaryBackwardOperator::AllocateAndAddSynapseNode(
       ", input sizes: ",
       grad_in.sizes());
 
-  auto grad_output = habana_helpers::createPTTensor(input, is_output_persistent);
+  auto grad_output =
+      habana_helpers::createPTTensor(input, is_output_persistent);
   AllocateSynapseOutput(graph, grad_output, is_output_persistent);
   AddNodeToSynapseGraph(graph, nullptr, 0);
 }
