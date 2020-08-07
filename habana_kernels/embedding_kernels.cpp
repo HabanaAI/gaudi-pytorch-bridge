@@ -540,10 +540,12 @@ void EmbeddingBagSumForwardOperator::AllocateAndAddSynapseNode(
   HABANA_ASSERT(offsets.dim() == 1);
   HABANA_ASSERT(valid_count.numel() == 2);
 
-  auto out = at::empty(
-      {offsets.numel() - 1, input.sizes()[1]},
+  auto out = habana_helpers::createPTTensor(
+      input,
+      {offsets.numel() - 1, input.size(1)},
       input.options(),
-      input.suggest_memory_format());
+      input.suggest_memory_format(),
+      is_output_persistent);
 
   AllocateSynapseOutput(graph, out, is_output_persistent);
   AddNodeToSynapseGraph(graph, nullptr, 0);
@@ -574,7 +576,7 @@ Tensor embedding_bag_sum_fwd_hpu(
 
   at::ScalarType scalar_type = input.scalar_type();
   // TODO support other kernel flavours
-  std::string node_type = "embedding_bag_sum_2d_fwd_" +
+  std::string node_type = "embedding_bag_sum_small_lengths_2d_fwd_" +
       habana_helpers::name_suffix_from_type(scalar_type);
   size_t device_id = input.device().index();
 
@@ -705,7 +707,7 @@ Tensor& embedding_bag_sum_bwd_out_hpu(
 
   at::ScalarType scalar_type = input.scalar_type();
   // TODO support other kernel flavours
-  std::string node_type = "embedding_bag_sum_2d_fwd_" +
+  std::string node_type = "embedding_bag_sum_small_lengths_2d_fwd_" +
       habana_helpers::name_suffix_from_type(scalar_type);
   size_t device_id = indices_bwd.device().index();
 

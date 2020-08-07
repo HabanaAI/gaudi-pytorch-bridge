@@ -454,7 +454,8 @@ Tensor SliceOperator::AllocateOutputTensor(
     int64_t& dim,
     int64_t& start,
     int64_t& end,
-    int64_t& step) {
+    int64_t& step,
+    bool is_output_persistent) {
   // convert dim to positive value if required
   dim = at::maybe_wrap_dim(dim, self.dim(), /*wrap_scalar=*/true);
   auto sizes = self.sizes().vec();
@@ -482,9 +483,19 @@ Tensor SliceOperator::AllocateOutputTensor(
   }
   auto shape = DimVector(self.sizes());
   shape.erase(shape.begin() + dim);
-  shape.insert(shape.begin() + dim, len);
+
+  if (len > 1) {
+    // avoid adding x1 dimensions
+    shape.insert(shape.begin() + dim, len);
+  }
+
   // allocate output tensor
-  auto output = at::empty(shape, self.options(), self.suggest_memory_format());
+  auto output = habana_helpers::createPTTensor(
+      self,
+      shape,
+      self.options(),
+      self.suggest_memory_format(),
+      is_output_persistent);
 
   return output;
 }
@@ -495,7 +506,7 @@ void SliceOperator::SetPTOutputs(const torch::jit::Stack& inputs) {
   auto start = inputs[2].toInt();
   auto end = inputs[3].toInt();
   auto step = inputs[4].toInt();
-  auto output = AllocateOutputTensor(self, dim, start, end, step);
+  auto output = AllocateOutputTensor(self, dim, start, end, step, true);
   HabanaOperator::SetPTOutputs({output});
 }
 
@@ -524,7 +535,8 @@ void SliceOperator::AllocateAndAddSynapseNode(
     TORCH_CHECK(step <= 1, "strided slice not supported on FCD");
   }
 
-  auto output = AllocateOutputTensor(self, dim, start, end, step);
+  auto output =
+      AllocateOutputTensor(self, dim, start, end, step, is_output_persistent);
   std::vector<const at::Tensor*> pt_outputs{&output};
 
   synSliceParams params;
@@ -569,6 +581,7 @@ Tensor slice_hpu(
   }
 
   at::ScalarType scalar_type = self.scalar_type();
+
   std::string node_type = "slice";
   size_t device_id = self.device().index();
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
@@ -599,6 +612,91 @@ Tensor slice_hpu(
   return out.at(0);
 }
 
+Tensor SelectOperator::AllocateOutputTensor(
+    const Tensor& self,
+    int64_t& dim,
+    int64_t& index,
+    bool is_output_persistent) {
+  auto start = index;
+  auto end = index + 1;
+  int64_t step = 1;
+
+  return SliceOperator::AllocateOutputTensor(
+      self, dim, start, end, step, is_output_persistent);
+}
+
+void SelectOperator::SetPTOutputs(const torch::jit::Stack& inputs) {
+  auto self = inputs[0].toTensor();
+  auto dim = inputs[1].toInt();
+  auto index = inputs[2].toInt();
+  auto start = index;
+  auto end = index + 1;
+  int64_t step = 1;
+  auto output =
+      SliceOperator::AllocateOutputTensor(self, dim, start, end, step, true);
+  HabanaOperator::SetPTOutputs({output});
+}
+
+void SelectOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  HABANA_ASSERT(inputs.size() == 3);
+  HABANA_ASSERT(inputs[0].isTensor());
+  HABANA_ASSERT(inputs[1].isInt());
+  HABANA_ASSERT(inputs[2].isInt());
+
+  auto self = inputs[0].toTensor();
+  auto dim = inputs[1].toInt();
+  auto index = inputs[2].toInt();
+
+  auto start = index;
+  auto end = index + 1;
+  int64_t step = 1;
+
+  std::vector<c10::IValue> stack = {
+      IValue(self), IValue(dim), IValue(start), IValue(end), IValue(step)};
+
+  SliceOperator::AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+}
+
+/*************************************************************************
+ * @brief Kernel implementation for torch select operator
+ * @param self - Input tensor
+ * @param dim - Axis to slice
+ * @param index - index the element in given axis
+ ************************************************************************/
+
+Tensor select_hpu(const Tensor& self, int64_t dim, int64_t index) {
+  PT_KERNEL_BEGIN;
+
+  at::ScalarType scalar_type = self.scalar_type();
+  HABANA_ASSERT(
+      ((scalar_type == c10::ScalarType::Int) ||
+       (scalar_type == c10::ScalarType::Float) ||
+       (scalar_type == c10::ScalarType::BFloat16)));
+
+  std::string node_type = "slice";
+  size_t device_id = self.device().index();
+
+  SelectOperator Op(device_id, scalar_type);
+  std::vector<at::Tensor> pt_inputs{self};
+  std::vector<c10::IValue> stack = {IValue(self), IValue(dim), IValue(index)};
+
+  // Do not cache this kernel as caching already happens within  child class
+  // slice
+  auto graph = habana_helpers::create_graph(device_id, node_type);
+  Op.AllocateSynapseInputs(graph, pt_inputs, true);
+  Op.AllocateAndAddSynapseNode(graph, stack, true);
+  Op.Compile(graph);
+
+  std::vector<at::Tensor> out = Op.GetOutputs();
+  HABANA_ASSERT(out.size() == 1);
+
+  PT_KERNEL_END;
+  return out.at(0);
+}
+
 static auto& KernelRegistry =
     habana::KernelRegistry()
         .add(
@@ -611,7 +709,12 @@ static auto& KernelRegistry =
             "aten::gather",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<GatherOperator>(device_id, node_type);
-            });
+            })
+        /*.add(
+            "aten::select",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<SelectOperator>(device_id, node_type);
+            })*/;
 
 static auto registry =
     torch::RegisterOperators()
@@ -655,4 +758,10 @@ static auto registry =
                     "aten::slice.Tensor(Tensor(a) self, int dim=0, int start=0, int end=9223372036854775807, int step=1) -> Tensor(a)")
                 .impl_unboxedOnlyKernel<decltype(slice_hpu), &slice_hpu>(
                     DispatchKey::HABANATensorId)
-                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        /*.op(torch::RegisterOperators::options()
+                .schema(
+                    "aten::select.int(Tensor(a) self, int dim, int index) -> Tensor(a)")
+                .impl_unboxedOnlyKernel<decltype(select_hpu), &select_hpu>(
+                    DispatchKey::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))*/;

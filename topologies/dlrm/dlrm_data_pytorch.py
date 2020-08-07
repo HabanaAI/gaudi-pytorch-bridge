@@ -731,6 +731,7 @@ def generate_random_output_batch(n, num_targets, round_targets=False):
 
     return torch.tensor(P)
 
+seed2 = 987
 
 # uniform ditribution (input data)
 def generate_uniform_input_batch(
@@ -740,6 +741,11 @@ def generate_uniform_input_batch(
     num_indices_per_lookup,
     num_indices_per_lookup_fixed,
 ):
+    global seed2
+    # print('DATA GEN n={} {} {}. Set seed to {}'.format(n,m_den,ln_emb,seed2))
+    ra.seed(seed2)
+    seed2 += 1
+    
     # dense feature
     Xt = torch.tensor(ra.rand(n, m_den).astype(np.float32))
 
