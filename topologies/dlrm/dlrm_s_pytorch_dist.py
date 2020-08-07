@@ -129,6 +129,8 @@ class LRPolicyScheduler(_LRScheduler):
                 lr = self.base_lrs
         return lr
 
+global_lr = 0.01
+
 class AllToAllAcrossDevice(torch.autograd.Function):
 
     @staticmethod
@@ -147,13 +149,80 @@ class PrintDataAcrossPass(torch.autograd.Function):
     @staticmethod
     def forward(ctx, input_buffer: torch.Tensor):
         print('Forward Pass')
-        print(input_buffer)
+        print(input_buffer.to("cpu"))
         return input_buffer
 
     def backward(ctx, input_gradient):
         print('Backward pass')
-        print(input_gradient)
+        print(input_gradient.to("cpu"))
         return input_gradient
+
+class HabanaDlrmPreProcFunction(object):
+    @staticmethod
+    def preproc(indices, offsets, tableLen):
+        out1, out2, out3, out4 = preproc_cpp.forward(indices, offsets, tableLen)
+        return out1, out2, out3, out4
+
+def coalesceGradients(grad_output, uniqueIndicesCount, uniqueIndices, outputRows, outputRowOffsets):
+    numOffsets = uniqueIndicesCount.item() + 1
+    outputRowOffsets = torch.narrow(outputRowOffsets, 0, 0, numOffsets)
+    device = grad_output.device
+    valid_count_tensor = torch.LongTensor([outputRows.numel(), numOffsets]).to(device)
+    kernel_mode = 1
+    coalesced_grads = HabanaEmbeddingBag_cpp.forward(grad_output, outputRows.to(device), outputRowOffsets.to(device), valid_count_tensor, kernel_mode)
+    return coalesced_grads
+
+class EmbeddingBagSumFunction(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, weights, moments, indices, offsets, preproc_data):
+        ctx.save_for_backward(weights, moments, indices, offsets, preproc_data["uniqueIndicesCnt"],
+                              preproc_data["uniqueIndices"], preproc_data["outputRows"],
+                              preproc_data["outputRowOffsets"])
+        valid_count = torch.LongTensor([indices.numel(),offsets.numel()]).to(device)
+        outputs = HabanaEmbeddingBag_cpp.forward(weights.data, indices, offsets, valid_count, 1)
+        return outputs
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        weights, moments, indices, offsets, uniqueIndicesCnt, uniqueIndices, outputRows, outputRowOffsets = ctx.saved_tensors
+        coalesced_grads = coalesceGradients(grad_output, uniqueIndicesCnt, uniqueIndices, outputRows, outputRowOffsets)
+        lr = torch.tensor([global_lr], dtype=torch.float).to(weights.device)
+        outputs = habanaOptimizerSparseSgd_cpp.forward(coalesced_grads, weights, moments.data, uniqueIndices.to(weights.device), lr, uniqueIndicesCnt.to(dtype=torch.long).item())
+        # grad_input = torch.sparse_coo_tensor(uniqueIndices[0:uniqueIndicesCnt], coalesced_grads)
+        # We need not update moments for now
+        # Temporarily added the optimizer inside embedding bag
+        return outputs[0], outputs[1], None, None, None
+
+class HabanaEmbeddingBag(torch.nn.Module):
+    def __init__(self, table_len, embedding_size):
+        n = table_len
+        m = embedding_size
+        super(HabanaEmbeddingBag, self).__init__()
+        self.weight = nn.Parameter(torch.empty([n, m], dtype=torch.float)) #Handle the grad separately
+        self.moments = nn.Parameter(torch.zeros_like(self.weight.data), requires_grad=False)
+
+    def forward(self, indices, offsets, preproc_data):
+        return EmbeddingBagSumFunction.apply(self.weight, self.moments, indices, offsets, preproc_data)
+
+class HabanaOptimizerSparseSgd(torch.optim.Optimizer):
+    def __init__(self, params, lr=1e-3):
+        defaults = dict(lr=lr)
+        super(HabanaOptimizerSparseSgd, self).__init__(params, defaults)
+
+    @torch.no_grad()
+    def step(self):
+        #At present kept it with the backward pass for EmbeddingBag
+        #Need to move it later Only copy needs to be done
+        for group in self.param_groups:
+            for p in group['params']:
+                if p.grad is None:
+                    continue
+                p.data.copy_(p.grad.data)
+
+    @torch.no_grad()
+    def zero_grad(self):
+        #No need to zero out gradient as it is created new everytime for SparseSgd
+        return
 
 ### define dlrm in PyTorch ###
 class DLRM_Net(nn.Module):
@@ -216,7 +285,10 @@ class DLRM_Net(nn.Module):
                 EE.embs.weight.data = torch.tensor(W, requires_grad=True)
 
             else:
-                EE = nn.EmbeddingBag(n, m, mode="sum", sparse=False)
+                if self.use_custom_embedding:
+                    EE = HabanaEmbeddingBag(n, m)
+                else:
+                    EE = nn.EmbeddingBag(n,m, mode="sum", sparse=False)
 
                 # initialize embeddings
                 # nn.init.uniform_(EE.weight, a=-np.sqrt(1 / n), b=np.sqrt(1 / n))
@@ -253,6 +325,7 @@ class DLRM_Net(nn.Module):
         qr_threshold=200,
         md_flag=False,
         md_threshold=200,
+        use_custom_embedding=False
     ):
         super(DLRM_Net, self).__init__()
 
@@ -285,6 +358,7 @@ class DLRM_Net(nn.Module):
                 self.md_threshold = md_threshold
             self.m_spa = m_spa
             self.ln_emb = ln_emb
+            self.use_custom_embedding = use_custom_embedding
             # create operators
             if ndevices <= 1:
                 self.emb_l = self.create_emb(m_spa, ln_emb)
@@ -299,7 +373,7 @@ class DLRM_Net(nn.Module):
         # approach 2: use Sequential container to wrap all layers
         return layers(x)
 
-    def apply_emb(self, lS_o, lS_i, emb_l):
+    def apply_emb(self, lS_o, lS_i, emb_l, preproc_data):
         # WARNING: notice that we are processing the batch at once. We implicitly
         # assume that the data is laid out such that:
         # 1. each embedding is indexed with a group of sparse indices,
@@ -315,7 +389,10 @@ class DLRM_Net(nn.Module):
             # The embeddings are represented as tall matrices, with sum
             # happening vertically across 0 axis, resulting in a row vector
             E = emb_l[k]
-            V = E(sparse_index_group_batch, sparse_offset_group_batch)
+            if self.use_custom_embedding:
+                V = E(sparse_index_group_batch, sparse_offset_group_batch, preproc_data[k])
+            else:
+                V = E(sparse_index_group_batch, sparse_offset_group_batch)
 
             ly.append(V)
 
@@ -355,13 +432,13 @@ class DLRM_Net(nn.Module):
 
         return R
 
-    def forward(self, dense_x, lS_o, lS_i):
+    def forward(self, dense_x, lS_o, lS_i, preproc_data=None):
         if self.ndevices <= 1:
-            return self.sequential_forward(dense_x, lS_o, lS_i)
+            return self.sequential_forward(dense_x, lS_o, lS_i, preproc_data)
         else:
-            return self.parallel_forward(dense_x, lS_o, lS_i)
+            return self.parallel_forward(dense_x, lS_o, lS_i, preproc_data)
 
-    def sequential_forward(self, dense_x, lS_o, lS_i):
+    def sequential_forward(self, dense_x, lS_o, lS_i, preproc_data):
         # process dense features (using bottom mlp), resulting in a row vector
         x = self.apply_mlp(dense_x, self.bot_l)
         # debug prints
@@ -369,7 +446,7 @@ class DLRM_Net(nn.Module):
         # print(x.detach().cpu().numpy())
 
         # process sparse features(using embeddings), resulting in a list of row vectors
-        ly = self.apply_emb(lS_o, lS_i, self.emb_l)
+        ly = self.apply_emb(lS_o, lS_i, self.emb_l, preproc_data)
         # for y in ly:
         #     print(y.detach().cpu().numpy())
 
@@ -390,13 +467,15 @@ class DLRM_Net(nn.Module):
     def exchange_emb(self, ly, batch_size, valid_device_emb_table):
         #TBD: pass and add device
         max_table_per_device = (len(self.ln_emb) + self.ndevices - 1) // self.ndevices
-        exchange_input_buffer = torch.empty(batch_size*self.ndevices, max_table_per_device*self.m_spa,device=ly[0].device, dtype = ly[0].dtype)
+        exchange_input_buffer = torch.empty(batch_size*self.ndevices, max_table_per_device*self.m_spa,device="cpu", dtype = ly[0].dtype)
+        # Temporary hack to handle the issue with slice kernel failing in HPU.
+        # Keeping the tensor in CPU and doing the slicing ops in CPU
         # exchange_input_buffer = list(torch.cat(ly, dim=1).split(batch_size, dim=0))
-        #print(ly)
         for i in range(len(ly)):
-            exchange_input_buffer[:,i*self.m_spa:(i+1)*self.m_spa] = ly[i]
-        #print(exchange_input_buffer)
+            exchange_input_buffer[:,i*self.m_spa:(i+1)*self.m_spa] = ly[i].to("cpu")
+        #print(exchange_input_buffer.to("cpu"))
         #exchange_input_buffer = PrintDataAcrossPass.apply(exchange_input_buffer)
+        exchange_input_buffer = exchange_input_buffer.to(ly[0].device)
         exchange_output_buffer = AllToAllAcrossDevice.apply(exchange_input_buffer)
         #exchange_output_buffer = PrintDataAcrossPass.apply(exchange_output_buffer)
         #torch.distributed.all_to_all_single(exchange_output_buffer, exchange_input_buffer)
@@ -412,7 +491,7 @@ class DLRM_Net(nn.Module):
             out_ly += rank_specific_data[i].split(self.m_spa, dim = 1)[:-1]
         return out_ly
 
-    def parallel_forward(self, dense_x, lS_o, lS_i):
+    def parallel_forward(self, dense_x, lS_o, lS_i, preproc_data):
         ### prepare model (overwrite) ###
         # WARNING: # of devices must be >= batch size in parallel_forward call
         batch_size = dense_x.size()[0]
@@ -426,7 +505,7 @@ class DLRM_Net(nn.Module):
 
         x = self.apply_mlp(dense_x, self.bot_l)
         # embeddings
-        ly = self.apply_emb(lS_o, lS_i, self.emb_l)
+        ly = self.apply_emb(lS_o, lS_i, self.emb_l, preproc_data)
         # debug prints
         # print(ly)
 
@@ -545,6 +624,7 @@ if __name__ == "__main__":
     parser.add_argument("--lr-num-warmup-steps", type=int, default=0)
     parser.add_argument("--lr-decay-start-step", type=int, default=0)
     parser.add_argument("--lr-num-decay-steps", type=int, default=0)
+    parser.add_argument('--use-custom-embedding', action='store_true', default=False)
     args = parser.parse_args()
 
     use_hpu = not args.no_habana
@@ -573,6 +653,10 @@ if __name__ == "__main__":
         if use_hpu:
             torch.ops.load_library(os.path.join(os.environ['BUILD_ROOT_LATEST'], "libhabana_pytorch_plugin.so"))
             device = torch.device("habana")
+            if args.use_custom_embedding:
+                import HabanaEmbeddingBag_cpp
+                import preproc_cpp
+                import habanaOptimizerSparseSgd_cpp
         else:
             torch.cuda.manual_seed_all(args.numpy_rand_seed)
             torch.backends.cudnn.deterministic = True
@@ -765,6 +849,7 @@ if __name__ == "__main__":
         qr_threshold=args.qr_threshold,
         md_flag=args.md_flag,
         md_threshold=args.md_threshold,
+        use_custom_embedding=args.use_custom_embedding
     )
     # test prints
     if args.debug_mode:
@@ -804,9 +889,15 @@ if __name__ == "__main__":
 
     if not args.inference_only:
         # specify the optimizer algorithm
-        optimizer = torch.optim.SGD(dlrm.parameters(), lr=args.learning_rate)
-        lr_scheduler = LRPolicyScheduler(optimizer, args.lr_num_warmup_steps, args.lr_decay_start_step,
-                                         args.lr_num_decay_steps)
+        optimizer = torch.optim.SGD(list(dlrm.bot_l.parameters()) + list(dlrm.top_l.parameters()), lr=args.learning_rate)
+        if args.use_custom_embedding:
+            emb_optimizer = HabanaOptimizerSparseSgd(dlrm.emb_l.parameters(), lr=args.learning_rate)
+            global_lr = args.learning_rate
+            #TBD: Remove the hack
+        else:
+            emb_optimizer = torch.optim.SGD(dlrm.emb_l.parameters(), lr=args.learning_rate)
+        #lr_scheduler = LRPolicyScheduler(optimizer, args.lr_num_warmup_steps, args.lr_decay_start_step,
+        #                                 args.lr_num_decay_steps)
 
     ### main loop ###
     def time_wrap(use_gpu):
@@ -817,19 +908,33 @@ if __name__ == "__main__":
                 torch.cuda.synchronize()
         return time.time()
 
-    def dlrm_wrap(X, lS_o, lS_i, use_gpu, device):
+    def dlrm_wrap(X, lS_o, lS_i, use_gpu, use_custom_embedding, device):
         if use_gpu:  # .cuda()
             # lS_i can be either a list of tensors or a stacked tensor.
             # Handle each case below:
+            if use_custom_embedding:
+                with torch.no_grad():
+                    lS_i = [idx.int() for idx in lS_i]
+                    lS_o = [torch.cat((offset.int(), torch.tensor([idx.numel()], dtype=torch.int32)), 0) for idx, offset in zip(lS_i,lS_o)]
+                    #lS_o = [offset.int() for idx, offset in zip(lS_i,lS_o)]
+                    lS_preproc_data = []
+                    for idx, offset in zip(lS_i, lS_o):
+                        uniqueIndicesCnt, uniqueIndices, outputRows, outputRowOffsets = HabanaDlrmPreProcFunction.preproc(idx, offset, 4)
+                        preproc_data = {"uniqueIndicesCnt":uniqueIndicesCnt, "uniqueIndices" : uniqueIndices,
+                                        "outputRows":outputRows, "outputRowOffsets":outputRowOffsets}
+                        lS_preproc_data.append(preproc_data)
             lS_i = [S_i.to(device) for S_i in lS_i] if isinstance(lS_i, list) \
                 else lS_i.to(device)
             lS_o = [S_o.to(device) for S_o in lS_o] if isinstance(lS_o, list) \
                 else lS_o.to(device)
-            return dlrm(
-                X.to(device),
-                lS_o,
-                lS_i
-            )
+            if use_custom_embedding:
+                return dlrm(X.to(device), lS_o, lS_i, lS_preproc_data)
+            else:
+                return dlrm(
+                    X.to(device),
+                    lS_o,
+                    lS_i
+                )
         else:
             return dlrm(X, lS_o, lS_i)
 
@@ -971,7 +1076,7 @@ if __name__ == "__main__":
                         lS_i = list(lS_i)
                     else:
                         lS_i = [lS_i]
-                Z = dlrm_wrap(X, lS_o, lS_i, use_gpu, device)
+                Z = dlrm_wrap(X, lS_o, lS_i, use_gpu, args.use_custom_embedding, device)
 
                 # loss
                 E = loss_fn_wrap(Z, T, use_gpu, device)
@@ -990,6 +1095,7 @@ if __name__ == "__main__":
                 if not args.inference_only:
                     # scaled error gradient propagation
                     # (where we do not accumulate gradients across mini-batches)
+                    emb_optimizer.zero_grad()
                     optimizer.zero_grad()
                     # backward pass
                     E.backward()
@@ -1000,7 +1106,8 @@ if __name__ == "__main__":
 
                     # optimizer
                     optimizer.step()
-                    lr_scheduler.step()
+                    emb_optimizer.step()
+                    #lr_scheduler.step()
 
                 if args.mlperf_logging:
                     total_time += iteration_time
@@ -1067,7 +1174,7 @@ if __name__ == "__main__":
 
                         # forward pass
                         Z_test = dlrm_wrap(
-                            X_test, lS_o_test, lS_i_test, use_gpu, device
+                            X_test, lS_o_test, lS_i_test, use_gpu, args.use_custom_embedding, device
                         )
                         if args.mlperf_logging:
                             S_test = Z_test.detach().cpu().numpy()  # numpy array

@@ -66,5 +66,5 @@ def init_distributed_mode(args):
         torch.distributed.init_process_group(backend=args.dist_backend, init_method=args.dist_url,
                                              world_size=args.world_size, rank=args.rank)
     print('Backend = {}'.format(args.dist_backend))
-    setup_for_distributed(True)#args.rank == 0)
+    setup_for_distributed(args.rank == 0)
 
