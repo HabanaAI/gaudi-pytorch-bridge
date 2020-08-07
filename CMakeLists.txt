@@ -29,7 +29,6 @@ else ()
   message(AUTHOR_WARNING "clang-tidy was not detected. Please install it and rerun CMake or set CLANG_TIDY to a valid path")
 endif ()
 find_package(Torch REQUIRED)
-find_package(yaml-cpp)
 add_subdirectory(third_party/pybind11)
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 include(AddNPUStackDependencies)
@@ -85,8 +84,8 @@ set(SOURCES habana_bridge/register/register.cpp
 pybind11_add_module(hb_torch SHARED ${SOURCES})
 target_compile_definitions(hb_torch PRIVATE "GENERIC_HELPERS" MAX_DEVICES_PER_BOX=8)
 target_compile_options(hb_torch PRIVATE -Wall -Wextra -Werror -Wno-error=deprecated-declarations)
-target_link_libraries(hb_torch PRIVATE "${TORCH_LIBRARIES}" habana_pytorch_plugin pytorch_synapse_helpers_abi11 yaml-cpp)
-target_include_directories(hb_torch PRIVATE ${CMAKE_SOURCE_DIR} ${YAML_CPP_INCLUDE_DIR})
+target_link_libraries(hb_torch PRIVATE "${TORCH_LIBRARIES}" habana_pytorch_plugin pytorch_synapse_helpers_abi11)
+target_include_directories(hb_torch PRIVATE ${CMAKE_SOURCE_DIR})
 target_compile_features(hb_torch PRIVATE cxx_std_14)
 
 # Create symlink to latest build from tests dir
