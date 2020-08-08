@@ -45,10 +45,8 @@ void gaudi_coalescing_preprocessing(
 {
 
 
-  double freq = 1000;//getFreq();
   //cout << "NumIndexes= " << indexesCount << endl;
   omp_set_num_threads(1);
-  unsigned long long t1 = 100;//__rdtsc();
 #pragma omp parallel for schedule(static)
   for (int sampleItr = 0; sampleItr < (offsetsCount-1); sampleItr++)
   {
@@ -61,8 +59,6 @@ void gaudi_coalescing_preprocessing(
     }
 
   }
-  unsigned long long t2 = 200 ;//__rdtsc();
-  //cout << "Preprocessing: " << (t2-t1)*1e3/freq<< " ms" << endl;
 
 #if COALESCING_PREPROCESSING_VERBOSE
   for (int itr = 0; itr < indexesCount; itr++)
@@ -71,12 +67,7 @@ void gaudi_coalescing_preprocessing(
   }
 #endif
 
-  unsigned long long t3 = 300;//__rdtsc();
-    auto sortedIndexWithOutputRowPair = radix_sort_parallel(scratch, scratch+indexesCount, indexesCount, maxIndexValue);
-    unsigned long long t4 = 400;//__rdtsc();
-
-  //cout << "Sort: " << (t4-t3)*1e3/freq<< " ms" << endl;
-
+  auto sortedIndexWithOutputRowPair = radix_sort_parallel(scratch, scratch+indexesCount, indexesCount, maxIndexValue);
   int maxThreads = omp_get_max_threads();
 
 #if COALESCING_PREPROCESSING_VERBOSE
@@ -86,7 +77,6 @@ void gaudi_coalescing_preprocessing(
     cout << "Idx: " << sortedIndexWithOutputRowPair[itr].first << " Sample: " << sortedIndexWithOutputRowPair[itr].second << endl;
   }
 #endif
-  unsigned long long t5 = 500;//__rdtsc();
 
   CoalescingPreprocessingThreadState preprocessingThreadState[maxThreads];
 
@@ -183,9 +173,7 @@ void gaudi_coalescing_preprocessing(
   cout << "Last offset: " << outputRowOffsets[*uniqueIdexesCount] << endl;
 
 #endif
-  unsigned long long t6 = 600;//__rdtsc();
-  //cout << "Post-processing: " << (t6-t5)*1e3/freq<< " ms" << endl;
 #if COALESCING_PREPROCESSING_VERBOSE
-  cout << indexesCount << "," << ((t2-t1)+(t4-t3)+(t6-t5))*1e3/freq << "," << (t2-t1)*1e3/freq << "," << (t4-t3)*1e3/freq << "," << (t6-t5)*1e3/freq << endl;
+  cout << indexesCount << endl;
 #endif
 }

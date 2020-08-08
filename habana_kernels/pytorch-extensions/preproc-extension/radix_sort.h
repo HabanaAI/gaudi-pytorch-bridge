@@ -19,7 +19,7 @@ Key_Value_Pair<T>* radix_sort_parallel(Key_Value_Pair<T>* inp_buf, Key_Value_Pai
   constexpr int bkt_bits = BKT_BITS;
   constexpr int nbkts = (1 << bkt_bits);
   constexpr int bkt_mask = (nbkts - 1);
-  
+
   int maxthreads = omp_get_max_threads();
   int histogram[nbkts*maxthreads], histogram_ps[nbkts*maxthreads + 1];
   if(max_value == 0) return inp_buf;
@@ -32,7 +32,7 @@ Key_Value_Pair<T>* radix_sort_parallel(Key_Value_Pair<T>* inp_buf, Key_Value_Pai
 
   int num_passes = (num_bits + bkt_bits - 1) / bkt_bits;
 
-#pragma omp parallel 
+#pragma omp parallel
   {
     int tid = omp_get_thread_num();
     int nthreads = omp_get_num_threads();
@@ -46,7 +46,6 @@ Key_Value_Pair<T>* radix_sort_parallel(Key_Value_Pair<T>* inp_buf, Key_Value_Pai
     for(unsigned int pass = 0; pass < num_passes; pass++)
     {
 
-      unsigned long long t1 = 1200;//__rdtsc();
       // Step 1: compute histogram
       // Reset histogram
       for(int i = 0; i < nbkts; i++) local_histogram[i] = 0;
@@ -71,9 +70,8 @@ Key_Value_Pair<T>* radix_sort_parallel(Key_Value_Pair<T>* inp_buf, Key_Value_Pai
           T val = input[i].first;
           local_histogram[ (val>>(pass*bkt_bits)) & bkt_mask]++;
         }
-      }        
-#pragma omp barrier        
-      unsigned long long t11 = 1300;//__rdtsc();
+      }
+#pragma omp barrier
       // Step 2: prefix sum
       if(tid == 0)
       {
@@ -81,8 +79,7 @@ Key_Value_Pair<T>* radix_sort_parallel(Key_Value_Pair<T>* inp_buf, Key_Value_Pai
         for(int bins = 0; bins < nbkts; bins++) for(int t = 0; t < nthreads; t++) { sum += histogram[t*nbkts + bins]; histogram_ps[t*nbkts + bins] = prev_sum; prev_sum = sum; }
         histogram_ps[nbkts*nthreads] = prev_sum; if(prev_sum != elements_count) { printf("Error1!\n"); exit(123); }
       }
-#pragma omp barrier        
-      unsigned long long t12 = 1400;//__rdtsc();
+#pragma omp barrier
 
       // Step 3: scatter
 #pragma omp for schedule(static)
@@ -117,11 +114,7 @@ Key_Value_Pair<T>* radix_sort_parallel(Key_Value_Pair<T>* inp_buf, Key_Value_Pai
       }
 
       Key_Value_Pair<T> * temp = input; input = output; output = temp;
-#pragma omp barrier        
-      unsigned long long t2 = 1500;//__rdtsc();
-#ifdef DEBUG_TIME
-      if (tid == 0) printf("pass = %d  time = %8lld  %8lld  %8lld %8lld\n", pass, (t2-t1)/1000, (t11-t1)/1000, (t12-t11)/1000, (t2-t12)/1000);
-#endif
+#pragma omp barrier
     }
   }
   return (num_passes % 2 == 0 ? inp_buf : tmp_buf);
