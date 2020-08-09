@@ -109,6 +109,7 @@ void HabanaWhiteList::load_whitelisted_ops() {
           "aten::view",
           "aten::gt",
           "prim::Constant",
+          "aten::select",
           "aten::embedding_bag_sum_fwd",
           "aten::embedding_bag_sum_bwd.out"};
     }

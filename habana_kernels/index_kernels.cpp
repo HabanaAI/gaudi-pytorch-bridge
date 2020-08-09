@@ -484,18 +484,21 @@ Tensor SliceOperator::AllocateOutputTensor(
   auto shape = DimVector(self.sizes());
   shape.erase(shape.begin() + dim);
 
+  at::MemoryFormat memory_format;
+
   if (len > 1) {
     // avoid adding x1 dimensions
     shape.insert(shape.begin() + dim, len);
+    memory_format = self.suggest_memory_format();
+  } else {
+    // case for select op where tensor dimension is reduced
+    // only rank 4 tensor can have channels last format
+    memory_format = at::MemoryFormat::Contiguous;
   }
 
   // allocate output tensor
   auto output = habana_helpers::createPTTensor(
-      self,
-      shape,
-      self.options(),
-      self.suggest_memory_format(),
-      is_output_persistent);
+      self, shape, self.options(), memory_format, is_output_persistent);
 
   return output;
 }
@@ -710,11 +713,11 @@ static auto& KernelRegistry =
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<GatherOperator>(device_id, node_type);
             })
-        /*.add(
+        .add(
             "aten::select",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<SelectOperator>(device_id, node_type);
-            })*/;
+            });
 
 static auto registry =
     torch::RegisterOperators()
@@ -759,9 +762,9 @@ static auto registry =
                 .impl_unboxedOnlyKernel<decltype(slice_hpu), &slice_hpu>(
                     DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-        /*.op(torch::RegisterOperators::options()
+        .op(torch::RegisterOperators::options()
                 .schema(
                     "aten::select.int(Tensor(a) self, int dim, int index) -> Tensor(a)")
                 .impl_unboxedOnlyKernel<decltype(select_hpu), &select_hpu>(
                     DispatchKey::HABANATensorId)
-                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))*/;
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));
