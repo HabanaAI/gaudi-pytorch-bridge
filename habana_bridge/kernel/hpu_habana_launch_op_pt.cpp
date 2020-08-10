@@ -290,7 +290,7 @@ void RecipeValueSpec::d2h_dbuff(size_t buf_idx) {
 }
 
 std::ostream& operator<<(std::ostream& O, const RecipeCacheSimple& v) {
-  std::cout << "number of recipes : " << v.map_.size() << '\n';
+  PT_BRIDGE_DEBUG("number of recipes : ", v.map_.size());
   for (auto& i : v.map_) {
     O << "-------------------" << '\n';
     O << "key :: " << *(i.first);
@@ -1109,8 +1109,8 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
           absl::holds_alternative<synapse_helpers::synapse_error>(
               error_variant))) {
     auto& error = absl::get<synapse_helpers::synapse_error>(error_variant);
-    std::cout << "syn compile encountered : " << error.error << " "
-              << error.status << '\n';
+    PT_BRIDGE_FATAL("syn compile encountered : ", error.error, " ",
+              error.status);
     TORCH_CHECK(false, "syn compile failed");
   }
 
@@ -1171,6 +1171,7 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
     std::shared_ptr<RecipeArgumentSpec> ra_spec =
         std::make_shared<RecipeArgumentSpec>(false, input_refs, subgraph_);
     recipe_cache.add(ra_spec, rv);
+    PT_BRIDGE_DEBUG("recipe Key:", ra_spec->hashCode());
   } else {
     aten_intermediates.clear();
   }
@@ -1230,8 +1231,8 @@ void HabanaLaunchOpPT::LaunchRecipe(RecipeValueSpec& rv) {
       synapse_helpers::graph::launch(ln_info, *rv.recipe, syn_launch_info)};
   if (ABSL_PREDICT_FALSE(error_optional.has_value())) {
     auto& error = error_optional.value();
-    std::cout << "syn launch encountered : " << error.error << " "
-              << error.status << '\n';
+    PT_BRIDGE_FATAL("syn launch encountered : ", error.error, " ",
+              error.status);
     TORCH_CHECK(false, "syn launch failed");
   }
   TORCH_HABANA_CHECK(
@@ -1322,6 +1323,7 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
     if (IsCached(spec)) {
       // This is cache hit. Run the cached recipe
       RecipeValueSpec rv = recipe_cache.get(spec);
+      PT_BRIDGE_DEBUG("Cache hit key:", spec->hashCode());
 
       // Patch the input buffers
       size_t i = 0;

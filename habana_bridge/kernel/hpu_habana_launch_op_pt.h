@@ -260,7 +260,6 @@ class HabanaLaunchOpPT {
   // TODO :
   // 1. Manage the newly created IValues
   // 2. Expose the enable_caching_ flag to python
-  // 3. Switch to general logging from std::cout
 
   size_t num_inputs = 0;
   size_t num_tensor_inputs = 0;
