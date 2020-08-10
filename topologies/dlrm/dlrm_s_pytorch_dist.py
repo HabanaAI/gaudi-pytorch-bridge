@@ -1040,7 +1040,7 @@ if __name__ == "__main__":
                 previous_iteration_time = None
 
             for j, (X, lS_o, lS_i, T) in enumerate(train_ld):
-                if j < skip_upto_batch:
+                if j < skip_upto_batch or X.size()[0] < args.mini_batch_size:
                     continue
 
                 if args.mlperf_logging:
@@ -1167,10 +1167,21 @@ if __name__ == "__main__":
 
                     for i, (X_test, lS_o_test, lS_i_test, T_test) in enumerate(test_ld):
                         # early exit if nbatches was set by the user and was exceeded
-                        if nbatches > 0 and i >= nbatches:
+                        if (nbatches > 0 and i >= nbatches) or X_test.size()[0] < args.test_mini_batch_size:
                             break
 
                         t1_test = time_wrap(use_gpu)
+
+                        if args.distributed:
+                            X_test = np.take(X_test, np.arange(args.rank,X_test.size()[0],args.world_size),0)
+                            lS_o_test = np.take(lS_o_test, valid_device_emb_table, 0)
+                            lS_i_test = itemgetter(*valid_device_emb_table)(lS_i_test)
+                            T_test = T_test[args.rank::args.world_size]
+                            if isinstance(lS_i_test, tuple):
+                                lS_i_test = list(lS_i_test)
+                            else:
+                                lS_i_test = [lS_i_test]
+
 
                         # forward pass
                         Z_test = dlrm_wrap(
