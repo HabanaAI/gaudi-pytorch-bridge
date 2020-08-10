@@ -53,7 +53,7 @@ void HabanaWhiteList::load_whitelisted_ops() {
     } else {
       HabanaWhiteList::HabanaWhiteListOps = {
           "aten::abs",
-          //"aten::add",
+          "aten::add",
           "aten::addmm",
           // "aten::as_strided",
           "aten::avg_pool2d",
@@ -74,7 +74,7 @@ void HabanaWhiteList::load_whitelisted_ops() {
           // "aten::empty",
           // "aten::empty_strided",
           // "aten::fill_",
-          //"aten::flatten",
+          "aten::flatten",
           "aten::log_softmax",
           // "aten::_log_softmax",
           "aten::_log_softmax_backward_data",
@@ -86,8 +86,8 @@ void HabanaWhiteList::load_whitelisted_ops() {
           "aten::neg",
           "aten::mul",
           // "aten::mul_",
-          // "aten::native_batch_norm",
-          // "aten::native_batch_norm_backward",
+           "aten::native_batch_norm",
+           "aten::native_batch_norm_backward",
           // "aten::normal_",
           "aten::reshape",
           "aten::relu",
