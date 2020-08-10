@@ -409,16 +409,13 @@ void GeluOperator::AllocateAndAddSynapseNode(
 
   // Create Pow operator
   PowOperator powOp(this->p_context_->device_id_, scalar_type);
-  auto& pow_syn =
-      powOp.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+  auto& pow_syn = powOp.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
   // Build Params for the graph
   Scalar powValue = 3.0;
-  std::vector<c10::IValue> stack{IValue(self),IValue(powValue)};
+  std::vector<c10::IValue> stack{IValue(self), IValue(powValue)};
   powOp.AllocateAndAddSynapseNode(graph, stack, false);
   p_context_->syn_inputs_[0] = std::move(pow_syn);
   stack.clear();
-
-
 
   // Create Add operator
   AddOperator addOp(this->p_context_->device_id_, scalar_type);
@@ -433,8 +430,6 @@ void GeluOperator::AllocateAndAddSynapseNode(
   p_context_->syn_inputs_[0] = std::move(add_syn);
   stack.clear();
 
-
-
   // Create Mul operator
   MulOperator mulOp(this->p_context_->device_id_, scalar_type);
   mulOp.SetSynapseInput(std::move(addOp.GetSynOutputs()[0]));
@@ -445,8 +440,6 @@ void GeluOperator::AllocateAndAddSynapseNode(
   mulOp.AllocateAndAddSynapseNode(graph, stack, false);
   stack.clear();
 
-
-
   // Create Tanh operator
   TanhOperator tanhOp(this->p_context_->device_id_, scalar_type);
   tanhOp.SetSynapseInput(std::move(mulOp.GetSynOutputs()[0]));
@@ -454,8 +447,6 @@ void GeluOperator::AllocateAndAddSynapseNode(
   stack.emplace_back(IValue(mulOp.GetOutputs()[0]));
   tanhOp.AllocateAndAddSynapseNode(graph, stack, false);
   stack.clear();
-
-
 
   // Create Add operator
   AddOperator addOp2(this->p_context_->device_id_, scalar_type);
@@ -469,8 +460,6 @@ void GeluOperator::AllocateAndAddSynapseNode(
   addOp2.AllocateAndAddSynapseNode(graph, stack, false);
   stack.clear();
 
-
-
   // Create Mul operator
   MulOperator mulOp2(this->p_context_->device_id_, scalar_type);
   mulOp2.SetSynapseInput(std::move(addOp2.GetSynOutputs()[0]));
@@ -481,8 +470,6 @@ void GeluOperator::AllocateAndAddSynapseNode(
   mulOp2.AllocateAndAddSynapseNode(graph, stack, false);
   stack.clear();
 
-
-
   // Create Mul operator
   MulOperator mulOp3(this->p_context_->device_id_, scalar_type);
   mulOp3.SetSynapseInput(std::move(mulOp2.GetSynOutputs()[0]));
@@ -492,8 +479,6 @@ void GeluOperator::AllocateAndAddSynapseNode(
   stack.emplace_back(IValue(self));
   mulOp3.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
   p_context_->syn_inputs_[0] = std::move(mul_syn);
-
-
 
   p_context_->syn_outputs_.emplace_back(std::move(mulOp3.GetSynOutputs()[0]));
   p_context_->pt_outputs_.emplace_back(std::move(mulOp3.GetOutputs()[0]));
@@ -575,8 +560,7 @@ void ErfOperator::AllocateAndAddSynapseNode(
     torch::jit::Stack& inputs,
     bool is_output_persistent) {
   TORCH_CHECK(
-      inputs.size() == 1,
-      "Incorrect size of inputs expected for Erf operator");
+      inputs.size() == 1, "Incorrect size of inputs expected for Erf operator");
   TORCH_CHECK(
       inputs[0].isTensor(),
       "Input arg1 expected to be tensor for Erf operator");
@@ -586,16 +570,13 @@ void ErfOperator::AllocateAndAddSynapseNode(
 
   // Create Pow operator
   PowOperator powOp(this->p_context_->device_id_, scalar_type);
-  auto& pow_syn =
-      powOp.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+  auto& pow_syn = powOp.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
   // Build Params for the graph
   Scalar powValue = 3.0;
-  std::vector<c10::IValue> stack{IValue(self),IValue(powValue)};
+  std::vector<c10::IValue> stack{IValue(self), IValue(powValue)};
   powOp.AllocateAndAddSynapseNode(graph, stack, false);
   p_context_->syn_inputs_[0] = std::move(pow_syn);
   stack.clear();
-
-
 
   // Create Mul operator
   MulOperator mulOp(this->p_context_->device_id_, scalar_type);
@@ -607,12 +588,9 @@ void ErfOperator::AllocateAndAddSynapseNode(
   mulOp.AllocateAndAddSynapseNode(graph, stack, false);
   stack.clear();
 
-
-
   // Create Add operator
   AddOperator addOp(this->p_context_->device_id_, scalar_type);
-  auto& add_syn =
-      addOp.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+  auto& add_syn = addOp.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
   addOp.SetSynapseInput(std::move(mulOp.GetSynOutputs()[0]));
   // Build Params for the graph
   Scalar alphaValue_2 = 1.0;
@@ -622,8 +600,6 @@ void ErfOperator::AllocateAndAddSynapseNode(
   addOp.AllocateAndAddSynapseNode(graph, stack, false);
   p_context_->syn_inputs_[0] = std::move(add_syn);
   stack.clear();
-
-
 
   // Create Mul operator
   MulOperator mulOp2(this->p_context_->device_id_, scalar_type);
@@ -635,15 +611,12 @@ void ErfOperator::AllocateAndAddSynapseNode(
   mulOp2.AllocateAndAddSynapseNode(graph, stack, false);
   stack.clear();
 
-
-
   // Create Tanh operator
   TanhOperator tanhOp(this->p_context_->device_id_, scalar_type);
   tanhOp.SetSynapseInput(std::move(mulOp2.GetSynOutputs()[0]));
   // Build Params for the graph
   stack.emplace_back(IValue(mulOp2.GetOutputs()[0]));
   tanhOp.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
-
 
   p_context_->syn_outputs_.emplace_back(std::move(tanhOp.GetSynOutputs()[0]));
   p_context_->pt_outputs_.emplace_back(std::move(tanhOp.GetOutputs()[0]));
@@ -720,8 +693,7 @@ void ExpOperator::AllocateAndAddSynapseNode(
     torch::jit::Stack& inputs,
     bool is_output_persistent) {
   TORCH_CHECK(
-      inputs.size() == 1,
-      "Incorrect size of inputs expected for Exp operator");
+      inputs.size() == 1, "Incorrect size of inputs expected for Exp operator");
   TORCH_CHECK(
       inputs[0].isTensor(),
       "Input arg1 expected to be tensor for Exp operator");
@@ -827,8 +799,7 @@ void ReciprocalOperator::AllocateAndAddSynapseNode(
       "Input arg1 expected to be tensor for Reciprocal operator");
 
   auto self = inputs[0].toTensor();
-  auto result =
-      at::empty(self.sizes(), self.options(), self.suggest_memory_format());
+  auto result = habana_helpers::createPTTensor(self, is_output_persistent);
   inputs.insert(inputs.begin(), IValue(result));
 
   ReciprocalOutOperator::AllocateAndAddSynapseNode(
@@ -1117,11 +1088,9 @@ static auto& KernelRegistry =
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<ErfOperator>(device_id, node_type);
             })
-        .add(
-            "aten::exp",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<ExpOperator>(device_id, node_type);
-            });
+        .add("aten::exp", [](const int device_id, c10::ScalarType node_type) {
+          return std::make_shared<ExpOperator>(device_id, node_type);
+        });
 
 static auto registry =
     torch::RegisterOperators()

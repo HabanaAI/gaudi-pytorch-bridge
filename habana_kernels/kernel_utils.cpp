@@ -219,8 +219,13 @@ void CastOperator::AllocateAndAddSynapseNode(
 
   auto self = inputs[0].toTensor();
   auto type = inputs[1].toScalarType();
-  auto output = at::empty(
-      self.sizes(), self.options().dtype(type), self.suggest_memory_format());
+  auto output = habana_helpers::createPTTensor(
+      self,
+      self.sizes(),
+      self.options(),
+      self.suggest_memory_format(),
+      type,
+      is_output_persistent);
   inputs.pop_back();
   inputs.push_back(output);
   CastOutOperator::AllocateAndAddSynapseNode(
@@ -332,8 +337,7 @@ void ConstantOperator::AllocateAndAddSynapseNode(
     input.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
   }
 
-  auto output =
-      at::empty(input.sizes(), input.options(), input.suggest_memory_format());
+  auto output = habana_helpers::createPTTensor(input, is_output_persistent);
   AllocateSynapseOutput(graph, output, is_output_persistent);
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }

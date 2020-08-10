@@ -356,7 +356,10 @@ at::Tensor habana_helpers::createPTTensor(
     bool is_persistent) {
   at::Tensor t;
   if (is_persistent || alwaysAllocOnDevice()) {
-    t = at::empty(size, input.options().dtype(data_type));
+    t = at::empty(
+        size,
+        input.options().dtype(data_type),
+        optional_memory_format.value_or(MemoryFormat::Contiguous));
   } else {
     t = habana_helpers::nonPersistentTensor(
         input,

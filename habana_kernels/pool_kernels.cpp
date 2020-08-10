@@ -594,8 +594,7 @@ void MaxPool2dWithIndicesBackwardOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(inputs[1].isTensor(), "Second input type expected to be tensor");
 
   at::Tensor input = inputs[1].toTensor();
-  auto grad_input =
-      at::empty_like(input, input.options(), input.suggest_memory_format());
+  auto grad_input = habana_helpers::createPTTensor(input, is_output_persistent);
 
   // Re-order the inpust for:
   // MaxPool2dWithIndicesBackwardOutOperator in the below order:
@@ -1120,7 +1119,8 @@ void AvgPool2dBackwardOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(inputs[1].isTensor(), "Input1 type expected to be tensor");
 
   at::Tensor input_nhwc = inputs[1].toTensor();
-  auto grad_input_nhwc = at::empty_like(input_nhwc, input_nhwc.options());
+  auto grad_input_nhwc =
+      habana_helpers::createPTTensor(input_nhwc, is_output_persistent);
 
   inputs.insert(inputs.begin(), IValue(grad_input_nhwc));
   AvgPool2dBackwardOutOperator::AllocateAndAddSynapseNode(

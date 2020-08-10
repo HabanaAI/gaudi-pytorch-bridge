@@ -247,39 +247,38 @@ void habana::AddmmOperator::AllocateAndAddSynapseNode(
   auto device_id = p_context_->device_id_;
 
   habana::MMOperator mm_op(device_id);
-  // input1 = mat1, input2 = mat2
-  auto& syn_arg1 = mm_op.SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
-  auto& syn_arg2 = mm_op.SetSynapseInput(std::move(p_context_->syn_inputs_[2]));
-  torch::jit::Stack stack1 = {c10::IValue(mat1), c10::IValue(mat2)};
-  mm_op.AllocateAndAddSynapseNode(graph, stack1, false);
-  // Restore original syn_inputs because these will be used in compile in eager
-  // mode
-  p_context_->syn_inputs_[1] = std::move(syn_arg1);
-  p_context_->syn_inputs_[2] = std::move(syn_arg2);
+  {
+    // input1 = mat1, input2 = mat2
+    auto& syn_arg1 =
+        mm_op.SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
+    auto& syn_arg2 =
+        mm_op.SetSynapseInput(std::move(p_context_->syn_inputs_[2]));
+    torch::jit::Stack stack1 = {c10::IValue(mat1), c10::IValue(mat2)};
+    mm_op.AllocateAndAddSynapseNode(graph, stack1, false);
+    // Restore original syn_inputs because these will be used in compile in
+    // eager mode
+    p_context_->syn_inputs_[1] = std::move(syn_arg1);
+    p_context_->syn_inputs_[2] = std::move(syn_arg2);
+  }
 
-  auto output = habana_helpers::createPTTensor(
-      mat1,
-      {mat1.size(0), mat2.size(1)},
-      mat1.options(),
-      mat1.suggest_memory_format(),
-      is_output_persistent);
-  AllocateSynapseOutput(graph, output, is_output_persistent);
+  habana::AddOperator add_op(device_id, mat1.scalar_type());
+  {
+    // input1 = mat1, input2 = mat2
+    auto& syn_arg1 =
+        add_op.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+    UNUSED auto& syn_arg2 =
+        add_op.SetSynapseInput(std::move(mm_op.GetSynOutputs()[0]));
+    torch::jit::Stack stack1 = {c10::IValue(self),
+                                c10::IValue(mm_op.GetOutputs()[0]),
+                                c10::IValue(c10::Scalar(1.0))};
+    add_op.AllocateAndAddSynapseNode(graph, stack1, is_output_persistent);
+    // Restore original syn_inputs because these will be used in compile in
+    // eager mode
+    p_context_->syn_inputs_[0] = std::move(syn_arg1);
+  }
 
-  // TBD: Replace this with add.AllocateAndAddSynapseNode() once support for
-  // ignoring alpha=1.0 is added
-  synapse_helpers::tensor& syn_arg1_add = p_context_->syn_inputs_[0];
-  synapse_helpers::tensor& syn_arg2_add = mm_op.GetSynOutputs()[0];
-  std::vector<synTensor> syn_inputs{syn_arg1_add.get(), syn_arg2_add.get()};
-  synapse_helpers::tensor& syn_out_add = p_context_->syn_outputs_[0];
-  std::vector<synTensor> syn_outputs{syn_out_add.get()};
-  std::string guid_ =
-      "add_fwd_" + habana_helpers::name_suffix_from_type(mat1.scalar_type());
-  graph.add_node(
-      std::move(syn_inputs),
-      std::move(syn_outputs),
-      nullptr,
-      0,
-      std::move(guid_));
+  p_context_->syn_outputs_.emplace_back(std::move(add_op.GetSynOutputs()[0]));
+  p_context_->pt_outputs_.emplace_back(std::move(add_op.GetOutputs()[0]));
 }
 
 /*****************************************************************************************************
@@ -316,33 +315,19 @@ Tensor addmm_hpu(
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
   ScalarType scalar_type = mat1.scalar_type();
 
-  // Note: bias expanded has rank equal to output, but we don't need to actually
-  // broadcast data. Putting ones in additional dimensions is enaugh for synapse
-  // to handle bcast for us.
-  // TBD: Remove this when Add.AllocateAndAddSynapseNode() starts supporting
-  // this expansion of dimensions.
-  auto output = at::empty({mat1.size(0), mat2.size(1)}, mat1.options());
-  Tensor bias_expanded;
-  auto bias_expanded_sizes = std::vector<int64_t>(output.ndimension(), 1);
-  bias_expanded_sizes[output.ndimension() - 1] = self.sizes()[0];
-  std::tie(bias_expanded) =
-      at::expand_size(self, bias_expanded_sizes, "matmul_with_bias_hpu");
-
   std::string node_type =
       "gemm_add_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
 
   habana::AddmmOperator op(device_id, scalar_type);
 
-  std::vector<at::Tensor> inputs = {bias_expanded, mat1, mat2};
-  torch::jit::Stack stack = {IValue(bias_expanded),
-                             IValue(mat1),
-                             IValue(mat2),
-                             IValue(beta),
-                             IValue(alpha)};
+  std::vector<at::Tensor> inputs = {self, mat1, mat2};
+  torch::jit::Stack stack = {
+      IValue(self), IValue(mat1), IValue(mat2), IValue(beta), IValue(alpha)};
 
   size_t key = op.GetRecipeKey(node_type, stack);
   if (device.get_recipe_handle_cache().isCached(key)) {
     PT_KERNEL_DEBUG("Cache hit key:", key);
+    auto output = at::empty({mat1.size(0), mat2.size(1)}, mat1.options());
     op.SetPTInputs(inputs);
     op.SetPTOutput(output);
     op.Execute(key);

@@ -155,10 +155,13 @@ void CompareWrapperOperator::AllocateAndAddSynapseNode(
       inputs[1].isTensor() || inputs[1].isScalar(),
       "Input arg2 type expected to be a tensor or scalar");
   Tensor self = inputs[0].toTensor();
-  auto output = at::empty(
+  auto output = habana_helpers::createPTTensor(
+      self,
       self.sizes(),
-      self.options().dtype(c10::ScalarType::Bool),
-      self.suggest_memory_format());
+      self.options(),
+      self.suggest_memory_format(),
+      c10::ScalarType::Bool,
+      is_output_persistent);
   inputs.push_back(output);
   CompareOutWrapperOperator::AllocateAndAddSynapseNode(
       graph, inputs, is_output_persistent);
@@ -259,13 +262,13 @@ Tensor eq_tensor_scalar_hpu(Tensor& self, Scalar other) {
 
 static auto& KernelRegistry =
     habana::KernelRegistry()
-        .add("aten::gt ",
-             [](const int device_id, c10::ScalarType node_type) {
-               return std::make_shared<GtOperator>(device_id, node_type);
-             })
-        .add("aten::eq",
-             [](const int device_id, c10::ScalarType node_type) {
-               return std::make_shared<EqOperator>(device_id, node_type);
+        .add(
+            "aten::gt ",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<GtOperator>(device_id, node_type);
+            })
+        .add("aten::eq", [](const int device_id, c10::ScalarType node_type) {
+          return std::make_shared<EqOperator>(device_id, node_type);
         });
 
 static auto registry =
