@@ -605,7 +605,6 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu(
     if (device.get_recipe_handle_cache().isCached(key)) {
       PT_KERNEL_DEBUG("Cache hit key:", key);
       Op.generateCacheInputs(in_stack);
-      Op.SetPTInputs(Op.GetBNInputs());
       Op.SetPTOutputs(Op.GetInputstack());
       Op.Execute(key);
     } else {
@@ -973,7 +972,6 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu(
                                       IValue(save_mean),
                                       IValue(save_invstd)};
       Op.generateCacheInputs(cache_preprocess_stack);
-      Op.SetPTInputs(Op.GetBNInputs());
       Op.SetPTOutputs(Op.GetInputstack());
       Op.Execute(key);
     } else {
