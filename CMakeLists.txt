@@ -45,6 +45,7 @@ add_library(habana_pytorch_plugin SHARED
   pytorch_helpers/habana_helpers/tensor_utils.cpp
   habana_kernels/basic_kernels.cpp
   habana_kernels/binary_kernels.cpp
+  habana_kernels/binary_composite_kernels.cpp
   habana_kernels/compare_kernels.cpp
   habana_kernels/conv_kernels.cpp
   habana_kernels/conv_pool_utils.cpp

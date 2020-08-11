@@ -696,63 +696,6 @@ Tensor& add_tensor_hpu_(Tensor& self, const Tensor& other, Scalar alpha) {
   return self;
 }
 
-/***************************************************************************
- * @brief Kernel implementation for out = self.addcmul(tensor1, tensor2,alpha)
- * out = self + value*tensor1*tensor2
- * @param other [in] - Scalar
- * @param self [in,out]- Tensor 1D bf16/FP32
- ****************************************************************************/
-Tensor& addcmul_hpu_(
-    Tensor& self,
-    const Tensor& tensor1,
-    const Tensor& tensor2,
-    Scalar alpha) {
-  PT_KERNEL_BEGIN;
-  auto prod = at::mul(tensor1, tensor2);
-  self.add_(prod, alpha);
-  PT_KERNEL_END;
-  return self;
-}
-
-/*************************************************************************
- * @brief Kernel implementation for torch.addcdiv_(self,tensor1,tensor2,alpha)
- * @param [in] self - input tensor, 1-4D, FP32/BF16
- * @param [in] tensor1 - input tensor, 1-4D, FP32/BF16
- * @param [in] tensor2 - input tensor, 1-4D, FP32/BF16
- * @param [in] alpha - optional input, default = 1
- ************************************************************************/
-Tensor addcdiv_hpu(
-    Tensor& self,
-    const Tensor& tensor1,
-    const Tensor& tensor2,
-    Scalar alpha) {
-  PT_KERNEL_BEGIN;
-  auto output_div = at::div(tensor1, tensor2);
-  auto output = at::add(self, output_div, alpha);
-  PT_KERNEL_END;
-  return output;
-}
-
-/*************************************************************************
- * @brief Kernel implementation for inplace
- *torch.addcdiv_(self,tensor1,tensor2,alpha)
- * @param [in] self - input tensor, 1-4D, FP32/BF16
- * @param [in] tensor1 - input tensor, 1-4D, FP32/BF16
- * @param [in] tensor2 - input tensor, 1-4D, FP32/BF16
- * @param [in] alpha - optional input, default = 1
- ************************************************************************/
-Tensor& addcdiv_hpu_(
-    Tensor& self,
-    const Tensor& tensor1,
-    const Tensor& tensor2,
-    Scalar alpha) {
-  PT_KERNEL_BEGIN;
-  tensor1.div_(tensor2);
-  self.add_(tensor1, alpha);
-  PT_KERNEL_END;
-  return self;
-}
-
 /*************************************************************************
  * @brief Kernel implementation for out = torch.sub(self, alpha, other)
  * @param self - first input
@@ -1188,24 +1131,6 @@ static auto registry =
                 .impl_unboxedOnlyKernel<
                     decltype(add_scalar_hpu_),
                     &add_scalar_hpu_>(DispatchKey::HABANATensorId)
-                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-        .op(torch::RegisterOperators::options()
-                .schema(
-                    "aten::addcmul_(Tensor(a !) self, Tensor tensor1, Tensor tensor2, *, Scalar value = 1) -> Tensor(a !)")
-                .impl_unboxedOnlyKernel<decltype(addcmul_hpu_), &addcmul_hpu_>(
-                    DispatchKey::HABANATensorId)
-                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-        .op(torch::RegisterOperators::options()
-                .schema(
-                    "aten::addcdiv(Tensor self, Tensor tensor1, Tensor tensor2, *, Scalar value=1) -> Tensor")
-                .impl_unboxedOnlyKernel<decltype(addcdiv_hpu), &addcdiv_hpu>(
-                    DispatchKey::HABANATensorId)
-                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-        .op(torch::RegisterOperators::options()
-                .schema(
-                    "aten::addcdiv_(Tensor(a!) self, Tensor tensor1, Tensor tensor2, *, Scalar value=1) -> Tensor(a!)")
-                .impl_unboxedOnlyKernel<decltype(addcdiv_hpu_), &addcdiv_hpu_>(
-                    DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema(
