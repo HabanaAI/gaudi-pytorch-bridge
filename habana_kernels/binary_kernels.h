@@ -108,7 +108,7 @@ class BinaryWrapperOperatorWithAlpha : public habana::HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) final;
+      bool is_output_persistent = false) override;
   void SetPTOutputs(torch::jit::Stack& inputs);
 
  protected:
@@ -135,21 +135,13 @@ class SubOperator : public BinaryWrapperOperatorWithAlpha {
   }
 };
 
+class RsubOperator : public SubOperator {
+ public:
+  RsubOperator(int device_id, c10::ScalarType scalarType)
+      : SubOperator(device_id, scalarType) {}
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) final;
+};
 } // namespace habana
-
-// The following function definitions are added because compare_kernels.cpp
-// has dependence on these.
-at::Tensor convert_scalar_to_tensor_using_self(
-    const at::Tensor& self,
-    c10::Scalar other);
-
-void do_generic_tensor_binary_op_out(
-    at::Tensor& output,
-    const at::Tensor& operand1,
-    const at::Tensor& operand2,
-    const std::string& op,
-    SynapsePassType pass_type);
-
-at::Tensor get_correct_input_tensor(
-    const at::Tensor& arg1,
-    const at::Tensor& arg2);
