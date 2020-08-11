@@ -399,6 +399,7 @@ struct HabanaGraphFuser {
 void HabanaFuseGraph(std::shared_ptr<torch::jit::Graph>& graph) {
   PT_BRIDGE_BEGIN;
   // First call HPU graph fuser to fuse ops for HPU
+  HabanaWhiteList::load_whitelisted_ops();
   torch::jit::Symbol kind = getHabanaFusedOpSymbol();
   auto g = habana::HabanaGraphFuser(graph->block(), graph, kind);
   g.run();
