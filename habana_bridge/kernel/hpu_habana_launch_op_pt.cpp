@@ -41,6 +41,7 @@
 using namespace torch::jit;
 
 // static initializations
+bool   TensorInfo::watch_tensor_flag = false;
 size_t RecipeValueSpec::count = 0;
 
 std::mutex RecipeCacheLRU::mutex_;
@@ -50,6 +51,7 @@ size_t RecipeCacheLRU::max_size_ = PGM_LRU_MAX_NRECIPES;
 size_t HabanaLaunchOpPT::instance_count_ = 0;
 size_t HabanaLaunchOpPT::recipe_count = 0;
 size_t HabanaLaunchOpPT::total_recipe_ntbytes = 0;
+std::unordered_set<std::string> HabanaLaunchOpPT::watchlist_ = {};
 //--------------------------------------
 
 TensorInfo::TensorInfo(
@@ -71,6 +73,7 @@ TensorInfo::TensorInfo(
   buffer = pt_tensor.data_ptr();
   numel = pt_tensor.numel();
   size = pt_tensor.nbytes();
+  watch = watch_tensor_flag;
 }
 
 TensorInfo::TensorInfo(
@@ -87,6 +90,7 @@ TensorInfo::TensorInfo(
   buffer = pt_tensor.data_ptr();
   numel = pt_tensor.numel();
   size = pt_tensor.nbytes();
+  watch = watch_tensor_flag;
 }
 
 std::ostream& operator<<(std::ostream& O, const TensorInfo& t) {
@@ -187,9 +191,17 @@ std::ostream& operator<<(std::ostream& O, const RecipeArgumentSpec& v) {
   return O;
 }
 
-
 RecipeValueSpec::~RecipeValueSpec() {
   PT_BRIDGE_DEBUG("Destroying recipe with key : ", key);
+
+  if (htensor_wbuff ) {
+    synStatus status;
+    auto& device = synapse_helpers::HPURegistrar::get_device();
+    auto  device_id = device.id();
+    status = synHostFree(device_id, (void*)(htensor_wbuff), 0);
+    if (status != synSuccess)
+      PT_BRIDGE_DEBUG("host-free failed");
+  }
 }
 
 std::ostream& operator<<(std::ostream& O, const RecipeValueSpec& v) {
@@ -232,7 +244,7 @@ void RecipeValueSpec::print_hbuff(
     std::ofstream& out,
     size_t iteration_count,
     int numel) {
-  float* wb = reinterpret_cast<float*>(htensor_wbuffers->at(buf_idx));
+  float* wb = reinterpret_cast<float*>(htensor_wbuff);
   unsigned buf_size = dtensorinfos->at(buf_idx).size;
 
   out << "iteration " << iteration_count << " : <"
@@ -268,32 +280,52 @@ void RecipeValueSpec::print_hbuff(
 
 void RecipeValueSpec::d2h_dbuff(size_t buf_idx) {
   TORCH_CHECK(num_tensors > buf_idx, "buf_idx is out of range");
-  TORCH_CHECK(
-      num_tensors == htensor_wbuffers->size(), "dbuffs hbuffs size mismatch");
 
-  synStatus status;
-  auto& device = synapse_helpers::HPURegistrar::get_device();
-  synDeviceId device_id = device.id();
 
   unsigned buf_size = dtensorinfos->at(buf_idx).size;
-
-  // allocate the buffer if it is not already allocated
-  if (!htensor_wbuffers->at(buf_idx)) {
-    status = synHostMalloc(
-        device_id, buf_size, 0, (void**)&(htensor_wbuffers->at(buf_idx)));
-    TORCH_CHECK(status == synSuccess, "host-malloc failed");
+  if (buf_size > htensor_wbuff_size) {
+    buf_size = htensor_wbuff_size;
   }
+  PT_BRIDGE_DEBUG("tensor dump will write ", htensor_wbuff_size, " bytes");
 
-  std::atomic<bool> copyDone{false};
-  auto syn_error = device.copy_data_to_host(
-      (uint64_t)dtensorinfos->at(buf_idx).buffer,
-      (void*)&htensor_wbuffers->at(buf_idx),
-      buf_size,
-      [&copyDone]() { copyDone = true; });
-  TORCH_CHECK(syn_error.status == 0, syn_error.error);
-  // wait for copy completion
-  while (!copyDone) {
-    std::this_thread::yield();
+  auto& device = synapse_helpers::HPURegistrar::get_device();
+  if (device.IsStreamASyncEnabled()) {
+    std::atomic<bool> copyDone{false};
+    auto syn_error = device.copy_data_to_host(
+        (uint64_t)dtensorinfos->at(buf_idx).buffer,
+        (void*)htensor_wbuff,
+        buf_size,
+        [&copyDone]() { copyDone = true; });
+    TORCH_CHECK(syn_error.status == 0, syn_error.error);
+
+    // wait for copy completion
+    while (!copyDone) {
+      std::this_thread::yield();
+    }
+  } else {
+    synStatus status;
+    synDeviceId device_id = device.id();
+    synEventHandle upldEvntDone;
+    synStreamHandle upStrmHdl = device.get_device_to_host_stream();
+    status = synEventCreate(&upldEvntDone, device_id, 0);
+    TORCH_CHECK(status == synSuccess, "create upldEvntDone failed");
+
+    status = synMemCopyAsync(
+        upStrmHdl,
+        (uint64_t)dtensorinfos->at(buf_idx).buffer,
+        buf_size,
+        htensor_wbuff,
+        DRAM_TO_HOST);
+    TORCH_CHECK(status == synSuccess, "synMemCopyAsync failed");
+
+    status = synEventRecord(upldEvntDone, upStrmHdl);
+    TORCH_CHECK(status == synSuccess, "register to signal on d2h copy done");
+
+    status = synStreamSynchronize(upStrmHdl);
+    TORCH_CHECK(status == synSuccess, "wait on completion of d2h copy");
+
+    status = synEventDestroy(upldEvntDone);
+    TORCH_CHECK(status == synSuccess, "destroy upldEvntDone failed");
   }
 }
 
@@ -513,6 +545,18 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(const torch::jit::Node* node, bool debug) {
   char* snumel = getenv("HABANA_PGM_DUMP_TENSOR_NUMEL");
   if (snumel != nullptr) {
     tensor_dump_numel_ = atoi(snumel);
+    char* wfile_name = getenv("HABANA_PGM_WATCHLIST_FILE");
+    if (watchlist_.empty() && wfile_name) {
+      std::ifstream wfile(wfile_name);
+      TORCH_CHECK(wfile.is_open(), "Unable to open watchlist file ", wfile_name);
+
+      std::string opname;
+      while (wfile) {
+        getline(wfile, opname);
+        watchlist_.insert(opname);
+      }
+      wfile.close();
+    }
   }
 
   enable_tensor_dump_ = (tensor_dump_numel_ >= -1) ? true : false;
@@ -572,6 +616,10 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(const torch::jit::Node* node, bool debug) {
                   << "---- tensor dump of the following graph" << '\n';
       tensor_file << subgraph_->toString() << "----" << '\n' << '\n';
       tensor_file.close();
+    }
+
+    if (tensor_dump_numel_ > 0) {
+      htensor_wbuff_size = sizeof(float) * tensor_dump_numel_;
     }
   }
 }
@@ -1312,6 +1360,13 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
   // TODO : check if we need to reorder nodes in any case
   torch::jit::graph_node_list graph_nodes = subgraph_->nodes();
   for (auto* node : graph_nodes) {
+    TensorInfo::watch_tensor_flag = false;
+    std::string opname(node->kind().toQualString());
+    if (watchlist_.empty() ||
+        watchlist_.find(opname) != watchlist_.end()) {
+      TensorInfo::watch_tensor_flag = true;
+    }
+
     // Prim nodes require special handling and are a special case
     if (node->kind().is_prim()) {
       handlePrimNodes(node);
@@ -1439,8 +1494,20 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
       " are not adding up to #dtensorinfos ", rv.dtensorinfos->size());
 
   if (enable_tensor_dump_) {
-    rv.htensor_wbuffers = std::make_shared<std::vector<uint64_t>>(
-        std::vector<uint64_t>(rv.num_tensors, 0));
+    if (0 == htensor_wbuff_size) {
+      for (size_t i = 0; i < rv.num_tensors; ++i) {
+        htensor_wbuff_size = std::max(htensor_wbuff_size, rv.dtensorinfos->at(i).size);
+      }
+    }
+
+    if (!htensor_wbuff) {
+      synStatus status;
+      status = synHostMalloc(
+          device_id, htensor_wbuff_size, 0, (void**)&(htensor_wbuff));
+      TORCH_CHECK(status == synSuccess, "host-malloc failed");
+    }
+    rv.htensor_wbuff = htensor_wbuff;
+    rv.htensor_wbuff_size = htensor_wbuff_size;
   }
 
   rv.aten_outputs = std::make_shared<std::vector<IValPtrShared>>(
@@ -1499,8 +1566,10 @@ void HabanaLaunchOpPT::DumpTensors_pre(RecipeValueSpec& rv) {
     tensor_file.open(
         tdmp_file_name_pre_.c_str(), std::ios::out | std::ios::app);
     for (size_t i = 0; i < rv.num_tensors; ++i) {
-      rv.d2h_dbuff(i);
-      rv.print_hbuff(i, tensor_file, iteration_count_, tensor_dump_numel_);
+      if (rv.dtensorinfos->at(i).watch) {
+        rv.d2h_dbuff(i);
+        rv.print_hbuff(i, tensor_file, iteration_count_, tensor_dump_numel_);
+      }
     }
     tensor_file.close();
   }
@@ -1511,8 +1580,10 @@ void HabanaLaunchOpPT::DumpTensors(RecipeValueSpec& rv) {
     std::ofstream tensor_file;
     tensor_file.open(tdmp_file_name_.c_str(), std::ios::out | std::ios::app);
     for (size_t i = 0; i < rv.num_tensors; ++i) {
-      rv.d2h_dbuff(i);
-      rv.print_hbuff(i, tensor_file, iteration_count_, tensor_dump_numel_);
+      if (rv.dtensorinfos->at(i).watch) {
+        rv.d2h_dbuff(i);
+        rv.print_hbuff(i, tensor_file, iteration_count_, tensor_dump_numel_);
+      }
     }
     tensor_file.close();
   }

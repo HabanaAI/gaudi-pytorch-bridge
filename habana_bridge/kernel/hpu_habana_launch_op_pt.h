@@ -90,6 +90,9 @@ struct TensorInfo {
   // Will hold the index of parent tensor info for aliases
   bool is_duplicate{false};
   size_t parent_index{ULONG_MAX};
+  bool watch = false;
+
+  static bool watch_tensor_flag;
 };
 
 // Adding the op strings to the key for recipe
@@ -155,8 +158,7 @@ struct RecipeValueSpec {
       std::shared_ptr<synapse_helpers::graph::recipe_handle> r = nullptr)
       : recipe(r),
         dtensorinfos(nullptr),
-        aten_outputs(nullptr),
-        htensor_wbuffers(nullptr) {
+        aten_outputs(nullptr) {
     count++;
     id = count;
   }
@@ -192,7 +194,9 @@ struct RecipeValueSpec {
   std::shared_ptr<std::vector<TensorInfo>> dtensorinfos;
   std::shared_ptr<std::vector<IValPtrShared>> aten_outputs;
   std::vector<at::Tensor> aten_intermediates;
-  std::shared_ptr<std::vector<uint64_t>> htensor_wbuffers;
+
+  uint64_t htensor_wbuff = 0;
+  unsigned htensor_wbuff_size = 0;
 
   size_t id{0};
   size_t iter_idx{0};
@@ -351,6 +355,7 @@ class HabanaLaunchOpPT {
   void evaluate(torch::jit::Stack& stack);
   void run(torch::jit::Stack& stack);
 
+  static std::unordered_set<std::string> watchlist_;
   static size_t instance_count_;
   static size_t recipe_count;
   static size_t total_recipe_ntbytes;
@@ -428,6 +433,10 @@ class HabanaLaunchOpPT {
   std::string tdmp_dir_name_;
   std::string tdmp_file_name_pre_;
   std::string tdmp_file_name_;
+
+  uint64_t htensor_wbuff = 0;
+  unsigned htensor_wbuff_size = 0;
+
   size_t iteration_count_ = 0;
 
   habana::LayoutFormat getTensorChannelOrder(torch::jit::Value* val);
