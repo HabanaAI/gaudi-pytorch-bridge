@@ -16,7 +16,7 @@ import preproc_cpp
 import torch.nn as nn
 import torch
 import inspect
-import pudb
+# import pudb
 # miscellaneous
 import builtins
 import functools
@@ -267,7 +267,7 @@ def apply_preproc(sparse_offset_group_batch, sparse_index_group_batch, i, m, ln_
 
 
 def apply_optimizer_update():
-    import pudb
+    # import pudb
     import copy
     for i in range(gv.numEmbeddingTables):
         uniqueIndexes = gv.uniqueIndexes[i].to(device)  # torch.narrow(gv.uniqueIndexes[i], 0, 0, countUniqueIndices)

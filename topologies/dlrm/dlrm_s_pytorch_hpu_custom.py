@@ -5,7 +5,7 @@
 
 
 from __future__ import absolute_import, division, print_function, unicode_literals
-import pudb
+# import pudb
 # miscellaneous
 import builtins
 import functools
@@ -231,7 +231,7 @@ def apply_preproc(sparse_offset_group_batch,sparse_index_group_batch,i):
     gv.countUniqueIndices[i],gv.uniqueIndexes[i],gv.outputRows[i],gv.outputRowOffsets[i] = gv.HabanaDlrmPreproc1[i](sparse_index_group_batch,sparse_offset_group_batch ,4)
 
 def apply_optimizer_update():
-    import pudb
+    # import pudb
     import copy
     for i in range(gv.numEmbeddingTables):
         uniqueIndexes = gv.uniqueIndexes[i].to(device) #torch.narrow(gv.uniqueIndexes[i], 0, 0, countUniqueIndices)
@@ -979,7 +979,7 @@ if __name__ == "__main__":
         # print(X)
 
         if use_gpu or use_hpu:
-            import pudb
+            # import pudb
             # pudb.set_trace()
             # lS_i can be either a list of tensors or a stacked tensor.
             # Handle each case below:
@@ -1014,7 +1014,7 @@ if __name__ == "__main__":
         # print('lS_o after updating for last offset',lS_o)
 
         if use_gpu or use_hpu:
-            import pudb
+            # import pudb
             # pudb.set_trace()
             # lS_i can be either a list of tensors or a stacked tensor.
             # Handle each case below:
