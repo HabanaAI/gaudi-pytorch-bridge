@@ -795,6 +795,10 @@ void BatchNormBackwardOperator::preProcessInputs(
   SetProprocessingDone();
 }
 
+void BatchNormBackwardOperator::swapGradInput()
+{
+  std::swap(p_context_->syn_inputs_[0], p_context_->syn_inputs_[1]);
+}
 void BatchNormBackwardOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
@@ -835,6 +839,8 @@ void BatchNormBackwardOperator::AllocateAndAddSynapseNode(
   AllocateSynapseOutputs(
       graph, {grad_in_nhwc, grad_gamma, grad_beta}, is_output_persistent);
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
+  //swap input and grad for graph mode return
+  swapGradInput();
 }
 
 void BatchNormBackwardOperator::generateCacheInputs(Stack& inputs) {
@@ -1010,6 +1016,8 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu(
       }
       // Build Params for the graph
       Op.AllocateAndAddSynapseNode(graph, preprocess_stack, {true, true, true});
+      //swap the grad and input again as patching table needs reversed ones
+      Op.swapGradInput();
       Op.Compile(graph);
     }
 

@@ -109,6 +109,7 @@ class BatchNormBackwardOperator : public habana::HabanaOperator {
   void preProcessInputs(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs);
+  void swapGradInput();
 
   void generateCacheInputs(torch::jit::Stack& inputs);
 
