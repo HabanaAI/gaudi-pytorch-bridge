@@ -65,6 +65,9 @@ def evaluate(model, criterion, data_loader, device, print_freq=100):
     header = 'Test:'
     with torch.no_grad():
         for image, target in metric_logger.log_every(data_loader, print_freq, header):
+            if args.channels_last:
+                image = image.contiguous(memory_format=torch.channels_last)
+
             image = image.to(device, non_blocking=True)
             target = target.to(device, non_blocking=True)
             output = model(image)
