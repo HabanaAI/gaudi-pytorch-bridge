@@ -4,7 +4,6 @@ import datetime
 import time
 import torch
 import torch.distributed as dist
-
 import errno
 import os
 
@@ -270,18 +269,38 @@ def init_distributed_mode(args):
     elif hasattr(args, "rank"):
         pass
     else:
-        print('Not using distributed mode')
-        args.distributed = False
-        return
+        msg = 'Not using distributed mode'
+        try:
+            from mpi4py import MPI
+            comm = MPI.COMM_WORLD
+            size = comm.Get_size() # new: gives number of ranks in comm
+            rank = comm.Get_rank()
+            if size > 1:
+                args.rank = rank
+                args.world_size = size
+                os.environ['MASTER_ADDR'] = 'localhost'
+                os.environ['MASTER_PORT'] = '12355'
+            else:
+                print(msg)
+                args.distributed = False
+                return
+        except Exception as e:
+            print(e)
+            print(msg)
+            args.distributed = False
+            return
 
     args.distributed = True
     print('| distributed init (rank {}): {}'.format(
         args.rank, args.dist_url), flush=True)
 
-    if args.device == 'habana' and 'RANK' in os.environ and 'WORLD_SIZE' in os.environ:
+    if args.device == 'habana' and args.world_size  > 1:
+        if os.getenv('HCL_CONFIG_PATH') is None:
+            print("HCL_CONFIG_PATH is not set")
+            exit(0)
         args.dist_backend = 'hcl'
         os.environ["ID"] = str(args.rank)
-        torch.distributed.init_process_group(args.dist_backend, rank=args.rank, world_size=args.world_size)
+        dist.init_process_group(args.dist_backend, rank=args.rank, world_size=args.world_size)
     else:
         torch.cuda.set_device(args.gpu)
         args.dist_backend = 'nccl'
