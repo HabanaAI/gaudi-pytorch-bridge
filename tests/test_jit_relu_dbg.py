@@ -5,52 +5,51 @@ import hb_torch
 
 
 @torch.jit.script
-def test_relu(tensor_a):
-  tensor_b = torch.relu(tensor_a)
-  tensor_r = torch.relu(tensor_b)
-  return tensor_r
+def relu(tensor_a):
+    tensor_b = torch.relu(tensor_a)
+    tensor_r = torch.relu(tensor_b)
+    return tensor_r
 
 
 @pytest.mark.skip(reason="under development : might trigger unexpected breakage in CI")
 def test_jit_relu_dbg():
-  import os
-  from inspect import currentframe, getframeinfo
-  fi = getframeinfo(currentframe())
-  src = fi.filename
-  base = os.path.splitext(src)[0]
-  trace_file_name = base + '_trace.pt'
-  hpu = torch.device("habana")
-  cpu = torch.device("cpu")
+    import os
+    from inspect import currentframe, getframeinfo
+    fi = getframeinfo(currentframe())
+    src = fi.filename
+    base = os.path.splitext(src)[0]
+    trace_file_name = base + '_trace.pt'
+    hpu = torch.device("habana")
+    cpu = torch.device("cpu")
 
-  u_cpu = torch.tensor([[ 5.,  5., -6.           ]], dtype=torch.float32)
-  v_cpu = torch.tensor([[-3., -3.,  4.,  4., -5. ]], dtype=torch.float32)
-  w_cpu = torch.tensor([[-4., -4.,  7.           ]], dtype=torch.float32)
-  x_cpu = torch.tensor([[-3.,  2.                ]], dtype=torch.float32)
-  y_cpu = torch.tensor([[-8., -3.                ]], dtype=torch.float32)
-  z_cpu = torch.tensor([[-5., -7.,  1., -4.,  4. ]], dtype=torch.float32)
+    u_cpu = torch.tensor([[ 5.,  5., -6.           ]], dtype=torch.float32)
+    v_cpu = torch.tensor([[-3., -3.,  4.,  4., -5. ]], dtype=torch.float32)
+    w_cpu = torch.tensor([[-4., -4.,  7.           ]], dtype=torch.float32)
+    x_cpu = torch.tensor([[-3.,  2.                ]], dtype=torch.float32)
+    y_cpu = torch.tensor([[-8., -3.                ]], dtype=torch.float32)
+    z_cpu = torch.tensor([[-5., -7.,  1., -4.,  4. ]], dtype=torch.float32)
 
-  with torch.jit.optimized_execution(True):
-    hb_torch.disable()
-    torch._C._jit_override_can_fuse_on_cpu(False)
-    torch._C._jit_set_profiling_executor(False)
-    torch._C._jit_set_profiling_mode(False)
+    with torch.jit.optimized_execution(True):
+        hb_torch.disable()
+        torch._C._jit_override_can_fuse_on_cpu(False)
+        torch._C._jit_set_profiling_executor(False)
+        torch._C._jit_set_profiling_mode(False)
 
-    #print("--------------------")
-    #print ("CPU IR Graph optimized")
-    #print(test_relu.graph_for(x_cpu))
-    #print("--------------------")
+        #print("--------------------")
+        #print ("CPU IR Graph optimized")
+        #print(relu.graph_for(x_cpu))
+        #print("--------------------")
 
-    model_trace = torch.jit.trace(test_relu, (x_cpu))
-    torch.jit.save(model_trace, trace_file_name)
-    rx_by_cpu = test_relu(x_cpu)
-    print("--------------------")
-    print(f"Input shape\n{x_cpu.shape}")
-    print(f"Input\n{x_cpu}")
-    print("--------------------")
-    print(f"Result HPU:\n{rx_by_cpu}")
-    print("--------------------")
+        model_trace = torch.jit.trace(relu, (x_cpu))
+        torch.jit.save(model_trace, trace_file_name)
+        rx_by_cpu = relu(x_cpu)
+        print("--------------------")
+        print(f"Input shape\n{x_cpu.shape}")
+        print(f"Input\n{x_cpu}")
+        print("--------------------")
+        print(f"Result HPU:\n{rx_by_cpu}")
+        print("--------------------")
 
-  try:
     hb_torch.enable()
     torch._C._jit_set_profiling_mode(False)
     torch._C._jit_set_profiling_executor(False)
@@ -127,11 +126,7 @@ def test_jit_relu_dbg():
     print(f"Result HPU:\n{rz_by_hpu}")
     print("--------------------")
 
-  except Exception as e:
-    print (f"error : {str(e)} encountered")
-    return
-
-  print("Successful termination")
+    print("Successful termination")
 # ------------------------------------------------------------------------------
 
 if __name__ == '__main__':

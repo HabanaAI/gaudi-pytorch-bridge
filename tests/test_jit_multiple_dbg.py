@@ -5,47 +5,45 @@ import hb_torch
 
 
 @torch.jit.script
-def test_multiple(tensor_a, tensor_b, tensor_c):
-  tensor_y = torch.mul(tensor_a, tensor_b)
-  tensor_z = torch.div(tensor_y, tensor_c)
-  tensor_p = torch.sigmoid(tensor_z)
-  tensor_q = torch.relu(tensor_p)
-  return tensor_q
+def multiple_funcs(tensor_a, tensor_b, tensor_c):
+    tensor_y = torch.mul(tensor_a, tensor_b)
+    tensor_z = torch.div(tensor_y, tensor_c)
+    tensor_p = torch.sigmoid(tensor_z)
+    tensor_q = torch.relu(tensor_p)
+    return tensor_q
 
-@pytest.mark.skip("Fails in docker tests")
 def test_jit_multiple_dbg():
-  trace_file_name = 'test_jit_multiple_dbg_cpu_trace.pt'
-  hpu = torch.device("habana")
-  cpu = torch.device("cpu")
+    trace_file_name = 'test_jit_multiple_dbg_cpu_trace.pt'
+    hpu = torch.device("habana")
+    cpu = torch.device("cpu")
 
-  x_cpu = torch.tensor([[1., -2.], [3., -4.]], dtype=torch.float32)
-  y_cpu = torch.tensor([[1., -1.], [2., -2.]], dtype=torch.float32)
-  #z_cpu = #torch.tensor([[3.]], dtype=torch.float32) #This should also work
-  z_cpu = torch.tensor([[3., 3.], [3., 3.]], dtype=torch.float32)
-  '''
-  x_cpu = torch.randn(2, 3, 4, 4)
-  y_cpu = torch.randn(2, 3, 4, 4)
-  z_cpu = torch.randn(2, 3, 4, 4)
-  '''
+    x_cpu = torch.tensor([[1., -2.], [3., -4.]], dtype=torch.float32)
+    y_cpu = torch.tensor([[1., -1.], [2., -2.]], dtype=torch.float32)
+    #z_cpu = #torch.tensor([[3.]], dtype=torch.float32) #This should also work
+    z_cpu = torch.tensor([[3., 3.], [3., 3.]], dtype=torch.float32)
+    '''
+    x_cpu = torch.randn(2, 3, 4, 4)
+    y_cpu = torch.randn(2, 3, 4, 4)
+    z_cpu = torch.randn(2, 3, 4, 4)
+    '''
 
-  with torch.jit.optimized_execution(True):
-    hb_torch.disable()
-    print("--------------------")
-    print ("CPU IR Graph optimized")
-    torch._C._jit_override_can_fuse_on_cpu(False)
-    torch._C._jit_set_profiling_executor(False)
-    torch._C._jit_set_profiling_mode(False)
-    print(test_multiple.graph_for(x_cpu, y_cpu, z_cpu))
-    model_trace = torch.jit.trace(test_multiple, (x_cpu, y_cpu, z_cpu))
-    torch.jit.save(model_trace, trace_file_name)
-    o_cpu = test_multiple(x_cpu, y_cpu, z_cpu)
-    print("--------------------")
-    print(f"Input\n{x_cpu, y_cpu, z_cpu}")
-    print("--------------------")
-    print(f"Result CPU\n{o_cpu}")
-    print("--------------------")
+    with torch.jit.optimized_execution(True):
+      hb_torch.disable()
+      print("--------------------")
+      print ("CPU IR Graph optimized")
+      torch._C._jit_override_can_fuse_on_cpu(False)
+      torch._C._jit_set_profiling_executor(False)
+      torch._C._jit_set_profiling_mode(False)
+      print(multiple_funcs.graph_for(x_cpu, y_cpu, z_cpu))
+      model_trace = torch.jit.trace(multiple_funcs, (x_cpu, y_cpu, z_cpu))
+      torch.jit.save(model_trace, trace_file_name)
+      o_cpu = multiple_funcs(x_cpu, y_cpu, z_cpu)
+      print("--------------------")
+      print(f"Input\n{x_cpu, y_cpu, z_cpu}")
+      print("--------------------")
+      print(f"Result CPU\n{o_cpu}")
+      print("--------------------")
 
-  try:
     hb_torch.enable()
     print("--------------------")
     print("Moving Tensors to HPU")
@@ -67,8 +65,6 @@ def test_jit_multiple_dbg():
     print("--------------------")
     compare_tensors(result, o_cpu, atol=0.001, rtol=1.e-3)
     print("--- Comparison Done ---")
-  except(RuntimeError):
-    print ("Exiting after printing Fused Graph post fusion pass")
 
 if __name__ == '__main__':
   test_jit_multiple_dbg()
