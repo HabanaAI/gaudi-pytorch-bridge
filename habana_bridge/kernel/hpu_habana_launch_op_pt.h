@@ -204,6 +204,12 @@ struct RecipeCacheSimple {
   friend std::ostream& operator<<(std::ostream& O, const RecipeCacheSimple& v);
 };
 
+struct habanaTensorLayoutInfo
+{
+  habana::LayoutFormat layout;
+  habana::LayoutFormat layout_at_graph_entry;
+};
+
 class HabanaLaunchOpPT {
  public:
   explicit HabanaLaunchOpPT(const torch::jit::Node* node, bool debug);
@@ -227,8 +233,7 @@ class HabanaLaunchOpPT {
 
   // A map between the abstract value containers in graph and actual Ivalues in
   // stack
-  std::unordered_map<CValPtr, habana::LayoutFormat> value_to_tensor_layout;
-  habana::LayoutFormat pt_input_layout;
+  std::unordered_map<CValPtr, habanaTensorLayoutInfo> value_to_tensor_layout;
 
   // A map for value to persistent flag
   std::unordered_map<CValPtr, bool> value_to_persistent_flag;
