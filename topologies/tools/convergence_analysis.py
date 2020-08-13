@@ -108,6 +108,13 @@ def ca_make_file_pair_list(dev1, dev2, path1, path2):
     return zip(files_dev1,files_dev2)
 
 def ca_compare_tensor_files(dev1, dev2, file_pair_list, base_path=None, rtol=1e-3, atol=1e-3):
+    #If we are comparing the tensors on same device, say, habana, rename the devices as
+    # habana1 and 2 for the csv file. Else the dictionary key for dev1 and 2 will be same
+    #causing an overwriting
+    if dev1 == dev2:  #e.g. habana
+        dev1=dev1+'1' #e.g. habana1
+        dev2=dev2+'2' #e.g. habana2
+
     print("Using Tolerances rtol = ", rtol, " atol =", atol, "for comparing", dev1,  "and ", dev2)
     hk = ca_get_header_keys(dev1, dev2, ca_base_key_list)
     tcs_csv = open('tensor_cmp_stats.csv', 'w', newline='')

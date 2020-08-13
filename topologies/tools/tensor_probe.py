@@ -133,8 +133,9 @@ class ModelParamsDump(object):
             return
         for name, param in model.named_parameters():
             if param.requires_grad:
-                tensor_name = name + '.grad'
-                self.save_tensor(device, param.grad, tensor_name, path_modifier)
+                if param.grad is not None:
+                    tensor_name = name + '.grad'
+                    self.save_tensor(device, param.grad, tensor_name, path_modifier)
 
     def dump_buffers_data(self, device, model, path_modifier=None):
         if self.to_dump_data() is False:
@@ -360,7 +361,12 @@ def tp_probe_tensors_iteration_end(model, device, output, loss, ParamsDump, forc
     if ParamsDump.to_dump_data is False:
         return
     ParamsDump.save_tensor(device, output, 'output', force_dump=force_dump)
-    ParamsDump.save_tensor(device, loss, 'loss', force_dump=force_dump)
+    # Caller can pass a scalar value for loss.
+    if torch.is_tensor(loss):
+        ParamsDump.save_tensor(device, loss, 'loss', force_dump=force_dump)
+    else:
+        ParamsDump.save_tensor(device, torch.tensor(loss), 'loss', force_dump=force_dump)
+
     ParamsDump.dump_buffers_data(device, model, 'buffers_at_output')
     ParamsDump.dump_params_data(device, model, 'params_after_update')
     ParamsDump.dump_grads(device, model, 'grads')
