@@ -136,7 +136,7 @@ def enable_tracing(device):
         torch._C._jit_set_profiling_executor(False)
         torch._C._jit_set_profiling_mode(False)
         hb_torch.enable()
-        sample_trace_tensor = torch.FloatTensor(8, 3, 224, 224).to(device)
+        sample_trace_tensor = torch.zeros(args.batch_size, 3, 224, 224).to(device)
         return sample_trace_tensor
 
 def load_data(traindir, valdir, cache_dataset, distributed):
