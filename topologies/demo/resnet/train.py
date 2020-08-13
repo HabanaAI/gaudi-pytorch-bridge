@@ -47,7 +47,7 @@ def train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, pri
         if args.channels_last:
             image = image.contiguous(memory_format=torch.channels_last)
 
-        image, target = image.to(device), target.to(device)
+        image, target = image.to(device, non_blocking=True), target.to(device, non_blocking=True)
         loss_cpu,output_cpu = train_model(model, criterion, optimizer, image, target, apex)
 
         acc1, acc5 = utils.accuracy(output_cpu, target, topk=(1, 5))
