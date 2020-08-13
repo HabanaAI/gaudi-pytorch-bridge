@@ -16,7 +16,7 @@ import preproc_cpp
 import torch.nn as nn
 import torch
 import inspect
-# import pudb
+#import pudb
 # miscellaneous
 import builtins
 import functools
@@ -208,7 +208,7 @@ class HabanaOptimizerSparseSgd(torch.nn.Module):
         self.instance = instance
 
     def forward(self, gradients, weights, moments, indices, learning_rate, valid_count):
-        return HabanaOptimizerSparseSgdFunction.apply(gradients.to(device), weights.to(device), moments.to(device), indices.to(device), learning_rate.to(device), valid_count)
+        return HabanaOptimizerSparseSgdFunction.apply(gradients, weights, moments, indices, learning_rate, valid_count)
 
 
 def create_preproc(i):
@@ -224,50 +224,64 @@ def create_optimizer(i):
 def apply_preproc(sparse_offset_group_batch, sparse_index_group_batch, i, m, ln_emb):
     printFnTrace(inspect.getframeinfo(inspect.currentframe()).function)
     # print('apply_preproc for instance {}'.format(i))
-    sparse_offset_group_batch = sparse_offset_group_batch.type(torch.IntTensor)  # HACK
+    sparse_offset_group_batch = sparse_offset_group_batch.type(torch.IntTensor)
     sparse_index_group_batch = sparse_index_group_batch.type(torch.IntTensor)
 
     gv.countUniqueIndices[i], gv.uniqueIndexes[i], gv.outputRows[i], gv.outputRowOffsets[i] = gv.HabanaDlrmPreproc1[i](
         sparse_index_group_batch, sparse_offset_group_batch, 4)
 
     # create additional tensors needed by embedding bag sum
-    gv.valid_count_bwd[i] = torch.tensor(
-        [gv.outputRows[i].numel(), gv.countUniqueIndices[i].item()+1], dtype=torch.int32).to(device)
-    gv.valid_count_fwd[i] = torch.tensor([sparse_index_group_batch.numel(), sparse_offset_group_batch.numel(
-    )], dtype=torch.int32).to(device)
+    valid_count_fwd_cpu = torch.tensor([sparse_index_group_batch.numel(), sparse_offset_group_batch.numel(
+    )], dtype=torch.int32)
+    valid_count_bwd_cpu = torch.tensor(
+        [gv.outputRows[i].numel(), gv.countUniqueIndices[i].item()+1], dtype=torch.int32)
+
     numOffsets = gv.countUniqueIndices[i].item()+1
     gv.outputRowOffsets[i] = torch.narrow(gv.outputRowOffsets[i], 0, 0, numOffsets)
-    gv.outputRowOffsets_hpu[i] = gv.outputRowOffsets[i].to(device)
 
-    #create max size tensors to avoid multiple graph compiles
-    # TODO: check what is the correct value
-    #gv.coalesced_grads[i] = torch.empty(ln_emb[i], m, dtype=torch.float32).to(device)
-    #gv.coalesced_grads[i] = torch.empty(gv.countUniqueIndices[i].item(), m, dtype=torch.float32).to(device)
-    gv.coalesced_grads[i] = torch.zeros(gv.countUniqueIndices[i].item(), m, dtype=torch.float32).to(device)
-    #max_i_size_fwd = ln_emb[i]*sparse_offset_group_batch.numel()
-    #max_i_size_bwd = ln_emb[i]*sparse_offset_group_batch.numel()
-    #gv.indices_fwd[i] = torch.empty([max_i_size_fwd],dtype=torch.int32).to(device)
-    gv.indices_fwd[i] = sparse_index_group_batch.to(device)
-    #gv.indices_bwd[i] = torch.empty([max_i_size_bwd],dtype=torch.int32).to(device)
-    gv.indices_bwd[i] = gv.outputRows[i].to(device)
+    #Creation of static max size tensors to enable graph caching
+    # TODO: optimize the max size values. currently worst case scenario is assumed
+    #numoffsets_bwd = num unique indices + 1. Worst case num unique indices = ln_emb[i]
+    if (gv.indices_fwd[i].size() == torch.Size([1, 1])):
+        #print("max size tensors created for instance ", i)
+        #max_i_size_fwd = ln_emb[i]*(sparse_offset_group_batch.numel()-1)
+        max_i_size_fwd = 10*(sparse_offset_group_batch.numel()-1) #CHECK
+        gv.indices_fwd[i] = torch.empty([max_i_size_fwd],dtype=torch.int32).to(device)
 
+        #max_i_size_bwd = ln_emb[i]*(sparse_offset_group_batch.numel()-1)
+        max_i_size_bwd = ln_emb[i]*50 #CHECK
+        gv.indices_bwd[i] = torch.empty([max_i_size_bwd],dtype=torch.int32).to(device)
 
+        gv.outputRowOffsets_hpu[i] = torch.empty(ln_emb[i]+1,dtype = torch.int32).to(device)
+        #Max possible grad in matrix
+        gv.coalesced_grads[i] = torch.empty(ln_emb[i], m, dtype=torch.float32).to(device)
 
+        gv.valid_count_fwd[i] = torch.empty([2], dtype=torch.int32).to(device)
+        gv.valid_count_bwd[i] = torch.empty([2], dtype=torch.int32).to(device)
 
     '''
-    print(i)
-    print(gv.outputRowOffsets[i])
-    print(gv.outputRows[i])
-    print(gv.valid_count_bwd[i])
-    print(gv.valid_count_fwd[i])
-    print(gv.coalesced_grads[i])
-    print(gv.countUniqueIndices[i])
-    print(gv.uniqueIndexes[i])
+    print("emb bag instance i size", m, ln_emb[i])
+    print("Tensor sizes after apply_preproc")
+    print("emb instance", i)
+    print("sparse_index_group_batch ", sparse_index_group_batch.size())
+    print("sparse_offset_group_batch ", sparse_offset_group_batch.size())
+    print("gv.indices_fwd[i] ", gv.indices_fwd[i].size())
+    print("gv.outputRowOffsets_hpu[i]", gv.outputRowOffsets_hpu[i].size())
+    print("gv.indices_bwd[i] ", gv.indices_bwd[i].size())
+    print("gv.outputRows[i]", gv.outputRows[i].size())
+    print("gv.countUniqueIndices[i]", gv.countUniqueIndices[i].size())
+    print("gv.coalesced_grads[i]", gv.coalesced_grads[i].size())
     '''
 
+    gv.indices_fwd[i].copy_(sparse_index_group_batch)
+    gv.valid_count_fwd[i].copy_(valid_count_fwd_cpu)
+    gv.indices_bwd[i].copy_(gv.outputRows[i])
+    gv.valid_count_bwd[i].copy_(valid_count_bwd_cpu)
+    gv.outputRowOffsets_hpu[i].fill_(0) #HACK
+    gv.outputRowOffsets_hpu[i].copy_(gv.outputRowOffsets[i])
 
 def apply_optimizer_update():
-    # import pudb
+    #import pudb
     import copy
     for i in range(gv.numEmbeddingTables):
         uniqueIndexes = gv.uniqueIndexes[i].to(device)  # torch.narrow(gv.uniqueIndexes[i], 0, 0, countUniqueIndices)
@@ -276,8 +290,8 @@ def apply_optimizer_update():
         old_moments = torch.zeros(dlrm_habana.emb_l[i].weights.shape).to(device)
         lr = torch.tensor([args.learning_rate]).to(device)
 
-        gradient = gv.coalesced_grads[i]  # copy.deepcopy(gv.coalesced_grads[i].detach().cpu())
-        weight = copy.deepcopy(dlrm_habana.emb_l[i].weights.data.cpu()).to(device)
+        gradient = gv.coalesced_grads[i]
+        weight = dlrm_habana.emb_l[i].weights.data
         upd_emb_weights, upd_emb_moments = gv.HabanaDlrmSparseSgd1[i](
             gradient, weight, old_moments, uniqueIndexes, lr, countUniqueIndices)
 
@@ -1033,8 +1047,8 @@ if __name__ == "__main__":
         dlrm_trace = torch.jit.trace(model, (X_device, lS_o, lS_i, lS_vc_fwd, lS_o_bwd,
                                              lS_i_bwd, lS_vc_bwd, lS_grad_wt), check_trace=False)
         # print("tracing completed")
-        print(dlrm_trace.graph_for(X_device, lS_o, lS_i, lS_vc_fwd, lS_o_bwd,
-                                   lS_i_bwd, lS_vc_bwd, lS_grad_wt))
+        #print(dlrm_trace.graph_for(X_device, lS_o, lS_i, lS_vc_fwd, lS_o_bwd,
+        #                           lS_i_bwd, lS_vc_bwd, lS_grad_wt))
         return dlrm_trace
 
     def dlrm_habana_wrap(model, X_device, lS_o, lS_i, lS_vc_fwd, lS_o_bwd, lS_i_bwd, lS_vc_bwd, lS_grad_wt):
