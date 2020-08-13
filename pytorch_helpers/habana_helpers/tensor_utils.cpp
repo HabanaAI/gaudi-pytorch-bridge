@@ -102,8 +102,9 @@ at::Tensor habana_helpers::cast_tensor_to_integer(
   // HPU
   auto int_tensor = std::make_unique<at::Tensor>();
   if (long_tensor.scalar_type() == c10::ScalarType::Long) {
-    *int_tensor =
-        long_tensor.to("cpu").to(c10::ScalarType::Int).to(long_tensor.device());
+    *int_tensor = long_tensor.to("cpu")
+                      .to(c10::ScalarType::Int)
+                      .to(long_tensor.device(), c10::attr::non_blocking);
   } else {
     *int_tensor = long_tensor;
   }
@@ -171,41 +172,21 @@ at::Tensor habana_helpers::scalar_to_device_tensor(
       "Wrong device: ",
       options.device().type());
   auto output = at::empty(std::vector<int64_t>(num_dimensions, 1), options);
-  std::atomic<bool> copyDone{false};
 
   auto self_scalar_type = self.scalar_type();
   if (self_scalar_type == c10::ScalarType::BFloat16) {
     auto val = scalar.to<at::BFloat16>();
-    synapse_helpers::HPURegistrar::get_device(options.device().index())
-        .copy_data_to_device(
-            &val,
-            reinterpret_cast<synapse_helpers::device_ptr>(output.data_ptr()),
-            output.nbytes(),
-            [&copyDone]() { copyDone = true; });
+    copy_scalar_to_device(&val, output, output.nbytes());
   } else if (self_scalar_type == c10::ScalarType::Float) {
     auto val = scalar.to<float>();
-    synapse_helpers::HPURegistrar::get_device(options.device().index())
-        .copy_data_to_device(
-            &val,
-            reinterpret_cast<synapse_helpers::device_ptr>(output.data_ptr()),
-            output.nbytes(),
-            [&copyDone]() { copyDone = true; });
+    copy_scalar_to_device(&val, output, output.nbytes());
   } else if (self_scalar_type == c10::ScalarType::Int) {
     auto val = scalar.to<int>();
-    synapse_helpers::HPURegistrar::get_device(options.device().index())
-        .copy_data_to_device(
-            &val,
-            reinterpret_cast<synapse_helpers::device_ptr>(output.data_ptr()),
-            output.nbytes(),
-            [&copyDone]() { copyDone = true; });
+    copy_scalar_to_device(&val, output, output.nbytes());
   } else {
     PT_KERNEL_FATAL("Unsupported data type used in binary op");
   }
 
-  // wait for copy completion
-  while (!copyDone) {
-    std::this_thread::yield();
-  }
   return output;
 }
 
@@ -410,19 +391,30 @@ void habana_helpers::copy_scalar_to_device(
     const at::Tensor& dst,
     uint32_t size) {
   std::atomic<bool> copyDone{false};
+  const at::Tensor dstRef = dst;
 
   auto device_id = dst.device().index();
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-  auto syn_error = device.copy_data_to_device(
-      src_ptr,
-      reinterpret_cast<synapse_helpers::device_ptr>(dst.data_ptr()),
-      size,
-      [&copyDone]() { copyDone = true; });
-  TORCH_CHECK(syn_error.status == 0, syn_error.error);
+  if (device.IsStreamASyncEnabled()) {
+    auto syn_error = device.copy_data_to_device(
+        src_ptr,
+        reinterpret_cast<synapse_helpers::device_ptr>(dst.data_ptr()),
+        size,
+        [dstRef]() { return; });
 
-  // wait for copy completion
-  while (!copyDone) {
-    std::this_thread::yield();
+  } else {
+    std::atomic<bool> copyDone{false};
+    auto syn_error = device.copy_data_to_device(
+        src_ptr,
+        reinterpret_cast<synapse_helpers::device_ptr>(dst.data_ptr()),
+        size,
+        [&copyDone]() { copyDone = true; });
+    TORCH_CHECK(syn_error.status == 0, syn_error.error);
+
+    // wait for copy completion
+    while (!copyDone) {
+      std::this_thread::yield();
+    }
   }
 }
 
