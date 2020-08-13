@@ -42,7 +42,7 @@ Tensor& copy_hpu_(Tensor& self, const Tensor& src, bool non_blocking) {
 
   if (src_device == c10::DeviceType::CPU &&
       dst_device == c10::DeviceType::HABANA) {
-    HABANA_ASSERT(dst.nbytes() == src.nbytes());
+    HABANA_ASSERT(dst.nbytes() >= src.nbytes());
     habana_helpers::copy_data_to_device(src, dst, non_blocking);
   } else if (
       src_device == c10::DeviceType::HABANA &&
