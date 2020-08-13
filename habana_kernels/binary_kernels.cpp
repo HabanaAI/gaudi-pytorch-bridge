@@ -704,9 +704,7 @@ Tensor& add_scalar_hpu_(
 // self += alpha * other
 Tensor& add_tensor_hpu_(Tensor& self, const Tensor& other, Scalar alpha) {
   PT_KERNEL_BEGIN;
-  auto alpha_tensor =
-      habana_helpers::scalar_to_device_tensor(alpha, other, other.ndimension());
-  auto out_mul = at::mul(other, alpha_tensor);
+  auto out_mul = do_tensor_scalar_mul(other, alpha);
 
   do_generic_tensor_binary_op_inplace(
       self, out_mul, "add", SynapsePassType::FORWARD_PASS);
