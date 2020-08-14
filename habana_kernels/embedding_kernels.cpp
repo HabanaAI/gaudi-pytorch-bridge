@@ -710,16 +710,9 @@ Tensor& embedding_bag_sum_bwd_out_hpu(
   std::string node_type = "embedding_bag_sum_small_lengths_2d_fwd_" +
       habana_helpers::name_suffix_from_type(scalar_type);
   size_t device_id = indices_bwd.device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
 
   EmbeddingBagSumBackwardOperator Op(device_id, scalar_type);
-
-  // Create Graph
-  auto graph = habana_helpers::create_graph(device_id, node_type);
-
-  // Assign Inputs to the Operator
-  std::vector<at::Tensor> pt_inputs{
-      out, input, indices_bwd, offsets_bwd, valid_count_bwd};
-  Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
   // Build Params for the graph
   std::vector<c10::IValue> stack = {IValue(out),
@@ -727,10 +720,31 @@ Tensor& embedding_bag_sum_bwd_out_hpu(
                                     IValue(indices_bwd),
                                     IValue(offsets_bwd),
                                     IValue(valid_count_bwd)};
-  Op.AllocateAndAddSynapseNode(graph, stack, true);
 
-  // compile and execute the graph
-  Op.Compile(graph);
+  // Assign Inputs to the Operator
+  std::vector<at::Tensor> pt_inputs{
+      out, input, indices_bwd, offsets_bwd, valid_count_bwd};
+
+  size_t key = Op.GetRecipeKey(node_type, stack);
+
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+
+    std::vector<at::Tensor> pt_inputs_slice = std::vector<at::Tensor>(
+      pt_inputs.begin() + 1, pt_inputs.end());
+    Op.SetPTInputs(pt_inputs_slice);
+    Op.SetPTOutput(out);
+    Op.Execute(key);
+  }
+  else {
+    PT_KERNEL_DEBUG("Key:", key);
+    auto graph = habana_helpers::create_graph(device_id, node_type);
+
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
+    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    // compile and execute the graph
+    Op.Compile(graph);
+  }
 
   PT_KERNEL_END;
   return out;
