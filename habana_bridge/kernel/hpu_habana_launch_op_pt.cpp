@@ -318,7 +318,7 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(const torch::jit::Node* node, bool debug) {
   }
 
   enable_tensor_dump_ = (tensor_dump_numel_ >= -1) ? true : false;
-  enable_caching_ = false;
+  enable_caching_ = true;
   if (const auto envp = getenv("HABANA_PGM_ENABLE_CACHE")) {
     enable_caching_ = atoi(envp) == 1;
   }
