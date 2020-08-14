@@ -22,6 +22,18 @@ test_case_list_bmm = [
     (8, 24, 3, 10)
 ]
 
+# mat - NxC, mat2 - C, out - N
+test_case_list_mv = [
+    # N, C
+    (8, 10)
+]
+
+# mat - C, mat2 - C, out - 1
+test_case_list_dot = [
+    # C
+    (10)
+]
+
 data_type_list = [
   pytest.param(torch.bfloat16, 0.1, marks=pytest.mark.xfail(
         reason="large difference w.r.t. CPU")),
@@ -74,6 +86,19 @@ def test_hpu_linear_bmm_out(N, H, W, C):
         (N, W, C), requires_grad=False), 'out': torch.empty((N, H, C), requires_grad=False)}
     evaluate_fwd_kernel(kernel=torch.bmm, kernel_params=kernel_params)
 
+@pytest.mark.parametrize("N, C", test_case_list_mv)
+@pytest.mark.parametrize("op", [torch.mv])
+def test_hpu_linear_mv(N, C, op):
+    kernel_params = {'input': torch.randn(N,C),
+                     'vec': torch.randn(C)}
+    evaluate_fwd_kernel(kernel=op, kernel_params=kernel_params)
+
+@pytest.mark.parametrize("C", test_case_list_dot)
+@pytest.mark.parametrize("op", [torch.dot])
+def test_hpu_linear_dot(C, op):
+    kernel_params = {'input': torch.randn(C),
+                     'tensor': torch.randn(C)}
+    evaluate_fwd_kernel(kernel=op, kernel_params=kernel_params)
 
 if __name__ == '__main__':
     test_hpu_linear_no_bias(*test_case_list[-1])

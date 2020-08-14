@@ -74,4 +74,38 @@ class BmmOperator : public BmmOutOperator {
       bool is_output_persistent = false) override;
 };
 
+//
+// Mv Operator
+class MvOperator : public HabanaOperator {
+ public:
+  MvOperator(int device_id) : HabanaOperator("mv") {
+    this->CreateSynContext(device_id);
+    kernel_meta_data_.input_layout.assign(
+        {LayoutFormat::ANY, LayoutFormat::ANY});
+    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
+  }
+
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+};
+
+//
+// Dot Operator
+class DotOperator : public HabanaOperator {
+ public:
+  DotOperator(int device_id) : HabanaOperator("dot") {
+    this->CreateSynContext(device_id);
+    kernel_meta_data_.input_layout.assign(
+        {LayoutFormat::ANY, LayoutFormat::ANY});
+    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
+  }
+
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+};
+
 } // namespace habana

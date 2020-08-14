@@ -478,22 +478,119 @@ self - 1D m
 other - 1D m
 output - 0-D tensor
 *****************************************************************************************************/
+void habana::DotOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 2,
+      "Incorrect size of inputs expected for matmul operator");
+
+  TORCH_CHECK(inputs[0].isTensor(), "Input type expected to be tensor");
+  TORCH_CHECK(inputs[1].isTensor(), "Input type expected to be tensor");
+
+  auto mat1 = inputs[0].toTensor();    //size of mat1 is m
+  auto mat2 = inputs[1].toTensor();    //size of mat2 is m
+
+  std::vector<c10::IValue> stack;
+  // ReShape Operator to covert 1d tensor to 2d for mat1
+  int64_t data_m1[2];
+  data_m1[0] = 1;
+  data_m1[1] = mat1.numel();
+  c10::IntArrayRef shape_m1(data_m1, 2);
+  ReshapeOperator ReShapeOp_m1(this->p_context_->device_id_, mat1.scalar_type());
+  auto& reShape_syn_m1 =
+      ReShapeOp_m1.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+  // Build Params for the graph
+  stack.emplace_back(IValue(mat1));
+  stack.emplace_back(IValue(shape_m1));
+  ReShapeOp_m1.AllocateAndAddSynapseNode(graph, stack, false);
+  p_context_->syn_inputs_[0] = std::move(reShape_syn_m1);
+  stack.clear();
+
+
+
+  // ReShape Operator to covert 1d tensor to 2d for mat2
+  int64_t data_m2[2];
+  data_m2[0] = mat2.numel();
+  data_m2[1] = 1;
+  c10::IntArrayRef shape_m2(data_m2, 2);
+  // Create the operator
+  ReshapeOperator ReShapeOp_m2(this->p_context_->device_id_, mat2.scalar_type());
+  auto& reShape_syn_m2 =
+      ReShapeOp_m2.SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
+  // Build Params for the graph
+  stack.emplace_back(IValue(mat2));
+  stack.emplace_back(IValue(shape_m2));
+  ReShapeOp_m2.AllocateAndAddSynapseNode(graph, stack, false);
+  p_context_->syn_inputs_[1] = std::move(reShape_syn_m2);
+  stack.clear();
+
+
+
+  //Matmul Operator (1xn) * (nx1) = (1x1)
+  MMOperator mmOp(this->p_context_->device_id_);
+  mmOp.SetSynapseInput(std::move(ReShapeOp_m1.GetSynOutputs()[0]));
+  mmOp.SetSynapseInput(std::move(ReShapeOp_m2.GetSynOutputs()[0]));
+  // Build Params for the graph
+  stack.emplace_back(IValue(ReShapeOp_m1.GetOutputs()[0]));
+  stack.emplace_back(IValue(ReShapeOp_m2.GetOutputs()[0]));
+  mmOp.AllocateAndAddSynapseNode(graph, stack, false);
+  stack.clear();
+
+
+
+  // ReShape Operator to covert 2d tensor to 1d for output
+  int64_t data[1];
+  data[0] = mmOp.GetOutputs()[0].numel();
+  c10::IntArrayRef shape(data, 1);
+  ReshapeOperator ReShapeOp_out(this->p_context_->device_id_, mmOp.GetOutputs()[0].scalar_type());
+  ReShapeOp_out.SetSynapseInput(std::move(mmOp.GetSynOutputs()[0]));
+  // Build Params for the graph
+  stack.emplace_back(IValue(mmOp.GetOutputs()[0]));
+  stack.emplace_back(IValue(shape));
+  ReShapeOp_out.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+
+
+  p_context_->syn_outputs_.emplace_back(std::move(ReShapeOp_out.GetSynOutputs()[0]));
+  p_context_->pt_outputs_.emplace_back(std::move(ReShapeOp_out.GetOutputs()[0]));
+}
+
 Tensor dot_hpu(const Tensor& self, const Tensor& other) {
   PT_KERNEL_BEGIN;
 
-  Tensor output = at::empty({1, 1}, self.options());
+  const auto device_id = self.device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  std::string node_type = "dot";
+  torch::jit::Stack stack = {c10::IValue(self), c10::IValue(other)};
+  habana::DotOperator op(device_id);
+  size_t key = op.GetRecipeKey(node_type, stack);
 
-  // synapse expects 2-D matrices
-  auto self_hpu = self.view({1, self.sizes()[0]});
-  auto other_hpu = other.view({other.sizes()[0], 1});
+  std::vector<at::Tensor> inputs = {self, other};
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    auto output = at::empty({1, 1}, self.options());
+    op.SetPTInputs(inputs);
+    op.SetPTOutput(output);
+    op.Execute(key);
+  } else {
+    PT_KERNEL_DEBUG("Key:", key);
+    auto graph = habana_helpers::create_graph(device_id, node_type);
 
-  synapse_matmul(output, self_hpu, other_hpu);
+    op.AllocateSynapseInputs(graph, inputs, true);
+
+    op.AllocateAndAddSynapseNode(graph, stack, true);
+
+    op.Compile(graph);
+  }
+  std::vector<at::Tensor> out = op.GetOutputs();
+  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
 
   // PT expects 0-D
-  output.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+  out.at(0).unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
 
   PT_KERNEL_END;
-  return output;
+  return out.at(0);
 }
 
 /*****************************************************************************************************
@@ -502,24 +599,101 @@ self - 2D nxm
 other - 1D m
 output - 1D n
 *****************************************************************************************************/
+void habana::MvOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 2,
+      "Incorrect size of inputs expected for matmul operator");
+
+  TORCH_CHECK(inputs[0].isTensor(), "Input type expected to be tensor");
+  TORCH_CHECK(inputs[1].isTensor(), "Input type expected to be tensor");
+
+  auto mat1 = inputs[0].toTensor();    //mxn
+  auto mat2 = inputs[1].toTensor();    //size of mat2 is n
+
+  // ReShape Operator to covert n to nx1 for mat2
+  int64_t data[2];
+  data[0] = mat2.numel();
+  data[1] = 1;
+  c10::IntArrayRef shape(data, 2);
+  // Create the operator
+  ReshapeOperator ReShapeOp(this->p_context_->device_id_, mat2.scalar_type());
+  auto& reShape_syn =
+      ReShapeOp.SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
+  // Build Params for the graph
+  std::vector<c10::IValue> stack{IValue(mat2), IValue(shape)};
+  ReShapeOp.AllocateAndAddSynapseNode(graph, stack, false);
+  p_context_->syn_inputs_[1] = std::move(reShape_syn);
+  stack.clear();
+
+
+
+  //Matmul Operator (mxn) * (nx1) = (mx1)
+  MMOperator mmOp(this->p_context_->device_id_);
+  auto& mm_syn_1 = mmOp.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+  mmOp.SetSynapseInput(std::move(ReShapeOp.GetSynOutputs()[0]));
+  // Build Params for the graph
+  stack.emplace_back(IValue(mat1));
+  stack.emplace_back(IValue(ReShapeOp.GetOutputs()[0]));
+  mmOp.AllocateAndAddSynapseNode(graph, stack, false);
+  p_context_->syn_inputs_[0] = std::move(mm_syn_1);
+  stack.clear();
+
+
+
+  // PT expects 1-D
+  // ReShape Operator to covert mx1 to 1xm for output of Matmul Operator
+  int64_t data2[1];
+  data2[0] = mmOp.GetOutputs()[0].numel();
+  c10::IntArrayRef shape2(data2, 1);
+  ReshapeOperator ReShapeOp_2(this->p_context_->device_id_, mmOp.GetOutputs()[0].scalar_type());
+  ReShapeOp_2.SetSynapseInput(std::move(mmOp.GetSynOutputs()[0]));
+  // Build Params for the graph
+  stack.emplace_back(IValue(mmOp.GetOutputs()[0]));
+  stack.emplace_back(IValue(shape2));
+  ReShapeOp_2.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+
+
+
+  p_context_->syn_outputs_.emplace_back(std::move(ReShapeOp_2.GetSynOutputs()[0]));
+  p_context_->pt_outputs_.emplace_back(std::move(ReShapeOp_2.GetOutputs()[0]));
+}
+
 Tensor mv_hpu(const Tensor& self, const Tensor& other) {
   PT_KERNEL_BEGIN;
 
-  auto self_sizes = self.sizes();
-  auto other_sizes = other.sizes();
+  const auto device_id = self.device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  std::string node_type = "mv";
+  torch::jit::Stack stack = {c10::IValue(self), c10::IValue(other)};
+  habana::MvOperator op(device_id);
+  size_t key = op.GetRecipeKey(node_type, stack);
 
-  // synapse expects 2-D matrices
-  Tensor output = at::empty({self_sizes[0], 1}, self.options());
-  auto other_hpu = other.view({other_sizes[0], 1});
+  std::vector<at::Tensor> inputs = {self, other};
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    auto output = at::empty({1, self.size(0)}, self.options());
+    op.SetPTInputs(inputs);
+    op.SetPTOutput(output);
+    op.Execute(key);
+  } else {
+    PT_KERNEL_DEBUG("Key:", key);
+    auto graph = habana_helpers::create_graph(device_id, node_type);
 
-  synapse_matmul(output, self, other_hpu);
+    op.AllocateSynapseInputs(graph, inputs, true);
 
-  // PT expects 1-D
-  output = output.view(-1);
+    op.AllocateAndAddSynapseNode(graph, stack, true);
 
+    op.Compile(graph);
+  }
+  std::vector<at::Tensor> out = op.GetOutputs();
+  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
   PT_KERNEL_END;
-  return output;
+  return out.at(0);
 }
+
 
 static auto& KernelRegistry =
     habana::KernelRegistry()
@@ -527,6 +701,16 @@ static auto& KernelRegistry =
             "aten::mm",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<habana::MMOperator>(device_id);
+            })
+        .add(
+            "aten::mv",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<habana::MvOperator>(device_id);
+            })
+        .add(
+            "aten::dot",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<habana::DotOperator>(device_id);
             })
         .add(
             "aten::addmm",
