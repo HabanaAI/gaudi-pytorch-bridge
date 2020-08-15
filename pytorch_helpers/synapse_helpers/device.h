@@ -62,6 +62,7 @@ class active_recipe_counter {
  public:
   void increase();
   void decrease_and_notify();
+  bool is_zero();
   uint32_t wait_for_next_decrease_call();
 
  private:

@@ -51,6 +51,12 @@ void active_recipe_counter::decrease_and_notify() {
   cv_.notify_all();
 }
 
+bool active_recipe_counter::is_zero() {
+  std::unique_lock<std::mutex> cond_lock(counter_mutex_);
+  bool zflag = (0 == counter_state_ ? true : false);
+  return zflag;
+}
+
 uint32_t active_recipe_counter::wait_for_next_decrease_call() {
   std::unique_lock<std::mutex> cond_lock(counter_mutex_);
   if (counter_state_ > 0) {

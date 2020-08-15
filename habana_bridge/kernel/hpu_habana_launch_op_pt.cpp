@@ -20,6 +20,7 @@
 
 #include "habana_bridge/kernel/hpu_habana_launch_op_pt.h"
 #include "habana_device/HPUCheck.h"
+#include "habana_device/HPUAllocator.h"
 #include "habana_helpers/graph.h"
 #include "habana_helpers/logging.h"
 #include "habana_helpers/tensor_utils.h"
@@ -41,7 +42,14 @@ using namespace torch::jit;
 
 // static initializations
 size_t RecipeValueSpec::count = 0;
+
+std::mutex RecipeCacheLRU::mutex_;
+RecipeCacheLRU* RecipeCacheLRU::instance_ = nullptr;
+size_t RecipeCacheLRU::max_size_ = PGM_LRU_MAX_NRECIPES;
+
 size_t HabanaLaunchOpPT::instance_count_ = 0;
+size_t HabanaLaunchOpPT::recipe_count = 0;
+size_t HabanaLaunchOpPT::total_recipe_ntbytes = 0;
 //--------------------------------------
 
 TensorInfo::TensorInfo(
@@ -112,24 +120,42 @@ void PrintATenTensor(const IValPtrShared &a) {
   }
 }
 
+std::ostream & operator<<(std::ostream & O, PGMCachingPolicy P) {
+  switch (P) {
+    case PGMCachingPolicy::simple :
+      O << "simple";
+      break;
+    case PGMCachingPolicy::single :
+      O << "single";
+      break;
+    case PGMCachingPolicy::lru :
+      O << "lru";
+      break;
+    default:
+      O << "unknown";
+  }
+  return O;
+}
+
 RecipeArgumentSpec::RecipeArgumentSpec(
     bool with_grad,
     at::ArrayRef<torch::jit::IValue> input_refs,
-    const std::shared_ptr<torch::jit::Graph>& irgraph)
+    const std::shared_ptr<torch::jit::Graph>& irgraph,
+    const std::string &id)
     : cas(with_grad, input_refs),
       hash_code(cas.hashCode()),
       opstrs(std::string()) {
   std::hash<std::string> str_hash;
+  opstrs.append(id + "::\n");
   for (auto* node : irgraph->nodes()) {
     std::string s(node->kind().toQualString());
     // Adding delemeters for better readability
-    opstrs.append("<" + s);
+    opstrs.append("<" + s + ">");
     if (node->kind() == torch::jit::prim::Constant) {
       std::ostringstream oss;
       oss << *node;
       opstrs.append(":" + oss.str());
     }
-    opstrs.append(">");
   }
   hash_code = torch::hash_combine(hash_code, str_hash(opstrs));
 }
@@ -161,8 +187,13 @@ std::ostream& operator<<(std::ostream& O, const RecipeArgumentSpec& v) {
   return O;
 }
 
+
+RecipeValueSpec::~RecipeValueSpec() {
+  PT_BRIDGE_DEBUG("Destroying recipe with key : ", key);
+}
+
 std::ostream& operator<<(std::ostream& O, const RecipeValueSpec& v) {
-  O << "recipe details ::"
+  O << "---- recipe details ::"
     << " <id : " << v.id << "> "
     << " <iteration : " << v.iter_idx << "> "
     << " <addr : " << v.recipe.get() << "> "
@@ -191,6 +222,7 @@ std::ostream& operator<<(std::ostream& O, const RecipeValueSpec& v) {
       O << a << '\n';
     }
   }
+  O << "---- recipe details :: end" << '\n';
 
   return O;
 }
@@ -265,29 +297,214 @@ void RecipeValueSpec::d2h_dbuff(size_t buf_idx) {
   }
 }
 
+void RecipeCacheSimple::add(
+    std::shared_ptr<RecipeArgumentSpec>& key,
+    std::shared_ptr<RecipeValueSpec>& val) {
+  HabanaLaunchOpPT::recipe_count++;
+  map_.emplace(key, val);
+  HabanaLaunchOpPT::total_recipe_ntbytes += val->ntensorbytes;
+}
+
 std::ostream& operator<<(std::ostream& O, const RecipeCacheSimple& v) {
   O << "number of recipes : " << v.map_.size() << '\n';
   for (auto& i : v.map_) {
     O << "-------------------" << '\n';
-    O << "key :: " << *(i.first);
+    O << "key :: " << *i.first;
     O << "-------------------" << '\n';
-    O << "val :: " << i.second;
+    O << "val :: " << *i.second;
     O << "-------------------" << '\n';
   }
   return O;
 }
 
+void RecipeCacheSingle::add(
+    std::shared_ptr<RecipeArgumentSpec> &rargpsh,
+    std::shared_ptr<RecipeValueSpec> &rvalpsh) {
+  if (!is_valid) {
+    HabanaLaunchOpPT::recipe_count++;
+    is_valid = true;
+  } else {
+    TORCH_CHECK(HabanaLaunchOpPT::total_recipe_ntbytes >= last_rvalpsh->ntensorbytes,
+        "error in total tensor byte accounting, total_recipe_ntbytes ",
+        HabanaLaunchOpPT::total_recipe_ntbytes,
+        " should be greater than last_recipe.ntensorbytes ",
+        last_rvalpsh->ntensorbytes);
+
+    HabanaLaunchOpPT::total_recipe_ntbytes -= last_rvalpsh->ntensorbytes;
+  }
+  last_rargpsh = rargpsh;
+  last_rvalpsh = rvalpsh;
+  HabanaLaunchOpPT::total_recipe_ntbytes += last_rvalpsh->ntensorbytes;
+}
+
+std::ostream& operator<<(std::ostream& O, const RecipeCacheSingle& v) {
+  O << "-------------------" << '\n';
+  O << "key :: " << *v.last_rargpsh;
+  O << "-------------------" << '\n';
+  O << "val :: " << *v.last_rvalpsh;
+  O << "-------------------" << '\n';
+  return O;
+}
+
+void RecipeCacheLRU::add(
+    std::shared_ptr<RecipeArgumentSpec>& key,
+    std::shared_ptr<RecipeValueSpec>& val) {
+  std::lock_guard<std::mutex> lg(mutex_);
+
+  TORCH_CHECK(map_.size() == list_.size(),
+      "lru cache corruption, map size ", map_.size(),
+      " not equal to list_size ", list_.size());
+
+  size_t rcnt{0};
+  bool dropped{true};
+  while (!map_.empty() && dropped && map_.size() >= max_size_) {
+    dropped = drop_lru_impl(rcnt);
+    if (!dropped) {
+      PT_BRIDGE_DEBUG("all recipes are in use, could not drop any, current recipe count ", rcnt);
+    }
+  }
+
+  HabanaLaunchOpPT::recipe_count++;
+
+  auto mit = map_.find(key);
+  TORCH_CHECK(mit == map_.end(), "problematic key ", key, " another recipe already exists in cache");
+
+  list_.push_front(
+      std::pair<std::shared_ptr<RecipeArgumentSpec>, std::shared_ptr<RecipeValueSpec>>(key, val));
+  map_.emplace(key, list_.begin());
+
+  HabanaLaunchOpPT::total_recipe_ntbytes += val->ntensorbytes;
+
+  PT_BRIDGE_DEBUG("  adding new recipe, key ",
+      key->hashCode(),
+      ", ntensorbytes ",
+      val->ntensorbytes);
+
+  PT_BRIDGE_DEBUG("  after adding new recipe, nrecipes ",
+      HabanaLaunchOpPT::recipe_count,
+      " total_recipe_ntbytes ",
+      HabanaLaunchOpPT::total_recipe_ntbytes);
+}
+
+std::shared_ptr<RecipeValueSpec> RecipeCacheLRU::get(std::shared_ptr<RecipeArgumentSpec>& key) {
+  std::lock_guard<std::mutex> lg(mutex_);
+  if (exists(key)) {
+    TORCH_CHECK(map_.size() == list_.size(),
+        "lru cache corruption, map size ", map_.size(),
+        " not equal to list_size ", list_.size());
+
+    TORCH_CHECK(exists(key), "Recipe does not exist in map");
+
+    auto mit = map_.find(key);
+    list_.splice(list_.begin(), list_, mit->second);
+
+    // wait till the execution complete
+    bool use_flag {false};
+    do {
+      use_flag = list_.front().second->get_use_flag();
+      if (use_flag) {
+        PT_BRIDGE_DEBUG("waiting for the completion of recipe, key ", key->hashCode());
+        std::this_thread::sleep_for(std::chrono::milliseconds(200));
+      }
+    } while (use_flag);
+
+    // set the use flag true so that the recipe is not removed from cache
+    // it is the responsibility of the caller of get function to
+    // set the use flag to false after the execution is completed
+    list_.front().second->set_use_flag(true);
+
+    return list_.front().second;
+  }
+
+  return {nullptr};
+}
+
+bool RecipeCacheLRU::drop_lru(size_t &recipe_count) {
+  std::lock_guard<std::mutex> lg(mutex_);
+  bool dropped = drop_lru_impl(recipe_count, true);
+  return dropped;
+}
+
+bool RecipeCacheLRU::drop_lru_impl(size_t &recipe_count, bool mem_exhausted) {
+  bool dropped {false};
+
+  // remove a recipe from the last that is not being used
+  if (!map_.empty()) {
+    auto lit = list_.end();
+    lit--;
+
+    while(lit->second->get_use_flag() == true && lit != list_.begin()) {
+      PT_BRIDGE_DEBUG("recipe is in use, key ", lit->first->hashCode(),
+          ", ntensorbytes ", lit->second->ntensorbytes);
+      lit--;
+    }
+
+    // delete the recipe only if it is not in use
+    // otherwise the caller need to wait
+    if (lit->second->get_use_flag() == false) {
+      if (mem_exhausted) {
+        PT_BRIDGE_DEBUG("memory exhausted : removing recipe, key ",
+            lit->first->hashCode(),
+            ", ntensorbytes ",
+            lit->second->ntensorbytes);
+      } else {
+        PT_BRIDGE_DEBUG("lru max size ", max_size_,
+            " reached : removing recipe, key ", lit->first->hashCode(),
+            ", ntensorbytes ", lit->second->ntensorbytes);
+      }
+
+      HabanaLaunchOpPT::recipe_count--;
+      HabanaLaunchOpPT::total_recipe_ntbytes -= lit->second->ntensorbytes;
+
+      // Drop the entry from list_ and map_
+      map_.erase(lit->first);
+      list_.pop_back();
+      dropped = true;
+
+      PT_BRIDGE_DEBUG("after dropping lru recipe, nrecipes ",
+          HabanaLaunchOpPT::recipe_count,
+          " total_recipe_ntbytes ",
+          HabanaLaunchOpPT::total_recipe_ntbytes);
+    } else {
+      PT_BRIDGE_DEBUG("all recipes are in use, can not drop any recipe");
+    }
+  }
+
+  recipe_count = map_.size();
+  return dropped;
+}
+
+bool dropCachedRecipe_LRU (size_t &recipe_count) {
+  bool dropped {false};
+  dropped = RecipeCacheLRU::get_cache().drop_lru(recipe_count);
+  return dropped;
+}
+
 HabanaLaunchOpPT::HabanaLaunchOpPT(const torch::jit::Node* node, bool debug) {
-  instance_count_++;
   subgraph_ = node->g(attr::Subgraph);
   opname_ = node->kind().toQualString();
   std::replace(opname_.begin(), opname_.end(), ':', '_');
   debug_ = debug;
   std::ostringstream oss;
   oss << opname_ << '_' << instance_count_;
+  instance_count_++;
   id_str = oss.str();
 
   PT_BRIDGE_DEBUG("Creating : ", id_str);
+
+  char* caching_policy_str = getenv("HABANA_PGM_CACHING_POLICY");
+  if (caching_policy_str != nullptr) {
+    if (std::string("simple") == std::string(caching_policy_str)) {
+      caching_policy = PGMCachingPolicy::simple;
+    } else if (std::string("single") == std::string(caching_policy_str)) {
+      caching_policy = PGMCachingPolicy::single;
+    } else if (std::string("lru") == std::string(caching_policy_str)) {
+      caching_policy = PGMCachingPolicy::lru;
+      if (!at::habana::HPUDeviceAllocator::drop_cached_recipe_cb) {
+        at::habana::HPUDeviceAllocator::drop_cached_recipe_cb = dropCachedRecipe_LRU;
+      }
+    }
+  }
 
   value_to_persistent_flag = {};
 
@@ -497,10 +714,6 @@ void HabanaLaunchOpPT::GetSynapseInputs(
 
         pt_to_synapse_tensors.emplace(value_to_ivalue[value_in], tensorList);
 
-        //if (value_to_ivalue[value_in]->isTensorList()) {
-          //TORCH_CHECK(0, "Patching not supported for tensorList\n");
-        //}
-
         if (enable_caching_) {
           input_tiv_map.emplace(value_to_ivalue[value_in], tiv);
         } else {
@@ -570,7 +783,8 @@ void HabanaLaunchOpPT::GetSynapseOutputs(
           std::make_shared<IVal>(output_tensors_pt[output_tensor_idx]);
       value_to_ivalue[output_nodes[output_nodes_idx]] = ivpsh;
 
-      if (false == isInGraphOutputs(output_nodes[output_nodes_idx])) {
+      if (use_persistent_tensors &&
+          false == isInGraphOutputs(output_nodes[output_nodes_idx])) {
         aten_intermediates.push_back(ivpsh->toTensor());
       }
       SharedSynTensorOrRefListPtr tensorList = std::make_shared<SynTensorOrRefList>();
@@ -1030,14 +1244,14 @@ void HabanaLaunchOpPT::FlattenAndLinkInputTIVs(RecipeValueSpec& rv) {
       const auto ti = absl::get<TensorInfo>(tiv);
       rv.dtensorinfos->push_back(ti);
       if (enable_caching_) {
-       buff_to_inputtividx_map.emplace(ti.buffer, rv.dtensorinfos->size()-1);
+        buff_to_inputtividx_map.emplace(ti.buffer, rv.dtensorinfos->size()-1);
       }
     }
     else if (absl::holds_alternative<std::vector<TensorInfo>>(tiv)) {
       for (const auto & ti : absl::get<std::vector<TensorInfo>>(tiv)) {
         rv.dtensorinfos->push_back(ti);
         if (enable_caching_) {
-         buff_to_inputtividx_map.emplace(ti.buffer, rv.dtensorinfos->size()-1);
+          buff_to_inputtividx_map.emplace(ti.buffer, rv.dtensorinfos->size()-1);
         }
       }
     }
@@ -1170,7 +1384,12 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
   }
 
   auto cur_recipe = get_value(std::move(error_variant));
-  RecipeValueSpec rv(cur_recipe);
+  //RecipeValueSpec rv (cur_recipe);
+
+  std::shared_ptr<RecipeValueSpec> rvalpsh =
+      std::make_shared<RecipeValueSpec>(cur_recipe);
+
+  RecipeValueSpec &rv = *rvalpsh;
 
   // output_tensorinfos is populated during compile and does not need any post
   // processing, whereas input_tivs need to be reordered
@@ -1194,6 +1413,12 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
       "num_duplicates ", rv.num_duplicates,
       "num_interims ", rv.num_interims,
       " are not adding up to #dtensorinfos ", rv.dtensorinfos->size());
+
+  for (auto & ti : *rv.dtensorinfos) {
+    if (!ti.is_duplicate) {
+      rv.ntensorbytes += ti.size;
+    }
+  }
 
   rv.dtensorinfos->insert(
       rv.dtensorinfos->end(),
@@ -1248,10 +1473,23 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
 
   if (enable_caching_) {
     // Add the <key,value> pair to the map
-    std::shared_ptr<RecipeArgumentSpec> ra_spec =
-        std::make_shared<RecipeArgumentSpec>(false, input_refs, subgraph_);
-    recipe_cache.add(ra_spec, rv);
-    PT_BRIDGE_DEBUG("recipe Key:", ra_spec->hashCode());
+    std::shared_ptr<RecipeArgumentSpec> rargpsh =
+        std::make_shared<RecipeArgumentSpec>(false, input_refs, subgraph_, id_str);
+    rv.key = rargpsh->hashCode();
+
+    switch (caching_policy) {
+      case PGMCachingPolicy::simple :
+        recipe_cache_simple.add(rargpsh, rvalpsh);
+        break;
+      case PGMCachingPolicy::single :
+        recipe_cache_single.add(rargpsh, rvalpsh);
+        break;
+      case PGMCachingPolicy::lru :
+        RecipeCacheLRU::get_cache().add(rargpsh, rvalpsh);
+        break;
+      default :
+        TORCH_CHECK(false, "should not be reachable");
+    }
   } else {
     aten_intermediates.clear();
   }
@@ -1375,7 +1613,7 @@ void HabanaLaunchOpPT::LaunchRecipe(
   if (device.IsStreamASyncEnabled()) {
     // regsiter an event on the compute
     device.register_producer_on_stream(
-        std::move(outDevPtr), stream_handle, [ptRefs, rv, &recipe_counter]() {
+        std::move(outDevPtr), stream_handle, [&recipe_counter]() {
           recipe_counter.decrease_and_notify();
           return;
         });
@@ -1436,13 +1674,35 @@ void HabanaLaunchOpPT::clear() {
   num_tensor_inputs = 0;
 }
 
-bool HabanaLaunchOpPT::IsCached(std::shared_ptr<RecipeArgumentSpec>& spec) {
-  // Check whether the input signature is changed
-  bool is_found(false);
-  if (!recipe_cache.empty() && recipe_cache.exists(spec)) {
-    is_found = true;
+std::shared_ptr<RecipeValueSpec> HabanaLaunchOpPT::GetCachedRecipe(
+    std::shared_ptr<RecipeArgumentSpec>& spec_key) {
+  switch (caching_policy) {
+    case PGMCachingPolicy::simple :
+      return recipe_cache_simple.get(spec_key);
+    case PGMCachingPolicy::single :
+      return recipe_cache_single.get(spec_key);
+    case PGMCachingPolicy::lru :
+      return RecipeCacheLRU::get_cache().get(spec_key);
+    default :
+      TORCH_CHECK(false, "should not be reachable");
   }
-  return is_found;
+
+  return {nullptr};
+}
+
+
+void HabanaLaunchOpPT::ReturnCachedRecipe(RecipeValueSpec &rv) {
+  switch (caching_policy) {
+    case PGMCachingPolicy::simple :
+      break;
+    case PGMCachingPolicy::single :
+      break;
+    case PGMCachingPolicy::lru :
+      rv.set_use_flag(false);
+      break;
+    default :
+      TORCH_CHECK(false, "should not be reachable");
+  }
 }
 
 void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
@@ -1484,18 +1744,20 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
 
   // caching :: begin
   if (enable_caching_) {
-    std::shared_ptr<RecipeArgumentSpec> spec =
-        std::make_shared<RecipeArgumentSpec>(false, input_refs, subgraph_);
+    std::shared_ptr<RecipeArgumentSpec> spec_key =
+        std::make_shared<RecipeArgumentSpec>(false, input_refs, subgraph_, id_str);
 
-    if (IsCached(spec)) {
-      // This is cache hit. Run the cached recipe
-      RecipeValueSpec rv = recipe_cache.get(spec);
-      PT_BRIDGE_DEBUG("Cache hit key:", spec->hashCode());
+    std::shared_ptr<RecipeValueSpec> rvpsh = GetCachedRecipe(spec_key);
+    if (ABSL_PREDICT_TRUE(rvpsh)) {
+      RecipeValueSpec &rv = *rvpsh;
+
+      PT_BRIDGE_DEBUG("PGM cache hit, key:", spec_key->hashCode(),
+          ", ntensorbytes ", rv.ntensorbytes,
+          ", total_recipe_ntbytes ", total_recipe_ntbytes);
 
       // Patch the input buffers
       // Running index on rv.dtensorinfos
       size_t ridx = 0;
-
       for (auto const& input : input_refs) {
         if (input.isTensor()) {
           rv.dtensorinfos->at(ridx).buffer = input.toTensor().data_ptr();
@@ -1532,15 +1794,18 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
 
       // Update the stack from the recipe itself
       UpdateOutputs(rv);
+      ReturnCachedRecipe(rv);
 
       clear();
       PT_BRIDGE_END;
       return;
     }
+    else {
+      PT_BRIDGE_DEBUG("PGM cache miss, key : ", spec_key->hashCode());
+    }
   }
   // caching :: end
   {
-
     for (size_t j = 0; j < pt_stack_sh.size(); j++) {
       auto value_input = subgraph_inputs[j];
       value_to_tensor_layout[value_input].layout = habana::LayoutFormat::NCHW;

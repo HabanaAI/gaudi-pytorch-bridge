@@ -18,6 +18,7 @@ namespace at {
 namespace habana {
 
 synDeviceId HPUDeviceAllocator::allocator_active_device_id = -1;
+pgmDropCachedRecipe HPUDeviceAllocator::drop_cached_recipe_cb = nullptr;
 
 static HPUDeviceAllocator hpu_device_allocator;
 
@@ -71,14 +72,14 @@ static void waitTillRecipeExecution(
     uint64_t ptr{0};
     counter_state = recipe_counter.wait_for_next_decrease_call();
     PT_DEVICE_DEBUG(
-        "retrying to memory alloc, Waiting for recipes to finish execution recipe count:",
+        "retrying memory alloc, waiting for recipes to finish execution, recipe count ",
         counter_state,
-        "requested size",
+        " requested size ",
         num_bytes);
     auto status = synDeviceMalloc(device_id, num_bytes, 0, 0, &ptr);
     if (!status)
       v_ptr = reinterpret_cast<void*>(ptr);
-    // It is not guaranted that device will have more memory avaliable at exit
+    // It is not guaranteed that device will have more memory avaliable at exit
     // point, since framework might called multiple new allocations from other
     // threads, or wakeup might be spurious.
   } while (counter_state > 0 && v_ptr == nullptr);
@@ -108,6 +109,7 @@ void HPUAllocator::free(void* ptr) {
   if (nullptr == ptr) {
     return;
   }
+
   uint64_t ptr_address{reinterpret_cast<uint64_t>(ptr)};
   auto status{synDeviceFree(device_id, ptr_address, 0)};
   TORCH_HABANA_CHECK(status, "synDeviceFree failed");
@@ -216,51 +218,135 @@ void HPUDeviceAllocator::deleter(void* ptr) {
   }
 }
 
-at::DataPtr HPUDeviceAllocator::allocate(size_t size) const {
-  size_t num_bytes = size;
-  uint64_t ptr{0};
-  void* v_ptr = nullptr;
-
-  if (num_bytes != 0) {
-    TORCH_CHECK(
-        habana::HPUDeviceAllocator::allocator_active_device_id == 0,
-        "habana active device: ",
-        habana::HPUDeviceAllocator::allocator_active_device_id,
-        " != 0");
-
-    if (poolingType != pool_allocator::strategy_none) {
-      // pool must be created in the constructor. Device is not
-      // yet initialized so creating here
-        create_pool(allocator_active_device_id, poolSize);
-        ptr = (uint64_t)suballoc->pool_alloc_chunk(mem_pool, num_bytes);
-        if ((void*)ptr == nullptr) {
-          PT_DEVICE_FATAL("pooling allocator failed");
-        }
-        v_ptr = reinterpret_cast<void*>(ptr);
-    } else {
-        auto status{
-          synDeviceMalloc(allocator_active_device_id, num_bytes, 0, 0, &ptr)};
-        v_ptr = reinterpret_cast<void*>(ptr);
-
-        if (v_ptr == nullptr) {
-          waitTillRecipeExecution(allocator_active_device_id, num_bytes, v_ptr);
-          if (v_ptr == nullptr) {
-             TORCH_HABANA_CHECK(
-                status, "synDeviceMalloc failed to allocate ", num_bytes, " bytes");
-          }
-        }
-    }
-  }
+at::DataPtr HPUDeviceAllocator::allocate(size_t num_bytes) const {
+  void* v_ptr {nullptr};
+  synStatus status {synStatus::synSuccess};
 
   TORCH_CHECK(
       habana::HPUDeviceAllocator::allocator_active_device_id == 0,
       "habana active device: ",
       habana::HPUDeviceAllocator::allocator_active_device_id,
       " != 0");
+
+  if (num_bytes != 0) {
+    v_ptr = allocate_impl(num_bytes, status);
+
+    if (v_ptr == nullptr) {
+      auto& device = synapse_helpers::HPURegistrar::get_device(allocator_active_device_id);
+      // Allocation has failed, if there are still recipies in queue to execute,
+      // there is a chance to recover. Wait for next recipe to finish and try to
+      // allocate again, continue until malloc succeeds, or there are no more
+      // recipes executing (unrecoverable case).
+      auto& recipe_counter = device.get_active_recipe_counter();
+      if (!recipe_counter.is_zero()) {
+        uint32_t counter_state{0};
+        do {
+          counter_state = recipe_counter.wait_for_next_decrease_call();
+          PT_DEVICE_DEBUG(
+              "retrying memory alloc, ",
+              "waiting for recipe launch completion, recipe count ",
+              counter_state,
+              " requested size ",
+              num_bytes);
+          v_ptr = allocate_impl(num_bytes, status);
+          // It is not guaranteed that device will have more memory avaliable at exit
+          // point, since framework might called multiple new allocations from other
+          // threads, or wakeup might be spurious.
+        } while (counter_state > 0 && v_ptr == nullptr);
+      }
+
+      if (v_ptr == nullptr && drop_cached_recipe_cb != nullptr) {
+        size_t nrecipes {0};
+        do {
+          bool drop_succeeded {false};
+
+          // last resort to free up memory
+          // we will wait for the completion of one recipe
+          do {
+            drop_succeeded = drop_cached_recipe_cb(nrecipes);
+            if (!drop_succeeded) {
+              std::this_thread::sleep_for(std::chrono::milliseconds(200));
+            }
+          } while (false == drop_succeeded && nrecipes > 0);
+
+          PT_DEVICE_DEBUG(
+              "retrying mem alloc after dropping lru recipe, ",
+              "requested size ",
+              num_bytes);
+
+          v_ptr = allocate_impl(num_bytes, status);
+        } while (v_ptr == nullptr && nrecipes > 0);
+      }
+
+      if (status != synStatus::synSuccess) {
+        uint64_t free_mem, total_mem;
+        auto status_mem = synDeviceGetMemoryInfo(allocator_active_device_id, &free_mem, &total_mem);
+        if (synStatus::synSuccess != status_mem) {
+            PT_DEVICE_FATAL("device memory size query failed with ", status_mem);
+        }
+
+        if (num_bytes > free_mem) {
+            PT_DEVICE_DEBUG("requested size ", num_bytes,
+                " is more than avaiable free memory ", free_mem);
+        } else {
+            PT_DEVICE_DEBUG("failed to allocate ", num_bytes,
+                " although the avaiable free memory is ", free_mem,
+                " most likely due to fragmentation");
+        }
+
+        TORCH_HABANA_CHECK(
+           status, "allocate_impl failed to allocate ", num_bytes, " bytes");
+      }
+
+      TORCH_CHECK(nullptr != v_ptr, "memory corruption");
+
+      PT_DEVICE_DEBUG("successful memory alloc after retry, requested size ", num_bytes);
+    }
+  }
+
   return {v_ptr,
           v_ptr,
           &HPUDeviceAllocator::deleter,
           Device(DeviceType::HABANA, allocator_active_device_id)};
+}
+
+void* HPUDeviceAllocator::allocate_impl(size_t size, synStatus &status) const {
+  size_t num_bytes = size;
+  uint64_t ptr{0};
+  void* v_ptr = nullptr;
+
+  status = synStatus::synSuccess;
+
+  TORCH_CHECK(
+      habana::HPUDeviceAllocator::allocator_active_device_id == 0,
+      "habana active device: ",
+      habana::HPUDeviceAllocator::allocator_active_device_id,
+      " != 0");
+
+  if (poolingType != pool_allocator::strategy_none) {
+    // pool must be created in the constructor
+    // device is not yet initialized so creating here
+
+    create_pool(allocator_active_device_id, poolSize);
+    ptr = (uint64_t)suballoc->pool_alloc_chunk(mem_pool, num_bytes);
+
+    if ((void*)ptr == nullptr) {
+      PT_DEVICE_DEBUG("pooling allocator failed, requested size ", num_bytes);
+      status = synFail;
+    }
+
+    v_ptr = reinterpret_cast<void*>(ptr);
+  } else {
+    status = synDeviceMalloc(allocator_active_device_id, num_bytes, 0, 0, &ptr);
+
+    if (synStatus::synSuccess != status) {
+      PT_DEVICE_DEBUG("synDeviceMalloc failed, requested size ", num_bytes);
+    } else {
+      v_ptr = reinterpret_cast<void*>(ptr);
+    }
+  }
+
+  return v_ptr;
 }
 
 at::DeleterFnPtr HPUDeviceAllocator::raw_deleter() const {

@@ -17,6 +17,7 @@
 #include "pool_allocator/PoolAllocator.h"
 #include "pool_allocator/CoalescedPoolAllocator.h"
 
+typedef bool (*pgmDropCachedRecipe) (size_t &recipe_count);
 
 namespace at {
 namespace habana {
@@ -81,16 +82,20 @@ class HPUDeviceAllocator final : public at::Allocator {
   static void create_pool(synDeviceId deviceID,  uint64_t poolSize);
   static void delete_pool();
   static pool_allocator::SubAllocator *suballoc;
+
   static void* mem_pool;
   static pool_allocator::PoolStrategyType poolingType;
   static uint64_t poolSize;
 
   at::DataPtr allocate(size_t size) const override;
   at::DeleterFnPtr raw_deleter() const override;
+
+  void* allocate_impl(size_t size, synStatus &status) const;
   static void deleter(void *ptr);
 
   // user must manually set active device before calling allocator functions
   static synDeviceId allocator_active_device_id;
+  static pgmDropCachedRecipe drop_cached_recipe_cb;
 };
 
 } // namespace habana

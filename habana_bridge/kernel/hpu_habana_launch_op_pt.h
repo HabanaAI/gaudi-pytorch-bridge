@@ -16,12 +16,14 @@
 
 #include <cstdlib>
 
+#include <atomic>
 #include <chrono>
 #include <fstream>
 #include <functional>
 #include <iostream>
 #include <string>
 #include <unordered_set>
+#include <mutex>
 
 #include <ATen/Tensor.h>
 #include <absl/hash/hash.h>
@@ -33,7 +35,18 @@
 #include "habana_kernels/habana_operator.h"
 #include "synapse_helpers/graph.h"
 
+#define PGM_LRU_MAX_NRECIPES 100
+#define PGM_LRU_MIN_NRECIPES 3
+
 using namespace habana;
+
+enum class PGMCachingPolicy {
+  simple,
+  single,
+  lru
+};
+
+std::ostream & operator<<(std::ostream & O, PGMCachingPolicy P);
 
 struct TensorInfo;
 
@@ -87,7 +100,8 @@ struct RecipeArgumentSpec {
   RecipeArgumentSpec(
       bool with_grad,
       at::ArrayRef<torch::jit::IValue> input_refs,
-      const std::shared_ptr<torch::jit::Graph>& irgraph);
+      const std::shared_ptr<torch::jit::Graph>& irgraph,
+      const std::string &id);
 
   bool operator==(const RecipeArgumentSpec& arg) const {
     bool ret = (cas == arg.cas && opstrs == arg.opstrs);
@@ -147,6 +161,8 @@ struct RecipeValueSpec {
     id = count;
   }
 
+  ~RecipeValueSpec();
+
   void SelfCheck() {
     TORCH_CHECK(recipe != nullptr)
     TORCH_CHECK(dtensorinfos != nullptr);
@@ -160,6 +176,14 @@ struct RecipeValueSpec {
       size_t iteration_count,
       int numel = -1);
   void d2h_dbuff(size_t buf_idx);
+
+  bool get_use_flag() {
+    return in_use.load(std::memory_order_relaxed);
+  }
+
+  void set_use_flag(bool flag) {
+    in_use.store(flag, std::memory_order_relaxed);
+  }
 
   friend std::ostream& operator<<(std::ostream& O, const RecipeValueSpec& v);
 
@@ -178,13 +202,21 @@ struct RecipeValueSpec {
   size_t num_interims{0};
   size_t num_outputs{0};
 
+  size_t ntensorbytes{0};
+
+  size_t key{0};
+
+
   static size_t count;
+
+ private:
+  std::atomic<bool> in_use {false};
 };
 
 struct RecipeCacheSimple {
   std::unordered_map<
       std::shared_ptr<RecipeArgumentSpec>,
-      RecipeValueSpec,
+      std::shared_ptr<RecipeValueSpec>,
       RecipeArgumentSpecHash,
       RecipeArgumentSpecEqual>
       map_;
@@ -201,13 +233,47 @@ struct RecipeCacheSimple {
     return ret_flag;
   }
 
-  RecipeValueSpec& get(std::shared_ptr<RecipeArgumentSpec>& key) {
-    return map_[key];
+  std::shared_ptr<RecipeValueSpec> get(std::shared_ptr<RecipeArgumentSpec>& key) {
+    if (exists(key)) {
+      return map_[key];
+    }
+
+    return {nullptr};
   }
 
-  void add(std::shared_ptr<RecipeArgumentSpec>& key, RecipeValueSpec& val) {
-    map_.emplace(key, val);
+  void add(std::shared_ptr<RecipeArgumentSpec>& key, std::shared_ptr<RecipeValueSpec>& val);
+
+  friend std::ostream& operator<<(std::ostream& O, const RecipeCacheSimple& v);
+};
+
+struct RecipeCacheSingle {
+  std::shared_ptr<RecipeArgumentSpec> last_rargpsh {nullptr};
+  std::shared_ptr<RecipeValueSpec> last_rvalpsh {nullptr};
+  bool is_valid {false};
+
+  bool empty() {
+    return (!is_valid);
   }
+
+  bool exists(std::shared_ptr<RecipeArgumentSpec>& key) {
+    bool ret_flag{false};
+    if (!empty() && *last_rargpsh == *key) {
+      ret_flag = true;
+    }
+    return ret_flag;
+  }
+
+  std::shared_ptr<RecipeValueSpec> get(std::shared_ptr<RecipeArgumentSpec>& key) {
+    if (exists(key)) {
+      TORCH_CHECK(is_valid, "recipe.get is called on an empty cache");
+      return last_rvalpsh;
+    }
+
+    return {nullptr};
+  }
+
+  void add(std::shared_ptr<RecipeArgumentSpec> &rargpsh,
+      std::shared_ptr<RecipeValueSpec> &rvalpsh);
 
   friend std::ostream& operator<<(std::ostream& O, const RecipeCacheSimple& v);
 };
@@ -218,6 +284,65 @@ struct habanaTensorLayoutInfo
   habana::LayoutFormat layout_at_graph_entry;
 };
 
+class RecipeCacheLRU {
+ public:
+  static RecipeCacheLRU& get_cache(){
+    std::lock_guard<std::mutex> lg(mutex_);
+    if ( !instance_ ) {
+      instance_ = new RecipeCacheLRU();
+
+      char* smaxsize = getenv("HABANA_PGM_LRU_MAX");
+      if (smaxsize != nullptr) {
+        max_size_ = std::max(PGM_LRU_MIN_NRECIPES, atoi(smaxsize));
+      }
+      PT_BRIDGE_DEBUG("Creating : cache with lru replacement policy, max size ", max_size_);
+    }
+    return *instance_;
+  }
+
+  bool empty() {
+    return (map_.size() == 0);
+  }
+
+  bool exists(std::shared_ptr<RecipeArgumentSpec>& key) {
+    bool ret_flag{false};
+    if (!empty() && map_.end() != map_.find(key)) {
+      ret_flag = true;
+    }
+    return ret_flag;
+  }
+
+  void remove_oldest();
+  bool drop_lru(size_t &recipe_count);
+  void add(std::shared_ptr<RecipeArgumentSpec>& key, std::shared_ptr<RecipeValueSpec>& val);
+
+  std::shared_ptr<RecipeValueSpec> get(std::shared_ptr<RecipeArgumentSpec>& key);
+
+  //friend std::ostream& operator<<(std::ostream& O, const RecipeCacheLRU& v);
+
+ private:
+  RecipeCacheLRU() = default;
+  ~RecipeCacheLRU() = default;
+  RecipeCacheLRU(const RecipeCacheLRU&) = delete;
+  RecipeCacheLRU& operator=(const RecipeCacheLRU&) = delete;
+  bool drop_lru_impl(size_t &recipe_count, bool mem_exhausted = false);
+
+  static std::mutex mutex_;
+  static RecipeCacheLRU* instance_;
+  static size_t max_size_;
+
+  std::list<std::pair<std::shared_ptr<RecipeArgumentSpec>,
+      std::shared_ptr<RecipeValueSpec>>> list_;
+
+  std::unordered_map<
+      std::shared_ptr<RecipeArgumentSpec>,
+      std::list<
+          std::pair<std::shared_ptr<RecipeArgumentSpec>,
+              std::shared_ptr<RecipeValueSpec>>>::iterator,
+      RecipeArgumentSpecHash,
+      RecipeArgumentSpecEqual> map_;
+};
+
 class HabanaLaunchOpPT {
  public:
   explicit HabanaLaunchOpPT(const torch::jit::Node* node, bool debug);
@@ -225,8 +350,11 @@ class HabanaLaunchOpPT {
   void evaluate(torch::jit::Stack& stack);
   void run(torch::jit::Stack& stack);
 
- private:
   static size_t instance_count_;
+  static size_t recipe_count;
+  static size_t total_recipe_ntbytes;
+
+ private:
 
   std::shared_ptr<torch::jit::Graph> subgraph_;
   std::string opname_;
@@ -284,7 +412,11 @@ class HabanaLaunchOpPT {
   at::ArrayRef<torch::jit::IValue> input_refs;
   torch::jit::Stack* pt_stack = nullptr;
 
-  RecipeCacheSimple recipe_cache;
+  RecipeCacheSimple recipe_cache_simple;
+  RecipeCacheSingle recipe_cache_single;
+
+  // By default single unbounded cache will be used
+  PGMCachingPolicy caching_policy { PGMCachingPolicy::simple };
 
   // caching :: end
 
@@ -339,7 +471,8 @@ class HabanaLaunchOpPT {
   template <class T>
   void clearMember(T& m_container);
 
-  bool IsCached(std::shared_ptr<RecipeArgumentSpec>& spec);
+  std::shared_ptr<RecipeValueSpec> GetCachedRecipe(std::shared_ptr<RecipeArgumentSpec>& spec_key);
+  void ReturnCachedRecipe(RecipeValueSpec &rv);
 
   void OrderInputs(RecipeValueSpec& rv);
   void FlattenAndLinkInputTIVs(RecipeValueSpec& rv);
