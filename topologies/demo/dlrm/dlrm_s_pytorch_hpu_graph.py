@@ -16,7 +16,7 @@ import preproc_cpp
 import torch.nn as nn
 import torch
 import inspect
-import pudb
+#import pudb
 # miscellaneous
 import builtins
 import functools
@@ -49,6 +49,18 @@ with warnings.catch_warnings():
 # import onnx
 # pytorch
 
+try:
+    path = os.path.join(os.environ['PYTORCH_MODULES_ROOT_PATH'], 'topologies')
+    tools_path = os.path.join(path, 'tools')
+    if os.path.exists(path) is False or os.path.exists(tools_path) is False:
+        raise Exception("path for 'tools' NOT found")
+    sys.path.append(path)
+    from tools import *
+    print('FOUND')
+except:
+    assert False, ("tools directory should be availabe as somedir/topologies/tools",
+                     "PYTORCH_MODULES_ROOT_PATH should be set to 'somedir'")
+    print('NOT FOUND')
 
 # quotient-remainder trick
 # mixed-dimension trick
@@ -180,11 +192,11 @@ class HabanaEmbeddingBag(torch.nn.Module):
             low=-np.sqrt(1 / n), high=np.sqrt(1 / n), size=(n, m)
         ).astype(np.float32)
         # approach 1
-        self.weights = nn.Parameter(torch.tensor(W, requires_grad=True))
+        self.weight = nn.Parameter(torch.tensor(W, requires_grad=True))
         self.instance = instance
 
     def forward(self, indices, offsets, valid_count_fwd, indices_bwd, offsets_bwd, valid_count_bwd, grad_weights, instance):
-        output = torch.embedding_bag_sum_fwd(self.weights, indices, offsets, valid_count_fwd,
+        output = torch.embedding_bag_sum_fwd(self.weight, indices, offsets, valid_count_fwd,
                                              indices_bwd, offsets_bwd, valid_count_bwd, grad_weights)
         return output
 
@@ -208,7 +220,7 @@ class HabanaOptimizerSparseSgd(torch.nn.Module):
         self.instance = instance
 
     def forward(self, gradients, weights, moments, indices, learning_rate, valid_count):
-        return HabanaOptimizerSparseSgdFunction.apply(gradients.to(device), weights.to(device), moments.to(device), indices.to(device), learning_rate.to(device), valid_count)
+        return HabanaOptimizerSparseSgdFunction.apply(gradients, weights, moments, indices, learning_rate, valid_count)
 
 
 def create_preproc(i):
@@ -224,64 +236,79 @@ def create_optimizer(i):
 def apply_preproc(sparse_offset_group_batch, sparse_index_group_batch, i, m, ln_emb):
     printFnTrace(inspect.getframeinfo(inspect.currentframe()).function)
     # print('apply_preproc for instance {}'.format(i))
-    sparse_offset_group_batch = sparse_offset_group_batch.type(torch.IntTensor)  # HACK
+    sparse_offset_group_batch = sparse_offset_group_batch.type(torch.IntTensor)
     sparse_index_group_batch = sparse_index_group_batch.type(torch.IntTensor)
 
     gv.countUniqueIndices[i], gv.uniqueIndexes[i], gv.outputRows[i], gv.outputRowOffsets[i] = gv.HabanaDlrmPreproc1[i](
         sparse_index_group_batch, sparse_offset_group_batch, 4)
 
     # create additional tensors needed by embedding bag sum
-    gv.valid_count_bwd[i] = torch.tensor(
-        [gv.outputRows[i].numel(), gv.countUniqueIndices[i].item()+1], dtype=torch.int32).to(device)
-    gv.valid_count_fwd[i] = torch.tensor([sparse_index_group_batch.numel(), sparse_offset_group_batch.numel(
-    )], dtype=torch.int32).to(device)
+    valid_count_fwd_cpu = torch.tensor([sparse_index_group_batch.numel(), sparse_offset_group_batch.numel(
+    )], dtype=torch.int32)
+    valid_count_bwd_cpu = torch.tensor(
+        [gv.outputRows[i].numel(), gv.countUniqueIndices[i].item()+1], dtype=torch.int32)
+
     numOffsets = gv.countUniqueIndices[i].item()+1
     gv.outputRowOffsets[i] = torch.narrow(gv.outputRowOffsets[i], 0, 0, numOffsets)
     gv.outputRowOffsets_hpu[i] = gv.outputRowOffsets[i].to(device)
 
-    #create max size tensors to avoid multiple graph compiles
-    # TODO: check what is the correct value
-    #gv.coalesced_grads[i] = torch.empty(ln_emb[i], m, dtype=torch.float32).to(device)
-    #gv.coalesced_grads[i] = torch.empty(gv.countUniqueIndices[i].item(), m, dtype=torch.float32).to(device)
-    gv.coalesced_grads[i] = torch.zeros(gv.countUniqueIndices[i].item(), m, dtype=torch.float32).to(device)
-    #max_i_size_fwd = ln_emb[i]*sparse_offset_group_batch.numel()
-    #max_i_size_bwd = ln_emb[i]*sparse_offset_group_batch.numel()
-    #gv.indices_fwd[i] = torch.empty([max_i_size_fwd],dtype=torch.int32).to(device)
-    gv.indices_fwd[i] = sparse_index_group_batch.to(device)
-    #gv.indices_bwd[i] = torch.empty([max_i_size_bwd],dtype=torch.int32).to(device)
-    gv.indices_bwd[i] = gv.outputRows[i].to(device)
+    #Creation of static max size tensors to enable graph caching
+    # TODO: optimize the max size values. currently worst case scenario is assumed
+    #numoffsets_bwd = num unique indices + 1. Worst case num unique indices = ln_emb[i]
+    if (gv.indices_fwd[i].size() == torch.Size([1, 1])):
+        #print("max size tensors created for instance ", i)
+        #max_i_size_fwd = ln_emb[i]*(sparse_offset_group_batch.numel()-1)
+        max_i_size_fwd = 10*(sparse_offset_group_batch.numel()-1) #CHECK
+        gv.indices_fwd[i] = torch.empty([max_i_size_fwd],dtype=torch.int32).to(device)
 
+        #max_i_size_bwd = ln_emb[i]*(sparse_offset_group_batch.numel()-1)
+        max_i_size_bwd = ln_emb[i]*50 #CHECK
+        gv.indices_bwd[i] = torch.empty([max_i_size_bwd],dtype=torch.int32).to(device)
 
+        gv.outputRowOffsets_hpu[i] = torch.empty(ln_emb[i]+1,dtype = torch.int32).to(device)
+        #Max possible grad in matrix
+        gv.coalesced_grads[i] = torch.empty(ln_emb[i], m, dtype=torch.float32).to(device)
 
+        gv.valid_count_fwd[i] = torch.empty([2], dtype=torch.int32).to(device)
+        gv.valid_count_bwd[i] = torch.empty([2], dtype=torch.int32).to(device)
 
     '''
-    print(i)
-    print(gv.outputRowOffsets[i])
-    print(gv.outputRows[i])
-    print(gv.valid_count_bwd[i])
-    print(gv.valid_count_fwd[i])
-    print(gv.coalesced_grads[i])
-    print(gv.countUniqueIndices[i])
-    print(gv.uniqueIndexes[i])
+    print("emb bag instance i size", m, ln_emb[i])
+    print("Tensor sizes after apply_preproc")
+    print("emb instance", i)
+    print("sparse_index_group_batch ", sparse_index_group_batch.size())
+    print("sparse_offset_group_batch ", sparse_offset_group_batch.size())
+    print("gv.indices_fwd[i] ", gv.indices_fwd[i].size())
+    print("gv.outputRowOffsets_hpu[i]", gv.outputRowOffsets_hpu[i].size())
+    print("gv.indices_bwd[i] ", gv.indices_bwd[i].size())
+    print("gv.outputRows[i]", gv.outputRows[i].size())
+    print("gv.countUniqueIndices[i]", gv.countUniqueIndices[i].size())
+    print("gv.coalesced_grads[i]", gv.coalesced_grads[i].size())
     '''
 
+    gv.indices_fwd[i].copy_(sparse_index_group_batch)
+    gv.valid_count_fwd[i].copy_(valid_count_fwd_cpu)
+    gv.indices_bwd[i].copy_(gv.outputRows[i])
+    gv.valid_count_bwd[i].copy_(valid_count_bwd_cpu)
+    gv.outputRowOffsets_hpu[i].fill_(0) #HACK
+    gv.outputRowOffsets_hpu[i].copy_(gv.outputRowOffsets[i])
 
 def apply_optimizer_update():
-    import pudb
+    #import pudb
     import copy
     for i in range(gv.numEmbeddingTables):
         uniqueIndexes = gv.uniqueIndexes[i].to(device)  # torch.narrow(gv.uniqueIndexes[i], 0, 0, countUniqueIndices)
 
         countUniqueIndices = gv.countUniqueIndices[i].item()
-        old_moments = torch.zeros(dlrm_habana.emb_l[i].weights.shape).to(device)
+        old_moments = torch.zeros(dlrm_habana.emb_l[i].weight.shape).to(device)
         lr = torch.tensor([args.learning_rate]).to(device)
 
-        gradient = gv.coalesced_grads[i]  # copy.deepcopy(gv.coalesced_grads[i].detach().cpu())
-        weight = copy.deepcopy(dlrm_habana.emb_l[i].weights.data.cpu()).to(device)
+        gradient = gv.coalesced_grads[i]
+        weight = dlrm_habana.emb_l[i].weight.data
         upd_emb_weights, upd_emb_moments = gv.HabanaDlrmSparseSgd1[i](
             gradient, weight, old_moments, uniqueIndexes, lr, countUniqueIndices)
 
-        dlrm_habana.emb_l[i].weights.data = upd_emb_weights.to(device)
+        dlrm_habana.emb_l[i].weight.data = upd_emb_weights.to(device)
 
 
 class DLRM_Net_Habana(nn.Module):
@@ -531,7 +558,7 @@ class DLRM_Net_Habana(nn.Module):
         else:
             z = p
 
-        
+
         #print("z_return: ", z.detach().cpu().numpy())
         return z
 
@@ -664,7 +691,7 @@ if __name__ == "__main__":
     # model related parameters
     parser.add_argument("--arch-sparse-feature-size", type=int, default=2)
     # parser.add_argument("--arch-embedding-size", type=str, default="4")
-    parser.add_argument("--arch-embedding-size", type=str, default="5-5")
+    parser.add_argument("--arch-embedding-size", type=str, default="4-3-2")
 
     # j will be replaced with the table number
     parser.add_argument("--arch-mlp-bot", type=str, default="4-3-2")
@@ -1033,8 +1060,8 @@ if __name__ == "__main__":
         dlrm_trace = torch.jit.trace(model, (X_device, lS_o, lS_i, lS_vc_fwd, lS_o_bwd,
                                              lS_i_bwd, lS_vc_bwd, lS_grad_wt), check_trace=False)
         # print("tracing completed")
-        print(dlrm_trace.graph_for(X_device, lS_o, lS_i, lS_vc_fwd, lS_o_bwd,
-                                   lS_i_bwd, lS_vc_bwd, lS_grad_wt))
+        #print(dlrm_trace.graph_for(X_device, lS_o, lS_i, lS_vc_fwd, lS_o_bwd,
+        #                           lS_i_bwd, lS_vc_bwd, lS_grad_wt))
         return dlrm_trace
 
     def dlrm_habana_wrap(model, X_device, lS_o, lS_i, lS_vc_fwd, lS_o_bwd, lS_i_bwd, lS_vc_bwd, lS_grad_wt):
@@ -1120,7 +1147,7 @@ if __name__ == "__main__":
         else:
             # when targeting inference on CPU
             ld_model = torch.load(args.load_model, map_location=torch.device('cpu'))
-        dlrm.load_state_dict(ld_model["state_dict"])
+        dlrm_habana.load_state_dict(ld_model["state_dict"])
         ld_j = ld_model["iter"]
         ld_k = ld_model["epoch"]
         ld_nepochs = ld_model["nepochs"]
@@ -1133,7 +1160,7 @@ if __name__ == "__main__":
         ld_gA_test = ld_model["test_acc"]
         ld_gL_test = ld_model["test_loss"]
         if not args.inference_only:
-            optimizer.load_state_dict(ld_model["opt_state_dict"])
+            # optimizer.load_state_dict(ld_model["opt_state_dict"])
             best_gA_test = ld_gA_test
             total_loss = ld_total_loss
             total_accu = ld_total_accu
@@ -1160,11 +1187,17 @@ if __name__ == "__main__":
         )
 
     print("time/loss/accuracy (if enabled):")
+    print('skip_upto_epoch=',skip_upto_epoch)
+    print('skip_upto_batch=',skip_upto_batch)
+
+    training_resumed = False
+
     with torch.autograd.profiler.profile(args.enable_profiling, use_gpu) as prof:
         model_to_run = dlrm_habana
         is_first_it = True
         while k < args.nepochs:
             if k < skip_upto_epoch:
+                print('skipping epoch')
                 continue
 
             accum_time_begin = time_wrap(use_gpu)
@@ -1177,8 +1210,14 @@ if __name__ == "__main__":
                 # np.random.seed(args.numpy_rand_seed)
                 # torch.manual_seed(args.numpy_rand_seed)
 
-                if j < skip_upto_batch:
+                print('j={} skip_upto_batch={}'.format(j,skip_upto_batch))
+                if j < skip_upto_batch and not(training_resumed):
+                    if j == (skip_upto_batch-1):
+                        training_resumed = True
+                        print('Last batch of resumed epoch')
+                    print('skipping batch')
                     continue
+                training_resumed = True
 
                 # embedding bag on Habana needs the last offset to be additionally appended which is pointing to end of indices
                 if True:
@@ -1205,7 +1244,7 @@ if __name__ == "__main__":
                     model_to_run = enable_tracing(dlrm_habana, X_device, lS2_o, gv.indices_fwd,
                                                   gv.valid_count_fwd, gv.outputRowOffsets_hpu, gv.indices_bwd, gv.valid_count_bwd, gv.coalesced_grads)
                     is_first_it = False
-                
+
                 if args.mlperf_logging:
                     current_time = time_wrap(use_gpu)
                     if previous_iteration_time:
@@ -1219,7 +1258,7 @@ if __name__ == "__main__":
                 # early exit if nbatches was set by the user and has been exceeded
                 if nbatches > 0 and j >= nbatches:
                     break
-                
+
                 # forward pass
                 Z_habana = dlrm_habana_wrap(model_to_run,  X_device, lS2_o, gv.indices_fwd,
                                                   gv.valid_count_fwd, gv.outputRowOffsets_hpu, gv.indices_bwd, gv.valid_count_bwd, gv.coalesced_grads)
@@ -1242,7 +1281,7 @@ if __name__ == "__main__":
                 # loss
                 # print(T)
                 E_habana = loss_fn_wrap(Z_habana, T, use_gpu, use_hpu, device)
-               
+
                 # compute loss and accuracy
                 L_habana = E_habana.detach().cpu().numpy()  # numpy array
                 S_habana = Z_habana.detach().cpu().numpy()  # numpy array
@@ -1499,7 +1538,7 @@ if __name__ == "__main__":
                         print("MLPerf testing auc threshold " +
                               str(args.mlperf_auc_threshold) +
                               " reached, stop training")
-                        break                
+                        break
             k += 1  # nepochs
 
     # profiling

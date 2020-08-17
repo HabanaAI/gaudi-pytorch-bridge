@@ -72,7 +72,7 @@ import numpy as np
 import warnings
 with warnings.catch_warnings():
     warnings.filterwarnings("ignore", category=DeprecationWarning)
-import onnx
+#import onnx
 
 # pytorch
 import torch
@@ -908,9 +908,14 @@ if __name__ == "__main__":
         )
 
     print("time/loss/accuracy (if enabled):")
+    print('skip_upto_epoch=',skip_upto_epoch)
+    print('skip_upto_batch=',skip_upto_batch)
+    training_resumed = False
     with torch.autograd.profiler.profile(args.enable_profiling, use_gpu) as prof:
         while k < args.nepochs:
+            print('k={} skip_upto_epoch={}'.format(k,skip_upto_epoch))
             if k < skip_upto_epoch:
+                print('skipping epoch')
                 continue
 
             accum_time_begin = time_wrap(use_gpu)
@@ -919,9 +924,16 @@ if __name__ == "__main__":
                 previous_iteration_time = None
 
             for j, (X, lS_o, lS_i, T) in enumerate(train_ld):
-                if j < skip_upto_batch:
+                #print('j={} skip_upto_batch={}'.format(j,skip_upto_batch))
+
+                if j < skip_upto_batch and not(training_resumed):
+                    if j == (skip_upto_batch-1):
+                        training_resumed = True
+                        print('Last batch of resumed epoch')
+                    print('skipping batch')
                     continue
 
+                training_resumed = True
                 if args.mlperf_logging:
                     current_time = time_wrap(use_gpu)
                     if previous_iteration_time:
@@ -987,6 +999,8 @@ if __name__ == "__main__":
                 total_loss += L * mbs
                 total_iter += 1
                 total_samp += mbs
+                #print('j= {} test_freq={} nbatches={}'.format(j,args.test_freq,nbatches))
+                args.test_freq = nbatches
 
                 should_print = ((j + 1) % args.print_freq == 0) or (j + 1 == nbatches)
                 should_test = (
@@ -995,6 +1009,7 @@ if __name__ == "__main__":
                     and (((j + 1) % args.test_freq == 0) or (j + 1 == nbatches))
                 )
 
+                #print('j= {} should_test={} nbatches={}'.format(j,should_test,nbatches))
                 # print time, loss and accuracy
                 if should_print or should_test:
                     gT = 1000.0 * total_time / total_iter if args.print_time else -1
@@ -1124,9 +1139,9 @@ if __name__ == "__main__":
 
                     is_best = gA_test > best_gA_test
                     if is_best:
-                        best_gA_test = gA_test
+                        # best_gA_test = gA_test
                         if not (args.save_model == ""):
-                            print("Saving model to {}".format(args.save_model))
+                            print("Saving model to {}".format(args.save_model +"_"+ str(k)+".pth"))
                             torch.save(
                                 {
                                     "epoch": k,
@@ -1143,7 +1158,7 @@ if __name__ == "__main__":
                                     "total_accu": total_accu,
                                     "opt_state_dict": optimizer.state_dict(),
                                 },
-                                args.save_model,
+                                args.save_model +"_"+ str(k)+".pth",
                             )
 
                     if args.mlperf_logging:
