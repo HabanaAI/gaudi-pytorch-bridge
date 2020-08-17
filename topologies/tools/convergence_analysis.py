@@ -47,10 +47,48 @@ def ca_get_header_keys(dev1,dev2, b_key_list):
                                 dev2: b_key+'_'+dev2+'_t'}
     return header_keys
 
-def ca_get_tensor_comparison_stats(dev1, dev2, tensor_name, t_dev1_torch, t_dev2_torch):
+#returns id(0, 1 or 2) of tensor to permute; 0 - no permute; 1 - dev1 tensor to permute; 2 - dev2 tensor to permute
+def tensor_to_permute(dev1, dev2, tensor_name, t_dev1_torch, t_dev2_torch, same_device, topology):
+    tid = 0
+    if 'resnet' in topology and same_device is False and t_dev1_torch.ndim == 4:
+        if 'habana' in dev1 or 'habana' in dev2:
+            head, tail = os.path.split(tensor_name)
+            if not (tail == "input.pt"):
+                if 'habana' in dev1:
+                    tid = 1
+                elif 'habana' in dev2:
+                        tid = 2
+    return tid
+
+def do_tensor_permute(t_dev1_torch, t_dev2_torch, tid):
+    tensor_to_perm = None
+    if tid == 1:
+        tensor_to_perm = t_dev1_torch
+    elif tid == 2:
+        tensor_to_perm = t_dev2_torch
+
+    if tensor_to_perm is not None:
+        s = list(tensor_to_perm.shape) # param data shape (KCRS)
+        sh = [s[2], s[3], s[1],s[0]] # update to RSCK
+        vh = torch.reshape(tensor_to_perm, sh)
+        tensor_to_perm = vh.permute((3,2,0,1)) # permute RSCK to KCRS
+        if tid == 1:
+            return tensor_to_perm, t_dev2_torch
+        elif tid == 2:
+            return t_dev1_torch, tensor_to_perm
+    else:
+        return t_dev1_torch, t_dev2_torch
+
+def ca_get_tensor_comparison_stats(dev1, dev2, tensor_name, t_dev1_torch, t_dev2_torch, same_device, topology):
         if t_dev1_torch.is_floating_point() is not True:
             t_dev1_torch = t_dev1_torch.float()
             t_dev2_torch = t_dev2_torch.float()
+
+        #Some tensors like convolution weights need permutation when comparing habana tensors with GPU or CPU
+        tid = tensor_to_permute(dev1, dev2, tensor_name, t_dev1_torch, t_dev2_torch, same_device, topology)
+        if tid != 0 : # Need permute
+            t_dev1_torch, t_dev2_torch = do_tensor_permute(t_dev1_torch, t_dev2_torch, tid)
+
         dim = list(t_dev1_torch.shape)
         num_els = t_dev1_torch.numel()
 
@@ -107,13 +145,15 @@ def ca_make_file_pair_list(dev1, dev2, path1, path2):
     #print(files_dev2)
     return zip(files_dev1,files_dev2)
 
-def ca_compare_tensor_files(dev1, dev2, file_pair_list, base_path=None, rtol=1e-3, atol=1e-3):
+def ca_compare_tensor_files(dev1, dev2, file_pair_list, base_path=None, rtol=1e-3, atol=1e-3, topology=None):
     #If we are comparing the tensors on same device, say, habana, rename the devices as
     # habana1 and 2 for the csv file. Else the dictionary key for dev1 and 2 will be same
     #causing an overwriting
+    same_device = False
     if dev1 == dev2:  #e.g. habana
         dev1=dev1+'1' #e.g. habana1
         dev2=dev2+'2' #e.g. habana2
+        same_device = True
 
     print("Using Tolerances rtol = ", rtol, " atol =", atol, "for comparing", dev1,  "and ", dev2)
     hk = ca_get_header_keys(dev1, dev2, ca_base_key_list)
@@ -129,7 +169,7 @@ def ca_compare_tensor_files(dev1, dev2, file_pair_list, base_path=None, rtol=1e-
             tensor_info = file_dev1.replace(base_path, 'base_dir')
         t_dev1 = torch.load(file_dev1)
         t_dev2 = torch.load(file_dev2)
-        tensor_cmp_stat_dict = ca_get_tensor_comparison_stats(dev1,dev2,tensor_info, t_dev1, t_dev2)
+        tensor_cmp_stat_dict = ca_get_tensor_comparison_stats(dev1,dev2,tensor_info, t_dev1, t_dev2, same_device, topology)
         writer.writerow(tensor_cmp_stat_dict)
 
         equal = torch.allclose(t_dev1, t_dev2, rtol=rtol,atol=atol)
