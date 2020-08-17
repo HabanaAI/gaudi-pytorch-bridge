@@ -251,13 +251,21 @@ def main(args):
 
     lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=args.lr_step_size, gamma=args.lr_gamma)
 
+    model_for_train = model_for_eval = model
     if args.run_trace_mode:
         sample_trace_tensor = enable_tracing(device)
 
         if args.channels_last:
             sample_trace_tensor = sample_trace_tensor.contiguous(memory_format=torch.channels_last)
+        # Create traced model for eval
+        model.eval()
+        model_for_eval = torch.jit.trace(model, sample_trace_tensor, check_trace=False)
+        # Create traced model for train
+        model.train()
         model = torch.jit.trace(model, sample_trace_tensor, check_trace=False)
+        model_for_train = model
 
+    # TBD: pass the right module for ddp
     model_without_ddp = model
 
     if args.distributed:
@@ -276,7 +284,7 @@ def main(args):
             permute_params_on_device(model_without_ddp)
 
     if args.test_only:
-        evaluate(model, criterion, data_loader_test, device=device)
+        evaluate(model_for_eval, criterion, data_loader_test, device=device)
         return
 
     print("Start training")
@@ -285,9 +293,9 @@ def main(args):
         if args.distributed:
             train_sampler.set_epoch(epoch)
 
-        train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, args.print_freq, args.apex)
+        train_one_epoch(model_for_train, criterion, optimizer, data_loader, device, epoch, args.print_freq, args.apex)
         lr_scheduler.step()
-        evaluate(model, criterion, data_loader_test, device=device)
+        evaluate(model_for_eval, criterion, data_loader_test, device=device)
 
         if (args.output_dir and args.save_checkpoint):
             #Bring the model back to CPU before storing. Needed if running on Habana.
