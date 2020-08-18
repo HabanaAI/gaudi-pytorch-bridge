@@ -7,10 +7,13 @@ function help()
         echo -e "  -d <device>,       --device <device>            default: 'habana'"
         echo -e "  -b <batch_size>,   --batch-size <batchsize>     default: 128"
         echo -e "                     --mode <mode>                default: trace mode. Possible values: trace, eager"
-        echo -e "  -d <data type>,    --data_type <data type>      default: fp32. Possible values: fp32, bf16"
+        echo -e "                     --data-type <data type>      default: fp32. Possible values: fp32, bf16"
         echo -e "  -e <epochs>,       --epochs <epochs>            default: 1"
         echo -e "  --print-freq <print_freq>                       default: 1"
         echo -e ""
+        echo -e "Usage example:"
+        echo -e "./demo_resnet --data-type bf16 --mode eager  --batch-size 64"
+        echo -e "./demo_resnet --data-type fp32 --mode trace  --batch-size 128"
 }
 
 while [ -n "$1" ];
@@ -32,7 +35,7 @@ while [ -n "$1" ];
             shift
             __batch_size=$1
             ;;
-	-d |  --dtype )
+	      --data-type )
             shift
             __dtype=$1
             ;;
@@ -88,9 +91,14 @@ else
     __mode="trace"
 fi
 
+SCRIPT_FULL_PATH=$(realpath $0)
+SCRIPT_DIR_PATH=$(dirname ${SCRIPT_FULL_PATH})
+
 if [ -n "$__dtype" ]; then
     if [ "$__dtype" == "bf16" ]; then
        DTYPE="--hmp"
+       DTYPE+=" --hmp-bf16=$SCRIPT_DIR_PATH/configs/ops_bf16_Resnet.txt"
+       DTYPE+=" --hmp-fp32=$SCRIPT_DIR_PATH/configs/ops_fp32_Resnet.txt"
     elif [ "$__dtype" == "fp32" ]; then
        DTYPE=""
     else
