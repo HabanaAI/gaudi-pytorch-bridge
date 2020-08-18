@@ -175,7 +175,8 @@ def permute_params_on_device(model):
 def main(args):
     if args.is_hmp:
         from hmp import hmp
-        hmp.convert()
+        hmp.convert(opt_level=args.hmp_opt_level, bf16_file_path=args.hmp_bf16,
+                    fp32_file_path=args.hmp_fp32, isVerbose=args.hmp_verbose)
 
     if args.apex:
         if sys.version_info < (3, 0):
@@ -381,6 +382,10 @@ def parse_args():
     parser.add_argument('--run-trace-mode', action='store_true', default=False,
                         help='run JIT mode with fusion enabled') 
     parser.add_argument('--hmp', dest='is_hmp', action='store_true',help='enable hmp mode')
+    parser.add_argument('--hmp-bf16', default='', help='path to bf16 ops list in hmp O1 mode')
+    parser.add_argument('--hmp-fp32', default='', help='path to fp32 ops list in hmp O1 mode')
+    parser.add_argument('--hmp-opt-level', default='O1', help='choose optimization level for hmp')
+    parser.add_argument('--hmp-verbose', action='store_true', help='enable verbose mode for hmp')
     args = parser.parse_args()
 
     return args
