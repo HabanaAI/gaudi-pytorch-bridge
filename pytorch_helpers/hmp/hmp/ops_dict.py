@@ -33,6 +33,7 @@ ops_dict = {
     'embedding_bag_sum_bwd': [torch],
 
     # Classifiers and loss metrics
+    'binary_cross_entropy': [torch.nn.functional],
     'cross_entropy': [torch.nn.functional],
     'log_softmax': [torch.nn.functional],
     'softmax': [torch.nn.functional],

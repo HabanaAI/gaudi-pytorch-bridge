@@ -74,3 +74,39 @@ class MSELossBwdOperator : public HabanaOperator {
       torch::jit::Stack& inputs,
       bool is_output_persistent = false);
 };
+
+// BceFwd Operator
+class BceFwdOperator : public HabanaOperator {
+ public:
+  BceFwdOperator(const int device_id, c10::ScalarType scalarType)
+      : HabanaOperator(
+            "binary_cross_entropy_fwd_" +
+            habana_helpers::name_suffix_from_type(scalarType)) {
+    this->CreateSynContext(device_id);
+    kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
+    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
+  }
+
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+};
+
+// BceBwd Operator
+class BceBwdOperator : public HabanaOperator {
+ public:
+  BceBwdOperator(const int device_id, c10::ScalarType scalarType)
+      : HabanaOperator(
+            "binary_cross_entropy_bwd_" +
+            habana_helpers::name_suffix_from_type(scalarType)) {
+    this->CreateSynContext(device_id);
+    kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
+    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
+  }
+
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+};

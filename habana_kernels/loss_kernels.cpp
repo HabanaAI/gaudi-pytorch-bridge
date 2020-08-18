@@ -16,6 +16,7 @@
 #include "habana_helpers/tensor_utils.h"
 #include "habana_helpers/unused_macro.h"
 #include "habana_kernels/loss_kernels.h"
+#include "habana_kernels/tensor_shape_kernels.h"
 #include "simple_generic_kernel.h"
 #include "synapse_helpers/recipe.h"
 
@@ -34,6 +35,22 @@ static ns_NLLLossKernel::Params synapse_nll_loss_params_builder(
   } else
     TORCH_CHECK(false, "nll_loss got unsuported reduction type: ", reduction);
 
+  return param;
+}
+
+static ns_BinaryCrossEntropy::ParamsOptionalSigmoid synapse_bce_params_builder(
+    int64_t reduction,
+    bool weightsDefined) {
+  auto param = ns_BinaryCrossEntropy::ParamsOptionalSigmoid{};
+  if (reduction == at::Reduction::Reduction::Mean) {
+    param.mode = ECrossEntropyMode_t::CROSS_ENTROPY_MODE_MEAN;
+  } else if (reduction == at::Reduction::Reduction::Sum) {
+    param.mode = ECrossEntropyMode_t::CROSS_ENTROPY_MODE_SUM;
+  } else
+    TORCH_CHECK(
+        false, "BinaryCrossEntropy got unsuported reduction type: ", reduction);
+  param.binaryCrossEntropyWithoutSigmoid = true;
+  param.isWeightsUsed = weightsDefined;
   return param;
 }
 
@@ -310,32 +327,27 @@ Tensor mse_loss_forward_hpu(
   MSELossFwdOperator Op(device_id, node_type);
   size_t key = Op.GetRecipeKey(node_type, stack);
   if (device.get_recipe_handle_cache().isCached(key)) {
-      PT_KERNEL_DEBUG("Cache hit key:", key);
-      Tensor output;
-      if (reduction == at::Reduction::Reduction::None) {
-        output = habana_helpers::createPTTensor(self, true);
-      } else {
-        output = habana_helpers::createPTTensor(
-            self,
-            {1},
-            self.options(),
-            self.suggest_memory_format(),
-            true);
-      }
-      Op.SetPTInputs(pt_inputs);
-      Op.SetPTOutput(output);
-      Op.Execute(key);
-  }
-  else {
-      // Create Graph
-      auto graph = habana_helpers::create_graph(device_id, node_type);
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    Tensor output;
+    if (reduction == at::Reduction::Reduction::None) {
+      output = habana_helpers::createPTTensor(self, true);
+    } else {
+      output = habana_helpers::createPTTensor(
+          self, {1}, self.options(), self.suggest_memory_format(), true);
+    }
+    Op.SetPTInputs(pt_inputs);
+    Op.SetPTOutput(output);
+    Op.Execute(key);
+  } else {
+    // Create Graph
+    auto graph = habana_helpers::create_graph(device_id, node_type);
 
-      Op.AllocateSynapseInputs(graph, pt_inputs, true);
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
-      Op.AllocateAndAddSynapseNode(graph, stack, true);
+    Op.AllocateAndAddSynapseNode(graph, stack, true);
 
-      // compile and execute the graph
-      Op.Compile(graph);
+    // compile and execute the graph
+    Op.Compile(graph);
   }
 
   std::vector<at::Tensor> out = Op.GetOutputs();
@@ -407,25 +419,24 @@ Tensor mse_loss_backward_hpu(
   MSELossBwdOperator Op(device_id, node_type);
   size_t key = Op.GetRecipeKey(node_type, stack);
   if (device.get_recipe_handle_cache().isCached(key)) {
-     PT_KERNEL_DEBUG("Cache hit key:", key);
-     auto output =
-         at::empty(self.sizes(), self.options(), self.suggest_memory_format());
-     Op.SetPTInputs(pt_inputs);
-     Op.SetPTOutput(output);
-     Op.Execute(key);
-  }
-  else {
-     // Create Graph
-     auto graph = habana_helpers::create_graph(device_id, node_type);
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    auto output =
+        at::empty(self.sizes(), self.options(), self.suggest_memory_format());
+    Op.SetPTInputs(pt_inputs);
+    Op.SetPTOutput(output);
+    Op.Execute(key);
+  } else {
+    // Create Graph
+    auto graph = habana_helpers::create_graph(device_id, node_type);
 
-     // Assign Inputs to the Operator
-     Op.AllocateSynapseInputs(graph, pt_inputs, true);
+    // Assign Inputs to the Operator
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
-     // Build Params for the graph
-     Op.AllocateAndAddSynapseNode(graph, stack, true);
+    // Build Params for the graph
+    Op.AllocateAndAddSynapseNode(graph, stack, true);
 
-     // compile and execute the graph
-     Op.Compile(graph);
+    // compile and execute the graph
+    Op.Compile(graph);
   }
 
   std::vector<at::Tensor> out = Op.GetOutputs();
@@ -434,6 +445,309 @@ Tensor mse_loss_backward_hpu(
   PT_KERNEL_END;
   return out.at(0);
 }
+
+void BceFwdOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 4, "Incorrect size of inputs expected for BCE operator");
+  TORCH_CHECK(
+      inputs[0].isTensor(),
+      "Input arg1 expected to be tensor for BCE operator");
+  TORCH_CHECK(
+      inputs[1].isTensor(),
+      "Input arg2 expected to be tensor for BCE operator");
+  TORCH_CHECK(
+      inputs[2].isTensor() || inputs[2].isNone(),
+      "Input arg3 expected to be tensor or None for BCE operator");
+  TORCH_CHECK(
+      inputs[3].isInt(),
+      "Input arg 4 expected to be of type Int for BCE operator");
+
+  if (inputs[2].isTensor()) {
+    TORCH_CHECK(
+        !inputs[2].toTensor().defined(),
+        "BCE kernel does not support weights for now");
+  } else {
+    TORCH_CHECK(
+        inputs[2].isNone(), "BCE kernel does not support weights for now");
+  }
+
+  auto self = inputs[0].toTensor();
+  auto target = inputs[1].toTensor();
+  int64_t reduction = inputs[3].toInt();
+
+  TORCH_CHECK(self.sizes()[1] == 1, "BCE kernel supports only Nx1 inputs");
+
+  // add reshape node to reverse input dims
+  ReshapeOperator reshape_self(self.device().index(), self.scalar_type());
+  auto& syn_self =
+      reshape_self.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+  auto v = self.sizes().vec();
+  std::reverse(std::begin(v), std::end(v));
+  torch::jit::Stack stack = {IValue(self), IValue(v)};
+  reshape_self.AllocateAndAddSynapseNode(graph, stack, false);
+  p_context_->syn_inputs_[0] = std::move(syn_self);
+  stack.clear();
+
+  // add reshape node to make target same shape as reshaped input
+  ReshapeOperator reshape_target(target.device().index(), target.scalar_type());
+  auto& syn_target =
+      reshape_target.SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
+  stack = {IValue(target), IValue(v)};
+  reshape_target.AllocateAndAddSynapseNode(graph, stack, false);
+  p_context_->syn_inputs_[1] = std::move(syn_target);
+
+  // fill params for BCE node
+  ns_BinaryCrossEntropy::ParamsOptionalSigmoid params =
+      synapse_bce_params_builder(reduction, false);
+  p_context_->params_.emplace<ns_BinaryCrossEntropy::ParamsOptionalSigmoid>(
+      params);
+  p_context_->params_size_ = sizeof(params);
+
+  // set-up input/output tensors for BCE
+  auto output = habana_helpers::createPTTensor(
+      self, {self.sizes()[1]}, self.options(), is_output_persistent);
+  AllocateSynapseOutput(graph, output, is_output_persistent);
+  synapse_helpers::tensor& syn_in_self = reshape_self.GetSynOutputs()[0];
+  synapse_helpers::tensor& syn_in_tensor = reshape_target.GetSynOutputs()[0];
+  std::vector<synTensor> syn_inputs{syn_in_self.get(), syn_in_tensor.get()};
+  synapse_helpers::tensor& syn_out = p_context_->syn_outputs_[0];
+  std::vector<synTensor> syn_outputs{syn_out.get()};
+
+  // add BCE node
+  graph.add_node(
+      std::move(syn_inputs),
+      std::move(syn_outputs),
+      &params,
+      sizeof(params),
+      std::move(guid_));
+}
+
+Tensor binary_cross_entropy_hpu(
+    const Tensor& self,
+    const Tensor& target,
+    const Tensor& weight,
+    int64_t reduction) {
+  PT_KERNEL_BEGIN;
+
+  at::ScalarType scalar_type = self.scalar_type();
+  std::string node_type = "binary_cross_entropy_fwd_" +
+      habana_helpers::name_suffix_from_type(scalar_type);
+
+  size_t device_id = self.device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+
+  // Build Params for the graph
+  std::vector<c10::IValue> stack = {
+      IValue(self), IValue(target), IValue(weight), IValue(reduction)};
+  BceFwdOperator Op(device_id, scalar_type);
+  size_t key = Op.GetRecipeKey(node_type, stack);
+
+  std::vector<at::Tensor> pt_inputs{self, target};
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    auto output = at::empty({self.sizes()[1]}, self.options());
+    Op.SetPTInputs(pt_inputs);
+    Op.SetPTOutput(output);
+    Op.Execute(key);
+  } else {
+    PT_KERNEL_DEBUG("Key:", key);
+    // Create Graph
+    auto graph = habana_helpers::create_graph(device_id, node_type);
+
+    // Assign Inputs to the Operator
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
+
+    // Build Params for the graph
+    Op.AllocateAndAddSynapseNode(graph, stack, true);
+
+    // compile and execute the graph
+    Op.Compile(graph);
+  }
+
+  std::vector<at::Tensor> out = Op.GetOutputs();
+  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
+
+  // Note: pytorch expects 0d tensor (scalar)
+  out.at(0).unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+
+  PT_KERNEL_END;
+  return out.at(0);
+}
+
+void BceBwdOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 5, "Incorrect size of inputs expected for BCE operator");
+  TORCH_CHECK(
+      inputs[0].isTensor(),
+      "Input arg1 expected to be tensor for BCE operator");
+  TORCH_CHECK(
+      inputs[1].isTensor(),
+      "Input arg2 expected to be tensor for BCE operator");
+  TORCH_CHECK(
+      inputs[2].isTensor(),
+      "Input arg3 expected to be tensor for BCE operator");
+  TORCH_CHECK(
+      inputs[3].isTensor() || inputs[3].isNone(),
+      "Input arg4 expected to be tensor or None for BCE operator");
+  TORCH_CHECK(
+      inputs[4].isInt(),
+      "Input arg 5 expected to be of type Int for BCE operator");
+
+  if (inputs[3].isTensor()) {
+    TORCH_CHECK(
+        !inputs[3].toTensor().defined(),
+        "BCE kernel does not support weights for now");
+  } else {
+    TORCH_CHECK(
+        inputs[3].isNone(), "BCE kernel does not support weights for now");
+  }
+
+  auto grad_output = inputs[0].toTensor();
+  auto self = inputs[1].toTensor();
+  auto target = inputs[2].toTensor();
+  int64_t reduction = inputs[4].toInt();
+
+  TORCH_CHECK(self.sizes()[1] == 1, "BCE kernel supports only Nx1 inputs");
+
+  // add reshape node to reverse input dims
+  ReshapeOperator reshape_self(self.device().index(), self.scalar_type());
+  auto& syn_self =
+      reshape_self.SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
+  auto v = self.sizes().vec();
+  std::reverse(std::begin(v), std::end(v));
+  torch::jit::Stack stack = {IValue(self), IValue(v)};
+  reshape_self.AllocateAndAddSynapseNode(graph, stack, false);
+  p_context_->syn_inputs_[1] = std::move(syn_self);
+  stack.clear();
+
+  // add reshape node to make target same shape as reshaped input
+  ReshapeOperator reshape_target(target.device().index(), target.scalar_type());
+  auto& syn_target =
+      reshape_target.SetSynapseInput(std::move(p_context_->syn_inputs_[2]));
+  stack = {IValue(target), IValue(v)};
+  reshape_target.AllocateAndAddSynapseNode(graph, stack, false);
+  p_context_->syn_inputs_[2] = std::move(syn_target);
+  stack.clear();
+
+  ns_BinaryCrossEntropy::ParamsOptionalSigmoid params =
+      synapse_bce_params_builder(reduction, false);
+  p_context_->params_.emplace<ns_BinaryCrossEntropy::ParamsOptionalSigmoid>(
+      params);
+  p_context_->params_size_ = sizeof(params);
+
+  AllocateSynapseOutput(
+      graph,
+      habana_helpers::createPTTensor(reshape_self.GetOutputs()[0], false),
+      false);
+  synapse_helpers::tensor& syn_in_self = reshape_self.GetSynOutputs()[0];
+  synapse_helpers::tensor& syn_in_target = reshape_target.GetSynOutputs()[0];
+  std::vector<synTensor> syn_inputs{syn_in_self.get(), syn_in_target.get()};
+  synapse_helpers::tensor& syn_out = p_context_->syn_outputs_[0];
+  std::vector<synTensor> syn_outputs{syn_out.get()};
+
+  // add BCE node
+  graph.add_node(
+      std::move(syn_inputs),
+      std::move(syn_outputs),
+      &params,
+      sizeof(params),
+      std::move(guid_));
+
+  // add reshape node on output
+  ReshapeOperator reshape_grad_in(self.device().index(), self.scalar_type());
+  reshape_grad_in.SetSynapseInput(std::move(p_context_->syn_outputs_[0]));
+  stack = {c10::IValue(p_context_->pt_outputs_[0]),
+           c10::IValue(self.sizes().vec())};
+  reshape_grad_in.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+  synapse_helpers::tensor& syn_reshape_grad_in =
+      reshape_grad_in.GetSynOutputs()[0];
+  stack.clear();
+
+  p_context_->syn_outputs_[0] = std::move(syn_reshape_grad_in);
+  p_context_->pt_outputs_[0] = reshape_grad_in.GetOutputs()[0];
+}
+
+Tensor binary_cross_entropy_backward_hpu(
+    const Tensor& grad_output,
+    const Tensor& self,
+    const Tensor& target,
+    const Tensor& weight,
+    int64_t reduction) {
+  PT_KERNEL_BEGIN;
+
+  // Convert 0D tensor to 1D tensor before passing to Synapse
+  if (grad_output.dim() == 0) {
+    grad_output.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+  }
+
+  at::ScalarType scalar_type = grad_output.scalar_type();
+  std::string node_type;
+  node_type = "binary_cross_entropy_bwd_" +
+      habana_helpers::name_suffix_from_type(scalar_type);
+
+  size_t device_id = grad_output.device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+
+  // Build Params for the graph
+  std::vector<c10::IValue> stack = {IValue(grad_output),
+                                    IValue(self),
+                                    IValue(target),
+                                    IValue(weight),
+                                    IValue(reduction)};
+  BceBwdOperator Op(device_id, scalar_type);
+  size_t key = Op.GetRecipeKey(node_type, stack);
+
+  std::vector<at::Tensor> pt_inputs{grad_output, self, target};
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    auto output = at::empty_like(self);
+    Op.SetPTInputs(pt_inputs);
+    Op.SetPTOutput(output);
+    Op.Execute(key);
+  } else {
+    PT_KERNEL_DEBUG("Key:", key);
+    // Create Graph
+    auto graph = habana_helpers::create_graph(device_id, node_type);
+
+    // Assign Inputs to the Operator
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
+
+    // Build Params for the graph
+    Op.AllocateAndAddSynapseNode(graph, stack, true);
+
+    // compile and execute the graph
+    Op.Compile(graph);
+  }
+
+  std::vector<at::Tensor> out = Op.GetOutputs();
+  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
+
+  // Note that this multiplication should be done in TPC kernel
+  // WA until TPC kernel is fixed
+  auto output = out.at(0) * grad_output * -1;
+
+  PT_KERNEL_END;
+  return output;
+}
+
+static auto& KernelRegistry =
+    habana::KernelRegistry()
+        .add(
+            "aten::binary_cross_entropy",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<BceFwdOperator>(device_id, node_type);
+            })
+        .add(
+            "aten::binary_cross_entropy_backward",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<BceBwdOperator>(device_id, node_type);
+            });
 
 static auto registry =
     torch::RegisterOperators()
@@ -464,4 +778,19 @@ static auto registry =
                 .impl_unboxedOnlyKernel<
                     decltype(mse_loss_backward_hpu),
                     &mse_loss_backward_hpu>(DispatchKey::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema(
+                    "aten::binary_cross_entropy(Tensor self, Tensor target, Tensor? weight=None, int reduction=Mean) -> Tensor")
+                .impl_unboxedOnlyKernel<
+                    decltype(binary_cross_entropy_hpu),
+                    &binary_cross_entropy_hpu>(DispatchKey::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema(
+                    "aten::binary_cross_entropy_backward(Tensor grad_output, Tensor self, Tensor target, Tensor? weight=None, int reduction=Mean) -> Tensor")
+                .impl_unboxedOnlyKernel<
+                    decltype(binary_cross_entropy_backward_hpu),
+                    &binary_cross_entropy_backward_hpu>(
+                    DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));
