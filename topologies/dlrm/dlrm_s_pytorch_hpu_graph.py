@@ -252,18 +252,15 @@ def apply_preproc(sparse_offset_group_batch, sparse_index_group_batch, i, m, ln_
     gv.outputRowOffsets[i] = torch.narrow(gv.outputRowOffsets[i], 0, 0, numOffsets)
 
     #Creation of static max size tensors to enable graph caching
-    # TODO: optimize the max size values. currently worst case scenario is assumed
-    #numoffsets_bwd = num unique indices + 1. Worst case num unique indices = ln_emb[i]
     if (gv.indices_fwd[i].size() == torch.Size([1, 1])):
         #print("max size tensors created for instance ", i)
-        #max_i_size_fwd = ln_emb[i]*(sparse_offset_group_batch.numel()-1)
-        max_i_size_fwd = 10*(sparse_offset_group_batch.numel()-1) #CHECK
+        max_i_size_fwd = args.num_indices_per_lookup*(sparse_offset_group_batch.numel()-1)
         gv.indices_fwd[i] = torch.empty([max_i_size_fwd],dtype=torch.int32).to(device, non_blocking=True)
 
-        #max_i_size_bwd = ln_emb[i]*(sparse_offset_group_batch.numel()-1)
-        max_i_size_bwd = ln_emb[i]*50 #CHECK
+        max_i_size_bwd = args.num_indices_per_lookup*(sparse_offset_group_batch.numel()-1)
         gv.indices_bwd[i] = torch.empty([max_i_size_bwd],dtype=torch.int32).to(device, non_blocking=True)
 
+        #numoffsets_bwd = num unique indices + 1. Worst case num unique indices = ln_emb[i]
         gv.outputRowOffsets_hpu[i] = torch.empty(ln_emb[i]+1,dtype = torch.int32).to(device, non_blocking=True)
         #Max possible grad in matrix
         gv.coalesced_grads[i] = torch.empty(ln_emb[i], m, dtype=torch.float32).to(device, non_blocking=True)
@@ -289,7 +286,8 @@ def apply_preproc(sparse_offset_group_batch, sparse_index_group_batch, i, m, ln_
     gv.valid_count_fwd[i].copy_(valid_count_fwd_cpu, non_blocking=True)
     gv.indices_bwd[i].copy_(gv.outputRows[i], non_blocking=True)
     gv.valid_count_bwd[i].copy_(valid_count_bwd_cpu, non_blocking=True)
-    gv.outputRowOffsets_hpu[i].fill_(0) #HACK
+    #WA for SW-18483
+    gv.outputRowOffsets_hpu[i].fill_(0)
     gv.outputRowOffsets_hpu[i].copy_(gv.outputRowOffsets[i], non_blocking=True)
 
 def apply_optimizer_update():

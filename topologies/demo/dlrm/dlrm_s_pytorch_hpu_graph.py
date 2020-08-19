@@ -243,20 +243,18 @@ def apply_preproc(sparse_offset_group_batch, sparse_index_group_batch, i, m, ln_
     #numoffsets_bwd = num unique indices + 1. Worst case num unique indices = ln_emb[i]
     if (gv.indices_fwd[i].size() == torch.Size([1, 1])):
         #print("max size tensors created for instance ", i)
-        #max_i_size_fwd = ln_emb[i]*(sparse_offset_group_batch.numel()-1)
-        max_i_size_fwd = 10*(sparse_offset_group_batch.numel()-1) #CHECK
-        gv.indices_fwd[i] = torch.empty([max_i_size_fwd],dtype=torch.int32).to(device)
+        max_i_size_fwd = args.num_indices_per_lookup*(sparse_offset_group_batch.numel()-1)
+        gv.indices_fwd[i] = torch.empty([max_i_size_fwd],dtype=torch.int32).to(device, non_blocking=True)
 
-        #max_i_size_bwd = ln_emb[i]*(sparse_offset_group_batch.numel()-1)
-        max_i_size_bwd = ln_emb[i]*50 #CHECK
-        gv.indices_bwd[i] = torch.empty([max_i_size_bwd],dtype=torch.int32).to(device)
+        max_i_size_bwd = args.num_indices_per_lookup*(sparse_offset_group_batch.numel()-1)
+        gv.indices_bwd[i] = torch.empty([max_i_size_bwd],dtype=torch.int32).to(device, non_blocking=True)
 
-        gv.outputRowOffsets_hpu[i] = torch.empty(ln_emb[i]+1,dtype = torch.int32).to(device)
+        gv.outputRowOffsets_hpu[i] = torch.empty(ln_emb[i]+1,dtype = torch.int32).to(device, non_blocking=True)
         #Max possible grad in matrix
-        gv.coalesced_grads[i] = torch.empty(ln_emb[i], m, dtype=torch.float32).to(device)
+        gv.coalesced_grads[i] = torch.empty(ln_emb[i], m, dtype=torch.float32).to(device, non_blocking=True)
 
-        gv.valid_count_fwd[i] = torch.empty([2], dtype=torch.int32).to(device)
-        gv.valid_count_bwd[i] = torch.empty([2], dtype=torch.int32).to(device)
+        gv.valid_count_fwd[i] = torch.empty([2], dtype=torch.int32).to(device, non_blocking=True)
+        gv.valid_count_bwd[i] = torch.empty([2], dtype=torch.int32).to(device, non_blocking=True)
 
     '''
     print("emb bag instance i size", m, ln_emb[i])
@@ -272,29 +270,29 @@ def apply_preproc(sparse_offset_group_batch, sparse_index_group_batch, i, m, ln_
     print("gv.coalesced_grads[i]", gv.coalesced_grads[i].size())
     '''
 
-    gv.indices_fwd[i].copy_(sparse_index_group_batch)
-    gv.valid_count_fwd[i].copy_(valid_count_fwd_cpu)
-    gv.indices_bwd[i].copy_(gv.outputRows[i])
-    gv.valid_count_bwd[i].copy_(valid_count_bwd_cpu)
+    gv.indices_fwd[i].copy_(sparse_index_group_batch, non_blocking=True)
+    gv.valid_count_fwd[i].copy_(valid_count_fwd_cpu, non_blocking=True)
+    gv.indices_bwd[i].copy_(gv.outputRows[i], non_blocking=True)
+    gv.valid_count_bwd[i].copy_(valid_count_bwd_cpu, non_blocking=True)
     gv.outputRowOffsets_hpu[i].fill_(0) #HACK
-    gv.outputRowOffsets_hpu[i].copy_(gv.outputRowOffsets[i])
+    gv.outputRowOffsets_hpu[i].copy_(gv.outputRowOffsets[i], non_blocking=True)
 
 def apply_optimizer_update():
     #import pudb
     import copy
     for i in range(gv.numEmbeddingTables):
-        uniqueIndexes = gv.uniqueIndexes[i].to(device)  # torch.narrow(gv.uniqueIndexes[i], 0, 0, countUniqueIndices)
+        uniqueIndexes = gv.uniqueIndexes[i].to(device, non_blocking=True)  # torch.narrow(gv.uniqueIndexes[i], 0, 0, countUniqueIndices)
 
         countUniqueIndices = gv.countUniqueIndices[i].item()
-        old_moments = torch.zeros(dlrm_habana.emb_l[i].weight.shape).to(device)
-        lr = torch.tensor([args.learning_rate]).to(device)
+        old_moments = torch.zeros(dlrm_habana.emb_l[i].weight.shape).to(device, non_blocking=True)
+        lr = torch.tensor([args.learning_rate]).to(device, non_blocking=True)
 
         gradient = gv.coalesced_grads[i]
         weight = dlrm_habana.emb_l[i].weight.data
         upd_emb_weights, upd_emb_moments = gv.HabanaDlrmSparseSgd1[i](
             gradient, weight, old_moments, uniqueIndexes, lr, countUniqueIndices)
 
-        dlrm_habana.emb_l[i].weight.data = upd_emb_weights.to(device)
+        dlrm_habana.emb_l[i].weight.data = upd_emb_weights
 
 
 class DLRM_Net_Habana(nn.Module):
@@ -1196,7 +1194,6 @@ if __name__ == "__main__":
                 # np.random.seed(args.numpy_rand_seed)
                 # torch.manual_seed(args.numpy_rand_seed)
 
-                print('j={} skip_upto_batch={}'.format(j,skip_upto_batch))
                 if j < skip_upto_batch and not(training_resumed):
                     if j == (skip_upto_batch-1):
                         training_resumed = True
@@ -1206,13 +1203,12 @@ if __name__ == "__main__":
                 training_resumed = True
 
                 # embedding bag on Habana needs the last offset to be additionally appended which is pointing to end of indices
-                if True:
-                    lS2_o_scratch = []
-                    for kk in range(len(lS_i)):
-                        lS2_o_scratch.append(torch.unsqueeze(
-                            torch.cat((lS_o[kk], torch.tensor([lS_i[kk].numel()])), dim=0), dim=0))
+                lS2_o_scratch = []
+                for kk in range(len(lS_i)):
+                    lS2_o_scratch.append(torch.unsqueeze(
+                        torch.cat((lS_o[kk], torch.tensor([lS_i[kk].numel()])), dim=0), dim=0))
 
-                    lS_o = torch.cat(tuple(lS2_o_scratch), dim=0)
+                lS_o = torch.cat(tuple(lS2_o_scratch), dim=0)
                 #print('lS_o after updating for last offset',lS_o)
                 #print("ls_i: ", lS_i)
 
@@ -1221,10 +1217,10 @@ if __name__ == "__main__":
                         sparse_offset_group_batch = lS_o[kk]
                         apply_preproc(sparse_offset_group_batch, sparse_index_group_batch, kk, m_spa, ln_emb)
 
-                lS2_o = [S_o.to(torch.int32).to(device) for S_o in lS_o] if isinstance(lS_o, list) \
-                    else lS_o.to(torch.int32).to(device)
+                lS2_o = [S_o.to(torch.int32).to(device, non_blocking=True) for S_o in lS_o] if isinstance(lS_o, list) \
+                    else lS_o.to(torch.int32).to(device, non_blocking=True)
 
-                X_device = X.to(device)
+                X_device = X.to(device, non_blocking=True)
 
                 if args.use_jit_trace and is_first_it:
                     model_to_run = enable_tracing(dlrm_habana, X_device, lS2_o, gv.indices_fwd,
