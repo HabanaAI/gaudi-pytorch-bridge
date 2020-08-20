@@ -28,7 +28,13 @@ def dlrm_get_emb_table_map(ln_emb, rank, world_size):
     #Assign the embedding tables so that larger tables are distributed evently
     sorted_size = np.argsort(ln_emb)
     selected_tables = np.sort(sorted_size[rank : :world_size])
-    return selected_tables
+    # Needed only for convergenc comparison
+    all_reduce_reorder = []
+    for i in range(world_size):
+        all_reduce_reorder.append(np.sort(sorted_size[i::world_size]))
+    all_reduce_reorder = np.concatenate(all_reduce_reorder)
+    all_reduce_reorder = np.argsort(all_reduce_reorder)
+    return selected_tables, all_reduce_reorder
 
 def init_distributed_mode(args):
     if 'RANK' in os.environ and 'WORLD_SIZE' in os.environ:

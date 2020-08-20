@@ -147,7 +147,7 @@ class AllToAllAcrossDevice(torch.autograd.Function):
 
 class PrintDataAcrossPass(torch.autograd.Function):
     @staticmethod
-    def forward(ctx, input_buffer: torch.Tensor):
+    def forward(ctx, input_buffer : torch.Tensor):
         print('Forward Pass')
         print(input_buffer.to("cpu"))
         return input_buffer
@@ -221,7 +221,11 @@ class HabanaOptimizerSparseSgd(torch.optim.Optimizer):
 
     @torch.no_grad()
     def zero_grad(self):
-        #No need to zero out gradient as it is created new everytime for SparseSgd
+        for group in self.param_groups:
+            for p in group['params']:
+                if p.grad is None:
+                    continue
+                p.grad.zero_()
         return
 
 ### define dlrm in PyTorch ###
@@ -266,10 +270,20 @@ class DLRM_Net(nn.Module):
         # approach 2: use Sequential container to wrap all layers
         return torch.nn.Sequential(*layers)
 
-    def create_emb(self, m, ln):
+    def create_emb(self, m, ln, valid_emb_table=None):
         emb_l = nn.ModuleList()
+        self.valid_emb_table = valid_emb_table
+        if valid_emb_table is None:
+            valid_emb_table = np.arange(0, len(ln))
         for i in range(0, ln.size):
             n = ln[i]
+            # Not needed just to match with single chip run
+            if i not in valid_emb_table:
+                W = np.random.uniform(
+                         low=-np.sqrt(1 / n), high=np.sqrt(1 / n), size=(n, m)
+                     ).astype(np.float32)
+                continue
+
             # construct embedding operator
             if self.qr_flag and n > self.qr_threshold:
                 EE = QREmbeddingBag(n, m, self.qr_collisions,
@@ -325,7 +339,8 @@ class DLRM_Net(nn.Module):
         qr_threshold=200,
         md_flag=False,
         md_threshold=200,
-        use_custom_embedding=False
+        use_custom_embedding=False,
+        rank = 0
     ):
         super(DLRM_Net, self).__init__()
 
@@ -362,6 +377,11 @@ class DLRM_Net(nn.Module):
             # create operators
             if ndevices <= 1:
                 self.emb_l = self.create_emb(m_spa, ln_emb)
+            else:
+                valid_device_emb_table, all2all_reorder = distributed_utils.dlrm_get_emb_table_map(ln_emb, args.rank, self.ndevices)
+                self.valid_device_emb_table = valid_device_emb_table
+                self.all2all_reorder = all2all_reorder
+                self.emb_l = self.create_emb(m_spa, ln_emb, valid_device_emb_table)
             self.bot_l = self.create_mlp(ln_bot, sigmoid_bot)
             self.top_l = self.create_mlp(ln_top, sigmoid_top)
 
@@ -473,13 +493,11 @@ class DLRM_Net(nn.Module):
         # exchange_input_buffer = list(torch.cat(ly, dim=1).split(batch_size, dim=0))
         for i in range(len(ly)):
             exchange_input_buffer[:,i*self.m_spa:(i+1)*self.m_spa] = ly[i].to("cpu")
-        #print(exchange_input_buffer.to("cpu"))
         #exchange_input_buffer = PrintDataAcrossPass.apply(exchange_input_buffer)
         exchange_input_buffer = exchange_input_buffer.to(ly[0].device)
         exchange_output_buffer = AllToAllAcrossDevice.apply(exchange_input_buffer)
         #exchange_output_buffer = PrintDataAcrossPass.apply(exchange_output_buffer)
         #torch.distributed.all_to_all_single(exchange_output_buffer, exchange_input_buffer)
-        #print(exchange_output_buffer)
         rank_specific_data = exchange_output_buffer.split(batch_size, dim = 0)
         n = len(self.ln_emb) % self.ndevices
         if n == 0:
@@ -489,6 +507,8 @@ class DLRM_Net(nn.Module):
             out_ly += rank_specific_data[i].split(self.m_spa, dim = 1)
         for i in range(n, self.ndevices):
             out_ly += rank_specific_data[i].split(self.m_spa, dim = 1)[:-1]
+        # Needed to match with single chip
+        # out_ly = [out_ly[pos] for pos in self.all2all_reorder]
         return out_ly
 
     def parallel_forward(self, dense_x, lS_o, lS_i, preproc_data):
@@ -506,6 +526,9 @@ class DLRM_Net(nn.Module):
         x = self.apply_mlp(dense_x, self.bot_l)
         # embeddings
         ly = self.apply_emb(lS_o, lS_i, self.emb_l, preproc_data)
+        #print("Apply emb output")
+        #ly_cpu = [ly_val.to("cpu") for ly_val in ly]
+        #print(ly_cpu)
         # debug prints
         # print(ly)
 
@@ -519,11 +542,17 @@ class DLRM_Net(nn.Module):
             sys.exit("ERROR: corrupted intermediate result in parallel_forward call")
         #print(x)
         #print(ly)
+        #print("Exchange embedding")
+        #ly[0] = PrintDataAcrossPass.apply(ly[0])
         ly = self.exchange_emb(ly, batch_size, valid_device_emb_table)
+        #ly_cpu = [ly_val.to("cpu") for ly_val in ly]
+        #print(ly_cpu)
 
         # interactions
         z = self.interact_features(x, ly)
         p = self.apply_mlp(z, self.top_l)
+        # print("MLP output")
+        # p = PrintDataAcrossPass.apply(p)
         # clamp output if needed
         if 0.0 < self.loss_threshold and self.loss_threshold < 1.0:
             z = torch.clamp(
@@ -821,7 +850,11 @@ if __name__ == "__main__":
 
     if args.distributed:
         ndevices = args.world_size
+        rank = args.rank
+        world_size = args.world_size
     else:
+        rank = 0
+        world_size = 1
         if use_gpu and not use_hpu:
             ndevices = min(ngpus, args.mini_batch_Size, num_fea - 1)
         else:
@@ -849,7 +882,8 @@ if __name__ == "__main__":
         qr_threshold=args.qr_threshold,
         md_flag=args.md_flag,
         md_threshold=args.md_threshold,
-        use_custom_embedding=args.use_custom_embedding
+        use_custom_embedding=args.use_custom_embedding,
+        rank=rank
     )
     # test prints
     if args.debug_mode:
@@ -858,24 +892,19 @@ if __name__ == "__main__":
             print(param.detach().cpu().numpy())
         # print(dlrm)
 
+    # print("Parameters")
+    # [print(name, p.cpu(),p.grad_fn,p.cpu().grad_fn) for name,p in dlrm.named_parameters()]
     if use_gpu:
         # Custom Model-Data Parallel
         # the mlps are replicated and use data parallelism, while
         # the embeddings are distributed and use model parallelism
-        if dlrm.ndevices <= 1:
-            dlrm = dlrm.to(device)  # .cuda()
-        else:
-            dlrm.bot_l = dlrm.bot_l.to(device)
-            dlrm.top_l = dlrm.top_l.to(device)
+        dlrm = dlrm.to(device)  # .cuda()
+
     if dlrm.ndevices > 1:
         dlrm.bot_l = DDP(dlrm.bot_l)
         dlrm.top_l = DDP(dlrm.top_l)
-    valid_device_emb_table = np.arange(0, len(ln_emb))
-    if dlrm.ndevices > 1:
-        valid_device_emb_table = distributed_utils.dlrm_get_emb_table_map(ln_emb, args.rank, args.world_size)
-        dlrm.emb_l = dlrm.create_emb(m_spa, ln_emb[valid_device_emb_table])
-        dlrm.emb_l.to(device)
-
+        valid_device_emb_table, _ = distributed_utils.dlrm_get_emb_table_map(ln_emb, args.rank, args.world_size)
+   
     # specify the loss function
     if args.loss_function == "mse":
         loss_fn = torch.nn.MSELoss(reduction="mean")
@@ -889,13 +918,13 @@ if __name__ == "__main__":
 
     if not args.inference_only:
         # specify the optimizer algorithm
-        optimizer = torch.optim.SGD(list(dlrm.bot_l.parameters()) + list(dlrm.top_l.parameters()), lr=args.learning_rate)
+        optimizer = torch.optim.SGD(list(dlrm.bot_l.parameters()) + list(dlrm.top_l.parameters()), lr=args.learning_rate*world_size)
         if args.use_custom_embedding:
-            emb_optimizer = HabanaOptimizerSparseSgd(dlrm.emb_l.parameters(), lr=args.learning_rate)
-            global_lr = args.learning_rate
+            emb_optimizer = HabanaOptimizerSparseSgd(dlrm.emb_l.parameters(), lr=args.learning_rate/world_size)
+            global_lr = args.learning_rate/world_size
             #TBD: Remove the hack
         else:
-            emb_optimizer = torch.optim.SGD(dlrm.emb_l.parameters(), lr=args.learning_rate)
+            emb_optimizer = torch.optim.SGD(dlrm.emb_l.parameters(), lr=args.learning_rate/world_size)
         #lr_scheduler = LRPolicyScheduler(optimizer, args.lr_num_warmup_steps, args.lr_decay_start_step,
         #                                 args.lr_num_decay_steps)
 
@@ -907,6 +936,14 @@ if __name__ == "__main__":
             else:
                 torch.cuda.synchronize()
         return time.time()
+
+    def enable_tracing(model, X_device, lS_o, lS_i, preproc_data):
+        torch._C._debug_set_autodiff_subgraph_inlining(False)
+        torch._C._jit_set_profiling_executor(False)
+        torch._C._jit_set_profiling_mode(False)
+        hb_torch.enable()
+        dlrm_trace = torch.jit.trace(model, (X_device, lS_o, lS_i, preproc_data))
+        return dlrm_trace
 
     def dlrm_wrap(X, lS_o, lS_i, use_gpu, use_custom_embedding, device):
         if use_gpu:  # .cuda()
@@ -1068,10 +1105,12 @@ if __name__ == "__main__":
 
                 # forward pass
                 if args.distributed:
-                    X = np.take(X,np.arange(args.rank,X.size()[0],args.world_size),0)
+                    # mini batch size is expected to be a multiple of world_size
+                    train_batch_size = int(X.size()[0]/args.world_size)
+                    X = np.take(X,np.arange(args.rank*train_batch_size,(args.rank+1)*train_batch_size), 0)
                     lS_o = np.take(lS_o, valid_device_emb_table, 0)
                     lS_i = itemgetter(*valid_device_emb_table)(lS_i)
-                    T = T[args.rank::args.world_size]
+                    T = T[args.rank*train_batch_size:(args.rank+1)*train_batch_size]
                     if isinstance(lS_i, tuple):
                         lS_i = list(lS_i)
                     else:
@@ -1173,15 +1212,15 @@ if __name__ == "__main__":
                         t1_test = time_wrap(use_gpu)
 
                         if args.distributed:
-                            X_test = np.take(X_test, np.arange(args.rank,X_test.size()[0],args.world_size),0)
+                            test_batch_size = int(X_test.size()[0]/args.world_size)
+                            X_test = np.take(X_test, np.arange(args.rank * test_batch_size, (args.rank + 1) * test_batch_size),0)
                             lS_o_test = np.take(lS_o_test, valid_device_emb_table, 0)
                             lS_i_test = itemgetter(*valid_device_emb_table)(lS_i_test)
-                            T_test = T_test[args.rank::args.world_size]
+                            T_test = T_test[args.rank * test_batch_size : (args.rank + 1) * test_batch_size]
                             if isinstance(lS_i_test, tuple):
                                 lS_i_test = list(lS_i_test)
                             else:
                                 lS_i_test = [lS_i_test]
-
 
                         # forward pass
                         Z_test = dlrm_wrap(
