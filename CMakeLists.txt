@@ -42,7 +42,9 @@ add_subdirectory(pytorch_helpers)
 # workaround for cmake3.5. Starting from 3.13 sources are optional and we can add them in add_subdirectories
 add_library(habana_pytorch_plugin SHARED
   pytorch_helpers/habana_device/HPUAllocator.cpp
-  pytorch_helpers/habana_device/PoolAllocator.cpp
+  pytorch_helpers/habana_device/pool_allocator/utils.cpp
+  pytorch_helpers/habana_device/pool_allocator/PoolAllocator.cpp
+  pytorch_helpers/habana_device/pool_allocator/CoalescedPoolAllocator.cpp
   pytorch_helpers/habana_helpers/tensor_utils.cpp
   habana_kernels/basic_kernels.cpp
   habana_kernels/binary_kernels.cpp

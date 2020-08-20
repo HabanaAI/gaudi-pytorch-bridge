@@ -153,15 +153,67 @@ def check_alignment(device):
     assert(is_aligned(dp_2) == True)
     assert(is_contiguous(dp_1, tensor_size_1, dp_2) == True)
 
+def pool_coalesce(device):
+
+    gigabyte = 1000*1000*1000
+    pool_used = os.environ.get('ENV_POOL_STRATEGY')
+    print("pool_used :: ", pool_used)
+    pool_size = os.environ.get('ENV_POOL_SIZE')
+    print("pool_size :: ", pool_size)
+
+    if (pool_used == '3'):
+        allocated_size = 1
+        index = 0
+        hpu_tensor_list = []
+        pool_sz = int(pool_size)
+        pool_used = "static-coalesced"
+        if (pool_size == '0'):
+            pool_sz = 1 * gigabyte
+        else:
+            pool_sz = pool_sz * gigabyte
+        print("pool size :: ", pool_sz)
+        while(allocated_size < pool_sz):
+            #print ("tensor :: ", index)
+            hpu_tensor_A = torch.randn(30000, 1000).to(device)
+            hpu_tensor_list.append(hpu_tensor_A)
+            tensor_size = hpu_tensor_A.element_size() * hpu_tensor_A.nelement()
+            allocated_size = allocated_size + tensor_size
+            print("tensor size :: ", tensor_size)
+            index = index + 1
+            if (index == 8):
+                break
+
+        print("allocated_size :: ", allocated_size)
+        print("total blocks :: ", len(hpu_tensor_list))
+        print("tensor list")
+        for i in range(len(hpu_tensor_list)):
+            print("tensor ",index, " :: ",hpu_tensor_list[i].data_ptr())
+
+        #dp0 = hpu_tensor_list[0].data_ptr()
+        #print(hpu_tensor_list[2].data_ptr())
+        #print(hpu_tensor_list[3].data_ptr())
+        del(hpu_tensor_list)
+        #del(hpu_tensor_list[3])
+
+        hpu_tensor_reuse = torch.randn(30000, 2000).to(device)
+        #dp1 = hpu_tensor_reuse.data_ptr()
+        #print(hpu_tensor_list[4].data_ptr())
+        #del(hpu_tensor_list[4])
+        #del(hpu_tensor_list[5])
+        hpu_tensor_reuse1 = torch.randn(20000, 1000).to(device)
+        #hpu_tensor_reuse2 = torch.randn(20000, 1000).to(device)
+        #dp0 memory must be reused
+        #assert(check_data_pointers(dp0, dp1) == True)
 
 def main():
 
     torch.ops.load_library(os.path.join(os.environ['BUILD_ROOT_LATEST'], "libhabana_pytorch_plugin.so"))
     device = torch.device("habana")
 
-    #tensor_create(device)
-    #pool_exhaust(device)
     check_alignment(device)
+    tensor_create(device)
+    pool_exhaust(device)
+    pool_coalesce(device)
 
 if __name__ == '__main__':
     main()

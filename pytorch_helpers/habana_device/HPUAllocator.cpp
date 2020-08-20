@@ -22,10 +22,10 @@ synDeviceId HPUDeviceAllocator::allocator_active_device_id = -1;
 static HPUDeviceAllocator hpu_device_allocator;
 
 // pool variables
-SubAllocator *HPUDeviceAllocator::suballoc = nullptr;
+pool_allocator::SubAllocator *HPUDeviceAllocator::suballoc = nullptr;
 void* HPUDeviceAllocator::mem_pool = nullptr;
-PoolStrategyType HPUDeviceAllocator::poolingType = strategy_none;
-size_t HPUDeviceAllocator::poolSize = DEFAULT_POOL_SIZE;
+pool_allocator::PoolStrategyType HPUDeviceAllocator::poolingType = pool_allocator::strategy_none;
+uint64_t HPUDeviceAllocator::poolSize = DEFAULT_POOL_SIZE;
 ///
 
 at::Allocator* getHABANADeviceAllocator() {
@@ -113,25 +113,61 @@ void HPUAllocator::free(void* ptr) {
   TORCH_HABANA_CHECK(status, "synDeviceFree failed");
 }
 
-void HPUDeviceAllocator::create_pool(synDeviceId deviceID, size_t poolSize) {
+void HPUDeviceAllocator::create_pool(synDeviceId deviceID, uint64_t poolSize) {
   switch (poolingType)
   {
-    case strategy_bump:
+    case pool_allocator::strategy_bump:
       if (!mem_pool) {
-        suballoc = new SubAllocator(new StaticPooling);
-        mem_pool = suballoc->pool_create(deviceID, poolSize);
-        if (mem_pool == nullptr) {
-          PT_DEVICE_FATAL("unable to create pool");
+        try {
+          std::cout << " strategy_bump with size :: " << poolSize << std::endl;
+          suballoc = new pool_allocator::SubAllocator(new pool_allocator::StaticPooling);
+          if (suballoc == nullptr) {
+            PT_DEVICE_FATAL("unable to create pool allocator");
+          }
+          mem_pool = suballoc->pool_create(deviceID, poolSize);
+          if (mem_pool == nullptr) {
+            PT_DEVICE_FATAL("unable to create pool");
+          }
+        }
+        catch(...) {
+          PT_DEVICE_FATAL("unknown pool error ");
         }
       }
     break;
-    case strategy_dynamic:
+    case pool_allocator::strategy_dynamic:
       if (!suballoc) {
-        suballoc = new SubAllocator(new DynamicPooling);
-        mem_pool = suballoc->pool_create(deviceID, poolSize);
+        try {
+          std::cout << " strategy_dynamic :: " << poolSize<< std::endl;
+          suballoc = new pool_allocator::SubAllocator(new pool_allocator::DynamicPooling);
+          if (suballoc == nullptr) {
+            PT_DEVICE_FATAL("unable to create pool allocator");
+          }
+          mem_pool = suballoc->pool_create(deviceID, poolSize);
+        }
+        catch(...) {
+          PT_DEVICE_FATAL("unknown pool error ");
+        }
       }
     break;
-    case strategy_none:
+    case pool_allocator::startegy_static_coalesce:
+      if (!mem_pool) {
+        try {
+          std::cout << " startegy_static_coalesce :: " << poolSize << std::endl;
+          suballoc = new pool_allocator::SubAllocator(new pool_allocator::StaticCoalescedPooling);
+          if (suballoc == nullptr) {
+            PT_DEVICE_FATAL("unable to create pool allocator");
+          }
+          mem_pool = suballoc->pool_create(deviceID, poolSize);
+          if (mem_pool == nullptr) {
+            PT_DEVICE_FATAL("unable to create pool");
+          }
+        }
+        catch(...) {
+          PT_DEVICE_FATAL("unknown pool error ");
+        }
+      }
+    break;
+    case pool_allocator::strategy_none:
     default:
       suballoc = nullptr;
       mem_pool = nullptr;
@@ -140,8 +176,10 @@ void HPUDeviceAllocator::create_pool(synDeviceId deviceID, size_t poolSize) {
 }
 
 void HPUDeviceAllocator::delete_pool() {
-  suballoc->pool_destroy(mem_pool);
-  delete suballoc;
+  if (suballoc) {
+    suballoc->pool_destroy(mem_pool);
+    delete suballoc;
+  }
   mem_pool = nullptr;
   suballoc = nullptr;
 }
@@ -154,7 +192,7 @@ HPUDeviceAllocator::HPUDeviceAllocator() {
 }
 
 HPUDeviceAllocator::~HPUDeviceAllocator() {
-  if (poolingType != strategy_none) {
+  if (poolingType != pool_allocator::strategy_none) {
     delete_pool();
   }
 }
@@ -164,7 +202,7 @@ void HPUDeviceAllocator::deleter(void* ptr) {
     return;
   }
 
-  if (poolingType != strategy_none) {
+  if (poolingType != pool_allocator::strategy_none) {
     suballoc->pool_free_chunk(ptr);
   } else {
       uint64_t ptr_address{reinterpret_cast<uint64_t>(ptr)};
@@ -189,14 +227,17 @@ at::DataPtr HPUDeviceAllocator::allocate(size_t size) const {
         "habana active device: ",
         habana::HPUDeviceAllocator::allocator_active_device_id,
         " != 0");
-    if (poolingType != strategy_none) {
+
+    if (poolingType != pool_allocator::strategy_none) {
+      // pool must be created in the constructor. Device is not
+      // yet initialized so creating here
         create_pool(allocator_active_device_id, poolSize);
         ptr = (uint64_t)suballoc->pool_alloc_chunk(mem_pool, num_bytes);
         if ((void*)ptr == nullptr) {
           PT_DEVICE_FATAL("pooling allocator failed");
         }
         v_ptr = reinterpret_cast<void*>(ptr);
-    } else {        
+    } else {
         auto status{
           synDeviceMalloc(allocator_active_device_id, num_bytes, 0, 0, &ptr)};
         v_ptr = reinterpret_cast<void*>(ptr);

@@ -14,7 +14,8 @@
 #include <synapse_helpers/device.h>
 #include <synapse_helpers/habana_tensor.h>
 #include "habana_helpers/logging.h"
-#include "PoolAllocator.h"
+#include "pool_allocator/PoolAllocator.h"
+#include "pool_allocator/CoalescedPoolAllocator.h"
 
 
 namespace at {
@@ -39,27 +40,30 @@ class HPUDeviceAllocator final : public at::Allocator {
  public:
   HPUDeviceAllocator();
   ~HPUDeviceAllocator();
-  static PoolStrategyType get_pooling_strategy() {
+  static pool_allocator::PoolStrategyType get_pooling_strategy() {
     static const string poolEnvValue = "ENV_POOL_STRATEGY";
     const char* poolValue = getenv(poolEnvValue.c_str());
     if (poolValue) {
       if (strncmp(poolValue, "1", 1) == 0) {
         PT_DEVICE_DEBUG("Bump pooling Enabled");
-        return strategy_bump;
+        return pool_allocator::strategy_bump;
       } else if (strncmp(poolValue, "2", 1) == 0) {
         PT_DEVICE_DEBUG("Dyanmic pooling Enabled");
-        return strategy_dynamic;
+        return pool_allocator::strategy_dynamic;
+      } else if (strncmp(poolValue, "3", 1) == 0) {
+        PT_DEVICE_DEBUG("static pooling with coalescing Enabled");
+        return pool_allocator::startegy_static_coalesce;
       } else if (strncmp(poolValue, "0", 1) == 0) {
         PT_DEVICE_DEBUG("pooling Disabled");
-        return strategy_none;
+        return pool_allocator::strategy_none;
       }
     }
     PT_DEVICE_DEBUG("default pooling strategy set");
-    return strategy_none;
+    return pool_allocator::strategy_none;
   }
 
-  static size_t get_pool_size() {
-    size_t poolSize = DEFAULT_POOL_SIZE;
+  static uint64_t get_pool_size() {
+    uint64_t poolSize = DEFAULT_POOL_SIZE;
     static const string poolEnvValue = "ENV_POOL_SIZE";
     const char* poolValue = getenv(poolEnvValue.c_str());
     if (poolValue) {
@@ -70,16 +74,16 @@ class HPUDeviceAllocator final : public at::Allocator {
         poolSize = DEFAULT_POOL_SIZE;
       }
     }
-    PT_DEVICE_DEBUG("Pool size set to :: ", poolSize);
+    PT_DEVICE_DEBUG("Pool size requested for :: ", poolSize);
     return poolSize;
   }
 
-  static void create_pool(synDeviceId deviceID,  size_t poolSize);
+  static void create_pool(synDeviceId deviceID,  uint64_t poolSize);
   static void delete_pool();
-  static SubAllocator *suballoc;
+  static pool_allocator::SubAllocator *suballoc;
   static void* mem_pool;
-  static PoolStrategyType poolingType;
-  static size_t poolSize;
+  static pool_allocator::PoolStrategyType poolingType;
+  static uint64_t poolSize;
 
   at::DataPtr allocate(size_t size) const override;
   at::DeleterFnPtr raw_deleter() const override;
