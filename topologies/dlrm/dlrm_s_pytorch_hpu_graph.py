@@ -98,6 +98,7 @@ class gv():
     indices_fwd = []
     indices_bwd = []
     numEmbeddingTables = 0
+    lr = torch.tensor([0.0])
 
 # A simple hook class that returns the input and output of a layer during forward/backward pass
 
@@ -193,6 +194,7 @@ class HabanaEmbeddingBag(torch.nn.Module):
         ).astype(np.float32)
         # approach 1
         self.weight = nn.Parameter(torch.tensor(W, requires_grad=True))
+        #self.old_moments = nn.Parameter(torch.empty(self.weight.data.shape, requires_grad=False))
         self.instance = instance
 
     def forward(self, indices, offsets, valid_count_fwd, indices_bwd, offsets_bwd, valid_count_bwd, grad_weights, instance):
@@ -239,34 +241,38 @@ def apply_preproc(sparse_offset_group_batch, sparse_index_group_batch, i, m, ln_
     sparse_offset_group_batch = sparse_offset_group_batch.type(torch.IntTensor)
     sparse_index_group_batch = sparse_index_group_batch.type(torch.IntTensor)
 
-    gv.countUniqueIndices[i], gv.uniqueIndexes[i], gv.outputRows[i], gv.outputRowOffsets[i] = gv.HabanaDlrmPreproc1[i](
+    countUniqueIndices, uniqueIndexes, gv.outputRows[i], gv.outputRowOffsets[i] = gv.HabanaDlrmPreproc1[i](
         sparse_index_group_batch, sparse_offset_group_batch, 4)
+
+    gv.countUniqueIndices[i] = countUniqueIndices.to(device, non_blocking=True)
 
     # create additional tensors needed by embedding bag sum
     valid_count_fwd_cpu = torch.tensor([sparse_index_group_batch.numel(), sparse_offset_group_batch.numel(
     )], dtype=torch.int32)
     valid_count_bwd_cpu = torch.tensor(
-        [gv.outputRows[i].numel(), gv.countUniqueIndices[i].item()+1], dtype=torch.int32)
+        [gv.outputRows[i].numel(), countUniqueIndices.item()+1], dtype=torch.int32)
 
-    numOffsets = gv.countUniqueIndices[i].item()+1
+    numOffsets = countUniqueIndices.item()+1
     gv.outputRowOffsets[i] = torch.narrow(gv.outputRowOffsets[i], 0, 0, numOffsets)
 
     #Creation of static max size tensors to enable graph caching
     if (gv.indices_fwd[i].size() == torch.Size([1, 1])):
         #print("max size tensors created for instance ", i)
         max_i_size_fwd = args.num_indices_per_lookup*(sparse_offset_group_batch.numel()-1)
-        gv.indices_fwd[i] = torch.empty([max_i_size_fwd],dtype=torch.int32).to(device, non_blocking=True)
+        gv.indices_fwd[i] = torch.empty([max_i_size_fwd],dtype=torch.int32, device = device)
 
         max_i_size_bwd = args.num_indices_per_lookup*(sparse_offset_group_batch.numel()-1)
-        gv.indices_bwd[i] = torch.empty([max_i_size_bwd],dtype=torch.int32).to(device, non_blocking=True)
+        gv.indices_bwd[i] = torch.empty([max_i_size_bwd],dtype=torch.int32, device = device)
 
         #numoffsets_bwd = num unique indices + 1. Worst case num unique indices = ln_emb[i]
-        gv.outputRowOffsets_hpu[i] = torch.empty(ln_emb[i]+1,dtype = torch.int32).to(device, non_blocking=True)
+        gv.outputRowOffsets_hpu[i] = torch.empty(ln_emb[i]+1,dtype = torch.int32, device = device)
         #Max possible grad in matrix
-        gv.coalesced_grads[i] = torch.empty(ln_emb[i], m, dtype=torch.float32).to(device, non_blocking=True)
+        gv.coalesced_grads[i] = torch.empty(ln_emb[i], m, dtype=torch.float32, device = device)
 
-        gv.valid_count_fwd[i] = torch.empty([2], dtype=torch.int32).to(device, non_blocking=True)
-        gv.valid_count_bwd[i] = torch.empty([2], dtype=torch.int32).to(device, non_blocking=True)
+        gv.valid_count_fwd[i] = torch.empty([2], dtype=torch.int32, device = device)
+        gv.valid_count_bwd[i] = torch.empty([2], dtype=torch.int32, device = device)
+        gv.lr = torch.tensor([args.learning_rate]).to(device, non_blocking=True)
+        gv.uniqueIndexes[i] = torch.empty([max_i_size_bwd], dtype=torch.int32, device = device)
 
     '''
     print("emb bag instance i size", m, ln_emb[i])
@@ -289,21 +295,15 @@ def apply_preproc(sparse_offset_group_batch, sparse_index_group_batch, i, m, ln_
     #WA for SW-18483
     gv.outputRowOffsets_hpu[i].fill_(0)
     gv.outputRowOffsets_hpu[i].copy_(gv.outputRowOffsets[i], non_blocking=True)
+    gv.uniqueIndexes[i].copy_(uniqueIndexes)
 
 def apply_optimizer_update():
     #import pudb
-    import copy
     for i in range(gv.numEmbeddingTables):
-        uniqueIndexes = gv.uniqueIndexes[i].to(device, non_blocking=True)  # torch.narrow(gv.uniqueIndexes[i], 0, 0, countUniqueIndices)
-
-        countUniqueIndices = gv.countUniqueIndices[i].item()
-        old_moments = torch.zeros(dlrm_habana.emb_l[i].weight.shape).to(device, non_blocking=True)
-        lr = torch.tensor([args.learning_rate]).to(device, non_blocking=True)
-
-        gradient = gv.coalesced_grads[i]
         weight = dlrm_habana.emb_l[i].weight.data
+        old_moments = torch.empty_like(weight)
         upd_emb_weights, upd_emb_moments = gv.HabanaDlrmSparseSgd1[i](
-            gradient, weight, old_moments, uniqueIndexes, lr, countUniqueIndices)
+            gv.coalesced_grads[i], weight, old_moments, gv.uniqueIndexes[i], gv.lr, gv.countUniqueIndices[i])
 
         dlrm_habana.emb_l[i].weight.data = upd_emb_weights
 

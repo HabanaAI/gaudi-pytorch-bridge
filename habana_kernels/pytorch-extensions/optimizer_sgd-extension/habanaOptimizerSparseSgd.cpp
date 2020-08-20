@@ -26,7 +26,7 @@ optimizer_sparse_sgd_with_valid_count_hpu(
     const torch::Tensor& moments_in,
     const torch::Tensor& indices,
     const torch::Tensor& learning_rate,
-    int64_t valid_count,
+    const torch::Tensor& valid_count,
     float mom,
     bool nesterov);
 
@@ -36,8 +36,7 @@ std::tuple<torch::Tensor, torch::Tensor> optimizer_sparse_sgd_with_valid_count(
     torch::Tensor moments_in,
     torch::Tensor indices,
     torch::Tensor learning_rate,
-    int64_t valid_count){
-
+    torch::Tensor valid_count) {
   return optimizer_sparse_sgd_with_valid_count_hpu(
       gradients,
       weights_in,
@@ -50,7 +49,9 @@ std::tuple<torch::Tensor, torch::Tensor> optimizer_sparse_sgd_with_valid_count(
 }
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
-  m.def("forward", &optimizer_sparse_sgd_with_valid_count, "Optimizer Sparse Stochastic Gradient Descent with valid count ");
+  m.def(
+      "forward",
+      &optimizer_sparse_sgd_with_valid_count,
+      "Optimizer Sparse Stochastic Gradient Descent with valid count ");
   m.def("backward", &optimizer_sparse_sgd_with_valid_count, "TO BE REMOVED");
 }
-

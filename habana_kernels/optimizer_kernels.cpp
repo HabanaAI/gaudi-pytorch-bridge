@@ -28,7 +28,8 @@ using namespace habana;
 // 4	Indices              I32	1D
 // 5	Learning rate	       FP32	1D
 // 6	Valid count	         I32	1D
-//
+// 7 momentum              FP32
+// 8 nesterov              Bool
 // Output tensors
 // 1	Weights              FP32/FP16/BF16	2D
 // 2	Moments              FP32	2D
@@ -39,21 +40,24 @@ void OptimizerSparseSgdOperator::AllocateAndAddSynapseNode(
     torch::jit::Stack& inputs,
     std::vector<bool> is_output_persistent) {
   TORCH_CHECK(
-      inputs.size() == 5,
+      inputs.size() == 8,
       "Incorrect size of inputs expected for optimizer_sparse_sgd operator");
   TORCH_CHECK(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
   TORCH_CHECK(inputs[1].isTensor(), "Input arg2 type expected to be tensor");
   TORCH_CHECK(inputs[2].isTensor(), "Input arg3 type expected to be tensor");
-  TORCH_CHECK(inputs[3].isDouble(), "Input arg4 type expected to be float");
-  TORCH_CHECK(inputs[4].isBool(), "Input arg5 type expected to be bool");
+  TORCH_CHECK(inputs[3].isTensor(), "Input arg4 type expected to be tensor");
+  TORCH_CHECK(inputs[4].isTensor(), "Input arg5 type expected to be tensor");
+  TORCH_CHECK(inputs[5].isTensor(), "Input arg6 type expected to be tensor");
+  TORCH_CHECK(inputs[6].isDouble(), "Input arg7 type expected to be float");
+  TORCH_CHECK(inputs[7].isBool(), "Input arg8 type expected to be Bool");
   TORCH_CHECK(
       is_output_persistent.size() == 2,
       "OptimizerSparseSgdOperator: #is_output_persistent should be 2");
 
   auto weights_in = inputs[1].toTensor();
   auto moments_in = inputs[2].toTensor();
-  auto mom = static_cast<float>(inputs[3].toDouble());
-  auto nesterov = inputs[4].toBool();
+  auto mom = static_cast<float>(inputs[6].toDouble());
+  auto nesterov = inputs[7].toBool();
 
   ns_OptimizerSparseSGD::Params params;
   params.mom = mom;
@@ -76,43 +80,53 @@ optimizer_sparse_sgd_with_valid_count_hpu(
     const Tensor& moments_in,
     const Tensor& indices,
     const Tensor& learning_rate,
-    int64_t valid_count,
+    const Tensor& valid_count_tensor,
     float mom,
     bool nesterov) {
   PT_KERNEL_BEGIN;
-  auto cast_indices = habana_helpers::cast_tensor_to_integer(indices);
-
-  // This conversion from scalar to tensor not done within
-  // AllocateAndAddSynapseNode because graph mode does not have
-  // support for DMA handling.
-  auto valid_count_tensor = at::empty({1}, cast_indices.options());
-  valid_count_tensor.fill_(static_cast<int32_t>(valid_count));
 
   size_t device_id = gradients.device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
   auto scalar_type = gradients.scalar_type();
   std::string node_type = "optimizer_sparse_sgd_with_valid_count_2d_" +
       habana_helpers::name_suffix_from_type(scalar_type);
-  OptimizerSparseSgdOperator Op(device_id, node_type);
-  // Create Graph
-  auto graph = habana_helpers::create_graph(device_id, node_type);
 
+  OptimizerSparseSgdOperator Op(device_id, node_type);
   // Assign Inputs to the Operator
   std::vector<at::Tensor> pt_inputs{gradients,
                                     weights_in,
                                     moments_in,
-                                    cast_indices,
+                                    indices,
                                     learning_rate,
                                     valid_count_tensor};
-  Op.AllocateSynapseInputs(graph, pt_inputs, true);
   // Build Params for the graph
   std::vector<c10::IValue> stack = {IValue(gradients),
                                     IValue(weights_in),
                                     IValue(moments_in),
+                                    IValue(indices),
+                                    IValue(learning_rate),
+                                    IValue(valid_count_tensor),
                                     IValue(mom),
                                     IValue(nesterov)};
-  Op.AllocateAndAddSynapseNode(graph, stack, {true, true});
-  // compile and execute the graph
-  Op.Compile(graph);
+
+  size_t key = Op.GetRecipeKey(node_type, stack);
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    auto weights_out = habana_helpers::createPTTensor(weights_in, true);
+    auto moments_out = habana_helpers::createPTTensor(moments_in, true);
+
+    Op.SetPTInputs(pt_inputs);
+    Op.SetPTOutputs({weights_out, moments_out});
+    Op.Execute(key);
+  } else {
+    // Create Graph
+    auto graph = habana_helpers::create_graph(device_id, node_type);
+
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
+    Op.AllocateAndAddSynapseNode(graph, stack, {true, true});
+    // compile and execute the graph
+    Op.Compile(graph);
+  }
   std::vector<at::Tensor> out = Op.GetOutputs();
   TORCH_CHECK(out.size() == 2, "Incorrect size of outputs");
 

@@ -236,7 +236,7 @@ def apply_optimizer_update():
     for i in range(gv.numEmbeddingTables):
         uniqueIndexes = gv.uniqueIndexes[i].to(device) #torch.narrow(gv.uniqueIndexes[i], 0, 0, countUniqueIndices)
 
-        countUniqueIndices = gv.countUniqueIndices[i].item()
+        countUniqueIndices = gv.countUniqueIndices[i].to(device, non_blocking = True)
         old_moments = torch.zeros(dlrm_habana.emb_l[i].weight.shape).to(device)
         lr = torch.tensor([args.learning_rate]).to(device)
 

@@ -21,8 +21,8 @@ class OptimizerSparseSgdOperator : public HabanaOperator {
     kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
   }
 
-  virtual void AllocateAndAddSynapseNode(
+  void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      std::vector<bool> is_output_persistent);
+      std::vector<bool> is_output_persistent) override;
 };
