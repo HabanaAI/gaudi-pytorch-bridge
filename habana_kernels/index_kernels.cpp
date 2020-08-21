@@ -681,17 +681,25 @@ Tensor select_hpu(const Tensor& self, int64_t dim, int64_t index) {
 
   std::string node_type = "slice";
   size_t device_id = self.device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
 
   SelectOperator Op(device_id, scalar_type);
   std::vector<at::Tensor> pt_inputs{self};
   std::vector<c10::IValue> stack = {IValue(self), IValue(dim), IValue(index)};
 
-  // Do not cache this kernel as caching already happens within  child class
-  // slice
-  auto graph = habana_helpers::create_graph(device_id, node_type);
-  Op.AllocateSynapseInputs(graph, pt_inputs, true);
-  Op.AllocateAndAddSynapseNode(graph, stack, true);
-  Op.Compile(graph);
+  size_t key = Op.GetRecipeKey(node_type, stack);
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    Op.SetPTInputs(pt_inputs);
+    Op.SetPTOutputs(stack);
+    Op.Execute(key);
+  } else {
+    PT_KERNEL_DEBUG("key:", key);
+    auto graph = habana_helpers::create_graph(device_id, node_type);
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
+    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    Op.Compile(graph);
+  }
 
   std::vector<at::Tensor> out = Op.GetOutputs();
   HABANA_ASSERT(out.size() == 1);
