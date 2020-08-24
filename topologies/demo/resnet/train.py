@@ -170,11 +170,21 @@ def load_data(traindir, valdir, cache_dataset, distributed):
 
     return dataset, dataset_test, train_sampler, test_sampler
 
-def permute_params_on_device(model):
+#permute the params from filters first (KCRS) to filters last(RSCK) or vice versa.
+#and permute from RSCK to KCRS is used for checkpoint saving
+def permute_params(model, to_filters_last):
     with torch.no_grad():
         for name, param in model.named_parameters():
             if(param.ndim == 4):
-                permuted_data = param.data.permute((2,3,1,0))
+                permuted_data = None
+                if to_filters_last:
+                    permuted_data = param.data.permute((2,3,1,0))
+                else:
+                    s = list(param.data.shape) # param data shape (KCRS)
+                    sh = [s[2], s[3], s[1],s[0]] # update to RSCK
+                    vh = torch.reshape(param.data, sh) # reshape the tensor in RSCK
+                    permuted_data = vh.permute((3,2,0,1)) # permute RSCK to KCRS
+
                 param.data.copy_(permuted_data)
 
 def main(args):
@@ -238,7 +248,7 @@ def main(args):
             #So we are forced to rearrange such tensors ourselves.
     
     if(device==torch.device('habana')):
-        permute_params_on_device(model)
+        permute_params(model, True)
 
 
     if args.distributed and args.sync_bn:
@@ -286,7 +296,7 @@ def main(args):
         lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
         args.start_epoch = checkpoint['epoch'] + 1
         if(device==torch.device('habana')):
-            permute_params_on_device(model_without_ddp)
+            permute_params(model_without_ddp, True)
 
     if args.test_only:
         evaluate(model_for_eval, criterion, data_loader_test, device=device)
@@ -303,20 +313,50 @@ def main(args):
         evaluate(model_for_eval, criterion, data_loader_test, device=device)
 
         if (args.output_dir and args.save_checkpoint):
-            #Bring the model back to CPU before storing. Needed if running on Habana.
-            model_without_ddp_cpu = model_without_ddp.to('cpu')
-            checkpoint = {
-                'model': model_without_ddp_cpu.state_dict(),
-                'optimizer': optimizer.state_dict(),
-                'lr_scheduler': lr_scheduler.state_dict(),
-                'epoch': epoch,
-                'args': args}
-            utils.save_on_master(
-                checkpoint,
-                os.path.join(args.output_dir, 'model_{}.pth'.format(epoch)))
-            utils.save_on_master(
-                checkpoint,
-                os.path.join(args.output_dir, 'checkpoint.pth'))
+            if args.device == 'habana':
+                permute_params(model_without_ddp, False)
+                #Use this model only to copy the state_dict of the actual model
+                copy_model = resnet_models.__dict__[args.model](pretrained=args.pretrained)
+
+                copy_model.load_state_dict(model_without_ddp.state_dict())
+                for state in optimizer.state.values():
+                  for k, v in state.items():
+                    if isinstance(v, torch.Tensor):
+                        state[k] = v.to('cpu')
+
+                checkpoint = {
+                    'model': copy_model.state_dict(),
+                    'optimizer': optimizer.state_dict(),
+                    'lr_scheduler': lr_scheduler.state_dict(),
+                    'epoch': epoch,
+                    'args': args}
+                utils.save_on_master(
+                    checkpoint,
+                    os.path.join(args.output_dir, 'model_{}.pth'.format(epoch)))
+                utils.save_on_master(
+                    checkpoint,
+                    os.path.join(args.output_dir, 'checkpoint.pth'))
+
+                for state in optimizer.state.values():
+                  for k, v in state.items():
+                    if isinstance(v, torch.Tensor):
+                        state[k] = v.to('habana')
+                permute_params(model_without_ddp, True)
+
+            else:
+                checkpoint = {
+                    'model': model_without_ddp.state_dict(),
+                    'optimizer': optimizer.state_dict(),
+                    'lr_scheduler': lr_scheduler.state_dict(),
+                    'epoch': epoch,
+                    'args': args}
+                utils.save_on_master(
+                    checkpoint,
+                    os.path.join(args.output_dir, 'model_{}.pth'.format(epoch)))
+                utils.save_on_master(
+                    checkpoint,
+                    os.path.join(args.output_dir, 'checkpoint.pth'))
+
 
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
