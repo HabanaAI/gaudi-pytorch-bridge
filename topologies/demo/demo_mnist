@@ -7,12 +7,12 @@ function help()
         echo -e "  -lr <learning rate >,                              default: 0.01"
         echo -e "  -s <seed>,            --seed <seed>                default: None"
         echo -e "                        --mode <mode>                default: trace mode. Possible values: trace, eager"
-        echo -e "  -d <data type>,       --data_type <data type>      default: fp32. Possible values: fp32, bf16"
+        echo -e "                        --data-type <data type>      default: fp32. Possible values: fp32, bf16"
         echo -e "                        --num-train-steps <steps>    default: maxsize"
         echo -e ""
         echo -e "\nexample:\n"
-        echo -e "./demo_mnist -b 128 --num-train-steps 100 -d fp32 --mode trace"
-        echo -e "./demo_mnist -b 64  --num-train-steps 100 -d bf16 --mode eager"
+        echo -e "./demo_mnist -b 128 --num-train-steps 100 --data-type fp32 --mode trace"
+        echo -e "./demo_mnist -b 64  --num-train-steps 100 --data-type bf16 --mode eager"
         echo -e ""
 }
 
@@ -35,7 +35,7 @@ while [ -n "$1" ];
             shift
             __seed=$1
             ;;
-	-d |  --dtype )
+	    --data-type )
             shift
             __dtype=$1
             ;;

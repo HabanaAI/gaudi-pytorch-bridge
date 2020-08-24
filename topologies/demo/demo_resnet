@@ -16,6 +16,40 @@ function help()
         echo -e "./demo_resnet --data-type fp32 --mode trace  --batch-size 128"
 }
 
+create_hcl_config()
+{
+        hcl_type=$1
+        world_size=$2
+        hcl_config_file=$3
+        TMPPATH="/tmp"
+        echo "{" > ${hcl_config_file}
+        echo "    \"HCL_PORT\" : 5332," >> ${hcl_config_file}
+        echo "    \"HCL_TYPE\" : \"${hcl_type}\"," >> ${hcl_config_file}
+        if [ ${hcl_type} == 'BACK_2_BACK' ]; then
+               echo "    \"DISABLED_PORTS\" : \"[0,1,2,3,5,6,7,8,9]\"," >> ${hcl_config_file}
+        fi
+        echo "    \"HCL_COUNT\" : ${world_size}" >> ${hcl_config_file}
+        echo "}" >> ${hcl_config_file}
+}
+setup_env()
+{
+        world_size=$1
+        backend=$2
+        hcl_type=$3
+        export PT_HPU_LOG_MOD_MASK=FFFF
+        export PT_HPU_LOG_TYPE_MASK=1
+        if [ ${world_size} -le 1 ]; then
+                return
+        fi
+        export TEMP_DIR="/tmp"
+        hcl_config_file="${TEMP_DIR}/hcl_config.json"
+        create_hcl_config ${hcl_type} ${world_size} ${hcl_config_file}
+        export HCL_CONFIG_PATH=${hcl_config_file}
+        export PT_ENABLE_HABANA_STREAMSYNC=0
+        export BACKEND=${backend}
+        export WORLD_SIZE=${world_size}
+}
+
 while [ -n "$1" ];
     do
         case $1 in
@@ -55,6 +89,15 @@ while [ -n "$1" ];
             shift
             __print_freq=$1
             ;;
+        -w |--world-size )
+            shift
+            __world_size=$1
+            ;;
+        -c |--comm-backend )
+            shift
+            __comm_backend=$1
+            ;;
+
         -h  | --help )
             help
             exit 1;
@@ -75,6 +118,18 @@ BATCH_SIZE=${__batch_size:-128}
 EPOCHS=${__epochs:-1}
 WORKERS=${__workers:-0}
 PRINT_FREQ=${__print_freq:-1}
+WORLD_SIZE=${__world_size:-1}
+COMMUNICATIN_BACKEND=${__comm_backend:-'hcl'}
+INTERPRETER="python"
+
+if [[ $0 == *dist* ]] && [ ${WORLD_SIZE} -eq 1 ]; then
+    WORLD_SIZE=8
+fi
+
+setup_env ${WORLD_SIZE} ${COMMUNICATIN_BACKEND} "HLS1"
+if [ ${WORLD_SIZE} -gt 1 ]; then
+    INTERPRETER="python -um torch.distributed.launch --nproc_per_node=${WORLD_SIZE} --use_env"
+fi
 
 if [ -n "$__mode" ]; then
     if [ "$__mode" == "trace" ]; then
@@ -118,9 +173,10 @@ echo -e "batch_size: ${BATCH_SIZE}"
 echo -e "epochs: ${EPOCHS}"
 echo -e "data_type: "${__dtype}""
 echo -e "Mode: $__mode"
+echo -e "world_size: ${WORLD_SIZE}"
 
 printf "*** Starting training...\n\n"
-(set -x; PT_HPU_LOG_MOD_MASK=FFFF PT_HPU_LOG_TYPE_MASK=1 python resnet/train.py \
+(set -x;  ${INTERPRETER} resnet/train.py \
 	--data-path=${DATA_PATH} \
 	--model=${MODEL} \
 	--device=${DEVICE} \
