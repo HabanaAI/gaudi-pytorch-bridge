@@ -1361,6 +1361,7 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
       for (const auto& p : patch_info) {
         std::string irn{"%interim"};
         interim_tensorinfos.emplace_back(TensorInfo(p.second, p.first, irn));
+        aten_intermediates.push_back(p.second);
       }
     }
 
@@ -1456,11 +1457,8 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
     }
   }
 
-  if (enable_caching_) {
-    for (const auto & t : aten_intermediates) {
-      rv.aten_intermediates.push_back(t);
-    }
-  }
+  rv.aten_intermediates = std::move(aten_intermediates);
+
   if (enable_tensor_dump_) {
     DumpTensors_pre(rv);
   }
@@ -1490,8 +1488,6 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
       default :
         TORCH_CHECK(false, "should not be reachable");
     }
-  } else {
-    aten_intermediates.clear();
   }
 
   UpdateOutputs(rv);
@@ -1613,8 +1609,9 @@ void HabanaLaunchOpPT::LaunchRecipe(
   if (device.IsStreamASyncEnabled()) {
     // regsiter an event on the compute
     device.register_producer_on_stream(
-        std::move(outDevPtr), stream_handle, [&recipe_counter]() {
+        std::move(outDevPtr), stream_handle, [ptRefs, &rv, &recipe_counter]() {
           recipe_counter.decrease_and_notify();
+          rv.nop();
           return;
         });
   } else {
@@ -1670,6 +1667,8 @@ void HabanaLaunchOpPT::clear() {
   value_to_ivalue.clear();
   pt_to_synapse_tensors.clear();
   meta_syn_tensors.clear();
+
+  aten_intermediates.clear();
 
   num_tensor_inputs = 0;
 }

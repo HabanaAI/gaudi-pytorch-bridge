@@ -170,6 +170,7 @@ struct RecipeValueSpec {
     TORCH_CHECK(!aten_outputs->empty());
   }
 
+  void nop () {}
   void print_hbuff(
       size_t buf_idx,
       std::ofstream& out,
