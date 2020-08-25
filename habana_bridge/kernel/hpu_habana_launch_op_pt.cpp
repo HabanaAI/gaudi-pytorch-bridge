@@ -824,20 +824,9 @@ void HabanaLaunchOpPT::processInputs(
 
       auto tensor = value_to_ivalue[value_in]->toTensor();
 
-      // when we have channel last input, the scripts permute the weights
-      // already, so we just change size This should be changed to make it
-      // consistent, but requires wider change in eager mode kernels too
-      // TODO : Solve this the right way
       if (in_layout == habana::LayoutFormat::HWCK) {
         in_layout = habana::LayoutFormat::ANY;
-        adjustInputWeight(&tensor, true);
         value_to_tensor_layout[value_in].layout = habana::LayoutFormat::HWCK;
-        auto syn_tensor_input =
-            pt_to_synapse_tensors.find(value_to_ivalue[value_in]);
-        if (syn_tensor_input != std::end(pt_to_synapse_tensors)) {
-          bool persistence = true;
-          create_duplicate_syn_tensor(&tensor, value_in, persistence);
-        }
       }
 
       if (!(isChannelOrderSupported(value_in, in_layout))) {
@@ -877,7 +866,7 @@ void HabanaLaunchOpPT::postProcessOutputs() {
         if (tensor.dim() == 4) {
           auto pre_layout = value_to_tensor_layout[value_out].layout_at_graph_entry;
           if (getTensorChannelOrder(value_out) == habana::LayoutFormat::HWCK) {
-            adjustInputWeight(&tensor, false);
+            //Do Nothing
           } else if (getTensorChannelOrder(value_out) != pre_layout) {
             permuteTensor(value_out, tensor, pre_layout);
             if (pre_layout == habana::LayoutFormat::NHWC) {
@@ -1573,6 +1562,7 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
 
         value_to_tensor_layout[value_input].layout = getPTTensorLayout(tensor);
         value_to_tensor_layout[value_input].layout_at_graph_entry = getPTTensorLayout(tensor);
+
         if (getPTTensorLayout(tensor) == habana::LayoutFormat::NHWC) {
           // Make the sizes according to NCHW as PT maintains
           // NCHW shapes even for NHWC tensors(It doesnt change shape)

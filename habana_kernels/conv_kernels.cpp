@@ -211,7 +211,7 @@ Tensor convolution_hpu(
   c10::MemoryFormat memory_format = habana_helpers::get_memory_format({&input});
   habana_helpers::change_tensors_to_memory_format(
       pt_out, pt_in, pt_new_pos, memory_format);
-  habana_helpers::change_tensor_strides(&weight_hwck, &weight, &new_dim_pos_w);
+  //habana_helpers::change_tensor_strides(&weight_hwck, &weight, &new_dim_pos_w);
 
   auto convolution = [&] {
     size_t device_id = input.device().index();
@@ -642,14 +642,15 @@ std::tuple<Tensor, Tensor, Tensor> convolution_backward_hpu(
   output_mask_in.push_back(output_mask[2]);
 
   std::vector<at::Tensor> inputs{input, weight};
+  unsigned int input_channel_index = 1;
   habana_helpers::check_convolution_params(
-      inputs, stride, padding, dilation, transposed, output_padding, groups);
+      inputs, stride, padding, dilation, transposed, output_padding, groups, input_channel_index, 2);
 
   // pad, stride HW
   const int64_t input_H = input.size(2);
   const int64_t input_W = input.size(3);
-  const int64_t filter_H = weight.size(2);
-  const int64_t filter_W = weight.size(3);
+  const int64_t filter_H = weight.size(0);
+  const int64_t filter_W = weight.size(1);
   const int64_t stride_H = stride[0];
   const int64_t stride_W = stride[1];
   const int64_t pad_H = padding[0];
@@ -680,7 +681,7 @@ std::tuple<Tensor, Tensor, Tensor> convolution_backward_hpu(
       habana_helpers::get_memory_format({&grad_output, &input});
   habana_helpers::change_tensors_to_memory_format(
       pt_out, pt_in, pt_new_pos, memory_format);
-  habana_helpers::change_tensor_strides(&weight_hwck, &weight, &new_dim_pos_w);
+  //habana_helpers::change_tensor_strides(&weight_hwck, &weight, &new_dim_pos_w);
 
   Tensor grad_input, grad_weight, grad_bias;
 
@@ -748,13 +749,7 @@ std::tuple<Tensor, Tensor, Tensor> convolution_backward_hpu(
   }
 
   if (output_mask[1]) {
-    Tensor grad_w;
-    pt_in = {&grad_weight_hwck};
-    pt_out = {&grad_w};
-    IntArrayRef new_dim_pos_out = {3, 2, 0, 1};
-    habana_helpers::change_tensor_strides(
-        &grad_w, &grad_weight_hwck, &new_dim_pos_out);
-    grad_weight = grad_w;
+    grad_weight = grad_weight_hwck;
   }
 
   if (output_mask[2]) {
@@ -765,8 +760,8 @@ std::tuple<Tensor, Tensor, Tensor> convolution_backward_hpu(
         "expected: ",
         grad_out_nhwc.size(3));
   }
-
   PT_KERNEL_END;
+
   return std::tuple<Tensor, Tensor, Tensor>(grad_input, grad_weight, grad_bias);
 }
 
