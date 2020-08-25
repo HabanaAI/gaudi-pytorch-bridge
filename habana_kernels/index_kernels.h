@@ -48,7 +48,6 @@ class SliceOperator : public HabanaOperator {
 
   void SetPTOutputs(const torch::jit::Stack& inputs);
 
- protected:
   Tensor AllocateOutputTensor(
       const Tensor& self,
       int64_t& dim,
@@ -103,10 +102,10 @@ class IndexSelectOperator : public GatherOperator {
 
 //
 // Select Operator
-class SelectOperator : public SliceOperator {
+class SelectOperator : public HabanaOperator {
  public:
   SelectOperator(int device_id, c10::ScalarType scalarType)
-      : SliceOperator(device_id, scalarType) {
+      : HabanaOperator("select") {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
     kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
@@ -118,11 +117,4 @@ class SelectOperator : public SliceOperator {
       bool is_output_persistent = false) override;
 
   void SetPTOutputs(const torch::jit::Stack& inputs);
-
- private:
-  Tensor AllocateOutputTensor(
-      const Tensor& self,
-      int64_t& dim,
-      int64_t& index,
-      bool is_output_persistent);
 };

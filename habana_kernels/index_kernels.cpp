@@ -21,6 +21,7 @@
 #include "habana_helpers/tensor_utils.h"
 #include "habana_kernels/index_kernels.h"
 #include "habana_kernels/simple_generic_kernel.h"
+#include "habana_kernels/tensor_shape_kernels.h"
 #include "kernel_utils.h"
 
 using namespace torch;
@@ -483,22 +484,15 @@ Tensor SliceOperator::AllocateOutputTensor(
   }
   auto shape = DimVector(self.sizes());
   shape.erase(shape.begin() + dim);
-
-  at::MemoryFormat memory_format;
-
-  if (len > 1) {
-    // avoid adding x1 dimensions
-    shape.insert(shape.begin() + dim, len);
-    memory_format = self.suggest_memory_format();
-  } else {
-    // case for select op where tensor dimension is reduced
-    // only rank 4 tensor can have channels last format
-    memory_format = at::MemoryFormat::Contiguous;
-  }
+  shape.insert(shape.begin() + dim, len);
 
   // allocate output tensor
   auto output = habana_helpers::createPTTensor(
-      self, shape, self.options(), memory_format, is_output_persistent);
+      self,
+      shape,
+      self.options(),
+      self.suggest_memory_format(),
+      is_output_persistent);
 
   return output;
 }
@@ -615,19 +609,6 @@ Tensor slice_hpu(
   return out.at(0);
 }
 
-Tensor SelectOperator::AllocateOutputTensor(
-    const Tensor& self,
-    int64_t& dim,
-    int64_t& index,
-    bool is_output_persistent) {
-  auto start = index;
-  auto end = index + 1;
-  int64_t step = 1;
-
-  return SliceOperator::AllocateOutputTensor(
-      self, dim, start, end, step, is_output_persistent);
-}
-
 void SelectOperator::SetPTOutputs(const torch::jit::Stack& inputs) {
   auto self = inputs[0].toTensor();
   auto dim = inputs[1].toInt();
@@ -635,8 +616,20 @@ void SelectOperator::SetPTOutputs(const torch::jit::Stack& inputs) {
   auto start = index;
   auto end = index + 1;
   int64_t step = 1;
-  auto output =
-      SliceOperator::AllocateOutputTensor(self, dim, start, end, step, true);
+  SliceOperator slice_op(self.device().index(), self.scalar_type());
+  auto slice_output =
+      slice_op.AllocateOutputTensor(self, dim, start, end, step, false);
+
+  // case for select op where tensor dimension is reduced
+  // only rank 4 tensor can have channels last format
+  at::MemoryFormat memory_format = at::MemoryFormat::Contiguous;
+
+  // allocate output tensor
+  auto shape = slice_output.sizes().vec();
+  shape.erase(shape.begin() + dim);
+  auto output = habana_helpers::createPTTensor(
+      self, shape, self.options(), memory_format, true);
+
   HabanaOperator::SetPTOutputs({output});
 }
 
@@ -657,10 +650,28 @@ void SelectOperator::AllocateAndAddSynapseNode(
   auto end = index + 1;
   int64_t step = 1;
 
-  std::vector<c10::IValue> stack = {
+  SliceOperator slice_op(self.device().index(), self.scalar_type());
+  auto& syn_in_slice =
+      slice_op.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+  std::vector<c10::IValue> stack1 = {
       IValue(self), IValue(dim), IValue(start), IValue(end), IValue(step)};
+  slice_op.AllocateAndAddSynapseNode(graph, stack1, false);
+  p_context_->syn_inputs_[0] = std::move(syn_in_slice);
 
-  SliceOperator::AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+  // Add Reshape node to graph
+  ReshapeOperator reshape_op(self.device().index(), self.scalar_type());
+  UNUSED auto& syn_in_reshape =
+      reshape_op.SetSynapseInput(std::move(slice_op.GetSynOutputs()[0]));
+  auto slice_out_tensor = slice_op.GetOutputs()[0];
+  auto shape = slice_out_tensor.sizes().vec();
+  shape.erase(shape.begin() + dim);
+  torch::jit::Stack stack2 = {c10::IValue(slice_out_tensor),
+                              c10::IValue(shape)};
+  reshape_op.AllocateAndAddSynapseNode(graph, stack2, is_output_persistent);
+
+  p_context_->syn_outputs_.emplace_back(
+      std::move(reshape_op.GetSynOutputs()[0]));
+  p_context_->pt_outputs_.emplace_back(std::move(reshape_op.GetOutputs()[0]));
 }
 
 /*************************************************************************

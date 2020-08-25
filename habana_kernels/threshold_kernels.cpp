@@ -57,7 +57,7 @@ Tensor threshold_backward_hpu(
     Scalar threshold) {
   PT_KERNEL_BEGIN;
 
-  size_t device_id = self[0].device().index();
+  size_t device_id = self.device().index();
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
   at::ScalarType scalar_type = self.scalar_type();
   std::string nodeType =

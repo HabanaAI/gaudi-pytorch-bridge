@@ -36,14 +36,14 @@ def test_hpu_view(N, H, W, C):
     compare_tensors(hpu_result, cpu_result, atol=0.001, rtol=1.e-3)
 
 @pytest.mark.parametrize("N, H, W, C", test_case_list)
-def test_hpu_slice(N, H, W, C):
+def test_hpu_slice_and_select(N, H, W, C):
     hpu = torch.device('habana')
     cpu = torch.device('cpu')
 
     in_tensor = torch.randn(N, C, H, W)
 
-    hpu_result = in_tensor.to(hpu)[:,:,0:4:2,0:4]
-    cpu_result = in_tensor.to(cpu)[:,:,0:4:2,0:4]
+    hpu_result = in_tensor.to(hpu)[:,0,0:4:2,0:4]
+    cpu_result = in_tensor.to(cpu)[:,0,0:4:2,0:4]
     compare_tensors(hpu_result, cpu_result, atol=0, rtol=0)
 
 @pytest.mark.parametrize("N, H, W, C", test_case_list)
@@ -112,7 +112,7 @@ def test_hpu_broadcast(test_case_list):
     compare_tensors(thpu_out, tcpu_out, atol=0, rtol=0)
 
 if __name__ == '__main__':
-    test_hpu_slice(*test_case_list[0])
+    test_hpu_slice_and_select(*test_case_list[0])
     test_hpu_view(*test_case_list[0])
     test_hpu_index_select(*test_case_list[0], 0)
     test_hpu_index_put(*test_case_list[0])
