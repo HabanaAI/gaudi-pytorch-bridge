@@ -19,7 +19,9 @@
 #include "habana_helpers/tensor_utils.h"
 #include "habana_helpers/unused_macro.h"
 #include "habana_kernels/embedding_kernels.h"
+#include "habana_kernels/index_kernels.h"
 #include "habana_kernels/simple_generic_kernel.h"
+#include "habana_kernels/tensor_shape_kernels.h"
 #include "kernel_utils.h"
 
 using namespace torch;
@@ -287,6 +289,101 @@ Tensor constant_pad_hpu(const Tensor& self, IntArrayRef pad, Scalar value) {
   return out.at(0);
 }
 
+void EmbeddingOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 5,
+      "Incorrect size of inputs expected for embedding operator");
+  TORCH_CHECK(inputs[0].isTensor(), "Input arg1 type expected to be tensor for embedding operator");
+  TORCH_CHECK(inputs[1].isTensor(), "Input arg2 type expected to be tensor for embedding operator");
+  TORCH_CHECK(inputs[2].isInt(), "Input arg3 type expected to be Int for embedding operator");
+  TORCH_CHECK(inputs[3].isBool(), "Input arg4 type expected to be Bool for embedding operator");
+  TORCH_CHECK(inputs[4].isBool(), "Input arg5 type expected to be Bool for embedding operator");
+
+  auto weight = inputs[0].toTensor();
+  auto indices = inputs[1].toTensor();
+  auto padding_idx = inputs[2].toInt();
+  auto scale_grad_by_freq = inputs[3].toBool();
+  auto sparse = inputs[4].toBool();
+
+  TORCH_CHECK(
+      scale_grad_by_freq == false, "scale_grad_by_value = true not supported")
+  TORCH_CHECK(sparse == false, "sparse embedding not supported")
+  TORCH_WARN(padding_idx == -1, "padding index is ignored to mimic CPU implementation.");
+
+  if (indices.dim() == 1) {
+    // Create IndexSelect operator
+    IndexSelectOperator indexSelectOp(this->p_context_->device_id_, weight.scalar_type());
+    auto& indexSelect_syn_1 =
+        indexSelectOp.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+    auto& indexSelect_syn_2 =
+        indexSelectOp.SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
+    // Build Params for the graph
+    int64_t dim = 0;
+    std::vector<c10::IValue> stack{IValue(weight), IValue(dim), IValue(indices)};
+    indexSelectOp.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+    p_context_->syn_inputs_[0] = std::move(indexSelect_syn_1);
+    p_context_->syn_inputs_[1] = std::move(indexSelect_syn_2);
+
+    p_context_->syn_outputs_.emplace_back(std::move(indexSelectOp.GetSynOutputs()[0]));
+    p_context_->pt_outputs_.emplace_back(std::move(indexSelectOp.GetOutputs()[0]));
+  }
+  else
+  {
+    auto size = indices.sizes().vec();
+    // append size of last N-1 dimensions of weight (assuming its a Nd tensor)
+    for (auto d : weight.sizes().slice(1)) {
+      size.push_back(d);
+    }
+
+    ReshapeOperator ReshapeOp(this->p_context_->device_id_, indices.scalar_type());
+    auto& reshape_syn =
+      ReshapeOp.SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
+
+    int64_t data[1];
+    data[0] = indices.numel();
+    c10::IntArrayRef shape(data, 1);
+    // Build Params for the graph
+    std::vector<c10::IValue> stack;
+    stack.emplace_back(IValue(indices));
+    stack.emplace_back(IValue(shape));
+    ReshapeOp.AllocateAndAddSynapseNode(graph, stack, false);
+    p_context_->syn_inputs_[1] = std::move(reshape_syn);
+    stack.clear();
+
+
+
+    IndexSelectOperator indexSelectOp(this->p_context_->device_id_, weight.scalar_type());
+    auto& indexSelect_syn_1 =
+        indexSelectOp.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+    indexSelectOp.SetSynapseInput(std::move(ReshapeOp.GetSynOutputs()[0]));
+    // Build Params for the graph
+    int64_t dim = 0;
+    stack.emplace_back(IValue(weight));
+    stack.emplace_back(IValue(dim));
+    stack.emplace_back(IValue(ReshapeOp.GetOutputs()[0]));
+    indexSelectOp.AllocateAndAddSynapseNode(graph, stack, false);
+    p_context_->syn_inputs_[0] = std::move(indexSelect_syn_1);
+    stack.clear();
+
+
+
+    ReshapeOperator ReshapeOp_2(this->p_context_->device_id_,
+                                indexSelectOp.GetOutputs()[0].scalar_type());
+    ReshapeOp_2.SetSynapseInput(std::move(indexSelectOp.GetSynOutputs()[0]));
+    // Build Params for the graph
+    stack.emplace_back(IValue(indexSelectOp.GetOutputs()[0]));
+    stack.emplace_back(IValue(size));
+    ReshapeOp_2.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+
+    p_context_->syn_outputs_.emplace_back(std::move(ReshapeOp_2.GetSynOutputs()[0]));
+    p_context_->pt_outputs_.emplace_back(std::move(ReshapeOp_2.GetOutputs()[0]));
+  }
+
+}
+
 /** @brief simple lookup table that looks up embeddings in a fixed dictionary
  * and size.
  * @param weight (Tensor) The embedding matrix with number of rows equal to the
@@ -309,25 +406,55 @@ Tensor embedding_hpu(
     bool sparse) {
   PT_KERNEL_BEGIN;
 
-  TORCH_CHECK(
-      scale_grad_by_freq == false, "scale_grad_by_value = true not supported")
-  TORCH_CHECK(sparse == false, "sparse embedding not supported")
-  TORCH_CHECK(padding_idx == -1, "padding index not supported")
+  auto indices_int = habana_helpers::cast_tensor_to_integer(indices);
+  at::ScalarType scalar_type = weight.scalar_type();
+  std::string node_type =
+      "embedding_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
 
-  Tensor output;
-  if (indices.dim() == 1) {
-    output = weight.index_select(0, indices);
-  } else {
+  size_t device_id = weight.device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+
+  // create the operator
+  EmbeddingOperator Op(device_id, scalar_type);
+
+  // Build Params for the graph
+  std::vector<c10::IValue> stack = {IValue(weight),
+                                    IValue(indices_int),
+                                    IValue(padding_idx),
+                                    IValue(scale_grad_by_freq),
+                                    IValue(sparse)};
+  size_t key = Op.GetRecipeKey(node_type, stack);
+
+  // Assign Inputs to the Operator
+  std::vector<at::Tensor> pt_inputs{weight, indices_int};
+
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
     auto size = indices.sizes().vec();
     // append size of last N-1 dimensions of weight (assuming its a Nd tensor)
     for (auto d : weight.sizes().slice(1)) {
       size.push_back(d);
     }
-    output = weight.index_select(0, indices.view(-1)).view(size);
+    auto result =
+        at::empty(size, weight.options(), weight.suggest_memory_format());
+    Op.SetPTInputs(pt_inputs);
+    Op.SetPTOutput(result);
+    Op.Execute(key);
+  } else {
+    PT_KERNEL_DEBUG("Key:", key);
+    // Create Graph
+    auto graph = habana_helpers::create_graph(device_id, node_type);
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
+    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    // compile and execute the graph
+    Op.Compile(graph);
   }
 
+  std::vector<at::Tensor> out = Op.GetOutputs();
+  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
+
   PT_KERNEL_END;
-  return output;
+  return out.at(0);
 }
 
 /** @brief Function implements embedding backward (for dense-tensors)
@@ -756,6 +883,11 @@ static auto& KernelRegistry =
             "aten::pad",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<PadOperator>(device_id, node_type);
+            })
+        .add(
+            "aten::embedding",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<EmbeddingOperator>(device_id, node_type);
             })
         .add(
             "aten::embedding_bag_sum_fwd",
