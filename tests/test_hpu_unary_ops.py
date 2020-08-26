@@ -71,6 +71,15 @@ def test_hpu_unary_op_fwd_bwd(N, H, W, C, unary_op, dtype, tol):
 
 
 @pytest.mark.parametrize("N, H, W, C", test_case_list)
+@pytest.mark.parametrize("dtype, tol", data_type_list)
+def test_hpu_gelu_op_fwd_bwd(N, H, W, C, dtype, tol):
+    kernel_params_fwd = {'input': torch.randn(N, C, H, W, requires_grad=True).to(dtype)}
+    bwd_tensors = [torch.randn(N, C, H, W).to(dtype)]
+    evaluate_fwd_bwd_kernel(kernel=torch.nn.functional.gelu, tensor_list_bwd=bwd_tensors,
+                            kernel_params_fwd=kernel_params_fwd, atol=tol, rtol=tol, grad_on_grad_enable=False)
+
+
+@pytest.mark.parametrize("N, H, W, C", test_case_list)
 @pytest.mark.parametrize("unary_inplace_op", unary_inplace_op_list)
 def test_hpu_unary_inplace_op(N, H, W, C, unary_inplace_op):
     in_out_tensor = torch.randn(N, C, H, W)

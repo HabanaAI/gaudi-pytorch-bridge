@@ -201,6 +201,25 @@ class GeluOperator : public HabanaOperator {
 };
 
 //
+// Gelu Backward Operator
+class GeluBackwardOperator : public HabanaOperator {
+ public:
+  GeluBackwardOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator(
+            "gelu_bwd_" +
+            habana_helpers::name_suffix_from_type(scalarType)) {
+    this->CreateSynContext(device_id);
+    kernel_meta_data_.input_layout.assign({LayoutFormat::ANY, LayoutFormat::ANY});
+    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
+  }
+
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+};
+
+//
 // Erf Operator
 class ErfOperator : public HabanaOperator {
  public:

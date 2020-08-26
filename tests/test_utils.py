@@ -31,7 +31,7 @@ def evaluate_fwd_kernel(kernel, kernel_params, check_results=True, atol=0.001, r
     return hpu_result, cpu_result
 
 
-def evaluate_fwd_bwd_kernel(kernel, kernel_params_fwd, tensor_list_bwd, check_results_fwd=True, check_results_bwd=True, atol=0.001, rtol=1.e-3, copy_kernel=True):
+def evaluate_fwd_bwd_kernel(kernel, kernel_params_fwd, tensor_list_bwd, check_results_fwd=True, check_results_bwd=True, atol=0.001, rtol=1.e-3, copy_kernel=True, grad_on_grad_enable=True):
     '''Run given kernel fwd and bwd pass on HPU and then on CPU.
     Optionally check results and return them if user wants
     to process them latter e.g. to use custom comparison function'''
@@ -44,20 +44,35 @@ def evaluate_fwd_bwd_kernel(kernel, kernel_params_fwd, tensor_list_bwd, check_re
     hpu_result_fwd = run_kernel_on_device(device=hpu,
                                           kernel=kernel,
                                           kernel_params=kernel_params_fwd, copy_kernel=copy_kernel)
-    # TODO: add suport for multiple gradients
-    hpu_result_bwd = run_kernel_on_device(
-        device=hpu,
-        kernel=hpu_result_fwd[0].grad_fn,
-        tensor_list=tensor_list_bwd, copy_kernel=copy_kernel)
+
+    if grad_on_grad_enable:
+      hpu_result_bwd = run_kernel_on_device(
+          device=hpu,
+          kernel=hpu_result_fwd[0].grad_fn,
+          tensor_list=tensor_list_bwd, copy_kernel=copy_kernel)
+    else:
+      with torch.no_grad():
+        hpu_result_bwd = run_kernel_on_device(
+            device=hpu,
+            kernel=hpu_result_fwd[0].grad_fn,
+            tensor_list=tensor_list_bwd, copy_kernel=copy_kernel)
 
     cpu_result_fwd = run_kernel_on_device(
         device=cpu,
         kernel=kernel,
         kernel_params=kernel_params_fwd, copy_kernel=copy_kernel)
-    cpu_result_bwd = run_kernel_on_device(
-        device=cpu,
-        kernel=cpu_result_fwd[0].grad_fn,
-        tensor_list=tensor_list_bwd, copy_kernel=copy_kernel)
+
+    if grad_on_grad_enable:
+      cpu_result_bwd = run_kernel_on_device(
+         device=cpu,
+         kernel=cpu_result_fwd[0].grad_fn,
+         tensor_list=tensor_list_bwd, copy_kernel=copy_kernel)
+    else:
+      with torch.no_grad():
+        cpu_result_bwd = run_kernel_on_device(
+            device=cpu,
+            kernel=cpu_result_fwd[0].grad_fn,
+            tensor_list=tensor_list_bwd, copy_kernel=copy_kernel)
 
     if check_results_fwd:
         compare_tensors(hpu_result_fwd, cpu_result_fwd, atol=atol, rtol=rtol)
