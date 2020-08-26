@@ -228,21 +228,27 @@ def apply_preproc(sparse_offset_group_batch,sparse_index_group_batch,i):
     sparse_offset_group_batch = sparse_offset_group_batch.type(torch.IntTensor) #HACK
     sparse_index_group_batch = sparse_index_group_batch.type(torch.IntTensor)
 
-    gv.countUniqueIndices[i],gv.uniqueIndexes[i],gv.outputRows[i],gv.outputRowOffsets[i] = gv.HabanaDlrmPreproc1[i](sparse_index_group_batch,sparse_offset_group_batch ,4)
+    gv.countUniqueIndices[i],uniqueIndexes,gv.outputRows[i],gv.outputRowOffsets[i] = gv.HabanaDlrmPreproc1[i](sparse_index_group_batch,sparse_offset_group_batch ,4)
+
+    #Creation of static max size tensors to enable graph caching
+    if (gv.uniqueIndexes[i].size() == torch.Size([1, 1])):
+        max_i_size_bwd = args.num_indices_per_lookup*(sparse_offset_group_batch.numel()-1)
+        gv.uniqueIndexes[i] = torch.empty([max_i_size_bwd],dtype=torch.int32, device = device)
+
+    gv.uniqueIndexes[i].copy_(uniqueIndexes)
 
 def apply_optimizer_update():
     # import pudb
     # import copy
     for i in range(gv.numEmbeddingTables):
-        uniqueIndexes = gv.uniqueIndexes[i].to(device) #torch.narrow(gv.uniqueIndexes[i], 0, 0, countUniqueIndices)
-
         countUniqueIndices = gv.countUniqueIndices[i].to(device, non_blocking = True)
-        old_moments = torch.zeros(dlrm_habana.emb_l[i].weight.shape).to(device)
+        old_moments = torch.empty_like(dlrm_habana.emb_l[i].weight)
         lr = torch.tensor([args.learning_rate]).to(device)
 
-        gradient = gv.coalesced_grads[i] #copy.deepcopy(gv.coalesced_grads[i].detach().cpu())
+        gradient = torch.empty_like(dlrm_habana.emb_l[i].weight)
+        gradient.copy_(gv.coalesced_grads[i].cpu()) #HACK
         weight = dlrm_habana.emb_l[i].weight.data
-        upd_emb_weights, upd_emb_moments = gv.HabanaDlrmSparseSgd1[i](gradient,weight, old_moments,uniqueIndexes,lr,countUniqueIndices)
+        upd_emb_weights, upd_emb_moments = gv.HabanaDlrmSparseSgd1[i](gradient,weight, old_moments,gv.uniqueIndexes[i],lr,countUniqueIndices)
 
         dlrm_habana.emb_l[i].weight.data = upd_emb_weights.to(device)
 
