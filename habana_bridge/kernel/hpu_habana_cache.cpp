@@ -183,6 +183,8 @@ void RecipeValueSpec::d2h_dbuff(size_t buf_idx) {
 void RecipeValueSpec::launch (at::ArrayRef<torch::jit::IValue> input_refs) {
   SelfCheck();
 
+  PT_BRIDGE_DEBUG("RecipeValueSpec::launch\n", *this);
+
   auto& device = synapse_helpers::HPURegistrar::get_device();
   auto& stream_handle = device.get_compute_stream();
   std::vector<at::Tensor> ptRefs;
@@ -216,9 +218,11 @@ void RecipeValueSpec::launch (at::ArrayRef<torch::jit::IValue> input_refs) {
 
   // Populate the <name,buffer> pairs from PtTensorInfo for synLaunch
   for (size_t i = 0; i < num_tensors; ++i) {
-    syn_launch_info.emplace_back(synLaunchTensorInfo{
-        dtensorinfos->at(i).get_syn_namec_str(),
-        reinterpret_cast<uint64_t>(dtensorinfos->at(i).get_buffer())});
+    if (dtensorinfos->at(i).is_tensor()) {
+      syn_launch_info.emplace_back(synLaunchTensorInfo{
+          dtensorinfos->at(i).get_syn_namec_str(),
+          reinterpret_cast<uint64_t>(dtensorinfos->at(i).get_buffer())});
+    }
   }
   synapse_helpers::graph::launch_info ln_info(recipe->device_);
   synapse_helpers::graph::create_launch_info(ln_info, *recipe);
@@ -232,7 +236,10 @@ void RecipeValueSpec::launch (at::ArrayRef<torch::jit::IValue> input_refs) {
     auto& error = error_optional.value();
     PT_BRIDGE_FATAL(
         "syn launch encountered : ", error.error, " ", error.status);
-    TORCH_CHECK(false, "syn launch failed");
+    TORCH_CHECK(
+        false,
+        std::string("syn launch failed ") + std::string(error.error) +
+            std::string(" ") + std::to_string(error.status));
   }
 
   if (device.IsStreamASyncEnabled()) {

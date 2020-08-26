@@ -99,6 +99,8 @@ class HabanaLaunchOpPT {
       input_tivs;
   std::vector<absl::variant<PtTensorInfo, std::vector<PtTensorInfo>>>
       duplicate_tivs;
+  // tiv : absl::variant<TensorInfo, std::vector<TensorInfo>> objects
+  std::unordered_map<void*, IValPtrShared> buff_to_inivpsh_map;
 
   // Temp additions to enable BatchNorm..tensors created that are not in graph
   // We get this to enable correct patching
@@ -107,6 +109,8 @@ class HabanaLaunchOpPT {
   std::vector<PtTensorInfo> interim_tensorinfos;
 
   std::vector<PtTensorInfo> output_tensorinfos;
+  std::vector<PtTensorInfo> duplicate_outtinfos;
+  std::vector<PtTensorInfo> duplicate_in_to_outtinfos;
   synapse_helpers::graph* syn_graph_ptr = nullptr;
 
   std::vector<at::Tensor> aten_intermediates;
@@ -127,14 +131,17 @@ class HabanaLaunchOpPT {
   RecipeCacheSingle recipe_cache_single;
 
   // Making the cache eviction policy as lru as default
+
   PGMCachingPolicy caching_policy{PGMCachingPolicy::lru};
+  IValPtrSharedToTesorInfoMap output_tensorinfo_map;
 
   // caching :: end
 
   bool enable_caching_{true};
-  int tensor_dump_numel_{false};
-  bool enable_tensor_dump_{false};
+  bool enable_tensor_release_{false};
   bool watch_tensor_flag_{false};
+  bool enable_tensor_dump_{false};
+  int tensor_dump_numel_{0};
 
   std::string tdmp_dir_name_;
   std::string tdmp_file_name_pre_;
@@ -202,8 +209,7 @@ class HabanaLaunchOpPT {
 
   void OrderInputs(RecipeValueSpec& rv);
   void FlattenAndLinkInputTIVs(RecipeValueSpec& rv);
-
-  void ReorderInputs(RecipeValueSpec& rv);
+  void OrderOutputTinfos(RecipeValueSpec& rv);
 
   void DumpTensors_pre(RecipeValueSpec& rv);
   void DumpTensors(RecipeValueSpec& rv);

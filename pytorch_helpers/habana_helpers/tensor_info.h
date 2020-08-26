@@ -28,6 +28,7 @@ void PrintATenTensor(const IValPtrShared& a);
 
 class PtTensorInfo {
  public:
+  PtTensorInfo(const IValPtrShared& ivpsh);
   PtTensorInfo(
       const IValPtrShared& ivp,
       const std::string& sn,
@@ -62,16 +63,22 @@ class PtTensorInfo {
   }
 
   // access functions for read only data members
-  std::string get_ir_name() const {
+  bool is_tensor() const {
+    return is_tensor_;
+  }
+  const IVal& get_ivalue() const {
+    return iv_;
+  }
+  const std::string& get_ir_name() const {
     return ir_name_;
   }
-  std::string get_syn_name() const {
+  const std::string& get_syn_name() const {
     return syn_name_;
   }
   const char* get_syn_namec_str() const {
     return syn_name_.c_str();
   }
-  std::string get_shape_str() const {
+  const std::string& get_shape_str() const {
     return shape_str_;
   }
   unsigned get_numel() const {
@@ -85,10 +92,22 @@ class PtTensorInfo {
   }
 
   friend std::ostream& operator<<(std::ostream& O, const PtTensorInfo& t);
+  const std::vector<int64_t>& get_shape() const {
+    return shape_;
+  };
+  const c10::TensorOptions& get_topts() const {
+    return topts_;
+  }
+  const c10::MemoryFormat& get_mf() {
+    return mf_;
+  }
 
   static bool watch_tensor_flag;
 
  private:
+  bool is_tensor_{true};
+  IVal iv_{};
+
   void* buffer_{nullptr};
   std::string ir_name_;
   std::string syn_name_;
@@ -101,6 +120,10 @@ class PtTensorInfo {
   bool is_duplicate_{false};
   size_t parent_index_{ULONG_MAX};
   bool watch_ = false;
+
+  std::vector<int64_t> shape_;
+  c10::TensorOptions topts_;
+  c10::MemoryFormat mf_;
 
   void populate_tinfo(
       const at::Tensor& pt_tensor,

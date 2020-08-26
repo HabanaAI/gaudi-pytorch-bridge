@@ -145,9 +145,11 @@ struct RecipeValueSpec {
   size_t num_tensors{0};
 
   size_t num_inputs{0};
-  size_t num_duplicates{0};
+  size_t num_induplicates{0};
   size_t num_interims{0};
   size_t num_outputs{0};
+  size_t num_outduplicates{0};
+  size_t num_in_to_outduplicates{0};
 
   size_t ntensorbytes{0};
 

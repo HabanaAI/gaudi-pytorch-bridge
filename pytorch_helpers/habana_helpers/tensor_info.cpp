@@ -16,8 +16,15 @@ void PtTensorInfo::populate_tinfo(
   numel_ = pt_tensor.numel();
   size_ = pt_tensor.nbytes();
 
+  shape_ = pt_tensor.sizes().vec();
+  topts_ = pt_tensor.options();
+  mf_ = pt_tensor.suggest_memory_format();
+
   watch_ = wflag;
 }
+
+PtTensorInfo::PtTensorInfo(const IValPtrShared& ivpsh)
+    : is_tensor_(false), iv_(*ivpsh) {}
 
 PtTensorInfo::PtTensorInfo(
     const at::Tensor& pt_tensor,
@@ -45,8 +52,9 @@ std::ostream& operator<<(std::ostream& O, const PtTensorInfo& t) {
 
   if (t.is_duplicate()) {
     O << " duplicate";
+  } else {
+    O << "non-tensor";
   }
-
   return O;
 }
 

@@ -140,8 +140,21 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
 
   enable_tensor_dump_ = (tensor_dump_numel_ >= -1) ? true : false;
   enable_caching_ = true;
+  enable_tensor_release_ = false;
+  // Enable enable_tensor_release_ with lazy mode by default
+  if (const auto envp = std::getenv("PT_HPU_LAZY_MODE")) {
+    enable_tensor_release_ = atoi(envp) == 1;
+  }
+
+  // The caching as well as enable_tensor_release_ can be overridden
+  // with HABANA_PGM_ENABLE_CACHE
   if (const auto envp = getenv("HABANA_PGM_ENABLE_CACHE")) {
-    enable_caching_ = atoi(envp) == 1;
+    auto val = atoi(envp);
+    if (val & 0x1) {
+      enable_tensor_release_ = ((val & 0x3) == 0x3);
+    } else {
+      enable_caching_ = false;
+    }
   }
 
   use_persistent_tensors = false;
@@ -317,6 +330,11 @@ void HabanaLaunchOpPT::HandleUnmappedTensor(
     PtTensorInfo ti(
         pt_tensor, syn_tensor.tensor_name_, irn, watch_tensor_flag_);
     tiv.push_back(ti);
+
+    if (enable_caching_) {
+      buff_to_inivpsh_map.emplace(
+          pt_tensor.data_ptr(), value_to_ivalue[value_in]);
+    }
   }
 
   if (!tensorList->empty()) {
@@ -456,24 +474,65 @@ void HabanaLaunchOpPT::GetSynapseOutputs(
       bool is_output_persistent =
           use_persistent_tensors || out_tensor_syn.is_persistent();
 
-      if (is_output_persistent &&
-          false == isInGraphOutputs(output_nodes[output_nodes_idx])) {
-        aten_intermediates.push_back(ivpsh->toTensor());
+      // If the output is persistent, there are the following possibilities
+      // 1> The output is not in graph output, hence it is an intermediate
+      //    which is persistent.
+      //    Add it to duplicate_tivs as this would be a duplicate of a
+      //    persistent input tensor.
+      // 2> The output is in graph output. In this scenario, it could be -
+      //    a> It is an output created by the PT kernel that goes to the
+      //       graph output.
+      //       Add it to output_tensorinfos as it is to be counted as an
+      //       output tensor of the recipe.
+      //       With enable_tensor_release_, this is maintained in
+      //       output_tensorinfo_map
+      //    b> It is a duplicate of an input. An example:
+      //           graph(%id:0 : Float(*),
+      //                 ..
+      //             %1 : FLoat(*) = aten::add_(%id:0, ...)
+      //                 ..
+      //             return (%1, ...)
+      //       Here, the aten::add_ creates a duplicate for output from the
+      //       input, hence %1 is a suplicate of input %id:0. The duplicate
+      //       output also goes to graph output.
+      //       Add it to duplicate_in_to_outtinfos with enable_tensor_release_
+      if (is_output_persistent) {
+        auto ti = PtTensorInfo(
+            ivpsh,
+            out_tensor_syn.tensor_name_,
+            output_nodes[output_nodes_idx],
+            watch_tensor_flag_);
+        if (false == isInGraphOutputs(output_nodes[output_nodes_idx])) {
+          // Case 1> intermediate persistent tensor
+          duplicate_tivs.emplace_back(ti);
+        } else {
+          if (!enable_tensor_release_) {
+            // Case 2a> graph output tensor
+            output_tensorinfos.emplace_back(ti);
+          } else {
+            // Is this a duplicate tensor going to graph output?
+            // See if this the buffer pointer matches any input, then -
+            void* buffp = ti.get_buffer();
+            // Check whether it is an alias of any input
+            auto it = buff_to_inivpsh_map.find(buffp);
+            if (it != buff_to_inivpsh_map.end()) {
+              PT_BRIDGE_DEBUG(
+                  "Adding duplicate_in_to_outtinfos ", ti.get_buffer());
+              // Case 2b> Graph output that is duplicate of input
+              duplicate_in_to_outtinfos.emplace_back(ti);
+            } else {
+              // Case 2a> graph output tensor, enable_tensor_release_
+              output_tensorinfo_map.emplace(ivpsh, ti);
+            }
+          }
+        }
       }
+
       SharedSynTensorOrRefListPtr tensorList =
           std::make_shared<SynTensorOrRefList>();
       tensorList->emplace_back(tensor_or_ref(out_tensor_syn));
       pt_to_synapse_tensors.emplace(
           value_to_ivalue[output_nodes[output_nodes_idx]], tensorList);
-
-      if (is_output_persistent ? true
-                               : isInGraphOutputs(node, output_nodes_idx)) {
-        output_tensorinfos.emplace_back(PtTensorInfo(
-            ivpsh,
-            out_tensor_syn.tensor_name_,
-            output_nodes[output_nodes_idx],
-            watch_tensor_flag_));
-      }
 
       output_nodes_idx++;
     }
@@ -579,6 +638,8 @@ at::Tensor HabanaLaunchOpPT::permuteTensor(
         watch_tensor_flag_);
     if (enable_caching_) {
       input_tiv_map.emplace(value_to_ivalue[value_in], ti);
+      buff_to_inivpsh_map.emplace(
+          pt_tensor.data_ptr(), value_to_ivalue[value_in]);
     } else {
       input_tivs.emplace_back(ti);
     }
@@ -611,11 +672,16 @@ at::Tensor HabanaLaunchOpPT::permuteTensor(
     pt_to_synapse_tensors.emplace(value_to_ivalue[value_in], tensorList);
 
     if (persistent) {
-      output_tensorinfos.emplace_back(PtTensorInfo(
+      auto ti = PtTensorInfo(
           value_to_ivalue[value_in],
           out_tensor_syn.tensor_name_,
           value_in,
-          watch_tensor_flag_));
+          watch_tensor_flag_);
+      if (!enable_tensor_release_) {
+        output_tensorinfos.emplace_back(ti);
+      } else {
+        output_tensorinfo_map.emplace(value_to_ivalue[value_in], ti);
+      }
     }
   }
   return outputs_permute[0];
@@ -669,7 +735,11 @@ void HabanaLaunchOpPT::create_duplicate_syn_tensor(
     if (!isInGraphOutputs(value_in)) {
       duplicate_tivs.emplace_back(ti);
     } else {
-      output_tensorinfos.emplace_back(ti);
+      if (!enable_tensor_release_) {
+        output_tensorinfos.emplace_back(ti);
+      } else {
+        duplicate_outtinfos.emplace_back(ti);
+      }
     }
   } else {
     pt_to_synapse_tensors.erase(value_to_ivalue[value_in]);
@@ -977,6 +1047,7 @@ void HabanaLaunchOpPT::handleMetaOps(torch::jit::Node* node) {
                   meta_syn_tensors.back().tensor_name_,
                   value_in,
                   watch_tensor_flag_));
+          buff_to_inivpsh_map.emplace(in_data, value_to_ivalue[value_in]);
         } else {
           input_tivs.emplace_back(PtTensorInfo(
               value_to_ivalue[value_in],
@@ -1083,6 +1154,13 @@ void HabanaLaunchOpPT::FlattenAndLinkInputTIVs(RecipeValueSpec& rv) {
             " for ",
             ti.get_syn_name());
         ti.set_parent_index(parent_idx);
+        PT_BRIDGE_DEBUG(
+            "FlattenAndLinkInputTIVs: Input duplicate: parent idx ",
+            parent_idx,
+            " parent buffer ptr ",
+            rv.dtensorinfos->at(parent_idx).get_buffer(),
+            " duplicate_tiv buffer ptr ",
+            ti.get_buffer());
       }
       rv.dtensorinfos->push_back(ti);
       nduplicates++;
@@ -1094,20 +1172,165 @@ void HabanaLaunchOpPT::FlattenAndLinkInputTIVs(RecipeValueSpec& rv) {
       nduplicates == duplicate_tivs.size(),
       "#duplicate_tivs ",
       duplicate_tivs.size(),
-      " is not matching with num_duplicates ",
+      " is not matching with num_induplicates ",
       nduplicates);
 
-  rv.num_duplicates = nduplicates;
+  rv.num_induplicates = nduplicates;
 
   // At this point inputs and duplicate tinfos are populated
   TORCH_CHECK(
-      (rv.num_inputs + rv.num_duplicates == rv.dtensorinfos->size()),
+      (rv.num_inputs + rv.num_induplicates == rv.dtensorinfos->size()),
       "num_inputs ",
       rv.num_inputs,
-      "num_duplicates ",
-      rv.num_duplicates,
+      "num_induplicates ",
+      rv.num_induplicates,
       " are not adding up to #dtensorinfos ",
       rv.dtensorinfos->size());
+}
+
+void HabanaLaunchOpPT::OrderOutputTinfos(RecipeValueSpec& rv) {
+  bool has_empty_name = false;
+
+  std::unordered_map<void*, size_t> buff_to_outputtinfoidx_map;
+  // push the actual output tinfos
+  size_t output_nontensor_cnt{0};
+  for (auto output : subgraph_->outputs()) {
+    auto oit = value_to_ivalue.find(output);
+    TORCH_CHECK(
+        oit != value_to_ivalue.end(),
+        "value_to_ivalue does not have an entry for %",
+        output->debugName());
+
+    IValPtrShared ivpsh = oit->second;
+    TORCH_CHECK(nullptr != ivpsh, "IValPtrShared for subgraph output is null");
+
+    auto it = output_tensorinfo_map.find(ivpsh);
+    if (it != output_tensorinfo_map.end()) {
+      output_tensorinfos.push_back(it->second);
+      if (it->second.get_syn_name().empty()) {
+        has_empty_name = true;
+      }
+      output_tensorinfo_map.erase(ivpsh);
+    } else {
+      output_tensorinfos.emplace_back(PtTensorInfo(ivpsh));
+      output_nontensor_cnt++;
+    }
+
+    // add ivpsh to outputs
+    rv.aten_outputs->push_back(ivpsh);
+  }
+
+  TORCH_CHECK(!has_empty_name, "empty tensor name");
+
+  // Now only intermediate persistent tensors are left in output_tensorinfo_map
+  // Add the remaining tensor infos in output_tensorinfo_map to
+  // interim_tensorinfos
+  PT_BRIDGE_DEBUG(
+      "interims in output_tensorinfo_map = ", output_tensorinfo_map.size());
+  for (auto a : output_tensorinfo_map) {
+    // aten_intermediates.push_back(a.first->toTensor());
+    interim_tensorinfos.push_back(a.second);
+  }
+
+  // TORCH_CHECK(interim_tensorinfos.size() == aten_intermediates.size(),
+  //"intermediate tensor and tinfo count mismatch");
+
+  // Add the interims to rv.dtensorinfos
+  if (!interim_tensorinfos.empty()) {
+    rv.num_interims = interim_tensorinfos.size();
+    rv.dtensorinfos->insert(
+        rv.dtensorinfos->end(),
+        interim_tensorinfos.begin(),
+        interim_tensorinfos.end());
+  }
+
+  // At this point, within dtensorinfos, tinfos for inputs,
+  // input duplicates and interims are added.
+  size_t interms_end = rv.num_inputs + rv.num_induplicates + rv.num_interims;
+
+  // Add the outputs to rv.dtensorinfos
+  for (auto& ti : output_tensorinfos) {
+    rv.dtensorinfos->push_back(ti);
+    buff_to_outputtinfoidx_map.emplace(
+        ti.get_buffer(), rv.dtensorinfos->size() - 1);
+  }
+  rv.num_outputs = output_tensorinfos.size();
+
+  // At this point, within dtensorinfos, tinfos for inputs, input_duplicates,
+  // interims and outputs are added.
+  size_t output_start = interms_end;
+  size_t outputs_end = interms_end + rv.num_outputs;
+
+  // Link the out tivs with the duplicate
+  size_t nduplicates{0};
+  for (auto& ti : duplicate_outtinfos) {
+    auto it_parent = buff_to_outputtinfoidx_map.find(ti.get_buffer());
+    TORCH_CHECK(
+        buff_to_outputtinfoidx_map.end() != it_parent,
+        "parent tinfo is missing for input duplicate");
+    ti.set_duplicate_flag(true);
+    size_t parent_idx = it_parent->second;
+    TORCH_CHECK(
+        parent_idx >= output_start && parent_idx < outputs_end,
+        "for output duplicate ",
+        ti.get_syn_name(),
+        "parent index should be within [",
+        output_start,
+        ',',
+        outputs_end,
+        ')');
+    ti.set_parent_index(parent_idx);
+    rv.dtensorinfos->push_back(ti);
+    nduplicates++;
+  }
+  rv.num_outduplicates = nduplicates;
+
+  // Create the input tensor tiv to idx map, this is required
+  // to match the in_to_out duplicates against their parent idx.
+  std::unordered_map<void*, size_t> buff_to_inputtividx_map;
+  size_t in_idx = 0;
+  for (auto& tiv : input_tivs) {
+    if (absl::holds_alternative<PtTensorInfo>(tiv)) {
+      const auto ti = absl::get<PtTensorInfo>(tiv);
+      buff_to_inputtividx_map.emplace(ti.get_buffer(), in_idx++);
+    } else if (absl::holds_alternative<std::vector<PtTensorInfo>>(tiv)) {
+      for (const auto& ti : absl::get<std::vector<PtTensorInfo>>(tiv)) {
+        buff_to_inputtividx_map.emplace(ti.get_buffer(), in_idx++);
+      }
+    } else {
+      TORCH_CHECK(false, "Error condition for input tiv");
+    }
+  }
+
+  nduplicates = 0;
+  // Link the inout tivs with the duplicate
+  // These are tensors that are duplicated from an input and is part
+  // of the graph output
+  for (auto& ti : duplicate_in_to_outtinfos) {
+    auto it_parent = buff_to_inputtividx_map.find(ti.get_buffer());
+    TORCH_CHECK(
+        buff_to_inputtividx_map.end() != it_parent,
+        "parent tinfo is missing for in_to_out duplicate");
+    ti.set_duplicate_flag(true);
+    auto parent_idx = it_parent->second;
+    TORCH_CHECK(
+        parent_idx < rv.num_inputs,
+        "for in_to_out duplicate ",
+        ti.get_syn_name(),
+        "parent index ",
+        parent_idx,
+        " should be within [",
+        0,
+        ',',
+        rv.num_inputs,
+        ')');
+    ti.set_parent_index(parent_idx);
+    rv.dtensorinfos->push_back(ti);
+    nduplicates++;
+  }
+
+  rv.num_in_to_outduplicates = nduplicates;
+  rv.num_tensors = rv.dtensorinfos->size();
 }
 
 void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
@@ -1184,10 +1407,29 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
     auto patch_info = HabanaKernel->getAppendedTensorInfos();
     if (!patch_info.empty()) {
       for (const auto& p : patch_info) {
-        std::string irn{"%interim"};
-        interim_tensorinfos.emplace_back(
-            PtTensorInfo(p.second, p.first, irn, watch_tensor_flag_));
-        aten_intermediates.push_back(p.second);
+        std::string irn{"%appended"};
+
+        PtTensorInfo ti(p.second, p.first, irn, watch_tensor_flag_);
+        void* buffp = p.second.data_ptr();
+
+        // Check whether it is an alias of any input
+        auto it = buff_to_inivpsh_map.find(buffp);
+        if (it != buff_to_inivpsh_map.end()) {
+          auto& ivpsh = it->second;
+
+          if (enable_caching_) {
+            auto mit = input_tiv_map.find(ivpsh);
+            TORCH_CHECK(input_tiv_map.end() != mit, "tinfo missing for input");
+
+            TORCH_CHECK(ivpsh->isTensor(), "non tensor parent found");
+          }
+
+          duplicate_tivs.emplace_back(ti);
+        } else {
+          interim_tensorinfos.emplace_back(
+              PtTensorInfo(p.second, p.first, irn, watch_tensor_flag_));
+          aten_intermediates.push_back(p.second);
+        }
       }
     }
 
@@ -1218,35 +1460,65 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
 
   RecipeValueSpec& rv = *rvalpsh;
 
-  // output_tensorinfos is populated during compile and does not need any post
-  // processing, whereas input_tivs need to be reordered
-
+  // input_tivs need to be reordered for patching
   OrderInputs(rv);
 
-  // rv.num_inputs and rv.num_duplicates will be set by
+  // rv.num_inputs and rv.num_induplicates will be set by
   // FlattenAndLinkInputTIVs
   FlattenAndLinkInputTIVs(rv);
 
-  if (!interim_tensorinfos.empty()) {
-    rv.num_interims = interim_tensorinfos.size();
+  // tinfos for outputs are populated during compile
+  // need to be reordered only when the tensor handles are released
+  rv.aten_outputs = std::make_shared<std::vector<IValPtrShared>>(
+      std::vector<IValPtrShared>());
+  if (!enable_tensor_release_) {
+    if (!interim_tensorinfos.empty()) {
+      rv.num_interims = interim_tensorinfos.size();
+      rv.dtensorinfos->insert(
+          rv.dtensorinfos->end(),
+          interim_tensorinfos.begin(),
+          interim_tensorinfos.end());
+    }
+
+    // At this point, tinfos for inputs, input duplicates and interims are
+    // populated
+    TORCH_CHECK(
+        (rv.num_inputs + rv.num_induplicates + rv.num_interims ==
+         rv.dtensorinfos->size()),
+        "num_inputs ",
+        rv.num_inputs,
+        " num_induplicates ",
+        rv.num_induplicates,
+        " num_interims ",
+        rv.num_interims,
+        " are not adding up to #dtensorinfos ",
+        rv.dtensorinfos->size());
+
     rv.dtensorinfos->insert(
         rv.dtensorinfos->end(),
-        interim_tensorinfos.begin(),
-        interim_tensorinfos.end());
-  }
+        output_tensorinfos.begin(),
+        output_tensorinfos.end());
 
-  // At this point inputs, duplicate and interim tinfos are populated
-  TORCH_CHECK(
-      (rv.num_inputs + rv.num_duplicates + rv.num_interims ==
-       rv.dtensorinfos->size()),
-      "num_inputs ",
-      rv.num_inputs,
-      "num_duplicates ",
-      rv.num_duplicates,
-      "num_interims ",
-      rv.num_interims,
-      " are not adding up to #dtensorinfos ",
-      rv.dtensorinfos->size());
+    rv.num_outputs = output_tensorinfos.size();
+    rv.num_tensors = rv.dtensorinfos->size();
+
+    rv.aten_intermediates = std::move(aten_intermediates);
+    for (auto output : subgraph_->outputs()) {
+      auto oit = value_to_ivalue.find(output);
+      TORCH_CHECK(
+          oit != value_to_ivalue.end(),
+          "value_to_ivalue does not have an entry for %",
+          output->debugName());
+      IValPtrShared ivpsh = oit->second;
+      rv.aten_outputs->push_back(ivpsh);
+    }
+  } else {
+    rv.aten_intermediates = std::move(aten_intermediates);
+
+    // TODO :
+    //   preclude any interim tinfo from adding to output_tensorinfo_map
+    OrderOutputTinfos(rv);
+  }
 
   for (auto& ti : *rv.dtensorinfos) {
     if (!ti.is_duplicate()) {
@@ -1254,27 +1526,36 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
     }
   }
 
-  rv.dtensorinfos->insert(
-      rv.dtensorinfos->end(),
-      output_tensorinfos.begin(),
-      output_tensorinfos.end());
+  // At this point, tinfos for inputs, input duplicates, interims, outputs
+  // and output duplicates are populated
+  auto total_tinfos = rv.num_inputs + rv.num_induplicates + rv.num_interims +
+      rv.num_outputs + rv.num_outduplicates + rv.num_in_to_outduplicates;
 
-  rv.num_outputs = output_tensorinfos.size();
-  rv.num_tensors = rv.dtensorinfos->size();
-
-  // At this point the inputs, duplicate, interim and output tinfos are
-  // populated
   TORCH_CHECK(
-      (rv.num_inputs + rv.num_duplicates + rv.num_interims + rv.num_outputs) ==
-          rv.dtensorinfos->size(),
-      "num_inputs ",
+      total_tinfos == rv.dtensorinfos->size(),
+      __LINE__,
+      " ::",
+      " num_inputs ",
       rv.num_inputs,
-      "num_duplicates ",
-      rv.num_duplicates,
-      "num_interims ",
+      " num_induplicates ",
+      rv.num_induplicates,
+      " num_interims ",
       rv.num_interims,
+      " num_outputs ",
+      rv.num_outputs,
+      " num_outduplicates ",
+      rv.num_outduplicates,
+      " num_in_to_outduplicates ",
+      rv.num_in_to_outduplicates,
       " are not adding up to #dtensorinfos ",
       rv.dtensorinfos->size());
+
+  PT_BRIDGE_DEBUG("num_inputs ", rv.num_inputs);
+  PT_BRIDGE_DEBUG("num_induplicates ", rv.num_induplicates);
+  PT_BRIDGE_DEBUG("num_interims ", rv.num_interims);
+  PT_BRIDGE_DEBUG("num_outputs ", rv.num_outputs);
+  PT_BRIDGE_DEBUG("num_outduplicates ", rv.num_outduplicates);
+  PT_BRIDGE_DEBUG("num_in_to_outduplicates ", rv.num_in_to_outduplicates);
 
   if (enable_tensor_dump_) {
     if (0 == htensor_wbuff_size) {
@@ -1294,22 +1575,6 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
     rv.htensor_wbuff_size = htensor_wbuff_size;
   }
 
-  rv.aten_outputs = std::make_shared<std::vector<IValPtrShared>>(
-      std::vector<IValPtrShared>());
-  for (auto output : subgraph_->outputs()) {
-    auto oit = value_to_ivalue.find(output);
-    TORCH_CHECK(
-        oit != value_to_ivalue.end(),
-        "value_to_ivalue does not have an entry for %",
-        output->debugName());
-    if (oit != value_to_ivalue.end()) {
-      IValPtrShared ivpsh = oit->second;
-      rv.aten_outputs->push_back(ivpsh);
-    }
-  }
-
-  rv.aten_intermediates = std::move(aten_intermediates);
-
   if (enable_tensor_dump_) {
     DumpTensors_pre(rv);
   }
@@ -1322,9 +1587,11 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
 
   if (enable_caching_) {
     // Add the <key,value> pair to the map
+    // If we enable_tensor_release_, then the we don't match to a specific
+    // graph instance, hence id_str matching is not required.
     std::shared_ptr<RecipeArgumentSpec> rargpsh =
         std::make_shared<RecipeArgumentSpec>(
-            false, input_refs, subgraph_, id_str);
+            false, input_refs, subgraph_, enable_tensor_release_ ? "" : id_str);
     rv.key = rargpsh->hashCode();
 
     switch (caching_policy) {
@@ -1404,6 +1671,18 @@ void HabanaLaunchOpPT::UpdateOutputs(RecipeValueSpec& rv) {
   for (const auto& ivpsh : *(rv.aten_outputs)) {
     pt_stack->insert(pt_stack->end(), *ivpsh);
   }
+
+  if (enable_tensor_release_) {
+    // Release the tensor handles from the recipe
+    rv.aten_outputs = nullptr;
+    // Retain the aten_intermediates as these tensors are otherwise
+    // going to be released while the recipe is in execution.
+    // Keep these tensors cached with the recipe and reuse on execution.
+    // Even when two separate graphs hit the same cache entry, it is fine
+    // to reuse the intermediate tensors as they only exist within the
+    // scope of the recipe execution and multiple recipes execute
+    // serially on the same compute stream.
+  }
 }
 
 template <typename T>
@@ -1426,14 +1705,20 @@ void HabanaLaunchOpPT::clear() {
 
   interim_tensorinfos.clear();
   output_tensorinfos.clear();
+  duplicate_outtinfos.clear();
+  duplicate_in_to_outtinfos.clear();
+
+  aten_intermediates.clear();
+
+  output_tensorinfo_map.clear();
+
   value_to_tensor_layout.clear();
   value_to_persistent_flag.clear();
 
   value_to_ivalue.clear();
   pt_to_synapse_tensors.clear();
   meta_syn_tensors.clear();
-
-  aten_intermediates.clear();
+  buff_to_inivpsh_map.clear();
 
   num_tensor_inputs = 0;
 }
@@ -1507,9 +1792,11 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
 
   // caching :: begin
   if (enable_caching_) {
+    // If we enable_tensor_release_, then the we don't match to a specific
+    // graph instance, hence id_str matching is not required.
     std::shared_ptr<RecipeArgumentSpec> spec_key =
         std::make_shared<RecipeArgumentSpec>(
-            false, input_refs, subgraph_, id_str);
+            false, input_refs, subgraph_, enable_tensor_release_ ? "" : id_str);
 
     std::shared_ptr<RecipeValueSpec> rvpsh = GetCachedRecipe(spec_key);
     if (ABSL_PREDICT_TRUE(rvpsh)) {
@@ -1526,6 +1813,7 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
       // Patch the input buffers
       // Running index on rv.dtensorinfos
       size_t ridx = 0;
+
       for (auto const& input : input_refs) {
         if (input.isTensor()) {
           rv.dtensorinfos->at(ridx).set_buffer(input.toTensor().data_ptr());
@@ -1546,18 +1834,106 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
           rv.num_inputs);
 
       // Patch the duplicates if there are any
-      if (rv.num_duplicates) {
-        size_t duplicates_index_end = rv.num_inputs + rv.num_duplicates;
+      if (rv.num_induplicates) {
+        size_t duplicates_index_end = rv.num_inputs + rv.num_induplicates;
         for (; ridx < duplicates_index_end; ridx++) {
           size_t parent_idx = rv.dtensorinfos->at(ridx).get_parent_index();
           rv.dtensorinfos->at(ridx).set_buffer(
               rv.dtensorinfos->at(parent_idx).get_buffer());
+          PT_BRIDGE_DEBUG(
+              "Cache hit: Input duplicate: parent idx ",
+              parent_idx,
+              " parent buffer ptr ",
+              rv.dtensorinfos->at(parent_idx).get_buffer());
+        }
+      }
+
+      if (enable_tensor_release_) {
+        // Patch persistent intermediates
+        // The persistent intermediates are retained in the rv
+        size_t interms_end =
+            rv.num_inputs + rv.num_induplicates + rv.num_interims;
+        auto interims_id = 0;
+        for (; ridx < interms_end; ridx++) {
+          PtTensorInfo& ti = rv.dtensorinfos->at(ridx);
+          if (ti.is_tensor()) {
+            at::IntArrayRef tshape{ti.get_shape()};
+            auto& rv_ti = rv.aten_intermediates.at(interims_id++);
+            // Patch the buffer for the intermediate
+            ti.set_buffer(rv_ti.data_ptr());
+            PT_BRIDGE_DEBUG(
+                "Cache hit: Interims: buffer ptr ", rv_ti.data_ptr());
+          } else {
+            TORCH_CHECK(
+                false, "non tensor tinfo found for persistent intermediates");
+          }
+        }
+
+        size_t output_start = interms_end;
+        TORCH_CHECK(
+            ridx == output_start,
+            "tensor info index ",
+            ridx,
+            " mismatch with output_start ",
+            output_start);
+
+        rv.aten_outputs = std::make_shared<std::vector<IValPtrShared>>(
+            std::vector<IValPtrShared>());
+
+        // Patch outputs
+        size_t outputs_end = interms_end + rv.num_outputs;
+        for (; ridx < outputs_end; ridx++) {
+          PtTensorInfo& ti = rv.dtensorinfos->at(ridx);
+          if (ti.is_tensor()) {
+            at::IntArrayRef tshape{ti.get_shape()};
+            auto pt_output = at::empty(tshape, ti.get_topts(), ti.get_mf());
+            PT_BRIDGE_DEBUG(
+                "PGM cache hit, creating new output : ", pt_output.sizes());
+            IValPtrShared ivpsh = std::make_shared<IVal>(pt_output);
+            rv.aten_outputs->push_back(ivpsh);
+
+            // Patch the buffer for the output
+            ti.set_buffer(pt_output.data_ptr());
+          } else {
+            IValPtrShared ivpsh = std::make_shared<IVal>(ti.get_ivalue());
+            rv.aten_outputs->push_back(ivpsh);
+          }
+        }
+
+        // Patch the duplicates if there are any
+        if (rv.num_outduplicates) {
+          for (; ridx < rv.num_tensors; ridx++) {
+            size_t parent_idx = rv.dtensorinfos->at(ridx).get_parent_index();
+            rv.dtensorinfos->at(ridx).set_buffer(
+                rv.dtensorinfos->at(parent_idx).get_buffer());
+          }
+        }
+
+        TORCH_CHECK(
+            ridx + rv.num_in_to_outduplicates == rv.num_tensors,
+            "tensor infos corresponding to duplicate in-outputs are not matching");
+
+        // Patch the inout duplicates if there are any
+        if (rv.num_in_to_outduplicates) {
+          for (; ridx < rv.num_tensors; ridx++) {
+            size_t parent_idx = rv.dtensorinfos->at(ridx).get_parent_index();
+            rv.dtensorinfos->at(ridx).set_buffer(
+                rv.dtensorinfos->at(parent_idx).get_buffer());
+          }
         }
       }
 
       if (enable_tensor_dump_) {
         DumpTensors_pre(rv);
       }
+
+      PT_BRIDGE_DEBUG("Cache hit: num_inputs ", rv.num_inputs);
+      PT_BRIDGE_DEBUG("Cache hit: num_induplicates ", rv.num_induplicates);
+      PT_BRIDGE_DEBUG("Cache hit: num_interims ", rv.num_interims);
+      PT_BRIDGE_DEBUG("Cache hit: num_outputs ", rv.num_outputs);
+      PT_BRIDGE_DEBUG("Cache hit: num_outduplicates ", rv.num_outduplicates);
+      PT_BRIDGE_DEBUG(
+          "Cache hit: num_in_to_outduplicates ", rv.num_in_to_outduplicates);
 
       rv.launch(input_refs);
 
