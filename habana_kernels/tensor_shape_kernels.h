@@ -12,7 +12,7 @@
 
 //
 // Cat Operator
-class CatOutOperator : public habana::HabanaOperator {
+class CatOutOperator : public ::habana::HabanaOperator {
  public:
   CatOutOperator(int device_id, c10::ScalarType scalarType)
       : HabanaOperator("concat") {
@@ -51,7 +51,7 @@ class CatOperator : public CatOutOperator {
 
 //
 // Permute Operator
-class PermuteOperator : public habana::HabanaOperator {
+class PermuteOperator : public ::habana::HabanaOperator {
  public:
   PermuteOperator(int device_id, c10::ScalarType scalarType);
   virtual void AllocateAndAddSynapseNode(
@@ -62,7 +62,7 @@ class PermuteOperator : public habana::HabanaOperator {
 
 //
 // Reshape Operator
-class ReshapeOperator : public habana::HabanaOperator {
+class ReshapeOperator : public ::habana::HabanaOperator {
  public:
   ReshapeOperator(int device_id, c10::ScalarType scalarType)
       : HabanaOperator("reshape") {
@@ -76,7 +76,7 @@ class ReshapeOperator : public habana::HabanaOperator {
 
 //
 // Transpose Operator
-class TransposeOperator : public habana::HabanaOperator {
+class TransposeOperator : public ::habana::HabanaOperator {
  public:
   TransposeOperator(int device_id, c10::ScalarType scalarType);
   virtual void AllocateAndAddSynapseNode(
@@ -106,7 +106,7 @@ class TOperator : public TransposeOperator {
 };
 
 // Broadcast Operator
-class BroadcastOperator : public habana::HabanaOperator {
+class BroadcastOperator : public ::habana::HabanaOperator {
  public:
   BroadcastOperator(int device_id, c10::ScalarType scalarType)
       : HabanaOperator("broadcast") {

@@ -20,9 +20,10 @@
 #include "habana_helpers/logging.h"
 #include "habana_helpers/tensor_utils.h"
 #include "habana_kernels/index_kernels.h"
+#include "habana_kernels/kernel_utils.h"
+#include "habana_kernels/resize.h"
 #include "habana_kernels/simple_generic_kernel.h"
 #include "habana_kernels/tensor_shape_kernels.h"
-#include "kernel_utils.h"
 
 using namespace torch;
 
@@ -719,8 +720,109 @@ Tensor select_hpu(const Tensor& self, int64_t dim, int64_t index) {
   return out.at(0);
 }
 
+Tensor ArangeOperator::AllocateOutput(torch::jit::Stack& inputs) {
+  auto result = inputs[0].toTensor();
+  auto start = inputs[1].toDouble();
+  auto end = inputs[2].toDouble();
+  auto step = inputs[3].toDouble();
+
+  TORCH_CHECK(step != 0, "step value can not be 0.");
+  TORCH_CHECK(!((start > end) && (step > 0)), "step must be negative.");
+  TORCH_CHECK(!((start < end) && (step < 0)), "step must be positive.");
+
+  float max, min, abs_del;
+  int depth;
+  max = start > end ? start : end;
+  min = start > end ? end : start;
+  abs_del = std::abs(step);
+  depth = std::ceil((max - min) / abs_del);
+  depth = depth == 0 ? 1 : depth;
+  auto shape = DimVector({depth});
+  auto tht_result = result.unsafeGetTensorImpl();
+  THHTensor_resizeNd(tht_result, shape.size(), shape.data(), nullptr);
+  return result;
+}
+
+void ArangeOperator::SetPTOutputs(torch::jit::Stack& inputs) {
+  auto result = AllocateOutput(inputs);
+  HabanaOperator::SetPTOutput(result);
+}
+
+void ArangeOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 4,
+      "Incorrect size of inputs expected for Arange operator");
+  TORCH_CHECK(
+      inputs[0].isTensor(),
+      "Input arg1 expected to be tensor for Arange operator");
+  TORCH_CHECK(
+      inputs[1].isDouble(),
+      "Input arg2 expected to be Double for Arange operator");
+  TORCH_CHECK(
+      inputs[2].isDouble(),
+      "Input arg3 expected to be Double for Arange operator");
+  TORCH_CHECK(
+      inputs[3].isDouble(),
+      "Input arg4 expected to be Double for Arange operator");
+
+  auto start = inputs[1].toDouble();
+  auto end = inputs[2].toDouble();
+  auto step = inputs[3].toDouble();
+
+  ns_RangeKernel::Params param;
+  param.start.f = static_cast<float>(start);
+  param.limit.f = static_cast<float>(end);
+  param.delta.f = static_cast<float>(step);
+
+  auto result = AllocateOutput(inputs);
+  AllocateSynapseOutput(graph, result, is_output_persistent);
+  AddNodeToSynapseGraph(graph, &param, sizeof(param));
+}
+
+Tensor& arange_hpu(Tensor& output, Scalar start, Scalar end, Scalar step) {
+  PT_KERNEL_BEGIN;
+
+  at::ScalarType scalar_type = output.scalar_type();
+  std::string node_type =
+      "range_" + habana_helpers::name_suffix_from_type(scalar_type);
+
+  size_t device_id = output.device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+
+  ArangeOperator Op(device_id, scalar_type);
+
+  // Build Params for the graph
+  std::vector<c10::IValue> stack = {IValue(output),
+                                    IValue(start.to<double>()),
+                                    IValue(end.to<double>()),
+                                    IValue(step.to<double>())};
+  size_t key = Op.GetRecipeKey(node_type, stack);
+
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    Op.SetPTOutputs(stack);
+    Op.Execute(key);
+  } else {
+    PT_KERNEL_DEBUG("Key:", key);
+    // Create Graph
+    auto graph = habana_helpers::create_graph(device_id, node_type);
+    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    // compile and execute the graph
+    Op.Compile(graph);
+  }
+
+  std::vector<at::Tensor> out = Op.GetOutputs();
+  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
+
+  PT_KERNEL_END;
+  return out.at(0);
+}
+
 static auto& KernelRegistry =
-    habana::KernelRegistry()
+    ::habana::KernelRegistry()
         .add(
             "aten::index_select",
             [](const int device_id, c10::ScalarType node_type) {
@@ -736,6 +838,11 @@ static auto& KernelRegistry =
             "aten::select",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<SelectOperator>(device_id, node_type);
+            })
+        .add(
+            "aten::arange.start_out",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<ArangeOperator>(device_id, node_type);
             });
 
 static auto registry =
@@ -785,5 +892,11 @@ static auto registry =
                 .schema(
                     "aten::select.int(Tensor(a) self, int dim, int index) -> Tensor(a)")
                 .impl_unboxedOnlyKernel<decltype(select_hpu), &select_hpu>(
+                    DispatchKey::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema(
+                    "aten::arange.start_out(Scalar start, Scalar end, Scalar step=1, *, Tensor(a!) out) -> Tensor(a!)")
+                .impl_unboxedOnlyKernel<decltype(arange_hpu), &arange_hpu>(
                     DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));

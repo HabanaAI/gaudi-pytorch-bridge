@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 import pytest
-from test_utils import reset_seed, compare_tensors, evaluate_fwd_bwd_kernel
+from test_utils import reset_seed, compare_tensors, evaluate_fwd_kernel, evaluate_fwd_bwd_kernel
 
 # N - batch
 # H - input height
@@ -22,6 +22,13 @@ broadcast_test_case_list = [
     [torch.randn(1, 4), torch.randn(3, 1), torch.randn(1)],
     [torch.randn(1, 4), torch.randn(3, 1), torch.randn(2, 1, 1)]
 ]
+
+arange_test_case_list = [
+    #start, end, step
+    (0.0, 10.0, 2.0),
+    (0.0, -10.0, -2.0),
+]
+
 
 # @torch.jit.script
 @pytest.mark.parametrize("N, H, W, C", test_case_list)
@@ -110,6 +117,17 @@ def test_hpu_broadcast(test_case_list):
     tcpu_out = torch.broadcast_tensors(t1, t2, t3)
     thpu_out = torch.broadcast_tensors(t1.to(hpu), t2.to(hpu), t3.to(hpu))
     compare_tensors(thpu_out, tcpu_out, atol=0, rtol=0)
+
+
+@pytest.mark.parametrize("start, end, step", arange_test_case_list)
+@pytest.mark.parametrize("op", [torch.arange])
+def test_hpu_arange_op_out( start, end, step, op):
+    kernel_params_fwd={}
+    kernel_params_fwd['start'] = start
+    kernel_params_fwd['end'] = end
+    kernel_params_fwd['step'] = step
+    kernel_params_fwd['out'] = torch.empty(1)
+    evaluate_fwd_kernel(kernel=op, kernel_params=kernel_params_fwd)
 
 if __name__ == '__main__':
     test_hpu_slice_and_select(*test_case_list[0])

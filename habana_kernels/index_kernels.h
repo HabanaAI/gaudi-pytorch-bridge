@@ -118,3 +118,25 @@ class SelectOperator : public HabanaOperator {
 
   void SetPTOutputs(const torch::jit::Stack& inputs);
 };
+
+//
+// Arange Operator
+class ArangeOperator : public HabanaOperator {
+ public:
+  ArangeOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator(
+            "range_" + habana_helpers::name_suffix_from_type(scalarType)) {
+    this->CreateSynContext(device_id);
+    kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
+    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
+  }
+
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+  void SetPTOutputs(torch::jit::Stack& inputs);
+
+ private:
+  Tensor AllocateOutput(torch::jit::Stack& inputs);
+};
