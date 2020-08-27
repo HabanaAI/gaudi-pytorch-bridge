@@ -103,7 +103,7 @@ void TopkOutOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(
       dim == self.dim() - 1,
       "topk supports sort along fastest changing dim only")
-  TORCH_CHECK(self.dim() == 2, "topk supports 2D input tensors only")
+  TORCH_CHECK(self.dim() <= 2, "topk supports upto 2D input tensors only")
   TORCH_CHECK(
       k >= 0 && k <= (self.dim() > 0 ? self.size(dim) : 1),
       "selected index k out of range");
@@ -150,13 +150,14 @@ std::tuple<Tensor&, Tensor&> topk_out_hpu(
 
   size_t device_id = self.device().index();
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-  std::vector<c10::IValue> stack = {IValue(values),
-                                    IValue(indices),
-                                    IValue(self),
-                                    IValue(k),
-                                    IValue(dim_),
-                                    IValue(largest),
-                                    IValue(sorted)};
+  std::vector<c10::IValue> stack = {
+      IValue(values),
+      IValue(indices),
+      IValue(self),
+      IValue(k),
+      IValue(dim_),
+      IValue(largest),
+      IValue(sorted)};
   TopkOutOperator Op(device_id, node_type);
   size_t key = Op.GetRecipeKey(node_type, stack);
 
