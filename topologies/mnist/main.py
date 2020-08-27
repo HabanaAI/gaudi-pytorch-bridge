@@ -230,8 +230,7 @@ def permute_params_on_device(model):
     with torch.no_grad():
         for name, param in model.named_parameters():
             if(param.ndim == 4):
-                permuted_data = param.data.permute((2,3,1,0))
-                param.data.copy_(permuted_data)
+                param.data = param.data.permute((2,3,1,0))
 
 def main(args):
 
@@ -254,6 +253,9 @@ def main(args):
     # kwargs = {'num_workers': 1, 'pin_memory': True} if use_habana else {}
     kwargs = {}  # TODO: do we need any kwargs?
 
+    if(device==torch.device('habana')):
+        permute_params_on_device(model)
+
     if args.run_trace_mode:
         with torch.jit.optimized_execution(True):
             import hb_torch
@@ -263,9 +265,6 @@ def main(args):
             hb_torch.enable()
             sample_trace_tensor = torch.FloatTensor(64, 1, 28, 28).to(device)
             model = torch.jit.trace(model, sample_trace_tensor, check_trace=False)
-
-    if(device==torch.device('habana')):
-        permute_params_on_device(model)
 
     if(args.distributed == True):
         sampler = data.DistributedSampler(args.train_dataset)

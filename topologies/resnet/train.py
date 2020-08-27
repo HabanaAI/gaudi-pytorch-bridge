@@ -208,16 +208,14 @@ def permute_params(model, to_filters_last):
     with torch.no_grad():
         for name, param in model.named_parameters():
             if(param.ndim == 4):
-                permuted_data = None
                 if to_filters_last:
-                    permuted_data = param.data.permute((2,3,1,0))
+                    param.data = param.data.permute((2,3,1,0))
                 else:
                     s = list(param.data.shape) # param data shape (KCRS)
                     sh = [s[2], s[3], s[1],s[0]] # update to RSCK
                     vh = torch.reshape(param.data, sh) # reshape the tensor in RSCK
-                    permuted_data = vh.permute((3,2,0,1)) # permute RSCK to KCRS
+                    param.data = vh.permute((3,2,0,1)) # permute RSCK to KCRS
 
-                param.data.copy_(permuted_data)
 
 #Data loader worker init function
 def dl_worker_init_fn(seed):
@@ -346,9 +344,21 @@ def main(args):
         model_without_ddp = model.module
 
     if args.resume:
+        if(device==torch.device('habana')):
+            permute_params(model_without_ddp, False)
         checkpoint = torch.load(args.resume, map_location='cpu')
         model_without_ddp.load_state_dict(checkpoint['model'])
         optimizer.load_state_dict(checkpoint['optimizer'])
+        #Permute the weight momentum buffer before using for checkpoint
+        for group in optimizer.param_groups:
+            for p in group['params']:
+                param_state = optimizer.state[p]
+                if 'momentum_buffer' in param_state:
+                    buf = param_state['momentum_buffer']
+                    if(buf.ndim == 4):
+                        buf = buf.permute((2,3,1,0))
+                        param_state['momentum_buffer'] = buf
+
         lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
         args.start_epoch = checkpoint['epoch'] + 1
         if(device==torch.device('habana')):
@@ -377,6 +387,16 @@ def main(args):
                 copy_model = resnet_models.__dict__[args.model](pretrained=args.pretrained)
 
                 copy_model.load_state_dict(model_without_ddp.state_dict())
+                #Permute the weight momentum buffer before saving in checkpoint
+                for group in optimizer.param_groups:
+                    for p in group['params']:
+                        param_state = optimizer.state[p]
+                        if 'momentum_buffer' in param_state:
+                            buf = param_state['momentum_buffer']
+                            if(buf.ndim == 4):
+                                buf = buf.permute((3,2,0,1))
+                                param_state['momentum_buffer'] = buf
+
                 for state in optimizer.state.values():
                   for k, v in state.items():
                     if isinstance(v, torch.Tensor):
