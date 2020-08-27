@@ -273,6 +273,11 @@ def main(args):
 
     torch.backends.cudnn.benchmark = True
 
+    # Limit the test(eval) phase batch size to a lower value to reduce overall device memory pressure
+    test_batch_size = args.batch_size
+    if args.batch_size > 32 :
+        test_batch_size = 32
+
     if not args.synthetic_data:
         train_dir = os.path.join(args.data_path, 'train')
         val_dir = os.path.join(args.data_path, 'val')
@@ -283,11 +288,11 @@ def main(args):
             sampler=train_sampler, num_workers=args.workers, worker_init_fn=dl_worker_init_fn(seed), pin_memory=True, drop_last=True)
 
         data_loader_test = torch.utils.data.DataLoader(
-            dataset_test, batch_size=args.batch_size,
+            dataset_test, batch_size=test_batch_size,
             sampler=test_sampler, num_workers=args.workers, worker_init_fn=dl_worker_init_fn(seed), pin_memory=True, drop_last=True)
     else:
         data_loader      = ImageRandomDataLoader(batch_size=args.batch_size, train=True, drop_last=True)
-        data_loader_test = ImageRandomDataLoader(batch_size=args.batch_size, train=False, drop_last=True)
+        data_loader_test = ImageRandomDataLoader(batch_size=test_batch_size, train=False, drop_last=True)
 
     print("Creating model")
     #model = torchvision.models.__dict__[args.model](pretrained=args.pretrained)
