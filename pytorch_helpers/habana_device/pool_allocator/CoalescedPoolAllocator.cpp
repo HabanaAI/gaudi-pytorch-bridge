@@ -48,8 +48,7 @@ void * StaticCoalescedPooling::pool_create(synDeviceId deviceID, uint64_t size) 
         PT_DEVICE_DEBUG("POOL:: requested size is more than avaiable memory");
         //setting the pool size to 90% of available memory in case of failure
         size = 0.9 * free_mem;
-        PT_DEVICE_DEBUG("POOL:: set new pool size : ", size);
-        std::cout << "POOL:: cannot set requested pool size, free mem :: " << free_mem << " size used for pool :: " << size << "\n";
+        PT_DEVICE_DEBUG("POOL:: cannot set requested pool size, free mem :: ", free_mem, " size used for pool :: ", size);
     }
     max_pool_size = size;
 

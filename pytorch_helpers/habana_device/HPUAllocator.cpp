@@ -119,7 +119,7 @@ void HPUDeviceAllocator::create_pool(synDeviceId deviceID, uint64_t poolSize) {
     case pool_allocator::strategy_bump:
       if (!mem_pool) {
         try {
-          std::cout << " strategy_bump with size :: " << poolSize << std::endl;
+          PT_DEVICE_DEBUG("strategy_bump with size :: ", poolSize);
           suballoc = new pool_allocator::SubAllocator(new pool_allocator::StaticPooling);
           if (suballoc == nullptr) {
             PT_DEVICE_FATAL("unable to create pool allocator");
@@ -137,7 +137,7 @@ void HPUDeviceAllocator::create_pool(synDeviceId deviceID, uint64_t poolSize) {
     case pool_allocator::strategy_dynamic:
       if (!suballoc) {
         try {
-          std::cout << " strategy_dynamic :: " << poolSize<< std::endl;
+          PT_DEVICE_DEBUG("strategy_dynamic :: ", poolSize);
           suballoc = new pool_allocator::SubAllocator(new pool_allocator::DynamicPooling);
           if (suballoc == nullptr) {
             PT_DEVICE_FATAL("unable to create pool allocator");
@@ -152,7 +152,7 @@ void HPUDeviceAllocator::create_pool(synDeviceId deviceID, uint64_t poolSize) {
     case pool_allocator::startegy_static_coalesce:
       if (!mem_pool) {
         try {
-          std::cout << " startegy_static_coalesce :: " << poolSize << std::endl;
+          PT_DEVICE_DEBUG("startegy_static_coalesce :: ", poolSize);
           suballoc = new pool_allocator::SubAllocator(new pool_allocator::StaticCoalescedPooling);
           if (suballoc == nullptr) {
             PT_DEVICE_FATAL("unable to create pool allocator");

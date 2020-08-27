@@ -41,7 +41,7 @@ class HPUDeviceAllocator final : public at::Allocator {
   HPUDeviceAllocator();
   ~HPUDeviceAllocator();
   static pool_allocator::PoolStrategyType get_pooling_strategy() {
-    static const string poolEnvValue = "ENV_POOL_STRATEGY";
+    static const string poolEnvValue = "PT_HPU_POOL_STRATEGY";
     const char* poolValue = getenv(poolEnvValue.c_str());
     if (poolValue) {
       if (strncmp(poolValue, "1", 1) == 0) {
@@ -64,7 +64,7 @@ class HPUDeviceAllocator final : public at::Allocator {
 
   static uint64_t get_pool_size() {
     uint64_t poolSize = DEFAULT_POOL_SIZE;
-    static const string poolEnvValue = "ENV_POOL_SIZE";
+    static const string poolEnvValue = "PT_HPU_POOL_SIZE";
     const char* poolValue = getenv(poolEnvValue.c_str());
     if (poolValue) {
       poolSize = atoi(getenv("ENV_POOL_SIZE"));
