@@ -68,10 +68,7 @@ def do_tensor_permute(t_dev1_torch, t_dev2_torch, tid):
         tensor_to_perm = t_dev2_torch
 
     if tensor_to_perm is not None:
-        s = list(tensor_to_perm.shape) # param data shape (KCRS)
-        sh = [s[2], s[3], s[1],s[0]] # update to RSCK
-        vh = torch.reshape(tensor_to_perm, sh)
-        tensor_to_perm = vh.permute((3,2,0,1)) # permute RSCK to KCRS
+        tensor_to_perm = tensor_to_perm.permute((3,2,0,1)) # permute RSCK to KCRS
         if tid == 1:
             return tensor_to_perm, t_dev2_torch
         elif tid == 2:
