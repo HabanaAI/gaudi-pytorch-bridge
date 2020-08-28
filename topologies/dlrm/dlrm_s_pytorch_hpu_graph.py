@@ -193,7 +193,7 @@ class HabanaEmbeddingBag(torch.nn.Module):
             low=-np.sqrt(1 / n), high=np.sqrt(1 / n), size=(n, m)
         ).astype(np.float32)
         # approach 1
-        self.weight = nn.Parameter(torch.tensor(W, requires_grad=True))
+        self.weight = nn.Parameter(torch.tensor(W, requires_grad=False))
         #self.old_moments = nn.Parameter(torch.empty(self.weight.data.shape, requires_grad=False))
         self.instance = instance
 
@@ -507,9 +507,11 @@ class DLRM_Net_Habana(nn.Module):
             # li, lj = torch.tril_indices(ni, nj, offset=offset)
             # approach 2: custom
             offset = 1 if self.arch_interaction_itself else 0
-            li = torch.tensor([i for i in range(ni) for j in range(i + offset)])
-            lj = torch.tensor([j for i in range(nj) for j in range(i + offset)])
-            Zflat = Z[:, li, lj]
+            lij = torch.tensor([i*nj+j for i in range(nj) for j in range(i + offset)])
+            lij_hpu = lij.to(device)
+            Z_temp = Z.view(batch_size,ni*nj)
+            Zflat = torch.index_select(Z_temp, 1, lij_hpu)
+
             # concatenate dense features and interactions
             R = torch.cat([x] + [Zflat], dim=1)
         elif self.arch_interaction_op == "cat":
@@ -518,13 +520,13 @@ class DLRM_Net_Habana(nn.Module):
             R = torch.cat([x] + ly, dim=1)
         else:
             sys.exit(
-                "ERROR: --arch-interaction-op=" +
-                self.arch_interaction_op +
-                " is not supported"
+                "ERROR: --arch-interaction-op="
+                + self.arch_interaction_op
+                + " is not supported"
             )
 
         return R
-
+ 
     def forward(self, dense_x, lS_o, lS_i, lS_vc_fwd, lS_o_bwd, lS_i_bwd, lS_vc_bwd, lS_grad_wt):
         printFnTrace(inspect.getframeinfo(inspect.currentframe()).function)
         if self.ndevices <= 1:
@@ -693,7 +695,7 @@ if __name__ == "__main__":
     # j will be replaced with the table number
     parser.add_argument("--arch-mlp-bot", type=str, default="4-3-2")
     parser.add_argument("--arch-mlp-top", type=str, default="4-2-1")
-    parser.add_argument("--arch-interaction-op", type=str, default="cat")
+    parser.add_argument("--arch-interaction-op", type=str, default="dot")
     parser.add_argument("--arch-interaction-itself", action="store_true", default=False)
     # embedding table options
     parser.add_argument("--md-flag", action="store_true", default=False)
@@ -1195,6 +1197,8 @@ if __name__ == "__main__":
         )
 
     print("time/loss/accuracy (if enabled):")
+    print('skip_upto_epoch=',skip_upto_epoch)
+    print('skip_upto_batch=',skip_upto_batch)
 
     training_resumed = False
 

@@ -906,6 +906,11 @@ static auto& KernelRegistry =
               return std::make_shared<TOperator>(device_id, node_type);
             })
         .add(
+            "aten::transpose",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<TransposeOperator>(device_id, node_type);
+            })
+        .add(
             "aten::reshape",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<ReshapeOperator>(device_id, node_type);
