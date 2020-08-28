@@ -211,10 +211,7 @@ def permute_params(model, to_filters_last):
                 if to_filters_last:
                     param.data = param.data.permute((2,3,1,0))
                 else:
-                    s = list(param.data.shape) # param data shape (KCRS)
-                    sh = [s[2], s[3], s[1],s[0]] # update to RSCK
-                    vh = torch.reshape(param.data, sh) # reshape the tensor in RSCK
-                    param.data = vh.permute((3,2,0,1)) # permute RSCK to KCRS
+                    param.data = param.data.permute((3,2,0,1)) # permute RSCK to KCRS
 
 
 #Data loader worker init function
