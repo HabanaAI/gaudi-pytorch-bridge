@@ -74,9 +74,9 @@ def tensor_create(device):
 
 def pool_exhaust(device):
     gigabyte = 1000*1000*1000
-    pool_used = os.environ.get('ENV_POOL_STRATEGY')
+    pool_used = os.environ.get('PT_HPU_POOL_STRATEGY')
     print("pool_used :: ", pool_used)
-    pool_size = os.environ.get('ENV_POOL_SIZE')
+    pool_size = os.environ.get('PT_HPU_POOL_SIZE')
     print("pool_size :: ", pool_size)
 
     if (pool_used == '1'):

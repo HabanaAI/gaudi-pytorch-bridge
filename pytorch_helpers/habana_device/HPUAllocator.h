@@ -68,7 +68,7 @@ class HPUDeviceAllocator final : public at::Allocator {
     static const string poolEnvValue = "PT_HPU_POOL_SIZE";
     const char* poolValue = getenv(poolEnvValue.c_str());
     if (poolValue) {
-      poolSize = atoi(getenv("ENV_POOL_SIZE"));
+      poolSize = atoi(getenv("PT_HPU_POOL_SIZE"));
       poolSize = poolSize*1024*1024*1024;
       if (poolSize == 0) {
         PT_DEVICE_DEBUG("Pool size not specified, setting default");
