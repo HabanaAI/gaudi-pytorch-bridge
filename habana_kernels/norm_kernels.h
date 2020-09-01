@@ -162,7 +162,6 @@ class BatchNormBackwardOperator : public habana::HabanaOperator {
 
 class LayerNormOperator : public habana::HabanaOperator {
  public:
-  // NOTE: BatchNormForwardOperator node_type differs for training and eval
   LayerNormOperator(int device_id, c10::ScalarType scalarType)
       : HabanaOperator(
             "layer_norm_fwd_" +
@@ -187,7 +186,38 @@ class LayerNormOperator : public habana::HabanaOperator {
       const at::Tensor& input,
       const at::Tensor& bias,
       const at::Tensor& weight,
-      int64_t m);
+      int64_t m,
+      std::array<bool, 3> is_persistent);
+};
+
+class LayerNormBackwardOperator : public habana::HabanaOperator {
+ public:
+  LayerNormBackwardOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator(
+            "layer_norm_bwd_" +
+            habana_helpers::name_suffix_from_type(scalarType)) {
+    this->CreateSynContext(device_id);
+    // assign layouts for input and output tensors
+
+    kernel_meta_data_.input_layout.assign({habana::LayoutFormat::ANY,
+                                           habana::LayoutFormat::ANY,
+                                           habana::LayoutFormat::ANY,
+                                           habana::LayoutFormat::ANY,
+                                           habana::LayoutFormat::ANY});
+    kernel_meta_data_.output_layout.assign({habana::LayoutFormat::ANY,
+                                            habana::LayoutFormat::ANY,
+                                            habana::LayoutFormat::ANY});
+  }
+
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+  void SetPTOutputs(torch::jit::Stack& inputs);
+  std::tuple<at::Tensor, at::Tensor, at::Tensor> AllocatePTOutputs(
+      const at::Tensor& input,
+      const at::Tensor& weight,
+      bool is_persistent);
 };
 
 // Norm Operator

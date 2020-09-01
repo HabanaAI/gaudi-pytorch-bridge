@@ -179,7 +179,7 @@ def run_kernel_on_device(device, kernel, tensor_list=None, kernel_params=None, c
  
 
     elif tensor_list:
-        tensor_list = [tensor.to(device) for tensor in tensor_list]
+        tensor_list = [tensor.to(device) if tensor != None else tensor for tensor in tensor_list]
 
     result = kernel(**kernel_params_local) if kernel_params else kernel(*tensor_list)
 
