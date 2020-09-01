@@ -116,8 +116,12 @@ if [ -n "$NUM_TRAIN_STEP" ];then
     echo -e "num-train-steps: ${TRAIN_STEP}"
 fi
 
+MNIST_FULL_PATH=$(realpath $0)
+DEMO_DIR_PATH=$(dirname ${MNIST_FULL_PATH})
+
 printf "*** Starting training...\n\n"
-(set -x;PT_HPU_LOG_MOD_MASK=FFFF PT_HPU_LOG_TYPE_MASK=1 python mnist/main.py --batch-size=${BATCH_SIZE} \
+(set -x;PT_HPU_LOG_MOD_MASK=FFFF PT_HPU_LOG_TYPE_MASK=1 HABANA_GRAPH_WHITELIST_FILE=${DEMO_DIR_PATH}/configs/MNIST_whitelist_ops.txt \
+python mnist/main.py --batch-size=${BATCH_SIZE} \
 	--epochs=${EPOCHS} \
 	--lr=${LR} \
 	${SEED} \
