@@ -21,6 +21,7 @@
 #include "habana_kernels/reduction_kernels.h"
 #include "habana_kernels/resize.h"
 #include "habana_kernels/simple_generic_kernel.h"
+#include "habana_kernels/tensor_shape_kernels.h"
 
 using namespace torch;
 // TODO: DimMask = TensorIterator::DimMask
@@ -247,15 +248,6 @@ void SumDimOperator::AllocateAndAddSynapseNode(
       "Input arg3 expected to be IntList for SumDim operator");
   TORCH_CHECK(
       inputs[2].isBool(), "Input arg4 expected to be Bool for SumDim operator");
-
-  Tensor self = inputs[0].toTensor();
-  auto dim = inputs[1].toIntList();
-  bool keepdim = inputs[2].toBool();
-
-  auto ndim = self.dim();
-  TORCH_CHECK(
-      keepdim || static_cast<int64_t>(dim.size()) != ndim,
-      "Reduction to 0d tensor not supported yet");
 
   Tensor output;
   inputs.insert(inputs.begin(), IValue(output));
@@ -1076,6 +1068,73 @@ Tensor any_hpu(const Tensor& self) {
   PT_KERNEL_END;
   return out.at(0).to(c10::ScalarType::Bool);
 }
+
+/**
+ * @brief This function adds synapse nodes corresponding to
+ *aten::_grad_sum_to_size operator
+ * @param self - (FP32/BF16) Input tensor
+ * @param shape - (IntArray) Shape of output tensor
+ **/
+void GradSumToSizeOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 2,
+      "Incorrect size of inputs expected for _grad_sum_to_size operator");
+  TORCH_CHECK(inputs[0].isTensor(), "Input arg1 expected to be tensor");
+  TORCH_CHECK(inputs[1].isIntList(), "Input arg2 expected to be tensor");
+
+  auto self = inputs[0].toTensor();
+  auto shape = inputs[1].toIntList();
+  auto device_id = self.device().index();
+  auto scalar_type = self.scalar_type();
+
+  std::vector<int64_t> reduce_dims;
+  const at::IntArrayRef sizes = self.sizes();
+  const int64_t leading_dims = sizes.size() - shape.size();
+  for (int64_t i = 0; i < leading_dims; ++i) {
+    reduce_dims.push_back(i);
+  }
+  for (int64_t i = leading_dims; i < static_cast<int64_t>(sizes.size()); ++i) {
+    if (shape[i - leading_dims] == 1 && sizes[i] != 1) {
+      reduce_dims.push_back(i);
+    }
+  }
+
+  SumDimOperator sum_op(
+      device_id,
+      "reduce_sum_fwd_" + habana_helpers::name_suffix_from_type(scalar_type));
+  if (!reduce_dims.empty()) {
+    auto& syn_arg0 =
+        sum_op.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+    torch::jit::Stack stack = {
+        IValue(self), IValue(reduce_dims), IValue(true), IValue(scalar_type)};
+    sum_op.AllocateAndAddSynapseNode(
+        graph, stack, leading_dims ? false : is_output_persistent);
+    p_context_->syn_inputs_[0] = std::move(syn_arg0);
+  }
+
+  if (leading_dims) {
+    ReshapeOperator reshape_op(self.device().index(), self.scalar_type());
+    UNUSED auto& syn_arg0 =
+        reshape_op.SetSynapseInput(std::move(sum_op.GetSynOutputs()[0]));
+    torch::jit::Stack stack = {IValue(sum_op.GetOutputs()[0]), IValue(shape)};
+    reshape_op.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+    p_context_->syn_outputs_.emplace_back(
+        std::move(reshape_op.GetSynOutputs()[0]));
+    p_context_->pt_outputs_.emplace_back(std::move(reshape_op.GetOutputs()[0]));
+  } else {
+    p_context_->syn_outputs_.emplace_back(std::move(sum_op.GetSynOutputs()[0]));
+    p_context_->pt_outputs_.emplace_back(std::move(sum_op.GetOutputs()[0]));
+  }
+}
+
+static auto& KernelRegistry = ::habana::KernelRegistry().add(
+    "aten::_grad_sum_to_size",
+    [](const int device_id, c10::ScalarType node_type) {
+      return std::make_shared<GradSumToSizeOperator>(device_id, node_type);
+    });
 
 static auto registry =
     torch::RegisterOperators()

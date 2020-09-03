@@ -177,3 +177,21 @@ class AnyOperator : public HabanaOperator {
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
 };
+
+// _grad_sum_to_size Operator
+class GradSumToSizeOperator : public HabanaOperator {
+ public:
+  GradSumToSizeOperator(int device_id, c10::ScalarType scalar_type)
+      : HabanaOperator(
+            "grad_sum_to_size_" +
+            habana_helpers::name_suffix_from_type(scalar_type)) {
+    this->CreateSynContext(device_id);
+    kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
+    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
+  }
+
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+};

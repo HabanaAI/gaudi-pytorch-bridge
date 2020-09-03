@@ -75,6 +75,7 @@ void HabanaWhiteList::load_whitelisted_ops() {
         // "aten::empty_strided",
         // "aten::fill_",
         "aten::flatten",
+        "aten::_grad_sum_to_size",
         "aten::log_softmax",
         // "aten::_log_softmax",
         "aten::_log_softmax_backward_data",
