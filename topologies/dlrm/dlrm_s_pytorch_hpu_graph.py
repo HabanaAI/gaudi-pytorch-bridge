@@ -553,7 +553,7 @@ class DLRM_Net_Habana(nn.Module):
             )
 
         return R
- 
+
     def forward(self, dense_x, lS_o, lS_i, lS_vc_fwd, lS_o_bwd, lS_i_bwd, lS_vc_bwd, lS_grad_wt):
         printFnTrace(inspect.getframeinfo(inspect.currentframe()).function)
         if self.ndevices <= 1:
@@ -1238,7 +1238,7 @@ if __name__ == "__main__":
     print('skip_upto_batch=',skip_upto_batch)
 
     training_resumed = False
-
+    trainMetaData.log_live_mem_alloc('Start of training')
     with torch.autograd.profiler.profile(args.enable_profiling, use_gpu) as prof:
         model_to_run = dlrm_habana
         is_first_it = True
@@ -1477,7 +1477,7 @@ if __name__ == "__main__":
                             test_loss += L_test * mbs_test
                             test_samp += mbs_test
 
-                        trainMetaData.log_live_mem_alloc()
+                        trainMetaData.log_live_mem_alloc('End of test step')
                         # print('Finish testing it ',i)
                         t2_test = time_wrap(use_gpu)
 
@@ -1613,8 +1613,7 @@ if __name__ == "__main__":
                               " reached, stop training")
                         break
                 trainMetaData.tracept.end(time.time(), 'train_iteration_'+str(trainMetaData.current_train_step))
-                # trainMetaData.log_live_mem_alloc('train_iteration_'+str(trainMetaData.current_train_step))
-                trainMetaData.log_live_mem_alloc()
+                trainMetaData.log_live_mem_alloc('train_iteration_'+str(trainMetaData.current_train_step) +'_finished')
                 trainMetaData.increment_train_step()
 
             k += 1  # nepochs

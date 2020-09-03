@@ -75,10 +75,10 @@ class TrainMetaData():
     def set_live_mem_alloc_logging(self, x):
         self.log_live_mem_alloc_enabled = x
 
-    def log_live_mem_alloc(self):
+    def log_live_mem_alloc(self, msg):
         if self.log_live_mem_alloc_enabled:
             import hb_torch
-            hb_torch.memstat_livealloc()
+            hb_torch.memstat_livealloc(msg)
 
     #Enable/disable saving of checkpoint/model
     def set_save_checkpoint_enable(self, enable=True):

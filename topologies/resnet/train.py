@@ -77,7 +77,7 @@ def train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, pri
         metric_logger.meters['img/s'].update(batch_size / (time.time() - start_time))
         #If only the specified number of steps are to be executed, check if those many steps are
         #done and if yes, break the training loop
-        trainMetaData.log_live_mem_alloc()
+        trainMetaData.log_live_mem_alloc("train Iteration " + str(trainMetaData.current_train_step))
         trainMetaData.increment_train_step()
         if trainMetaData.end_train() is True:
             break
@@ -110,7 +110,7 @@ def evaluate(model, criterion, data_loader, trainMetaData, device, print_freq=10
             metric_logger.meters['acc5'].update(acc5.item(), n=batch_size)
             #If only the specified number of steps are to be executed, check if those many steps are
             #done and if yes, break the evaluation loop
-            trainMetaData.log_live_mem_alloc()
+            trainMetaData.log_live_mem_alloc("evaluate")
             trainMetaData.increment_eval_step()
             if trainMetaData.end_eval() is True:
                 break
@@ -295,7 +295,10 @@ def main(args):
     #modifications can be done to the resnet model if necessary.
     model = resnet_models.__dict__[args.model](pretrained=args.pretrained)
 
+    trainMetaData = TrainMetaData(model, device)
     model.to(device)
+    trainMetaData.log_live_mem_alloc("After model.to()")
+
     if args.channels_last:
         if(device==torch.device('cuda')):
             print('Converting model to channels_last format on CUDA')
@@ -311,7 +314,6 @@ def main(args):
     if(device==torch.device('habana')):
         permute_params(model, True)
 
-    trainMetaData = TrainMetaData(model, device)
     trainMetaData.set_num_train_steps(args.num_train_steps)
     trainMetaData.set_num_eval_steps(args.num_eval_steps)
     trainMetaData.set_save_checkpoint_enable(args.save_checkpoint)
@@ -341,9 +343,11 @@ def main(args):
         # Create traced model for eval
         model.eval()
         model_for_eval = torch.jit.trace(model, sample_trace_tensor, check_trace=False)
+        trainMetaData.log_live_mem_alloc("After model_for_eval torch.jit.trace")
         # Create traced model for train
         model.train()
         model = torch.jit.trace(model, sample_trace_tensor, check_trace=False)
+        trainMetaData.log_live_mem_alloc("After model_for_train torch.jit.trace")
         model_for_train = model
 
     # TBD: pass the right module for ddp

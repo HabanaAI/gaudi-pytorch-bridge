@@ -63,10 +63,10 @@ class TrainMetaData():
     def set_live_mem_alloc_logging(self, x):
         self.log_live_mem_alloc_enabled = x
 
-    def log_live_mem_alloc(self):
+    def log_live_mem_alloc(self, msg=""):
         if self.log_live_mem_alloc_enabled:
             import hb_torch
-            hb_torch.memstat_livealloc()
+            hb_torch.memstat_livealloc(msg)
 
     @staticmethod
     def accuracy(output, target, topk=(1,)):
@@ -145,7 +145,7 @@ def train(args, model, device, train_loader, optimizer, epoch, trainMetaData,ran
             with open('mnistpy.log', 'a') as file:
                 file.write(log_msg)
         print(log_msg)
-        trainMetaData.log_live_mem_alloc()
+        trainMetaData.log_live_mem_alloc("train_iteration_"+str(batch_idx))
         trainMetaData.increment_train_step()
         if trainMetaData.end_train() is True:
             break
@@ -167,7 +167,7 @@ def test(args, model, device, test_loader, trainMetaData):
             target_cpu = target_cpu.to(torch.device('cpu'))
             new_view = target_cpu.view_as(pred)
             correct += pred.eq(new_view).sum().item()
-            trainMetaData.log_live_mem_alloc()
+            trainMetaData.log_live_mem_alloc("test")
             trainMetaData.increment_eval_step()
             if trainMetaData.end_eval() is True:
                 break
