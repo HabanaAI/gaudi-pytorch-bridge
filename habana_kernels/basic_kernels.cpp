@@ -62,8 +62,16 @@ Tensor& copy_hpu_(Tensor& self, const Tensor& src, bool non_blocking) {
       dst = habana_helpers::hpu_cast_tensor(
           src, at::scalarTypeToTypeMeta(c10::ScalarType::Float));
     } else {
-      HABANA_ASSERT(dst.nbytes() == src.nbytes());
-      habana_helpers::copy_data_within_device(src, dst, non_blocking);
+       if (
+        (src.scalar_type() == c10::ScalarType::Long) &&
+        (dst.scalar_type() == c10::ScalarType::Float)) {
+        dst = habana_helpers::hpu_cast_tensor(
+              habana_helpers::cast_tensor_to_integer(src),
+              at::scalarTypeToTypeMeta(c10::ScalarType::Float));
+      }else {
+        HABANA_ASSERT(dst.nbytes() == src.nbytes());
+        habana_helpers::copy_data_within_device(src, dst, non_blocking);
+      }
     }
   } else {
     PT_KERNEL_FATAL(
