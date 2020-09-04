@@ -26,3 +26,18 @@ class OptimizerSparseSgdOperator : public HabanaOperator {
       torch::jit::Stack& inputs,
       std::vector<bool> is_output_persistent) override;
 };
+
+class OptimizerSparseAdagradOperator : public HabanaOperator {
+ public:
+  OptimizerSparseAdagradOperator(int device_id, const std::string& guid)
+      : HabanaOperator(guid) {
+    this->CreateSynContext(device_id);
+    kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
+    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
+  }
+
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      std::vector<bool> is_output_persistent) override;
+};

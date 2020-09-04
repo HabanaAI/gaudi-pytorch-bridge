@@ -16,8 +16,8 @@
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_helpers/graph.h"
 #include "habana_helpers/logging.h"
-#include "habana_kernels/binary_kernels.h"
 #include "habana_kernels/binary_composite_kernels.h"
+#include "habana_kernels/binary_kernels.h"
 
 using namespace torch;
 
@@ -57,16 +57,16 @@ void AddcmulOperator::AllocateAndAddSynapseNode(
 
   // Create Mul operator
   MulOperator mulOp(this->p_context_->device_id_, scalar_type);
-  auto& mul_syn_1 = mulOp.SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
-  auto& mul_syn_2 = mulOp.SetSynapseInput(std::move(p_context_->syn_inputs_[2]));
+  auto& mul_syn_1 =
+      mulOp.SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
+  auto& mul_syn_2 =
+      mulOp.SetSynapseInput(std::move(p_context_->syn_inputs_[2]));
   stack.emplace_back(IValue(tensor1));
   stack.emplace_back(IValue(tensor2));
   mulOp.AllocateAndAddSynapseNode(graph, stack, false);
   p_context_->syn_inputs_[1] = std::move(mul_syn_1);
   p_context_->syn_inputs_[2] = std::move(mul_syn_2);
   stack.clear();
-
-
 
   // Create Add operator
   AddOperator addOp(this->p_context_->device_id_, scalar_type);
@@ -79,12 +79,11 @@ void AddcmulOperator::AllocateAndAddSynapseNode(
   p_context_->syn_inputs_[0] = std::move(add_syn);
   stack.clear();
 
-
   p_context_->syn_outputs_.emplace_back(std::move(addOp.GetSynOutputs()[0]));
   p_context_->pt_outputs_.emplace_back(std::move(addOp.GetOutputs()[0]));
 }
 
- Tensor addcmul_hpu(
+Tensor addcmul_hpu(
     Tensor& self,
     const Tensor& tensor1,
     const Tensor& tensor2,
@@ -102,10 +101,8 @@ void AddcmulOperator::AllocateAndAddSynapseNode(
   AddcmulOperator Op(device_id, scalar_type);
 
   // Build Params for the graph
-  std::vector<c10::IValue> stack = {IValue(self),
-                                    IValue(tensor1),
-                                    IValue(tensor2),
-                                    IValue(alpha)};
+  std::vector<c10::IValue> stack = {
+      IValue(self), IValue(tensor1), IValue(tensor2), IValue(alpha)};
   size_t key = Op.GetRecipeKey(node_type, stack);
 
   // Assign Inputs to the Operator
@@ -184,16 +181,16 @@ void AddcdivOperator::AllocateAndAddSynapseNode(
 
   // Create Div operator
   DivOperator divOp(this->p_context_->device_id_, scalar_type);
-  auto& div_syn_1 = divOp.SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
-  auto& div_syn_2 = divOp.SetSynapseInput(std::move(p_context_->syn_inputs_[2]));
+  auto& div_syn_1 =
+      divOp.SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
+  auto& div_syn_2 =
+      divOp.SetSynapseInput(std::move(p_context_->syn_inputs_[2]));
   stack.emplace_back(IValue(tensor1));
   stack.emplace_back(IValue(tensor2));
   divOp.AllocateAndAddSynapseNode(graph, stack, false);
   p_context_->syn_inputs_[1] = std::move(div_syn_1);
   p_context_->syn_inputs_[2] = std::move(div_syn_2);
   stack.clear();
-
-
 
   // Create Add operator
   AddOperator addOp(this->p_context_->device_id_, scalar_type);
@@ -205,7 +202,6 @@ void AddcdivOperator::AllocateAndAddSynapseNode(
   addOp.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
   p_context_->syn_inputs_[0] = std::move(add_syn);
   stack.clear();
-
 
   p_context_->syn_outputs_.emplace_back(std::move(addOp.GetSynOutputs()[0]));
   p_context_->pt_outputs_.emplace_back(std::move(addOp.GetOutputs()[0]));
@@ -229,10 +225,8 @@ Tensor addcdiv_hpu(
   AddcdivOperator Op(device_id, scalar_type);
 
   // Build Params for the graph
-  std::vector<c10::IValue> stack = {IValue(self),
-                                    IValue(tensor1),
-                                    IValue(tensor2),
-                                    IValue(alpha)};
+  std::vector<c10::IValue> stack = {
+      IValue(self), IValue(tensor1), IValue(tensor2), IValue(alpha)};
   size_t key = Op.GetRecipeKey(node_type, stack);
 
   // Assign Inputs to the Operator
@@ -276,23 +270,24 @@ Tensor& addcdiv_hpu_(
     const Tensor& tensor2,
     Scalar alpha) {
   PT_KERNEL_BEGIN;
-  tensor1.div_(tensor2);
-  self.add_(tensor1, alpha);
+  auto temp = at::div(tensor1, tensor2);
+  self.add_(temp, alpha);
   PT_KERNEL_END;
   return self;
 }
 
-
 static auto& KernelRegistry =
     habana::KernelRegistry()
-        .add("aten::addcmul",
-             [](const int device_id, c10::ScalarType node_type) {
-               return std::make_shared<AddcmulOperator>(device_id, node_type);
-             })
-        .add("aten::addcdiv",
-             [](const int device_id, c10::ScalarType node_type) {
-               return std::make_shared<AddcdivOperator>(device_id, node_type);
-        });
+        .add(
+            "aten::addcmul",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<AddcmulOperator>(device_id, node_type);
+            })
+        .add(
+            "aten::addcdiv",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<AddcdivOperator>(device_id, node_type);
+            });
 
 static auto registry =
     torch::RegisterOperators()

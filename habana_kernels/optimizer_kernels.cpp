@@ -228,3 +228,100 @@ optimizer_sparse_sgd_with_valid_count_hpu(
 }
 
 #endif
+
+void OptimizerSparseAdagradOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    std::vector<bool> is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 6,
+      "Incorrect size of inputs expected for optimizer_adagrad_sgd operator");
+  TORCH_CHECK(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
+  TORCH_CHECK(inputs[1].isTensor(), "Input arg2 type expected to be tensor");
+  TORCH_CHECK(inputs[2].isTensor(), "Input arg3 type expected to be tensor");
+  TORCH_CHECK(inputs[3].isTensor(), "Input arg4 type expected to be tensor");
+  TORCH_CHECK(inputs[4].isTensor(), "Input arg5 type expected to be tensor");
+  TORCH_CHECK(inputs[5].isTensor(), "Input arg6 type expected to be tensor");
+  TORCH_CHECK(
+      is_output_persistent.size() == 2,
+      "OptimizerSparseAdagradOperator: #is_output_persistent should be 2");
+
+  auto weights_in = inputs[1].toTensor();
+  auto moments_in = inputs[2].toTensor();
+
+  ns_OptimizerSparseAdagrad::Params params;
+  // PT does not use decay param for sparse params
+  // Ref:
+  // https://pytorch.org/docs/stable/_modules/torch/optim/adagrad.html#Adagrad
+  // Even for dense, it applies decay param to the current grad whereas TPC
+  // applies to the accumulated grad
+  params.decay = 1.0;
+  params.eps = 1e-10f;
+
+  auto weights_out =
+      habana_helpers::createPTTensor(weights_in, is_output_persistent[0]);
+  auto moments_out =
+      habana_helpers::createPTTensor(moments_in, is_output_persistent[1]);
+
+  AllocateSynapseOutputs(
+      graph, {weights_out, moments_out}, is_output_persistent);
+  AddNodeToSynapseGraph(graph, &params, sizeof(params));
+}
+
+std::tuple<torch::Tensor, torch::Tensor>
+optimizer_sparse_adagrad_with_valid_count_hpu(
+    const Tensor& gradients,
+    const Tensor& weights_in,
+    const Tensor& moments_in,
+    const Tensor& indices,
+    const Tensor& learning_rate,
+    const Tensor& valid_count_tensor) {
+  PT_KERNEL_BEGIN;
+
+  size_t device_id = gradients.device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  auto scalar_type = gradients.scalar_type();
+  std::string node_type = "optimizer_sparse_adagrad_with_valid_count_2d_" +
+      habana_helpers::name_suffix_from_type(scalar_type);
+
+  OptimizerSparseAdagradOperator Op(device_id, node_type);
+  // Assign Inputs to the Operator
+  std::vector<at::Tensor> pt_inputs{gradients,
+                                    weights_in,
+                                    moments_in,
+                                    indices,
+                                    learning_rate,
+                                    valid_count_tensor};
+  // Build Params for the graph
+  std::vector<c10::IValue> stack = {IValue(gradients),
+                                    IValue(weights_in),
+                                    IValue(moments_in),
+                                    IValue(indices),
+                                    IValue(learning_rate),
+                                    IValue(valid_count_tensor)};
+
+  size_t key = Op.GetRecipeKey(node_type, stack);
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    auto weights_out = habana_helpers::createPTTensor(weights_in, true);
+    auto moments_out = habana_helpers::createPTTensor(moments_in, true);
+
+    Op.SetPTInputs(pt_inputs);
+    Op.SetPTOutputs({weights_out, moments_out});
+    Op.Execute(key);
+  } else {
+    // Create Graph
+    auto graph = habana_helpers::create_graph(device_id, node_type);
+
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
+    Op.AllocateAndAddSynapseNode(graph, stack, {true, true});
+    // compile and execute the graph
+    Op.Compile(graph);
+  }
+
+  std::vector<at::Tensor> out = Op.GetOutputs();
+  TORCH_CHECK(out.size() == 2, "Incorrect size of outputs");
+
+  PT_KERNEL_END;
+  return std::tie(out.at(0), out.at(1));
+}
