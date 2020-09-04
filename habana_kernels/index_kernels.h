@@ -189,7 +189,4 @@ class ArangeOperator : public HabanaOperator {
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
   void SetPTOutputs(torch::jit::Stack& inputs);
-
- private:
-  Tensor AllocateOutput(torch::jit::Stack& inputs);
 };

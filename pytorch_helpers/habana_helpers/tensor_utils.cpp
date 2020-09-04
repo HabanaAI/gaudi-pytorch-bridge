@@ -112,6 +112,22 @@ at::Tensor habana_helpers::cast_tensor_to_integer(
   return *int_tensor;
 }
 
+at::Tensor habana_helpers::cast_tensor_to_long(
+    const at::Tensor& int_tensor) {
+  // TODO Remove this cast on CPU when int32->int64_t cast available on
+  // HPU
+  auto long_tensor = std::make_unique<at::Tensor>();
+  if (int_tensor.scalar_type() == c10::ScalarType::Int) {
+    *long_tensor = int_tensor.to("cpu")
+                      .to(c10::ScalarType::Long)
+                      .to(int_tensor.device(), c10::attr::non_blocking);
+  } else {
+    *long_tensor = int_tensor;
+  }
+
+  return *long_tensor;
+}
+
 at::Tensor habana_helpers::to_cpu(const at::Tensor& hpu_tensor) {
   if (hpu_tensor.defined()) {
     return hpu_tensor.to(at::DeviceType::CPU);

@@ -57,6 +57,25 @@ static Tensor make_index_same_size_as_value(
   return index_broadcast;
 }
 
+int GetOutputSize(Scalar start_, Scalar end_, Scalar step_)
+{
+  auto start = start_.to<double>();
+  auto end = end_.to<double>();
+  auto step = step_.to<double>();
+
+  TORCH_CHECK(step != 0, "step value can not be 0.");
+  TORCH_CHECK(!((start > end) && (step > 0)), "step must be negative.");
+  TORCH_CHECK(!((start < end) && (step < 0)), "step must be positive.");
+
+  float max, min, abs_del;
+  int depth;
+  max = start > end ? start : end;
+  min = start > end ? end : start;
+  abs_del = std::abs(step);
+  depth = std::ceil((max - min) / abs_del);
+  depth = depth == 0 ? 1 : depth;
+  return depth;
+}
 Tensor GatherOperator::AllocateOutput(torch::jit::Stack& inputs) {
   auto self = inputs[0].toTensor();
   auto dim_ = inputs[1].toInt();
@@ -1089,32 +1108,21 @@ Tensor select_hpu(const Tensor& self, int64_t dim, int64_t index) {
   return out.at(0);
 }
 
-Tensor ArangeOperator::AllocateOutput(torch::jit::Stack& inputs) {
-  auto result = inputs[0].toTensor();
-  auto start = inputs[1].toDouble();
-  auto end = inputs[2].toDouble();
-  auto step = inputs[3].toDouble();
-
-  TORCH_CHECK(step != 0, "step value can not be 0.");
-  TORCH_CHECK(!((start > end) && (step > 0)), "step must be negative.");
-  TORCH_CHECK(!((start < end) && (step < 0)), "step must be positive.");
-
-  float max, min, abs_del;
-  int depth;
-  max = start > end ? start : end;
-  min = start > end ? end : start;
-  abs_del = std::abs(step);
-  depth = std::ceil((max - min) / abs_del);
-  depth = depth == 0 ? 1 : depth;
-  auto shape = DimVector({depth});
-  auto tht_result = result.unsafeGetTensorImpl();
-  THHTensor_resizeNd(tht_result, shape.size(), shape.data(), nullptr);
-  return result;
-}
-
 void ArangeOperator::SetPTOutputs(torch::jit::Stack& inputs) {
-  auto result = AllocateOutput(inputs);
-  HabanaOperator::SetPTOutput(result);
+  auto result = inputs[0].toTensor();
+
+  if(result.scalar_type() == ScalarType::Long)
+  {
+    auto output_int = habana_helpers::createPTTensor(result, result.sizes(), result.options(),
+    result.suggest_memory_format(),
+    c10::ScalarType::Int,
+    true);
+    HabanaOperator::SetPTOutput(output_int);
+  }
+  else
+  {
+    HabanaOperator::SetPTOutput(result);
+  }
 }
 
 void ArangeOperator::AllocateAndAddSynapseNode(
@@ -1128,33 +1136,132 @@ void ArangeOperator::AllocateAndAddSynapseNode(
       inputs[0].isTensor(),
       "Input arg1 expected to be tensor for Arange operator");
   TORCH_CHECK(
-      inputs[1].isDouble(),
-      "Input arg2 expected to be Double for Arange operator");
+      inputs[1].isScalar(),
+      "Input arg2 expected to be Scalar for Arange operator");
   TORCH_CHECK(
-      inputs[2].isDouble(),
-      "Input arg3 expected to be Double for Arange operator");
+      inputs[2].isScalar(),
+      "Input arg3 expected to be Scalar for Arange operator");
   TORCH_CHECK(
-      inputs[3].isDouble(),
-      "Input arg4 expected to be Double for Arange operator");
+      inputs[3].isScalar(),
+      "Input arg4 expected to be Scalar for Arange operator");
 
-  auto start = inputs[1].toDouble();
-  auto end = inputs[2].toDouble();
-  auto step = inputs[3].toDouble();
+  auto start = inputs[1].toScalar();
+  auto end = inputs[2].toScalar();
+  auto step = inputs[3].toScalar();
 
   ns_RangeKernel::Params param;
-  param.start.f = static_cast<float>(start);
-  param.limit.f = static_cast<float>(end);
-  param.delta.f = static_cast<float>(step);
+  param.start.f = static_cast<float>(start.to<double>());
+  param.limit.f = static_cast<float>(end.to<double>());
+  param.delta.f = static_cast<float>(step.to<double>());
 
-  auto result = AllocateOutput(inputs);
-  AllocateSynapseOutput(graph, result, is_output_persistent);
-  AddNodeToSynapseGraph(graph, &param, sizeof(param));
+
+  auto result = inputs[0].toTensor();
+
+  //TPC kernel support only bf16/f32,
+  //If datatype is bf16/fp32 , no cast node is required
+  if(result.scalar_type() == ScalarType::Float ||
+    result.scalar_type() == ScalarType::BFloat16)
+  {
+    AllocateSynapseOutput(graph, result, is_output_persistent);
+    AddNodeToSynapseGraph(graph, &param, sizeof(param));
+  }
+  else
+  {
+    //For datatypes Int, Long, Char, Bool one additional cast node is required.
+    //Arange kernel return f32 output node
+    //Cast kernel will convert f32 -> (i32/i8)
+
+    auto output_range = habana_helpers::createPTTensor(result, result.sizes(), result.options(),
+      result.suggest_memory_format(),
+      c10::ScalarType::Float,
+      false);
+
+    AllocateSynapseOutput(graph, output_range, false);
+    synapse_helpers::tensor& synOutput = p_context_->syn_outputs_[0];
+
+    std::vector<synTensor> syn_in{};
+    std::vector<synTensor> syn_out{synOutput.get()};
+
+    // range_f32
+    graph.add_node(
+        std::move(syn_in),
+        std::move(syn_out),
+        &param,
+        sizeof(param),
+        std::move(guid_));
+
+
+
+
+    //respective cast node
+    std::string node_type;
+    if(start.type() == ScalarType::Bool || start.type() == ScalarType::Char)
+    {
+      node_type = "cast_f32_to_i8";
+    }
+    else
+    {
+      node_type = "cast_f32_to_i32";
+    }
+
+    // Create cast operator
+    CastOutOperator castOp(this->p_context_->device_id_, node_type);
+    castOp.SetSynapseInput(std::move(p_context_->syn_outputs_[0]));
+
+    // Build Params for the graph
+    torch::jit::Stack stack;
+    stack.emplace_back(IValue(output_range));
+
+    //cast is not supported for Long. It has to be cast first to Int
+    //The Int value will be converted to long on CPU
+    //That converted value will be copied to output tensor.
+    //For this we have to create one extra Int tensor
+    if(result.scalar_type() == ScalarType::Long)
+    {
+      auto output_int = habana_helpers::createPTTensor(result, result.sizes(), result.options(),
+      result.suggest_memory_format(),
+      c10::ScalarType::Int,
+      is_output_persistent);
+      stack.emplace_back(IValue(output_int));
+    }
+    else
+    {
+      stack.emplace_back(IValue(result));
+    }
+    castOp.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+    p_context_->syn_outputs_[0] = std::move(castOp.GetSynOutputs()[0]);
+    p_context_->pt_outputs_[0] = std::move(castOp.GetOutputs()[0]);
+
+  }
 }
+
+
+/*************************************************************************
+ * @brief Kernel implementation for torch.arange operator
+ * @param output - output tensor
+ * @param start - start index of the sequence
+ * @param end - end index of the sequence
+ * @param step - step value of the sequence
+ ************************************************************************/
 
 Tensor& arange_hpu(Tensor& output, Scalar start, Scalar end, Scalar step) {
   PT_KERNEL_BEGIN;
 
-  at::ScalarType scalar_type = output.scalar_type();
+  //resizing the output as it is coming as empty from model
+  int depth = GetOutputSize(start, end, step);
+  auto shape = DimVector({depth});
+  auto tht_result = output.unsafeGetTensorImpl();
+  THHTensor_resizeNd(tht_result, shape.size(), shape.data(), nullptr);
+  at::ScalarType scalar_type;
+  if(output.scalar_type() == ScalarType::BFloat16)
+  {
+    scalar_type = c10::ScalarType::BFloat16;
+  }
+  else
+  {
+    scalar_type =  c10::ScalarType::Float;
+  }
+
   std::string node_type =
       "range_" + habana_helpers::name_suffix_from_type(scalar_type);
 
@@ -1164,11 +1271,11 @@ Tensor& arange_hpu(Tensor& output, Scalar start, Scalar end, Scalar step) {
   ArangeOperator Op(device_id, scalar_type);
 
   // Build Params for the graph
-  std::vector<c10::IValue> stack = {
-      IValue(output),
-      IValue(start.to<double>()),
-      IValue(end.to<double>()),
-      IValue(step.to<double>())};
+  std::vector<c10::IValue> stack = {IValue(output),
+                                    IValue(start),
+                                    IValue(end),
+                                    IValue(step)};
+
   size_t key = Op.GetRecipeKey(node_type, stack);
 
   if (device.get_recipe_handle_cache().isCached(key)) {
@@ -1187,8 +1294,23 @@ Tensor& arange_hpu(Tensor& output, Scalar start, Scalar end, Scalar step) {
   std::vector<at::Tensor> out = Op.GetOutputs();
   TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
 
-  PT_KERNEL_END;
-  return out.at(0);
+  if(output.scalar_type() == ScalarType::Long)
+  {
+    output.copy_(habana_helpers::cast_tensor_to_long(out.at(0)));
+    PT_KERNEL_END;
+    return output;
+  }
+  else if(output.scalar_type() == ScalarType::Bool)
+  {
+    out.at(0).to(c10::ScalarType::Bool);
+    PT_KERNEL_END;
+    return out.at(0);
+  }
+  else
+  {
+    PT_KERNEL_END;
+    return out.at(0);
+  }
 }
 
 static auto& KernelRegistry =

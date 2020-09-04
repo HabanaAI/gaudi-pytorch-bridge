@@ -24,9 +24,12 @@ broadcast_test_case_list = [
 ]
 
 arange_test_case_list = [
-    #start, end, step
-    (0.0, 10.0, 2.0),
-    (0.0, -10.0, -2.0),
+    #start, end, step, dtype
+    (0.0, 10.0, 2.0, torch.float),
+    (1, 16, 2, torch.int32),
+    (20, 40, 5, torch.long),
+    (0, -10, -2, torch.long),
+
 ]
 
 
@@ -119,15 +122,17 @@ def test_hpu_broadcast(test_case_list):
     compare_tensors(thpu_out, tcpu_out, atol=0, rtol=0)
 
 
-@pytest.mark.parametrize("start, end, step", arange_test_case_list)
+@pytest.mark.parametrize("start, end, step, dtype", arange_test_case_list)
 @pytest.mark.parametrize("op", [torch.arange])
-def test_hpu_arange_op_out( start, end, step, op):
+def test_hpu_arange_op_out( start, end, step, dtype, op):
     kernel_params_fwd={}
     kernel_params_fwd['start'] = start
     kernel_params_fwd['end'] = end
     kernel_params_fwd['step'] = step
-    kernel_params_fwd['out'] = torch.empty(1)
+    kernel_params_fwd['dtype'] = dtype
+    kernel_params_fwd['out'] = torch.empty(1, dtype=dtype)
     evaluate_fwd_kernel(kernel=op, kernel_params=kernel_params_fwd)
+
 
 if __name__ == '__main__':
     test_hpu_slice_and_select(*test_case_list[0])
