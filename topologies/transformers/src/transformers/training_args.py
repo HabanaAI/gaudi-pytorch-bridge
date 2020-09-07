@@ -2,6 +2,7 @@ import dataclasses
 import json
 import logging
 import os
+import sys
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional, Tuple
 
@@ -86,6 +87,8 @@ class TrainingArguments:
             :obj:`output_dir`.
         no_cuda (:obj:`bool`, `optional`, defaults to :obj:`False`):
             Wherher to not use CUDA even when it is available or not.
+        use_habana (:obj:`bool`, `optional`, defaults to :obj:`False`):
+            Whether to run training on Habana device.
         seed (:obj:`int`, `optional`, defaults to 42):
             Random seed for initialization.
         fp16 (:obj:`bool`, `optional`, defaults to :obj:`False`):
@@ -184,6 +187,7 @@ class TrainingArguments:
         },
     )
     no_cuda: bool = field(default=False, metadata={"help": "Do not use CUDA even when it is available"})
+    use_habana: bool = field(default=False, metadata={"help": "Whether to run training on Habana device"})
     seed: int = field(default=42, metadata={"help": "random seed for initialization"})
 
     fp16: bool = field(
@@ -250,7 +254,13 @@ class TrainingArguments:
     @torch_required
     def _setup_devices(self) -> Tuple["torch.device", int]:
         logger.info("PyTorch: setting up devices")
-        if self.no_cuda:
+        if self.use_habana:
+            logger.info("Attempting to load library from path ", os.environ['BUILD_ROOT_LATEST'])
+            torch.ops.load_library(os.path.join(os.environ['BUILD_ROOT_LATEST'], "libhabana_pytorch_plugin.so"))
+            sys.path.insert(0, os.path.join(os.environ['BUILD_ROOT_LATEST']))
+            device = torch.device("habana")
+            n_gpu = 0
+        elif self.no_cuda:
             device = torch.device("cpu")
             n_gpu = 0
         elif is_torch_tpu_available():
