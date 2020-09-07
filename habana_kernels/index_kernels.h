@@ -57,6 +57,19 @@ class SliceOperator : public HabanaOperator {
       bool is_output_persistent);
 };
 
+//
+// Narrow Operator
+class NarrowOperator : public SliceOperator {
+ public:
+  NarrowOperator(int device_id, c10::ScalarType scalarType)
+      : SliceOperator(device_id, scalarType) {}
+
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+};
+
 // Gather Operator
 //
 class GatherOperator : public HabanaOperator {

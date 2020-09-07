@@ -17,10 +17,11 @@
 #include "habana_helpers/graph.h"
 #include "habana_helpers/logging.h"
 #include "habana_helpers/tensor_utils.h"
+#include "habana_kernels/index_kernels.h"
+#include "habana_kernels/kernel_utils.h"
+#include "habana_kernels/resize.h"
 #include "habana_kernels/simple_generic_kernel.h"
 #include "habana_kernels/tensor_shape_kernels.h"
-#include "kernel_utils.h"
-#include "resize.h"
 
 using namespace torch;
 
@@ -888,6 +889,124 @@ Tensor expand_hpu(const Tensor& self, IntArrayRef size, bool implicit) {
   return out.at(0);
 }
 
+void SplitWithSizeOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 3,
+      "Incorrect size of input arguments for SplitWithSizes Operator");
+  auto self = inputs[0].toTensor();
+  auto split_sizes = inputs[1].toIntList();
+  auto dim = inputs[2].toInt();
+
+  TORCH_CHECK(self.dim() != 0, "split expects at least a 1-dimensional tensor");
+  int64_t dim_size = self.size(dim);
+  int64_t num_splits = split_sizes.size();
+  std::vector<Tensor> splits(num_splits);
+  int64_t start_idx = 0;
+  int64_t i;
+
+  for (i = 0; i < num_splits; ++i) {
+    auto length = split_sizes.get(i);
+    TORCH_CHECK(
+        length >= 0,
+        "split_with_sizes expects split_sizes have only non-negative ",
+        "entries, but got split_sizes=",
+        split_sizes.vec());
+
+    NarrowOperator narrowOp(self.device().index(), self.scalar_type());
+    auto& syn_in =
+        narrowOp.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+    torch::jit::Stack stack = {
+        IValue(self), IValue(dim), IValue(start_idx), IValue(length)};
+    narrowOp.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+    p_context_->syn_inputs_[0] = std::move(syn_in);
+    p_context_->syn_outputs_.emplace_back(
+        std::move(narrowOp.GetSynOutputs()[0]));
+    p_context_->pt_outputs_.emplace_back(std::move(narrowOp.GetOutputs()[0]));
+
+    start_idx += length;
+  }
+
+  TORCH_CHECK(
+      start_idx == dim_size,
+      "split_with_sizes expects split_sizes to sum exactly to ",
+      dim_size,
+      " (input tensor's size at dimension ",
+      dim,
+      "), ",
+      "but got split_sizes=",
+      split_sizes.vec());
+}
+
+void SplitWithSizeOperator::SetPTOutputs(torch::jit::Stack& inputs) {
+  auto self = inputs[0].toTensor();
+  auto split_sizes = inputs[1].toIntList();
+  auto dim = inputs[2].toInt();
+
+  int64_t num_splits = split_sizes.size();
+  std::vector<Tensor> splits(num_splits);
+  int64_t start_idx = 0;
+  int64_t i = 0;
+
+  for (i = 0; i < num_splits; ++i) {
+    auto length = split_sizes.get(i);
+    auto end = start_idx + length;
+    int64_t step = 1;
+
+    SliceOperator slice_op(self.device().index(), self.scalar_type());
+    splits[i] =
+        slice_op.AllocateOutputTensor(self, dim, start_idx, end, step, true);
+
+    start_idx += length;
+  }
+
+  HabanaOperator::SetPTOutputs(splits);
+}
+
+/**
+ * @brief This function implements torch.split_with_size()
+ * @param self - [fp32/bf16] Input tensor
+ * @param split_sizes - [Int[]] List of sizes to be used for split along given
+ * dim
+ * @param dim - [Int] dim along which tensor is to be split
+ */
+std::vector<Tensor> split_with_sizes_hpu(
+    const Tensor& self,
+    IntArrayRef split_sizes,
+    int64_t dim) {
+  PT_KERNEL_BEGIN;
+
+  at::ScalarType scalar_type = self.scalar_type();
+  std::string node_type = "split_with_sizes";
+  size_t device_id = self.device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+
+  SplitWithSizeOperator Op(device_id, scalar_type);
+  std::vector<at::Tensor> pt_inputs{self};
+  std::vector<c10::IValue> stack = {
+      IValue(self), IValue(split_sizes), IValue(dim)};
+
+  size_t key = Op.GetRecipeKey(node_type, stack);
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    Op.SetPTInputs(pt_inputs);
+    Op.SetPTOutputs(stack);
+    Op.Execute(key);
+  } else {
+    PT_KERNEL_DEBUG("key:", key);
+    auto graph = habana_helpers::create_graph(device_id, node_type);
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
+    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    Op.Compile(graph);
+  }
+  std::vector<Tensor> out = Op.GetOutputs();
+
+  PT_KERNEL_END;
+  return out;
+}
+
 static auto& KernelRegistry =
     ::habana::KernelRegistry()
         .add(
@@ -959,6 +1078,13 @@ static auto registry =
                     "aten::_cat.out(Tensor[] tensors, int dim=0, *, Tensor(a!) out) -> Tensor(a!)")
                 .impl_unboxedOnlyKernel<decltype(cat_hpu_out), &cat_hpu_out>(
                     DispatchKey::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema(
+                    "aten::split_with_sizes(Tensor self, int[] split_sizes, int dim=0) -> Tensor[]")
+                .impl_unboxedOnlyKernel<
+                    decltype(split_with_sizes_hpu),
+                    &split_with_sizes_hpu>(DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema(

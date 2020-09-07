@@ -522,6 +522,45 @@ Tensor gather2d_hpu(
   return out.at(0);
 }
 
+void NarrowOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 4,
+      "Incorrect size of inputs expected for narrow operator");
+  TORCH_CHECK(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
+  TORCH_CHECK(inputs[1].isInt(), "Input arg2 type expected to be integer");
+  TORCH_CHECK(inputs[2].isInt(), "Input arg3 type expected to be integer");
+  TORCH_CHECK(inputs[3].isInt(), "Input arg4 type expected to be integer");
+
+  auto self = inputs[0].toTensor();
+  auto dim = inputs[1].toInt();
+  auto start = inputs[2].toInt();
+  auto length = inputs[3].toInt();
+
+  TORCH_CHECK(self.dim() > 0, "narrow() cannot be applied to a 0-dim tensor.");
+  auto cur_size = self.size(dim);
+  if (start != cur_size) { // start being the end is valid, but not a valid dim
+                           // specification.
+    start = at::maybe_wrap_dim(start, cur_size);
+  }
+  TORCH_CHECK(
+      length >= 0 && start <= cur_size - length,
+      "start (",
+      start,
+      ") + length (",
+      length,
+      ") exceeds dimension size (",
+      cur_size,
+      ").");
+
+  inputs.erase(inputs.cend() - 1, inputs.cend());
+  inputs.emplace_back(IValue(start + length));
+  inputs.emplace_back(IValue(1));
+  SliceOperator::AllocateAndAddSynapseNode(graph, inputs, is_output_persistent);
+}
+
 Tensor SliceOperator::AllocateOutputTensor(
     const Tensor& self,
     int64_t& dim,
