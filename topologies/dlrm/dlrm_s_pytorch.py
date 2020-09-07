@@ -65,6 +65,8 @@ import dlrm_data_pytorch as dp
 
 # numpy
 import numpy as np
+import os
+import sys
 
 # onnx
 # The onnx import causes deprecation warnings every time workers
@@ -87,50 +89,74 @@ from tricks.md_embedding_bag import PrEmbeddingBag, md_solver
 
 import sklearn.metrics
 
-# from torchviz import make_dot
+try:
+    path = os.path.join(os.environ['PYTORCH_MODULES_ROOT_PATH'], 'topologies')
+    tools_path = os.path.join(path, 'tools')
+    if os.path.exists(path) is False or os.path.exists(tools_path) is False:
+        raise Exception("path for 'tools' NOT found")
+    sys.path.append(path)
+    from tools import *
+    print('FOUND')
+except:
+    assert False, ("tools directory should be availabe as somedir/topologies/tools",
+                     "PYTORCH_MODULES_ROOT_PATH should be set to 'somedir'")
+    print('NOT FOUND')
+
+
+#from torchviz import make_dot
 # import torch.nn.functional as Functional
 # from torch.nn.parameter import Parameter
 
-from torch.optim.lr_scheduler import _LRScheduler
-
 exc = getattr(builtins, "IOError", "FileNotFoundError")
-
-class LRPolicyScheduler(_LRScheduler):
-    def __init__(self, optimizer, num_warmup_steps, decay_start_step, num_decay_steps):
-        self.num_warmup_steps = num_warmup_steps
-        self.decay_start_step = decay_start_step
-        self.decay_end_step = decay_start_step + num_decay_steps
-        self.num_decay_steps = num_decay_steps
-
-        if self.decay_start_step < self.num_warmup_steps:
-            sys.exit("Learning rate warmup must finish before the decay starts")
-
-        super(LRPolicyScheduler, self).__init__(optimizer)
-
-    def get_lr(self):
-        step_count = self._step_count
-        if step_count < self.num_warmup_steps:
-            # warmup
-            scale = 1.0 - (self.num_warmup_steps - step_count) / self.num_warmup_steps
-            lr = [base_lr * scale for base_lr in self.base_lrs]
-        elif self.decay_start_step <= step_count and step_count < self.decay_end_step:
-            # decay
-            decayed_steps = step_count - self.decay_start_step
-            scale = ((self.num_decay_steps - decayed_steps) / self.num_decay_steps) ** 2
-            min_lr = 0.0000001
-            lr = [max(min_lr, base_lr * scale) for base_lr in self.base_lrs]
-            self.last_lr = lr
-        else:
-            if self.num_decay_steps > 0:
-                # freeze at last
-                lr = self.last_lr
-            else:
-                # do not adjust
-                lr = self.base_lrs
-        return lr
+torch.set_printoptions(precision=7)
 
 ### define dlrm in PyTorch ###
+# A simple hook class that returns the input and output of a layer during forward/backward pass
+class Hook():
+    def __init__(self, block,module, id, backward=False):
+        self.name = str(block)+ '_' + str(module) + '_' + str(id)
+        if backward==False:
+            self.hook = module.register_forward_hook(self.hook_fn)
+        else:
+            self.hook = module.register_backward_hook(self.hook_fn)
+    def hook_fn(self, module, input, output):
+        print('Inside HOOK for',module,self.hook)
+        self.input = input
+        self.output = output
+    def close(self):
+        self.hook.remove()
+
+def printHooks(hooks,str):
+    print('Printing hooks for ' + str)
+    for hook in hooks:
+        print('-----'*4)
+        print('Hook:{} - input'.format(hook.name))
+        for x in hook.input:
+            if x is None:
+                print('None element')
+            else:
+                if isinstance(x,int) is True:
+                    print(x)
+                else:
+                    print(x.cpu())
+                    print('stride',x.stride())
+                    print('size',x.size())
+        print('Hook:{} - output'.format(hook.name))
+        for x in hook.output:
+            print(x.cpu())
+            print('stride',x.stride())
+            print('size',x.size())
+
 class DLRM_Net(nn.Module):
+
+    def printParamsAndGrads(self,grads=True):
+        print('Printing Params')
+        [print(name, p.cpu(),p.grad_fn,p.cpu().grad_fn) for name,p in self.named_parameters()]
+        if grads is True:
+            print('Printing Params grads')
+            [print(name, p.grad.cpu()) for name,p in self.named_parameters()]
+    # print(vars(gv))
+
     def create_mlp(self, ln, sigmoid_layer):
         # build MLP layer by layer
         layers = nn.ModuleList()
@@ -179,9 +205,9 @@ class DLRM_Net(nn.Module):
             if self.qr_flag and n > self.qr_threshold:
                 EE = QREmbeddingBag(n, m, self.qr_collisions,
                     operation=self.qr_operation, mode="sum", sparse=True)
-            elif self.md_flag:
+            elif self.md_flag and n > self.md_threshold:
+                _m = m[i]
                 base = max(m)
-                _m = m[i] if n > self.md_threshold else base
                 EE = PrEmbeddingBag(n, _m, base)
                 # use np initialization as below for consistency...
                 W = np.random.uniform(
@@ -190,7 +216,7 @@ class DLRM_Net(nn.Module):
                 EE.embs.weight.data = torch.tensor(W, requires_grad=True)
 
             else:
-                EE = nn.EmbeddingBag(n, m, mode="sum", sparse=True)
+                EE = nn.EmbeddingBag(n, m, mode="sum", sparse=False)
 
                 # initialize embeddings
                 # nn.init.uniform_(EE.weight, a=-np.sqrt(1 / n), b=np.sqrt(1 / n))
@@ -486,7 +512,7 @@ if __name__ == "__main__":
     # j will be replaced with the table number
     parser.add_argument("--arch-mlp-bot", type=str, default="4-3-2")
     parser.add_argument("--arch-mlp-top", type=str, default="4-2-1")
-    parser.add_argument("--arch-interaction-op", type=str, default="dot")
+    parser.add_argument("--arch-interaction-op", type=str, default="cat")
     parser.add_argument("--arch-interaction-itself", action="store_true", default=False)
     # embedding table options
     parser.add_argument("--md-flag", action="store_true", default=False)
@@ -504,7 +530,7 @@ if __name__ == "__main__":
     parser.add_argument("--loss-threshold", type=float, default=0.0)  # 1.0e-7
     parser.add_argument("--round-targets", type=bool, default=False)
     # data
-    parser.add_argument("--data-size", type=int, default=1)
+    parser.add_argument("--data-size", type=int, default=8)
     parser.add_argument("--num-batches", type=int, default=0)
     parser.add_argument(
         "--data-generation", type=str, default="random"
@@ -522,9 +548,9 @@ if __name__ == "__main__":
     parser.add_argument("--num-workers", type=int, default=0)
     parser.add_argument("--memory-map", action="store_true", default=False)
     # training
-    parser.add_argument("--mini-batch-size", type=int, default=1)
+    parser.add_argument("--mini-batch-size", type=int, default=4)
     parser.add_argument("--nepochs", type=int, default=1)
-    parser.add_argument("--learning-rate", type=float, default=0.01)
+    parser.add_argument("--learning-rate", type=float, default=0.5)
     parser.add_argument("--print-precision", type=int, default=5)
     parser.add_argument("--numpy-rand-seed", type=int, default=123)
     parser.add_argument("--sync-dense-params", type=bool, default=True)
@@ -534,7 +560,6 @@ if __name__ == "__main__":
     parser.add_argument("--save-onnx", action="store_true", default=False)
     # gpu
     parser.add_argument("--use-gpu", action="store_true", default=False)
-    parser.add_argument("--use-hpu", action="store_true", default=False)
     # debugging and profiling
     parser.add_argument("--print-freq", type=int, default=1)
     parser.add_argument("--test-freq", type=int, default=-1)
@@ -555,11 +580,8 @@ if __name__ == "__main__":
     parser.add_argument("--mlperf-auc-threshold", type=float, default=0.0)
     parser.add_argument("--mlperf-bin-loader", action='store_true', default=False)
     parser.add_argument("--mlperf-bin-shuffle", action='store_true', default=False)
-    # LR policy
-    parser.add_argument("--lr-num-warmup-steps", type=int, default=0)
-    parser.add_argument("--lr-decay-start-step", type=int, default=0)
-    parser.add_argument("--lr-num-decay-steps", type=int, default=0)
     args = parser.parse_args()
+    print(args)
 
     if args.mlperf_logging:
         print('command line args: ', json.dumps(vars(args)))
@@ -764,6 +786,32 @@ if __name__ == "__main__":
         md_threshold=args.md_threshold,
     )
     # test prints
+    #print('Net at Init')
+    #dlrm.printParamsAndGrads(grads=False)
+    # print('Net at Init Finish')
+
+    # hookF = []
+    # hookB = []
+
+    # for layer in list(dlrm._modules.items()):
+    #     if isinstance(layer[1],nn.Sequential):
+    #         print('found Sequential '+'----'*3)
+    #         i=0
+    #         for a in enumerate(layer[1]):
+    #             print('Attaching hook to {} module: {}'.format(i,a))
+    #             hookF.append(Hook(layer[0],a[1],a[0]))
+    #             hookB.append(Hook(layer[0],a[1],a[0],backward=True))
+    #             i += 1
+
+    #     if isinstance(layer[1],nn.ModuleList):
+    #         print('found module list'+'----'*3)
+    #         i=0
+    #         for a in enumerate(layer[1]):
+    #             print('Attaching hook to {} module: {}'.format(i,a))
+    #             hookF.append(Hook(layer[0],a[1],a[0]))
+    #             hookB.append(Hook(layer[0],a[1],a[0],backward=True))
+    #             i += 1
+
     if args.debug_mode:
         print("initial parameters (weights and bias):")
         for param in dlrm.parameters():
@@ -777,6 +825,9 @@ if __name__ == "__main__":
         dlrm = dlrm.to(device)  # .cuda()
         if dlrm.ndevices > 1:
             dlrm.emb_l = dlrm.create_emb(m_spa, ln_emb)
+
+    trainMetaData = TrainMetaData(dlrm,device)
+
 
     # specify the loss function
     if args.loss_function == "mse":
@@ -792,8 +843,6 @@ if __name__ == "__main__":
     if not args.inference_only:
         # specify the optimizer algorithm
         optimizer = torch.optim.SGD(dlrm.parameters(), lr=args.learning_rate)
-        lr_scheduler = LRPolicyScheduler(optimizer, args.lr_num_warmup_steps, args.lr_decay_start_step,
-                                         args.lr_num_decay_steps)
 
     ### main loop ###
     def time_wrap(use_gpu):
@@ -913,6 +962,7 @@ if __name__ == "__main__":
     training_resumed = False
     with torch.autograd.profiler.profile(args.enable_profiling, use_gpu) as prof:
         while k < args.nepochs:
+            trainMetaData.set_current_epoch_no(k)
             print('k={} skip_upto_epoch={}'.format(k,skip_upto_epoch))
             if k < skip_upto_epoch:
                 print('skipping epoch')
@@ -924,6 +974,10 @@ if __name__ == "__main__":
                 previous_iteration_time = None
 
             for j, (X, lS_o, lS_i, T) in enumerate(train_ld):
+                start_time = time.time()
+                trainMetaData.tracept.start(start_time, 'train_iteration_'+str(trainMetaData.current_train_step))
+                tp_probe_tensors_iteration_start(dlrm, device, T, X, trainMetaData.ParamsDump, False)
+
                 #print('j={} skip_upto_batch={}'.format(j,skip_upto_batch))
 
                 if j < skip_upto_batch and not(training_resumed):
@@ -988,7 +1042,9 @@ if __name__ == "__main__":
 
                     # optimizer
                     optimizer.step()
-                    lr_scheduler.step()
+                    # print('After update')
+                    # dlrm.printParamsAndGrads(grads=False)
+                    tp_probe_tensors_iteration_end(dlrm, device, Z, E,trainMetaData.ParamsDump, False)
 
                 if args.mlperf_logging:
                     total_time += iteration_time
@@ -1000,7 +1056,9 @@ if __name__ == "__main__":
                 total_iter += 1
                 total_samp += mbs
                 #print('j= {} test_freq={} nbatches={}'.format(j,args.test_freq,nbatches))
-                args.test_freq = nbatches
+                #save checkpoint at end of each epoch
+                if not (args.save_model == ""):
+                    args.test_freq = nbatches
 
                 should_print = ((j + 1) % args.print_freq == 0) or (j + 1 == nbatches)
                 should_test = (
@@ -1139,6 +1197,7 @@ if __name__ == "__main__":
 
                     is_best = gA_test > best_gA_test
                     if is_best:
+                        # since we dump checkpoint at end of each epoch, disable this update
                         # best_gA_test = gA_test
                         if not (args.save_model == ""):
                             print("Saving model to {}".format(args.save_model +"_"+ str(k)+".pth"))
@@ -1212,6 +1271,7 @@ if __name__ == "__main__":
                               + str(args.mlperf_auc_threshold)
                               + " reached, stop training")
                         break
+                trainMetaData.increment_train_step()
 
             k += 1  # nepochs
 
@@ -1222,6 +1282,8 @@ if __name__ == "__main__":
             prof.export_chrome_trace("./dlrm_s_pytorch.json")
         # print(prof.key_averages().table(sort_by="cpu_time_total"))
 
+
+    print(dlrm)
     # plot compute graph
     if args.plot_compute_graph:
         sys.exit(
@@ -1241,11 +1303,11 @@ if __name__ == "__main__":
 
     # export the model in onnx
     if args.save_onnx:
-        dlrm_pytorch_onnx_file = "dlrm_s_pytorch.onnx"
-        (X, lS_o, lS_i, _) = train_data[0]  # get first batch of elements
-        torch.onnx.export(
-            dlrm, (X, lS_o, lS_i), dlrm_pytorch_onnx_file, verbose=True, use_external_data_format=True
-        )
+        with open("dlrm_s_pytorch.onnx", "w+b") as dlrm_pytorch_onnx_file:
+            (X, lS_o, lS_i, _) = train_data[0]  # get first batch of elements
+            torch.onnx._export(
+                dlrm, (X, lS_o, lS_i), dlrm_pytorch_onnx_file, verbose=True
+            )
         # recover the model back
         dlrm_pytorch_onnx = onnx.load("dlrm_s_pytorch.onnx")
         # check the onnx model

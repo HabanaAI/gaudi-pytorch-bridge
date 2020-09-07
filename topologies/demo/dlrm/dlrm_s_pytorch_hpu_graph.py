@@ -1371,15 +1371,34 @@ if __name__ == "__main__":
 
                     for i, (X_test, lS_o_test, lS_i_test, T_test) in enumerate(test_ld):
                         # early exit if nbatches was set by the user and was exceeded
-                        if nbatches > 0 and i >= nbatches:
+                        if nbatches > 0 and i >= nbatches  or X_test.size()[0] < args.test_mini_batch_size:
                             break
 
                         t1_test = time_wrap(use_gpu)
 
+                        # embedding bag on Habana needs the last offset to be additionally appended which is pointing to end of indices
+                        lS2_o_scratch = []
+                        for kk in range(len(lS_i_test)):
+                            lS2_o_scratch.append(torch.unsqueeze(
+                                torch.cat((lS_o_test[kk], torch.tensor([lS_i_test[kk].numel()])), dim=0), dim=0))
+
+                        lS_o_test = torch.cat(tuple(lS2_o_scratch), dim=0)
+                        #print('lS_o after updating for last offset',lS_o)
+                        #print("lS_i_test: ", lS_i_test)
+
+                        with torch.no_grad():
+                            for kk, sparse_index_group_batch in enumerate(lS_i_test):
+                                sparse_offset_group_batch = lS_o_test[kk]
+                                apply_preproc(sparse_offset_group_batch, sparse_index_group_batch, kk, m_spa, ln_emb)
+
+                        lS2_o_test = [S_o.to(torch.int32).to(device, non_blocking=True) for S_o in lS_o_test] if isinstance(lS_o_test, list) \
+                            else lS_o.to(torch.int32).to(device, non_blocking=True)
+
+                        X_test_device = X_test.to(device, non_blocking=True)
+
                         # forward pass
-                        Z_test = dlrm_habana_wrap(model_to_run,
-                                                  X_test, lS_o_test, lS_i_test, use_gpu, use_hpu, device
-                                                  )
+                        Z_test = dlrm_habana_wrap(model_to_run, X_test_device, lS2_o_test, gv.indices_fwd, gv.valid_count_fwd, gv.outputRowOffsets_hpu, gv.indices_bwd, gv.valid_count_bwd, gv.coalesced_grads)
+
                         if args.mlperf_logging:
                             S_test = Z_test.detach().cpu().numpy()  # numpy array
                             T_test = T_test.detach().cpu().numpy()  # numpy array

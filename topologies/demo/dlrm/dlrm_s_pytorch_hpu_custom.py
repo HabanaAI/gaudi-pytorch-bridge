@@ -1356,7 +1356,7 @@ if __name__ == "__main__":
                         t1_test = time_wrap(use_gpu)
 
                         # forward pass
-                        Z_test = dlrm_wrap(
+                        Z_test = dlrm_habana_wrap(
                             X_test, lS_o_test, lS_i_test, use_gpu, use_hpu,device
                         )
                         if args.mlperf_logging:

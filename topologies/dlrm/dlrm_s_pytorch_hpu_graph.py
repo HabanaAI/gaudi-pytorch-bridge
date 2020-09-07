@@ -771,6 +771,9 @@ if __name__ == "__main__":
     parser.add_argument('--hmp-fp32', default='', help='path to fp32 ops list in hmp O1 mode')
     parser.add_argument('--hmp-opt-level', default='O1', help='choose optimization level for hmp')
     parser.add_argument('--hmp-verbose', action='store_true', help='enable verbose mode for hmp')
+    parser.add_argument('--log-device-mem-alloc', action='store_true',
+                        help='log live memory allocations on device at the given point')
+
     args = parser.parse_args()
 
     if args.is_hmp:
@@ -1037,6 +1040,10 @@ if __name__ == "__main__":
         # dlrm = dlrm.to(device)
         dlrm_habana = dlrm_habana.to(device)
         trainMetaData = TrainMetaData(dlrm_habana, device)
+        if args.log_device_mem_alloc:
+            print('Device Memory allocation logging is enabled',)
+            trainMetaData.set_live_mem_alloc_logging(args.log_device_mem_alloc)
+
 
     # specify the loss function
     if args.loss_function == "mse":
@@ -1392,15 +1399,34 @@ if __name__ == "__main__":
 
                     for i, (X_test, lS_o_test, lS_i_test, T_test) in enumerate(test_ld):
                         # early exit if nbatches was set by the user and was exceeded
-                        if nbatches > 0 and i >= nbatches:
+                        if nbatches > 0 and i >= nbatches  or X_test.size()[0] < args.test_mini_batch_size:
                             break
 
                         t1_test = time_wrap(use_gpu)
 
+                        # embedding bag on Habana needs the last offset to be additionally appended which is pointing to end of indices
+                        lS2_o_scratch = []
+                        for kk in range(len(lS_i_test)):
+                            lS2_o_scratch.append(torch.unsqueeze(
+                                torch.cat((lS_o_test[kk], torch.tensor([lS_i_test[kk].numel()])), dim=0), dim=0))
+
+                        lS_o_test = torch.cat(tuple(lS2_o_scratch), dim=0)
+                        #print('lS_o after updating for last offset',lS_o)
+                        #print("lS_i_test: ", lS_i_test)
+
+                        with torch.no_grad():
+                            for kk, sparse_index_group_batch in enumerate(lS_i_test):
+                                sparse_offset_group_batch = lS_o_test[kk]
+                                apply_preproc(sparse_offset_group_batch, sparse_index_group_batch, kk, m_spa, ln_emb)
+
+                        lS2_o_test = [S_o.to(torch.int32).to(device, non_blocking=True) for S_o in lS_o_test] if isinstance(lS_o_test, list) \
+                            else lS_o.to(torch.int32).to(device, non_blocking=True)
+
+                        X_test_device = X_test.to(device, non_blocking=True)
+
                         # forward pass
-                        Z_test = dlrm_habana_wrap(model_to_run,
-                                                  X_test, lS_o_test, lS_i_test, use_gpu, use_hpu, device
-                                                  )
+                        Z_test = dlrm_habana_wrap(model_to_run, X_test_device, lS2_o_test, gv.indices_fwd, gv.valid_count_fwd, gv.outputRowOffsets_hpu, gv.indices_bwd, gv.valid_count_bwd, gv.coalesced_grads)
+
                         if args.mlperf_logging:
                             S_test = Z_test.detach().cpu().numpy()  # numpy array
                             T_test = T_test.detach().cpu().numpy()  # numpy array
@@ -1420,6 +1446,8 @@ if __name__ == "__main__":
                             test_loss += L_test * mbs_test
                             test_samp += mbs_test
 
+                        trainMetaData.log_live_mem_alloc()
+                        # print('Finish testing it ',i)
                         t2_test = time_wrap(use_gpu)
 
                     if args.mlperf_logging:
@@ -1554,6 +1582,8 @@ if __name__ == "__main__":
                               " reached, stop training")
                         break
                 trainMetaData.tracept.end(time.time(), 'train_iteration_'+str(trainMetaData.current_train_step))
+                # trainMetaData.log_live_mem_alloc('train_iteration_'+str(trainMetaData.current_train_step))
+                trainMetaData.log_live_mem_alloc()
                 trainMetaData.increment_train_step()
 
             k += 1  # nepochs
