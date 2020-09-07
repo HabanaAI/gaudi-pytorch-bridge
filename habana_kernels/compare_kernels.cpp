@@ -167,6 +167,26 @@ void CompareWrapperOperator::AllocateAndAddSynapseNode(
       graph, inputs, is_output_persistent);
 }
 
+void CompareOutWrapperOperator::SetPTOutputs(torch::jit::Stack& inputs) {
+  Tensor operand;
+  if (inputs[0].isTensor() && inputs[1].isTensor()) {
+    operand =
+        get_correct_input_tensor(inputs[0].toTensor(), inputs[1].toTensor());
+  } else if (inputs[0].isTensor()) {
+    operand = inputs[0].toTensor();
+  } else {
+    operand = inputs[1].toTensor();
+  }
+  auto output = habana_helpers::createPTTensor(
+      operand,
+      operand.sizes(),
+      operand.options(),
+      operand.suggest_memory_format(),
+      c10::ScalarType::Bool,
+      true);
+  HabanaOperator::SetPTOutputs({output});
+}
+
 template <class CompareOp>
 Tensor compare_op_hpu(
     const std::vector<at::Tensor>& pt_inputs,
@@ -174,23 +194,31 @@ Tensor compare_op_hpu(
     const std::string& node_guid) {
   PT_KERNEL_BEGIN;
   size_t device_id = pt_inputs[0].device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
   at::ScalarType scalar_type = pt_inputs[0].scalar_type();
   std::string node_type =
       node_guid + "_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
 
   CompareOp Op(device_id, scalar_type);
+  size_t key = Op.GetRecipeKey(node_type, stack);
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    Op.SetPTInputs(pt_inputs);
+    Op.SetPTOutputs(stack);
+    Op.Execute(key);
+  } else {
+    // Create Graph
+    auto graph = habana_helpers::create_graph(device_id, node_type);
 
-  // Create Graph
-  auto graph = habana_helpers::create_graph(device_id, node_type);
+    // Assign Inputs to the Operator
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
-  // Assign Inputs to the Operator
-  Op.AllocateSynapseInputs(graph, pt_inputs, true);
+    // both inputs are not required, just to match graph mode stack
+    Op.AllocateAndAddSynapseNode(graph, stack, true);
 
-  // both inputs are not required, just to match graph mode stack
-  Op.AllocateAndAddSynapseNode(graph, stack, true);
-
-  // compile and execute the graph
-  Op.Compile(graph);
+    // compile and execute the graph
+    Op.Compile(graph);
+  }
 
   std::vector<at::Tensor> out = Op.GetOutputs();
   TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
@@ -260,15 +288,51 @@ Tensor eq_tensor_scalar_hpu(Tensor& self, Scalar other) {
   return output;
 }
 
+/*************************************************************************
+ * @brief Kernel implementation for out = torch.lt(self,other)
+ * @param self [in] - input tensor, 1-4D, FP32/BF16
+ * @param other [in] - Scalar
+ ************************************************************************/
+Tensor lt_scalar_hpu(Tensor& self, Scalar other) {
+  PT_KERNEL_BEGIN;
+  if (self.dim() == 0) {
+    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+  }
+  std::vector<at::Tensor> pt_inputs{self};
+  torch::jit::Stack stack{IValue(self), IValue(other)};
+  auto output = compare_op_hpu<LtOperator>(pt_inputs, stack, "lt");
+  PT_KERNEL_END;
+  return output;
+}
+
+/*************************************************************************
+ * @brief Kernel implementation for out = torch.lt(self,other)
+ * @param self [in] - input tensor, 1-4D, FP32/BF16
+ * @param other [in] - input tensor, 1-4D, FP32/BF16
+ ************************************************************************/
+Tensor lt_tensor_hpu(Tensor& self, Tensor& other) {
+  PT_KERNEL_BEGIN;
+  std::vector<at::Tensor> pt_inputs{self, other};
+  torch::jit::Stack stack{IValue(self), IValue(other)};
+  auto output = compare_op_hpu<LtOperator>(pt_inputs, stack, "lt");
+  PT_KERNEL_END;
+  return output;
+}
+
 static auto& KernelRegistry =
     habana::KernelRegistry()
         .add(
-            "aten::gt ",
+            "aten::gt",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<GtOperator>(device_id, node_type);
             })
-        .add("aten::eq", [](const int device_id, c10::ScalarType node_type) {
-          return std::make_shared<EqOperator>(device_id, node_type);
+        .add(
+            "aten::eq",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<EqOperator>(device_id, node_type);
+            })
+        .add("aten::lt", [](const int device_id, c10::ScalarType node_type) {
+          return std::make_shared<LtOperator>(device_id, node_type);
         });
 
 static auto registry =
@@ -296,4 +360,16 @@ static auto registry =
                 .impl_unboxedOnlyKernel<
                     decltype(eq_tensor_scalar_hpu),
                     &eq_tensor_scalar_hpu>(DispatchKey::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema("aten::lt.Scalar(Tensor self, Scalar other) -> Tensor")
+                .impl_unboxedOnlyKernel<
+                    decltype(lt_scalar_hpu),
+                    &lt_scalar_hpu>(DispatchKey::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema("aten::lt.Tensor(Tensor self, Tensor other) -> Tensor")
+                .impl_unboxedOnlyKernel<
+                    decltype(lt_tensor_hpu),
+                    &lt_tensor_hpu>(DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));

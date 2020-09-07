@@ -10,6 +10,7 @@
 #pragma once
 #include "habana_helpers/tensor_utils.h"
 #include "habana_kernels/habana_operator.h"
+using namespace torch;
 
 class CompareOutOperator : public habana::HabanaOperator {
  public:
@@ -40,10 +41,22 @@ class CompareOutWrapperOperator : public habana::HabanaOperator {
     this->CreateSynContext(device_id);
     this->scalarType_ = scalarType;
   }
+
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
+
+  void SetPTOutputs(torch::jit::Stack& inputs);
+
+  inline Tensor get_correct_input_tensor(
+      const Tensor& arg1,
+      const Tensor& arg2) {
+    auto arg_final = arg1.ndimension() > arg2.ndimension()
+        ? arg1
+        : arg1.numel() > arg2.numel() ? arg1 : arg2;
+    return arg_final;
+  }
 
  protected:
   c10::ScalarType scalarType_;
@@ -56,6 +69,7 @@ class CompareWrapperOperator : public CompareOutWrapperOperator {
       c10::ScalarType scalarType,
       const std::string& guid)
       : CompareOutWrapperOperator(device_id, scalarType, guid) {}
+
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
@@ -88,4 +102,13 @@ class EqOperator : public CompareWrapperOperator {
             device_id,
             scalarType,
             "equal_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {}
+};
+
+class LtOperator : public CompareWrapperOperator {
+ public:
+  LtOperator(int device_id, c10::ScalarType scalarType)
+      : CompareWrapperOperator(
+            device_id,
+            scalarType,
+            "less_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {}
 };
