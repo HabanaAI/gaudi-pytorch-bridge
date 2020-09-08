@@ -13,22 +13,48 @@
 #include <string>
 #include <unordered_set>
 #include "habana_helpers/logging.h"
+#include <initializer_list>
+#include <torch/csrc/jit/ir/ir.h>
 
 class HabanaWhiteList {
  private:
   static std::unordered_set<std::string> HabanaWhiteListOps;
 
  public:
-  static bool is_op_habana_whitelisted(std::string opName);
+  static bool is_op_habana_whitelisted(torch::jit::Node* node);
   static void load_whitelisted_ops();
 };
 
 std::unordered_set<std::string> HabanaWhiteList::HabanaWhiteListOps = {};
 
-bool HabanaWhiteList::is_op_habana_whitelisted(std::string opName) {
-  if (HabanaWhiteListOps.find(opName) != HabanaWhiteListOps.end())
-    return true;
-  return false;
+bool HabanaWhiteList::is_op_habana_whitelisted(torch::jit::Node* node) {
+  // This section of code is required for prim::Constant handling
+  // Since we do not support any other nodes other than prim::Constant
+  // We have to ensure that we return true only for prim::Constant node
+  if (node->kind().is_prim()) {
+    if (node->kind() == torch::jit::prim::Constant) {
+      return true;
+    } else {
+      return false;
+    }
+  }
+
+  // Come here for all non-prim based nodes
+  // which have a properly defined schema in aten
+  // That can be obtained from the node
+  else {
+    if (node->kind().is_aten()) {
+      auto schema = node->getOperator().schema();
+      std::string schema_string = torch::jit::canonicalSchemaString(schema);
+      if (HabanaWhiteListOps.find(schema_string) != HabanaWhiteListOps.end()) {
+        return true;
+      } else {
+        return false;
+      }
+    }
+  }
+
+    return false;
 }
 
 void HabanaWhiteList::load_whitelisted_ops() {
@@ -49,71 +75,43 @@ void HabanaWhiteList::load_whitelisted_ops() {
         HabanaWhiteList::HabanaWhiteListOps.insert(opname);
       }
       whiteListFile.close();
-    }
-  } else {
+      }
+    } else {
     HabanaWhiteList::HabanaWhiteListOps = {
-        "aten::abs",
-        "aten::add",
-        "aten::addmm",
-        // "aten::as_strided",
-        "aten::avg_pool2d",
-        "aten::avg_pool2d_backward",
-        "aten::cat",
-        // "aten::_cat",
-        // "aten::clone",
-        // "aten::copy_",
-        "aten::convolution_overrideable",
-        "aten::convolution_backward_overrideable",
-        "aten::div",
-        // "aten::div_",
-        // "aten::div.Scalar",
-        // "aten::div_.Scalar",
-        // "aten::div.out",
-        // "aten::eq",
-        // "aten::eq.Tensor_out",
-        // "aten::empty",
-        // "aten::empty_strided",
-        // "aten::fill_",
-        "aten::flatten",
-        "aten::_grad_sum_to_size",
-        "aten::index_put",
-        "aten::log_softmax",
-        // "aten::_log_softmax",
-        "aten::_log_softmax_backward_data",
-        // "aten::max_pool2d_with_indices",
-        // "aten::max_pool2d_with_indices_backward",
-        // "aten::max_pool2d",
-        // "aten::mean",
-        "aten::mm",
-        "aten::neg",
-        "aten::mul",
-        // "aten::mul_",
-        "aten::native_batch_norm",
-        "aten::native_batch_norm_backward",
-        // "aten::normal_",
-        "aten::reshape",
-        "aten::relu",
-        // "aten::relu_",
-        // "aten::set_",
-        "aten::sigmoid",
-        // "aten::sub",
-        // "aten::sub.Scalar",
-        // "aten::sub_",
-        // "aten::sum",
-        "aten::t",
-        // "aten::t_",
-        "aten::threshold_backward",
-        "aten::to",
-        // "aten::topk",
-        "aten::transpose",
-        // "aten::transpose_",
-        // "aten::uniform_",
-        "aten::view",
-        "aten::gt",
-        "prim::Constant",
-        "aten::select",
-        "aten::embedding_bag_sum_fwd",
-        "aten::embedding_bag_sum_bwd.out",
-        "aten::index_select"};
-  }
+        "aten::_log_softmax_backward_data(Tensor grad_output, Tensor output, int dim, Tensor self) -> Tensor",
+        "aten::abs(Tensor self) -> Tensor",
+        "aten::add(Tensor self, Scalar other, Scalar alpha) -> Tensor",
+        "aten::add(Tensor self, Tensor other, *, Scalar alpha) -> Tensor",
+        "aten::addmm(Tensor self, Tensor mat1, Tensor mat2, *, Scalar beta = 1, Scalar alpha = 1) ->Tensor",
+        "aten::avg_pool2d(Tensor self, int[2] kernel_size, int[2] stride=[], int[2] padding=0, bool ceil_mode=False, bool count_include_pad=True, int? divisor_override=None) -> Tensor",
+        "aten::avg_pool2d_backward(Tensor grad_output, Tensor self, int[2] kernel_size, int[2] stride, int[2] padding, bool ceil_mode, bool count_include_pad, int? divisor_override) -> Tensor",
+        "aten::convolution_backward_overrideable(Tensor grad_output, Tensor input, Tensor weight, int[] stride, int[] padding, int[] dilation, bool transposed, int[] output_padding, int groups, bool[3] output_mask) -> (Tensor grad_input, Tensor grad_weight, Tensor grad_bias)",
+        "aten::convolution_overrideable(Tensor input, Tensor weight, Tensor? bias, int[] stride, int[] padding, int[] dilation, bool transposed, int[] output_padding, int groups) -> Tensor",
+        "aten::div(Tensor self, Scalar other) -> Tensor",
+        "aten::div(Tensor self, Tensor other) -> Tensor",
+        "aten::embedding_bag_sum_bwd.out(Tensor input, Tensor indices_bwd, Tensor offsets_bwd, Tensor valid_count_bwd, *, Tensor(a!) out) -> Tensor(a!)",
+        "aten::embedding_bag_sum_fwd(Tensor input, Tensor indices_fwd, Tensor offsets_fwd, Tensor valid_count_fwd, Tensor indices_bwd, Tensor offsets_bwd, Tensor valid_count_bwd, Tensor grad_weight) -> Tensor",
+        "aten::eq(Tensor self, Tensor other) -> Tensor",
+        "aten::flatten(Tensor self, int start_dim, int end_dim) -> Tensor",
+        "aten::gt(Tensor self, Tensor other) -> Tensor",
+        "aten::log_softmax(Tensor self, int dim, int? dtype) -> Tensor",
+        "aten::mm(Tensor self, Tensor mat2) -> Tensor",
+        "aten::mul(Tensor self, Scalar other) -> Tensor",
+        "aten::mul(Tensor self, Tensor other) -> Tensor",
+        "aten::native_batch_norm(Tensor input, Tensor? weight, Tensor? bias, Tensor? running_mean, Tensor? running_var, bool training, float momentum, float eps) -> (Tensor, Tensor, Tensor)",
+        "aten::native_batch_norm_backward(Tensor grad_out, Tensor input, Tensor? weight, Tensor? running_mean, Tensor? running_var, Tensor? save_mean, Tensor? save_invstd, bool train, float eps, bool[] output_mask) -> (Tensor, Tensor, Tensor)",
+        "aten::neg(Tensor self) -> Tensor",
+        "aten::permute(Tensor self, int[] dims) -> Tensor",
+        "aten::relu(Tensor self) -> Tensor",
+        "aten::sigmoid(Tensor self) -> Tensor",        
+        "aten::sigmoid_backward(Tensor grad_output, Tensor output) -> Tensor",        
+        "aten::sub(Tensor self, Tensor other, *, Scalar alpha) -> Tensor",
+        "aten::sub(Tensor self, Tensor other, *, Scalar alpha) -> Tensor",
+        "aten::t(Tensor self) -> Tensor",
+        "aten::threshold(Tensor self, Scalar threshold, Scalar value) -> Tensor",
+        "aten::threshold_backward(Tensor grad_output, Tensor self, Scalar threshold) -> Tensor",
+        "aten::transpose(Tensor self, int dim0, int dim1) -> Tensor",
+        "aten::to(Tensor self, Device device, int dtype, bool non_blocking, bool copy, int? memory_format) -> Tensor",
+        "aten::view(Tensor self, int[] size) -> Tensor"};
+  } 
 }

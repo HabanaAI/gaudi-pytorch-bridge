@@ -64,8 +64,7 @@ struct HabanaGraphFuser {
     }
 
     // Looking up the Op to see if it is whitelisted
-    return HabanaWhiteList::is_op_habana_whitelisted(
-        node->kind().toQualString());
+    return HabanaWhiteList::is_op_habana_whitelisted(node);
   }
 
   std::shared_ptr<Graph> getSubgraph(Node* n) {
