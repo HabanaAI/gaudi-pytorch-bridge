@@ -41,7 +41,6 @@
 using namespace torch::jit;
 
 // static initializations
-bool   TensorInfo::watch_tensor_flag = false;
 size_t RecipeValueSpec::count = 0;
 
 std::mutex RecipeCacheLRU::mutex_;
@@ -49,120 +48,8 @@ RecipeCacheLRU* RecipeCacheLRU::instance_ = nullptr;
 size_t RecipeCacheLRU::max_size_ = PGM_LRU_MAX_NRECIPES;
 
 size_t HabanaLaunchOpPT::instance_count_ = 0;
-size_t HabanaLaunchOpPT::recipe_count = 0;
-size_t HabanaLaunchOpPT::total_recipe_ntbytes = 0;
 std::unordered_set<std::string> HabanaLaunchOpPT::watchlist_ = {};
 //--------------------------------------
-
-TensorInfo::TensorInfo(
-    const IValPtrShared& ivpsh,
-    const std::string& sn,
-    const ValPtr& vp) {
-  TORCH_CHECK(ivpsh->isTensor(), "aten tensor is expected");
-  ir_name = "%" +  vp->debugName();
-
-  syn_name = sn;
-
-  auto pt_tensor = ivpsh->toTensor();
-  {
-    std::ostringstream oss;
-    oss << pt_tensor.sizes();
-    shape_str = oss.str();
-  }
-
-  buffer = pt_tensor.data_ptr();
-  numel = pt_tensor.numel();
-  size = pt_tensor.nbytes();
-  watch = watch_tensor_flag;
-}
-
-TensorInfo::TensorInfo(
-    const at::Tensor& pt_tensor,
-    const std::string& sn,
-    const std::string& irn) {
-  ir_name = irn;
-  syn_name = sn;
-
-  std::ostringstream oss;
-  oss << pt_tensor.sizes();
-  shape_str = oss.str();
-
-  buffer = pt_tensor.data_ptr();
-  numel = pt_tensor.numel();
-  size = pt_tensor.nbytes();
-  watch = watch_tensor_flag;
-}
-
-std::ostream& operator<<(std::ostream& O, const TensorInfo& t) {
-  O << '<' << t.ir_name << ':' << t.shape_str << ':' << t.numel << ':' << '('
-    << t.size << " b)"
-    << " :: " << t.syn_name << ':' << t.buffer << '>';
-
-  if (t.is_duplicate) {
-    O << " duplicate";
-  }
-
-  return O;
-}
-
-void PrintATenTensor(const at::Tensor& a) {
-  std::ostream& O = std::cout;
-  O << " Tensor -> ";
-  if (a.has_storage()) {
-    O << " @ " << a.data_ptr() << " : "
-      << " dim " << a.dim() << " : " << a.sizes();
-  } else {
-    O << " does not have storage";
-  }
-  O << ',' << " use_count " << a.use_count()
-    << '\n';
-}
-
-void PrintATenTensor(const IValPtrShared &a) {
-  if (a->isTensor()) {
-    PrintATenTensor(a->toTensor());
-  }
-}
-
-std::ostream & operator<<(std::ostream & O, PGMCachingPolicy P) {
-  switch (P) {
-    case PGMCachingPolicy::simple :
-      O << "simple";
-      break;
-    case PGMCachingPolicy::single :
-      O << "single";
-      break;
-    case PGMCachingPolicy::lru :
-      O << "lru";
-      break;
-    default:
-      O << "unknown";
-  }
-  return O;
-}
-
-RecipeArgumentSpec::RecipeArgumentSpec(
-    bool with_grad,
-    at::ArrayRef<torch::jit::IValue> input_refs,
-    const std::shared_ptr<torch::jit::Graph>& irgraph,
-    const std::string &id)
-    : cas(with_grad, input_refs),
-      hash_code(cas.hashCode()),
-      opstrs(std::string()) {
-  std::hash<std::string> str_hash;
-  opstrs.append(id + "::\n");
-  for (auto* node : irgraph->nodes()) {
-    std::string s(node->kind().toQualString());
-    // Adding delemeters for better readability
-    opstrs.append("<" + s + ">");
-    if (node->kind() == torch::jit::prim::Constant) {
-      std::ostringstream oss;
-      oss << *node;
-      opstrs.append(":" + oss.str());
-    }
-  }
-  hash_code = torch::hash_combine(hash_code, str_hash(opstrs));
-}
 
 void adjustSizesforPT(at::Tensor* tensor, bool is_output) {
   auto sizes = tensor->sizes().vec();
@@ -184,326 +71,6 @@ void adjustSizesforPT(at::Tensor* tensor, bool is_output) {
   //*tensor_new = at::alias(*tensor);
   tensor->unsafeGetTensorImpl()->set_sizes_and_strides(
       swapped_sizes, swapped_strides);
-}
-
-std::ostream& operator<<(std::ostream& O, const RecipeArgumentSpec& v) {
-  O << v.hash_code << '\n';
-  return O;
-}
-
-RecipeValueSpec::~RecipeValueSpec() {
-  PT_BRIDGE_DEBUG("Destroying recipe with key : ", key);
-
-  if (htensor_wbuff ) {
-    synStatus status;
-    auto& device = synapse_helpers::HPURegistrar::get_device();
-    auto  device_id = device.id();
-    status = synHostFree(device_id, (void*)(htensor_wbuff), 0);
-    if (status != synSuccess)
-      PT_BRIDGE_DEBUG("host-free failed");
-  }
-}
-
-std::ostream& operator<<(std::ostream& O, const RecipeValueSpec& v) {
-  O << "---- recipe details ::"
-    << " <id : " << v.id << "> "
-    << " <iteration : " << v.iter_idx << "> "
-    << " <addr : " << v.recipe.get() << "> "
-    << " <use_count : " << v.recipe.use_count() << "> " << '\n';
-
-  if (v.aten_intermediates.size()) {
-    O << "aten_intermediates #" << v.aten_intermediates.size() << " ::";
-    O << '\n';
-    for (auto& a : v.aten_intermediates) {
-      PrintATenTensor(a);
-    }
-  }
-
-  if (v.aten_outputs) {
-    O << "aten_outputs #" << v.aten_outputs->size() << " ::";
-    O << '\n';
-    for (auto& a : *v.aten_outputs) {
-      PrintATenTensor(a);
-    }
-  }
-
-  if (v.dtensorinfos) {
-    O << "dtensorinfos #" << v.dtensorinfos->size() << "::";
-    O << '\n';
-    for (auto& a : *v.dtensorinfos) {
-      O << a << '\n';
-    }
-  }
-  O << "---- recipe details :: end" << '\n';
-
-  return O;
-}
-
-void RecipeValueSpec::print_hbuff(
-    size_t buf_idx,
-    std::ofstream& out,
-    size_t iteration_count,
-    int numel) {
-  float* wb = reinterpret_cast<float*>(htensor_wbuff);
-  unsigned buf_size = dtensorinfos->at(buf_idx).size;
-
-  out << "iteration " << iteration_count << " : <"
-      << ((buf_idx >= num_inputs) ? "output" : "input") << "> :: < "
-      << dtensorinfos->at(buf_idx).ir_name << " : "
-      << "shape " << dtensorinfos->at(buf_idx).shape_str << " : "
-      << "numel " << dtensorinfos->at(buf_idx).numel << " : "
-      << "size (" << buf_size << " b) >";
-  out << "<buffer" << '[' << buf_idx << ']' << "@"
-      << dtensorinfos->at(buf_idx).buffer << ">";
-
-  const unsigned max_numel = buf_size / sizeof(float);
-  unsigned lim{max_numel};
-  if (numel >= 0) {
-    lim = std::min(lim, (unsigned)numel);
-  }
-
-  size_t line_items_num = 8;
-  size_t j = 0;
-  for (j = 0; j < lim; j++) {
-    out << (j % line_items_num ? ' ' : '\n') << std::showpoint << std::setw(10)
-        << std::fixed << std::right << wb[j];
-  }
-
-  if (lim && lim < max_numel)
-    out << (j % line_items_num ? ' ' : '\n') << "...";
-
-  out << '\n';
-  if (lim > 0) {
-    out << "--------------------" << '\n';
-  }
-}
-
-void RecipeValueSpec::d2h_dbuff(size_t buf_idx) {
-  TORCH_CHECK(num_tensors > buf_idx, "buf_idx is out of range");
-
-
-  unsigned buf_size = dtensorinfos->at(buf_idx).size;
-  if (buf_size > htensor_wbuff_size) {
-    buf_size = htensor_wbuff_size;
-  }
-  PT_BRIDGE_DEBUG("tensor dump will write ", htensor_wbuff_size, " bytes");
-
-  auto& device = synapse_helpers::HPURegistrar::get_device();
-  if (device.IsStreamASyncEnabled()) {
-    std::atomic<bool> copyDone{false};
-    auto syn_error = device.copy_data_to_host(
-        (uint64_t)dtensorinfos->at(buf_idx).buffer,
-        (void*)htensor_wbuff,
-        buf_size,
-        [&copyDone]() { copyDone = true; });
-    TORCH_CHECK(syn_error.status == 0, syn_error.error);
-
-    // wait for copy completion
-    while (!copyDone) {
-      std::this_thread::yield();
-    }
-  } else {
-    synStatus status;
-    synDeviceId device_id = device.id();
-    synEventHandle upldEvntDone;
-    synStreamHandle upStrmHdl = device.get_device_to_host_stream();
-    status = synEventCreate(&upldEvntDone, device_id, 0);
-    TORCH_CHECK(status == synSuccess, "create upldEvntDone failed");
-
-    status = synMemCopyAsync(
-        upStrmHdl,
-        (uint64_t)dtensorinfos->at(buf_idx).buffer,
-        buf_size,
-        htensor_wbuff,
-        DRAM_TO_HOST);
-    TORCH_CHECK(status == synSuccess, "synMemCopyAsync failed");
-
-    status = synEventRecord(upldEvntDone, upStrmHdl);
-    TORCH_CHECK(status == synSuccess, "register to signal on d2h copy done");
-
-    status = synStreamSynchronize(upStrmHdl);
-    TORCH_CHECK(status == synSuccess, "wait on completion of d2h copy");
-
-    status = synEventDestroy(upldEvntDone);
-    TORCH_CHECK(status == synSuccess, "destroy upldEvntDone failed");
-  }
-}
-
-void RecipeCacheSimple::add(
-    std::shared_ptr<RecipeArgumentSpec>& key,
-    std::shared_ptr<RecipeValueSpec>& val) {
-  HabanaLaunchOpPT::recipe_count++;
-  map_.emplace(key, val);
-  HabanaLaunchOpPT::total_recipe_ntbytes += val->ntensorbytes;
-}
-
-std::ostream& operator<<(std::ostream& O, const RecipeCacheSimple& v) {
-  O << "number of recipes : " << v.map_.size() << '\n';
-  for (auto& i : v.map_) {
-    O << "-------------------" << '\n';
-    O << "key :: " << *i.first;
-    O << "-------------------" << '\n';
-    O << "val :: " << *i.second;
-    O << "-------------------" << '\n';
-  }
-  return O;
-}
-
-void RecipeCacheSingle::add(
-    std::shared_ptr<RecipeArgumentSpec> &rargpsh,
-    std::shared_ptr<RecipeValueSpec> &rvalpsh) {
-  if (!is_valid) {
-    HabanaLaunchOpPT::recipe_count++;
-    is_valid = true;
-  } else {
-    TORCH_CHECK(HabanaLaunchOpPT::total_recipe_ntbytes >= last_rvalpsh->ntensorbytes,
-        "error in total tensor byte accounting, total_recipe_ntbytes ",
-        HabanaLaunchOpPT::total_recipe_ntbytes,
-        " should be greater than last_recipe.ntensorbytes ",
-        last_rvalpsh->ntensorbytes);
-
-    HabanaLaunchOpPT::total_recipe_ntbytes -= last_rvalpsh->ntensorbytes;
-  }
-  last_rargpsh = rargpsh;
-  last_rvalpsh = rvalpsh;
-  HabanaLaunchOpPT::total_recipe_ntbytes += last_rvalpsh->ntensorbytes;
-}
-
-std::ostream& operator<<(std::ostream& O, const RecipeCacheSingle& v) {
-  O << "-------------------" << '\n';
-  O << "key :: " << *v.last_rargpsh;
-  O << "-------------------" << '\n';
-  O << "val :: " << *v.last_rvalpsh;
-  O << "-------------------" << '\n';
-  return O;
-}
-
-void RecipeCacheLRU::add(
-    std::shared_ptr<RecipeArgumentSpec>& key,
-    std::shared_ptr<RecipeValueSpec>& val) {
-  std::lock_guard<std::mutex> lg(mutex_);
-
-  TORCH_CHECK(map_.size() == list_.size(),
-      "lru cache corruption, map size ", map_.size(),
-      " not equal to list_size ", list_.size());
-
-  size_t rcnt{0};
-  bool dropped{true};
-  while (!map_.empty() && dropped && map_.size() >= max_size_) {
-    dropped = drop_lru_impl(rcnt);
-    if (!dropped) {
-      PT_BRIDGE_DEBUG("all recipes are in use, could not drop any, current recipe count ", rcnt);
-    }
-  }
-
-  HabanaLaunchOpPT::recipe_count++;
-
-  auto mit = map_.find(key);
-  TORCH_CHECK(mit == map_.end(), "problematic key ", key, " another recipe already exists in cache");
-
-  list_.push_front(
-      std::pair<std::shared_ptr<RecipeArgumentSpec>, std::shared_ptr<RecipeValueSpec>>(key, val));
-  map_.emplace(key, list_.begin());
-
-  HabanaLaunchOpPT::total_recipe_ntbytes += val->ntensorbytes;
-
-  PT_BRIDGE_DEBUG("  adding new recipe, key ",
-      key->hashCode(),
-      ", ntensorbytes ",
-      val->ntensorbytes);
-
-  PT_BRIDGE_DEBUG("  after adding new recipe, nrecipes ",
-      HabanaLaunchOpPT::recipe_count,
-      " total_recipe_ntbytes ",
-      HabanaLaunchOpPT::total_recipe_ntbytes);
-}
-
-std::shared_ptr<RecipeValueSpec> RecipeCacheLRU::get(std::shared_ptr<RecipeArgumentSpec>& key) {
-  std::lock_guard<std::mutex> lg(mutex_);
-  if (exists(key)) {
-    TORCH_CHECK(map_.size() == list_.size(),
-        "lru cache corruption, map size ", map_.size(),
-        " not equal to list_size ", list_.size());
-
-    TORCH_CHECK(exists(key), "Recipe does not exist in map");
-
-    auto mit = map_.find(key);
-    list_.splice(list_.begin(), list_, mit->second);
-
-    // wait till the execution complete
-    bool use_flag {false};
-    do {
-      use_flag = list_.front().second->get_use_flag();
-      if (use_flag) {
-        PT_BRIDGE_DEBUG("waiting for the completion of recipe, key ", key->hashCode());
-        std::this_thread::sleep_for(std::chrono::milliseconds(200));
-      }
-    } while (use_flag);
-
-    // set the use flag true so that the recipe is not removed from cache
-    // it is the responsibility of the caller of get function to
-    // set the use flag to false after the execution is completed
-    list_.front().second->set_use_flag(true);
-
-    return list_.front().second;
-  }
-
-  return {nullptr};
-}
-
-bool RecipeCacheLRU::drop_lru(size_t &recipe_count) {
-  std::lock_guard<std::mutex> lg(mutex_);
-  bool dropped = drop_lru_impl(recipe_count, true);
-  return dropped;
-}
-
-bool RecipeCacheLRU::drop_lru_impl(size_t &recipe_count, bool mem_exhausted) {
-  bool dropped {false};
-
-  // remove a recipe from the last that is not being used
-  if (!map_.empty()) {
-    auto lit = list_.end();
-    lit--;
-
-    while(lit->second->get_use_flag() == true && lit != list_.begin()) {
-      PT_BRIDGE_DEBUG("recipe is in use, key ", lit->first->hashCode(),
-          ", ntensorbytes ", lit->second->ntensorbytes);
-      lit--;
-    }
-
-    // delete the recipe only if it is not in use
-    // otherwise the caller need to wait
-    if (lit->second->get_use_flag() == false) {
-      if (mem_exhausted) {
-        PT_BRIDGE_DEBUG("memory exhausted : removing recipe, key ",
-            lit->first->hashCode(),
-            ", ntensorbytes ",
-            lit->second->ntensorbytes);
-      } else {
-        PT_BRIDGE_DEBUG("lru max size ", max_size_,
-            " reached : removing recipe, key ", lit->first->hashCode(),
-            ", ntensorbytes ", lit->second->ntensorbytes);
-      }
-
-      HabanaLaunchOpPT::recipe_count--;
-      HabanaLaunchOpPT::total_recipe_ntbytes -= lit->second->ntensorbytes;
-
-      // Drop the entry from list_ and map_
-      map_.erase(lit->first);
-      list_.pop_back();
-      dropped = true;
-
-      PT_BRIDGE_DEBUG("after dropping lru recipe, nrecipes ",
-          HabanaLaunchOpPT::recipe_count,
-          " total_recipe_ntbytes ",
-          HabanaLaunchOpPT::total_recipe_ntbytes);
-    } else {
-      PT_BRIDGE_DEBUG("all recipes are in use, can not drop any recipe");
-    }
-  }
-
-  recipe_count = map_.size();
-  return dropped;
 }
 
 bool dropCachedRecipe_LRU (size_t &recipe_count) {
@@ -752,7 +319,7 @@ void HabanaLaunchOpPT::GetSynapseInputs(
           tensorList->emplace_back(tensor_or_ref(syn_tensor));
 
           std::string irn = "%"+value_in->debugName();
-          TensorInfo ti (pt_tensor, syn_tensor.tensor_name_, irn);
+          TensorInfo ti (pt_tensor, syn_tensor.tensor_name_, irn, watch_tensor_flag_);
           tiv.push_back(ti);
         }
 
@@ -845,7 +412,8 @@ void HabanaLaunchOpPT::GetSynapseOutputs(
         output_tensorinfos.emplace_back(TensorInfo(
             ivpsh,
             out_tensor_syn.tensor_name_,
-            output_nodes[output_nodes_idx]));
+            output_nodes[output_nodes_idx],
+            watch_tensor_flag_));
       }
 
       output_nodes_idx++;
@@ -938,7 +506,11 @@ at::Tensor HabanaLaunchOpPT::permuteTensor(
     tensorList->emplace_back(tensor_or_ref(syn_tensor));
     pt_to_synapse_tensors.emplace(value_to_ivalue[value_in], tensorList);
 
-    TensorInfo ti(value_to_ivalue[value_in], syn_tensor.tensor_name_, value_in);
+    TensorInfo ti(
+        value_to_ivalue[value_in],
+        syn_tensor.tensor_name_,
+        value_in,
+        watch_tensor_flag_);
     if (enable_caching_) {
       input_tiv_map.emplace(value_to_ivalue[value_in], ti);
     } else {
@@ -972,7 +544,10 @@ at::Tensor HabanaLaunchOpPT::permuteTensor(
 
     if (persistent) {
       output_tensorinfos.emplace_back(TensorInfo(
-          value_to_ivalue[value_in], out_tensor_syn.tensor_name_, value_in));
+          value_to_ivalue[value_in],
+          out_tensor_syn.tensor_name_,
+          value_in,
+          watch_tensor_flag_));
     }
   }
   return outputs_permute[0];
@@ -1014,7 +589,11 @@ void HabanaLaunchOpPT::create_duplicate_syn_tensor(
     meta_syn_tensors.push_back(
         absl::get<synapse_helpers::tensor>(std::move(variant)));
 
-    TensorInfo ti(value_to_ivalue[value_in], meta_syn_tensors.back().tensor_name_, value_in);
+    TensorInfo ti(
+        value_to_ivalue[value_in],
+        meta_syn_tensors.back().tensor_name_,
+        value_in,
+        watch_tensor_flag_);
     if (!isInGraphOutputs(value_in)) {
       duplicate_tivs.emplace_back(ti);
     }
@@ -1226,12 +805,14 @@ void HabanaLaunchOpPT::handleMetaOps(torch::jit::Node* node) {
               TensorInfo(
                   value_to_ivalue[value_in],
                   meta_syn_tensors.back().tensor_name_,
-                  value_in));
+                  value_in,
+                  watch_tensor_flag_));
         } else {
           input_tivs.emplace_back(TensorInfo(
               value_to_ivalue[value_in],
               meta_syn_tensors.back().tensor_name_,
-              value_in));
+              value_in,
+              watch_tensor_flag_));
         }
       }
     }
@@ -1292,14 +873,14 @@ void HabanaLaunchOpPT::FlattenAndLinkInputTIVs(RecipeValueSpec& rv) {
       const auto ti = absl::get<TensorInfo>(tiv);
       rv.dtensorinfos->push_back(ti);
       if (enable_caching_) {
-        buff_to_inputtividx_map.emplace(ti.buffer, rv.dtensorinfos->size()-1);
+        buff_to_inputtividx_map.emplace(ti.get_buffer(), rv.dtensorinfos->size()-1);
       }
     }
     else if (absl::holds_alternative<std::vector<TensorInfo>>(tiv)) {
       for (const auto & ti : absl::get<std::vector<TensorInfo>>(tiv)) {
         rv.dtensorinfos->push_back(ti);
         if (enable_caching_) {
-          buff_to_inputtividx_map.emplace(ti.buffer, rv.dtensorinfos->size()-1);
+          buff_to_inputtividx_map.emplace(ti.get_buffer(), rv.dtensorinfos->size()-1);
         }
       }
     }
@@ -1316,14 +897,14 @@ void HabanaLaunchOpPT::FlattenAndLinkInputTIVs(RecipeValueSpec& rv) {
     if (absl::holds_alternative<TensorInfo>(tiv)) {
       auto ti = absl::get<TensorInfo>(tiv);
       if (enable_caching_) {
-        auto it_parent = buff_to_inputtividx_map.find(ti.buffer);
+        auto it_parent = buff_to_inputtividx_map.find(ti.get_buffer());
         TORCH_CHECK(buff_to_inputtividx_map.end() != it_parent,
             "parent tinfo is missing for input duplicate");
-        ti.is_duplicate = true;
+        ti.set_duplicate_flag(true);
         size_t parent_idx = it_parent->second;
         TORCH_CHECK(parent_idx < num_inputs,
-            "out of bound parent index : ", parent_idx, " for ", ti.syn_name);
-        ti.parent_index = parent_idx;
+            "out of bound parent index : ", parent_idx, " for ", ti.get_syn_name());
+        ti.set_parent_index(parent_idx);
       }
       rv.dtensorinfos->push_back(ti);
       nduplicates++;
@@ -1360,11 +941,11 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
   // TODO : check if we need to reorder nodes in any case
   torch::jit::graph_node_list graph_nodes = subgraph_->nodes();
   for (auto* node : graph_nodes) {
-    TensorInfo::watch_tensor_flag = false;
+    watch_tensor_flag_ = false;
     std::string opname(node->kind().toQualString());
     if (watchlist_.empty() ||
         watchlist_.find(opname) != watchlist_.end()) {
-      TensorInfo::watch_tensor_flag = true;
+      watch_tensor_flag_ = true;
     }
 
     // Prim nodes require special handling and are a special case
@@ -1415,7 +996,8 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
     if (!patch_info.empty()) {
       for (const auto& p : patch_info) {
         std::string irn{"%interim"};
-        interim_tensorinfos.emplace_back(TensorInfo(p.second, p.first, irn));
+        interim_tensorinfos.emplace_back(
+            TensorInfo(p.second, p.first, irn, watch_tensor_flag_));
         aten_intermediates.push_back(p.second);
       }
     }
@@ -1471,8 +1053,8 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
       " are not adding up to #dtensorinfos ", rv.dtensorinfos->size());
 
   for (auto & ti : *rv.dtensorinfos) {
-    if (!ti.is_duplicate) {
-      rv.ntensorbytes += ti.size;
+    if (!ti.is_duplicate()) {
+      rv.ntensorbytes += ti.get_size();
     }
   }
 
@@ -1496,7 +1078,7 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
   if (enable_tensor_dump_) {
     if (0 == htensor_wbuff_size) {
       for (size_t i = 0; i < rv.num_tensors; ++i) {
-        htensor_wbuff_size = std::max(htensor_wbuff_size, rv.dtensorinfos->at(i).size);
+        htensor_wbuff_size = std::max(htensor_wbuff_size, rv.dtensorinfos->at(i).get_size());
       }
     }
 
@@ -1530,7 +1112,7 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
     DumpTensors_pre(rv);
   }
 
-  LaunchRecipe(rv, input_refs);
+  rv.launch(input_refs);
 
   if (enable_tensor_dump_) {
     DumpTensors(rv);
@@ -1566,7 +1148,7 @@ void HabanaLaunchOpPT::DumpTensors_pre(RecipeValueSpec& rv) {
     tensor_file.open(
         tdmp_file_name_pre_.c_str(), std::ios::out | std::ios::app);
     for (size_t i = 0; i < rv.num_tensors; ++i) {
-      if (rv.dtensorinfos->at(i).watch) {
+      if (rv.dtensorinfos->at(i).watch_enabled()) {
         rv.d2h_dbuff(i);
         rv.print_hbuff(i, tensor_file, iteration_count_, tensor_dump_numel_);
       }
@@ -1580,20 +1162,13 @@ void HabanaLaunchOpPT::DumpTensors(RecipeValueSpec& rv) {
     std::ofstream tensor_file;
     tensor_file.open(tdmp_file_name_.c_str(), std::ios::out | std::ios::app);
     for (size_t i = 0; i < rv.num_tensors; ++i) {
-      if (rv.dtensorinfos->at(i).watch) {
+      if (rv.dtensorinfos->at(i).watch_enabled()) {
         rv.d2h_dbuff(i);
         rv.print_hbuff(i, tensor_file, iteration_count_, tensor_dump_numel_);
       }
     }
     tensor_file.close();
   }
-}
-
-bool HabanaLaunchOpPT::CompileSynapseGraph(
-    std::shared_ptr<synapse_helpers::graph::recipe_handle>& synh_recipe) {
-  auto compile_result = syn_graph_ptr->compile();
-  synh_recipe = get_value(std::move(compile_result));
-  return (synh_recipe != nullptr);
 }
 
 void HabanaLaunchOpPT::PrintATenTensors(RecipeValueSpec& rv) {
@@ -1617,90 +1192,6 @@ void HabanaLaunchOpPT::PrintATenTensors(RecipeValueSpec& rv) {
     for (auto& a : *rv.aten_outputs) {
       PrintATenTensor(a);
     }
-  }
-}
-
-void HabanaLaunchOpPT::LaunchRecipe(
-    RecipeValueSpec& rv,
-    at::ArrayRef<torch::jit::IValue> input_refs) {
-  rv.SelfCheck();
-
-  auto& device = synapse_helpers::HPURegistrar::get_device();
-  auto& stream_handle = device.get_compute_stream();
-  std::vector<at::Tensor> ptRefs;
-  std::vector<synapse_helpers::device_ptr> outDevPtr;
-
-  if (device.IsStreamASyncEnabled()) {
-    // Get the reference to the tensor it is operating on to prevent
-    // it from being deallocated while the operation is still in flight.
-    std::vector<synapse_helpers::device_ptr> inDevPtr;
-    inDevPtr.reserve(rv.num_inputs);
-    for (auto& input : input_refs) {
-      if (input.isTensor()) {
-        at::Tensor tensor = input.toTensor();
-        ptRefs.push_back(std::move(tensor));
-        inDevPtr.push_back(
-            reinterpret_cast<uint64_t>(input.toTensor().data_ptr()));
-      }
-    }
-    // wait for input DMA to complete before launching the compute.
-    device.add_wait_events_on_stream(inDevPtr, stream_handle);
-    outDevPtr.reserve(rv.num_outputs);
-    for (auto& output : *rv.aten_outputs) {
-      if (output && output->isTensor()) {
-        outDevPtr.push_back(
-            reinterpret_cast<uint64_t>(output->toTensor().data_ptr()));
-      }
-    }
-  }
-
-  std::vector<synLaunchTensorInfo> syn_launch_info;
-
-  // Populate the <name,buffer> pairs from TensorInfo for synLaunch
-  for (size_t i = 0; i < rv.num_tensors; ++i) {
-    syn_launch_info.emplace_back(synLaunchTensorInfo{
-        rv.dtensorinfos->at(i).syn_name.c_str(),
-        reinterpret_cast<uint64_t>(rv.dtensorinfos->at(i).buffer)});
-  }
-  synapse_helpers::graph::launch_info ln_info(rv.recipe->device_);
-  synapse_helpers::graph::create_launch_info(ln_info, *rv.recipe);
-
-  auto& recipe_counter = device.get_active_recipe_counter();
-  recipe_counter.increase();
-  auto&& error_optional{
-      synapse_helpers::graph::launch(ln_info, *rv.recipe, syn_launch_info)};
-  if (ABSL_PREDICT_FALSE(error_optional.has_value())) {
-    recipe_counter.decrease_and_notify();
-    auto& error = error_optional.value();
-    PT_BRIDGE_FATAL(
-        "syn launch encountered : ", error.error, " ", error.status);
-    TORCH_CHECK(false, "syn launch failed");
-  }
-
-  if (device.IsStreamASyncEnabled()) {
-    // regsiter an event on the compute
-    device.register_producer_on_stream(
-        std::move(outDevPtr), stream_handle, [ptRefs, &rv, &recipe_counter]() {
-          recipe_counter.decrease_and_notify();
-          rv.nop();
-          return;
-        });
-  } else {
-    TORCH_HABANA_CHECK(
-        synStreamSynchronize(stream_handle), "synStreamSynchronize failed");
-  }
-}
-
-void HabanaLaunchOpPT::UpdateOutputs() {
-  // Update the stack
-  drop(*pt_stack, num_inputs);
-  for (auto output : subgraph_->outputs()) {
-    // pt_stack->insert(pt_stack->end(), *value_to_ivalue[output]);
-    if (value_to_ivalue[output])
-      pt_stack->insert(pt_stack->end(), *value_to_ivalue[output]);
-    else
-      pt_stack->insert(pt_stack->end(), IValue());
-    // TORCH_CHECK(false, "missing output aten tensor");
   }
 }
 
@@ -1823,18 +1314,18 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
 
       PT_BRIDGE_DEBUG("PGM cache hit, key:", spec_key->hashCode(),
           ", ntensorbytes ", rv.ntensorbytes,
-          ", total_recipe_ntbytes ", total_recipe_ntbytes);
+          ", total_recipe_ntbytes ", RecipeValueSpec::total_recipe_ntbytes);
 
       // Patch the input buffers
       // Running index on rv.dtensorinfos
       size_t ridx = 0;
       for (auto const& input : input_refs) {
         if (input.isTensor()) {
-          rv.dtensorinfos->at(ridx).buffer = input.toTensor().data_ptr();
+          rv.dtensorinfos->at(ridx).set_buffer(input.toTensor().data_ptr());
           ridx++;
         } else if (input.isTensorList()) {
           for (at::Tensor t : input.toTensorList()) {
-            rv.dtensorinfos->at(ridx).buffer = t.data_ptr();
+            rv.dtensorinfos->at(ridx).set_buffer(t.data_ptr());
             ridx++;
           }
         }
@@ -1847,8 +1338,8 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
       if (rv.num_duplicates) {
         size_t duplicates_index_end = rv.num_inputs+rv.num_duplicates;
         for (; ridx < duplicates_index_end; ridx++) {
-          size_t parent_idx = rv.dtensorinfos->at(ridx).parent_index;
-          rv.dtensorinfos->at(ridx).buffer = rv.dtensorinfos->at(parent_idx).buffer;
+          size_t parent_idx = rv.dtensorinfos->at(ridx).get_parent_index();
+          rv.dtensorinfos->at(ridx).set_buffer(rv.dtensorinfos->at(parent_idx).get_buffer());
         }
       }
 
@@ -1856,7 +1347,7 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
         DumpTensors_pre(rv);
       }
 
-      LaunchRecipe(rv, input_refs);
+      rv.launch(input_refs);
 
       if (enable_tensor_dump_) {
         DumpTensors(rv);

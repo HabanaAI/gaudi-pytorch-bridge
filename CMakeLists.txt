@@ -45,6 +45,7 @@ add_library(habana_pytorch_plugin SHARED
   pytorch_helpers/habana_device/pool_allocator/utils.cpp
   pytorch_helpers/habana_device/pool_allocator/PoolAllocator.cpp
   pytorch_helpers/habana_device/pool_allocator/CoalescedPoolAllocator.cpp
+  pytorch_helpers/habana_helpers/tensor_info.cpp
   pytorch_helpers/habana_helpers/tensor_utils.cpp
   habana_kernels/basic_kernels.cpp
   habana_kernels/binary_kernels.cpp
@@ -83,6 +84,7 @@ target_include_directories(habana_pytorch_plugin PRIVATE ${CMAKE_SOURCE_DIR})
 
 set(SOURCES habana_bridge/register/register.cpp
                 habana_bridge/passes/habana_fuser.cpp
+		habana_bridge/kernel/hpu_habana_cache.cpp
 		habana_bridge/kernel/hpu_habana_launch_op_pt.cpp
     habana_bridge/passes/remove_inplace_ops.cpp)
 pybind11_add_module(hb_torch SHARED ${SOURCES})
