@@ -421,8 +421,8 @@ class HabanaLaunchOpPT {
   RecipeCacheSimple recipe_cache_simple;
   RecipeCacheSingle recipe_cache_single;
 
-  // By default single unbounded cache will be used
-  PGMCachingPolicy caching_policy { PGMCachingPolicy::simple };
+  // Making the cache eviction policy as lru as default
+  PGMCachingPolicy caching_policy { PGMCachingPolicy::lru };
 
   // caching :: end
 
