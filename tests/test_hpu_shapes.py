@@ -32,6 +32,11 @@ arange_test_case_list = [
 
 ]
 
+test_case_scatter_add = [
+    # N, H, I, S
+    (512, 768, 1, 512),
+]
+
 
 # @torch.jit.script
 @pytest.mark.parametrize("N, H, W, C", test_case_list)
@@ -111,6 +116,58 @@ def test_hpu_index_add(N, H, W, C, dim):
 
     bwd_tensors = [torch.randn(tuple(dim_list))]
     evaluate_fwd_bwd_kernel(kernel=kernel, tensor_list_bwd=bwd_tensors, kernel_params_fwd=kernel_params_fwd)
+
+
+@pytest.mark.parametrize("N, H, I, S", test_case_scatter_add)
+def test_hpu_scatter_out(N, H, I, S):
+    hpu = torch.device('habana')
+    indices_torch = torch.randint(0, I * S, (N, H), dtype=torch.long)
+    src = torch.randn(N, H)
+    self_t = torch.randn(N, H)
+    self_hpu = self_t.to(hpu)
+
+    tcpu_out = torch.scatter(self_t, 0, indices_torch, src)
+    thpu_out = torch.scatter(self_hpu, 0, indices_torch.to(hpu), src.to(hpu))
+    compare_tensors(thpu_out, tcpu_out, atol=0, rtol=0)
+
+
+@pytest.mark.parametrize("N, H, I, S", test_case_scatter_add)
+def test_hpu_scatter_inplace(N, H, I, S):
+    hpu = torch.device('habana')
+    indices_torch = torch.randint(0, I * S, (N, H), dtype=torch.long)
+    src = torch.randn(N, H)
+    self_t = torch.randn(N, H)
+    self_hpu = self_t.to(hpu)
+
+    tcpu_out = self_t.scatter_(0, indices_torch, src)
+    thpu_out = self_hpu.scatter_(0, indices_torch.to(hpu), src.to(hpu))
+    compare_tensors(thpu_out, tcpu_out, atol=0, rtol=0)
+
+
+@pytest.mark.parametrize("N, H, I, S", test_case_scatter_add)
+def test_hpu_scatter_add_out(N, H, I, S):
+    hpu = torch.device('habana')
+    indices_torch = torch.randint(0, I * S, (N, H), dtype=torch.long)
+    src = torch.randn(N, H)
+    self_t = torch.randn(N, H)
+    self_hpu = self_t.to(hpu)
+
+    tcpu_out = torch.scatter_add(self_t, 0, indices_torch, src)
+    thpu_out = torch.scatter_add(self_hpu, 0, indices_torch.to(hpu), src.to(hpu))
+    compare_tensors(thpu_out, tcpu_out, atol=0.001, rtol=1.e-3)
+
+
+@pytest.mark.parametrize("N, H, I, S", test_case_scatter_add)
+def test_hpu_scatter_add_inplace(N, H, I, S):
+    hpu = torch.device('habana')
+    indices_torch = torch.randint(0, I * S, (N, H), dtype=torch.long)
+    src = torch.randn(N, H)
+    self_t = torch.randn(N, H)
+    self_hpu = self_t.to(hpu)
+
+    tcpu_out = self_t.scatter_add_(0, indices_torch, src)
+    thpu_out = self_hpu.scatter_add_(0, indices_torch.to(hpu), src.to(hpu))
+    compare_tensors(thpu_out, tcpu_out, atol=0.001, rtol=1.e-3)
 
 
 @pytest.mark.parametrize("test_case_list", broadcast_test_case_list)

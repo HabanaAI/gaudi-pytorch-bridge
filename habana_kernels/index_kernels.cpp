@@ -187,7 +187,19 @@ Tensor gather_src_hpu(
   return out.at(0);
 }
 
-void ScatterOperator::AllocateAndAddSynapseNode(
+Tensor ScatterWrapperOperator::AllocateOutput(torch::jit::Stack& inputs) {
+  auto self = inputs[0].toTensor();
+  auto output = at::empty(
+      self.sizes().vec(), self.options(), self.suggest_memory_format());
+  return output;
+}
+
+void ScatterWrapperOperator::SetPTOutput(torch::jit::Stack& inputs) {
+  auto output = AllocateOutput(inputs);
+  HabanaOperator::SetPTOutputs({output});
+}
+
+void ScatterWrapperOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
     bool is_output_persistent) {
@@ -196,23 +208,28 @@ void ScatterOperator::AllocateAndAddSynapseNode(
       "Incorrect size of input expected for Scatter operator");
   TORCH_CHECK(
       inputs[0].isTensor(),
-      "Input 0 type expected to be Tensor for Scatter operator");
+      "Input type expected to be Tensor for Scatter operator");
   TORCH_CHECK(
-      inputs[1].isInt(),
-      "Input 1 type expected to be Int for Scatter operator");
+      inputs[1].isInt(), "Input type expected to be Int for Scatter operator");
   TORCH_CHECK(
       inputs[2].isTensor(),
-      "Input 2 type expected to be Tensor for Scatter operator");
+      "Input type expected to be Tensor for Scatter operator");
   TORCH_CHECK(
       inputs[3].isTensor(),
-      "Input 3 type expected to be Tensor for Scatter operator");
+      "nput type expected to be Int for Scatter operator");
 
   auto self = inputs[0].toTensor();
   auto dim_ = inputs[1].toInt();
   auto index = inputs[2].toTensor();
-  auto src = inputs[3].toTensor();
+  // auto src = inputs[3].toTensor();
+
+  if (index.dim() == 0) {
+    index.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+  }
 
   auto dim = at::maybe_wrap_dim(dim_, self.dim(), /*wrap_scalar=*/true);
+
+  auto output = AllocateOutput(inputs);
 
   ns_ScatterKernel::Params params;
   params.axis = self.dim() - dim - 1;
@@ -220,16 +237,17 @@ void ScatterOperator::AllocateAndAddSynapseNode(
   p_context_->params_.emplace<ns_ScatterKernel::Params>(params);
   p_context_->params_size_ = sizeof(params);
 
-  auto output = habana_helpers::createPTTensor(
-      self,
-      self.sizes(),
-      self.options(),
-      self.suggest_memory_format(),
-      is_output_persistent);
   AllocateSynapseOutput(graph, output, is_output_persistent);
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
+/*************************************************************************
+ * @brief Kernel implementation for torch.scatter
+ * @param self - Input tensor 1-4D bf16/fp32
+ * @param dim - dimension along which to index
+ * @param index - Tensor used to index into self
+ * @param src - Tensor with values to be updated (of same type as self)
+ ************************************************************************/
 Tensor scatter_src_hpu(
     const Tensor& self,
     int64_t dim_,
@@ -237,9 +255,6 @@ Tensor scatter_src_hpu(
     const Tensor& src) {
   PT_KERNEL_BEGIN;
 
-  if (index.dim() == 0) {
-    index.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
-  }
   auto index_int = habana_helpers::cast_tensor_to_integer(index);
 
   size_t device_id = self.device().index();
@@ -252,19 +267,17 @@ Tensor scatter_src_hpu(
   ScatterOperator Op(device_id, scalar_type);
   std::vector<c10::IValue> stack = {
       IValue(self), IValue(dim_), IValue(index_int), IValue(src)};
+  size_t key = Op.GetRecipeKey(node_type, stack);
   // Assign Inputs to the Operator
   std::vector<at::Tensor> pt_inputs{self, index_int, src};
 
-  size_t key = Op.GetRecipeKey(node_type, stack);
   if (device.get_recipe_handle_cache().isCached(key)) {
     PT_KERNEL_DEBUG("Cache hit key:", key);
-    auto output = at::empty_like(self);
     Op.SetPTInputs(pt_inputs);
-    Op.SetPTOutputs({output});
+    Op.SetPTOutput(stack);
     Op.Execute(key);
   } else {
-    PT_KERNEL_DEBUG("key:", key);
-
+    PT_KERNEL_DEBUG("Key:", key);
     // create graph
     auto graph = habana_helpers::create_graph(device_id, node_type);
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
@@ -273,7 +286,6 @@ Tensor scatter_src_hpu(
     // compile and execute the graph
     Op.Compile(graph);
   }
-
   std::vector<at::Tensor> out = Op.GetOutputs();
   TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
   PT_KERNEL_END;
@@ -297,18 +309,16 @@ Tensor& scatter_inplace_src_hpu(
   PT_KERNEL_BEGIN;
   auto out = scatter_src_hpu(self, dim_, index, src);
   self.copy_(out);
-
   PT_KERNEL_END;
   return self;
 }
 
 /*************************************************************************
- * @brief Kernel implementation for scatter_add(Tensor self, int dim, Tensor
- * index, Tensor src) -> Tensor
+ * @brief Kernel implementation for torch.scatter_add
  * @param self - Input tensor 1-4D bf16/fp32
  * @param dim - dimension along which to index
  * @param index - Tensor used to index into self
- * @param src -Tensor with values to be updated (of same type as self)
+ * @param src - Tensor with values to be updated (of same type as self)
  ************************************************************************/
 Tensor scatter_add_src_hpu(
     const Tensor& self,
@@ -316,41 +326,43 @@ Tensor scatter_add_src_hpu(
     const Tensor& index,
     const Tensor& src) {
   PT_KERNEL_BEGIN;
-  auto dim = at::maybe_wrap_dim(dim_, self.dim(), /*wrap_scalar=*/true);
 
-  ns_ScatterKernel::Params params;
-  params.axis = self.dim() - dim - 1;
+  auto index_int = habana_helpers::cast_tensor_to_integer(index);
 
-  std::vector<at::Tensor> pt_inputs{self, index, src};
-  std::string node_type{"scatter_add_fwd_"};
-  node_type +=
-      habana_helpers::name_suffix_from_type(pt_inputs[0].scalar_type());
-  auto output = at::empty(
-      self.sizes().vec(), self.options(), self.suggest_memory_format());
-  std::vector<at::Tensor> pt_outputs{output};
   size_t device_id = self.device().index();
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  at::ScalarType scalar_type = self.scalar_type();
+  std::string node_type =
+      "scatter_add_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+
+  // create the operator
+  ScatterAddOperator Op(device_id, scalar_type);
   std::vector<c10::IValue> stack = {
-      IValue(self), IValue(dim_), IValue(index), IValue(src)};
-  size_t key = habana_helpers::getRecipeKey("scatter_add", stack);
-  // Execute the graph
+      IValue(self), IValue(dim_), IValue(index_int), IValue(src)};
+  size_t key = Op.GetRecipeKey(node_type, stack);
+  // Assign Inputs to the Operator
+  std::vector<at::Tensor> pt_inputs{self, index_int, src};
+
   if (device.get_recipe_handle_cache().isCached(key)) {
     PT_KERNEL_DEBUG("Cache hit key:", key);
-    synapse_execute_cached_kernel(pt_outputs, pt_inputs, device_id, key);
+    Op.SetPTInputs(pt_inputs);
+    Op.SetPTOutput(stack);
+    Op.Execute(key);
   } else {
-    PT_KERNEL_DEBUG("key:", key);
-    synapse_execute_kernel(
-        pt_outputs,
-        pt_inputs,
-        node_type,
-        &params,
-        sizeof(params),
-        device_id,
-        key);
-  }
+    PT_KERNEL_DEBUG("Key:", key);
+    // create graph
+    auto graph = habana_helpers::create_graph(device_id, node_type);
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
+    Op.AllocateAndAddSynapseNode(graph, stack, true);
 
+    // compile and execute the graph
+    Op.Compile(graph);
+  }
+  std::vector<at::Tensor> out = Op.GetOutputs();
+  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
   PT_KERNEL_END;
-  return output;
+
+  return out.at(0);
 }
 
 /*************************************************************************
@@ -1334,14 +1346,19 @@ static auto& KernelRegistry =
               return std::make_shared<GatherOperator>(device_id, node_type);
             })
         .add(
-            "aten::select",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<SelectOperator>(device_id, node_type);
-            })
-        .add(
             "aten::scatter",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<ScatterOperator>(device_id, node_type);
+            })
+        .add(
+            "aten::scatter_add",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<ScatterAddOperator>(device_id, node_type);
+            })
+        .add(
+            "aten::select",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<SelectOperator>(device_id, node_type);
             })
         .add(
             "aten::index_put",
@@ -1352,11 +1369,6 @@ static auto& KernelRegistry =
             "aten::arange",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<ArangeOperator>(device_id, node_type);
-            })
-        .add(
-            "aten::scatter_add",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<GatherOperator>(device_id, node_type);
             })
         .add("aten::slice", [](const int device_id, c10::ScalarType node_type) {
           return std::make_shared<SliceOperator>(device_id, node_type);

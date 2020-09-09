@@ -18,10 +18,12 @@
 #include "habana_helpers/logging.h"
 #include "habana_helpers/tensor_utils.h"
 #include "habana_helpers/unused_macro.h"
+#include "habana_kernels/basic_kernels.h"
 #include "habana_kernels/embedding_kernels.h"
 #include "habana_kernels/index_kernels.h"
 #include "habana_kernels/simple_generic_kernel.h"
 #include "habana_kernels/tensor_shape_kernels.h"
+#include "habana_kernels/topk_kernels.h"
 #include "kernel_utils.h"
 
 using namespace torch;
@@ -470,6 +472,208 @@ Tensor embedding_hpu(
   return out.at(0);
 }
 
+void EmbeddingDenseBackwardOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 5,
+      "Incorrect size of inputs expected for embedding operator");
+  TORCH_CHECK(
+      inputs[0].isTensor(),
+      "Input arg1 type expected to be tensor for embedding operator");
+  TORCH_CHECK(
+      inputs[1].isTensor(),
+      "Input arg2 type expected to be tensor for embedding operator");
+  TORCH_CHECK(
+      inputs[2].isInt(),
+      "Input arg3 type expected to be Int for embedding operator");
+  TORCH_CHECK(
+      inputs[3].isInt(),
+      "Input arg4 type expected to be Int for embedding operator");
+  TORCH_CHECK(
+      inputs[4].isBool(),
+      "Input arg5 type expected to be Bool for embedding operator");
+
+  auto grad = inputs[0].toTensor();
+  auto indices = inputs[1].toTensor();
+  auto num_weights = inputs[2].toInt();
+  UNUSED auto padding_idx = inputs[3].toInt();
+  auto scale_grad_by_freq = inputs[4].toBool();
+  int64_t numel = indices.numel();
+  TORCH_CHECK(
+      scale_grad_by_freq == false, "scale_grad_by_freq = true not supported")
+
+  // create a wrapper PT tensor for the non-persistent tensor for zero filling
+  Tensor grad_temp = habana_helpers::createPTTensor(
+      grad,
+      {num_weights, grad.size(-1)},
+      grad.options(),
+      grad.suggest_memory_format(),
+      grad.scalar_type(),
+      false);
+  ConstantOutOperator zeroOp(this->p_context_->device_id_, grad.scalar_type());
+  zeroOp.SetPTInputs({grad_temp});
+  zeroOp.AllocateSynapseInput(graph, grad_temp, false);
+  c10::Scalar zero_val = 0;
+  std::vector<c10::IValue> zero_op_stack{IValue(grad_temp), IValue(zero_val)};
+  zeroOp.AllocateAndAddSynapseNode(graph, zero_op_stack, false);
+
+  // Node: indices_flattened = indices.view(-1); // assumes non-FCDs are size 1s
+  ReshapeOperator reshape_op_indices(
+      indices.device().index(), indices.scalar_type());
+  auto& syn_in_indices =
+      reshape_op_indices.SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
+  int64_t size1[] = {indices.numel()};
+  c10::IntArrayRef modified_indices_shape(size1, 1);
+  torch::jit::Stack indices_stack = {c10::IValue(indices),
+                                     c10::IValue(modified_indices_shape)};
+  reshape_op_indices.AllocateAndAddSynapseNode(graph, indices_stack, false);
+  p_context_->syn_inputs_[1] = std::move(syn_in_indices);
+  auto indices_flattened = reshape_op_indices.GetOutputs()[0];
+
+  // Node: updates = grad.view(size);
+  // std::vector<int64_t> size{-1, grad.size(-1)};
+  int64_t size2[] = {grad.numel() / grad.size(-1), grad.size(-1)};
+  ReshapeOperator reshape_op_grad(grad.device().index(), grad.scalar_type());
+  auto& save_syn1 =
+      reshape_op_grad.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+  c10::IntArrayRef modified_input_shape(size2, 2);
+  torch::jit::Stack updates_stack = {c10::IValue(grad),
+                                     c10::IValue(modified_input_shape)};
+  reshape_op_grad.AllocateAndAddSynapseNode(graph, updates_stack, false);
+  p_context_->syn_inputs_[0] = std::move(save_syn1);
+  auto updates = reshape_op_grad.GetOutputs()[0];
+  // Create cast operator for indices->Float = node_type = "cast_i32_to_f32" for
+  // topk
+  CastOperator castIndicesToFloatOp(
+      this->p_context_->device_id_, "cast_i32_to_f32");
+  castIndicesToFloatOp.SetSynapseInput(
+      std::move(reshape_op_indices.GetSynOutputs()[0]));
+  c10::ScalarType cast_scalar_type = c10::ScalarType::Float;
+  std::vector<c10::IValue> cast_stack{IValue(indices_flattened),
+                                      IValue(cast_scalar_type)};
+  castIndicesToFloatOp.AllocateAndAddSynapseNode(graph, cast_stack, false);
+
+  // Node: topk_idx = at::topk(cast_indices_pt_tensor, numel);
+  TopkOperator topkOp(this->p_context_->device_id_, "topk");
+  int64_t dim = 0;
+  bool largest = true;
+  bool sorted = true;
+  topkOp.SetSynapseInput(std::move(castIndicesToFloatOp.GetSynOutputs()[0]));
+  std::vector<c10::IValue> topk_stack{
+      IValue(castIndicesToFloatOp.GetOutputs()[0]),
+      IValue(numel),
+      IValue(dim),
+      IValue(largest),
+      IValue(sorted)};
+  topkOp.AllocateAndAddSynapseNode(graph, topk_stack, {false, false});
+  // output[0] -> topk_values
+  // output[1] -> topk_indices
+  // Create cast operator for topk_values = node_type = "cast_f32_to_i32"
+  CastOperator castTopkValsOp(this->p_context_->device_id_, "cast_f32_to_i32");
+  castTopkValsOp.SetSynapseInput(std::move(topkOp.GetSynOutputs()[0]));
+  cast_scalar_type = c10::ScalarType::Int;
+  std::vector<c10::IValue> cast_stack1{IValue(topkOp.GetOutputs()[0]),
+                                       IValue(cast_scalar_type)};
+  castTopkValsOp.AllocateAndAddSynapseNode(graph, cast_stack1, false);
+
+  synapse_helpers::tensor& syn_updates = reshape_op_grad.GetSynOutputs()[0];
+  // Node: reordered_updates = at::gather(updates, 0, topk_indices);
+  GatherOperator gatherOp(this->p_context_->device_id_, updates.scalar_type());
+  gatherOp.SetSynapseInput(std::move(syn_updates));
+  gatherOp.SetSynapseInput(std::move(topkOp.GetSynOutputs()[1]));
+  bool sparse_grad = false;
+  std::vector<c10::IValue> gather_stack{IValue(updates),
+                                        IValue(dim),
+                                        IValue(topkOp.GetOutputs()[1]),
+                                        IValue(sparse_grad)};
+  gatherOp.AllocateAndAddSynapseNode(graph, gather_stack, false);
+
+  /*
+    grad_weight.scatter_add_(0, topk_values, reordered_updates);
+  */
+  ScatterAddOperator scatterAddOp(
+      this->p_context_->device_id_, grad.scalar_type());
+  scatterAddOp.SetSynapseInput(std::move(zeroOp.GetSynOutputs()[0]));
+  scatterAddOp.SetSynapseInput(std::move(castTopkValsOp.GetSynOutputs()[0]));
+  scatterAddOp.SetSynapseInput(std::move(gatherOp.GetSynOutputs()[0]));
+  std::vector<c10::IValue> sa_stack{IValue(zeroOp.GetOutputs()[0]),
+                                    IValue(dim),
+                                    IValue(castTopkValsOp.GetOutputs()[0]),
+                                    IValue(gatherOp.GetOutputs()[0])};
+  scatterAddOp.AllocateAndAddSynapseNode(
+      graph, sa_stack, (padding_idx != -1) ? false : is_output_persistent);
+  auto grad_weight = scatterAddOp.GetOutputs()[0];
+  synapse_helpers::tensor& syn_grad_weight = scatterAddOp.GetSynOutputs()[0];
+  /*
+  if (padding_idx != -1) {
+    //zero out the entries of grad_weight/return tensor for entry indexed by
+  padding_idx
+  }
+  */
+  if (padding_idx != -1) {
+    // create a wrapper PT tensor for the non-persistent tensor for zero filling
+    Tensor temp_zeros = habana_helpers::createPTTensor(
+        grad_weight,
+        {grad_weight.size(-1)},
+        grad_weight.options(),
+        grad_weight.suggest_memory_format(),
+        grad_weight.scalar_type(),
+        false);
+    ConstantOutOperator zeroOp1(
+        this->p_context_->device_id_, grad_weight.scalar_type());
+    c10::Scalar zero_val = 0;
+    zeroOp1.SetPTInputs({temp_zeros});
+    zeroOp1.AllocateSynapseInput(graph, temp_zeros, false);
+    zero_op_stack.clear();
+    zero_op_stack.emplace_back(IValue(temp_zeros));
+    zero_op_stack.emplace_back(IValue(zero_val));
+    zeroOp1.AllocateAndAddSynapseNode(graph, zero_op_stack, false);
+
+    auto topk_indices = topkOp.GetOutputs()[1];
+    // create a wrapper PT tensor for the non-persistent tensor holding
+    // padding_idx
+    Tensor padding_idx_tensor = habana_helpers::createPTTensor(
+        topk_indices,
+        {1},
+        topk_indices.options(),
+        topk_indices.suggest_memory_format(),
+        topk_indices.scalar_type(),
+        false);
+    std::vector<Tensor> padding_vec = {padding_idx_tensor};
+    TensorList pad_indices(padding_vec);
+    // Create Constant Operator to convert scalar padding_idx
+    // to tensor
+    Scalar p_converted = static_cast<int>(padding_idx);
+    ConstantOperator constOp(
+        this->p_context_->device_id_, topk_indices.scalar_type());
+    std::vector<c10::IValue> constOp_stack = {IValue(pad_indices[0]),
+                                              IValue(p_converted)};
+    constOp.AllocateAndAddSynapseNode(graph, constOp_stack, false);
+
+    IndexPutOperator indexputOp(
+        this->p_context_->device_id_, grad_weight.scalar_type());
+    indexputOp.SetSynapseInput(std::move(syn_grad_weight));
+    indexputOp.SetSynapseInput(std::move(constOp.GetSynOutputs()[0]));
+    indexputOp.SetSynapseInput(std::move(zeroOp1.GetSynOutputs()[0]));
+
+    std::vector<c10::IValue> indexputOp_stack = {IValue(grad_weight),
+                                                 IValue(pad_indices),
+                                                 IValue(temp_zeros),
+                                                 IValue(false)};
+    indexputOp.AllocateAndAddSynapseNode(
+        graph, indexputOp_stack, is_output_persistent);
+    auto result = indexputOp.GetOutputs()[0];
+    synapse_helpers::tensor& syn_result = indexputOp.GetSynOutputs()[0];
+    SetPTOutput(result);
+    SetSynapseOutput(std::move(syn_result));
+  } else {
+    SetPTOutput(grad_weight);
+    SetSynapseOutput(std::move(syn_grad_weight));
+  }
+}
+
 /** @brief Function implements embedding backward (for dense-tensors)
  * @param grad (Tensor) Input gradient for bwd pass
  * @param indices (LongTensor) Tensor containing indices into the embedding
@@ -477,10 +681,10 @@ Tensor embedding_hpu(
  * @param num_weights (int) Number fo rows in the weight tensor
  * @param padding_idx (int, optional) If given, pads the output with the
  * embedding vector at padding_idx (initialized to zeros) whenever it encounters
- * the index
- * Fix me :padding_idx is not supported in current implementation
- * @param scale_grad_by_freq (boolean, optional) If given, this will scale
- * gradients by the inverse of frequency of the words in the mini-batch
+ * the index. NOTE: Currently not supported (not used in cpu implementation
+ * also)
+ * @param scale_grad_by_freq (boolean, optional) UNUSED: If given, this will
+ * scale gradients by the inverse of frequency of the words in the mini-batch
  */
 Tensor embedding_dense_backward_hpu(
     const Tensor& grad,
@@ -489,40 +693,52 @@ Tensor embedding_dense_backward_hpu(
     int64_t padding_idx,
     bool scale_grad_by_freq) {
   PT_KERNEL_BEGIN;
-  int64_t numel = indices.numel();
-  TORCH_CHECK(
-      scale_grad_by_freq == false, "scale_grad_by_value = true not supported")
-  TORCH_WARN(
-      padding_idx == -1,
-      " : padding_idx is not -1: padding_idx = ",
-      padding_idx);
-  auto grad_weight = at::zeros({num_weights, grad.size(-1)}, grad.options());
-  std::vector<int64_t> size{-1, grad.size(-1)};
 
-  auto indices_flattened = indices.view(-1); // assumes non-FCDs are size 1s
-  auto updates = grad.view(size);
-  auto topk_idx = at::topk(
-      habana_helpers::hpu_cast_tensor(
-          habana_helpers::cast_tensor_to_integer(indices_flattened),
-          at::scalarTypeToTypeMeta(c10::ScalarType::Float)),
-      numel);
-  auto topk_values = std::get<0>(topk_idx);
-  auto topk_indices = std::get<1>(topk_idx);
-  auto reordered_updates = at::gather(updates, 0, topk_indices);
-  grad_weight.scatter_add_(
-      0,
-      habana_helpers::hpu_cast_tensor(
-          topk_values, at::scalarTypeToTypeMeta(c10::ScalarType::Int)),
-      reordered_updates);
-  if (padding_idx != -1) {
-    auto temp_zeros = at::zeros({grad_weight.size(-1)}, grad_weight.options());
-    auto padding_idx_tensor =
-        habana_helpers::scalar_to_device_tensor(padding_idx, topk_indices, 1);
-    grad_weight.index_put_({padding_idx_tensor}, temp_zeros, false);
+  auto indices_int = habana_helpers::cast_tensor_to_integer(indices);
+  at::ScalarType scalar_type = grad.scalar_type();
+  std::string node_type = "embedding_dense_bwd_" +
+      habana_helpers::name_suffix_from_type(scalar_type);
+
+  size_t device_id = grad.device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+
+  // create the operator
+  EmbeddingDenseBackwardOperator Op(device_id, scalar_type);
+
+  // Build Params for the graph
+  std::vector<c10::IValue> stack = {IValue(grad),
+                                    IValue(indices_int),
+                                    IValue(num_weights),
+                                    IValue(padding_idx),
+                                    IValue(scale_grad_by_freq)};
+  size_t key = Op.GetRecipeKey(node_type, stack);
+
+  // Assign Inputs to the Operator
+  std::vector<at::Tensor> pt_inputs{grad, indices_int};
+
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    Op.SetPTInputs(pt_inputs);
+    auto grad_weight = at::empty(
+        {num_weights, grad.size(-1)},
+        grad.options(),
+        grad.suggest_memory_format());
+    Op.SetPTOutput(grad_weight);
+    Op.Execute(key);
+  } else {
+    PT_KERNEL_DEBUG("Key:", key);
+    // Create Graph
+    auto graph = habana_helpers::create_graph(device_id, node_type);
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
+    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    // compile and execute the graph
+    Op.Compile(graph);
   }
 
+  std::vector<at::Tensor> out = Op.GetOutputs();
   PT_KERNEL_END;
-  return grad_weight;
+
+  return out.at(0);
 }
 
 void EmbeddingBagSumOperator::AllocateAndAddSynapseNode(
@@ -931,5 +1147,11 @@ static auto& KernelRegistry =
             "aten::embedding_bag_sum_bwd.out",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<EmbeddingBagSumBackwardOperator>(
+                  device_id, node_type);
+            })
+        .add(
+            "aten::embedding_dense_backward",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<EmbeddingDenseBackwardOperator>(
                   device_id, node_type);
             });

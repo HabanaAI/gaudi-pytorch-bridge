@@ -94,6 +94,49 @@ class GatherOperator : public HabanaOperator {
   Tensor AllocateOutput(torch::jit::Stack& inputs);
 };
 
+// ScatterWrapperOperator Operator
+//
+class ScatterWrapperOperator : public HabanaOperator {
+ public:
+  ScatterWrapperOperator(
+      int device_id,
+      c10::ScalarType scalarType,
+      const std::string& guid)
+      : HabanaOperator(
+            guid + habana_helpers::name_suffix_from_type(scalarType)) {
+    this->CreateSynContext(device_id);
+    kernel_meta_data_.input_layout.assign(
+        {LayoutFormat::ANY, LayoutFormat::ANY, LayoutFormat::ANY});
+    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
+  }
+
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+
+  void SetPTOutput(torch::jit::Stack& inputs);
+
+ private:
+  Tensor AllocateOutput(torch::jit::Stack& inputs);
+};
+
+// ScatterOperator Operator
+//
+class ScatterOperator : public ScatterWrapperOperator {
+ public:
+  ScatterOperator(int device_id, c10::ScalarType scalarType)
+      : ScatterWrapperOperator(device_id, scalarType, "scatter_fwd_") {}
+};
+
+// ScatterAddOperator Operator
+//
+class ScatterAddOperator : public ScatterWrapperOperator {
+ public:
+  ScatterAddOperator(int device_id, c10::ScalarType scalarType)
+      : ScatterWrapperOperator(device_id, scalarType, "scatter_add_fwd_") {}
+};
+
 //
 // IndexSelect Operator
 class IndexSelectOperator : public GatherOperator {
@@ -128,25 +171,6 @@ class SelectOperator : public HabanaOperator {
       bool is_output_persistent = false) override;
 
   void SetPTOutputs(const torch::jit::Stack& inputs);
-};
-
-// Scatter Operator
-class ScatterOperator : public HabanaOperator {
- public:
-  ScatterOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(
-            "scatter_fwd_" +
-            habana_helpers::name_suffix_from_type(scalarType)) {
-    this->CreateSynContext(device_id);
-    kernel_meta_data_.input_layout.assign(
-        {LayoutFormat::ANY, LayoutFormat::ANY, LayoutFormat::ANY});
-    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
-  }
-
-  virtual void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
 };
 
 // IndexPutOperator

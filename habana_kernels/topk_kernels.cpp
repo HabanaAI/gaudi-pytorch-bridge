@@ -29,7 +29,9 @@ inline void _allocate_or_resize_output_with_indices(
     Tensor& indices,
     const Tensor& self,
     int64_t dim,
-    int64_t k) {
+    int64_t k,
+    bool values_persistent,
+    bool indices_persistent) {
   auto result_sizes = self.sizes().vec();
   if (result_sizes.size() > 0) {
     result_sizes[dim] = k;
@@ -39,7 +41,12 @@ inline void _allocate_or_resize_output_with_indices(
         self.options().type_equal(values.options()),
         "output values must be of same type as input");
     auto tht_values = values.unsafeGetTensorImpl();
-    THHTensor_resizeNd(tht_values, self.dim(), result_sizes.data(), nullptr);
+    if (values.numel() || values_persistent)
+      THHTensor_resizeNd(tht_values, self.dim(), result_sizes.data(), nullptr);
+    else {
+      THHTensor_resizeNd_nonpersistent(
+          tht_values, self.dim(), result_sizes.data(), nullptr);
+    }
   } else {
     values = at::empty(result_sizes, self.options());
   }
@@ -51,7 +58,12 @@ inline void _allocate_or_resize_output_with_indices(
         indices.device() == self.device(),
         "output indices must be on same device as input");
     auto tht_indices = indices.unsafeGetTensorImpl();
-    THHTensor_resizeNd(tht_indices, self.dim(), result_sizes.data(), nullptr);
+    if (indices.numel() || indices_persistent)
+      THHTensor_resizeNd(tht_indices, self.dim(), result_sizes.data(), nullptr);
+    else {
+      THHTensor_resizeNd_nonpersistent(
+          tht_indices, self.dim(), result_sizes.data(), nullptr);
+    }
   } else {
     indices =
         at::empty(result_sizes, self.options().dtype(c10::ScalarType::Int));
@@ -110,7 +122,16 @@ void TopkOutOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(largest == true, "smallest k element not supported")
   TORCH_CHECK(sorted == true, "unsorted output not supported")
 
-  _allocate_or_resize_output_with_indices(values, indices, self, dim, k);
+  _allocate_or_resize_output_with_indices(
+      values,
+      indices,
+      self,
+      dim,
+      k,
+      is_output_persistent[0],
+      is_output_persistent[1]);
+  indices_persistent = is_output_persistent[0];
+  values_persistent = is_output_persistent[1];
   ns_TopK::Params params{};
   params.kSize = k;
   params.axis = self.dim() - dim - 1;
@@ -131,7 +152,8 @@ void TopkOutOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   int64_t dim_ = inputs[4].toInt();
 
   int64_t dim = at::maybe_wrap_dim(dim_, self.dim(), /*wrap_scalar=*/true);
-  _allocate_or_resize_output_with_indices(values, indices, self, dim, k);
+  _allocate_or_resize_output_with_indices(
+      values, indices, self, dim, k, true, true);
 
   HabanaOperator::SetPTOutputs({values, indices});
 }
@@ -150,14 +172,13 @@ std::tuple<Tensor&, Tensor&> topk_out_hpu(
 
   size_t device_id = self.device().index();
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-  std::vector<c10::IValue> stack = {
-      IValue(values),
-      IValue(indices),
-      IValue(self),
-      IValue(k),
-      IValue(dim_),
-      IValue(largest),
-      IValue(sorted)};
+  std::vector<c10::IValue> stack = {IValue(values),
+                                    IValue(indices),
+                                    IValue(self),
+                                    IValue(k),
+                                    IValue(dim_),
+                                    IValue(largest),
+                                    IValue(sorted)};
   TopkOutOperator Op(device_id, node_type);
   size_t key = Op.GetRecipeKey(node_type, stack);
 
@@ -226,8 +247,15 @@ void TopkOperator::AllocateAndAddSynapseNode(
 
 void TopkOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   Tensor self = inputs[0].toTensor();
-  Tensor values = at::empty({0}, self.options());
-  Tensor indices = at::empty({0}, self.options().dtype(c10::ScalarType::Int));
+  auto values = habana_helpers::createPTTensor(
+      self, {0}, self.options(), self.suggest_memory_format(), true);
+  auto indices = habana_helpers::createPTTensor(
+      self,
+      {0},
+      self.options(),
+      self.suggest_memory_format(),
+      c10::ScalarType::Int,
+      true);
 
   inputs.insert(inputs.begin(), IValue(indices));
   inputs.insert(inputs.begin(), IValue(values));
@@ -405,4 +433,3 @@ std::tuple<Tensor, Tensor> sort_hpu(
   PT_KERNEL_END;
   return std::forward_as_tuple(out.at(0), out.at(1));
 }
-

@@ -146,3 +146,24 @@ inline void THHTensor_resizeNd(
       strides,
       /*device_guard=*/false);
 }
+
+inline void THHTensor_resizeNd_nonpersistent(
+    THTensor* self,
+    int nDimension,
+    const int64_t* size,
+    const int64_t* stride) {
+  TORCH_CHECK(nDimension >= 0, "resizeNd nDimension must be non-negative");
+  at::IntArrayRef sizes(size, nDimension);
+  at::optional<at::IntArrayRef> strides;
+  if (stride) {
+    strides = at::IntArrayRef(stride, nDimension);
+  }
+  if (self->sizes() == sizes && (!stride || self->strides() == strides)) {
+    return;
+  }
+  if (stride) {
+    self->set_sizes_and_strides(sizes, *strides);
+  } else {
+    self->set_sizes_contiguous(sizes);
+  }
+}

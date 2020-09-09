@@ -18,10 +18,11 @@ class EmbeddingBagSumOperator : public HabanaOperator {
   EmbeddingBagSumOperator(int device_id, const std::string& guid)
       : HabanaOperator(guid) {
     this->CreateSynContext(device_id);
-    kernel_meta_data_.input_layout.assign({LayoutFormat::ANY,
-                                           LayoutFormat::ANY,
-                                           LayoutFormat::ANY,
-                                           LayoutFormat::ANY});
+    kernel_meta_data_.input_layout.assign(
+        {LayoutFormat::ANY,
+         LayoutFormat::ANY,
+         LayoutFormat::ANY,
+         LayoutFormat::ANY});
     kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
   }
 
@@ -40,13 +41,14 @@ class EmbeddingBagSumForwardOperator : public HabanaOperator {
             "embedding_bag_sum_small_lengths_2d_fwd_" +
             habana_helpers::name_suffix_from_type(scalarType)) {
     this->CreateSynContext(device_id);
-    kernel_meta_data_.input_layout.assign({LayoutFormat::ANY,
-                                           LayoutFormat::ANY,
-                                           LayoutFormat::ANY,
-                                           LayoutFormat::ANY,
-                                           LayoutFormat::ANY,
-                                           LayoutFormat::ANY,
-                                           LayoutFormat::ANY});
+    kernel_meta_data_.input_layout.assign(
+        {LayoutFormat::ANY,
+         LayoutFormat::ANY,
+         LayoutFormat::ANY,
+         LayoutFormat::ANY,
+         LayoutFormat::ANY,
+         LayoutFormat::ANY,
+         LayoutFormat::ANY});
     kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
     input_idx = 0;
     for (auto idx = 0; idx < 4; idx++) {
@@ -146,10 +148,11 @@ class EmbeddingOperator : public HabanaOperator {
  public:
   EmbeddingOperator(int device_id, c10::ScalarType scalarType)
       : HabanaOperator(
-            "embedding_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
+            "embedding_fwd_" +
+            habana_helpers::name_suffix_from_type(scalarType)) {
     this->CreateSynContext(device_id);
-    kernel_meta_data_.input_layout.assign({LayoutFormat::ANY,
-                                           LayoutFormat::ANY});
+    kernel_meta_data_.input_layout.assign(
+        {LayoutFormat::ANY, LayoutFormat::ANY});
     kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
   }
 
@@ -157,4 +160,27 @@ class EmbeddingOperator : public HabanaOperator {
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
+};
+
+//
+// Embedding Operator
+class EmbeddingDenseBackwardOperator : public HabanaOperator {
+ public:
+  EmbeddingDenseBackwardOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator(
+            "embedding_dense_bwd_" +
+            habana_helpers::name_suffix_from_type(scalarType)) {
+    this->CreateSynContext(device_id);
+    kernel_meta_data_.input_layout.assign(
+        {LayoutFormat::ANY, LayoutFormat::ANY});
+    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
+  }
+
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+
+ protected:
+  std::string memcopy_guid;
 };

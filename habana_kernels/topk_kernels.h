@@ -22,6 +22,8 @@ class TopkOutOperator : public HabanaOperator {
         {LayoutFormat::ANY, LayoutFormat::ANY, LayoutFormat::ANY});
     kernel_meta_data_.output_layout.assign(
         {LayoutFormat::ANY, LayoutFormat::ANY});
+    values_persistent = false;
+    indices_persistent = false;
   }
 
   virtual void AllocateAndAddSynapseNode(
@@ -30,6 +32,10 @@ class TopkOutOperator : public HabanaOperator {
       std::vector<bool> is_output_persistent) override;
 
   virtual void SetPTOutputs(torch::jit::Stack& inputs);
+
+ private:
+  bool values_persistent;
+  bool indices_persistent;
 };
 
 //
