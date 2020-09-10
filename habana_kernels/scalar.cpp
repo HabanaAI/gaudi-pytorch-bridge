@@ -27,20 +27,33 @@ Scalar _local_scalar_dense_hpu(const Tensor& self) {
   // Note: Pytorch uses this function to check a specific emement of a tensor
   // eg. embedding_bag validates the first value offsets to be 0 using this
   // function
-  AT_DISPATCH_ALL_TYPES_AND(
-      at::ScalarType::BFloat16,
-      self.scalar_type(),
-      "_local_scalar_dense_hpu",
-      [&] {
-        scalar_t val;
-        habana_helpers::copy_scalar_to_host(self, &val, sizeof(self.dtype()));
-        r = Scalar(val);
-      });
 
+  if (at::ScalarType::Bool == self.scalar_type()) {
+    AT_DISPATCH_ALL_TYPES_AND(
+        at::ScalarType::Bool,
+        self.scalar_type(),
+        "_local_scalar_dense_hpu",
+        [&] {
+          scalar_t val;
+          habana_helpers::copy_scalar_to_host(self, &val, sizeof(self.dtype()));
+          r = Scalar(val);
+        });
+  } else {
+    AT_DISPATCH_ALL_TYPES_AND(
+        at::ScalarType::BFloat16,
+        self.scalar_type(),
+        "_local_scalar_dense_hpu",
+        [&] {
+          scalar_t val;
+          habana_helpers::copy_scalar_to_host(self, &val, sizeof(self.dtype()));
+          r = Scalar(val);
+        });
+  }
   PT_KERNEL_END;
 
   return r;
 }
+
 } // namespace native
 } // namespace at
 
