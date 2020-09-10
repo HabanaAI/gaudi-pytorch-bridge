@@ -432,12 +432,11 @@ Tensor embedding_hpu(
   EmbeddingOperator Op(device_id, scalar_type);
 
   // Build Params for the graph
-  std::vector<c10::IValue> stack = {
-      IValue(weight),
-      IValue(indices_int),
-      IValue(padding_idx),
-      IValue(scale_grad_by_freq),
-      IValue(sparse)};
+  std::vector<c10::IValue> stack = {IValue(weight),
+                                    IValue(indices_int),
+                                    IValue(padding_idx),
+                                    IValue(scale_grad_by_freq),
+                                    IValue(sparse)};
   size_t key = Op.GetRecipeKey(node_type, stack);
 
   // Assign Inputs to the Operator
@@ -588,8 +587,10 @@ Tensor embedding_bag_sum_hpu(
   // AllocateAndAddSynapseNode because this cannot be done on device
   // and doing it on CPU will not work in graph mode.
   TORCH_CHECK(valid_count.numel() == 2, "valid_count should have two elements")
-  auto data_ptr = static_cast<int64_t*>(valid_count.to("cpu").data_ptr());
-  auto valid_count_offset = data_ptr[1]; // valid offset
+  auto valid_count_cpu = valid_count.to("cpu");
+  auto data_ptr = valid_count_cpu.data_ptr();
+  auto data_ptr_i64 = static_cast<int64_t*>(data_ptr);
+  auto valid_count_offset = data_ptr_i64[0]; // valid offset
 
   at::ScalarType scalar_type = input.scalar_type();
   std::string node_type;
@@ -615,11 +616,10 @@ Tensor embedding_bag_sum_hpu(
   Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
   // Build Params for the graph
-  std::vector<c10::IValue> stack = {
-      IValue(input),
-      IValue(indices_i32),
-      IValue(offsets_i32),
-      IValue(valid_count_offset)};
+  std::vector<c10::IValue> stack = {IValue(input),
+                                    IValue(indices_i32),
+                                    IValue(offsets_i32),
+                                    IValue(valid_count_offset)};
   Op.AllocateAndAddSynapseNode(graph, stack, true);
 
   // compile and execute the graph
@@ -740,27 +740,25 @@ Tensor embedding_bag_sum_fwd_hpu(
   auto graph = habana_helpers::create_graph(device_id, node_type);
 
   // Assign Inputs to the Operator
-  std::vector<at::Tensor> pt_inputs{
-      input,
-      indices_fwd,
-      offsets_fwd,
-      valid_count,
-      indices_bwd,
-      offsets_bwd,
-      valid_count_bwd,
-      grad_weight};
+  std::vector<at::Tensor> pt_inputs{input,
+                                    indices_fwd,
+                                    offsets_fwd,
+                                    valid_count,
+                                    indices_bwd,
+                                    offsets_bwd,
+                                    valid_count_bwd,
+                                    grad_weight};
   Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
   // Build Params for the graph
-  std::vector<c10::IValue> stack = {
-      IValue(input),
-      IValue(indices_fwd),
-      IValue(offsets_fwd),
-      IValue(valid_count),
-      IValue(indices_bwd),
-      IValue(offsets_bwd),
-      IValue(valid_count_bwd),
-      IValue(grad_weight)};
+  std::vector<c10::IValue> stack = {IValue(input),
+                                    IValue(indices_fwd),
+                                    IValue(offsets_fwd),
+                                    IValue(valid_count),
+                                    IValue(indices_bwd),
+                                    IValue(offsets_bwd),
+                                    IValue(valid_count_bwd),
+                                    IValue(grad_weight)};
   Op.AllocateAndAddSynapseNode(graph, stack, true);
 
   // compile and execute the graph
@@ -871,12 +869,11 @@ Tensor& embedding_bag_sum_bwd_out_hpu(
   EmbeddingBagSumBackwardOperator Op(device_id, scalar_type);
 
   // Build Params for the graph
-  std::vector<c10::IValue> stack = {
-      IValue(out),
-      IValue(input),
-      IValue(indices_bwd),
-      IValue(offsets_bwd),
-      IValue(valid_count_bwd)};
+  std::vector<c10::IValue> stack = {IValue(out),
+                                    IValue(input),
+                                    IValue(indices_bwd),
+                                    IValue(offsets_bwd),
+                                    IValue(valid_count_bwd)};
 
   // Assign Inputs to the Operator
   std::vector<at::Tensor> pt_inputs{

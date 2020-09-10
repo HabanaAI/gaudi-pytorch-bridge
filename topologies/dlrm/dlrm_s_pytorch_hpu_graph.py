@@ -247,10 +247,10 @@ def apply_preproc(sparse_offset_group_batch, sparse_index_group_batch, i, m, ln_
     gv.countUniqueIndices[i] = countUniqueIndices.to(device, non_blocking=True)
 
     # create additional tensors needed by embedding bag sum
-    valid_count_fwd_cpu = torch.tensor([sparse_index_group_batch.numel(), sparse_offset_group_batch.numel(
-    )], dtype=torch.int32)
+    valid_count_fwd_cpu = torch.tensor([sparse_offset_group_batch.numel(
+    ), sparse_index_group_batch.numel()], dtype=torch.int32)
     valid_count_bwd_cpu = torch.tensor(
-        [gv.outputRows[i].numel(), countUniqueIndices.item()+1], dtype=torch.int32)
+        [countUniqueIndices.item()+1, gv.outputRows[i].numel()], dtype=torch.int32)
 
     numOffsets = countUniqueIndices.item()+1
     gv.outputRowOffsets[i] = torch.narrow(gv.outputRowOffsets[i], 0, 0, numOffsets)
@@ -292,8 +292,7 @@ def apply_preproc(sparse_offset_group_batch, sparse_index_group_batch, i, m, ln_
     gv.valid_count_fwd[i].copy_(valid_count_fwd_cpu, non_blocking=True)
     gv.indices_bwd[i].copy_(gv.outputRows[i], non_blocking=True)
     gv.valid_count_bwd[i].copy_(valid_count_bwd_cpu, non_blocking=True)
-    #WA for SW-18483
-    gv.outputRowOffsets_hpu[i].fill_(0)
+    gv.outputRowOffsets_hpu[i].fill_(0) #HACK
     gv.outputRowOffsets_hpu[i].copy_(gv.outputRowOffsets[i], non_blocking=True)
     gv.uniqueIndexes[i].copy_(uniqueIndexes)
 

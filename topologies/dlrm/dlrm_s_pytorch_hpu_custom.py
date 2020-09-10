@@ -152,7 +152,7 @@ def coalesceGradients(grad_output, countUniqueIndices,uniqueIndexes,outputRows,o
     coalesce_embBagSum.weight = nn.Parameter(grad_output)
     numOffsets = gv.countUniqueIndices[i].item()+1
     outputRowOffsets = torch.narrow(outputRowOffsets, 0, 0, numOffsets)
-    valid_count_tensor = torch.LongTensor([outputRows.numel(),numOffsets]).to(device)
+    valid_count_tensor = torch.LongTensor([numOffsets, outputRows.numel()]).to(device)
     kernel_mode = 1
     coalesced_grads = coalesce_embBagSum(outputRows.type(torch.LongTensor).to(device),outputRowOffsets.type(torch.LongTensor).to(device),valid_count_tensor,kernel_mode,gv.numEmbeddingTables)
 
@@ -410,7 +410,7 @@ class DLRM_Net_Habana(nn.Module):
             # The embeddings are represented as tall matrices, with sum
             # happening vertically across 0 axis, resulting in a row vector
             E = emb_l[k]
-            valid_count_tensor = torch.LongTensor([sparse_index_group_batch.numel(),sparse_offset_group_batch.numel()]).to(device)
+            valid_count_tensor = torch.LongTensor([sparse_offset_group_batch.numel(), sparse_index_group_batch.numel()]).to(device)
             V = E(sparse_index_group_batch, sparse_offset_group_batch,valid_count_tensor,1,k)
             # print('Embedding done for k=' + str(k))
             ly.append(V)

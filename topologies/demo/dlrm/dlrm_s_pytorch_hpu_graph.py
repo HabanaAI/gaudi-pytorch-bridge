@@ -180,7 +180,7 @@ class HabanaEmbeddingBag(torch.nn.Module):
             low=-np.sqrt(1 / n), high=np.sqrt(1 / n), size=(n, m)
         ).astype(np.float32)
         # approach 1
-        self.weight = nn.Parameter(torch.tensor(W, requires_grad=True))
+        self.weight = nn.Parameter(torch.tensor(W, requires_grad=False))
         self.instance = instance
 
     def forward(self, indices, offsets, valid_count_fwd, indices_bwd, offsets_bwd, valid_count_bwd, grad_weights, instance):
@@ -232,10 +232,10 @@ def apply_preproc(sparse_offset_group_batch, sparse_index_group_batch, i, m, ln_
 
     gv.countUniqueIndices[i] = countUniqueIndices.to(device, non_blocking=True)
     # create additional tensors needed by embedding bag sum
-    valid_count_fwd_cpu = torch.tensor([sparse_index_group_batch.numel(), sparse_offset_group_batch.numel(
-    )], dtype=torch.int32)
+    valid_count_fwd_cpu = torch.tensor([sparse_offset_group_batch.numel(
+    ), sparse_index_group_batch.numel()], dtype=torch.int32)
     valid_count_bwd_cpu = torch.tensor(
-        [gv.outputRows[i].numel(), countUniqueIndices.item()+1], dtype=torch.int32)
+        [countUniqueIndices.item()+1, gv.outputRows[i].numel()], dtype=torch.int32)
 
     numOffsets = countUniqueIndices.item()+1
     gv.outputRowOffsets[i] = torch.narrow(gv.outputRowOffsets[i], 0, 0, numOffsets)
@@ -506,9 +506,9 @@ class DLRM_Net_Habana(nn.Module):
             R = torch.cat([x] + ly, dim=1)
         else:
             sys.exit(
-                "ERROR: --arch-interaction-op=" +
-                self.arch_interaction_op +
-                " is not supported"
+                "ERROR: --arch-interaction-op="
+                + self.arch_interaction_op
+                + " is not supported"
             )
 
         return R
