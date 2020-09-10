@@ -60,7 +60,7 @@ class HPUDeviceAllocator final : public at::Allocator {
       }
     }
     PT_DEVICE_DEBUG("default pooling strategy set");
-    return pool_allocator::strategy_none;
+    return pool_allocator::strategy_dynamic;
   }
 
   static uint64_t get_pool_size() {
