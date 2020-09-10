@@ -51,7 +51,7 @@ Tensor& addcdiv_hpu_(
     Scalar alpha);
 Tensor add_tensor_hpu(const Tensor& self, const Tensor& other, Scalar alpha);
 Tensor add_scalar_hpu(const Tensor& self, Scalar other, Scalar alpha);
-Tensor& add_scalar_hpu_(Tensor& self, Scalar other);
+Tensor& add_scalar_hpu_(Tensor& self, Scalar other, Scalar alpha);
 Tensor& add_tensor_hpu_(Tensor& self, const Tensor& other, Scalar alpha);
 Tensor sub_tensor_hpu(const Tensor& self, const Tensor& other, Scalar alpha);
 Tensor& sub_tensor_hpu_(Tensor& self, const Tensor& other, Scalar alpha);

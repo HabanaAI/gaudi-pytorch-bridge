@@ -35,7 +35,7 @@ void check_ew_kernel_constraints(const Tensor& arg1, const Tensor& arg2) {
 // if the tensor is in CPU push it to HPU. Further if the CPU tensor is of
 // double dtype typecast to float. This workaround needed if
 // one the binary operand of torch op is scalar. TODO: [SW-9849]
-static inline Tensor get_hpu_tensor(Tensor input) {
+inline Tensor get_hpu_tensor(Tensor input) {
   Tensor output;
   if (input.device().type() == c10::DeviceType::CPU) {
     if (input.scalar_type() == c10::ScalarType::Double) {
@@ -48,19 +48,6 @@ static inline Tensor get_hpu_tensor(Tensor input) {
   }
 
   return output;
-}
-
-inline Tensor convert_scalar_to_tensor_using_self(
-    const Tensor& self,
-    Scalar other) {
-  if (self.dim() == 0) {
-    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
-  }
-  auto self_hpu = get_hpu_tensor(self);
-  auto result = habana_helpers::scalar_to_device_tensor(
-      other, self_hpu, self_hpu.ndimension());
-
-  return result;
 }
 
 // helper that finally interfaces with synapse generic kernel
@@ -78,61 +65,6 @@ static inline Tensor& do_binary_op(
   synapse_simple_generic_kernel(
       pt_outputs, pt_inputs, op, nullptr, 0, pass_type);
   return out;
-}
-
-// helper that finally interfaces with synapse generic inplace kernel
-static inline Tensor& do_binary_inplace_op(
-    Tensor& self,
-    const Tensor& other,
-    const std::string& op,
-    SynapsePassType pass_type) {
-  std::vector<at::Tensor> pt_inputs;
-  pt_inputs.push_back(self);
-  pt_inputs.push_back(other);
-  // Build Params for the graph
-  std::vector<c10::IValue> stack = {IValue(self), IValue(other)};
-  std::string node_type = (SynapsePassType::NO_PASS == pass_type) ? op
-                                                                  : op +
-          std::string((SynapsePassType::FORWARD_PASS == pass_type) ? "_fwd_"
-                                                                   : "_bwd_") +
-          habana_helpers::name_suffix_from_type(pt_inputs[0].scalar_type());
-  const auto device_id = pt_inputs[0].device().index();
-  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-  size_t key = habana_helpers::getRecipeKey(node_type, stack, true);
-  if (device.get_recipe_handle_cache().isCached(key)) {
-    PT_KERNEL_DEBUG("Cache hit key:", key);
-    synapse_execute_cached_inplace_kernel(pt_inputs, device_id, key);
-  } else {
-    PT_KERNEL_DEBUG("key:", key);
-    synapse_execute_inplace_kernel(
-        pt_inputs, node_type, nullptr, 0, device_id, key);
-  }
-  return self;
-}
-
-// generic binary tensor op interface that takes care of broadcasting
-// semantics requirements
-static inline void do_generic_tensor_binary_op_inplace(
-    Tensor& self,
-    const Tensor& operand2,
-    const std::string& op,
-    SynapsePassType pass_type) {
-  auto operand2_hpu = get_hpu_tensor(operand2);
-  check_ew_kernel_constraints(self, operand2_hpu);
-  TORCH_CHECK(
-      self.ndimension() >= operand2.ndimension(),
-      "Binary inplace ops shouldn't get self.ndimension() < other.ndimension()");
-  auto out_dims = self.ndimension();
-  // Make sure that we give tensors that match dims to Synapse
-  auto operand2_sizes = operand2.sizes().vec();
-  // Create view_sizes initialized to part which has size=1 for upper dims
-  auto view_sizes = std::vector<int64_t>(out_dims - operand2.ndimension(), 1);
-  // and append the smaller tensor dims
-  view_sizes.insert(
-      view_sizes.end(), operand2_sizes.begin(), operand2_sizes.end());
-  auto expanded_operand2_tensor = operand2_hpu.view(view_sizes);
-  do_binary_inplace_op(self, expanded_operand2_tensor, op, pass_type);
-  return;
 }
 
 // generic binary tensor op interface that takes care of broadcasting
@@ -171,38 +103,6 @@ inline void do_generic_tensor_binary_op_out(
     output =
         do_binary_op(output, operand1_expanded, operand2_hpu, op, pass_type);
   }
-}
-
-// scalar*tensor helper
-static inline Tensor do_tensor_scalar_mul(const Tensor& tensor, Scalar alpha) {
-  if (alpha.toFloat() == 1.0)
-    return tensor;
-  auto alpha_tensor = habana_helpers::scalar_to_device_tensor(
-      alpha, tensor, tensor.ndimension());
-  auto out_mul = at::mul(tensor, alpha_tensor);
-  return out_mul;
-}
-
-// scalar*scalar helper
-static inline Tensor do_scalar_scalar_mul(
-    const Tensor& self,
-    Scalar other,
-    Scalar alpha) {
-  if (alpha.toFloat() == 1.0) {
-    return habana_helpers::scalar_to_device_tensor(
-        other, self, self.ndimension());
-  }
-  if (other.toFloat() == 1.0) {
-    return habana_helpers::scalar_to_device_tensor(
-        alpha, self, self.ndimension());
-  }
-  auto other_tensor =
-      habana_helpers::scalar_to_device_tensor(other, self, self.ndimension());
-  auto alpha_tensor =
-      habana_helpers::scalar_to_device_tensor(alpha, self, self.ndimension());
-  auto out_mul = at::mul(other_tensor, alpha_tensor);
-
-  return out_mul;
 }
 
 inline Tensor get_correct_input_tensor(const Tensor& arg1, const Tensor& arg2) {
@@ -684,36 +584,6 @@ Tensor add_scalar_hpu(const Tensor& self, Scalar other, Scalar alpha) {
 }
 
 /*************************************************************************
- * @brief Kernel implementation for inplace Scalar self.add_(other)
- * output = self + alpha * other
- * @param self - first input
- * @param other - second input
- * @param alpha - optional input
- ************************************************************************/
-Tensor& add_scalar_hpu_(
-    Tensor& self,
-    Scalar other) { // TODO: Add test by using an extension module for new op
-                    // at python level
-  PT_KERNEL_BEGIN;
-  auto other_tensor = convert_scalar_to_tensor_using_self(self, other);
-  self.add_(other_tensor, 1);
-  PT_KERNEL_END;
-  return self;
-}
-
-// self += alpha * other
-Tensor& add_tensor_hpu_(Tensor& self, const Tensor& other, Scalar alpha) {
-  PT_KERNEL_BEGIN;
-  auto out_mul = do_tensor_scalar_mul(other, alpha);
-
-  do_generic_tensor_binary_op_inplace(
-      self, out_mul, "add", SynapsePassType::FORWARD_PASS);
-
-  PT_KERNEL_END;
-  return self;
-}
-
-/*************************************************************************
  * @brief Kernel implementation for out = torch.sub(self, alpha, other)
  * @param self - first input
  * @param other - second input
@@ -741,22 +611,6 @@ Tensor sub_tensor_hpu(const Tensor& self, const Tensor& other, Scalar alpha) {
 }
 
 /*************************************************************************
- * @brief Kernel implementation for inplace torch.sub_(self, alpha, other)
- * @param self - first input
- * @param other - second input
- * @param alpha - optional input
- * self -= alpha * other
- ************************************************************************/
-Tensor& sub_tensor_hpu_(Tensor& self, const Tensor& other, Scalar alpha) {
-  PT_KERNEL_BEGIN;
-  auto out_mul = do_tensor_scalar_mul(other, alpha);
-  do_generic_tensor_binary_op_inplace(
-      self, out_mul, "sub", SynapsePassType::FORWARD_PASS);
-  PT_KERNEL_END;
-  return self;
-}
-
-/*************************************************************************
  * @brief Kernel implementation for inplace Scalar torch.sub_(self, alpha,
  *other)
  * @param self - first input
@@ -781,26 +635,6 @@ Tensor sub_scalar_hpu(
 
   PT_KERNEL_END;
   return output;
-}
-
-/*************************************************************************
- * @brief Kernel implementation for inplace Scalar torch.sub_(self, alpha,
- *other)
- * @param self - first input
- * @param other - second input
- * @param alpha - optional input
- * self -= alpha * other
- ************************************************************************/
-Tensor& sub_scalar_hpu_(
-    Tensor& self,
-    Scalar other,
-    Scalar alpha) { // TODO: No way to test this yet from python
-  PT_KERNEL_BEGIN;
-  auto out_mul = do_scalar_scalar_mul(self, other, alpha);
-  do_generic_tensor_binary_op_inplace(
-      self, out_mul, "sub", SynapsePassType::FORWARD_PASS);
-  PT_KERNEL_END;
-  return self;
 }
 
 void habana::RsubOperator::AllocateAndAddSynapseNode(
@@ -843,27 +677,6 @@ Tensor rsub_scalar_hpu(const Tensor& self, Scalar other, Scalar alpha) {
 
   PT_KERNEL_END;
   return output;
-}
-
-// Elementwise multiplication
-// self *= other
-/*************************************************************************
- * @brief Kernel implementation for inplace torch.mul_(self, other)
- * @param self - first input
- * @param other - second input
- ************************************************************************/
-Tensor& mul_tensor_hpu_(Tensor& self, const Tensor& other) {
-  PT_KERNEL_BEGIN;
-  if (self.is_same(other)) {
-    auto &tensor = self.pow_(2.0);
-    PT_KERNEL_END;
-    return tensor;
-  }
-
-  do_generic_tensor_binary_op_inplace(
-      self, other, "mult", SynapsePassType::FORWARD_PASS);
-  PT_KERNEL_END;
-  return self;
 }
 
 /*************************************************************************
@@ -922,20 +735,6 @@ Tensor mul_scalar_hpu(const Tensor& self, Scalar other) {
 }
 
 /*************************************************************************
- * @brief Kernel implementation for inplace output = self.mul_(Scalar other)
- * @param self - first input
- * @param other - second input
- * self = self * other
- ************************************************************************/
-Tensor& mul_scalar_hpu_(Tensor& self, Scalar other) {
-  PT_KERNEL_BEGIN;
-  auto multiplier_tensor = convert_scalar_to_tensor_using_self(self, other);
-  self.mul_(multiplier_tensor);
-  PT_KERNEL_END;
-  return self;
-}
-
-/*************************************************************************
  * @brief Kernel implementation for out = torch.div(self,other)
  * @param self - first input
  * @param other - second input
@@ -976,18 +775,6 @@ Tensor& div_tensor_hpu_out(
   PT_KERNEL_END;
   return result;
 }
-/*************************************************************************
- * @brief Kernel implementation for inplace torch.div_(self,other)
- * @param self - first input
- * @param other - second input
- ************************************************************************/
-Tensor& div_tensor_hpu_(Tensor& self, const Tensor& other) {
-  PT_KERNEL_BEGIN;
-  do_generic_tensor_binary_op_inplace(
-      self, other, "div", SynapsePassType::FORWARD_PASS);
-  PT_KERNEL_END;
-  return self;
-}
 
 /*************************************************************************
  * @brief Kernel implementation for inplace div.Scalar(self,other)
@@ -1011,22 +798,6 @@ Tensor div_scalar_hpu(
 
   PT_KERNEL_END;
   return output;
-}
-
-/*************************************************************************
- * @brief Kernel implementation for inplace div_.Scalar(self,other)
- * @param self - first input
- * @param other - second input of scalar type
- ************************************************************************/
-Tensor& div_scalar_hpu_(
-    Tensor& self,
-    Scalar other) { // TODO: Add test by using an extension module for new op
-                    // at python level
-  PT_KERNEL_BEGIN;
-  auto divisor_tensor = convert_scalar_to_tensor_using_self(self, other);
-  self = self.div_(divisor_tensor);
-  PT_KERNEL_END;
-  return self;
 }
 
 /*************************************************************************
@@ -1055,19 +826,6 @@ Tensor pow_tensor_tensor_hpu(const Tensor& self, const Tensor& other) {
 }
 
 /*************************************************************************
- * @brief Kernel implementation for out = self.pow(other)
- * @param self - first input
- * @param other - second input
- ************************************************************************/
-Tensor& pow_tensor_tensor_hpu_(Tensor& self, const Tensor& other) {
-  PT_KERNEL_BEGIN;
-  do_generic_tensor_binary_op_inplace(
-      self, other, "pow", SynapsePassType::FORWARD_PASS);
-  PT_KERNEL_END;
-  return self;
-}
-
-/*************************************************************************
  * @brief Kernel implementation for out = self.pow(,other)
  * @param self [in,out]- Tensor 1D bf16/FP32
  * @param other [in] - Scalar
@@ -1086,14 +844,6 @@ Tensor pow_tensor_scalar_hpu(const Tensor& self, Scalar other) {
 
   PT_KERNEL_END;
   return output;
-}
-
-Tensor& pow_tensor_scalar_hpu_(Tensor& self, Scalar other) {
-  PT_KERNEL_BEGIN;
-  auto exponent_tensor = convert_scalar_to_tensor_using_self(self, other);
-  self.pow_(exponent_tensor);
-  PT_KERNEL_END;
-  return self;
 }
 
 /***************************************************************************
@@ -1152,5 +902,3 @@ static auto& KernelRegistry =
         .add("aten::pow", [](const int device_id, c10::ScalarType node_type) {
           return std::make_shared<habana::PowOperator>(device_id, node_type);
         });
-
-

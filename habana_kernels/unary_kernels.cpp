@@ -244,11 +244,8 @@ Tensor& relu_hpu_(Tensor& self) {
     Op.Compile(graph);
   }
 
-  std::vector<at::Tensor> out = Op.GetOutputs();
-  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
-
   PT_KERNEL_END;
-  return out.at(0);
+  return self;
 }
 
 /*************************************************************************

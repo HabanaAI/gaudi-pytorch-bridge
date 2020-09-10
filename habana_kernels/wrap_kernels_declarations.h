@@ -51,7 +51,7 @@ Tensor& addcdiv_hpu_wrap_(
     Scalar alpha);
 Tensor add_tensor_hpu_wrap(const Tensor& self, const Tensor& other, Scalar alpha);
 Tensor add_scalar_hpu_wrap(const Tensor& self, Scalar other, Scalar alpha);
-Tensor& add_scalar_hpu_wrap_(Tensor& self, Scalar other);
+Tensor& add_scalar_hpu_wrap_(Tensor& self, Scalar other, Scalar alpha);
 Tensor& add_tensor_hpu_wrap_(Tensor& self, const Tensor& other, Scalar alpha);
 Tensor sub_tensor_hpu_wrap(const Tensor& self, const Tensor& other, Scalar alpha);
 Tensor& sub_tensor_hpu_wrap_(Tensor& self, const Tensor& other, Scalar alpha);

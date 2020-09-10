@@ -70,8 +70,8 @@ Tensor add_tensor_hpu_lazy(
 Tensor add_scalar_hpu_lazy(const Tensor& self, Scalar other, Scalar alpha) {
   return add_scalar_hpu(self, other, alpha);
 };
-Tensor& add_scalar_hpu_lazy_(Tensor& self, Scalar other) {
-  return add_scalar_hpu_(self, other);
+Tensor& add_scalar_hpu_lazy_(Tensor& self, Scalar other, Scalar alpha) {
+  return add_scalar_hpu_(self, other, alpha);
 };
 Tensor& add_tensor_hpu_lazy_(Tensor& self, const Tensor& other, Scalar alpha) {
   return add_tensor_hpu_(self, other, alpha);

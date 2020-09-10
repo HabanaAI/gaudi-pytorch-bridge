@@ -132,18 +132,6 @@ Tensor addcmul_hpu(
   return out.at(0);
 }
 
-Tensor& addcmul_hpu_(
-    Tensor& self,
-    const Tensor& tensor1,
-    const Tensor& tensor2,
-    Scalar alpha) {
-  PT_KERNEL_BEGIN;
-  auto prod = at::mul(tensor1, tensor2);
-  self.add_(prod, alpha);
-  PT_KERNEL_END;
-  return self;
-}
-
 /*************************************************************************
  * @brief Kernel implementation for torch.addcdiv_(self,tensor1,tensor2,alpha)
  * @param [in] self - input tensor, 1-4D, FP32/BF16
@@ -256,26 +244,6 @@ Tensor addcdiv_hpu(
   return out.at(0);
 }
 
-/*************************************************************************
- * @brief Kernel implementation for inplace
- *torch.addcdiv_(self,tensor1,tensor2,alpha)
- * @param [in] self - input tensor, 1-4D, FP32/BF16
- * @param [in] tensor1 - input tensor, 1-4D, FP32/BF16
- * @param [in] tensor2 - input tensor, 1-4D, FP32/BF16
- * @param [in] alpha - optional input, default = 1
- ************************************************************************/
-Tensor& addcdiv_hpu_(
-    Tensor& self,
-    const Tensor& tensor1,
-    const Tensor& tensor2,
-    Scalar alpha) {
-  PT_KERNEL_BEGIN;
-  auto temp = at::div(tensor1, tensor2);
-  self.add_(temp, alpha);
-  PT_KERNEL_END;
-  return self;
-}
-
 static auto& KernelRegistry =
     habana::KernelRegistry()
         .add(
@@ -288,5 +256,3 @@ static auto& KernelRegistry =
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<AddcdivOperator>(device_id, node_type);
             });
-
-

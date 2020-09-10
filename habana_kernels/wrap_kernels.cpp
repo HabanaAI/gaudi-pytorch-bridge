@@ -110,11 +110,11 @@ Tensor add_scalar_hpu_wrap(const Tensor& self, Scalar other, Scalar alpha) {
     return add_scalar_hpu(self, other, alpha);
   }
 };
-Tensor& add_scalar_hpu_wrap_(Tensor& self, Scalar other) {
+Tensor& add_scalar_hpu_wrap_(Tensor& self, Scalar other, Scalar alpha) {
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    return add_scalar_hpu_lazy_(self, other);
+    return add_scalar_hpu_lazy_(self, other, alpha);
   } else {
-    return add_scalar_hpu_(self, other);
+    return add_scalar_hpu_(self, other, alpha);
   }
 };
 Tensor& add_tensor_hpu_wrap_(Tensor& self, const Tensor& other, Scalar alpha) {

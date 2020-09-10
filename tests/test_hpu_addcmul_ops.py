@@ -65,10 +65,10 @@ def test_hpu_addcmul_inplace_op(N, H, W, C,value):
     hpu_tensor1 = tensor1.to(hpu)
     hpu_tensor2 = tensor2.to(hpu)
 
-    output = input.addcmul_(tensor1,tensor2,value=value)
-    hpu_tensor_output = hpu_tensor_input.addcmul_( hpu_tensor1, hpu_tensor2, value=value)
+    input.addcmul_(tensor1,tensor2,value=value)
+    hpu_tensor_input.addcmul_( hpu_tensor1, hpu_tensor2, value=value)
 
-    compare_tensors(hpu_tensor_output, output, atol=0.001, rtol=1.e-3)
+    compare_tensors(hpu_tensor_input, input, atol=0.001, rtol=1.e-3)
 
 
 if __name__ == '__main__':

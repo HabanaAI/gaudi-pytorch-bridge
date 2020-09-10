@@ -12,13 +12,11 @@
 #include "habana_kernels/simple_generic_kernel.h"
 #include "habana_kernels/tensor_shape_kernels.h"
 
-at::Tensor get_hpu_tensor(at::Tensor input);
-
 namespace habana {
 
-class BinaryOperator : public habana::HabanaOperator {
+class BinaryInplaceOperator : public habana::HabanaOperator {
  public:
-  BinaryOperator(
+  BinaryInplaceOperator(
       int device_id,
       const std::string& guid,
       c10::ScalarType scalarType)
@@ -41,9 +39,9 @@ class BinaryOperator : public habana::HabanaOperator {
   c10::ScalarType scalarType_;
 };
 
-class BinaryWrapperOperator : public habana::HabanaOperator {
+class BinaryInplaceWrapperOperator : public habana::HabanaOperator {
  public:
-  BinaryWrapperOperator(int device_id, const std::string& guid)
+  BinaryInplaceWrapperOperator(int device_id, const std::string& guid)
       : HabanaOperator(guid) {
     this->CreateSynContext(device_id);
   }
@@ -57,53 +55,55 @@ class BinaryWrapperOperator : public habana::HabanaOperator {
   c10::ScalarType scalarType_;
 };
 
-class MulOperator : public BinaryWrapperOperator {
+class MulInplaceOperator : public BinaryInplaceWrapperOperator {
  public:
   // Mul op
-  MulOperator(int device_id, c10::ScalarType scalarType)
-      : BinaryWrapperOperator(
+  MulInplaceOperator(int device_id, c10::ScalarType scalarType)
+      : BinaryInplaceWrapperOperator(
             device_id,
             "mult_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
     scalarType_ = scalarType;
   }
 };
 
-class DivOperator : public BinaryWrapperOperator {
+class DivInplaceOperator : public BinaryInplaceWrapperOperator {
  public:
-  DivOperator(int device_id, c10::ScalarType scalarType)
-      : BinaryWrapperOperator(
+  // Div op
+  DivInplaceOperator(int device_id, c10::ScalarType scalarType)
+      : BinaryInplaceWrapperOperator(
             device_id,
             "div_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
     scalarType_ = scalarType;
   }
 };
 
-class PowOperator : public BinaryWrapperOperator {
+class PowInplaceOperator : public BinaryInplaceWrapperOperator {
  public:
-  PowOperator(int device_id, c10::ScalarType scalarType)
-      : BinaryWrapperOperator(
+  // Pow op
+  PowInplaceOperator(int device_id, c10::ScalarType scalarType)
+      : BinaryInplaceWrapperOperator(
             device_id,
             "pow_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
     scalarType_ = scalarType;
   }
 };
 
-class BinaryOperatorWithAlpha : public BinaryOperator {
+class BinaryInplaceOperatorWithAlpha : public BinaryInplaceOperator {
  public:
-  BinaryOperatorWithAlpha(
+  BinaryInplaceOperatorWithAlpha(
       int device_id,
       const std::string& guid,
       c10::ScalarType scalarType)
-      : BinaryOperator(device_id, guid, scalarType) {}
+      : BinaryInplaceOperator(device_id, guid, scalarType) {}
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) final;
 };
 
-class BinaryWrapperOperatorWithAlpha : public habana::HabanaOperator {
+class BinaryInplaceWrapperOperatorWithAlpha : public habana::HabanaOperator {
  public:
-  BinaryWrapperOperatorWithAlpha(int device_id, const std::string& guid)
+  BinaryInplaceWrapperOperatorWithAlpha(int device_id, const std::string& guid)
       : HabanaOperator(guid) {
     this->CreateSynContext(device_id);
   }
@@ -117,33 +117,47 @@ class BinaryWrapperOperatorWithAlpha : public habana::HabanaOperator {
   c10::ScalarType scalarType_;
 };
 
-class AddOperator : public BinaryWrapperOperatorWithAlpha {
+class AddInplaceOperator : public BinaryInplaceWrapperOperatorWithAlpha {
  public:
-  AddOperator(int device_id, c10::ScalarType scalarType)
-      : BinaryWrapperOperatorWithAlpha(
+  AddInplaceOperator(int device_id, c10::ScalarType scalarType)
+      : BinaryInplaceWrapperOperatorWithAlpha(
             device_id,
             "add_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
     scalarType_ = scalarType;
   }
 };
 
-class SubOperator : public BinaryWrapperOperatorWithAlpha {
+class SubInplaceOperator : public BinaryInplaceWrapperOperatorWithAlpha {
  public:
-  SubOperator(int device_id, c10::ScalarType scalarType)
-      : BinaryWrapperOperatorWithAlpha(
+  SubInplaceOperator(int device_id, c10::ScalarType scalarType)
+      : BinaryInplaceWrapperOperatorWithAlpha(
             device_id,
             "sub_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
     scalarType_ = scalarType;
   }
 };
 
-class RsubOperator : public SubOperator {
+class AddcmulInplaceOperator : public habana::HabanaOperator {
  public:
-  RsubOperator(int device_id, c10::ScalarType scalarType)
-      : SubOperator(device_id, scalarType) {}
+  AddcmulInplaceOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator("addcmul_fwd_") {
+    this->CreateSynContext(device_id);
+  }
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) final;
+      bool is_output_persistent = false) override;
+};
+
+class AddcdivInplaceOperator : public habana::HabanaOperator {
+ public:
+  AddcdivInplaceOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator("addcdiv_fwd_") {
+    this->CreateSynContext(device_id);
+  }
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
 };
 } // namespace habana
