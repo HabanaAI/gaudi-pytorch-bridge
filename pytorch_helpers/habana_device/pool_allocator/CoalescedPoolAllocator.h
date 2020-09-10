@@ -65,6 +65,9 @@ class StaticCoalescedPooling : public PoolingStrategy {
     Chunk* create_chunk(uint64_t size) const;
     Chunk * try_block_splitting( uint64_t size) const;
     Chunk * try_defragmenting(void *ptr, uint64_t size) const;
+    bool isContigousBlockAvailable(uint64_t size) const;
+    bool isChunkContigous(Chunk *chunk1, Chunk *chunk2) const;
+    uint64_t getContigousChunkSize(Chunk* chunk) const;
     Chunk * defragment_on_reuse(void *ptr, uint64_t size) const;
     void print_pool_stats() const;
     mutable std::recursive_mutex sp_mutex;
