@@ -38,7 +38,7 @@ void * StaticPooling::pool_create(synDeviceId deviceID, uint64_t size) const {
     uint64_t free_mem, total_mem;
     auto status = synDeviceGetMemoryInfo(deviceID, &free_mem, &total_mem);
     if (synStatus::synSuccess != status) {
-        PT_DEVICE_FATAL("POOL:: Cannot obtain device memory size. Status: ", status);
+        PT_DEVICE_DEBUG("POOL:: Cannot obtain device memory info. Status: ", status);
     }
     if (size > free_mem) {
         PT_DEVICE_DEBUG("POOL:: requested size is more than avaiable memory");
@@ -49,7 +49,7 @@ void * StaticPooling::pool_create(synDeviceId deviceID, uint64_t size) const {
 
     auto p = allocateHostMemory(simple_pool_t);
     if (!p) {
-        PT_DEVICE_FATAL("POOL:: Cannot obtain pool memory");
+        PT_DEVICE_DEBUG("POOL:: Cannot obtain pool memory");
         return nullptr;
     }
 
@@ -191,13 +191,14 @@ void * StaticPooling::pool_alloc_chunk(void *ptr, uint64_t size) const {
         //TBD: implement better algorithms
         pool_allocator::print_device_memory_stats(pool_id);
         print_pool_stats();
-        PT_DEVICE_FATAL("POOL:: pool exhausted !! deframgment pool ?");
+        PT_DEVICE_DEBUG("POOL:: pool exhausted !! deframgment pool ?");
+        return nullptr;
     }
 
     //create a chunk
     auto chunk = allocateHostMemory(Poolchunk);
     if (!chunk) {
-        PT_DEVICE_FATAL("POOL:: Cannot create a chunk");
+        PT_DEVICE_DEBUG("POOL:: Cannot create a chunk");
         return nullptr;
     }
     chunk->memptr = (uint64_t)p->next;
@@ -267,6 +268,26 @@ void DynamicPooling::freeBlocks(Block* block) const {
     pool_allocator::set_device_deallocation(false);
 }
 
+void DynamicPooling::freeUnusedBlocks(Block* block) const {
+    while (block != nullptr) {
+        auto next = block->next;
+        if (!block->used && block->memptr ) {
+            //std::cerr << "POOL:: synDeviceFree :: block->memptr :: "<< (uint64_t*)block->memptr << std::endl;
+            if (nullptr != (void*)block->memptr) {
+                uint64_t ptr_address{reinterpret_cast<uint64_t>(block->memptr)};
+                auto status{synDeviceFree(pool_id, ptr_address, 0)};
+                if (status) {
+                    PT_DEVICE_DEBUG("POOL:: freeUnusedBlocks synDeviceFree failed :: ", status);
+                }
+            }
+            block->memptr = 0;
+            block->size = 0;
+            block->used = true;
+        }
+        block = next;
+    }
+}
+
 Block *DynamicPooling::retrieveBlock(void *data) const {
     auto block = pool_start;
     while (block != nullptr) {
@@ -294,15 +315,22 @@ Block *DynamicPooling::requestNewBlock(uint64_t size) const {
     //create block header
     auto block = allocateHostMemory(Block);
     if (!block) {
-        PT_DEVICE_FATAL("POOL:: Cannot create block header");
+        PT_DEVICE_DEBUG("POOL:: Cannot create block header");
         return nullptr;
     }
 
     auto status = synDeviceMalloc(pool_id, size, 0, 0, &block->memptr);
     if (synStatus::synSuccess != status) {
-        freeHostMemory(block);
-        PT_DEVICE_FATAL("POOL:: Cannot obtain device memory size. Status: ", status);
-        return nullptr;
+        pool_allocator::print_device_memory_stats(pool_id);
+        freeUnusedBlocks(pool_start);
+        pool_allocator::print_device_memory_stats(pool_id);
+        PT_DEVICE_DEBUG("POOL:: Reusing freed fragments for size :: ", size);
+        auto status = synDeviceMalloc(pool_id, size, 0, 0, &block->memptr);
+        if (synStatus::synSuccess != status) {
+            freeHostMemory(block);
+            PT_DEVICE_DEBUG("POOL:: Cannot obtain device memory size. Status: ", status);
+            return nullptr;
+        }
     }
     //std::cerr << "POOL:: synDeviceMalloc :: block->memptr :: "<< (uint64_t*)block->memptr << " size :: " << size <<std::endl;
     PT_DEVICE_DEBUG("POOL:: Creating a new block of size :: ", size);
@@ -336,6 +364,9 @@ void *DynamicPooling::allocBlock(uint64_t size) const {
     }
 
     auto block = requestNewBlock(size);
+    if (!block) {
+        return nullptr;
+    }
     block->size = size;
     block->used = true;
     block->next = nullptr;

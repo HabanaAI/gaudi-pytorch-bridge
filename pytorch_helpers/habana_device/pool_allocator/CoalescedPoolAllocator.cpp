@@ -42,7 +42,7 @@ void * StaticCoalescedPooling::pool_create(synDeviceId deviceID, uint64_t size) 
     uint64_t free_mem, total_mem;
     auto status = synDeviceGetMemoryInfo(deviceID, &free_mem, &total_mem);
     if (synStatus::synSuccess != status) {
-        PT_DEVICE_FATAL("POOL:: Cannot obtain device memory size. Status: ", status);
+        PT_DEVICE_DEBUG("POOL:: Cannot obtain device memory info. Status: ", status);
     }
 
     //try to take max free memory when not set by user
@@ -55,7 +55,7 @@ void * StaticCoalescedPooling::pool_create(synDeviceId deviceID, uint64_t size) 
 
     auto p = new simple_coalesced_pool_t();
     if (!p) {
-        PT_DEVICE_FATAL("POOL:: Cannot obtain pool memory");
+        PT_DEVICE_DEBUG("POOL:: Cannot obtain pool memory");
         return nullptr;
     }
 
@@ -406,13 +406,14 @@ void * StaticCoalescedPooling::pool_alloc_chunk(void *ptr, uint64_t size) const 
         }
         print_device_memory_stats(pool_id);
         print_pool_stats();
-        PT_DEVICE_FATAL("POOL:: pool exhausted !! for size :: ", size);
+        PT_DEVICE_DEBUG("POOL:: pool exhausted !! for size :: ", size);
+        return nullptr;
     }
 
     //create a chunk
     Chunk* chunk = new Chunk();
     if (!chunk) {
-        PT_DEVICE_FATAL("POOL:: Cannot create a chunk");
+        PT_DEVICE_DEBUG("POOL:: Cannot create a chunk");
         return nullptr;
     }
     chunk->memptr = (uint64_t)p->next;
@@ -558,7 +559,7 @@ Chunk* StaticCoalescedPooling::create_chunk(uint64_t size) const {
     //create a chunk
     Chunk* chunk = new Chunk();
     if (!chunk) {
-        PT_DEVICE_FATAL("POOL:: Cannot create a chunk");
+        PT_DEVICE_DEBUG("POOL:: Cannot create a chunk");
         return nullptr;
     }
     chunk->memptr = 0;

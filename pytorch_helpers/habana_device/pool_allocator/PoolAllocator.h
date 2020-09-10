@@ -141,6 +141,7 @@ class DynamicPooling : public PoolingStrategy {
     void *allocBlock(uint64_t size) const;
     void freeBlock(void *data) const;
     void freeBlocks(Block* base_block) const;
+    void freeUnusedBlocks(Block* base_block) const;
     mutable std::mutex vp_mutex;
 
  public:
