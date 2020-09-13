@@ -6,12 +6,12 @@ function help()
         echo -e "  -e <epochs>,          --epochs <epochs>            default: 1"
         echo -e "  -lr <learning rate >,                              default: 0.01"
         echo -e "  -s <seed>,            --seed <seed>                default: None"
-        echo -e "                        --mode <mode>                default: trace mode. Possible values: trace, eager"
+        echo -e "                        --mode <mode>                default: graph mode. Possible values: graph, eager"
         echo -e "                        --data-type <data type>      default: fp32. Possible values: fp32, bf16"
         echo -e "                        --num-train-steps <steps>    default: maxsize"
         echo -e ""
         echo -e "\nexample:\n"
-        echo -e "./demo_mnist -b 128 --num-train-steps 100 --data-type fp32 --mode trace"
+        echo -e "./demo_mnist -b 128 --num-train-steps 100 --data-type fp32 --mode graph"
         echo -e "./demo_mnist -b 64  --num-train-steps 100 --data-type bf16 --mode eager"
         echo -e ""
 }
@@ -67,7 +67,7 @@ SEED_VAL=${__seed:--1}
 TRAIN_STEP=${__train_step:--1}
 
 if [ -n "$__mode" ]; then
-    if [ "$__mode" == "trace" ]; then
+    if [ "$__mode" == "graph" ]; then
        MODE="--run-trace-mode"
     elif [ "$__mode" == "eager" ]; then
        MODE=""
@@ -78,7 +78,7 @@ if [ -n "$__mode" ]; then
     fi
 else
     MODE="--run-trace-mode"
-    __mode="trace"
+    __mode="graph"
 fi
 
 if [ -n "$__dtype" ]; then
