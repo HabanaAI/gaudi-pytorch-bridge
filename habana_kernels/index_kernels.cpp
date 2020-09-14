@@ -344,6 +344,7 @@ Tensor scatter_add_src_hpu(
   size_t key = habana_helpers::getRecipeKey("scatter_add", stack);
   // Execute the graph
   if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
     habana_helpers::execute_recipe(
         habana_helpers::extract_data_ptrs(pt_inputs),
         habana_helpers::extract_data_ptrs(pt_outputs),
@@ -351,6 +352,7 @@ Tensor scatter_add_src_hpu(
         device_id,
         key);
   } else {
+    PT_KERNEL_DEBUG("key:", key);
     synapse_simple_generic_kernel(
         pt_outputs,
         pt_inputs,

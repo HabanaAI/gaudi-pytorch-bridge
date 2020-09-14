@@ -867,6 +867,7 @@ Tensor expand_hpu(const Tensor& self, IntArrayRef size, bool implicit) {
 
   // Return early for trivial case
   if (self.sizes().equals(size)) {
+    PT_KERNEL_END;
     return self;
   }
 

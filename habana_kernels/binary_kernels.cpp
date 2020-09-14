@@ -855,7 +855,9 @@ Tensor rsub_scalar_hpu(const Tensor& self, Scalar other, Scalar alpha) {
 Tensor& mul_tensor_hpu_(Tensor& self, const Tensor& other) {
   PT_KERNEL_BEGIN;
   if (self.is_same(other)) {
-    return self.pow_(2.0);
+    auto &tensor = self.pow_(2.0);
+    PT_KERNEL_END;
+    return tensor;
   }
 
   do_generic_tensor_binary_op_inplace(
@@ -875,7 +877,9 @@ Tensor mul_tensor_hpu(const Tensor& self, const Tensor& other) {
 
   // TODO: Add pow operator for graph mode
   if (self.is_same(other)) {
-    return at::pow(self, 2.0);
+    auto tensor = at::pow(self, 2.0);
+    PT_KERNEL_END;
+    return tensor;
   }
 
   if (self.dim() == 0) {
