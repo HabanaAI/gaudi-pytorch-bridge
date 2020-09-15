@@ -4,6 +4,7 @@ from . import config
 
 
 def vprint(*args, **kwds):
+    """Enable prints in verbose mode"""
     if config.verbose_mode:
         print(*args, **kwds)
     else:
@@ -11,6 +12,7 @@ def vprint(*args, **kwds):
 
 
 def to_bf16(x):
+    """Cast tensor to bf16"""
     if x.dtype == torch.float32:
         return x.type(torch.bfloat16)
     else:
@@ -18,6 +20,7 @@ def to_bf16(x):
 
 
 def to_fp32(x):
+    """Cast tensor to fp32"""
     if x.dtype == torch.bfloat16:
         return x.type(torch.float)
     else:
@@ -25,14 +28,18 @@ def to_fp32(x):
 
 
 def inplace(x):
+    """Return inplace version of input OP"""
     return x + "_"
 
 
 def overrides(x):
+    """Return override version of input OP"""
     return "__" + x + "__"
 
 
 def get_list_from_file(file_path):
+    """Get OP list from a txt file"""
+
     with open(file_path) as file:
         ops_list = file.read().splitlines()
 
@@ -40,6 +47,8 @@ def get_list_from_file(file_path):
 
 
 def check_input(opt_level, bf16_file_path, fp32_file_path):
+    """Run some sanity checks on user provided inputs"""
+
     assert (opt_level == "O1") or (
         opt_level == "O2"
     ), "Optlevel should be either O1 or O2"
@@ -49,7 +58,8 @@ def check_input(opt_level, bf16_file_path, fp32_file_path):
 
 
 def decide_cast_fn(*args, **kwds):
-    # Float if any of the input tensor float else bf16
+    """Decides cast_fn as fp32 if any tensor is float, else cast_fn is bf16"""
+
     dtype_list = []
     for arg in args:
         if torch.is_tensor(arg) or isinstance(arg, torch.autograd.Variable):
@@ -69,7 +79,8 @@ def decide_cast_fn(*args, **kwds):
 
 
 def decide_cast_fn_inplace(*args, **kwds):
-    # decide cast dtype based on first/inplace argument
+    """Decides cast_fn based on first/inplace argument dtype"""
+
     arg0 = args[0]
     assert torch.is_tensor(arg0) or isinstance(
         arg0, torch.autograd.Variable
@@ -85,6 +96,8 @@ def decide_cast_fn_inplace(*args, **kwds):
 
 
 def get_new_args(cast_fn, args, kwds):
+    """ Iterate and cast any tensors in args or kwds using cast_fn"""
+
     # args is a tuple and hence immutable - create new tuple
     args_cast = []
     for arg in args:
@@ -101,7 +114,18 @@ def get_new_args(cast_fn, args, kwds):
 
 
 def op_wrap(op, cast_fn):
-    """cast all the tensors like objects within a op"""
+    """Adds wrapper function to OPs. All tensor inputs
+    for the OP are casted to type determined by cast_fn
+    provided.
+
+    Args:
+    op (torch.nn.functional/torch/torch.Tensor): Input OP
+    cast_fn (to_bf16/to_fp32): Fn to cast input tensors
+
+    Returns:
+    Wrapper function that shall be inserted back to
+    corresponding module for this OP.
+    """
     vprint("Wrapping ", op, " ", cast_fn.__name__)
 
     @wraps(op)
@@ -114,10 +138,19 @@ def op_wrap(op, cast_fn):
 
 
 def op_wrap_dynamic(op):
-    """decide cast type based on tensor input arguments
-    type, then cast all the tensors like objects within
-    a op with this cast type. Always promote to largest
-    type"""
+    """Adds wrapper function for OPs with multiple
+    tensor inputs (other than weight, bias etc.), This
+    wrapper function looks for largest data type
+    among all tensor inputs and promotes (casts) all
+    tensor inputs to this type.
+
+    Args:
+    op (torch.nn.functional/torch/torch.Tensor): Input OP
+
+    Returns:
+    Wrapper function that shall be inserted back to
+    corresponding module for this OP.
+    """
     vprint("Deciding cast for", op)
 
     @wraps(op)
@@ -139,11 +172,19 @@ def op_wrap_dynamic(op):
 
 
 def op_wrap_dynamic_inplace(op):
-    """decide cast type based on tensor input arguments
-    type, then cast all the tensors like objects within
-    a op with this cast type. Always follow type of
-    inplace tensor (assumed to be 1st tensor in argument
-    list)"""
+    """Adds wrapper function for inplace OPs. This wrapper
+    function casts all the tensor inputs for the inplace OP
+    to same type as inplace tensor (assumed to be 1st tensor
+    in argument list).
+
+    Args:
+    op (torch.nn.functional/torch/torch.Tensor): Input OP
+
+    Returns:
+    Wrapper function that shall be inserted back to
+    corresponding module for this OP.
+    """
+
     vprint("Deciding cast for", op)
 
     @wraps(op)
@@ -159,6 +200,19 @@ def op_wrap_dynamic_inplace(op):
 
 
 def cast_ops_list(ops_list, ops_dict, cast_fn=None):
+    """Takes a list of OPs as input and adds a wrapper function
+    around each OP in the list based on the module type for an OP
+    and the cast_fn provided.
+
+    Args:
+    ops_list (list): Input list of OPs
+    ops_dict (dict): Dictionary with all OPs supported by HMP
+                     package. Key is OP name, value is torch
+                     module(s) to which OP belongs.
+    cast_fn (to_bf16, to_fp32, None): cast function to be used
+                     on OPs in input list
+    """
+
     for op in ops_list:
         key = str(op)
         if key in ops_dict:

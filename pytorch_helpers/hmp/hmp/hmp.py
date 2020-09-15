@@ -7,19 +7,30 @@ from . import config
 
 
 def convert(opt_level="O1", bf16_file_path="", fp32_file_path="", isVerbose=False):
+    """Entry function to Habana Mixed Precision (HMP) tool.
+    This tool inserts cast nodes to inputs of torch OPs based on provided
+    optimization_level, list of always bf16 OPs and list of always fp32 OPs.
+    Any torch OP not in bf16 or fp32 list will follow the type of preceding
+    OP in the graph. Exceptions to this rule would be,
+    - OPs with multiple tensor inputs (other than weight, bias) shall cast to bf16
+    if all tensors are bf16 but will cast to fp32 if any tensor is fp32
+    - Inplace OPs shall cast to type of inplace tensor argument
+
+    Args:
+    bf16_file_path : User provided file containing list of torch ops that needs to
+                     operate on bf16 inputs. If null string, then default list
+                     ops_bf16.txt would be used
+    fp32_file_path : User provided file containing list of torch ops that needs to
+                     operate on fp32 inputs. If null string, then default list
+                     ops_fp32.txt would be used
+    isVerbose : Enable/disable verbose mode
+    opt_level : O1 - Two files for torch operators are taken as input namely for
+                bf16 and fp32 dtypes. Dtypes for rest of the operators would
+                be decided based on their input tensors
+                O2 - GEMM and Conv kernels would operate on bf16. Rest of the
+                operators in HMP ops_dict operate on fp32.
     """
-    Wraps torch functions specified in bf16 and fp32 list to cast their inputs
-    Inputs:
-    bf16_file_path - User provided file containing list of torch ops that needs to operate on bfloat16 inputs.
-    If null string, then default list ops_bf16.txt would be used
-    fp32_file_path - User provided file containing list of torch ops that needs to operate on float32 inputs.
-    If null string, then default list ops_fp32.txt would be used
-    isVerbose - Enable/disable verbose mode
-    opt_level:
-        O1 - Two files for torch operators are taken as input namely for bfloat16 and float32 dtypes.
-        Dtypes for rest of the operators would be decided based on their input tensors
-        O2 - GEMM and Conv kernels would operate on bfloat16. Rest of the operators in float32
-    """
+
     check_input(opt_level, bf16_file_path, fp32_file_path)
 
     config.verbose_mode = isVerbose
