@@ -253,6 +253,8 @@ class device {
     sem_.synchronize_event(event);
   }
 
+  uint64_t get_workspace_size();
+
   std::shared_ptr<session> synapse_session_;
 
   synDeviceType type_;

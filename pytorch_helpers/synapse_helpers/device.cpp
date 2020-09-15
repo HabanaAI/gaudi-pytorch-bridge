@@ -93,7 +93,8 @@ device::device(
   // in case of simulator, there might not be 4GB of memory available, so as a
   // fallback solution workspace_buffer_ will be allocated to 70% of free memory
   // on the given device
-  workspace_size_ = free_memory > GLOBAL_WORKSPACE_SIZE ? GLOBAL_WORKSPACE_SIZE
+  size_t global_workspace_size = get_workspace_size();
+  workspace_size_ = free_memory > global_workspace_size ? global_workspace_size
                                                         : 0.7 * free_memory;
   workspace_buffer_ =
       reinterpret_cast<device_ptr>(allocator_->alloc(workspace_size_));
@@ -182,6 +183,23 @@ synapse_error_v<std::shared_ptr<device>> device::create(
   // assign weak_ptr for future gets.
   device_in_use = device_ptr;
   return device_ptr;
+}
+
+//GLOBAL_WORKSPACE_SIZE is set based on PT_HPU_WORKSPACE_SIZE in GB
+uint64_t device::get_workspace_size() {
+  uint64_t workspaceSize = GLOBAL_WORKSPACE_SIZE;
+  static const std::string wsEnvValue = "PT_HPU_WORKSPACE_SIZE";
+  const char* wsValue = getenv(wsEnvValue.c_str());
+  if (wsValue) {
+    workspaceSize = std::stoi(getenv("PT_HPU_WORKSPACE_SIZE"));
+    workspaceSize = workspaceSize * 1024 * 1024 * 1024;
+    if (workspaceSize == 0) {
+      PT_DEVICE_DEBUG("WorkSpace size not specified, setting default");
+      workspaceSize = GLOBAL_WORKSPACE_SIZE;
+    }
+  }
+  PT_DEVICE_DEBUG("WorkSpace size requested for :: ", workspaceSize);
+  return workspaceSize;
 }
 
 device::~device() {
