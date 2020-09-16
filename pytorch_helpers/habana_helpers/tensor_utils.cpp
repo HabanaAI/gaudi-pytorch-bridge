@@ -112,15 +112,14 @@ at::Tensor habana_helpers::cast_tensor_to_integer(
   return *int_tensor;
 }
 
-at::Tensor habana_helpers::cast_tensor_to_long(
-    const at::Tensor& int_tensor) {
+at::Tensor habana_helpers::cast_tensor_to_long(const at::Tensor& int_tensor) {
   // TODO Remove this cast on CPU when int32->int64_t cast available on
   // HPU
   auto long_tensor = std::make_unique<at::Tensor>();
   if (int_tensor.scalar_type() == c10::ScalarType::Int) {
     *long_tensor = int_tensor.to("cpu")
-                      .to(c10::ScalarType::Long)
-                      .to(int_tensor.device(), c10::attr::non_blocking);
+                       .to(c10::ScalarType::Long)
+                       .to(int_tensor.device(), c10::attr::non_blocking);
   } else {
     *long_tensor = int_tensor;
   }
@@ -406,12 +405,13 @@ void habana_helpers::copy_scalar_to_device(
     void* src_ptr,
     const at::Tensor& dst,
     uint32_t size) {
-  std::atomic<bool> copyDone{false};
-  const at::Tensor dstRef = dst;
-
   auto device_id = dst.device().index();
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
   if (device.IsStreamASyncEnabled()) {
+    // keeps a reference to the tensor it is
+    // operating on to prevent it from being deallocated while the
+    // operation is still in flight.
+    const at::Tensor dstRef = dst;
     auto syn_error = device.copy_data_to_device(
         src_ptr,
         reinterpret_cast<synapse_helpers::device_ptr>(dst.data_ptr()),
@@ -616,12 +616,14 @@ void habana_helpers::copy_data_to_host(
     const at::Tensor& src,
     const at::Tensor& dst,
     bool non_blocking) {
-  const at::Tensor srcRef = src;
-  const at::Tensor dstRef = dst;
-
   size_t device_id = src.device().index();
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
   if (non_blocking) {
+    // keeps a reference to the tensor it is
+    // operating on to prevent it from being deallocated while the
+    // operation is still in flight.
+    const at::Tensor srcRef = src;
+    const at::Tensor dstRef = dst;
     auto syn_error = device.copy_data_to_host(
         reinterpret_cast<synapse_helpers::device_ptr>(src.data_ptr()),
         dst.data_ptr(),
@@ -634,7 +636,7 @@ void habana_helpers::copy_data_to_host(
         reinterpret_cast<synapse_helpers::device_ptr>(src.data_ptr()),
         dst.data_ptr(),
         src.nbytes(),
-        [srcRef, dstRef, &copyDone]() { copyDone = true; });
+        [&copyDone]() { copyDone = true; });
     TORCH_CHECK(syn_error.status == 0, syn_error.error);
     // wait for copy completion
     while (!copyDone) {
@@ -653,14 +655,15 @@ void habana_helpers::copy_data_to_device(
     const at::Tensor& src,
     const at::Tensor& dst,
     bool non_blocking) {
-  std::atomic<bool> copyDone{false};
-
-  const at::Tensor srcRef = src;
-  const at::Tensor dstRef = dst;
   auto device_id = dst.device().index();
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
 
   if (non_blocking) {
+    // keeps a reference to the tensor it is
+    // operating on to prevent it from being deallocated while the
+    // operation is still in flight.
+    const at::Tensor srcRef = src;
+    const at::Tensor dstRef = dst;
     auto syn_error = device.copy_data_to_device(
         src.data_ptr(),
         reinterpret_cast<synapse_helpers::device_ptr>(dst.data_ptr()),
@@ -673,7 +676,7 @@ void habana_helpers::copy_data_to_device(
         src.data_ptr(),
         reinterpret_cast<synapse_helpers::device_ptr>(dst.data_ptr()),
         src.nbytes(),
-        [srcRef, dstRef, &copyDone]() { copyDone = true; });
+        [&copyDone]() { copyDone = true; });
     TORCH_CHECK(syn_error.status == 0, syn_error.error);
     // wait for copy completion
     while (!copyDone) {
@@ -691,12 +694,15 @@ void habana_helpers::copy_data_within_device(
     const at::Tensor& src,
     const at::Tensor& dst,
     bool non_blocking) {
-  const at::Tensor srcRef = src;
-  const at::Tensor dstRef = dst;
   auto device_id = dst.device().index();
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
 
   if (non_blocking) {
+    // keeps a reference to the tensor it is
+    // operating on to prevent it from being deallocated while the
+    // operation is still in flight.
+    const at::Tensor srcRef = src;
+    const at::Tensor dstRef = dst;
     auto syn_error = device.copy_data_within_device(
         reinterpret_cast<synapse_helpers::device_ptr>(src.data_ptr()),
         reinterpret_cast<synapse_helpers::device_ptr>(dst.data_ptr()),
@@ -709,7 +715,7 @@ void habana_helpers::copy_data_within_device(
         reinterpret_cast<synapse_helpers::device_ptr>(src.data_ptr()),
         reinterpret_cast<synapse_helpers::device_ptr>(dst.data_ptr()),
         src.nbytes(),
-        [srcRef, dstRef, &copyDone]() { copyDone = true; });
+        [&copyDone]() { copyDone = true; });
     TORCH_CHECK(syn_error.status == 0, syn_error.error);
     // wait for copy completion
     while (!copyDone) {

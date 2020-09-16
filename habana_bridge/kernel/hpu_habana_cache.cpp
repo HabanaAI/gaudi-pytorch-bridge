@@ -254,11 +254,11 @@ void RecipeValueSpec::launch (at::ArrayRef<torch::jit::IValue> input_refs) {
   }
 
   if (device.IsStreamASyncEnabled()) {
+    const auto &recipe_ptr = recipe;
     // regsiter an event on the compute
     device.register_producer_on_stream(
-        std::move(outDevPtr), stream_handle, [ptRefs, this, &recipe_counter]() {
+        std::move(outDevPtr), stream_handle, [&ptRefs, recipe_ptr, &recipe_counter]() {
           recipe_counter.decrease_and_notify();
-          nop();
           return;
         });
   } else {

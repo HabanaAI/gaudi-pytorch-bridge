@@ -118,7 +118,6 @@ struct RecipeValueSpec {
 
   void launch(at::ArrayRef<torch::jit::IValue> input_refs);
 
-  void nop () {}
   void print_hbuff(
       size_t buf_idx,
       std::ofstream& out,
