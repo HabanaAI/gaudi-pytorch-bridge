@@ -362,11 +362,12 @@ Tensor& sum_IntList_out_hpu(
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
   std::vector<at::Tensor> pt_inputs{self};
   // Build Params for the graph
-  std::vector<c10::IValue> stack = {IValue(output),
-                                    IValue(self),
-                                    IValue(dim),
-                                    IValue(keepdim),
-                                    IValue(dtype)};
+  std::vector<c10::IValue> stack = {
+      IValue(output),
+      IValue(self),
+      IValue(dim),
+      IValue(keepdim),
+      IValue(dtype)};
   // Create the operator
   SumDimOutOperator Op(device_id, node_type);
   size_t key = Op.GetRecipeKey(node_type, stack);
@@ -536,11 +537,12 @@ Tensor& mean_dim_out_hpu(
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
   std::vector<at::Tensor> pt_inputs{self};
   // Build Params for the graph
-  std::vector<c10::IValue> stack = {IValue(output),
-                                    IValue(self),
-                                    IValue(dim),
-                                    IValue(keepdim),
-                                    IValue(dtype)};
+  std::vector<c10::IValue> stack = {
+      IValue(output),
+      IValue(self),
+      IValue(dim),
+      IValue(keepdim),
+      IValue(dtype)};
   // Create the operator
   MeanDimOutOperator Op(device_id, node_type);
   size_t key = Op.GetRecipeKey(node_type, stack);
@@ -715,7 +717,10 @@ Tensor mean_hpu(const Tensor& self, c10::optional<ScalarType> dtype) {
   at::ScalarType scalar_type = self.scalar_type();
   std::string node_type =
       "reduce_mean_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
-
+  if (self.dim() == 0) {
+    PT_KERNEL_END;
+    return self;
+  }
   size_t device_id = self.device().index();
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
   std::vector<at::Tensor> pt_inputs{self};
