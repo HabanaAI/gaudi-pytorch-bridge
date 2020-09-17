@@ -251,29 +251,3 @@ static auto& KernelRegistry =
           return std::make_shared<ToDtypeOperator>(device_id, node_type);
         });
 
-static auto registry =
-    torch::RegisterOperators()
-        .op(torch::RegisterOperators::options()
-                .schema(
-                    "aten::copy_(Tensor(a!) self, Tensor src, bool non_blocking=False) -> Tensor(a!)")
-                .impl_unboxedOnlyKernel<decltype(copy_hpu_), &copy_hpu_>(
-                    DispatchKey::HABANATensorId)
-                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-        .op(torch::RegisterOperators::options()
-                .schema(
-                    "aten::as_strided(Tensor(a) self, int[] size, int[] stride, int? storage_offset=None) -> Tensor(a)")
-                .impl_unboxedOnlyKernel<
-                    decltype(as_strided_hpu),
-                    &as_strided_hpu>(DispatchKey::HABANATensorId)
-                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-        .op(torch::RegisterOperators::options()
-                .schema(
-                    "aten::set_.source_Storage_storage_offset( Tensor(a !) self, Storage source, int storage_offset, int[] size, int[] stride = []) ->Tensor(a !)")
-                .impl_unboxedOnlyKernel<decltype(set_hpu_), &set_hpu_>(
-                    DispatchKey::HABANATensorId)
-                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-        .op(torch::RegisterOperators::options()
-                .schema("aten::view(Tensor(a) self, int[] size) -> Tensor(a)")
-                .impl_unboxedOnlyKernel<decltype(view_hpu), &view_hpu>(
-                    DispatchKey::HABANATensorId)
-                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));

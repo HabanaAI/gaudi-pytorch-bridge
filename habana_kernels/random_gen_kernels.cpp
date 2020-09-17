@@ -446,31 +446,4 @@ static auto& KernelRegistry =
               return std::make_shared<BernoulliScalarOperator>(device_id, node_type);
             });
 
-static auto registry =
-    torch::RegisterOperators()
-        .op(torch::RegisterOperators::options()
-                .schema(
-                    "aten::uniform_(Tensor(a!) self, float from=0, float to=1, *, Generator? generator=None) -> Tensor(a!)")
-                .impl_unboxedOnlyKernel<decltype(uniform_hpu), &uniform_hpu>(
-                    DispatchKey::HABANATensorId)
-                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-        .op(torch::RegisterOperators::options()
-                .schema(
-                    "aten::normal_(Tensor(a!) self, float mean=0, float std=1, *, Generator? generator=None) -> Tensor(a!)")
-                .impl_unboxedOnlyKernel<decltype(normal_hpu), &normal_hpu>(
-                    DispatchKey::HABANATensorId)
-                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-        .op(torch::RegisterOperators::options()
-                .schema(
-                    "aten::bernoulli(Tensor self, *, Generator? generator=None) -> Tensor")
-                .impl_unboxedOnlyKernel<
-                    decltype(bernoulli_hpu),
-                    &bernoulli_hpu>(DispatchKey::HABANATensorId)
-                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-        .op(torch::RegisterOperators::options()
-                .schema(
-                    "aten::bernoulli_.float(Tensor(a!) self, float p=0.5, *, Generator? generator=None) -> Tensor(a!)")
-                .impl_unboxedOnlyKernel<
-                    decltype(bernoulli_scalar_hpu),
-                    &bernoulli_scalar_hpu>(DispatchKey::HABANATensorId)
-                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));
+

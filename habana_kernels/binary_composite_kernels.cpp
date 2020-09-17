@@ -289,29 +289,4 @@ static auto& KernelRegistry =
               return std::make_shared<AddcdivOperator>(device_id, node_type);
             });
 
-static auto registry =
-    torch::RegisterOperators()
-        .op(torch::RegisterOperators::options()
-                .schema(
-                    "aten::addcmul(Tensor self, Tensor tensor1, Tensor tensor2, *, Scalar value=1) -> Tensor")
-                .impl_unboxedOnlyKernel<decltype(addcmul_hpu), &addcmul_hpu>(
-                    DispatchKey::HABANATensorId)
-                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-        .op(torch::RegisterOperators::options()
-                .schema(
-                    "aten::addcmul_(Tensor(a !) self, Tensor tensor1, Tensor tensor2, *, Scalar value = 1) -> Tensor(a !)")
-                .impl_unboxedOnlyKernel<decltype(addcmul_hpu_), &addcmul_hpu_>(
-                    DispatchKey::HABANATensorId)
-                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-        .op(torch::RegisterOperators::options()
-                .schema(
-                    "aten::addcdiv(Tensor self, Tensor tensor1, Tensor tensor2, *, Scalar value=1) -> Tensor")
-                .impl_unboxedOnlyKernel<decltype(addcdiv_hpu), &addcdiv_hpu>(
-                    DispatchKey::HABANATensorId)
-                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-        .op(torch::RegisterOperators::options()
-                .schema(
-                    "aten::addcdiv_(Tensor(a!) self, Tensor tensor1, Tensor tensor2, *, Scalar value=1) -> Tensor(a!)")
-                .impl_unboxedOnlyKernel<decltype(addcdiv_hpu_), &addcdiv_hpu_>(
-                    DispatchKey::HABANATensorId)
-                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));
+

@@ -1698,39 +1698,4 @@ static auto& KernelRegistry =
               return std::make_shared<NormOperator>(device_id, node_type);
             });
 
-static auto registry =
-    torch::RegisterOperators()
-        .op(torch::RegisterOperators::options()
-                .schema(
-                    "aten::native_batch_norm(Tensor input, Tensor? weight, Tensor? bias, Tensor? running_mean, Tensor? running_var, bool training, float momentum, float eps) -> (Tensor, Tensor, Tensor)")
-                .impl_unboxedOnlyKernel<
-                    decltype(batch_norm_hpu),
-                    &batch_norm_hpu>(DispatchKey::HABANATensorId)
-                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-        .op(torch::RegisterOperators::options()
-                .schema(
-                    "aten::native_batch_norm_backward(Tensor grad_out, Tensor input, Tensor? weight, Tensor? running_mean, Tensor? running_var, Tensor? save_mean, Tensor? save_invstd, bool train, float eps, bool[3] output_mask) -> (Tensor, Tensor, Tensor)")
-                .impl_unboxedOnlyKernel<
-                    decltype(batch_norm_bwd_hpu),
-                    &batch_norm_bwd_hpu>(DispatchKey::HABANATensorId)
-                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-        .op(torch::RegisterOperators::options()
-                .schema(
-                    "aten::native_layer_norm(Tensor input, Tensor? weight, Tensor? bias, int M, int N, float eps) -> (Tensor, Tensor, Tensor)")
-                .impl_unboxedOnlyKernel<
-                    decltype(layer_norm_hpu),
-                    &layer_norm_hpu>(DispatchKey::HABANATensorId)
-                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-        .op(torch::RegisterOperators::options()
-                .schema(
-                    "aten::native_layer_norm_backward(Tensor grad_out, Tensor input, Tensor mean, Tensor rstd, Tensor? weight, int M, int N, bool[3] output_mask) -> (Tensor, Tensor, Tensor)")
-                .impl_unboxedOnlyKernel<
-                    decltype(layer_norm_backward_hpu),
-                    &layer_norm_backward_hpu>(DispatchKey::HABANATensorId)
-                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-        .op(torch::RegisterOperators::options()
-                .schema("aten::norm.Scalar(Tensor self, Scalar p=2) -> Tensor")
-                .impl_unboxedOnlyKernel<
-                    decltype(norm_scalar_hpu),
-                    &norm_scalar_hpu>(DispatchKey::HABANATensorId)
-                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));
+

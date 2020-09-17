@@ -97,12 +97,3 @@ static auto& KernelRegistry = ::habana::KernelRegistry().add(
       return std::make_shared<habana::ThresholdBackwardOperator>(
           device_id, node_type);
     });
-
-static auto registry = torch::RegisterOperators().op(
-    torch::RegisterOperators::options()
-        .schema(
-            "aten::threshold_backward(Tensor grad_output, Tensor self, Scalar threshold) -> Tensor")
-        .impl_unboxedOnlyKernel<
-            decltype(threshold_backward_hpu),
-            &threshold_backward_hpu>(DispatchKey::HABANATensorId)
-        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));

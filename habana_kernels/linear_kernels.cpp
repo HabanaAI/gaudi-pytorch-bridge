@@ -722,39 +722,3 @@ static auto& KernelRegistry =
           return std::make_shared<habana::BmmOperator>(device_id, node_type);
         });
 
-static auto registry =
-    torch::RegisterOperators()
-        .op(torch::RegisterOperators::options()
-                .schema("aten::mm(Tensor self, Tensor mat2) -> Tensor")
-                .impl_unboxedOnlyKernel<decltype(mm_hpu), &mm_hpu>(
-                    DispatchKey::HABANATensorId)
-                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-        .op(torch::RegisterOperators::options()
-                .schema(
-                    "aten::addmm(Tensor self, Tensor mat1, Tensor mat2, *, Scalar beta = 1, Scalar alpha = 1) ->Tensor")
-                .impl_unboxedOnlyKernel<decltype(addmm_hpu), &addmm_hpu>(
-                    DispatchKey::HABANATensorId)
-                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-        .op(torch::RegisterOperators::options()
-                .schema(
-                    "aten::bmm.out(Tensor self, Tensor mat2, *, Tensor(a!) out) -> Tensor(a!)")
-                .impl_unboxedOnlyKernel<
-                    decltype(batch_gemm_out_hpu),
-                    &batch_gemm_out_hpu>(DispatchKey::HABANATensorId)
-                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-        .op(torch::RegisterOperators::options()
-                .schema("aten::bmm(Tensor self, Tensor mat2) -> Tensor")
-                .impl_unboxedOnlyKernel<
-                    decltype(batch_gemm_hpu),
-                    &batch_gemm_hpu>(DispatchKey::HABANATensorId)
-                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-        .op(torch::RegisterOperators::options()
-                .schema("aten::dot(Tensor self, Tensor tensor) -> Tensor")
-                .impl_unboxedOnlyKernel<decltype(dot_hpu), &dot_hpu>(
-                    DispatchKey::HABANATensorId)
-                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-        .op(torch::RegisterOperators::options()
-                .schema("aten::mv(Tensor self, Tensor vec)->Tensor")
-                .impl_unboxedOnlyKernel<decltype(mv_hpu), &mv_hpu>(
-                    DispatchKey::HABANATensorId)
-                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));

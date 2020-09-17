@@ -163,25 +163,3 @@ Tensor& masked_fill_scalar_hpu_(
   return masked_fill_hpu_(self, mask, value_tensor);
 }
 
-static auto registry =
-    torch::RegisterOperators()
-        .op(torch::RegisterOperators::options()
-                .schema(
-                    "aten::fill_.Scalar(Tensor(a!) self, Scalar value) -> Tensor(a!)")
-                .impl_unboxedOnlyKernel<decltype(fill_hpu_), &fill_hpu_>(
-                    DispatchKey::HABANATensorId)
-                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-        .op(torch::RegisterOperators::options()
-                .schema(
-                    "aten::masked_fill_.Tensor(Tensor(a!) self, Tensor mask, Tensor value) -> Tensor(a!)")
-                .impl_unboxedOnlyKernel<
-                    decltype(masked_fill_hpu_),
-                    &masked_fill_hpu_>(DispatchKey::HABANATensorId)
-                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-        .op(torch::RegisterOperators::options()
-                .schema(
-                    "aten::masked_fill_.Scalar(Tensor(a!) self, Tensor mask, Scalar value) -> Tensor(a!)")
-                .impl_unboxedOnlyKernel<
-                    decltype(masked_fill_scalar_hpu_),
-                    &masked_fill_scalar_hpu_>(DispatchKey::HABANATensorId)
-                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));

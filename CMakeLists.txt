@@ -57,7 +57,9 @@ add_library(habana_pytorch_plugin SHARED
   habana_kernels/fill_kernels.cpp
   habana_kernels/habana_operator.cpp
   habana_kernels/index_kernels.cpp
+  habana_kernels/kernels_register.cpp
   habana_kernels/kernel_utils.cpp
+  habana_kernels/lazy_kernels.cpp
   habana_kernels/linear_kernels.cpp
   habana_kernels/loss_kernels.cpp
   habana_kernels/norm_kernels.cpp
@@ -73,6 +75,7 @@ add_library(habana_pytorch_plugin SHARED
   habana_kernels/threshold_kernels.cpp
   habana_kernels/topk_kernels.cpp
   habana_kernels/unary_kernels.cpp
+  habana_kernels/wrap_kernels.cpp
 )
 target_compile_features(habana_pytorch_plugin PRIVATE cxx_std_14)
 target_compile_definitions(habana_pytorch_plugin PRIVATE "GENERIC_HELPERS" MAX_DEVICES_PER_BOX=8)

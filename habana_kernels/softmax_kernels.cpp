@@ -500,34 +500,3 @@ static auto& KernelRegistry =
                   device_id, node_type);
             });
 
-static auto registry =
-    torch::RegisterOperators()
-        .op(torch::RegisterOperators::options()
-                .schema(
-                    "aten::_log_softmax(Tensor self, int dim, bool half_to_float) -> Tensor")
-                .impl_unboxedOnlyKernel<
-                    decltype(habana::log_softmax_hpu),
-                    &habana::log_softmax_hpu>(DispatchKey::HABANATensorId)
-                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-        .op(torch::RegisterOperators::options()
-                .schema(
-                    "aten::_log_softmax_backward_data(Tensor grad_output, Tensor output, int dim, Tensor self) -> Tensor")
-                .impl_unboxedOnlyKernel<
-                    decltype(habana::log_softmax_backward_hpu),
-                    &habana::log_softmax_backward_hpu>(
-                    DispatchKey::HABANATensorId)
-                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-        .op(torch::RegisterOperators::options()
-                .schema(
-                    "aten::_softmax(Tensor self, int dim, bool half_to_float) -> Tensor")
-                .impl_unboxedOnlyKernel<
-                    decltype(habana::softmax_hpu),
-                    &habana::softmax_hpu>(DispatchKey::HABANATensorId)
-                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-        .op(torch::RegisterOperators::options()
-                .schema(
-                    "aten::_softmax_backward_data(Tensor grad_output, Tensor output, int dim, Tensor self) -> Tensor")
-                .impl_unboxedOnlyKernel<
-                    decltype(habana::softmax_backward_hpu),
-                    &habana::softmax_backward_hpu>(DispatchKey::HABANATensorId)
-                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));
