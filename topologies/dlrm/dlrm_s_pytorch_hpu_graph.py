@@ -27,11 +27,18 @@ import time
 import json
 # data generation
 import dlrm_data_pytorch as dp
+from operator import itemgetter
+import distributed_utils
+import torch.nn as nn
+from torch.nn.parallel import DistributedDataParallel as DDP
 
 # numpy
 import numpy as np
 import os
 import sys
+
+#debug
+#torch.autograd.set_detect_anomaly(True)
 
 torch.ops.load_library(os.path.join(os.environ['BUILD_ROOT_LATEST'], "libhabana_pytorch_plugin.so"))
 sys.path.insert(0, os.path.join(os.environ['BUILD_ROOT_LATEST']))
@@ -84,6 +91,32 @@ def printFnTrace(fnName):
 def PDT(tensorA):
     print(tensorA.detach().cpu().numpy())
 
+class AllToAllAcrossDevice(torch.autograd.Function):
+
+    @staticmethod
+    def forward(ctx, input_buffer: torch.Tensor):
+        output_buffer = torch.empty_like(input_buffer)
+        torch.distributed.all_to_all_single(output_buffer, input_buffer)
+        return output_buffer
+
+    @staticmethod
+    def backward(ctx, input_gradient):
+        output_gradient = torch.empty_like(input_gradient)
+        torch.distributed.all_to_all_single(output_gradient, input_gradient)
+        return output_gradient
+
+class PrintDataAcrossPass(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, input_buffer : torch.Tensor):
+        print('Forward Pass')
+        print(input_buffer.to("cpu"))
+        return input_buffer
+
+    @staticmethod
+    def backward(ctx, input_gradient):
+        print('Backward pass')
+        print(input_gradient.to("cpu"))
+        return input_gradient
 
 class gv():
     countUniqueIndices = []
@@ -376,11 +409,26 @@ class DLRM_Net_Habana(nn.Module):
         # approach 2: use Sequential container to wrap all layers
         return torch.nn.Sequential(*layers)
 
-    def create_emb(self, m, ln):
+    def create_emb(self, m, ln, valid_emb_table=None):
         emb_l = nn.ModuleList()
         create_optimizer()
+
+        if self.ndevices > 1:
+            self.valid_emb_table = valid_emb_table
+            if valid_emb_table is None:
+                valid_emb_table = np.arange(0, len(ln))
+
         for i in range(0, ln.size):
             n = ln[i]
+
+            if self.ndevices > 1:
+                # Not needed just to match with single chip run
+                if i not in valid_emb_table:
+                    W = np.random.uniform(
+                             low=-np.sqrt(1 / n), high=np.sqrt(1 / n), size=(n, m)
+                        ).astype(np.float32)
+                    continue
+
             # construct embedding operator
             if self.qr_flag and n > self.qr_threshold:
                 EE = QREmbeddingBag(n, m, self.qr_collisions,
@@ -435,6 +483,8 @@ class DLRM_Net_Habana(nn.Module):
         qr_threshold=200,
         md_flag=False,
         md_threshold=200,
+        rank=0,
+        batch_size=0,
     ):
         super(DLRM_Net_Habana, self).__init__()
 
@@ -455,6 +505,8 @@ class DLRM_Net_Habana(nn.Module):
             self.arch_interaction_itself = arch_interaction_itself
             self.sync_dense_params = sync_dense_params
             self.loss_threshold = loss_threshold
+            self.rank = rank
+            self.batch_size = batch_size
             # create variables for QR embedding if applicable
             self.qr_flag = qr_flag
             if self.qr_flag:
@@ -465,9 +517,22 @@ class DLRM_Net_Habana(nn.Module):
             self.md_flag = md_flag
             if self.md_flag:
                 self.md_threshold = md_threshold
+            self.m_spa = m_spa
+            self.ln_emb = ln_emb
+
             # create operators
             if ndevices <= 1:
                 self.emb_l = self.create_emb(m_spa, ln_emb)
+            else:
+                self.parallel_model_batch_size = batch_size // ndevices
+                valid_device_emb_table, all2all_reorder = distributed_utils.dlrm_get_emb_table_map(ln_emb, args.rank, self.ndevices)
+                if valid_device_emb_table is not None:
+                    self.valid_device_emb_table = valid_device_emb_table
+                else:
+                    self.valid_device_emb_table = []
+                self.all2all_reorder = all2all_reorder
+                self.emb_l = self.create_emb(m_spa, ln_emb, valid_device_emb_table)
+
             self.bot_l = self.create_mlp(ln_bot, sigmoid_bot)
             self.top_l = self.create_mlp(ln_top, sigmoid_top)
 
@@ -588,14 +653,44 @@ class DLRM_Net_Habana(nn.Module):
         #print("z_return: ", z.detach().cpu().numpy())
         return z
 
-    def parallel_forward(self, dense_x, lS_o, lS_i):
+    def exchange_emb(self, ly, batch_size, valid_device_emb_table):
+        max_table_per_device = (len(self.ln_emb) + self.ndevices - 1) // self.ndevices
+        #print("device == ", device)
+        exchange_input_buffer = torch.empty(batch_size*self.ndevices, max_table_per_device*self.m_spa, device=device, dtype = ly[0].dtype)
+        for i in range(len(ly)):
+            exchange_input_buffer[:,i*self.m_spa:(i+1)*self.m_spa] = ly[i].to(device)
+        #exchange_input_buffer = PrintDataAcrossPass.apply(exchange_input_buffer)
+        exchange_input_buffer = exchange_input_buffer.to(ly[0].device)
+        exchange_output_buffer = AllToAllAcrossDevice.apply(exchange_input_buffer)
+        #exchange_output_buffer = PrintDataAcrossPass.apply(exchange_output_buffer)
+        rank_specific_data = []
+        for i in range(self.ndevices):
+            rank_specific_data.append(exchange_output_buffer[i*batch_size:(i+1)*batch_size,:])
+        n = len(self.ln_emb) % self.ndevices
+        if n == 0:
+            n = self.ndevices
+        out_ly = []
+        for i in range(n):
+            for j in range(max_table_per_device):
+                out_ly.append(rank_specific_data[i][:,j*self.m_spa:(j+1)*self.m_spa])
+        for i in range(n, self.ndevices):
+            for j in range(max_table_per_device-1):
+                out_ly.append(rank_specific_data[i][:,j*self.m_spa:(j+1)*self.m_spa])
+        # Needed to match with single chip
+        out_ly = [out_ly[pos] for pos in self.all2all_reorder]
+        return out_ly
+
+    def parallel_forward(self, dense_x, lS_o, lS_i, lS_vc_fwd, lS_o_bwd, lS_i_bwd, lS_vc_bwd, lS_grad_wt):
         ### prepare model (overwrite) ###
         # WARNING: # of devices must be >= batch size in parallel_forward call
-        batch_size = dense_x.size()[0]
+        #batch_size = dense_x.size()[0]
+        batch_size = self.parallel_model_batch_size
         ndevices = min(self.ndevices, batch_size, len(self.emb_l))
         device_ids = range(ndevices)
         # WARNING: must redistribute the model if mini-batch size changes(this is common
         # for last mini-batch, when # of elements in the dataset/batch size is not even
+
+        '''
         if self.parallel_model_batch_size != batch_size:
             self.parallel_model_is_not_prepared = True
 
@@ -619,10 +714,12 @@ class DLRM_Net_Habana(nn.Module):
         # scatter dense features (data parallelism)
         # print(dense_x.device)
         dense_x = scatter(dense_x, device_ids, dim=0)
+        '''
         # distribute sparse features (model parallelism)
         if (len(self.emb_l) != len(lS_o)) or (len(self.emb_l) != len(lS_i)):
             sys.exit("ERROR: corrupted model input detected in parallel_forward call")
 
+        '''
         t_list = []
         i_list = []
         for k, _ in enumerate(self.emb_l):
@@ -643,8 +740,10 @@ class DLRM_Net_Habana(nn.Module):
         # debug prints
         # print(x)
 
+        '''
+        x = self.apply_mlp(dense_x, self.bot_l)
         # embeddings
-        ly = self.apply_emb(lS_o, lS_i, self.emb_l)
+        ly = self.apply_emb(lS_o, lS_i, lS_vc_fwd, lS_o_bwd, lS_i_bwd, lS_vc_bwd, lS_grad_wt, self.emb_l)
         # debug prints
         # print(ly)
 
@@ -657,6 +756,7 @@ class DLRM_Net_Habana(nn.Module):
         if len(self.emb_l) != len(ly):
             sys.exit("ERROR: corrupted intermediate result in parallel_forward call")
 
+        '''
         t_list = []
         for k, _ in enumerate(self.emb_l):
             d = torch.device("cuda:" + str(k % ndevices))
@@ -666,7 +766,12 @@ class DLRM_Net_Habana(nn.Module):
         ly = list(map(lambda y: list(y), zip(*t_list)))
         # debug prints
         # print(ly)
+        '''
+        ly = self.exchange_emb(ly, batch_size, valid_device_emb_table)
+        z0 = self.interact_features(x, ly)
+        p0 = self.apply_mlp(z0, self.top_l)
 
+        '''
         # interactions
         z = []
         for k in range(ndevices):
@@ -686,6 +791,7 @@ class DLRM_Net_Habana(nn.Module):
         ### gather the distributed results ###
         p0 = gather(p, self.output_d, dim=0)
 
+        '''
         # clamp output if needed
         if 0.0 < self.loss_threshold and self.loss_threshold < 1.0:
             z0 = torch.clamp(
@@ -799,6 +905,7 @@ if __name__ == "__main__":
     parser.add_argument('--hmp-fp32', default='', help='path to fp32 ops list in hmp O1 mode')
     parser.add_argument('--hmp-opt-level', default='O1', help='choose optimization level for hmp')
     parser.add_argument('--hmp-verbose', action='store_true', help='enable verbose mode for hmp')
+    parser.add_argument("--distributed", action="store_true", default=False)
     parser.add_argument('--log-device-mem-alloc', action='store_true',
                         help='log live memory allocations on device at the given point')
 
@@ -828,6 +935,10 @@ if __name__ == "__main__":
     if (args.test_num_workers < 0):
         # if the parameter is not set, use the same parameter for training
         args.test_num_workers = args.num_workers
+
+    if args.distributed:
+        print("Start configuring")
+        distributed_utils.init_distributed_mode(args)
 
     use_gpu = args.use_gpu and torch.cuda.is_available()
     if use_gpu:
@@ -995,7 +1106,17 @@ if __name__ == "__main__":
             print([S_i.detach().cpu().tolist() for S_i in lS_i])
             print(T.detach().cpu().numpy())
 
-    ndevices = min(ngpus, args.mini_batch_size, num_fea - 1) if use_gpu else -1
+    if args.distributed:
+        ndevices = args.world_size
+        rank = args.rank
+        world_size = args.world_size
+    else:
+        rank = 0
+        world_size = 1
+        if use_gpu and not use_hpu:
+            ndevices = min(ngpus, args.mini_batch_size, num_fea - 1)
+        else:
+            ndevices = -1
 
     ### construct the neural network specified above ###
     # WARNING: to obtain exactly the same initialization for
@@ -1020,6 +1141,8 @@ if __name__ == "__main__":
         qr_threshold=args.qr_threshold,
         md_flag=args.md_flag,
         md_threshold=args.md_threshold,
+        rank=rank,
+        batch_size=args.mini_batch_size
 
     )
     # print('Net at Init')
@@ -1061,9 +1184,16 @@ if __name__ == "__main__":
         dlrm = dlrm.to(device)  # .cuda()
         if dlrm.ndevices > 1:
             dlrm.emb_l = dlrm.create_emb(m_spa, ln_emb)
+
     if use_hpu:
         # dlrm = dlrm.to(device)
         dlrm_habana = dlrm_habana.to(device)
+        if dlrm_habana.ndevices > 1:
+            dlrm_habana.bot_l = DDP(dlrm_habana.bot_l)
+            dlrm_habana.top_l = DDP(dlrm_habana.top_l)
+            valid_device_emb_table, _ = distributed_utils.dlrm_get_emb_table_map(ln_emb, args.rank, args.world_size)
+            if valid_device_emb_table is None:
+                valid_device_emb_table = []
         trainMetaData = TrainMetaData(dlrm_habana, device)
         if args.log_device_mem_alloc:
             print('Device Memory allocation logging is enabled',)
@@ -1081,14 +1211,19 @@ if __name__ == "__main__":
     else:
         sys.exit("ERROR: --loss-function=" + args.loss_function + " is not supported")
 
+    if args.distributed:
+        slr = args.learning_rate*world_size
+    else:
+        slr = args.learning_rate
+
     if not args.inference_only:
         # specify the optimizer algorithm
         if args.optimizer == "sgd":
             optimizer = torch.optim.SGD(list(dlrm_habana.top_l.parameters())
-                                    + list(dlrm_habana.bot_l.parameters()), lr=args.learning_rate)
+                                    + list(dlrm_habana.bot_l.parameters()), lr=slr)
         elif args.optimizer == "adagrad":
             optimizer = torch.optim.Adagrad(list(dlrm_habana.top_l.parameters())
-                                    + list(dlrm_habana.bot_l.parameters()), lr=args.learning_rate)
+                                    + list(dlrm_habana.bot_l.parameters()), lr=slr)
         else:
             sys.exit("ERROR: --optimizer=" + args.optimizer + " is not supported")
 
@@ -1270,6 +1405,22 @@ if __name__ == "__main__":
                     continue
                 training_resumed = True
 
+                if args.distributed:
+                    # mini batch size is expected to be a multiple of world_size
+                    train_batch_size = int(X.size()[0]/args.world_size)
+                    X = np.take(X,np.arange(args.rank*train_batch_size,(args.rank+1)*train_batch_size), 0)
+                    if valid_device_emb_table is not None:
+                        lS_o = np.take(lS_o, valid_device_emb_table, 0)
+                        lS_i = itemgetter(*valid_device_emb_table)(lS_i)
+                    else:
+                        lS_o = []
+                        lS_i = []
+                    T = T[args.rank*train_batch_size:(args.rank+1)*train_batch_size]
+                    if isinstance(lS_i, tuple):
+                        lS_i = list(lS_i)
+                    else:
+                        lS_i = [lS_i]
+
                 # embedding bag on Habana needs the last offset to be additionally appended which is pointing to end of indices
                 lS2_o_scratch = []
                 for kk in range(len(lS_i)):
@@ -1283,7 +1434,10 @@ if __name__ == "__main__":
                 with torch.no_grad():
                     for kk, sparse_index_group_batch in enumerate(lS_i):
                         sparse_offset_group_batch = lS_o[kk]
-                        apply_preproc(sparse_offset_group_batch, sparse_index_group_batch, kk, m_spa, ln_emb)
+                        if not args.distributed:
+                            apply_preproc(sparse_offset_group_batch, sparse_index_group_batch, kk, m_spa, ln_emb)
+                        else:
+                            apply_preproc(sparse_offset_group_batch, sparse_index_group_batch, kk, m_spa, ln_emb[valid_device_emb_table])
 
                 lS2_o = [S_o.to(torch.int32).to(device, non_blocking=True) for S_o in lS_o] if isinstance(lS_o, list) \
                     else lS_o.to(torch.int32).to(device, non_blocking=True)
@@ -1430,10 +1584,25 @@ if __name__ == "__main__":
 
                     for i, (X_test, lS_o_test, lS_i_test, T_test) in enumerate(test_ld):
                         # early exit if nbatches was set by the user and was exceeded
-                        if nbatches > 0 and i >= nbatches  or X_test.size()[0] < args.test_mini_batch_size:
+                        if (nbatches > 0 and i >= nbatches)  or X_test.size()[0] < args.test_mini_batch_size:
                             break
 
                         t1_test = time_wrap(use_gpu)
+
+                        if args.distributed:
+                            test_batch_size = int(X_test.size()[0]/args.world_size)
+                            X_test = np.take(X_test, np.arange(args.rank * test_batch_size, (args.rank + 1) * test_batch_size),0)
+                            if valid_device_emb_table is not None:
+                                lS_o_test = np.take(lS_o_test, valid_device_emb_table, 0)
+                                lS_i_test = itemgetter(*valid_device_emb_table)(lS_i_test)
+                            else:
+                                lS_o_test = []
+                                lS_i_test = []
+                            T_test = T_test[args.rank * test_batch_size : (args.rank + 1) * test_batch_size]
+                            if isinstance(lS_i_test, tuple):
+                                lS_i_test = list(lS_i_test)
+                            else:
+                                lS_i_test = [lS_i_test]
 
                         # embedding bag on Habana needs the last offset to be additionally appended which is pointing to end of indices
                         lS2_o_scratch = []
@@ -1448,7 +1617,10 @@ if __name__ == "__main__":
                         with torch.no_grad():
                             for kk, sparse_index_group_batch in enumerate(lS_i_test):
                                 sparse_offset_group_batch = lS_o_test[kk]
-                                apply_preproc(sparse_offset_group_batch, sparse_index_group_batch, kk, m_spa, ln_emb)
+                                if not args.distributed:
+                                    apply_preproc(sparse_offset_group_batch, sparse_index_group_batch, kk, m_spa, ln_emb)
+                                else:
+                                    apply_preproc(sparse_offset_group_batch, sparse_index_group_batch, kk, m_spa, ln_emb[valid_device_emb_table])
 
                         lS2_o_test = [S_o.to(torch.int32).to(device, non_blocking=True) for S_o in lS_o_test] if isinstance(lS_o_test, list) \
                             else lS_o.to(torch.int32).to(device, non_blocking=True)
