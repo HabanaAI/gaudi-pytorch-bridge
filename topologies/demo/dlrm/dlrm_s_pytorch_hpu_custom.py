@@ -35,6 +35,7 @@ import torch.nn as nn
 import HabanaEmbeddingBag_cpp
 import preproc_cpp
 import habanaOptimizerSparseSgd_cpp
+import habanaOptimizerSparseAdagrad_cpp
 
 
 from torch.nn.parallel import DistributedDataParallel as DDP
@@ -217,6 +218,8 @@ class HabanaEmbeddingBag(torch.nn.Module):
                 ).astype(np.float32)
                 # approach 1
         self.weight = nn.Parameter(torch.tensor(W, requires_grad=True))
+        if args.optimizer == 'adagrad':
+            self.moments = nn.Parameter(torch.zeros(self.weight.data.shape, requires_grad=False))
         self.instance = instance
 
     def forward(self, indices, offsets, valid_count, kernel_mode,instance):
@@ -235,21 +238,45 @@ class HabanaOptimizerSparseSgdFunction(torch.autograd.Function):
         return torch.ones([4,4])
 
 class HabanaOptimizerSparseSgd(torch.nn.Module):
-    def __init__(self,instance):
+    def __init__(self):
         super(HabanaOptimizerSparseSgd, self).__init__()
-        self.instance = instance
 
     def forward(self, gradients,weights,moments,indices, learning_rate,valid_count):
         return HabanaOptimizerSparseSgdFunction.apply(gradients,weights,moments, indices, learning_rate, valid_count)
+
+
+class HabanaOptimizerSparseAdagradFunction(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, gradients, weights_in, moments_in, indices, learning_rate, valid_count):
+        outputs = habanaOptimizerSparseAdagrad_cpp.forward(
+            gradients, weights_in, moments_in, indices, learning_rate, valid_count)
+        return outputs
+
+    @staticmethod
+    def backward(ctx):
+        # TODO
+        return torch.ones([4, 4])
+
+
+class HabanaOptimizerSparseAdagrad(torch.nn.Module):
+    def __init__(self):
+        super(HabanaOptimizerSparseAdagrad, self).__init__()
+
+    def forward(self, gradients, weights, moments, indices, learning_rate, valid_count):
+        return HabanaOptimizerSparseAdagradFunction.apply(gradients, weights, moments, indices, learning_rate, valid_count)
 
 
 def create_preproc(i):
     # print('Creating Preproc for instance {}'.format(i))
     gv.HabanaDlrmPreproc1.append(HabanaDlrmPreProc(i))
 
-def create_optimizer(i):
+def create_optimizer():
     # print('Creating optimizer for instance {}'.format(i))
-    gv.HabanaDlrmSparseSgd1.append(HabanaOptimizerSparseSgd(i))
+    if args.optimizer == "sgd":
+        gv.HabanaDlrmSparseOpt = HabanaOptimizerSparseSgd()
+    elif args.optimizer == "adagrad":
+        gv.HabanaDlrmSparseOpt = HabanaOptimizerSparseAdagrad()
+
 
 def apply_preproc(sparse_offset_group_batch,sparse_index_group_batch,i):
     printFnTrace(inspect.getframeinfo(inspect.currentframe()).function)
@@ -271,18 +298,24 @@ def apply_optimizer_update():
     # import copy
     for i in range(gv.numEmbeddingTables):
         countUniqueIndices = gv.countUniqueIndices[i].to(device, non_blocking = True)
-        old_moments = torch.empty_like(dlrm_habana.emb_l[i].weight)
         if args.distributed:
             lr = torch.tensor([args.learning_rate/args.world_size]).to(device)
         else:
             lr = torch.tensor([args.learning_rate]).to(device)
+        if args.optimizer == 'adagrad':
+            moments = dlrm_habana.emb_l[i].moments.data
+        else:
+            moments = torch.empty_like(dlrm_habana.emb_l[i].weight)
 
         gradient = torch.empty_like(dlrm_habana.emb_l[i].weight)
         gradient.copy_(gv.coalesced_grads[i].cpu()) #HACK
         weight = dlrm_habana.emb_l[i].weight.data
-        upd_emb_weights, upd_emb_moments = gv.HabanaDlrmSparseSgd1[i](gradient,weight, old_moments,gv.uniqueIndexes[i],lr,countUniqueIndices)
+        upd_emb_weights, upd_emb_moments = gv.HabanaDlrmSparseOpt(
+            gradient,weight, moments, gv.uniqueIndexes[i],lr,countUniqueIndices)
 
         dlrm_habana.emb_l[i].weight.data = upd_emb_weights.to(device)
+        if args.optimizer == 'adagrad':
+            dlrm_habana.emb_l[i].moments.data = upd_emb_moments
 
 class DLRM_Net_Habana(nn.Module):
     def create_mlp(self, ln, sigmoid_layer):
@@ -333,6 +366,7 @@ class DLRM_Net_Habana(nn.Module):
             if self.valid_emb_table is None:
                 self.valid_emb_table = np.arange(0, len(ln))
 
+        create_optimizer()
         for i in range(0, ln.size):
             n = ln[i]
 
@@ -362,7 +396,6 @@ class DLRM_Net_Habana(nn.Module):
                 EE = HabanaEmbeddingBag(n, m,i)
                 # print('EmbeddingBag created for config{} , instance {}'.format((n,m),i))
                 create_preproc(i)
-                create_optimizer(i)
                 gv.countUniqueIndices.append(torch.empty(1,1))
                 gv.uniqueIndexes.append( torch.empty(1,1))
                 gv.outputRows.append(torch.empty(1,1))
@@ -734,7 +767,7 @@ if __name__ == "__main__":
     parser.add_argument("--qr-collisions", type=int, default=4)
     # activations and loss
     parser.add_argument("--activation-function", type=str, default="relu")
-    parser.add_argument("--loss-function", type=str, default="mse")  # mse or bce or wbce
+    parser.add_argument("--loss-function", type=str, default="bce")  # mse or bce or wbce
     parser.add_argument("--loss-weights", type=str, default="1.0-1.0")  # for wbce
     parser.add_argument("--loss-threshold", type=float, default=0.0)  # 1.0e-7
     parser.add_argument("--round-targets", type=bool, default=False)
@@ -763,6 +796,7 @@ if __name__ == "__main__":
     parser.add_argument("--print-precision", type=int, default=5)
     parser.add_argument("--numpy-rand-seed", type=int, default=123)
     parser.add_argument("--sync-dense-params", type=bool, default=True)
+    parser.add_argument("--optimizer", type=str, default="sgd")
     # inference
     parser.add_argument("--inference-only", action="store_true", default=False)
     # onnx
@@ -1096,10 +1130,17 @@ if __name__ == "__main__":
     if not args.inference_only:
         # specify the optimizer algorithm
         if args.distributed:
-            optimizer = torch.optim.SGD(list(dlrm_habana.top_l.parameters()) + list(dlrm_habana.bot_l.parameters()), lr=args.learning_rate*args.world_size)
+            lr_change = args.learning_rate*args.world_size
         else:
-            optimizer = torch.optim.SGD(list(dlrm_habana.top_l.parameters()) + list(dlrm_habana.bot_l.parameters()), lr=args.learning_rate)
-
+            lr_change = args.learning_rate
+        if args.optimizer == "sgd":
+            optimizer = torch.optim.SGD(list(dlrm_habana.top_l.parameters())
+                                    + list(dlrm_habana.bot_l.parameters()), lr=lr_change)
+        elif args.optimizer == "adagrad":
+            optimizer = torch.optim.Adagrad(list(dlrm_habana.top_l.parameters())
+                                    + list(dlrm_habana.bot_l.parameters()), lr=lr_change)
+        else:
+            sys.exit("ERROR: --optimizer=" + args.optimizer + " is not supported")
 
     ### main loop ###
     def time_wrap(use_gpu):

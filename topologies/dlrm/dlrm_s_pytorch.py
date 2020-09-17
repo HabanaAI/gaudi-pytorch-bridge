@@ -525,7 +525,7 @@ if __name__ == "__main__":
     parser.add_argument("--qr-collisions", type=int, default=4)
     # activations and loss
     parser.add_argument("--activation-function", type=str, default="relu")
-    parser.add_argument("--loss-function", type=str, default="mse")  # or bce or wbce
+    parser.add_argument("--loss-function", type=str, default="bce")  # or bce or wbce
     parser.add_argument("--loss-weights", type=str, default="1.0-1.0")  # for wbce
     parser.add_argument("--loss-threshold", type=float, default=0.0)  # 1.0e-7
     parser.add_argument("--round-targets", type=bool, default=False)
@@ -554,6 +554,7 @@ if __name__ == "__main__":
     parser.add_argument("--print-precision", type=int, default=5)
     parser.add_argument("--numpy-rand-seed", type=int, default=123)
     parser.add_argument("--sync-dense-params", type=bool, default=True)
+    parser.add_argument("--optimizer", type=str, default="sgd")
     # inference
     parser.add_argument("--inference-only", action="store_true", default=False)
     # onnx
@@ -842,7 +843,12 @@ if __name__ == "__main__":
 
     if not args.inference_only:
         # specify the optimizer algorithm
-        optimizer = torch.optim.SGD(dlrm.parameters(), lr=args.learning_rate)
+        if args.optimizer == "sgd":
+            optimizer = torch.optim.SGD(dlrm.parameters(), lr=args.learning_rate)
+        elif args.optimizer == "adagrad":
+            optimizer = torch.optim.Adagrad(dlrm.parameters(), lr=args.learning_rate)
+        else:
+            sys.exit("ERROR: --optimizer=" + args.optimizer + " is not supported")
 
     ### main loop ###
     def time_wrap(use_gpu):

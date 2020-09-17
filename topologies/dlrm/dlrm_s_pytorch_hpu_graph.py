@@ -12,6 +12,7 @@ from torch.nn.parallel.scatter_gather import gather, scatter
 from torch.nn.parallel.replicate import replicate
 from torch.nn.parallel.parallel_apply import parallel_apply
 import habanaOptimizerSparseSgd_cpp
+import habanaOptimizerSparseAdagrad_cpp
 import preproc_cpp
 import torch.nn as nn
 import torch
@@ -94,7 +95,7 @@ class gv():
     valid_count_bwd = []
     valid_count_fwd = []
     HabanaDlrmPreproc1 = []
-    HabanaDlrmSparseSgd1 = []
+    HabanaDlrmSparseOpt = None
     indices_fwd = []
     indices_bwd = []
     numEmbeddingTables = 0
@@ -193,8 +194,9 @@ class HabanaEmbeddingBag(torch.nn.Module):
             low=-np.sqrt(1 / n), high=np.sqrt(1 / n), size=(n, m)
         ).astype(np.float32)
         # approach 1
-        self.weight = nn.Parameter(torch.tensor(W, requires_grad=False))
-        #self.old_moments = nn.Parameter(torch.empty(self.weight.data.shape, requires_grad=False))
+        self.weight = nn.Parameter(torch.tensor(W, requires_grad=True))
+        if args.optimizer == 'adagrad':
+            self.moments = nn.Parameter(torch.zeros(self.weight.data.shape, requires_grad=False))
         self.instance = instance
 
     def forward(self, indices, offsets, valid_count_fwd, indices_bwd, offsets_bwd, valid_count_bwd, grad_weights, instance):
@@ -217,22 +219,43 @@ class HabanaOptimizerSparseSgdFunction(torch.autograd.Function):
 
 
 class HabanaOptimizerSparseSgd(torch.nn.Module):
-    def __init__(self, instance):
+    def __init__(self):
         super(HabanaOptimizerSparseSgd, self).__init__()
-        self.instance = instance
 
     def forward(self, gradients, weights, moments, indices, learning_rate, valid_count):
         return HabanaOptimizerSparseSgdFunction.apply(gradients, weights, moments, indices, learning_rate, valid_count)
 
+class HabanaOptimizerSparseAdagradFunction(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, gradients, weights_in, moments_in, indices, learning_rate, valid_count):
+        outputs = habanaOptimizerSparseAdagrad_cpp.forward(
+            gradients, weights_in, moments_in, indices, learning_rate, valid_count)
+        return outputs
+
+    @staticmethod
+    def backward(ctx):
+        # TODO
+        return torch.ones([4, 4])
+
+
+class HabanaOptimizerSparseAdagrad(torch.nn.Module):
+    def __init__(self):
+        super(HabanaOptimizerSparseAdagrad, self).__init__()
+
+    def forward(self, gradients, weights, moments, indices, learning_rate, valid_count):
+        return HabanaOptimizerSparseAdagradFunction.apply(gradients, weights, moments, indices, learning_rate, valid_count)
 
 def create_preproc(i):
     # print('Creating Preproc for instance {}'.format(i))
     gv.HabanaDlrmPreproc1.append(HabanaDlrmPreProc(i))
 
 
-def create_optimizer(i):
+def create_optimizer():
     # print('Creating optimizer for instance {}'.format(i))
-    gv.HabanaDlrmSparseSgd1.append(HabanaOptimizerSparseSgd(i))
+    if args.optimizer == "sgd":
+        gv.HabanaDlrmSparseOpt = HabanaOptimizerSparseSgd()
+    elif args.optimizer == "adagrad":
+        gv.HabanaDlrmSparseOpt = HabanaOptimizerSparseAdagrad()
 
 
 def apply_preproc(sparse_offset_group_batch, sparse_index_group_batch, i, m, ln_emb):
@@ -300,12 +323,17 @@ def apply_optimizer_update():
     #import pudb
     for i in range(gv.numEmbeddingTables):
         weight = dlrm_habana.emb_l[i].weight.data
-        old_moments = torch.empty_like(weight)
-        upd_emb_weights, upd_emb_moments = gv.HabanaDlrmSparseSgd1[i](
-            gv.coalesced_grads[i], weight, old_moments, gv.uniqueIndexes[i], gv.lr, gv.countUniqueIndices[i])
+        if args.optimizer == 'adagrad':
+            moments = dlrm_habana.emb_l[i].moments.data
+        else:
+            moments = torch.empty_like(weight)
+
+        upd_emb_weights, upd_emb_moments = gv.HabanaDlrmSparseOpt(
+            gv.coalesced_grads[i], weight, moments, gv.uniqueIndexes[i], gv.lr, gv.countUniqueIndices[i])
 
         dlrm_habana.emb_l[i].weight.data = upd_emb_weights
-
+        if args.optimizer == 'adagrad':
+            dlrm_habana.emb_l[i].moments.data = upd_emb_moments
 
 class DLRM_Net_Habana(nn.Module):
     def create_mlp(self, ln, sigmoid_layer):
@@ -350,6 +378,7 @@ class DLRM_Net_Habana(nn.Module):
 
     def create_emb(self, m, ln):
         emb_l = nn.ModuleList()
+        create_optimizer()
         for i in range(0, ln.size):
             n = ln[i]
             # construct embedding operator
@@ -370,7 +399,6 @@ class DLRM_Net_Habana(nn.Module):
                 EE = HabanaEmbeddingBag(n, m, i)
                 # print('EmbeddingBag created for config{} , instance {}'.format((n,m),i))
                 create_preproc(i)
-                create_optimizer(i)
                 gv.countUniqueIndices.append(torch.empty(1, 1))
                 gv.uniqueIndexes.append(torch.empty(1, 1))
                 gv.outputRows.append(torch.empty(1, 1))
@@ -688,7 +716,6 @@ if __name__ == "__main__":
     )
     # model related parameters
     parser.add_argument("--arch-sparse-feature-size", type=int, default=2)
-    # parser.add_argument("--arch-embedding-size", type=str, default="4")
     parser.add_argument("--arch-embedding-size", type=str, default="4-3-2")
 
     # j will be replaced with the table number
@@ -707,7 +734,7 @@ if __name__ == "__main__":
     parser.add_argument("--qr-collisions", type=int, default=4)
     # activations and loss
     parser.add_argument("--activation-function", type=str, default="relu")
-    parser.add_argument("--loss-function", type=str, default="mse")  # mse or bce or wbce
+    parser.add_argument("--loss-function", type=str, default="bce")  # mse or bce or wbce
     parser.add_argument("--loss-weights", type=str, default="1.0-1.0")  # for wbce
     parser.add_argument("--loss-threshold", type=float, default=0.0)  # 1.0e-7
     parser.add_argument("--round-targets", type=bool, default=False)
@@ -736,6 +763,7 @@ if __name__ == "__main__":
     parser.add_argument("--print-precision", type=int, default=5)
     parser.add_argument("--numpy-rand-seed", type=int, default=123)
     parser.add_argument("--sync-dense-params", type=bool, default=True)
+    parser.add_argument("--optimizer", type=str, default="sgd")
     # inference
     parser.add_argument("--inference-only", action="store_true", default=False)
     # onnx
@@ -993,7 +1021,6 @@ if __name__ == "__main__":
         md_flag=args.md_flag,
         md_threshold=args.md_threshold,
 
-
     )
     # print('Net at Init')
     # dlrm_habana.printParamsAndGrads(grads=False)
@@ -1024,8 +1051,6 @@ if __name__ == "__main__":
     if args.debug_mode:
         print("initial parameters (weights and bias):")
         # print(dlrm)
-        for param in dlrm.parameters():
-            print(param.detach().cpu().numpy())
         for param in dlrm_habana.parameters():
             print(param.detach().cpu().numpy())
 
@@ -1058,8 +1083,14 @@ if __name__ == "__main__":
 
     if not args.inference_only:
         # specify the optimizer algorithm
-        optimizer = torch.optim.SGD(list(dlrm_habana.top_l.parameters())
+        if args.optimizer == "sgd":
+            optimizer = torch.optim.SGD(list(dlrm_habana.top_l.parameters())
                                     + list(dlrm_habana.bot_l.parameters()), lr=args.learning_rate)
+        elif args.optimizer == "adagrad":
+            optimizer = torch.optim.Adagrad(list(dlrm_habana.top_l.parameters())
+                                    + list(dlrm_habana.bot_l.parameters()), lr=args.learning_rate)
+        else:
+            sys.exit("ERROR: --optimizer=" + args.optimizer + " is not supported")
 
     ### main loop ###
 
@@ -1613,7 +1644,7 @@ if __name__ == "__main__":
     # test prints
     if not args.inference_only and args.debug_mode:
         print("updated parameters (weights and bias):")
-        for param in dlrm.parameters():
+        for param in dlrm_habana.parameters():
             print(param.detach().cpu().numpy())
 
     # export the model in onnx
