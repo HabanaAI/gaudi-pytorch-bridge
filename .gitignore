@@ -8,3 +8,6 @@ data/
 *.so
 *.bin
 *.used
+*.egg-info/
+*.eggs/
+dist

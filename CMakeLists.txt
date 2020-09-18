@@ -91,12 +91,14 @@ target_compile_options(habana_pytorch_plugin PRIVATE -Wall -Wextra -Werror -Wno-
 target_link_libraries(habana_pytorch_plugin PRIVATE "${TORCH_LIBRARIES}" pytorch_synapse_helpers_abi11)
 target_include_directories(habana_pytorch_plugin PRIVATE ${CMAKE_SOURCE_DIR})
 
-set(SOURCES habana_bridge/register/register.cpp
-                habana_bridge/passes/habana_fuser.cpp
-		habana_bridge/kernel/hpu_habana_cache.cpp
-		habana_bridge/kernel/hpu_habana_launch_op_pt.cpp
-    habana_bridge/passes/remove_inplace_ops.cpp)
-pybind11_add_module(hb_torch SHARED ${SOURCES})
+set(BRIDGE_SOURCES habana_bridge/register/register.cpp
+                   habana_bridge/kernel/hpu_habana_cache.cpp
+                   habana_bridge/kernel/hpu_habana_launch_op_pt.cpp
+                   habana_bridge/passes/habana_fuser.cpp
+                   habana_bridge/passes/remove_inplace_ops.cpp
+)
+
+pybind11_add_module(hb_torch SHARED ${BRIDGE_SOURCES})
 target_compile_definitions(hb_torch PRIVATE "GENERIC_HELPERS" MAX_DEVICES_PER_BOX=8)
 target_compile_options(hb_torch PRIVATE -Wall -Wextra -Werror -Wno-error=deprecated-declarations)
 target_link_libraries(hb_torch PRIVATE "${TORCH_LIBRARIES}" habana_pytorch_plugin pytorch_synapse_helpers_abi11)
@@ -105,10 +107,10 @@ target_compile_features(hb_torch PRIVATE cxx_std_14)
 
 # Create symlink to latest build from tests dir
 add_custom_command(TARGET habana_pytorch_plugin POST_BUILD COMMAND
-  $(CMAKE_COMMAND) -E create_symlink $<TARGET_FILE:habana_pytorch_plugin>
-  $(CMAKE_SOURCE_DIR)/tests/$<TARGET_FILE_NAME:habana_pytorch_plugin>
+  ${CMAKE_COMMAND} -E create_symlink $<TARGET_FILE:habana_pytorch_plugin>
+  ${CMAKE_SOURCE_DIR}/tests/$<TARGET_FILE_NAME:habana_pytorch_plugin>
 )
 add_custom_command(TARGET hb_torch POST_BUILD COMMAND
-  $(CMAKE_COMMAND) -E create_symlink $<TARGET_FILE:hb_torch>
-  $(CMAKE_SOURCE_DIR)/tests/$<TARGET_FILE_NAME:hb_torch>
+  ${CMAKE_COMMAND} -E create_symlink $<TARGET_FILE:hb_torch>
+  ${CMAKE_SOURCE_DIR}/tests/$<TARGET_FILE_NAME:hb_torch>
 )
