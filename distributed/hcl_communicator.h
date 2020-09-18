@@ -89,7 +89,7 @@ class hcl_communicator {
 
   HCL_Rank root_hcl_rank() const;
 
-  HCL_Comm hcl_comm() const { return comm_name_.c_str(); };
+  HCL_Comm hcl_comm() const { return comm_id_; };
 
   synDeviceId my_device_id() const {
     // Note: my_device should never be null as this is checked by assert in hcl_communicator::open implementation.
@@ -122,7 +122,7 @@ class hcl_communicator {
   std::shared_ptr<device> my_device_{nullptr};
   std::shared_ptr<owned_device_ptr> intermediate_buffer_{nullptr};
   std::mutex intermediate_buffer_allocation_mtx;
-  std::string comm_name_;
+  HCL_Comm comm_id_;
   bool using_streams_;
   int size_{0};
   HCL_Rank my_hcl_rank_{HCL_RANK_UNASSIGNED};

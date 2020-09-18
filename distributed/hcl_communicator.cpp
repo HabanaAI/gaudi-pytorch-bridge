@@ -46,7 +46,7 @@ namespace synapse_helpers {
   }
 
 hcl_communicator::hcl_communicator(synDeviceId device_id, HCL_Comm hcl_comm, std::string config_path)
-    : comm_name_(hcl_comm),
+    : comm_id_(hcl_comm),
       using_streams_(false) {
   // if config path were not passed by parameter try obtain one from environment
   if (config_path.empty()) {

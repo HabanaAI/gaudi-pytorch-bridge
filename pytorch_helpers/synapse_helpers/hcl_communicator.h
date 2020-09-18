@@ -135,7 +135,7 @@ class hcl_communicator {
   HCL_Rank root_hcl_rank() const;
 
   HCL_Comm hcl_comm() const {
-    return comm_name_.c_str();
+    return comm_id_;
   };
 
   synDeviceId my_device_id() const {
@@ -158,7 +158,7 @@ class hcl_communicator {
       synDataType elem_type,
       HCL_CollectiveOp operation);
 
-  std::string comm_name_;
+  HCL_Comm comm_id_;
   int size_{0};
   std::shared_ptr<device> my_device_{nullptr};
   HCL_Rank my_hcl_rank_{HCL_RANK_UNASSIGNED};

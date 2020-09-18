@@ -54,7 +54,7 @@ hcl_communicator::hcl_communicator(
     synDeviceId device_id,
     HCL_Comm hcl_comm,
     std::string config_path)
-    : comm_name_(hcl_comm) {
+    : comm_id_(hcl_comm) {
   // if config path were not passed by parameter try obtain one from environment
   if (config_path.empty()) {
     char* config_json_path = std::getenv("HCL_CONFIG_PATH");
