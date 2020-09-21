@@ -56,7 +56,8 @@ def init_distributed_mode(args):
     print('| distributed init (rank {}): {}'.format(
         args.rank, args.world_size), flush=True)
 
-    if args.use_hpu == True and 'RANK' in os.environ and 'WORLD_SIZE' in os.environ:
+    use_hpu = not args.no_habana
+    if use_hpu == True and 'RANK' in os.environ and 'WORLD_SIZE' in os.environ:
         args.dist_backend = 'hcl'
         os.environ["ID"] = str(args.rank)
         torch.distributed.init_process_group(args.dist_backend, rank=args.rank, world_size=args.world_size)
@@ -72,5 +73,6 @@ def init_distributed_mode(args):
         torch.distributed.init_process_group(backend=args.dist_backend, init_method=args.dist_url,
                                              world_size=args.world_size, rank=args.rank)
     print('Backend = {}'.format(args.dist_backend))
+    #set to True to enable printing for all cards
     setup_for_distributed(args.rank == 0)
 
