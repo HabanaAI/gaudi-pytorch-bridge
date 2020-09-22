@@ -17,6 +17,7 @@
 #include "habana_helpers/unused_macro.h"
 #include "habana_kernels/loss_kernels.h"
 #include "habana_kernels/tensor_shape_kernels.h"
+#include "habana_kernels/unary_kernels.h"
 #include "simple_generic_kernel.h"
 #include "synapse_helpers/recipe.h"
 
@@ -635,6 +636,14 @@ void BceBwdOperator::AllocateAndAddSynapseNode(
   p_context_->syn_inputs_[2] = std::move(syn_target);
   stack.clear();
 
+  NegOperator neg_grad(grad_output.device().index(), grad_output.scalar_type());
+  auto& syn_grad_output =
+      neg_grad.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+  stack = {IValue(grad_output)};
+  neg_grad.AllocateAndAddSynapseNode(graph, stack, false);
+  p_context_->syn_inputs_[0] = std::move(syn_grad_output);
+  stack.clear();
+
   ns_BinaryCrossEntropy::ParamsOptionalSigmoid params =
       synapse_bce_params_builder(reduction, false);
   p_context_->params_.emplace<ns_BinaryCrossEntropy::ParamsOptionalSigmoid>(
@@ -647,7 +656,9 @@ void BceBwdOperator::AllocateAndAddSynapseNode(
       false);
   synapse_helpers::tensor& syn_in_self = reshape_self.GetSynOutputs()[0];
   synapse_helpers::tensor& syn_in_target = reshape_target.GetSynOutputs()[0];
-  std::vector<synTensor> syn_inputs{syn_in_self.get(), syn_in_target.get()};
+  synapse_helpers::tensor& syn_in_grad = neg_grad.GetSynOutputs()[0];
+  std::vector<synTensor> syn_inputs{
+      syn_in_self.get(), syn_in_target.get(), syn_in_grad.get()};
   synapse_helpers::tensor& syn_out = p_context_->syn_outputs_[0];
   std::vector<synTensor> syn_outputs{syn_out.get()};
 
@@ -728,9 +739,7 @@ Tensor binary_cross_entropy_backward_hpu(
   std::vector<at::Tensor> out = Op.GetOutputs();
   TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
 
-  // Note that this multiplication should be done in TPC kernel
-  // WA until TPC kernel is fixed
-  auto output = out.at(0) * grad_output * -1;
+  auto output = out.at(0);
 
   PT_KERNEL_END;
   return output;
@@ -748,4 +757,3 @@ static auto& KernelRegistry =
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<BceBwdOperator>(device_id, node_type);
             });
-
