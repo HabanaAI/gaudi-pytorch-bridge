@@ -30,6 +30,35 @@ using namespace torch;
 #define PT_KERNEL_END (void)(0)
 #endif
 
+bool copy_transpose_valid(const Tensor& self, const Tensor& src) {
+  return (
+      self.is_contiguous(c10::MemoryFormat::ChannelsLast) && src.numel() != 0 &&
+      self.dim() == 4 && self.scalar_type() == src.scalar_type());
+}
+
+void do_copy_transpose(Tensor& dst, const Tensor& src) {
+  at::IntArrayRef chl_pos = {0, 2, 3, 1};
+  dst = src.permute(chl_pos);
+
+  // PT expects metadata like sizes and strides same as in NCHW,
+  // but data permuted for channel last, so change the size and stride
+  // NCHW
+  auto sizes = dst.sizes().vec();
+  auto strides = dst.strides().vec();
+  std::vector<int> out_pos = {0, 3, 1, 2};
+  std::vector<long int> swapped_sizes = {sizes[out_pos[0]],
+                                         sizes[out_pos[1]],
+                                         sizes[out_pos[2]],
+                                         sizes[out_pos[3]]};
+  std::vector<long int> swapped_strides = {strides[out_pos[0]],
+                                           strides[out_pos[1]],
+                                           strides[out_pos[2]],
+                                           strides[out_pos[3]]};
+
+  dst.unsafeGetTensorImpl()->set_sizes_and_strides(
+      swapped_sizes, swapped_strides);
+}
+
 // cpu->hpu and hpu->cpu copy implementation
 Tensor& copy_hpu_(Tensor& self, const Tensor& src, bool non_blocking) {
   PT_KERNEL_BEGIN;
@@ -62,15 +91,18 @@ Tensor& copy_hpu_(Tensor& self, const Tensor& src, bool non_blocking) {
       dst = habana_helpers::hpu_cast_tensor(
           src, at::scalarTypeToTypeMeta(c10::ScalarType::Float));
     } else {
-       if (
-        (src.scalar_type() == c10::ScalarType::Long) &&
-        (dst.scalar_type() == c10::ScalarType::Float)) {
+      if ((src.scalar_type() == c10::ScalarType::Long) &&
+          (dst.scalar_type() == c10::ScalarType::Float)) {
         dst = habana_helpers::hpu_cast_tensor(
-              habana_helpers::cast_tensor_to_integer(src),
-              at::scalarTypeToTypeMeta(c10::ScalarType::Float));
-      }else {
+            habana_helpers::cast_tensor_to_integer(src),
+            at::scalarTypeToTypeMeta(c10::ScalarType::Float));
+      } else {
         HABANA_ASSERT(dst.nbytes() == src.nbytes());
-        habana_helpers::copy_data_within_device(src, dst, non_blocking);
+        if (copy_transpose_valid(dst, src)) {
+          do_copy_transpose(dst, src);
+        } else {
+          habana_helpers::copy_data_within_device(src, dst, non_blocking);
+        }
       }
     }
   } else {
