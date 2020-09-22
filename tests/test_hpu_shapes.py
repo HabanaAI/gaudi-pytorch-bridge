@@ -45,6 +45,7 @@ def test_hpu_view(N, H, W, C):
     cpu_result = in_tensor.to(cpu).view(-1, C * H * W)
     compare_tensors(hpu_result, cpu_result, atol=0.001, rtol=1.e-3)
 
+
 @pytest.mark.parametrize("N, H, W, C", test_case_list)
 def test_hpu_slice_and_select(N, H, W, C):
     hpu = torch.device('habana')
@@ -52,9 +53,10 @@ def test_hpu_slice_and_select(N, H, W, C):
 
     in_tensor = torch.randn(N, C, H, W)
 
-    hpu_result = in_tensor.to(hpu)[:,0,0:4:2,0:4]
-    cpu_result = in_tensor.to(cpu)[:,0,0:4:2,0:4]
+    hpu_result = in_tensor.to(hpu)[:, 0, 0:4:2, 0:4]
+    cpu_result = in_tensor.to(cpu)[:, 0, 0:4:2, 0:4]
     compare_tensors(hpu_result, cpu_result, atol=0, rtol=0)
+
 
 @pytest.mark.parametrize("N, H, W, C", test_case_list)
 @pytest.mark.parametrize("dim", [0, 1, 2, 3])
@@ -65,12 +67,13 @@ def test_hpu_index_select(N, H, W, C, dim):
     kernel_params_fwd = {
         'input': torch.randn(tuple(dim_list), requires_grad=True),
         'dim': dim,
-        'index': torch.tensor([0,2]),
+        'index': torch.tensor([0, 2]),
     }
 
     dim_list[dim] = 2
     bwd_tensors = [torch.randn(tuple(dim_list))]
     evaluate_fwd_bwd_kernel(kernel=kernel, tensor_list_bwd=bwd_tensors, kernel_params_fwd=kernel_params_fwd)
+
 
 @pytest.mark.parametrize("N, H, W, C", test_case_list)
 @pytest.mark.parametrize("acc", [True, False])
@@ -90,6 +93,7 @@ def test_hpu_index_put(N, H, W, C, acc):
     bwd_tensors = [torch.randn(tuple(dim_list))]
     evaluate_fwd_bwd_kernel(kernel=kernel, tensor_list_bwd=bwd_tensors, kernel_params_fwd=kernel_params_fwd)
 
+
 @pytest.mark.parametrize("N, H, W, C", test_case_list)
 @pytest.mark.parametrize("dim", [0, 1, 2, 3])
 def test_hpu_index_add(N, H, W, C, dim):
@@ -108,6 +112,7 @@ def test_hpu_index_add(N, H, W, C, dim):
     bwd_tensors = [torch.randn(tuple(dim_list))]
     evaluate_fwd_bwd_kernel(kernel=kernel, tensor_list_bwd=bwd_tensors, kernel_params_fwd=kernel_params_fwd)
 
+
 @pytest.mark.parametrize("test_case_list", broadcast_test_case_list)
 def test_hpu_broadcast(test_case_list):
     hpu = torch.device('habana')
@@ -124,14 +129,27 @@ def test_hpu_broadcast(test_case_list):
 
 @pytest.mark.parametrize("start, end, step, dtype", arange_test_case_list)
 @pytest.mark.parametrize("op", [torch.arange])
-def test_hpu_arange_op_out( start, end, step, dtype, op):
-    kernel_params_fwd={}
+def test_hpu_arange_op_out(start, end, step, dtype, op):
+    kernel_params_fwd = {}
     kernel_params_fwd['start'] = start
     kernel_params_fwd['end'] = end
     kernel_params_fwd['step'] = step
     kernel_params_fwd['dtype'] = dtype
     kernel_params_fwd['out'] = torch.empty(1, dtype=dtype)
     evaluate_fwd_kernel(kernel=op, kernel_params=kernel_params_fwd)
+
+
+@pytest.mark.parametrize("test_dtype", [torch.float, torch.long])
+def test_hpu_expand(test_dtype):
+    hpu = torch.device('habana')
+    cpu = torch.device('cpu')
+
+    hpu = torch.device('habana')
+    cpu = torch.device('cpu')
+    tin = torch.arange(0, 3, 1, dtype=test_dtype).view(3, 1)
+    tcpu_out = tin.expand(3, 4)
+    thpu_out = tin.to(hpu).expand(3, 4)
+    compare_tensors(thpu_out, tcpu_out, atol=0, rtol=0)
 
 
 if __name__ == '__main__':

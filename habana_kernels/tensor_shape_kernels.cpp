@@ -816,8 +816,8 @@ void BroadcastOperator::AllocateAndAddSynapseNode(
     ReshapeOperator reshape_op(self.device().index(), self.scalar_type());
     auto& syn_in =
         reshape_op.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
-    torch::jit::Stack stack = {c10::IValue(self),
-                               c10::IValue(expanded_self_view_sizes)};
+    torch::jit::Stack stack = {
+        c10::IValue(self), c10::IValue(expanded_self_view_sizes)};
     reshape_op.AllocateAndAddSynapseNode(graph, stack, false);
     p_context_->syn_inputs_[0] = std::move(syn_in);
 
@@ -848,14 +848,19 @@ void BroadcastOperator::AllocateAndAddSynapseNode(
  * memory, but only creates a new view on the existing tensor where a dimension
  * of size one is expanded to a larger size by setting the stride to 0. "
  ************************************************************************/
-Tensor expand_hpu(const Tensor& self, IntArrayRef size, bool implicit) {
+Tensor expand_hpu(const Tensor& in_self, IntArrayRef size, bool implicit) {
   PT_KERNEL_BEGIN;
 
-  auto scalar_type = self.scalar_type();
+  auto scalar_type = in_self.scalar_type();
   std::string node_type = "broadcast";
 
-  size_t device_id = self.device().index();
-
+  size_t device_id = in_self.device().index();
+  Tensor self;
+  if (in_self.scalar_type() == c10::ScalarType::Long) {
+    self = habana_helpers::cast_tensor_to_integer(in_self);
+  } else {
+    self = in_self;
+  }
   BroadcastOperator Op(device_id, scalar_type);
   // Create Graph
   auto graph = habana_helpers::create_graph(device_id, node_type);
@@ -886,8 +891,14 @@ Tensor expand_hpu(const Tensor& self, IntArrayRef size, bool implicit) {
   std::vector<at::Tensor> out = Op.GetOutputs();
   TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
 
+  Tensor cast_out;
+  if (in_self.scalar_type() == c10::ScalarType::Long) {
+    cast_out = habana_helpers::cast_tensor_to_long(out.at(0));
+  } else {
+    cast_out = out.at(0);
+  }
   PT_KERNEL_END;
-  return out.at(0);
+  return cast_out;
 }
 
 void SplitWithSizeOperator::AllocateAndAddSynapseNode(
