@@ -954,12 +954,19 @@ void SliceOperator::AllocateAndAddSynapseNode(
  * @param steps - number of elements to stride in given axis
  ************************************************************************/
 Tensor slice_hpu(
-    const Tensor& self,
+    const Tensor& in_self,
     int64_t dim,
     int64_t start,
     int64_t end,
     int64_t step) {
   PT_KERNEL_BEGIN;
+
+  Tensor self;
+  if(in_self.scalar_type() ==c10::ScalarType::Long) {
+      self = habana_helpers::cast_tensor_to_integer(in_self);
+    }else{
+      self= in_self;
+  }
 
   // for handling trivial cases, fall-back to simple tensor meta-data
   // manipulation done in CPU implementation. This was added because
@@ -997,9 +1004,14 @@ Tensor slice_hpu(
 
   std::vector<at::Tensor> out = Op.GetOutputs();
   TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
-
+  Tensor cast_out;
+  if(in_self.scalar_type() ==c10::ScalarType::Long) {
+   cast_out = habana_helpers::cast_tensor_to_long(out.at(0));
+   }else{
+   cast_out = out.at(0);
+  }
   PT_KERNEL_END;
-  return out.at(0);
+  return cast_out;
 }
 
 void SelectOperator::SetPTOutputs(const torch::jit::Stack& inputs) {
