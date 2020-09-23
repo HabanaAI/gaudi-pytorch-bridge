@@ -56,10 +56,11 @@ def train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, pri
     for image, target in metric_logger.log_every(data_loader, print_freq, header):
         start_time = time.time()
         trainMetaData.tracept.start(start_time, 'train_iteration_'+str(trainMetaData.current_train_step))
-        if args.channels_last:
-            image = image.contiguous(memory_format=torch.channels_last)
 
         image, target = image.to(device, non_blocking=True), target.to(device, non_blocking=True)
+
+        if args.channels_last:
+            image = image.contiguous(memory_format=torch.channels_last)
 
         tp_probe_tensors_iteration_start(model, device, target, image, trainMetaData.ParamsDump, False)
 
@@ -89,10 +90,10 @@ def evaluate(model, criterion, data_loader, trainMetaData, device, print_freq=10
     header = 'Test:'
     with torch.no_grad():
         for image, target in metric_logger.log_every(data_loader, print_freq, header):
+            image = image.to(device, non_blocking=True)
             if args.channels_last:
                 image = image.contiguous(memory_format=torch.channels_last)
 
-            image = image.to(device, non_blocking=True)
             target = target.to(device, non_blocking=True)
             trainMetaData.tracept.start(time.time(), 'val_iteration_'+str(trainMetaData.current_eval_step))
             output = model(image)

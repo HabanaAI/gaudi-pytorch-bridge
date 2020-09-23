@@ -44,10 +44,12 @@ def train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, pri
     header = 'Epoch: [{}]'.format(epoch)
     for image, target in metric_logger.log_every(data_loader, print_freq, header):
         start_time = time.time()
+
+        image, target = image.to(device, non_blocking=True), target.to(device, non_blocking=True)
+
         if args.channels_last:
             image = image.contiguous(memory_format=torch.channels_last)
 
-        image, target = image.to(device, non_blocking=True), target.to(device, non_blocking=True)
         loss_cpu,output_cpu = train_model(model, criterion, optimizer, image, target, apex)
 
         acc1, acc5 = utils.accuracy(output_cpu, target, topk=(1, 5))
@@ -65,10 +67,10 @@ def evaluate(model, criterion, data_loader, device, print_freq=100):
     header = 'Test:'
     with torch.no_grad():
         for image, target in metric_logger.log_every(data_loader, print_freq, header):
+            image = image.to(device, non_blocking=True)
             if args.channels_last:
                 image = image.contiguous(memory_format=torch.channels_last)
 
-            image = image.to(device, non_blocking=True)
             target = target.to(device, non_blocking=True)
             output = model(image)
             loss = criterion(output, target)
