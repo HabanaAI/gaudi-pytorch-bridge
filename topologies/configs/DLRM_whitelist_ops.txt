@@ -19,7 +19,7 @@ aten::neg(Tensor self) -> Tensor
 aten::log_softmax(Tensor self, int dim, bool half_to_float) -> Tensor
 aten::_log_softmax_backward_data(Tensor grad_output, Tensor output, int dim, Tensor self) -> Tensor
 aten::mm(Tensor self, Tensor mat2) -> Tensor
-//aten::t(Tensor self) -> Tensor
+aten::t(Tensor self) -> Tensor
 aten::transpose(Tensor self, int dim0, int dim1) -> Tensor
 aten::flatten(Tensor self, int start_dim, int end_dim) -> Tensor
 aten::view(Tensor self, int[] size) -> Tensor
