@@ -2,18 +2,20 @@ import sys
 from .tensor_probe import *
 from .tracepoint import *
 
-#TrainMetaData is to set additional configurations/flags on top of those offered by the standard training script.
-#example uses include specifying the number of steps to train rather than training a full epoch.
+# TrainMetaData is to set additional configurations/flags on top of those offered by the standard training script.
+# example uses include specifying the number of steps to train rather than training a full epoch.
+
+
 class TrainMetaData():
     def __init__(self, model, device):
         self.current_train_step = 0
         self.current_eval_step = 0
         self.current_epoch = 0
-        #use a large value for num_train_steps  by default so that if the num_train_steps is not set,
-        #the default behaviour of running training for all the iterations is maintained.
+        # use a large value for num_train_steps  by default so that if the num_train_steps is not set,
+        # the default behaviour of running training for all the iterations is maintained.
         self.num_train_steps = sys.maxsize
         self.num_eval_steps = sys.maxsize
-        self.logging = True #Enable - default
+        self.logging = True  # Enable - default
         self.log_live_mem_alloc_enabled = False
         self.save_checkpt = True
         self.ParamsDump = ModelParamsDump()
@@ -21,8 +23,8 @@ class TrainMetaData():
         self.tracept = TracePoint()
 
     def set_current_epoch_no(self, epoch):
-        #possibly one epoch completed and moving to the next epoch or starting
-        #from a checkpoint. So reset the iteration counter
+        # possibly one epoch completed and moving to the next epoch or starting
+        # from a checkpoint. So reset the iteration counter
         if epoch != self.current_epoch:
             self.current_train_step = 0
             self.current_eval_step = 0
@@ -80,7 +82,7 @@ class TrainMetaData():
             import hb_torch
             hb_torch.memstat_livealloc(msg)
 
-    #Enable/disable saving of checkpoint/model
+    # Enable/disable saving of checkpoint/model
     def set_save_checkpoint_enable(self, enable=True):
         self.save_checkpt = enable
 

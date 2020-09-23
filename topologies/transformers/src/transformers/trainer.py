@@ -1,6 +1,7 @@
 import logging
 import math
 import os
+import time
 import re
 import shutil
 import warnings
@@ -62,6 +63,17 @@ def is_tensorboard_available():
 if is_wandb_available():
     import wandb
 
+try:
+    path = os.path.join(os.environ['PYTORCH_MODULES_ROOT_PATH'], 'topologies')
+    tools_path = os.path.join(path, 'tools')
+    if os.path.exists(path) is False or os.path.exists(tools_path) is False:
+        raise Exception("path for 'tools' NOT found")
+    import sys
+    sys.path.append(path)
+    from tools import *
+except:
+    assert False, ("tools directory should be availabe as somedir/topologies/tools",
+                   "PYTORCH_MODULES_ROOT_PATH should be set to 'somedir'")
 
 logger = logging.getLogger(__name__)
 
@@ -163,6 +175,7 @@ class Trainer:
 
     model: PreTrainedModel
     args: TrainingArguments
+    trainMetaData: TrainMetaData
     data_collator: DataCollator
     train_dataset: Optional[Dataset]
     eval_dataset: Optional[Dataset]
@@ -177,6 +190,7 @@ class Trainer:
         self,
         model: PreTrainedModel,
         args: TrainingArguments,
+        trainMetaData: TrainMetaData,
         data_collator: Optional[DataCollator] = None,
         train_dataset: Optional[Dataset] = None,
         eval_dataset: Optional[Dataset] = None,
@@ -185,8 +199,14 @@ class Trainer:
         tb_writer: Optional["SummaryWriter"] = None,
         optimizers: Tuple[torch.optim.Optimizer, torch.optim.lr_scheduler.LambdaLR] = None,
     ):
+        self.trainMetaData = trainMetaData
         self.model = model.to(args.device)
         self.args = args
+        # setup metadata object for logging memory usage of the model
+        self.trainMetaData.log_live_mem_alloc("After model.to()")
+        self.trainMetaData.set_num_train_steps(self.args.max_steps)
+        if self.args.use_habana:
+            self.trainMetaData.set_live_mem_alloc_logging(self.args.log_device_mem_alloc)
         self.data_collator = data_collator if data_collator is not None else default_data_collator
         self.train_dataset = train_dataset
         self.eval_dataset = eval_dataset
@@ -473,7 +493,12 @@ class Trainer:
         train_iterator = trange(
             epochs_trained, int(num_train_epochs), desc="Epoch", disable=not self.is_local_master()
         )
+        # log the pre-epoch-loop memory usage
+        self.trainMetaData.tracept.end(time.time(), 'train_iteration_' + str(self.trainMetaData.current_train_step))
+        self.trainMetaData.log_live_mem_alloc("before entering train Iteration " + str(self.trainMetaData.current_train_step))
+        #self.trainMetaData.increment_train_step()
         for epoch in train_iterator:
+            self.trainMetaData.set_current_epoch_no(epoch)
             if isinstance(train_dataloader, DataLoader) and isinstance(train_dataloader.sampler, DistributedSampler):
                 train_dataloader.sampler.set_epoch(epoch)
 
@@ -490,6 +515,8 @@ class Trainer:
                 self._past = None
 
             for step, inputs in enumerate(epoch_iterator):
+                start_time = time.time()
+                self.trainMetaData.tracept.start(start_time, 'train_iteration_' + str(self.trainMetaData.current_train_step))
 
                 # Skip past any already trained steps if resuming training
                 if steps_trained_in_current_epoch > 0:
@@ -576,11 +603,15 @@ class Trainer:
                                 torch.save(optimizer.state_dict(), os.path.join(output_dir, "optimizer.pt"))
 
                             torch.save(scheduler.state_dict(), os.path.join(output_dir, "scheduler.pt"))
+                # log the current iteration's memory usage
+                self.trainMetaData.tracept.end(time.time(), 'train_iteration_' + str(self.trainMetaData.current_train_step))
+                self.trainMetaData.log_live_mem_alloc("train Iteration " + str(self.trainMetaData.current_train_step))
+                self.trainMetaData.increment_train_step()
 
                 if self.args.max_steps > 0 and self.global_step > self.args.max_steps:
                     epoch_iterator.close()
                     break
-            if self.args.max_steps > 0 and self.global_step > self.args.max_steps:
+            if self.args.max_steps > 0 and self.global_step >= self.args.max_steps:
                 train_iterator.close()
                 break
             if self.args.tpu_metrics_debug or self.args.debug:

@@ -25,6 +25,17 @@ from typing import Callable, Dict, Optional
 
 import numpy as np
 
+try:
+    path = os.path.join(os.environ['PYTORCH_MODULES_ROOT_PATH'], 'topologies')
+    tools_path = os.path.join(path, 'tools')
+    if os.path.exists(path) is False or os.path.exists(tools_path) is False:
+        raise Exception("path for 'tools' NOT found")
+    sys.path.append(path)
+    from tools import *
+except:
+    assert False, ("tools directory should be availabe as somedir/topologies/tools",
+                   "PYTORCH_MODULES_ROOT_PATH should be set to 'somedir'")
+
 from transformers import AutoConfig, AutoModelForSequenceClassification, AutoTokenizer, EvalPrediction, GlueDataset
 from transformers import GlueDataTrainingArguments as DataTrainingArguments
 from transformers import (
@@ -158,10 +169,13 @@ def main():
 
         return compute_metrics_fn
 
+    trainMetaData = TrainMetaData(model, training_args.device)
+
     # Initialize our Trainer
     trainer = Trainer(
         model=model,
         args=training_args,
+        trainMetaData=trainMetaData,
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
         compute_metrics=build_compute_metrics_fn(data_args.task_name),
@@ -169,9 +183,7 @@ def main():
 
     # Training
     if training_args.do_train:
-        trainer.train(
-            model_path=model_args.model_name_or_path if os.path.isdir(model_args.model_name_or_path) else None
-        )
+        trainer.train(model_path=model_args.model_name_or_path if os.path.isdir(model_args.model_name_or_path) else None)
         trainer.save_model()
         # For convenience, we also re-save the tokenizer to the same directory,
         # so that you can share your model easily on huggingface.co/models =)

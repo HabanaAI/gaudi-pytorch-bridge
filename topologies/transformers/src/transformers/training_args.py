@@ -89,6 +89,8 @@ class TrainingArguments:
             Wherher to not use CUDA even when it is available or not.
         use_habana (:obj:`bool`, `optional`, defaults to :obj:`False`):
             Whether to run training on Habana device.
+        log_device_mem_alloc (:obj:`bool`,  `optional`, defaults to :obj:`False`):
+            Log live memory allocations on device at the given point.
         seed (:obj:`int`, `optional`, defaults to 42):
             Random seed for initialization.
         fp16 (:obj:`bool`, `optional`, defaults to :obj:`False`):
@@ -188,6 +190,7 @@ class TrainingArguments:
     )
     no_cuda: bool = field(default=False, metadata={"help": "Do not use CUDA even when it is available"})
     use_habana: bool = field(default=False, metadata={"help": "Whether to run training on Habana device"})
+    log_device_mem_alloc: bool = field(default=False, metadata={"help": "Log live memory allocations on device at the given point"})
     seed: int = field(default=42, metadata={"help": "random seed for initialization"})
 
     fp16: bool = field(
@@ -255,7 +258,7 @@ class TrainingArguments:
     def _setup_devices(self) -> Tuple["torch.device", int]:
         logger.info("PyTorch: setting up devices")
         if self.use_habana:
-            logger.info("Attempting to load library from path ", os.environ['BUILD_ROOT_LATEST'])
+            logger.info("Attempting to load library from path {}".format(os.environ['BUILD_ROOT_LATEST']))
             torch.ops.load_library(os.path.join(os.environ['BUILD_ROOT_LATEST'], "libhabana_pytorch_plugin.so"))
             sys.path.insert(0, os.path.join(os.environ['BUILD_ROOT_LATEST']))
             device = torch.device("habana")
