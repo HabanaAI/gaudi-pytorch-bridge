@@ -557,15 +557,20 @@ class Trainer:
                             xm.save(scheduler.state_dict(), os.path.join(output_dir, "scheduler.pt"))
                         elif self.is_world_master():
                             if self.args.use_habana:
-                                # shallow copy of dict followed by dma
-                                import copy
-                                optim_dict = dict()
-                                for state in optimizer.state.values():
-                                    for k, v in state.items():
+                                # dma of state dict along with shallow copy of param_groups list
+                                param_groups_copy = optimizer.state_dict()['param_groups']
+                                state_dict_copy = dict()
+                                for st_key, st_val in optimizer.state_dict()['state'].items():
+                                    st_val_copy = dict()
+                                    for k, v in st_val.items():
                                         if isinstance(v, torch.Tensor):
-                                            optim_dict[k] = v.to('cpu')
-                                        else:
-                                            optim_dict[k] = v
+                                            st_val_copy[k] = v.to('cpu')
+                                        else :
+                                            st_val_copy[k] = v
+                                    state_dict_copy[st_key] = st_val_copy
+                                optim_dict = dict()
+                                optim_dict['state'] = state_dict_copy
+                                optim_dict['param_groups'] = param_groups_copy
                                 torch.save(optim_dict, os.path.join(output_dir, "optimizer.pt"))
                             else:
                                 torch.save(optimizer.state_dict(), os.path.join(output_dir, "optimizer.pt"))
