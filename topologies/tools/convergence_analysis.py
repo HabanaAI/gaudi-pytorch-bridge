@@ -76,15 +76,10 @@ def do_tensor_permute(t_dev1_torch, t_dev2_torch, tid):
     else:
         return t_dev1_torch, t_dev2_torch
 
-def ca_get_tensor_comparison_stats(dev1, dev2, tensor_name, t_dev1_torch, t_dev2_torch, same_device, topology):
+def ca_get_tensor_comparison_stats(dev1, dev2, tensor_name, t_dev1_torch, t_dev2_torch):
         if t_dev1_torch.is_floating_point() is not True:
             t_dev1_torch = t_dev1_torch.float()
             t_dev2_torch = t_dev2_torch.float()
-
-        #Some tensors like convolution weights need permutation when comparing habana tensors with GPU or CPU
-        tid = tensor_to_permute(dev1, dev2, tensor_name, t_dev1_torch, t_dev2_torch, same_device, topology)
-        if tid != 0 : # Need permute
-            t_dev1_torch, t_dev2_torch = do_tensor_permute(t_dev1_torch, t_dev2_torch, tid)
 
         dim = list(t_dev1_torch.shape)
         num_els = t_dev1_torch.numel()
@@ -166,7 +161,13 @@ def ca_compare_tensor_files(dev1, dev2, file_pair_list, base_path=None, rtol=1e-
             tensor_info = file_dev1.replace(base_path, 'base_dir')
         t_dev1 = torch.load(file_dev1)
         t_dev2 = torch.load(file_dev2)
-        tensor_cmp_stat_dict = ca_get_tensor_comparison_stats(dev1,dev2,tensor_info, t_dev1, t_dev2, same_device, topology)
+
+        #Some tensors like convolution weights need permutation when comparing habana tensors with GPU or CPU
+        tid = tensor_to_permute(dev1, dev2, tensor_info, t_dev1, t_dev2, same_device, topology)
+        if tid != 0 : # Need permute
+            t_dev1, t_dev2 = do_tensor_permute(t_dev1, t_dev2, tid)
+
+        tensor_cmp_stat_dict = ca_get_tensor_comparison_stats(dev1,dev2,tensor_info, t_dev1, t_dev2)
         writer.writerow(tensor_cmp_stat_dict)
 
         equal = torch.allclose(t_dev1, t_dev2, rtol=rtol,atol=atol)
