@@ -11,21 +11,13 @@
 #pragma once
 #include <ATen/Tensor.h>
 #include <torch/csrc/jit/ir/ir.h>
+#include "ir.h"
 
 // TODO : Dummy IR used as placeholder, replace with actual IR and move to IR
 // file
 // namespace habana_lazy
 namespace habana_lazy {
 enum LayoutFormat { kNHWC = 0, kNCHW = 1, kHWCK = 2, kANY = 3, kINVALID = 4 };
-struct Value {
-  Value() = default;
-  // Value(NodePtr node, size_t index = 0) : node(std::move(node)), index(index)
-  // {}
-  operator bool() const {
-    return false;
-  }
-  size_t index = 0;
-};
 struct Data {
   Data(at::Tensor tensor_data, const c10::DeviceType& device)
       : logical_element_type(tensor_data.scalar_type()),
