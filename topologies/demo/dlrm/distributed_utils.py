@@ -4,6 +4,7 @@ import datetime
 import time
 import torch
 import torch.distributed as dist
+import sys
 
 import errno
 
@@ -25,10 +26,16 @@ def setup_for_distributed(is_master):
     __builtin__.print = print
 
 def dlrm_get_emb_table_map(ln_emb, rank, world_size):
+    if len(ln_emb) <= 1:
+        print("multinode doesn't support single embedding table yet !")
+        sys.exit(0)
+    if ((world_size & (world_size-1)) != 0):
+        print("unsupported world size !")
+        sys.exit(0)
     #Assign the embedding tables so that larger tables are distributed evently
     sorted_size = np.argsort(ln_emb)
     selected_tables = np.sort(sorted_size[rank : :world_size])
-    # Needed only for convergenc comparison
+    # Needed only for convergence comparison
     all_reduce_reorder = []
     for i in range(world_size):
         all_reduce_reorder.append(np.sort(sorted_size[i::world_size]))

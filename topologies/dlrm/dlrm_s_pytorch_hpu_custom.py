@@ -427,6 +427,7 @@ class DLRM_Net_Habana(nn.Module):
         md_flag=False,
         md_threshold=200,
         rank=0,
+        batch_size=0,
     ):
         super(DLRM_Net_Habana, self).__init__()
 
@@ -447,6 +448,8 @@ class DLRM_Net_Habana(nn.Module):
             self.arch_interaction_itself = arch_interaction_itself
             self.sync_dense_params = sync_dense_params
             self.loss_threshold = loss_threshold
+            self.rank = rank
+            self.batch_size = batch_size
             # create variables for QR embedding if applicable
             self.qr_flag = qr_flag
             if self.qr_flag:
@@ -463,7 +466,7 @@ class DLRM_Net_Habana(nn.Module):
             if ndevices <= 1:
                 self.emb_l = self.create_emb(m_spa, ln_emb)
             else:
-                print("DIST: all2all")
+                self.parallel_model_batch_size = batch_size // ndevices
                 valid_device_emb_table, all2all_reorder = distributed_utils.dlrm_get_emb_table_map(ln_emb, args.rank, self.ndevices)
                 self.valid_device_emb_table = valid_device_emb_table
                 self.all2all_reorder = all2all_reorder
@@ -606,7 +609,8 @@ class DLRM_Net_Habana(nn.Module):
     def parallel_forward(self, dense_x, lS_o, lS_i):
         ### prepare model (overwrite) ###
         # WARNING: # of devices must be >= batch size in parallel_forward call
-        batch_size = dense_x.size()[0]
+        #batch_size = dense_x.size()[0]
+        batch_size = self.parallel_model_batch_size
         ndevices = min(self.ndevices, batch_size, len(self.emb_l))
         device_ids = range(ndevices)
         # WARNING: must redistribute the model if mini-batch size changes(this is common
@@ -1063,6 +1067,7 @@ if __name__ == "__main__":
         md_flag=args.md_flag,
         md_threshold=args.md_threshold,
         rank=rank,
+        batch_size=args.mini_batch_size
 
     )
     print('Net at Init')
@@ -1114,6 +1119,8 @@ if __name__ == "__main__":
             dlrm_habana.bot_l = DDP(dlrm_habana.bot_l)
             dlrm_habana.top_l = DDP(dlrm_habana.top_l)
             valid_device_emb_table, _ = distributed_utils.dlrm_get_emb_table_map(ln_emb, args.rank, args.world_size)
+            if valid_device_emb_table is None:
+                valid_device_emb_table = []
 
     # specify the loss function
     if args.loss_function == "mse":
@@ -1384,8 +1391,12 @@ if __name__ == "__main__":
                     # mini batch size is expected to be a multiple of world_size
                     train_batch_size = int(X.size()[0]/args.world_size)
                     X = np.take(X,np.arange(args.rank*train_batch_size,(args.rank+1)*train_batch_size), 0)
-                    lS_o = np.take(lS_o, valid_device_emb_table, 0)
-                    lS_i = itemgetter(*valid_device_emb_table)(lS_i)
+                    if valid_device_emb_table is not None:
+                        lS_o = np.take(lS_o, valid_device_emb_table, 0)
+                        lS_i = itemgetter(*valid_device_emb_table)(lS_i)
+                    else:
+                        lS_o = []
+                        lS_i = []
                     T = T[args.rank*train_batch_size:(args.rank+1)*train_batch_size]
                     if isinstance(lS_i, tuple):
                         lS_i = list(lS_i)
@@ -1530,8 +1541,12 @@ if __name__ == "__main__":
                         if args.distributed:
                             test_batch_size = int(X_test.size()[0]/args.world_size)
                             X_test = np.take(X_test, np.arange(args.rank * test_batch_size, (args.rank + 1) * test_batch_size),0)
-                            lS_o_test = np.take(lS_o_test, valid_device_emb_table, 0)
-                            lS_i_test = itemgetter(*valid_device_emb_table)(lS_i_test)
+                            if valid_device_emb_table is not None:
+                                lS_o_test = np.take(lS_o_test, valid_device_emb_table, 0)
+                                lS_i_test = itemgetter(*valid_device_emb_table)(lS_i_test)
+                            else:
+                                lS_o_test = []
+                                lS_i_test = []
                             T_test = T_test[args.rank * test_batch_size : (args.rank + 1) * test_batch_size]
                             if isinstance(lS_i_test, tuple):
                                 lS_i_test = list(lS_i_test)
