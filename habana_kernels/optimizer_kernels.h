@@ -14,8 +14,10 @@ using namespace habana;
 // OptimizerSparseSgd Operator
 class OptimizerSparseSgdOperator : public HabanaOperator {
  public:
-  OptimizerSparseSgdOperator(int device_id, const std::string& guid)
-      : HabanaOperator(guid) {
+  OptimizerSparseSgdOperator(int device_id, c10::ScalarType scalar_type)
+      : HabanaOperator(
+            "optimizer_sparse_sgd_with_valid_count_2d_" +
+            habana_helpers::name_suffix_from_type(scalar_type)) {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
     kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
@@ -29,8 +31,10 @@ class OptimizerSparseSgdOperator : public HabanaOperator {
 
 class OptimizerSparseAdagradOperator : public HabanaOperator {
  public:
-  OptimizerSparseAdagradOperator(int device_id, const std::string& guid)
-      : HabanaOperator(guid) {
+  OptimizerSparseAdagradOperator(int device_id, c10::ScalarType scalar_type)
+      : HabanaOperator(
+            "optimizer_sparse_adagrad_with_valid_count_2d_" +
+            habana_helpers::name_suffix_from_type(scalar_type)) {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
     kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});

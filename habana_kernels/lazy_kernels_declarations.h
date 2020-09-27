@@ -534,3 +534,21 @@ namespace native {
 Scalar _local_scalar_dense_hpu_lazy(const Tensor& self);
 }
 } // namespace at
+std::tuple<torch::Tensor, torch::Tensor>
+optimizer_sparse_sgd_with_valid_count_hpu_lazy(
+    const Tensor& gradients,
+    const Tensor& weights_in,
+    const Tensor& moments_in,
+    const Tensor& indices,
+    const Tensor& learning_rate,
+    const Tensor& valid_count_tensor,
+    float mom,
+    bool nesterov);
+std::tuple<torch::Tensor, torch::Tensor>
+optimizer_sparse_adagrad_with_valid_count_hpu_lazy(
+    const Tensor& gradients,
+    const Tensor& weights_in,
+    const Tensor& moments_in,
+    const Tensor& indices,
+    const Tensor& learning_rate,
+    const Tensor& valid_count_tensor);

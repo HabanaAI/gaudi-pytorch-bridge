@@ -21,6 +21,8 @@
 #include "habana_lazy/ops/pool.h"
 #include "pytorch_helpers/habana_device/HPUAllocator.h"
 
+#include "habana_lazy/ops/optimizer_sparse_sgd_with_valid_count.h"
+
 // calling eager mode kernels as a temporary placeholder to avoid warnings
 Tensor& copy_hpu_lazy_(Tensor& self, const Tensor& src, bool non_blocking) {
   if (!src.has_storage()) {
@@ -430,15 +432,41 @@ Tensor embedding_bag_sum_fwd_hpu_lazy(
     const Tensor& offsets_bwd,
     const Tensor& valid_count_bwd,
     const Tensor& grad_weight) {
-  return embedding_bag_sum_fwd_hpu(
+  auto node = habana_lazy::ir::Node::Create(
+      Symbol::fromQualString("aten::embedding_bag_sum_fwd"), {});
+
+  std::vector<habana_lazy::HbLazyTensor> hl_tensors;
+  hl_tensors.push_back(
+      habana_lazy::GetOrCreateHbLazyTensor(input, c10::kHABANA));
+  hl_tensors.push_back(
+      habana_lazy::GetOrCreateHbLazyTensor(indices_fwd, c10::kHABANA));
+  hl_tensors.push_back(
+      habana_lazy::GetOrCreateHbLazyTensor(offsets_fwd, c10::kHABANA));
+  hl_tensors.push_back(
+      habana_lazy::GetOrCreateHbLazyTensor(valid_count, c10::kHABANA));
+  hl_tensors.push_back(
+      habana_lazy::GetOrCreateHbLazyTensor(indices_bwd, c10::kHABANA));
+  hl_tensors.push_back(
+      habana_lazy::GetOrCreateHbLazyTensor(offsets_bwd, c10::kHABANA));
+  hl_tensors.push_back(
+      habana_lazy::GetOrCreateHbLazyTensor(grad_weight, c10::kHABANA));
+
+  for (auto& i : hl_tensors) {
+    node->AddInput(i.GetIrValue());
+  }
+
+  auto result = habana_helpers::createPTTensor(
       input,
-      indices_fwd,
-      offsets_fwd,
-      valid_count,
-      indices_bwd,
-      offsets_bwd,
-      valid_count_bwd,
-      grad_weight);
+      {offsets_fwd.numel() - 1, input.size(1)},
+      input.options(),
+      input.suggest_memory_format(),
+      true);
+
+  auto hlresult = habana_lazy::GetHbLazyTensor(result);
+  habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+  return result;
 };
 Tensor& embedding_bag_sum_bwd_out_hpu_lazy(
     Tensor& out,
@@ -446,8 +474,28 @@ Tensor& embedding_bag_sum_bwd_out_hpu_lazy(
     const Tensor& indices_bwd,
     const Tensor& offsets_bwd,
     const Tensor& valid_count_bwd) {
-  return embedding_bag_sum_bwd_out_hpu(
-      out, input, indices_bwd, offsets_bwd, valid_count_bwd);
+  auto node = habana_lazy::ir::Node::Create(
+      Symbol::fromQualString("aten::embedding_bag_sum_bwd.out"), {});
+
+  std::vector<habana_lazy::HbLazyTensor> hl_tensors;
+  hl_tensors.push_back(
+      habana_lazy::GetOrCreateHbLazyTensor(input, c10::kHABANA));
+  hl_tensors.push_back(
+      habana_lazy::GetOrCreateHbLazyTensor(indices_bwd, c10::kHABANA));
+  hl_tensors.push_back(
+      habana_lazy::GetOrCreateHbLazyTensor(offsets_bwd, c10::kHABANA));
+  hl_tensors.push_back(
+      habana_lazy::GetOrCreateHbLazyTensor(valid_count_bwd, c10::kHABANA));
+
+  for (auto& i : hl_tensors) {
+    node->AddInput(i.GetIrValue());
+  }
+
+  auto hlresult = habana_lazy::GetHbLazyTensor(out);
+  habana_lazy::ir::Value& out_value = hlresult.CurrentIrValue();
+  out_value.m_index = 0;
+  out_value.SetNode(node);
+  return out;
 };
 Tensor& fill_hpu_lazy_(Tensor& self, Scalar value) {
   auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
@@ -1258,3 +1306,79 @@ Scalar _local_scalar_dense_hpu_lazy(const Tensor& self) {
 }
 } // namespace native
 } // namespace at
+std::tuple<torch::Tensor, torch::Tensor>
+optimizer_sparse_sgd_with_valid_count_hpu_lazy(
+    const Tensor& gradients,
+    const Tensor& weights_in,
+    const Tensor& moments_in,
+    const Tensor& indices,
+    const Tensor& learning_rate,
+    const Tensor& valid_count_tensor,
+    float mom,
+    bool nesterov) {
+  habana_lazy::ir::NodePtr node =
+      std::make_shared<habana_lazy::ir::OptimizerSparseSgdValidCount>(
+          gradients,
+          weights_in,
+          moments_in,
+          indices,
+          learning_rate,
+          valid_count_tensor,
+          mom,
+          nesterov);
+
+  auto weights_out = habana_helpers::createPTTensor(weights_in, true);
+  auto moments_out = habana_helpers::createPTTensor(moments_in, true);
+
+  auto hlweights = habana_lazy::GetHbLazyTensor(weights_out);
+  habana_lazy::ir::Value& out1 = hlweights.CurrentIrValue();
+  out1.m_index = 0;
+  out1.SetNode(node);
+  auto hlmoments = habana_lazy::GetHbLazyTensor(moments_out);
+  habana_lazy::ir::Value& out2 = hlmoments.CurrentIrValue();
+  out2.m_index = 1;
+  out2.SetNode(node);
+  return std::tie(weights_out, moments_out);
+}
+std::tuple<torch::Tensor, torch::Tensor>
+optimizer_sparse_adagrad_with_valid_count_hpu_lazy(
+    const Tensor& gradients,
+    const Tensor& weights_in,
+    const Tensor& moments_in,
+    const Tensor& indices,
+    const Tensor& learning_rate,
+    const Tensor& valid_count_tensor) {
+  auto node = habana_lazy::ir::Node::Create(
+      Symbol::fromQualString("::habanaOptimizerSparseAdagrad"), {});
+
+  std::vector<habana_lazy::HbLazyTensor> hl_tensors;
+  hl_tensors.push_back(
+      habana_lazy::GetOrCreateHbLazyTensor(gradients, c10::kHABANA));
+  hl_tensors.push_back(
+      habana_lazy::GetOrCreateHbLazyTensor(weights_in, c10::kHABANA));
+  hl_tensors.push_back(
+      habana_lazy::GetOrCreateHbLazyTensor(moments_in, c10::kHABANA));
+  hl_tensors.push_back(
+      habana_lazy::GetOrCreateHbLazyTensor(indices, c10::kHABANA));
+  hl_tensors.push_back(
+      habana_lazy::GetOrCreateHbLazyTensor(learning_rate, c10::kHABANA));
+  hl_tensors.push_back(
+      habana_lazy::GetOrCreateHbLazyTensor(valid_count_tensor, c10::kHABANA));
+
+  for (auto& i : hl_tensors) {
+    node->AddInput(i.GetIrValue());
+  }
+
+  auto weights_out = habana_helpers::createPTTensor(weights_in, true);
+  auto moments_out = habana_helpers::createPTTensor(moments_in, true);
+
+  auto hlweights = habana_lazy::GetHbLazyTensor(weights_out);
+  habana_lazy::ir::Value& out1 = hlweights.CurrentIrValue();
+  out1.m_index = 0;
+  out1.SetNode(node);
+  auto hlmoments = habana_lazy::GetHbLazyTensor(moments_out);
+  habana_lazy::ir::Value& out2 = hlmoments.CurrentIrValue();
+  out2.m_index = 1;
+  out2.SetNode(node);
+  return std::tie(weights_out, moments_out);
+}

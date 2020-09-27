@@ -3,6 +3,7 @@
 #include <torch/torch.h>
 #include <stdexcept>
 #include "habana_kernels/lazy_kernels_declarations.h"
+#include "habana_kernels/wrap_kernels_declarations.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/debug_utils.h"
 #include "habana_lazy/hlexec.h"
@@ -11,7 +12,14 @@
 
 using namespace habana_lazy;
 
-TEST(LazyKernelTest, LazyDoATest) {
+class LazyKernelTest : public ::testing::Test {
+ protected:
+  void SetUp() override {}
+
+  void TearDown() override {}
+};
+
+TEST_F(LazyKernelTest, LazyDoATest) {
   setenv("PT_HPU_LAZY_MODE", "1", 1);
   torch::Tensor A = torch::randn({2, 2}, torch::requires_grad(false));
   torch::Tensor B = torch::randn({2, 2}, torch::requires_grad(false));
@@ -25,7 +33,7 @@ TEST(LazyKernelTest, LazyDoATest) {
   unsetenv("PT_HPU_LAZY_MODE");
 }
 
-TEST(LazyKernelTest, BasicCopyTest) {
+TEST_F(LazyKernelTest, BasicCopyTest) {
   setenv("PT_HPU_LAZY_MODE", "1", 1);
   torch::Tensor A = torch::randn({2, 2}, torch::requires_grad(false));
   torch::Tensor hA = A.to(torch::kHABANA);
@@ -35,7 +43,7 @@ TEST(LazyKernelTest, BasicCopyTest) {
   unsetenv("PT_HPU_LAZY_MODE");
 }
 
-TEST(LazyKernelTest, ConvReluTest) {
+TEST_F(LazyKernelTest, ConvReluTest) {
   setenv("PT_HPU_LAZY_MODE", "1", 1);
   auto input_tensor =
       torch::arange(27, torch::dtype(torch::kFloat).requires_grad(false))
@@ -93,11 +101,10 @@ TEST(LazyKernelTest, ConvReluTest) {
   // Match expectd output Size&Data
   auto expected = torch::tensor({5265}, torch::kFloat);
   EXPECT_EQ(outHabana.sizes(), expected.view({1, 1, 1, 1}).sizes());
-  // ASSERT_TRUE(torch::allclose(outHabana.to(torch::kCPU), expected));
   unsetenv("PT_HPU_LAZY_MODE");
 }
 
-TEST(LazyKernelTest, MmMulTest) {
+TEST_F(LazyKernelTest, MmMulTest) {
   setenv("PT_HPU_LAZY_MODE", "1", 1);
   auto x = torch::randn({2, 3});
   auto y = torch::randn({3, 3});
@@ -129,7 +136,7 @@ TEST(LazyKernelTest, MmMulTest) {
   unsetenv("PT_HPU_LAZY_MODE");
 }
 
-TEST(LazyKernelTest, AddMmTest) {
+TEST_F(LazyKernelTest, AddMmTest) {
   torch::Tensor A = torch::randn({2});
   torch::Tensor B = torch::randn({2, 2});
   torch::Tensor C = torch::randn({2, 2});
@@ -160,7 +167,7 @@ TEST(LazyKernelTest, AddMmTest) {
   EXPECT_EQ(allclose(expected, computed), true);
 }
 
-TEST(LazyKernelTest, CatTest) {
+TEST_F(LazyKernelTest, CatTest) {
   setenv("PT_HPU_LAZY_MODE", "1", 1);
   torch::Tensor A = torch::randn({2, 2}, torch::requires_grad(false));
   torch::Tensor B = torch::randn({2, 2}, torch::requires_grad(false));
@@ -183,9 +190,10 @@ TEST(LazyKernelTest, CatTest) {
       ->check("Tensor = aten::cat")
       ->run(*exec.get_graph());
   // ASSERT_TRUE(torch::allclose(hz_exp, hz_exp));
+  unsetenv("PT_HPU_LAZY_MODE");
 }
 
-TEST(LazyKernelTest, LocalScalarDenseTest) {
+TEST_F(LazyKernelTest, LocalScalarDenseTest) {
   setenv("PT_HPU_LAZY_MODE", "1", 1);
   torch::Tensor A = torch::randn({1}, torch::requires_grad(false));
   torch::Tensor hA = A.to(torch::kHABANA);
@@ -200,7 +208,7 @@ TEST(LazyKernelTest, LocalScalarDenseTest) {
 
   unsetenv("PT_HPU_LAZY_MODE");
 }
-TEST(LazyKernelTest, ConvMaxPoolTest) {
+TEST_F(LazyKernelTest, ConvMaxPoolTest) {
   setenv("PT_HPU_LAZY_MODE", "1", 1);
   auto input_tensor =
       torch::arange(48, torch::dtype(torch::kFloat).requires_grad(false))
@@ -243,10 +251,11 @@ TEST(LazyKernelTest, ConvMaxPoolTest) {
   unsetenv("PT_HPU_LAZY_MODE");
 }
 
-TEST(LazyKernelTest, MaxPoolBWDTest) {
+TEST_F(LazyKernelTest, MaxPoolBWDTest) {
   setenv("PT_HPU_LAZY_MODE", "1", 1);
-  auto input_tensor = torch::arange(48, torch::dtype(torch::kFloat).requires_grad(true))
-                          .reshape({1, 3, 4, 4}); //nchw
+  auto input_tensor =
+      torch::arange(48, torch::dtype(torch::kFloat).requires_grad(true))
+          .reshape({1, 3, 4, 4}); // nchw
   torch::Tensor tHabanaX = input_tensor.to(torch::kHABANA);
 
   // fwd propga
@@ -254,27 +263,103 @@ TEST(LazyKernelTest, MaxPoolBWDTest) {
   torch::Tensor outHabana = torch::relu(outHabana1);
 
   // bwd propga with dummy grad tensor
-  auto grad_tensor = torch::arange(27, torch::dtype(torch::kFloat).requires_grad(true))
-                          .reshape({1, 3, 3, 3});
+  auto grad_tensor =
+      torch::arange(27, torch::dtype(torch::kFloat).requires_grad(true))
+          .reshape({1, 3, 3, 3});
   torch::Tensor tHabanaG = grad_tensor.to(torch::kHABANA);
   outHabana.backward({tHabanaG}, false, true);
 
-  //Match lazy IR graph
+  // Match lazy IR graph
   auto hl_result = std::make_shared<HbLazyTensor>(GetHbLazyTensor(outHabana));
   auto ir_value = hl_result->CurrentIrValue();
   std::vector<ir::NodePtr> a{ir_value.mp_node};
   auto out_string = IrGraphDumpUtil::ToText(a);
 
   EXPECT_EQ(
-      out_string.find("IR {\n"
-                      "  %0 = hpu::input()\n"
-                      "  %1 = aten::maxpool2d_overidable(%0), kernel_size=[2], stride=[1], padding=[0], dilation=[1], transposed=[0]\n"
-                      "  %2 = aten::relu(%1.0), ROOT=0\n"
-                      "}"),
+      out_string.find(
+          "IR {\n"
+          "  %0 = hpu::input()\n"
+          "  %1 = aten::maxpool2d_overidable(%0), kernel_size=[2], stride=[1], padding=[0], dilation=[1], transposed=[0]\n"
+          "  %2 = aten::relu(%1.0), ROOT=0\n"
+          "}"),
       0);
 
-  //auto expected = torch::tensor({11952}, torch::kFloat);
-  //EXPECT_EQ(outHabana.sizes(), expected.view({1, 1, 1, 1}).sizes());
-  //ASSERT_TRUE(torch::allclose(outHabana.to(torch::kCPU), expected));
+  // auto expected = torch::tensor({11952}, torch::kFloat);
+  // EXPECT_EQ(outHabana.sizes(), expected.view({1, 1, 1, 1}).sizes());
+  // ASSERT_TRUE(torch::allclose(outHabana.to(torch::kCPU), expected));
+  unsetenv("PT_HPU_LAZY_MODE");
+}
+
+TEST_F(LazyKernelTest, OptSgdCustomOp) {
+  setenv("PT_HPU_LAZY_MODE", "1", 1);
+  auto grad = torch::randn({2, 2}, torch::requires_grad(false));
+  auto wts = torch::randn({2, 2}, torch::requires_grad(false));
+  auto moments = torch::randn({2, 2}, torch::requires_grad(false));
+  auto indices = torch::tensor({0, 1});
+  auto lr = torch::tensor({0.01});
+  auto valid_cnt = torch::tensor({2});
+  auto hgrad = grad.to(torch::kHABANA);
+  auto hwts = wts.to(torch::kHABANA);
+  auto hmoments = moments.to(torch::kHABANA);
+  auto hindices = indices.to(torch::kHABANA);
+  auto hlr = lr.to(torch::kHABANA);
+  auto hvalid_cnt = valid_cnt.to(torch::kHABANA);
+  torch::Tensor out1, out2;
+  std::tie(out1, out2) = optimizer_sparse_sgd_with_valid_count_hpu_wrap(
+      hgrad, hwts, hmoments, hindices, hlr, hvalid_cnt, 0.1, false);
+  auto I1 = torch::relu(out1);
+  auto I2 = torch::relu(out2);
+
+  auto hl_weight = GetHbLazyTensor(out1);
+  auto hl_moment = GetHbLazyTensor(out2);
+  std::vector<HbLazyTensor> tensors{hl_weight, hl_moment};
+  std::vector<int> indices1{0, 1};
+  auto po_data = HbLazyTensor::RunPostOrder(tensors, indices1);
+
+  exec::HlExec* hlexec = new exec::HlExec();
+  exec::LazyValueToJitValueMap input_map, output_map;
+  std::tie(input_map, output_map) =
+      hlexec->Create(po_data.post_order, po_data.inputs, po_data.outputs);
+  torch::jit::testing::FileCheck()
+      .check("prim::Constant[value=0.10000000149011612]")
+      ->check("prim::Constant[value=0]")
+      ->check_count("habanaOptimizerSparseSgd", 1)
+      ->run(*hlexec->get_graph());
+  unsetenv("PT_HPU_LAZY_MODE");
+}
+
+TEST_F(LazyKernelTest, OptAdagradCustomOp) {
+  setenv("PT_HPU_LAZY_MODE", "1", 1);
+  auto grad = torch::randn({2, 2}, torch::requires_grad(false));
+  auto wts = torch::randn({2, 2}, torch::requires_grad(false));
+  auto moments = torch::randn({2, 2}, torch::requires_grad(false));
+  auto indices = torch::tensor({0, 1});
+  auto lr = torch::tensor({0.01});
+  auto valid_cnt = torch::tensor({2});
+  auto hgrad = grad.to(torch::kHABANA);
+  auto hwts = wts.to(torch::kHABANA);
+  auto hmoments = moments.to(torch::kHABANA);
+  auto hindices = indices.to(torch::kHABANA);
+  auto hlr = lr.to(torch::kHABANA);
+  auto hvalid_cnt = valid_cnt.to(torch::kHABANA);
+  torch::Tensor out1, out2;
+  std::tie(out1, out2) = optimizer_sparse_adagrad_with_valid_count_hpu_wrap(
+      hgrad, hwts, hmoments, hindices, hlr, hvalid_cnt);
+  auto I1 = torch::relu(out1);
+  auto I2 = torch::relu(out2);
+
+  auto hl_weight = GetHbLazyTensor(out1);
+  auto hl_moment = GetHbLazyTensor(out2);
+  std::vector<HbLazyTensor> tensors{hl_weight, hl_moment};
+  std::vector<int> indices1{0, 1};
+  auto po_data = HbLazyTensor::RunPostOrder(tensors, indices1);
+
+  exec::HlExec* hlexec = new exec::HlExec();
+  exec::LazyValueToJitValueMap input_map, output_map;
+  std::tie(input_map, output_map) =
+      hlexec->Create(po_data.post_order, po_data.inputs, po_data.outputs);
+  torch::jit::testing::FileCheck()
+      .check_count("habanaOptimizerSparseAdagrad", 1)
+      ->run(*hlexec->get_graph());
   unsetenv("PT_HPU_LAZY_MODE");
 }

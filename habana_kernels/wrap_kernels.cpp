@@ -1292,7 +1292,7 @@ Tensor empty_hpu_wrap(
     const TensorOptions& options,
     c10::optional<MemoryFormat> optional_memory_format) {
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-      return empty_hpu_lazy(size, options, optional_memory_format);
+    return empty_hpu_lazy(size, options, optional_memory_format);
   }
   return empty_hpu(size, options, optional_memory_format);
 };
@@ -1301,7 +1301,7 @@ Tensor empty_strided_hpu_wrap(
     IntArrayRef stride,
     const TensorOptions& options) {
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-      return empty_strided_hpu_lazy(size, stride, options);
+    return empty_strided_hpu_lazy(size, stride, options);
   }
   return empty_strided_hpu(size, stride, options);
 };
@@ -1599,14 +1599,20 @@ Tensor clamp_min_hpu_wrap(const Tensor& self, Scalar min) {
     return clamp_min_hpu(self, min);
   }
 };
-Tensor& clamp_hpu_wrap_(Tensor& self, c10::optional<Scalar> min, c10::optional<Scalar> max) {
+Tensor& clamp_hpu_wrap_(
+    Tensor& self,
+    c10::optional<Scalar> min,
+    c10::optional<Scalar> max) {
   if (std::getenv("PT_HPU_LAZY_MODE")) {
     return clamp_hpu_lazy_(self, min, max);
   } else {
     return clamp_hpu_(self, min, max);
   }
 };
-Tensor clamp_hpu_wrap(const Tensor& self, c10::optional<Scalar> min, c10::optional<Scalar> max) {
+Tensor clamp_hpu_wrap(
+    const Tensor& self,
+    c10::optional<Scalar> min,
+    c10::optional<Scalar> max) {
   if (std::getenv("PT_HPU_LAZY_MODE")) {
     return clamp_hpu_lazy(self, min, max);
   } else {
@@ -1638,3 +1644,61 @@ Scalar _local_scalar_dense_hpu_wrap(const Tensor& self) {
 }
 } // namespace native
 } // namespace at
+std::tuple<torch::Tensor, torch::Tensor>
+optimizer_sparse_sgd_with_valid_count_hpu_wrap(
+    const Tensor& gradients,
+    const Tensor& weights_in,
+    const Tensor& moments_in,
+    const Tensor& indices,
+    const Tensor& learning_rate,
+    const Tensor& valid_count_tensor,
+    float mom,
+    bool nesterov) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    return optimizer_sparse_sgd_with_valid_count_hpu_lazy(
+        gradients,
+        weights_in,
+        moments_in,
+        indices,
+        learning_rate,
+        valid_count_tensor,
+        mom,
+        nesterov);
+  } else {
+    return optimizer_sparse_sgd_with_valid_count_hpu(
+        gradients,
+        weights_in,
+        moments_in,
+        indices,
+        learning_rate,
+        valid_count_tensor,
+        mom,
+        nesterov);
+  }
+}
+std::tuple<torch::Tensor, torch::Tensor>
+optimizer_sparse_adagrad_with_valid_count_hpu_wrap(
+    const Tensor& gradients,
+    const Tensor& weights_in,
+    const Tensor& moments_in,
+    const Tensor& indices,
+    const Tensor& learning_rate,
+    const Tensor& valid_count_tensor) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    return optimizer_sparse_adagrad_with_valid_count_hpu_lazy(
+        gradients,
+        weights_in,
+        moments_in,
+        indices,
+        learning_rate,
+        valid_count_tensor);
+  } else {
+    return optimizer_sparse_adagrad_with_valid_count_hpu(
+        gradients,
+        weights_in,
+        moments_in,
+        indices,
+        learning_rate,
+        valid_count_tensor);
+  }
+}

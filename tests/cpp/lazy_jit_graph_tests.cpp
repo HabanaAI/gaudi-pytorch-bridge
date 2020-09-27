@@ -1,13 +1,14 @@
 #include <gtest/gtest.h>
+#include <torch/csrc/jit/testing/file_check.h>
 #include <torch/torch.h>
 #include <stdexcept>
-#include <torch/csrc/jit/testing/file_check.h>
-#include "habana_lazy/hpu_lazy_tensors.h"
+#include "habana_kernels/lazy_kernels_declarations.h"
+#include "habana_kernels/wrap_kernels_declarations.h"
 #include "habana_lazy/aten_lazy_bridge.h"
+#include "habana_lazy/hlexec.h"
+#include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/ir.h"
 #include "habana_lazy/ir_utils.h"
-#include "habana_kernels/lazy_kernels_declarations.h"
-#include "habana_lazy/hlexec.h"
 
 using namespace habana_lazy;
 
@@ -29,9 +30,10 @@ TEST(LazyJITTest, CreateGraph) {
   std::vector<int> indices = {0};
   auto po_data = HbLazyTensor::RunPostOrder(tensors, indices);
 
-  exec::HlExec *hlexec = new exec::HlExec();
+  exec::HlExec* hlexec = new exec::HlExec();
   exec::LazyValueToJitValueMap input_map, output_map;
-  std::tie(input_map, output_map) = hlexec->Create(po_data.post_order, po_data.inputs, po_data.outputs);
+  std::tie(input_map, output_map) =
+      hlexec->Create(po_data.post_order, po_data.inputs, po_data.outputs);
 
   torch::jit::testing::FileCheck()
       .check("prim::Constant[value=99.5]")
@@ -63,4 +65,88 @@ TEST(LazyJITTest, ExecuteGraph) {
 
   EXPECT_EQ(allclose(out1, exp1), true);
   EXPECT_EQ(allclose(out2, exp2), true);
+}
+
+TEST(LazyJITTest, ExecuteGraphCustomSgd) {
+  auto grad = torch::randn({2, 2}, torch::requires_grad(false));
+  auto wts = torch::randn({2, 2}, torch::requires_grad(false));
+  auto moments = torch::randn({2, 2}, torch::requires_grad(false));
+  auto indices = torch::tensor({0, 1});
+  auto lr = torch::tensor({0.01});
+  auto valid_cnt = torch::tensor({2});
+  torch::Tensor out1_eager, out2_eager;
+  std::tie(out1_eager, out2_eager) =
+      optimizer_sparse_sgd_with_valid_count_hpu_wrap(
+          grad.to(torch::kHABANA),
+          wts.to(torch::kHABANA),
+          moments.to(torch::kHABANA),
+          indices.to(torch::kHABANA),
+          lr.to(torch::kHABANA),
+          valid_cnt.to(torch::kHABANA),
+          0.1,
+          false);
+  Tensor result1_eager = out1_eager.to(kCPU);
+  Tensor result2_eager = out2_eager.to(kCPU);
+
+  setenv("PT_HPU_LAZY_MODE", "1", 1);
+  auto hgrad = grad.to(torch::kHABANA);
+  auto hwts = wts.to(torch::kHABANA);
+  auto hmoments = moments.to(torch::kHABANA);
+  auto hindices = indices.to(torch::kHABANA);
+  auto hlr = lr.to(torch::kHABANA);
+  auto hvalid_cnt = valid_cnt.to(torch::kHABANA);
+  torch::Tensor out1, out2;
+  std::tie(out1, out2) = optimizer_sparse_sgd_with_valid_count_hpu_wrap(
+      hgrad, hwts, hmoments, hindices, hlr, hvalid_cnt, 0.1, false);
+  unsetenv("PT_HPU_LAZY_MODE");
+
+  std::vector<HbLazyTensor> tensors = {GetHbLazyTensor(out1),
+                                       GetHbLazyTensor(out2)};
+  HbLazyTensor::SyncTensorsGraph(&tensors, {});
+
+  Tensor result1 = out1.to(kCPU);
+  Tensor result2 = out2.to(kCPU);
+  EXPECT_EQ(allclose(result1, result1_eager), true);
+  EXPECT_EQ(allclose(result2, result2_eager), true);
+}
+
+TEST(LazyJITTest, ExecuteGraphCustomAdagrad) {
+  auto grad = torch::randn({2, 2}, torch::requires_grad(false));
+  auto wts = torch::randn({2, 2}, torch::requires_grad(false));
+  auto moments = torch::randn({2, 2}, torch::requires_grad(false));
+  auto indices = torch::tensor({0, 1});
+  auto lr = torch::tensor({0.01});
+  auto valid_cnt = torch::tensor({2});
+  torch::Tensor out1_eager, out2_eager;
+  std::tie(out1_eager, out2_eager) =
+      optimizer_sparse_adagrad_with_valid_count_hpu_wrap(
+          grad.to(torch::kHABANA),
+          wts.to(torch::kHABANA),
+          moments.to(torch::kHABANA),
+          indices.to(torch::kHABANA),
+          lr.to(torch::kHABANA),
+          valid_cnt.to(torch::kHABANA));
+  Tensor result1_eager = out1_eager.to(kCPU);
+  Tensor result2_eager = out2_eager.to(kCPU);
+
+  setenv("PT_HPU_LAZY_MODE", "1", 1);
+  auto hgrad = grad.to(torch::kHABANA);
+  auto hwts = wts.to(torch::kHABANA);
+  auto hmoments = moments.to(torch::kHABANA);
+  auto hindices = indices.to(torch::kHABANA);
+  auto hlr = lr.to(torch::kHABANA);
+  auto hvalid_cnt = valid_cnt.to(torch::kHABANA);
+  torch::Tensor out1, out2;
+  std::tie(out1, out2) = optimizer_sparse_adagrad_with_valid_count_hpu_wrap(
+      hgrad, hwts, hmoments, hindices, hlr, hvalid_cnt);
+  unsetenv("PT_HPU_LAZY_MODE");
+
+  std::vector<HbLazyTensor> tensors = {GetHbLazyTensor(out1),
+                                       GetHbLazyTensor(out2)};
+  HbLazyTensor::SyncTensorsGraph(&tensors, {});
+
+  Tensor result1 = out1.to(kCPU);
+  Tensor result2 = out2.to(kCPU);
+  EXPECT_EQ(allclose(result1, result1_eager), true);
+  EXPECT_EQ(allclose(result2, result2_eager), true);
 }

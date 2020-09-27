@@ -49,11 +49,17 @@ Tensor& addcdiv_hpu_wrap_(
     const Tensor& tensor1,
     const Tensor& tensor2,
     Scalar alpha);
-Tensor add_tensor_hpu_wrap(const Tensor& self, const Tensor& other, Scalar alpha);
+Tensor add_tensor_hpu_wrap(
+    const Tensor& self,
+    const Tensor& other,
+    Scalar alpha);
 Tensor add_scalar_hpu_wrap(const Tensor& self, Scalar other, Scalar alpha);
 Tensor& add_scalar_hpu_wrap_(Tensor& self, Scalar other, Scalar alpha);
 Tensor& add_tensor_hpu_wrap_(Tensor& self, const Tensor& other, Scalar alpha);
-Tensor sub_tensor_hpu_wrap(const Tensor& self, const Tensor& other, Scalar alpha);
+Tensor sub_tensor_hpu_wrap(
+    const Tensor& self,
+    const Tensor& other,
+    Scalar alpha);
 Tensor& sub_tensor_hpu_wrap_(Tensor& self, const Tensor& other, Scalar alpha);
 Tensor sub_scalar_hpu_wrap(const Tensor& self, Scalar other, Scalar alpha);
 Tensor& sub_scalar_hpu_wrap_(Tensor& self, Scalar other, Scalar alpha);
@@ -76,7 +82,10 @@ Tensor pow_tensor_scalar_hpu_wrap(const Tensor& self, Scalar other);
 Tensor& pow_tensor_scalar_hpu_wrap_(Tensor& self, Scalar other);
 Tensor pow_scalar_tensor_hpu_wrap(Scalar other, const Tensor& self);
 Tensor gt_hpu_wrap(Tensor& self, Tensor& other);
-void eq_tensor_out_hpu_wrap(Tensor& output, const Tensor& self, const Tensor& other);
+void eq_tensor_out_hpu_wrap(
+    Tensor& output,
+    const Tensor& self,
+    const Tensor& other);
 Tensor eq_tensor_hpu_wrap(Tensor& self, Tensor& other);
 Tensor eq_tensor_scalar_hpu_wrap(Tensor& self, Scalar other);
 Tensor lt_scalar_hpu_wrap(Tensor& self, Scalar other);
@@ -157,8 +166,14 @@ Tensor& embedding_bag_sum_bwd_out_hpu_wrap(
     const Tensor& offsets_bwd,
     const Tensor& valid_count_bwd);
 Tensor& fill_hpu_wrap_(Tensor& self, Scalar value);
-Tensor& masked_fill_hpu_wrap_(Tensor& self, const Tensor& mask, const Tensor& value);
-Tensor& masked_fill_scalar_hpu_wrap_(Tensor& self, const Tensor& mask, Scalar value);
+Tensor& masked_fill_hpu_wrap_(
+    Tensor& self,
+    const Tensor& mask,
+    const Tensor& value);
+Tensor& masked_fill_scalar_hpu_wrap_(
+    Tensor& self,
+    const Tensor& mask,
+    Scalar value);
 Tensor gather_src_hpu_wrap(
     const Tensor& self,
     int64_t dim_,
@@ -199,7 +214,10 @@ Tensor& index_put_hpu_wrap_(
     TensorList indices,
     const Tensor& value,
     bool accumulate);
-Tensor index_select_hpu_wrap(const Tensor& self, int64_t dim, const Tensor& index);
+Tensor index_select_hpu_wrap(
+    const Tensor& self,
+    int64_t dim,
+    const Tensor& index);
 Tensor gather2d_hpu_wrap(
     const Tensor& input,
     const Tensor& indices,
@@ -219,7 +237,10 @@ Tensor addmm_hpu_wrap(
     const Tensor& mat2,
     Scalar beta,
     Scalar alpha);
-Tensor& batch_gemm_out_hpu_wrap(Tensor& out, const Tensor& self, const Tensor& mat2);
+Tensor& batch_gemm_out_hpu_wrap(
+    Tensor& out,
+    const Tensor& self,
+    const Tensor& mat2);
 Tensor batch_gemm_hpu_wrap(const Tensor& self, const Tensor& mat2);
 Tensor dot_hpu_wrap(const Tensor& self, const Tensor& other);
 Tensor mv_hpu_wrap(const Tensor& self, const Tensor& other);
@@ -404,7 +425,10 @@ Tensor log_softmax_backward_hpu_wrap(
     const Tensor& output,
     int64_t dim,
     const Tensor& input);
-Tensor softmax_hpu_wrap(const Tensor& self, int64_t dim, const bool half_to_float);
+Tensor softmax_hpu_wrap(
+    const Tensor& self,
+    int64_t dim,
+    const bool half_to_float);
 Tensor softmax_backward_hpu_wrap(
     const Tensor& grad,
     const Tensor& output,
@@ -425,10 +449,15 @@ Tensor empty_strided_hpu_wrap(
 } // namespace native
 } // namespace at
 
-Tensor clone_hpu_wrap(const Tensor& self, c10::optional<MemoryFormat> memory_format);
+Tensor clone_hpu_wrap(
+    const Tensor& self,
+    c10::optional<MemoryFormat> memory_format);
 Tensor& zero_hpu_wrap(Tensor& self);
 Tensor cat_hpu_wrap(const TensorList tensors, int64_t dim_ = 0);
-Tensor& cat_hpu_wrap_out(Tensor& result, const TensorList tensors, int64_t dim_ = 0);
+Tensor& cat_hpu_wrap_out(
+    Tensor& result,
+    const TensorList tensors,
+    int64_t dim_ = 0);
 Tensor transpose_hpu_wrap(const Tensor& self, int64_t dim0_, int64_t dim1_);
 Tensor& transpose_hpu_wrap_(Tensor& self, int64_t dim0_, int64_t dim1_);
 Tensor t_hpu_wrap(const Tensor& self);
@@ -490,8 +519,14 @@ Tensor& reciprocal_hpu_wrap_(Tensor& self);
 Tensor reciprocal_hpu_wrap(const Tensor& self);
 Tensor& reciprocal_out_hpu_wrap(Tensor& result, const Tensor& self);
 Tensor clamp_min_hpu_wrap(const Tensor& self, Scalar min);
-Tensor& clamp_hpu_wrap_(Tensor& self, c10::optional<Scalar> min, c10::optional<Scalar> max);
-Tensor clamp_hpu_wrap(const Tensor& self, c10::optional<Scalar> min, c10::optional<Scalar> max);
+Tensor& clamp_hpu_wrap_(
+    Tensor& self,
+    c10::optional<Scalar> min,
+    c10::optional<Scalar> max);
+Tensor clamp_hpu_wrap(
+    const Tensor& self,
+    c10::optional<Scalar> min,
+    c10::optional<Scalar> max);
 Tensor abs_hpu_wrap(const Tensor& self);
 Tensor neg_hpu_wrap(const Tensor& self);
 namespace at {
@@ -499,3 +534,21 @@ namespace native {
 Scalar _local_scalar_dense_hpu_wrap(const Tensor& self);
 }
 } // namespace at
+std::tuple<torch::Tensor, torch::Tensor>
+optimizer_sparse_sgd_with_valid_count_hpu_wrap(
+    const Tensor& gradients,
+    const Tensor& weights_in,
+    const Tensor& moments_in,
+    const Tensor& indices,
+    const Tensor& learning_rate,
+    const Tensor& valid_count_tensor,
+    float mom,
+    bool nesterov);
+std::tuple<torch::Tensor, torch::Tensor>
+optimizer_sparse_adagrad_with_valid_count_hpu_wrap(
+    const Tensor& gradients,
+    const Tensor& weights_in,
+    const Tensor& moments_in,
+    const Tensor& indices,
+    const Tensor& learning_rate,
+    const Tensor& valid_count_tensor);

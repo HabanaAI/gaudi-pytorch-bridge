@@ -91,7 +91,7 @@ optimizer_sparse_sgd_with_valid_count_hpu(
   std::string node_type = "optimizer_sparse_sgd_with_valid_count_2d_" +
       habana_helpers::name_suffix_from_type(scalar_type);
 
-  OptimizerSparseSgdOperator Op(device_id, node_type);
+  OptimizerSparseSgdOperator Op(device_id, scalar_type);
   // Assign Inputs to the Operator
   std::vector<at::Tensor> pt_inputs{gradients,
                                     weights_in,
@@ -284,7 +284,7 @@ optimizer_sparse_adagrad_with_valid_count_hpu(
   std::string node_type = "optimizer_sparse_adagrad_with_valid_count_2d_" +
       habana_helpers::name_suffix_from_type(scalar_type);
 
-  OptimizerSparseAdagradOperator Op(device_id, node_type);
+  OptimizerSparseAdagradOperator Op(device_id, scalar_type);
   // Assign Inputs to the Operator
   std::vector<at::Tensor> pt_inputs{gradients,
                                     weights_in,
@@ -325,3 +325,18 @@ optimizer_sparse_adagrad_with_valid_count_hpu(
   PT_KERNEL_END;
   return std::tie(out.at(0), out.at(1));
 }
+
+static auto& KernelRegistry =
+    habana::KernelRegistry()
+        .add(
+            "::habanaOptimizerSparseSgd",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<OptimizerSparseSgdOperator>(
+                  device_id, node_type);
+            })
+        .add(
+            "::habanaOptimizerSparseAdagrad",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<OptimizerSparseAdagradOperator>(
+                  device_id, node_type);
+            });

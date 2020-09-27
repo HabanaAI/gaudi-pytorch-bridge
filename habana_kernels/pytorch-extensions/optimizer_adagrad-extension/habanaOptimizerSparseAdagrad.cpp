@@ -20,7 +20,7 @@ using namespace std;
 // 2	Moments              FP32	2D
 
 extern std::tuple<torch::Tensor, torch::Tensor>
-optimizer_sparse_adagrad_with_valid_count_hpu(
+optimizer_sparse_adagrad_with_valid_count_hpu_wrap(
     const torch::Tensor& gradients,
     const torch::Tensor& weights_in,
     const torch::Tensor& moments_in,
@@ -28,20 +28,16 @@ optimizer_sparse_adagrad_with_valid_count_hpu(
     const torch::Tensor& learning_rate,
     const torch::Tensor& valid_count);
 
-std::tuple<torch::Tensor, torch::Tensor> optimizer_sparse_adagrad_with_valid_count(
+std::tuple<torch::Tensor, torch::Tensor>
+optimizer_sparse_adagrad_with_valid_count(
     torch::Tensor gradients,
     torch::Tensor weights_in,
     torch::Tensor moments_in,
     torch::Tensor indices,
     torch::Tensor learning_rate,
     torch::Tensor valid_count) {
-  return optimizer_sparse_adagrad_with_valid_count_hpu(
-      gradients,
-      weights_in,
-      moments_in,
-      indices,
-      learning_rate,
-      valid_count);
+  return optimizer_sparse_adagrad_with_valid_count_hpu_wrap(
+      gradients, weights_in, moments_in, indices, learning_rate, valid_count);
 }
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {

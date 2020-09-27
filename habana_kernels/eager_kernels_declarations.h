@@ -489,8 +489,14 @@ Tensor& reciprocal_hpu_(Tensor& self);
 Tensor reciprocal_hpu(const Tensor& self);
 Tensor& reciprocal_out_hpu(Tensor& result, const Tensor& self);
 Tensor clamp_min_hpu(const Tensor& self, Scalar min);
-Tensor& clamp_hpu_(Tensor& self, c10::optional<Scalar> min, c10::optional<Scalar> max);
-Tensor clamp_hpu(const Tensor& self, c10::optional<Scalar> min, c10::optional<Scalar> max);
+Tensor& clamp_hpu_(
+    Tensor& self,
+    c10::optional<Scalar> min,
+    c10::optional<Scalar> max);
+Tensor clamp_hpu(
+    const Tensor& self,
+    c10::optional<Scalar> min,
+    c10::optional<Scalar> max);
 Tensor abs_hpu(const Tensor& self);
 Tensor neg_hpu(const Tensor& self);
 namespace at {
@@ -498,3 +504,21 @@ namespace native {
 Scalar _local_scalar_dense_hpu(const Tensor& self);
 }
 } // namespace at
+std::tuple<torch::Tensor, torch::Tensor>
+optimizer_sparse_sgd_with_valid_count_hpu(
+    const Tensor& gradients,
+    const Tensor& weights_in,
+    const Tensor& moments_in,
+    const Tensor& indices,
+    const Tensor& learning_rate,
+    const Tensor& valid_count_tensor,
+    float mom,
+    bool nesterov);
+std::tuple<torch::Tensor, torch::Tensor>
+optimizer_sparse_adagrad_with_valid_count_hpu(
+    const Tensor& gradients,
+    const Tensor& weights_in,
+    const Tensor& moments_in,
+    const Tensor& indices,
+    const Tensor& learning_rate,
+    const Tensor& valid_count_tensor);

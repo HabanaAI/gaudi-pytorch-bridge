@@ -20,7 +20,7 @@ using namespace std;
 // 2	Moments              FP32	2D
 
 extern std::tuple<torch::Tensor, torch::Tensor>
-optimizer_sparse_sgd_with_valid_count_hpu(
+optimizer_sparse_sgd_with_valid_count_hpu_wrap(
     const torch::Tensor& gradients,
     const torch::Tensor& weights_in,
     const torch::Tensor& moments_in,
@@ -37,7 +37,7 @@ std::tuple<torch::Tensor, torch::Tensor> optimizer_sparse_sgd_with_valid_count(
     torch::Tensor indices,
     torch::Tensor learning_rate,
     torch::Tensor valid_count) {
-  return optimizer_sparse_sgd_with_valid_count_hpu(
+  return optimizer_sparse_sgd_with_valid_count_hpu_wrap(
       gradients,
       weights_in,
       moments_in,
