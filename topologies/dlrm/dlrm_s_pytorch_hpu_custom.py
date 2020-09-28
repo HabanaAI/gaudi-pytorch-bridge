@@ -21,6 +21,8 @@ import distributed_utils
 # numpy
 import numpy as np
 import os
+import sys
+
 # onnx
 # The onnx import causes deprecation warnings every time workers
 # are spawned during testing. So, we filter out those warnings.
@@ -57,6 +59,19 @@ import sklearn.metrics
 torch.set_printoptions(precision=7)
 
 exc = getattr(builtins, "IOError", "FileNotFoundError")
+
+try:
+    path = os.path.join(os.environ['PYTORCH_MODULES_ROOT_PATH'], 'topologies')
+    tools_path = os.path.join(path, 'tools')
+    if os.path.exists(path) is False or os.path.exists(tools_path) is False:
+        raise Exception("path for 'tools' NOT found")
+    sys.path.append(path)
+    from tools import *
+    print('tools FOUND')
+except:
+    assert False, ("tools directory should be availabe as somedir/topologies/tools",
+                     "PYTORCH_MODULES_ROOT_PATH should be set to 'somedir'")
+    print('tools NOT FOUND')
 
 class AllToAllAcrossDevice(torch.autograd.Function):
 
@@ -757,7 +772,7 @@ if __name__ == "__main__":
     # j will be replaced with the table number
     parser.add_argument("--arch-mlp-bot", type=str, default="4-3-2")
     parser.add_argument("--arch-mlp-top", type=str, default="4-2-1")
-    parser.add_argument("--arch-interaction-op", type=str, default="dot")
+    parser.add_argument("--arch-interaction-op", type=str, default="cat")
     parser.add_argument("--arch-interaction-itself", action="store_true", default=False)
     # embedding table options
     parser.add_argument("--md-flag", action="store_true", default=False)
@@ -834,6 +849,9 @@ if __name__ == "__main__":
     parser.add_argument('--hmp-opt-level', default='O1', help='choose optimization level for hmp')
     parser.add_argument('--hmp-verbose', action='store_true', help='enable verbose mode for hmp')
     parser.add_argument("--distributed", action="store_true", default=False)
+    parser.add_argument('--log-device-mem-alloc', action='store_true',
+                        help='log live memory allocations on device at the given point')
+
     args = parser.parse_args()
 
     if args.is_hmp:
@@ -1115,6 +1133,11 @@ if __name__ == "__main__":
     if use_hpu:
         # dlrm = dlrm.to(device)
         dlrm_habana = dlrm_habana.to(device)
+        trainMetaData = TrainMetaData(dlrm_habana, device)
+        if args.log_device_mem_alloc:
+            print('Device Memory allocation logging is enabled',)
+            trainMetaData.set_live_mem_alloc_logging(args.log_device_mem_alloc)
+
         if dlrm_habana.ndevices > 1:
             dlrm_habana.bot_l = DDP(dlrm_habana.bot_l)
             dlrm_habana.top_l = DDP(dlrm_habana.top_l)
@@ -1337,9 +1360,10 @@ if __name__ == "__main__":
     print('skip_upto_batch=',skip_upto_batch)
 
     training_resumed = False
-
+    trainMetaData.log_live_mem_alloc('Start of training')
     with torch.autograd.profiler.profile(args.enable_profiling, use_gpu) as prof:
         while k < args.nepochs:
+            trainMetaData.set_current_epoch_no(k)
             print('k={} skip_upto_epoch={}'.format(k,skip_upto_epoch))
             if k < skip_upto_epoch:
                 print('skipping epoch')
@@ -1351,6 +1375,9 @@ if __name__ == "__main__":
                 previous_iteration_time = None
 
             for j, (X, lS_o, lS_i, T) in enumerate(train_ld):
+                start_time = time.time()
+                trainMetaData.tracept.start(start_time, 'train_iteration_'+str(trainMetaData.current_train_step))
+                tp_probe_tensors_iteration_start(dlrm_habana, device, T, X, trainMetaData.ParamsDump, False)
                 # np.random.seed(args.numpy_rand_seed)
                 # torch.manual_seed(args.numpy_rand_seed)
 #               print('j={} skip_upto_batch={}'.format(j,skip_upto_batch))
@@ -1473,6 +1500,7 @@ if __name__ == "__main__":
 
                     apply_optimizer_update()
                     printFnTrace('Custom optimizer done')
+                    tp_probe_tensors_iteration_end(dlrm_habana, device, Z_habana, E_habana,trainMetaData.ParamsDump, False)
                     import time
 
                 if args.mlperf_logging:
@@ -1709,7 +1737,9 @@ if __name__ == "__main__":
                               + str(args.mlperf_auc_threshold)
                               + " reached, stop training")
                         break
-
+                trainMetaData.tracept.end(time.time(), 'train_iteration_'+str(trainMetaData.current_train_step))
+                trainMetaData.log_live_mem_alloc('train_iteration_'+str(trainMetaData.current_train_step) +'_finished')
+                trainMetaData.increment_train_step()
             k += 1  # nepochs
 
     # profiling
