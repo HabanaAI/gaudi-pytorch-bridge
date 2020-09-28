@@ -102,24 +102,35 @@ void CatOperator::SetPTOutput(torch::jit::Stack& inputs) {
  * @param tensors - tensor list/tuple of inputs
  * @param dim - dimension along which to concatenate the tensors
  ************************************************************************/
-Tensor cat_hpu(const TensorList tensors, int64_t dim_ = 0) {
+Tensor cat_hpu(const TensorList in_tensors, int64_t dim_ = 0) {
   PT_KERNEL_BEGIN;
-  size_t device_id = tensors[0].device().index();
+  size_t device_id = in_tensors[0].device().index();
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-  at::ScalarType scalar_type = tensors[0].scalar_type();
+  at::ScalarType scalar_type = in_tensors[0].scalar_type();
   std::string node_type = "concat";
   std::vector<at::Tensor> pt_inputs;
-
-  // Create operator
-  CatOperator Op(device_id, scalar_type);
+   // Create operator
+  at::ScalarType mod_scalar_type = in_tensors[0].scalar_type();
 
   // Assign Tensor Inputs to the Operator
   std::vector<c10::IValue> stack;
-  for (unsigned i = 0; i < tensors.size(); i++) {
+  std::vector<at::Tensor> tensors;
+  for (unsigned i = 0; i < in_tensors.size(); i++) {
+  if (in_tensors[i].scalar_type() == c10::ScalarType::Long) {
+    tensors.push_back(habana_helpers::cast_tensor_to_integer(in_tensors[i]));
     pt_inputs.push_back(tensors[i]);
+    mod_scalar_type = tensors[i].scalar_type();
+  } else {
+    tensors.push_back(in_tensors[i]);
+    pt_inputs.push_back(in_tensors[i]);
   }
+  }
+
+  TensorList out_tensorlist(tensors);
+
+  CatOperator Op(device_id, mod_scalar_type);
   // Push tensorlist as it is
-  stack.push_back(IValue(tensors));
+  stack.push_back(IValue(out_tensorlist));
   stack.push_back(IValue(dim_));
   size_t key = Op.GetRecipeKey(node_type, stack);
   if (device.get_recipe_handle_cache().isCached(key)) {
@@ -143,8 +154,16 @@ Tensor cat_hpu(const TensorList tensors, int64_t dim_ = 0) {
 
   std::vector<at::Tensor> out = Op.GetOutputs();
   TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
+
+  Tensor cast_out, temp;
+  if (scalar_type== c10::ScalarType::Long) {
+    cast_out =   habana_helpers::cast_tensor_to_long(out.at(0));
+  }
+  else{
+     cast_out = out.at(0);
+  }
   PT_KERNEL_END;
-  return out.at(0);
+  return cast_out;
 }
 
 int64_t CatOutOperator::CheckAllocateOutput(Stack& inputs) {
