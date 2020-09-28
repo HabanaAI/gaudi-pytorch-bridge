@@ -340,7 +340,7 @@ def main(args):
 
     lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=args.lr_step_size, gamma=args.lr_gamma)
 
-    model_for_train = model_for_eval = model
+    model_for_eval = model
     if args.run_trace_mode:
         sample_trace_tensor = enable_tracing(device)
 
@@ -361,10 +361,12 @@ def main(args):
 
     if args.distributed:
         if args.device == 'habana':
-            model = torch.nn.parallel.DistributedDataParallel(model)
+            model = torch.nn.parallel.DistributedDataParallel(model, bucket_cap_mb=100, broadcast_buffers=False)
         else:
             model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
         model_without_ddp = model.module
+
+    model_for_train = model
 
     if args.resume:
         if(device==torch.device('habana')):

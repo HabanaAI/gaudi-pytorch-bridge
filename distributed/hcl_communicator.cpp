@@ -175,14 +175,10 @@ synapse_error_o hcl_communicator::broadcast(HCL_Rank root_rank, device_ptr addre
   stream* collective_stream = get_collective_stream();
   synStreamHandle stream_handle = get_synapse_stream_handle(collective_stream);
   // For root (sending) rank address is input - root does not produce output
-  if (my_hcl_rank() == root_rank) {
-    prepare_stream(collective_stream, address);
-  }
+  prepare_stream(collective_stream, address);
   status = HCL_Bcast(stream_handle, address, address, elem_cnt, data_type, root_rank, hcl_comm(), false);
   VERIFY_HCL_STATUS("HCL_Bcast(...) failed.", status);
-  if (my_hcl_rank() != root_rank) {
-    submit_events(collective_stream, address, done_callback);
-  }
+  submit_events(collective_stream, address, done_callback);
   PT_DISTRIBUTED_END;
   return {};
 };
