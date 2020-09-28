@@ -63,8 +63,8 @@ c10::optional<HbLazyTensor> TryGetHbLazyTensor(const at::Tensor& tensor) {
 
 void setTensorAsInputNode(HbLazyTensor hl_tensor) {
   if (!hl_tensor.CurrentIrValue()) {
-    habana_lazy::Value val;
-    auto node = habana_lazy::Node::Create(
+    ir::Value val;
+    auto node = ir::Node::Create(
         c10::Symbol::fromQualString("hpu::input"), {});
     val.SetNode(node);
     hl_tensor.AssignIrValue(val);
@@ -115,8 +115,8 @@ bool IsHbLazyTensor(const at::Tensor& tensor) {
   return GetHbLazyTensorImpl(tensor) != nullptr;
 }
 
-Value GetIrValueForScalar(const c10::Scalar& scalar) {
-  return Value(std::make_shared<ScalarConstant>(scalar));
+ir::Value GetIrValueForScalar(const c10::Scalar& scalar) {
+  return ir::Value(std::make_shared<ir::ScalarConstant>(scalar));
 }
 
 at::Tensor CreateHbLazyTensor(

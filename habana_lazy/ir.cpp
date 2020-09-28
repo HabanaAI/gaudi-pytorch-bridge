@@ -12,7 +12,12 @@
 #include "habana_helpers/logging.h"
 
 namespace habana_lazy {
+namespace ir {
 
+size_t StdHashCombine(uint64_t a, uint64_t b) {
+  return a ^
+         (b * 0x27d4eb2f165667c5 + 0x9e3779b97f4a7c15 + (a << 6) + (a >> 2));
+}
 /*
  * Initilaize static data from Value Class
  */
@@ -51,8 +56,7 @@ void Node::AddInput(const Value& value) {
 
 std::string Value::ToString() const {
   std::stringstream ss;
-  ss << "tensorname: "
-     << "hltensor->name()?\n";
+  ss << "id:" << unique_id;
   return ss.str();
 }
 
@@ -64,4 +68,5 @@ NodePtr Node::Create(c10::Symbol oper, ValueList inputs) {
   return node;
 }
 
+} // namespace ir
 } // namespace habana_lazy

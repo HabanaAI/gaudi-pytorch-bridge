@@ -30,7 +30,7 @@ TEST_F(DebugUtilsTest, GraphTextDump1) {
 
   auto hl_result = std::make_shared<HbLazyTensor>(GetHbLazyTensor(out));
   auto ir_value = hl_result->CurrentIrValue();
-  std::vector<NodePtr> a{ir_value.mp_node};
+  std::vector<ir::NodePtr> a{ir_value.mp_node};
   auto out_string = IrGraphDumpUtil::ToText(a);
   EXPECT_EQ(
       out_string.find("IR {\n"
@@ -55,7 +55,7 @@ TEST_F(DebugUtilsTest, GraphDotDump1) {
 
   auto hl_result = std::make_shared<HbLazyTensor>(GetHbLazyTensor(out));
   auto ir_value = hl_result->CurrentIrValue();
-  std::vector<NodePtr> a{ir_value.mp_node};
+  std::vector<ir::NodePtr> a{ir_value.mp_node};
   auto out_string = IrGraphDumpUtil::ToDot(a);
   EXPECT_EQ(
       out_string.find("digraph G {\n"

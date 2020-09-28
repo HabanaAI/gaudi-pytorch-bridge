@@ -29,7 +29,7 @@ struct Data {
         tensor_data(std::move(tensor_data)),
         unique_id(0) {}
   Data(
-      Value ir_value,
+      ir::Value ir_value,
       const at::Device& device,
       c10::optional<at::ScalarType> logical_element_type)
       : data_ptr(nullptr),
@@ -39,7 +39,7 @@ struct Data {
         unique_id(0) {}
   ~Data(){};
   void* data_ptr;
-  habana_lazy::Value ir_value;
+  ir::Value ir_value;
   LayoutFormat tensor_layout;
   c10::Device device;
   c10::optional<at::ScalarType> logical_element_type;
@@ -49,10 +49,10 @@ struct Data {
 };
 
 struct PostOrderData {
-  NodePtrList post_order;
+  ir::NodePtrList post_order;
   ir::Utils::EmissionMap emission_map;
-  ValueList inputs;
-  ValueList outputs;
+  ir::ValueList inputs;
+  ir::ValueList outputs;
 };
 
 class HbLazyTensor {
@@ -65,14 +65,14 @@ class HbLazyTensor {
       const c10::Device& device);
 
   static HbLazyTensor Create(
-      Value ir_value,
+      ir::Value ir_value,
       const at::Device& device,
       c10::optional<at::ScalarType> logical_element_type);
   // Creates an empty/null tensor.
   HbLazyTensor() = default;
   HbLazyTensor(const at::Tensor& tensor, const c10::Device& device);
   HbLazyTensor(
-      Value ir_value,
+      ir::Value ir_value,
       const at::Device& device,
       c10::optional<at::ScalarType> logical_element_type = c10::nullopt);
   HbLazyTensor(std::shared_ptr<Data> data);
@@ -87,8 +87,8 @@ class HbLazyTensor {
   // its cyclic in nature, being managed by weak pointer in IR
   void setPtrDataIrToData();
   void SetTensorData(at::Tensor tensor_data);
-  void AssignIrValue(habana_lazy::Value ir_value) const;
-  habana_lazy::Value GetIrValueForTensor(
+  void AssignIrValue(ir::Value ir_value) const;
+  ir::Value GetIrValueForTensor(
       const at::Tensor& tensor,
       const c10::Device& device) const;
   c10::ScalarType dtype() const;
@@ -98,8 +98,8 @@ class HbLazyTensor {
   const c10::Device& GetDevice() const;
   // Retrieves the current IR Node, or nullptr in case no active IR Node is
   // available.
-  habana_lazy::Value& CurrentIrValue() const;
-  habana_lazy::Value GetIrValue() const;
+  ir::Value& CurrentIrValue() const;
+  ir::Value GetIrValue() const;
   c10::optional<at::Tensor> CurrentTensorData() const;
   void* CurrentHabanaData() const;
   // Applies the queue of operations in preparation for using the data.
@@ -116,7 +116,7 @@ class HbLazyTensor {
       at::Scalar fill_value,
       const at::Device& device,
       at::ScalarType scalar_type);
-  habana_lazy::Value CreateTensorNode(void* data, bool read_only) const;
+  ir::Value CreateTensorNode(void* data, bool read_only) const;
   std::vector<int> CollectSyncTensors(
       const std::vector<HbLazyTensor>& tensors) const;
   static PostOrderData RunPostOrder(
@@ -138,7 +138,7 @@ class HbLazyTensor {
 // training loops.
 struct HbContext {
   std::unordered_map<int, std::weak_ptr<Data>> tensors_data;
-  habana_lazy::Value seed_ir_value;
+  ir::Value seed_ir_value;
 };
 
 class HbContextArena {

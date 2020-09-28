@@ -44,7 +44,7 @@ c10::optional<HbLazyTensor> TryGetHbLazyTensor(const at::Tensor& tensor);
 
 bool IsHbLazyTensor(const at::Tensor& tensor);
 
-Value GetIrValueForScalar(const c10::Scalar& scalar);
+ir::Value GetIrValueForScalar(const c10::Scalar& scalar);
 at::Tensor CreateHbLazyTensor(
     at::Tensor tensor,
     const c10::optional<at::Device>& device);

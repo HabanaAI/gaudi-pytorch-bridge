@@ -51,7 +51,7 @@ TEST(LazyKernelTest, ConvReluTest) {
   //Match lazy IR graph
   auto hl_result = std::make_shared<HbLazyTensor>(GetHbLazyTensor(outHabana));
   auto ir_value = hl_result->CurrentIrValue();
-  std::vector<NodePtr> a{ir_value.mp_node};
+  std::vector<ir::NodePtr> a{ir_value.mp_node};
   auto out_string = IrGraphDumpUtil::ToText(a);
   EXPECT_EQ(
       out_string.find("IR {\n"

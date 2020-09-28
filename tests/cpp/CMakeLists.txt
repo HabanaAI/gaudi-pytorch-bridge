@@ -37,6 +37,8 @@ ExternalProject_Get_Property(googletest SOURCE_DIR)
 set(PT_INTEGRATION_TEST_SOURCES
   debug_utils_tests.cpp
   eager_kernel_tests.cpp
+  post_order_tests.cpp
+  lazy_jit_graph_tests.cpp
   lazy_kernel_tests.cpp
   main.cpp
   post_order_tests.cpp

@@ -14,6 +14,7 @@
 #include "torch/csrc/jit/ir/ir.h"
 
 namespace habana_lazy {
+namespace ir {
 
 /**
  * Handle Scalar, Int, Double, Bool type values
@@ -46,4 +47,5 @@ class Constant : public Node {
 
 using ScalarConstant = Constant<c10::Scalar>;
 
+} // namespace ir
 }; // namespace habana_lazy

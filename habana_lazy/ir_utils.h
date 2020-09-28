@@ -28,6 +28,8 @@ class Utils {
 
   using EmissionMap = std::unordered_map<NodePtr, EmitStatus>;
 
+  static size_t StdHashCombine(uint64_t a, uint64_t b);
+
   // Computes the post order from the given node
   static void ComputePostOrderNode(
       NodePtr& p_node,

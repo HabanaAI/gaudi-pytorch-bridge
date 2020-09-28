@@ -77,7 +77,7 @@ HbLazyTensor::HbLazyTensor(const at::Tensor& tensor, const c10::Device& device)
     : mp_data(std::make_shared<Data>(tensor, device)) {}
 
 HbLazyTensor::HbLazyTensor(
-    Value ir_value,
+    ir::Value ir_value,
     const at::Device& device,
     c10::optional<at::ScalarType> logical_element_type)
     : mp_data(std::make_shared<Data>(
@@ -102,7 +102,7 @@ void HbLazyTensor::setTensorSize(std::vector<int64_t> sizes) {
   data()->sizes = sizes;
 }
 HbLazyTensor HbLazyTensor::Create(
-    Value ir_value,
+    ir::Value ir_value,
     const at::Device& device,
     c10::optional<at::ScalarType> logical_element_type) {
   HbLazyTensor hb_tensor(std::move(ir_value), device, logical_element_type);
@@ -139,11 +139,11 @@ at::Tensor HbLazyTensor::ToTensor(bool detached) {
   return tensor;
 }
 
-void HbLazyTensor::AssignIrValue(habana_lazy::Value ir_value) const {
+void HbLazyTensor::AssignIrValue(ir::Value ir_value) const {
   data()->ir_value = std::move(ir_value);
 }
 
-habana_lazy::Value& HbLazyTensor::CurrentIrValue() const {
+ir::Value& HbLazyTensor::CurrentIrValue() const {
   return data()->ir_value;
 }
 
@@ -151,8 +151,8 @@ void* HbLazyTensor::CurrentHabanaData() const {
   return data()->data_ptr;
 }
 
-habana_lazy::Value HbLazyTensor::GetIrValue() const {
-  habana_lazy::Value ir_value = CurrentIrValue();
+ir::Value HbLazyTensor::GetIrValue() const {
+  ir::Value ir_value = CurrentIrValue();
   if (ir_value) {
     return ir_value;
   }
@@ -191,7 +191,7 @@ void HbLazyTensor::SetScalarType(
 
 void HbLazyTensor::SetTensor(at::Tensor tensor) {
   SetTensorData(tensor);
-  AssignIrValue(habana_lazy::Value());
+  AssignIrValue(ir::Value());
   setPtrDataIrToData();
 }
 
@@ -205,7 +205,7 @@ c10::ScalarType HbLazyTensor::dtype() const {
   } else
     return c10::ScalarType::Float;
 }
-habana_lazy::Value HbLazyTensor::CreateTensorNode(void* data, bool read_only)
+ir::Value HbLazyTensor::CreateTensorNode(void* data, bool read_only)
     const {
   return CurrentIrValue();
   // data->SetInfo(std::make_shared<DeviceDataInfo>(GetUniqueId(), read_only));
@@ -216,7 +216,7 @@ void HbLazyTensor::setPtrDataIrToData() {
   if (mp_data.get())
     mp_data->ir_value.m_data_ptr = mp_data;
 }
-habana_lazy::Value HbLazyTensor::GetIrValueForTensor(
+ir::Value HbLazyTensor::GetIrValueForTensor(
     const at::Tensor& tensor,
     const c10::Device& device) const {
   bool read_only = false;
@@ -233,7 +233,7 @@ HbLazyTensor HbLazyTensor::CreateHbLazyTensor(
     at::Scalar fill_value,
     const at::Device& device,
     at::ScalarType scalar_type) {
-  habana_lazy::Value val;
+  ir::Value val;
   // Creating a dummy IR::Value right now
   // After Vaibhav's update, we should plug in utility to create IR
   // from metadata(commented line)
@@ -281,7 +281,7 @@ habana_lazy::PostOrderData HbLazyTensor::RunPostOrder(
     const std::vector<HbLazyTensor>& tensors,
     std::vector<int> indices) {
   habana_lazy::PostOrderData po_data;
-  std::vector<NodePtr> p_roots;
+  std::vector<ir::NodePtr> p_roots;
   p_roots.reserve(indices.size());
   for (auto index : indices) {
     auto ir_value = tensors.at(index).CurrentIrValue();

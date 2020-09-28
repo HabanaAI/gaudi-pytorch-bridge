@@ -13,6 +13,12 @@
 
 namespace habana_lazy {
 namespace ir {
+
+size_t Utils::StdHashCombine(uint64_t a, uint64_t b) {
+  return a ^
+         (b * 0x27d4eb2f165667c5 + 0x9e3779b97f4a7c15 + (a << 6) + (a >> 2));
+}
+
 /*
 @brief - Computes post order traveral for a given output node
 Computes input ir values asscoicated with the given output node

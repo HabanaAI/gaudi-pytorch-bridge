@@ -17,10 +17,12 @@
 #include "habana_helpers/logging.h"
 
 namespace habana_lazy {
+struct Data;
+
+namespace ir {
 
 class Node;
 struct Value;
-struct Data;
 
 using DataPtr = std::shared_ptr<Data>;
 using NodePtr = std::shared_ptr<Node>;
@@ -28,6 +30,8 @@ using NodePtrList = std::vector<NodePtr>;
 using ValueList = std::vector<Value>;
 using ValuePtr = std::shared_ptr<Value>;
 using ValuePtrList = std::vector<ValuePtr>;
+
+size_t StdHashCombine(uint64_t a, uint64_t b);
 
 /**
  * Represents the Use of the Value struct as Output
@@ -81,16 +85,21 @@ class Node {
     return m_inputs;
   }
 
-  const ValueList GetOutputs() const {
-    return m_outputs;
-  }
-
   bool IsVisited() const {
     return m_is_visited;
   }
 
   void MarkVisited() {
     m_is_visited = true;
+  }
+
+  const ValueList GetOutputs() const {
+    return m_outputs;
+  }
+
+  const Value& GetOutput(size_t i) const {
+    TORCH_CHECK(i < get_num_outputs(), "Node::GetOutputs index out of range");
+    return m_outputs[i];
   }
 
   virtual ~Node() {}
@@ -142,6 +151,19 @@ struct Value {
     mp_node->m_outputs.emplace_back(*this);
   }
 
+  uint64_t get_unique_id() const {
+    return unique_id;
+  }
+
+  bool operator==(const Value& v) const {
+    return mp_node.get() == v.mp_node.get()
+          &&  m_index == v.m_index;
+  }
+
+  bool operator!=(const Value& v) const {
+    return !(*this == v);
+  }
+
   operator bool() const {
     return mp_node.get() != nullptr;
   }
@@ -170,4 +192,21 @@ inline std::ostream& operator<<(std::ostream& stream, const Value& value) {
   return stream;
 }
 
+// Hash functor for Value
+struct ValueHash {
+ public:
+  size_t operator()(const Value& v) const {
+    return StdHashCombine(reinterpret_cast<uintptr_t>(v.mp_node.get()), v.m_index);
+  }
+};
+
+// Equal functor for Value
+struct ValueEqual {
+ public:
+  bool operator()(const Value& v1, const Value& v2) const {
+    return v1 == v2;
+  }
+};
+
+} // namespace ir
 } // namespace habana_lazy

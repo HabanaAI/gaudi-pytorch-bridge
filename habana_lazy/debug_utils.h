@@ -18,17 +18,17 @@ namespace habana_lazy {
  */
 class IrGraphDumpUtil {
  public:
-  static std::string ToDot(std::vector<NodePtr> nodes);
+  static std::string ToDot(std::vector<ir::NodePtr> nodes);
 
   static std::string PostOrderToDot(
-      std::vector<NodePtr> post_order,
-      std::vector<NodePtr> roots);
+      std::vector<ir::NodePtr> post_order,
+      std::vector<ir::NodePtr> roots);
 
-  static std::string ToText(std::vector<NodePtr> nodes);
+  static std::string ToText(std::vector<ir::NodePtr> nodes);
 
   static std::string PostOrderToText(
-      std::vector<NodePtr> post_order,
-      std::vector<NodePtr> roots);
+      std::vector<ir::NodePtr> post_order,
+      std::vector<ir::NodePtr> roots);
 };
 
 } // namespace habana_lazy

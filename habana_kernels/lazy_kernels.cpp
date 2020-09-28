@@ -65,11 +65,11 @@ Tensor& copy_hpu_lazy_(Tensor& self, const Tensor& src, bool non_blocking) {
     // TODO : we can give a more detailed cast info in node name later
     // Will need to move the name generation in a utility(will need to modify
     // kernel too, not touching right now)
-    auto node = habana_lazy::Node::Create(
+    auto node = habana_lazy::ir::Node::Create(
         Symbol::fromQualString("aten::cast"), {hb_tensor.GetIrValue()});
     self = habana_helpers::hpu_cast_tensor(src, self.dtype());
     auto hlresult = habana_lazy::GetHbLazyTensor(self);
-    habana_lazy::Value& out = hlresult.CurrentIrValue();
+    habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
     out.m_index = 0;
     out.SetNode(node);
     return self;
@@ -130,12 +130,12 @@ Tensor add_tensor_hpu_lazy(
   auto hl_other = habana_lazy::GetOrCreateHbLazyTensor(other, c10::kHABANA);
   auto hl_alpha = habana_lazy::GetIrValueForScalar(alpha);
 
-  auto node = habana_lazy::Node::Create(
+  auto node = habana_lazy::ir::Node::Create(
       Symbol::fromQualString("aten::add"),
       {hl_self.GetIrValue(), hl_other.GetIrValue(), hl_alpha});
   at::Tensor result = add_tensor_hpu(self, other, alpha);
   auto hlresult = habana_lazy::GetHbLazyTensor(result);
-  habana_lazy::Value& out = hlresult.CurrentIrValue();
+  habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
   out.m_index = 0;
   out.SetNode(node);
 
@@ -247,16 +247,16 @@ Tensor convolution_hpu_lazy(
     int64_t groups) {
   auto hl_input = habana_lazy::GetOrCreateHbLazyTensor(input, c10::kHABANA);
   auto hl_weight = habana_lazy::GetOrCreateHbLazyTensor(weight, c10::kHABANA);
-  habana_lazy::ValueList ir_vlaues{hl_input.GetIrValue(), hl_weight.GetIrValue()};
+  habana_lazy::ir::ValueList ir_values{hl_input.GetIrValue(), hl_weight.GetIrValue()};
 
   if (bias.defined()) {
     auto hl_bias = habana_lazy::GetOrCreateHbLazyTensor(bias, c10::kHABANA);
-    ir_vlaues.push_back(hl_bias.GetIrValue());
+    ir_values.push_back(hl_bias.GetIrValue());
   }
 
-  auto node = habana_lazy::Node::Create(
+  auto node = habana_lazy::ir::Node::Create(
       Symbol::fromQualString("aten::convolution"),
-      ir_vlaues);
+      ir_values);
 
   // shape inference
   auto shape_out = ConvOperator::compute_output_shape(
@@ -269,7 +269,7 @@ Tensor convolution_hpu_lazy(
 
   auto result = at::native::empty_hpu_lazy(shape_out, input.options(), input.suggest_memory_format());
   auto hlresult = habana_lazy::GetHbLazyTensor(result);
-  habana_lazy::Value& out = hlresult.CurrentIrValue();
+  habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
   out.m_index = 0;
   out.SetNode(node);
 
@@ -985,11 +985,11 @@ Tensor unary_backward_op_hpu_lazy(
 Tensor relu_hpu_lazy(const Tensor& input) {
   auto hl_input = habana_lazy::GetOrCreateHbLazyTensor(input, c10::kHABANA);
 
-  auto node = habana_lazy::Node::Create(
+  auto node = habana_lazy::ir::Node::Create(
       Symbol::fromQualString("aten::relu"), {hl_input.GetIrValue()});
   at::Tensor result = relu_hpu(input);
   auto hlresult = habana_lazy::GetHbLazyTensor(result);
-  habana_lazy::Value& out = hlresult.CurrentIrValue();
+  habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
   out.m_index = 0;
   out.SetNode(node);
 

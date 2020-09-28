@@ -17,7 +17,7 @@
 #include "debug_utils.h"
 namespace habana_lazy {
 
-using NodeIdMap = std::unordered_map<NodePtr, size_t>;
+using NodeIdMap = std::unordered_map<ir::NodePtr, size_t>;
 
 struct AttrTag {
   std::string name;
@@ -79,7 +79,7 @@ struct AttrTag {
   return tag;
 }*/
 
-NodeIdMap GenerateIdMap(std::vector<NodePtr> post_order) {
+NodeIdMap GenerateIdMap(std::vector<ir::NodePtr> post_order) {
   NodeIdMap id_map;
   for (auto node : post_order) {
     id_map.emplace(node, id_map.size());
@@ -87,8 +87,8 @@ NodeIdMap GenerateIdMap(std::vector<NodePtr> post_order) {
   return id_map;
 }
 
-std::unordered_map<NodePtr, size_t> GetRootsIds(std::vector<NodePtr> roots) {
-  std::unordered_map<NodePtr, size_t> roots_ids;
+std::unordered_map<ir::NodePtr, size_t> GetRootsIds(std::vector<ir::NodePtr> roots) {
+  std::unordered_map<ir::NodePtr, size_t> roots_ids;
   for (size_t i = 0; i < roots.size(); ++i) {
     roots_ids[roots[i]] = i;
   }
@@ -96,8 +96,8 @@ std::unordered_map<NodePtr, size_t> GetRootsIds(std::vector<NodePtr> roots) {
 }
 
 absl::optional<size_t> GetRootNodeId(
-    NodePtr node,
-    std::unordered_map<NodePtr, size_t>& roots_ids) {
+    ir::NodePtr node,
+    std::unordered_map<ir::NodePtr, size_t>& roots_ids) {
   auto it = roots_ids.find(node);
   if (it == roots_ids.end()) {
     return absl::nullopt;
@@ -105,7 +105,7 @@ absl::optional<size_t> GetRootNodeId(
   return it->second;
 }
 
-/*std::vector<AttrTag> GetNodeTags(NodePtr node) {
+/*std::vector<AttrTag> GetNodeTags(ir::NodePtr node) {
   std::string node_string = node->ToString();
   std::string op_string = node->op().toQualString();
   std::string::size_type pos = node_string.find(op_string);
@@ -125,8 +125,8 @@ absl::optional<size_t> GetRootNodeId(
 }*/
 
 std::string GenerateDotNodeLabel(
-    NodePtr node,
-    std::unordered_map<NodePtr, size_t>& roots_ids) {
+    ir::NodePtr node,
+    std::unordered_map<ir::NodePtr, size_t>& roots_ids) {
   // static const size_t kMaxValueSize = 64;
   std::stringstream ss;
   ss << node->op().toQualString() << "\\n" /*<< node->shape()*/;
@@ -146,14 +146,14 @@ std::string GenerateDotNodeLabel(
 }
 
 std::string GenerateDotNodeSpec(
-    NodePtr node,
-    std::unordered_map<NodePtr, size_t>& roots_ids) {
+    ir::NodePtr node,
+    std::unordered_map<ir::NodePtr, size_t>& roots_ids) {
   std::stringstream ss;
   ss << "label=\"" << GenerateDotNodeLabel(node, roots_ids) << "\"";
   return ss.str();
 }
 
-std::string GenerateTextNodeSpec(NodePtr node, NodeIdMap& id_map) {
+std::string GenerateTextNodeSpec(ir::NodePtr node, NodeIdMap& id_map) {
   std::stringstream ss;
   ss << /*node->shape() << " " <<*/ node->op().toQualString() << "(";
   size_t count = 0;
@@ -174,16 +174,16 @@ std::string GenerateTextNodeSpec(NodePtr node, NodeIdMap& id_map) {
   return ss.str();
 }
 
-std::string IrGraphDumpUtil::ToDot(std::vector<NodePtr> nodes) {
+std::string IrGraphDumpUtil::ToDot(std::vector<ir::NodePtr> nodes) {
   habana_lazy::PostOrderData po_data;
   ir::Utils::ComputePostOrder(nodes, &po_data.emission_map, po_data.post_order);
   return PostOrderToDot(po_data.post_order, nodes);
 }
 
 std::string IrGraphDumpUtil::PostOrderToDot(
-    std::vector<NodePtr> post_order,
-    std::vector<NodePtr> roots) {
-  std::unordered_map<NodePtr, size_t> roots_ids = GetRootsIds(roots);
+    std::vector<ir::NodePtr> post_order,
+    std::vector<ir::NodePtr> roots) {
+  std::unordered_map<ir::NodePtr, size_t> roots_ids = GetRootsIds(roots);
   NodeIdMap id_map = GenerateIdMap(post_order);
   std::stringstream ss;
   ss << "digraph G {\n";
@@ -192,7 +192,7 @@ std::string IrGraphDumpUtil::PostOrderToDot(
        << GenerateDotNodeSpec(node, roots_ids) << "]\n";
   }
   for (auto it = post_order.rbegin(); it != post_order.rend(); ++it) {
-    NodePtr node = *it;
+    ir::NodePtr node = *it;
     size_t id = id_map.at(node);
     for (size_t i = 0; i < node->GetInputs().size(); ++i) {
       auto& output = node->GetInputs()[i];
@@ -215,16 +215,16 @@ std::string IrGraphDumpUtil::PostOrderToDot(
   return ss.str();
 }
 
-std::string IrGraphDumpUtil::ToText(std::vector<NodePtr> nodes) {
+std::string IrGraphDumpUtil::ToText(std::vector<ir::NodePtr> nodes) {
   habana_lazy::PostOrderData po_data;
   ir::Utils::ComputePostOrder(nodes, &po_data.emission_map, po_data.post_order);
   return PostOrderToText(po_data.post_order, nodes);
 }
 
 std::string IrGraphDumpUtil::PostOrderToText(
-    std::vector<NodePtr> post_order,
-    std::vector<NodePtr> roots) {
-  std::unordered_map<NodePtr, size_t> roots_ids = GetRootsIds(roots);
+    std::vector<ir::NodePtr> post_order,
+    std::vector<ir::NodePtr> roots) {
+  std::unordered_map<ir::NodePtr, size_t> roots_ids = GetRootsIds(roots);
   NodeIdMap id_map = GenerateIdMap(post_order);
   std::stringstream ss;
   ss << "IR {\n";
