@@ -60,13 +60,16 @@ class hcl_communicator {
   ~hcl_communicator();
 
   synapse_error_o allreduce(device_ptr input_address, device_ptr output_address, size_t elem_cnt,
+                            synDataType data_type, HCL_Op hclop, const event_done_callback& done_callback = [] {});
+
+  synapse_error_o allreduce(device_ptr input_address, device_ptr output_address, size_t elem_cnt,
                             synDataType data_type, const event_done_callback& done_callback = [] {});
 
   synapse_error_o reduce(HCL_Rank dest_rank, device_ptr input_address, device_ptr output_address, size_t elem_cnt,
                          synDataType data_type, HCL_Op hclop, const event_done_callback& done_callback = [] {});
 
   synapse_error_o reduce_scatter(device_ptr input_address, device_ptr output_address, size_t elem_cnt,
-                                 synDataType data_type, const event_done_callback& done_callback = [] {});
+                                 synDataType data_type, HCL_Op hclop, const event_done_callback& done_callback = [] {});
 
   synapse_error_o alltoall(device_ptr input_address, device_ptr output_address, size_t elem_cnt,
                            synDataType data_type, const event_done_callback& done_callback = [] {});

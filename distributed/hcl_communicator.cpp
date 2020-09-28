@@ -103,13 +103,13 @@ hcl_communicator::~hcl_communicator() {
 }
 
 synapse_error_o hcl_communicator::allreduce(device_ptr input_address, device_ptr output_address, size_t elem_cnt,
-                                            synDataType data_type, const event_done_callback& done_callback) {
+                                            synDataType data_type, HCL_Op hclop, const event_done_callback& done_callback) {
   // TBD: Add it to the API.  Will do it as separate release as it needs to be synchronized with pytorch-fork
-  auto allreduce_function = [this](synStreamHandle collective_stream, device_ptr input_address,
+  auto allreduce_function = [this, hclop](synStreamHandle collective_stream, device_ptr input_address,
                                    device_ptr output_address, size_t elem_cnt, synDataType data_type,
                                    device_ptr intermediate_address, size_t intermediate_size) {
     return HCL_Allreduce(collective_stream, input_address, output_address, elem_cnt, data_type, intermediate_address,
-                         intermediate_size, eHCLSum, hcl_comm(), false);
+                         intermediate_size, hclop, hcl_comm(), false);
   };
   PT_DISTRIBUTED_BEGIN;
   auto status = execute_collective_with_fusion_buffer(allreduce_function, eHCLAllReduce, input_address, output_address,
@@ -118,9 +118,15 @@ synapse_error_o hcl_communicator::allreduce(device_ptr input_address, device_ptr
   return status;
 }
 
+synapse_error_o hcl_communicator::allreduce(device_ptr input_address, device_ptr output_address, size_t elem_cnt,
+                                            synDataType data_type, const event_done_callback& done_callback) {
+
+    return allreduce(input_address,output_address,elem_cnt,data_type,eHCLSum,done_callback);
+}
+
 synapse_error_o hcl_communicator::reduce(HCL_Rank dest_rank, device_ptr input_address, device_ptr output_address,
                                          size_t elem_cnt, synDataType data_type, HCL_Op hclop,
-					 const event_done_callback& done_callback) {
+                                         const event_done_callback& done_callback) {
   auto reduce_function = [this, dest_rank, hclop](synStreamHandle collective_stream, device_ptr input_address,
                                            device_ptr output_address, size_t elem_cnt, synDataType data_type,
                                            device_ptr intermediate_address, size_t intermediate_size) {
@@ -136,12 +142,12 @@ synapse_error_o hcl_communicator::reduce(HCL_Rank dest_rank, device_ptr input_ad
 }
 
 synapse_error_o hcl_communicator::reduce_scatter(device_ptr input_address, device_ptr output_address, size_t elem_cnt,
-                                                 synDataType data_type, const event_done_callback& done_callback) {
-  auto reduce_scatter_function = [this](synStreamHandle collective_stream, device_ptr input_address,
+                                                 synDataType data_type, HCL_Op hclop, const event_done_callback& done_callback) {
+  auto reduce_scatter_function = [this, hclop](synStreamHandle collective_stream, device_ptr input_address,
                                         device_ptr output_address, size_t elem_cnt, synDataType data_type,
                                         device_ptr intermediate_address, size_t intermediate_size) {
     return HCL_Reduce_Scatter(collective_stream, input_address, output_address, elem_cnt, data_type,
-                              intermediate_address, intermediate_size, eHCLSum, hcl_comm(), false);
+                              intermediate_address, intermediate_size, hclop, hcl_comm(), false);
   };
 
   PT_DISTRIBUTED_BEGIN;
