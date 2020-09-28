@@ -68,13 +68,24 @@ TEST(PostOrderTest, poTestFill) {
   EXPECT_TRUE(po_data.inputs.size() == 1);
   EXPECT_TRUE(po_data.outputs.size() == 1);
 
-  auto exec = habana_lazy::exec::HlExec();
-  exec.Create(po_data.post_order, po_data.inputs, po_data.outputs);
+  std::vector<at::Tensor> input_list{tensor_in1};
+
+  auto stack = torch::jit::Stack(
+      std::make_move_iterator(input_list.begin()),
+      std::make_move_iterator(input_list.end()));
+
+  exec::HlExec* hlexec = new exec::HlExec();
+  hlexec->GetOrCreate(
+      po_data.post_order,
+      stack,
+      po_data.inputs,
+      po_data.outputs,
+      po_data.post_order_str);
 
   torch::jit::testing::FileCheck()
       .check_count("prim::Constant[value=1.]", 1)
       ->check("aten::fill_")
-      ->run(*exec.get_graph());
+      ->run(*hlexec->get_graph());
 
   unsetenv("PT_HPU_LAZY_MODE");
 }

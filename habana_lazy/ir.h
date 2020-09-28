@@ -182,7 +182,6 @@ class Node {
   }
 
   virtual ~Node() {
-    PT_LAZY_DEBUG(std::string("Deleteing node ") + ToString());
     m_inputs.clear();
     m_outputs.clear();
   }

@@ -67,29 +67,24 @@ class HlExec {
   virtual ~HlExec() {}
 
   /**
-   * This method binds the habana ir nodes to JIT
-   * Value pointers
-   */
-  void Bind(const HabanaLazyTensorPtrList& inputs);
-
-  /**
-   * This method creates the JIT IR Graph
+   * This method gets an optimized JIT IR graph from cache
+   * or creates the JIT IR Graph
    * Inputs:
    *   nodes: Vector of Lazy IR nodes
+   *   stack: Stack for the inputs
    *   inputs: Lazy value pointers representing input tensors
    *   outputs: Lazy value pointers representing output tensors
-   * Returns:
-   *   Tuple containing -
-   *     map : Lazy input value pointer -> JIT IR input value pointers
-   *     map : Lazy output value pointer -> JIT IR output value pointers
+   *   str: post order graph string
    */
-  void Create(
+  void GetOrCreate(
       const ir::NodePtrList nodes,
+      torch::jit::Stack& stack,
       const ir::ValueList inputs,
-      const ir::ValueList outputs);
+      const ir::ValueList outputs,
+      std::string str);
 
   /**
-   * This method calls torch::jit optimzer passes.
+   * This method calls torch::jit optimizer passes.
    * Optionally, habana specific optimzers can be added.
    */
   void Optimize();
@@ -114,6 +109,18 @@ class HlExec {
   }
 
  private:
+  /**
+   * This method creates the JIT IR Graph
+   * Inputs:
+   *   nodes: Vector of Lazy IR nodes
+   *   inputs: Lazy value pointers representing input tensors
+   *   outputs: Lazy value pointers representing output tensors
+   */
+  void Create(
+      const ir::NodePtrList nodes,
+      const ir::ValueList inputs,
+      const ir::ValueList outputs);
+
   GraphPtr mp_g_;
   std::map<HabanaLazyTensorPtr, JitValuePtr> m_tensorbind_;
 };

@@ -87,8 +87,19 @@ TEST_F(LazyConvKernelTest, ConvolutionBackward) {
   std::vector<int> indices1{0, 1, 2};
   auto po_data = HbLazyTensor::RunPostOrder(tensors, indices1);
 
+  std::vector<at::Tensor> input_list{h_grad_output, hinput, hweight};
+
+  auto stack = torch::jit::Stack(
+      std::make_move_iterator(input_list.begin()),
+      std::make_move_iterator(input_list.end()));
+
   exec::HlExec* hlexec = new exec::HlExec();
-  hlexec->Create(po_data.post_order, po_data.inputs, po_data.outputs);
+  hlexec->GetOrCreate(
+      po_data.post_order,
+      stack,
+      po_data.inputs,
+      po_data.outputs,
+      po_data.post_order_str);
 
   torch::jit::testing::FileCheck()
       .check("prim::Constant[value=[1, 1]]")

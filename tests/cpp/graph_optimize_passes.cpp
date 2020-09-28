@@ -41,7 +41,18 @@ TEST_F(GraphOptimizeTest, PeepholeOptimTest) {
   exec::HlExec* hlexec = new exec::HlExec();
   exec::OptPassCfg::GetInstance()->enable_peephole_optimization = true;
 
-  hlexec->Create(po_data.post_order, po_data.inputs, po_data.outputs);
+  std::vector<at::Tensor> input_list{hl_tensor_in};
+
+  auto stack = torch::jit::Stack(
+      std::make_move_iterator(input_list.begin()),
+      std::make_move_iterator(input_list.end()));
+
+  hlexec->GetOrCreate(
+      po_data.post_order,
+      stack,
+      po_data.inputs,
+      po_data.outputs,
+      po_data.post_order_str);
 
   torch::jit::testing::FileCheck().check_not("aten::t")->run(
       *hlexec->get_graph());

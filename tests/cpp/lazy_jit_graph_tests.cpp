@@ -36,8 +36,19 @@ TEST(LazyJITTest, CreateGraph) {
   std::vector<int> indices = {0};
   auto po_data = HbLazyTensor::RunPostOrder(tensors, indices);
 
+  std::vector<at::Tensor> input_list{tensor_in1, tensor_in2};
+
+  auto stack = torch::jit::Stack(
+      std::make_move_iterator(input_list.begin()),
+      std::make_move_iterator(input_list.end()));
+
   exec::HlExec* hlexec = new exec::HlExec();
-  hlexec->Create(po_data.post_order, po_data.inputs, po_data.outputs);
+  hlexec->GetOrCreate(
+      po_data.post_order,
+      stack,
+      po_data.inputs,
+      po_data.outputs,
+      po_data.post_order_str);
 
   torch::jit::testing::FileCheck()
       .check("prim::Constant[value=99.5]")

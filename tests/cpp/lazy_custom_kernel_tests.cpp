@@ -48,8 +48,21 @@ TEST_F(LazyCustomKernelTest, OptSgdCustomOp) {
   std::vector<int> indices1{0, 1};
   auto po_data = HbLazyTensor::RunPostOrder(tensors, indices1);
 
+  std::vector<at::Tensor> input_list{
+      hgrad, hwts, hmoments, hindices, hlr, hvalid_cnt};
+
+  auto stack = torch::jit::Stack(
+      std::make_move_iterator(input_list.begin()),
+      std::make_move_iterator(input_list.end()));
+
   exec::HlExec* hlexec = new exec::HlExec();
-  hlexec->Create(po_data.post_order, po_data.inputs, po_data.outputs);
+  hlexec->GetOrCreate(
+      po_data.post_order,
+      stack,
+      po_data.inputs,
+      po_data.outputs,
+      po_data.post_order_str);
+
   torch::jit::testing::FileCheck()
       .check("prim::Constant[value=0.10000000149011612]")
       ->check("prim::Constant[value=0]")
@@ -82,8 +95,21 @@ TEST_F(LazyCustomKernelTest, OptAdagradCustomOp) {
   std::vector<int> indices1{0, 1};
   auto po_data = HbLazyTensor::RunPostOrder(tensors, indices1);
 
+  std::vector<at::Tensor> input_list{
+      hgrad, hwts, hmoments, hindices, hlr, hvalid_cnt};
+
+  auto stack = torch::jit::Stack(
+      std::make_move_iterator(input_list.begin()),
+      std::make_move_iterator(input_list.end()));
+
   exec::HlExec* hlexec = new exec::HlExec();
-  hlexec->Create(po_data.post_order, po_data.inputs, po_data.outputs);
+  hlexec->GetOrCreate(
+      po_data.post_order,
+      stack,
+      po_data.inputs,
+      po_data.outputs,
+      po_data.post_order_str);
+
   torch::jit::testing::FileCheck()
       .check_count("habanaOptimizerSparseAdagrad", 1)
       ->run(*hlexec->get_graph());

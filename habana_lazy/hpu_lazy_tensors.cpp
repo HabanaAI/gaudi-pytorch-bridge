@@ -380,8 +380,11 @@ habana_lazy::PostOrderData HbLazyTensor::RunPostOrder(
   ir::Utils::ComputePostOrder(
       p_roots, &po_data.emission_map, po_data.post_order, po_data.inputs);
 
-  auto str = IrGraphDumpUtil::PostOrderToText(po_data.post_order, p_roots);
-  PT_LAZY_DEBUG(str);
+  // The PostOrderToText string is used for first level graph caching
+  // lookup
+  po_data.post_order_str =
+      IrGraphDumpUtil::PostOrderToText(po_data.post_order, p_roots);
+  PT_LAZY_DEBUG(po_data.post_order_str);
 
   return po_data;
 }
@@ -436,10 +439,6 @@ void HbLazyTensor::SyncTensorsGraphInternal(
   auto po_data = HbLazyTensor::RunPostOrder(*tensors, indices);
 
   exec::HlExec hlexec{};
-  hlexec.Create(po_data.post_order, po_data.inputs, po_data.outputs);
-
-  // Dump the JIT graph with PT_LAZY_DEBUG
-  hlexec.DumpGraph();
 
   torch::jit::Stack stack;
   // stack is used for both inputs to synapse lowering and outputs from
@@ -461,6 +460,18 @@ void HbLazyTensor::SyncTensorsGraphInternal(
         habana_lazy_executor.getDeviceExecutionContext(d->device.index());
     context->MarkTensorExecuting(d->unique_id);
   }
+
+  hlexec.GetOrCreate(
+      po_data.post_order,
+      stack,
+      po_data.inputs,
+      po_data.outputs,
+      po_data.post_order_str);
+
+  // Dump the JIT graph with PT_LAZY_DEBUG
+  hlexec.DumpGraph();
+
+  // Launch the execution
   hlexec.Launch(stack);
 
   size_t i = 0;

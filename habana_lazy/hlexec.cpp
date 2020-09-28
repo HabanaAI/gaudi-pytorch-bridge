@@ -16,6 +16,7 @@
 #include "habana_helpers/logging.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "hlexec.h"
+#include "hpu_lazy_cache.h"
 #include "ops/constant.h"
 #include "ops/convolution.h"
 #include "pytorch_helpers/habana_device/hpu_cached_devices.h"
@@ -29,26 +30,6 @@ HlExec::HlExec() {
 
 HlExec::HlExec(ScopePtr scope) {
   mp_g_ = std::make_shared<Graph>(scope);
-}
-
-/*
- * Establish mapping between JIT IR value pointer and
- * habana lazy tensor
- */
-void HlExec::Bind(const HabanaLazyTensorPtrList& inputs) {
-  //
-  // Iterate thru each inputs and create binding for the same
-#if 0
-  for (const auto& i : inputs) {
-    PyValuePtr v = std::make_shared<PyValue>(mp_g_->addInput(i->atTensor().name()));
-
-    if (tensorbind_.count(i) == false) {
-      tensorbind_.insert({i, v});
-    } else {
-      assert(0);
-    }
-  }
-#endif
 }
 
 void HlExec::Launch(torch::jit::Stack& stack) {
@@ -68,6 +49,37 @@ void HlExec::Launch(torch::jit::Stack& stack) {
   context->setExecutionMode(kLAZY);
   context->MarkTensorsExecuted();
   unsetenv("PT_HPU_LAZY_LOWERING");
+}
+
+/*
+ * Get the JIT graph fron cache, or create it
+ */
+void HlExec::GetOrCreate(
+    const ir::NodePtrList nodes,
+    torch::jit::Stack& stack,
+    const ir::ValueList inputs,
+    const ir::ValueList outputs,
+    std::string str) {
+  auto las = habana_lazy::LazyArgumentSpec(true, nodes, stack, str);
+  mp_g_ = habana_lazy::LazyGraphCache::GetLazyCache().GetOptimizedJITGraph(
+      las.hashCode());
+
+  // Cache miss
+  // ==========
+  if (mp_g_ == nullptr) {
+    PT_LAZY_DEBUG("JIT Cache miss");
+    mp_g_ = std::make_shared<Graph>();
+    // Cache miss handling
+    // ===================
+    // Create a JIT graph from the post order graph
+    // Optimization is done during Create() itself
+    Create(nodes, inputs, outputs);
+    // Create a lazyArgumentSpec
+    las = habana_lazy::LazyArgumentSpec(true, nodes, stack, str);
+    LazyGraphCache::GetLazyCache().Add(las.hashCode(), mp_g_);
+  } else {
+    PT_LAZY_DEBUG("JIT Cache hit");
+  }
 }
 
 /*
