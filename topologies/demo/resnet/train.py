@@ -42,6 +42,7 @@ def train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, pri
     metric_logger.add_meter('img/s', utils.SmoothedValue(window_size=10, fmt='{value}'))
 
     header = 'Epoch: [{}]'.format(epoch)
+    step_count = 0
     for image, target in metric_logger.log_every(data_loader, print_freq, header):
         start_time = time.time()
 
@@ -59,12 +60,16 @@ def train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, pri
         metric_logger.meters['acc1'].update(acc1.item(), n=batch_size)
         metric_logger.meters['acc5'].update(acc5.item(), n=batch_size)
         metric_logger.meters['img/s'].update(batch_size / (time.time() - start_time))
+        step_count = step_count + 1
+        if step_count >= args.num_train_steps:
+            break;
 
 
 def evaluate(model, criterion, data_loader, device, print_freq=100):
     model.eval()
     metric_logger = utils.MetricLogger(delimiter="  ",device=device)
     header = 'Test:'
+    step_count = 0
     with torch.no_grad():
         for image, target in metric_logger.log_every(data_loader, print_freq, header):
             image = image.to(device, non_blocking=True)
@@ -84,6 +89,9 @@ def evaluate(model, criterion, data_loader, device, print_freq=100):
             metric_logger.update(loss=loss_cpu.item())
             metric_logger.meters['acc1'].update(acc1.item(), n=batch_size)
             metric_logger.meters['acc5'].update(acc5.item(), n=batch_size)
+            step_count = step_count + 1
+            if step_count >= args.num_eval_steps:
+                break;
     # gather the stats from all processes
     metric_logger.synchronize_between_processes()
 
@@ -411,7 +419,7 @@ def parse_args():
 
     parser.add_argument('--channels-last', default='True', type=lambda x:x.lower() == 'true',
                                                  help='Whether input is in channels last format.'
-						 'Any value other than True(case insensitive) disables channels-last')
+                                                 'Any value other than True(case insensitive) disables channels-last')
     parser.add_argument('--resume', default='', help='resume from checkpoint')
     parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                         help='start epoch')
@@ -453,6 +461,10 @@ def parse_args():
     parser.add_argument('--world-size', default=1, type=int,
                         help='number of distributed processes')
     parser.add_argument('--dist-url', default='env://', help='url used to set up distributed training')
+    parser.add_argument('--num-train-steps', type=int, default=sys.maxsize, metavar='T',
+                        help='number of steps a.k.a iterations to run in training phase')
+    parser.add_argument('--num-eval-steps', type=int, default=sys.maxsize, metavar='E',
+                        help='number of steps a.k.a iterations to run in evaluation phase')
     parser.add_argument('--save-checkpoint',  action="store_true",
                         help='Whether or not to save model/checkpont; True: to save, False to avoid saving')
     parser.add_argument('--run-trace-mode', action='store_true', default=False,
