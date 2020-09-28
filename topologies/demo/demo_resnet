@@ -10,6 +10,8 @@ function help()
         echo -e "                     --data-type <data type>      default: fp32. Possible values: fp32, bf16"
         echo -e "  -e <epochs>,       --epochs <epochs>            default: 1"
         echo -e "  --print-freq <print_freq>                       default: 1"
+        echo -e "  --num-train-steps <num of train steps>          default: maxsize"
+        echo -e "  --num-eval-steps <num of eval steps>            default: maxsize"
         echo -e ""
         echo -e "Usage example:"
         echo -e "./demo_resnet --data-type bf16 --mode eager  --batch-size 64"
@@ -97,7 +99,14 @@ while [ -n "$1" ];
             shift
             __comm_backend=$1
             ;;
-
+	--num-train-steps )
+            shift
+            __num_train_steps=$1
+            ;;
+	--num-eval-steps )
+            shift
+            __num_eval_steps=$1
+            ;;
         -h  | --help )
             help
             exit 1;
@@ -121,6 +130,8 @@ PRINT_FREQ=${__print_freq:-1}
 WORLD_SIZE=${__world_size:-1}
 COMMUNICATIN_BACKEND=${__comm_backend:-'hcl'}
 INTERPRETER="python"
+NUM_TRAIN_STEPS=${__num_train_steps:--1}
+NUM_EVAL_STEPS=${__num_eval_steps:--1}
 
 if [[ $0 == *dist* ]] && [ ${WORLD_SIZE} -eq 1 ]; then
     WORLD_SIZE=8
@@ -174,6 +185,8 @@ echo -e "epochs: ${EPOCHS}"
 echo -e "data_type: "${__dtype}""
 echo -e "Mode: $__mode"
 echo -e "world_size: ${WORLD_SIZE}"
+echo -e "num_train_steps: ${NUM_TRAIN_STEPS}"
+echo -e "num_eval_steps: ${NUM_EVAL_STEPS}"
 
 printf "*** Starting training...\n\n"
 (set -x;  ${INTERPRETER} resnet/train.py \
@@ -184,5 +197,7 @@ printf "*** Starting training...\n\n"
 	--epochs=${EPOCHS} \
 	--workers=${WORKERS} \
 	--print-freq=${PRINT_FREQ} \
+	--num-train-steps=${NUM_TRAIN_STEPS} \
+	--num-eval-steps=${NUM_EVAL_STEPS} \
     $MODE \
     $DTYPE)
