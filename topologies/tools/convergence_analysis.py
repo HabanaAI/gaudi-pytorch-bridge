@@ -4,6 +4,7 @@ import sys
 import os
 import csv
 import numpy as np
+import re
 
 def ca_tensor_error_stats(a,b):
     d = np.subtract(a,b)
@@ -137,7 +138,7 @@ def ca_make_file_pair_list(dev1, dev2, path1, path2):
     #print(files_dev2)
     return zip(files_dev1,files_dev2)
 
-def ca_compare_tensor_files(dev1, dev2, file_pair_list, base_path=None, rtol=1e-3, atol=1e-3, topology=None):
+def ca_compare_tensor_files(dev1, dev2, file_pair_list, base_path=None, rtol=1e-3, atol=1e-3, topology=None,skip_pattern='None'):
     #If we are comparing the tensors on same device, say, habana, rename the devices as
     # habana1 and 2 for the csv file. Else the dictionary key for dev1 and 2 will be same
     #causing an overwriting
@@ -148,6 +149,7 @@ def ca_compare_tensor_files(dev1, dev2, file_pair_list, base_path=None, rtol=1e-
         same_device = True
 
     print("Using Tolerances rtol = ", rtol, " atol =", atol, "for comparing", dev1,  "and ", dev2)
+    print('Applying skip_pattern:',skip_pattern)
     hk = ca_get_header_keys(dev1, dev2, ca_base_key_list)
     tcs_csv = open('tensor_cmp_stats.csv', 'w', newline='')
     header = ['tensor_name', 'dim','size_elems', hk['min'][dev1], hk['min'][dev2], hk['mean'][dev1], hk['mean'][dev2],
@@ -156,6 +158,9 @@ def ca_compare_tensor_files(dev1, dev2, file_pair_list, base_path=None, rtol=1e-
     writer = csv.DictWriter(tcs_csv, fieldnames=header)
     writer.writeheader()
     for file_dev1,file_dev2 in file_pair_list:
+        if re.search(skip_pattern,file_dev1) is not None:
+            print('Skipping comparison for :',file_dev1)
+            continue
         tensor_info = file_dev1
         if base_path is not None:
             tensor_info = file_dev1.replace(base_path, 'base_dir')

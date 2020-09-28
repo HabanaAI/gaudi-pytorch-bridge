@@ -264,7 +264,7 @@ class Hook():
             output_tag = '_grad_output_'
 
         for i in range(len(inputs)):
-                if inputs[i] is not None:
+                if inputs[i] is not None and torch.is_tensor(inputs[i]):
                     tensor_name = self.name + input_tag + str(i)
                     #print(" tensor_name: ", tensor_name, " path_modifier: ", path_modifier)
                     self.save_tensor(inputs[i], tensor_name, path_modifier=path_modifier)
