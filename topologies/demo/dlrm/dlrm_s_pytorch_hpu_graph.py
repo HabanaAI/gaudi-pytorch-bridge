@@ -1448,7 +1448,8 @@ if __name__ == "__main__":
                     t1 = time_wrap(use_gpu)
 
                 # early exit if nbatches was set by the user and has been exceeded
-                if nbatches > 0 and j >= nbatches:
+                if nbatches > 0 and j >= nbatches or X.size()[0] < args.mini_batch_size:
+                    print('breaking out of the epoch as  batch was partial:',X.size()[0])
                     break
 
                 # forward pass
