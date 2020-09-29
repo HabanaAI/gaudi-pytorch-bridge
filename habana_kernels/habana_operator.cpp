@@ -41,6 +41,11 @@ const at::IntArrayRef& habana::HabanaOperator::getPermuteOrder(
 }
 
 void habana::HabanaOperator::Compile(synapse_helpers::graph& graph) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    // Lazy mode shape inference call, early return without execution
+    return;
+  }
+
   //
   // compile the graph
   habana_helpers::compile_and_run(

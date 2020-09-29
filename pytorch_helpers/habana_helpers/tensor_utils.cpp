@@ -440,6 +440,11 @@ synapse_helpers::tensor habana_helpers::create_tensor(
     bool persistent,
     int devid,
     const c10::ScalarType dtype) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    // Lazy mode shape inference call, just create a placeholder tensor
+    return synapse_helpers::tensor::create_placeholder(devid);
+  }
+
   auto variant =
       synapse_helpers::tensor_builder(shape, pytorch_to_synapse_type(dtype))
           .mark_persistence(persistent)
@@ -452,6 +457,10 @@ synapse_helpers::tensor habana_helpers::create_tensor(
     const synGraphHandle graph,
     bool persistent,
     const c10::optional<c10::ScalarType> dtype) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    // Lazy mode shape inference call, just create a placeholder tensor
+    return synapse_helpers::tensor::create_placeholder(tensor.device().index());
+  }
   auto variant =
       synapse_helpers::tensor_builder(
           tensor.sizes(),
@@ -509,6 +518,11 @@ habana_helpers::create_tensors(
 
 synapse_helpers::tensor habana_helpers::duplicate_tensor_in_memory_section(
     const synapse_helpers::tensor& tensor) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    // Lazy mode shape inference call, just create a placeholder tensor
+    return synapse_helpers::tensor::create_placeholder(tensor.device_id());
+  }
+
   TORCH_CHECK(
       tensor.is_persistent(),
       "Why would you like to create another tensor in the same memory section for non persistent tensor?");

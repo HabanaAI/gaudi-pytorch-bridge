@@ -175,5 +175,7 @@ if __name__ == "__main__":
         {
             "input": torch.ones((N, C, H, W), dtype=torch.float),
             "other": torch.ones(1) / 5.0,
-        }
+        },
+        torch.float,
+        0
     )

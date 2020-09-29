@@ -104,6 +104,12 @@ std::mutex graph::instance_lock_{};
 
 synapse_error_v<graph> graph::create(device& device, std::string name) {
   graph syn_graph(device, std::move(name));
+
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    // Lazy mode shape inference call, early return without execution
+    return {std::move(syn_graph)};
+  }
+
   PT_SYNHELPER_DEBUG("Graph Create.");
   graph::instance_lock_.lock();
   auto status =
@@ -155,6 +161,11 @@ synapse_error_o graph::add_node(
     void* const params,
     const unsigned params_size,
     std::string&& node_type) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    // Lazy mode shape inference call, early return without execution
+    return {};
+  }
+
   if (!in_build_phase_) {
     return synapse_error{"Graph not in build phase.", synStatus::synFail};
   }
