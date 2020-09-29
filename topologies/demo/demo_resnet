@@ -2,7 +2,7 @@
 function help()
 {
         echo -e "help: resnet50 [arguments]\n"
-        echo -e "  -p <data-path>,    --data-path <data_path>      default: '/software/data/pytorch/imagenet/ILSVRC2012_micro/'"
+        echo -e "  -p <data-path>,    --data-path <data_path>      default: '/software/data/pytorch/imagenet/ILSVRC2012/'"
         echo -e "  -m <model>,        --model <model>              default: 'resnet50'"
         echo -e "  -d <device>,       --device <device>            default: 'habana'"
         echo -e "  -b <batch_size>,   --batch-size <batchsize>     default: 128"
@@ -10,12 +10,12 @@ function help()
         echo -e "                     --data-type <data type>      default: fp32. Possible values: fp32, bf16"
         echo -e "  -e <epochs>,       --epochs <epochs>            default: 1"
         echo -e "  --print-freq <print_freq>                       default: 1"
-        echo -e "  --num-train-steps <num of train steps>          default: maxsize"
-        echo -e "  --num-eval-steps <num of eval steps>            default: maxsize"
+        echo -e "  --num-train-steps <num of train steps>          default: 100"
+        echo -e "  --num-eval-steps <num of eval steps>            default: 30"
         echo -e ""
         echo -e "Usage example:"
-        echo -e "./demo_resnet --data-type bf16 --mode eager  --batch-size 64"
-        echo -e "./demo_resnet --data-type fp32 --mode graph  --batch-size 128"
+        echo -e "./demo_resnet --data-type bf16 --mode eager  --batch-size 64 --num-train-steps=100 --num-eval-steps=30"
+        echo -e "./demo_resnet --data-type fp32 --mode graph  --batch-size 128 --num-train-steps=100 --num-eval-steps=30"
 }
 
 create_hcl_config()
@@ -33,23 +33,33 @@ create_hcl_config()
         echo "    \"HCL_COUNT\" : ${world_size}" >> ${hcl_config_file}
         echo "}" >> ${hcl_config_file}
 }
+
+SCRIPT_FULL_PATH=$(realpath $0)
+DEMO_DIR_PATH=$(dirname ${SCRIPT_FULL_PATH})
+SCRIPT_DIR_PATH=$(dirname ${SCRIPT_FULL_PATH})
+
 setup_env()
 {
         world_size=$1
         backend=$2
         hcl_type=$3
+        set -x
         export PT_HPU_LOG_MOD_MASK=FFFF
         export PT_HPU_LOG_TYPE_MASK=1
+        export HABANA_GRAPH_WHITELIST_FILE="${DEMO_DIR_PATH}/configs/ResNet_whitelist_ops.txt"
+        set +x
         if [ ${world_size} -le 1 ]; then
                 return
         fi
         export TEMP_DIR="/tmp"
         hcl_config_file="${TEMP_DIR}/hcl_config.json"
         create_hcl_config ${hcl_type} ${world_size} ${hcl_config_file}
+        set -x
         export HCL_CONFIG_PATH=${hcl_config_file}
         export PT_ENABLE_HABANA_STREAMSYNC=0
         export BACKEND=${backend}
         export WORLD_SIZE=${world_size}
+        set +x
 }
 
 while [ -n "$1" ];
@@ -120,7 +130,7 @@ while [ -n "$1" ];
         shift
     done
 
-DATA_PATH=${__data_path:-'/software/data/pytorch/imagenet/ILSVRC2012_micro/'}
+DATA_PATH=${__data_path:-'/software/data/pytorch/imagenet/ILSVRC2012/'}
 MODEL=${__model:-'resnet50'}
 DEVICE=${__device:-'habana'}
 BATCH_SIZE=${__batch_size:-128}
@@ -130,8 +140,8 @@ PRINT_FREQ=${__print_freq:-1}
 WORLD_SIZE=${__world_size:-1}
 COMMUNICATIN_BACKEND=${__comm_backend:-'hcl'}
 INTERPRETER="python"
-NUM_TRAIN_STEPS=${__num_train_steps:--1}
-NUM_EVAL_STEPS=${__num_eval_steps:--1}
+NUM_TRAIN_STEPS=${__num_train_steps:-100}
+NUM_EVAL_STEPS=${__num_eval_steps:-30}
 
 if [[ $0 == *dist* ]] && [ ${WORLD_SIZE} -eq 1 ]; then
     WORLD_SIZE=8
@@ -156,9 +166,6 @@ else
     MODE="--run-trace-mode"
     __mode="graph"
 fi
-
-SCRIPT_FULL_PATH=$(realpath $0)
-SCRIPT_DIR_PATH=$(dirname ${SCRIPT_FULL_PATH})
 
 if [ -n "$__dtype" ]; then
     if [ "$__dtype" == "bf16" ]; then
