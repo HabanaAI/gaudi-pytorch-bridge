@@ -523,7 +523,10 @@ class Trainer:
                     steps_trained_in_current_epoch -= 1
                     continue
 
-                tr_loss += self._training_step(model, inputs, optimizer)
+                device = self.args.device
+                tr_loss_cpu, output_cpu  = self._training_step(model, inputs, optimizer)
+                tp_probe_tensors_iteration_end(model, device, output_cpu, tr_loss_cpu, self.trainMetaData.ParamsDump, False)
+                tr_loss += tr_loss_cpu
 
                 if (step + 1) % self.args.gradient_accumulation_steps == 0 or (
                     # last step in epoch but step is always smaller than gradient_accumulation_steps
@@ -685,7 +688,7 @@ class Trainer:
         else:
             loss.backward()
 
-        return loss.item()
+        return loss.item(),outputs[1].detach().to('cpu')
 
     def is_local_master(self) -> bool:
         if is_torch_tpu_available():
