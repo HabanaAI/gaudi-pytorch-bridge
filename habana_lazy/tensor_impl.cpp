@@ -27,6 +27,15 @@ HbLazyTensorImpl::HbLazyTensorImpl(HbLazyTensor hb_tensor)
                               c10::DispatchKey::HABANATensorId}),
       m_tensor(std::move(hb_tensor)) {}
 
+HbLazyTensorImpl::HbLazyTensorImpl(
+    HbLazyTensor hb_tensor,
+    c10::Storage&& tensor_storage)
+    : c10::TensorImpl(
+          std::move(tensor_storage),
+          c10::DispatchKeySet{c10::DispatchKey::HABANATensorId,
+                              c10::DispatchKey::HABANATensorId}),
+      m_tensor(std::move(hb_tensor)) {}
+
 void HbLazyTensorImpl::set_tensor(HbLazyTensor hb_tensor) {
   m_tensor = std::move(hb_tensor);
 }
@@ -34,5 +43,4 @@ void HbLazyTensorImpl::set_tensor(HbLazyTensor hb_tensor) {
 void HbLazyTensorImpl::AtenInitialize() {
   // ATEN specific initialization calls placed below.
 }
-
 } // namespace habana_lazy

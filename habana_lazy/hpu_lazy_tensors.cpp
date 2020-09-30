@@ -78,6 +78,17 @@ HbLazyTensor::HbLazyTensor(
     const c10::DeviceType& device)
     : mp_data(std::make_shared<Data>(tensor, device)) {}
 
+HbLazyTensor::HbLazyTensor(
+    Value ir_value,
+    const at::Device& device,
+    c10::optional<at::ScalarType> logical_element_type)
+    : mp_data(std::make_shared<Data>(
+          std::move(ir_value),
+          device,
+          logical_element_type)) {
+  // TODO : TryLimitGraphSize();
+}
+
 HbLazyTensor::HbLazyTensor(std::shared_ptr<Data> data)
     : mp_data(std::move(data)) {}
 
@@ -87,6 +98,44 @@ HbLazyTensor HbLazyTensor::Create(
   HbLazyTensor habana_tensor(tensor, device);
   HbContextArena::Get()->RegisterTensor(habana_tensor.data_ptr());
   return habana_tensor;
+}
+
+HbLazyTensor HbLazyTensor::Create(
+    Value ir_value,
+    const at::Device& device,
+    c10::optional<at::ScalarType> logical_element_type) {
+  HbLazyTensor hb_tensor(std::move(ir_value), device, logical_element_type);
+  HbContextArena::Get()->RegisterTensor(hb_tensor.data_ptr());
+  return hb_tensor;
+}
+at::Tensor CopyTensor(const at::Tensor& ref) {
+  return ref.to(ref.options(), /*non_blocking=*/false, /*copy=*/true);
+}
+
+at::Tensor HbLazyTensor::ToTensor(bool detached) {
+  at::Tensor tensor;
+  c10::optional<at::Tensor> tensor_data = CurrentTensorData();
+  if (!tensor_data) {
+    // TODO:: Will need to check if we need to activate this path
+    // We arent allocation any new memory to tensors which isnt coming via At
+    // calls
+    // so this case shouldnt arise
+    return tensor;
+  } else {
+    tensor = *tensor_data;
+    if (detached) {
+      if (data()->ir_value) {
+        // If we have other authoritive sources, just drop our reference and
+        // transfer it to the caller.
+        data()->tensor_data = c10::nullopt;
+      } else {
+        // Otherwise we need to make a copy to prevent the caller changing our
+        // version.
+        tensor = CopyTensor(tensor);
+      }
+    }
+  }
+  return tensor;
 }
 
 void HbLazyTensor::AssignIrValue(habana_lazy::Value ir_value) const {
@@ -167,4 +216,20 @@ habana_lazy::Value HbLazyTensor::GetIrValueForTensor(
   bool read_only = false;
   void* data = tensor.data_ptr();
   return CreateTensorNode(std::move(data), read_only);
+}
+
+HbLazyTensor HbLazyTensor::CreateHbLazyTensor(
+    c10::IntArrayRef size,
+    at::Scalar fill_value,
+    const at::Device& device,
+    at::ScalarType scalar_type) {
+  habana_lazy::Value val;
+  // Creating a dummy IR::Value right now
+  // After Vaibhav's update, we should plug in utility to create IR
+  // from metadata(commented line)
+  return Create(
+      // GetIrValueForScalar(fill_value, shape, device)
+      val,
+      device,
+      scalar_type);
 }

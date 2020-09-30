@@ -440,7 +440,8 @@ namespace native {
 Tensor empty_hpu_lazy(
     IntArrayRef size,
     const TensorOptions& options,
-    c10::optional<MemoryFormat> optional_memory_format);
+    c10::optional<MemoryFormat> optional_memory_format,
+    bool create_storage = true);
 Tensor empty_strided_hpu_lazy(
     IntArrayRef size,
     IntArrayRef stride,

@@ -32,6 +32,14 @@ struct Data {
         tensor_data(std::move(tensor_data)),
         device(c10::DeviceType::HABANA),
         unique_id(0) {}
+  Data(
+      Value ir_value,
+      const at::Device& device,
+      c10::optional<at::ScalarType> logical_element_type)
+      : ir_value(std::move(ir_value)),
+        logical_element_type(logical_element_type),
+        device(device.type()),
+        unique_id(0) {}
   ~Data(){};
   void* data_ptr = nullptr;
   habana_lazy::Value ir_value;
@@ -50,9 +58,23 @@ class HbLazyTensor {
   static HbLazyTensor Create(
       const at::Tensor& tensor,
       const c10::DeviceType& device);
+
+  static HbLazyTensor Create(
+      Value ir_value,
+      const at::Device& device,
+      c10::optional<at::ScalarType> logical_element_type);
+  // Creates an empty/null tensor.
+  HbLazyTensor() = default;
   HbLazyTensor(const at::Tensor& tensor, const c10::DeviceType& device);
+  HbLazyTensor(
+      Value ir_value,
+      const at::Device& device,
+      c10::optional<at::ScalarType> logical_element_type = c10::nullopt);
   HbLazyTensor(std::shared_ptr<Data> data);
-  // at::Tensor ToTensor(bool detached);
+  at::Tensor ToTensor(bool detached);
+  bool is_null() const {
+    return data_ptr() == nullptr;
+  }
   // int size(int dim) const;
   void SetTensor(at::Tensor tensor);
   void SetTensorData(at::Tensor tensor_data);
@@ -82,6 +104,11 @@ class HbLazyTensor {
   std::shared_ptr<Data> data_ptr() const {
     return mp_data;
   }
+  static HbLazyTensor CreateHbLazyTensor(
+      c10::IntArrayRef size,
+      at::Scalar fill_value,
+      const at::Device& device,
+      at::ScalarType scalar_type);
   habana_lazy::Value CreateTensorNode(void* data, bool read_only) const;
 
  private:
@@ -114,4 +141,5 @@ class HbContextArena {
   HbContext* GetHbContext(const c10::DeviceType& device);
   std::map<c10::DeviceType, HbContext*> mp_device_contexts;
 };
+
 } // namespace habana_lazy

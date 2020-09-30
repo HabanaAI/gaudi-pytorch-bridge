@@ -9,7 +9,9 @@
  */
 
 #include "habana_kernels/eager_kernels_declarations.h"
-#include "habana_kernels/lazy_kernels_declarations.h"
+#include "habana_lazy/aten_lazy_bridge.h"
+#include "habana_lazy/hpu_lazy_tensors.h"
+#include "pytorch_helpers/habana_device/HPUAllocator.h"
 
 // calling eager mode kernels as a temporary placeholder to avoid warnings
 Tensor& copy_hpu_lazy_(Tensor& self, const Tensor& src, bool non_blocking) {
@@ -748,9 +750,42 @@ namespace native {
 Tensor empty_hpu_lazy(
     IntArrayRef size,
     const TensorOptions& options,
-    c10::optional<MemoryFormat> optional_memory_format) {
-  return empty_hpu(size, options, optional_memory_format);
+    c10::optional<MemoryFormat> optional_memory_format,
+    bool create_storage) {
+  if (create_storage) {
+    c10 ::Allocator* allocator;
+    if (options.pinned_memory()) {
+      TORCH_CHECK(false, "habana allocator doesn't supported pinned memory");
+    } else {
+      allocator = habana::getHABANADeviceAllocator();
+    }
+    int64_t nelements = prod_intlist(size);
+    auto dtype = options.dtype();
+    auto storage_impl = c10::make_intrusive<StorageImpl>(
+        dtype,
+        nelements,
+        allocator->allocate(nelements * dtype.itemsize()),
+        allocator,
+        /*resizeable=*/true);
+
+    return habana_lazy::AtenFromHbLazyTensor(
+        habana_lazy::HbLazyTensor::CreateHbLazyTensor(
+            size,
+            0,
+            options.device(),
+            c10::typeMetaToScalarType(options.dtype())),
+        std::move(storage_impl));
+
+  } else {
+    return habana_lazy::AtenFromHbLazyTensor(
+        habana_lazy::HbLazyTensor::CreateHbLazyTensor(
+            size,
+            0,
+            options.device(),
+            c10::typeMetaToScalarType(options.dtype())));
+  }
 };
+
 Tensor empty_strided_hpu_lazy(
     IntArrayRef size,
     IntArrayRef stride,

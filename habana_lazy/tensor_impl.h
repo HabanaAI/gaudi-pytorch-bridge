@@ -28,6 +28,7 @@ namespace habana_lazy {
 class HbLazyTensorImpl : public c10::TensorImpl {
  public:
   HbLazyTensorImpl(HbLazyTensor hb_tensor);
+  HbLazyTensorImpl(HbLazyTensor hb_tensor, c10::Storage&& tensor_storage);
   HbLazyTensor& tensor() {
     return m_tensor;
   }
