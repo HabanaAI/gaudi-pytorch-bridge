@@ -938,6 +938,12 @@ Tensor& reciprocal_out_hpu_lazy(Tensor& result, const Tensor& self) {
 Tensor clamp_min_hpu_lazy(const Tensor& self, Scalar min) {
   return clamp_min_hpu(self, min);
 };
+Tensor& clamp_hpu_lazy_(Tensor& self, c10::optional<Scalar> min, c10::optional<Scalar> max) {
+  return clamp_hpu_(self, min, max);
+};
+Tensor clamp_hpu_lazy(const Tensor& self, c10::optional<Scalar> min, c10::optional<Scalar> max) {
+  return clamp_hpu(self, min, max);
+};
 Tensor abs_hpu_lazy(const Tensor& self) {
   return abs_hpu(self);
 };

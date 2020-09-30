@@ -489,6 +489,8 @@ Tensor& reciprocal_hpu_(Tensor& self);
 Tensor reciprocal_hpu(const Tensor& self);
 Tensor& reciprocal_out_hpu(Tensor& result, const Tensor& self);
 Tensor clamp_min_hpu(const Tensor& self, Scalar min);
+Tensor& clamp_hpu_(Tensor& self, c10::optional<Scalar> min, c10::optional<Scalar> max);
+Tensor clamp_hpu(const Tensor& self, c10::optional<Scalar> min, c10::optional<Scalar> max);
 Tensor abs_hpu(const Tensor& self);
 Tensor neg_hpu(const Tensor& self);
 namespace at {

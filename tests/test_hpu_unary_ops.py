@@ -111,6 +111,21 @@ def test_hpu_unary_op_erf(N, H, W, C, unary_op, dtype, tol):
     kernel_params = {'input': torch.randn(N, C, H, W).to(dtype)}
     evaluate_fwd_kernel(kernel=unary_op, kernel_params=kernel_params, atol=tol, rtol=tol)
 
+@pytest.mark.parametrize("N, H, W, C", test_case_list)
+def test_hpu_unary_op_clamp(N, H, W, C):
+    kernel_params = {'input': torch.randn(N, C, H, W),
+                     'min': -0.25,
+                     'max': 0.25}
+    evaluate_fwd_kernel(kernel=torch.clamp, kernel_params=kernel_params)
+    evaluate_fwd_kernel(kernel=torch.clamp, kernel_params=kernel_params)
+
+@pytest.mark.parametrize("N, H, W, C", test_case_list)
+def test_hpu_unary_op_clamp_inplace(N, H, W, C):
+    in_out_tensor = torch.randn(N, C, H, W)
+    kernel_params = {'min': -0.25,
+                     'max': 0.25}
+    evaluate_fwd_inplace_kernel(in_out_tensor=in_out_tensor, kernel_name='clamp_', kernel_params=kernel_params)
+    evaluate_fwd_inplace_kernel(in_out_tensor=in_out_tensor, kernel_name='clamp_', kernel_params=kernel_params)
 
 if __name__ == '__main__':
     test_hpu_unary_op(*test_case_list[0], unary_op_list[0])

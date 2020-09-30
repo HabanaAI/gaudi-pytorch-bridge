@@ -1601,6 +1601,20 @@ Tensor clamp_min_hpu_wrap(const Tensor& self, Scalar min) {
     return clamp_min_hpu(self, min);
   }
 };
+Tensor& clamp_hpu_wrap_(Tensor& self, c10::optional<Scalar> min, c10::optional<Scalar> max) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    return clamp_hpu_lazy_(self, min, max);
+  } else {
+    return clamp_hpu_(self, min, max);
+  }
+};
+Tensor clamp_hpu_wrap(const Tensor& self, c10::optional<Scalar> min, c10::optional<Scalar> max) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    return clamp_hpu_lazy(self, min, max);
+  } else {
+    return clamp_hpu(self, min, max);
+  }
+};
 Tensor abs_hpu_wrap(const Tensor& self) {
   if (std::getenv("PT_HPU_LAZY_MODE")) {
     return abs_hpu_lazy(self);

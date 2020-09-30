@@ -1329,6 +1329,20 @@ static auto
                             &clamp_min_hpu_wrap>(DispatchKey::HABANATensorId)
                         .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
                 .op(torch::RegisterOperators::options()
+                        .schema(
+                            "aten::clamp_(Tensor(a!) self, Scalar? min=None, Scalar? max=None) -> Tensor(a!)")
+                        .impl_unboxedOnlyKernel<
+                            decltype(clamp_hpu_wrap_),
+                            &clamp_hpu_wrap_>(DispatchKey::HABANATensorId)
+                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+                .op(torch::RegisterOperators::options()
+                        .schema(
+                            "aten::clamp(Tensor self, Scalar? min=None, Scalar? max=None) -> Tensor")
+                        .impl_unboxedOnlyKernel<
+                            decltype(clamp_hpu_wrap),
+                            &clamp_hpu_wrap>(DispatchKey::HABANATensorId)
+                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+                .op(torch::RegisterOperators::options()
                         .schema("aten::abs(Tensor self) -> Tensor")
                         .impl_unboxedOnlyKernel<
                             decltype(abs_hpu_wrap),

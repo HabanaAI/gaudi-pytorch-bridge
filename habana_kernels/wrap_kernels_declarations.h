@@ -490,6 +490,8 @@ Tensor& reciprocal_hpu_wrap_(Tensor& self);
 Tensor reciprocal_hpu_wrap(const Tensor& self);
 Tensor& reciprocal_out_hpu_wrap(Tensor& result, const Tensor& self);
 Tensor clamp_min_hpu_wrap(const Tensor& self, Scalar min);
+Tensor& clamp_hpu_wrap_(Tensor& self, c10::optional<Scalar> min, c10::optional<Scalar> max);
+Tensor clamp_hpu_wrap(const Tensor& self, c10::optional<Scalar> min, c10::optional<Scalar> max);
 Tensor abs_hpu_wrap(const Tensor& self);
 Tensor neg_hpu_wrap(const Tensor& self);
 namespace at {

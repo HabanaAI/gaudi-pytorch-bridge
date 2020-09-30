@@ -1093,12 +1093,14 @@ void ClampOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(inputs[0].isTensor(), "Input type expected to be tensor");
 
   auto input = inputs[0].toTensor();
-  auto min = inputs[1].toDouble();
-  auto max = inputs[2].toDouble();
+  auto min = inputs[1].isScalar() ? inputs[1].toScalar()
+                                  : inputs[1].toOptional<Scalar>();
+  auto max = inputs[2].isScalar() ? inputs[2].toScalar()
+                                  : inputs[2].toOptional<Scalar>();
 
   ns_ClampKernel::Params param;
-  param.upperBound.f = static_cast<float>(max);
-  param.lowerBound.f = static_cast<float>(min);
+  param.upperBound.f = max.value().to<float>();
+  param.lowerBound.f = min.value().to<float>();
 
   auto output = habana_helpers::createPTTensor(input, is_output_persistent);
   AllocateSynapseOutput(graph, output, is_output_persistent);
@@ -1127,9 +1129,10 @@ Tensor clamp_min_hpu(const Tensor& self, Scalar min) {
   Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
   // Build Params for the graph
-  double max = std::numeric_limits<float>::max();
   std::vector<c10::IValue> stack = {
-      IValue(self), IValue(min.to<double>()), IValue(max)};
+      IValue(self),
+      IValue(min),
+      IValue(Scalar(std::numeric_limits<float>::max()))};
   Op.AllocateAndAddSynapseNode(graph, stack, true);
 
   // compile and execute the graph
@@ -1140,6 +1143,106 @@ Tensor clamp_min_hpu(const Tensor& self, Scalar min) {
 
   PT_KERNEL_END;
   return out.at(0);
+}
+
+Tensor clamp_hpu(
+    const Tensor& self,
+    c10::optional<Scalar> min,
+    c10::optional<Scalar> max) {
+  PT_KERNEL_BEGIN;
+  at::ScalarType scalar_type = self.scalar_type();
+  std::string node_type =
+      "clamp_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+  size_t device_id = self.device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  ClampOperator Op(device_id, node_type);
+  // Assign Inputs to the Operator
+  std::vector<at::Tensor> pt_inputs{self};
+  // Build Params for the graph
+  std::vector<c10::IValue> stack = {IValue(self), IValue(min), IValue(max)};
+
+  size_t key = Op.GetRecipeKey(node_type, stack);
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    auto output = habana_helpers::createPTTensor(self, true);
+    Op.SetPTInputs(pt_inputs);
+    Op.SetPTOutput(output);
+    Op.Execute(key);
+  } else {
+    PT_KERNEL_DEBUG("Key:", key);
+    // Create Graph
+    auto graph = habana_helpers::create_graph(device_id, node_type);
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
+    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    // compile and execute the graph
+    Op.Compile(graph);
+  }
+
+  std::vector<at::Tensor> out = Op.GetOutputs();
+  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
+
+  PT_KERNEL_END;
+  return out.at(0);
+}
+
+void ClampInplaceOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 3,
+      "Incorrect size of inputs expected for Clamp operator");
+  TORCH_CHECK(inputs[0].isTensor(), "Input type expected to be tensor");
+
+  auto input = inputs[0].toTensor();
+  auto min = inputs[1].isScalar() ? inputs[1].toScalar()
+                                  : inputs[1].toOptional<Scalar>();
+  auto max = inputs[2].isScalar() ? inputs[2].toScalar()
+                                  : inputs[2].toOptional<Scalar>();
+
+  ns_ClampKernel::Params param;
+  param.upperBound.f = max.value().to<float>();
+  param.lowerBound.f = min.value().to<float>();
+
+  AllocateSynapseInplaceOutput(graph);
+  AddNodeToSynapseGraph(graph, &param, sizeof(param));
+}
+
+Tensor& clamp_hpu_(
+    Tensor& self,
+    c10::optional<Scalar> min,
+    c10::optional<Scalar> max) {
+  PT_KERNEL_BEGIN;
+  at::ScalarType scalar_type = self.scalar_type();
+  std::string node_type =
+      "clamp_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+
+  size_t device_id = self.device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  ClampInplaceOperator Op(device_id, node_type);
+  // Assign Inputs to the Operator
+  std::vector<at::Tensor> pt_inputs{self};
+  // Build Params for the graph
+  std::vector<c10::IValue> stack = {IValue(self), IValue(min), IValue(max)};
+
+  size_t key = Op.GetRecipeKey(node_type, stack, true);
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    Op.SetPTInputs(pt_inputs);
+    Op.SetPTOutput(self);
+    Op.Execute(key);
+  } else {
+    PT_KERNEL_DEBUG("Key:", key);
+    // Create Graph
+    auto graph = habana_helpers::create_graph(device_id, node_type);
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
+    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    // compile and execute the graph
+    Op.Compile(graph);
+  }
+
+  PT_KERNEL_END;
+  return self;
 }
 
 /*************************************************************************
@@ -1254,4 +1357,3 @@ static auto& KernelRegistry =
         .add("aten::exp", [](const int device_id, c10::ScalarType node_type) {
           return std::make_shared<ExpOperator>(device_id, node_type);
         });
-
