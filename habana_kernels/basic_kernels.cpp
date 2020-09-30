@@ -97,7 +97,14 @@ Tensor& copy_hpu_(Tensor& self, const Tensor& src, bool non_blocking) {
             habana_helpers::cast_tensor_to_integer(src),
             at::scalarTypeToTypeMeta(c10::ScalarType::Float));
       } else {
-        HABANA_ASSERT(dst.nbytes() == src.nbytes());
+         if(dst.scalar_type() == c10::ScalarType::Long && src.scalar_type() ==  c10::ScalarType::Int)
+          {
+              HABANA_ASSERT(dst.nbytes() >= src.nbytes());
+          }
+         else
+         {
+              HABANA_ASSERT(dst.nbytes() == src.nbytes());
+         }
         if (copy_transpose_valid(dst, src)) {
           do_copy_transpose(dst, src);
         } else {
