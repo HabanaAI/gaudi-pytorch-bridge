@@ -29,6 +29,25 @@
 #TP_MODEL_PARAM_DUMP_ITER_INDICES_TO_DUMP:
 #Similar def as above, but for model level tensors.
 #
+#TP_MODEL_PARAM_DUMP_TENSOR_GROUP
+#list of comma separated values representing tensor groups as mentioned below.
+#If this env variable is not defined, all tensor groups are dumped.
+#If this env variable is defined, only the tensors belonging to the specified
+#tensor group are dumped.
+#
+# value : Tensor group
+#  tg   : target
+#  ip   : model input
+#  op   : model output
+#  pb   : params before update
+#  pa   : params after update
+#  bi   : buffers at input
+#  bo   : buffers at output
+#  ls   : loss
+#  gd   : Gradients
+#
+#e.g: export TP_MODEL_PARAM_DUMP_TENSOR_GROUP=tg,ip,ls,gd dumps target, input, loss and gradient tensors only
+#
 #TP_DATA_DUMP_PATH:
 #path of directory to dump the tensor data into
 
@@ -54,6 +73,7 @@ tp_config = {
         'TP_HOOKS_ITER_INDICES_TO_DUMP' : [], # no iteration will be dumped
 	'TP_MODEL_PARAM_DUMP_ENABLE': 0,
 	'TP_MODEL_PARAM_DUMP_ITER_INDICES_TO_DUMP': [], # no iteration will be dumped
+	'TP_MODEL_PARAM_DUMP_TENSOR_GROUP': [],
         'TP_DATA_DUMP_PATH': None
         }
 
@@ -90,7 +110,18 @@ def tp_set_config_from_env():
     tp_config['TP_DATA_DUMP_PATH'] = get_str('TP_DATA_DUMP_PATH', None)
     tp_config['TP_MODEL_PARAM_DUMP_ENABLE'] = get_flag('TP_MODEL_PARAM_DUMP_ENABLE', 0)
     tp_config['TP_MODEL_PARAM_DUMP_ITER_INDICES_TO_DUMP'] = get_csv_to_val('TP_MODEL_PARAM_DUMP_ITER_INDICES_TO_DUMP', None)
+    tp_config['TP_MODEL_PARAM_DUMP_TENSOR_GROUP'] = get_str('TP_MODEL_PARAM_DUMP_TENSOR_GROUP', None)
     print("TensorProbe Config ", tp_config)
+
+
+def tp_model_params_check_tensor_group(group):
+    #By default dump all groups of tensors
+    if tp_config['TP_MODEL_PARAM_DUMP_TENSOR_GROUP'] == None:
+        return True
+    if group in tp_config['TP_MODEL_PARAM_DUMP_TENSOR_GROUP']:
+        return True
+    else:
+        return False
 
 class ModelParamsDump(object):
     def __init__(self):
@@ -347,34 +378,42 @@ def tp_hooks_set_current_epoch_no(hooks, epoch):
             hk.curr_iter_idx = 0
         hk.current_epoch = epoch
 
-
 # some utility functions to dump important tensors at the beginning and end of a iteration.
 def tp_probe_tensors_iteration_start(model, device, target, inp, ParamsDump, force_dump):
     if ParamsDump.to_dump_data is False:
         return
-    ParamsDump.save_tensor(device, target, 'target', force_dump=force_dump)
+    if tp_model_params_check_tensor_group('tg'):
+        ParamsDump.save_tensor(device, target, 'target', force_dump=force_dump)
 
-    if isinstance(inp, torch.Tensor):
-        ParamsDump.save_tensor(device, inp, 'input', force_dump=force_dump)
-    elif isinstance(inp, dict):
-        for k, v in inp.items():
-            if isinstance(v, torch.Tensor):
-                inp_key = 'input_' + k
-                ParamsDump.save_tensor(device, inp[k], inp_key, force_dump=force_dump)
+    if tp_model_params_check_tensor_group('ip'):
+        if isinstance(inp, torch.Tensor):
+            ParamsDump.save_tensor(device, inp, 'input', force_dump=force_dump)
+        elif isinstance(inp, dict):
+            for k, v in inp.items():
+                if isinstance(v, torch.Tensor):
+                    inp_key = 'input_' + k
+                    ParamsDump.save_tensor(device, inp[k], inp_key, force_dump=force_dump)
 
-    ParamsDump.dump_params_data(device, model, 'params_before_update')
-    ParamsDump.dump_buffers_data(device, model, 'buffers_at_input')
+    if tp_model_params_check_tensor_group('pb'):
+        ParamsDump.dump_params_data(device, model, 'params_before_update')
+    if tp_model_params_check_tensor_group('bi'):
+        ParamsDump.dump_buffers_data(device, model, 'buffers_at_input')
 
 def tp_probe_tensors_iteration_end(model, device, output, loss, ParamsDump, force_dump):
     if ParamsDump.to_dump_data is False:
         return
-    ParamsDump.save_tensor(device, output, 'output', force_dump=force_dump)
+    if tp_model_params_check_tensor_group('op'):
+        ParamsDump.save_tensor(device, output, 'output', force_dump=force_dump)
     # Caller can pass a scalar value for loss.
-    if torch.is_tensor(loss):
-        ParamsDump.save_tensor(device, loss, 'loss', force_dump=force_dump)
-    else:
-        ParamsDump.save_tensor(device, torch.tensor(loss), 'loss', force_dump=force_dump)
+    if tp_model_params_check_tensor_group('ls'):
+        if torch.is_tensor(loss):
+            ParamsDump.save_tensor(device, loss, 'loss', force_dump=force_dump)
+        else:
+            ParamsDump.save_tensor(device, torch.tensor(loss), 'loss', force_dump=force_dump)
 
-    ParamsDump.dump_buffers_data(device, model, 'buffers_at_output')
-    ParamsDump.dump_params_data(device, model, 'params_after_update')
-    ParamsDump.dump_grads(device, model, 'grads')
+    if tp_model_params_check_tensor_group('bo'):
+        ParamsDump.dump_buffers_data(device, model, 'buffers_at_output')
+    if tp_model_params_check_tensor_group('pa'):
+        ParamsDump.dump_params_data(device, model, 'params_after_update')
+    if tp_model_params_check_tensor_group('gd'):
+        ParamsDump.dump_grads(device, model, 'grads')
