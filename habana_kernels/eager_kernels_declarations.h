@@ -8,13 +8,13 @@
  ******************************************************************************
  */
 #pragma once
+#include "habana_kernels/unary_kernels.h"
+
 #include <ATen/ExpandUtils.h>
 #include <torch/script.h>
 
 using namespace torch;
 using namespace at;
-
-#include "habana_kernels/unary_kernels.h"
 
 Tensor& copy_hpu_(Tensor& self, const Tensor& src, bool non_blocking);
 Tensor as_strided_hpu(
