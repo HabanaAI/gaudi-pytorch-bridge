@@ -1389,6 +1389,7 @@ if __name__ == "__main__":
                 previous_iteration_time = None
 
             for j, (X, lS_o, lS_i, T) in enumerate(train_ld):
+
                 start_time = time.time()
                 trainMetaData.tracept.start(start_time, 'train_iteration_'+str(trainMetaData.current_train_step))
                 tp_probe_tensors_iteration_start(dlrm_habana, device, T, X, trainMetaData.ParamsDump, False)
@@ -1403,7 +1404,13 @@ if __name__ == "__main__":
                         print('Last batch of resumed epoch')
                     print('skipping batch')
                     continue
+
                 training_resumed = True
+
+                # early exit if batch is partial
+                if X.size()[0] < args.mini_batch_size:
+                    print('Breaking out of the epoch as  batch was partial. Number of samples:',X.size()[0])
+                    break
 
                 if args.distributed:
                     # mini batch size is expected to be a multiple of world_size
@@ -1460,8 +1467,8 @@ if __name__ == "__main__":
                     t1 = time_wrap(use_gpu)
 
                 # early exit if nbatches was set by the user and has been exceeded
-                if nbatches > 0 and j >= nbatches or X.size()[0] < args.mini_batch_size:
-                    print('breaking out of the epoch as  batch was partial:',X.size()[0])
+                if nbatches > 0 and j >= nbatches:
+                    print('Breaking out of the epoch as j>=nbatches')
                     break
 
                 # forward pass

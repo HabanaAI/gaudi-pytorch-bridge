@@ -1380,6 +1380,11 @@ if __name__ == "__main__":
                     continue
                 training_resumed = True
 
+                # early exit if batch is partial
+                if X.size()[0] < args.mini_batch_size:
+                    print('Breaking out of the epoch as  batch was partial. Number of samples:',X.size()[0])
+                    break
+
                 if args.distributed:
                     # mini batch size is expected to be a multiple of world_size
                     train_batch_size = int(X.size()[0]/args.world_size)
@@ -1435,8 +1440,8 @@ if __name__ == "__main__":
                     t1 = time_wrap(use_gpu)
 
                 # early exit if nbatches was set by the user and has been exceeded
-                if nbatches > 0 and j >= nbatches or X.size()[0] < args.mini_batch_size:
-                    print('breaking out of the epoch as  batch was partial:',X.size()[0])
+                if nbatches > 0 and j >= nbatches:
+                    print('Breaking out of the epoch as j>=nbatches')
                     break
 
                 # forward pass
