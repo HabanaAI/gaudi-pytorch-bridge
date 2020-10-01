@@ -353,7 +353,15 @@ def tp_probe_tensors_iteration_start(model, device, target, inp, ParamsDump, for
     if ParamsDump.to_dump_data is False:
         return
     ParamsDump.save_tensor(device, target, 'target', force_dump=force_dump)
-    ParamsDump.save_tensor(device, inp, 'input', force_dump=force_dump)
+
+    if isinstance(inp, torch.Tensor):
+        ParamsDump.save_tensor(device, inp, 'input', force_dump=force_dump)
+    elif isinstance(inp, dict):
+        for k, v in inp.items():
+            if isinstance(v, torch.Tensor):
+                inp_key = 'input_' + k
+                ParamsDump.save_tensor(device, inp[k], inp_key, force_dump=force_dump)
+
     ParamsDump.dump_params_data(device, model, 'params_before_update')
     ParamsDump.dump_buffers_data(device, model, 'buffers_at_input')
 
