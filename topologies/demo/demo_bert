@@ -113,7 +113,7 @@ echo -e "learning_rate: ${LEARNING_RATE}"
 
 printf "*** Starting training...\n\n"
 (set -x;PT_HPU_LOG_MOD_MASK=FFFF PT_HPU_LOG_TYPE_MASK=1 \
-        ${INTERPRETER} transformers/run_glue.py \
+        ${INTERPRETER} transformers/examples/text-classification/run_glue.py \
 	--model_name_or_path=${MODEL} \
 	--task_name=${TASK_NAME} \
 	--data_dir=${DATA_DIR_FULL} \
