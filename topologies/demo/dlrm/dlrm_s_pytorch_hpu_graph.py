@@ -55,19 +55,6 @@ with warnings.catch_warnings():
 # import onnx
 # pytorch
 
-try:
-    path = os.path.join(os.environ['PYTORCH_MODULES_ROOT_PATH'], 'topologies')
-    tools_path = os.path.join(path, 'tools')
-    if os.path.exists(path) is False or os.path.exists(tools_path) is False:
-        raise Exception("path for 'tools' NOT found")
-    sys.path.append(path)
-    from tools import *
-    print('FOUND')
-except:
-    assert False, ("tools directory should be availabe as somedir/topologies/tools",
-                     "PYTORCH_MODULES_ROOT_PATH should be set to 'somedir'")
-    print('NOT FOUND')
-
 # quotient-remainder trick
 # mixed-dimension trick
 
