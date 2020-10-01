@@ -332,7 +332,8 @@ def main(args):
             permute_params(model_without_ddp, True)
 
     if args.test_only:
-        evaluate(model_for_eval, criterion, data_loader_test, device=device)
+        evaluate(model_for_eval, criterion, data_loader_test, device=device,
+                print_freq=args.print_freq)
         return
 
     print("Start training")
@@ -341,9 +342,11 @@ def main(args):
         if args.distributed:
             train_sampler.set_epoch(epoch)
 
-        train_one_epoch(model_for_train, criterion, optimizer, data_loader, device, epoch, args.print_freq, args.apex)
+        train_one_epoch(model_for_train, criterion, optimizer, data_loader,
+                device, epoch, print_freq=args.print_freq, apex=args.apex)
         lr_scheduler.step()
-        evaluate(model_for_eval, criterion, data_loader_test, device=device)
+        evaluate(model_for_eval, criterion, data_loader_test, device=device,
+                print_freq=args.print_freq)
 
         if (args.output_dir and args.save_checkpoint):
             if args.device == 'habana':
