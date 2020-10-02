@@ -336,6 +336,11 @@ dlrm_set_env()
     export PT_HPU_LOG_MOD_MASK=FFFF
     export PT_HPU_LOG_TYPE_MASK=1
     export HABANA_GRAPH_WHITELIST_FILE=${DEMO_DIR_PATH}/configs/DLRM_whitelist_ops.txt
+    export DATACHUNK_MIN_FREE_CACHE_AMOUNT=650
+    export GCFG_MIN_CSDC_FOR_COMPL_CHK=200
+    export DATACHUNK_SINGLE_CHUNK_SIZE=1024
+    export RECIPE_CACHE_BLOCK_SIZE=2048
+    export RECIPE_CACHE_SIZE=2048000
 }
 
 if [ $# -eq 0 ]; then
