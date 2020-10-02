@@ -309,7 +309,7 @@ def main(args):
         if(device==torch.device('cuda')):
             print('Converting model to channels_last format on CUDA')
             model.to(memory_format=torch.channels_last)
-        elif(device==torch.device('habana')):
+        elif(args.device == 'habana'):
             print('Converting model params to channels_last format on Habana')
             #TODO:
             #model.to(device).to(memory_format=torch.channels_last)
@@ -317,7 +317,7 @@ def main(args):
             #to channels_last for many components - e.g. convolution.
             #So we are forced to rearrange such tensors ourselves.
 
-    if(device==torch.device('habana')):
+    if(args.device == 'habana'):
         permute_params(model, True)
 
     trainMetaData.set_num_train_steps(args.num_train_steps)
@@ -369,18 +369,18 @@ def main(args):
     model_for_train = model
 
     if args.resume:
-        if(device==torch.device('habana')):
+        if(args.device == 'habana'):
             permute_params(model_without_ddp, False)
         checkpoint = torch.load(args.resume, map_location='cpu')
         model_without_ddp.load_state_dict(checkpoint['model'])
         optimizer.load_state_dict(checkpoint['optimizer'])
         #Permute the weight momentum buffer before using for checkpoint
-        if(device==torch.device('habana')):
+        if(args.device == 'habana'):
             permute_momentum(optimizer, True)
 
         lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
         args.start_epoch = checkpoint['epoch'] + 1
-        if(device==torch.device('habana')):
+        if(args.device == 'habana'):
             permute_params(model_without_ddp, True)
 
     if args.test_only:
