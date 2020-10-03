@@ -6,6 +6,21 @@ import csv
 import numpy as np
 import re
 
+def find_max_angle_per_iter(angle_dict, data_dict):
+    regex = r"(e\d+)([/])(i\d+)"
+    match = re.search(regex, data_dict['tensor_name'])
+    if match is not None:
+        key = match.group()
+        print(key)
+        if  angle_dict.get(key) is None :
+            angle_dict[key] = data_dict['angle']
+        else:
+            angle_dict[key] = max (angle_dict[key], data_dict['angle'])
+
+def print_max_angle_dict(angle_dict):
+    for key,value in angle_dict.items():
+        print(key, "\t:",value)
+
 def ca_tensor_error_stats(a,b):
     d = np.subtract(a,b)
     ad = np.abs(d)
@@ -157,7 +172,8 @@ def ca_compare_tensor_files(dev1, dev2, file_pair_list, base_path=None, rtol=1e-
                 'norm_ratio_t', 'minabs_e','maxabs_e','distribution%_abs_e', 'ms_e', 'rms_e', 'angle', 'cosine_sim_ok']
     writer = csv.DictWriter(tcs_csv, fieldnames=header)
     writer.writeheader()
-    max_angle=0.0
+    max_angle=0.0 #Max angle over all iteartions
+    max_angle_per_iter = dict()
     for file_dev1,file_dev2 in file_pair_list:
         if re.search(skip_pattern,file_dev1) is not None:
             print('Skipping comparison for :',file_dev1)
@@ -175,6 +191,7 @@ def ca_compare_tensor_files(dev1, dev2, file_pair_list, base_path=None, rtol=1e-
 
         tensor_cmp_stat_dict = ca_get_tensor_comparison_stats(dev1,dev2,tensor_info, t_dev1, t_dev2)
         max_angle = max(tensor_cmp_stat_dict['angle'], max_angle)
+        find_max_angle_per_iter(max_angle_per_iter, tensor_cmp_stat_dict)
         writer.writerow(tensor_cmp_stat_dict)
 
         equal = torch.allclose(t_dev1, t_dev2, rtol=rtol,atol=atol)
@@ -190,5 +207,7 @@ def ca_compare_tensor_files(dev1, dev2, file_pair_list, base_path=None, rtol=1e-
             if 'loss' in tensor_info:
                 print("device1 loss = ", t_dev1.item(), "device2 loss = ", t_dev2.item())
     tcs_csv.close()
-    print("Cosine Similarity: Max angle =", max_angle)
+    print("Cosine Similarity: Overall Max angle (across all iterations)=", max_angle)
+    print("Cosine Similarity: Max angle Per iteration=")
+    print_max_angle_dict(max_angle_per_iter)
 
