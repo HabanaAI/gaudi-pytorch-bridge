@@ -20,6 +20,7 @@ import argparse
 import glob
 import logging
 import os
+import sys
 import random
 import timeit
 
@@ -633,6 +634,7 @@ def main():
         help="Evaluate all checkpoints starting with the same prefix as model_name ending and ending with step number",
     )
     parser.add_argument("--no_cuda", action="store_true", help="Whether not to use CUDA when available")
+    parser.add_argument("--use_habana", action="store_true", help="Whether not to use Habana device when available")
     parser.add_argument(
         "--overwrite_output_dir", action="store_true", help="Overwrite the content of the output directory"
     )
@@ -689,7 +691,14 @@ def main():
         ptvsd.wait_for_attach()
 
     # Setup CUDA, GPU & distributed training
-    if args.local_rank == -1 or args.no_cuda:
+
+    if args.use_habana:
+        print("Attempting to load library from path ", os.environ['BUILD_ROOT_LATEST'], flush=True)
+        torch.ops.load_library(os.path.join(os.environ['BUILD_ROOT_LATEST'], "libhabana_pytorch_plugin.so"))
+        sys.path.insert(0, os.path.join(os.environ['BUILD_ROOT_LATEST']))
+        device = torch.device("habana")
+        args.n_gpu = 0
+    elif args.local_rank == -1 or args.no_cuda:
         device = torch.device("cuda" if torch.cuda.is_available() and not args.no_cuda else "cpu")
         args.n_gpu = 0 if args.no_cuda else torch.cuda.device_count()
     else:  # Initializes the distributed backend which will take care of sychronizing nodes/GPUs
