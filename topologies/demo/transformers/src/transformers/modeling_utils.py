@@ -502,7 +502,16 @@ class PreTrainedModel(nn.Module, ModuleUtilsMixin, GenerationMixin):
             xm.save(model_to_save.state_dict(), output_model_file)
         else:
             model_to_save.config.save_pretrained(save_directory)
-            torch.save(model_to_save.state_dict(), output_model_file)
+
+            d = next(model_to_save.parameters()).device
+            # if the device is not cpu, make a clone of model and transfer it to cpu
+            if (d != torch.device("cpu")):
+                import copy
+                model_to_save_clone = copy.deepcopy(model_to_save)
+                model_to_save_clone.to(torch.device("cpu"))
+                torch.save(model_to_save_clone.state_dict(), output_model_file)
+            else:
+                torch.save(model_to_save.state_dict(), output_model_file)
 
         logger.info("Model weights saved in {}".format(output_model_file))
 
