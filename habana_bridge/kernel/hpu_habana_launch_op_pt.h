@@ -54,8 +54,10 @@ struct habanaTensorLayoutInfo
 class HabanaLaunchOpPT {
  public:
   explicit HabanaLaunchOpPT(const torch::jit::Node* node, bool debug);
+  explicit HabanaLaunchOpPT(
+      std::shared_ptr<torch::jit::Graph> graph,
+      bool debug);
   ~HabanaLaunchOpPT();
-  void evaluate(torch::jit::Stack& stack);
   void run(torch::jit::Stack& stack);
 
   static std::unordered_set<std::string> watchlist_;

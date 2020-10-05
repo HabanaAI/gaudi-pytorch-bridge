@@ -79,11 +79,16 @@ bool dropCachedRecipe_LRU (size_t &recipe_count) {
   return dropped;
 }
 
-HabanaLaunchOpPT::HabanaLaunchOpPT(const torch::jit::Node* node, bool debug) {
-  subgraph_ = node->g(attr::Subgraph);
+HabanaLaunchOpPT::HabanaLaunchOpPT(const torch::jit::Node* node, bool debug)
+    : HabanaLaunchOpPT(node->g(attr::Subgraph), debug) {
   opname_ = node->kind().toQualString();
+}
+
+HabanaLaunchOpPT::HabanaLaunchOpPT(
+    std::shared_ptr<torch::jit::Graph> graph,
+    bool debug)
+    : subgraph_{std::move(graph)}, debug_{debug} {
   std::replace(opname_.begin(), opname_.end(), ':', '_');
-  debug_ = debug;
   std::ostringstream oss;
   oss << opname_ << '_' << instance_count_;
   instance_count_++;
