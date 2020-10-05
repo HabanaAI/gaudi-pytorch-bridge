@@ -767,22 +767,29 @@ Tensor empty_hpu_lazy(
         allocator->allocate(nelements * dtype.itemsize()),
         allocator,
         /*resizeable=*/true);
-
-    return habana_lazy::AtenFromHbLazyTensor(
+    habana_lazy::HbLazyTensor hb_tensor =
         habana_lazy::HbLazyTensor::CreateHbLazyTensor(
             size,
             0,
             options.device(),
-            c10::typeMetaToScalarType(options.dtype())),
-        std::move(storage_impl));
+            c10::typeMetaToScalarType(options.dtype()));
+    Tensor at_tensor =
+        habana_lazy::AtenFromHbLazyTensor(hb_tensor, std::move(storage_impl));
+    hb_tensor.SetTensorData(at_tensor);
+
+    return at_tensor;
 
   } else {
-    return habana_lazy::AtenFromHbLazyTensor(
+    habana_lazy::HbLazyTensor hb_tensor =
         habana_lazy::HbLazyTensor::CreateHbLazyTensor(
             size,
             0,
             options.device(),
-            c10::typeMetaToScalarType(options.dtype())));
+            c10::typeMetaToScalarType(options.dtype()));
+    Tensor at_tensor = habana_lazy::AtenFromHbLazyTensor(hb_tensor);
+    hb_tensor.SetTensorData(at_tensor);
+
+    return at_tensor;
   }
 };
 
@@ -938,10 +945,16 @@ Tensor& reciprocal_out_hpu_lazy(Tensor& result, const Tensor& self) {
 Tensor clamp_min_hpu_lazy(const Tensor& self, Scalar min) {
   return clamp_min_hpu(self, min);
 };
-Tensor& clamp_hpu_lazy_(Tensor& self, c10::optional<Scalar> min, c10::optional<Scalar> max) {
+Tensor& clamp_hpu_lazy_(
+    Tensor& self,
+    c10::optional<Scalar> min,
+    c10::optional<Scalar> max) {
   return clamp_hpu_(self, min, max);
 };
-Tensor clamp_hpu_lazy(const Tensor& self, c10::optional<Scalar> min, c10::optional<Scalar> max) {
+Tensor clamp_hpu_lazy(
+    const Tensor& self,
+    c10::optional<Scalar> min,
+    c10::optional<Scalar> max) {
   return clamp_hpu(self, min, max);
 };
 Tensor abs_hpu_lazy(const Tensor& self) {
