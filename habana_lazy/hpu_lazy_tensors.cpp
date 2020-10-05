@@ -30,7 +30,7 @@ void HbContextArena::UnregisterTensor(Data* data) {
 }
 
 std::vector<HbLazyTensor> HbContextArena::GetLiveTensors(
-    const c10::DeviceType* device) {
+    const c10::Device* device) {
   std::vector<HbLazyTensor> tensors;
   auto fn = [&](HbContext* devctx) {
     for (auto& uid_wptr : devctx->tensors_data) {
@@ -55,7 +55,7 @@ std::vector<HbContext*> HbContextArena::GetAllHbContexts() {
 
 void HbContextArena::ForAllHbContexts(
     const std::function<void(HbContext*)>& fn,
-    const c10::DeviceType* device) {
+    const c10::Device* device) {
   if (device == nullptr) {
     for (auto devctx : GetAllHbContexts()) {
       fn(devctx);
@@ -65,7 +65,7 @@ void HbContextArena::ForAllHbContexts(
   }
 }
 
-HbContext* HbContextArena::GetHbContext(const c10::DeviceType& device) {
+HbContext* HbContextArena::GetHbContext(const c10::Device& device) {
   auto it = mp_device_contexts.find(device);
   if (it == mp_device_contexts.end()) {
     it = mp_device_contexts.emplace(device, new HbContext()).first;
@@ -73,9 +73,7 @@ HbContext* HbContextArena::GetHbContext(const c10::DeviceType& device) {
   return it->second;
 }
 
-HbLazyTensor::HbLazyTensor(
-    const at::Tensor& tensor,
-    const c10::DeviceType& device)
+HbLazyTensor::HbLazyTensor(const at::Tensor& tensor, const c10::Device& device)
     : mp_data(std::make_shared<Data>(tensor, device)) {}
 
 HbLazyTensor::HbLazyTensor(
@@ -94,7 +92,7 @@ HbLazyTensor::HbLazyTensor(std::shared_ptr<Data> data)
 
 HbLazyTensor HbLazyTensor::Create(
     const at::Tensor& tensor,
-    const c10::DeviceType& device) {
+    const c10::Device& device) {
   HbLazyTensor habana_tensor(tensor, device);
   HbContextArena::Get()->RegisterTensor(habana_tensor.data_ptr());
   return habana_tensor;
@@ -179,7 +177,7 @@ c10::optional<at::Tensor> HbLazyTensor::CurrentTensorData() const {
   return data()->tensor_data;
 }
 
-const c10::DeviceType& HbLazyTensor::GetDevice() const {
+const c10::Device& HbLazyTensor::GetDevice() const {
   return data()->device;
 }
 
@@ -212,7 +210,7 @@ habana_lazy::Value HbLazyTensor::CreateTensorNode(void* data, bool read_only)
 
 habana_lazy::Value HbLazyTensor::GetIrValueForTensor(
     const at::Tensor& tensor,
-    const c10::DeviceType& device) const {
+    const c10::Device& device) const {
   bool read_only = false;
   void* data = tensor.data_ptr();
   return CreateTensorNode(std::move(data), read_only);

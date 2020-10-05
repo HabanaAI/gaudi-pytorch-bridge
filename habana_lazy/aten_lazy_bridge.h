@@ -28,11 +28,11 @@ HbLazyTensorImpl* GetHbLazyTensorImpl(const at::Tensor& tensor);
 // it, otherwise creates a new HbLazy tensor type with tensor as data.
 HbLazyTensor GetOrCreateHbLazyTensor(
     const at::Tensor& tensor,
-    const c10::DeviceType& device);
+    const c10::Device& device);
 
 HbLazyTensor GetOrCreateHbLazyTensor(
     const c10::optional<at::Tensor>& tensor,
-    const c10::DeviceType& device);
+    const c10::Device& device);
 
 // Extracts the HbLazyTensor out of our version of at::Tensor. Throws an
 // exception if tensor is not an HbLazy tensor.

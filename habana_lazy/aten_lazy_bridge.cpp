@@ -58,7 +58,7 @@ c10::optional<HbLazyTensor> TryGetHbLazyTensor(const at::Tensor& tensor) {
 
 HbLazyTensor GetOrCreateHbLazyTensor(
     const at::Tensor& tensor,
-    const c10::DeviceType& device) {
+    const c10::Device& device) {
   if (!tensor.defined()) {
     return HbLazyTensor();
   }
@@ -73,7 +73,7 @@ HbLazyTensor GetHbLazyTensor(const at::Tensor& tensor) {
 
 HbLazyTensor GetOrCreateHbLazyTensor(
     const c10::optional<at::Tensor>& tensor,
-    const c10::DeviceType& device) {
+    const c10::Device& device) {
   if (!IsDefined(tensor)) {
     return HbLazyTensor();
   }

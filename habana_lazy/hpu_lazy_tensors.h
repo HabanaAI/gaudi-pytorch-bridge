@@ -10,7 +10,9 @@
 
 #pragma once
 #include <ATen/Tensor.h>
+#include <c10/core/Device.h>
 #include <torch/csrc/jit/ir/ir.h>
+#include <unordered_set>
 #include "ir.h"
 
 // TODO : Dummy IR used as placeholder, replace with actual IR and move to IR
@@ -19,27 +21,29 @@
 namespace habana_lazy {
 enum LayoutFormat { kNHWC = 0, kNCHW = 1, kHWCK = 2, kANY = 3, kINVALID = 4 };
 struct Data {
-  Data(at::Tensor tensor_data, const c10::DeviceType& device)
-      : logical_element_type(tensor_data.scalar_type()),
+  Data(at::Tensor tensor_data, const c10::Device& device)
+      : data_ptr(nullptr),
+        device(c10::Device(c10::DeviceType::HABANA, 0)),
+        logical_element_type(tensor_data.scalar_type()),
         tensor_data(std::move(tensor_data)),
-        device(c10::DeviceType::HABANA),
         unique_id(0) {}
   Data(
       Value ir_value,
       const at::Device& device,
       c10::optional<at::ScalarType> logical_element_type)
-      : ir_value(std::move(ir_value)),
+      : data_ptr(nullptr),
+        ir_value(std::move(ir_value)),
+        device(device),
         logical_element_type(logical_element_type),
-        device(device.type()),
         unique_id(0) {}
   ~Data(){};
-  void* data_ptr = nullptr;
+  void* data_ptr;
   habana_lazy::Value ir_value;
+  LayoutFormat tensor_layout;
+  c10::Device device;
   c10::optional<at::ScalarType> logical_element_type;
   c10::optional<at::Tensor> tensor_data;
-  LayoutFormat tensor_layout;
-  const c10::DeviceType device;
-  const int unique_id = 0;
+  const int unique_id;
 };
 
 class HbLazyTensor {
@@ -49,7 +53,7 @@ class HbLazyTensor {
   // Data object.
   static HbLazyTensor Create(
       const at::Tensor& tensor,
-      const c10::DeviceType& device);
+      const c10::Device& device);
 
   static HbLazyTensor Create(
       Value ir_value,
@@ -57,7 +61,7 @@ class HbLazyTensor {
       c10::optional<at::ScalarType> logical_element_type);
   // Creates an empty/null tensor.
   HbLazyTensor() = default;
-  HbLazyTensor(const at::Tensor& tensor, const c10::DeviceType& device);
+  HbLazyTensor(const at::Tensor& tensor, const c10::Device& device);
   HbLazyTensor(
       Value ir_value,
       const at::Device& device,
@@ -73,12 +77,12 @@ class HbLazyTensor {
   void AssignIrValue(habana_lazy::Value ir_value) const;
   habana_lazy::Value GetIrValueForTensor(
       const at::Tensor& tensor,
-      const c10::DeviceType& device) const;
+      const c10::Device& device) const;
   c10::ScalarType dtype() const;
   c10::optional<c10::ScalarType> dtype_optional() const;
   // Set logical_element_type which is visible to upstream PyTorch.
   void SetScalarType(c10::optional<c10::ScalarType> logical_element_type);
-  const c10::DeviceType& GetDevice() const;
+  const c10::Device& GetDevice() const;
   // Retrieves the current IR Node, or nullptr in case no active IR Node is
   // available.
   habana_lazy::Value CurrentIrValue() const;
@@ -87,7 +91,7 @@ class HbLazyTensor {
   void* CurrentHabanaData() const;
   // Applies the queue of operations in preparation for using the data.
   // void ApplyPendingGraph();
-  // static void MarkStep(const c10::DeviceType& device);
+  // static void MarkStep(const c10::Device& device);
   // Retrieves the PyTorch CPU tensors behind the Habana Lazy tensors IR
   // operations. All the tensors must be on the same device.
   // static std::vector<at::Tensor> GetTensors(std::vector<HbLazyTensor>*
@@ -113,7 +117,7 @@ class HbLazyTensor {
 // operations and ensure the same computations are created during the
 // training loops.
 struct HbContext {
-  std::map<int, std::weak_ptr<Data>> tensors_data;
+  std::unordered_map<int, std::weak_ptr<Data>> tensors_data;
   habana_lazy::Value seed_ir_value;
 };
 
@@ -122,16 +126,16 @@ class HbContextArena {
   static HbContextArena* Get();
   void RegisterTensor(std::shared_ptr<Data> data);
   void UnregisterTensor(Data* data);
-  std::vector<HbLazyTensor> GetLiveTensors(const c10::DeviceType* device);
-  void MarkStep(const c10::DeviceType& device){};
+  std::vector<HbLazyTensor> GetLiveTensors(const c10::Device* device);
+  void MarkStep(const c10::Device& device){};
 
  private:
   std::vector<HbContext*> GetAllHbContexts();
   void ForAllHbContexts(
       const std::function<void(HbContext*)>& fn,
-      const c10::DeviceType* device);
-  HbContext* GetHbContext(const c10::DeviceType& device);
-  std::map<c10::DeviceType, HbContext*> mp_device_contexts;
+      const c10::Device* device);
+  HbContext* GetHbContext(const c10::Device& device);
+  std::unordered_map<c10::Device, HbContext*> mp_device_contexts;
 };
 
 } // namespace habana_lazy
