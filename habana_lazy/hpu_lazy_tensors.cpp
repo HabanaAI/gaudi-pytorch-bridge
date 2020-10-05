@@ -10,6 +10,7 @@
 #include "hpu_lazy_tensors.h"
 #include <ATen/Tensor.h>
 #include <torch/csrc/jit/ir/ir.h>
+#include "habana_bridge/kernel/hpu_habana_launch_op_pt.h"
 #include "habana_helpers/tensor_utils.h"
 
 using namespace habana_lazy;
@@ -321,4 +322,30 @@ void HbLazyTensor::applyPendingGraph() {
     std::vector<HbLazyTensor> tensors({*this});
     // SyncTensorsGraph(&tensors, {}, /*wait=*/true, /*sync_xla_data=*/false);
   }
+}
+
+std::vector<HbLazyTensor> HbLazyTensor::GetLiveTensors(
+    const c10::Device* device) {
+  return HbContextArena::Get()->GetLiveTensors(device);
+}
+
+void HbLazyTensor::SyncTensorsGraph(
+    std::vector<HbLazyTensor>* tensors,
+    absl::Span<const std::string> devices) {
+  SyncTensorsGraphInternal(tensors, devices);
+}
+
+void HbLazyTensor::SyncLiveTensorsGraph(
+    const c10::Device* device,
+    absl::Span<const std::string> devices) {
+  auto tensors = GetLiveTensors(device);
+  SyncTensorsGraph(&tensors, devices);
+}
+
+void HbLazyTensor::SyncTensorsGraphInternal(
+    std::vector<HbLazyTensor>* tensors,
+    absl::Span<const std::string> devices) {
+  // TODO Get graph and stack
+  // auto op = std::make_shared<HabanaLaunchOpPT>(graph, false);
+  // op->run(stack);
 }

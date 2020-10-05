@@ -7,14 +7,18 @@
  *
  ******************************************************************************
  */
+#include <c10/core/Device.h>
 #include <torch/csrc/Exceptions.h>
 
-#include <habana_device/hpu_cached_devices.h>
 #include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
+
+#include <habana_device/hpu_cached_devices.h>
+#include <habana_lazy/hpu_lazy_tensors.h>
 
 namespace py = pybind11;
 
-namespace hblazy {
+namespace habana_lazy {
 namespace {
 
 struct NoGilSection {
@@ -25,29 +29,50 @@ struct NoGilSection {
   PyThreadState* state = nullptr;
 };
 
-int GetCurrentThreadDevice() {
-  auto& d = synapse_helpers::HPURegistrar::get_device();
-  return d.id();
+c10::Device SynapseDeviceToAtenDevice(const synapse_helpers::device& device) {
+  return c10::Device(at::kHABANA, device.id());
 }
 
-void StepMarker(int device_id, bool wait) {
-  /*
-  TODO: Do the equivalent of the following
-  XLATensor::SyncLiveTensorsGraph(&device, devices, wait);
-  XLATensor::MarkStep(device);
-  */
+const synapse_helpers::device& AtenDeviceToSynapseDevice(
+    const c10::Device& device) {
+  TORCH_CHECK(device.type() == at::kHABANA);
+  const int index = device.has_index() ? device.index() : 0;
+  return synapse_helpers::HPURegistrar::get_device(index);
+}
+
+c10::Device GetDeviceOrCurrent(const std::string& device_str) {
+  if (device_str.empty()) {
+    return SynapseDeviceToAtenDevice(
+        synapse_helpers::HPURegistrar::get_device());
+  }
+
+  return c10::Device(device_str);
+}
+
+std::string GetCurrentThreadDevice() {
+  return SynapseDeviceToAtenDevice(synapse_helpers::HPURegistrar::get_device())
+      .str();
+}
+
+void StepMarker(
+    const std::string& device_str,
+    const std::vector<std::string>& devices) {
+  c10::Device device = GetDeviceOrCurrent(device_str);
+  HbLazyTensor::SyncLiveTensorsGraph(&device, devices);
+  //  HbLazyTensor::MarkStep(device);
 }
 
 void InitModuleBindings(py::module m) {
   m.def("_hb_get_default_device", []() { return GetCurrentThreadDevice(); });
   m.def(
       "_hb_step_marker",
-      [](int device_id, bool wait) {
+      [](const std::string& device_str,
+         const std::vector<std::string>& devices) {
         NoGilSection nogil;
-        StepMarker(device_id, wait);
+        StepMarker(device_str, devices);
       },
-      py::arg("device_id"),
-      py::arg("wait") = true);
+      py::arg("device_str"),
+      py::arg("devices"));
 }
 
 } // namespace
@@ -55,8 +80,8 @@ void InitModuleBindings(py::module m) {
 void InitBindings(py::module m) {
   InitModuleBindings(m);
 }
-} // namespace hblazy
+} // namespace habana_lazy
 
 PYBIND11_MODULE(_hblazy, m) {
-  hblazy::InitBindings(m);
+  habana_lazy::InitBindings(m);
 }

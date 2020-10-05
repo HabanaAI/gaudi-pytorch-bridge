@@ -10,6 +10,7 @@
 
 #pragma once
 #include <ATen/Tensor.h>
+#include <absl/types/span.h>
 #include <c10/core/Device.h>
 #include <torch/csrc/jit/ir/ir.h>
 #include <unordered_set>
@@ -124,12 +125,29 @@ class HbLazyTensor {
       const std::vector<HbLazyTensor>& tensors,
       std::vector<int> indices);
 
+  // Retrieves the set of tensors which are currently live in the system,
+  // for the given device. If device is nullptr, the live tensors for all
+  // devices will be returned.
+  static std::vector<HbLazyTensor> GetLiveTensors(const c10::Device* device);
+
+  static void SyncTensorsGraph(
+      std::vector<HbLazyTensor>* tensors,
+      absl::Span<const std::string> devices);
+
+  static void SyncLiveTensorsGraph(
+      const c10::Device* device,
+      absl::Span<const std::string> devices);
+
  private:
   Data* data() const;
   std::shared_ptr<Data> data_ptr() const {
     return mp_data;
   }
   std::shared_ptr<Data> mp_data;
+
+  static void SyncTensorsGraphInternal(
+      std::vector<HbLazyTensor>* tensors,
+      absl::Span<const std::string> devices);
 };
 
 // The HbContextArena holds per device live information and statistics,
