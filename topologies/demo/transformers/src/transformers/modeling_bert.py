@@ -1563,7 +1563,7 @@ class BertForQuestionAnswering(BertPreTrainedModel):
             loss_fct = CrossEntropyLoss(ignore_index=ignored_index)
             start_loss = loss_fct(start_logits, start_positions)
             end_loss = loss_fct(end_logits, end_positions)
-            total_loss = (start_loss + end_loss) / 2
+            total_loss = (start_loss + end_loss) / 2.0
             outputs = (total_loss,) + outputs
 
         return outputs  # (loss), start_logits, end_logits, (hidden_states), (attentions)
