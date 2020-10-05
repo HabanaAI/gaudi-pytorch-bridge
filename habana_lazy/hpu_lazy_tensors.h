@@ -14,6 +14,7 @@
 #include <torch/csrc/jit/ir/ir.h>
 #include <unordered_set>
 #include "ir.h"
+#include "ir_utils.h"
 
 // TODO : Dummy IR used as placeholder, replace with actual IR and move to IR
 // file
@@ -44,6 +45,14 @@ struct Data {
   c10::optional<at::ScalarType> logical_element_type;
   c10::optional<at::Tensor> tensor_data;
   const int unique_id;
+};
+
+struct PostOrderData {
+  std::vector<NodePtr> post_order;
+  ir::Utils::EmissionMap emission_map;
+  // TODO: Add methods to compute the below
+  std::vector<Value> inputs;
+  std::vector<Value> outputs;
 };
 
 class HbLazyTensor {
@@ -106,6 +115,11 @@ class HbLazyTensor {
       const at::Device& device,
       at::ScalarType scalar_type);
   habana_lazy::Value CreateTensorNode(void* data, bool read_only) const;
+  std::vector<int> CollectSyncTensors(
+      const std::vector<HbLazyTensor>& tensors) const;
+  static PostOrderData RunPostOrder(
+      const std::vector<HbLazyTensor>& tensors,
+      std::vector<int> indices);
 
  private:
   std::shared_ptr<Data> mp_data;

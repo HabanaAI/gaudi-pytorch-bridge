@@ -4,6 +4,8 @@ set(GTEST_DIR "${CMAKE_BINARY_DIR}/gtest")
 set(HABANA_BUILD_ROOT "$ENV{BUILD_ROOT_LATEST}")
 message("Root Path: $ENV{BUILD_ROOT_LATEST}")
 set(PT_MODULES_ROOT "$ENV{PYTORCH_MODULES_ROOT_PATH}")
+set(INTERFACE_INCLUDE_DIRECTORIES  "$ENV{SYNAPSE_ROOT}/include")
+set(ABSEIL_ROOT "$ENV{THIRD_PARTIES_ROOT}/abseil-cpp")
 
 project(pt_integration_test)
 
@@ -35,6 +37,7 @@ ExternalProject_Get_Property(googletest SOURCE_DIR)
 set(PT_INTEGRATION_TEST_SOURCES
   main.cpp
   eager_kernel_tests.cpp
+  post_order_tests.cpp
 )
 
 add_executable(test_pt_integration ${PT_INTEGRATION_TEST_SOURCES})
@@ -43,7 +46,10 @@ target_include_directories(
   test_pt_integration
   SYSTEM PUBLIC
   "${SOURCE_DIR}/googletest/include"
-  "${PT_MODULES_ROOT}/habana_kernels"
+  "${PT_MODULES_ROOT}"
+  "${INTERFACE_INCLUDE_DIRECTORIES}"
+  "${PT_MODULES_ROOT}/pytorch_helpers"
+  "${ABSEIL_ROOT}"
 )
 
 add_dependencies(test_pt_integration googletest)

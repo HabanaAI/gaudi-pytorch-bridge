@@ -79,9 +79,9 @@ add_library(habana_pytorch_plugin SHARED
   habana_kernels/wrap_kernels.cpp
   habana_lazy/aten_lazy_bridge.cpp
   habana_lazy/hpu_lazy_tensors.cpp
-  habana_lazy/tensor_impl.cpp
-  habana_lazy/aten_lazy_bridge.cpp
   habana_lazy/ir.cpp
+  habana_lazy/ir_utils.cpp
+  habana_lazy/tensor_impl.cpp
 )
 target_compile_features(habana_pytorch_plugin PRIVATE cxx_std_14)
 target_compile_definitions(habana_pytorch_plugin PRIVATE "GENERIC_HELPERS" MAX_DEVICES_PER_BOX=8)

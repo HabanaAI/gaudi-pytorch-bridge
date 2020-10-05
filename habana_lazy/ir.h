@@ -50,8 +50,7 @@ inline std::ostream& operator<<(std::ostream& stream, const Use& use) {
 class Node {
  public:
   Node() = delete;
-  Node(c10::Symbol op)
-      : m_op_(op) {}
+  Node(c10::Symbol op) : m_op_(op) {}
 
   const c10::Symbol op() const {
     return m_op_;
@@ -63,12 +62,11 @@ class Node {
   void AddOutput(const ValuePtr& value);
 
   ValuePtr GetOutput(size_t index) const;
+  const ValuePtrList GetInputs() const;
 
   virtual ~Node() {}
 
-  static NodePtr Create(
-      c10::Symbol oper,
-      HbLazyTensorPtrList inputs);
+  static NodePtr Create(c10::Symbol oper, HbLazyTensorPtrList inputs);
 
   size_t num_outputs() const {
     return m_outputs_.size();
@@ -76,7 +74,7 @@ class Node {
 
  private:
   c10::Symbol m_op_;
-  //size_t m_num_outputs_ = 1;
+  // size_t m_num_outputs_ = 1;
   ValuePtrList m_inputs_;
   ValuePtrList m_outputs_;
   std::set<Use> m_uses_;

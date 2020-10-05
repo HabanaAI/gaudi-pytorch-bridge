@@ -56,6 +56,10 @@ ValuePtr Node::GetOutput(size_t index) const {
   return m_outputs_.at(index);
 }
 
+const ValuePtrList Node::GetInputs() const {
+  return m_inputs_;
+}
+
 std::string Value::ToString() const {
   std::stringstream ss;
   ss << "tensorname: "
@@ -63,9 +67,7 @@ std::string Value::ToString() const {
   return ss.str();
 }
 
-NodePtr Node::Create(
-    c10::Symbol oper,
-    HbLazyTensorPtrList inputs) {
+NodePtr Node::Create(c10::Symbol oper, HbLazyTensorPtrList inputs) {
   NodePtr node = std::make_shared<Node>(oper);
   for (size_t i = 0; i < inputs.size(); ++i) {
     ValuePtr v = std::make_shared<Value>(inputs[i], node, i);

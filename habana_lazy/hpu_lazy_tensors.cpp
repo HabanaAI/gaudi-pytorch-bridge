@@ -231,3 +231,49 @@ HbLazyTensor HbLazyTensor::CreateHbLazyTensor(
       device,
       scalar_type);
 }
+
+/************************************************************************
+ * @brief Returns indices of tensors corresponding to tensors with valid IR
+ * values which feeds in to RunPostOrder
+ ************************************************************************/
+std::vector<int> HbLazyTensor::CollectSyncTensors(
+    const std::vector<HbLazyTensor>& tensors) const {
+  std::vector<int> indices = {};
+  for (size_t i = 0; i < tensors.size(); ++i) {
+    auto ir_value = tensors[i].CurrentIrValue();
+    if (ir_value) {
+      indices.push_back(i);
+    }
+  }
+  return indices;
+}
+
+/************************************************************************
+ * @brief Computes post order list of NodePtrs. This function should be
+ *executed at the trigger points. The output would be consumed during the
+ *conversion of lazy IR to JIT IR.
+ * @param[in] tensors - vector Hb Lazy Tensors
+ * @param[in] indices - vector of indices corresponding to input tensors with
+ *valid IR values
+ * @param[out] po_data - Post Ordered vector of tensors
+ ************************************************************************/
+habana_lazy::PostOrderData HbLazyTensor::RunPostOrder(
+    const std::vector<HbLazyTensor>& tensors,
+    std::vector<int> indices) {
+  habana_lazy::PostOrderData po_data;
+  std::vector<NodePtr> p_roots;
+  p_roots.reserve(indices.size());
+  for (auto index : indices) {
+    auto ir_value = tensors.at(index).CurrentIrValue();
+    if (ir_value) {
+      p_roots.push_back(ir_value.mp_node);
+      // update output list
+      po_data.outputs.push_back(ir_value);
+    }
+  }
+
+  po_data.post_order =
+      ir::Utils::ComputePostOrder(p_roots, &po_data.emission_map);
+
+  return po_data;
+}
