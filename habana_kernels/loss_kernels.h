@@ -46,8 +46,10 @@ class NLLLossBwdOperator : public HabanaOperator {
 // MSELossFWD Operator
 class MSELossFwdOperator : public HabanaOperator {
  public:
-  MSELossFwdOperator(int device_id, const std::string& guid)
-      : HabanaOperator(guid) {
+  MSELossFwdOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator(
+            "mse_loss_fwd_" +
+            habana_helpers::name_suffix_from_type(scalarType)) {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
     kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
@@ -62,8 +64,10 @@ class MSELossFwdOperator : public HabanaOperator {
 // MSELossBWD Operator
 class MSELossBwdOperator : public HabanaOperator {
  public:
-  MSELossBwdOperator(int device_id, const std::string& guid)
-      : HabanaOperator(guid) {
+  MSELossBwdOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator(
+            "mse_loss_bwd_" +
+            habana_helpers::name_suffix_from_type(scalarType)) {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
     kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});

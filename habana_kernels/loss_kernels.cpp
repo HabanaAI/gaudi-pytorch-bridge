@@ -275,12 +275,13 @@ void MSELossFwdOperator::AllocateAndAddSynapseNode(
     torch::jit::Stack& inputs,
     bool is_output_persistent) {
   TORCH_CHECK(
-      inputs.size() == 2,
+      inputs.size() == 3,
       "Incorrect size of inputs expected for mse_loss operator");
   TORCH_CHECK(inputs[0].isTensor(), "Input type expected to be tensor");
+  TORCH_CHECK(inputs[1].isTensor(), "Input type expected to be tensor");
 
   auto self = inputs[0].toTensor();
-  int64_t reduction = inputs[1].toInt();
+  int64_t reduction = inputs[2].toInt();
 
   ns_MSELossKernel::Params param = synapse_mse_loss_params_builder(reduction);
   p_context_->params_.emplace<ns_MSELossKernel::Params>(param);
@@ -322,12 +323,13 @@ Tensor mse_loss_forward_hpu(
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
 
   // Build Params for the graph
-  std::vector<c10::IValue> stack = {IValue(self), IValue(reduction)};
+  std::vector<c10::IValue> stack = {
+      IValue(self), IValue{target}, IValue(reduction)};
 
   // Assign Inputs to the Operator
   std::vector<at::Tensor> pt_inputs{self, target};
 
-  MSELossFwdOperator Op(device_id, node_type);
+  MSELossFwdOperator Op(device_id, scalar_type);
   size_t key = Op.GetRecipeKey(node_type, stack);
   if (device.get_recipe_handle_cache().isCached(key)) {
     PT_KERNEL_DEBUG("Cache hit key:", key);
@@ -370,12 +372,14 @@ void MSELossBwdOperator::AllocateAndAddSynapseNode(
     torch::jit::Stack& inputs,
     bool is_output_persistent) {
   TORCH_CHECK(
-      inputs.size() == 2,
+      inputs.size() == 4,
       "Incorrect size of inputs expected for mse_loss operator");
   TORCH_CHECK(inputs[0].isTensor(), "Input type expected to be tensor");
+  TORCH_CHECK(inputs[1].isTensor(), "Input type expected to be tensor");
+  TORCH_CHECK(inputs[2].isTensor(), "Input type expected to be tensor");
 
-  auto self = inputs[0].toTensor();
-  int64_t reduction = inputs[1].toInt();
+  auto self = inputs[1].toTensor();
+  int64_t reduction = inputs[3].toInt();
 
   ns_MSELossKernel::Params param = synapse_mse_loss_params_builder(reduction);
   p_context_->params_.emplace<ns_MSELossKernel::Params>(param);
@@ -414,12 +418,13 @@ Tensor mse_loss_backward_hpu(
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
 
   // Build Params for the graph
-  std::vector<c10::IValue> stack = {IValue(self), IValue(reduction)};
+  std::vector<c10::IValue> stack = {
+      IValue{grad_output}, IValue{self}, IValue{target}, IValue{reduction}};
 
   // Assign Inputs to the Operator
   std::vector<at::Tensor> pt_inputs{grad_output, self, target};
 
-  MSELossBwdOperator Op(device_id, node_type);
+  MSELossBwdOperator Op(device_id, scalar_type);
   size_t key = Op.GetRecipeKey(node_type, stack);
   if (device.get_recipe_handle_cache().isCached(key)) {
     PT_KERNEL_DEBUG("Cache hit key:", key);
@@ -758,4 +763,14 @@ static auto& KernelRegistry =
             "aten::binary_cross_entropy_backward",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<BceBwdOperator>(device_id, node_type);
+            })
+        .add(
+            "aten::mse_loss",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<MSELossFwdOperator>(device_id, node_type);
+            })
+        .add(
+            "aten::mse_loss_backward",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<MSELossBwdOperator>(device_id, node_type);
             });

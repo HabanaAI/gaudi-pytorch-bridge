@@ -18,6 +18,7 @@
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/ops/cat.h"
 #include "habana_lazy/ops/convolution.h"
+#include "habana_lazy/ops/mse_loss.h"
 #include "habana_lazy/ops/pool.h"
 #include "habana_lazy/ops/tensor_shape.h"
 #include "pytorch_helpers/habana_device/HPUAllocator.h"
@@ -870,19 +871,40 @@ Tensor nll_loss_backward_hpu_lazy(
   return nll_loss_backward_hpu(
       grad_output, self, target, weight, reduction, ignore_index, total_weight);
 };
+
 Tensor mse_loss_forward_hpu_lazy(
     const Tensor& self,
     const Tensor& target,
     int64_t reduction) {
-  return mse_loss_forward_hpu(self, target, reduction);
+  auto node =
+      std::make_shared<habana_lazy::ir::MseLoss>(self, target, reduction);
+  Tensor result = mse_loss_forward_hpu(self, target, reduction);
+  auto hlresult = habana_lazy::GetHbLazyTensor(result);
+  habana_lazy::ir::Value& out =
+      habana_lazy::GetHbLazyTensor(result).CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+
+  return result;
 };
+
 Tensor mse_loss_backward_hpu_lazy(
     const Tensor& grad_output,
     const Tensor& self,
     const Tensor& target,
     int64_t reduction) {
-  return mse_loss_backward_hpu(grad_output, self, target, reduction);
+  auto node = std::make_shared<habana_lazy::ir::MseLoss>(
+      grad_output, self, target, reduction);
+  Tensor result = mse_loss_backward_hpu(grad_output, self, target, reduction);
+  auto hlresult = habana_lazy::GetHbLazyTensor(result);
+  habana_lazy::ir::Value& out =
+      habana_lazy::GetHbLazyTensor(result).CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+
+  return result;
 };
+
 Tensor binary_cross_entropy_hpu_lazy(
     const Tensor& self,
     const Tensor& target,
