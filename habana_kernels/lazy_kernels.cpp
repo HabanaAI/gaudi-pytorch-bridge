@@ -905,7 +905,20 @@ Tensor unary_backward_op_hpu_lazy(
   return unary_backward_op_hpu(grad_in, input, node_type, Op);
 };
 Tensor relu_hpu_lazy(const Tensor& input) {
-  return relu_hpu(input);
+  auto hl_input = habana_lazy::GetOrCreateHbLazyTensor(input, c10::kHABANA);
+
+  int num_outputs = 1;
+  auto node = habana_lazy::Node::Create(
+      Symbol::fromQualString("aten::relu"),
+      {hl_input.GetIrValue()},
+      num_outputs);
+  at::Tensor result = relu_hpu(input);
+  auto hlresult = habana_lazy::GetHbLazyTensor(result);
+  habana_lazy::Value& out = hlresult.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+
+  return result;
 };
 Tensor& relu_hpu_lazy_(Tensor& self) {
   return relu_hpu_(self);
