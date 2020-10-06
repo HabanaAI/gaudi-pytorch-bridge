@@ -40,6 +40,7 @@ function help()
         echo -e "  --test-freq <int>                                  default:-1"
         echo -e "  --print-time <store_true>                          default:False"
         echo -e "  -d/--data_type <data type>                         default: fp32. Possible values: fp32, bf16"
+        echo -e "  --optimizer <str>                                  default:'sgd'. Possible values sgd, adagrad"
         echo -e "Examples"
         echo -e "Graph mode:\n"
         echo -e "${DEMO_SCRIPTNAME} --arch-interaction-op cat --arch-sparse-feature-size 16 \\"
@@ -67,6 +68,8 @@ function help()
 CMDLINEARGS=""
 PARAMSUMMARY=""
 DLRM_SCRIPT="dlrm_s_pytorch_hpu_graph.py"
+DLRM_FULL_PATH=$(realpath $0)
+DEMO_DIR_PATH=$(dirname ${DLRM_FULL_PATH})
 
 
 
@@ -310,10 +313,15 @@ dlrm_arg_parser()
                 __dtype=$1
                 PARAMSUMMARY="${PARAMSUMMARY}    dtype: ${__dtype}\n"
                 if [ "${__dtype}" == "bf16" ]; then
-                        CMDLINEARGS="${CMDLINEARGS} --hmp"
+                        CMDLINEARGS="${CMDLINEARGS} --hmp --hmp-bf16 ${DEMO_DIR_PATH}/configs/ops_bf16_dlrm.txt --hmp-fp32 ${DEMO_DIR_PATH}/configs/ops_fp32_dlrm.txt"
                 fi
                 ;;
-
+            --optimizer)
+                shift
+                __optimizer=$1
+                PARAMSUMMARY="${PARAMSUMMARY}    optimizer: ${__optimizer}\n"
+                CMDLINEARGS="${CMDLINEARGS} --optimizer ${__optimizer}"
+                ;;
             -h  | --help )
                 help
                 exit 1;
@@ -328,8 +336,6 @@ dlrm_arg_parser()
         done
 }
 
-DLRM_FULL_PATH=$(realpath $0)
-DEMO_DIR_PATH=$(dirname ${DLRM_FULL_PATH})
 
 dlrm_set_env()
 {
@@ -353,6 +359,7 @@ if [ $# -eq 0 ]; then
     --learning-rate 1e-5 \
     --num-batches 1000 \
     --print-time True \
+    --optimizer "sgd" \
     --mode graph
 else
     dlrm_arg_parser $*
