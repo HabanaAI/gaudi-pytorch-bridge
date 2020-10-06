@@ -782,7 +782,7 @@ void HabanaLaunchOpPT::handleMetaOps(torch::jit::Node* node) {
   torch::jit::Stack stack;
   void *in_data, *out_data;
   auto node_ins = node->inputs();
-  habana::LayoutFormat out_layout, out_origin_layout;
+  habana::LayoutFormat out_layout{}, out_origin_layout{};
   IValPtrShared input_ptr{nullptr};
 
 

@@ -36,9 +36,6 @@ enum class PGMCachingPolicy {
 
 std::ostream & operator<<(std::ostream & O, PGMCachingPolicy P);
 
-void PrintATenTensor(const at::Tensor& a);
-void PrintATenTensor(const IValPtrShared &a);
-
 // Adding the op strings to the key for recipe
 // Later the drop the storage for the vector of strings
 //   if possible pass the subgraph as argument

@@ -62,3 +62,9 @@ void PrintATenTensor(const at::Tensor& a) {
   O << ',' << " use_count " << a.use_count()
     << '\n';
 }
+
+void PrintATenTensor(const IValPtrShared& a) {
+  if (a->isTensor()) {
+    PrintATenTensor(a->toTensor());
+  }
+}

@@ -14,10 +14,11 @@
 #include <chrono>
 
 #include "habana_bridge/kernel/hpu_habana_cache.h"
-#include "habana_device/HPUCheck.h"
 #include "habana_device/HPUAllocator.h"
+#include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_helpers/logging.h"
+#include "habana_helpers/tensor_info.h"
 
 size_t RecipeValueSpec::recipe_count = 0;
 size_t RecipeValueSpec::total_recipe_ntbytes = 0;
@@ -37,25 +38,6 @@ std::ostream & operator<<(std::ostream & O, PGMCachingPolicy P) {
       O << "unknown";
   }
   return O;
-}
-
-void PrintATenTensor(const at::Tensor& a) {
-  std::ostream& O = std::cout;
-  O << " Tensor -> ";
-  if (a.has_storage()) {
-    O << " @ " << a.data_ptr() << " : "
-      << " dim " << a.dim() << " : " << a.sizes();
-  } else {
-    O << " does not have storage";
-  }
-  O << ',' << " use_count " << a.use_count()
-    << '\n';
-}
-
-void PrintATenTensor(const IValPtrShared &a) {
-  if (a->isTensor()) {
-    PrintATenTensor(a->toTensor());
-  }
 }
 
 RecipeArgumentSpec::RecipeArgumentSpec(

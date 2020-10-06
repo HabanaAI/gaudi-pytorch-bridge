@@ -41,6 +41,10 @@ add_subdirectory(pytorch_helpers)
 
 # workaround for cmake3.5. Starting from 3.13 sources are optional and we can add them in add_subdirectories
 add_library(habana_pytorch_plugin SHARED
+  habana_bridge/kernel/hpu_habana_launch_op_pt.cpp
+  habana_bridge/kernel/hpu_habana_cache.cpp
+  habana_bridge/passes/habana_fuser.cpp
+  habana_bridge/passes/remove_inplace_ops.cpp
   pytorch_helpers/habana_device/HPUAllocator.cpp
   pytorch_helpers/habana_device/pool_allocator/utils.cpp
   pytorch_helpers/habana_device/pool_allocator/PoolAllocator.cpp
@@ -91,12 +95,7 @@ target_compile_options(habana_pytorch_plugin PRIVATE -Wall -Wextra -Werror -Wno-
 target_link_libraries(habana_pytorch_plugin PRIVATE "${TORCH_LIBRARIES}" pytorch_synapse_helpers_abi11)
 target_include_directories(habana_pytorch_plugin PRIVATE ${CMAKE_SOURCE_DIR})
 
-set(BRIDGE_SOURCES habana_bridge/register/register.cpp
-                   habana_bridge/kernel/hpu_habana_cache.cpp
-                   habana_bridge/kernel/hpu_habana_launch_op_pt.cpp
-                   habana_bridge/passes/habana_fuser.cpp
-                   habana_bridge/passes/remove_inplace_ops.cpp
-)
+set(BRIDGE_SOURCES habana_bridge/register/register.cpp)
 
 pybind11_add_module(hb_torch SHARED ${BRIDGE_SOURCES})
 target_compile_definitions(hb_torch PRIVATE "GENERIC_HELPERS" MAX_DEVICES_PER_BOX=8)
