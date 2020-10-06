@@ -314,16 +314,16 @@ void EmbeddingOperator::AllocateAndAddSynapseNode(
 
   auto weight = inputs[0].toTensor();
   auto indices = inputs[1].toTensor();
-  auto padding_idx = inputs[2].toInt();
+  //auto padding_idx = inputs[2].toInt();
   auto scale_grad_by_freq = inputs[3].toBool();
   auto sparse = inputs[4].toBool();
 
   TORCH_CHECK(
       scale_grad_by_freq == false, "scale_grad_by_value = true not supported")
   TORCH_CHECK(sparse == false, "sparse embedding not supported")
-  TORCH_WARN(
-      padding_idx == -1,
-      "padding index is ignored to mimic CPU implementation.");
+  //TORCH_WARN(
+  //    padding_idx == -1,
+  //    "padding index is ignored to mimic CPU implementation.");
 
   if (indices.dim() == 1) {
     // Create IndexSelect operator
@@ -479,6 +479,7 @@ Tensor embedding_hpu(
  * @param padding_idx (int, optional) If given, pads the output with the
  * embedding vector at padding_idx (initialized to zeros) whenever it encounters
  * the index
+ * Fix me :padding_idx is not supported in current implementation
  * @param scale_grad_by_freq (boolean, optional) If given, this will scale
  * gradients by the inverse of frequency of the words in the mini-batch
  */
@@ -492,9 +493,9 @@ Tensor embedding_dense_backward_hpu(
   int64_t numel = indices.numel();
   TORCH_CHECK(
       scale_grad_by_freq == false, "scale_grad_by_value = true not supported")
-  TORCH_WARN(
-      padding_idx == -1,
-      "padding index not supported (not used in cpu implementation)");
+  //TORCH_WARN(
+  //    padding_idx == -1,
+  //    "padding index not supported (not used in cpu implementation)");
 
   auto grad_weight = at::zeros({num_weights, grad.size(-1)}, grad.options());
   std::vector<int64_t> size{-1, grad.size(-1)};

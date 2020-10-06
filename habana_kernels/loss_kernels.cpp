@@ -114,6 +114,7 @@ void NLLLossFwdOperator::AllocateAndAddSynapseNode(
  *  @param reduction: (String, Optional) Specifies the reduction to apply to the
  * output: 'none' | 'mean' | 'sum'.
  *  @param ignore_index: (Long, Optional) Specifies a target value that is
+ * Fix me :ignore_index is not supported in this implementation
  * ignored and does not contribute to the input gradient.
  */
 std::tuple<Tensor, Tensor> nll_loss_forward_hpu(
@@ -125,7 +126,7 @@ std::tuple<Tensor, Tensor> nll_loss_forward_hpu(
   PT_KERNEL_BEGIN;
 
   TORCH_CHECK(!weight.defined(), "weighted nll_loss is not yet supported")
-  TORCH_CHECK(ignore_index == -100, "ignore_index is not yet supported")
+  //TORCH_CHECK(ignore_index == -100, "ignore_index is not yet supported")
 
   auto modified_target = habana_helpers::cast_tensor_to_integer(target);
 
@@ -208,6 +209,7 @@ void NLLLossBwdOperator::AllocateAndAddSynapseNode(
  * output: 'none' | 'mean' | 'sum'.
  *  @param ignore_index: (Long, Optional) Specifies a target value that is
  * ignored and does not contribute to the input gradient.
+ * Fix me :ignore_index is not supported in this implementation
  *  @param total_weight: (single element tensor) sum of weights used in fwd_pass
  */
 Tensor nll_loss_backward_hpu(
@@ -220,7 +222,7 @@ Tensor nll_loss_backward_hpu(
     UNUSED const Tensor& total_weight) {
   PT_KERNEL_BEGIN;
   TORCH_CHECK(!weight.defined(), "weighted nll_loss is not yet supported")
-  TORCH_CHECK(ignore_index == -100, "ignore_index is not yet supported")
+  //TORCH_CHECK(ignore_index == -100, "ignore_index is not yet supported")
 
   // Convert 0D tensor to 1D tensor before passing to Synapse
   if (grad_output.dim() == 0) {
