@@ -30,6 +30,17 @@ from torch.utils.data import DataLoader, RandomSampler, SequentialSampler
 from torch.utils.data.distributed import DistributedSampler
 from tqdm import tqdm, trange
 
+try:
+    path = os.path.join(os.environ['PYTORCH_MODULES_ROOT_PATH'], 'topologies')
+    tools_path = os.path.join(path, 'tools')
+    if os.path.exists(path) is False or os.path.exists(tools_path) is False:
+        raise Exception("path for 'tools' NOT found")
+    sys.path.append(path)
+    from tools import *
+except:
+    assert False, ("tools directory should be availabe as somedir/topologies/tools",
+                   "PYTORCH_MODULES_ROOT_PATH should be set to 'somedir'")
+
 from transformers import (
     MODEL_FOR_QUESTION_ANSWERING_MAPPING,
     WEIGHTS_NAME,
@@ -83,7 +94,7 @@ def to_list(tensor):
     return tensor.detach().cpu().tolist()
 
 
-def train(args, train_dataset, model, tokenizer):
+def train(args, train_dataset, model, tokenizer, trainMetaData):
     """ Train the model """
     if args.local_rank in [-1, 0]:
         tb_writer = SummaryWriter()
@@ -179,9 +190,12 @@ def train(args, train_dataset, model, tokenizer):
     )
     # Added here for reproductibility
     set_seed(args)
-
-    for _ in train_iterator:
+    # log the pre-epoch-loop memory usage
+    trainMetaData.tracept.end(time.time(), 'train_iteration_' + str(trainMetaData.current_train_step))
+    trainMetaData.log_live_mem_alloc("before entering train Iteration " + str(trainMetaData.current_train_step))
+    for epoch in train_iterator:
         epoch_iterator = tqdm(train_dataloader, desc="Iteration", disable=args.local_rank not in [-1, 0])
+        trainMetaData.set_current_epoch_no(epoch)
         for step, batch in enumerate(epoch_iterator):
             start_time = time.time()
             trainMetaData.tracept.start(start_time, 'train_iteration_' + str(trainMetaData.current_train_step))
@@ -277,7 +291,6 @@ def train(args, train_dataset, model, tokenizer):
             trainMetaData.tracept.end(time.time(), 'train_iteration_' + str(trainMetaData.current_train_step))
             trainMetaData.log_live_mem_alloc("train Iteration " + str(trainMetaData.current_train_step))
             trainMetaData.increment_train_step()
-
             if args.max_steps > 0 and global_step > args.max_steps:
                 epoch_iterator.close()
                 break
@@ -795,7 +808,8 @@ def main():
     # Training
     if args.do_train:
         train_dataset = load_and_cache_examples(args, tokenizer, evaluate=False, output_examples=False)
-        global_step, tr_loss = train(args, train_dataset, model, tokenizer)
+        trainMetaData = TrainMetaData(model, args.device)
+        global_step, tr_loss = train(args, train_dataset, model, tokenizer, trainMetaData)
         logger.info(" global_step = %s, average loss = %s", global_step, tr_loss)
 
     # Save the trained model and the tokenizer
