@@ -273,18 +273,47 @@ def train(args, train_dataset, model, tokenizer, trainMetaData):
                     tb_writer.add_scalar("loss", (tr_loss - logging_loss) / args.logging_steps, global_step)
                     logging_loss = tr_loss
 
+                logger.info("Global Step: %s, Loss: %s", global_step, loss.item())
                 # Save model checkpoint
                 if args.local_rank in [-1, 0] and args.save_steps > 0 and global_step % args.save_steps == 0:
                     output_dir = os.path.join(args.output_dir, "checkpoint-{}".format(global_step))
-                    # Take care of distributed/parallel training
-                    model_to_save = model.module if hasattr(model, "module") else model
-                    model_to_save.save_pretrained(output_dir)
-                    tokenizer.save_pretrained(output_dir)
+
+                    ## Saving model, optimizer and scheduler checkpoints for HPU
+                    if args.use_habana:
+                        # Take care of distributed/parallel training
+                        model_to_save = model.module if hasattr(model, "module") else model
+                        d = next(model_to_save.parameters()).device
+                        if (d != torch.device("cpu")):
+                            import copy
+                            model_to_save_clone = copy.deepcopy(model_to_save)
+                            model_to_save_clone.to(torch.device("cpu"))
+                            model_to_save_clone.save_pretrained(output_dir)
+                            torch.save(model_to_save_clone.state_dict(), os.path.join(output_dir, "model.pt"))
+                        logger.info("Saving HPU model checkpoint to %s", output_dir)
+                        param_groups_copy = optimizer.state_dict()['param_groups']
+                        state_dict_copy = {}
+                        for st_key, st_val in optimizer.state_dict()['state'].items():
+                            st_val_copy={}
+                            for k, v in st_val.items():
+                                if isinstance(v, torch.Tensor):
+                                    st_val_copy[k] = v.to('cpu')
+                                else:
+                                    st_val_copy[k] = v
+                                state_dict_copy[st_key] = st_val_copy
+                        optim_dict = {}
+                        optim_dict['state'] = state_dict_copy
+                        optim_dict['param_groups'] = param_groups_copy
+                        torch.save(optim_dict, os.path.join(output_dir, "optimizer.pt"))
+                        logger.info("Saving HPU optimizer state to %s", output_dir)
+                    else:
+                        # Take care of distributed/parallel training
+                        model_to_save = model.module if hasattr(model, "module") else model
+                        model_to_save.save_pretrained(output_dir)
+                        tokenizer.save_pretrained(output_dir)
+                        logger.info("Saving model checkpoint to %s", output_dir)
+                        torch.save(optimizer.state_dict(), os.path.join(output_dir, "optimizer.pt"))
 
                     torch.save(args, os.path.join(output_dir, "training_args.bin"))
-                    logger.info("Saving model checkpoint to %s", output_dir)
-
-                    torch.save(optimizer.state_dict(), os.path.join(output_dir, "optimizer.pt"))
                     torch.save(scheduler.state_dict(), os.path.join(output_dir, "scheduler.pt"))
                     logger.info("Saving optimizer and scheduler states to %s", output_dir)
 
