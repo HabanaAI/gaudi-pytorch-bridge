@@ -76,8 +76,8 @@ void habana::BinaryInplaceOperatorWithAlpha::AllocateAndAddSynapseNode(
     synapse_helpers::tensor& arg2_syn_tensor =
         isArg2modified ? reshape_syn_output[0] : mulOp_out;
 
-    std::vector<synTensor> syn_inputs{arg1_syn_tensor.get(),
-                                      arg2_syn_tensor.get()};
+    std::vector<synTensor> syn_inputs{
+        arg1_syn_tensor.get(), arg2_syn_tensor.get()};
 
     synapse_helpers::tensor& output_syn_tensor = p_context_->syn_outputs_[0];
     std::vector<synTensor> syn_outputs{output_syn_tensor.get()};
@@ -109,8 +109,8 @@ void habana::BinaryInplaceOperatorWithAlpha::AllocateAndAddSynapseNode(
     synapse_helpers::tensor& arg2_syn_tensor =
         isArg2modified ? reshape_syn_output[0] : p_context_->syn_inputs_[1];
 
-    std::vector<synTensor> syn_inputs{arg1_syn_tensor.get(),
-                                      arg2_syn_tensor.get()};
+    std::vector<synTensor> syn_inputs{
+        arg1_syn_tensor.get(), arg2_syn_tensor.get()};
 
     synapse_helpers::tensor& output_syn_tensor = p_context_->syn_outputs_[0];
     std::vector<synTensor> syn_outputs{output_syn_tensor.get()};
@@ -239,8 +239,8 @@ void habana::BinaryInplaceOperator::AllocateAndAddSynapseNode(
   synapse_helpers::tensor& arg2_syn_tensor =
       isArg2modified ? reshape_syn_output[0] : p_context_->syn_inputs_[1];
 
-  std::vector<synTensor> syn_inputs{arg1_syn_tensor.get(),
-                                    arg2_syn_tensor.get()};
+  std::vector<synTensor> syn_inputs{
+      arg1_syn_tensor.get(), arg2_syn_tensor.get()};
 
   synapse_helpers::tensor& output_syn_tensor = p_context_->syn_outputs_[0];
   std::vector<synTensor> syn_outputs{output_syn_tensor.get()};
@@ -807,7 +807,18 @@ Tensor& addcdiv_hpu_(
   // Build Params for the graph
   std::vector<c10::IValue> stack = {
       IValue(self), IValue(tensor1), IValue(tensor2), IValue(alpha)};
-  size_t key = Op.GetRecipeKey(node_type, stack, true);
+  size_t key;
+
+  // TBD: The following option to not cache the recipe is done
+  // till a way to accomodate changing scalar values is found.
+  const string cacheScalarEnvValue = "PT_HPU_CACHE_RECIPE_WITH_SCALAR";
+  const char* cacheValue = getenv(cacheScalarEnvValue.c_str());
+  if (cacheValue && (strncmp(cacheValue, "0", 1) == 0)) {
+    PT_DEVICE_DEBUG("Caching disabled for ", node_type);
+    key = 0;
+  } else {
+    key = Op.GetRecipeKey(node_type, stack, true);
+  }
 
   // Assign Inputs to the Operator
   std::vector<at::Tensor> pt_inputs{self, tensor1, tensor2};
