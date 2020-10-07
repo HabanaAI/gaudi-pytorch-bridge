@@ -837,7 +837,7 @@ class Flow:
                         out(Flow.call(entry, space.get_args(entry, ("streamHandle", "eventHandle"))))
                     elif func_def.name in ("synSectionDestroy"):
                         out(Flow.call(entry, space.get_args(entry, ("sectionHandle",))))
-                    elif func_def.name == "synLaunch":
+                    elif func_def.name == "synLaunchDSD":
                         self._reference_match_launch(no, entry)
                         replacements = space.get_args(entry, ("streamHandle", "pRecipehandle"))
                         mapped_tensors = [
@@ -847,7 +847,7 @@ class Flow:
                         tensors_info = ", ".join(
                             f'{{"{n}", {f}}}' for n, f in zip(args["launchTensorsInfo"][::2], mapped_tensors)
                         )
-                        out(f"synLaunchTensorInfo launch_tensors_info{no}[] = {{{tensors_info}}};")
+                        out(f"synLaunchTensorInfoDSD launch_tensors_info{no}[] = {{{tensors_info}}};")
                         replacements["launchTensorsInfo"] = f"launch_tensors_info{no}"
                         out(Flow.call(entry, replacements))
                     elif func_def.name == "synEventCreate":

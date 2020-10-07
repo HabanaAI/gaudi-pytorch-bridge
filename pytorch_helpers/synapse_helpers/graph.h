@@ -145,7 +145,7 @@ class graph {
   static synapse_error_o launch(
       launch_info& handle,
       const graph::recipe_handle& recipe_handle,
-      const std::vector<synLaunchTensorInfo>& inputs_and_outputs_info);
+      const std::vector<synLaunchTensorInfoDSD>& inputs_and_outputs_info);
 
   const std::string& name() const {
     return name_;

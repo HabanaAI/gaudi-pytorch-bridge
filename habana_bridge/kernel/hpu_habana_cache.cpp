@@ -212,11 +212,11 @@ void RecipeValueSpec::launch (at::ArrayRef<torch::jit::IValue> input_refs) {
     }
   }
 
-  std::vector<synLaunchTensorInfo> syn_launch_info;
+  std::vector<synLaunchTensorInfoDSD> syn_launch_info;
 
   // Populate the <name,buffer> pairs from TensorInfo for synLaunch
   for (size_t i = 0; i < num_tensors; ++i) {
-    syn_launch_info.emplace_back(synLaunchTensorInfo{
+    syn_launch_info.emplace_back(synLaunchTensorInfoDSD{
         dtensorinfos->at(i).get_syn_namec_str(),
         reinterpret_cast<uint64_t>(dtensorinfos->at(i).get_buffer())});
   }
