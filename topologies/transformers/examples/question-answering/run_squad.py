@@ -53,6 +53,17 @@ try:
 except ImportError:
     from tensorboardX import SummaryWriter
 
+try:
+    path = os.path.join(os.environ['PYTORCH_MODULES_ROOT_PATH'], 'topologies')
+    tools_path = os.path.join(path, 'tools')
+    if os.path.exists(path) is False or os.path.exists(tools_path) is False:
+        raise Exception("path for 'tools' NOT found")
+    import sys
+    sys.path.append(path)
+    from tools import *
+except:
+    assert False, ("tools directory should be availabe as somedir/topologies/tools",
+                   "PYTORCH_MODULES_ROOT_PATH should be set to 'somedir'")
 
 logger = logging.getLogger(__name__)
 
@@ -80,6 +91,7 @@ def train(args, train_dataset, model, tokenizer):
     args.train_batch_size = args.per_gpu_train_batch_size * max(1, args.n_gpu)
     train_sampler = RandomSampler(train_dataset) if args.local_rank == -1 else DistributedSampler(train_dataset)
     train_dataloader = DataLoader(train_dataset, sampler=train_sampler, batch_size=args.train_batch_size)
+    trainMetaData = TrainMetaData(model, args.device)
 
     if args.max_steps > 0:
         t_total = args.max_steps
@@ -171,12 +183,15 @@ def train(args, train_dataset, model, tokenizer):
     for _ in train_iterator:
         epoch_iterator = tqdm(train_dataloader, desc="Iteration", disable=args.local_rank not in [-1, 0])
         for step, batch in enumerate(epoch_iterator):
+            start_time = time.time()
+            trainMetaData.tracept.start(start_time, 'train_iteration_' + str(trainMetaData.current_train_step))
 
             # Skip past any already trained steps if resuming training
             if steps_trained_in_current_epoch > 0:
                 steps_trained_in_current_epoch -= 1
                 continue
 
+            device = args.device
             model.train()
             batch = tuple(t.to(args.device) for t in batch)
 
@@ -187,6 +202,10 @@ def train(args, train_dataset, model, tokenizer):
                 "start_positions": batch[3],
                 "end_positions": batch[4],
             }
+
+            input_keys = ('input_ids', 'attention_mask', 'token_type_ids', 'start_positions', 'end_positions')
+            input_dict = {k: inputs[k] for k in input_keys if k in inputs}
+            target = inputs['end_positions']
 
             if args.model_type in ["xlm", "roberta", "distilbert", "camembert"]:
                 del inputs["token_type_ids"]
@@ -200,6 +219,7 @@ def train(args, train_dataset, model, tokenizer):
                         {"langs": (torch.ones(batch[0].shape, dtype=torch.int64) * args.lang_id).to(args.device)}
                     )
 
+            tp_probe_tensors_iteration_start(model, device, target, input_dict, trainMetaData.ParamsDump, False)
             outputs = model(**inputs)
             # model outputs are always tuple in transformers (see doc)
             loss = outputs[0]
@@ -222,6 +242,7 @@ def train(args, train_dataset, model, tokenizer):
                 else:
                     torch.nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
 
+                tp_probe_tensors_iteration_end(model, device, outputs[1].detach().to('cpu'), loss.item(), trainMetaData.ParamsDump, False)
                 optimizer.step()
                 scheduler.step()  # Update learning rate schedule
                 model.zero_grad()
@@ -252,6 +273,10 @@ def train(args, train_dataset, model, tokenizer):
                     torch.save(optimizer.state_dict(), os.path.join(output_dir, "optimizer.pt"))
                     torch.save(scheduler.state_dict(), os.path.join(output_dir, "scheduler.pt"))
                     logger.info("Saving optimizer and scheduler states to %s", output_dir)
+
+            trainMetaData.tracept.end(time.time(), 'train_iteration_' + str(trainMetaData.current_train_step))
+            trainMetaData.log_live_mem_alloc("train Iteration " + str(trainMetaData.current_train_step))
+            trainMetaData.increment_train_step()
 
             if args.max_steps > 0 and global_step > args.max_steps:
                 epoch_iterator.close()
