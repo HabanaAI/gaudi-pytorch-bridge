@@ -1,6 +1,9 @@
 include(ExternalProject)
 
 file(GLOB_RECURSE PT_INTEGRATION_TEST_SOURCES *.cpp)
+#list(FILTER PT_INTEGRATION_TEST_SOURCES EXCLUDE REGEX
+#   ".*testfile.cpp" example to exclude file from compilation
+#)
 
 add_executable(test_pt_integration ${PT_INTEGRATION_TEST_SOURCES})
 
@@ -8,7 +11,7 @@ target_include_directories(
   test_pt_integration
   SYSTEM PUBLIC
   "$ENV{HABANA_SOFTWARE_STACK}/3rd-parties/abseil-cpp"
-  "$ENV{HABANA_SOFTWARE_STACK}/3rd-parties/googletest/googletest/include"
+  "$ENV{HABANA_SOFTWARE_STACK}/3rd-parties/googletest_1_10/googletest/include"
   "$ENV{PYTORCH_MODULES_ROOT_PATH}"
   "$ENV{PYTORCH_MODULES_ROOT_PATH}/pytorch_helpers"
   "$ENV{SYNAPSE_ROOT}/include"

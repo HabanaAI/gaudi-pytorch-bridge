@@ -116,9 +116,9 @@ add_custom_command(TARGET hb_torch POST_BUILD COMMAND
   ${CMAKE_SOURCE_DIR}/tests/$<TARGET_FILE_NAME:hb_torch>
 )
 
-option(BUILD_TESTS "Build gtest binaries" OFF)
+option(BUILD_TESTS "Build gtest binaries" ON)
 if (BUILD_TESTS)
-  add_subdirectory("$ENV{HABANA_SOFTWARE_STACK}/3rd-parties/googletest/"
+  add_subdirectory("$ENV{HABANA_SOFTWARE_STACK}/3rd-parties/googletest_1_10/"
                    ${CMAKE_BINARY_DIR}/ThirdParty/googletest/
                    EXCLUDE_FROM_ALL)
   add_subdirectory(tests/cpp)
