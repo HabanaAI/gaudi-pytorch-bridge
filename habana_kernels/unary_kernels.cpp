@@ -1092,7 +1092,7 @@ void ClampOperator::AllocateAndAddSynapseNode(
       "Incorrect size of inputs expected for Clamp operator");
   TORCH_CHECK(inputs[0].isTensor(), "Input type expected to be tensor");
 
-  auto input = inputs[0].toTensor();
+  auto self = inputs[0].toTensor();
   auto min = inputs[1].isScalar() ? inputs[1].toScalar()
                                   : inputs[1].toOptional<Scalar>();
   auto max = inputs[2].isScalar() ? inputs[2].toScalar()
@@ -1102,11 +1102,59 @@ void ClampOperator::AllocateAndAddSynapseNode(
   param.upperBound.f = max.value().to<float>();
   param.lowerBound.f = min.value().to<float>();
 
-  auto output = habana_helpers::createPTTensor(input, is_output_persistent);
-  AllocateSynapseOutput(graph, output, is_output_persistent);
-  AddNodeToSynapseGraph(graph, &param, sizeof(param));
-}
+  if (self.scalar_type() == c10::ScalarType::Int) {
+    // Cast Input tensor to Float tensor
+    std::string node_type = "cast_i32_to_f32";
 
+    // Create the operator
+    CastOperator intToFloatOp(this->p_context_->device_id_, node_type);
+    auto& float_syn =
+        intToFloatOp.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+
+    // Build Params for the graph
+    std::vector<c10::IValue> stack{IValue(self),
+                                   IValue(c10::ScalarType::Float)};
+    intToFloatOp.AllocateAndAddSynapseNode(graph, stack, false);
+
+    synapse_helpers::tensor& float_syn_tensor = intToFloatOp.GetSynOutputs()[0];
+    auto output_float = intToFloatOp.GetOutputs()[0];
+    p_context_->syn_inputs_[0] = std::move(float_syn);
+    stack.clear();
+
+    AllocateSynapseOutput(graph, output_float, false);
+    synapse_helpers::tensor& synOutput = p_context_->syn_outputs_[0];
+
+    std::vector<synTensor> syn_in{float_syn_tensor.get()};
+    std::vector<synTensor> syn_out{synOutput.get()};
+
+    at::ScalarType scalar_type = output_float.scalar_type();
+    node_type =
+        "clamp_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+    graph.add_node(
+        std::move(syn_in),
+        std::move(syn_out),
+        &param,
+        sizeof(param),
+        std::move(node_type));
+
+    node_type = "cast_f32_to_i32";
+    // Create cast operator
+    CastOperator floatToIntOp(this->p_context_->device_id_, node_type);
+    floatToIntOp.SetSynapseInput(std::move(p_context_->syn_outputs_[0]));
+
+    // Build Params for the graph
+    stack = {IValue(p_context_->pt_outputs_[0]), IValue(c10::ScalarType::Int)};
+
+    floatToIntOp.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+    p_context_->syn_outputs_[0] = std::move(floatToIntOp.GetSynOutputs()[0]);
+    p_context_->pt_outputs_[0] = std::move(floatToIntOp.GetOutputs()[0]);
+
+  } else {
+    auto output = habana_helpers::createPTTensor(self, is_output_persistent);
+    AllocateSynapseOutput(graph, output, is_output_persistent);
+    AddNodeToSynapseGraph(graph, &param, sizeof(param));
+  }
+}
 /** @brief This function implements torch.clamp_min()
  * @param self (bf16, fp32 tensor) Input tensor
  * @param min (int, float) Minimum value at which input will be clamped
@@ -1156,10 +1204,17 @@ Tensor clamp_hpu(
   size_t device_id = self.device().index();
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
   ClampOperator Op(device_id, node_type);
-  // Assign Inputs to the Operator
-  std::vector<at::Tensor> pt_inputs{self};
-  // Build Params for the graph
-  std::vector<c10::IValue> stack = {IValue(self), IValue(min), IValue(max)};
+
+  std::vector<at::Tensor> pt_inputs;
+  std::vector<c10::IValue> stack;
+  if (self.scalar_type() == ScalarType::Long) {
+    auto self_i32 = habana_helpers::cast_tensor_to_integer(self);
+    pt_inputs = {self_i32};
+    stack = {IValue(self_i32), IValue(min), IValue(max)};
+  } else {
+    pt_inputs = {self};
+    stack = {IValue(self), IValue(min), IValue(max)};
+  }
 
   size_t key = Op.GetRecipeKey(node_type, stack);
   if (device.get_recipe_handle_cache().isCached(key)) {
@@ -1180,9 +1235,14 @@ Tensor clamp_hpu(
 
   std::vector<at::Tensor> out = Op.GetOutputs();
   TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
-
-  PT_KERNEL_END;
-  return out.at(0);
+  if (self.scalar_type() == ScalarType::Long) {
+    auto output = habana_helpers::cast_tensor_to_long(out.at(0));
+    PT_KERNEL_END;
+    return output;
+  } else {
+    PT_KERNEL_END;
+    return out.at(0);
+  }
 }
 
 void ClampInplaceOperator::AllocateAndAddSynapseNode(
@@ -1213,6 +1273,12 @@ Tensor& clamp_hpu_(
     c10::optional<Scalar> min,
     c10::optional<Scalar> max) {
   PT_KERNEL_BEGIN;
+
+  if (self.scalar_type() == ScalarType::Long) {
+    self.copy_(clamp_hpu(self, min, max));
+    PT_KERNEL_END;
+    return self;
+  }
   at::ScalarType scalar_type = self.scalar_type();
   std::string node_type =
       "clamp_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
