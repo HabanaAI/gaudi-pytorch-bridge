@@ -71,7 +71,7 @@ class HlExec {
   /**
    * This method calls torch::jit optimzer passes.
    * Optionally, habana specific optimzers can be added.
-   * TBD: Add optimzer levels and take in a mask from caller 
+   * TBD: Add optimzer levels and take in a mask from caller
    * to control optimization passes applied on the graph.
    */
   void Optimize(); //opt_level_mask=0x0);
@@ -79,7 +79,7 @@ class HlExec {
   /**
   * This method calls the Habana Graph Lowering kernel
   */
-  void Launch();
+  void Launch(torch::jit::Stack& stack);
 
   void DumpGraph() {
     mp_g_->dump();

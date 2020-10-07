@@ -59,7 +59,7 @@ void StepMarker(
     const std::vector<std::string>& devices) {
   c10::Device device = GetDeviceOrCurrent(device_str);
   HbLazyTensor::SyncLiveTensorsGraph(&device, devices);
-  //  HbLazyTensor::MarkStep(device);
+  HbLazyTensor::MarkStep(device);
 }
 
 void InitModuleBindings(py::module m) {

@@ -107,7 +107,7 @@ class HbLazyTensor {
   // Applies the queue of operations in preparation for using the data.
   void applyPendingGraph();
   c10::optional<at::Tensor> GetHbLazyTensorData();
-  // static void MarkStep(const c10::Device& device);
+  static void MarkStep(const c10::Device& device);
   // Retrieves the PyTorch CPU tensors behind the Habana Lazy tensors IR
   // operations. All the tensors must be on the same device.
   // static std::vector<at::Tensor> GetTensors(std::vector<HbLazyTensor>*
@@ -119,8 +119,8 @@ class HbLazyTensor {
       const at::Device& device,
       at::ScalarType scalar_type);
   ir::Value CreateTensorNode(void* data, bool read_only) const;
-  std::vector<int> CollectSyncTensors(
-      const std::vector<HbLazyTensor>& tensors) const;
+  static std::vector<int> CollectSyncTensors(
+      const std::vector<HbLazyTensor>& tensors);
   static PostOrderData RunPostOrder(
       const std::vector<HbLazyTensor>& tensors,
       std::vector<int> indices);
@@ -166,7 +166,7 @@ class HbContextArena {
   void RegisterTensor(std::shared_ptr<Data> data);
   void UnregisterTensor(Data* data);
   std::vector<HbLazyTensor> GetLiveTensors(const c10::Device* device);
-  void MarkStep(const c10::Device& device){};
+  void MarkStep(const c10::Device& device);
 
  private:
   std::vector<HbContext*> GetAllHbContexts();

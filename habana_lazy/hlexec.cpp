@@ -9,6 +9,7 @@
  */
 
 #include "hlexec.h"
+#include "habana_bridge/kernel/hpu_habana_launch_op_pt.h"
 #include "ops/constant.h"
 #include "ops/convolution.h"
 
@@ -134,6 +135,11 @@ std::tuple<LazyValueToJitValueMap, LazyValueToJitValueMap> HlExec::Create(
   }
 
   return std::make_tuple(input_map, output_map);
+}
+
+void HlExec::Launch(torch::jit::Stack& stack) {
+  HabanaLaunchOpPT launch{mp_g_, false};
+  launch.run(stack);
 }
 
 } // namespace exec

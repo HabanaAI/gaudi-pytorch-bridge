@@ -10,8 +10,8 @@
 #include "hpu_lazy_tensors.h"
 #include <ATen/Tensor.h>
 #include <torch/csrc/jit/ir/ir.h>
-#include "habana_bridge/kernel/hpu_habana_launch_op_pt.h"
 #include "habana_helpers/tensor_utils.h"
+#include "hlexec.h"
 
 using namespace habana_lazy;
 
@@ -43,6 +43,11 @@ std::vector<HbLazyTensor> HbContextArena::GetLiveTensors(
   };
   ForAllHbContexts(fn, device);
   return tensors;
+}
+
+void HbContextArena::MarkStep(const c10::Device& device) {
+  HbContext* devctx = GetHbContext(device);
+  devctx->seed_ir_value = ir::Value();
 }
 
 std::vector<HbContext*> HbContextArena::GetAllHbContexts() {
@@ -173,6 +178,11 @@ ir::Value HbLazyTensor::GetIrValue() const {
   return data()->ir_value;
 }
 
+void HbLazyTensor::MarkStep(const c10::Device& device) {
+  HbContextArena::Get()->MarkStep(device);
+  // TODO reset IR
+}
+
 void HbLazyTensor::SetTensorData(at::Tensor tensor_data) {
   data()->tensor_data = std::move(tensor_data);
 }
@@ -264,7 +274,7 @@ HbLazyTensor HbLazyTensor::CreateHbLazyTensor(
  * values which feeds in to RunPostOrder
  ************************************************************************/
 std::vector<int> HbLazyTensor::CollectSyncTensors(
-    const std::vector<HbLazyTensor>& tensors) const {
+    const std::vector<HbLazyTensor>& tensors) {
   std::vector<int> indices = {};
   for (size_t i = 0; i < tensors.size(); ++i) {
     auto ir_value = tensors[i].CurrentIrValue();
@@ -320,7 +330,7 @@ void HbLazyTensor::applyPendingGraph() {
   // before sync points in execution
   if (!CurrentTensorData()) {
     std::vector<HbLazyTensor> tensors({*this});
-    // SyncTensorsGraph(&tensors, {}, /*wait=*/true, /*sync_xla_data=*/false);
+    SyncTensorsGraph(&tensors, {});
   }
 }
 
@@ -345,7 +355,28 @@ void HbLazyTensor::SyncLiveTensorsGraph(
 void HbLazyTensor::SyncTensorsGraphInternal(
     std::vector<HbLazyTensor>* tensors,
     absl::Span<const std::string> devices) {
-  // TODO Get graph and stack
-  // auto op = std::make_shared<HabanaLaunchOpPT>(graph, false);
-  // op->run(stack);
+  const std::vector<int>& indices = CollectSyncTensors(*tensors);
+  auto po_data = HbLazyTensor::RunPostOrder(*tensors, indices);
+
+  exec::HlExec hlexec{};
+  hlexec.Create(po_data.post_order, po_data.inputs, po_data.outputs);
+
+  torch::jit::Stack stack;
+  stack.reserve(po_data.inputs.size());
+
+  for (const auto& in : po_data.inputs) {
+    std::shared_ptr<Data> d = in.m_data_ptr.lock();
+    stack.emplace_back(d->tensor_data);
+  }
+  hlexec.Launch(stack);
+
+  // TODO Map to output index
+  size_t i = 0;
+  for (const torch::IValue& v : stack) {
+    auto st = v.toTensor();
+    auto sync_tensor = (*tensors)[i++].CurrentTensorData();
+    c10::DataPtr ptr{st.storage().data(), st.device()};
+    sync_tensor->storage().set_data_ptr(std::move(ptr));
+  }
+  HABANA_ASSERT(stack.size() == (*tensors).size());
 }

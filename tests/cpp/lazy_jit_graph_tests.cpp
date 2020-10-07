@@ -39,3 +39,28 @@ TEST(LazyJITTest, CreateGraph) {
       ->check_count("aten::add", 2)
       ->run(*hlexec->get_graph());
 }
+
+TEST(LazyJITTest, ExecuteGraph) {
+  Scalar alpha = 10.0f;
+  Tensor tensor_in1 = torch::rand({2, 3});
+  Tensor tensor_in2 = torch::rand({2, 3});
+  Tensor exp1 = add(tensor_in1, tensor_in2, alpha);
+  Tensor exp2 = add(exp1, tensor_in1, alpha);
+
+  setenv("PT_HPU_LAZY_MODE", "1", 1);
+  torch::Tensor htensor_in1 = tensor_in1.to(torch::kHABANA);
+  torch::Tensor htensor_in2 = tensor_in2.to(torch::kHABANA);
+  auto result1 = add_tensor_hpu_lazy(htensor_in1, htensor_in2, alpha);
+  auto result2 = add_tensor_hpu_lazy(result1, htensor_in1, alpha);
+  unsetenv("PT_HPU_LAZY_MODE");
+
+  std::vector<HbLazyTensor> tensors = {GetHbLazyTensor(result1),
+                                       GetHbLazyTensor(result2)};
+  HbLazyTensor::SyncTensorsGraph(&tensors, {});
+
+  Tensor out1 = result1.to(kCPU);
+  Tensor out2 = result2.to(kCPU);
+
+  EXPECT_EQ(allclose(out1, exp1), true);
+  EXPECT_EQ(allclose(out2, exp2), true);
+}
