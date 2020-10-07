@@ -9,6 +9,7 @@
  */
 
 #include "ir.h"
+#include "habana_helpers/logging.h"
 
 namespace habana_lazy {
 
@@ -31,33 +32,28 @@ std::string Use::ToString() const {
 
 std::string Node::ToString() const {
   std::stringstream ss;
-  ss << "Op: " << m_op_.toQualString() << ", Inputs: {";
-  for (auto& v : m_inputs_) {
-    ss << v->ToString() << " ";
-  }
-  ss << "}, Outputs: {";
-  for (auto& v : m_outputs_) {
-    ss << v->ToString() << " ";
+  ss << "Op: " << m_op.toQualString() << ", Inputs: {";
+  for (auto& v : m_inputs) {
+    ss << v.ToString() << " ";
   }
   ss << "}\n";
   return ss.str();
 }
 
-void Node::AddInput(const ValuePtr& value) {
-  m_inputs_.emplace_back(value);
+void Node::AddInput(const Value& value) {
+  m_inputs.emplace_back(value);
 }
 
-void Node::AddOutput(const ValuePtr& value) {
-  m_outputs_.emplace_back(value);
-}
-
-ValuePtr Node::GetOutput(size_t index) const {
-  assert(index < num_outputs());
-  return m_outputs_.at(index);
-}
-
-const ValuePtrList Node::GetInputs() const {
-  return m_inputs_;
+Value::Value(c10::Scalar val, size_t index) {
+  HABANA_ASSERT(val.isFloatingPoint() || val.isIntegral(false));
+  if (val.isFloatingPoint()) {
+    m_data.d = val.toDouble();
+    m_tag = Tag::Double;
+  } else if (val.isIntegral(false)) {
+    /* includebool is false */
+    m_data.i = val.toInt();
+    m_tag = Tag::Int;
+  }
 }
 
 std::string Value::ToString() const {
@@ -67,11 +63,10 @@ std::string Value::ToString() const {
   return ss.str();
 }
 
-NodePtr Node::Create(c10::Symbol oper, HbLazyTensorPtrList inputs) {
-  NodePtr node = std::make_shared<Node>(oper);
-  for (size_t i = 0; i < inputs.size(); ++i) {
-    ValuePtr v = std::make_shared<Value>(inputs[i], node, i);
-    node->AddInput(v);
+NodePtr Node::Create(c10::Symbol oper, ValueList inputs, size_t num_outputs) {
+  NodePtr node = std::make_shared<Node>(oper, num_outputs);
+  for (auto& i : inputs) {
+    node->AddInput(i);
   }
   return node;
 }

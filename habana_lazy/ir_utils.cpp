@@ -26,9 +26,9 @@ std::vector<NodePtr> Utils::ComputePostOrderNode(
       (*emap)[p_node] = kEmitting;
 
       for (auto& operand : p_node->GetInputs()) {
-        auto oit = emap->find(operand->mp_node);
+        auto oit = emap->find(operand.mp_node);
         if (oit == emap->end()) {
-          queue.push_back(operand->mp_node);
+          queue.push_back(operand.mp_node);
         } else {
           // graph loop found at *operand.node
           HABANA_ASSERT(oit->second == kEmitting);
@@ -36,7 +36,7 @@ std::vector<NodePtr> Utils::ComputePostOrderNode(
       }
     } else if (it->second == kEmitting) {
       for (auto& operand : p_node->GetInputs()) {
-        auto oit = emap->find(operand->mp_node);
+        auto oit = emap->find(operand.mp_node);
         // check for graph loop at *operand.node
         HABANA_ASSERT(oit != emap->end() && oit->second == kEmitted);
       }

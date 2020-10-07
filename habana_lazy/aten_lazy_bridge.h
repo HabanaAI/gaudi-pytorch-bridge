@@ -41,4 +41,6 @@ HbLazyTensor GetHbLazyTensor(const at::Tensor& tensor);
 c10::optional<HbLazyTensor> TryGetHbLazyTensor(const at::Tensor& tensor);
 
 bool IsHbLazyTensor(const at::Tensor& tensor);
+
+Value GetIrValueForScalar(const c10::Scalar& scalar);
 } // namespace habana_lazy

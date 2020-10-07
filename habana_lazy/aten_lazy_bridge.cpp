@@ -8,6 +8,8 @@
  ******************************************************************************
  */
 #include "aten_lazy_bridge.h"
+#include "habana_lazy/constant.h"
+
 namespace habana_lazy {
 
 ////////////////////////////Util functions : Move to seperate file if
@@ -84,4 +86,9 @@ HbLazyTensor GetOrCreateHbLazyTensor(
 bool IsHbLazyTensor(const at::Tensor& tensor) {
   return GetHbLazyTensorImpl(tensor) != nullptr;
 }
+
+Value GetIrValueForScalar(const c10::Scalar& scalar) {
+  return Constant<c10::Scalar>(scalar).IrValue();
+}
+
 } // namespace habana_lazy

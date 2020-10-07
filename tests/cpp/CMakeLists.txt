@@ -38,6 +38,7 @@ set(PT_INTEGRATION_TEST_SOURCES
   main.cpp
   eager_kernel_tests.cpp
   post_order_tests.cpp
+  lazy_kernel_tests.cpp
 )
 
 add_executable(test_pt_integration ${PT_INTEGRATION_TEST_SOURCES})

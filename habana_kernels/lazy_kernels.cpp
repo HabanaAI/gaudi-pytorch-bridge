@@ -67,8 +67,25 @@ Tensor add_tensor_hpu_lazy(
     const Tensor& self,
     const Tensor& other,
     Scalar alpha) {
-  return add_tensor_hpu(self, other, alpha);
-};
+
+  auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
+  auto hl_other = habana_lazy::GetOrCreateHbLazyTensor(other, c10::kHABANA);
+  auto hl_alpha = habana_lazy::GetIrValueForScalar(alpha);
+
+  int num_outputs = 1;
+  auto node = habana_lazy::Node::Create(
+      Symbol::fromQualString("aten::add"),
+      {hl_self.GetIrValue(), hl_other.GetIrValue(), hl_alpha},
+      num_outputs);
+  at::Tensor result = add_tensor_hpu(self, other, alpha);
+  auto hlresult = habana_lazy::GetHbLazyTensor(result);
+
+  habana_lazy::Value out(hlresult.data_ptr(), 0);
+  out.SetNode(node);
+  hlresult.AssignIrValue(out);
+
+  return result;
+}
 Tensor add_scalar_hpu_lazy(const Tensor& self, Scalar other, Scalar alpha) {
   return add_scalar_hpu(self, other, alpha);
 };
