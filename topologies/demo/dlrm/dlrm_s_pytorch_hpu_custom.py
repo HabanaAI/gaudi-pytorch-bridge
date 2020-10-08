@@ -1386,6 +1386,11 @@ if __name__ == "__main__":
                 print(T.detach().cpu().numpy())
                 '''
 
+                # early exit if batch is partial
+                if X.size()[0] < args.mini_batch_size:
+                    print('Breaking out of the epoch as  batch was partial. Number of samples:',X.size()[0])
+                    break
+
                 # forward pass
                 if args.distributed:
                     # mini batch size is expected to be a multiple of world_size
@@ -1534,6 +1539,11 @@ if __name__ == "__main__":
                     for i, (X_test, lS_o_test, lS_i_test, T_test) in enumerate(test_ld):
                         # early exit if nbatches was set by the user and was exceeded
                         if nbatches > 0 and i >= nbatches:
+                            break
+
+                        # early exit if batch is partial
+                        if X_test.size()[0] < args.test_mini_batch_size:
+                            print('Breaking out of the epoch as  test batch was partial. Number of samples:',X_test.size()[0])
                             break
 
                         t1_test = time_wrap(use_gpu)
