@@ -127,3 +127,35 @@ if (BUILD_TESTS)
                    EXCLUDE_FROM_ALL)
   add_subdirectory(tests/cpp)
 endif()
+
+
+option(BUILD_PKGS "Build python packages" OFF)
+option(INSTALL_PKGS "Install python packages" OFF)
+if (BUILD_PKGS)
+  find_program(PIP "pip" REQUIRED)
+  set(PKGS
+    habana_kernels/pytorch-extensions/embedding_bag_extension
+    habana_kernels/pytorch-extensions/gather2d-extension
+    habana_kernels/pytorch-extensions/optimizer_adagrad-extension
+    habana_kernels/pytorch-extensions/optimizer_sgd-extension
+    habana_kernels/pytorch-extensions/preproc-extension
+    pytorch_helpers/hmp
+  )
+
+  foreach(PKG ${PKGS})
+    set(PKG_PATH ${CMAKE_SOURCE_DIR}/${PKG}/)
+    file(GLOB_RECURSE DEPS ${PKG_PATH}/*)
+    get_filename_component(name ${PKG} NAME)
+    set(OUTPUT "${CMAKE_BINARY_DIR}/pkgs/${name}")
+    if (INSTALL_PKGS)
+      set(PIPARGS install -U ${PKG_PATH})
+    else()
+      set(PIPARGS wheel --no-deps --wheel-dir=${CMAKE_BINARY_DIR}/pkgs> ${PKG_PATH})
+    endif()
+    add_custom_command(OUTPUT ${OUTPUT}
+                       COMMAND ${PIP} ${PIPARGS}
+                       COMMAND ${CMAKE_COMMAND} -E touch ${OUTPUT}
+                       DEPENDS ${DEPS})
+    add_custom_target(${name} ALL DEPENDS ${OUTPUT})
+  endforeach()
+endif()
