@@ -493,7 +493,9 @@ std::tuple<Tensor, Tensor, Tensor> convolution_backward_hpu_lazy(
     IntArrayRef output_padding,
     int64_t groups,
     std::array<bool, 3> output_mask) {
-  return convolution_backward_hpu(
+
+  std::vector<bool> output_mask_vec (output_mask.begin(), output_mask.end());
+  habana_lazy::ir::NodePtr node = std::make_shared<habana_lazy::ir::Convolution>(
       grad_output,
       input,
       weight,
@@ -503,7 +505,37 @@ std::tuple<Tensor, Tensor, Tensor> convolution_backward_hpu_lazy(
       transposed,
       output_padding,
       groups,
-      output_mask);
+      output_mask_vec);
+
+  // output shape inference
+  c10::MemoryFormat memory_format =
+    habana_helpers::get_memory_format({ &input, &grad_output, &weight });
+  auto grad_weight =
+      at::native::empty_hpu_lazy(weight.sizes(), grad_output.options(), memory_format);
+  auto grad_input =
+      at::native::empty_hpu_lazy(input.sizes(), grad_output.options(), memory_format);
+  auto grad_bias =
+      at::native::empty_hpu_lazy({grad_output.size(3)}, grad_output.options(), memory_format);
+
+  auto hl_grad_input = habana_lazy::GetHbLazyTensor(grad_input);
+  auto hl_grad_weight = habana_lazy::GetHbLazyTensor(grad_weight);
+  auto hl_grad_bias = habana_lazy::GetHbLazyTensor(grad_bias);
+
+  habana_lazy::ir::Value& value_grad_input = hl_grad_input.CurrentIrValue();
+  value_grad_input.m_index = 0;
+  value_grad_input.SetNode(node);
+
+  habana_lazy::ir::Value& value_grad_weight = hl_grad_weight.CurrentIrValue();
+  value_grad_weight.m_index = 1;
+  value_grad_weight.SetNode(node);
+
+  habana_lazy::ir::Value& value_grad_bias = hl_grad_bias.CurrentIrValue();
+  value_grad_bias.m_index = 2;
+  value_grad_bias.SetNode(node);
+
+  auto conv_out = std::make_tuple(grad_weight, grad_input, grad_bias);
+
+  return conv_out;
 };
 std::tuple<Tensor, Tensor, Tensor, Tensor> embedding_bag_hpu_lazy(
     const Tensor& weight,
@@ -1444,8 +1476,26 @@ Tensor threshold_backward_hpu_lazy(
     const Tensor& grad_output,
     const Tensor& self,
     Scalar threshold) {
-  return threshold_backward_hpu(grad_output, self, threshold);
-};
+  auto hl_grad = habana_lazy::GetOrCreateHbLazyTensor(grad_output, c10::kHABANA);
+  auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
+  auto hl_threshold = habana_lazy::GetIrValueForScalar(threshold);
+
+  habana_lazy::ir::ValueList ir_vlaues{hl_grad.GetIrValue(), hl_self.GetIrValue(), hl_threshold};
+
+  auto node = habana_lazy::ir::Node::Create(
+    Symbol::fromQualString("aten::threshold_backward"), ir_vlaues);
+
+  at::Tensor result = threshold_backward_hpu(grad_output, self, threshold);
+
+  auto hlresult =  habana_lazy::GetHbLazyTensor(result);
+
+  habana_lazy::ir::Value &out = hlresult.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+
+  return result;
+}
+
 std::tuple<Tensor&, Tensor&> topk_out_hpu_lazy(
     Tensor& values,
     Tensor& indices,

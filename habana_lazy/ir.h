@@ -100,6 +100,10 @@ class MetaData {
     return m_data.end();
   }
 
+  bool count(size_t key) const {
+    return m_data.count(key);
+  }
+
  protected:
   /* This meta data store mapping of index of jit input
    * to the IValue
