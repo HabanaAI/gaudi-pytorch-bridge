@@ -98,6 +98,9 @@ HbLazyTensor HbLazyTensor::Create(
   return habana_tensor;
 }
 
+void HbLazyTensor::setTensorSize(std::vector<int64_t> sizes) {
+  data()->sizes = sizes;
+}
 HbLazyTensor HbLazyTensor::Create(
     Value ir_value,
     const at::Device& device,
@@ -140,7 +143,7 @@ void HbLazyTensor::AssignIrValue(habana_lazy::Value ir_value) const {
   data()->ir_value = std::move(ir_value);
 }
 
-habana_lazy::Value HbLazyTensor::CurrentIrValue() const {
+habana_lazy::Value& HbLazyTensor::CurrentIrValue() const {
   return data()->ir_value;
 }
 
@@ -189,6 +192,7 @@ void HbLazyTensor::SetScalarType(
 void HbLazyTensor::SetTensor(at::Tensor tensor) {
   SetTensorData(tensor);
   AssignIrValue(habana_lazy::Value());
+  setPtrDataIrToData();
 }
 
 Data* HbLazyTensor::data() const {
@@ -208,11 +212,19 @@ habana_lazy::Value HbLazyTensor::CreateTensorNode(void* data, bool read_only)
   // return ir::MakeNode<ir::ops::DeviceData>(std::move(data));
 }
 
+void HbLazyTensor::setPtrDataIrToData() {
+  if (mp_data.get())
+    mp_data->ir_value.m_data.m_data_ptr = mp_data;
+}
 habana_lazy::Value HbLazyTensor::GetIrValueForTensor(
     const at::Tensor& tensor,
     const c10::Device& device) const {
   bool read_only = false;
-  void* data = tensor.data_ptr();
+  void* data = nullptr;
+  // We have storageless tensors and should support creating nodes from them
+  if (tensor.has_storage()) {
+    data = tensor.data_ptr();
+  }
   return CreateTensorNode(std::move(data), read_only);
 }
 
@@ -225,11 +237,19 @@ HbLazyTensor HbLazyTensor::CreateHbLazyTensor(
   // Creating a dummy IR::Value right now
   // After Vaibhav's update, we should plug in utility to create IR
   // from metadata(commented line)
-  return Create(
+  HbLazyTensor hb_tensor = Create(
       // GetIrValueForScalar(fill_value, shape, device)
       val,
       device,
       scalar_type);
+
+  // We keep a weak pointer in our IR back to data pointer of lazy tensor
+  // This needs to be updated here or we can push it in the constructor
+  // Keeping it here for now so that its not implicitly set
+  hb_tensor.setPtrDataIrToData();
+  // Setup the size information in the data of Lazy tensor
+  hb_tensor.setTensorSize(size.vec());
+  return hb_tensor;
 }
 
 /************************************************************************

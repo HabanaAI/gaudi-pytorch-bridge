@@ -67,7 +67,6 @@ Tensor add_tensor_hpu_lazy(
     const Tensor& self,
     const Tensor& other,
     Scalar alpha) {
-
   auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
   auto hl_other = habana_lazy::GetOrCreateHbLazyTensor(other, c10::kHABANA);
   auto hl_alpha = habana_lazy::GetIrValueForScalar(alpha);
@@ -79,10 +78,9 @@ Tensor add_tensor_hpu_lazy(
       num_outputs);
   at::Tensor result = add_tensor_hpu(self, other, alpha);
   auto hlresult = habana_lazy::GetHbLazyTensor(result);
-
-  habana_lazy::Value out(hlresult.data_ptr(), 0);
+  habana_lazy::Value& out = hlresult.CurrentIrValue();
+  out.m_index = 0;
   out.SetNode(node);
-  hlresult.AssignIrValue(out);
 
   return result;
 }
@@ -792,6 +790,8 @@ Tensor empty_hpu_lazy(
             c10::typeMetaToScalarType(options.dtype()));
     Tensor at_tensor =
         habana_lazy::AtenFromHbLazyTensor(hb_tensor, std::move(storage_impl));
+    // Setup the tensor sizes/strides, for now assuming contiguous
+    at_tensor.unsafeGetTensorImpl()->set_sizes_contiguous(size);
     hb_tensor.SetTensorData(at_tensor);
 
     return at_tensor;
@@ -804,6 +804,8 @@ Tensor empty_hpu_lazy(
             options.device(),
             c10::typeMetaToScalarType(options.dtype()));
     Tensor at_tensor = habana_lazy::AtenFromHbLazyTensor(hb_tensor);
+    // Setup the tensor sizes/strides, for now assuming contiguous
+    at_tensor.unsafeGetTensorImpl()->set_sizes_contiguous(size);
     hb_tensor.SetTensorData(at_tensor);
 
     return at_tensor;

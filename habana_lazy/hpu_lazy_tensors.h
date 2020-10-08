@@ -45,6 +45,7 @@ struct Data {
   c10::optional<at::ScalarType> logical_element_type;
   c10::optional<at::Tensor> tensor_data;
   const int unique_id;
+  std::vector<int64_t> sizes;
 };
 
 struct PostOrderData {
@@ -82,6 +83,10 @@ class HbLazyTensor {
   }
   // int size(int dim) const;
   void SetTensor(at::Tensor tensor);
+  void setTensorSize(std::vector<int64_t> sizes);
+  // Sets up a pointer from IR in data ptr back to data ptr
+  // its cyclic in nature, being managed by weak pointer in IR
+  void setPtrDataIrToData();
   void SetTensorData(at::Tensor tensor_data);
   void AssignIrValue(habana_lazy::Value ir_value) const;
   habana_lazy::Value GetIrValueForTensor(
@@ -94,7 +99,7 @@ class HbLazyTensor {
   const c10::Device& GetDevice() const;
   // Retrieves the current IR Node, or nullptr in case no active IR Node is
   // available.
-  habana_lazy::Value CurrentIrValue() const;
+  habana_lazy::Value& CurrentIrValue() const;
   habana_lazy::Value GetIrValue() const;
   c10::optional<at::Tensor> CurrentTensorData() const;
   void* CurrentHabanaData() const;
@@ -105,10 +110,7 @@ class HbLazyTensor {
   // operations. All the tensors must be on the same device.
   // static std::vector<at::Tensor> GetTensors(std::vector<HbLazyTensor>*
   // tensors);
-  Data* data() const;
-  std::shared_ptr<Data> data_ptr() const {
-    return mp_data;
-  }
+
   static HbLazyTensor CreateHbLazyTensor(
       c10::IntArrayRef size,
       at::Scalar fill_value,
@@ -122,12 +124,16 @@ class HbLazyTensor {
       std::vector<int> indices);
 
  private:
+  Data* data() const;
+  std::shared_ptr<Data> data_ptr() const {
+    return mp_data;
+  }
   std::shared_ptr<Data> mp_data;
 };
 
 // The HbContextArena holds per device live information and statistics,
-// among which the Habana tensors which are currently alive in the system. This
-// is used to create computation checkpoints in order to flush pending
+// among which the Habana tensors which are currently alive in the system.
+// This is used to create computation checkpoints in order to flush pending
 // operations and ensure the same computations are created during the
 // training loops.
 struct HbContext {

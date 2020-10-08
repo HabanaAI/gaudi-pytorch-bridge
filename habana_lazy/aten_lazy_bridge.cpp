@@ -33,17 +33,20 @@ at::Tensor HbLazyToAtenTensor(
 at::Tensor AtenFromHbLazyTensor(
     HbLazyTensor HbLazy_tensor,
     c10::Storage&& storage) {
-  return HbLazy_tensor.is_null()
+  at::Tensor tensor = HbLazy_tensor.is_null()
       ? at::Tensor()
       : at::Tensor(c10::make_intrusive<HbLazyTensorImpl>(
             std::move(HbLazy_tensor), std::move(storage)));
+  return tensor;
 }
 
 at::Tensor AtenFromHbLazyTensor(HbLazyTensor HbLazy_tensor) {
-  return HbLazy_tensor.is_null()
+  at::Tensor tensor = HbLazy_tensor.is_null()
       ? at::Tensor()
       : at::Tensor(
             c10::make_intrusive<HbLazyTensorImpl>(std::move(HbLazy_tensor)));
+
+  return tensor;
 }
 
 HbLazyTensorImpl* GetHbLazyTensorImpl(const at::Tensor& tensor) {
