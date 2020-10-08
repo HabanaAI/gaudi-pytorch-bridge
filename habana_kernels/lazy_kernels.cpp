@@ -8,7 +8,9 @@
  ******************************************************************************
  */
 
+#include "habana_kernels/conv_kernels.h"
 #include "habana_kernels/eager_kernels_declarations.h"
+#include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "pytorch_helpers/habana_device/HPUAllocator.h"
@@ -186,16 +188,35 @@ Tensor convolution_hpu_lazy(
     bool transposed,
     IntArrayRef output_padding,
     int64_t groups) {
-  return convolution_hpu(
-      input,
-      weight,
-      bias,
-      stride,
-      padding,
-      dilation,
-      transposed,
-      output_padding,
-      groups);
+  auto hl_input = habana_lazy::GetOrCreateHbLazyTensor(input, c10::kHABANA);
+  auto hl_weight = habana_lazy::GetOrCreateHbLazyTensor(weight, c10::kHABANA);
+  habana_lazy::ValueList ir_vlaues{hl_input.GetIrValue(), hl_weight.GetIrValue()};
+
+  if (bias.defined()) {
+    auto hl_bias = habana_lazy::GetOrCreateHbLazyTensor(bias, c10::kHABANA);
+    ir_vlaues.push_back(hl_bias.GetIrValue());
+  }
+
+  auto node = habana_lazy::Node::Create(
+      Symbol::fromQualString("aten::convolution"),
+      ir_vlaues);
+
+  // shape inference
+  auto shape_out = ConvOperator::compute_output_shape(
+      input.sizes().vec(),
+      weight.sizes().vec(),
+      IValue(padding).toIntList().vec(),
+      IValue(stride).toIntList().vec(),
+      false,
+      input.suggest_memory_format());
+
+  auto result = at::native::empty_hpu_lazy(shape_out, input.options(), input.suggest_memory_format());
+  auto hlresult = habana_lazy::GetHbLazyTensor(result);
+  habana_lazy::Value& out = hlresult.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+
+  return result;
 };
 std::tuple<Tensor, Tensor, Tensor> convolution_backward_hpu_lazy(
     const Tensor& grad_output,

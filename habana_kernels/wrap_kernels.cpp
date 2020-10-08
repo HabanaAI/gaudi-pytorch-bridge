@@ -1292,20 +1292,18 @@ Tensor empty_hpu_wrap(
     const TensorOptions& options,
     c10::optional<MemoryFormat> optional_memory_format) {
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    return empty_hpu_lazy(size, options, optional_memory_format);
-  } else {
-    return empty_hpu(size, options, optional_memory_format);
+      return empty_hpu_lazy(size, options, optional_memory_format);
   }
+  return empty_hpu(size, options, optional_memory_format);
 };
 Tensor empty_strided_hpu_wrap(
     IntArrayRef size,
     IntArrayRef stride,
     const TensorOptions& options) {
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    return empty_strided_hpu_lazy(size, stride, options);
-  } else {
-    return empty_strided_hpu(size, stride, options);
+      return empty_strided_hpu_lazy(size, stride, options);
   }
+  return empty_strided_hpu(size, stride, options);
 };
 } // namespace native
 } // namespace at
