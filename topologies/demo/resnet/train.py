@@ -9,6 +9,7 @@ import torch.utils.data
 from torch import nn
 import torchvision
 from torchvision import transforms
+import random
 
 import utils
 
@@ -207,6 +208,10 @@ def permute_momentum(optimizer, to_filters_last):
                         buf = buf.permute((3,2,0,1))
                     param_state['momentum_buffer'] = buf
 
+#Data loader worker init function
+def dl_worker_init_fn(seed):
+    if seed is not None:
+        random.seed(seed)
 
 def main(args):
     if args.is_hmp:
@@ -232,6 +237,15 @@ def main(args):
         torch.ops.load_library(os.path.join(os.environ['BUILD_ROOT_LATEST'], "libhabana_pytorch_plugin.so"))
         sys.path.insert(0, os.path.join(os.environ['BUILD_ROOT_LATEST']))
 
+    torch.manual_seed(args.seed)
+
+    if args.deterministic:
+        seed = args.seed
+        if args.device == 'cuda':
+            torch.cuda.manual_seed(seed)
+    else:
+        seed = None
+
     device = torch.device(args.device)
 
     torch.backends.cudnn.benchmark = True
@@ -247,11 +261,11 @@ def main(args):
                                                                    args.cache_dataset, args.distributed)
     data_loader = torch.utils.data.DataLoader(
         dataset, batch_size=args.batch_size,
-        sampler=train_sampler, num_workers=args.workers, pin_memory=True, drop_last=True)
+        sampler=train_sampler, num_workers=args.workers, worker_init_fn=dl_worker_init_fn(seed), pin_memory=True, drop_last=True)
 
     data_loader_test = torch.utils.data.DataLoader(
         dataset_test, batch_size=test_batch_size,
-        sampler=test_sampler, num_workers=args.workers, pin_memory=True, drop_last=True)
+        sampler=test_sampler, num_workers=args.workers, worker_init_fn=dl_worker_init_fn(seed), pin_memory=True, drop_last=True)
 
     print("Creating model")
     #model = torchvision.models.__dict__[args.model](pretrained=args.pretrained)
@@ -429,6 +443,7 @@ def parse_args():
     parser.add_argument('--resume', default='', help='resume from checkpoint')
     parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                         help='start epoch')
+    parser.add_argument('--seed', type=int, default=123, help='random seed')
     parser.add_argument(
         "--cache-dataset",
         dest="cache_dataset",
@@ -475,6 +490,8 @@ def parse_args():
                         help='Whether or not to save model/checkpont; True: to save, False to avoid saving')
     parser.add_argument('--run-trace-mode', action='store_true', default=False,
                         help='run JIT mode with fusion enabled')
+    parser.add_argument('--deterministic',  action="store_true",
+                        help='Whether or not to make data loading deterministic;This does not make execution deterministic')
     parser.add_argument('--hmp', dest='is_hmp', action='store_true',help='enable hmp mode')
     parser.add_argument('--hmp-bf16', default='', help='path to bf16 ops list in hmp O1 mode')
     parser.add_argument('--hmp-fp32', default='', help='path to fp32 ops list in hmp O1 mode')
