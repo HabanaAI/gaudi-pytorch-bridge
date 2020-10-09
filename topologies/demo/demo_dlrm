@@ -1,6 +1,12 @@
 #!/bin/bash
 
 DEMO_SCRIPTNAME=$0
+DISTARG=""
+
+if [[ ${DEMO_SCRIPTNAME} == *dist* ]]; then
+    DISTARG="--world-size 8"
+
+fi
 
 function help()
 {
@@ -41,6 +47,7 @@ function help()
         echo -e "  --print-time <store_true>                          default:False"
         echo -e "  -d/--data_type <data type>                         default: fp32. Possible values: fp32, bf16"
         echo -e "  --optimizer <str>                                  default:'sgd'. Possible values sgd, adagrad"
+        echo -e "  -w <int>,     --world-size <int>                   default:'1'. Possible values 1 to 8"
         echo -e "Examples"
         echo -e "Graph mode:\n"
         echo -e "${DEMO_SCRIPTNAME} --arch-interaction-op cat --arch-sparse-feature-size 16 \\"
@@ -51,7 +58,7 @@ function help()
         echo -e "  --learning-rate 1e-5 \\"
         echo -e "  --num-batches 1000 \\"
         echo -e "  --print-time True \\"
-        echo -e "  --mode graph\n"
+        echo -e "  --mode graph ${DISTARG}\n"
         echo -e "Eager mode:\n"
         echo -e "${DEMO_SCRIPTNAME} --arch-interaction-op cat --arch-sparse-feature-size 32 \\"
         echo -e "  --arch-mlp-bot \"512-512-512-32\" --arch-mlp-top \"1024-1024-1024-1024-1024-1\" \\"
@@ -61,7 +68,7 @@ function help()
         echo -e "  --test-freq 1000 --nepochs 2 \\"
         echo -e "  --mini-batch-size 128 \\"
         echo -e "  --learning-rate 0.1 \\"
-        echo -e "  --mode custom"
+        echo -e "  --mode custom ${DISTARG}\n"
         echo -e ""
 }
 
@@ -70,6 +77,22 @@ PARAMSUMMARY=""
 DLRM_SCRIPT="dlrm_s_pytorch_hpu_graph.py"
 DLRM_FULL_PATH=$(realpath $0)
 DEMO_DIR_PATH=$(dirname ${DLRM_FULL_PATH})
+
+create_hcl_config()
+{
+        hcl_type=$1
+        world_size=$2
+        hcl_config_file=$3
+        TMPPATH="/tmp"
+        echo "{" > ${hcl_config_file}
+        echo "    \"HCL_PORT\" : 5332," >> ${hcl_config_file}
+        echo "    \"HCL_TYPE\" : \"${hcl_type}\"," >> ${hcl_config_file}
+        if [ ${hcl_type} == 'BACK_2_BACK' ]; then
+               echo "    \"DISABLED_PORTS\" : \"[0,1,2,3,5,6,7,8,9]\"," >> ${hcl_config_file}
+        fi
+        echo "    \"HCL_COUNT\" : ${world_size}" >> ${hcl_config_file}
+        echo "}" >> ${hcl_config_file}
+}
 
 
 
@@ -322,6 +345,11 @@ dlrm_arg_parser()
                 PARAMSUMMARY="${PARAMSUMMARY}    optimizer: ${__optimizer}\n"
                 CMDLINEARGS="${CMDLINEARGS} --optimizer ${__optimizer}"
                 ;;
+            -w |--world-size )
+                shift
+                __world_size=$1
+                PARAMSUMMARY="${PARAMSUMMARY}    world_size: ${__world_size}\n"
+                ;;
             -h  | --help )
                 help
                 exit 1;
@@ -339,6 +367,10 @@ dlrm_arg_parser()
 
 dlrm_set_env()
 {
+    world_size=$1
+    backend=$2
+    hcl_type=$3
+    set -x
     export PT_HPU_LOG_MOD_MASK=FFFF
     export PT_HPU_LOG_TYPE_MASK=1
     export HABANA_GRAPH_WHITELIST_FILE=${DEMO_DIR_PATH}/configs/DLRM_whitelist_ops.txt
@@ -347,6 +379,20 @@ dlrm_set_env()
     export DATACHUNK_SINGLE_CHUNK_SIZE=1024
     export RECIPE_CACHE_BLOCK_SIZE=2048
     export RECIPE_CACHE_SIZE=2048000
+    set +x
+    if [ ${world_size} -le 1 ]; then
+        return
+    fi
+    TEMP_DIR="/tmp"
+    hcl_config_file="${TEMP_DIR}/hcl_config.json"
+    create_hcl_config ${hcl_type} ${world_size} ${hcl_config_file}
+    set -x
+    export TEMP_DIR="/tmp"
+    export HCL_CONFIG_PATH=${hcl_config_file}
+    export PT_ENABLE_HABANA_STREAMSYNC=0
+    export BACKEND=${backend}
+    export WORLD_SIZE=${world_size}
+    set +x
 }
 
 if [ $# -eq 0 ]; then
@@ -360,12 +406,22 @@ if [ $# -eq 0 ]; then
     --num-batches 1000 \
     --print-time True \
     --optimizer "sgd" \
-    --mode graph
+    --mode graph \
+    ${DISTARG}
 else
     dlrm_arg_parser $*
+fi
+
+COMMUNICATIN_BACKEND="hcl"
+WORLD_SIZE=${__world_size:-1}
+INTERPRETER="python"
+
+if [ ${WORLD_SIZE} -gt 1 ]; then
+    INTERPRETER="python -um torch.distributed.launch --nproc_per_node=${WORLD_SIZE} --use_env"
 fi
 
 echo -e "Train DLRM with below parameters:"
 echo -e "${PARAMSUMMARY}"
 printf "*** Starting training...\n\n"
-(set -x;dlrm_set_env;python ${DEMO_DIR_PATH}/dlrm/${DLRM_SCRIPT} ${CMDLINEARGS})
+dlrm_set_env ${WORLD_SIZE} ${COMMUNICATIN_BACKEND} "HLS1"
+(set -x;${INTERPRETER} ${DEMO_DIR_PATH}/dlrm/${DLRM_SCRIPT} ${CMDLINEARGS})
