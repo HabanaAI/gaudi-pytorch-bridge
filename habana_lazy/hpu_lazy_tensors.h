@@ -49,11 +49,10 @@ struct Data {
 };
 
 struct PostOrderData {
-  std::vector<NodePtr> post_order;
+  NodePtrList post_order;
   ir::Utils::EmissionMap emission_map;
-  // TODO: Add methods to compute the below
-  std::vector<Value> inputs;
-  std::vector<Value> outputs;
+  ValueList inputs;
+  ValueList outputs;
 };
 
 class HbLazyTensor {

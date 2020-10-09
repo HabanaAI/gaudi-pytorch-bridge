@@ -81,6 +81,14 @@ class Node {
     return m_inputs;
   }
 
+  bool IsVisited() const {
+    return m_is_visited;
+  }
+
+  void MarkVisited() {
+    m_is_visited = true;
+  }
+
   virtual ~Node() {}
 
   static NodePtr Create(c10::Symbol oper, ValueList inputs, size_t num_outputs);
@@ -94,6 +102,7 @@ class Node {
   size_t m_num_outputs = 1;
   ValueList m_inputs;
   std::set<Use> m_uses;
+  bool m_is_visited = false;
 };
 
 inline std::ostream& operator<<(std::ostream& stream, const Node& node) {

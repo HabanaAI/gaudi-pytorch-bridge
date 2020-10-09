@@ -6,38 +6,37 @@
 #include "habana_lazy/ir.h"
 #include "habana_lazy/ir_utils.h"
 #include "habana_kernels/eager_kernels_declarations.h"
+#include "habana_kernels/lazy_kernels_declarations.h"
 
 using namespace habana_lazy;
 using namespace torch;
 
 TEST(PostOrderTest, poTest1) {
-  /*
-  // test case for result = relu(tensor1)
-  torch::Tensor tensor_cpu = torch::randn({2, 3});
-  torch::Tensor tensor_in = tensor_cpu.to(torch::kHABANA);
-
-  auto p_hl_tensor_in = std::make_shared<HbLazyTensor>(
-      GetOrCreateHbLazyTensor(tensor_in, c10::kHABANA));
-
+  // test case for result = add(tensor1, tensor2, alpha)
   setenv("PT_HPU_LAZY_MODE", "1", 1);
+  torch::Tensor tensor_in1 = torch::randn({2, 3}).to(torch::kHABANA);
+  torch::Tensor tensor_in2 = torch::randn({2, 3}).to(torch::kHABANA);
+  Scalar alpha = 1.0;
+  auto result = add_tensor_hpu_lazy(tensor_in1, tensor_in2, alpha);
+  auto hl_result = GetHbLazyTensor(result);
 
-  // Shape inference using eager mode kernel. In addition, invoke lazy tensor
-  // impl
-  at::Tensor result = relu_hpu(tensor_in);
-
-  auto p_hl_result = std::make_shared<HbLazyTensor>(GetHbLazyTensor(result));
-  assert(p_hl_result != nullptr);
-
-  auto p_node = Node::Create(Symbol::fromQualString("aten::relu"));
-  auto p_value = std::make_shared<Value>(p_hl_tensor_in, p_node_result, 0);
-
-  // TODO handle cyclic dependency
-
-  std::vector<HbLazyTensor> tensors = {*(p_hl_result.get())};
+  std::vector<HbLazyTensor> tensors = {hl_result};
   std::vector<int> indices = {0};
   auto po_data = HbLazyTensor::RunPostOrder(tensors, indices);
-
+  auto str = po_data.post_order[0]->ToString();
+  bool cond = (str.find("prim::constant") != string::npos);
+  EXPECT_TRUE(cond);
+  str = po_data.post_order[1]->ToString();
+  cond = (str.find("hpu::input") != string::npos);
+  EXPECT_TRUE(cond);
+  str = po_data.post_order[2]->ToString();
+  cond = (str.find("hpu::input") != string::npos);
+  EXPECT_TRUE(cond);
+  str = po_data.post_order[3]->ToString();
+  cond = (str.find("aten::add") != string::npos);
+  EXPECT_TRUE(cond);
+  EXPECT_TRUE(po_data.outputs.size() == 1);
+  EXPECT_TRUE(cond);
+  EXPECT_TRUE(po_data.inputs.size() == 2);
   unsetenv("PT_HPU_LAZY_MODE");
-  // auto result_cpu = result.to(torch::kCPU);
-  */
 }

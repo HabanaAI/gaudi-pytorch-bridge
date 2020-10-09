@@ -67,8 +67,23 @@ HbLazyTensor GetOrCreateHbLazyTensor(
   if (!tensor.defined()) {
     return HbLazyTensor();
   }
-  auto hb_tensor = TryGetHbLazyTensor(tensor);
-  return hb_tensor ? *hb_tensor : HbLazyTensor::Create(tensor, device);
+  auto p_hb_tensor = TryGetHbLazyTensor(tensor);
+  HbLazyTensor hl_tensor;
+  if (p_hb_tensor) {
+    hl_tensor = *p_hb_tensor;
+  } else {
+    hl_tensor = HbLazyTensor::Create(tensor, device);
+    // A newly created tensor is associated with 'input' node by default
+    // This helps in determining input nodes during post order traversal
+    // If it is not really an input, lazy kernel would have overwritten this
+    // node
+    habana_lazy::Value val;
+    auto node = habana_lazy::Node::Create(
+        c10::Symbol::fromQualString("hpu::input"), {}, 1);
+    val.SetNode(node);
+    hl_tensor.AssignIrValue(val);
+  }
+  return hl_tensor;
 }
 
 HbLazyTensor GetHbLazyTensor(const at::Tensor& tensor) {

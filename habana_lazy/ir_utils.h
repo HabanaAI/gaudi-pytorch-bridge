@@ -29,13 +29,18 @@ class Utils {
   using EmissionMap = std::unordered_map<NodePtr, EmitStatus>;
 
   // Computes the post order from the given node
-  static std::vector<NodePtr> ComputePostOrderNode(
-      NodePtr p_node,
-      EmissionMap* emap);
+  static void ComputePostOrderNode(
+      NodePtr& p_node,
+      EmissionMap* emap,
+      NodePtrList& post_order);
 
-  static std::vector<NodePtr> ComputePostOrder(
-      std::vector<NodePtr> p_nodes,
-      EmissionMap* emap);
+  static void ComputePostOrder(
+      NodePtrList& p_nodes,
+      EmissionMap* emap,
+      NodePtrList& post_order);
+  static void ComputePostOrderInputs(
+      ValueList& input_val,
+      NodePtrList& post_order);
 };
 
 } // namespace ir
