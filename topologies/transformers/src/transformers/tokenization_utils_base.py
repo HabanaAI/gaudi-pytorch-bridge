@@ -1196,6 +1196,13 @@ class PreTrainedTokenizerBase(SpecialTokensMixin):
                         if not os.path.exists(full_file_name):
                             logger.info("Didn't find file {}. We won't load it.".format(full_file_name))
                             full_file_name = None
+                        # Since trainer has no handle to tokenizer params, they are stored in a directory above checkpoint dir
+                        # If tokenizer files are not found in current checkpoint dir, check in the parent dir as well   
+                        elif "checkpoint" in pretrained_model_name_or_path:
+                            full_file_name = os.path.join((os.path.abspath(os.path.join(pretrained_model_name_or_path, os.pardir))), file_name)
+                            if not os.path.exists(full_file_name):
+                               logger.info("Didn't find file {}. We won't load it.".format(full_file_name))
+                               full_file_name = None
                     else:
                         full_file_name = hf_bucket_url(
                             pretrained_model_name_or_path, filename=file_name, use_cdn=False

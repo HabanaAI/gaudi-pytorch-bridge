@@ -401,7 +401,7 @@ class Trainer:
         ):
             # Load in optimizer and scheduler states
             optimizer.load_state_dict(
-                torch.load(os.path.join(model_path, "optimizer.pt"), map_location=self.args.device)
+                torch.load(os.path.join(model_path, "optimizer.pt"))
             )
             scheduler.load_state_dict(torch.load(os.path.join(model_path, "scheduler.pt")))
 
