@@ -1,6 +1,6 @@
 #include "habana_helpers/tensor_info.h"
 
-void TensorInfo::populate_tinfo(
+void PtTensorInfo::populate_tinfo(
     const at::Tensor& pt_tensor,
     const std::string& sn,
     const std::string& irn,
@@ -19,7 +19,7 @@ void TensorInfo::populate_tinfo(
   watch_ = wflag;
 }
 
-TensorInfo::TensorInfo(
+PtTensorInfo::PtTensorInfo(
     const at::Tensor& pt_tensor,
     const std::string& sn,
     const std::string& irn,
@@ -27,7 +27,7 @@ TensorInfo::TensorInfo(
   populate_tinfo(pt_tensor, sn, irn, wflag);
 }
 
-TensorInfo::TensorInfo(
+PtTensorInfo::PtTensorInfo(
     const IValPtrShared& ivpsh,
     const std::string& sn,
     const ValPtr& vp,
@@ -38,7 +38,7 @@ TensorInfo::TensorInfo(
   populate_tinfo(pt_tensor, sn, irn, wflag);
 }
 
-std::ostream& operator<<(std::ostream& O, const TensorInfo& t) {
+std::ostream& operator<<(std::ostream& O, const PtTensorInfo& t) {
   O << '<' << t.get_ir_name() << ':' << t.get_shape_str() << ':' << t.get_numel() << ':' << '('
     << t.get_size() << " b)"
     << " :: " << t.get_syn_name() << ':' << t.get_buffer() << '>';

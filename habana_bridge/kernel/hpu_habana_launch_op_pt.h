@@ -43,7 +43,7 @@ using SynTensorOrRefList = std::vector<tensor_or_ref>;
 using SharedSynTensorOrRefListPtr = std::shared_ptr<SynTensorOrRefList>;
 
 using IValPtrSharedToTesorInfoMap =
-    std::unordered_map<IValPtrShared, TensorInfo>;
+    std::unordered_map<IValPtrShared, PtTensorInfo>;
 
 struct habanaTensorLayoutInfo
 {
@@ -93,19 +93,19 @@ class HabanaLaunchOpPT {
 
 
   // TIVs for launcing the recipe
-  // tiv : absl::variant<TensorInfo, std::vector<TensorInfo>> objects
+  // tiv : absl::variant<PtTensorInfo, std::vector<PtTensorInfo>> objects
   std::unordered_map<IValPtrShared,
-      absl::variant<TensorInfo, std::vector<TensorInfo>>> input_tiv_map;
-  std::vector<absl::variant<TensorInfo, std::vector<TensorInfo>>> input_tivs;
-  std::vector<absl::variant<TensorInfo, std::vector<TensorInfo>>> duplicate_tivs;
+      absl::variant<PtTensorInfo, std::vector<PtTensorInfo>>> input_tiv_map;
+  std::vector<absl::variant<PtTensorInfo, std::vector<PtTensorInfo>>> input_tivs;
+  std::vector<absl::variant<PtTensorInfo, std::vector<PtTensorInfo>>> duplicate_tivs;
 
   // Temp additions to enable BatchNorm..tensors created that are not in graph
   // We get this to enable correct patching
   // Right now our patching is tightly coupled to graph nodes
   // BN is exception case, we can review our patching design for this
-  std::vector<TensorInfo> interim_tensorinfos;
+  std::vector<PtTensorInfo> interim_tensorinfos;
 
-  std::vector<TensorInfo> output_tensorinfos;
+  std::vector<PtTensorInfo> output_tensorinfos;
   synapse_helpers::graph* syn_graph_ptr = nullptr;
 
   std::vector<at::Tensor> aten_intermediates;

@@ -133,7 +133,7 @@ struct RecipeValueSpec {
   friend std::ostream& operator<<(std::ostream& O, const RecipeValueSpec& v);
 
   std::shared_ptr<synapse_helpers::graph::recipe_handle> recipe;
-  std::shared_ptr<std::vector<TensorInfo>> dtensorinfos;
+  std::shared_ptr<std::vector<PtTensorInfo>> dtensorinfos;
   std::shared_ptr<std::vector<IValPtrShared>> aten_outputs;
   std::vector<at::Tensor> aten_intermediates;
 

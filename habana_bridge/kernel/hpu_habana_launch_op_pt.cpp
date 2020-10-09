@@ -313,7 +313,7 @@ void HabanaLaunchOpPT::GetSynapseInputs(
           }
         }
 
-        std::vector<TensorInfo> tiv;
+        std::vector<PtTensorInfo> tiv;
         for (auto& pt_tensor : pyTensorList) {
           if (!pt_tensor.defined()) {
             continue;
@@ -324,7 +324,7 @@ void HabanaLaunchOpPT::GetSynapseInputs(
           tensorList->emplace_back(tensor_or_ref(syn_tensor));
 
           std::string irn = "%"+value_in->debugName();
-          TensorInfo ti (pt_tensor, syn_tensor.tensor_name_, irn, watch_tensor_flag_);
+          PtTensorInfo ti (pt_tensor, syn_tensor.tensor_name_, irn, watch_tensor_flag_);
           tiv.push_back(ti);
         }
 
@@ -414,7 +414,7 @@ void HabanaLaunchOpPT::GetSynapseOutputs(
 
       if (use_persistent_tensors ? true
                                  : isInGraphOutputs(node, output_nodes_idx)) {
-        output_tensorinfos.emplace_back(TensorInfo(
+        output_tensorinfos.emplace_back(PtTensorInfo(
             ivpsh,
             out_tensor_syn.tensor_name_,
             output_nodes[output_nodes_idx],
@@ -511,7 +511,7 @@ at::Tensor HabanaLaunchOpPT::permuteTensor(
     tensorList->emplace_back(tensor_or_ref(syn_tensor));
     pt_to_synapse_tensors.emplace(value_to_ivalue[value_in], tensorList);
 
-    TensorInfo ti(
+    PtTensorInfo ti(
         value_to_ivalue[value_in],
         syn_tensor.tensor_name_,
         value_in,
@@ -548,7 +548,7 @@ at::Tensor HabanaLaunchOpPT::permuteTensor(
     pt_to_synapse_tensors.emplace(value_to_ivalue[value_in], tensorList);
 
     if (persistent) {
-      output_tensorinfos.emplace_back(TensorInfo(
+      output_tensorinfos.emplace_back(PtTensorInfo(
           value_to_ivalue[value_in],
           out_tensor_syn.tensor_name_,
           value_in,
@@ -594,7 +594,7 @@ void HabanaLaunchOpPT::create_duplicate_syn_tensor(
     meta_syn_tensors.push_back(
         absl::get<synapse_helpers::tensor>(std::move(variant)));
 
-    TensorInfo ti(
+    PtTensorInfo ti(
         value_to_ivalue[value_in],
         meta_syn_tensors.back().tensor_name_,
         value_in,
@@ -807,13 +807,13 @@ void HabanaLaunchOpPT::handleMetaOps(torch::jit::Node* node) {
         if (enable_caching_) {
           input_tiv_map.emplace(
               value_to_ivalue[value_in],
-              TensorInfo(
+              PtTensorInfo(
                   value_to_ivalue[value_in],
                   meta_syn_tensors.back().tensor_name_,
                   value_in,
                   watch_tensor_flag_));
         } else {
-          input_tivs.emplace_back(TensorInfo(
+          input_tivs.emplace_back(PtTensorInfo(
               value_to_ivalue[value_in],
               meta_syn_tensors.back().tensor_name_,
               value_in,
@@ -870,19 +870,19 @@ void HabanaLaunchOpPT::OrderInputs(RecipeValueSpec& rv) {
 void HabanaLaunchOpPT::FlattenAndLinkInputTIVs(RecipeValueSpec& rv) {
   // dtensorinfos maintain the flattened tinfo list
   rv.dtensorinfos =
-      std::make_shared<std::vector<TensorInfo>>(std::vector<TensorInfo>());
+      std::make_shared<std::vector<PtTensorInfo>>(std::vector<PtTensorInfo>());
 
   std::unordered_map<void *, size_t> buff_to_inputtividx_map;
   for (auto & tiv : input_tivs) {
-    if (absl::holds_alternative<TensorInfo>(tiv)) {
-      const auto ti = absl::get<TensorInfo>(tiv);
+    if (absl::holds_alternative<PtTensorInfo>(tiv)) {
+      const auto ti = absl::get<PtTensorInfo>(tiv);
       rv.dtensorinfos->push_back(ti);
       if (enable_caching_) {
         buff_to_inputtividx_map.emplace(ti.get_buffer(), rv.dtensorinfos->size()-1);
       }
     }
-    else if (absl::holds_alternative<std::vector<TensorInfo>>(tiv)) {
-      for (const auto & ti : absl::get<std::vector<TensorInfo>>(tiv)) {
+    else if (absl::holds_alternative<std::vector<PtTensorInfo>>(tiv)) {
+      for (const auto & ti : absl::get<std::vector<PtTensorInfo>>(tiv)) {
         rv.dtensorinfos->push_back(ti);
         if (enable_caching_) {
           buff_to_inputtividx_map.emplace(ti.get_buffer(), rv.dtensorinfos->size()-1);
@@ -899,8 +899,8 @@ void HabanaLaunchOpPT::FlattenAndLinkInputTIVs(RecipeValueSpec& rv) {
   // Link the input tivs with the duplicate
   size_t nduplicates {0};
   for (auto & tiv : duplicate_tivs) {
-    if (absl::holds_alternative<TensorInfo>(tiv)) {
-      auto ti = absl::get<TensorInfo>(tiv);
+    if (absl::holds_alternative<PtTensorInfo>(tiv)) {
+      auto ti = absl::get<PtTensorInfo>(tiv);
       if (enable_caching_) {
         auto it_parent = buff_to_inputtividx_map.find(ti.get_buffer());
         TORCH_CHECK(buff_to_inputtividx_map.end() != it_parent,
@@ -1002,7 +1002,7 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
       for (const auto& p : patch_info) {
         std::string irn{"%interim"};
         interim_tensorinfos.emplace_back(
-            TensorInfo(p.second, p.first, irn, watch_tensor_flag_));
+            PtTensorInfo(p.second, p.first, irn, watch_tensor_flag_));
         aten_intermediates.push_back(p.second);
       }
     }

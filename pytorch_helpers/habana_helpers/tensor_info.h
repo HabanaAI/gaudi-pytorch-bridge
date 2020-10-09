@@ -27,14 +27,14 @@ using ValPtr = torch::jit::Value*;
 void PrintATenTensor(const at::Tensor& a);
 void PrintATenTensor(const IValPtrShared& a);
 
-class TensorInfo {
+class PtTensorInfo {
  public:
-  TensorInfo(
+  PtTensorInfo(
       const IValPtrShared& ivp,
       const std::string& sn,
       const ValPtr& vp,
       const bool wflag);
-  TensorInfo(
+  PtTensorInfo(
       const at::Tensor& pt_tensor,
       const std::string& sn,
       const std::string& irn,
@@ -59,7 +59,7 @@ class TensorInfo {
   unsigned get_size() const { return size_; }
   bool watch_enabled() const { return watch_; }
 
-  friend std::ostream& operator<<(std::ostream& O, const TensorInfo& t);
+  friend std::ostream& operator<<(std::ostream& O, const PtTensorInfo& t);
 
   static bool watch_tensor_flag;
 
