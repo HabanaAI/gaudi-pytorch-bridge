@@ -172,7 +172,19 @@ Tensor& mul_tensor_hpu_lazy_(Tensor& self, const Tensor& other) {
   return mul_tensor_hpu_(self, other);
 };
 Tensor mul_tensor_hpu_lazy(const Tensor& self, const Tensor& other) {
-  return mul_tensor_hpu(self, other);
+  auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
+  auto hl_other = habana_lazy::GetOrCreateHbLazyTensor(other, c10::kHABANA);
+
+  auto node = habana_lazy::ir::Node::Create(
+      Symbol::fromQualString("aten::mul"),
+      {hl_self.GetIrValue(), hl_other.GetIrValue()});
+  at::Tensor result = mul_tensor_hpu(self, other);
+  auto hlresult = habana_lazy::GetHbLazyTensor(result);
+  habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+
+  return result;
 };
 Tensor mul_scalar_hpu_lazy(const Tensor& self, Scalar other) {
   return mul_scalar_hpu(self, other);
@@ -499,7 +511,19 @@ Tensor& arange_hpu_lazy(Tensor& output, Scalar start, Scalar end, Scalar step) {
   return arange_hpu(output, start, end, step);
 };
 Tensor mm_hpu_lazy(const at::Tensor& mat1, const at::Tensor& mat2) {
-  return mm_hpu(mat1, mat2);
+  auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(mat1, c10::kHABANA);
+  auto hl_other = habana_lazy::GetOrCreateHbLazyTensor(mat2, c10::kHABANA);
+
+  auto node = habana_lazy::ir::Node::Create(
+      Symbol::fromQualString("aten::mm"),
+      {hl_self.GetIrValue(), hl_other.GetIrValue()});
+  at::Tensor result = mm_hpu(mat1, mat2);
+  auto hlresult = habana_lazy::GetHbLazyTensor(result);
+  habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+
+  return result;
 };
 Tensor addmm_hpu_lazy(
     const Tensor& self,

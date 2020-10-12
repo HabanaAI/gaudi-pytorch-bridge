@@ -68,3 +68,34 @@ TEST(LazyKernelTest, ConvReluTest) {
   //ASSERT_TRUE(torch::allclose(outHabana.to(torch::kCPU), expected));
   unsetenv("PT_HPU_LAZY_MODE");
 }
+TEST(LazyKernelTest, MmMulTest) {
+  setenv("PT_HPU_LAZY_MODE", "1", 1);
+  auto x = torch::randn({2, 3});
+  auto y = torch::randn({3, 3});
+  auto z = torch::randn({2, 3});
+  torch::Tensor hx = x.to(torch::kHABANA);
+  torch::Tensor hy = y.to(torch::kHABANA);
+  torch::Tensor hz = z.to(torch::kHABANA);
+
+  auto hy_exp = torch::mm(hx, hy);
+  auto hz_exp = torch::mul(hy_exp, hz);
+  //Match lazy IR graph
+  auto hl_result = std::make_shared<HbLazyTensor>(GetHbLazyTensor(hz_exp));
+  auto ir_value = hl_result->CurrentIrValue();
+  std::vector<ir::NodePtr> a{ir_value.mp_node};
+  auto out_string = IrGraphDumpUtil::ToText(a);
+
+  EXPECT_EQ(
+      out_string.find("IR {\n"
+                      "  %0 = hpu::input()\n"
+                      "  %1 = hpu::input()\n"
+                      "  %2 = hpu::input()\n"
+                      "  %3 = aten::mm(%2, %1)\n"
+                      "  %4 = aten::mul(%3, %0), ROOT=0\n"
+                      "}"),
+      0);
+
+  // Match expectd output
+  //ASSERT_TRUE(torch::allclose(hz_exp, hz_exp));
+  unsetenv("PT_HPU_LAZY_MODE");
+}
