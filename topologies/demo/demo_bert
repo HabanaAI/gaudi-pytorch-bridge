@@ -112,7 +112,7 @@ echo -e "batch_size: ${TRAIN_BATCH_SIZE}"
 echo -e "learning_rate: ${LEARNING_RATE}"
 
 printf "*** Starting training...\n\n"
-(set -x;PT_HPU_LOG_MOD_MASK=FFFF PT_HPU_LOG_TYPE_MASK=1 \
+(set -x;PT_HPU_CACHE_RECIPE_WITH_SCALAR=0 PT_HPU_LOG_MOD_MASK=FFFF PT_HPU_LOG_TYPE_MASK=1 \
         ${INTERPRETER} transformers/examples/text-classification/run_glue.py \
 	--model_name_or_path=${MODEL} \
 	--task_name=${TASK_NAME} \
