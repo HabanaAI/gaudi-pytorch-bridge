@@ -57,9 +57,10 @@ ConvOperator::ConvOperator(int device_id, c10::ScalarType scalarType)
     : HabanaOperator("spatial_convolution") {
   this->CreateSynContext(device_id);
   scalarType_ = scalarType;
-  kernel_meta_data_.input_layout.assign({habana::LayoutFormat::NHWC,
-                                         habana::LayoutFormat::HWCK,
-                                         habana::LayoutFormat::ANY});
+  kernel_meta_data_.input_layout.assign(
+      {habana::LayoutFormat::NHWC,
+       habana::LayoutFormat::HWCK,
+       habana::LayoutFormat::ANY});
   kernel_meta_data_.output_layout.assign({habana::LayoutFormat::NHWC});
 }
 
@@ -115,30 +116,19 @@ void ConvOperator::AllocateAndAddSynapseNode(
   // input, output NCHW
   // weight KCHW, where K - output channels
   // pad, stride HW
-  const int64_t N = input.size(0);
-  const int64_t input_H = input.size(1);
-  const int64_t input_W = input.size(2);
-  const int64_t K = weight.size(3);
-  const int64_t filter_H = weight.size(0);
-  const int64_t filter_W = weight.size(1);
-  const int64_t stride_H = stride[0];
-  const int64_t stride_W = stride[1];
-  const int64_t pad_H = padding[0];
-  const int64_t pad_W = padding[1];
-  const auto output_H = habana_helpers::compute_output_size(
-      input_H, pad_H, filter_H, stride_H, false);
-  const auto output_W = habana_helpers::compute_output_size(
-      input_W, pad_W, filter_W, stride_W, false);
-
   c10::MemoryFormat memory_format =
       habana_helpers::get_memory_format({&input, &weight});
 
+  std::vector<int64_t> shape_out = habana_helpers::compute_conv_output_shape(
+      input.sizes().vec(),
+      weight.sizes().vec(),
+      padding,
+      stride,
+      false,
+      c10::MemoryFormat::Contiguous);
+
   auto output = habana_helpers::createPTTensor(
-      input,
-      {N, output_H, output_W, K},
-      input.options(),
-      memory_format,
-      is_output_persistent);
+      input, shape_out, input.options(), memory_format, is_output_persistent);
 
   synConvolutionParams params = synapse_conv_params_builder(
       weight.sizes(),
@@ -211,7 +201,8 @@ Tensor convolution_hpu(
   c10::MemoryFormat memory_format = habana_helpers::get_memory_format({&input});
   habana_helpers::change_tensors_to_memory_format(
       pt_out, pt_in, pt_new_pos, memory_format);
-  //habana_helpers::change_tensor_strides(&weight_hwck, &weight, &new_dim_pos_w);
+  // habana_helpers::change_tensor_strides(&weight_hwck, &weight,
+  // &new_dim_pos_w);
 
   auto convolution = [&] {
     size_t device_id = input.device().index();
@@ -222,15 +213,16 @@ Tensor convolution_hpu(
     ConvOperator Op(device_id, scalar_type);
 
     // Build Params for the graph
-    std::vector<c10::IValue> stack = {IValue(input_nhwc),
-                                      IValue(weight_hwck),
-                                      IValue(bias),
-                                      IValue(stride),
-                                      IValue(padding),
-                                      IValue(dilation),
-                                      IValue(transposed),
-                                      IValue(output_padding),
-                                      IValue(groups)};
+    std::vector<c10::IValue> stack = {
+        IValue(input_nhwc),
+        IValue(weight_hwck),
+        IValue(bias),
+        IValue(stride),
+        IValue(padding),
+        IValue(dilation),
+        IValue(transposed),
+        IValue(output_padding),
+        IValue(groups)};
     size_t key = Op.GetRecipeKey(node_type, stack);
 
     // Assign Inputs to the Operator
@@ -476,15 +468,16 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
         ConvWeightDiffOp.SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
 
     // Build Params for the graph
-    std::vector<c10::IValue> stack = {IValue(grad_out_nhwc),
-                                      IValue(input_nhwc),
-                                      IValue(weight_hwck),
-                                      IValue(stride),
-                                      IValue(padding),
-                                      IValue(dilation),
-                                      IValue(output_padding),
-                                      IValue(output_mask_in),
-                                      IValue(grad_weight)};
+    std::vector<c10::IValue> stack = {
+        IValue(grad_out_nhwc),
+        IValue(input_nhwc),
+        IValue(weight_hwck),
+        IValue(stride),
+        IValue(padding),
+        IValue(dilation),
+        IValue(output_padding),
+        IValue(output_mask_in),
+        IValue(grad_weight)};
     ConvWeightDiffOp.AllocateAndAddSynapseNode(
         graph, stack, is_output_persistent[1]);
 
@@ -504,15 +497,16 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
         ConvInputDiffOp.SetSynapseInput(std::move(p_context_->syn_inputs_[2]));
 
     // Build Params for the graph
-    std::vector<c10::IValue> stack = {IValue(grad_out_nhwc),
-                                      IValue(input_nhwc),
-                                      IValue(weight_hwck),
-                                      IValue(stride),
-                                      IValue(padding),
-                                      IValue(dilation),
-                                      IValue(output_padding),
-                                      IValue(output_mask_in),
-                                      IValue(grad_input_nhwc)};
+    std::vector<c10::IValue> stack = {
+        IValue(grad_out_nhwc),
+        IValue(input_nhwc),
+        IValue(weight_hwck),
+        IValue(stride),
+        IValue(padding),
+        IValue(dilation),
+        IValue(output_padding),
+        IValue(output_mask_in),
+        IValue(grad_input_nhwc)};
     ConvInputDiffOp.AllocateAndAddSynapseNode(
         graph, stack, is_output_persistent[0]);
 
@@ -572,11 +566,12 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
     auto& grad_out_nhwc_syn =
         SumOp.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
 
-    std::vector<c10::IValue> stack = {IValue(grad_bias),
-                                      IValue(grad_out_nhwc),
-                                      IValue(shape),
-                                      IValue(false),
-                                      IValue(scalar_type)};
+    std::vector<c10::IValue> stack = {
+        IValue(grad_bias),
+        IValue(grad_out_nhwc),
+        IValue(shape),
+        IValue(false),
+        IValue(scalar_type)};
     SumOp.AllocateAndAddSynapseNode(graph, stack, is_output_persistent[0]);
 
     synapse_helpers::tensor& bias_syn_tensor = SumOp.GetSynOutputs()[0];
@@ -644,7 +639,15 @@ std::tuple<Tensor, Tensor, Tensor> convolution_backward_hpu(
   std::vector<at::Tensor> inputs{input, weight};
   unsigned int input_channel_index = 1;
   habana_helpers::check_convolution_params(
-      inputs, stride, padding, dilation, transposed, output_padding, groups, input_channel_index, 2);
+      inputs,
+      stride,
+      padding,
+      dilation,
+      transposed,
+      output_padding,
+      groups,
+      input_channel_index,
+      2);
 
   // pad, stride HW
   const int64_t input_H = input.size(2);
@@ -681,7 +684,8 @@ std::tuple<Tensor, Tensor, Tensor> convolution_backward_hpu(
       habana_helpers::get_memory_format({&grad_output, &input});
   habana_helpers::change_tensors_to_memory_format(
       pt_out, pt_in, pt_new_pos, memory_format);
-  //habana_helpers::change_tensor_strides(&weight_hwck, &weight, &new_dim_pos_w);
+  // habana_helpers::change_tensor_strides(&weight_hwck, &weight,
+  // &new_dim_pos_w);
 
   Tensor grad_input, grad_weight, grad_bias;
 
@@ -783,5 +787,3 @@ static auto& KernelRegistry =
               return std::make_shared<ConvBackwardOperator>(
                   device_id, node_type);
             });
-
-
