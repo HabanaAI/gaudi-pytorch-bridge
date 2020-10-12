@@ -1086,8 +1086,15 @@ void SelectOperator::AllocateAndAddSynapseNode(
  * @param index - index the element in given axis
  ************************************************************************/
 
-Tensor select_hpu(const Tensor& self, int64_t dim, int64_t index) {
+Tensor select_hpu(const Tensor& in_self, int64_t dim, int64_t index) {
   PT_KERNEL_BEGIN;
+
+  Tensor self;
+  if(in_self.scalar_type() ==c10::ScalarType::Long) {
+      self = habana_helpers::cast_tensor_to_integer(in_self);
+    }else{
+      self= in_self;
+  }
 
   at::ScalarType scalar_type = self.scalar_type();
   HABANA_ASSERT(
@@ -1120,8 +1127,14 @@ Tensor select_hpu(const Tensor& self, int64_t dim, int64_t index) {
   std::vector<at::Tensor> out = Op.GetOutputs();
   HABANA_ASSERT(out.size() == 1);
 
+  Tensor cast_out;
+  if(in_self.scalar_type() ==c10::ScalarType::Long) {
+   cast_out = habana_helpers::cast_tensor_to_long(out.at(0));
+   }else{
+   cast_out = out.at(0);
+  }
   PT_KERNEL_END;
-  return out.at(0);
+  return cast_out;
 }
 
 void ArangeOperator::SetPTOutputs(torch::jit::Stack& inputs) {
