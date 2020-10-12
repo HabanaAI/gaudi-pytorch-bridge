@@ -214,7 +214,7 @@ habana_lazy::Value HbLazyTensor::CreateTensorNode(void* data, bool read_only)
 
 void HbLazyTensor::setPtrDataIrToData() {
   if (mp_data.get())
-    mp_data->ir_value.m_data.m_data_ptr = mp_data;
+    mp_data->ir_value.m_data_ptr = mp_data;
 }
 habana_lazy::Value HbLazyTensor::GetIrValueForTensor(
     const at::Tensor& tensor,

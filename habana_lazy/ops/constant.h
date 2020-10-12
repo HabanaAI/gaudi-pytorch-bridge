@@ -9,7 +9,9 @@
  */
 
 #pragma once
+#include "habana_helpers/logging.h"
 #include "habana_lazy/ir.h"
+#include "torch/csrc/jit/ir/ir.h"
 
 namespace habana_lazy {
 
@@ -21,23 +23,27 @@ namespace habana_lazy {
  * or Int or Bool type
  */
 template <typename T>
-class Constant {
+class Constant : public Node {
  public:
   Constant() = delete;
-  Constant(T val) {
-    mp_node = std::make_shared<Node>(
-        c10::Symbol::fromQualString("prim::constant"), 1);
-    mp_ir_value = std::make_shared<Value>(val, 0);
-    mp_ir_value->SetNode(mp_node);
+  Constant(T s)
+      : Node(c10::Symbol::fromQualString("prim::constant")),
+        m_ival(torch::jit::IValue(s)) {}
+
+  const torch::jit::IValue& getIValue() const {
+    return m_ival;
   }
 
-  Value IrValue() {
-    return *mp_ir_value.get();
+  std::string ToString() const override {
+    std::stringstream ss;
+    ss << Node::ToString() << ", value(" << m_ival << ")";
+    return ss.str();
   }
 
  private:
-  NodePtr mp_node;
-  ValuePtr mp_ir_value;
+  torch::jit::IValue m_ival;
 };
+
+using ScalarConstant = Constant<c10::Scalar>;
 
 }; // namespace habana_lazy

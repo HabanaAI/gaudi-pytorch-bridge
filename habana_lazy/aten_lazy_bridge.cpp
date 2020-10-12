@@ -8,7 +8,7 @@
  ******************************************************************************
  */
 #include "aten_lazy_bridge.h"
-#include "habana_lazy/constant.h"
+#include "habana_lazy/ops/constant.h"
 
 namespace habana_lazy {
 
@@ -79,7 +79,7 @@ HbLazyTensor GetOrCreateHbLazyTensor(
     // node
     habana_lazy::Value val;
     auto node = habana_lazy::Node::Create(
-        c10::Symbol::fromQualString("hpu::input"), {}, 1);
+        c10::Symbol::fromQualString("hpu::input"), {});
     val.SetNode(node);
     hl_tensor.AssignIrValue(val);
   }
@@ -106,7 +106,7 @@ bool IsHbLazyTensor(const at::Tensor& tensor) {
 }
 
 Value GetIrValueForScalar(const c10::Scalar& scalar) {
-  return Constant<c10::Scalar>(scalar).IrValue();
+  return Value(std::make_shared<ScalarConstant>(scalar));
 }
 
 } // namespace habana_lazy

@@ -14,6 +14,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include "habana_helpers/logging.h"
 
 namespace habana_lazy {
 
@@ -66,19 +67,22 @@ inline std::ostream& operator<<(std::ostream& stream, const Use& use) {
 class Node {
  public:
   Node() = delete;
-  Node(c10::Symbol op, size_t num_outputs)
-      : m_op(op), m_num_outputs(num_outputs) {}
+  Node(c10::Symbol op) : m_op(op) {}
 
   const c10::Symbol op() const {
     return m_op;
   }
 
-  std::string ToString() const;
+  virtual std::string ToString() const;
 
   void AddInput(const Value& value);
 
   const ValueList GetInputs() const {
     return m_inputs;
+  }
+
+  const ValueList GetOutputs() const {
+    return m_outputs;
   }
 
   bool IsVisited() const {
@@ -91,16 +95,18 @@ class Node {
 
   virtual ~Node() {}
 
-  static NodePtr Create(c10::Symbol oper, ValueList inputs, size_t num_outputs);
+  static NodePtr Create(c10::Symbol oper, ValueList inputs);
 
   size_t get_num_outputs() const {
-    return m_num_outputs;
+    return m_outputs.size();
   }
 
- private:
+  friend class Value;
+
+ protected:
   c10::Symbol m_op;
-  size_t m_num_outputs = 1;
   ValueList m_inputs;
+  ValueList m_outputs;
   std::set<Use> m_uses;
   bool m_is_visited = false;
 };
@@ -111,45 +117,29 @@ inline std::ostream& operator<<(std::ostream& stream, const Node& node) {
 }
 
 /**
- * Tag Enum class
- *
- * This Enum class represnt if Value is a
- * Tensor, Int, Double, Bool, etc
- * Need to extend for Tensor List, Int List, etc
- */
-enum class Tag : uint32_t {
-  None = 0,
-  Tensor = 1,
-  Int = 2,
-  Double = 3,
-  Bool = 4,
-};
-
-/**
  * Intermediate struct that connects nodes/operators in Graph
  *
  * The Value struct is an interface for handling different aten
  * types (tensor, scalar, int, double, bool)
  */
 struct Value {
-  Value() {}
+  Value() : unique_id(unique_id_count++) {}
   Value(DataPtr data_ptr, size_t index)
-      : m_data(data_ptr), m_tag(Tag::Tensor), m_index(index) {}
+      : unique_id(unique_id_count++), m_data_ptr(data_ptr) {
+    m_index = index;
+  }
 
-  Value(int val, size_t index) : m_data(val), m_tag(Tag::Int), m_index(index) {}
+  Value(DataPtr data_ptr)
+      : unique_id(unique_id_count++), m_data_ptr(data_ptr) {}
 
-  Value(double val, size_t index)
-      : m_data(val), m_tag(Tag::Double), m_index(index) {}
-
-  Value(bool val, size_t index)
-      : m_data(val), m_tag(Tag::Bool), m_index(index) {}
-
-  Value(c10::Scalar val, size_t index);
-
-  Value(DataPtr data_ptr) : m_data(data_ptr), m_tag(Tag::Tensor) {}
+  Value(NodePtr node, size_t index = 0) : unique_id(unique_id_count++) {
+    SetNode(node);
+    m_index = index;
+  }
 
   void SetNode(NodePtr node) {
-    mp_node = std::move(node);
+    mp_node = node;
+    mp_node->m_outputs.emplace_back(*this);
   }
 
   operator bool() const {
@@ -160,50 +150,19 @@ struct Value {
 
   virtual ~Value() {}
 
-  bool isTensor() {
-    return Tag::Tensor == m_tag;
-  }
-  bool isInt() {
-    return Tag::Int == m_tag;
-  }
-  bool isDouble() {
-    return Tag::Double == m_tag;
-  }
-  bool isBool() {
-    return Tag::Bool == m_tag;
-  }
-  bool isScalar() {
-    return isInt() || isDouble();
-  }
-
-  struct Payload {
-    std::weak_ptr<Data> m_data_ptr;
-    double d = 0;
-    int i = 0;
-    bool b = false;
-
-    Payload(DataPtr data_ptr) {
-      m_data_ptr = data_ptr;
-    }
-    Payload(double val) {
-      d = val;
-    }
-    Payload(int val) {
-      i = val;
-    }
-    Payload(bool val) {
-      b = val;
-    }
-    Payload() {}
-  };
-
+  /* Unique id for Value */
+  uint64_t unique_id;
   /* The payload field holds the values */
-  Payload m_data;
-  Tag m_tag = Tag::None;
+  std::weak_ptr<Data> m_data_ptr;
   /* The m_index field points to the output index from the node*/
   size_t m_index = 0;
   /* Value is output of this node */
   NodePtr mp_node = nullptr;
+  /**
+   * Static global variable used to generate the unique_id for
+   * each Value created
+   */
+  static std::atomic_uint64_t unique_id_count;
 };
 
 inline std::ostream& operator<<(std::ostream& stream, const Value& value) {

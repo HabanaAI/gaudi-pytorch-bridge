@@ -14,5 +14,5 @@ TEST(LazyKernelTest, LazyDoATest) {
   torch::Tensor out = torch::add(hC, I);
   unsetenv("PT_HPU_LAZY_MODE");
   //bool equal = out.allclose(out.to(torch::kCPU), 0, 0);
-  //EXPECT_EQ(equal, true);
+  EXPECT_EQ(out.dim(), 2);
 }
