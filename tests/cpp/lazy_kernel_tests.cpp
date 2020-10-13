@@ -2,6 +2,7 @@
 #include <torch/csrc/jit/testing/file_check.h>
 #include <torch/torch.h>
 #include <stdexcept>
+#include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/debug_utils.h"
 #include "habana_lazy/hlexec.h"
@@ -127,6 +128,37 @@ TEST(LazyKernelTest, MmMulTest) {
   unsetenv("PT_HPU_LAZY_MODE");
 }
 
+TEST(LazyKernelTest, AddMmTest) {
+  torch::Tensor A = torch::randn({2});
+  torch::Tensor B = torch::randn({2, 2});
+  torch::Tensor C = torch::randn({2, 2});
+  setenv("PT_HPU_LAZY_MODE", "1", 1);
+  torch::Tensor hA = A.to(kHABANA);
+  torch::Tensor hB = B.to(kHABANA);
+  torch::Tensor hC = C.to(kHABANA);
+  torch::Tensor O = torch::addmm(hA, hB, hC, 1, 1);
+  std::string out =
+      IrGraphDumpUtil::ToText({GetHbLazyTensor(O).CurrentIrValue().mp_node});
+  EXPECT_EQ(
+      out.find("IR {\n"
+               "  %0 = prim::constant(), value=1\n"
+               "  %1 = prim::constant(), value=1\n"
+               "  %2 = hpu::input()\n"
+               "  %3 = hpu::input()\n"
+               "  %4 = hpu::input()\n"
+               "  %5 = aten::addmm(%4, %3, %2, %1, %0), ROOT=0\n"
+               "}"),
+      !std::string::npos);
+  unsetenv("PT_HPU_LAZY_MODE");
+  std::vector<HbLazyTensor> tensors = {GetHbLazyTensor(O)};
+  HbLazyTensor::SyncTensorsGraph(&tensors, {});
+
+  auto computed = O.to(torch::kCPU);
+  auto expected = torch::addmm(A, B, C, 1, 1);
+
+  EXPECT_EQ(allclose(expected, computed), true);
+}
+
 TEST(LazyKernelTest, CatTest) {
   setenv("PT_HPU_LAZY_MODE", "1", 1);
   torch::Tensor A = torch::randn({2, 2}, torch::requires_grad(false));
@@ -154,40 +186,44 @@ TEST(LazyKernelTest, CatTest) {
 
 TEST(LazyKernelTest, ConvMaxPoolTest) {
   setenv("PT_HPU_LAZY_MODE", "1", 1);
-  auto input_tensor = torch::arange(48, torch::dtype(torch::kFloat).requires_grad(false))
-                          .reshape({1, 3, 4, 4}); //nchw
+  auto input_tensor =
+      torch::arange(48, torch::dtype(torch::kFloat).requires_grad(false))
+          .reshape({1, 3, 4, 4}); // nchw
   torch::Tensor tHabanaX = input_tensor.to(torch::kHABANA);
 
-  auto weight_tensor = torch::arange(27, torch::dtype(torch::kFloat).requires_grad(false))
-                          .reshape({3, 3, 3, 1}); // hwck
+  auto weight_tensor =
+      torch::arange(27, torch::dtype(torch::kFloat).requires_grad(false))
+          .reshape({3, 3, 3, 1}); // hwck
   torch::Tensor tHabanaW = weight_tensor.to(torch::kHABANA);
 
-  auto bias_tensor = torch::arange(1, torch::dtype(torch::kFloat).requires_grad(false))
-                          .reshape({1, 1, 1, 1});
+  auto bias_tensor =
+      torch::arange(1, torch::dtype(torch::kFloat).requires_grad(false))
+          .reshape({1, 1, 1, 1});
   torch::Tensor tHabanaB = bias_tensor.to(torch::kHABANA);
 
   torch::Tensor outConv = torch::conv2d(tHabanaX, tHabanaW, {}, 1, 0, 1, 1);
   torch::Tensor outHabana = torch::max_pool2d(outConv, 2, 1);
 
-  //Match lazy IR graph
+  // Match lazy IR graph
   auto hl_result = std::make_shared<HbLazyTensor>(GetHbLazyTensor(outHabana));
   auto ir_value = hl_result->CurrentIrValue();
   std::vector<ir::NodePtr> a{ir_value.mp_node};
   auto out_string = IrGraphDumpUtil::ToText(a);
 
   EXPECT_EQ(
-      out_string.find("IR {\n"
-                      "  %0 = hpu::input()\n"
-                      "  %1 = hpu::input()\n"
-                      "  %2 = aten::convolution_overidable(%1, %0), stride=[1, 1], padding=[0, 0], dilation=[1, 1], transposed=False, output_padding=[0, 0], groups=1\n"
-                      "  %3 = aten::maxpool2d_overidable(%2), kernel_size=[2], stride=[1], padding=[0], dilation=[1], transposed=[0], ROOT=0\n"
-                      "}"),
+      out_string.find(
+          "IR {\n"
+          "  %0 = hpu::input()\n"
+          "  %1 = hpu::input()\n"
+          "  %2 = aten::convolution_overidable(%1, %0), stride=[1, 1], padding=[0, 0], dilation=[1, 1], transposed=False, output_padding=[0, 0], groups=1\n"
+          "  %3 = aten::maxpool2d_overidable(%2), kernel_size=[2], stride=[1], padding=[0], dilation=[1], transposed=[0], ROOT=0\n"
+          "}"),
       0);
 
   // Match expectd output Size&Data
   auto expected = torch::tensor({11952}, torch::kFloat);
   EXPECT_EQ(outHabana.sizes(), expected.view({1, 1, 1, 1}).sizes());
-  //ASSERT_TRUE(torch::allclose(outHabana.to(torch::kCPU), expected));
+  // ASSERT_TRUE(torch::allclose(outHabana.to(torch::kCPU), expected));
   unsetenv("PT_HPU_LAZY_MODE");
 }
 

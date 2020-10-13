@@ -565,14 +565,37 @@ Tensor mm_hpu_lazy(const at::Tensor& mat1, const at::Tensor& mat2) {
 
   return result;
 };
+
 Tensor addmm_hpu_lazy(
     const Tensor& self,
     const Tensor& mat1,
     const Tensor& mat2,
     Scalar beta,
     Scalar alpha) {
-  return addmm_hpu(self, mat1, mat2, beta, alpha);
+  const auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
+  const auto hl_mat1 = habana_lazy::GetOrCreateHbLazyTensor(mat1, c10::kHABANA);
+  const auto hl_mat2 = habana_lazy::GetOrCreateHbLazyTensor(mat2, c10::kHABANA);
+  const auto hl_beta = habana_lazy::GetIrValueForScalar(beta);
+  const auto hl_alpha = habana_lazy::GetIrValueForScalar(alpha);
+
+  const auto node = habana_lazy::ir::Node::Create(
+      Symbol::fromQualString("aten::addmm"),
+      {hl_self.GetIrValue(),
+       hl_mat1.GetIrValue(),
+       hl_mat2.GetIrValue(),
+       hl_beta,
+       hl_alpha});
+  const IntArrayRef shape_out = {mat1.size(0), mat2.size(1)};
+  const auto result = at::native::empty_hpu_lazy(
+      shape_out, self.options(), self.suggest_memory_format());
+  const auto hlresult = habana_lazy::GetHbLazyTensor(result);
+  habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+
+  return result;
 };
+
 Tensor& batch_gemm_out_hpu_lazy(
     Tensor& out,
     const Tensor& self,
