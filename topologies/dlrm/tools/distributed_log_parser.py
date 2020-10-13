@@ -37,6 +37,7 @@ def main(argv):
 
     plt.plot(get_filtered_values(filterKey, cards, mcLog), label=str(cards)+'-chip')
     plt.plot(get_filtered_values(filterKey, 1, scLog), label='single-chip')
+    plt.ticklabel_format(axis="x", style="sci", scilimits=(0,0))
     plt.ylabel(Ylabel)
     plt.xlabel(Xlabel)
     plt.legend()
