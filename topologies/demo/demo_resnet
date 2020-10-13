@@ -154,7 +154,7 @@ fi
 
 setup_env ${WORLD_SIZE} ${COMMUNICATIN_BACKEND} "HLS1"
 if [ ${WORLD_SIZE} -gt 1 ]; then
-    INTERPRETER="python -um torch.distributed.launch --nproc_per_node=${WORLD_SIZE} --use_env"
+    INTERPRETER="mpirun -n ${WORLD_SIZE} --bind-to core --report-bindings python"
 fi
 
 if [ -n "$__mode" ]; then
