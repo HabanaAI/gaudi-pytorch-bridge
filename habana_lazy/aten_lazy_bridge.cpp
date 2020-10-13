@@ -61,6 +61,20 @@ c10::optional<HbLazyTensor> TryGetHbLazyTensor(const at::Tensor& tensor) {
   return impl->tensor();
 }
 
+void setTensorAsInputNode(HbLazyTensor hl_tensor) {
+  if (!hl_tensor.CurrentIrValue()) {
+    habana_lazy::Value val;
+    auto node = habana_lazy::Node::Create(
+        c10::Symbol::fromQualString("hpu::input"), {});
+    val.SetNode(node);
+    hl_tensor.AssignIrValue(val);
+  } else {
+    // TORCH_CHECK(
+    //    false,
+    //    " Habana Lazy Trying to set a tensor as leaf input node but IR value
+    //    is set already");
+  }
+}
 HbLazyTensor GetOrCreateHbLazyTensor(
     const at::Tensor& tensor,
     const c10::Device& device) {
@@ -73,16 +87,12 @@ HbLazyTensor GetOrCreateHbLazyTensor(
     hl_tensor = *p_hb_tensor;
   } else {
     hl_tensor = HbLazyTensor::Create(tensor, device);
-    // A newly created tensor is associated with 'input' node by default
-    // This helps in determining input nodes during post order traversal
-    // If it is not really an input, lazy kernel would have overwritten this
-    // node
-    habana_lazy::Value val;
-    auto node = habana_lazy::Node::Create(
-        c10::Symbol::fromQualString("hpu::input"), {});
-    val.SetNode(node);
-    hl_tensor.AssignIrValue(val);
   }
+  // A newly created tensor is associated with 'input' node by default
+  // This helps in determining input nodes during post order traversal
+  // If it is not really an input, lazy kernel would have overwritten this
+  // node
+  setTensorAsInputNode(hl_tensor);
   return hl_tensor;
 }
 
@@ -107,6 +117,30 @@ bool IsHbLazyTensor(const at::Tensor& tensor) {
 
 Value GetIrValueForScalar(const c10::Scalar& scalar) {
   return Value(std::make_shared<ScalarConstant>(scalar));
+}
+
+at::Tensor CreateHbLazyTensor(
+    at::Tensor tensor,
+    const c10::optional<at::Device>& device) {
+  if (tensor.defined() && device) {
+    bool is_input_lazy = IsHbLazyTensor(tensor);
+    HbLazyTensor hblazy_tensor =
+        HbLazyTensor::Create(std::move(tensor), *device);
+    if (!is_input_lazy) {
+      tensor = AtenFromHbLazyTensor(hblazy_tensor);
+    } else {
+      return tensor;
+    }
+  }
+  return tensor;
+}
+
+c10::optional<at::Device> GetHblazyDevice(const at::Tensor& tensor) {
+  auto hb_tensor = TryGetHbLazyTensor(tensor);
+  if (!hb_tensor) {
+    return c10::nullopt;
+  }
+  return hb_tensor->GetDevice();
 }
 
 } // namespace habana_lazy

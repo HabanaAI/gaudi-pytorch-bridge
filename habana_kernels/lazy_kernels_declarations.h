@@ -519,8 +519,14 @@ Tensor& reciprocal_hpu_lazy_(Tensor& self);
 Tensor reciprocal_hpu_lazy(const Tensor& self);
 Tensor& reciprocal_out_hpu_lazy(Tensor& result, const Tensor& self);
 Tensor clamp_min_hpu_lazy(const Tensor& self, Scalar min);
-Tensor& clamp_hpu_lazy_(Tensor& self, c10::optional<Scalar> min, c10::optional<Scalar> max);
-Tensor clamp_hpu_lazy(const Tensor& self, c10::optional<Scalar> min, c10::optional<Scalar> max);
+Tensor& clamp_hpu_lazy_(
+    Tensor& self,
+    c10::optional<Scalar> min,
+    c10::optional<Scalar> max);
+Tensor clamp_hpu_lazy(
+    const Tensor& self,
+    c10::optional<Scalar> min,
+    c10::optional<Scalar> max);
 Tensor abs_hpu_lazy(const Tensor& self);
 Tensor neg_hpu_lazy(const Tensor& self);
 namespace at {

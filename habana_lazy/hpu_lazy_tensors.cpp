@@ -298,3 +298,21 @@ habana_lazy::PostOrderData HbLazyTensor::RunPostOrder(
 
   return po_data;
 }
+
+c10::optional<at::Tensor> HbLazyTensor::GetHbLazyTensorData() {
+  // Generate the tensor data if its not been generated yet
+  if (data()->ir_value && !CurrentTensorData()) {
+    applyPendingGraph();
+  }
+  return data()->tensor_data;
+}
+
+void HbLazyTensor::applyPendingGraph() {
+  // Ensure that the graph execution has taken place so taht the tensors
+  // requested have the data required updated in them. This is usually done
+  // before sync points in execution
+  if (!CurrentTensorData()) {
+    std::vector<HbLazyTensor> tensors({*this});
+    // SyncTensorsGraph(&tensors, {}, /*wait=*/true, /*sync_xla_data=*/false);
+  }
+}

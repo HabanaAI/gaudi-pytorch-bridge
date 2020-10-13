@@ -16,11 +16,20 @@ TEST(LazyKernelTest, LazyDoATest) {
   torch::Tensor hA = A.to(torch::kHABANA);
   torch::Tensor hB = B.to(torch::kHABANA);
   torch::Tensor hC = C.to(torch::kHABANA);
-  torch::Tensor I  = torch::add(hA, hB);
+  torch::Tensor I = torch::add(hA, hB);
   torch::Tensor out = torch::add(hC, I);
-  unsetenv("PT_HPU_LAZY_MODE");
-  //bool equal = out.allclose(out.to(torch::kCPU), 0, 0);
   EXPECT_EQ(out.dim(), 2);
+  unsetenv("PT_HPU_LAZY_MODE");
+}
+
+TEST(LazyKernelTest, BasicCopyTest) {
+  setenv("PT_HPU_LAZY_MODE", "1", 1);
+  torch::Tensor A = torch::randn({2, 2}, torch::requires_grad(false));
+  torch::Tensor hA = A.to(torch::kHABANA);
+  torch::Tensor hA_cpu = hA.to(torch::kCPU);
+  bool equal = hA_cpu.allclose(A, 0, 0);
+  EXPECT_EQ(equal, true);
+  unsetenv("PT_HPU_LAZY_MODE");
 }
 TEST(LazyKernelTest, ConvReluTest) {
   setenv("PT_HPU_LAZY_MODE", "1", 1);

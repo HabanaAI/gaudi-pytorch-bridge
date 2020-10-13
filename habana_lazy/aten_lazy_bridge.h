@@ -30,6 +30,8 @@ HbLazyTensor GetOrCreateHbLazyTensor(
     const at::Tensor& tensor,
     const c10::Device& device);
 
+void setTensorAsInputNode(HbLazyTensor hl_tensor);
+
 HbLazyTensor GetOrCreateHbLazyTensor(
     const c10::optional<at::Tensor>& tensor,
     const c10::Device& device);
@@ -43,4 +45,8 @@ c10::optional<HbLazyTensor> TryGetHbLazyTensor(const at::Tensor& tensor);
 bool IsHbLazyTensor(const at::Tensor& tensor);
 
 Value GetIrValueForScalar(const c10::Scalar& scalar);
+at::Tensor CreateHbLazyTensor(
+    at::Tensor tensor,
+    const c10::optional<at::Device>& device);
+c10::optional<at::Device> GetHblazyDevice(const at::Tensor& tensor);
 } // namespace habana_lazy

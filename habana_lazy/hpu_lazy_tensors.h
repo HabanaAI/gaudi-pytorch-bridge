@@ -103,7 +103,8 @@ class HbLazyTensor {
   c10::optional<at::Tensor> CurrentTensorData() const;
   void* CurrentHabanaData() const;
   // Applies the queue of operations in preparation for using the data.
-  // void ApplyPendingGraph();
+  void applyPendingGraph();
+  c10::optional<at::Tensor> GetHbLazyTensorData();
   // static void MarkStep(const c10::Device& device);
   // Retrieves the PyTorch CPU tensors behind the Habana Lazy tensors IR
   // operations. All the tensors must be on the same device.
