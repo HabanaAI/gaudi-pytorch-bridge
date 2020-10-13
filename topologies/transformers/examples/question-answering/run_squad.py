@@ -383,6 +383,7 @@ def evaluate(args, model, tokenizer, prefix=""):
                     )
 
             outputs = model(**inputs)
+            feature_indices = feature_indices.to("cpu")
 
         for i, feature_index in enumerate(feature_indices):
             eval_feature = features[feature_index.item()]
