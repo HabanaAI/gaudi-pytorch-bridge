@@ -64,6 +64,54 @@ ConvOperator::ConvOperator(int device_id, c10::ScalarType scalarType)
   kernel_meta_data_.output_layout.assign({habana::LayoutFormat::NHWC});
 }
 
+std::vector<int64_t> ConvOperator::compute_output_shape(
+    std::vector<int64_t> shape_in,
+    std::vector<int64_t> shape_wt,
+    std::vector<int64_t> pad,
+    std::vector<int64_t> stride,
+    const bool ceil_mode,
+    c10::MemoryFormat memory_format) {
+  HABANA_ASSERT(ceil_mode == false);
+  HABANA_ASSERT(
+      (memory_format == c10::MemoryFormat::ChannelsLast) ||
+      (memory_format == c10::MemoryFormat::Contiguous));
+
+  const int64_t dim_pos_in[4] = {0, 1, 2, 3};
+  const int64_t dim_pos_wt[4] = {0, 1, 2, 3};
+  const int64_t dim_pos_in_chlast[4] = {0, 2, 3, 1};
+  const int64_t dim_pos_wt_chlast[4] = {2, 3, 1, 0};
+  const int64_t* p_dim_pos_in;
+  const int64_t* p_dim_pos_wt;
+
+  if (memory_format == c10::MemoryFormat::ChannelsLast) {
+    p_dim_pos_in = dim_pos_in_chlast;
+    p_dim_pos_wt = dim_pos_wt_chlast;
+  } else {
+    p_dim_pos_in = dim_pos_in;
+    p_dim_pos_wt = dim_pos_wt;
+  }
+
+  const auto input_H = shape_in[p_dim_pos_in[1]];
+  const auto pad_H = pad[0];
+  const auto filter_H = shape_wt[p_dim_pos_wt[0]];
+  const auto stride_H = stride[0];
+
+  const auto output_H = habana_helpers::compute_output_size(
+      input_H, pad_H, filter_H, stride_H, false);
+
+  const auto input_W = shape_in[p_dim_pos_in[2]];
+  const auto pad_W = pad[1];
+  const auto filter_W = shape_wt[p_dim_pos_wt[1]];
+  const auto stride_W = stride[1];
+  const auto output_W = habana_helpers::compute_output_size(
+      input_W, pad_W, filter_W, stride_W, false);
+
+  const auto K = shape_wt[p_dim_pos_wt[3]];
+
+  std::vector<int64_t> out_shape = {shape_in[0], output_H, output_W, K};
+  return out_shape;
+}
+
 void ConvOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
@@ -119,13 +167,13 @@ void ConvOperator::AllocateAndAddSynapseNode(
   c10::MemoryFormat memory_format =
       habana_helpers::get_memory_format({&input, &weight});
 
-  std::vector<int64_t> shape_out = habana_helpers::compute_conv_output_shape(
+  std::vector<int64_t> shape_out = compute_output_shape(
       input.sizes().vec(),
       weight.sizes().vec(),
       padding,
       stride,
       false,
-      c10::MemoryFormat::Contiguous);
+      memory_format);
 
   auto output = habana_helpers::createPTTensor(
       input, shape_out, input.options(), memory_format, is_output_persistent);
@@ -147,31 +195,20 @@ void ConvOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   at::Tensor weight = inputs[1].toTensor();
   const auto stride = inputs[3].toIntList().vec();
   const auto padding = inputs[4].toIntList().vec();
-  const auto dilation = inputs[5].toIntList().vec();
-  const auto output_padding = inputs[7].toIntList().vec();
-  // input, output NCHW
-  // weight KCHW, where K - output channels
-  // pad, stride HW
-  const int64_t N = input.size(0);
-  const int64_t input_H = input.size(1);
-  const int64_t input_W = input.size(2);
-  const int64_t K = weight.size(3);
-  const int64_t filter_H = weight.size(0);
-  const int64_t filter_W = weight.size(1);
-  const int64_t stride_H = stride[0];
-  const int64_t stride_W = stride[1];
-  const int64_t pad_H = padding[0];
-  const int64_t pad_W = padding[1];
-  const auto output_H = habana_helpers::compute_output_size(
-      input_H, pad_H, filter_H, stride_H, false);
-  const auto output_W = habana_helpers::compute_output_size(
-      input_W, pad_W, filter_W, stride_W, false);
 
   c10::MemoryFormat memory_format =
       habana_helpers::get_memory_format({&input, &weight});
 
+  auto shape_out = compute_output_shape(
+      input.sizes().vec(),
+      weight.sizes().vec(),
+      padding,
+      stride,
+      false,
+      memory_format);
+
   auto output =
-      at::empty({N, output_H, output_W, K}, input.options(), memory_format);
+      at::empty(shape_out, input.options(), memory_format);
   HabanaOperator::SetPTOutputs({output});
 }
 

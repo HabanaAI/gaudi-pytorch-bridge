@@ -45,12 +45,4 @@ void check_convolution_params(
 std::vector<int64_t> hack_pytorch_nhwc_shapes(
     const at::IntArrayRef& sizes,
     bool hack_shapes);
-
-std::vector<int64_t> compute_conv_output_shape(
-    std::vector<int64_t> shape_in,
-    std::vector<int64_t> shape_wt,
-    std::vector<int64_t> pad,
-    std::vector<int64_t> stride,
-    const bool ceil_mode,
-    c10::MemoryFormat memory_format);
 } // namespace habana_helpers
