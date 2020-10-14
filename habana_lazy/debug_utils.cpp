@@ -162,7 +162,7 @@ std::string GenerateTextNodeSpec(ir::NodePtr node, NodeIdMap& id_map) {
       ss << ", ";
     }
     ss << "%" << id_map.at(output.mp_node);
-    if (output.mp_node->get_num_outputs() > 1) {
+    if (output.mp_node->GetNumOutputs() > 1) {
       ss << "." << output.m_index;
     }
     ++count;
@@ -199,12 +199,12 @@ std::string IrGraphDumpUtil::PostOrderToDot(
       ss << "  node" << id_map.at(output.mp_node) << " -> node" << id;
       if (node->GetInputs().size() > 1) {
         ss << " [label=\"i=" << i;
-        if (output.mp_node->get_num_outputs() > 1) {
+        if (output.mp_node->GetNumOutputs() > 1) {
           ss << ",o=" << output.m_index;
         }
         ss << "\"]\n";
       } else {
-        if (output.mp_node->get_num_outputs() > 1) {
+        if (output.mp_node->GetNumOutputs() > 1) {
           ss << " [label=\"o=" << output.m_index << "\"]";
         }
         ss << "\n";

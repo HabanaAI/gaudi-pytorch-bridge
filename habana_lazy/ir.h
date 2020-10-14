@@ -23,6 +23,7 @@ namespace ir {
 
 class Node;
 struct Value;
+class MetaData;
 
 using DataPtr = std::shared_ptr<Data>;
 using NodePtr = std::shared_ptr<Node>;
@@ -30,6 +31,7 @@ using NodePtrList = std::vector<NodePtr>;
 using ValueList = std::vector<Value>;
 using ValuePtr = std::shared_ptr<Value>;
 using ValuePtrList = std::vector<ValuePtr>;
+using IndexToIvalMap = std::map<size_t, torch::jit::IValue>;
 
 size_t StdHashCombine(uint64_t a, uint64_t b);
 
@@ -57,6 +59,53 @@ inline std::ostream& operator<<(std::ostream& stream, const Use& use) {
   stream << use.ToString();
   return stream;
 }
+
+/*
+ * Class to store the Meta data for an operator
+ * Data stored as IValue for now. Supported type
+ * of MetaData are similar to IValue supported types
+ */
+
+class MetaData {
+ public:
+  using iterator = IndexToIvalMap::iterator;
+  using const_iterator = IndexToIvalMap::const_iterator;
+
+  size_t size() const {
+    return m_data.size();
+  }
+
+  const torch::jit::IValue& get(size_t index) const {
+    HABANA_ASSERT(m_data.count(index));
+    return m_data.at(index);
+  }
+
+  bool set(torch::jit::IValue value, size_t index) {
+    return m_data.insert({index, value}).second;
+  }
+
+  iterator begin() {
+    return m_data.begin();
+  }
+
+  iterator end() {
+    return m_data.end();
+  }
+
+  const_iterator cbegin() const {
+    return m_data.begin();
+  }
+
+  const_iterator cend() const {
+    return m_data.end();
+  }
+
+ protected:
+  /* This meta data store mapping of index of jit input
+   * to the IValue
+   */
+  IndexToIvalMap m_data;
+};
 
 /**
  * Node in the IR Graph
@@ -98,7 +147,7 @@ class Node {
   }
 
   const Value& GetOutput(size_t i) const {
-    TORCH_CHECK(i < get_num_outputs(), "Node::GetOutputs index out of range");
+    TORCH_CHECK(i < GetNumOutputs(), "Node::GetOutputs index out of range");
     return m_outputs[i];
   }
 
@@ -106,8 +155,12 @@ class Node {
 
   static NodePtr Create(c10::Symbol oper, ValueList inputs);
 
-  size_t get_num_outputs() const {
+  size_t GetNumOutputs() const {
     return m_outputs.size();
+  }
+
+  const MetaData& GetMetaData() const {
+    return m_meta_data;
   }
 
   friend class Value;
@@ -117,6 +170,7 @@ class Node {
   ValueList m_inputs;
   ValueList m_outputs;
   std::set<Use> m_uses;
+  MetaData m_meta_data;
   bool m_is_visited = false;
 };
 

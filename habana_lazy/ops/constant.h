@@ -37,7 +37,7 @@ class Constant : public Node {
 
   std::string ToString() const override {
     std::stringstream ss;
-    ss << Node::ToString() << ", value(" << m_ival << ")";
+    ss << Node::ToString() << ", value=" << m_ival;
     return ss.str();
   }
 

@@ -22,7 +22,7 @@ namespace exec {
 using Graph = torch::jit::Graph;
 using JitValue = torch::jit::Value;
 using HabanaLazyValue = habana_lazy::ir::Value;
-using JITIValue = torch::jit::IValue;
+using JitIValue = torch::jit::IValue;
 using GraphPtr = std::shared_ptr<Graph>;
 using JitValuePtr = std::shared_ptr<JitValue>;
 using ScopePtr = torch::jit::ScopePtr;

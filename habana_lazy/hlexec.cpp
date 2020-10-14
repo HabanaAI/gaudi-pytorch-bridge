@@ -8,8 +8,9 @@
  ******************************************************************************
  */
 
-#include "ops/constant.h"
 #include "hlexec.h"
+#include "ops/constant.h"
+#include "ops/convolution.h"
 
 namespace habana_lazy {
 namespace exec {
@@ -44,10 +45,10 @@ void HlExec::Bind(const HabanaLazyTensorPtrList& inputs) {
 /*
  * Creates the Graph
  */
-std::tuple<LazyValueToJitValueMap, LazyValueToJitValueMap>
-    HlExec::Create(const ir::NodePtrList nodes,
-           const ir::ValueList inputs,
-           const ir::ValueList outputs) {
+std::tuple<LazyValueToJitValueMap, LazyValueToJitValueMap> HlExec::Create(
+    const ir::NodePtrList nodes,
+    const ir::ValueList inputs,
+    const ir::ValueList outputs) {
   LazyValueToJitValueMap value_map, input_map, output_map;
 
   for (auto inp : inputs) {
@@ -65,25 +66,54 @@ std::tuple<LazyValueToJitValueMap, LazyValueToJitValueMap>
       // a 1-element tensor as input?
       // Keeping it as a constant node
       // allows for optimized graph (no DMA required, some optimizations
-      // like avoiding multiply with 1 can be removed). 
+      // like avoiding multiply with 1 can be removed).
       // Keeping it as a variable (1-elem input) allows to be able to
       // reuse the same graph when the scalar values change.
       auto c = mp_g_->insertConstant(scalar_const);
       value_map[node->GetOutput(0)] = c;
-   } else if (node->ToString().find("hpu::input") != std::string::npos) {
+    } else if (node->ToString().find("hpu::input") != std::string::npos) {
       // Its a tensor, should already be there in the value maps
       HABANA_ASSERT(value_map.find(node->GetOutput(0)) != value_map.end());
-   } else {
+    } else {
       std::vector<JitValue*> args_vector;
       auto node_input_vals = node->GetInputs();
-      std::transform(node_input_vals.begin(), node_input_vals.end(), std::back_inserter(args_vector),
-                     [&](HabanaLazyValue inp) -> JitValue* {
-                        auto it = value_map.find(inp);
-                        HABANA_ASSERT(it != value_map.end());
-                        return it->second;
-                     });
-      at::ArrayRef<JitValue*> args(args_vector);
-      auto jit_node = mp_g_->create(node->op(), args, node->get_num_outputs());
+      std::transform(
+          node_input_vals.begin(),
+          node_input_vals.end(),
+          std::back_inserter(args_vector),
+          [&](HabanaLazyValue inp) -> JitValue* {
+            auto it = value_map.find(inp);
+            HABANA_ASSERT(it != value_map.end());
+            return it->second;
+          });
+
+      // Total inputs to a node is size of meta data + size of inputs
+      // Allocate vector with nulllptr with inputs_size
+      std::vector<JitValue*> node_inputs(
+          args_vector.size() + node->GetMetaData().size(), nullptr);
+
+      // Iterate thru each of the metadata and create constant node and
+      // assign this to correct index in the input array
+      std::for_each(
+          node->GetMetaData().cbegin(),
+          node->GetMetaData().cend(),
+          [&](const auto& meta_data) {
+            HABANA_ASSERT(node_inputs[meta_data.first] == nullptr);
+            node_inputs[meta_data.first] =
+                mp_g_->insertConstant(meta_data.second);
+          });
+
+      // Now we will fill the inputs in the array whereever its null
+      size_t j = 0;
+      std::for_each(node_inputs.begin(), node_inputs.end(), [&](auto& node) {
+        if (nullptr == node) {
+          node = args_vector[j++];
+        }
+      });
+      HABANA_ASSERT(j == args_vector.size());
+
+      at::ArrayRef<JitValue*> args(node_inputs);
+      auto jit_node = mp_g_->create(node->op(), args, node->GetNumOutputs());
       mp_g_->insertNode(jit_node);
       auto jit_outputs = jit_node->outputs();
       int i = 0;
