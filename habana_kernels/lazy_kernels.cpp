@@ -26,6 +26,7 @@
 #include "habana_lazy/ops/mse_loss.h"
 #include "habana_lazy/ops/norm.h"
 #include "habana_lazy/ops/pool.h"
+#include "habana_lazy/ops/loss.h"
 #include "habana_lazy/ops/reduce_ops.h"
 #include "habana_lazy/ops/shape_ops.h"
 #include "habana_lazy/ops/softmax.h"
@@ -1050,16 +1051,43 @@ Tensor binary_cross_entropy_hpu_lazy(
     const Tensor& target,
     const Tensor& weight,
     int64_t reduction) {
-  return binary_cross_entropy_hpu(self, target, weight, reduction);
+  habana_lazy::ir::NodePtr bce_loss_node =
+      std::make_shared<habana_lazy::ir::BceLoss_forward>(
+          self, target, weight, reduction);
+
+  // allocate Output
+  auto result = at::native::empty_hpu_lazy(
+      {1}, self.options(), self.suggest_memory_format(), false);
+
+  auto hlresult = habana_lazy::GetHbLazyTensor(result);
+  habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(bce_loss_node);
+
+  return result;
 };
+
 Tensor binary_cross_entropy_backward_hpu_lazy(
     const Tensor& grad_output,
     const Tensor& self,
     const Tensor& target,
     const Tensor& weight,
     int64_t reduction) {
-  return binary_cross_entropy_backward_hpu(
-      grad_output, self, target, weight, reduction);
+
+  habana_lazy::ir::NodePtr bce_bwd_loss_node =
+      std::make_shared<habana_lazy::ir::BceLoss_backward>(
+          grad_output, self, target, weight, reduction);
+
+  // allocate Output
+  auto result = at::native::empty_hpu_lazy(
+      self.sizes(), self.options(), self.suggest_memory_format(), false);
+
+  auto hlresult = habana_lazy::GetHbLazyTensor(result);
+  habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(bce_bwd_loss_node);
+
+  return result;
 };
 
 std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu_lazy(
