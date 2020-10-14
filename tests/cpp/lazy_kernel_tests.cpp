@@ -81,12 +81,13 @@ TEST(LazyKernelTest, ConvReluTest) {
 
   auto out_string = IrGraphDumpUtil::ToText(a);
   EXPECT_EQ(
-      out_string.find("IR {\n"
-                      "  %0 = hpu::input()\n"
-                      "  %1 = hpu::input()\n"
-                      "  %2 = aten::convolution_overidable(%1, %0), stride=[1, 1], padding=[0, 0], dilation=[1, 1], transposed=False, output_padding=[0, 0], groups=1\n"
-                      "  %3 = aten::relu(%2), ROOT=0\n"
-                      "}"),
+      out_string.find(
+          "IR {\n"
+          "  %0 = hpu::input()\n"
+          "  %1 = hpu::input()\n"
+          "  %2 = aten::convolution_overidable(%1, %0), stride=[1, 1], padding=[0, 0], dilation=[1, 1], transposed=False, output_padding=[0, 0], groups=1\n"
+          "  %3 = aten::relu(%2), ROOT=0\n"
+          "}"),
       0);
 
   // Match expectd output Size&Data
@@ -181,9 +182,24 @@ TEST(LazyKernelTest, CatTest) {
       ->check("int = prim::Constant[value=0]")
       ->check("Tensor = aten::cat")
       ->run(*exec.get_graph());
-  unsetenv("PT_HPU_LAZY_MODE");
+  // ASSERT_TRUE(torch::allclose(hz_exp, hz_exp));
 }
 
+TEST(LazyKernelTest, LocalScalarDenseTest) {
+  setenv("PT_HPU_LAZY_MODE", "1", 1);
+  torch::Tensor A = torch::randn({1}, torch::requires_grad(false));
+  torch::Tensor hA = A.to(torch::kHABANA);
+
+  auto hl_result = GetOrCreateHbLazyTensor(A, A.device());
+
+  // .item() invokes local scalar dense
+  auto s = hA.item();
+  auto s_cpu = A.item();
+
+  EXPECT_EQ(s.to<float>(), s_cpu.to<float>());
+
+  unsetenv("PT_HPU_LAZY_MODE");
+}
 TEST(LazyKernelTest, ConvMaxPoolTest) {
   setenv("PT_HPU_LAZY_MODE", "1", 1);
   auto input_tensor =

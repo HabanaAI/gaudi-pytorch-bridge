@@ -1,8 +1,10 @@
 #include <gtest/gtest.h>
 #include <torch/torch.h>
 #include <stdexcept>
+#include <torch/csrc/jit/testing/file_check.h>
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/aten_lazy_bridge.h"
+#include "habana_lazy/hlexec.h"
 #include "habana_lazy/ir.h"
 #include "habana_lazy/ir_utils.h"
 #include "habana_kernels/eager_kernels_declarations.h"
@@ -11,7 +13,7 @@
 using namespace habana_lazy;
 using namespace torch;
 
-TEST(PostOrderTest, poTest1) {
+TEST(PostOrderTest, poTestAdd) {
   // test case for result = add(tensor1, tensor2, alpha)
   setenv("PT_HPU_LAZY_MODE", "1", 1);
   torch::Tensor tensor_in1 = torch::randn({2, 3}).to(torch::kHABANA);
@@ -38,6 +40,42 @@ TEST(PostOrderTest, poTest1) {
   EXPECT_TRUE(po_data.outputs.size() == 1);
   EXPECT_TRUE(cond);
   EXPECT_TRUE(po_data.inputs.size() == 2);
+  unsetenv("PT_HPU_LAZY_MODE");
+}
+
+TEST(PostOrderTest, poTestFill) {
+  // test case for result.fill_(val)
+  setenv("PT_HPU_LAZY_MODE", "1", 1);
+  torch::Tensor tensor_in1 = torch::randn({2, 3}).to(torch::kHABANA);
+  Scalar alpha = 1.0;
+
+  tensor_in1.fill_(alpha);
+  auto hl_result = GetHbLazyTensor(tensor_in1);
+
+  std::vector<HbLazyTensor> tensors = {hl_result};
+  std::vector<int> indices = {0};
+  auto po_data = HbLazyTensor::RunPostOrder(tensors, indices);
+
+  auto str = po_data.post_order[0]->ToString();
+  EXPECT_TRUE(str.find("prim::constant") != string::npos);
+
+  str = po_data.post_order[1]->ToString();
+  EXPECT_TRUE(str.find("hpu::input") != string::npos);
+
+  str = po_data.post_order[2]->ToString();
+  EXPECT_TRUE(str.find("aten::fill_") != string::npos);
+
+  EXPECT_TRUE(po_data.inputs.size() == 1);
+  EXPECT_TRUE(po_data.outputs.size() == 1);
+
+  auto exec = habana_lazy::exec::HlExec();
+  exec.Create(po_data.post_order, po_data.inputs, po_data.outputs);
+
+  torch::jit::testing::FileCheck()
+      .check_count("prim::Constant[value=1.]", 1)
+      ->check("aten::fill_")
+      ->run(*exec.get_graph());
+
   unsetenv("PT_HPU_LAZY_MODE");
 }
 

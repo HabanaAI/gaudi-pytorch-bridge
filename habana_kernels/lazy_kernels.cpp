@@ -450,7 +450,17 @@ Tensor& embedding_bag_sum_bwd_out_hpu_lazy(
       out, input, indices_bwd, offsets_bwd, valid_count_bwd);
 };
 Tensor& fill_hpu_lazy_(Tensor& self, Scalar value) {
-  return fill_hpu_(self, value);
+  auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
+  auto hl_alpha = habana_lazy::GetIrValueForScalar(value);
+
+  auto node = habana_lazy::ir::Node::Create(
+      Symbol::fromQualString("aten::fill_"), {hl_self.GetIrValue(), hl_alpha});
+
+  habana_lazy::ir::Value& out = hl_self.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+
+  return self;
 };
 Tensor& masked_fill_hpu_lazy_(
     Tensor& self,
@@ -1232,7 +1242,19 @@ Tensor neg_hpu_lazy(const Tensor& self) {
 namespace at {
 namespace native {
 Scalar _local_scalar_dense_hpu_lazy(const Tensor& self) {
-  return _local_scalar_dense_hpu(self);
+  Scalar out;
+  // If self is a lazy tensor make sure the execution till the point of self
+  // getting flled has finished before we start copying
+  if (habana_lazy::IsHbLazyTensor(self)) {
+    habana_lazy::HbLazyTensor hb_tensor =
+        habana_lazy::GetOrCreateHbLazyTensor(self, self.device());
+    // Trigger point execution
+    auto tensor_data = hb_tensor.GetHbLazyTensorData();
+    out = _local_scalar_dense_hpu(tensor_data.value());
+  } else {
+    out = _local_scalar_dense_hpu(self);
+  }
+  return out;
 }
 } // namespace native
 } // namespace at
