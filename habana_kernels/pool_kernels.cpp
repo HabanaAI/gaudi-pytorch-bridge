@@ -72,12 +72,13 @@ static inline T pooling_output_shape(
   return pooling_output_shape_pad_lr(
       inputSize, kernelSize, pad, pad, stride, dilation, ceil_mode);
 }
+} // namespace
 
 /**
  * @brief Compute shape for output tensor(s) from given input tensor shape
  *         & pooling params such as kernel, stride, pad, dilation, ceil_mode
  */
-static std::vector<int64_t> compute_output_shape(
+std::vector<int64_t> PoolHelper::compute_output_shape(
     const at::Tensor& input,
     const at::IntArrayRef kernel_size,
     const at::IntArrayRef stride,
@@ -134,8 +135,6 @@ static std::vector<int64_t> compute_output_shape(
   std::vector<int64_t> outshape{N, output_H, output_W, C};
   return outshape;
 }
-
-} // namespace
 
 /**
  * @brief Fill generic pooling params structure
@@ -221,7 +220,7 @@ void MaxPool2dWithIndicesOperator::AllocateAndAddSynapseNode(
   p_context_->params_.emplace<ns_SpatialReduction::Params>(syn_pool_params);
   p_context_->params_size_ = sizeof(syn_pool_params);
 
-  auto out_shape = compute_output_shape(
+  auto out_shape = PoolHelper::compute_output_shape(
       input, kernel_size, stride, padding, dilation, ceil_mode, true);
 
   // Setup output tensors
@@ -289,7 +288,7 @@ void MaxPool2dWithIndicesBackwardOutOperator::AllocateAndAddSynapseNode(
   p_context_->params_.emplace<ns_SpatialReduction::Params>(syn_pool_params);
   p_context_->params_size_ = sizeof(syn_pool_params);
 
-  auto out_shape = compute_output_shape(
+  auto out_shape = PoolHelper::compute_output_shape(
       input, kernel_size, stride, padding, dilation, ceil_mode, true);
 
   std::vector<int64_t> expected_output_size{
@@ -314,7 +313,7 @@ void MaxPool2dWithIndicesOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   const auto dilation = inputs[4].toIntList().vec();
   bool ceil_mode = inputs[5].toBool();
 
-  auto out_shape = compute_output_shape(
+  auto out_shape = PoolHelper::compute_output_shape(
       input, kernel_size, stride, padding, dilation, ceil_mode, true);
 
   // Setup output tensors
@@ -348,7 +347,7 @@ void MaxPool2dWithIndicesBackwardOutOperator::SetPTOutputs(
   const auto dilation = inputs[7].toIntList().vec();
   bool ceil_mode = inputs[8].toBool();
 
-  auto out_shape = compute_output_shape(
+  auto out_shape = PoolHelper::compute_output_shape(
       input, kernel_size, stride, padding, dilation, ceil_mode, true);
 
   std::vector<int64_t> expected_output_size{
@@ -773,7 +772,7 @@ void AvgPool2dOperator::AllocateAndAddSynapseNode(
   p_context_->params_.emplace<ns_AveragePooling::Params>(syn_pool_params);
   p_context_->params_size_ = sizeof(syn_pool_params);
 
-  auto out_shape = compute_output_shape(
+  auto out_shape = PoolHelper::compute_output_shape(
       input, kernel_size, stride, padding, dilation, ceil_mode, true);
 
   // Setup output tensors
@@ -799,7 +798,7 @@ void AvgPool2dOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   std::vector<int64_t> d{1, 1};
   IntArrayRef dilation(d.data(), d.size());
 
-  auto out_shape = compute_output_shape(
+  auto out_shape = PoolHelper::compute_output_shape(
       input, kernel_size, stride, padding, dilation, ceil_mode, true);
 
   // Setup output tensors
@@ -945,7 +944,7 @@ void AvgPool2dBackwardOutOperator::AllocateAndAddSynapseNode(
   std::vector<int64_t> d{1, 1};
   IntArrayRef dilation(d.data(), d.size());
 
-  auto out_shape = compute_output_shape(
+  auto out_shape = PoolHelper::compute_output_shape(
       input_nhwc, kernel_size, stride, padding, dilation, ceil_mode, true);
   std::vector<int64_t> expected_output_size{
       out_shape[0], out_shape[1], out_shape[2], out_shape[3]};
@@ -984,7 +983,7 @@ void AvgPool2dBackwardOutOperator::SetPTOutputs(Stack& inputs) {
   std::vector<int64_t> d{1, 1};
   IntArrayRef dilation(d.data(), d.size());
 
-  auto out_shape = compute_output_shape(
+  auto out_shape = PoolHelper::compute_output_shape(
       input_nhwc, kernel_size, stride, padding, dilation, ceil_mode, true);
   std::vector<int64_t> expected_output_size{
       out_shape[0], out_shape[1], out_shape[2], out_shape[3]};
