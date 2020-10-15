@@ -45,7 +45,9 @@ void Utils::ComputePostOrderNode(
           queue.emplace_back(operand.mp_node);
         } else {
           // graph loop found at *operand.node
-          HABANA_ASSERT(oit->second == kEmitting);
+          // If the operand is in emap, it has to
+          // be already emitted
+          HABANA_ASSERT(oit->second == kEmitted);
         }
       }
     } else if (it->second == kEmitting) {
