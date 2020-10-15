@@ -314,14 +314,14 @@ void EmbeddingOperator::AllocateAndAddSynapseNode(
 
   auto weight = inputs[0].toTensor();
   auto indices = inputs[1].toTensor();
-  //auto padding_idx = inputs[2].toInt();
+  // auto padding_idx = inputs[2].toInt();
   auto scale_grad_by_freq = inputs[3].toBool();
   auto sparse = inputs[4].toBool();
 
   TORCH_CHECK(
       scale_grad_by_freq == false, "scale_grad_by_value = true not supported")
   TORCH_CHECK(sparse == false, "sparse embedding not supported")
-  //TORCH_WARN(
+  // TORCH_WARN(
   //    padding_idx == -1,
   //    "padding index is ignored to mimic CPU implementation.");
 
@@ -424,7 +424,6 @@ Tensor embedding_hpu(
   at::ScalarType scalar_type = weight.scalar_type();
   std::string node_type =
       "embedding_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
-
   size_t device_id = weight.device().index();
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
 
@@ -493,10 +492,10 @@ Tensor embedding_dense_backward_hpu(
   int64_t numel = indices.numel();
   TORCH_CHECK(
       scale_grad_by_freq == false, "scale_grad_by_value = true not supported")
-  //TORCH_WARN(
-  //    padding_idx == -1,
-  //    "padding index not supported (not used in cpu implementation)");
-
+  TORCH_WARN(
+      padding_idx == -1,
+      " : padding_idx is not -1: padding_idx = ",
+      padding_idx);
   auto grad_weight = at::zeros({num_weights, grad.size(-1)}, grad.options());
   std::vector<int64_t> size{-1, grad.size(-1)};
 
@@ -515,6 +514,12 @@ Tensor embedding_dense_backward_hpu(
       habana_helpers::hpu_cast_tensor(
           topk_values, at::scalarTypeToTypeMeta(c10::ScalarType::Int)),
       reordered_updates);
+  if (padding_idx != -1) {
+    auto temp_zeros = at::zeros({grad_weight.size(-1)}, grad_weight.options());
+    auto padding_idx_tensor =
+        habana_helpers::scalar_to_device_tensor(padding_idx, topk_indices, 1);
+    grad_weight.index_put_({padding_idx_tensor}, temp_zeros, false);
+  }
 
   PT_KERNEL_END;
   return grad_weight;
@@ -928,4 +933,3 @@ static auto& KernelRegistry =
               return std::make_shared<EmbeddingBagSumBackwardOperator>(
                   device_id, node_type);
             });
-
