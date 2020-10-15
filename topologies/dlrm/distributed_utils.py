@@ -66,6 +66,8 @@ def init_distributed_mode(args):
     use_hpu = not args.no_habana
     if use_hpu == True and 'RANK' in os.environ and 'WORLD_SIZE' in os.environ:
         args.dist_backend = 'hcl'
+        if 'TP_DATA_DUMP_PATH' in os.environ:
+            os.environ['TP_DATA_DUMP_PATH'] = os.environ['TP_DATA_DUMP_PATH'] + '_' + str(args.rank)
         os.environ["ID"] = str(args.rank)
         torch.distributed.init_process_group(args.dist_backend, rank=args.rank, world_size=args.world_size)
     elif args.use_gpu == False:
