@@ -216,6 +216,12 @@ void HbLazyTensor::setPtrDataIrToData() {
   if (mp_data.get())
     mp_data->ir_value.m_data_ptr = mp_data;
 }
+
+ir::Value HbLazyTensor::createIrValueFromData() {
+  ir::Value v{data_ptr()};
+  return v;
+}
+
 ir::Value HbLazyTensor::GetIrValueForTensor(
     const at::Tensor& tensor,
     const c10::Device& device) const {

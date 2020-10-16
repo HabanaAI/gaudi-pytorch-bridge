@@ -63,7 +63,7 @@ c10::optional<HbLazyTensor> TryGetHbLazyTensor(const at::Tensor& tensor) {
 
 void setTensorAsInputNode(HbLazyTensor hl_tensor) {
   if (!hl_tensor.CurrentIrValue()) {
-    ir::Value val;
+    ir::Value val = hl_tensor.createIrValueFromData();
     auto node = ir::Node::Create(c10::Symbol::fromQualString("hpu::input"), {});
     val.SetNode(node);
     hl_tensor.AssignIrValue(val);

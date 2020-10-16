@@ -86,6 +86,7 @@ class HbLazyTensor {
   // Sets up a pointer from IR in data ptr back to data ptr
   // its cyclic in nature, being managed by weak pointer in IR
   void setPtrDataIrToData();
+  ir::Value createIrValueFromData();
   void SetTensorData(at::Tensor tensor_data);
   void AssignIrValue(ir::Value ir_value) const;
   ir::Value GetIrValueForTensor(
