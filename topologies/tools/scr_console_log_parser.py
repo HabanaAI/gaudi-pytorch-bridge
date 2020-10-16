@@ -104,6 +104,7 @@ def process(args):
         out_file_v = os.path.join(args.out_dir, log_info_list[k][0] + '_val.csv')
         write_csv_file(out_file_v, vl_v)
         out_file_list_v.append(out_file_v)
+        k = k+1
 
     return out_file_list_t, out_file_list_v
 
