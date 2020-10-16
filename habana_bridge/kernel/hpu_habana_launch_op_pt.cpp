@@ -96,6 +96,7 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
 
   PT_BRIDGE_DEBUG("Creating : ", id_str);
 
+  caching_policy = PGMCachingPolicy::lru;
   char* caching_policy_str = getenv("HABANA_PGM_CACHING_POLICY");
   if (caching_policy_str != nullptr) {
     if (std::string("simple") == std::string(caching_policy_str)) {
@@ -104,10 +105,12 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
       caching_policy = PGMCachingPolicy::single;
     } else if (std::string("lru") == std::string(caching_policy_str)) {
       caching_policy = PGMCachingPolicy::lru;
-      if (!at::habana::HPUDeviceAllocator::drop_cached_recipe_cb) {
-        at::habana::HPUDeviceAllocator::drop_cached_recipe_cb = dropCachedRecipe_LRU;
-      }
     }
+  }
+
+  if (caching_policy == PGMCachingPolicy::lru &&
+      !at::habana::HPUDeviceAllocator::drop_cached_recipe_cb) {
+    at::habana::HPUDeviceAllocator::drop_cached_recipe_cb = dropCachedRecipe_LRU;
   }
 
   value_to_persistent_flag = {};
