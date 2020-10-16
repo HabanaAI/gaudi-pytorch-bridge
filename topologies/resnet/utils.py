@@ -7,6 +7,7 @@ import torch.distributed as dist
 import errno
 import os
 
+usingmpi = False
 
 class SmoothedValue(object):
     """Track a series of values and provide access to smoothed values over a
@@ -257,6 +258,10 @@ def save_on_master(*args, **kwargs):
     if is_main_process():
         torch.save(*args, **kwargs)
 
+def barrier():
+    if usingmpi == True:
+        comm = MPI.COMM_WORLD
+        comm.Barrier()
 
 def init_distributed_mode(args):
     if 'RANK' in os.environ and 'WORLD_SIZE' in os.environ:
@@ -278,6 +283,7 @@ def init_distributed_mode(args):
             if size > 1:
                 args.rank = rank
                 args.world_size = size
+                usingmpi = True
                 os.environ['MASTER_ADDR'] = 'localhost'
                 os.environ['MASTER_PORT'] = '12355'
             else:

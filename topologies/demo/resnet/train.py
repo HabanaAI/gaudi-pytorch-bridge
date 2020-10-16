@@ -10,7 +10,6 @@ from torch import nn
 import torchvision
 from torchvision import transforms
 import random
-
 import utils
 
 #Instead of importing resnet model from the standard torchvision package,
@@ -45,6 +44,10 @@ def train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, pri
     header = 'Epoch: [{}]'.format(epoch)
     step_count = 0
     for image, target in metric_logger.log_every(data_loader, print_freq, header):
+
+        if args.distributed:
+            utils.barrier()
+
         start_time = time.time()
 
         image, target = image.to(device, non_blocking=True), target.to(device, non_blocking=True)

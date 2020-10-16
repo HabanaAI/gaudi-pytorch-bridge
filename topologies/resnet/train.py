@@ -54,6 +54,10 @@ def train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, pri
 
     header = 'Epoch: [{}]'.format(epoch)
     for image, target in metric_logger.log_every(data_loader, print_freq, header):
+
+        if args.distributed:
+            utils.barrier()
+
         start_time = time.time()
         trainMetaData.tracept.start(start_time, 'train_iteration_'+str(trainMetaData.current_train_step))
 
