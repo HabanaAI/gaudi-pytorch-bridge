@@ -7,7 +7,7 @@ import torch.distributed as dist
 import errno
 import os
 
-usingmpi = False
+mpi_comm = None
 
 class SmoothedValue(object):
     """Track a series of values and provide access to smoothed values over a
@@ -259,9 +259,8 @@ def save_on_master(*args, **kwargs):
         torch.save(*args, **kwargs)
 
 def barrier():
-    if usingmpi == True:
-        comm = MPI.COMM_WORLD
-        comm.Barrier()
+    if mpi_comm is not None:
+        mpi_comm.Barrier()
 
 def init_distributed_mode(args):
     if 'RANK' in os.environ and 'WORLD_SIZE' in os.environ:
@@ -277,13 +276,13 @@ def init_distributed_mode(args):
         msg = 'Not using distributed mode'
         try:
             from mpi4py import MPI
-            comm = MPI.COMM_WORLD
-            size = comm.Get_size() # new: gives number of ranks in comm
-            rank = comm.Get_rank()
+            global mpi_comm
+            mpi_comm = MPI.COMM_WORLD
+            size = mpi_comm.Get_size() # new: gives number of ranks in comm
+            rank = mpi_comm.Get_rank()
             if size > 1:
                 args.rank = rank
                 args.world_size = size
-                usingmpi = True
                 os.environ['MASTER_ADDR'] = 'localhost'
                 os.environ['MASTER_PORT'] = '12355'
             else:
@@ -292,7 +291,7 @@ def init_distributed_mode(args):
                 return
         except Exception as e:
             print(e)
-            print(msg)
+            print("**mpi4py is not available, using mpirun will not run distributed mode")
             args.distributed = False
             return
 
