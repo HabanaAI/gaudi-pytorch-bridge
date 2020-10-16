@@ -16,6 +16,7 @@
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_device/tensor_builder.h"
+#include "habana_device/PinnedMemoryAllocator.h"
 #include "habana_helpers/graph.h"
 #include "habana_helpers/tensor_utils.h"
 #include "habana_kernels/kernel_utils.h"
@@ -380,14 +381,14 @@ void habana_helpers::copy_scalar_to_host(
     void* dst_ptr,
     uint32_t size) {
   std::atomic<bool> copyDone{false};
-
+  bool is_pinned = at::habana::PinnedMemoryAllocator_is_pinned(src.data_ptr());
   auto syn_error =
       synapse_helpers::HPURegistrar::get_device(src.device().index())
           .copy_data_to_host(
               reinterpret_cast<synapse_helpers::device_ptr>(src.data_ptr()),
               dst_ptr,
               size,
-              [&copyDone]() { copyDone = true; });
+              [&copyDone]() { copyDone = true; }, is_pinned);
   TORCH_CHECK(syn_error.status == 0, syn_error.error);
 
   // wait for copy completion
@@ -633,6 +634,7 @@ void habana_helpers::copy_data_to_host(
     bool non_blocking) {
   size_t device_id = src.device().index();
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  bool is_pinned = at::habana::PinnedMemoryAllocator_is_pinned(dst.data_ptr());
   if (non_blocking) {
     // keeps a reference to the tensor it is
     // operating on to prevent it from being deallocated while the
@@ -643,7 +645,7 @@ void habana_helpers::copy_data_to_host(
         reinterpret_cast<synapse_helpers::device_ptr>(src.data_ptr()),
         dst.data_ptr(),
         src.nbytes(),
-        [srcRef, dstRef]() { return; });
+        [srcRef, dstRef]() { return; }, is_pinned);
     TORCH_CHECK(syn_error.status == 0, syn_error.error);
   } else {
     std::atomic<bool> copyDone{false};
@@ -651,7 +653,7 @@ void habana_helpers::copy_data_to_host(
         reinterpret_cast<synapse_helpers::device_ptr>(src.data_ptr()),
         dst.data_ptr(),
         src.nbytes(),
-        [&copyDone]() { copyDone = true; });
+        [&copyDone]() { copyDone = true; }, is_pinned);
     TORCH_CHECK(syn_error.status == 0, syn_error.error);
     // wait for copy completion
     while (!copyDone) {
@@ -672,6 +674,7 @@ void habana_helpers::copy_data_to_device(
     bool non_blocking) {
   auto device_id = dst.device().index();
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  bool is_pinned = at::habana::PinnedMemoryAllocator_is_pinned(src.data_ptr());
 
   if (non_blocking) {
     // keeps a reference to the tensor it is
@@ -683,7 +686,7 @@ void habana_helpers::copy_data_to_device(
         src.data_ptr(),
         reinterpret_cast<synapse_helpers::device_ptr>(dst.data_ptr()),
         src.nbytes(),
-        [srcRef, dstRef]() { return; });
+        [srcRef, dstRef]() { return; }, is_pinned);
     TORCH_CHECK(syn_error.status == 0, syn_error.error);
   } else {
     std::atomic<bool> copyDone{false};
@@ -691,7 +694,7 @@ void habana_helpers::copy_data_to_device(
         src.data_ptr(),
         reinterpret_cast<synapse_helpers::device_ptr>(dst.data_ptr()),
         src.nbytes(),
-        [&copyDone]() { copyDone = true; });
+        [&copyDone]() { copyDone = true; }, is_pinned);
     TORCH_CHECK(syn_error.status == 0, syn_error.error);
     // wait for copy completion
     while (!copyDone) {

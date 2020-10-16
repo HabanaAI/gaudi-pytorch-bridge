@@ -26,6 +26,7 @@
 #include "synapse_helpers/device_types.h"
 #include "synapse_helpers/event.h"
 #include "synapse_helpers/event_handle_cache.h"
+#include "synapse_helpers/host_memory.h"
 #include "synapse_helpers/memory_mapping.h"
 #include "synapse_helpers/recipe_handle_cache.h"
 #include "synapse_helpers/stream.h"
@@ -125,12 +126,14 @@ class device {
       void* cpu_data,
       device_ptr destination,
       size_t total_bytes,
-      const event_done_callback& done_cb);
+      const event_done_callback& done_cb,
+      bool is_pinned = false);
   synapse_error copy_data_to_host(
       device_ptr device_data,
       void* destination,
       size_t total_bytes,
-      const event_done_callback& done_cb);
+      const event_done_callback& done_cb,
+      bool is_pinned = false);
   synapse_error copy_data_within_device(
       device_ptr source,
       device_ptr destination,
@@ -238,6 +241,16 @@ class device {
     return recipe_counter_;
   }
 
+  int get_count();
+
+  host_memory& get_host_memory() {
+    return host_memory_;
+  }
+
+  bool HostMemoryCacheEnabled_() {
+    return host_memory_cache_enabled_;
+  }
+
  private:
   friend class stream;
   static synapse_error_v<std::shared_ptr<device>> create(
@@ -279,6 +292,8 @@ class device {
   bool is_caching_enabled_;
   bool is_stream_async_enabled_;
   active_recipe_counter recipe_counter_;
+  host_memory host_memory_;
+  bool host_memory_cache_enabled_;
 
   // Empty be default, framework can register its function to be called before
   // device is released

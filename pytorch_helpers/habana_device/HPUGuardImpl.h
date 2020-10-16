@@ -15,6 +15,7 @@
 #include <unordered_set>
 
 #include "HPUAllocator.h"
+#include "PinnedMemoryAllocator.h"
 #include "HPUCheck.h"
 #include "habana_helpers/unused_macro.h"
 #include "hpu_cached_devices.h"
@@ -63,6 +64,7 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
     }
     auto& device = synapse_helpers::HPURegistrar::get_device();
     habana::HPUDeviceAllocator::allocator_active_device_id = device.id();
+    habana::PinnedMemoryAllocator::allocator_active_device_id = device.id();
 
     TORCH_CHECK(
         habana::HPUDeviceAllocator::allocator_active_device_id == 0,

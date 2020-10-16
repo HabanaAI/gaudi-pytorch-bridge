@@ -73,7 +73,7 @@ class PtLogger {
   unsigned long type_mask_;
 
   PtLogger() {
-    char* mask = getenv("PT_HPU_LOG_MOD_MASK");
+    char* mask = getenv("PT_HABANA_LOG_MOD_MASK");
     if (mask != nullptr) {
       module_mask_ = std::stoul(mask, nullptr, 16);
     } else {
@@ -81,7 +81,7 @@ class PtLogger {
       module_mask_ = INT64_MAX;
     }
 
-    mask = getenv("PT_HPU_LOG_TYPE_MASK");
+    mask = getenv("PT_HABANA_LOG_TYPE_MASK");
     if (mask != nullptr) {
       type_mask_ = std::stoul(mask, nullptr, 16);
     } else {
@@ -124,6 +124,7 @@ class PtLogger {
     SYNHELPER = 8,
     DISTRIBUTED = 16,
     LAZY = 32,
+    HABANAHOOKS = 64,
   };
 };
 
@@ -153,6 +154,9 @@ class PtLogger {
   PT_MOD_FATAL(PtLogger::ModuleMask::DISTRIBUTED, __VA_ARGS__)
 
 #define PT_LAZY_FATAL(...) PT_MOD_FATAL(PtLogger::ModuleMask::LAZY, __VA_ARGS__)
+
+#define PT_HABANAHOOKS_FATAL(...) \
+  PT_MOD_FATAL(PtLogger::ModuleMask::HABANAHOOKS, __VA_ARGS__)
 
 #define HABANA_ASSERT(condition)                                             \
   {                                                                          \
@@ -189,6 +193,8 @@ class PtLogger {
 
 #define PT_LAZY_WARN(...) PT_MOD_WARN(PtLogger::ModuleMask::LAZY, __VA_ARGS__)
 
+#define PT_HABANAHOOKS_WARN(...) \
+  PT_MOD_WARN(PtLogger::ModuleMask::HABANAHOOKS, __VA_ARGS__)
 /************************TRACE MACROS************************************/
 #define PT_MOD_BEGIN(MOD)                                                \
   if (((PtLogger::getLogger()->getModuleMask() & (MOD)) &&               \
@@ -239,3 +245,5 @@ class PtLogger {
 #define PT_DISTRIBUTED_DEBUG(...) \
   PT_MOD_DEBUG(PtLogger::ModuleMask::DISTRIBUTED, __VA_ARGS__)
 #define PT_LAZY_DEBUG(...) PT_MOD_DEBUG(PtLogger::ModuleMask::LAZY, __VA_ARGS__)
+#define PT_HABANAHOOKS_DEBUG(...) \
+  PT_MOD_DEBUG(PtLogger::ModuleMask::HABANAHOOKS, __VA_ARGS__)

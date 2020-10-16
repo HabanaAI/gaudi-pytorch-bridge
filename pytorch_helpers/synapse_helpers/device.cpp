@@ -29,7 +29,8 @@ namespace synapse_helpers {
 /**
  * These will be removed when all lazy kernels start using shape functions.
  */
-static syn_helper_thread_state_map threadInLoweringContextSynHelper({{pthread_self(), false}});
+static syn_helper_thread_state_map threadInLoweringContextSynHelper(
+    {{pthread_self(), false}});
 
 void SetSynHelperLoweringContext(bool ctx) {
   threadInLoweringContextSynHelper[pthread_self()] = ctx;
@@ -37,7 +38,8 @@ void SetSynHelperLoweringContext(bool ctx) {
 
 bool IsThreadInLoweringContext() {
   auto ptid = pthread_self();
-  if (threadInLoweringContextSynHelper.find(ptid) == threadInLoweringContextSynHelper.end()) {
+  if (threadInLoweringContextSynHelper.find(ptid) ==
+      threadInLoweringContextSynHelper.end()) {
     threadInLoweringContextSynHelper[ptid] = false;
   }
   return threadInLoweringContextSynHelper[ptid];
@@ -100,7 +102,8 @@ device::device(
       stream_d2d_{*this, stream_flavor::DMA_D2D},
       stream_h2d_{*this, stream_flavor::DMA_H2D},
       stream_d2h_{*this, stream_flavor::DMA_D2H},
-      recipe_handle_cache_{*this} {
+      recipe_handle_cache_{*this},
+      host_memory_{*this} {
   HABANA_ASSERT(create_allocator != nullptr);
   allocator_ = create_allocator(id_);
 
@@ -122,6 +125,8 @@ device::device(
       synapse_helpers::get_bool_env_var("PT_ENABLE_HABANA_CACHING", true);
   is_stream_async_enabled_ =
       synapse_helpers::get_bool_env_var("PT_ENABLE_HABANA_STREAMASYNC", true);
+  host_memory_cache_enabled_ =
+      synapse_helpers::get_bool_env_var("PT_ENABLE_HOST_MEMORY_CACHE", true);
 }
 
 synapse_error_v<std::shared_ptr<device>> device::get_or_create(
@@ -205,7 +210,18 @@ synapse_error_v<std::shared_ptr<device>> device::create(
   return device_ptr;
 }
 
-//GLOBAL_WORKSPACE_SIZE is set based on PT_HPU_WORKSPACE_SIZE in GB
+int device::get_count() {
+  int count = 0;
+  synStatus status{synStatus::synSuccess};
+  status = synDeviceGetCountByDeviceType((uint32_t*)&count, type_);
+  if (status != synSuccess) {
+    PT_SYNHELPER_DEBUG("Fail to get device count. Status: ", status);
+  }
+
+  return count;
+}
+
+// GLOBAL_WORKSPACE_SIZE is set based on PT_HPU_WORKSPACE_SIZE in GB
 uint64_t device::get_workspace_size() {
   uint64_t workspaceSize = GLOBAL_WORKSPACE_SIZE;
   static const std::string wsEnvValue = "PT_HPU_WORKSPACE_SIZE";
@@ -295,7 +311,8 @@ synapse_error device::copy_data_to_device(
     void* cpu_data,
     device_ptr destination,
     size_t total_bytes,
-    const event_done_callback& done_cb) {
+    const event_done_callback& done_cb,
+    bool is_pinned) {
   PT_SYNHELPER_DEBUG(
       "Copy CPU Tensor to Device ",
       cpu_data,
@@ -305,34 +322,35 @@ synapse_error device::copy_data_to_device(
       total_bytes);
   synStatus status;
 
-  memory_mapper::acquired_entry res{};
   void* mapped_cpu_data = cpu_data;
-
-  res = memory_mapper_.map(total_bytes);
-  if (res.status != synStatus::synSuccess) {
-    // last resort option to drop cached mapped buffers
-    PT_SYNHELPER_WARN(
-        "Could not map memory on the device. Dropping cache for mapped buffers.");
-    status = memory_mapper_.drop_cache();
-    if (status != synStatus::synSuccess) {
-      PT_SYNHELPER_WARN(
-          "Could not drop cache for mapped memory on the device: ", status);
-      return synapse_error{
-          "Could not drop cache for mapped memory on the device.", status};
-    }
+  memory_mapper::acquired_entry res{};
+  if (!is_pinned) {
     res = memory_mapper_.map(total_bytes);
-    if (synStatus::synSuccess != res.status) {
-      return synapse_error{
-          "Could not allocate and map memory even after cache drop.",
-          res.status};
+    if (res.status != synStatus::synSuccess) {
+      // last resort option to drop cached mapped buffers
+      PT_SYNHELPER_WARN(
+          "Could not map memory on the device. Dropping cache for mapped buffers.");
+      status = memory_mapper_.drop_cache();
+      if (status != synStatus::synSuccess) {
+        PT_SYNHELPER_WARN(
+            "Could not drop cache for mapped memory on the device: ", status);
+        return synapse_error{
+            "Could not drop cache for mapped memory on the device.", status};
+      }
+      res = memory_mapper_.map(total_bytes);
+      if (synStatus::synSuccess != res.status) {
+        return synapse_error{
+            "Could not allocate and map memory even after cache drop.",
+            res.status};
+      }
     }
-  }
 
-  std::copy(
-      reinterpret_cast<uint8_t*>(cpu_data),
-      reinterpret_cast<uint8_t*>(cpu_data) + total_bytes,
-      res.ptr);
-  mapped_cpu_data = res.ptr;
+    std::copy(
+        reinterpret_cast<uint8_t*>(cpu_data),
+        reinterpret_cast<uint8_t*>(cpu_data) + total_bytes,
+        res.ptr);
+    mapped_cpu_data = res.ptr;
+  }
 
   PT_SYNHELPER_DEBUG("Used stream handle: ", stream_h2d_);
 
@@ -347,10 +365,12 @@ synapse_error device::copy_data_to_device(
     return synapse_error{"DMA to HPU start failed.", status};
   }
 
-  sem_.add_producer({destination}, stream_h2d_, [this, res, done_cb]() {
-    memory_mapper_.unmap(res);
-    done_cb();
-  });
+  sem_.add_producer(
+      {destination}, stream_h2d_, [this, res, is_pinned, done_cb]() {
+        if (!is_pinned)
+          memory_mapper_.unmap(res);
+        done_cb();
+      });
 
   return {};
 }
@@ -359,7 +379,8 @@ synapse_error device::copy_data_to_host(
     device_ptr device_data,
     void* destination,
     size_t total_bytes,
-    const event_done_callback& done_cb) {
+    const event_done_callback& done_cb,
+    bool is_pinned) {
   PT_SYNHELPER_DEBUG(
       "Copy Device Tensor to CPU ",
       (void*)device_data,
@@ -372,27 +393,29 @@ synapse_error device::copy_data_to_host(
   PT_SYNHELPER_DEBUG("Used stream handle: ", stream_d2h_);
   sem_.enqueue_wait_event(device_data, stream_d2h_);
 
-  memory_mapper::acquired_entry res{};
   void* mapped_destination = destination;
-  res = memory_mapper_.map(total_bytes);
-  if (synStatus::synSuccess != res.status) {
-    // last resort option to drop cached mapped buffers
-
-    PT_SYNHELPER_WARN(
-        "Could not map memory on the device. Dropping cache for mapped buffers.");
-    status = memory_mapper_.drop_cache();
-    if (synStatus::synSuccess != status)
-      // return synapse_error{
-      PT_SYNHELPER_WARN(
-          "Could not drop cache for mapped memory on the device.");
+  memory_mapper::acquired_entry res{};
+  if (!is_pinned) {
     res = memory_mapper_.map(total_bytes);
     if (synStatus::synSuccess != res.status) {
-      return synapse_error{
-          "Could not allocate and map memory even after cache drop.",
-          res.status};
+      // last resort option to drop cached mapped buffers
+
+      PT_SYNHELPER_WARN(
+          "Could not map memory on the device. Dropping cache for mapped buffers.");
+      status = memory_mapper_.drop_cache();
+      if (synStatus::synSuccess != status)
+        // return synapse_error{
+        PT_SYNHELPER_WARN(
+            "Could not drop cache for mapped memory on the device.");
+      res = memory_mapper_.map(total_bytes);
+      if (synStatus::synSuccess != res.status) {
+        return synapse_error{
+            "Could not allocate and map memory even after cache drop.",
+            res.status};
+      }
     }
+    mapped_destination = res.ptr;
   }
-  mapped_destination = res.ptr;
 
   status = synMemCopyAsync(
       stream_d2h_,
@@ -404,14 +427,17 @@ synapse_error device::copy_data_to_host(
     return synapse_error{"DMA from HPU start failed.", status};
   }
 
-  sem_.add_producer({}, stream_d2h_, [this, done_cb, res, destination]() {
-    std::copy(
-        res.ptr,
-        res.ptr + res.acquired_size,
-        reinterpret_cast<uint8_t*>(destination));
-    memory_mapper_.unmap(res);
-    done_cb();
-  });
+  sem_.add_producer(
+      {}, stream_d2h_, [this, done_cb, res, destination, is_pinned]() {
+        if (!is_pinned) {
+          std::copy(
+              res.ptr,
+              res.ptr + res.acquired_size,
+              reinterpret_cast<uint8_t*>(destination));
+          memory_mapper_.unmap(res);
+        }
+        done_cb();
+      });
 
   return {};
 }
