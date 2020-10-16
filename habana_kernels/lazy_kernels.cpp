@@ -8,9 +8,11 @@
  ******************************************************************************
  */
 
+#include "habana_kernels/binary_kernels.h"
 #include "habana_kernels/conv_kernels.h"
 #include "habana_kernels/eager_kernels_declarations.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
+#include "habana_kernels/linear_kernels.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/ops/cat.h"
@@ -135,23 +137,40 @@ Tensor add_tensor_hpu_lazy(
   auto node = habana_lazy::ir::Node::Create(
       Symbol::fromQualString("aten::add"),
       {hl_self.GetIrValue(), hl_other.GetIrValue(), hl_alpha});
-  at::Tensor result = add_tensor_hpu(self, other, alpha);
-  auto hlresult = habana_lazy::GetHbLazyTensor(result);
-  habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
+  auto shape_out = BinaryOperator::compute_output_shape(self, other);
+  auto result = at::native::empty_hpu_lazy(
+      shape_out, self.options(), self.suggest_memory_format());
+  auto hl_result = habana_lazy::GetHbLazyTensor(result);
+  habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
   out.SetNode(node);
 
   return result;
 }
+
 Tensor add_scalar_hpu_lazy(const Tensor& self, Scalar other, Scalar alpha) {
   return add_scalar_hpu(self, other, alpha);
 };
 Tensor& add_scalar_hpu_lazy_(Tensor& self, Scalar other, Scalar alpha) {
   return add_scalar_hpu_(self, other, alpha);
 };
+
 Tensor& add_tensor_hpu_lazy_(Tensor& self, const Tensor& other, Scalar alpha) {
-  return add_tensor_hpu_(self, other, alpha);
+  auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
+  auto hl_other = habana_lazy::GetOrCreateHbLazyTensor(other, c10::kHABANA);
+  auto hl_alpha = habana_lazy::GetIrValueForScalar(alpha);
+
+  auto node = habana_lazy::ir::Node::Create(
+      Symbol::fromQualString("aten::add_"),
+      {hl_self.GetIrValue(), hl_other.GetIrValue(), hl_alpha});
+
+  habana_lazy::ir::Value& out = hl_self.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+
+  return self;
 };
+
 Tensor sub_tensor_hpu_lazy(
     const Tensor& self,
     const Tensor& other,
@@ -180,7 +199,9 @@ Tensor mul_tensor_hpu_lazy(const Tensor& self, const Tensor& other) {
   auto node = habana_lazy::ir::Node::Create(
       Symbol::fromQualString("aten::mul"),
       {hl_self.GetIrValue(), hl_other.GetIrValue()});
-  at::Tensor result = mul_tensor_hpu(self, other);
+  auto shape_out = BinaryOperator::compute_output_shape(self, other);
+  auto result = at::native::empty_hpu_lazy(
+      shape_out, self.options(), self.suggest_memory_format());
   auto hlresult = habana_lazy::GetHbLazyTensor(result);
   habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
   out.m_index = 0;
@@ -520,7 +541,11 @@ Tensor mm_hpu_lazy(const at::Tensor& mat1, const at::Tensor& mat2) {
   auto node = habana_lazy::ir::Node::Create(
       Symbol::fromQualString("aten::mm"),
       {hl_self.GetIrValue(), hl_other.GetIrValue()});
-  at::Tensor result = mm_hpu(mat1, mat2);
+
+  auto shape_out = MMOperator::compute_output_shape(mat1, mat2);
+  auto result = at::native::empty_hpu_lazy(
+      shape_out, mat1.options(), mat1.suggest_memory_format());
+
   auto hlresult = habana_lazy::GetHbLazyTensor(result);
   habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
   out.m_index = 0;
@@ -1024,16 +1049,27 @@ Tensor relu_hpu_lazy(const Tensor& input) {
 
   auto node = habana_lazy::ir::Node::Create(
       Symbol::fromQualString("aten::relu"), {hl_input.GetIrValue()});
-  at::Tensor result = relu_hpu(input);
-  auto hlresult = habana_lazy::GetHbLazyTensor(result);
-  habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
+  auto shape_out = input.sizes();
+  auto result = at::native::empty_hpu_lazy(
+      shape_out, input.options(), input.suggest_memory_format());
+  auto hl_result = habana_lazy::GetHbLazyTensor(result);
+  habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
   out.SetNode(node);
 
   return result;
 };
-Tensor& relu_hpu_lazy_(Tensor& self) {
-  return relu_hpu_(self);
+Tensor& relu_hpu_lazy_(Tensor& input) {
+  auto hl_input = habana_lazy::GetOrCreateHbLazyTensor(input, c10::kHABANA);
+
+  auto node = habana_lazy::ir::Node::Create(
+      Symbol::fromQualString("aten::relu_"), {hl_input.GetIrValue()});
+  auto hl_result = habana_lazy::GetHbLazyTensor(input);
+  habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+
+  return input;
 };
 Tensor sigmoid_hpu_lazy(const Tensor& input) {
   return sigmoid_hpu(input);

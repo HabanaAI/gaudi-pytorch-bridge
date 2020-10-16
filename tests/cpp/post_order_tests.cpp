@@ -42,7 +42,7 @@ TEST(PostOrderTest, poTest1) {
 }
 
 TEST(PostOrderTest, poTestCommonInput) {
-  // test case for 
+  // test case for
   // t = add(tensor1, tensor2, alpha)
   // result = add(t, tensor2, beta)
   setenv("PT_HPU_LAZY_MODE", "1", 1);
@@ -78,5 +78,56 @@ TEST(PostOrderTest, poTestCommonInput) {
   EXPECT_TRUE(po_data.outputs.size() == 1);
   EXPECT_TRUE(cond);
   EXPECT_TRUE(po_data.inputs.size() == 2);
+  unsetenv("PT_HPU_LAZY_MODE");
+}
+
+TEST(PostOrderTest, poTestAddInplace) {
+  // test case for tensor1 = add(tensor1, tensor2, alpha)
+  setenv("PT_HPU_LAZY_MODE", "1", 1);
+  torch::Tensor tensor_in1 = torch::randn({2, 3}).to(torch::kHABANA);
+  torch::Tensor tensor_in2 = torch::randn({2, 3}).to(torch::kHABANA);
+  tensor_in1 = tensor_in1.add_(tensor_in2);
+  auto hl_result = GetHbLazyTensor(tensor_in1);
+
+  std::vector<HbLazyTensor> tensors = {hl_result};
+  std::vector<int> indices = {0};
+  auto po_data = HbLazyTensor::RunPostOrder(tensors, indices);
+  auto str = po_data.post_order[0]->ToString();
+  bool cond = (str.find("prim::constant") != string::npos);
+  EXPECT_TRUE(cond);
+  str = po_data.post_order[1]->ToString();
+  cond = (str.find("hpu::input") != string::npos);
+  EXPECT_TRUE(cond);
+  str = po_data.post_order[2]->ToString();
+  cond = (str.find("hpu::input") != string::npos);
+  EXPECT_TRUE(cond);
+  str = po_data.post_order[3]->ToString();
+  cond = (str.find("aten::add_") != string::npos);
+  EXPECT_TRUE(cond);
+  EXPECT_TRUE(po_data.outputs.size() == 1);
+  EXPECT_TRUE(cond);
+  EXPECT_TRUE(po_data.inputs.size() == 2);
+  unsetenv("PT_HPU_LAZY_MODE");
+}
+
+TEST(PostOrderTest, poTestReluInplace) {
+  // test case for tensor1 = relu(tensor1)
+  setenv("PT_HPU_LAZY_MODE", "1", 1);
+  torch::Tensor tensor_in1 = torch::randn({2, 3}).to(torch::kHABANA);
+  tensor_in1 = tensor_in1.relu_();
+  auto hl_result = GetHbLazyTensor(tensor_in1);
+
+  std::vector<HbLazyTensor> tensors = {hl_result};
+  std::vector<int> indices = {0};
+  auto po_data = HbLazyTensor::RunPostOrder(tensors, indices);
+  auto str = po_data.post_order[0]->ToString();
+  auto cond = (str.find("hpu::input") != string::npos);
+  EXPECT_TRUE(cond);
+  str = po_data.post_order[1]->ToString();
+  cond = (str.find("aten::relu_") != string::npos);
+  EXPECT_TRUE(cond);
+  EXPECT_TRUE(po_data.outputs.size() == 1);
+  EXPECT_TRUE(cond);
+  EXPECT_TRUE(po_data.inputs.size() == 1);
   unsetenv("PT_HPU_LAZY_MODE");
 }

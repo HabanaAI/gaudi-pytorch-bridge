@@ -37,6 +37,10 @@ class BinaryOperator : public habana::HabanaOperator {
       int32_t position,
       int64_t out_dims);
 
+  static std::vector<int64_t> compute_output_shape(
+      const at::Tensor& arg1,
+      const at::Tensor& arg2);
+
  protected:
   c10::ScalarType scalarType_;
 };

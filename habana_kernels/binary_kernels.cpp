@@ -112,6 +112,13 @@ inline Tensor get_correct_input_tensor(const Tensor& arg1, const Tensor& arg2) {
   return arg_final;
 }
 
+std::vector<int64_t> habana::BinaryOperator::compute_output_shape(
+    const Tensor& arg1,
+    const Tensor& arg2) {
+  auto arg_final = get_correct_input_tensor(arg1, arg2);
+  return arg_final.sizes().vec();
+}
+
 void habana::BinaryOperator::insert_reshape_op(
     synapse_helpers::graph& graph,
     ReshapeOperator& reshapeOp,
@@ -175,8 +182,8 @@ void habana::BinaryOperator::AllocateAndAddSynapseNode(
   synapse_helpers::tensor& arg2_syn_tensor =
       isArg2modified ? reshape_syn_output[0] : p_context_->syn_inputs_[1];
 
-  std::vector<synTensor> syn_inputs{arg1_syn_tensor.get(),
-                                    arg2_syn_tensor.get()};
+  std::vector<synTensor> syn_inputs{
+      arg1_syn_tensor.get(), arg2_syn_tensor.get()};
 
   synapse_helpers::tensor& output_syn_tensor = p_context_->syn_outputs_[0];
   std::vector<synTensor> syn_outputs{output_syn_tensor.get()};
@@ -202,13 +209,16 @@ void habana::BinaryWrapperOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(
       inputs.size() == 2,
       "Incorrect size of input expected for Binary operator");
-  TORCH_CHECK(inputs[0].isTensor() || inputs[1].isTensor(),
+  TORCH_CHECK(
+      inputs[0].isTensor() || inputs[1].isTensor(),
       "At least one of the inputs arg1 or arg2 expected to be a tensor");
   // Note that pow has a (Scalar, Tensor) variant in native_functions.yaml
   // although mul and div do not
-  TORCH_CHECK(inputs[0].isTensor() || inputs[0].isScalar(),
+  TORCH_CHECK(
+      inputs[0].isTensor() || inputs[0].isScalar(),
       "Input arg1 type expected to be a tensor or scalar");
-  TORCH_CHECK(inputs[1].isTensor() || inputs[1].isScalar(),
+  TORCH_CHECK(
+      inputs[1].isTensor() || inputs[1].isScalar(),
       "Input arg2 type expected to be a tensor or scalar");
 
   BinaryOperator binaryOp(
@@ -223,7 +233,8 @@ void habana::BinaryWrapperOperator::AllocateAndAddSynapseNode(
     p_context_->syn_inputs_[0] = std::move(syn_arg1);
     p_context_->syn_inputs_[1] = std::move(syn_arg2);
 
-  } else if (inputs[0].isTensor() && inputs[1].isScalar()) { // 2nd input is a scalar
+  } else if (inputs[0].isTensor() && inputs[1].isScalar()) { // 2nd input is a
+                                                             // scalar
     // add constant node to convert 2nd input to tensor
     ConstantOperator constOp(this->p_context_->device_id_, this->scalarType_);
     constOp.AllocateAndAddSynapseNode(graph, inputs, false);
@@ -334,8 +345,8 @@ void habana::BinaryOperatorWithAlpha::AllocateAndAddSynapseNode(
     synapse_helpers::tensor& arg2_syn_tensor =
         isArg2modified ? reshape_syn_output[0] : mulOp_out;
 
-    std::vector<synTensor> syn_inputs{arg1_syn_tensor.get(),
-                                      arg2_syn_tensor.get()};
+    std::vector<synTensor> syn_inputs{
+        arg1_syn_tensor.get(), arg2_syn_tensor.get()};
 
     synapse_helpers::tensor& output_syn_tensor = p_context_->syn_outputs_[0];
     std::vector<synTensor> syn_outputs{output_syn_tensor.get()};
@@ -372,8 +383,8 @@ void habana::BinaryOperatorWithAlpha::AllocateAndAddSynapseNode(
     synapse_helpers::tensor& arg2_syn_tensor =
         isArg2modified ? reshape_syn_output[0] : p_context_->syn_inputs_[1];
 
-    std::vector<synTensor> syn_inputs{arg1_syn_tensor.get(),
-                                      arg2_syn_tensor.get()};
+    std::vector<synTensor> syn_inputs{
+        arg1_syn_tensor.get(), arg2_syn_tensor.get()};
 
     synapse_helpers::tensor& output_syn_tensor = p_context_->syn_outputs_[0];
     std::vector<synTensor> syn_outputs{output_syn_tensor.get()};
@@ -398,7 +409,8 @@ void habana::BinaryWrapperOperatorWithAlpha::AllocateAndAddSynapseNode(
     bool is_output_persistent) {
   TORCH_CHECK(
       inputs.size() == 3, "Incorrect size of input expected for add operator");
-  TORCH_CHECK(inputs[0].isTensor() || inputs[1].isTensor(),
+  TORCH_CHECK(
+      inputs[0].isTensor() || inputs[1].isTensor(),
       "At least one of the inputs arg1 or arg2 expected to be a tensor");
   TORCH_CHECK(
       inputs[0].isTensor() || inputs[0].isScalar(),
@@ -411,7 +423,8 @@ void habana::BinaryWrapperOperatorWithAlpha::AllocateAndAddSynapseNode(
   BinaryOperatorWithAlpha binaryOp(
       this->p_context_->device_id_, guid_, this->scalarType_);
 
-  if (inputs[0].isTensor() && inputs[1].isTensor()) { // First 2 inputs are both tensors
+  if (inputs[0].isTensor() &&
+      inputs[1].isTensor()) { // First 2 inputs are both tensors
     auto& syn_arg1 =
         binaryOp.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
     auto& syn_arg2 =
@@ -420,7 +433,8 @@ void habana::BinaryWrapperOperatorWithAlpha::AllocateAndAddSynapseNode(
     p_context_->syn_inputs_[0] = std::move(syn_arg1);
     p_context_->syn_inputs_[1] = std::move(syn_arg2);
 
-  } else if (inputs[0].isTensor() && inputs[1].isScalar()) { // 2nd input is a scalar
+  } else if (inputs[0].isTensor() && inputs[1].isScalar()) { // 2nd input is a
+                                                             // scalar
     // add node to convert scalar to tensor
     ConstantOperator constOp(this->p_context_->device_id_, this->scalarType_);
     constOp.AllocateAndAddSynapseNode(graph, inputs, false);
@@ -448,7 +462,6 @@ void habana::BinaryWrapperOperatorWithAlpha::AllocateAndAddSynapseNode(
     inputs.emplace(inputs.cbegin(), constOp.GetOutputs()[0]);
     binaryOp.AllocateAndAddSynapseNode(graph, inputs, is_output_persistent);
     p_context_->syn_inputs_[0] = std::move(syn_arg2);
-
   }
 
   p_context_->pt_outputs_.emplace_back(binaryOp.GetOutputs()[0]);
