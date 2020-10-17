@@ -21,8 +21,11 @@ at::Tensor AtenFromHbLazyTensor(
     HbLazyTensor HbLazy_tensor,
     c10::Storage&& storage);
 at::Tensor AtenFromHbLazyTensor(HbLazyTensor HbLazy_tensor);
+at::Tensor AtenInternalHbTensor(c10::Storage&& storage);
 
 HbLazyTensorImpl* GetHbLazyTensorImpl(const at::Tensor& tensor);
+
+HbInternalTensorImpl* GetHbInternalTensorImpl(const at::Tensor& tensor);
 
 // If tensor is an HbLazy tensor type, returns the HbLazyTensor embedded within
 // it, otherwise creates a new HbLazy tensor type with tensor as data.

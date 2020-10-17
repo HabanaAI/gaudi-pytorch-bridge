@@ -22,8 +22,7 @@ caffe2::TypeMeta HbLazyTensorImpl::GetTypeMeta(const HbLazyTensor& hb_tensor) {
 // Need to check what to pass for autograd for Hb
 HbLazyTensorImpl::HbLazyTensorImpl(HbLazyTensor hb_tensor)
     : c10::TensorImpl(
-          c10::DispatchKeySet{c10::DispatchKey::HABANATensorId,
-                              c10::DispatchKey::HABANATensorId},
+          c10::DispatchKeySet{c10::DispatchKey::HABANATensorId},
           c10::scalarTypeToTypeMeta(hb_tensor.dtype()),
           c10::make_optional(hb_tensor.GetDevice())),
       m_tensor(std::move(hb_tensor)) {}
@@ -33,8 +32,7 @@ HbLazyTensorImpl::HbLazyTensorImpl(
     c10::Storage&& tensor_storage)
     : c10::TensorImpl(
           std::move(tensor_storage),
-          c10::DispatchKeySet{c10::DispatchKey::HABANATensorId,
-                              c10::DispatchKey::HABANATensorId}),
+          c10::DispatchKeySet{c10::DispatchKey::HABANATensorId}),
       m_tensor(std::move(hb_tensor)) {}
 
 void HbLazyTensorImpl::set_tensor(HbLazyTensor hb_tensor) {
@@ -42,6 +40,21 @@ void HbLazyTensorImpl::set_tensor(HbLazyTensor hb_tensor) {
 }
 
 void HbLazyTensorImpl::AtenInitialize() {
+  // ATEN specific initialization calls placed below.
+}
+
+HbInternalTensorImpl::HbInternalTensorImpl(
+    c10::Storage&& tensor_storage)
+    : c10::TensorImpl(
+          std::move(tensor_storage),
+          c10::DispatchKeySet{c10::DispatchKey::HABANATensorId}),
+      m_tensor(nullptr) {}
+
+void HbInternalTensorImpl::set_tensor(at::Tensor* t) {
+  m_tensor = t;
+}
+
+void HbInternalTensorImpl::AtenInitialize() {
   // ATEN specific initialization calls placed below.
 }
 } // namespace habana_lazy

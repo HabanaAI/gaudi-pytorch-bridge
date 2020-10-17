@@ -8,6 +8,7 @@
  ******************************************************************************
  */
 #pragma once
+#include <pthread.h>
 #include <ATen/ExpandUtils.h>
 #include <torch/script.h>
 
@@ -15,6 +16,35 @@ using namespace torch;
 using namespace at;
 
 #include "habana_kernels/unary_kernels.h"
+
+/*
+ * Helper functions to manage the tensor creation based on the execution
+ * state. The execution states are following -
+ * 1. PyTorch creates a tensor
+ *    - Create a tensor with storage, and one without storage.
+ *      From the one without storage, create a lazy tensor and from
+ *      the lazy tensor point to the internal one with storage.
+ *      Retrun the one one without storage.
+ * 2. Accumulate ops in IR graph
+ *    - Create only storage less tensors and return.
+ * 3. Lowering creates a tensor
+ *    - Create a tensor with storage and return.
+ * Since various threads may be in different states, the flags are
+ * maintained per thread.
+ *
+ * TBD: These states will be avoided when we have the following -
+ * - all lazy kernels use the shape function instead of PT kernel
+ * - the lowering kernels (HabanaOperator) do not call aten operator
+ *   directly
+ * Till then, we keep these flags to maintain the flow.
+ */
+using thread_state_map = std::unordered_map<pthread_t, bool>;
+
+void AllocateWithStorage();
+void AllocateWithoutStorage();
+void SetLoweringContext(bool ctx);
+bool CreateThreadTensorWithStorage();
+bool IsThreadInLoweringContext();
 
 Tensor& copy_hpu_lazy_(Tensor& self, const Tensor& src, bool non_blocking);
 Tensor as_strided_hpu_lazy(

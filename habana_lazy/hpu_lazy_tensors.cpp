@@ -10,6 +10,8 @@
 #include "hpu_lazy_tensors.h"
 #include <ATen/Tensor.h>
 #include <torch/csrc/jit/ir/ir.h>
+#include "habana_bridge/kernel/hpu_habana_launch_op_pt.h"
+#include "hlexec.h"
 #include "habana_helpers/tensor_utils.h"
 #include "hlexec.h"
 
@@ -374,9 +376,9 @@ void HbLazyTensor::SyncTensorsGraphInternal(
   size_t i = 0;
   for (const torch::IValue& v : stack) {
     auto st = v.toTensor();
-    auto sync_tensor = (*tensors)[i++].CurrentTensorData();
-    c10::DataPtr ptr{st.storage().data(), st.device()};
-    sync_tensor->storage().set_data_ptr(std::move(ptr));
+
+    auto out_tensor = (*tensors)[i++];
+    out_tensor.SetTensorData(st);
   }
   HABANA_ASSERT(stack.size() == (*tensors).size());
 }

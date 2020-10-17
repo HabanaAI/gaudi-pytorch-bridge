@@ -157,7 +157,6 @@ TEST_F(LazyKernelTest, AddMmTest) {
                "  %5 = aten::addmm(%4, %3, %2, %1, %0), ROOT=0\n"
                "}"),
       !std::string::npos);
-  unsetenv("PT_HPU_LAZY_MODE");
   std::vector<HbLazyTensor> tensors = {GetHbLazyTensor(O)};
   HbLazyTensor::SyncTensorsGraph(&tensors, {});
 
@@ -165,6 +164,7 @@ TEST_F(LazyKernelTest, AddMmTest) {
   auto expected = torch::addmm(A, B, C, 1, 1);
 
   EXPECT_EQ(allclose(expected, computed), true);
+  unsetenv("PT_HPU_LAZY_MODE");
 }
 
 TEST_F(LazyKernelTest, CatTest) {

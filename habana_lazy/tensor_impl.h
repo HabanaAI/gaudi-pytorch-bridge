@@ -40,4 +40,18 @@ class HbLazyTensorImpl : public c10::TensorImpl {
   HbLazyTensor m_tensor;
 };
 
+// Habana internal TensorImpl
+class HbInternalTensorImpl : public c10::TensorImpl {
+ public:
+  HbInternalTensorImpl(c10::Storage&& tensor_storage);
+  at::Tensor* tensor() {
+    return m_tensor;
+  }
+  void set_tensor(at::Tensor* t);
+  static void AtenInitialize();
+  caffe2::TypeMeta GetTypeMeta(const at::Tensor& t);
+
+ private:
+   at::Tensor* m_tensor;
+};
 } // namespace habana_lazy

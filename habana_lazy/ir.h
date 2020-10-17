@@ -142,6 +142,10 @@ class Node {
     m_is_visited = true;
   }
 
+  void MarkNotVisited() {
+    m_is_visited = false;
+  }
+
   const ValueList GetOutputs() const {
     return m_outputs;
   }

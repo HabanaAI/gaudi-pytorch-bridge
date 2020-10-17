@@ -26,6 +26,26 @@
 
 namespace synapse_helpers {
 
+/**
+ * These will be removed when all lazy kernels start using shape functions.
+ */
+static syn_helper_thread_state_map threadInLoweringContextSynHelper({{pthread_self(), false}});
+
+void SetSynHelperLoweringContext(bool ctx) {
+  threadInLoweringContextSynHelper[pthread_self()] = ctx;
+}
+
+bool IsThreadInLoweringContext() {
+  auto ptid = pthread_self();
+  if (threadInLoweringContextSynHelper.find(ptid) == threadInLoweringContextSynHelper.end()) {
+    threadInLoweringContextSynHelper[ptid] = false;
+  }
+  return threadInLoweringContextSynHelper[ptid];
+}
+/**
+ * END: These will be removed when all lazy kernels start using shape functions.
+ */
+
 // Since computation on stream is asynchronous, in order to share workspace
 // buffer, it has to be fixed in size otherwise, there need to be implemented
 // mechanism to adjust its size at runtime, but that would require an explcit

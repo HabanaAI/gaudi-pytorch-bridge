@@ -49,6 +49,13 @@ at::Tensor AtenFromHbLazyTensor(HbLazyTensor HbLazy_tensor) {
   return tensor;
 }
 
+at::Tensor AtenInternalHbTensor(c10::Storage&& storage) {
+  at::Tensor tensor
+    = at::Tensor(
+          c10::make_intrusive<HbInternalTensorImpl>(std::move(storage)));
+  return tensor;
+}
+
 HbLazyTensorImpl* GetHbLazyTensorImpl(const at::Tensor& tensor) {
   return dynamic_cast<HbLazyTensorImpl*>(tensor.unsafeGetTensorImpl());
 }
@@ -61,10 +68,15 @@ c10::optional<HbLazyTensor> TryGetHbLazyTensor(const at::Tensor& tensor) {
   return impl->tensor();
 }
 
+HbInternalTensorImpl* GetHbInternalTensorImpl(const at::Tensor& tensor) {
+  return dynamic_cast<HbInternalTensorImpl*>(tensor.unsafeGetTensorImpl());
+}
+
 void setTensorAsInputNode(HbLazyTensor hl_tensor) {
   if (!hl_tensor.CurrentIrValue()) {
     ir::Value val = hl_tensor.createIrValueFromData();
-    auto node = ir::Node::Create(c10::Symbol::fromQualString("hpu::input"), {});
+    auto node = ir::Node::Create(
+        c10::Symbol::fromQualString("hpu::input"), {});
     val.SetNode(node);
     hl_tensor.AssignIrValue(val);
   } else {

@@ -7,6 +7,7 @@
  *
  ******************************************************************************
  */
+#include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_operator.h"
 #include "habana_kernels/kernel_utils.h"
 
@@ -41,7 +42,7 @@ const at::IntArrayRef& habana::HabanaOperator::getPermuteOrder(
 }
 
 void habana::HabanaOperator::Compile(synapse_helpers::graph& graph) {
-  if (std::getenv("PT_HPU_LAZY_MODE")) {
+  if (!IsThreadInLoweringContext() && std::getenv("PT_HPU_LAZY_MODE")) {
     // Lazy mode shape inference call, early return without execution
     return;
   }

@@ -19,6 +19,7 @@
 #include "habana_helpers/graph.h"
 #include "habana_helpers/tensor_utils.h"
 #include "habana_kernels/kernel_utils.h"
+#include "synapse_helpers/util.h"
 
 using namespace torch;
 /*************************************************************************
@@ -440,7 +441,7 @@ synapse_helpers::tensor habana_helpers::create_tensor(
     bool persistent,
     int devid,
     const c10::ScalarType dtype) {
-  if (std::getenv("PT_HPU_LAZY_MODE")) {
+  if (!synapse_helpers::IsThreadInLoweringContext() && std::getenv("PT_HPU_LAZY_MODE")) {
     // Lazy mode shape inference call, just create a placeholder tensor
     return synapse_helpers::tensor::create_placeholder(devid);
   }
@@ -457,7 +458,7 @@ synapse_helpers::tensor habana_helpers::create_tensor(
     const synGraphHandle graph,
     bool persistent,
     const c10::optional<c10::ScalarType> dtype) {
-  if (std::getenv("PT_HPU_LAZY_MODE")) {
+  if (!synapse_helpers::IsThreadInLoweringContext() && std::getenv("PT_HPU_LAZY_MODE")) {
     // Lazy mode shape inference call, just create a placeholder tensor
     return synapse_helpers::tensor::create_placeholder(tensor.device().index());
   }
@@ -518,7 +519,7 @@ habana_helpers::create_tensors(
 
 synapse_helpers::tensor habana_helpers::duplicate_tensor_in_memory_section(
     const synapse_helpers::tensor& tensor) {
-  if (std::getenv("PT_HPU_LAZY_MODE")) {
+  if (!synapse_helpers::IsThreadInLoweringContext() && std::getenv("PT_HPU_LAZY_MODE")) {
     // Lazy mode shape inference call, just create a placeholder tensor
     return synapse_helpers::tensor::create_placeholder(tensor.device_id());
   }

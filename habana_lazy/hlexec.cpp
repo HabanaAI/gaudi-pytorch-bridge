@@ -8,6 +8,9 @@
  ******************************************************************************
  */
 
+#include "habana_bridge/kernel/hpu_habana_launch_op_pt.h"
+#include "habana_kernels/lazy_kernels_declarations.h"
+#include "ops/constant.h"
 #include "hlexec.h"
 #include "habana_bridge/kernel/hpu_habana_launch_op_pt.h"
 #include "ops/constant.h"
@@ -41,6 +44,18 @@ void HlExec::Bind(const HabanaLazyTensorPtrList& inputs) {
     }
   }
 #endif
+}
+
+void HlExec::Launch(torch::jit::Stack& stack) {
+  auto prev_storage_setting = CreateThreadTensorWithStorage();
+  AllocateWithStorage();
+  SetLoweringContext(true);
+  HabanaLaunchOpPT launch{mp_g_, false};
+  launch.run(stack);
+  SetLoweringContext(false);
+  if (!prev_storage_setting) {
+    AllocateWithoutStorage();
+  }
 }
 
 /*
@@ -135,11 +150,6 @@ std::tuple<LazyValueToJitValueMap, LazyValueToJitValueMap> HlExec::Create(
   }
 
   return std::make_tuple(input_map, output_map);
-}
-
-void HlExec::Launch(torch::jit::Stack& stack) {
-  HabanaLaunchOpPT launch{mp_g_, false};
-  launch.run(stack);
 }
 
 } // namespace exec

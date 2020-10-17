@@ -112,7 +112,6 @@ class HbLazyTensor {
   // operations. All the tensors must be on the same device.
   // static std::vector<at::Tensor> GetTensors(std::vector<HbLazyTensor>*
   // tensors);
-
   static HbLazyTensor CreateHbLazyTensor(
       c10::IntArrayRef size,
       at::Scalar fill_value,

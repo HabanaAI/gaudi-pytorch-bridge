@@ -9,6 +9,9 @@
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/ir.h"
 #include "habana_lazy/ir_utils.h"
+#include "habana_kernels/lazy_kernels_declarations.h"
+#include "habana_kernels/wrap_kernels_declarations.h"
+#include "habana_lazy/hlexec.h"
 
 using namespace habana_lazy;
 
@@ -17,13 +20,22 @@ using namespace habana_lazy;
  */
 TEST(LazyJITTest, CreateGraph) {
   setenv("PT_HPU_LAZY_MODE", "1", 1);
-  torch::Tensor tensor_in1 = torch::randn({2, 3}).to(torch::kHABANA);
-  torch::Tensor tensor_in2 = torch::randn({2, 3}).to(torch::kHABANA);
-  Scalar alpha = 4.0f, beta = 99.5f;
-  auto result = add_tensor_hpu_lazy(tensor_in1, tensor_in2, alpha);
+  torch::Tensor tensor_in1_cpu = torch::randn({2, 3});
+  torch::Tensor tensor_in2_cpu = torch::randn({2, 3});
 
-  torch::Tensor tensor_in3 = torch::randn({2, 3}).to(torch::kHABANA);
-  auto result2 = add_tensor_hpu_lazy(result, tensor_in3, beta);
+  torch::Tensor tensor_in1 = tensor_in1_cpu.to(torch::kHABANA);
+  torch::Tensor tensor_in2 = tensor_in2_cpu.to(torch::kHABANA);
+
+  print(tensor_in1_cpu);
+  print(tensor_in2_cpu);
+
+  Scalar alpha = 4.0f, beta = 99.5f;
+  auto result = add_tensor_hpu_wrap(tensor_in1, tensor_in2, alpha);
+  // auto result = torch::add(tensor_in1, tensor_in2);
+
+  // torch::Tensor tensor_in3 = torch::randn({2, 3}).to(torch::kHABANA);
+  auto result2 = add_tensor_hpu_wrap(result, tensor_in2, beta);
+  // auto result2 = torch::add(result, tensor_in2);
   auto hl_result = GetHbLazyTensor(result2);
 
   std::vector<HbLazyTensor> tensors = {hl_result};
@@ -40,6 +52,10 @@ TEST(LazyJITTest, CreateGraph) {
       ->check("prim::Constant[value=4.]")
       ->check_count("aten::add", 2)
       ->run(*hlexec->get_graph());
+
+  auto result2_cpu = result2.to(torch::kCPU);
+  print(result2_cpu);
+  unsetenv("PT_HPU_LAZY_MODE");
 }
 
 TEST(LazyJITTest, ExecuteGraph) {
@@ -52,9 +68,8 @@ TEST(LazyJITTest, ExecuteGraph) {
   setenv("PT_HPU_LAZY_MODE", "1", 1);
   torch::Tensor htensor_in1 = tensor_in1.to(torch::kHABANA);
   torch::Tensor htensor_in2 = tensor_in2.to(torch::kHABANA);
-  auto result1 = add_tensor_hpu_lazy(htensor_in1, htensor_in2, alpha);
-  auto result2 = add_tensor_hpu_lazy(result1, htensor_in1, alpha);
-  unsetenv("PT_HPU_LAZY_MODE");
+  auto result1 = add_tensor_hpu_wrap(htensor_in1, htensor_in2, alpha);
+  auto result2 = add_tensor_hpu_wrap(result1, htensor_in1, alpha);
 
   std::vector<HbLazyTensor> tensors = {GetHbLazyTensor(result1),
                                        GetHbLazyTensor(result2)};
@@ -65,6 +80,7 @@ TEST(LazyJITTest, ExecuteGraph) {
 
   EXPECT_EQ(allclose(out1, exp1), true);
   EXPECT_EQ(allclose(out2, exp2), true);
+  unsetenv("PT_HPU_LAZY_MODE");
 }
 
 TEST(LazyJITTest, ExecuteGraphCustomSgd) {
@@ -98,7 +114,6 @@ TEST(LazyJITTest, ExecuteGraphCustomSgd) {
   torch::Tensor out1, out2;
   std::tie(out1, out2) = optimizer_sparse_sgd_with_valid_count_hpu_wrap(
       hgrad, hwts, hmoments, hindices, hlr, hvalid_cnt, 0.1, false);
-  unsetenv("PT_HPU_LAZY_MODE");
 
   std::vector<HbLazyTensor> tensors = {GetHbLazyTensor(out1),
                                        GetHbLazyTensor(out2)};
@@ -108,6 +123,7 @@ TEST(LazyJITTest, ExecuteGraphCustomSgd) {
   Tensor result2 = out2.to(kCPU);
   EXPECT_EQ(allclose(result1, result1_eager), true);
   EXPECT_EQ(allclose(result2, result2_eager), true);
+  unsetenv("PT_HPU_LAZY_MODE");
 }
 
 TEST(LazyJITTest, ExecuteGraphCustomAdagrad) {
@@ -139,7 +155,6 @@ TEST(LazyJITTest, ExecuteGraphCustomAdagrad) {
   torch::Tensor out1, out2;
   std::tie(out1, out2) = optimizer_sparse_adagrad_with_valid_count_hpu_wrap(
       hgrad, hwts, hmoments, hindices, hlr, hvalid_cnt);
-  unsetenv("PT_HPU_LAZY_MODE");
 
   std::vector<HbLazyTensor> tensors = {GetHbLazyTensor(out1),
                                        GetHbLazyTensor(out2)};
@@ -149,4 +164,5 @@ TEST(LazyJITTest, ExecuteGraphCustomAdagrad) {
   Tensor result2 = out2.to(kCPU);
   EXPECT_EQ(allclose(result1, result1_eager), true);
   EXPECT_EQ(allclose(result2, result2_eager), true);
+  unsetenv("PT_HPU_LAZY_MODE");
 }

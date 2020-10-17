@@ -108,6 +108,16 @@ void Utils::ComputePostOrderInputs(
       } // for (auto val : p_node->GetInputs())
     } //  if (str.find(sub_str) == std::string::npos)
   } // for (auto p_node : post_order)
+
+  // Mark all nodes as not visited as they be used in a post order
+  // graph creation later again.
+  for (auto p_node : post_order) {
+      // check if its operands are inputs
+      for (auto val : p_node->GetInputs()) {
+        val.mp_node->MarkNotVisited();
+      }
+  }
+  
 } // ComputePostOrderInputs()
 
 } // namespace ir
