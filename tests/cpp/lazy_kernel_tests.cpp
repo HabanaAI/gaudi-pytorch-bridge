@@ -83,7 +83,7 @@ TEST(LazyKernelTest, ConvReluTest) {
       out_string.find("IR {\n"
                       "  %0 = hpu::input()\n"
                       "  %1 = hpu::input()\n"
-                      "  %2 = aten::convolution_overidable(%1, %0)\n"
+                      "  %2 = aten::convolution_overidable(%1, %0), stride=[1, 1], padding=[0, 0], dilation=[1, 1], transposed=False, output_padding=[0, 0], groups=1\n"
                       "  %3 = aten::relu(%2), ROOT=0\n"
                       "}"),
       0);

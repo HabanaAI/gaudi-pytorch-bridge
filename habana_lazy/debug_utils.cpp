@@ -25,17 +25,19 @@ struct AttrTag {
   std::string::size_type pos;
 };
 
-/*std::string::size_type SkipTagSeparator(const std::string& node_string,
-                                        std::string::size_type pos) {
+std::string::size_type SkipTagSeparator(
+    const std::string& node_string,
+    std::string::size_type pos) {
   return node_string.compare(pos, 2, ", ") == 0 ? pos + 2 : pos;
-}*/
+}
 
-/*absl::optional<AttrTag> ParseAttrTag(const std::string& node_string,
-                                     std::string::size_type pos) {
+absl::optional<AttrTag> ParseAttrTag(
+    const std::string& node_string,
+    std::string::size_type pos) {
   const std::regex tag_regex("^([a-zA-Z0-9_]+)=");
   std::smatch match;
-  if (!std::regex_search(node_string.begin() + pos, node_string.end(), match,
-                         tag_regex)) {
+  if (!std::regex_search(
+          node_string.begin() + pos, node_string.end(), match, tag_regex)) {
     return absl::nullopt;
   }
 
@@ -77,7 +79,7 @@ struct AttrTag {
   tag.value = node_string.substr(vpos, pos - vpos);
   tag.pos = pos;
   return tag;
-}*/
+}
 
 NodeIdMap GenerateIdMap(std::vector<ir::NodePtr> post_order) {
   NodeIdMap id_map;
@@ -87,7 +89,8 @@ NodeIdMap GenerateIdMap(std::vector<ir::NodePtr> post_order) {
   return id_map;
 }
 
-std::unordered_map<ir::NodePtr, size_t> GetRootsIds(std::vector<ir::NodePtr> roots) {
+std::unordered_map<ir::NodePtr, size_t> GetRootsIds(
+    std::vector<ir::NodePtr> roots) {
   std::unordered_map<ir::NodePtr, size_t> roots_ids;
   for (size_t i = 0; i < roots.size(); ++i) {
     roots_ids[roots[i]] = i;
@@ -105,39 +108,36 @@ absl::optional<size_t> GetRootNodeId(
   return it->second;
 }
 
-/*std::vector<AttrTag> GetNodeTags(ir::NodePtr node) {
+std::vector<AttrTag> GetNodeTags(ir::NodePtr node) {
   std::string node_string = node->ToString();
-  std::string op_string = node->op().toQualString();
-  std::string::size_type pos = node_string.find(op_string);
-  //CHECK_NE(pos, std::string::npos) << node_string << " : " << op_string;
-  pos += op_string.size();
+  std::string::size_type pos = node_string.find("\n");
   std::vector<AttrTag> tags;
   for (;;) {
-    pos = SkipTagSeparator(node_string, pos);
+    pos = SkipTagSeparator(node_string, pos + 1);
     auto tag = ParseAttrTag(node_string, pos);
     if (!tag) {
       break;
     }
-    pos = tag->pos;
+    pos = tag->pos - 1;
     tags.push_back(std::move(*tag));
   }
   return tags;
-}*/
+}
 
 std::string GenerateDotNodeLabel(
     ir::NodePtr node,
     std::unordered_map<ir::NodePtr, size_t>& roots_ids) {
-  // static const size_t kMaxValueSize = 64;
+  static const size_t kMaxValueSize = 64;
   std::stringstream ss;
   ss << node->op().toQualString() << "\\n" /*<< node->shape()*/;
-  /*for (auto& tag : GetNodeTags(node)) {
+  for (auto& tag : GetNodeTags(node)) {
     ss << "\\n" << tag.name << "=";
     if (tag.value.size() < kMaxValueSize) {
       ss << tag.value;
     } else {
       ss << tag.value.substr(0, kMaxValueSize) << "...";
     }
-  }*/
+  }
   auto opt_root_id = GetRootNodeId(node, roots_ids);
   if (opt_root_id) {
     ss << "\\nROOT=" << *opt_root_id;
@@ -168,9 +168,9 @@ std::string GenerateTextNodeSpec(ir::NodePtr node, NodeIdMap& id_map) {
     ++count;
   }
   ss << ")";
-  /*for (auto& tag : GetNodeTags(node)) {
+  for (auto& tag : GetNodeTags(node)) {
     ss << ", " << tag.name << "=" << tag.value;
-  }*/
+  }
   return ss.str();
 }
 

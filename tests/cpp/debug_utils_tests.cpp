@@ -34,7 +34,7 @@ TEST_F(DebugUtilsTest, GraphTextDump1) {
   auto out_string = IrGraphDumpUtil::ToText(a);
   EXPECT_EQ(
       out_string.find("IR {\n"
-                      "  %0 = prim::constant()\n"
+                      "  %0 = prim::constant(), value=4.\n"
                       "  %1 = hpu::input()\n"
                       "  %2 = hpu::input()\n"
                       "  %3 = aten::add(%2, %1, %0)\n"
@@ -59,7 +59,7 @@ TEST_F(DebugUtilsTest, GraphDotDump1) {
   auto out_string = IrGraphDumpUtil::ToDot(a);
   EXPECT_EQ(
       out_string.find("digraph G {\n"
-                      "  node0 [label=\"prim::constant\\n\"]\n"
+                      "  node0 [label=\"prim::constant\\n\\nvalue=4.\"]\n"
                       "  node1 [label=\"hpu::input\\n\"]\n"
                       "  node2 [label=\"hpu::input\\n\"]\n"
                       "  node3 [label=\"aten::add\\n\"]\n"
