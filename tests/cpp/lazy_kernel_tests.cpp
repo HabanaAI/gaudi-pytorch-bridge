@@ -151,3 +151,42 @@ TEST(LazyKernelTest, CatTest) {
       ->run(*exec.get_graph());
   unsetenv("PT_HPU_LAZY_MODE");
 }
+
+TEST(LazyKernelTest, ConvMaxPoolTest) {
+  setenv("PT_HPU_LAZY_MODE", "1", 1);
+  auto input_tensor = torch::arange(48, torch::dtype(torch::kFloat).requires_grad(false))
+                          .reshape({1, 3, 4, 4}); //nchw
+  torch::Tensor tHabanaX = input_tensor.to(torch::kHABANA);
+
+  auto weight_tensor = torch::arange(27, torch::dtype(torch::kFloat).requires_grad(false))
+                          .reshape({3, 3, 3, 1}); // hwck
+  torch::Tensor tHabanaW = weight_tensor.to(torch::kHABANA);
+
+  auto bias_tensor = torch::arange(1, torch::dtype(torch::kFloat).requires_grad(false))
+                          .reshape({1, 1, 1, 1});
+  torch::Tensor tHabanaB = bias_tensor.to(torch::kHABANA);
+
+  torch::Tensor outConv = torch::conv2d(tHabanaX, tHabanaW, {}, 1, 0, 1, 1);
+  torch::Tensor outHabana = torch::max_pool2d(outConv, 2, 1);
+
+  //Match lazy IR graph
+  auto hl_result = std::make_shared<HbLazyTensor>(GetHbLazyTensor(outHabana));
+  auto ir_value = hl_result->CurrentIrValue();
+  std::vector<ir::NodePtr> a{ir_value.mp_node};
+  auto out_string = IrGraphDumpUtil::ToText(a);
+
+  EXPECT_EQ(
+      out_string.find("IR {\n"
+                      "  %0 = hpu::input()\n"
+                      "  %1 = hpu::input()\n"
+                      "  %2 = aten::convolution_overidable(%1, %0), stride=[1, 1], padding=[0, 0], dilation=[1, 1], transposed=False, output_padding=[0, 0], groups=1\n"
+                      "  %3 = aten::maxpool2d_overidable(%2), kernel_size=[2], stride=[1], padding=[0], dilation=[1], transposed=[0], ROOT=0\n"
+                      "}"),
+      0);
+
+  // Match expectd output Size&Data
+  auto expected = torch::tensor({11952}, torch::kFloat);
+  EXPECT_EQ(outHabana.sizes(), expected.view({1, 1, 1, 1}).sizes());
+  //ASSERT_TRUE(torch::allclose(outHabana.to(torch::kCPU), expected));
+  unsetenv("PT_HPU_LAZY_MODE");
+}

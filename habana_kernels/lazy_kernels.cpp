@@ -10,6 +10,7 @@
 
 #include "habana_kernels/binary_kernels.h"
 #include "habana_kernels/conv_kernels.h"
+#include "habana_kernels/pool_kernels.h"
 #include "habana_kernels/eager_kernels_declarations.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_kernels/linear_kernels.h"
@@ -17,6 +18,7 @@
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/ops/cat.h"
 #include "habana_lazy/ops/convolution.h"
+#include "habana_lazy/ops/pool.h"
 #include "pytorch_helpers/habana_device/HPUAllocator.h"
 
 // calling eager mode kernels as a temporary placeholder to avoid warnings
@@ -293,13 +295,23 @@ Tensor convolution_hpu_lazy(
           groups);
 
   // shape inference
-  auto shape_out = ConvOperator::compute_output_shape(
-      input.sizes().vec(),
+  // convert tensors to synapse memory format nchw to nhwc
+  std::vector<int64_t> ipsize_nhwc = {input.sizes().vec().at(0),
+                                      input.sizes().vec().at(2),
+                                      input.sizes().vec().at(3),
+                                      input.sizes().vec().at(1)};
+  auto opsize_nhwc = ConvOperator::compute_output_shape(
+      ipsize_nhwc,
       weight.sizes().vec(),
-      IValue(padding).toIntList().vec(),
-      IValue(stride).toIntList().vec(),
+      padding.vec(),
+      stride.vec(),
       false,
       input.suggest_memory_format());
+  // convert from synapse memory format nhwc to nchw
+  std::vector<int64_t> shape_out = {opsize_nhwc.at(0),
+                                    opsize_nhwc.at(3),
+                                    opsize_nhwc.at(1),
+                                    opsize_nhwc.at(2)};
 
   auto result = at::native::empty_hpu_lazy(
       shape_out, input.options(), input.suggest_memory_format());
@@ -691,8 +703,39 @@ std::tuple<Tensor, Tensor> max_pool2d_with_indices_hpu_lazy(
     IntArrayRef padding,
     IntArrayRef dilation,
     bool ceil_mode) {
-  return max_pool2d_with_indices_hpu(
-      input, kernel_size, stride, padding, dilation, ceil_mode);
+  habana_lazy::ir::NodePtr maxpool_node = std::make_shared<habana_lazy::ir::MaxPool>(
+      input,
+      kernel_size,
+      stride,
+      padding,
+      dilation,
+      ceil_mode);
+
+  // shaper inferrence
+  auto shape_out = PoolHelper::compute_output_shape(input, kernel_size,
+                          stride, padding, dilation, ceil_mode, false);
+
+  // allocate Output_0 storage
+  auto result_0 = at::native::empty_hpu_lazy(shape_out, input.options(), input.suggest_memory_format());
+  auto hlresult_0 = habana_lazy::GetHbLazyTensor(result_0);
+  habana_lazy::ir::Value& out_0 = hlresult_0.CurrentIrValue();
+  out_0.m_index = 0;
+  out_0.SetNode(maxpool_node);
+
+  // allocate Output_1 storage
+  auto type = kByte;
+  if (input.scalar_type() == c10::ScalarType::BFloat16) {
+    type = kShort;
+  }
+  auto result_1 = at::native::empty_hpu_lazy(shape_out,
+                              input.options().dtype(type),
+                              input.suggest_memory_format());
+  auto hlresult_1 = habana_lazy::GetHbLazyTensor(result_1);
+  habana_lazy::ir::Value& out_1 = hlresult_1.CurrentIrValue();
+  out_1.m_index = 1;
+  out_1.SetNode(maxpool_node);
+
+  return {result_0, result_1};
 };
 Tensor& max_pool2d_with_indices_backward_out_hpu_lazy(
     Tensor& grad_input,
