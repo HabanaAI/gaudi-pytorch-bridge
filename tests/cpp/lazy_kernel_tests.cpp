@@ -93,7 +93,9 @@ TEST(LazyKernelTest, ConvReluTest) {
   EXPECT_EQ(outHabana.sizes(), expected.view({1, 1, 1, 1}).sizes());
   // ASSERT_TRUE(torch::allclose(outHabana.to(torch::kCPU), expected));
   unsetenv("PT_HPU_LAZY_MODE");
-}TEST(LazyKernelTest, MmMulTest) {
+}
+
+TEST(LazyKernelTest, MmMulTest) {
   setenv("PT_HPU_LAZY_MODE", "1", 1);
   auto x = torch::randn({2, 3});
   auto y = torch::randn({3, 3});
@@ -104,7 +106,7 @@ TEST(LazyKernelTest, ConvReluTest) {
 
   auto hy_exp = torch::mm(hx, hy);
   auto hz_exp = torch::mul(hy_exp, hz);
-  //Match lazy IR graph
+  // Match lazy IR graph
   auto hl_result = std::make_shared<HbLazyTensor>(GetHbLazyTensor(hz_exp));
   auto ir_value = hl_result->CurrentIrValue();
   std::vector<ir::NodePtr> a{ir_value.mp_node};
@@ -121,6 +123,31 @@ TEST(LazyKernelTest, ConvReluTest) {
       0);
 
   // Match expectd output
-  //ASSERT_TRUE(torch::allclose(hz_exp, hz_exp));
+  // ASSERT_TRUE(torch::allclose(hz_exp, hz_exp));
+  unsetenv("PT_HPU_LAZY_MODE");
+}
+
+TEST(LazyKernelTest, CatTest) {
+  setenv("PT_HPU_LAZY_MODE", "1", 1);
+  torch::Tensor A = torch::randn({2, 2}, torch::requires_grad(false));
+  torch::Tensor B = torch::randn({2, 2}, torch::requires_grad(false));
+  torch::Tensor C = torch::randn({2, 2}, torch::requires_grad(false));
+  torch::Tensor hA = A.to(torch::kHABANA);
+  torch::Tensor hB = B.to(torch::kHABANA);
+  torch::Tensor hC = C.to(torch::kHABANA);
+  torch::Tensor out = torch::cat({hA, hB, hC});
+
+  auto hl_result = GetHbLazyTensor(out);
+  std::vector<HbLazyTensor> tensors = {hl_result};
+  std::vector<int> indices = {0};
+  auto po_data = HbLazyTensor::RunPostOrder(tensors, indices);
+
+  auto exec = habana_lazy::exec::HlExec();
+  exec.Create(po_data.post_order, po_data.inputs, po_data.outputs);
+  torch::jit::testing::FileCheck()
+      .check("Tensor[] = prim::ListConstruct")
+      ->check("int = prim::Constant[value=0]")
+      ->check("Tensor = aten::cat")
+      ->run(*exec.get_graph());
   unsetenv("PT_HPU_LAZY_MODE");
 }

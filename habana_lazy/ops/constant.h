@@ -47,5 +47,15 @@ class Constant : public Node {
 
 using ScalarConstant = Constant<c10::Scalar>;
 
+class ListConstruct : public Node {
+ public:
+  ListConstruct() = delete;
+  ListConstruct(const ir::ValueList values)
+      : Node(c10::Symbol::fromQualString("prim::ListConstruct")) {
+    for (auto& v : values) {
+      AddInput(v);
+    }
+  }
+};
 } // namespace ir
-}; // namespace habana_lazy
+} // namespace habana_lazy

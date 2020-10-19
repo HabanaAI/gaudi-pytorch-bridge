@@ -49,4 +49,6 @@ at::Tensor CreateHbLazyTensor(
     at::Tensor tensor,
     const c10::optional<at::Device>& device);
 c10::optional<at::Device> GetHblazyDevice(const at::Tensor& tensor);
+
+ir::Value GetIrValueForListConstruct(const ir::ValueList values);
 } // namespace habana_lazy

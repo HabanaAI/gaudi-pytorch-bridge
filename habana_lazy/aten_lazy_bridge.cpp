@@ -64,8 +64,7 @@ c10::optional<HbLazyTensor> TryGetHbLazyTensor(const at::Tensor& tensor) {
 void setTensorAsInputNode(HbLazyTensor hl_tensor) {
   if (!hl_tensor.CurrentIrValue()) {
     ir::Value val;
-    auto node = ir::Node::Create(
-        c10::Symbol::fromQualString("hpu::input"), {});
+    auto node = ir::Node::Create(c10::Symbol::fromQualString("hpu::input"), {});
     val.SetNode(node);
     hl_tensor.AssignIrValue(val);
   } else {
@@ -141,6 +140,10 @@ c10::optional<at::Device> GetHblazyDevice(const at::Tensor& tensor) {
     return c10::nullopt;
   }
   return hb_tensor->GetDevice();
+}
+
+ir::Value GetIrValueForListConstruct(const ir::ValueList values) {
+  return ir::Value(std::make_shared<ir::ListConstruct>(values));
 }
 
 } // namespace habana_lazy

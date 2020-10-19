@@ -115,6 +115,11 @@ std::tuple<LazyValueToJitValueMap, LazyValueToJitValueMap> HlExec::Create(
       at::ArrayRef<JitValue*> args(node_inputs);
       auto jit_node = mp_g_->create(node->op(), args, node->GetNumOutputs());
       mp_g_->insertNode(jit_node);
+
+      if (c10::Symbol::fromQualString("prim::ListConstruct") == node->op()) {
+        jit_node->output()->setType(torch::jit::ListType::ofTensors());
+      }
+
       auto jit_outputs = jit_node->outputs();
       int i = 0;
       for (const auto jit_output : jit_outputs) {
