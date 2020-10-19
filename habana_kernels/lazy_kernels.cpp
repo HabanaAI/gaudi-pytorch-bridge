@@ -10,10 +10,10 @@
 
 #include "habana_kernels/binary_kernels.h"
 #include "habana_kernels/conv_kernels.h"
-#include "habana_kernels/pool_kernels.h"
 #include "habana_kernels/eager_kernels_declarations.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_kernels/linear_kernels.h"
+#include "habana_kernels/pool_kernels.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/ops/cat.h"
@@ -57,7 +57,8 @@ void SetLoweringContext(bool ctx) {
 
 bool CreateThreadTensorWithStorage() {
   auto ptid = pthread_self();
-  if (threadTensorCreateWithStorage.find(ptid) == threadTensorCreateWithStorage.end()) {
+  if (threadTensorCreateWithStorage.find(ptid) ==
+      threadTensorCreateWithStorage.end()) {
     threadTensorCreateWithStorage[ptid] = true;
   }
   return threadTensorCreateWithStorage[ptid];
@@ -72,6 +73,118 @@ bool IsThreadInLoweringContext() {
 }
 
 #include "habana_lazy/ops/optimizer_sparse_sgd_with_valid_count.h"
+at::Tensor preProcessIfLongorDouble(
+    const at::Tensor& src,
+    const at::Tensor& dst,
+    bool& processed) {
+  at::Tensor processed_tensor_cpu;
+  c10::ScalarType old_type = src.scalar_type();
+  // We need to cast data on CPU before copying if there is some unsupported
+  // type
+  if (src.scalar_type() == c10::ScalarType::Long) {
+    processed_tensor_cpu = src.to(c10::ScalarType::Int);
+    processed = true;
+    old_type = c10::ScalarType::Long;
+  } else if (src.scalar_type() == c10::ScalarType::Double) {
+    processed_tensor_cpu = src.to(c10::ScalarType::Float);
+    processed = true;
+    old_type = c10::ScalarType::Double;
+  }
+  if (processed) {
+    auto hl_tensor = habana_lazy::GetOrCreateHbLazyTensor(dst, dst.device());
+    hl_tensor.setTensorOriginalType(old_type);
+  }
+  return processed_tensor_cpu;
+}
+
+Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
+  // We need to add device to device copy kernel here
+  // As d2D copies may not mean trigger execution, we just need to add the
+  // nodes like cast to our lazy graph that we are creating
+  habana_lazy::HbLazyTensor hb_tensor =
+      habana_lazy::GetOrCreateHbLazyTensor(src, src.device());
+  // TODO : we can give a more detailed cast info in node name later
+  // Will need to move the name generation in a utility(will need to
+  // modify kernel too, not touching right now)
+  auto node = habana_lazy::ir::Node::Create(
+      Symbol::fromQualString("aten::cast"), {hb_tensor.GetIrValue()});
+  self = habana_helpers::hpu_cast_tensor(src, self.dtype());
+  auto hlresult = habana_lazy::GetHbLazyTensor(self);
+  habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+  return self;
+}
+
+Tensor& copy_hpu_lazy_D2H(Tensor& self, const Tensor& src, bool non_blocking) {
+  // If src is a lazy tensor make sure the execution till the point of src
+  // getting flled has finished before we start copying
+  if (habana_lazy::IsHbLazyTensor(src)) {
+    habana_lazy::HbLazyTensor hb_tensor =
+        habana_lazy::GetOrCreateHbLazyTensor(src, src.device());
+    auto tensor_data = hb_tensor.GetHbLazyTensorData();
+
+    TORCH_CHECK(
+        tensor_data, "Trying to copy from lazy tensor with no backend memory");
+    auto type = hb_tensor.getTensorOriginalType();
+    // This path is disabled for now, when we return back from Habana to
+    // CPU we can check if the original tensor was long/double , if soe we
+    // can upscale it and send it back. For now we just send the 32bit
+    // tensor that Habana holds
+
+    if (type != typeMetaToScalarType(src.dtype())) {
+      // If we need to upscale the CPU tensor using the .to for now
+      // It rebinds the self reference to the new tensor
+      // We need to check the memory deletion of the original tensor created by
+      // PT
+      self = copy_hpu_(self, tensor_data.value(), non_blocking);
+      self = self.to(type);
+    } else {
+      self = copy_hpu_(self, tensor_data.value(), non_blocking);
+    }
+    self = habana_lazy::CreateHbLazyTensor(
+        self, habana_lazy::GetHblazyDevice(self));
+    return self;
+  } else {
+    // This situation should not occur
+    // Throwing an exception here for now to catch any cases that arise
+    TORCH_CHECK(
+        false,
+        "Habana Lazy : trying to copy back a tensor which does not have a lazy tensor");
+  }
+  return self;
+}
+
+Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src, bool non_blocking) {
+  bool processed = false;
+  auto new_tensor = preProcessIfLongorDouble(src, self, processed);
+
+  // Get the internal tensor for copy kernel
+  // First get the lazy tensor
+  auto self_hb_tensor = habana_lazy::GetHbLazyTensor(self);
+  auto self_hb_tensor_data = self_hb_tensor.GetHbLazyTensorData();
+  // This is the internal tensor, it isn't a lazy tensor
+  auto self_internal_tesor = self_hb_tensor_data.value();
+  HABANA_ASSERT(!habana_lazy::TryGetHbLazyTensor(self_internal_tesor));
+  if (processed) {
+    auto internal_tensor_from_copy =
+        copy_hpu_(self_internal_tesor, new_tensor, non_blocking);
+    // We should get back the same internal tensor passed to copy
+    HABANA_ASSERT(
+        self_internal_tesor.storage().data_ptr() ==
+        internal_tensor_from_copy.storage().data_ptr());
+  } else {
+    auto internal_tensor_from_copy =
+        copy_hpu_(self_internal_tesor, src, non_blocking);
+    // We should get back the same internal tensor passed to copy
+    HABANA_ASSERT(
+        self_internal_tesor.storage().data_ptr() ==
+        internal_tensor_from_copy.storage().data_ptr());
+  }
+  // Return the self tensor, as copy_hpu_ doesn't create a new tensor and
+  // returns the dst
+  return self;
+}
 
 // calling eager mode kernels as a temporary placeholder to avoid warnings
 Tensor& copy_hpu_lazy_(Tensor& self, const Tensor& src, bool non_blocking) {
@@ -80,13 +193,13 @@ Tensor& copy_hpu_lazy_(Tensor& self, const Tensor& src, bool non_blocking) {
     auto src_hb_tensor_data = src_hb_tensor.GetHbLazyTensorData();
     if (!src_hb_tensor_data) {
       TORCH_CHECK(
-        false,
-        "Habana copy_hpu_lazy_: no storage tensor attached for copy lazy source");
+          false,
+          "Habana copy_hpu_lazy_: no storage tensor attached for copy lazy source");
     }
     if (!src_hb_tensor_data.value().has_storage()) {
       TORCH_CHECK(
-        false,
-        "Habana copy_hpu_lazy_: trying to copy from a storage less lazy tensor");
+          false,
+          "Habana copy_hpu_lazy_: trying to copy from a storage less lazy tensor");
     }
   } else if (!src.has_storage()) {
     TORCH_CHECK(
@@ -104,58 +217,23 @@ Tensor& copy_hpu_lazy_(Tensor& self, const Tensor& src, bool non_blocking) {
       dst_device == c10::DeviceType::HABANA) {
     is_d2d_copy = true;
   }
-
-  // If it isnt a device to device copy, we are transferring data to and from
-  // CPU. This becomes an execution step point and we need to flush graph
-  // execution NOW to generate tensor data where required as we are in lazy
-  // mode. Otherwise we have to add the copy induced nodes(like cast) to lazy
-  // graph for execution later
+  // If it isnt a device to device copy, we are transferring data to and
+  // from CPU. This becomes an execution step point and we need to flush
+  // graph execution NOW to generate tensor data where required as we are in
+  // lazy mode. Otherwise we have to add the copy induced nodes(like cast)
+  // to lazy graph for execution later
   if (!is_d2d_copy) {
-    // If src is a lazy tensor make sure the execution till the point of src
-    // getting flled has finished before we start copying
-    if (habana_lazy::IsHbLazyTensor(src)) {
-      // D2H
-      habana_lazy::HbLazyTensor hb_tensor =
-          habana_lazy::GetOrCreateHbLazyTensor(src, src.device());
-      auto tensor_data = hb_tensor.GetHbLazyTensorData();
-      self = copy_hpu_(self, tensor_data.value(), non_blocking);
-      // Return the CPU tensor as it is without creating lazy tensors
-      return self;
-    } else {
-      // H2D
-      // Get the internal tensor for copy kernel
-      // First get the lazy tensor
-      auto self_hb_tensor = habana_lazy::GetHbLazyTensor(self);
-      auto self_hb_tensor_data = self_hb_tensor.GetHbLazyTensorData();
-      // This is the internal tensor, it isn't a lazy tensor
-      auto self_internal_tesor = self_hb_tensor_data.value();
-      HABANA_ASSERT(!habana_lazy::TryGetHbLazyTensor(self_internal_tesor));
-      auto internal_tensor_from_copy = copy_hpu_(self_internal_tesor, src, non_blocking);
-      // We should get back the same internal tensor passed to copy
-      HABANA_ASSERT(self_internal_tesor.storage().data_ptr()
-                    == internal_tensor_from_copy.storage().data_ptr());
-      // Return the self tensor, as copy_hpu_ doesn't create a new tensor and returns the dst
-      return self;
+    if (src_device == c10::DeviceType::CPU) {
+      self = copy_hpu_lazy_H2D(self, src, non_blocking);
+    } else if (src_device == c10::DeviceType::HABANA) {
+      self = copy_hpu_lazy_D2H(self, src, non_blocking);
     }
+    return self;
   } else {
-    // We need to add device to device copy kernel here
-    // As d2D copies may not mean trigger execution, we just need to add the
-    // nodes like cast to our lazy graph that we are creating
-    habana_lazy::HbLazyTensor hb_tensor =
-        habana_lazy::GetOrCreateHbLazyTensor(src, src.device());
-    // TODO : we can give a more detailed cast info in node name later
-    // Will need to move the name generation in a utility(will need to modify
-    // kernel too, not touching right now)
-    auto node = habana_lazy::ir::Node::Create(
-        Symbol::fromQualString("aten::cast"), {hb_tensor.GetIrValue()});
-    self = habana_helpers::hpu_cast_tensor(src, self.dtype());
-    auto hlresult = habana_lazy::GetHbLazyTensor(self);
-    habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
-    out.m_index = 0;
-    out.SetNode(node);
+    self = copy_hpu_lazy_D2D(self, src, non_blocking);
     return self;
   }
-};
+}
 Tensor as_strided_hpu_lazy(
     const Tensor& self,
     IntArrayRef size,
@@ -389,10 +467,7 @@ Tensor convolution_hpu_lazy(
                                     opsize_nhwc.at(2)};
 
   auto result = at::native::empty_hpu_lazy(
-      shape_out,
-      input.options(),
-      input.suggest_memory_format(),
-      false);
+      shape_out, input.options(), input.suggest_memory_format(), false);
   auto hlresult = habana_lazy::GetHbLazyTensor(result);
   habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
   out.m_index = 0;
@@ -859,23 +934,17 @@ std::tuple<Tensor, Tensor> max_pool2d_with_indices_hpu_lazy(
     IntArrayRef padding,
     IntArrayRef dilation,
     bool ceil_mode) {
-  habana_lazy::ir::NodePtr maxpool_node = std::make_shared<habana_lazy::ir::MaxPool>(
-      input,
-      kernel_size,
-      stride,
-      padding,
-      dilation,
-      ceil_mode);
+  habana_lazy::ir::NodePtr maxpool_node =
+      std::make_shared<habana_lazy::ir::MaxPool>(
+          input, kernel_size, stride, padding, dilation, ceil_mode);
 
   // shaper inferrence
-  auto shape_out = PoolHelper::compute_output_shape(input, kernel_size,
-                          stride, padding, dilation, ceil_mode, false);
+  auto shape_out = PoolHelper::compute_output_shape(
+      input, kernel_size, stride, padding, dilation, ceil_mode, false);
 
   // allocate Output_0 storage
-  auto result_0 = at::native::empty_hpu_lazy(shape_out,
-                              input.options(),
-                              input.suggest_memory_format(),
-                              false);
+  auto result_0 = at::native::empty_hpu_lazy(
+      shape_out, input.options(), input.suggest_memory_format(), false);
   auto hlresult_0 = habana_lazy::GetHbLazyTensor(result_0);
   habana_lazy::ir::Value& out_0 = hlresult_0.CurrentIrValue();
   out_0.m_index = 0;
@@ -886,10 +955,11 @@ std::tuple<Tensor, Tensor> max_pool2d_with_indices_hpu_lazy(
   if (input.scalar_type() == c10::ScalarType::BFloat16) {
     type = kShort;
   }
-  auto result_1 = at::native::empty_hpu_lazy(shape_out,
-                              input.options().dtype(type),
-                              input.suggest_memory_format(),
-                              false);
+  auto result_1 = at::native::empty_hpu_lazy(
+      shape_out,
+      input.options().dtype(type),
+      input.suggest_memory_format(),
+      false);
   auto hlresult_1 = habana_lazy::GetHbLazyTensor(result_1);
   habana_lazy::ir::Value& out_1 = hlresult_1.CurrentIrValue();
   out_1.m_index = 1;
@@ -927,29 +997,28 @@ Tensor max_pool2d_with_indices_backward_hpu_lazy(
     IntArrayRef dilation,
     bool ceil_mode,
     const Tensor& indices) {
-  habana_lazy::ir::NodePtr maxpool_bwd_node = std::make_shared<habana_lazy::ir::MaxPoolBackWard>(
-      grad_output,
-      input,
-      kernel_size,
-      stride,
-      padding,
-      dilation,
-      ceil_mode,
-      indices);
+  habana_lazy::ir::NodePtr maxpool_bwd_node =
+      std::make_shared<habana_lazy::ir::MaxPoolBackWard>(
+          grad_output,
+          input,
+          kernel_size,
+          stride,
+          padding,
+          dilation,
+          ceil_mode,
+          indices);
 
   // shaper inferrence
-  auto out_shape = PoolHelper::compute_output_shape(input, kernel_size,
-                          stride, padding, dilation, ceil_mode, false);
+  auto out_shape = PoolHelper::compute_output_shape(
+      input, kernel_size, stride, padding, dilation, ceil_mode, false);
   TORCH_CHECK(grad_output.sizes().vec() == out_shape);
   TORCH_CHECK(
       (indices.scalar_type() == c10::ScalarType::Byte) ||
       (indices.scalar_type() == c10::ScalarType::Short));
 
   // allocate storage
-  auto result = at::native::empty_hpu_lazy(input.sizes(),
-                             input.options(),
-                             input.suggest_memory_format(),
-                             false);
+  auto result = at::native::empty_hpu_lazy(
+      input.sizes(), input.options(), input.suggest_memory_format(), false);
   auto hlresult = habana_lazy::GetHbLazyTensor(result);
   habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
   out.m_index = 0;
@@ -1119,6 +1188,14 @@ Tensor empty_hpu_lazy(
     const TensorOptions& options,
     c10::optional<MemoryFormat> optional_memory_format,
     bool create_storage) {
+  auto dtype = options.dtype();
+  auto type = typeMetaToScalarType(dtype);
+  // Dont allocate 8 bytes for double/long as we are anyway going to cast at
+  // CPU and then copy to device @ 4byts per element
+  type = type == c10::ScalarType::Long ? c10::ScalarType::Int : type;
+  type = type == c10::ScalarType::Double ? c10::ScalarType::Float : type;
+  dtype = scalarTypeToTypeMeta(type);
+
   if (create_storage) {
     c10 ::Allocator* allocator;
     if (options.pinned_memory()) {
@@ -1127,11 +1204,11 @@ Tensor empty_hpu_lazy(
       allocator = habana::getHABANADeviceAllocator();
     }
     int64_t nelements = prod_intlist(size);
-    auto dtype = options.dtype();
+    int elem_size = dtype.itemsize();
     auto storage_impl = c10::make_intrusive<StorageImpl>(
         dtype,
         nelements,
-        allocator->allocate(nelements * dtype.itemsize()),
+        allocator->allocate(nelements * elem_size),
         allocator,
         /*resizeable=*/true);
     Tensor at_internal_tensor =
@@ -1160,7 +1237,8 @@ Tensor empty_hpu_lazy(
       at_tensor.unsafeGetTensorImpl()->set_sizes_contiguous(size);
 
       // Keep a pointer to the storageless tensor from the internal tensor
-      auto at_internal_impl = habana_lazy::GetHbInternalTensorImpl(at_internal_tensor);
+      auto at_internal_impl =
+          habana_lazy::GetHbInternalTensorImpl(at_internal_tensor);
       HABANA_ASSERT(at_internal_impl != nullptr);
       at_internal_impl->set_tensor(&at_tensor);
     }
@@ -1175,10 +1253,7 @@ Tensor empty_hpu_lazy(
   } else {
     habana_lazy::HbLazyTensor hb_tensor =
         habana_lazy::HbLazyTensor::CreateHbLazyTensor(
-            size,
-            0,
-            options.device(),
-            c10::typeMetaToScalarType(options.dtype()));
+            size, 0, options.device(), c10::typeMetaToScalarType(dtype));
     Tensor at_tensor = habana_lazy::AtenFromHbLazyTensor(hb_tensor);
     // Setup the tensor sizes/strides, for now assuming contiguous
     at_tensor.unsafeGetTensorImpl()->set_sizes_contiguous(size);
@@ -1192,10 +1267,7 @@ Tensor empty_strided_hpu_lazy(
     IntArrayRef stride,
     const TensorOptions& options) {
   at::Tensor empty_tensor = empty_hpu_lazy(
-    size,
-    options,
-    c10::nullopt,
-    CreateThreadTensorWithStorage());
+      size, options, c10::nullopt, CreateThreadTensorWithStorage());
   empty_tensor.unsafeGetTensorImpl()->set_sizes_and_strides(size, stride);
   return empty_tensor;
 };

@@ -28,6 +28,7 @@ struct Data {
         device(c10::Device(c10::DeviceType::HABANA, 0)),
         logical_element_type(tensor_data.scalar_type()),
         tensor_data(std::move(tensor_data)),
+        original_element_type(tensor_data.scalar_type()),
         unique_id(0) {}
   Data(
       ir::Value ir_value,
@@ -37,6 +38,7 @@ struct Data {
         ir_value(std::move(ir_value)),
         device(device),
         logical_element_type(logical_element_type),
+        original_element_type(logical_element_type.value()),
         unique_id(0) {}
   ~Data(){};
   void* data_ptr;
@@ -45,6 +47,7 @@ struct Data {
   c10::Device device;
   c10::optional<at::ScalarType> logical_element_type;
   c10::optional<at::Tensor> tensor_data;
+  at::ScalarType original_element_type;
   const int unique_id;
   std::vector<int64_t> sizes;
 };
@@ -103,6 +106,8 @@ class HbLazyTensor {
   ir::Value& CurrentIrValue() const;
   ir::Value GetIrValue() const;
   c10::optional<at::Tensor> CurrentTensorData() const;
+  void setTensorOriginalType(c10::ScalarType type);
+  c10::ScalarType getTensorOriginalType();
   void* CurrentHabanaData() const;
   // Applies the queue of operations in preparation for using the data.
   void applyPendingGraph();

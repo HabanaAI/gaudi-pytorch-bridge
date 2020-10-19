@@ -218,8 +218,7 @@ c10::ScalarType HbLazyTensor::dtype() const {
   } else
     return c10::ScalarType::Float;
 }
-ir::Value HbLazyTensor::CreateTensorNode(void* data, bool read_only)
-    const {
+ir::Value HbLazyTensor::CreateTensorNode(void* data, bool read_only) const {
   return CurrentIrValue();
   // data->SetInfo(std::make_shared<DeviceDataInfo>(GetUniqueId(), read_only));
   // return ir::MakeNode<ir::ops::DeviceData>(std::move(data));
@@ -381,4 +380,10 @@ void HbLazyTensor::SyncTensorsGraphInternal(
     out_tensor.SetTensorData(st);
   }
   HABANA_ASSERT(stack.size() == (*tensors).size());
+}
+void HbLazyTensor::setTensorOriginalType(c10::ScalarType type) {
+  data()->original_element_type = type;
+}
+c10::ScalarType HbLazyTensor::getTensorOriginalType() {
+  return data()->original_element_type;
 }

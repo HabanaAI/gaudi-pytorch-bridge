@@ -9,9 +9,6 @@
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/ir.h"
 #include "habana_lazy/ir_utils.h"
-#include "habana_kernels/lazy_kernels_declarations.h"
-#include "habana_kernels/wrap_kernels_declarations.h"
-#include "habana_lazy/hlexec.h"
 
 using namespace habana_lazy;
 

@@ -33,9 +33,23 @@ TEST_F(LazyKernelTest, LazyDoATest) {
   unsetenv("PT_HPU_LAZY_MODE");
 }
 
+TEST_F(LazyKernelTest, DoubleCopyTest) {
+  setenv("PT_HPU_LAZY_MODE", "1", 1);
+  at::TensorOptions opts =
+      at::TensorOptions().dtype(c10::ScalarType::Double).requires_grad(false);
+  torch::Tensor A = torch::randn({50, 50}, opts);
+  torch::Tensor hA = A.to(torch::kHABANA);
+  torch::Tensor hA_cpu = hA.to(torch::kCPU);
+  //This should be double
+  bool equal = hA_cpu.allclose(A, 0.1, 0.1);
+  EXPECT_EQ(equal, true);
+  unsetenv("PT_HPU_LAZY_MODE");
+}
+
 TEST_F(LazyKernelTest, BasicCopyTest) {
   setenv("PT_HPU_LAZY_MODE", "1", 1);
-  torch::Tensor A = torch::randn({2, 2}, torch::requires_grad(false));
+  at::TensorOptions opts = at::TensorOptions().requires_grad(false);
+  torch::Tensor A = torch::randn({50, 50}, opts);
   torch::Tensor hA = A.to(torch::kHABANA);
   torch::Tensor hA_cpu = hA.to(torch::kCPU);
   bool equal = hA_cpu.allclose(A, 0, 0);
