@@ -171,7 +171,7 @@ class Node {
     return m_meta_data;
   }
 
-  friend class Value;
+  friend struct Value;
 
  protected:
   c10::Symbol m_op;
