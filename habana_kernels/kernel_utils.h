@@ -38,7 +38,7 @@ void compile_and_run(
     const uint32_t device_id,
     size_t key = 0);
 
-std::vector<synLaunchTensorInfoDSD> generate_syn_launch_tensor_info(
+std::vector<synLaunchTensorInfo> generate_syn_launch_tensor_info(
     const std::vector<std::string>& in_names,
     const std::vector<void*>& in_buffers,
     const std::vector<std::string>& out_names,

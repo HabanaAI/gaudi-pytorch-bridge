@@ -379,7 +379,7 @@ class Durations:
                         previous = entry["end_ts"]
                     d = entry["end_ts"] - entry["ts"]
                     arg = entry["func"].name
-                    if entry["func"].name == "synLaunchDSD":
+                    if entry["func"].name == "synLaunch":
                         recipe = entry["args"]["pRecipeInfo"][0]
                         recipe = recipe[recipe.rfind("/") + 1 : recipe.rfind("-launch")]
                         arg = arg + " " + recipe
@@ -716,7 +716,7 @@ class Log:
 
                 if is_call(entry, "synWorkspaceGetSize"):
                     crecipe[args["recipeHandle"]].workspace_size = int(result["pWorkspaceSize"], 16)
-                if is_call(entry, "synLaunchDSD"):
+                if is_call(entry, "synLaunch"):
                     graph = crecipe[args["pRecipehandle"]]
                     launch = Launch(self, entry, graph)
 

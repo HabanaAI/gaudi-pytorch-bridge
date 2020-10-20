@@ -18,7 +18,7 @@
 
 using namespace torch;
 
-std::vector<synLaunchTensorInfoDSD> habana_helpers::
+std::vector<synLaunchTensorInfo> habana_helpers::
     generate_syn_launch_tensor_info(
         const std::vector<std::string>& in_names,
         const std::vector<void*>& in_buffers,
@@ -27,14 +27,14 @@ std::vector<synLaunchTensorInfoDSD> habana_helpers::
   TORCH_CHECK(in_names.size() == in_buffers.size());
   TORCH_CHECK(out_names.size() == out_buffers.size());
 
-  std::vector<synLaunchTensorInfoDSD> syn_info;
+  std::vector<synLaunchTensorInfo> syn_info;
   syn_info.reserve(in_names.size() + out_names.size());
 
   for (size_t i = 0; i < in_names.size(); ++i)
-    syn_info.emplace_back(synLaunchTensorInfoDSD{
+    syn_info.emplace_back(synLaunchTensorInfo{
         in_names[i].c_str(), reinterpret_cast<uint64_t>(in_buffers[i])});
   for (size_t i = 0; i < out_names.size(); ++i)
-    syn_info.emplace_back(synLaunchTensorInfoDSD{
+    syn_info.emplace_back(synLaunchTensorInfo{
         out_names[i].c_str(), reinterpret_cast<uint64_t>(out_buffers[i])});
 
   return syn_info;

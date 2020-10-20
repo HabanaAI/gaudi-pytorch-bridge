@@ -265,9 +265,9 @@ synapse_error_v<std::shared_ptr<graph::recipe_handle>> graph::compile() {
   return {std::move(recipe_handle)};
 }
 
-std::string to_string(const std::vector<synLaunchTensorInfoDSD>& patching_info) {
+std::string to_string(const std::vector<synLaunchTensorInfo>& patching_info) {
   return absl::StrJoin(
-      patching_info, ",", [](std::string* out, const synLaunchTensorInfoDSD& in) {
+      patching_info, ",", [](std::string* out, const synLaunchTensorInfo& in) {
         absl::StrAppendFormat(out, "%s:0x%X", in.tensorName, in.pTensorAddress);
       });
 }
@@ -287,7 +287,7 @@ synapse_error_o graph::create_launch_info(
 synapse_error_o graph::launch(
     launch_info& handle,
     const graph::recipe_handle& recipe_handle,
-    const std::vector<synLaunchTensorInfoDSD>& inputs_and_outputs_info) {
+    const std::vector<synLaunchTensorInfo>& inputs_and_outputs_info) {
   synStatus status;
 
   if (recipe_handle.graph_is_empty_) {
@@ -307,7 +307,7 @@ synapse_error_o graph::launch(
           "-------------------------",
           to_string(inputs_and_outputs_info)));
 
-  auto table_checker{[&recipe_handle](const synLaunchTensorInfoDSD& info) -> bool {
+  auto table_checker{[&recipe_handle](const synLaunchTensorInfo& info) -> bool {
     if (info.pTensorAddress == 0 || info.tensorName == nullptr) {
       PT_SYNHELPER_WARN(
           recipe_handle.recipe_name_,
@@ -329,14 +329,14 @@ synapse_error_o graph::launch(
           table_checker) == inputs_and_outputs_info.end());
   auto& compute_stream = recipe_handle.device_.get_compute_stream();
 
-  status = synLaunchDSD(
+  status = synLaunch(
       compute_stream,
       inputs_and_outputs_info.data(),
       inputs_and_outputs_info.size(),
       recipe_handle.device_.get_workspace_buffer(handle.workspace_buffer_size_),
       recipe_handle.syn_recipe_handle_);
 
-  SYNAPSE_SUCCESS_CHECK("synLaunchDSD failed.", status)
+  SYNAPSE_SUCCESS_CHECK("synLaunch failed.", status)
 
   return {};
 }
