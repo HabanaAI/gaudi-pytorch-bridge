@@ -280,7 +280,7 @@ Tensor sum_dim_IntList_hpu(
   std::vector<c10::IValue> stack = {
       IValue(self), IValue(dim), IValue(keepdim), IValue(dtype)};
   // Create the operator
-  SumDimOperator Op(device_id, node_type);
+  SumDimOperator Op(device_id, scalar_type);
   size_t key = Op.GetRecipeKey(node_type, stack);
 
   if (device.get_recipe_handle_cache().isCached(key)) {
@@ -362,12 +362,11 @@ Tensor& sum_IntList_out_hpu(
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
   std::vector<at::Tensor> pt_inputs{self};
   // Build Params for the graph
-  std::vector<c10::IValue> stack = {
-      IValue(output),
-      IValue(self),
-      IValue(dim),
-      IValue(keepdim),
-      IValue(dtype)};
+  std::vector<c10::IValue> stack = {IValue(output),
+                                    IValue(self),
+                                    IValue(dim),
+                                    IValue(keepdim),
+                                    IValue(dtype)};
   // Create the operator
   SumDimOutOperator Op(device_id, node_type);
   size_t key = Op.GetRecipeKey(node_type, stack);
@@ -537,12 +536,11 @@ Tensor& mean_dim_out_hpu(
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
   std::vector<at::Tensor> pt_inputs{self};
   // Build Params for the graph
-  std::vector<c10::IValue> stack = {
-      IValue(output),
-      IValue(self),
-      IValue(dim),
-      IValue(keepdim),
-      IValue(dtype)};
+  std::vector<c10::IValue> stack = {IValue(output),
+                                    IValue(self),
+                                    IValue(dim),
+                                    IValue(keepdim),
+                                    IValue(dtype)};
   // Create the operator
   MeanDimOutOperator Op(device_id, node_type);
   size_t key = Op.GetRecipeKey(node_type, stack);
@@ -632,7 +630,7 @@ Tensor sum_hpu(const Tensor& self, c10::optional<ScalarType> dtype) {
   size_t device_id = self.device().index();
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
   // Create the operator
-  SumOperator Op(device_id, node_type);
+  SumOperator Op(device_id, scalar_type);
   size_t key = Op.GetRecipeKey(node_type, stack);
 
   if (device.get_recipe_handle_cache().isCached(key)) {
@@ -812,13 +810,8 @@ void AnyDimOutOperator::AllocateAndAddSynapseNode(
   p_context_->syn_inputs_[0] = std::move(float_syn);
   stack.clear();
 
-  // Reduction operation
-  at::ScalarType scalar_type = c10::ScalarType::Float;
-  node_type =
-      "reduce_sum_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
-
-  // Create the operator
-  SumDimOperator sumOp(this->p_context_->device_id_, node_type);
+  // Reduction operation - Create the operator
+  SumDimOperator sumOp(this->p_context_->device_id_, c10::ScalarType::Float);
   sumOp.SetSynapseInput(std::move(float_syn_tensor));
 
   // Build Params for the graph
@@ -1003,13 +996,8 @@ void AnyOperator::AllocateAndAddSynapseNode(
   p_context_->syn_inputs_[0] = std::move(float_syn);
   stack.clear();
 
-  // Reduction operation
-  at::ScalarType scalar_type = c10::ScalarType::Float;
-  node_type =
-      "reduce_sum_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
-
-  // Create the operator
-  SumOperator sumOp(this->p_context_->device_id_, node_type);
+  // Reduction operation - Create the operator
+  SumOperator sumOp(this->p_context_->device_id_, c10::ScalarType::Float);
   sumOp.SetSynapseInput(std::move(float_syn_tensor));
 
   // Build Params for the graph
@@ -1107,9 +1095,7 @@ void GradSumToSizeOperator::AllocateAndAddSynapseNode(
     }
   }
 
-  SumDimOperator sum_op(
-      device_id,
-      "reduce_sum_fwd_" + habana_helpers::name_suffix_from_type(scalar_type));
+  SumDimOperator sum_op(device_id, scalar_type);
   if (!reduce_dims.empty()) {
     auto& syn_arg0 =
         sum_op.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
@@ -1135,9 +1121,19 @@ void GradSumToSizeOperator::AllocateAndAddSynapseNode(
   }
 }
 
-static auto& KernelRegistry = ::habana::KernelRegistry().add(
-    "aten::_grad_sum_to_size",
-    [](const int device_id, c10::ScalarType node_type) {
-      return std::make_shared<GradSumToSizeOperator>(device_id, node_type);
-    });
-
+static auto& KernelRegistry =
+    ::habana::KernelRegistry()
+        .add(
+            "aten::_grad_sum_to_size",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<GradSumToSizeOperator>(
+                  device_id, node_type);
+            })
+        .add(
+            "aten::sum",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<SumOperator>(device_id, node_type);
+            })
+        .add("aten::sum.dim_IntList", [](const int device_id, c10::ScalarType node_type) {
+          return std::make_shared<SumDimOperator>(device_id, node_type);
+        });

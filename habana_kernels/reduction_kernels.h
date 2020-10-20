@@ -99,8 +99,11 @@ class SumDimOutOperator : public ReduceOperator {
 // SumDim Operator
 class SumDimOperator : public ReduceOperator {
  public:
-  SumDimOperator(int device_id, const std::string& guid)
-      : ReduceOperator(device_id, guid) {
+  SumDimOperator(int device_id, c10::ScalarType scalarType)
+      : ReduceOperator(
+            device_id,
+            "reduce_sum_fwd_" +
+                habana_helpers::name_suffix_from_type(scalarType)) {
     kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
   }
 
@@ -116,8 +119,11 @@ class SumDimOperator : public ReduceOperator {
 // Sum Operator
 class SumOperator : public ReduceOperator {
  public:
-  SumOperator(int device_id, const std::string& guid)
-      : ReduceOperator(device_id, guid) {
+  SumOperator(int device_id, c10::ScalarType scalarType)
+      : ReduceOperator(
+            device_id,
+            "reduce_sum_fwd_" +
+                habana_helpers::name_suffix_from_type(scalarType)) {
     kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
   }
 

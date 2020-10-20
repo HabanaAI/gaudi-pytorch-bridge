@@ -18,5 +18,3 @@ class LazyUnaryKernelTest : public ::testing::Test {
 
   void TearDown() override {}
 };
-
-

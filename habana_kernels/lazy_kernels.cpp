@@ -21,6 +21,7 @@
 #include "habana_lazy/ops/mse_loss.h"
 #include "habana_lazy/ops/pool.h"
 #include "habana_lazy/ops/tensor_shape.h"
+#include "habana_lazy/ops/reduce_ops.h"
 #include "pytorch_helpers/habana_device/HPUAllocator.h"
 #include "pytorch_helpers/synapse_helpers/util.h"
 
@@ -1158,13 +1159,24 @@ Tensor bernoulli_hpu_lazy(const Tensor& self, CPUGenerator* gen) {
 Tensor& bernoulli_scalar_hpu_lazy(Tensor& self, double p, CPUGenerator* gen) {
   return bernoulli_scalar_hpu(self, p, gen);
 };
+
 Tensor sum_dim_IntList_hpu_lazy(
     const Tensor& self,
     IntArrayRef dim,
     bool keepdim,
     c10::optional<ScalarType> dtype) {
-  return sum_dim_IntList_hpu(self, dim, keepdim, dtype);
+  auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
+  habana_lazy::ir::NodePtr node =
+      std::make_shared<habana_lazy::ir::SumDimIntList>(
+          self, dim, keepdim, dtype);
+  auto result = sum_dim_IntList_hpu(self, dim, keepdim, dtype);
+  auto hl_result = habana_lazy::GetHbLazyTensor(result);
+  habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+  return result;
 };
+
 Tensor& sum_IntList_out_hpu_lazy(
     Tensor& output,
     const Tensor& self,
@@ -1188,9 +1200,19 @@ Tensor& mean_dim_out_hpu_lazy(
     c10::optional<ScalarType> dtype) {
   return mean_dim_out_hpu(output, self, dim, keepdim, dtype);
 };
+
 Tensor sum_hpu_lazy(const Tensor& self, c10::optional<ScalarType> dtype) {
-  return sum_hpu(self, dtype);
+  auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
+  habana_lazy::ir::NodePtr node =
+      std::make_shared<habana_lazy::ir::Sum>(self, dtype);
+  auto result = sum_hpu(self, dtype);
+  auto hl_result = habana_lazy::GetHbLazyTensor(result);
+  habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+  return result;
 };
+
 Tensor mean_hpu_lazy(const Tensor& self, c10::optional<ScalarType> dtype) {
   return mean_hpu(self, dtype);
 };
