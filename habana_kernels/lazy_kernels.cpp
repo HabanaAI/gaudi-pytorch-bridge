@@ -767,7 +767,7 @@ Tensor max_pool2d_with_indices_backward_hpu_lazy(
     IntArrayRef dilation,
     bool ceil_mode,
     const Tensor& indices) {
-  return max_pool2d_with_indices_backward_hpu(
+  habana_lazy::ir::NodePtr maxpool_bwd_node = std::make_shared<habana_lazy::ir::MaxPoolBackWard>(
       grad_output,
       input,
       kernel_size,
@@ -776,7 +776,27 @@ Tensor max_pool2d_with_indices_backward_hpu_lazy(
       dilation,
       ceil_mode,
       indices);
+
+  // shaper inferrence
+  auto out_shape = PoolHelper::compute_output_shape(input, kernel_size,
+                          stride, padding, dilation, ceil_mode, false);
+  TORCH_CHECK(grad_output.sizes().vec() == out_shape);
+  TORCH_CHECK(
+      (indices.scalar_type() == c10::ScalarType::Byte) ||
+      (indices.scalar_type() == c10::ScalarType::Short));
+
+  // allocate storage
+  auto result = at::native::empty_hpu_lazy(input.sizes(),
+                             input.options(),
+                             input.suggest_memory_format());
+  auto hlresult = habana_lazy::GetHbLazyTensor(result);
+  habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(maxpool_bwd_node);
+
+  return result;
 };
+
 Tensor avg_pool2d_hpu_lazy(
     const Tensor& input,
     IntArrayRef kernel_size,
