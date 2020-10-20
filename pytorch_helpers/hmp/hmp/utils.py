@@ -113,6 +113,31 @@ def get_new_args(cast_fn, args, kwds):
     return tuple(args_cast)
 
 
+def op_wrap_var_input_len(op, cast_fn, wrap_len):
+    """Adds wrapper function to OPs. only 1st wrap_len
+    tensor inputs for the OP are casted to type determined
+    by cast_fn provided.
+
+    Args:
+    op (torch.nn.functional/torch/torch.Tensor): Input OP
+    cast_fn (to_bf16/to_fp32): Fn to cast input tensors
+
+    Returns:
+    Wrapper function that shall be inserted back to
+    corresponding module for this OP.
+    """
+    vprint("Wrapping ", op, " ", cast_fn.__name__)
+
+    @wraps(op)
+    def wrapper(*args, **kwds):
+        vprint("casting ", op, cast_fn.__name__)
+        args_out = get_new_args(cast_fn, args[0:wrap_len], kwds)
+        args_cast = args_out + args[wrap_len:]
+        return op(*args_cast, **kwds)
+
+    return wrapper
+
+
 def op_wrap(op, cast_fn):
     """Adds wrapper function to OPs. All tensor inputs
     for the OP are casted to type determined by cast_fn
@@ -212,6 +237,7 @@ def cast_ops_list(ops_list, ops_dict, cast_fn=None):
     cast_fn (to_bf16, to_fp32, None): cast function to be used
                      on OPs in input list
     """
+    special_list = ["layer_norm", "batch_norm"]
 
     for op in ops_list:
         key = str(op)
@@ -221,11 +247,13 @@ def cast_ops_list(ops_list, ops_dict, cast_fn=None):
                 for op_in in [op, overrides(op)]:
                     if hasattr(mod, op_in):
                         pt_op = getattr(mod, op_in)
-                        wrapper = (
-                            op_wrap(pt_op, cast_fn)
-                            if cast_fn is not None
-                            else op_wrap_dynamic(pt_op)
-                        )
+                        if cast_fn is not None:
+                            if op_in not in special_list:
+                                wrapper = op_wrap(pt_op, cast_fn)
+                            else:
+                                wrapper = op_wrap_var_input_len(pt_op, cast_fn, 1)
+                        else:
+                            wrapper = op_wrap_dynamic(pt_op)
                         setattr(mod, op_in, wrapper)
 
                 # Handle inplace ops. For now inplace handling limited to

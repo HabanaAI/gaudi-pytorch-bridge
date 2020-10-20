@@ -174,16 +174,47 @@ void habana::BinaryOperator::AllocateAndAddSynapseNode(
     reshape_syn_output.push_back(std::move(reshapeOp.GetSynOutputs()[0]));
   }
 
-  auto operand = get_correct_input_tensor(arg1, arg2);
-  auto output = habana_helpers::createPTTensor(operand, is_output_persistent);
-  AllocateSynapseOutput(graph, output, is_output_persistent);
   synapse_helpers::tensor& arg1_syn_tensor =
       isArg1modified ? reshape_syn_output[0] : p_context_->syn_inputs_[0];
   synapse_helpers::tensor& arg2_syn_tensor =
       isArg2modified ? reshape_syn_output[0] : p_context_->syn_inputs_[1];
 
-  std::vector<synTensor> syn_inputs{
-      arg1_syn_tensor.get(), arg2_syn_tensor.get()};
+  std::vector<synTensor> syn_inputs;
+  syn_inputs.push_back(arg1_syn_tensor.get());
+
+  // For cases where 2nd argument to a binary op is a scalar (e.g. a = b + 5),
+  // but gets converted to a tensor (by dispatcher or bridge) before reaching
+  // kernel we need to cast 2nd argument to same type as 1st argument.
+  std::string node_type = "cast_f32_to_bf16";
+  CastOperator castOp(this->p_context_->device_id_, node_type);
+  if (arg1.dtype() == c10::ScalarType::BFloat16 &&
+      arg1.dtype() != arg2.dtype()) {
+    auto& syn_cast_input = castOp.SetSynapseInput(std::move(arg2_syn_tensor));
+    torch::jit::Stack stack = {
+        IValue(isArg2modified ? reshapeOp.GetOutputs()[0] : arg2),
+        IValue(c10::ScalarType::BFloat16)};
+    castOp.AllocateAndAddSynapseNode(graph, stack, false);
+    if (!isArg2modified) {
+      p_context_->syn_inputs_[1] = std::move(syn_cast_input);
+    }
+
+    synapse_helpers::tensor& syn_tensor = std::move(castOp.GetSynOutputs()[0]);
+    syn_inputs.push_back(syn_tensor.get());
+    auto operand = get_correct_input_tensor(arg1, arg2);
+    auto output = habana_helpers::createPTTensor(
+        operand,
+        operand.sizes(),
+        operand.options(),
+        operand.suggest_memory_format(),
+        c10::ScalarType::BFloat16,
+        is_output_persistent);
+    AllocateSynapseOutput(graph, output, is_output_persistent);
+  } else {
+    syn_inputs.push_back(arg2_syn_tensor.get());
+    auto operand = get_correct_input_tensor(arg1, arg2);
+    auto output = habana_helpers::createPTTensor(operand, is_output_persistent);
+    AllocateSynapseOutput(graph, output, is_output_persistent);
+  }
 
   synapse_helpers::tensor& output_syn_tensor = p_context_->syn_outputs_[0];
   std::vector<synTensor> syn_outputs{output_syn_tensor.get()};

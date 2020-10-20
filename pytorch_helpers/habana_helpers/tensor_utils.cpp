@@ -33,11 +33,18 @@ at::Tensor habana_helpers::hpu_cast_tensor(
     caffe2::TypeMeta type) {
   PT_KERNEL_BEGIN;
 
+  // At times we get 0-D tensor which cannot be handled by Synapse. Convert it
+  // 1-D tensor before proceeding further.
+  if (Input.dim() == 0) {
+    Input.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+  }
+
   std::string node_type;
   if (Input.dtype() == c10::ScalarType::Bool &&
       type == c10::ScalarType::Float) {
     node_type = "cast_i8_to_f32";
   } else if (
+
       Input.dtype() == c10::ScalarType::Char &&
       type == c10::ScalarType::Float) {
     node_type = "cast_i8_to_f32";

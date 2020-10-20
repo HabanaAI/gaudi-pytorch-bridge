@@ -234,6 +234,24 @@ void ToDtypeOperator::AllocateAndAddSynapseNode(
       type == c10::ScalarType::BFloat16 &&
       self.dtype() == c10::ScalarType::Float) {
     node_type = "cast_f32_to_bf16";
+  } else if (self.dtype() == type) {
+    // Cases where a simple copy is being done (input_new = input) come as .to
+    // call with same input & output data types. Ideally such cases should be
+    // handled in the bridge itself or it should be ok to do nothing in the
+    // kernel code for such cases. But for now to prevent bridge code from
+    // asserting we add a memcopy node to graph.
+    MemCopyOperator memcopyOp(self.device().index(), self.scalar_type());
+    auto& syn_arg0 =
+        memcopyOp.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+
+    torch::jit::Stack stack = {IValue(self)};
+    memcopyOp.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+
+    p_context_->syn_inputs_[0] = std::move(syn_arg0);
+    p_context_->syn_outputs_.emplace_back(
+        std::move(memcopyOp.GetSynOutputs()[0]));
+    p_context_->pt_outputs_.emplace_back(std::move(memcopyOp.GetOutputs()[0]));
+    return;
   } else {
     // Casts between other types are not supported for now
     HABANA_ASSERT(0);

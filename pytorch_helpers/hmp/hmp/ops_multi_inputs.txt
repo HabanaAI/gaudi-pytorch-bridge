@@ -7,3 +7,5 @@ exp
 mul
 pow
 sub
+iadd
+truediv

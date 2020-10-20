@@ -29,7 +29,6 @@ import torch
 from torch.utils.data import DataLoader, RandomSampler, SequentialSampler
 from torch.utils.data.distributed import DistributedSampler
 from tqdm import tqdm, trange
-
 try:
     path = os.path.join(os.environ['PYTORCH_MODULES_ROOT_PATH'], 'topologies')
     tools_path = os.path.join(path, 'tools')
@@ -105,7 +104,6 @@ def set_seed(args):
     torch.manual_seed(args.seed)
     if args.n_gpu > 0:
         torch.cuda.manual_seed_all(args.seed)
-
 
 def to_list(tensor):
     return tensor.detach().cpu().tolist()
@@ -810,9 +808,13 @@ def main():
         "See details at https://nvidia.github.io/apex/amp.html",
     )
     parser.add_argument("--use_jit_trace", action='store_true', default=False, help='run with torch jit trace mode')
+    parser.add_argument('--hmp', dest='hmp', action='store_true', help='enable hmp mode')
+    parser.add_argument('--hmp_bf16', default=os.path.join(os.environ['PYTORCH_MODULES_ROOT_PATH'], "topologies/configs/ops_bf16_bert_base.txt"), help='path to bf16 ops list in hmp O1 mode')
+    parser.add_argument('--hmp_fp32', default=os.path.join(os.environ['PYTORCH_MODULES_ROOT_PATH'], "topologies/configs/ops_fp32_bert_base.txt"), help='path to fp32 ops list in hmp O1 mode')
+    parser.add_argument('--hmp-opt-level', default='O1', help='choose optimization level for hmp')
+    parser.add_argument('--hmp-verbose', action='store_true', help='enable verbose mode for hmp')
     parser.add_argument("--server_ip", type=str, default="", help="Can be used for distant debugging.")
     parser.add_argument("--server_port", type=str, default="", help="Can be used for distant debugging.")
-
     parser.add_argument("--threads", type=int, default=1, help="multiple threads for converting example to features")
     parser.add_argument("--no_dropout", action='store_true', help='Disable Dropout in the model')
     args = parser.parse_args()
@@ -864,6 +866,14 @@ def main():
             args.world_size = int(os.environ['WORLD_SIZE'])
             torch.distributed.init_process_group(args.dist_backend, rank=args.local_rank, world_size=args.world_size)
             args.n_gpu = 1
+
+
+        if args.hmp:
+            print(args.hmp_bf16)
+            from hmp import hmp
+            hmp.convert(opt_level=args.hmp_opt_level, bf16_file_path=args.hmp_bf16,
+                    fp32_file_path=args.hmp_fp32, isVerbose=args.hmp_verbose)
+
 
     elif args.local_rank == -1 or args.no_cuda:
         device = torch.device("cuda" if torch.cuda.is_available() and not args.no_cuda else "cpu")

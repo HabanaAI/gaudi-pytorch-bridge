@@ -1,0 +1,10 @@
+addmm
+bmm
+dropout
+gelu
+linear
+layer_norm
+log_softmax
+matmul
+mm
+softmax

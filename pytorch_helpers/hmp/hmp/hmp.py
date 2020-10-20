@@ -57,15 +57,15 @@ def convert(opt_level="O1", bf16_file_path="", fp32_file_path="", isVerbose=Fals
 
         ops_any_list = get_list_from_file(any_file_path)
 
+        # Handle rest of the multi input ops
+        # single input op will follow the previous node
+        cast_ops_list(ops_any_list, ops_dict)
+
         # cast ops in the bf16 list
         cast_ops_list(ops_bf16_list, ops_dict, to_bf16)
 
         # cast ops in the fp32 list
         cast_ops_list(ops_fp32_list, ops_dict, to_fp32)
-
-        # Handle rest of the multi input ops
-        # single input op will follow the previous node
-        cast_ops_list(ops_any_list, ops_dict)
 
     elif opt_level == "O2":
         ops_bf16_list = [
