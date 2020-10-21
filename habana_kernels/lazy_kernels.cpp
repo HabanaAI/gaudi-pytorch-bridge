@@ -450,10 +450,11 @@ Tensor convolution_hpu_lazy(
 
   // shape inference
   // convert tensors to synapse memory format nchw to nhwc
-  std::vector<int64_t> ipsize_nhwc = {input.sizes().vec().at(0),
-                                      input.sizes().vec().at(2),
-                                      input.sizes().vec().at(3),
-                                      input.sizes().vec().at(1)};
+  std::vector<int64_t> ipsize_nhwc = {
+      input.sizes().vec().at(0),
+      input.sizes().vec().at(2),
+      input.sizes().vec().at(3),
+      input.sizes().vec().at(1)};
   auto opsize_nhwc = ConvOperator::compute_output_shape(
       ipsize_nhwc,
       weight.sizes().vec(),
@@ -462,10 +463,11 @@ Tensor convolution_hpu_lazy(
       false,
       input.suggest_memory_format());
   // convert from synapse memory format nhwc to nchw
-  std::vector<int64_t> shape_out = {opsize_nhwc.at(0),
-                                    opsize_nhwc.at(3),
-                                    opsize_nhwc.at(1),
-                                    opsize_nhwc.at(2)};
+  std::vector<int64_t> shape_out = {
+      opsize_nhwc.at(0),
+      opsize_nhwc.at(3),
+      opsize_nhwc.at(1),
+      opsize_nhwc.at(2)};
 
   auto result = at::native::empty_hpu_lazy(
       shape_out, input.options(), input.suggest_memory_format(), false);
@@ -809,11 +811,40 @@ Tensor& batch_gemm_out_hpu_lazy(
     Tensor& out,
     const Tensor& self,
     const Tensor& mat2) {
-  return batch_gemm_out_hpu(out, self, mat2);
+  const auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
+  const auto hl_mat2 = habana_lazy::GetOrCreateHbLazyTensor(mat2, c10::kHABANA);
+
+  const auto node = habana_lazy::ir::Node::Create(
+      Symbol::fromQualString("aten::bmm"),
+      {hl_self.GetIrValue(), hl_mat2.GetIrValue()});
+
+  const auto hlresult = habana_lazy::GetHbLazyTensor(out);
+  habana_lazy::ir::Value& out_val = hlresult.CurrentIrValue();
+  out_val.m_index = 0;
+  out_val.SetNode(node);
+
+  return out;
 };
+
 Tensor batch_gemm_hpu_lazy(const Tensor& self, const Tensor& mat2) {
-  return batch_gemm_hpu(self, mat2);
+  const auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
+  const auto hl_mat2 = habana_lazy::GetOrCreateHbLazyTensor(mat2, c10::kHABANA);
+
+  const auto node = habana_lazy::ir::Node::Create(
+      Symbol::fromQualString("aten::bmm"),
+      {hl_self.GetIrValue(), hl_mat2.GetIrValue()});
+
+  auto shape_out = BmmOperator::compute_output_shape(self, mat2);
+  const auto result = at::native::empty_hpu_lazy(
+      shape_out, self.options(), self.suggest_memory_format());
+  const auto hlresult = habana_lazy::GetHbLazyTensor(result);
+  habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+
+  return result;
 };
+
 Tensor dot_hpu_lazy(const Tensor& self, const Tensor& other) {
   return dot_hpu(self, other);
 };

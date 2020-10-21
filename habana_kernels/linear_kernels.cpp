@@ -414,6 +414,16 @@ Tensor& batch_gemm_out_hpu(
   return output.at(0);
 }
 
+std::vector<int64_t> habana::BmmOperator::compute_output_shape(
+    const Tensor& self,
+    const Tensor& mat2) {
+  auto self_sizes = self.sizes();
+  auto mat2_sizes = mat2.sizes();
+  std::vector<int64_t> shape_out = {
+      self_sizes[0], self_sizes[1], mat2_sizes[2]};
+  return shape_out;
+}
+
 void habana::BmmOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
@@ -427,11 +437,11 @@ void habana::BmmOperator::AllocateAndAddSynapseNode(
   auto self = inputs[0].toTensor();
   auto mat2 = inputs[1].toTensor();
 
-  auto self_sizes = self.sizes();
-  auto mat2_sizes = mat2.sizes();
+  auto shape_out = habana::BmmOperator::compute_output_shape(self, mat2);
+
   auto output = habana_helpers::createPTTensor(
       self,
-      {self_sizes[0], self_sizes[1], mat2_sizes[2]},
+      shape_out,
       self.options(),
       self.suggest_memory_format(),
       is_output_persistent);
@@ -461,10 +471,8 @@ Tensor batch_gemm_hpu(const Tensor& self, const Tensor& mat2) {
   size_t key = op.GetRecipeKey(node_type, stack);
   if (device.get_recipe_handle_cache().isCached(key)) {
     PT_KERNEL_DEBUG("Cache hit key:", key);
-    auto self_sizes = self.sizes();
-    auto mat2_sizes = mat2.sizes();
-    auto out = at::empty(
-        {self_sizes[0], self_sizes[1], mat2_sizes[2]}, self.options());
+    auto shape_out = habana::BmmOperator::compute_output_shape(self, mat2);
+    auto out = at::empty(shape_out, self.options());
     op.SetPTInputs(pt_inputs);
     op.SetPTOutput(out);
     op.Execute(key);
