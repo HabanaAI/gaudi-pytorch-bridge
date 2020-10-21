@@ -83,3 +83,12 @@ TEST_F(LazyNormKernelTest, LayerNormBackwardExecute) {
   at::Tensor result_cpu = std::get<0>(results_cpu);
   EXPECT_EQ(allclose(result_lazy, result_cpu, 0.01, 0.01), true);
 }
+
+TEST_F(LazyNormKernelTest, NormScalarTest) {
+  torch::Tensor A = torch::randn({2, 2}, torch::requires_grad(false));
+  torch::Tensor hA = A.to(torch::kHABANA);
+  torch::Tensor hOut = torch::norm(hA, 1);
+  torch::Tensor Out = torch::norm(A, 1);
+
+  EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out, 0.0001), true);
+}

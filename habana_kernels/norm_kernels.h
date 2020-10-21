@@ -20,14 +20,16 @@ class BatchNormForwardOperator : public habana::HabanaOperator {
     scalarType_ = scalarType;
     // assign layouts for input and output tensors
 
-    kernel_meta_data_.input_layout.assign({habana::LayoutFormat::NHWC,
-                                           habana::LayoutFormat::ANY,
-                                           habana::LayoutFormat::ANY,
-                                           habana::LayoutFormat::ANY,
-                                           habana::LayoutFormat::ANY});
-    kernel_meta_data_.output_layout.assign({habana::LayoutFormat::NHWC,
-                                            habana::LayoutFormat::ANY,
-                                            habana::LayoutFormat::ANY});
+    kernel_meta_data_.input_layout.assign(
+        {habana::LayoutFormat::NHWC,
+         habana::LayoutFormat::ANY,
+         habana::LayoutFormat::ANY,
+         habana::LayoutFormat::ANY,
+         habana::LayoutFormat::ANY});
+    kernel_meta_data_.output_layout.assign(
+        {habana::LayoutFormat::NHWC,
+         habana::LayoutFormat::ANY,
+         habana::LayoutFormat::ANY});
   }
 
   virtual void AllocateAndAddSynapseNode(
@@ -89,14 +91,16 @@ class BatchNormBackwardOperator : public habana::HabanaOperator {
     this->CreateSynContext(device_id);
     scalarType_ = scalarType;
     // assign layouts for input and output tensors
-    kernel_meta_data_.input_layout.assign({habana::LayoutFormat::NHWC,
-                                           habana::LayoutFormat::ANY,
-                                           habana::LayoutFormat::ANY,
-                                           habana::LayoutFormat::ANY,
-                                           habana::LayoutFormat::ANY});
-    kernel_meta_data_.output_layout.assign({habana::LayoutFormat::NHWC,
-                                            habana::LayoutFormat::ANY,
-                                            habana::LayoutFormat::ANY});
+    kernel_meta_data_.input_layout.assign(
+        {habana::LayoutFormat::NHWC,
+         habana::LayoutFormat::ANY,
+         habana::LayoutFormat::ANY,
+         habana::LayoutFormat::ANY,
+         habana::LayoutFormat::ANY});
+    kernel_meta_data_.output_layout.assign(
+        {habana::LayoutFormat::NHWC,
+         habana::LayoutFormat::ANY,
+         habana::LayoutFormat::ANY});
     resize_done = false;
     preprocessing_done = false;
   }
@@ -233,6 +237,7 @@ class NormOperator : public HabanaOperator {
       bool is_output_persistent = false) override;
 
   virtual void SetPTOutputs(torch::jit::Stack& inputs);
+  static std::vector<int64_t> compute_output_shape(const at::Tensor& self);
 };
 
 // LpNorm Operator

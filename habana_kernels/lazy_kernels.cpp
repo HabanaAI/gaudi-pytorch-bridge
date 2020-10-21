@@ -791,6 +791,7 @@ Tensor& pow_tensor_scalar_hpu_lazy_(Tensor& self, Scalar other) {
   HABANA_ASSERT(0);
   return pow_tensor_scalar_hpu_(self, other);
 };
+
 Tensor pow_scalar_tensor_hpu_lazy(Scalar other, const Tensor& self) {
   HABANA_ASSERT(0);
   return pow_scalar_tensor_hpu(other, self);
@@ -1712,8 +1713,23 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_backward_hpu_lazy(
 };
 
 Tensor norm_scalar_hpu_lazy(const Tensor& self, Scalar p) {
-  HABANA_ASSERT(0);
-  return norm_scalar_hpu(self, p);
+  PT_LAZY_TRACE;
+  auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
+  auto hl_p_ir_value = habana_lazy::GetIrValueForScalar(p);
+  auto node = habana_lazy::ir::Node::Create(
+      Symbol::fromQualString("aten::norm"),
+      {hl_self.GetIrValue(), hl_p_ir_value});
+
+  auto shape = NormOperator::compute_output_shape(self);
+  auto result = at::native::empty_hpu_lazy(
+      shape, self.options(), self.suggest_memory_format(), false);
+  auto hlresult = habana_lazy::GetHbLazyTensor(result);
+  habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+  std::vector<at::Tensor> input_pt_vec{self};
+  node->AddInputPtTensors(input_pt_vec);
+  return result;
 };
 
 std::tuple<Tensor, Tensor> max_pool2d_with_indices_hpu_lazy(
@@ -2735,10 +2751,23 @@ Tensor& reciprocal_hpu_lazy_(Tensor& self) {
   HABANA_ASSERT(0);
   return reciprocal_hpu_(self);
 };
+
 Tensor reciprocal_hpu_lazy(const Tensor& self) {
-  HABANA_ASSERT(0);
-  return reciprocal_hpu(self);
+  PT_LAZY_TRACE;
+  auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
+  auto node = habana_lazy::ir::Node::Create(
+      Symbol::fromQualString("aten::reciprocal"), {hl_self.GetIrValue()});
+  auto result = at::native::empty_hpu_lazy(
+      self.sizes(), self.options(), self.suggest_memory_format(), false);
+  auto hlresult = habana_lazy::GetHbLazyTensor(result);
+  habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+  std::vector<at::Tensor> input_pt_vec{self};
+  node->AddInputPtTensors(input_pt_vec);
+  return result;
 };
+
 Tensor& reciprocal_out_hpu_lazy(Tensor& result, const Tensor& self) {
   HABANA_ASSERT(0);
   return reciprocal_out_hpu(result, self);
