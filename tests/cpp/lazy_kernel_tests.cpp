@@ -375,5 +375,47 @@ TEST_F(LazyKernelTest, OptAdagradCustomOp) {
   torch::jit::testing::FileCheck()
       .check_count("habanaOptimizerSparseAdagrad", 1)
       ->run(*hlexec->get_graph());
+}
+
+TEST_F(LazyKernelTest, PermuteTest) {
+  setenv("PT_HPU_LAZY_MODE", "1", 1);
+  torch::Tensor A = torch::randn({2, 3}, torch::requires_grad(false));
+  torch::Tensor hA = A.to(torch::kHABANA);
+  torch::Tensor out = hA.permute({1, 0});
+
+  torch::Tensor expected = torch::randn({3, 2});
+  EXPECT_EQ(out.sizes(), expected.sizes());
+  auto hl_result = GetHbLazyTensor(out);
+  std::vector<HbLazyTensor> tensors = {hl_result};
+  std::vector<int> indices = {0};
+  auto po_data = HbLazyTensor::RunPostOrder(tensors, indices);
+
+  auto exec = habana_lazy::exec::HlExec();
+  exec.Create(po_data.post_order, po_data.inputs, po_data.outputs);
+  torch::jit::testing::FileCheck()
+      .check("int[] = prim::Constant[value=[1, 0]]")
+      ->check("Tensor = aten::permute")
+      ->run(*exec.get_graph());
+  unsetenv("PT_HPU_LAZY_MODE");
+}
+
+TEST_F(LazyKernelTest, TTest) {
+  setenv("PT_HPU_LAZY_MODE", "1", 1);
+  torch::Tensor A = torch::randn({2, 3}, torch::requires_grad(false));
+  torch::Tensor hA = A.to(torch::kHABANA);
+  torch::Tensor out = torch::t(hA);
+
+  torch::Tensor expected = torch::randn({3, 2});
+  EXPECT_EQ(out.sizes(), expected.sizes());
+  auto hl_result = GetHbLazyTensor(out);
+  std::vector<HbLazyTensor> tensors = {hl_result};
+  std::vector<int> indices = {0};
+  auto po_data = HbLazyTensor::RunPostOrder(tensors, indices);
+
+  auto exec = habana_lazy::exec::HlExec();
+  exec.Create(po_data.post_order, po_data.inputs, po_data.outputs);
+  torch::jit::testing::FileCheck()
+      .check("Tensor = aten::t")
+      ->run(*exec.get_graph());
   unsetenv("PT_HPU_LAZY_MODE");
 }

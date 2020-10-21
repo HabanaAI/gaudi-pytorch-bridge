@@ -19,6 +19,7 @@
 #include "habana_lazy/ops/cat.h"
 #include "habana_lazy/ops/convolution.h"
 #include "habana_lazy/ops/pool.h"
+#include "habana_lazy/ops/tensor_shape.h"
 #include "pytorch_helpers/habana_device/HPUAllocator.h"
 #include "pytorch_helpers/synapse_helpers/util.h"
 
@@ -1306,15 +1307,34 @@ Tensor transpose_hpu_lazy(const Tensor& self, int64_t dim0_, int64_t dim1_) {
 Tensor& transpose_hpu_lazy_(Tensor& self, int64_t dim0_, int64_t dim1_) {
   return transpose_hpu_(self, dim0_, dim1_);
 };
+
 Tensor t_hpu_lazy(const Tensor& self) {
-  return t_hpu(self);
+  auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
+  auto node = habana_lazy::ir::Node::Create(
+      Symbol::fromQualString("aten::t"), {hl_self.GetIrValue()});
+  auto result = t_hpu(self);
+  auto hl_result = habana_lazy::GetHbLazyTensor(result);
+  habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+  return result;
 };
+
 Tensor& t_hpu_lazy_(Tensor& self) {
   return t_hpu_(self);
 };
+
 Tensor permute_hpu_lazy(const Tensor& self, IntArrayRef dims_) {
-  return permute_hpu(self, dims_);
+  habana_lazy::ir::NodePtr node =
+      std::make_shared<habana_lazy::ir::Permute>(self, dims_);
+  auto result = permute_hpu(self, dims_);
+  auto hl_result = habana_lazy::GetHbLazyTensor(result);
+  habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+  return result;
 };
+
 Tensor expand_hpu_lazy(const Tensor& self, IntArrayRef size, bool implicit) {
   return expand_hpu(self, size, implicit);
 };

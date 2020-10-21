@@ -39,6 +39,31 @@ void HbLazyTensorImpl::set_tensor(HbLazyTensor hb_tensor) {
   m_tensor = std::move(hb_tensor);
 }
 
+c10::intrusive_ptr<c10::TensorImpl> HbLazyTensorImpl::shallow_copy_and_detach(
+    const c10::VariableVersion& version_counter,
+    bool allow_tensor_metadata_change) const {
+  auto impl = c10::make_intrusive<HbLazyTensorImpl>(m_tensor);
+  copy_tensor_metadata(
+      /*src_impl=*/this,
+      /*dest_impl=*/impl.get(),
+      /*version_counter=*/version_counter,
+      /*allow_tensor_metadata_change=*/allow_tensor_metadata_change);
+  return impl;
+}
+
+void HbLazyTensorImpl::shallow_copy_from(
+    const c10::intrusive_ptr<TensorImpl>& impl) {
+  HABANA_ASSERT(0);
+  // HbLazyTensorImpl* hl_impl = dynamic_cast<HbLazyTensorImpl*>(impl.get());
+  // copy_tensor_metadata(
+  /*src_impl=*/ // hl_impl,
+  /*dest_impl=*/ // this,
+  /*version_counter=*/ // version_counter(),
+  /*allow_tensor_metadata_change=*/ // allow_tensor_metadata_change());
+  // hl_impl->m_tensor.ShallowCopyTo(&m_tensor);
+  // generation_ = 0;
+}
+
 void HbLazyTensorImpl::AtenInitialize() {
   // ATEN specific initialization calls placed below.
 }
