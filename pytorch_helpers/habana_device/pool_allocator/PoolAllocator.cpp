@@ -88,7 +88,6 @@ void StaticPooling::pool_destroy(void *ptr) const {
                 auto status{synDeviceFree(pool_id, ptr_address, 0)};
                 if (status) {
                     //TORCH_HABANA_CHECK(status, "synDeviceFree failed");
-                    PT_DEVICE_DEBUG("POOL:: synDeviceFree failed :: ", status);
                     pool_allocator::set_device_deallocation(true);
                 }
             }
@@ -104,7 +103,6 @@ void StaticPooling::pool_destroy(void *ptr) const {
         freeHostMemory(s_pool);
         s_pool = nullptr;
         PT_DEVICE_DEBUG("POOL:: simple static pool destroyed");
-        pool_allocator::print_device_memory_stats(pool_id);
     }
     else {
         PT_DEVICE_DEBUG("POOL:: cannot destroy pool -- active blocks !!");
@@ -256,7 +254,6 @@ void DynamicPooling::freeBlocks(Block* block) const {
                 auto status{synDeviceFree(pool_id, ptr_address, 0)};
                 //TORCH_HABANA_CHECK(status, "synDeviceFree failed");
                 if (status) {
-                    PT_DEVICE_DEBUG("POOL:: synDeviceFree failed :: ", status);
                     pool_allocator::set_device_deallocation(true);
                 }
             }
@@ -398,7 +395,6 @@ void DynamicPooling::pool_destroy(void *ptr) const {
     freeBlocks(pool_start);
     pool_start = nullptr;
     PT_DEVICE_DEBUG("POOL:: Dynamic Pool destroyed");
-    pool_allocator::print_device_memory_stats(pool_id);
     return;
 }
 

@@ -103,7 +103,6 @@ void StaticCoalescedPooling::pool_destroy(void *ptr) const {
                 auto status{synDeviceFree(pool_id, ptr_address, 0)};
                 if (status) {
                     //TORCH_HABANA_CHECK(status, "synDeviceFree failed");
-                    PT_DEVICE_DEBUG("POOL:: synDeviceFree failed :: ", status);
                     set_device_deallocation(true);
                 }
             }
@@ -119,7 +118,6 @@ void StaticCoalescedPooling::pool_destroy(void *ptr) const {
         delete(s_pool);
         s_pool = nullptr;
         PT_DEVICE_DEBUG("POOL:: static coalesced pool destroyed");
-        print_device_memory_stats(pool_id);
     }
 }
 
