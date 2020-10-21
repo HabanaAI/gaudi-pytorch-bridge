@@ -20,6 +20,7 @@
 #include "habana_lazy/ops/convolution.h"
 #include "habana_lazy/ops/mse_loss.h"
 #include "habana_lazy/ops/pool.h"
+#include "habana_lazy/ops/softmax.h"
 #include "habana_lazy/ops/tensor_shape.h"
 #include "habana_lazy/ops/reduce_ops.h"
 #include "pytorch_helpers/habana_device/HPUAllocator.h"
@@ -1234,14 +1235,34 @@ Tensor log_softmax_hpu_lazy(
     const Tensor& self,
     const int64_t dim,
     const bool half_to_float) {
-  return log_softmax_hpu(self, dim, half_to_float);
+    auto node = std::make_shared<habana_lazy::ir::LogSoftMax>(self, dim, half_to_float);
+    // infer shape
+    auto result = log_softmax_hpu(self, dim, half_to_float);
+
+    auto hl_result = habana_lazy::GetHbLazyTensor(result);
+
+    habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
+    out.m_index = 0;
+    out.SetNode(node);
+    return result;
 };
 Tensor log_softmax_backward_hpu_lazy(
     const Tensor& grad,
     const Tensor& output,
     int64_t dim,
     const Tensor& input) {
-  return log_softmax_backward_hpu(grad, output, dim, input);
+    auto node = std::make_shared<habana_lazy::ir::LogSoftMaxBackward>(
+            grad, output, dim, input);
+    //infer output shape
+    auto result = log_softmax_backward_hpu(grad, output, dim, input);
+
+    auto hl_result = habana_lazy::GetHbLazyTensor(result);
+
+    habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
+    out.m_index = 0;
+    out.SetNode(node);
+
+    return result;
 };
 Tensor softmax_hpu_lazy(
     const Tensor& self,
