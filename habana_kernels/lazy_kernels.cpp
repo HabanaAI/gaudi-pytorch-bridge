@@ -1750,11 +1750,39 @@ Tensor& relu_hpu_lazy_(Tensor& input) {
   return input;
 };
 Tensor sigmoid_hpu_lazy(const Tensor& input) {
-  return sigmoid_hpu(input);
+  auto hl_input = habana_lazy::GetOrCreateHbLazyTensor(input, c10::kHABANA);
+
+  auto node = habana_lazy::ir::Node::Create(
+      Symbol::fromQualString("aten::sigmoid"), {hl_input.GetIrValue()});
+  auto shape_out = input.sizes();
+  auto result = at::native::empty_hpu_lazy(
+      shape_out, input.options(), input.suggest_memory_format(), false);
+  auto hl_result = habana_lazy::GetHbLazyTensor(result);
+  habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+
+  return result;
 };
+
 Tensor sigmoid_backward_hpu_lazy(const Tensor& grad_in, const Tensor& input) {
-  return sigmoid_backward_hpu(grad_in, input);
+  auto hl_grad_in = habana_lazy::GetOrCreateHbLazyTensor(grad_in, c10::kHABANA);
+  auto hl_input = habana_lazy::GetOrCreateHbLazyTensor(input, c10::kHABANA);
+
+  auto node = habana_lazy::ir::Node::Create(
+      Symbol::fromQualString("aten::sigmoid_backward"),
+      {hl_grad_in.GetIrValue(), hl_input.GetIrValue()});
+
+  auto result = at::native::empty_hpu_lazy(
+      input.sizes(), input.options(), input.suggest_memory_format());
+  auto hl_result = habana_lazy::GetHbLazyTensor(result);
+  habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+
+  return result;
 };
+
 Tensor sqrt_hpu_lazy(const Tensor& input) {
   return sqrt_hpu(input);
 };
