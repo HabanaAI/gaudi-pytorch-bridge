@@ -212,12 +212,18 @@ Data* HbLazyTensor::data() const {
   return mp_data.get();
 }
 
-c10::ScalarType HbLazyTensor::dtype() const {
-  if (data()->tensor_data) {
-    return data()->tensor_data->scalar_type();
-  } else
+at::ScalarType HbLazyTensor::dtype() const {
+  if (data()->logical_element_type) {
+    return *data()->logical_element_type;
+  } else {
     return c10::ScalarType::Float;
+  }
 }
+
+c10::optional<at::ScalarType> HbLazyTensor::dtype_optional() const {
+  return data()->logical_element_type;
+}
+
 ir::Value HbLazyTensor::CreateTensorNode(void* data, bool read_only) const {
   return CurrentIrValue();
   // data->SetInfo(std::make_shared<DeviceDataInfo>(GetUniqueId(), read_only));
