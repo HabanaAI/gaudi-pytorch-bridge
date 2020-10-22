@@ -163,3 +163,8 @@ Tensor& masked_fill_scalar_hpu_(
   return masked_fill_hpu_(self, mask, value_tensor);
 }
 
+static auto& KernelRegistry = habana::KernelRegistry().add(
+    "aten::fill_",
+    [](const int device_id, c10::ScalarType node_type) {
+      return std::make_shared<ConstantOutOperator>(device_id, node_type);
+    });

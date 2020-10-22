@@ -54,7 +54,7 @@ bool HabanaWhiteList::is_op_habana_whitelisted(torch::jit::Node* node) {
     }
   }
 
-    return false;
+  return false;
 }
 
 void HabanaWhiteList::load_whitelisted_ops() {
@@ -75,8 +75,8 @@ void HabanaWhiteList::load_whitelisted_ops() {
         HabanaWhiteList::HabanaWhiteListOps.insert(opname);
       }
       whiteListFile.close();
-      }
-    } else {
+    }
+  } else {
     HabanaWhiteList::HabanaWhiteListOps = {
         "aten::_log_softmax_backward_data(Tensor grad_output, Tensor output, int dim, Tensor self) -> Tensor",
         "aten::abs(Tensor self) -> Tensor",
@@ -93,6 +93,7 @@ void HabanaWhiteList::load_whitelisted_ops() {
         "aten::embedding_bag_sum_bwd.out(Tensor input, Tensor indices_bwd, Tensor offsets_bwd, Tensor valid_count_bwd, *, Tensor(a!) out) -> Tensor(a!)",
         "aten::embedding_bag_sum_fwd(Tensor input, Tensor indices_fwd, Tensor offsets_fwd, Tensor valid_count_fwd, Tensor indices_bwd, Tensor offsets_bwd, Tensor valid_count_bwd, Tensor grad_weight) -> Tensor",
         "aten::eq(Tensor self, Tensor other) -> Tensor",
+        "aten::fill_(Tensor(a !) self, Scalar value)->Tensor(a !)",
         "aten::flatten(Tensor self, int start_dim, int end_dim) -> Tensor",
         "aten::gt(Tensor self, Tensor other) -> Tensor",
         "aten::log_softmax(Tensor self, int dim, int? dtype) -> Tensor",
@@ -107,8 +108,8 @@ void HabanaWhiteList::load_whitelisted_ops() {
         "aten::permute(Tensor self, int[] dims) -> Tensor",
         "aten::relu(Tensor self) -> Tensor",
         "aten::reshape(Tensor self, int[] shape) -> Tensor",
-        "aten::sigmoid(Tensor self) -> Tensor",        
-        "aten::sigmoid_backward(Tensor grad_output, Tensor output) -> Tensor",        
+        "aten::sigmoid(Tensor self) -> Tensor",
+        "aten::sigmoid_backward(Tensor grad_output, Tensor output) -> Tensor",
         "aten::sub(Tensor self, Tensor other, *, Scalar alpha) -> Tensor",
         "aten::sub(Tensor self, Tensor other, *, Scalar alpha) -> Tensor",
         "aten::t(Tensor self) -> Tensor",
@@ -117,5 +118,5 @@ void HabanaWhiteList::load_whitelisted_ops() {
         "aten::transpose(Tensor self, int dim0, int dim1) -> Tensor",
         "aten::to(Tensor self, Device device, int dtype, bool non_blocking, bool copy, int? memory_format) -> Tensor",
         "aten::view(Tensor self, int[] size) -> Tensor"};
-  } 
+  }
 }

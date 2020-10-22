@@ -116,6 +116,8 @@ class ConstantOutOperator : public habana::HabanaOperator {
             "constant_" + habana_helpers::name_suffix_from_type(scalarType)) {
     this->CreateSynContext(device_id);
     kernel_meta_data_.output_layout.assign({habana::LayoutFormat::ANY});
+    // skip the self tensor as it is an output
+    kernel_meta_data_.valid_input_idx.insert({1});
   }
 
   virtual void AllocateAndAddSynapseNode(

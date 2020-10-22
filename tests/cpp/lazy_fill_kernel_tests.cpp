@@ -35,3 +35,18 @@ TEST_F(LazyFillKernelTest, LocalScalarDenseTest) {
   unsetenv("PT_HPU_LAZY_MODE");
 }
 
+TEST_F(LazyFillKernelTest, ExecuteFillGraph) {
+  Tensor tensor_in1 = torch::rand({2});
+
+  setenv("PT_HPU_LAZY_MODE", "1", 1);
+  torch::Tensor htensor_in1 = tensor_in1.to(torch::kHABANA);
+  auto out = htensor_in1.fill_(1.0);
+
+  std::vector<HbLazyTensor> tensors = {GetHbLazyTensor(out)};
+  HbLazyTensor::SyncTensorsGraph(&tensors, {});
+
+  auto exp = tensor_in1.fill_(1.0);
+  auto out_cpu = htensor_in1.to(torch::kCPU);
+  EXPECT_EQ(allclose(out_cpu, exp), true);
+  unsetenv("PT_HPU_LAZY_MODE");
+}
