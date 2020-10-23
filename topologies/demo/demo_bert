@@ -27,10 +27,10 @@ function help()
 setup_env()
 {
         set -x
-        export PT_HPU_POOL_STRATEGY=0
         export PT_HPU_CACHE_RECIPE_WITH_SCALAR=0
         export PT_HPU_LOG_MOD_MASK=FFFF
         export PT_HPU_LOG_TYPE_MASK=1
+        export PT_ENABLE_HABANA_STREAMASYNC=0
         set +x
 }
 
