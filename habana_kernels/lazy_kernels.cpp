@@ -28,6 +28,7 @@
 #include "habana_lazy/ops/reduce_ops.h"
 #include "habana_lazy/ops/shape_ops.h"
 #include "habana_lazy/ops/softmax.h"
+#include "habana_lazy/ops/loss.h"
 #include "habana_lazy/ops/tensor_shape.h"
 #include "pytorch_helpers/habana_device/HPUAllocator.h"
 #include "pytorch_helpers/synapse_helpers/util.h"
@@ -934,7 +935,31 @@ std::tuple<Tensor, Tensor> nll_loss_forward_hpu_lazy(
     const Tensor& weight,
     int64_t reduction,
     int64_t ignore_index) {
-  return nll_loss_forward_hpu(self, target, weight, reduction, ignore_index);
+  habana_lazy::ir::NodePtr nll_loss_node =
+      std::make_shared<habana_lazy::ir::NllLoss_forward>(
+          self, target, weight, reduction, ignore_index);
+
+  // allocate Output_0
+  auto result_0 = at::native::empty_hpu_lazy(
+      {1}, self.options(), self.suggest_memory_format(), false);
+  result_0.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+
+  auto hlresult_0 = habana_lazy::GetHbLazyTensor(result_0);
+  habana_lazy::ir::Value& out_0 = hlresult_0.CurrentIrValue();
+  out_0.m_index = 0;
+  out_0.SetNode(nll_loss_node);
+
+  // allocate Output_1
+  auto result_1 = at::native::empty_hpu_lazy(
+      {}, self.options(), self.suggest_memory_format(), false);
+  result_1.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+
+  auto hlresult_1 = habana_lazy::GetHbLazyTensor(result_1);
+  habana_lazy::ir::Value& out_1 = hlresult_1.CurrentIrValue();
+  out_1.m_index = 1;
+  out_1.SetNode(nll_loss_node);
+
+  return {result_0, result_1};
 };
 Tensor nll_loss_backward_hpu_lazy(
     const Tensor& grad_output,
@@ -944,8 +969,20 @@ Tensor nll_loss_backward_hpu_lazy(
     int64_t reduction,
     int64_t ignore_index,
     UNUSED const Tensor& total_weight) {
-  return nll_loss_backward_hpu(
-      grad_output, self, target, weight, reduction, ignore_index, total_weight);
+  habana_lazy::ir::NodePtr nll_loss_bwd_node =
+      std::make_shared<habana_lazy::ir::NllLoss_backward>(
+          grad_output, self, target, weight, reduction, ignore_index, total_weight);
+
+  // allocate
+  auto result = at::native::empty_hpu_lazy(
+      self.sizes(), self.options(), self.suggest_memory_format(), false);
+
+  auto hlresult = habana_lazy::GetHbLazyTensor(result);
+  habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(nll_loss_bwd_node);
+
+  return result;
 };
 
 Tensor mse_loss_forward_hpu_lazy(

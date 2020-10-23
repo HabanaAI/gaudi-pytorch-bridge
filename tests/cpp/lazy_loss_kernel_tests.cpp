@@ -48,3 +48,55 @@ TEST_F(LazyLossKernelTest, MseLossTest) {
   EXPECT_EQ(allclose(out1, exp1), true);
   EXPECT_EQ(allclose(out2, exp2), true);
 }
+
+TEST_F(LazyLossKernelTest, NllLossFwdTest) {
+  torch::Tensor input = torch::randn({10, 4}, torch::requires_grad(true));
+  torch::Tensor hinput = input.to(torch::kHABANA);
+
+  auto target = torch::randint(
+      0,
+      3,
+      {
+          10,
+      },
+      torch::kLong);
+  torch::Tensor htarget = target.to(torch::kHABANA);
+
+  torch::nn::NLLLoss loss;
+  auto output_cpu = loss->forward(input, target);
+  auto output = loss->forward(hinput, htarget);
+
+  Tensor output_hpu = output.to(torch::kCPU);
+  EXPECT_EQ(allclose(output_cpu, output_hpu), true);
+}
+
+TEST_F(LazyLossKernelTest, NllLossBwdTest) {
+  torch::Tensor input = torch::randn({10, 4}, torch::requires_grad(true));
+  torch::Tensor hinput = input.to(torch::kHABANA);
+
+  auto target = torch::randint(
+      0,
+      3,
+      {
+          10,
+      },
+      torch::kLong);
+  torch::Tensor htarget = target.to(torch::kHABANA);
+
+  auto grad_out = torch::tensor({1}, torch::kFloat);
+  torch::Tensor hgrad_out = grad_out.to(torch::kHABANA);
+
+  // HPU kernel does not use this tensor, but we need to create it because
+  // "nll_loss_backward" does not compile without this argument. Note that dim &
+  // values in this tensor may need to be changed for other "reduction" modes.
+  auto sum_weights = torch::tensor({10}, torch::kFloat);
+  torch::Tensor hsum_weights = sum_weights.to(torch::kHABANA);
+
+  auto grad_in_cpu = torch::nll_loss_backward(
+      grad_out, input, target, {}, 1, -100, sum_weights);
+  auto grad_in = torch::nll_loss_backward(
+      hgrad_out, hinput, htarget, {}, 1, -100, hsum_weights);
+
+  Tensor grad_in_hpu = grad_in.to(torch::kCPU);
+  EXPECT_EQ(allclose(grad_in_cpu, grad_in_hpu), true);
+}
