@@ -370,11 +370,16 @@ dlrm_set_env()
     world_size=$1
     backend=$2
     hcl_type=$3
+    dtype=$4
+    min_free_cache_amount=650
+    if [ ${dtype} == "bf16" ]; then
+        min_free_cache_amount=4096
+    fi
     set -x
     export PT_HPU_LOG_MOD_MASK=FFFF
     export PT_HPU_LOG_TYPE_MASK=1
     export HABANA_GRAPH_WHITELIST_FILE=${DEMO_DIR_PATH}/configs/DLRM_whitelist_ops.txt
-    export DATACHUNK_MIN_FREE_CACHE_AMOUNT=650
+    export DATACHUNK_MIN_FREE_CACHE_AMOUNT=${min_free_cache_amount}
     export GCFG_MIN_CSDC_FOR_COMPL_CHK=200
     export DATACHUNK_SINGLE_CHUNK_SIZE=1024
     export RECIPE_CACHE_BLOCK_SIZE=2048
@@ -414,6 +419,7 @@ fi
 
 COMMUNICATIN_BACKEND="hcl"
 WORLD_SIZE=${__world_size:-1}
+DTYPE=${__dtype:-fp32}
 INTERPRETER="python"
 
 if [ ${WORLD_SIZE} -gt 1 ]; then
@@ -423,5 +429,5 @@ fi
 echo -e "Train DLRM with below parameters:"
 echo -e "${PARAMSUMMARY}"
 printf "*** Starting training...\n\n"
-dlrm_set_env ${WORLD_SIZE} ${COMMUNICATIN_BACKEND} "HLS1"
+dlrm_set_env ${WORLD_SIZE} ${COMMUNICATIN_BACKEND} "HLS1" ${DTYPE}
 (set -x;${INTERPRETER} ${DEMO_DIR_PATH}/dlrm/${DLRM_SCRIPT} ${CMDLINEARGS})
