@@ -10,11 +10,13 @@
 #include "hpu_lazy_tensors.h"
 #include <ATen/Tensor.h>
 #include <torch/csrc/jit/ir/ir.h>
+#include "debug_utils.h"
 #include "habana_bridge/kernel/hpu_habana_launch_op_pt.h"
-#include "habana_lazy/debug_utils.h"
-#include "habana_lazy/hlexec.h"
 #include "habana_helpers/logging.h"
 #include "habana_helpers/tensor_utils.h"
+#include "habana_lazy/debug_utils.h"
+#include "habana_lazy/hlexec.h"
+#include "hlexec.h"
 
 using namespace habana_lazy;
 
@@ -84,6 +86,8 @@ HbContext* HbContextArena::GetHbContext(const c10::Device& device) {
 
 HbLazyTensor::HbLazyTensor(const at::Tensor& tensor, const c10::Device& device)
     : mp_data(std::make_shared<Data>(tensor, device)) {}
+HbLazyTensor::HbLazyTensor(const c10::Device& device)
+    : mp_data(std::make_shared<Data>(device)) {}
 
 HbLazyTensor::HbLazyTensor(
     ir::Value ir_value,

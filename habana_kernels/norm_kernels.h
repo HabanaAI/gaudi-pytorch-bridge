@@ -177,17 +177,24 @@ class LayerNormOperator : public habana::HabanaOperator {
                                             habana::LayoutFormat::ANY});
   }
 
-  void AllocateAndAddSynapseNode(
+  virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
-  void SetPTOutputs(torch::jit::Stack& inputs);
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      std::vector<bool> is_output_persistent) override;
+  virtual void SetPTOutputs(torch::jit::Stack& inputs);
   std::tuple<at::Tensor, at::Tensor, at::Tensor> AllocatePTOutputs(
       const at::Tensor& input,
       const at::Tensor& bias,
       const at::Tensor& weight,
       int64_t m,
       std::array<bool, 3> is_persistent);
+  static std::
+      tuple<std::vector<int64_t>, std::vector<int64_t>, std::vector<int64_t>>
+      getOutputSizes(const at::Tensor& input, int m);
 };
 
 class LayerNormBackwardOperator : public habana::HabanaOperator {
@@ -209,15 +216,22 @@ class LayerNormBackwardOperator : public habana::HabanaOperator {
                                             habana::LayoutFormat::ANY});
   }
 
-  void AllocateAndAddSynapseNode(
+  virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
-  void SetPTOutputs(torch::jit::Stack& inputs);
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      std::vector<bool> is_output_persistent) override;
+  virtual void SetPTOutputs(torch::jit::Stack& inputs);
   std::tuple<at::Tensor, at::Tensor, at::Tensor> AllocatePTOutputs(
       const at::Tensor& input,
       const at::Tensor& weight,
       bool is_persistent);
+  static std::
+      tuple<std::vector<int64_t>, std::vector<int64_t>, std::vector<int64_t>>
+      getOutputSizes(const at::Tensor& input, const at::Tensor& gamma);
 };
 
 // Norm Operator

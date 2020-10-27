@@ -1021,6 +1021,12 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu(
   return std::make_tuple(grad_in_resized, bn_outputs[1], bn_outputs[2]);
 }
 
+std::tuple<std::vector<int64_t>, std::vector<int64_t>, std::vector<int64_t>>
+LayerNormOperator::getOutputSizes(const at::Tensor& input, int m) {
+  auto output_sizes = input.sizes().vec();
+  std::vector<int64_t> shape_mean{m, 1};
+  return std::make_tuple(output_sizes, shape_mean, shape_mean);
+}
 std::tuple<Tensor, Tensor, Tensor> LayerNormOperator::AllocatePTOutputs(
     const Tensor& input,
     const Tensor& bias,
@@ -1028,28 +1034,38 @@ std::tuple<Tensor, Tensor, Tensor> LayerNormOperator::AllocatePTOutputs(
     int64_t m,
     std::array<bool, 3> is_persistent) {
   std::vector<int64_t> shape_mean{m, 1};
-  IntArrayRef meanArray(shape_mean.data(), shape_mean.size());
-  auto output_sizes = input.sizes().vec();
+  auto sizes = LayerNormOperator::getOutputSizes(input, m);
   auto output = habana_helpers::createPTTensor(
       input,
-      output_sizes,
+      std::get<0>(sizes),
       input.options(),
       input.suggest_memory_format(),
       is_persistent[0]);
   auto istd = habana_helpers::createPTTensor(
       bias,
-      meanArray,
+      std::get<1>(sizes),
       bias.options(),
       bias.suggest_memory_format(),
       is_persistent[1]);
   auto mean = habana_helpers::createPTTensor(
       weight,
-      meanArray,
+      std::get<2>(sizes),
       weight.options(),
       weight.suggest_memory_format(),
       is_persistent[2]);
 
   return std::make_tuple(std::move(output), std::move(mean), std::move(istd));
+}
+
+void LayerNormOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  // For now calling the persistentce with single output
+  AllocateAndAddSynapseNode(
+      graph,
+      inputs,
+      {is_output_persistent, is_output_persistent, is_output_persistent});
 }
 
 /*
@@ -1064,7 +1080,7 @@ weight->[reshape_weight]---->|----------------|
 void LayerNormOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    std::vector<bool> is_output_persistent) {
   TORCH_CHECK(
       inputs.size() == 6,
       "LayerNormOperator::AllocateAndAddSynapseNode expected 6 args but got ",
@@ -1132,7 +1148,7 @@ void LayerNormOperator::AllocateAndAddSynapseNode(
       bias_reshaped,
       wt_reshaped,
       m,
-      {false, is_output_persistent, is_output_persistent});
+      {false, is_output_persistent[1], is_output_persistent[2]});
   auto output = std::get<0>(outputs);
   auto mean = std::get<1>(outputs);
   auto istd = std::get<2>(outputs);
@@ -1143,8 +1159,8 @@ void LayerNormOperator::AllocateAndAddSynapseNode(
   // sizes which will be marked as persistent
   AllocateSynapseOutput(
       graph, habana_helpers::createPTTensor(input_reshaped, false), false);
-  AllocateSynapseOutput(graph, mean, is_output_persistent);
-  AllocateSynapseOutput(graph, istd, is_output_persistent);
+  AllocateSynapseOutput(graph, mean, is_output_persistent[1]);
+  AllocateSynapseOutput(graph, istd, is_output_persistent[2]);
   synapse_helpers::tensor& syn_out_ln_out = p_context_->syn_outputs_[0];
   std::vector<synTensor> syn_outputs{syn_out_ln_out.get()};
   synapse_helpers::tensor& syn_out_ln_mean = p_context_->syn_outputs_[1];
@@ -1165,7 +1181,8 @@ void LayerNormOperator::AllocateAndAddSynapseNode(
   ReshapeOperator reshape_op_out(input.device().index(), input.scalar_type());
   reshape_op_out.SetSynapseInput(std::move(p_context_->syn_outputs_[0]));
   stack = {c10::IValue(input_reshaped), c10::IValue(input.sizes().vec())};
-  reshape_op_out.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+  reshape_op_out.AllocateAndAddSynapseNode(
+      graph, stack, is_output_persistent[0]);
   synapse_helpers::tensor& syn_reshape_out = reshape_op_out.GetSynOutputs()[0];
   p_context_->syn_outputs_[0] = std::move(syn_reshape_out);
   p_context_->pt_outputs_[0] = reshape_op_out.GetOutputs()[0];
@@ -1192,8 +1209,8 @@ void LayerNormOperator::SetPTOutputs(torch::jit::Stack& inputs) {
  * @param bias (fp32 tensor) per element bias value tensor
  * @param m (int) num of elements in outer dims not used in LayerNorm
  * @param n (int) num of elements used for computing LayerNorm
- * @param eps (double) a value added to the denominator for numerical stability.
- * Default: 1e-5
+ * @param eps (double) a value added to the denominator for numerical
+ * stability. Default: 1e-5
  */
 std::tuple<Tensor, Tensor, Tensor> layer_norm_hpu(
     const Tensor& input,
@@ -1254,21 +1271,22 @@ std::tuple<Tensor, Tensor, Tensor> LayerNormBackwardOperator::AllocatePTOutputs(
     const Tensor& input,
     const Tensor& weight,
     bool is_persistent) {
+  auto sizes = LayerNormBackwardOperator::getOutputSizes(input, weight);
   auto output = habana_helpers::createPTTensor(
       input,
-      input.sizes().vec(),
+      std::get<0>(sizes),
       input.options(),
       input.suggest_memory_format(),
       is_persistent);
   auto beta = habana_helpers::createPTTensor(
       weight,
-      weight.sizes().vec(),
+      std::get<1>(sizes),
       weight.options(),
       weight.suggest_memory_format(),
       is_persistent);
   auto gamma = habana_helpers::createPTTensor(
       weight,
-      weight.sizes().vec(),
+      std::get<2>(sizes),
       weight.options(),
       weight.suggest_memory_format(),
       is_persistent);
@@ -1280,6 +1298,17 @@ void LayerNormBackwardOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     bool is_output_persistent) {
+  // For now calling the persistentce with single output
+  AllocateAndAddSynapseNode(
+      graph,
+      inputs,
+      {is_output_persistent, is_output_persistent, is_output_persistent});
+}
+
+void LayerNormBackwardOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    std::vector<bool> is_output_persistent) {
   TORCH_CHECK(
       inputs.size() == 8,
       "LayerNormBackwardOperator::AllocateAndAddSynapseNode expected 8 args but got ",
@@ -1352,8 +1381,8 @@ void LayerNormBackwardOperator::AllocateAndAddSynapseNode(
   synapse_helpers::tensor& syn_lstd = p_context_->syn_inputs_[3];
   syn_inputs.push_back(syn_lstd.get());
   syn_inputs.push_back(syn_gamma.get());
-  // output syn tensors are non-persistent since these will be reshaped to input
-  // sizes which will be marked as persistent
+  // output syn tensors are non-persistent since these will be reshaped to
+  // input sizes which will be marked as persistent
   auto outputs = AllocatePTOutputs(dY, gamma, false);
   auto output0 = std::get<0>(outputs);
   auto output1 = std::get<1>(outputs);
@@ -1383,7 +1412,7 @@ void LayerNormBackwardOperator::AllocateAndAddSynapseNode(
   reshape_op_grad_in.SetSynapseInput(std::move(p_context_->syn_outputs_[0]));
   stack = {c10::IValue(output0), c10::IValue(output0.sizes().vec())};
   reshape_op_grad_in.AllocateAndAddSynapseNode(
-      graph, stack, is_output_persistent);
+      graph, stack, is_output_persistent[0]);
   synapse_helpers::tensor& syn_reshape_grad_in =
       reshape_op_grad_in.GetSynOutputs()[0];
 
@@ -1392,7 +1421,7 @@ void LayerNormBackwardOperator::AllocateAndAddSynapseNode(
   reshape_op_grad_gamma.SetSynapseInput(std::move(p_context_->syn_outputs_[2]));
   stack = {c10::IValue(output2), c10::IValue(output2.sizes().vec())};
   reshape_op_grad_gamma.AllocateAndAddSynapseNode(
-      graph, stack, is_output_persistent);
+      graph, stack, is_output_persistent[2]);
   synapse_helpers::tensor& syn_reshape_grad_gamma =
       reshape_op_grad_gamma.GetSynOutputs()[0];
 
@@ -1401,7 +1430,7 @@ void LayerNormBackwardOperator::AllocateAndAddSynapseNode(
   reshape_op_grad_beta.SetSynapseInput(std::move(p_context_->syn_outputs_[1]));
   stack = {c10::IValue(output1), c10::IValue(output1.sizes().vec())};
   reshape_op_grad_beta.AllocateAndAddSynapseNode(
-      graph, stack, is_output_persistent);
+      graph, stack, is_output_persistent[1]);
   synapse_helpers::tensor& syn_reshape_grad_beta =
       reshape_op_grad_beta.GetSynOutputs()[0];
 
@@ -1425,6 +1454,14 @@ void LayerNormBackwardOperator::SetPTOutputs(torch::jit::Stack& inputs) {
       {std::get<0>(outputs), std::get<1>(outputs), std::get<2>(outputs)});
 }
 
+std::tuple<std::vector<int64_t>, std::vector<int64_t>, std::vector<int64_t>>
+LayerNormBackwardOperator::getOutputSizes(
+    const at::Tensor& input,
+    const at::Tensor& gamma) {
+  std::vector<int64_t> gamma_size =
+      gamma.defined() ? gamma.sizes().vec() : input.sizes().vec();
+  return std::make_tuple(input.sizes().vec(), gamma_size, gamma_size);
+}
 /** @brief This function implements backward pass for torch.nn.LayerNorm()
  * with grad_on_grad = False
  * @param dY (bf16/fp32 tensor) grad input tensor
@@ -1693,9 +1730,13 @@ static auto& KernelRegistry =
               return std::make_shared<LayerNormOperator>(device_id, node_type);
             })
         .add(
+            "aten::native_layer_norm_backward",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<LayerNormBackwardOperator>(
+                  device_id, node_type);
+            })
+        .add(
             "aten::norm.scalar",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<NormOperator>(device_id, node_type);
             });
-
-

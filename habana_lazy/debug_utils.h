@@ -7,6 +7,7 @@
  *
  ******************************************************************************
  */
+#pragma once
 #include "hpu_lazy_tensors.h"
 #include "tensor_impl.h"
 // namespace habana_lazy

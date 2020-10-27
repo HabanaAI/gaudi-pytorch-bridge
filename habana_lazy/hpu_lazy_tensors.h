@@ -30,6 +30,10 @@ struct Data {
         tensor_data(std::move(tensor_data)),
         original_element_type(tensor_data.scalar_type()),
         unique_id(GetNextTensorId()) {}
+  Data(const c10::Device& device)
+      : data_ptr(nullptr),
+        device(c10::Device(c10::DeviceType::HABANA, 0)),
+        unique_id(GetNextTensorId()) {}
   Data(
       ir::Value ir_value,
       const at::Device& device,
@@ -79,6 +83,7 @@ class HbLazyTensor {
   // Creates an empty/null tensor.
   HbLazyTensor() = default;
   HbLazyTensor(const at::Tensor& tensor, const c10::Device& device);
+  HbLazyTensor(const c10::Device& device);
   HbLazyTensor(
       ir::Value ir_value,
       const at::Device& device,

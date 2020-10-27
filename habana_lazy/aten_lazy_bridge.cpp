@@ -50,9 +50,8 @@ at::Tensor AtenFromHbLazyTensor(HbLazyTensor HbLazy_tensor) {
 }
 
 at::Tensor AtenInternalHbTensor(c10::Storage&& storage) {
-  at::Tensor tensor
-    = at::Tensor(
-          c10::make_intrusive<HbInternalTensorImpl>(std::move(storage)));
+  at::Tensor tensor =
+      at::Tensor(c10::make_intrusive<HbInternalTensorImpl>(std::move(storage)));
   return tensor;
 }
 
@@ -75,8 +74,7 @@ HbInternalTensorImpl* GetHbInternalTensorImpl(const at::Tensor& tensor) {
 void setTensorAsInputNode(HbLazyTensor hl_tensor) {
   if (!hl_tensor.CurrentIrValue()) {
     ir::Value val = hl_tensor.createIrValueFromData();
-    auto node = ir::Node::Create(
-        c10::Symbol::fromQualString("hpu::input"), {});
+    auto node = ir::Node::Create(c10::Symbol::fromQualString("hpu::input"), {});
     val.SetNode(node);
     hl_tensor.AssignIrValue(val);
   } else {
@@ -90,7 +88,7 @@ HbLazyTensor GetOrCreateHbLazyTensor(
     const at::Tensor& tensor,
     const c10::Device& device) {
   if (!tensor.defined()) {
-    return HbLazyTensor();
+    return HbLazyTensor(device);
   }
   auto p_hb_tensor = TryGetHbLazyTensor(tensor);
   HbLazyTensor hl_tensor;
