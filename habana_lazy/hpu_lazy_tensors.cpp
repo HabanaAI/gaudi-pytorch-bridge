@@ -11,9 +11,10 @@
 #include <ATen/Tensor.h>
 #include <torch/csrc/jit/ir/ir.h>
 #include "habana_bridge/kernel/hpu_habana_launch_op_pt.h"
+#include "debug_utils.h"
 #include "hlexec.h"
+#include "habana_helpers/logging.h"
 #include "habana_helpers/tensor_utils.h"
-#include "hlexec.h"
 
 using namespace habana_lazy;
 
@@ -319,6 +320,9 @@ habana_lazy::PostOrderData HbLazyTensor::RunPostOrder(
   ir::Utils::ComputePostOrder(
       p_roots, &po_data.emission_map, po_data.post_order);
   ir::Utils::ComputePostOrderInputs(po_data.inputs, po_data.post_order);
+
+  auto str = IrGraphDumpUtil::PostOrderToText(po_data.post_order, p_roots);
+  PT_LAZY_DEBUG(str);
 
   return po_data;
 }

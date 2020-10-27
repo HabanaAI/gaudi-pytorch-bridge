@@ -8,6 +8,7 @@
  ******************************************************************************
  */
 
+#include "habana_helpers/logging.h"
 #include "habana_kernels/binary_kernels.h"
 #include "habana_kernels/conv_kernels.h"
 #include "habana_kernels/eager_kernels_declarations.h"
@@ -196,6 +197,7 @@ Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src, bool non_blocking) {
 
 // calling eager mode kernels as a temporary placeholder to avoid warnings
 Tensor& copy_hpu_lazy_(Tensor& self, const Tensor& src, bool non_blocking) {
+  PT_LAZY_BEGIN;
   if (habana_lazy::IsHbLazyTensor(src)) {
     auto src_hb_tensor = habana_lazy::GetHbLazyTensor(src);
     auto src_hb_tensor_data = src_hb_tensor.GetHbLazyTensorData();
@@ -236,11 +238,12 @@ Tensor& copy_hpu_lazy_(Tensor& self, const Tensor& src, bool non_blocking) {
     } else if (src_device == c10::DeviceType::HABANA) {
       self = copy_hpu_lazy_D2H(self, src, non_blocking);
     }
-    return self;
   } else {
     self = copy_hpu_lazy_D2D(self, src, non_blocking);
-    return self;
   }
+
+  PT_LAZY_END;
+  return self;
 }
 Tensor as_strided_hpu_lazy(
     const Tensor& self,

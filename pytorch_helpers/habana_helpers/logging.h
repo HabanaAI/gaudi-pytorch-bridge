@@ -123,6 +123,7 @@ class PtLogger {
     BRIDGE = 4,
     SYNHELPER = 8,
     DISTRIBUTED = 16,
+    LAZY = 32,
   };
 };
 
@@ -150,6 +151,8 @@ class PtLogger {
 
 #define PT_DISTRIBUTED_FATAL(...) \
   PT_MOD_FATAL(PtLogger::ModuleMask::DISTRIBUTED, __VA_ARGS__)
+
+#define PT_LAZY_FATAL(...) PT_MOD_FATAL(PtLogger::ModuleMask::LAZY, __VA_ARGS__)
 
 #define HABANA_ASSERT(condition)                                             \
   {                                                                          \
@@ -184,6 +187,8 @@ class PtLogger {
 #define PT_DISTRIBUTED_WARN(...) \
   PT_MOD_WARN(PtLogger::ModuleMask::DISTRIBUTED, __VA_ARGS__)
 
+#define PT_LAZY_WARN(...) PT_MOD_WARN(PtLogger::ModuleMask::LAZY, __VA_ARGS__)
+
 /************************TRACE MACROS************************************/
 #define PT_MOD_BEGIN(MOD)                                                \
   if (((PtLogger::getLogger()->getModuleMask() & (MOD)) &&               \
@@ -198,6 +203,7 @@ class PtLogger {
 #define PT_BRIDGE_BEGIN PT_MOD_BEGIN(PtLogger::ModuleMask::BRIDGE)
 #define PT_SYNHELPER_BEGIN PT_MOD_BEGIN(PtLogger::ModuleMask::SYNHELPER)
 #define PT_DISTRIBUTED_BEGIN PT_MOD_BEGIN(PtLogger::ModuleMask::DISTRIBUTED)
+#define PT_LAZY_BEGIN PT_MOD_BEGIN(PtLogger::ModuleMask::LAZY)
 
 #define PT_MOD_END(MOD)                                                \
   if (((PtLogger::getLogger()->getModuleMask() & (MOD)) &&             \
@@ -212,6 +218,7 @@ class PtLogger {
 #define PT_BRIDGE_END PT_MOD_END(PtLogger::ModuleMask::BRIDGE)
 #define PT_SYNHELPER_END PT_MOD_END(PtLogger::ModuleMask::SYNHELPER)
 #define PT_DISTRIBUTED_END PT_MOD_END(PtLogger::ModuleMask::DISTRIBUTED)
+#define PT_LAZY_END PT_MOD_END(PtLogger::ModuleMask::LAZY)
 
 /************************DEBUG MACROS************************************/
 #define PT_MOD_DEBUG(MOD, ...)                             \
@@ -231,3 +238,4 @@ class PtLogger {
   PT_MOD_DEBUG(PtLogger::ModuleMask::SYNHELPER, __VA_ARGS__)
 #define PT_DISTRIBUTED_DEBUG(...) \
   PT_MOD_DEBUG(PtLogger::ModuleMask::DISTRIBUTED, __VA_ARGS__)
+#define PT_LAZY_DEBUG(...) PT_MOD_DEBUG(PtLogger::ModuleMask::LAZY, __VA_ARGS__)
