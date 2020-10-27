@@ -29,7 +29,7 @@ struct Data {
         logical_element_type(tensor_data.scalar_type()),
         tensor_data(std::move(tensor_data)),
         original_element_type(tensor_data.scalar_type()),
-        unique_id(0) {}
+        unique_id(GetNextTensorId()) {}
   Data(
       ir::Value ir_value,
       const at::Device& device,
@@ -39,8 +39,12 @@ struct Data {
         device(device),
         logical_element_type(logical_element_type),
         original_element_type(logical_element_type.value()),
-        unique_id(0) {}
+        unique_id(GetNextTensorId()) {}
   ~Data(){};
+  int64_t GetNextTensorId() {
+    static std::atomic<int64_t>* id_generator = new std::atomic<int64_t>(1);
+    return id_generator->fetch_add(1);
+  }
   void* data_ptr;
   ir::Value ir_value;
   LayoutFormat tensor_layout;
@@ -48,7 +52,7 @@ struct Data {
   c10::optional<at::ScalarType> logical_element_type;
   c10::optional<at::Tensor> tensor_data;
   at::ScalarType original_element_type;
-  const int unique_id;
+  const int64_t unique_id = 0;
   std::vector<int64_t> sizes;
 };
 

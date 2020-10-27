@@ -11,8 +11,8 @@
 #include <ATen/Tensor.h>
 #include <torch/csrc/jit/ir/ir.h>
 #include "habana_bridge/kernel/hpu_habana_launch_op_pt.h"
-#include "debug_utils.h"
-#include "hlexec.h"
+#include "habana_lazy/debug_utils.h"
+#include "habana_lazy/hlexec.h"
 #include "habana_helpers/logging.h"
 #include "habana_helpers/tensor_utils.h"
 
@@ -390,6 +390,11 @@ void HbLazyTensor::SyncTensorsGraphInternal(
     out_tensor.SetTensorData(st);
   }
   HABANA_ASSERT(stack.size() == (*tensors).size());
+
+  // Graph executed, clear IR values corresponding to sync tensors
+  for (auto& i : *tensors) {
+    i.AssignIrValue(ir::Value());
+  }
 }
 void HbLazyTensor::setTensorOriginalType(c10::ScalarType type) {
   data()->original_element_type = type;
