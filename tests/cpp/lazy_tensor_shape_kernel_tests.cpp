@@ -49,21 +49,13 @@ TEST_F(LazyTensorShapeKernelTest, PermuteTest) {
   setenv("PT_HPU_LAZY_MODE", "1", 1);
   torch::Tensor A = torch::randn({2, 3}, torch::requires_grad(false));
   torch::Tensor hA = A.to(torch::kHABANA);
-  torch::Tensor out = hA.permute({1, 0});
+  torch::Tensor hOut = hA.permute({1, 0});
+  torch::Tensor Out = A.permute({1, 0});
 
-  torch::Tensor expected = torch::randn({3, 2});
-  EXPECT_EQ(out.sizes(), expected.sizes());
-  auto hl_result = GetHbLazyTensor(out);
-  std::vector<HbLazyTensor> tensors = {hl_result};
-  std::vector<int> indices = {0};
-  auto po_data = HbLazyTensor::RunPostOrder(tensors, indices);
+  std::vector<HbLazyTensor> hl_tensors = {GetHbLazyTensor(hOut)};
+  HbLazyTensor::SyncTensorsGraph(&hl_tensors, {});
 
-  auto exec = habana_lazy::exec::HlExec();
-  exec.Create(po_data.post_order, po_data.inputs, po_data.outputs);
-  torch::jit::testing::FileCheck()
-      .check("int[] = prim::Constant[value=[1, 0]]")
-      ->check("Tensor = aten::permute")
-      ->run(*exec.get_graph());
+  EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out), true);
   unsetenv("PT_HPU_LAZY_MODE");
 }
 
@@ -71,19 +63,12 @@ TEST_F(LazyTensorShapeKernelTest, TTest) {
   setenv("PT_HPU_LAZY_MODE", "1", 1);
   torch::Tensor A = torch::randn({2, 3}, torch::requires_grad(false));
   torch::Tensor hA = A.to(torch::kHABANA);
-  torch::Tensor out = torch::t(hA);
+  torch::Tensor hOut = torch::t(hA);
+  torch::Tensor Out = torch::t(A);
 
-  torch::Tensor expected = torch::randn({3, 2});
-  EXPECT_EQ(out.sizes(), expected.sizes());
-  auto hl_result = GetHbLazyTensor(out);
-  std::vector<HbLazyTensor> tensors = {hl_result};
-  std::vector<int> indices = {0};
-  auto po_data = HbLazyTensor::RunPostOrder(tensors, indices);
+  std::vector<HbLazyTensor> hl_tensors = {GetHbLazyTensor(hOut)};
+  HbLazyTensor::SyncTensorsGraph(&hl_tensors, {});
 
-  auto exec = habana_lazy::exec::HlExec();
-  exec.Create(po_data.post_order, po_data.inputs, po_data.outputs);
-  torch::jit::testing::FileCheck()
-      .check("Tensor = aten::t")
-      ->run(*exec.get_graph());
+  EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out), true);
   unsetenv("PT_HPU_LAZY_MODE");
 }
