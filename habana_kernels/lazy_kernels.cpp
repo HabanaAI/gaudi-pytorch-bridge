@@ -20,9 +20,9 @@
 #include "habana_lazy/ops/convolution.h"
 #include "habana_lazy/ops/mse_loss.h"
 #include "habana_lazy/ops/pool.h"
+#include "habana_lazy/ops/reduce_ops.h"
 #include "habana_lazy/ops/softmax.h"
 #include "habana_lazy/ops/tensor_shape.h"
-#include "habana_lazy/ops/reduce_ops.h"
 #include "pytorch_helpers/habana_device/HPUAllocator.h"
 #include "pytorch_helpers/synapse_helpers/util.h"
 
@@ -83,20 +83,24 @@ at::Tensor preProcessIfLongorDouble(
     bool& processed) {
   at::Tensor processed_tensor_cpu;
   c10::ScalarType old_type = src.scalar_type();
+  c10::ScalarType new_type = src.scalar_type();
   // We need to cast data on CPU before copying if there is some unsupported
   // type
   if (src.scalar_type() == c10::ScalarType::Long) {
     processed_tensor_cpu = src.to(c10::ScalarType::Int);
     processed = true;
     old_type = c10::ScalarType::Long;
+    new_type = c10::ScalarType::Int;
   } else if (src.scalar_type() == c10::ScalarType::Double) {
     processed_tensor_cpu = src.to(c10::ScalarType::Float);
     processed = true;
     old_type = c10::ScalarType::Double;
+    new_type = c10::ScalarType::Float;
   }
   if (processed) {
     auto hl_tensor = habana_lazy::GetOrCreateHbLazyTensor(dst, dst.device());
     hl_tensor.setTensorOriginalType(old_type);
+    hl_tensor.SetScalarType(c10::make_optional(new_type));
   }
   return processed_tensor_cpu;
 }
@@ -453,11 +457,10 @@ Tensor convolution_hpu_lazy(
 
   // shape inference
   // convert tensors to synapse memory format nchw to nhwc
-  std::vector<int64_t> ipsize_nhwc = {
-      input.sizes().vec().at(0),
-      input.sizes().vec().at(2),
-      input.sizes().vec().at(3),
-      input.sizes().vec().at(1)};
+  std::vector<int64_t> ipsize_nhwc = {input.sizes().vec().at(0),
+                                      input.sizes().vec().at(2),
+                                      input.sizes().vec().at(3),
+                                      input.sizes().vec().at(1)};
   auto opsize_nhwc = ConvOperator::compute_output_shape(
       ipsize_nhwc,
       weight.sizes().vec(),
@@ -466,11 +469,10 @@ Tensor convolution_hpu_lazy(
       false,
       input.suggest_memory_format());
   // convert from synapse memory format nhwc to nchw
-  std::vector<int64_t> shape_out = {
-      opsize_nhwc.at(0),
-      opsize_nhwc.at(3),
-      opsize_nhwc.at(1),
-      opsize_nhwc.at(2)};
+  std::vector<int64_t> shape_out = {opsize_nhwc.at(0),
+                                    opsize_nhwc.at(3),
+                                    opsize_nhwc.at(1),
+                                    opsize_nhwc.at(2)};
 
   auto result = at::native::empty_hpu_lazy(
       shape_out, input.options(), input.suggest_memory_format(), false);
@@ -493,29 +495,29 @@ std::tuple<Tensor, Tensor, Tensor> convolution_backward_hpu_lazy(
     IntArrayRef output_padding,
     int64_t groups,
     std::array<bool, 3> output_mask) {
-
-  std::vector<bool> output_mask_vec (output_mask.begin(), output_mask.end());
-  habana_lazy::ir::NodePtr node = std::make_shared<habana_lazy::ir::Convolution>(
-      grad_output,
-      input,
-      weight,
-      stride,
-      padding,
-      dilation,
-      transposed,
-      output_padding,
-      groups,
-      output_mask_vec);
+  std::vector<bool> output_mask_vec(output_mask.begin(), output_mask.end());
+  habana_lazy::ir::NodePtr node =
+      std::make_shared<habana_lazy::ir::Convolution>(
+          grad_output,
+          input,
+          weight,
+          stride,
+          padding,
+          dilation,
+          transposed,
+          output_padding,
+          groups,
+          output_mask_vec);
 
   // output shape inference
   c10::MemoryFormat memory_format =
-    habana_helpers::get_memory_format({ &input, &grad_output, &weight });
-  auto grad_weight =
-      at::native::empty_hpu_lazy(weight.sizes(), grad_output.options(), memory_format);
-  auto grad_input =
-      at::native::empty_hpu_lazy(input.sizes(), grad_output.options(), memory_format);
-  auto grad_bias =
-      at::native::empty_hpu_lazy({grad_output.size(3)}, grad_output.options(), memory_format);
+      habana_helpers::get_memory_format({&input, &grad_output, &weight});
+  auto grad_weight = at::native::empty_hpu_lazy(
+      weight.sizes(), grad_output.options(), memory_format);
+  auto grad_input = at::native::empty_hpu_lazy(
+      input.sizes(), grad_output.options(), memory_format);
+  auto grad_bias = at::native::empty_hpu_lazy(
+      {grad_output.size(3)}, grad_output.options(), memory_format);
 
   auto hl_grad_input = habana_lazy::GetHbLazyTensor(grad_input);
   auto hl_grad_weight = habana_lazy::GetHbLazyTensor(grad_weight);
@@ -1267,34 +1269,35 @@ Tensor log_softmax_hpu_lazy(
     const Tensor& self,
     const int64_t dim,
     const bool half_to_float) {
-    auto node = std::make_shared<habana_lazy::ir::LogSoftMax>(self, dim, half_to_float);
-    // infer shape
-    auto result = log_softmax_hpu(self, dim, half_to_float);
+  auto node =
+      std::make_shared<habana_lazy::ir::LogSoftMax>(self, dim, half_to_float);
+  // infer shape
+  auto result = log_softmax_hpu(self, dim, half_to_float);
 
-    auto hl_result = habana_lazy::GetHbLazyTensor(result);
+  auto hl_result = habana_lazy::GetHbLazyTensor(result);
 
-    habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
-    out.m_index = 0;
-    out.SetNode(node);
-    return result;
+  habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+  return result;
 };
 Tensor log_softmax_backward_hpu_lazy(
     const Tensor& grad,
     const Tensor& output,
     int64_t dim,
     const Tensor& input) {
-    auto node = std::make_shared<habana_lazy::ir::LogSoftMaxBackward>(
-            grad, output, dim, input);
-    //infer output shape
-    auto result = log_softmax_backward_hpu(grad, output, dim, input);
+  auto node = std::make_shared<habana_lazy::ir::LogSoftMaxBackward>(
+      grad, output, dim, input);
+  // infer output shape
+  auto result = log_softmax_backward_hpu(grad, output, dim, input);
 
-    auto hl_result = habana_lazy::GetHbLazyTensor(result);
+  auto hl_result = habana_lazy::GetHbLazyTensor(result);
 
-    habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
-    out.m_index = 0;
-    out.SetNode(node);
+  habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
 
-    return result;
+  return result;
 };
 Tensor softmax_hpu_lazy(
     const Tensor& self,
@@ -1352,10 +1355,7 @@ Tensor empty_hpu_lazy(
     if (!IsThreadInLoweringContext()) {
       habana_lazy::HbLazyTensor hb_tensor =
           habana_lazy::HbLazyTensor::CreateHbLazyTensor(
-              size,
-              0,
-              options.device(),
-              c10::typeMetaToScalarType(options.dtype()));
+              size, 0, options.device(), c10::typeMetaToScalarType(dtype));
 
       at_tensor = habana_lazy::AtenFromHbLazyTensor(hb_tensor);
 
@@ -1476,20 +1476,22 @@ Tensor threshold_backward_hpu_lazy(
     const Tensor& grad_output,
     const Tensor& self,
     Scalar threshold) {
-  auto hl_grad = habana_lazy::GetOrCreateHbLazyTensor(grad_output, c10::kHABANA);
+  auto hl_grad =
+      habana_lazy::GetOrCreateHbLazyTensor(grad_output, c10::kHABANA);
   auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
   auto hl_threshold = habana_lazy::GetIrValueForScalar(threshold);
 
-  habana_lazy::ir::ValueList ir_vlaues{hl_grad.GetIrValue(), hl_self.GetIrValue(), hl_threshold};
+  habana_lazy::ir::ValueList ir_vlaues{
+      hl_grad.GetIrValue(), hl_self.GetIrValue(), hl_threshold};
 
   auto node = habana_lazy::ir::Node::Create(
-    Symbol::fromQualString("aten::threshold_backward"), ir_vlaues);
+      Symbol::fromQualString("aten::threshold_backward"), ir_vlaues);
 
   at::Tensor result = threshold_backward_hpu(grad_output, self, threshold);
 
-  auto hlresult =  habana_lazy::GetHbLazyTensor(result);
+  auto hlresult = habana_lazy::GetHbLazyTensor(result);
 
-  habana_lazy::ir::Value &out = hlresult.CurrentIrValue();
+  habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
   out.m_index = 0;
   out.SetNode(node);
 
