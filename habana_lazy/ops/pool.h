@@ -31,8 +31,8 @@ class MaxPool : public ir::Node {
       at::IntArrayRef stride,
       at::IntArrayRef padding,
       at::IntArrayRef dilation,
-      at::IntArrayRef ceil_mode)
-      : Node(c10::Symbol::fromQualString("aten::maxpool2d_overidable")) {
+      bool ceil_mode)
+      : Node(c10::Symbol::fromQualString("aten::max_pool2d_with_indices")) {
     auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHABANA);
     AddInput(hl_input.GetIrValue());
 
@@ -56,7 +56,7 @@ class MaxPool : public ir::Node {
 
 class MaxPoolBackWard : public ir::Node {
  public:
- enum class MaxPoolBwdParams { KERNEL_SIZE_INDEX=3,
+ enum class MaxPoolBwdParams { KERNEL_SIZE_INDEX=2,
                                STRIDE_INDEX,
                                PADDING_INDEX,
                                DILATION_INDEX,
@@ -69,9 +69,9 @@ class MaxPoolBackWard : public ir::Node {
       at::IntArrayRef stride,
       at::IntArrayRef padding,
       at::IntArrayRef dilation,
-      at::IntArrayRef ceil_mode,
+      bool ceil_mode,
       const at::Tensor& indices)
-      : Node(c10::Symbol::fromQualString("aten::maxpool2d_bwd_overidable")) {
+      : Node(c10::Symbol::fromQualString("aten::max_pool2d_with_indices_backward")) {
     auto hl_grad_output = GetOrCreateHbLazyTensor(grad_output, c10::kHABANA);
     auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHABANA);
     auto hl_indices = GetOrCreateHbLazyTensor(indices, c10::kHABANA);

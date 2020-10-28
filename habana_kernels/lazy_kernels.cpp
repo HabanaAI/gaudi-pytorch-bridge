@@ -1032,8 +1032,17 @@ std::tuple<Tensor, Tensor> max_pool2d_with_indices_hpu_lazy(
           input, kernel_size, stride, padding, dilation, ceil_mode);
 
   // shaper inferrence
-  auto shape_out = PoolHelper::compute_output_shape(
-      input, kernel_size, stride, padding, dilation, ceil_mode, false);
+  c10::MemoryFormat memory_format = habana_helpers::get_memory_format({&input});
+  bool is_nhwc = (memory_format == c10::MemoryFormat::ChannelsLast);
+  auto opsize_nhwc = PoolHelper::compute_output_shape(
+      input, kernel_size, stride, padding, dilation, ceil_mode,
+      is_nhwc);
+
+  // retunr always nhwc. convert to nchw
+  std::vector<long int> shape_out = {opsize_nhwc.at(0),
+                                     opsize_nhwc.at(3),
+                                     opsize_nhwc.at(1),
+                                     opsize_nhwc.at(2)};
 
   // allocate Output_0 storage
   auto result_0 = at::native::empty_hpu_lazy(
@@ -1101,9 +1110,20 @@ Tensor max_pool2d_with_indices_backward_hpu_lazy(
           ceil_mode,
           indices);
 
-  // shaper inferrence
-  auto out_shape = PoolHelper::compute_output_shape(
-      input, kernel_size, stride, padding, dilation, ceil_mode, false);
+  // shape inferrence
+  // since grad_input should match memory format only checking for input
+  c10::MemoryFormat memory_format = habana_helpers::get_memory_format({&input});
+  bool is_nhwc = (memory_format == c10::MemoryFormat::ChannelsLast);
+  auto opsize_nhwc = PoolHelper::compute_output_shape(
+      input, kernel_size, stride, padding, dilation, ceil_mode,
+      is_nhwc);
+
+  // retunr always nhwc. convert to nchw
+  std::vector<long int> out_shape = {opsize_nhwc.at(0),
+                                     opsize_nhwc.at(3),
+                                     opsize_nhwc.at(1),
+                                     opsize_nhwc.at(2)};
+
   TORCH_CHECK(grad_output.sizes().vec() == out_shape);
   TORCH_CHECK(
       (indices.scalar_type() == c10::ScalarType::Byte) ||
