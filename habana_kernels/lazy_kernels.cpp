@@ -458,27 +458,20 @@ Tensor convolution_hpu_lazy(
           output_padding,
           groups);
 
-  // shape inference
-  // convert tensors to synapse memory format nchw to nhwc
-  std::vector<int64_t> ipsize_nhwc = {input.sizes().vec().at(0),
-                                      input.sizes().vec().at(2),
-                                      input.sizes().vec().at(3),
-                                      input.sizes().vec().at(1)};
-  auto opsize_nhwc = ConvOperator::compute_output_shape(
-      ipsize_nhwc,
+  // shape inference expects weights in HWCK irrespective of memory format
+  // HWCK weights layout need to set in the user script
+  // shape in NCHW/NHWC depending on memory format layout
+  auto memory_format = input.suggest_memory_format();
+  auto shape_out = ConvOperator::compute_output_shape(
+      input.sizes().vec(),
       weight.sizes().vec(),
       padding.vec(),
       stride.vec(),
       false,
-      input.suggest_memory_format());
-  // convert from synapse memory format nhwc to nchw
-  std::vector<int64_t> shape_out = {opsize_nhwc.at(0),
-                                    opsize_nhwc.at(3),
-                                    opsize_nhwc.at(1),
-                                    opsize_nhwc.at(2)};
+      memory_format);
 
   auto result = at::native::empty_hpu_lazy(
-      shape_out, input.options(), input.suggest_memory_format(), false);
+      shape_out, input.options(), memory_format, false);
   auto hlresult = habana_lazy::GetHbLazyTensor(result);
   habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
   out.m_index = 0;

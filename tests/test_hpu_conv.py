@@ -64,7 +64,7 @@ def test_hpu_conv(N, H, W, C, R, S, K, stride, padding, bias, dtype, tol):
     #hpu result permute since in channels_last, the kernel output is also in channels_last
     #but for C=1, contiguous(memory_format=torch.channels_last) doesn't convert to channels_last
     tt = out_cpu_nchw_hpu.to(cpu)
-    np.allclose(tt.detach().numpy(), out_cpu_nchw.detach().numpy(), atol=0.01, rtol=0.01, equal_nan=True)
+    np.testing.assert_allclose(tt.detach().numpy(), out_cpu_nchw.detach().numpy(), atol=0.01, rtol=0.01, equal_nan=True)
 
 
 @pytest.mark.parametrize("N, H, W, C, R, S, K, stride, padding, bias", conv_test_case_list)
@@ -89,7 +89,7 @@ def test_hpu_conv_fwd_bwd(N, H, W, C, R, S, K, stride, padding, bias, dtype, tol
     bwd_in = torch.randn(out_cpu_nchw.shape)
     out_cpu_bwd = out_cpu_nchw.grad_fn(bwd_in)
     out_hpu_bwd = out_cpu_nchw_hpu.grad_fn(bwd_in.to(hpu))
-    np.allclose(out_hpu_bwd[0].view(out_cpu_bwd[0].shape).to(cpu).detach().numpy(),
+    np.testing.assert_allclose(out_hpu_bwd[0].view(out_cpu_bwd[0].shape).to(cpu).detach().numpy(),
                 out_cpu_bwd[0].detach().numpy(), atol=0.01, rtol=0.01, equal_nan=True)
 
 
@@ -114,7 +114,7 @@ def test_hpu_conv_chlast(N, H, W, C, R, S, K, stride, padding, bias):
     #hpu result permute since in channels_last, the kernel output is also in channels_last
     #but for C=1, contiguous(memory_format=torch.channels_last) doesn't convert to channels_last
     tt = out_cpu_nhwc_hpu.to(cpu)
-    np.allclose(tt.detach().numpy(), out_cpu_nchw.detach().numpy(), atol=0.01, rtol=0.01, equal_nan=True)
+    np.testing.assert_allclose(tt.detach().numpy(), out_cpu_nchw.detach().numpy(), atol=0.01, rtol=0.01, equal_nan=True)
 
 @pytest.mark.parametrize("N, H, W, C, R, S, K, stride, padding, bias", conv_test_case_list)
 def test_hpu_conv_chlast_fwd_bwd(N, H, W, C, R, S, K, stride, padding, bias):
@@ -137,7 +137,7 @@ def test_hpu_conv_chlast_fwd_bwd(N, H, W, C, R, S, K, stride, padding, bias):
     bwd_in = torch.randn(out_cpu_nchw.shape)
     out_cpu_bwd = out_cpu_nchw.grad_fn(bwd_in)
     out_hpu_bwd = out_cpu_nhwc_hpu.grad_fn(bwd_in.contiguous(memory_format=torch.channels_last).to(hpu))
-    np.allclose(out_hpu_bwd[0].view(out_cpu_bwd[0].shape).to(cpu).detach().numpy(),
+    np.testing.assert_allclose(out_hpu_bwd[0].view(out_cpu_bwd[0].shape).to(cpu).detach().numpy(),
                 out_cpu_bwd[0].detach().numpy(), atol=0.01, rtol=0.01, equal_nan=True)
 
 @pytest.mark.parametrize("N, H, W, C, R, S, K, stride, padding, bias", conv_test_case_list)
@@ -179,7 +179,7 @@ def test_hpu_chain_loop_conv_chlast_fwd_bwd(N, H, W, C, R, S, K, stride, padding
         bwd_in = torch.randn(out_cpu_nchw_2.shape)
         out_cpu_bwd = out_cpu_nchw_1.grad_fn(out_cpu_nchw_2.grad_fn(bwd_in)[0])
         out_hpu_bwd = out_hpu_nhwc_1.grad_fn(out_hpu_nhwc_2.grad_fn(bwd_in.contiguous(memory_format=torch.channels_last).to(hpu))[0])
-        np.allclose(out_hpu_bwd[0].view(out_cpu_bwd[0].shape).to(cpu).detach().numpy(),
+        np.testing.assert_allclose(out_hpu_bwd[0].view(out_cpu_bwd[0].shape).to(cpu).detach().numpy(),
                     out_cpu_bwd[0].detach().numpy(), atol=0.01, rtol=0.01, equal_nan=True)
 
 if __name__ == '__main__':

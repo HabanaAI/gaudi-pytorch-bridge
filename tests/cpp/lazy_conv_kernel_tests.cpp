@@ -56,7 +56,7 @@ TEST_F(LazyConvKernelTest, ConvReluTest) {
       ->check_count("prim::Constant[value=[1, 1]]", 2)
       ->check("prim::Constant[value=0]")
       ->check("prim::Constant[value=1]")
-      ->check("aten::convolution_overidable")
+      ->check("aten::convolution_overrideable")
       ->run(*exec.get_graph());
 
   torch::jit::testing::FileCheck()
@@ -69,7 +69,7 @@ TEST_F(LazyConvKernelTest, ConvReluTest) {
           "IR {\n"
           "  %0 = hpu::input()\n"
           "  %1 = hpu::input()\n"
-          "  %2 = aten::convolution_overidable(%1, %0), stride=[1, 1], padding=[0, 0], dilation=[1, 1], transposed=False, output_padding=[0, 0], groups=1\n"
+          "  %2 = aten::convolution_overrideable(%1, %0), stride=[1, 1], padding=[0, 0], dilation=[1, 1], transposed=False, output_padding=[0, 0], groups=1\n"
           "  %3 = aten::relu(%2), ROOT=0\n"
           "}"),
       0);
@@ -111,7 +111,7 @@ TEST_F(LazyConvKernelTest, ConvMaxPoolTest) {
           "IR {\n"
           "  %0 = hpu::input()\n"
           "  %1 = hpu::input()\n"
-          "  %2 = aten::convolution_overidable(%1, %0), stride=[1, 1], padding=[0, 0], dilation=[1, 1], transposed=False, output_padding=[0, 0], groups=1\n"
+          "  %2 = aten::convolution_overrideable(%1, %0), stride=[1, 1], padding=[0, 0], dilation=[1, 1], transposed=False, output_padding=[0, 0], groups=1\n"
           "  %3 = aten::maxpool2d_overidable(%2), kernel_size=[2], stride=[1], padding=[0], dilation=[1], transposed=[0], ROOT=0\n"
           "}"),
       0);
@@ -124,26 +124,35 @@ TEST_F(LazyConvKernelTest, ConvMaxPoolTest) {
 }
 
 TEST_F(LazyConvKernelTest, ConvolutionBackward) {
-    setenv("PT_HPU_LAZY_MODE", "1", 1);
-    auto grad_output = torch::randn({2,6,2,3}, torch::requires_grad(false));
-    auto input = torch::randn({2,5,3,4}, torch::requires_grad(false));
-    auto weight = torch::randn({2,2,5,6}, torch::requires_grad(false));
+  setenv("PT_HPU_LAZY_MODE", "1", 1);
+  auto grad_output = torch::randn({2, 6, 2, 3}, torch::requires_grad(false));
+  auto input = torch::randn({2, 5, 3, 4}, torch::requires_grad(false));
+  auto weight = torch::randn({2, 2, 5, 6}, torch::requires_grad(false));
 
-    auto h_grad_output = grad_output.to(torch::kHABANA);
-    auto hinput = input.to(torch::kHABANA);
-    auto hweight = weight.to(torch::kHABANA);
+  auto h_grad_output = grad_output.to(torch::kHABANA);
+  auto hinput = input.to(torch::kHABANA);
+  auto hweight = weight.to(torch::kHABANA);
 
-    torch::Tensor out1, out2, out3;
-    std::tie(out1, out2, out3) = convolution_backward_overrideable(
-        h_grad_output, hinput, hweight, {1,1}, {0,0}, {1,1}, false, {0,0}, 1, {1,1,1});
+  torch::Tensor out1, out2, out3;
+  std::tie(out1, out2, out3) = convolution_backward_overrideable(
+      h_grad_output,
+      hinput,
+      hweight,
+      {1, 1},
+      {0, 0},
+      {1, 1},
+      false,
+      {0, 0},
+      1,
+      {1, 1, 1});
 
-    std::vector<HbLazyTensor> tensors = {
-        GetHbLazyTensor(out1), GetHbLazyTensor(out2), GetHbLazyTensor(out3)};
+  std::vector<HbLazyTensor> tensors = {
+      GetHbLazyTensor(out1), GetHbLazyTensor(out2), GetHbLazyTensor(out3)};
 
-    std::vector<ir::NodePtr> a{tensors[0].CurrentIrValue().mp_node};
-    auto out_string = IrGraphDumpUtil::ToText(a);
+  std::vector<ir::NodePtr> a{tensors[0].CurrentIrValue().mp_node};
+  auto out_string = IrGraphDumpUtil::ToText(a);
 
-    EXPECT_EQ(
+  EXPECT_EQ(
       out_string.find(
           "IR {\n"
           "  %0 = hpu::input()\n"
@@ -151,25 +160,46 @@ TEST_F(LazyConvKernelTest, ConvolutionBackward) {
           "  %2 = hpu::input()\n"
           "  %3 = aten::convolution_backward_overrideable(%2, %1, %0), stride=[1, 1], padding=[0, 0], dilation=[1, 1], transposed=False, output_padding=[0, 0], groups=1, output_mask=[True, True, True], ROOT=0\n"
           "}\n"),
-        0);
+      0);
 
-    std::vector<int> indices1{0, 1, 2};
-    auto po_data = HbLazyTensor::RunPostOrder(tensors, indices1);
+  std::vector<int> indices1{0, 1, 2};
+  auto po_data = HbLazyTensor::RunPostOrder(tensors, indices1);
 
-    exec::HlExec* hlexec = new exec::HlExec();
-    exec::LazyValueToJitValueMap input_map, output_map;
-    std::tie(input_map, output_map) =
-        hlexec->Create(po_data.post_order, po_data.inputs, po_data.outputs);
+  exec::HlExec* hlexec = new exec::HlExec();
+  exec::LazyValueToJitValueMap input_map, output_map;
+  std::tie(input_map, output_map) =
+      hlexec->Create(po_data.post_order, po_data.inputs, po_data.outputs);
 
-    torch::jit::testing::FileCheck()
-        .check("prim::Constant[value=[1, 1]]")
-        ->check("prim::Constant[value=[0, 0]]")
-        ->check("prim::Constant[value=[1, 1]]")
-        ->check("prim::Constant[value=0]")
-        ->check("prim::Constant[value=[0, 0]]")
-        ->check("prim::Constant[value=1]")
-        ->check("prim::Constant[value=[1, 1, 1]]")
-        ->check_count("aten::convolution_backward_overrideable", 1)
-        ->run(*hlexec->get_graph());
-    unsetenv("PT_HPU_LAZY_MODE");
+  torch::jit::testing::FileCheck()
+      .check("prim::Constant[value=[1, 1]]")
+      ->check("prim::Constant[value=[0, 0]]")
+      ->check("prim::Constant[value=[1, 1]]")
+      ->check("prim::Constant[value=0]")
+      ->check("prim::Constant[value=[0, 0]]")
+      ->check("prim::Constant[value=1]")
+      ->check("prim::Constant[value=[1, 1, 1]]")
+      ->check_count("aten::convolution_backward_overrideable", 1)
+      ->run(*hlexec->get_graph());
+  unsetenv("PT_HPU_LAZY_MODE");
+}
+
+TEST_F(LazyConvKernelTest, ConvExecTest) {
+  setenv("PT_HPU_LAZY_MODE", "1", 1);
+  auto in = torch::randn({64, 4, 28, 28}, torch::dtype(torch::kFloat)); // nchw
+  auto wt = torch::randn({5, 4, 3, 3}, torch::dtype(torch::kFloat)); // kchw
+  auto exp = torch::conv2d(in, wt, {}, 1, 0, 1, 1);
+
+  auto h_in = in.to(torch::kHABANA);
+  auto wt_hwck = wt.permute({2, 3, 1, 0}).contiguous();
+  auto h_wt = wt_hwck.to(torch::kHABANA);
+
+  torch::Tensor result = torch::conv2d(h_in, h_wt, {}, 1, 0, 1, 1);
+
+  std::vector<HbLazyTensor> tensors = {GetHbLazyTensor(result)};
+  HbLazyTensor::SyncTensorsGraph(&tensors, {});
+
+  Tensor out = result.to(kCPU);
+
+  EXPECT_EQ(allclose(out, exp, 0.01, 0.01), true);
+  unsetenv("PT_HPU_LAZY_MODE");
 }

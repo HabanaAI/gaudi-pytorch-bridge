@@ -64,6 +64,15 @@ ConvOperator::ConvOperator(int device_id, c10::ScalarType scalarType)
   kernel_meta_data_.output_layout.assign({habana::LayoutFormat::NHWC});
 }
 
+/*
+@brief computes output shape for conv kernels
+shape_in <in> - NCHW if memory_format = contiguous. NHWC for ChannelsLast
+shape_wt <in> - HWCK
+pad <in> - HW
+stride <in> - HW
+out_memory_format - Output mem format (contigous - NCHW, ChannelsLast - NHWC)
+ou_shape <out> - NCHW/NHWC depending on output mem format
+*/
 std::vector<int64_t> ConvOperator::compute_output_shape(
     std::vector<int64_t> shape_in,
     std::vector<int64_t> shape_wt,
@@ -76,20 +85,19 @@ std::vector<int64_t> ConvOperator::compute_output_shape(
       (memory_format == c10::MemoryFormat::ChannelsLast) ||
       (memory_format == c10::MemoryFormat::Contiguous));
 
-  const int64_t dim_pos_in[4] = {0, 1, 2, 3};
+  const int64_t dim_pos_in[4] = {0, 2, 3, 1};
   const int64_t dim_pos_wt[4] = {0, 1, 2, 3};
-  const int64_t dim_pos_in_chlast[4] = {0, 2, 3, 1};
-  const int64_t dim_pos_wt_chlast[4] = {2, 3, 1, 0};
+  const int64_t dim_pos_in_chlast[4] = {0, 1, 2, 3};
   const int64_t* p_dim_pos_in;
   const int64_t* p_dim_pos_wt;
 
   if (memory_format == c10::MemoryFormat::ChannelsLast) {
     p_dim_pos_in = dim_pos_in_chlast;
-    p_dim_pos_wt = dim_pos_wt_chlast;
   } else {
     p_dim_pos_in = dim_pos_in;
-    p_dim_pos_wt = dim_pos_wt;
   }
+
+  p_dim_pos_wt = dim_pos_wt;
 
   const auto input_H = shape_in[p_dim_pos_in[1]];
   const auto pad_H = pad[0];
@@ -108,7 +116,19 @@ std::vector<int64_t> ConvOperator::compute_output_shape(
 
   const auto K = shape_wt[p_dim_pos_wt[3]];
 
-  std::vector<int64_t> out_shape = {shape_in[0], output_H, output_W, K};
+  std::vector<int64_t> out_shape;
+
+  if (memory_format == c10::MemoryFormat::ChannelsLast) {
+    out_shape.push_back(shape_in[0]);
+    out_shape.push_back(output_H);
+    out_shape.push_back(output_W);
+    out_shape.push_back(K);
+  } else {
+    out_shape.push_back(shape_in[0]);
+    out_shape.push_back(K);
+    out_shape.push_back(output_H);
+    out_shape.push_back(output_W);
+  }
   return out_shape;
 }
 
@@ -167,13 +187,15 @@ void ConvOperator::AllocateAndAddSynapseNode(
   c10::MemoryFormat memory_format =
       habana_helpers::get_memory_format({&input, &weight});
 
+  // permute happened outside this function. Hence always set channelsLast
+  // format
   std::vector<int64_t> shape_out = compute_output_shape(
       input.sizes().vec(),
       weight.sizes().vec(),
       padding,
       stride,
       false,
-      memory_format);
+      c10::MemoryFormat::ChannelsLast);
 
   auto output = habana_helpers::createPTTensor(
       input, shape_out, input.options(), memory_format, is_output_persistent);
@@ -205,10 +227,9 @@ void ConvOperator::SetPTOutputs(torch::jit::Stack& inputs) {
       padding,
       stride,
       false,
-      memory_format);
+      c10::MemoryFormat::ChannelsLast);
 
-  auto output =
-      at::empty(shape_out, input.options(), memory_format);
+  auto output = at::empty(shape_out, input.options(), memory_format);
   HabanaOperator::SetPTOutputs({output});
 }
 
