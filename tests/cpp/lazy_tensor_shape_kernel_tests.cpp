@@ -72,3 +72,47 @@ TEST_F(LazyTensorShapeKernelTest, TTest) {
   EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out), true);
   unsetenv("PT_HPU_LAZY_MODE");
 }
+
+TEST_F(LazyTensorShapeKernelTest, SelectTest) {
+  setenv("PT_HPU_LAZY_MODE", "1", 1);
+
+  torch::Tensor a = torch::randn({8, 3, 28, 28}, torch::requires_grad(false));
+  torch::Tensor h_a = a.to(torch::kHABANA);
+
+  int64_t dim = 1;
+  int64_t index = 0;
+
+
+  Tensor h_out = torch::select(h_a, dim, index);
+
+  std::vector<HbLazyTensor> tensors = {GetHbLazyTensor(h_out)};
+  HbLazyTensor::SyncTensorsGraph(&tensors, {});
+
+  auto h_cout = h_out.to(torch::kCPU);
+  auto cout = torch::select(a, dim, index);
+
+  EXPECT_EQ(allclose(h_cout, cout), true);
+  unsetenv("PT_HPU_LAZY_MODE");
+}
+
+TEST_F(LazyTensorShapeKernelTest, SliceTest) {
+  setenv("PT_HPU_LAZY_MODE", "1", 1);
+
+  torch::Tensor a = torch::randn({8, 3, 28, 28}, torch::requires_grad(false));
+  torch::Tensor h_a = a.to(torch::kHABANA);
+  int64_t dim = 1;
+  int64_t start_index = 0;
+  int64_t end = 8;
+  int64_t step = 1;
+
+  Tensor h_out = torch::slice(h_a, dim, start_index, end, step);
+
+  std::vector<HbLazyTensor> tensors = {GetHbLazyTensor(h_out)};
+  HbLazyTensor::SyncTensorsGraph(&tensors, {});
+
+  auto h_cout = h_out.to(torch::kCPU);
+  auto cout = torch::slice(a, dim, start_index, end, step);
+
+  EXPECT_EQ(allclose(h_cout, cout), true);
+  unsetenv("PT_HPU_LAZY_MODE");
+}

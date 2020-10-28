@@ -1379,5 +1379,10 @@ static auto& KernelRegistry =
             "aten::scatter_add",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<GatherOperator>(device_id, node_type);
+            })
+        .add(
+            "aten::slice",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<SliceOperator>(device_id, node_type);
             });
 

@@ -19,6 +19,7 @@
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/ops/cat.h"
 #include "habana_lazy/ops/convolution.h"
+#include "habana_lazy/ops/index.h"
 #include "habana_lazy/ops/mse_loss.h"
 #include "habana_lazy/ops/pool.h"
 #include "habana_lazy/ops/reduce_ops.h"
@@ -782,11 +783,37 @@ Tensor slice_hpu_lazy(
     int64_t start,
     int64_t end,
     int64_t step) {
-  return slice_hpu(self, dim, start, end, step);
+  auto node = std::make_shared<habana_lazy::ir::Slice>(
+    self, dim, start, end, step);
+
+  auto result = slice_hpu(self, dim, start, end, step);
+
+  auto hl_result = habana_lazy::GetHbLazyTensor(result);
+
+  habana_lazy::ir::Value &out = hl_result.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+
+  return result;
+
 };
+
 Tensor select_hpu_lazy(const Tensor& self, int64_t dim, int64_t index) {
-  return select_hpu(self, dim, index);
+
+  auto node = std::make_shared<habana_lazy::ir::Slice>(self, dim, index);
+
+  // infer shape
+  auto result = select_hpu(self, dim, index);
+
+  auto hl_result = habana_lazy::GetHbLazyTensor(result);
+
+  habana_lazy::ir::Value &out = hl_result.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+
+  return result;
 };
+
 Tensor& arange_hpu_lazy(Tensor& output, Scalar start, Scalar end, Scalar step) {
   return arange_hpu(output, start, end, step);
 };
