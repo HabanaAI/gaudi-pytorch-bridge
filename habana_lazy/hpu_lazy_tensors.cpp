@@ -406,3 +406,8 @@ void HbLazyTensor::setTensorOriginalType(c10::ScalarType type) {
 c10::ScalarType HbLazyTensor::getTensorOriginalType() {
   return data()->original_element_type;
 }
+
+void HbLazyTensor::ShallowCopyTo(HbLazyTensor* dest) const {
+  // We can add stuff related to view tensors later
+  dest->AssignIrValue(GetIrValue());
+}

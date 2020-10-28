@@ -151,6 +151,8 @@ class HbLazyTensor {
       const c10::Device* device,
       absl::Span<const std::string> devices);
 
+  void ShallowCopyTo(HbLazyTensor* dest) const;
+
  private:
   Data* data() const;
   std::shared_ptr<Data> data_ptr() const {

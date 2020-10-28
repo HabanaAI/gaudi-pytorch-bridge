@@ -53,23 +53,21 @@ c10::intrusive_ptr<c10::TensorImpl> HbLazyTensorImpl::shallow_copy_and_detach(
 
 void HbLazyTensorImpl::shallow_copy_from(
     const c10::intrusive_ptr<TensorImpl>& impl) {
-  HABANA_ASSERT(0);
-  // HbLazyTensorImpl* hl_impl = dynamic_cast<HbLazyTensorImpl*>(impl.get());
-  // copy_tensor_metadata(
-  /*src_impl=*/ // hl_impl,
-  /*dest_impl=*/ // this,
-  /*version_counter=*/ // version_counter(),
-  /*allow_tensor_metadata_change=*/ // allow_tensor_metadata_change());
-  // hl_impl->m_tensor.ShallowCopyTo(&m_tensor);
-  // generation_ = 0;
+  // HABANA_ASSERT(0);
+  HbLazyTensorImpl* hl_impl = dynamic_cast<HbLazyTensorImpl*>(impl.get());
+  copy_tensor_metadata(
+      /*src_impl=*/hl_impl,
+      /*dest_impl=*/this,
+      /*version_counter=*/version_counter(),
+      /*allow_tensor_metadata_change=*/allow_tensor_metadata_change());
+  hl_impl->m_tensor.ShallowCopyTo(&this->m_tensor);
 }
 
 void HbLazyTensorImpl::AtenInitialize() {
   // ATEN specific initialization calls placed below.
 }
 
-HbInternalTensorImpl::HbInternalTensorImpl(
-    c10::Storage&& tensor_storage)
+HbInternalTensorImpl::HbInternalTensorImpl(c10::Storage&& tensor_storage)
     : c10::TensorImpl(
           std::move(tensor_storage),
           c10::DispatchKeySet{c10::DispatchKey::HABANATensorId}),
