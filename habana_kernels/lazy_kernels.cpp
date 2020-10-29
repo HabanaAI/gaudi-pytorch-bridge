@@ -1416,51 +1416,88 @@ Tensor any_hpu_lazy(const Tensor& self) {
 };
 namespace habana {
 Tensor log_softmax_hpu_lazy(
-    const Tensor& self,
-    const int64_t dim,
-    const bool half_to_float) {
-  auto node =
-      std::make_shared<habana_lazy::ir::LogSoftMax>(self, dim, half_to_float);
-  // infer shape
-  auto result = log_softmax_hpu(self, dim, half_to_float);
+  const Tensor& self,
+  const int64_t dim,
+  const bool half_to_float) {
+    auto node = std::make_shared<habana_lazy::ir::LogSoftMax>(
+      self,
+      dim,
+      half_to_float,
+      "aten::log_softmax");
+    // infer shape
+    auto result = log_softmax_hpu(self, dim, half_to_float);
 
-  auto hl_result = habana_lazy::GetHbLazyTensor(result);
+    auto hl_result = habana_lazy::GetHbLazyTensor(result);
 
-  habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
-  out.m_index = 0;
-  out.SetNode(node);
-  return result;
+    habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
+    out.m_index = 0;
+    out.SetNode(node);
+    return result;
 };
 Tensor log_softmax_backward_hpu_lazy(
-    const Tensor& grad,
-    const Tensor& output,
-    int64_t dim,
-    const Tensor& input) {
-  auto node = std::make_shared<habana_lazy::ir::LogSoftMaxBackward>(
-      grad, output, dim, input);
-  // infer output shape
-  auto result = log_softmax_backward_hpu(grad, output, dim, input);
+  const Tensor& grad,
+  const Tensor& output,
+  int64_t dim,
+  const Tensor& input) {
+    auto node = std::make_shared<habana_lazy::ir::LogSoftMaxBackward>(
+      grad,
+      output,
+      dim,
+      input,
+      "aten::_log_softmax_backward_data");
+    // infer output shape
+    auto result = log_softmax_backward_hpu(grad, output, dim, input);
 
-  auto hl_result = habana_lazy::GetHbLazyTensor(result);
+    auto hl_result = habana_lazy::GetHbLazyTensor(result);
 
-  habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
-  out.m_index = 0;
-  out.SetNode(node);
+    habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
+    out.m_index = 0;
+    out.SetNode(node);
 
-  return result;
+    return result;
 };
+
 Tensor softmax_hpu_lazy(
-    const Tensor& self,
-    int64_t dim,
-    const bool half_to_float) {
-  return softmax_hpu(self, dim, half_to_float);
+  const Tensor& self,
+  const int64_t dim,
+  const bool half_to_float) {
+    auto node = std::make_shared<habana_lazy::ir::LogSoftMax>(
+      self,
+      dim,
+      half_to_float,
+      "aten::_softmax");
+    // infer shape
+    auto result = softmax_hpu(self, dim, half_to_float);
+
+    auto hl_result = habana_lazy::GetHbLazyTensor(result);
+
+    habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
+    out.m_index = 0;
+    out.SetNode(node);
+    return result;
 };
+
 Tensor softmax_backward_hpu_lazy(
-    const Tensor& grad,
-    const Tensor& output,
-    int64_t dim,
-    const Tensor& input) {
-  return softmax_backward_hpu(grad, output, dim, input);
+  const Tensor& grad,
+  const Tensor& output,
+  int64_t dim,
+  const Tensor& input) {
+    auto node = std::make_shared<habana_lazy::ir::LogSoftMaxBackward>(
+      grad,
+      output,
+      dim,
+      input,
+      "aten::_softmax_backward_data");
+    // infer output shape
+    auto result = softmax_backward_hpu(grad, output, dim, input);
+
+    auto hl_result = habana_lazy::GetHbLazyTensor(result);
+
+    habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
+    out.m_index = 0;
+    out.SetNode(node);
+
+    return result;
 };
 } // namespace habana
 namespace at {

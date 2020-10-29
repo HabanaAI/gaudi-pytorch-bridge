@@ -405,11 +405,19 @@ void SoftmaxBackwardOperator::AllocateAndAddSynapseNode(
   // to be modified to ensure this. Correct approch to do this is TBD.
 
   TORCH_CHECK(
-      p_context_->pt_inputs_.size() == 2,
-      "softmax_bwd node should have 2 input pytorch tensors");
+      p_context_->pt_inputs_.size() == 3,
+      "softmax_bwd node should have 3 input pytorch tensors");
   TORCH_CHECK(
-      p_context_->syn_inputs_.size() == 2,
-      "softmax_bwd node should have 2 input synapse tensors");
+      p_context_->syn_inputs_.size() == 3,
+      "softmax_bwd node should have 3 input synapse tensors");
+  // graph mode passes 3 inputs
+  // Remove the "input" tensor at the end
+  p_context_->pt_inputs_.pop_back();
+  p_context_->syn_inputs_.pop_back();
+
+  // Reorder the grad and output
+  std::swap(p_context_->pt_inputs_[0], p_context_->pt_inputs_[1]);
+  std::swap(p_context_->syn_inputs_[0], p_context_->syn_inputs_[1]);
 
   auto input_grad =
       at::empty(input.sizes(), input.options(), input.suggest_memory_format());
@@ -443,13 +451,12 @@ Tensor softmax_backward_hpu(
       IValue(grad), IValue(output), IValue(dim), IValue(input)};
   size_t key = Op.GetRecipeKey(node_type, stack);
 
-  // For softmax_bwd_ kernel, the node inputs are in order {grad, output,
-  // input} The synapse graph needs only the grad and output, and in the order
-  // {output, grad}. Correct way to set the Inputs is TBD
-  std::vector<at::Tensor> pt_inputs{output, grad};
-
   if (device.get_recipe_handle_cache().isCached(key)) {
     PT_KERNEL_DEBUG("Cache hit key:", key);
+    // For softmax_bwd_ kernel, the node inputs are in order {grad, output,
+    // input} The synapse graph needs only the grad and output, and in the order
+    // {output, grad}. Correct way to set the Inputs is TBD
+    std::vector<at::Tensor> pt_inputs{output, grad};
     auto input_grad = at::empty(
         input.sizes(), input.options(), input.suggest_memory_format());
     Op.SetPTInputs(pt_inputs);
@@ -460,6 +467,7 @@ Tensor softmax_backward_hpu(
     // create graph
     auto graph = habana_helpers::create_graph(device_id, node_type);
     // Assign Inputs to the Operator
+    std::vector<at::Tensor> pt_inputs{grad, output, input};
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
     Op.AllocateAndAddSynapseNode(graph, stack, true);
     // compile and execute the graph
@@ -488,7 +496,7 @@ static auto& KernelRegistry =
                   device_id, node_type);
             })
         .add(
-            "aten::aten::_softmax",
+            "aten::_softmax",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<habana::SoftmaxOperator>(
                   device_id, node_type);

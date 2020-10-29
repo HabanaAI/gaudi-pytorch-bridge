@@ -62,3 +62,47 @@ TEST_F(LazySoftmaxKernelTest, LogSoftMaxTestBackward) {
   unsetenv("PT_HPU_LAZY_MODE");
 
 }
+
+TEST_F(LazySoftmaxKernelTest, SoftMaxTest) {
+  setenv("PT_HPU_LAZY_MODE", "1", 1);
+  torch::Tensor input = torch::rand({64,10}, torch::requires_grad(false));
+  torch::Tensor hinput = input.to(torch::kHABANA);
+  int dim = 0;
+  torch::Tensor hout = torch::_softmax(hinput, dim, false);
+
+  std::vector<HbLazyTensor> tensors = {GetHbLazyTensor(hout)};
+  HbLazyTensor::SyncTensorsGraph(&tensors, {});
+
+  auto hout1 = hout.to(torch::kCPU);
+
+  auto cout = torch::_softmax(input, dim, false);
+
+  EXPECT_EQ(allclose(hout1, cout), true);
+  unsetenv("PT_HPU_LAZY_MODE");
+
+}
+
+TEST_F(LazySoftmaxKernelTest, SoftMaxTestBackward) {
+  setenv("PT_HPU_LAZY_MODE", "1", 1);
+  torch::Tensor input = torch::rand({64,10}, torch::requires_grad(false));
+  torch::Tensor grad = torch::rand({64,10}, torch::requires_grad(false));
+  torch::Tensor output = torch::rand({64,10}, torch::requires_grad(false));
+
+  torch::Tensor hinput = input.to(torch::kHABANA);
+  torch::Tensor hgrad = grad.to(torch::kHABANA);
+  torch::Tensor houtput = output.to(torch::kHABANA);
+
+  int dim = 0;
+  auto hout_backward = torch::_softmax_backward_data(hgrad, houtput, dim, hinput);
+
+  std::vector<HbLazyTensor> tensors = {GetHbLazyTensor(hout_backward)};
+  HbLazyTensor::SyncTensorsGraph(&tensors, {});
+
+  auto hout2_back = hout_backward.to(torch::kCPU);
+
+  auto cout_back = _softmax_backward_data(grad, output, dim, input);
+
+  EXPECT_EQ(allclose(hout2_back, cout_back), true);
+  unsetenv("PT_HPU_LAZY_MODE");
+
+}
