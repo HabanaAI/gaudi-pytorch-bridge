@@ -82,7 +82,6 @@ TEST_F(LazyTensorShapeKernelTest, SelectTest) {
   int64_t dim = 1;
   int64_t index = 0;
 
-
   Tensor h_out = torch::select(h_a, dim, index);
 
   std::vector<HbLazyTensor> tensors = {GetHbLazyTensor(h_out)};
@@ -115,4 +114,22 @@ TEST_F(LazyTensorShapeKernelTest, SliceTest) {
 
   EXPECT_EQ(allclose(h_cout, cout), true);
   unsetenv("PT_HPU_LAZY_MODE");
+}
+
+TEST_F(LazyTensorShapeKernelTest, ViewExecute) {
+  setenv("PT_HPU_LAZY_MODE", "1", 1);
+  auto input_tensor =
+      torch::arange(480, torch::dtype(torch::kFloat).requires_grad(false))
+          .reshape({10, 3, 4, 4}); // nchw
+  torch::Tensor tHabanain = input_tensor.to(torch::kHABANA);
+  c10::IntArrayRef new_size = {-1, 48};
+  auto result = torch::_unsafe_view(tHabanain, new_size);
+  auto hl_result = std::make_shared<HbLazyTensor>(GetHbLazyTensor(result));
+  auto ir_value = hl_result->CurrentIrValue();
+  std::vector<HbLazyTensor> tensors = {*hl_result};
+  HbLazyTensor::SyncTensorsGraph(&tensors, {});
+  at::Tensor result_lazy = result.to(torch::kCPU);
+  unsetenv("PT_HPU_LAZY_MODE");
+  auto result_cpu = torch::_unsafe_view(input_tensor, new_size);
+  EXPECT_EQ(allclose(result_lazy, result_cpu, 0.01, 0.01), true);
 }

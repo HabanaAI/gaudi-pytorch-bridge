@@ -8,6 +8,7 @@
  ******************************************************************************
  */
 
+#include <ATen/InferSize.h>
 #include "habana_helpers/logging.h"
 #include "habana_kernels/binary_kernels.h"
 #include "habana_kernels/conv_kernels.h"
@@ -25,6 +26,7 @@
 #include "habana_lazy/ops/norm.h"
 #include "habana_lazy/ops/pool.h"
 #include "habana_lazy/ops/reduce_ops.h"
+#include "habana_lazy/ops/shape_ops.h"
 #include "habana_lazy/ops/softmax.h"
 #include "habana_lazy/ops/tensor_shape.h"
 #include "pytorch_helpers/habana_device/HPUAllocator.h"
@@ -264,7 +266,22 @@ Tensor& set_hpu_lazy_(
   return set_hpu_(self, source, storage_offset, size, stride);
 };
 Tensor view_hpu_lazy(const Tensor& self, IntArrayRef size) {
-  return view_hpu(self, size);
+  // Make the size non zero if -1 is used
+  // Make sure it points to
+  // /aten/src/ATen/InferSize.h
+  // Header file mismatch can point it to other variant which is not correct
+  // Did not duplicate code from aten for maintenance.
+  auto inferred_size = at::infer_size(size, static_cast<int64_t>(self.numel()));
+  habana_lazy::ir::NodePtr node =
+      std::make_shared<habana_lazy::ir::View>(self, inferred_size);
+  // View is internally handled as reshape and we get a new tensor as output
+  auto result = at::native::empty_hpu_lazy(
+      inferred_size, self.options(), self.suggest_memory_format(), false);
+  auto hl_result = habana_lazy::GetHbLazyTensor(result);
+  habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+  return result;
 };
 Tensor addcmul_hpu_lazy(
     Tensor& self,
@@ -785,23 +802,21 @@ Tensor slice_hpu_lazy(
     int64_t start,
     int64_t end,
     int64_t step) {
-  auto node = std::make_shared<habana_lazy::ir::Slice>(
-    self, dim, start, end, step);
+  auto node =
+      std::make_shared<habana_lazy::ir::Slice>(self, dim, start, end, step);
 
   auto result = slice_hpu(self, dim, start, end, step);
 
   auto hl_result = habana_lazy::GetHbLazyTensor(result);
 
-  habana_lazy::ir::Value &out = hl_result.CurrentIrValue();
+  habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
   out.SetNode(node);
 
   return result;
-
 };
 
 Tensor select_hpu_lazy(const Tensor& self, int64_t dim, int64_t index) {
-
   auto node = std::make_shared<habana_lazy::ir::Slice>(self, dim, index);
 
   // infer shape
@@ -809,7 +824,7 @@ Tensor select_hpu_lazy(const Tensor& self, int64_t dim, int64_t index) {
 
   auto hl_result = habana_lazy::GetHbLazyTensor(result);
 
-  habana_lazy::ir::Value &out = hl_result.CurrentIrValue();
+  habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
   out.SetNode(node);
 
@@ -1115,11 +1130,10 @@ std::tuple<Tensor, Tensor> max_pool2d_with_indices_hpu_lazy(
       input, kernel_size, stride, padding, dilation, ceil_mode, is_nhwc);
 
   // retunr always nhwc. convert to nchw
-  std::vector<long int> shape_out = {
-      opsize_nhwc.at(0),
-      opsize_nhwc.at(3),
-      opsize_nhwc.at(1),
-      opsize_nhwc.at(2)};
+  std::vector<long int> shape_out = {opsize_nhwc.at(0),
+                                     opsize_nhwc.at(3),
+                                     opsize_nhwc.at(1),
+                                     opsize_nhwc.at(2)};
 
   // allocate Output_0 storage
   auto result_0 = at::native::empty_hpu_lazy(
@@ -1195,11 +1209,10 @@ Tensor max_pool2d_with_indices_backward_hpu_lazy(
       input, kernel_size, stride, padding, dilation, ceil_mode, is_nhwc);
 
   // retunr always nhwc. convert to nchw
-  std::vector<long int> out_shape = {
-      opsize_nhwc.at(0),
-      opsize_nhwc.at(3),
-      opsize_nhwc.at(1),
-      opsize_nhwc.at(2)};
+  std::vector<long int> out_shape = {opsize_nhwc.at(0),
+                                     opsize_nhwc.at(3),
+                                     opsize_nhwc.at(1),
+                                     opsize_nhwc.at(2)};
 
   TORCH_CHECK(grad_output.sizes().vec() == out_shape);
   TORCH_CHECK(
