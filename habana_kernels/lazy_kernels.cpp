@@ -376,9 +376,22 @@ Tensor& sub_scalar_hpu_lazy_(Tensor& self, Scalar other, Scalar alpha) {
 Tensor rsub_scalar_hpu_lazy(const Tensor& self, Scalar other, Scalar alpha) {
   return rsub_scalar_hpu(self, other, alpha);
 };
+
 Tensor& mul_tensor_hpu_lazy_(Tensor& self, const Tensor& other) {
-  return mul_tensor_hpu_(self, other);
+  auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
+  auto hl_other = habana_lazy::GetOrCreateHbLazyTensor(other, c10::kHABANA);
+
+  auto node = habana_lazy::ir::Node::Create(
+      Symbol::fromQualString("aten::mul"),
+      {hl_self.GetIrValue(), hl_other.GetIrValue()});
+
+  habana_lazy::ir::Value& out = hl_self.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+
+  return self;
 };
+
 Tensor mul_tensor_hpu_lazy(const Tensor& self, const Tensor& other) {
   auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
   auto hl_other = habana_lazy::GetOrCreateHbLazyTensor(other, c10::kHABANA);

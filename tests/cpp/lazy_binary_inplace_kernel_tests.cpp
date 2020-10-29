@@ -19,3 +19,23 @@ class LazyBinaryInplaceKernelTest : public ::testing::Test {
   void TearDown() override {}
 };
 
+TEST_F(LazyBinaryInplaceKernelTest, MulInplaceTest) {
+  // Inplace op as output node is not supported yet.
+  setenv("PT_HPU_LAZY_MODE", "1", 1);
+  torch::Tensor A = torch::randn({2, 3});
+  torch::Tensor B = torch::randn({2, 3});
+  torch::Tensor C = torch::randn({2, 3});
+  auto hA = A.to(torch::kHABANA);
+  auto hB = B.to(torch::kHABANA);
+  auto hC = C.to(torch::kHABANA);
+
+  A = A.mul_(B);
+  auto exp = torch::add(A, C);
+
+  hA = hA.mul_(hB);
+  auto result = torch::add(hA, hC);
+  Tensor out = result.to(kCPU);
+
+  EXPECT_EQ(allclose(out, exp), true);
+  unsetenv("PT_HPU_LAZY_MODE");
+}
