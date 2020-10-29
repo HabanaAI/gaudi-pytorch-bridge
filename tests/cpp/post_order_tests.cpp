@@ -140,7 +140,7 @@ TEST(PostOrderTest, poTestAddInplace) {
   cond = (str.find("hpu::input") != string::npos);
   EXPECT_TRUE(cond);
   str = po_data.post_order[3]->ToString();
-  cond = (str.find("aten::add_") != string::npos);
+  cond = (str.find("aten::add") != string::npos);
   EXPECT_TRUE(cond);
   EXPECT_TRUE(po_data.outputs.size() == 1);
   EXPECT_TRUE(cond);
@@ -162,7 +162,7 @@ TEST(PostOrderTest, poTestReluInplace) {
   auto cond = (str.find("hpu::input") != string::npos);
   EXPECT_TRUE(cond);
   str = po_data.post_order[1]->ToString();
-  cond = (str.find("aten::relu_") != string::npos);
+  cond = (str.find("aten::relu") != string::npos);
   EXPECT_TRUE(cond);
   EXPECT_TRUE(po_data.outputs.size() == 1);
   EXPECT_TRUE(cond);

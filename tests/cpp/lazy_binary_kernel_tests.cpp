@@ -33,3 +33,28 @@ TEST_F(LazyBinaryKernelTest, LazyDoATest) {
   unsetenv("PT_HPU_LAZY_MODE");
 }
 
+TEST_F(LazyBinaryKernelTest, AddInplaceTest) {
+  // Inplace op as output node is not supported yet.
+  setenv("PT_HPU_LAZY_MODE", "1", 1);
+  torch::Tensor A = torch::randn({2, 3});
+  torch::Tensor B = torch::randn({2, 3});
+  torch::Tensor C = torch::randn({2, 3});
+
+  auto hA = A.to(torch::kHABANA);
+  A = A.add_(B);
+  auto exp = torch::mul(A, C);
+
+  auto hB = B.to(torch::kHABANA);
+  auto hC = C.to(torch::kHABANA);
+  hA = hA.add_(hB);
+  auto result = torch::mul(hA, hC);
+
+  std::vector<HbLazyTensor> tensors = {GetHbLazyTensor(result)};
+  HbLazyTensor::SyncTensorsGraph(&tensors, {});
+
+  Tensor out = result.to(kCPU);
+
+  EXPECT_EQ(allclose(out, exp), true);
+
+  unsetenv("PT_HPU_LAZY_MODE");
+}

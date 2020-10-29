@@ -20,23 +20,45 @@ class LazyUnaryKernelTest : public ::testing::Test {
 };
 
 TEST_F(LazyUnaryKernelTest, ThresholdBackward) {
-    setenv("PT_HPU_LAZY_MODE", "1", 1);
-    auto grad = torch::randn({2, 2}, torch::requires_grad(false));
-    auto self = torch::randn({2, 2}, torch::requires_grad(false));
+  setenv("PT_HPU_LAZY_MODE", "1", 1);
+  auto grad = torch::randn({2, 2}, torch::requires_grad(false));
+  auto self = torch::randn({2, 2}, torch::requires_grad(false));
 
-    Scalar scal_value(0);
+  Scalar scal_value(0);
 
-    auto hgrad = grad.to(torch::kHABANA);
-    auto hself = self.to(torch::kHABANA);
+  auto hgrad = grad.to(torch::kHABANA);
+  auto hself = self.to(torch::kHABANA);
 
-    auto hresult = at::threshold_backward(hgrad, hself, scal_value);
+  auto hresult = at::threshold_backward(hgrad, hself, scal_value);
 
-    std::vector<HbLazyTensor> tensors = {GetHbLazyTensor(hresult)};
-    HbLazyTensor::SyncTensorsGraph(&tensors, {});
+  std::vector<HbLazyTensor> tensors = {GetHbLazyTensor(hresult)};
+  HbLazyTensor::SyncTensorsGraph(&tensors, {});
 
-    auto hout = hresult.to(torch::kCPU);
-    auto cout = at::threshold_backward(grad, self, scal_value);
+  auto hout = hresult.to(torch::kCPU);
+  auto cout = at::threshold_backward(grad, self, scal_value);
 
-    EXPECT_EQ(allclose(hout, cout), true);
-    unsetenv("PT_HPU_LAZY_MODE");
+  EXPECT_EQ(allclose(hout, cout), true);
+  unsetenv("PT_HPU_LAZY_MODE");
+}
+
+TEST_F(LazyUnaryKernelTest, ReluInplaceTest) {
+  // Inplace op as output node is not supported yet.
+  setenv("PT_HPU_LAZY_MODE", "1", 1);
+  torch::Tensor A = torch::randn({4, 5});
+
+  auto hA = A.to(torch::kHABANA);
+  A = A.relu_();
+  auto exp = torch::relu(A);
+
+  hA = hA.relu_();
+  auto result = torch::relu(hA);
+
+  std::vector<HbLazyTensor> tensors = {GetHbLazyTensor(result)};
+  HbLazyTensor::SyncTensorsGraph(&tensors, {});
+
+  Tensor out = result.to(kCPU);
+
+  EXPECT_EQ(allclose(out, exp), true);
+
+  unsetenv("PT_HPU_LAZY_MODE");
 }

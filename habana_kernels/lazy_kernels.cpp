@@ -330,7 +330,7 @@ Tensor& add_tensor_hpu_lazy_(Tensor& self, const Tensor& other, Scalar alpha) {
   auto hl_alpha = habana_lazy::GetIrValueForScalar(alpha);
 
   auto node = habana_lazy::ir::Node::Create(
-      Symbol::fromQualString("aten::add_"),
+      Symbol::fromQualString("aten::add"),
       {hl_self.GetIrValue(), hl_other.GetIrValue(), hl_alpha});
 
   habana_lazy::ir::Value& out = hl_self.CurrentIrValue();
@@ -1112,14 +1112,14 @@ std::tuple<Tensor, Tensor> max_pool2d_with_indices_hpu_lazy(
   c10::MemoryFormat memory_format = habana_helpers::get_memory_format({&input});
   bool is_nhwc = (memory_format == c10::MemoryFormat::ChannelsLast);
   auto opsize_nhwc = PoolHelper::compute_output_shape(
-      input, kernel_size, stride, padding, dilation, ceil_mode,
-      is_nhwc);
+      input, kernel_size, stride, padding, dilation, ceil_mode, is_nhwc);
 
   // retunr always nhwc. convert to nchw
-  std::vector<long int> shape_out = {opsize_nhwc.at(0),
-                                     opsize_nhwc.at(3),
-                                     opsize_nhwc.at(1),
-                                     opsize_nhwc.at(2)};
+  std::vector<long int> shape_out = {
+      opsize_nhwc.at(0),
+      opsize_nhwc.at(3),
+      opsize_nhwc.at(1),
+      opsize_nhwc.at(2)};
 
   // allocate Output_0 storage
   auto result_0 = at::native::empty_hpu_lazy(
@@ -1192,14 +1192,14 @@ Tensor max_pool2d_with_indices_backward_hpu_lazy(
   c10::MemoryFormat memory_format = habana_helpers::get_memory_format({&input});
   bool is_nhwc = (memory_format == c10::MemoryFormat::ChannelsLast);
   auto opsize_nhwc = PoolHelper::compute_output_shape(
-      input, kernel_size, stride, padding, dilation, ceil_mode,
-      is_nhwc);
+      input, kernel_size, stride, padding, dilation, ceil_mode, is_nhwc);
 
   // retunr always nhwc. convert to nchw
-  std::vector<long int> out_shape = {opsize_nhwc.at(0),
-                                     opsize_nhwc.at(3),
-                                     opsize_nhwc.at(1),
-                                     opsize_nhwc.at(2)};
+  std::vector<long int> out_shape = {
+      opsize_nhwc.at(0),
+      opsize_nhwc.at(3),
+      opsize_nhwc.at(1),
+      opsize_nhwc.at(2)};
 
   TORCH_CHECK(grad_output.sizes().vec() == out_shape);
   TORCH_CHECK(
@@ -1654,7 +1654,7 @@ Tensor& relu_hpu_lazy_(Tensor& input) {
   auto hl_input = habana_lazy::GetOrCreateHbLazyTensor(input, c10::kHABANA);
 
   auto node = habana_lazy::ir::Node::Create(
-      Symbol::fromQualString("aten::relu_"), {hl_input.GetIrValue()});
+      Symbol::fromQualString("aten::relu"), {hl_input.GetIrValue()});
   auto hl_result = habana_lazy::GetHbLazyTensor(input);
   habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
