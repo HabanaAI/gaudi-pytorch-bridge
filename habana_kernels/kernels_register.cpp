@@ -1353,4 +1353,11 @@ static auto
                         .impl_unboxedOnlyKernel<
                             decltype(neg_hpu_wrap),
                             &neg_hpu_wrap>(DispatchKey::HABANATensorId)
+                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+                .op(torch::RegisterOperators::options()
+                        .schema(
+                            "aten::ones_like(Tensor self, *, ScalarType? dtype=None, Layout? layout=None, Device? device=None, bool? pin_memory=None, MemoryFormat? memory_format=None) -> Tensor")
+                        .impl_unboxedOnlyKernel<
+                            decltype(ones_like_hpu_wrap),
+                            &ones_like_hpu_wrap>(DispatchKey::HABANATensorId)
                         .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));

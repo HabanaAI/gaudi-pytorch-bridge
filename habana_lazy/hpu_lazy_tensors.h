@@ -44,7 +44,7 @@ struct Data {
         logical_element_type(logical_element_type),
         original_element_type(logical_element_type.value()),
         unique_id(GetNextTensorId()) {}
-  ~Data(){};
+  ~Data();
   int64_t GetNextTensorId() {
     static std::atomic<int64_t>* id_generator = new std::atomic<int64_t>(1);
     return id_generator->fetch_add(1);
@@ -89,6 +89,7 @@ class HbLazyTensor {
       const at::Device& device,
       c10::optional<at::ScalarType> logical_element_type = c10::nullopt);
   HbLazyTensor(std::shared_ptr<Data> data);
+
   at::Tensor ToTensor(bool detached);
   bool is_null() const {
     return data_ptr() == nullptr;

@@ -12,6 +12,7 @@
 #include <torch/script.h>
 
 #include "habana_device/HPUCheck.h"
+#include "habana_helpers/graph.h"
 #include "habana_helpers/logging.h"
 #include "resize.h"
 
@@ -109,3 +110,36 @@ Tensor& zero_hpu(Tensor& self) {
   const OptionalDeviceGuard device_guard(device_of(self));
   return at::native::zero_(self);
 }
+
+Tensor ones_like_hpu(
+    const Tensor& self,
+    const TensorOptions& options,
+    c10::optional<c10::MemoryFormat> optional_memory_format) {
+  size_t device_id = self.device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  at::ScalarType scalar_type = self.scalar_type();
+  std::string node_type =
+      "constant_" + habana_helpers::name_suffix_from_type(scalar_type);
+
+  // Note that for now we are ignoring options & optional_memory_format
+  // provided. If required we can change the code to create a tensor
+  // with required options & memory_format, followed by calling
+  // ConstantOut OP.
+
+  ConstantOperator Op(device_id, scalar_type);
+  std::vector<c10::IValue> stack = {IValue(self), IValue(Scalar(1.0))};
+  size_t key = Op.GetRecipeKey(node_type, stack);
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    auto output = habana_helpers::createPTTensor(self, true);
+    Op.SetPTOutput(output);
+    Op.Execute(key);
+  } else {
+    PT_KERNEL_DEBUG("key:", key);
+    auto graph = habana_helpers::create_graph(device_id, node_type);
+    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    Op.Compile(graph);
+  }
+
+  return Op.GetOutputs()[0];
+};

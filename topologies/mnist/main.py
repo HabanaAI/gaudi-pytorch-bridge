@@ -12,7 +12,6 @@ from torch.utils import data
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 
-
 class TrainMetaData():
     def __init__(self):
         self.current_train_step = 0
@@ -150,6 +149,42 @@ def train(args, model, device, train_loader, optimizer, epoch, trainMetaData,ran
         if trainMetaData.end_train() is True:
             break
 
+
+def train_lazy(args, model, device, train_loader, optimizer, epoch, trainMetaData,rank):
+    import hblazy.core.hb_model as hm
+    model.train()
+    if(trainMetaData.is_logging() and rank==0):
+        with open('mnistpy.log', 'w') as file:  # reset file
+            file.write('')
+
+    for batch_idx, (data, target) in enumerate(train_loader):
+        iter_timer_start = time.time()
+        data, target = data.to(device), target.to(device)
+        optimizer.zero_grad()
+        output = model(data)
+        loss = F.nll_loss(output, target)
+        loss.backward()
+        optimizer.step()
+        hm.mark_step()
+        iter_duration = time.time() - iter_timer_start
+        # if batch_idx % args.log_interval == 0:
+        acc1, acc5 = trainMetaData.accuracy(output.to('cpu'), target.to('cpu'), topk=(1, 5))
+        log_msg = 'Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f} '\
+                  'acc1: {:.6f} acc5: {:.6f} time: {:.6f}\n'.format(
+                  epoch, batch_idx * len(data), len(train_loader.dataset),
+                  100. * batch_idx / len(train_loader),
+                  loss.item(), acc1, acc5,
+                  iter_duration)
+
+        if(trainMetaData.is_logging() and rank==0):
+            with open('mnistpy.log', 'a') as file:
+                file.write(log_msg)
+        print(log_msg)
+        trainMetaData.log_live_mem_alloc("train_iteration_"+str(batch_idx))
+        trainMetaData.increment_train_step()
+        if trainMetaData.end_train() is True:
+            break
+
 def test(args, model, device, test_loader, trainMetaData):
     model.eval()
     test_loss = 0
@@ -210,6 +245,8 @@ def parse_args():
                         help='how many batches to wait before logging training status')
     parser.add_argument('--run-trace-mode', action='store_true', default=False,
                         help='run JIT mode with fusion enabled')
+    parser.add_argument('--run-lazy-mode', action='store_true', default=False,
+                        help='run model in lazy execution mode')
     parser.add_argument('--save-model', action='store_true', default=False,
                         help='For Saving the current Model')
     parser.add_argument('--num-train-steps', type=int, default=sys.maxsize, metavar='T',
@@ -235,6 +272,9 @@ def permute_params_on_device(model):
 def main(args):
 
     rank = args.rank
+
+    if args.run_lazy_mode:
+       os.environ["PT_HPU_LAZY_MODE"] = "1"
 
     if args.is_hmp:
         from hmp import hmp
@@ -292,7 +332,10 @@ def main(args):
                           momentum=args.momentum)
 
     for epoch in range(1, args.epochs + 1):
-        train(args, model, device, train_loader, optimizer, epoch, trainMetaData, rank)
+        if args.run_lazy_mode:
+           train_lazy(args, model, device, train_loader, optimizer, epoch, trainMetaData, rank)
+        else:
+           train(args, model, device, train_loader, optimizer, epoch, trainMetaData, rank)
         test(args, model, device, test_loader, trainMetaData)
 
         if (trainMetaData.end_train_n_eval()):
@@ -303,6 +346,9 @@ def main(args):
 
     if(args.distributed == True):
         cleanup_dist()
+
+    if args.run_lazy_mode:
+        os.environ.pop("PT_HPU_LAZY_MODE")
 
 
 if __name__ == '__main__':

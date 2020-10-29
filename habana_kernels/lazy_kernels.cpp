@@ -378,8 +378,16 @@ Tensor rsub_scalar_hpu_lazy(const Tensor& self, Scalar other, Scalar alpha) {
 };
 
 Tensor& mul_tensor_hpu_lazy_(Tensor& self, const Tensor& other) {
+  Tensor other_hpu = other;
+  if (other.device().type() == c10::DeviceType::CPU) {
+    if (other.scalar_type() == c10::ScalarType::Double) {
+      other.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+      other_hpu = other.to(c10::DeviceType::HABANA);
+    }
+  }
+
   auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
-  auto hl_other = habana_lazy::GetOrCreateHbLazyTensor(other, c10::kHABANA);
+  auto hl_other = habana_lazy::GetOrCreateHbLazyTensor(other_hpu, c10::kHABANA);
 
   auto node = habana_lazy::ir::Node::Create(
       Symbol::fromQualString("aten::mul"),
@@ -547,7 +555,7 @@ std::tuple<Tensor, Tensor, Tensor> convolution_backward_hpu_lazy(
   auto grad_input = at::native::empty_hpu_lazy(
       input.sizes(), grad_output.options(), memory_format);
   auto grad_bias = at::native::empty_hpu_lazy(
-      {grad_output.size(3)}, grad_output.options(), memory_format);
+      {grad_output.size(1)}, grad_output.options(), memory_format);
 
   auto hl_grad_input = habana_lazy::GetHbLazyTensor(grad_input);
   auto hl_grad_weight = habana_lazy::GetHbLazyTensor(grad_weight);
@@ -565,7 +573,7 @@ std::tuple<Tensor, Tensor, Tensor> convolution_backward_hpu_lazy(
   value_grad_bias.m_index = 2;
   value_grad_bias.SetNode(node);
 
-  auto conv_out = std::make_tuple(grad_weight, grad_input, grad_bias);
+  auto conv_out = std::make_tuple(grad_input, grad_weight, grad_bias);
 
   return conv_out;
 };
@@ -1992,3 +2000,27 @@ optimizer_sparse_adagrad_with_valid_count_hpu_lazy(
   out2.SetNode(node);
   return std::tie(weights_out, moments_out);
 }
+Tensor ones_like_hpu_lazy(
+    const Tensor& self,
+    const TensorOptions& options,
+    c10::optional<c10::MemoryFormat> optional_memory_format) {
+  // Note that currently we are not lowering parameters as per the ones_like
+  // schema. This works for the ones_like usage in MNIST (where it is used
+  // only for filling grad_out tensor with 1's), but we may need to revisit
+  // this in future.
+  auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
+  auto hl_alpha = habana_lazy::GetIrValueForScalar(1.0);
+
+  auto node = habana_lazy::ir::Node::Create(
+      Symbol::fromQualString("aten::ones_like"),
+      {hl_self.GetIrValue(), hl_alpha});
+
+  auto result = at::native::empty_hpu_lazy(
+      self.sizes(), self.options(), self.suggest_memory_format(), false);
+  auto hlresult = habana_lazy::GetHbLazyTensor(result);
+  habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+
+  return result;
+};

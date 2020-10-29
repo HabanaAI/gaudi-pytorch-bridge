@@ -296,3 +296,9 @@ void ConstantOperator::AllocateAndAddSynapseNode(
   AllocateSynapseOutput(graph, output, is_output_persistent);
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
+
+static auto& KernelRegistry = habana::KernelRegistry().add(
+    "aten::ones_like",
+    [](const int device_id, c10::ScalarType node_type) {
+      return std::make_shared<ConstantOperator>(device_id, node_type);
+    });

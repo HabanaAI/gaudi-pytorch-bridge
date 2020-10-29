@@ -115,7 +115,11 @@ class ConstantOutOperator : public habana::HabanaOperator {
       : habana::HabanaOperator(
             "constant_" + habana_helpers::name_suffix_from_type(scalarType)) {
     this->CreateSynContext(device_id);
-    kernel_meta_data_.output_layout.assign({habana::LayoutFormat::ANY});
+    // Temporary WA for MNIST Lazy Execution only.
+    // Assume ConstantOut will be called from fill_ only, which is only
+    // being used to Zero out weight gradients, therefore we can return
+    // output_layout as "HWCK" instead of "ANY"
+    kernel_meta_data_.output_layout.assign({habana::LayoutFormat::HWCK});
     // skip the self tensor as it is an output
     kernel_meta_data_.valid_input_idx.insert({1});
   }

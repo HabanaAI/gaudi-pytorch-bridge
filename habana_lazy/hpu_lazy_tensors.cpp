@@ -12,9 +12,9 @@
 #include <torch/csrc/jit/ir/ir.h>
 #include "debug_utils.h"
 #include "habana_bridge/kernel/hpu_habana_launch_op_pt.h"
-#include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_helpers/logging.h"
 #include "habana_helpers/tensor_utils.h"
+#include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/debug_utils.h"
 #include "habana_lazy/hlexec.h"
 #include "hlexec.h"
@@ -83,6 +83,11 @@ HbContext* HbContextArena::GetHbContext(const c10::Device& device) {
     it = mp_device_contexts.emplace(device, new HbContext()).first;
   }
   return it->second;
+}
+
+Data::~Data() {
+  auto context = HbContextArena::Get();
+  context->UnregisterTensor(this);
 }
 
 HbLazyTensor::HbLazyTensor(const at::Tensor& tensor, const c10::Device& device)
@@ -381,9 +386,13 @@ void HbLazyTensor::SyncTensorsGraphInternal(
   hlexec.DumpGraph();
 
   torch::jit::Stack stack;
-  stack.reserve(po_data.inputs.size());
+  // stack is used for both inputs to synapse lowering and outputs from
+  // synapse lowering, therefore allocate memory which is max of input
+  // and output size.
+  stack.reserve(std::max(po_data.inputs.size(), po_data.outputs.size()));
 
   for (const auto& in : po_data.inputs) {
+    HABANA_ASSERT(!in.m_data_ptr.expired());
     std::shared_ptr<Data> d = in.m_data_ptr.lock();
     stack.emplace_back(d->tensor_data);
   }
@@ -393,7 +402,6 @@ void HbLazyTensor::SyncTensorsGraphInternal(
   size_t i = 0;
   for (const torch::IValue& v : stack) {
     auto st = v.toTensor();
-
     auto out_tensor = (*tensors)[i++];
     out_tensor.SetTensorData(st);
   }

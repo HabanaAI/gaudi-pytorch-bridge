@@ -15,7 +15,7 @@
 Tensor& copy_hpu_wrap_(Tensor& self, const Tensor& src, bool non_blocking) {
   if (!IsThreadInLoweringContext() && std::getenv("PT_HPU_LAZY_MODE")) {
     AllocateWithoutStorage();
-    auto& t =  copy_hpu_lazy_(self, src, non_blocking);
+    auto& t = copy_hpu_lazy_(self, src, non_blocking);
     AllocateWithStorage();
     return t;
   } else {
@@ -209,14 +209,18 @@ Tensor rsub_scalar_hpu_wrap(const Tensor& self, Scalar other, Scalar alpha) {
 };
 Tensor& mul_tensor_hpu_wrap_(Tensor& self, const Tensor& other) {
   if (!IsThreadInLoweringContext() && std::getenv("PT_HPU_LAZY_MODE")) {
+    AllocateWithoutStorage();
     return mul_tensor_hpu_lazy_(self, other);
+    AllocateWithStorage();
   } else {
     return mul_tensor_hpu_(self, other);
   }
 };
 Tensor mul_tensor_hpu_wrap(const Tensor& self, const Tensor& other) {
   if (!IsThreadInLoweringContext() && std::getenv("PT_HPU_LAZY_MODE")) {
+    AllocateWithoutStorage();
     return mul_tensor_hpu_lazy(self, other);
+    AllocateWithStorage();
   } else {
     return mul_tensor_hpu(self, other);
   }
@@ -892,7 +896,7 @@ Tensor addmm_hpu_wrap(
     Scalar beta,
     Scalar alpha) {
   if (!IsThreadInLoweringContext() && std::getenv("PT_HPU_LAZY_MODE")) {
-    return addmm_hpu_lazy(self, mat1, mat2, beta, alpha);  
+    return addmm_hpu_lazy(self, mat1, mat2, beta, alpha);
   } else {
     return addmm_hpu(self, mat1, mat2, beta, alpha);
   }
@@ -1569,10 +1573,7 @@ Tensor empty_hpu_wrap(
     c10::optional<MemoryFormat> optional_memory_format) {
   if (!IsThreadInLoweringContext() && std::getenv("PT_HPU_LAZY_MODE")) {
     return empty_hpu_lazy(
-      size,
-      options,
-      optional_memory_format,
-      CreateThreadTensorWithStorage());
+        size, options, optional_memory_format, CreateThreadTensorWithStorage());
   }
   return empty_hpu(size, options, optional_memory_format);
 };
@@ -1984,7 +1985,10 @@ Tensor clamp_min_hpu_wrap(const Tensor& self, Scalar min) {
     return clamp_min_hpu(self, min);
   }
 };
-Tensor& clamp_hpu_wrap_(Tensor& self, c10::optional<Scalar> min, c10::optional<Scalar> max) {
+Tensor& clamp_hpu_wrap_(
+    Tensor& self,
+    c10::optional<Scalar> min,
+    c10::optional<Scalar> max) {
   if (!IsThreadInLoweringContext() && std::getenv("PT_HPU_LAZY_MODE")) {
     AllocateWithoutStorage();
     auto& t = clamp_hpu_lazy_(self, min, max);
@@ -1994,7 +1998,10 @@ Tensor& clamp_hpu_wrap_(Tensor& self, c10::optional<Scalar> min, c10::optional<S
     return clamp_hpu_(self, min, max);
   }
 };
-Tensor clamp_hpu_wrap(const Tensor& self, c10::optional<Scalar> min, c10::optional<Scalar> max) {
+Tensor clamp_hpu_wrap(
+    const Tensor& self,
+    c10::optional<Scalar> min,
+    c10::optional<Scalar> max) {
   if (!IsThreadInLoweringContext() && std::getenv("PT_HPU_LAZY_MODE")) {
     AllocateWithoutStorage();
     auto t = clamp_hpu_lazy(self, min, max);
@@ -2094,5 +2101,17 @@ optimizer_sparse_adagrad_with_valid_count_hpu_wrap(
         indices,
         learning_rate,
         valid_count_tensor);
+  }
+}
+Tensor ones_like_hpu_wrap(
+    const Tensor& self,
+    const TensorOptions& options,
+    c10::optional<c10::MemoryFormat> optional_memory_format) {
+  if (!IsThreadInLoweringContext() && std::getenv("PT_HPU_LAZY_MODE")) {
+    AllocateWithoutStorage();
+    return ones_like_hpu_lazy(self, options, optional_memory_format);
+    AllocateWithStorage();
+  } else {
+    return ones_like_hpu(self, options, optional_memory_format);
   }
 }
