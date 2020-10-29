@@ -71,6 +71,19 @@ def set_seed(args):
 def to_list(tensor):
     return tensor.detach().cpu().tolist()
 
+def enable_tracing():
+    torch._C._debug_set_autodiff_subgraph_inlining(False)
+    torch._C._jit_set_profiling_executor(False)
+    torch._C._jit_set_profiling_mode(False)
+    sys.path.insert(0, os.path.join(os.environ['BUILD_ROOT_LATEST']))
+    try:
+            import hb_torch
+    except ImportError:
+            assert False,"Could Not import hb_torch"
+
+    hb_torch.disable()
+    hb_torch.remove_inplace_ops()
+
 
 def train(args, train_dataset, model, tokenizer):
     """ Train the model """
@@ -116,6 +129,9 @@ def train(args, train_dataset, model, tokenizer):
             raise ImportError("Please install apex from https://www.github.com/nvidia/apex to use fp16 training.")
 
         model, optimizer = amp.initialize(model, optimizer, opt_level=args.fp16_opt_level)
+
+    if args.use_jit_trace:
+        enable_tracing()
 
     # multi-gpu training (should be after apex fp16 initialization)
     if args.n_gpu > 1:
@@ -188,6 +204,9 @@ def train(args, train_dataset, model, tokenizer):
                 "end_positions": batch[4],
             }
 
+            device = args.device
+            tensor_dummy = torch.zeros(1).to(args.device)
+
             if args.model_type in ["xlm", "roberta", "distilbert", "camembert"]:
                 del inputs["token_type_ids"]
 
@@ -199,9 +218,12 @@ def train(args, train_dataset, model, tokenizer):
                     inputs.update(
                         {"langs": (torch.ones(batch[0].shape, dtype=torch.int64) * args.lang_id).to(args.device)}
                     )
-
-            outputs = model(**inputs)
-            # model outputs are always tuple in transformers (see doc)
+            if args.use_jit_trace and step == 0:
+                model_trace = torch.jit.trace(model, (batch[0], batch[1], batch[2], tensor_dummy, tensor_dummy, tensor_dummy, batch[3], batch[4], tensor_dummy, tensor_dummy), check_trace=False)                
+            if args.use_jit_trace:
+                outputs = model_trace(batch[0], batch[1], batch[2], tensor_dummy, tensor_dummy, tensor_dummy, batch[3], batch[4], tensor_dummy, tensor_dummy)
+            else:
+                outputs = model(**inputs)            # model outputs are always tuple in transformers (see doc)
             loss = outputs[0]
 
             if args.n_gpu > 1:
@@ -686,6 +708,7 @@ def main():
         help="For fp16: Apex AMP optimization level selected in ['O0', 'O1', 'O2', and 'O3']."
         "See details at https://nvidia.github.io/apex/amp.html",
     )
+    parser.add_argument("--use_jit_trace", action='store_true', default=False, help='run with torch jit trace mode')
     parser.add_argument("--server_ip", type=str, default="", help="Can be used for distant debugging.")
     parser.add_argument("--server_port", type=str, default="", help="Can be used for distant debugging.")
 

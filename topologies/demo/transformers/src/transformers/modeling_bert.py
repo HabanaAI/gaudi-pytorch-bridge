@@ -1532,6 +1532,16 @@ class BertForQuestionAnswering(BertPreTrainedModel):
             Attentions weights after the attention softmax, used to compute the weighted average in the self-attention
             heads.
         """
+        if position_ids is not None and position_ids.nelement() == 1:
+            position_ids = None
+        if head_mask is not None and head_mask.nelement() == 1:
+            head_mask = None
+        if inputs_embeds is not None and inputs_embeds.nelement() == 1:
+            inputs_embeds = None
+        if output_attentions is not None and output_attentions.nelement() == 1:
+            output_attentions = None
+        if output_hidden_states is not None and output_hidden_states.nelement() == 1:
+            output_hidden_states = None
 
         outputs = self.bert(
             input_ids,
