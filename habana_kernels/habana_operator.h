@@ -71,7 +71,7 @@ class HabanaOperator {
   // If the tensor is to be sent to host from device
   //    - the target_layout is the one expected in host
   //    - to_device is false
-  static const at::IntArrayRef& getPermuteOrder(
+  static const std::array<int64_t, 4>& getPermuteOrder(
       const LayoutFormat target_layout,
       bool to_device = true);
 

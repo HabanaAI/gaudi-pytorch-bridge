@@ -54,8 +54,10 @@ std::unordered_set<std::string> HabanaLaunchOpPT::watchlist_ = {};
 void adjustSizesforPT(at::Tensor* tensor, bool is_output) {
   auto sizes = tensor->sizes().vec();
   auto strides = tensor->strides().vec();
-  at::IntArrayRef out_pos = {0, 3, 1, 2};
-  at::IntArrayRef in_pos = {0, 2, 3, 1};
+  int64_t dim_out_pos[] = {0, 3, 1, 2};
+  int64_t dim_in_pos[] = {0, 2, 3, 1};
+  at::IntArrayRef out_pos = dim_out_pos;
+  at::IntArrayRef in_pos = dim_in_pos;
 
   at::IntArrayRef new_pos_arr = is_output ? out_pos : in_pos;
   auto new_pos = new_pos_arr.vec();
@@ -437,27 +439,33 @@ at::IntArrayRef getDimsForLayout(
 
   if (current_order == habana::LayoutFormat::NCHW) {
     if (channel_order == habana::LayoutFormat::NHWC) {
-      dims = {0, 2, 3, 1};
+      static const int64_t dimarr[] = {0, 2, 3, 1};
+      dims = dimarr;
     } else if (channel_order == habana::LayoutFormat::HWCK) {
-      dims = {2, 3, 1, 0};
+      static const int64_t dimarr[] = {2, 3, 1, 0};
+      dims = dimarr;
     } else {
       TORCH_CHECK(
           0, " Habana Fusion op permute called for unsupported channel order");
     }
   } else if (current_order == habana::LayoutFormat::NHWC) {
     if (channel_order == habana::LayoutFormat::NCHW) {
-      dims = {0, 3, 1, 2};
+      static const int64_t dimarr[] = {0, 3, 1, 2};
+      dims = dimarr;
     } else if (channel_order == habana::LayoutFormat::HWCK) {
-      dims = {1, 2, 3, 0};
+      static const int64_t dimarr[] = {1, 2, 3, 0};
+      dims = dimarr;
     } else {
       TORCH_CHECK(
           0, " Habana Fusion op permute called for unsupported channel order");
     }
   } else if (current_order == habana::LayoutFormat::HWCK) {
     if (channel_order == habana::LayoutFormat::NCHW) {
-      dims = {3, 2, 0, 1};
+      static const int64_t dimarr[] = {3, 2, 0, 1};
+      dims = dimarr;
     } else if (channel_order == habana::LayoutFormat::NHWC) {
-      dims = {3, 0, 1, 2};
+      static const int64_t dimarr[] = {3, 0, 1, 2};
+      dims = dimarr;
     } else {
       TORCH_CHECK(
           0, " Habana Fusion op permute called for unsupported channel order");
@@ -628,8 +636,10 @@ void adjustInputWeight(at::Tensor* tensor, bool is_input) {
 
   auto sizes = tensor->sizes().vec();
   auto strides = tensor->strides().vec();
-  at::IntArrayRef in = {2, 3, 1, 0};
-  at::IntArrayRef out = {3, 2, 0, 1};
+  int64_t dims_in[] = {2, 3, 1, 0};
+  int64_t dims_out[] = {3, 2, 0, 1};
+  at::IntArrayRef in = dims_in;
+  at::IntArrayRef out = dims_out;
   // TODO : Remove these hardcoded dims, maybe take it from config file?
   at::IntArrayRef new_pos_arr = is_input ? in : out;
   auto new_pos = new_pos_arr.vec();

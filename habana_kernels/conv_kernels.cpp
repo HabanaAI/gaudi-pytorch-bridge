@@ -251,10 +251,12 @@ Tensor convolution_hpu(
   // convert tensors to synapse memory format
   Tensor input_nhwc = input;
   Tensor weight_hwck = weight;
+  int64_t pos_in[] = {0, 2, 3, 1};
+  int64_t pos_w[] = {2, 3, 1, 0};
   std::vector<const at::Tensor*> pt_in{&input};
   std::vector<at::Tensor*> pt_out{&input_nhwc};
-  IntArrayRef new_dim_pos_in = {0, 2, 3, 1};
-  IntArrayRef new_dim_pos_w = {2, 3, 1, 0};
+  IntArrayRef new_dim_pos_in = pos_in;
+  IntArrayRef new_dim_pos_w = pos_w;
   std::vector<const IntArrayRef*> pt_new_pos{&new_dim_pos_in, &new_dim_pos_w};
   c10::MemoryFormat memory_format = habana_helpers::get_memory_format({&input});
   habana_helpers::change_tensors_to_memory_format(
@@ -313,7 +315,8 @@ Tensor convolution_hpu(
   auto output_nhwc = convolution();
   pt_in = {&output_nhwc};
   pt_out = {&output};
-  IntArrayRef new_dim_pos_out = {0, 3, 1, 2};
+  int64_t pos_out[] = {0, 3, 1, 2};
+  IntArrayRef new_dim_pos_out = pos_out;
   pt_new_pos = {&new_dim_pos_out};
   habana_helpers::change_tensors_to_memory_format(
       pt_out, pt_in, pt_new_pos, memory_format);
@@ -733,9 +736,12 @@ std::tuple<Tensor, Tensor, Tensor> convolution_backward_hpu(
   Tensor weight_hwck = weight;
   std::vector<const at::Tensor*> pt_in{&input, &grad_output};
   std::vector<at::Tensor*> pt_out{&input_nhwc, &grad_out_nhwc};
-  IntArrayRef new_dim_pos_in = {0, 2, 3, 1};
-  IntArrayRef new_dim_pos_grad_out = {0, 2, 3, 1};
-  IntArrayRef new_dim_pos_w = {2, 3, 1, 0};
+  int64_t dim_pos_in[] = {0, 2, 3, 1};
+  int64_t dim_grad_out[] = {0, 2, 3, 1};
+  int64_t dim_pos_w[] = {2, 3, 1, 0};
+  IntArrayRef new_dim_pos_in = dim_pos_in;
+  IntArrayRef new_dim_pos_grad_out = dim_grad_out;
+  IntArrayRef new_dim_pos_w = dim_pos_w;
   std::vector<const IntArrayRef*> pt_new_pos{
       &new_dim_pos_in, &new_dim_pos_grad_out, &new_dim_pos_w};
   c10::MemoryFormat memory_format =
@@ -803,7 +809,8 @@ std::tuple<Tensor, Tensor, Tensor> convolution_backward_hpu(
     Tensor grad_in;
     pt_in = {&grad_input_nhwc};
     pt_out = {&grad_in};
-    IntArrayRef new_dim_pos_out = {0, 3, 1, 2};
+    int64_t dim_pos_out[] = {0, 3, 1, 2};
+    IntArrayRef new_dim_pos_out = dim_pos_out;
     std::vector<const IntArrayRef*> pt_new_pos = {&new_dim_pos_out};
     habana_helpers::change_tensors_to_memory_format(
         pt_out, pt_in, pt_new_pos, memory_format);

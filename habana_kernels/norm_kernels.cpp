@@ -579,7 +579,8 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu(
   Tensor input_nhwc = input_resize;
   std::vector<const at::Tensor*> pt_in = {&input_resize};
   std::vector<at::Tensor*> pt_out = {&input_nhwc};
-  IntArrayRef new_dim_pos = {0, 2, 3, 1};
+  int64_t pos[] = {0, 2, 3, 1};
+  IntArrayRef new_dim_pos = pos;
   std::vector<const IntArrayRef*> pt_new_pos = {&new_dim_pos};
   habana_helpers::change_tensors_to_memory_format(
       pt_out, pt_in, pt_new_pos, memory_format);
@@ -635,7 +636,8 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu(
   Tensor output = output_nhwc;
   pt_in = {&output_nhwc};
   pt_out = {&output};
-  new_dim_pos = {0, 3, 1, 2};
+  int64_t new_pos[] = {0, 3, 1, 2};
+  new_dim_pos = new_pos;
   pt_new_pos = {&new_dim_pos};
   habana_helpers::change_tensors_to_memory_format(
       pt_out, pt_in, pt_new_pos, memory_format);
@@ -947,7 +949,8 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu(
   Tensor grad_out_nhwc = grad_out_resize;
   std::vector<const at::Tensor*> pt_in{&input_resize, &grad_out_resize};
   std::vector<at::Tensor*> pt_out{&input_nhwc, &grad_out_nhwc};
-  IntArrayRef new_dim_pos = {0, 2, 3, 1};
+  int64_t dim_pos[] = {0, 2, 3, 1};
+  IntArrayRef new_dim_pos = dim_pos;
   std::vector<const IntArrayRef*> pt_new_pos{&new_dim_pos, &new_dim_pos};
   habana_helpers::change_tensors_to_memory_format(
       pt_out, pt_in, pt_new_pos, memory_format);
@@ -1009,7 +1012,8 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu(
   Tensor grad_in = grad_in_nhwc;
   pt_in = {&grad_in_nhwc};
   pt_out = {&grad_in};
-  new_dim_pos = {0, 3, 1, 2};
+  int64_t new_dim_pos_arr[] = {0, 3, 1, 2};
+  new_dim_pos = new_dim_pos_arr;
   pt_new_pos = {&new_dim_pos};
   habana_helpers::change_tensors_to_memory_format(
       pt_out, pt_in, pt_new_pos, memory_format);

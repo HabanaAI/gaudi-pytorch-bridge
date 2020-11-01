@@ -11,10 +11,10 @@
 #include "habana_operator.h"
 #include "habana_kernels/kernel_utils.h"
 
-const at::IntArrayRef& habana::HabanaOperator::getPermuteOrder(
+const std::array<int64_t, 4>& habana::HabanaOperator::getPermuteOrder(
     const LayoutFormat target_layout,
     bool to_device) {
-  static const std::unordered_map<const LayoutFormat, const at::IntArrayRef>
+  static const std::unordered_map<const LayoutFormat, const std::array<int64_t, 4>>
       toDevicePermuteOrder = {
           // Host -> Device
           {LayoutFormat::NHWC, {0, 2, 3, 1}}, // NCHW -> NHWC
@@ -23,7 +23,7 @@ const at::IntArrayRef& habana::HabanaOperator::getPermuteOrder(
           {LayoutFormat::ANY, {0, 1, 2, 3}} // XXXX -> XXXX (No Change)
       };
 
-  static const std::unordered_map<const LayoutFormat, const at::IntArrayRef>
+  static const std::unordered_map<const LayoutFormat, const std::array<int64_t, 4>>
       toHostPermuteOrder = {
           // Device -> Host
           {LayoutFormat::NCHW, {0, 1, 2, 3}}, // NCHW   -> NCHW (No Change)

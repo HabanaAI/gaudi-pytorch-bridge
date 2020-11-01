@@ -37,7 +37,8 @@ bool copy_transpose_valid(const Tensor& self, const Tensor& src) {
 }
 
 void do_copy_transpose(Tensor& dst, const Tensor& src) {
-  at::IntArrayRef chl_pos = {0, 2, 3, 1};
+  int64_t dim_chl_pos[] = {0, 2, 3, 1};
+  at::IntArrayRef chl_pos = dim_chl_pos;
   dst = src.permute(chl_pos);
 
   // PT expects metadata like sizes and strides same as in NCHW,

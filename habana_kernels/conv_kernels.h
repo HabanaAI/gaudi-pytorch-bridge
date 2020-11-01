@@ -46,7 +46,8 @@ class Conv2dOperator : public ConvOperator {
     TORCH_CHECK(
         inputs.size() == 7, "Conv2d Operation expects 7 arguments as input")
     bool transposed = false;
-    c10::IntArrayRef output_padding = {0, 0, 0, 0};
+    int64_t out_padding[] = {0, 0, 0, 0};
+    c10::IntArrayRef output_padding = out_padding;
     inputs.insert(inputs.begin() + 6, c10::IValue(transposed));
     inputs.insert(inputs.begin() + 7, c10::IValue(output_padding));
     ConvOperator::AllocateAndAddSynapseNode(
