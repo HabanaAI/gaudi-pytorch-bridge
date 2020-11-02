@@ -29,7 +29,12 @@ TEST_F(LazyBinaryKernelTest, LazyDoATest) {
   torch::Tensor hC = C.to(torch::kHABANA);
   torch::Tensor I = torch::add(hA, hB);
   torch::Tensor out = torch::add(hC, I);
-  EXPECT_EQ(out.dim(), 2);
+
+  torch::Tensor I_cpu = torch::add(A, B);
+  torch::Tensor out_cpu = torch::add(C, I_cpu);
+  torch::Tensor out_h = out.to(torch::kCPU);
+  EXPECT_EQ(allclose(out_h, out_cpu), true);
+
   unsetenv("PT_HPU_LAZY_MODE");
 }
 
