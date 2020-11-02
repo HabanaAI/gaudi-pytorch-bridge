@@ -1219,9 +1219,21 @@ Tensor clamp_hpu(
   size_t key = Op.GetRecipeKey(node_type, stack);
   if (device.get_recipe_handle_cache().isCached(key)) {
     PT_KERNEL_DEBUG("Cache hit key:", key);
-    auto output = habana_helpers::createPTTensor(self, true);
     Op.SetPTInputs(pt_inputs);
-    Op.SetPTOutput(output);
+
+    if (self.scalar_type() == ScalarType::Long) {
+      auto output = at::empty(
+          self.sizes(),
+          self.options().dtype(c10::ScalarType::Int),
+          self.suggest_memory_format());
+      Op.SetPTOutput(output);
+    } else {
+      auto output = at::empty(
+          self.sizes(),
+          self.options(),
+          self.suggest_memory_format());
+      Op.SetPTOutput(output);
+    }
     Op.Execute(key);
   } else {
     PT_KERNEL_DEBUG("Key:", key);
