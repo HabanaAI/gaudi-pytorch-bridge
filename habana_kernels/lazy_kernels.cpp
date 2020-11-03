@@ -2633,13 +2633,42 @@ Tensor tanh_backward_hpu_lazy(const Tensor& grad_in, const Tensor& input) {
 };
 
 Tensor gelu_hpu_lazy(const Tensor& self) {
-  HABANA_ASSERT(0);
-  return gelu_hpu(self);
+  auto hl_input = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
+
+  auto node = habana_lazy::ir::Node::Create(
+      Symbol::fromQualString("aten::gelu"), {hl_input.GetIrValue()});
+
+  auto result = at::native::empty_hpu_lazy(
+      self.sizes(), self.options(), self.suggest_memory_format(), false);
+  auto hl_result = habana_lazy::GetHbLazyTensor(result);
+  habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+  std::vector<at::Tensor> input_pt_vec{self};
+  node->AddInputPtTensors(input_pt_vec);
+
+  return result;
 };
+
 Tensor gelu_backward_hpu_lazy(const Tensor& grad, const Tensor& self) {
-  HABANA_ASSERT(0);
-  return gelu_backward_hpu(grad, self);
-};
+  auto hl_grad = habana_lazy::GetOrCreateHbLazyTensor(grad, c10::kHABANA);
+  auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
+
+  auto node = habana_lazy::ir::Node::Create(
+      Symbol::fromQualString("aten::gelu_backward"),
+      {hl_grad.GetIrValue(), hl_self.GetIrValue()});
+
+  auto result = at::native::empty_hpu_lazy(
+      self.sizes(), self.options(), self.suggest_memory_format(), false);
+  auto hl_result = habana_lazy::GetHbLazyTensor(result);
+  habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+  std::vector<at::Tensor> input_pt_vec{grad, self};
+  node->AddInputPtTensors(input_pt_vec);
+  return result;
+}
+
 Tensor& erf_hpu_lazy_(Tensor& self) {
   HABANA_ASSERT(0);
   return erf_hpu_(self);

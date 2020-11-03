@@ -63,8 +63,9 @@ TEST_F(LazyUnaryKernelTest, ReluInplaceTest) {
 }
 
 TEST_F(LazyUnaryKernelTest, SigmoidFwdTest) {
-  auto input_tensor = torch::arange(4, torch::dtype(torch::kFloat).requires_grad(true))
-                          .reshape({1, 1, 2, 2});
+  auto input_tensor =
+      torch::arange(4, torch::dtype(torch::kFloat).requires_grad(true))
+          .reshape({1, 1, 2, 2});
   torch::Tensor cpu_out = torch::sigmoid(input_tensor);
 
   torch::Tensor tHabanaX = input_tensor.to(torch::kHABANA);
@@ -75,13 +76,15 @@ TEST_F(LazyUnaryKernelTest, SigmoidFwdTest) {
 }
 
 TEST_F(LazyUnaryKernelTest, SigmoidBwdTest) {
-  auto input_tensor = torch::arange(4, torch::dtype(torch::kFloat).requires_grad(true))
-                          .reshape({1, 1, 2, 2});
-  auto grad_tensor = torch::arange(4, torch::dtype(torch::kFloat).requires_grad(true))
+  auto input_tensor =
+      torch::arange(4, torch::dtype(torch::kFloat).requires_grad(true))
+          .reshape({1, 1, 2, 2});
+  auto grad_tensor =
+      torch::arange(4, torch::dtype(torch::kFloat).requires_grad(true))
           .reshape({1, 1, 2, 2});
   torch::Tensor cpu_out = torch::sigmoid_backward(grad_tensor, input_tensor);
 
-  torch::Tensor tHabanaI= input_tensor.to(torch::kHABANA);
+  torch::Tensor tHabanaI = input_tensor.to(torch::kHABANA);
   torch::Tensor tHabanaG = grad_tensor.to(torch::kHABANA);
   torch::Tensor hout_backward = torch::sigmoid_backward(tHabanaG, tHabanaI);
   std::vector<HbLazyTensor> tensors = {GetHbLazyTensor(hout_backward)};
@@ -117,7 +120,6 @@ TEST_F(LazyUnaryKernelTest, SqrtTest) {
 }
 
 TEST_F(LazyUnaryKernelTest, TanhFwdTest) {
-  setenv("PT_HPU_LAZY_MODE", "1", 1);
   torch::Tensor A =
       torch::arange(6, torch::dtype(torch::kFloat).requires_grad(true))
           .reshape({1, 1, 3, 2});
@@ -128,11 +130,9 @@ TEST_F(LazyUnaryKernelTest, TanhFwdTest) {
   torch::Tensor hout_lazy = hout.to(torch::kCPU);
 
   EXPECT_EQ(allclose(hout_lazy, out_exp), true);
-  unsetenv("PT_HPU_LAZY_MODE");
 }
 
 TEST_F(LazyUnaryKernelTest, TanhBwdTest) {
-  setenv("PT_HPU_LAZY_MODE", "1", 1);
   torch::Tensor A =
       torch::arange(6, torch::dtype(torch::kFloat).requires_grad(true))
           .reshape({1, 1, 3, 2});
@@ -148,5 +148,31 @@ TEST_F(LazyUnaryKernelTest, TanhBwdTest) {
   auto hout_lazy = hout.to(torch::kCPU);
 
   EXPECT_EQ(allclose(hout_lazy, out_exp), true);
-  unsetenv("PT_HPU_LAZY_MODE");
+}
+
+TEST_F(LazyUnaryKernelTest, GeluTest) {
+  torch::Tensor A = torch::randn({2, 2}, torch::dtype(torch::kFloat));
+  auto hA = A.to(torch::kHABANA);
+
+  auto exp = torch::nn::functional::gelu(A);
+  auto result = torch::nn::functional::gelu(hA);
+
+  Tensor out = result.to(kCPU);
+
+  EXPECT_EQ(allclose(out, exp, 0.001, 0.001), true);
+}
+
+TEST_F(LazyUnaryKernelTest, GeluBackward) {
+  auto grad = torch::randn({2, 2});
+  auto self = torch::randn({2, 2});
+
+  auto hgrad = grad.to(torch::kHABANA);
+  auto hself = self.to(torch::kHABANA);
+
+  auto hresult = at::gelu_backward(hgrad, hself);
+
+  auto hout = hresult.to(torch::kCPU);
+  auto cout = at::gelu_backward(grad, self);
+
+  EXPECT_EQ(allclose(hout, cout, 0.001, 0.001), true);
 }
