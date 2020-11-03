@@ -31,6 +31,8 @@ reduction_dim_list = [
     ([2], False),
     ([1, 2, 0], True),
     ([1, 2, 0], False),
+    ([2, 0], True),
+    ([1, 0, 3], True),
 ]
 
 data_type_list = [

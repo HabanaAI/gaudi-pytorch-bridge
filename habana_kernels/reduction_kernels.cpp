@@ -142,6 +142,19 @@ void ReduceOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   HabanaOperator::SetPTOutputs({output});
 }
 
+c10::List<int64_t> copy_dim_list(
+    c10::List<int64_t> in_dim,
+    int64_t* in_dim_data,
+    int64_t dim) {
+  c10::List<int64_t> original_dim(in_dim);
+  for (int64_t i = 0; i < (int64_t)in_dim.size(); i++) {
+    int64_t val = in_dim_data[i];
+    original_dim[i] = c10::maybe_wrap_dim(val, dim, true);
+  }
+  std::sort(original_dim.begin(), original_dim.end());
+  return original_dim;
+}
+
 void ReduceOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
@@ -164,51 +177,157 @@ void ReduceOperator::AllocateAndAddSynapseNode(
 
   Tensor output = inputs[0].toTensor();
   Tensor self = inputs[1].toTensor();
-  auto dim = inputs[2].toIntList();
+  auto in_dim = inputs[2].toIntList();
   bool keepdim = inputs[3].toBool();
   auto dtype = inputs[4].toOptional<ScalarType>();
 
-  int64_t data[dim.size()];
-  std::copy(dim.begin(), dim.end(), data);
-  IntArrayRef dim_arr(data, dim.size());
-  auto ndim = self.dim();
-  auto mask = make_dim_mask(dim_arr, ndim);
+  auto num_dims_to_reduce = in_dim.size();
+  int64_t in_dim_data[num_dims_to_reduce];
+  std::copy(in_dim.begin(), in_dim.end(), in_dim_data);
+  // make a copy of input dim array which will hold only non-negative values in
+  // sorted order
+  auto original_dim = copy_dim_list(in_dim, in_dim_data, (int64_t)self.dim());
+  int64_t original_dim_data[num_dims_to_reduce];
+  std::copy(original_dim.begin(), original_dim.end(), original_dim_data);
+  // IntArrayRef dim_arr(original_dim_data, original_dim.size());
+  // auto original_ndim = self.dim();
+  std::vector<int64_t> original_self_sizes = self.sizes().vec();
 
+  unsigned count = 0;
+  // check whether all dims in list are the higher "continuous" dimensions
+  // if yes, "flatten" higher dims to a single unrolled-size dim
+  auto next_val = 0;
+  for (auto dim_val : original_dim_data) {
+    if (dim_val == next_val) {
+      count++;
+      next_val++;
+    } else {
+      next_val++;
+    }
+  }
+  bool flatten_higher_dims = false;
+  if (count == num_dims_to_reduce)
+    flatten_higher_dims = true;
+  // reshaped_sizes is used to hold appropriate dim sizes for keepdim=true,false
+  // cases. reshaped_sizesis passed to Reshape operator stack as an IntArrayRef
+  // variable.
+  unsigned reshaped_dim_size;
+
+  std::vector<int64_t> reshaped_sizes;
+  // Reshape operator to flatten higher dims to single dim.
+  // The reshape node in the else part doesn't actually reshape, but is a pass
+  // through. We assume that the reshape in the else part (when upper dims are
+  // not merged), will be optimized out by GC
+  ReshapeOperator ReshapeOp(this->p_context_->device_id_, self.scalar_type());
+  if (flatten_higher_dims) {
+    auto flatten_size = std::accumulate(
+        original_self_sizes.begin(),
+        original_self_sizes.begin() + num_dims_to_reduce,
+        1,
+        std::multiplies<int>());
+    if (keepdim) {
+      // we need to keep a size of '1' for upper dims, flattened value at last
+      // pos of "dim array", and original sizes for lower dimensions
+      // example: sizes [8,3,2,2] with dim=[0,1,2] and keepdim=true becomes
+      // [1,1,48,2]
+      reshaped_dim_size = original_dim.size();
+      for (unsigned i = 0; i < num_dims_to_reduce - 1; i++) {
+        reshaped_sizes.emplace_back(1);
+      }
+      reshaped_sizes.emplace_back(flatten_size);
+      for (unsigned i = num_dims_to_reduce; i < self.dim(); i++) {
+        reshaped_sizes.emplace_back(original_self_sizes[i]);
+      }
+
+    } else {
+      // all upper dims sizes are flattened into a single dim at 0
+      reshaped_dim_size = 1;
+      reshaped_sizes.emplace_back(flatten_size);
+      for (unsigned i = num_dims_to_reduce; i < self.dim(); i++) {
+        reshaped_sizes.emplace_back(original_self_sizes[i]);
+      }
+    }
+    // reshape to "reshaped-sizes" before reduction
+    c10::IntArrayRef shape(reshaped_sizes.data(), reshaped_sizes.size());
+    auto& reshape_syn =
+        ReshapeOp.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+    // Build Params for the graph
+    std::vector<c10::IValue> stack;
+    stack.emplace_back(IValue(self));
+    stack.emplace_back(IValue(shape));
+    ReshapeOp.AllocateAndAddSynapseNode(graph, stack, false);
+    p_context_->syn_inputs_[0] = std::move(reshape_syn);
+  } else {
+    // keep a reshape to same shape as input to avoid issues with using
+    // syn_inputs_[0] as both input and output of reshape
+    TORCH_CHECK(
+        keepdim || (num_dims_to_reduce == 1),
+        "Attempting reduction along more than one non-contiguous dimensions with keepdim=False");
+    reshaped_dim_size = original_dim.size();
+    for (unsigned i = 0; i < self.dim(); i++)
+      reshaped_sizes.emplace_back(original_self_sizes[i]);
+    auto& reshape_syn =
+        ReshapeOp.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+    c10::IntArrayRef shape(reshaped_sizes.data(), reshaped_sizes.size());
+    std::vector<c10::IValue> stack;
+    stack.emplace_back(IValue(self));
+    stack.emplace_back(IValue(shape));
+    ReshapeOp.AllocateAndAddSynapseNode(graph, stack, false);
+    p_context_->syn_inputs_[0] = std::move(reshape_syn);
+  }
+  auto self_reshaped = ReshapeOp.GetOutputs()[0];
+  int64_t reshaped_dim_data[reshaped_dim_size];
+  if (flatten_higher_dims && !keepdim) {
+    reshaped_dim_data[0] = 0;
+  } else {
+    std::copy(original_dim.begin(), original_dim.end(), reshaped_dim_data);
+  }
+
+  IntArrayRef reshaped_dim_arr(reshaped_dim_data, reshaped_dim_size);
+  auto mask = make_dim_mask(reshaped_dim_arr, self_reshaped.dim());
   allocate_reduction_result(
-      output, self, mask, keepdim, get_dtype(output, self, dtype, false));
+      output,
+      self_reshaped,
+      mask,
+      keepdim,
+      get_dtype(output, self_reshaped, dtype, false));
   TORCH_CHECK(
-      output.scalar_type() == self.scalar_type(),
+      output.scalar_type() == self_reshaped.scalar_type(),
       "Habana reduction ops don't support casts yet");
-
-  std::vector<synapse_helpers::tensor> syn_helper_intermediate;
-  std::vector<synTensor> syn_intermediate;
-  std::vector<int64_t> dims = self.sizes().vec();
   AllocateSynapseOutput(graph, output, is_output_persistent);
 
+  // In the code below syn_helper_intermediate[0] holds the reshaped/original
+  // input, syn_helper_intermediate[<last_index>] holds the final output and all
+  // others in between holds intermediate output/net-stage-input in the dim by
+  // dim reductions.
+  std::vector<synapse_helpers::tensor> syn_helper_intermediate;
+  std::vector<synTensor> syn_intermediate;
+  std::vector<int64_t> self_reshaped_sizes = self_reshaped.sizes().vec();
   // add syn_input tensor
-  synapse_helpers::tensor& synInput = p_context_->syn_inputs_[0];
+  synapse_helpers::tensor& synInput = ReshapeOp.GetSynOutputs()[0];
   syn_intermediate.emplace_back(synInput.get());
   // create syn_intermediate tensors of required shape
-  unsigned loopend = keepdim ? dim.size() - 1 : dim.size();
+  unsigned loopend = keepdim ? reshaped_dim_size - 1 : reshaped_dim_size;
   for (unsigned i = 0; i < loopend; i++) {
-    dims[dim[i]] = 1;
-    c10::IntArrayRef shape(dims.data(), self.dim());
+    self_reshaped_sizes[reshaped_dim_data[i]] = 1;
+    c10::IntArrayRef shape(self_reshaped_sizes.data(), self_reshaped.dim());
     syn_helper_intermediate.emplace_back(habana_helpers::create_tensor(
         shape,
         graph.get_graph_handle(),
         false,
-        self.device().index(),
-        self.scalar_type()));
+        self_reshaped.device().index(),
+        self_reshaped.scalar_type()));
     syn_intermediate.emplace_back(syn_helper_intermediate[i].get());
   }
   // add syn_output tensor
   synapse_helpers::tensor& synOutput = p_context_->syn_outputs_[0];
   syn_intermediate.emplace_back(synOutput.get());
 
+  // add reduction nodes corresponding to intermediate stages
   std::string node_type = this->guid_;
-  for (unsigned i = 0; i < dim.size(); i++) {
+  for (unsigned i = 0; i < reshaped_dim_size; i++) {
     ns_Reduction::Params params{};
-    params.reductionDimension = ndim - dim[i] - 1;
+    params.reductionDimension = self_reshaped.dim() - reshaped_dim_data[i] - 1;
 
     std::vector<synTensor> syn_in{syn_intermediate[i]};
     std::vector<synTensor> syn_out{syn_intermediate[i + 1]};
@@ -220,10 +339,12 @@ void ReduceOperator::AllocateAndAddSynapseNode(
         std::move(node_type));
   }
 
+  // if dim need not be kept add a final reshape to remove the "1" sized upper
+  // dims
   if (!keepdim) {
     std::string node_type = "reshape";
-    std::vector<synTensor> syn_in{syn_intermediate[dim.size()]};
-    std::vector<synTensor> syn_out{syn_intermediate[dim.size() + 1]};
+    std::vector<synTensor> syn_in{syn_intermediate[reshaped_dim_size]};
+    std::vector<synTensor> syn_out{syn_intermediate[reshaped_dim_size + 1]};
     graph.add_node(
         std::move(syn_in),
         std::move(syn_out),
@@ -1134,6 +1255,8 @@ static auto& KernelRegistry =
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<SumOperator>(device_id, node_type);
             })
-        .add("aten::sum.dim_IntList", [](const int device_id, c10::ScalarType node_type) {
-          return std::make_shared<SumDimOperator>(device_id, node_type);
-        });
+        .add(
+            "aten::sum.dim_IntList",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<SumDimOperator>(device_id, node_type);
+            });
