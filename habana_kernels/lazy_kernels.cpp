@@ -1544,6 +1544,10 @@ Tensor empty_hpu_lazy(
           habana_lazy::HbLazyTensor::CreateHbLazyTensor(
               size, 0, options.device(), c10::typeMetaToScalarType(dtype));
 
+      // This lazy tensor is newly created and should have the ir_value
+      // pointing to a hpu::input
+      setTensorAsInputNode(hb_tensor);
+
       at_tensor = habana_lazy::AtenFromHbLazyTensor(hb_tensor);
 
       // The lazy tensor will have a reference to the internal tensor

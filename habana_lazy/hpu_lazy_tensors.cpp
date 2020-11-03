@@ -12,6 +12,7 @@
 #include <torch/csrc/jit/ir/ir.h>
 #include "debug_utils.h"
 #include "habana_bridge/kernel/hpu_habana_launch_op_pt.h"
+#include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_helpers/logging.h"
 #include "habana_helpers/tensor_utils.h"
 #include "habana_lazy/debug_utils.h"
@@ -400,7 +401,16 @@ void HbLazyTensor::SyncTensorsGraphInternal(
 
   // Graph executed, clear IR values corresponding to sync tensors
   for (auto& i : *tensors) {
-    i.AssignIrValue(ir::Value());
+    // Reset the ir_value with the following content -
+    // - The m_data_ptr should continue to point to the
+    //   same lazy tensor data_ptr()
+    // - New hpu::input Tensor node within the ir_value as
+    //   the output tensors are obtained after computing the
+    //   graph associated with it and can be used as an input
+    //   tensor to further ops using this tensor.
+    ir::Value val = i.createIrValueFromData();
+    i.AssignIrValue(val);
+    setTensorAsInputNode(i);
   }
 }
 void HbLazyTensor::setTensorOriginalType(c10::ScalarType type) {

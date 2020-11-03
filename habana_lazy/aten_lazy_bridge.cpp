@@ -96,12 +96,12 @@ HbLazyTensor GetOrCreateHbLazyTensor(
     hl_tensor = *p_hb_tensor;
   } else {
     hl_tensor = HbLazyTensor::Create(tensor, device);
+    // A newly created tensor is associated with 'input' node by default
+    // This helps in determining input nodes during post order traversal
+    // If it is not really an input, lazy kernel would have overwritten this
+    // node
+    setTensorAsInputNode(hl_tensor);
   }
-  // A newly created tensor is associated with 'input' node by default
-  // This helps in determining input nodes during post order traversal
-  // If it is not really an input, lazy kernel would have overwritten this
-  // node
-  setTensorAsInputNode(hl_tensor);
   return hl_tensor;
 }
 
