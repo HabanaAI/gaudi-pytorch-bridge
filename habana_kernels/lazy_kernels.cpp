@@ -27,6 +27,7 @@
 #include "habana_lazy/ops/clamp.h"
 #include "habana_lazy/ops/constant.h"
 #include "habana_lazy/ops/convolution.h"
+#include "habana_lazy/ops/embedding.h"
 #include "habana_lazy/ops/embedding_bag.h"
 #include "habana_lazy/ops/index.h"
 #include "habana_lazy/ops/loss.h"
@@ -1054,9 +1055,19 @@ Tensor embedding_hpu_lazy(
     int64_t padding_idx,
     bool scale_grad_by_freq,
     bool sparse) {
-  HABANA_ASSERT(0);
-  return embedding_hpu(
-      weight, indices, padding_idx, scale_grad_by_freq, sparse);
+  habana_lazy::ir::NodePtr embedding_node =
+      std::make_shared<habana_lazy::ir::Embedding_forward>(
+          weight, indices, padding_idx, scale_grad_by_freq, sparse);
+
+  // allocate Output storage
+  auto result = at::native::empty_hpu_lazy(
+      weight.sizes(), weight.options(), weight.suggest_memory_format(), false);
+  auto hlresult = habana_lazy::GetHbLazyTensor(result);
+  habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(embedding_node);
+
+  return result;
 };
 Tensor embedding_dense_backward_hpu_lazy(
     const Tensor& grad,
@@ -1064,9 +1075,22 @@ Tensor embedding_dense_backward_hpu_lazy(
     int64_t num_weights,
     int64_t padding_idx,
     bool scale_grad_by_freq) {
-  HABANA_ASSERT(0);
-  return embedding_dense_backward_hpu(
-      grad, indices, num_weights, padding_idx, scale_grad_by_freq);
+  habana_lazy::ir::NodePtr embedding_bwd_node =
+      std::make_shared<habana_lazy::ir::Embedding_backward>(
+          grad, indices, num_weights, padding_idx, scale_grad_by_freq);
+
+  // allocate Output storage
+  auto result = at::native::empty_hpu_lazy(
+      {num_weights, grad.size(-1)},
+      grad.options(),
+      grad.suggest_memory_format(),
+      false);
+  auto hlresult = habana_lazy::GetHbLazyTensor(result);
+  habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(embedding_bwd_node);
+
+  return result;
 };
 Tensor embedding_bag_sum_hpu_lazy(
     const Tensor& input,
