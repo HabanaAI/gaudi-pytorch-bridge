@@ -21,7 +21,7 @@ def get_values(filterKey, _cards, log):
     averaged_values = [round((sum(filtered_values[i:i+_cards]) / _cards), 6)
         for i in range(0, len(filtered_values), _cards)]
 
-    #print(averaged_values)
+    #print(*averaged_values, sep="\n")
     return averaged_values
 
 def main(argv):

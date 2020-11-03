@@ -849,6 +849,7 @@ if __name__ == "__main__":
     parser.add_argument('--hmp-opt-level', default='O1', help='choose optimization level for hmp')
     parser.add_argument('--hmp-verbose', action='store_true', help='enable verbose mode for hmp')
     parser.add_argument("--distributed", action="store_true", default=False)
+    parser.add_argument("--print-dist-loss", action="store_true", default=False)
     parser.add_argument('--log-device-mem-alloc', action='store_true',
                         help='log live memory allocations on device at the given point')
 
@@ -1459,6 +1460,14 @@ if __name__ == "__main__":
                 '''
                 # compute loss and accuracy
                 L_habana = E_habana.detach().cpu().numpy()  # numpy array
+                # use all-reduce to compute loss from all cards
+                # else manually get the mean from individual losses
+                if args.distributed and args.print_dist_loss:
+                    distloss_hpu = E_habana.detach()
+                    torch.distributed.all_reduce(distloss_hpu)
+                    distloss_cpu = distloss_hpu.to("cpu")
+                    e_result = distloss_cpu/args.world_size
+                    print(" Distributed Loss :: {:.6f}".format(e_result))
                 S_habana = Z_habana.float().detach().cpu().numpy()  # numpy array
                 T = T.detach().cpu().numpy()  # numpy array
                 mbs = T.shape[0]  # = args.mini_batch_size except maybe for last
