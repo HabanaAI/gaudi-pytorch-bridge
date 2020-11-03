@@ -45,6 +45,43 @@ TEST_F(LazyTensorShapeKernelTest, CatTest) {
   unsetenv("PT_HPU_LAZY_MODE");
 }
 
+TEST_F(LazyTensorShapeKernelTest, CatExecTest1) {
+  setenv("PT_HPU_LAZY_MODE", "1", 1);
+  torch::Tensor A = torch::randn({2, 2}, torch::requires_grad(false));
+  torch::Tensor B = torch::randn({2, 2}, torch::requires_grad(false));
+
+  auto C = torch::relu(A);
+  auto D = torch::relu(B);
+  auto exp = torch::cat({C, D});
+
+  torch::Tensor hA = A.to(torch::kHABANA);
+  torch::Tensor hB = B.to(torch::kHABANA);
+
+  auto hC = torch::relu(hA);
+  auto hD = torch::relu(hB);
+
+  torch::Tensor out = torch::cat({hC, hD});
+  auto result = out.to(torch::kCPU);
+  EXPECT_EQ(allclose(result, exp), true);
+  unsetenv("PT_HPU_LAZY_MODE");
+}
+
+TEST_F(LazyTensorShapeKernelTest, CatExecTest2) {
+  setenv("PT_HPU_LAZY_MODE", "1", 1);
+  torch::Tensor A = torch::randn({2, 2}, torch::requires_grad(false));
+  torch::Tensor B = torch::randn({2, 2}, torch::requires_grad(false));
+
+  auto exp = torch::cat({A, B});
+
+  torch::Tensor hA = A.to(torch::kHABANA);
+  torch::Tensor hB = B.to(torch::kHABANA);
+
+  torch::Tensor out = torch::cat({hA, hB});
+  auto result = out.to(torch::kCPU);
+  EXPECT_EQ(allclose(result, exp), true);
+  unsetenv("PT_HPU_LAZY_MODE");
+}
+
 TEST_F(LazyTensorShapeKernelTest, PermuteTest) {
   setenv("PT_HPU_LAZY_MODE", "1", 1);
   torch::Tensor A = torch::randn({2, 3}, torch::requires_grad(false));

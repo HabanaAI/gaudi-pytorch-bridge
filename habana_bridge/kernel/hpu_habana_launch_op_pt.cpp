@@ -61,14 +61,16 @@ void adjustSizesforPT(at::Tensor* tensor, bool is_output) {
 
   at::IntArrayRef new_pos_arr = is_output ? out_pos : in_pos;
   auto new_pos = new_pos_arr.vec();
-  std::vector<long int> swapped_sizes = {sizes[new_pos[0]],
-                                         sizes[new_pos[1]],
-                                         sizes[new_pos[2]],
-                                         sizes[new_pos[3]]};
-  std::vector<long int> swapped_strides = {strides[new_pos[0]],
-                                           strides[new_pos[1]],
-                                           strides[new_pos[2]],
-                                           strides[new_pos[3]]};
+  std::vector<long int> swapped_sizes = {
+      sizes[new_pos[0]],
+      sizes[new_pos[1]],
+      sizes[new_pos[2]],
+      sizes[new_pos[3]]};
+  std::vector<long int> swapped_strides = {
+      strides[new_pos[0]],
+      strides[new_pos[1]],
+      strides[new_pos[2]],
+      strides[new_pos[3]]};
 
   //*tensor_new = at::alias(*tensor);
   tensor->unsafeGetTensorImpl()->set_sizes_and_strides(
@@ -274,6 +276,76 @@ std::vector<bool> HabanaLaunchOpPT::nodeOutputPersistence(
   return is_persistent;
 }
 
+void HabanaLaunchOpPT::HandleMappedTensor(
+    CValPtr value_in,
+    const HabanaOperatorPtr& habana_op,
+    SharedSynTensorOrRefListPtr& tensorList) {
+  auto syn_tensor_input = pt_to_synapse_tensors.find(value_to_ivalue[value_in]);
+  for (synapse_helpers::tensor& tensor : *(syn_tensor_input->second)) {
+    synapse_helpers::tensor& syn_tensor =
+        habana_op->SetSynapseInput(std::move(tensor));
+    tensorList->emplace_back(tensor_or_ref(syn_tensor));
+  }
+
+  pt_to_synapse_tensors.erase(value_to_ivalue[value_in]);
+  pt_to_synapse_tensors.emplace(value_to_ivalue[value_in], tensorList);
+}
+
+void HabanaLaunchOpPT::HandleUnmappedTensor(
+    CValPtr value_in,
+    const HabanaOperatorPtr& habana_op,
+    SharedSynTensorOrRefListPtr& tensorList) {
+  std::vector<at::Tensor> pyTensorList;
+  if (value_to_ivalue[value_in]->isTensor()) {
+    pyTensorList.emplace_back(value_to_ivalue[value_in]->toTensor());
+  } else {
+    c10::List<at::Tensor> pytList = value_to_ivalue[value_in]->toTensorList();
+    for (at::Tensor pyTensor : pytList) {
+      pyTensorList.emplace_back(pyTensor);
+    }
+  }
+
+  std::vector<PtTensorInfo> tiv;
+  for (auto& pt_tensor : pyTensorList) {
+    if (!pt_tensor.defined()) {
+      continue;
+    }
+    auto& syn_tensor =
+        habana_op->AllocateSynapseInput(*syn_graph_ptr, pt_tensor, true);
+
+    tensorList->emplace_back(tensor_or_ref(syn_tensor));
+
+    std::string irn = "%" + value_in->debugName();
+    PtTensorInfo ti(
+        pt_tensor, syn_tensor.tensor_name_, irn, watch_tensor_flag_);
+    tiv.push_back(ti);
+  }
+
+  if (!tensorList->empty()) {
+    pt_to_synapse_tensors.emplace(value_to_ivalue[value_in], tensorList);
+
+    if (enable_caching_) {
+      input_tiv_map.emplace(value_to_ivalue[value_in], tiv);
+    } else {
+      input_tivs.emplace_back(tiv);
+    }
+  }
+}
+
+void HabanaLaunchOpPT::HandleMappedandUnmappedTensor(
+    CValPtr value_in,
+    const HabanaOperatorPtr& habana_op,
+    SharedSynTensorOrRefListPtr& tensorList) {
+  auto is_already_mapped =
+      pt_to_synapse_tensors.find(value_to_ivalue[value_in]) !=
+      std::end(pt_to_synapse_tensors);
+  if (is_already_mapped) {
+    HandleMappedTensor(value_in, habana_op, tensorList);
+  } else {
+    HandleUnmappedTensor(value_in, habana_op, tensorList);
+  }
+}
+
 void HabanaLaunchOpPT::GetSynapseInputs(
     const HabanaOperatorPtr& habana_op,
     torch::jit::Node* node) {
@@ -293,66 +365,28 @@ void HabanaLaunchOpPT::GetSynapseInputs(
       // Find if an input tensor is already mapped
       // NB: It seems Habana doesn't support shared input to
       // different nodes in graph
-      auto is_already_mapped =
-          pt_to_synapse_tensors.find(value_to_ivalue[value_in]) !=
-          std::end(pt_to_synapse_tensors);
-
-      SharedSynTensorOrRefListPtr tensorList =
+      SharedSynTensorOrRefListPtr tensor_ref_list_ptr_sh =
           std::make_shared<SynTensorOrRefList>();
-      if (is_already_mapped) {
-        auto syn_tensor_input =
-            pt_to_synapse_tensors.find(value_to_ivalue[value_in]);
-        for (synapse_helpers::tensor& tensor : *(syn_tensor_input->second)) {
-          synapse_helpers::tensor& syn_tensor =
-              habana_op->SetSynapseInput(std::move(tensor));
-          tensorList->emplace_back(tensor_or_ref(syn_tensor));
-        }
-
-        pt_to_synapse_tensors.erase(value_to_ivalue[value_in]);
-        pt_to_synapse_tensors.emplace(value_to_ivalue[value_in], tensorList);
+      // note: else path is only of listcontruct is fused with another op like
+      // cat. This case occurs in lazy eval but not in torch trace mode
+      if (value_to_ivalue[value_in]->isTensor() ||
+          (value_in->node()->kind() != torch::jit::prim::ListConstruct)) {
+        HandleMappedandUnmappedTensor(
+            value_in, habana_op, tensor_ref_list_ptr_sh);
       } else {
-        std::vector<at::Tensor> pyTensorList;
-        if (value_to_ivalue[value_in]->isTensor()) {
-          pyTensorList.emplace_back(value_to_ivalue[value_in]->toTensor());
-        } else {
-          c10::List<at::Tensor> pytList =
-              value_to_ivalue[value_in]->toTensorList();
-          for (at::Tensor pyTensor : pytList) {
-            pyTensorList.emplace_back(pyTensor);
+        // tensorlist
+        auto prev_node = value_in->node();
+        if (prev_node->kind() == torch::jit::prim::ListConstruct) {
+          for (auto& value_in : prev_node->inputs()) {
+            HABANA_ASSERT(value_to_ivalue[value_in]->isTensor());
+            HandleMappedandUnmappedTensor(
+                value_in, habana_op, tensor_ref_list_ptr_sh);
           }
         }
-
-        std::vector<PtTensorInfo> tiv;
-        for (auto& pt_tensor : pyTensorList) {
-          if (!pt_tensor.defined()) {
-            continue;
-          }
-          auto& syn_tensor =
-              habana_op->AllocateSynapseInput(*syn_graph_ptr, pt_tensor, true);
-
-          tensorList->emplace_back(tensor_or_ref(syn_tensor));
-
-          std::string irn = "%" + value_in->debugName();
-          PtTensorInfo ti(
-              pt_tensor, syn_tensor.tensor_name_, irn, watch_tensor_flag_);
-          tiv.push_back(ti);
-        }
-
-        if (tensorList->empty()) {
-          continue;
-        }
-
-        pt_to_synapse_tensors.emplace(value_to_ivalue[value_in], tensorList);
-
-        if (enable_caching_) {
-          input_tiv_map.emplace(value_to_ivalue[value_in], tiv);
-        } else {
-          input_tivs.emplace_back(tiv);
-        }
-      }
+      } // else
       input_idx++;
-    }
-  }
+    } // if (value_to_ivalue[value_in] && ..
+  } // for (const auto value_in : node_ins)
 }
 
 void HabanaLaunchOpPT::GetSynapseOutputs(
@@ -366,7 +400,8 @@ void HabanaLaunchOpPT::GetSynapseOutputs(
   auto habana_kernel_meta_data = habana_op->GetKernelMetaData();
   habana::LayoutFormat out_layout;
 
-  /* Note the input layout information for the node to pass on to output edge */
+  /* Note the input layout information for the node to pass on to output edge
+   */
   auto node_ins = node->inputs();
   habana::LayoutFormat assigned_input_layout = habana::LayoutFormat::NCHW;
   habana::LayoutFormat origin_input_layout = habana::LayoutFormat::NCHW;
@@ -404,8 +439,8 @@ void HabanaLaunchOpPT::GetSynapseOutputs(
         ? habana::LayoutFormat::ANY
         : habana_kernel_meta_data.output_layout.at(output_tensor_idx);
 
-    /* Pass down the layout information from input to output for layout agnostic
-       output (only for single input ans single output op nodes) */
+    /* Pass down the layout information from input to output for layout
+       agnostic output (only for single input ans single output op nodes) */
     value_to_tensor_layout[output_nodes[output_nodes_idx]].layout =
         out_layout == habana::LayoutFormat::ANY ? assigned_input_layout
                                                 : out_layout;
@@ -667,14 +702,16 @@ void adjustInputWeight(at::Tensor* tensor, bool is_input) {
   // TODO : Remove these hardcoded dims, maybe take it from config file?
   at::IntArrayRef new_pos_arr = is_input ? in : out;
   auto new_pos = new_pos_arr.vec();
-  std::vector<long int> swapped_sizes = {sizes[new_pos[0]],
-                                         sizes[new_pos[1]],
-                                         sizes[new_pos[2]],
-                                         sizes[new_pos[3]]};
-  std::vector<long int> swapped_strides = {strides[new_pos[0]],
-                                           strides[new_pos[1]],
-                                           strides[new_pos[2]],
-                                           strides[new_pos[3]]};
+  std::vector<long int> swapped_sizes = {
+      sizes[new_pos[0]],
+      sizes[new_pos[1]],
+      sizes[new_pos[2]],
+      sizes[new_pos[3]]};
+  std::vector<long int> swapped_strides = {
+      strides[new_pos[0]],
+      strides[new_pos[1]],
+      strides[new_pos[2]],
+      strides[new_pos[3]]};
   tensor->unsafeGetTensorImpl()->set_sizes_and_strides(
       swapped_sizes, swapped_strides);
 }
@@ -700,8 +737,8 @@ void HabanaLaunchOpPT::processInputs(
       if (in_layout == habana::LayoutFormat::ANY && tensor_idx > 0) {
         // ATTENTION : We will support only homogeneous layouts for kernels
         // which dont pass meta data requirements for inputs
-        // We make inputs homogeneous layouts in case kernel doesnt specify any
-        // layout
+        // We make inputs homogeneous layouts in case kernel doesnt specify
+        // any layout
         // TODO : Add a debug log heres
         in_layout = prev_layout;
       }
@@ -796,13 +833,34 @@ void HabanaLaunchOpPT::postProcessOutputs() {
 }
 
 void HabanaLaunchOpPT::handlePrimNodes(torch::jit::Node* node) {
-  TORCH_CHECK(
-      node->kind() == torch::jit::prim::Constant,
-      "Habana Fusion only supports constant type prim nodes");
-  auto node_vals = node->outputs();
-  for (const auto value : node_vals) {
-    IValPtrShared ivptrsh = std::make_shared<IVal>(toIValue(value).value());
-    value_to_ivalue[value] = ivptrsh;
+  if (node->kind() == torch::jit::prim::Constant) {
+    auto node_vals = node->outputs();
+    for (const auto value : node_vals) {
+      IValPtrShared ivptrsh = std::make_shared<IVal>(toIValue(value).value());
+      value_to_ivalue[value] = ivptrsh;
+    }
+  } else if (node->kind() == torch::jit::prim::ListConstruct) {
+    auto node_ins = node->inputs();
+    std::vector<at::Tensor> tensorVec;
+    for (const auto value_in : node_ins) {
+      auto ivptrsh = value_to_ivalue[value_in];
+      if (ivptrsh->isTensor()) {
+        tensorVec.push_back(ivptrsh->toTensor());
+      }
+    }
+
+    // construct tensorList from tensorVec
+    at::TensorList tensorList(tensorVec);
+
+    // convert tensorList to Ivalue and update the stack
+    IValPtrShared ivptrsh_tensor_list = std::make_shared<IVal>(tensorList);
+    auto node_vals = node->outputs();
+    HABANA_ASSERT(node_vals.size() == 1);
+    value_to_ivalue[node_vals[0]] = ivptrsh_tensor_list;
+  } else {
+    HABANA_ASSERT(
+        (node->kind() == torch::jit::prim::Constant) ||
+        (node->kind() == torch::jit::prim::ListConstruct));
   }
 }
 
@@ -1105,7 +1163,8 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
 
   OrderInputs(rv);
 
-  // rv.num_inputs and rv.num_duplicates will be set by FlattenAndLinkInputTIVs
+  // rv.num_inputs and rv.num_duplicates will be set by
+  // FlattenAndLinkInputTIVs
   FlattenAndLinkInputTIVs(rv);
 
   if (!interim_tensorinfos.empty()) {
@@ -1467,17 +1526,17 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
 
       if (pt_stack_sh[j]->isTensor()) {
         // Taking alias as that allows us to detach it from PT and do metadata
-        // changes It gives us more control over tensor changes, but caution is
-        // needed. Its might be a bit dangerous, but only way to communicate
-        // layour changes PT doesnt allow any stride changes we want, we can
-        // review it with PT folks
+        // changes It gives us more control over tensor changes, but caution
+        // is needed. Its might be a bit dangerous, but only way to
+        // communicate layour changes PT doesnt allow any stride changes we
+        // want, we can review it with PT folks
 
         auto tensor = at::alias(pt_stack_sh[j]->toTensor());
 
         // Get  the logical layout from PT tensor
-        // We dont touch this, even while doing permutes, the PT logical tensor
-        // is retained For us all tensors are contiguous PT doesnt let us mark
-        // logical layout directly so we dont change them
+        // We dont touch this, even while doing permutes, the PT logical
+        // tensor is retained For us all tensors are contiguous PT doesnt let
+        // us mark logical layout directly so we dont change them
 
         value_to_tensor_layout[value_input].layout = getPTTensorLayout(tensor);
         value_to_tensor_layout[value_input].layout_at_graph_entry =

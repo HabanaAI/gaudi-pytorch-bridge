@@ -163,6 +163,18 @@ class HabanaLaunchOpPT {
   bool isInGraphOutputs(torch::jit::Node* node, size_t index);
   std::vector<bool> nodeOutputPersistence(torch::jit::Node* node);
   void CompileAndExecuteHabanaFusedOpKernel();
+  void HandleMappedTensor(
+      CValPtr value_in,
+      const HabanaOperatorPtr& habana_op,
+      SharedSynTensorOrRefListPtr& tensorList);
+  void HandleUnmappedTensor(
+      CValPtr value_in,
+      const HabanaOperatorPtr& habana_op,
+      SharedSynTensorOrRefListPtr& tensorList);
+  void HandleMappedandUnmappedTensor(
+      CValPtr value_in,
+      const HabanaOperatorPtr& habana_op,
+      SharedSynTensorOrRefListPtr& tensorList);
   void GetSynapseInputs(
       const HabanaOperatorPtr& habana_op,
       torch::jit::Node* node);

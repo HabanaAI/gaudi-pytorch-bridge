@@ -1229,10 +1229,11 @@ std::tuple<Tensor, Tensor> max_pool2d_with_indices_hpu_lazy(
       input, kernel_size, stride, padding, dilation, ceil_mode, is_nhwc);
 
   // retunr always nhwc. convert to nchw
-  std::vector<long int> shape_out = {opsize_nhwc.at(0),
-                                     opsize_nhwc.at(3),
-                                     opsize_nhwc.at(1),
-                                     opsize_nhwc.at(2)};
+  std::vector<long int> shape_out = {
+      opsize_nhwc.at(0),
+      opsize_nhwc.at(3),
+      opsize_nhwc.at(1),
+      opsize_nhwc.at(2)};
 
   // allocate Output_0 storage
   auto result_0 = at::native::empty_hpu_lazy(
@@ -1308,10 +1309,11 @@ Tensor max_pool2d_with_indices_backward_hpu_lazy(
       input, kernel_size, stride, padding, dilation, ceil_mode, is_nhwc);
 
   // retunr always nhwc. convert to nchw
-  std::vector<long int> out_shape = {opsize_nhwc.at(0),
-                                     opsize_nhwc.at(3),
-                                     opsize_nhwc.at(1),
-                                     opsize_nhwc.at(2)};
+  std::vector<long int> out_shape = {
+      opsize_nhwc.at(0),
+      opsize_nhwc.at(3),
+      opsize_nhwc.at(1),
+      opsize_nhwc.at(2)};
 
   TORCH_CHECK(grad_output.sizes().vec() == out_shape);
   TORCH_CHECK(
@@ -1676,7 +1678,20 @@ Tensor cat_hpu_lazy(const TensorList tensors, int64_t dim_) {
   habana_lazy::ir::NodePtr node =
       std::make_shared<habana_lazy::ir::Cat>(tensors, dim_);
 
-  auto result = cat_hpu(tensors, dim_);
+  auto first_tensor = tensors[0];
+
+  auto shape_out = first_tensor.sizes().vec();
+  shape_out[dim_] = 0;
+  auto tensor_count = tensors.size();
+  for (unsigned i = 0; i < tensor_count; i++) {
+    shape_out[dim_] += tensors[i].sizes()[dim_];
+  }
+
+  auto result = at::native::empty_hpu_lazy(
+      shape_out,
+      first_tensor.options(),
+      first_tensor.suggest_memory_format(),
+      false);
 
   auto hl_result = habana_lazy::GetHbLazyTensor(result);
   habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
