@@ -237,6 +237,40 @@ class HabanaEmbeddingBag(torch.nn.Module):
                                              indices_bwd, offsets_bwd, valid_count_bwd, grad_weights)
         return output
 
+class HabanaEmbeddingBagLazy(torch.nn.Module):
+    def __init__(self, table_len, embedding_size, instance):
+        n = table_len
+        m = embedding_size
+        super(HabanaEmbeddingBagLazy, self).__init__()
+        W = np.random.uniform(
+            low=-np.sqrt(1 / n), high=np.sqrt(1 / n), size=(n, m)
+        ).astype(np.float32)
+        # approach 1
+        self.weight = nn.Parameter(torch.tensor(W, requires_grad=False))
+        if args.optimizer == 'adagrad':
+            self.moments = nn.Parameter(torch.zeros(self.weight.data.shape, requires_grad=False))
+        self.instance = instance
+
+    def forward(self, indices, offsets, valid_count_fwd, indices_bwd, offsets_bwd, valid_count_bwd, grad_weights, instance):
+        output = EmbeddingBagLazyFunction.apply(self.weight, indices, offsets, valid_count_fwd,
+                                             indices_bwd, offsets_bwd, valid_count_bwd, grad_weights)
+        return output
+
+class EmbeddingBagLazyFunction(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, weights, indices, offsets, valid_count, indices_bwd, offsets_bwd, valid_count_bwd, grad_weights):
+        # print('HabanaEmbeddingBagLazy:FW')
+        ctx.save_for_backward(grad_weights, indices_bwd, offsets_bwd, valid_count_bwd)
+
+        output = torch.embedding_bag_sum_fwd(weights, indices, offsets, valid_count, indices_bwd, offsets_bwd, valid_count_bwd, grad_weights)     # 
+        return output
+
+    @staticmethod
+    def backward(ctx,grad_output):
+        # print('HabanaEmbeddingBagSumLazy:BW')
+        grad_weights, indices_bwd, offsets_bwd, valid_count_bwd  = ctx.saved_tensors
+        _ = torch.embedding_bag_sum_bwd(grad_output, indices_bwd, offsets_bwd, valid_count_bwd, out=grad_weights)
+        return None, None, None, None, None, None, None, None
 
 class HabanaOptimizerSparseSgdFunction(torch.autograd.Function):
     @staticmethod
@@ -444,7 +478,10 @@ class DLRM_Net_Habana(nn.Module):
                 EE.embs.weight.data = torch.tensor(W, requires_grad=True)
 
             else:
-                EE = HabanaEmbeddingBag(n, m, i)
+                if (args.use_lazy_eval):
+                    EE = HabanaEmbeddingBagLazy(n, m, i)
+                else:
+                    EE = HabanaEmbeddingBag(n, m, i)
                 # print('EmbeddingBag created for config{} , instance {}'.format((n,m),i))
                 create_preproc(i)
                 gv.countUniqueIndices.append(torch.empty(1, 1))
@@ -908,6 +945,8 @@ if __name__ == "__main__":
     parser.add_argument("--distributed", action="store_true", default=False)
     parser.add_argument('--log-device-mem-alloc', action='store_true',
                         help='log live memory allocations on device at the given point')
+    parser.add_argument("--use-lazy-eval", action='store_true', default=False,
+                        help='run with lazy eval mode')
 
     args = parser.parse_args()
 
@@ -1451,7 +1490,7 @@ if __name__ == "__main__":
 
                 X_device = X.to(device, non_blocking=True)
 
-                if args.use_jit_trace and is_first_it:
+                if args.use_jit_trace and is_first_it and not args.use_lazy_eval:
                     model_to_run = enable_tracing(dlrm_habana, X_device, lS2_o, gv.indices_fwd,
                                                   gv.valid_count_fwd, gv.outputRowOffsets_hpu, gv.indices_bwd, gv.valid_count_bwd, gv.coalesced_grads)
                     is_first_it = False
