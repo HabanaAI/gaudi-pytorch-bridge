@@ -21,9 +21,9 @@
 #include <fstream>
 #include <functional>
 #include <iostream>
+#include <mutex>
 #include <string>
 #include <unordered_set>
-#include <mutex>
 
 #include <ATen/Tensor.h>
 #include <absl/hash/hash.h>
@@ -45,8 +45,7 @@ using SharedSynTensorOrRefListPtr = std::shared_ptr<SynTensorOrRefList>;
 using IValPtrSharedToTesorInfoMap =
     std::unordered_map<IValPtrShared, PtTensorInfo>;
 
-struct habanaTensorLayoutInfo
-{
+struct habanaTensorLayoutInfo {
   habana::LayoutFormat layout;
   habana::LayoutFormat layout_at_graph_entry;
 };
@@ -64,7 +63,6 @@ class HabanaLaunchOpPT {
   static size_t instance_count_;
 
  private:
-
   std::shared_ptr<torch::jit::Graph> subgraph_;
   std::string opname_;
   std::string id_str;
@@ -91,13 +89,16 @@ class HabanaLaunchOpPT {
   std::unordered_map<IValPtrShared, SharedSynTensorOrRefListPtr>
       pt_to_synapse_tensors;
 
-
   // TIVs for launcing the recipe
   // tiv : absl::variant<PtTensorInfo, std::vector<PtTensorInfo>> objects
-  std::unordered_map<IValPtrShared,
-      absl::variant<PtTensorInfo, std::vector<PtTensorInfo>>> input_tiv_map;
-  std::vector<absl::variant<PtTensorInfo, std::vector<PtTensorInfo>>> input_tivs;
-  std::vector<absl::variant<PtTensorInfo, std::vector<PtTensorInfo>>> duplicate_tivs;
+  std::unordered_map<
+      IValPtrShared,
+      absl::variant<PtTensorInfo, std::vector<PtTensorInfo>>>
+      input_tiv_map;
+  std::vector<absl::variant<PtTensorInfo, std::vector<PtTensorInfo>>>
+      input_tivs;
+  std::vector<absl::variant<PtTensorInfo, std::vector<PtTensorInfo>>>
+      duplicate_tivs;
 
   // Temp additions to enable BatchNorm..tensors created that are not in graph
   // We get this to enable correct patching
@@ -112,12 +113,13 @@ class HabanaLaunchOpPT {
 
   // caching :: begin
 
-  size_t num_inputs {0};
+  size_t num_inputs{0};
   // The inputs holding data usually are of type tensor and tensorList.
-  // The following member keeps track of total number of tensor and tensorList inputs
-  size_t num_tensor_inputs {0};
+  // The following member keeps track of total number of tensor and tensorList
+  // inputs
+  size_t num_tensor_inputs{0};
 
-  bool use_persistent_tensors {false};
+  bool use_persistent_tensors{false};
   at::ArrayRef<torch::jit::IValue> input_refs;
   torch::jit::Stack* pt_stack = nullptr;
 
@@ -125,21 +127,21 @@ class HabanaLaunchOpPT {
   RecipeCacheSingle recipe_cache_single;
 
   // Making the cache eviction policy as lru as default
-  PGMCachingPolicy caching_policy { PGMCachingPolicy::lru };
+  PGMCachingPolicy caching_policy{PGMCachingPolicy::lru};
 
   // caching :: end
 
-  bool enable_caching_ {true};
-  int tensor_dump_numel_ {false};
-  bool enable_tensor_dump_ {false};
-  bool watch_tensor_flag_ {false};
+  bool enable_caching_{true};
+  int tensor_dump_numel_{false};
+  bool enable_tensor_dump_{false};
+  bool watch_tensor_flag_{false};
 
   std::string tdmp_dir_name_;
   std::string tdmp_file_name_pre_;
   std::string tdmp_file_name_;
 
-  uint64_t htensor_wbuff {0};
-  unsigned htensor_wbuff_size {0};
+  uint64_t htensor_wbuff{0};
+  unsigned htensor_wbuff_size{0};
 
   size_t iteration_count_ = 0;
 
@@ -179,8 +181,9 @@ class HabanaLaunchOpPT {
   template <class T>
   void clearMember(T& m_container);
 
-  std::shared_ptr<RecipeValueSpec> GetCachedRecipe(std::shared_ptr<RecipeArgumentSpec>& spec_key);
-  void ReturnCachedRecipe(RecipeValueSpec &rv);
+  std::shared_ptr<RecipeValueSpec> GetCachedRecipe(
+      std::shared_ptr<RecipeArgumentSpec>& spec_key);
+  void ReturnCachedRecipe(RecipeValueSpec& rv);
 
   void OrderInputs(RecipeValueSpec& rv);
   void FlattenAndLinkInputTIVs(RecipeValueSpec& rv);
