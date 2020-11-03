@@ -22,13 +22,13 @@
 #include "habana_lazy/ops/cat.h"
 #include "habana_lazy/ops/convolution.h"
 #include "habana_lazy/ops/index.h"
+#include "habana_lazy/ops/loss.h"
 #include "habana_lazy/ops/mse_loss.h"
 #include "habana_lazy/ops/norm.h"
 #include "habana_lazy/ops/pool.h"
 #include "habana_lazy/ops/reduce_ops.h"
 #include "habana_lazy/ops/shape_ops.h"
 #include "habana_lazy/ops/softmax.h"
-#include "habana_lazy/ops/loss.h"
 #include "habana_lazy/ops/tensor_shape.h"
 #include "pytorch_helpers/habana_device/HPUAllocator.h"
 #include "pytorch_helpers/synapse_helpers/util.h"
@@ -984,7 +984,13 @@ Tensor nll_loss_backward_hpu_lazy(
     UNUSED const Tensor& total_weight) {
   habana_lazy::ir::NodePtr nll_loss_bwd_node =
       std::make_shared<habana_lazy::ir::NllLoss_backward>(
-          grad_output, self, target, weight, reduction, ignore_index, total_weight);
+          grad_output,
+          self,
+          target,
+          weight,
+          reduction,
+          ignore_index,
+          total_weight);
 
   // allocate
   auto result = at::native::empty_hpu_lazy(
@@ -1429,88 +1435,74 @@ Tensor any_hpu_lazy(const Tensor& self) {
 };
 namespace habana {
 Tensor log_softmax_hpu_lazy(
-  const Tensor& self,
-  const int64_t dim,
-  const bool half_to_float) {
-    auto node = std::make_shared<habana_lazy::ir::LogSoftMax>(
-      self,
-      dim,
-      half_to_float,
-      "aten::log_softmax");
-    // infer shape
-    auto result = log_softmax_hpu(self, dim, half_to_float);
+    const Tensor& self,
+    const int64_t dim,
+    const bool half_to_float) {
+  auto node = std::make_shared<habana_lazy::ir::LogSoftMax>(
+      self, dim, half_to_float, "aten::log_softmax");
+  // infer shape
+  auto result = log_softmax_hpu(self, dim, half_to_float);
 
-    auto hl_result = habana_lazy::GetHbLazyTensor(result);
+  auto hl_result = habana_lazy::GetHbLazyTensor(result);
 
-    habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
-    out.m_index = 0;
-    out.SetNode(node);
-    return result;
+  habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+  return result;
 };
 Tensor log_softmax_backward_hpu_lazy(
-  const Tensor& grad,
-  const Tensor& output,
-  int64_t dim,
-  const Tensor& input) {
-    auto node = std::make_shared<habana_lazy::ir::LogSoftMaxBackward>(
-      grad,
-      output,
-      dim,
-      input,
-      "aten::_log_softmax_backward_data");
-    // infer output shape
-    auto result = log_softmax_backward_hpu(grad, output, dim, input);
+    const Tensor& grad,
+    const Tensor& output,
+    int64_t dim,
+    const Tensor& input) {
+  auto node = std::make_shared<habana_lazy::ir::LogSoftMaxBackward>(
+      grad, output, dim, input, "aten::_log_softmax_backward_data");
+  // infer output shape
+  auto result = log_softmax_backward_hpu(grad, output, dim, input);
 
-    auto hl_result = habana_lazy::GetHbLazyTensor(result);
+  auto hl_result = habana_lazy::GetHbLazyTensor(result);
 
-    habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
-    out.m_index = 0;
-    out.SetNode(node);
+  habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
 
-    return result;
+  return result;
 };
 
 Tensor softmax_hpu_lazy(
-  const Tensor& self,
-  const int64_t dim,
-  const bool half_to_float) {
-    auto node = std::make_shared<habana_lazy::ir::LogSoftMax>(
-      self,
-      dim,
-      half_to_float,
-      "aten::_softmax");
-    // infer shape
-    auto result = softmax_hpu(self, dim, half_to_float);
+    const Tensor& self,
+    const int64_t dim,
+    const bool half_to_float) {
+  auto node = std::make_shared<habana_lazy::ir::LogSoftMax>(
+      self, dim, half_to_float, "aten::_softmax");
+  // infer shape
+  auto result = softmax_hpu(self, dim, half_to_float);
 
-    auto hl_result = habana_lazy::GetHbLazyTensor(result);
+  auto hl_result = habana_lazy::GetHbLazyTensor(result);
 
-    habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
-    out.m_index = 0;
-    out.SetNode(node);
-    return result;
+  habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+  return result;
 };
 
 Tensor softmax_backward_hpu_lazy(
-  const Tensor& grad,
-  const Tensor& output,
-  int64_t dim,
-  const Tensor& input) {
-    auto node = std::make_shared<habana_lazy::ir::LogSoftMaxBackward>(
-      grad,
-      output,
-      dim,
-      input,
-      "aten::_softmax_backward_data");
-    // infer output shape
-    auto result = softmax_backward_hpu(grad, output, dim, input);
+    const Tensor& grad,
+    const Tensor& output,
+    int64_t dim,
+    const Tensor& input) {
+  auto node = std::make_shared<habana_lazy::ir::LogSoftMaxBackward>(
+      grad, output, dim, input, "aten::_softmax_backward_data");
+  // infer output shape
+  auto result = softmax_backward_hpu(grad, output, dim, input);
 
-    auto hl_result = habana_lazy::GetHbLazyTensor(result);
+  auto hl_result = habana_lazy::GetHbLazyTensor(result);
 
-    habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
-    out.m_index = 0;
-    out.SetNode(node);
+  habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
 
-    return result;
+  return result;
 };
 } // namespace habana
 namespace at {
@@ -1609,7 +1601,30 @@ Tensor empty_strided_hpu_lazy(
 Tensor clone_hpu_lazy(
     const Tensor& self,
     c10::optional<MemoryFormat> memory_format) {
-  return clone_hpu(self, memory_format);
+  PT_LAZY_BEGIN;
+  TORCH_CHECK(self.defined(), "src is undefined");
+  TORCH_CHECK(
+      self.device().type() == c10::DeviceType::HABANA,
+      "Lazy kernel only supports clone on Habana Device");
+  TORCH_CHECK(
+      habana_lazy::IsHbLazyTensor(self),
+      "src is not a Habana Lazy Tensor, currently NOT supported in cloning");
+
+  // We need to add device to device copy kernel here
+  // As d2D copies may not mean trigger execution, we just need to add the
+  // nodes like memcopy to our lazy graph that we are creating
+  habana_lazy::HbLazyTensor hb_tensor =
+      habana_lazy::GetOrCreateHbLazyTensor(self, self.device());
+  auto node = habana_lazy::ir::Node::Create(
+      Symbol::fromQualString("habana::hababna_d2d_memcpy"),
+      {hb_tensor.GetIrValue()});
+  auto result = at::native::empty_hpu_lazy(
+      self.sizes(), self.options(), self.suggest_memory_format());
+  auto hlresult = habana_lazy::GetHbLazyTensor(result);
+  habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+  return result;
 };
 Tensor& zero_hpu_lazy(Tensor& self) {
   return zero_hpu(self);

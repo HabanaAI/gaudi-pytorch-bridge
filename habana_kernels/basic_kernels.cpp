@@ -98,14 +98,12 @@ Tensor& copy_hpu_(Tensor& self, const Tensor& src, bool non_blocking) {
             habana_helpers::cast_tensor_to_integer(src),
             at::scalarTypeToTypeMeta(c10::ScalarType::Float));
       } else {
-         if(dst.scalar_type() == c10::ScalarType::Long && src.scalar_type() ==  c10::ScalarType::Int)
-          {
-              HABANA_ASSERT(dst.nbytes() >= src.nbytes());
-          }
-         else
-         {
-              HABANA_ASSERT(dst.nbytes() == src.nbytes());
-         }
+        if (dst.scalar_type() == c10::ScalarType::Long &&
+            src.scalar_type() == c10::ScalarType::Int) {
+          HABANA_ASSERT(dst.nbytes() >= src.nbytes());
+        } else {
+          HABANA_ASSERT(dst.nbytes() == src.nbytes());
+        }
         if (copy_transpose_valid(dst, src)) {
           do_copy_transpose(dst, src);
         } else {
@@ -256,11 +254,14 @@ void MemCopyOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
     bool is_output_persistent) {
-  TORCH_CHECK(
-      inputs.size() == 2,
-      "Incorrect size of input arguments for Reshape Operator");
   auto self = inputs[0].toTensor();
-  auto output = inputs[1].toTensor();
+  at::Tensor output;
+  if (inputs.size() == 2) {
+    output = inputs[1].toTensor();
+  } else {
+    output =
+        at::empty(self.sizes(), self.options(), self.suggest_memory_format());
+  }
   p_context_->params_size_ = 0;
   AllocateSynapseOutput(graph, output, is_output_persistent);
   AddNodeToSynapseGraph(graph, NULL, 0);
@@ -283,11 +284,10 @@ Tensor view_hpu(const Tensor& self, IntArrayRef size) {
 static auto& KernelRegistry =
     ::habana::KernelRegistry()
         .add(
-            "hababna_d2d_memcpy",
+            "habana::hababna_d2d_memcpy",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<MemCopyOperator>(device_id, node_type);
             })
         .add("aten::to", [](const int device_id, c10::ScalarType node_type) {
           return std::make_shared<ToDtypeOperator>(device_id, node_type);
         });
-

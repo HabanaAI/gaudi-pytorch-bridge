@@ -26,7 +26,7 @@ TEST_F(LazyBasicKernelTest, DoubleCopyTest) {
   torch::Tensor A = torch::randn({50, 50}, opts);
   torch::Tensor hA = A.to(torch::kHABANA);
   torch::Tensor hA_cpu = hA.to(torch::kCPU);
-  //This should be double
+  // This should be double
   bool equal = hA_cpu.allclose(A, 0.1, 0.1);
   EXPECT_EQ(equal, true);
   unsetenv("PT_HPU_LAZY_MODE");
@@ -43,3 +43,21 @@ TEST_F(LazyBasicKernelTest, BasicCopyTest) {
   unsetenv("PT_HPU_LAZY_MODE");
 }
 
+TEST_F(LazyBasicKernelTest, CloneTest) {
+  setenv("PT_HPU_LAZY_MODE", "1", 1);
+  at::TensorOptions opts = at::TensorOptions().requires_grad(false);
+  torch::Tensor A = torch::randn({50, 50}, opts);
+  torch::Tensor B = torch::randn({50, 50}, opts);
+  torch::Tensor hA = A.to(torch::kHABANA);
+  torch::Tensor hB = B.to(torch::kHABANA);
+  torch::Tensor hC = hA + hB;
+  torch::Tensor hD = torch::clone(hC);
+  auto hl_result = std::make_shared<HbLazyTensor>(GetHbLazyTensor(hD));
+  std::vector<HbLazyTensor> tensors = {*hl_result};
+  HbLazyTensor::SyncTensorsGraph(&tensors, {});
+  torch::Tensor hC_cpu = hC.to(torch::kCPU);
+  torch::Tensor hd_cpu = hD.to(torch::kCPU);
+  bool equal = hC_cpu.allclose(hd_cpu, 0, 0);
+  EXPECT_EQ(equal, true);
+  unsetenv("PT_HPU_LAZY_MODE");
+}
