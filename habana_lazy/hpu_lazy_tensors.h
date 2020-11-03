@@ -17,11 +17,19 @@
 #include "ir.h"
 #include "ir_utils.h"
 
+enum LazyTensorExecutionStatus {
+  kUN_REGISTERED = 0,
+  kREGISTERED,
+  kEXECUTING,
+  kEXECUTION_COMPLETE
+};
+
 // TODO : Dummy IR used as placeholder, replace with actual IR and move to IR
 // file
 // namespace habana_lazy
 namespace habana_lazy {
 enum LayoutFormat { kNHWC = 0, kNCHW = 1, kHWCK = 2, kANY = 3, kINVALID = 4 };
+
 struct Data {
   Data(at::Tensor tensor_data, const c10::Device& device)
       : data_ptr(nullptr),
@@ -58,7 +66,8 @@ struct Data {
   at::ScalarType original_element_type;
   const int64_t unique_id = 0;
   std::vector<int64_t> sizes;
-};
+  LazyTensorExecutionStatus execution_status;
+}; // namespace habana_lazy
 
 struct PostOrderData {
   ir::NodePtrList post_order;
@@ -154,6 +163,13 @@ class HbLazyTensor {
       absl::Span<const std::string> devices);
 
   void ShallowCopyTo(HbLazyTensor* dest) const;
+
+  int64_t getTensorUniqueId() {
+    if (mp_data.get()) {
+      return mp_data.get()->unique_id;
+    } else
+      return -1;
+  }
 
  private:
   Data* data() const;

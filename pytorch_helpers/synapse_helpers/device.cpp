@@ -25,35 +25,17 @@
 #include "synapse_helpers/util.h"
 
 namespace synapse_helpers {
-
 /**
- * These will be removed when all lazy kernels start using shape functions.
- */
-static syn_helper_thread_state_map threadInLoweringContextSynHelper(
-    {{pthread_self(), false}});
-
-void SetSynHelperLoweringContext(bool ctx) {
-  threadInLoweringContextSynHelper[pthread_self()] = ctx;
-}
-
-bool IsThreadInLoweringContext() {
-  auto ptid = pthread_self();
-  if (threadInLoweringContextSynHelper.find(ptid) ==
-      threadInLoweringContextSynHelper.end()) {
-    threadInLoweringContextSynHelper[ptid] = false;
-  }
-  return threadInLoweringContextSynHelper[ptid];
-}
-/**
- * END: These will be removed when all lazy kernels start using shape functions.
+ * END: These will be removed when all lazy kernels start using shape
+ * functions.
  */
 
 // Since computation on stream is asynchronous, in order to share workspace
 // buffer, it has to be fixed in size otherwise, there need to be implemented
 // mechanism to adjust its size at runtime, but that would require an explcit
 // barrier on the computation stream and reallocation of this buffer. For now
-// it's fixed to 10GB, since for BERT SQUAD, batch12 on fp32, the largest recipe
-// requires WS of size ~9.7GB
+// it's fixed to 10GB, since for BERT SQUAD, batch12 on fp32, the largest
+// recipe requires WS of size ~9.7GB
 // TODO: as a WA for memory issue, modified it to 5GB for the resnet run of
 // BS=64,
 //       may require changes or revert in future
@@ -114,8 +96,8 @@ device::device(
         "Cannot obtain device memory size for allocation of global ws buffer");
   }
   // in case of simulator, there might not be 4GB of memory available, so as a
-  // fallback solution workspace_buffer_ will be allocated to 70% of free memory
-  // on the given device
+  // fallback solution workspace_buffer_ will be allocated to 70% of free
+  // memory on the given device
   size_t global_workspace_size = get_workspace_size();
   workspace_size_ = free_memory > global_workspace_size ? global_workspace_size
                                                         : 0.7 * free_memory;
@@ -492,8 +474,8 @@ synapse_error device::copy_data_within_device(
   if (nullptr == next_operation_stream) {
     sem_.add_producer(std::move(dsts), stream_d2d_, std::move(unref_cb));
   } else {
-    // If next operation stream is known then user wants us to put event on this
-    // stream immediately and not pass it into the SEM.
+    // If next operation stream is known then user wants us to put event on
+    // this stream immediately and not pass it into the SEM.
     record_and_wait_for_event(
         stream_d2d_, *next_operation_stream, std::move(unref_cb));
   }

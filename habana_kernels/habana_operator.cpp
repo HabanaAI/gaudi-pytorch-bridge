@@ -7,9 +7,11 @@
  *
  ******************************************************************************
  */
-#include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_operator.h"
 #include "habana_kernels/kernel_utils.h"
+#include "habana_kernels/lazy_kernels_declarations.h"
+#include "habana_lazy/hblazy/csrc/lazy_executor.h"
+#include "synapse_helpers/device.h"
 
 const std::array<int64_t, 4>& habana::HabanaOperator::getPermuteOrder(
     const LayoutFormat target_layout,
@@ -42,9 +44,15 @@ const std::array<int64_t, 4>& habana::HabanaOperator::getPermuteOrder(
 }
 
 void habana::HabanaOperator::Compile(synapse_helpers::graph& graph) {
-  if (!IsThreadInLoweringContext() && std::getenv("PT_HPU_LAZY_MODE")) {
-    // Lazy mode shape inference call, early return without execution
-    return;
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    synapse_helpers::device& device = graph.get_device();
+    auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
+        (int)(device.id()));
+    if (context != nullptr) {
+      // Lazy mode shape inference call, early return without execution
+      if (!(context->isExecutionInLoweringMode()))
+        return;
+    }
   }
 
   //

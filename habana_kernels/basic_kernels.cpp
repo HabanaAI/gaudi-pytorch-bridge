@@ -284,7 +284,7 @@ Tensor view_hpu(const Tensor& self, IntArrayRef size) {
 static auto& KernelRegistry =
     ::habana::KernelRegistry()
         .add(
-            "habana::hababna_d2d_memcpy",
+            "habana::habana_d2d_memcpy",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<MemCopyOperator>(device_id, node_type);
             })

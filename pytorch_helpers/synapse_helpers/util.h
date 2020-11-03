@@ -25,10 +25,6 @@
 
 namespace synapse_helpers {
 
-/* These will be removed when all lazy kernels use shape function. */
-using syn_helper_thread_state_map = std::unordered_map<pthread_t, bool>;
-void SetSynHelperLoweringContext(bool ctx);
-bool IsThreadInLoweringContext();
 /* END: These will be removed when all lazy kernels use shape function. */
 
 class ostream_flag_guard {

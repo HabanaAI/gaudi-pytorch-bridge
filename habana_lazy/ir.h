@@ -218,8 +218,7 @@ struct Value {
   }
 
   bool operator==(const Value& v) const {
-    return mp_node.get() == v.mp_node.get()
-          &&  m_index == v.m_index;
+    return mp_node.get() == v.mp_node.get() && m_index == v.m_index;
   }
 
   bool operator!=(const Value& v) const {
@@ -232,7 +231,7 @@ struct Value {
 
   std::string ToString() const;
 
-  virtual ~Value() {}
+  virtual ~Value();
 
   /* Unique id for Value */
   uint64_t unique_id;
@@ -258,7 +257,8 @@ inline std::ostream& operator<<(std::ostream& stream, const Value& value) {
 struct ValueHash {
  public:
   size_t operator()(const Value& v) const {
-    return StdHashCombine(reinterpret_cast<uintptr_t>(v.mp_node.get()), v.m_index);
+    return StdHashCombine(
+        reinterpret_cast<uintptr_t>(v.mp_node.get()), v.m_index);
   }
 };
 

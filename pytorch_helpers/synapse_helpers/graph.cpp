@@ -106,7 +106,8 @@ std::mutex graph::instance_lock_{};
 synapse_error_v<graph> graph::create(device& device, std::string name) {
   graph syn_graph(device, std::move(name));
 
-  if (!synapse_helpers::IsThreadInLoweringContext() && std::getenv("PT_HPU_LAZY_MODE")) {
+  if (!(std::getenv("PT_HPU_LAZY_LOWERING")) &&
+      std::getenv("PT_HPU_LAZY_MODE")) {
     // Lazy mode shape inference call, early return without execution
     return {std::move(syn_graph)};
   }
@@ -162,7 +163,8 @@ synapse_error_o graph::add_node(
     void* const params,
     const unsigned params_size,
     std::string&& node_type) {
-  if (!synapse_helpers::IsThreadInLoweringContext() && std::getenv("PT_HPU_LAZY_MODE")) {
+  if (!(std::getenv("PT_HPU_LAZY_LOWERING")) &&
+      std::getenv("PT_HPU_LAZY_MODE")) {
     // Lazy mode shape inference call, early return without execution
     return {};
   }

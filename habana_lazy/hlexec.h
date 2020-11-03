@@ -12,6 +12,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include "hblazy/csrc/lazy_executor.h"
 #include "hpu_lazy_tensors.h"
 #include "ir.h"
 #include "torch/csrc/jit/ir/ir.h"
@@ -30,14 +31,15 @@ using ScopePtr = torch::jit::ScopePtr;
 using HabanaLazyTensorPtr = habana_lazy::HbLazyTensor*;
 using HabanaLazyTensorPtrList = std::vector<HabanaLazyTensorPtr>;
 
-using LazyValueToJitValueMap = std::unordered_map<HabanaLazyValue,
-                                                  JitValue*,
-                                                  habana_lazy::ir::ValueHash,
-                                                  habana_lazy::ir::ValueEqual>;
+using LazyValueToJitValueMap = std::unordered_map<
+    HabanaLazyValue,
+    JitValue*,
+    habana_lazy::ir::ValueHash,
+    habana_lazy::ir::ValueEqual>;
 /**
- * This is the lazy execution JIT Graph creator class. An object of this class will
- * manage creation of pytorch JIT graph. It will also manage mapping
- * or binding of Habana Lazy tensor (hltensor) with torch::jit::Value
+ * This is the lazy execution JIT Graph creator class. An object of this class
+ * will manage creation of pytorch JIT graph. It will also manage mapping or
+ * binding of Habana Lazy tensor (hltensor) with torch::jit::Value
  */
 class HlExec {
  public:
@@ -63,10 +65,10 @@ class HlExec {
    *     map : Lazy input value pointer -> JIT IR input value pointers
    *     map : Lazy output value pointer -> JIT IR output value pointers
    */
-  std::tuple<LazyValueToJitValueMap, LazyValueToJitValueMap>
-    Create(const ir::NodePtrList nodes,
-           const ir::ValueList inputs,
-           const ir::ValueList outputs);
+  std::tuple<LazyValueToJitValueMap, LazyValueToJitValueMap> Create(
+      const ir::NodePtrList nodes,
+      const ir::ValueList inputs,
+      const ir::ValueList outputs);
 
   /**
    * This method calls torch::jit optimzer passes.
@@ -74,16 +76,16 @@ class HlExec {
    * TBD: Add optimzer levels and take in a mask from caller
    * to control optimization passes applied on the graph.
    */
-  void Optimize(); //opt_level_mask=0x0);
+  void Optimize(); // opt_level_mask=0x0);
 
   /**
-  * This method calls the Habana Graph Lowering kernel
-  */
+   * This method calls the Habana Graph Lowering kernel
+   */
   void Launch(torch::jit::Stack& stack);
 
   void DumpGraph() {
     std::stringstream strbuff;
-    std::streambuf * oldbuff = std::cout.rdbuf(strbuff.rdbuf());
+    std::streambuf* oldbuff = std::cout.rdbuf(strbuff.rdbuf());
     std::cout << "JIT IR graph\n";
     mp_g_->dump();
     std::string str = strbuff.str();
@@ -101,4 +103,4 @@ class HlExec {
 };
 
 }; // namespace exec
-}; // namespace habana
+}; // namespace habana_lazy

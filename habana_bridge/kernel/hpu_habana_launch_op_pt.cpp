@@ -452,7 +452,6 @@ void HabanaLaunchOpPT::GetSynapseOutputs(
       IValPtrShared ivpsh =
           std::make_shared<IVal>(output_tensors_pt[output_tensor_idx]);
       value_to_ivalue[output_nodes[output_nodes_idx]] = ivpsh;
-
       // For kernels like inplace, output is always created persistent even if
       // we dont mark it
       // such scenarios such be treated persistent and output should be patched
@@ -470,7 +469,7 @@ void HabanaLaunchOpPT::GetSynapseOutputs(
           value_to_ivalue[output_nodes[output_nodes_idx]], tensorList);
 
       if (is_output_persistent ? true
-                                 : isInGraphOutputs(node, output_nodes_idx)) {
+                               : isInGraphOutputs(node, output_nodes_idx)) {
         output_tensorinfos.emplace_back(PtTensorInfo(
             ivpsh,
             out_tensor_syn.tensor_name_,

@@ -18,6 +18,7 @@
 #include "habana_kernels/norm_kernels.h"
 #include "habana_kernels/pool_kernels.h"
 #include "habana_lazy/aten_lazy_bridge.h"
+#include "habana_lazy/hblazy/csrc/lazy_executor.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/ops/cat.h"
 #include "habana_lazy/ops/convolution.h"
@@ -32,56 +33,6 @@
 #include "habana_lazy/ops/tensor_shape.h"
 #include "pytorch_helpers/habana_device/HPUAllocator.h"
 #include "pytorch_helpers/synapse_helpers/util.h"
-
-/**
- * By default the tensors are created with storage.
- * When a lazy kernel is called for op accumulation, this
- * is set to false
- */
-static thread_state_map threadTensorCreateWithStorage({{pthread_self(), true}});
-
-/**
- * When a tensor is created with storage, it could come from
- * the framework (.to operation), or from lowering kernel.
- * By default this is false.
- * When it is called from lowring kernel, only the internal tensor
- * is created with storage.
- * When it is called from other places like .to, the internal tensor
- * is created as well as a lazy tensor. PyTorch gets back a storageless
- * tensor on top of the lazy tensor and the lazy tensor holds a reference
- * to the internal tensor.
- */
-static thread_state_map threadInLoweringContext({{pthread_self(), false}});
-
-void AllocateWithStorage() {
-  threadTensorCreateWithStorage[pthread_self()] = true;
-}
-
-void AllocateWithoutStorage() {
-  threadTensorCreateWithStorage[pthread_self()] = false;
-}
-
-void SetLoweringContext(bool ctx) {
-  threadInLoweringContext[pthread_self()] = ctx;
-  synapse_helpers::SetSynHelperLoweringContext(ctx);
-}
-
-bool CreateThreadTensorWithStorage() {
-  auto ptid = pthread_self();
-  if (threadTensorCreateWithStorage.find(ptid) ==
-      threadTensorCreateWithStorage.end()) {
-    threadTensorCreateWithStorage[ptid] = true;
-  }
-  return threadTensorCreateWithStorage[ptid];
-}
-
-bool IsThreadInLoweringContext() {
-  auto ptid = pthread_self();
-  if (threadInLoweringContext.find(ptid) == threadInLoweringContext.end()) {
-    threadInLoweringContext[ptid] = false;
-  }
-  return threadInLoweringContext[ptid];
-}
 
 #include "habana_lazy/ops/optimizer_sparse_sgd_with_valid_count.h"
 at::Tensor preProcessIfLongorDouble(
@@ -121,8 +72,16 @@ Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
   // TODO : we can give a more detailed cast info in node name later
   // Will need to move the name generation in a utility(will need to
   // modify kernel too, not touching right now)
-  auto node = habana_lazy::ir::Node::Create(
-      Symbol::fromQualString("aten::cast"), {hb_tensor.GetIrValue()});
+  habana_lazy::ir::NodePtr node;
+  if (src.dtype() == self.dtype()) {
+    node = habana_lazy::ir::Node::Create(
+        Symbol::fromQualString("habana::habana_d2d_memcpy"),
+        {hb_tensor.GetIrValue()});
+  } else {
+    node = habana_lazy::ir::Node::Create(
+        Symbol::fromQualString("aten::cast"), {hb_tensor.GetIrValue()});
+  }
+
   self = habana_helpers::hpu_cast_tensor(src, self.dtype());
   auto hlresult = habana_lazy::GetHbLazyTensor(self);
   habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
@@ -172,6 +131,24 @@ Tensor& copy_hpu_lazy_D2H(Tensor& self, const Tensor& src, bool non_blocking) {
 
 Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src, bool non_blocking) {
   bool processed = false;
+  // This tensor would have been created without storage(as all H2D .to calls
+  // come via lazy), so create actual memory and set as input and mark executed
+  auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
+      self.device().index());
+  auto exec_mode = context->getExecutionMode();
+  if (exec_mode != kLOWERING) {
+    bool allocate_storage = true;
+    self = at::native::empty_hpu_lazy(
+        self.sizes(),
+        self.options(),
+        self.suggest_memory_format(),
+        allocate_storage);
+    auto self_hb_tensor = habana_lazy::GetHbLazyTensor(self);
+    // We need to mark this tensor as executed
+    // As this will be an input coming from host side, its doesnt need further
+    // execution and is ready for consumption as input
+    context->MarkTensorExecuted(self_hb_tensor.getTensorUniqueId());
+  }
   auto new_tensor = preProcessIfLongorDouble(src, self, processed);
 
   // Get the internal tensor for copy kernel
@@ -204,7 +181,18 @@ Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src, bool non_blocking) {
 // calling eager mode kernels as a temporary placeholder to avoid warnings
 Tensor& copy_hpu_lazy_(Tensor& self, const Tensor& src, bool non_blocking) {
   PT_LAZY_BEGIN;
-  if (habana_lazy::IsHbLazyTensor(src)) {
+  TORCH_CHECK(self.defined(), "dst is undefined");
+  TORCH_CHECK(src.defined(), "src is undefined");
+
+  const auto src_device = src.device().type();
+  const auto dst_device = self.device().type();
+
+  bool is_d2d_copy = false;
+  if (src_device == c10::DeviceType::HABANA &&
+      dst_device == c10::DeviceType::HABANA) {
+    is_d2d_copy = true;
+  }
+  if (habana_lazy::IsHbLazyTensor(src) && !is_d2d_copy) {
     auto src_hb_tensor = habana_lazy::GetHbLazyTensor(src);
     auto src_hb_tensor_data = src_hb_tensor.GetHbLazyTensorData();
     if (!src_hb_tensor_data) {
@@ -222,17 +210,7 @@ Tensor& copy_hpu_lazy_(Tensor& self, const Tensor& src, bool non_blocking) {
         false,
         "Habana copy_hpu_lazy_: trying to copy from a storage less tensor");
   }
-  TORCH_CHECK(self.defined(), "dst is undefined");
-  TORCH_CHECK(src.defined(), "src is undefined");
 
-  const auto src_device = src.device().type();
-  const auto dst_device = self.device().type();
-
-  bool is_d2d_copy = false;
-  if (src_device == c10::DeviceType::HABANA &&
-      dst_device == c10::DeviceType::HABANA) {
-    is_d2d_copy = true;
-  }
   // If it isnt a device to device copy, we are transferring data to and
   // from CPU. This becomes an execution step point and we need to flush
   // graph execution NOW to generate tensor data where required as we are in
@@ -378,34 +356,26 @@ Tensor rsub_scalar_hpu_lazy(const Tensor& self, Scalar other, Scalar alpha) {
 };
 
 Tensor& mul_tensor_hpu_lazy_(Tensor& self, const Tensor& other) {
+  auto other_hpu = other;
   if (other.device().type() == c10::DeviceType::CPU) {
-    if (other.scalar_type() == c10::ScalarType::Double) {
-      // Convert 0-dim CPU tensor to a scalar and then add to JIT graph
-      auto val = other.item();
-      auto hl_other = habana_lazy::GetIrValueForScalar(val);
-      auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
-
-      auto node = habana_lazy::ir::Node::Create(
-          Symbol::fromQualString("aten::mul_"),
-          {hl_self.GetIrValue(), hl_other});
-
-      habana_lazy::ir::Value& out = hl_self.CurrentIrValue();
-      out.m_index = 0;
-      out.SetNode(node);
-    }
-  } else {
-    auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
-    auto hl_other = habana_lazy::GetOrCreateHbLazyTensor(other, c10::kHABANA);
-
-    auto node = habana_lazy::ir::Node::Create(
-        Symbol::fromQualString("aten::mul_"),
-        {hl_self.GetIrValue(), hl_other.GetIrValue()});
-
-    habana_lazy::ir::Value& out = hl_self.CurrentIrValue();
-    out.m_index = 0;
-    out.SetNode(node);
+    other.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
+        self.device().index());
+    context->m_retained_tensor_list.push_back(
+        other.to(c10::DeviceType::HABANA));
+    other_hpu = context->m_retained_tensor_list.back();
   }
 
+  auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
+  auto hl_other = habana_lazy::GetOrCreateHbLazyTensor(other_hpu, c10::kHABANA);
+
+  auto node = habana_lazy::ir::Node::Create(
+      Symbol::fromQualString("aten::mul_"),
+      {hl_self.GetIrValue(), hl_other.GetIrValue()});
+
+  habana_lazy::ir::Value& out = hl_self.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
   return self;
 };
 
@@ -1229,11 +1199,10 @@ std::tuple<Tensor, Tensor> max_pool2d_with_indices_hpu_lazy(
       input, kernel_size, stride, padding, dilation, ceil_mode, is_nhwc);
 
   // retunr always nhwc. convert to nchw
-  std::vector<long int> shape_out = {
-      opsize_nhwc.at(0),
-      opsize_nhwc.at(3),
-      opsize_nhwc.at(1),
-      opsize_nhwc.at(2)};
+  std::vector<long int> shape_out = {opsize_nhwc.at(0),
+                                     opsize_nhwc.at(3),
+                                     opsize_nhwc.at(1),
+                                     opsize_nhwc.at(2)};
 
   // allocate Output_0 storage
   auto result_0 = at::native::empty_hpu_lazy(
@@ -1309,11 +1278,10 @@ Tensor max_pool2d_with_indices_backward_hpu_lazy(
       input, kernel_size, stride, padding, dilation, ceil_mode, is_nhwc);
 
   // retunr always nhwc. convert to nchw
-  std::vector<long int> out_shape = {
-      opsize_nhwc.at(0),
-      opsize_nhwc.at(3),
-      opsize_nhwc.at(1),
-      opsize_nhwc.at(2)};
+  std::vector<long int> out_shape = {opsize_nhwc.at(0),
+                                     opsize_nhwc.at(3),
+                                     opsize_nhwc.at(1),
+                                     opsize_nhwc.at(2)};
 
   TORCH_CHECK(grad_output.sizes().vec() == out_shape);
   TORCH_CHECK(
@@ -1586,10 +1554,17 @@ Tensor empty_hpu_lazy(
     at_internal_tensor.unsafeGetTensorImpl()->set_sizes_contiguous(size);
 
     Tensor at_tensor;
+    bool is_in_lowering_mode = false;
+    auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
+        options.device().index());
+    if (context != nullptr) {
+      auto exec_mode = context->getExecutionMode();
+      is_in_lowering_mode = exec_mode == kLOWERING ? true : is_in_lowering_mode;
+    }
 
     // This call could have come from a .to call and not from a lowering
     // context. In such case, create the lazt tensor.
-    if (!IsThreadInLoweringContext()) {
+    if (!is_in_lowering_mode) {
       habana_lazy::HbLazyTensor hb_tensor =
           habana_lazy::HbLazyTensor::CreateHbLazyTensor(
               size, 0, options.device(), c10::typeMetaToScalarType(dtype));
@@ -1614,7 +1589,7 @@ Tensor empty_hpu_lazy(
     }
 
     // If we are not from lowering context, return the storageless one.
-    if (!IsThreadInLoweringContext()) {
+    if (!is_in_lowering_mode) {
       return at_tensor;
     } else {
       // else return the internal tensor with storage
@@ -1636,8 +1611,13 @@ Tensor empty_strided_hpu_lazy(
     IntArrayRef size,
     IntArrayRef stride,
     const TensorOptions& options) {
-  at::Tensor empty_tensor = empty_hpu_lazy(
-      size, options, c10::nullopt, CreateThreadTensorWithStorage());
+  // TODO : Let the strided call create storage here as it comes via .to which
+  // is an input creation call This logic isnt solid and we need to have better
+  // check for storage
+  bool allocate_storage =
+      habana_lazy::allocateTensorWithStorage(options.device_index());
+  at::Tensor empty_tensor =
+      empty_hpu_lazy(size, options, c10::nullopt, allocate_storage);
   empty_tensor.unsafeGetTensorImpl()->set_sizes_and_strides(size, stride);
   return empty_tensor;
 };
@@ -1661,10 +1641,14 @@ Tensor clone_hpu_lazy(
   habana_lazy::HbLazyTensor hb_tensor =
       habana_lazy::GetOrCreateHbLazyTensor(self, self.device());
   auto node = habana_lazy::ir::Node::Create(
-      Symbol::fromQualString("habana::hababna_d2d_memcpy"),
+      Symbol::fromQualString("habana::habana_d2d_memcpy"),
       {hb_tensor.GetIrValue()});
+  // Memcopy kernel doesnt allocte memory of output and assumes pre-allocation
   auto result = at::native::empty_hpu_lazy(
-      self.sizes(), self.options(), self.suggest_memory_format());
+      self.sizes(),
+      self.options(),
+      self.suggest_memory_format(),
+      /*storage=*/true);
   auto hlresult = habana_lazy::GetHbLazyTensor(result);
   habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
   out.m_index = 0;

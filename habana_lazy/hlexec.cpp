@@ -8,13 +8,13 @@
  ******************************************************************************
  */
 
+#include "hlexec.h"
 #include "habana_bridge/kernel/hpu_habana_launch_op_pt.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "ops/constant.h"
-#include "hlexec.h"
-#include "habana_bridge/kernel/hpu_habana_launch_op_pt.h"
-#include "ops/constant.h"
 #include "ops/convolution.h"
+#include "pytorch_helpers/habana_device/hpu_cached_devices.h"
+#include "synapse_helpers/device.h"
 
 namespace habana_lazy {
 namespace exec {
@@ -45,17 +45,38 @@ void HlExec::Bind(const HabanaLazyTensorPtrList& inputs) {
   }
 #endif
 }
-
-void HlExec::Launch(torch::jit::Stack& stack) {
-  auto prev_storage_setting = CreateThreadTensorWithStorage();
-  AllocateWithStorage();
-  SetLoweringContext(true);
-  HabanaLaunchOpPT launch{mp_g_, false};
-  launch.run(stack);
-  SetLoweringContext(false);
-  if (!prev_storage_setting) {
-    AllocateWithoutStorage();
+void markTensorsExecutinginContext(
+    HbExecutionContext* context,
+    torch::jit::Stack& stack) {
+  for (auto val : stack) {
+    if (val.isTensor()) {
+      auto tensor = val.toTensor();
+      auto hl_tensor =
+          habana_lazy::GetOrCreateHbLazyTensor(tensor, tensor.device());
+      int id = hl_tensor.getTensorUniqueId();
+      if (id != -1)
+        context->MarkTensorExecuting(id);
+    }
   }
+}
+void HlExec::Launch(torch::jit::Stack& stack) {
+  auto& device = synapse_helpers::HPURegistrar::get_device();
+  auto context = habana_lazy_executor.getDeviceExecutionContext(device.id());
+  // TODO : remove this env variable use
+  // This is temporarily done to deactivate code in synapse helpers for lazy
+  // mode kernel registration We will move to using shape utilities instead and
+  // not do env variable based check anymore
+  // We have short-circuited certain utilities in synapse helpers, we need to
+  // remove that code
+  setenv("PT_HPU_LAZY_LOWERING", "1", 1);
+  context->setExecutionMode(kLOWERING);
+  HabanaLaunchOpPT launch{mp_g_, false};
+  markTensorsExecutinginContext(context, stack);
+  launch.run(stack);
+  markTensorsExecutinginContext(context, stack);
+  context->setExecutionMode(kLAZY);
+  context->MarkTensorsExecuted();
+  unsetenv("PT_HPU_LAZY_LOWERING");
 }
 
 /*

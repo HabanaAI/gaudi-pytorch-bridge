@@ -10,13 +10,14 @@
 
 #include "ir.h"
 #include "habana_helpers/logging.h"
+#include "hblazy/csrc/lazy_executor.h"
 
 namespace habana_lazy {
 namespace ir {
 
 size_t StdHashCombine(uint64_t a, uint64_t b) {
   return a ^
-         (b * 0x27d4eb2f165667c5 + 0x9e3779b97f4a7c15 + (a << 6) + (a >> 2));
+      (b * 0x27d4eb2f165667c5 + 0x9e3779b97f4a7c15 + (a << 6) + (a >> 2));
 }
 /*
  * Initilaize static data from Value Class
@@ -66,6 +67,19 @@ NodePtr Node::Create(c10::Symbol oper, ValueList inputs) {
     node->AddInput(i);
   }
   return node;
+}
+
+Value::~Value() {
+  std::shared_ptr<Data> data_ptr = m_data_ptr.lock();
+  if (data_ptr) {
+    auto tensor = data_ptr->tensor_data;
+    if (tensor) {
+      auto tensor_val = tensor.value();
+      auto context = habana_lazy_executor.getDeviceExecutionContext(
+          tensor_val.device().index());
+      context->removeRetainedTensor(tensor_val);
+    }
+  }
 }
 
 } // namespace ir

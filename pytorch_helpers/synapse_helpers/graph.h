@@ -158,6 +158,10 @@ class graph {
     return nodeType_;
   }
 
+  device& get_device() {
+    return device_;
+  }
+
  private:
   using Op2NodeContainer =
       absl::flat_hash_map<std::string, absl::flat_hash_set<synNodeId>>;
