@@ -19,8 +19,8 @@ def combine_mchip_files(ip_path, world_size, ln_emb):
                 op_file_path = os.path.join(ip_path, os.path.relpath(f, rank_path))
                 dir_name, file_name = os.path.split(op_file_path)
                 os.remove(op_file_path)
-                if 'module.' in file_name and 'emb_l' not in file_name:
-                    op_file_path = os.path.join(dir_name, file_name.replace('module.', '', 1))
+                if ('top_l.' in file_name or 'bot_l.' in file_name) and 'emb_l' not in file_name:
+                    op_file_path = os.path.join(dir_name, file_name)
                     shutil.copyfile(f, op_file_path)
 
         rank_files = glob.glob(rank_path + '/**/*emb_l*.pt', recursive=True)
