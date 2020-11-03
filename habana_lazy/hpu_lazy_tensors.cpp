@@ -376,6 +376,9 @@ void HbLazyTensor::SyncTensorsGraphInternal(
   exec::HlExec hlexec{};
   hlexec.Create(po_data.post_order, po_data.inputs, po_data.outputs);
 
+  // Dump the JIT graph with PT_LAZY_DEBUG
+  hlexec.DumpGraph();
+
   torch::jit::Stack stack;
   stack.reserve(po_data.inputs.size());
 
