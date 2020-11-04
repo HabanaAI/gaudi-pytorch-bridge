@@ -72,4 +72,17 @@ TEST_F(LazyBinaryKernelTest, AddInplaceTest) {
   Tensor out = result.to(kCPU);
 
   EXPECT_EQ(allclose(out, exp), true);
+  unsetenv("PT_HPU_LAZY_MODE");
+}
+TEST_F(LazyBinaryKernelTest, LazyRsubscalarTest) {
+  setenv("PT_HPU_LAZY_MODE", "1", 1);
+  torch::Tensor input = torch::ones({10, 10});
+
+  auto hinput = input.to(torch::kHABANA);
+  auto hrsub = torch::rsub(hinput, 8, 2);
+  Tensor hout = hrsub.to(kCPU);
+
+  auto cout = torch::rsub(input, 8, 2);
+  EXPECT_EQ(allclose(hout, cout), true);
+  unsetenv("PT_HPU_LAZY_MODE");
 }

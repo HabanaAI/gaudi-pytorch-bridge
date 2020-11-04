@@ -656,10 +656,27 @@ Tensor& sub_scalar_hpu_lazy_(Tensor& self, Scalar other, Scalar alpha) {
   return sub_scalar_hpu_(self, other, alpha);
 };
 Tensor rsub_scalar_hpu_lazy(const Tensor& self, Scalar other, Scalar alpha) {
-  HABANA_ASSERT(0);
-  return rsub_scalar_hpu(self, other, alpha);
-};
+  PT_LAZY_TRACE;
+  auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
+  auto hl_other = habana_lazy::GetIrValueForScalar(other);
+  auto hl_alpha = habana_lazy::GetIrValueForScalar(alpha);
 
+  auto node = habana_lazy::ir::Node::Create(
+      Symbol::fromQualString("aten::rsub"),
+      {hl_self.GetIrValue(), hl_other, hl_alpha});
+
+  auto result = at::native::empty_hpu_lazy(
+      self.sizes(), self.options(), self.suggest_memory_format(), false);
+  auto hlresult = habana_lazy::GetHbLazyTensor(result);
+  habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+
+  std::vector<at::Tensor> input_pt_vec{self};
+  node->AddInputPtTensors(input_pt_vec);
+
+  return result;
+};
 Tensor& mul_tensor_hpu_lazy_(Tensor& self, const Tensor& other) {
   PT_LAZY_TRACE;
   if (other.device().type() == c10::DeviceType::CPU) {
