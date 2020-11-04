@@ -102,7 +102,6 @@ def train(args, train_dataset, model, tokenizer, trainMetaData):
     args.train_batch_size = args.per_gpu_train_batch_size * max(1, args.n_gpu)
     train_sampler = RandomSampler(train_dataset) if args.local_rank == -1 else DistributedSampler(train_dataset)
     train_dataloader = DataLoader(train_dataset, sampler=train_sampler, batch_size=args.train_batch_size)
-    trainMetaData = TrainMetaData(model, args.device)
 
     if args.max_steps > 0:
         t_total = args.max_steps
@@ -266,7 +265,7 @@ def train(args, train_dataset, model, tokenizer, trainMetaData):
                 if args.local_rank in [-1, 0] and args.logging_steps > 0 and global_step % args.logging_steps == 0:
                     # Only evaluate when single GPU otherwise metrics may not average well
                     if args.local_rank == -1 and args.evaluate_during_training:
-                        results = evaluate(args, model, tokenizer)
+                        results = evaluate(args, model, tokenizer, trainMetaData)
                         for key, value in results.items():
                             tb_writer.add_scalar("eval_{}".format(key), value, global_step)
                     tb_writer.add_scalar("lr", scheduler.get_lr()[0], global_step)
@@ -333,7 +332,7 @@ def train(args, train_dataset, model, tokenizer, trainMetaData):
     return global_step, tr_loss / global_step
 
 
-def evaluate(args, model, tokenizer, prefix=""):
+def evaluate(args, model, tokenizer, trainMetaData,  prefix=""):
     dataset, examples, features = load_and_cache_examples(args, tokenizer, evaluate=True, output_examples=True)
 
     if not os.path.exists(args.output_dir) and args.local_rank in [-1, 0]:
@@ -357,7 +356,9 @@ def evaluate(args, model, tokenizer, prefix=""):
     all_results = []
     start_time = timeit.default_timer()
 
+    current_eval_step = 0
     for batch in tqdm(eval_dataloader, desc="Evaluating"):
+        trainMetaData.tracept.start(time.time(), 'eval_iteration_' + str(current_eval_step))
         model.eval()
         batch = tuple(t.to(args.device) for t in batch)
 
@@ -414,6 +415,9 @@ def evaluate(args, model, tokenizer, prefix=""):
                 result = SquadResult(unique_id, start_logits, end_logits)
 
             all_results.append(result)
+
+        trainMetaData.tracept.end(time.time(),   'eval_iteration_' + str(current_eval_step))
+        current_eval_step += 1
 
     evalTime = timeit.default_timer() - start_time
     logger.info("  Evaluation done in total %f secs (%f sec per example)", evalTime, evalTime / len(dataset))
@@ -885,7 +889,7 @@ def main():
             model.to(args.device)
 
             # Evaluate
-            result = evaluate(args, model, tokenizer, prefix=global_step)
+            result = evaluate(args, model, tokenizer, trainMetaData, prefix=global_step)
 
             result = dict((k + ("_{}".format(global_step) if global_step else ""), v) for k, v in result.items())
             results.update(result)

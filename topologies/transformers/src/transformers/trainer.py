@@ -494,7 +494,6 @@ class Trainer:
             epochs_trained, int(num_train_epochs), desc="Epoch", disable=not self.is_local_master()
         )
         # log the pre-epoch-loop memory usage
-        self.trainMetaData.tracept.end(time.time(), 'train_iteration_' + str(self.trainMetaData.current_train_step))
         self.trainMetaData.log_live_mem_alloc("before entering train Iteration " + str(self.trainMetaData.current_train_step))
         #self.trainMetaData.increment_train_step()
         for epoch in train_iterator:
@@ -868,8 +867,10 @@ class Trainer:
         if self.args.past_index >= 0:
             past = None
 
+        current_eval_step = 0
         for inputs in tqdm(dataloader, desc=description):
             has_labels = any(inputs.get(k) is not None for k in ["labels", "lm_labels", "masked_lm_labels"])
+            self.trainMetaData.tracept.start(time.time(), 'eval_iteration_' + str(current_eval_step))
 
             for k, v in inputs.items():
                 if isinstance(v, torch.Tensor):
@@ -897,6 +898,9 @@ class Trainer:
                         label_ids = inputs["labels"].detach()
                     else:
                         label_ids = torch.cat((label_ids, inputs["labels"].detach()), dim=0)
+
+            self.trainMetaData.tracept.end(time.time(),   'eval_iteration_' + str(current_eval_step))
+            current_eval_step += 1
 
         if self.args.local_rank != -1:
             # In distributed mode, concatenate all results from all nodes:
