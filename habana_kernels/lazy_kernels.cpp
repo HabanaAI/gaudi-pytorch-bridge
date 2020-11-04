@@ -887,7 +887,7 @@ Tensor addmm_hpu_lazy(
        hl_mat2.GetIrValue(),
        hl_beta,
        hl_alpha});
-  const IntArrayRef shape_out = {mat1.size(0), mat2.size(1)};
+  const std::vector<int64_t> shape_out = {mat1.size(0), mat2.size(1)};
   const auto result = at::native::empty_hpu_lazy(
       shape_out, self.options(), self.suggest_memory_format(), false);
   const auto hlresult = habana_lazy::GetHbLazyTensor(result);
