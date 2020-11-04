@@ -540,9 +540,33 @@ Tensor add_tensor_hpu_lazy(
 }
 
 Tensor add_scalar_hpu_lazy(const Tensor& self, Scalar other, Scalar alpha) {
-  HABANA_ASSERT(0);
-  return add_scalar_hpu(self, other, alpha);
+  auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
+  auto hl_other = habana_lazy::GetIrValueForScalar(other);
+  auto hl_alpha = habana_lazy::GetIrValueForScalar(alpha);
+
+  if (self.dim() == 0) {
+    auto tensor_impl = hl_self.getAttachedTensorImpl();
+    HABANA_ASSERT(tensor_impl);
+    tensor_impl->set_sizes_and_strides({1}, {1});
+  }
+
+  auto node = habana_lazy::ir::Node::Create(
+      Symbol::fromQualString("aten::add"),
+      {hl_self.GetIrValue(), hl_other, hl_alpha});
+  auto shape_out = self.sizes().vec();
+  auto result = at::native::empty_hpu_lazy(
+      shape_out, self.options(), self.suggest_memory_format(), false);
+  auto hl_result = habana_lazy::GetHbLazyTensor(result);
+  habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+
+  std::vector<at::Tensor> input_pt_vec{self};
+  node->AddInputPtTensors(input_pt_vec);
+
+  return result;
 };
+
 Tensor& add_scalar_hpu_lazy_(Tensor& self, Scalar other, Scalar alpha) {
   HABANA_ASSERT(0);
   return add_scalar_hpu_(self, other, alpha);

@@ -39,6 +39,18 @@ TEST_F(LazyBinaryKernelTest, LazyDoATest) {
   EXPECT_EQ(allclose(out_h, out_cpu), true);
 }
 
+TEST_F(LazyBinaryKernelTest, AddScalarTest) {
+  // test case for result = add(tensor, scalar, alpha)
+  torch::Tensor A = torch::randn({2, 2}, torch::requires_grad(false));
+  Scalar B = 1.0;
+
+  torch::Tensor hA = A.to(torch::kHABANA);
+  torch::Tensor out_h = torch::add(hA, B).to(torch::kCPU);
+  torch::Tensor out_cpu = torch::add(A, B);
+
+  EXPECT_EQ(allclose(out_h, out_cpu), true);
+}
+
 TEST_F(LazyBinaryKernelTest, AddInplaceTest) {
   // Inplace op as output node is not supported yet.
   torch::Tensor A = torch::randn({2, 3});
