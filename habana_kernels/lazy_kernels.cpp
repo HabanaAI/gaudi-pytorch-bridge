@@ -2357,10 +2357,27 @@ Tensor sqrt_hpu_lazy(const Tensor& input) {
 
   return result;
 };
+
 Tensor tanh_hpu_lazy(const Tensor& input) {
-  HABANA_ASSERT(0);
-  return tanh_hpu(input);
+  PT_LAZY_TRACE;
+  auto hl_input = habana_lazy::GetOrCreateHbLazyTensor(input, c10::kHABANA);
+
+  auto node = habana_lazy::ir::Node::Create(
+      Symbol::fromQualString("aten::tanh"), {hl_input.GetIrValue()});
+  auto shape_out = input.sizes();
+  auto result = at::native::empty_hpu_lazy(
+      shape_out, input.options(), input.suggest_memory_format(), false);
+  auto hl_result = habana_lazy::GetHbLazyTensor(result);
+  habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+
+  std::vector<at::Tensor> input_pt_vec{input};
+  node->AddInputPtTensors(input_pt_vec);
+
+  return result;
 };
+
 Tensor& tanh_hpu_lazy_(Tensor& self) {
   HABANA_ASSERT(0);
   return tanh_hpu_(self);
@@ -2369,10 +2386,29 @@ Tensor& tanh_out_hpu_lazy(Tensor& out, Tensor& self) {
   HABANA_ASSERT(0);
   return tanh_out_hpu(out, self);
 };
+
 Tensor tanh_backward_hpu_lazy(const Tensor& grad_in, const Tensor& input) {
-  HABANA_ASSERT(0);
-  return tanh_backward_hpu(grad_in, input);
+  PT_LAZY_TRACE;
+  auto hl_grad_in = habana_lazy::GetOrCreateHbLazyTensor(grad_in, c10::kHABANA);
+  auto hl_input = habana_lazy::GetOrCreateHbLazyTensor(input, c10::kHABANA);
+
+  auto node = habana_lazy::ir::Node::Create(
+      Symbol::fromQualString("aten::tanh_backward"),
+      {hl_grad_in.GetIrValue(), hl_input.GetIrValue()});
+
+  auto result = at::native::empty_hpu_lazy(
+      input.sizes(), input.options(), input.suggest_memory_format());
+  auto hl_result = habana_lazy::GetHbLazyTensor(result);
+  habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+
+  std::vector<at::Tensor> input_pt_vec{grad_in, input};
+  node->AddInputPtTensors(input_pt_vec);
+
+  return result;
 };
+
 Tensor gelu_hpu_lazy(const Tensor& self) {
   HABANA_ASSERT(0);
   return gelu_hpu(self);

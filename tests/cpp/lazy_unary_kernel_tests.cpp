@@ -115,3 +115,38 @@ TEST_F(LazyUnaryKernelTest, SqrtTest) {
   EXPECT_EQ(
       allclose(hout_lazy, cpu_out, 0.001, 0.001, /*equal_nan*/ true), true);
 }
+
+TEST_F(LazyUnaryKernelTest, TanhFwdTest) {
+  setenv("PT_HPU_LAZY_MODE", "1", 1);
+  torch::Tensor A =
+      torch::arange(6, torch::dtype(torch::kFloat).requires_grad(true))
+          .reshape({1, 1, 3, 2});
+  torch::Tensor out_exp = torch::tanh(A);
+
+  torch::Tensor hA = A.to(torch::kHABANA);
+  torch::Tensor hout = torch::tanh(hA);
+  torch::Tensor hout_lazy = hout.to(torch::kCPU);
+
+  EXPECT_EQ(allclose(hout_lazy, out_exp), true);
+  unsetenv("PT_HPU_LAZY_MODE");
+}
+
+TEST_F(LazyUnaryKernelTest, TanhBwdTest) {
+  setenv("PT_HPU_LAZY_MODE", "1", 1);
+  torch::Tensor A =
+      torch::arange(6, torch::dtype(torch::kFloat).requires_grad(true))
+          .reshape({1, 1, 3, 2});
+  auto grad = torch::arange(6, torch::dtype(torch::kFloat).requires_grad(true))
+                  .reshape({1, 1, 3, 2});
+  torch::Tensor out_exp = torch::tanh_backward(grad, A);
+
+  torch::Tensor hA = A.to(torch::kHABANA);
+  torch::Tensor hGrad = grad.to(torch::kHABANA);
+  torch::Tensor hout = torch::tanh_backward(hGrad, hA);
+  std::vector<HbLazyTensor> tensors = {GetHbLazyTensor(hout)};
+  HbLazyTensor::SyncTensorsGraph(&tensors);
+  auto hout_lazy = hout.to(torch::kCPU);
+
+  EXPECT_EQ(allclose(hout_lazy, out_exp), true);
+  unsetenv("PT_HPU_LAZY_MODE");
+}
