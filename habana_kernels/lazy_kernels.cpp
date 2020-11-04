@@ -1706,9 +1706,18 @@ Tensor& cat_hpu_lazy_out(
     int64_t dim_) {
   return cat_hpu_out(result, tensors, dim_);
 };
+
 Tensor transpose_hpu_lazy(const Tensor& self, int64_t dim0_, int64_t dim1_) {
-  return transpose_hpu(self, dim0_, dim1_);
+  habana_lazy::ir::NodePtr node =
+      std::make_shared<habana_lazy::ir::Transpose>(self, dim0_, dim1_);
+  auto result = transpose_hpu(self, dim0_, dim1_);
+  auto hl_result = habana_lazy::GetHbLazyTensor(result);
+  habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+  return result;
 };
+
 Tensor& transpose_hpu_lazy_(Tensor& self, int64_t dim0_, int64_t dim1_) {
   return transpose_hpu_(self, dim0_, dim1_);
 };

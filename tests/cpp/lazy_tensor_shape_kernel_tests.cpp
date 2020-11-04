@@ -170,3 +170,14 @@ TEST_F(LazyTensorShapeKernelTest, ViewExecute) {
   auto result_cpu = torch::_unsafe_view(input_tensor, new_size);
   EXPECT_EQ(allclose(result_lazy, result_cpu, 0.01, 0.01), true);
 }
+
+TEST_F(LazyTensorShapeKernelTest, TransposeTest) {
+  setenv("PT_HPU_LAZY_MODE", "1", 1);
+  torch::Tensor A = torch::randn({2, 3}, torch::requires_grad(false));
+  torch::Tensor hA = A.to(torch::kHABANA);
+  torch::Tensor hOut = torch::transpose(hA, 1, 0);
+  torch::Tensor Out = torch::transpose(A, 1, 0);
+
+  EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out), true);
+  unsetenv("PT_HPU_LAZY_MODE");
+}
