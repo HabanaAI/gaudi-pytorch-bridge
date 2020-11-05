@@ -601,6 +601,12 @@ Tensor softmax_backward_hpu(
 static auto& KernelRegistry =
     habana::KernelRegistry()
         .add(
+            "aten::_log_softmax",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<habana::LogSoftmaxOperator>(
+                  device_id, node_type);
+            })
+        .add(
             "aten::log_softmax",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<habana::LogSoftmaxOperator>(

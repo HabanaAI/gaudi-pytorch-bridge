@@ -7,10 +7,13 @@
  *
  ******************************************************************************
  */
+#include <torch/csrc/jit/passes/common_subexpression_elimination.h>
+#include <torch/csrc/jit/passes/constant_pooling.h>
+#include <torch/csrc/jit/passes/dead_code_elimination.h>
 
-#include "hlexec.h"
 #include "habana_bridge/kernel/hpu_habana_launch_op_pt.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
+#include "hlexec.h"
 #include "ops/constant.h"
 #include "ops/convolution.h"
 #include "pytorch_helpers/habana_device/hpu_cached_devices.h"
@@ -170,7 +173,24 @@ std::tuple<LazyValueToJitValueMap, LazyValueToJitValueMap> HlExec::Create(
     mp_g_->registerOutput(value_map[output]);
   }
 
+  // Optimize the graph based on the passes enabled
+  Optimize();
+
   return std::make_tuple(input_map, output_map);
+}
+
+void HlExec::Optimize() {
+  if (OptPassCfg::GetInstance()->enable_eliminate_dead_code) {
+    EliminateDeadCode(mp_g_);
+  }
+
+  if (OptPassCfg::GetInstance()->enable_eliminate_common_subexpression) {
+    EliminateCommonSubexpression(mp_g_);
+  }
+
+  if (OptPassCfg::GetInstance()->enable_constant_pooling) {
+    ConstantPooling(mp_g_);
+  }
 }
 
 } // namespace exec

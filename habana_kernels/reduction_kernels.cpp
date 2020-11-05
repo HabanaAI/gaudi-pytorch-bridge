@@ -1277,4 +1277,9 @@ static auto& KernelRegistry =
             "aten::sum.dim_IntList",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<SumDimOperator>(device_id, node_type);
+            })
+        .add(
+            "aten::sum_dim_IntList",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<SumDimOperator>(device_id, node_type);
             });

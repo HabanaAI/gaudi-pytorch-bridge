@@ -14,6 +14,7 @@
 #include <pybind11/stl.h>
 
 #include <habana_device/hpu_cached_devices.h>
+#include <habana_lazy/hlexec.h>
 #include <habana_lazy/hpu_lazy_tensors.h>
 
 namespace py = pybind11;
@@ -73,6 +74,27 @@ void InitModuleBindings(py::module m) {
       },
       py::arg("device_str"),
       py::arg("devices"));
+  m.def(
+      "_enable_eliminate_common_subexpression",
+      [](const bool flag) {
+        habana_lazy::exec::OptPassCfg::GetInstance()->enable_eliminate_common_subexpression =
+            flag;
+      },
+      py::arg("flag"));
+  m.def(
+      "_enable_eliminate_dead_code",
+      [](const bool flag) {
+        habana_lazy::exec::OptPassCfg::GetInstance()->enable_eliminate_dead_code =
+            flag;
+      },
+      py::arg("flag"));
+  m.def(
+      "_enable_constant_pooling",
+      [](const bool flag) {
+        habana_lazy::exec::OptPassCfg::GetInstance()->enable_constant_pooling =
+            flag;
+      },
+      py::arg("flag"));
 }
 
 } // namespace

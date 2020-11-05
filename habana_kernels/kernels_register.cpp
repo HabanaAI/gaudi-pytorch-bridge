@@ -936,6 +936,15 @@ static auto
                 .op(torch::RegisterOperators::
                         options()
                             .schema(
+                                "aten::sum_dim_IntList(Tensor self, int[1] dim, bool keepdim=False, *, ScalarType? dtype=None) -> Tensor")
+                            .impl_unboxedOnlyKernel<
+                                decltype(sum_dim_IntList_hpu_wrap),
+                                &sum_dim_IntList_hpu_wrap>(
+                                DispatchKey::HABANATensorId)
+                            .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+                .op(torch::RegisterOperators::
+                        options()
+                            .schema(
                                 "aten::sum.IntList_out(Tensor self, int[1] dim, bool keepdim=False, *, ScalarType? dtype=None, Tensor(a!) out) -> Tensor(a!)")
                             .impl_unboxedOnlyKernel<
                                 decltype(sum_IntList_out_hpu_wrap),

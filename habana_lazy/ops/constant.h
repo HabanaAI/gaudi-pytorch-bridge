@@ -10,6 +10,7 @@
 
 #pragma once
 #include "habana_helpers/logging.h"
+#include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/ir.h"
 #include "torch/csrc/jit/ir/ir.h"
 
@@ -57,5 +58,66 @@ class ListConstruct : public Node {
     }
   }
 };
+
+class OnesLike : public Node {
+ public:
+  enum class OnesLikeParam {
+    kDtypeIdx = 1,
+    kLayoutIdx = 2,
+    kDeviceIdx = 3,
+    kPinMemoryIdx = 4,
+    kMemoryFormatIdx = 5
+  };
+
+  OnesLike() = delete;
+
+  OnesLike(
+      const at::Tensor& self,
+      const at::TensorOptions& options,
+      c10::optional<c10::MemoryFormat> optional_memory_format)
+      : Node(c10::Symbol::fromQualString("aten::ones_like")) {
+    auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHABANA);
+    AddInput(hl_self.GetIrValue());
+    if (options.has_dtype()) {
+      m_meta_data.set(
+          c10::tryTypeMetaToScalarType(options.dtype()),
+          static_cast<size_t>(OnesLikeParam::kDtypeIdx));
+    } else {
+      m_meta_data.set(
+          c10::nullopt, static_cast<size_t>(OnesLikeParam::kDtypeIdx));
+    }
+    m_meta_data.set(
+        options.layout_opt(), static_cast<size_t>(OnesLikeParam::kLayoutIdx));
+    m_meta_data.set(
+        options.device_opt(), static_cast<size_t>(OnesLikeParam::kDeviceIdx));
+    m_meta_data.set(
+        options.pinned_memory_opt(),
+        static_cast<size_t>(OnesLikeParam::kPinMemoryIdx));
+    if (optional_memory_format.has_value()) {
+      m_meta_data.set(
+          optional_memory_format.value(),
+          static_cast<size_t>(OnesLikeParam::kMemoryFormatIdx));
+    } else {
+      m_meta_data.set(
+          c10::nullopt, static_cast<size_t>(OnesLikeParam::kMemoryFormatIdx));
+    }
+  }
+
+  std::string ToString() const override {
+    std::stringstream ss;
+    ss << Node::ToString() << ", dtype="
+       << m_meta_data.get(static_cast<size_t>(OnesLikeParam::kDtypeIdx))
+       << ", layout="
+       << m_meta_data.get(static_cast<size_t>(OnesLikeParam::kLayoutIdx))
+       << ", device="
+       << m_meta_data.get(static_cast<size_t>(OnesLikeParam::kDeviceIdx))
+       << ", pin_memory="
+       << m_meta_data.get(static_cast<size_t>(OnesLikeParam::kPinMemoryIdx))
+       << ", memory_format="
+       << m_meta_data.get(static_cast<size_t>(OnesLikeParam::kMemoryFormatIdx));
+    return ss.str();
+  }
+};
+
 } // namespace ir
 } // namespace habana_lazy

@@ -45,7 +45,7 @@ class SumDimIntList : public Node {
       IntArrayRef dim,
       bool keepdim,
       c10::optional<ScalarType> dtype)
-      : Node(c10::Symbol::fromQualString("aten::sum.dim_IntList")) {
+      : Node(c10::Symbol::fromQualString("aten::sum_dim_IntList")) {
     auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHABANA);
     auto ir_value = hl_self.CurrentIrValue();
     AddInput(ir_value);

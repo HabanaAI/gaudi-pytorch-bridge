@@ -21,6 +21,7 @@
 #include "habana_lazy/hblazy/csrc/lazy_executor.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/ops/cat.h"
+#include "habana_lazy/ops/constant.h"
 #include "habana_lazy/ops/convolution.h"
 #include "habana_lazy/ops/index.h"
 #include "habana_lazy/ops/loss.h"
@@ -1452,7 +1453,7 @@ Tensor log_softmax_hpu_lazy(
     const int64_t dim,
     const bool half_to_float) {
   auto node = std::make_shared<habana_lazy::ir::LogSoftMax>(
-      self, dim, half_to_float, "aten::log_softmax");
+      self, dim, half_to_float, "aten::_log_softmax");
   // infer shape
   auto result = log_softmax_hpu(self, dim, half_to_float);
 
@@ -2043,6 +2044,7 @@ optimizer_sparse_adagrad_with_valid_count_hpu_lazy(
   out2.SetNode(node);
   return std::tie(weights_out, moments_out);
 }
+
 Tensor ones_like_hpu_lazy(
     const Tensor& self,
     const TensorOptions& options,
@@ -2052,11 +2054,8 @@ Tensor ones_like_hpu_lazy(
   // only for filling grad_out tensor with 1's), but we may need to revisit
   // this in future.
   auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
-  auto hl_alpha = habana_lazy::GetIrValueForScalar(1.0);
-
-  auto node = habana_lazy::ir::Node::Create(
-      Symbol::fromQualString("aten::ones_like"),
-      {hl_self.GetIrValue(), hl_alpha});
+  habana_lazy::ir::NodePtr node =
+      std::make_shared<habana_lazy::ir::OnesLike>(self, options, optional_memory_format);
 
   auto result = at::native::empty_hpu_lazy(
       self.sizes(), self.options(), self.suggest_memory_format(), false);

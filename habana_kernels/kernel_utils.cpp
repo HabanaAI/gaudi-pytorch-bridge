@@ -315,5 +315,5 @@ void ConstantOperator::AllocateAndAddSynapseNode(
 static auto& KernelRegistry = habana::KernelRegistry().add(
     "aten::ones_like",
     [](const int device_id, c10::ScalarType node_type) {
-      return std::make_shared<ConstantOperator>(device_id, node_type);
+      return std::make_shared<OnesLikeOperator>(device_id, node_type);
     });

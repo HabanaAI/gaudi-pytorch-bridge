@@ -36,6 +36,22 @@ using LazyValueToJitValueMap = std::unordered_map<
     JitValue*,
     habana_lazy::ir::ValueHash,
     habana_lazy::ir::ValueEqual>;
+
+/**
+ * Define data structure to enabling the optimization passes
+ */
+class OptPassCfg {
+ public:
+  bool enable_eliminate_dead_code = false;
+  bool enable_eliminate_common_subexpression = false;
+  bool enable_constant_pooling = false;
+
+  static std::shared_ptr<OptPassCfg> GetInstance() {
+    static auto p_instance_ = std::make_shared<OptPassCfg>();
+    return p_instance_;
+  }
+};
+
 /**
  * This is the lazy execution JIT Graph creator class. An object of this class
  * will manage creation of pytorch JIT graph. It will also manage mapping or
@@ -73,10 +89,8 @@ class HlExec {
   /**
    * This method calls torch::jit optimzer passes.
    * Optionally, habana specific optimzers can be added.
-   * TBD: Add optimzer levels and take in a mask from caller
-   * to control optimization passes applied on the graph.
    */
-  void Optimize(); // opt_level_mask=0x0);
+  void Optimize();
 
   /**
    * This method calls the Habana Graph Lowering kernel

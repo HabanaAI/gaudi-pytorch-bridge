@@ -46,6 +46,14 @@ def mark_step():
     devctx = _run_step_closures()
     devctx.all_reduce_token = None
 
+def enable_eliminate_common_subexpression(flag):
+    _hblazy._enable_eliminate_common_subexpression(flag)
+
+def enable_eliminate_dead_code(flag):
+    _hblazy._enable_eliminate_dead_code(flag)
+
+def enable_constant_pooling(flag):
+    _hblazy._enable_constant_pooling(flag)
 
 def optimizer_step(optimizer, barrier=False, optimizer_args={}, groups=None):
     # reduce_gradients(optimizer, groups=groups)

@@ -411,7 +411,7 @@ void HbLazyTensor::SyncTensorsGraphInternal(
 
   exec::HlExec hlexec{};
   hlexec.Create(po_data.post_order, po_data.inputs, po_data.outputs);
-
+  
   // Dump the JIT graph with PT_LAZY_DEBUG
   hlexec.DumpGraph();
 
@@ -458,9 +458,11 @@ void HbLazyTensor::SyncTensorsGraphInternal(
     setTensorAsInputNode(i);
   }
 }
+
 void HbLazyTensor::setTensorOriginalType(c10::ScalarType type) {
   data()->original_element_type = type;
 }
+
 c10::ScalarType HbLazyTensor::getTensorOriginalType() {
   return data()->original_element_type;
 }
