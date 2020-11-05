@@ -298,18 +298,19 @@ def main(args):
 
     model = Net().to(device)
     # kwargs = {'num_workers': 1, 'pin_memory': True} if use_habana else {}
-    kwargs = {}  # TODO: do we need any kwargs?
+    kwargs = {'pin_memory': True}  if use_habana else {}
 
     if(device==torch.device('habana')):
         permute_params_on_device(args, model)
 
     if args.run_trace_mode:
         with torch.jit.optimized_execution(True):
-            import hb_torch
             torch._C._jit_override_can_fuse_on_cpu(False)
             torch._C._jit_set_profiling_executor(False)
             torch._C._jit_set_profiling_mode(False)
-            hb_torch.enable()
+            if(device==torch.device('habana')):
+                import hb_torch
+                hb_torch.enable()
             sample_trace_tensor = torch.FloatTensor(64, 1, 28, 28).to(device)
             model = torch.jit.trace(model, sample_trace_tensor, check_trace=False)
 
