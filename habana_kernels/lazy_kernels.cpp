@@ -26,7 +26,6 @@
 #include "habana_lazy/ops/mse_loss.h"
 #include "habana_lazy/ops/norm.h"
 #include "habana_lazy/ops/pool.h"
-#include "habana_lazy/ops/loss.h"
 #include "habana_lazy/ops/reduce_ops.h"
 #include "habana_lazy/ops/shape_ops.h"
 #include "habana_lazy/ops/softmax.h"
@@ -349,7 +348,7 @@ Tensor& add_tensor_hpu_lazy_(Tensor& self, const Tensor& other, Scalar alpha) {
   auto hl_alpha = habana_lazy::GetIrValueForScalar(alpha);
 
   auto node = habana_lazy::ir::Node::Create(
-      Symbol::fromQualString("aten::add"),
+      Symbol::fromQualString("aten::add_"),
       {hl_self.GetIrValue(), hl_other.GetIrValue(), hl_alpha});
 
   habana_lazy::ir::Value& out = hl_self.CurrentIrValue();
@@ -379,24 +378,33 @@ Tensor rsub_scalar_hpu_lazy(const Tensor& self, Scalar other, Scalar alpha) {
 };
 
 Tensor& mul_tensor_hpu_lazy_(Tensor& self, const Tensor& other) {
-  Tensor other_hpu = other;
   if (other.device().type() == c10::DeviceType::CPU) {
     if (other.scalar_type() == c10::ScalarType::Double) {
-      other.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
-      other_hpu = other.to(c10::DeviceType::HABANA);
+      // Convert 0-dim CPU tensor to a scalar and then add to JIT graph
+      auto val = other.item();
+      auto hl_other = habana_lazy::GetIrValueForScalar(val);
+      auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
+
+      auto node = habana_lazy::ir::Node::Create(
+          Symbol::fromQualString("aten::mul_"),
+          {hl_self.GetIrValue(), hl_other});
+
+      habana_lazy::ir::Value& out = hl_self.CurrentIrValue();
+      out.m_index = 0;
+      out.SetNode(node);
     }
+  } else {
+    auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
+    auto hl_other = habana_lazy::GetOrCreateHbLazyTensor(other, c10::kHABANA);
+
+    auto node = habana_lazy::ir::Node::Create(
+        Symbol::fromQualString("aten::mul_"),
+        {hl_self.GetIrValue(), hl_other.GetIrValue()});
+
+    habana_lazy::ir::Value& out = hl_self.CurrentIrValue();
+    out.m_index = 0;
+    out.SetNode(node);
   }
-
-  auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
-  auto hl_other = habana_lazy::GetOrCreateHbLazyTensor(other_hpu, c10::kHABANA);
-
-  auto node = habana_lazy::ir::Node::Create(
-      Symbol::fromQualString("aten::mul"),
-      {hl_self.GetIrValue(), hl_other.GetIrValue()});
-
-  habana_lazy::ir::Value& out = hl_self.CurrentIrValue();
-  out.m_index = 0;
-  out.SetNode(node);
 
   return self;
 };
@@ -1073,7 +1081,6 @@ Tensor binary_cross_entropy_backward_hpu_lazy(
     const Tensor& target,
     const Tensor& weight,
     int64_t reduction) {
-
   habana_lazy::ir::NodePtr bce_bwd_loss_node =
       std::make_shared<habana_lazy::ir::BceLoss_backward>(
           grad_output, self, target, weight, reduction);

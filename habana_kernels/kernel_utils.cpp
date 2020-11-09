@@ -250,7 +250,11 @@ void ConstantOutOperator::AllocateAndAddSynapseNode(
     output.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
   }
 
-  AllocateSynapseOutput(graph, output, is_output_persistent);
+  // Note that Constant TPC kernel does not need any tensor inputs
+  // therefore we can move the input tensor(s) to corresponding
+  // output tensors without any problems.
+  p_context_->syn_outputs_.emplace_back(std::move(p_context_->syn_inputs_[0]));
+  p_context_->pt_outputs_.emplace_back(p_context_->pt_inputs_[0]);
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 

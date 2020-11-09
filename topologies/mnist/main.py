@@ -263,11 +263,18 @@ def parse_args():
     args = parser.parse_args()
     return args
 
-def permute_params_on_device(model):
+def permute_params_on_device(args, model):
+    if args.run_lazy_mode:
+        import hblazy.core.hb_model as hm
+
     with torch.no_grad():
         for name, param in model.named_parameters():
             if(param.ndim == 4):
                 param.data = param.data.permute((2,3,1,0))
+
+    if args.run_lazy_mode:
+        # Execute permutes to keep these disconnected from main graph
+        hm.mark_step()
 
 def main(args):
 
@@ -294,7 +301,7 @@ def main(args):
     kwargs = {}  # TODO: do we need any kwargs?
 
     if(device==torch.device('habana')):
-        permute_params_on_device(model)
+        permute_params_on_device(args, model)
 
     if args.run_trace_mode:
         with torch.jit.optimized_execution(True):

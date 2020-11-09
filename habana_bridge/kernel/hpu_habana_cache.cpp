@@ -49,7 +49,6 @@ RecipeArgumentSpec::RecipeArgumentSpec(
       hash_code(cas.hashCode()),
       opstrs(std::string()) {
   std::hash<std::string> str_hash;
-  opstrs.append(id + "::\n");
   for (auto* node : irgraph->nodes()) {
     std::string s(node->kind().toQualString());
     // Adding delemeters for better readability

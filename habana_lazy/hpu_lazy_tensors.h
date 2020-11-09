@@ -172,7 +172,7 @@ class HbLazyTensor {
 // operations and ensure the same computations are created during the
 // training loops.
 struct HbContext {
-  std::unordered_map<int, std::weak_ptr<Data>> tensors_data;
+  std::map<int, std::weak_ptr<Data>> tensors_data;
   ir::Value seed_ir_value;
 };
 

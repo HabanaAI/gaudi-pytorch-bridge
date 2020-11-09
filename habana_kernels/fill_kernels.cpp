@@ -46,14 +46,21 @@ void fill_constant_hpu(Tensor& self, Scalar value) {
   // and not based on dtype of value
   ConstantOutOperator Op(device_id, scalar_type);
   std::vector<c10::IValue> stack = {IValue(self), IValue(value)};
+  std::vector<at::Tensor> pt_inputs{self};
   size_t key = Op.GetRecipeKey(node_type, stack);
   if (device.get_recipe_handle_cache().isCached(key)) {
     PT_KERNEL_DEBUG("Cache hit key:", key);
+    Op.SetPTInputs(pt_inputs);
     Op.SetPTOutputs({self});
     Op.Execute(key);
   } else {
     PT_KERNEL_DEBUG("key:", key);
     auto graph = habana_helpers::create_graph(device_id, node_type);
+    // Ideally _out version of operator does not need inputs
+    // but in this case we are giving an input to align with
+    // graph mode behavior. Internally within ConstantOut
+    // implementation we will move input tensors to output tensors
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
     Op.AllocateAndAddSynapseNode(graph, stack, true);
     Op.Compile(graph);
   }

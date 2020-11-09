@@ -76,8 +76,8 @@ void habana::BinaryInplaceOperatorWithAlpha::AllocateAndAddSynapseNode(
     synapse_helpers::tensor& arg2_syn_tensor =
         isArg2modified ? reshape_syn_output[0] : mulOp_out;
 
-    std::vector<synTensor> syn_inputs{
-        arg1_syn_tensor.get(), arg2_syn_tensor.get()};
+    std::vector<synTensor> syn_inputs{arg1_syn_tensor.get(),
+                                      arg2_syn_tensor.get()};
 
     synapse_helpers::tensor& output_syn_tensor = p_context_->syn_outputs_[0];
     std::vector<synTensor> syn_outputs{output_syn_tensor.get()};
@@ -109,8 +109,8 @@ void habana::BinaryInplaceOperatorWithAlpha::AllocateAndAddSynapseNode(
     synapse_helpers::tensor& arg2_syn_tensor =
         isArg2modified ? reshape_syn_output[0] : p_context_->syn_inputs_[1];
 
-    std::vector<synTensor> syn_inputs{
-        arg1_syn_tensor.get(), arg2_syn_tensor.get()};
+    std::vector<synTensor> syn_inputs{arg1_syn_tensor.get(),
+                                      arg2_syn_tensor.get()};
 
     synapse_helpers::tensor& output_syn_tensor = p_context_->syn_outputs_[0];
     std::vector<synTensor> syn_outputs{output_syn_tensor.get()};
@@ -239,8 +239,8 @@ void habana::BinaryInplaceOperator::AllocateAndAddSynapseNode(
   synapse_helpers::tensor& arg2_syn_tensor =
       isArg2modified ? reshape_syn_output[0] : p_context_->syn_inputs_[1];
 
-  std::vector<synTensor> syn_inputs{
-      arg1_syn_tensor.get(), arg2_syn_tensor.get()};
+  std::vector<synTensor> syn_inputs{arg1_syn_tensor.get(),
+                                    arg2_syn_tensor.get()};
 
   synapse_helpers::tensor& output_syn_tensor = p_context_->syn_outputs_[0];
   std::vector<synTensor> syn_outputs{output_syn_tensor.get()};
@@ -841,3 +841,16 @@ Tensor& addcdiv_hpu_(
   PT_KERNEL_END;
   return self;
 }
+
+static auto& KernelRegistry =
+    habana::KernelRegistry()
+        .add(
+            "aten::mul_",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<habana::MulInplaceOperator>(
+                  device_id, node_type);
+            })
+        .add("aten::add_", [](const int device_id, c10::ScalarType node_type) {
+          return std::make_shared<habana::AddInplaceOperator>(
+              device_id, node_type);
+        });

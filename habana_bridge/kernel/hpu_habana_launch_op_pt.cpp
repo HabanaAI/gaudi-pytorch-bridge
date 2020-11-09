@@ -418,7 +418,13 @@ void HabanaLaunchOpPT::GetSynapseOutputs(
           std::make_shared<IVal>(output_tensors_pt[output_tensor_idx]);
       value_to_ivalue[output_nodes[output_nodes_idx]] = ivpsh;
 
-      if (use_persistent_tensors &&
+      // For kernels like inplace, output is always created persistent even if
+      // we dont mark it
+      // such scenarios such be treated persistent and output should be patched
+      bool is_output_persistent =
+          use_persistent_tensors || out_tensor_syn.is_persistent();
+
+      if (is_output_persistent &&
           false == isInGraphOutputs(output_nodes[output_nodes_idx])) {
         aten_intermediates.push_back(ivpsh->toTensor());
       }
@@ -428,7 +434,7 @@ void HabanaLaunchOpPT::GetSynapseOutputs(
       pt_to_synapse_tensors.emplace(
           value_to_ivalue[output_nodes[output_nodes_idx]], tensorList);
 
-      if (use_persistent_tensors ? true
+      if (is_output_persistent ? true
                                  : isInGraphOutputs(node, output_nodes_idx)) {
         output_tensorinfos.emplace_back(PtTensorInfo(
             ivpsh,
@@ -680,6 +686,7 @@ void HabanaLaunchOpPT::processInputs(
   auto& habana_kernel_meta_data = habana_kernel->GetKernelMetaData();
   // Check if its ok to change the input tensor in the graph attached to value
   auto node_ins = node->inputs();
+
   size_t tensor_idx = 0;
   habana::LayoutFormat in_layout, prev_layout = habana::LayoutFormat::ANY;
   size_t meta_size = habana_kernel_meta_data.input_layout.size();
