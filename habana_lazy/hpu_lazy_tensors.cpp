@@ -296,7 +296,10 @@ std::vector<int> HbLazyTensor::CollectSyncTensors(
   std::vector<int> indices = {};
   for (size_t i = 0; i < tensors.size(); ++i) {
     auto ir_value = tensors[i].CurrentIrValue();
-    if (ir_value) {
+    // Skip the tensors which don't have any node to evaluate and points
+    // to hpu::input node.
+    if (ir_value
+        && ir_value.mp_node->ToString().find("hpu::input") == std::string::npos) {
       indices.push_back(i);
     }
   }
@@ -402,13 +405,14 @@ void HbLazyTensor::SyncTensorsGraphInternal(
   size_t i = 0;
   for (const torch::IValue& v : stack) {
     auto st = v.toTensor();
-    auto out_tensor = (*tensors)[i++];
+    auto out_tensor = (*tensors)[indices[i++]];
     out_tensor.SetTensorData(st);
   }
-  HABANA_ASSERT(stack.size() == (*tensors).size());
+  HABANA_ASSERT(stack.size() == indices.size());
 
   // Graph executed, clear IR values corresponding to sync tensors
-  for (auto& i : *tensors) {
+  for (auto idx : indices) {
+    auto &i = (*tensors)[idx];
     // Reset the ir_value with the following content -
     // - The m_data_ptr should continue to point to the
     //   same lazy tensor data_ptr()
