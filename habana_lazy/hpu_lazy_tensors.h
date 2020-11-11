@@ -111,6 +111,7 @@ class HbLazyTensor {
   // Set logical_element_type which is visible to upstream PyTorch.
   void SetScalarType(c10::optional<c10::ScalarType> logical_element_type);
   const c10::Device& GetDevice() const;
+  const std::vector<int64_t>& GetSizes() const;
   // Retrieves the current IR Node, or nullptr in case no active IR Node is
   // available.
   ir::Value& CurrentIrValue() const;

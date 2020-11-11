@@ -208,6 +208,10 @@ const c10::Device& HbLazyTensor::GetDevice() const {
   return data()->device;
 }
 
+const std::vector<int64_t>& HbLazyTensor::GetSizes() const {
+  return data()->sizes;
+}
+
 void HbLazyTensor::SetScalarType(
     c10::optional<at::ScalarType> logical_element_type) {
   data()->logical_element_type = logical_element_type;

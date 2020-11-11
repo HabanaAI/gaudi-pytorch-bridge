@@ -42,7 +42,27 @@ class HbLazyTensorImpl : public c10::TensorImpl {
 
   void shallow_copy_from(const c10::intrusive_ptr<TensorImpl>& impl) override;
 
+  at::IntArrayRef sizes() const override;
+
+  int64_t dim() const override;
+
+  int64_t numel() const override;
+
+  bool is_contiguous(at::MemoryFormat memory_format) const override;
+
+  int64_t size(int64_t d) const override;
+
+  const at::Storage& storage() const override;
+
+  bool has_storage() const override;
+
  private:
+  void SetupSizeProperties();
+  std::vector<int64_t> ComputeArrayStrides(
+    absl::Span<const int64_t> sizes);
+
+  bool m_size_initialized;
+
   HbLazyTensor m_tensor;
 };
 

@@ -1,0 +1,58 @@
+#include <gtest/gtest.h>
+#include <torch/csrc/jit/testing/file_check.h>
+#include <torch/torch.h>
+#include <stdexcept>
+#include "habana_kernels/lazy_kernels_declarations.h"
+#include "habana_kernels/wrap_kernels_declarations.h"
+#include "habana_lazy/aten_lazy_bridge.h"
+#include "habana_lazy/debug_utils.h"
+#include "habana_lazy/hlexec.h"
+#include "habana_lazy/hpu_lazy_tensors.h"
+#include "habana_lazy/ir_utils.h"
+
+using namespace habana_lazy;
+
+class LazyTensorAPITest : public ::testing::Test {
+ protected:
+  void SetUp() override {}
+
+  void TearDown() override {}
+};
+
+TEST_F(LazyTensorAPITest, NumelDimSizeTest) {
+  setenv("PT_HPU_LAZY_MODE", "1", 1);
+  torch::Tensor A = torch::tensor({
+                                    {
+                                      {2, 4, 1, 3, 3},
+                                      {0, 9, 8, 7, 6},
+                                      {7, 7, 7, 8, 8}
+                                    },
+                                    {
+                                      {2, 4, 1, 3, 3},
+                                      {9, 9, 1, 3, -2},
+                                      {8, 3, 2, 1, 0}
+                                    }
+                                  });
+  torch::Tensor B = torch::tensor({
+                                    {
+                                      {2, 6, 1, 1, 0},
+                                      {9, 2, 5, 6, -5},
+                                      {8, 5, 2, 1, 7}
+                                    },
+                                    {
+                                      {1, 5, 1, 5, 1},
+                                      {1, 4, 1, 3, -2},
+                                      {1, 6, 8, 9, 10}
+                                    }
+                                  });
+  torch::Tensor hA = A.to(torch::kHABANA);
+  torch::Tensor hB = B.to(torch::kHABANA);
+  torch::Tensor out = torch::mul(hA, hB);
+
+  ASSERT_TRUE(out.numel() == 30);
+  ASSERT_TRUE(out.dim() == 3);
+  ASSERT_TRUE(out.size(0) == 2);
+  ASSERT_TRUE(out.size(1) == 3);
+  ASSERT_TRUE(out.size(2) == 5);
+  unsetenv("PT_HPU_LAZY_MODE");
+}
