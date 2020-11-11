@@ -88,16 +88,22 @@ void LogSoftmaxBackwardOperator::AllocateAndAddSynapseNode(
   p_context_->params_size_ = sizeof(params);
 
   // For logsoftmax_bwd_ kernel, the node inputs are in order {grad, output,
-  // input} The synapse graph needs only the grad and output, and in the order
-  // {output, grad} p_context_->syn_inputs_ are modified here to ensure this.
-  // Reorder the grad and output
-  if (p_context_->pt_inputs_.size() != 0) {
-    // we may reach here with size = 0 if the node is in the middle
-    // of a bigger graph, for other cases size != 0
-    std::swap(p_context_->pt_inputs_[0], p_context_->pt_inputs_[1]);
-  }
-  std::swap(p_context_->syn_inputs_[0], p_context_->syn_inputs_[1]);
+  // input} The synapse graph needs only the grad and output, and i the order
+  // {output, grad} The p_context_->pt_inputs_ abd p_context_->syn_inputs_ are
+  // modified here to ensure this.
+  TORCH_CHECK(
+      p_context_->pt_inputs_.size() == 3,
+      "logsoftmax_bwd node should have 3 input pytorch tensors");
+  TORCH_CHECK(
+      p_context_->syn_inputs_.size() == 3,
+      "logsoftmax_bwd node should have 3 input synapse tensors");
+  // Remove the "input" tensor at the end
+  p_context_->pt_inputs_.pop_back();
+  p_context_->syn_inputs_.pop_back();
 
+  // Reorder the grad and output
+  std::swap(p_context_->pt_inputs_[0], p_context_->pt_inputs_[1]);
+  std::swap(p_context_->syn_inputs_[0], p_context_->syn_inputs_[1]);
   auto grad_output =
       habana_helpers::createPTTensor(input, is_output_persistent);
 

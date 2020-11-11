@@ -41,7 +41,6 @@ class LogSoftmaxBackwardOperator : public HabanaOperator {
     kernel_meta_data_.input_layout.assign(
         {LayoutFormat::ANY, LayoutFormat::ANY, LayoutFormat::ANY});
     kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
-    kernel_meta_data_.valid_input_idx.insert({0, 1});
   }
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
