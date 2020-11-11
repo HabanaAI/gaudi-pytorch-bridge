@@ -349,6 +349,9 @@ dlrm_arg_parser()
                 shift
                 __world_size=$1
                 PARAMSUMMARY="${PARAMSUMMARY}    world_size: ${__world_size}\n"
+                if [ "${__world_size}" -gt 1 ]; then
+                        CMDLINEARGS="${CMDLINEARGS} --distributed"
+                fi
                 ;;
             -h  | --help )
                 help
