@@ -404,16 +404,18 @@ void SoftmaxBackwardOperator::AllocateAndAddSynapseNode(
   // input} The synapse graph needs only the grad and output, and in the order
   // {output, grad} The p_context_->pt_inputs_ and p_context_->syn_inputs_ need
   // to be modified to ensure this. Correct approch to do this is TBD.
-
-  TORCH_CHECK(
-      p_context_->pt_inputs_.size() == 3,
-      "softmax_bwd node should have 3 input pytorch tensors");
   TORCH_CHECK(
       p_context_->syn_inputs_.size() == 3,
       "softmax_bwd node should have 3 input synapse tensors");
+  if(p_context_->pt_inputs_.size()!=2){
+    TORCH_CHECK(
+          p_context_->pt_inputs_.size() == 3,
+         "softmax_bwd node should have 3 input pytorch tensors");
+        // Remove the "input" tensor at the end
+        p_context_->pt_inputs_.pop_back();
+  }
   // graph mode passes 3 inputs
   // Remove the "input" tensor at the end
-  p_context_->pt_inputs_.pop_back();
   p_context_->syn_inputs_.pop_back();
 
   // Reorder the grad and output
