@@ -1,0 +1,27 @@
+aten::add(Tensor self, Tensor other, *, Scalar alpha) -> Tensor
+aten::add(Tensor self, Scalar other, Scalar alpha) -> Tensor
+aten::div(Tensor self, Scalar other) -> Tensor
+aten::mm(Tensor self, Tensor mat2) -> Tensor
+aten::mul(Tensor self, Scalar other) -> Tensor
+aten::permute(Tensor self, int[] dims) -> Tensor
+aten::addmm(Tensor self, Tensor mat1, Tensor mat2, *, Scalar beta = 1, Scalar alpha = 1) ->Tensor
+aten::flatten(Tensor self, int start_dim, int end_dim) -> Tensor
+aten::sub(Tensor self, Tensor other, *, Scalar alpha) -> Tensor
+aten::bmm(Tensor self, Tensor mat2) -> Tensor
+aten::bmm.out(Tensor self, Tensor mat2, *, Tensor(a!) out) -> Tensor(a!)
+aten::t(Tensor self) -> Tensor
+//aten::native_layer_norm(Tensor input, Tensor? weight, Tensor? bias, int M, int N, float eps) -> (Tensor, Tensor, Tensor)
+//aten::native_layer_norm_backward(Tensor grad_out, Tensor input, Tensor mean, Tensor rstd, Tensor? weight, int M, int N, bool[3] output_mask) -> (Tensor, Tensor, Tensor
+aten::mul.Tensor(Tensor self, Tensor other) -> Tensor
+aten::mul.Scalar(Tensor self, Scalar other) -> Tensor
+aten::t(Tensor self) -> Tensor
+aten::transpose(Tensor self, int dim0, int dim1) -> Tensor
+aten::to(Tensor self, Device device, int dtype, bool non_blocking, bool copy, int? memory_format) -> Tensor
+aten::_log_softmax(Tensor self, int dim, bool half_to_float) -> Tensor
+aten::_log_softmax_backward_data(Tensor grad_output, Tensor output, int dim, Tensor self) -> Tensor
+aten::_softmax(Tensor self, int dim, bool half_to_float) -> Tensor
+aten::_softmax_backward_data(Tensor grad_output, Tensor output, int dim, Tensor self) -> Tensor
+aten::bernoulli(Tensor self, *, Generator? generator=None) -> Tensor
+aten::bernoulli_.float(Tensor(a!) self, float p=0.5, *, Generator? generator=None) -> Tensor(a!)
+//aten::_grad_sum_to_size(Tensor self, int[]? size) -> Tensor
+//aten::reshape(Tensor self, int[] shape) -> Tensor
