@@ -253,6 +253,7 @@ void ConstantOutOperator::AllocateAndAddSynapseNode(
   // Note that Constant TPC kernel does not need any tensor inputs
   // therefore we can move the input tensor(s) to corresponding
   // output tensors without any problems.
+  HABANA_ASSERT(p_context_->syn_inputs_.size() == 1);
   synapse_helpers::tensor_or_ref& input_tensor = p_context_->syn_inputs_.back();
   p_context_->syn_outputs_.emplace_back(std::move(input_tensor));
   p_context_->pt_outputs_.emplace_back(p_context_->pt_inputs_[0]);

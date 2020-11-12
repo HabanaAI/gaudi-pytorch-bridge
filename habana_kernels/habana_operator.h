@@ -28,6 +28,8 @@
 namespace habana {
 enum class LayoutFormat { NHWC = 0, NCHW = 1, HWCK = 2, ANY = 3, INVALID = 4 };
 
+const size_t NO_INPUTS = 0xFFFFFFFF;
+
 //
 // The Pytorch kernel context holds the operator context
 // whcih includes the pytorch tensors, synapse tensor and
@@ -49,7 +51,7 @@ class PytorchKernelContext {
 typedef struct KernelMetaData {
   std::vector<LayoutFormat> input_layout;
   std::vector<LayoutFormat> output_layout;
-  std::set<int> valid_input_idx;
+  std::vector<size_t> tpc_input_order;
   bool changes_dims;
   KernelMetaData() {
     changes_dims = false;
@@ -64,10 +66,10 @@ using PytorchKernelContextPtr = std::shared_ptr<PytorchKernelContext>;
 // synapse graph and compilation of synapse graph
 class HabanaOperator {
  public:
+  HabanaOperator() = delete;
   //
   HabanaOperator(const std::string guid) : guid_(guid) {}
 
-  //
   // Given a target layout, get the permute order.
   // If the tensor is to be sent to device from host
   //    - the target_layout is the one expected inside device

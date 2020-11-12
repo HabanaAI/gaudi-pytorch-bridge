@@ -140,8 +140,8 @@ class ConstantOutOperator : public habana::HabanaOperator {
     // being used to Zero out weight gradients, therefore we can return
     // output_layout as "HWCK" instead of "ANY"
     kernel_meta_data_.output_layout.assign({habana::LayoutFormat::HWCK});
-    // skip the self tensor as it is an output
-    kernel_meta_data_.valid_input_idx.insert({1});
+    // special case, adding -1 to the tpc order, will not add any inputs
+    kernel_meta_data_.tpc_input_order = {habana::NO_INPUTS};
   }
 
   virtual void AllocateAndAddSynapseNode(

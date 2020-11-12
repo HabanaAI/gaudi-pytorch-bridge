@@ -41,6 +41,11 @@ class LogSoftmaxBackwardOperator : public HabanaOperator {
     kernel_meta_data_.input_layout.assign(
         {LayoutFormat::ANY, LayoutFormat::ANY, LayoutFormat::ANY});
     kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
+    // For logsoftmax_bwd_ kernel, the node inputs are in order {grad, output,
+    // input} The synapse graph needs only the grad and output, and in the order
+    // {output, grad}. p_context_->pt_inputs_ and p_context_->syn_inputs_ are
+    // modified here to ensure this.
+    kernel_meta_data_.tpc_input_order = {1, 0};
   }
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
@@ -98,6 +103,11 @@ class SoftmaxBackwardOperator : public HabanaOperator {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
     kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
+    // For softmax_bwd_ kernel, the node inputs are in order {grad, output,
+    // input} The synapse graph needs only the grad and output, and in the order
+    // {output, grad} The p_context_->pt_inputs_ and p_context_->syn_inputs_
+    // need to be modified to ensure this.
+    kernel_meta_data_.tpc_input_order = {1, 0};
   }
 
   virtual void AllocateAndAddSynapseNode(

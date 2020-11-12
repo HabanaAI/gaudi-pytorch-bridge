@@ -87,29 +87,6 @@ void LogSoftmaxBackwardOperator::AllocateAndAddSynapseNode(
   p_context_->params_.emplace<ns_Softmax::Params>(params);
   p_context_->params_size_ = sizeof(params);
 
-  // For logsoftmax_bwd_ kernel, the node inputs are in order {grad, output,
-  // input} The synapse graph needs only the grad and output, and in the order
-  // {output, grad}. p_context_->pt_inputs_ and p_context_->syn_inputs_ are
-  // modified here to ensure this.
-
-  // This check is required because in case of Lazy mode Log_softmax_backward
-  // will be an intermediate node in the graph, for intermediate nodes bridge
-  // does not create any pt_inputs.
-  // Additional check added for size != 1 to fix BERT Graph mode. Note that this
-  // is a WA, we need to remove it with a clean fix later.
-  if ( (p_context_->pt_inputs_.size() != 0) && (p_context_->pt_inputs_.size() != 1)) {
-    TORCH_CHECK(
-        p_context_->pt_inputs_.size() == 3,
-        "logsoftmax_bwd node should have 3 input pytorch tensors");
-    p_context_->pt_inputs_.pop_back();
-    std::swap(p_context_->pt_inputs_[0], p_context_->pt_inputs_[1]);
-  }
-  TORCH_CHECK(
-      p_context_->syn_inputs_.size() == 3,
-      "logsoftmax_bwd node should have 3 input synapse tensors");
-  p_context_->syn_inputs_.pop_back();
-  std::swap(p_context_->syn_inputs_[0], p_context_->syn_inputs_[1]);
-
   auto grad_output =
       habana_helpers::createPTTensor(input, is_output_persistent);
   AllocateSynapseOutput(graph, grad_output, is_output_persistent);
@@ -194,10 +171,11 @@ Tensor log_softmax_backward_hpu(
   std::vector<c10::IValue> stack = {
       IValue(grad), IValue(output), IValue(dim), IValue(input)};
   size_t key = Op.GetRecipeKey(node_type, stack);
+  // Assign Inputs to the Operator
+  std::vector<at::Tensor> pt_inputs{grad, output, input};
 
   if (device.get_recipe_handle_cache().isCached(key)) {
     PT_KERNEL_DEBUG("Cache hit key:", key);
-    std::vector<at::Tensor> pt_inputs{output, grad};
     auto output = at::empty(
         input.sizes(), input.options(), input.suggest_memory_format());
     Op.SetPTInputs(pt_inputs);
@@ -207,9 +185,6 @@ Tensor log_softmax_backward_hpu(
     PT_KERNEL_DEBUG("Key:", key);
     // create graph
     auto graph = habana_helpers::create_graph(device_id, node_type);
-
-    // Assign Inputs to the Operator
-    std::vector<at::Tensor> pt_inputs{grad, output, input};
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
     Op.AllocateAndAddSynapseNode(graph, stack, true);
@@ -516,28 +491,6 @@ void SoftmaxBackwardOperator::AllocateAndAddSynapseNode(
   p_context_->params_.emplace<ns_Softmax::Params>(params);
   p_context_->params_size_ = sizeof(params);
 
-  // For softmax_bwd_ kernel, the node inputs are in order {grad, output,
-  // input} The synapse graph needs only the grad and output, and in the order
-  // {output, grad} The p_context_->pt_inputs_ and p_context_->syn_inputs_ need
-  // to be modified to ensure this. Correct approch to do this is TBD.
-  TORCH_CHECK(
-      p_context_->syn_inputs_.size() == 3,
-      "softmax_bwd node should have 3 input synapse tensors");
-  if (p_context_->pt_inputs_.size() != 2) {
-    TORCH_CHECK(
-        p_context_->pt_inputs_.size() == 3,
-        "softmax_bwd node should have 3 input pytorch tensors");
-    // Remove the "input" tensor at the end
-    p_context_->pt_inputs_.pop_back();
-  }
-  // graph mode passes 3 inputs
-  // Remove the "input" tensor at the end
-  p_context_->syn_inputs_.pop_back();
-
-  // Reorder the grad and output
-  std::swap(p_context_->pt_inputs_[0], p_context_->pt_inputs_[1]);
-  std::swap(p_context_->syn_inputs_[0], p_context_->syn_inputs_[1]);
-
   auto input_grad =
       at::empty(input.sizes(), input.options(), input.suggest_memory_format());
 
@@ -569,13 +522,11 @@ Tensor softmax_backward_hpu(
   std::vector<c10::IValue> stack = {
       IValue(grad), IValue(output), IValue(dim), IValue(input)};
   size_t key = Op.GetRecipeKey(node_type, stack);
+  // Assign Inputs to the Operator
+  std::vector<at::Tensor> pt_inputs{grad, output, input};
 
   if (device.get_recipe_handle_cache().isCached(key)) {
     PT_KERNEL_DEBUG("Cache hit key:", key);
-    // For softmax_bwd_ kernel, the node inputs are in order {grad, output,
-    // input} The synapse graph needs only the grad and output, and in the order
-    // {output, grad}. Correct way to set the Inputs is TBD
-    std::vector<at::Tensor> pt_inputs{output, grad};
     auto input_grad = at::empty(
         input.sizes(), input.options(), input.suggest_memory_format());
     Op.SetPTInputs(pt_inputs);
@@ -585,8 +536,6 @@ Tensor softmax_backward_hpu(
     PT_KERNEL_DEBUG("Key:", key);
     // create graph
     auto graph = habana_helpers::create_graph(device_id, node_type);
-    // Assign Inputs to the Operator
-    std::vector<at::Tensor> pt_inputs{grad, output, input};
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
     Op.AllocateAndAddSynapseNode(graph, stack, true);
     // compile and execute the graph

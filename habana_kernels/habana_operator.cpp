@@ -16,23 +16,25 @@
 const std::array<int64_t, 4>& habana::HabanaOperator::getPermuteOrder(
     const LayoutFormat target_layout,
     bool to_device) {
-  static const std::unordered_map<const LayoutFormat, const std::array<int64_t, 4>>
-      toDevicePermuteOrder = {
-          // Host -> Device
-          {LayoutFormat::NHWC, {0, 2, 3, 1}}, // NCHW -> NHWC
-          {LayoutFormat::NCHW, {0, 1, 2, 3}}, // NCHW -> NCHW (No Change)
-          {LayoutFormat::HWCK, {2, 3, 1, 0}}, // KCHW -> HWCK
-          {LayoutFormat::ANY, {0, 1, 2, 3}} // XXXX -> XXXX (No Change)
-      };
+  static const std::
+      unordered_map<const LayoutFormat, const std::array<int64_t, 4>>
+          toDevicePermuteOrder = {
+              // Host -> Device
+              {LayoutFormat::NHWC, {0, 2, 3, 1}}, // NCHW -> NHWC
+              {LayoutFormat::NCHW, {0, 1, 2, 3}}, // NCHW -> NCHW (No Change)
+              {LayoutFormat::HWCK, {2, 3, 1, 0}}, // KCHW -> HWCK
+              {LayoutFormat::ANY, {0, 1, 2, 3}} // XXXX -> XXXX (No Change)
+          };
 
-  static const std::unordered_map<const LayoutFormat, const std::array<int64_t, 4>>
-      toHostPermuteOrder = {
-          // Device -> Host
-          {LayoutFormat::NCHW, {0, 1, 2, 3}}, // NCHW   -> NCHW (No Change)
-          {LayoutFormat::NHWC, {0, 3, 1, 2}}, // NHWC   -> NCHW
-          {LayoutFormat::HWCK, {3, 2, 0, 1}}, // HWCK   -> KCHW
-          {LayoutFormat::ANY, {0, 1, 2, 3}} // XXXX   -> XXXX (No Change)
-      };
+  static const std::
+      unordered_map<const LayoutFormat, const std::array<int64_t, 4>>
+          toHostPermuteOrder = {
+              // Device -> Host
+              {LayoutFormat::NCHW, {0, 1, 2, 3}}, // NCHW   -> NCHW (No Change)
+              {LayoutFormat::NHWC, {0, 3, 1, 2}}, // NHWC   -> NCHW
+              {LayoutFormat::HWCK, {3, 2, 0, 1}}, // HWCK   -> KCHW
+              {LayoutFormat::ANY, {0, 1, 2, 3}} // XXXX   -> XXXX (No Change)
+          };
 
   const auto& permuteOrder =
       (to_device ? toDevicePermuteOrder : toHostPermuteOrder);
@@ -214,10 +216,18 @@ void habana::HabanaOperator::AddNodeToSynapseGraph(
   std::vector<synTensor> syn_inputs;
   std::vector<synTensor> syn_outputs;
 
-  for (size_t i = 0; i < p_context_->syn_inputs_.size(); i++) {
-    synapse_helpers::tensor& tensor = p_context_->syn_inputs_[i];
-    if (kernel_meta_data_.valid_input_idx.empty() ||
-        kernel_meta_data_.valid_input_idx.count(i)) {
+  if (kernel_meta_data_.tpc_input_order.size()) {
+    auto no_inputs = kernel_meta_data_.tpc_input_order.size() == 1 &&
+        NO_INPUTS == kernel_meta_data_.tpc_input_order[0];
+    if (no_inputs == false) {
+      for (auto index : kernel_meta_data_.tpc_input_order) {
+        HABANA_ASSERT(index < p_context_->syn_inputs_.size());
+        synapse_helpers::tensor& tensor = p_context_->syn_inputs_[index];
+        syn_inputs.emplace_back(tensor.get());
+      }
+    }
+  } else {
+    for (synapse_helpers::tensor& tensor : p_context_->syn_inputs_) {
       syn_inputs.emplace_back(tensor.get());
     }
   }

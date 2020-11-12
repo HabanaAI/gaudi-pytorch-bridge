@@ -39,7 +39,7 @@ class NLLLossBwdOperator : public HabanaOperator {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
     kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
-    kernel_meta_data_.valid_input_idx.insert({0, 2});
+    kernel_meta_data_.tpc_input_order = {0, 2};
   }
 
   virtual void AllocateAndAddSynapseNode(
