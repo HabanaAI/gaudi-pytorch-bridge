@@ -1434,7 +1434,16 @@ if __name__ == "__main__":
                 if args.use_jit_trace and is_first_it:
                     model_to_run = enable_tracing(dlrm_habana, X_device, lS2_o, gv.indices_fwd,
                                                   gv.valid_count_fwd, gv.outputRowOffsets_hpu, gv.indices_bwd, gv.valid_count_bwd, gv.coalesced_grads)
-                    is_first_it = False
+
+                # we are not using DDP wrapper now, so explicitly broadcast the params
+                if args.distributed and is_first_it and not args.use_lazy_eval:
+                    for tparam in model_to_run.top_l.parameters():
+                        torch.distributed.broadcast(tparam, 0)
+                    for bparam in model_to_run.bot_l.parameters():
+                        torch.distributed.broadcast(bparam, 0)
+
+                is_first_it = False
+
 
                 if args.mlperf_logging:
                     current_time = time_wrap(use_gpu)
@@ -1492,12 +1501,47 @@ if __name__ == "__main__":
                     # module is traced, so we explicitly reduce the grads
                     # This should be removed when lazy mode is enabled
                     if args.distributed and not args.use_lazy_eval:
+                        tensor_list1 = []
                         for tparam in dlrm_habana.top_l.parameters():
                             if (tparam.requires_grad):
-                                torch.distributed.all_reduce(tparam.grad)
+                                #print("tparam :: ", tparam.grad.to("cpu"))
+                                tensor_list1.append(tparam.grad)
+                        # flatten and unflatten the tensors to reduce num of all reduce calls
+                        flat1 = torch.cat([t.contiguous().view(-1) for t in tensor_list1], dim=0)
+                        #print(flat1.to("cpu"))
+                        torch.distributed.all_reduce(flat1)
+                        outputs1 = []
+                        offset1 = 0
+                        for tensor in tensor_list1:
+                            numel1 = tensor.numel()
+                            outputs1.append(flat1.narrow(0, offset1, numel1).view_as(tensor))
+                            offset1 += numel1
+                        #print("flatten & unflatten sizes :: ", len(tensor_list1), len(outputs1))
+                        idx=0
+                        for tparam in dlrm_habana.top_l.parameters():
+                            if (tparam.requires_grad):
+                                #print("outputs :: ",outputs1[idx].to("cpu"))
+                                tparam.grad.copy_(outputs1[idx])
+                                idx+=1
+
+                        tensor_list2 = []
                         for bparam in dlrm_habana.bot_l.parameters():
                             if (bparam.requires_grad):
-                                torch.distributed.all_reduce(bparam.grad)
+                                tensor_list2.append(bparam.grad)
+                        flat2 = torch.cat([t.contiguous().view(-1) for t in tensor_list2], dim=0)
+                        #print(flat2.to("cpu"))
+                        torch.distributed.all_reduce(flat2)
+                        outputs2 = []
+                        offset2 = 0
+                        for tensor in tensor_list2:
+                            numel2 = tensor.numel()
+                            outputs2.append(flat2.narrow(0, offset2, numel2).view_as(tensor))
+                            offset2 += numel2
+                        idx=0
+                        for tparam in dlrm_habana.bot_l.parameters():
+                            if (tparam.requires_grad):
+                                tparam.grad.copy_(outputs2[idx])
+                                idx+=1
                     # print('Net after backward')
                     # dlrm_habana.printParamsAndGrads()
 
