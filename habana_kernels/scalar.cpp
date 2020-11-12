@@ -13,42 +13,40 @@
 #include "habana_helpers/logging.h"
 #include "habana_helpers/tensor_utils.h"
 
+
 using namespace torch;
 
 namespace at {
 namespace native {
 
+
 Scalar _local_scalar_dense_hpu(const Tensor& self) {
   PT_KERNEL_BEGIN;
   Scalar r;
 
-  // Note: this macro expands to more types than HPU supports, but this is not
-  // an issue
-  // Note: Pytorch uses this function to check a specific emement of a tensor
-  // eg. embedding_bag validates the first value offsets to be 0 using this
-  // function
+  // Note:
+  // 1. This macro expands to more types than HPU supports,
+  //   but that should not be an issue issue.
+  // 2. Pytorch uses this function to check a specific emement of a tensor
+  //   eg. embedding_bag validates the first value offsets to be 0 using this
+  //   function
+  // 3. A TORCH_CHECK is added to ensure that the size at source
+  //   matches with the destination.
 
-  if (at::ScalarType::Bool == self.scalar_type()) {
-    AT_DISPATCH_ALL_TYPES_AND(
-        at::ScalarType::Bool,
-        self.scalar_type(),
-        "_local_scalar_dense_hpu",
-        [&] {
-          scalar_t val;
-          habana_helpers::copy_scalar_to_host(self, &val, sizeof(self.dtype()));
-          r = Scalar(val);
-        });
-  } else {
-    AT_DISPATCH_ALL_TYPES_AND(
-        at::ScalarType::BFloat16,
-        self.scalar_type(),
-        "_local_scalar_dense_hpu",
-        [&] {
-          scalar_t val;
-          habana_helpers::copy_scalar_to_host(self, &val, sizeof(self.dtype()));
-          r = Scalar(val);
-        });
-  }
+  AT_DISPATCH_ALL_TYPES_AND2(
+      at::ScalarType::Bool,
+      at::ScalarType::BFloat16,
+      self.scalar_type(),
+      "_local_scalar_dense_hpu",
+      [&] {
+        scalar_t val;
+        TORCH_CHECK(elementSize(self.scalar_type()) == sizeof(val),
+            " source and destination size mismatch");
+        habana_helpers::copy_scalar_to_host(self, &val, sizeof(val));
+        r = Scalar(val);
+      }
+  );
+
   PT_KERNEL_END;
 
   return r;
