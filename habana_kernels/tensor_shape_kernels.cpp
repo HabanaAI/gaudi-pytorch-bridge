@@ -671,15 +671,18 @@ void ReshapeOperator::AllocateAndAddSynapseNode(
       "Right now Reshape is only supported for contiguous Tensor.");
 
   auto shape = inputs[1].toIntList();
+  auto shape_vector  = shape.vec();
+  auto input_shape = IntArrayRef(shape_vector.data(), shape_vector.size());
+  auto inferred_size = at::infer_size(input_shape, self.numel());
   auto output = habana_helpers::createPTTensor(
       self,
-      shape.vec(),
+      inferred_size,
       self.options(),
       self.suggest_memory_format(),
       is_output_persistent);
   TORCH_CHECK(
       self.numel() == output.numel(),
-      "Reshape doesnt support change in number of elements");
+      "Reshape doesnt support change in number of elements: ", self.sizes(), " Size of output: ", output.sizes());
   p_context_->params_size_ = 0;
   AllocateSynapseOutput(graph, output, is_output_persistent);
   AddNodeToSynapseGraph(graph, NULL, 0);
