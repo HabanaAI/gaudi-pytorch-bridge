@@ -270,6 +270,67 @@ void ToDtypeOperator::AllocateAndAddSynapseNode(
   p_context_->pt_outputs_.emplace_back(std::move(Op.GetOutputs()[0]));
 }
 
+void CastLazyOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 2,
+      "Incorrect size of inputs expected for cast operator");
+  TORCH_CHECK(
+      inputs[0].isTensor(),
+      "Input arg1 expected to be tensor for toDtype operator");
+
+  auto self = inputs[0].toTensor();
+  auto output = inputs[1].toTensor();
+
+  std::string node_type;
+  if (self.dtype() == c10::ScalarType::BFloat16 &&
+      output.dtype() == c10::ScalarType::Float) {
+    node_type = "cast_bf16_to_f32";
+  } else if (
+      output.dtype() == c10::ScalarType::BFloat16 &&
+      self.dtype() == c10::ScalarType::Float) {
+    node_type = "cast_f32_to_bf16";
+  } else if (
+      output.dtype() == c10::ScalarType::Int &&
+      self.dtype() == c10::ScalarType::Float) {
+    node_type = "cast_i32_to_f32";
+  } else if (
+      output.dtype() == c10::ScalarType::Float &&
+      self.dtype() == c10::ScalarType::Int) {
+    node_type = "cast_f32_to_i32";
+  } else if (
+      output.dtype() == c10::ScalarType::Char &&
+      self.dtype() == c10::ScalarType::Float) {
+    node_type = "cast_i8_to_f32";
+  } else if (
+      output.dtype() == c10::ScalarType::Float &&
+      self.dtype() == c10::ScalarType::Char) {
+    node_type = "cast_f32_to_i8";
+  } else if (
+      output.dtype() == c10::ScalarType::Bool &&
+      self.dtype() == c10::ScalarType::Float) {
+    node_type = "cast_i8_to_f32";
+  } else if (
+      output.dtype() == c10::ScalarType::Float &&
+      self.dtype() == c10::ScalarType::Bool) {
+    node_type = "cast_f32_to_i8";
+  }
+
+  SetGuid(node_type);
+
+  ns_CastKernel::Params params = synapse_cast_params_builder();
+  p_context_->params_.emplace<ns_CastKernel::Params>(params);
+  p_context_->params_size_ = sizeof(params);
+
+  HABANA_ASSERT(p_context_->syn_inputs_.size() == 2);
+  synapse_helpers::tensor_or_ref& input_tensor = p_context_->syn_inputs_.back();
+  p_context_->syn_outputs_.emplace_back(std::move(input_tensor));
+  p_context_->pt_outputs_.emplace_back(output);
+  AddNodeToSynapseGraph(graph, &params, sizeof(params));
+}
+
 /*************************************************************************
  * @brief Kernel implementation for memcpy, used for D2D mem transfers
  * @param self - input which needs to be transferred
@@ -317,6 +378,11 @@ static auto& KernelRegistry =
             "hpu::habana_d2d_memcpy",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<MemCopyOperator>(device_id, node_type);
+            })
+        .add(
+            "hpu::cast",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<CastLazyOperator>(device_id, node_type);
             })
         .add("aten::to", [](const int device_id, c10::ScalarType node_type) {
           return std::make_shared<ToDtypeOperator>(device_id, node_type);

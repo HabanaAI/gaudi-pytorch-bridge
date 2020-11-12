@@ -22,6 +22,7 @@
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/hblazy/csrc/lazy_executor.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
+#include "habana_lazy/ops/cast_ops.h"
 #include "habana_lazy/ops/cat.h"
 #include "habana_lazy/ops/constant.h"
 #include "habana_lazy/ops/convolution.h"
@@ -69,32 +70,27 @@ at::Tensor preProcessIfLongorDouble(
 
 Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
   PT_LAZY_TRACE;
-  // We need to add device to device copy kernel here
-  // As d2D copies may not mean trigger execution, we just need to add the
-  // nodes like cast to our lazy graph that we are creating
-  habana_lazy::HbLazyTensor hb_tensor =
-      habana_lazy::GetOrCreateHbLazyTensor(src, src.device());
-  // TODO : we can give a more detailed cast info in node name later
-  // Will need to move the name generation in a utility(will need to
-  // modify kernel too, not touching right now)
   habana_lazy::ir::NodePtr node;
   if (src.dtype() == self.dtype()) {
+    habana_lazy::HbLazyTensor hb_tensor =
+        habana_lazy::GetOrCreateHbLazyTensor(src, src.device());
     node = habana_lazy::ir::Node::Create(
         Symbol::fromQualString("hpu::habana_d2d_memcpy"),
         {hb_tensor.GetIrValue()});
+    auto hlresult = habana_lazy::GetHbLazyTensor(self);
+    habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
+    out.m_index = 0;
+    out.SetNode(node);
+
+    std::vector<at::Tensor> input_pt_vec{src};
+    node->AddInputPtTensors(input_pt_vec);
   } else {
-    node = habana_lazy::ir::Node::Create(
-        Symbol::fromQualString("aten::cast"), {hb_tensor.GetIrValue()});
+    node = std::make_shared<habana_lazy::ir::Cast>(self, src, non_blocking);
+    auto hlresult = habana_lazy::GetHbLazyTensor(self);
+    habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
+    out.m_index = 0;
+    out.SetNode(node);
   }
-
-  self = habana_helpers::hpu_cast_tensor(src, self.dtype());
-  auto hlresult = habana_lazy::GetHbLazyTensor(self);
-  habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
-  out.m_index = 0;
-  out.SetNode(node);
-
-  std::vector<at::Tensor> input_pt_vec{src};
-  node->AddInputPtTensors(input_pt_vec);
 
   return self;
 }
@@ -236,7 +232,7 @@ Tensor& copy_hpu_lazy_(Tensor& self, const Tensor& src, bool non_blocking) {
           false,
           "Habana copy_hpu_lazy_: trying to copy from a storage less lazy tensor");
     }
-  } else if (habana_lazy::IsHbLazyTensor(src)) {
+  } else if (habana_lazy::IsHbLazyTensor(src) && !is_d2d_copy) {
     auto src_hb_tensor = habana_lazy::GetHbLazyTensor(src);
     TORCH_CHECK(
         src_hb_tensor.isStorageAttached(),
