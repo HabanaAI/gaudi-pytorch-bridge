@@ -339,7 +339,7 @@ void stop_hw_profile() {
     if (status != synSuccess) {
       SLOG(S_ERROR) << "synDeviceSynchronize failed: " << status;
     }
-    synProfilerGetTrace(synTraceDevice, logger.last_acquired_id(), synTraceFormatTEF, nullptr, nullptr);
+    synProfilerGetTrace2(synTraceDevice, logger.last_acquired_id(), synTraceFormatTEF, nullptr, nullptr, nullptr);
     if (status != synSuccess) {
       SLOG(S_ERROR) << "synDeviceSynchronize failed: " << status;
     }
