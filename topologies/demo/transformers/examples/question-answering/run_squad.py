@@ -81,7 +81,7 @@ def enable_tracing():
     except ImportError:
             assert False,"Could Not import hb_torch"
 
-    hb_torch.disable()
+    hb_torch.enable()
     hb_torch.remove_inplace_ops()
 
 
