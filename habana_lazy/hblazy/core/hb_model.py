@@ -55,6 +55,9 @@ def enable_eliminate_dead_code(flag):
 def enable_constant_pooling(flag):
     _hblazy._enable_constant_pooling(flag)
 
+def enable_peephole_optimization(flag):
+    _hblazy._enable_peephole_optimization(flag)
+
 def optimizer_step(optimizer, barrier=False, optimizer_args={}, groups=None):
     # reduce_gradients(optimizer, groups=groups)
     loss = optimizer.step(**optimizer_args)

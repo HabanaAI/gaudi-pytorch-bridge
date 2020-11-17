@@ -95,6 +95,13 @@ void InitModuleBindings(py::module m) {
             flag;
       },
       py::arg("flag"));
+  m.def(
+      "_enable_peephole_optimization",
+      [](const bool flag) {
+        habana_lazy::exec::OptPassCfg::GetInstance()->enable_peephole_optimization =
+            flag;
+      },
+      py::arg("flag"));
 }
 
 } // namespace

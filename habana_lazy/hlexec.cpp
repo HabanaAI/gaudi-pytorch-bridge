@@ -10,6 +10,7 @@
 #include <torch/csrc/jit/passes/common_subexpression_elimination.h>
 #include <torch/csrc/jit/passes/constant_pooling.h>
 #include <torch/csrc/jit/passes/dead_code_elimination.h>
+#include <torch/csrc/jit/passes/peephole.h>
 
 #include "habana_bridge/kernel/hpu_habana_launch_op_pt.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
@@ -181,15 +182,19 @@ std::tuple<LazyValueToJitValueMap, LazyValueToJitValueMap> HlExec::Create(
 
 void HlExec::Optimize() {
   if (OptPassCfg::GetInstance()->enable_eliminate_dead_code) {
-    EliminateDeadCode(mp_g_);
+    torch::jit::EliminateDeadCode(mp_g_);
   }
 
   if (OptPassCfg::GetInstance()->enable_eliminate_common_subexpression) {
-    EliminateCommonSubexpression(mp_g_);
+    torch::jit::EliminateCommonSubexpression(mp_g_);
   }
 
   if (OptPassCfg::GetInstance()->enable_constant_pooling) {
-    ConstantPooling(mp_g_);
+    torch::jit::ConstantPooling(mp_g_);
+  }
+
+  if (OptPassCfg::GetInstance()->enable_peephole_optimization) {
+    torch::jit::PeepholeOptimize(mp_g_);
   }
 }
 
