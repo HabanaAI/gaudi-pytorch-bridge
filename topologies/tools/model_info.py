@@ -30,3 +30,7 @@ def model_print_unique_named_modules(model):
         nm = model_find_num_submodules(module)
         if nm == 0:
             print("name: ", name, "module = ", module)
+
+def model_print_named_parameters(model):
+    for name, param in model.named_parameters():
+        print (name, ', size = ', param.data.size(), flush=True)
