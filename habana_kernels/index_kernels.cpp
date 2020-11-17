@@ -57,8 +57,7 @@ static Tensor make_index_same_size_as_value(
   return index_broadcast;
 }
 
-int GetOutputSize(Scalar start_, Scalar end_, Scalar step_)
-{
+int GetOutputSize(Scalar start_, Scalar end_, Scalar step_) {
   auto start = start_.to<double>();
   auto end = end_.to<double>();
   auto step = step_.to<double>();
@@ -188,38 +187,6 @@ Tensor gather_src_hpu(
   return out.at(0);
 }
 
-/*************************************************************************
- * @brief Kernel implementation for scatter_.src(Tensor(a!) self, int dim,
- *Tensor index, Tensor src) -> Tensor(a!)
- * @param self - Input tensor 1-4D bf16/fp32
- * @param dim - dimension along which to index
- * @param index - Tensor used to index into self
- * @param src -Tensor with values to be updated (of same type as self)
- ************************************************************************/
-Tensor& scatter_inplace_src_hpu(
-    Tensor& self,
-    int64_t dim_,
-    const Tensor& index,
-    const Tensor& src) {
-  PT_KERNEL_BEGIN;
-  auto dim = at::maybe_wrap_dim(dim_, self.dim(), /*wrap_scalar=*/true);
-
-  ns_ScatterKernel::Params params;
-  params.axis = self.dim() - dim - 1;
-
-  std::vector<at::Tensor> pt_inputs{self, index, src};
-
-  synapse_simple_generic_inplace_kernel(
-      pt_inputs,
-      "scatter",
-      &params,
-      sizeof(params),
-      SynapsePassType::FORWARD_PASS);
-
-  PT_KERNEL_END;
-  return self;
-}
-
 void ScatterOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
@@ -315,6 +282,27 @@ Tensor scatter_src_hpu(
 }
 
 /*************************************************************************
+ * @brief Kernel implementation for scatter_.src(Tensor(a!) self, int dim,
+ *Tensor index, Tensor src) -> Tensor(a!)
+ * @param self - Input tensor 1-4D bf16/fp32
+ * @param dim - dimension along which to index
+ * @param index - Tensor used to index into self
+ * @param src -Tensor with values to be updated (of same type as self)
+ ************************************************************************/
+Tensor& scatter_inplace_src_hpu(
+    Tensor& self,
+    int64_t dim_,
+    const Tensor& index,
+    const Tensor& src) {
+  PT_KERNEL_BEGIN;
+  auto out = scatter_src_hpu(self, dim_, index, src);
+  self.copy_(out);
+
+  PT_KERNEL_END;
+  return self;
+}
+
+/*************************************************************************
  * @brief Kernel implementation for scatter_add(Tensor self, int dim, Tensor
  * index, Tensor src) -> Tensor
  * @param self - Input tensor 1-4D bf16/fp32
@@ -334,8 +322,9 @@ Tensor scatter_add_src_hpu(
   params.axis = self.dim() - dim - 1;
 
   std::vector<at::Tensor> pt_inputs{self, index, src};
-  std::string node_type {"scatter_add_fwd_"};
-  node_type += habana_helpers::name_suffix_from_type(pt_inputs[0].scalar_type());
+  std::string node_type{"scatter_add_fwd_"};
+  node_type +=
+      habana_helpers::name_suffix_from_type(pt_inputs[0].scalar_type());
   auto output = at::empty(
       self.sizes().vec(), self.options(), self.suggest_memory_format());
   std::vector<at::Tensor> pt_outputs{output};
@@ -347,11 +336,7 @@ Tensor scatter_add_src_hpu(
   // Execute the graph
   if (device.get_recipe_handle_cache().isCached(key)) {
     PT_KERNEL_DEBUG("Cache hit key:", key);
-    synapse_execute_cached_kernel(
-        pt_outputs,
-        pt_inputs,
-        device_id,
-        key);
+    synapse_execute_cached_kernel(pt_outputs, pt_inputs, device_id, key);
   } else {
     PT_KERNEL_DEBUG("key:", key);
     synapse_execute_kernel(
@@ -962,10 +947,10 @@ Tensor slice_hpu(
   PT_KERNEL_BEGIN;
 
   Tensor self;
-  if(in_self.scalar_type() ==c10::ScalarType::Long) {
-      self = habana_helpers::cast_tensor_to_integer(in_self);
-    }else{
-      self= in_self;
+  if (in_self.scalar_type() == c10::ScalarType::Long) {
+    self = habana_helpers::cast_tensor_to_integer(in_self);
+  } else {
+    self = in_self;
   }
 
   // for handling trivial cases, fall-back to simple tensor meta-data
@@ -1005,10 +990,10 @@ Tensor slice_hpu(
   std::vector<at::Tensor> out = Op.GetOutputs();
   TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
   Tensor cast_out;
-  if(in_self.scalar_type() ==c10::ScalarType::Long) {
-   cast_out = habana_helpers::cast_tensor_to_long(out.at(0));
-   }else{
-   cast_out = out.at(0);
+  if (in_self.scalar_type() == c10::ScalarType::Long) {
+    cast_out = habana_helpers::cast_tensor_to_long(out.at(0));
+  } else {
+    cast_out = out.at(0);
   }
   PT_KERNEL_END;
   return cast_out;
@@ -1070,8 +1055,8 @@ void SelectOperator::AllocateAndAddSynapseNode(
   auto slice_out_tensor = slice_op.GetOutputs()[0];
   auto shape = slice_out_tensor.sizes().vec();
   shape.erase(shape.begin() + dim);
-  torch::jit::Stack stack2 = {
-      c10::IValue(slice_out_tensor), c10::IValue(shape)};
+  torch::jit::Stack stack2 = {c10::IValue(slice_out_tensor),
+                              c10::IValue(shape)};
   reshape_op.AllocateAndAddSynapseNode(graph, stack2, is_output_persistent);
 
   p_context_->syn_outputs_.emplace_back(
@@ -1090,10 +1075,10 @@ Tensor select_hpu(const Tensor& in_self, int64_t dim, int64_t index) {
   PT_KERNEL_BEGIN;
 
   Tensor self;
-  if(in_self.scalar_type() ==c10::ScalarType::Long) {
-      self = habana_helpers::cast_tensor_to_integer(in_self);
-    }else{
-      self= in_self;
+  if (in_self.scalar_type() == c10::ScalarType::Long) {
+    self = habana_helpers::cast_tensor_to_integer(in_self);
+  } else {
+    self = in_self;
   }
 
   at::ScalarType scalar_type = self.scalar_type();
@@ -1128,28 +1113,28 @@ Tensor select_hpu(const Tensor& in_self, int64_t dim, int64_t index) {
   HABANA_ASSERT(out.size() == 1);
 
   Tensor cast_out;
-  if(in_self.scalar_type() ==c10::ScalarType::Long) {
-   cast_out = habana_helpers::cast_tensor_to_long(out.at(0));
-   }else{
-   cast_out = out.at(0);
+  if (in_self.scalar_type() == c10::ScalarType::Long) {
+    cast_out = habana_helpers::cast_tensor_to_long(out.at(0));
+  } else {
+    cast_out = out.at(0);
   }
   PT_KERNEL_END;
   return cast_out;
 }
 
 void ArangeOperator::SetPTOutputs(torch::jit::Stack& inputs) {
-  auto result = inputs[0].toTensor();
+  auto result = inputs[3].toTensor();
 
-  if(result.scalar_type() == ScalarType::Long)
-  {
-    auto output_int = habana_helpers::createPTTensor(result, result.sizes(), result.options(),
-    result.suggest_memory_format(),
-    c10::ScalarType::Int,
-    true);
+  if (result.scalar_type() == ScalarType::Long) {
+    auto output_int = habana_helpers::createPTTensor(
+        result,
+        result.sizes(),
+        result.options(),
+        result.suggest_memory_format(),
+        c10::ScalarType::Int,
+        true);
     HabanaOperator::SetPTOutput(output_int);
-  }
-  else
-  {
+  } else {
     HabanaOperator::SetPTOutput(result);
   }
 }
@@ -1162,48 +1147,59 @@ void ArangeOperator::AllocateAndAddSynapseNode(
       inputs.size() == 4,
       "Incorrect size of inputs expected for Arange operator");
   TORCH_CHECK(
-      inputs[0].isTensor(),
-      "Input arg1 expected to be tensor for Arange operator");
+      inputs[3].isTensor(),
+      "Input arg3 expected to be tensor for Arange operator");
+  TORCH_CHECK(
+      inputs[0].isScalar(),
+      "Input arg1 expected to be Scalar for Arange operator");
   TORCH_CHECK(
       inputs[1].isScalar(),
       "Input arg2 expected to be Scalar for Arange operator");
   TORCH_CHECK(
       inputs[2].isScalar(),
       "Input arg3 expected to be Scalar for Arange operator");
-  TORCH_CHECK(
-      inputs[3].isScalar(),
-      "Input arg4 expected to be Scalar for Arange operator");
 
-  auto start = inputs[1].toScalar();
-  auto end = inputs[2].toScalar();
-  auto step = inputs[3].toScalar();
+  auto start = inputs[0].toScalar();
+  auto end = inputs[1].toScalar();
+  auto step = inputs[2].toScalar();
+  auto result = inputs[3].toTensor();
+
+  // Adding a clear for inputs as arange TPC kernel expects no inputs
+  // but graph mode call creates a syn tensor anyway, which causes a
+  // synapse graph compilation failure
+  p_context_->syn_inputs_.clear();
 
   ns_RangeKernel::Params param;
   param.start.f = static_cast<float>(start.to<double>());
   param.limit.f = static_cast<float>(end.to<double>());
   param.delta.f = static_cast<float>(step.to<double>());
 
+  // Set Guid here again because in graph mode we may have set guid to
+  // range_i32 which is not supported by TPC kernel
+  if (result.scalar_type() == ScalarType::BFloat16) {
+    SetGuid("range_bf16");
+  } else {
+    SetGuid("range_f32");
+  }
 
-  auto result = inputs[0].toTensor();
-
-  //TPC kernel support only bf16/f32,
-  //If datatype is bf16/fp32 , no cast node is required
-  if(result.scalar_type() == ScalarType::Float ||
-    result.scalar_type() == ScalarType::BFloat16)
-  {
+  // TPC kernel support only bf16/f32,
+  // If datatype is bf16/fp32 , no cast node is required
+  if (result.scalar_type() == ScalarType::Float ||
+      result.scalar_type() == ScalarType::BFloat16) {
     AllocateSynapseOutput(graph, result, is_output_persistent);
     AddNodeToSynapseGraph(graph, &param, sizeof(param));
-  }
-  else
-  {
-    //For datatypes Int, Long, Char, Bool one additional cast node is required.
-    //Arange kernel return f32 output node
-    //Cast kernel will convert f32 -> (i32/i8)
+  } else {
+    // For datatypes Int, Long, Char, Bool one additional cast node is required.
+    // Arange kernel return f32 output node
+    // Cast kernel will convert f32 -> (i32/i8)
 
-    auto output_range = habana_helpers::createPTTensor(result, result.sizes(), result.options(),
-      result.suggest_memory_format(),
-      c10::ScalarType::Float,
-      false);
+    auto output_range = habana_helpers::createPTTensor(
+        result,
+        result.sizes(),
+        result.options(),
+        result.suggest_memory_format(),
+        c10::ScalarType::Float,
+        false);
 
     AllocateSynapseOutput(graph, output_range, false);
     synapse_helpers::tensor& synOutput = p_context_->syn_outputs_[0];
@@ -1219,17 +1215,11 @@ void ArangeOperator::AllocateAndAddSynapseNode(
         sizeof(param),
         std::move(guid_));
 
-
-
-
-    //respective cast node
+    // respective cast node
     std::string node_type;
-    if(start.type() == ScalarType::Bool || start.type() == ScalarType::Char)
-    {
+    if (start.type() == ScalarType::Bool || start.type() == ScalarType::Char) {
       node_type = "cast_f32_to_i8";
-    }
-    else
-    {
+    } else {
       node_type = "cast_f32_to_i32";
     }
 
@@ -1241,29 +1231,27 @@ void ArangeOperator::AllocateAndAddSynapseNode(
     torch::jit::Stack stack;
     stack.emplace_back(IValue(output_range));
 
-    //cast is not supported for Long. It has to be cast first to Int
-    //The Int value will be converted to long on CPU
-    //That converted value will be copied to output tensor.
-    //For this we have to create one extra Int tensor
-    if(result.scalar_type() == ScalarType::Long)
-    {
-      auto output_int = habana_helpers::createPTTensor(result, result.sizes(), result.options(),
-      result.suggest_memory_format(),
-      c10::ScalarType::Int,
-      is_output_persistent);
+    // cast is not supported for Long. It has to be cast first to Int
+    // The Int value will be converted to long on CPU
+    // That converted value will be copied to output tensor.
+    // For this we have to create one extra Int tensor
+    if (result.scalar_type() == ScalarType::Long) {
+      auto output_int = habana_helpers::createPTTensor(
+          result,
+          result.sizes(),
+          result.options(),
+          result.suggest_memory_format(),
+          c10::ScalarType::Int,
+          is_output_persistent);
       stack.emplace_back(IValue(output_int));
-    }
-    else
-    {
+    } else {
       stack.emplace_back(IValue(result));
     }
     castOp.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
     p_context_->syn_outputs_[0] = std::move(castOp.GetSynOutputs()[0]);
     p_context_->pt_outputs_[0] = std::move(castOp.GetOutputs()[0]);
-
   }
 }
-
 
 /*************************************************************************
  * @brief Kernel implementation for torch.arange operator
@@ -1276,19 +1264,16 @@ void ArangeOperator::AllocateAndAddSynapseNode(
 Tensor& arange_hpu(Tensor& output, Scalar start, Scalar end, Scalar step) {
   PT_KERNEL_BEGIN;
 
-  //resizing the output as it is coming as empty from model
+  // resizing the output as it is coming as empty from model
   int depth = GetOutputSize(start, end, step);
   auto shape = DimVector({depth});
   auto tht_result = output.unsafeGetTensorImpl();
   THHTensor_resizeNd(tht_result, shape.size(), shape.data(), nullptr);
   at::ScalarType scalar_type;
-  if(output.scalar_type() == ScalarType::BFloat16)
-  {
+  if (output.scalar_type() == ScalarType::BFloat16) {
     scalar_type = c10::ScalarType::BFloat16;
-  }
-  else
-  {
-    scalar_type =  c10::ScalarType::Float;
+  } else {
+    scalar_type = c10::ScalarType::Float;
   }
 
   std::string node_type =
@@ -1300,10 +1285,8 @@ Tensor& arange_hpu(Tensor& output, Scalar start, Scalar end, Scalar step) {
   ArangeOperator Op(device_id, scalar_type);
 
   // Build Params for the graph
-  std::vector<c10::IValue> stack = {IValue(output),
-                                    IValue(start),
-                                    IValue(end),
-                                    IValue(step)};
+  std::vector<c10::IValue> stack = {
+      IValue(start), IValue(end), IValue(step), IValue(output)};
 
   size_t key = Op.GetRecipeKey(node_type, stack);
 
@@ -1323,20 +1306,15 @@ Tensor& arange_hpu(Tensor& output, Scalar start, Scalar end, Scalar step) {
   std::vector<at::Tensor> out = Op.GetOutputs();
   TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
 
-  if(output.scalar_type() == ScalarType::Long)
-  {
+  if (output.scalar_type() == ScalarType::Long) {
     output.copy_(habana_helpers::cast_tensor_to_long(out.at(0)));
     PT_KERNEL_END;
     return output;
-  }
-  else if(output.scalar_type() == ScalarType::Bool)
-  {
+  } else if (output.scalar_type() == ScalarType::Bool) {
     out.at(0).to(c10::ScalarType::Bool);
     PT_KERNEL_END;
     return out.at(0);
-  }
-  else
-  {
+  } else {
     PT_KERNEL_END;
     return out.at(0);
   }
@@ -1371,7 +1349,7 @@ static auto& KernelRegistry =
               return std::make_shared<IndexPutOperator>(device_id, node_type);
             })
         .add(
-            "aten::arange.start_out",
+            "aten::arange",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<ArangeOperator>(device_id, node_type);
             })
@@ -1380,9 +1358,6 @@ static auto& KernelRegistry =
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<GatherOperator>(device_id, node_type);
             })
-        .add(
-            "aten::slice",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<SliceOperator>(device_id, node_type);
-            });
-
+        .add("aten::slice", [](const int device_id, c10::ScalarType node_type) {
+          return std::make_shared<SliceOperator>(device_id, node_type);
+        });

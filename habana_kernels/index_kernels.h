@@ -180,8 +180,6 @@ class ArangeOperator : public HabanaOperator {
       : HabanaOperator(
             "range_" + habana_helpers::name_suffix_from_type(scalarType)) {
     this->CreateSynContext(device_id);
-    kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
-    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
   }
 
   virtual void AllocateAndAddSynapseNode(

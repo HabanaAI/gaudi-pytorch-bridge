@@ -1073,6 +1073,11 @@ static auto& KernelRegistry =
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<FlattenOperator>(device_id, node_type);
             })
+        .add(
+            "aten::expand",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<BroadcastOperator>(device_id, node_type);
+            })
         .add("aten::view", [](const int device_id, c10::ScalarType node_type) {
           return std::make_shared<ViewOperator>(device_id, node_type);
         });
