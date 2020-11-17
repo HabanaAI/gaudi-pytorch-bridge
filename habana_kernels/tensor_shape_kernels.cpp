@@ -817,9 +817,9 @@ void BroadcastOperator::AllocateAndAddSynapseNode(
   // to proper values.
   recalc_strides(expandedStrides, expandedSizes);
   Tensor result;
-  if (self.sizes().equals(expandedSizes)) {
-    // Nothing to do
-  } else {
+  //remove if part causing issue, if broadcast is used as intermediate node
+  //let gc handle the optimizatin if sizes equal
+  {
     result = habana_helpers::createPTTensor(
         self,
         expandedSizes,

@@ -116,4 +116,20 @@ class DotOperator : public HabanaOperator {
       bool is_output_persistent = false) override;
 };
 
+class MatMulOperator : public HabanaOperator {
+ public:
+  MatMulOperator(int device_id) : HabanaOperator("matmul") {
+    this->CreateSynContext(device_id);
+  }
+
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+
+  static std::vector<int64_t> compute_output_shape(
+      const at::Tensor &tensor1,
+      const at::Tensor &tensor2);
+};
+
 } // namespace habana

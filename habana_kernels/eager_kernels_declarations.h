@@ -530,3 +530,6 @@ Tensor ones_like_hpu(
     const Tensor& self,
     const TensorOptions& options,
     c10::optional<c10::MemoryFormat> optional_memory_format);
+Tensor matmul_hpu(
+    const at::Tensor& tensor1,
+    const at::Tensor& tensor2);
