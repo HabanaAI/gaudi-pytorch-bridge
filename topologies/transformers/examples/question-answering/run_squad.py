@@ -761,6 +761,7 @@ def main():
     parser.add_argument("--server_port", type=str, default="", help="Can be used for distant debugging.")
 
     parser.add_argument("--threads", type=int, default=1, help="multiple threads for converting example to features")
+    parser.add_argument("--no_dropout", action='store_true', help='Disable Dropout in the model')
     args = parser.parse_args()
 
     if args.doc_stride >= args.max_seq_length - args.max_query_length:
@@ -833,9 +834,13 @@ def main():
         torch.distributed.barrier()
 
     args.model_type = args.model_type.lower()
+
+    extra_kwargs = {'attention_probs_dropout_prob': 0.0, 'hidden_dropout_prob' : 0.0}  if args.no_dropout else {}
+
     config = AutoConfig.from_pretrained(
         args.config_name if args.config_name else args.model_name_or_path,
         cache_dir=args.cache_dir if args.cache_dir else None,
+        **extra_kwargs
     )
     tokenizer = AutoTokenizer.from_pretrained(
         args.tokenizer_name if args.tokenizer_name else args.model_name_or_path,
