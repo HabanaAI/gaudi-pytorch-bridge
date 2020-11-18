@@ -253,8 +253,14 @@ void ConstantOutOperator::AllocateAndAddSynapseNode(
   // Note that Constant TPC kernel does not need any tensor inputs
   // therefore we can move the input tensor(s) to corresponding
   // output tensors without any problems.
-  p_context_->syn_outputs_.emplace_back(std::move(p_context_->syn_inputs_[0]));
+  synapse_helpers::tensor_or_ref& input_tensor = p_context_->syn_inputs_.back();
+  p_context_->syn_outputs_.emplace_back(std::move(input_tensor));
   p_context_->pt_outputs_.emplace_back(p_context_->pt_inputs_[0]);
+  // Adding a clear for inputs as constant kernel expects no inputs
+  // AS we get inputs from PT kernel, graph mode creates a syn tensor anyway
+  // It was observed if we let that syn tensor remain, the kernel gives wrong
+  // outputs
+  p_context_->syn_inputs_.clear();
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
@@ -298,6 +304,11 @@ void ConstantOperator::AllocateAndAddSynapseNode(
 
   auto output = habana_helpers::createPTTensor(input, is_output_persistent);
   AllocateSynapseOutput(graph, output, is_output_persistent);
+  // Adding a clear for inputs as constant kernel expects no inputs
+  // AS we get inputs from PT kernel, graph mode creates a syn tensor anyway
+  // It was observed if we let that syn tensor remain, the kernel gives wrong
+  // outputs
+  p_context_->syn_inputs_.clear();
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
