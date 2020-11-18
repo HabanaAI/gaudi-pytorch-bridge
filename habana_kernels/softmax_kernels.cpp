@@ -368,6 +368,120 @@ Tensor softmax_hpu(const Tensor& self, int64_t dim, const bool half_to_float) {
   return out.at(0);
 }
 
+void SoftmaxIntOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 3,
+      "Incorrect size of input expected for Softmax operator");
+  TORCH_CHECK(
+      inputs[0].isTensor(),
+      "Input type expected to be tensor for Softmax operator");
+  TORCH_CHECK(
+      inputs[1].isInt(), "Input type expected to be int for Softmax operator");
+  TORCH_CHECK(
+      inputs[2].isScalar() || inputs[2].isInt() || inputs[2].isNone(),
+      "Input type expected to be Scalar for SoftmaxInt operator");
+
+  auto self = inputs[0].toTensor();
+  auto dim = inputs[1].toInt();
+  if (!inputs[2].isNone()) {
+    if (inputs[2].isScalar()) {
+      UNUSED auto dtype = inputs[2].toScalar();
+    } else if (inputs[2].isInt()) {
+      UNUSED auto dtype = inputs[2].toInt();
+    }
+  }
+  dim = at::maybe_wrap_dim(dim, self.dim(), /*wrap_scalar=*/true);
+
+  ns_Softmax::Params params{static_cast<int>(self.ndimension() - 1 - dim)};
+
+  if (self.scalar_type() == c10::ScalarType::Int ||
+      self.scalar_type() == c10::ScalarType::Bool) {
+    // Cast Input tensor to Float tensor
+    std::string node_type;
+    if (self.scalar_type() == c10::ScalarType::Int) {
+      node_type = "cast_i32_to_f32";
+    } else if (self.scalar_type() == c10::ScalarType::Bool) {
+      node_type = "cast_i8_to_f32";
+    }
+
+    // Create the operator
+    CastOperator intToFloatOp(this->p_context_->device_id_, node_type);
+    auto& float_syn =
+        intToFloatOp.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+
+    // Build Params for the graph
+    std::vector<c10::IValue> stack{IValue(self),
+                                   IValue(c10::ScalarType::Float)};
+    intToFloatOp.AllocateAndAddSynapseNode(graph, stack, false);
+
+    synapse_helpers::tensor& float_syn_tensor = intToFloatOp.GetSynOutputs()[0];
+    auto output_float = intToFloatOp.GetOutputs()[0];
+    p_context_->syn_inputs_[0] = std::move(float_syn);
+
+    auto output = at::empty(
+        output_float.sizes(),
+        output_float.options(),
+        output_float.suggest_memory_format());
+    AllocateSynapseOutput(graph, output, is_output_persistent);
+    synapse_helpers::tensor& synOutput = p_context_->syn_outputs_[0];
+
+    std::vector<synTensor> syn_in{float_syn_tensor.get()};
+    std::vector<synTensor> syn_out{synOutput.get()};
+
+    at::ScalarType scalar_type = output_float.scalar_type();
+    node_type =
+        "softmax_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+    graph.add_node(
+        std::move(syn_in),
+        std::move(syn_out),
+        &params,
+        sizeof(params),
+        std::move(node_type));
+  } else {
+    // Softmax Operator
+    p_context_->params_.emplace<ns_Softmax::Params>(params);
+    p_context_->params_size_ = sizeof(params);
+
+    auto output = habana_helpers::createPTTensor(self, is_output_persistent);
+    AllocateSynapseOutput(graph, output, is_output_persistent);
+    AddNodeToSynapseGraph(graph, &params, sizeof(params));
+  }
+}
+
+void SoftmaxIntOperator::SetPTOutputs(torch::jit::Stack& inputs) {
+  TORCH_CHECK(
+      inputs.size() == 3,
+      "Incorrect size of input expected for Softmax operator");
+  TORCH_CHECK(
+      inputs[0].isTensor(),
+      "Input type expected to be tensor for Softmax operator");
+  TORCH_CHECK(
+      inputs[1].isInt(), "Input type expected to be int for Softmax operator");
+  TORCH_CHECK(
+      inputs[2].isScalar(),
+      "Input type expected to be Bool for SoftmaxInt operator");
+
+  auto self = inputs[0].toTensor();
+  auto output = at::empty(
+      self.sizes(),
+      self.options().dtype(c10::ScalarType::Float),
+      self.suggest_memory_format());
+  HabanaOperator::SetPTOutput(output);
+}
+
+Tensor softmax_int_hpu(
+    const Tensor& self,
+    int64_t dim,
+    c10::optional<ScalarType> dtype) {
+  PT_KERNEL_BEGIN;
+  auto result = softmax_hpu(self, dim, false);
+  PT_KERNEL_END;
+  return result;
+}
+
 void SoftmaxBackwardOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
@@ -407,12 +521,12 @@ void SoftmaxBackwardOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(
       p_context_->syn_inputs_.size() == 3,
       "softmax_bwd node should have 3 input synapse tensors");
-  if(p_context_->pt_inputs_.size()!=2){
+  if (p_context_->pt_inputs_.size() != 2) {
     TORCH_CHECK(
-          p_context_->pt_inputs_.size() == 3,
-         "softmax_bwd node should have 3 input pytorch tensors");
-        // Remove the "input" tensor at the end
-        p_context_->pt_inputs_.pop_back();
+        p_context_->pt_inputs_.size() == 3,
+        "softmax_bwd node should have 3 input pytorch tensors");
+    // Remove the "input" tensor at the end
+    p_context_->pt_inputs_.pop_back();
   }
   // graph mode passes 3 inputs
   // Remove the "input" tensor at the end
@@ -502,6 +616,18 @@ static auto& KernelRegistry =
             "aten::_softmax",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<habana::SoftmaxOperator>(
+                  device_id, node_type);
+            })
+        .add(
+            "aten::softmax.int",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<habana::SoftmaxIntOperator>(
+                  device_id, node_type);
+            })
+        .add(
+            "aten::softmax",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<habana::SoftmaxIntOperator>(
                   device_id, node_type);
             })
         .add(
