@@ -25,7 +25,7 @@
 #include "habana_helpers/tensor_info.h"
 #include "synapse_helpers/graph.h"
 
-#define PGM_LRU_MAX_NRECIPES 100
+#define PGM_LRU_MAX_NRECIPES 700
 #define PGM_LRU_MIN_NRECIPES 3
 
 enum class PGMCachingPolicy {
