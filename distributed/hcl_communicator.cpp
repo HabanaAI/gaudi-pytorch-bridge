@@ -109,7 +109,7 @@ synapse_error_o hcl_communicator::allreduce(device_ptr input_address, device_ptr
                                    device_ptr output_address, size_t elem_cnt, synDataType data_type,
                                    device_ptr intermediate_address, size_t intermediate_size) {
     return HCL_Allreduce(collective_stream, input_address, output_address, elem_cnt, data_type, intermediate_address,
-                         intermediate_size, hclop, hcl_comm(), false);
+                         intermediate_size, hclop, hcl_comm(), 0/*flags*/);
   };
   PT_DISTRIBUTED_BEGIN;
   auto status = execute_collective_with_fusion_buffer(allreduce_function, eHCLAllReduce, input_address, output_address,
@@ -131,7 +131,7 @@ synapse_error_o hcl_communicator::reduce(HCL_Rank dest_rank, device_ptr input_ad
                                            device_ptr output_address, size_t elem_cnt, synDataType data_type,
                                            device_ptr intermediate_address, size_t intermediate_size) {
     return HCL_Reduce(collective_stream, input_address, output_address, elem_cnt, data_type, intermediate_address,
-                      intermediate_size, dest_rank, hclop, hcl_comm(), false);
+                      intermediate_size, dest_rank, hclop, hcl_comm(), 0/*flags*/);
   };
 
   PT_DISTRIBUTED_BEGIN;
@@ -147,7 +147,7 @@ synapse_error_o hcl_communicator::reduce_scatter(device_ptr input_address, devic
                                         device_ptr output_address, size_t elem_cnt, synDataType data_type,
                                         device_ptr intermediate_address, size_t intermediate_size) {
     return HCL_Reduce_Scatter(collective_stream, input_address, output_address, elem_cnt, data_type,
-                              intermediate_address, intermediate_size, hclop, hcl_comm(), false);
+                              intermediate_address, intermediate_size, hclop, hcl_comm(), 0/*flags*/);
   };
 
   PT_DISTRIBUTED_BEGIN;
@@ -163,7 +163,7 @@ synapse_error_o hcl_communicator::alltoall(device_ptr input_address, device_ptr 
                                   device_ptr output_address, size_t elem_cnt, synDataType data_type,
                                   device_ptr intermediate_address, size_t intermediate_size) {
     return HCL_AlltoAll(collective_stream, input_address, output_address, elem_cnt, data_type,
-                        intermediate_address, intermediate_size, hcl_comm(), false);
+                        intermediate_address, intermediate_size, hcl_comm(), 0/*flags*/);
   };
 
   PT_DISTRIBUTED_BEGIN;
@@ -182,7 +182,7 @@ synapse_error_o hcl_communicator::broadcast(HCL_Rank root_rank, device_ptr addre
   synStreamHandle stream_handle = get_synapse_stream_handle(collective_stream);
   // For root (sending) rank address is input - root does not produce output
   prepare_stream(collective_stream, address);
-  status = HCL_Bcast(stream_handle, address, address, elem_cnt, data_type, root_rank, hcl_comm(), false);
+  status = HCL_Bcast(stream_handle, address, address, elem_cnt, data_type, root_rank, hcl_comm(), 0/*flags*/);
   VERIFY_HCL_STATUS("HCL_Bcast(...) failed.", status);
   submit_events(collective_stream, address, done_callback);
   PT_DISTRIBUTED_END;
@@ -197,7 +197,7 @@ synapse_error_o hcl_communicator::allgather(device_ptr input_address, device_ptr
   synStreamHandle stream_handle = get_synapse_stream_handle(collective_stream);
 
   prepare_stream(collective_stream, input_address);
-  status = HCL_AllGather(stream_handle, input_address, output_address, elem_cnt, data_type, hcl_comm(), false);
+  status = HCL_AllGather(stream_handle, input_address, output_address, elem_cnt, data_type, hcl_comm(), 0/*flags*/);
   VERIFY_HCL_STATUS("HCL_AllGather(...) failed", status);
   submit_events(collective_stream, output_address, done_callback);
   PT_DISTRIBUTED_END;

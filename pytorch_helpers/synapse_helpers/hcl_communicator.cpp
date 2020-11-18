@@ -213,7 +213,7 @@ synapse_error_o hcl_communicator::reduce_scatter(
       intermediate_buffer.size(),
       eHCLSum,
       hcl_comm(),
-      false);
+      0/*flags*/);
   VERIFY_HCL_STATUS("HCL_Reduce_Scatter(...) failed.", status);
 
   my_device_->register_producer_on_stream(
@@ -234,7 +234,7 @@ synapse_error_o hcl_communicator::reduce_scatter(
       intermediate_buffer.size(),
       eHCLSum,
       hcl_comm(),
-      false);
+      0/*flags*/);
   VERIFY_HCL_STATUS("HCL_Reduce_Scatter(...) failed.", status);
 
   tensor_cleanup_callback();
@@ -283,7 +283,7 @@ synapse_error_o hcl_communicator::reduce(
       dest_rank,
       eHCLSum,
       hcl_comm(),
-      false);
+      /*0*/);
   VERIFY_HCL_STATUS("HCL_Reduce(...) failed.", status);
 
   my_device_->register_producer_on_stream(
@@ -305,7 +305,7 @@ synapse_error_o hcl_communicator::reduce(
       dest_rank,
       eHCLSum,
       hcl_comm(),
-      false);
+      0/*flags*/);
   VERIFY_HCL_STATUS("HCL_Reduce_Scatter(...) failed.", status);
 
   tensor_cleanup_callback();
@@ -355,7 +355,7 @@ synapse_error_o hcl_communicator::allreduce(
       intermediate_buffer.size(),
       eHCLSum,
       hcl_comm(),
-      false);
+      0/*flags*/);
   VERIFY_HCL_STATUS("HCL_Allreduce(...) failed.", status);
 
   my_device_->register_producer_on_stream(
@@ -376,7 +376,7 @@ synapse_error_o hcl_communicator::allreduce(
       intermediate_buffer.size(),
       eHCLSum,
       hcl_comm(),
-      false);
+      0/*flags*/);
   VERIFY_HCL_STATUS("HCL_Allreduce(...) failed.", status);
 
   tensor_cleanup_callback();
@@ -408,7 +408,7 @@ synapse_error_o hcl_communicator::broadcast(
       data_type,
       root_rank,
       hcl_comm(),
-      false);
+      0/*flags*/);
   VERIFY_HCL_STATUS("HCL_Bcast(...) failed.", status);
 
   // For non root (recieving) rank address is output.
@@ -431,7 +431,7 @@ synapse_error_o hcl_communicator::broadcast(
       data_type,
       root_rank,
       hcl_comm(),
-      false);
+      0/*flags*/);
   VERIFY_HCL_STATUS("HCL_Bcast(...) failed.", status);
 
   tensor_cleanup_callback();
@@ -458,7 +458,7 @@ synapse_error_o hcl_communicator::allgather(
       elem_cnt,
       data_type,
       hcl_comm(),
-      false);
+      0/*flags*/);
   VERIFY_HCL_STATUS("HCL_AllGather(...) failed", status);
 
   my_device_->register_producer_on_stream(
@@ -475,7 +475,7 @@ synapse_error_o hcl_communicator::allgather(
       elem_cnt,
       data_type,
       hcl_comm(),
-      false);
+      0/*flags*/);
   VERIFY_HCL_STATUS("HCL_AllGather(...) failed", status);
 
   tensor_cleanup_callback();

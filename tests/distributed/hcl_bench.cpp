@@ -192,7 +192,7 @@ void SynHCLBenchTest::Allreduce_speed(int length1,int startlength,int steps)
                  HCL_Allreduce(nullptr,sendBuff,recvBuff,
                                            count,syn_type_single,
                                            device_intermediate_buffer,intermediate_size,
-                                           eHCLSum,"",true);
+                                           eHCLSum,"", 1);
                                        }
             int64_t time_taken =  GetMicrosec()-start;
             if(myRank == 0)
@@ -238,7 +238,7 @@ void SynHCLBenchTest::AlltoAll_speed(int length1,int startlength,int steps)
                  HCL_AlltoAll(nullptr,sendBuff,recvBuff,
                                            count,syn_type_single,
                                           device_intermediate_buffer,intermediate_size,
-                                           "",true);
+                                           "", 1);
                                        }
             int64_t time_taken =  GetMicrosec()-start;
             if(myRank == 0)
@@ -278,7 +278,7 @@ void SynHCLBenchTest::Allbroadcast_speed(int length1,int startlength,int steps)
             for (int i = 1; i <= steps; i++){
                  HCL_Bcast(nullptr,sendBuff,recvBuff,
                                            count,syn_type_single,
-                                           0,"",false);
+                                           0,"", 0);
                                        }
             int64_t time_taken =  GetMicrosec()-start;
             if(myRank == 0)

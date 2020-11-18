@@ -28,32 +28,32 @@ HCLStatus (*HCL_Comm_Ranks)(HCL_Comm comm, HCL_Rank* rankList, int count);
 HCLStatus (*HCL_Wait)(HCL_Request phRequest, uint64_t microSeconds);
 HCLStatus (*HCL_Allreduce)(synStreamHandle streamHandle, uint64_t sendBuffAddr, uint64_t receiveBuffAddr,
                            uint64_t count, synDataType dataType, uint64_t intermediateBufferAddr,
-                           uint64_t intermediateSize, HCL_Op op, HCL_Comm communicator, bool sameAddress);
+                           uint64_t intermediateSize, HCL_Op op, HCL_Comm communicator, const uint32_t flags);
 HCLStatus (*HCL_IAllreduce)(HCL_Request* phRequest, uint64_t sendBuffAddr, uint64_t receiveBuffAddr, uint64_t count,
                             synDataType dataType, uint64_t intermediateBufferAddr, uint64_t intermediateSize,
-                            HCL_Op op, HCL_Comm communicator, bool sameAddress);
+                            HCL_Op op, HCL_Comm communicator, const uint32_t flags);
 HCLStatus (*HCL_Get_Intermediate_Buffer_size)(uint64_t* intermediateSize, const HCL_CollectiveOp collectiveOp,
                                               const uint64_t count, synDataType dataType, const HCL_Comm communicator);
 HCLStatus (*HCL_Bcast)(synStreamHandle streamHandle, uint64_t sendBuffAddr, uint64_t receiveBuffAddr, uint64_t count,
-                       synDataType dataType, HCL_Rank root, HCL_Comm communicator, bool sameAddress);
+                       synDataType dataType, HCL_Rank root, HCL_Comm communicator, const uint32_t flags);
 HCLStatus (*HCL_IBcast)(HCL_Request* phRequest, uint64_t Address, uint64_t count, synDataType dataType, HCL_Rank root,
-                        HCL_Comm communicator, bool sameAddress);
+                        HCL_Comm communicator, const uint32_t flags);
 HCLStatus (*HCL_Reduce)(synStreamHandle streamHandle, uint64_t sendBuffAddr, uint64_t receiveBuffAddr, uint64_t count,
                         synDataType dataType, uint64_t intermediateBufferAddr, uint64_t intermediateSize,
-                        uint16_t destRank, HCL_Op op, HCL_Comm communicator, bool sameAddress);
+                        uint16_t destRank, HCL_Op op, HCL_Comm communicator, const uint32_t flags);
 HCLStatus (*HCL_IReduce)(HCL_Request* phRequest, uint64_t sendBuffAddr, uint64_t receiveBuffAddr, uint64_t count,
                          synDataType dataType, uint64_t intermediateBufferAddr, uint64_t intermediateSize,
-                         uint16_t destRank, HCL_Op op, HCL_Comm communicator, bool sameAddress);
+                         uint16_t destRank, HCL_Op op, HCL_Comm communicator, const uint32_t flags);
 HCLStatus (*HCL_Reduce_Scatter)(synStreamHandle streamHandle, uint64_t sendBuffAddr, uint64_t receiveBuffAddr,
                                 uint64_t count, synDataType dataType, uint64_t intermediateBufferAddr,
-                                uint64_t intermediateSize, HCL_Op op, HCL_Comm communicator, bool sameAddress);
+                                uint64_t intermediateSize, HCL_Op op, HCL_Comm communicator, const uint32_t flags);
 HCLStatus (*HCL_IReduce_Scatter)(HCL_Request* phRequest, uint64_t sendBufAddr, uint64_t receiveBuffAddr,
                                  uint64_t count, synDataType dataType, uint64_t intermediateBufferAddr,
-                                 uint64_t intermediateSize, HCL_Op op, HCL_Comm communicator, bool sameAddress);
+                                 uint64_t intermediateSize, HCL_Op op, HCL_Comm communicator, const uint32_t flags);
 HCLStatus (*HCL_AllGather)(synStreamHandle streamHandle, uint64_t sendBufAddr, uint64_t receiveBuffAddr,
-                           uint64_t count, synDataType dataType, HCL_Comm communicator, bool sameAddress);
+                           uint64_t count, synDataType dataType, HCL_Comm communicator, const uint32_t flags);
 HCLStatus (*HCL_IAllGather)(HCL_Request* phRequest, uint64_t sendBufAddr, uint64_t receiveBuffAddr, uint64_t count,
-                            synDataType dataType, HCL_Comm communicator, bool sameAddress);
+                            synDataType dataType, HCL_Comm communicator, const uint32_t flags);
 HCLStatus (*HCL_NetworkFlush)(HCL_Request* phRequest, synStreamHandle streamHandle);
 
 void LoadSymbols(void* lib_handle) {
@@ -131,24 +131,24 @@ HCLStatus HCL_Wait(HCL_Request phRequest, uint64_t microSeconds) {
 
 HCLStatus HCL_Allreduce(synStreamHandle streamHandle, uint64_t sendBuffAddr, uint64_t receiveBuffAddr, uint64_t count,
                         synDataType dataType, uint64_t intermediateBufferAddr, uint64_t intermediateSize, HCL_Op op,
-                        HCL_Comm communicator, bool sameAddress) {
+                        HCL_Comm communicator, const uint32_t flags) {
   API_LOG_CALL(ARG(streamHandle), ARG_X(sendBuffAddr), ARG_X(receiveBuffAddr), ARG_X(count), ARG_X(dataType),
                ARG_X(intermediateBufferAddr), ARG_X(intermediateSize), ARG_X(op), ARG_Q(communicator),
-               ARG_X(sameAddress));
+               ARG_X(flags));
   HCLStatus status = lib_hcl::HCL_Allreduce(streamHandle, sendBuffAddr, receiveBuffAddr, count, dataType,
-                                            intermediateBufferAddr, intermediateSize, op, communicator, sameAddress);
+                                            intermediateBufferAddr, intermediateSize, op, communicator, flags);
   API_LOG_RESULT();
   return status;
 }
 
 HCLStatus HCL_IAllreduce(HCL_Request* phRequest, uint64_t sendBuffAddr, uint64_t receiveBuffAddr, uint64_t count,
                          synDataType dataType, uint64_t intermediateBufferAddr, uint64_t intermediateSize, HCL_Op op,
-                         HCL_Comm communicator, bool sameAddress) {
+                         HCL_Comm communicator, const uint32_t flags) {
   API_LOG_CALL(ARG(phRequest), ARG_X(sendBuffAddr), ARG_X(receiveBuffAddr), ARG_X(count), ARG_X(dataType),
                ARG_X(intermediateBufferAddr), ARG_X(intermediateSize), ARG_X(op), ARG_Q(communicator),
-               ARG_X(sameAddress));
+               ARG_X(flags));
   HCLStatus status = lib_hcl::HCL_IAllreduce(phRequest, sendBuffAddr, receiveBuffAddr, count, dataType,
-                                             intermediateBufferAddr, intermediateSize, op, communicator, sameAddress);
+                                             intermediateBufferAddr, intermediateSize, op, communicator, flags);
   API_LOG_RESULT(S_ARG_X(phRequest));
   return status;
 }
@@ -163,92 +163,92 @@ HCLStatus HCL_Get_Intermediate_Buffer_size(uint64_t* intermediateSize, const HCL
 }
 
 HCLStatus HCL_Bcast(synStreamHandle streamHandle, uint64_t sendBuffAddr, uint64_t receiveBuffAddr, uint64_t count,
-                    synDataType dataType, HCL_Rank root, HCL_Comm communicator, bool sameAddress) {
+                    synDataType dataType, HCL_Rank root, HCL_Comm communicator, const uint32_t flags) {
   API_LOG_CALL(ARG(streamHandle), ARG_X(sendBuffAddr), ARG_X(receiveBuffAddr), ARG_X(count), ARG_X(dataType),
-               ARG_X(root), ARG_Q(communicator), ARG_X(sameAddress));
+               ARG_X(root), ARG_Q(communicator), ARG_X(flags));
   HCLStatus status = lib_hcl::HCL_Bcast(streamHandle, sendBuffAddr, receiveBuffAddr, count, dataType, root,
-                                        communicator, sameAddress);
+                                        communicator, flags);
   API_LOG_RESULT();
   return status;
 }
 
 HCLStatus HCL_IBcast(HCL_Request* phRequest, uint64_t Address, uint64_t count, synDataType dataType, HCL_Rank root,
-                     HCL_Comm communicator, bool sameAddress) {
+                     HCL_Comm communicator, const uint32_t flags) {
   API_LOG_CALL(ARG(phRequest), ARG_X(Address), ARG_X(count), ARG_X(dataType), ARG_X(root), ARG_Q(communicator),
-               ARG_X(sameAddress));
-  HCLStatus status = lib_hcl::HCL_IBcast(phRequest, Address, count, dataType, root, communicator, sameAddress);
+               ARG_X(flags));
+  HCLStatus status = lib_hcl::HCL_IBcast(phRequest, Address, count, dataType, root, communicator, flags);
   API_LOG_RESULT(S_ARG_X(phRequest));
   return status;
 }
 
 HCLStatus HCL_Reduce(synStreamHandle streamHandle, uint64_t sendBuffAddr, uint64_t receiveBuffAddr, uint64_t count,
                      synDataType dataType, uint64_t intermediateBufferAddr, uint64_t intermediateSize,
-                     uint16_t destRank, HCL_Op op, HCL_Comm communicator, bool sameAddress) {
+                     uint16_t destRank, HCL_Op op, HCL_Comm communicator, const uint32_t flags) {
   API_LOG_CALL(ARG(streamHandle), ARG_X(sendBuffAddr), ARG_X(receiveBuffAddr), ARG_X(count), ARG_X(dataType),
                ARG_X(intermediateBufferAddr), ARG_X(intermediateSize), ARG_X(destRank), ARG_X(op), ARG_Q(communicator),
-               ARG_X(sameAddress));
+               ARG_X(flags));
   HCLStatus status =
       lib_hcl::HCL_Reduce(streamHandle, sendBuffAddr, receiveBuffAddr, count, dataType, intermediateBufferAddr,
-                          intermediateSize, destRank, op, communicator, sameAddress);
+                          intermediateSize, destRank, op, communicator, flags);
   API_LOG_RESULT();
   return status;
 }
 
 HCLStatus HCL_IReduce(HCL_Request* phRequest, uint64_t sendBuffAddr, uint64_t receiveBuffAddr, uint64_t count,
                       synDataType dataType, uint64_t intermediateBufferAddr, uint64_t intermediateSize,
-                      uint16_t destRank, HCL_Op op, HCL_Comm communicator, bool sameAddress) {
+                      uint16_t destRank, HCL_Op op, HCL_Comm communicator, const uint32_t flags) {
   API_LOG_CALL(ARG(phRequest), ARG_X(sendBuffAddr), ARG_X(receiveBuffAddr), ARG_X(count), ARG_X(dataType),
                ARG_X(intermediateBufferAddr), ARG_X(intermediateSize), ARG_X(destRank), ARG_X(op), ARG_Q(communicator),
-               ARG_X(sameAddress));
+               ARG_X(flags));
   HCLStatus status =
       lib_hcl::HCL_IReduce(phRequest, sendBuffAddr, receiveBuffAddr, count, dataType, intermediateBufferAddr,
-                           intermediateSize, destRank, op, communicator, sameAddress);
+                           intermediateSize, destRank, op, communicator, flags);
   API_LOG_RESULT(S_ARG_X(phRequest));
   return status;
 }
 
 HCLStatus HCL_Reduce_Scatter(synStreamHandle streamHandle, uint64_t sendBuffAddr, uint64_t receiveBuffAddr,
                              uint64_t count, synDataType dataType, uint64_t intermediateBufferAddr,
-                             uint64_t intermediateSize, HCL_Op op, HCL_Comm communicator, bool sameAddress) {
+                             uint64_t intermediateSize, HCL_Op op, HCL_Comm communicator, const uint32_t flags) {
   API_LOG_CALL(ARG(streamHandle), ARG_X(sendBuffAddr), ARG_X(receiveBuffAddr), ARG_X(count), ARG_X(dataType),
                ARG_X(intermediateBufferAddr), ARG_X(intermediateSize), ARG_X(op), ARG_Q(communicator),
-               ARG_X(sameAddress));
+               ARG_X(flags));
   HCLStatus status =
       lib_hcl::HCL_Reduce_Scatter(streamHandle, sendBuffAddr, receiveBuffAddr, count, dataType, intermediateBufferAddr,
-                                  intermediateSize, op, communicator, sameAddress);
+                                  intermediateSize, op, communicator, flags);
   API_LOG_RESULT();
   return status;
 }
 
 HCLStatus HCL_IReduce_Scatter(HCL_Request* phRequest, uint64_t sendBufAddr, uint64_t receiveBuffAddr, uint64_t count,
                               synDataType dataType, uint64_t intermediateBufferAddr, uint64_t intermediateSize,
-                              HCL_Op op, HCL_Comm communicator, bool sameAddress) {
+                              HCL_Op op, HCL_Comm communicator, const uint32_t flags) {
   API_LOG_CALL(ARG(phRequest), ARG_X(sendBufAddr), ARG_X(receiveBuffAddr), ARG_X(count), ARG_X(dataType),
                ARG_X(intermediateBufferAddr), ARG_X(intermediateSize), ARG_X(op), ARG_Q(communicator),
-               ARG_X(sameAddress));
+               ARG_X(flags));
   HCLStatus status =
       lib_hcl::HCL_IReduce_Scatter(phRequest, sendBufAddr, receiveBuffAddr, count, dataType, intermediateBufferAddr,
-                                   intermediateSize, op, communicator, sameAddress);
+                                   intermediateSize, op, communicator, flags);
   API_LOG_RESULT(S_ARG_X(phRequest));
   return status;
 }
 
 HCLStatus HCL_AllGather(synStreamHandle streamHandle, uint64_t sendBufAddr, uint64_t receiveBuffAddr, uint64_t count,
-                        synDataType dataType, HCL_Comm communicator, bool sameAddress) {
+                        synDataType dataType, HCL_Comm communicator, const uint32_t flags) {
   API_LOG_CALL(ARG(streamHandle), ARG_X(sendBufAddr), ARG_X(receiveBuffAddr), ARG_X(count), ARG_X(dataType),
-               ARG_Q(communicator), ARG_X(sameAddress));
+               ARG_Q(communicator), ARG_X(flags));
   HCLStatus status =
-      lib_hcl::HCL_AllGather(streamHandle, sendBufAddr, receiveBuffAddr, count, dataType, communicator, sameAddress);
+      lib_hcl::HCL_AllGather(streamHandle, sendBufAddr, receiveBuffAddr, count, dataType, communicator, flags);
   API_LOG_RESULT();
   return status;
 }
 
 HCLStatus HCL_IAllGather(HCL_Request* phRequest, uint64_t sendBufAddr, uint64_t receiveBuffAddr, uint64_t count,
-                         synDataType dataType, HCL_Comm communicator, bool sameAddress) {
+                         synDataType dataType, HCL_Comm communicator, const uint32_t flags) {
   API_LOG_CALL(ARG(phRequest), ARG_X(sendBufAddr), ARG_X(receiveBuffAddr), ARG_X(count), ARG_X(dataType),
-               ARG_Q(communicator), ARG_X(sameAddress));
+               ARG_Q(communicator), ARG_X(flags));
   HCLStatus status =
-      lib_hcl::HCL_IAllGather(phRequest, sendBufAddr, receiveBuffAddr, count, dataType, communicator, sameAddress);
+      lib_hcl::HCL_IAllGather(phRequest, sendBufAddr, receiveBuffAddr, count, dataType, communicator, flags);
   API_LOG_RESULT(S_ARG_X(phRequest));
   return status;
 }
