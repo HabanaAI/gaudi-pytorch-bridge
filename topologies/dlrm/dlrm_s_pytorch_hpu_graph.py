@@ -849,6 +849,31 @@ class DLRM_Net_Habana(nn.Module):
             [print(name, p.grad.cpu()) for name, p in self.named_parameters()]
         # print(vars(gv))
 
+def flatten_tensor(params):
+    tensor_list = []
+    for param in params:
+        if (param.requires_grad):
+            tensor_list.append(param.grad)
+    flat = torch.cat([t.contiguous().view(-1) for t in tensor_list], dim=0)
+    return flat, tensor_list
+
+def unflatten_tensor(flat, tensor_list):
+    outputs = []
+    offset = 0
+    for tensor in tensor_list:
+        numel = tensor.numel()
+        outputs.append(flat.narrow(0, offset, numel).view_as(tensor))
+        offset += numel
+    return outputs
+
+def update_tensors(params, outputs):
+    idx=0
+    for tparam in params:
+        if (tparam.requires_grad):
+            #print("outputs :: ",outputs1[idx].to("cpu"))
+            tparam.grad.copy_(outputs[idx])
+            idx+=1
+    return outputs
 
 if __name__ == "__main__":
     ### import packages ###
@@ -1576,47 +1601,19 @@ if __name__ == "__main__":
                     # module is traced, so we explicitly reduce the grads
                     # This should be removed when lazy mode is enabled
                     if args.distributed and not args.use_lazy_eval:
-                        tensor_list1 = []
-                        for tparam in dlrm_habana.top_l.parameters():
-                            if (tparam.requires_grad):
-                                #print("tparam :: ", tparam.grad.to("cpu"))
-                                tensor_list1.append(tparam.grad)
                         # flatten and unflatten the tensors to reduce num of all reduce calls
-                        flat1 = torch.cat([t.contiguous().view(-1) for t in tensor_list1], dim=0)
-                        #print(flat1.to("cpu"))
-                        torch.distributed.all_reduce(flat1)
-                        outputs1 = []
-                        offset1 = 0
-                        for tensor in tensor_list1:
-                            numel1 = tensor.numel()
-                            outputs1.append(flat1.narrow(0, offset1, numel1).view_as(tensor))
-                            offset1 += numel1
-                        #print("flatten & unflatten sizes :: ", len(tensor_list1), len(outputs1))
-                        idx=0
-                        for tparam in dlrm_habana.top_l.parameters():
-                            if (tparam.requires_grad):
-                                #print("outputs :: ",outputs1[idx].to("cpu"))
-                                tparam.grad.copy_(outputs1[idx])
-                                idx+=1
+                        flat, tensor_list = flatten_tensor(dlrm_habana.top_l.parameters())
+                        with torch.no_grad():
+                            torch.distributed.all_reduce(flat)
+                        outputs = unflatten_tensor(flat, tensor_list)
+                        updated_outputs = update_tensors(dlrm_habana.top_l.parameters(), outputs)
 
-                        tensor_list2 = []
-                        for bparam in dlrm_habana.bot_l.parameters():
-                            if (bparam.requires_grad):
-                                tensor_list2.append(bparam.grad)
-                        flat2 = torch.cat([t.contiguous().view(-1) for t in tensor_list2], dim=0)
-                        #print(flat2.to("cpu"))
-                        torch.distributed.all_reduce(flat2)
-                        outputs2 = []
-                        offset2 = 0
-                        for tensor in tensor_list2:
-                            numel2 = tensor.numel()
-                            outputs2.append(flat2.narrow(0, offset2, numel2).view_as(tensor))
-                            offset2 += numel2
-                        idx=0
-                        for tparam in dlrm_habana.bot_l.parameters():
-                            if (tparam.requires_grad):
-                                tparam.grad.copy_(outputs2[idx])
-                                idx+=1
+                        flat, tensor_list = flatten_tensor(dlrm_habana.bot_l.parameters())
+                        with torch.no_grad():
+                            torch.distributed.all_reduce(flat)
+                        outputs = unflatten_tensor(flat, tensor_list)
+                        updated_outputs = update_tensors(dlrm_habana.bot_l.parameters(), outputs)
+
                     # print('Net after backward')
                     # dlrm_habana.printParamsAndGrads()
 
