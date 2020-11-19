@@ -61,16 +61,14 @@ void adjustSizesforPT(at::Tensor* tensor, bool is_output) {
 
   at::IntArrayRef new_pos_arr = is_output ? out_pos : in_pos;
   auto new_pos = new_pos_arr.vec();
-  std::vector<long int> swapped_sizes = {
-      sizes[new_pos[0]],
-      sizes[new_pos[1]],
-      sizes[new_pos[2]],
-      sizes[new_pos[3]]};
-  std::vector<long int> swapped_strides = {
-      strides[new_pos[0]],
-      strides[new_pos[1]],
-      strides[new_pos[2]],
-      strides[new_pos[3]]};
+  std::vector<long int> swapped_sizes = {sizes[new_pos[0]],
+                                         sizes[new_pos[1]],
+                                         sizes[new_pos[2]],
+                                         sizes[new_pos[3]]};
+  std::vector<long int> swapped_strides = {strides[new_pos[0]],
+                                           strides[new_pos[1]],
+                                           strides[new_pos[2]],
+                                           strides[new_pos[3]]};
 
   //*tensor_new = at::alias(*tensor);
   tensor->unsafeGetTensorImpl()->set_sizes_and_strides(
@@ -701,16 +699,14 @@ void adjustInputWeight(at::Tensor* tensor, bool is_input) {
   // TODO : Remove these hardcoded dims, maybe take it from config file?
   at::IntArrayRef new_pos_arr = is_input ? in : out;
   auto new_pos = new_pos_arr.vec();
-  std::vector<long int> swapped_sizes = {
-      sizes[new_pos[0]],
-      sizes[new_pos[1]],
-      sizes[new_pos[2]],
-      sizes[new_pos[3]]};
-  std::vector<long int> swapped_strides = {
-      strides[new_pos[0]],
-      strides[new_pos[1]],
-      strides[new_pos[2]],
-      strides[new_pos[3]]};
+  std::vector<long int> swapped_sizes = {sizes[new_pos[0]],
+                                         sizes[new_pos[1]],
+                                         sizes[new_pos[2]],
+                                         sizes[new_pos[3]]};
+  std::vector<long int> swapped_strides = {strides[new_pos[0]],
+                                           strides[new_pos[1]],
+                                           strides[new_pos[2]],
+                                           strides[new_pos[3]]};
   tensor->unsafeGetTensorImpl()->set_sizes_and_strides(
       swapped_sizes, swapped_strides);
 }
@@ -830,13 +826,60 @@ void HabanaLaunchOpPT::postProcessOutputs() {
     }
   }
 }
-
+IValPtrShared castConstantTensor(IValPtrShared ival) {
+  auto tensor = ival->toTensor();
+  auto dtype = tensor.scalar_type();
+  bool cast = dtype == c10::ScalarType::Long || dtype == c10::ScalarType::Double
+      ? true
+      : false;
+  c10::ScalarType dst_type = dtype;
+  if (cast) {
+    dst_type = dtype == c10::ScalarType::Long ? c10::ScalarType::Int
+                                              : c10::ScalarType::Float;
+    tensor = tensor.to(dst_type);
+  }
+  auto new_tensor = tensor.to(c10::kHABANA);
+  IValPtrShared ivptrsh = std::make_shared<IVal>(IValue(new_tensor));
+  return ivptrsh;
+}
 void HabanaLaunchOpPT::handlePrimNodes(torch::jit::Node* node) {
   if (node->kind() == torch::jit::prim::Constant) {
     auto node_vals = node->outputs();
     for (const auto value : node_vals) {
       IValPtrShared ivptrsh = std::make_shared<IVal>(toIValue(value).value());
-      value_to_ivalue[value] = ivptrsh;
+      if (value->type()->kind() == c10::TypeKind::TensorType) {
+        auto ivptrsh_updated = castConstantTensor(ivptrsh);
+        value_to_ivalue[value] = ivptrsh_updated;
+        // Marking NCHW for now, for non 4D tensors layour doesnt matter
+        // Marking default...can update it after ""first use" to correct format
+        value_to_tensor_layout[value].layout = habana::LayoutFormat::NCHW;
+        value_to_tensor_layout[value].layout_at_graph_entry =
+            habana::LayoutFormat::NCHW;
+        std::string irn{"%interim"};
+        auto tensor = ivptrsh_updated->toTensor();
+        //<std::string, at::Tensor> patch_info;
+        meta_syn_tensors.push_back(habana_helpers::create_tensor(
+            tensor,
+            syn_graph_ptr->get_graph_handle(),
+            true,
+            tensor.scalar_type()));
+        SharedSynTensorOrRefListPtr tensorList =
+            std::make_shared<SynTensorOrRefList>();
+        tensorList->emplace_back(tensor_or_ref(meta_syn_tensors.back()));
+        pt_to_synapse_tensors.emplace(value_to_ivalue[value], tensorList);
+        interim_tensorinfos.emplace_back(PtTensorInfo(
+            tensor,
+            meta_syn_tensors.back().tensor_name_,
+            irn,
+            watch_tensor_flag_));
+        aten_intermediates.push_back(tensor);
+
+        // nterim_tensorinfos.emplace_back(
+        //   PtTensorInfo(p.second, p.first, irn, watch_tensor_flag_));
+        // aten_intermediates.push_back(p.second);
+      } else {
+        value_to_ivalue[value] = ivptrsh;
+      }
     }
   } else if (node->kind() == torch::jit::prim::ListConstruct) {
     auto node_ins = node->inputs();

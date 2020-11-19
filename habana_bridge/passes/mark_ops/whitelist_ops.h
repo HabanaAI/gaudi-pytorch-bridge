@@ -9,12 +9,12 @@
  */
 #pragma once
 
+#include <torch/csrc/jit/ir/ir.h>
+#include <initializer_list>
 #include <iostream>
 #include <string>
 #include <unordered_set>
 #include "habana_helpers/logging.h"
-#include <initializer_list>
-#include <torch/csrc/jit/ir/ir.h>
 
 class HabanaWhiteList {
  private:
