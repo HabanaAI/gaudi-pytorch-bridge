@@ -294,6 +294,8 @@ class device {
   active_recipe_counter recipe_counter_;
   host_memory host_memory_;
   bool host_memory_cache_enabled_;
+  unsigned max_dma_copy_retry_count_;
+  std::chrono::milliseconds dma_copy_retry_delay_;
 
   // Empty be default, framework can register its function to be called before
   // device is released

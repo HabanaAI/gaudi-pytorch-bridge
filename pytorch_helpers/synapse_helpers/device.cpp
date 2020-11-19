@@ -20,7 +20,7 @@
 
 #include <synapse_api.h>
 #include "habana_helpers/logging.h"
-#include "synapse_helpers/env_utils.h"
+#include "synapse_helpers/env_flags.h"
 #include "synapse_helpers/session.h"
 #include "synapse_helpers/util.h"
 
@@ -103,12 +103,12 @@ device::device(
                                                         : 0.7 * free_memory;
   workspace_buffer_ =
       reinterpret_cast<device_ptr>(allocator_->alloc(workspace_size_));
-  is_caching_enabled_ =
-      synapse_helpers::get_bool_env_var("PT_ENABLE_HABANA_CACHING", true);
-  is_stream_async_enabled_ =
-      synapse_helpers::get_bool_env_var("PT_ENABLE_HABANA_STREAMASYNC", true);
-  host_memory_cache_enabled_ =
-      synapse_helpers::get_bool_env_var("PT_ENABLE_HOST_MEMORY_CACHE", true);
+
+  is_caching_enabled_ = GET_ENV_FLAG(PT_ENABLE_HABANA_CACHING);
+  is_stream_async_enabled_ = GET_ENV_FLAG(PT_ENABLE_HABANA_STREAMASYNC);
+  host_memory_cache_enabled_ = GET_ENV_FLAG(PT_ENABLE_HOST_MEMORY_CACHE);
+  max_dma_copy_retry_count_ = GET_ENV_FLAG(PT_HABANA_MAX_DMA_COPY_RETRY_COUNT);
+  dma_copy_retry_delay_ = std::chrono::milliseconds(GET_ENV_FLAG(PT_HABANA_DMA_COPY_RETRY_DELAY));
 }
 
 synapse_error_v<std::shared_ptr<device>> device::get_or_create(
@@ -336,16 +336,35 @@ synapse_error device::copy_data_to_device(
 
   PT_SYNHELPER_DEBUG("Used stream handle: ", stream_h2d_);
 
-  status = synMemCopyAsync(
-      stream_h2d_,
-      reinterpret_cast<uint64_t>(mapped_cpu_data),
-      total_bytes,
-      destination,
-      synDmaDir::HOST_TO_DRAM);
+  unsigned attempt = 0;
+  do {
+    status = synMemCopyAsync(
+        stream_h2d_,
+        reinterpret_cast<uint64_t>(mapped_cpu_data),
+        total_bytes,
+        destination,
+        synDmaDir::HOST_TO_DRAM);
 
-  if (synStatus::synSuccess != status) {
-    return synapse_error{"DMA to HPU start failed.", status};
-  }
+    if (status == synStatus::synSuccess) {
+      if (attempt != 0) {
+        PT_SYNHELPER_WARN(
+            "DMA to HPU start succeeded on ", attempt + 1, " attempt.");
+      }
+      break;
+    } else if (attempt < max_dma_copy_retry_count_ - 1) {
+      PT_SYNHELPER_WARN(
+          "DMA to HPU start failed with status ",
+          status,
+          ". Attempt ",
+          attempt + 1,
+          "/",
+          max_dma_copy_retry_count_,
+          ".");
+      std::this_thread::sleep_for(dma_copy_retry_delay_);
+    } else {
+      return synapse_error{"DMA to HPU start failed.", status};
+    }
+  } while (++attempt < max_dma_copy_retry_count_);
 
   sem_.add_producer(
       {destination}, stream_h2d_, [this, res, is_pinned, done_cb]() {
@@ -399,15 +418,34 @@ synapse_error device::copy_data_to_host(
     mapped_destination = res.ptr;
   }
 
-  status = synMemCopyAsync(
-      stream_d2h_,
-      device_data,
-      total_bytes,
-      reinterpret_cast<uint64_t>(mapped_destination),
-      synDmaDir::DRAM_TO_HOST);
-  if (synStatus::synSuccess != status) {
-    return synapse_error{"DMA from HPU start failed.", status};
-  }
+  unsigned attempt = 0;
+  do {
+    status = synMemCopyAsync(
+        stream_d2h_,
+        device_data,
+        total_bytes,
+        reinterpret_cast<uint64_t>(mapped_destination),
+        synDmaDir::DRAM_TO_HOST);
+    if (status == synStatus::synSuccess) {
+      if (attempt != 0) {
+        PT_SYNHELPER_WARN(
+            "DMA from HPU start succeeded on ", attempt + 1, " attempt.");
+      }
+      break;
+    } else if (attempt < max_dma_copy_retry_count_ - 1) {
+      PT_SYNHELPER_WARN(
+          "DMA from HPU start failed with status ",
+          status,
+          ". Attempt ",
+          attempt + 1,
+          "/",
+          max_dma_copy_retry_count_,
+          ".");
+      std::this_thread::sleep_for(dma_copy_retry_delay_);
+    } else {
+      return synapse_error{"DMA from HPU start failed.", status};
+    }
+  } while (++attempt < max_dma_copy_retry_count_);
 
   sem_.add_producer(
       {}, stream_d2h_, [this, done_cb, res, destination, is_pinned]() {

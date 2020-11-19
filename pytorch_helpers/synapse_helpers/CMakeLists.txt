@@ -12,7 +12,7 @@ foreach (FLAVOR abi11)
   set(TARGET_NAME "pytorch_synapse_helpers_${FLAVOR}")
   add_library(${TARGET_NAME} SHARED
     device.cpp
-    env_utils.cpp
+    env_flags.cpp
     event.cpp
     event_handle_cache.cpp
     graph.cpp
