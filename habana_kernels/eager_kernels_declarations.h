@@ -533,3 +533,7 @@ Tensor ones_like_hpu(
 Tensor matmul_hpu(
     const at::Tensor& tensor1,
     const at::Tensor& tensor2);
+std::tuple<at::Tensor, at::Tensor> matmul_backward_hpu(
+    const at::Tensor& grad_output,
+    const at::Tensor& self,
+    const at::Tensor& other);

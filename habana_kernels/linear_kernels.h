@@ -7,6 +7,7 @@
  *
  ******************************************************************************
  */
+#include "habana_kernels/tensor_shape_kernels.h"
 #include "habana_operator.h"
 
 namespace habana {
@@ -130,6 +131,56 @@ class MatMulOperator : public HabanaOperator {
   static std::vector<int64_t> compute_output_shape(
       const at::Tensor &tensor1,
       const at::Tensor &tensor2);
+};
+
+class MatmulBackwardOperator : public HabanaOperator {
+ public:
+  MatmulBackwardOperator(int device_id) : HabanaOperator("matmul_backward") {
+    this->CreateSynContext(device_id);
+  }
+
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      std::vector<bool> is_output_persistent) override;
+
+ private:
+  template <typename T>
+  synapse_helpers::tensor_or_ref MatBwTranspose(
+      synapse_helpers::graph& graph,
+      T& Op,
+      at::Tensor& mat,
+      synapse_helpers::tensor_or_ref syn_input);
+
+  template <typename T>
+  std::tuple<synapse_helpers::tensor_or_ref, synapse_helpers::tensor_or_ref>
+  MatBwSpecialFold(
+      synapse_helpers::graph& graph,
+      T& Op,
+      at::Tensor& mat1,
+      at::Tensor& mat2,
+      synapse_helpers::tensor_or_ref syn_input1,
+      synapse_helpers::tensor_or_ref syn_input2);
+
+  template <typename T>
+  std::tuple<synapse_helpers::tensor_or_ref, synapse_helpers::tensor_or_ref>
+  MatBwSize(
+      synapse_helpers::graph& graph,
+      T& Op,
+      at::Tensor& mat1,
+      at::Tensor& mat2,
+      at::IntArrayRef sizes,
+      synapse_helpers::tensor_or_ref syn_input1,
+      synapse_helpers::tensor_or_ref syn_input2,
+      bool is_output_persistent);
+
+  synapse_helpers::tensor_or_ref MatBwReshape(
+      synapse_helpers::graph& graph,
+      at::Tensor& mat,
+      std::vector<int64_t> sizes,
+      synapse_helpers::tensor_or_ref syn_input);
+
+  std::vector<ReshapeOperator> ReshapeOpList;
 };
 
 } // namespace habana

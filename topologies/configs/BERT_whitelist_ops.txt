@@ -37,3 +37,5 @@ aten::slice(Tensor self, int dim, int start, int end, int step) -> Tensor
 aten::expand(Tensor self, int[] size, *, bool implicit) -> Tensor
 aten::scatter(Tensor self, int dim, Tensor index, Tensor src) -> Tensor
 aten::arange(Scalar start, Scalar end, Scalar step, *, Tensor out) -> Tensor
+//aten::matmul(Tensor self, Tensor other) -> Tensor
+//aten::matmul_backward(Tensor grad_out, Tensor self, Tensor other) -> (Tensor, Tensor)
