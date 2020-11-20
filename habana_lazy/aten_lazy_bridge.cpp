@@ -9,6 +9,7 @@
  */
 #include "aten_lazy_bridge.h"
 #include "habana_lazy/ops/constant.h"
+#include "habana_lazy/ops/hpu_input.h"
 
 namespace habana_lazy {
 
@@ -74,7 +75,7 @@ HbInternalTensorImpl* GetHbInternalTensorImpl(const at::Tensor& tensor) {
 void setTensorAsInputNode(HbLazyTensor hl_tensor) {
   if (!hl_tensor.CurrentIrValue()) {
     ir::Value val = hl_tensor.createIrValueFromData();
-    auto node = ir::Node::Create(c10::Symbol::fromQualString("hpu::input"), {});
+    ir::NodePtr node = std::make_shared<ir::Input>(hl_tensor);
     val.SetNode(node);
     hl_tensor.AssignIrValue(val);
   } else {
@@ -84,6 +85,7 @@ void setTensorAsInputNode(HbLazyTensor hl_tensor) {
     //    is set already");
   }
 }
+
 HbLazyTensor GetOrCreateHbLazyTensor(
     const at::Tensor& tensor,
     const c10::Device& device) {

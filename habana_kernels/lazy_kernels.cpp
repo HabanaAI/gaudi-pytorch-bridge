@@ -357,26 +357,34 @@ Tensor rsub_scalar_hpu_lazy(const Tensor& self, Scalar other, Scalar alpha) {
 };
 
 Tensor& mul_tensor_hpu_lazy_(Tensor& self, const Tensor& other) {
-  auto other_hpu = other;
   if (other.device().type() == c10::DeviceType::CPU) {
-    other.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
-    auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
-        self.device().index());
-    context->m_retained_tensor_list.push_back(
-        other.to(c10::DeviceType::HABANA));
-    other_hpu = context->m_retained_tensor_list.back();
+    if (other.scalar_type() == c10::ScalarType::Double) {
+      // Convert 0-dim CPU tensor to a scalar and then add to JIT graph
+      auto val = other.item();
+      auto hl_other = habana_lazy::GetIrValueForScalar(val);
+      auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
+
+      auto node = habana_lazy::ir::Node::Create(
+          Symbol::fromQualString("aten::mul_"),
+          {hl_self.GetIrValue(), hl_other});
+
+      habana_lazy::ir::Value& out = hl_self.CurrentIrValue();
+      out.m_index = 0;
+      out.SetNode(node);
+    }
+  } else {
+    auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
+    auto hl_other = habana_lazy::GetOrCreateHbLazyTensor(other, c10::kHABANA);
+
+    auto node = habana_lazy::ir::Node::Create(
+        Symbol::fromQualString("aten::mul_"),
+        {hl_self.GetIrValue(), hl_other.GetIrValue()});
+
+    habana_lazy::ir::Value& out = hl_self.CurrentIrValue();
+    out.m_index = 0;
+    out.SetNode(node);
   }
 
-  auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
-  auto hl_other = habana_lazy::GetOrCreateHbLazyTensor(other_hpu, c10::kHABANA);
-
-  auto node = habana_lazy::ir::Node::Create(
-      Symbol::fromQualString("aten::mul_"),
-      {hl_self.GetIrValue(), hl_other.GetIrValue()});
-
-  habana_lazy::ir::Value& out = hl_self.CurrentIrValue();
-  out.m_index = 0;
-  out.SetNode(node);
   return self;
 };
 
@@ -1575,10 +1583,6 @@ Tensor empty_hpu_lazy(
           habana_lazy::HbLazyTensor::CreateHbLazyTensor(
               size, 0, options.device(), c10::typeMetaToScalarType(dtype));
 
-      // This lazy tensor is newly created and should have the ir_value
-      // pointing to a hpu::input
-      setTensorAsInputNode(hb_tensor);
-
       at_tensor = habana_lazy::AtenFromHbLazyTensor(hb_tensor);
 
       // The lazy tensor will have a reference to the internal tensor
@@ -1592,6 +1596,10 @@ Tensor empty_hpu_lazy(
           habana_lazy::GetHbInternalTensorImpl(at_internal_tensor);
       HABANA_ASSERT(at_internal_impl != nullptr);
       at_internal_impl->set_tensor(&at_tensor);
+
+      // This lazy tensor is newly created and should have the ir_value
+      // pointing to a hpu::input
+      setTensorAsInputNode(hb_tensor);
     }
 
     // If we are not from lowering context, return the storageless one.
