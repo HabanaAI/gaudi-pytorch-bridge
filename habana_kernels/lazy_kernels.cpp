@@ -1377,7 +1377,12 @@ Tensor bernoulli_hpu_lazy(const Tensor& self, CPUGenerator* gen) {
 Tensor& bernoulli_scalar_hpu_lazy(Tensor& self, double p, CPUGenerator* gen) {
   return bernoulli_scalar_hpu(self, p, gen);
 };
-
+std::tuple<Tensor, Tensor> fused_dropout_hpu_lazy(
+    const Tensor& self,
+    double p,
+    CPUGenerator* gen) {
+  return fused_dropout_hpu(self, p, gen);
+};
 Tensor sum_dim_IntList_hpu_lazy(
     const Tensor& self,
     IntArrayRef dim,
@@ -2054,8 +2059,8 @@ Tensor ones_like_hpu_lazy(
   // only for filling grad_out tensor with 1's), but we may need to revisit
   // this in future.
   auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
-  habana_lazy::ir::NodePtr node =
-      std::make_shared<habana_lazy::ir::OnesLike>(self, options, optional_memory_format);
+  habana_lazy::ir::NodePtr node = std::make_shared<habana_lazy::ir::OnesLike>(
+      self, options, optional_memory_format);
 
   auto result = at::native::empty_hpu_lazy(
       self.sizes(), self.options(), self.suggest_memory_format(), false);

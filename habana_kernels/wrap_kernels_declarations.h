@@ -384,6 +384,10 @@ Tensor& bernoulli_scalar_hpu_wrap(
     Tensor& self,
     double p,
     CPUGenerator* gen = nullptr);
+std::tuple<Tensor, Tensor> fused_dropout_hpu_wrap(
+    Tensor self,
+    double p,
+    CPUGenerator* gen = nullptr);
 Tensor sum_dim_IntList_hpu_wrap(
     const Tensor& self,
     IntArrayRef dim,

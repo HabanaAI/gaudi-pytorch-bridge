@@ -384,6 +384,10 @@ Tensor& bernoulli_scalar_hpu_lazy(
     Tensor& self,
     double p,
     CPUGenerator* gen = nullptr);
+std::tuple<Tensor, Tensor> fused_dropout_hpu_lazy(
+    const Tensor& self,
+    double p,
+    CPUGenerator* gen = nullptr);
 Tensor sum_dim_IntList_hpu_lazy(
     const Tensor& self,
     IntArrayRef dim,

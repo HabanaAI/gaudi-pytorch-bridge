@@ -1380,6 +1380,20 @@ Tensor& bernoulli_scalar_hpu_wrap(Tensor& self, double p, CPUGenerator* gen) {
     return bernoulli_scalar_hpu(self, p, gen);
   }
 };
+std::tuple<Tensor, Tensor> fused_dropout_hpu_wrap(
+    Tensor self,
+    double p,
+    CPUGenerator* gen) {
+  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
+      std::getenv("PT_HPU_LAZY_MODE")) {
+    // auto& t = fused_dropout_hpu_lazy(self, p, gen);
+    // return t;
+    return fused_dropout_hpu_lazy(self, p, gen);
+    ;
+  } else {
+    return fused_dropout_hpu(self, p, gen);
+  }
+};
 Tensor sum_dim_IntList_hpu_wrap(
     const Tensor& self,
     IntArrayRef dim,
