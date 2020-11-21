@@ -25,3 +25,5 @@ aten::bernoulli(Tensor self, *, Generator? generator=None) -> Tensor
 aten::bernoulli_.float(Tensor(a!) self, float p=0.5, *, Generator? generator=None) -> Tensor(a!)
 //aten::_grad_sum_to_size(Tensor self, int[]? size) -> Tensor
 //aten::reshape(Tensor self, int[] shape) -> Tensor
+aten::nll_loss_forward(Tensor self, Tensor target, Tensor? weight, int reduction, int ignore_index) -> (Tensor, Tensor)
+aten::nll_loss_backward(Tensor grad_output, Tensor self, Tensor target, Tensor? weight, int reduction, int ignore_index, Tensor total_weight) -> Tensor

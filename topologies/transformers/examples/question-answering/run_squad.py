@@ -220,6 +220,11 @@ def train(args, train_dataset, model, tokenizer, trainMetaData):
                 steps_trained_in_current_epoch -= 1
                 continue
 
+            ## Habana doesn't support Long tensors
+            ## Hence we need to convert start and end positions to int
+            if args.use_habana:
+                batch[3] = batch[3].to(dtype=torch.int32)
+                batch[4] = batch[4].to(dtype=torch.int32)
             device = args.device
             model.train()
             batch = tuple(t.to(args.device) for t in batch)

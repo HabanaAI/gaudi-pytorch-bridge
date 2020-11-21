@@ -1103,6 +1103,8 @@ void ClampOperator::AllocateAndAddSynapseNode(
   param.lowerBound.f = min.value().to<float>();
 
   if (self.scalar_type() == c10::ScalarType::Int) {
+    // Guid needs to be updated since TPC only supports F32/BF16
+    SetGuid("clamp_fwd_f32");
     // Cast Input tensor to Float tensor
     std::string node_type = "cast_i32_to_f32";
 
@@ -1127,9 +1129,8 @@ void ClampOperator::AllocateAndAddSynapseNode(
     std::vector<synTensor> syn_in{float_syn_tensor.get()};
     std::vector<synTensor> syn_out{synOutput.get()};
 
-    at::ScalarType scalar_type = output_float.scalar_type();
     node_type =
-        "clamp_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+        "clamp_fwd_f32";
     graph.add_node(
         std::move(syn_in),
         std::move(syn_out),
@@ -1286,7 +1287,7 @@ Tensor& clamp_hpu_(
     c10::optional<Scalar> max) {
   PT_KERNEL_BEGIN;
 
-  if (self.scalar_type() == ScalarType::Long) {
+  if ((self.scalar_type() == ScalarType::Long) || (self.scalar_type() == ScalarType::Int)) {
     self.copy_(clamp_hpu(self, min, max));
     PT_KERNEL_END;
     return self;
