@@ -95,7 +95,9 @@ void LogSoftmaxBackwardOperator::AllocateAndAddSynapseNode(
   // This check is required because in case of Lazy mode Log_softmax_backward
   // will be an intermediate node in the graph, for intermediate nodes bridge
   // does not create any pt_inputs.
-  if (p_context_->pt_inputs_.size() != 0) {
+  // Additional check added for size != 1 to fix BERT Graph mode. Note that this
+  // is a WA, we need to remove it with a clean fix later.
+  if ( (p_context_->pt_inputs_.size() != 0) && (p_context_->pt_inputs_.size() != 1)) {
     TORCH_CHECK(
         p_context_->pt_inputs_.size() == 3,
         "logsoftmax_bwd node should have 3 input pytorch tensors");
