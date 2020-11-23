@@ -99,9 +99,10 @@ class DropoutOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      std::vector<bool> is_output_persistent) override;
 
   static at::Tensor GenerateAndCopySeedToHPU(
       torch::jit::Stack& inputs,
       bool is_persistent);
+  void SetPTOutputs(const torch::jit::Stack& inputs, bool is_output_persistent);
 };

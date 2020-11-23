@@ -233,7 +233,7 @@ void ConstantOutOperator::AllocateAndAddSynapseNode(
       (output.scalar_type() == c10::ScalarType::BFloat16) ||
           (output.scalar_type() == c10::ScalarType::Int) ||
           (output.scalar_type() == c10::ScalarType::Float),
-      "Unsupported dtype provided for Constant kernel Input.scalar_type() = ",
+      "Unsupported dtype provided for ConstantOut kernel Input.scalar_type() = ",
       output.scalar_type());
 
   ns_ConstantKernel::Params params;
@@ -285,6 +285,7 @@ void ConstantOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(
       (input.scalar_type() == c10::ScalarType::BFloat16) ||
           (input.scalar_type() == c10::ScalarType::Int) ||
+          (input.scalar_type() == c10::ScalarType::Char) ||
           (input.scalar_type() == c10::ScalarType::Float),
       "Unsupported dtype provided for Constant kernel Input.scalar_type() = ",
       input.scalar_type());

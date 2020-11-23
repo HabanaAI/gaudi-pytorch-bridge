@@ -451,19 +451,19 @@ at::Tensor DropoutOperator::GenerateAndCopySeedToHPU(
 void DropoutOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    std::vector<bool> is_output_persistent) {
   TORCH_CHECK(
-      inputs.size() == 3,
-      "Incorrect size of inputs expected for DropoutOperator Operator");
+      inputs.size() == 2 || (inputs.size() == 3 && inputs[2].isNone()),
+      "Incorrect size",
+      inputs.size(),
+      " of inputs expected for DropoutOperator Operator");
   TORCH_CHECK(
       inputs[0].isTensor(),
       "Input arg1 expected to be Tensor for DropoutOperator Operator");
   TORCH_CHECK(
       inputs[1].isDouble(),
       "Input arg2 expected to be Double for DropoutOperator Operator");
-  TORCH_CHECK(
-      inputs[2].isInt() || inputs[2].isNone(),
-      "Input arg3 expected to be Int or None for DropoutOperator Operator");
+  // inputs[2] is Generator which we won't be using as such in this kernel
 
   auto self = inputs[0].toTensor();
   auto p = inputs[1].toDouble();
@@ -484,12 +484,71 @@ void DropoutOperator::AllocateAndAddSynapseNode(
       self.sizes(),
       self.options(),
       self.suggest_memory_format(),
-      c10::ScalarType::Int,
-      is_output_persistent);
-  AllocateSynapseOutput(graph, output, is_output_persistent);
+      self.scalar_type(),
+      is_output_persistent[0]);
+  Tensor output_mask = habana_helpers::createPTTensor(
+      self,
+      self.sizes(),
+      self.options(),
+      self.suggest_memory_format(),
+      c10::ScalarType::Char,
+      false);
+  std::vector<at::Tensor> pt_outputs{output, output_mask};
+  AllocateSynapseOutputs(graph, pt_outputs, {is_output_persistent[0], false});
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
+  // Cast mask tensor to self data type for use with backward
+  std::string node_type = "cast_i8_to_f32";
+  // Create Cast operator
+  CastOperator castOp(this->p_context_->device_id_, node_type);
+  castOp.SetSynapseInput(std::move(p_context_->syn_outputs_[1]));
+  torch::jit::Stack stack;
+  stack.emplace_back(IValue(p_context_->pt_outputs_[1]));
+  stack.emplace_back(IValue(c10::ScalarType::Float));
+  if (scalar_type == c10::ScalarType::BFloat16) {
+    castOp.AllocateAndAddSynapseNode(graph, stack, false);
+  } else {
+    castOp.AllocateAndAddSynapseNode(graph, stack, is_output_persistent[1]);
+  }
+  stack.clear();
+  synapse_helpers::tensor& syn_cast_out = castOp.GetSynOutputs()[0];
+  p_context_->syn_outputs_[1] = std::move(syn_cast_out);
+  p_context_->pt_outputs_[1] = castOp.GetOutputs()[0];
+  // For self dtype BFloat16, we require one more cast from FP32 to BF16 as a
+  // direct cast_i8_to_bf16 is not currently available in TPC. [JIRA:SW-25687]
+  if (scalar_type == c10::ScalarType::BFloat16) {
+    node_type = "cast_f32_to_bf16";
+    CastOperator castOpBF16(this->p_context_->device_id_, node_type);
+    castOpBF16.SetSynapseInput(std::move(p_context_->syn_outputs_[1]));
+    stack.emplace_back(IValue(p_context_->pt_outputs_[1]));
+    stack.emplace_back(IValue(c10::ScalarType::BFloat16));
+    castOpBF16.AllocateAndAddSynapseNode(graph, stack, is_output_persistent[1]);
+    synapse_helpers::tensor& syn_cast_out_bf16 = castOpBF16.GetSynOutputs()[0];
+    p_context_->syn_outputs_[1] = std::move(syn_cast_out_bf16);
+    p_context_->pt_outputs_[1] = castOpBF16.GetOutputs()[0];
+  }
 }
 
+void DropoutOperator::SetPTOutputs(
+    const torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  auto self = inputs[0].toTensor();
+  Tensor output = habana_helpers::createPTTensor(
+      self,
+      self.sizes(),
+      self.options(),
+      self.suggest_memory_format(),
+      self.scalar_type(),
+      is_output_persistent);
+  Tensor output_mask = habana_helpers::createPTTensor(
+      self,
+      self.sizes(),
+      self.options(),
+      self.suggest_memory_format(),
+      self.scalar_type(),
+      is_output_persistent);
+  std::vector<at::Tensor> pt_outputs{output, output_mask};
+  HabanaOperator::SetPTOutputs(pt_outputs);
+}
 /*******************************************************************
 *@brief Implements Dropout kernel
 @param[in] self - input tensor on which Dropout is applied
@@ -508,22 +567,32 @@ std::tuple<Tensor, Tensor> fused_dropout_hpu(
       "dropout_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
 
   size_t device_id = self.device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
 
   DropoutOperator Op(device_id, scalar_type);
+
   // Create Graph
   auto graph = habana_helpers::create_graph(device_id, node_type);
-
   // Build Params for the graph
   std::vector<c10::IValue> stack = {IValue(self), IValue(p)};
   auto seed_tensor = DropoutOperator::GenerateAndCopySeedToHPU(stack, true);
   // Assign Inputs to the Operator
   std::vector<at::Tensor> pt_inputs{self, seed_tensor};
-  Op.AllocateSynapseInputs(graph, pt_inputs, true);
-  Op.AllocateAndAddSynapseNode(graph, stack, true);
+  size_t key = Op.GetRecipeKey(node_type, stack);
 
-  // compile and execute the graph
-  Op.Compile(graph);
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    Op.SetPTInputs(pt_inputs);
+    Op.SetPTOutputs(stack, true);
+    Op.Execute(key);
+  } else {
+    PT_KERNEL_DEBUG("key:", key);
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
+    Op.AllocateAndAddSynapseNode(graph, stack, {true, true});
 
+    // compile and execute the graph
+    Op.Compile(graph);
+  }
   std::vector<at::Tensor> out = Op.GetOutputs();
   TORCH_CHECK(out.size() == 2, "Incorrect size of outputs");
 
