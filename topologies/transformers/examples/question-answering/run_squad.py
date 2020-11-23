@@ -836,6 +836,7 @@ def main():
     args.model_type = args.model_type.lower()
 
     extra_kwargs = {'attention_probs_dropout_prob': 0.0, 'hidden_dropout_prob' : 0.0}  if args.no_dropout else {}
+    extra_kwargs['hidden_act'] = 'gelu_new'
 
     config = AutoConfig.from_pretrained(
         args.config_name if args.config_name else args.model_name_or_path,
