@@ -47,6 +47,7 @@ class OptPassCfg {
   bool enable_eliminate_common_subexpression = true;
   bool enable_constant_pooling = true;
   bool enable_peephole_optimization = true;
+  bool enable_subgraph_rewrite = false;
 
   static std::shared_ptr<OptPassCfg> GetInstance() {
     static auto p_instance_ = std::make_shared<OptPassCfg>();

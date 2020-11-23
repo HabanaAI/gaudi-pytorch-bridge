@@ -19,6 +19,7 @@
 #include "hpu_lazy_cache.h"
 #include "ops/constant.h"
 #include "ops/convolution.h"
+#include "passes/transform_graph.h"
 #include "pytorch_helpers/habana_device/hpu_cached_devices.h"
 #include "synapse_helpers/device.h"
 
@@ -207,6 +208,10 @@ void HlExec::Optimize() {
 
   if (OptPassCfg::GetInstance()->enable_peephole_optimization) {
     torch::jit::PeepholeOptimize(mp_g_);
+  }
+
+  if (OptPassCfg::GetInstance()->enable_subgraph_rewrite) {
+    transform_graph(mp_g_);
   }
 }
 

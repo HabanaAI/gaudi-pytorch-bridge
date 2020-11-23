@@ -12,6 +12,7 @@ target_include_directories(
   SYSTEM PUBLIC
   "$ENV{HABANA_SOFTWARE_STACK}/3rd-parties/abseil-cpp"
   "$ENV{HABANA_SOFTWARE_STACK}/3rd-parties/googletest_1_10/googletest/include"
+  "$ENV{HABANA_SOFTWARE_STACK}/3rd-parties/json/single_include"
   "$ENV{PYTORCH_MODULES_ROOT_PATH}"
   "$ENV{PYTORCH_MODULES_ROOT_PATH}/pytorch_helpers"
   "$ENV{SYNAPSE_ROOT}/include"
@@ -23,6 +24,8 @@ target_compile_definitions(test_pt_integration PRIVATE "TESTS" MAX_DEVICES_PER_B
 #  HINTS "${TORCH_DIR}/lib/")
 #message("Pytorch Python Path: ${PTPY_LIB}")
 
+file(GLOB PT_INTEGRATION_TEST_JSON_FILES *.json)
+execute_process(COMMAND cp ${PT_INTEGRATION_TEST_JSON_FILES} ${CMAKE_BINARY_DIR}/.)
 SET(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} -Wl,--no-as-needed")
 target_link_libraries(
   test_pt_integration

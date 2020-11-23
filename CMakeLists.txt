@@ -29,6 +29,7 @@ else ()
   message(AUTHOR_WARNING "clang-tidy was not detected. Please install it and rerun CMake or set CLANG_TIDY to a valid path")
 endif ()
 find_package(Torch REQUIRED)
+add_subdirectory(cmake/json)
 add_subdirectory(third_party/pybind11)
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 include(AddNPUStackDependencies)
@@ -92,6 +93,7 @@ add_library(habana_pytorch_plugin SHARED
   habana_lazy/tensor_impl.cpp
   habana_lazy/hlexec.cpp
   habana_lazy/lazy_executor.cpp
+  habana_lazy/passes/transform_graph.cpp
   habana_lazy/hpu_lazy_cache.cpp
 )
 target_compile_features(habana_pytorch_plugin PRIVATE cxx_std_14)
@@ -99,7 +101,7 @@ target_compile_definitions(habana_pytorch_plugin PRIVATE "GENERIC_HELPERS" MAX_D
 #TODO: remove -Wno-error=deprecated-declarations after removing functions marked [[deprecated]]
 target_compile_options(habana_pytorch_plugin PRIVATE -Wall -Wextra -Werror -Wno-error=deprecated-declarations)
 # Link against LibTorch and synapse
-target_link_libraries(habana_pytorch_plugin PRIVATE "${TORCH_LIBRARIES}" pytorch_synapse_helpers_abi11)
+target_link_libraries(habana_pytorch_plugin PRIVATE "${TORCH_LIBRARIES}" pytorch_synapse_helpers_abi11 json)
 target_include_directories(habana_pytorch_plugin PRIVATE ${CMAKE_SOURCE_DIR})
 
 set(BRIDGE_SOURCES habana_bridge/register/register.cpp)
