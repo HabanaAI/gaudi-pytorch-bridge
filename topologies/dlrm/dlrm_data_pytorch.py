@@ -377,14 +377,13 @@ def ensure_dataset_preprocessed(args, d_path):
 
 
 def make_criteo_data_and_loaders(args):
+    use_pin_memory = False
+    if (hasattr(args, 'no_habana') and (not args.no_habana)) or args.use_gpu:
+        use_pin_memory = True
 
     if args.mlperf_logging and args.memory_map and args.data_set == "terabyte":
         # more efficient for larger batches
         data_directory = path.dirname(args.raw_data_file)
-
-        use_pin_memory = False
-        if (hasattr(args, 'no_habana') and (not args.no_habana)) or args.use_gpu:
-            use_pin_memory = True
 
         if args.mlperf_bin_loader:
             lstr = args.processed_data_file.split("/")
