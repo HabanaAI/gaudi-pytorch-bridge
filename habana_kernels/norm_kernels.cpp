@@ -1098,9 +1098,27 @@ void LayerNormOperator::AllocateAndAddSynapseNode(
   const auto input = inputs[0].toTensor();
   const auto weight = inputs[1].toTensor();
   const auto bias = inputs[2].toTensor();
-  const auto m = inputs[3].toInt();
-  const auto n = inputs[4].toInt();
+  auto m = inputs[3].toInt();
+  auto n = inputs[4].toInt();
   const auto eps = inputs[5].toDouble();
+
+  //PT_HABANA_ENABLE_GRAPHMODE_LAYERNORM_FUSION Env variable is added as WA only for BERT graph mode 
+  //and it should not be enabled in other cases.
+  static const std::string graphFusionEnvValue = "PT_HABANA_ENABLE_GRAPHMODE_LAYERNORM_FUSION";
+  const char* graphFusionValue = getenv(graphFusionEnvValue.c_str());
+  if(graphFusionValue)
+  {
+    int isFusionEnabled = std::stoi(getenv("PT_HABANA_ENABLE_GRAPHMODE_LAYERNORM_FUSION"));
+    if (isFusionEnabled && m==-1)
+    {
+      m = input.size(0) * input.size(1);
+      if(n != input.size(2))
+      {
+        n = input.size(2);
+      }
+    }
+  }
+
   std::vector<int64_t> shape_mean{m, 1};
   IntArrayRef meanArray(shape_mean.data(), shape_mean.size());
 
@@ -1200,7 +1218,20 @@ void LayerNormOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   const auto input = inputs[0].toTensor();
   const auto weight = inputs[1].toTensor();
   const auto bias = inputs[2].toTensor();
-  const auto m = inputs[3].toInt();
+  auto m = inputs[3].toInt();
+
+  //PT_HABANA_ENABLE_GRAPHMODE_LAYERNORM_FUSION Env variable is added as WA only for BERT graph mode 
+  //and it should not be enabled in other cases.
+  static const std::string graphFusionEnvValue = "PT_HABANA_ENABLE_GRAPHMODE_LAYERNORM_FUSION";
+  const char* graphFusionValue = getenv(graphFusionEnvValue.c_str());
+  if(graphFusionValue)
+  {
+    int isFusionEnabled = std::stoi(getenv("PT_HABANA_ENABLE_GRAPHMODE_LAYERNORM_FUSION"));
+    if (isFusionEnabled && m==-1)
+    {
+      m = input.size(0) * input.size(1);
+    }
+  }
 
   auto outputs = AllocatePTOutputs(input, bias, weight, m, {true, true, true});
   HabanaOperator::SetPTOutputs(
@@ -1331,9 +1362,26 @@ void LayerNormBackwardOperator::AllocateAndAddSynapseNode(
   const auto mean = inputs[2].toTensor();
   const auto rstd = inputs[3].toTensor();
   const auto gamma = inputs[4].toTensor();
-  const auto m = inputs[5].toInt();
-  const auto n = inputs[6].toInt();
+  auto m = inputs[5].toInt();
+  auto n = inputs[6].toInt();
   const auto grad_input_mask = inputs[7].toBoolList();
+
+  //PT_HABANA_ENABLE_GRAPHMODE_LAYERNORM_FUSION Env variable is added as WA only for BERT graph mode 
+  //and it should not be enabled in other cases.
+  static const std::string graphFusionEnvValue = "PT_HABANA_ENABLE_GRAPHMODE_LAYERNORM_FUSION";
+  const char* graphFusionValue = getenv(graphFusionEnvValue.c_str());
+  if(graphFusionValue)
+  {
+    int isFusionEnabled = std::stoi(getenv("PT_HABANA_ENABLE_GRAPHMODE_LAYERNORM_FUSION"));
+    if (isFusionEnabled && m==-1)
+    {
+      m = X.size(0) * X.size(1);
+      if(n != X.size(2))
+      {
+        n = X.size(2);
+      }
+    }
+  }
 
   // swap the inputs for grad-in and input to reflect the order in
   // which they have to be handed over to TPC kernel

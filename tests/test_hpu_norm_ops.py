@@ -8,7 +8,8 @@ from test_utils import (
     evaluate_fwd_inplace_kernel,
 )
 import numpy
-
+import os
+os.environ['PT_HABANA_ENABLE_GRAPHMODE_LAYERNORM_FUSION']="1"
 # N - batch
 # H - input height
 # W - input width
@@ -247,6 +248,32 @@ def test_hpu_batch_norm_2d_eval_withcache_fwd_bwd(N, H, W, C):
             rtol=0.001,
         )
 
+@pytest.mark.parametrize("N, H, W", [(12,384,1024)])
+@pytest.mark.parametrize("split_dim", [2])
+def test_hpu_layer_norm_bert_graphmode(N, H, W, split_dim):
+    shape = [N, H, W]
+    shape_norm = shape[split_dim:]
+    kernel = torch.nn.LayerNorm(shape_norm, elementwise_affine=True)
+    kernel_params_fwd = {"input": torch.randn(shape, requires_grad=True)}
+
+    bwd_tensor1 = torch.randn(shape)
+    bwd_tensor2 = None
+    bwd_tensor3 = None
+    bwd_tensors = [bwd_tensor1, bwd_tensor2, bwd_tensor3]
+    evaluate_fwd_bwd_kernel(
+        kernel=kernel,
+        tensor_list_bwd=bwd_tensors,
+        kernel_params_fwd=kernel_params_fwd,
+        copy_kernel=True,
+        grad_on_grad_enable=False,
+    )
+    evaluate_fwd_bwd_kernel(
+        kernel=kernel,
+        tensor_list_bwd=bwd_tensors,
+        kernel_params_fwd=kernel_params_fwd,
+        copy_kernel=True,
+        grad_on_grad_enable=False,
+    )
 
 if __name__ == "__main__":
     test_hpu_native_layer_norm(*layer_norm_test_case_list[0], 1)
