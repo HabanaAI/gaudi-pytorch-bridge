@@ -873,6 +873,8 @@ class Trainer:
             if preds is not None:
                 preds = self.distributed_concat(preds, num_total_examples=self.num_examples(dataloader))
             if label_ids is not None:
+                #workaround to convert to int type
+                label_ids = label_ids.to("cpu").type(torch.IntTensor).to("habana")
                 label_ids = self.distributed_concat(label_ids, num_total_examples=self.num_examples(dataloader))
         elif is_torch_tpu_available():
             # tpu-comment: Get all predictions and labels from all worker shards of eval dataset
