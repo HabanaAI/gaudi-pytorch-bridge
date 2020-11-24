@@ -208,6 +208,16 @@ void HbLazyTensor::MarkStep(const c10::Device& device) {
   // TODO reset IR
 }
 
+bool HbLazyTensor::isStorageAttached() {
+  if (data()->tensor_data) {
+    if (data()->tensor_data.value().unsafeGetTensorImpl())
+      return true;
+    else
+      return false;
+  } else {
+    return false;
+  }
+}
 void HbLazyTensor::SetTensorData(at::Tensor tensor_data) {
   data()->tensor_data = std::move(tensor_data);
 }
@@ -411,7 +421,7 @@ void HbLazyTensor::SyncTensorsGraphInternal(
 
   exec::HlExec hlexec{};
   hlexec.Create(po_data.post_order, po_data.inputs, po_data.outputs);
-  
+
   // Dump the JIT graph with PT_LAZY_DEBUG
   hlexec.DumpGraph();
 

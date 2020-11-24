@@ -138,13 +138,34 @@ Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src, bool non_blocking) {
       self.device().index());
   auto exec_mode = context->getExecutionMode();
   if (exec_mode != kLOWERING) {
-    bool allocate_storage = true;
-    self = at::native::empty_hpu_lazy(
-        self.sizes(),
-        self.options(),
-        self.suggest_memory_format(),
-        allocate_storage);
     auto self_hb_tensor = habana_lazy::GetHbLazyTensor(self);
+    // WE need to add storage if it wasnt created
+    // right now as soon as we do a H2D transfer, we create memory and mark
+    // executed
+    auto isStorageAttached = self_hb_tensor.isStorageAttached();
+    if (!isStorageAttached) {
+      c10 ::Allocator* allocator;
+      allocator = at::habana::getHABANADeviceAllocator();
+      int64_t nelements = prod_intlist(self.sizes());
+      int elem_size = self.dtype().itemsize();
+      auto storage_impl = c10::make_intrusive<StorageImpl>(
+          self.dtype(),
+          nelements,
+          allocator->allocate(nelements * elem_size),
+          allocator,
+          /*resizeable=*/true);
+      Tensor at_internal_tensor =
+          habana_lazy::AtenInternalHbTensor(std::move(storage_impl));
+      // Setup the tensor sizes/strides, for now assuming contiguous
+      at_internal_tensor.unsafeGetTensorImpl()->set_sizes_contiguous(
+          self.sizes());
+      self_hb_tensor.SetTensorData(at_internal_tensor);
+      // Keep a pointer to the storageless tensor from the internal tensor
+      auto at_internal_impl =
+          habana_lazy::GetHbInternalTensorImpl(at_internal_tensor);
+      at_internal_impl->set_tensor(&self);
+      setTensorAsInputNode(self_hb_tensor);
+    }
     // We need to mark this tensor as executed
     // As this will be an input coming from host side, its doesnt need further
     // execution and is ready for consumption as input

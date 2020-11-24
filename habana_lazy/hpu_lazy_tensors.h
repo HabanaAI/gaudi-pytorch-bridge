@@ -171,6 +171,10 @@ class HbLazyTensor {
       return -1;
   }
 
+  // returns true if we have already created an aten tensor with storage and
+  // attached
+  bool isStorageAttached();
+
  private:
   Data* data() const;
   std::shared_ptr<Data> data_ptr() const {
