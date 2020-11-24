@@ -695,7 +695,7 @@ class DLRM_Net_Habana(nn.Module):
         # TBD: issue with slice copy on device, so use cpu for slicing and copy
         exchange_input_buffer = torch.zeros(batch_size*self.ndevices, max_table_per_device*self.m_spa, device="cpu", dtype = ly[0].dtype)
         for i in range(len(ly)):
-            exchange_input_buffer[:,i*self.m_spa:(i+1)*self.m_spa] = ly[i]
+            exchange_input_buffer[:,i*self.m_spa:(i+1)*self.m_spa] = ly[i].to("cpu")
         #exchange_input_buffer = PrintDataAcrossPass.apply(exchange_input_buffer)
         exchange_input_buffer = exchange_input_buffer.to(ly[0].device)
         exchange_output_buffer = AllToAllAcrossDevice.apply(exchange_input_buffer)
