@@ -227,6 +227,10 @@ class device {
   void wait_until_event_ready(const std::string& event_id);
   void wait_for_event(shared_event& event);
 
+  const absl::optional<owned_device_ptr>& reduction_buffer() {
+    return preallocated_reduction_buffer_;
+  }
+
   event_handle_cache& get_event_handle_cache() {
     return event_handle_cache_;
   }
@@ -255,6 +259,10 @@ class device {
 
   bool HostMemoryCacheEnabled_() {
     return host_memory_cache_enabled_;
+  }
+
+  bool IsHCLSameAddressResolutionEnabled() {
+    return is_hcl_same_addr_enabled_;
   }
 
  private:
@@ -297,6 +305,9 @@ class device {
   recipe_handle_cache recipe_handle_cache_;
   bool is_caching_enabled_;
   bool is_stream_async_enabled_;
+  absl::optional<owned_device_ptr> preallocated_reduction_buffer_;
+  bool is_hcl_same_addr_enabled_;
+
   active_recipe_counter recipe_counter_;
   host_memory host_memory_;
   bool host_memory_cache_enabled_;

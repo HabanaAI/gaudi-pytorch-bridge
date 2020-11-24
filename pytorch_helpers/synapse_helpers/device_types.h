@@ -39,13 +39,13 @@ class owned_device_ptr {
              device_ptr_deleter{dev}},
         size_(size) {}
 
-  device_ptr get() {
+  device_ptr get() const {
     return reinterpret_cast<device_ptr>(ptr_.get());
   }
   device_ptr release() {
     return reinterpret_cast<device_ptr>(ptr_.release());
   }
-  size_t size() {
+  size_t size() const {
     return size_;
   }
 

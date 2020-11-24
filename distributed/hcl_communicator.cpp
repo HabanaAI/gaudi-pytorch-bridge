@@ -22,6 +22,8 @@
 #include <absl/types/variant.h>
 #include <hcl_api.h>
 
+#include "synapse_helpers/env_flags.h"
+
 #include "habana_helpers/logging.h"
 
 // At this moment the only thing we can do for collective is waiting for input
@@ -60,19 +62,7 @@ hcl_communicator::hcl_communicator(
     config_path = config_json_path;
   }
 
-  // Need to use from pytorch_helpers once we move to a common build after
-  // Pytorch1.6
-  char* stream_enable_flag = std::getenv("HABANA_HCL_STREAM_ENABLE");
-  if (stream_enable_flag && *stream_enable_flag) {
-    bool true_found = absl::EqualsIgnoreCase(stream_enable_flag, "1") ||
-        absl::EqualsIgnoreCase(stream_enable_flag, "true");
-    bool false_found = absl::EqualsIgnoreCase(stream_enable_flag, "0") ||
-        absl::EqualsIgnoreCase(stream_enable_flag, "false");
-    if (true_found)
-      using_streams_ = true;
-    else if (false_found)
-      using_streams_ = false;
-  }
+  using_streams_ = GET_ENV_FLAG(PT_ENABLE_HCL_STREAM);
 
   PT_SYNHELPER_DEBUG("Opening communication. device_id:", device_id, ".");
 
@@ -125,7 +115,8 @@ synapse_error_o hcl_communicator::allreduce(
                                 size_t elem_cnt,
                                 synDataType data_type,
                                 device_ptr intermediate_address,
-                                size_t intermediate_size) {
+                                size_t intermediate_size,
+                                uint32_t flags) {
     return HCL_Allreduce(
         collective_stream,
         input_address,
@@ -136,7 +127,7 @@ synapse_error_o hcl_communicator::allreduce(
         intermediate_size,
         hclop,
         hcl_comm(),
-        0 /*flags*/);
+        flags);
   };
   PT_DISTRIBUTED_BEGIN;
   auto status = execute_collective_with_fusion_buffer(
@@ -189,7 +180,8 @@ synapse_error_o hcl_communicator::reduce(
                              size_t elem_cnt,
                              synDataType data_type,
                              device_ptr intermediate_address,
-                             size_t intermediate_size) {
+                             size_t intermediate_size,
+                             uint32_t flags) {
     return HCL_Reduce(
         collective_stream,
         input_address,
@@ -201,7 +193,7 @@ synapse_error_o hcl_communicator::reduce(
         dest_rank,
         hclop,
         hcl_comm(),
-        0 /*flags*/);
+        flags);
   };
 
   PT_DISTRIBUTED_BEGIN;
@@ -235,7 +227,8 @@ synapse_error_o hcl_communicator::reduce_scatter(
                                      size_t elem_cnt,
                                      synDataType data_type,
                                      device_ptr intermediate_address,
-                                     size_t intermediate_size) {
+                                     size_t intermediate_size,
+                                     uint32_t flags) {
     return HCL_Reduce_Scatter(
         collective_stream,
         input_address,
@@ -246,7 +239,7 @@ synapse_error_o hcl_communicator::reduce_scatter(
         intermediate_size,
         hclop,
         hcl_comm(),
-        0 /*flags*/);
+        flags);
   };
 
   PT_DISTRIBUTED_BEGIN;
@@ -279,7 +272,8 @@ synapse_error_o hcl_communicator::alltoall(
                                size_t elem_cnt,
                                synDataType data_type,
                                device_ptr intermediate_address,
-                               size_t intermediate_size) {
+                               size_t intermediate_size,
+                               uint32_t flags) {
     return HCL_AlltoAll(
         collective_stream,
         input_address,
@@ -289,7 +283,7 @@ synapse_error_o hcl_communicator::alltoall(
         intermediate_address,
         intermediate_size,
         hcl_comm(),
-        0 /*flags*/);
+        flags);
   };
 
   PT_DISTRIBUTED_BEGIN;
@@ -362,6 +356,39 @@ synapse_error_o hcl_communicator::allgather(
   submit_events(collective_stream, out_event_addr, done_callback);
   PT_DISTRIBUTED_END;
   return {};
+}
+
+size_t hcl_communicator::get_aligned_data_size(
+    size_t elem_cnt,
+    synDataType data_type) {
+  HABANA_ASSERT((data_type == syn_type_float) || (data_type == syn_type_bf16));
+  size_t elem_size = (data_type == syn_type_bf16) ? 2 : 4;
+  return ((elem_size * elem_cnt) + 0xFFFF) & ~0xFFFF;
+}
+
+bool hcl_communicator::can_data_fit_preallocated_buffer(
+    size_t elem_cnt,
+    synDataType data_type,
+    HCL_CollectiveOp operation) {
+  HABANA_ASSERT(my_device_ != nullptr);
+  const absl::optional<owned_device_ptr>& maybe_reduction_buff{
+      my_device_->reduction_buffer()};
+  if (!maybe_reduction_buff.has_value()) {
+    return false;
+  }
+  auto& reduction_buff = maybe_reduction_buff.value();
+
+  HCLStatus status{eHCLSuccess};
+  size_t required_int_buff_size{0};
+  elem_cnt = get_aligned_elem_cnt(elem_cnt);
+  status = HCL_Get_Intermediate_Buffer_size(
+      &required_int_buff_size, operation, elem_cnt, data_type, hcl_comm());
+  HABANA_ASSERT(status == eHCLSuccess);
+  HABANA_ASSERT(required_int_buff_size != 0);
+  size_t data_size = get_aligned_data_size(elem_cnt, data_type);
+  // TBD: if we dont fit, we need to fail the feature else there can be a mixup
+  // of data
+  return (data_size + required_int_buff_size) < reduction_buff.size();
 }
 
 HCL_Rank hcl_communicator::root_hcl_rank() const {
@@ -515,6 +542,55 @@ void hcl_communicator::negotiate_root_rank(int order) {
 
 // Privates starts here
 
+synapse_error_o hcl_communicator::memcpy_in_interim_buffer(
+    device_ptr input_address,
+    const void*& fused_input_data,
+    void*& buffer_data,
+    size_t& buffer_len,
+    const owned_device_ptr& reduction_buffer) {
+  buffer_data = reinterpret_cast<void*>(reduction_buffer.get());
+  fused_input_data = buffer_data;
+
+  synapse_helpers::device::transfer_manifest transfers;
+  transfers.reserve(1);
+
+  size_t offset{0};
+  synapse_helpers::device::transfer_desc transfer;
+  transfer.src = reinterpret_cast<synapse_helpers::device_ptr>(input_address);
+  transfer.dst = reinterpret_cast<synapse_helpers::device_ptr>(
+      (uint8_t*)buffer_data + offset);
+  transfer.bytes_to_transfer = buffer_len;
+  transfers.emplace_back(transfer);
+  offset += buffer_len;
+
+  auto maybe_error{my_device_->copy_data_within_device(
+      transfers, [transfers]() { return; })};
+
+  return {};
+}
+
+synapse_error_o hcl_communicator::memcpy_out_interim_buffer(
+    const void* buffer_data,
+    device_ptr output_address,
+    size_t& buffer_len) {
+  int64_t offset{0};
+  synapse_helpers::device::transfer_manifest transfers;
+  transfers.reserve(1);
+  void* buffer_data_at_offset = (uint8_t*)buffer_data + offset;
+  synapse_helpers::device::transfer_desc transfer;
+  transfer.src =
+      reinterpret_cast<synapse_helpers::device_ptr>(buffer_data_at_offset);
+  transfer.dst = reinterpret_cast<synapse_helpers::device_ptr>(output_address);
+  transfer.bytes_to_transfer = buffer_len;
+  transfers.emplace_back(transfer);
+  offset += buffer_len;
+
+  auto maybe_error{my_device_->copy_data_within_device(
+      transfers, [transfers]() { return; })};
+
+  return {};
+}
+
 synapse_error_o hcl_communicator::execute_collective_with_fusion_buffer(
     const hcl_communicator::hcl_collective_fnc& collective,
     const HCL_CollectiveOp operation,
@@ -526,37 +602,78 @@ synapse_error_o hcl_communicator::execute_collective_with_fusion_buffer(
     synDataType data_type,
     const event_done_callback& done_callback) {
   HCLStatus status{eHCLSuccess};
-  uint64_t required_size{0};
-  status = HCL_Get_Intermediate_Buffer_size(
-      &required_size, operation, elem_cnt, data_type, hcl_comm());
-  VERIFY_HCL_STATUS("HCL_Get_Intermediate_Buffer_size(...) failed.", status);
-  HABANA_ASSERT(required_size != 0)
+  HABANA_ASSERT(nullptr != my_device_);
+  const absl::optional<owned_device_ptr>& maybe_reduction_buff{
+      my_device_->reduction_buffer()};
+  const void* fused_input_data;
+  void* fused_output_data = nullptr;
+  size_t buffer_len = 0;
+
+  // Use same address if preallocated reduction buffer exists, operation is
+  // allreduce and data is in preallocated reduction buffer. It is caller
+  // responsibility to check if reduction_buffer has enough size before using
+  // its address for allreduce call.
+  const bool same_address{
+      maybe_reduction_buff.has_value() && (eHCLAllReduce == operation) &&
+      (input_address == output_address) /* && (input_address ==
+                                           maybe_reduction_buff.value().get())*/
+      && can_data_fit_preallocated_buffer(elem_cnt, data_type, eHCLAllReduce)};
 
   std::shared_ptr<owned_device_ptr> intermediate_buffer;
-  {
-    std::lock_guard<std::mutex> lck(intermediate_buffer_allocation_mtx);
-    if ((intermediate_buffer_ == nullptr) ||
-        (required_size > intermediate_buffer_->size())) {
-      // We need bigger intermediate buffer - allocate new one and store
-      // reference We can replace that because:
-      //  * All collective ops are sharing the same stream - if that change we
-      //  need to hold buffer allocation per
-      //    stream.
-      //  * shared ptr for old buffer was captured in callback function for SEM
-      //  - buffer will not be deleted until work
-      //    scheduled on stream is done.
-      intermediate_buffer_ = std::make_shared<owned_device_ptr>(
-          my_device_->malloc(required_size), required_size, *my_device_);
-      HABANA_ASSERT(intermediate_buffer_ != nullptr);
-    }
-    intermediate_buffer = intermediate_buffer_;
-  }
+  device_ptr intermediate_buffer_address{};
+  size_t intermediate_buffer_size{0};
 
-  // check the ptr
-  if (device_nullptr == intermediate_buffer->get()) {
-    return synapse_error{
-        "Intermediate buffer memory allocation failed.",
-        synFailedToAllocateDeviceMemory};
+  if (same_address) {
+    // As intermediate buffer also must have same_address across communicator,
+    // we need to use part of reduction_buffer as intermediate - offset of this
+    // part is computed using data size and appriopriate alignment.
+    const owned_device_ptr& reduction_buffer = maybe_reduction_buff.value();
+    elem_cnt = get_aligned_elem_cnt(elem_cnt);
+    size_t intermediate_offset = get_aligned_data_size(elem_cnt, data_type);
+    intermediate_buffer_address = reduction_buffer.get() + intermediate_offset;
+    intermediate_buffer_size = reduction_buffer.size() - intermediate_offset;
+    buffer_len = elem_cnt;
+    memcpy_in_interim_buffer(
+        input_address,
+        fused_input_data,
+        fused_output_data,
+        buffer_len,
+        maybe_reduction_buff.value());
+  } else {
+    uint64_t required_size{0};
+    status = HCL_Get_Intermediate_Buffer_size(
+        &required_size, operation, elem_cnt, data_type, hcl_comm());
+    VERIFY_HCL_STATUS("HCL_Get_Intermediate_Buffer_size(...) failed.", status);
+    HABANA_ASSERT(required_size != 0)
+
+    std::shared_ptr<owned_device_ptr> intermediate_buffer;
+    {
+      std::lock_guard<std::mutex> lck(intermediate_buffer_allocation_mtx);
+      if ((intermediate_buffer_ == nullptr) ||
+          (required_size > intermediate_buffer_->size())) {
+        // We need bigger intermediate buffer - allocate new one and store
+        // reference We can replace that because:
+        //  * All collective ops are sharing the same stream - if that change we
+        //  need to hold buffer allocation per
+        //    stream.
+        //  * shared ptr for old buffer was captured in callback function for
+        //  SEM - buffer will not be deleted until work
+        //    scheduled on stream is done.
+        intermediate_buffer_ = std::make_shared<owned_device_ptr>(
+            my_device_->malloc(required_size), required_size, *my_device_);
+        HABANA_ASSERT(intermediate_buffer_ != nullptr);
+      }
+      intermediate_buffer = intermediate_buffer_;
+    }
+
+    // check the ptr
+    if (device_nullptr == intermediate_buffer->get()) {
+      return synapse_error{
+          "Intermediate buffer memory allocation failed.",
+          synFailedToAllocateDeviceMemory};
+    }
+    intermediate_buffer_address = intermediate_buffer->get();
+    intermediate_buffer_size = intermediate_buffer->size();
   }
 
   // Include ptr to callback - local variable definition is here because it is
@@ -568,16 +685,28 @@ synapse_error_o hcl_communicator::execute_collective_with_fusion_buffer(
 
   stream* collective_stream = get_collective_stream();
   prepare_stream(collective_stream, in_event_addr);
+  auto input = input_address;
+  auto output = output_address;
+  uint32_t flags = 0;
+  if (same_address) {
+    input = reinterpret_cast<synapse_helpers::device_ptr>(fused_input_data);
+    output = reinterpret_cast<synapse_helpers::device_ptr>(fused_output_data);
+    flags = (1 << 0); // eHCLSameAddress;
+  }
   status = collective(
       get_synapse_stream_handle(collective_stream),
-      input_address,
-      output_address,
+      input,
+      output,
       elem_cnt,
       data_type,
-      intermediate_buffer->get(),
-      intermediate_buffer->size());
+      intermediate_buffer_address,
+      intermediate_buffer_size,
+      flags);
   VERIFY_HCL_STATUS("Collective operation failed", status);
   submit_events(collective_stream, out_event_addr, new_done_callback);
+  if (same_address) {
+    memcpy_out_interim_buffer(fused_output_data, input_address, buffer_len);
+  }
   return {};
 }
 

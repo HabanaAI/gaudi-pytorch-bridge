@@ -95,6 +95,24 @@ device::device(
     PT_SYNHELPER_FATAL(
         "Cannot obtain device memory size for allocation of global ws buffer");
   }
+
+  is_hcl_same_addr_enabled_ =
+      GET_ENV_FLAG(PT_ENABLE_HCL_SAME_ADDRESS_RESOLUTION) &&
+      GET_ENV_FLAG(PT_ENABLE_HCL_STREAM);
+
+  // use the first allocated buffer always for same_address functionality
+  // if each rank uses the same address for the recv/intermediate addresses;
+  // then we can use the same address and it will save the address resolution
+  // (since the address is known)
+  if (is_hcl_same_addr_enabled_) {
+    size_t prealloc_size = 2ULL * 1024 * 1024 * 1024; // 2GByte
+    device_ptr prealloc_addr =
+        reinterpret_cast<device_ptr>(allocator_->alloc(prealloc_size));
+    HABANA_ASSERT(prealloc_addr != device_nullptr);
+    preallocated_reduction_buffer_ = absl::make_optional<owned_device_ptr>(
+        prealloc_addr, prealloc_size, *this);
+  }
+
   // in case of simulator, there might not be 4GB of memory available, so as a
   // fallback solution workspace_buffer_ will be allocated to 70% of free
   // memory on the given device
@@ -223,6 +241,11 @@ uint64_t device::get_workspace_size() {
 
 device::~device() {
   PT_SYNHELPER_DEBUG("Device dectructor entry");
+
+  if (is_hcl_same_addr_enabled_) {
+    device_ptr prealloc_addr = preallocated_reduction_buffer_->get();
+    allocator_->free((void*)prealloc_addr);
+  }
 
   framework_specific_cleanup_();
 

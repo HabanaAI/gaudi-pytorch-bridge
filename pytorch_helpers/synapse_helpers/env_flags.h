@@ -68,6 +68,14 @@ struct PT_ENABLE_HOST_MEMORY_CACHE {
   static constexpr bool default_value = true;
 };
 
+struct PT_ENABLE_HCL_SAME_ADDRESS_RESOLUTION {
+  static constexpr bool default_value = true;
+};
+
+struct PT_ENABLE_HCL_STREAM {
+  static constexpr bool default_value = false;
+};
+
 struct PT_HABANA_MAX_DMA_COPY_RETRY_COUNT
     : public std::numeric_limits<unsigned> {
   static constexpr unsigned default_value = 1000;

@@ -150,6 +150,20 @@ class hcl_communicator {
     return my_hcl_rank_;
   };
 
+  device_ptr reduction_buffer_addr();
+
+  bool can_data_fit_preallocated_buffer(
+      size_t elem_cnt,
+      synDataType data_type,
+      HCL_CollectiveOp operation);
+
+  size_t get_aligned_data_size(size_t elem_cnt, synDataType data_type);
+
+  size_t get_aligned_elem_cnt(size_t elem_cnt) {
+    const size_t alignment = 64 * size();
+    return ((elem_cnt + alignment - 1) / alignment) * alignment;
+  }
+
   HCL_Rank root_hcl_rank() const;
 
   HCL_Comm hcl_comm() const {
@@ -182,7 +196,8 @@ class hcl_communicator {
       size_t elem_cnt,
       synDataType data_type,
       device_ptr intermediate_address,
-      size_t intermediate_size)>;
+      size_t intermediate_size,
+      bool same_address)>;
   synapse_error_o execute_collective_with_fusion_buffer(
       const hcl_collective_fnc& collective,
       const HCL_CollectiveOp operation,
@@ -202,6 +217,17 @@ class hcl_communicator {
       device_ptr output_address,
       const event_done_callback& done_callback);
 
+  synapse_error_o memcpy_in_interim_buffer(
+      device_ptr input_address,
+      const void*& fused_input_data,
+      void*& buffer_data,
+      size_t& buffer_len,
+      const owned_device_ptr& reduction_buffer);
+  synapse_error_o memcpy_out_interim_buffer(
+      const void* buffer_data,
+      device_ptr output_address,
+      size_t& buffer_len);
+
   std::shared_ptr<device> my_device_{nullptr};
   std::shared_ptr<owned_device_ptr> intermediate_buffer_{nullptr};
   std::mutex intermediate_buffer_allocation_mtx;
@@ -211,5 +237,12 @@ class hcl_communicator {
   HCL_Rank my_hcl_rank_{HCL_RANK_UNASSIGNED};
   HCL_Rank root_hcl_rank_{HCL_RANK_UNASSIGNED};
 };
+
+inline device_ptr hcl_communicator::reduction_buffer_addr() {
+  const absl::optional<owned_device_ptr>& maybe_reduction_buff{
+      my_device_->reduction_buffer()};
+  return maybe_reduction_buff.has_value() ? maybe_reduction_buff.value().get()
+                                          : device_nullptr;
+}
 
 } // namespace synapse_helpers
