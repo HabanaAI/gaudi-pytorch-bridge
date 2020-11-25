@@ -880,6 +880,24 @@ Tensor pow_scalar_tensor_hpu(Scalar other, const Tensor& self) {
   return output;
 }
 
+/***************************************************************************
+ * @brief Kernel implementation for aten::_masked_scale(Tensor self, Tensor
+ *mask, float scale) -> Tensor
+ * @param self [in]- Tensor 1D bf16/FP32
+ * @param mask [in]- Tensor 1D bf16/FP32
+ * @param scale - float
+ * Implements: grad_input = grad_output * mask / p1m
+ ****************************************************************************/
+Tensor masked_scale_hpu(const Tensor& self, const Tensor& mask, double scale) {
+  PT_KERNEL_BEGIN;
+
+  auto tt_mul_out =
+      at::mul(self, habana_helpers::hpu_cast_tensor(mask, self.dtype()));
+  auto output = at::mul(tt_mul_out, static_cast<float>(scale));
+  PT_KERNEL_END;
+  return output;
+}
+
 static auto& KernelRegistry =
     habana::KernelRegistry()
         .add(

@@ -542,3 +542,4 @@ std::tuple<at::Tensor, at::Tensor> matmul_backward_hpu(
     const at::Tensor& grad_output,
     const at::Tensor& self,
     const at::Tensor& other);
+Tensor masked_scale_hpu(const Tensor& self, const Tensor& mask, double scale);
