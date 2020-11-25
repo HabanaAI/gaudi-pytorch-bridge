@@ -108,7 +108,6 @@ class ConstantOperator : public habana::HabanaOperator {
       bool is_output_persistent = false) override;
 };
 
-
 //
 // For suporting ones_like operation
 class OnesLikeOperator : public ConstantOperator {
@@ -120,7 +119,8 @@ class OnesLikeOperator : public ConstantOperator {
       torch::jit::Stack& inputs,
       bool is_output_persistent) {
     TORCH_CHECK(
-        inputs.size() == 6, "OnesLikeOperator Operation expects 6 arguments as input")
+        inputs.size() == 6,
+        "OnesLikeOperator Operation expects 6 arguments as input")
     inputs.erase(inputs.begin() + 1, inputs.end());
     inputs.emplace_back(1);
     ConstantOperator::AllocateAndAddSynapseNode(
@@ -135,11 +135,7 @@ class ConstantOutOperator : public habana::HabanaOperator {
       : habana::HabanaOperator(
             "constant_" + habana_helpers::name_suffix_from_type(scalarType)) {
     this->CreateSynContext(device_id);
-    // Temporary WA for MNIST Lazy Execution only.
-    // Assume ConstantOut will be called from fill_ only, which is only
-    // being used to Zero out weight gradients, therefore we can return
-    // output_layout as "HWCK" instead of "ANY"
-    kernel_meta_data_.output_layout.assign({habana::LayoutFormat::HWCK});
+    kernel_meta_data_.output_layout.assign({habana::LayoutFormat::ANY});
     // special case, adding -1 to the tpc order, will not add any inputs
     kernel_meta_data_.tpc_input_order = {habana::NO_INPUTS};
   }

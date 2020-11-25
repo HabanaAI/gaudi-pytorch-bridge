@@ -63,11 +63,7 @@ class MulInplaceOperator : public BinaryInplaceWrapperOperator {
             device_id,
             "mult_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
     scalarType_ = scalarType;
-    // Temporary WA for MNIST Lazy Execution only.
-    // Assumption is that mul_ is called from optimizers only, which are calling this
-    // to update weight gradients with momentum. Therefore setting output_layout as 
-    // "HWCK" instead of default "ANY" should be ok.
-    kernel_meta_data_.output_layout.assign({habana::LayoutFormat::HWCK});
+    kernel_meta_data_.output_layout.assign({habana::LayoutFormat::ANY});
   }
 };
 

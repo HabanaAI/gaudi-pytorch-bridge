@@ -43,9 +43,8 @@ TEST_F(GraphOptimizeTest, PeepholeOptimTest) {
 
   hlexec->Create(po_data.post_order, po_data.inputs, po_data.outputs);
 
-  torch::jit::testing::FileCheck()
-      .check_not("aten::t")
-      ->run(*hlexec->get_graph());
+  torch::jit::testing::FileCheck().check_not("aten::t")->run(
+      *hlexec->get_graph());
   exec::OptPassCfg::GetInstance()->enable_peephole_optimization = false;
   unsetenv("PT_HPU_LAZY_MODE");
 }

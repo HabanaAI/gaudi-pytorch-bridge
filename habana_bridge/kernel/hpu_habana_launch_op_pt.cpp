@@ -729,6 +729,18 @@ void HabanaLaunchOpPT::processInputs(
           ? habana::LayoutFormat::ANY
           : habana_kernel_meta_data.input_layout.at(tensor_idx);
 
+      if (std::getenv("PT_HPU_LAZY_MODE")) {
+        // For weight tensors we update the map before execution starts through
+        // a pass If its marked HWCK in the map, we can override with it
+        auto tensor_layout = getTensorChannelOrder(value_in);
+        if (tensor_layout == habana::LayoutFormat::HWCK) {
+          TORCH_CHECK(
+              in_layout == habana::LayoutFormat::HWCK ||
+                  in_layout == habana::LayoutFormat::ANY,
+              "HabanaFusedOp, got contradicting layout info from meta data and opt pass");
+          in_layout = habana::LayoutFormat::HWCK;
+        }
+      }
       if (in_layout == habana::LayoutFormat::ANY && tensor_idx > 0) {
         // ATTENTION : We will support only homogeneous layouts for kernels
         // which dont pass meta data requirements for inputs
@@ -1112,6 +1124,12 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
   // topoloically sorted
   // TODO : check if we need to reorder nodes in any case
   torch::jit::graph_node_list graph_nodes = subgraph_->nodes();
+  // This is an optimization pass to mark all the nodes with sepcial layout like
+  // weights which have HWCK
+  // Only activated in lazy mode for now
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    gatherLayoutMetaData(subgraph_->nodes());
+  }
   for (auto* node : graph_nodes) {
     watch_tensor_flag_ = false;
     std::string opname(node->kind().toQualString());

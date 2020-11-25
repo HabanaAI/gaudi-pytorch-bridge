@@ -234,6 +234,16 @@ class RegisterKernel {
     return kernels_[node_name](device_id, node_type);
   }
 
+  HabanaOperatorPtr getWithoutAssert(
+      const int device_id,
+      const std::string& node_name,
+      c10::ScalarType node_type) {
+    if (kernels_.count(node_name))
+      return kernels_[node_name](device_id, node_type);
+    else
+      return nullptr;
+  }
+
   RegisterKernel() = default;
   RegisterKernel(const RegisterKernel&) = delete;
   RegisterKernel& operator=(const RegisterKernel&) = delete;
