@@ -7,11 +7,19 @@
 
 using namespace std;
 
-extern torch::Tensor embedding_bag_sum_hpu(
+extern torch::Tensor embedding_bag_sum_hpu_wrap(
     const torch::Tensor& input,
     const torch::Tensor& indices,
     const torch::Tensor& offsets,
     const torch::Tensor& valid_count,
+    int64_t kernel_mode);
+
+extern torch::Tensor& embedding_bag_sum_bwd_out_kernel_mode_hpu_wrap(
+    torch::Tensor& out,
+    const torch::Tensor& input,
+    const torch::Tensor& indices_bwd,
+    const torch::Tensor& offsets_bwd,
+    const torch::Tensor& valid_count_bwd,
     int64_t kernel_mode);
 
 // Input tensor 1	Input feature map	BF16/FP32	2D
@@ -25,7 +33,6 @@ extern torch::Tensor embedding_bag_sum_hpu(
   EMBEDDING_BAG_MODE_SUM_SMALL_LENGTHS = 1
 } HabanaEmbeddingBagKernelMode_t;
 */
-
 torch::Tensor embedding_bag_sum_with_valid_count_f32(
     torch::Tensor input,
     torch::Tensor indices,
@@ -34,7 +41,20 @@ torch::Tensor embedding_bag_sum_with_valid_count_f32(
     int64_t kernelMode) {
   torch::Tensor out;
 
-  out = embedding_bag_sum_hpu(input, indices, offsets, validCount, kernelMode);
+  out = embedding_bag_sum_hpu_wrap(
+      input, indices, offsets, validCount, kernelMode);
+  return out;
+}
+
+torch::Tensor& embedding_bag_sum_bwd_with_valid_count_f32(
+    torch::Tensor& out,
+    torch::Tensor& input,
+    torch::Tensor& indices,
+    torch::Tensor& offsets,
+    torch::Tensor& validCount,
+    int64_t kernelMode) {
+  embedding_bag_sum_bwd_out_kernel_mode_hpu_wrap(
+      out, input, indices, offsets, validCount, kernelMode);
   return out;
 }
 
@@ -43,5 +63,8 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       "forward",
       &embedding_bag_sum_with_valid_count_f32,
       "embedding bag sum forward");
-  m.def("backward", &embedding_bag_sum_with_valid_count_f32, "TO BE REMOVED");
+  m.def(
+      "backward",
+      &embedding_bag_sum_bwd_with_valid_count_f32,
+      "embedding bag sum bwd");
 }

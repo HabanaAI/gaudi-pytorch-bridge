@@ -676,6 +676,24 @@ Tensor& embedding_bag_sum_bwd_out_hpu_wrap(
         out, input, indices_bwd, offsets_bwd, valid_count_bwd);
   }
 };
+Tensor& embedding_bag_sum_bwd_out_kernel_mode_hpu_wrap(
+    Tensor& out,
+    const Tensor& input,
+    const Tensor& indices,
+    const Tensor& offsets,
+    const Tensor& valid_count,
+    int64_t kernel_mode) {
+  if (!habana_lazy::isDeviceInLoweringMode(input.device().index()) &&
+      std::getenv("PT_HPU_LAZY_MODE")) {
+    auto& t = embedding_bag_sum_bwd_out_kernel_mode_hpu_lazy(
+        out, input, indices, offsets, valid_count, kernel_mode);
+
+    return t;
+  } else {
+    return embedding_bag_sum_bwd_out_kernel_mode_hpu(
+        out, input, indices, offsets, valid_count, kernel_mode);
+  }
+};
 Tensor& fill_hpu_wrap_(Tensor& self, Scalar value) {
   if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
       std::getenv("PT_HPU_LAZY_MODE")) {

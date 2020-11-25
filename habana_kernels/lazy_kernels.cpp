@@ -13,6 +13,7 @@
 #include "habana_kernels/binary_kernels.h"
 #include "habana_kernels/conv_kernels.h"
 #include "habana_kernels/eager_kernels_declarations.h"
+#include "habana_kernels/embedding_kernels.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_kernels/linear_kernels.h"
 #include "habana_kernels/norm_kernels.h"
@@ -23,6 +24,7 @@
 #include "habana_lazy/ops/cat.h"
 #include "habana_lazy/ops/constant.h"
 #include "habana_lazy/ops/convolution.h"
+#include "habana_lazy/ops/embedding_bag.h"
 #include "habana_lazy/ops/index.h"
 #include "habana_lazy/ops/loss.h"
 #include "habana_lazy/ops/mse_loss.h"
@@ -658,8 +660,22 @@ Tensor embedding_bag_sum_hpu_lazy(
     const Tensor& offsets,
     const Tensor& valid_count,
     int64_t kernel_mode) {
-  return embedding_bag_sum_hpu(
-      input, indices, offsets, valid_count, kernel_mode);
+  habana_lazy::ir::NodePtr node =
+      std::make_shared<habana_lazy::ir::EmbeddingBagSum>(
+          input, indices, offsets, valid_count, kernel_mode);
+
+  auto result = at::native::empty_hpu_lazy(
+      {offsets.sizes()[0] - 1, input.size(1)},
+      input.options(),
+      input.suggest_memory_format(),
+      false);
+
+  auto hlresult = habana_lazy::GetHbLazyTensor(result);
+  habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+
+  return result;
 };
 Tensor embedding_bag_sum_fwd_hpu_lazy(
     const Tensor& input,
@@ -727,6 +743,23 @@ Tensor& embedding_bag_sum_bwd_out_hpu_lazy(
   for (auto& i : hl_tensors) {
     node->AddInput(i.GetIrValue());
   }
+
+  auto hlresult = habana_lazy::GetHbLazyTensor(out);
+  habana_lazy::ir::Value& out_value = hlresult.CurrentIrValue();
+  out_value.m_index = 0;
+  out_value.SetNode(node);
+  return out;
+};
+Tensor& embedding_bag_sum_bwd_out_kernel_mode_hpu_lazy(
+    Tensor& out,
+    const Tensor& input,
+    const Tensor& indices,
+    const Tensor& offsets,
+    const Tensor& valid_count,
+    int64_t kernel_mode) {
+  habana_lazy::ir::NodePtr node =
+      std::make_shared<habana_lazy::ir::EmbeddingBagSumBwd>(
+          out, input, indices, offsets, valid_count, kernel_mode);
 
   auto hlresult = habana_lazy::GetHbLazyTensor(out);
   habana_lazy::ir::Value& out_value = hlresult.CurrentIrValue();

@@ -151,6 +151,13 @@ Tensor embedding_bag_sum_hpu_lazy(
     const Tensor& offsets,
     const Tensor& valid_count,
     int64_t kernel_mode);
+Tensor& embedding_bag_sum_bwd_out_kernel_mode_hpu_lazy(
+    Tensor& out,
+    const Tensor& input,
+    const Tensor& indices,
+    const Tensor& offsets,
+    const Tensor& valid_count,
+    int64_t kernel_mode);
 Tensor embedding_bag_sum_fwd_hpu_lazy(
     const Tensor& input,
     const Tensor& indices_fwd,

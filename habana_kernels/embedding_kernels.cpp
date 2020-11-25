@@ -746,28 +746,27 @@ void EmbeddingBagSumOperator::AllocateAndAddSynapseNode(
     torch::jit::Stack& inputs,
     bool is_output_persistent) {
   TORCH_CHECK(
-      inputs.size() == 4,
-      "Incorrect size of inputs expected for gather2d operator");
+      inputs.size() == 5,
+      "Incorrect size of inputs expected for EmbeddingBagSumOperator operator");
   TORCH_CHECK(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
   TORCH_CHECK(inputs[1].isTensor(), "Input arg2 type expected to be tensor");
   TORCH_CHECK(inputs[2].isTensor(), "Input arg3 type expected to be tensor");
-  TORCH_CHECK(inputs[3].isInt(), "Input arg4 type expected to be tensor");
+  TORCH_CHECK(inputs[3].isTensor(), "Input arg4 type expected to be tensor");
+  TORCH_CHECK(inputs[4].isInt(), "Input arg5 type expected to be tensor");
 
   auto input = inputs[0].toTensor();
   auto indices = inputs[1].toTensor();
   auto offsets = inputs[2].toTensor();
-  auto valid_count_offset = inputs[3].toInt();
+  auto valid_count = inputs[3].toTensor();
 
   TORCH_CHECK(indices.dim() <= 1, "index tensor cannot be more than 1D")
   TORCH_CHECK(offsets.dim() <= 1, "offsets tensor cannot be more than 1D")
   TORCH_CHECK(input.dim() == 2, "Input tensor should be 2D")
-
-  TORCH_CHECK(
-      valid_count_offset > 0, "valid_count_offset should be greater than 0");
+  TORCH_CHECK(valid_count.dim() == 1, "valid count tensor should be 1D")
 
   auto output = habana_helpers::createPTTensor(
       input,
-      {valid_count_offset - 1, input.size(1)},
+      {offsets.sizes()[0] - 1, input.size(1)},
       input.options(),
       input.suggest_memory_format(), // TBD: not reqd?
       is_output_persistent);
@@ -805,17 +804,11 @@ Tensor embedding_bag_sum_hpu(
   auto offsets_i32 = habana_helpers::cast_tensor_to_integer(offsets);
   auto valid_count_i32 = habana_helpers::cast_tensor_to_integer(valid_count);
 
-  // This extraction of scalar value from tensor not done within
-  // AllocateAndAddSynapseNode because this cannot be done on device
-  // and doing it on CPU will not work in graph mode.
-  TORCH_CHECK(valid_count.numel() == 2, "valid_count should have two elements")
-  auto valid_count_cpu = valid_count.to("cpu");
-  auto data_ptr = valid_count_cpu.data_ptr();
-  auto data_ptr_i64 = static_cast<int64_t*>(data_ptr);
-  auto valid_count_offset = data_ptr_i64[0]; // valid offset
-
   at::ScalarType scalar_type = input.scalar_type();
   std::string node_type;
+
+  // TODO kernel selection
+  /*
   if (kernel_mode == 0) {
     node_type = "embedding_bag_sum_2d_fwd_" +
         habana_helpers::name_suffix_from_type(scalar_type);
@@ -825,10 +818,11 @@ Tensor embedding_bag_sum_hpu(
         habana_helpers::name_suffix_from_type(scalar_type);
     ;
   }
+  */
 
   size_t device_id = input.device().index();
 
-  EmbeddingBagSumOperator Op(device_id, node_type);
+  EmbeddingBagSumOperator Op(device_id, scalar_type);
   // Create Graph
   auto graph = habana_helpers::create_graph(device_id, node_type);
 
@@ -838,10 +832,12 @@ Tensor embedding_bag_sum_hpu(
   Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
   // Build Params for the graph
-  std::vector<c10::IValue> stack = {IValue(input),
-                                    IValue(indices_i32),
-                                    IValue(offsets_i32),
-                                    IValue(valid_count_offset)};
+  std::vector<c10::IValue> stack = {
+      IValue(input),
+      IValue(indices_i32),
+      IValue(offsets_i32),
+      IValue(valid_count_i32),
+      IValue(kernel_mode)};
   Op.AllocateAndAddSynapseNode(graph, stack, true);
 
   // compile and execute the graph
@@ -1125,6 +1121,109 @@ Tensor& embedding_bag_sum_bwd_out_hpu(
   return out;
 }
 
+void EmbeddingBagSumBwdKernelModeOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  HABANA_ASSERT(inputs.size() == 6);
+
+  HABANA_ASSERT(inputs[0].isTensor());
+  HABANA_ASSERT(inputs[1].isTensor());
+  HABANA_ASSERT(inputs[2].isTensor());
+  HABANA_ASSERT(inputs[3].isTensor());
+  HABANA_ASSERT(inputs[4].isTensor());
+  HABANA_ASSERT(inputs[5].isInt());
+
+  auto out = inputs[0].toTensor();
+  auto input = inputs[1].toTensor();
+  auto indices_bwd = inputs[2].toTensor();
+  auto offsets_bwd = inputs[3].toTensor();
+  auto valid_count_bwd = inputs[4].toTensor();
+  auto kernel_mode = inputs[5].toInt();
+
+  HABANA_ASSERT(out.dim() == 2);
+  HABANA_ASSERT(input.dim() == 2);
+  HABANA_ASSERT(indices_bwd.dim() == 1);
+  HABANA_ASSERT(offsets_bwd.dim() == 1);
+  HABANA_ASSERT(valid_count_bwd.numel() == 2);
+  HABANA_ASSERT((kernel_mode >= 0) && (kernel_mode < 3));
+
+  p_context_->syn_outputs_.emplace_back(std::move(p_context_->syn_inputs_[0]));
+  p_context_->syn_inputs_.erase(p_context_->syn_inputs_.begin());
+
+  p_context_->pt_outputs_.emplace_back(p_context_->pt_inputs_[0]);
+  p_context_->pt_inputs_.erase(p_context_->pt_inputs_.begin());
+
+  AddNodeToSynapseGraph(graph, nullptr, 0);
+}
+
+/**********************************************************
+*@brief
+@param [in/out] out
+@param [in]  input 2D tensor, FP32/BF16
+@param [in]  indices_fwd 0-1D, i32
+@param [in]  offsets_fwd 0-1D, i32
+@param [in]  1D, i32
+@param [in]  indices_bwd 0-1D, i32
+@param [in]  offsets_bwd 0-1D, i32
+@param [in]  valid_count_bwd, i32
+@param [in]  kernel_mode,  scalar, i64
+**********************************************************/
+Tensor& embedding_bag_sum_bwd_out_kernel_mode_hpu(
+    Tensor& out,
+    const Tensor& input,
+    const Tensor& indices_bwd,
+    const Tensor& offsets_bwd,
+    const Tensor& valid_count_bwd,
+    int64_t kernel_mode) {
+  PT_KERNEL_BEGIN;
+
+  at::ScalarType scalar_type = input.scalar_type();
+  // TODO support other kernel flavours
+  std::string node_type = "embedding_bag_sum_small_lengths_2d_fwd_" +
+      habana_helpers::name_suffix_from_type(scalar_type);
+  size_t device_id = indices_bwd.device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+
+  EmbeddingBagSumBwdKernelModeOperator Op(device_id, scalar_type);
+
+  // Build Params for the graph
+  std::vector<c10::IValue> stack = {
+      IValue(out),
+      IValue(input),
+      IValue(indices_bwd),
+      IValue(offsets_bwd),
+      IValue(valid_count_bwd),
+      IValue(kernel_mode)};
+
+  // Assign Inputs to the Operator
+  std::vector<at::Tensor> pt_inputs{
+      out, input, indices_bwd, offsets_bwd, valid_count_bwd};
+
+  size_t key = Op.GetRecipeKey(node_type, stack);
+
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+
+    std::vector<at::Tensor> pt_inputs_slice =
+        std::vector<at::Tensor>(pt_inputs.begin() + 1, pt_inputs.end());
+    Op.SetPTInputs(pt_inputs_slice);
+    Op.SetPTOutput(out);
+    Op.Execute(key);
+  } else {
+    PT_KERNEL_DEBUG("Key:", key);
+    auto graph = habana_helpers::create_graph(device_id, node_type);
+
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
+    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    // compile and execute the graph
+    Op.Compile(graph);
+  }
+
+  PT_KERNEL_END;
+  return out;
+}
+
 static auto& KernelRegistry =
     habana::KernelRegistry()
         .add(
@@ -1153,5 +1252,17 @@ static auto& KernelRegistry =
             "aten::embedding_dense_backward",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<EmbeddingDenseBackwardOperator>(
+                  device_id, node_type);
+            })
+        .add(
+            "::embedding_bag_sum",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<EmbeddingBagSumOperator>(
+                  device_id, node_type);
+            })
+        .add(
+            "::embedding_bag_sum_bwd_out",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<EmbeddingBagSumBwdKernelModeOperator>(
                   device_id, node_type);
             });

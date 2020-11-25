@@ -165,6 +165,13 @@ Tensor& embedding_bag_sum_bwd_out_hpu_wrap(
     const Tensor& indices_bwd,
     const Tensor& offsets_bwd,
     const Tensor& valid_count_bwd);
+Tensor& embedding_bag_sum_bwd_out_kernel_mode_hpu_wrap(
+    Tensor& out,
+    const Tensor& input,
+    const Tensor& indices,
+    const Tensor& offsets,
+    const Tensor& valid_count,
+    int64_t kernel_mode);
 Tensor& fill_hpu_wrap_(Tensor& self, Scalar value);
 Tensor& masked_fill_hpu_wrap_(
     Tensor& self,

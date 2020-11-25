@@ -141,6 +141,13 @@ Tensor embedding_bag_sum_hpu(
     const Tensor& offsets,
     const Tensor& valid_count,
     int64_t kernel_mode);
+Tensor& embedding_bag_sum_bwd_out_kernel_mode_hpu(
+    Tensor& out,
+    const Tensor& input,
+    const Tensor& indices,
+    const Tensor& offsets,
+    const Tensor& valid_count,
+    int64_t kernel_mode);
 Tensor embedding_bag_sum_fwd_hpu(
     const Tensor& input,
     const Tensor& indices_fwd,
