@@ -44,6 +44,14 @@ synStatus host_memory::malloc(void** ptr, size_t size) {
   /* allocate a new block if no cached allocation is found */
   auto err = synHostMalloc(device_.id(), size, 0, ptr);
   if (err != synSuccess) {
+    /* release the cache and retry malloc if the error is OOM */
+    if (err == synOutOfHostMemory) {
+      PT_SYNHELPER_WARN("SynHostMalloc Failed OOM, Retrying by dropping cache.", err);
+      dropCache();
+      auto err = synHostMalloc(device_.id(), size, 0, ptr);
+      if (err != synSuccess)
+        return err;
+    }
     return err;
   }
 
@@ -56,7 +64,7 @@ static void free_memory(device* d, void* ptr) {
   if (err != synSuccess) {
     // FIXME since the destuctor are not called correctly from device
     // call to synHostFree fails.
-    PT_SYNHELPER_DEBUG("HostAllocator::SynHostFree Failed.", err);
+    PT_SYNHELPER_DEBUG("SynHostFree Failed.", err);
   }
 }
 

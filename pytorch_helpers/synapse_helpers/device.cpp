@@ -305,33 +305,21 @@ synapse_error device::copy_data_to_device(
   synStatus status;
 
   void* mapped_cpu_data = cpu_data;
-  memory_mapper::acquired_entry res{};
+  uint8_t *dst_ptr;
   if (!is_pinned) {
-    res = memory_mapper_.map(total_bytes);
-    if (res.status != synStatus::synSuccess) {
-      // last resort option to drop cached mapped buffers
-      PT_SYNHELPER_WARN(
-          "Could not map memory on the device. Dropping cache for mapped buffers.");
-      status = memory_mapper_.drop_cache();
-      if (status != synStatus::synSuccess) {
+    status = host_memory_.malloc((void**)&dst_ptr, total_bytes);
+    if (status != synStatus::synSuccess) {
         PT_SYNHELPER_WARN(
-            "Could not drop cache for mapped memory on the device: ", status);
+            "Host malloc failed: ", status);
         return synapse_error{
-            "Could not drop cache for mapped memory on the device.", status};
-      }
-      res = memory_mapper_.map(total_bytes);
-      if (synStatus::synSuccess != res.status) {
-        return synapse_error{
-            "Could not allocate and map memory even after cache drop.",
-            res.status};
-      }
+            "Host Malloc failed with status.", status};
     }
-
     std::copy(
         reinterpret_cast<uint8_t*>(cpu_data),
         reinterpret_cast<uint8_t*>(cpu_data) + total_bytes,
-        res.ptr);
-    mapped_cpu_data = res.ptr;
+        dst_ptr);
+    mapped_cpu_data = dst_ptr;
+
   }
 
   PT_SYNHELPER_DEBUG("Used stream handle: ", stream_h2d_);
@@ -367,9 +355,9 @@ synapse_error device::copy_data_to_device(
   } while (++attempt < max_dma_copy_retry_count_);
 
   sem_.add_producer(
-      {destination}, stream_h2d_, [this, res, is_pinned, done_cb]() {
+      {destination}, stream_h2d_, [this, dst_ptr, is_pinned, done_cb]() {
         if (!is_pinned)
-          memory_mapper_.unmap(res);
+	   host_memory_.free((void*)dst_ptr);
         done_cb();
       });
 
@@ -395,27 +383,16 @@ synapse_error device::copy_data_to_host(
   sem_.enqueue_wait_event(device_data, stream_d2h_);
 
   void* mapped_destination = destination;
-  memory_mapper::acquired_entry res{};
+  uint8_t *dst_ptr;
   if (!is_pinned) {
-    res = memory_mapper_.map(total_bytes);
-    if (synStatus::synSuccess != res.status) {
-      // last resort option to drop cached mapped buffers
-
-      PT_SYNHELPER_WARN(
-          "Could not map memory on the device. Dropping cache for mapped buffers.");
-      status = memory_mapper_.drop_cache();
-      if (synStatus::synSuccess != status)
-        // return synapse_error{
+    status = host_memory_.malloc((void**)&dst_ptr, total_bytes);
+    if (status != synStatus::synSuccess) {
         PT_SYNHELPER_WARN(
-            "Could not drop cache for mapped memory on the device.");
-      res = memory_mapper_.map(total_bytes);
-      if (synStatus::synSuccess != res.status) {
+            "Host malloc failed: ", status);
         return synapse_error{
-            "Could not allocate and map memory even after cache drop.",
-            res.status};
-      }
+            "Host Malloc failed with status.", status};
     }
-    mapped_destination = res.ptr;
+    mapped_destination = dst_ptr;
   }
 
   unsigned attempt = 0;
@@ -448,13 +425,13 @@ synapse_error device::copy_data_to_host(
   } while (++attempt < max_dma_copy_retry_count_);
 
   sem_.add_producer(
-      {}, stream_d2h_, [this, done_cb, res, destination, is_pinned]() {
+      {}, stream_d2h_, [this, done_cb, dst_ptr, total_bytes, destination, is_pinned]() {
         if (!is_pinned) {
           std::copy(
-              res.ptr,
-              res.ptr + res.acquired_size,
+              dst_ptr,
+              dst_ptr + total_bytes,
               reinterpret_cast<uint8_t*>(destination));
-          memory_mapper_.unmap(res);
+	   host_memory_.free((void*)dst_ptr);
         }
         done_cb();
       });
