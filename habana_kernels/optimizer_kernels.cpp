@@ -63,13 +63,19 @@ void OptimizerSparseSgdOperator::AllocateAndAddSynapseNode(
   params.mom = mom;
   params.nesterov = nesterov;
 
-  auto weights_out =
-      habana_helpers::createPTTensor(weights_in, is_output_persistent[0]);
-  auto moments_out =
-      habana_helpers::createPTTensor(moments_in, is_output_persistent[1]);
+  // execute in-place for weights & moments
+  p_context_->syn_outputs_.emplace_back(
+      habana_helpers::duplicate_tensor_in_memory_section(
+          p_context_->syn_inputs_[1]));
 
-  AllocateSynapseOutputs(
-      graph, {weights_out, moments_out}, is_output_persistent);
+  p_context_->pt_outputs_.emplace_back(p_context_->pt_inputs_[1]);
+
+  p_context_->syn_outputs_.emplace_back(
+      habana_helpers::duplicate_tensor_in_memory_section(
+          p_context_->syn_inputs_[2]));
+
+  p_context_->pt_outputs_.emplace_back(p_context_->pt_inputs_[2]);
+
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
@@ -112,11 +118,10 @@ optimizer_sparse_sgd_with_valid_count_hpu(
   size_t key = Op.GetRecipeKey(node_type, stack);
   if (device.get_recipe_handle_cache().isCached(key)) {
     PT_KERNEL_DEBUG("Cache hit key:", key);
-    auto weights_out = habana_helpers::createPTTensor(weights_in, true);
-    auto moments_out = habana_helpers::createPTTensor(moments_in, true);
 
     Op.SetPTInputs(pt_inputs);
-    Op.SetPTOutputs({weights_out, moments_out});
+    // execute in-place for weights & moments
+    Op.SetPTOutputs({weights_in, moments_in});
     Op.Execute(key);
   } else {
     // Create Graph
@@ -134,99 +139,6 @@ optimizer_sparse_sgd_with_valid_count_hpu(
   return std::tie(out.at(0), out.at(1));
 }
 #else
-std::tuple<torch::Tensor, torch::Tensor, torch::Tensor>
-optimizer_sparse_sgd_with_valid_count_cpu(
-    torch::Tensor gradients,
-    torch::Tensor weights_in,
-    torch::Tensor moments_in,
-    torch::Tensor indices,
-    torch::Tensor learning_rate,
-    int64_t valid_count,
-    float mom,
-    bool nesterov) {
-  /*
-  moments_out[sparse_indices] = momentum_in[sparse_indices] * state.mom +
-                                gradients[sparse_indices];
-  gradients_out[sparse_indices] = momentum_out[sparse_indices];
-  weights_out[sparse_indices] =
-    weights_in[sparse_indices] - state.lr * gradients_out[sparse_indices];
-  */
-  auto sizes = weights_in.sizes().vec();
-  float* gp = static_cast<float*>(gradients.data_ptr());
-  float* winp = static_cast<float*>(weights_in.data_ptr());
-  float* minp = static_cast<float*>(moments_in.data_ptr());
-  Tensor weights_out = at::empty(
-      weights_in.sizes(),
-      weights_in.options(),
-      weights_in.suggest_memory_format());
-  Tensor moments_out = at::empty(
-      moments_in.sizes(),
-      moments_in.options(),
-      moments_in.suggest_memory_format());
-  Tensor grad_output = at::empty(
-      weights_in.sizes(),
-      gradients.options(),
-      gradients.suggest_memory_format());
-  weights_out.copy_(weights_in, false);
-  moments_out.copy_(moments_in, false);
-  grad_output.copy_(weights_in, false);
-  float* woutp = static_cast<float*>(weights_out.data_ptr());
-  float* moutp = static_cast<float*>(moments_out.data_ptr());
-  float* goutp = static_cast<float*>(grad_output.data_ptr());
-  int* inp = static_cast<int*>(indices.data_ptr());
-  float* lrp = static_cast<float*>(learning_rate.data_ptr());
-  float gtemp;
-  unsigned vec_len = sizes[1];
-  for (unsigned i = 0; i < valid_count; i++) {
-    for (unsigned k = 0; k < vec_len; k++) {
-      // momentum update
-      moutp[inp[i] * vec_len + k] =
-          minp[inp[i] * vec_len + k] * mom + gp[i * vec_len + k];
-      gtemp = moutp[inp[i] * vec_len + k];
-      // grad update
-      if (nesterov) {
-        goutp[inp[i] * vec_len + k] = gp[inp[i] * vec_len + k] + mom * gtemp;
-      } else {
-        goutp[inp[i] * vec_len + k] = gtemp;
-      }
-      // weight update
-      woutp[inp[i] * vec_len + k] = winp[inp[i] * vec_len + k] - *lrp * gtemp;
-    }
-  }
-  return std::make_tuple(weights_out, moments_out, grad_output);
-}
-
-std::tuple<torch::Tensor, torch::Tensor>
-optimizer_sparse_sgd_with_valid_count_hpu(
-    const torch::Tensor& gradients,
-    const torch::Tensor& weights_in,
-    const torch::Tensor& moments_in,
-    const torch::Tensor& indices,
-    const torch::Tensor& learning_rate,
-    int64_t valid_count,
-    float mom,
-    bool nesterov) {
-  PT_KERNEL_BEGIN;
-  auto sizes = weights_in.sizes().vec();
-  for (unsigned int i = 0; i < weights_in.dim(); i++)
-    PT_KERNEL_DEBUG("sizes = ", sizes[i]);
-  auto cast_indices = habana_helpers::cast_tensor_to_integer(indices);
-  auto hpu = indices.device();
-  auto result = optimizer_sparse_sgd_with_valid_count_cpu(
-      gradients.to("cpu"),
-      weights_in.to("cpu"),
-      moments_in.to("cpu"),
-      cast_indices.to("cpu"),
-      learning_rate.to("cpu"),
-      valid_count,
-      mom,
-      nesterov);
-  auto ret1 = std::get<0>(result);
-  auto ret2 = std::get<1>(result);
-  PT_KERNEL_END;
-  return std::make_tuple(ret1.to(hpu), ret2.to(hpu));
-}
-
 #endif
 
 void OptimizerSparseAdagradOperator::AllocateAndAddSynapseNode(
@@ -246,9 +158,6 @@ void OptimizerSparseAdagradOperator::AllocateAndAddSynapseNode(
       is_output_persistent.size() == 2,
       "OptimizerSparseAdagradOperator: #is_output_persistent should be 2");
 
-  auto weights_in = inputs[1].toTensor();
-  auto moments_in = inputs[2].toTensor();
-
   ns_OptimizerSparseAdagrad::Params params;
   // PT does not use decay param for sparse params
   // Ref:
@@ -258,13 +167,19 @@ void OptimizerSparseAdagradOperator::AllocateAndAddSynapseNode(
   params.decay = 1.0;
   params.eps = 1e-10f;
 
-  auto weights_out =
-      habana_helpers::createPTTensor(weights_in, is_output_persistent[0]);
-  auto moments_out =
-      habana_helpers::createPTTensor(moments_in, is_output_persistent[1]);
+  // execute in-place for weights & moments
+  p_context_->syn_outputs_.emplace_back(
+      habana_helpers::duplicate_tensor_in_memory_section(
+          p_context_->syn_inputs_[1]));
 
-  AllocateSynapseOutputs(
-      graph, {weights_out, moments_out}, is_output_persistent);
+  p_context_->pt_outputs_.emplace_back(p_context_->pt_inputs_[1]);
+
+  p_context_->syn_outputs_.emplace_back(
+      habana_helpers::duplicate_tensor_in_memory_section(
+          p_context_->syn_inputs_[2]));
+
+  p_context_->pt_outputs_.emplace_back(p_context_->pt_inputs_[2]);
+
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
@@ -303,11 +218,10 @@ optimizer_sparse_adagrad_with_valid_count_hpu(
   size_t key = Op.GetRecipeKey(node_type, stack);
   if (device.get_recipe_handle_cache().isCached(key)) {
     PT_KERNEL_DEBUG("Cache hit key:", key);
-    auto weights_out = habana_helpers::createPTTensor(weights_in, true);
-    auto moments_out = habana_helpers::createPTTensor(moments_in, true);
 
     Op.SetPTInputs(pt_inputs);
-    Op.SetPTOutputs({weights_out, moments_out});
+    // execute in-place for weights & moments
+    Op.SetPTOutputs({weights_in, moments_in});
     Op.Execute(key);
   } else {
     // Create Graph
