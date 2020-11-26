@@ -2072,6 +2072,18 @@ Tensor ones_like_hpu_wrap(
   }
 }
 
+std::tuple<Tensor, Tensor> matmul_backward_hpu_wrap(
+    const Tensor& grad_output,
+    const Tensor& self,
+    const Tensor& other) {
+  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
+      std::getenv("PT_HPU_LAZY_MODE")) {
+    return matmul_backward_hpu(grad_output, self, other);
+  } else {
+    return matmul_backward_hpu(grad_output, self, other);
+  }
+}
+
 static auto registry = torch::
                            RegisterOperators()
                                .op(torch::RegisterOperators::options()
@@ -3434,6 +3446,15 @@ static auto registry = torch::
                                        .impl_unboxedOnlyKernel<
                                            decltype(ones_like_hpu_wrap),
                                            &ones_like_hpu_wrap>(
+                                           DispatchKey::HABANATensorId)
+                                       .aliasAnalysis(c10::AliasAnalysisKind::
+                                                          FROM_SCHEMA))
+                               .op(torch::RegisterOperators::options()
+                                       .schema(
+                                           "aten::matmul_backward(Tensor grad_out, Tensor self, Tensor other) -> (Tensor, Tensor)")
+                                       .impl_unboxedOnlyKernel<
+                                           decltype(matmul_backward_hpu_wrap),
+                                           &matmul_backward_hpu_wrap>(
                                            DispatchKey::HABANATensorId)
                                        .aliasAnalysis(c10::AliasAnalysisKind::
                                                           FROM_SCHEMA));

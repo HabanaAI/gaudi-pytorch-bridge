@@ -560,3 +560,7 @@ Tensor ones_like_hpu_wrap(
     const Tensor& self,
     const TensorOptions& options,
     c10::optional<c10::MemoryFormat> optional_memory_format);
+std::tuple<at::Tensor, at::Tensor> matmul_backward_hpu_wrap(
+    const at::Tensor& grad_output,
+    const at::Tensor& self,
+    const at::Tensor& other);
