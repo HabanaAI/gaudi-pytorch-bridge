@@ -1122,11 +1122,6 @@ void LayerNormOperator::AllocateAndAddSynapseNode(
   std::vector<int64_t> shape_mean{m, 1};
   IntArrayRef meanArray(shape_mean.data(), shape_mean.size());
 
-  // swap the pt and syn inputs for weight and bias to reflect the order in
-  // which they have to be handed over to TPC kernel
-  std::swap(p_context_->pt_inputs_[1], p_context_->pt_inputs_[2]);
-  std::swap(p_context_->syn_inputs_[1], p_context_->syn_inputs_[2]);
-
   // Add Reshape node for input to graph for input.view({m,n})
   ReshapeOperator reshape_op_input(input.device().index(), input.scalar_type());
   auto& syn_in_input =
@@ -1143,25 +1138,25 @@ void LayerNormOperator::AllocateAndAddSynapseNode(
   // Add Reshape node for bias to graph for bias.view(-1)
   ReshapeOperator reshape_op_bias(bias.device().index(), bias.scalar_type());
   auto& syn_in_bias =
-      reshape_op_bias.SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
+      reshape_op_bias.SetSynapseInput(std::move(p_context_->syn_inputs_[2]));
   int64_t sizes[1];
   sizes[0] = bias.numel();
   c10::IntArrayRef modified_bias_shape(sizes, 1);
   stack = {c10::IValue(bias), c10::IValue(modified_bias_shape)};
   reshape_op_bias.AllocateAndAddSynapseNode(graph, stack, false);
-  p_context_->syn_inputs_[1] = std::move(syn_in_bias);
+  p_context_->syn_inputs_[2] = std::move(syn_in_bias);
   auto bias_reshaped = reshape_op_bias.GetOutputs()[0];
   synapse_helpers::tensor& syn_bias_ln = reshape_op_bias.GetSynOutputs()[0];
 
   // Add Reshape node for weight to graph for weight.view(-1)
   ReshapeOperator reshape_op_wt(weight.device().index(), weight.scalar_type());
   auto& syn_in_wt =
-      reshape_op_wt.SetSynapseInput(std::move(p_context_->syn_inputs_[2]));
+      reshape_op_wt.SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
   sizes[0] = weight.numel();
   c10::IntArrayRef modified_weight_shape(sizes, 1);
   stack = {c10::IValue(weight), c10::IValue(modified_weight_shape)};
   reshape_op_wt.AllocateAndAddSynapseNode(graph, stack, false);
-  p_context_->syn_inputs_[2] = std::move(syn_in_wt);
+  p_context_->syn_inputs_[1] = std::move(syn_in_wt);
   auto wt_reshaped = reshape_op_wt.GetOutputs()[0];
   synapse_helpers::tensor& syn_wt_ln = reshape_op_wt.GetSynOutputs()[0];
 
@@ -1277,7 +1272,7 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_hpu(
     if (device.get_recipe_handle_cache().isCached(key)) {
       PT_KERNEL_DEBUG("Cache hit key:", key);
       // Assign Inputs to the Operator
-      const std::vector<at::Tensor> pt_inputs{input, bias, weight};
+      const std::vector<at::Tensor> pt_inputs{input, weight, bias};
       Op.SetPTInputs(pt_inputs);
       Op.SetPTOutputs(input_stack);
       Op.Execute(key);
@@ -1383,20 +1378,15 @@ void LayerNormBackwardOperator::AllocateAndAddSynapseNode(
     }
   }
 
-  // swap the inputs for grad-in and input to reflect the order in
-  // which they have to be handed over to TPC kernel
-  std::swap(p_context_->pt_inputs_[0], p_context_->pt_inputs_[1]);
-  std::swap(p_context_->syn_inputs_[0], p_context_->syn_inputs_[1]);
-
   // Add Reshape node for input to graph for input.view({m,n})
   ReshapeOperator reshape_op_x(X.device().index(), X.scalar_type());
   auto& syn_in_x =
-      reshape_op_x.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+      reshape_op_x.SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
   int64_t modified_x_sizes[] = {m, n};
   c10::IntArrayRef modified_x_shape(modified_x_sizes, 2);
   torch::jit::Stack stack = {c10::IValue(X), c10::IValue(modified_x_shape)};
   reshape_op_x.AllocateAndAddSynapseNode(graph, stack, false);
-  p_context_->syn_inputs_[0] = std::move(syn_in_x);
+  p_context_->syn_inputs_[1] = std::move(syn_in_x);
   auto x_reshaped = reshape_op_x.GetOutputs()[0];
   synapse_helpers::tensor& syn_x = reshape_op_x.GetSynOutputs()[0];
   stack.clear();
@@ -1404,12 +1394,12 @@ void LayerNormBackwardOperator::AllocateAndAddSynapseNode(
   // Add Reshape node for input to graph for grad_in.view({m,n})
   ReshapeOperator reshape_op_dy(dY.device().index(), dY.scalar_type());
   auto& syn_in_dy =
-      reshape_op_dy.SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
+      reshape_op_dy.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
   int64_t modified_dy_sizes[] = {m, n};
   c10::IntArrayRef modified_dy_shape(modified_dy_sizes, 2);
   stack = {c10::IValue(dY), c10::IValue(modified_dy_shape)};
   reshape_op_dy.AllocateAndAddSynapseNode(graph, stack, false);
-  p_context_->syn_inputs_[1] = std::move(syn_in_dy);
+  p_context_->syn_inputs_[0] = std::move(syn_in_dy);
   auto dy_reshaped = reshape_op_dy.GetOutputs()[0];
   synapse_helpers::tensor& syn_dy = reshape_op_dy.GetSynOutputs()[0];
 
@@ -1565,7 +1555,7 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_backward_hpu(
     if (device.get_recipe_handle_cache().isCached(key)) {
       PT_KERNEL_DEBUG("Cache hit key:", key);
       // Assign Inputs to the Operator
-      const std::vector<at::Tensor> pt_inputs{X, dY, mean, rstd, gamma};
+      const std::vector<at::Tensor> pt_inputs{dY, X, mean, rstd, gamma};
       Op.SetPTInputs(pt_inputs);
       Op.SetPTOutputs(input_stack);
       Op.Execute(key);

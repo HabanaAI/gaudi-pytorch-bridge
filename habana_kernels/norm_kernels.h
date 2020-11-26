@@ -167,14 +167,6 @@ class LayerNormOperator : public habana::HabanaOperator {
             "layer_norm_fwd_" +
             habana_helpers::name_suffix_from_type(scalarType)) {
     this->CreateSynContext(device_id);
-    // assign layouts for input and output tensors
-
-    kernel_meta_data_.input_layout.assign({habana::LayoutFormat::ANY,
-                                           habana::LayoutFormat::ANY,
-                                           habana::LayoutFormat::ANY});
-    kernel_meta_data_.output_layout.assign({habana::LayoutFormat::ANY,
-                                            habana::LayoutFormat::ANY,
-                                            habana::LayoutFormat::ANY});
   }
 
   virtual void AllocateAndAddSynapseNode(
@@ -204,16 +196,6 @@ class LayerNormBackwardOperator : public habana::HabanaOperator {
             "layer_norm_bwd_" +
             habana_helpers::name_suffix_from_type(scalarType)) {
     this->CreateSynContext(device_id);
-    // assign layouts for input and output tensors
-
-    kernel_meta_data_.input_layout.assign({habana::LayoutFormat::ANY,
-                                           habana::LayoutFormat::ANY,
-                                           habana::LayoutFormat::ANY,
-                                           habana::LayoutFormat::ANY,
-                                           habana::LayoutFormat::ANY});
-    kernel_meta_data_.output_layout.assign({habana::LayoutFormat::ANY,
-                                            habana::LayoutFormat::ANY,
-                                            habana::LayoutFormat::ANY});
   }
 
   virtual void AllocateAndAddSynapseNode(
