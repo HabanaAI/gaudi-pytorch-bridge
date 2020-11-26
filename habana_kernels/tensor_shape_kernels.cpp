@@ -501,18 +501,15 @@ Tensor& t_hpu_(Tensor& self) { // t_() is defined only for dims <= 2
   return self;
 }
 
-inline int is_hpu_supported_transpose_type(const c10::ScalarType pt_type) {
-  int ret = -1;
+inline bool is_hpu_supported_transpose_type(const c10::ScalarType pt_type) {
   switch (pt_type) {
     case c10::ScalarType::Float:
     case c10::ScalarType::BFloat16:
     case c10::ScalarType::Int:
-      ret = 0;
-      break;
+      return true;
     default:
-      break;
+      return false;
   }
-  return ret;
 }
 
 /*************************************************************************
@@ -545,7 +542,7 @@ void PermuteOperator::AllocateAndAddSynapseNode(
       dims.size() == static_cast<size_t>(self.dim()),
       "Number of dims in tensor don't match in permute");
   TORCH_CHECK(
-      (self.dim() <= 4) && !is_hpu_supported_transpose_type(self.scalar_type()),
+      (self.dim() <= 4) && is_hpu_supported_transpose_type(self.scalar_type()),
       "Unsupported permute operation on Habana device");
 
   auto self_sizes = self.sizes().vec();
@@ -641,7 +638,7 @@ Tensor permute_hpu(const Tensor& self, IntArrayRef dims_) {
   };
 
   if ((self.dim() <= 4) &&
-      !is_hpu_supported_transpose_type(self.scalar_type())) {
+      is_hpu_supported_transpose_type(self.scalar_type())) {
     return permute();
   }
 
