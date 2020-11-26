@@ -14,13 +14,16 @@ using namespace habana_lazy;
 
 class LazyUnaryKernelTest : public ::testing::Test {
  protected:
-  void SetUp() override {}
+  void SetUp() override {
+    setenv("PT_HPU_LAZY_MODE", "1", 1);
+  }
 
-  void TearDown() override {}
+  void TearDown() override {
+    unsetenv("PT_HPU_LAZY_MODE");
+  }
 };
 
 TEST_F(LazyUnaryKernelTest, ThresholdBackward) {
-  setenv("PT_HPU_LAZY_MODE", "1", 1);
   auto grad = torch::randn({2, 2}, torch::requires_grad(false));
   auto self = torch::randn({2, 2}, torch::requires_grad(false));
 
@@ -38,12 +41,10 @@ TEST_F(LazyUnaryKernelTest, ThresholdBackward) {
   auto cout = at::threshold_backward(grad, self, scal_value);
 
   EXPECT_EQ(allclose(hout, cout), true);
-  unsetenv("PT_HPU_LAZY_MODE");
 }
 
 TEST_F(LazyUnaryKernelTest, ReluInplaceTest) {
   // Inplace op as output node is not supported yet.
-  setenv("PT_HPU_LAZY_MODE", "1", 1);
   torch::Tensor A = torch::randn({4, 5});
 
   auto hA = A.to(torch::kHABANA);
@@ -59,12 +60,9 @@ TEST_F(LazyUnaryKernelTest, ReluInplaceTest) {
   Tensor out = result.to(kCPU);
 
   EXPECT_EQ(allclose(out, exp), true);
-
-  unsetenv("PT_HPU_LAZY_MODE");
 }
 
 TEST_F(LazyUnaryKernelTest, SigmoidFwdTest) {
-  setenv("PT_HPU_LAZY_MODE", "1", 1);
   auto input_tensor = torch::arange(4, torch::dtype(torch::kFloat).requires_grad(true))
                           .reshape({1, 1, 2, 2});
   torch::Tensor cpu_out = torch::sigmoid(input_tensor);
@@ -74,11 +72,9 @@ TEST_F(LazyUnaryKernelTest, SigmoidFwdTest) {
   torch::Tensor hout_lazy = outHabana.to(torch::kCPU);
 
   EXPECT_EQ(allclose(hout_lazy, cpu_out), true);
-  unsetenv("PT_HPU_LAZY_MODE");
 }
 
 TEST_F(LazyUnaryKernelTest, SigmoidBwdTest) {
-  setenv("PT_HPU_LAZY_MODE", "1", 1);
   auto input_tensor = torch::arange(4, torch::dtype(torch::kFloat).requires_grad(true))
                           .reshape({1, 1, 2, 2});
   auto grad_tensor = torch::arange(4, torch::dtype(torch::kFloat).requires_grad(true))
@@ -93,5 +89,4 @@ TEST_F(LazyUnaryKernelTest, SigmoidBwdTest) {
   auto hout_lazy = hout_backward.to(torch::kCPU);
 
   EXPECT_EQ(allclose(hout_lazy, cpu_out), true);
-  unsetenv("PT_HPU_LAZY_MODE");
 }

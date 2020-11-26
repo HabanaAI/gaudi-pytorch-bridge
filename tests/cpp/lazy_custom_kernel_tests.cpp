@@ -14,13 +14,16 @@ using namespace habana_lazy;
 
 class LazyCustomKernelTest : public ::testing::Test {
  protected:
-  void SetUp() override {}
+  void SetUp() override {
+    setenv("PT_HPU_LAZY_MODE", "1", 1);
+  }
 
-  void TearDown() override {}
+  void TearDown() override {
+    unsetenv("PT_HPU_LAZY_MODE");
+  }
 };
 
 TEST_F(LazyCustomKernelTest, OptSgdCustomOp) {
-  setenv("PT_HPU_LAZY_MODE", "1", 1);
   auto grad = torch::randn({2, 2}, torch::requires_grad(false));
   auto wts = torch::randn({2, 2}, torch::requires_grad(false));
   auto moments = torch::randn({2, 2}, torch::requires_grad(false));
@@ -54,11 +57,9 @@ TEST_F(LazyCustomKernelTest, OptSgdCustomOp) {
       ->check("prim::Constant[value=0]")
       ->check_count("habanaOptimizerSparseSgd", 1)
       ->run(*hlexec->get_graph());
-  unsetenv("PT_HPU_LAZY_MODE");
 }
 
 TEST_F(LazyCustomKernelTest, OptAdagradCustomOp) {
-  setenv("PT_HPU_LAZY_MODE", "1", 1);
   auto grad = torch::randn({2, 2}, torch::requires_grad(false));
   auto wts = torch::randn({2, 2}, torch::requires_grad(false));
   auto moments = torch::randn({2, 2}, torch::requires_grad(false));
@@ -90,5 +91,4 @@ TEST_F(LazyCustomKernelTest, OptAdagradCustomOp) {
   torch::jit::testing::FileCheck()
       .check_count("habanaOptimizerSparseAdagrad", 1)
       ->run(*hlexec->get_graph());
-  unsetenv("PT_HPU_LAZY_MODE");
 }

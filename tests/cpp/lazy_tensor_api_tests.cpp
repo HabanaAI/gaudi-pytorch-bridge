@@ -14,13 +14,16 @@ using namespace habana_lazy;
 
 class LazyTensorAPITest : public ::testing::Test {
  protected:
-  void SetUp() override {}
+  void SetUp() override {
+    setenv("PT_HPU_LAZY_MODE", "1", 1);
+  }
 
-  void TearDown() override {}
+  void TearDown() override {
+    unsetenv("PT_HPU_LAZY_MODE");
+  }
 };
 
 TEST_F(LazyTensorAPITest, NumelDimSizeTest) {
-  setenv("PT_HPU_LAZY_MODE", "1", 1);
   torch::Tensor A = torch::tensor({
                                     {
                                       {2, 4, 1, 3, 3},
@@ -54,5 +57,4 @@ TEST_F(LazyTensorAPITest, NumelDimSizeTest) {
   ASSERT_TRUE(out.size(0) == 2);
   ASSERT_TRUE(out.size(1) == 3);
   ASSERT_TRUE(out.size(2) == 5);
-  unsetenv("PT_HPU_LAZY_MODE");
 }

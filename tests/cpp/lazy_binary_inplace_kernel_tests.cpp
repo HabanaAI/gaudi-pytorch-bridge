@@ -14,14 +14,17 @@ using namespace habana_lazy;
 
 class LazyBinaryInplaceKernelTest : public ::testing::Test {
  protected:
-  void SetUp() override {}
+  void SetUp() override {
+    setenv("PT_HPU_LAZY_MODE", "1", 1);
+  }
 
-  void TearDown() override {}
+  void TearDown() override {
+    unsetenv("PT_HPU_LAZY_MODE");
+  }
 };
 
 TEST_F(LazyBinaryInplaceKernelTest, MulInplaceTest) {
   // Inplace op as output node is not supported yet.
-  setenv("PT_HPU_LAZY_MODE", "1", 1);
   torch::Tensor A = torch::randn({2, 3});
   torch::Tensor B = torch::randn({2, 3});
   torch::Tensor C = torch::randn({2, 3});
@@ -37,5 +40,4 @@ TEST_F(LazyBinaryInplaceKernelTest, MulInplaceTest) {
   Tensor out = result.to(kCPU);
 
   EXPECT_EQ(allclose(out, exp), true);
-  unsetenv("PT_HPU_LAZY_MODE");
 }

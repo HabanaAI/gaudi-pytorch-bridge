@@ -14,13 +14,16 @@ using namespace habana_lazy;
 
 class LazyBinaryKernelTest : public ::testing::Test {
  protected:
-  void SetUp() override {}
+  void SetUp() override {
+    setenv("PT_HPU_LAZY_MODE", "1", 1);
+  }
 
-  void TearDown() override {}
+  void TearDown() override {
+    unsetenv("PT_HPU_LAZY_MODE");
+  }
 };
 
 TEST_F(LazyBinaryKernelTest, LazyDoATest) {
-  setenv("PT_HPU_LAZY_MODE", "1", 1);
   torch::Tensor A = torch::randn({2, 2}, torch::requires_grad(false));
   torch::Tensor B = torch::randn({2, 2}, torch::requires_grad(false));
   torch::Tensor C = torch::randn({2, 2}, torch::requires_grad(false));
@@ -34,13 +37,10 @@ TEST_F(LazyBinaryKernelTest, LazyDoATest) {
   torch::Tensor out_cpu = torch::add(C, I_cpu);
   torch::Tensor out_h = out.to(torch::kCPU);
   EXPECT_EQ(allclose(out_h, out_cpu), true);
-
-  unsetenv("PT_HPU_LAZY_MODE");
 }
 
 TEST_F(LazyBinaryKernelTest, AddInplaceTest) {
   // Inplace op as output node is not supported yet.
-  setenv("PT_HPU_LAZY_MODE", "1", 1);
   torch::Tensor A = torch::randn({2, 3});
   torch::Tensor B = torch::randn({2, 3});
   torch::Tensor C = torch::randn({2, 3});
@@ -60,6 +60,4 @@ TEST_F(LazyBinaryKernelTest, AddInplaceTest) {
   Tensor out = result.to(kCPU);
 
   EXPECT_EQ(allclose(out, exp), true);
-
-  unsetenv("PT_HPU_LAZY_MODE");
 }

@@ -101,8 +101,6 @@ TEST_F(LazyLossKernelTest, NllLossBwdTest) {
   EXPECT_EQ(allclose(grad_in_cpu, grad_in_hpu), true);
 }
 TEST_F(LazyLossKernelTest, BCELossTest) {
-  setenv("PT_HPU_LAZY_MODE", "1", 1);
-
   auto input = torch::randn({6,1});
   auto target = torch::randn({6,1}); // Nx1
   auto grad_output = torch::randn({1});
@@ -124,6 +122,4 @@ TEST_F(LazyLossKernelTest, BCELossTest) {
 
   EXPECT_EQ(allclose(houtfwd, expfwd), true);
   EXPECT_EQ(allclose(houtbwd, expbwd), true);
-
-  unsetenv("PT_HPU_LAZY_MODE");
 }

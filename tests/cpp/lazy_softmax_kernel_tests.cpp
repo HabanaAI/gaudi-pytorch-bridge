@@ -14,13 +14,16 @@ using namespace habana_lazy;
 
 class LazySoftmaxKernelTest : public ::testing::Test {
  protected:
-  void SetUp() override {}
+  void SetUp() override {
+    setenv("PT_HPU_LAZY_MODE", "1", 1);
+  }
 
-  void TearDown() override {}
+  void TearDown() override {
+    unsetenv("PT_HPU_LAZY_MODE");
+  }
 };
 
 TEST_F(LazySoftmaxKernelTest, LogSoftMaxTest) {
-  setenv("PT_HPU_LAZY_MODE", "1", 1);
   torch::Tensor input = torch::rand({64,10}, torch::requires_grad(false));
   torch::Tensor hinput = input.to(torch::kHABANA);
   int dim = 0;
@@ -34,12 +37,9 @@ TEST_F(LazySoftmaxKernelTest, LogSoftMaxTest) {
   auto cout = torch::log_softmax(input, dim);
 
   EXPECT_EQ(allclose(hout1, cout), true);
-  unsetenv("PT_HPU_LAZY_MODE");
-
 }
 
 TEST_F(LazySoftmaxKernelTest, LogSoftMaxTestBackward) {
-  setenv("PT_HPU_LAZY_MODE", "1", 1);
   torch::Tensor input = torch::rand({64,10}, torch::requires_grad(false));
   torch::Tensor grad = torch::rand({64,10}, torch::requires_grad(false));
   torch::Tensor output = torch::rand({64,10}, torch::requires_grad(false));
@@ -59,12 +59,10 @@ TEST_F(LazySoftmaxKernelTest, LogSoftMaxTestBackward) {
   auto cout_back = _log_softmax_backward_data(grad, output, dim, input);
 
   EXPECT_EQ(allclose(hout2_back, cout_back), true);
-  unsetenv("PT_HPU_LAZY_MODE");
 
 }
 
 TEST_F(LazySoftmaxKernelTest, SoftMaxTest) {
-  setenv("PT_HPU_LAZY_MODE", "1", 1);
   torch::Tensor input = torch::rand({64,10}, torch::requires_grad(false));
   torch::Tensor hinput = input.to(torch::kHABANA);
   int dim = 0;
@@ -78,12 +76,9 @@ TEST_F(LazySoftmaxKernelTest, SoftMaxTest) {
   auto cout = torch::_softmax(input, dim, false);
 
   EXPECT_EQ(allclose(hout1, cout), true);
-  unsetenv("PT_HPU_LAZY_MODE");
-
 }
 
 TEST_F(LazySoftmaxKernelTest, SoftMaxTestBackward) {
-  setenv("PT_HPU_LAZY_MODE", "1", 1);
   torch::Tensor input = torch::rand({64,10}, torch::requires_grad(false));
   torch::Tensor grad = torch::rand({64,10}, torch::requires_grad(false));
   torch::Tensor output = torch::rand({64,10}, torch::requires_grad(false));
@@ -103,6 +98,4 @@ TEST_F(LazySoftmaxKernelTest, SoftMaxTestBackward) {
   auto cout_back = _softmax_backward_data(grad, output, dim, input);
 
   EXPECT_EQ(allclose(hout2_back, cout_back), true);
-  unsetenv("PT_HPU_LAZY_MODE");
-
 }

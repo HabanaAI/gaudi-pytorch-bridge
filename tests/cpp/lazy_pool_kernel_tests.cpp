@@ -14,13 +14,16 @@ using namespace habana_lazy;
 
 class LazyPoolKernelTest : public ::testing::Test {
  protected:
-  void SetUp() override {}
+  void SetUp() override {
+    setenv("PT_HPU_LAZY_MODE", "1", 1);
+  }
 
-  void TearDown() override {}
+  void TearDown() override {
+    unsetenv("PT_HPU_LAZY_MODE");
+  }
 };
 
 TEST_F(LazyPoolKernelTest, MaxPoolBWDTest) {
-  setenv("PT_HPU_LAZY_MODE", "1", 1);
   auto input_tensor =
       torch::arange(20, torch::dtype(torch::kFloat).requires_grad(true))
           .reshape({1, 1, 4, 5}); // nchw
@@ -41,6 +44,5 @@ TEST_F(LazyPoolKernelTest, MaxPoolBWDTest) {
 
   auto out_cpu_lazy = outHabana.to(torch::kCPU);
   ASSERT_TRUE(torch::allclose(out_cpu_lazy, cpu_out));
-  unsetenv("PT_HPU_LAZY_MODE");
 }
 

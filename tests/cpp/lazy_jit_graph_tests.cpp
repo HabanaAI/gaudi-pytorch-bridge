@@ -64,10 +64,6 @@ TEST(LazyJITTest, ExecuteGraph) {
   auto result1 = add_tensor_hpu_wrap(htensor_in1, htensor_in2, alpha);
   auto result2 = add_tensor_hpu_wrap(result1, htensor_in1, alpha);
 
-  std::vector<HbLazyTensor> tensors = {
-      GetHbLazyTensor(result1), GetHbLazyTensor(result2)};
-  HbLazyTensor::SyncTensorsGraph(&tensors, {});
-
   Tensor out1 = result1.to(kCPU);
   Tensor out2 = result2.to(kCPU);
 
@@ -108,10 +104,6 @@ TEST(LazyJITTest, ExecuteGraphCustomSgd) {
   std::tie(out1, out2) = optimizer_sparse_sgd_with_valid_count_hpu_wrap(
       hgrad, hwts, hmoments, hindices, hlr, hvalid_cnt, 0.1, false);
 
-  std::vector<HbLazyTensor> tensors = {
-      GetHbLazyTensor(out1), GetHbLazyTensor(out2)};
-  HbLazyTensor::SyncTensorsGraph(&tensors, {});
-
   Tensor result1 = out1.to(kCPU);
   Tensor result2 = out2.to(kCPU);
   EXPECT_EQ(allclose(result1, result1_eager), true);
@@ -148,10 +140,6 @@ TEST(LazyJITTest, ExecuteGraphCustomAdagrad) {
   torch::Tensor out1, out2;
   std::tie(out1, out2) = optimizer_sparse_adagrad_with_valid_count_hpu_wrap(
       hgrad, hwts, hmoments, hindices, hlr, hvalid_cnt);
-
-  std::vector<HbLazyTensor> tensors = {
-      GetHbLazyTensor(out1), GetHbLazyTensor(out2)};
-  HbLazyTensor::SyncTensorsGraph(&tensors, {});
 
   Tensor result1 = out1.to(kCPU);
   Tensor result2 = out2.to(kCPU);

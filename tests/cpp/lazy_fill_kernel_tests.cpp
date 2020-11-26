@@ -14,31 +14,28 @@ using namespace habana_lazy;
 
 class LazyFillKernelTest : public ::testing::Test {
  protected:
-  void SetUp() override {}
+  void SetUp() override {
+    setenv("PT_HPU_LAZY_MODE", "1", 1);
+  }
 
-  void TearDown() override {}
+  void TearDown() override {
+    unsetenv("PT_HPU_LAZY_MODE");
+  }
 };
 
 TEST_F(LazyFillKernelTest, LocalScalarDenseTest) {
-  setenv("PT_HPU_LAZY_MODE", "1", 1);
   torch::Tensor A = torch::randn({1}, torch::requires_grad(false));
   torch::Tensor hA = A.to(torch::kHABANA);
-
-  auto hl_result = GetOrCreateHbLazyTensor(A, A.device());
 
   // .item() invokes local scalar dense
   auto s = hA.item();
   auto s_cpu = A.item();
 
   EXPECT_EQ(s.to<float>(), s_cpu.to<float>());
-
-  unsetenv("PT_HPU_LAZY_MODE");
 }
 
 TEST_F(LazyFillKernelTest, ExecuteFillGraph) {
-  Tensor tensor_in1 = torch::rand({2});
-
-  setenv("PT_HPU_LAZY_MODE", "1", 1);
+  Tensor tensor_in1 = torch::randn({2});
   torch::Tensor htensor_in1 = tensor_in1.to(torch::kHABANA);
   auto out = htensor_in1.fill_(1.0);
 
@@ -48,5 +45,4 @@ TEST_F(LazyFillKernelTest, ExecuteFillGraph) {
   auto exp = tensor_in1.fill_(1.0);
   auto out_cpu = htensor_in1.to(torch::kCPU);
   EXPECT_EQ(allclose(out_cpu, exp), true);
-  unsetenv("PT_HPU_LAZY_MODE");
 }
