@@ -457,7 +457,8 @@ Tensor empty_hpu_lazy(
 Tensor empty_strided_hpu_lazy(
     IntArrayRef size,
     IntArrayRef stride,
-    const TensorOptions& options);
+    const TensorOptions& options,
+    bool create_storage = true);
 } // namespace native
 } // namespace at
 

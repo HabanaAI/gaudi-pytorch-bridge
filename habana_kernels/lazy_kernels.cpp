@@ -229,9 +229,10 @@ Tensor& copy_hpu_lazy_(Tensor& self, const Tensor& src, bool non_blocking) {
           false,
           "Habana copy_hpu_lazy_: trying to copy from a storage less lazy tensor");
     }
-  } else if (!src.has_storage()) {
+  } else if (habana_lazy::IsHbLazyTensor(src)) {
+    auto src_hb_tensor = habana_lazy::GetHbLazyTensor(src);
     TORCH_CHECK(
-        false,
+        src_hb_tensor.isStorageAttached(),
         "Habana copy_hpu_lazy_: trying to copy from a storage less tensor");
   }
 
@@ -1678,14 +1679,10 @@ Tensor empty_hpu_lazy(
 Tensor empty_strided_hpu_lazy(
     IntArrayRef size,
     IntArrayRef stride,
-    const TensorOptions& options) {
-  // TODO : Let the strided call create storage here as it comes via .to which
-  // is an input creation call This logic isnt solid and we need to have better
-  // check for storage
-  bool allocate_storage =
-      habana_lazy::allocateTensorWithStorage(options.device_index());
+    const TensorOptions& options,
+    bool create_storage) {
   at::Tensor empty_tensor =
-      empty_hpu_lazy(size, options, c10::nullopt, allocate_storage);
+      empty_hpu_lazy(size, options, c10::nullopt, create_storage);
   empty_tensor.unsafeGetTensorImpl()->set_sizes_and_strides(size, stride);
   return empty_tensor;
 };

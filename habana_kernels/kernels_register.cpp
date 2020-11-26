@@ -1579,11 +1579,7 @@ Tensor empty_hpu_wrap(
     c10::optional<MemoryFormat> optional_memory_format) {
   if (!habana_lazy::isDeviceInLoweringMode(options.device().index()) &&
       std::getenv("PT_HPU_LAZY_MODE")) {
-    return empty_hpu_lazy(
-        size,
-        options,
-        optional_memory_format,
-        habana_lazy::allocateTensorWithStorage(options.device().index()));
+    return empty_hpu_lazy(size, options, optional_memory_format);
   }
   return empty_hpu(size, options, optional_memory_format);
 };
