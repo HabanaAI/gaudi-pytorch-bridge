@@ -948,7 +948,7 @@ Tensor embedding_bag_sum_fwd_hpu(
 
   at::ScalarType scalar_type = input.scalar_type();
   // TODO support other kernel flavours
-  std::string node_type = "embedding_bag_sum_small_lengths_2d_fwd_" +
+  std::string node_type = "embedding_bag_sum_2d_fwd_" +
       habana_helpers::name_suffix_from_type(scalar_type);
   size_t device_id = input.device().index();
 
