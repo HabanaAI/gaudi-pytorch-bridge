@@ -49,20 +49,7 @@ void HlExec::Bind(const HabanaLazyTensorPtrList& inputs) {
   }
 #endif
 }
-void markTensorsExecutinginContext(
-    HbExecutionContext* context,
-    torch::jit::Stack& stack) {
-  for (auto val : stack) {
-    if (val.isTensor()) {
-      auto tensor = val.toTensor();
-      auto hl_tensor =
-          habana_lazy::GetOrCreateHbLazyTensor(tensor, tensor.device());
-      int id = hl_tensor.getTensorUniqueId();
-      if (id != -1)
-        context->MarkTensorExecuting(id);
-    }
-  }
-}
+
 void HlExec::Launch(torch::jit::Stack& stack) {
   auto& device = synapse_helpers::HPURegistrar::get_device();
   auto context = habana_lazy_executor.getDeviceExecutionContext(device.id());
@@ -75,9 +62,7 @@ void HlExec::Launch(torch::jit::Stack& stack) {
   setenv("PT_HPU_LAZY_LOWERING", "1", 1);
   context->setExecutionMode(kLOWERING);
   HabanaLaunchOpPT launch{mp_g_, false};
-  markTensorsExecutinginContext(context, stack);
   launch.run(stack);
-  markTensorsExecutinginContext(context, stack);
   context->setExecutionMode(kLAZY);
   context->MarkTensorsExecuted();
   unsetenv("PT_HPU_LAZY_LOWERING");
@@ -86,15 +71,15 @@ void HlExec::Launch(torch::jit::Stack& stack) {
 /*
  * Creates the Graph
  */
-std::tuple<LazyValueToJitValueMap, LazyValueToJitValueMap> HlExec::Create(
+void HlExec::Create(
     const ir::NodePtrList nodes,
     const ir::ValueList inputs,
     const ir::ValueList outputs) {
-  LazyValueToJitValueMap value_map, input_map, output_map;
+  LazyOutputToJitValueMap ir_map;
 
   for (auto inp : inputs) {
     auto t = mp_g_->addInput(inp.ToString());
-    value_map[inp] = input_map[inp] = t;
+    ir_map[ir::Output(inp)] = t;
   }
 
   for (auto node : nodes) {
@@ -111,10 +96,10 @@ std::tuple<LazyValueToJitValueMap, LazyValueToJitValueMap> HlExec::Create(
       // Keeping it as a variable (1-elem input) allows to be able to
       // reuse the same graph when the scalar values change.
       auto c = mp_g_->insertConstant(scalar_const);
-      value_map[node->GetOutput(0)] = c;
+      ir_map[node->GetOutput(0)] = c;
     } else if (node->ToString().find("hpu::input") != std::string::npos) {
       // Its a tensor, should already be there in the value maps
-      HABANA_ASSERT(value_map.find(node->GetOutput(0)) != value_map.end());
+      HABANA_ASSERT(ir_map.find(node->GetOutput(0)) != ir_map.end());
     } else {
       std::vector<JitValue*> args_vector;
       auto node_input_vals = node->GetInputs();
@@ -123,8 +108,8 @@ std::tuple<LazyValueToJitValueMap, LazyValueToJitValueMap> HlExec::Create(
           node_input_vals.end(),
           std::back_inserter(args_vector),
           [&](HabanaLazyValue inp) -> JitValue* {
-            auto it = value_map.find(inp);
-            HABANA_ASSERT(it != value_map.end());
+            auto it = ir_map.find(ir::Output(inp));
+            HABANA_ASSERT(it != ir_map.end());
             return it->second;
           });
 
@@ -164,20 +149,18 @@ std::tuple<LazyValueToJitValueMap, LazyValueToJitValueMap> HlExec::Create(
       auto jit_outputs = jit_node->outputs();
       int i = 0;
       for (const auto jit_output : jit_outputs) {
-        value_map[node->GetOutput(i++)] = jit_output;
+        ir_map[node->GetOutput(i++)] = jit_output;
       }
     }
   }
 
   for (auto output : outputs) {
-    output_map[output] = value_map[output];
-    mp_g_->registerOutput(value_map[output]);
+    auto out = ir::Output(output);
+    mp_g_->registerOutput(ir_map[out]);
   }
 
   // Optimize the graph based on the passes enabled
   Optimize();
-
-  return std::make_tuple(input_map, output_map);
 }
 
 void HlExec::Optimize() {

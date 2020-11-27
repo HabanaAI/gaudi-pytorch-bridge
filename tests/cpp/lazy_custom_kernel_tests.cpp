@@ -49,9 +49,7 @@ TEST_F(LazyCustomKernelTest, OptSgdCustomOp) {
   auto po_data = HbLazyTensor::RunPostOrder(tensors, indices1);
 
   exec::HlExec* hlexec = new exec::HlExec();
-  exec::LazyValueToJitValueMap input_map, output_map;
-  std::tie(input_map, output_map) =
-      hlexec->Create(po_data.post_order, po_data.inputs, po_data.outputs);
+  hlexec->Create(po_data.post_order, po_data.inputs, po_data.outputs);
   torch::jit::testing::FileCheck()
       .check("prim::Constant[value=0.10000000149011612]")
       ->check("prim::Constant[value=0]")
@@ -85,9 +83,7 @@ TEST_F(LazyCustomKernelTest, OptAdagradCustomOp) {
   auto po_data = HbLazyTensor::RunPostOrder(tensors, indices1);
 
   exec::HlExec* hlexec = new exec::HlExec();
-  exec::LazyValueToJitValueMap input_map, output_map;
-  std::tie(input_map, output_map) =
-      hlexec->Create(po_data.post_order, po_data.inputs, po_data.outputs);
+  hlexec->Create(po_data.post_order, po_data.inputs, po_data.outputs);
   torch::jit::testing::FileCheck()
       .check_count("habanaOptimizerSparseAdagrad", 1)
       ->run(*hlexec->get_graph());

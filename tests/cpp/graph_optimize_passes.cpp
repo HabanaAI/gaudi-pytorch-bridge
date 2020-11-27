@@ -41,9 +41,7 @@ TEST_F(GraphOptimizeTest, PeepholeOptimTest) {
   exec::HlExec* hlexec = new exec::HlExec();
   exec::OptPassCfg::GetInstance()->enable_peephole_optimization = true;
 
-  exec::LazyValueToJitValueMap input_map, output_map;
-  std::tie(input_map, output_map) =
-      hlexec->Create(po_data.post_order, po_data.inputs, po_data.outputs);
+  hlexec->Create(po_data.post_order, po_data.inputs, po_data.outputs);
 
   torch::jit::testing::FileCheck()
       .check_not("aten::t")

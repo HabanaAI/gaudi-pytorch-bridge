@@ -82,5 +82,7 @@ Value::~Value() {
   }
 }
 
+Output::Output(const Value& v) : m_node(v.mp_node.get()), m_index(v.m_index) {}
+
 } // namespace ir
 } // namespace habana_lazy

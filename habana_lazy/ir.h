@@ -60,6 +60,44 @@ inline std::ostream& operator<<(std::ostream& stream, const Use& use) {
   return stream;
 }
 
+/**
+ * Seperate Output class to avoid circular reference
+ * in Value, stores raw Node pointer and index of the output
+ */
+class Output {
+ public:
+  Output(const Value& v);
+
+  virtual ~Output() {
+    m_node = nullptr;
+  }
+
+  Node* GetNode() const {
+    return m_node;
+  }
+
+  size_t GetIndex() const {
+    return m_index;
+  }
+
+  bool operator==(const Output& v) const {
+    return m_node == v.m_node && m_index == v.m_index;
+  }
+
+  bool operator!=(const Output& v) const {
+    return !(*this == v);
+  }
+
+  operator bool() const {
+    return m_node != nullptr;
+  }
+
+ protected:
+  Node* m_node = nullptr;
+  size_t m_index;
+};
+using OutputList = std::vector<Output>;
+
 /*
  * Class to store the Meta data for an operator
  * Data stored as IValue for now. Supported type
@@ -150,13 +188,9 @@ class Node {
     m_is_visited = false;
   }
 
-  const ValueList GetOutputs() const {
-    return m_outputs;
-  }
-
-  const Value& GetOutput(size_t i) const {
-    TORCH_CHECK(i < GetNumOutputs(), "Node::GetOutputs index out of range");
-    return m_outputs[i];
+  const Output GetOutput(size_t index) const {
+    TORCH_CHECK(index < GetNumOutputs(), "Node::GetOutputs index out of range");
+    return m_outputs[index];
   }
 
   virtual ~Node() {}
@@ -176,7 +210,7 @@ class Node {
  protected:
   c10::Symbol m_op;
   ValueList m_inputs;
-  ValueList m_outputs;
+  OutputList m_outputs;
   std::set<Use> m_uses;
   MetaData m_meta_data;
   bool m_is_visited = false;
@@ -210,7 +244,7 @@ struct Value {
 
   void SetNode(NodePtr node) {
     mp_node = node;
-    mp_node->m_outputs.emplace_back(*this);
+    mp_node->m_outputs.emplace_back(Output(*this));
   }
 
   uint64_t get_unique_id() const {
@@ -254,18 +288,18 @@ inline std::ostream& operator<<(std::ostream& stream, const Value& value) {
 }
 
 // Hash functor for Value
-struct ValueHash {
+struct OutputHash {
  public:
-  size_t operator()(const Value& v) const {
+  size_t operator()(const Output& v) const {
     return StdHashCombine(
-        reinterpret_cast<uintptr_t>(v.mp_node.get()), v.m_index);
+        reinterpret_cast<uintptr_t>(v.GetNode()), v.GetIndex());
   }
 };
 
 // Equal functor for Value
-struct ValueEqual {
+struct OutputEqual {
  public:
-  bool operator()(const Value& v1, const Value& v2) const {
+  bool operator()(const Output& v1, const Output& v2) const {
     return v1 == v2;
   }
 };

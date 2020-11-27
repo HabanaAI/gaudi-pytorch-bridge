@@ -23,6 +23,7 @@ namespace exec {
 using Graph = torch::jit::Graph;
 using JitValue = torch::jit::Value;
 using HabanaLazyValue = habana_lazy::ir::Value;
+using HabanaLazyOutput = habana_lazy::ir::Output;
 using JitIValue = torch::jit::IValue;
 using GraphPtr = std::shared_ptr<Graph>;
 using JitValuePtr = std::shared_ptr<JitValue>;
@@ -31,11 +32,11 @@ using ScopePtr = torch::jit::ScopePtr;
 using HabanaLazyTensorPtr = habana_lazy::HbLazyTensor*;
 using HabanaLazyTensorPtrList = std::vector<HabanaLazyTensorPtr>;
 
-using LazyValueToJitValueMap = std::unordered_map<
-    HabanaLazyValue,
+using LazyOutputToJitValueMap = std::unordered_map<
+    HabanaLazyOutput,
     JitValue*,
-    habana_lazy::ir::ValueHash,
-    habana_lazy::ir::ValueEqual>;
+    habana_lazy::ir::OutputHash,
+    habana_lazy::ir::OutputEqual>;
 
 /**
  * Define data structure to enabling the optimization passes
@@ -82,7 +83,7 @@ class HlExec {
    *     map : Lazy input value pointer -> JIT IR input value pointers
    *     map : Lazy output value pointer -> JIT IR output value pointers
    */
-  std::tuple<LazyValueToJitValueMap, LazyValueToJitValueMap> Create(
+  void Create(
       const ir::NodePtrList nodes,
       const ir::ValueList inputs,
       const ir::ValueList outputs);

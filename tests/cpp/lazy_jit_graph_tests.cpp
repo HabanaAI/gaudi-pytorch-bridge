@@ -37,9 +37,7 @@ TEST(LazyJITTest, CreateGraph) {
   auto po_data = HbLazyTensor::RunPostOrder(tensors, indices);
 
   exec::HlExec* hlexec = new exec::HlExec();
-  exec::LazyValueToJitValueMap input_map, output_map;
-  std::tie(input_map, output_map) =
-      hlexec->Create(po_data.post_order, po_data.inputs, po_data.outputs);
+  hlexec->Create(po_data.post_order, po_data.inputs, po_data.outputs);
 
   torch::jit::testing::FileCheck()
       .check("prim::Constant[value=99.5]")
