@@ -82,7 +82,7 @@ class HabanaLaunchOpPT {
   std::unordered_map<CValPtr, bool> value_to_persistent_flag;
 
   // map between PT and synapse tensors
-  std::vector<synapse_helpers::tensor> meta_syn_tensors;
+  std::deque<synapse_helpers::tensor> meta_syn_tensors;
 
   std::vector<IValPtrShared> pt_stack_sh;
   std::unordered_map<CValPtr, IValPtrShared> value_to_ivalue;
