@@ -24,7 +24,7 @@ aten::gelu_backward(Tensor grad, Tensor self) -> Tensor
 aten::cat(Tensor[] tensors, int dim) -> Tensor
 aten::mul(Tensor self, Tensor other) -> Tensor
 aten::matmul(Tensor self, Tensor other) -> Tensor
-//aten::matmul_backward(Tensor grad_out, Tensor self, Tensor other) -> (Tensor, Tensor)
+aten::matmul_backward(Tensor grad_out, Tensor self, Tensor other) -> (Tensor, Tensor)
 aten::_log_softmax(Tensor self, int dim, bool half_to_float) -> Tensor
 aten::mul.Scalar(Tensor self, Scalar other) -> Tensor
 aten::mm(Tensor self, Tensor mat2) -> Tensor
