@@ -1109,7 +1109,7 @@ void LayerNormOperator::AllocateAndAddSynapseNode(
   if(graphFusionValue)
   {
     int isFusionEnabled = std::stoi(getenv("PT_HABANA_ENABLE_GRAPHMODE_LAYERNORM_FUSION"));
-    if (isFusionEnabled && m==-1)
+    if (isFusionEnabled && m==1)
     {
       m = input.size(0) * input.size(1);
       if(n != input.size(2))
@@ -1222,7 +1222,7 @@ void LayerNormOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   if(graphFusionValue)
   {
     int isFusionEnabled = std::stoi(getenv("PT_HABANA_ENABLE_GRAPHMODE_LAYERNORM_FUSION"));
-    if (isFusionEnabled && m==-1)
+    if (isFusionEnabled && m==1)
     {
       m = input.size(0) * input.size(1);
     }
@@ -1368,7 +1368,7 @@ void LayerNormBackwardOperator::AllocateAndAddSynapseNode(
   if(graphFusionValue)
   {
     int isFusionEnabled = std::stoi(getenv("PT_HABANA_ENABLE_GRAPHMODE_LAYERNORM_FUSION"));
-    if (isFusionEnabled && m==-1)
+    if (isFusionEnabled && m==1)
     {
       m = X.size(0) * X.size(1);
       if(n != X.size(2))
