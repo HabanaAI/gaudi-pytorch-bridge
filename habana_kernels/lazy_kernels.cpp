@@ -2019,11 +2019,11 @@ Scalar _local_scalar_dense_hpu_lazy(const Tensor& self) {
 }
 } // namespace native
 } // namespace at
-std::tuple<torch::Tensor, torch::Tensor>
+std::tuple<torch::Tensor&, torch::Tensor&>
 optimizer_sparse_sgd_with_valid_count_hpu_lazy(
     const Tensor& gradients,
-    const Tensor& weights_in,
-    const Tensor& moments_in,
+    Tensor& weights_in,
+    Tensor& moments_in,
     const Tensor& indices,
     const Tensor& learning_rate,
     const Tensor& valid_count_tensor,
@@ -2040,32 +2040,21 @@ optimizer_sparse_sgd_with_valid_count_hpu_lazy(
           mom,
           nesterov);
 
-  auto weights_out = at::native::empty_hpu_lazy(
-      weights_in.sizes(),
-      weights_in.options(),
-      weights_in.suggest_memory_format(),
-      false);
-  auto moments_out = at::native::empty_hpu_lazy(
-      moments_in.sizes(),
-      moments_in.options(),
-      moments_in.suggest_memory_format(),
-      false);
-
-  auto hlweights = habana_lazy::GetHbLazyTensor(weights_out);
+  auto hlweights = habana_lazy::GetHbLazyTensor(weights_in);
   habana_lazy::ir::Value& out1 = hlweights.CurrentIrValue();
   out1.m_index = 0;
   out1.SetNode(node);
-  auto hlmoments = habana_lazy::GetHbLazyTensor(moments_out);
+  auto hlmoments = habana_lazy::GetHbLazyTensor(moments_in);
   habana_lazy::ir::Value& out2 = hlmoments.CurrentIrValue();
   out2.m_index = 1;
   out2.SetNode(node);
-  return std::tie(weights_out, moments_out);
+  return std::tie(weights_in, moments_in);
 }
-std::tuple<torch::Tensor, torch::Tensor>
+std::tuple<torch::Tensor&, torch::Tensor&>
 optimizer_sparse_adagrad_with_valid_count_hpu_lazy(
     const Tensor& gradients,
-    const Tensor& weights_in,
-    const Tensor& moments_in,
+    Tensor& weights_in,
+    Tensor& moments_in,
     const Tensor& indices,
     const Tensor& learning_rate,
     const Tensor& valid_count_tensor) {
@@ -2090,26 +2079,15 @@ optimizer_sparse_adagrad_with_valid_count_hpu_lazy(
     node->AddInput(i.GetIrValue());
   }
 
-  auto weights_out = at::native::empty_hpu_lazy(
-      weights_in.sizes(),
-      weights_in.options(),
-      weights_in.suggest_memory_format(),
-      false);
-  auto moments_out = at::native::empty_hpu_lazy(
-      moments_in.sizes(),
-      moments_in.options(),
-      moments_in.suggest_memory_format(),
-      false);
-
-  auto hlweights = habana_lazy::GetHbLazyTensor(weights_out);
+  auto hlweights = habana_lazy::GetHbLazyTensor(weights_in);
   habana_lazy::ir::Value& out1 = hlweights.CurrentIrValue();
   out1.m_index = 0;
   out1.SetNode(node);
-  auto hlmoments = habana_lazy::GetHbLazyTensor(moments_out);
+  auto hlmoments = habana_lazy::GetHbLazyTensor(moments_in);
   habana_lazy::ir::Value& out2 = hlmoments.CurrentIrValue();
   out2.m_index = 1;
   out2.SetNode(node);
-  return std::tie(weights_out, moments_out);
+  return std::tie(weights_in, moments_in);
 }
 
 Tensor ones_like_hpu_lazy(

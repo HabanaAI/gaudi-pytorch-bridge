@@ -16,26 +16,26 @@ using namespace std;
 // 6	Valid count	         I32	1D
 //
 // Output tensors
-// 1	Weights              FP32/FP16/BF16	2D
+// 1	Weights              FP32	2D
 // 2	Moments              FP32	2D
 
-extern std::tuple<torch::Tensor, torch::Tensor>
+extern std::tuple<torch::Tensor&, torch::Tensor&>
 optimizer_sparse_adagrad_with_valid_count_hpu_wrap(
     const torch::Tensor& gradients,
-    const torch::Tensor& weights_in,
-    const torch::Tensor& moments_in,
+    torch::Tensor& weights_in,
+    torch::Tensor& moments_in,
     const torch::Tensor& indices,
     const torch::Tensor& learning_rate,
     const torch::Tensor& valid_count);
 
-std::tuple<torch::Tensor, torch::Tensor>
+std::tuple<torch::Tensor&, torch::Tensor&>
 optimizer_sparse_adagrad_with_valid_count(
-    torch::Tensor gradients,
-    torch::Tensor weights_in,
-    torch::Tensor moments_in,
-    torch::Tensor indices,
-    torch::Tensor learning_rate,
-    torch::Tensor valid_count) {
+    const torch::Tensor& gradients,
+    torch::Tensor& weights_in,
+    torch::Tensor& moments_in,
+    const torch::Tensor& indices,
+    const torch::Tensor& learning_rate,
+    const torch::Tensor& valid_count) {
   return optimizer_sparse_adagrad_with_valid_count_hpu_wrap(
       gradients, weights_in, moments_in, indices, learning_rate, valid_count);
 }

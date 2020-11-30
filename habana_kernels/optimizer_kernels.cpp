@@ -31,7 +31,7 @@ using namespace habana;
 // 7 momentum              FP32
 // 8 nesterov              Bool
 // Output tensors
-// 1	Weights              FP32/FP16/BF16	2D
+// 1	Weights              FP32 2D
 // 2	Moments              FP32	2D
 #if 1 // TODO: TPC kernel seems to give wrong results.
 #include "habana_helpers/graph.h"
@@ -67,23 +67,22 @@ void OptimizerSparseSgdOperator::AllocateAndAddSynapseNode(
   p_context_->syn_outputs_.emplace_back(
       habana_helpers::duplicate_tensor_in_memory_section(
           p_context_->syn_inputs_[1]));
+  p_context_->pt_outputs_.emplace_back(weights_in);
 
-  p_context_->pt_outputs_.emplace_back(p_context_->pt_inputs_[1]);
-
+  // moments
   p_context_->syn_outputs_.emplace_back(
       habana_helpers::duplicate_tensor_in_memory_section(
           p_context_->syn_inputs_[2]));
-
-  p_context_->pt_outputs_.emplace_back(p_context_->pt_inputs_[2]);
+  p_context_->pt_outputs_.emplace_back(moments_in);
 
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
-std::tuple<torch::Tensor, torch::Tensor>
+std::tuple<torch::Tensor&, torch::Tensor&>
 optimizer_sparse_sgd_with_valid_count_hpu(
     const Tensor& gradients,
-    const Tensor& weights_in,
-    const Tensor& moments_in,
+    Tensor& weights_in,
+    Tensor& moments_in,
     const Tensor& indices,
     const Tensor& learning_rate,
     const Tensor& valid_count_tensor,
@@ -132,11 +131,9 @@ optimizer_sparse_sgd_with_valid_count_hpu(
     // compile and execute the graph
     Op.Compile(graph);
   }
-  std::vector<at::Tensor> out = Op.GetOutputs();
-  TORCH_CHECK(out.size() == 2, "Incorrect size of outputs");
 
   PT_KERNEL_END;
-  return std::tie(out.at(0), out.at(1));
+  return std::tie(weights_in, moments_in);
 }
 #else
 #endif
@@ -172,22 +169,24 @@ void OptimizerSparseAdagradOperator::AllocateAndAddSynapseNode(
       habana_helpers::duplicate_tensor_in_memory_section(
           p_context_->syn_inputs_[1]));
 
-  p_context_->pt_outputs_.emplace_back(p_context_->pt_inputs_[1]);
+  auto weights_in = inputs[1].toTensor();
+  p_context_->pt_outputs_.emplace_back(weights_in);
 
   p_context_->syn_outputs_.emplace_back(
       habana_helpers::duplicate_tensor_in_memory_section(
           p_context_->syn_inputs_[2]));
 
-  p_context_->pt_outputs_.emplace_back(p_context_->pt_inputs_[2]);
+  auto moments_in = inputs[2].toTensor();
+  p_context_->pt_outputs_.emplace_back(moments_in);
 
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
-std::tuple<torch::Tensor, torch::Tensor>
+std::tuple<torch::Tensor&, torch::Tensor&>
 optimizer_sparse_adagrad_with_valid_count_hpu(
     const Tensor& gradients,
-    const Tensor& weights_in,
-    const Tensor& moments_in,
+    Tensor& weights_in,
+    Tensor& moments_in,
     const Tensor& indices,
     const Tensor& learning_rate,
     const Tensor& valid_count_tensor) {
@@ -233,11 +232,8 @@ optimizer_sparse_adagrad_with_valid_count_hpu(
     Op.Compile(graph);
   }
 
-  std::vector<at::Tensor> out = Op.GetOutputs();
-  TORCH_CHECK(out.size() == 2, "Incorrect size of outputs");
-
   PT_KERNEL_END;
-  return std::tie(out.at(0), out.at(1));
+  return std::tie(weights_in, moments_in);
 }
 
 static auto& KernelRegistry =

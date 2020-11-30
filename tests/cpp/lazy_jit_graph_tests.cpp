@@ -78,11 +78,14 @@ TEST(LazyJITTest, ExecuteGraphCustomSgd) {
   auto lr = torch::tensor({0.01}, torch::dtype(torch::kFloat));
   auto valid_cnt = torch::tensor({2}, torch::dtype(torch::kInt32));
   torch::Tensor out1_eager, out2_eager;
+  auto hwt_eager = wts.to(torch::kHABANA);
+  auto hmoment_eager = moments.to(torch::kHABANA);
+
   std::tie(out1_eager, out2_eager) =
       optimizer_sparse_sgd_with_valid_count_hpu_wrap(
           grad.to(torch::kHABANA),
-          wts.to(torch::kHABANA),
-          moments.to(torch::kHABANA),
+          hwt_eager,
+          hmoment_eager,
           indices.to(torch::kHABANA),
           lr.to(torch::kHABANA),
           valid_cnt.to(torch::kHABANA),
@@ -102,8 +105,14 @@ TEST(LazyJITTest, ExecuteGraphCustomSgd) {
   std::tie(out1, out2) = optimizer_sparse_sgd_with_valid_count_hpu_wrap(
       hgrad, hwts, hmoments, hindices, hlr, hvalid_cnt, 0.1, false);
 
+  auto hl_result1 = std::make_shared<HbLazyTensor>(GetHbLazyTensor(out1));
+  auto hl_result2 = std::make_shared<HbLazyTensor>(GetHbLazyTensor(out2));
+  std::vector<HbLazyTensor> tensors = {*hl_result1, *hl_result2};
+  HbLazyTensor::SyncTensorsGraph(&tensors, {});
+
   Tensor result1 = out1.to(kCPU);
   Tensor result2 = out2.to(kCPU);
+
   EXPECT_EQ(allclose(result1, result1_eager), true);
   EXPECT_EQ(allclose(result2, result2_eager), true);
   unsetenv("PT_HPU_LAZY_MODE");
@@ -116,12 +125,15 @@ TEST(LazyJITTest, ExecuteGraphCustomAdagrad) {
   auto indices = torch::tensor({0, 1}, torch::dtype(torch::kInt32));
   auto lr = torch::tensor({0.01}, torch::dtype(torch::kFloat));
   auto valid_cnt = torch::tensor({2}, torch::dtype(torch::kInt32));
+  auto hwt_eager = wts.to(torch::kHABANA);
+  auto hmoment_eager = moments.to(torch::kHABANA);
+
   torch::Tensor out1_eager, out2_eager;
   std::tie(out1_eager, out2_eager) =
       optimizer_sparse_adagrad_with_valid_count_hpu_wrap(
           grad.to(torch::kHABANA),
-          wts.to(torch::kHABANA),
-          moments.to(torch::kHABANA),
+          hwt_eager,
+          hmoment_eager,
           indices.to(torch::kHABANA),
           lr.to(torch::kHABANA),
           valid_cnt.to(torch::kHABANA));
@@ -138,6 +150,11 @@ TEST(LazyJITTest, ExecuteGraphCustomAdagrad) {
   torch::Tensor out1, out2;
   std::tie(out1, out2) = optimizer_sparse_adagrad_with_valid_count_hpu_wrap(
       hgrad, hwts, hmoments, hindices, hlr, hvalid_cnt);
+
+  auto hl_result1 = std::make_shared<HbLazyTensor>(GetHbLazyTensor(out1));
+  auto hl_result2 = std::make_shared<HbLazyTensor>(GetHbLazyTensor(out2));
+  std::vector<HbLazyTensor> tensors = {*hl_result1, *hl_result2};
+  HbLazyTensor::SyncTensorsGraph(&tensors, {});
 
   Tensor result1 = out1.to(kCPU);
   Tensor result2 = out2.to(kCPU);

@@ -2018,11 +2018,11 @@ Scalar _local_scalar_dense_hpu_wrap(const Tensor& self) {
 }
 } // namespace native
 } // namespace at
-std::tuple<torch::Tensor, torch::Tensor>
+std::tuple<torch::Tensor&, torch::Tensor&>
 optimizer_sparse_sgd_with_valid_count_hpu_wrap(
     const Tensor& gradients,
-    const Tensor& weights_in,
-    const Tensor& moments_in,
+    Tensor& weights_in,
+    Tensor& moments_in,
     const Tensor& indices,
     const Tensor& learning_rate,
     const Tensor& valid_count_tensor,
@@ -2051,11 +2051,11 @@ optimizer_sparse_sgd_with_valid_count_hpu_wrap(
         nesterov);
   }
 }
-std::tuple<torch::Tensor, torch::Tensor>
+std::tuple<torch::Tensor&, torch::Tensor&>
 optimizer_sparse_adagrad_with_valid_count_hpu_wrap(
     const Tensor& gradients,
-    const Tensor& weights_in,
-    const Tensor& moments_in,
+    Tensor& weights_in,
+    Tensor& moments_in,
     const Tensor& indices,
     const Tensor& learning_rate,
     const Tensor& valid_count_tensor) {

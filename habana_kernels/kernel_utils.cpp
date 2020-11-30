@@ -256,7 +256,7 @@ void ConstantOutOperator::AllocateAndAddSynapseNode(
   HABANA_ASSERT(p_context_->syn_inputs_.size() == 1);
   synapse_helpers::tensor_or_ref& input_tensor = p_context_->syn_inputs_.back();
   p_context_->syn_outputs_.emplace_back(std::move(input_tensor));
-  p_context_->pt_outputs_.emplace_back(p_context_->pt_inputs_[0]);
+  p_context_->pt_outputs_.emplace_back(output);
   // Adding a clear for inputs as constant kernel expects no inputs
   // AS we get inputs from PT kernel, graph mode creates a syn tensor anyway
   // It was observed if we let that syn tensor remain, the kernel gives wrong
