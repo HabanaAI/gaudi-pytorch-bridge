@@ -43,15 +43,14 @@ synStatus host_memory::malloc(void** ptr, size_t size) {
   *ptr = 0;
   /* allocate a new block if no cached allocation is found */
   auto err = synHostMalloc(device_.id(), size, 0, ptr);
+  /* release the cache and retry malloc if the error is OOM */
+  if (err == synOutOfHostMemory) {
+    PT_SYNHELPER_WARN(
+        "SynHostMalloc Failed OOM, Retrying by dropping cache.", err);
+    dropCache();
+    err = synHostMalloc(device_.id(), size, 0, ptr);
+  }
   if (err != synSuccess) {
-    /* release the cache and retry malloc if the error is OOM */
-    if (err == synOutOfHostMemory) {
-      PT_SYNHELPER_WARN("SynHostMalloc Failed OOM, Retrying by dropping cache.", err);
-      dropCache();
-      auto err = synHostMalloc(device_.id(), size, 0, ptr);
-      if (err != synSuccess)
-        return err;
-    }
     return err;
   }
 
