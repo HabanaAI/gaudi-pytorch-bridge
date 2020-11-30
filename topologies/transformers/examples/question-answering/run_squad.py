@@ -81,6 +81,14 @@ logger = logging.getLogger(__name__)
 MODEL_CONFIG_CLASSES = list(MODEL_FOR_QUESTION_ANSWERING_MAPPING.keys())
 MODEL_TYPES = tuple(conf.model_type for conf in MODEL_CONFIG_CLASSES)
 
+def compute_position_ids(input_ids):
+    input_shape = input_ids.size()
+    seq_length = input_shape[1]
+    position_ids_seq = torch.arange(seq_length, dtype=torch.int32)
+    position_ids_ = position_ids_seq.unsqueeze(0).expand(input_shape)
+    position_ids = position_ids_.contiguous()
+    return position_ids
+
 def barrier_local(use_habana):
     if use_habana:
         group_id = torch.distributed.group.WORLD
@@ -237,11 +245,16 @@ def train(args, train_dataset, model, tokenizer, trainMetaData):
             ## Habana doesn't support Long tensors
             ## Hence we need to convert start and end positions to int
             if args.use_habana:
+                batch[0] = batch[0].to(dtype=torch.int32)
+                batch[2] = batch[2].to(dtype=torch.int32)
                 batch[3] = batch[3].to(dtype=torch.int32)
                 batch[4] = batch[4].to(dtype=torch.int32)
+
+            position_ids_cpu = compute_position_ids(batch[0])
             device = args.device
             model.train()
             batch = tuple(t.to(args.device) for t in batch)
+            position_ids = position_ids_cpu.to(args.device)
 
             inputs = {
                 "input_ids": batch[0],
@@ -249,9 +262,10 @@ def train(args, train_dataset, model, tokenizer, trainMetaData):
                 "token_type_ids": batch[2],
                 "start_positions": batch[3],
                 "end_positions": batch[4],
+                "position_ids": position_ids
             }
 
-            input_keys = ('input_ids', 'attention_mask', 'token_type_ids', 'start_positions', 'end_positions')
+            input_keys = ('input_ids', 'attention_mask', 'token_type_ids', 'start_positions', 'end_positions', "position_ids")
             input_dict = {k: inputs[k] for k in input_keys if k in inputs}
             target = inputs['end_positions']
             tensor_dummy = torch.zeros(1).to(device)
@@ -270,9 +284,9 @@ def train(args, train_dataset, model, tokenizer, trainMetaData):
                     )
             tp_probe_tensors_iteration_start(model, device, target, input_dict, trainMetaData.ParamsDump, False)
             if args.use_jit_trace and step == 0:
-                model_trace = torch.jit.trace(model, (batch[0], batch[1], batch[2], tensor_dummy, tensor_dummy, tensor_dummy, batch[3], batch[4], tensor_dummy, tensor_dummy), check_trace=False)
+                model_trace = torch.jit.trace(model, (batch[0], batch[1], batch[2], position_ids, tensor_dummy, tensor_dummy, batch[3], batch[4], tensor_dummy, tensor_dummy), check_trace=False)
             if args.use_jit_trace:
-                outputs = model_trace(batch[0], batch[1], batch[2], tensor_dummy, tensor_dummy, tensor_dummy, batch[3], batch[4], tensor_dummy, tensor_dummy)
+                outputs = model_trace(batch[0], batch[1], batch[2], position_ids, tensor_dummy, tensor_dummy, batch[3], batch[4], tensor_dummy, tensor_dummy)
             else:
                 outputs = model(**inputs)
 

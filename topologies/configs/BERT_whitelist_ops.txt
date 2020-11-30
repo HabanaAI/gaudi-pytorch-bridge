@@ -31,8 +31,8 @@ aten::mul.Scalar(Tensor self, Scalar other) -> Tensor
 aten::mm(Tensor self, Tensor mat2) -> Tensor
 aten::reshape(Tensor self, int[] shape) -> Tensor
 //aten::bernoulli_(Tensor self, float p, *, Generator? generator) -> Tensor
-//aten::embedding(Tensor weight, Tensor indices, int padding_idx, bool scale_grad_by_freq, bool sparse) -> Tensor
-//aten::embedding_dense_backward(Tensor grad_output, Tensor indices, int num_weights, int padding_idx, bool scale_grad_by_freq) -> Tensor
+aten::embedding(Tensor weight, Tensor indices, int padding_idx, bool scale_grad_by_freq, bool sparse) -> Tensor
+aten::embedding_dense_backward(Tensor grad_output, Tensor indices, int num_weights, int padding_idx, bool scale_grad_by_freq) -> Tensor
 aten::nll_loss_forward(Tensor self, Tensor target, Tensor? weight, int reduction, int ignore_index) -> (Tensor, Tensor)
 aten::nll_loss_backward(Tensor grad_output, Tensor self, Tensor target, Tensor? weight, int reduction, int ignore_index, Tensor total_weight) -> Tensor
 //aten::slice(Tensor self, int dim, int start, int end, int step) -> Tensor
