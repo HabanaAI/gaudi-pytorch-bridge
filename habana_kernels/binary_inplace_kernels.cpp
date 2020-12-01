@@ -850,7 +850,21 @@ static auto& KernelRegistry =
               return std::make_shared<habana::MulInplaceOperator>(
                   device_id, node_type);
             })
-        .add("aten::add_", [](const int device_id, c10::ScalarType node_type) {
-          return std::make_shared<habana::AddInplaceOperator>(
-              device_id, node_type);
-        });
+        .add(
+            "aten::add_",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<habana::AddInplaceOperator>(
+                  device_id, node_type);
+            })
+        .add(
+            "aten::addcmul_",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<habana::AddcmulInplaceOperator>(
+                  device_id, node_type);
+            })
+        .add(
+            "aten::addcdiv_",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<habana::AddcdivInplaceOperator>(
+                  device_id, node_type);
+            });

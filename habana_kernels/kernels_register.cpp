@@ -1815,10 +1815,10 @@ Tensor sigmoid_backward_hpu_wrap(const Tensor& grad_in, const Tensor& input) {
     return sigmoid_backward_hpu(grad_in, input);
   }
 };
-Tensor sqrt_hpu_wrap(const Tensor& input) {
+Tensor sqrt_hpu_wrap(Tensor& input) {
   if (!habana_lazy::isDeviceInLoweringMode(input.device().index()) &&
       std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = sqrt_hpu_lazy(input);
+    auto t = sqrt_hpu_lazy_(input);
     return t;
   } else {
     return sqrt_hpu(input);
@@ -3383,4 +3383,13 @@ static auto
                         .impl_unboxedOnlyKernel<
                             decltype(habana_d2d_memcpy),
                             &habana_d2d_memcpy>(DispatchKey::HABANATensorId)
+                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+                .op(torch::RegisterOperators::options()
+                        .schema(
+                            "hpu::habanaOptimizerSparseAdagrad(Tensor gradients, Tensor weights_in, Tensor moments_in, Tensor indices, Tensor learning_rate, Tensor valid_count_tensor) -> (Tensor, Tensor)")
+                        .impl_unboxedOnlyKernel<
+                            decltype(
+                                optimizer_sparse_adagrad_with_valid_count_hpu_wrap),
+                            &optimizer_sparse_adagrad_with_valid_count_hpu_wrap>(
+                            DispatchKey::HABANATensorId)
                         .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));

@@ -452,6 +452,7 @@ void HbLazyTensor::SyncTensorsGraphInternal(
     context->MarkTensorExecuted(out_tensor.getTensorUniqueId());
     out_tensor.SetTensorData(st);
   }
+
   HABANA_ASSERT(stack.size() == indices.size());
   // Graph executed, clear IR values corresponding to sync tensors
   for (auto idx : indices) {

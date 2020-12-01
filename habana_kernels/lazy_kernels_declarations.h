@@ -517,6 +517,7 @@ Tensor& relu_hpu_lazy_(Tensor& self);
 Tensor sigmoid_hpu_lazy(const Tensor& input);
 Tensor sigmoid_backward_hpu_lazy(const Tensor& grad_in, const Tensor& input);
 Tensor sqrt_hpu_lazy(const Tensor& input);
+Tensor sqrt_hpu_lazy_(Tensor& input);
 Tensor tanh_hpu_lazy(const Tensor& input);
 Tensor& tanh_hpu_lazy_(Tensor& self);
 Tensor& tanh_out_hpu_lazy(Tensor& out, Tensor& self);

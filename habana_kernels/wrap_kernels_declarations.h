@@ -514,7 +514,7 @@ Tensor relu_hpu_wrap(const Tensor& input);
 Tensor& relu_hpu_wrap_(Tensor& self);
 Tensor sigmoid_hpu_wrap(const Tensor& input);
 Tensor sigmoid_backward_hpu_wrap(const Tensor& grad_in, const Tensor& input);
-Tensor sqrt_hpu_wrap(const Tensor& input);
+Tensor sqrt_hpu_wrap(Tensor& input);
 Tensor tanh_hpu_wrap(const Tensor& input);
 Tensor& tanh_hpu_wrap_(Tensor& self);
 Tensor& tanh_out_hpu_wrap(Tensor& out, Tensor& self);

@@ -249,7 +249,7 @@ static auto& KernelRegistry =
                   device_id, node_type);
             })
         .add(
-            "::habanaOptimizerSparseAdagrad",
+            "hpu::habanaOptimizerSparseAdagrad",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<OptimizerSparseAdagradOperator>(
                   device_id, node_type);

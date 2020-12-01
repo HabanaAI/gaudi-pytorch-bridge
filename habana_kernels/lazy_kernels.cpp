@@ -299,7 +299,31 @@ Tensor& addcmul_hpu_lazy_(
     const Tensor& tensor1,
     const Tensor& tensor2,
     Scalar alpha) {
-  return addcmul_hpu_(self, tensor1, tensor2, alpha);
+  if (!tensor1.is_same(tensor2)) {
+    auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
+    auto hl_tensor1 =
+        habana_lazy::GetOrCreateHbLazyTensor(tensor1, c10::kHABANA);
+    auto hl_tensor2 =
+        habana_lazy::GetOrCreateHbLazyTensor(tensor2, c10::kHABANA);
+    auto hl_alpha = habana_lazy::GetIrValueForScalar(alpha);
+
+    auto node = habana_lazy::ir::Node::Create(
+        Symbol::fromQualString("aten::addcmul_"),
+        {hl_self.GetIrValue(),
+         hl_tensor1.GetIrValue(),
+         hl_tensor2.GetIrValue(),
+         hl_alpha});
+
+    habana_lazy::ir::Value& out = hl_self.CurrentIrValue();
+    out.m_index = 0;
+    out.SetNode(node);
+  } else {
+    // implement addcmul_ as add_(pow(tensor1,2), alpha)
+    auto temp = pow_tensor_scalar_hpu_lazy(tensor1, 2.0);
+    add_tensor_hpu_lazy_(self, temp, alpha);
+  }
+
+  return self;
 };
 Tensor addcdiv_hpu_lazy(
     Tensor& self,
@@ -313,7 +337,23 @@ Tensor& addcdiv_hpu_lazy_(
     const Tensor& tensor1,
     const Tensor& tensor2,
     Scalar alpha) {
-  return addcdiv_hpu_(self, tensor1, tensor2, alpha);
+  auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
+  auto hl_tensor1 = habana_lazy::GetOrCreateHbLazyTensor(tensor1, c10::kHABANA);
+  auto hl_tensor2 = habana_lazy::GetOrCreateHbLazyTensor(tensor2, c10::kHABANA);
+  auto hl_alpha = habana_lazy::GetIrValueForScalar(alpha);
+
+  auto node = habana_lazy::ir::Node::Create(
+      Symbol::fromQualString("aten::addcdiv_"),
+      {hl_self.GetIrValue(),
+       hl_tensor1.GetIrValue(),
+       hl_tensor2.GetIrValue(),
+       hl_alpha});
+
+  habana_lazy::ir::Value& out = hl_self.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+
+  return self;
 };
 
 Tensor add_tensor_hpu_lazy(
@@ -346,17 +386,35 @@ Tensor& add_scalar_hpu_lazy_(Tensor& self, Scalar other, Scalar alpha) {
 };
 
 Tensor& add_tensor_hpu_lazy_(Tensor& self, const Tensor& other, Scalar alpha) {
-  auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
-  auto hl_other = habana_lazy::GetOrCreateHbLazyTensor(other, c10::kHABANA);
   auto hl_alpha = habana_lazy::GetIrValueForScalar(alpha);
 
-  auto node = habana_lazy::ir::Node::Create(
-      Symbol::fromQualString("aten::add_"),
-      {hl_self.GetIrValue(), hl_other.GetIrValue(), hl_alpha});
+  if (other.device().type() == c10::DeviceType::CPU) {
+    if (other.scalar_type() == c10::ScalarType::Double) {
+      // Convert 0-dim CPU tensor to a scalar and then add to JIT graph
+      auto val = other.item();
+      auto hl_other = habana_lazy::GetIrValueForScalar(val);
+      auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
 
-  habana_lazy::ir::Value& out = hl_self.CurrentIrValue();
-  out.m_index = 0;
-  out.SetNode(node);
+      auto node = habana_lazy::ir::Node::Create(
+          Symbol::fromQualString("aten::add_"),
+          {hl_self.GetIrValue(), hl_other, hl_alpha});
+
+      habana_lazy::ir::Value& out = hl_self.CurrentIrValue();
+      out.m_index = 0;
+      out.SetNode(node);
+    }
+  } else {
+    auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
+    auto hl_other = habana_lazy::GetOrCreateHbLazyTensor(other, c10::kHABANA);
+
+    auto node = habana_lazy::ir::Node::Create(
+        Symbol::fromQualString("aten::add_"),
+        {hl_self.GetIrValue(), hl_other.GetIrValue(), hl_alpha});
+
+    habana_lazy::ir::Value& out = hl_self.CurrentIrValue();
+    out.m_index = 0;
+    out.SetNode(node);
+  }
 
   return self;
 };
@@ -460,7 +518,18 @@ Tensor& pow_tensor_tensor_hpu_lazy_(Tensor& self, const Tensor& other) {
   return pow_tensor_tensor_hpu_(self, other);
 };
 Tensor pow_tensor_scalar_hpu_lazy(const Tensor& self, Scalar other) {
-  return pow_tensor_scalar_hpu(self, other);
+  auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
+  auto hl_other = habana_lazy::GetIrValueForScalar(other);
+
+  auto node = habana_lazy::ir::Node::Create(
+      Symbol::fromQualString("aten::pow"), {hl_self.GetIrValue(), hl_other});
+  auto result = pow_tensor_scalar_hpu(self, other);
+  auto hl_result = habana_lazy::GetHbLazyTensor(result);
+  habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+
+  return result;
 };
 Tensor& pow_tensor_scalar_hpu_lazy_(Tensor& self, Scalar other) {
   return pow_tensor_scalar_hpu_(self, other);
@@ -1931,8 +2000,33 @@ Tensor sigmoid_backward_hpu_lazy(const Tensor& grad_in, const Tensor& input) {
   return result;
 };
 
+// make sqrt as inplace op for workaround in SW-26172
+Tensor sqrt_hpu_lazy_(Tensor& input) {
+  auto hl_input = habana_lazy::GetOrCreateHbLazyTensor(input, c10::kHABANA);
+
+  auto node = habana_lazy::ir::Node::Create(
+      Symbol::fromQualString("aten::sqrt_"), {hl_input.GetIrValue()});
+
+  habana_lazy::ir::Value& out = hl_input.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+
+  return input;
+};
 Tensor sqrt_hpu_lazy(const Tensor& input) {
-  return sqrt_hpu(input);
+  auto hl_input = habana_lazy::GetOrCreateHbLazyTensor(input, c10::kHABANA);
+
+  auto node = habana_lazy::ir::Node::Create(
+      Symbol::fromQualString("aten::sqrt"), {hl_input.GetIrValue()});
+  auto shape_out = input.sizes();
+  auto result = at::native::empty_hpu_lazy(
+      shape_out, input.options(), input.suggest_memory_format(), false);
+  auto hl_result = habana_lazy::GetHbLazyTensor(result);
+  habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+
+  return result;
 };
 Tensor tanh_hpu_lazy(const Tensor& input) {
   return tanh_hpu(input);
@@ -2056,7 +2150,7 @@ optimizer_sparse_adagrad_with_valid_count_hpu_lazy(
     const Tensor& learning_rate,
     const Tensor& valid_count_tensor) {
   auto node = habana_lazy::ir::Node::Create(
-      Symbol::fromQualString("::habanaOptimizerSparseAdagrad"), {});
+      Symbol::fromQualString("hpu::habanaOptimizerSparseAdagrad"), {});
 
   std::vector<habana_lazy::HbLazyTensor> hl_tensors;
   hl_tensors.push_back(

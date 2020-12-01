@@ -268,3 +268,16 @@ class ExpOperator : public HabanaOperator {
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
 };
+
+class SqrtInplaceOperator : public UnaryOperator {
+ public:
+  SqrtInplaceOperator(int device_id, c10::ScalarType scalarType)
+      : UnaryOperator(
+            device_id,
+            "sqrt_fwd_" + habana_helpers::name_suffix_from_type(scalarType)){};
+
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+};

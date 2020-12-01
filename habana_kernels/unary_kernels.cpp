@@ -45,6 +45,24 @@ void UnaryOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, nullptr, 0);
 }
 
+void SqrtInplaceOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 1,
+      "Incorrect size of inpust expected for Relu operator");
+  TORCH_CHECK(inputs[0].isTensor(), "Input type expected to be tensor");
+
+  at::Tensor input = inputs[0].toTensor();
+  p_context_->syn_outputs_.emplace_back(
+      habana_helpers::duplicate_tensor_in_memory_section(
+          p_context_->syn_inputs_[0]));
+  p_context_->pt_outputs_.emplace_back(input);
+
+  AddNodeToSynapseGraph(graph, nullptr, 0);
+}
+
 Tensor unary_op_hpu(
     const Tensor& input,
     std::string& node_type,
@@ -1404,6 +1422,12 @@ static auto& KernelRegistry =
             "aten::sqrt",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<SqrtOperator>(device_id, node_type);
+            })
+        .add(
+            "aten::sqrt_",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<SqrtInplaceOperator>(
+                  device_id, node_type);
             })
         .add(
             "aten::neg",
