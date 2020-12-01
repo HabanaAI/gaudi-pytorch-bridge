@@ -1559,6 +1559,9 @@ class BertForQuestionAnswering(BertPreTrainedModel):
             output_attentions = None
         if output_hidden_states is not None and output_hidden_states.nelement() == 1:
             output_hidden_states = None
+        if ( start_positions is not None and start_positions.nelement() ==1 ) and (end_positions is not None and end_positions.nelement() == 1):
+            start_positions = None
+            end_positions = None
 
         outputs = self.bert(
             input_ids,

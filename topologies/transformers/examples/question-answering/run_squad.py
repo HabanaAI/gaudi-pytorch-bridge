@@ -380,6 +380,9 @@ def evaluate(args, model, tokenizer, trainMetaData,  prefix=""):
     if not os.path.exists(args.output_dir) and args.local_rank in [-1, 0]:
         os.makedirs(args.output_dir)
 
+    if args.use_jit_trace:
+        enable_tracing()
+
     args.eval_batch_size = args.per_gpu_eval_batch_size * max(1, args.n_gpu)
 
     # Note that DistributedSampler samples randomly
@@ -410,6 +413,7 @@ def evaluate(args, model, tokenizer, trainMetaData,  prefix=""):
                 "attention_mask": batch[1],
                 "token_type_ids": batch[2],
             }
+            tensor_dummy = torch.zeros(1).to(args.device)
 
             if args.model_type in ["xlm", "roberta", "distilbert", "camembert"]:
                 del inputs["token_type_ids"]
@@ -424,8 +428,13 @@ def evaluate(args, model, tokenizer, trainMetaData,  prefix=""):
                     inputs.update(
                         {"langs": (torch.ones(batch[0].shape, dtype=torch.int64) * args.lang_id).to(args.device)}
                     )
-
-            outputs = model(**inputs)
+            if args.use_jit_trace and current_eval_step == 0:
+                model_trace = torch.jit.trace(model, (batch[0], batch[1], batch[2], tensor_dummy, tensor_dummy, tensor_dummy, tensor_dummy, tensor_dummy, tensor_dummy, tensor_dummy), check_trace=False)
+                model_trace.eval()
+            if args.use_jit_trace:
+                outputs = model_trace(batch[0], batch[1], batch[2], tensor_dummy, tensor_dummy, tensor_dummy, tensor_dummy, tensor_dummy, tensor_dummy, tensor_dummy)        
+            else:
+                outputs = model(**inputs)
             feature_indices = feature_indices.to("cpu")
 
         for i, feature_index in enumerate(feature_indices):
