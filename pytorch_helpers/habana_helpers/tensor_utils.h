@@ -19,6 +19,7 @@
 #include <tuple>
 #include <unordered_map>
 #include <vector>
+#include "synapse_helpers/device_types.h"
 
 namespace habana_helpers {
 struct StorageLessWrapperTensorImpl : public c10::TensorImpl {
@@ -139,8 +140,12 @@ synapse_helpers::tensor duplicate_tensor_in_memory_section(
     const synapse_helpers::tensor& tensor);
 
 std::vector<void*> extract_data_ptrs(const std::vector<const at::Tensor*>& vec);
+std::vector<synapse_helpers::device_ptr> extract_storage_data_ptrs(
+    const std::vector<const at::Tensor*>& vec);
 
 std::vector<void*> extract_data_ptrs(const std::vector<at::Tensor>& vec);
+std::vector<synapse_helpers::device_ptr> extract_storage_data_ptrs(
+    const std::vector<at::Tensor>& vec);
 
 std::vector<std::string> names(const std::vector<synapse_helpers::tensor>&);
 

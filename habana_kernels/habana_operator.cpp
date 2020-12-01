@@ -65,6 +65,8 @@ void habana::HabanaOperator::Compile(synapse_helpers::graph& graph) {
       habana_helpers::names(p_context_->syn_outputs_),
       habana_helpers::extract_data_ptrs(p_context_->pt_inputs_),
       habana_helpers::extract_data_ptrs(p_context_->pt_outputs_),
+      habana_helpers::extract_storage_data_ptrs(p_context_->pt_inputs_),
+      habana_helpers::extract_storage_data_ptrs(p_context_->pt_outputs_),
       p_context_->pt_inputs_,
       p_context_->device_id_,
       p_context_->recipe_key_);
@@ -76,6 +78,8 @@ void habana::HabanaOperator::Execute(size_t key) {
   habana_helpers::execute_recipe(
       habana_helpers::extract_data_ptrs(p_context_->pt_inputs_),
       habana_helpers::extract_data_ptrs(p_context_->pt_outputs_),
+      habana_helpers::extract_storage_data_ptrs(p_context_->pt_inputs_),
+      habana_helpers::extract_storage_data_ptrs(p_context_->pt_outputs_),
       p_context_->pt_inputs_,
       p_context_->device_id_,
       p_context_->recipe_key_);

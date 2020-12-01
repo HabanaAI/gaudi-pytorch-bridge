@@ -107,6 +107,12 @@ void synapse_matmul(
     habana_helpers::execute_recipe(
         {mat1.data_ptr(), mat2.data_ptr()},
         {output.data_ptr()},
+        {reinterpret_cast<synapse_helpers::device_ptr>(
+             mat1.storage().data_ptr().get()),
+         reinterpret_cast<synapse_helpers::device_ptr>(
+             mat2.storage().data_ptr().get())},
+        {reinterpret_cast<synapse_helpers::device_ptr>(
+            output.storage().data_ptr().get())},
         pt_inputs,
         device_id,
         key);
@@ -149,6 +155,12 @@ void synapse_matmul(
           habana_helpers::names(syn_helper_outputs),
           {mat1.data_ptr(), mat2.data_ptr()},
           {output.data_ptr()},
+          {reinterpret_cast<synapse_helpers::device_ptr>(
+               mat1.storage().data_ptr().get()),
+           reinterpret_cast<synapse_helpers::device_ptr>(
+               mat2.storage().data_ptr().get())},
+          {reinterpret_cast<synapse_helpers::device_ptr>(
+              output.storage().data_ptr().get())},
           pt_inputs,
           device_id,
           key);

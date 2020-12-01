@@ -49,32 +49,17 @@ std::string habana_helpers::unique_recipe_name_generator(
 static void launchRecipe(
     const std::vector<void*>& input_buffers,
     const std::vector<void*>& output_buffers,
+    std::vector<synapse_helpers::device_ptr> in_event_addr,
+    std::vector<synapse_helpers::device_ptr> out_event_addr,
     std::vector<at::Tensor>& pt_inputs,
     const uint32_t device_id,
     std::shared_ptr<synapse_helpers::recipe>& recipe) {
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
   auto& stream_handle = device.get_compute_stream();
   if (device.IsStreamASyncEnabled()) {
-    std::vector<synapse_helpers::device_ptr> inDevPtr;
-    inDevPtr.reserve(input_buffers.size());
-    std::transform(
-        input_buffers.begin(),
-        input_buffers.end(),
-        std::back_inserter(inDevPtr),
-        [](void* t) {
-          return reinterpret_cast<synapse_helpers::device_ptr>(t);
-        });
     // wait for input DMA to complete before launching the compute.
-    device.add_wait_events_on_stream(inDevPtr, stream_handle);
-    std::vector<synapse_helpers::device_ptr> outDevPtr;
-    outDevPtr.reserve(output_buffers.size());
-    std::transform(
-        output_buffers.begin(),
-        output_buffers.end(),
-        std::back_inserter(outDevPtr),
-        [](void* t) {
-          return reinterpret_cast<synapse_helpers::device_ptr>(t);
-        });
+    device.add_wait_events_on_stream(in_event_addr, stream_handle);
+
     auto& recipe_counter = device.get_active_recipe_counter();
     recipe_counter.increase();
     bool status = recipe->launch(input_buffers, output_buffers);
@@ -88,7 +73,7 @@ static void launchRecipe(
     // so use copy of pt_input in callback
     // regsiter an event on the compute
     device.register_producer_on_stream(
-        std::move(outDevPtr),
+        std::move(out_event_addr),
         stream_handle,
         [pt_inputs, recipe_ptr, &recipe_counter]() {
           recipe_counter.decrease_and_notify();
@@ -107,6 +92,8 @@ void habana_helpers::compile_and_run(
     const std::vector<std::string>& output_names,
     const std::vector<void*>& input_buffers,
     const std::vector<void*>& output_buffers,
+    std::vector<synapse_helpers::device_ptr> in_event_addr,
+    std::vector<synapse_helpers::device_ptr> out_event_addr,
     std::vector<at::Tensor>& pt_inputs,
     const uint32_t device_id,
     size_t key) {
@@ -124,13 +111,22 @@ void habana_helpers::compile_and_run(
   if (recipe != nullptr) {
     recipe->create_launch_info();
     recipe->set_inputs_outputs_names(input_names, output_names);
-    launchRecipe(input_buffers, output_buffers, pt_inputs, device_id, recipe);
+    launchRecipe(
+        input_buffers,
+        output_buffers,
+        in_event_addr,
+        out_event_addr,
+        pt_inputs,
+        device_id,
+        recipe);
   }
 }
 
 void habana_helpers::execute_recipe(
     const std::vector<void*>& input_buffers,
     const std::vector<void*>& output_buffers,
+    std::vector<synapse_helpers::device_ptr> in_event_addr,
+    std::vector<synapse_helpers::device_ptr> out_event_addr,
     std::vector<at::Tensor>& pt_inputs,
     const uint32_t device_id,
     size_t key) {
@@ -138,7 +134,14 @@ void habana_helpers::execute_recipe(
   auto recipe = device.get_recipe_handle_cache().get_recipe(key);
   AT_ASSERT(recipe != nullptr);
   if (recipe != nullptr) {
-    launchRecipe(input_buffers, output_buffers, pt_inputs, device_id, recipe);
+    launchRecipe(
+        input_buffers,
+        output_buffers,
+        in_event_addr,
+        out_event_addr,
+        pt_inputs,
+        device_id,
+        recipe);
   }
 }
 

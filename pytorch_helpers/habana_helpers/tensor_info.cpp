@@ -15,6 +15,8 @@ void PtTensorInfo::populate_tinfo(
   buffer_ = pt_tensor.data_ptr();
   numel_ = pt_tensor.numel();
   size_ = pt_tensor.nbytes();
+  storage_data_ptr_ = reinterpret_cast<synapse_helpers::device_ptr>(
+      pt_tensor.storage().data_ptr().get());
 
   shape_ = pt_tensor.sizes().vec();
   topts_ = pt_tensor.options();

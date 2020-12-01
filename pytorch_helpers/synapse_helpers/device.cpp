@@ -293,6 +293,7 @@ void device::free(device_ptr ptr) {
 synapse_error device::copy_data_to_device(
     void* cpu_data,
     device_ptr destination,
+    device_ptr event_addr,
     size_t total_bytes,
     const event_done_callback& done_cb,
     bool is_pinned) {
@@ -305,6 +306,11 @@ synapse_error device::copy_data_to_device(
       total_bytes);
   synStatus status;
 
+  /* in case of write, we can invoke a fill (compute)
+   * stream or via DMA. if we have a fill and a copy
+   * Need to wait for the fill compute stream to complete
+   * before copy, so wait */
+  sem_.enqueue_wait_event(event_addr, stream_h2d_);
   void* mapped_cpu_data = cpu_data;
   uint8_t* dst_ptr;
   if (!is_pinned) {
@@ -353,7 +359,7 @@ synapse_error device::copy_data_to_device(
   } while (++attempt < max_dma_copy_retry_count_);
 
   sem_.add_producer(
-      {destination}, stream_h2d_, [this, dst_ptr, is_pinned, done_cb]() {
+      {event_addr}, stream_h2d_, [this, dst_ptr, is_pinned, done_cb]() {
         if (!is_pinned)
           host_memory_.free((void*)dst_ptr);
         done_cb();
@@ -365,6 +371,7 @@ synapse_error device::copy_data_to_device(
 synapse_error device::copy_data_to_host(
     device_ptr device_data,
     void* destination,
+    device_ptr event_addr,
     size_t total_bytes,
     const event_done_callback& done_cb,
     bool is_pinned) {
@@ -378,7 +385,7 @@ synapse_error device::copy_data_to_host(
 
   synStatus status;
   PT_SYNHELPER_DEBUG("Used stream handle: ", stream_d2h_);
-  sem_.enqueue_wait_event(device_data, stream_d2h_);
+  sem_.enqueue_wait_event(event_addr, stream_d2h_);
 
   void* mapped_destination = destination;
   uint8_t* dst_ptr;
@@ -440,18 +447,20 @@ synapse_error device::copy_data_to_host(
 synapse_error device::copy_data_within_device(
     device_ptr source,
     device_ptr destination,
+    device_ptr src_event_addr,
+    device_ptr dst_event_addr,
     size_t total_bytes,
     event_done_callback unref_cb) {
   synStatus status;
 
-  sem_.enqueue_wait_event(source, stream_d2d_);
+  sem_.enqueue_wait_event(src_event_addr, stream_d2d_);
   status = synMemCopyAsync(
       stream_d2d_, source, total_bytes, destination, synDmaDir::DRAM_TO_DRAM);
   if (synStatus::synSuccess != status) {
     return synapse_error{"DMA inside HPU start failed.", status};
   }
 
-  sem_.add_producer({destination}, stream_d2d_, std::move(unref_cb));
+  sem_.add_producer({dst_event_addr}, stream_d2d_, std::move(unref_cb));
 
   return {};
 }
@@ -465,12 +474,14 @@ synapse_error device::copy_data_within_device(
   std::vector<std::uint64_t> srcs(transfers.size());
   std::vector<std::uint64_t> dsts(transfers.size());
   std::vector<std::uint64_t> lens(transfers.size());
+  std::vector<std::uint64_t> dsts_event_addr(transfers.size());
 
   for (std::size_t i = 0; i < transfers.size(); ++i) {
-    sem_.enqueue_wait_event(transfers[i].src, stream_d2d_);
+    sem_.enqueue_wait_event(transfers[i].src_event_addr, stream_d2d_);
     srcs[i] = transfers[i].src;
     dsts[i] = transfers[i].dst;
     lens[i] = transfers[i].bytes_to_transfer;
+    dsts_event_addr[i] = transfers[i].dst_event_addr;
   }
 
   status = synMemCopyAsyncMultiple(
@@ -485,7 +496,8 @@ synapse_error device::copy_data_within_device(
   }
 
   if (nullptr == next_operation_stream) {
-    sem_.add_producer(std::move(dsts), stream_d2d_, std::move(unref_cb));
+    sem_.add_producer(
+        std::move(dsts_event_addr), stream_d2d_, std::move(unref_cb));
   } else {
     // If next operation stream is known then user wants us to put event on
     // this stream immediately and not pass it into the SEM.

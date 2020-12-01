@@ -92,11 +92,18 @@ hcl_communicator::hcl_communicator(
 synapse_error hcl_communicator::memcpy_within_device(
     device_ptr source,
     device_ptr destination,
+    device_ptr src_event_addr,
+    device_ptr dst_event_addr,
     size_t total_bytes,
     std::function<void()> tensor_cleanup_callback) {
   HABANA_ASSERT(my_device_ != nullptr);
   return my_device_->copy_data_within_device(
-      source, destination, total_bytes, std::move(tensor_cleanup_callback));
+      source,
+      destination,
+      src_event_addr,
+      dst_event_addr,
+      total_bytes,
+      std::move(tensor_cleanup_callback));
 }
 
 synapse_error hcl_communicator::memcpy_within_device(
@@ -110,34 +117,37 @@ synapse_error hcl_communicator::memcpy_within_device(
 synapse_error hcl_communicator::memcpy_to_device(
     void* cpu_data,
     device_ptr destination,
+    device_ptr event_addr,
     size_t total_bytes,
     const event_done_callback& done_cb) {
   HABANA_ASSERT(my_device_ != nullptr);
   return my_device_->copy_data_to_device(
-      cpu_data, destination, total_bytes, done_cb);
+      cpu_data, destination, event_addr, total_bytes, done_cb);
 }
 
 synapse_error hcl_communicator::memcpy_to_host(
     device_ptr device_data,
     void* destination,
+    device_ptr event_addr,
     size_t total_bytes,
     const event_done_callback& done_cb) {
   HABANA_ASSERT(my_device_ != nullptr);
   return my_device_->copy_data_to_host(
-      device_data, destination, total_bytes, done_cb);
+      device_data, destination, event_addr, total_bytes, done_cb);
 }
 
 synapse_error hcl_communicator::memcpy_sync_to_host(
     device_ptr device_data,
     void* destination,
+    device_ptr event_addr,
     size_t total_bytes) {
   HABANA_ASSERT(my_device_ != nullptr);
   std::mutex mtx;
   std::condition_variable cv;
   std::atomic<bool> done{false};
 
-  synapse_error maybe_error{
-      my_device_->copy_data_to_host(device_data, destination, total_bytes, [&] {
+  synapse_error maybe_error{my_device_->copy_data_to_host(
+      device_data, destination, event_addr, total_bytes, [&] {
         // Note: It is ok to capture by reference here, as this function by
         // design, must not exit until callback is called.
         std::unique_lock<std::mutex> lck(mtx);
@@ -178,10 +188,20 @@ synapse_error_v<owned_device_ptr> hcl_communicator::alloc_intermediate_buffer(
 synapse_error_o hcl_communicator::reduce_scatter(
     device_ptr input_address,
     device_ptr output_address,
+    device_ptr in_event_addr,
+    device_ptr out_event_addr,
     size_t elem_cnt,
     synDataType data_type,
     const std::function<void()>& tensor_cleanup_callback) {
   HCLStatus status{eHCLSuccess};
+  PT_SYNHELPER_DEBUG(
+      "reduce_scatter:",
+      "In Event address",
+      std::hex,
+      in_event_addr,
+      "out Event address",
+      std::hex,
+      out_event_addr);
   trace_start("IntermediateBufferAlloc");
   synapse_error_v<owned_device_ptr> maybe_buffer_ptr{
       alloc_intermediate_buffer(elem_cnt, data_type, eHCLReduceScatter)};
@@ -201,7 +221,7 @@ synapse_error_o hcl_communicator::reduce_scatter(
 #if HCL_STREAM_SUPPORT
   auto& collective_stream = my_device_->get_network_collective_stream();
 
-  my_device_->add_wait_events_on_stream({input_address}, collective_stream);
+  my_device_->add_wait_events_on_stream({in_event_addr}, collective_stream);
 
   status = HCL_Reduce_Scatter(
       collective_stream,
@@ -217,13 +237,13 @@ synapse_error_o hcl_communicator::reduce_scatter(
   VERIFY_HCL_STATUS("HCL_Reduce_Scatter(...) failed.", status);
 
   my_device_->register_producer_on_stream(
-      std::move(output_address),
+      std::move(out_event_addr),
       collective_stream,
       std::move(tensor_cleanup_callback));
 #else
   {
     trace_scope ts("ReduceScatterWaitForInputData");
-    my_device_->wait_until_address_ready(input_address);
+    my_device_->wait_until_address_ready(in_event_addr);
   }
 
   status = HCL_Reduce_Scatter(
@@ -249,10 +269,20 @@ synapse_error_o hcl_communicator::reduce(
     HCL_Rank dest_rank,
     device_ptr input_address,
     device_ptr output_address,
+    device_ptr in_event_addr,
+    device_ptr out_event_addr,
     size_t elem_cnt,
     synDataType data_type,
     const std::function<void()>& tensor_cleanup_callback) {
   HCLStatus status{eHCLSuccess};
+  PT_SYNHELPER_DEBUG(
+      "reduce:",
+      "In Event address",
+      std::hex,
+      in_event_addr,
+      "out Event address",
+      std::hex,
+      out_event_addr);
   trace_start("IntermediateBufferAlloc");
   synapse_error_v<owned_device_ptr> maybe_buffer_ptr{
       alloc_intermediate_buffer(elem_cnt, data_type, eHCLReduce)};
@@ -272,7 +302,7 @@ synapse_error_o hcl_communicator::reduce(
 #if HCL_STREAM_SUPPORT
   auto& collective_stream = my_device_->get_network_collective_stream();
 
-  my_device_->add_wait_events_on_stream({input_address}, collective_stream);
+  my_device_->add_wait_events_on_stream({in_event_addr}, collective_stream);
 
   status = HCL_Reduce(
       collective_stream,
@@ -289,13 +319,13 @@ synapse_error_o hcl_communicator::reduce(
   VERIFY_HCL_STATUS("HCL_Reduce(...) failed.", status);
 
   my_device_->register_producer_on_stream(
-      std::move(output_address),
+      std::move(out_event_addr),
       collective_stream,
       std::move(tensor_cleanup_callback));
 #else
   {
     trace_scope ts("ReduceWaitForInputData");
-    my_device_->wait_until_address_ready(input_address);
+    my_device_->wait_until_address_ready(in_event_addr);
   }
 
   status = HCL_Reduce(
@@ -321,9 +351,19 @@ synapse_error_o hcl_communicator::reduce(
 synapse_error_o hcl_communicator::allreduce(
     device_ptr input_address,
     device_ptr output_address,
+    device_ptr in_event_addr,
+    device_ptr out_event_addr,
     size_t elem_cnt,
     synDataType data_type,
     const std::function<void()>& tensor_cleanup_callback) {
+  PT_SYNHELPER_DEBUG(
+      "allreduce:",
+      "In Event address",
+      std::hex,
+      in_event_addr,
+      "out Event address",
+      std::hex,
+      out_event_addr);
   HCLStatus status{eHCLSuccess};
   trace_start("IntermediateBufferAlloc");
   synapse_error_v<owned_device_ptr> intermediate_buffer_v{
@@ -347,7 +387,7 @@ synapse_error_o hcl_communicator::allreduce(
 #if HCL_STREAM_SUPPORT
   auto& collective_stream = my_device_->get_network_collective_stream();
 
-  my_device_->add_wait_events_on_stream({input_address}, collective_stream);
+  my_device_->add_wait_events_on_stream({in_event_addr}, collective_stream);
 
   status = HCL_Allreduce(
       collective_stream,
@@ -363,13 +403,13 @@ synapse_error_o hcl_communicator::allreduce(
   VERIFY_HCL_STATUS("HCL_Allreduce(...) failed.", status);
 
   my_device_->register_producer_on_stream(
-      std::move(output_address),
+      std::move(out_event_addr),
       collective_stream,
       std::move(tensor_cleanup_callback));
 #else
   {
     trace_scope ts("AllReduceWaitForInputData");
-    my_device_->wait_until_address_ready(input_address);
+    my_device_->wait_until_address_ready(in_event_addr);
   }
 
   status = HCL_Allreduce(
@@ -394,6 +434,7 @@ synapse_error_o hcl_communicator::allreduce(
 synapse_error_o hcl_communicator::broadcast(
     HCL_Rank root_rank,
     device_ptr address,
+    device_ptr event_addr,
     size_t elem_cnt,
     synDataType data_type,
     const std::function<void()>& tensor_cleanup_callback) {
@@ -403,7 +444,7 @@ synapse_error_o hcl_communicator::broadcast(
 
   // For root (sending) rank address is input - root does not produce output
   if (my_hcl_rank() == root_rank) {
-    my_device_->add_wait_events_on_stream({address}, collective_stream);
+    my_device_->add_wait_events_on_stream({event_addr}, collective_stream);
   }
 
   status = HCL_Bcast(
@@ -420,7 +461,7 @@ synapse_error_o hcl_communicator::broadcast(
   // For non root (recieving) rank address is output.
   if (my_hcl_rank() != root_rank) {
     my_device_->register_producer_on_stream(
-        std::move(address),
+        std::move(event_addr),
         collective_stream,
         std::move(tensor_cleanup_callback));
   }
@@ -428,7 +469,7 @@ synapse_error_o hcl_communicator::broadcast(
 #else
   // For root (sending) rank address is input - root does not produce output
   if (my_hcl_rank() == root_rank) {
-    my_device_->wait_until_address_ready(address);
+    my_device_->wait_until_address_ready(event_addr);
   }
 
   status = HCL_Bcast(
@@ -450,14 +491,24 @@ synapse_error_o hcl_communicator::broadcast(
 synapse_error_o hcl_communicator::allgather(
     device_ptr input_address,
     device_ptr output_address,
+    device_ptr in_event_addr,
+    device_ptr out_event_addr,
     size_t elem_cnt,
     synDataType data_type,
     const std::function<void()>& tensor_cleanup_callback) {
+  PT_SYNHELPER_DEBUG(
+      "allgather:",
+      "In Event address",
+      std::hex,
+      in_event_addr,
+      "out Event address",
+      std::hex,
+      out_event_addr);
   HCLStatus status{eHCLSuccess};
 
 #if HCL_STREAM_SUPPORT
   auto& collective_stream = my_device_->get_network_collective_stream();
-  my_device_->add_wait_events_on_stream({input_address}, collective_stream);
+  my_device_->add_wait_events_on_stream({in_event_addr}, collective_stream);
 
   status = HCL_AllGather(
       collective_stream,
@@ -470,13 +521,13 @@ synapse_error_o hcl_communicator::allgather(
   VERIFY_HCL_STATUS("HCL_AllGather(...) failed", status);
 
   my_device_->register_producer_on_stream(
-      std::move(output_address),
+      std::move(out_event_addr),
       collective_stream,
       std::move(tensor_cleanup_callback));
 #else
   {
     trace_scope ts("AllGatherWaitForInputData");
-    my_device_->wait_until_address_ready(input_address);
+    my_device_->wait_until_address_ready(in_event_addr);
   }
   status = HCL_AllGather(
       nullptr,
@@ -551,7 +602,9 @@ void hcl_communicator::negotiate_root_rank(int order) {
     const auto input =
         Entry{local_hcl_rank, order, make_checksum(local_hcl_rank, order)};
     my_device_->copy_data_to_device(
-        (void*)&input, input_buffer, sizeof(input), [&done]() { done = true; });
+        (void*)&input, input_buffer, input_buffer, sizeof(input), [&done]() {
+          done = true;
+        });
 
     while (!done) {
       std::this_thread::yield();
@@ -559,6 +612,8 @@ void hcl_communicator::negotiate_root_rank(int order) {
   }
 
   allgather(
+      input_buffer,
+      output_buffer,
       input_buffer,
       output_buffer,
       sizeof(Entry) / sizeof(int32_t),
@@ -570,9 +625,11 @@ void hcl_communicator::negotiate_root_rank(int order) {
     std::atomic<bool> done{false};
 
     my_device_->copy_data_to_host(
-        output_buffer, output.data(), num_workers * sizeof(Entry), [&done]() {
-          done = true;
-        });
+        output_buffer,
+        output.data(),
+        output_buffer,
+        num_workers * sizeof(Entry),
+        [&done]() { done = true; });
 
     while (!done) {
       std::this_thread::yield();

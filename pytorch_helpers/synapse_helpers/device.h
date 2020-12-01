@@ -77,6 +77,8 @@ class device {
   struct transfer_desc {
     device_ptr src;
     device_ptr dst;
+    device_ptr src_event_addr;
+    device_ptr dst_event_addr;
     size_t bytes_to_transfer;
   };
 
@@ -125,18 +127,22 @@ class device {
   synapse_error copy_data_to_device(
       void* cpu_data,
       device_ptr destination,
+      device_ptr event_addr,
       size_t total_bytes,
       const event_done_callback& done_cb,
       bool is_pinned = false);
   synapse_error copy_data_to_host(
       device_ptr device_data,
       void* destination,
+      device_ptr event_addr,
       size_t total_bytes,
       const event_done_callback& done_cb,
       bool is_pinned = false);
   synapse_error copy_data_within_device(
       device_ptr source,
       device_ptr destination,
+      device_ptr src_event_addr,
+      device_ptr dst_event_addr,
       size_t total_bytes,
       event_done_callback unref_cb);
 

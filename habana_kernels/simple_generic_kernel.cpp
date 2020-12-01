@@ -57,6 +57,8 @@ void synapse_simple_generic_kernel(
           habana_helpers::names(syn_helper_outputs),
           habana_helpers::extract_data_ptrs(pt_inputs),
           habana_helpers::extract_data_ptrs(pt_outputs),
+          habana_helpers::extract_storage_data_ptrs(pt_inputs),
+          habana_helpers::extract_storage_data_ptrs(pt_outputs),
           pt_inputs,
           device_id);
     }
@@ -99,6 +101,9 @@ void synapse_simple_generic_inplace_kernel(
           {syn_helper_output.tensor_name_},
           habana_helpers::extract_data_ptrs(pt_inputs),
           {pt_inputs[0].data_ptr()},
+          habana_helpers::extract_storage_data_ptrs(pt_inputs),
+          {reinterpret_cast<synapse_helpers::device_ptr>(
+              pt_inputs[0].storage().data_ptr().get())},
           pt_inputs,
           device_id);
     }
@@ -135,6 +140,8 @@ void synapse_execute_kernel(
         habana_helpers::names(syn_helper_outputs),
         habana_helpers::extract_data_ptrs(pt_inputs),
         habana_helpers::extract_data_ptrs(pt_outputs),
+        habana_helpers::extract_storage_data_ptrs(pt_inputs),
+        habana_helpers::extract_storage_data_ptrs(pt_outputs),
         pt_inputs,
         device_id,
         key);
@@ -149,6 +156,8 @@ void synapse_execute_cached_kernel(
   habana_helpers::execute_recipe(
       habana_helpers::extract_data_ptrs(pt_inputs),
       habana_helpers::extract_data_ptrs(pt_outputs),
+      habana_helpers::extract_storage_data_ptrs(pt_inputs),
+      habana_helpers::extract_storage_data_ptrs(pt_outputs),
       pt_inputs,
       device_id,
       key);
@@ -185,6 +194,9 @@ void synapse_execute_inplace_kernel(
           {syn_helper_output.tensor_name_},
           habana_helpers::extract_data_ptrs(pt_inputs),
           {pt_inputs[0].data_ptr()},
+          habana_helpers::extract_storage_data_ptrs(pt_inputs),
+          {reinterpret_cast<synapse_helpers::device_ptr>(
+              pt_inputs[0].storage().data_ptr().get())},
           pt_inputs,
           device_id,
           key);
@@ -199,6 +211,9 @@ void synapse_execute_cached_inplace_kernel(
   habana_helpers::execute_recipe(
       habana_helpers::extract_data_ptrs(pt_inputs),
       {pt_inputs[0].data_ptr()},
+      habana_helpers::extract_storage_data_ptrs(pt_inputs),
+      {reinterpret_cast<synapse_helpers::device_ptr>(
+          pt_inputs[0].storage().data_ptr().get())},
       pt_inputs,
       device_id,
       key);

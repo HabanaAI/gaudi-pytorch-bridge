@@ -384,11 +384,14 @@ void habana_helpers::copy_scalar_to_host(
     uint32_t size) {
   std::atomic<bool> copyDone{false};
   bool is_pinned = at::habana::PinnedMemoryAllocator_is_pinned(src.data_ptr());
+
   auto syn_error =
       synapse_helpers::HPURegistrar::get_device(src.device().index())
           .copy_data_to_host(
               reinterpret_cast<synapse_helpers::device_ptr>(src.data_ptr()),
               dst_ptr,
+              reinterpret_cast<synapse_helpers::device_ptr>(
+                  src.storage().data_ptr().get()),
               size,
               [&copyDone]() { copyDone = true; },
               is_pinned);
@@ -420,6 +423,8 @@ void habana_helpers::copy_scalar_to_device(
     auto syn_error = device.copy_data_to_device(
         src_ptr,
         reinterpret_cast<synapse_helpers::device_ptr>(dst.data_ptr()),
+        reinterpret_cast<synapse_helpers::device_ptr>(
+            dst.storage().data_ptr().get()),
         size,
         [dstRef]() { return; });
 
@@ -428,6 +433,8 @@ void habana_helpers::copy_scalar_to_device(
     auto syn_error = device.copy_data_to_device(
         src_ptr,
         reinterpret_cast<synapse_helpers::device_ptr>(dst.data_ptr()),
+        reinterpret_cast<synapse_helpers::device_ptr>(
+            dst.storage().data_ptr().get()),
         size,
         [&copyDone]() { copyDone = true; });
     TORCH_CHECK(syn_error.status == 0, syn_error.error);
@@ -612,6 +619,22 @@ std::vector<void*> habana_helpers::extract_data_ptrs(
   return ptrs;
 };
 
+std::vector<synapse_helpers::device_ptr> habana_helpers::
+    extract_storage_data_ptrs(const std::vector<const at::Tensor*>& vec) {
+  std::vector<synapse_helpers::device_ptr> ptrs;
+  ptrs.reserve(vec.size());
+
+  std::transform(
+      vec.cbegin(),
+      vec.cend(),
+      std::back_inserter(ptrs),
+      [](const auto& tensor) {
+        return reinterpret_cast<synapse_helpers::device_ptr>(
+            tensor->storage().data_ptr().get());
+      });
+  return ptrs;
+};
+
 std::vector<void*> habana_helpers::extract_data_ptrs(
     const std::vector<at::Tensor>& vec) {
   std::vector<void*> ptrs;
@@ -622,6 +645,22 @@ std::vector<void*> habana_helpers::extract_data_ptrs(
       vec.cend(),
       std::back_inserter(ptrs),
       [](const auto& tensor) { return tensor.data_ptr(); });
+  return ptrs;
+};
+
+std::vector<synapse_helpers::device_ptr> habana_helpers::
+    extract_storage_data_ptrs(const std::vector<at::Tensor>& vec) {
+  std::vector<synapse_helpers::device_ptr> ptrs;
+  ptrs.reserve(vec.size());
+
+  std::transform(
+      vec.cbegin(),
+      vec.cend(),
+      std::back_inserter(ptrs),
+      [](const auto& tensor) {
+        return reinterpret_cast<synapse_helpers::device_ptr>(
+            tensor.storage().data_ptr().get());
+      });
   return ptrs;
 };
 
@@ -647,6 +686,8 @@ void habana_helpers::copy_data_to_host(
     auto syn_error = device.copy_data_to_host(
         reinterpret_cast<synapse_helpers::device_ptr>(src.data_ptr()),
         dst.data_ptr(),
+        reinterpret_cast<synapse_helpers::device_ptr>(
+            src.storage().data_ptr().get()),
         src.nbytes(),
         [srcRef, dstRef]() { return; },
         is_pinned);
@@ -656,6 +697,8 @@ void habana_helpers::copy_data_to_host(
     auto syn_error = device.copy_data_to_host(
         reinterpret_cast<synapse_helpers::device_ptr>(src.data_ptr()),
         dst.data_ptr(),
+        reinterpret_cast<synapse_helpers::device_ptr>(
+            src.storage().data_ptr().get()),
         src.nbytes(),
         [&copyDone]() { copyDone = true; },
         is_pinned);
@@ -690,6 +733,8 @@ void habana_helpers::copy_data_to_device(
     auto syn_error = device.copy_data_to_device(
         src.data_ptr(),
         reinterpret_cast<synapse_helpers::device_ptr>(dst.data_ptr()),
+        reinterpret_cast<synapse_helpers::device_ptr>(
+            dst.storage().data_ptr().get()),
         src.nbytes(),
         [srcRef, dstRef]() { return; },
         is_pinned);
@@ -699,6 +744,8 @@ void habana_helpers::copy_data_to_device(
     auto syn_error = device.copy_data_to_device(
         src.data_ptr(),
         reinterpret_cast<synapse_helpers::device_ptr>(dst.data_ptr()),
+        reinterpret_cast<synapse_helpers::device_ptr>(
+            dst.storage().data_ptr().get()),
         src.nbytes(),
         [&copyDone]() { copyDone = true; },
         is_pinned);
@@ -731,6 +778,10 @@ void habana_helpers::copy_data_within_device(
     auto syn_error = device.copy_data_within_device(
         reinterpret_cast<synapse_helpers::device_ptr>(src.data_ptr()),
         reinterpret_cast<synapse_helpers::device_ptr>(dst.data_ptr()),
+        reinterpret_cast<synapse_helpers::device_ptr>(
+            src.storage().data_ptr().get()),
+        reinterpret_cast<synapse_helpers::device_ptr>(
+            dst.storage().data_ptr().get()),
         src.nbytes(),
         [srcRef, dstRef]() { return; });
     TORCH_CHECK(syn_error.status == 0, syn_error.error);
@@ -739,6 +790,10 @@ void habana_helpers::copy_data_within_device(
     auto syn_error = device.copy_data_within_device(
         reinterpret_cast<synapse_helpers::device_ptr>(src.data_ptr()),
         reinterpret_cast<synapse_helpers::device_ptr>(dst.data_ptr()),
+        reinterpret_cast<synapse_helpers::device_ptr>(
+            src.storage().data_ptr().get()),
+        reinterpret_cast<synapse_helpers::device_ptr>(
+            dst.storage().data_ptr().get()),
         src.nbytes(),
         [&copyDone]() { copyDone = true; });
     TORCH_CHECK(syn_error.status == 0, syn_error.error);

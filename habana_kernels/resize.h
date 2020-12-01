@@ -51,6 +51,8 @@ inline void THHStorage_resize(THStorage* self, ptrdiff_t size) {
       auto syn_error = Device.copy_data_within_device(
           reinterpret_cast<synapse_helpers::device_ptr>(self->data()),
           reinterpret_cast<synapse_helpers::device_ptr>(data.get()),
+          reinterpret_cast<synapse_helpers::device_ptr>(self->data()),
+          reinterpret_cast<synapse_helpers::device_ptr>(data.get()),
           THMin(self->numel(), size) * itemsize,
           [&copyDone]() { copyDone = true; });
       TORCH_CHECK(syn_error.status == 0, syn_error.error);

@@ -170,6 +170,7 @@ void RecipeValueSpec::d2h_dbuff(size_t buf_idx) {
   auto syn_error = device.copy_data_to_host(
       (uint64_t)dtensorinfos->at(buf_idx).get_buffer(),
       (void*)htensor_wbuff,
+      dtensorinfos->at(buf_idx).get_storage_data_ptr(),
       buf_size,
       [&copyDone]() { copyDone = true; });
   TORCH_CHECK(syn_error.status == 0, syn_error.error);
@@ -199,8 +200,8 @@ void RecipeValueSpec::launch (at::ArrayRef<torch::jit::IValue> input_refs) {
       if (input.isTensor()) {
         at::Tensor tensor = input.toTensor();
         ptRefs.push_back(std::move(tensor));
-        inDevPtr.push_back(
-            reinterpret_cast<uint64_t>(input.toTensor().data_ptr()));
+        inDevPtr.push_back(reinterpret_cast<synapse_helpers::device_ptr>(
+            input.toTensor().storage().data_ptr().get()));
       }
     }
     // wait for input DMA to complete before launching the compute.
@@ -208,8 +209,8 @@ void RecipeValueSpec::launch (at::ArrayRef<torch::jit::IValue> input_refs) {
     outDevPtr.reserve(num_outputs);
     for (auto& output : *aten_outputs) {
       if (output && output->isTensor()) {
-        outDevPtr.push_back(
-            reinterpret_cast<uint64_t>(output->toTensor().data_ptr()));
+        outDevPtr.push_back(reinterpret_cast<synapse_helpers::device_ptr>(
+            output->toTensor().storage().data_ptr().get()));
       }
     }
   }

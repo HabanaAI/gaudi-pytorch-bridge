@@ -17,6 +17,7 @@
 #include <torch/csrc/jit/ir/ir.h>
 
 #include "habana_helpers/logging.h"
+#include "synapse_helpers/device_types.h"
 #include "synapse_helpers/graph.h"
 
 using IVal = torch::jit::IValue;
@@ -91,6 +92,13 @@ class PtTensorInfo {
     return watch_;
   }
 
+  synapse_helpers::device_ptr get_storage_data_ptr() const {
+    return storage_data_ptr_;
+  }
+  void set_storage_data_ptr(synapse_helpers::device_ptr ptr) {
+    storage_data_ptr_ = ptr;
+  }
+
   friend std::ostream& operator<<(std::ostream& O, const PtTensorInfo& t);
   const std::vector<int64_t>& get_shape() const {
     return shape_;
@@ -109,6 +117,7 @@ class PtTensorInfo {
   IVal iv_{};
 
   void* buffer_{nullptr};
+  synapse_helpers::device_ptr storage_data_ptr_;
   std::string ir_name_;
   std::string syn_name_;
   std::string shape_str_;

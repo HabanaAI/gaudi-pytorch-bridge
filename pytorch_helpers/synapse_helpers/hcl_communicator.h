@@ -68,6 +68,8 @@ class hcl_communicator {
   synapse_error_o allreduce(
       device_ptr input_address,
       device_ptr output_address,
+      device_ptr in_event_addr,
+      device_ptr out_event_addr,
       size_t elem_cnt,
       synDataType data_type,
       const std::function<void()>& tensor_cleanup_callback = [] {});
@@ -76,6 +78,8 @@ class hcl_communicator {
       HCL_Rank dest_rank,
       device_ptr input_address,
       device_ptr output_address,
+      device_ptr in_event_addr,
+      device_ptr out_event_addr,
       size_t elem_cnt,
       synDataType data_type,
       const std::function<void()>& tensor_cleanup_callback = [] {});
@@ -83,6 +87,7 @@ class hcl_communicator {
   synapse_error_o broadcast(
       HCL_Rank root_rank,
       uint64_t address,
+      device_ptr event_addr,
       size_t elem_cnt,
       synDataType data_type,
       const std::function<void()>& tensor_cleanup_callback = [] {});
@@ -90,6 +95,8 @@ class hcl_communicator {
   synapse_error_o allgather(
       device_ptr input_address,
       device_ptr output_address,
+      device_ptr in_event_addr,
+      device_ptr out_event_addr,
       size_t elem_cnt,
       synDataType data_type,
       const std::function<void()>& tensor_cleanup_callback = [] {});
@@ -97,6 +104,8 @@ class hcl_communicator {
   synapse_error_o reduce_scatter(
       device_ptr input_address,
       device_ptr output_address,
+      device_ptr in_event_addr,
+      device_ptr out_event_addr,
       size_t elem_cnt,
       synDataType data_type,
       const std::function<void()>& tensor_cleanup_callback = [] {});
@@ -104,6 +113,8 @@ class hcl_communicator {
   synapse_error memcpy_within_device(
       device_ptr source,
       device_ptr destination,
+      device_ptr src_event_addr,
+      device_ptr dst_event_addr,
       size_t total_bytes,
       std::function<void()> tensor_cleanup_callback);
 
@@ -114,18 +125,21 @@ class hcl_communicator {
   synapse_error memcpy_to_device(
       void* cpu_data,
       device_ptr destination,
+      device_ptr dst_event_addr,
       size_t total_bytes,
       const event_done_callback& done_cb);
 
   synapse_error memcpy_to_host(
       device_ptr device_data,
       void* destination,
+      device_ptr src_event_addr,
       size_t total_bytes,
       const event_done_callback& done_cb);
 
   synapse_error memcpy_sync_to_host(
       device_ptr device_data,
       void* destination,
+      device_ptr src_event_addr,
       size_t total_bytes);
 
   HCL_Rank my_hcl_rank() const {

@@ -34,6 +34,8 @@ void compile_and_run(
     const std::vector<std::string>& output_names,
     const std::vector<void*>& input_buffers,
     const std::vector<void*>& output_buffers,
+    std::vector<synapse_helpers::device_ptr> in_event_addr,
+    std::vector<synapse_helpers::device_ptr> out_event_addr,
     std::vector<at::Tensor>& pt_inputs,
     const uint32_t device_id,
     size_t key = 0);
@@ -47,6 +49,8 @@ std::vector<synLaunchTensorInfo> generate_syn_launch_tensor_info(
 void execute_recipe(
     const std::vector<void*>& input_buffers,
     const std::vector<void*>& output_buffers,
+    std::vector<synapse_helpers::device_ptr> in_event_addr,
+    std::vector<synapse_helpers::device_ptr> out_event_addr,
     std::vector<at::Tensor>& pt_inputs,
     const uint32_t device_id,
     size_t key);

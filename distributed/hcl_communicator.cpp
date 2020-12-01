@@ -110,6 +110,8 @@ hcl_communicator::~hcl_communicator() {
 synapse_error_o hcl_communicator::allreduce(
     device_ptr input_address,
     device_ptr output_address,
+    device_ptr in_event_addr,
+    device_ptr out_event_addr,
     size_t elem_cnt,
     synDataType data_type,
     HCL_Op hclop,
@@ -142,6 +144,8 @@ synapse_error_o hcl_communicator::allreduce(
       eHCLAllReduce,
       input_address,
       output_address,
+      in_event_addr,
+      out_event_addr,
       elem_cnt,
       data_type,
       done_callback);
@@ -152,12 +156,16 @@ synapse_error_o hcl_communicator::allreduce(
 synapse_error_o hcl_communicator::allreduce(
     device_ptr input_address,
     device_ptr output_address,
+    device_ptr in_event_addr,
+    device_ptr out_event_addr,
     size_t elem_cnt,
     synDataType data_type,
     const event_done_callback& done_callback) {
   return allreduce(
       input_address,
       output_address,
+      in_event_addr,
+      out_event_addr,
       elem_cnt,
       data_type,
       eHCLSum,
@@ -168,6 +176,8 @@ synapse_error_o hcl_communicator::reduce(
     HCL_Rank dest_rank,
     device_ptr input_address,
     device_ptr output_address,
+    device_ptr in_event_addr,
+    device_ptr out_event_addr,
     size_t elem_cnt,
     synDataType data_type,
     HCL_Op hclop,
@@ -200,6 +210,8 @@ synapse_error_o hcl_communicator::reduce(
       eHCLReduce,
       input_address,
       output_address,
+      in_event_addr,
+      out_event_addr,
       elem_cnt,
       data_type,
       done_callback);
@@ -210,6 +222,8 @@ synapse_error_o hcl_communicator::reduce(
 synapse_error_o hcl_communicator::reduce_scatter(
     device_ptr input_address,
     device_ptr output_address,
+    device_ptr in_event_addr,
+    device_ptr out_event_addr,
     size_t elem_cnt,
     synDataType data_type,
     HCL_Op hclop,
@@ -241,6 +255,8 @@ synapse_error_o hcl_communicator::reduce_scatter(
       eHCLReduceScatter,
       input_address,
       output_address,
+      in_event_addr,
+      out_event_addr,
       elem_cnt,
       data_type,
       done_callback);
@@ -251,6 +267,8 @@ synapse_error_o hcl_communicator::reduce_scatter(
 synapse_error_o hcl_communicator::alltoall(
     device_ptr input_address,
     device_ptr output_address,
+    device_ptr in_event_addr,
+    device_ptr out_event_addr,
     size_t elem_cnt,
     synDataType data_type,
     const event_done_callback& done_callback) {
@@ -280,6 +298,8 @@ synapse_error_o hcl_communicator::alltoall(
       eHCLAll2All,
       input_address,
       output_address,
+      in_event_addr,
+      out_event_addr,
       elem_cnt,
       data_type,
       done_callback);
@@ -290,6 +310,7 @@ synapse_error_o hcl_communicator::alltoall(
 synapse_error_o hcl_communicator::broadcast(
     HCL_Rank root_rank,
     device_ptr address,
+    device_ptr event_addr,
     size_t elem_cnt,
     synDataType data_type,
     const std::function<void()>& done_callback) {
@@ -299,7 +320,7 @@ synapse_error_o hcl_communicator::broadcast(
   stream* collective_stream = get_collective_stream();
   synStreamHandle stream_handle = get_synapse_stream_handle(collective_stream);
   // For root (sending) rank address is input - root does not produce output
-  prepare_stream(collective_stream, address);
+  prepare_stream(collective_stream, event_addr);
   status = HCL_Bcast(
       stream_handle,
       address,
@@ -310,7 +331,7 @@ synapse_error_o hcl_communicator::broadcast(
       hcl_comm(),
       0 /*flags*/);
   VERIFY_HCL_STATUS("HCL_Bcast(...) failed.", status);
-  submit_events(collective_stream, address, done_callback);
+  submit_events(collective_stream, event_addr, done_callback);
   PT_DISTRIBUTED_END;
   return {};
 };
@@ -318,6 +339,8 @@ synapse_error_o hcl_communicator::broadcast(
 synapse_error_o hcl_communicator::allgather(
     device_ptr input_address,
     device_ptr output_address,
+    device_ptr in_event_addr,
+    device_ptr out_event_addr,
     size_t elem_cnt,
     synDataType data_type,
     const event_done_callback& done_callback) {
@@ -326,7 +349,7 @@ synapse_error_o hcl_communicator::allgather(
   stream* collective_stream = get_collective_stream();
   synStreamHandle stream_handle = get_synapse_stream_handle(collective_stream);
 
-  prepare_stream(collective_stream, input_address);
+  prepare_stream(collective_stream, in_event_addr);
   status = HCL_AllGather(
       stream_handle,
       input_address,
@@ -336,7 +359,7 @@ synapse_error_o hcl_communicator::allgather(
       hcl_comm(),
       0 /*flags*/);
   VERIFY_HCL_STATUS("HCL_AllGather(...) failed", status);
-  submit_events(collective_stream, output_address, done_callback);
+  submit_events(collective_stream, out_event_addr, done_callback);
   PT_DISTRIBUTED_END;
   return {};
 }
@@ -350,6 +373,7 @@ HCL_Rank hcl_communicator::root_hcl_rank() const {
 
 synapse_error_o hcl_communicator::send(
     device_ptr send_buffer,
+    device_ptr event_addr,
     size_t size_in_bytes,
     HCL_Rank remote_rank,
     uint32_t tag,
@@ -359,20 +383,21 @@ synapse_error_o hcl_communicator::send(
   stream* collective_stream = get_collective_stream();
   synStreamHandle stream_handle = get_synapse_stream_handle(collective_stream);
 
-  prepare_stream(collective_stream, send_buffer);
+  prepare_stream(collective_stream, event_addr);
   if (using_streams_) {
     status = HCL_Send(stream_handle, send_buffer, size_in_bytes, remote_rank);
   } else {
     status = HCL_Send_Tag(send_buffer, size_in_bytes, remote_rank, tag);
   }
   VERIFY_HCL_STATUS("HCL_Send(...) failed", status);
-  submit_events(collective_stream, send_buffer, done_callback);
+  submit_events(collective_stream, event_addr, done_callback);
   PT_DISTRIBUTED_END;
   return {};
 }
 
 synapse_error_o hcl_communicator::receive(
     device_ptr receive_buffer,
+    device_ptr event_addr,
     size_t size_in_bytes,
     HCL_Rank remote_rank,
     uint32_t tag,
@@ -389,7 +414,7 @@ synapse_error_o hcl_communicator::receive(
     status = HCL_Receive_Tag(receive_buffer, size_in_bytes, remote_rank, tag);
   }
   VERIFY_HCL_STATUS("HCL_Receive(...) failed", status);
-  submit_events(collective_stream, receive_buffer, done_callback);
+  submit_events(collective_stream, event_addr, done_callback);
   PT_DISTRIBUTED_END;
   return {};
 }
@@ -436,7 +461,9 @@ void hcl_communicator::negotiate_root_rank(int order) {
     const auto input =
         Entry{local_hcl_rank, order, make_checksum(local_hcl_rank, order)};
     my_device_->copy_data_to_device(
-        (void*)&input, input_buffer, sizeof(input), [&done]() { done = true; });
+        (void*)&input, input_buffer, input_buffer, sizeof(input), [&done]() {
+          done = true;
+        });
 
     while (!done) {
       std::this_thread::yield();
@@ -444,6 +471,8 @@ void hcl_communicator::negotiate_root_rank(int order) {
   }
 
   allgather(
+      input_buffer,
+      output_buffer,
       input_buffer,
       output_buffer,
       sizeof(Entry) / sizeof(int32_t),
@@ -455,9 +484,11 @@ void hcl_communicator::negotiate_root_rank(int order) {
     std::atomic<bool> done{false};
 
     my_device_->copy_data_to_host(
-        output_buffer, output.data(), num_workers * sizeof(Entry), [&done]() {
-          done = true;
-        });
+        output_buffer,
+        output.data(),
+        output_buffer,
+        num_workers * sizeof(Entry),
+        [&done]() { done = true; });
 
     while (!done) {
       std::this_thread::yield();
@@ -489,6 +520,8 @@ synapse_error_o hcl_communicator::execute_collective_with_fusion_buffer(
     const HCL_CollectiveOp operation,
     device_ptr input_address,
     device_ptr output_address,
+    device_ptr in_event_addr,
+    device_ptr out_event_addr,
     size_t elem_cnt,
     synDataType data_type,
     const event_done_callback& done_callback) {
@@ -534,7 +567,7 @@ synapse_error_o hcl_communicator::execute_collective_with_fusion_buffer(
   };
 
   stream* collective_stream = get_collective_stream();
-  prepare_stream(collective_stream, input_address);
+  prepare_stream(collective_stream, in_event_addr);
   status = collective(
       get_synapse_stream_handle(collective_stream),
       input_address,
@@ -544,7 +577,7 @@ synapse_error_o hcl_communicator::execute_collective_with_fusion_buffer(
       intermediate_buffer->get(),
       intermediate_buffer->size());
   VERIFY_HCL_STATUS("Collective operation failed", status);
-  submit_events(collective_stream, output_address, new_done_callback);
+  submit_events(collective_stream, out_event_addr, new_done_callback);
   return {};
 }
 

@@ -65,6 +65,8 @@ class hcl_communicator {
   synapse_error_o allreduce(
       device_ptr input_address,
       device_ptr output_address,
+      device_ptr in_event_addr,
+      device_ptr out_event_addr,
       size_t elem_cnt,
       synDataType data_type,
       HCL_Op hclop,
@@ -73,6 +75,8 @@ class hcl_communicator {
   synapse_error_o allreduce(
       device_ptr input_address,
       device_ptr output_address,
+      device_ptr in_event_addr,
+      device_ptr out_event_addr,
       size_t elem_cnt,
       synDataType data_type,
       const event_done_callback& done_callback = [] {});
@@ -81,6 +85,8 @@ class hcl_communicator {
       HCL_Rank dest_rank,
       device_ptr input_address,
       device_ptr output_address,
+      device_ptr in_event_addr,
+      device_ptr out_event_addr,
       size_t elem_cnt,
       synDataType data_type,
       HCL_Op hclop,
@@ -89,6 +95,8 @@ class hcl_communicator {
   synapse_error_o reduce_scatter(
       device_ptr input_address,
       device_ptr output_address,
+      device_ptr in_event_addr,
+      device_ptr out_event_addr,
       size_t elem_cnt,
       synDataType data_type,
       HCL_Op hclop,
@@ -97,6 +105,8 @@ class hcl_communicator {
   synapse_error_o alltoall(
       device_ptr input_address,
       device_ptr output_address,
+      device_ptr in_event_addr,
+      device_ptr out_event_addr,
       size_t elem_cnt,
       synDataType data_type,
       const event_done_callback& done_callback = [] {});
@@ -104,6 +114,7 @@ class hcl_communicator {
   synapse_error_o broadcast(
       HCL_Rank root_rank,
       uint64_t address,
+      device_ptr event_addr,
       size_t elem_cnt,
       synDataType data_type,
       const event_done_callback& done_callback = [] {});
@@ -111,12 +122,15 @@ class hcl_communicator {
   synapse_error_o allgather(
       device_ptr input_address,
       device_ptr output_address,
+      device_ptr in_event_addr,
+      device_ptr out_event_addr,
       size_t elem_cnt,
       synDataType data_type,
       const event_done_callback& done_callback = [] {});
 
   synapse_error_o send(
       device_ptr send_buffer,
+      device_ptr event_addr,
       size_t sizeInBytes,
       HCL_Rank remoteRank,
       uint32_t tag,
@@ -124,6 +138,7 @@ class hcl_communicator {
 
   synapse_error_o receive(
       device_ptr receive_buffer,
+      device_ptr event_addr,
       size_t sizeInBytes,
       HCL_Rank remoteRank,
       uint32_t tag,
@@ -173,6 +188,8 @@ class hcl_communicator {
       const HCL_CollectiveOp operation,
       device_ptr input_address,
       device_ptr output_address,
+      device_ptr in_event_addr,
+      device_ptr out_event_addr,
       size_t elem_cnt,
       synDataType data_type,
       const event_done_callback& done_callback);
