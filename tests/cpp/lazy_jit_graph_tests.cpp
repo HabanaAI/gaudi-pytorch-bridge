@@ -70,7 +70,7 @@ TEST(LazyJITTest, ExecuteGraph) {
   unsetenv("PT_HPU_LAZY_MODE");
 }
 
-TEST(LazyJITTest, ExecuteGraphCustomSgd) {
+TEST(LazyJITTest, DISABLED_ExecuteGraphCustomSgd) {
   auto grad = torch::randn({2, 2}, torch::requires_grad(false));
   auto wts = torch::randn({2, 2}, torch::requires_grad(false));
   auto moments = torch::randn({2, 2}, torch::requires_grad(false));
