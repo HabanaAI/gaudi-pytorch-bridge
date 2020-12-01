@@ -1628,13 +1628,14 @@ if __name__ == "__main__":
                     #          print(l.weight.grad.norm().item())
 
                     # optimizer
+                    apply_optimizer_update()
+                    printFnTrace('Custom optimizer done')
 
                     optimizer.step()
                     printFnTrace('Default optimizer Done')
                     # optimizer_habana_1.step()
 
-                    apply_optimizer_update()
-                    printFnTrace('Custom optimizer done')
+
                     tp_probe_tensors_iteration_end(dlrm_habana, device, Z_habana, E_habana,trainMetaData.ParamsDump, False)
 
                     import time
