@@ -194,6 +194,7 @@ HPUDeviceAllocator::HPUDeviceAllocator() {
 }
 
 HPUDeviceAllocator::~HPUDeviceAllocator() {
+  flush_stream_events();
   if (poolingType != pool_allocator::strategy_none) {
     delete_pool();
   }
@@ -360,6 +361,18 @@ void* HPUDeviceAllocator::allocate_impl(size_t size, synStatus& status) const {
 
 at::DeleterFnPtr HPUDeviceAllocator::raw_deleter() const {
   return &HPUDeviceAllocator::deleter;
+}
+
+void HPUDeviceAllocator::flush_stream_events() const {
+  TORCH_CHECK(
+      habana::HPUDeviceAllocator::allocator_active_device_id == 0,
+      "habana active device: ",
+      habana::HPUDeviceAllocator::allocator_active_device_id,
+      " != 0");
+
+  auto& device =
+      synapse_helpers::HPURegistrar::get_device(allocator_active_device_id);
+  device.flush_stream_events();
 }
 
 } // namespace habana

@@ -78,6 +78,43 @@ class stream_event_manager {
    * the map. \param event event to unmap
    */
   void synchronize_event(shared_event& event);
+
+  /*! \brief Consider the scenario -
+   * Main thread adds some task to the compute stream and adds an event
+   * for the output tensors
+   * GC thread sees it in pending events and does a synEventSynchronize
+   * The main thread may add a wait on the D2H stream with synStreamWaitEvent
+   * The task ends in compute stream, the D2H gets the event and starts the DMA
+   * There is a race now about when the DMA finishes from D2H and the main
+   thread
+   * reaches the exit path compared to when the GC thread wakes up from
+   * synEventSynchronize and releases the call back tensor handles.
+   * If the main thread reaches exit_handler, then it can initiate the
+   destructors
+   * for statics including the HPUDeviceAllocator::~HPUDeviceAllocator(). This
+   will
+   * delete the memory pool.
+   * At this time, if the GC thread has come out of synEventSynchronize but yet
+   to
+   * release the call back tensors, there is a problem. When
+   synapse_helpers::event::complete
+   * starts, if the main thread has released the memory pool, the tensor
+   destruction
+   * will fail with a SEGV as the pool is now deleted and a nullptr as seen
+   below -
+
+      #0  at::habana::pool_allocator::SubAllocator::pool_free_chunk (this=0x0,
+   p=0x4659d3e00)
+                                                                          ^^^
+      #1  at::habana::HPUDeviceAllocator::deleter (ptr=0x4659d3e00)
+      #2  c10::TensorImpl::release_resources() [clone .localalias.208] ()
+      ...
+   * To prevent this, a mutex is used here so that
+   HPUDeviceAllocator::~HPUDeviceAllocator()
+   * waits if the GC thread is done synEventSynchronize and yet to release the
+   * call back tensor handles.
+   */
+  std::mutex sync_mut_;
 };
 
 } // namespace synapse_helpers

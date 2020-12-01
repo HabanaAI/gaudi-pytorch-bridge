@@ -96,6 +96,10 @@ class HPUDeviceAllocator final : public at::Allocator {
   // user must manually set active device before calling allocator functions
   static synDeviceId allocator_active_device_id;
   static pgmDropCachedRecipe drop_cached_recipe_cb;
+
+  // At the time of destruction, enture that the stream manager is not in
+  // the middle of releasing tensors
+  void flush_stream_events() const;
 };
 
 } // namespace habana
