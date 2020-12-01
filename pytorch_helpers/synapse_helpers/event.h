@@ -9,9 +9,9 @@
  */
 #pragma once
 
-#include <algorithm>
 #include <synapse_api_types.h>
 #include <synapse_common_types.h>
+#include <algorithm>
 #include <atomic>
 #include <condition_variable>
 #include <cstdint>
@@ -117,11 +117,18 @@ class event {
   /*! \brief Return and release device pointers mapped to this events.
    * This is volatile information and SEM is doing properly synchronized use of
    * it in such a way that SEM maps device_ptrs_/event_ids_ are in sync.
-   * NOTE: This implementation assumes that all of these three function are called within a single SEM mutex scope*/
-  const std::vector<device_ptr>& get_device_ptrs() const { return device_ptrs_; };
-  const std::vector<std::string>& get_event_ids() const { return event_ids_; };
+   * NOTE: This implementation assumes that all of these three function are
+   * called within a single SEM mutex scope*/
+  const std::vector<device_ptr>& get_device_ptrs() const {
+    return device_ptrs_;
+  };
+  const std::vector<std::string>& get_event_ids() const {
+    return event_ids_;
+  };
   void remove_device_ptr(const device_ptr ptr_to_remove) {
-    device_ptrs_.erase(std::remove(device_ptrs_.begin(), device_ptrs_.end(), ptr_to_remove), device_ptrs_.end());
+    device_ptrs_.erase(
+        std::remove(device_ptrs_.begin(), device_ptrs_.end(), ptr_to_remove),
+        device_ptrs_.end());
   }
 };
 

@@ -21,9 +21,8 @@ class AddcmulOperator : public HabanaOperator {
             "addcmul_fwd_" +
             habana_helpers::name_suffix_from_type(scalarType)) {
     this->CreateSynContext(device_id);
-    kernel_meta_data_.input_layout.assign({LayoutFormat::ANY,
-                                           LayoutFormat::ANY,
-                                           LayoutFormat::ANY});
+    kernel_meta_data_.input_layout.assign(
+        {LayoutFormat::ANY, LayoutFormat::ANY, LayoutFormat::ANY});
     kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
   }
 
@@ -42,9 +41,8 @@ class AddcdivOperator : public HabanaOperator {
             "addcdiv_fwd_" +
             habana_helpers::name_suffix_from_type(scalarType)) {
     this->CreateSynContext(device_id);
-    kernel_meta_data_.input_layout.assign({LayoutFormat::ANY,
-                                           LayoutFormat::ANY,
-                                           LayoutFormat::ANY});
+    kernel_meta_data_.input_layout.assign(
+        {LayoutFormat::ANY, LayoutFormat::ANY, LayoutFormat::ANY});
     kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
   }
 

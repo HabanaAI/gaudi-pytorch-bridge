@@ -7,8 +7,8 @@
  *
  ******************************************************************************
  */
-#include "HPUCheck.h"
 #include "PinnedMemoryAllocator.h"
+#include "HPUCheck.h"
 #include "hpu_cached_devices.h"
 
 namespace at {

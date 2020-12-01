@@ -8,10 +8,10 @@
  ******************************************************************************
  */
 #pragma once
-#include <iostream>
-#include <tuple>
 #include <absl/types/span.h>
+#include <iostream>
 #include <sstream>
+#include <tuple>
 
 #include "object_dump.h"
 #include "synapse_logger.h"
@@ -21,10 +21,14 @@ inline std::ostream& operator<<(std::ostream& out, const T* v) {
   return out << '"' << (const void*)(v) << '"';
 }
 
-inline std::ostream& operator<<(std::ostream& out, const char* v) { return std::operator<<(out, v); }
+inline std::ostream& operator<<(std::ostream& out, const char* v) {
+  return std::operator<<(out, v);
+}
 
 template <typename T>
-inline std::ostream& operator<<(std::ostream& stream, const absl::Span<T>& buffer) {
+inline std::ostream& operator<<(
+    std::ostream& stream,
+    const absl::Span<T>& buffer) {
   if (buffer.size() && buffer.begin()) {
     for (unsigned long i = 0; i < buffer.size() - 1; ++i) {
       stream << buffer[i] << ", ";
@@ -35,7 +39,9 @@ inline std::ostream& operator<<(std::ostream& stream, const absl::Span<T>& buffe
 }
 
 template <>
-inline std::ostream& operator<<(std::ostream& stream, const absl::Span<int8_t>& buffer) {
+inline std::ostream& operator<<(
+    std::ostream& stream,
+    const absl::Span<int8_t>& buffer) {
   if (buffer.size() && buffer.begin()) {
     for (unsigned long i = 0; i < buffer.size() - 1; ++i) {
       stream << int(buffer[i]) << ", ";
@@ -70,7 +76,8 @@ struct _argument_t {
 };
 template <arg_print_way Way, typename V>
 struct _v_argument_t {
-  _v_argument_t(const char* name, const V& value) : name_(name), value_(value) {}
+  _v_argument_t(const char* name, const V& value)
+      : name_(name), value_(value) {}
   const char* name_;
   V value_;
 };
@@ -100,18 +107,27 @@ template <typename V>
 using xa_argument_t = _v_argument_t<print_hex_array, V>;
 
 // TODO: Remove this hack when new HCL_Request definition is ready.
-//       The following code is a hack to easen the process of changing the definition of symbol HCL_Request.
+//       The following code is a hack to easen the process of changing the
+//       definition of symbol HCL_Request.
 namespace hack {
 template <typename ObjectT>
 struct FormattableObject {
   ObjectT obj;
 
-  friend std::ostream& operator<<(std::ostream& out, const FormattableObject<ObjectT>& fobj) {
-    return fobj.Format(out, std::integral_constant<bool, std::is_same<ObjectT, HCL_Request>::value>{});
+  friend std::ostream& operator<<(
+      std::ostream& out,
+      const FormattableObject<ObjectT>& fobj) {
+    return fobj.Format(
+        out,
+        std::integral_constant<
+            bool,
+            std::is_same<ObjectT, HCL_Request>::value>{});
   }
 
  private:
-  std::ostream& Format(std::ostream& out, std::false_type) const { return out << obj; }
+  std::ostream& Format(std::ostream& out, std::false_type) const {
+    return out << obj;
+  }
   std::ostream& Format(std::ostream& out, std::true_type) const {
     return out << reinterpret_cast<const uint64_t&>(obj);
   }
@@ -121,7 +137,7 @@ template <typename ObjectT>
 FormattableObject<ObjectT> MakeFormattableObject(ObjectT obj) {
   return {std::move(obj)};
 }
-}  // namespace hack
+} // namespace hack
 
 template <typename T>
 struct FormattableAsHex {
@@ -129,8 +145,11 @@ struct FormattableAsHex {
 };
 
 template <typename T>
-inline std::ostream& operator<<(std::ostream& os, const FormattableAsHex<T>& v) {
-  os << "\"0x" << std::hex << hack::MakeFormattableObject(v.t) << std::dec << '"';
+inline std::ostream& operator<<(
+    std::ostream& os,
+    const FormattableAsHex<T>& v) {
+  os << "\"0x" << std::hex << hack::MakeFormattableObject(v.t) << std::dec
+     << '"';
   return os;
 }
 
@@ -144,8 +163,11 @@ inline std::ostream& operator<<(std::ostream& out, q_argument_t<V>&& v) {
   return out << '"' << v.name_ << "\":\"" << v.value_ << '"';
 }
 
-inline std::ostream& operator<<(std::ostream& out, q_argument_t<const char*>&& v) {
-  return out << '"' << v.name_ << "\":\"" << (v.value_ ? v.value_ : "nullptr") << '"';
+inline std::ostream& operator<<(
+    std::ostream& out,
+    q_argument_t<const char*>&& v) {
+  return out << '"' << v.name_ << "\":\"" << (v.value_ ? v.value_ : "nullptr")
+             << '"';
 }
 
 template <typename V>
@@ -160,12 +182,14 @@ inline std::ostream& operator<<(std::ostream& out, qd_argument_t<V>&& v) {
 
 template <typename V>
 inline std::ostream& operator<<(std::ostream& out, xd_argument_t<V>&& v) {
-  return out << '"' << v.name_ << "\":" << FormattableAsHex<decltype(*v.value_)>{*v.value_};
+  return out << '"' << v.name_
+             << "\":" << FormattableAsHex<decltype(*v.value_)>{*v.value_};
 }
 
 template <typename V>
 inline std::ostream& operator<<(std::ostream& out, x_argument_t<V>&& v) {
-  return out << '"' << v.name_ << "\":" << FormattableAsHex<decltype(v.value_)>{v.value_};
+  return out << '"' << v.name_
+             << "\":" << FormattableAsHex<decltype(v.value_)>{v.value_};
 }
 
 template <typename V>
@@ -174,7 +198,9 @@ inline std::ostream& operator<<(std::ostream& out, a_argument_t<V>&& v) {
 }
 
 template <typename V>
-inline std::ostream& operator<<(std::ostream& out, xa_argument_t<absl::Span<V>>&& v) {
+inline std::ostream& operator<<(
+    std::ostream& out,
+    xa_argument_t<absl::Span<V>>&& v) {
   out << '"' << v.name_ << "\":[";
   auto& buffer = v.value_;
   if (buffer.size() && buffer.begin()) {
@@ -190,7 +216,7 @@ inline std::ostream& operator<<(std::ostream& out, xa_argument_t<absl::Span<V>>&
 template <typename Arg, typename... Args>
 inline void concat_args(std::ostream& out, Arg&& arg, Args&&... args) {
   out << std::forward<Arg>(arg);
-  using expander = int[];  // NOLINT
+  using expander = int[]; // NOLINT
   (void)expander{0, (void(out << ',' << std::forward<Args>(args)), 0)...};
 }
 
@@ -201,33 +227,37 @@ inline void concat_args(std::ostream& out, Arg&& arg) {
 
 inline void concat_args(UNUSED std::ostream& out) {}
 
-#define API_LOG_RESULT(...)                                                                                        \
-  do {                                                                                                             \
-    if (!synapse_logger::logger_is_enabled(synapse_logger::data_dump_category::SYNAPSE_API_CALL)) {                \
-      break;                                                                                                       \
-    }                                                                                                              \
-    synapse_logger::ostr_t out{synapse_logger::get_ostr()};                                                        \
-    out << "\"name\":\"call:" << __FUNCTION__ << "\", \"ph\":\"E\", \"args\":{ \"status\":" << std::dec << status; \
-    if (!synapse_logger::is_status_success((status))) {                                                            \
-      out << R"(, "cname":"bad")";                                                                                 \
-    }                                                                                                              \
-    comma_maybe(out, ##__VA_ARGS__);                                                                               \
-    concat_args(out, ##__VA_ARGS__);                                                                               \
-    out << "}";                                                                                                    \
-    synapse_logger::log(out.str());                                                                                \
+#define API_LOG_RESULT(...)                                                  \
+  do {                                                                       \
+    if (!synapse_logger::logger_is_enabled(                                  \
+            synapse_logger::data_dump_category::SYNAPSE_API_CALL)) {         \
+      break;                                                                 \
+    }                                                                        \
+    synapse_logger::ostr_t out{synapse_logger::get_ostr()};                  \
+    out << "\"name\":\"call:" << __FUNCTION__                                \
+        << "\", \"ph\":\"E\", \"args\":{ \"status\":" << std::dec << status; \
+    if (!synapse_logger::is_status_success((status))) {                      \
+      out << R"(, "cname":"bad")";                                           \
+    }                                                                        \
+    comma_maybe(out, ##__VA_ARGS__);                                         \
+    concat_args(out, ##__VA_ARGS__);                                         \
+    out << "}";                                                              \
+    synapse_logger::log(out.str());                                          \
   } while (false)
 
-#define API_LOG_CALL(...)                                                                               \
-  do {                                                                                                  \
-    if (!synapse_logger::logger_is_enabled(synapse_logger::data_dump_category::SYNAPSE_API_CALL)) {     \
-      break;                                                                                            \
-    }                                                                                                   \
-    synapse_logger::ostr_t out{synapse_logger::get_ostr()};                                             \
-    out << "\"name\":\"call:" << __FUNCTION__ << "\", \"ph\":\"B\", \"func\":\"" << __PRETTY_FUNCTION__ \
-        << "\", \"args\":{ ";                                                                           \
-    concat_args(out, ##__VA_ARGS__);                                                                    \
-    out << "}";                                                                                         \
-    synapse_logger::log(out.str());                                                                     \
+#define API_LOG_CALL(...)                                            \
+  do {                                                               \
+    if (!synapse_logger::logger_is_enabled(                          \
+            synapse_logger::data_dump_category::SYNAPSE_API_CALL)) { \
+      break;                                                         \
+    }                                                                \
+    synapse_logger::ostr_t out{synapse_logger::get_ostr()};          \
+    out << "\"name\":\"call:" << __FUNCTION__                        \
+        << "\", \"ph\":\"B\", \"func\":\"" << __PRETTY_FUNCTION__    \
+        << "\", \"args\":{ ";                                        \
+    concat_args(out, ##__VA_ARGS__);                                 \
+    out << "}";                                                      \
+    synapse_logger::log(out.str());                                  \
   } while (false)
 
 // stringifiers to format args for json, explanations:
@@ -235,19 +265,35 @@ inline void concat_args(UNUSED std::ostream& out) {}
 // suffix _Q -> quote
 // prefix S_ -> pointer dereference versions
 // prefix M_ -> multi
-#define ARG(x) \
-  argument_t<decltype(x)> { #x, x }
-#define ARG_X(x) \
-  x_argument_t<decltype(x)> { #x, x }
-#define ARG_Q(x) \
-  q_argument_t<decltype(x)> { #x, x }
-#define S_ARG(x) \
-  d_argument_t<decltype(x)> { #x, x }
-#define S_ARG_Q(x) \
-  qd_argument_t<decltype(x)> { #x, x }
-#define S_ARG_X(x) \
-  xd_argument_t<decltype(x)> { #x, x }
-#define M_ARG(x, c) \
-  a_argument_t<decltype(absl::MakeSpan(x, c))> { #x, absl::MakeSpan(x, c) }
-#define M_ARG_X(x, c) \
-  xa_argument_t<decltype(absl::MakeSpan(x, c))> { #x, absl::MakeSpan(x, c) }
+#define ARG(x)              \
+  argument_t<decltype(x)> { \
+#x, x                   \
+  }
+#define ARG_X(x)              \
+  x_argument_t<decltype(x)> { \
+#x, x                     \
+  }
+#define ARG_Q(x)              \
+  q_argument_t<decltype(x)> { \
+#x, x                     \
+  }
+#define S_ARG(x)              \
+  d_argument_t<decltype(x)> { \
+#x, x                     \
+  }
+#define S_ARG_Q(x)             \
+  qd_argument_t<decltype(x)> { \
+#x, x                      \
+  }
+#define S_ARG_X(x)             \
+  xd_argument_t<decltype(x)> { \
+#x, x                      \
+  }
+#define M_ARG(x, c)                              \
+  a_argument_t<decltype(absl::MakeSpan(x, c))> { \
+#x, absl::MakeSpan(x, c)                     \
+  }
+#define M_ARG_X(x, c)                             \
+  xa_argument_t<decltype(absl::MakeSpan(x, c))> { \
+#x, absl::MakeSpan(x, c)                      \
+  }

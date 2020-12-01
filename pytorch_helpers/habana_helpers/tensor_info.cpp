@@ -33,14 +33,14 @@ PtTensorInfo::PtTensorInfo(
     const ValPtr& vp,
     const bool wflag) {
   TORCH_CHECK(ivpsh->isTensor(), "aten tensor is expected");
-  std::string irn = "%" +  vp->debugName();
+  std::string irn = "%" + vp->debugName();
   auto pt_tensor = ivpsh->toTensor();
   populate_tinfo(pt_tensor, sn, irn, wflag);
 }
 
 std::ostream& operator<<(std::ostream& O, const PtTensorInfo& t) {
-  O << '<' << t.get_ir_name() << ':' << t.get_shape_str() << ':' << t.get_numel() << ':' << '('
-    << t.get_size() << " b)"
+  O << '<' << t.get_ir_name() << ':' << t.get_shape_str() << ':'
+    << t.get_numel() << ':' << '(' << t.get_size() << " b)"
     << " :: " << t.get_syn_name() << ':' << t.get_buffer() << '>';
 
   if (t.is_duplicate()) {
@@ -59,8 +59,7 @@ void PrintATenTensor(const at::Tensor& a) {
   } else {
     O << " does not have storage";
   }
-  O << ',' << " use_count " << a.use_count()
-    << '\n';
+  O << ',' << " use_count " << a.use_count() << '\n';
 }
 
 void PrintATenTensor(const IValPtrShared& a) {

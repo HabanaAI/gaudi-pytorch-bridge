@@ -9,10 +9,10 @@
  */
 #pragma once
 
+#include <synapse_helpers/runtime_tracing.h>
 #include <iostream>
 #include <sstream>
 #include <string>
-#include <synapse_helpers/runtime_tracing.h>
 
 // Redefining c10 StringUtils functions here as distributed and syn
 // helpers are independent of  torch libraries

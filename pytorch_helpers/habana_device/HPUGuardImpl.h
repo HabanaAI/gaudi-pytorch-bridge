@@ -15,8 +15,8 @@
 #include <unordered_set>
 
 #include "HPUAllocator.h"
-#include "PinnedMemoryAllocator.h"
 #include "HPUCheck.h"
+#include "PinnedMemoryAllocator.h"
 #include "habana_helpers/unused_macro.h"
 #include "hpu_cached_devices.h"
 
@@ -43,13 +43,12 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
   }
   Device getDevice() const override {
     if (synapse_helpers::HPURegistrar::empty()) {
-      auto allocatorVar = [](synDeviceId id)->std::unique_ptr<synapse_helpers::device_allocator> {
+      auto allocatorVar = [](synDeviceId id)
+          -> std::unique_ptr<synapse_helpers::device_allocator> {
         return std::make_unique<at::habana::HPUAllocator>(id);
       };
       auto device_ptr_or_error = synapse_helpers::device::get_or_create(
-          synDeviceType::synDeviceGaudi,
-          allocatorVar
-      );
+          synDeviceType::synDeviceGaudi, allocatorVar);
 
       if (absl::holds_alternative<synapse_helpers::synapse_error>(
               device_ptr_or_error)) {
@@ -71,7 +70,9 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
         "habana active device: ",
         habana::HPUDeviceAllocator::allocator_active_device_id,
         " != 0");
-    return Device(DeviceType::HABANA, habana::HPUDeviceAllocator::allocator_active_device_id);
+    return Device(
+        DeviceType::HABANA,
+        habana::HPUDeviceAllocator::allocator_active_device_id);
   }
   void setDevice(Device d) const override {
     TORCH_INTERNAL_ASSERT(d.type() == type());

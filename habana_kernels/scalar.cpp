@@ -13,12 +13,10 @@
 #include "habana_helpers/logging.h"
 #include "habana_helpers/tensor_utils.h"
 
-
 using namespace torch;
 
 namespace at {
 namespace native {
-
 
 Scalar _local_scalar_dense_hpu(const Tensor& self) {
   PT_KERNEL_BEGIN;
@@ -40,12 +38,12 @@ Scalar _local_scalar_dense_hpu(const Tensor& self) {
       "_local_scalar_dense_hpu",
       [&] {
         scalar_t val;
-        TORCH_CHECK(elementSize(self.scalar_type()) == sizeof(val),
+        TORCH_CHECK(
+            elementSize(self.scalar_type()) == sizeof(val),
             " source and destination size mismatch");
         habana_helpers::copy_scalar_to_host(self, &val, sizeof(val));
         r = Scalar(val);
-      }
-  );
+      });
 
   PT_KERNEL_END;
 

@@ -334,4 +334,3 @@ static auto& KernelRegistry =
         .add("aten::lt", [](const int device_id, c10::ScalarType node_type) {
           return std::make_shared<LtOperator>(device_id, node_type);
         });
-

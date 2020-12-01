@@ -1273,4 +1273,3 @@ static auto& KernelRegistry =
               return std::make_shared<AvgPool2dBackwardOperator>(
                   device_id, node_type);
             });
-

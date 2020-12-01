@@ -3465,8 +3465,8 @@ static auto registry = torch::
                                            decltype(ones_like_hpu_wrap),
                                            &ones_like_hpu_wrap>(
                                            DispatchKey::HABANATensorId)
-                                       .aliasAnalysis(c10::AliasAnalysisKind::
-                                                          FROM_SCHEMA))
+                                       .aliasAnalysis(
+                                           c10::AliasAnalysisKind::FROM_SCHEMA))
                                .op(torch::RegisterOperators::options()
                                        .schema(
                                            "aten::matmul_backward(Tensor grad_out, Tensor self, Tensor other) -> (Tensor, Tensor)")

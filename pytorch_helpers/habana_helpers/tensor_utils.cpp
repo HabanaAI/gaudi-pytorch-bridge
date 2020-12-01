@@ -14,9 +14,9 @@
 #include <mutex>
 
 #include "habana_device/HPUCheck.h"
+#include "habana_device/PinnedMemoryAllocator.h"
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_device/tensor_builder.h"
-#include "habana_device/PinnedMemoryAllocator.h"
 #include "habana_helpers/graph.h"
 #include "habana_helpers/tensor_utils.h"
 #include "habana_kernels/kernel_utils.h"
@@ -390,7 +390,8 @@ void habana_helpers::copy_scalar_to_host(
               reinterpret_cast<synapse_helpers::device_ptr>(src.data_ptr()),
               dst_ptr,
               size,
-              [&copyDone]() { copyDone = true; }, is_pinned);
+              [&copyDone]() { copyDone = true; },
+              is_pinned);
   TORCH_CHECK(syn_error.status == 0, syn_error.error);
 
   // wait for copy completion
@@ -647,7 +648,8 @@ void habana_helpers::copy_data_to_host(
         reinterpret_cast<synapse_helpers::device_ptr>(src.data_ptr()),
         dst.data_ptr(),
         src.nbytes(),
-        [srcRef, dstRef]() { return; }, is_pinned);
+        [srcRef, dstRef]() { return; },
+        is_pinned);
     TORCH_CHECK(syn_error.status == 0, syn_error.error);
   } else {
     std::atomic<bool> copyDone{false};
@@ -655,7 +657,8 @@ void habana_helpers::copy_data_to_host(
         reinterpret_cast<synapse_helpers::device_ptr>(src.data_ptr()),
         dst.data_ptr(),
         src.nbytes(),
-        [&copyDone]() { copyDone = true; }, is_pinned);
+        [&copyDone]() { copyDone = true; },
+        is_pinned);
     TORCH_CHECK(syn_error.status == 0, syn_error.error);
     // wait for copy completion
     while (!copyDone) {
@@ -688,7 +691,8 @@ void habana_helpers::copy_data_to_device(
         src.data_ptr(),
         reinterpret_cast<synapse_helpers::device_ptr>(dst.data_ptr()),
         src.nbytes(),
-        [srcRef, dstRef]() { return; }, is_pinned);
+        [srcRef, dstRef]() { return; },
+        is_pinned);
     TORCH_CHECK(syn_error.status == 0, syn_error.error);
   } else {
     std::atomic<bool> copyDone{false};
@@ -696,7 +700,8 @@ void habana_helpers::copy_data_to_device(
         src.data_ptr(),
         reinterpret_cast<synapse_helpers::device_ptr>(dst.data_ptr()),
         src.nbytes(),
-        [&copyDone]() { copyDone = true; }, is_pinned);
+        [&copyDone]() { copyDone = true; },
+        is_pinned);
     TORCH_CHECK(syn_error.status == 0, syn_error.error);
     // wait for copy completion
     while (!copyDone) {

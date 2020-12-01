@@ -25,21 +25,20 @@ struct RecipeSignature {
       bool in_place = false,
       bool outOp = false)
       : nodeTypes_(nodeTypes), cas_(with_grad, inputs), hash_(cas_.hashCode()) {
-
     // flatten tensorlist and insert tensors into inputs stack
     auto num_inputs = inputs.size();
     for (unsigned i = 0; i < num_inputs; i++) {
-      if(inputs[i].isTensorList()){
+      if (inputs[i].isTensorList()) {
         auto tlist = inputs[i].toTensorList();
-        auto tlsize = tlist.size(); 
-        for(unsigned j=0; j<tlsize; j++){
+        auto tlsize = tlist.size();
+        for (unsigned j = 0; j < tlsize; j++) {
           inputs.push_back(tlist.get(j));
         }
       }
     }
 
     // compute hash on inputs
-    cas_  =  torch::jit::CompleteArgumentSpec(with_grad, inputs);
+    cas_ = torch::jit::CompleteArgumentSpec(with_grad, inputs);
     hash_ = cas_.hashCode();
 
     // calculate operator cache

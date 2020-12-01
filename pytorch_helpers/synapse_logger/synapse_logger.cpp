@@ -27,15 +27,16 @@
 #include <string>
 #include <type_traits>
 
-#include <absl/strings/string_view.h>
 #include <absl/strings/str_format.h>
+#include <absl/strings/string_view.h>
 
 #include "object_dump.h"
 #include "synapse_api.h"
 
 uint64_t NowMicros() {
   return static_cast<uint64_t>(
-      std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch())
+      std::chrono::duration_cast<std::chrono::microseconds>(
+          std::chrono::system_clock::now().time_since_epoch())
           .count());
 }
 
@@ -52,24 +53,33 @@ const char* base_file_name = ".local.synapse_log";
 
 namespace {
 void checked_dlclose(void* lib_handle) {
-  if (lib_handle) dlclose(lib_handle);
+  if (lib_handle)
+    dlclose(lib_handle);
 }
-}  // namespace
+} // namespace
 
 namespace synapse_logger {
 
-std::unique_ptr<void, void (&)(void*)> dlopen_or_die(const char* name, int flag) {
-  std::unique_ptr<void, void (&)(void*)> handle(dlopen(name, flag), checked_dlclose);
+std::unique_ptr<void, void (&)(void*)> dlopen_or_die(
+    const char* name,
+    int flag) {
+  std::unique_ptr<void, void (&)(void*)> handle(
+      dlopen(name, flag), checked_dlclose);
   CHECK_NULL(handle.get());
   return handle;
 }
 
 SynapseLogger::SynapseLogger()
     : log_start_time_{},
-      log_file_name_(absl::StrFormat("%s.json", absl::string_view(base_file_name))),
-      data_file_name_(absl::StrFormat("%s.data", absl::string_view(base_file_name))),
-      logger_lib_handle_(dlopen_or_die("${ORIGIN}/" BINARY_NAME, RTLD_GLOBAL | RTLD_NOLOAD | RTLD_NOW)),
-      synapse_lib_handle_(dlopen_or_die("libSynapse.so", RTLD_GLOBAL | RTLD_NOW)),
+      log_file_name_(
+          absl::StrFormat("%s.json", absl::string_view(base_file_name))),
+      data_file_name_(
+          absl::StrFormat("%s.data", absl::string_view(base_file_name))),
+      logger_lib_handle_(dlopen_or_die(
+          "${ORIGIN}/" BINARY_NAME,
+          RTLD_GLOBAL | RTLD_NOLOAD | RTLD_NOW)),
+      synapse_lib_handle_(
+          dlopen_or_die("libSynapse.so", RTLD_GLOBAL | RTLD_NOW)),
       dev_attr_recorded(false) {
   SLOG(S_TRACE) << __FUNCTION__ << "\n";
   std::signal(SIGUSR1, SynapseLogger::command_signal_handler);
@@ -97,8 +107,8 @@ void SynapseLogger::command_signal_handler(int) {
   const char* command_file_name = "synapse_logger_command";
   std::ifstream f(command_file_name);
   if (!f.good()) {
-    SLOG(S_ERROR) << "Got command signal " << SIGUSR1 << " but command file " << command_file_name
-                  << " cannot be read.\n";
+    SLOG(S_ERROR) << "Got command signal " << SIGUSR1 << " but command file "
+                  << command_file_name << " cannot be read.\n";
     return;
   }
   std::string command_str(std::istreambuf_iterator<char>{f}, {});
@@ -127,44 +137,60 @@ void SynapseLogger::log(absl::string_view payload) {
 
   int64_t dtime = NowMicros();
 
-  fout_ << R"({"tid":)" << tid << R"(, "pid":)" << pid << R"(, "ts":)" << dtime << ", " << payload << "},\n";
+  fout_ << R"({"tid":)" << tid << R"(, "pid":)" << pid << R"(, "ts":)" << dtime
+        << ", " << payload << "},\n";
   if (eager_flush_) {
     fout_ << std::flush;
   }
 }
 
-void SynapseLogger::dump_host_data(const void* ptr, int byte_size, data_dump_category data_category) {
+void SynapseLogger::dump_host_data(
+    const void* ptr,
+    int byte_size,
+    data_dump_category data_category) {
   if (is_enabled(data_category)) {
     auto offset = dump_data(ptr, byte_size);
     ostr_t out{get_ostr()};
-    out << R"("name":"object", "ph":"i", "args":{"type":"uint8_t*", "at":")" << ptr << "\"";
-    out << ", \"data_offset\":" << offset << ", \"byte_size\":" << byte_size << "}";
+    out << R"("name":"object", "ph":"i", "args":{"type":"uint8_t*", "at":")"
+        << ptr << "\"";
+    out << ", \"data_offset\":" << offset << ", \"byte_size\":" << byte_size
+        << "}";
     log(out.str());
   }
 }
 
-void SynapseLogger::dump_device_alloc_data(const uint64_t ptr, size_t num_bytes, const synDeviceId deviceId,
-                                           synStatus status, data_dump_category data_category) {
+void SynapseLogger::dump_device_alloc_data(
+    const uint64_t ptr,
+    size_t num_bytes,
+    const synDeviceId deviceId,
+    synStatus status,
+    data_dump_category data_category) {
   if (is_enabled(data_category)) {
     log_synDeviceMalloc(ptr, num_bytes, (synSuccess != status));
     if (!dev_attr_recorded) {
       uint64_t val[2];
-      const synDeviceAttribute deviceAttr[2] = {DEVICE_ATTRIBUTE_DRAM_BASE_ADDRESS,
-                                                DEVICE_ATTRIBUTE_DRAM_SIZE};
+      const synDeviceAttribute deviceAttr[2] = {
+          DEVICE_ATTRIBUTE_DRAM_BASE_ADDRESS, DEVICE_ATTRIBUTE_DRAM_SIZE};
       synDeviceGetAttribute(val, deviceAttr, 2, deviceId);
       dev_attr_recorded = true;
     }
   }
 }
 
-void SynapseLogger::dump_device_free_data(const uint64_t ptr, synStatus status, data_dump_category data_category) {
+void SynapseLogger::dump_device_free_data(
+    const uint64_t ptr,
+    synStatus status,
+    data_dump_category data_category) {
   if (is_enabled(data_category)) {
     log_synDeviceFree(ptr, (synSuccess != status));
   }
 }
 
-void SynapseLogger::dump_device_attr(const synDeviceAttribute* deviceAttr, uint64_t* val, const unsigned querySize,
-                                     data_dump_category data_category) {
+void SynapseLogger::dump_device_attr(
+    const synDeviceAttribute* deviceAttr,
+    uint64_t* val,
+    const unsigned querySize,
+    data_dump_category data_category) {
   if (is_enabled(data_category)) {
     for (unsigned i = 0; i < querySize; ++i) {
       switch (deviceAttr[i]) {
@@ -210,7 +236,8 @@ void SynapseLogger::restart() {
   }
   std::lock_guard<std::mutex> lock(log_lock_);
   if (0 == source_cat_mask_) {
-    source_cat_mask_ = static_cast<uint64_t>(data_dump_category::SYNAPSE_API_CALL);
+    source_cat_mask_ =
+        static_cast<uint64_t>(data_dump_category::SYNAPSE_API_CALL);
   }
   if (fout_.is_open()) {
     fout_.close();
@@ -238,31 +265,38 @@ void SynapseLogger::command(absl::string_view cmd) {
     cmd_name = cmd;
   }
   if (cmd_name == "start_data_capture") {
-    source_cat_mask_ |= (static_cast<uint64_t>(data_dump_category::VAR_TENSOR_DATA) |
-                         static_cast<uint64_t>(data_dump_category::CONST_TENSOR_DATA));
+    source_cat_mask_ |=
+        (static_cast<uint64_t>(data_dump_category::VAR_TENSOR_DATA) |
+         static_cast<uint64_t>(data_dump_category::CONST_TENSOR_DATA));
   } else if (cmd_name == "stop_data_capture") {
-    source_cat_mask_ &= ~(static_cast<uint64_t>(data_dump_category::VAR_TENSOR_DATA) |
-                          static_cast<uint64_t>(data_dump_category::CONST_TENSOR_DATA));
+    source_cat_mask_ &=
+        ~(static_cast<uint64_t>(data_dump_category::VAR_TENSOR_DATA) |
+          static_cast<uint64_t>(data_dump_category::CONST_TENSOR_DATA));
     std::lock_guard<std::mutex> tlock(transfer_lock_);
     transfers_.clear();
   } else if (cmd_name == "stop_vtensor_capture") {
-    source_cat_mask_ &= ~static_cast<uint64_t>(data_dump_category::VAR_TENSOR_DATA);
+    source_cat_mask_ &=
+        ~static_cast<uint64_t>(data_dump_category::VAR_TENSOR_DATA);
     std::lock_guard<std::mutex> tlock(transfer_lock_);
     transfers_.clear();
   } else if (cmd_name == "stop_ctensor_capture") {
-    source_cat_mask_ &= ~static_cast<uint64_t>(data_dump_category::CONST_TENSOR_DATA);
+    source_cat_mask_ &=
+        ~static_cast<uint64_t>(data_dump_category::CONST_TENSOR_DATA);
     std::lock_guard<std::mutex> tlock(transfer_lock_);
     transfers_.clear();
   } else if (cmd_name == "start_vtensor_capture") {
-    source_cat_mask_ |= static_cast<uint64_t>(data_dump_category::VAR_TENSOR_DATA);
+    source_cat_mask_ |=
+        static_cast<uint64_t>(data_dump_category::VAR_TENSOR_DATA);
     std::lock_guard<std::mutex> tlock(transfer_lock_);
     transfers_.clear();
   } else if (cmd_name == "start_ctensor_capture") {
-    source_cat_mask_ |= static_cast<uint64_t>(data_dump_category::CONST_TENSOR_DATA);
+    source_cat_mask_ |=
+        static_cast<uint64_t>(data_dump_category::CONST_TENSOR_DATA);
     std::lock_guard<std::mutex> tlock(transfer_lock_);
     transfers_.clear();
   } else if (cmd_name == "log_device_alloc") {
-    source_cat_mask_ |= static_cast<uint64_t>(data_dump_category::DEVICE_ALLOC_TRACKING);
+    source_cat_mask_ |=
+        static_cast<uint64_t>(data_dump_category::DEVICE_ALLOC_TRACKING);
     std::lock_guard<std::mutex> tlock(transfer_lock_);
     transfers_.clear();
   } else if (cmd_name == "eager_flush") {
@@ -280,15 +314,19 @@ void SynapseLogger::command(absl::string_view cmd) {
     log_file_name_.append(".json");
     data_file_name_ = std::string(cmd_params);
     data_file_name_.append(".data");
-    SLOG(S_INFO) << "Output log file name set to " << log_file_name_ << std::endl;
-    SLOG(S_INFO) << "Output data file name set to " << data_file_name_ << std::endl;
+    SLOG(S_INFO) << "Output log file name set to " << log_file_name_
+                 << std::endl;
+    SLOG(S_INFO) << "Output data file name set to " << data_file_name_
+                 << std::endl;
   } else if (cmd_name == "restart" || cmd_name == "enable") {
     restart();
   } else if (cmd_name == "category_mask") {
-    unsigned mask = strtoll(static_cast<std::string>(cmd_params).c_str(), nullptr, 0);
+    unsigned mask =
+        strtoll(static_cast<std::string>(cmd_params).c_str(), nullptr, 0);
     source_cat_mask_ = mask;
     if (mask == 0) {
-      SLOG(S_INFO) << "Category mask for logger set to zero  (\"" << cmd_params << "\" requested)";
+      SLOG(S_INFO) << "Category mask for logger set to zero  (\"" << cmd_params
+                   << "\" requested)";
     }
   } else if (cmd_name == "disable") {
     disable();
@@ -300,14 +338,20 @@ void SynapseLogger::command(absl::string_view cmd) {
     return;
   }
   SLOG(S_INFO) << "Done command: " << cmd_name << "\n";
-}  // namespace synapse_logger
+} // namespace synapse_logger
 
-void SynapseLogger::dump_reference(const std::string& ref, const std::string& ref_type, float* vec, int n) {
+void SynapseLogger::dump_reference(
+    const std::string& ref,
+    const std::string& ref_type,
+    float* vec,
+    int n) {
   ostr_t out{get_ostr()};
-  out << R"("name":"reference", "args":{"to":")" << ref << R"(", "length":)" << n;
+  out << R"("name":"reference", "args":{"to":")" << ref << R"(", "length":)"
+      << n;
   unsigned num_elements = n * sizeof(float);
-  out << ", \"data_offset\":" << data_fout_.tellp() << ", \"byte_size\":" << num_elements << R"(, "data_cast":")"
-      << ref_type << "\"}";
+  out << ", \"data_offset\":" << data_fout_.tellp()
+      << ", \"byte_size\":" << num_elements << R"(, "data_cast":")" << ref_type
+      << "\"}";
   log(out.str());
   std::lock_guard<std::mutex> lock(log_lock_);
   data_fout_.write((char*)vec, num_elements);
@@ -352,15 +396,28 @@ void stop_hw_profile() {
   }
 }
 
-void put_log(const std::string& what) { logger.log(what); }
+void put_log(const std::string& what) {
+  logger.log(what);
+}
 
-void dump_reference(const std::string& ref, const std::string& ref_type, float* vec, int n) {
-  SLOG(S_TRACE) << __PRETTY_FUNCTION__ << " called for " << ref << " vec " << vec << " n " << n << "\n";
+void dump_reference(
+    const std::string& ref,
+    const std::string& ref_type,
+    float* vec,
+    int n) {
+  SLOG(S_TRACE) << __PRETTY_FUNCTION__ << " called for " << ref << " vec "
+                << vec << " n " << n << "\n";
   logger.dump_reference(ref, ref_type, vec, n);
 }
-void command(const std::string& x) { logger.command(x); }
+void command(const std::string& x) {
+  logger.command(x);
+}
 
-bool logger_is_enabled(data_dump_category cat) { return logger.is_enabled(cat); }
+bool logger_is_enabled(data_dump_category cat) {
+  return logger.is_enabled(cat);
+}
 
-void log(absl::string_view payload) { logger.log(payload); }
-}  // namespace synapse_logger
+void log(absl::string_view payload) {
+  logger.log(payload);
+}
+} // namespace synapse_logger

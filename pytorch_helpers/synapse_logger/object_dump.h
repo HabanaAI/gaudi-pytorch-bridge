@@ -20,11 +20,13 @@ namespace synapse_logger {
 
 /// Specifies types of data dumped to log file
 enum class data_dump_category : unsigned {
-  SYNAPSE_API_CALL = (0x1) << 0,               ///< Synapse API Calls (synLaunch, synTensorCreate etc.)
-  CUSTOM_RUNTIME_TRACE_PROVIDER = (0x1) << 1,  ///< Calls introduced to code by runtime tracing structures
-  VAR_TENSOR_DATA = (0x1) << 16,               ///< Host-memory data (non-const tensor data)
-  CONST_TENSOR_DATA = (0x1) << 17,             ///< Host-memory data (const tensor data)
-  DEVICE_ALLOC_TRACKING = (0x1) << 18,         ///< Track synDeviceMalloc/Free
+  SYNAPSE_API_CALL =
+      (0x1) << 0, ///< Synapse API Calls (synLaunch, synTensorCreate etc.)
+  CUSTOM_RUNTIME_TRACE_PROVIDER = (0x1)
+      << 1, ///< Calls introduced to code by runtime tracing structures
+  VAR_TENSOR_DATA = (0x1) << 16, ///< Host-memory data (non-const tensor data)
+  CONST_TENSOR_DATA = (0x1) << 17, ///< Host-memory data (const tensor data)
+  DEVICE_ALLOC_TRACKING = (0x1) << 18, ///< Track synDeviceMalloc/Free
 };
 
 bool logger_is_enabled(data_dump_category cat);
@@ -32,7 +34,9 @@ void log(const absl::string_view payload);
 
 class ostr_int_t {
  public:
-  ostr_int_t() : buffer_(), ostr_(&buffer_) { buffer_.reserve(4096); }
+  ostr_int_t() : buffer_(), ostr_(&buffer_) {
+    buffer_.reserve(4096);
+  }
   ostr_int_t(ostr_int_t&) = delete;
   ostr_int_t(ostr_int_t&&) = delete;
   ostr_int_t& operator=(ostr_int_t&) = delete;
@@ -41,7 +45,9 @@ class ostr_int_t {
     ostr_.clear();
     buffer_ = "";
   }
-  std::string* str() { return ostr_.str(); }
+  std::string* str() {
+    return ostr_.str();
+  }
 
   std::string buffer_;
   absl::strings_internal::OStringStream ostr_;
@@ -51,7 +57,9 @@ ostr_t get_ostr();
 
 class ostr_t {
  public:
-  ostr_t(ostr_t&& other) noexcept { std::swap(ostr_int_, other.ostr_int_); }
+  ostr_t(ostr_t&& other) noexcept {
+    std::swap(ostr_int_, other.ostr_int_);
+  }
 
   ostr_t() = delete;
   ostr_t(const ostr_t&) = delete;
@@ -60,8 +68,12 @@ class ostr_t {
     std::swap(ostr_int_, other.ostr_int_);
     return *this;
   }
-  operator std::ostream&() { return ostr_int_->ostr_; }
-  std::string& str() { return *ostr_int_->str(); }
+  operator std::ostream &() {
+    return ostr_int_->ostr_;
+  }
+  std::string& str() {
+    return *ostr_int_->str();
+  }
   ~ostr_t() {
     if (ostr_int_) {
       ostr_int_->clear();
@@ -87,7 +99,8 @@ inline __attribute__((noinline)) ostr_t get_ostr() {
   return ostr_t(ostr);
 }
 
-inline const absl::string_view type_name_from_pretty_function(const char* pretty_function) {
+inline const absl::string_view type_name_from_pretty_function(
+    const char* pretty_function) {
   const absl::string_view func(pretty_function);
   size_t pos = func.find("Type = ");
   return func.substr(pos + 7, func.length() - pos - 8);
@@ -95,14 +108,16 @@ inline const absl::string_view type_name_from_pretty_function(const char* pretty
 
 template <typename Type>
 inline void dump_object(const Type* obj, unsigned count = 1) {
-  if (!logger_is_enabled(data_dump_category::SYNAPSE_API_CALL) || obj == nullptr) {
+  if (!logger_is_enabled(data_dump_category::SYNAPSE_API_CALL) ||
+      obj == nullptr) {
     return;
   }
   synapse_logger::ostr_t out{synapse_logger::get_ostr()};
   static auto type_name{type_name_from_pretty_function(__PRETTY_FUNCTION__)};
 
-  out << R"("name":"object", "args":{"at":")" << (void*)obj << R"(", "type":")" << type_name << R"(", "size":)"
-      << (sizeof(Type) * count) << R"(, "value":")" << std::hex << "{0x";
+  out << R"("name":"object", "args":{"at":")" << (void*)obj << R"(", "type":")"
+      << type_name << R"(", "size":)" << (sizeof(Type) * count)
+      << R"(, "value":")" << std::hex << "{0x";
   uint8_t* buffer = (uint8_t*)obj;
 
   unsigned p;
@@ -114,4 +129,4 @@ inline void dump_object(const Type* obj, unsigned count = 1) {
   log(out.str());
 }
 
-}  // namespace synapse_logger
+} // namespace synapse_logger

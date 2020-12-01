@@ -9,10 +9,9 @@
  */
 #pragma once
 
+#include <habana_device/hpu_cached_devices.h>
 #include <synapse_helpers/device.h>
 #include <synapse_helpers/graph.h>
-#include <habana_device/hpu_cached_devices.h>
-
 
 namespace habana_helpers {
 static synapse_helpers::graph create_graph(int device_id, std::string name) {

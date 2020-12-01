@@ -1129,8 +1129,7 @@ void ClampOperator::AllocateAndAddSynapseNode(
     std::vector<synTensor> syn_in{float_syn_tensor.get()};
     std::vector<synTensor> syn_out{synOutput.get()};
 
-    node_type =
-        "clamp_fwd_f32";
+    node_type = "clamp_fwd_f32";
     graph.add_node(
         std::move(syn_in),
         std::move(syn_out),
@@ -1229,10 +1228,8 @@ Tensor clamp_hpu(
           self.suggest_memory_format());
       Op.SetPTOutput(output);
     } else {
-      auto output = at::empty(
-          self.sizes(),
-          self.options(),
-          self.suggest_memory_format());
+      auto output =
+          at::empty(self.sizes(), self.options(), self.suggest_memory_format());
       Op.SetPTOutput(output);
     }
     Op.Execute(key);
@@ -1287,7 +1284,8 @@ Tensor& clamp_hpu_(
     c10::optional<Scalar> max) {
   PT_KERNEL_BEGIN;
 
-  if ((self.scalar_type() == ScalarType::Long) || (self.scalar_type() == ScalarType::Int)) {
+  if ((self.scalar_type() == ScalarType::Long) ||
+      (self.scalar_type() == ScalarType::Int)) {
     self.copy_(clamp_hpu(self, min, max));
     PT_KERNEL_END;
     return self;

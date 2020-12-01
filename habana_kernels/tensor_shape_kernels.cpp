@@ -109,21 +109,21 @@ Tensor cat_hpu(const TensorList in_tensors, int64_t dim_ = 0) {
   at::ScalarType scalar_type = in_tensors[0].scalar_type();
   std::string node_type = "concat";
   std::vector<at::Tensor> pt_inputs;
-   // Create operator
+  // Create operator
   at::ScalarType mod_scalar_type = in_tensors[0].scalar_type();
 
   // Assign Tensor Inputs to the Operator
   std::vector<c10::IValue> stack;
   std::vector<at::Tensor> tensors;
   for (unsigned i = 0; i < in_tensors.size(); i++) {
-  if (in_tensors[i].scalar_type() == c10::ScalarType::Long) {
-    tensors.push_back(habana_helpers::cast_tensor_to_integer(in_tensors[i]));
-    pt_inputs.push_back(tensors[i]);
-    mod_scalar_type = tensors[i].scalar_type();
-  } else {
-    tensors.push_back(in_tensors[i]);
-    pt_inputs.push_back(in_tensors[i]);
-  }
+    if (in_tensors[i].scalar_type() == c10::ScalarType::Long) {
+      tensors.push_back(habana_helpers::cast_tensor_to_integer(in_tensors[i]));
+      pt_inputs.push_back(tensors[i]);
+      mod_scalar_type = tensors[i].scalar_type();
+    } else {
+      tensors.push_back(in_tensors[i]);
+      pt_inputs.push_back(in_tensors[i]);
+    }
   }
 
   TensorList out_tensorlist(tensors);
@@ -156,11 +156,10 @@ Tensor cat_hpu(const TensorList in_tensors, int64_t dim_ = 0) {
   TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
 
   Tensor cast_out, temp;
-  if (scalar_type== c10::ScalarType::Long) {
-    cast_out =   habana_helpers::cast_tensor_to_long(out.at(0));
-  }
-  else{
-     cast_out = out.at(0);
+  if (scalar_type == c10::ScalarType::Long) {
+    cast_out = habana_helpers::cast_tensor_to_long(out.at(0));
+  } else {
+    cast_out = out.at(0);
   }
   PT_KERNEL_END;
   return cast_out;
@@ -671,7 +670,7 @@ void ReshapeOperator::AllocateAndAddSynapseNode(
       "Right now Reshape is only supported for contiguous Tensor.");
 
   auto shape = inputs[1].toIntList();
-  auto shape_vector  = shape.vec();
+  auto shape_vector = shape.vec();
   auto input_shape = IntArrayRef(shape_vector.data(), shape_vector.size());
   auto inferred_size = at::infer_size(input_shape, self.numel());
   auto output = habana_helpers::createPTTensor(
@@ -682,7 +681,10 @@ void ReshapeOperator::AllocateAndAddSynapseNode(
       is_output_persistent);
   TORCH_CHECK(
       self.numel() == output.numel(),
-      "Reshape doesnt support change in number of elements: ", self.sizes(), " Size of output: ", output.sizes());
+      "Reshape doesnt support change in number of elements: ",
+      self.sizes(),
+      " Size of output: ",
+      output.sizes());
   p_context_->params_size_ = 0;
   AllocateSynapseOutput(graph, output, is_output_persistent);
   AddNodeToSynapseGraph(graph, NULL, 0);
@@ -817,8 +819,8 @@ void BroadcastOperator::AllocateAndAddSynapseNode(
   // to proper values.
   recalc_strides(expandedStrides, expandedSizes);
   Tensor result;
-  //remove if part causing issue, if broadcast is used as intermediate node
-  //let gc handle the optimizatin if sizes equal
+  // remove if part causing issue, if broadcast is used as intermediate node
+  // let gc handle the optimizatin if sizes equal
   {
     result = habana_helpers::createPTTensor(
         self,
@@ -1081,4 +1083,3 @@ static auto& KernelRegistry =
         .add("aten::view", [](const int device_id, c10::ScalarType node_type) {
           return std::make_shared<ViewOperator>(device_id, node_type);
         });
-

@@ -129,8 +129,8 @@ class MatMulOperator : public HabanaOperator {
       bool is_output_persistent = false) override;
 
   static std::vector<int64_t> compute_output_shape(
-      const at::Tensor &tensor1,
-      const at::Tensor &tensor2);
+      const at::Tensor& tensor1,
+      const at::Tensor& tensor2);
 };
 
 class MatmulBackwardOperator : public HabanaOperator {

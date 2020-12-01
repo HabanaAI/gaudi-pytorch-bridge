@@ -11,7 +11,11 @@
 #include <string>
 namespace synapse_logger {
 
-void dump_reference(const std::string& ref, const std::string& ref_type, float* vec, int n);
+void dump_reference(
+    const std::string& ref,
+    const std::string& ref_type,
+    float* vec,
+    int n);
 
 void command(const std::string& x);
 void put_log(const std::string& what);
@@ -20,4 +24,4 @@ void start_hw_profile();
 
 void stop_hw_profile();
 
-}  // namespace synapse_logger
+} // namespace synapse_logger

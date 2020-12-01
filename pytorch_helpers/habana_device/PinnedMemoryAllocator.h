@@ -17,7 +17,7 @@ namespace at {
 namespace habana {
 
 at::Allocator* getPinnedMemoryAllocator();
-bool PinnedMemoryAllocator_is_pinned(void *ptr);
+bool PinnedMemoryAllocator_is_pinned(void* ptr);
 
 class PinnedMemoryAllocator final : public at::Allocator {
  public:
@@ -25,7 +25,7 @@ class PinnedMemoryAllocator final : public at::Allocator {
   ~PinnedMemoryAllocator();
   at::DataPtr allocate(size_t size) const override;
   at::DeleterFnPtr raw_deleter() const override;
-  static void deleter(void *ptr);
+  static void deleter(void* ptr);
 
   // user must manually set active device before calling allocator functions
   static synDeviceId allocator_active_device_id;

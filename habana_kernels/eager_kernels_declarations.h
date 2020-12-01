@@ -537,9 +537,7 @@ Tensor ones_like_hpu(
     const Tensor& self,
     const TensorOptions& options,
     c10::optional<c10::MemoryFormat> optional_memory_format);
-Tensor matmul_hpu(
-    const at::Tensor& tensor1,
-    const at::Tensor& tensor2);
+Tensor matmul_hpu(const at::Tensor& tensor1, const at::Tensor& tensor2);
 std::tuple<at::Tensor, at::Tensor> matmul_backward_hpu(
     const at::Tensor& grad_output,
     const at::Tensor& self,

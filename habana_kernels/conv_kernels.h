@@ -21,12 +21,12 @@ class ConvOperator : public habana::HabanaOperator {
   virtual void SetPTOutputs(torch::jit::Stack& inputs);
 
   static std::vector<int64_t> compute_output_shape(
-    std::vector<int64_t> shape_in,
-    std::vector<int64_t> shape_wt,
-    std::vector<int64_t> pad,
-    std::vector<int64_t> stride,
-    const bool ceil_mode,
-    c10::MemoryFormat memory_format);
+      std::vector<int64_t> shape_in,
+      std::vector<int64_t> shape_wt,
+      std::vector<int64_t> pad,
+      std::vector<int64_t> stride,
+      const bool ceil_mode,
+      c10::MemoryFormat memory_format);
 
  private:
   c10::ScalarType scalarType_;

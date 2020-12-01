@@ -211,4 +211,3 @@ class EmbeddingBagSumBwdKernelModeOperator : public HabanaOperator {
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
 };
-

@@ -52,75 +52,138 @@ inline synapse_error make_synapse_error(HCLStatus hcl_status, std::string msg) {
 
 class hcl_communicator {
  public:
-  explicit hcl_communicator(synDeviceId device_id, HCL_Comm hcl_comm = HCL_COMM_WORLD, std::string config_path = "");
+  explicit hcl_communicator(
+      synDeviceId device_id,
+      HCL_Comm hcl_comm = HCL_COMM_WORLD,
+      std::string config_path = "");
   hcl_communicator(hcl_communicator&) = delete;
   hcl_communicator(hcl_communicator&&) = delete;
   hcl_communicator& operator=(hcl_communicator&) = delete;
   hcl_communicator&& operator=(hcl_communicator&&) = delete;
   ~hcl_communicator();
 
-  synapse_error_o allreduce(device_ptr input_address, device_ptr output_address, size_t elem_cnt,
-                            synDataType data_type, HCL_Op hclop, const event_done_callback& done_callback = [] {});
+  synapse_error_o allreduce(
+      device_ptr input_address,
+      device_ptr output_address,
+      size_t elem_cnt,
+      synDataType data_type,
+      HCL_Op hclop,
+      const event_done_callback& done_callback = [] {});
 
-  synapse_error_o allreduce(device_ptr input_address, device_ptr output_address, size_t elem_cnt,
-                            synDataType data_type, const event_done_callback& done_callback = [] {});
+  synapse_error_o allreduce(
+      device_ptr input_address,
+      device_ptr output_address,
+      size_t elem_cnt,
+      synDataType data_type,
+      const event_done_callback& done_callback = [] {});
 
-  synapse_error_o reduce(HCL_Rank dest_rank, device_ptr input_address, device_ptr output_address, size_t elem_cnt,
-                         synDataType data_type, HCL_Op hclop, const event_done_callback& done_callback = [] {});
+  synapse_error_o reduce(
+      HCL_Rank dest_rank,
+      device_ptr input_address,
+      device_ptr output_address,
+      size_t elem_cnt,
+      synDataType data_type,
+      HCL_Op hclop,
+      const event_done_callback& done_callback = [] {});
 
-  synapse_error_o reduce_scatter(device_ptr input_address, device_ptr output_address, size_t elem_cnt,
-                                 synDataType data_type, HCL_Op hclop, const event_done_callback& done_callback = [] {});
+  synapse_error_o reduce_scatter(
+      device_ptr input_address,
+      device_ptr output_address,
+      size_t elem_cnt,
+      synDataType data_type,
+      HCL_Op hclop,
+      const event_done_callback& done_callback = [] {});
 
-  synapse_error_o alltoall(device_ptr input_address, device_ptr output_address, size_t elem_cnt,
-                           synDataType data_type, const event_done_callback& done_callback = [] {});
+  synapse_error_o alltoall(
+      device_ptr input_address,
+      device_ptr output_address,
+      size_t elem_cnt,
+      synDataType data_type,
+      const event_done_callback& done_callback = [] {});
 
-  synapse_error_o broadcast(HCL_Rank root_rank, uint64_t address, size_t elem_cnt, synDataType data_type,
-                            const event_done_callback& done_callback = [] {});
+  synapse_error_o broadcast(
+      HCL_Rank root_rank,
+      uint64_t address,
+      size_t elem_cnt,
+      synDataType data_type,
+      const event_done_callback& done_callback = [] {});
 
-  synapse_error_o allgather(device_ptr input_address, device_ptr output_address, size_t elem_cnt,
-                            synDataType data_type, const event_done_callback& done_callback = [] {});
+  synapse_error_o allgather(
+      device_ptr input_address,
+      device_ptr output_address,
+      size_t elem_cnt,
+      synDataType data_type,
+      const event_done_callback& done_callback = [] {});
 
-  synapse_error_o send(device_ptr send_buffer, size_t sizeInBytes, HCL_Rank remoteRank, uint32_t tag,
-                       const event_done_callback& done_callback = [] {});
+  synapse_error_o send(
+      device_ptr send_buffer,
+      size_t sizeInBytes,
+      HCL_Rank remoteRank,
+      uint32_t tag,
+      const event_done_callback& done_callback = [] {});
 
-  synapse_error_o receive(device_ptr receive_buffer, size_t sizeInBytes, HCL_Rank remoteRank, uint32_t tag,
-                          const event_done_callback& done_callback = [] {});
+  synapse_error_o receive(
+      device_ptr receive_buffer,
+      size_t sizeInBytes,
+      HCL_Rank remoteRank,
+      uint32_t tag,
+      const event_done_callback& done_callback = [] {});
 
   void synchronize_output(synapse_helpers::device_ptr output_address);
 
-  HCL_Rank my_hcl_rank() const { return my_hcl_rank_; };
+  HCL_Rank my_hcl_rank() const {
+    return my_hcl_rank_;
+  };
 
   HCL_Rank root_hcl_rank() const;
 
-  HCL_Comm hcl_comm() const { return comm_id_; };
+  HCL_Comm hcl_comm() const {
+    return comm_id_;
+  };
 
   synDeviceId my_device_id() const {
-    // Note: my_device should never be null as this is checked by assert in hcl_communicator::open implementation.
+    // Note: my_device should never be null as this is checked by assert in
+    // hcl_communicator::open implementation.
     return my_device_->id();
   }
 
-  unsigned size() const { return size_; }
+  unsigned size() const {
+    return size_;
+  }
 
-  bool using_streams() const { return using_streams_; };
+  bool using_streams() const {
+    return using_streams_;
+  };
 
   void negotiate_root_rank(int order);
 
  private:
   static const HCL_Rank HCL_RANK_UNASSIGNED{0xFFFF};
 
-  using hcl_collective_fnc = std::function<HCLStatus(synStreamHandle handle, device_ptr input_address,
-                                                     device_ptr output_address, size_t elem_cnt, synDataType data_type,
-                                                     device_ptr intermediate_address, size_t intermediate_size)>;
-  synapse_error_o execute_collective_with_fusion_buffer(const hcl_collective_fnc& collective,
-                                                        const HCL_CollectiveOp operation, device_ptr input_address,
-                                                        device_ptr output_address, size_t elem_cnt,
-                                                        synDataType data_type,
-                                                        const event_done_callback& done_callback);
+  using hcl_collective_fnc = std::function<HCLStatus(
+      synStreamHandle handle,
+      device_ptr input_address,
+      device_ptr output_address,
+      size_t elem_cnt,
+      synDataType data_type,
+      device_ptr intermediate_address,
+      size_t intermediate_size)>;
+  synapse_error_o execute_collective_with_fusion_buffer(
+      const hcl_collective_fnc& collective,
+      const HCL_CollectiveOp operation,
+      device_ptr input_address,
+      device_ptr output_address,
+      size_t elem_cnt,
+      synDataType data_type,
+      const event_done_callback& done_callback);
 
   stream* get_collective_stream() const;
   static synStreamHandle get_synapse_stream_handle(stream* maybe_stream);
   void prepare_stream(stream* stream, device_ptr input_address);
-  void submit_events(stream* stream, device_ptr output_address, const event_done_callback& done_callback);
+  void submit_events(
+      stream* stream,
+      device_ptr output_address,
+      const event_done_callback& done_callback);
 
   std::shared_ptr<device> my_device_{nullptr};
   std::shared_ptr<owned_device_ptr> intermediate_buffer_{nullptr};
@@ -132,4 +195,4 @@ class hcl_communicator {
   HCL_Rank root_hcl_rank_{HCL_RANK_UNASSIGNED};
 };
 
-}  // namespace synapse_helpers
+} // namespace synapse_helpers

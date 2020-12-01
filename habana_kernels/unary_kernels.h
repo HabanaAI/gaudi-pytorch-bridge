@@ -141,7 +141,8 @@ class ClampOperator : public HabanaOperator {
 
 class ClampInplaceOperator : public HabanaOperator {
  public:
-  ClampInplaceOperator(int device_id, const std::string& guid) : HabanaOperator(guid) {
+  ClampInplaceOperator(int device_id, const std::string& guid)
+      : HabanaOperator(guid) {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
     kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
@@ -201,8 +202,7 @@ class GeluOperator : public HabanaOperator {
  public:
   GeluOperator(int device_id, c10::ScalarType scalarType)
       : HabanaOperator(
-            "gelu_fwd_" +
-            habana_helpers::name_suffix_from_type(scalarType)) {
+            "gelu_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
     kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
@@ -220,10 +220,10 @@ class GeluBackwardOperator : public HabanaOperator {
  public:
   GeluBackwardOperator(int device_id, c10::ScalarType scalarType)
       : HabanaOperator(
-            "gelu_bwd_" +
-            habana_helpers::name_suffix_from_type(scalarType)) {
+            "gelu_bwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
     this->CreateSynContext(device_id);
-    kernel_meta_data_.input_layout.assign({LayoutFormat::ANY, LayoutFormat::ANY});
+    kernel_meta_data_.input_layout.assign(
+        {LayoutFormat::ANY, LayoutFormat::ANY});
     kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
   }
 
@@ -239,8 +239,7 @@ class ErfOperator : public HabanaOperator {
  public:
   ErfOperator(int device_id, c10::ScalarType scalarType)
       : HabanaOperator(
-            "erf_fwd_" +
-            habana_helpers::name_suffix_from_type(scalarType)) {
+            "erf_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
     kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
@@ -258,8 +257,7 @@ class ExpOperator : public HabanaOperator {
  public:
   ExpOperator(int device_id, c10::ScalarType scalarType)
       : HabanaOperator(
-            "exp_fwd_" +
-            habana_helpers::name_suffix_from_type(scalarType)) {
+            "exp_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
     kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
@@ -270,4 +268,3 @@ class ExpOperator : public HabanaOperator {
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
 };
-

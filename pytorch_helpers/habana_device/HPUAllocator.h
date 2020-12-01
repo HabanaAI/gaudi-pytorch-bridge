@@ -14,10 +14,10 @@
 #include <synapse_helpers/device.h>
 #include <synapse_helpers/habana_tensor.h>
 #include "habana_helpers/logging.h"
-#include "pool_allocator/PoolAllocator.h"
 #include "pool_allocator/CoalescedPoolAllocator.h"
+#include "pool_allocator/PoolAllocator.h"
 
-typedef bool (*pgmDropCachedRecipe) (size_t &recipe_count);
+typedef bool (*pgmDropCachedRecipe)(size_t& recipe_count);
 
 namespace at {
 namespace habana {
@@ -28,10 +28,10 @@ class HPUAllocator : public synapse_helpers::device_allocator {
  public:
   HPUAllocator(synDeviceId);
 
-  void  reset() override;
-  void  release() override;
+  void reset() override;
+  void release() override;
   void* alloc(size_t num_bytes) override;
-  void  free(void* ptr) override;
+  void free(void* ptr) override;
 
  private:
   synDeviceId device_id{synapse_helpers::device::INVALID_ID};
@@ -69,7 +69,7 @@ class HPUDeviceAllocator final : public at::Allocator {
     const char* poolValue = getenv(poolEnvValue.c_str());
     if (poolValue) {
       poolSize = atoi(getenv("PT_HPU_POOL_SIZE"));
-      poolSize = poolSize*1024*1024*1024;
+      poolSize = poolSize * 1024 * 1024 * 1024;
       if (poolSize == 0) {
         PT_DEVICE_DEBUG("Pool size not specified, setting default");
         poolSize = DEFAULT_POOL_SIZE;
@@ -79,9 +79,9 @@ class HPUDeviceAllocator final : public at::Allocator {
     return poolSize;
   }
 
-  static void create_pool(synDeviceId deviceID,  uint64_t poolSize);
+  static void create_pool(synDeviceId deviceID, uint64_t poolSize);
   static void delete_pool();
-  static pool_allocator::SubAllocator *suballoc;
+  static pool_allocator::SubAllocator* suballoc;
 
   static void* mem_pool;
   static pool_allocator::PoolStrategyType poolingType;
@@ -90,8 +90,8 @@ class HPUDeviceAllocator final : public at::Allocator {
   at::DataPtr allocate(size_t size) const override;
   at::DeleterFnPtr raw_deleter() const override;
 
-  void* allocate_impl(size_t size, synStatus &status) const;
-  static void deleter(void *ptr);
+  void* allocate_impl(size_t size, synStatus& status) const;
+  static void deleter(void* ptr);
 
   // user must manually set active device before calling allocator functions
   static synDeviceId allocator_active_device_id;

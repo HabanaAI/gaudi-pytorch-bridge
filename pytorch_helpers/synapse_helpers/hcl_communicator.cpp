@@ -213,11 +213,13 @@ synapse_error_o hcl_communicator::reduce_scatter(
       intermediate_buffer.size(),
       eHCLSum,
       hcl_comm(),
-      0/*flags*/);
+      0 /*flags*/);
   VERIFY_HCL_STATUS("HCL_Reduce_Scatter(...) failed.", status);
 
   my_device_->register_producer_on_stream(
-      std::move(output_address), collective_stream, std::move(tensor_cleanup_callback));
+      std::move(output_address),
+      collective_stream,
+      std::move(tensor_cleanup_callback));
 #else
   {
     trace_scope ts("ReduceScatterWaitForInputData");
@@ -234,7 +236,7 @@ synapse_error_o hcl_communicator::reduce_scatter(
       intermediate_buffer.size(),
       eHCLSum,
       hcl_comm(),
-      0/*flags*/);
+      0 /*flags*/);
   VERIFY_HCL_STATUS("HCL_Reduce_Scatter(...) failed.", status);
 
   tensor_cleanup_callback();
@@ -287,7 +289,9 @@ synapse_error_o hcl_communicator::reduce(
   VERIFY_HCL_STATUS("HCL_Reduce(...) failed.", status);
 
   my_device_->register_producer_on_stream(
-      std::move(output_address), collective_stream, std::move(tensor_cleanup_callback));
+      std::move(output_address),
+      collective_stream,
+      std::move(tensor_cleanup_callback));
 #else
   {
     trace_scope ts("ReduceWaitForInputData");
@@ -305,7 +309,7 @@ synapse_error_o hcl_communicator::reduce(
       dest_rank,
       eHCLSum,
       hcl_comm(),
-      0/*flags*/);
+      0 /*flags*/);
   VERIFY_HCL_STATUS("HCL_Reduce_Scatter(...) failed.", status);
 
   tensor_cleanup_callback();
@@ -355,11 +359,13 @@ synapse_error_o hcl_communicator::allreduce(
       intermediate_buffer.size(),
       eHCLSum,
       hcl_comm(),
-      0/*flags*/);
+      0 /*flags*/);
   VERIFY_HCL_STATUS("HCL_Allreduce(...) failed.", status);
 
   my_device_->register_producer_on_stream(
-      std::move(output_address), collective_stream, std::move(tensor_cleanup_callback));
+      std::move(output_address),
+      collective_stream,
+      std::move(tensor_cleanup_callback));
 #else
   {
     trace_scope ts("AllReduceWaitForInputData");
@@ -376,7 +382,7 @@ synapse_error_o hcl_communicator::allreduce(
       intermediate_buffer.size(),
       eHCLSum,
       hcl_comm(),
-      0/*flags*/);
+      0 /*flags*/);
   VERIFY_HCL_STATUS("HCL_Allreduce(...) failed.", status);
 
   tensor_cleanup_callback();
@@ -408,13 +414,15 @@ synapse_error_o hcl_communicator::broadcast(
       data_type,
       root_rank,
       hcl_comm(),
-      0/*flags*/);
+      0 /*flags*/);
   VERIFY_HCL_STATUS("HCL_Bcast(...) failed.", status);
 
   // For non root (recieving) rank address is output.
   if (my_hcl_rank() != root_rank) {
     my_device_->register_producer_on_stream(
-        std::move(address), collective_stream, std::move(tensor_cleanup_callback));
+        std::move(address),
+        collective_stream,
+        std::move(tensor_cleanup_callback));
   }
 
 #else
@@ -431,7 +439,7 @@ synapse_error_o hcl_communicator::broadcast(
       data_type,
       root_rank,
       hcl_comm(),
-      0/*flags*/);
+      0 /*flags*/);
   VERIFY_HCL_STATUS("HCL_Bcast(...) failed.", status);
 
   tensor_cleanup_callback();
@@ -458,11 +466,13 @@ synapse_error_o hcl_communicator::allgather(
       elem_cnt,
       data_type,
       hcl_comm(),
-      0/*flags*/);
+      0 /*flags*/);
   VERIFY_HCL_STATUS("HCL_AllGather(...) failed", status);
 
   my_device_->register_producer_on_stream(
-      std::move(output_address), collective_stream, std::move(tensor_cleanup_callback));
+      std::move(output_address),
+      collective_stream,
+      std::move(tensor_cleanup_callback));
 #else
   {
     trace_scope ts("AllGatherWaitForInputData");
@@ -475,7 +485,7 @@ synapse_error_o hcl_communicator::allgather(
       elem_cnt,
       data_type,
       hcl_comm(),
-      0/*flags*/);
+      0 /*flags*/);
   VERIFY_HCL_STATUS("HCL_AllGather(...) failed", status);
 
   tensor_cleanup_callback();

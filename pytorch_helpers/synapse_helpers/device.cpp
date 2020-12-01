@@ -108,7 +108,8 @@ device::device(
   is_stream_async_enabled_ = GET_ENV_FLAG(PT_ENABLE_HABANA_STREAMASYNC);
   host_memory_cache_enabled_ = GET_ENV_FLAG(PT_ENABLE_HOST_MEMORY_CACHE);
   max_dma_copy_retry_count_ = GET_ENV_FLAG(PT_HABANA_MAX_DMA_COPY_RETRY_COUNT);
-  dma_copy_retry_delay_ = std::chrono::milliseconds(GET_ENV_FLAG(PT_HABANA_DMA_COPY_RETRY_DELAY));
+  dma_copy_retry_delay_ =
+      std::chrono::milliseconds(GET_ENV_FLAG(PT_HABANA_DMA_COPY_RETRY_DELAY));
 }
 
 synapse_error_v<std::shared_ptr<device>> device::get_or_create(
@@ -305,21 +306,18 @@ synapse_error device::copy_data_to_device(
   synStatus status;
 
   void* mapped_cpu_data = cpu_data;
-  uint8_t *dst_ptr;
+  uint8_t* dst_ptr;
   if (!is_pinned) {
     status = host_memory_.malloc((void**)&dst_ptr, total_bytes);
     if (status != synStatus::synSuccess) {
-        PT_SYNHELPER_WARN(
-            "Host malloc failed: ", status);
-        return synapse_error{
-            "Host Malloc failed with status.", status};
+      PT_SYNHELPER_WARN("Host malloc failed: ", status);
+      return synapse_error{"Host Malloc failed with status.", status};
     }
     std::copy(
         reinterpret_cast<uint8_t*>(cpu_data),
         reinterpret_cast<uint8_t*>(cpu_data) + total_bytes,
         dst_ptr);
     mapped_cpu_data = dst_ptr;
-
   }
 
   PT_SYNHELPER_DEBUG("Used stream handle: ", stream_h2d_);
@@ -357,7 +355,7 @@ synapse_error device::copy_data_to_device(
   sem_.add_producer(
       {destination}, stream_h2d_, [this, dst_ptr, is_pinned, done_cb]() {
         if (!is_pinned)
-	   host_memory_.free((void*)dst_ptr);
+          host_memory_.free((void*)dst_ptr);
         done_cb();
       });
 
@@ -383,14 +381,12 @@ synapse_error device::copy_data_to_host(
   sem_.enqueue_wait_event(device_data, stream_d2h_);
 
   void* mapped_destination = destination;
-  uint8_t *dst_ptr;
+  uint8_t* dst_ptr;
   if (!is_pinned) {
     status = host_memory_.malloc((void**)&dst_ptr, total_bytes);
     if (status != synStatus::synSuccess) {
-        PT_SYNHELPER_WARN(
-            "Host malloc failed: ", status);
-        return synapse_error{
-            "Host Malloc failed with status.", status};
+      PT_SYNHELPER_WARN("Host malloc failed: ", status);
+      return synapse_error{"Host Malloc failed with status.", status};
     }
     mapped_destination = dst_ptr;
   }
@@ -425,13 +421,15 @@ synapse_error device::copy_data_to_host(
   } while (++attempt < max_dma_copy_retry_count_);
 
   sem_.add_producer(
-      {}, stream_d2h_, [this, done_cb, dst_ptr, total_bytes, destination, is_pinned]() {
+      {},
+      stream_d2h_,
+      [this, done_cb, dst_ptr, total_bytes, destination, is_pinned]() {
         if (!is_pinned) {
           std::copy(
               dst_ptr,
               dst_ptr + total_bytes,
               reinterpret_cast<uint8_t*>(destination));
-	   host_memory_.free((void*)dst_ptr);
+          host_memory_.free((void*)dst_ptr);
         }
         done_cb();
       });

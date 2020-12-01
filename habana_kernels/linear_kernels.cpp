@@ -707,24 +707,23 @@ Tensor mv_hpu(const Tensor& self, const Tensor& other) {
 }
 
 std::vector<int64_t> habana::MatMulOperator::compute_output_shape(
-    const at::Tensor &tensor1,
-    const at::Tensor &tensor2) {
+    const at::Tensor& tensor1,
+    const at::Tensor& tensor2) {
   auto dim_tensor1 = tensor1.dim();
   auto dim_tensor2 = tensor2.dim();
 
   if (dim_tensor1 >= 3 && (dim_tensor2 == 1 || dim_tensor2 == 2)) {
-
     auto size1 = tensor1.sizes();
-    auto size2 = dim_tensor2 == 1 ?
-        at::infer_size({-1, 1}, tensor2.numel()) : tensor2.sizes();
+    auto size2 = dim_tensor2 == 1 ? at::infer_size({-1, 1}, tensor2.numel())
+                                  : tensor2.sizes();
     std::vector<int64_t> output_size;
     output_size.insert(output_size.end(), size1.begin(), size1.end() - 1);
     if (dim_tensor2 > 1) {
       output_size.push_back(size2[dim_tensor2 - 1]);
     }
     return output_size;
-  }
-  else if ((dim_tensor1 >= 1 && dim_tensor2 >= 1) &&
+  } else if (
+      (dim_tensor1 >= 1 && dim_tensor2 >= 1) &&
       (dim_tensor1 >= 3 || dim_tensor2 >= 3)) {
     int64_t n = dim_tensor1 > 1 ? tensor1.size(-2) : 1;
 
@@ -747,8 +746,7 @@ std::vector<int64_t> habana::MatMulOperator::compute_output_shape(
       output_size.push_back(p);
     }
     return output_size;
-  }
-  else {
+  } else {
     TORCH_CHECK(false, "don't support matmul of this size");
     return std::vector<int64_t>();
   }
@@ -771,7 +769,7 @@ void habana::MatMulOperator::AllocateAndAddSynapseNode(
   auto dim_tensor1 = tensor1.dim();
   auto dim_tensor2 = tensor2.dim();
 
-  //matmul is supoorted only for BERT Large with following dims
+  // matmul is supoorted only for BERT Large with following dims
   //(dim1 >=3 && (dim1==2 || dim2==2)
   //((dim1 >=1 && dim2 >=1) && (dim1>=3 || dim2>=3))
 
@@ -784,12 +782,13 @@ void habana::MatMulOperator::AllocateAndAddSynapseNode(
     auto inferred_ten1_dims =
         at::infer_size({-1, size1[size1.size() - 1]}, tensor1.numel());
 
-    ReshapeOperator reshape_ten1(tensor1.device().index(), tensor1.scalar_type());
+    ReshapeOperator reshape_ten1(
+        tensor1.device().index(), tensor1.scalar_type());
 
     auto& syn_input1 =
         reshape_ten1.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
-    torch::jit::Stack stack =
-        {c10::IValue(tensor1), c10::IValue(inferred_ten1_dims)};
+    torch::jit::Stack stack = {
+        c10::IValue(tensor1), c10::IValue(inferred_ten1_dims)};
     reshape_ten1.AllocateAndAddSynapseNode(graph, stack, false);
     p_context_->syn_inputs_[0] = std::move(syn_input1);
     Tensor t1 = reshape_ten1.GetOutputs()[0];
@@ -798,13 +797,14 @@ void habana::MatMulOperator::AllocateAndAddSynapseNode(
     Tensor t2 = tensor2;
     bool is_reshaped = false;
     // Add Reshape node to graph
-    ReshapeOperator reshape_ten2(tensor2.device().index(), tensor2.scalar_type());
+    ReshapeOperator reshape_ten2(
+        tensor2.device().index(), tensor2.scalar_type());
     if (dim_tensor2 == 1) {
       auto inferred_ten2_dims = at::infer_size({-1, 1}, tensor2.numel());
       auto& syn_input2 =
           reshape_ten2.SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
-      torch::jit::Stack stack =
-          {c10::IValue(tensor2), c10::IValue(inferred_ten2_dims)};
+      torch::jit::Stack stack = {
+          c10::IValue(tensor2), c10::IValue(inferred_ten2_dims)};
       reshape_ten2.AllocateAndAddSynapseNode(graph, stack, false);
       p_context_->syn_inputs_[1] = std::move(syn_input2);
       t2 = reshape_ten2.GetOutputs()[0];
@@ -814,18 +814,19 @@ void habana::MatMulOperator::AllocateAndAddSynapseNode(
     MMOperator mm_op(tensor1.device().index());
     // input1 = mat1, input2 = mat2
     mm_op.SetSynapseInput(std::move(reshape_ten1.GetSynOutputs()[0]));
-    auto &syn_input2 = mm_op.SetSynapseInput(
-        std::move( is_reshaped ? reshape_ten2.GetSynOutputs()[0] :
-            p_context_->syn_inputs_[1]));
+    auto& syn_input2 = mm_op.SetSynapseInput(std::move(
+        is_reshaped ? reshape_ten2.GetSynOutputs()[0]
+                    : p_context_->syn_inputs_[1]));
     stack = {c10::IValue(t1), c10::IValue(t2)};
     mm_op.AllocateAndAddSynapseNode(graph, stack, false);
-    if(!is_reshaped) {
+    if (!is_reshaped) {
       p_context_->syn_inputs_[1] = std::move(syn_input2);
     }
     stack.clear();
-    //reshape the output
+    // reshape the output
     auto output = mm_op.GetOutputs()[0];
-    ReshapeOperator reshape_out(tensor2.device().index(), tensor2.scalar_type());
+    ReshapeOperator reshape_out(
+        tensor2.device().index(), tensor2.scalar_type());
     reshape_out.SetSynapseInput(std::move(mm_op.GetSynOutputs()[0]));
     stack = {c10::IValue(output), c10::IValue(output_shape)};
     reshape_out.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
@@ -834,92 +835,90 @@ void habana::MatMulOperator::AllocateAndAddSynapseNode(
         std::move(reshape_out.GetSynOutputs()[0]));
     p_context_->pt_outputs_.emplace_back(
         std::move(reshape_out.GetOutputs()[0]));
-  } else if ((dim_tensor1 >= 1 && dim_tensor2 >= 1) &&
-        (dim_tensor1 >= 3 || dim_tensor2 >= 3)) {
-      // We are multiplying b1 x n x m1 by x2 x m2 x p (where b1 can be a list);
-      // we track m1 vs m2 separately even though they must match for nicer error messages
-      int64_t n = dim_tensor1 > 1 ? tensor1.size(-2) : 1;
-      int64_t m1 = tensor1.size(-1);
-      IntArrayRef batch_tensor1(
-          tensor1.sizes().data(), std::max<int64_t>(dim_tensor1 - 2, 0));
-      int64_t m2 = dim_tensor2 > 1 ? tensor2.size(-2) : 1;
-      int64_t p = tensor2.size(-1);
-      IntArrayRef batch_tensor2(
-          tensor2.sizes().data(), std::max<int64_t>(dim_tensor2 - 2, 0));
+  } else if (
+      (dim_tensor1 >= 1 && dim_tensor2 >= 1) &&
+      (dim_tensor1 >= 3 || dim_tensor2 >= 3)) {
+    // We are multiplying b1 x n x m1 by x2 x m2 x p (where b1 can be a list);
+    // we track m1 vs m2 separately even though they must match for nicer error
+    // messages
+    int64_t n = dim_tensor1 > 1 ? tensor1.size(-2) : 1;
+    int64_t m1 = tensor1.size(-1);
+    IntArrayRef batch_tensor1(
+        tensor1.sizes().data(), std::max<int64_t>(dim_tensor1 - 2, 0));
+    int64_t m2 = dim_tensor2 > 1 ? tensor2.size(-2) : 1;
+    int64_t p = tensor2.size(-1);
+    IntArrayRef batch_tensor2(
+        tensor2.sizes().data(), std::max<int64_t>(dim_tensor2 - 2, 0));
 
-      // expand the batch portion (i.e. cut off matrix dimensions and expand rest)
-      std::vector<int64_t> expand_batch_portion =
-          at::infer_size(batch_tensor1, batch_tensor2);
+    // expand the batch portion (i.e. cut off matrix dimensions and expand rest)
+    std::vector<int64_t> expand_batch_portion =
+        at::infer_size(batch_tensor1, batch_tensor2);
 
-      std::vector<int64_t> tensor1_expand_size(expand_batch_portion);
-      tensor1_expand_size.insert(tensor1_expand_size.end(), {n, m1});
+    std::vector<int64_t> tensor1_expand_size(expand_batch_portion);
+    tensor1_expand_size.insert(tensor1_expand_size.end(), {n, m1});
 
-      std::vector<int64_t> tensor2_expand_size(expand_batch_portion);
-      tensor2_expand_size.insert(tensor2_expand_size.end(), {m2, p});
+    std::vector<int64_t> tensor2_expand_size(expand_batch_portion);
+    tensor2_expand_size.insert(tensor2_expand_size.end(), {m2, p});
 
-      int expand_batch_product = std::accumulate(
-          expand_batch_portion.begin(),
-          expand_batch_portion.end(),
-          1,
-          std::multiplies<int64_t>());
+    int expand_batch_product = std::accumulate(
+        expand_batch_portion.begin(),
+        expand_batch_portion.end(),
+        1,
+        std::multiplies<int64_t>());
 
-      std::vector<int64_t> tensor1_bmm_view({expand_batch_product});
-      tensor1_bmm_view.insert(tensor1_bmm_view.end(), {n, m1});
+    std::vector<int64_t> tensor1_bmm_view({expand_batch_product});
+    tensor1_bmm_view.insert(tensor1_bmm_view.end(), {n, m1});
 
-      std::vector<int64_t> tensor2_bmm_view({expand_batch_product});
-      tensor2_bmm_view.insert(tensor2_bmm_view.end(), {m2, p});
+    std::vector<int64_t> tensor2_bmm_view({expand_batch_product});
+    tensor2_bmm_view.insert(tensor2_bmm_view.end(), {m2, p});
 
-      BroadcastOperator bcastOpTens1(
-          tensor1.device().index(), tensor1.scalar_type());
-      torch::jit::Stack stack =
-          {IValue(tensor1),
-          IValue(tensor1_expand_size),
-          IValue(false)};
-      auto& syn_input1 =
-          bcastOpTens1.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
-      bcastOpTens1.AllocateAndAddSynapseNode(graph, stack, false);
-      stack.clear();
-      p_context_->syn_inputs_[0] = std::move(syn_input1);
-      //expand tensor2
-      BroadcastOperator bcastOpTens2(
+    BroadcastOperator bcastOpTens1(
+        tensor1.device().index(), tensor1.scalar_type());
+    torch::jit::Stack stack = {
+        IValue(tensor1), IValue(tensor1_expand_size), IValue(false)};
+    auto& syn_input1 =
+        bcastOpTens1.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+    bcastOpTens1.AllocateAndAddSynapseNode(graph, stack, false);
+    stack.clear();
+    p_context_->syn_inputs_[0] = std::move(syn_input1);
+    // expand tensor2
+    BroadcastOperator bcastOpTens2(
         tensor2.device().index(), tensor2.scalar_type());
-      stack =
-          {IValue(tensor2), IValue(tensor2_expand_size), IValue(false)};
-      auto& syn_input2 =
-          bcastOpTens2.SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
-      bcastOpTens2.AllocateAndAddSynapseNode(graph, stack, false);
-      stack.clear();
-      p_context_->syn_inputs_[1] = std::move(syn_input2);
+    stack = {IValue(tensor2), IValue(tensor2_expand_size), IValue(false)};
+    auto& syn_input2 =
+        bcastOpTens2.SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
+    bcastOpTens2.AllocateAndAddSynapseNode(graph, stack, false);
+    stack.clear();
+    p_context_->syn_inputs_[1] = std::move(syn_input2);
 
-      ReshapeOperator reshape_ten1(tensor1.device().index(), tensor1.scalar_type());
-      reshape_ten1.SetSynapseInput(std::move(bcastOpTens1.GetSynOutputs()[0]));
-      stack =
-          {IValue(bcastOpTens1.GetOutputs()[0]),
-          IValue(tensor1_bmm_view)};
-      reshape_ten1.AllocateAndAddSynapseNode(graph, stack, false);
-      stack.clear();
+    ReshapeOperator reshape_ten1(
+        tensor1.device().index(), tensor1.scalar_type());
+    reshape_ten1.SetSynapseInput(std::move(bcastOpTens1.GetSynOutputs()[0]));
+    stack = {IValue(bcastOpTens1.GetOutputs()[0]), IValue(tensor1_bmm_view)};
+    reshape_ten1.AllocateAndAddSynapseNode(graph, stack, false);
+    stack.clear();
 
-      ReshapeOperator reshape_ten2(tensor2.device().index(), tensor2.scalar_type());
-      reshape_ten2.SetSynapseInput(std::move(bcastOpTens2.GetSynOutputs()[0]));
-      stack =
-          {IValue(bcastOpTens2.GetOutputs()[0]),
-          IValue(tensor2_bmm_view)};
-      reshape_ten2.AllocateAndAddSynapseNode(graph, stack, false);
-      stack.clear();
+    ReshapeOperator reshape_ten2(
+        tensor2.device().index(), tensor2.scalar_type());
+    reshape_ten2.SetSynapseInput(std::move(bcastOpTens2.GetSynOutputs()[0]));
+    stack = {IValue(bcastOpTens2.GetOutputs()[0]), IValue(tensor2_bmm_view)};
+    reshape_ten2.AllocateAndAddSynapseNode(graph, stack, false);
+    stack.clear();
 
-      BmmOperator bmm_op(tensor1.device().index(), tensor1.scalar_type());
+    BmmOperator bmm_op(tensor1.device().index(), tensor1.scalar_type());
 
-      bmm_op.SetSynapseInput(std::move(reshape_ten1.GetSynOutputs()[0]));
-      bmm_op.SetSynapseInput(std::move(reshape_ten2.GetSynOutputs()[0]));
-      stack =
-          {IValue(reshape_ten1.GetOutputs()[0]),
-          IValue(reshape_ten2.GetOutputs()[0])};
-      bmm_op.AllocateAndAddSynapseNode(graph, stack, false);
-      stack.clear();
+    bmm_op.SetSynapseInput(std::move(reshape_ten1.GetSynOutputs()[0]));
+    bmm_op.SetSynapseInput(std::move(reshape_ten2.GetSynOutputs()[0]));
+    stack = {
+        IValue(reshape_ten1.GetOutputs()[0]),
+        IValue(reshape_ten2.GetOutputs()[0])};
+    bmm_op.AllocateAndAddSynapseNode(graph, stack, false);
+    stack.clear();
 
-    //reshape the output
+    // reshape the output
     auto output = bmm_op.GetOutputs()[0];
-    ReshapeOperator reshape_out(tensor2.device().index(), tensor2.scalar_type());
+    ReshapeOperator reshape_out(
+        tensor2.device().index(), tensor2.scalar_type());
     reshape_out.SetSynapseInput(std::move(bmm_op.GetSynOutputs()[0]));
     stack = {IValue(output), IValue(output_shape)};
     reshape_out.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
@@ -928,10 +927,13 @@ void habana::MatMulOperator::AllocateAndAddSynapseNode(
         std::move(reshape_out.GetSynOutputs()[0]));
     p_context_->pt_outputs_.emplace_back(
         std::move(reshape_out.GetOutputs()[0]));
-  }
-  else {
-     PT_KERNEL_FATAL("matmul with following dimension is not supported ",
-          dim_tensor1, "D and ", dim_tensor2, "D");
+  } else {
+    PT_KERNEL_FATAL(
+        "matmul with following dimension is not supported ",
+        dim_tensor1,
+        "D and ",
+        dim_tensor2,
+        "D");
   }
 }
 
@@ -1184,7 +1186,8 @@ habana::MatmulBackwardOperator::MatBwSize(
 
     UNUSED auto& gradsum_syn_input_0 =
         Op.SetSynapseInput(std::move(ReshapeOpList.at(1).GetSynOutputs()[0]));
-    torch::jit::Stack stack = {IValue(ReshapeOpList.at(1).GetOutputs()[0]), IValue(sizes)};
+    torch::jit::Stack stack = {
+        IValue(ReshapeOpList.at(1).GetOutputs()[0]), IValue(sizes)};
     Op.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
 
     ReshapeOpList.clear();
@@ -1429,7 +1432,8 @@ static auto& KernelRegistry =
               return std::make_shared<habana::MatmulBackwardOperator>(
                   device_id);
             })
-        .add("aten::matmul",
+        .add(
+            "aten::matmul",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<habana::MatMulOperator>(device_id);
-        });
+            });

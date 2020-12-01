@@ -130,10 +130,10 @@ void NLLLossFwdOperator::AllocateAndAddSynapseNode(
       self.suggest_memory_format(),
       is_output_persistent[1]);
   p_context_->syn_outputs_.emplace_back(habana_helpers::create_tensor(
-        output2,
-        graph.get_graph_handle(),
-        is_output_persistent[1],
-        c10::nullopt));
+      output2,
+      graph.get_graph_handle(),
+      is_output_persistent[1],
+      c10::nullopt));
   p_context_->pt_outputs_.emplace_back(output2);
 }
 

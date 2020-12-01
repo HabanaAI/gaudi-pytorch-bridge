@@ -1102,18 +1102,17 @@ void LayerNormOperator::AllocateAndAddSynapseNode(
   auto n = inputs[4].toInt();
   const auto eps = inputs[5].toDouble();
 
-  //PT_HABANA_ENABLE_GRAPHMODE_LAYERNORM_FUSION Env variable is added as WA only for BERT graph mode 
-  //and it should not be enabled in other cases.
-  static const std::string graphFusionEnvValue = "PT_HABANA_ENABLE_GRAPHMODE_LAYERNORM_FUSION";
+  // PT_HABANA_ENABLE_GRAPHMODE_LAYERNORM_FUSION Env variable is added as WA
+  // only for BERT graph mode and it should not be enabled in other cases.
+  static const std::string graphFusionEnvValue =
+      "PT_HABANA_ENABLE_GRAPHMODE_LAYERNORM_FUSION";
   const char* graphFusionValue = getenv(graphFusionEnvValue.c_str());
-  if(graphFusionValue)
-  {
-    int isFusionEnabled = std::stoi(getenv("PT_HABANA_ENABLE_GRAPHMODE_LAYERNORM_FUSION"));
-    if (isFusionEnabled && m==1)
-    {
+  if (graphFusionValue) {
+    int isFusionEnabled =
+        std::stoi(getenv("PT_HABANA_ENABLE_GRAPHMODE_LAYERNORM_FUSION"));
+    if (isFusionEnabled && m == 1) {
       m = input.size(0) * input.size(1);
-      if(n != input.size(2))
-      {
+      if (n != input.size(2)) {
         n = input.size(2);
       }
     }
@@ -1215,15 +1214,15 @@ void LayerNormOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   const auto bias = inputs[2].toTensor();
   auto m = inputs[3].toInt();
 
-  //PT_HABANA_ENABLE_GRAPHMODE_LAYERNORM_FUSION Env variable is added as WA only for BERT graph mode 
-  //and it should not be enabled in other cases.
-  static const std::string graphFusionEnvValue = "PT_HABANA_ENABLE_GRAPHMODE_LAYERNORM_FUSION";
+  // PT_HABANA_ENABLE_GRAPHMODE_LAYERNORM_FUSION Env variable is added as WA
+  // only for BERT graph mode and it should not be enabled in other cases.
+  static const std::string graphFusionEnvValue =
+      "PT_HABANA_ENABLE_GRAPHMODE_LAYERNORM_FUSION";
   const char* graphFusionValue = getenv(graphFusionEnvValue.c_str());
-  if(graphFusionValue)
-  {
-    int isFusionEnabled = std::stoi(getenv("PT_HABANA_ENABLE_GRAPHMODE_LAYERNORM_FUSION"));
-    if (isFusionEnabled && m==1)
-    {
+  if (graphFusionValue) {
+    int isFusionEnabled =
+        std::stoi(getenv("PT_HABANA_ENABLE_GRAPHMODE_LAYERNORM_FUSION"));
+    if (isFusionEnabled && m == 1) {
       m = input.size(0) * input.size(1);
     }
   }
@@ -1361,18 +1360,17 @@ void LayerNormBackwardOperator::AllocateAndAddSynapseNode(
   auto n = inputs[6].toInt();
   const auto grad_input_mask = inputs[7].toBoolList();
 
-  //PT_HABANA_ENABLE_GRAPHMODE_LAYERNORM_FUSION Env variable is added as WA only for BERT graph mode 
-  //and it should not be enabled in other cases.
-  static const std::string graphFusionEnvValue = "PT_HABANA_ENABLE_GRAPHMODE_LAYERNORM_FUSION";
+  // PT_HABANA_ENABLE_GRAPHMODE_LAYERNORM_FUSION Env variable is added as WA
+  // only for BERT graph mode and it should not be enabled in other cases.
+  static const std::string graphFusionEnvValue =
+      "PT_HABANA_ENABLE_GRAPHMODE_LAYERNORM_FUSION";
   const char* graphFusionValue = getenv(graphFusionEnvValue.c_str());
-  if(graphFusionValue)
-  {
-    int isFusionEnabled = std::stoi(getenv("PT_HABANA_ENABLE_GRAPHMODE_LAYERNORM_FUSION"));
-    if (isFusionEnabled && m==1)
-    {
+  if (graphFusionValue) {
+    int isFusionEnabled =
+        std::stoi(getenv("PT_HABANA_ENABLE_GRAPHMODE_LAYERNORM_FUSION"));
+    if (isFusionEnabled && m == 1) {
       m = X.size(0) * X.size(1);
-      if(n != X.size(2))
-      {
+      if (n != X.size(2)) {
         n = X.size(2);
       }
     }

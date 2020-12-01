@@ -114,7 +114,6 @@ class SoftmaxBackwardOperator : public HabanaOperator {
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
-
 };
 
 } // end namespace habana

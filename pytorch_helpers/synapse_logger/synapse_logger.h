@@ -40,16 +40,23 @@ namespace synapse_logger {
 
 constexpr std::array<const char*, 3> slog_levels = {{"ERROR", "INFO", "TRACE"}};
 const int enabled_slog_level = S_INFO;
-constexpr const char* get_slog_level(ErrorLevel level) { return synapse_logger::slog_levels[level]; }
+constexpr const char* get_slog_level(ErrorLevel level) {
+  return synapse_logger::slog_levels[level];
+}
 
-inline bool is_status_success(HCLStatus status) { return (eHCLSuccess == status); }
+inline bool is_status_success(HCLStatus status) {
+  return (eHCLSuccess == status);
+}
 
-inline bool is_status_success(synStatus status) { return (synSuccess == status); }
+inline bool is_status_success(synStatus status) {
+  return (synSuccess == status);
+}
 
-#define SLOG(level)                                                                                        \
-  if (synapse_logger::enabled_slog_level >= level)                                                         \
-  (level <= S_ERROR ? std::cerr : std::clog) << "synapse_logger " << synapse_logger::get_slog_level(level) \
-                                             << ". pid=" << getpid() << " at " << __FILE__ << ":" << __LINE__ << " "
+#define SLOG(level)                                                 \
+  if (synapse_logger::enabled_slog_level >= level)                  \
+  (level <= S_ERROR ? std::cerr : std::clog)                        \
+      << "synapse_logger " << synapse_logger::get_slog_level(level) \
+      << ". pid=" << getpid() << " at " << __FILE__ << ":" << __LINE__ << " "
 
 #define CHECK_NULL(x)                              \
   do {                                             \
@@ -69,17 +76,18 @@ inline unsigned count_prod(const unsigned* dims, unsigned len) {
 
 inline uint32_t size_of_syn_data_type(synDataType dataType) {
   switch (dataType) {
-    case syn_type_int8:   // alias to syn_type_fixed
-    case syn_type_uint8:  // 8-bit unsigned integer
+    case syn_type_int8: // alias to syn_type_fixed
+    case syn_type_uint8: // 8-bit unsigned integer
       return 1;
-    case syn_type_bf16:   // 16-bit float- 8 bits exponent, 7 bits mantisa, 1 bit sign
-    case syn_type_int16:  // 16-bit integer
+    case syn_type_bf16: // 16-bit float- 8 bits exponent, 7 bits mantisa, 1 bit
+                        // sign
+    case syn_type_int16: // 16-bit integer
       return 2;
-    case syn_type_float:  // alias to syn_type_single
-    case syn_type_int32:  // 32-bit integer
+    case syn_type_float: // alias to syn_type_single
+    case syn_type_int32: // 32-bit integer
       return 4;
     default:
-      return -1;  // invalid
+      return -1; // invalid
   }
 }
 
@@ -88,7 +96,7 @@ class SynapseLogger {
   static const uint32_t SYN_DEVICE_ID_UNASSIGNED{0xFFFFFFFF};
 
   SynapseLogger();
-  ~SynapseLogger() {  // NOLINT
+  ~SynapseLogger() { // NOLINT
     SLOG(S_TRACE) << "###SYN_LOG_DESTROY\n";
     flush();
   }
@@ -99,22 +107,40 @@ class SynapseLogger {
   }
   void log(absl::string_view payload);
 
-  void dump_host_data(const void* ptr, int byte_size,
-                      data_dump_category data_category = data_dump_category::VAR_TENSOR_DATA);
+  void dump_host_data(
+      const void* ptr,
+      int byte_size,
+      data_dump_category data_category = data_dump_category::VAR_TENSOR_DATA);
   size_t dump_data(const void* ptr, int byte_size);
   void command(absl::string_view x);
   void restart();
   void disable();
   void lazy_open();
 
-  void dump_reference(const std::string& ref, const std::string& ref_type, float* vec, int n);
+  void dump_reference(
+      const std::string& ref,
+      const std::string& ref_type,
+      float* vec,
+      int n);
 
-  void dump_device_alloc_data(const uint64_t ptr, size_t num_bytes, const synDeviceId deviceId, synStatus status,
-                              data_dump_category data_category = data_dump_category::DEVICE_ALLOC_TRACKING);
-  void dump_device_free_data(const uint64_t ptr, synStatus status,
-                             data_dump_category data_category = data_dump_category::DEVICE_ALLOC_TRACKING);
-  void dump_device_attr(const synDeviceAttribute* deviceAttr, uint64_t* val, const unsigned querySize,
-                        data_dump_category data_category = data_dump_category::DEVICE_ALLOC_TRACKING);
+  void dump_device_alloc_data(
+      const uint64_t ptr,
+      size_t num_bytes,
+      const synDeviceId deviceId,
+      synStatus status,
+      data_dump_category data_category =
+          data_dump_category::DEVICE_ALLOC_TRACKING);
+  void dump_device_free_data(
+      const uint64_t ptr,
+      synStatus status,
+      data_dump_category data_category =
+          data_dump_category::DEVICE_ALLOC_TRACKING);
+  void dump_device_attr(
+      const synDeviceAttribute* deviceAttr,
+      uint64_t* val,
+      const unsigned querySize,
+      data_dump_category data_category =
+          data_dump_category::DEVICE_ALLOC_TRACKING);
 
   struct recorded_event {
     synStreamHandle stream_handle;
@@ -147,12 +173,15 @@ class SynapseLogger {
     }
   }
 
-  void event_recorded(synStreamHandle stream_handle, synEventHandle event_handle) {
+  void event_recorded(
+      synStreamHandle stream_handle,
+      synEventHandle event_handle) {
     if (!is_enabled(data_dump_category::VAR_TENSOR_DATA)) {
       return;
     }
     std::lock_guard<std::mutex> lock{transfer_lock_};
-    transfers_[stream_handle].emplace_back(recorded_event{stream_handle, event_handle});
+    transfers_[stream_handle].emplace_back(
+        recorded_event{stream_handle, event_handle});
   }
 
   void event_synchronized(synEventHandle event_handle) {
@@ -165,8 +194,10 @@ class SynapseLogger {
         std::lock_guard<std::mutex> lock(transfer_lock_);
         stream_deque& xfer_queue{xfer_queue_iter.second};
         // Find if event is present on stream
-        auto event_pos =
-            std::find_if(xfer_queue.begin(), xfer_queue.end(), [event_handle](const host_xfer_or_event& maybe_event) {
+        auto event_pos = std::find_if(
+            xfer_queue.begin(),
+            xfer_queue.end(),
+            [event_handle](const host_xfer_or_event& maybe_event) {
               if (absl::holds_alternative<recorded_event>(maybe_event)) {
                 auto& event = absl::get<recorded_event>(maybe_event);
                 return (event.event_handle == event_handle);
@@ -192,26 +223,40 @@ class SynapseLogger {
     }
   }
 
-  void store_transfer_to_host(const synStreamHandle streamHandle, const uint64_t src, const uint64_t size,
-                              const uint64_t dst) {
+  void store_transfer_to_host(
+      const synStreamHandle streamHandle,
+      const uint64_t src,
+      const uint64_t size,
+      const uint64_t dst) {
     if (!is_enabled(data_dump_category::VAR_TENSOR_DATA)) {
       return;
     }
     std::lock_guard<std::mutex> lock(transfer_lock_);
-    transfers_[streamHandle].emplace_back(
-        host_transfer{.source = src, .destination = reinterpret_cast<void*>(dst), .size = size});
+    transfers_[streamHandle].emplace_back(host_transfer{
+        .source = src,
+        .destination = reinterpret_cast<void*>(dst),
+        .size = size});
   }
 
-  synDeviceId last_acquired_id() { return last_acquired_id_; }
-  void last_acquired_id(synDeviceId id) { last_acquired_id_ = id; }
+  synDeviceId last_acquired_id() {
+    return last_acquired_id_;
+  }
+  void last_acquired_id(synDeviceId id) {
+    last_acquired_id_ = id;
+  }
 
   void* last_dst{};
   unsigned last_size{};
-  bool is_enabled(data_dump_category cat) { return (0 != (source_cat_mask_ & static_cast<uint64_t>(cat))); }
+  bool is_enabled(data_dump_category cat) {
+    return (0 != (source_cat_mask_ & static_cast<uint64_t>(cat)));
+  }
 
  private:
-  // std::chrono::time_point<std::chrono::high_resolution_clock> log_start_time_;
-  std::atomic_uint64_t source_cat_mask_{std::numeric_limits<uint64_t>::max() & ~(static_cast<uint64_t>(data_dump_category::DEVICE_ALLOC_TRACKING))};
+  // std::chrono::time_point<std::chrono::high_resolution_clock>
+  // log_start_time_;
+  std::atomic_uint64_t source_cat_mask_{
+      std::numeric_limits<uint64_t>::max() &
+      ~(static_cast<uint64_t>(data_dump_category::DEVICE_ALLOC_TRACKING))};
   struct timespec log_start_time_;
   std::string log_file_name_;
   std::string data_file_name_;
@@ -232,16 +277,21 @@ class SynapseLogger {
 
 extern SynapseLogger logger;
 
-inline std::ostream& operator<<(std::ostream& stream, const synQuantizationParams& qp) {
-  stream << "{ \"m_zp\":" << qp.m_zp << ", \"m_scale\":" << qp.m_scale << ", \"m_qDataType\":" << qp.m_qDataType
-         << "}";
+inline std::ostream& operator<<(
+    std::ostream& stream,
+    const synQuantizationParams& qp) {
+  stream << "{ \"m_zp\":" << qp.m_zp << ", \"m_scale\":" << qp.m_scale
+         << ", \"m_qDataType\":" << qp.m_qDataType << "}";
   return stream;
 }
 
-inline void log_synTensorDescriptor(std::ostream& out, const synTensorDescriptor* obj) {
+inline void log_synTensorDescriptor(
+    std::ostream& out,
+    const synTensorDescriptor* obj) {
   out << R"("name":"object", "ph":"i", "args":{"at":")" << (void*)obj
-      << R"(", "type":"synTensorDescriptor", "fields":{ "m_batchPos":)" << obj->m_batchPos
-      << ", \"m_dataType\":" << obj->m_dataType << ", \"m_dims\":" << obj->m_dims << ", \"m_sizes\":[";
+      << R"(", "type":"synTensorDescriptor", "fields":{ "m_batchPos":)"
+      << obj->m_batchPos << ", \"m_dataType\":" << obj->m_dataType
+      << ", \"m_dims\":" << obj->m_dims << ", \"m_sizes\":[";
   for (unsigned i = 0; i < SYN_MAX_TENSOR_DIM - 1; ++i) {
     out << obj->m_sizes[i] << ", ";
   }
@@ -252,17 +302,24 @@ inline void log_synTensorDescriptor(std::ostream& out, const synTensorDescriptor
   }
   out << obj->m_quantizationParams[SYN_NUM_DATA_TYPES - 1];
 
-  out << R"(], "m_ptr":")" << obj->m_ptr << ", \"m_isWeights\":" << obj->m_isWeights
-      << ", \"m_isQuantized\":" << obj->m_isQuantized << R"(, "m_name":")" << (obj->m_name ? obj->m_name : "nullptr")
-      << "\"}}";
+  out << R"(], "m_ptr":")" << obj->m_ptr
+      << ", \"m_isWeights\":" << obj->m_isWeights
+      << ", \"m_isQuantized\":" << obj->m_isQuantized << R"(, "m_name":")"
+      << (obj->m_name ? obj->m_name : "nullptr") << "\"}}";
 }
 
-inline std::ostream& operator<<(std::ostream& out, const synTensorDescriptor* obj) {
+inline std::ostream& operator<<(
+    std::ostream& out,
+    const synTensorDescriptor* obj) {
   log_synTensorDescriptor(out, obj);
   return out;
 }
 
-void dump_reference(const std::string& ref, const std::string& ref_type, float* vec, int n);
+void dump_reference(
+    const std::string& ref,
+    const std::string& ref_type,
+    float* vec,
+    int n);
 void command(const std::string& x);
 
-}  // namespace synapse_logger
+} // namespace synapse_logger

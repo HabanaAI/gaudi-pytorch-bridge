@@ -54,11 +54,17 @@ void stream_event_manager::add_producer(
       auto found = events_by_addr_.find(device_address);
 
       if (found != events_by_addr_.end()) {
-        // Address collision on this point actually means that we already scheduled work that will override data
-        // associated with old event. This should only happen in case when output and input buffers of operation are
-        // the same, and there is noone else waiting for previous event. In that case we do not want to wait for event
-        // to synchronize as this will postpone launching next ops in graph.
-        PT_SYNHELPER_DEBUG( "Event collision on address: 0x", std::hex, device_address, std::dec);
+        // Address collision on this point actually means that we already
+        // scheduled work that will override data associated with old event.
+        // This should only happen in case when output and input buffers of
+        // operation are the same, and there is noone else waiting for previous
+        // event. In that case we do not want to wait for event to synchronize
+        // as this will postpone launching next ops in graph.
+        PT_SYNHELPER_DEBUG(
+            "Event collision on address: 0x",
+            std::hex,
+            device_address,
+            std::dec);
         shared_event event = found->second;
         event->remove_device_ptr(device_address);
         events_by_addr_.erase(found);

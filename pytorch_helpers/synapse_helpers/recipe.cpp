@@ -66,10 +66,16 @@ bool recipe::launch(
   syn_info.reserve(input_names_.size() + output_names_.size());
   for (size_t i = 0; i < input_names_.size(); ++i)
     syn_info.emplace_back(synLaunchTensorInfo{
-        input_names_[i].c_str(), reinterpret_cast<uint64_t>(in_buffers[i]), DATA_TENSOR, {0}});
+        input_names_[i].c_str(),
+        reinterpret_cast<uint64_t>(in_buffers[i]),
+        DATA_TENSOR,
+        {0}});
   for (size_t i = 0; i < output_names_.size(); ++i)
     syn_info.emplace_back(synLaunchTensorInfo{
-        output_names_[i].c_str(), reinterpret_cast<uint64_t>(out_buffers[i]), DATA_TENSOR, {0}});
+        output_names_[i].c_str(),
+        reinterpret_cast<uint64_t>(out_buffers[i]),
+        DATA_TENSOR,
+        {0}});
 
   synapse_helpers::graph::launch_info handle(recipe_handle_->device_);
   auto&& error_optional{
