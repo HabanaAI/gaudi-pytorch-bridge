@@ -1,6 +1,7 @@
 aten::add(Tensor self, Tensor other, *, Scalar alpha) -> Tensor
 aten::add(Tensor self, Scalar other, Scalar alpha) -> Tensor
 aten::div(Tensor self, Scalar other) -> Tensor
+aten::div(Tensor self, Tensor other) -> Tensor
 aten::mul(Tensor self, Scalar other) -> Tensor
 aten::_grad_sum_to_size(Tensor self, int[]? size) -> Tensor
 aten::gt(Tensor self, Tensor other) -> Tensor
