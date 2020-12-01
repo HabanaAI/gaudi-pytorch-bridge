@@ -31,21 +31,10 @@ at::Tensor HbLazyToAtenTensor(
   return tensor.to(tensor_options, /*non_blocking=*/false, /*copy=*/true);
 }
 
-at::Tensor AtenFromHbLazyTensor(
-    HbLazyTensor HbLazy_tensor,
-    c10::Storage&& storage) {
-  at::Tensor tensor = HbLazy_tensor.is_null()
-      ? at::Tensor()
-      : at::Tensor(c10::make_intrusive<HbLazyTensorImpl>(
-            std::move(HbLazy_tensor), std::move(storage)));
-  return tensor;
-}
-
 at::Tensor AtenFromHbLazyTensor(HbLazyTensor HbLazy_tensor) {
-  at::Tensor tensor = HbLazy_tensor.is_null()
-      ? at::Tensor()
-      : at::Tensor(
-            c10::make_intrusive<HbLazyTensorImpl>(std::move(HbLazy_tensor)));
+  HABANA_ASSERT(HbLazy_tensor.is_null() == false);
+  at::Tensor tensor = at::Tensor(
+      c10::make_intrusive<HbLazyTensorImpl>(std::move(HbLazy_tensor)));
 
   return tensor;
 }

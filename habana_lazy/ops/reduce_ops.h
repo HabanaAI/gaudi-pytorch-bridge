@@ -23,7 +23,7 @@ class Sum : public Node {
   Sum(const Tensor& self, c10::optional<ScalarType> dtype)
       : Node(c10::Symbol::fromQualString("aten::sum")) {
     auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHABANA);
-    auto ir_value = hl_self.CurrentIrValue();
+    auto ir_value = hl_self.GetIrValue();
     AddInput(ir_value);
     m_meta_data.set(dtype, static_cast<size_t>(SumIndex::kDtypIdx));
   }
@@ -47,7 +47,7 @@ class SumDimIntList : public Node {
       c10::optional<ScalarType> dtype)
       : Node(c10::Symbol::fromQualString("aten::sum_dim_IntList")) {
     auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHABANA);
-    auto ir_value = hl_self.CurrentIrValue();
+    auto ir_value = hl_self.GetIrValue();
     AddInput(ir_value);
     m_meta_data.set(dim, static_cast<size_t>(SumDimIntListIndex::kDimIdx));
     m_meta_data.set(

@@ -193,7 +193,10 @@ class Node {
     return m_outputs[index];
   }
 
-  virtual ~Node() {}
+  virtual ~Node() {
+    m_inputs.clear();
+    m_outputs.clear();
+  }
 
   static NodePtr Create(c10::Symbol oper, ValueList inputs);
 

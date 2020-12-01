@@ -273,9 +273,8 @@ c10::optional<at::ScalarType> HbLazyTensor::dtype_optional() const {
 }
 
 ir::Value HbLazyTensor::CreateTensorNode(void* data, bool read_only) const {
+  setTensorAsInputNode(*this);
   return CurrentIrValue();
-  // data->SetInfo(std::make_shared<DeviceDataInfo>(GetUniqueId(),
-  // read_only)); return ir::MakeNode<ir::ops::DeviceData>(std::move(data));
 }
 
 void HbLazyTensor::setPtrDataIrToData() {
@@ -466,7 +465,6 @@ void HbLazyTensor::SyncTensorsGraphInternal(
     //   tensor to further ops using this tensor.
     ir::Value val = i.createIrValueFromData();
     i.AssignIrValue(val);
-    setTensorAsInputNode(i);
   }
 }
 

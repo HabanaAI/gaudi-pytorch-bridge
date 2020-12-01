@@ -1332,10 +1332,11 @@ std::tuple<Tensor, Tensor> max_pool2d_with_indices_hpu_lazy(
       input, kernel_size, stride, padding, dilation, ceil_mode, is_nhwc);
 
   // retunr always nhwc. convert to nchw
-  std::vector<long int> shape_out = {opsize_nhwc.at(0),
-                                     opsize_nhwc.at(3),
-                                     opsize_nhwc.at(1),
-                                     opsize_nhwc.at(2)};
+  std::vector<long int> shape_out = {
+      opsize_nhwc.at(0),
+      opsize_nhwc.at(3),
+      opsize_nhwc.at(1),
+      opsize_nhwc.at(2)};
 
   // allocate Output_0 storage
   auto result_0 = at::native::empty_hpu_lazy(
@@ -1411,10 +1412,11 @@ Tensor max_pool2d_with_indices_backward_hpu_lazy(
       input, kernel_size, stride, padding, dilation, ceil_mode, is_nhwc);
 
   // retunr always nhwc. convert to nchw
-  std::vector<long int> out_shape = {opsize_nhwc.at(0),
-                                     opsize_nhwc.at(3),
-                                     opsize_nhwc.at(1),
-                                     opsize_nhwc.at(2)};
+  std::vector<long int> out_shape = {
+      opsize_nhwc.at(0),
+      opsize_nhwc.at(3),
+      opsize_nhwc.at(1),
+      opsize_nhwc.at(2)};
 
   TORCH_CHECK(grad_output.sizes().vec() == out_shape);
   TORCH_CHECK(
@@ -1557,7 +1559,6 @@ Tensor& mean_dim_out_hpu_lazy(
 };
 
 Tensor sum_hpu_lazy(const Tensor& self, c10::optional<ScalarType> dtype) {
-  auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
   habana_lazy::ir::NodePtr node =
       std::make_shared<habana_lazy::ir::Sum>(self, dtype);
   auto result = sum_hpu(self, dtype);

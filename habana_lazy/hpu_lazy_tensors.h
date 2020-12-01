@@ -164,7 +164,7 @@ class HbLazyTensor {
 
   void ShallowCopyTo(HbLazyTensor* dest) const;
 
-  int64_t getTensorUniqueId() {
+  int64_t getTensorUniqueId() const {
     if (mp_data.get()) {
       return mp_data.get()->unique_id;
     } else

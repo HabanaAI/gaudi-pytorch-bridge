@@ -26,7 +26,7 @@ class Cat : public Node {
     ValueList hl_tensors;
     for (auto& i : tensors) {
       auto hl_tensor = GetOrCreateHbLazyTensor(i, c10::kHABANA);
-      hl_tensors.push_back(hl_tensor.CurrentIrValue());
+      hl_tensors.push_back(hl_tensor.GetIrValue());
     }
 
     auto cat_input = GetIrValueForListConstruct(hl_tensors);

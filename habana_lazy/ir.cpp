@@ -69,18 +69,7 @@ NodePtr Node::Create(c10::Symbol oper, ValueList inputs) {
   return node;
 }
 
-Value::~Value() {
-  std::shared_ptr<Data> data_ptr = m_data_ptr.lock();
-  if (data_ptr) {
-    auto tensor = data_ptr->tensor_data;
-    if (tensor) {
-      auto tensor_val = tensor.value();
-      auto context = habana_lazy_executor.getDeviceExecutionContext(
-          tensor_val.device().index());
-      context->removeRetainedTensor(tensor_val);
-    }
-  }
-}
+Value::~Value() {}
 
 Output::Output(const Value& v) : m_node(v.mp_node.get()), m_index(v.m_index) {}
 
