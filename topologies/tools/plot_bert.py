@@ -7,7 +7,6 @@ import pandas as pd
 import os
 import re
 
-
 # Parse all the log files and create some meta data like device, model, batchsize etc
 # if there are multiple log files of same device, append the device name with an order number.
 def ParseHeader(args):
@@ -17,9 +16,10 @@ def ParseHeader(args):
         with open(file.name) as f:
             log_info_dict = {}
             for line in f:
-                # if 'Namespace' in line:
-                if 'TrainingArguments' in line:
-                    m = line[line.find("(") + 1:line.find(")")].split(', ')
+                if 'Namespace' in line:
+                    line = line.split('Namespace(',1)[1]
+
+                    m = line.split(', ')
                     for i in m:
                         try:
                             x = i.split('=')
@@ -39,7 +39,7 @@ def ParseHeader(args):
                     log_info = [
                         device,
                         '( BERT -- ' +
-                            ' train_batchsize : ' + log_info_dict['per_device_train_batch_size'] + ' )']
+                            ' train_batchsize : ' + log_info_dict['per_gpu_train_batch_size'] + ' )']
 
                     log_info_list.append(log_info)
 
@@ -84,23 +84,9 @@ def Process(args):
 
                 l_dict[ep_str] = ep_val
 
-                if 'loss' in line and 'eval_loss' not in line:
-                    tokens = line.split('- INFO - transformers.trainer -   ')
-                    for t in tokens:
-                        if 'loss' in t:
-                            t = t.strip()
-                            lt = t[1:-1]
-                            lt = lt.replace(',', ' ')
-                            lt = lt.replace("'", ' ')
-                            lt = lt.strip()
-                            lt_list = lt.split('  ')
-                            for it in lt_list:
-                                try:
-                                    st = it.split(':')
-                                    l_dict[st[0].strip()] = re.sub('[\\[|\\]]', '', st[1].strip())
-                                except:
-                                    pass
-                            ldict_list.append(l_dict)
+                if 'Loss' in line and 'eval_loss' not in line:
+                   l_dict['Loss'] = line.split('Loss: ',1)[1]
+                   ldict_list.append(l_dict)
 
         # writing data into respective csv file
         out_file = os.path.join(args.out_dir, log_info_list[k][0] + '.csv')
@@ -141,7 +127,7 @@ def CreatePng(args, log_info_list, out_file_list):
         dataframe = dataframe.dropna()
 
         x = pd.to_numeric(dataframe.Epoch)
-        y = pd.to_numeric(dataframe.loss)
+        y = pd.to_numeric(dataframe.Loss)
 
         plt.figure(1)
         plt.plot(y, label='id %s' % y)
