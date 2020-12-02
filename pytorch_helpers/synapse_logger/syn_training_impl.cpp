@@ -259,11 +259,14 @@ synStatus SYN_API_CALL synEventSynchronize(const synEventHandle eventHandle) {
   return status;
 }
 
-synStatus SYN_API_CALL synEventElapsedTime(uint32_t* pMilliseconds, const synEventHandle eventHandleStart,
-                                           const synEventHandle eventHandleEnd) {
+synStatus SYN_API_CALL synEventElapsedTime(
+    uint64_t* pNanoSeconds,
+    const synEventHandle eventHandleStart,
+    const synEventHandle eventHandleEnd) {
   LOG_TRACE("SYN_API", "{}", __FUNCTION__);
-  API_LOG_CALL(ARG_Q(pMilliseconds), ARG(eventHandleStart), ARG(eventHandleEnd));
-  synStatus status = lib_synapse::synEventElapsedTime(pMilliseconds, eventHandleStart, eventHandleEnd);
+  API_LOG_CALL(ARG_Q(pNanoSeconds), ARG(eventHandleStart), ARG(eventHandleEnd));
+  synStatus status = lib_synapse::synEventElapsedTime(
+      pNanoSeconds, eventHandleStart, eventHandleEnd);
   API_LOG_RESULT();
   return status;
 }
