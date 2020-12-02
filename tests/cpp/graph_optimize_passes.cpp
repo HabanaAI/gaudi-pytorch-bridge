@@ -100,6 +100,7 @@ TEST_F(GraphOptimizeTest, SubGraphRewriteTest) {
 
   exec::HlExec* hlexec = new exec::HlExec();
   exec::OptPassCfg::GetInstance()->enable_subgraph_rewrite = true;
+  exec::OptPassCfg::GetInstance()->enable_permute_pass = false;
 
   std::vector<at::Tensor> input_list{hA, hB};
   auto stack = torch::jit::Stack(
@@ -115,6 +116,7 @@ TEST_F(GraphOptimizeTest, SubGraphRewriteTest) {
       ->run(*hlexec->get_graph());
 
   exec::OptPassCfg::GetInstance()->enable_subgraph_rewrite = false;
+  exec::OptPassCfg::GetInstance()->enable_permute_pass = true;
 }
 
 TEST_F(GraphOptimizeTest, FuseMmTransposeTest) {
@@ -215,4 +217,55 @@ TEST_F(GraphOptimizeTest, BnReluOptTest) {
   EXPECT_EQ(allclose(out_cpu, out_hpu), true);
   exec::OptPassCfg::GetInstance()->enable_fuse_t_mm_optimization = false;
   unsetenv("PT_HPU_LAZY_MODE");
+}
+
+TEST_F(GraphOptimizeTest, PermutePassTest_CL) {
+  setenv("PT_HPU_LAZY_MODE", "1", 1);
+  auto in = torch::randn(
+      {6, 4, 28, 28}, torch::dtype(torch::kFloat).requires_grad(false));
+  auto wt = torch::randn(
+      {5, 4, 3, 3}, torch::dtype(torch::kFloat).requires_grad(false));
+  auto exp1 = torch::conv2d(in, wt, {}, 1, 0, 1, 1);
+  auto exp = torch::relu(exp1);
+
+  auto h_in = in.to(torch::kHABANA);
+  // add permute-cl
+  auto h_in_cl = permute_cl_hpu_lazy(h_in, {0, 2, 3, 1});
+  auto wt_hwck = wt.permute({2, 3, 1, 0}).contiguous();
+  auto h_wt = wt_hwck.to(torch::kHABANA);
+
+  auto result1 = torch::conv2d(h_in_cl, h_wt, {}, 1, 0, 1, 1);
+  auto result = torch::relu(result1);
+
+  exec::OptPassCfg::GetInstance()->enable_permute_pass = true;
+  Tensor out = result.to(kCPU);
+  EXPECT_EQ(allclose(out, exp, 0.01, 0.01), true);
+  exec::OptPassCfg::GetInstance()->enable_permute_pass = false;
+  unsetenv("PT_HPU_LAZY_MODE");
+}
+
+TEST_F(GraphOptimizeTest, PermutePassTest_Contig) {
+  auto input_tensor =
+      torch::arange(27, torch::dtype(torch::kFloat).requires_grad(false))
+          .reshape({1, 3, 3, 3}); // nchw
+  torch::Tensor tHabanaX = input_tensor.to(torch::kHABANA);
+
+  auto weight_tensor =
+      torch::arange(27, torch::dtype(torch::kFloat).requires_grad(false))
+          .reshape({3, 3, 3, 1}); // hwck
+
+  auto wt_hwck = weight_tensor.permute({2, 3, 1, 0}).contiguous();
+  torch::Tensor tHabanaW = wt_hwck.to(torch::kHABANA);
+
+  torch::Tensor outConv = torch::conv2d(tHabanaX, tHabanaW, {}, 1, 0, 1, 1);
+  torch::Tensor outhpu = torch::relu(outConv);
+  exec::OptPassCfg::GetInstance()->enable_permute_pass = true;
+  torch::Tensor out = outhpu.to(torch::kCPU);
+  exec::OptPassCfg::GetInstance()->enable_permute_pass = false;
+
+  torch::Tensor outConv1 =
+      torch::conv2d(input_tensor, weight_tensor, {}, 1, 0, 1, 1);
+  torch::Tensor outcpu = torch::relu(outConv1);
+
+  EXPECT_EQ(allclose(out, outcpu, 0.01, 0.01), true);
 }

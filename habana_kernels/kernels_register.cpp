@@ -2384,24 +2384,6 @@ Tensor habana_d2d_memcpy_other(const Tensor& self, Tensor& other) {
   return self;
 }
 
-Tensor& permute_cl_registration_only(Tensor& out) {
-  // we should never reach here. This function is a dummy written
-  // only to satisfy registration requirements.
-  // Registration of custom permute_cl OP (hpu::permute_cl) is done so that
-  static_cast<void>(out);
-  HABANA_ASSERT(0);
-}
-
-Tensor& graph_connect_for_registration_only(Tensor& out, const Tensor& self) {
-  // we should never reach here. This function is a dummy written
-  // only to satisfy registration requirements.
-  // Registration of custom cast OP (hpu::control_edge_) is done so that
-  // JIT optimization passes recognize this OP as a valid OP.
-  static_cast<void>(out);
-  static_cast<void>(self);
-  HABANA_ASSERT(0);
-}
-
 // Registration for all non-custom/aten ops are auto-generated and can be
 // found in habana_kernels/aten_hpu_type_default.cpp.
 
@@ -2435,6 +2417,7 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "habanaOptimizerFusedSGDMomentum(Tensor[] gradients, Tensor[] weights_in, Tensor[] momentum_in, Tensor epoch_num, Tensor learning_rate, float wd, float mom, float damp, bool nesterov) -> Tensor(a!)");
   m.def("permute_cl(Tensor(a) self, int[] dims) -> Tensor(a)");
+  m.def("restride_cl(Tensor(a) self, int[] dims) -> Tensor(a)");
   m.def("control_edge_other_(Tensor self, Tensor other) -> Tensor(a!)");
   m.def("control_edge_(Tensor self)-> Tensor(a!)");
   m.def(

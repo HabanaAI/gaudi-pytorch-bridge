@@ -21,6 +21,7 @@
 #include "ops/convolution.h"
 #include "passes/fuse_bn_relu_residual_add.h"
 #include "passes/fuse_mm_transpose.h"
+#include "passes/permute_graph.h"
 #include "passes/transform_graph.h"
 #include "pytorch_helpers/habana_device/hpu_cached_devices.h"
 #include "synapse_helpers/device.h"
@@ -70,7 +71,7 @@ void HlExec::GetOrCreate(
   PT_LAZY_TRACE;
   if (std::getenv("PT_HPU_LAZY_CACHE_DISABLE")) {
     mp_g_ = std::make_shared<Graph>();
-    Create(po_data.post_order, po_data.inputs, po_data.outputs);
+    Create(po_data.post_order, po_data.inputs, po_data.outputs, stack);
     return;
   }
   auto las = habana_lazy::LazyArgumentSpec(
@@ -92,7 +93,7 @@ void HlExec::GetOrCreate(
     // ===================
     // Create a JIT graph from the post order graph
     // Optimization is done during Create() itself
-    Create(po_data.post_order, po_data.inputs, po_data.outputs);
+    Create(po_data.post_order, po_data.inputs, po_data.outputs, stack);
     // Create a lazyArgumentSpec
     las = habana_lazy::LazyArgumentSpec(
         true,
@@ -113,7 +114,8 @@ void HlExec::GetOrCreate(
 void HlExec::Create(
     const ir::NodePtrList nodes,
     const ir::ValueList inputs,
-    const ir::ValueList outputs) {
+    const ir::ValueList outputs,
+    torch::jit::Stack& stack) {
   PT_LAZY_TRACE;
   LazyOutputToJitValueMap ir_map;
 
@@ -200,10 +202,10 @@ void HlExec::Create(
   }
 
   // Optimize the graph based on the passes enabled
-  Optimize();
+  Optimize(stack);
 }
 
-void HlExec::Optimize() {
+void HlExec::Optimize(torch::jit::Stack& stack) {
   PT_LAZY_TRACE;
   if (OptPassCfg::GetInstance()->enable_fuse_t_mm_optimization) {
     fuse_mm_transpose(mp_g_);
@@ -233,6 +235,10 @@ void HlExec::Optimize() {
 
   if (OptPassCfg::GetInstance()->enable_subgraph_rewrite) {
     transform_graph(mp_g_);
+  }
+
+  if (OptPassCfg::GetInstance()->enable_permute_pass) {
+    InsertPermute_graph(mp_g_, stack);
   }
 }
 

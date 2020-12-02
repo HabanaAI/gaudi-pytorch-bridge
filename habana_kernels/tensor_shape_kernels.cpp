@@ -22,6 +22,7 @@
 #include "habana_kernels/resize.h"
 #include "habana_kernels/simple_generic_kernel.h"
 #include "habana_kernels/tensor_shape_kernels.h"
+#include "habana_lazy/hlexec.h"
 
 using namespace torch;
 
@@ -601,6 +602,7 @@ void PermuteOperator::AllocateAndAddSynapseNode(
       self.options(),
       self.suggest_memory_format(),
       is_output_persistent);
+
   synTransposeParams params;
   params.tensorDim = self.dim();
   // params.permute has to be populated in a reverse order for HPU FCD-LCD order
@@ -625,22 +627,24 @@ void PermuteCLOperator::AllocateAndAddSynapseNode(
   PermuteOperator::AllocateAndAddSynapseNode(
       graph, inputs, is_output_persistent);
 
-  auto& output = p_context_->pt_outputs_[0];
-  auto sizes = output.sizes().vec();
-  auto strides = output.strides().vec();
-  std::vector<int> out_pos = {0, 3, 1, 2};
-  std::vector<long int> swapped_sizes = {
-      sizes[out_pos[0]],
-      sizes[out_pos[1]],
-      sizes[out_pos[2]],
-      sizes[out_pos[3]]};
-  std::vector<long int> swapped_strides = {
-      strides[out_pos[0]],
-      strides[out_pos[1]],
-      strides[out_pos[2]],
-      strides[out_pos[3]]};
-  output.unsafeGetTensorImpl()->set_sizes_and_strides(
-      swapped_sizes, swapped_strides);
+  if (!habana_lazy::exec::OptPassCfg::GetInstance()->enable_permute_pass) {
+    auto& output = p_context_->pt_outputs_[0];
+    auto sizes = output.sizes().vec();
+    auto strides = output.strides().vec();
+    std::vector<int> out_pos = {0, 3, 1, 2};
+    std::vector<long int> swapped_sizes = {
+        sizes[out_pos[0]],
+        sizes[out_pos[1]],
+        sizes[out_pos[2]],
+        sizes[out_pos[3]]};
+    std::vector<long int> swapped_strides = {
+        strides[out_pos[0]],
+        strides[out_pos[1]],
+        strides[out_pos[2]],
+        strides[out_pos[3]]};
+    output.unsafeGetTensorImpl()->set_sizes_and_strides(
+        swapped_sizes, swapped_strides);
+  }
 }
 
 Tensor permute_hpu(const Tensor& self, IntArrayRef dims_) {

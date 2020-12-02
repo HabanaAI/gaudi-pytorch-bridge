@@ -51,6 +51,7 @@ class OptPassCfg {
     enable_subgraph_rewrite = false;
     enable_fuse_t_mm_optimization = true;
     enable_fuse_bn_relu_optimization = true;
+    enable_permute_pass = false;
   }
 
  public:
@@ -73,6 +74,7 @@ class OptPassCfg {
   bool enable_subgraph_rewrite;
   bool enable_fuse_t_mm_optimization;
   bool enable_fuse_bn_relu_optimization;
+  bool enable_permute_pass;
 };
 
 /**
@@ -103,7 +105,7 @@ class HlExec {
    * This method calls torch::jit optimizer passes.
    * Optionally, habana specific optimzers can be added.
    */
-  void Optimize();
+  void Optimize(torch::jit::Stack& stack);
 
   /**
    * This method calls the Habana Graph Lowering kernel
@@ -139,7 +141,8 @@ class HlExec {
   void Create(
       const ir::NodePtrList nodes,
       const ir::ValueList inputs,
-      const ir::ValueList outputs);
+      const ir::ValueList outputs,
+      torch::jit::Stack& stack);
 
   GraphPtr mp_g_;
   std::map<HabanaLazyTensorPtr, JitValuePtr> m_tensorbind_;

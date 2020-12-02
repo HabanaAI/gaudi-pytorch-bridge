@@ -39,6 +39,7 @@
 #include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/random_gen_kernels.h"
 #include "habana_kernels/unary_kernels.h"
+#include "habana_lazy/hlexec.h"
 
 using namespace torch::jit;
 
@@ -225,6 +226,20 @@ HabanaLaunchOpPT::~HabanaLaunchOpPT() {
   PT_BRIDGE_DEBUG("Destroying : ", id_str);
 }
 
+habana::LayoutFormat getLayoutFromDims(const std::vector<int64_t> dims) {
+  std::unordered_map<const habana::LayoutFormat, const std::vector<int64_t>>
+      toDevicePermuteOrder = {
+          {habana::LayoutFormat::NHWC, {0, 2, 3, 1}},
+          {habana::LayoutFormat::NCHW, {0, 1, 2, 3}},
+          {habana::LayoutFormat::HWCK, {2, 3, 1, 0}}};
+  //[ToDo] use find method instead, need to define vectorhasher
+  for (auto l : toDevicePermuteOrder) {
+    if (l.second == dims)
+      return l.first;
+  }
+  return habana::LayoutFormat::ANY;
+}
+
 habana::LayoutFormat getPTTensorLayout(at::Tensor& tensor) {
   auto mem_format = tensor.suggest_memory_format();
   if (mem_format == at::MemoryFormat::ChannelsLast ||
@@ -254,11 +269,44 @@ bool HabanaLaunchOpPT::isChannelOrderSupported(
       (supported_channel_order == getTensorChannelOrder(val));
 }
 
+bool HabanaLaunchOpPT::IsOutputToRestride(torch::jit::Value* value) {
+  auto uses = value->uses();
+  for (auto u : uses) {
+    auto restride_node = u.user;
+    if (strcmp(restride_node->kind().toQualString(), "hpu::restride_cl") == 0) {
+      return true;
+    }
+  }
+  return false;
+}
+
+torch::jit::Value* HabanaLaunchOpPT::GetRestridedOutvalue(
+    torch::jit::Value* val) {
+  for (auto u : val->uses()) {
+    auto restride_node = u.user;
+    if (strcmp(restride_node->kind().toQualString(), "hpu::restride_cl") == 0) {
+      return restride_node->output(0);
+    }
+  }
+  return nullptr;
+}
+
 bool HabanaLaunchOpPT::isInGraphOutputs(torch::jit::Value* value) {
   auto graph_outs = subgraph_->outputs();
   for (auto value_out : graph_outs) {
     if (value->unique() == value_out->unique()) {
       return true;
+    }
+  }
+  // return if graph output is restrided node output
+  if (IsOutputToRestride(value)) {
+    auto value_restrided = GetRestridedOutvalue(value);
+    TORCH_CHECK(nullptr != value_restrided, "Restrided value output is null");
+    auto graph_outs = subgraph_->outputs();
+    for (auto value_out : graph_outs) {
+      if (value_restrided->unique() == value_out->unique()) {
+        return true;
+      }
     }
   }
   return false;
@@ -1034,6 +1082,50 @@ IValPtrShared castConstantTensor(IValPtrShared ival) {
   IValPtrShared ivptrsh = std::make_shared<IVal>(IValue(new_tensor));
   return ivptrsh;
 }
+
+void HabanaLaunchOpPT::handleRestrideNode(torch::jit::Node* node) {
+  auto value_in = node->input(0);
+  auto value_out = node->output(0);
+  HABANA_ASSERT(value_to_ivalue.find(value_in) != std::end(value_to_ivalue));
+  HABANA_ASSERT(value_to_ivalue[value_in]->isTensor());
+  auto tensor = value_to_ivalue[value_in]->toTensor();
+  auto sizes = tensor.sizes().vec();
+  auto new_pos = toIValue(node->input(1))->toIntVector();
+  std::vector<int64_t> swapped_sizes = {
+      sizes[new_pos[0]],
+      sizes[new_pos[1]],
+      sizes[new_pos[2]],
+      sizes[new_pos[3]]};
+  auto strides = tensor.strides().vec();
+  std::vector<long int> swapped_strides = {
+      strides[new_pos[0]],
+      strides[new_pos[1]],
+      strides[new_pos[2]],
+      strides[new_pos[3]]};
+  tensor.unsafeGetTensorImpl()->set_sizes_and_strides(
+      swapped_sizes, swapped_strides);
+  auto ivptrsh_updated = std::make_shared<IVal>(tensor);
+  if (isInGraphOutputs(value_out)) {
+    HABANA_ASSERT(value_to_ivalue.count(value_in));
+    auto ivpsh = value_to_ivalue[value_in];
+    value_to_ivalue.erase(value_in);
+    if (enable_tensor_release_ && ivpsh && output_tensorinfo_map.count(ivpsh)) {
+      auto a = output_tensorinfo_map.find(ivpsh);
+      auto ti = PtTensorInfo(
+          ivptrsh_updated,
+          a->second.get_syn_name(),
+          value_in,
+          watch_tensor_flag_);
+      output_tensorinfo_map.erase(ivpsh);
+      output_tensorinfo_map.emplace(ivptrsh_updated, ti);
+    }
+    value_to_ivalue[value_in] = ivptrsh_updated;
+    value_to_ivalue[value_out] = ivptrsh_updated;
+  } else {
+    value_to_ivalue[value_out] = ivptrsh_updated;
+  }
+}
+
 void HabanaLaunchOpPT::handlePrimNodes(torch::jit::Node* node) {
   if (node->kind() == torch::jit::prim::Constant) {
     auto node_vals = node->outputs();
@@ -1519,6 +1611,13 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
       continue;
     }
 
+    if (habana_lazy::exec::OptPassCfg::GetInstance()->enable_permute_pass) {
+      if (strcmp(node->kind().toQualString(), "hpu::restride_cl") == 0) {
+        handleRestrideNode(node);
+        continue;
+      }
+    }
+
     // Get kernel context
     habana::HabanaOperatorPtr HabanaKernel = habana::KernelRegistry().get(
         device_id, node->kind().toQualString(), getNodeScalarType(node));
@@ -1527,8 +1626,10 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
         HabanaKernel != nullptr,
         std::string(" \n  kernel ") + std::string(node->kind().toQualString()) +
             std::string(" isnt supported in graph mode "));
+
     // See if we need to modify/permute tesnors
-    processInputs(node, HabanaKernel);
+    if (!habana_lazy::exec::OptPassCfg::GetInstance()->enable_permute_pass)
+      processInputs(node, HabanaKernel);
 
     // clear the accumulated synapse node indices corresponding to permute.
     // Otherwise this results in spurious control edges
@@ -1557,6 +1658,7 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
     // Get the output tensors created back from the kernel
     // We set type so that the created tensor is propagated throughout graph
     GetSynapseOutputs(HabanaKernel, node);
+
     auto patch_info = HabanaKernel->getAppendedTensorInfos();
     if (!patch_info.empty()) {
       for (const auto& p : patch_info) {
@@ -1603,7 +1705,8 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
   // Process control edges
   HabanaLaunchOpPT::ProcessControlEdges();
 
-  postProcessOutputs();
+  if (!habana_lazy::exec::OptPassCfg::GetInstance()->enable_permute_pass)
+    postProcessOutputs();
 
   TORCH_CHECK(false == syn_graph.is_empty(), "empty graph encountered");
 

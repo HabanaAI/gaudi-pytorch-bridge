@@ -50,6 +50,8 @@ struct habanaTensorLayoutInfo {
   habana::LayoutFormat layout_at_graph_entry;
 };
 
+habana::LayoutFormat getLayoutFromDims(const std::vector<int64_t> dims);
+
 class HabanaLaunchOpPT {
  public:
   explicit HabanaLaunchOpPT(const torch::jit::Node* node, bool debug);
@@ -220,7 +222,11 @@ class HabanaLaunchOpPT {
       const habana::LayoutFormat& supported_channel_order);
   c10::ScalarType getNodeScalarType(torch::jit::Node* node);
   void handlePrimNodes(torch::jit::Node* node);
+  void handleRestrideNode(torch::jit::Node* node);
   void handleMetaOps(torch::jit::Node* node);
+
+  bool IsOutputToRestride(torch::jit::Value* val);
+  torch::jit::Value* GetRestridedOutvalue(torch::jit::Value* val);
 
   void PrintATenTensors(RecipeValueSpec& rv);
   void UpdateOutputs(RecipeValueSpec& rv);

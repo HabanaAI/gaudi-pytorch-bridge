@@ -39,7 +39,6 @@ void UnaryOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(inputs[0].isTensor(), "Input type expected to be tensor");
 
   at::Tensor input = inputs[0].toTensor();
-
   auto output = habana_helpers::createPTTensor(input, is_output_persistent);
   AllocateSynapseOutput(graph, output, is_output_persistent);
   AddNodeToSynapseGraph(graph, nullptr, 0);
