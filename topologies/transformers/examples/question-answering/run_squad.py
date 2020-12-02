@@ -204,6 +204,7 @@ def train(args, train_dataset, model, tokenizer, trainMetaData):
     global_step = 1
     epochs_trained = 0
     steps_trained_in_current_epoch = 0
+    is_model_traced = False
     # Check if continuing training from a checkpoint
     if os.path.exists(args.model_name_or_path):
         try:
@@ -283,8 +284,9 @@ def train(args, train_dataset, model, tokenizer, trainMetaData):
                         {"langs": (torch.ones(batch[0].shape, dtype=torch.int64) * args.lang_id).to(args.device)}
                     )
             tp_probe_tensors_iteration_start(model, device, target, input_dict, trainMetaData.ParamsDump, False)
-            if args.use_jit_trace and step == 0:
+            if args.use_jit_trace and is_model_traced == False:
                 model_trace = torch.jit.trace(model, (batch[0], batch[1], batch[2], position_ids, tensor_dummy, tensor_dummy, batch[3], batch[4], tensor_dummy, tensor_dummy), check_trace=False)
+                is_model_traced = True
             if args.use_jit_trace:
                 outputs = model_trace(batch[0], batch[1], batch[2], position_ids, tensor_dummy, tensor_dummy, batch[3], batch[4], tensor_dummy, tensor_dummy)
             else:
@@ -398,6 +400,7 @@ def evaluate(args, model, tokenizer, trainMetaData,  prefix=""):
         enable_tracing()
 
     args.eval_batch_size = args.per_gpu_eval_batch_size * max(1, args.n_gpu)
+    is_eval_traced = False
 
     # Note that DistributedSampler samples randomly
     eval_sampler = SequentialSampler(dataset)
@@ -451,9 +454,10 @@ def evaluate(args, model, tokenizer, trainMetaData,  prefix=""):
                     inputs.update(
                         {"langs": (torch.ones(batch[0].shape, dtype=torch.int64) * args.lang_id).to(args.device)}
                     )
-            if args.use_jit_trace and current_eval_step == 0:
+            if args.use_jit_trace and is_eval_traced == False:
                 model_trace = torch.jit.trace(model, (batch[0], batch[1], batch[2], position_ids, tensor_dummy, tensor_dummy, tensor_dummy, tensor_dummy, tensor_dummy, tensor_dummy), check_trace=False)
                 model_trace.eval()
+                is_eval_traced = True
             if args.use_jit_trace:
                 outputs = model_trace(batch[0], batch[1], batch[2], position_ids, tensor_dummy, tensor_dummy, tensor_dummy, tensor_dummy, tensor_dummy, tensor_dummy)
             else:
