@@ -238,10 +238,20 @@ def load_data(traindir, valdir, cache_dataset, distributed):
 
     return dataset, dataset_test, train_sampler, test_sampler
 
-# permute the params from filters first (KCRS) to filters last(RSCK) or vice versa.
-# and permute from RSCK to KCRS is used for checkpoint saving
+def lr_vec_fcn(values, milestones):
+    lr_vec = []
+    for n in range(len(milestones)-1):
+        lr_vec += [values[n]]*(milestones[n+1]-milestones[n])
+    return lr_vec
 
+def adjust_learning_rate(optimizer, epoch, lr_vec):
+    """Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""
+    lr = lr_vec[epoch]
+    for param_group in optimizer.param_groups:
+        param_group['lr'] = lr
 
+#permute the params from filters first (KCRS) to filters last(RSCK) or vice versa.
+#and permute from RSCK to KCRS is used for checkpoint saving
 def permute_params(model, to_filters_last, lazy_mode):
     with torch.no_grad():
         for name, param in model.named_parameters():
@@ -396,8 +406,11 @@ def main(args):
         model, optimizer = amp.initialize(model, optimizer,
                                           opt_level=args.apex_opt_level
                                           )
-
-    lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=args.lr_step_size, gamma=args.lr_gamma)
+    if args.custom_lr_values is not None:
+        lr_vec = lr_vec_fcn([args.lr]+args.custom_lr_values, [0]+args.custom_lr_milestones+[args.epochs])
+        lr_scheduler = None
+    else:
+        lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=args.lr_step_size, gamma=args.lr_gamma)
 
     model_for_eval = model
     if args.run_trace_mode:
@@ -434,11 +447,13 @@ def main(args):
         checkpoint = torch.load(args.resume, map_location='cpu')
         model_without_ddp.load_state_dict(checkpoint['model'])
         optimizer.load_state_dict(checkpoint['optimizer'])
-        # Permute the weight momentum buffer before using for checkpoint
+        if lr_scheduler is not None:
+            lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
+
+        #Permute the weight momentum buffer before using for checkpoint
         if(args.device == 'habana'):
             permute_momentum(optimizer, True, args.run_lazy_mode)
 
-        lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
         args.start_epoch = checkpoint['epoch'] + 1
         if(args.device == 'habana'):
             permute_params(model_without_ddp, True, args.run_lazy_mode)
@@ -455,9 +470,14 @@ def main(args):
         if args.distributed and not args.synthetic_data:
             train_sampler.set_epoch(epoch)
 
+        if lr_scheduler is None:
+            adjust_learning_rate(optimizer, epoch, lr_vec)
+
         train_one_epoch(model_for_train, criterion, optimizer, data_loader,
-                        device, epoch, args.print_freq, trainMetaData, args.apex)
-        lr_scheduler.step()
+                device, epoch, args.print_freq, trainMetaData, args.apex)
+        if lr_scheduler is not None:
+            lr_scheduler.step()
+
         evaluate(model_for_eval, criterion, data_loader_test, trainMetaData, device=device, print_freq=args.print_freq)
 
         if (args.output_dir and args.save_checkpoint):
@@ -478,7 +498,7 @@ def main(args):
                 checkpoint = {
                     'model': copy_model.state_dict(),
                     'optimizer': optimizer.state_dict(),
-                    'lr_scheduler': lr_scheduler.state_dict(),
+                    'lr_scheduler': None if lr_scheduler is None else lr_scheduler.state_dict(),
                     'epoch': epoch,
                     'args': args}
                 utils.save_on_master(
@@ -498,7 +518,7 @@ def main(args):
                 checkpoint = {
                     'model': model_without_ddp.state_dict(),
                     'optimizer': optimizer.state_dict(),
-                    'lr_scheduler': lr_scheduler.state_dict(),
+                    'lr_scheduler': None if lr_scheduler is None else lr_scheduler.state_dict(),
                     'epoch': epoch,
                     'args': args}
                 utils.save_on_master(
@@ -540,6 +560,9 @@ def parse_args():
                         metavar='W', help='weight decay (default: 1e-4)',
                         dest='weight_decay')
     parser.add_argument('--lr-step-size', default=30, type=int, help='decrease lr every step-size epochs')
+    parser.add_argument('--custom-lr-values', default=None, metavar='N', type=float, nargs='+', help='custom lr values list')
+    parser.add_argument('--custom-lr-milestones', default=None, metavar='N', type=int, nargs='+',
+                        help='custom lr milestones list')
     parser.add_argument('--lr-gamma', default=0.1, type=float, help='decrease lr by a factor of lr-gamma')
     parser.add_argument('--print-freq', default=10, type=int, help='print frequency')
     parser.add_argument('--output-dir', default='.', help='path where to save')
