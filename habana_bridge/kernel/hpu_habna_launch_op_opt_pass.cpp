@@ -57,10 +57,10 @@ void HabanaLaunchOpPT::markLayoutForOriginNodes(torch::jit::Value* val) {
       habana_kernel_meta_data.output_layout[0] != habana::LayoutFormat::ANY)
     return;
   int in_meta_size = habana_kernel_meta_data.input_layout.size();
+  int tensor_idx = 0;
   for (const auto value_in : node_ins) {
-    int tensor_idx = 0;
     if (value_in->type()->kind() == c10::TypeKind::TensorType) {
-      if (tensor_idx > in_meta_size ||
+      if (tensor_idx >= in_meta_size ||
           habana_kernel_meta_data.input_layout[tensor_idx] ==
               habana::LayoutFormat::ANY) {
         if (value_to_tensor_layout[value_in].layout !=
@@ -91,13 +91,14 @@ void HabanaLaunchOpPT::weightLayoutMarkingPass(
     // Get the metadata for all inputs, used for preprocessing inputs
     auto& habana_kernel_meta_data = HabanaKernel->GetKernelMetaData();
     auto node_ins = node->inputs();
-    int tensor_idx = 0;
+    size_t tensor_idx = 0;
     for (const auto value_in : node_ins) {
       if (value_in->type()->kind() == c10::TypeKind::TensorType) {
         // If we find a kernel depicting HWCK usage, we mark the tensor
         // Also, we go back to the origins of this tensor and mark them too
-        if (habana_kernel_meta_data.input_layout.at(tensor_idx) ==
-            habana::LayoutFormat::HWCK) {
+        if (tensor_idx < habana_kernel_meta_data.input_layout.size() &&
+            habana_kernel_meta_data.input_layout.at(tensor_idx) ==
+                habana::LayoutFormat::HWCK) {
           value_to_tensor_layout[value_in].layout = habana::LayoutFormat::HWCK;
           markLayoutForOriginNodes(value_in);
         }
