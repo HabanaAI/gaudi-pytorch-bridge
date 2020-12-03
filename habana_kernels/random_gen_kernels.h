@@ -105,4 +105,14 @@ class DropoutOperator : public HabanaOperator {
       torch::jit::Stack& inputs,
       bool is_persistent);
   void SetPTOutputs(const torch::jit::Stack& inputs, bool is_output_persistent);
+
+  static void populateSeedTensor(
+      const PtTensorInfo& ti,
+      at::Tensor& dma_tensor);
+
+  virtual getDMAInputTensorCBType getDMAInputTensorCB() override {
+    return DropoutOperator::populateSeedTensor;
+  }
+
+  using HabanaOperator::SetPTOutputs;
 };

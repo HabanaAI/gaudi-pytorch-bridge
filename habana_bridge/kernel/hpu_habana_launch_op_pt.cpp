@@ -37,6 +37,8 @@
 #include "habana_device/tensor_builder.h"
 #include "habana_helpers/tensor_utils.h"
 #include "habana_kernels/kernel_utils.h"
+#include "habana_kernels/random_gen_kernels.h"
+#include "habana_kernels/unary_kernels.h"
 
 using namespace torch::jit;
 
@@ -402,6 +404,36 @@ void HabanaLaunchOpPT::GetSynapseInputs(
       } // else
       input_idx++;
     } // if (value_to_ivalue[value_in] && ..
+    else if (
+        !strcmp("aten::_fused_dropout", node->kind().toQualString()) &&
+        1 == input_idx) {
+      auto stack = getStackForNode(node);
+      // Create the seed tensor
+      // TODO : check for the generator when the generator could be passed
+      // as an IValues
+      auto seed_tensor = DropoutOperator::GenerateAndCopySeedToHPU(stack, true);
+
+      auto& syn_tensor =
+          habana_op->AllocateSynapseInput(*syn_graph_ptr, seed_tensor, true);
+
+      auto dma_cb = habana_op->getDMAInputTensorCB();
+      std::ostringstream oss;
+      oss << "%dma_input" << '_' << dma_input_idx;
+      dma_input_idx++;
+      std::string irn{oss.str()};
+      PtTensorInfo ti(
+          seed_tensor,
+          syn_tensor.tensor_name_,
+          irn,
+          watch_tensor_flag_,
+          dma_cb);
+      auto dma_tensor_idx = aten_intermediates.size();
+      ti.set_dma_tensor_idx(dma_tensor_idx);
+      dma_input_tensorinfos.emplace_back(ti);
+      // Saving as persistent intermediate tensor
+      aten_intermediates.push_back(seed_tensor);
+      input_idx++;
+    }
   } // for (const auto value_in : node_ins)
 }
 
@@ -1407,14 +1439,14 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
     auto patch_info = HabanaKernel->getAppendedTensorInfos();
     if (!patch_info.empty()) {
       for (const auto& p : patch_info) {
-        std::string irn{"%appended"};
-
-        PtTensorInfo ti(p.second, p.first, irn, watch_tensor_flag_);
         void* buffp = p.second.data_ptr();
 
         // Check whether it is an alias of any input
         auto it = buff_to_inivpsh_map.find(buffp);
         if (it != buff_to_inivpsh_map.end()) {
+          std::string irn{"%appended"};
+
+          PtTensorInfo ti(p.second, p.first, irn, watch_tensor_flag_);
           auto& ivpsh = it->second;
 
           if (enable_caching_) {
@@ -1426,8 +1458,13 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
 
           duplicate_tivs.emplace_back(ti);
         } else {
-          interim_tensorinfos.emplace_back(
-              PtTensorInfo(p.second, p.first, irn, watch_tensor_flag_));
+          std::ostringstream oss;
+          oss << "%interim" << '_' << interim_idx;
+          interim_idx++;
+          std::string irn{oss.str()};
+
+          PtTensorInfo ti(p.second, p.first, irn, watch_tensor_flag_);
+          interim_tensorinfos.emplace_back(ti);
           aten_intermediates.push_back(p.second);
         }
       }
@@ -1467,6 +1504,14 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
   // FlattenAndLinkInputTIVs
   FlattenAndLinkInputTIVs(rv);
 
+  if (!dma_input_tensorinfos.empty()) {
+    rv.num_dma_inputs = dma_input_tensorinfos.size();
+    rv.dtensorinfos->insert(
+        rv.dtensorinfos->end(),
+        dma_input_tensorinfos.begin(),
+        dma_input_tensorinfos.end());
+  }
+
   // tinfos for outputs are populated during compile
   // need to be reordered only when the tensor handles are released
   rv.aten_outputs = std::make_shared<std::vector<IValPtrShared>>(
@@ -1483,12 +1528,15 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
     // At this point, tinfos for inputs, input duplicates and interims are
     // populated
     TORCH_CHECK(
-        (rv.num_inputs + rv.num_induplicates + rv.num_interims ==
+        (rv.num_inputs + rv.num_induplicates + rv.num_dma_inputs +
+             rv.num_interims ==
          rv.dtensorinfos->size()),
         "num_inputs ",
         rv.num_inputs,
         " num_induplicates ",
         rv.num_induplicates,
+        " num_dma_inputs ",
+        rv.num_dma_inputs,
         " num_interims ",
         rv.num_interims,
         " are not adding up to #dtensorinfos ",
@@ -1526,10 +1574,11 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
     }
   }
 
-  // At this point, tinfos for inputs, input duplicates, interims, outputs
-  // and output duplicates are populated
-  auto total_tinfos = rv.num_inputs + rv.num_induplicates + rv.num_interims +
-      rv.num_outputs + rv.num_outduplicates + rv.num_in_to_outduplicates;
+  // At this point, tinfos for inputs, input duplicates, dma_inputs, interims,
+  // outputs and output duplicates are populated
+  auto total_tinfos = rv.num_inputs + rv.num_induplicates + rv.num_dma_inputs +
+      rv.num_interims + rv.num_outputs + rv.num_outduplicates +
+      rv.num_in_to_outduplicates;
 
   TORCH_CHECK(
       total_tinfos == rv.dtensorinfos->size(),
@@ -1539,6 +1588,8 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
       rv.num_inputs,
       " num_induplicates ",
       rv.num_induplicates,
+      " num_dma_inputs ",
+      rv.num_dma_inputs,
       " num_interims ",
       rv.num_interims,
       " num_outputs ",
@@ -1552,6 +1603,7 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
 
   PT_BRIDGE_DEBUG("num_inputs ", rv.num_inputs);
   PT_BRIDGE_DEBUG("num_induplicates ", rv.num_induplicates);
+  PT_BRIDGE_DEBUG("num_dma_inputs ", rv.num_dma_inputs);
   PT_BRIDGE_DEBUG("num_interims ", rv.num_interims);
   PT_BRIDGE_DEBUG("num_outputs ", rv.num_outputs);
   PT_BRIDGE_DEBUG("num_outduplicates ", rv.num_outduplicates);
@@ -1704,6 +1756,7 @@ void HabanaLaunchOpPT::clear() {
   input_tiv_map.clear();
 
   interim_tensorinfos.clear();
+  dma_input_tensorinfos.clear();
   output_tensorinfos.clear();
   duplicate_outtinfos.clear();
   duplicate_in_to_outtinfos.clear();
@@ -1801,6 +1854,9 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
     std::shared_ptr<RecipeValueSpec> rvpsh = GetCachedRecipe(spec_key);
     if (ABSL_PREDICT_TRUE(rvpsh)) {
       RecipeValueSpec& rv = *rvpsh;
+      std::shared_ptr<std::vector<IValPtrShared>> dma_inputs =
+          std::make_shared<std::vector<IValPtrShared>>(
+              std::vector<IValPtrShared>());
 
       PT_BRIDGE_DEBUG(
           "PGM cache hit, key:",
@@ -1808,7 +1864,18 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
           ", ntensorbytes ",
           rv.ntensorbytes,
           ", total_recipe_ntbytes ",
-          RecipeValueSpec::total_recipe_ntbytes);
+          RecipeValueSpec::total_recipe_ntbytes,
+          ", #recipes ",
+          RecipeValueSpec::recipe_count);
+
+      PT_BRIDGE_DEBUG("Cache hit: num_inputs ", rv.num_inputs);
+      PT_BRIDGE_DEBUG("Cache hit: num_induplicates ", rv.num_induplicates);
+      PT_BRIDGE_DEBUG("Cache hit: num_dma_inputs ", rv.num_dma_inputs);
+      PT_BRIDGE_DEBUG("Cache hit: num_interims ", rv.num_interims);
+      PT_BRIDGE_DEBUG("Cache hit: num_outputs ", rv.num_outputs);
+      PT_BRIDGE_DEBUG("Cache hit: num_outduplicates ", rv.num_outduplicates);
+      PT_BRIDGE_DEBUG(
+          "Cache hit: num_in_to_outduplicates ", rv.num_in_to_outduplicates);
 
       // Patch the input buffers
       // Running index on rv.dtensorinfos
@@ -1848,11 +1915,39 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
         }
       }
 
+      // Patch the dma inputs if there are any
+      if (rv.num_dma_inputs) {
+        size_t dma_inputs_index_end =
+            rv.num_inputs + rv.num_induplicates + rv.num_dma_inputs;
+        for (; ridx < dma_inputs_index_end; ridx++) {
+          auto& ti = rv.dtensorinfos->at(ridx);
+
+          auto dma_cb = ti.get_dma_cb();
+          auto dma_tensor_idx = ti.get_dma_tensor_idx();
+          TORCH_CHECK(
+              dma_tensor_idx < rv.aten_intermediates.size(),
+              "out of range dma_tensor_idx ",
+              dma_tensor_idx,
+              " #aten_intermediates ",
+              rv.aten_intermediates.size());
+          auto dma_tensor = rv.aten_intermediates[dma_tensor_idx];
+
+          dma_cb(ti, dma_tensor);
+
+          IValPtrShared dma_ivpsh = std::make_shared<IVal>(dma_tensor);
+          dma_inputs->push_back(dma_ivpsh);
+
+          PT_BRIDGE_DEBUG(
+              "Cache hit: DMA Input: buffer ptr ",
+              rv.dtensorinfos->at(ridx).get_buffer());
+        }
+      }
+
       if (enable_tensor_release_) {
         // Patch persistent intermediates
         // The persistent intermediates are retained in the rv
-        size_t interms_end =
-            rv.num_inputs + rv.num_induplicates + rv.num_interims;
+        size_t interms_end = rv.num_inputs + rv.num_induplicates +
+            rv.num_dma_inputs + rv.num_interims;
         auto interims_id = 0;
         for (; ridx < interms_end; ridx++) {
           PtTensorInfo& ti = rv.dtensorinfos->at(ridx);
@@ -1927,15 +2022,7 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
         DumpTensors_pre(rv);
       }
 
-      PT_BRIDGE_DEBUG("Cache hit: num_inputs ", rv.num_inputs);
-      PT_BRIDGE_DEBUG("Cache hit: num_induplicates ", rv.num_induplicates);
-      PT_BRIDGE_DEBUG("Cache hit: num_interims ", rv.num_interims);
-      PT_BRIDGE_DEBUG("Cache hit: num_outputs ", rv.num_outputs);
-      PT_BRIDGE_DEBUG("Cache hit: num_outduplicates ", rv.num_outduplicates);
-      PT_BRIDGE_DEBUG(
-          "Cache hit: num_in_to_outduplicates ", rv.num_in_to_outduplicates);
-
-      rv.launch(input_refs);
+      rv.launch(input_refs, dma_inputs);
 
       if (enable_tensor_dump_) {
         DumpTensors(rv);

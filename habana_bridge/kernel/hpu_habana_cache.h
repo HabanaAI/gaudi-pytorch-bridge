@@ -113,7 +113,9 @@ struct RecipeValueSpec {
     TORCH_CHECK(!aten_outputs->empty());
   }
 
-  void launch(at::ArrayRef<torch::jit::IValue> input_refs);
+  void launch(
+      at::ArrayRef<torch::jit::IValue> input_refs,
+      std::shared_ptr<std::vector<IValPtrShared>> dma_inputs = nullptr);
 
   void print_hbuff(
       size_t buf_idx,
@@ -146,6 +148,7 @@ struct RecipeValueSpec {
 
   size_t num_inputs{0};
   size_t num_induplicates{0};
+  size_t num_dma_inputs{0};
   size_t num_interims{0};
   size_t num_outputs{0};
   size_t num_outduplicates{0};

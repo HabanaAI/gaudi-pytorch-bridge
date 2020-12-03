@@ -102,6 +102,14 @@ class HabanaLaunchOpPT {
   // tiv : absl::variant<TensorInfo, std::vector<TensorInfo>> objects
   std::unordered_map<void*, IValPtrShared> buff_to_inivpsh_map;
 
+  size_t dma_input_idx{0};
+  size_t interim_idx{0};
+
+  // For supporting operators that need inputs which are not present in the
+  // stack. These inputs need to be DMA transferred during creation of the op
+  // or patching a cached recipe.
+  std::deque<PtTensorInfo> dma_input_tensorinfos;
+
   // Temp additions to enable BatchNorm..tensors created that are not in graph
   // We get this to enable correct patching
   // Right now our patching is tightly coupled to graph nodes

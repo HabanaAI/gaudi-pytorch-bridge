@@ -27,6 +27,11 @@ using ValPtr = torch::jit::Value*;
 void PrintATenTensor(const at::Tensor& a);
 void PrintATenTensor(const IValPtrShared& a);
 
+class PtTensorInfo;
+
+typedef void (
+    *getDMAInputTensorCBType)(const PtTensorInfo& ti, at::Tensor& dma_tensor);
+
 class PtTensorInfo {
  public:
   PtTensorInfo(const IValPtrShared& ivpsh);
@@ -34,12 +39,14 @@ class PtTensorInfo {
       const IValPtrShared& ivp,
       const std::string& sn,
       const ValPtr& vp,
-      const bool wflag);
+      const bool wflag,
+      const getDMAInputTensorCBType dma_cb = nullptr);
   PtTensorInfo(
       const at::Tensor& pt_tensor,
       const std::string& sn,
       const std::string& irn,
-      const bool wflag);
+      const bool wflag,
+      const getDMAInputTensorCBType dma_cb = nullptr);
 
   // access functions for read write data members
   void* get_buffer() const {
@@ -109,6 +116,15 @@ class PtTensorInfo {
   const c10::MemoryFormat& get_mf() {
     return mf_;
   }
+  size_t get_dma_tensor_idx() const {
+    return dma_tensor_idx_;
+  }
+  void set_dma_tensor_idx(size_t i) {
+    dma_tensor_idx_ = i;
+  }
+  getDMAInputTensorCBType get_dma_cb() const {
+    return dma_cb_;
+  }
 
   static bool watch_tensor_flag;
 
@@ -134,9 +150,13 @@ class PtTensorInfo {
   c10::TensorOptions topts_;
   c10::MemoryFormat mf_;
 
+  size_t dma_tensor_idx_{ULONG_MAX};
+  getDMAInputTensorCBType dma_cb_{nullptr};
+
   void populate_tinfo(
       const at::Tensor& pt_tensor,
       const std::string& irn,
       const std::string& sn,
-      const bool wflag);
+      const bool wflag,
+      const getDMAInputTensorCBType dma_cb);
 };

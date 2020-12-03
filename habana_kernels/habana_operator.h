@@ -10,6 +10,7 @@
 #pragma once
 #include <synapse_api_types.h>
 #include "habana_helpers/logging.h"
+#include "habana_helpers/tensor_info.h"
 #include "habana_helpers/tensor_utils.h"
 #include "synapse_helpers/device_types.h"
 #include "synapse_helpers/graph.h"
@@ -181,6 +182,10 @@ class HabanaOperator {
   virtual const KernelMetaData& GetKernelMetaData() const {
     return kernel_meta_data_;
   }
+
+  // For populating the inputs that need to be created in host and DMA
+  // transferred to the device before the execution of the graph.
+  virtual getDMAInputTensorCBType getDMAInputTensorCB();
 
   // To communicate patching info for tensors which are not part of graph
   virtual std::vector<std::pair<std::string, at::Tensor>>

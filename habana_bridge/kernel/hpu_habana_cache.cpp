@@ -82,11 +82,17 @@ RecipeValueSpec::~RecipeValueSpec() {
 }
 
 std::ostream& operator<<(std::ostream& O, const RecipeValueSpec& v) {
-  O << "---- recipe details ::"
-    << " <id : " << v.id << "> "
+  O << "---- recipe details :: begin" << '\n';
+  O << " <id : " << v.id << "> "
     << " <iteration : " << v.iter_idx << "> "
     << " <addr : " << v.recipe.get() << "> "
     << " <use_count : " << v.recipe.use_count() << "> " << '\n';
+
+  O << " num_inputs       : " << v.num_inputs << '\n'
+    << " num_induplicates : " << v.num_induplicates << '\n'
+    << " num_dma_inputs   : " << v.num_dma_inputs << '\n'
+    << " num_interims     : " << v.num_interims << '\n'
+    << " num_outputs      : " << v.num_outputs << '\n';
 
   if (v.aten_intermediates.size()) {
     O << "aten_intermediates #" << v.aten_intermediates.size() << " ::";
@@ -181,7 +187,9 @@ void RecipeValueSpec::d2h_dbuff(size_t buf_idx) {
   }
 }
 
-void RecipeValueSpec::launch (at::ArrayRef<torch::jit::IValue> input_refs) {
+void RecipeValueSpec::launch(
+    at::ArrayRef<torch::jit::IValue> input_refs,
+    std::shared_ptr<std::vector<IValPtrShared>> dma_inputs) {
   SelfCheck();
 
   PT_BRIDGE_DEBUG("RecipeValueSpec::launch\n", *this);
@@ -202,6 +210,16 @@ void RecipeValueSpec::launch (at::ArrayRef<torch::jit::IValue> input_refs) {
         ptRefs.push_back(std::move(tensor));
         inDevPtr.push_back(reinterpret_cast<synapse_helpers::device_ptr>(
             input.toTensor().storage().data_ptr().get()));
+      }
+    }
+    if (dma_inputs != nullptr && dma_inputs->size() > 0) {
+      for (auto& dma_input : *dma_inputs) {
+        TORCH_CHECK(
+            dma_input->isTensor(), "Only tensor is supported as dma_input");
+        at::Tensor tensor = dma_input->toTensor();
+        ptRefs.push_back(std::move(tensor));
+        inDevPtr.push_back(
+            reinterpret_cast<uint64_t>((dma_input->toTensor()).data_ptr()));
       }
     }
     // wait for input DMA to complete before launching the compute.

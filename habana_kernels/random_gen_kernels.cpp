@@ -549,6 +549,32 @@ void DropoutOperator::SetPTOutputs(
   std::vector<at::Tensor> pt_outputs{output, output_mask};
   HabanaOperator::SetPTOutputs(pt_outputs);
 }
+
+void DropoutOperator::populateSeedTensor(
+    const PtTensorInfo& ti,
+    at::Tensor& dma_tensor) {
+  auto gen = at::detail::getDefaultCPUGenerator();
+
+  // Acquire lock when using random generators
+  std::vector<int> seed_vec;
+  std::lock_guard<std::mutex> lock(gen->mutex_);
+  for (size_t i = 0; i < ti.get_numel(); i++) {
+    seed_vec.push_back((int)gen->random());
+  }
+
+  auto vec_size = seed_vec.size() * sizeof(seed_vec[0]);
+  TORCH_CHECK(
+      vec_size == ti.get_size(),
+      " cpu vec size ",
+      vec_size,
+      " mismatch with ti.get_size ",
+      ti.get_size());
+
+  at::IntArrayRef tshape{ti.get_shape()};
+  habana_helpers::copy_scalar_to_device(
+      seed_vec.data(), dma_tensor, ti.get_size());
+}
+
 /*******************************************************************
 *@brief Implements Dropout kernel
 @param[in] self - input tensor on which Dropout is applied
