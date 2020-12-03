@@ -10,7 +10,7 @@ class EmbeddingBagSum : public ir::Node {
       const Tensor& offsets,
       const Tensor& valid_count,
       int64_t kernel_mode)
-      : Node(c10::Symbol::fromQualString("::embedding_bag_sum")) {
+      : Node(c10::Symbol::fromQualString("hpu::embedding_bag_sum")) {
     auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHABANA);
     auto hl_indices = GetOrCreateHbLazyTensor(indices, c10::kHABANA);
     auto hl_offsets = GetOrCreateHbLazyTensor(offsets, c10::kHABANA);
@@ -47,7 +47,7 @@ class EmbeddingBagSumBwd : public ir::Node {
       const Tensor& offsets,
       const Tensor& valid_count,
       int64_t kernel_mode)
-      : Node(c10::Symbol::fromQualString("::embedding_bag_sum_bwd_out")) {
+      : Node(c10::Symbol::fromQualString("hpu::embedding_bag_sum_bwd_out")) {
     auto hl_out = GetOrCreateHbLazyTensor(out, c10::kHABANA);
     auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHABANA);
     auto hl_indices = GetOrCreateHbLazyTensor(indices, c10::kHABANA);
@@ -76,4 +76,3 @@ class EmbeddingBagSumBwd : public ir::Node {
 }; // class EmbeddingBagSumBwd : public ir::Node
 } // namespace ir
 }; // namespace habana_lazy
-

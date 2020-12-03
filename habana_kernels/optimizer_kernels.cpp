@@ -98,21 +98,23 @@ optimizer_sparse_sgd_with_valid_count_hpu(
 
   OptimizerSparseSgdOperator Op(device_id, scalar_type);
   // Assign Inputs to the Operator
-  std::vector<at::Tensor> pt_inputs{gradients,
-                                    weights_in,
-                                    moments_in,
-                                    indices,
-                                    learning_rate,
-                                    valid_count_tensor};
+  std::vector<at::Tensor> pt_inputs{
+      gradients,
+      weights_in,
+      moments_in,
+      indices,
+      learning_rate,
+      valid_count_tensor};
   // Build Params for the graph
-  std::vector<c10::IValue> stack = {IValue(gradients),
-                                    IValue(weights_in),
-                                    IValue(moments_in),
-                                    IValue(indices),
-                                    IValue(learning_rate),
-                                    IValue(valid_count_tensor),
-                                    IValue(mom),
-                                    IValue(nesterov)};
+  std::vector<c10::IValue> stack = {
+      IValue(gradients),
+      IValue(weights_in),
+      IValue(moments_in),
+      IValue(indices),
+      IValue(learning_rate),
+      IValue(valid_count_tensor),
+      IValue(mom),
+      IValue(nesterov)};
 
   size_t key = Op.GetRecipeKey(node_type, stack);
   if (device.get_recipe_handle_cache().isCached(key)) {
@@ -200,19 +202,21 @@ optimizer_sparse_adagrad_with_valid_count_hpu(
 
   OptimizerSparseAdagradOperator Op(device_id, scalar_type);
   // Assign Inputs to the Operator
-  std::vector<at::Tensor> pt_inputs{gradients,
-                                    weights_in,
-                                    moments_in,
-                                    indices,
-                                    learning_rate,
-                                    valid_count_tensor};
+  std::vector<at::Tensor> pt_inputs{
+      gradients,
+      weights_in,
+      moments_in,
+      indices,
+      learning_rate,
+      valid_count_tensor};
   // Build Params for the graph
-  std::vector<c10::IValue> stack = {IValue(gradients),
-                                    IValue(weights_in),
-                                    IValue(moments_in),
-                                    IValue(indices),
-                                    IValue(learning_rate),
-                                    IValue(valid_count_tensor)};
+  std::vector<c10::IValue> stack = {
+      IValue(gradients),
+      IValue(weights_in),
+      IValue(moments_in),
+      IValue(indices),
+      IValue(learning_rate),
+      IValue(valid_count_tensor)};
 
   size_t key = Op.GetRecipeKey(node_type, stack);
   if (device.get_recipe_handle_cache().isCached(key)) {
@@ -239,7 +243,7 @@ optimizer_sparse_adagrad_with_valid_count_hpu(
 static auto& KernelRegistry =
     habana::KernelRegistry()
         .add(
-            "::habanaOptimizerSparseSgd",
+            "hpu::habanaOptimizerSparseSgd",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<OptimizerSparseSgdOperator>(
                   device_id, node_type);

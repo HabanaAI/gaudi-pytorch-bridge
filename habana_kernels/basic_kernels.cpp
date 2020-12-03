@@ -47,14 +47,16 @@ void do_copy_transpose(Tensor& dst, const Tensor& src) {
   auto sizes = dst.sizes().vec();
   auto strides = dst.strides().vec();
   std::vector<int> out_pos = {0, 3, 1, 2};
-  std::vector<long int> swapped_sizes = {sizes[out_pos[0]],
-                                         sizes[out_pos[1]],
-                                         sizes[out_pos[2]],
-                                         sizes[out_pos[3]]};
-  std::vector<long int> swapped_strides = {strides[out_pos[0]],
-                                           strides[out_pos[1]],
-                                           strides[out_pos[2]],
-                                           strides[out_pos[3]]};
+  std::vector<long int> swapped_sizes = {
+      sizes[out_pos[0]],
+      sizes[out_pos[1]],
+      sizes[out_pos[2]],
+      sizes[out_pos[3]]};
+  std::vector<long int> swapped_strides = {
+      strides[out_pos[0]],
+      strides[out_pos[1]],
+      strides[out_pos[2]],
+      strides[out_pos[3]]};
 
   dst.unsafeGetTensorImpl()->set_sizes_and_strides(
       swapped_sizes, swapped_strides);
@@ -281,10 +283,15 @@ Tensor view_hpu(const Tensor& self, IntArrayRef size) {
   return at::native::view(self, size);
 }
 
+Tensor habana_d2d_memcpy(const Tensor& self) {
+  HABANA_ASSERT(0);
+  return self;
+}
+
 static auto& KernelRegistry =
     ::habana::KernelRegistry()
         .add(
-            "habana::habana_d2d_memcpy",
+            "hpu::habana_d2d_memcpy",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<MemCopyOperator>(device_id, node_type);
             })

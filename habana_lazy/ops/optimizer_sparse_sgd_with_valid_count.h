@@ -30,7 +30,7 @@ class OptimizerSparseSgdValidCount : public Node {
       const Tensor& valid_count_tensor,
       float mom,
       bool nesterov)
-      : ir::Node(c10::Symbol::fromQualString("::habanaOptimizerSparseSgd")) {
+      : ir::Node(c10::Symbol::fromQualString("hpu::habanaOptimizerSparseSgd")) {
     std::vector<HbLazyTensor> hl_tensors;
     hl_tensors.push_back(GetOrCreateHbLazyTensor(gradients, c10::kHABANA));
     hl_tensors.push_back(GetOrCreateHbLazyTensor(weights_in, c10::kHABANA));

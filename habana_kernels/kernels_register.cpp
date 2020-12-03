@@ -3350,4 +3350,37 @@ static auto
                             decltype(matmul_backward_hpu_wrap),
                             &matmul_backward_hpu_wrap>(
                             DispatchKey::HABANATensorId)
+                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+                .op(torch::RegisterOperators::options()
+                        .schema(
+                            "hpu::embedding_bag_sum(Tensor input, Tensor indices, Tensor offsets, Tensor valid_count, int64_t kernel_mode) -> (Tensor)")
+                        .impl_unboxedOnlyKernel<
+                            decltype(embedding_bag_sum_hpu_wrap),
+                            &embedding_bag_sum_hpu_wrap>(
+                            DispatchKey::HABANATensorId)
+                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+                .op(torch::RegisterOperators::options()
+                        .schema(
+                            "hpu::embedding_bag_sum_bwd_out(Tensor out, Tensor input, Tensor indices_bwd, Tensor offsets_bwd, Tensor valid_count_bwd, int64_t kernel_mode) -> (Tensor)")
+                        .impl_unboxedOnlyKernel<
+                            decltype(
+                                embedding_bag_sum_bwd_out_kernel_mode_hpu_wrap),
+                            &embedding_bag_sum_bwd_out_kernel_mode_hpu_wrap>(
+                            DispatchKey::HABANATensorId)
+                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+                .op(torch::RegisterOperators::options()
+                        .schema(
+                            "hpu::habanaOptimizerSparseSgd(Tensor gradients, Tensor weights_in, Tensor moments_in, Tensor indices, Tensor learning_rate, Tensor valid_count_tensor, float mom, bool nesterov) -> (Tensor, Tensor)")
+                        .impl_unboxedOnlyKernel<
+                            decltype(
+                                optimizer_sparse_sgd_with_valid_count_hpu_wrap),
+                            &optimizer_sparse_sgd_with_valid_count_hpu_wrap>(
+                            DispatchKey::HABANATensorId)
+                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+                .op(torch::RegisterOperators::options()
+                        .schema(
+                            "hpu::habana_d2d_memcpy(Tensor self) -> (Tensor)")
+                        .impl_unboxedOnlyKernel<
+                            decltype(habana_d2d_memcpy),
+                            &habana_d2d_memcpy>(DispatchKey::HABANATensorId)
                         .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));

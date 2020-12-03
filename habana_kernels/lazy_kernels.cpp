@@ -78,7 +78,7 @@ Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
   habana_lazy::ir::NodePtr node;
   if (src.dtype() == self.dtype()) {
     node = habana_lazy::ir::Node::Create(
-        Symbol::fromQualString("habana::habana_d2d_memcpy"),
+        Symbol::fromQualString("hpu::habana_d2d_memcpy"),
         {hb_tensor.GetIrValue()});
   } else {
     node = habana_lazy::ir::Node::Create(
@@ -1706,7 +1706,7 @@ Tensor clone_hpu_lazy(
   habana_lazy::HbLazyTensor hb_tensor =
       habana_lazy::GetOrCreateHbLazyTensor(self, self.device());
   auto node = habana_lazy::ir::Node::Create(
-      Symbol::fromQualString("habana::habana_d2d_memcpy"),
+      Symbol::fromQualString("hpu::habana_d2d_memcpy"),
       {hb_tensor.GetIrValue()});
   // Memcopy kernel doesnt allocte memory of output and assumes pre-allocation
   auto result = at::native::empty_hpu_lazy(
