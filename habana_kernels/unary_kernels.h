@@ -125,9 +125,12 @@ class SqrtOperator : public UnaryOperator {
 };
 
 // Clamp Operator
-class ClampOperator : public HabanaOperator {
+class ClampOperator : public UnaryOperator {
  public:
-  ClampOperator(int device_id, const std::string& guid) : HabanaOperator(guid) {
+  ClampOperator(int device_id, c10::ScalarType scalarType)
+      : UnaryOperator(
+            device_id,
+            "clamp_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
     kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});

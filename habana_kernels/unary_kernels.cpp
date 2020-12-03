@@ -1185,7 +1185,7 @@ Tensor clamp_min_hpu(const Tensor& self, Scalar min) {
 
   size_t device_id = self.device().index();
 
-  ClampOperator Op(device_id, node_type);
+  ClampOperator Op(device_id, scalar_type);
 
   // Create Graph
   auto graph = habana_helpers::create_graph(device_id, node_type);
@@ -1221,7 +1221,7 @@ Tensor clamp_hpu(
       "clamp_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
   size_t device_id = self.device().index();
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-  ClampOperator Op(device_id, node_type);
+  ClampOperator Op(device_id, scalar_type);
 
   std::vector<at::Tensor> pt_inputs;
   std::vector<c10::IValue> stack;
@@ -1433,6 +1433,11 @@ static auto& KernelRegistry =
             "aten::neg",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<NegOperator>(device_id, node_type);
+            })
+        .add(
+            "aten::clamp",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<ClampOperator>(device_id, node_type);
             })
         .add(
             "aten::reciprocal",

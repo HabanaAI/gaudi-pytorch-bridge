@@ -9,6 +9,7 @@ static const std::unordered_map<std::string, std::string> inPlaceToOutOfPlace =
      {"aten::index_put_", "aten::index_put"},
      {"aten::mul_", "aten::mul"},
      {"aten::relu_", "aten::relu"},
+     {"aten::clamp_", "aten::clamp"},
      {"aten::sub_", "aten::sub"}};
 
 bool isInplaceOp(const Node* node) {

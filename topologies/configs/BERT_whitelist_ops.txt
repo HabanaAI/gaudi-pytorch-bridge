@@ -41,3 +41,4 @@ aten::scatter(Tensor self, int dim, Tensor index, Tensor src) -> Tensor
 aten::arange(Scalar start, Scalar end, Scalar step, *, Tensor out) -> Tensor
 aten::_fused_dropout(Tensor self, float p, Generator? generator) -> (Tensor, Tensor)
 aten::to(Tensor self, Device device, int dtype, bool non_blocking, bool copy, int? memory_format) -> Tensor
+aten::clamp(Tensor self, Scalar? min, Scalar? max) -> Tensor
