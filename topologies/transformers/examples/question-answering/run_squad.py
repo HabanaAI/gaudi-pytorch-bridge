@@ -418,14 +418,23 @@ def evaluate(args, model, tokenizer, trainMetaData,  prefix=""):
     current_eval_step = 0
     for batch in tqdm(eval_dataloader, desc="Evaluating"):
         trainMetaData.tracept.start(time.time(), 'eval_iteration_' + str(current_eval_step))
+        ## Habana doesn't support Long tensors
+        ## Hence we need to convert start and end positions to int
+        if args.use_habana:
+            batch[0] = batch[0].to(dtype=torch.int32)
+            batch[2] = batch[2].to(dtype=torch.int32)
+
+        position_ids_cpu = compute_position_ids(batch[0])
         model.eval()
         batch = tuple(t.to(args.device) for t in batch)
+        position_ids = position_ids_cpu.to(args.device)
 
         with torch.no_grad():
             inputs = {
                 "input_ids": batch[0],
                 "attention_mask": batch[1],
                 "token_type_ids": batch[2],
+                "position_ids": position_ids,
             }
             tensor_dummy = torch.zeros(1).to(args.device)
 
@@ -443,13 +452,14 @@ def evaluate(args, model, tokenizer, trainMetaData,  prefix=""):
                         {"langs": (torch.ones(batch[0].shape, dtype=torch.int64) * args.lang_id).to(args.device)}
                     )
             if args.use_jit_trace and current_eval_step == 0:
-                model_trace = torch.jit.trace(model, (batch[0], batch[1], batch[2], tensor_dummy, tensor_dummy, tensor_dummy, tensor_dummy, tensor_dummy, tensor_dummy, tensor_dummy), check_trace=False)
+                model_trace = torch.jit.trace(model, (batch[0], batch[1], batch[2], position_ids, tensor_dummy, tensor_dummy, tensor_dummy, tensor_dummy, tensor_dummy, tensor_dummy), check_trace=False)
                 model_trace.eval()
             if args.use_jit_trace:
-                outputs = model_trace(batch[0], batch[1], batch[2], tensor_dummy, tensor_dummy, tensor_dummy, tensor_dummy, tensor_dummy, tensor_dummy, tensor_dummy)        
+                outputs = model_trace(batch[0], batch[1], batch[2], position_ids, tensor_dummy, tensor_dummy, tensor_dummy, tensor_dummy, tensor_dummy, tensor_dummy)
             else:
                 outputs = model(**inputs)
             feature_indices = feature_indices.to("cpu")
+
 
         for i, feature_index in enumerate(feature_indices):
             eval_feature = features[feature_index.item()]
@@ -908,6 +918,7 @@ def main():
         # Make sure only the first process in distributed training will download model & vocab
         barrier_local(args.use_habana)
 
+    trainMetaData = TrainMetaData(model, args.device)
     model.to(args.device)
 
     logger.info("Training/evaluation parameters %s", args)
@@ -926,7 +937,6 @@ def main():
     # Training
     if args.do_train:
         train_dataset = load_and_cache_examples(args, tokenizer, evaluate=False, output_examples=False)
-        trainMetaData = TrainMetaData(model, args.device)
         global_step, tr_loss = train(args, train_dataset, model, tokenizer, trainMetaData)
         logger.info(" global_step = %s, average loss = %s", global_step, tr_loss)
 
