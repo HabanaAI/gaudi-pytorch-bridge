@@ -35,7 +35,7 @@ aten::embedding(Tensor weight, Tensor indices, int padding_idx, bool scale_grad_
 aten::embedding_dense_backward(Tensor grad_output, Tensor indices, int num_weights, int padding_idx, bool scale_grad_by_freq) -> Tensor
 aten::nll_loss_forward(Tensor self, Tensor target, Tensor? weight, int reduction, int ignore_index) -> (Tensor, Tensor)
 aten::nll_loss_backward(Tensor grad_output, Tensor self, Tensor target, Tensor? weight, int reduction, int ignore_index, Tensor total_weight) -> Tensor
-//aten::slice(Tensor self, int dim, int start, int end, int step) -> Tensor
+aten::slice(Tensor self, int dim, int start, int end, int step) -> Tensor
 aten::expand(Tensor self, int[] size, *, bool implicit) -> Tensor
 aten::scatter(Tensor self, int dim, Tensor index, Tensor src) -> Tensor
 aten::arange(Scalar start, Scalar end, Scalar step, *, Tensor out) -> Tensor

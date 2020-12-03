@@ -247,6 +247,7 @@ def train(args, train_dataset, model, tokenizer, trainMetaData):
             ## Hence we need to convert start and end positions to int
             if args.use_habana:
                 batch[0] = batch[0].to(dtype=torch.int32)
+                batch[1] = batch[1].to(dtype=torch.int32)
                 batch[2] = batch[2].to(dtype=torch.int32)
                 batch[3] = batch[3].to(dtype=torch.int32)
                 batch[4] = batch[4].to(dtype=torch.int32)
@@ -425,6 +426,7 @@ def evaluate(args, model, tokenizer, trainMetaData,  prefix=""):
         ## Hence we need to convert start and end positions to int
         if args.use_habana:
             batch[0] = batch[0].to(dtype=torch.int32)
+            batch[1] = batch[1].to(dtype=torch.int32)
             batch[2] = batch[2].to(dtype=torch.int32)
 
         position_ids_cpu = compute_position_ids(batch[0])

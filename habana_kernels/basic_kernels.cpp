@@ -99,6 +99,11 @@ Tensor& copy_hpu_(Tensor& self, const Tensor& src, bool non_blocking) {
         dst = habana_helpers::hpu_cast_tensor(
             habana_helpers::cast_tensor_to_integer(src),
             at::scalarTypeToTypeMeta(c10::ScalarType::Float));
+      } else if (
+          (src.scalar_type() == c10::ScalarType::Int) &&
+          (dst.scalar_type() == c10::ScalarType::Float)) {
+        dst = habana_helpers::hpu_cast_tensor(
+            src, at::scalarTypeToTypeMeta(c10::ScalarType::Float));
       } else {
         if (dst.scalar_type() == c10::ScalarType::Long &&
             src.scalar_type() == c10::ScalarType::Int) {
