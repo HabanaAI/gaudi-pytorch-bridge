@@ -262,6 +262,7 @@ Tensor as_strided_hpu_lazy(
     IntArrayRef size,
     IntArrayRef stride,
     c10::optional<int64_t> storage_offset) {
+  HABANA_ASSERT(0);
   return as_strided_hpu(self, size, stride, storage_offset);
 };
 Tensor& set_hpu_lazy_(
@@ -270,6 +271,7 @@ Tensor& set_hpu_lazy_(
     int64_t storage_offset,
     IntArrayRef size,
     IntArrayRef stride) {
+  HABANA_ASSERT(0);
   return set_hpu_(self, source, storage_offset, size, stride);
 };
 Tensor view_hpu_lazy(const Tensor& self, IntArrayRef size) {
@@ -295,6 +297,7 @@ Tensor addcmul_hpu_lazy(
     const Tensor& tensor1,
     const Tensor& tensor2,
     Scalar alpha) {
+  HABANA_ASSERT(0);
   return addcmul_hpu(self, tensor1, tensor2, alpha);
 };
 Tensor& addcmul_hpu_lazy_(
@@ -336,6 +339,7 @@ Tensor addcdiv_hpu_lazy(
     const Tensor& tensor1,
     const Tensor& tensor2,
     Scalar alpha) {
+  HABANA_ASSERT(0);
   return addcdiv_hpu(self, tensor1, tensor2, alpha);
 };
 Tensor& addcdiv_hpu_lazy_(
@@ -391,9 +395,11 @@ Tensor add_tensor_hpu_lazy(
 }
 
 Tensor add_scalar_hpu_lazy(const Tensor& self, Scalar other, Scalar alpha) {
+  HABANA_ASSERT(0);
   return add_scalar_hpu(self, other, alpha);
 };
 Tensor& add_scalar_hpu_lazy_(Tensor& self, Scalar other, Scalar alpha) {
+  HABANA_ASSERT(0);
   return add_scalar_hpu_(self, other, alpha);
 };
 
@@ -441,18 +447,23 @@ Tensor sub_tensor_hpu_lazy(
     const Tensor& self,
     const Tensor& other,
     Scalar alpha) {
+  HABANA_ASSERT(0);
   return sub_tensor_hpu(self, other, alpha);
 };
 Tensor& sub_tensor_hpu_lazy_(Tensor& self, const Tensor& other, Scalar alpha) {
+  HABANA_ASSERT(0);
   return sub_tensor_hpu_(self, other, alpha);
 };
 Tensor sub_scalar_hpu_lazy(const Tensor& self, Scalar other, Scalar alpha) {
+  HABANA_ASSERT(0);
   return sub_scalar_hpu(self, other, alpha);
 };
 Tensor& sub_scalar_hpu_lazy_(Tensor& self, Scalar other, Scalar alpha) {
+  HABANA_ASSERT(0);
   return sub_scalar_hpu_(self, other, alpha);
 };
 Tensor rsub_scalar_hpu_lazy(const Tensor& self, Scalar other, Scalar alpha) {
+  HABANA_ASSERT(0);
   return rsub_scalar_hpu(self, other, alpha);
 };
 
@@ -515,33 +526,42 @@ Tensor mul_tensor_hpu_lazy(const Tensor& self, const Tensor& other) {
   return result;
 };
 Tensor mul_scalar_hpu_lazy(const Tensor& self, Scalar other) {
+  HABANA_ASSERT(0);
   return mul_scalar_hpu(self, other);
 };
 Tensor& mul_scalar_hpu_lazy_(Tensor& self, Scalar other) {
+  HABANA_ASSERT(0);
   return mul_scalar_hpu_(self, other);
 };
 Tensor div_tensor_hpu_lazy(const Tensor& self, const Tensor& other) {
+  HABANA_ASSERT(0);
   return div_tensor_hpu(self, other);
 };
 Tensor& div_tensor_hpu_lazy_out(
     Tensor& result,
     const Tensor& self,
     const Tensor& other) {
+  HABANA_ASSERT(0);
   return div_tensor_hpu_out(result, self, other);
 };
 Tensor& div_tensor_hpu_lazy_(Tensor& self, const Tensor& other) {
+  HABANA_ASSERT(0);
   return div_tensor_hpu_(self, other);
 };
 Tensor div_scalar_hpu_lazy(const Tensor& self, Scalar other) {
+  HABANA_ASSERT(0);
   return div_scalar_hpu(self, other);
 };
 Tensor& div_scalar_hpu_lazy_(Tensor& self, Scalar other) {
+  HABANA_ASSERT(0);
   return div_scalar_hpu_(self, other);
 };
 Tensor pow_tensor_tensor_hpu_lazy(const Tensor& self, const Tensor& other) {
+  HABANA_ASSERT(0);
   return pow_tensor_tensor_hpu(self, other);
 };
 Tensor& pow_tensor_tensor_hpu_lazy_(Tensor& self, const Tensor& other) {
+  HABANA_ASSERT(0);
   return pow_tensor_tensor_hpu_(self, other);
 };
 Tensor pow_tensor_scalar_hpu_lazy(const Tensor& self, Scalar other) {
@@ -562,12 +582,15 @@ Tensor pow_tensor_scalar_hpu_lazy(const Tensor& self, Scalar other) {
   return result;
 };
 Tensor& pow_tensor_scalar_hpu_lazy_(Tensor& self, Scalar other) {
+  HABANA_ASSERT(0);
   return pow_tensor_scalar_hpu_(self, other);
 };
 Tensor pow_scalar_tensor_hpu_lazy(Scalar other, const Tensor& self) {
+  HABANA_ASSERT(0);
   return pow_scalar_tensor_hpu(other, self);
 };
 Tensor gt_hpu_lazy(Tensor& self, Tensor& other) {
+  HABANA_ASSERT(0);
   return gt_hpu(self, other);
 };
 
@@ -575,18 +598,23 @@ void eq_tensor_out_hpu_lazy(
     Tensor& output,
     const Tensor& self,
     const Tensor& other) {
+  HABANA_ASSERT(0);
   return eq_tensor_out_hpu(output, self, other);
 };
 Tensor eq_tensor_hpu_lazy(Tensor& self, Tensor& other) {
+  HABANA_ASSERT(0);
   return eq_tensor_hpu(self, other);
 };
 Tensor eq_tensor_scalar_hpu_lazy(Tensor& self, Scalar other) {
+  HABANA_ASSERT(0);
   return eq_tensor_scalar_hpu(self, other);
 };
 Tensor lt_scalar_hpu_lazy(Tensor& self, Scalar other) {
+  HABANA_ASSERT(0);
   return lt_scalar_hpu(self, other);
 };
 Tensor lt_tensor_hpu_lazy(Tensor& self, Tensor& other) {
+  HABANA_ASSERT(0);
   return lt_tensor_hpu(self, other);
 };
 Tensor convolution_hpu_lazy(
@@ -697,6 +725,7 @@ std::tuple<Tensor, Tensor, Tensor, Tensor> embedding_bag_hpu_lazy(
     UNUSED bool sparse,
     Tensor& per_sample_weights,
     UNUSED bool include_last_offset) {
+  HABANA_ASSERT(0);
   return embedding_bag_hpu(
       weight,
       indices,
@@ -718,6 +747,7 @@ Tensor embedding_bag_bwd_hpu_lazy(
     bool scale_grad_by_freq,
     int mode,
     Tensor per_sample_weights) {
+  HABANA_ASSERT(0);
   return embedding_bag_bwd_hpu(
       grad,
       indices,
@@ -734,6 +764,7 @@ Tensor constant_pad_hpu_lazy(
     const Tensor& self,
     IntArrayRef pad,
     Scalar value) {
+  HABANA_ASSERT(0);
   return constant_pad_hpu(self, pad, value);
 };
 Tensor embedding_hpu_lazy(
@@ -742,6 +773,7 @@ Tensor embedding_hpu_lazy(
     int64_t padding_idx,
     bool scale_grad_by_freq,
     bool sparse) {
+  HABANA_ASSERT(0);
   return embedding_hpu(
       weight, indices, padding_idx, scale_grad_by_freq, sparse);
 };
@@ -751,6 +783,7 @@ Tensor embedding_dense_backward_hpu_lazy(
     int64_t num_weights,
     int64_t padding_idx,
     bool scale_grad_by_freq) {
+  HABANA_ASSERT(0);
   return embedding_dense_backward_hpu(
       grad, indices, num_weights, padding_idx, scale_grad_by_freq);
 };
@@ -903,12 +936,14 @@ Tensor& masked_fill_hpu_lazy_(
     Tensor& self,
     const Tensor& mask,
     const Tensor& value) {
+  HABANA_ASSERT(0);
   return masked_fill_hpu_(self, mask, value);
 };
 Tensor& masked_fill_scalar_hpu_lazy_(
     Tensor& self,
     const Tensor& mask,
     Scalar value) {
+  HABANA_ASSERT(0);
   return masked_fill_scalar_hpu_(self, mask, value);
 };
 Tensor gather_src_hpu_lazy(
@@ -916,6 +951,7 @@ Tensor gather_src_hpu_lazy(
     int64_t dim_,
     const Tensor& index,
     bool sparse_grad) {
+  HABANA_ASSERT(0);
   return gather_src_hpu(self, dim_, index, sparse_grad);
 };
 Tensor& scatter_inplace_src_hpu_lazy(
@@ -923,6 +959,7 @@ Tensor& scatter_inplace_src_hpu_lazy(
     int64_t dim_,
     const Tensor& index,
     const Tensor& src) {
+  HABANA_ASSERT(0);
   return scatter_inplace_src_hpu(self, dim_, index, src);
 };
 Tensor scatter_src_hpu_lazy(
@@ -930,6 +967,7 @@ Tensor scatter_src_hpu_lazy(
     int64_t dim_,
     const Tensor& index,
     const Tensor& src) {
+  HABANA_ASSERT(0);
   return scatter_src_hpu(self, dim_, index, src);
 };
 Tensor scatter_add_src_hpu_lazy(
@@ -937,6 +975,7 @@ Tensor scatter_add_src_hpu_lazy(
     int64_t dim_,
     const Tensor& index,
     const Tensor& src) {
+  HABANA_ASSERT(0);
   return scatter_add_src_hpu(self, dim_, index, src);
 };
 Tensor& scatter_add_inplace_src_hpu_lazy(
@@ -944,6 +983,7 @@ Tensor& scatter_add_inplace_src_hpu_lazy(
     int64_t dim_,
     const Tensor& index,
     const Tensor& src) {
+  HABANA_ASSERT(0);
   return scatter_add_inplace_src_hpu(self, dim_, index, src);
 };
 Tensor& index_add_hpu_lazy_(
@@ -951,6 +991,7 @@ Tensor& index_add_hpu_lazy_(
     int64_t dim_,
     const Tensor& indices,
     const Tensor& source) {
+  HABANA_ASSERT(0);
   return index_add_hpu_(self, dim_, indices, source);
 };
 Tensor index_put_hpu_lazy(
@@ -958,6 +999,7 @@ Tensor index_put_hpu_lazy(
     TensorList indices,
     const Tensor& value,
     bool accumulate) {
+  HABANA_ASSERT(0);
   return index_put_hpu(self, indices, value, accumulate);
 };
 Tensor& index_put_hpu_lazy_(
@@ -965,18 +1007,21 @@ Tensor& index_put_hpu_lazy_(
     TensorList indices,
     const Tensor& value,
     bool accumulate) {
+  HABANA_ASSERT(0);
   return index_put_hpu_(self, indices, value, accumulate);
 };
 Tensor index_select_hpu_lazy(
     const Tensor& self,
     int64_t dim,
     const Tensor& index) {
+  HABANA_ASSERT(0);
   return index_select_hpu(self, dim, index);
 };
 Tensor gather2d_hpu_lazy(
     const Tensor& input,
     const Tensor& indices,
     int64_t validCount) {
+  HABANA_ASSERT(0);
   return gather2d_hpu(input, indices, validCount);
 };
 Tensor slice_hpu_lazy(
@@ -985,6 +1030,11 @@ Tensor slice_hpu_lazy(
     int64_t start,
     int64_t end,
     int64_t step) {
+  if (self.dim() <= 1 && step == 1) {
+    HABANA_ASSERT(0);
+    // Does not work atm
+    return at::native::slice(self, dim, start, end, step);
+  }
   auto node =
       std::make_shared<habana_lazy::ir::Slice>(self, dim, start, end, step);
 
@@ -1015,6 +1065,7 @@ Tensor select_hpu_lazy(const Tensor& self, int64_t dim, int64_t index) {
 };
 
 Tensor& arange_hpu_lazy(Tensor& output, Scalar start, Scalar end, Scalar step) {
+  HABANA_ASSERT(0);
   return arange_hpu(output, start, end, step);
 };
 Tensor mm_hpu_lazy(const at::Tensor& mat1, const at::Tensor& mat2) {
@@ -1118,9 +1169,11 @@ Tensor batch_gemm_hpu_lazy(const Tensor& self, const Tensor& mat2) {
 };
 
 Tensor dot_hpu_lazy(const Tensor& self, const Tensor& other) {
+  HABANA_ASSERT(0);
   return dot_hpu(self, other);
 };
 Tensor mv_hpu_lazy(const Tensor& self, const Tensor& other) {
+  HABANA_ASSERT(0);
   return mv_hpu(self, other);
 };
 std::tuple<Tensor, Tensor> nll_loss_forward_hpu_lazy(
@@ -1270,6 +1323,7 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu_lazy(
     bool training,
     double momentum,
     double eps) {
+  HABANA_ASSERT(0);
   return batch_norm_hpu(
       input, weight, bias, running_mean, running_var, training, momentum, eps);
 };
@@ -1284,6 +1338,7 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu_lazy(
     bool train,
     double eps,
     UNUSED std::array<bool, 3> output_mask) {
+  HABANA_ASSERT(0);
   return batch_norm_bwd_hpu(
       grad_out,
       input,
@@ -1373,6 +1428,7 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_backward_hpu_lazy(
   return std::make_tuple(result_dY, result2, result3);
 };
 Tensor norm_scalar_hpu_lazy(const Tensor& self, Scalar p) {
+  HABANA_ASSERT(0);
   return norm_scalar_hpu(self, p);
 };
 std::tuple<Tensor, Tensor> max_pool2d_with_indices_hpu_lazy(
@@ -1434,6 +1490,7 @@ Tensor& max_pool2d_with_indices_backward_out_hpu_lazy(
     IntArrayRef padding,
     IntArrayRef dilation,
     bool ceil_mode) {
+  HABANA_ASSERT(0);
   return max_pool2d_with_indices_backward_out_hpu(
       grad_input,
       grad_output,
@@ -1503,6 +1560,7 @@ Tensor avg_pool2d_hpu_lazy(
     bool ceil_mode,
     bool count_include_pad,
     c10::optional<int64_t> divisor_override) {
+  HABANA_ASSERT(0);
   return avg_pool2d_hpu(
       input,
       kernel_size,
@@ -1522,6 +1580,7 @@ Tensor& avg_pool2d_backward_out_hpu_lazy(
     bool ceil_mode,
     bool count_include_pad,
     c10::optional<int64_t> divisor_override) {
+  HABANA_ASSERT(0);
   return avg_pool2d_backward_out_hpu(
       grad_input,
       grad_output,
@@ -1542,6 +1601,7 @@ Tensor avg_pool2d_backward_hpu_lazy(
     bool ceil_mode,
     bool count_include_pad,
     c10::optional<int64_t> divisor_override) {
+  HABANA_ASSERT(0);
   return avg_pool2d_backward_hpu(
       grad_output,
       input,
@@ -1557,6 +1617,7 @@ void uniform_hpu_lazy(
     double from,
     double to,
     CPUGenerator* gen) {
+  HABANA_ASSERT(0);
   uniform_hpu(self, from, to, gen);
 };
 void normal_hpu_lazy(
@@ -1564,18 +1625,22 @@ void normal_hpu_lazy(
     double mean,
     double std,
     CPUGenerator* gen) {
+  HABANA_ASSERT(0);
   normal_hpu(self, mean, std, gen);
 };
 Tensor bernoulli_hpu_lazy(const Tensor& self, CPUGenerator* gen) {
+  HABANA_ASSERT(0);
   return bernoulli_hpu(self, gen);
 };
 Tensor& bernoulli_scalar_hpu_lazy(Tensor& self, double p, CPUGenerator* gen) {
+  HABANA_ASSERT(0);
   return bernoulli_scalar_hpu(self, p, gen);
 };
 std::tuple<Tensor, Tensor> fused_dropout_hpu_lazy(
     const Tensor& self,
     double p,
     CPUGenerator* gen) {
+  HABANA_ASSERT(0);
   return fused_dropout_hpu(self, p, gen);
 };
 Tensor sum_dim_IntList_hpu_lazy(
@@ -1601,6 +1666,7 @@ Tensor& sum_IntList_out_hpu_lazy(
     IntArrayRef dim,
     bool keepdim,
     c10::optional<ScalarType> dtype) {
+  HABANA_ASSERT(0);
   return sum_IntList_out_hpu(output, self, dim, keepdim, dtype);
 };
 Tensor mean_dim_hpu_lazy(
@@ -1608,6 +1674,7 @@ Tensor mean_dim_hpu_lazy(
     IntArrayRef dim,
     bool keepdim,
     c10::optional<ScalarType> dtype) {
+  HABANA_ASSERT(0);
   return mean_dim_hpu(self, dim, keepdim, dtype);
 };
 Tensor& mean_dim_out_hpu_lazy(
@@ -1616,6 +1683,7 @@ Tensor& mean_dim_out_hpu_lazy(
     IntArrayRef dim,
     bool keepdim,
     c10::optional<ScalarType> dtype) {
+  HABANA_ASSERT(0);
   return mean_dim_out_hpu(output, self, dim, keepdim, dtype);
 };
 
@@ -1631,6 +1699,7 @@ Tensor sum_hpu_lazy(const Tensor& self, c10::optional<ScalarType> dtype) {
 };
 
 Tensor mean_hpu_lazy(const Tensor& self, c10::optional<ScalarType> dtype) {
+  HABANA_ASSERT(0);
   return mean_hpu(self, dtype);
 };
 Tensor& any_dim_out_hpu_lazy(
@@ -1638,12 +1707,15 @@ Tensor& any_dim_out_hpu_lazy(
     const Tensor& self,
     int64_t dim,
     bool keepdim) {
+  HABANA_ASSERT(0);
   return any_dim_out_hpu(output, self, dim, keepdim);
 };
 Tensor any_dim_hpu_lazy(const Tensor& self, int64_t dim, bool keepdim) {
+  HABANA_ASSERT(0);
   return any_dim_hpu(self, dim, keepdim);
 };
 Tensor any_hpu_lazy(const Tensor& self) {
+  HABANA_ASSERT(0);
   return any_hpu(self);
 };
 namespace habana {
@@ -1883,6 +1955,7 @@ Tensor& cat_hpu_lazy_out(
     Tensor& result,
     const TensorList tensors,
     int64_t dim_) {
+  HABANA_ASSERT(0);
   return cat_hpu_out(result, tensors, dim_);
 };
 
@@ -1898,6 +1971,7 @@ Tensor transpose_hpu_lazy(const Tensor& self, int64_t dim0_, int64_t dim1_) {
 };
 
 Tensor& transpose_hpu_lazy_(Tensor& self, int64_t dim0_, int64_t dim1_) {
+  HABANA_ASSERT(0);
   return transpose_hpu_(self, dim0_, dim1_);
 };
 
@@ -1918,6 +1992,7 @@ Tensor t_hpu_lazy(const Tensor& self) {
 };
 
 Tensor& t_hpu_lazy_(Tensor& self) {
+  HABANA_ASSERT(0);
   return t_hpu_(self);
 };
 
@@ -1933,12 +2008,14 @@ Tensor permute_hpu_lazy(const Tensor& self, IntArrayRef dims_) {
 };
 
 Tensor expand_hpu_lazy(const Tensor& self, IntArrayRef size, bool implicit) {
+  HABANA_ASSERT(0);
   return expand_hpu(self, size, implicit);
 };
 std::vector<Tensor> split_with_sizes_hpu_lazy(
     const Tensor& self,
     IntArrayRef split_sizes,
     int64_t dim) {
+  HABANA_ASSERT(0);
   return split_with_sizes_hpu(self, split_sizes, dim);
 };
 Tensor threshold_backward_hpu_lazy(
@@ -1978,6 +2055,7 @@ std::tuple<Tensor&, Tensor&> topk_out_hpu_lazy(
     int64_t dim_,
     bool largest,
     bool sorted) {
+  HABANA_ASSERT(0);
   return topk_out_hpu(values, indices, self, k, dim_, largest, sorted);
 };
 std::tuple<Tensor, Tensor> topk_hpu_lazy(
@@ -1986,18 +2064,21 @@ std::tuple<Tensor, Tensor> topk_hpu_lazy(
     int64_t dim,
     bool largest,
     bool sorted) {
+  HABANA_ASSERT(0);
   return topk_hpu(self, k, dim, largest, sorted);
 };
 std::tuple<Tensor, Tensor> sort_hpu_lazy(
     const Tensor& self,
     int64_t dim,
     bool descending) {
+  HABANA_ASSERT(0);
   return sort_hpu(self, dim, descending);
 };
 Tensor unary_op_hpu_lazy(
     const Tensor& input,
     std::string& node_type,
     UnaryOperator* Op) {
+  HABANA_ASSERT(0);
   return unary_op_hpu(input, node_type, Op);
 };
 Tensor unary_backward_op_hpu_lazy(
@@ -2005,6 +2086,7 @@ Tensor unary_backward_op_hpu_lazy(
     const Tensor& input,
     std::string& node_type,
     UnaryBackwardOperator* Op) {
+  HABANA_ASSERT(0);
   return unary_backward_op_hpu(grad_in, input, node_type, Op);
 };
 Tensor relu_hpu_lazy(const Tensor& input) {
@@ -2115,66 +2197,85 @@ Tensor sqrt_hpu_lazy(const Tensor& input) {
   return result;
 };
 Tensor tanh_hpu_lazy(const Tensor& input) {
+  HABANA_ASSERT(0);
   return tanh_hpu(input);
 };
 Tensor& tanh_hpu_lazy_(Tensor& self) {
+  HABANA_ASSERT(0);
   return tanh_hpu_(self);
 };
 Tensor& tanh_out_hpu_lazy(Tensor& out, Tensor& self) {
+  HABANA_ASSERT(0);
   return tanh_out_hpu(out, self);
 };
 Tensor tanh_backward_hpu_lazy(const Tensor& grad_in, const Tensor& input) {
+  HABANA_ASSERT(0);
   return tanh_backward_hpu(grad_in, input);
 };
 Tensor gelu_hpu_lazy(const Tensor& self) {
+  HABANA_ASSERT(0);
   return gelu_hpu(self);
 };
 Tensor gelu_backward_hpu_lazy(const Tensor& grad, const Tensor& self) {
+  HABANA_ASSERT(0);
   return gelu_backward_hpu(grad, self);
 };
 Tensor& erf_hpu_lazy_(Tensor& self) {
+  HABANA_ASSERT(0);
   return erf_hpu_(self);
 };
 Tensor erf_hpu_lazy(const Tensor& self) {
+  HABANA_ASSERT(0);
   return erf_hpu(self);
 };
 Tensor& exp_hpu_lazy_(Tensor& self) {
+  HABANA_ASSERT(0);
   return exp_hpu_(self);
 };
 Tensor exp_hpu_lazy(const Tensor& self) {
+  HABANA_ASSERT(0);
   return exp_hpu(self);
 };
 Tensor& neg_out_hpu_lazy(Tensor& result, const Tensor& input) {
+  HABANA_ASSERT(0);
   return neg_out_hpu(result, input);
 };
 Tensor& reciprocal_hpu_lazy_(Tensor& self) {
+  HABANA_ASSERT(0);
   return reciprocal_hpu_(self);
 };
 Tensor reciprocal_hpu_lazy(const Tensor& self) {
+  HABANA_ASSERT(0);
   return reciprocal_hpu(self);
 };
 Tensor& reciprocal_out_hpu_lazy(Tensor& result, const Tensor& self) {
+  HABANA_ASSERT(0);
   return reciprocal_out_hpu(result, self);
 };
 Tensor clamp_min_hpu_lazy(const Tensor& self, Scalar min) {
+  HABANA_ASSERT(0);
   return clamp_min_hpu(self, min);
 };
 Tensor& clamp_hpu_lazy_(
     Tensor& self,
     c10::optional<Scalar> min,
     c10::optional<Scalar> max) {
+  HABANA_ASSERT(0);
   return clamp_hpu_(self, min, max);
 };
 Tensor clamp_hpu_lazy(
     const Tensor& self,
     c10::optional<Scalar> min,
     c10::optional<Scalar> max) {
+  HABANA_ASSERT(0);
   return clamp_hpu(self, min, max);
 };
 Tensor abs_hpu_lazy(const Tensor& self) {
+  HABANA_ASSERT(0);
   return abs_hpu(self);
 };
 Tensor neg_hpu_lazy(const Tensor& self) {
+  HABANA_ASSERT(0);
   return neg_hpu(self);
 };
 namespace at {
