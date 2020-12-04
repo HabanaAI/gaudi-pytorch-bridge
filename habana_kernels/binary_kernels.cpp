@@ -890,7 +890,8 @@ Tensor pow_scalar_tensor_hpu(Scalar other, const Tensor& self) {
  ****************************************************************************/
 Tensor masked_scale_hpu(const Tensor& self, const Tensor& mask, double scale) {
   PT_KERNEL_BEGIN;
-
+  // scale changed to support dropout backward based on what we pass for dropout
+  scale = 1.0 / (1.0 - 1.0 / scale);
   auto tt_mul_out = at::mul(
       self,
       (self.dtype() != mask.dtype())
