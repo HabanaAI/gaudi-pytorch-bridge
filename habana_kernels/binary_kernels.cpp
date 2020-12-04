@@ -891,9 +891,12 @@ Tensor pow_scalar_tensor_hpu(Scalar other, const Tensor& self) {
 Tensor masked_scale_hpu(const Tensor& self, const Tensor& mask, double scale) {
   PT_KERNEL_BEGIN;
 
-  auto tt_mul_out =
-      at::mul(self, habana_helpers::hpu_cast_tensor(mask, self.dtype()));
-  auto output = at::mul(tt_mul_out, static_cast<float>(scale));
+  auto tt_mul_out = at::mul(
+      self,
+      (self.dtype() != mask.dtype())
+          ? habana_helpers::hpu_cast_tensor(mask, self.dtype())
+          : mask);
+  auto output = at::mul(tt_mul_out, Scalar(scale));
   PT_KERNEL_END;
   return output;
 }
