@@ -1577,8 +1577,7 @@ Tensor empty_hpu_wrap(
     IntArrayRef size,
     const TensorOptions& options,
     c10::optional<MemoryFormat> optional_memory_format) {
-  if (!habana_lazy::isDeviceInLoweringMode(options.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     return empty_hpu_lazy(size, options, optional_memory_format);
   }
   return empty_hpu(size, options, optional_memory_format);
@@ -1587,8 +1586,7 @@ Tensor empty_strided_hpu_wrap(
     IntArrayRef size,
     IntArrayRef stride,
     const TensorOptions& options) {
-  if (!habana_lazy::isDeviceInLoweringMode(options.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     return empty_strided_hpu_lazy(size, stride, options);
   }
   return empty_strided_hpu(size, stride, options);
