@@ -867,4 +867,8 @@ static auto& KernelRegistry =
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<habana::AddcdivInplaceOperator>(
                   device_id, node_type);
-            });
+            })
+        .add("aten::div_", [](const int device_id, c10::ScalarType node_type) {
+          return std::make_shared<habana::DivInplaceOperator>(
+              device_id, node_type);
+        });

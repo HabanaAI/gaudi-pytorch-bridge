@@ -559,8 +559,17 @@ Tensor div_scalar_hpu_lazy(const Tensor& self, Scalar other) {
   return div_scalar_hpu(self, other);
 };
 Tensor& div_scalar_hpu_lazy_(Tensor& self, Scalar other) {
-  HABANA_ASSERT(0);
-  return div_scalar_hpu_(self, other);
+  auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
+  auto hl_other = habana_lazy::GetIrValueForScalar(other);
+
+  auto node = habana_lazy::ir::Node::Create(
+      Symbol::fromQualString("aten::div_"), {hl_self.GetIrValue(), hl_other});
+
+  habana_lazy::ir::Value& out = hl_self.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+
+  return self;
 };
 Tensor pow_tensor_tensor_hpu_lazy(const Tensor& self, const Tensor& other) {
   HABANA_ASSERT(0);
