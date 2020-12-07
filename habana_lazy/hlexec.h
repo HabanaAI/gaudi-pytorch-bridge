@@ -43,10 +43,10 @@ using LazyOutputToJitValueMap = std::unordered_map<
  */
 class OptPassCfg {
  public:
-  bool enable_eliminate_dead_code = false;
-  bool enable_eliminate_common_subexpression = false;
-  bool enable_constant_pooling = false;
-  bool enable_peephole_optimization = false;
+  bool enable_eliminate_dead_code = true;
+  bool enable_eliminate_common_subexpression = true;
+  bool enable_constant_pooling = true;
+  bool enable_peephole_optimization = true;
 
   static std::shared_ptr<OptPassCfg> GetInstance() {
     static auto p_instance_ = std::make_shared<OptPassCfg>();

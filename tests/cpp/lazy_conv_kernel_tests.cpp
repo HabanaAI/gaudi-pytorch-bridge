@@ -102,13 +102,11 @@ TEST_F(LazyConvKernelTest, ConvolutionBackward) {
       po_data.post_order_nodes_hash);
 
   torch::jit::testing::FileCheck()
-      .check("prim::Constant[value=[1, 1]]")
-      ->check("prim::Constant[value=[0, 0]]")
+      .check("prim::Constant[value=[1, 1, 1]]")
+      ->check("prim::Constant[value=1")
+      ->check("prim::Constant[value=0")
+      ->check("prim::Constant[value=[0, 0]")
       ->check("prim::Constant[value=[1, 1]]")
-      ->check("prim::Constant[value=0]")
-      ->check("prim::Constant[value=[0, 0]]")
-      ->check("prim::Constant[value=1]")
-      ->check("prim::Constant[value=[1, 1, 1]]")
       ->check_count("aten::convolution_backward_overrideable", 1)
       ->run(*hlexec->get_graph());
 }
