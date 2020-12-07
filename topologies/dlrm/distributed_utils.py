@@ -68,7 +68,7 @@ def init_distributed_mode(args):
         args.dist_backend = 'hcl'
         if 'TP_DATA_DUMP_PATH' in os.environ:
             os.environ['TP_DATA_DUMP_PATH'] = os.environ['TP_DATA_DUMP_PATH'] + '_' + str(args.rank)
-        os.environ["ID"] = str(args.rank)
+        os.environ["ID"] = os.environ['LOCAL_RANK']
         torch.distributed.init_process_group(args.dist_backend, rank=args.rank, world_size=args.world_size)
     elif args.use_gpu == False:
         args.dist_backend = 'gloo'
