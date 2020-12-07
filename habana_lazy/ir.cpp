@@ -61,12 +61,34 @@ std::string Value::ToString() const {
   return ss.str();
 }
 
+void Node::AddInputPtTensors(std::vector<at::Tensor>& input_pt_vec) {
+  // This code assumes that the input tensors are in the same order
+  // as the node inputs
+  size_t input_pt_idx = 0;
+  for (const auto& inp : m_inputs) {
+    // If the input value points to a hpu::input node,
+    // keep the input_pt_tensor in this node.
+    // The reason is to keep the input_pt_tensor alive as long
+    // as this node is not yet evaluated
+    if (inp.IsHpuInputNode()) {
+      HABANA_ASSERT(input_pt_idx < input_pt_vec.size());
+      m_input_pt_tensors.emplace_back(input_pt_vec[input_pt_idx]);
+    }
+    input_pt_idx++;
+  }
+}
+
 NodePtr Node::Create(c10::Symbol oper, ValueList inputs) {
   NodePtr node = std::make_shared<Node>(oper);
   for (auto& i : inputs) {
     node->AddInput(i);
   }
   return node;
+}
+
+bool Value::IsHpuInputNode() const {
+  // Does it point to an Input node (hpu::input)?
+  return mp_node && mp_node->ToString().find("hpu::input") != std::string::npos;
 }
 
 Value::~Value() {}

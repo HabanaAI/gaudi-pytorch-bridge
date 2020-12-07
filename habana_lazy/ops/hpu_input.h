@@ -23,24 +23,13 @@ class Input : public Node {
   Input(const habana_lazy::HbLazyTensor& hl_tensor)
       : Node(c10::Symbol::fromQualString("hpu::input")) {
     HABANA_ASSERT(hl_tensor.is_null() == false);
-    m_tensor = habana_lazy::AtenFromHbLazyTensor(hl_tensor);
   }
 
   /*std::string ToString() const override {
     std::stringstream ss;
     ss << Node::ToString();
-    if (m_tensor.defined()) {
-      ss << ", tensor=" << m_tensor.toString();
-    }
     return ss.str();
   }*/
-
-  const at::Tensor& GetTensor() const {
-    return m_tensor;
-  }
-
- private:
-  at::Tensor m_tensor;
 };
 
 }; // namespace ir

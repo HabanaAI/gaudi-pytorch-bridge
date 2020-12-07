@@ -34,13 +34,17 @@ class NllLoss_forward : public ir::Node {
     auto hl_target = GetOrCreateHbLazyTensor(target, c10::kHABANA);
     AddInput(hl_target.GetIrValue());
 
+    std::vector<at::Tensor> input_pt_vec{self, target};
+
     if (weight.defined()) {
       auto hl_weight = GetOrCreateHbLazyTensor(weight, c10::kHABANA);
       AddInput(hl_weight.GetIrValue());
+      input_pt_vec.emplace_back(weight);
     } else {
       m_meta_data.set(torch::jit::IValue(), static_cast<size_t>(NllLossParams::WEIGHT_INDEX));
     }
 
+    AddInputPtTensors(input_pt_vec);
     m_meta_data.set(reduction, static_cast<size_t>(NllLossParams::REDUCTION_INDEX));
     m_meta_data.set(ignore_index, static_cast<size_t>(NllLossParams::IGNORE_INDEX));
   }
@@ -73,9 +77,12 @@ class NllLoss_backward : public ir::Node {
     auto hl_target = GetOrCreateHbLazyTensor(target, c10::kHABANA);
     AddInput(hl_target.GetIrValue());
 
+    std::vector<at::Tensor> input_pt_vec{grad_output, self, target};
+
     if (weight.defined()) {
       auto hl_weight = GetOrCreateHbLazyTensor(weight, c10::kHABANA);
       AddInput(hl_weight.GetIrValue());
+      input_pt_vec.emplace_back(weight);
     } else {
       m_meta_data.set(torch::jit::IValue(), static_cast<size_t>(NllLossParams::WEIGHT_INDEX));
     }
@@ -83,10 +90,12 @@ class NllLoss_backward : public ir::Node {
     if (total_weight.defined()) {
       auto hl_total_weight = GetOrCreateHbLazyTensor(total_weight, c10::kHABANA);
       AddInput(hl_total_weight.GetIrValue());
+      input_pt_vec.emplace_back(total_weight);
     } else {
       m_meta_data.set(torch::jit::IValue(), static_cast<size_t>(NllLossParams::TOTAL_WEIGHT_INDEX));
     }
 
+    AddInputPtTensors(input_pt_vec);
     m_meta_data.set(reduction, static_cast<size_t>(NllLossParams::REDUCTION_INDEX));
     m_meta_data.set(ignore_index, static_cast<size_t>(NllLossParams::IGNORE_INDEX));
   }
@@ -115,13 +124,17 @@ class BceLoss_forward : public ir::Node {
     auto hl_target = GetOrCreateHbLazyTensor(target, c10::kHABANA);
     AddInput(hl_target.GetIrValue());
 
+    std::vector<at::Tensor> input_pt_vec{self, target};
+
     if (weight.defined()) {
       auto hl_weight = GetOrCreateHbLazyTensor(weight, c10::kHABANA);
       AddInput(hl_weight.GetIrValue());
+      input_pt_vec.emplace_back(weight);
     } else {
       m_meta_data.set(torch::jit::IValue(), static_cast<size_t>(BceLossParams::WEIGHT_INDEX));
     }
 
+    AddInputPtTensors(input_pt_vec);
     m_meta_data.set(reduction, static_cast<size_t>(BceLossParams::REDUCTION_INDEX));
   }
 
@@ -152,13 +165,17 @@ class BceLoss_backward : public ir::Node {
     auto hl_target = GetOrCreateHbLazyTensor(target, c10::kHABANA);
     AddInput(hl_target.GetIrValue());
 
+    std::vector<at::Tensor> input_pt_vec{grad_output, self, target};
+
     if (weight.defined()) {
       auto hl_weight = GetOrCreateHbLazyTensor(weight, c10::kHABANA);
       AddInput(hl_weight.GetIrValue());
+      input_pt_vec.emplace_back(weight);
     } else {
       m_meta_data.set(torch::jit::IValue(), static_cast<size_t>(BceLossParams::WEIGHT_INDEX));
     }
 
+    AddInputPtTensors(input_pt_vec);
     m_meta_data.set(reduction, static_cast<size_t>(BceLossParams::REDUCTION_INDEX));
   }
 

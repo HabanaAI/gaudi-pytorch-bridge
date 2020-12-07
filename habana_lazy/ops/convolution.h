@@ -47,13 +47,18 @@ class Convolution : public ir::Node {
     AddInput(hl_input.GetIrValue());
     AddInput(hl_weight.GetIrValue());
 
+    std::vector<at::Tensor> input_pt_vec{input, weight};
+
     if (bias.defined()) {
       auto hl_bias = GetOrCreateHbLazyTensor(bias, c10::kHABANA);
       AddInput(hl_bias.GetIrValue());
+      input_pt_vec.emplace_back(bias);
     } else {
       m_meta_data.set(
           torch::jit::IValue(), static_cast<size_t>(ConvParams::BIAS_INDEX));
     }
+
+    AddInputPtTensors(input_pt_vec);
 
     m_meta_data.set(stride, static_cast<size_t>(ConvParams::STRIDE_INDEX));
     m_meta_data.set(padding, static_cast<size_t>(ConvParams::PADDING_INDEX));
@@ -85,6 +90,9 @@ class Convolution : public ir::Node {
     AddInput(hl_grad_output.GetIrValue());
     AddInput(hl_input.GetIrValue());
     AddInput(hl_weight.GetIrValue());
+
+    std::vector<at::Tensor> input_pt_vec{grad_output, input, weight};
+    AddInputPtTensors(input_pt_vec);
 
     m_meta_data.set(stride, static_cast<size_t>(ConvParams::STRIDE_INDEX));
     m_meta_data.set(padding, static_cast<size_t>(ConvParams::PADDING_INDEX));

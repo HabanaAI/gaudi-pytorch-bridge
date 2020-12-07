@@ -78,6 +78,10 @@ class OnesLike : public Node {
       : Node(c10::Symbol::fromQualString("aten::ones_like")) {
     auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHABANA);
     AddInput(hl_self.GetIrValue());
+
+    std::vector<at::Tensor> input_pt_vec{self};
+    AddInputPtTensors(input_pt_vec);
+
     if (options.has_dtype()) {
       m_meta_data.set(
           c10::tryTypeMetaToScalarType(options.dtype()),

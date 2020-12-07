@@ -31,6 +31,9 @@ struct LogSoftMax: public ir::Node {
 
       AddInput(hl_self.GetIrValue());
 
+      std::vector<at::Tensor> input_pt_vec{self};
+      AddInputPtTensors(input_pt_vec);
+
       m_meta_data.set(
         dim,
         static_cast<size_t>(LogSoftMaxParams::DIM_INDEX_FWD));
@@ -70,6 +73,9 @@ struct LogSoftMaxBackward: public ir::Node {
       AddInput(hl_output.GetIrValue());
       AddInput(hl_input.GetIrValue());
 
+      std::vector<at::Tensor> input_pt_vec{grad, output, input};
+      AddInputPtTensors(input_pt_vec);
+
       m_meta_data.set(dim, m_dim_index_bwd);
     }
 
@@ -83,4 +89,4 @@ struct LogSoftMaxBackward: public ir::Node {
     const int m_dim_index_bwd;
 };
 }
-}
+} // namespace habana_lazy

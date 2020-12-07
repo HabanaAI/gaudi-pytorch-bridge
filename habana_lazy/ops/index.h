@@ -26,6 +26,9 @@ struct Slice : public ir::Node {
 
     AddInput(hl_self.GetIrValue());
 
+    std::vector<at::Tensor> input_pt_vec{self};
+    AddInputPtTensors(input_pt_vec);
+
     m_meta_data.set(dim, static_cast<size_t>(SliceParms::DIM_INDEX));
     m_meta_data.set(start, static_cast<size_t>(SliceParms::START_INDEX));
     m_meta_data.set(end, static_cast<size_t>(SliceParms::END_INDEX));
@@ -38,6 +41,9 @@ struct Slice : public ir::Node {
     auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
 
     AddInput(hl_self.GetIrValue());
+
+    std::vector<at::Tensor> input_pt_vec{self};
+    AddInputPtTensors(input_pt_vec);
 
     m_meta_data.set(dim, static_cast<size_t>(SliceParms::DIM_INDEX));
     m_meta_data.set(index, static_cast<size_t>(SliceParms::START_INDEX));
@@ -67,4 +73,4 @@ struct Slice : public ir::Node {
 };
 
 }
-}// habana_lazy
+} // namespace habana_lazy

@@ -25,6 +25,10 @@ class Permute : public ir::Node {
       : Node(c10::Symbol::fromQualString("aten::permute")) {
     auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHABANA);
     AddInput(hl_self.GetIrValue());
+
+    std::vector<at::Tensor> input_pt_vec{self};
+    AddInputPtTensors(input_pt_vec);
+
     m_meta_data.set(dims, static_cast<size_t>(PermuteIdx::kDimIdx));
   }
 
@@ -44,6 +48,10 @@ class Transpose : public ir::Node {
       : Node(c10::Symbol::fromQualString("aten::transpose")) {
     auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHABANA);
     AddInput(hl_self.GetIrValue());
+
+    std::vector<at::Tensor> input_pt_vec{self};
+    AddInputPtTensors(input_pt_vec);
+
     m_meta_data.set(dim0, static_cast<size_t>(TransposeIdx::kDim0Idx));
     m_meta_data.set(dim1, static_cast<size_t>(TransposeIdx::kDim1Idx));
   }

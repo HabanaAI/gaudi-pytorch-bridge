@@ -25,6 +25,10 @@ class Sum : public Node {
     auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHABANA);
     auto ir_value = hl_self.GetIrValue();
     AddInput(ir_value);
+
+    std::vector<at::Tensor> input_pt_vec{self};
+    AddInputPtTensors(input_pt_vec);
+
     m_meta_data.set(dtype, static_cast<size_t>(SumIndex::kDtypIdx));
   }
 
@@ -49,6 +53,10 @@ class SumDimIntList : public Node {
     auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHABANA);
     auto ir_value = hl_self.GetIrValue();
     AddInput(ir_value);
+
+    std::vector<at::Tensor> input_pt_vec{self};
+    AddInputPtTensors(input_pt_vec);
+
     m_meta_data.set(dim, static_cast<size_t>(SumDimIntListIndex::kDimIdx));
     m_meta_data.set(
         keepdim, static_cast<size_t>(SumDimIntListIndex::kKeepdimIdx));

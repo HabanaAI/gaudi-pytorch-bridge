@@ -27,6 +27,9 @@ struct MseLoss : public habana_lazy::ir::Node {
     AddInput(hl_self.GetIrValue());
     AddInput(hl_target.GetIrValue());
 
+    std::vector<at::Tensor> input_pt_vec{self, target};
+    AddInputPtTensors(input_pt_vec);
+
     m_meta_data.set(reduction, m_reduction_index);
   }
 
@@ -45,6 +48,9 @@ struct MseLoss : public habana_lazy::ir::Node {
     AddInput(hl_grad_output.GetIrValue());
     AddInput(hl_self.GetIrValue());
     AddInput(hl_target.GetIrValue());
+
+    std::vector<at::Tensor> input_pt_vec{grad_output, self, target};
+    AddInputPtTensors(input_pt_vec);
 
     m_meta_data.set(reduction, m_reduction_index);
   }

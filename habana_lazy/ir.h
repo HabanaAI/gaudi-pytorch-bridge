@@ -194,6 +194,7 @@ class Node {
   }
 
   virtual ~Node() {
+    PT_LAZY_DEBUG(std::string("Deleteing node ") + ToString());
     m_inputs.clear();
     m_outputs.clear();
   }
@@ -208,6 +209,8 @@ class Node {
     return m_meta_data;
   }
 
+  void AddInputPtTensors(std::vector<at::Tensor>& input_pt_vec);
+
   friend struct Value;
 
  protected:
@@ -217,6 +220,7 @@ class Node {
   std::set<Use> m_uses;
   MetaData m_meta_data;
   bool m_is_visited = false;
+  std::vector<at::Tensor> m_input_pt_tensors;
 };
 
 inline std::ostream& operator<<(std::ostream& stream, const Node& node) {
@@ -267,6 +271,8 @@ struct Value {
   }
 
   std::string ToString() const;
+
+  bool IsHpuInputNode() const;
 
   virtual ~Value();
 

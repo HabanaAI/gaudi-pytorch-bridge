@@ -100,6 +100,7 @@ HbContext* HbContextArena::GetHbContext(const c10::Device& device) {
 Data::~Data() {
   auto context = HbContextArena::Get();
   context->UnregisterTensor(this);
+  data_ptr = nullptr;
 }
 
 HbLazyTensor::HbLazyTensor(const at::Tensor& tensor, const c10::Device& device)
@@ -431,7 +432,11 @@ void HbLazyTensor::SyncTensorsGraphInternal(
   stack.reserve(std::max(po_data.inputs.size(), po_data.outputs.size()));
 
   for (const auto& in : po_data.inputs) {
+    PT_LAZY_DEBUG(std::string("Lowering - ") + in.ToString());
     HABANA_ASSERT(!in.m_data_ptr.expired());
+    if (in.mp_node) {
+      PT_LAZY_DEBUG(std::string("    Node ") + in.mp_node->ToString());
+    }
     std::shared_ptr<Data> d = in.m_data_ptr.lock();
     stack.emplace_back(d->tensor_data);
     // We dont get the correct lazy tensor back from internal tensor

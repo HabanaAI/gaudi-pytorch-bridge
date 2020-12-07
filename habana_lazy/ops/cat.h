@@ -24,10 +24,14 @@ class Cat : public Node {
   Cat(const TensorList tensors, int64_t dim_)
       : Node(c10::Symbol::fromQualString("aten::cat")) {
     ValueList hl_tensors;
+    std::vector<at::Tensor> input_pt_vec;
     for (auto& i : tensors) {
       auto hl_tensor = GetOrCreateHbLazyTensor(i, c10::kHABANA);
       hl_tensors.push_back(hl_tensor.GetIrValue());
+      input_pt_vec.emplace_back(i);
     }
+
+    AddInputPtTensors(input_pt_vec);
 
     auto cat_input = GetIrValueForListConstruct(hl_tensors);
     AddInput(cat_input);

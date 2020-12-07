@@ -44,6 +44,15 @@ class OptimizerSparseSgdValidCount : public Node {
       AddInput(i.GetIrValue());
     }
 
+    std::vector<at::Tensor> input_pt_vec{
+        gradients,
+        weights_in,
+        moments_in,
+        indices,
+        learning_rate,
+        valid_count_tensor};
+    AddInputPtTensors(input_pt_vec);
+
     m_meta_data.set(mom, static_cast<size_t>(OptSgdIndex::kMomIdx));
     m_meta_data.set(nesterov, static_cast<size_t>(OptSgdIndex::kNesterov));
   }

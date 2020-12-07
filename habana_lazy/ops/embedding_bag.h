@@ -21,6 +21,9 @@ class EmbeddingBagSum : public ir::Node {
     AddInput(hl_offsets.GetIrValue());
     AddInput(hl_valid_count.GetIrValue());
 
+    std::vector<at::Tensor> input_pt_vec{input, indices, offsets, valid_count};
+    AddInputPtTensors(input_pt_vec);
+
     m_meta_data.set(
         kernel_mode,
         static_cast<size_t>(EmbeddingBagSumParams::KERNEL_MODE_INDEX));
@@ -59,6 +62,10 @@ class EmbeddingBagSumBwd : public ir::Node {
     AddInput(hl_indices.GetIrValue());
     AddInput(hl_offsets.GetIrValue());
     AddInput(hl_valid_count.GetIrValue());
+
+    std::vector<at::Tensor> input_pt_vec{
+        out, input, indices, offsets, valid_count};
+    AddInputPtTensors(input_pt_vec);
 
     m_meta_data.set(
         kernel_mode,

@@ -36,6 +36,9 @@ class MaxPool : public ir::Node {
     auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHABANA);
     AddInput(hl_input.GetIrValue());
 
+    std::vector<at::Tensor> input_pt_vec{input};
+    AddInputPtTensors(input_pt_vec);
+
     m_meta_data.set(kernel_size, static_cast<size_t>(MaxPoolParams::KERNEL_SIZE_INDEX));
     m_meta_data.set(stride, static_cast<size_t>(MaxPoolParams::STRIDE_INDEX));
     m_meta_data.set(padding, static_cast<size_t>(MaxPoolParams::PADDING_INDEX));
@@ -78,6 +81,9 @@ class MaxPoolBackWard : public ir::Node {
     AddInput(hl_grad_output.GetIrValue());
     AddInput(hl_input.GetIrValue());
     AddInput(hl_indices.GetIrValue());
+
+    std::vector<at::Tensor> input_pt_vec{grad_output, input, indices};
+    AddInputPtTensors(input_pt_vec);
 
     m_meta_data.set(kernel_size, static_cast<size_t>(MaxPoolBwdParams::KERNEL_SIZE_INDEX));
     m_meta_data.set(stride, static_cast<size_t>(MaxPoolBwdParams::STRIDE_INDEX));
