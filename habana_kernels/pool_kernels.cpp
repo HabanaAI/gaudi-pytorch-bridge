@@ -245,6 +245,11 @@ void MaxPool2dWithIndicesOperator::AllocateAndAddSynapseNode(
       input.suggest_memory_format(),
       type,
       is_output_persistent[1]);
+  // The output_idx_nhwc is created with is_output_persistent[1] and
+  // output_nhwc is created with is_output_persistent[0]. When adding
+  // AllocateSynapseOutputs, the order is revered and the is_output_persistent
+  // flag also need to be accordingly reversed.
+  std::swap(is_output_persistent[0], is_output_persistent[1]);
   AllocateSynapseOutputs(
       graph, {output_idx_nhwc, output_nhwc}, is_output_persistent);
   AddNodeToSynapseGraph(graph, &syn_pool_params, sizeof(syn_pool_params));
