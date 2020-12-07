@@ -144,6 +144,7 @@ def test_hpu_scatter_inplace(N, H, I, S):
     compare_tensors(thpu_out, tcpu_out, atol=0, rtol=0)
 
 
+@pytest.mark.skip(reason=f"https://jira.habana-labs.com/browse/SW-25327")
 @pytest.mark.parametrize("N, H, I, S", test_case_scatter_add)
 def test_hpu_scatter_add_out(N, H, I, S):
     hpu = torch.device('habana')
@@ -157,6 +158,7 @@ def test_hpu_scatter_add_out(N, H, I, S):
     compare_tensors(thpu_out, tcpu_out, atol=0.001, rtol=1.e-3)
 
 
+@pytest.mark.skip(reason=f"https://jira.habana-labs.com/browse/SW-25327")
 @pytest.mark.parametrize("N, H, I, S", test_case_scatter_add)
 def test_hpu_scatter_add_inplace(N, H, I, S):
     hpu = torch.device('habana')
