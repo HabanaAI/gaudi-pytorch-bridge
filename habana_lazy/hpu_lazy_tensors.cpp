@@ -417,6 +417,10 @@ void HbLazyTensor::SyncTensorsGraphInternal(
     std::vector<HbLazyTensor>* tensors,
     absl::Span<const std::string> devices) {
   const std::vector<int>& indices = CollectSyncTensors(*tensors);
+  if (indices.empty()) {
+    // Nothing to do, return without trying to execute an empty graph
+    return;
+  }
   auto po_data = HbLazyTensor::RunPostOrder(*tensors, indices);
 
   exec::HlExec hlexec{};
