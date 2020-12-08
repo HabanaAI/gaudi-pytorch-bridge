@@ -8,10 +8,10 @@
  ******************************************************************************
  */
 #include "tensor_impl.h"
-#include "habana_helpers/logging.h"
 #include <c10/core/Device.h>
 #include <c10/core/ScalarType.h>
 #include <c10/core/impl/DeviceGuardImplInterface.h>
+#include "habana_helpers/logging.h"
 
 namespace habana_lazy {
 
@@ -28,8 +28,8 @@ HbLazyTensorImpl::HbLazyTensorImpl(HbLazyTensor hb_tensor)
           c10::make_optional(hb_tensor.GetDevice())),
       m_size_initialized(false),
       m_tensor(std::move(hb_tensor)) {
-        const_cast<HbLazyTensorImpl*>(this)->SetupSizeProperties();
-      }
+  const_cast<HbLazyTensorImpl*>(this)->SetupSizeProperties();
+}
 
 HbLazyTensorImpl::HbLazyTensorImpl(
     HbLazyTensor hb_tensor,
@@ -39,8 +39,8 @@ HbLazyTensorImpl::HbLazyTensorImpl(
           c10::DispatchKeySet{c10::DispatchKey::HABANATensorId}),
       m_size_initialized(false),
       m_tensor(std::move(hb_tensor)) {
-        const_cast<HbLazyTensorImpl*>(this)->SetupSizeProperties();
-      }
+  const_cast<HbLazyTensorImpl*>(this)->SetupSizeProperties();
+}
 
 void HbLazyTensorImpl::set_tensor(HbLazyTensor hb_tensor) {
   m_tensor = std::move(hb_tensor);
@@ -135,7 +135,9 @@ const at::Storage& HbLazyTensorImpl::storage() const {
   HABANA_ASSERT(0);
 }
 
-bool HbLazyTensorImpl::has_storage() const { return false; }
+bool HbLazyTensorImpl::has_storage() const {
+  return false;
+}
 
 void HbLazyTensorImpl::AtenInitialize() {
   // ATEN specific initialization calls placed below.
@@ -144,12 +146,7 @@ void HbLazyTensorImpl::AtenInitialize() {
 HbInternalTensorImpl::HbInternalTensorImpl(c10::Storage&& tensor_storage)
     : c10::TensorImpl(
           std::move(tensor_storage),
-          c10::DispatchKeySet{c10::DispatchKey::HABANATensorId}),
-      m_tensor(nullptr) {}
-
-void HbInternalTensorImpl::set_tensor(at::Tensor* t) {
-  m_tensor = t;
-}
+          c10::DispatchKeySet{c10::DispatchKey::HABANATensorId}) {}
 
 void HbInternalTensorImpl::AtenInitialize() {
   // ATEN specific initialization calls placed below.

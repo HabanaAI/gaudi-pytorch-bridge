@@ -58,8 +58,7 @@ class HbLazyTensorImpl : public c10::TensorImpl {
 
  private:
   void SetupSizeProperties();
-  std::vector<int64_t> ComputeArrayStrides(
-    absl::Span<const int64_t> sizes);
+  std::vector<int64_t> ComputeArrayStrides(absl::Span<const int64_t> sizes);
 
   bool m_size_initialized;
 
@@ -70,14 +69,7 @@ class HbLazyTensorImpl : public c10::TensorImpl {
 class HbInternalTensorImpl : public c10::TensorImpl {
  public:
   HbInternalTensorImpl(c10::Storage&& tensor_storage);
-  at::Tensor* tensor() {
-    return m_tensor;
-  }
-  void set_tensor(at::Tensor* t);
   static void AtenInitialize();
   caffe2::TypeMeta GetTypeMeta(const at::Tensor& t);
-
- private:
-   at::Tensor* m_tensor;
 };
 } // namespace habana_lazy

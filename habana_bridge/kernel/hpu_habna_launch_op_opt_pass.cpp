@@ -40,9 +40,8 @@ using namespace torch::jit;
 void HabanaLaunchOpPT::markLayoutForOriginNodes(torch::jit::Value* val) {
   auto node = val->node();
   auto node_ins = node->inputs();
-  habana::HabanaOperatorPtr HabanaKernel =
-      habana::KernelRegistry().getWithoutAssert(
-          0, node->kind().toQualString(), getNodeScalarType(node));
+  habana::HabanaOperatorPtr HabanaKernel = habana::KernelRegistry().get(
+      0, node->kind().toQualString(), getNodeScalarType(node));
   // If we dont get a valid kernel, it means the node may be pointing to a
   // subgraph or something we dont need to propagate in such cases, return
   if (HabanaKernel == nullptr)
@@ -82,9 +81,8 @@ void HabanaLaunchOpPT::weightLayoutMarkingPass(
     torch::jit::graph_node_list graph_nodes) {
   for (auto* node : graph_nodes) {
     // Get kernel context
-    habana::HabanaOperatorPtr HabanaKernel =
-        habana::KernelRegistry().getWithoutAssert(
-            0, node->kind().toQualString(), getNodeScalarType(node));
+    habana::HabanaOperatorPtr HabanaKernel = habana::KernelRegistry().get(
+        0, node->kind().toQualString(), getNodeScalarType(node));
 
     if (HabanaKernel == nullptr)
       continue;
@@ -112,9 +110,8 @@ void HabanaLaunchOpPT::persistenceMarkingPass(
     torch::jit::graph_node_list graph_nodes) {
   for (auto* node : graph_nodes) {
     // Get kernel context
-    habana::HabanaOperatorPtr HabanaKernel =
-        habana::KernelRegistry().getWithoutAssert(
-            0, node->kind().toQualString(), getNodeScalarType(node));
+    habana::HabanaOperatorPtr HabanaKernel = habana::KernelRegistry().get(
+        0, node->kind().toQualString(), getNodeScalarType(node));
 
     if (HabanaKernel == nullptr)
       continue;

@@ -166,10 +166,6 @@ Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src, bool non_blocking) {
       at_internal_tensor.unsafeGetTensorImpl()->set_sizes_contiguous(
           self.sizes());
       self_hb_tensor.SetTensorData(at_internal_tensor);
-      // Keep a pointer to the storageless tensor from the internal tensor
-      auto at_internal_impl =
-          habana_lazy::GetHbInternalTensorImpl(at_internal_tensor);
-      at_internal_impl->set_tensor(&self);
     }
     // We need to mark this tensor as executed
     // As this will be an input coming from host side, its doesnt need further

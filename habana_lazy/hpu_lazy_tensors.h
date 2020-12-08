@@ -114,9 +114,6 @@ class HbLazyTensor {
   ir::Value createIrValueFromData();
   void SetTensorData(at::Tensor tensor_data);
   void AssignIrValue(ir::Value ir_value) const;
-  ir::Value GetIrValueForTensor(
-      const at::Tensor& tensor,
-      const c10::Device& device) const;
   c10::ScalarType dtype() const;
   c10::optional<c10::ScalarType> dtype_optional() const;
   // Set logical_element_type which is visible to upstream PyTorch.
@@ -144,7 +141,7 @@ class HbLazyTensor {
       at::Scalar fill_value,
       const at::Device& device,
       at::ScalarType scalar_type);
-  ir::Value CreateTensorNode(void* data, bool read_only) const;
+  ir::Value CreateTensorNode() const;
   static std::vector<int> CollectSyncTensors(
       const std::vector<HbLazyTensor>& tensors);
   static PostOrderData RunPostOrder(

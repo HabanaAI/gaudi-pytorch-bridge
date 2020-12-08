@@ -190,19 +190,7 @@ ir::Value HbLazyTensor::GetIrValue() const {
   if (ir_value) {
     return ir_value;
   }
-  void* device_data = CurrentHabanaData();
-  if (device_data != nullptr) {
-    // In case of tensor node, we do not clear the device data when we set the
-    // IR node. This because we want further calls to GetIrValue() to fetch the
-    // same IR node, and not create new ones (even though the lowering context
-    // will still collapse them all into a single Habana parameter op). So call
-    // which wants the device data will still find it, w/out having to fetch it
-    // via a computation on device
-    AssignIrValue(CreateTensorNode(device_data, /*read_only=*/false));
-    return data()->ir_value;
-  }
-  c10::optional<at::Tensor> tensor_data = CurrentTensorData();
-  AssignIrValue(GetIrValueForTensor(*tensor_data, GetDevice()));
+  AssignIrValue(CreateTensorNode());
   return data()->ir_value;
 }
 
@@ -275,7 +263,7 @@ c10::optional<at::ScalarType> HbLazyTensor::dtype_optional() const {
   return data()->logical_element_type;
 }
 
-ir::Value HbLazyTensor::CreateTensorNode(void* data, bool read_only) const {
+ir::Value HbLazyTensor::CreateTensorNode() const {
   setTensorAsInputNode(*this);
   return CurrentIrValue();
 }
@@ -288,18 +276,6 @@ void HbLazyTensor::setPtrDataIrToData() {
 ir::Value HbLazyTensor::createIrValueFromData() {
   ir::Value v{data_ptr()};
   return v;
-}
-
-ir::Value HbLazyTensor::GetIrValueForTensor(
-    const at::Tensor& tensor,
-    const c10::Device& device) const {
-  bool read_only = false;
-  void* data = nullptr;
-  // We have storageless tensors and should support creating nodes from them
-  if (tensor.has_storage()) {
-    data = tensor.data_ptr();
-  }
-  return CreateTensorNode(std::move(data), read_only);
 }
 
 HbLazyTensor HbLazyTensor::CreateHbLazyTensor(
