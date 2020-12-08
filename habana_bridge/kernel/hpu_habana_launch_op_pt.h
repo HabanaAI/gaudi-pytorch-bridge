@@ -161,8 +161,9 @@ class HabanaLaunchOpPT {
   size_t iteration_count_ = 0;
 
   habana::LayoutFormat getTensorChannelOrder(torch::jit::Value* val);
-  void gatherLayoutMetaData(torch::jit::graph_node_list graph_nodes);
+  void runMetaDataAdjustmentPasses(torch::jit::graph_node_list graph_nodes);
   void weightLayoutMarkingPass(torch::jit::graph_node_list graph_nodes);
+  void persistenceMarkingPass(torch::jit::graph_node_list graph_nodes);
   void markLayoutForOriginNodes(torch::jit::Value* val);
   void preProcessInputs();
   void processInputs(

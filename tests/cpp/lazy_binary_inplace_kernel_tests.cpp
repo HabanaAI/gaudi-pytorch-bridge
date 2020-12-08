@@ -41,3 +41,26 @@ TEST_F(LazyBinaryInplaceKernelTest, MulInplaceTest) {
 
   EXPECT_EQ(allclose(out, exp), true);
 }
+
+TEST_F(LazyBinaryInplaceKernelTest, SqrtAddInplaceTest) {
+  // Inplace op as output node is not supported yet.
+  torch::Tensor A = torch::ones({2, 3});
+  torch::Tensor B = torch::ones({2, 3});
+  torch::Tensor C = torch::ones({2, 3});
+  torch::Tensor D = torch::ones({2, 3});
+  auto hA = A.to(torch::kHABANA);
+  auto hB = B.to(torch::kHABANA);
+  auto hC = C.to(torch::kHABANA);
+  auto hD = D.to(torch::kHABANA);
+
+  auto tempc1 = torch::sqrt(A + D);
+  tempc1.add_(B);
+  auto result_cpu = torch::add(tempc1, C);
+
+  auto temp1 = torch::sqrt(hA + hD);
+  hB.add_(temp1);
+  auto result_hpu = torch::add(hB, hC);
+  Tensor out_hpu = result_hpu.to(kCPU);
+
+  EXPECT_EQ(allclose(result_cpu, out_hpu, 0.001, 0.001), true);
+}

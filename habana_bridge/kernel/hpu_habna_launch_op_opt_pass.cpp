@@ -87,7 +87,7 @@ void HabanaLaunchOpPT::weightLayoutMarkingPass(
             0, node->kind().toQualString(), getNodeScalarType(node));
 
     if (HabanaKernel == nullptr)
-      return;
+      continue;
     // Get the metadata for all inputs, used for preprocessing inputs
     auto& habana_kernel_meta_data = HabanaKernel->GetKernelMetaData();
     auto node_ins = node->inputs();
@@ -108,19 +108,61 @@ void HabanaLaunchOpPT::weightLayoutMarkingPass(
   }
 }
 
-// This is a pass to gather meta data the tensors attached to the graph as
-// inputs. Right now all weight tensors are permuted in script to HWCK and
-// are "invisible to Pytorch" as it doesnt support this format and cannot be
-// represented in Aten tensor
-// So weight tensors are assumed to be in HWCK even if we see them as "NCHW"
-// or "NHWC" at at::tensor level This is ok for cases where kernels can tell
-// us if an input tensor is weight type, we can mark the correct layout and
-// use. But for cases where first use is in generic elementwise ops like
-// mul, we cannot know its a weight tensor for that op and may introduce
-// unwanted permutes. This pass enables us to go through the whole graph and
-// mark all tensors before we start lowering, so that such cases can be
-// avoided
-void HabanaLaunchOpPT::gatherLayoutMetaData(
+void HabanaLaunchOpPT::persistenceMarkingPass(
     torch::jit::graph_node_list graph_nodes) {
+  for (auto* node : graph_nodes) {
+    // Get kernel context
+    habana::HabanaOperatorPtr HabanaKernel =
+        habana::KernelRegistry().getWithoutAssert(
+            0, node->kind().toQualString(), getNodeScalarType(node));
+
+    if (HabanaKernel == nullptr)
+      continue;
+    size_t len = strlen(node->kind().toQualString());
+    char endch = node->kind().toQualString()[len - 1];
+    bool force_persistent = (endch == '_');
+    auto node_ins = node->inputs();
+    size_t tensor_idx = 0;
+    // override the persistence logic if any kernel sets it as persistent
+    // We assume that first index for input and output will be the persistent
+    // tensor
+    for (const auto value_in : node_ins) {
+      if (value_in->type()->kind() == c10::TypeKind::TensorType) {
+        if (tensor_idx == 0 && force_persistent) {
+          value_to_persistent_flag[value_in] = true;
+        }
+        tensor_idx++;
+      }
+    }
+    auto node_outs = node->outputs();
+    tensor_idx = 0;
+    for (const auto value_out : node_outs) {
+      if (value_out->type()->kind() == c10::TypeKind::TensorType) {
+        if (tensor_idx == 0 && force_persistent) {
+          value_to_persistent_flag[value_out] = true;
+        }
+        tensor_idx++;
+      }
+    }
+  }
+}
+
+void HabanaLaunchOpPT::runMetaDataAdjustmentPasses(
+    torch::jit::graph_node_list graph_nodes) {
+  // This is a pass to gather meta data the tensors attached to the graph as
+  // inputs. Right now all weight tensors are permuted in script to HWCK and
+  // are "invisible to Pytorch" as it doesnt support this format and cannot be
+  // represented in Aten tensor
+  // So weight tensors are assumed to be in HWCK even if we see them as "NCHW"
+  // or "NHWC" at at::tensor level This is ok for cases where kernels can tell
+  // us if an input tensor is weight type, we can mark the correct layout and
+  // use. But for cases where first use is in generic elementwise ops like
+  // mul, we cannot know its a weight tensor for that op and may introduce
+  // unwanted permutes. This pass enables us to go through the whole graph and
+  // mark all tensors before we start lowering, so that such cases can be
+  // avoided
   weightLayoutMarkingPass(graph_nodes);
+  // This pass marks tensors persistent if they are nt persistent from graph
+  // but are made persistent due to synapse limitations
+  persistenceMarkingPass(graph_nodes);
 }

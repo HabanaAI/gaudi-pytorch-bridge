@@ -1816,7 +1816,7 @@ Tensor sigmoid_backward_hpu_wrap(const Tensor& grad_in, const Tensor& input) {
 Tensor sqrt_hpu_wrap(Tensor& input) {
   if (!habana_lazy::isDeviceInLoweringMode(input.device().index()) &&
       std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = sqrt_hpu_lazy_(input);
+    auto t = sqrt_hpu_lazy(input);
     return t;
   } else {
     return sqrt_hpu(input);

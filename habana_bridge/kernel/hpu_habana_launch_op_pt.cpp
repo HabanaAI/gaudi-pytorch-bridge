@@ -509,8 +509,11 @@ void HabanaLaunchOpPT::GetSynapseOutputs(
       // If the output is persistent, there are the following possibilities
       // 1> The output is not in graph output, hence it is an intermediate
       //    which is persistent.
-      //    Add it to duplicate_tivs as this would be a duplicate of a
-      //    persistent input tensor.
+      //    a> Add it to duplicate_tivs as this would be a duplicate of a
+      //       persistent input tensor if a parent exists
+      //    b> Add it to intermediate tensor list if no parent available.
+      //       Right now thats the only data structure that supports adding it
+      //       to patching
       // 2> The output is in graph output. In this scenario, it could be -
       //    a> It is an output created by the PT kernel that goes to the
       //       graph output.
@@ -536,7 +539,19 @@ void HabanaLaunchOpPT::GetSynapseOutputs(
             watch_tensor_flag_);
         if (false == isInGraphOutputs(output_nodes[output_nodes_idx])) {
           // Case 1> intermediate persistent tensor
-          duplicate_tivs.emplace_back(ti);
+          // Is this a duplicate tensor going to graph output?
+          // See if this the buffer pointer matches any input, then -
+          void* buffp = ti.get_buffer();
+          // Check whether it is an alias of any input
+          auto it = buff_to_inivpsh_map.find(buffp);
+          if (it != buff_to_inivpsh_map.end()) {
+            PT_BRIDGE_DEBUG(
+                "Adding duplicate_in_to_outtinfos ", ti.get_buffer());
+            duplicate_tivs.emplace_back(ti);
+          } else {
+            interim_tensorinfos.emplace_back(ti);
+            aten_intermediates.push_back(output_tensors_pt[output_tensor_idx]);
+          }
         } else {
           if (!enable_tensor_release_) {
             // Case 2a> graph output tensor
@@ -1383,7 +1398,7 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
   // weights which have HWCK
   // Only activated in lazy mode for now
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    gatherLayoutMetaData(subgraph_->nodes());
+    runMetaDataAdjustmentPasses(subgraph_->nodes());
   }
   for (auto* node : graph_nodes) {
     watch_tensor_flag_ = false;

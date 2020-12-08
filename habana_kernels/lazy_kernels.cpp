@@ -1853,6 +1853,7 @@ Tensor empty_hpu_lazy(
       auto at_internal_impl =
           habana_lazy::GetHbInternalTensorImpl(at_internal_tensor);
       HABANA_ASSERT(at_internal_impl != nullptr);
+      setTensorAsInputNode(hb_tensor);
     }
 
     // If we are not from lowering context, return the storageless one.
