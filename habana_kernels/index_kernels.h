@@ -182,9 +182,26 @@ class IndexPutOperator : public HabanaOperator {
             habana_helpers::name_suffix_from_type(scalarType)) {
     this->CreateSynContext(device_id);
     scalarType_ = scalarType;
-    kernel_meta_data_.input_layout.assign(
-        {LayoutFormat::ANY, LayoutFormat::ANY, LayoutFormat::ANY});
-    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
+  }
+
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) final;
+
+ protected:
+  c10::ScalarType scalarType_;
+};
+
+// IndexAddOperator
+class IndexAddOperator : public HabanaOperator {
+ public:
+  IndexAddOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator(
+            "index_add_fwd_filler" +
+            habana_helpers::name_suffix_from_type(scalarType)) {
+    this->CreateSynContext(device_id);
+    scalarType_ = scalarType;
   }
 
   virtual void AllocateAndAddSynapseNode(

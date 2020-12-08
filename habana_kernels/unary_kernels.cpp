@@ -51,7 +51,7 @@ void SqrtInplaceOperator::AllocateAndAddSynapseNode(
     bool is_output_persistent) {
   TORCH_CHECK(
       inputs.size() == 1,
-      "Incorrect size of inpust expected for Relu operator");
+      "Incorrect size of inpust expected for Sqrt operator");
   TORCH_CHECK(inputs[0].isTensor(), "Input type expected to be tensor");
 
   at::Tensor input = inputs[0].toTensor();

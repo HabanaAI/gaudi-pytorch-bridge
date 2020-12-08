@@ -43,10 +43,11 @@ class CatOperator : public CatOutOperator {
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
 
-  virtual void SetPTOutput(torch::jit::Stack& inputs);
+  virtual void SetPTOutput(at::Tensor& out);
 
- private:
-  at::Tensor CheckAllocateOutput(torch::jit::Stack& inputs);
+  at::Tensor CheckAllocateOutput(
+      torch::jit::Stack& inputs,
+      bool is_output_persistent);
 };
 
 //

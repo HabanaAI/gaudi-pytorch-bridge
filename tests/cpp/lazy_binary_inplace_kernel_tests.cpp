@@ -64,3 +64,70 @@ TEST_F(LazyBinaryInplaceKernelTest, SqrtAddInplaceTest) {
 
   EXPECT_EQ(allclose(result_cpu, out_hpu, 0.001, 0.001), true);
 }
+
+TEST_F(LazyBinaryInplaceKernelTest, AddcmulInplaceTest) {
+  // Inplace op as output node is not supported yet.
+  torch::Tensor A = torch::randn({2, 3});
+  torch::Tensor B = torch::randn({2, 3});
+  torch::Tensor C = torch::randn({2, 3});
+  torch::Tensor D = torch::zeros({2, 3});
+
+  auto hA = A.to(torch::kHABANA);
+  auto hB = B.to(torch::kHABANA);
+  auto hC = C.to(torch::kHABANA);
+  auto hD = D.to(torch::kHABANA);
+
+  A = A.addcmul_(B, C);
+  auto exp = A;
+
+  hA = hA.addcmul_(hB, hC);
+  // Dummy add to avoid hA as output node
+  auto result = torch::add(hA, hD);
+  Tensor out = result.to(kCPU);
+
+  EXPECT_EQ(allclose(out, exp), true);
+}
+
+TEST_F(LazyBinaryInplaceKernelTest, AddcmulInplaceTest2) {
+  // Same input for tensor 1 and tensor 2
+  torch::Tensor A = torch::randn({2, 3});
+  torch::Tensor B = torch::randn({2, 3});
+  torch::Tensor C = torch::zeros({2, 3});
+
+  auto hA = A.to(torch::kHABANA);
+  auto hB = B.to(torch::kHABANA);
+  auto hC = C.to(torch::kHABANA);
+
+  A = A.addcmul_(B, B);
+  auto exp = A;
+
+  hA = hA.addcmul_(hB, hB);
+  // Dummy add to avoid hA as output node
+  auto result = torch::add(hA, hC);
+  Tensor out = result.to(kCPU);
+
+  EXPECT_EQ(allclose(out, exp), true);
+}
+
+TEST_F(LazyBinaryInplaceKernelTest, AddcdivInplaceTest) {
+  // Inplace op as output node is not supported yet.
+  torch::Tensor A = torch::randn({2, 3});
+  torch::Tensor B = torch::randn({2, 3});
+  torch::Tensor C = torch::randn({2, 3});
+  torch::Tensor D = torch::zeros({2, 3});
+
+  auto hA = A.to(torch::kHABANA);
+  auto hB = B.to(torch::kHABANA);
+  auto hC = C.to(torch::kHABANA);
+  auto hD = D.to(torch::kHABANA);
+
+  A = A.addcdiv_(B, C);
+  auto exp = A;
+
+  hA = hA.addcdiv_(hB, hC);
+  // Dummy add to avoid hA as output node
+  auto result = torch::add(hA, hD);
+  Tensor out = result.to(kCPU);
+
+  EXPECT_EQ(allclose(out, exp), true);
+}

@@ -49,7 +49,9 @@ void CatOutOperator::validate_tensor_dim_sizes(
   }
 }
 
-Tensor CatOperator::CheckAllocateOutput(Stack& inputs) {
+Tensor CatOperator::CheckAllocateOutput(
+    Stack& inputs,
+    bool is_output_persistent) {
   TORCH_CHECK(
       inputs.size() == 2,
       "Incorrect size of inputs expected for matmul operator");
@@ -76,25 +78,31 @@ Tensor CatOperator::CheckAllocateOutput(Stack& inputs) {
   for (unsigned i = 0; i < tensor_count; i++) {
     out_size[dim] += tensors.get(i).sizes()[dim];
   }
-  return std::move(at::empty(
-      out_size, first_tensor.options(), first_tensor.suggest_memory_format()));
+
+  auto out = habana_helpers::createPTTensor(
+      first_tensor,
+      out_size,
+      first_tensor.options(),
+      first_tensor.suggest_memory_format(),
+      first_tensor.scalar_type(),
+      is_output_persistent);
+
+  return out;
+}
+
+void CatOperator::SetPTOutput(Tensor& out) {
+  HabanaOperator::SetPTOutput(out);
 }
 
 void CatOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
     bool is_output_persistent) {
-  auto out = CheckAllocateOutput(inputs);
+  auto out = CheckAllocateOutput(inputs, is_output_persistent);
   inputs.insert(inputs.begin(), IValue(out));
   // inputs pos : 0 = out, 1,2,3,... = cat inputs, "tensor_count"th elem = dim
   CatOutOperator::AllocateAndAddSynapseNode(
       graph, inputs, is_output_persistent);
-}
-
-void CatOperator::SetPTOutput(torch::jit::Stack& inputs) {
-  auto out = CheckAllocateOutput(inputs);
-  inputs.insert(inputs.begin(), IValue(out));
-  HabanaOperator::SetPTOutput(out);
 }
 
 /*************************************************************************
@@ -136,7 +144,8 @@ Tensor cat_hpu(const TensorList in_tensors, int64_t dim_ = 0) {
   if (device.get_recipe_handle_cache().isCached(key)) {
     PT_KERNEL_DEBUG("Cache hit key:", key);
     Op.SetPTInputs(pt_inputs);
-    Op.SetPTOutput(stack);
+    auto out = Op.CheckAllocateOutput(stack, true);
+    Op.SetPTOutput(out);
     Op.Execute(key);
   } else {
     PT_KERNEL_DEBUG("Key:", key);
@@ -192,6 +201,7 @@ int64_t CatOutOperator::CheckAllocateOutput(Stack& inputs) {
   for (unsigned i = 0; i < in_tensor_count; i++) {
     out_size[dim] += tensors.get(i).sizes()[dim];
   }
+
   validate_tensor_dim_sizes(tensors, dim);
 
   if (out.defined()) {
@@ -220,6 +230,7 @@ void CatOutOperator::AllocateAndAddSynapseNode(
   auto dim = CheckAllocateOutput(inputs);
   auto out = inputs[0].toTensor();
   auto kernel_dim = (out.ndimension() - dim) - 1;
+
   p_context_->params_.emplace<int64_t>(kernel_dim);
   p_context_->params_size_ = sizeof(kernel_dim);
   AllocateSynapseOutput(graph, out, is_output_persistent);

@@ -1005,8 +1005,20 @@ Tensor& index_add_hpu_lazy_(
     int64_t dim_,
     const Tensor& indices,
     const Tensor& source) {
-  HABANA_ASSERT(0);
-  return index_add_hpu_(self, dim_, indices, source);
+  PT_LAZY_TRACE;
+  auto node =
+      std::make_shared<habana_lazy::ir::IndexAdd_>(self, dim_, indices, source);
+
+  auto hl_result = habana_lazy::GetHbLazyTensor(self);
+
+  habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+
+  std::vector<at::Tensor> input_pt_vec{self, indices, source};
+  node->AddInputPtTensors(input_pt_vec);
+
+  return self;
 };
 Tensor index_put_hpu_lazy(
     const Tensor& self,
@@ -1028,8 +1040,21 @@ Tensor index_select_hpu_lazy(
     const Tensor& self,
     int64_t dim,
     const Tensor& index) {
-  HABANA_ASSERT(0);
-  return index_select_hpu(self, dim, index);
+  PT_LAZY_TRACE;
+  auto node = std::make_shared<habana_lazy::ir::IndexSelect>(self, dim, index);
+
+  auto result = index_select_hpu(self, dim, index);
+
+  auto hl_result = habana_lazy::GetHbLazyTensor(result);
+
+  habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+
+  std::vector<at::Tensor> input_pt_vec{self, index};
+  node->AddInputPtTensors(input_pt_vec);
+
+  return result;
 };
 Tensor gather2d_hpu_lazy(
     const Tensor& input,

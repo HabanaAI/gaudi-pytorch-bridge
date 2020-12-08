@@ -294,6 +294,7 @@ void HabanaLaunchOpPT::HandleMappedTensor(
     const HabanaOperatorPtr& habana_op,
     SharedSynTensorOrRefListPtr& tensorList) {
   auto syn_tensor_input = pt_to_synapse_tensors.find(value_to_ivalue[value_in]);
+
   for (synapse_helpers::tensor& tensor : *(syn_tensor_input->second)) {
     synapse_helpers::tensor& syn_tensor =
         habana_op->SetSynapseInput(std::move(tensor));
@@ -383,12 +384,13 @@ void HabanaLaunchOpPT::GetSynapseInputs(
       // Find if an input tensor is already mapped
       // NB: It seems Habana doesn't support shared input to
       // different nodes in graph
-      SharedSynTensorOrRefListPtr tensor_ref_list_ptr_sh =
-          std::make_shared<SynTensorOrRefList>();
+
       // note: else path is only of listcontruct is fused with another op like
       // cat. This case occurs in lazy eval but not in torch trace mode
       if (value_to_ivalue[value_in]->isTensor() ||
           (value_in->node()->kind() != torch::jit::prim::ListConstruct)) {
+        SharedSynTensorOrRefListPtr tensor_ref_list_ptr_sh =
+            std::make_shared<SynTensorOrRefList>();
         HandleMappedandUnmappedTensor(
             value_in, habana_op, tensor_ref_list_ptr_sh);
       } else {
@@ -396,6 +398,8 @@ void HabanaLaunchOpPT::GetSynapseInputs(
         auto prev_node = value_in->node();
         if (prev_node->kind() == torch::jit::prim::ListConstruct) {
           for (auto& value_in : prev_node->inputs()) {
+            SharedSynTensorOrRefListPtr tensor_ref_list_ptr_sh =
+                std::make_shared<SynTensorOrRefList>();
             HABANA_ASSERT(value_to_ivalue[value_in]->isTensor());
             HandleMappedandUnmappedTensor(
                 value_in, habana_op, tensor_ref_list_ptr_sh);
@@ -673,6 +677,7 @@ at::Tensor HabanaLaunchOpPT::permuteTensor(
     pt_to_synapse_tensors.emplace(value_to_ivalue[value_in], tensorList);
   } else {
     auto pt_tensor = value_to_ivalue[value_in]->toTensor();
+
     auto& syn_tensor =
         permute_kernel->AllocateSynapseInput(*syn_graph_ptr, pt_tensor, true);
     tensorList->emplace_back(tensor_or_ref(syn_tensor));

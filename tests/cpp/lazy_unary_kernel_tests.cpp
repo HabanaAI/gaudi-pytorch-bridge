@@ -90,3 +90,28 @@ TEST_F(LazyUnaryKernelTest, SigmoidBwdTest) {
 
   EXPECT_EQ(allclose(hout_lazy, cpu_out), true);
 }
+
+TEST_F(LazyUnaryKernelTest, PowTensorScalarTest) {
+  auto input_tensor = torch::randn({4, 5});
+  torch::Tensor cpu_out = torch::pow(input_tensor, 2.0);
+
+  torch::Tensor tHabanaX = input_tensor.to(torch::kHABANA);
+  torch::Tensor outHabana = torch::pow(tHabanaX, 2.0);
+  torch::Tensor hout_lazy = outHabana.to(torch::kCPU);
+
+  EXPECT_EQ(allclose(hout_lazy, cpu_out), true);
+}
+
+TEST_F(LazyUnaryKernelTest, SqrtTest) {
+  auto input_tensor = torch::randn({4, 5});
+  torch::Tensor cpu_out = torch::sqrt(input_tensor);
+
+  torch::Tensor tHabanaX = input_tensor.to(torch::kHABANA);
+  torch::Tensor temp1 = torch::sqrt(tHabanaX);
+  auto temp2 = torch::zeros({4, 5}).to(torch::kHABANA);
+  auto outHabana = torch::add(temp1, temp2);
+  torch::Tensor hout_lazy = outHabana.to(torch::kCPU);
+
+  EXPECT_EQ(
+      allclose(hout_lazy, cpu_out, 0.001, 0.001, /*equal_nan*/ true), true);
+}

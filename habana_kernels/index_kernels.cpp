@@ -387,6 +387,117 @@ Tensor& scatter_add_inplace_src_hpu(
   return self;
 }
 
+void IndexAddOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 4, "Incorrect size of inputs for index_add operator");
+  TORCH_CHECK(
+      inputs[0].isTensor(),
+      "Input 0 type expected to be Tensor for index_add operator");
+  TORCH_CHECK(
+      inputs[1].isInt(),
+      "Input 1 type expected to be int64_t for index_add operator");
+  TORCH_CHECK(
+      inputs[2].isTensor(),
+      "Input 2 type expected to be Tensor for index_add operator");
+  TORCH_CHECK(
+      inputs[3].isTensor(),
+      "Input 3 type expected to be Tensor for index_add operator");
+
+  auto self = inputs[0].toTensor();
+  auto dim = inputs[1].toInt();
+  auto index = inputs[2].toTensor();
+  auto value = inputs[3].toTensor();
+
+  std::vector<synapse_helpers::tensor_or_ref> addSynOutput;
+  torch::jit::Stack temp_stack;
+
+  // Create MemCopy operator to copy value into value_acc
+  MemCopyOperator memcpyOp(this->p_context_->device_id_, value.scalar_type());
+  // No need for output PT tensor as it's non persistent
+  temp_stack = {IValue(value), IValue(value)};
+  auto& syn_memcpyIn =
+      memcpyOp.SetSynapseInput(std::move(p_context_->syn_inputs_[2]));
+  memcpyOp.AllocateAndAddSynapseNode(graph, temp_stack, false);
+  p_context_->syn_inputs_[2] = std::move(syn_memcpyIn);
+  temp_stack.clear();
+
+  ////auto slice = at::index_select(self, 0, indices[0]);
+  IndexSelectOperator index_selectOp(
+      this->p_context_->device_id_, self.scalar_type());
+  temp_stack = {IValue(self), IValue(dim), IValue(index)};
+  auto& syn_isSelf =
+      index_selectOp.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+  auto& syn_isIndex =
+      index_selectOp.SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
+  index_selectOp.AllocateAndAddSynapseNode(graph, temp_stack, false);
+  p_context_->syn_inputs_[0] = std::move(syn_isSelf);
+  p_context_->syn_inputs_[1] = std::move(syn_isIndex);
+  temp_stack.clear();
+
+  ////value_acc += slice;
+  AddOperator addOp(this->p_context_->device_id_, value.scalar_type());
+  temp_stack = {
+      IValue(value),
+      IValue(index_selectOp.GetOutputs()[0]),
+      IValue(Scalar(1.0))};
+  addOp.SetSynapseInput(std::move(memcpyOp.GetSynOutputs()[0]));
+  addOp.SetSynapseInput(std::move(index_selectOp.GetSynOutputs()[0]));
+  addOp.AllocateAndAddSynapseNode(graph, temp_stack, false);
+  addSynOutput.push_back(std::move(addOp.GetSynOutputs()[0]));
+  temp_stack.clear();
+
+  // Expand 1D index tensor to same number of dimensions as value tensor
+  auto expanded_sizes = std::vector<int64_t>(value.ndimension(), 1);
+  expanded_sizes[dim] = index.sizes()[0];
+
+  ////auto index_expanded = index.view(expanded_sizes)
+  ReshapeOperator reshapeOp(this->p_context_->device_id_, index.scalar_type());
+  temp_stack = {IValue(index), IValue(expanded_sizes)};
+  auto& syn_reshape =
+      reshapeOp.SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
+  reshapeOp.AllocateAndAddSynapseNode(graph, temp_stack, false);
+  p_context_->syn_inputs_[1] = std::move(syn_reshape);
+  temp_stack.clear();
+
+  // Broadcast index tensor to same shape as value tensor
+  bool implicit =
+      false; // The value of implicit is currently ignored in broadcast kernel
+  BroadcastOperator bcastOp(
+      this->p_context_->device_id_, reshapeOp.GetOutputs()[0].scalar_type());
+  temp_stack = {
+      IValue(reshapeOp.GetOutputs()[0]),
+      IValue(value.sizes()),
+      IValue(implicit)};
+  bcastOp.SetSynapseInput(std::move(reshapeOp.GetSynOutputs()[0]));
+  bcastOp.AllocateAndAddSynapseNode(graph, temp_stack, false);
+  temp_stack.clear();
+
+  ////auto temp  = scatter_src_hpu(self, dim, index_broadcast, value_acc);
+  ScatterOperator scatterOp(this->p_context_->device_id_, self.scalar_type());
+  temp_stack = {
+      IValue(self),
+      IValue(dim),
+      IValue(bcastOp.GetOutputs()[0]),
+      IValue(value)};
+
+  auto& syn_scatter1 =
+      scatterOp.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+  UNUSED auto& syn_scatter2 =
+      scatterOp.SetSynapseInput(std::move(bcastOp.GetSynOutputs()[0]));
+  UNUSED auto& syn_scatter3 =
+      scatterOp.SetSynapseInput(std::move(addSynOutput[0]));
+
+  scatterOp.AllocateAndAddSynapseNode(graph, temp_stack, is_output_persistent);
+  p_context_->syn_inputs_[0] = std::move(syn_scatter1);
+
+  p_context_->syn_outputs_.emplace_back(
+      std::move(scatterOp.GetSynOutputs()[0]));
+  p_context_->pt_outputs_.emplace_back(std::move(scatterOp.GetOutputs()[0]));
+}
+
 /*************************************************************************
  * @brief Kernel implementation for index_add(dim, index, tensor) → Tensor
  * @param self - Input tensor 1-4D bf16/fp32
@@ -1370,6 +1481,13 @@ static auto& KernelRegistry =
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<ArangeOperator>(device_id, node_type);
             })
-        .add("aten::slice", [](const int device_id, c10::ScalarType node_type) {
-          return std::make_shared<SliceOperator>(device_id, node_type);
-        });
+        .add(
+            "aten::slice",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<SliceOperator>(device_id, node_type);
+            })
+        .add(
+            "aten::index_add",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<IndexAddOperator>(device_id, node_type);
+            });
