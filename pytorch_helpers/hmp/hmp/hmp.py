@@ -57,8 +57,14 @@ def convert(opt_level="O1", bf16_file_path="", fp32_file_path="", isVerbose=Fals
 
         ops_any_list = get_list_from_file(any_file_path)
 
-        # Handle rest of the multi input ops
-        # single input op will follow the previous node
+        # Please always keep cast_ops_list call for multi input ops
+        # above calls for bf16 & fp32. This ensures that if a given
+        # OP is added to both multi input list and bf16 or fp32 list
+        # then bf16 or fp32 gets higher priority.
+        # E.g. if you have "add" in both multi-inputs OPs and bf16
+        # lists, then "add" inputs will be casted to bf16.
+
+        # Handle the multi input ops
         cast_ops_list(ops_any_list, ops_dict)
 
         # cast ops in the bf16 list
