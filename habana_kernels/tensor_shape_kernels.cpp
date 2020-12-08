@@ -315,6 +315,23 @@ TransposeOperator::TransposeOperator(int device_id, c10::ScalarType scalarType)
   this->CreateSynContext(device_id);
 }
 
+std::tuple<std::vector<int64_t>, std::vector<int64_t>> TransposeOperator::
+    compute_output_shape(const at::Tensor& self, int dim0_, int dim1_) {
+  int64_t dim0 = at::maybe_wrap_dim(dim0_, self.dim(), /*wrap_scalar=*/true);
+  int64_t dim1 = at::maybe_wrap_dim(dim1_, self.dim(), /*wrap_scalar=*/true);
+  TORCH_CHECK(
+      (dim0 < self.dim()) && (dim1 < self.dim()),
+      "Specified dims are beyond tensor dims");
+
+  auto self_sizes = self.sizes().vec();
+  auto self_strides = self.strides().vec();
+  std::swap(self_sizes[dim0], self_sizes[dim1]);
+  // Recalculate the strides to account for transpose size changes
+  // In effect, keep the tensor contiguous.
+  recalc_strides(self_strides, self_sizes);
+  return std::make_tuple(self_sizes, self_strides);
+}
+
 void TransposeOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
@@ -334,20 +351,13 @@ void TransposeOperator::AllocateAndAddSynapseNode(
   Tensor self = inputs[0].toTensor();
   auto dim0_ = inputs[1].toInt();
   auto dim1_ = inputs[2].toInt();
-  // handle negative dimensions (backward indexing) in pytorch
+
   int64_t dim0 = at::maybe_wrap_dim(dim0_, self.dim(), /*wrap_scalar=*/true);
   int64_t dim1 = at::maybe_wrap_dim(dim1_, self.dim(), /*wrap_scalar=*/true);
 
-  TORCH_CHECK(
-      (dim0 < self.dim()) && (dim1 < self.dim()),
-      "Specified dims are beyond tensor dims");
-
-  auto self_sizes = self.sizes().vec();
-  auto self_strides = self.strides().vec();
-  std::swap(self_sizes[dim0], self_sizes[dim1]);
-  // Recalculate the strides to account for transpose size changes
-  // In effect, keep the tensor contiguous.
-  recalc_strides(self_strides, self_sizes);
+  std::vector<int64_t> self_sizes, self_strides;
+  std::tie(self_sizes, self_strides) =
+      TransposeOperator::compute_output_shape(self, dim0_, dim1_);
   auto out = habana_helpers::createPTTensor(
       self,
       self_sizes,
@@ -523,6 +533,26 @@ PermuteOperator::PermuteOperator(int device_id, c10::ScalarType scalarType)
   this->CreateSynContext(device_id);
 }
 
+std::tuple<std::vector<int64_t>, std::vector<int64_t>> PermuteOperator::
+    compute_output_shape(
+        const at::Tensor& in,
+        const std::vector<int64_t>& dims) {
+  TORCH_CHECK(
+      dims.size() == static_cast<size_t>(in.dim()),
+      "Number of dims in tensor don't match in permute");
+  auto self_sizes = in.sizes().vec();
+  // calculate new sizes and strides after permute for out tensor
+  auto new_sizes = in.sizes().vec();
+  auto new_strides = in.strides().vec();
+  new_sizes[new_sizes.size() - 1] = self_sizes[dims[new_sizes.size() - 1]];
+  new_strides[new_sizes.size() - 1] = 1;
+  for (int i = new_sizes.size() - 2; i >= 0; i--) {
+    new_sizes[i] = self_sizes[dims[i]];
+    new_strides[i] = new_strides[i + 1] * new_sizes[i + 1];
+  }
+  return std::make_tuple(new_sizes, new_strides);
+}
+
 void PermuteOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
@@ -537,7 +567,7 @@ void PermuteOperator::AllocateAndAddSynapseNode(
       inputs[1].isIntList(),
       "Input arg 2 for permute op needs to be of Int List type");
   Tensor self = inputs[0].toTensor();
-  const auto dims = inputs[1].toIntList();
+  const auto dims = inputs[1].toIntVector();
 
   TORCH_CHECK(
       dims.size() == static_cast<size_t>(self.dim()),
@@ -546,16 +576,9 @@ void PermuteOperator::AllocateAndAddSynapseNode(
       (self.dim() <= 4) && is_hpu_supported_transpose_type(self.scalar_type()),
       "Unsupported permute operation on Habana device");
 
-  auto self_sizes = self.sizes().vec();
-  // calculate new sizes and strides after permute for out tensor
-  auto new_sizes = self.sizes().vec();
-  auto new_strides = self.strides().vec();
-  new_sizes[new_sizes.size() - 1] = self_sizes[dims[new_sizes.size() - 1]];
-  new_strides[new_sizes.size() - 1] = 1;
-  for (int i = new_sizes.size() - 2; i >= 0; i--) {
-    new_sizes[i] = self_sizes[dims[i]];
-    new_strides[i] = new_strides[i + 1] * new_sizes[i + 1];
-  }
+  std::vector<int64_t> new_sizes, new_strides;
+  std::tie(new_sizes, new_strides) =
+      PermuteOperator::compute_output_shape(self, dims);
 
   auto output = habana_helpers::createPTTensor(
       self,

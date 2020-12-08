@@ -58,6 +58,8 @@ class PermuteOperator : public ::habana::HabanaOperator {
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
+  static std::tuple<std::vector<int64_t>, std::vector<int64_t>>
+  compute_output_shape(const at::Tensor& in, const std::vector<int64_t>& dims);
 };
 
 //
@@ -84,6 +86,8 @@ class TransposeOperator : public ::habana::HabanaOperator {
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
+  static std::tuple<std::vector<int64_t>, std::vector<int64_t>>
+  compute_output_shape(const at::Tensor& self, int dim0_, int dim1_);
 };
 
 //
@@ -103,6 +107,10 @@ class TOperator : public TransposeOperator {
     inputs.insert(inputs.begin() + 2, c10::IValue(1));
     TransposeOperator::AllocateAndAddSynapseNode(
         graph, inputs, is_output_persistent);
+  }
+  static std::tuple<std::vector<int64_t>, std::vector<int64_t>>
+  compute_output_shape(const at::Tensor& self) {
+    return TransposeOperator::compute_output_shape(self, 0, 1);
   }
 };
 
