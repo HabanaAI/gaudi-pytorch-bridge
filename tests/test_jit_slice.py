@@ -25,8 +25,8 @@ def test_slice_backward(D1, D2):
 
     with torch.jit.optimized_execution(True):
         os.environ["HABANA_GRAPH_WHITELIST_FILE"] = os.path.join(
-            os.environ["PYTORCH_MODULES_ROOT_PATH"],
-            "topologies/configs/BERT_whitelist_ops.txt",
+            os.environ["MODEL_GARDEN_PYTORCH_PATH"],
+            "utils/configs/BERT_whitelist_ops.txt",
         )
         cpu_result = slice_func(in_t)
         grad_out = torch.randn(3, 2, requires_grad=False)
@@ -48,7 +48,8 @@ def test_slice_backward(D1, D2):
         hpu_out.backward(grad_out.detach().to(hpu))
         hpu_grad = hpu_t.grad.detach()
 
-        compare_tensors(hpu_grad, cpu_grad, atol=0.001, rtol=1.0e-3)
+        compare_tensors(hpu_out, cpu_result, atol=0, rtol=0)
+        compare_tensors(hpu_grad, cpu_grad, atol=0, rtol=0)
 
     os.environ.pop("HABANA_GRAPH_WHITELIST_FILE")
 

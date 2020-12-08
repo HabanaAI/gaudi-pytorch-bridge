@@ -19,8 +19,8 @@ test_case_list = [
 @pytest.mark.parametrize("D1, D2", test_case_list)
 def test_matmul(D1, D2):
     os.environ["HABANA_GRAPH_WHITELIST_FILE"] = os.path.join(
-        os.environ["PYTORCH_MODULES_ROOT_PATH"],
-        "topologies/configs/BERT_whitelist_ops.txt",
+        os.environ["MODEL_GARDEN_PYTORCH_PATH"],
+        "utils/configs/BERT_whitelist_ops.txt",
     )
     hpu = torch.device("habana")
     cpu = torch.device("cpu")
