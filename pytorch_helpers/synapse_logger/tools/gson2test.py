@@ -149,6 +149,8 @@ class Flow:
                     cast = "&"
                 elif replacement_type != value_type:
                     cast = f"({value_type})"
+                    if (value_type.find("**") > 0) and not(replacement_type.find("**") > 0):
+                        cast = cast + "&"
                 return f"{cast}{replacement}"
 
             def add(self, key, var_type, var_name, size="", initializer="", local=False, extra_comment=""):
@@ -257,6 +259,9 @@ class Flow:
 
         def add_device_pool(self, no, device_ptr: str, size):
             return self.add_pool(self.device_allocations, device_ptr, f"devmem_{no}", "uint64_t", size)
+
+        def add_host_pool(self, no, host_ptr: str, size):
+            return self.add_pool(self.host_allocations, host_ptr, f"hostmem_{no}", "void*", size)
 
         def add_pool(self, allocation_map, ptr: str, variable_name, variable_type, size):
             allocation_map[ptr] = size
@@ -599,7 +604,7 @@ class Flow:
 
     def map_memcopy(self, no, space, src, dst, size, dma_dir):
         if dma_dir == synDmaDir.HOST_TO_DRAM:
-            space.map_host_suballocation(no, src, size, src=True)
+            space.map_host_suballocation(no, src, size, src=False)
             space.map_device_suballocation(no, dst, size)
         elif dma_dir == synDmaDir.DRAM_TO_HOST:
             space.map_device_suballocation(no, src, size)
@@ -713,10 +718,15 @@ class Flow:
                         replacements = space.get_args(entry, ("buffer",))
                         replacements["flags"] = synMemFlags[args["flags"]]
                         out(Flow.call(entry, replacements, wrap="EXPECT_EQ"))
+                    elif func_def.name == "synHostMalloc":
+                        space.add_host_pool(no, entry["result"]["buffer"], args["size"])
+                        args["buffer"] = entry["result"]["buffer"]
+                        replacements = space.get_args(entry, ("buffer",))
+                        out(Flow.call(entry, replacements, wrap="EXPECT_EQ"))
                     elif func_def.name == "synHostMap":
                         space.map_host_data(args["buffer"], args["size"], f"host_data_{no}")
                         out(Flow.call(entry, space.get_args(entry, ("buffer",))))
-                    elif func_def.name in ("synHostUnmap", "synDeviceFree"):
+                    elif func_def.name in ("synHostUnmap", "synDeviceFree", "synHostFree"):
                         out(Flow.call(entry, space.get_args(entry, ("buffer",))))
                     elif func_def.name == "synNodeCreate":
                         self._handle_node_create(space, out, no, entry)
