@@ -127,16 +127,22 @@ void HbLazyTensorImpl::SetupSizeProperties() {
   }
 }
 
+void HbLazyTensorImpl::SetStorage(at::Storage storage) {
+  storage_ = std::move(storage);
+  data_type_ = storage_.dtype();
+  device_opt_ = storage_.device();
+}
+
 const at::Storage& HbLazyTensorImpl::storage() const {
-  // TBD: There maybe cases, specially from the scale out
-  // side, where the tensor.storage().data() is used.
-  // For this, we can later use the storage from m_tensor.
-  std::cerr << "Habana Lazy tensors do not have storage";
-  HABANA_ASSERT(0);
+  HABANA_ASSERT(m_tensor.CurrentTensorData());
+  // FIXME Violates const correctness
+  const_cast<HbLazyTensorImpl*>(this)->SetStorage(
+      m_tensor.CurrentTensorData()->storage());
+  return storage_;
 }
 
 bool HbLazyTensorImpl::has_storage() const {
-  return false;
+  return storage_;
 }
 
 void HbLazyTensorImpl::AtenInitialize() {

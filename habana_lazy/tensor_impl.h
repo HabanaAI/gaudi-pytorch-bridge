@@ -58,6 +58,7 @@ class HbLazyTensorImpl : public c10::TensorImpl {
 
  private:
   void SetupSizeProperties();
+  void SetStorage(at::Storage storage);
   std::vector<int64_t> ComputeArrayStrides(absl::Span<const int64_t> sizes);
 
   bool m_size_initialized;

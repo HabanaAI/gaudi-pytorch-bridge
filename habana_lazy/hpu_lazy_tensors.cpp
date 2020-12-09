@@ -56,7 +56,7 @@ std::vector<HbLazyTensor> HbContextArena::GetLiveTensors(
     for (auto& uid_wptr : devctx->tensors_data) {
       std::shared_ptr<Data> data = uid_wptr.second.lock();
       if (data != nullptr) {
-        tensors.push_back(HbLazyTensor(std::move(data)));
+        tensors.emplace_back(std::move(data));
       }
     }
   };
@@ -196,7 +196,9 @@ ir::Value HbLazyTensor::GetIrValue() const {
 
 void HbLazyTensor::MarkStep(const c10::Device& device) {
   HbContextArena::Get()->MarkStep(device);
-  // TODO reset IR
+  auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
+      device.index());
+  context->MarkTensorsExecuted(false);
 }
 
 bool HbLazyTensor::isStorageAttached() {

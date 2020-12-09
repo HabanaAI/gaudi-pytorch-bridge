@@ -86,6 +86,13 @@ class HbLazyTensor {
       const at::Tensor& tensor,
       const c10::Device& device);
 
+  c10::TensorImpl* getAttachedTensorImpl() const {
+    if (data()->tensor_data) {
+      return data()->tensor_data.value().unsafeGetTensorImpl();
+    }
+    return nullptr;
+  }
+
   static HbLazyTensor Create(
       ir::Value ir_value,
       const at::Device& device,

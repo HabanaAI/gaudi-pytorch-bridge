@@ -36,11 +36,12 @@ class HbExecutionContext {
   void setExecutionMode(LazyExecutionMode mode) {
     per_thread_execution_mode[pthread_self()] = mode;
   }
-  void MarkTensorsExecuted() {
+  void MarkTensorsExecuted(bool check_executing = true) {
     for (auto& tensor : m_tensor_execution_status) {
       // Mark all the tensors in executing state as done
-      if (tensor.second == kEXECUTING)
+      if (!check_executing || tensor.second == kEXECUTING) {
         tensor.second = kEXECUTION_COMPLETE;
+      }
     }
   }
   void MarkTensorExecuting(int tensor_id) {

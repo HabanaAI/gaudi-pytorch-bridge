@@ -58,3 +58,10 @@ TEST_F(LazyTensorAPITest, NumelDimSizeTest) {
   ASSERT_TRUE(out.size(1) == 3);
   ASSERT_TRUE(out.size(2) == 5);
 }
+
+TEST_F(LazyTensorAPITest, EmptyStorage) {
+  auto dummy = torch::ones(1).to("habana");
+  auto a = torch::empty(4, "habana");
+  habana_lazy::HbLazyTensor::StepMarker("habana");
+  ASSERT_TRUE(GetHbLazyTensor(a).CurrentTensorData() != nullopt);
+}

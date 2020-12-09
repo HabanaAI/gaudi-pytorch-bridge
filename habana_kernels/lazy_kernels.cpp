@@ -1945,75 +1945,60 @@ Tensor empty_hpu_lazy(
   type = type == c10::ScalarType::Double ? c10::ScalarType::Float : type;
   dtype = scalarTypeToTypeMeta(type);
 
-  if (create_storage) {
-    c10 ::Allocator* allocator;
-    if (options.pinned_memory()) {
-      TORCH_CHECK(false, "habana allocator doesn't supported pinned memory");
-    } else {
-      allocator = habana::getHABANADeviceAllocator();
-    }
-    int64_t nelements = prod_intlist(size);
-    int elem_size = dtype.itemsize();
-    auto storage_impl = c10::make_intrusive<StorageImpl>(
-        dtype,
-        nelements,
-        allocator->allocate(nelements * elem_size),
-        allocator,
-        /*resizeable=*/true);
-    Tensor at_internal_tensor =
-        habana_lazy::AtenInternalHbTensor(std::move(storage_impl));
-    // Setup the tensor sizes/strides, for now assuming contiguous
-    at_internal_tensor.unsafeGetTensorImpl()->set_sizes_contiguous(size);
+  habana_lazy::HbLazyTensor hb_tensor =
+      habana_lazy::HbLazyTensor::CreateHbLazyTensor(
+          size, 0, options.device(), c10::typeMetaToScalarType(dtype));
+  Tensor at_tensor = habana_lazy::AtenFromHbLazyTensor(hb_tensor);
+  // Setup the tensor sizes/strides, for now assuming contiguous
+  at_tensor.unsafeGetTensorImpl()->set_sizes_contiguous(size);
 
-    Tensor at_tensor;
-    bool is_in_lowering_mode = false;
-    auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
-        options.device().index());
-    if (context != nullptr) {
-      auto exec_mode = context->getExecutionMode();
-      is_in_lowering_mode = exec_mode == kLOWERING ? true : is_in_lowering_mode;
-    }
-
-    // This call could have come from a .to call and not from a lowering
-    // context. In such case, create the lazt tensor.
-    if (!is_in_lowering_mode) {
-      habana_lazy::HbLazyTensor hb_tensor =
-          habana_lazy::HbLazyTensor::CreateHbLazyTensor(
-              size, 0, options.device(), c10::typeMetaToScalarType(dtype));
-
-      at_tensor = habana_lazy::AtenFromHbLazyTensor(hb_tensor);
-
-      // The lazy tensor will have a reference to the internal tensor
-      hb_tensor.SetTensorData(at_internal_tensor);
-
-      // Setup the tensor sizes/strides, for now assuming contiguous
-      at_tensor.unsafeGetTensorImpl()->set_sizes_contiguous(size);
-
-      // Keep a pointer to the storageless tensor from the internal tensor
-      auto at_internal_impl =
-          habana_lazy::GetHbInternalTensorImpl(at_internal_tensor);
-      HABANA_ASSERT(at_internal_impl != nullptr);
-      setTensorAsInputNode(hb_tensor);
-    }
-
-    // If we are not from lowering context, return the storageless one.
-    if (!is_in_lowering_mode) {
-      return at_tensor;
-    } else {
-      // else return the internal tensor with storage
-      return at_internal_tensor;
-    }
-  } else {
-    habana_lazy::HbLazyTensor hb_tensor =
-        habana_lazy::HbLazyTensor::CreateHbLazyTensor(
-            size, 0, options.device(), c10::typeMetaToScalarType(dtype));
-    Tensor at_tensor = habana_lazy::AtenFromHbLazyTensor(hb_tensor);
-    // Setup the tensor sizes/strides, for now assuming contiguous
-    at_tensor.unsafeGetTensorImpl()->set_sizes_contiguous(size);
-
+  if (!create_storage) {
     return at_tensor;
   }
-};
+
+  c10 ::Allocator* allocator;
+  if (options.pinned_memory()) {
+    TORCH_CHECK(false, "habana allocator doesn't supported pinned memory");
+  } else {
+    allocator = habana::getHABANADeviceAllocator();
+  }
+  int64_t nelements = prod_intlist(size);
+  int elem_size = dtype.itemsize();
+  auto storage_impl = c10::make_intrusive<StorageImpl>(
+      dtype,
+      nelements,
+      allocator->allocate(nelements * elem_size),
+      allocator,
+      /*resizeable=*/true);
+  Tensor at_internal_tensor =
+      habana_lazy::AtenInternalHbTensor(std::move(storage_impl));
+  // Setup the tensor sizes/strides, for now assuming contiguous
+  at_internal_tensor.unsafeGetTensorImpl()->set_sizes_contiguous(size);
+
+  auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
+      options.device().index());
+  HABANA_ASSERT(context != nullptr);
+
+  if (context->getExecutionMode() == kLOWERING) {
+    // return the internal tensor with storage during lowering
+    return at_internal_tensor;
+  } else {
+    // This call could have come from a .to call and not from a lowering
+    // context. In such case, create the lazy tensor.
+
+    // The lazy tensor will have a reference to the internal tensor
+    hb_tensor.SetTensorData(at_internal_tensor);
+
+    // Keep a pointer to the storageless tensor from the internal tensor
+    auto at_internal_impl =
+        habana_lazy::GetHbInternalTensorImpl(at_internal_tensor);
+    HABANA_ASSERT(at_internal_impl != nullptr);
+    setTensorAsInputNode(hb_tensor);
+
+    // If we are not from lowering context, return the storageless one.
+    return at_tensor;
+  }
+}
 
 Tensor empty_strided_hpu_lazy(
     IntArrayRef size,
