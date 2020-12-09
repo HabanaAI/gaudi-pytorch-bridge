@@ -13,7 +13,6 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
-#include <habana_device/hpu_cached_devices.h>
 #include <habana_lazy/hlexec.h>
 #include <habana_lazy/hpu_lazy_tensors.h>
 
@@ -29,31 +28,6 @@ struct NoGilSection {
   }
   PyThreadState* state = nullptr;
 };
-
-c10::Device SynapseDeviceToAtenDevice(const synapse_helpers::device& device) {
-  return c10::Device(at::kHABANA, device.id());
-}
-
-const synapse_helpers::device& AtenDeviceToSynapseDevice(
-    const c10::Device& device) {
-  TORCH_CHECK(device.type() == at::kHABANA);
-  const int index = device.has_index() ? device.index() : 0;
-  return synapse_helpers::HPURegistrar::get_device(index);
-}
-
-c10::Device GetDeviceOrCurrent(const std::string& device_str) {
-  if (device_str.empty()) {
-    return SynapseDeviceToAtenDevice(
-        synapse_helpers::HPURegistrar::get_device());
-  }
-
-  return c10::Device(device_str);
-}
-
-std::string GetCurrentThreadDevice() {
-  return SynapseDeviceToAtenDevice(synapse_helpers::HPURegistrar::get_device())
-      .str();
-}
 
 void StepMarker(
     const std::string& device_str,

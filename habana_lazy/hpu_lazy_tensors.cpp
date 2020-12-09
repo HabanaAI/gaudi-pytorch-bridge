@@ -506,3 +506,9 @@ void HbLazyTensor::ShallowCopyTo(HbLazyTensor* dest) const {
   // We can add stuff related to view tensors later
   dest->AssignIrValue(GetIrValue());
 }
+
+extern "C" void mark_step() {
+  c10::Device device = GetDeviceOrCurrent({});
+  HbLazyTensor::SyncLiveTensorsGraph(&device, {});
+  HbLazyTensor::MarkStep(device);
+}

@@ -12,6 +12,7 @@
 #include <ATen/Tensor.h>
 #include <absl/types/span.h>
 #include <c10/core/Device.h>
+#include <habana_device/hpu_cached_devices.h>
 #include <torch/csrc/jit/ir/ir.h>
 #include <unordered_set>
 #include "ir.h"
@@ -214,5 +215,24 @@ class HbContextArena {
   HbContext* GetHbContext(const c10::Device& device);
   std::unordered_map<c10::Device, HbContext*> mp_device_contexts;
 };
+
+inline c10::Device SynapseDeviceToAtenDevice(
+    const synapse_helpers::device& device) {
+  return c10::Device(at::kHABANA, device.id());
+}
+
+inline c10::Device GetDeviceOrCurrent(const std::string& device_str) {
+  if (device_str.empty()) {
+    return SynapseDeviceToAtenDevice(
+        synapse_helpers::HPURegistrar::get_device());
+  }
+
+  return c10::Device(device_str);
+}
+
+inline std::string GetCurrentThreadDevice() {
+  return SynapseDeviceToAtenDevice(synapse_helpers::HPURegistrar::get_device())
+      .str();
+}
 
 } // namespace habana_lazy
