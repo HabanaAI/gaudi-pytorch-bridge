@@ -186,6 +186,7 @@ void deviceMallocData::collect_backtrace(
   void* buffer[bt_depth];
   char** strings;
 
+  bool duplicate = false;
   std::vector<std::string> bt_string;
   // Take backtrace
   if (take_bt && (alloc || print_free_bt)) {
@@ -234,6 +235,8 @@ void deviceMallocData::collect_backtrace(
             std::make_pair(
                 existing_it->second.first, existing_it->second.second));
 
+        duplicate = true;
+        duplicate_ptr_bt_map[ptr] = std::make_pair(size, bt_string);
         std::cout << "=========================\n" << std::flush;
         std::cout << "Duplicate alloc detected - was a free missed?\n"
                   << std::flush;
@@ -289,13 +292,29 @@ void deviceMallocData::collect_backtrace(
       }
 
       // Stats update
-      running_memory += size;
-      if (running_memory > iteration_high_watermark) {
-        iteration_high_watermark = running_memory;
+      if (!duplicate) {
+        running_memory += size;
+        if (running_memory > iteration_high_watermark) {
+          iteration_high_watermark = running_memory;
+        }
       }
 
       if (iteration_high_watermark > overall_high_watermark) {
         overall_high_watermark = iteration_high_watermark;
+        std::streambuf* coutbuf = std::cout.rdbuf(); // save old buf
+        std::cout.rdbuf(out.rdbuf());
+
+        std::pair<uint64_t, size_bt_pair_t> entry =
+            std::make_pair(ptr, std::make_pair(size, bt_string));
+
+        std::cout << "=========================\n" << std::flush;
+        std::cout << "Reached high watermark " << overall_high_watermark
+                  << " from\n"
+                  << std::flush;
+        print_an_entry(entry, false);
+        std::cout << "=========================\n" << std::flush;
+
+        std::cout.rdbuf(coutbuf); // reset to standard output again
       }
     } else {
       // synDeviceFree
@@ -304,17 +323,27 @@ void deviceMallocData::collect_backtrace(
         std::streambuf* coutbuf = std::cout.rdbuf(); // save old buf
         std::cout.rdbuf(out.rdbuf());
 
-        std::cout << "=========================\n" << std::flush;
-        std::cout << "Unknwon pointer 0x" << std::hex << ptr << std::dec
-                  << "free detected\n"
-                  << std::flush;
-        std::cout << "=========================\n" << std::flush;
-        std::cout << "Now allocating from \n" << std::flush;
+        auto duplicate_it = duplicate_ptr_bt_map.find(ptr);
+        if (duplicate_it == duplicate_ptr_bt_map.end()) {
+          std::cout << "=========================\n" << std::flush;
+          std::cout << "Unknwon pointer 0x" << std::hex << ptr << std::dec
+                    << " free detected, not even in duplicates\n"
+                    << std::flush;
+          std::cout << "=========================\n" << std::flush;
+          std::cout << "Now Freeing from \n" << std::flush;
 
-        std::pair<uint64_t, size_bt_pair_t> new_entry =
-            std::make_pair(ptr, std::make_pair(0, bt_string));
-        print_an_entry(new_entry, true);
-        std::cout << "=========================\n" << std::flush;
+          std::pair<uint64_t, size_bt_pair_t> new_entry =
+              std::make_pair(ptr, std::make_pair(0, bt_string));
+          print_an_entry(new_entry, true);
+          std::cout << "=========================\n" << std::flush;
+        } else {
+          std::cout << "=========================\n" << std::flush;
+          std::cout << "Duplicate pointer 0x" << std::hex << ptr << std::dec
+                    << " free detected\n"
+                    << std::flush;
+          running_memory -= duplicate_it->second.first;
+          duplicate_ptr_bt_map.erase(duplicate_it);
+        }
 
         std::cout.rdbuf(coutbuf); // reset to standard output again
         // Log the entry :

@@ -21,6 +21,7 @@ class deviceMallocData final {
   using ptr_bt_map_type_t = std::unordered_map<uint64_t, size_bt_pair_t>;
   ptr_bt_map_type_t ptr_bt_map;
   ptr_bt_map_type_t ptr_bt_map_last;
+  ptr_bt_map_type_t duplicate_ptr_bt_map;
 
   size_t running_memory, iteration_high_watermark, overall_high_watermark;
   unsigned int iteration_number;
