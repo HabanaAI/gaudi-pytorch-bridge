@@ -294,11 +294,19 @@ void SoftmaxOperator::SetPTOutputs(torch::jit::Stack& inputs) {
       "Input type expected to be Bool for Softmax operator");
 
   auto self = inputs[0].toTensor();
-  auto output = at::empty(
-      self.sizes(),
-      self.options().dtype(c10::ScalarType::Float),
-      self.suggest_memory_format());
-  HabanaOperator::SetPTOutput(output);
+  if (self.dtype() == c10::ScalarType::BFloat16) {
+    auto output = at::empty(
+        self.sizes(),
+        self.options().dtype(c10::ScalarType::BFloat16),
+        self.suggest_memory_format());
+    HabanaOperator::SetPTOutput(output);
+  } else {
+    auto output = at::empty(
+        self.sizes(),
+        self.options().dtype(c10::ScalarType::Float),
+        self.suggest_memory_format());
+    HabanaOperator::SetPTOutput(output);
+  }
 }
 /** softmax (forward pass) implementation for Habana device
  * @params [In] self: Input tensor. 2-4D. bf16, fp32
@@ -442,11 +450,19 @@ void SoftmaxIntOperator::SetPTOutputs(torch::jit::Stack& inputs) {
       "Input type expected to be Bool for SoftmaxInt operator");
 
   auto self = inputs[0].toTensor();
-  auto output = at::empty(
-      self.sizes(),
-      self.options().dtype(c10::ScalarType::Float),
-      self.suggest_memory_format());
-  HabanaOperator::SetPTOutput(output);
+  if (self.dtype() == c10::ScalarType::BFloat16) {
+    auto output = at::empty(
+        self.sizes(),
+        self.options().dtype(c10::ScalarType::BFloat16),
+        self.suggest_memory_format());
+    HabanaOperator::SetPTOutput(output);
+  } else {
+    auto output = at::empty(
+        self.sizes(),
+        self.options().dtype(c10::ScalarType::Float),
+        self.suggest_memory_format());
+    HabanaOperator::SetPTOutput(output);
+  }
 }
 
 Tensor softmax_int_hpu(
