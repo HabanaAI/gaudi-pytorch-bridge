@@ -183,8 +183,8 @@ void stream_event_manager::wait_until_done(shared_event& event) {
 
 void stream_event_manager::synchronize_event(shared_event& event) {
   // The sync_mut_ is to be held till the call back tensors are released
-  std::lock_guard<std::mutex> sync_mut_lock_guard(sync_mut_);
   event->synchronize();
+  std::lock_guard<std::mutex> sync_mut_lock_guard(sync_mut_);
   {
     std::lock_guard<std::mutex> lock_guard(mut_);
     for (auto ptr : event->get_device_ptrs()) {
