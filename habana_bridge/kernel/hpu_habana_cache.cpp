@@ -246,30 +246,42 @@ void RecipeValueSpec::launch(
   synapse_helpers::graph::launch_info ln_info(recipe->device_);
   synapse_helpers::graph::create_launch_info(ln_info, *recipe);
 
-  auto& recipe_counter = device.get_active_recipe_counter();
-  recipe_counter.increase();
-  auto&& error_optional{
-      synapse_helpers::graph::launch(ln_info, *recipe, syn_launch_info)};
-  if (ABSL_PREDICT_FALSE(error_optional.has_value())) {
-    recipe_counter.decrease_and_notify();
-    auto& error = error_optional.value();
-    PT_BRIDGE_FATAL(
-        "syn launch encountered : ", error.error, " ", error.status);
-    TORCH_CHECK(
-        false,
-        std::string("syn launch failed ") + std::string(error.error) +
-            std::string(" ") + std::to_string(error.status));
-  }
-
   if (device.IsStreamASyncEnabled()) {
-    const auto &recipe_ptr = recipe;
+    auto& recipe_counter = device.get_active_recipe_counter();
+    recipe_counter.increase();
+    auto&& error_optional{
+        synapse_helpers::graph::launch(ln_info, *recipe, syn_launch_info)};
+    if (ABSL_PREDICT_FALSE(error_optional.has_value())) {
+      recipe_counter.decrease_and_notify();
+      auto& error = error_optional.value();
+      PT_BRIDGE_FATAL(
+          "syn launch encountered : ", error.error, " ", error.status);
+      TORCH_CHECK(
+          false,
+          std::string("syn launch failed ") + std::string(error.error) +
+              std::string(" ") + std::to_string(error.status));
+    }
+    const auto& recipe_ptr = recipe;
     // regsiter an event on the compute
     device.register_producer_on_stream(
-        std::move(outDevPtr), stream_handle, [&ptRefs, recipe_ptr, &recipe_counter]() {
+        std::move(outDevPtr),
+        stream_handle,
+        [ptRefs, recipe_ptr, &recipe_counter]() {
           recipe_counter.decrease_and_notify();
           return;
         });
   } else {
+    auto&& error_optional{
+        synapse_helpers::graph::launch(ln_info, *recipe, syn_launch_info)};
+    if (ABSL_PREDICT_FALSE(error_optional.has_value())) {
+      auto& error = error_optional.value();
+      PT_BRIDGE_FATAL(
+          "syn launch encountered : ", error.error, " ", error.status);
+      TORCH_CHECK(
+          false,
+          std::string("syn launch failed ") + std::string(error.error) +
+              std::string(" ") + std::to_string(error.status));
+    }
     TORCH_HABANA_CHECK(
         synStreamSynchronize(stream_handle), "synStreamSynchronize failed");
   }
@@ -405,7 +417,7 @@ bool RecipeCacheLRU::drop_lru(size_t &recipe_count) {
 
 bool RecipeCacheLRU::drop_lru_impl(size_t &recipe_count, bool mem_exhausted) {
   bool dropped {false};
-
+  int use_count = 0;
   // remove a recipe from the last that is not being used
   if (!map_.empty()) {
     auto lit = list_.end();
@@ -439,15 +451,20 @@ bool RecipeCacheLRU::drop_lru_impl(size_t &recipe_count, bool mem_exhausted) {
       list_.pop_back();
       dropped = true;
 
-      PT_BRIDGE_DEBUG("after dropping lru recipe, nrecipes ",
+      PT_BRIDGE_DEBUG(
+          "after dropping lru recipe, nrecipes ",
           RecipeValueSpec::recipe_count,
           " total_recipe_ntbytes ",
           RecipeValueSpec::total_recipe_ntbytes);
     } else {
-      PT_BRIDGE_DEBUG("all recipes are in use, can not drop any recipe");
+      use_count++;
+      PT_BRIDGE_DEBUG(
+          "all recipes are in use used_recipe_count=",
+          use_count,
+          " can not drop any recipe");
     }
   }
 
-  recipe_count = map_.size();
+  recipe_count = map_.size() - use_count;
   return dropped;
 }
