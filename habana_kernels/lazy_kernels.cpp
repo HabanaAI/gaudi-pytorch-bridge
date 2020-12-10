@@ -67,6 +67,7 @@ at::Tensor preProcessIfLongorDouble(
 }
 
 Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
+  PT_LAZY_TRACE;
   // We need to add device to device copy kernel here
   // As d2D copies may not mean trigger execution, we just need to add the
   // nodes like cast to our lazy graph that we are creating
@@ -98,6 +99,7 @@ Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
 }
 
 Tensor& copy_hpu_lazy_D2H(Tensor& self, const Tensor& src, bool non_blocking) {
+  PT_LAZY_TRACE;
   // If src is a lazy tensor make sure the execution till the point of src
   // getting flled has finished before we start copying
   if (habana_lazy::IsHbLazyTensor(src)) {
@@ -137,6 +139,7 @@ Tensor& copy_hpu_lazy_D2H(Tensor& self, const Tensor& src, bool non_blocking) {
 }
 
 Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src, bool non_blocking) {
+  PT_LAZY_TRACE;
   bool processed = false;
   // This tensor would have been created without storage(as all H2D .to calls
   // come via lazy), so create actual memory and set as input and mark executed
@@ -207,7 +210,7 @@ Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src, bool non_blocking) {
 
 // calling eager mode kernels as a temporary placeholder to avoid warnings
 Tensor& copy_hpu_lazy_(Tensor& self, const Tensor& src, bool non_blocking) {
-  PT_LAZY_BEGIN;
+  PT_LAZY_TRACE;
   TORCH_CHECK(self.defined(), "dst is undefined");
   TORCH_CHECK(src.defined(), "src is undefined");
 
@@ -254,7 +257,6 @@ Tensor& copy_hpu_lazy_(Tensor& self, const Tensor& src, bool non_blocking) {
     self = copy_hpu_lazy_D2D(self, src, non_blocking);
   }
 
-  PT_LAZY_END;
   return self;
 }
 Tensor as_strided_hpu_lazy(
@@ -275,6 +277,7 @@ Tensor& set_hpu_lazy_(
   return set_hpu_(self, source, storage_offset, size, stride);
 };
 Tensor view_hpu_lazy(const Tensor& self, IntArrayRef size) {
+  PT_LAZY_TRACE;
   // Make the size non zero if -1 is used
   // Make sure it points to
   // /aten/src/ATen/InferSize.h
@@ -305,6 +308,7 @@ Tensor& addcmul_hpu_lazy_(
     const Tensor& tensor1,
     const Tensor& tensor2,
     Scalar alpha) {
+  PT_LAZY_TRACE;
   if (!tensor1.is_same(tensor2)) {
     auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
     auto hl_tensor1 =
@@ -347,6 +351,7 @@ Tensor& addcdiv_hpu_lazy_(
     const Tensor& tensor1,
     const Tensor& tensor2,
     Scalar alpha) {
+  PT_LAZY_TRACE;
   auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
   auto hl_tensor1 = habana_lazy::GetOrCreateHbLazyTensor(tensor1, c10::kHABANA);
   auto hl_tensor2 = habana_lazy::GetOrCreateHbLazyTensor(tensor2, c10::kHABANA);
@@ -373,6 +378,7 @@ Tensor add_tensor_hpu_lazy(
     const Tensor& self,
     const Tensor& other,
     Scalar alpha) {
+  PT_LAZY_TRACE;
   auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
   auto hl_other = habana_lazy::GetOrCreateHbLazyTensor(other, c10::kHABANA);
   auto hl_alpha = habana_lazy::GetIrValueForScalar(alpha);
@@ -404,6 +410,7 @@ Tensor& add_scalar_hpu_lazy_(Tensor& self, Scalar other, Scalar alpha) {
 };
 
 Tensor& add_tensor_hpu_lazy_(Tensor& self, const Tensor& other, Scalar alpha) {
+  PT_LAZY_TRACE;
   auto hl_alpha = habana_lazy::GetIrValueForScalar(alpha);
 
   if (other.device().type() == c10::DeviceType::CPU) {
@@ -468,6 +475,7 @@ Tensor rsub_scalar_hpu_lazy(const Tensor& self, Scalar other, Scalar alpha) {
 };
 
 Tensor& mul_tensor_hpu_lazy_(Tensor& self, const Tensor& other) {
+  PT_LAZY_TRACE;
   if (other.device().type() == c10::DeviceType::CPU) {
     if (other.scalar_type() == c10::ScalarType::Double) {
       // Convert 0-dim CPU tensor to a scalar and then add to JIT graph
@@ -506,6 +514,7 @@ Tensor& mul_tensor_hpu_lazy_(Tensor& self, const Tensor& other) {
 };
 
 Tensor mul_tensor_hpu_lazy(const Tensor& self, const Tensor& other) {
+  PT_LAZY_TRACE;
   auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
   auto hl_other = habana_lazy::GetOrCreateHbLazyTensor(other, c10::kHABANA);
 
@@ -565,6 +574,7 @@ Tensor& pow_tensor_tensor_hpu_lazy_(Tensor& self, const Tensor& other) {
   return pow_tensor_tensor_hpu_(self, other);
 };
 Tensor pow_tensor_scalar_hpu_lazy(const Tensor& self, Scalar other) {
+  PT_LAZY_TRACE;
   auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
   auto hl_other = habana_lazy::GetIrValueForScalar(other);
 
@@ -627,6 +637,7 @@ Tensor convolution_hpu_lazy(
     bool transposed,
     IntArrayRef output_padding,
     int64_t groups) {
+  PT_LAZY_TRACE;
   habana_lazy::ir::NodePtr conv_node =
       std::make_shared<habana_lazy::ir::Convolution>(
           input,
@@ -672,6 +683,7 @@ std::tuple<Tensor, Tensor, Tensor> convolution_backward_hpu_lazy(
     IntArrayRef output_padding,
     int64_t groups,
     std::array<bool, 3> output_mask) {
+  PT_LAZY_TRACE;
   std::vector<bool> output_mask_vec(output_mask.begin(), output_mask.end());
   habana_lazy::ir::NodePtr node =
       std::make_shared<habana_lazy::ir::Convolution>(
@@ -793,6 +805,7 @@ Tensor embedding_bag_sum_hpu_lazy(
     const Tensor& offsets,
     const Tensor& valid_count,
     int64_t kernel_mode) {
+  PT_LAZY_TRACE;
   habana_lazy::ir::NodePtr node =
       std::make_shared<habana_lazy::ir::EmbeddingBagSum>(
           input, indices, offsets, valid_count, kernel_mode);
@@ -819,6 +832,7 @@ Tensor embedding_bag_sum_fwd_hpu_lazy(
     const Tensor& offsets_bwd,
     const Tensor& valid_count_bwd,
     const Tensor& grad_weight) {
+  PT_LAZY_TRACE;
   auto node = habana_lazy::ir::Node::Create(
       Symbol::fromQualString("aten::embedding_bag_sum_fwd"), {});
 
@@ -871,6 +885,7 @@ Tensor& embedding_bag_sum_bwd_out_hpu_lazy(
     const Tensor& indices_bwd,
     const Tensor& offsets_bwd,
     const Tensor& valid_count_bwd) {
+  PT_LAZY_TRACE;
   auto node = habana_lazy::ir::Node::Create(
       Symbol::fromQualString("aten::embedding_bag_sum_bwd.out"), {});
 
@@ -906,6 +921,7 @@ Tensor& embedding_bag_sum_bwd_out_kernel_mode_hpu_lazy(
     const Tensor& offsets,
     const Tensor& valid_count,
     int64_t kernel_mode) {
+  PT_LAZY_TRACE;
   habana_lazy::ir::NodePtr node =
       std::make_shared<habana_lazy::ir::EmbeddingBagSumBwd>(
           out, input, indices, offsets, valid_count, kernel_mode);
@@ -917,6 +933,7 @@ Tensor& embedding_bag_sum_bwd_out_kernel_mode_hpu_lazy(
   return out;
 };
 Tensor& fill_hpu_lazy_(Tensor& self, Scalar value) {
+  PT_LAZY_TRACE;
   auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
   auto hl_alpha = habana_lazy::GetIrValueForScalar(value);
 
@@ -1030,6 +1047,7 @@ Tensor slice_hpu_lazy(
     int64_t start,
     int64_t end,
     int64_t step) {
+  PT_LAZY_TRACE;
   if (self.dim() <= 1 && step == 1) {
     HABANA_ASSERT(0);
     // Does not work atm
@@ -1050,6 +1068,7 @@ Tensor slice_hpu_lazy(
 };
 
 Tensor select_hpu_lazy(const Tensor& self, int64_t dim, int64_t index) {
+  PT_LAZY_TRACE;
   auto node = std::make_shared<habana_lazy::ir::Slice>(self, dim, index);
 
   // infer shape
@@ -1069,6 +1088,7 @@ Tensor& arange_hpu_lazy(Tensor& output, Scalar start, Scalar end, Scalar step) {
   return arange_hpu(output, start, end, step);
 };
 Tensor mm_hpu_lazy(const at::Tensor& mat1, const at::Tensor& mat2) {
+  PT_LAZY_TRACE;
   auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(mat1, c10::kHABANA);
   auto hl_other = habana_lazy::GetOrCreateHbLazyTensor(mat2, c10::kHABANA);
 
@@ -1097,6 +1117,7 @@ Tensor addmm_hpu_lazy(
     const Tensor& mat2,
     Scalar beta,
     Scalar alpha) {
+  PT_LAZY_TRACE;
   const auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
   const auto hl_mat1 = habana_lazy::GetOrCreateHbLazyTensor(mat1, c10::kHABANA);
   const auto hl_mat2 = habana_lazy::GetOrCreateHbLazyTensor(mat2, c10::kHABANA);
@@ -1128,6 +1149,7 @@ Tensor& batch_gemm_out_hpu_lazy(
     Tensor& out,
     const Tensor& self,
     const Tensor& mat2) {
+  PT_LAZY_TRACE;
   const auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
   const auto hl_mat2 = habana_lazy::GetOrCreateHbLazyTensor(mat2, c10::kHABANA);
 
@@ -1147,6 +1169,7 @@ Tensor& batch_gemm_out_hpu_lazy(
 };
 
 Tensor batch_gemm_hpu_lazy(const Tensor& self, const Tensor& mat2) {
+  PT_LAZY_TRACE;
   const auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
   const auto hl_mat2 = habana_lazy::GetOrCreateHbLazyTensor(mat2, c10::kHABANA);
 
@@ -1182,6 +1205,7 @@ std::tuple<Tensor, Tensor> nll_loss_forward_hpu_lazy(
     const Tensor& weight,
     int64_t reduction,
     int64_t ignore_index) {
+  PT_LAZY_TRACE;
   habana_lazy::ir::NodePtr nll_loss_node =
       std::make_shared<habana_lazy::ir::NllLoss_forward>(
           self, target, weight, reduction, ignore_index);
@@ -1216,6 +1240,7 @@ Tensor nll_loss_backward_hpu_lazy(
     int64_t reduction,
     int64_t ignore_index,
     UNUSED const Tensor& total_weight) {
+  PT_LAZY_TRACE;
   habana_lazy::ir::NodePtr nll_loss_bwd_node =
       std::make_shared<habana_lazy::ir::NllLoss_backward>(
           grad_output,
@@ -1242,6 +1267,7 @@ Tensor mse_loss_forward_hpu_lazy(
     const Tensor& self,
     const Tensor& target,
     int64_t reduction) {
+  PT_LAZY_TRACE;
   auto node =
       std::make_shared<habana_lazy::ir::MseLoss>(self, target, reduction);
   Tensor result = mse_loss_forward_hpu(self, target, reduction);
@@ -1259,6 +1285,7 @@ Tensor mse_loss_backward_hpu_lazy(
     const Tensor& self,
     const Tensor& target,
     int64_t reduction) {
+  PT_LAZY_TRACE;
   auto node = std::make_shared<habana_lazy::ir::MseLoss>(
       grad_output, self, target, reduction);
   Tensor result = mse_loss_backward_hpu(grad_output, self, target, reduction);
@@ -1276,6 +1303,7 @@ Tensor binary_cross_entropy_hpu_lazy(
     const Tensor& target,
     const Tensor& weight,
     int64_t reduction) {
+  PT_LAZY_TRACE;
   habana_lazy::ir::NodePtr bce_loss_node =
       std::make_shared<habana_lazy::ir::BceLoss_forward>(
           self, target, weight, reduction);
@@ -1298,6 +1326,7 @@ Tensor binary_cross_entropy_backward_hpu_lazy(
     const Tensor& target,
     const Tensor& weight,
     int64_t reduction) {
+  PT_LAZY_TRACE;
   habana_lazy::ir::NodePtr bce_bwd_loss_node =
       std::make_shared<habana_lazy::ir::BceLoss_backward>(
           grad_output, self, target, weight, reduction);
@@ -1358,6 +1387,7 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_hpu_lazy(
     int64_t m,
     int64_t n,
     double eps) {
+  PT_LAZY_TRACE;
   habana_lazy::ir::NodePtr node =
       std::make_shared<habana_lazy::ir::LayerNormForward>(
           input, weight, bias, m, n, eps);
@@ -1395,6 +1425,7 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_backward_hpu_lazy(
     int64_t M,
     int64_t N,
     std::array<bool, 3> grad_input_mask) {
+  PT_LAZY_TRACE;
   habana_lazy::ir::NodePtr node =
       std::make_shared<habana_lazy::ir::LayerNormBackward>(
           dY, X, mean, rstd, gamma, M, N, grad_input_mask);
@@ -1438,6 +1469,7 @@ std::tuple<Tensor, Tensor> max_pool2d_with_indices_hpu_lazy(
     IntArrayRef padding,
     IntArrayRef dilation,
     bool ceil_mode) {
+  PT_LAZY_TRACE;
   habana_lazy::ir::NodePtr maxpool_node =
       std::make_shared<habana_lazy::ir::MaxPool>(
           input, kernel_size, stride, padding, dilation, ceil_mode);
@@ -1511,6 +1543,7 @@ Tensor max_pool2d_with_indices_backward_hpu_lazy(
     IntArrayRef dilation,
     bool ceil_mode,
     const Tensor& indices) {
+  PT_LAZY_TRACE;
   habana_lazy::ir::NodePtr maxpool_bwd_node =
       std::make_shared<habana_lazy::ir::MaxPoolBackWard>(
           grad_output,
@@ -1648,6 +1681,7 @@ Tensor sum_dim_IntList_hpu_lazy(
     IntArrayRef dim,
     bool keepdim,
     c10::optional<ScalarType> dtype) {
+  PT_LAZY_TRACE;
   auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
   habana_lazy::ir::NodePtr node =
       std::make_shared<habana_lazy::ir::SumDimIntList>(
@@ -1690,6 +1724,7 @@ Tensor& mean_dim_out_hpu_lazy(
 Tensor sum_hpu_lazy(const Tensor& self, c10::optional<ScalarType> dtype) {
   habana_lazy::ir::NodePtr node =
       std::make_shared<habana_lazy::ir::Sum>(self, dtype);
+  PT_LAZY_TRACE;
   auto result = sum_hpu(self, dtype);
   auto hl_result = habana_lazy::GetHbLazyTensor(result);
   habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
@@ -1723,6 +1758,7 @@ Tensor log_softmax_hpu_lazy(
     const Tensor& self,
     const int64_t dim,
     const bool half_to_float) {
+  PT_LAZY_TRACE;
   auto node = std::make_shared<habana_lazy::ir::LogSoftMax>(
       self, dim, half_to_float, "aten::_log_softmax");
   // infer shape
@@ -1740,6 +1776,7 @@ Tensor log_softmax_backward_hpu_lazy(
     const Tensor& output,
     int64_t dim,
     const Tensor& input) {
+  PT_LAZY_TRACE;
   auto node = std::make_shared<habana_lazy::ir::LogSoftMaxBackward>(
       grad, output, dim, input, "aten::_log_softmax_backward_data");
   // infer output shape
@@ -1758,6 +1795,7 @@ Tensor softmax_hpu_lazy(
     const Tensor& self,
     const int64_t dim,
     const bool half_to_float) {
+  PT_LAZY_TRACE;
   auto node = std::make_shared<habana_lazy::ir::LogSoftMax>(
       self, dim, half_to_float, "aten::_softmax");
   // infer shape
@@ -1776,6 +1814,7 @@ Tensor softmax_backward_hpu_lazy(
     const Tensor& output,
     int64_t dim,
     const Tensor& input) {
+  PT_LAZY_TRACE;
   auto node = std::make_shared<habana_lazy::ir::LogSoftMaxBackward>(
       grad, output, dim, input, "aten::_softmax_backward_data");
   // infer output shape
@@ -1797,6 +1836,7 @@ Tensor empty_hpu_lazy(
     const TensorOptions& options,
     c10::optional<MemoryFormat> optional_memory_format,
     bool create_storage) {
+  PT_LAZY_TRACE;
   auto dtype = options.dtype();
   auto type = typeMetaToScalarType(dtype);
   // Dont allocate 8 bytes for double/long as we are anyway going to cast at
@@ -1890,7 +1930,7 @@ Tensor empty_strided_hpu_lazy(
 Tensor clone_hpu_lazy(
     const Tensor& self,
     c10::optional<MemoryFormat> memory_format) {
-  PT_LAZY_BEGIN;
+  PT_LAZY_TRACE;
   TORCH_CHECK(self.defined(), "src is undefined");
   TORCH_CHECK(
       self.device().type() == c10::DeviceType::HABANA,
@@ -1927,6 +1967,7 @@ Tensor& zero_hpu_lazy(Tensor& self) {
   return zero_hpu(self);
 };
 Tensor cat_hpu_lazy(const TensorList tensors, int64_t dim_) {
+  PT_LAZY_TRACE;
   habana_lazy::ir::NodePtr node =
       std::make_shared<habana_lazy::ir::Cat>(tensors, dim_);
 
@@ -1961,6 +2002,7 @@ Tensor& cat_hpu_lazy_out(
 };
 
 Tensor transpose_hpu_lazy(const Tensor& self, int64_t dim0_, int64_t dim1_) {
+  PT_LAZY_TRACE;
   habana_lazy::ir::NodePtr node =
       std::make_shared<habana_lazy::ir::Transpose>(self, dim0_, dim1_);
   auto result = transpose_hpu(self, dim0_, dim1_);
@@ -1977,6 +2019,7 @@ Tensor& transpose_hpu_lazy_(Tensor& self, int64_t dim0_, int64_t dim1_) {
 };
 
 Tensor t_hpu_lazy(const Tensor& self) {
+  PT_LAZY_TRACE;
   auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
   auto node = habana_lazy::ir::Node::Create(
       Symbol::fromQualString("aten::t"), {hl_self.GetIrValue()});
@@ -1998,6 +2041,7 @@ Tensor& t_hpu_lazy_(Tensor& self) {
 };
 
 Tensor permute_hpu_lazy(const Tensor& self, IntArrayRef dims_) {
+  PT_LAZY_TRACE;
   habana_lazy::ir::NodePtr node =
       std::make_shared<habana_lazy::ir::Permute>(self, dims_);
   auto result = permute_hpu(self, dims_);
@@ -2023,6 +2067,7 @@ Tensor threshold_backward_hpu_lazy(
     const Tensor& grad_output,
     const Tensor& self,
     Scalar threshold) {
+  PT_LAZY_TRACE;
   auto hl_grad =
       habana_lazy::GetOrCreateHbLazyTensor(grad_output, c10::kHABANA);
   auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
@@ -2091,6 +2136,7 @@ Tensor unary_backward_op_hpu_lazy(
   return unary_backward_op_hpu(grad_in, input, node_type, Op);
 };
 Tensor relu_hpu_lazy(const Tensor& input) {
+  PT_LAZY_TRACE;
   auto hl_input = habana_lazy::GetOrCreateHbLazyTensor(input, c10::kHABANA);
 
   auto node = habana_lazy::ir::Node::Create(
@@ -2109,6 +2155,7 @@ Tensor relu_hpu_lazy(const Tensor& input) {
   return result;
 };
 Tensor& relu_hpu_lazy_(Tensor& input) {
+  PT_LAZY_TRACE;
   auto hl_input = habana_lazy::GetOrCreateHbLazyTensor(input, c10::kHABANA);
 
   auto node = habana_lazy::ir::Node::Create(
@@ -2124,6 +2171,7 @@ Tensor& relu_hpu_lazy_(Tensor& input) {
   return input;
 };
 Tensor sigmoid_hpu_lazy(const Tensor& input) {
+  PT_LAZY_TRACE;
   auto hl_input = habana_lazy::GetOrCreateHbLazyTensor(input, c10::kHABANA);
 
   auto node = habana_lazy::ir::Node::Create(
@@ -2143,6 +2191,7 @@ Tensor sigmoid_hpu_lazy(const Tensor& input) {
 };
 
 Tensor sigmoid_backward_hpu_lazy(const Tensor& grad_in, const Tensor& input) {
+  PT_LAZY_TRACE;
   auto hl_grad_in = habana_lazy::GetOrCreateHbLazyTensor(grad_in, c10::kHABANA);
   auto hl_input = habana_lazy::GetOrCreateHbLazyTensor(input, c10::kHABANA);
 
@@ -2165,6 +2214,7 @@ Tensor sigmoid_backward_hpu_lazy(const Tensor& grad_in, const Tensor& input) {
 
 // make sqrt as inplace op for workaround in SW-26172
 Tensor sqrt_hpu_lazy_(Tensor& input) {
+  PT_LAZY_TRACE;
   auto hl_input = habana_lazy::GetOrCreateHbLazyTensor(input, c10::kHABANA);
 
   auto node = habana_lazy::ir::Node::Create(
@@ -2180,6 +2230,7 @@ Tensor sqrt_hpu_lazy_(Tensor& input) {
   return input;
 };
 Tensor sqrt_hpu_lazy(const Tensor& input) {
+  PT_LAZY_TRACE;
   auto hl_input = habana_lazy::GetOrCreateHbLazyTensor(input, c10::kHABANA);
 
   auto node = habana_lazy::ir::Node::Create(
@@ -2282,6 +2333,7 @@ Tensor neg_hpu_lazy(const Tensor& self) {
 namespace at {
 namespace native {
 Scalar _local_scalar_dense_hpu_lazy(const Tensor& self) {
+  PT_LAZY_TRACE;
   Scalar out;
   // If self is a lazy tensor make sure the execution till the point of self
   // getting flled has finished before we start copying
@@ -2308,6 +2360,7 @@ optimizer_sparse_sgd_with_valid_count_hpu_lazy(
     const Tensor& valid_count_tensor,
     float mom,
     bool nesterov) {
+  PT_LAZY_TRACE;
   habana_lazy::ir::NodePtr node =
       std::make_shared<habana_lazy::ir::OptimizerSparseSgdValidCount>(
           gradients,
@@ -2337,6 +2390,7 @@ optimizer_sparse_adagrad_with_valid_count_hpu_lazy(
     const Tensor& indices,
     const Tensor& learning_rate,
     const Tensor& valid_count_tensor) {
+  PT_LAZY_TRACE;
   auto node = habana_lazy::ir::Node::Create(
       Symbol::fromQualString("hpu::habanaOptimizerSparseAdagrad"), {});
 
@@ -2387,6 +2441,7 @@ Tensor ones_like_hpu_lazy(
   // schema. This works for the ones_like usage in MNIST (where it is used
   // only for filling grad_out tensor with 1's), but we may need to revisit
   // this in future.
+  PT_LAZY_TRACE;
   auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
   habana_lazy::ir::NodePtr node = std::make_shared<habana_lazy::ir::OnesLike>(
       self, options, optional_memory_format);

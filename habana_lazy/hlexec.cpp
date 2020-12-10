@@ -13,6 +13,7 @@
 #include <torch/csrc/jit/passes/peephole.h>
 
 #include "habana_bridge/kernel/hpu_habana_launch_op_pt.h"
+#include "habana_helpers/logging.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "hlexec.h"
 #include "ops/constant.h"
@@ -51,6 +52,7 @@ void HlExec::Bind(const HabanaLazyTensorPtrList& inputs) {
 }
 
 void HlExec::Launch(torch::jit::Stack& stack) {
+  PT_LAZY_TRACE;
   auto& device = synapse_helpers::HPURegistrar::get_device();
   auto context = habana_lazy_executor.getDeviceExecutionContext(device.id());
   // TODO : remove this env variable use
@@ -75,6 +77,7 @@ void HlExec::Create(
     const ir::NodePtrList nodes,
     const ir::ValueList inputs,
     const ir::ValueList outputs) {
+  PT_LAZY_TRACE;
   LazyOutputToJitValueMap ir_map;
 
   for (auto inp : inputs) {
@@ -164,6 +167,7 @@ void HlExec::Create(
 }
 
 void HlExec::Optimize() {
+  PT_LAZY_TRACE;
   if (OptPassCfg::GetInstance()->enable_eliminate_dead_code) {
     torch::jit::EliminateDeadCode(mp_g_);
   }

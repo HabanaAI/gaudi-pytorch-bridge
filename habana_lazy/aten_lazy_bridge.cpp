@@ -78,6 +78,7 @@ void setTensorAsInputNode(HbLazyTensor hl_tensor) {
 HbLazyTensor GetOrCreateHbLazyTensor(
     const at::Tensor& tensor,
     const c10::Device& device) {
+  PT_LAZY_TRACE;
   if (!tensor.defined()) {
     return HbLazyTensor(device);
   }
@@ -99,6 +100,7 @@ HbLazyTensor GetHbLazyTensor(const at::Tensor& tensor) {
 HbLazyTensor GetOrCreateHbLazyTensor(
     const c10::optional<at::Tensor>& tensor,
     const c10::Device& device) {
+  PT_LAZY_TRACE;
   if (!IsDefined(tensor)) {
     return HbLazyTensor();
   }
@@ -117,6 +119,7 @@ ir::Value GetIrValueForScalar(const c10::Scalar& scalar) {
 at::Tensor CreateHbLazyTensor(
     at::Tensor tensor,
     const c10::optional<at::Device>& device) {
+  PT_LAZY_TRACE;
   if (tensor.defined() && device) {
     bool is_input_lazy = IsHbLazyTensor(tensor);
     HbLazyTensor hblazy_tensor =

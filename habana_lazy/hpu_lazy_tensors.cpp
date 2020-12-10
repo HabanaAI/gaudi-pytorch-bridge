@@ -50,6 +50,7 @@ void HbContextArena::UnregisterTensor(Data* data) {
 
 std::vector<HbLazyTensor> HbContextArena::GetLiveTensors(
     const c10::Device* device) {
+  PT_LAZY_TRACE;
   std::vector<HbLazyTensor> tensors;
   auto fn = [&](HbContext* devctx) {
     for (auto& uid_wptr : devctx->tensors_data) {
@@ -64,6 +65,7 @@ std::vector<HbLazyTensor> HbContextArena::GetLiveTensors(
 }
 
 void HbContextArena::MarkStep(const c10::Device& device) {
+  PT_LAZY_TRACE;
   HbContext* devctx = GetHbContext(device);
   devctx->seed_ir_value = ir::Value();
 }
@@ -305,6 +307,7 @@ HbLazyTensor HbLazyTensor::CreateHbLazyTensor(
     at::Scalar fill_value,
     const at::Device& device,
     at::ScalarType scalar_type) {
+  PT_LAZY_TRACE;
   ir::Value val;
   // Creating a dummy IR::Value right now
   // After Vaibhav's update, we should plug in utility to create IR
@@ -355,6 +358,7 @@ std::vector<int> HbLazyTensor::CollectSyncTensors(
 habana_lazy::PostOrderData HbLazyTensor::RunPostOrder(
     const std::vector<HbLazyTensor>& tensors,
     std::vector<int> indices) {
+  PT_LAZY_TRACE;
   habana_lazy::PostOrderData po_data;
   std::vector<ir::NodePtr> p_roots;
   p_roots.reserve(indices.size());
@@ -386,6 +390,7 @@ c10::optional<at::Tensor> HbLazyTensor::GetHbLazyTensorData() {
 }
 
 void HbLazyTensor::applyPendingGraph() {
+  PT_LAZY_TRACE;
   // Ensure that the graph execution has taken place so taht the tensors
   // requested have the data required updated in them. This is usually done
   // before sync points in execution
@@ -403,6 +408,7 @@ std::vector<HbLazyTensor> HbLazyTensor::GetLiveTensors(
 void HbLazyTensor::SyncTensorsGraph(
     std::vector<HbLazyTensor>* tensors,
     absl::Span<const std::string> devices) {
+  PT_LAZY_TRACE;
   SyncTensorsGraphInternal(tensors, devices);
 }
 
@@ -416,6 +422,7 @@ void HbLazyTensor::SyncLiveTensorsGraph(
 void HbLazyTensor::SyncTensorsGraphInternal(
     std::vector<HbLazyTensor>* tensors,
     absl::Span<const std::string> devices) {
+  PT_LAZY_TRACE;
   const std::vector<int>& indices = CollectSyncTensors(*tensors);
   if (indices.empty()) {
     // Nothing to do, return without trying to execute an empty graph

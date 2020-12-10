@@ -27,6 +27,7 @@ void Utils::ComputePostOrderNode(
     NodePtr& p_node,
     EmissionMap* p_emap,
     NodePtrList& post_order) {
+  PT_LAZY_TRACE;
   NodePtrList queue;
   queue.push_back(p_node);
   while (!queue.empty()) {
@@ -74,6 +75,7 @@ void Utils::ComputePostOrder(
     NodePtrList& p_nodes,
     EmissionMap* emap,
     NodePtrList& post_order) {
+  PT_LAZY_TRACE;
   for (auto p_node : p_nodes) {
     Utils::ComputePostOrderNode(p_node, emap, post_order);
   }
@@ -91,6 +93,7 @@ update the ValueList.
 void Utils::ComputePostOrderInputs(
     ValueList& input_val,
     NodePtrList& post_order) {
+  PT_LAZY_TRACE;
   auto sub_str = "hpu::input";
   for (auto p_node : post_order) {
     auto str = p_node->ToString();

@@ -128,6 +128,22 @@ class PtLogger {
   };
 };
 
+class PTFuncLog {
+ private:
+  std::string pName;
+  std::string name;
+
+ public:
+  PTFuncLog(const std::string& pn, const std::string& n) : pName(pn), name(n) {
+    std::clog << "HABANA_LOG: begin of " << pName << "\n";
+    synapse_helpers::trace_start(name.c_str());
+  }
+  ~PTFuncLog() {
+    std::clog << "HABANA_LOG: end of " << pName << "\n";
+    synapse_helpers::trace_end(name.c_str());
+  }
+};
+
 /************************CRITICAL MACROS************************/
 #define PT_MOD_FATAL(MOD, ...)                                      \
   if (((PtLogger::getLogger()->getModuleMask() & (MOD)) &&          \
@@ -225,6 +241,15 @@ class PtLogger {
 #define PT_SYNHELPER_END PT_MOD_END(PtLogger::ModuleMask::SYNHELPER)
 #define PT_DISTRIBUTED_END PT_MOD_END(PtLogger::ModuleMask::DISTRIBUTED)
 #define PT_LAZY_END PT_MOD_END(PtLogger::ModuleMask::LAZY)
+
+#define PT_MOD_TRACE(MOD, PNAME, NAME)                     \
+  if (((PtLogger::getLogger()->getModuleMask() & (MOD)) && \
+       (PtLogger::getLogger()->getTypeMask() &             \
+        (PtLogger::TypeMask::TRACE)))) {                   \
+    PTFuncLog ptFuncLogger(PNAME, NAME);                   \
+  };
+#define PT_LAZY_TRACE \
+  PT_MOD_TRACE(PtLogger::ModuleMask::LAZY, __PRETTY_FUNCTION__, __FUNCTION__)
 
 /************************DEBUG MACROS************************************/
 #define PT_MOD_DEBUG(MOD, ...)                             \
