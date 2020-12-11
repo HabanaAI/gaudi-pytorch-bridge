@@ -117,7 +117,7 @@ synapse_error_o hcl_communicator::allreduce(
                                 device_ptr intermediate_address,
                                 size_t intermediate_size,
                                 uint32_t flags) {
-    return HCL_Allreduce(
+    HCLStatus status = HCL_Allreduce(
         collective_stream,
         input_address,
         output_address,
@@ -128,6 +128,9 @@ synapse_error_o hcl_communicator::allreduce(
         hclop,
         hcl_comm(),
         flags);
+    if (eHCLSuccess != status)
+      return status;
+    return HCL_Sync(hcl_comm(), 111);
   };
   PT_DISTRIBUTED_BEGIN;
   auto status = execute_collective_with_fusion_buffer(
@@ -182,7 +185,7 @@ synapse_error_o hcl_communicator::reduce(
                              device_ptr intermediate_address,
                              size_t intermediate_size,
                              uint32_t flags) {
-    return HCL_Reduce(
+    HCLStatus status = HCL_Reduce(
         collective_stream,
         input_address,
         output_address,
@@ -194,6 +197,9 @@ synapse_error_o hcl_communicator::reduce(
         hclop,
         hcl_comm(),
         flags);
+    if (eHCLSuccess != status)
+      return status;
+    return HCL_Sync(hcl_comm(), 222);
   };
 
   PT_DISTRIBUTED_BEGIN;
@@ -229,7 +235,7 @@ synapse_error_o hcl_communicator::reduce_scatter(
                                      device_ptr intermediate_address,
                                      size_t intermediate_size,
                                      uint32_t flags) {
-    return HCL_Reduce_Scatter(
+    HCLStatus status = HCL_Reduce_Scatter(
         collective_stream,
         input_address,
         output_address,
@@ -240,6 +246,9 @@ synapse_error_o hcl_communicator::reduce_scatter(
         hclop,
         hcl_comm(),
         flags);
+    if (eHCLSuccess != status)
+      return status;
+    return HCL_Sync(hcl_comm(), 333);
   };
 
   PT_DISTRIBUTED_BEGIN;
@@ -274,7 +283,7 @@ synapse_error_o hcl_communicator::alltoall(
                                device_ptr intermediate_address,
                                size_t intermediate_size,
                                uint32_t flags) {
-    return HCL_AlltoAll(
+    HCLStatus status = HCL_AlltoAll(
         collective_stream,
         input_address,
         output_address,
@@ -284,6 +293,9 @@ synapse_error_o hcl_communicator::alltoall(
         intermediate_size,
         hcl_comm(),
         flags);
+    if (eHCLSuccess != status)
+      return status;
+    return HCL_Sync(hcl_comm(), 444);
   };
 
   PT_DISTRIBUTED_BEGIN;
@@ -326,6 +338,7 @@ synapse_error_o hcl_communicator::broadcast(
       0 /*flags*/);
   VERIFY_HCL_STATUS("HCL_Bcast(...) failed.", status);
   submit_events(collective_stream, event_addr, done_callback);
+  HCL_Sync(hcl_comm(), 555);
   PT_DISTRIBUTED_END;
   return {};
 };
@@ -354,6 +367,7 @@ synapse_error_o hcl_communicator::allgather(
       0 /*flags*/);
   VERIFY_HCL_STATUS("HCL_AllGather(...) failed", status);
   submit_events(collective_stream, out_event_addr, done_callback);
+  HCL_Sync(hcl_comm(), 666);
   PT_DISTRIBUTED_END;
   return {};
 }
@@ -418,6 +432,7 @@ synapse_error_o hcl_communicator::send(
   }
   VERIFY_HCL_STATUS("HCL_Send(...) failed", status);
   submit_events(collective_stream, event_addr, done_callback);
+  // HCL_Sync(hcl_comm(), 777);
   PT_DISTRIBUTED_END;
   return {};
 }
@@ -442,6 +457,7 @@ synapse_error_o hcl_communicator::receive(
   }
   VERIFY_HCL_STATUS("HCL_Receive(...) failed", status);
   submit_events(collective_stream, event_addr, done_callback);
+  // HCL_Sync(hcl_comm(), 888);
   PT_DISTRIBUTED_END;
   return {};
 }

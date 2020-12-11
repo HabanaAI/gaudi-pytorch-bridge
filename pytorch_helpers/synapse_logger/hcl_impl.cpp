@@ -135,6 +135,7 @@ HCLStatus (*HCL_IAllGather)(
     const uint32_t flags);
 HCLStatus (
     *HCL_NetworkFlush)(HCL_Request* phRequest, synStreamHandle streamHandle);
+HCLStatus (*HCL_Sync)(HCL_Comm comm, uint32_t tag);
 
 void LoadSymbols(void* lib_handle) {
   CHECK_NULL(HCL_Init = (decltype(HCL_Init))dlsym(lib_handle, "HCL_Init"));
@@ -181,6 +182,7 @@ void LoadSymbols(void* lib_handle) {
   CHECK_NULL(
       HCL_NetworkFlush =
           (decltype(HCL_NetworkFlush))dlsym(lib_handle, "HCL_NetworkFlush"));
+  CHECK_NULL(HCL_Sync = (decltype(HCL_Sync))dlsym(lib_handle, "HCL_Sync"));
 }
 
 } // namespace lib_hcl
@@ -596,6 +598,13 @@ HCLStatus HCL_NetworkFlush(
   API_LOG_CALL(ARG(phRequest), ARG(streamHandle));
   HCLStatus status = lib_hcl::HCL_NetworkFlush(phRequest, streamHandle);
   API_LOG_RESULT(S_ARG_X(phRequest));
+  return status;
+}
+
+HCLStatus HCL_Sync(HCL_Comm comm, uint32_t tag) {
+  API_LOG_CALL(ARG(comm), ARG(tag));
+  HCLStatus status = lib_hcl::HCL_Sync(comm, tag);
+  API_LOG_RESULT();
   return status;
 }
 
