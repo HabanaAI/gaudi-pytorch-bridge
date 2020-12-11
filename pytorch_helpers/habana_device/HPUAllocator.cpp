@@ -17,7 +17,8 @@
 namespace at {
 namespace habana {
 
-synDeviceId HPUDeviceAllocator::allocator_active_device_id = -1;
+synDeviceId HPUDeviceAllocator::allocator_active_device_id =
+    std::getenv("RANK") ? strtol(std::getenv("RANK"), NULL, 0) : 0;
 pgmDropCachedRecipe HPUDeviceAllocator::drop_cached_recipe_cb = nullptr;
 
 static HPUDeviceAllocator hpu_device_allocator;
@@ -314,10 +315,11 @@ at::DataPtr HPUDeviceAllocator::allocate(size_t num_bytes) const {
     }
   }
 
-  return {v_ptr,
-          v_ptr,
-          &HPUDeviceAllocator::deleter,
-          Device(DeviceType::HABANA, allocator_active_device_id)};
+  return {
+      v_ptr,
+      v_ptr,
+      &HPUDeviceAllocator::deleter,
+      Device(DeviceType::HABANA, allocator_active_device_id)};
 }
 
 void* HPUDeviceAllocator::allocate_impl(size_t size, synStatus& status) const {
