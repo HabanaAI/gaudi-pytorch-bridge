@@ -90,7 +90,7 @@ add_library(habana_pytorch_plugin SHARED
   habana_lazy/ir_utils.cpp
   habana_lazy/tensor_impl.cpp
   habana_lazy/hlexec.cpp
-  habana_lazy/hblazy/csrc/lazy_executor.cpp
+  habana_lazy/lazy_executor.cpp
   habana_lazy/hpu_lazy_cache.cpp
 )
 target_compile_features(habana_pytorch_plugin PRIVATE cxx_std_14)

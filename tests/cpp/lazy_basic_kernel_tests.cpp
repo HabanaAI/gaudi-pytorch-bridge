@@ -53,7 +53,7 @@ TEST_F(LazyBasicKernelTest, CloneTest) {
   torch::Tensor hD = torch::clone(hC);
   auto hl_result = std::make_shared<HbLazyTensor>(GetHbLazyTensor(hD));
   std::vector<HbLazyTensor> tensors = {*hl_result};
-  HbLazyTensor::SyncTensorsGraph(&tensors, {});
+  HbLazyTensor::SyncTensorsGraph(&tensors);
   torch::Tensor hC_cpu = hC.to(torch::kCPU);
   torch::Tensor hd_cpu = hD.to(torch::kCPU);
   bool equal = hC_cpu.allclose(hd_cpu, 0, 0);

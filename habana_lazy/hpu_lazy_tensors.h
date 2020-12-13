@@ -10,7 +10,6 @@
 
 #pragma once
 #include <ATen/Tensor.h>
-#include <absl/types/span.h>
 #include <c10/core/Device.h>
 #include <habana_device/hpu_cached_devices.h>
 #include <torch/csrc/jit/ir/ir.h>
@@ -153,13 +152,11 @@ class HbLazyTensor {
   // devices will be returned.
   static std::vector<HbLazyTensor> GetLiveTensors(const c10::Device* device);
 
-  static void SyncTensorsGraph(
-      std::vector<HbLazyTensor>* tensors,
-      absl::Span<const std::string> devices);
+  static void SyncTensorsGraph(std::vector<HbLazyTensor>* tensors);
 
-  static void SyncLiveTensorsGraph(
-      const c10::Device* device,
-      absl::Span<const std::string> devices);
+  static void SyncLiveTensorsGraph(const c10::Device* device);
+
+  static void StepMarker(const std::string& device_str);
 
   void ShallowCopyTo(HbLazyTensor* dest) const;
 
@@ -181,9 +178,7 @@ class HbLazyTensor {
   }
   std::shared_ptr<Data> mp_data;
 
-  static void SyncTensorsGraphInternal(
-      std::vector<HbLazyTensor>* tensors,
-      absl::Span<const std::string> devices);
+  static void SyncTensorsGraphInternal(std::vector<HbLazyTensor>* tensors);
 };
 
 // The HbContextArena holds per device live information and statistics,

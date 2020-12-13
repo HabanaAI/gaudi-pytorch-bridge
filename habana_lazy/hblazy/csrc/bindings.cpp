@@ -29,25 +29,15 @@ struct NoGilSection {
   PyThreadState* state = nullptr;
 };
 
-void StepMarker(
-    const std::string& device_str,
-    const std::vector<std::string>& devices) {
-  c10::Device device = GetDeviceOrCurrent(device_str);
-  HbLazyTensor::SyncLiveTensorsGraph(&device, devices);
-  HbLazyTensor::MarkStep(device);
-}
-
 void InitModuleBindings(py::module m) {
   m.def("_hb_get_default_device", []() { return GetCurrentThreadDevice(); });
   m.def(
       "_hb_step_marker",
-      [](const std::string& device_str,
-         const std::vector<std::string>& devices) {
+      [](const std::string& device_str) {
         NoGilSection nogil;
-        StepMarker(device_str, devices);
+        HbLazyTensor::StepMarker(device_str);
       },
-      py::arg("device_str"),
-      py::arg("devices"));
+      py::arg("device_str"));
   m.def(
       "_enable_eliminate_common_subexpression",
       [](const bool flag) {

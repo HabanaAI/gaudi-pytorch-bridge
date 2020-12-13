@@ -55,7 +55,7 @@ TEST_F(LazyBinaryKernelTest, AddInplaceTest) {
   auto result = torch::mul(hA, hC);
 
   std::vector<HbLazyTensor> tensors = {GetHbLazyTensor(result)};
-  HbLazyTensor::SyncTensorsGraph(&tensors, {});
+  HbLazyTensor::SyncTensorsGraph(&tensors);
 
   Tensor out = result.to(kCPU);
 

@@ -35,7 +35,7 @@ TEST_F(LazyUnaryKernelTest, ThresholdBackward) {
   auto hresult = at::threshold_backward(hgrad, hself, scal_value);
 
   std::vector<HbLazyTensor> tensors = {GetHbLazyTensor(hresult)};
-  HbLazyTensor::SyncTensorsGraph(&tensors, {});
+  HbLazyTensor::SyncTensorsGraph(&tensors);
 
   auto hout = hresult.to(torch::kCPU);
   auto cout = at::threshold_backward(grad, self, scal_value);
@@ -55,7 +55,7 @@ TEST_F(LazyUnaryKernelTest, ReluInplaceTest) {
   auto result = torch::relu(hA);
 
   std::vector<HbLazyTensor> tensors = {GetHbLazyTensor(result)};
-  HbLazyTensor::SyncTensorsGraph(&tensors, {});
+  HbLazyTensor::SyncTensorsGraph(&tensors);
 
   Tensor out = result.to(kCPU);
 
@@ -85,7 +85,7 @@ TEST_F(LazyUnaryKernelTest, SigmoidBwdTest) {
   torch::Tensor tHabanaG = grad_tensor.to(torch::kHABANA);
   torch::Tensor hout_backward = torch::sigmoid_backward(tHabanaG, tHabanaI);
   std::vector<HbLazyTensor> tensors = {GetHbLazyTensor(hout_backward)};
-  HbLazyTensor::SyncTensorsGraph(&tensors, {});
+  HbLazyTensor::SyncTensorsGraph(&tensors);
   auto hout_lazy = hout_backward.to(torch::kCPU);
 
   EXPECT_EQ(allclose(hout_lazy, cpu_out), true);

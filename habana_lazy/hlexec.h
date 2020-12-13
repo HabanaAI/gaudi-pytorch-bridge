@@ -12,9 +12,9 @@
 #include <iostream>
 #include <string>
 #include <vector>
-#include "hblazy/csrc/lazy_executor.h"
 #include "hpu_lazy_tensors.h"
 #include "ir.h"
+#include "lazy_executor.h"
 #include "torch/csrc/jit/ir/ir.h"
 
 namespace habana_lazy {

@@ -10,7 +10,7 @@
 #include "habana_operator.h"
 #include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
-#include "habana_lazy/hblazy/csrc/lazy_executor.h"
+#include "habana_lazy/lazy_executor.h"
 #include "synapse_helpers/device.h"
 
 const std::array<int64_t, 4>& habana::HabanaOperator::getPermuteOrder(

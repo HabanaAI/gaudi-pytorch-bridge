@@ -10,7 +10,7 @@
 
 #include "ir.h"
 #include "habana_helpers/logging.h"
-#include "hblazy/csrc/lazy_executor.h"
+#include "lazy_executor.h"
 
 namespace habana_lazy {
 namespace ir {

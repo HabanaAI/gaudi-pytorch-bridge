@@ -151,7 +151,7 @@ def train(args, model, device, train_loader, optimizer, epoch, trainMetaData,ran
 
 
 def train_lazy(args, model, device, train_loader, optimizer, epoch, trainMetaData,rank):
-    import hblazy.core.hb_model as hm
+    import hb_torch
     model.train()
     if(trainMetaData.is_logging() and rank==0):
         with open('mnistpy.log', 'w') as file:  # reset file
@@ -165,7 +165,7 @@ def train_lazy(args, model, device, train_loader, optimizer, epoch, trainMetaDat
         loss = F.nll_loss(output, target)
         loss.backward()
         optimizer.step()
-        hm.mark_step()
+        hb_torch.mark_step()
         iter_duration = time.time() - iter_timer_start
         # if batch_idx % args.log_interval == 0:
         acc1, acc5 = trainMetaData.accuracy(output.to('cpu'), target.to('cpu'), topk=(1, 5))
@@ -265,7 +265,7 @@ def parse_args():
 
 def permute_params_on_device(args, model):
     if args.run_lazy_mode:
-        import hblazy.core.hb_model as hm
+        import hb_torch
 
     with torch.no_grad():
         for name, param in model.named_parameters():
@@ -274,7 +274,7 @@ def permute_params_on_device(args, model):
 
     if args.run_lazy_mode:
         # Execute permutes to keep these disconnected from main graph
-        hm.mark_step()
+        hb_torch.mark_step()
 
 def main(args):
 

@@ -42,7 +42,7 @@ def _run_step_closures():
 
 
 def mark_step():
-    _hblazy._hb_step_marker(_hblazy._hb_get_default_device(), [])
+    _hblazy._hb_step_marker(_hblazy._hb_get_default_device())
     devctx = _run_step_closures()
     devctx.all_reduce_token = None
 

@@ -374,7 +374,7 @@ void HbLazyTensor::applyPendingGraph() {
   // before sync points in execution
   if (!CurrentTensorData()) {
     std::vector<HbLazyTensor> tensors({*this});
-    SyncTensorsGraph(&tensors, {});
+    SyncTensorsGraph(&tensors);
   }
 }
 
@@ -383,24 +383,19 @@ std::vector<HbLazyTensor> HbLazyTensor::GetLiveTensors(
   return HbContextArena::Get()->GetLiveTensors(device);
 }
 
-void HbLazyTensor::SyncTensorsGraph(
-    std::vector<HbLazyTensor>* tensors,
-    absl::Span<const std::string> devices) {
+void HbLazyTensor::SyncTensorsGraph(std::vector<HbLazyTensor>* tensors) {
   PT_LAZY_TRACE;
-  SyncTensorsGraphInternal(tensors, devices);
+  SyncTensorsGraphInternal(tensors);
 }
 
-void HbLazyTensor::SyncLiveTensorsGraph(
-    const c10::Device* device,
-    absl::Span<const std::string> devices) {
+void HbLazyTensor::SyncLiveTensorsGraph(const c10::Device* device) {
   PT_LAZY_TRACE;
   auto tensors = GetLiveTensors(device);
-  SyncTensorsGraph(&tensors, devices);
+  SyncTensorsGraph(&tensors);
 }
 
 void HbLazyTensor::SyncTensorsGraphInternal(
-    std::vector<HbLazyTensor>* tensors,
-    absl::Span<const std::string> devices) {
+    std::vector<HbLazyTensor>* tensors) {
   PT_LAZY_TRACE;
   const std::vector<int>& indices = CollectSyncTensors(*tensors);
   if (indices.empty()) {
@@ -484,8 +479,12 @@ void HbLazyTensor::ShallowCopyTo(HbLazyTensor* dest) const {
   dest->AssignIrValue(GetIrValue());
 }
 
-extern "C" void mark_step() {
-  c10::Device device = GetDeviceOrCurrent({});
-  HbLazyTensor::SyncLiveTensorsGraph(&device, {});
+void HbLazyTensor::StepMarker(const std::string& device_str) {
+  c10::Device device = GetDeviceOrCurrent(device_str);
+  HbLazyTensor::SyncLiveTensorsGraph(&device);
   HbLazyTensor::MarkStep(device);
+}
+
+extern "C" void mark_step() {
+  HbLazyTensor::StepMarker({});
 }

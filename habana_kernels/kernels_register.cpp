@@ -11,7 +11,7 @@
 #include "habana_kernels/eager_kernels_declarations.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_kernels/wrap_kernels_declarations.h"
-#include "habana_lazy/hblazy/csrc/lazy_executor.h"
+#include "habana_lazy/lazy_executor.h"
 
 using namespace torch;
 using namespace at;

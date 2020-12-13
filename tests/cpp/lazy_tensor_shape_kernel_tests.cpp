@@ -83,7 +83,7 @@ TEST_F(LazyTensorShapeKernelTest, PermuteTest) {
   torch::Tensor Out = A.permute({1, 0});
 
   std::vector<HbLazyTensor> hl_tensors = {GetHbLazyTensor(hOut)};
-  HbLazyTensor::SyncTensorsGraph(&hl_tensors, {});
+  HbLazyTensor::SyncTensorsGraph(&hl_tensors);
 
   EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out), true);
 }
@@ -95,7 +95,7 @@ TEST_F(LazyTensorShapeKernelTest, TTest) {
   torch::Tensor Out = torch::t(A);
 
   std::vector<HbLazyTensor> hl_tensors = {GetHbLazyTensor(hOut)};
-  HbLazyTensor::SyncTensorsGraph(&hl_tensors, {});
+  HbLazyTensor::SyncTensorsGraph(&hl_tensors);
 
   EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out), true);
 }
@@ -110,7 +110,7 @@ TEST_F(LazyTensorShapeKernelTest, SelectTest) {
   Tensor h_out = torch::select(h_a, dim, index);
 
   std::vector<HbLazyTensor> tensors = {GetHbLazyTensor(h_out)};
-  HbLazyTensor::SyncTensorsGraph(&tensors, {});
+  HbLazyTensor::SyncTensorsGraph(&tensors);
 
   auto h_cout = h_out.to(torch::kCPU);
   auto cout = torch::select(a, dim, index);
@@ -129,7 +129,7 @@ TEST_F(LazyTensorShapeKernelTest, SliceTest) {
   Tensor h_out = torch::slice(h_a, dim, start_index, end, step);
 
   std::vector<HbLazyTensor> tensors = {GetHbLazyTensor(h_out)};
-  HbLazyTensor::SyncTensorsGraph(&tensors, {});
+  HbLazyTensor::SyncTensorsGraph(&tensors);
 
   auto h_cout = h_out.to(torch::kCPU);
   auto cout = torch::slice(a, dim, start_index, end, step);
@@ -147,7 +147,7 @@ TEST_F(LazyTensorShapeKernelTest, ViewExecute) {
   auto hl_result = std::make_shared<HbLazyTensor>(GetHbLazyTensor(result));
   auto ir_value = hl_result->CurrentIrValue();
   std::vector<HbLazyTensor> tensors = {*hl_result};
-  HbLazyTensor::SyncTensorsGraph(&tensors, {});
+  HbLazyTensor::SyncTensorsGraph(&tensors);
   at::Tensor result_lazy = result.to(torch::kCPU);
   auto result_cpu = torch::_unsafe_view(input_tensor, new_size);
   EXPECT_EQ(allclose(result_lazy, result_cpu, 0.01, 0.01), true);

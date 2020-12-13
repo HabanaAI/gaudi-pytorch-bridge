@@ -40,7 +40,7 @@ TEST_F(LazyFillKernelTest, ExecuteFillGraph) {
   auto out = htensor_in1.fill_(1.0);
 
   std::vector<HbLazyTensor> tensors = {GetHbLazyTensor(out)};
-  HbLazyTensor::SyncTensorsGraph(&tensors, {});
+  HbLazyTensor::SyncTensorsGraph(&tensors);
 
   auto exp = tensor_in1.fill_(1.0);
   auto out_cpu = htensor_in1.to(torch::kCPU);
@@ -54,7 +54,7 @@ TEST_F(LazyFillKernelTest, ExecuteZerosGraph) {
   auto out = htensor_in1.zero_();
 
   std::vector<HbLazyTensor> tensors = {GetHbLazyTensor(out)};
-  HbLazyTensor::SyncTensorsGraph(&tensors, {});
+  HbLazyTensor::SyncTensorsGraph(&tensors);
 
   auto exp = tensor_in1.zero_();
   auto out_cpu = out.to(torch::kCPU);

@@ -119,7 +119,7 @@ TEST(LazyJITTest, DISABLED_ExecuteGraphCustomSgd) {
   auto hl_result1 = std::make_shared<HbLazyTensor>(GetHbLazyTensor(out1));
   auto hl_result2 = std::make_shared<HbLazyTensor>(GetHbLazyTensor(out2));
   std::vector<HbLazyTensor> tensors = {*hl_result1, *hl_result2};
-  HbLazyTensor::SyncTensorsGraph(&tensors, {});
+  HbLazyTensor::SyncTensorsGraph(&tensors);
 
   Tensor result1 = out1.to(kCPU);
   Tensor result2 = out2.to(kCPU);
@@ -165,7 +165,7 @@ TEST(LazyJITTest, ExecuteGraphCustomAdagrad) {
   auto hl_result1 = std::make_shared<HbLazyTensor>(GetHbLazyTensor(out1));
   auto hl_result2 = std::make_shared<HbLazyTensor>(GetHbLazyTensor(out2));
   std::vector<HbLazyTensor> tensors = {*hl_result1, *hl_result2};
-  HbLazyTensor::SyncTensorsGraph(&tensors, {});
+  HbLazyTensor::SyncTensorsGraph(&tensors);
 
   Tensor result1 = out1.to(kCPU);
   Tensor result2 = out2.to(kCPU);

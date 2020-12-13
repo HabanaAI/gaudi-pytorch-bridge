@@ -20,7 +20,7 @@
 #include "habana_helpers/graph.h"
 #include "habana_helpers/tensor_utils.h"
 #include "habana_kernels/kernel_utils.h"
-#include "habana_lazy/hblazy/csrc/lazy_executor.h"
+#include "habana_lazy/lazy_executor.h"
 #include "synapse_helpers/util.h"
 
 using namespace torch;

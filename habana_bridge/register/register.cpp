@@ -13,6 +13,8 @@
 #include <torch/csrc/jit/runtime/custom_operator.h>
 #include <torch/csrc/jit/runtime/operator_options.h>
 
+#include <habana_lazy/hlexec.h>
+#include "habana_lazy/hpu_lazy_tensors.h"
 #include "register.h"
 
 namespace py = pybind11;
@@ -30,6 +32,42 @@ PYBIND11_MODULE(hb_torch, m) {
 
   // python API to report device memory live allocation details
   m.def("memstat_livealloc", [](const char* msg = "") { print_live_allocations(msg); });
+
+  // Lazy apis
+  m.def(
+      "mark_step",
+      [](const std::string& device_str) {
+        habana_lazy::HbLazyTensor::StepMarker(device_str);
+      },
+      py::arg("device_str") = "");
+  m.def(
+      "enable_eliminate_common_subexpression",
+      [](const bool flag) {
+        habana_lazy::exec::OptPassCfg::GetInstance()
+            ->enable_eliminate_common_subexpression = flag;
+      },
+      py::arg("flag"));
+  m.def(
+      "enable_eliminate_dead_code",
+      [](const bool flag) {
+        habana_lazy::exec::OptPassCfg::GetInstance()
+            ->enable_eliminate_dead_code = flag;
+      },
+      py::arg("flag"));
+  m.def(
+      "enable_constant_pooling",
+      [](const bool flag) {
+        habana_lazy::exec::OptPassCfg::GetInstance()->enable_constant_pooling =
+            flag;
+      },
+      py::arg("flag"));
+  m.def(
+      "enable_peephole_optimization",
+      [](const bool flag) {
+        habana_lazy::exec::OptPassCfg::GetInstance()
+            ->enable_peephole_optimization = flag;
+      },
+      py::arg("flag"));
 
   m.doc() = "This module registers habana backend.";
 }
