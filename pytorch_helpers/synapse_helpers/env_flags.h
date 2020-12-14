@@ -73,7 +73,7 @@ struct PT_ENABLE_HCL_SAME_ADDRESS_RESOLUTION {
 };
 
 struct PT_ENABLE_HCL_STREAM {
-  static constexpr bool default_value = false;
+  static constexpr bool default_value = true;
 };
 
 struct PT_ENABLE_DYNAMIC_WB {
