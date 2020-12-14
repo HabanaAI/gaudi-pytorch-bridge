@@ -391,6 +391,26 @@ class Trainer:
         """
         return len(dataloader.dataset)
 
+    def enable_tracing(self):
+        torch._C._debug_set_autodiff_subgraph_inlining(False)
+        torch._C._jit_set_profiling_executor(False)
+        torch._C._jit_set_profiling_mode(False)
+        sys.path.insert(0, os.path.join(os.environ['BUILD_ROOT_LATEST']))
+        try:
+                import hb_torch
+        except ImportError:
+                assert False,"Could Not import hb_torch"
+
+        hb_torch.enable()
+        hb_torch.remove_inplace_ops()
+
+    def compute_position_ids(self, input_ids):
+        input_shape = input_ids.size()
+        seq_length = input_shape[1]
+        position_ids_seq = torch.arange(seq_length, dtype=torch.int32)
+        position_ids_ = position_ids_seq.unsqueeze(0).expand(input_shape)
+        position_ids = position_ids_.contiguous()
+        return position_ids
     def train(self, model_path: Optional[str] = None):
         """
         Main training entry point.
@@ -429,6 +449,16 @@ class Trainer:
             if not is_apex_available():
                 raise ImportError("Please install apex from https://www.github.com/nvidia/apex to use fp16 training.")
             model, optimizer = amp.initialize(model, optimizer, opt_level=self.args.fp16_opt_level)
+        
+        if self.args.hmp:
+            print(self.args.hmp_bf16)
+            from hmp import hmp
+            hmp.convert(opt_level=self.args.hmp_opt_level, bf16_file_path=self.args.hmp_bf16,
+                     fp32_file_path=self.args.hmp_fp32, isVerbose=self.args.hmp_verbose)
+
+        if self.args.use_jit_trace:
+            model.train()
+            self.enable_tracing()
 
         # multi-gpu training (should be after apex fp16 initialization)
         if self.args.n_gpu > 1:
@@ -474,6 +504,8 @@ class Trainer:
         self.epoch = 0
         epochs_trained = 0
         steps_trained_in_current_epoch = 0
+        is_model_traced = False
+        tensor_dummy = torch.zeros(1).to(self.args.device)
         # Check if continuing training from a checkpoint
         if model_path is not None:
             # set global_step to global_step of last saved checkpoint from model path
@@ -533,9 +565,32 @@ class Trainer:
                 input_dict = {k: inputs[k] for k in input_keys if k in inputs}
                 target = inputs['labels']
 
-                tp_probe_tensors_iteration_start(model, device, target, input_dict, self.trainMetaData.ParamsDump, False, self.args.local_rank)
-                tr_loss_cpu, output_cpu  = self._training_step(model, inputs, optimizer)
-                tp_probe_tensors_iteration_end(model, device, output_cpu, tr_loss_cpu, self.trainMetaData.ParamsDump, False, self.args.local_rank)
+                position_ids_cpu = self.compute_position_ids(inputs['input_ids'])
+                if self.args.use_habana:
+                   inputs['input_ids'] = inputs['input_ids'].to(dtype=torch.int32)
+                   inputs['attention_mask'] = inputs['attention_mask'].to(dtype=torch.int32)
+                   inputs['token_type_ids'] = inputs['token_type_ids'].to(dtype=torch.int32)
+                   inputs['labels'] = inputs['labels'].to(dtype=torch.int32)
+                   inputs['position_ids'] = position_ids_cpu
+
+
+                if self.args.use_jit_trace and is_model_traced == False:
+                   input_ids = inputs['input_ids'].to(device)
+                   attention_mask = inputs['attention_mask'].to(device)
+                   token_type_ids = inputs['token_type_ids'].to(device)
+                   labels = inputs['labels'].to(device)
+                   position_ids = position_ids_cpu.to(device)
+                   model_trace = torch.jit.trace(model, (input_ids, attention_mask, token_type_ids, position_ids, tensor_dummy, tensor_dummy, labels, tensor_dummy, tensor_dummy), check_trace=False)
+                   is_model_traced = True
+                   model = model_trace
+                   if args.local_rank != -1:
+                    if args.use_habana:
+                        model = torch.nn.parallel.DistributedDataParallel(
+                            model, find_unused_parameters=True
+                        )
+                tp_probe_tensors_iteration_start(model, device, target, input_dict, self.trainMetaData.ParamsDump, False)
+                tr_loss_cpu, output_cpu  = self._training_step(model, inputs, optimizer, tensor_dummy)
+                tp_probe_tensors_iteration_end(model, device, output_cpu, tr_loss_cpu, self.trainMetaData.ParamsDump, False)
                 tr_loss += tr_loss_cpu
 
                 if (step + 1) % self.args.gradient_accumulation_steps == 0 or (
@@ -671,17 +726,19 @@ class Trainer:
             logger.info(output)
 
     def _training_step(
-        self, model: nn.Module, inputs: Dict[str, Union[torch.Tensor, Any]], optimizer: torch.optim.Optimizer
+        self, model: nn.Module, inputs: Dict[str, Union[torch.Tensor, Any]], optimizer: torch.optim.Optimizer, tensor_dummy=None
     ) -> float:
         model.train()
         for k, v in inputs.items():
-            if isinstance(v, torch.Tensor):
+            if isinstance(v, torch.Tensor):                
                 inputs[k] = v.to(self.args.device)
 
         if self.args.past_index >= 0 and self._past is not None:
             inputs["mems"] = self._past
-
-        outputs = model(**inputs)
+        if self.args.use_jit_trace:
+            outputs = model(inputs['input_ids'], inputs['attention_mask'], inputs['token_type_ids'], inputs['position_ids'], tensor_dummy, tensor_dummy, inputs['labels'], tensor_dummy, tensor_dummy)
+        else:
+            outputs = model(**inputs)
         loss = outputs[0]  # model outputs are always tuple in transformers (see doc)
 
         if self.args.past_index >= 0:
@@ -848,6 +905,9 @@ class Trainer:
 
         prediction_loss_only = prediction_loss_only if prediction_loss_only is not None else self.prediction_loss_only
 
+        if self.args.use_jit_trace:
+           self.enable_tracing()
+
         model = self.model
         # multi-gpu eval
         if self.args.n_gpu > 1:
@@ -872,10 +932,21 @@ class Trainer:
         if self.args.past_index >= 0:
             past = None
 
+        is_eval_traced = False
+        tensor_dummy = torch.zeros(1).to(self.args.device)
         current_eval_step = 0
         for inputs in tqdm(dataloader, desc=description):
             has_labels = any(inputs.get(k) is not None for k in ["labels", "lm_labels", "masked_lm_labels"])
             self.trainMetaData.tracept.start(time.time(), 'eval_iteration_' + str(current_eval_step))
+
+            ## Habana doesn't support Long tensors
+            ## Hence we need to convert start and end positions to int
+            if self.args.use_habana:
+                inputs["input_ids"] = inputs["input_ids"].to(dtype=torch.int32)
+                inputs["attention_mask"] = inputs["attention_mask"].to(dtype=torch.int32)
+                inputs["token_type_ids"] = inputs["token_type_ids"].to(dtype=torch.int32)
+
+            position_ids_cpu = self.compute_position_ids(inputs["input_ids"])
 
             for k, v in inputs.items():
                 if isinstance(v, torch.Tensor):
@@ -883,8 +954,23 @@ class Trainer:
             if self.args.past_index >= 0:
                 inputs["mems"] = past
 
+            inputs["position_ids"] = position_ids_cpu.to(self.args.device)            
+
             with torch.no_grad():
-                outputs = model(**inputs)
+                if self.args.use_jit_trace and is_eval_traced == False:
+                    model_trace = torch.jit.trace(model, (inputs['input_ids'], inputs['attention_mask'], inputs['token_type_ids'], inputs["position_ids"], tensor_dummy, tensor_dummy, inputs['labels'], tensor_dummy, tensor_dummy), check_trace=False)
+                    model_trace.eval()
+                    is_eval_traced = True
+                    model = model_trace
+                    if args.local_rank != -1:
+                      if args.use_habana:
+                          model = torch.nn.parallel.DistributedDataParallel(
+                             model, find_unused_parameters=True
+                         )
+                if self.args.use_jit_trace:
+                    outputs = model(inputs['input_ids'], inputs['attention_mask'], inputs['token_type_ids'], inputs["position_ids"], tensor_dummy, tensor_dummy, inputs['labels'], tensor_dummy, tensor_dummy)
+                else:
+                    outputs = model(**inputs)
                 if has_labels:
                     step_eval_loss, logits = outputs[:2]
                     eval_losses += [step_eval_loss.mean().item()]
@@ -924,9 +1010,9 @@ class Trainer:
 
         # Finally, turn the aggregated tensors into numpy arrays.
         if preds is not None:
-            preds = preds.cpu().numpy()
+            preds = preds.float().cpu().numpy()
         if label_ids is not None:
-            label_ids = label_ids.cpu().numpy()
+            label_ids = label_ids.float().cpu().numpy()
 
         if self.compute_metrics is not None and preds is not None and label_ids is not None:
             metrics = self.compute_metrics(EvalPrediction(predictions=preds, label_ids=label_ids))

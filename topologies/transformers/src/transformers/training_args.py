@@ -190,6 +190,7 @@ class TrainingArguments:
     )
     no_cuda: bool = field(default=False, metadata={"help": "Do not use CUDA even when it is available"})
     use_habana: bool = field(default=False, metadata={"help": "Whether to run training on Habana device"})
+    use_jit_trace: bool = field(default=False, metadata={"help": "Run in torchscript mode"})
     log_device_mem_alloc: bool = field(default=False, metadata={"help": "Log live memory allocations on device at the given point"})
     seed: int = field(default=42, metadata={"help": "random seed for initialization"})
 
