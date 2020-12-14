@@ -228,6 +228,7 @@ std::string IrGraphDumpUtil::ToText(std::vector<ir::NodePtr> nodes) {
 std::string IrGraphDumpUtil::PostOrderToText(
     const std::vector<ir::NodePtr>& post_order,
     const std::vector<ir::NodePtr>& roots) {
+  PT_LAZY_TRACE;
   std::unordered_map<ir::NodePtr, size_t> roots_ids = GetRootsIds(roots);
   NodeIdMap id_map = GenerateIdMap(post_order);
   std::stringstream ss;

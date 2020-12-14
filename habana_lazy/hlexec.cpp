@@ -60,6 +60,7 @@ void HlExec::GetOrCreate(
     const ir::ValueList inputs,
     const ir::ValueList outputs,
     std::string str) {
+  PT_LAZY_TRACE;
   if (std::getenv("PT_HPU_LAZY_CACHE_DISABLE")) {
     mp_g_ = std::make_shared<Graph>();
     Create(nodes, inputs, outputs);

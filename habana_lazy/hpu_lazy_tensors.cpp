@@ -393,6 +393,7 @@ void HbLazyTensor::SyncTensorsGraph(
 void HbLazyTensor::SyncLiveTensorsGraph(
     const c10::Device* device,
     absl::Span<const std::string> devices) {
+  PT_LAZY_TRACE;
   auto tensors = GetLiveTensors(device);
   SyncTensorsGraph(&tensors, devices);
 }

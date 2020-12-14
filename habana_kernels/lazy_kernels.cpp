@@ -1964,6 +1964,7 @@ Tensor empty_strided_hpu_lazy(
     IntArrayRef stride,
     const TensorOptions& options,
     bool create_storage) {
+  PT_LAZY_TRACE;
   at::Tensor empty_tensor =
       empty_hpu_lazy(size, options, c10::nullopt, create_storage);
   empty_tensor.unsafeGetTensorImpl()->set_sizes_and_strides(size, stride);
