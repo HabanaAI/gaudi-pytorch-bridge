@@ -86,6 +86,23 @@ NodePtr Node::Create(c10::Symbol oper, ValueList inputs) {
   return node;
 }
 
+size_t Node::get_hash() {
+  if (0 == m_node_hash) {
+    std::stringstream ss;
+    ss << m_op.toQualString();
+    for (size_t i = 0; i < m_inputs.size(); ++i) {
+      ss << i;
+      if (m_inputs[i]) {
+        ss << m_inputs[i].mp_node->op().toQualString()
+           << m_inputs[i].mp_node->get_hash();
+      }
+    }
+    m_node_hash = torch::get_hash(ss.str());
+    m_node_hash = torch::hash_combine(m_node_hash, m_meta_data.get_hash());
+  }
+  return m_node_hash;
+}
+
 bool Value::IsHpuInputNode() const {
   // Does it point to an Input node (hpu::input)?
   return mp_node && mp_node->ToString().find("hpu::input") != std::string::npos;

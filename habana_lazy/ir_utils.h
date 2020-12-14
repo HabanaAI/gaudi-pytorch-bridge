@@ -38,13 +38,15 @@ class Utils {
       EmissionMap* emap,
       NodePtrList& post_order,
       NodeSet& node_set,
-      ValueList& inputs);
+      ValueList& inputs,
+      size_t& post_order_nodes_hash);
 
   static void ComputePostOrder(
       NodePtrList& p_nodes,
       EmissionMap* emap,
       NodePtrList& post_order,
-      ValueList& inputs);
+      ValueList& inputs,
+      size_t& post_order_nodes_hash);
 };
 
 } // namespace ir

@@ -15,18 +15,17 @@ LazyArgumentSpec::LazyArgumentSpec(
     bool with_grad,
     const ir::NodePtrList& post_order_graph,
     const at::ArrayRef<torch::jit::IValue> input_refs,
-    std::string post_order_str) {
+    size_t post_order_nodes_hash) {
   // Create the ArgumentSpec from nodes and inputs
   // ArgumentSpec hash is created based on the inputs
   GetArgSpecKey(with_grad, post_order_graph, input_refs);
 
-  std::hash<std::string> str_hash;
-  HABANA_ASSERT(!post_order_str.empty());
-  m_opstrs = post_order_str;
+  m_post_order_nodes_hash = post_order_nodes_hash;
+  HABANA_ASSERT(m_post_order_nodes_hash > 0);
 
   // Create final hash_code by combining the ArgumentSpec
-  // and post order nodes strings
-  m_hash_code = torch::hash_combine(m_hash_code, str_hash(m_opstrs));
+  // and post order nodes hash
+  m_hash_code = torch::hash_combine(m_hash_code, m_post_order_nodes_hash);
 }
 
 torch::jit::Stack LazyArgumentSpec::CreateStack(

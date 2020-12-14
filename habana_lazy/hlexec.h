@@ -81,7 +81,7 @@ class HlExec {
       torch::jit::Stack& stack,
       const ir::ValueList inputs,
       const ir::ValueList outputs,
-      std::string str);
+      size_t post_order_nodes_hash);
 
   /**
    * This method calls torch::jit optimizer passes.

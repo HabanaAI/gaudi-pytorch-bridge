@@ -28,7 +28,8 @@ void Utils::ComputePostOrderNode(
     EmissionMap* p_emap,
     NodePtrList& post_order,
     NodeSet& node_set,
-    ValueList& inputs) {
+    ValueList& inputs,
+    size_t& post_order_nodes_hash) {
   PT_LAZY_TRACE;
   NodePtrList queue;
   queue.push_back(p_node);
@@ -68,6 +69,8 @@ void Utils::ComputePostOrderNode(
         // check for graph loop at *operand.node
         HABANA_ASSERT(oit != p_emap->end() && oit->second == kEmitted);
       }
+      post_order_nodes_hash =
+          torch::hash_combine(post_order_nodes_hash, p_node->get_hash());
       (*p_emap)[p_node] = kEmitted;
       post_order.emplace_back(p_node);
       queue.pop_back();
@@ -86,11 +89,13 @@ void Utils::ComputePostOrder(
     NodePtrList& p_nodes,
     EmissionMap* emap,
     NodePtrList& post_order,
-    ValueList& inputs) {
+    ValueList& inputs,
+    size_t& post_order_nodes_hash) {
   PT_LAZY_TRACE;
   NodeSet node_set;
   for (auto p_node : p_nodes) {
-    Utils::ComputePostOrderNode(p_node, emap, post_order, node_set, inputs);
+    Utils::ComputePostOrderNode(
+        p_node, emap, post_order, node_set, inputs, post_order_nodes_hash);
   }
 }
 

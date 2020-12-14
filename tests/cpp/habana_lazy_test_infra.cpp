@@ -27,23 +27,27 @@ PostOrderTestStruct GetPostOrderNodes(bool jumbled) {
     post_order_struct.post_order_nodes.emplace_back(sub_node);
     post_order_struct.post_order_nodes.emplace_back(mul_node);
 
-    post_order_struct.post_order_str =
+    std::string post_order_str =
         "%0 = hpu::input()"
         "%1 = hpu::input()"
         "%2 = aten::add(%0, %1)"
         "%3 = aten::sub(%2, %0)"
         "%4 = aten::mul(%3, %0)";
+    post_order_struct.post_order_nodes_hash =
+        std::hash<std::string>{}(post_order_str);
   } else {
     post_order_struct.post_order_nodes.emplace_back(mul_node);
     post_order_struct.post_order_nodes.emplace_back(sub_node);
     post_order_struct.post_order_nodes.emplace_back(add_node);
 
-    post_order_struct.post_order_str =
+    std::string post_order_str =
         "%0 = hpu::input()"
         "%1 = hpu::input()"
         "%2 = aten::mul(%0, %1)"
         "%3 = aten::sub(%2, %0)"
         "%4 = aten::add(%3, %0)";
+    post_order_struct.post_order_nodes_hash =
+        std::hash<std::string>{}(post_order_str);
   }
 
   return post_order_struct;

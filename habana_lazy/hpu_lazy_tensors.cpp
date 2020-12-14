@@ -348,13 +348,13 @@ habana_lazy::PostOrderData HbLazyTensor::RunPostOrder(
   }
 
   ir::Utils::ComputePostOrder(
-      p_roots, &po_data.emission_map, po_data.post_order, po_data.inputs);
+      p_roots,
+      &po_data.emission_map,
+      po_data.post_order,
+      po_data.inputs,
+      po_data.post_order_nodes_hash);
 
-  // The PostOrderToText string is used for first level graph caching
-  // lookup
-  po_data.post_order_str =
-      IrGraphDumpUtil::PostOrderToText(po_data.post_order, p_roots);
-  PT_LAZY_DEBUG(po_data.post_order_str);
+  PT_LAZY_DEBUG(IrGraphDumpUtil::PostOrderToText(po_data.post_order, p_roots));
 
   return po_data;
 }
@@ -437,7 +437,7 @@ void HbLazyTensor::SyncTensorsGraphInternal(
       stack,
       po_data.inputs,
       po_data.outputs,
-      po_data.post_order_str);
+      po_data.post_order_nodes_hash);
 
   // Dump the JIT graph with PT_LAZY_DEBUG
   hlexec.DumpGraph();

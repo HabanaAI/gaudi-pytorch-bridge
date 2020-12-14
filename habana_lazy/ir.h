@@ -142,11 +142,32 @@ class MetaData {
     return m_data.count(key);
   }
 
+  size_t get_hash() {
+    size_t hash = 0;
+    for (auto& m : m_data) {
+      if (m.second.isList()) {
+        for (auto& v : m.second.toListRef()) {
+          hash = ival_hash(v, hash);
+        }
+      } else {
+        hash = ival_hash(m.second, hash);
+      }
+    }
+    return hash;
+  }
+
  protected:
   /* This meta data store mapping of index of jit input
    * to the IValue
    */
   IndexToIvalMap m_data;
+
+  size_t ival_hash(const torch::jit::IValue& v, size_t h = 0) {
+    if (v.isScalar() || v.isBool()) {
+      return torch::hash_combine(v.hash(), h);
+    }
+    return 0;
+  }
 };
 
 /**
@@ -200,12 +221,15 @@ class Node {
 
   friend struct Value;
 
+  size_t get_hash();
+
  protected:
   c10::Symbol m_op;
   ValueList m_inputs;
   OutputList m_outputs;
   std::set<Use> m_uses;
   MetaData m_meta_data;
+  size_t m_node_hash = 0;
   std::vector<at::Tensor> m_input_pt_tensors;
 };
 

@@ -78,10 +78,11 @@ class LazyArgumentSpec {
       bool with_grad,
       const ir::NodePtrList& post_order_graph,
       const at::ArrayRef<torch::jit::IValue> input_refs,
-      std::string post_order_str);
+      size_t post_order_nodes_hash);
 
   bool operator==(const LazyArgumentSpec& rv) const {
-    return m_hash_code == rv.m_hash_code && m_opstrs == rv.m_opstrs;
+    return m_hash_code == rv.m_hash_code &&
+        m_post_order_nodes_hash == rv.m_post_order_nodes_hash;
   }
 
   bool operator!=(const LazyArgumentSpec& rv) const {
@@ -100,8 +101,8 @@ class LazyArgumentSpec {
       const ir::NodePtrList& post_order_graph,
       const at::ArrayRef<torch::jit::IValue>& input_refs);
 
-  std::string m_opstrs;
-  size_t m_hash_code;
+  size_t m_post_order_nodes_hash;
+  size_t m_hash_code = 0;
 };
 
 /**

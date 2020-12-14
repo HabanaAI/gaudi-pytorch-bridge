@@ -19,7 +19,7 @@ namespace habana_lazy_test {
 
 typedef struct {
   habana_lazy::ir::NodePtrList post_order_nodes;
-  std::string post_order_str;
+  size_t post_order_nodes_hash;
 } PostOrderTestStruct;
 
 // Create a 3 Node vector from first level IR

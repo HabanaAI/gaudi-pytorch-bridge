@@ -52,7 +52,7 @@ TEST_F(GraphOptimizeTest, PeepholeOptimTest) {
       stack,
       po_data.inputs,
       po_data.outputs,
-      po_data.post_order_str);
+      po_data.post_order_nodes_hash);
 
   torch::jit::testing::FileCheck().check_not("aten::t")->run(
       *hlexec->get_graph());

@@ -28,22 +28,19 @@ template <typename T>
 class Constant : public Node {
  public:
   Constant() = delete;
-  Constant(T s)
-      : Node(c10::Symbol::fromQualString("prim::constant")),
-        m_ival(torch::jit::IValue(s)) {}
+  Constant(T s) : Node(c10::Symbol::fromQualString("prim::constant")) {
+    m_meta_data.set(s, 0);
+  }
 
-  const torch::jit::IValue& getIValue() const {
-    return m_ival;
+  const torch::jit::IValue getIValue() const {
+    return m_meta_data.get(0);
   }
 
   std::string ToString() const override {
     std::stringstream ss;
-    ss << Node::ToString() << ", value=" << m_ival;
+    ss << Node::ToString() << ", value=" << m_meta_data.get(0);
     return ss.str();
   }
-
- private:
-  torch::jit::IValue m_ival;
 };
 
 using ScalarConstant = Constant<c10::Scalar>;

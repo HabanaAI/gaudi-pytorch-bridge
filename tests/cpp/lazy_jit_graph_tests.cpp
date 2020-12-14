@@ -48,7 +48,7 @@ TEST(LazyJITTest, CreateGraph) {
       stack,
       po_data.inputs,
       po_data.outputs,
-      po_data.post_order_str);
+      po_data.post_order_nodes_hash);
 
   torch::jit::testing::FileCheck()
       .check("prim::Constant[value=99.5]")

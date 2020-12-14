@@ -179,7 +179,11 @@ std::string GenerateTextNodeSpec(
 std::string IrGraphDumpUtil::ToDot(std::vector<ir::NodePtr> nodes) {
   habana_lazy::PostOrderData po_data;
   ir::Utils::ComputePostOrder(
-      nodes, &po_data.emission_map, po_data.post_order, po_data.inputs);
+      nodes,
+      &po_data.emission_map,
+      po_data.post_order,
+      po_data.inputs,
+      po_data.post_order_nodes_hash);
   return PostOrderToDot(po_data.post_order, nodes);
 }
 
@@ -221,7 +225,11 @@ std::string IrGraphDumpUtil::PostOrderToDot(
 std::string IrGraphDumpUtil::ToText(std::vector<ir::NodePtr> nodes) {
   habana_lazy::PostOrderData po_data;
   ir::Utils::ComputePostOrder(
-      nodes, &po_data.emission_map, po_data.post_order, po_data.inputs);
+      nodes,
+      &po_data.emission_map,
+      po_data.post_order,
+      po_data.inputs,
+      po_data.post_order_nodes_hash);
   return PostOrderToText(po_data.post_order, nodes);
 }
 

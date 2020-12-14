@@ -75,7 +75,7 @@ struct PostOrderData {
   ir::Utils::EmissionMap emission_map;
   ir::ValueList inputs;
   ir::ValueList outputs;
-  std::string post_order_str;
+  size_t post_order_nodes_hash = 0;
 };
 
 class HbLazyTensor {

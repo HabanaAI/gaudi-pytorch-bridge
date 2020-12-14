@@ -61,7 +61,7 @@ TEST_F(LazyCustomKernelTest, OptSgdCustomOp) {
       stack,
       po_data.inputs,
       po_data.outputs,
-      po_data.post_order_str);
+      po_data.post_order_nodes_hash);
 
   torch::jit::testing::FileCheck()
       .check("prim::Constant[value=0.10000000149011612]")
@@ -108,7 +108,7 @@ TEST_F(LazyCustomKernelTest, OptAdagradCustomOp) {
       stack,
       po_data.inputs,
       po_data.outputs,
-      po_data.post_order_str);
+      po_data.post_order_nodes_hash);
 
   torch::jit::testing::FileCheck()
       .check_count("habanaOptimizerSparseAdagrad", 1)

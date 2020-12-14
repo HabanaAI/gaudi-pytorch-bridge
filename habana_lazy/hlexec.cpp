@@ -59,14 +59,15 @@ void HlExec::GetOrCreate(
     torch::jit::Stack& stack,
     const ir::ValueList inputs,
     const ir::ValueList outputs,
-    std::string str) {
+    size_t post_order_nodes_hash) {
   PT_LAZY_TRACE;
   if (std::getenv("PT_HPU_LAZY_CACHE_DISABLE")) {
     mp_g_ = std::make_shared<Graph>();
     Create(nodes, inputs, outputs);
     return;
   }
-  auto las = habana_lazy::LazyArgumentSpec(true, nodes, stack, str);
+  auto las =
+      habana_lazy::LazyArgumentSpec(true, nodes, stack, post_order_nodes_hash);
   mp_g_ = habana_lazy::LazyGraphCache::GetLazyCache().GetOptimizedJITGraph(
       las.hashCode());
 
@@ -81,7 +82,8 @@ void HlExec::GetOrCreate(
     // Optimization is done during Create() itself
     Create(nodes, inputs, outputs);
     // Create a lazyArgumentSpec
-    las = habana_lazy::LazyArgumentSpec(true, nodes, stack, str);
+    las = habana_lazy::LazyArgumentSpec(
+        true, nodes, stack, post_order_nodes_hash);
     LazyGraphCache::GetLazyCache().Add(las.hashCode(), mp_g_);
   } else {
     PT_LAZY_DEBUG("JIT Cache hit");
