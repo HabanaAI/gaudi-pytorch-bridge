@@ -26,6 +26,8 @@ class Utils {
     kEmitted,
   };
 
+  using NodeSet = std::unordered_set<ir::NodePtr>;
+  using NodeValueMap = std::map<ir::NodePtr, ir::Value>;
   using EmissionMap = std::unordered_map<NodePtr, EmitStatus>;
 
   static size_t StdHashCombine(uint64_t a, uint64_t b);
@@ -34,15 +36,15 @@ class Utils {
   static void ComputePostOrderNode(
       NodePtr& p_node,
       EmissionMap* emap,
-      NodePtrList& post_order);
+      NodePtrList& post_order,
+      NodeSet& node_set,
+      ValueList& inputs);
 
   static void ComputePostOrder(
       NodePtrList& p_nodes,
       EmissionMap* emap,
-      NodePtrList& post_order);
-  static void ComputePostOrderInputs(
-      ValueList& input_val,
-      NodePtrList& post_order);
+      NodePtrList& post_order,
+      ValueList& inputs);
 };
 
 } // namespace ir

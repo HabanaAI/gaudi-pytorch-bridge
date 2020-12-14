@@ -176,18 +176,6 @@ class Node {
     return m_inputs;
   }
 
-  bool IsVisited() const {
-    return m_is_visited;
-  }
-
-  void MarkVisited() {
-    m_is_visited = true;
-  }
-
-  void MarkNotVisited() {
-    m_is_visited = false;
-  }
-
   const Output GetOutput(size_t index) const {
     TORCH_CHECK(index < GetNumOutputs(), "Node::GetOutputs index out of range");
     return m_outputs[index];
@@ -219,7 +207,6 @@ class Node {
   OutputList m_outputs;
   std::set<Use> m_uses;
   MetaData m_meta_data;
-  bool m_is_visited = false;
   std::vector<at::Tensor> m_input_pt_tensors;
 };
 

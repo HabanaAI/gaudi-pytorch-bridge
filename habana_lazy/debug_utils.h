@@ -22,14 +22,14 @@ class IrGraphDumpUtil {
   static std::string ToDot(std::vector<ir::NodePtr> nodes);
 
   static std::string PostOrderToDot(
-      std::vector<ir::NodePtr> post_order,
-      std::vector<ir::NodePtr> roots);
+      const std::vector<ir::NodePtr>& post_order,
+      const std::vector<ir::NodePtr>& roots);
 
   static std::string ToText(std::vector<ir::NodePtr> nodes);
 
   static std::string PostOrderToText(
-      std::vector<ir::NodePtr> post_order,
-      std::vector<ir::NodePtr> roots);
+      const std::vector<ir::NodePtr>& post_order,
+      const std::vector<ir::NodePtr>& roots);
 };
 
 } // namespace habana_lazy

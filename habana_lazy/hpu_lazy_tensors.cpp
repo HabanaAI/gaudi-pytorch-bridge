@@ -378,8 +378,7 @@ habana_lazy::PostOrderData HbLazyTensor::RunPostOrder(
   }
 
   ir::Utils::ComputePostOrder(
-      p_roots, &po_data.emission_map, po_data.post_order);
-  ir::Utils::ComputePostOrderInputs(po_data.inputs, po_data.post_order);
+      p_roots, &po_data.emission_map, po_data.post_order, po_data.inputs);
 
   auto str = IrGraphDumpUtil::PostOrderToText(po_data.post_order, p_roots);
   PT_LAZY_DEBUG(str);

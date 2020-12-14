@@ -16,7 +16,7 @@ namespace ir {
 
 size_t Utils::StdHashCombine(uint64_t a, uint64_t b) {
   return a ^
-         (b * 0x27d4eb2f165667c5 + 0x9e3779b97f4a7c15 + (a << 6) + (a >> 2));
+      (b * 0x27d4eb2f165667c5 + 0x9e3779b97f4a7c15 + (a << 6) + (a >> 2));
 }
 
 /*
@@ -26,7 +26,9 @@ Computes input ir values asscoicated with the given output node
 void Utils::ComputePostOrderNode(
     NodePtr& p_node,
     EmissionMap* p_emap,
-    NodePtrList& post_order) {
+    NodePtrList& post_order,
+    NodeSet& node_set,
+    ValueList& inputs) {
   PT_LAZY_TRACE;
   NodePtrList queue;
   queue.push_back(p_node);
@@ -41,7 +43,16 @@ void Utils::ComputePostOrderNode(
       (*p_emap)[p_node] = kEmitting;
 
       for (auto& operand : operands) {
+        std::string operand_node_kind = operand.mp_node->op().toQualString();
         auto oit = p_emap->find(operand.mp_node);
+
+        if ("hpu::input" == operand_node_kind) {
+          if (node_set.count(operand.mp_node) == 0) {
+            node_set.insert(operand.mp_node);
+            inputs.emplace_back(operand);
+          }
+        }
+
         if (oit == p_emap->end()) {
           queue.emplace_back(operand.mp_node);
         } else {
@@ -74,54 +85,14 @@ void Utils::ComputePostOrderNode(
 void Utils::ComputePostOrder(
     NodePtrList& p_nodes,
     EmissionMap* emap,
-    NodePtrList& post_order) {
+    NodePtrList& post_order,
+    ValueList& inputs) {
   PT_LAZY_TRACE;
+  NodeSet node_set;
   for (auto p_node : p_nodes) {
-    Utils::ComputePostOrderNode(p_node, emap, post_order);
+    Utils::ComputePostOrderNode(p_node, emap, post_order, node_set, inputs);
   }
 }
-
-/*
-@brief - Computes ValueList of inputs for the post ordered nodes. It would be
-consumed in JIT IR creation
-Algorithm:
-1. For every 'non input' node pointer, fetch its input value pointers
-2. If the NodePtr associated with the fetched value pointer is an input node,
-update the ValueList.
-3. In addition, mark the visited nodes to avoid duplicate updates
-*/
-void Utils::ComputePostOrderInputs(
-    ValueList& input_val,
-    NodePtrList& post_order) {
-  PT_LAZY_TRACE;
-  auto sub_str = "hpu::input";
-  for (auto p_node : post_order) {
-    auto str = p_node->ToString();
-    if (str.find(sub_str) == std::string::npos) {
-      // check if its operands are inputs
-      for (auto val : p_node->GetInputs()) {
-        if (val.mp_node->IsVisited() == false) {
-          val.mp_node->MarkVisited();
-          auto input_str = val.mp_node->ToString();
-          if (input_str.find(sub_str) != std::string::npos) {
-            // operand is an input
-            input_val.emplace_back(val);
-          } // if (input_str.find(sub_str) != std::string::npos)
-        } // if (val.mp_node->isVisited == false)
-      } // for (auto val : p_node->GetInputs())
-    } //  if (str.find(sub_str) == std::string::npos)
-  } // for (auto p_node : post_order)
-
-  // Mark all nodes as not visited as they be used in a post order
-  // graph creation later again.
-  for (auto p_node : post_order) {
-      // check if its operands are inputs
-      for (auto val : p_node->GetInputs()) {
-        val.mp_node->MarkNotVisited();
-      }
-  }
-  
-} // ComputePostOrderInputs()
 
 } // namespace ir
 } // namespace habana_lazy
