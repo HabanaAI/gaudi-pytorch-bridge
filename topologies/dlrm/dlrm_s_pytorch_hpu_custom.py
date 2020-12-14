@@ -187,7 +187,7 @@ class EmbeddingBagSumFunction(torch.autograd.Function):
         instance = ctx.instance
         kernel_mode = 1
         HabanaEmbeddingBag_cpp.backward(gv.coalesced_grads[instance], grad_output, gv.indices_bwd[instance], gv.outputRowOffsets_hpu[instance], gv.valid_count_bwd[instance], kernel_mode)
-        return gv.coalesced_grads[instance], None, None, None, None, None,None
+        return None, None, None, None, None, None,None
 
 class HabanaEmbeddingBag(torch.nn.Module):
     def __init__(self, table_len, embedding_size,instance):
@@ -350,7 +350,14 @@ class DLRM_Net_Habana(nn.Module):
 
             emb_l.append(EE)
 
-        create_gv(ln.size)
+        num_emb = 0
+        if valid_emb_table is None:
+            num_emb = ln.size
+        else:
+            num_emb = len(valid_emb_table)
+
+        create_gv(num_emb)
+
             # print('Total of {} EmbeddingBags Tables/Instances created= '.format(gv.numEmbeddingTables))
         # raise 1
         return emb_l
