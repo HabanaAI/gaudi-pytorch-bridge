@@ -231,9 +231,12 @@ void ToDtypeOperator::AllocateAndAddSynapseNode(
       type == c10::ScalarType::Float) {
     node_type = "cast_bf16_to_f32";
   } else if (
-      type == c10::ScalarType::BFloat16 &&
-      self.dtype() == c10::ScalarType::Float) {
+      self.dtype() == c10::ScalarType::Float &&
+      type == c10::ScalarType::BFloat16) {
     node_type = "cast_f32_to_bf16";
+  } else if (
+      self.dtype() == c10::ScalarType::Int && type == c10::ScalarType::Float) {
+    node_type = "cast_i32_to_f32";
   } else if (self.dtype() == type) {
     // Cases where a simple copy is being done (input_new = input) come as .to
     // call with same input & output data types. Ideally such cases should be
