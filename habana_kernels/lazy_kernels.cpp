@@ -331,12 +331,6 @@ Tensor& addcmul_hpu_lazy_(
 
     std::vector<at::Tensor> input_pt_vec{self, tensor1, tensor2};
     node->AddInputPtTensors(input_pt_vec);
-    // As its an inplace op and we want this op to execute
-    // we want to wind back status of this tensor to registered
-    // so that when post order is created, we actually execute it
-    auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
-        self.device().index());
-    context->MarkTensorRegistered(hl_self.getTensorUniqueId());
   } else {
     // implement addcmul_ as add_(pow(tensor1,2), alpha)
     auto temp = pow_tensor_scalar_hpu_lazy(tensor1, 2.0);
@@ -377,12 +371,6 @@ Tensor& addcdiv_hpu_lazy_(
 
   std::vector<at::Tensor> input_pt_vec{self, tensor1, tensor2};
   node->AddInputPtTensors(input_pt_vec);
-  // As its an inplace op and we want this op to execute
-  // we want to wind back status of this tensor to registered
-  // so that when post order is created, we actually execute it
-  auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
-      self.device().index());
-  context->MarkTensorRegistered(hl_self.getTensorUniqueId());
 
   return self;
 };
@@ -443,13 +431,6 @@ Tensor& add_tensor_hpu_lazy_(Tensor& self, const Tensor& other, Scalar alpha) {
 
       std::vector<at::Tensor> input_pt_vec{self};
       node->AddInputPtTensors(input_pt_vec);
-      // As its an inplace op and we want this op to execute
-      // we want to wind back status of this tensor to registered
-      // so that when post order is created, we actually execute it
-      auto context =
-          habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
-              self.device().index());
-      context->MarkTensorRegistered(hl_self.getTensorUniqueId());
     }
   } else {
     auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
@@ -465,12 +446,6 @@ Tensor& add_tensor_hpu_lazy_(Tensor& self, const Tensor& other, Scalar alpha) {
 
     std::vector<at::Tensor> input_pt_vec{self, other};
     node->AddInputPtTensors(input_pt_vec);
-    // As its an inplace op and we want this op to execute
-    // we want to wind back status of this tensor to registered
-    // so that when post order is created, we actually execute it
-    auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
-        self.device().index());
-    context->MarkTensorRegistered(hl_self.getTensorUniqueId());
   }
 
   return self;
@@ -519,13 +494,6 @@ Tensor& mul_tensor_hpu_lazy_(Tensor& self, const Tensor& other) {
 
       std::vector<at::Tensor> input_pt_vec{self};
       node->AddInputPtTensors(input_pt_vec);
-      // As its an inplace op and we want this op to execute
-      // we want to wind back status of this tensor to registered
-      // so that when post order is created, we actually execute it
-      auto context =
-          habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
-              self.device().index());
-      context->MarkTensorRegistered(hl_self.getTensorUniqueId());
     }
   } else {
     auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
@@ -541,12 +509,6 @@ Tensor& mul_tensor_hpu_lazy_(Tensor& self, const Tensor& other) {
 
     std::vector<at::Tensor> input_pt_vec{self, other};
     node->AddInputPtTensors(input_pt_vec);
-    // As its an inplace op and we want this op to execute
-    // we want to wind back status of this tensor to registered
-    // so that when post order is created, we actually execute it
-    auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
-        self.device().index());
-    context->MarkTensorRegistered(hl_self.getTensorUniqueId());
   }
 
   return self;
@@ -985,12 +947,6 @@ Tensor& fill_hpu_lazy_(Tensor& self, Scalar value) {
 
   std::vector<at::Tensor> input_pt_vec{self};
   node->AddInputPtTensors(input_pt_vec);
-  // As its an inplace op and we want this op to execute
-  // we want to wind back status of this tensor to registered
-  // so that when post order is created, we actually execute it
-  auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
-      self.device().index());
-  context->MarkTensorRegistered(hl_self.getTensorUniqueId());
 
   return self;
 };
@@ -2240,12 +2196,6 @@ Tensor& relu_hpu_lazy_(Tensor& input) {
 
   std::vector<at::Tensor> input_pt_vec{input};
   node->AddInputPtTensors(input_pt_vec);
-  // As its an inplace op and we want this op to execute
-  // we want to wind back status of this tensor to registered
-  // so that when post order is created, we actually execute it
-  auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
-      input.device().index());
-  context->MarkTensorRegistered(hl_input.getTensorUniqueId());
 
   return input;
 };
@@ -2305,12 +2255,6 @@ Tensor sqrt_hpu_lazy_(Tensor& input) {
 
   std::vector<at::Tensor> input_pt_vec{input};
   node->AddInputPtTensors(input_pt_vec);
-  // As its an inplace op and we want this op to execute
-  // we want to wind back status of this tensor to registered
-  // so that when post order is created, we actually execute it
-  auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
-      input.device().index());
-  context->MarkTensorRegistered(hl_input.getTensorUniqueId());
 
   return input;
 };

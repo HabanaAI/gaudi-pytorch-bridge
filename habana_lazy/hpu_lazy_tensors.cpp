@@ -55,14 +55,8 @@ std::vector<HbLazyTensor> HbContextArena::GetLiveTensors(
   auto fn = [&](HbContext* devctx) {
     for (auto& uid_wptr : devctx->tensors_data) {
       std::shared_ptr<Data> data = uid_wptr.second.lock();
-      auto exec_context =
-          habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
-              device->index());
       if (data != nullptr) {
-        auto status = exec_context->getTensorExecutionStatus(data->unique_id);
-        if (status != kEXECUTION_COMPLETE) {
-          tensors.push_back(HbLazyTensor(std::move(data)));
-        }
+        tensors.push_back(HbLazyTensor(std::move(data)));
       }
     }
   };

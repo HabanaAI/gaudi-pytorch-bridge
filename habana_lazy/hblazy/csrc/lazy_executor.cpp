@@ -14,8 +14,6 @@ namespace habana_lazy {
 HbExecutionContextArena habana_lazy_executor = HbExecutionContextArena::Get();
 
 bool allocateTensorWithStorage(int device_index) {
-  auto r = std::getenv("RANK");
-  device_index = r ? std::atoi(r) : 0;
   bool allocate = false;
   auto context = habana_lazy_executor.getDeviceExecutionContext(device_index);
   if (context != nullptr) {
@@ -28,8 +26,6 @@ bool allocateTensorWithStorage(int device_index) {
 }
 
 bool isDeviceInLoweringMode(int device_index) {
-  auto r = std::getenv("RANK");
-  device_index = r ? std::atoi(r) : 0;
   bool is_in_lowering_mode = false;
   auto context =
       habana_lazy::habana_lazy_executor.getDeviceExecutionContext(device_index);
@@ -63,8 +59,6 @@ void HbExecutionContext::UnregisterTensor(Data* data) {
 //////////////////////////////////////////////////////////////////////////////ARENA/////////////////////////////////////////////////////////////////////////////////
 HbExecutionContext* HbExecutionContextArena::getDeviceExecutionContext(
     int index) {
-  auto r = std::getenv("RANK");
-  index = r ? std::atoi(r) : 0;
   auto hbcontext = m_execution_context_list.find(index);
   if (hbcontext != std::end(m_execution_context_list)) {
     return hbcontext->second;
@@ -74,16 +68,12 @@ HbExecutionContext* HbExecutionContextArena::getDeviceExecutionContext(
 }
 
 HbExecutionContext* HbExecutionContextArena::createExecutionContext(int index) {
-  auto r = std::getenv("RANK");
-  index = r ? std::atoi(r) : 0;
   m_execution_context_list[index] = new HbExecutionContext;
   // m_execution_context_list[index]->setDevice(device);
   return m_execution_context_list[index];
 }
 
 void HbExecutionContextArena::removeExecutionContext(int index) {
-  auto r = std::getenv("RANK");
-  index = r ? std::atoi(r) : 0;
   auto context = m_execution_context_list[index];
   delete context;
   m_execution_context_list.erase(index);

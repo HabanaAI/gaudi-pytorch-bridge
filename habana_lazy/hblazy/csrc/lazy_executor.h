@@ -66,16 +66,6 @@ class HbExecutionContext {
     }
   }
 
-  void MarkTensorRegistered(int tensor_id) {
-    auto exec_status = m_tensor_execution_status.find(tensor_id);
-    if (exec_status != std::end(m_tensor_execution_status)) {
-      exec_status->second = kREGISTERED;
-    } else {
-      TORCH_CHECK(
-          false,
-          "Habana Lazy execution : trying to set execution stage of unregistered tensor");
-    }
-  }
   LazyTensorExecutionStatus getTensorExecutionStatus(int index) {
     auto exec_status = m_tensor_execution_status.find(index);
     if (exec_status != std::end(m_tensor_execution_status)) {
