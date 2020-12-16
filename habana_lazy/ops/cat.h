@@ -21,7 +21,7 @@ class Cat : public Node {
  public:
   enum class CatIndex { kDimIdx = 1 };
   Cat() = delete;
-  Cat(const TensorList tensors, int64_t dim_)
+  Cat(const at::TensorList tensors, int64_t dim_)
       : Node(c10::Symbol::fromQualString("aten::cat")) {
     ValueList hl_tensors;
     std::vector<at::Tensor> input_pt_vec;
@@ -31,9 +31,8 @@ class Cat : public Node {
       input_pt_vec.emplace_back(i);
     }
 
-    AddInputPtTensors(input_pt_vec);
-
     auto cat_input = GetIrValueForListConstruct(hl_tensors);
+    cat_input.mp_node->AddInputPtTensors(input_pt_vec);
     AddInput(cat_input);
     m_meta_data.set(dim_, static_cast<size_t>(CatIndex::kDimIdx));
   }

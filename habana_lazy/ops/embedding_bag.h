@@ -1,3 +1,17 @@
+/******************************************************************************
+ * Copyright (C) 2020 HabanaLabs, Ltd.
+ * All Rights Reserved.
+ *
+ * Unauthorized copying of this file, via any medium is strictly prohibited.
+ * Proprietary and confidential.
+ *
+ ******************************************************************************
+ */
+#pragma once
+#include "habana_helpers/logging.h"
+#include "habana_lazy/aten_lazy_bridge.h"
+#include "habana_lazy/ir.h"
+#include "torch/csrc/jit/ir/ir.h"
 namespace habana_lazy {
 namespace ir {
 class EmbeddingBagSum : public ir::Node {
@@ -5,10 +19,10 @@ class EmbeddingBagSum : public ir::Node {
   enum class EmbeddingBagSumParams { KERNEL_MODE_INDEX = 4 };
   EmbeddingBagSum() = delete;
   EmbeddingBagSum(
-      const Tensor& input,
-      const Tensor& indices,
-      const Tensor& offsets,
-      const Tensor& valid_count,
+      const at::Tensor& input,
+      const at::Tensor& indices,
+      const at::Tensor& offsets,
+      const at::Tensor& valid_count,
       int64_t kernel_mode)
       : Node(c10::Symbol::fromQualString("hpu::embedding_bag_sum")) {
     auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHABANA);
@@ -44,11 +58,11 @@ class EmbeddingBagSumBwd : public ir::Node {
   enum class EmbeddingBagSumBwdParams { KERNEL_MODE_INDEX = 5 };
   EmbeddingBagSumBwd() = delete;
   EmbeddingBagSumBwd(
-      Tensor& out,
-      const Tensor& input,
-      const Tensor& indices,
-      const Tensor& offsets,
-      const Tensor& valid_count,
+      at::Tensor& out,
+      const at::Tensor& input,
+      const at::Tensor& indices,
+      const at::Tensor& offsets,
+      const at::Tensor& valid_count,
       int64_t kernel_mode)
       : Node(c10::Symbol::fromQualString("hpu::embedding_bag_sum_bwd_out")) {
     auto hl_out = GetOrCreateHbLazyTensor(out, c10::kHABANA);
