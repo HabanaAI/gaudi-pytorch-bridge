@@ -541,7 +541,7 @@ if __name__ == "__main__":
     # gpu
     parser.add_argument("--use-gpu", action="store_true", default=False)
     # debugging and profiling
-    parser.add_argument("--print-freq", type=int, default=1)
+    parser.add_argument("--print-freq", type=int, default=20)
     parser.add_argument("--test-freq", type=int, default=-1)
     parser.add_argument("--test-mini-batch-size", type=int, default=-1)
     parser.add_argument("--test-num-workers", type=int, default=-1)
@@ -1044,6 +1044,10 @@ if __name__ == "__main__":
             if args.mlperf_logging:
                 previous_iteration_time = None
 
+            E_habana_list = []
+            Z_habana_list = []
+            T_list = []
+
             for j, (X, lS_o, lS_i, T) in enumerate(train_ld):
                 start_time = time.time()
                 trainMetaData.tracept.start(start_time, 'train_iteration_'+str(trainMetaData.current_train_step))
@@ -1132,21 +1136,16 @@ if __name__ == "__main__":
                 # print("loss ", E_habana.float().detach().cpu().item())
 
                 # # compute loss and accuracy
-                L_habana = E_habana.float().detach().cpu().item()
-                S_habana = Z_habana.detach().cpu().float().numpy()  # numpy array
-                T = T.detach().cpu().numpy()  # numpy array
-                mbs = T.shape[0]  # = args.mini_batch_size except maybe for last
-                A = np.sum((np.round(S_habana, 0) == T).astype(np.uint8))
+                E_habana_list.append(E_habana)
+                Z_habana_list.append(Z_habana)
+                T_list.append(T)
 
                 if args.mlperf_logging:
                     total_time += iteration_time
                 else:
                     t2 = time_wrap(use_gpu)
                     total_time += t2 - t1
-                total_accu += A
-                total_loss += L_habana * mbs
                 total_iter += 1
-                total_samp += mbs
 
                 should_print = ((j + 1) % args.print_freq == 0) or (j + 1 == nbatches)
                 should_test = (
@@ -1157,6 +1156,27 @@ if __name__ == "__main__":
 
                 # print time, loss and accuracy
                 if should_print or should_test:
+                    i = 0
+                    while i < len(E_habana_list):
+                        t3 = time_wrap(use_gpu)
+                        L_habana = E_habana_list[i].float().detach().cpu().item()
+                        S_habana = Z_habana.detach().cpu().float().numpy()  # numpy array
+                        T = T_list[i].detach().cpu().numpy()  # numpy array
+                        t4 = time_wrap(use_gpu)
+                        total_time += t4 - t3
+                        mbs = T.shape[0]  # = args.mini_batch_size except maybe for last
+                        A = np.sum((np.round(S_habana, 0) == T).astype(np.uint8))
+
+                        total_accu += A
+                        total_loss += L_habana * mbs
+                        total_samp += mbs
+
+                        i = i + 1
+
+                    E_habana_list = []
+                    Z_habana_list = []
+                    T_list = []
+
                     gT = 1000.0 * total_time / total_iter if args.print_time else -1
                     total_time = 0
 
