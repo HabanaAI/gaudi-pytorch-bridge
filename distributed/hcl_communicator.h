@@ -25,6 +25,8 @@
 #include "synapse_helpers/event.h"
 #include "synapse_helpers/synapse_error.h"
 
+enum HclTag { HCL_TAG_SYNC = 11101 };
+
 namespace synapse_helpers {
 class stream;
 
@@ -143,6 +145,8 @@ class hcl_communicator {
       HCL_Rank remoteRank,
       uint32_t tag,
       const event_done_callback& done_callback = [] {});
+
+  synapse_error_o barrier();
 
   void synchronize_output(synapse_helpers::device_ptr output_address);
 

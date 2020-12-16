@@ -88,16 +88,6 @@ def compute_position_ids(input_ids):
     position_ids = position_ids_.contiguous()
     return position_ids
 
-def barrier_local(use_habana):
-    if use_habana:
-        group_id = torch.distributed.group.WORLD
-        broadcast_data = [1., 2., 3.,4.]
-        t_bdata = torch.tensor(broadcast_data)
-        t_in = t_bdata.to('habana')
-        torch.distributed.broadcast(t_in,0,group_id)
-    else:
-        torch.distributed.barrier()
-
 def set_seed(args):
     random.seed(args.seed)
     np.random.seed(args.seed)
@@ -555,7 +545,7 @@ def evaluate(args, model, tokenizer, trainMetaData,  prefix=""):
 def load_and_cache_examples(args, tokenizer, evaluate=False, output_examples=False):
     if args.local_rank not in [-1, 0] and not evaluate:
         # Make sure only the first process in distributed training process the dataset, and the others will use the cache
-        barrier_local(args.use_habana)
+        torch.distributed.barrier()
 
     # Load data features from cache or dataset file
     input_dir = args.data_dir if args.data_dir else "."
@@ -615,7 +605,7 @@ def load_and_cache_examples(args, tokenizer, evaluate=False, output_examples=Fal
 
     if args.local_rank == 0 and not evaluate:
         # Make sure only the first process in distributed training process the dataset, and the others will use the cache
-        barrier_local(args.use_habana)
+        torch.distributed.barrier()
 
     if output_examples:
         return dataset, examples, features
@@ -906,7 +896,7 @@ def main():
     # Load pretrained model and tokenizer
     if args.local_rank not in [-1, 0]:
         # Make sure only the first process in distributed training will download model & vocab
-        barrier_local(args.use_habana)
+        torch.distributed.barrier()
 
     args.model_type = args.model_type.lower()
 
@@ -932,7 +922,7 @@ def main():
 
     if args.local_rank == 0:
         # Make sure only the first process in distributed training will download model & vocab
-        barrier_local(args.use_habana)
+        torch.distributed.barrier()
 
     trainMetaData = TrainMetaData(model, args.device)
     model.to(args.device)

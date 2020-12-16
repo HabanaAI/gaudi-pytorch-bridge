@@ -77,17 +77,6 @@ except:
 
 logger = logging.getLogger(__name__)
 
-def barrier_local(use_habana=True):
-    if use_habana:
-        group_id = torch.distributed.group.WORLD
-        broadcast_data = [1., 2., 3.,4.]
-        t_bdata = torch.tensor(broadcast_data)
-        t_in = t_bdata.to('habana')
-        torch.distributed.broadcast(t_in,0,group_id)
-    else:
-        torch.distributed.barrier()
-
-
 @contextmanager
 def torch_distributed_zero_first(local_rank: int):
     """
@@ -97,10 +86,10 @@ def torch_distributed_zero_first(local_rank: int):
         local_rank (:obj:`int`): The rank of the local process.
     """
     if local_rank not in [-1, 0]:
-        barrier_local(True)
+        torch.distributed.barrier()
     yield
     if local_rank == 0:
-        barrier_local(True)
+        torch.distributed.barrier()
 
 
 class SequentialDistributedSampler(Sampler):

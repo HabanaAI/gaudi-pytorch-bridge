@@ -78,11 +78,11 @@ hcl_communicator::hcl_communicator(
   HCLStatus hcl_status{HCL_Init(device_id, config_path.c_str())};
   HABANA_ASSERT(hcl_status == eHCLSuccess);
 
-  hcl_status = HCL_Comm_Size(HCL_COMM_WORLD, &size_);
+  hcl_status = HCL_Comm_Size(hcl_comm, &size_);
   HABANA_ASSERT(hcl_status == eHCLSuccess);
   HABANA_ASSERT(size_ != 0);
 
-  hcl_status = HCL_Comm_Rank(HCL_COMM_WORLD, &my_hcl_rank_);
+  hcl_status = HCL_Comm_Rank(hcl_comm, &my_hcl_rank_);
   HABANA_ASSERT(hcl_status == eHCLSuccess);
   HABANA_ASSERT(my_hcl_rank_ != HCL_RANK_UNASSIGNED);
 
@@ -461,6 +461,26 @@ synapse_error_o hcl_communicator::receive(
   PT_DISTRIBUTED_END;
   return {};
 }
+
+synapse_error_o hcl_communicator::barrier() {
+  PT_DISTRIBUTED_BEGIN;
+
+  if (using_streams_) {
+    stream* collective_stream = get_collective_stream();
+    synStreamHandle stream_handle =
+        get_synapse_stream_handle(collective_stream);
+    HCL_Request phRequest;
+
+    HCL_NetworkFlush(&phRequest, stream_handle);
+    HCL_Wait(phRequest);
+  }
+
+  HCL_Sync(hcl_comm(), HCL_TAG_SYNC);
+
+  PT_DISTRIBUTED_END;
+  return {};
+}
+
 // Being called for every process participating in HCL group, the function
 // determines the HCL Rank of the lowest 'order' specified. After calling this
 // function it is possible to retrieve the HCL Root Rank using root_hcl_rank()
