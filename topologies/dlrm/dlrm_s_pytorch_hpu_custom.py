@@ -120,6 +120,7 @@ class gv():
     indices_fwd = []
     indices_bwd = []
     numEmbeddingTables = 0
+    lr = torch.tensor([0.0])
 
 def create_gv(num_emb):
     gv.countUniqueIndices = [None]*num_emb
@@ -212,14 +213,15 @@ def apply_preproc(sparse_offset_group_batch,sparse_index_group_batch,i):
     sparse_offset_group_batch = sparse_offset_group_batch.type(torch.IntTensor) #HACK
     sparse_index_group_batch = sparse_index_group_batch.type(torch.IntTensor)
 
-    gv.countUniqueIndices[i],uniqueIndexes,gv.outputRows[i],gv.outputRowOffsets[i] = preproc_cpp.forward(sparse_index_group_batch,sparse_offset_group_batch ,4)
+    countUniqueIndices,uniqueIndexes,gv.outputRows[i],gv.outputRowOffsets[i] = preproc_cpp.forward(sparse_index_group_batch,sparse_offset_group_batch ,4)
 
+    gv.countUniqueIndices[i] = countUniqueIndices.to(device, non_blocking=True)
     valid_count_fwd_cpu = torch.tensor([sparse_offset_group_batch.numel(
     ), sparse_index_group_batch.numel()], dtype=torch.int32)
+    numOffsets = countUniqueIndices.item()+1
     valid_count_bwd_cpu = torch.tensor(
-        [gv.countUniqueIndices[i].item()+1, gv.outputRows[i].numel()], dtype=torch.int32)
+        [numOffsets, gv.outputRows[i].numel()], dtype=torch.int32)
 
-    numOffsets = gv.countUniqueIndices[i].item()+1
     gv.outputRowOffsets[i] = torch.narrow(gv.outputRowOffsets[i], 0, 0, numOffsets)
 
     #Creation of static max size tensors to enable graph caching
@@ -230,18 +232,19 @@ def apply_preproc(sparse_offset_group_batch,sparse_index_group_batch,i):
         max_i_size_bwd = args.num_indices_per_lookup*(sparse_offset_group_batch.numel()-1)
         gv.indices_bwd[i] = torch.empty([max_i_size_bwd],dtype=torch.int32, requires_grad = False).to(device)
 
-        max_i_size_bwd = args.num_indices_per_lookup*(sparse_offset_group_batch.numel()-1)
-        gv.uniqueIndexes[i] = torch.empty([max_i_size_bwd],dtype=torch.int32, requires_grad = False).to(device)
-
-        #HACK
         gv.outputRowOffsets_hpu[i] = torch.empty(ln_emb[i]+1,dtype = torch.int32, requires_grad = False).to(device)
 
         #Max possible grad in matrix
-        # HACK gv.coalesced_grads[i] = torch.empty(ln_emb[i], m_spa, dtype=torch.float32, device = device)
-        gv.coalesced_grads[i] = torch.empty(ln_emb[i], m_spa, dtype=torch.float32, requires_grad = False).to(device = device, non_blocking=True)
+        gv.coalesced_grads[i] = torch.empty(ln_emb[i], m_spa, dtype=torch.float32, requires_grad = False).to(device)
 
         gv.valid_count_fwd[i] = torch.empty([2], dtype=torch.int32, requires_grad = False).to(device)
         gv.valid_count_bwd[i] = torch.empty([2], dtype=torch.int32, requires_grad = False).to(device)
+        gv.uniqueIndexes[i] = torch.empty([max_i_size_bwd], dtype=torch.int32, requires_grad = False).to(device)
+
+        if args.distributed:
+            gv.lr = torch.tensor([args.learning_rate/args.world_size]).to(device)
+        else:
+            gv.lr = torch.tensor([args.learning_rate]).to(device)
 
     gv.indices_fwd[i].copy_(sparse_index_group_batch, non_blocking=True)
     gv.valid_count_fwd[i].copy_(valid_count_fwd_cpu, non_blocking=True)
@@ -253,14 +256,9 @@ def apply_preproc(sparse_offset_group_batch,sparse_index_group_batch,i):
     gv.outputRowOffsets_hpu[i].copy_(outputRowOffsets_cpu_max, non_blocking=True)
     gv.uniqueIndexes[i].copy_(uniqueIndexes)
 
+
 def apply_optimizer_update():
     for i in range(gv.numEmbeddingTables):
-        countUniqueIndices = gv.countUniqueIndices[i].to(device, non_blocking = True)
-        if args.distributed:
-            lr = torch.tensor([args.learning_rate/args.world_size]).to(device)
-        else:
-            lr = torch.tensor([args.learning_rate]).to(device)
-
         HabanaDlrmSparseOpt = None
         if args.optimizer == "sgd":
             HabanaDlrmSparseOpt = habanaOptimizerSparseSgd_cpp.forward
@@ -268,7 +266,7 @@ def apply_optimizer_update():
             HabanaDlrmSparseOpt = habanaOptimizerSparseAdagrad_cpp.forward
 
         HabanaDlrmSparseOpt(
-            gv.coalesced_grads[i], dlrm_habana.emb_l[i].weight.data, dlrm_habana.emb_l[i].moments.data, gv.uniqueIndexes[i],lr,countUniqueIndices)
+            gv.coalesced_grads[i], dlrm_habana.emb_l[i].weight.data, dlrm_habana.emb_l[i].moments.data, gv.uniqueIndexes[i],gv.lr,gv.countUniqueIndices[i])
 
 class DLRM_Net_Habana(nn.Module):
     def create_mlp(self, ln, sigmoid_layer):
@@ -357,7 +355,6 @@ class DLRM_Net_Habana(nn.Module):
             num_emb = len(valid_emb_table)
 
         create_gv(num_emb)
-
             # print('Total of {} EmbeddingBags Tables/Instances created= '.format(gv.numEmbeddingTables))
         # raise 1
         return emb_l

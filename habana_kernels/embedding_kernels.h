@@ -17,7 +17,7 @@ class EmbeddingBagSumOperator : public HabanaOperator {
  public:
   EmbeddingBagSumOperator(int device_id, c10::ScalarType scalarType)
       : HabanaOperator(
-            "embedding_bag_sum_small_lengths_2d_fwd_" +
+            "embedding_bag_sum_2d_fwd_" +
             habana_helpers::name_suffix_from_type(scalarType)) {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign(

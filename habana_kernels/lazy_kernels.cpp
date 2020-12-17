@@ -2003,7 +2003,7 @@ Tensor clone_hpu_lazy(
   return result;
 };
 Tensor& zero_hpu_lazy(Tensor& self) {
-  return zero_hpu(self);
+  return fill_hpu_lazy_(self, 0);
 };
 Tensor cat_hpu_lazy(const TensorList tensors, int64_t dim_) {
   PT_LAZY_TRACE;
