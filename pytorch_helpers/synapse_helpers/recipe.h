@@ -24,7 +24,6 @@ class recipe {
   recipe& operator=(const recipe&) = delete;
   recipe& operator=(recipe&&) = delete;
   bool create(synapse_helpers::graph& graph);
-  void create_launch_info();
   void set_inputs_outputs_names(
       std::vector<std::string> input_names,
       std::vector<std::string> output_names);
@@ -36,7 +35,6 @@ class recipe {
 
  private:
   std::shared_ptr<synapse_helpers::graph::recipe_handle> recipe_handle_;
-  absl::optional<synapse_helpers::graph::launch_info> launch_info_;
   std::vector<std::string> input_names_;
   std::vector<std::string> output_names_;
 };

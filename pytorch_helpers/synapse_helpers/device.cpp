@@ -13,7 +13,9 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <iomanip>
 #include <ostream>
+#include <sstream>
 #include <string>
 #include <thread>
 #include <vector>
@@ -29,6 +31,29 @@ namespace synapse_helpers {
  * END: These will be removed when all lazy kernels start using shape
  * functions.
  */
+
+std::string get_mem_str(uint64_t nbytes) {
+  std::ostringstream oss;
+  oss << std::setfill('0') << std::setw(12) << nbytes << " bytes <";
+  uint64_t gb{0x40000000};
+  if (nbytes > gb) {
+    oss << std::setfill('0') << std::setw(4) << nbytes / gb << " GB ";
+    nbytes %= gb;
+  }
+  uint64_t mb{0x100000};
+  if (nbytes > mb) {
+    oss << std::setfill('0') << std::setw(4) << nbytes / mb << " MB ";
+    nbytes %= mb;
+  }
+  uint64_t kb{0x400};
+  if (nbytes > kb) {
+    oss << std::setfill('0') << std::setw(4) << nbytes / kb << " KB ";
+    nbytes %= kb;
+  }
+  oss << std::setfill('0') << std::setw(4) << nbytes << " B>";
+
+  return oss.str();
+}
 
 // Since computation on stream is asynchronous, in order to share workspace
 // buffer, it has to be fixed in size otherwise, there need to be implemented
@@ -69,6 +94,10 @@ uint32_t active_recipe_counter::wait_for_next_decrease_call() {
   return counter_state_;
 }
 
+uint32_t active_recipe_counter::get_count() {
+  return counter_state_;
+}
+
 device::device(
     std::shared_ptr<session> synapse_session,
     synDeviceId device_id,
@@ -89,13 +118,6 @@ device::device(
   HABANA_ASSERT(create_allocator != nullptr);
   allocator_ = create_allocator(id_);
 
-  uint64_t total_memory, free_memory;
-  auto status = synDeviceGetMemoryInfo(id_, &free_memory, &total_memory);
-  if (synStatus::synSuccess != status) {
-    PT_SYNHELPER_FATAL(
-        "Cannot obtain device memory size for allocation of global ws buffer");
-  }
-
   is_hcl_same_addr_enabled_ =
       GET_ENV_FLAG(PT_ENABLE_HCL_SAME_ADDRESS_RESOLUTION) &&
       GET_ENV_FLAG(PT_ENABLE_HCL_STREAM);
@@ -113,14 +135,32 @@ device::device(
         prealloc_addr, prealloc_size, *this);
   }
 
-  // in case of simulator, there might not be 4GB of memory available, so as a
-  // fallback solution workspace_buffer_ will be allocated to 70% of free
-  // memory on the given device
-  size_t global_workspace_size = get_workspace_size();
-  workspace_size_ = free_memory > global_workspace_size ? global_workspace_size
-                                                        : 0.7 * free_memory;
-  workspace_buffer_ =
-      reinterpret_cast<device_ptr>(allocator_->alloc(workspace_size_));
+  enable_dynamic_workspace_ = GET_ENV_FLAG(PT_ENABLE_DYNAMIC_WB);
+
+  if (!enable_dynamic_workspace_) {
+    uint64_t total_memory, free_memory;
+    auto status = synDeviceGetMemoryInfo(id_, &free_memory, &total_memory);
+    if (synStatus::synSuccess != status) {
+      PT_SYNHELPER_FATAL(
+          "Cannot obtain device memory size for allocation of global ws buffer");
+    }
+
+    // in case of simulator, there might not be 4GB of memory available, so as a
+    // fallback solution workspace_buffer_ will be allocated to 70% of free
+    // memory on the given device
+    size_t global_workspace_size = get_workspace_size();
+    workspace_size_ = free_memory > global_workspace_size
+        ? global_workspace_size
+        : 0.7 * free_memory;
+    workspace_buffer_ =
+        reinterpret_cast<device_ptr>(allocator_->alloc(workspace_size_));
+
+    PT_SYNHELPER_DEBUG(
+        "Allocating static workspace at ",
+        (void*)workspace_buffer_,
+        " size ",
+        synapse_helpers::get_mem_str(workspace_size_));
+  }
 
   is_caching_enabled_ = GET_ENV_FLAG(PT_ENABLE_HABANA_CACHING);
   is_stream_async_enabled_ = GET_ENV_FLAG(PT_ENABLE_HABANA_STREAMASYNC);
@@ -530,8 +570,52 @@ synapse_error device::copy_data_within_device(
   return {};
 }
 
-device_ptr device::get_workspace_buffer(std::size_t size) const {
-  if (size > workspace_size_) {
+device_ptr device::get_workspace_buffer(std::size_t size) {
+  if (enable_dynamic_workspace_) {
+    size_t chunk_size = 128 * 1024 * 1024;
+    size_t num_chunks = (size / chunk_size) + 1;
+    if (workspace_size_ == 0) {
+      workspace_size_ = num_chunks * chunk_size;
+      workspace_buffer_ =
+          reinterpret_cast<device_ptr>(allocator_->alloc(workspace_size_));
+      if (0 == workspace_buffer_) {
+        PT_SYNHELPER_FATAL("Allocation of workspace(", size, ") failed!");
+      }
+
+      PT_SYNHELPER_DEBUG(
+          "Allocating dynamic workspace at ",
+          (void*)workspace_buffer_,
+          " size ",
+          synapse_helpers::get_mem_str(workspace_size_));
+    }
+
+    if (size > workspace_size_) {
+      PT_SYNHELPER_DEBUG(
+          "Will free dynamic workspace at ",
+          (void*)workspace_buffer_,
+          " size ",
+          synapse_helpers::get_mem_str(workspace_size_),
+          " for allocating ",
+          synapse_helpers::get_mem_str(size));
+
+      allocator_->free(reinterpret_cast<void*>(workspace_buffer_));
+
+      // Increase the size of the buffer to the next multiple of 100MB of size
+      workspace_size_ = num_chunks * chunk_size;
+      workspace_buffer_ =
+          reinterpret_cast<device_ptr>(allocator_->alloc(workspace_size_));
+
+      if (0 == workspace_buffer_) {
+        PT_SYNHELPER_FATAL("Reallocation of workspace(", size, ") failed!");
+      }
+
+      PT_SYNHELPER_DEBUG(
+          "Reallocating dynamic workspace at ",
+          (void*)workspace_buffer_,
+          " size ",
+          synapse_helpers::get_mem_str(workspace_size_));
+    }
+  } else if (size > workspace_size_) {
     PT_SYNHELPER_FATAL(
         "Requested buffer size for workspace(",
         size,

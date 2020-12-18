@@ -20,6 +20,7 @@
 #include <iosfwd>
 #include <memory>
 #include <mutex>
+#include <string>
 #include <vector>
 
 #include "absl/types/variant.h"
@@ -39,6 +40,7 @@ class variant;
 } // namespace absl
 
 namespace synapse_helpers {
+std::string get_mem_str(size_t nbytes);
 
 class session;
 
@@ -65,6 +67,7 @@ class active_recipe_counter {
   void decrease_and_notify();
   bool is_zero();
   uint32_t wait_for_next_decrease_call();
+  uint32_t get_count();
 
  private:
   uint32_t counter_state_{0};
@@ -183,7 +186,7 @@ class device {
    *  \param size checks if given size is bigger than global buffer, if so, logs
    * FATAL \return pointer to the global buffer
    */
-  device_ptr get_workspace_buffer(std::size_t size) const;
+  device_ptr get_workspace_buffer(std::size_t size);
 
   /** \brief Add WaitEvents on a given stream for a list of inputs
    *  \param input_tensors identifiers of Events - tensor pointers in device
@@ -265,6 +268,10 @@ class device {
     return is_hcl_same_addr_enabled_;
   }
 
+  bool EnableDynamicWorkspace() {
+    return enable_dynamic_workspace_;
+  }
+
  private:
   friend class stream;
   static synapse_error_v<std::shared_ptr<device>> create(
@@ -291,9 +298,9 @@ class device {
   // note that there are inter-dependencies between devices' members that
   // require specific order of destruction.
   std::unique_ptr<device_allocator> allocator_;
-  size_t workspace_size_;
-  device_ptr workspace_buffer_; // global workspace buffer per device to be used
-                                // to launch recipes
+  size_t workspace_size_{0};
+  device_ptr workspace_buffer_{0}; // global workspace buffer per device to be
+                                   // used to launch recipes
   event_handle_cache event_handle_cache_;
   memory_mapper memory_mapper_;
   stream stream_comp_;
@@ -313,6 +320,8 @@ class device {
   bool host_memory_cache_enabled_;
   unsigned max_dma_copy_retry_count_;
   std::chrono::milliseconds dma_copy_retry_delay_;
+
+  bool enable_dynamic_workspace_{false};
 
   // Empty be default, framework can register its function to be called before
   // device is released
