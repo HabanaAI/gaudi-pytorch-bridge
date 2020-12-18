@@ -60,6 +60,11 @@ void HlExec::GetOrCreate(
     const ir::ValueList inputs,
     const ir::ValueList outputs,
     std::string str) {
+  if (std::getenv("PT_HPU_LAZY_CACHE_DISABLE")) {
+    mp_g_ = std::make_shared<Graph>();
+    Create(nodes, inputs, outputs);
+    return;
+  }
   auto las = habana_lazy::LazyArgumentSpec(true, nodes, stack, str);
   mp_g_ = habana_lazy::LazyGraphCache::GetLazyCache().GetOptimizedJITGraph(
       las.hashCode());
