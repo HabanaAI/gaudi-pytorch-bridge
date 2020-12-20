@@ -17,8 +17,7 @@
 namespace at {
 namespace habana {
 
-synDeviceId HPUDeviceAllocator::allocator_active_device_id =
-    std::getenv("RANK") ? strtol(std::getenv("RANK"), NULL, 0) : 0;
+synDeviceId HPUDeviceAllocator::allocator_active_device_id = -1;
 pgmDropCachedRecipe HPUDeviceAllocator::drop_cached_recipe_cb = nullptr;
 
 static HPUDeviceAllocator hpu_device_allocator;
@@ -32,6 +31,8 @@ uint64_t HPUDeviceAllocator::poolSize = DEFAULT_POOL_SIZE;
 ///
 
 at::Allocator* getHABANADeviceAllocator() {
+  at::detail::HABANAGuardImpl h;
+  h.getDevice();
   return &hpu_device_allocator;
 }
 
