@@ -154,9 +154,13 @@ class HbLazyTensor {
 
   static void SyncTensorsGraph(std::vector<HbLazyTensor>* tensors);
 
-  static void SyncLiveTensorsGraph(const c10::Device* device);
+  static void SyncLiveTensorsGraph(
+      const c10::Device* device,
+      bool use_cached_graph);
 
   static void StepMarker(const std::string& device_str);
+  static void RunSavedGraph(const std::string& device_str);
+  static void ExecuteCachedGraph();
 
   void ShallowCopyTo(HbLazyTensor* dest) const;
 

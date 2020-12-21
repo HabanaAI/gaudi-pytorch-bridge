@@ -513,7 +513,7 @@ def make_criteo_data_and_loaders(args):
 
         if deviceIsHabana(args):
             from dlrm_habana_kernels import CustomPreProcessor
-            collate_fn = CustomPreProcessor(train_data.counts, args).collate_wrapper_criteo
+            collate_fn = CustomPreProcessor(train_data.counts, train_data.m_den, args).collate_wrapper_criteo
         else:
             collate_fn = collate_wrapper_criteo
 
@@ -675,7 +675,7 @@ def make_random_data_and_loader(args, ln_emb, m_den):
 
     if deviceIsHabana(args):
         from dlrm_habana_kernels import CustomPreProcessor
-        collate_fn = CustomPreProcessor(ln_emb, args).collate_wrapper_random
+        collate_fn = CustomPreProcessor(ln_emb, m_den, args).collate_wrapper_random
     else:
         collate_fn = collate_wrapper_random
 

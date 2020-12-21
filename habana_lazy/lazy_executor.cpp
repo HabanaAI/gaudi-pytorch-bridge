@@ -53,6 +53,27 @@ void HbExecutionContext::UnregisterTensor(Data* data) {
   this->getTensorExecutionStatus().erase(data->unique_id);
 }
 
+void HbExecutionContext::saveInputsAndOutputs(
+    ir::ValueList inputVals,
+    ir::ValueList outputVals,
+    std::vector<habana_lazy::HbLazyTensor>& tensors,
+    const std::vector<int>& indices) {
+  m_input_vals.clear();
+  for (auto& val : inputVals) {
+    m_input_vals.emplace_back(val);
+  }
+
+  m_output_vals.clear();
+  for (auto& val : outputVals) {
+    m_output_vals.emplace_back(val);
+  }
+
+  m_hblazy_tensors.clear();
+  for (auto& i : indices) {
+    m_hblazy_tensors.emplace_back((tensors)[i]);
+  }
+}
+
 //////////////////////////////////////////////////////////////////////////////ARENA/////////////////////////////////////////////////////////////////////////////////
 HbExecutionContext* HbExecutionContextArena::getDeviceExecutionContext(
     int index) {
@@ -79,4 +100,5 @@ void HbExecutionContextArena::removeExecutionContext(int index) {
 HbExecutionContextArena HbExecutionContextArena::Get() {
   return HbExecutionContextArena();
 }
+
 } // namespace habana_lazy

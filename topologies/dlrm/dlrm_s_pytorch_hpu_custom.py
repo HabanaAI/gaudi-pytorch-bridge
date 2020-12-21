@@ -34,7 +34,9 @@ import inspect
 # pytorch
 import torch
 import torch.nn as nn
-import hblazy.core.hb_model as hm
+
+sys.path.insert(0, os.path.join(os.environ['BUILD_ROOT_LATEST']))
+import hb_torch
 
 
 from torch.nn.parallel import DistributedDataParallel as DDP
@@ -571,6 +573,8 @@ if __name__ == "__main__":
                         help='log live memory allocations on device at the given point')
     parser.add_argument('--run-lazy-mode', action='store_true', default=False,
                         help='run model in lazy execution mode')
+    parser.add_argument('--perf-mode', action='store_true', default=False,
+                        help='perf mode')
 
     args = parser.parse_args()
 
@@ -580,6 +584,9 @@ if __name__ == "__main__":
                     fp32_file_path=args.hmp_fp32, isVerbose=args.hmp_verbose)
 
     use_hpu = not args.no_habana
+
+    if args.run_lazy_mode:
+       os.environ["PT_HPU_LAZY_MODE"] = "1"
 
     print(args)
     if args.mlperf_logging:
@@ -897,7 +904,7 @@ if __name__ == "__main__":
 
     def loss_fn_wrap(Z, T, use_gpu,use_hpu, device):
         if args.loss_function == "mse" or args.loss_function == "bce":
-            if use_gpu or use_hpu:
+            if use_gpu:
                 return loss_fn(Z, T.to(device))
             else:
                 return loss_fn(Z, T)
@@ -1011,6 +1018,19 @@ if __name__ == "__main__":
     #    if param.requires_grad:
     #        param.register_hook(lambda grad: print(grad.to("cpu")))
 
+    global count_iter
+    count_iter = -1
+    def is_perf_mode():
+        # perf mode is enabled after first iteration
+        global count_iter
+        if (count_iter < 1):
+            count_iter = count_iter + 1
+
+        is_perf_enable = False
+        if ((args.run_lazy_mode) and (args.perf_mode) and (not args.distributed) and (count_iter == 1)):
+            is_perf_enable = True
+        return is_perf_enable
+
     with torch.autograd.profiler.profile(args.enable_profiling, use_gpu) as prof:
         while k < args.nepochs:
             trainMetaData.set_current_epoch_no(k)
@@ -1067,50 +1087,53 @@ if __name__ == "__main__":
                     print('Breaking out of the epoch as  batch was partial. Number of samples:',X.size()[0])
                     break
 
-                Z_habana = dlrm_wrap(X, lS_o, lS_i, use_gpu, use_hpu, device)
+                if (is_perf_mode()):
+                    hb_torch.run_saved_model()
+                else:
+                    Z_habana = dlrm_wrap(X, lS_o, lS_i, use_gpu, use_hpu, device)
 
-                E_habana = loss_fn_wrap(Z_habana, T, use_gpu,use_hpu, device)
-                '''
-                # debug prints
-                print("output and loss")
-                print(Z.detach().cpu().numpy())
-                print(E.detach().cpu().numpy())
-                '''
-                # use all-reduce to compute loss from all cards
-                # else manually get the mean from individual losses
-                if args.distributed and args.print_dist_loss:
-                    distloss_hpu = E_habana.detach()
-                    torch.distributed.all_reduce(distloss_hpu)
-                    distloss_cpu = distloss_hpu.to("cpu")
-                    e_result = distloss_cpu/args.world_size
-                    print(" Distributed Loss :: {:.6f}".format(e_result))
+                    E_habana = loss_fn_wrap(Z_habana, T, use_gpu,use_hpu, device)
+                    '''
+                    # debug prints
+                    print("output and loss")
+                    print(Z.detach().cpu().numpy())
+                    print(E.detach().cpu().numpy())
+                    '''
+                    # use all-reduce to compute loss from all cards
+                    # else manually get the mean from individual losses
+                    if args.distributed and args.print_dist_loss:
+                        distloss_hpu = E_habana.detach()
+                        torch.distributed.all_reduce(distloss_hpu)
+                        distloss_cpu = distloss_hpu.to("cpu")
+                        e_result = distloss_cpu/args.world_size
+                        print(" Distributed Loss :: {:.6f}".format(e_result))
 
-                if not args.inference_only:
-                    # scaled error gradient propagation
-                    # (where we do not accumulate gradients across mini-batches)
-                    optimizer.zero_grad()
-                    # backward pass
-                    E_habana.backward(retain_graph=False)
-                    # debug prints (check gradient norm)
-                    # for l in mlp.layers:
-                    #     if hasattr(l, 'weight'):
-                    #          print(l.weight.grad.norm().item())
+                    if not args.inference_only:
+                        # scaled error gradient propagation
+                        # (where we do not accumulate gradients across mini-batches)
+                        optimizer.zero_grad()
+                        # backward pass
+                        E_habana.backward(retain_graph=False)
+                        # debug prints (check gradient norm)
+                        # for l in mlp.layers:
+                        #     if hasattr(l, 'weight'):
+                        #          print(l.weight.grad.norm().item())
 
-                    # optimizer
+                        # optimizer
 
-                    optimizer.step()
-                    emb_optimizer.step()
+                        optimizer.step()
+                        emb_optimizer.step()
 
-                    tp_probe_tensors_iteration_end(dlrm_habana, device, Z_habana, E_habana,trainMetaData.ParamsDump, False)
+                        tp_probe_tensors_iteration_end(dlrm_habana, device, Z_habana, E_habana,trainMetaData.ParamsDump, False)
 
-                if args.run_lazy_mode:
-                    hm.mark_step()
+                    if args.run_lazy_mode:
+                        hb_torch.mark_step()
 
                 # print("loss ", E_habana.float().detach().cpu().item())
 
                 # # compute loss and accuracy
                 L_habana = E_habana.float().detach().cpu().item()
-                S_habana = Z_habana.float().detach().cpu().numpy()  # numpy array
+                S_habana = Z_habana.detach().cpu().float().numpy()  # numpy array
                 T = T.detach().cpu().numpy()  # numpy array
                 mbs = T.shape[0]  # = args.mini_batch_size except maybe for last
                 A = np.sum((np.round(S_habana, 0) == T).astype(np.uint8))

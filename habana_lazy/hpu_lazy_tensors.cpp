@@ -17,9 +17,12 @@
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/debug_utils.h"
 #include "habana_lazy/hlexec.h"
+#include "habana_lazy/ir.h"
 #include "hlexec.h"
 
 using namespace habana_lazy;
+
+using ValueList = std::vector<ir::Value>;
 
 HbContextArena* HbContextArena::Get() {
   static HbContextArena* arena = new HbContextArena();
@@ -429,10 +432,16 @@ void HbLazyTensor::SyncTensorsGraph(std::vector<HbLazyTensor>* tensors) {
   SyncTensorsGraphInternal(tensors);
 }
 
-void HbLazyTensor::SyncLiveTensorsGraph(const c10::Device* device) {
+void HbLazyTensor::SyncLiveTensorsGraph(
+    const c10::Device* device,
+    bool use_cached_graph = false) {
   PT_LAZY_TRACE;
-  auto tensors = GetLiveTensors(device);
-  SyncTensorsGraph(&tensors);
+  if (use_cached_graph) {
+    ExecuteCachedGraph();
+  } else {
+    auto tensors = GetLiveTensors(device);
+    SyncTensorsGraph(&tensors);
+  }
 }
 
 void HbLazyTensor::SyncTensorsGraphInternal(
@@ -443,6 +452,10 @@ void HbLazyTensor::SyncTensorsGraphInternal(
     // Nothing to do, return without trying to execute an empty graph
     return;
   }
+
+  auto context = habana_lazy_executor.getDeviceExecutionContext(
+      (*tensors)[0].GetDevice().index());
+
   auto po_data = HbLazyTensor::RunPostOrder(*tensors, indices);
 
   exec::HlExec hlexec{};
@@ -463,8 +476,6 @@ void HbLazyTensor::SyncTensorsGraphInternal(
     stack.emplace_back(d->tensor_data);
     // We dont get the correct lazy tensor back from internal tensor
     // So marking for execution here
-    auto context =
-        habana_lazy_executor.getDeviceExecutionContext(d->device.index());
     context->MarkTensorExecuting(d->unique_id);
   }
 
@@ -482,8 +493,6 @@ void HbLazyTensor::SyncTensorsGraphInternal(
   hlexec.Launch(stack);
 
   size_t i = 0;
-  auto context = habana_lazy_executor.getDeviceExecutionContext(
-      (*tensors)[0].GetDevice().index());
   for (const torch::IValue& v : stack) {
     auto st = v.toTensor();
     auto out_tensor = (*tensors)[indices[i++]];
@@ -492,6 +501,7 @@ void HbLazyTensor::SyncTensorsGraphInternal(
   }
   context->MarkTensorsExecuted();
   HABANA_ASSERT(stack.size() == indices.size());
+
   // Graph executed, clear IR values corresponding to sync tensors
   for (auto idx : indices) {
     auto& i = (*tensors)[idx];
@@ -504,6 +514,58 @@ void HbLazyTensor::SyncTensorsGraphInternal(
     //   tensor to further ops using this tensor.
     ir::Value val = i.createIrValueFromData();
     i.AssignIrValue(val);
+  }
+
+  // Save po_data input and output to context for perf mode
+  if (context->m_is_cached == false) {
+    context->saveInputsAndOutputs(
+        po_data.inputs, po_data.outputs, *tensors, indices);
+    context->m_is_cached = true;
+  }
+}
+
+void HbLazyTensor::ExecuteCachedGraph() {
+  PT_LAZY_TRACE;
+  exec::HlExec hlexec{};
+
+  torch::jit::Stack stack;
+  // stack is used for both inputs to synapse lowering and outputs from
+  // synapse lowering, therefore allocate memory which is max of input
+  // and output size.
+  HbExecutionContext* context =
+      habana_lazy_executor.getDeviceExecutionContext(0);
+
+  HABANA_ASSERT(context->m_is_cached == true);
+
+  auto& input_vals = context->getInputs();
+  auto& output_vals = context->getOutputs();
+  auto hb_lazy_tensors = context->getHbLazyTensors();
+
+  stack.reserve(std::max(input_vals.size(), output_vals.size()));
+
+  for (const auto& in : input_vals) {
+    PT_LAZY_DEBUG(std::string("Lowering - ") + in.ToString());
+    HABANA_ASSERT(!in.m_data_ptr.expired());
+    if (in.mp_node) {
+      PT_LAZY_DEBUG(std::string("    Node ") + in.mp_node->ToString());
+    }
+    std::shared_ptr<Data> d = in.m_data_ptr.lock();
+    stack.emplace_back(d->tensor_data);
+  }
+
+  // Fetch graph from device context
+  hlexec.set_graph(context->getGraph());
+
+  // Launch the execution
+  hlexec.Launch(stack);
+
+  HABANA_ASSERT(stack.size() == hb_lazy_tensors.size());
+
+  size_t i = 0;
+  for (const torch::IValue& v : stack) {
+    auto st = v.toTensor();
+    HbLazyTensor out_tensor = hb_lazy_tensors[i++];
+    out_tensor.SetTensorData(st);
   }
 }
 
@@ -526,6 +588,16 @@ void HbLazyTensor::StepMarker(const std::string& device_str) {
   HbLazyTensor::MarkStep(device);
 }
 
+void HbLazyTensor::RunSavedGraph(const std::string& device_str) {
+  c10::Device device = GetDeviceOrCurrent(device_str);
+  HbLazyTensor::SyncLiveTensorsGraph(&device, true);
+  HbLazyTensor::MarkStep(device);
+}
+
 extern "C" void mark_step() {
   HbLazyTensor::StepMarker({});
+}
+
+extern "C" void run_saved_model() {
+  HbLazyTensor::RunSavedGraph({});
 }

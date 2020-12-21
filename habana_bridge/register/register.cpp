@@ -41,6 +41,12 @@ PYBIND11_MODULE(hb_torch, m) {
       },
       py::arg("device_str") = "");
   m.def(
+      "run_saved_model",
+      [](const std::string& device_str) {
+        habana_lazy::HbLazyTensor::RunSavedGraph(device_str);
+      },
+      py::arg("device_str") = "");
+  m.def(
       "enable_eliminate_common_subexpression",
       [](const bool flag) {
         habana_lazy::exec::OptPassCfg::GetInstance()

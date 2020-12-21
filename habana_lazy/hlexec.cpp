@@ -44,8 +44,13 @@ void HlExec::Launch(torch::jit::Stack& stack) {
   // remove that code
   setenv("PT_HPU_LAZY_LOWERING", "1", 1);
   context->setExecutionMode(kLOWERING);
+
+  // save the graph for perf mode
+  context->saveGraph(mp_g_);
+
   HabanaLaunchOpPT launch{mp_g_, false};
   launch.run(stack);
+
   context->setExecutionMode(kLAZY);
   context->MarkTensorsExecuted();
   unsetenv("PT_HPU_LAZY_LOWERING");

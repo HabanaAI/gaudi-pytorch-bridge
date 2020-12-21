@@ -123,7 +123,7 @@ class PrintDataAcrossPass(torch.autograd.Function):
         return input_gradient
 
 class CustomPreProcessor(object):
-    def __init__(self, ln_emb, args):
+    def __init__(self, ln_emb, m_den, args):
         self._init_done = False
         self.num_indices_per_lookup = args.num_indices_per_lookup
         self.batch_size = args.mini_batch_size
@@ -145,6 +145,10 @@ class CustomPreProcessor(object):
 
         self._preallocated_buffer = []
         device = torch.device('habana')
+        batch_size = self.batch_size
+        if self.distributed:
+            batch_size = self.per_rank_batch_size
+
         for table_len in self.ln_emb:
             preproc_data = {}
             preproc_data["indices_fwd"] = torch.empty([max_size_fwd], dtype=torch.int32, requires_grad = False).to(device)
@@ -156,6 +160,10 @@ class CustomPreProcessor(object):
             preproc_data["valid_count_bwd"] = torch.empty([2], dtype = torch.int32, requires_grad = False).to(device)
             preproc_data["countUniqueIndices"] = torch.empty([1], dtype = torch.long, requires_grad = False).to(device)
             self._preallocated_buffer.append(preproc_data)
+
+        self.offsets = torch.empty([len(self.ln_emb), batch_size+1], dtype=torch.int32, requires_grad = False).to(device)
+        self.X = torch.empty([batch_size, m_den], dtype=torch.float, requires_grad = False).to(device)
+        self.T = torch.empty([batch_size, 1], dtype=torch.float, requires_grad = False).to(device)
 
     def collate_habana_preprocess(self, X, lS_o, lS_i, T):
         lS_o_habana = []
@@ -176,6 +184,7 @@ class CustomPreProcessor(object):
             offset = torch.cat((offset, torch.tensor([idx.numel()])), dim = 0)
             offset = offset.type(torch.IntTensor)
             lS_o_habana.append(offset)
+
             countUniqueIndices, uniqueIndices, outputRows, outputRowOffsets = preproc_cpp.forward(idx, offset, 4)
             valid_count_fwd = torch.tensor([offset.numel(), idx.numel()], dtype = torch.int32)
             numOffsets = countUniqueIndices.item() + 1
@@ -188,11 +197,11 @@ class CustomPreProcessor(object):
             self._preallocated_buffer[i]["outputRowOffsets"].copy_(outputRowOffsets, non_blocking=True)
             self._preallocated_buffer[i]["uniqueIndices"].copy_(uniqueIndices, non_blocking=True)
             self._preallocated_buffer[i]["countUniqueIndices"].copy_(countUniqueIndices, non_blocking=True)
+        self.X.copy_(X, non_blocking=True)
+        self.offsets.copy_(torch.stack(lS_o_habana))
+        self.T.copy_(T, non_blocking=True)
 
-        return (X.to('habana'),
-                torch.stack(lS_o_habana).to('habana'),
-                self._preallocated_buffer,
-                T)
+        return (self.X, self.offsets, self._preallocated_buffer, self.T)
 
     def collate_wrapper_random(self, list_of_tuples):
         (X, lS_o, lS_i, T) = list_of_tuples[0]

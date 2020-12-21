@@ -46,6 +46,12 @@ def mark_step():
     devctx = _run_step_closures()
     devctx.all_reduce_token = None
 
+def run_saved_model():
+    _hblazy._hb_run_saved_model(_hblazy._hb_get_default_device(), [])
+    devctx = _run_step_closures()
+    devctx.all_reduce_token = None
+
+
 def enable_eliminate_common_subexpression(flag):
     _hblazy._enable_eliminate_common_subexpression(flag)
 

@@ -108,6 +108,10 @@ class HlExec {
     return mp_g_;
   }
 
+  void set_graph(GraphPtr p_g) {
+    mp_g_ = p_g;
+  }
+
  private:
   /**
    * This method creates the JIT IR Graph

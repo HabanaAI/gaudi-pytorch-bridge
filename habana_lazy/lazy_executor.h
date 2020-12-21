@@ -10,10 +10,15 @@
 #pragma once
 #include <thread>
 #include "habana_lazy/hpu_lazy_tensors.h"
+#include "habana_lazy/ir.h"
 #include "habana_lazy/tensor_impl.h"
 #include "synapse_helpers/util.h"
+#include "torch/csrc/jit/ir/ir.h"
 
 enum LazyExecutionMode { kLAZY = 0, kLOWERING };
+
+using Graph = torch::jit::Graph;
+using GraphPtr = std::shared_ptr<Graph>;
 
 namespace habana_lazy {
 class HbExecutionContext {
@@ -109,11 +114,40 @@ class HbExecutionContext {
       }
     }
   }
+
+  void saveGraph(GraphPtr p_g) {
+    mp_g = p_g;
+  }
+
+  GraphPtr getGraph() {
+    return mp_g;
+  }
+
+  void saveInputsAndOutputs(
+      ir::ValueList inputVals,
+      ir::ValueList outputVals,
+      std::vector<habana_lazy::HbLazyTensor>& tensors,
+      const std::vector<int>& indices);
+
+  ir::ValueList& getInputs() {
+    return m_input_vals;
+  }
+
+  ir::ValueList& getOutputs() {
+    return m_output_vals;
+  }
+
+  std::vector<habana_lazy::HbLazyTensor> getHbLazyTensors() {
+    return m_hblazy_tensors;
+  }
+
   // We want to retain some tensors for special cases where PT releases them
   // but because we are in lazy mode we actually need them for processing
   // later This should only be used in special cases and released on exit
   // cleanly
   std::vector<at::Tensor> m_retained_tensor_list;
+
+  bool m_is_cached = false;
 
  private:
   // A map between unique lazy tensor ID and execution status
@@ -126,7 +160,12 @@ class HbExecutionContext {
 
   // LazyExecutionMode : per thread execution mode is maintained
   std::unordered_map<pthread_t, LazyExecutionMode> per_thread_execution_mode;
-}; // namespace habana_lazy
+
+  GraphPtr mp_g;
+  ir::ValueList m_input_vals;
+  ir::ValueList m_output_vals;
+  std::vector<habana_lazy::HbLazyTensor> m_hblazy_tensors;
+};
 
 class HbExecutionContextArena {
  public:
