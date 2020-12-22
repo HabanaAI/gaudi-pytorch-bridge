@@ -76,7 +76,7 @@ def test_hpu_gelu_op_fwd_bwd(N, H, W, C, dtype, tol):
     kernel_params_fwd = {'input': torch.randn(N, C, H, W, requires_grad=True).to(dtype)}
     bwd_tensors = [torch.randn(N, C, H, W).to(dtype)]
     evaluate_fwd_bwd_kernel(kernel=torch.nn.functional.gelu, tensor_list_bwd=bwd_tensors,
-                            kernel_params_fwd=kernel_params_fwd, atol=tol, rtol=tol, grad_on_grad_enable=False)
+                            kernel_params_fwd=kernel_params_fwd, atol=.003, rtol=.003, grad_on_grad_enable=False)
 
 
 @pytest.mark.parametrize("N, H, W, C", test_case_list)

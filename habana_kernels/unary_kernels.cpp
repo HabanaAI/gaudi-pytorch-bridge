@@ -421,83 +421,26 @@ void GeluOperator::AllocateAndAddSynapseNode(
       "Input arg1 expected to be tensor for Gelu operator");
 
   auto self = inputs[0].toTensor();
-  at::ScalarType scalar_type = self.scalar_type();
 
-  // Create Pow operator
-  PowOperator powOp(this->p_context_->device_id_, scalar_type);
-  auto& pow_syn = powOp.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
-  // Build Params for the graph
-  Scalar powValue = 3.0;
-  std::vector<c10::IValue> stack{IValue(self), IValue(powValue)};
-  powOp.AllocateAndAddSynapseNode(graph, stack, false);
-  p_context_->syn_inputs_[0] = std::move(pow_syn);
-  stack.clear();
+  auto output1 = habana_helpers::createPTTensor(
+      self,
+      self.sizes(),
+      self.options(),
+      self.suggest_memory_format(),
+      is_output_persistent);
 
-  // Create Add operator
-  AddOperator addOp(this->p_context_->device_id_, scalar_type);
-  auto& add_syn = addOp.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
-  addOp.SetSynapseInput(std::move(powOp.GetSynOutputs()[0]));
-  // Build Params for the graph
-  Scalar alphaValue = 0.044715;
-  stack.emplace_back(IValue(self));
-  stack.emplace_back(IValue(powOp.GetOutputs()[0]));
-  stack.emplace_back(IValue(alphaValue));
-  addOp.AllocateAndAddSynapseNode(graph, stack, false);
-  p_context_->syn_inputs_[0] = std::move(add_syn);
-  stack.clear();
+  // TPC kernel expects two outputs first is gelu_fwd second output is tanhz
+  auto output2 = habana_helpers::createPTTensor(
+      self,
+      self.sizes(),
+      self.options(),
+      self.suggest_memory_format(),
+      is_output_persistent);
 
-  // Create Mul operator
-  MulOperator mulOp(this->p_context_->device_id_, scalar_type);
-  mulOp.SetSynapseInput(std::move(addOp.GetSynOutputs()[0]));
-  // Build Params for the graph
-  Scalar alphaValue_2 = M_2_SQRTPI * M_SQRT1_2;
-  stack.emplace_back(IValue(addOp.GetOutputs()[0]));
-  stack.emplace_back(IValue(alphaValue_2));
-  mulOp.AllocateAndAddSynapseNode(graph, stack, false);
-  stack.clear();
-
-  // Create Tanh operator
-  TanhOperator tanhOp(this->p_context_->device_id_, scalar_type);
-  tanhOp.SetSynapseInput(std::move(mulOp.GetSynOutputs()[0]));
-  // Build Params for the graph
-  stack.emplace_back(IValue(mulOp.GetOutputs()[0]));
-  tanhOp.AllocateAndAddSynapseNode(graph, stack, false);
-  stack.clear();
-
-  // Create Add operator
-  AddOperator addOp2(this->p_context_->device_id_, scalar_type);
-  addOp2.SetSynapseInput(std::move(tanhOp.GetSynOutputs()[0]));
-  // Build Params for the graph
-  Scalar other = 1.0;
-  Scalar alphaValue_3 = 1.0;
-  stack.emplace_back(IValue(tanhOp.GetOutputs()[0]));
-  stack.emplace_back(IValue(other));
-  stack.emplace_back(IValue(alphaValue_3));
-  addOp2.AllocateAndAddSynapseNode(graph, stack, false);
-  stack.clear();
-
-  // Create Mul operator
-  MulOperator mulOp2(this->p_context_->device_id_, scalar_type);
-  mulOp2.SetSynapseInput(std::move(addOp2.GetSynOutputs()[0]));
-  // Build Params for the graph
-  Scalar alphaValue_4 = 0.5;
-  stack.emplace_back(IValue(addOp2.GetOutputs()[0]));
-  stack.emplace_back(IValue(alphaValue_4));
-  mulOp2.AllocateAndAddSynapseNode(graph, stack, false);
-  stack.clear();
-
-  // Create Mul operator
-  MulOperator mulOp3(this->p_context_->device_id_, scalar_type);
-  mulOp3.SetSynapseInput(std::move(mulOp2.GetSynOutputs()[0]));
-  auto& mul_syn = mulOp3.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
-  // Build Params for the graph
-  stack.emplace_back(IValue(mulOp2.GetOutputs()[0]));
-  stack.emplace_back(IValue(self));
-  mulOp3.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
-  p_context_->syn_inputs_[0] = std::move(mul_syn);
-
-  p_context_->syn_outputs_.emplace_back(std::move(mulOp3.GetSynOutputs()[0]));
-  p_context_->pt_outputs_.emplace_back(std::move(mulOp3.GetOutputs()[0]));
+  std::vector<at::Tensor> outputs{output1, output2};
+  AllocateSynapseOutputs(graph, outputs, {is_output_persistent, false});
+  AddNodeToSynapseGraph(graph, nullptr, 0);
+  p_context_->excluded_output_indices_.insert(1);
 }
 
 /*************************************************************************
@@ -529,10 +472,14 @@ Tensor gelu_hpu(const Tensor& self) {
 
   if (device.get_recipe_handle_cache().isCached(key)) {
     PT_KERNEL_DEBUG("Cache hit key:", key);
-    auto result =
+    // TPC kernel expects two outputs first is gelu_fwd second output is tanhz
+    auto output1 =
         at::empty(self.sizes(), self.options(), self.suggest_memory_format());
+    auto output2 =
+        at::empty(self.sizes(), self.options(), self.suggest_memory_format());
+
     Op.SetPTInputs(pt_inputs);
-    Op.SetPTOutput(result);
+    Op.SetPTOutputs({output1, output2});
     Op.Execute(key);
   } else {
     PT_KERNEL_DEBUG("Key:", key);
@@ -545,7 +492,7 @@ Tensor gelu_hpu(const Tensor& self) {
   }
 
   std::vector<at::Tensor> out = Op.GetOutputs();
-  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
+  TORCH_CHECK(out.size() == 2, "Incorrect size of outputs");
 
   PT_KERNEL_END;
   return out.at(0);
@@ -569,95 +516,66 @@ void GeluBackwardOperator::AllocateAndAddSynapseNode(
   auto self = inputs[1].toTensor();
   at::ScalarType scalar_type = self.scalar_type();
 
-  // cdf = (1.0 + erf(self * M_SQRT1_2)) * 0.5;
-  // Create Mul operator
-  MulOperator mulOp1(this->p_context_->device_id_, scalar_type);
-  auto& mul_syn = mulOp1.SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
-  std::vector<c10::IValue> stack;
-  stack.emplace_back(IValue(self));
-  stack.emplace_back(IValue(Scalar(M_SQRT1_2)));
-  mulOp1.AllocateAndAddSynapseNode(graph, stack, false);
-  p_context_->syn_inputs_[1] = std::move(mul_syn);
-  stack.clear();
-
-  // Create Erf operator
-  ErfOperator erfOp(this->p_context_->device_id_, scalar_type);
-  erfOp.SetSynapseInput(std::move(mulOp1.GetSynOutputs()[0]));
-  stack.emplace_back(IValue(mulOp1.GetOutputs()[0]));
-  erfOp.AllocateAndAddSynapseNode(graph, stack, false);
-  stack.clear();
-
-  // Create Add operator
-  AddOperator addOp1(this->p_context_->device_id_, scalar_type);
-  addOp1.SetSynapseInput(std::move(erfOp.GetSynOutputs()[0]));
-  stack.emplace_back(IValue(erfOp.GetOutputs()[0]));
-  stack.emplace_back(IValue(Scalar(1.0)));
-  stack.emplace_back(IValue(Scalar(1.0)));
-  addOp1.AllocateAndAddSynapseNode(graph, stack, false);
-  stack.clear();
-
-  // Create Mul operator
-  MulOperator mulOp2(this->p_context_->device_id_, scalar_type);
-  mulOp2.SetSynapseInput(std::move(addOp1.GetSynOutputs()[0]));
-  stack.emplace_back(IValue(addOp1.GetOutputs()[0]));
-  stack.emplace_back(IValue(Scalar(0.5)));
-  mulOp2.AllocateAndAddSynapseNode(graph, stack, false);
-  stack.clear();
-
-  // pdf = exp(-0.5 * self * self);
   // Create Pow operator
   PowOperator powOp(this->p_context_->device_id_, scalar_type);
   auto& pow_syn = powOp.SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
-  stack.emplace_back(IValue(self));
-  stack.emplace_back(IValue(Scalar(2.0)));
+  // Build Params for the graph
+  Scalar powValue = 3.0;
+  std::vector<c10::IValue> stack{IValue(self), IValue(powValue)};
   powOp.AllocateAndAddSynapseNode(graph, stack, false);
   p_context_->syn_inputs_[1] = std::move(pow_syn);
   stack.clear();
 
-  // Create Mul operator
-  MulOperator mulOp3(this->p_context_->device_id_, scalar_type);
-  mulOp3.SetSynapseInput(std::move(powOp.GetSynOutputs()[0]));
-  stack.emplace_back(IValue(powOp.GetOutputs()[0]));
-  stack.emplace_back(IValue(Scalar(-0.5)));
-  mulOp3.AllocateAndAddSynapseNode(graph, stack, false);
-  stack.clear();
-
-  // Create Exp operator
-  ExpOperator expOp(this->p_context_->device_id_, scalar_type);
-  expOp.SetSynapseInput(std::move(mulOp3.GetSynOutputs()[0]));
-  stack.emplace_back(IValue(mulOp3.GetOutputs()[0]));
-  expOp.AllocateAndAddSynapseNode(graph, stack, false);
-  stack.clear();
-
-  // kAlpha = M_2_SQRTPI * M_SQRT1_2 * 0.5;
-  // addcmul(cdf, self, pdf, kAlpha) * grad;
-  // Create addcmul operator
-  AddcmulOperator addcmulOp(this->p_context_->device_id_, scalar_type);
-  addcmulOp.SetSynapseInput(std::move(mulOp2.GetSynOutputs()[0]));
-  auto& addcmul_syn =
-      addcmulOp.SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
-  addcmulOp.SetSynapseInput(std::move(expOp.GetSynOutputs()[0]));
-  stack.emplace_back(IValue(mulOp2.GetOutputs()[0]));
+  // Create Add operator
+  AddOperator addOp(this->p_context_->device_id_, scalar_type);
+  auto& add_syn = addOp.SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
+  addOp.SetSynapseInput(std::move(powOp.GetSynOutputs()[0]));
+  // Build Params for the graph
+  Scalar alphaValue = 0.044715;
   stack.emplace_back(IValue(self));
-  stack.emplace_back(IValue(expOp.GetOutputs()[0]));
-  stack.emplace_back(IValue(Scalar(M_2_SQRTPI * M_SQRT1_2 * 0.5)));
-  addcmulOp.AllocateAndAddSynapseNode(graph, stack, false);
-  p_context_->syn_inputs_[1] = std::move(addcmul_syn);
+  stack.emplace_back(IValue(powOp.GetOutputs()[0]));
+  stack.emplace_back(IValue(alphaValue));
+  addOp.AllocateAndAddSynapseNode(graph, stack, false);
+  p_context_->syn_inputs_[1] = std::move(add_syn);
   stack.clear();
 
   // Create Mul operator
-  MulOperator mulOp4(this->p_context_->device_id_, scalar_type);
-  mulOp4.SetSynapseInput(std::move(addcmulOp.GetSynOutputs()[0]));
-  auto& mul1_syn =
-      mulOp4.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
-  stack.emplace_back(IValue(addcmulOp.GetOutputs()[0]));
-  stack.emplace_back(IValue(grad));
-  mulOp4.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
-  p_context_->syn_inputs_[0] = std::move(mul1_syn);
+  MulOperator mulOp(this->p_context_->device_id_, scalar_type);
+  mulOp.SetSynapseInput(std::move(addOp.GetSynOutputs()[0]));
+  // Build Params for the graph
+  Scalar alphaValue_2 = M_2_SQRTPI * M_SQRT1_2;
+  stack.emplace_back(IValue(addOp.GetOutputs()[0]));
+  stack.emplace_back(IValue(alphaValue_2));
+  mulOp.AllocateAndAddSynapseNode(graph, stack, false);
   stack.clear();
 
-  p_context_->syn_outputs_.emplace_back(std::move(mulOp4.GetSynOutputs()[0]));
-  p_context_->pt_outputs_.emplace_back(std::move(mulOp4.GetOutputs()[0]));
+  // Create Tanh operator
+  TanhOperator tanhOp(this->p_context_->device_id_, scalar_type);
+  tanhOp.SetSynapseInput(std::move(mulOp.GetSynOutputs()[0]));
+  // Build Params for the graph
+  stack.emplace_back(IValue(mulOp.GetOutputs()[0]));
+  tanhOp.AllocateAndAddSynapseNode(graph, stack, false);
+  stack.clear();
+
+  auto output = habana_helpers::createPTTensor(
+      self,
+      self.sizes(),
+      self.options(),
+      self.suggest_memory_format(),
+      is_output_persistent);
+  AllocateSynapseOutput(graph, output, is_output_persistent);
+  synapse_helpers::tensor& synOutput = p_context_->syn_outputs_[0];
+
+  synapse_helpers::tensor& synInput0 = p_context_->syn_inputs_[0];
+  synapse_helpers::tensor& synInput1 = p_context_->syn_inputs_[1];
+  synapse_helpers::tensor& synInput2 = tanhOp.GetSynOutputs()[0];
+
+  std::vector<synTensor> syn_in{
+      synInput0.get(), synInput1.get(), synInput2.get()};
+  std::vector<synTensor> syn_out{synOutput.get()};
+
+  graph.add_node(
+      std::move(syn_in), std::move(syn_out), nullptr, 0, std::move(guid_));
 }
 
 /*************************************************************************
