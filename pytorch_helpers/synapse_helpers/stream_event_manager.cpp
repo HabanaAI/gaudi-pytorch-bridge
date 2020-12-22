@@ -35,6 +35,12 @@ void stream_event_manager::add_producer(
     std::string event_id,
     stream& stream,
     event_done_callback done_cb) {
+  // remove duplicate address
+  std::sort(device_addresses.begin(), device_addresses.end());
+  device_addresses.erase(
+      std::unique(device_addresses.begin(), device_addresses.end()),
+      device_addresses.end());
+
   auto eref = std::make_shared<event>(
       stream.get_device().get_event_handle_cache(),
       stream,
