@@ -533,9 +533,9 @@ class Trainer:
                 input_dict = {k: inputs[k] for k in input_keys if k in inputs}
                 target = inputs['labels']
 
-                tp_probe_tensors_iteration_start(model, device, target, input_dict, self.trainMetaData.ParamsDump, False)
+                tp_probe_tensors_iteration_start(model, device, target, input_dict, self.trainMetaData.ParamsDump, False, self.args.local_rank)
                 tr_loss_cpu, output_cpu  = self._training_step(model, inputs, optimizer)
-                tp_probe_tensors_iteration_end(model, device, output_cpu, tr_loss_cpu, self.trainMetaData.ParamsDump, False)
+                tp_probe_tensors_iteration_end(model, device, output_cpu, tr_loss_cpu, self.trainMetaData.ParamsDump, False, self.args.local_rank)
                 tr_loss += tr_loss_cpu
 
                 if (step + 1) % self.args.gradient_accumulation_steps == 0 or (

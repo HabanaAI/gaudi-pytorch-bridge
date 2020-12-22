@@ -379,41 +379,43 @@ def tp_hooks_set_current_epoch_no(hooks, epoch):
         hk.current_epoch = epoch
 
 # some utility functions to dump important tensors at the beginning and end of a iteration.
-def tp_probe_tensors_iteration_start(model, device, target, inp, ParamsDump, force_dump):
-    if ParamsDump.to_dump_data is False:
-        return
-    if tp_model_params_check_tensor_group('tg'):
-        ParamsDump.save_tensor(device, target, 'target', force_dump=force_dump)
+def tp_probe_tensors_iteration_start(model, device, target, inp, ParamsDump, force_dump, rank=0):
+    if rank == 0:
+        if ParamsDump.to_dump_data is False:
+            return
+        if tp_model_params_check_tensor_group('tg'):
+            ParamsDump.save_tensor(device, target, 'target', force_dump=force_dump)
 
-    if tp_model_params_check_tensor_group('ip'):
-        if isinstance(inp, torch.Tensor):
-            ParamsDump.save_tensor(device, inp, 'input', force_dump=force_dump)
-        elif isinstance(inp, dict):
-            for k, v in inp.items():
-                if isinstance(v, torch.Tensor):
-                    inp_key = 'input_' + k
-                    ParamsDump.save_tensor(device, inp[k], inp_key, force_dump=force_dump)
+        if tp_model_params_check_tensor_group('ip'):
+            if isinstance(inp, torch.Tensor):
+                ParamsDump.save_tensor(device, inp, 'input', force_dump=force_dump)
+            elif isinstance(inp, dict):
+                for k, v in inp.items():
+                    if isinstance(v, torch.Tensor):
+                        inp_key = 'input_' + k
+                        ParamsDump.save_tensor(device, inp[k], inp_key, force_dump=force_dump)
 
-    if tp_model_params_check_tensor_group('pb'):
-        ParamsDump.dump_params_data(device, model, 'params_before_update')
-    if tp_model_params_check_tensor_group('bi'):
-        ParamsDump.dump_buffers_data(device, model, 'buffers_at_input')
+        if tp_model_params_check_tensor_group('pb'):
+            ParamsDump.dump_params_data(device, model, 'params_before_update')
+        if tp_model_params_check_tensor_group('bi'):
+            ParamsDump.dump_buffers_data(device, model, 'buffers_at_input')
 
-def tp_probe_tensors_iteration_end(model, device, output, loss, ParamsDump, force_dump):
-    if ParamsDump.to_dump_data is False:
-        return
-    if tp_model_params_check_tensor_group('op'):
-        ParamsDump.save_tensor(device, output, 'output', force_dump=force_dump)
-    # Caller can pass a scalar value for loss.
-    if tp_model_params_check_tensor_group('ls'):
-        if torch.is_tensor(loss):
-            ParamsDump.save_tensor(device, loss, 'loss', force_dump=force_dump)
-        else:
-            ParamsDump.save_tensor(device, torch.tensor(loss), 'loss', force_dump=force_dump)
+def tp_probe_tensors_iteration_end(model, device, output, loss, ParamsDump, force_dump, rank=0):
+    if rank == 0:
+        if ParamsDump.to_dump_data is False:
+            return
+        if tp_model_params_check_tensor_group('op'):
+            ParamsDump.save_tensor(device, output, 'output', force_dump=force_dump)
+        # Caller can pass a scalar value for loss.
+        if tp_model_params_check_tensor_group('ls'):
+            if torch.is_tensor(loss):
+                ParamsDump.save_tensor(device, loss, 'loss', force_dump=force_dump)
+            else:
+                ParamsDump.save_tensor(device, torch.tensor(loss), 'loss', force_dump=force_dump)
 
-    if tp_model_params_check_tensor_group('bo'):
-        ParamsDump.dump_buffers_data(device, model, 'buffers_at_output')
-    if tp_model_params_check_tensor_group('pa'):
-        ParamsDump.dump_params_data(device, model, 'params_after_update')
-    if tp_model_params_check_tensor_group('gd'):
-        ParamsDump.dump_grads(device, model, 'grads')
+        if tp_model_params_check_tensor_group('bo'):
+            ParamsDump.dump_buffers_data(device, model, 'buffers_at_output')
+        if tp_model_params_check_tensor_group('pa'):
+            ParamsDump.dump_params_data(device, model, 'params_after_update')
+        if tp_model_params_check_tensor_group('gd'):
+            ParamsDump.dump_grads(device, model, 'grads')
