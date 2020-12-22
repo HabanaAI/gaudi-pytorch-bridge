@@ -34,10 +34,6 @@ import inspect
 # pytorch
 import torch
 import torch.nn as nn
-import HabanaEmbeddingBag_cpp
-import preproc_cpp
-import habanaOptimizerSparseSgd_cpp
-import habanaOptimizerSparseAdagrad_cpp
 import hblazy.core.hb_model as hm
 
 
@@ -53,9 +49,11 @@ from tricks.md_embedding_bag import PrEmbeddingBag, md_solver
 
 import sklearn.metrics
 
+from dlrm_habana_kernels import HabanaEmbeddingBag, HabanaSparseOptimizer, AllToAllAcrossDevice
 # from torchviz import make_dot
 # import torch.nn.functional as Functional
 # from torch.nn.parameter import Parameter
+
 
 torch.set_printoptions(precision=7)
 
@@ -73,200 +71,6 @@ except:
     assert False, ("tools directory should be availabe as somedir/topologies/tools",
                      "PYTORCH_MODULES_ROOT_PATH should be set to 'somedir'")
     print('tools NOT FOUND')
-
-class AllToAllAcrossDevice(torch.autograd.Function):
-
-    @staticmethod
-    def forward(ctx, input_buffer: torch.Tensor): #, batch_size: int, valid_device_emb_table: Sequence[int], ln_emb: Sequence[int], ndevices: int, m_spa: int):
-        output_buffer = torch.empty_like(input_buffer)
-        torch.distributed.all_to_all_single(output_buffer, input_buffer)
-        return output_buffer
-
-    @staticmethod
-    def backward(ctx, input_gradient):
-        output_gradient = torch.empty_like(input_gradient)
-        torch.distributed.all_to_all_single(output_gradient, input_gradient)
-        return output_gradient
-
-class PrintDataAcrossPass(torch.autograd.Function):
-    @staticmethod
-    def forward(ctx, input_buffer : torch.Tensor):
-        print('Forward Pass')
-        print(input_buffer.to("cpu"))
-        return input_buffer
-
-    def backward(ctx, input_gradient):
-        print('Backward pass')
-        print(input_gradient.to("cpu"))
-        return input_gradient
-
-def printFnTrace(fnName):
-    pass
-    # print('EXEC TRACE: '+fnName )
-
-def PDT(tensorA):
-    print(tensorA.detach().cpu().numpy())
-
-class gv():
-    countUniqueIndices = []
-    uniqueIndexes = []
-    outputRows = []
-    outputRowOffsets = []
-    outputRowOffsets_hpu = []
-    coalesced_grads = []
-    valid_count_bwd = []
-    valid_count_fwd = []
-    HabanaDlrmPreproc1 = []
-    indices_fwd = []
-    indices_bwd = []
-    numEmbeddingTables = 0
-    lr = torch.tensor([0.0])
-
-def create_gv(num_emb):
-    gv.countUniqueIndices = [None]*num_emb
-    gv.uniqueIndexes = [None]*num_emb
-    gv.outputRows = [None]*num_emb
-    gv.outputRowOffsets = [None]*num_emb
-    gv.outputRowOffsets_hpu = [None]*num_emb
-    gv.coalesced_grads = [None]*num_emb
-    gv.valid_count_bwd = [None]*num_emb
-    gv.valid_count_fwd = [None]*num_emb
-    gv.indices_fwd = [None]*num_emb
-    gv.indices_bwd = [None]*num_emb
-    gv.numEmbeddingTables = num_emb
-
-# A simple hook class that returns the input and output of a layer during forward/backward pass
-class Hook():
-    def __init__(self, block,module, id, backward=False):
-        self.name = str(block)+ '_' + str(module) + '_' + str(id)
-        if backward==False:
-            self.hook = module.register_forward_hook(self.hook_fn)
-        else:
-            self.hook = module.register_backward_hook(self.hook_fn)
-    def hook_fn(self, module, input, output):
-        print('Inside HOOK for',module)
-        self.input = input
-        self.output = output
-    def close(self):
-        self.hook.remove()
-
-def printHooks(hooks,str):
-    print('Printing hooks for ' + str)
-    for hook in hooks:
-        print('-----'*4)
-        print('Hook:{} - input'.format(hook.name))
-        for x in hook.input:
-            if x is None:
-                print('None element')
-            else:
-                if isinstance(x,int) is True:
-                    print(x)
-                else:
-                    print(x.cpu())
-                    print('stride',x.stride())
-                    print('size',x.size())
-        print('Hook:{} - output'.format(hook.name))
-        for x in hook.output:
-            print(x.cpu())
-            print('stride',x.stride())
-            print('size',x.size())
-
-class EmbeddingBagSumFunction(torch.autograd.Function):
-    @staticmethod
-    def forward(ctx, weights, indices, offsets, valid_count, kernel_mode,instance):
-        # print('HabanaEmbeddingBagSumFunction:FW')
-        ctx.save_for_backward(weights, indices, offsets)
-        ctx.instance = instance
-
-        outputs = HabanaEmbeddingBag_cpp.forward(weights, indices, offsets, valid_count, kernel_mode)
-        return outputs
-
-    @staticmethod
-    def backward(ctx,grad_output):
-        # print('HabanaEmbeddingBagSumFunction:BW')
-        weights, indices, offsets  = ctx.saved_tensors
-        instance = ctx.instance
-        kernel_mode = 1
-        HabanaEmbeddingBag_cpp.backward(gv.coalesced_grads[instance], grad_output, gv.indices_bwd[instance], gv.outputRowOffsets_hpu[instance], gv.valid_count_bwd[instance], kernel_mode)
-        return None, None, None, None, None, None,None
-
-class HabanaEmbeddingBag(torch.nn.Module):
-    def __init__(self, table_len, embedding_size,instance):
-        n = table_len
-        m = embedding_size
-        super(HabanaEmbeddingBag, self).__init__()
-        W = np.random.uniform(
-                    low=-np.sqrt(1 / n), high=np.sqrt(1 / n), size=(n, m)
-                ).astype(np.float32)
-                # approach 1
-        self.weight = nn.Parameter(torch.tensor(W, requires_grad=False))
-        self.moments = nn.Parameter(torch.zeros(self.weight.data.shape, requires_grad=False))
-        self.instance = instance
-
-    def forward(self, indices, offsets, valid_count, kernel_mode,instance):
-        # print('HabanaEmbeddingBag; FW')
-        return EmbeddingBagSumFunction.apply(self.weight, indices, offsets, valid_count, kernel_mode,instance)
-
-def apply_preproc(sparse_offset_group_batch,sparse_index_group_batch,i):
-    printFnTrace(inspect.getframeinfo(inspect.currentframe()).function)
-    # print('apply_preproc for instance {}'.format(i))
-    sparse_offset_group_batch = sparse_offset_group_batch.type(torch.IntTensor) #HACK
-    sparse_index_group_batch = sparse_index_group_batch.type(torch.IntTensor)
-
-    countUniqueIndices,uniqueIndexes,gv.outputRows[i],gv.outputRowOffsets[i] = preproc_cpp.forward(sparse_index_group_batch,sparse_offset_group_batch ,4)
-
-    gv.countUniqueIndices[i] = countUniqueIndices.to(device, non_blocking=True)
-    valid_count_fwd_cpu = torch.tensor([sparse_offset_group_batch.numel(
-    ), sparse_index_group_batch.numel()], dtype=torch.int32)
-    numOffsets = countUniqueIndices.item()+1
-    valid_count_bwd_cpu = torch.tensor(
-        [numOffsets, gv.outputRows[i].numel()], dtype=torch.int32)
-
-    gv.outputRowOffsets[i] = torch.narrow(gv.outputRowOffsets[i], 0, 0, numOffsets)
-
-    #Creation of static max size tensors to enable graph caching
-    if (gv.uniqueIndexes[i] is None):
-        max_i_size_fwd = args.num_indices_per_lookup*(sparse_offset_group_batch.numel()-1)
-        gv.indices_fwd[i] = torch.empty([max_i_size_fwd],dtype=torch.int32, requires_grad = False).to(device)
-
-        max_i_size_bwd = args.num_indices_per_lookup*(sparse_offset_group_batch.numel()-1)
-        gv.indices_bwd[i] = torch.empty([max_i_size_bwd],dtype=torch.int32, requires_grad = False).to(device)
-
-        gv.outputRowOffsets_hpu[i] = torch.empty(ln_emb[i]+1,dtype = torch.int32, requires_grad = False).to(device)
-
-        #Max possible grad in matrix
-        gv.coalesced_grads[i] = torch.empty(ln_emb[i], m_spa, dtype=torch.float32, requires_grad = False).to(device)
-
-        gv.valid_count_fwd[i] = torch.empty([2], dtype=torch.int32, requires_grad = False).to(device)
-        gv.valid_count_bwd[i] = torch.empty([2], dtype=torch.int32, requires_grad = False).to(device)
-        gv.uniqueIndexes[i] = torch.empty([max_i_size_bwd], dtype=torch.int32, requires_grad = False).to(device)
-
-        if args.distributed:
-            gv.lr = torch.tensor([args.learning_rate/args.world_size]).to(device)
-        else:
-            gv.lr = torch.tensor([args.learning_rate]).to(device)
-
-    gv.indices_fwd[i].copy_(sparse_index_group_batch, non_blocking=True)
-    gv.valid_count_fwd[i].copy_(valid_count_fwd_cpu, non_blocking=True)
-    gv.indices_bwd[i].copy_(gv.outputRows[i], non_blocking=True)
-    gv.valid_count_bwd[i].copy_(valid_count_bwd_cpu, non_blocking=True)
-    outputRowOffsets_cpu_max = torch.zeros([ln_emb[i]+1], dtype = torch.int32)
-    outputRowOffsets_cpu_max[0:numOffsets] = gv.outputRowOffsets[i]
-    # gv.outputRowOffsets_hpu[i].fill_(0) #HACK
-    gv.outputRowOffsets_hpu[i].copy_(outputRowOffsets_cpu_max, non_blocking=True)
-    gv.uniqueIndexes[i].copy_(uniqueIndexes)
-
-
-def apply_optimizer_update():
-    for i in range(gv.numEmbeddingTables):
-        HabanaDlrmSparseOpt = None
-        if args.optimizer == "sgd":
-            HabanaDlrmSparseOpt = habanaOptimizerSparseSgd_cpp.forward
-        elif args.optimizer == "adagrad":
-            HabanaDlrmSparseOpt = habanaOptimizerSparseAdagrad_cpp.forward
-
-        HabanaDlrmSparseOpt(
-            gv.coalesced_grads[i], dlrm_habana.emb_l[i].weight.data, dlrm_habana.emb_l[i].moments.data, gv.uniqueIndexes[i],gv.lr,gv.countUniqueIndices[i])
 
 class DLRM_Net_Habana(nn.Module):
     def create_mlp(self, ln, sigmoid_layer):
@@ -312,22 +116,12 @@ class DLRM_Net_Habana(nn.Module):
     def create_emb(self, m, ln, valid_emb_table=None):
         emb_l = nn.ModuleList()
 
-        if self.ndevices > 1:
-            self.valid_emb_table = valid_emb_table
-            if self.valid_emb_table is None:
-                self.valid_emb_table = np.arange(0, len(ln))
+        if valid_emb_table is None:
+            valid_emb_table = np.arange(0, len(ln))
+        self.valid_emb_table = valid_emb_table
 
         for i in range(0, ln.size):
             n = ln[i]
-
-            if self.ndevices > 1:
-                # Not needed just to match with single chip run
-                if i not in self.valid_emb_table:
-                    W = np.random.uniform(
-                             low=-np.sqrt(1 / n), high=np.sqrt(1 / n), size=(n, m)
-                        ).astype(np.float32)
-                    continue
-
             # construct embedding operator
             if self.qr_flag and n > self.qr_threshold:
                 EE = QREmbeddingBag(n, m, self.qr_collisions,
@@ -343,18 +137,18 @@ class DLRM_Net_Habana(nn.Module):
                 EE.embs.weight.data = torch.tensor(W, requires_grad=True)
 
             else:
-                EE = HabanaEmbeddingBag(n, m,i)
+                W = np.random.uniform(
+                    low=-np.sqrt(1 / n), high=np.sqrt(1 / n), size=(n, m)
+                    ).astype(np.float32)
+                if i in valid_emb_table:
+                    EE = HabanaEmbeddingBag(n, m)
+                    EE.weight.data = torch.tensor(W, requires_grad=True)
+                else:
+                    continue
                 # print('EmbeddingBag created for config{} , instance {}'.format((n,m),i))
 
             emb_l.append(EE)
 
-        num_emb = 0
-        if valid_emb_table is None:
-            num_emb = ln.size
-        else:
-            num_emb = len(valid_emb_table)
-
-        create_gv(num_emb)
             # print('Total of {} EmbeddingBags Tables/Instances created= '.format(gv.numEmbeddingTables))
         # raise 1
         return emb_l
@@ -418,7 +212,8 @@ class DLRM_Net_Habana(nn.Module):
             if ndevices <= 1:
                 self.emb_l = self.create_emb(m_spa, ln_emb)
             else:
-                self.parallel_model_batch_size = batch_size // ndevices
+                self.parallel_model_batch_size = batch_size // args.world_size
+                print(self.batch_size)
                 valid_device_emb_table, all2all_reorder = distributed_utils.dlrm_get_emb_table_map(ln_emb, args.rank, self.ndevices)
                 self.valid_device_emb_table = valid_device_emb_table
                 self.all2all_reorder = all2all_reorder
@@ -428,7 +223,6 @@ class DLRM_Net_Habana(nn.Module):
             self.top_l = self.create_mlp(ln_top, sigmoid_top)
 
     def apply_mlp(self, x, layers):
-        printFnTrace(inspect.getframeinfo(inspect.currentframe()).function)
         # approach 1: use ModuleList
         # for layer in layers:
         #     x = layer(x)
@@ -437,7 +231,6 @@ class DLRM_Net_Habana(nn.Module):
         return layers(x)
 
     def apply_emb(self, lS_o, lS_i, emb_l):
-        printFnTrace(inspect.getframeinfo(inspect.currentframe()).function)
         # WARNING: notice that we are processing the batch at once. We implicitly
         # assume that the data is laid out such that:
         # 1. each embedding is indexed with a group of sparse indices,
@@ -454,7 +247,7 @@ class DLRM_Net_Habana(nn.Module):
             # The embeddings are represented as tall matrices, with sum
             # happening vertically across 0 axis, resulting in a row vector
             E = emb_l[k]
-            V = E(gv.indices_fwd[k], sparse_offset_group_batch,gv.valid_count_fwd[k],1,k)
+            V = E(sparse_index_group_batch, sparse_offset_group_batch)
             # print('Embedding done for k=' + str(k))
             ly.append(V)
             # print('apply_emb output',V.detach().cpu())
@@ -463,7 +256,6 @@ class DLRM_Net_Habana(nn.Module):
         return ly
 
     def interact_features(self, x, ly):
-        printFnTrace(inspect.getframeinfo(inspect.currentframe()).function)
         if self.arch_interaction_op == "dot":
             # concatenate dense and sparse features
             (batch_size, d) = x.shape
@@ -501,14 +293,12 @@ class DLRM_Net_Habana(nn.Module):
         return R
 
     def forward(self, dense_x, lS_o, lS_i):
-        printFnTrace(inspect.getframeinfo(inspect.currentframe()).function)
         if self.ndevices <= 1:
             return self.sequential_forward(dense_x, lS_o, lS_i)
         else:
             return self.parallel_forward(dense_x, lS_o, lS_i)
 
     def sequential_forward(self, dense_x, lS_o, lS_i):
-        printFnTrace(inspect.getframeinfo(inspect.currentframe()).function)
         # process dense features (using bottom mlp), resulting in a row vector
         x = self.apply_mlp(dense_x, self.bot_l)
 
@@ -681,15 +471,6 @@ class DLRM_Net_Habana(nn.Module):
             z0 = p0
 
         return z0
-
-    def printParamsAndGrads(self,grads=True):
-        print('Printing Params')
-        #[print(name, p.cpu(),p.grad_fn,p.cpu().grad_fn) for name,p in self.named_parameters()]
-        if grads is True:
-            print('Printing Params grads')
-        #    [print(name, p.grad.cpu()) for name,p in self.named_parameters()]
-        # print(vars(gv))
-
 
 if __name__ == "__main__":
     ### import packages ###
@@ -1027,31 +808,6 @@ if __name__ == "__main__":
         batch_size=args.mini_batch_size
 
     )
-    print('Net at Init')
-    dlrm_habana.printParamsAndGrads(grads=False)
-
-
-    # hookF = []
-    # hookB = []
-
-    # for layer in list(dlrm_habana._modules.items()):
-    #     if isinstance(layer[1],nn.Sequential):
-    #         print('found Sequential '+'----'*3)
-    #         i=0
-    #         for a in enumerate(layer[1]):
-    #             print('Attaching hook to {} module: {}'.format(i,a))
-    #             hookF.append(Hook(layer[0],a[1],a[0]))
-    #             hookB.append(Hook(layer[0],a[1],a[0],backward=True))
-    #             i += 1
-
-    #     if isinstance(layer[1],nn.ModuleList):
-    #         print('found module list'+'----'*3)
-    #         i=0
-    #         for a in enumerate(layer[1]):
-    #             print('Attaching hook to {} module: {}'.format(i,a))
-    #             hookF.append(Hook(layer[0],a[1],a[0]))
-    #             hookB.append(Hook(layer[0],a[1],a[0],backward=True))
-    #             i += 1
 
     # test prints
     if args.debug_mode:
@@ -1110,6 +866,7 @@ if __name__ == "__main__":
                                     + list(dlrm_habana.bot_l.parameters()), lr=lr_change)
         else:
             sys.exit("ERROR: --optimizer=" + args.optimizer + " is not supported")
+        emb_optimizer = HabanaSparseOptimizer(list(dlrm_habana.emb_l.parameters()), args)
 
     ### main loop ###
     def time_wrap(use_gpu):
@@ -1117,16 +874,8 @@ if __name__ == "__main__":
             torch.cuda.synchronize()
         return time.time()
 
-    def dlrm_wrap(X, lS_o, lS_i, use_gpu,use_hpu, device):
-        printFnTrace(inspect.getframeinfo(inspect.currentframe()).function)
-        # print('ls_i')
-        # print(lS_i)
-        # print('lS_o')
-        # print(lS_o)
-        # print('X')
-        # print(X)
-
-        if use_gpu or use_hpu:
+    def dlrm_wrap(X, lS_o, lS_i, use_gpu, use_hpu, device):
+        if use_gpu:
             # import pudb
             # pudb.set_trace()
             # lS_i can be either a list of tensors or a stacked tensor.
@@ -1140,54 +889,13 @@ if __name__ == "__main__":
                 lS2_o,
                 lS2_i
             )
+        elif use_hpu:
+            return dlrm_habana(X, lS_o, lS_i)
         else:
             return dlrm(X, lS_o, lS_i)
 
-    def dlrm_habana_wrap(X, lS_o, lS_i, use_gpu,use_hpu, device):
-        printFnTrace(inspect.getframeinfo(inspect.currentframe()).function)
-        # print('ls_i')
-        # print(lS_i)
-        # print('lS_o')
-        # print(lS_o)
-        # print('X')
-        # print(X)
-
-        #embedding bag on Habana needs the last offset to be additionally appended which is pointing to end of indices
-        lS2_o_scratch = []
-        for k in range(len(lS_i)):
-            lS2_o_scratch.append(torch.unsqueeze(torch.cat((lS_o[k],torch.tensor([lS_i[k].numel()])),dim=0),dim=0))
-
-
-        lS_o = torch.cat(tuple(lS2_o_scratch),dim=0)
-        # print('lS_o after updating for last offset',lS_o)
-
-        if use_gpu or use_hpu:
-            # import pudb
-            # pudb.set_trace()
-            # lS_i can be either a list of tensors or a stacked tensor.
-            # Handle each case below:
-            with torch.no_grad():
-                for k, sparse_index_group_batch in enumerate(lS_i):
-                    sparse_offset_group_batch = lS_o[k]
-                    apply_preproc(sparse_offset_group_batch,sparse_index_group_batch,k)
-
-            lS2_i = [S_i.type(torch.IntTensor).to(device) for S_i in lS_i] if isinstance(lS_i, list) \
-                else lS_i.type(torch.IntTensor).to(device)
-            lS2_o = [S_o.type(torch.IntTensor).to(device) for S_o in lS_o] if isinstance(lS_o, list) \
-                else lS_o.type(torch.IntTensor).to(device)
-
-            return dlrm_habana(
-                X.to(device),
-                lS2_o,
-                lS2_i
-            )
-        else:
-            return dlrm_habana(X, lS_o, lS_i)
-
-    import  inspect
 
     def loss_fn_wrap(Z, T, use_gpu,use_hpu, device):
-        printFnTrace(inspect.getframeinfo(inspect.currentframe()).function)
         if args.loss_function == "mse" or args.loss_function == "bce":
             if use_gpu or use_hpu:
                 return loss_fn(Z, T.to(device))
@@ -1204,7 +912,6 @@ if __name__ == "__main__":
             return loss_sc_.mean()
 
     def loss_fn_habana_wrap(Z, T, use_gpu,use_hpu, device):
-        printFnTrace(inspect.getframeinfo(inspect.currentframe()).function)
         if args.loss_function == "mse" or args.loss_function == "bce":
             if use_gpu or use_hpu:
                 return loss_fn(Z, T.to(device))
@@ -1256,7 +963,6 @@ if __name__ == "__main__":
             # when targeting inference on CPU
             ld_model = torch.load(args.load_model, map_location=torch.device('cpu'))
         dlrm_habana.load_state_dict(ld_model["state_dict"])
-#        dlrm_habana.printParamsAndGrads(grads=False)
         ld_j = ld_model["iter"]
         ld_k = ld_model["epoch"]
         ld_nepochs = ld_model["nepochs"]
@@ -1301,6 +1007,10 @@ if __name__ == "__main__":
 
     training_resumed = False
     trainMetaData.log_live_mem_alloc('Start of training')
+    #for param in dlrm_habana.parameters():
+    #    if param.requires_grad:
+    #        param.register_hook(lambda grad: print(grad.to("cpu")))
+
     with torch.autograd.profiler.profile(args.enable_profiling, use_gpu) as prof:
         while k < args.nepochs:
             trainMetaData.set_current_epoch_no(k)
@@ -1353,42 +1063,12 @@ if __name__ == "__main__":
                 print(T.detach().cpu().numpy())
                 '''
                 # early exit if batch is partial
-                if X.size()[0] < args.mini_batch_size:
+                if X.size()[0] < args.mini_batch_size // world_size:
                     print('Breaking out of the epoch as  batch was partial. Number of samples:',X.size()[0])
                     break
 
-                # forward pass
-                if args.distributed:
-                    # mini batch size is expected to be a multiple of world_size
-                    train_batch_size = int(X.size()[0]/args.world_size)
-                    X = np.take(X,np.arange(args.rank*train_batch_size,(args.rank+1)*train_batch_size), 0)
-                    if valid_device_emb_table is not None:
-                        lS_o = np.take(lS_o, valid_device_emb_table, 0)
-                        lS_i = itemgetter(*valid_device_emb_table)(lS_i)
-                    else:
-                        lS_o = []
-                        lS_i = []
-                    T = T[args.rank*train_batch_size:(args.rank+1)*train_batch_size]
-                    if isinstance(lS_i, tuple):
-                        lS_i = list(lS_i)
-                    else:
-                        lS_i = [lS_i]
+                Z_habana = dlrm_wrap(X, lS_o, lS_i, use_gpu, use_hpu, device)
 
-                Z_habana = dlrm_habana_wrap(X, lS_o, lS_i, use_gpu, use_hpu, device)
-
-                # print('Printing F hooks')
-                # for hook in hookF:
-                #     print(hook.input.cpu().numpy())
-                #     print(hook.output.cpu().numpy())
-                #     print('---'*17)
-
-                # print('Printing B hooks')
-                # for hook in hookB:
-                #     print(hook.input)
-                #     print(hook.output)
-                #     print('---'*17)
-                # loss
-                # print(T)
                 E_habana = loss_fn_wrap(Z_habana, T, use_gpu,use_hpu, device)
                 '''
                 # debug prints
@@ -1411,28 +1091,6 @@ if __name__ == "__main__":
                     optimizer.zero_grad()
                     # backward pass
                     E_habana.backward(retain_graph=False)
-                    # print('Net after backward')
-                    # dlrm_habana.printParamsAndGrads()
-
-                    # print('---'*17)
-                    # printHooks(hookF,'hookF')
-                    # print('---'*17)
-                    # printHooks(hookB,'hookB')
-                    # print('---'*17)
-
-                    '''
-                    print('Printing F hooks')
-                    for hook in hookF:
-                        print(hook.input)#.cpu().numpy())
-                        print(hook.output)#.cpu().numpy())
-                    print('---'*17)
-
-                    print('Printing B hooks')
-                    for hook in hookB:
-                        print(hook.input)
-                        print(hook.output)
-                    print('---'*17)
-                    '''
                     # debug prints (check gradient norm)
                     # for l in mlp.layers:
                     #     if hasattr(l, 'weight'):
@@ -1441,13 +1099,9 @@ if __name__ == "__main__":
                     # optimizer
 
                     optimizer.step()
-                    printFnTrace('Default optimizer Done')
-                    # optimizer_habana_1.step()
+                    emb_optimizer.step()
 
-                    apply_optimizer_update()
-                    printFnTrace('Custom optimizer done')
                     tp_probe_tensors_iteration_end(dlrm_habana, device, Z_habana, E_habana,trainMetaData.ParamsDump, False)
-                    import time
 
                 if args.run_lazy_mode:
                     hm.mark_step()
@@ -1529,24 +1183,9 @@ if __name__ == "__main__":
 
                         t1_test = time_wrap(use_gpu)
 
-                        if args.distributed:
-                            test_batch_size = int(X_test.size()[0]/args.world_size)
-                            X_test = np.take(X_test, np.arange(args.rank * test_batch_size, (args.rank + 1) * test_batch_size),0)
-                            if valid_device_emb_table is not None:
-                                lS_o_test = np.take(lS_o_test, valid_device_emb_table, 0)
-                                lS_i_test = itemgetter(*valid_device_emb_table)(lS_i_test)
-                            else:
-                                lS_o_test = []
-                                lS_i_test = []
-                            T_test = T_test[args.rank * test_batch_size : (args.rank + 1) * test_batch_size]
-                            if isinstance(lS_i_test, tuple):
-                                lS_i_test = list(lS_i_test)
-                            else:
-                                lS_i_test = [lS_i_test]
-
                         # forward pass
-                        Z_test = dlrm_habana_wrap(
-                            X_test, lS_o_test, lS_i_test, use_gpu, use_hpu,device
+                        Z_test = dlrm_wrap(
+                            X_test, lS_o_test, lS_i_test, use_gpu, use_hpu, device
                         )
                         if args.mlperf_logging:
                             S_test = Z_test.detach().cpu().numpy()  # numpy array
@@ -1723,10 +1362,6 @@ if __name__ == "__main__":
         V = Z_habana.mean() if args.inference_only else E_habana
         dot = make_dot(V, params=dict(dlrm_habana.named_parameters()))
         dot.render('dlrm_s_pytorch_graph_hpu_custom_2') # write .pdf file
-
-    print('Net at Finish')
-    dlrm_habana.printParamsAndGrads(grads=False)
-
 
     # test prints
     if not args.inference_only and args.debug_mode:

@@ -37,6 +37,16 @@ from torch.utils.data import Dataset, RandomSampler
 import data_loader_terabyte
 
 
+def deviceIsHabana(args):
+    isHabana = False
+    if hasattr(args, 'no_habana') and (not args.no_habana):
+        isHabana = True
+        # jit-trace graph mode script is not adapted for the refactored pre_processor.So add that check for now, to be removed
+        # once jit-trace mode for DLRM is deprecated
+        if hasattr(args, 'use_jit_trace') and args.use_jit_trace:
+            isHabana = False
+    return isHabana
+
 # Kaggle Display Advertising Challenge Dataset
 # dataset (str): name of dataset (Kaggle or Terabyte)
 # randomize (str): determines randomization scheme
@@ -44,6 +54,7 @@ import data_loader_terabyte
 #            "day": randomizes each day"s data (only works if split = True)
 #            "total": randomizes total dataset
 # split (bool) : to split into train, test, validation data-sets
+
 class CriteoDataset(Dataset):
 
     def __init__(
@@ -378,8 +389,9 @@ def ensure_dataset_preprocessed(args, d_path):
 
 def make_criteo_data_and_loaders(args):
     use_pin_memory = False
-    if (hasattr(args, 'no_habana') and (not args.no_habana)) or args.use_gpu:
-        use_pin_memory = True
+    # FIXME: Check if the pinned memory is still required after the CustomPreprocessor
+    # if (hasattr(args, 'no_habana') and (not args.no_habana)) or args.use_gpu:
+    #     use_pin_memory = True
 
     if args.mlperf_logging and args.memory_map and args.data_set == "terabyte":
         # more efficient for larger batches
@@ -499,12 +511,19 @@ def make_criteo_data_and_loaders(args):
             args.memory_map
         )
 
+        if deviceIsHabana(args):
+            from dlrm_habana_kernels import CustomPreProcessor
+            collate_fn = CustomPreProcessor(train_data.counts, args).collate_wrapper_criteo
+        else:
+            collate_fn = collate_wrapper_criteo
+
+
         train_loader = torch.utils.data.DataLoader(
             train_data,
             batch_size=args.mini_batch_size,
             shuffle=False,
             num_workers=args.num_workers,
-            collate_fn=collate_wrapper_criteo,
+            collate_fn=collate_fn,
             pin_memory = use_pin_memory,
             drop_last=False,  # True
         )
@@ -514,7 +533,7 @@ def make_criteo_data_and_loaders(args):
             batch_size=args.test_mini_batch_size,
             shuffle=False,
             num_workers=args.test_num_workers,
-            collate_fn=collate_wrapper_criteo,
+            collate_fn=collate_fn,
             pin_memory = use_pin_memory,
             drop_last=False,  # True
         )
@@ -620,7 +639,6 @@ class RandomDataset(Dataset):
         # therefore we should use num_batches rather than data_size below
         return self.num_batches
 
-
 def collate_wrapper_random(list_of_tuples):
     # where each tuple is (X, lS_o, lS_i, T)
     (X, lS_o, lS_i, T) = list_of_tuples[0]
@@ -633,8 +651,9 @@ def collate_wrapper_random(list_of_tuples):
 def make_random_data_and_loader(args, ln_emb, m_den):
 
     use_pin_memory = False
-    if (hasattr(args, 'no_habana') and (not args.no_habana)) or args.use_gpu:
-        use_pin_memory = True
+    # FIXME: Check if the pinned memory is still required after the CustomPreprocessor
+    # if (hasattr(args, 'no_habana') and (not args.no_habana)) or args.use_gpu:
+    #     use_pin_memory = True
 
     train_data = RandomDataset(
         m_den,
@@ -652,12 +671,20 @@ def make_random_data_and_loader(args, ln_emb, m_den):
         reset_seed_on_access=True,
         rand_seed=args.numpy_rand_seed
     )  # WARNING: generates a batch of lookups at once
+
+
+    if deviceIsHabana(args):
+        from dlrm_habana_kernels import CustomPreProcessor
+        collate_fn = CustomPreProcessor(ln_emb, args).collate_wrapper_random
+    else:
+        collate_fn = collate_wrapper_random
+
     train_loader = torch.utils.data.DataLoader(
         train_data,
         batch_size=1,
         shuffle=False,
         num_workers=args.num_workers,
-        collate_fn=collate_wrapper_random,
+        collate_fn=collate_fn,
         pin_memory = use_pin_memory,
         drop_last=False,  # True
     )
@@ -752,7 +779,7 @@ def generate_uniform_input_batch(
     # print('DATA GEN n={} {} {}. Set seed to {}'.format(n,m_den,ln_emb,seed2))
     ra.seed(seed2)
     seed2 += 1
-    
+
     # dense feature
     Xt = torch.tensor(ra.rand(n, m_den).astype(np.float32))
 
