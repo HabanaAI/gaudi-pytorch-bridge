@@ -113,6 +113,8 @@ struct RecipeValueSpec {
     TORCH_CHECK(!aten_outputs->empty());
   }
 
+  void create_launch_info();
+
   void launch(
       at::ArrayRef<torch::jit::IValue> input_refs,
       std::shared_ptr<std::vector<IValPtrShared>> dma_inputs = nullptr);
@@ -138,6 +140,7 @@ struct RecipeValueSpec {
   std::shared_ptr<std::vector<PtTensorInfo>> dtensorinfos;
   std::shared_ptr<std::vector<IValPtrShared>> aten_outputs;
   std::vector<at::Tensor> aten_intermediates;
+  absl::optional<synapse_helpers::graph::launch_info> launch_info;
 
   uint64_t htensor_wbuff = 0;
   unsigned htensor_wbuff_size = 0;

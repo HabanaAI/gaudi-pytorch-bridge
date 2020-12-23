@@ -41,6 +41,12 @@ std::shared_ptr<synapse_helpers::graph::recipe_handle> recipe::
   return recipe_handle_;
 }
 
+void recipe::create_launch_info() {
+  if (!launch_info_) {
+    launch_info_.emplace(recipe_handle_->device_);
+    synapse_helpers::graph::create_launch_info(*launch_info_, *recipe_handle_);
+  }
+}
 
 void recipe::set_inputs_outputs_names(
     std::vector<std::string> input_names,
@@ -71,10 +77,8 @@ bool recipe::launch(
         DATA_TENSOR,
         {0}});
 
-  synapse_helpers::graph::launch_info handle(recipe_handle_->device_);
-  synapse_helpers::graph::create_launch_info(handle, *recipe_handle_);
   auto&& error_optional{
-      synapse_helpers::graph::launch(handle, *recipe_handle_, syn_info)};
+      synapse_helpers::graph::launch(*launch_info_, *recipe_handle_, syn_info)};
   if (ABSL_PREDICT_FALSE(error_optional.has_value())) {
     auto& error = error_optional.value();
     PT_SYNHELPER_FATAL(

@@ -1651,6 +1651,7 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
     DumpTensors_pre(rv);
   }
 
+  rv.create_launch_info();
   rv.launch(input_refs);
 
   if (enable_tensor_dump_) {

@@ -187,6 +187,13 @@ void RecipeValueSpec::d2h_dbuff(size_t buf_idx) {
   }
 }
 
+void RecipeValueSpec::create_launch_info() {
+  if (!launch_info) {
+    launch_info.emplace(recipe->device_);
+    synapse_helpers::graph::create_launch_info(*launch_info, *recipe);
+  }
+}
+
 void RecipeValueSpec::launch(
     at::ArrayRef<torch::jit::IValue> input_refs,
     std::shared_ptr<std::vector<IValPtrShared>> dma_inputs) {
@@ -243,14 +250,12 @@ void RecipeValueSpec::launch(
           reinterpret_cast<uint64_t>(dtensorinfos->at(i).get_buffer())});
     }
   }
-  synapse_helpers::graph::launch_info ln_info(recipe->device_);
-  synapse_helpers::graph::create_launch_info(ln_info, *recipe);
 
   if (device.IsStreamASyncEnabled()) {
     auto& recipe_counter = device.get_active_recipe_counter();
     recipe_counter.increase();
     auto&& error_optional{
-        synapse_helpers::graph::launch(ln_info, *recipe, syn_launch_info)};
+        synapse_helpers::graph::launch(*launch_info, *recipe, syn_launch_info)};
     if (ABSL_PREDICT_FALSE(error_optional.has_value())) {
       recipe_counter.decrease_and_notify();
       auto& error = error_optional.value();
@@ -272,7 +277,7 @@ void RecipeValueSpec::launch(
         });
   } else {
     auto&& error_optional{
-        synapse_helpers::graph::launch(ln_info, *recipe, syn_launch_info)};
+        synapse_helpers::graph::launch(*launch_info, *recipe, syn_launch_info)};
     if (ABSL_PREDICT_FALSE(error_optional.has_value())) {
       auto& error = error_optional.value();
       PT_BRIDGE_FATAL(

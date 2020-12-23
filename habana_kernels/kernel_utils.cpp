@@ -109,6 +109,7 @@ void habana_helpers::compile_and_run(
   }
   AT_ASSERT(recipe != nullptr);
   if (recipe != nullptr) {
+    recipe->create_launch_info();
     recipe->set_inputs_outputs_names(input_names, output_names);
     launchRecipe(
         input_buffers,
