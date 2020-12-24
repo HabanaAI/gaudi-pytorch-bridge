@@ -8,7 +8,9 @@
  ******************************************************************************
  */
 #pragma once
+#include <torch/script.h>
 #include "habana_kernels/habana_operator.h"
+using namespace torch;
 using namespace habana;
 
 // OptimizerSparseSgd Operator
@@ -44,4 +46,25 @@ class OptimizerSparseAdagradOperator : public HabanaOperator {
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       std::vector<bool> is_output_persistent) override;
+};
+
+class OptimizerAdamwOperator : public HabanaOperator {
+ public:
+  OptimizerAdamwOperator(int device_id, c10::ScalarType scalar_type)
+      : HabanaOperator(
+            "optimizer_adamw_" +
+            habana_helpers::name_suffix_from_type(scalar_type)) {
+    this->CreateSynContext(device_id);
+  }
+
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent) override;
+
+  static std::tuple<Tensor, Tensor> GenerateAndCopyTensorsToHPU(
+      const Tensor& ref_tensor,
+      const float lr,
+      const float neg_step,
+      bool is_persistent);
 };

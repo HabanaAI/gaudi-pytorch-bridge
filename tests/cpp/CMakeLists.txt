@@ -16,6 +16,7 @@ target_include_directories(
   "$ENV{PYTORCH_MODULES_ROOT_PATH}/pytorch_helpers"
   "$ENV{SYNAPSE_ROOT}/include"
 )
+#add_compile_definitions(MAX_DEVICES_PER_BOX=8)
 target_compile_definitions(test_pt_integration PRIVATE "TESTS" MAX_DEVICES_PER_BOX=8)
 
 #find_library(PTPY_LIB "libtorch_python.so"

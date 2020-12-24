@@ -14,7 +14,10 @@
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_helpers/tensor_utils.h"
 #include "habana_helpers/unused_macro.h"
+#include "habana_kernels/binary_inplace_kernels.h"
+#include "habana_kernels/binary_kernels.h"
 #include "habana_kernels/optimizer_kernels.h"
+#include "habana_kernels/unary_kernels.h"
 #include "simple_generic_kernel.h"
 #include "synapse_helpers/recipe.h"
 
@@ -238,6 +241,318 @@ optimizer_sparse_adagrad_with_valid_count_hpu(
 
   PT_KERNEL_END;
   return std::tie(weights_in, moments_in);
+}
+
+/*
+Generate tensors for LR and neg_step and copy to HPU
+*/
+std::tuple<Tensor, Tensor> OptimizerAdamwOperator::GenerateAndCopyTensorsToHPU(
+    const Tensor& ref_tensor,
+    const float lr,
+    const float neg_step,
+    bool is_persistent) {
+  // Convert neg_step and lr to tensors to avoid cache misses
+  Tensor neg_step_t = habana_helpers::createPTTensor(
+      ref_tensor,
+      {1},
+      ref_tensor.options(),
+      ref_tensor.suggest_memory_format(),
+      c10::ScalarType::Float,
+      is_persistent);
+  auto size1 = neg_step_t.numel() * neg_step_t.element_size();
+  std::vector<float> buffer1(size1, neg_step);
+  habana_helpers::copy_scalar_to_device(buffer1.data(), neg_step_t, size1);
+
+  Tensor lr_t = habana_helpers::createPTTensor(
+      ref_tensor,
+      {1},
+      ref_tensor.options(),
+      ref_tensor.suggest_memory_format(),
+      c10::ScalarType::Float,
+      is_persistent);
+  auto size2 = lr_t.numel() * lr_t.element_size();
+  std::vector<float> buffer2(size2, lr);
+  habana_helpers::copy_scalar_to_device(buffer2.data(), lr_t, size2);
+
+  return std::tuple<Tensor, Tensor>(neg_step_t, lr_t);
+}
+
+void OptimizerAdamwOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 10,
+      "Incorrect size of inputs for adamw optimizer graph creation call");
+
+  auto gradients = inputs[0].toTensorList();
+  auto weights = inputs[1].toTensorList();
+  auto exp_avg = inputs[2].toTensorList();
+  auto exp_avg_sq = inputs[3].toTensorList();
+  UNUSED auto lr = inputs[4].toTensor();
+  auto beta1 = inputs[5].toScalar();
+  auto beta2 = inputs[6].toScalar();
+  auto epsilon = inputs[7].toScalar();
+  auto neg_step_size = inputs[8].toTensor();
+  UNUSED auto weight_decay = inputs[9].toScalar();
+
+  /*  This are the operations we need to perform per parameter
+      exp_avg.mul_(beta1).add_(grad, alpha=1.0 - beta1)
+      exp_avg_sq.mul_(beta2).addcmul_(grad, grad, value=1.0 - beta2)
+      denom = exp_avg_sq.sqrt().add_(group["eps"])
+      ratio = torch.div(exp_avg, denom)
+      scaled_ratio = torch.mul(ratio, step_size)
+      p.data.sub_(scaled_ratio)
+      if group["weight_decay"] > 0.0:
+        p.data.add_(p.data, alpha=-group["lr"] * group["weight_decay"])
+  */
+  auto device_id = gradients.get(0).device().index();
+  auto scalar_type = gradients.get(0).scalar_type();
+  auto num_params = static_cast<int>(weights.size());
+  torch::jit::Stack stack;
+  for (auto i = 0; i < num_params; i++) {
+    // Synapse Graph for single parameter update to be created here
+    // All synapse input tensor references are there in a single std::vector
+    // gradients ; weights ; exp_avg ; exp_avg_sq ; lr ; neg_step_size
+
+    // exp_avg.mul_(beta1).add_(grad, alpha=1.0 - beta1)
+    habana::MulInplaceOperator mul_exp_avg(device_id, scalar_type);
+    auto& syn_in_10 = mul_exp_avg.SetSynapseInput(
+        std::move(p_context_->syn_inputs_[2 * num_params + i]));
+    stack.emplace_back(IValue(exp_avg.get(i)));
+    stack.emplace_back(IValue(beta1));
+    mul_exp_avg.AllocateAndAddSynapseNode(graph, stack, false);
+    p_context_->syn_inputs_[2 * num_params + i] = std::move(syn_in_10);
+    stack.clear();
+
+    habana::AddInplaceOperator add_exp_avg(device_id, scalar_type);
+    auto& syn_in_11 =
+        add_exp_avg.SetSynapseInput(std::move(mul_exp_avg.GetSynOutputs()[0]));
+    auto& syn_in_21 =
+        add_exp_avg.SetSynapseInput(std::move(p_context_->syn_inputs_[i]));
+    stack.emplace_back(IValue(mul_exp_avg.GetOutputs()[0]));
+    stack.emplace_back(IValue(gradients.get(i)));
+    stack.emplace_back(IValue(Scalar(1.0 - beta1.toDouble())));
+    add_exp_avg.AllocateAndAddSynapseNode(graph, stack, false);
+    p_context_->syn_inputs_[i] = std::move(syn_in_21);
+    stack.clear();
+
+    // exp_avg_sq.mul_(beta2).addcmul_(grad, grad, value=1.0 - beta2)
+    habana::MulInplaceOperator mul_exp_avg_sq(device_id, scalar_type);
+    auto& syn_in_13 = mul_exp_avg_sq.SetSynapseInput(
+        std::move(p_context_->syn_inputs_[3 * num_params + i]));
+    stack.emplace_back(IValue(exp_avg_sq.get(i)));
+    stack.emplace_back(IValue(beta2));
+    mul_exp_avg_sq.AllocateAndAddSynapseNode(graph, stack, false);
+    p_context_->syn_inputs_[3 * num_params + i] = std::move(syn_in_13);
+    stack.clear();
+
+    habana::AddcmulInplaceOperator addcmul_exp_avg_sq(device_id, scalar_type);
+    auto& syn_in_14 = addcmul_exp_avg_sq.SetSynapseInput(
+        std::move(mul_exp_avg_sq.GetSynOutputs()[0]));
+    auto& syn_in_24 = addcmul_exp_avg_sq.SetSynapseInput(
+        std::move(p_context_->syn_inputs_[i]));
+    // Internally we are going to use "pow" instead of "mul",
+    // therefore 3rd synapse tensor will be unused. We can give
+    // a dummy tensor
+    UNUSED auto& syn_in_3 = addcmul_exp_avg_sq.SetSynapseInput(
+        std::move(habana_helpers::create_tensor(
+            gradients.get(i), graph.get_graph_handle(), true, c10::nullopt)));
+    stack.emplace_back(IValue(mul_exp_avg_sq.GetOutputs()[0]));
+    stack.emplace_back(IValue(gradients.get(i)));
+    stack.emplace_back(IValue(gradients.get(i)));
+    stack.emplace_back(IValue(Scalar(1.0 - beta2.toDouble())));
+    addcmul_exp_avg_sq.AllocateAndAddSynapseNode(graph, stack, false);
+    p_context_->syn_inputs_[i] = std::move(syn_in_24);
+    stack.clear();
+
+    // denom = exp_avg_sq.sqrt().add_(group["eps"])
+    // we will actually do "add" instead of "add_". Inplace not strictly
+    // required here
+    SqrtOperator sqrt_exp_avg_sq(device_id, scalar_type);
+    auto& syn_in_15 = sqrt_exp_avg_sq.SetSynapseInput(
+        std::move(addcmul_exp_avg_sq.GetSynOutputs()[0]));
+    stack.emplace_back(IValue(addcmul_exp_avg_sq.GetOutputs()[0]));
+    sqrt_exp_avg_sq.AllocateAndAddSynapseNode(graph, stack, false);
+    stack.clear();
+
+    habana::AddOperator add_exp_avg_sq(device_id, scalar_type);
+    UNUSED auto& syn_in_16 = add_exp_avg_sq.SetSynapseInput(
+        std::move(sqrt_exp_avg_sq.GetSynOutputs()[0]));
+    stack.emplace_back(IValue(sqrt_exp_avg_sq.GetOutputs()[0]));
+    stack.emplace_back(IValue(epsilon));
+    stack.emplace_back(IValue(1.0));
+    add_exp_avg_sq.AllocateAndAddSynapseNode(graph, stack, false);
+    stack.clear();
+
+    // Replaced addcdiv with following OPs, so that -step_size
+    // can be used as a tensor
+    // ratio = torch.div(exp_avg, denom)
+    // scaled_ratio = torch.mul(ratio, -step_size)
+    // p.data.add_(scaled_ratio)
+    habana::DivOperator div_wt(device_id, scalar_type);
+    auto& syn_in_17 =
+        div_wt.SetSynapseInput(std::move(add_exp_avg.GetSynOutputs()[0]));
+    UNUSED auto& syn_in_27 =
+        div_wt.SetSynapseInput(std::move(add_exp_avg_sq.GetSynOutputs()[0]));
+    stack.emplace_back(IValue(add_exp_avg.GetOutputs()[0]));
+    stack.emplace_back(IValue(add_exp_avg_sq.GetOutputs()[0]));
+    div_wt.AllocateAndAddSynapseNode(graph, stack, false);
+    stack.clear();
+
+    habana::MulOperator mul_wt(device_id, scalar_type);
+    UNUSED auto& syn_in_18 =
+        mul_wt.SetSynapseInput(std::move(div_wt.GetSynOutputs()[0]));
+    auto& syn_in_28 = mul_wt.SetSynapseInput(
+        std::move(p_context_->syn_inputs_[4 * num_params + 1]));
+    stack.emplace_back(IValue(div_wt.GetOutputs()[0]));
+    stack.emplace_back(IValue(neg_step_size));
+    mul_wt.AllocateAndAddSynapseNode(graph, stack, false);
+    p_context_->syn_inputs_[4 * num_params + 1] = std::move(syn_in_28);
+    stack.clear();
+
+    habana::AddInplaceOperator add_wt(device_id, scalar_type);
+    auto& syn_in_19 = add_wt.SetSynapseInput(
+        std::move(p_context_->syn_inputs_[1 * num_params + i]));
+    UNUSED auto& syn_in_29 =
+        add_wt.SetSynapseInput(std::move(mul_wt.GetSynOutputs()[0]));
+    stack.emplace_back(IValue(weights.get(i)));
+    stack.emplace_back(IValue(mul_wt.GetOutputs()[0]));
+    stack.emplace_back(IValue(1.0));
+    add_wt.AllocateAndAddSynapseNode(graph, stack, false);
+    p_context_->syn_inputs_[1 * num_params + i] = std::move(syn_in_19);
+    stack.clear();
+
+    // if group["weight_decay"] > 0.0:
+    //  p.data.add_(p.data, alpha=-group["lr"] *
+    //  group["weight_decay"])
+    // Not going to implement this in 1st pass. Its not being used in
+    // BERT-L Hugging-face scripts
+
+    // Note that these outputs are being filled just to keep GC
+    // runtime happy No need to return these since updates on
+    // weights, exp_avg, exp_avg_sq are all inplace
+    p_context_->syn_outputs_.emplace_back(std::move(syn_in_11));
+    p_context_->pt_outputs_.emplace_back(mul_exp_avg.GetOutputs()[0]);
+    p_context_->syn_outputs_.emplace_back(std::move(syn_in_17));
+    p_context_->pt_outputs_.emplace_back(add_exp_avg.GetOutputs()[0]);
+    p_context_->syn_outputs_.emplace_back(std::move(syn_in_14));
+    p_context_->pt_outputs_.emplace_back(mul_exp_avg_sq.GetOutputs()[0]);
+    p_context_->syn_outputs_.emplace_back(std::move(syn_in_15));
+    p_context_->pt_outputs_.emplace_back(addcmul_exp_avg_sq.GetOutputs()[0]);
+    p_context_->syn_outputs_.emplace_back(std::move(add_wt.GetSynOutputs()[0]));
+    p_context_->pt_outputs_.emplace_back(add_wt.GetOutputs()[0]);
+  }
+}
+
+void optimizer_adamw_hpu(
+    const std::vector<at::Tensor>& gradient_vec,
+    std::vector<at::Tensor>& weight_vec,
+    std::vector<at::Tensor>& exp_avg_vec,
+    std::vector<at::Tensor>& exp_avg_sq_vec,
+    const float lr,
+    const float beta1,
+    const float beta2,
+    const float epsilon,
+    const int step,
+    const int bias_correction,
+    const float weight_decay) {
+  PT_KERNEL_BEGIN;
+
+  TensorList gradients(gradient_vec);
+  TensorList weights(weight_vec);
+  TensorList exp_avg(exp_avg_vec);
+  TensorList exp_avg_sq(exp_avg_sq_vec);
+
+  std::vector<c10::IValue> orig_stack = {
+      IValue(gradients),
+      IValue(weights),
+      IValue(exp_avg),
+      IValue(exp_avg_sq),
+      IValue(lr),
+      IValue(beta1),
+      IValue(beta2),
+      IValue(epsilon),
+      IValue(step),
+      IValue(bias_correction),
+      IValue(weight_decay)};
+  auto step_size = lr;
+  if (bias_correction) {
+    auto bias_correction1 = 1.0 - std::pow(beta1, step);
+    auto bias_correction2 = 1.0 - std::pow(beta2, step);
+    step_size = step_size * std::sqrt(bias_correction2) / bias_correction1;
+  }
+  // Negate step here itself before converting it to tensor
+  // easier then negating after conversion to tensor
+  auto neg_step = -step_size;
+  auto ret_tuple = OptimizerAdamwOperator::GenerateAndCopyTensorsToHPU(
+      gradients[0], lr, neg_step, true);
+  auto neg_step_t = std::get<0>(ret_tuple);
+  auto lr_t = std::get<1>(ret_tuple);
+
+  size_t device_id = gradients[0].device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  auto scalar_type = gradients[0].scalar_type();
+  std::string node_type =
+      "optimizer_adamw_" + habana_helpers::name_suffix_from_type(scalar_type);
+  OptimizerAdamwOperator Op(device_id, scalar_type);
+  // Build Params for the graph
+  std::vector<c10::IValue> stack = {
+      IValue(gradients),
+      IValue(weights),
+      IValue(exp_avg),
+      IValue(exp_avg_sq),
+      IValue(lr_t),
+      IValue(beta1),
+      IValue(beta2),
+      IValue(epsilon),
+      IValue(neg_step_t),
+      IValue(weight_decay)};
+
+  // Assign Inputs to the Operator
+  std::vector<at::Tensor> pt_inputs;
+  std::vector<at::Tensor> pt_outputs;
+  auto num_params = static_cast<int>(gradients.size());
+  for (auto j = 0; j < num_params; j++) {
+    pt_inputs.push_back(gradients[j]);
+  }
+  for (auto j = 0; j < num_params; j++) {
+    pt_inputs.push_back(weights[j]);
+  }
+  for (auto j = 0; j < num_params; j++) {
+    pt_inputs.push_back(exp_avg[j]);
+  }
+  for (auto j = 0; j < num_params; j++) {
+    pt_inputs.push_back(exp_avg_sq[j]);
+  }
+  pt_inputs.push_back(lr_t);
+  pt_inputs.push_back(neg_step_t);
+
+  for (auto j = 0; j < num_params; j++) {
+    pt_outputs.push_back(exp_avg[j]);
+    pt_outputs.push_back(exp_avg[j]);
+    pt_outputs.push_back(exp_avg_sq[j]);
+    pt_outputs.push_back(exp_avg_sq[j]);
+    pt_outputs.push_back(weights[j]);
+  }
+  size_t key = Op.GetRecipeKey(node_type, stack, true);
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    Op.SetPTInputs(pt_inputs);
+    Op.SetPTOutputs(pt_outputs);
+    Op.Execute(key);
+  } else {
+    // Create Graph
+    auto graph = habana_helpers::create_graph(device_id, node_type);
+
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
+    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    // compile and execute the graph
+    Op.Compile(graph);
+  }
+
+  PT_KERNEL_END;
+  return;
 }
 
 static auto& KernelRegistry =
