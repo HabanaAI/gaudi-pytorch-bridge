@@ -1698,16 +1698,43 @@ Tensor avg_pool2d_hpu_lazy(
     bool ceil_mode,
     bool count_include_pad,
     c10::optional<int64_t> divisor_override) {
-  HABANA_ASSERT(0);
-  return avg_pool2d_hpu(
-      input,
-      kernel_size,
-      stride,
-      padding,
-      ceil_mode,
-      count_include_pad,
-      divisor_override);
+  PT_LAZY_TRACE;
+  habana_lazy::ir::NodePtr avgpool_node =
+      std::make_shared<habana_lazy::ir::AvgPool>(
+          input,
+          kernel_size,
+          stride,
+          padding,
+          ceil_mode,
+          count_include_pad,
+          divisor_override);
+
+  // shaper inference
+  c10::MemoryFormat memory_format = habana_helpers::get_memory_format({&input});
+  bool is_nhwc = (memory_format == c10::MemoryFormat::ChannelsLast);
+  std::vector<int64_t> d{1, 1};
+  IntArrayRef dilation(d.data(), d.size());
+  auto opsize_nhwc = PoolHelper::compute_output_shape(
+      input, kernel_size, stride, padding, dilation, ceil_mode, is_nhwc);
+
+  // return always nhwc. convert to nchw
+  std::vector<long int> shape_out = {
+      opsize_nhwc.at(0),
+      opsize_nhwc.at(3),
+      opsize_nhwc.at(1),
+      opsize_nhwc.at(2)};
+
+  // allocate Output storage
+  auto result = at::native::empty_hpu_lazy(
+      shape_out, input.options(), input.suggest_memory_format(), false);
+  auto hlresult = habana_lazy::GetHbLazyTensor(result);
+  habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(avgpool_node);
+
+  return result;
 };
+
 Tensor& avg_pool2d_backward_out_hpu_lazy(
     Tensor& grad_input,
     const Tensor& grad_output,
@@ -1739,17 +1766,46 @@ Tensor avg_pool2d_backward_hpu_lazy(
     bool ceil_mode,
     bool count_include_pad,
     c10::optional<int64_t> divisor_override) {
-  HABANA_ASSERT(0);
-  return avg_pool2d_backward_hpu(
-      grad_output,
-      input,
-      kernel_size,
-      stride,
-      padding,
-      ceil_mode,
-      count_include_pad,
-      divisor_override);
+  PT_LAZY_TRACE;
+  habana_lazy::ir::NodePtr avgpool_bwd_node =
+      std::make_shared<habana_lazy::ir::AvgPoolBackWard>(
+          grad_output,
+          input,
+          kernel_size,
+          stride,
+          padding,
+          ceil_mode,
+          count_include_pad,
+          divisor_override);
+
+  // shape inference
+  c10::MemoryFormat memory_format = habana_helpers::get_memory_format({&input});
+  bool is_nhwc = (memory_format == c10::MemoryFormat::ChannelsLast);
+  std::vector<int64_t> d{1, 1}; // setting dilation to 1 for avg pool
+  IntArrayRef dilation(d.data(), d.size());
+  auto opsize_nhwc = PoolHelper::compute_output_shape(
+      input, kernel_size, stride, padding, dilation, ceil_mode, is_nhwc);
+
+  // retunr always nhwc. convert to nchw
+  std::vector<long int> out_shape = {
+      opsize_nhwc.at(0),
+      opsize_nhwc.at(3),
+      opsize_nhwc.at(1),
+      opsize_nhwc.at(2)};
+
+  TORCH_CHECK(grad_output.sizes().vec() == out_shape);
+
+  // allocate storage
+  auto result = at::native::empty_hpu_lazy(
+      input.sizes(), input.options(), input.suggest_memory_format(), false);
+  auto hlresult = habana_lazy::GetHbLazyTensor(result);
+  habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(avgpool_bwd_node);
+
+  return result;
 };
+
 void uniform_hpu_lazy(
     const Tensor& self,
     double from,

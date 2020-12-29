@@ -46,3 +46,27 @@ TEST_F(LazyPoolKernelTest, MaxPoolBWDTest) {
   ASSERT_TRUE(torch::allclose(out_cpu_lazy, cpu_out));
 }
 
+TEST_F(LazyPoolKernelTest, AvgPoolTest) {
+  auto input_tensor =
+      torch::arange(20, torch::dtype(torch::kFloat).requires_grad(true))
+          .reshape({1, 1, 4, 5}); // nchw
+  auto cpu_out = torch::avg_pool2d(input_tensor, 3, 1);
+
+  // fwd propagation
+  torch::Tensor tHabanaX = input_tensor.to(torch::kHABANA);
+  auto outHabana =
+      torch::avg_pool2d(tHabanaX, {3, 3}, {1, 1}, {0, 0}, false, true);
+
+  ASSERT_TRUE(torch::allclose(outHabana.to(torch::kCPU), cpu_out));
+
+  // bwd propagation with dummy grad tensor
+  auto grad_tensor =
+      torch::arange(6, torch::dtype(torch::kFloat).requires_grad(true))
+          .reshape({1, 1, 2, 3});
+  torch::Tensor tHabanaG = grad_tensor.to(torch::kHABANA);
+  outHabana.backward({tHabanaG}, false, true);
+
+  auto out_cpu_lazy = outHabana.to(torch::kCPU);
+
+  ASSERT_TRUE(torch::allclose(out_cpu_lazy, cpu_out));
+}

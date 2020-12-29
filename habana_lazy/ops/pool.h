@@ -103,5 +103,129 @@ class MaxPoolBackWard : public ir::Node {
   }
 };
 
+class AvgPool : public ir::Node {
+ public:
+  enum class AvgPoolParams {
+    KERNEL_SIZE_INDEX = 1,
+    STRIDE_INDEX,
+    PADDING_INDEX,
+    CEIL_MODE_INDEX,
+    COUNT_INCLUDE_PAD,
+    DIVISOR_OVERRIDE
+  };
+  AvgPool() = delete;
+  AvgPool(
+      const at::Tensor& input,
+      at::IntArrayRef kernel_size,
+      at::IntArrayRef stride,
+      at::IntArrayRef padding,
+      bool ceil_mode,
+      bool count_include_pad,
+      c10::optional<int64_t> divisor_override)
+      : Node(c10::Symbol::fromQualString("aten::avg_pool2d")) {
+    auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHABANA);
+    AddInput(hl_input.GetIrValue());
+
+    std::vector<at::Tensor> input_pt_vec{input};
+    AddInputPtTensors(input_pt_vec);
+
+    m_meta_data.set(
+        kernel_size, static_cast<size_t>(AvgPoolParams::KERNEL_SIZE_INDEX));
+    m_meta_data.set(stride, static_cast<size_t>(AvgPoolParams::STRIDE_INDEX));
+    m_meta_data.set(padding, static_cast<size_t>(AvgPoolParams::PADDING_INDEX));
+    m_meta_data.set(
+        ceil_mode, static_cast<size_t>(AvgPoolParams::CEIL_MODE_INDEX));
+    m_meta_data.set(
+        count_include_pad,
+        static_cast<size_t>(AvgPoolParams::COUNT_INCLUDE_PAD));
+    m_meta_data.set(
+        divisor_override, static_cast<size_t>(AvgPoolParams::DIVISOR_OVERRIDE));
+  }
+
+  std::string ToString() const override {
+    std::stringstream ss;
+    ss << Node::ToString() << ", kernel_size="
+       << m_meta_data.get(static_cast<size_t>(AvgPoolParams::KERNEL_SIZE_INDEX))
+       << ", stride="
+       << m_meta_data.get(static_cast<size_t>(AvgPoolParams::STRIDE_INDEX))
+       << ", padding="
+       << m_meta_data.get(static_cast<size_t>(AvgPoolParams::PADDING_INDEX))
+       << ", transposed="
+       << m_meta_data.get(static_cast<size_t>(AvgPoolParams::CEIL_MODE_INDEX))
+       << ", include_zero_padding="
+       << m_meta_data.get(static_cast<size_t>(AvgPoolParams::COUNT_INCLUDE_PAD))
+       << ", divisor_override="
+       << m_meta_data.get(static_cast<size_t>(AvgPoolParams::DIVISOR_OVERRIDE));
+    return ss.str();
+  }
+};
+
+class AvgPoolBackWard : public ir::Node {
+ public:
+  enum class AvgPoolBwdParams {
+    KERNEL_SIZE_INDEX = 2,
+    STRIDE_INDEX,
+    PADDING_INDEX,
+    CEIL_MODE_INDEX,
+    COUNT_INCLUDE_PAD,
+    DIVISOR_OVERRIDE
+  };
+  AvgPoolBackWard() = delete;
+  AvgPoolBackWard(
+      const at::Tensor& grad_output,
+      const at::Tensor& input,
+      at::IntArrayRef kernel_size,
+      at::IntArrayRef stride,
+      at::IntArrayRef padding,
+      bool ceil_mode,
+      bool count_include_pad,
+      c10::optional<int64_t> divisor_override)
+      : Node(c10::Symbol::fromQualString("aten::avg_pool2d_backward")) {
+    auto hl_grad_output = GetOrCreateHbLazyTensor(grad_output, c10::kHABANA);
+    auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHABANA);
+    AddInput(hl_grad_output.GetIrValue());
+    AddInput(hl_input.GetIrValue());
+
+    std::vector<at::Tensor> input_pt_vec{grad_output, input};
+    AddInputPtTensors(input_pt_vec);
+
+    m_meta_data.set(
+        kernel_size, static_cast<size_t>(AvgPoolBwdParams::KERNEL_SIZE_INDEX));
+    m_meta_data.set(
+        stride, static_cast<size_t>(AvgPoolBwdParams::STRIDE_INDEX));
+    m_meta_data.set(
+        padding, static_cast<size_t>(AvgPoolBwdParams::PADDING_INDEX));
+    m_meta_data.set(
+        ceil_mode, static_cast<size_t>(AvgPoolBwdParams::CEIL_MODE_INDEX));
+    m_meta_data.set(
+        count_include_pad,
+        static_cast<size_t>(AvgPoolBwdParams::COUNT_INCLUDE_PAD));
+    m_meta_data.set(
+        divisor_override,
+        static_cast<size_t>(AvgPoolBwdParams::DIVISOR_OVERRIDE));
+  }
+
+  std::string ToString() const override {
+    std::stringstream ss;
+    ss << Node::ToString() << ", kernel_size="
+       << m_meta_data.get(
+              static_cast<size_t>(AvgPoolBwdParams::KERNEL_SIZE_INDEX))
+       << ", stride="
+       << m_meta_data.get(static_cast<size_t>(AvgPoolBwdParams::STRIDE_INDEX))
+       << ", padding="
+       << m_meta_data.get(static_cast<size_t>(AvgPoolBwdParams::PADDING_INDEX))
+       << ", transposed="
+       << m_meta_data.get(
+              static_cast<size_t>(AvgPoolBwdParams::CEIL_MODE_INDEX))
+       << ", include_zero_padding="
+       << m_meta_data.get(
+              static_cast<size_t>(AvgPoolBwdParams::COUNT_INCLUDE_PAD))
+       << ", divisor_override="
+       << m_meta_data.get(
+              static_cast<size_t>(AvgPoolBwdParams::DIVISOR_OVERRIDE));
+    return ss.str();
+  }
+};
+
 }; // namespace ir
 }; // namespace habana_lazy
