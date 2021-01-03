@@ -119,6 +119,31 @@ TEST_F(LazyUnaryKernelTest, SqrtTest) {
       allclose(hout_lazy, cpu_out, 0.001, 0.001, /*equal_nan*/ true), true);
 }
 
+TEST_F(LazyUnaryKernelTest, ErfInplaceTest) {
+  torch::Tensor A = torch::randn({2, 2}, torch::dtype(torch::kFloat));
+
+  auto hA = A.to(torch::kHABANA);
+
+  auto exp = torch::erf_(A);
+  auto result = torch::erf_(hA);
+
+  Tensor out = result.to(kCPU);
+
+  EXPECT_EQ(allclose(out, exp, 0.001, 0.001), true);
+}
+
+TEST_F(LazyUnaryKernelTest, ExpInplaceTest) {
+  torch::Tensor A = torch::randn({2, 2}, torch::dtype(torch::kFloat));
+
+  auto hA = A.to(torch::kHABANA);
+
+  auto exp = torch::exp_(A);
+  auto result = torch::exp_(hA);
+
+  Tensor out = result.to(kCPU);
+
+  EXPECT_EQ(allclose(out, exp, 0.001, 0.001), true);
+}
 TEST_F(LazyUnaryKernelTest, TanhFwdTest) {
   torch::Tensor A =
       torch::arange(6, torch::dtype(torch::kFloat).requires_grad(true))
