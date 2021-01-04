@@ -2072,6 +2072,47 @@ optimizer_sparse_adagrad_with_valid_count_hpu_wrap(
         valid_count_tensor);
   }
 }
+void optimizer_adamw_hpu_wrap(
+    const std::vector<at::Tensor>& gradient_vec,
+    std::vector<at::Tensor>& weight_vec,
+    std::vector<at::Tensor>& exp_avg_vec,
+    std::vector<at::Tensor>& exp_avg_sq_vec,
+    const float lr,
+    const float beta1,
+    const float beta2,
+    const float epsilon,
+    const int step,
+    const int bias_correction,
+    const float weight_decay) {
+  if (!habana_lazy::isDeviceInLoweringMode(weight_vec[0].device().index()) &&
+      std::getenv("PT_HPU_LAZY_MODE")) {
+    optimizer_adamw_hpu_lazy(
+        gradient_vec,
+        weight_vec,
+        exp_avg_vec,
+        exp_avg_sq_vec,
+        lr,
+        beta1,
+        beta2,
+        epsilon,
+        step,
+        bias_correction,
+        weight_decay);
+  } else {
+    optimizer_adamw_hpu(
+        gradient_vec,
+        weight_vec,
+        exp_avg_vec,
+        exp_avg_sq_vec,
+        lr,
+        beta1,
+        beta2,
+        epsilon,
+        step,
+        bias_correction,
+        weight_decay);
+  }
+}
 Tensor ones_like_hpu_wrap(
     const Tensor& self,
     const TensorOptions& options,

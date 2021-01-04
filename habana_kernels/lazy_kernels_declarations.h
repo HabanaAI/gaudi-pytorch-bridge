@@ -566,6 +566,18 @@ optimizer_sparse_adagrad_with_valid_count_hpu_lazy(
     const Tensor& indices,
     const Tensor& learning_rate,
     const Tensor& valid_count_tensor);
+void optimizer_adamw_hpu_lazy(
+    const std::vector<at::Tensor>& gradient_vec,
+    std::vector<at::Tensor>& weight_vec,
+    std::vector<at::Tensor>& exp_avg_vec,
+    std::vector<at::Tensor>& exp_avg_sq_vec,
+    const float lr,
+    const float beta1,
+    const float beta2,
+    const float epsilon,
+    const int step,
+    const int bias_correction,
+    const float weight_decay);
 Tensor ones_like_hpu_lazy(
     const Tensor& self,
     const TensorOptions& options,

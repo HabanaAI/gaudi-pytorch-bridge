@@ -2578,6 +2578,22 @@ optimizer_sparse_adagrad_with_valid_count_hpu_lazy(
   return std::tie(weights_in, moments_in);
 }
 
+void optimizer_adamw_hpu_lazy(
+    const std::vector<at::Tensor>& gradient_vec,
+    std::vector<at::Tensor>& weight_vec,
+    std::vector<at::Tensor>& exp_avg_vec,
+    std::vector<at::Tensor>& exp_avg_sq_vec,
+    const float lr,
+    const float beta1,
+    const float beta2,
+    const float epsilon,
+    const int step,
+    const int bias_correction,
+    const float weight_decay) {
+  PT_LAZY_TRACE;
+  TORCH_CHECK(false, "Not implemented yet");
+}
+
 Tensor ones_like_hpu_lazy(
     const Tensor& self,
     const TensorOptions& options,

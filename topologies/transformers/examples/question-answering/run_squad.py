@@ -136,7 +136,16 @@ def train(args, train_dataset, model, tokenizer, trainMetaData):
         },
         {"params": [p for n, p in model.named_parameters() if any(nd in n for nd in no_decay)], "weight_decay": 0.0},
     ]
-    optimizer = AdamW(optimizer_grouped_parameters, lr=args.learning_rate, eps=args.adam_epsilon)
+
+    if args.use_habana and args.use_fused_adam:
+        try:
+            from hb_custom import FusedAdamW
+        except ImportError:
+            raise ImportError("Please install hbopt.")
+        optimizer = FusedAdamW(optimizer_grouped_parameters, lr=args.learning_rate, eps=args.adam_epsilon)
+    else:
+        optimizer = AdamW(optimizer_grouped_parameters, lr=args.learning_rate, eps=args.adam_epsilon)
+
     scheduler = get_linear_schedule_with_warmup(
         optimizer, num_warmup_steps=args.warmup_steps, num_training_steps=t_total
     )
@@ -812,6 +821,7 @@ def main():
     parser.add_argument("--server_port", type=str, default="", help="Can be used for distant debugging.")
     parser.add_argument("--threads", type=int, default=1, help="multiple threads for converting example to features")
     parser.add_argument("--no_dropout", action='store_true', help='Disable Dropout in the model')
+    parser.add_argument("--use_fused_adam", action="store_true", help="Whether to use fused adamw on habana device")
     args = parser.parse_args()
 
     if args.doc_stride >= args.max_seq_length - args.max_query_length:

@@ -568,4 +568,10 @@ static auto& KernelRegistry =
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<OptimizerSparseAdagradOperator>(
                   device_id, node_type);
+            })
+        .add(
+            "hpu::habanaOptimizerAdamW",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<OptimizerAdamwOperator>(
+                  device_id, node_type);
             });
