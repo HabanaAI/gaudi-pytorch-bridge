@@ -77,7 +77,7 @@ struct PT_ENABLE_HCL_STREAM {
 };
 
 struct PT_ENABLE_DYNAMIC_WB {
-  static constexpr bool default_value = false;
+  static constexpr bool default_value = true;
 };
 
 struct PT_HABANA_MAX_DMA_COPY_RETRY_COUNT
