@@ -49,8 +49,8 @@ void* StaticCoalescedPooling::pool_create(synDeviceId deviceID, uint64_t size)
 
   // try to take max free memory when not set by user
   if ((size > free_mem) || (size == DEFAULT_POOL_SIZE)) {
-    // setting the pool size to 99% of available memory in case of failure
-    size = 0.99 * free_mem;
+    // setting the pool size to 90% of available memory in case of failure
+    size = 0.90 * free_mem;
     PT_DEVICE_DEBUG(
         "POOL:: use 99% of freepool size, free mem :: ",
         free_mem,
