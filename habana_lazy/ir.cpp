@@ -88,17 +88,15 @@ NodePtr Node::Create(c10::Symbol oper, ValueList inputs) {
 
 size_t Node::get_hash() {
   if (0 == m_node_hash) {
-    std::stringstream ss;
-    ss << m_op.toQualString();
+    m_node_hash = static_cast<uint32_t>(m_op);
     for (size_t i = 0; i < m_inputs.size(); ++i) {
-      ss << i;
+      m_node_hash = torch::hash_combine(i, m_node_hash);
       if (m_inputs[i]) {
-        ss << m_inputs[i].mp_node->op().toQualString()
-           << m_inputs[i].mp_node->get_hash();
+        m_node_hash =
+            torch::hash_combine(m_inputs[i].mp_node->get_hash(), m_node_hash);
       }
     }
-    m_node_hash = torch::get_hash(ss.str());
-    m_node_hash = torch::hash_combine(m_node_hash, m_meta_data.get_hash());
+    m_node_hash = torch::hash_combine(m_meta_data.get_hash(), m_node_hash);
   }
   return m_node_hash;
 }

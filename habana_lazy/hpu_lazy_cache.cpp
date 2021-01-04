@@ -11,11 +11,16 @@
 #include <torch/csrc/api/include/torch/jit.h>
 
 namespace habana_lazy {
+
+std::unordered_map<size_t, std::shared_ptr<torch::jit::Graph>>
+    LazyArgumentSpec::m_compiled_graph;
+
 LazyArgumentSpec::LazyArgumentSpec(
     bool with_grad,
     const ir::NodePtrList& post_order_graph,
     const at::ArrayRef<torch::jit::IValue> input_refs,
     size_t post_order_nodes_hash) {
+  PT_LAZY_TRACE;
   // Create the ArgumentSpec from nodes and inputs
   // ArgumentSpec hash is created based on the inputs
   GetArgSpecKey(with_grad, post_order_graph, input_refs);
@@ -59,8 +64,14 @@ void LazyArgumentSpec::GetArgSpecKey(
 
   // Create a JIT graph with dummy inputs for
   // ArgumentSpecCreator.
-  auto graph = torch::jit::compile(jit_graph_str)->get_function("fn").graph();
-
+  std::shared_ptr<torch::jit::Graph> graph;
+  size_t hash_val = torch::get_hash(jit_graph_str);
+  if (0 == LazyArgumentSpec::m_compiled_graph.count(hash_val)) {
+    graph = torch::jit::compile(jit_graph_str)->get_function("fn").graph();
+    LazyArgumentSpec::m_compiled_graph.insert({hash_val, graph});
+  } else {
+    graph = LazyArgumentSpec::m_compiled_graph.at(hash_val);
+  }
   torch::jit::ArgumentSpecCreator arg_spec_creator_(*graph);
 
   // arg_spec_creator_.create takes into account the input tensors.
