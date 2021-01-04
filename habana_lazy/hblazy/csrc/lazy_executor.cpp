@@ -50,10 +50,7 @@ void HbExecutionContext::RegisterTensor(std::shared_ptr<Data> data) {
 }
 
 void HbExecutionContext::UnregisterTensor(Data* data) {
-  auto exec_status = m_tensor_execution_status.find(data->unique_id);
-  if (exec_status != std::end(m_tensor_execution_status)) {
-    exec_status->second = kUN_REGISTERED;
-  }
+  this->getTensorExecutionStatus().erase(data->unique_id);
 }
 
 //////////////////////////////////////////////////////////////////////////////ARENA/////////////////////////////////////////////////////////////////////////////////

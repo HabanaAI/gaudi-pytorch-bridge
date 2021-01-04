@@ -85,6 +85,11 @@ class HbExecutionContext {
     }
   }
 
+  std::unordered_map<int64_t, LazyTensorExecutionStatus>&
+  getTensorExecutionStatus() {
+    return m_tensor_execution_status;
+  }
+
   bool isExecutionInLoweringMode() {
     auto mode = per_thread_execution_mode.find(pthread_self());
     if (mode != std::end(per_thread_execution_mode)) {
@@ -116,6 +121,7 @@ class HbExecutionContext {
   // Device view seems to be most suited for that
   std::unordered_map<int64_t, LazyTensorExecutionStatus>
       m_tensor_execution_status;
+
   // LazyExecutionMode : per thread execution mode is maintained
   std::unordered_map<pthread_t, LazyExecutionMode> per_thread_execution_mode;
 };
