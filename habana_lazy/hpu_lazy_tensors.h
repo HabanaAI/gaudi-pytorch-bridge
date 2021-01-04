@@ -21,7 +21,8 @@ enum LazyTensorExecutionStatus {
   kUN_REGISTERED = 0,
   kREGISTERED,
   kEXECUTING,
-  kEXECUTION_COMPLETE
+  kEXECUTION_COMPLETE,
+  kINPUT
 };
 
 // TODO : Dummy IR used as placeholder, replace with actual IR and move to IR
@@ -85,14 +86,6 @@ class HbLazyTensor {
   static HbLazyTensor Create(
       const at::Tensor& tensor,
       const c10::Device& device);
-
-  c10::TensorImpl* getAttachedTensorImpl() const {
-    if (data()->tensor_data) {
-      return data()->tensor_data.value().unsafeGetTensorImpl();
-    }
-    return nullptr;
-  }
-
   static HbLazyTensor Create(
       ir::Value ir_value,
       const at::Device& device,
@@ -177,14 +170,20 @@ class HbLazyTensor {
   // returns true if we have already created an aten tensor with storage and
   // attached
   bool isStorageAttached();
+  c10::TensorImpl* getAttachedTensorImpl() const;
+  c10::optional<at::Tensor> CurrentTensorAttached() const {
+    return data()->tensor_data;
+  }
+  ir::Value GetIrValueForTensor(
+      const at::Tensor& tensor,
+      const c10::Device& device) const;
 
  private:
   Data* data() const;
+  std::shared_ptr<Data> mp_data;
   std::shared_ptr<Data> data_ptr() const {
     return mp_data;
   }
-  std::shared_ptr<Data> mp_data;
-
   static void SyncTensorsGraphInternal(std::vector<HbLazyTensor>* tensors);
 };
 

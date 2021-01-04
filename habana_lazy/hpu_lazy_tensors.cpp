@@ -56,7 +56,15 @@ std::vector<HbLazyTensor> HbContextArena::GetLiveTensors(
     for (auto& uid_wptr : devctx->tensors_data) {
       std::shared_ptr<Data> data = uid_wptr.second.lock();
       if (data != nullptr) {
-        tensors.emplace_back(std::move(data));
+        // Activate this code once the logic is fixed for live tensors
+        // auto exec_context =
+        //   habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
+        //       device->index());
+        // auto status =
+        // exec_context->getTensorExecutionStatus(data->unique_id);
+        // if (status != kEXECUTION_COMPLETE && status != kINPUT) {
+        tensors.emplace_back(HbLazyTensor(std::move(data)));
+        //}
       }
     }
   };
@@ -190,7 +198,25 @@ ir::Value HbLazyTensor::GetIrValue() const {
   if (ir_value) {
     return ir_value;
   }
-  AssignIrValue(CreateTensorNode());
+  void* device_data = CurrentHabanaData();
+  if (device_data != nullptr) {
+    // In case of tensor node, we do not clear the device data when we set the
+    // IR node. This because we want further calls to GetIrValue() to fetch the
+    // same IR node, and not create new ones (even though the lowering context
+    // will still collapse them all into a single Habana parameter op). So call
+    // which wants the device data will still find it, w/out having to fetch it
+    // via a computation on device
+    AssignIrValue(CreateTensorNode());
+    return data()->ir_value;
+  }
+  c10::optional<at::Tensor> tensor_data = CurrentTensorData();
+  if (tensor_data)
+    AssignIrValue(GetIrValueForTensor(*tensor_data, GetDevice()));
+  else {
+    at::Tensor tensor_dummy;
+    AssignIrValue(GetIrValueForTensor(tensor_dummy, GetDevice()));
+  }
+
   return data()->ir_value;
 }
 
@@ -215,13 +241,20 @@ void HbLazyTensor::SetTensorData(at::Tensor tensor_data) {
   data()->tensor_data = std::move(tensor_data);
 }
 
+c10::TensorImpl* HbLazyTensor::getAttachedTensorImpl() const {
+  if (data()->tensor_data) {
+    return (data()->tensor_data.value().unsafeGetTensorImpl());
+  } else {
+    return nullptr;
+  }
+}
 c10::optional<at::Tensor> HbLazyTensor::CurrentTensorData() const {
   auto device_id = GetDevice().index();
   auto context =
       habana_lazy::habana_lazy_executor.getDeviceExecutionContext(device_id);
   if (context != nullptr) {
     auto status = context->getTensorExecutionStatus(data()->unique_id);
-    if (status == kEXECUTION_COMPLETE) {
+    if (status == kEXECUTION_COMPLETE || status == kINPUT) {
       return data()->tensor_data;
     } else {
       return c10::nullopt;
@@ -278,6 +311,12 @@ void HbLazyTensor::setPtrDataIrToData() {
 ir::Value HbLazyTensor::createIrValueFromData() {
   ir::Value v{data_ptr()};
   return v;
+}
+
+ir::Value HbLazyTensor::GetIrValueForTensor(
+    const at::Tensor& tensor,
+    const c10::Device& device) const {
+  return CreateTensorNode();
 }
 
 HbLazyTensor HbLazyTensor::CreateHbLazyTensor(
@@ -450,8 +489,8 @@ void HbLazyTensor::SyncTensorsGraphInternal(
         out_tensor.GetDevice().index());
     context->MarkTensorExecuted(out_tensor.getTensorUniqueId());
     out_tensor.SetTensorData(st);
+    context->MarkTensorsExecuted();
   }
-
   HABANA_ASSERT(stack.size() == indices.size());
   // Graph executed, clear IR values corresponding to sync tensors
   for (auto idx : indices) {

@@ -17,6 +17,7 @@ using namespace torch;
 using namespace at;
 
 Tensor habana_d2d_memcpy(const Tensor& self);
+Tensor habana_d2d_memcpy_other(const Tensor& self, Tensor& other);
 Tensor& copy_hpu_(Tensor& self, const Tensor& src, bool non_blocking);
 Tensor as_strided_hpu(
     const Tensor& self,

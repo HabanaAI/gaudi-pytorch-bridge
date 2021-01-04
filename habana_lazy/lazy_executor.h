@@ -45,37 +45,37 @@ class HbExecutionContext {
     }
   }
   void MarkTensorExecuting(int tensor_id) {
-    auto exec_status = m_tensor_execution_status.find(tensor_id);
-    if (exec_status != std::end(m_tensor_execution_status)) {
-      if (exec_status->second != kEXECUTION_COMPLETE) {
-        exec_status->second = kEXECUTING;
-      }
-    } else {
-      TORCH_CHECK(
-          false,
-          "Habana Lazy execution : trying to set execution stage of unregistered tensor");
+    TORCH_CHECK(
+        m_tensor_execution_status.find(tensor_id) !=
+            std::end(m_tensor_execution_status),
+        "Habana Lazy execution : trying to set execution stage of unregistered tensor");
+    if (m_tensor_execution_status[tensor_id] != kEXECUTION_COMPLETE &&
+        m_tensor_execution_status[tensor_id] != kINPUT) {
+      m_tensor_execution_status[tensor_id] = kEXECUTING;
     }
   }
   void MarkTensorExecuted(int tensor_id) {
-    auto exec_status = m_tensor_execution_status.find(tensor_id);
-    if (exec_status != std::end(m_tensor_execution_status)) {
-      exec_status->second = kEXECUTION_COMPLETE;
-    } else {
-      TORCH_CHECK(
-          false,
-          "Habana Lazy execution : trying to set execution stage of unregistered tensor");
-    }
+    TORCH_CHECK(
+        m_tensor_execution_status.find(tensor_id) !=
+            std::end(m_tensor_execution_status),
+        "Habana Lazy execution : trying to set execution stage of unregistered tensor");
+    m_tensor_execution_status[tensor_id] = kEXECUTION_COMPLETE;
   }
 
   void MarkTensorRegistered(int tensor_id) {
-    auto exec_status = m_tensor_execution_status.find(tensor_id);
-    if (exec_status != std::end(m_tensor_execution_status)) {
-      exec_status->second = kREGISTERED;
-    } else {
-      TORCH_CHECK(
-          false,
-          "Habana Lazy execution : trying to set execution stage of unregistered tensor");
-    }
+    TORCH_CHECK(
+        m_tensor_execution_status.find(tensor_id) !=
+            std::end(m_tensor_execution_status),
+        "Habana Lazy execution : trying to set execution stage of unregistered tensor");
+    m_tensor_execution_status[tensor_id] = kREGISTERED;
+  }
+
+  void MarkTensorStatus(int tensor_id, LazyTensorExecutionStatus status) {
+    TORCH_CHECK(
+        m_tensor_execution_status.find(tensor_id) !=
+            std::end(m_tensor_execution_status),
+        "Habana Lazy execution : trying to set execution stage of unregistered tensor");
+    m_tensor_execution_status[tensor_id] = status;
   }
   LazyTensorExecutionStatus getTensorExecutionStatus(int index) {
     auto exec_status = m_tensor_execution_status.find(index);
@@ -110,22 +110,23 @@ class HbExecutionContext {
     }
   }
   // We want to retain some tensors for special cases where PT releases them
-  // but because we are in lazy mode we actually need them for processing later
-  // This should only be used in special cases and released on exit cleanly
+  // but because we are in lazy mode we actually need them for processing
+  // later This should only be used in special cases and released on exit
+  // cleanly
   std::vector<at::Tensor> m_retained_tensor_list;
 
  private:
   // A map between unique lazy tensor ID and execution status
-  // Although our execution modes are per thread but tensor status is per device
-  // This is because we might be juggling between various threads and we want a
-  // common state set for our tensors that are flowing throught the device.
-  // Device view seems to be most suited for that
+  // Although our execution modes are per thread but tensor status is per
+  // device This is because we might be juggling between various threads and
+  // we want a common state set for our tensors that are flowing throught the
+  // device. Device view seems to be most suited for that
   std::unordered_map<int64_t, LazyTensorExecutionStatus>
       m_tensor_execution_status;
 
   // LazyExecutionMode : per thread execution mode is maintained
   std::unordered_map<pthread_t, LazyExecutionMode> per_thread_execution_mode;
-};
+}; // namespace habana_lazy
 
 class HbExecutionContextArena {
  public:
@@ -162,5 +163,4 @@ extern HbExecutionContextArena habana_lazy_executor;
  */
 bool allocateTensorWithStorage(int device_index);
 bool isDeviceInLoweringMode(int device_index);
-
 }; // namespace habana_lazy

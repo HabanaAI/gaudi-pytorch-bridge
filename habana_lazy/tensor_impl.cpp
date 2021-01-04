@@ -134,11 +134,15 @@ void HbLazyTensorImpl::SetStorage(at::Storage storage) {
 }
 
 const at::Storage& HbLazyTensorImpl::storage() const {
-  HABANA_ASSERT(m_tensor.CurrentTensorData());
   // FIXME Violates const correctness
-  const_cast<HbLazyTensorImpl*>(this)->SetStorage(
-      m_tensor.CurrentTensorData()->storage());
-  return storage_;
+  c10::TensorImpl* impl = ((HbLazyTensor)m_tensor).getAttachedTensorImpl();
+  // return a dummy storage if it isnt allocated yet
+  // its a bit dangerous and we need to ensure storage calls are made only after
+  // backend memory allocation for output tensors
+  if (!impl)
+    return storage_;
+  const_cast<HbLazyTensorImpl*>(this)->SetStorage(impl->storage());
+  return impl->storage();
 }
 
 bool HbLazyTensorImpl::has_storage() const {

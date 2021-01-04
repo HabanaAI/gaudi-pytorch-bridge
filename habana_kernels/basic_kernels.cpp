@@ -68,7 +68,6 @@ Tensor& copy_hpu_(Tensor& self, const Tensor& src, bool non_blocking) {
   Tensor& dst = self;
   TORCH_CHECK(dst.defined(), "dst is undefined");
   TORCH_CHECK(src.defined(), "src is undefined");
-
   const auto src_device = src.device().type();
   const auto dst_device = dst.device().type();
 
@@ -375,10 +374,19 @@ Tensor habana_d2d_memcpy(const Tensor& self) {
   return self;
 }
 
+Tensor habana_d2d_memcpy_other(const Tensor& self, Tensor& other) {
+  HABANA_ASSERT(0);
+  return self;
+}
 static auto& KernelRegistry =
     ::habana::KernelRegistry()
         .add(
             "hpu::habana_d2d_memcpy",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<MemCopyOperator>(device_id, node_type);
+            })
+        .add(
+            "hpu::habana_d2d_memcpy_other",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<MemCopyOperator>(device_id, node_type);
             })

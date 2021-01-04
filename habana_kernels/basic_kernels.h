@@ -59,6 +59,7 @@ class MemCopyOperator : public habana::HabanaOperator {
  public:
   MemCopyOperator(int device_id, c10::ScalarType scalarType)
       : HabanaOperator("memcpy") {
+    kernel_meta_data_.tpc_input_order = {0};
     this->CreateSynContext(device_id);
   }
   virtual void AllocateAndAddSynapseNode(

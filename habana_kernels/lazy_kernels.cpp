@@ -71,9 +71,42 @@ at::Tensor preProcessIfLongorDouble(
 Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
   PT_LAZY_TRACE;
   habana_lazy::ir::NodePtr node;
+  std::vector<at::Tensor> input_pt_vec;
+  habana_lazy::HbLazyTensor hb_tensor =
+      habana_lazy::GetOrCreateHbLazyTensor(src, src.device());
+  auto hlresult = habana_lazy::GetHbLazyTensor(self);
   if (src.dtype() == self.dtype()) {
-    habana_lazy::HbLazyTensor hb_tensor =
-        habana_lazy::GetOrCreateHbLazyTensor(src, src.device());
+    // If both src and dst are already processed ,  go and do the DMA dont wait
+    // Else , If we already have storage in dst, add memcopy node to lazy
+    // graph and we want to copy to existing tensor and not a new one
+    // Kernel expects us to pass dst as second input in that case
+    auto result_data = hlresult.CurrentTensorData();
+    auto src_data = hb_tensor.CurrentTensorData();
+    if (hlresult.isStorageAttached()) {
+      node = habana_lazy::ir::Node::Create(
+          Symbol::fromQualString("hpu::habana_d2d_memcpy_other"),
+          {hb_tensor.GetIrValue(), hlresult.GetIrValue()});
+      input_pt_vec.push_back(src);
+      input_pt_vec.push_back(self);
+      auto context =
+          habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
+              self.device().index());
+      context->MarkTensorRegistered(hlresult.getTensorUniqueId());
+      habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
+      out.m_index = 0;
+      out.SetNode(node);
+      node->AddInputPtTensors(input_pt_vec);
+    } else {
+      node = habana_lazy::ir::Node::Create(
+          Symbol::fromQualString("hpu::habana_d2d_memcpy"),
+          {hb_tensor.GetIrValue()});
+      input_pt_vec.push_back(src);
+      habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
+      out.m_index = 0;
+      out.SetNode(node);
+      node->AddInputPtTensors(input_pt_vec);
+    }
+  } else {
     node = habana_lazy::ir::Node::Create(
         Symbol::fromQualString("hpu::habana_d2d_memcpy"),
         {hb_tensor.GetIrValue()});
@@ -81,17 +114,10 @@ Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
     habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
     out.m_index = 0;
     out.SetNode(node);
-
     std::vector<at::Tensor> input_pt_vec{src};
     node->AddInputPtTensors(input_pt_vec);
-  } else {
-    node = std::make_shared<habana_lazy::ir::Cast>(self, src, non_blocking);
-    auto hlresult = habana_lazy::GetHbLazyTensor(self);
-    habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
-    out.m_index = 0;
-    out.SetNode(node);
+    return self;
   }
-
   return self;
 }
 
@@ -115,8 +141,8 @@ Tensor& copy_hpu_lazy_D2H(Tensor& self, const Tensor& src, bool non_blocking) {
     if (type != typeMetaToScalarType(src.dtype())) {
       // If we need to upscale the CPU tensor using the .to for now
       // It rebinds the self reference to the new tensor
-      // We need to check the memory deletion of the original tensor created by
-      // PT
+      // We need to check the memory deletion of the original tensor created
+      // by PT
       self = copy_hpu_(self, tensor_data.value(), non_blocking);
       self = self.to(type);
     } else {
@@ -124,7 +150,6 @@ Tensor& copy_hpu_lazy_D2H(Tensor& self, const Tensor& src, bool non_blocking) {
     }
     self = habana_lazy::CreateHbLazyTensor(
         self, habana_lazy::GetHblazyDevice(self));
-    return self;
   } else {
     // This situation should not occur
     // Throwing an exception here for now to catch any cases that arise
@@ -139,7 +164,8 @@ Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src, bool non_blocking) {
   PT_LAZY_TRACE;
   bool processed = false;
   // This tensor would have been created without storage(as all H2D .to calls
-  // come via lazy), so create actual memory and set as input and mark executed
+  // come via lazy), so create actual memory and set as input and mark
+  // executed
   auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
       self.device().index());
   auto exec_mode = context->getExecutionMode();
@@ -167,16 +193,15 @@ Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src, bool non_blocking) {
           self.sizes());
       self_hb_tensor.SetTensorData(at_internal_tensor);
     }
-    // We need to mark this tensor as executed
-    // As this will be an input coming from host side, its doesnt need further
-    // execution and is ready for consumption as input
-    context->MarkTensorExecuted(self_hb_tensor.getTensorUniqueId());
   }
   auto new_tensor = preProcessIfLongorDouble(src, self, processed);
 
   // Get the internal tensor for copy kernel
   // First get the lazy tensor
   auto self_hb_tensor = habana_lazy::GetHbLazyTensor(self);
+  // We need to mark this tensor as executed
+  // As this will be an input coming from host side, its doesnt need further
+  // execution and is ready for consumption as input
   auto self_hb_tensor_data = self_hb_tensor.GetHbLazyTensorData();
   // This is the internal tensor, it isn't a lazy tensor
   auto self_internal_tesor = self_hb_tensor_data.value();
@@ -196,6 +221,10 @@ Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src, bool non_blocking) {
         self_internal_tesor.storage().data_ptr() ==
         internal_tensor_from_copy.storage().data_ptr());
   }
+  setTensorAsInputNode(self_hb_tensor);
+  context->MarkTensorStatus(
+      self_hb_tensor.getTensorUniqueId(), LazyTensorExecutionStatus::kINPUT);
+
   // Return the self tensor, as copy_hpu_ doesn't create a new tensor and
   // returns the dst
   return self;
@@ -252,13 +281,113 @@ Tensor& copy_hpu_lazy_(Tensor& self, const Tensor& src, bool non_blocking) {
 
   return self;
 }
+
+Tensor emtpy_from_storage_lazy(
+    const Tensor& self,
+    IntArrayRef size,
+    c10::optional<IntArrayRef> stride,
+    c10::optional<int64_t> storage_offset) {
+  auto hb_tensor_self = habana_lazy::GetHbLazyTensor(self);
+  TORCH_CHECK(
+      hb_tensor_self.isStorageAttached(),
+      "Habana Lazy : we dont support as_strided for non storage");
+  auto storage_impl = hb_tensor_self.getAttachedTensorImpl();
+  Tensor at_internal_tensor = habana_lazy::AtenInternalHbTensor(
+      std::move(c10::Storage(storage_impl->storage())));
+
+  at_internal_tensor.unsafeGetTensorImpl()->set_sizes_contiguous(size);
+  c10::IntArrayRef stride_new;
+  if (!stride.has_value()) {
+    at_internal_tensor.unsafeGetTensorImpl()->empty_tensor_restride(
+        at_internal_tensor.suggest_memory_format());
+    stride_new = at_internal_tensor.strides();
+  } else {
+    stride_new = stride.value();
+  }
+  // Setup the tensor sizes/strides, for now assuming contiguous
+  at_internal_tensor.unsafeGetTensorImpl()->set_sizes_and_strides(
+      size, stride_new);
+  if (storage_offset)
+    at_internal_tensor.unsafeGetTensorImpl()->set_storage_offset(
+        storage_offset.value());
+
+  Tensor at_tensor;
+  bool is_in_lowering_mode = false;
+  auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
+      self.device().index());
+  if (context != nullptr) {
+    auto exec_mode = context->getExecutionMode();
+    is_in_lowering_mode = exec_mode == kLOWERING ? true : is_in_lowering_mode;
+  }
+
+  // This call could have come from a .to call and not from a lowering
+  // context. In such case, create the lazt tensor.
+  if (!is_in_lowering_mode) {
+    habana_lazy::HbLazyTensor hb_tensor =
+        habana_lazy::HbLazyTensor::CreateHbLazyTensor(
+            size, 0, self.device(), c10::typeMetaToScalarType(self.dtype()));
+
+    at_tensor = habana_lazy::AtenFromHbLazyTensor(hb_tensor);
+
+    // The lazy tensor will have a reference to the internal tensor
+    hb_tensor.SetTensorData(at_internal_tensor);
+
+    // Setup the tensor sizes/strides, for now assuming contiguous
+    at_tensor.unsafeGetTensorImpl()->set_sizes_and_strides(size, stride_new);
+    if (storage_offset)
+      at_tensor.unsafeGetTensorImpl()->set_storage_offset(
+          storage_offset.value());
+
+    // Keep a pointer to the storageless tensor from the internal tensor
+    auto at_internal_impl =
+        habana_lazy::GetHbInternalTensorImpl(at_internal_tensor);
+    HABANA_ASSERT(at_internal_impl != nullptr);
+    // We need to mark this tensor as executed
+    // As this will be an input coming from host side, its doesnt need further
+    // execution and is ready for consumption as input
+    // context->MarkTensorExecuted(hb_tensor.getTensorUniqueId());
+    // This lazy tensor is newly created and should have the ir_value
+    // pointing to a hpu::input
+    // setTensorAsInputNode(hb_tensor);
+  }
+  // If we are not from lowering context, return the storageless one.
+  if (!is_in_lowering_mode) {
+    return at_tensor;
+  } else {
+    // else return the internal tensor with storage
+    return at_internal_tensor;
+  }
+}
+
 Tensor as_strided_hpu_lazy(
     const Tensor& self,
     IntArrayRef size,
     IntArrayRef stride,
     c10::optional<int64_t> storage_offset) {
-  HABANA_ASSERT(0);
-  return as_strided_hpu(self, size, stride, storage_offset);
+  auto hb_tensor = habana_lazy::GetHbLazyTensor(self);
+  auto src_data = hb_tensor.CurrentTensorData();
+  if (size.vec().size() == 1 && stride.vec()[0] == 1) {
+    auto result = emtpy_from_storage_lazy(
+        self, size, c10::make_optional(stride), storage_offset);
+    auto hb_result = habana_lazy::GetHbLazyTensor(result);
+    auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
+        self.device().index());
+    // auto status =
+    //    context->getTensorExecutionStatus(hb_tensor.getTensorUniqueId());
+    // status = (status == kINPUT || status == kEXECUTION_COMPLETE) ? kINPUT
+    //                                                             :
+    //                                                             kREGISTERED;
+    context->MarkTensorStatus(
+        hb_result.getTensorUniqueId(), kEXECUTION_COMPLETE);
+    setTensorAsInputNode(hb_result);
+    return result;
+  } else {
+    TORCH_CHECK(
+        false,
+        "Habana Lazy : we dont support strided tensors for non 1D/stride != 1");
+    return self;
+  }
+  return self;
 };
 Tensor& set_hpu_lazy_(
     Tensor& self,
@@ -282,6 +411,7 @@ Tensor view_hpu_lazy(const Tensor& self, IntArrayRef size) {
   // View is internally handled as reshape and we get a new tensor as output
   auto result = at::native::empty_hpu_lazy(
       inferred_size, self.options(), self.suggest_memory_format(), false);
+
   auto hl_result = habana_lazy::GetHbLazyTensor(result);
   habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
@@ -328,7 +458,8 @@ Tensor& addcmul_hpu_lazy_(
     // so that when post order is created, we actually execute it
     auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
         self.device().index());
-    context->MarkTensorRegistered(hl_self.getTensorUniqueId());
+    context->MarkTensorStatus(
+        hl_self.getTensorUniqueId(), LazyTensorExecutionStatus::kREGISTERED);
   } else {
     // implement addcmul_ as add_(pow(tensor1,2), alpha)
     auto temp = pow_tensor_scalar_hpu_lazy(tensor1, 2.0);
@@ -374,7 +505,9 @@ Tensor& addcdiv_hpu_lazy_(
   // so that when post order is created, we actually execute it
   auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
       self.device().index());
-  context->MarkTensorRegistered(hl_self.getTensorUniqueId());
+  context->MarkTensorStatus(
+      hl_self.getTensorUniqueId(), LazyTensorExecutionStatus::kREGISTERED);
+  // context->MarkTensorRegistered(hl_self.getTensorUniqueId());
 
   return self;
 };
@@ -441,7 +574,9 @@ Tensor& add_tensor_hpu_lazy_(Tensor& self, const Tensor& other, Scalar alpha) {
       auto context =
           habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
               self.device().index());
-      context->MarkTensorRegistered(hl_self.getTensorUniqueId());
+      // context->MarkTensorRegistered(hl_self.getTensorUniqueId());
+      context->MarkTensorStatus(
+          hl_self.getTensorUniqueId(), LazyTensorExecutionStatus::kREGISTERED);
     }
   } else {
     auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
@@ -462,7 +597,9 @@ Tensor& add_tensor_hpu_lazy_(Tensor& self, const Tensor& other, Scalar alpha) {
     // so that when post order is created, we actually execute it
     auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
         self.device().index());
-    context->MarkTensorRegistered(hl_self.getTensorUniqueId());
+    // context->MarkTensorRegistered(hl_self.getTensorUniqueId());
+    context->MarkTensorStatus(
+        hl_self.getTensorUniqueId(), LazyTensorExecutionStatus::kREGISTERED);
   }
 
   return self;
@@ -517,7 +654,9 @@ Tensor& mul_tensor_hpu_lazy_(Tensor& self, const Tensor& other) {
       auto context =
           habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
               self.device().index());
-      context->MarkTensorRegistered(hl_self.getTensorUniqueId());
+      // context->MarkTensorRegistered(hl_self.getTensorUniqueId());
+      context->MarkTensorStatus(
+          hl_self.getTensorUniqueId(), LazyTensorExecutionStatus::kREGISTERED);
     }
   } else {
     auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
@@ -538,7 +677,9 @@ Tensor& mul_tensor_hpu_lazy_(Tensor& self, const Tensor& other) {
     // so that when post order is created, we actually execute it
     auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
         self.device().index());
-    context->MarkTensorRegistered(hl_self.getTensorUniqueId());
+    // context->MarkTensorRegistered(hl_self.getTensorUniqueId());
+    context->MarkTensorStatus(
+        hl_self.getTensorUniqueId(), LazyTensorExecutionStatus::kREGISTERED);
   }
 
   return self;
@@ -607,7 +748,9 @@ Tensor& div_scalar_hpu_lazy_(Tensor& self, Scalar other) {
   // so that when post order is created, we actually execute it
   auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
       self.device().index());
-  context->MarkTensorRegistered(hl_self.getTensorUniqueId());
+  // context->MarkTensorRegistered(hl_self.getTensorUniqueId());
+  context->MarkTensorStatus(
+      hl_self.getTensorUniqueId(), LazyTensorExecutionStatus::kREGISTERED);
 
   return self;
 };
@@ -1008,7 +1151,9 @@ Tensor& fill_hpu_lazy_(Tensor& self, Scalar value) {
   // so that when post order is created, we actually execute it
   auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
       self.device().index());
-  context->MarkTensorRegistered(hl_self.getTensorUniqueId());
+  // context->MarkTensorRegistered(hl_self.getTensorUniqueId());
+  context->MarkTensorStatus(
+      hl_self.getTensorUniqueId(), LazyTensorExecutionStatus::kREGISTERED);
 
   return self;
 };
@@ -1137,8 +1282,6 @@ Tensor slice_hpu_lazy(
     int64_t step) {
   PT_LAZY_TRACE;
   if (self.dim() <= 1 && step == 1) {
-    HABANA_ASSERT(0);
-    // Does not work atm
     return at::native::slice(self, dim, start, end, step);
   }
   auto node =
@@ -2006,61 +2149,74 @@ Tensor empty_hpu_lazy(
   type = type == c10::ScalarType::Double ? c10::ScalarType::Float : type;
   dtype = scalarTypeToTypeMeta(type);
 
-  habana_lazy::HbLazyTensor hb_tensor =
-      habana_lazy::HbLazyTensor::CreateHbLazyTensor(
-          size, 0, options.device(), c10::typeMetaToScalarType(dtype));
-  Tensor at_tensor = habana_lazy::AtenFromHbLazyTensor(hb_tensor);
-  // Setup the tensor sizes/strides, for now assuming contiguous
-  at_tensor.unsafeGetTensorImpl()->set_sizes_contiguous(size);
+  if (create_storage) {
+    c10 ::Allocator* allocator;
+    if (options.pinned_memory()) {
+      TORCH_CHECK(false, "habana allocator doesn't supported pinned memory");
+    } else {
+      allocator = habana::getHABANADeviceAllocator();
+    }
+    int64_t nelements = prod_intlist(size);
+    int elem_size = dtype.itemsize();
+    auto storage_impl = c10::make_intrusive<StorageImpl>(
+        dtype,
+        nelements,
+        allocator->allocate(nelements * elem_size),
+        allocator,
+        /*resizeable=*/true);
+    Tensor at_internal_tensor =
+        habana_lazy::AtenInternalHbTensor(std::move(storage_impl));
+    // Setup the tensor sizes/strides, for now assuming contiguous
+    at_internal_tensor.unsafeGetTensorImpl()->set_sizes_contiguous(size);
 
-  if (!create_storage) {
-    return at_tensor;
-  }
+    Tensor at_tensor;
+    bool is_in_lowering_mode = false;
+    auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
+        options.device().index());
+    if (context != nullptr) {
+      auto exec_mode = context->getExecutionMode();
+      is_in_lowering_mode = exec_mode == kLOWERING ? true : is_in_lowering_mode;
+    }
 
-  c10 ::Allocator* allocator;
-  if (options.pinned_memory()) {
-    TORCH_CHECK(false, "habana allocator doesn't supported pinned memory");
-  } else {
-    allocator = habana::getHABANADeviceAllocator();
-  }
-  int64_t nelements = prod_intlist(size);
-  int elem_size = dtype.itemsize();
-  auto storage_impl = c10::make_intrusive<StorageImpl>(
-      dtype,
-      nelements,
-      allocator->allocate(nelements * elem_size),
-      allocator,
-      /*resizeable=*/true);
-  Tensor at_internal_tensor =
-      habana_lazy::AtenInternalHbTensor(std::move(storage_impl));
-  // Setup the tensor sizes/strides, for now assuming contiguous
-  at_internal_tensor.unsafeGetTensorImpl()->set_sizes_contiguous(size);
-
-  auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
-      options.device().index());
-  HABANA_ASSERT(context != nullptr);
-
-  if (context->getExecutionMode() == kLOWERING) {
-    // return the internal tensor with storage during lowering
-    return at_internal_tensor;
-  } else {
     // This call could have come from a .to call and not from a lowering
-    // context. In such case, create the lazy tensor.
+    // context. In such case, create the lazt tensor.
+    if (!is_in_lowering_mode) {
+      habana_lazy::HbLazyTensor hb_tensor =
+          habana_lazy::HbLazyTensor::CreateHbLazyTensor(
+              size, 0, options.device(), c10::typeMetaToScalarType(dtype));
 
-    // The lazy tensor will have a reference to the internal tensor
-    hb_tensor.SetTensorData(at_internal_tensor);
+      at_tensor = habana_lazy::AtenFromHbLazyTensor(hb_tensor);
 
-    // Keep a pointer to the storageless tensor from the internal tensor
-    auto at_internal_impl =
-        habana_lazy::GetHbInternalTensorImpl(at_internal_tensor);
-    HABANA_ASSERT(at_internal_impl != nullptr);
-    setTensorAsInputNode(hb_tensor);
+      // The lazy tensor will have a reference to the internal tensor
+      hb_tensor.SetTensorData(at_internal_tensor);
+
+      // Setup the tensor sizes/strides, for now assuming contiguous
+      at_tensor.unsafeGetTensorImpl()->set_sizes_contiguous(size);
+
+      // Keep a pointer to the storageless tensor from the internal tensor
+      auto at_internal_impl =
+          habana_lazy::GetHbInternalTensorImpl(at_internal_tensor);
+      HABANA_ASSERT(at_internal_impl != nullptr);
+      // setTensorAsInputNode(hb_tensor);
+    }
 
     // If we are not from lowering context, return the storageless one.
+    if (!is_in_lowering_mode) {
+      return at_tensor;
+    } else {
+      // else return the internal tensor with storage
+      return at_internal_tensor;
+    }
+  } else {
+    habana_lazy::HbLazyTensor hb_tensor =
+        habana_lazy::HbLazyTensor::CreateHbLazyTensor(
+            size, 0, options.device(), c10::typeMetaToScalarType(dtype));
+    Tensor at_tensor = habana_lazy::AtenFromHbLazyTensor(hb_tensor);
+    // Setup the tensor sizes/strides, for now assuming contiguous
+    at_tensor.unsafeGetTensorImpl()->set_sizes_contiguous(size);
     return at_tensor;
   }
-}
-
+};
 Tensor empty_strided_hpu_lazy(
     IntArrayRef size,
     IntArrayRef stride,
@@ -2070,6 +2226,16 @@ Tensor empty_strided_hpu_lazy(
   at::Tensor empty_tensor =
       empty_hpu_lazy(size, options, c10::nullopt, create_storage);
   empty_tensor.unsafeGetTensorImpl()->set_sizes_and_strides(size, stride);
+  // If we have created a tensor with storage, set the strides and sizes to
+  // backend tensor as well
+  if (create_storage) {
+    auto hl_empty = habana_lazy::TryGetHbLazyTensor(empty_tensor);
+    if (hl_empty) {
+      setTensorAsInputNode(hl_empty.value());
+      hl_empty.value().getAttachedTensorImpl()->set_sizes_and_strides(
+          size, stride);
+    }
+  }
   return empty_tensor;
 };
 } // namespace native
@@ -2094,12 +2260,11 @@ Tensor clone_hpu_lazy(
   auto node = habana_lazy::ir::Node::Create(
       Symbol::fromQualString("hpu::habana_d2d_memcpy"),
       {hb_tensor.GetIrValue()});
-  // Memcopy kernel doesnt allocte memory of output and assumes pre-allocation
   auto result = at::native::empty_hpu_lazy(
       self.sizes(),
       self.options(),
       self.suggest_memory_format(),
-      /*storage=*/true);
+      /*storage=*/false);
   auto hlresult = habana_lazy::GetHbLazyTensor(result);
   habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
   out.m_index = 0;
@@ -2107,7 +2272,6 @@ Tensor clone_hpu_lazy(
 
   std::vector<at::Tensor> input_pt_vec{self};
   node->AddInputPtTensors(input_pt_vec);
-
   return result;
 };
 Tensor& zero_hpu_lazy(Tensor& self) {
@@ -2325,7 +2489,8 @@ Tensor& relu_hpu_lazy_(Tensor& input) {
   // so that when post order is created, we actually execute it
   auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
       input.device().index());
-  context->MarkTensorRegistered(hl_input.getTensorUniqueId());
+  context->MarkTensorStatus(
+      hl_input.getTensorUniqueId(), LazyTensorExecutionStatus::kREGISTERED);
 
   return input;
 };
@@ -2390,7 +2555,9 @@ Tensor sqrt_hpu_lazy_(Tensor& input) {
   // so that when post order is created, we actually execute it
   auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
       input.device().index());
-  context->MarkTensorRegistered(hl_input.getTensorUniqueId());
+  // context->MarkTensorRegistered(hl_input.getTensorUniqueId());
+  context->MarkTensorStatus(
+      hl_input.getTensorUniqueId(), LazyTensorExecutionStatus::kREGISTERED);
 
   return input;
 };
@@ -2523,9 +2690,9 @@ Tensor clamp_hpu_lazy(
   HABANA_ASSERT(0);
   return clamp_hpu(self, min, max);
 };
-Tensor abs_hpu_lazy(const Tensor& self) {
+Tensor abs_hpu_lazy(const Tensor& input) {
   HABANA_ASSERT(0);
-  return abs_hpu(self);
+  PT_LAZY_TRACE;
 };
 Tensor neg_hpu_lazy(const Tensor& self) {
   HABANA_ASSERT(0);
