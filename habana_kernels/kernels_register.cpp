@@ -2096,6 +2096,14 @@ std::tuple<Tensor, Tensor> matmul_backward_hpu_wrap(
   }
 }
 
+Tensor& cast_hpu_for_registration_only(Tensor& out, const Tensor& self) {
+  // we should never reach here. This function is a dummy written
+  // only to satisfy registration requirements.
+  // Registration of custom cast OP (hpu::cast) is done so that
+  // JIT optimization passes recognize this OP as a valid OP.
+  HABANA_ASSERT(0);
+}
+
 static auto
     registry =
         torch::
@@ -3389,5 +3397,13 @@ static auto
                             decltype(
                                 optimizer_sparse_adagrad_with_valid_count_hpu_wrap),
                             &optimizer_sparse_adagrad_with_valid_count_hpu_wrap>(
+                            DispatchKey::HABANATensorId)
+                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+                .op(torch::RegisterOperators::options()
+                        .schema(
+                            "hpu::cast(Tensor self, Tensor(a!) out) -> Tensor(a!)")
+                        .impl_unboxedOnlyKernel<
+                            decltype(cast_hpu_for_registration_only),
+                            &cast_hpu_for_registration_only>(
                             DispatchKey::HABANATensorId)
                         .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));
