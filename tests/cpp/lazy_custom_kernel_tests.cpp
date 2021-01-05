@@ -64,9 +64,15 @@ TEST_F(LazyCustomKernelTest, OptSgdCustomOp) {
       po_data.post_order_nodes_hash);
 
   torch::jit::testing::FileCheck()
+      .check("prim::Constant[value=0.10000000149011612]")
+      ->run(*hlexec->get_graph());
+
+  torch::jit::testing::FileCheck()
       .check("prim::Constant[value=0]")
-      ->check("prim::Constant[value=0.10000000149011612]")
-      ->check_count("habanaOptimizerSparseSgd", 1)
+      ->run(*hlexec->get_graph());
+
+  torch::jit::testing::FileCheck()
+      .check_count("habanaOptimizerSparseSgd", 1)
       ->run(*hlexec->get_graph());
 }
 

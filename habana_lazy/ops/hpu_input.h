@@ -21,15 +21,9 @@ class Input : public Node {
  public:
   Input() = delete;
   Input(const habana_lazy::HbLazyTensor& hl_tensor)
-      : Node(c10::Symbol::fromQualString("hpu::input")) {
+      : Node(c10::Symbol::fromQualString("hpu::input"), true) {
     HABANA_ASSERT(hl_tensor.is_null() == false);
   }
-
-  /*std::string ToString() const override {
-    std::stringstream ss;
-    ss << Node::ToString();
-    return ss.str();
-  }*/
 };
 
 }; // namespace ir

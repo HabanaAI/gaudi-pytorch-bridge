@@ -103,7 +103,7 @@ size_t Node::get_hash() {
 
 bool Value::IsHpuInputNode() const {
   // Does it point to an Input node (hpu::input)?
-  return mp_node && mp_node->ToString().find("hpu::input") != std::string::npos;
+  return mp_node && mp_node->is_input();
 }
 
 Value::~Value() {}

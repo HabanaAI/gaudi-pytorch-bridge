@@ -183,7 +183,8 @@ class MetaData {
 class Node {
  public:
   Node() = delete;
-  Node(c10::Symbol op) : m_op(op) {}
+  Node(c10::Symbol op, bool _is_input = false)
+      : m_op(op), m_is_input(_is_input) {}
 
   const c10::Symbol op() const {
     return m_op;
@@ -223,8 +224,13 @@ class Node {
 
   size_t get_hash();
 
+  bool is_input() const {
+    return m_is_input;
+  }
+
  protected:
   c10::Symbol m_op;
+  bool m_is_input = false;
   ValueList m_inputs;
   OutputList m_outputs;
   std::set<Use> m_uses;

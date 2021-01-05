@@ -44,10 +44,9 @@ void Utils::ComputePostOrderNode(
       (*p_emap)[p_node] = kEmitting;
 
       for (auto& operand : operands) {
-        std::string operand_node_kind = operand.mp_node->op().toQualString();
         auto oit = p_emap->find(operand.mp_node);
 
-        if ("hpu::input" == operand_node_kind) {
+        if (operand.mp_node->is_input()) {
           if (node_set.count(operand.mp_node) == 0) {
             node_set.insert(operand.mp_node);
             inputs.emplace_back(operand);
@@ -93,9 +92,11 @@ void Utils::ComputePostOrder(
     size_t& post_order_nodes_hash) {
   PT_LAZY_TRACE;
   NodeSet node_set;
-  for (auto p_node : p_nodes) {
-    Utils::ComputePostOrderNode(
-        p_node, emap, post_order, node_set, inputs, post_order_nodes_hash);
+  for (auto& p_node : p_nodes) {
+    if ((*emap).count(p_node) == 0) {
+      Utils::ComputePostOrderNode(
+          p_node, emap, post_order, node_set, inputs, post_order_nodes_hash);
+    }
   }
 }
 

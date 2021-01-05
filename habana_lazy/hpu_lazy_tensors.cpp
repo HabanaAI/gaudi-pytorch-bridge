@@ -311,13 +311,13 @@ HbLazyTensor HbLazyTensor::CreateHbLazyTensor(
  ************************************************************************/
 std::vector<int> HbLazyTensor::CollectSyncTensors(
     const std::vector<HbLazyTensor>& tensors) {
+  PT_LAZY_TRACE;
   std::vector<int> indices = {};
   for (size_t i = 0; i < tensors.size(); ++i) {
     auto ir_value = tensors[i].CurrentIrValue();
     // Skip the tensors which don't have any node to evaluate and points
     // to hpu::input node.
-    if (ir_value &&
-        ir_value.mp_node->ToString().find("hpu::input") == std::string::npos) {
+    if (ir_value && ir_value.mp_node->is_input() == false) {
       indices.push_back(i);
     }
   }
@@ -437,7 +437,7 @@ void HbLazyTensor::SyncTensorsGraphInternal(
       po_data.post_order_nodes_hash);
 
   // Dump the JIT graph with PT_LAZY_DEBUG
-  hlexec.DumpGraph();
+  PT_LAZY_DEBUG(hlexec.DumpGraph());
 
   // Launch the execution
   hlexec.Launch(stack);
