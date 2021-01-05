@@ -24,6 +24,7 @@
 #include "habana_lazy/lazy_executor.h"
 #include "habana_lazy/ops/cast_ops.h"
 #include "habana_lazy/ops/cat.h"
+#include "habana_lazy/ops/clamp.h"
 #include "habana_lazy/ops/constant.h"
 #include "habana_lazy/ops/convolution.h"
 #include "habana_lazy/ops/embedding_bag.h"
@@ -2775,9 +2776,25 @@ Tensor& clamp_hpu_lazy_(
     Tensor& self,
     c10::optional<Scalar> min,
     c10::optional<Scalar> max) {
-  HABANA_ASSERT(0);
-  return clamp_hpu_(self, min, max);
+  habana_lazy::ir::NodePtr node =
+      std::make_shared<habana_lazy::ir::Clamp>(self, min, max);
+  auto hl_result = habana_lazy::GetHbLazyTensor(self);
+  habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+  std::vector<at::Tensor> input_pt_vec{self};
+  node->AddInputPtTensors(input_pt_vec);
+
+  // As its an inplace op and we want this op to execute
+  // we want to wind back status of this tensor to registered
+  // so that when post order is created, we actually execute it
+  auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
+      self.device().index());
+  context->MarkTensorRegistered(hl_result.getTensorUniqueId());
+
+  return self;
 };
+
 Tensor clamp_hpu_lazy(
     const Tensor& self,
     c10::optional<Scalar> min,
