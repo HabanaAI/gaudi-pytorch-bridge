@@ -252,3 +252,18 @@ class LpNormOperator : public HabanaOperator {
       torch::jit::Stack& inputs,
       std::vector<bool> is_output_persistent) override;
 };
+
+// FusedNorm Operator
+class FusedNormOperator : public HabanaOperator {
+ public:
+  FusedNormOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator(
+            "fused_norm_" + habana_helpers::name_suffix_from_type(scalarType)) {
+    this->CreateSynContext(device_id);
+  }
+
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent) override;
+};

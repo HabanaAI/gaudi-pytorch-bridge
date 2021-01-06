@@ -26,6 +26,9 @@
 #include "habana_kernels/simple_generic_kernel.h"
 #include "habana_kernels/tensor_shape_kernels.h"
 #include "habana_kernels/unary_kernels.h"
+// Do not remove this comment. Added so that clang-formatter does not place this
+// header file before resize.h, which causes a namespace collision
+#include "habana_kernels/index_kernels.h"
 
 using namespace torch;
 /**********************************************************************
@@ -1748,6 +1751,130 @@ Tensor norm_scalar_hpu(const Tensor& self, Scalar p) {
 
   PT_KERNEL_END;
   return out.at(0);
+}
+
+void FusedNormOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 2,
+      "Incorrect size of inputs expected for FusedNorm Operator");
+
+  auto gradients = inputs[0].toTensorList();
+  auto norm_type = inputs[1].toScalar();
+
+  auto device_id = gradients.get(0).device().index();
+  auto scalar_type = gradients.get(0).scalar_type();
+  auto num_params = static_cast<int>(gradients.size());
+
+  if (norm_type.toFloat() == 2.0) {
+    torch::jit::Stack stack;
+    std::vector<Tensor> cat_input;
+    CatOperator cat_grad_norms(device_id, scalar_type);
+    std::vector<int64_t> shape{1, 1};
+    for (auto i = 0; i < num_params; i++) {
+      // Add node to compute norm on each gradient tensor
+      NormOperator norm_lp(device_id, scalar_type);
+      auto& syn_in_10 =
+          norm_lp.SetSynapseInput(std::move(p_context_->syn_inputs_[i]));
+      stack.emplace_back(IValue(gradients.get(i)));
+      stack.emplace_back(IValue(2.0));
+      norm_lp.AllocateAndAddSynapseNode(graph, stack, false);
+      p_context_->syn_inputs_[i] = std::move(syn_in_10);
+      stack.clear();
+
+      // Norm node gives a tensor of same shape as grad tensor (all same values)
+      // select only 1st value to create a tensor of shape {1}
+      SelectOperator select_lp(device_id, scalar_type);
+      select_lp.SetSynapseInput(std::move(norm_lp.GetSynOutputs()[0]));
+      stack.emplace_back(IValue(norm_lp.GetOutputs()[0]));
+      stack.emplace_back(IValue(0));
+      stack.emplace_back(IValue(0));
+      select_lp.AllocateAndAddSynapseNode(graph, stack, false);
+      stack.clear();
+
+      // Unsqueeze norm output (tensor of shape {1}) to new tensor of shape
+      // {1,1}
+      ReshapeOperator reshape_lp(device_id, scalar_type);
+      reshape_lp.SetSynapseInput(std::move(select_lp.GetSynOutputs()[0]));
+      stack.emplace_back(IValue(select_lp.GetOutputs()[0]));
+      stack.emplace_back(IValue(shape));
+      reshape_lp.AllocateAndAddSynapseNode(graph, stack, false);
+      // each unsqueezed grad_norm connected to cat node
+      cat_input.push_back(reshape_lp.GetOutputs()[0]);
+      cat_grad_norms.SetSynapseInput(std::move(reshape_lp.GetSynOutputs()[0]));
+      stack.clear();
+    }
+
+    // grad_norms are concatened into a single big tensor of shape
+    // {num_params,1}
+    stack.emplace_back(IValue(cat_input));
+    stack.emplace_back(IValue(0));
+    cat_grad_norms.AllocateAndAddSynapseNode(graph, stack, false);
+    stack.clear();
+
+    // node to do compute total_norm
+    NormOperator norm_final(device_id, scalar_type);
+    norm_final.SetSynapseInput(std::move(cat_grad_norms.GetSynOutputs()[0]));
+    stack.emplace_back(IValue(cat_grad_norms.GetOutputs()[0]));
+    stack.emplace_back(IValue(2.0));
+    norm_final.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+    stack.clear();
+
+    p_context_->syn_outputs_.emplace_back(
+        std::move(norm_final.GetSynOutputs()[0]));
+    p_context_->pt_outputs_.emplace_back(std::move(norm_final.GetOutputs()[0]));
+  } else {
+    // other norm_type not supported for now
+    // BERT Hugging-face uses norm_type = 2.0
+    // therefore supporting only that for now.
+    HABANA_ASSERT(0);
+  }
+}
+
+Tensor fused_norm_hpu(const std::vector<Tensor>& grad, float norm_type = 2.0) {
+  PT_KERNEL_BEGIN;
+
+  size_t device_id = grad[0].device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  auto scalar_type = grad[0].scalar_type();
+  std::string node_type =
+      "fused_norm_" + habana_helpers::name_suffix_from_type(scalar_type);
+  FusedNormOperator Op(device_id, scalar_type);
+  // Build Params for the graph
+  std::vector<c10::IValue> stack = {IValue(grad), IValue(norm_type)};
+
+  std::vector<at::Tensor> pt_inputs;
+  auto num_params = static_cast<int>(grad.size());
+  pt_inputs.reserve(num_params);
+  for (auto j = 0; j < num_params; j++) {
+    pt_inputs.push_back(grad[j]);
+  }
+
+  size_t key = Op.GetRecipeKey(node_type, stack, true);
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    auto output = habana_helpers::createPTTensor(
+        grad[0], {1}, grad[0].options(), grad[0].suggest_memory_format(), true);
+    Op.SetPTInputs(pt_inputs);
+    Op.SetPTOutput(output);
+    Op.Execute(key);
+  } else {
+    // Create Graph
+    auto graph = habana_helpers::create_graph(device_id, node_type);
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
+    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    // compile and execute the graph
+    Op.Compile(graph);
+  }
+
+  std::vector<at::Tensor> out = Op.GetOutputs();
+  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
+  out.at(0).unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+
+  PT_KERNEL_END;
+  return out[0];
 }
 
 static auto& KernelRegistry =

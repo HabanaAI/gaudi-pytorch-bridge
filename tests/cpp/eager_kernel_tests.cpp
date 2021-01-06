@@ -257,3 +257,21 @@ TEST(EagerKernelCacheTest, AdamwOptTest) {
     EXPECT_EQ(equal, true);
   }
 }
+
+TEST(EagerKernelTest, FusedNormTest) {
+  // torch::manual_seed(0);
+  std::vector<torch::Tensor> grad_vec;
+  std::vector<torch::Tensor> grad_vec_h;
+  for (auto i = 0; i < 4; i++) {
+    auto t = torch::randn({2, 2});
+    grad_vec.push_back(torch::norm(t));
+    auto tH = t.to(torch::kHABANA);
+    grad_vec_h.push_back(tH);
+  }
+  auto total_norm = fused_norm_hpu(grad_vec_h);
+  total_norm = fused_norm_hpu(grad_vec_h);
+  auto total_norm_cpu = torch::norm(torch::stack(grad_vec));
+  EXPECT_LT(
+      std::abs(total_norm.item().toFloat() - total_norm_cpu.item().toFloat()),
+      0.001);
+}

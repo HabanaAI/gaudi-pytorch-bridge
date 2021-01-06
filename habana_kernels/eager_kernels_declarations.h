@@ -556,3 +556,4 @@ void optimizer_adamw_hpu(
     const int step,
     const int bias_correction,
     const float weight_decay);
+Tensor fused_norm_hpu(const std::vector<Tensor>& grad, float norm_type = 2.0);
