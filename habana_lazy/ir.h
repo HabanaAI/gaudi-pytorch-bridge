@@ -164,10 +164,11 @@ class MetaData {
 
   size_t ival_hash(const torch::jit::IValue& v, size_t h = 0) {
     if (v.isScalar()) {
-      return torch::hash_combine(v.hash(), h);
+      return at::hash_combine(
+          c10::WeakIValue(v).hash(), h); // hash() moved to WeakIvalue
     } else if (v.isBool()) {
       size_t bv = v.toBool();
-      return torch::hash_combine(bv, h);
+      return at::hash_combine(bv, h);
     }
     return 0;
   }

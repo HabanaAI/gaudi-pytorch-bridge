@@ -192,16 +192,18 @@ Tensor& set_hpu_(
   auto source_storage = source_.unsafeGetStorageImpl();
   if (self_storage != source_storage) {
     TORCH_CHECK(self_storage, "Invalid null storage");
-    auto data_type = self_storage->dtype();
+    auto data_type = self_->dtype();
     if (self_storage) {
       c10::raw::intrusive_ptr::incref(source_storage);
       THTensor_stealAndSetStoragePtr(self_, source_storage);
     } else {
       auto THHStorage_new = [](caffe2::TypeMeta data_type) -> THStorage* {
-        THStorage* storage =
-            c10::make_intrusive<at::StorageImpl>(
-                data_type, 0, at::habana::getHABANADeviceAllocator(), true)
-                .release();
+        THStorage* storage = c10::make_intrusive<at::StorageImpl>(
+                                 c10::StorageImpl::use_byte_size_t(),
+                                 0,
+                                 at::habana::getHABANADeviceAllocator(),
+                                 true)
+                                 .release();
         return storage;
       };
       THTensor_stealAndSetStoragePtr(self_, THHStorage_new(data_type));

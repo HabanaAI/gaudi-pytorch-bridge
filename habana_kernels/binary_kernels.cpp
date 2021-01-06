@@ -756,6 +756,13 @@ Tensor mul_tensor_hpu(const Tensor& self, const Tensor& other) {
   return output;
 }
 
+Tensor& mul_out_hpu(Tensor& out, const Tensor& self, const Tensor& other) {
+  PT_KERNEL_BEGIN;
+  do_generic_tensor_binary_op_out(
+      out, self, other, "mult", SynapsePassType::FORWARD_PASS);
+  PT_KERNEL_END;
+  return out;
+}
 /*************************************************************************
  * @brief Kernel implementation for output = torch.mul(self, Scalar other)
  * @param self - first input

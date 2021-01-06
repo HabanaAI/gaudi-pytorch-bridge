@@ -14,7 +14,7 @@
 #include <typeinfo>
 #include <unordered_map>
 
-#include <torch/csrc/autograd/record_function.h>
+#include <ATen/record_function.h>
 #include <torch/csrc/jit/ir/constants.h>
 #include <torch/csrc/jit/runtime/interpreter.h>
 

@@ -14,7 +14,7 @@
 #include <typeinfo>
 #include <unordered_map>
 
-#include <torch/csrc/autograd/record_function.h>
+#include <ATen/record_function.h>
 #include <torch/csrc/jit/ir/constants.h>
 #include <torch/csrc/jit/runtime/interpreter.h>
 
@@ -1140,9 +1140,10 @@ void HabanaLaunchOpPT::handleMetaOps(torch::jit::Node* node) {
     }
   }
   torch::jit::Operator jit_op = node->getOperator();
-  auto offset = jit_op.getOperation()(stack);
+  // auto offset =
+  jit_op.getOperation()(&stack);
 
-  TORCH_CHECK(offset == 0);
+  // TORCH_CHECK(offset == 0);
 
   auto node_outs = node->outputs();
   auto outputs = last(stack, node_outs.size());

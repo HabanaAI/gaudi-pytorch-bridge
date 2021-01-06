@@ -468,10 +468,8 @@ Tensor& batch_gemm_out_hpu(
     op.AllocateAndAddSynapseNode(graph, stack, true);
     op.Compile(graph);
   }
-  std::vector<at::Tensor> output = op.GetOutputs();
-  TORCH_CHECK(output.size() == 1, "Incorrect size of outputs");
   PT_KERNEL_END;
-  return output.at(0);
+  return out;
 }
 
 std::vector<int64_t> habana::BmmOperator::compute_output_shape(

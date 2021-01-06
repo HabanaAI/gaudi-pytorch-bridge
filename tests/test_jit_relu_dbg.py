@@ -11,7 +11,7 @@ def relu(tensor_a):
     return tensor_r
 
 
-@pytest.mark.skip(reason="under development : might trigger unexpected breakage in CI")
+#@pytest.mark.skip(reason="under development : might trigger unexpected breakage in CI")
 def test_jit_relu_dbg():
   import os
   from inspect import currentframe, getframeinfo

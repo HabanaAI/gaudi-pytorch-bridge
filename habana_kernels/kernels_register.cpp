@@ -7,6 +7,8 @@
  *
  ******************************************************************************
  */
+#include <ATen/core/op_registration/hacky_wrapper_for_legacy_signatures.h>
+#include <torch/library.h>
 
 #include "habana_kernels/eager_kernels_declarations.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
@@ -61,7 +63,7 @@ Tensor view_hpu_wrap(const Tensor& self, IntArrayRef size) {
   }
 };
 Tensor addcmul_hpu_wrap(
-    Tensor& self,
+    const Tensor& self,
     const Tensor& tensor1,
     const Tensor& tensor2,
     Scalar alpha) {
@@ -87,7 +89,7 @@ Tensor& addcmul_hpu_wrap_(
   }
 };
 Tensor addcdiv_hpu_wrap(
-    Tensor& self,
+    const Tensor& self,
     const Tensor& tensor1,
     const Tensor& tensor2,
     Scalar alpha) {
@@ -209,6 +211,16 @@ Tensor mul_tensor_hpu_wrap(const Tensor& self, const Tensor& other) {
     return mul_tensor_hpu(self, other);
   }
 };
+
+Tensor& mul_out_hpu_wrap(Tensor& out, const Tensor& self, const Tensor& other) {
+  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
+      std::getenv("PT_HPU_LAZY_MODE")) {
+    return mul_out_hpu_lazy(out, self, other);
+  } else {
+    return mul_out_hpu(out, self, other);
+  }
+};
+
 Tensor mul_scalar_hpu_wrap(const Tensor& self, Scalar other) {
   if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = mul_scalar_hpu_lazy(self, other);
@@ -320,7 +332,8 @@ Tensor pow_scalar_tensor_hpu_wrap(Scalar other, const Tensor& self) {
     return pow_scalar_tensor_hpu(other, self);
   }
 };
-Tensor gt_tensor_hpu_wrap(Tensor& self, Tensor& other) {
+
+Tensor gt_tensor_hpu_wrap(const Tensor& self, const Tensor& other) {
   if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = gt_tensor_hpu_lazy(self, other);
 
@@ -329,7 +342,8 @@ Tensor gt_tensor_hpu_wrap(Tensor& self, Tensor& other) {
     return gt_tensor_hpu(self, other);
   }
 };
-Tensor gt_scalar_hpu_wrap(Tensor& self, Scalar other) {
+
+Tensor gt_scalar_hpu_wrap(const Tensor& self, Scalar other) {
   if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = gt_scalar_hpu_lazy(self, other);
 
@@ -338,7 +352,7 @@ Tensor gt_scalar_hpu_wrap(Tensor& self, Scalar other) {
     return gt_scalar_hpu(self, other);
   }
 };
-void eq_tensor_out_hpu_wrap(
+Tensor& eq_tensor_out_hpu_wrap(
     Tensor& output,
     const Tensor& self,
     const Tensor& other) {
@@ -348,7 +362,7 @@ void eq_tensor_out_hpu_wrap(
     eq_tensor_out_hpu(output, self, other);
   }
 };
-Tensor eq_tensor_hpu_wrap(Tensor& self, Tensor& other) {
+Tensor eq_tensor_hpu_wrap(const Tensor& self, const Tensor& other) {
   if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = eq_tensor_hpu_lazy(self, other);
 
@@ -357,7 +371,7 @@ Tensor eq_tensor_hpu_wrap(Tensor& self, Tensor& other) {
     return eq_tensor_hpu(self, other);
   }
 };
-Tensor eq_tensor_scalar_hpu_wrap(Tensor& self, Scalar other) {
+Tensor eq_tensor_scalar_hpu_wrap(const Tensor& self, Scalar other) {
   if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = eq_tensor_scalar_hpu_lazy(self, other);
 
@@ -366,7 +380,7 @@ Tensor eq_tensor_scalar_hpu_wrap(Tensor& self, Scalar other) {
     return eq_tensor_scalar_hpu(self, other);
   }
 };
-Tensor lt_scalar_hpu_wrap(Tensor& self, Scalar other) {
+Tensor lt_scalar_hpu_wrap(const Tensor& self, Scalar other) {
   if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = lt_scalar_hpu_lazy(self, other);
 
@@ -375,7 +389,8 @@ Tensor lt_scalar_hpu_wrap(Tensor& self, Scalar other) {
     return lt_scalar_hpu(self, other);
   }
 };
-Tensor lt_tensor_hpu_wrap(Tensor& self, Tensor& other) {
+
+Tensor lt_tensor_hpu_wrap(const Tensor& self, const Tensor& other) {
   if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = lt_tensor_hpu_lazy(self, other);
 
@@ -385,28 +400,23 @@ Tensor lt_tensor_hpu_wrap(Tensor& self, Tensor& other) {
   }
 };
 Tensor ge_scalar_hpu_wrap(const Tensor& self, Scalar other) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = ge_scalar_hpu_lazy(self, other);
-
     return t;
   } else {
     return ge_scalar_hpu(self, other);
   }
 };
 Tensor ge_tensor_hpu_wrap(const Tensor& self, const Tensor& other) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = ge_tensor_hpu_lazy(self, other);
-
     return t;
   } else {
     return ge_tensor_hpu(self, other);
   }
 };
 Tensor ne_scalar_hpu_wrap(const Tensor& self, Scalar other) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = ne_scalar_hpu_lazy(self, other);
 
     return t;
@@ -415,8 +425,7 @@ Tensor ne_scalar_hpu_wrap(const Tensor& self, Scalar other) {
   }
 };
 Tensor ne_tensor_hpu_wrap(const Tensor& self, const Tensor& other) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = ne_tensor_hpu_lazy(self, other);
 
     return t;
@@ -497,6 +506,7 @@ std::tuple<Tensor, Tensor, Tensor> convolution_backward_hpu_wrap(
         output_mask);
   }
 };
+
 Tensor constant_pad_hpu_wrap(
     const Tensor& self,
     IntArrayRef pad,
@@ -995,17 +1005,18 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu_wrap(
         eps);
   }
 };
+
 std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu_wrap(
-    Tensor& grad_out,
-    Tensor& input,
-    Tensor& weight,
-    UNUSED Tensor& running_mean,
-    UNUSED Tensor& running_var,
-    Tensor& save_mean,
-    Tensor& save_invstd,
+    const Tensor& grad_out,
+    const Tensor& input,
+    const Tensor& weight,
+    const Tensor& running_mean,
+    const Tensor& running_var,
+    const Tensor& save_mean,
+    const Tensor& save_invstd,
     bool train,
     double eps,
-    UNUSED std::array<bool, 3> output_mask) {
+    std::array<bool, 3> output_mask) {
   if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = batch_norm_bwd_hpu_lazy(
         grad_out,
@@ -1065,6 +1076,16 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_backward_hpu_wrap(
         dY, X, mean, rstd, gamma, M, N, grad_input_mask);
   }
 };
+
+// PTv_1.7 uses new kernel
+Tensor norm_ScalarOpt_dim_hpu(
+    const Tensor& self,
+    c10::optional<c10::Scalar> p,
+    IntArrayRef dim,
+    bool keepdim) {
+  return norm_scalar_hpu_wrap(self, p.value_or(2));
+};
+
 Tensor norm_scalar_hpu_wrap(const Tensor& self, Scalar p) {
   if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = norm_scalar_hpu_lazy(self, p);
@@ -1249,29 +1270,30 @@ Tensor avg_pool2d_backward_hpu_wrap(
         divisor_override);
   }
 };
-void uniform_hpu_wrap(
-    const Tensor& self,
+Tensor& uniform_hpu_wrap(
+    Tensor& self,
     double from,
     double to,
-    CPUGenerator* gen) {
+    c10::optional<Generator> gen) {
   if (std::getenv("PT_HPU_LAZY_MODE")) {
     uniform_hpu_lazy(self, from, to, gen);
   } else {
     uniform_hpu(self, from, to, gen);
   }
 };
-void normal_hpu_wrap(
-    const Tensor& self,
+Tensor& normal_hpu_wrap(
+    Tensor& self,
     double mean,
     double std,
-    CPUGenerator* gen) {
+    c10::optional<Generator> gen) {
   if (std::getenv("PT_HPU_LAZY_MODE")) {
     normal_hpu_lazy(self, mean, std, gen);
   } else {
     normal_hpu(self, mean, std, gen);
   }
 };
-Tensor bernoulli_hpu_wrap(const Tensor& self, CPUGenerator* gen) {
+
+Tensor bernoulli_hpu_wrap(const Tensor& self, c10::optional<Generator> gen) {
   if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = bernoulli_hpu_lazy(self, gen);
     return t;
@@ -1279,7 +1301,11 @@ Tensor bernoulli_hpu_wrap(const Tensor& self, CPUGenerator* gen) {
     return bernoulli_hpu(self, gen);
   }
 };
-Tensor& bernoulli_scalar_hpu_wrap(Tensor& self, double p, CPUGenerator* gen) {
+
+Tensor& bernoulli_scalar_hpu_wrap(
+    Tensor& self,
+    double p,
+    c10::optional<Generator> gen) {
   if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto& t = bernoulli_scalar_hpu_lazy(self, p, gen);
     return t;
@@ -1288,9 +1314,9 @@ Tensor& bernoulli_scalar_hpu_wrap(Tensor& self, double p, CPUGenerator* gen) {
   }
 };
 std::tuple<Tensor, Tensor> fused_dropout_hpu_wrap(
-    Tensor self,
+    const Tensor& self,
     double p,
-    CPUGenerator* gen) {
+    c10::optional<Generator> gen) {
   if (std::getenv("PT_HPU_LAZY_MODE")) {
     // auto& t = fused_dropout_hpu_lazy(self, p, gen);
     // return t;
@@ -1300,6 +1326,7 @@ std::tuple<Tensor, Tensor> fused_dropout_hpu_wrap(
     return fused_dropout_hpu(self, p, gen);
   }
 };
+
 Tensor sum_dim_IntList_hpu_wrap(
     const Tensor& self,
     IntArrayRef dim,
@@ -1454,6 +1481,22 @@ Tensor empty_hpu_wrap(
   }
   return empty_hpu(size, options, optional_memory_format);
 };
+
+// wrapper for empty_strided in PT-1.7
+Tensor empty_strided_hpu_new(
+    at::IntArrayRef size,
+    at::IntArrayRef stride,
+    c10::optional<at::ScalarType> dtype,
+    c10::optional<at::Layout> layout,
+    c10::optional<at::Device> device,
+    c10::optional<bool> pin_memory) {
+  at::TensorOptions options = at::TensorOptions()
+                                  .dtype(dtype)
+                                  .layout(layout)
+                                  .pinned_memory(pin_memory)
+                                  .device(device);
+  return empty_strided_hpu_wrap(size, stride, options);
+}
 Tensor empty_strided_hpu_wrap(
     IntArrayRef size,
     IntArrayRef stride,
@@ -1664,7 +1707,7 @@ Tensor sigmoid_backward_hpu_wrap(const Tensor& grad_in, const Tensor& input) {
     return sigmoid_backward_hpu(grad_in, input);
   }
 };
-Tensor sqrt_hpu_wrap(Tensor& input) {
+Tensor sqrt_hpu_wrap(const Tensor& input) {
   if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = sqrt_hpu_lazy(input);
     return t;
@@ -1688,7 +1731,8 @@ Tensor& tanh_hpu_wrap_(Tensor& self) {
     return tanh_hpu_(self);
   }
 };
-Tensor& tanh_out_hpu_wrap(Tensor& out, Tensor& self) {
+
+Tensor& tanh_out_hpu_wrap(Tensor& out, const Tensor& self) {
   if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto& t = tanh_out_hpu_lazy(out, self);
     return t;
@@ -1987,6 +2031,21 @@ Tensor& optimizer_adagrad_hpu_wrap(
 
   return lr;
 }
+// compatible with PT1.7
+Tensor ones_like_hpu_new(
+    const Tensor& self,
+    c10::optional<at::ScalarType> dtype,
+    c10::optional<at::Layout> layout,
+    c10::optional<at::Device> device,
+    c10::optional<bool> pin_memory,
+    c10::optional<c10::MemoryFormat> memory_format) {
+  at::TensorOptions options = at::TensorOptions()
+                                  .dtype(dtype)
+                                  .layout(layout)
+                                  .pinned_memory(pin_memory)
+                                  .device(device);
+  return ones_like_hpu_wrap(self, options, memory_format);
+}
 
 Tensor ones_like_hpu_wrap(
     const Tensor& self,
@@ -2055,1391 +2114,297 @@ Tensor& graph_connect_for_registration_only(Tensor& out, const Tensor& self) {
   HABANA_ASSERT(0);
 }
 
-static auto
-    registry =
-        torch::
-            RegisterOperators()
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "aten::copy_(Tensor(a!) self, Tensor src, bool non_blocking=False) -> Tensor(a!)")
-                        .impl_unboxedOnlyKernel<
-                            decltype(copy_hpu_wrap_),
-                            &copy_hpu_wrap_>(DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "aten::as_strided(Tensor(a) self, int[] size, int[] stride, int? storage_offset=None) -> Tensor(a)")
-                        .impl_unboxedOnlyKernel<
-                            decltype(as_strided_hpu_wrap),
-                            &as_strided_hpu_wrap>(DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "aten::set_.source_Storage_storage_offset( Tensor(a !) self, Storage source, int storage_offset, int[] size, int[] stride = []) ->Tensor(a !)")
-                        .impl_unboxedOnlyKernel<
-                            decltype(set_hpu_wrap_),
-                            &set_hpu_wrap_>(DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "aten::view(Tensor(a) self, int[] size) -> Tensor(a)")
-                        .impl_unboxedOnlyKernel<
-                            decltype(view_hpu_wrap),
-                            &view_hpu_wrap>(DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "aten::addcmul(Tensor self, Tensor tensor1, Tensor tensor2, *, Scalar value=1) -> Tensor")
-                        .impl_unboxedOnlyKernel<
-                            decltype(addcmul_hpu_wrap),
-                            &addcmul_hpu_wrap>(DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "aten::addcmul_(Tensor(a !) self, Tensor tensor1, Tensor tensor2, *, Scalar value = 1) -> Tensor(a !)")
-                        .impl_unboxedOnlyKernel<
-                            decltype(addcmul_hpu_wrap_),
-                            &addcmul_hpu_wrap_>(DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "aten::addcdiv(Tensor self, Tensor tensor1, Tensor tensor2, *, Scalar value=1) -> Tensor")
-                        .impl_unboxedOnlyKernel<
-                            decltype(addcdiv_hpu_wrap),
-                            &addcdiv_hpu_wrap>(DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "aten::addcdiv_(Tensor(a!) self, Tensor tensor1, Tensor tensor2, *, Scalar value=1) -> Tensor(a!)")
-                        .impl_unboxedOnlyKernel<
-                            decltype(addcdiv_hpu_wrap_),
-                            &addcdiv_hpu_wrap_>(DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "aten::add_.Tensor(Tensor(a!) self, Tensor other, *, Scalar alpha=1) -> Tensor(a!)")
-                        .impl_unboxedOnlyKernel<
-                            decltype(add_tensor_hpu_wrap_),
-                            &add_tensor_hpu_wrap_>(DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "aten::add.Tensor(Tensor self, Tensor other, *, Scalar alpha=1) -> Tensor")
-                        .impl_unboxedOnlyKernel<
-                            decltype(add_tensor_hpu_wrap),
-                            &add_tensor_hpu_wrap>(DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "aten::add.Scalar(Tensor self, Scalar other, Scalar alpha = 1) -> Tensor")
-                        .impl_unboxedOnlyKernel<
-                            decltype(add_scalar_hpu_wrap),
-                            &add_scalar_hpu_wrap>(DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::
-                        RegisterOperators::
-                            options()
-                                .schema(
-                                    "aten::add_.Scalar(Tensor(a!) self, Scalar other, Scalar alpha=1) -> Tensor(a!)")
-                                .impl_unboxedOnlyKernel<
-                                    decltype(add_scalar_hpu_wrap_),
-                                    &add_scalar_hpu_wrap_>(
-                                    DispatchKey::HABANATensorId)
-                                .aliasAnalysis(
-                                    c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::
-                        RegisterOperators::
-                            options()
-                                .schema(
-                                    "aten::sub.Tensor(Tensor self, Tensor other, *, Scalar alpha=1) -> Tensor")
-                                .impl_unboxedOnlyKernel<
-                                    decltype(sub_tensor_hpu_wrap),
-                                    &sub_tensor_hpu_wrap>(
-                                    DispatchKey::HABANATensorId)
-                                .aliasAnalysis(
-                                    c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::
-                        RegisterOperators::
-                            options()
-                                .schema(
-                                    "aten::sub_.Tensor(Tensor(a!) self, Tensor other, *, Scalar alpha=1) -> Tensor(a!)")
-                                .impl_unboxedOnlyKernel<
-                                    decltype(sub_tensor_hpu_wrap_),
-                                    &sub_tensor_hpu_wrap_>(
-                                    DispatchKey::HABANATensorId)
-                                .aliasAnalysis(
-                                    c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::
-                        RegisterOperators::
-                            options()
-                                .schema(
-                                    "aten::sub.Scalar(Tensor self, Scalar other, Scalar alpha=1) -> Tensor")
-                                .impl_unboxedOnlyKernel<
-                                    decltype(sub_scalar_hpu_wrap),
-                                    &sub_scalar_hpu_wrap>(
-                                    DispatchKey::HABANATensorId)
-                                .aliasAnalysis(
-                                    c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::
-                        RegisterOperators::
-                            options()
-                                .schema(
-                                    "aten::sub_.Scalar(Tensor(a!) self, Scalar other, Scalar alpha=1) -> Tensor(a!)")
-                                .impl_unboxedOnlyKernel<
-                                    decltype(sub_scalar_hpu_wrap_),
-                                    &sub_scalar_hpu_wrap_>(
-                                    DispatchKey::HABANATensorId)
-                                .aliasAnalysis(
-                                    c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::
-                        RegisterOperators::
-                            options()
-                                .schema(
-                                    "aten::mul_.Tensor(Tensor(a!) self, Tensor other) -> Tensor(a!)")
-                                .impl_unboxedOnlyKernel<
-                                    decltype(mul_tensor_hpu_wrap_),
-                                    &mul_tensor_hpu_wrap_>(
-                                    DispatchKey::HABANATensorId)
-                                .aliasAnalysis(
-                                    c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::
-                        RegisterOperators::
-                            options()
-                                .schema(
-                                    "aten::mul.Tensor(Tensor self, Tensor other) -> Tensor")
-                                .impl_unboxedOnlyKernel<
-                                    decltype(mul_tensor_hpu_wrap),
-                                    &mul_tensor_hpu_wrap>(
-                                    DispatchKey::HABANATensorId)
-                                .aliasAnalysis(
-                                    c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::
-                        RegisterOperators::
-                            options()
-                                .schema(
-                                    "aten::mul.Scalar(Tensor self, Scalar other) -> Tensor")
-                                .impl_unboxedOnlyKernel<
-                                    decltype(mul_scalar_hpu_wrap),
-                                    &mul_scalar_hpu_wrap>(
-                                    DispatchKey::HABANATensorId)
-                                .aliasAnalysis(
-                                    c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::
-                        RegisterOperators::
-                            options()
-                                .schema(
-                                    "aten::mul_.Scalar(Tensor(a!) self, Scalar other) -> Tensor(a!)")
-                                .impl_unboxedOnlyKernel<
-                                    decltype(mul_scalar_hpu_wrap_),
-                                    &mul_scalar_hpu_wrap_>(
-                                    DispatchKey::HABANATensorId)
-                                .aliasAnalysis(
-                                    c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::
-                        RegisterOperators::
-                            options()
-                                .schema(
-                                    "aten::_masked_scale(Tensor self, Tensor mask, float scale) -> Tensor")
-                                .impl_unboxedOnlyKernel<
-                                    decltype(masked_scale_hpu_wrap),
-                                    &masked_scale_hpu_wrap>(
-                                    DispatchKey::HABANATensorId)
-                                .aliasAnalysis(
-                                    c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::
-                        RegisterOperators::
-                            options()
-                                .schema(
-                                    "aten::div.Tensor(Tensor self, Tensor other) -> Tensor")
-                                .impl_unboxedOnlyKernel<
-                                    decltype(div_tensor_hpu_wrap),
-                                    &div_tensor_hpu_wrap>(
-                                    DispatchKey::HABANATensorId)
-                                .aliasAnalysis(
-                                    c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::
-                        RegisterOperators::
-                            options()
-                                .schema(
-                                    "aten::div.out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)")
-                                .impl_unboxedOnlyKernel<
-                                    decltype(div_tensor_hpu_wrap_out),
-                                    &div_tensor_hpu_wrap_out>(
-                                    DispatchKey::HABANATensorId)
-                                .aliasAnalysis(
-                                    c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::
-                        RegisterOperators::
-                            options()
-                                .schema(
-                                    "aten::div_.Tensor(Tensor(a!) self, Tensor other) -> (Tensor(a!))")
-                                .impl_unboxedOnlyKernel<
-                                    decltype(div_tensor_hpu_wrap_),
-                                    &div_tensor_hpu_wrap_>(
-                                    DispatchKey::HABANATensorId)
-                                .aliasAnalysis(
-                                    c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::
-                        RegisterOperators::
-                            options()
-                                .schema(
-                                    "aten::div.Scalar(Tensor self, Scalar other) -> Tensor")
-                                .impl_unboxedOnlyKernel<
-                                    decltype(div_scalar_hpu_wrap),
-                                    &div_scalar_hpu_wrap>(
-                                    DispatchKey::HABANATensorId)
-                                .aliasAnalysis(
-                                    c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::
-                        RegisterOperators::
-                            options()
-                                .schema(
-                                    "aten::div_.Scalar(Tensor(a!) self, Scalar other) -> (Tensor(a!))")
-                                .impl_unboxedOnlyKernel<
-                                    decltype(div_scalar_hpu_wrap_),
-                                    &div_scalar_hpu_wrap_>(
-                                    DispatchKey::HABANATensorId)
-                                .aliasAnalysis(
-                                    c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::
-                        RegisterOperators::
-                            options()
-                                .schema(
-                                    "aten::pow.Tensor_Tensor(Tensor self, Tensor exponent) -> Tensor")
-                                .impl_unboxedOnlyKernel<
-                                    decltype(pow_tensor_tensor_hpu_wrap),
-                                    &pow_tensor_tensor_hpu_wrap>(
-                                    DispatchKey::HABANATensorId)
-                                .aliasAnalysis(
-                                    c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::
-                        RegisterOperators::
-                            options()
-                                .schema(
-                                    "aten::pow_.Tensor(Tensor(a!) self, Tensor exponent) -> Tensor(a!)")
-                                .impl_unboxedOnlyKernel<
-                                    decltype(pow_tensor_tensor_hpu_wrap_),
-                                    &pow_tensor_tensor_hpu_wrap_>(
-                                    DispatchKey::HABANATensorId)
-                                .aliasAnalysis(
-                                    c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::
-                        RegisterOperators::
-                            options()
-                                .schema(
-                                    "aten::pow.Tensor_Scalar(Tensor self, Scalar exponent) -> Tensor")
-                                .impl_unboxedOnlyKernel<
-                                    decltype(pow_tensor_scalar_hpu_wrap),
-                                    &pow_tensor_scalar_hpu_wrap>(
-                                    DispatchKey::HABANATensorId)
-                                .aliasAnalysis(
-                                    c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::
-                        RegisterOperators::
-                            options()
-                                .schema(
-                                    "aten::pow_.Scalar(Tensor(a !) self, Scalar exponent) -> Tensor(a !)")
-                                .impl_unboxedOnlyKernel<
-                                    decltype(pow_tensor_scalar_hpu_wrap_),
-                                    &pow_tensor_scalar_hpu_wrap_>(
-                                    DispatchKey::HABANATensorId)
-                                .aliasAnalysis(
-                                    c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::
-                        RegisterOperators::
-                            options()
-                                .schema(
-                                    "aten::pow.Scalar(Scalar self, Tensor exponent)->Tensor")
-                                .impl_unboxedOnlyKernel<
-                                    decltype(pow_scalar_tensor_hpu_wrap),
-                                    &pow_scalar_tensor_hpu_wrap>(
-                                    DispatchKey::HABANATensorId)
-                                .aliasAnalysis(
-                                    c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::
-                        RegisterOperators::
-                            options()
-                                .schema(
-                                    "aten::rsub.Scalar(Tensor self, Scalar other, Scalar alpha=1) -> Tensor")
-                                .impl_unboxedOnlyKernel<
-                                    decltype(rsub_scalar_hpu_wrap),
-                                    &rsub_scalar_hpu_wrap>(
-                                    DispatchKey::HABANATensorId)
-                                .aliasAnalysis(
-                                    c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::
-                        RegisterOperators::
-                            options()
-                                .schema(
-                                    "aten::gt.Tensor(Tensor self, Tensor other) -> Tensor")
-                                .impl_unboxedOnlyKernel<
-                                    decltype(gt_tensor_hpu_wrap),
-                                    &gt_tensor_hpu_wrap>(DispatchKey::
-                                                             HABANATensorId)
-                                .aliasAnalysis(
-                                    c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::
-                        RegisterOperators::
-                            options()
-                                .schema(
-                                    "aten::gt.Scalar(Tensor self, Scalar other) -> Tensor")
-                                .impl_unboxedOnlyKernel<
-                                    decltype(gt_scalar_hpu_wrap),
-                                    &gt_scalar_hpu_wrap>(DispatchKey::
-                                                             HABANATensorId)
-                                .aliasAnalysis(
-                                    c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::
-                        RegisterOperators::
-                            options()
-                                .schema(
-                                    "aten::eq.Tensor(Tensor self, Tensor other) -> Tensor")
-                                .impl_unboxedOnlyKernel<
-                                    decltype(eq_tensor_hpu_wrap),
-                                    &eq_tensor_hpu_wrap>(DispatchKey::
-                                                             HABANATensorId)
-                                .aliasAnalysis(
-                                    c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::
-                        RegisterOperators::
-                            options()
-                                .schema(
-                                    "aten::eq.Tensor_out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)")
-                                .impl_unboxedOnlyKernel<
-                                    decltype(eq_tensor_out_hpu_wrap),
-                                    &eq_tensor_out_hpu_wrap>(DispatchKey::
-                                                                 HABANATensorId)
-                                .aliasAnalysis(
-                                    c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::
-                        RegisterOperators::
-                            options()
-                                .schema(
-                                    "aten::eq.Scalar(Tensor self, Scalar other) -> Tensor")
-                                .impl_unboxedOnlyKernel<
-                                    decltype(eq_tensor_scalar_hpu_wrap),
-                                    &eq_tensor_scalar_hpu_wrap>(
-                                    DispatchKey::HABANATensorId)
-                                .aliasAnalysis(
-                                    c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::
-                        RegisterOperators::
-                            options()
-                                .schema(
-                                    "aten::lt.Scalar(Tensor self, Scalar other) -> Tensor")
-                                .impl_unboxedOnlyKernel<
-                                    decltype(lt_scalar_hpu_wrap),
-                                    &lt_scalar_hpu_wrap>(DispatchKey::
-                                                             HABANATensorId)
-                                .aliasAnalysis(
-                                    c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::
-                        RegisterOperators::
-                            options()
-                                .schema(
-                                    "aten::lt.Tensor(Tensor self, Tensor other) -> Tensor")
-                                .impl_unboxedOnlyKernel<
-                                    decltype(lt_tensor_hpu_wrap),
-                                    &lt_tensor_hpu_wrap>(DispatchKey::
-                                                             HABANATensorId)
-                                .aliasAnalysis(
-                                    c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::
-                        RegisterOperators::
-                            options()
-                                .schema(
-                                    "aten::ge.Scalar(Tensor self, Scalar other) -> Tensor")
-                                .impl_unboxedOnlyKernel<
-                                    decltype(ge_scalar_hpu_wrap),
-                                    &ge_scalar_hpu_wrap>(DispatchKey::
-                                                             HABANATensorId)
-                                .aliasAnalysis(
-                                    c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::
-                        RegisterOperators::
-                            options()
-                                .schema(
-                                    "aten::ge.Tensor(Tensor self, Tensor other) -> Tensor")
-                                .impl_unboxedOnlyKernel<
-                                    decltype(ge_tensor_hpu_wrap),
-                                    &ge_tensor_hpu_wrap>(DispatchKey::
-                                                             HABANATensorId)
-                                .aliasAnalysis(
-                                    c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::
-                        RegisterOperators::
-                            options()
-                                .schema(
-                                    "aten::ne.Scalar(Tensor self, Scalar other) -> Tensor")
-                                .impl_unboxedOnlyKernel<
-                                    decltype(ne_scalar_hpu_wrap),
-                                    &ne_scalar_hpu_wrap>(DispatchKey::
-                                                             HABANATensorId)
-                                .aliasAnalysis(
-                                    c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::
-                        RegisterOperators::
-                            options()
-                                .schema(
-                                    "aten::ne.Tensor(Tensor self, Tensor other) -> Tensor")
-                                .impl_unboxedOnlyKernel<
-                                    decltype(ne_tensor_hpu_wrap),
-                                    &ne_tensor_hpu_wrap>(DispatchKey::
-                                                             HABANATensorId)
-                                .aliasAnalysis(
-                                    c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::
-                        RegisterOperators::
-                            options()
-                                .schema(
-                                    "aten::convolution_overrideable(Tensor input, Tensor weight, Tensor? bias, int[] stride, int[] padding, int[] dilation, bool transposed, int[] output_padding, int groups) -> Tensor")
-                                .impl_unboxedOnlyKernel<
-                                    decltype(convolution_hpu_wrap),
-                                    &convolution_hpu_wrap>(
-                                    DispatchKey::HABANATensorId)
-                                .aliasAnalysis(
-                                    c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::
-                        RegisterOperators::
-                            options()
-                                .schema(
-                                    "aten::convolution_backward_overrideable(Tensor grad_output, Tensor input, Tensor weight, int[] stride, int[] padding, int[] dilation, bool transposed, int[] output_padding, int groups, bool[3] output_mask) -> (Tensor grad_input, Tensor grad_weight, Tensor grad_bias)")
-                                .impl_unboxedOnlyKernel<
-                                    decltype(convolution_backward_hpu_wrap),
-                                    &convolution_backward_hpu_wrap>(
-                                    DispatchKey::HABANATensorId)
-                                .aliasAnalysis(
-                                    c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::
-                        RegisterOperators::
-                            options()
-                                .schema(
-                                    "aten::constant_pad_nd(Tensor self, int[] pad, Scalar value=0) -> Tensor")
-                                .impl_unboxedOnlyKernel<
-                                    decltype(constant_pad_hpu_wrap),
-                                    &constant_pad_hpu_wrap>(
-                                    DispatchKey::HABANATensorId)
-                                .aliasAnalysis(
-                                    c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::
-                        RegisterOperators::
-                            options()
-                                .schema(
-                                    "aten::embedding(Tensor weight, Tensor indices, int padding_idx=-1, bool scale_grad_by_freq=False, bool sparse=False) -> Tensor")
-                                .impl_unboxedOnlyKernel<
-                                    decltype(embedding_hpu_wrap),
-                                    &embedding_hpu_wrap>(DispatchKey::
-                                                             HABANATensorId)
-                                .aliasAnalysis(
-                                    c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::
-                        RegisterOperators::
-                            options()
-                                .schema(
-                                    "aten::embedding_dense_backward(Tensor grad_output, Tensor indices, int num_weights, int padding_idx, bool scale_grad_by_freq) -> Tensor")
-                                .impl_unboxedOnlyKernel<
-                                    decltype(embedding_dense_backward_hpu_wrap),
-                                    &embedding_dense_backward_hpu_wrap>(
-                                    DispatchKey::HABANATensorId)
-                                .aliasAnalysis(
-                                    c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::
-                        RegisterOperators::
-                            options()
-                                .schema(
-                                    "aten::embedding_bag_sum_fwd(Tensor input, Tensor indices_fwd, Tensor offsets_fwd, Tensor valid_count_fwd, Tensor indices_bwd, Tensor offsets_bwd, Tensor valid_count_bwd, Tensor grad_weight) -> Tensor")
-                                .impl_unboxedOnlyKernel<
-                                    decltype(embedding_bag_sum_fwd_hpu_wrap),
-                                    &embedding_bag_sum_fwd_hpu_wrap>(
-                                    DispatchKey::HABANATensorId)
-                                .aliasAnalysis(
-                                    c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::
-                        RegisterOperators::
-                            options()
-                                .schema(
-                                    "aten::embedding_bag_sum_bwd.out(Tensor input, Tensor indices_bwd, Tensor offsets_bwd, Tensor valid_count_bwd, *, Tensor(a!) out) -> Tensor(a!)")
-                                .impl_unboxedOnlyKernel<
-                                    decltype(
-                                        embedding_bag_sum_bwd_out_hpu_wrap),
-                                    &embedding_bag_sum_bwd_out_hpu_wrap>(
-                                    DispatchKey::HABANATensorId)
-                                .aliasAnalysis(
-                                    c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::
-                        RegisterOperators::
-                            options()
-                                .schema(
-                                    "aten::fill_.Scalar(Tensor(a!) self, Scalar value) -> Tensor(a!)")
-                                .impl_unboxedOnlyKernel<
-                                    decltype(fill_hpu_wrap_),
-                                    &fill_hpu_wrap_>(DispatchKey::
-                                                         HABANATensorId)
-                                .aliasAnalysis(
-                                    c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::
-                        RegisterOperators::
-                            options()
-                                .schema(
-                                    "aten::masked_fill_.Tensor(Tensor(a!) self, Tensor mask, Tensor value) -> Tensor(a!)")
-                                .impl_unboxedOnlyKernel<
-                                    decltype(masked_fill_hpu_wrap_),
-                                    &masked_fill_hpu_wrap_>(
-                                    DispatchKey::HABANATensorId)
-                                .aliasAnalysis(
-                                    c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::
-                        options()
-                            .schema(
-                                "aten::masked_fill_.Scalar(Tensor(a!) self, Tensor mask, Scalar value) -> Tensor(a!)")
-                            .impl_unboxedOnlyKernel<
-                                decltype(masked_fill_scalar_hpu_wrap_),
-                                &masked_fill_scalar_hpu_wrap_>(
-                                DispatchKey::HABANATensorId)
-                            .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::
-                        options()
-                            .schema(
-                                "aten::index_select(Tensor self, int dim, Tensor index) -> Tensor")
-                            .impl_unboxedOnlyKernel<
-                                decltype(index_select_hpu_wrap),
-                                &index_select_hpu_wrap>(
-                                DispatchKey::HABANATensorId)
-                            .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::
-                        options()
-                            .schema(
-                                "aten::index_put_(Tensor(a!) self, Tensor?[] indices, Tensor values, bool accumulate=False) -> Tensor(a!)")
-                            .impl_unboxedOnlyKernel<
-                                decltype(index_put_hpu_wrap_),
-                                &index_put_hpu_wrap_>(
-                                DispatchKey::HABANATensorId)
-                            .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::
-                        options()
-                            .schema(
-                                "aten::index_put(Tensor self, Tensor?[] indices, Tensor values, bool accumulate=False) -> Tensor")
-                            .impl_unboxedOnlyKernel<
-                                decltype(index_put_hpu_wrap),
-                                &index_put_hpu_wrap>(DispatchKey::
-                                                         HABANATensorId)
-                            .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::
-                        options()
-                            .schema(
-                                "aten::index_add_(Tensor(a!) self, int dim, Tensor index, Tensor source) -> Tensor(a!)")
-                            .impl_unboxedOnlyKernel<
-                                decltype(index_add_hpu_wrap_),
-                                &index_add_hpu_wrap_>(
-                                DispatchKey::HABANATensorId)
-                            .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::
-                        options()
-                            .schema(
-                                "aten::scatter_.src(Tensor(a!) self, int dim, Tensor index, Tensor src) -> Tensor(a!)")
-                            .impl_unboxedOnlyKernel<
-                                decltype(scatter_inplace_src_hpu_wrap),
-                                &scatter_inplace_src_hpu_wrap>(
-                                DispatchKey::HABANATensorId)
-                            .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::
-                        options()
-                            .schema(
-                                "aten::scatter.src(Tensor self, int dim, Tensor index, Tensor src) -> Tensor")
-                            .impl_unboxedOnlyKernel<
-                                decltype(scatter_src_hpu_wrap),
-                                &scatter_src_hpu_wrap>(
-                                DispatchKey::HABANATensorId)
-                            .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::
-                        options()
-                            .schema(
-                                "aten::gather(Tensor self, int dim, Tensor index, *, bool sparse_grad=False) -> Tensor")
-                            .impl_unboxedOnlyKernel<
-                                decltype(gather_src_hpu_wrap),
-                                &gather_src_hpu_wrap>(
-                                DispatchKey::HABANATensorId)
-                            .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::
-                        options()
-                            .schema(
-                                "aten::scatter_add(Tensor self, int dim, Tensor index, Tensor src) -> Tensor")
-                            .impl_unboxedOnlyKernel<
-                                decltype(scatter_add_src_hpu_wrap),
-                                &scatter_add_src_hpu_wrap>(
-                                DispatchKey::HABANATensorId)
-                            .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::
-                        options()
-                            .schema(
-                                "aten::scatter_add_(Tensor(a!) self, int dim, Tensor index, Tensor src) -> Tensor(a!)")
-                            .impl_unboxedOnlyKernel<
-                                decltype(scatter_add_inplace_src_hpu_wrap),
-                                &scatter_add_inplace_src_hpu_wrap>(
-                                DispatchKey::HABANATensorId)
-                            .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::
-                        options()
-                            .schema(
-                                "aten::slice.Tensor(Tensor(a) self, int dim=0, int start=0, int end=9223372036854775807, int step=1) -> Tensor(a)")
-                            .impl_unboxedOnlyKernel<
-                                decltype(slice_hpu_wrap),
-                                &slice_hpu_wrap>(DispatchKey::HABANATensorId)
-                            .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::
-                        options()
-                            .schema(
-                                "aten::select.int(Tensor(a) self, int dim, int index) -> Tensor(a)")
-                            .impl_unboxedOnlyKernel<
-                                decltype(select_hpu_wrap),
-                                &select_hpu_wrap>(DispatchKey::HABANATensorId)
-                            .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::
-                        options()
-                            .schema(
-                                "aten::arange.start_out(Scalar start, Scalar end, Scalar step=1, *, Tensor(a!) out) -> Tensor(a!)")
-                            .impl_unboxedOnlyKernel<
-                                decltype(arange_hpu_wrap),
-                                &arange_hpu_wrap>(DispatchKey::HABANATensorId)
-                            .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::
-                        options()
-                            .schema(
-                                "aten::mm(Tensor self, Tensor mat2) -> Tensor")
-                            .impl_unboxedOnlyKernel<
-                                decltype(mm_hpu_wrap),
-                                &mm_hpu_wrap>(DispatchKey::HABANATensorId)
-                            .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::
-                        options()
-                            .schema(
-                                "hpu::mm_t(Tensor self, Tensor mat2, bool self_transposed, bool mat2_transposed) -> Tensor")
-                            .impl_unboxedOnlyKernel<
-                                decltype(mm_hpu_wrap),
-                                &mm_hpu_wrap>(DispatchKey::HABANATensorId)
-                            .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::
-                        options()
-                            .schema(
-                                "aten::addmm(Tensor self, Tensor mat1, Tensor mat2, *, Scalar beta = 1, Scalar alpha = 1) ->Tensor")
-                            .impl_unboxedOnlyKernel<
-                                decltype(addmm_hpu_wrap),
-                                &addmm_hpu_wrap>(DispatchKey::HABANATensorId)
-                            .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::
-                        options()
-                            .schema(
-                                "aten::bmm.out(Tensor self, Tensor mat2, *, Tensor(a!) out) -> Tensor(a!)")
-                            .impl_unboxedOnlyKernel<
-                                decltype(batch_gemm_out_hpu_wrap),
-                                &batch_gemm_out_hpu_wrap>(
-                                DispatchKey::HABANATensorId)
-                            .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::
-                        options()
-                            .schema(
-                                "aten::bmm(Tensor self, Tensor mat2) -> Tensor")
-                            .impl_unboxedOnlyKernel<
-                                decltype(batch_gemm_hpu_wrap),
-                                &batch_gemm_hpu_wrap>(
-                                DispatchKey::HABANATensorId)
-                            .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::
-                        options()
-                            .schema(
-                                "aten::dot(Tensor self, Tensor tensor) -> Tensor")
-                            .impl_unboxedOnlyKernel<
-                                decltype(dot_hpu_wrap),
-                                &dot_hpu_wrap>(DispatchKey::HABANATensorId)
-                            .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::
-                        options()
-                            .schema("aten::mv(Tensor self, Tensor vec)->Tensor")
-                            .impl_unboxedOnlyKernel<
-                                decltype(mv_hpu_wrap),
-                                &mv_hpu_wrap>(DispatchKey::HABANATensorId)
-                            .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::
-                        options()
-                            .schema(
-                                "aten::nll_loss_forward(Tensor self, Tensor target, Tensor? weight, int reduction, int ignore_index) ->(Tensor output, Tensor total_weight)")
-                            .impl_unboxedOnlyKernel<
-                                decltype(nll_loss_forward_hpu_wrap),
-                                &nll_loss_forward_hpu_wrap>(
-                                DispatchKey::HABANATensorId)
-                            .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "aten::nll_loss_backward(Tensor grad_output, Tensor self, Tensor target, Tensor? weight, int reduction, int ignore_index, Tensor total_weight) -> Tensor")
-                        .impl_unboxedOnlyKernel<
-                            decltype(nll_loss_backward_hpu_wrap),
-                            &nll_loss_backward_hpu_wrap>(
-                            DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "aten::mse_loss(Tensor self, Tensor target, int reduction=Mean) -> Tensor")
-                        .impl_unboxedOnlyKernel<
-                            decltype(mse_loss_forward_hpu_wrap),
-                            &mse_loss_forward_hpu_wrap>(
-                            DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "aten::mse_loss_backward(Tensor grad_output, Tensor self, Tensor target, int reduction) -> Tensor")
-                        .impl_unboxedOnlyKernel<
-                            decltype(mse_loss_backward_hpu_wrap),
-                            &mse_loss_backward_hpu_wrap>(
-                            DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "aten::binary_cross_entropy(Tensor self, Tensor target, Tensor? weight=None, int reduction=Mean) -> Tensor")
-                        .impl_unboxedOnlyKernel<
-                            decltype(binary_cross_entropy_hpu_wrap),
-                            &binary_cross_entropy_hpu_wrap>(
-                            DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "aten::binary_cross_entropy_backward(Tensor grad_output, Tensor self, Tensor target, Tensor? weight=None, int reduction=Mean) -> Tensor")
-                        .impl_unboxedOnlyKernel<
-                            decltype(binary_cross_entropy_backward_hpu_wrap),
-                            &binary_cross_entropy_backward_hpu_wrap>(
-                            DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "aten::native_batch_norm(Tensor input, Tensor? weight, Tensor? bias, Tensor? running_mean, Tensor? running_var, bool training, float momentum, float eps) -> (Tensor, Tensor, Tensor)")
-                        .impl_unboxedOnlyKernel<
-                            decltype(batch_norm_hpu_wrap),
-                            &batch_norm_hpu_wrap>(DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "aten::native_batch_norm_backward(Tensor grad_out, Tensor input, Tensor? weight, Tensor? running_mean, Tensor? running_var, Tensor? save_mean, Tensor? save_invstd, bool train, float eps, bool[3] output_mask) -> (Tensor, Tensor, Tensor)")
-                        .impl_unboxedOnlyKernel<
-                            decltype(batch_norm_bwd_hpu_wrap),
-                            &batch_norm_bwd_hpu_wrap>(
-                            DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "aten::native_layer_norm(Tensor input, Tensor? weight, Tensor? bias, int M, int N, float eps) -> (Tensor, Tensor, Tensor)")
-                        .impl_unboxedOnlyKernel<
-                            decltype(layer_norm_hpu_wrap),
-                            &layer_norm_hpu_wrap>(DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "aten::native_layer_norm_backward(Tensor grad_out, Tensor input, Tensor mean, Tensor rstd, Tensor? weight, int M, int N, bool[3] output_mask) -> (Tensor, Tensor, Tensor)")
-                        .impl_unboxedOnlyKernel<
-                            decltype(layer_norm_backward_hpu_wrap),
-                            &layer_norm_backward_hpu_wrap>(
-                            DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "aten::norm.Scalar(Tensor self, Scalar p=2) -> Tensor")
-                        .impl_unboxedOnlyKernel<
-                            decltype(norm_scalar_hpu_wrap),
-                            &norm_scalar_hpu_wrap>(DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "aten::max_pool2d_with_indices(Tensor self, int[2] kernel_size, int[2] stride = [], int[2] padding = 0, int[2] dilation = 1, bool ceil_mode = False) ->(Tensor, Tensor)")
-                        .impl_unboxedOnlyKernel<
-                            decltype(max_pool2d_with_indices_hpu_wrap),
-                            &max_pool2d_with_indices_hpu_wrap>(
-                            DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "aten::max_pool2d_with_indices_backward(Tensor grad_output, Tensor self, int[2] kernel_size, int[2] stride, int[2] padding, int[2] dilation, bool ceil_mode, Tensor indices) -> Tensor")
-                        .impl_unboxedOnlyKernel<
-                            decltype(max_pool2d_with_indices_backward_hpu_wrap),
-                            &max_pool2d_with_indices_backward_hpu_wrap>(
-                            DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::
-                        options()
-                            .schema("aten::max_pool2d_with_indices_backward.grad_input(Tensor grad_output, Tensor self, int[2] kernel_size, int[2] stride, int[2] padding, int[2] dilation, bool ceil_mode, Tensor indices, *, Tensor(a!) grad_input) -> Tensor(a!)")
-                            .impl_unboxedOnlyKernel<
-                                decltype(
-                                    max_pool2d_with_indices_backward_out_hpu_wrap),
-                                &max_pool2d_with_indices_backward_out_hpu_wrap>(
-                                DispatchKey::HABANATensorId)
-                            .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "aten::avg_pool2d(Tensor self, int[2] kernel_size, int[2] stride=[], int[2] padding=0, bool ceil_mode=False, bool count_include_pad=True, int? divisor_override=None) -> Tensor")
-                        .impl_unboxedOnlyKernel<
-                            decltype(avg_pool2d_hpu_wrap),
-                            &avg_pool2d_hpu_wrap>(DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "aten::avg_pool2d_backward(Tensor grad_output, Tensor self, int[2] kernel_size, int[2] stride, int[2] padding, bool ceil_mode, bool count_include_pad, int? divisor_override) -> Tensor")
-                        .impl_unboxedOnlyKernel<
-                            decltype(avg_pool2d_backward_hpu_wrap),
-                            &avg_pool2d_backward_hpu_wrap>(
-                            DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "aten::uniform_(Tensor(a!) self, float from=0, float to=1, *, Generator? generator=None) -> Tensor(a!)")
-                        .impl_unboxedOnlyKernel<
-                            decltype(uniform_hpu_wrap),
-                            &uniform_hpu_wrap>(DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "aten::normal_(Tensor(a!) self, float mean=0, float std=1, *, Generator? generator=None) -> Tensor(a!)")
-                        .impl_unboxedOnlyKernel<
-                            decltype(normal_hpu_wrap),
-                            &normal_hpu_wrap>(DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "aten::bernoulli(Tensor self, *, Generator? generator=None) -> Tensor")
-                        .impl_unboxedOnlyKernel<
-                            decltype(bernoulli_hpu_wrap),
-                            &bernoulli_hpu_wrap>(DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "aten::bernoulli_.float(Tensor(a!) self, float p=0.5, *, Generator? generator=None) -> Tensor(a!)")
-                        .impl_unboxedOnlyKernel<
-                            decltype(bernoulli_scalar_hpu_wrap),
-                            &bernoulli_scalar_hpu_wrap>(
-                            DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "aten::_fused_dropout(Tensor self, float p, Generator? generator=None) -> (Tensor, Tensor)")
-                        .impl_unboxedOnlyKernel<
-                            decltype(fused_dropout_hpu_wrap),
-                            &fused_dropout_hpu_wrap>(
-                            DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "aten::sum.dim_IntList(Tensor self, int[1] dim, bool keepdim=False, *, ScalarType? dtype=None) -> Tensor")
-                        .impl_unboxedOnlyKernel<
-                            decltype(sum_dim_IntList_hpu_wrap),
-                            &sum_dim_IntList_hpu_wrap>(
-                            DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "aten::sum_dim_IntList(Tensor self, int[1] dim, bool keepdim=False, *, ScalarType? dtype=None) -> Tensor")
-                        .impl_unboxedOnlyKernel<
-                            decltype(sum_dim_IntList_hpu_wrap),
-                            &sum_dim_IntList_hpu_wrap>(
-                            DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "aten::sum.IntList_out(Tensor self, int[1] dim, bool keepdim=False, *, ScalarType? dtype=None, Tensor(a!) out) -> Tensor(a!)")
-                        .impl_unboxedOnlyKernel<
-                            decltype(sum_IntList_out_hpu_wrap),
-                            &sum_IntList_out_hpu_wrap>(
-                            DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "aten::mean.dim(Tensor self, int[1] dim, bool keepdim=False, *, ScalarType? dtype=None) -> Tensor")
-                        .impl_unboxedOnlyKernel<
-                            decltype(mean_dim_hpu_wrap),
-                            &mean_dim_hpu_wrap>(DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "aten::mean.out(Tensor self, int[1] dim, bool keepdim=False, *, ScalarType? dtype=None, Tensor(a!) out) -> Tensor(a!)")
-                        .impl_unboxedOnlyKernel<
-                            decltype(mean_dim_out_hpu_wrap),
-                            &mean_dim_out_hpu_wrap>(DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "aten::sum(Tensor self, *, ScalarType? dtype=None) -> Tensor")
-                        .impl_unboxedOnlyKernel<
-                            decltype(sum_hpu_wrap),
-                            &sum_hpu_wrap>(DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "aten::mean(Tensor self, *, ScalarType? dtype=None) -> Tensor")
-                        .impl_unboxedOnlyKernel<
-                            decltype(mean_hpu_wrap),
-                            &mean_hpu_wrap>(DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "aten::any.dim(Tensor self, int dim, bool keepdim=False) -> Tensor")
-                        .impl_unboxedOnlyKernel<
-                            decltype(any_dim_hpu_wrap),
-                            &any_dim_hpu_wrap>(DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema("aten::any(Tensor self) -> Tensor")
-                        .impl_unboxedOnlyKernel<
-                            decltype(any_hpu_wrap),
-                            &any_hpu_wrap>(DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "aten::any.out(Tensor self, int dim, bool keepdim=False, *, Tensor(a!) out) -> Tensor(a!)")
-                        .impl_unboxedOnlyKernel<
-                            decltype(any_dim_out_hpu_wrap),
-                            &any_dim_out_hpu_wrap>(DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "aten::_local_scalar_dense(Tensor self) -> Scalar")
-                        .impl_unboxedOnlyKernel<
-                            decltype(at::native::_local_scalar_dense_hpu_wrap),
-                            &at::native::_local_scalar_dense_hpu_wrap>(
-                            DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "aten::_log_softmax(Tensor self, int dim, bool half_to_float) -> Tensor")
-                        .impl_unboxedOnlyKernel<
-                            decltype(log_softmax_hpu_wrap),
-                            &log_softmax_hpu_wrap>(DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "aten::_log_softmax_backward_data(Tensor grad_output, Tensor output, int dim, Tensor self) -> Tensor")
-                        .impl_unboxedOnlyKernel<
-                            decltype(habana::log_softmax_backward_hpu_wrap),
-                            &habana::log_softmax_backward_hpu_wrap>(
-                            DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "aten::_softmax(Tensor self, int dim, bool half_to_float) -> Tensor")
-                        .impl_unboxedOnlyKernel<
-                            decltype(habana::softmax_hpu_wrap),
-                            &habana::softmax_hpu_wrap>(
-                            DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "aten::_softmax_backward_data(Tensor grad_output, Tensor output, int dim, Tensor self) -> Tensor")
-                        .impl_unboxedOnlyKernel<
-                            decltype(habana::softmax_backward_hpu_wrap),
-                            &habana::softmax_backward_hpu_wrap>(
-                            DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "aten::clone(Tensor self, *, MemoryFormat? memory_format=None) -> Tensor")
-                        .impl_unboxedOnlyKernel<
-                            decltype(clone_hpu_wrap),
-                            &clone_hpu_wrap>(DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "aten::empty.memory_format(int[] size, *, ScalarType? dtype=None, Layout? layout=None, Device? device=None, bool? pin_memory=None, MemoryFormat? memory_format=None) -> Tensor")
-                        .impl_unboxedOnlyKernel<
-                            decltype(at::native::empty_hpu_wrap),
-                            &at::native::empty_hpu_wrap>(
-                            DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "aten::empty_strided(int[] size, int[] stride, *, ScalarType? dtype=None, Layout? layout=None, Device? device=None, bool? pin_memory=None) -> Tensor")
-                        .impl_unboxedOnlyKernel<
-                            decltype(at::native::empty_strided_hpu_wrap),
-                            &at::native::empty_strided_hpu_wrap>(
-                            DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema("aten::zero_(Tensor(a!) self) -> Tensor(a!)")
-                        .impl_unboxedOnlyKernel<
-                            decltype(zero_hpu_wrap),
-                            &zero_hpu_wrap>(DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "aten::permute(Tensor(a) self, int[] dims) -> Tensor(a)")
-                        .impl_unboxedOnlyKernel<
-                            decltype(permute_hpu_wrap),
-                            &permute_hpu_wrap>(DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "aten::expand(Tensor(a) self, int[] size, *, bool implicit=False) -> Tensor(a)")
-                        .impl_unboxedOnlyKernel<
-                            decltype(expand_hpu_wrap),
-                            &expand_hpu_wrap>(DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "aten::cat(Tensor[] tensors, int dim=0) -> Tensor")
-                        .impl_unboxedOnlyKernel<
-                            decltype(cat_hpu_wrap),
-                            &cat_hpu_wrap>(DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "aten::cat.out(Tensor[] tensors, int dim=0, *, Tensor(a!) out) -> Tensor(a!)")
-                        .impl_unboxedOnlyKernel<
-                            decltype(cat_hpu_wrap_out),
-                            &cat_hpu_wrap_out>(DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "aten::_cat(Tensor[] tensors, int dim=0) -> Tensor")
-                        .impl_unboxedOnlyKernel<
-                            decltype(cat_hpu_wrap),
-                            &cat_hpu_wrap>(DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "aten::_cat.out(Tensor[] tensors, int dim=0, *, Tensor(a!) out) -> Tensor(a!)")
-                        .impl_unboxedOnlyKernel<
-                            decltype(cat_hpu_wrap_out),
-                            &cat_hpu_wrap_out>(DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "aten::split_with_sizes(Tensor self, int[] split_sizes, int dim=0) -> Tensor[]")
-                        .impl_unboxedOnlyKernel<
-                            decltype(split_with_sizes_hpu_wrap),
-                            &split_with_sizes_hpu_wrap>(
-                            DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "aten::transpose.int(Tensor(a) self, int dim0, int dim1) -> Tensor(a)")
-                        .impl_unboxedOnlyKernel<
-                            decltype(transpose_hpu_wrap),
-                            &transpose_hpu_wrap>(DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "aten::transpose_(Tensor(a!) self, int dim0, int dim1) -> Tensor(a!)")
-                        .impl_unboxedOnlyKernel<
-                            decltype(transpose_hpu_wrap_),
-                            &transpose_hpu_wrap_>(DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema("aten::t(Tensor(a) self) -> Tensor(a)")
-                        .impl_unboxedOnlyKernel<
-                            decltype(t_hpu_wrap),
-                            &t_hpu_wrap>(DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema("aten::t_(Tensor(a!) self) -> Tensor(a!)")
-                        .impl_unboxedOnlyKernel<
-                            decltype(t_hpu_wrap_),
-                            &t_hpu_wrap_>(DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "aten::threshold_backward(Tensor grad_output, Tensor self, Scalar threshold) -> Tensor")
-                        .impl_unboxedOnlyKernel<
-                            decltype(threshold_backward_hpu_wrap),
-                            &threshold_backward_hpu_wrap>(
-                            DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "aten::topk(Tensor self, int k, int dim=-1, bool largest=True, bool sorted=True) -> (Tensor values, Tensor indices)")
-                        .impl_unboxedOnlyKernel<
-                            decltype(topk_hpu_wrap),
-                            &topk_hpu_wrap>(DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "aten::topk.values(Tensor self, int k, int dim=-1, bool largest=True, bool sorted=True, *, Tensor(a!) values, Tensor(b!) indices) ->(Tensor(a!) values, Tensor(b!) indices)")
-                        .impl_unboxedOnlyKernel<
-                            decltype(topk_out_hpu_wrap),
-                            &topk_out_hpu_wrap>(DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "aten::sort(Tensor self, int dim=-1, bool descending=False) -> (Tensor values, Tensor indices)")
-                        .impl_unboxedOnlyKernel<
-                            decltype(sort_hpu_wrap),
-                            &sort_hpu_wrap>(DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema("aten::relu_(Tensor(a!) self) -> Tensor(a!)")
-                        .impl_unboxedOnlyKernel<
-                            decltype(relu_hpu_wrap_),
-                            &relu_hpu_wrap_>(DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema("aten::relu(Tensor self) -> Tensor")
-                        .impl_unboxedOnlyKernel<
-                            decltype(relu_hpu_wrap),
-                            &relu_hpu_wrap>(DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema("aten::sigmoid(Tensor self) -> Tensor")
-                        .impl_unboxedOnlyKernel<
-                            decltype(sigmoid_hpu_wrap),
-                            &sigmoid_hpu_wrap>(DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "aten::sigmoid_backward(Tensor grad_output, Tensor output) -> Tensor")
-                        .impl_unboxedOnlyKernel<
-                            decltype(sigmoid_backward_hpu_wrap),
-                            &sigmoid_backward_hpu_wrap>(
-                            DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema("aten::sqrt(Tensor self) -> Tensor")
-                        .impl_unboxedOnlyKernel<
-                            decltype(sqrt_hpu_wrap),
-                            &sqrt_hpu_wrap>(DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema("aten::tanh(Tensor self) -> Tensor")
-                        .impl_unboxedOnlyKernel<
-                            decltype(tanh_hpu_wrap),
-                            &tanh_hpu_wrap>(DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "aten::tanh_backward(Tensor grad_output, Tensor output)->Tensor")
-                        .impl_unboxedOnlyKernel<
-                            decltype(tanh_backward_hpu_wrap),
-                            &tanh_backward_hpu_wrap>(
-                            DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema("aten::tanh_(Tensor(a!) self) -> Tensor(a!)")
-                        .impl_unboxedOnlyKernel<
-                            decltype(tanh_hpu_wrap_),
-                            &tanh_hpu_wrap_>(DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "aten::tanh.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)")
-                        .impl_unboxedOnlyKernel<
-                            decltype(tanh_out_hpu_wrap),
-                            &tanh_out_hpu_wrap>(DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema("aten::gelu(Tensor self) -> Tensor")
-                        .impl_unboxedOnlyKernel<
-                            decltype(gelu_hpu_wrap),
-                            &gelu_hpu_wrap>(DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "aten::gelu_backward(Tensor grad, Tensor self) -> Tensor")
-                        .impl_unboxedOnlyKernel<
-                            decltype(gelu_backward_hpu_wrap),
-                            &gelu_backward_hpu_wrap>(
-                            DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema("aten::erf_(Tensor(a!) self) -> Tensor(a!)")
-                        .impl_unboxedOnlyKernel<
-                            decltype(erf_hpu_wrap_),
-                            &erf_hpu_wrap_>(DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema("aten::erf(Tensor self) -> Tensor")
-                        .impl_unboxedOnlyKernel<
-                            decltype(erf_hpu_wrap),
-                            &erf_hpu_wrap>(DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema("aten::exp_(Tensor(a!) self) -> Tensor(a!)")
-                        .impl_unboxedOnlyKernel<
-                            decltype(exp_hpu_wrap_),
-                            &exp_hpu_wrap_>(DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema("aten::exp(Tensor self) -> Tensor")
-                        .impl_unboxedOnlyKernel<
-                            decltype(exp_hpu_wrap),
-                            &exp_hpu_wrap>(DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "aten::neg.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)")
-                        .impl_unboxedOnlyKernel<
-                            decltype(neg_out_hpu_wrap),
-                            &neg_out_hpu_wrap>(DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "aten::reciprocal_(Tensor(a!) self) -> Tensor(a!)")
-                        .impl_unboxedOnlyKernel<
-                            decltype(reciprocal_hpu_wrap_),
-                            &reciprocal_hpu_wrap_>(DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema("aten::reciprocal(Tensor self) -> Tensor")
-                        .impl_unboxedOnlyKernel<
-                            decltype(reciprocal_hpu_wrap),
-                            &reciprocal_hpu_wrap>(DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "aten::reciprocal.out(Tensor self, *, Tensor(a!) out) -> Tensor(a!)")
-                        .impl_unboxedOnlyKernel<
-                            decltype(reciprocal_out_hpu_wrap),
-                            &reciprocal_out_hpu_wrap>(
-                            DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "aten::clamp_min(Tensor self, Scalar min) -> Tensor")
-                        .impl_unboxedOnlyKernel<
-                            decltype(clamp_min_hpu_wrap),
-                            &clamp_min_hpu_wrap>(DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "aten::clamp_(Tensor(a!) self, Scalar? min=None, Scalar? max=None) -> Tensor(a!)")
-                        .impl_unboxedOnlyKernel<
-                            decltype(clamp_hpu_wrap_),
-                            &clamp_hpu_wrap_>(DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "aten::clamp(Tensor self, Scalar? min=None, Scalar? max=None) -> Tensor")
-                        .impl_unboxedOnlyKernel<
-                            decltype(clamp_hpu_wrap),
-                            &clamp_hpu_wrap>(DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema("aten::abs(Tensor self) -> Tensor")
-                        .impl_unboxedOnlyKernel<
-                            decltype(abs_hpu_wrap),
-                            &abs_hpu_wrap>(DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema("aten::neg(Tensor self) -> Tensor")
-                        .impl_unboxedOnlyKernel<
-                            decltype(neg_hpu_wrap),
-                            &neg_hpu_wrap>(DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "aten::ones_like(Tensor self, *, ScalarType? dtype=None, Layout? layout=None, Device? device=None, bool? pin_memory=None, MemoryFormat? memory_format=None) -> Tensor")
-                        .impl_unboxedOnlyKernel<
-                            decltype(ones_like_hpu_wrap),
-                            &ones_like_hpu_wrap>(DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "aten::matmul_backward(Tensor grad_out, Tensor self, Tensor other) -> (Tensor, Tensor)")
-                        .impl_unboxedOnlyKernel<
-                            decltype(matmul_backward_hpu_wrap),
-                            &matmul_backward_hpu_wrap>(
-                            DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "hpu::embedding_bag_sum(Tensor input, Tensor indices, Tensor offsets, Tensor valid_count, int64_t kernel_mode) -> (Tensor)")
-                        .impl_unboxedOnlyKernel<
-                            decltype(embedding_bag_sum_hpu_wrap),
-                            &embedding_bag_sum_hpu_wrap>(
-                            DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "hpu::embedding_bag_sum_bwd_out(Tensor out, Tensor input, Tensor indices_bwd, Tensor offsets_bwd, Tensor valid_count_bwd, int64_t kernel_mode) -> (Tensor)")
-                        .impl_unboxedOnlyKernel<
-                            decltype(
-                                embedding_bag_sum_bwd_out_kernel_mode_hpu_wrap),
-                            &embedding_bag_sum_bwd_out_kernel_mode_hpu_wrap>(
-                            DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::
-                        RegisterOperators::
-                            options()
-                                .schema("hpu::habanaOptimizerSparseSgd(Tensor gradients, Tensor weights_in, Tensor moments_in, Tensor indices, Tensor learning_rate, Tensor valid_count_tensor, float mom, bool nesterov) -> (Tensor, Tensor)")
-                                .impl_unboxedOnlyKernel<
-                                    decltype(
-                                        optimizer_sparse_sgd_with_valid_count_hpu_wrap),
-                                    &optimizer_sparse_sgd_with_valid_count_hpu_wrap>(
-                                    DispatchKey::HABANATensorId)
-                                .aliasAnalysis(
-                                    c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "hpu::habana_d2d_memcpy(Tensor self) -> (Tensor)")
-                        .impl_unboxedOnlyKernel<
-                            decltype(habana_d2d_memcpy),
-                            &habana_d2d_memcpy>(DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "hpu::habana_d2d_memcpy_other(Tensor self, Tensor other) -> (Tensor)")
-                        .impl_unboxedOnlyKernel<
-                            decltype(habana_d2d_memcpy_other),
-                            &habana_d2d_memcpy_other>(
-                            DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "hpu::habanaOptimizerSparseAdagrad(Tensor gradients, Tensor weights_in, Tensor moments_in, Tensor indices, Tensor learning_rate, Tensor valid_count_tensor) -> (Tensor, Tensor)")
-                        .impl_unboxedOnlyKernel<
-                            decltype(
-                                optimizer_sparse_adagrad_with_valid_count_hpu_wrap),
-                            &optimizer_sparse_adagrad_with_valid_count_hpu_wrap>(
-                            DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "hpu::habanaOptimizerFusedAdagrad(Tensor[] gradients, Tensor[] weights_in, Tensor[] variances_in, Tensor epoch_num, Tensor learning_rate, float wd, float lrd, float eps) -> Tensor(a!)")
-                        .impl_unboxedOnlyKernel<
-                            decltype(optimizer_adagrad_hpu_wrap),
-                            &optimizer_adagrad_hpu_wrap>(
-                            DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "hpu::cast(Tensor self, Scalar type) -> Tensor(a)")
-                        .impl_unboxedOnlyKernel<
-                            decltype(cast_hpu_for_registration_only),
-                            &cast_hpu_for_registration_only>(
-                            DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema("aten::floor_(Tensor(a!) self) -> Tensor(a!)")
-                        .impl_unboxedOnlyKernel<
-                            decltype(floor_hpu_wrap_),
-                            &floor_hpu_wrap_>(DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema("aten::floor(Tensor self) -> Tensor")
-                        .impl_unboxedOnlyKernel<
-                            decltype(floor_hpu_wrap),
-                            &floor_hpu_wrap>(DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "hpu::permute_cl(Tensor(a) self, int[] dims) -> Tensor(a)")
-                        .impl_unboxedOnlyKernel<
-                            decltype(permute_cl_registration_only),
-                            &permute_cl_registration_only>(
-                            DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema(
-                            "hpu::control_edge_other_(Tensor self, Tensor other) -> Tensor(a!)")
-                        .impl_unboxedOnlyKernel<
-                            decltype(graph_connect_for_registration_only),
-                            &graph_connect_for_registration_only>(
-                            DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::RegisterOperators::options()
-                        .schema("hpu::control_edge_(Tensor self) -> Tensor(a!)")
-                        .impl_unboxedOnlyKernel<
-                            decltype(graph_connect_for_registration_only),
-                            &graph_connect_for_registration_only>(
-                            DispatchKey::HABANATensorId)
-                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));
+TORCH_LIBRARY_IMPL(aten, HABANATensorId, m) {
+  m.impl_UNBOXED("add.Tensor", add_tensor_hpu_wrap);
+  m.impl_UNBOXED("add.Scalar", add_scalar_hpu_wrap);
+  m.impl_UNBOXED("add_.Tensor", add_tensor_hpu_wrap_);
+  m.impl_UNBOXED("add_.Scalar", add_scalar_hpu_wrap_);
+  // m.impl_UNBOXED("empty_strided", at::native::empty_strided_hpu_new);
+  // this is workaround, we should remove this hacky wrapper
+  m.impl(
+      "empty_strided",
+      c10::impl::hacky_wrapper_for_legacy_signatures<Tensor(
+          IntArrayRef,
+          IntArrayRef,
+          c10::optional<ScalarType>,
+          c10::optional<Layout>,
+          c10::optional<Device>,
+          c10::optional<bool>)>(TORCH_FN(at::native::empty_strided_hpu_wrap)));
+  m.impl_UNBOXED("empty.memory_format", at::native::empty_hpu_wrap);
+  m.impl_UNBOXED("copy_", copy_hpu_wrap_);
+  m.impl_UNBOXED("as_strided", as_strided_hpu_wrap);
+  m.impl_UNBOXED("set_.source_Storage_storage_offset", set_hpu_wrap_);
+  m.impl_UNBOXED("view", view_hpu_wrap);
+  m.impl_UNBOXED("addcmul", addcmul_hpu_wrap);
+  m.impl_UNBOXED("addcmul_", addcmul_hpu_wrap_);
+  m.impl_UNBOXED("addcdiv", addcdiv_hpu_wrap);
+  m.impl_UNBOXED("addcdiv_", addcdiv_hpu_wrap_);
+  m.impl_UNBOXED("sub.Tensor", sub_tensor_hpu_wrap);
+  m.impl_UNBOXED("sub.Scalar", sub_scalar_hpu_wrap);
+  m.impl_UNBOXED("sub_.Tensor", sub_tensor_hpu_wrap_);
+  m.impl_UNBOXED("sub_.Scalar", sub_scalar_hpu_wrap_);
+  m.impl_UNBOXED("mul.Tensor", mul_tensor_hpu_wrap);
+  m.impl_UNBOXED("mul_.Tensor", mul_tensor_hpu_wrap_);
+  m.impl_UNBOXED("mul.Scalar", mul_scalar_hpu_wrap);
+  m.impl_UNBOXED("mul_.Scalar", mul_scalar_hpu_wrap_);
+  m.impl_UNBOXED("mul.out", mul_out_hpu_wrap);
+  m.impl_UNBOXED("div.Tensor", div_tensor_hpu_wrap);
+  m.impl_UNBOXED("div.out", div_tensor_hpu_wrap_out);
+  m.impl_UNBOXED("div_.Tensor", div_tensor_hpu_wrap_);
+  m.impl_UNBOXED("div.Scalar", div_scalar_hpu_wrap);
+  m.impl_UNBOXED("div_.Scalar", div_scalar_hpu_wrap_);
+  m.impl_UNBOXED("pow.Tensor_Tensor", pow_tensor_tensor_hpu_wrap);
+  m.impl_UNBOXED("pow_.Tensor", pow_tensor_tensor_hpu_wrap_);
+  m.impl_UNBOXED("pow.Tensor_Scalar", pow_tensor_scalar_hpu_wrap);
+  m.impl_UNBOXED("pow.Scalar", pow_scalar_tensor_hpu_wrap);
+  m.impl_UNBOXED("pow_.Scalar", pow_tensor_scalar_hpu_wrap_);
+  m.impl_UNBOXED("rsub.Scalar", rsub_scalar_hpu_wrap);
+  m.impl_UNBOXED("eq.Tensor", eq_tensor_hpu_wrap);
+  m.impl_UNBOXED("eq.Tensor_out", eq_tensor_out_hpu_wrap);
+  m.impl_UNBOXED("eq.Scalar", eq_tensor_scalar_hpu_wrap);
+  m.impl_UNBOXED("lt.Scalar", lt_scalar_hpu_wrap);
+  m.impl_UNBOXED("lt.Tensor", lt_tensor_hpu_wrap);
+  m.impl_UNBOXED("gt.Scalar", gt_scalar_hpu_wrap);
+  m.impl_UNBOXED("gt.Tensor", gt_tensor_hpu_wrap);
+  m.impl_UNBOXED("ne.Tensor", ne_tensor_hpu_wrap);
+  m.impl_UNBOXED("ne.Scalar", ne_scalar_hpu_wrap);
+  m.impl_UNBOXED("ge.Tensor", ge_tensor_hpu_wrap);
+  m.impl_UNBOXED("ge.Scalar", ge_scalar_hpu_wrap);
+  m.impl_UNBOXED("fill_.Scalar", fill_hpu_wrap_);
+  m.impl_UNBOXED("masked_fill_.Tensor", masked_fill_hpu_wrap_);
+  m.impl_UNBOXED("masked_fill_.Scalar", masked_fill_scalar_hpu_wrap_);
+  m.impl_UNBOXED("index_select", index_select_hpu_wrap);
+  m.impl_UNBOXED(
+      "convolution_backward_overrideable", convolution_backward_hpu_wrap);
+  m.impl(
+      "convolution_overrideable",
+      c10::impl::hacky_wrapper_for_legacy_signatures<at::Tensor(
+          const at::Tensor&,
+          const at::Tensor&,
+          const c10::optional<at::Tensor>&,
+          at::IntArrayRef,
+          at::IntArrayRef,
+          at::IntArrayRef,
+          bool,
+          at::IntArrayRef,
+          int64_t)>(TORCH_FN(convolution_hpu_wrap)));
+  m.impl_UNBOXED("constant_pad_nd", constant_pad_hpu_wrap);
+  m.impl_UNBOXED("embedding", embedding_hpu_wrap);
+  m.impl_UNBOXED("embedding_dense_backward", embedding_dense_backward_hpu_wrap);
+  m.impl_UNBOXED("embedding_bag_sum_fwd", embedding_bag_sum_fwd_hpu_wrap);
+  m.impl_UNBOXED(
+      "embedding_bag_sum_bwd.out", embedding_bag_sum_bwd_out_hpu_wrap);
+  m.impl_UNBOXED("index_put_", index_put_hpu_wrap_);
+  m.impl_UNBOXED("index_put", index_put_hpu_wrap);
+  m.impl_UNBOXED("index_add_", index_add_hpu_wrap_);
+  m.impl_UNBOXED("scatter_.src", scatter_inplace_src_hpu_wrap);
+  m.impl_UNBOXED("scatter.src", scatter_src_hpu_wrap);
+  m.impl_UNBOXED("gather", gather_src_hpu_wrap);
+  m.impl_UNBOXED("scatter_add", scatter_add_src_hpu_wrap);
+  m.impl_UNBOXED("scatter_add_", scatter_add_inplace_src_hpu_wrap);
+  m.impl_UNBOXED("slice.Tensor", slice_hpu_wrap);
+  m.impl_UNBOXED("select.int", select_hpu_wrap);
+  m.impl_UNBOXED("arange.start_out", arange_hpu_wrap);
+  m.impl_UNBOXED("mm", mm_hpu_wrap);
+  m.impl_UNBOXED("addmm", addmm_hpu_wrap);
+  m.impl_UNBOXED("bmm.out", batch_gemm_out_hpu_wrap);
+  m.impl_UNBOXED("bmm", batch_gemm_hpu_wrap);
+  m.impl_UNBOXED("dot", dot_hpu_wrap);
+  m.impl_UNBOXED("mv", mv_hpu_wrap);
+  m.impl(
+      "nll_loss_forward",
+      c10::impl::hacky_wrapper_for_legacy_signatures<std::tuple<Tensor, Tensor>(
+          const Tensor&,
+          const Tensor&,
+          const c10::optional<Tensor>&,
+          int64_t,
+          int64_t)>(TORCH_FN(nll_loss_forward_hpu_wrap)));
+  m.impl(
+      "nll_loss_backward",
+      c10::impl::hacky_wrapper_for_legacy_signatures<Tensor(
+          const Tensor&,
+          const Tensor&,
+          const Tensor&,
+          const c10::optional<Tensor>&,
+          int64_t,
+          int64_t,
+          const Tensor&)>(TORCH_FN(nll_loss_backward_hpu_wrap)));
+  m.impl_UNBOXED("mse_loss", mse_loss_forward_hpu_wrap);
+  m.impl_UNBOXED("mse_loss_backward", mse_loss_backward_hpu_wrap);
+  m.impl(
+      "binary_cross_entropy",
+      c10::impl::hacky_wrapper_for_legacy_signatures<Tensor(
+          const Tensor&, const Tensor&, const c10::optional<Tensor>&, int64_t)>(
+          TORCH_FN(binary_cross_entropy_hpu_wrap)));
+  m.impl(
+      "binary_cross_entropy_backward",
+      c10::impl::hacky_wrapper_for_legacy_signatures<Tensor(
+          const Tensor&,
+          const Tensor&,
+          const Tensor&,
+          const c10::optional<Tensor>&,
+          int64_t)>(TORCH_FN(binary_cross_entropy_backward_hpu_wrap)));
+
+  m.impl(
+      "native_batch_norm",
+      c10::impl::hacky_wrapper_for_legacy_signatures<
+          std::tuple<Tensor, Tensor, Tensor>(
+              const Tensor&,
+              const c10::optional<Tensor>&,
+              const c10::optional<Tensor>&,
+              const c10::optional<Tensor>&,
+              const c10::optional<Tensor>&,
+              bool,
+              double,
+              double)>(TORCH_FN(batch_norm_hpu_wrap)));
+
+  m.impl(
+      "native_batch_norm_backward",
+      c10::impl::hacky_wrapper_for_legacy_signatures<
+          std::tuple<Tensor, Tensor, Tensor>(
+              const Tensor&,
+              const Tensor&,
+              const c10::optional<Tensor>&,
+              const c10::optional<Tensor>&,
+              const c10::optional<Tensor>&,
+              const c10::optional<Tensor>&,
+              const c10::optional<Tensor>&,
+              bool,
+              double,
+              std::array<bool, 3>)>(TORCH_FN(batch_norm_bwd_hpu_wrap)));
+
+  m.impl(
+      "native_layer_norm",
+      c10::impl::hacky_wrapper_for_legacy_signatures<
+          std::tuple<Tensor, Tensor, Tensor>(
+              const Tensor&,
+              const c10::optional<Tensor>&,
+              const c10::optional<Tensor>&,
+              int64_t,
+              int64_t,
+              double)>(TORCH_FN(layer_norm_hpu_wrap)));
+
+  m.impl(
+      "native_layer_norm_backward",
+      c10::impl::hacky_wrapper_for_legacy_signatures<
+          std::tuple<Tensor, Tensor, Tensor>(
+              const Tensor&,
+              const Tensor&,
+              const Tensor&,
+              const Tensor&,
+              const c10::optional<Tensor>&,
+              int64_t,
+              int64_t,
+              std::array<bool, 3>)>(TORCH_FN(layer_norm_backward_hpu_wrap)));
+  m.impl_UNBOXED("norm.ScalarOpt_dim", norm_ScalarOpt_dim_hpu);
+  m.impl_UNBOXED("norm.Scalar", norm_scalar_hpu_wrap);
+  m.impl_UNBOXED("max_pool2d_with_indices", max_pool2d_with_indices_hpu_wrap);
+  m.impl_UNBOXED(
+      "max_pool2d_with_indices_backward",
+      max_pool2d_with_indices_backward_hpu_wrap);
+  // m.impl_UNBOXED("max_pool2d_with_indices_backward.grad_input",
+  // max_pool2d_with_indices_backward_out_hpu_wrap);
+  m.impl_UNBOXED("avg_pool2d", avg_pool2d_hpu_wrap);
+  m.impl_UNBOXED("avg_pool2d_backward", avg_pool2d_backward_hpu_wrap);
+  m.impl_UNBOXED("uniform_", uniform_hpu_wrap);
+  m.impl_UNBOXED("normal_", normal_hpu_wrap);
+  m.impl_UNBOXED("bernoulli", bernoulli_hpu_wrap);
+  m.impl_UNBOXED("bernoulli_.float", bernoulli_scalar_hpu_wrap);
+  m.impl_UNBOXED("_fused_dropout", fused_dropout_hpu_wrap);
+  m.impl_UNBOXED("sum.dim_IntList", sum_dim_IntList_hpu_wrap);
+  m.impl_UNBOXED("sum.IntList_out", sum_IntList_out_hpu_wrap);
+  m.impl_UNBOXED("mean.dim", mean_dim_hpu_wrap);
+  m.impl_UNBOXED("mean.out", mean_dim_out_hpu_wrap);
+  m.impl_UNBOXED("sum", sum_hpu_wrap);
+  m.impl_UNBOXED("mean", mean_hpu_wrap);
+  m.impl_UNBOXED("any.dim", any_dim_hpu_wrap);
+  m.impl_UNBOXED("any", any_hpu_wrap);
+  m.impl_UNBOXED("any.out", any_dim_out_hpu_wrap);
+  m.impl_UNBOXED(
+      "_local_scalar_dense", at::native::_local_scalar_dense_hpu_wrap);
+  m.impl_UNBOXED("_log_softmax", log_softmax_hpu_wrap);
+  m.impl_UNBOXED("_log_softmax_backward_data", log_softmax_backward_hpu_wrap);
+  m.impl_UNBOXED("_softmax", habana::softmax_hpu_wrap);
+  m.impl_UNBOXED("_softmax_backward_data", softmax_backward_hpu_wrap);
+  m.impl_UNBOXED("clone", clone_hpu_wrap);
+  m.impl_UNBOXED("zero_", zero_hpu_wrap);
+  m.impl_UNBOXED("permute", permute_hpu_wrap);
+  m.impl_UNBOXED("expand", expand_hpu_wrap);
+  m.impl_UNBOXED("cat", cat_hpu_wrap);
+  m.impl_UNBOXED("cat.out", cat_hpu_wrap_out);
+  m.impl_UNBOXED("split_with_sizes", split_with_sizes_hpu_wrap);
+  m.impl_UNBOXED("transpose.int", transpose_hpu_wrap);
+  m.impl_UNBOXED("transpose_", transpose_hpu_wrap_);
+  m.impl_UNBOXED("t", t_hpu_wrap);
+  m.impl_UNBOXED("threshold_backward", threshold_backward_hpu_wrap);
+  m.impl_UNBOXED("topk", topk_hpu_wrap);
+  m.impl_UNBOXED("topk.values", topk_out_hpu_wrap);
+  m.impl_UNBOXED("sort", sort_hpu_wrap);
+  m.impl_UNBOXED("relu_", relu_hpu_wrap_);
+  m.impl_UNBOXED("relu", relu_hpu_wrap);
+  m.impl_UNBOXED("sigmoid", sigmoid_hpu_wrap);
+  m.impl_UNBOXED("sigmoid_backward", sigmoid_backward_hpu_wrap);
+  m.impl_UNBOXED("sqrt", sqrt_hpu_wrap);
+  m.impl_UNBOXED("tanh", tanh_hpu_wrap);
+  m.impl_UNBOXED("tanh_backward", tanh_backward_hpu_wrap);
+  m.impl_UNBOXED("tanh_", tanh_hpu_wrap_);
+  m.impl_UNBOXED("tanh.out", tanh_out_hpu_wrap);
+  m.impl_UNBOXED("gelu", gelu_hpu_wrap);
+  m.impl_UNBOXED("gelu_backward", gelu_backward_hpu_wrap);
+  m.impl_UNBOXED("erf_", erf_hpu_wrap_);
+  m.impl_UNBOXED("erf", erf_hpu_wrap);
+  m.impl_UNBOXED("exp_", exp_hpu_wrap_);
+  m.impl_UNBOXED("exp", exp_hpu_wrap);
+  m.impl_UNBOXED("neg.out", neg_out_hpu_wrap);
+  m.impl_UNBOXED("reciprocal_", reciprocal_hpu_wrap_);
+  m.impl_UNBOXED("reciprocal", reciprocal_hpu_wrap);
+  m.impl_UNBOXED("reciprocal.out", reciprocal_out_hpu_wrap);
+  m.impl_UNBOXED("clamp_min", clamp_min_hpu_wrap);
+  m.impl_UNBOXED("clamp_", clamp_hpu_wrap_);
+  m.impl_UNBOXED("clamp", clamp_hpu_wrap);
+  m.impl_UNBOXED("abs", abs_hpu_wrap);
+  m.impl_UNBOXED("neg", neg_hpu_wrap);
+  m.impl_UNBOXED("ones_like", ones_like_hpu_new);
+  m.impl_UNBOXED("matmul_backward", matmul_backward_hpu_wrap);
+  m.impl_UNBOXED("_masked_scale", masked_scale_hpu_wrap);
+  m.impl_UNBOXED("floor", floor_hpu_wrap);
+  m.impl_UNBOXED("floor_", floor_hpu_wrap_);
+}
+
+TORCH_LIBRARY(hpu, m) {
+  m.def("mm_t(Tensor mm, Tensor t , bool tr, bool no_tr) -> Tensor");
+  m.def("habana_d2d_memcpy_other(Tensor s, Tensor d) -> Tensor");
+  m.def(
+      "sum_dim_IntList(Tensor self, int[1] dim, bool keepdim=False, *, ScalarType? dtype=None) -> Tensor");
+  m.def("habana_d2d_memcpy(Tensor self) -> (Tensor)");
+  m.def(
+      "habanaOptimizerSparseSgd(Tensor gradients, Tensor weights_in, Tensor moments_in, Tensor indices, Tensor learning_rate, Tensor valid_count_tensor, float mom, bool nesterov) -> (Tensor, Tensor)");
+  m.def(
+      "habanaOptimizerSparseAdagrad(Tensor gradients, Tensor weights_in, Tensor moments_in, Tensor indices, Tensor learning_rate, Tensor valid_count_tensor) -> (Tensor, Tensor)");
+  m.def("cast(Tensor self, Tensor(a!) out) -> Tensor(a!)");
+  m.def(
+      "embedding_bag_sum(Tensor input, Tensor indices, Tensor offsets, Tensor valid_count, int kernel_mode) -> (Tensor)");
+  m.def(
+      "embedding_bag_sum_bwd_out(Tensor out, Tensor input, Tensor indices_bwd, Tensor offsets_bwd, Tensor valid_count_bwd, int kernel_mode) -> (Tensor)");
+  m.def(
+      "habanaOptimizerFusedAdagrad(Tensor[] gradients, Tensor[] weights_in, Tensor[] variances_in, Tensor epoch_num, Tensor learning_rate, float wd, float lrd, float eps) -> Tensor(a!)");
+  m.def("permute_cl(Tensor(a) self, int[] dims) -> Tensor(a)");
+  m.def("control_edge_other_(Tensor self, Tensor other) -> Tensor(a!)");
+  m.def("control_edge_(Tensor self)-> Tensor(a!)");
+}
+
+TORCH_LIBRARY_IMPL(hpu, HABANATensorId, m) {
+  /*m.impl(
+      "habanaOptimizerSparseSgd",
+      optimizer_sparse_sgd_with_valid_count_hpu_wrap);*/
+  m.impl("habana_d2d_memcpy", habana_d2d_memcpy);
+  /*m.impl(
+      "habanaOptimizerSparseAdagrad",
+      optimizer_sparse_adagrad_with_valid_count_hpu_wrap);*/
+  m.impl("cast", cast_hpu_for_registration_only);
+  m.impl("embedding_bag_sum", embedding_bag_sum_hpu_wrap);
+  m.impl(
+      "embedding_bag_sum_bwd_out",
+      embedding_bag_sum_bwd_out_kernel_mode_hpu_wrap);
+  m.impl("sum_dim_IntList", sum_dim_IntList_hpu_wrap);
+}

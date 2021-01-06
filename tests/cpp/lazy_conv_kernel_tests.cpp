@@ -113,7 +113,7 @@ TEST_F(LazyConvKernelTest, ConvolutionBackward) {
       ->run(*hlexec->get_graph());
 
   torch::jit::testing::FileCheck()
-      .check("prim::Constant[value=[1, 1, 1]]")
+      .check("prim::Constant[value=[True, True, True]]")
       ->run(*hlexec->get_graph());
 
   torch::jit::testing::FileCheck()

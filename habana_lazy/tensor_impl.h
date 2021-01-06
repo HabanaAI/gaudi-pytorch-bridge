@@ -69,7 +69,10 @@ class HbLazyTensorImpl : public c10::TensorImpl {
 // Habana internal TensorImpl
 class HbInternalTensorImpl : public c10::TensorImpl {
  public:
-  HbInternalTensorImpl(c10::Storage&& tensor_storage);
+  HbInternalTensorImpl(
+      c10::Storage&& tensor_storage,
+      const caffe2::TypeMeta& data_type);
+
   static void AtenInitialize();
   caffe2::TypeMeta GetTypeMeta(const at::Tensor& t);
 };

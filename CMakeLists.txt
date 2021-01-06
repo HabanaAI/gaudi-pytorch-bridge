@@ -97,7 +97,7 @@ add_library(habana_pytorch_plugin SHARED
 target_compile_features(habana_pytorch_plugin PRIVATE cxx_std_14)
 target_compile_definitions(habana_pytorch_plugin PRIVATE "GENERIC_HELPERS" MAX_DEVICES_PER_BOX=8)
 #TODO: remove -Wno-error=deprecated-declarations after removing functions marked [[deprecated]]
-target_compile_options(habana_pytorch_plugin PRIVATE -Wall -Wextra -Werror -Wno-error=deprecated-declarations)
+target_compile_options(habana_pytorch_plugin PRIVATE -Wall -Wextra  -Wno-error=deprecated-declarations)
 # Link against LibTorch and synapse
 target_link_libraries(habana_pytorch_plugin PRIVATE "${TORCH_LIBRARIES}" pytorch_synapse_helpers_abi11 json)
 target_include_directories(habana_pytorch_plugin PRIVATE ${CMAKE_SOURCE_DIR})
@@ -106,7 +106,7 @@ set(BRIDGE_SOURCES habana_bridge/register/register.cpp)
 
 pybind11_add_module(hb_torch SHARED ${BRIDGE_SOURCES})
 target_compile_definitions(hb_torch PRIVATE "GENERIC_HELPERS" MAX_DEVICES_PER_BOX=8)
-target_compile_options(hb_torch PRIVATE -Wall -Wextra -Werror -Wno-error=deprecated-declarations)
+target_compile_options(hb_torch PRIVATE -Wall -Wextra -Wno-error=deprecated-declarations)
 target_link_libraries(hb_torch PRIVATE "${TORCH_LIBRARIES}" habana_pytorch_plugin pytorch_synapse_helpers_abi11)
 target_include_directories(hb_torch PRIVATE ${CMAKE_SOURCE_DIR})
 target_compile_features(hb_torch PRIVATE cxx_std_14)

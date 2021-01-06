@@ -36,7 +36,8 @@ HbLazyTensorImpl::HbLazyTensorImpl(
     c10::Storage&& tensor_storage)
     : c10::TensorImpl(
           std::move(tensor_storage),
-          c10::DispatchKeySet{c10::DispatchKey::HABANATensorId}),
+          c10::DispatchKeySet{c10::DispatchKey::HABANATensorId},
+          c10::scalarTypeToTypeMeta(hb_tensor.dtype())),
       m_size_initialized(false),
       m_tensor(std::move(hb_tensor)) {
   const_cast<HbLazyTensorImpl*>(this)->SetupSizeProperties();
@@ -129,7 +130,6 @@ void HbLazyTensorImpl::SetupSizeProperties() {
 
 void HbLazyTensorImpl::SetStorage(at::Storage storage) {
   storage_ = std::move(storage);
-  data_type_ = storage_.dtype();
   device_opt_ = storage_.device();
 }
 
@@ -153,12 +153,11 @@ void HbLazyTensorImpl::AtenInitialize() {
   // ATEN specific initialization calls placed below.
 }
 
-HbInternalTensorImpl::HbInternalTensorImpl(c10::Storage&& tensor_storage)
+HbInternalTensorImpl::HbInternalTensorImpl(
+    c10::Storage&& tensor_storage,
+    const caffe2::TypeMeta& data_type)
     : c10::TensorImpl(
           std::move(tensor_storage),
-          c10::DispatchKeySet{c10::DispatchKey::HABANATensorId}) {}
-
-void HbInternalTensorImpl::AtenInitialize() {
-  // ATEN specific initialization calls placed below.
-}
+          c10::DispatchKeySet{c10::DispatchKey::HABANATensorId},
+          data_type) {}
 } // namespace habana_lazy

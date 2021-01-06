@@ -90,13 +90,13 @@ size_t Node::get_hash() {
   if (0 == m_node_hash) {
     m_node_hash = static_cast<uint32_t>(m_op);
     for (size_t i = 0; i < m_inputs.size(); ++i) {
-      m_node_hash = torch::hash_combine(i, m_node_hash);
+      m_node_hash = at::hash_combine(i, m_node_hash);
       if (m_inputs[i]) {
         m_node_hash =
-            torch::hash_combine(m_inputs[i].mp_node->get_hash(), m_node_hash);
+            at::hash_combine(m_inputs[i].mp_node->get_hash(), m_node_hash);
       }
     }
-    m_node_hash = torch::hash_combine(m_meta_data.get_hash(), m_node_hash);
+    m_node_hash = at::hash_combine(m_meta_data.get_hash(), m_node_hash);
   }
   return m_node_hash;
 }

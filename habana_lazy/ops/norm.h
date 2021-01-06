@@ -235,13 +235,13 @@ class BatchNormBackward : public ir::Node {
   };
   BatchNormBackward() = delete;
   BatchNormBackward(
-      Tensor& grad_out,
-      Tensor& input,
-      Tensor& weight,
-      UNUSED Tensor& running_mean,
-      UNUSED Tensor& running_var,
-      Tensor& save_mean,
-      Tensor& save_invstd,
+      const Tensor& grad_out,
+      const Tensor& input,
+      const Tensor& weight,
+      UNUSED const Tensor& running_mean,
+      UNUSED const Tensor& running_var,
+      const Tensor& save_mean,
+      const Tensor& save_invstd,
       bool train,
       double eps,
       UNUSED std::array<bool, 3> output_mask)

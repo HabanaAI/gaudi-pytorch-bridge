@@ -10,7 +10,7 @@
 #pragma once
 #include <functional>
 
-#include <torch/csrc/autograd/record_function.h>
+#include <ATen/record_function.h>
 #include <torch/csrc/jit/ir/ir.h>
 #include <torch/csrc/jit/passes/pass_manager.h>
 #include <torch/csrc/jit/runtime/custom_operator.h>
@@ -37,9 +37,9 @@ void registerHabanaLaunchOp() {
       torch::jit::Symbol::fromQualString("prim::HabanaFusedOp"),
       [](const torch::jit::Node* node) -> torch::jit::Operation {
         const auto cc = std::make_shared<HabanaLaunchOpPT>(node, false);
-        return [cc](torch::jit::Stack& stack) {
+        return [cc](torch::jit::Stack* stack) {
           RECORD_FUNCTION("HabanaFusedOp", std::vector<c10::IValue>());
-          cc->run(stack);
+          cc->run(*stack);
           return 0;
         };
       },
@@ -50,18 +50,17 @@ void registerHabanaLaunchOp() {
 void torch_habana_register_pre_diff_pass(
     std::function<hb_torch_opts()> get_options) {
   PT_BRIDGE_BEGIN;
-  torch::jit::RegisterPreDiffPass preDiffPass(
-      [getOptions =
-           std::move(get_options)](std::shared_ptr<torch::jit::Graph>& g) {
-        auto opts = getOptions();
-        if (opts.remove_inplace_ops) {
-          PT_BRIDGE_BEGIN;
-          ::habana::RemoveInplaceOps(g);
-          PT_BRIDGE_END;
-          PT_BRIDGE_DEBUG("Habana Post Remove Inplace Pass Graph: ");
-          PT_BRIDGE_DEBUG(g->toString());
-        }
-      });
+  torch::jit::registerPreDiffPass([getOptions = std::move(get_options)](
+                                      std::shared_ptr<torch::jit::Graph>& g) {
+    auto opts = getOptions();
+    if (opts.remove_inplace_ops) {
+      PT_BRIDGE_BEGIN;
+      ::habana::RemoveInplaceOps(g);
+      PT_BRIDGE_END;
+      PT_BRIDGE_DEBUG("Habana Post Remove Inplace Pass Graph: ");
+      PT_BRIDGE_DEBUG(g->toString());
+    }
+  });
   PT_BRIDGE_END;
 }
 

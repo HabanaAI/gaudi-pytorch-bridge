@@ -25,14 +25,13 @@
 
 using namespace torch;
 
-uint32_t get_seed_hpu(CPUGenerator* gen) {
-  if (gen == nullptr) {
-    gen = at::detail::getDefaultCPUGenerator();
-  }
+uint32_t get_seed_hpu(c10::optional<Generator> gen) {
+  CPUGeneratorImpl* generator = get_generator_or_default<CPUGeneratorImpl>(
+      gen, at::detail::getDefaultCPUGenerator());
 
   // Acquire lock when using random generators
-  std::lock_guard<std::mutex> lock(gen->mutex_);
-  auto seed = gen->random();
+  std::lock_guard<std::mutex> lock(generator->mutex_);
+  auto seed = generator->random();
 
   return seed;
 }
@@ -67,7 +66,7 @@ void UniformOperator::AllocateAndAddSynapseNode(
   params.high = static_cast<float>(to);
 
   if (inputs[3].isNone()) {
-    params.seed = get_seed_hpu(nullptr);
+    params.seed = get_seed_hpu(c10::nullopt);
   } else {
     auto seed = inputs[3].toInt();
     params.seed = seed;
@@ -89,11 +88,11 @@ bf16/FP32
 @param[in] to - upper bound
 @param[in] gen - Generator class for seed (optional)
 *******************************************************************/
-void uniform_hpu(
-    const Tensor& self,
+Tensor& uniform_hpu(
+    Tensor& self,
     double from = 0,
     double to = 1,
-    CPUGenerator* gen = nullptr) {
+    c10::optional<Generator> gen = c10::nullopt) {
   PT_KERNEL_BEGIN;
 
   at::ScalarType scalar_type = self.scalar_type();
@@ -153,7 +152,7 @@ void NormalOperator::AllocateAndAddSynapseNode(
   params.stddev = static_cast<float>(std);
 
   if (inputs[3].isNone()) {
-    params.seed = get_seed_hpu(nullptr);
+    params.seed = get_seed_hpu(c10::nullopt);
   } else {
     auto seed = inputs[3].toInt();
     params.seed = seed;
@@ -175,11 +174,11 @@ bf16/FP32
 @param[in] std, default = 1
 @param[in] gen - Generator class for seed (optional)
 *******************************************************************/
-void normal_hpu(
-    const Tensor& self,
+Tensor& normal_hpu(
+    Tensor& self,
     double mean = 0,
     double std = 1,
-    CPUGenerator* gen = nullptr) {
+    c10::optional<Generator> gen = c10::nullopt) {
   PT_KERNEL_BEGIN;
 
   at::ScalarType scalar_type = self.scalar_type();
@@ -205,6 +204,7 @@ void normal_hpu(
   TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
 
   PT_KERNEL_END;
+  return out.at(0);
 }
 
 void BernoulliOperator::AllocateAndAddSynapseNode(
@@ -226,7 +226,7 @@ void BernoulliOperator::AllocateAndAddSynapseNode(
   ns_RandomBernoulli::Params params;
 
   if (inputs[1].isNone()) {
-    params.seed = get_seed_hpu(nullptr);
+    params.seed = get_seed_hpu(c10::nullopt);
   } else {
     auto seed = inputs[1].toInt();
     params.seed = seed;
@@ -253,7 +253,7 @@ BF16/FP32
 @param[out] - Tensor same shape as self with 0/1 entries generated based on
 input probabilities , I16/I32, 1-4D
 *******************************************************************/
-Tensor bernoulli_hpu(const Tensor& self, CPUGenerator* gen = nullptr) {
+Tensor bernoulli_hpu(const Tensor& self, c10::optional<Generator> gen) {
   PT_KERNEL_BEGIN;
 
   at::ScalarType scalar_type = self.scalar_type();
@@ -389,7 +389,7 @@ BF16/FP32.
 Tensor& bernoulli_scalar_hpu(
     Tensor& self,
     double p,
-    CPUGenerator* gen = nullptr) {
+    c10::optional<Generator> gen) {
   PT_KERNEL_BEGIN;
 
   at::ScalarType scalar_type = self.scalar_type();
@@ -433,7 +433,7 @@ at::Tensor DropoutOperator::GenerateAndCopySeedToHPU(
   // to Device memory instead of doing a synMemSetD[]Async due to SW-11757
   // TODO revert to synMemSet once SW-11757 is resolved
   auto ref_tensor = inputs[0].toTensor();
-  int64_t seed = get_seed_hpu(nullptr);
+  int64_t seed = get_seed_hpu(c10::nullopt);
   Tensor seed_tensor = habana_helpers::createPTTensor(
       ref_tensor,
       {1},
@@ -524,7 +524,8 @@ void DropoutOperator::SetPTOutputs(
 void DropoutOperator::populateSeedTensor(
     const PtTensorInfo& ti,
     at::Tensor& dma_tensor) {
-  auto gen = at::detail::getDefaultCPUGenerator();
+  auto gen = get_generator_or_default<CPUGeneratorImpl>(
+      c10::nullopt, at::detail::getDefaultCPUGenerator());
 
   // Acquire lock when using random generators
   std::vector<int> seed_vec;
@@ -557,7 +558,7 @@ void DropoutOperator::populateSeedTensor(
 std::tuple<Tensor, Tensor> fused_dropout_hpu(
     const Tensor& self,
     double p,
-    CPUGenerator* gen = nullptr) {
+    c10::optional<Generator> gen) {
   PT_KERNEL_BEGIN;
   at::ScalarType scalar_type = self.scalar_type();
   std::string node_type =

@@ -22,21 +22,20 @@
 
 namespace at {
 namespace native {
-inline void THHStorage_resize(THStorage* self, ptrdiff_t size) {
-  TORCH_CHECK(size >= 0, "invalid size");
+inline void THStorage_resizeBytes(THStorage* self, ptrdiff_t size_bytes) {
+  TORCH_CHECK(size_bytes >= 0, "invalid size");
   TORCH_CHECK(self->allocator() != nullptr);
   int device = habana::HPUDeviceAllocator::allocator_active_device_id;
 
   TORCH_CHECK(
       self->resizable(), "Trying to resize storage that is not resizable");
-  size_t itemsize = self->itemsize();
 
-  if (size == 0) {
+  if (size_bytes == 0) {
     self->set_data_ptr(
         at::DataPtr(nullptr, at::Device(at::DeviceType::HABANA, device)));
-    self->set_numel(0);
+    self->set_nbytes(0);
   } else {
-    at::DataPtr data = self->allocator()->allocate(size * itemsize);
+    at::DataPtr data = self->allocator()->allocate(size_bytes);
 
     if (self->data_ptr()) {
       auto& Device = synapse_helpers::HPURegistrar::get_device(device);
@@ -53,7 +52,7 @@ inline void THHStorage_resize(THStorage* self, ptrdiff_t size) {
           reinterpret_cast<synapse_helpers::device_ptr>(data.get()),
           reinterpret_cast<synapse_helpers::device_ptr>(self->data()),
           reinterpret_cast<synapse_helpers::device_ptr>(data.get()),
-          THMin(self->numel(), size) * itemsize,
+          THMin(self->nbytes(), size_bytes),
           [&copyDone]() { copyDone = true; });
       TORCH_CHECK(syn_error.status == 0, syn_error.error);
 
@@ -64,7 +63,7 @@ inline void THHStorage_resize(THStorage* self, ptrdiff_t size) {
 
     // Destructively overwrite data_ptr
     self->set_data_ptr(std::move(data));
-    self->set_numel(size);
+    self->set_nbytes(size_bytes);
   }
 }
 
@@ -81,9 +80,10 @@ inline void maybe_resize_storage_hpu(TensorImpl* self, int64_t new_size) {
     if (!THTensor_getStoragePtr(self)) {
       AT_ERROR("Tensor: invalid null storage");
     }
-    if (new_size + self->storage_offset() > self->storage().numel()) {
-      THHStorage_resize(
-          THTensor_getStoragePtr(self), new_size + self->storage_offset());
+    int64_t new_size_bytes =
+        (new_size + self->storage_offset()) * self->dtype().itemsize();
+    if (new_size_bytes > self->storage().nbytes()) {
+      THStorage_resizeBytes(THTensor_getStoragePtr(self), new_size_bytes);
     }
   }
 }

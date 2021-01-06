@@ -365,7 +365,7 @@ Tensor& tanh_hpu_(Tensor& self) {
  * @param [in] input - input tensor, 1-4D, BF16/FP32
  ************************************************************************/
 
-Tensor& tanh_out_hpu(Tensor& out, Tensor& self) {
+Tensor& tanh_out_hpu(Tensor& out, const Tensor& self) {
   PT_KERNEL_BEGIN;
   std::vector<at::Tensor> pt_inputs{self};
   std::vector<at::Tensor> pt_outputs{out};
@@ -374,7 +374,7 @@ Tensor& tanh_out_hpu(Tensor& out, Tensor& self) {
       pt_outputs, pt_inputs, "tanh", nullptr, 0, SynapsePassType::FORWARD_PASS);
 
   PT_KERNEL_END;
-  return self;
+  return out;
 }
 
 /*************************************************************************
@@ -1070,11 +1070,8 @@ Tensor& reciprocal_out_hpu(Tensor& result, const Tensor& self) {
     Op.Compile(graph);
   }
 
-  std::vector<at::Tensor> out = Op.GetOutputs();
-  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
-
   PT_KERNEL_END;
-  return out.at(0);
+  return result;
 }
 
 void ClampOperator::AllocateAndAddSynapseNode(

@@ -84,7 +84,7 @@ void AddcmulOperator::AllocateAndAddSynapseNode(
 }
 
 Tensor addcmul_hpu(
-    Tensor& self,
+    const Tensor& self,
     const Tensor& tensor1,
     const Tensor& tensor2,
     Scalar alpha) {
@@ -196,7 +196,7 @@ void AddcdivOperator::AllocateAndAddSynapseNode(
 }
 
 Tensor addcdiv_hpu(
-    Tensor& self,
+    const Tensor& self,
     const Tensor& tensor1,
     const Tensor& tensor2,
     Scalar alpha) {

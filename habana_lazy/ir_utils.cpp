@@ -67,8 +67,8 @@ void Utils::ComputePostOrderNode(
             oit != po_data.emission_map.end() &&
             oit->second == EmitStatus::kEmitted);
       }
-      po_data.post_order_nodes_hash = torch::hash_combine(
-          po_data.post_order_nodes_hash, p_node->get_hash());
+      po_data.post_order_nodes_hash =
+          at::hash_combine(po_data.post_order_nodes_hash, p_node->get_hash());
       po_data.emission_map[p_node] = EmitStatus::kEmitted;
       po_data.post_order.emplace_back(p_node);
       queue.pop_back();

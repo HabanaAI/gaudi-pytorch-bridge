@@ -235,7 +235,7 @@ Tensor compare_op_hpu(
  * @param self - tensor_0
  * @param other - tensor_1
  ************************************************************************/
-Tensor gt_tensor_hpu(Tensor& self, Tensor& other) {
+Tensor gt_tensor_hpu(const Tensor& self, const Tensor& other) {
   PT_KERNEL_BEGIN;
   std::vector<at::Tensor> pt_inputs{self, other};
   torch::jit::Stack stack{IValue(self), IValue(other)};
@@ -249,7 +249,7 @@ Tensor gt_tensor_hpu(Tensor& self, Tensor& other) {
  * @param self - tensor_0
  * @param other - Scalar
  ************************************************************************/
-Tensor gt_scalar_hpu(Tensor& self, Scalar other) {
+Tensor gt_scalar_hpu(const Tensor& self, Scalar other) {
   PT_KERNEL_BEGIN;
   if (self.dim() == 0) {
     self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
@@ -267,7 +267,7 @@ Tensor gt_scalar_hpu(Tensor& self, Scalar other) {
  * @param other - second input
  * @param out -  output tensor of bool dtype
  ************************************************************************/
-void eq_tensor_out_hpu(
+Tensor& eq_tensor_out_hpu(
     Tensor& output,
     const Tensor& self,
     const Tensor& other) {
@@ -276,6 +276,7 @@ void eq_tensor_out_hpu(
   torch::jit::Stack stack{IValue(self), IValue(other), IValue(output)};
   compare_op_hpu<EqOutOperator>(pt_inputs, stack, "equal");
   PT_KERNEL_END;
+  return output;
 }
 
 /*************************************************************************
@@ -283,7 +284,7 @@ void eq_tensor_out_hpu(
  * @param self - first input
  * @param other - second input
  ************************************************************************/
-Tensor eq_tensor_hpu(Tensor& self, Tensor& other) {
+Tensor eq_tensor_hpu(const Tensor& self, const Tensor& other) {
   PT_KERNEL_BEGIN;
   std::vector<at::Tensor> pt_inputs{self, other};
   torch::jit::Stack stack{IValue(self), IValue(other)};
@@ -297,7 +298,7 @@ Tensor eq_tensor_hpu(Tensor& self, Tensor& other) {
  * @param self [in] - input tensor, 1-4D, FP32/BF16
  * @param other [in] - Scalar
  ************************************************************************/
-Tensor eq_tensor_scalar_hpu(Tensor& self, Scalar other) {
+Tensor eq_tensor_scalar_hpu(const Tensor& self, Scalar other) {
   PT_KERNEL_BEGIN;
   if (self.dim() == 0) {
     self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
@@ -314,7 +315,7 @@ Tensor eq_tensor_scalar_hpu(Tensor& self, Scalar other) {
  * @param self [in] - input tensor, 1-4D, FP32/BF16
  * @param other [in] - Scalar
  ************************************************************************/
-Tensor lt_scalar_hpu(Tensor& self, Scalar other) {
+Tensor lt_scalar_hpu(const Tensor& self, Scalar other) {
   PT_KERNEL_BEGIN;
   if (self.dim() == 0) {
     self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
@@ -331,7 +332,7 @@ Tensor lt_scalar_hpu(Tensor& self, Scalar other) {
  * @param self [in] - input tensor, 1-4D, FP32/BF16
  * @param other [in] - input tensor, 1-4D, FP32/BF16
  ************************************************************************/
-Tensor lt_tensor_hpu(Tensor& self, Tensor& other) {
+Tensor lt_tensor_hpu(const Tensor& self, const Tensor& other) {
   PT_KERNEL_BEGIN;
   std::vector<at::Tensor> pt_inputs{self, other};
   torch::jit::Stack stack{IValue(self), IValue(other)};

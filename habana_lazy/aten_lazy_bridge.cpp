@@ -39,9 +39,11 @@ at::Tensor AtenFromHbLazyTensor(HbLazyTensor HbLazy_tensor) {
   return tensor;
 }
 
-at::Tensor AtenInternalHbTensor(c10::Storage&& storage) {
-  at::Tensor tensor =
-      at::Tensor(c10::make_intrusive<HbInternalTensorImpl>(std::move(storage)));
+at::Tensor AtenInternalHbTensor(
+    c10::Storage&& storage,
+    const caffe2::TypeMeta& data_type) {
+  at::Tensor tensor = at::Tensor(
+      c10::make_intrusive<HbInternalTensorImpl>(std::move(storage), data_type));
   return tensor;
 }
 

@@ -30,7 +30,7 @@ Tensor& set_hpu_wrap_(
     IntArrayRef stride);
 Tensor view_hpu_wrap(const Tensor& self, IntArrayRef size);
 Tensor addcmul_hpu_wrap(
-    Tensor& self,
+    const Tensor& self,
     const Tensor& tensor1,
     const Tensor& tensor2,
     Scalar alpha);
@@ -40,7 +40,7 @@ Tensor& addcmul_hpu_wrap_(
     const Tensor& tensor2,
     Scalar alpha);
 Tensor addcdiv_hpu_wrap(
-    Tensor& self,
+    const Tensor& self,
     const Tensor& tensor1,
     const Tensor& tensor2,
     Scalar alpha);
@@ -65,6 +65,7 @@ Tensor sub_scalar_hpu_wrap(const Tensor& self, Scalar other, Scalar alpha);
 Tensor& sub_scalar_hpu_wrap_(Tensor& self, Scalar other, Scalar alpha);
 Tensor rsub_scalar_hpu_wrap(const Tensor& self, Scalar other, Scalar alpha);
 Tensor& mul_tensor_hpu_wrap_(Tensor& self, const Tensor& other);
+Tensor& mul_out_hpu_wrap(Tensor& out, const Tensor& self, const Tensor& other);
 Tensor mul_tensor_hpu_wrap(const Tensor& self, const Tensor& other);
 Tensor mul_scalar_hpu_wrap(const Tensor& self, Scalar other);
 Tensor& mul_scalar_hpu_wrap_(Tensor& self, Scalar other);
@@ -81,18 +82,18 @@ Tensor& pow_tensor_tensor_hpu_wrap_(Tensor& self, const Tensor& other);
 Tensor pow_tensor_scalar_hpu_wrap(const Tensor& self, Scalar other);
 Tensor& pow_tensor_scalar_hpu_wrap_(Tensor& self, Scalar other);
 Tensor pow_scalar_tensor_hpu_wrap(Scalar other, const Tensor& self);
-Tensor gt_tensor_hpu_wrap(Tensor& self, Tensor& other);
-Tensor gt_scalar_hpu_wrap(Tensor& self, Scalar other);
-void eq_tensor_out_hpu_wrap(
+Tensor gt_tensor_hpu_wrap(const Tensor& self, const Tensor& other);
+Tensor gt_scalar_hpu_wrap(const Tensor& self, Scalar other);
+Tensor& eq_tensor_out_hpu_wrap(
     Tensor& output,
     const Tensor& self,
     const Tensor& other);
-Tensor eq_tensor_hpu_wrap(Tensor& self, Tensor& other);
-Tensor eq_tensor_scalar_hpu_wrap(Tensor& self, Scalar other);
-Tensor lt_scalar_hpu_wrap(Tensor& self, Scalar other);
-Tensor lt_tensor_hpu_wrap(Tensor& self, Tensor& other);
 Tensor ge_scalar_hpu_wrap(const Tensor& self, Scalar other);
 Tensor ge_tensor_hpu_wrap(const Tensor& self, const Tensor& other);
+Tensor eq_tensor_hpu_wrap(const Tensor& self, const Tensor& other);
+Tensor eq_tensor_scalar_hpu_wrap(const Tensor& self, Scalar other);
+Tensor lt_scalar_hpu_wrap(const Tensor& self, Scalar other);
+Tensor lt_tensor_hpu_wrap(const Tensor& self, const Tensor& other);
 Tensor convolution_hpu_wrap(
     const Tensor& input,
     const Tensor& weight,
@@ -279,16 +280,16 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu_wrap(
     double momentum,
     double eps);
 std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu_wrap(
-    Tensor& grad_out,
-    Tensor& input,
-    Tensor& weight,
-    UNUSED Tensor& running_mean,
-    UNUSED Tensor& running_var,
-    Tensor& save_mean,
-    Tensor& save_invstd,
+    const Tensor& grad_out,
+    const Tensor& input,
+    const Tensor& weight,
+    const Tensor& running_mean,
+    const Tensor& running_var,
+    const Tensor& save_mean,
+    const Tensor& save_invstd,
     bool train,
     double eps,
-    UNUSED std::array<bool, 3> output_mask);
+    std::array<bool, 3> output_mask);
 std::tuple<Tensor, Tensor, Tensor> layer_norm_hpu_wrap(
     const Tensor& input,
     const Tensor& weight,
@@ -359,25 +360,25 @@ Tensor avg_pool2d_backward_hpu_wrap(
     bool ceil_mode,
     bool count_include_pad,
     c10::optional<int64_t> divisor_override);
-void uniform_hpu_wrap(
-    const Tensor& self,
+Tensor& uniform_hpu_wrap(
+    Tensor& self,
     double from = 0,
     double to = 1,
-    CPUGenerator* gen = nullptr);
-void normal_hpu_wrap(
-    const Tensor& self,
+    c10::optional<Generator> gen = c10::nullopt);
+Tensor& normal_hpu_wrap(
+    Tensor& self,
     double mean = 0,
     double std = 1,
-    CPUGenerator* gen = nullptr);
-Tensor bernoulli_hpu_wrap(const Tensor& self, CPUGenerator* gen = nullptr);
+    c10::optional<Generator> gen = c10::nullopt);
+Tensor bernoulli_hpu_wrap(const Tensor& self, c10::optional<Generator> gen);
 Tensor& bernoulli_scalar_hpu_wrap(
     Tensor& self,
     double p,
-    CPUGenerator* gen = nullptr);
+    c10::optional<Generator> gen);
 std::tuple<Tensor, Tensor> fused_dropout_hpu_wrap(
-    Tensor self,
+    const Tensor& self,
     double p,
-    CPUGenerator* gen = nullptr);
+    c10::optional<Generator> gen);
 Tensor sum_dim_IntList_hpu_wrap(
     const Tensor& self,
     IntArrayRef dim,
@@ -497,10 +498,10 @@ Tensor relu_hpu_wrap(const Tensor& input);
 Tensor& relu_hpu_wrap_(Tensor& self);
 Tensor sigmoid_hpu_wrap(const Tensor& input);
 Tensor sigmoid_backward_hpu_wrap(const Tensor& grad_in, const Tensor& input);
-Tensor sqrt_hpu_wrap(Tensor& input);
+Tensor sqrt_hpu_wrap(const Tensor& input);
 Tensor tanh_hpu_wrap(const Tensor& input);
 Tensor& tanh_hpu_wrap_(Tensor& self);
-Tensor& tanh_out_hpu_wrap(Tensor& out, Tensor& self);
+Tensor& tanh_out_hpu_wrap(Tensor& out, const Tensor& self);
 Tensor tanh_backward_hpu_wrap(const Tensor& grad_in, const Tensor& input);
 Tensor gelu_hpu_wrap(const Tensor& self);
 Tensor gelu_backward_hpu_wrap(const Tensor& grad, const Tensor& self);

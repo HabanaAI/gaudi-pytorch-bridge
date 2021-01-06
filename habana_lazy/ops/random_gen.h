@@ -21,7 +21,7 @@ class Dropout : public Node {
  public:
   enum class DropoutIndex { kPIdx = 1, kGenIdx = 2 };
   Dropout() = delete;
-  Dropout(const Tensor& self, double p, CPUGenerator* gen = nullptr)
+  Dropout(const Tensor& self, double p, CPUGeneratorImpl* gen = nullptr)
       : Node(c10::Symbol::fromQualString("aten::_fused_dropout")) {
     auto hl_input = GetOrCreateHbLazyTensor(self, c10::kHABANA);
     AddInput(hl_input.GetIrValue());

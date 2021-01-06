@@ -60,8 +60,8 @@ RecipeArgumentSpec::RecipeArgumentSpec(
       opstrs.append(":" + oss.str());
     }
   }
-  hash_code = torch::hash_combine(hash_code, str_hash(opstrs));
-  hash_code = torch::hash_combine(hash_code, irgraph->outputs().size());
+  hash_code = at::hash_combine(hash_code, str_hash(opstrs));
+  hash_code = at::hash_combine(hash_code, irgraph->outputs().size());
 }
 
 std::ostream& operator<<(std::ostream& O, const RecipeArgumentSpec& v) {

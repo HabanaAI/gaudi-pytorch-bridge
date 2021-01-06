@@ -935,13 +935,13 @@ void BatchNormBackwardOperator::SetPTOutputs(torch::jit::Stack& inputs) {
 *******************************************************************/
 
 std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu(
-    Tensor& grad_out,
-    Tensor& input,
-    Tensor& weight,
-    UNUSED Tensor& running_mean,
-    UNUSED Tensor& running_var,
-    Tensor& save_mean,
-    Tensor& save_invstd,
+    const Tensor& grad_out,
+    const Tensor& input,
+    const Tensor& weight,
+    const Tensor& running_mean,
+    const Tensor& running_var,
+    const Tensor& save_mean,
+    const Tensor& save_invstd,
     bool train,
     double eps,
     UNUSED std::array<bool, 3> output_mask) {

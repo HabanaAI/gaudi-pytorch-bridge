@@ -259,13 +259,13 @@ Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src, bool non_blocking) {
       int64_t nelements = prod_intlist(self.sizes());
       int elem_size = self.dtype().itemsize();
       auto storage_impl = c10::make_intrusive<StorageImpl>(
-          self.dtype(),
+          c10::StorageImpl::use_byte_size_t(),
           nelements,
           allocator->allocate(nelements * elem_size),
           allocator,
           /*resizeable=*/true);
-      Tensor at_internal_tensor =
-          habana_lazy::AtenInternalHbTensor(std::move(storage_impl));
+      Tensor at_internal_tensor = habana_lazy::AtenInternalHbTensor(
+          std::move(storage_impl), self.dtype());
       // Setup the tensor sizes & strides for tensor with dim = 4, else for now
       // assuming contiguous
       if (4 == self.dim()) {
@@ -383,7 +383,7 @@ Tensor emtpy_from_storage_lazy(
       "Habana Lazy : we dont support as_strided for non storage");
   auto storage_impl = hb_tensor_self.getAttachedTensorImpl();
   Tensor at_internal_tensor = habana_lazy::AtenInternalHbTensor(
-      std::move(c10::Storage(storage_impl->storage())));
+      std::move(c10::Storage(storage_impl->storage())), self.dtype());
 
   at_internal_tensor.unsafeGetTensorImpl()->set_sizes_contiguous(size);
   c10::IntArrayRef stride_new;
@@ -509,7 +509,7 @@ Tensor view_hpu_lazy(const Tensor& self, IntArrayRef size) {
   return result;
 };
 Tensor addcmul_hpu_lazy(
-    Tensor& self,
+    const Tensor& self,
     const Tensor& tensor1,
     const Tensor& tensor2,
     Scalar alpha) {
@@ -561,7 +561,7 @@ Tensor& addcmul_hpu_lazy_(
   return self;
 };
 Tensor addcdiv_hpu_lazy(
-    Tensor& self,
+    const Tensor& self,
     const Tensor& tensor1,
     const Tensor& tensor2,
     Scalar alpha) {
@@ -852,6 +852,28 @@ Tensor mul_tensor_hpu_lazy(const Tensor& self, const Tensor& other) {
 
   return result;
 };
+Tensor& mul_out_hpu_lazy(
+    Tensor& result,
+    const Tensor& self,
+    const Tensor& other) {
+  PT_LAZY_TRACE;
+  auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
+  auto hl_other = habana_lazy::GetOrCreateHbLazyTensor(other, c10::kHABANA);
+
+  auto node = habana_lazy::ir::Node::Create(
+      Symbol::fromQualString("aten::mul"),
+      {hl_self.GetIrValue(), hl_other.GetIrValue()});
+
+  auto hlresult = habana_lazy::GetHbLazyTensor(result);
+  habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+
+  std::vector<at::Tensor> input_pt_vec{self, other};
+  node->AddInputPtTensors(input_pt_vec);
+
+  return result;
+}
 Tensor mul_scalar_hpu_lazy(const Tensor& self, Scalar other) {
   HABANA_ASSERT(0);
   return mul_scalar_hpu(self, other);
@@ -965,27 +987,28 @@ Tensor pow_scalar_tensor_hpu_lazy(Scalar other, const Tensor& self) {
   HABANA_ASSERT(0);
   return pow_scalar_tensor_hpu(other, self);
 };
-Tensor gt_tensor_hpu_lazy(Tensor& self, Tensor& other) {
+Tensor gt_tensor_hpu_lazy(const Tensor& self, const Tensor& other) {
   HABANA_ASSERT(0);
   return gt_tensor_hpu(self, other);
 };
-Tensor gt_scalar_hpu_lazy(Tensor& self, Scalar other) {
+
+Tensor gt_scalar_hpu_lazy(const Tensor& self, Scalar other) {
   HABANA_ASSERT(0);
   return gt_scalar_hpu(self, other);
 };
 
-void eq_tensor_out_hpu_lazy(
+Tensor& eq_tensor_out_hpu_lazy(
     Tensor& output,
     const Tensor& self,
     const Tensor& other) {
   HABANA_ASSERT(0);
   return eq_tensor_out_hpu(output, self, other);
 };
-Tensor eq_tensor_hpu_lazy(Tensor& self, Tensor& other) {
+Tensor eq_tensor_hpu_lazy(const Tensor& self, const Tensor& other) {
   HABANA_ASSERT(0);
   return eq_tensor_hpu(self, other);
 };
-Tensor eq_tensor_scalar_hpu_lazy(Tensor& self, Scalar other) {
+Tensor eq_tensor_scalar_hpu_lazy(const Tensor& self, Scalar other) {
   HABANA_ASSERT(0);
   return eq_tensor_scalar_hpu(self, other);
 };
@@ -1037,7 +1060,7 @@ Tensor ne_tensor_hpu_lazy(const Tensor& self, const Tensor& other) {
   return result;
 };
 
-Tensor lt_scalar_hpu_lazy(Tensor& self, Scalar other) {
+Tensor lt_scalar_hpu_lazy(const Tensor& self, Scalar other) {
   PT_LAZY_TRACE;
   auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
   auto hl_other = habana_lazy::GetIrValueForScalar(other);
@@ -1062,7 +1085,7 @@ Tensor lt_scalar_hpu_lazy(Tensor& self, Scalar other) {
   return result;
 };
 
-Tensor lt_tensor_hpu_lazy(Tensor& self, Tensor& other) {
+Tensor lt_tensor_hpu_lazy(const Tensor& self, const Tensor& other) {
   PT_LAZY_TRACE;
   auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
   auto hl_other = habana_lazy::GetOrCreateHbLazyTensor(other, c10::kHABANA);
@@ -1918,13 +1941,13 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu_lazy(
 };
 
 std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu_lazy(
-    Tensor& grad_out,
-    Tensor& input,
-    Tensor& weight,
-    UNUSED Tensor& running_mean,
-    UNUSED Tensor& running_var,
-    Tensor& save_mean,
-    Tensor& save_invstd,
+    const Tensor& grad_out,
+    const Tensor& input,
+    const Tensor& weight,
+    const Tensor& running_mean,
+    const Tensor& running_var,
+    const Tensor& save_mean,
+    const Tensor& save_invstd,
     bool train,
     double eps,
     UNUSED std::array<bool, 3> output_mask) {
@@ -2333,39 +2356,43 @@ Tensor avg_pool2d_backward_hpu_lazy(
   updateDstDependencies(hlresult, result);
   return result;
 };
-
-void uniform_hpu_lazy(
-    const Tensor& self,
+Tensor& uniform_hpu_lazy(
+    Tensor& self,
     double from,
     double to,
-    CPUGenerator* gen) {
+    c10::optional<Generator> gen) {
   HABANA_ASSERT(0);
   uniform_hpu(self, from, to, gen);
 };
-void normal_hpu_lazy(
-    const Tensor& self,
+Tensor& normal_hpu_lazy(
+    Tensor& self,
     double mean,
     double std,
-    CPUGenerator* gen) {
+    c10::optional<Generator> gen) {
   HABANA_ASSERT(0);
   normal_hpu(self, mean, std, gen);
 };
-Tensor bernoulli_hpu_lazy(const Tensor& self, CPUGenerator* gen) {
+Tensor bernoulli_hpu_lazy(const Tensor& self, c10::optional<Generator> gen) {
   HABANA_ASSERT(0);
   return bernoulli_hpu(self, gen);
 };
-Tensor& bernoulli_scalar_hpu_lazy(Tensor& self, double p, CPUGenerator* gen) {
+Tensor& bernoulli_scalar_hpu_lazy(
+    Tensor& self,
+    double p,
+    c10::optional<Generator> gen) {
   HABANA_ASSERT(0);
   return bernoulli_scalar_hpu(self, p, gen);
 };
 std::tuple<Tensor, Tensor> fused_dropout_hpu_lazy(
     const Tensor& self,
     double p,
-    CPUGenerator* gen) {
+    c10::optional<Generator> gen) {
   PT_LAZY_TRACE;
+  CPUGeneratorImpl* generator = get_generator_or_default<CPUGeneratorImpl>(
+      gen, at::detail::getDefaultCPUGenerator());
   auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
   habana_lazy::ir::NodePtr node =
-      std::make_shared<habana_lazy::ir::Dropout>(self, p, gen);
+      std::make_shared<habana_lazy::ir::Dropout>(self, p, generator);
 
   auto result_0 = at::native::empty_hpu_lazy(
       {1}, self.options(), self.suggest_memory_format(), false);
@@ -2572,13 +2599,13 @@ Tensor empty_hpu_lazy(
     int64_t nelements = prod_intlist(size);
     int elem_size = dtype.itemsize();
     auto storage_impl = c10::make_intrusive<StorageImpl>(
-        dtype,
+        c10::StorageImpl::use_byte_size_t(),
         nelements,
         allocator->allocate(nelements * elem_size),
         allocator,
         /*resizeable=*/true);
     Tensor at_internal_tensor =
-        habana_lazy::AtenInternalHbTensor(std::move(storage_impl));
+        habana_lazy::AtenInternalHbTensor(std::move(storage_impl), dtype);
     // Setup the tensor sizes & strides for tensor with dim = 4, else for now
     // assuming contiguous
     if ((4 == size.size()) && mem_format.has_value()) {
@@ -2603,7 +2630,6 @@ Tensor empty_hpu_lazy(
       habana_lazy::HbLazyTensor hb_tensor =
           habana_lazy::HbLazyTensor::CreateHbLazyTensor(
               size, 0, options.device(), c10::typeMetaToScalarType(dtype));
-
       at_tensor = habana_lazy::AtenFromHbLazyTensor(hb_tensor);
 
       // The lazy tensor will have a reference to the internal tensor
@@ -3150,7 +3176,7 @@ Tensor& tanh_hpu_lazy_(Tensor& self) {
   HABANA_ASSERT(0);
   return tanh_hpu_(self);
 };
-Tensor& tanh_out_hpu_lazy(Tensor& out, Tensor& self) {
+Tensor& tanh_out_hpu_lazy(Tensor& out, const Tensor& self) {
   HABANA_ASSERT(0);
   return tanh_out_hpu(out, self);
 };

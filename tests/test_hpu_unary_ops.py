@@ -55,19 +55,30 @@ data_type_list = [
 @pytest.mark.parametrize("unary_op", unary_op_list)
 @pytest.mark.parametrize("dtype, tol", data_type_list)
 def test_hpu_unary_op(N, H, W, C, unary_op, dtype, tol):
-    kernel_params = {'input': torch.randn(N, C, H, W).to(dtype)}
-    evaluate_fwd_kernel(kernel=unary_op, kernel_params=kernel_params, atol=tol, rtol=tol)
+    if unary_op == torch.norm:
+        kernel_params = {'input': torch.randn(N, C, H, W).to(dtype), 'p': 6.0}
+        evaluate_fwd_kernel(kernel=unary_op, kernel_params=kernel_params, atol=tol, rtol=tol)
+    else:
+        kernel_params = {'input': torch.randn(N, C, H, W).to(dtype)}
+        evaluate_fwd_kernel(kernel=unary_op, kernel_params=kernel_params, atol=tol, rtol=tol)
 
 
 @pytest.mark.parametrize("N, H, W, C", test_case_list)
 @pytest.mark.parametrize("unary_op", unary_op_list)
 @pytest.mark.parametrize("dtype, tol", data_type_list)
 def test_hpu_unary_op_fwd_bwd(N, H, W, C, unary_op, dtype, tol):
-    # TODO: extend that test to all features
-    kernel_params_fwd = {'input': torch.randn(N, C, H, W, requires_grad=True).to(dtype)}
-    bwd_tensors = [torch.randn(N, C, H, W).to(dtype)]
-    evaluate_fwd_bwd_kernel(kernel=unary_op, tensor_list_bwd=bwd_tensors,
+    if unary_op == torch.norm:
+        kernel_params_fwd = {'input': torch.randn(N, C, H, W, requires_grad=True).to(dtype),
+                            'p': 6.0}
+        bwd_tensors = [torch.tensor(1).to(dtype)]
+        evaluate_fwd_bwd_kernel(kernel=unary_op, tensor_list_bwd=bwd_tensors,
                             kernel_params_fwd=kernel_params_fwd, atol=tol, rtol=tol)
+    else:
+        # TODO: extend that test to all features
+        kernel_params_fwd = {'input': torch.randn(N, C, H, W, requires_grad=True).to(dtype)}
+        bwd_tensors = [torch.randn(N, C, H, W).to(dtype)]
+        evaluate_fwd_bwd_kernel(kernel=unary_op, tensor_list_bwd=bwd_tensors,
+                                kernel_params_fwd=kernel_params_fwd, atol=tol, rtol=tol)
 
 
 @pytest.mark.parametrize("N, H, W, C", test_case_list)
@@ -98,9 +109,9 @@ def test_hpu_binary_op_out_intype(N, H, W, C, unary_op, kernel_params_fwd):
 @pytest.mark.parametrize("lp_norm_op", [torch.norm])
 @pytest.mark.parametrize("value", [11.0, 6.0])
 def test_hpu_lp_norm_op_fwd_bwd(N, H, W, C, lp_norm_op, value):
-    kernel_params_fwd = {'input': torch.randn(N, C, H, W, requires_grad=True),
+    kernel_params_fwd = {'input': torch.randn(N, C, H, W, requires_grad=True, dtype=torch.float),
                          'p': value}
-    bwd_tensors = [torch.randn(N, C, H, W)]
+    bwd_tensors = [torch.tensor(1, dtype=torch.float)]
     evaluate_fwd_bwd_kernel(kernel=lp_norm_op, tensor_list_bwd=bwd_tensors,
                             kernel_params_fwd=kernel_params_fwd)
 
