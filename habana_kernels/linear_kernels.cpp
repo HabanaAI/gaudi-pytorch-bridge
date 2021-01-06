@@ -29,11 +29,27 @@ using namespace torch;
 static void check_matmul_params(
     const Tensor& mat1,
     const Tensor& mat2,
+    bool mat1_transposed,
+    bool mat2_transposed,
     c10::optional<const at::Tensor*> bias) {
   TORCH_CHECK(mat1.ndimension() == 2, "matmul_hpu supports only 2d matrices");
   TORCH_CHECK(mat2.ndimension() == 2, "matmul_hpu supports only 2d matrices");
-  TORCH_CHECK(
-      mat1.size(1) == mat2.size(0), "matmul inner dimensions doesn't match");
+
+  if (mat1_transposed == false && mat2_transposed == false) {
+    TORCH_CHECK(
+        mat1.size(1) == mat2.size(0), "matmul inner dimensions doesn't match");
+  } else if (mat1_transposed == true && mat2_transposed == false) {
+    TORCH_CHECK(
+        mat1.size(0) == mat2.size(0), "matmul inner dimensions doesn't match");
+  } else if (mat1_transposed == false && mat2_transposed == true) {
+    TORCH_CHECK(
+        mat1.size(1) == mat2.size(1), "matmul inner dimensions doesn't match");
+  } else {
+    TORCH_CHECK(false, "matmul_hpu won't support both transposed");
+  }
+
+  /*TORCH_CHECK(
+      mat1.size(1) == mat2.size(0), "matmul inner dimensions doesn't match"); */
   TORCH_CHECK(
       static_cast<int>(mat1.is_contiguous()) + mat2.is_contiguous() > 0,
       "Only one matrix can me non contiguous.",
@@ -170,8 +186,17 @@ void synapse_matmul(
 
 std::vector<int64_t> habana::MMOperator::compute_output_shape(
     at::Tensor self,
-    at::Tensor other) {
-  return {self.size(0), other.size(1)};
+    at::Tensor other,
+    bool self_transposed,
+    bool other_transposed) {
+  if (self_transposed == false && other_transposed == false)
+    return {self.size(0), other.size(1)};
+  else if (self_transposed == true && other_transposed == false)
+    return {self.size(1), other.size(1)};
+  else if (self_transposed == false && other_transposed == true)
+    return {self.size(0), other.size(0)};
+  else
+    return {self.size(1), other.size(0)};
 }
 
 void habana::MMOperator::AllocateAndAddSynapseNode(
@@ -179,7 +204,7 @@ void habana::MMOperator::AllocateAndAddSynapseNode(
     torch::jit::Stack& inputs,
     bool is_output_persistent) {
   TORCH_CHECK(
-      inputs.size() == 2,
+      ((inputs.size() == 2) || (inputs.size() == 4)),
       "Incorrect size of inputs expected for matmul operator");
 
   TORCH_CHECK(inputs[0].isTensor(), "Input type expected to be tensor");
@@ -187,8 +212,20 @@ void habana::MMOperator::AllocateAndAddSynapseNode(
 
   auto mat1 = inputs[0].toTensor();
   auto mat2 = inputs[1].toTensor();
-  check_matmul_params(mat1, mat2, c10::nullopt);
-  auto shape_out = habana::MMOperator::compute_output_shape(mat1, mat2);
+
+  bool mat1_transposed = false;
+  bool mat2_transposed = false;
+  if (inputs.size() == 4) {
+    TORCH_CHECK(inputs[2].isBool(), "Input tranpose flag expected to be bool");
+    TORCH_CHECK(inputs[3].isBool(), "Input tranpose flag expected to be bool");
+    mat1_transposed = inputs[2].toBool();
+    mat2_transposed = inputs[3].toBool();
+  }
+
+  check_matmul_params(
+      mat1, mat2, mat1_transposed, mat2_transposed, c10::nullopt);
+  auto shape_out = habana::MMOperator::compute_output_shape(
+      mat1, mat2, mat1_transposed, mat2_transposed);
   auto output = habana_helpers::createPTTensor(
       mat1,
       shape_out,
@@ -196,7 +233,7 @@ void habana::MMOperator::AllocateAndAddSynapseNode(
       mat1.suggest_memory_format(),
       is_output_persistent);
   AllocateSynapseOutput(graph, output, is_output_persistent);
-  synGEMMParams params{false, false};
+  synGEMMParams params{mat1_transposed, mat2_transposed};
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
@@ -244,7 +281,7 @@ void habana::AddmmOperator::AllocateAndAddSynapseNode(
     torch::jit::Stack& inputs,
     bool is_output_persistent) {
   TORCH_CHECK(
-      inputs.size() == 5,
+      ((inputs.size() == 5) || (inputs.size() == 7)),
       "Incorrect size of inputs expected for addmm operator");
   TORCH_CHECK(inputs[0].isTensor(), "Input arg0 expected to be tensor");
   TORCH_CHECK(inputs[1].isTensor(), "Input arg1 expected to be tensor");
@@ -258,6 +295,14 @@ void habana::AddmmOperator::AllocateAndAddSynapseNode(
   auto beta = inputs[3].toScalar();
   auto alpha = inputs[4].toScalar();
 
+  bool mat1_transposed = false;
+  bool mat2_transposed = false;
+  if (inputs.size() == 7) {
+    TORCH_CHECK(inputs[5].isBool(), "Input tranpose falg expected to be bool");
+    TORCH_CHECK(inputs[6].isBool(), "Input tranpose falg expected to be bool");
+    mat1_transposed = inputs[5].toBool();
+    mat2_transposed = inputs[6].toBool();
+  }
   // TODO: implement support for non-default scalars
   TORCH_CHECK(
       beta.to<int>() == 1,
@@ -275,7 +320,8 @@ void habana::AddmmOperator::AllocateAndAddSynapseNode(
         mm_op.SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
     auto& syn_arg2 =
         mm_op.SetSynapseInput(std::move(p_context_->syn_inputs_[2]));
-    torch::jit::Stack stack1 = {c10::IValue(mat1), c10::IValue(mat2)};
+    torch::jit::Stack stack1 = {
+        c10::IValue(mat1), c10::IValue(mat2), mat1_transposed, mat2_transposed};
     mm_op.AllocateAndAddSynapseNode(graph, stack1, false);
     // Restore original syn_inputs because these will be used in compile in
     // eager mode
@@ -320,7 +366,8 @@ Tensor addmm_hpu(
     Scalar alpha) {
   PT_KERNEL_BEGIN;
 
-  check_matmul_params(mat1, mat2, &self);
+  check_matmul_params(mat1, mat2, false, false, &self);
+
   TORCH_CHECK(
       self.sizes().size() == 1,
       "Bias must be 1D tensor, but it has ",
@@ -1417,6 +1464,11 @@ static auto& KernelRegistry =
               return std::make_shared<habana::MMOperator>(device_id);
             })
         .add(
+            "hpu::mm_t",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<habana::MMOperator>(device_id);
+            })
+        .add(
             "aten::mv",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<habana::MvOperator>(device_id);
@@ -1428,6 +1480,12 @@ static auto& KernelRegistry =
             })
         .add(
             "aten::addmm",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<habana::AddmmOperator>(
+                  device_id, node_type);
+            })
+        .add(
+            "hpu::addmm_t",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<habana::AddmmOperator>(
                   device_id, node_type);

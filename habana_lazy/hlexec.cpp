@@ -19,6 +19,7 @@
 #include "hpu_lazy_cache.h"
 #include "ops/constant.h"
 #include "ops/convolution.h"
+#include "passes/fuse_mm_transpose.h"
 #include "passes/transform_graph.h"
 #include "pytorch_helpers/habana_device/hpu_cached_devices.h"
 #include "synapse_helpers/device.h"
@@ -196,7 +197,12 @@ void HlExec::Create(
 
 void HlExec::Optimize() {
   PT_LAZY_TRACE;
-  if (OptPassCfg::GetInstance()->enable_eliminate_dead_code) {
+  if (OptPassCfg::GetInstance()->enable_fuse_t_mm_optimization) {
+    fuse_mm_transpose(mp_g_);
+  }
+
+  if (OptPassCfg::GetInstance()->enable_fuse_t_mm_optimization ||
+      OptPassCfg::GetInstance()->enable_eliminate_dead_code) {
     torch::jit::EliminateDeadCode(mp_g_);
   }
 

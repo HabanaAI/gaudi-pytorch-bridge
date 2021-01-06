@@ -126,3 +126,58 @@ TEST_F(GraphOptimizeTest, SubGraphRewriteTest) {
 
   exec::OptPassCfg::GetInstance()->enable_subgraph_rewrite = false;
 }
+
+TEST_F(GraphOptimizeTest, FuseMmTransposeTest) {
+  setenv("PT_HPU_LAZY_MODE", "1", 1);
+  torch::Tensor tensor_in1 = torch::randn({4, 4});
+  torch::Tensor tensor_in2 = torch::randn({4, 4});
+  torch::Tensor out_t = torch::t(tensor_in1);
+  torch::Tensor out_mm_1 = torch::mm(out_t, tensor_in2);
+  torch::Tensor out_1 = torch::t(out_mm_1);
+
+  torch::Tensor out_mm_2 = torch::mm(tensor_in2, out_t);
+  torch::Tensor out_2 = torch::t(out_mm_2);
+  torch::Tensor out_cpu = torch::add(out_1, out_2);
+
+  torch::Tensor hl_tensor_in1 = tensor_in1.to(torch::kHABANA);
+  torch::Tensor hl_tensor_in2 = tensor_in2.to(torch::kHABANA);
+  auto result_t = torch::t(hl_tensor_in1);
+  auto result_mm_1 = torch::mm(result_t, hl_tensor_in2);
+  auto result_1 = torch::t(result_mm_1);
+
+  auto result_mm_2 = torch::mm(hl_tensor_in2, result_t);
+  auto result_2 = torch::t(result_mm_2);
+  auto result = torch::add(result_1, result_2);
+
+  auto hl_result = GetHbLazyTensor(result);
+  std::vector<HbLazyTensor> tensors = {hl_result};
+  std::vector<int> indices = {0};
+  auto po_data = HbLazyTensor::RunPostOrder(tensors, indices);
+
+  exec::HlExec* hlexec = new exec::HlExec();
+  exec::OptPassCfg::GetInstance()->enable_fuse_t_mm_optimization = true;
+
+  std::vector<at::Tensor> input_list{hl_tensor_in1, hl_tensor_in2};
+
+  auto stack = torch::jit::Stack(
+      std::make_move_iterator(input_list.begin()),
+      std::make_move_iterator(input_list.end()));
+
+  hlexec->GetOrCreate(
+      po_data.post_order,
+      stack,
+      po_data.inputs,
+      po_data.outputs,
+      po_data.post_order_nodes_hash);
+
+  torch::jit::testing::FileCheck()
+      .check_count("hpu::mm_t", 2)
+      ->check_not("aten::t")
+      ->check_not("aten::mm")
+      ->run(*hlexec->get_graph());
+
+  torch::Tensor out_hpu = result.to(torch::kCPU);
+  EXPECT_EQ(allclose(out_cpu, out_hpu), true);
+  exec::OptPassCfg::GetInstance()->enable_fuse_t_mm_optimization = false;
+  unsetenv("PT_HPU_LAZY_MODE");
+}

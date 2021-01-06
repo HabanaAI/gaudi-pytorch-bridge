@@ -66,6 +66,13 @@ void InitModuleBindings(py::module m) {
             flag;
       },
       py::arg("flag"));
+  m.def(
+      "_enable_fuse_t_mm_optimization",
+      [](const bool flag) {
+        habana_lazy::exec::OptPassCfg::GetInstance()
+            ->enable_fuse_t_mm_optimization = flag;
+      },
+      py::arg("flag"));
 }
 
 } // namespace

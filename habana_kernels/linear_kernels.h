@@ -28,7 +28,9 @@ class MMOperator : public HabanaOperator {
 
   static std::vector<int64_t> compute_output_shape(
       at::Tensor self,
-      at::Tensor other);
+      at::Tensor other,
+      bool self_transposed = false,
+      bool other_transposed = false);
 };
 
 class AddmmOperator : public HabanaOperator {

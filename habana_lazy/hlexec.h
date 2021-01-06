@@ -51,6 +51,7 @@ class OptPassCfg {
     enable_constant_pooling = true;
     enable_peephole_optimization = true;
     enable_subgraph_rewrite = false;
+    enable_fuse_t_mm_optimization = false;
   }
 
  public:
@@ -71,6 +72,7 @@ class OptPassCfg {
   bool enable_constant_pooling;
   bool enable_peephole_optimization;
   bool enable_subgraph_rewrite;
+  bool enable_fuse_t_mm_optimization;
 };
 
 /**
