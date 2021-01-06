@@ -34,22 +34,31 @@ import torch
 from torch.utils.data import DataLoader, RandomSampler, SequentialSampler, Dataset
 from torch.utils.data.distributed import DistributedSampler
 import math
-from apex import amp
 import multiprocessing
+import sys
 
 from tokenization import BertTokenizer
 import modeling
-from apex.optimizers import FusedLAMB
 from schedulers import PolyWarmUpScheduler
 
 from file_utils import PYTORCH_PRETRAINED_BERT_CACHE
 from utils import is_main_process, format_step, get_world_size, get_rank
-from apex.parallel import DistributedDataParallel as DDP
 from schedulers import LinearWarmUpScheduler
-from apex.parallel.distributed import flat_dist_call
-import amp_C
-import apex_C
-from apex.amp import _amp_state
+
+try:
+    from apex import amp
+    from apex.optimizers import FusedLAMB
+    from apex.parallel import DistributedDataParallel as DDP
+    from apex.parallel.distributed import flat_dist_call
+    import amp_C
+    import apex_C
+    from apex.amp import _amp_state
+except ImportError:
+    if torch.cuda.is_available():
+        raise ImportError("Please install apex from "
+                          "https://www.github.com/nvidia/apex")
+
+from optimization import BertAdam
 
 import dllogger
 from concurrent.futures import ProcessPoolExecutor
@@ -80,12 +89,14 @@ class WorkerInitObj(object):
         random.seed(self.seed + id)
 
 def create_pretraining_dataset(input_file, max_pred_length, shared_list, args, worker_init):
+    use_pin_memory = False if args.no_cuda or args.use_habana else True
+    num_workers = 0 if args.use_habana else 4
     train_data = pretraining_dataset(input_file=input_file, max_pred_length=max_pred_length)
     train_sampler = RandomSampler(train_data)
     train_dataloader = DataLoader(train_data, sampler=train_sampler,
-                                  batch_size=args.train_batch_size * args.n_gpu, 
-                                  num_workers=4, worker_init_fn=worker_init,
-                                  pin_memory=True)
+                                  batch_size=args.train_batch_size * args.n_pu,
+                                  num_workers=num_workers, worker_init_fn=worker_init,
+                                  pin_memory=use_pin_memory)
     return train_dataloader, input_file
 
 class pretraining_dataset(Dataset):
@@ -278,6 +289,15 @@ def parse_arguments():
                         help='Disable tqdm progress bar')
     parser.add_argument('--steps_this_run', type=int, default=-1,
                         help='If provided, only run this many steps before exiting')
+    parser.add_argument("--no_cuda",
+                        action='store_true',
+                        help="Whether to use CPU when available")
+    parser.add_argument("--use_habana",
+                        action="store_true",
+                        help="Whether not to use Habana device when available")
+    parser.add_argument("--use_jit_trace",
+                        action='store_true',
+                        help='run with torch jit trace mode')
 
     args = parser.parse_args()
     args.fp16 = args.fp16 or args.amp
@@ -289,11 +309,24 @@ def parse_arguments():
 
 def setup_training(args):
 
-    assert (torch.cuda.is_available())
+    #assert (torch.cuda.is_available())
+    if args.use_habana:
+        torch.ops.load_library(os.path.join(os.environ['BUILD_ROOT_LATEST'], "libhabana_pytorch_plugin.so"))
+        sys.path.insert(0, os.path.join(os.environ['BUILD_ROOT_LATEST']))
+        device = torch.device("habana")
+        if args.use_jit_trace:
+            enable_tracing()
 
-    if args.local_rank == -1:
-        device = torch.device("cuda")
-        args.n_gpu = torch.cuda.device_count()
+        if args.local_rank == -1:
+            args.n_pu = 1
+    elif args.local_rank == -1 or args.no_cuda:
+        device = torch.device(
+            "cuda" if torch.cuda.is_available() and not args.no_cuda else "cpu")
+        if device == torch.device("cuda"):
+            args.n_pu = torch.cuda.device_count()
+        else:
+            args.n_pu = 1
+
         args.allreduce_post_accumulation = False
         args.allreduce_post_accumulation_fp16 = False
     else:
@@ -301,7 +334,7 @@ def setup_training(args):
         device = torch.device("cuda", args.local_rank)
         # Initializes the distributed backend which will take care of sychronizing nodes/GPUs
         torch.distributed.init_process_group(backend='nccl', init_method='env://')
-        args.n_gpu = 1
+        args.n_pu = 1
         
     if args.gradient_accumulation_steps == 1:
         args.allreduce_post_accumulation = False
@@ -314,8 +347,8 @@ def setup_training(args):
     else:
         dllogger.init(backends=[])
 
-    print("device: {} n_gpu: {}, distributed training: {}, 16-bits training: {}".format(
-        device, args.n_gpu, bool(args.local_rank != -1), args.fp16))
+    print("device: {} n_pu: {}, distributed training: {}, 16-bits training: {}".format(
+        device, args.n_pu, bool(args.local_rank != -1), args.fp16))
 
     if args.gradient_accumulation_steps < 1:
         raise ValueError("Invalid gradient_accumulation_steps parameter: {}, should be >= 1".format(
@@ -380,8 +413,16 @@ def prepare_model_and_optimizer(args, device):
         {'params': [p for n, p in param_optimizer if not any(nd in n for nd in no_decay)], 'weight_decay': 0.01},
         {'params': [p for n, p in param_optimizer if any(nd in n for nd in no_decay)], 'weight_decay': 0.0}]
 
-    optimizer = FusedLAMB(optimizer_grouped_parameters, 
+    if torch.cuda.is_available():
+        optimizer = FusedLAMB(optimizer_grouped_parameters,
                           lr=args.learning_rate)
+    else:
+        optimizer = BertAdam(
+                    optimizer_grouped_parameters,
+                    lr=args.learning_rate,
+                    warmup=args.warmup_proportion,
+                    t_total=args.max_steps)
+
     lr_scheduler = PolyWarmUpScheduler(optimizer, 
                                        warmup=args.warmup_proportion, 
                                        total_steps=args.max_steps)
@@ -421,7 +462,7 @@ def prepare_model_and_optimizer(args, device):
             model = DDP(model, message_size=250000000, gradient_predivide_factor=get_world_size())
         else:
             flat_dist_call([param.data for param in model.parameters()], torch.distributed.broadcast, (0,) )
-    elif args.n_gpu > 1:
+    elif args.n_pu > 1:
         model = torch.nn.DataParallel(model)
 
     criterion = BertPretrainingCriterion(config.vocab_size)
@@ -488,6 +529,24 @@ def take_optimizer_step(args, optimizer, model, overflow_buf, global_step):
 
     return global_step
 
+def compute_position_ids(input_ids):
+    input_shape = input_ids.size()
+    seq_length = input_shape[1]
+    #position_ids_seq = torch.arange(seq_length, dtype=torch.int32)
+    position_ids_seq = torch.arange(seq_length, dtype=torch.long)
+    position_ids_ = position_ids_seq.unsqueeze(0).expand(input_shape)
+    position_ids = position_ids_.contiguous()
+    return position_ids
+
+def enable_tracing():
+    torch._C._debug_set_autodiff_subgraph_inlining(False)
+    try:
+        import hb_torch
+    except ImportError:
+        assert False,"Could Not import hb_torch"
+    hb_torch.enable()
+    hb_torch.remove_inplace_ops()
+
 def main():
     global timeout_sent
 
@@ -512,7 +571,7 @@ def main():
     if args.do_train:
         if is_main_process():
             dllogger.log(step="PARAMETER", data={"train_start": True})
-            dllogger.log(step="PARAMETER", data={"batch_size_per_gpu": args.train_batch_size})
+            dllogger.log(step="PARAMETER", data={"batch_size_per_pu": args.train_batch_size})
             dllogger.log(step="PARAMETER", data={"learning_rate": args.learning_rate})
 
         model.train()
@@ -520,8 +579,10 @@ def main():
         average_loss = 0.0  # averaged loss every args.log_freq steps
         epoch = 0
         training_steps = 0
+        model_traced = False
 
-        pool = ProcessPoolExecutor(1)
+        if device.type == 'cuda':
+            pool = ProcessPoolExecutor(1)
 
         # Note: We loop infinitely over epochs, termination is handled via iteration count
         while True:
@@ -554,12 +615,14 @@ def main():
             previous_file = data_file
 
             if restored_data_loader is None:
+                use_pin_memory = False if args.no_cuda or args.use_habana else True
+                num_workers = 0 if args.use_habana else 4
                 train_data = pretraining_dataset(data_file, args.max_predictions_per_seq)
                 train_sampler = RandomSampler(train_data)
                 train_dataloader = DataLoader(train_data, sampler=train_sampler,
-                                              batch_size=args.train_batch_size * args.n_gpu,
-                                              num_workers=4, worker_init_fn=worker_init,
-                                              pin_memory=True)
+                                              batch_size=args.train_batch_size * args.n_pu,
+                                              num_workers=num_workers, worker_init_fn=worker_init,
+                                              pin_memory=use_pin_memory)
                 # shared_file_list["0"] = (train_dataloader, data_file)
             else:
                 train_dataloader = restored_data_loader
@@ -579,7 +642,8 @@ def main():
 
                 previous_file = data_file
 
-                dataset_future = pool.submit(create_pretraining_dataset, data_file, args.max_predictions_per_seq, shared_file_list, args, worker_init)
+                if device.type == 'cuda':
+                    dataset_future = pool.submit(create_pretraining_dataset, data_file, args.max_predictions_per_seq, shared_file_list, args, worker_init)
 
                 train_iter = tqdm(train_dataloader, desc="Iteration", disable=args.disable_progress_bar) if is_main_process() else train_dataloader
 
@@ -588,12 +652,26 @@ def main():
                 for step, batch in enumerate(train_iter):
 
                     training_steps += 1
+                    position_ids = compute_position_ids(batch[0])
+                    if args.use_habana:
+                        batch = [t.to(dtype=torch.int32) for t in batch]
+                        position_ids = position_ids.to(dtype=torch.int32)
+
+                    position_ids = position_ids.to(device)
                     batch = [t.to(device) for t in batch]
                     input_ids, segment_ids, input_mask, masked_lm_labels, next_sentence_labels = batch
-                    prediction_scores, seq_relationship_score = model(input_ids=input_ids, token_type_ids=segment_ids, attention_mask=input_mask)
+
+                    if args.use_jit_trace:
+                        if model_traced == False:
+                            model = torch.jit.trace(model, (input_ids, segment_ids, input_mask, position_ids), check_trace=False)
+                            model_traced = True
+                        prediction_scores, seq_relationship_score = model(input_ids, segment_ids, input_mask, position_ids)
+                    else:
+                        prediction_scores, seq_relationship_score = model(input_ids=input_ids, token_type_ids=segment_ids, attention_mask=input_mask, position_ids=position_ids)
+
                     loss = criterion(prediction_scores, seq_relationship_score, masked_lm_labels, next_sentence_labels)
-                    if args.n_gpu > 1:
-                        loss = loss.mean()  # mean() to average on multi-gpu.
+                    if args.n_pu > 1:
+                        loss = loss.mean()  # mean() to average on multi-pu.
 
                     divisor = args.gradient_accumulation_steps
                     if args.gradient_accumulation_steps > 1:
@@ -667,7 +745,10 @@ def main():
                 # thread.join()
                 # Make sure pool has finished and switch train_dataloader
                 # NOTE: Will block until complete
-                train_dataloader, data_file = dataset_future.result(timeout=None)
+                if device.type == 'cuda':
+                    train_dataloader, data_file = dataset_future.result(timeout=None)
+                else:
+                    train_dataloader, data_file = create_pretraining_dataset(data_file, args.max_predictions_per_seq, shared_file_list, args, worker_init)
 
             epoch += 1
 
@@ -676,15 +757,15 @@ if __name__ == "__main__":
 
     now = time.time()
     args, final_loss, train_time_raw, global_step = main()
-    gpu_count = args.n_gpu
+    pu_count = args.n_pu
     global_step += args.phase1_end_step if (args.phase2 and args.resume_step > 0) else 0
     if args.resume_step == -1:
         args.resume_step = 0
     if torch.distributed.is_initialized():
-        gpu_count = get_world_size()
+        pu_count = get_world_size()
     if is_main_process():
         e2e_time = time.time() - now
-        training_perf = args.train_batch_size * args.gradient_accumulation_steps * gpu_count\
+        training_perf = args.train_batch_size * args.gradient_accumulation_steps * pu_count\
                         * (global_step - args.resume_step + skipped_steps) / train_time_raw
         dllogger.log(step=tuple(), data={"e2e_train_time": e2e_time, "training_sequences_per_second": training_perf,
                                          "final_loss": final_loss, "raw_train_time": train_time_raw })
