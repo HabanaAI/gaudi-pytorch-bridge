@@ -256,7 +256,7 @@ at::DataPtr HPUDeviceAllocator::allocate(size_t num_bytes) const {
           // It is not guaranteed that device will have more memory avaliable at
           // exit point, since framework might called multiple new allocations
           // from other threads, or wakeup might be spurious.
-        } while (counter_state > 0 && v_ptr == nullptr);
+        } while (counter_state > 1 && v_ptr == nullptr);
       }
 
       if (v_ptr == nullptr && drop_cached_recipe_cb != nullptr) {

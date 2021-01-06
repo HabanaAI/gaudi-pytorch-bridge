@@ -95,6 +95,7 @@ uint32_t active_recipe_counter::wait_for_next_decrease_call() {
 }
 
 uint32_t active_recipe_counter::get_count() {
+  std::unique_lock<std::mutex> cond_lock(counter_mutex_);
   return counter_state_;
 }
 
@@ -597,6 +598,11 @@ device_ptr device::get_workspace_buffer(std::size_t size) {
           synapse_helpers::get_mem_str(workspace_size_),
           " for allocating ",
           synapse_helpers::get_mem_str(size));
+
+      auto& recipe_counter = get_active_recipe_counter();
+      while (recipe_counter.get_count() > 1) {
+        recipe_counter.wait_for_next_decrease_call();
+      }
 
       allocator_->free(reinterpret_cast<void*>(workspace_buffer_));
 
