@@ -219,7 +219,8 @@ def train(args, train_dataset, model, tokenizer, trainMetaData):
             logger.info("  Starting fine-tuning.")
 
     tr_loss, logging_loss = 0.0, 0.0
-    model.zero_grad()
+    for params in model.parameters():
+        params.grad = None
     train_iterator = trange(
         epochs_trained, int(args.num_train_epochs), desc="Epoch", disable=args.local_rank not in [-1, 0]
     )
@@ -319,7 +320,12 @@ def train(args, train_dataset, model, tokenizer, trainMetaData):
                 tp_probe_tensors_iteration_end(model, device, outputs[1].detach().to('cpu'), loss.item(), trainMetaData.ParamsDump, False, args.local_rank)
                 optimizer.step()
                 scheduler.step()  # Update learning rate schedule
-                model.zero_grad()
+                if args.use_jit_trace:
+                    for param in model_trace.parameters():
+                        param.grad = None
+                else:
+                    for param in model.parameters():
+                        param.grad = None
                 global_step += 1
 
                 # Log metrics
