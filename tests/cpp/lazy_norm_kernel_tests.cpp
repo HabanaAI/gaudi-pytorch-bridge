@@ -84,6 +84,36 @@ TEST_F(LazyNormKernelTest, LayerNormBackwardExecute) {
   EXPECT_EQ(allclose(result_lazy, result_cpu, 0.01, 0.01), true);
 }
 
+TEST_F(LazyNormKernelTest, BatchNormForwardExecute) {
+  auto input_tensor =
+      torch::arange(480, torch::dtype(torch::kFloat).requires_grad(false))
+          .reshape({10, 3, 4, 4}); // nchw
+  torch::Tensor tHabanaX = input_tensor.to(torch::kHABANA);
+  at::Tensor weight =
+      torch::arange(3, torch::dtype(torch::kFloat).requires_grad(false));
+  torch::Tensor tWeight = weight.to(torch::kHABANA);
+  at::Tensor bias =
+      torch::arange(3, torch::dtype(torch::kFloat).requires_grad(false));
+  torch::Tensor tBias = bias.to(torch::kHABANA);
+  auto mean =
+      torch::arange(3, torch::dtype(torch::kFloat).requires_grad(false));
+  torch::Tensor tHabanaMean = mean.to(torch::kHABANA);
+  auto var = torch::arange(3, torch::dtype(torch::kFloat).requires_grad(false));
+  torch::Tensor tHabanaVar = var.to(torch::kHABANA);
+
+  // at::Tensor w, b; --> Need to fix
+  // BatchNormForwardOperator::preProcessInputs(..)
+  auto results_cpu = torch::native_batch_norm(
+      input_tensor, weight, bias, mean, var, true, 0.1, 0.01);
+  at::Tensor result_cpu = std::get<0>(results_cpu);
+
+  auto results = torch::native_batch_norm(
+      tHabanaX, tWeight, tBias, tHabanaMean, tHabanaVar, true, 0.1, 0.01);
+
+  at::Tensor result_lazy = std::get<0>(results).to(torch::kCPU);
+
+  EXPECT_EQ(allclose(result_lazy, result_cpu, 0.01, 0.01), true);
+}
 TEST_F(LazyNormKernelTest, NormScalarTest) {
   torch::Tensor A = torch::randn({2, 2}, torch::requires_grad(false));
   torch::Tensor hA = A.to(torch::kHABANA);
