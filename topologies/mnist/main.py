@@ -12,6 +12,11 @@ from torch.utils import data
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 
+# The default path to look for the data
+# If path does not exist, the path will be created
+# and the data gets get downloaded from internet
+DEFAULT_DATA_PATH = "../data"
+
 class TrainMetaData():
     def __init__(self):
         self.current_train_step = 0
@@ -227,6 +232,8 @@ def cleanup_dist():
 def parse_args():
     # Training settings
     parser = argparse.ArgumentParser(description='PyTorch MNIST Example')
+    parser.add_argument('--data-path', type=str, default=DEFAULT_DATA_PATH, metavar='STR',
+                        help='input data path for train and test (default :{path}'.format(path=DEFAULT_DATA_PATH))
     parser.add_argument('--batch-size', type=int, default=64, metavar='N',
                         help='input batch size for training (default: 64)')
     parser.add_argument('--test-batch-size', type=int, default=1000, metavar='N',
@@ -324,7 +331,7 @@ def main(args):
         train_loader = torch.utils.data.DataLoader(args.train_dataset,batch_size=args.batch_size, shuffle=True, **kwargs)
 
     test_loader = torch.utils.data.DataLoader(
-        datasets.MNIST('../data', train=False, transform=transforms.Compose([
+        datasets.MNIST(args.data_path, train=False, transform=transforms.Compose([
             transforms.ToTensor(),
             transforms.Normalize((0.1307,), (0.3081,))
         ])),
@@ -376,7 +383,7 @@ if __name__ == '__main__':
 
     if args.rank == 0:
         #If in distributed mode download once. Assuming setup_dist will be a blocking call
-        train_dataset = datasets.MNIST('../data', train=True, download=True, transform=transforms.Compose([
+        train_dataset = datasets.MNIST(args.data_path, train=True, download=True, transform=transforms.Compose([
                                 transforms.ToTensor(),
                                 transforms.Normalize((0.1307,), (0.3081,))
                                 ]))
@@ -386,7 +393,7 @@ if __name__ == '__main__':
 
     #If distributed mode data should be downloaded before the control reaches here.
     if args.rank != 0:
-        train_dataset = datasets.MNIST('../data', train=True, download=False, transform=transforms.Compose([
+        train_dataset = datasets.MNIST(args.data_path, train=True, download=False, transform=transforms.Compose([
                                 transforms.ToTensor(),
                                 transforms.Normalize((0.1307,), (0.3081,))
                                 ]))
