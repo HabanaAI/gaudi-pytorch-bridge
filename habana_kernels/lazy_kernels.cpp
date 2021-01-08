@@ -284,6 +284,8 @@ Tensor emtpy_from_storage_lazy(
     IntArrayRef size,
     c10::optional<IntArrayRef> stride,
     c10::optional<int64_t> storage_offset) {
+  PT_LAZY_TRACE;
+
   auto hb_tensor_self = habana_lazy::GetHbLazyTensor(self);
   TORCH_CHECK(
       hb_tensor_self.isStorageAttached(),
@@ -361,6 +363,8 @@ Tensor as_strided_hpu_lazy(
     IntArrayRef size,
     IntArrayRef stride,
     c10::optional<int64_t> storage_offset) {
+  PT_LAZY_TRACE;
+
   auto hb_tensor = habana_lazy::GetHbLazyTensor(self);
   auto src_data = hb_tensor.CurrentTensorData();
   if (size.vec().size() == 1 && stride.vec()[0] == 1) {

@@ -30,6 +30,7 @@ HbContextArena* HbContextArena::Get() {
 };
 
 void HbContextArena::RegisterTensor(std::shared_ptr<Data> data) {
+  std::lock_guard<std::recursive_mutex> lock(m_mtx);
   HbContext* devctx = GetHbContext(data->device);
   devctx->tensors_data.emplace(data->unique_id, data);
   // Register to execution context as well, we can merge these two contexts
@@ -41,6 +42,7 @@ void HbContextArena::RegisterTensor(std::shared_ptr<Data> data) {
 }
 
 void HbContextArena::UnregisterTensor(Data* data) {
+  std::lock_guard<std::recursive_mutex> lock(m_mtx);
   HbContext* devctx = GetHbContext(data->device);
   devctx->tensors_data.erase(data->unique_id);
   // UnRegister from execution context as well, we can merge these two contexts
@@ -491,6 +493,7 @@ void HbLazyTensor::SyncTensorsGraphInternal(
 
   // Launch the execution
   hlexec.Launch(stack);
+  HABANA_ASSERT(stack.size() == indices.size());
 
   size_t i = 0;
   for (const torch::IValue& v : stack) {
@@ -500,7 +503,6 @@ void HbLazyTensor::SyncTensorsGraphInternal(
     out_tensor.SetTensorData(st);
   }
   context->MarkTensorsExecuted();
-  HABANA_ASSERT(stack.size() == indices.size());
 
   // Graph executed, clear IR values corresponding to sync tensors
   for (auto idx : indices) {
@@ -570,11 +572,11 @@ void HbLazyTensor::ExecuteCachedGraph() {
 }
 
 void HbLazyTensor::setTensorOriginalType(c10::ScalarType type) {
-  data()->original_element_type = type;
+  data_ptr()->original_element_type = type;
 }
 
-c10::ScalarType HbLazyTensor::getTensorOriginalType() {
-  return data()->original_element_type;
+c10::ScalarType HbLazyTensor::getTensorOriginalType() const {
+  return data_ptr()->original_element_type;
 }
 
 void HbLazyTensor::ShallowCopyTo(HbLazyTensor* dest) const {
@@ -583,6 +585,7 @@ void HbLazyTensor::ShallowCopyTo(HbLazyTensor* dest) const {
 }
 
 void HbLazyTensor::StepMarker(const std::string& device_str) {
+  std::lock_guard<std::recursive_mutex> lock(HbContextArena::Get()->GetMutex());
   c10::Device device = GetDeviceOrCurrent(device_str);
   HbLazyTensor::SyncLiveTensorsGraph(&device);
   HbLazyTensor::MarkStep(device);

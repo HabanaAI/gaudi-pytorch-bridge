@@ -125,7 +125,7 @@ class HbLazyTensor {
   ir::Value GetIrValue() const;
   c10::optional<at::Tensor> CurrentTensorData() const;
   void setTensorOriginalType(c10::ScalarType type);
-  c10::ScalarType getTensorOriginalType();
+  c10::ScalarType getTensorOriginalType() const;
   void* CurrentHabanaData() const;
   // Applies the queue of operations in preparation for using the data.
   void applyPendingGraph();
@@ -208,6 +208,9 @@ class HbContextArena {
   void UnregisterTensor(Data* data);
   std::vector<HbLazyTensor> GetLiveTensors(const c10::Device* device);
   void MarkStep(const c10::Device& device);
+  std::recursive_mutex& GetMutex() {
+    return m_mtx;
+  }
 
  private:
   std::vector<HbContext*> GetAllHbContexts();
@@ -216,6 +219,7 @@ class HbContextArena {
       const c10::Device* device);
   HbContext* GetHbContext(const c10::Device& device);
   std::unordered_map<c10::Device, HbContext*> mp_device_contexts;
+  std::recursive_mutex m_mtx;
 };
 
 inline c10::Device SynapseDeviceToAtenDevice(

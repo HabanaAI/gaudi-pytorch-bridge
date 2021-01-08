@@ -53,6 +53,53 @@ void HbExecutionContext::UnregisterTensor(Data* data) {
   this->getTensorExecutionStatus().erase(data->unique_id);
 }
 
+void HbExecutionContext::MarkTensorRegistered(int tensor_id) {
+  std::lock_guard<std::recursive_mutex> lock(HbContextArena::Get()->GetMutex());
+  TORCH_CHECK(
+      m_tensor_execution_status.find(tensor_id) !=
+          std::end(m_tensor_execution_status),
+      "Habana Lazy execution : trying to set execution stage of unregistered tensor");
+  m_tensor_execution_status[tensor_id] = kREGISTERED;
+}
+void HbExecutionContext::MarkTensorStatus(
+    int tensor_id,
+    LazyTensorExecutionStatus status) {
+  std::lock_guard<std::recursive_mutex> lock(HbContextArena::Get()->GetMutex());
+  TORCH_CHECK(
+      m_tensor_execution_status.find(tensor_id) !=
+          std::end(m_tensor_execution_status),
+      "Habana Lazy execution : trying to set execution stage of unregistered tensor");
+  m_tensor_execution_status[tensor_id] = status;
+}
+void HbExecutionContext::MarkTensorExecuting(int tensor_id) {
+  std::lock_guard<std::recursive_mutex> lock(HbContextArena::Get()->GetMutex());
+  TORCH_CHECK(
+      m_tensor_execution_status.find(tensor_id) !=
+          std::end(m_tensor_execution_status),
+      "Habana Lazy execution : trying to set execution stage of unregistered tensor");
+  if (m_tensor_execution_status[tensor_id] != kEXECUTION_COMPLETE &&
+      m_tensor_execution_status[tensor_id] != kINPUT) {
+    m_tensor_execution_status[tensor_id] = kEXECUTING;
+  }
+}
+void HbExecutionContext::MarkTensorExecuted(int tensor_id) {
+  std::lock_guard<std::recursive_mutex> lock(HbContextArena::Get()->GetMutex());
+  TORCH_CHECK(
+      m_tensor_execution_status.find(tensor_id) !=
+          std::end(m_tensor_execution_status),
+      "Habana Lazy execution : trying to set execution stage of unregistered tensor");
+  m_tensor_execution_status[tensor_id] = kEXECUTION_COMPLETE;
+}
+LazyTensorExecutionStatus HbExecutionContext::getTensorExecutionStatus(
+    int index) {
+  std::lock_guard<std::recursive_mutex> lock(HbContextArena::Get()->GetMutex());
+  auto exec_status = m_tensor_execution_status.find(index);
+  if (exec_status != std::end(m_tensor_execution_status)) {
+    return exec_status->second;
+  } else {
+    return kUN_REGISTERED;
+  }
+}
 void HbExecutionContext::saveInputsAndOutputs(
     ir::ValueList inputVals,
     ir::ValueList outputVals,
@@ -75,8 +122,10 @@ void HbExecutionContext::saveInputsAndOutputs(
 }
 
 //////////////////////////////////////////////////////////////////////////////ARENA/////////////////////////////////////////////////////////////////////////////////
+
 HbExecutionContext* HbExecutionContextArena::getDeviceExecutionContext(
     int index) {
+  std::lock_guard<std::recursive_mutex> lock(HbContextArena::Get()->GetMutex());
   auto hbcontext = m_execution_context_list.find(index);
   if (hbcontext != std::end(m_execution_context_list)) {
     return hbcontext->second;
@@ -92,6 +141,7 @@ HbExecutionContext* HbExecutionContextArena::createExecutionContext(int index) {
 }
 
 void HbExecutionContextArena::removeExecutionContext(int index) {
+  std::lock_guard<std::recursive_mutex> lock(HbContextArena::Get()->GetMutex());
   auto context = m_execution_context_list[index];
   delete context;
   m_execution_context_list.erase(index);
@@ -100,5 +150,4 @@ void HbExecutionContextArena::removeExecutionContext(int index) {
 HbExecutionContextArena HbExecutionContextArena::Get() {
   return HbExecutionContextArena();
 }
-
 } // namespace habana_lazy

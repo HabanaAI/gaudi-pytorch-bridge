@@ -49,47 +49,12 @@ class HbExecutionContext {
       }
     }
   }
-  void MarkTensorExecuting(int tensor_id) {
-    TORCH_CHECK(
-        m_tensor_execution_status.find(tensor_id) !=
-            std::end(m_tensor_execution_status),
-        "Habana Lazy execution : trying to set execution stage of unregistered tensor");
-    if (m_tensor_execution_status[tensor_id] != kEXECUTION_COMPLETE &&
-        m_tensor_execution_status[tensor_id] != kINPUT) {
-      m_tensor_execution_status[tensor_id] = kEXECUTING;
-    }
-  }
-  void MarkTensorExecuted(int tensor_id) {
-    TORCH_CHECK(
-        m_tensor_execution_status.find(tensor_id) !=
-            std::end(m_tensor_execution_status),
-        "Habana Lazy execution : trying to set execution stage of unregistered tensor");
-    m_tensor_execution_status[tensor_id] = kEXECUTION_COMPLETE;
-  }
+  void MarkTensorExecuting(int tensor_id);
+  void MarkTensorExecuted(int tensor_id);
+  void MarkTensorRegistered(int tensor_id);
+  void MarkTensorStatus(int tensor_id, LazyTensorExecutionStatus status);
 
-  void MarkTensorRegistered(int tensor_id) {
-    TORCH_CHECK(
-        m_tensor_execution_status.find(tensor_id) !=
-            std::end(m_tensor_execution_status),
-        "Habana Lazy execution : trying to set execution stage of unregistered tensor");
-    m_tensor_execution_status[tensor_id] = kREGISTERED;
-  }
-
-  void MarkTensorStatus(int tensor_id, LazyTensorExecutionStatus status) {
-    TORCH_CHECK(
-        m_tensor_execution_status.find(tensor_id) !=
-            std::end(m_tensor_execution_status),
-        "Habana Lazy execution : trying to set execution stage of unregistered tensor");
-    m_tensor_execution_status[tensor_id] = status;
-  }
-  LazyTensorExecutionStatus getTensorExecutionStatus(int index) {
-    auto exec_status = m_tensor_execution_status.find(index);
-    if (exec_status != std::end(m_tensor_execution_status)) {
-      return exec_status->second;
-    } else {
-      return kUN_REGISTERED;
-    }
-  }
+  LazyTensorExecutionStatus getTensorExecutionStatus(int index);
 
   std::unordered_map<int64_t, LazyTensorExecutionStatus>&
   getTensorExecutionStatus() {
