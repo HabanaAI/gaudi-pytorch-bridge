@@ -344,6 +344,10 @@ def setup_training(args):
 
         if args.local_rank == -1:
             args.n_pu = 1
+
+        args.allreduce_post_accumulation = False
+        args.allreduce_post_accumulation_fp16 = False
+
     elif args.local_rank == -1 or args.no_cuda:
         device = torch.device(
             "cuda" if torch.cuda.is_available() and not args.no_cuda else "cpu")
@@ -607,6 +611,7 @@ def main():
 
     # Prepare optimizer
     model, optimizer, lr_scheduler, checkpoint, global_step, criterion = prepare_model_and_optimizer(args, device)
+    gradient_accumulation_steps = torch.tensor(args.gradient_accumulation_steps, dtype=torch.float32).to(device)
 
     if is_main_process():
         dllogger.log(step="PARAMETER", data={"SEED": args.seed})
@@ -724,7 +729,7 @@ def main():
                     if args.gradient_accumulation_steps > 1:
                         if not args.allreduce_post_accumulation:
                             # this division was merged into predivision
-                            loss = loss / args.gradient_accumulation_steps
+                            loss = loss / gradient_accumulation_steps
                             divisor = 1.0
                     if args.fp16:
                         with amp.scale_loss(loss, optimizer, delay_overflow_check=args.allreduce_post_accumulation) as scaled_loss:
