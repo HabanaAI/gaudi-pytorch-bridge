@@ -2094,6 +2094,7 @@ void optimizer_adamw_hpu_wrap(
     const int step,
     const int bias_correction,
     const float weight_decay) {
+  TORCH_CHECK((weight_vec.size() > 0), "Can not process empty weight vector");
   if (!habana_lazy::isDeviceInLoweringMode(weight_vec[0].device().index()) &&
       std::getenv("PT_HPU_LAZY_MODE")) {
     optimizer_adamw_hpu_lazy(
@@ -2121,6 +2122,17 @@ void optimizer_adamw_hpu_wrap(
         step,
         bias_correction,
         weight_decay);
+  }
+}
+Tensor fused_norm_hpu_wrap(
+    const std::vector<at::Tensor>& grad,
+    float norm_type) {
+  TORCH_CHECK((grad.size() > 0), "Can not process empty grad vector");
+  if (!habana_lazy::isDeviceInLoweringMode(grad[0].device().index()) &&
+      std::getenv("PT_HPU_LAZY_MODE")) {
+    return fused_norm_hpu_lazy(grad, norm_type);
+  } else {
+    return fused_norm_hpu(grad, norm_type);
   }
 }
 Tensor ones_like_hpu_wrap(

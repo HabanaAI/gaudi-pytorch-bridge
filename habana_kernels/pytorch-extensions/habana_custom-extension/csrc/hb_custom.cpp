@@ -5,8 +5,6 @@
 
 #include <iostream>
 
-using namespace std;
-
 // Fused AdamW
 // Input tensors
 // 1     Gradient             FP32/FP16/BF16  1D/2D
@@ -62,9 +60,29 @@ void optimizer_fused_adamw(
       weight_decay);
 }
 
+// Fused norm
+// Input tensors
+// 1     Gradient             FP32/FP16/BF16  1D/2D
+//
+// Output
+// 1     Norm
+extern at::Tensor fused_norm_hpu_wrap(
+    const std::vector<at::Tensor>& grad,
+    float norm_type);
+
+at::Tensor custom_fused_norm(
+    const std::vector<at::Tensor>& grad,
+    float norm_type) {
+  return fused_norm_hpu_wrap(grad, norm_type);
+}
+
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def(
       "fused_adamw",
       &optimizer_fused_adamw,
       "Compute and apply gradient update to parameters for Adam optimizer");
+  m.def(
+      "fused_norm",
+      &custom_fused_norm,
+      "Compute the norm of the norm of the input vector of tensors");
 }

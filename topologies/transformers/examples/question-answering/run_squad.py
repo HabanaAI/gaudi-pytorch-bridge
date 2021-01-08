@@ -141,7 +141,7 @@ def train(args, train_dataset, model, tokenizer, trainMetaData):
         try:
             from hb_custom import FusedAdamW
         except ImportError:
-            raise ImportError("Please install hbopt.")
+            raise ImportError("Please install hb_custom.")
         optimizer = FusedAdamW(optimizer_grouped_parameters, lr=args.learning_rate, eps=args.adam_epsilon)
     else:
         optimizer = AdamW(optimizer_grouped_parameters, lr=args.learning_rate, eps=args.adam_epsilon)
@@ -315,7 +315,15 @@ def train(args, train_dataset, model, tokenizer, trainMetaData):
                 if args.fp16:
                     torch.nn.utils.clip_grad_norm_(amp.master_params(optimizer), args.max_grad_norm)
                 else:
-                    torch.nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
+                    if args.use_habana and args.use_fused_clip_norm:
+                        try:
+                            from hb_custom import FusedClipNorm
+                        except ImportError:
+                            raise ImportError("Please install hb_custom.")
+
+                        FusedClipNorm(model.parameters(), args.max_grad_norm)
+                    else:
+                        torch.nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
 
                 tp_probe_tensors_iteration_end(model, device, outputs[1].detach().to('cpu'), loss.item(), trainMetaData.ParamsDump, False, args.local_rank)
                 optimizer.step()
@@ -828,6 +836,7 @@ def main():
     parser.add_argument("--threads", type=int, default=1, help="multiple threads for converting example to features")
     parser.add_argument("--no_dropout", action='store_true', help='Disable Dropout in the model')
     parser.add_argument("--use_fused_adam", action="store_true", help="Whether to use fused adamw on habana device")
+    parser.add_argument("--use_fused_clip_norm", action="store_true", help="Whether to use fused clip norm on habana device")
     args = parser.parse_args()
 
     if args.doc_stride >= args.max_seq_length - args.max_query_length:

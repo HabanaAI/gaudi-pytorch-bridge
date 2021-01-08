@@ -579,6 +579,9 @@ void optimizer_adamw_hpu_lazy(
     const int step,
     const int bias_correction,
     const float weight_decay);
+Tensor fused_norm_hpu_lazy(
+    const std::vector<Tensor>& grad,
+    float norm_type = 2.0);
 Tensor ones_like_hpu_lazy(
     const Tensor& self,
     const TensorOptions& options,

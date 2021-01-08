@@ -2926,7 +2926,15 @@ void optimizer_adamw_hpu_lazy(
     const int bias_correction,
     const float weight_decay) {
   PT_LAZY_TRACE;
-  TORCH_CHECK(false, "Not implemented yet");
+  HABANA_ASSERT(false && "Not implemented yet");
+}
+
+Tensor fused_norm_hpu_lazy(const std::vector<Tensor>& grad, float norm_type) {
+  PT_LAZY_TRACE;
+  HABANA_ASSERT(false && "Not implemented yet");
+
+  Tensor ret_tensor = at::empty({1}, grad[0].device());
+  return ret_tensor;
 }
 
 Tensor ones_like_hpu_lazy(
