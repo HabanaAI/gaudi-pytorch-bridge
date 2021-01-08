@@ -300,6 +300,22 @@ def parse_arguments():
     parser.add_argument("--use_jit_trace",
                         action='store_true',
                         help='run with torch jit trace mode')
+    parser.add_argument('--hmp',
+                        dest='hmp',
+                        action='store_true',
+                        help='enable hmp mode')
+    parser.add_argument('--hmp_bf16',
+                        default="",
+                        help='path to bf16 ops list in hmp O1 mode')
+    parser.add_argument('--hmp_fp32',
+                        default="",
+                        help='path to fp32 ops list in hmp O1 mode')
+    parser.add_argument('--hmp_opt_level',
+                        default='O1',
+                        help='choose optimization level for hmp')
+    parser.add_argument('--hmp_verbose',
+                        action='store_true',
+                        help='enable verbose mode for hmp')
 
     args = parser.parse_args()
     args.fp16 = args.fp16 or args.amp
@@ -316,6 +332,13 @@ def setup_training(args):
         torch.ops.load_library(os.path.join(os.environ['BUILD_ROOT_LATEST'], "libhabana_pytorch_plugin.so"))
         sys.path.insert(0, os.path.join(os.environ['BUILD_ROOT_LATEST']))
         device = torch.device("habana")
+
+        if args.hmp:
+            print(args.hmp_bf16)
+            from hmp import hmp
+            hmp.convert(opt_level=args.hmp_opt_level, bf16_file_path=args.hmp_bf16,
+                    fp32_file_path=args.hmp_fp32, isVerbose=args.hmp_verbose)
+
         if args.use_jit_trace:
             enable_tracing()
 
