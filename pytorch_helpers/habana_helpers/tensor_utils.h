@@ -177,6 +177,11 @@ void copy_data_within_device(
 void copy_scalar_to_host(const at::Tensor& src, void* dst_ptr, uint32_t size);
 void copy_scalar_to_device(void* src_ptr, const at::Tensor& dst, uint32_t size);
 
+at::Tensor GenerateAndCopyTensorToHPU(
+    const at::Tensor& ref_tensor,
+    const float value,
+    bool is_persistent);
+
 void change_tensors_to_memory_format(
     std::vector<at::Tensor*> pt_outputs,
     std::vector<const at::Tensor*> pt_inputs,

@@ -216,6 +216,25 @@ at::Tensor habana_helpers::scalar_to_device_tensor(
   return output;
 }
 
+Tensor habana_helpers::GenerateAndCopyTensorToHPU(
+    const Tensor& ref_tensor,
+    const float value,
+    bool is_persistent) {
+  // Convert bias_corrections to tensors to avoid cache misses
+  Tensor val_t = habana_helpers::createPTTensor(
+      ref_tensor,
+      {1},
+      ref_tensor.options(),
+      ref_tensor.suggest_memory_format(),
+      c10::ScalarType::Float,
+      is_persistent);
+  auto size = val_t.numel() * val_t.element_size();
+  std::vector<float> buffer(size, value);
+  copy_scalar_to_device(buffer.data(), val_t, size);
+
+  return val_t;
+}
+
 bool habana_helpers::alwaysAllocOnDevice() {
   static std::once_flag flag;
   static bool allocOnDevice;

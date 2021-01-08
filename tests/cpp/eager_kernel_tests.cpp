@@ -275,3 +275,134 @@ TEST(EagerKernelTest, FusedNormTest) {
       std::abs(total_norm.item().toFloat() - total_norm_cpu.item().toFloat()),
       0.001);
 }
+
+TEST(EagerKernelTest, LambOptPh1Test) {
+  torch::manual_seed(0);
+  int num_params = 2;
+  int M = 4;
+  int N = 4;
+  bool cache = true;
+
+  std::vector<torch::Tensor> grad_vec_1;
+  std::vector<torch::Tensor> wt_vec_1;
+  std::vector<torch::Tensor> exp_avg_vec_1;
+  std::vector<torch::Tensor> exp_avg_sq_vec_1;
+  for (auto i = 0; i < num_params; i++) {
+    auto t = torch::randn({M, N});
+    auto t_hpu = t.to(torch::kHABANA);
+    grad_vec_1.push_back(t_hpu);
+    wt_vec_1.push_back(torch::ones_like(t_hpu));
+    exp_avg_vec_1.push_back(torch::zeros_like(t_hpu));
+    exp_avg_sq_vec_1.push_back(torch::zeros_like(t_hpu));
+  }
+
+  std::vector<torch::Tensor> grad_vec;
+  std::vector<torch::Tensor> wt_vec;
+  std::vector<torch::Tensor> exp_avg_vec;
+  std::vector<torch::Tensor> exp_avg_sq_vec;
+  std::vector<torch::Tensor> grad_vec_cpu;
+  std::vector<torch::Tensor> wt_vec_cpu;
+  std::vector<torch::Tensor> exp_avg_vec_cpu;
+  std::vector<torch::Tensor> exp_avg_sq_vec_cpu;
+  for (auto i = 0; i < num_params; i++) {
+    auto t = torch::randn({M, N});
+    auto t_hpu = t.to(torch::kHABANA);
+    grad_vec.push_back(t_hpu);
+    wt_vec.push_back(torch::ones_like(t_hpu));
+    exp_avg_vec.push_back(torch::zeros_like(t_hpu));
+    exp_avg_sq_vec.push_back(torch::zeros_like(t_hpu));
+    grad_vec_cpu.push_back(t);
+    wt_vec_cpu.push_back(torch::ones_like(t));
+    exp_avg_vec_cpu.push_back(torch::zeros_like(t));
+    exp_avg_sq_vec_cpu.push_back(torch::zeros_like(t));
+  }
+
+  auto clip_grad_norm = torch::tensor({0.4});
+  auto lr = 0.1;
+  auto beta1 = 0.5;
+  auto beta2 = 0.5;
+  auto epsilon = 1e-3;
+  auto step = 1;
+  auto bias_correction = true;
+  auto weight_decay = 0.1;
+  auto grad_averaging = 1;
+  std::vector<torch::Tensor> weight_norm, adam_norm, adam_step;
+  if (cache) {
+    std::tie(weight_norm, adam_norm, adam_step) = optimizer_lamb_phase1_hpu(
+        grad_vec_1,
+        wt_vec_1,
+        exp_avg_vec_1,
+        exp_avg_sq_vec_1,
+        clip_grad_norm.to(torch::kHABANA),
+        grad_averaging,
+        lr,
+        beta1,
+        beta2,
+        epsilon,
+        step,
+        bias_correction,
+        weight_decay);
+  }
+  std::tie(weight_norm, adam_norm, adam_step) = optimizer_lamb_phase1_hpu(
+      grad_vec,
+      wt_vec,
+      exp_avg_vec,
+      exp_avg_sq_vec,
+      clip_grad_norm.to(torch::kHABANA),
+      grad_averaging,
+      lr,
+      beta1,
+      beta2,
+      epsilon,
+      step,
+      bias_correction,
+      weight_decay);
+  float bias_correction1 = 1.0, bias_correction2 = 1.0;
+  if (bias_correction) {
+    bias_correction1 = 1.0 - std::pow(beta1, step);
+    bias_correction2 = 1.0 - std::pow(beta2, step);
+  }
+
+  float beta3 = 1.0;
+  if (grad_averaging) {
+    beta3 = 1 - beta1;
+  }
+
+  std::vector<torch::Tensor> adam_step_cpu;
+  std::vector<torch::Tensor> adam_norm_cpu;
+  std::vector<torch::Tensor> wt_norm_cpu;
+  for (auto i = 0; i < num_params; i++) {
+    auto grad = grad_vec_cpu[i].div(clip_grad_norm);
+    exp_avg_vec_cpu[i].mul_(beta1);
+    exp_avg_vec_cpu[i].add_(grad, beta3);
+    exp_avg_sq_vec_cpu[i].mul_(beta2);
+    exp_avg_sq_vec_cpu[i].addcmul_(grad, grad, (1.0 - beta2));
+    auto exp_avg = exp_avg_vec_cpu[i].div(bias_correction1);
+    auto exp_avg_sq = exp_avg_sq_vec_cpu[i].div(bias_correction2);
+    auto denom = exp_avg_sq.sqrt().add_(epsilon);
+    auto adam_step = torch::div(exp_avg, denom);
+    if (weight_decay)
+      adam_step.add_(wt_vec_cpu[i], weight_decay);
+    adam_step_cpu.push_back(adam_step);
+    adam_norm_cpu.push_back(torch::norm(adam_step, 2.0));
+    wt_norm_cpu.push_back(torch::norm(wt_vec_cpu[i], 2.0));
+  }
+
+  for (auto i = 0; i < num_params; i++) {
+    bool equal =
+        wt_norm_cpu[i].allclose(weight_norm[i].to(torch::kCPU), 0.001, 0.001);
+    /*std::cout << wt_norm_cpu[i] << "\t" << weight_norm[i].to(torch::kCPU) <<
+    "\n";*/
+    EXPECT_EQ(equal, true);
+    equal =
+        adam_norm_cpu[i].allclose(adam_norm[i].to(torch::kCPU), 0.001, 0.001);
+    /*std::cout << adam_norm_cpu[i] << "\t" << adam_norm[i].to(torch::kCPU) <<
+    "\n";*/
+    EXPECT_EQ(equal, true);
+    equal =
+        adam_step_cpu[i].allclose(adam_step[i].to(torch::kCPU), 0.001, 0.001);
+    /*std::cout << adam_step_cpu[i] << "\t" << adam_step[i].to(torch::kCPU) <<
+    "\n";*/
+    EXPECT_EQ(equal, true);
+  }
+}
