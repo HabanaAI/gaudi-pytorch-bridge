@@ -59,6 +59,7 @@ except ImportError:
                           "https://www.github.com/nvidia/apex")
 
 from optimization import BertAdam
+from lamb import NVLAMB
 
 import dllogger
 from concurrent.futures import ProcessPoolExecutor
@@ -316,6 +317,12 @@ def parse_arguments():
     parser.add_argument('--hmp_verbose',
                         action='store_true',
                         help='enable verbose mode for hmp')
+    parser.add_argument("--use_adam",
+                        action='store_true',
+                        help='use Adam optimizer else use pure pytorch LAMB optimizer')
+    parser.add_argument("--use_custom_lamb",
+                        action='store_true',
+                        help='use FusedLamb optimizer')
 
     args = parser.parse_args()
     args.fp16 = args.fp16 or args.amp
@@ -444,13 +451,25 @@ def prepare_model_and_optimizer(args, device):
 
     if torch.cuda.is_available():
         optimizer = FusedLAMB(optimizer_grouped_parameters,
-                          lr=args.learning_rate)
+                              lr=args.learning_rate)
     else:
-        optimizer = BertAdam(
-                    optimizer_grouped_parameters,
-                    lr=args.learning_rate,
-                    warmup=args.warmup_proportion,
-                    t_total=args.max_steps)
+        if args.use_adam:
+            optimizer = BertAdam(
+                        optimizer_grouped_parameters,
+                        lr=args.learning_rate,
+                        warmup=args.warmup_proportion,
+                        t_total=args.max_steps)
+        elif args.use_custom_lamb and args.use_habana:
+            try:
+                from hb_custom import FusedLamb
+            except ImportError:
+                raise ImportError("Please install hbopt.")
+            optimizer = FusedLamb(optimizer_grouped_parameters,
+                                  lr=args.learning_rate)
+        else:
+            optimizer = NVLAMB(
+                        optimizer_grouped_parameters,
+                        lr=args.learning_rate)
 
     lr_scheduler = PolyWarmUpScheduler(optimizer, 
                                        warmup=args.warmup_proportion, 

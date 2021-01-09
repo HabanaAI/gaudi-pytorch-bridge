@@ -82,10 +82,12 @@ class NVLAMB(Optimizer):
                 if grad.is_sparse:
                     raise RuntimeError('Lamb does not support sparse gradients, consider SparseAdam instad.')
                 global_grad_norm.add_(grad.pow(2).sum())
-        global_grad_norm.sqrt_()
+
+        global_grad_norm_ = torch.sqrt(global_grad_norm)
         max_grad_norm = self.defaults['max_grad_norm']
-        if global_grad_norm > max_grad_norm:
-            clip_global_grad_norm = global_grad_norm / max_grad_norm
+
+        if global_grad_norm_ > max_grad_norm:
+            clip_global_grad_norm = global_grad_norm_ / max_grad_norm
         else:
             clip_global_grad_norm = 1.0
 
@@ -133,7 +135,6 @@ class NVLAMB(Optimizer):
                 exp_avg_.mul_(beta1).add_(grad, alpha=beta3)
                 # v_t
                 exp_avg_sq_.mul_(beta2).addcmul_(grad, grad, value=1 - beta2)
-
                 # create clones to avoid modifying runner stats
                 exp_avg = exp_avg_.div(bias_correction1)
                 exp_avg_sq = exp_avg_sq_.div(bias_correction2)
@@ -141,13 +142,15 @@ class NVLAMB(Optimizer):
                 # || w_t ||
                 weight_norm = p.data.norm()
                 # u_t
-                adam_step = exp_avg.div_(exp_avg_sq.sqrt_().add_(group['eps']))
+                exp_avg_sq_sqrt = torch.sqrt(exp_avg_sq)
+                adam_step = exp_avg.div_(exp_avg_sq_sqrt.add_(group['eps']))
                 if group['weight_decay'] != 0:
                     adam_step.add_(p.data, alpha=group['weight_decay'])
                 # || u_t ||
                 adam_norm = adam_step.norm()
                 if (group['weight_decay'] != 0 or self.use_nvlamb) and adam_norm > 0 and weight_norm > 0:
                     trust_ratio = weight_norm / adam_norm
+                    trust_ratio = trust_ratio.item()
                 else:
                     trust_ratio = 1
 
@@ -155,4 +158,7 @@ class NVLAMB(Optimizer):
                 state['adam_norm'] = adam_norm
                 state['trust_ratio'] = trust_ratio
 
-                p.data.add_(adam_step, alpha=-step_size * trust_ratio)
+                #p.data.add_(adam_step, alpha=-step_size * trust_ratio)
+                alpha = -step_size * trust_ratio
+                adam_step2 = adam_step * alpha
+                p.data.add_(adam_step2)
