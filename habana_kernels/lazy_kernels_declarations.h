@@ -82,7 +82,8 @@ Tensor& pow_tensor_tensor_hpu_lazy_(Tensor& self, const Tensor& other);
 Tensor pow_tensor_scalar_hpu_lazy(const Tensor& self, Scalar other);
 Tensor& pow_tensor_scalar_hpu_lazy_(Tensor& self, Scalar other);
 Tensor pow_scalar_tensor_hpu_lazy(Scalar other, const Tensor& self);
-Tensor gt_hpu_lazy(Tensor& self, Tensor& other);
+Tensor gt_tensor_hpu_lazy(Tensor& self, Tensor& other);
+Tensor gt_scalar_hpu_lazy(Tensor& self, Scalar other);
 void eq_tensor_out_hpu_lazy(
     Tensor& output,
     const Tensor& self,

@@ -231,9 +231,26 @@ Tensor compare_op_hpu(
  * @param self - tensor_0
  * @param other - tensor_1
  ************************************************************************/
-Tensor gt_hpu(Tensor& self, Tensor& other) {
+Tensor gt_tensor_hpu(Tensor& self, Tensor& other) {
   PT_KERNEL_BEGIN;
   std::vector<at::Tensor> pt_inputs{self, other};
+  torch::jit::Stack stack{IValue(self), IValue(other)};
+  auto output = compare_op_hpu<GtOperator>(pt_inputs, stack, "gt");
+  PT_KERNEL_END;
+  return output;
+}
+
+/*************************************************************************
+ * @brief Kernel implementation for aten.gt(self, other)
+ * @param self - tensor_0
+ * @param other - Scalar
+ ************************************************************************/
+Tensor gt_scalar_hpu(Tensor& self, Scalar other) {
+  PT_KERNEL_BEGIN;
+  if (self.dim() == 0) {
+    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+  }
+  std::vector<at::Tensor> pt_inputs{self};
   torch::jit::Stack stack{IValue(self), IValue(other)};
   auto output = compare_op_hpu<GtOperator>(pt_inputs, stack, "gt");
   PT_KERNEL_END;

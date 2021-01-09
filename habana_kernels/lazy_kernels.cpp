@@ -793,9 +793,13 @@ Tensor pow_scalar_tensor_hpu_lazy(Scalar other, const Tensor& self) {
   HABANA_ASSERT(0);
   return pow_scalar_tensor_hpu(other, self);
 };
-Tensor gt_hpu_lazy(Tensor& self, Tensor& other) {
+Tensor gt_tensor_hpu_lazy(Tensor& self, Tensor& other) {
   HABANA_ASSERT(0);
-  return gt_hpu(self, other);
+  return gt_tensor_hpu(self, other);
+};
+Tensor gt_scalar_hpu_lazy(Tensor& self, Scalar other) {
+  HABANA_ASSERT(0);
+  return gt_scalar_hpu(self, other);
 };
 
 void eq_tensor_out_hpu_lazy(
