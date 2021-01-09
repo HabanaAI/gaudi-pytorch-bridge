@@ -352,7 +352,14 @@ class Trainer:
                 "weight_decay": 0.0,
             },
         ]
-        optimizer = AdamW(optimizer_grouped_parameters, lr=self.args.learning_rate, eps=self.args.adam_epsilon)
+        if self.args.use_habana and self.args.use_fused_adam:
+            try:
+                from hb_custom import FusedAdamW
+            except ImportError:
+                raise ImportError("Please install hb_custom.")
+            optimizer = FusedAdamW(optimizer_grouped_parameters, lr=self.args.learning_rate, eps=self.args.adam_epsilon)
+        else:
+            optimizer = AdamW(optimizer_grouped_parameters, lr=self.args.learning_rate, eps=self.args.adam_epsilon)
         scheduler = get_linear_schedule_with_warmup(
             optimizer, num_warmup_steps=self.args.warmup_steps, num_training_steps=num_training_steps
         )
@@ -583,8 +590,8 @@ class Trainer:
                    model_trace = torch.jit.trace(model, (input_ids, attention_mask, token_type_ids, position_ids, tensor_dummy, tensor_dummy, labels, tensor_dummy, tensor_dummy), check_trace=False)
                    is_model_traced = True
                    model = model_trace
-                   if args.local_rank != -1:
-                    if args.use_habana:
+                   if self.args.local_rank != -1:
+                    if self.args.use_habana:
                         model = torch.nn.parallel.DistributedDataParallel(
                             model, find_unused_parameters=True
                         )
@@ -601,7 +608,15 @@ class Trainer:
                     if self.args.fp16:
                         torch.nn.utils.clip_grad_norm_(amp.master_params(optimizer), self.args.max_grad_norm)
                     else:
-                        torch.nn.utils.clip_grad_norm_(model.parameters(), self.args.max_grad_norm)
+                        if self.args.use_habana and self.args.use_fused_clip_norm:
+                            try:
+                                from hb_custom import FusedClipNorm
+                            except ImportError:
+                                raise ImportError("Please install hb_custom.")
+
+                            FusedClipNorm(model.parameters(), self.args.max_grad_norm)
+                        else:
+                            torch.nn.utils.clip_grad_norm_(model.parameters(), self.args.max_grad_norm)
 
                     if is_torch_tpu_available():
                         xm.optimizer_step(optimizer)
@@ -962,8 +977,8 @@ class Trainer:
                     model_trace.eval()
                     is_eval_traced = True
                     model = model_trace
-                    if args.local_rank != -1:
-                      if args.use_habana:
+                    if self.args.local_rank != -1:
+                      if self.args.use_habana:
                           model = torch.nn.parallel.DistributedDataParallel(
                              model, find_unused_parameters=True
                          )

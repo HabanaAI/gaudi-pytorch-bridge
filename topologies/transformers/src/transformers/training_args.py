@@ -89,6 +89,10 @@ class TrainingArguments:
             Wherher to not use CUDA even when it is available or not.
         use_habana (:obj:`bool`, `optional`, defaults to :obj:`False`):
             Whether to run training on Habana device.
+        use_fused_adam (:obj:`bool`, `optional`, defaults to :obj:`False`):
+            Whether to use fused adamw on habana device.
+        use_fused_clip_norm (:obj:`bool`, `optional`, defaults to :obj:`False`):
+            Whether to use fused clipnorm on habana device.
         log_device_mem_alloc (:obj:`bool`,  `optional`, defaults to :obj:`False`):
             Log live memory allocations on device at the given point.
         seed (:obj:`int`, `optional`, defaults to 42):
@@ -167,6 +171,8 @@ class TrainingArguments:
     weight_decay: float = field(default=0.0, metadata={"help": "Weight decay if we apply some."})
     adam_epsilon: float = field(default=1e-8, metadata={"help": "Epsilon for Adam optimizer."})
     max_grad_norm: float = field(default=1.0, metadata={"help": "Max gradient norm."})
+    use_fused_adam: bool = field(default=False, metadata={"help": "Whether to use fused adamw on habana device"})
+    use_fused_clip_norm: bool = field(default=False, metadata={"help": "Whether to use fused clipnorm on habana device"})
 
     num_train_epochs: float = field(default=3.0, metadata={"help": "Total number of training epochs to perform."})
     max_steps: int = field(
