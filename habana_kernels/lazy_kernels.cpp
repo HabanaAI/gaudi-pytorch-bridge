@@ -1628,35 +1628,27 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu_lazy(
           eps);
 
   auto output_sizes = input.sizes().vec();
-  std::vector<int64_t> vec1 = {output_sizes[0]};
-  auto sizes = std::make_tuple(output_sizes, vec1, vec1);
+  auto sizes = std::make_tuple(
+      output_sizes, running_mean.sizes().vec(), running_var.sizes().vec());
+  auto mf = input.suggest_memory_format();
 
   // Get Output Image
   auto result_img = at::native::empty_hpu_lazy(
-      std::get<0>(sizes),
-      input.options(),
-      input.suggest_memory_format(),
-      false);
+      std::get<0>(sizes), input.options(), mf, false);
   const auto hlresult = habana_lazy::GetHbLazyTensor(result_img);
   habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
   out.m_index = 0;
   out.SetNode(node);
   // Get output mean and var
   auto result_mean = at::native::empty_hpu_lazy(
-      std::get<1>(sizes),
-      running_mean.options(),
-      running_mean.suggest_memory_format(),
-      false);
+      std::get<1>(sizes), running_mean.options(), mf, false);
   const auto hlresult2 = habana_lazy::GetHbLazyTensor(result_mean);
   habana_lazy::ir::Value& out2 = hlresult2.CurrentIrValue();
   out2.m_index = 1;
   out2.SetNode(node);
 
   auto result_var = at::native::empty_hpu_lazy(
-      std::get<2>(sizes),
-      running_var.options(),
-      running_var.suggest_memory_format(),
-      false);
+      std::get<2>(sizes), running_var.options(), mf, false);
   const auto hlresult3 = habana_lazy::GetHbLazyTensor(result_var);
   habana_lazy::ir::Value& out3 = hlresult3.CurrentIrValue();
   out3.m_index = 2;
@@ -1675,19 +1667,64 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu_lazy(
     bool train,
     double eps,
     UNUSED std::array<bool, 3> output_mask) {
-  HABANA_ASSERT(0);
-  return batch_norm_bwd_hpu(
-      grad_out,
-      input,
-      weight,
-      running_mean,
-      running_var,
-      save_mean,
-      save_invstd,
-      train,
-      eps,
-      output_mask);
+  PT_LAZY_TRACE;
+  habana_lazy::ir::NodePtr node =
+      std::make_shared<habana_lazy::ir::BatchNormBackward>(
+          grad_out,
+          input,
+          weight,
+          running_mean,
+          running_var,
+          save_mean,
+          save_invstd,
+          train,
+          eps,
+          output_mask);
+
+  auto output_sizes = input.sizes().vec();
+  auto sizes = std::make_tuple(
+      output_sizes, running_mean.sizes().vec(), running_var.sizes().vec());
+
+  at::Tensor result_1, result_2, result_3;
+  if (output_mask[0]) {
+    result_1 = at::native::empty_hpu_lazy(
+        std::get<0>(sizes),
+        input.options(),
+        input.suggest_memory_format(),
+        false);
+    const auto hlresult_1 = habana_lazy::GetHbLazyTensor(result_1);
+    habana_lazy::ir::Value& out_1 = hlresult_1.CurrentIrValue();
+    out_1.m_index = 0;
+    out_1.SetNode(node);
+  }
+
+  if (output_mask[1]) {
+    result_2 = at::native::empty_hpu_lazy(
+        std::get<1>(sizes),
+        weight.options(),
+        weight.suggest_memory_format(),
+        false);
+    const auto hlresult_2 = habana_lazy::GetHbLazyTensor(result_2);
+    habana_lazy::ir::Value& out_2 = hlresult_2.CurrentIrValue();
+    out_2.m_index = 1;
+    out_2.SetNode(node);
+  }
+
+  if (output_mask[2]) {
+    result_3 = at::native::empty_hpu_lazy(
+        std::get<2>(sizes),
+        save_mean.options(),
+        save_mean.suggest_memory_format(),
+        false);
+    const auto hlresult_3 = habana_lazy::GetHbLazyTensor(result_3);
+    habana_lazy::ir::Value& out_3 = hlresult_3.CurrentIrValue();
+    out_3.m_index = 2;
+    out_3.SetNode(node);
+  }
+
+  return std::make_tuple(result_1, result_2, result_3);
 };
+
 std::tuple<Tensor, Tensor, Tensor> layer_norm_hpu_lazy(
     const Tensor& input,
     const Tensor& weight,
