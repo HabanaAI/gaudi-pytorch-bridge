@@ -773,14 +773,51 @@ def main():
                                 output_save_file = os.path.join(args.output_dir, "ckpt_{}.pt".format(global_step))
                             else:
                                 output_save_file = os.path.join(args.output_dir, "ckpt_{}.pt".format(global_step + args.phase1_end_step))
+                            checkpoint_dict ={}
                             if args.do_train:
-                                torch.save({'model': model_to_save.state_dict(),
-                                            'optimizer': optimizer.state_dict(),
-                                            'master params': list(amp.master_params(optimizer)),
-                                            'files': [f_id] + files,
-                                            'epoch': epoch,
-                                            'data_loader': None if global_step >= args.max_steps else train_dataloader}, output_save_file)
+                                if args.use_habana:
+                                    config = modeling.BertConfig.from_json_file(args.config_file)
 
+                                    # Padding for divisibility by 8
+                                    if config.vocab_size % 8 != 0:
+                                        config.vocab_size += 8 - (config.vocab_size % 8)
+
+                                    model_copy = modeling.BertForPreTraining(config)
+                                    model_copy.load_state_dict(model_to_save.state_dict())
+
+                                    param_groups_copy = optimizer.state_dict()['param_groups']
+                                    state_dict_copy = {}
+                                    for st_key, st_val in optimizer.state_dict()['state'].items():
+                                        st_val_copy={}
+                                        for k, v in st_val.items():
+                                            if isinstance(v, torch.Tensor):
+                                                st_val_copy[k] = v.to('cpu')
+                                            else:
+                                                st_val_copy[k] = v
+                                            state_dict_copy[st_key] = st_val_copy
+                                    optim_dict = {}
+                                    optim_dict['state'] = state_dict_copy
+                                    optim_dict['param_groups'] = param_groups_copy
+                                    checkpoint_dict = {'model': model_copy.state_dict(),
+                                                'optimizer': optim_dict,
+                                                'files': [f_id] + files,
+                                                'epoch': epoch,
+                                                'data_loader': None if global_step >= args.max_steps else train_dataloader}
+                                elif no_cuda:
+                                    checkpoint_dict = {'model': model_to_save.state_dict(),
+                                                'optimizer': optimizer.state_dict(),
+                                                'files': [f_id] + files,
+                                                'epoch': epoch,
+                                                'data_loader': None if global_step >= args.max_steps else train_dataloader}
+                                else:
+                                    checkpoint_dict = {'model': model_to_save.state_dict(),
+                                                'optimizer': optimizer.state_dict(),
+                                                'master params': list(amp.master_params(optimizer)),
+                                                'files': [f_id] + files,
+                                                'epoch': epoch,
+                                                'data_loader': None if global_step >= args.max_steps else train_dataloader}
+
+                                torch.save(checkpoint_dict, output_save_file)
                                 most_recent_ckpts_paths.append(output_save_file)
                                 if len(most_recent_ckpts_paths) > 3:
                                     ckpt_to_be_removed = most_recent_ckpts_paths.pop(0)
