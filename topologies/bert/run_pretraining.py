@@ -746,7 +746,7 @@ def main():
                         train_time_raw = time.time() - raw_train_start
                         last_num_steps = int(training_steps / args.gradient_accumulation_steps) % args.log_freq
                         last_num_steps = args.log_freq if last_num_steps == 0 else last_num_steps
-                        average_loss = torch.tensor(average_loss, dtype=torch.float32).cuda()
+                        average_loss = torch.tensor(average_loss, dtype=torch.float32).to(device)
                         average_loss = average_loss / (last_num_steps * divisor)
                         if (torch.distributed.is_initialized()):
                             average_loss /= get_world_size()
