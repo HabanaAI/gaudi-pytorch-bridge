@@ -69,7 +69,7 @@ struct PT_ENABLE_HOST_MEMORY_CACHE {
 };
 
 struct PT_ENABLE_HCL_SAME_ADDRESS_RESOLUTION {
-  static constexpr bool default_value = true;
+  static constexpr bool default_value = false;
 };
 
 struct PT_ENABLE_HCL_STREAM {
