@@ -193,6 +193,7 @@ HPUDeviceAllocator::HPUDeviceAllocator() {
   suballoc = nullptr;
   poolingType = get_pooling_strategy();
   poolSize = get_pool_size();
+  allocator_active_device_id = -1;
 }
 
 HPUDeviceAllocator::~HPUDeviceAllocator() {
@@ -367,6 +368,10 @@ at::DeleterFnPtr HPUDeviceAllocator::raw_deleter() const {
 }
 
 void HPUDeviceAllocator::flush_stream_events() const {
+  if (unsigned(-1) == habana::HPUDeviceAllocator::allocator_active_device_id) {
+    return;
+  }
+
   TORCH_CHECK(
       habana::HPUDeviceAllocator::allocator_active_device_id == 0,
       "habana active device: ",
