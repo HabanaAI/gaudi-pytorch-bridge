@@ -129,8 +129,11 @@ CMD+=" --hmp "
 CMD+=" --hmp_bf16 $BERT_REPO_BASE/../configs/ops_bf16_bert.txt "
 CMD+=" --hmp_fp32 $BERT_REPO_BASE/../configs/ops_fp32_bert.txt "
 
-#CMD="python3 -m torch.distributed.launch --nproc_per_node=$n_pu $CMD"
-CMD="python3 -u $CMD"
+if [ "$n_pu" -gt "1" ]; then
+    CMD="python3 -m torch.distributed.launch --nproc_per_node=$n_pu $CMD"
+else
+    CMD="python3 -u $CMD"
+fi
 
 
 if [ "$create_logfile" = "true" ] ; then
@@ -211,8 +214,11 @@ CMD+=" --hmp "
 CMD+=" --hmp_bf16 $BERT_REPO_BASE/../configs/ops_bf16_bert.txt "
 CMD+=" --hmp_fp32 $BERT_REPO_BASE/../configs/ops_fp32_bert.txt "
 
-#CMD="python3 -m torch.distributed.launch --nproc_per_node=$n_pu $CMD"
-CMD="python3 -u $CMD"
+if [ "$n_pu" -gt "1" ]; then
+    CMD="python3 -m torch.distributed.launch --nproc_per_node=$n_pu $CMD"
+else
+    CMD="python3 -u $CMD"
+fi
 
 if [ "$create_logfile" = "true" ] ; then
   export GBS=$(expr $train_batch_size_phase2 \* $n_pu)

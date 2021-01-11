@@ -57,6 +57,8 @@ except ImportError:
     if torch.cuda.is_available():
         raise ImportError("Please install apex from "
                           "https://www.github.com/nvidia/apex")
+    else:
+        from torch.nn.parallel import DistributedDataParallel as DDP
 
 from optimization import BertAdam
 from lamb import NVLAMB
@@ -349,11 +351,19 @@ def setup_training(args):
         if args.use_jit_trace:
             enable_tracing()
 
-        if args.local_rank == -1:
-            args.n_pu = 1
-
+        args.n_pu = 1
         args.allreduce_post_accumulation = False
         args.allreduce_post_accumulation_fp16 = False
+        if args.local_rank != -1:
+            if os.getenv('HCL_CONFIG_PATH') is None:
+                print("HCL_CONFIG_PATH is not set")
+                exit(0)
+            os.environ["ID"] = str(args.local_rank)
+            args.world_size = int(os.environ["WORLD_SIZE"])
+            args.rank = int(os.environ["RANK"])
+            torch.distributed.init_process_group('hcl',
+                    rank=args.rank, world_size=args.world_size)
+
 
     elif args.local_rank == -1 or args.no_cuda:
         device = torch.device(
@@ -507,7 +517,11 @@ def prepare_model_and_optimizer(args, device):
 
     if args.local_rank != -1:
         if not args.allreduce_post_accumulation:
-            model = DDP(model, message_size=250000000, gradient_predivide_factor=get_world_size())
+            if not args.use_jit_trace:
+                if args.use_habana:
+                    model = DDP(model)
+                else:
+                    model = DDP(model, message_size=250000000, gradient_predivide_factor=get_world_size())
         else:
             flat_dist_call([param.data for param in model.parameters()], torch.distributed.broadcast, (0,) )
     elif args.n_pu > 1:
@@ -736,9 +750,24 @@ def main():
                         if model_traced == False:
                             model = torch.jit.trace(model, (input_ids, segment_ids, input_mask, position_ids), check_trace=False)
                             model_traced = True
-                        prediction_scores, seq_relationship_score = model(input_ids, segment_ids, input_mask, position_ids)
+                            if args.local_rank != -1 and not args.allreduce_post_accumulation:
+                                if args.use_habana:
+                                    model = DDP(model)
+                                else:
+                                    model = DDP(model, message_size=250000000, gradient_predivide_factor=get_world_size())
+                        if args.local_rank != -1 and not args.allreduce_post_accumulation \
+                                and (training_steps % args.gradient_accumulation_steps != 0):
+                            with model.no_sync():
+                                prediction_scores, seq_relationship_score = model(input_ids, segment_ids, input_mask, position_ids)
+                        else:
+                            prediction_scores, seq_relationship_score = model(input_ids, segment_ids, input_mask, position_ids)
                     else:
-                        prediction_scores, seq_relationship_score = model(input_ids=input_ids, token_type_ids=segment_ids, attention_mask=input_mask, position_ids=position_ids)
+                        if args.local_rank != -1 and not args.allreduce_post_accumulation \
+                                and (training_steps % args.gradient_accumulation_steps != 0):
+                            with model.no_sync():
+                                prediction_scores, seq_relationship_score = model(input_ids=input_ids, token_type_ids=segment_ids, attention_mask=input_mask, position_ids=position_ids)
+                        else:
+                            prediction_scores, seq_relationship_score = model(input_ids=input_ids, token_type_ids=segment_ids, attention_mask=input_mask, position_ids=position_ids)
 
                     loss = criterion(prediction_scores, seq_relationship_score, masked_lm_labels, next_sentence_labels, loss_correction_factor)
                     if args.n_pu > 1:
