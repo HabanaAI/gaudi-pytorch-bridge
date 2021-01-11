@@ -743,6 +743,8 @@ Tensor& div_scalar_hpu_lazy_(Tensor& self, Scalar other) {
   habana_lazy::ir::Value& out = hl_self.CurrentIrValue();
   out.m_index = 0;
   out.SetNode(node);
+  std::vector<at::Tensor> input_pt_vec{self};
+  node->AddInputPtTensors(input_pt_vec);
   // As its an inplace op and we want this op to execute
   // we want to wind back status of this tensor to registered
   // so that when post order is created, we actually execute it
