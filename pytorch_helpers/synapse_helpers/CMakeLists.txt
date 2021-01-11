@@ -15,12 +15,16 @@ foreach (FLAVOR abi11)
     env_flags.cpp
     event.cpp
     event_handle_cache.cpp
+    device_memory.cpp
     graph.cpp
     habana_tensor.cpp
     hcl_communicator.cpp
     host_memory.cpp
     logger_stub.cpp
     memory_mapping.cpp
+    pool_allocator/utils.cpp
+    pool_allocator/PoolAllocator.cpp
+    pool_allocator/CoalescedPoolAllocator.cpp
     recipe.cpp
     recipe_handle_cache.cpp
     stream_event_manager.cpp

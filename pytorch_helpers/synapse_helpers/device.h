@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "absl/types/variant.h"
+#include "synapse_helpers/device_memory.h"
 #include "synapse_helpers/device_types.h"
 #include "synapse_helpers/event.h"
 #include "synapse_helpers/event_handle_cache.h"
@@ -272,6 +273,10 @@ class device {
     return enable_dynamic_workspace_;
   }
 
+  device_memory& get_device_memory() {
+    return device_memory_;
+  }
+
  private:
   friend class stream;
   static synapse_error_v<std::shared_ptr<device>> create(
@@ -301,6 +306,7 @@ class device {
   size_t workspace_size_{0};
   device_ptr workspace_buffer_{0}; // global workspace buffer per device to be
                                    // used to launch recipes
+  std::mutex ws_mutex_;
   event_handle_cache event_handle_cache_;
   memory_mapper memory_mapper_;
   stream stream_comp_;
@@ -320,6 +326,7 @@ class device {
   bool host_memory_cache_enabled_;
   unsigned max_dma_copy_retry_count_;
   std::chrono::milliseconds dma_copy_retry_delay_;
+  device_memory device_memory_;
 
   bool enable_dynamic_workspace_{false};
 

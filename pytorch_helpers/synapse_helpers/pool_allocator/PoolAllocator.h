@@ -8,15 +8,10 @@
  ******************************************************************************
  */
 #pragma once
-#include <ATen/ATen.h>
-#include <c10/core/Allocator.h>
 #include <synapse_api_types.h>
 #include <synapse_helpers/device.h>
-#include <synapse_helpers/habana_tensor.h>
-//#include "CoalescedPoolAllocator.h"
 
-namespace at {
-namespace habana {
+namespace synapse_helpers {
 namespace pool_allocator {
 
 enum PoolStrategyType {
@@ -38,9 +33,9 @@ enum PoolStrategyType {
 class PoolingStrategy {
  public:
   virtual ~PoolingStrategy() {}
-  virtual void* pool_create(synDeviceId deviceID, uint64_t size) const = 0;
-  virtual void pool_destroy(void* p) const = 0;
-  virtual void* pool_alloc_chunk(void* p, uint64_t size) const = 0;
+  virtual bool pool_create(synDeviceId deviceID, uint64_t size) const = 0;
+  virtual void pool_destroy() const = 0;
+  virtual void* pool_alloc_chunk(uint64_t size) const = 0;
   virtual void pool_free_chunk(void* p) const = 0;
 };
 
@@ -60,16 +55,16 @@ class SubAllocator {
     this->strategy_ = strategy;
   }
 
-  void* pool_create(synDeviceId deviceID, uint64_t size) const {
+  bool pool_create(synDeviceId deviceID, uint64_t size) const {
     return this->strategy_->pool_create(deviceID, size);
   }
 
-  void pool_destroy(void* p) const {
-    return this->strategy_->pool_destroy(p);
+  void pool_destroy() const {
+    return this->strategy_->pool_destroy();
   }
 
-  void* pool_alloc_chunk(void* p, uint64_t size) const {
-    return this->strategy_->pool_alloc_chunk(p, size);
+  void* pool_alloc_chunk(uint64_t size) const {
+    return this->strategy_->pool_alloc_chunk(size);
   }
 
   void pool_free_chunk(void* p) const {
@@ -110,9 +105,9 @@ class StaticPooling : public PoolingStrategy {
 
  public:
   StaticPooling();
-  void* pool_create(synDeviceId deviceID, uint64_t size) const override;
-  void pool_destroy(void* p) const override;
-  void* pool_alloc_chunk(void* p, uint64_t size) const override;
+  bool pool_create(synDeviceId deviceID, uint64_t size) const override;
+  void pool_destroy() const override;
+  void* pool_alloc_chunk(uint64_t size) const override;
   void pool_free_chunk(void* p) const override;
 };
 
@@ -142,12 +137,11 @@ class DynamicPooling : public PoolingStrategy {
 
  public:
   DynamicPooling();
-  void* pool_create(synDeviceId deviceID, uint64_t size) const override;
-  void pool_destroy(void* p) const override;
-  void* pool_alloc_chunk(void* p, uint64_t size) const override;
+  bool pool_create(synDeviceId deviceID, uint64_t size) const override;
+  void pool_destroy() const override;
+  void* pool_alloc_chunk(uint64_t size) const override;
   void pool_free_chunk(void* p) const override;
 };
 
 } // namespace pool_allocator
-} // namespace habana
-} // namespace at
+} // namespace synapse_helpers

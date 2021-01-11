@@ -89,6 +89,14 @@ struct PT_HABANA_DMA_COPY_RETRY_DELAY : public std::numeric_limits<unsigned> {
   static constexpr unsigned default_value = 10;
 };
 
+struct PT_HABANA_POOL_SIZE : public std::numeric_limits<unsigned long> {
+  static constexpr unsigned long default_value = 24;
+};
+
+struct PT_HABANA_POOL_STRATEGY : public std::numeric_limits<unsigned> {
+  static constexpr unsigned default_value = 3;
+};
+
 // Overloads for different type of default value
 
 template <class T>

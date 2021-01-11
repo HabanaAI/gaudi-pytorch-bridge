@@ -8,15 +8,11 @@
  ******************************************************************************
  */
 #pragma once
-#include <ATen/ATen.h>
-#include <c10/core/Allocator.h>
 #include <synapse_api_types.h>
 #include <synapse_helpers/device.h>
-#include <synapse_helpers/habana_tensor.h>
 #include "PoolAllocator.h"
 
-namespace at {
-namespace habana {
+namespace synapse_helpers {
 namespace pool_allocator {
 
 // workaround only
@@ -28,5 +24,4 @@ size_t block_align(size_t n);
 void print_device_memory_stats(synDeviceId deviceID);
 
 } // namespace pool_allocator
-} // namespace habana
-} // namespace at
+} // namespace synapse_helpers

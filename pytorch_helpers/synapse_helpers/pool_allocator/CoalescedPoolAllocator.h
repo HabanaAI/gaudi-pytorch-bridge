@@ -8,16 +8,12 @@
  ******************************************************************************
  */
 #pragma once
-#include <ATen/ATen.h>
-#include <c10/core/Allocator.h>
 #include <synapse_api_types.h>
 #include <synapse_helpers/device.h>
-#include <synapse_helpers/habana_tensor.h>
 #include <list>
 #include "PoolAllocator.h"
 
-namespace at {
-namespace habana {
+namespace synapse_helpers {
 namespace pool_allocator {
 
 /// bump pooling ///
@@ -51,8 +47,8 @@ class StaticCoalescedPooling : public PoolingStrategy {
   mutable uint64_t free_chunks;
   mutable uint64_t free_chunks_size;
   mutable simple_coalesced_pool_t* prealloc_pool;
-  Chunk* reuse_chunks(void* p, uint64_t size) const;
-  void* get_free_chunk(void* p, uint64_t size) const;
+  Chunk* reuse_chunks(uint64_t size) const;
+  void* get_free_chunk(uint64_t size) const;
   Chunk* get_any_available_free_chunk(uint64_t size) const;
   bool skip_chunk(Chunk* chunk, uint64_t size_req) const;
   bool canMergePreviousChunk(Chunk* chunk, uint64_t size) const;
@@ -62,7 +58,7 @@ class StaticCoalescedPooling : public PoolingStrategy {
   Chunk* try_coalescing_chunks(void* ptr, uint64_t size) const;
   Chunk* try_splitting_chunks(void* ptr, uint64_t size) const;
   bool pool_defragment(uint64_t size) const;
-  Chunk* create_chunk(uint64_t size) const;
+  Chunk* create_chunk() const;
   Chunk* try_block_splitting(uint64_t size) const;
   Chunk* try_defragmenting(void* ptr, uint64_t size) const;
   bool isContigousBlockAvailable(uint64_t size) const;
@@ -74,12 +70,11 @@ class StaticCoalescedPooling : public PoolingStrategy {
 
  public:
   StaticCoalescedPooling();
-  void* pool_create(synDeviceId deviceID, uint64_t size) const override;
-  void pool_destroy(void* p) const override;
-  void* pool_alloc_chunk(void* p, uint64_t size) const override;
+  bool pool_create(synDeviceId deviceID, uint64_t size) const override;
+  void pool_destroy() const override;
+  void* pool_alloc_chunk(uint64_t size) const override;
   void pool_free_chunk(void* p) const override;
 };
 
 } // namespace pool_allocator
-} // namespace habana
-} // namespace at
+} // namespace synapse_helpers

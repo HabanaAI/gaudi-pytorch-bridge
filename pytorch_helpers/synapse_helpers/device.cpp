@@ -115,7 +115,8 @@ device::device(
       stream_h2d_{*this, stream_flavor::DMA_H2D},
       stream_d2h_{*this, stream_flavor::DMA_D2H},
       recipe_handle_cache_{*this},
-      host_memory_{*this} {
+      host_memory_{*this},
+      device_memory_{*this} {
   HABANA_ASSERT(create_allocator != nullptr);
   allocator_ = create_allocator(id_);
 
@@ -127,10 +128,11 @@ device::device(
   // if each rank uses the same address for the recv/intermediate addresses;
   // then we can use the same address and it will save the address resolution
   // (since the address is known)
-  if (is_hcl_same_addr_enabled_) {
+  if (is_hcl_same_addr_enabled_ && (std::getenv("ID") != nullptr)) {
     size_t prealloc_size = 2ULL * 1024 * 1024 * 1024; // 2GByte
-    device_ptr prealloc_addr =
-        reinterpret_cast<device_ptr>(allocator_->alloc(prealloc_size));
+    void* v_ptr{nullptr};
+    device_memory_.malloc(&v_ptr, prealloc_size);
+    device_ptr prealloc_addr = reinterpret_cast<device_ptr>(v_ptr);
     HABANA_ASSERT(prealloc_addr != device_nullptr);
     preallocated_reduction_buffer_ = absl::make_optional<owned_device_ptr>(
         prealloc_addr, prealloc_size, *this);
@@ -153,8 +155,9 @@ device::device(
     workspace_size_ = free_memory > global_workspace_size
         ? global_workspace_size
         : 0.7 * free_memory;
-    workspace_buffer_ =
-        reinterpret_cast<device_ptr>(allocator_->alloc(workspace_size_));
+    void* v_ptr{nullptr};
+    device_memory_.malloc(&v_ptr, workspace_size_);
+    workspace_buffer_ = reinterpret_cast<device_ptr>(v_ptr);
 
     PT_SYNHELPER_DEBUG(
         "Allocating static workspace at ",
@@ -283,9 +286,14 @@ uint64_t device::get_workspace_size() {
 device::~device() {
   PT_SYNHELPER_DEBUG("Device dectructor entry");
 
-  if (is_hcl_same_addr_enabled_) {
+  if (is_hcl_same_addr_enabled_ && (std::getenv("ID") != nullptr)) {
     device_ptr prealloc_addr = preallocated_reduction_buffer_->get();
     allocator_->free((void*)prealloc_addr);
+  }
+  // free workspace buffer
+  {
+    std::unique_lock<std::mutex> lock(ws_mutex_);
+    allocator_->free(reinterpret_cast<void*>(workspace_buffer_));
   }
 
   framework_specific_cleanup_();
@@ -572,9 +580,15 @@ synapse_error device::copy_data_within_device(
 }
 
 device_ptr device::get_workspace_buffer(std::size_t size) {
+  std::unique_lock<std::mutex> lock(ws_mutex_);
   if (enable_dynamic_workspace_) {
     size_t chunk_size = 128 * 1024 * 1024;
     size_t num_chunks = (size / chunk_size) + 1;
+
+    if (workspace_size_ == num_chunks * chunk_size) {
+      return workspace_buffer_;
+    }
+
     if (workspace_size_ == 0) {
       workspace_size_ = num_chunks * chunk_size;
       workspace_buffer_ =

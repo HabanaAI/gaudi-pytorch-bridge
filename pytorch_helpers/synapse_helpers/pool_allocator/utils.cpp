@@ -10,16 +10,15 @@
 #include <synapse_api.h>
 
 #include <habana_helpers/logging.h>
-#include "../HPUAllocator.h"
-#include "../HPUCheck.h"
-#include "../HPUGuardImpl.h"
-#include "../hpu_cached_devices.h"
+//#include "../HPUAllocator.h"
+//#include "../HPUCheck.h"
+//#include "../HPUGuardImpl.h"
+//#include "../hpu_cached_devices.h"
 #include "CoalescedPoolAllocator.h"
 #include "PoolAllocator.h"
 #include "utils.h"
 
-namespace at {
-namespace habana {
+namespace synapse_helpers {
 namespace pool_allocator {
 
 // fix me - synpase dev map is nullified before free.
@@ -54,5 +53,4 @@ void print_device_memory_stats(synDeviceId deviceID) {
 }
 
 } // namespace pool_allocator
-} // namespace habana
-} // namespace at
+} // namespace synapse_helpers
