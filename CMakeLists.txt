@@ -129,7 +129,7 @@ if (BUILD_TESTS)
 endif()
 
 
-option(BUILD_PKGS "Build python packages" OFF)
+option(BUILD_PKGS "Build python packages" ON)
 option(INSTALL_PKGS "Install python packages" OFF)
 if (BUILD_PKGS)
   find_program(PIP "pip" REQUIRED)
@@ -150,7 +150,7 @@ if (BUILD_PKGS)
     if (INSTALL_PKGS)
       set(PIPARGS install -U ${PKG_PATH})
     else()
-      set(PIPARGS wheel --no-deps --wheel-dir=${CMAKE_BINARY_DIR}/pkgs> ${PKG_PATH})
+      set(PIPARGS wheel --no-deps --wheel-dir=${CMAKE_BINARY_DIR}/pkgs ${PKG_PATH})
     endif()
     add_custom_command(OUTPUT ${OUTPUT}
                        COMMAND ${PIP} ${PIPARGS}
