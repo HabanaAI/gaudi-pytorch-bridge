@@ -114,6 +114,8 @@ target_compile_features(hb_torch PRIVATE cxx_std_14)
 add_custom_command(TARGET habana_pytorch_plugin POST_BUILD COMMAND
   ${CMAKE_COMMAND} -E create_symlink $<TARGET_FILE:habana_pytorch_plugin>
   ${CMAKE_SOURCE_DIR}/tests/$<TARGET_FILE_NAME:habana_pytorch_plugin>
+  COMMAND ${CMAKE_COMMAND} -E create_symlink $<TARGET_FILE:habana_pytorch_plugin>
+  $ENV{BUILD_ROOT_LATEST}/$<TARGET_FILE_NAME:habana_pytorch_plugin>
 )
 add_custom_command(TARGET hb_torch POST_BUILD COMMAND
   ${CMAKE_COMMAND} -E create_symlink $<TARGET_FILE:hb_torch>
@@ -129,32 +131,33 @@ if (BUILD_TESTS)
 endif()
 
 
-option(BUILD_PKGS "Build python packages" OFF)
+option(BUILD_PKGS "Build python packages" ON)
 option(INSTALL_PKGS "Install python packages" OFF)
 if (BUILD_PKGS)
   find_program(PIP "pip" REQUIRED)
   set(PKGS
-    habana_kernels/pytorch-extensions/embedding_bag_extension
-    habana_kernels/pytorch-extensions/gather2d-extension
-    habana_kernels/pytorch-extensions/optimizer_adagrad-extension
-    habana_kernels/pytorch-extensions/optimizer_sgd-extension
-    habana_kernels/pytorch-extensions/preproc-extension
-    pytorch_helpers/hmp
+    ${CMAKE_SOURCE_DIR}/habana_kernels/pytorch-extensions/embedding_bag_extension
+    ${CMAKE_SOURCE_DIR}/habana_kernels/pytorch-extensions/gather2d-extension
+    ${CMAKE_SOURCE_DIR}/habana_kernels/pytorch-extensions/optimizer_adagrad-extension
+    ${CMAKE_SOURCE_DIR}/habana_kernels/pytorch-extensions/optimizer_sgd-extension
+    ${CMAKE_SOURCE_DIR}/habana_kernels/pytorch-extensions/preproc-extension
+    ${CMAKE_SOURCE_DIR}/pytorch_helpers/hmp
+    $ENV{MODEL_GARDEN_PYTORCH_PATH}/nlp/transformers
   )
 
   foreach(PKG ${PKGS})
-    set(PKG_PATH ${CMAKE_SOURCE_DIR}/${PKG}/)
-    file(GLOB_RECURSE DEPS ${PKG_PATH}/*)
+    file(GLOB_RECURSE DEPS ${PKG}/*)
     get_filename_component(name ${PKG} NAME)
     set(OUTPUT "${CMAKE_BINARY_DIR}/pkgs/${name}")
     if (INSTALL_PKGS)
-      set(PIPARGS install -U ${PKG_PATH})
+      set(PIPARGS install -U ${PKG}/)
     else()
-      set(PIPARGS wheel --no-deps --wheel-dir=${CMAKE_BINARY_DIR}/pkgs> ${PKG_PATH})
+      set(PIPARGS wheel --no-deps --wheel-dir=${CMAKE_BINARY_DIR}/pkgs ${PKG})
     endif()
     add_custom_command(OUTPUT ${OUTPUT}
                        COMMAND ${PIP} ${PIPARGS}
                        COMMAND ${CMAKE_COMMAND} -E touch ${OUTPUT}
+                       DEPENDS habana_pytorch_plugin
                        DEPENDS ${DEPS})
     add_custom_target(${name} ALL DEPENDS ${OUTPUT})
   endforeach()
