@@ -51,7 +51,6 @@ SYN_API_PTR(synDeviceGetCountByDeviceType);
 SYN_API_PTR(synDeviceAcquireByDeviceType);
 SYN_API_PTR(synDeviceAcquire);
 SYN_API_PTR(synDriverGetVersion);
-SYN_API_PTR(synDeviceGetPCIBusId);
 SYN_API_PTR(synDeviceGetName);
 SYN_API_PTR(synTensorCreate);
 SYN_API_PTR(synTensorDestroy);
@@ -109,7 +108,6 @@ void LoadSymbols(void* lib_handle) {
   SYN_API_INIT_PTR(synDeviceAcquireByDeviceType);
   SYN_API_INIT_PTR(synDeviceAcquire);
   SYN_API_INIT_PTR(synDriverGetVersion);
-  SYN_API_INIT_PTR(synDeviceGetPCIBusId);
   SYN_API_INIT_PTR(synDeviceGetName);
   SYN_API_INIT_PTR(synTensorCreate);
   SYN_API_INIT_PTR(synTensorDestroy);
@@ -437,18 +435,6 @@ synDriverGetVersion(char* pDriverVersion, const int len) {
   LOG_TRACE("SYN_API", "{}", __FUNCTION__);
   API_LOG_CALL(ARG_Q(pDriverVersion), ARG(len));
   synStatus status = lib_synapse::synDriverGetVersion(pDriverVersion, len);
-  API_LOG_RESULT();
-  return status;
-}
-
-synStatus SYN_API_CALL synDeviceGetPCIBusId(
-    char* pPciBusId,
-    const int len,
-    const synDeviceId deviceId) {
-  LOG_TRACE("SYN_API", "{}", __FUNCTION__);
-  API_LOG_CALL(ARG_Q(pPciBusId), ARG(len), ARG(deviceId));
-  synStatus status =
-      lib_synapse::synDeviceGetPCIBusId(pPciBusId, len, deviceId);
   API_LOG_RESULT();
   return status;
 }
