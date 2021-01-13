@@ -107,16 +107,11 @@ Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
       node->AddInputPtTensors(input_pt_vec);
     }
   } else {
-    node = habana_lazy::ir::Node::Create(
-        Symbol::fromQualString("hpu::habana_d2d_memcpy"),
-        {hb_tensor.GetIrValue()});
+    node = std::make_shared<habana_lazy::ir::Cast>(self, src, non_blocking);
     auto hlresult = habana_lazy::GetHbLazyTensor(self);
     habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
     out.m_index = 0;
     out.SetNode(node);
-    std::vector<at::Tensor> input_pt_vec{src};
-    node->AddInputPtTensors(input_pt_vec);
-    return self;
   }
   return self;
 }

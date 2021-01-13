@@ -482,15 +482,15 @@ void HbLazyTensor::SyncTensorsGraphInternal(
   hlexec.Launch(stack);
 
   size_t i = 0;
+  auto context = habana_lazy_executor.getDeviceExecutionContext(
+      (*tensors)[0].GetDevice().index());
   for (const torch::IValue& v : stack) {
     auto st = v.toTensor();
     auto out_tensor = (*tensors)[indices[i++]];
-    auto context = habana_lazy_executor.getDeviceExecutionContext(
-        out_tensor.GetDevice().index());
     context->MarkTensorExecuted(out_tensor.getTensorUniqueId());
     out_tensor.SetTensorData(st);
-    context->MarkTensorsExecuted();
   }
+  context->MarkTensorsExecuted();
   HABANA_ASSERT(stack.size() == indices.size());
   // Graph executed, clear IR values corresponding to sync tensors
   for (auto idx : indices) {
