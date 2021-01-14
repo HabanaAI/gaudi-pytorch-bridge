@@ -10,6 +10,8 @@
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/ir_utils.h"
 
+#include <cstdlib>
+
 using namespace habana_lazy;
 
 class LazyBinaryKernelTest : public ::testing::Test {
@@ -85,4 +87,71 @@ TEST_F(LazyBinaryKernelTest, LazyRsubscalarTest) {
   auto cout = torch::rsub(input, 8, 2);
   EXPECT_EQ(allclose(hout, cout), true);
   unsetenv("PT_HPU_LAZY_MODE");
+}
+
+TEST_F(LazyBinaryKernelTest, DivTensorTestWithDivByZero) {
+  const std::vector<int64_t> dimentions{5, 3, 4};
+
+  torch::Tensor A = torch::randn(dimentions);
+  torch::Tensor B = torch::randn(dimentions);
+
+  // Make sure some elements of B are zero
+  int64_t noOfElement = 1;
+  size_t index[dimentions.size()];
+  for (unsigned int i = 0; i < dimentions.size(); ++i) {
+    noOfElement *= dimentions.at(i);
+  }
+
+  int64_t noOfZeros = std::rand() % noOfElement;
+  for (int64_t i = 0; i < noOfZeros; ++i) {
+    for (unsigned dim = 0; dim < dimentions.size(); ++dim) {
+      index[dim] = std::rand() % (dimentions.at(dim) - 1);
+    }
+    B[index[0]][index[1]][index[2]] = 0.0;
+  }
+
+  // Compute expected output
+  auto expected = torch::div(A, B);
+
+  // Compute actual output
+  auto hA = A.to(torch::kHABANA);
+  auto hB = B.to(torch::kHABANA);
+  auto result = torch::div(hA, hB);
+  std::vector<HbLazyTensor> tensors = {GetHbLazyTensor(result)};
+  HbLazyTensor::SyncTensorsGraph(&tensors);
+  Tensor generated = result.to(kCPU);
+
+  // Compare
+  EXPECT_EQ(allclose(generated, expected), true);
+}
+
+TEST_F(LazyBinaryKernelTest, DivTensorTestByNonZero) {
+  const std::vector<int64_t> dimentions{5, 3, 4};
+
+  torch::Tensor A = torch::randn(dimentions);
+  torch::Tensor B = torch::randn(dimentions);
+
+  // Make sure no element of B is zero
+  size_t index[dimentions.size()];
+  for (index[0] = 0; index[0] < dimentions[0]; ++index[0]) {
+    for (index[1] = 0; index[1] < dimentions[1]; ++index[1]) {
+      for (index[2] = 0; index[2] < dimentions[2]; ++index[2]) {
+        if (std::numeric_limits<float>::epsilon() >=
+            abs(0.0 - B[index[0]][index[1]][index[2]]).item<float>()) {
+          B[index[0]][index[1]][index[2]] = 1.0;
+        } // if(std::numeric_limits<float>::epsilon()
+      }
+    } // for(index[1]=0;index[1]
+  }
+
+  auto expected = torch::div(A, B);
+
+  auto hA = A.to(torch::kHABANA);
+  auto hB = B.to(torch::kHABANA);
+  auto result = torch::div(hA, hB);
+  std::vector<HbLazyTensor> tensors = {GetHbLazyTensor(result)};
+  HbLazyTensor::SyncTensorsGraph(&tensors);
+  Tensor generated = result.to(kCPU);
+
+  EXPECT_EQ(allclose(generated, expected), true);
 }
