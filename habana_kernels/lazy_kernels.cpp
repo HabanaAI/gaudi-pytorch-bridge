@@ -35,6 +35,7 @@
 #include "habana_lazy/ops/optimizer.h"
 #include "habana_lazy/ops/optimizer_sparse_sgd_with_valid_count.h"
 #include "habana_lazy/ops/pool.h"
+#include "habana_lazy/ops/random_gen.h"
 #include "habana_lazy/ops/reduce_ops.h"
 #include "habana_lazy/ops/shape_ops.h"
 #include "habana_lazy/ops/softmax.h"
@@ -2148,8 +2149,28 @@ std::tuple<Tensor, Tensor> fused_dropout_hpu_lazy(
     const Tensor& self,
     double p,
     CPUGenerator* gen) {
-  HABANA_ASSERT(0);
-  return fused_dropout_hpu(self, p, gen);
+  PT_LAZY_TRACE;
+  auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
+  habana_lazy::ir::NodePtr node =
+      std::make_shared<habana_lazy::ir::Dropout>(self, p, gen);
+
+  auto result_0 = at::native::empty_hpu_lazy(
+      {1}, self.options(), self.suggest_memory_format(), false);
+  result_0.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+  auto hlresult_0 = habana_lazy::GetHbLazyTensor(result_0);
+  habana_lazy::ir::Value& out_0 = hlresult_0.CurrentIrValue();
+  out_0.m_index = 0;
+  out_0.SetNode(node);
+
+  auto result_1 = at::native::empty_hpu_lazy(
+      {}, self.options(), self.suggest_memory_format(), false);
+  result_1.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+  auto hlresult_1 = habana_lazy::GetHbLazyTensor(result_1);
+  habana_lazy::ir::Value& out_1 = hlresult_1.CurrentIrValue();
+  out_1.m_index = 0;
+  out_1.SetNode(node);
+
+  return {result_0, result_1};
 };
 Tensor sum_dim_IntList_hpu_lazy(
     const Tensor& self,
