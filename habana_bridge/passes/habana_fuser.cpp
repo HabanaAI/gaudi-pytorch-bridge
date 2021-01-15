@@ -71,6 +71,10 @@ struct HabanaGraphFuser {
     return n->g(attr::Subgraph);
   }
 
+  bool hasSubgraph(Node* n) {
+    return n->hasAttribute(attr::Subgraph);
+  }
+
   void mergeFusionGroups(Node* consumer_group, Node* producer_group) {
     // Now we have two fusion groups!
     // Revert the fusion - place all inner nodes of producer back in the outer
@@ -115,6 +119,7 @@ struct HabanaGraphFuser {
     for (auto it = temporary_nodes.rbegin(); it != temporary_nodes.rend();
          ++it) {
       Node* node = *it;
+      AT_ASSERT(!hasSubgraph(node));
       SubgraphUtils::mergeNodeIntoSubgraph(node, consumer_group);
       // If any of the outputs are still used then we need to add them
       auto outputs = node->outputs();
@@ -128,16 +133,13 @@ struct HabanaGraphFuser {
         output->replaceAllUsesWith(new_output);
         new_output->setType(output->type());
       }
-      node = nullptr; // node->destroy() is a better alternative, but errors out
-                      // due to some internal constraint check in pytorch. Since
-                      // it is a temp var, this should also be ok
     }
   }
 
   at::optional<Node*> tryFuse(Node* consumer, Value* producer) {
     // Check if incoming producer node is fusable and if adding the producer
     // will result in cycles in the graph
-    bool shouldFuse = isFusable(consumer) && isFusable(producer->node()) &&
+    bool shouldFuse = isFusable(producer->node()) &&
         aliasDb_->moveBeforeTopologicallyValid(producer->node(), consumer);
 
     if (!shouldFuse) {
@@ -149,10 +151,13 @@ struct HabanaGraphFuser {
     }
 
     if (producer->node()->kind() == kind_) {
+      auto subgraph = producer->node()->g(attr::Subgraph);
+      EliminateDeadCode(subgraph);
+      EliminateCommonSubexpression(subgraph);
       mergeFusionGroups(group, producer->node());
       return group;
     }
-
+    AT_ASSERT(!hasSubgraph(producer->node()));
     SubgraphUtils::mergeNodeIntoSubgraph(producer->node(), group);
     return group;
   }
@@ -300,16 +305,18 @@ struct HabanaGraphFuser {
 
   // returns where to continue scanning, and whether any fusion was made
   std::pair<graph_node_list::iterator, bool> scanNode(Node* consumer) {
-    // handle inputs in reverse topological order as well...
-    // otherwise in f(a,a+b) it will appear a is used twice if we consider
-    // the f-a fusion before the f-(a+b) fusion first.
-    auto inputs = sortReverseTopological(consumer->inputs());
-    for (auto producer : inputs) {
-      auto fusion_group = tryFuse(consumer, producer);
-      if (fusion_group) {
-        // after fusion, consumer moves into a FusionGroup, so inputs is no
-        // longer valid so we rescan the new FusionGroup for more fusions...
-        return std::make_pair(fusion_group.value()->reverseIterator(), true);
+    if (isFusable(consumer)) {
+      // handle inputs in reverse topological order as well...
+      // otherwise in f(a,a+b) it will appear a is used twice if we consider
+      // the f-a fusion before the f-(a+b) fusion first.
+      auto inputs = sortReverseTopological(consumer->inputs());
+      for (auto producer : inputs) {
+        auto fusion_group = tryFuse(consumer, producer);
+        if (fusion_group) {
+          // after fusion, consumer moves into a FusionGroup, so inputs is no
+          // longer valid so we rescan the new FusionGroup for more fusions...
+          return std::make_pair(fusion_group.value()->reverseIterator(), true);
+        }
       }
     }
     return std::make_pair(++consumer->reverseIterator(), false);
