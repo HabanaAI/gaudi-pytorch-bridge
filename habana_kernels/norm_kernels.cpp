@@ -1881,7 +1881,11 @@ Tensor fused_norm_hpu(const std::vector<Tensor>& grad, float norm_type = 2.0) {
   if (device.get_recipe_handle_cache().isCached(key)) {
     PT_KERNEL_DEBUG("Cache hit key:", key);
     auto output = habana_helpers::createPTTensor(
-        grad[0], {1}, grad[0].options(), grad[0].suggest_memory_format(), true);
+        grad[0],
+        grad[0].sizes().vec(),
+        grad[0].options(),
+        grad[0].suggest_memory_format(),
+        true);
     Op.SetPTInputs(pt_inputs);
     Op.SetPTOutput(output);
     Op.Execute(key);
