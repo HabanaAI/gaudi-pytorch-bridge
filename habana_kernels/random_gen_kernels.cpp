@@ -497,35 +497,20 @@ void DropoutOperator::AllocateAndAddSynapseNode(
   AllocateSynapseOutputs(graph, pt_outputs, {is_output_persistent[0], false});
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
   // Cast mask tensor to self data type for use with backward
-  std::string node_type = "cast_i8_to_f32";
+  std::string node_type = (scalar_type == c10::ScalarType::BFloat16)
+      ? "cast_i8_to_bf16"
+      : "cast_i8_to_f32";
   // Create Cast operator
   CastOperator castOp(this->p_context_->device_id_, node_type);
   castOp.SetSynapseInput(std::move(p_context_->syn_outputs_[1]));
   torch::jit::Stack stack;
   stack.emplace_back(IValue(p_context_->pt_outputs_[1]));
-  stack.emplace_back(IValue(c10::ScalarType::Float));
-  if (scalar_type == c10::ScalarType::BFloat16) {
-    castOp.AllocateAndAddSynapseNode(graph, stack, false);
-  } else {
-    castOp.AllocateAndAddSynapseNode(graph, stack, is_output_persistent[1]);
-  }
+  stack.emplace_back(IValue(scalar_type));
+  castOp.AllocateAndAddSynapseNode(graph, stack, is_output_persistent[1]);
   stack.clear();
   synapse_helpers::tensor& syn_cast_out = castOp.GetSynOutputs()[0];
   p_context_->syn_outputs_[1] = std::move(syn_cast_out);
   p_context_->pt_outputs_[1] = castOp.GetOutputs()[0];
-  // For self dtype BFloat16, we require one more cast from FP32 to BF16 as a
-  // direct cast_i8_to_bf16 is not currently available in TPC. [JIRA:SW-25687]
-  if (scalar_type == c10::ScalarType::BFloat16) {
-    node_type = "cast_f32_to_bf16";
-    CastOperator castOpBF16(this->p_context_->device_id_, node_type);
-    castOpBF16.SetSynapseInput(std::move(p_context_->syn_outputs_[1]));
-    stack.emplace_back(IValue(p_context_->pt_outputs_[1]));
-    stack.emplace_back(IValue(c10::ScalarType::BFloat16));
-    castOpBF16.AllocateAndAddSynapseNode(graph, stack, is_output_persistent[1]);
-    synapse_helpers::tensor& syn_cast_out_bf16 = castOpBF16.GetSynOutputs()[0];
-    p_context_->syn_outputs_[1] = std::move(syn_cast_out_bf16);
-    p_context_->pt_outputs_[1] = castOpBF16.GetOutputs()[0];
-  }
 }
 
 void DropoutOperator::SetPTOutputs(
