@@ -518,6 +518,12 @@ Tensor add_tensor_hpu_lazy(
     const Tensor& other,
     Scalar alpha) {
   PT_LAZY_TRACE;
+
+  if (c10::DeviceType::CPU == other.device().type()) {
+    HABANA_ASSERT(other.scalar_type() != c10::ScalarType::Undefined);
+    return add_scalar_hpu_lazy(self, other.item(), alpha);
+  }
+
   auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
   auto hl_other = habana_lazy::GetOrCreateHbLazyTensor(other, c10::kHABANA);
   auto hl_alpha = habana_lazy::GetIrValueForScalar(alpha);
