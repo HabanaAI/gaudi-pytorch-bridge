@@ -64,6 +64,18 @@ class PermuteOperator : public ::habana::HabanaOperator {
 };
 
 //
+//
+class PermuteCLOperator : public PermuteOperator {
+ public:
+  PermuteCLOperator(int device_id, c10::ScalarType scalarType)
+      : PermuteOperator(device_id, scalarType) {}
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+};
+
+//
 // Reshape Operator
 class ReshapeOperator : public ::habana::HabanaOperator {
  public:

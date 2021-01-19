@@ -481,6 +481,7 @@ Tensor& transpose_hpu_lazy_(Tensor& self, int64_t dim0_, int64_t dim1_);
 Tensor t_hpu_lazy(const Tensor& self);
 Tensor& t_hpu_lazy_(Tensor& self);
 Tensor permute_hpu_lazy(const Tensor& self, IntArrayRef dims_);
+Tensor permute_cl_hpu_lazy(const Tensor& self, IntArrayRef dims_);
 Tensor expand_hpu_lazy(const Tensor& self, IntArrayRef size, bool implicit);
 std::vector<Tensor> split_with_sizes_hpu_lazy(
     const Tensor& self,

@@ -36,16 +36,12 @@ bool copy_transpose_valid(const Tensor& self, const Tensor& src) {
       self.dim() == 4 && self.scalar_type() == src.scalar_type());
 }
 
-void do_copy_transpose(Tensor& dst, const Tensor& src) {
-  int64_t dim_chl_pos[] = {0, 2, 3, 1};
-  at::IntArrayRef chl_pos = dim_chl_pos;
-  dst = src.permute(chl_pos);
-
+void adjustPTSizes(Tensor& t) {
   // PT expects metadata like sizes and strides same as in NCHW,
   // but data permuted for channel last, so change the size and stride
   // NCHW
-  auto sizes = dst.sizes().vec();
-  auto strides = dst.strides().vec();
+  auto sizes = t.sizes().vec();
+  auto strides = t.strides().vec();
   std::vector<int> out_pos = {0, 3, 1, 2};
   std::vector<long int> swapped_sizes = {
       sizes[out_pos[0]],
@@ -57,9 +53,15 @@ void do_copy_transpose(Tensor& dst, const Tensor& src) {
       strides[out_pos[1]],
       strides[out_pos[2]],
       strides[out_pos[3]]};
-
-  dst.unsafeGetTensorImpl()->set_sizes_and_strides(
+  t.unsafeGetTensorImpl()->set_sizes_and_strides(
       swapped_sizes, swapped_strides);
+}
+
+void do_copy_transpose(Tensor& dst, const Tensor& src) {
+  int64_t dim_chl_pos[] = {0, 2, 3, 1};
+  at::IntArrayRef chl_pos = dim_chl_pos;
+  dst = src.permute(chl_pos);
+  adjustPTSizes(dst);
 }
 
 // cpu->hpu and hpu->cpu copy implementation
@@ -289,41 +291,48 @@ void CastLazyOperator::AllocateAndAddSynapseNode(
       "Input arg1 expected to be tensor for toDtype operator");
 
   auto self = inputs[0].toTensor();
-  auto output = inputs[1].toTensor();
+  // auto output = inputs[1].toTensor();
+  auto type = inputs[1].toScalarType();
 
   std::string node_type;
   if (self.dtype() == c10::ScalarType::BFloat16 &&
-      output.dtype() == c10::ScalarType::Float) {
+      type == c10::ScalarType::Float) {
     node_type = "cast_bf16_to_f32";
   } else if (
-      output.dtype() == c10::ScalarType::BFloat16 &&
+      type == c10::ScalarType::BFloat16 &&
       self.dtype() == c10::ScalarType::Float) {
     node_type = "cast_f32_to_bf16";
   } else if (
-      output.dtype() == c10::ScalarType::Int &&
-      self.dtype() == c10::ScalarType::Float) {
+      type == c10::ScalarType::Int && self.dtype() == c10::ScalarType::Float) {
     node_type = "cast_i32_to_f32";
   } else if (
-      output.dtype() == c10::ScalarType::Float &&
-      self.dtype() == c10::ScalarType::Int) {
+      type == c10::ScalarType::Float && self.dtype() == c10::ScalarType::Int) {
     node_type = "cast_f32_to_i32";
   } else if (
-      output.dtype() == c10::ScalarType::Char &&
-      self.dtype() == c10::ScalarType::Float) {
+      type == c10::ScalarType::Char && self.dtype() == c10::ScalarType::Float) {
     node_type = "cast_i8_to_f32";
   } else if (
-      output.dtype() == c10::ScalarType::Float &&
-      self.dtype() == c10::ScalarType::Char) {
+      type == c10::ScalarType::Float && self.dtype() == c10::ScalarType::Char) {
     node_type = "cast_f32_to_i8";
   } else if (
-      output.dtype() == c10::ScalarType::Bool &&
-      self.dtype() == c10::ScalarType::Float) {
+      type == c10::ScalarType::Bool && self.dtype() == c10::ScalarType::Float) {
     node_type = "cast_i8_to_f32";
   } else if (
-      output.dtype() == c10::ScalarType::Float &&
-      self.dtype() == c10::ScalarType::Bool) {
+      type == c10::ScalarType::Float && self.dtype() == c10::ScalarType::Bool) {
     node_type = "cast_f32_to_i8";
   }
+
+  /*
+   TODO: This is the Original implementation for Cast Operator
+        where we pass the output of the cast as part of the inputs,
+        making this as inplace operator. For Resnet we decided
+        to make the inplace cast operator as cast out operator.
+        The down side of cast out operator is it cannot give us
+        the effect of eager mode, cast out operator would create
+        a new pytorch output and use that instead of the one that
+        is altready created by the .to operator from pytorch.
+
+        Will eventually enable this class as needed going further.
 
   SetGuid(node_type);
 
@@ -335,7 +344,14 @@ void CastLazyOperator::AllocateAndAddSynapseNode(
   synapse_helpers::tensor_or_ref& input_tensor = p_context_->syn_inputs_.back();
   p_context_->syn_outputs_.emplace_back(std::move(input_tensor));
   p_context_->pt_outputs_.emplace_back(output);
-  AddNodeToSynapseGraph(graph, &params, sizeof(params));
+  AddNodeToSynapseGraph(graph, &params, sizeof(params));*/
+
+  CastOperator Op(self.device().index(), node_type);
+  auto& syn_arg1 = Op.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+  Op.AllocateAndAddSynapseNode(graph, inputs, is_output_persistent);
+  p_context_->syn_inputs_[0] = std::move(syn_arg1);
+  p_context_->syn_outputs_.emplace_back(std::move(Op.GetSynOutputs()[0]));
+  p_context_->pt_outputs_.emplace_back(std::move(Op.GetOutputs()[0]));
 }
 
 /*************************************************************************

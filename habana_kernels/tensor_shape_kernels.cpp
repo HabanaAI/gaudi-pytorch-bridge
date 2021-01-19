@@ -615,6 +615,31 @@ void PermuteOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
+void PermuteCLOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    Stack& inputs,
+    bool is_output_persistent) {
+  PermuteOperator::AllocateAndAddSynapseNode(
+      graph, inputs, is_output_persistent);
+
+  auto& output = p_context_->pt_outputs_[0];
+  auto sizes = output.sizes().vec();
+  auto strides = output.strides().vec();
+  std::vector<int> out_pos = {0, 3, 1, 2};
+  std::vector<long int> swapped_sizes = {
+      sizes[out_pos[0]],
+      sizes[out_pos[1]],
+      sizes[out_pos[2]],
+      sizes[out_pos[3]]};
+  std::vector<long int> swapped_strides = {
+      strides[out_pos[0]],
+      strides[out_pos[1]],
+      strides[out_pos[2]],
+      strides[out_pos[3]]};
+  output.unsafeGetTensorImpl()->set_sizes_and_strides(
+      swapped_sizes, swapped_strides);
+}
+
 Tensor permute_hpu(const Tensor& self, IntArrayRef dims_) {
   PT_KERNEL_BEGIN;
   TORCH_CHECK(
@@ -1086,6 +1111,11 @@ static auto& KernelRegistry =
             "aten::permute",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<PermuteOperator>(device_id, node_type);
+            })
+        .add(
+            "hpu::permute_cl",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<PermuteCLOperator>(device_id, node_type);
             })
         .add(
             "aten::t",

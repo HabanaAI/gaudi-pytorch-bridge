@@ -16,6 +16,18 @@
 
 namespace habana_lazy {
 namespace ir {
+/*
+ TODO: This is the Original implementation for Cast Operator
+       where we pass the output of the cast as part of the input args,
+       making this as inplace operator. For Resnet we decided
+       to make the inplace cast operator as cast out operator.
+       The down side of cast out operator is it cannot give us
+       the effect of eager mode, cast out operator would create
+       a new pytorch output and use that instead of the one that
+       is altready created by the .to operator from pytorch.
+
+       Will eventually enable this class as needed going further.
+
 class Cast : public Node {
  public:
   Cast() = delete;
@@ -35,6 +47,21 @@ class Cast : public Node {
     std::stringstream ss;
     ss << Node::ToString();
     return ss.str();
+  }
+};*/
+
+class Cast : public Node {
+ public:
+  Cast() = delete;
+  Cast(const Tensor& src, c10::ScalarType type, bool non_blocking)
+      : Node(c10::Symbol::fromQualString("hpu::cast")) {
+    auto hl_src = GetOrCreateHbLazyTensor(src, c10::kHABANA);
+    auto ir_value_src = hl_src.GetIrValue();
+    AddInput(ir_value_src);
+    std::vector<at::Tensor> input_pt_vec{src};
+    AddInputPtTensors(input_pt_vec);
+
+    m_meta_data.set(type, 1);
   }
 };
 

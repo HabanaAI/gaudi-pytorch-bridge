@@ -2268,6 +2268,14 @@ Tensor& cast_hpu_for_registration_only(Tensor& out, const Tensor& self) {
   HABANA_ASSERT(0);
 }
 
+Tensor& permute_cl_registration_only(Tensor& out) {
+  // we should never reach here. This function is a dummy written
+  // only to satisfy registration requirements.
+  // Registration of custom permute_cl OP (hpu::permute_cl) is done so that
+  // JIT optimization passes recognize this OP as a valid OP.
+  HABANA_ASSERT(0);
+}
+
 static auto
     registry =
         torch::
@@ -3637,7 +3645,7 @@ static auto
                         .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
                 .op(torch::RegisterOperators::options()
                         .schema(
-                            "hpu::cast(Tensor self, Tensor(a!) out) -> Tensor(a!)")
+                            "hpu::cast(Tensor self, Scalar type) -> Tensor(a)")
                         .impl_unboxedOnlyKernel<
                             decltype(cast_hpu_for_registration_only),
                             &cast_hpu_for_registration_only>(
@@ -3654,4 +3662,12 @@ static auto
                         .impl_unboxedOnlyKernel<
                             decltype(floor_hpu_wrap),
                             &floor_hpu_wrap>(DispatchKey::HABANATensorId)
+                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+                .op(torch::RegisterOperators::options()
+                        .schema(
+                            "hpu::permute_cl(Tensor(a) self, int[] dims) -> Tensor(a)")
+                        .impl_unboxedOnlyKernel<
+                            decltype(permute_cl_registration_only),
+                            &permute_cl_registration_only>(
+                            DispatchKey::HABANATensorId)
                         .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));

@@ -12,6 +12,15 @@
 #include "habana_kernels/habana_operator.h"
 
 //
+// Function to adjust and set the correct memory format
+// for pytorch tensor
+void adjustPTSizes(at::Tensor& t);
+
+//
+// Function to check if the tensor is channels last format
+bool copy_transpose_valid(const at::Tensor& self, const at::Tensor& src);
+
+//
 // ToDtype Operator
 class ToDtypeOperator : public habana::HabanaOperator {
  public:

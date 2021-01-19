@@ -227,10 +227,11 @@ HabanaLaunchOpPT::~HabanaLaunchOpPT() {
 habana::LayoutFormat getPTTensorLayout(at::Tensor& tensor) {
   auto mem_format = tensor.suggest_memory_format();
   if (mem_format == at::MemoryFormat::ChannelsLast ||
-      mem_format == at::MemoryFormat::ChannelsLast3d)
+      mem_format == at::MemoryFormat::ChannelsLast3d) {
     return habana::LayoutFormat::NHWC;
-  else
+  } else {
     return habana::LayoutFormat::NCHW;
+  }
 }
 
 habana::LayoutFormat HabanaLaunchOpPT::getTensorChannelOrder(
@@ -274,18 +275,17 @@ std::vector<bool> HabanaLaunchOpPT::nodeOutputPersistence(
   auto node_outs = node->outputs();
   std::vector<bool> is_persistent{};
   for (auto value_out : node_outs) {
-    if (use_persistent_tensors) {
-      // Highest priority is given to the env variable
+    if (use_persistent_tensors || isInGraphOutputs(value_out)) {
+      // Highest priority is given to the env variable, and if
+      // part of the graph output
       is_persistent.emplace_back(true);
     } else if (
         value_to_persistent_flag.find(value_out) !=
         value_to_persistent_flag.end()) {
-      // If we use per tensor persistence flag, it takes next higher priority
       is_persistent.emplace_back(value_to_persistent_flag[value_out]);
     } else {
-      // If no specific flag is set, a tensor is persistent if it goes to graph
-      // output
-      is_persistent.emplace_back(isInGraphOutputs(value_out));
+      // If no specific flag is set, the mark as false
+      is_persistent.emplace_back(false);
     }
   }
   return is_persistent;
@@ -343,7 +343,11 @@ void HabanaLaunchOpPT::HandleUnmappedTensor(
   }
 
   if (!tensorList->empty()) {
-    pt_to_synapse_tensors.emplace(value_to_ivalue[value_in], tensorList);
+    auto it =
+        pt_to_synapse_tensors.emplace(value_to_ivalue[value_in], tensorList);
+    if (it.second == false) {
+      pt_to_synapse_tensors[value_to_ivalue[value_in]] = tensorList;
+    }
 
     if (enable_caching_) {
       input_tiv_map.emplace(value_to_ivalue[value_in], tiv);
@@ -465,8 +469,11 @@ void HabanaLaunchOpPT::GetSynapseOutputs(
     if (value_to_ivalue[value_in] &&
         value_in->type()->kind() == c10::TypeKind::TensorType) {
       /* Get the input tensor layout information */
-      assigned_input_layout = node_idx == 0 ? getTensorChannelOrder(value_in)
-                                            : assigned_input_layout;
+      assigned_input_layout =
+          ((node_idx == 0) ||
+           getTensorChannelOrder(value_in) == habana::LayoutFormat::HWCK)
+          ? getTensorChannelOrder(value_in)
+          : assigned_input_layout;
       // Get the origin layout too, to pass it along..we see if any of the
       // inputs in NHWC origin then we mark the origin layout as NHWC We need to
       // make this more robust by having a tensor level memory of layout We need
@@ -500,7 +507,6 @@ void HabanaLaunchOpPT::GetSynapseOutputs(
                                                 : out_layout;
     value_to_tensor_layout[output_nodes[output_nodes_idx]]
         .layout_at_graph_entry = origin_input_layout;
-
     if (excluded_out_indices.find(output_tensor_idx) ==
         excluded_out_indices.end()) {
       IValPtrShared ivpsh =
@@ -666,6 +672,7 @@ at::Tensor HabanaLaunchOpPT::permuteTensor(
 
   SharedSynTensorOrRefListPtr tensorList =
       std::make_shared<SynTensorOrRefList>();
+  bool is_permute_input_persistant = false;
   if (is_already_mapped) {
     auto syn_tensor_input =
         pt_to_synapse_tensors.find(value_to_ivalue[value_in]);
@@ -673,6 +680,7 @@ at::Tensor HabanaLaunchOpPT::permuteTensor(
     for (synapse_helpers::tensor& tensor : *(syn_tensor_input->second)) {
       synapse_helpers::tensor& syn_tensor =
           permute_kernel->SetSynapseInput(std::move(tensor));
+      is_permute_input_persistant = syn_tensor.is_persistent();
       tensorList->emplace_back(tensor_or_ref(syn_tensor));
     }
     pt_to_synapse_tensors.erase(value_to_ivalue[value_in]);
@@ -704,7 +712,7 @@ at::Tensor HabanaLaunchOpPT::permuteTensor(
 
   torch::jit::Stack input_stack = {IValue(input), IValue(dims)};
   // setup the config params for the kernels
-  bool persistent = isInGraphOutputs(value_in);
+  bool persistent = isInGraphOutputs(value_in) || is_permute_input_persistant;
   permute_kernel->AllocateAndAddSynapseNode(
       *syn_graph_ptr, input_stack, persistent);
   auto outputs_permute = permute_kernel->GetOutputs();
@@ -804,7 +812,6 @@ void HabanaLaunchOpPT::create_duplicate_syn_tensor(
 
   auto& syn_tensor = meta_syn_tensors.back();
   pt_to_synapse_tensors.erase(value_to_ivalue[value_in]);
-
   SharedSynTensorOrRefListPtr tensorList =
       std::make_shared<SynTensorOrRefList>();
   tensorList->emplace_back(tensor_or_ref(syn_tensor));
