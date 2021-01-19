@@ -238,11 +238,9 @@ void ToDtypeOperator::AllocateAndAddSynapseNode(
     node_type = "cast_i32_to_f32";
   } else if (self.dtype() == type) {
     // Cases where a simple copy is being done (input_new = input) come as .to
-    // call with same input & output data types. Ideally such cases should be
-    // handled in the bridge itself or it should be ok to do nothing in the
-    // kernel code for such cases. But for now to prevent bridge code from
-    // asserting we add a memcopy node to graph.
-    MemCopyOperator memcopyOp(self.device().index(), self.scalar_type());
+    // call with same input & output data types. we add a identity node to graph
+    // to handle this
+    IdentityOperator memcopyOp(self.device().index(), self.scalar_type());
     auto& syn_arg0 =
         memcopyOp.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
 
@@ -339,6 +337,23 @@ void CastLazyOperator::AllocateAndAddSynapseNode(
  * @param dest - Destination tensor
  ************************************************************************/
 void MemCopyOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    Stack& inputs,
+    bool is_output_persistent) {
+  auto self = inputs[0].toTensor();
+  at::Tensor output;
+  if (inputs.size() == 2) {
+    output = inputs[1].toTensor();
+  } else {
+    output =
+        at::empty(self.sizes(), self.options(), self.suggest_memory_format());
+  }
+  p_context_->params_size_ = 0;
+  AllocateSynapseOutput(graph, output, is_output_persistent);
+  AddNodeToSynapseGraph(graph, NULL, 0);
+}
+
+void IdentityOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
     bool is_output_persistent) {

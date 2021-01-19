@@ -1001,7 +1001,7 @@ synapse_helpers::tensor_or_ref habana::MatmulBackwardOperator::MatBwTranspose(
     synapse_helpers::tensor_or_ref syn_input) {
   auto dim = mat.dim();
   if (dim == 1) {
-    // Add a memcpy node to graph (to get out = mat)
+    // Add a identity node to graph (to get out = mat)
     auto& op_syn_input = Op.SetSynapseInput(std::move(syn_input));
     torch::jit::Stack stack = {IValue(mat)};
     Op.AllocateAndAddSynapseNode(graph, stack, false);
@@ -1310,13 +1310,13 @@ void habana::MatmulBackwardOperator::AllocateAndAddSynapseNode(
   // grad_self = AD_matmul_bw_size(grad_output, AD_mat_transpose(other),
   // self_size)._grad_sum_to_size(self_size)
   TransposeOperator transpose(other.device().index(), other.scalar_type());
-  MemCopyOperator memcpy(other.device().index(), other.scalar_type());
+  IdentityOperator identity(other.device().index(), other.scalar_type());
   if (other.dim() > 1) {
     p_context_->syn_inputs_[2] = MatBwTranspose(
         graph, transpose, other, std::move(p_context_->syn_inputs_[2]));
   } else {
     p_context_->syn_inputs_[2] = MatBwTranspose(
-        graph, memcpy, other, std::move(p_context_->syn_inputs_[2]));
+        graph, identity, other, std::move(p_context_->syn_inputs_[2]));
   }
 
   GradSumToSizeOperator gradsum(self.device().index(), self.scalar_type());
@@ -1324,11 +1324,11 @@ void habana::MatmulBackwardOperator::AllocateAndAddSynapseNode(
       graph,
       gradsum,
       grad_out,
-      (other.dim() > 1) ? transpose.GetOutputs()[0] : memcpy.GetOutputs()[0],
+      (other.dim() > 1) ? transpose.GetOutputs()[0] : identity.GetOutputs()[0],
       self.sizes(),
       std::move(p_context_->syn_inputs_[0]),
       (other.dim() > 1) ? std::move(transpose.GetSynOutputs()[0])
-                        : std::move(memcpy.GetSynOutputs()[0]),
+                        : std::move(identity.GetSynOutputs()[0]),
       is_output_persistent[0]);
 
   p_context_->syn_outputs_.emplace_back(std::move(gradsum.GetSynOutputs()[0]));
@@ -1342,18 +1342,18 @@ void habana::MatmulBackwardOperator::AllocateAndAddSynapseNode(
         graph, transpose1, self, std::move(p_context_->syn_inputs_[1]));
   } else {
     p_context_->syn_inputs_[1] = MatBwTranspose(
-        graph, memcpy, self, std::move(p_context_->syn_inputs_[1]));
+        graph, identity, self, std::move(p_context_->syn_inputs_[1]));
   }
 
   GradSumToSizeOperator gradsum1(self.device().index(), self.scalar_type());
   std::tie(std::ignore, p_context_->syn_inputs_[0]) = MatBwSize(
       graph,
       gradsum1,
-      (self.dim() > 1) ? transpose1.GetOutputs()[0] : memcpy.GetOutputs()[0],
+      (self.dim() > 1) ? transpose1.GetOutputs()[0] : identity.GetOutputs()[0],
       grad_out,
       other.sizes(),
       (self.dim() > 1) ? std::move(transpose1.GetSynOutputs()[0])
-                       : std::move(memcpy.GetSynOutputs()[0]),
+                       : std::move(identity.GetSynOutputs()[0]),
       std::move(p_context_->syn_inputs_[0]),
       is_output_persistent[1]);
 

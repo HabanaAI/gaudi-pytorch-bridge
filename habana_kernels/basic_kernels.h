@@ -67,3 +67,17 @@ class MemCopyOperator : public habana::HabanaOperator {
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
 };
+
+//
+// Identity Operator
+class IdentityOperator : public habana::HabanaOperator {
+ public:
+  IdentityOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator("identity") {
+    this->CreateSynContext(device_id);
+  }
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+};

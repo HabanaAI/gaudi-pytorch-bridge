@@ -1243,21 +1243,21 @@ void GradSumToSizeOperator::AllocateAndAddSynapseNode(
           std::move(sum_op.GetSynOutputs()[0]));
       p_context_->pt_outputs_.emplace_back(std::move(sum_op.GetOutputs()[0]));
     } else {
-      // Ideally bridge should skip this op creation when the target shape is
-      // identical to the shape of the input tensor. Adding the following dummy
-      // node to handle the boundary condition mentioned above.
-      MemCopyOperator memcopyOp(device_id, scalar_type);
+      // The target shape is identical to the shape of the input tensor.
+      // Adding an identity node which results in creation of output as
+      // as tensor aliased to input (within GC)
+      IdentityOperator identityOp(device_id, scalar_type);
       auto& syn_arg0 =
-          memcopyOp.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+          identityOp.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
 
       torch::jit::Stack stack = {IValue(self)};
-      memcopyOp.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+      identityOp.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
 
       p_context_->syn_inputs_[0] = std::move(syn_arg0);
       p_context_->syn_outputs_.emplace_back(
-          std::move(memcopyOp.GetSynOutputs()[0]));
+          std::move(identityOp.GetSynOutputs()[0]));
       p_context_->pt_outputs_.emplace_back(
-          std::move(memcopyOp.GetOutputs()[0]));
+          std::move(identityOp.GetOutputs()[0]));
     }
   }
 }
