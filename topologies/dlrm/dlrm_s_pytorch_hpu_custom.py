@@ -1115,7 +1115,10 @@ if __name__ == "__main__":
                     if not args.inference_only:
                         # scaled error gradient propagation
                         # (where we do not accumulate gradients across mini-batches)
-                        optimizer.zero_grad()
+                        # Assign None to param.grad to avoid optimizer.zero_grad()
+                        # This would also avoid grad accumulations in bwd pass
+                        for param in dlrm_habana.parameters():
+                            param.grad = None
                         # backward pass
                         E_habana.backward(retain_graph=False)
                         # debug prints (check gradient norm)
