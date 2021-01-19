@@ -161,7 +161,7 @@ class CustomPreProcessor(object):
             preproc_data["countUniqueIndices"] = torch.empty([1], dtype = torch.long, requires_grad = False).to(device)
             self._preallocated_buffer.append(preproc_data)
 
-        self.offsets = torch.empty([len(self.ln_emb), batch_size+1], dtype=torch.int32, requires_grad = False).to(device)
+        self.offsets = torch.empty([len(self.ln_emb), self.batch_size+1], dtype=torch.int32, requires_grad = False).to(device)
         self.X = torch.empty([batch_size, m_den], dtype=torch.float, requires_grad = False).to(device)
         self.T = torch.empty([batch_size, 1], dtype=torch.float, requires_grad = False).to(device)
 
