@@ -369,15 +369,6 @@ Tensor view_hpu(const Tensor& self, IntArrayRef size) {
   return at::native::view(self, size);
 }
 
-Tensor habana_d2d_memcpy(const Tensor& self) {
-  HABANA_ASSERT(0);
-  return self;
-}
-
-Tensor habana_d2d_memcpy_other(const Tensor& self, Tensor& other) {
-  HABANA_ASSERT(0);
-  return self;
-}
 static auto& KernelRegistry =
     ::habana::KernelRegistry()
         .add(

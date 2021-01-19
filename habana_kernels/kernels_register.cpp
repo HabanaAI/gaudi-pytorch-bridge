@@ -2159,6 +2159,29 @@ std::tuple<Tensor, Tensor> matmul_backward_hpu_wrap(
   }
 }
 
+Tensor masked_scale_hpu_wrap(
+    const Tensor& self,
+    const Tensor& mask,
+    double scale) {
+  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
+      std::getenv("PT_HPU_LAZY_MODE")) {
+    HABANA_ASSERT(0); // Not supported for Lazy mode
+    return masked_scale_hpu(self, mask, scale);
+  } else {
+    return masked_scale_hpu(self, mask, scale);
+  }
+}
+
+Tensor habana_d2d_memcpy(const Tensor& self) {
+  HABANA_ASSERT(0);
+  return self;
+}
+
+Tensor habana_d2d_memcpy_other(const Tensor& self, Tensor& other) {
+  HABANA_ASSERT(0);
+  return self;
+}
+
 Tensor& cast_hpu_for_registration_only(Tensor& out, const Tensor& self) {
   // we should never reach here. This function is a dummy written
   // only to satisfy registration requirements.
@@ -2353,8 +2376,8 @@ static auto
                                 .schema(
                                     "aten::_masked_scale(Tensor self, Tensor mask, float scale) -> Tensor")
                                 .impl_unboxedOnlyKernel<
-                                    decltype(masked_scale_hpu),
-                                    &masked_scale_hpu>(
+                                    decltype(masked_scale_hpu_wrap),
+                                    &masked_scale_hpu_wrap>(
                                     DispatchKey::HABANATensorId)
                                 .aliasAnalysis(
                                     c10::AliasAnalysisKind::FROM_SCHEMA))
