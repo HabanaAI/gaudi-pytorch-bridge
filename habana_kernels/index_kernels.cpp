@@ -33,30 +33,6 @@ using namespace torch;
  * @brief This helper function makes the size of index tensor to be same as
  * value tensor, with broadcast of indices (within index tensor)
  ************************************************************************/
-static Tensor make_index_same_size_as_value(
-    const Tensor& index,
-    const Tensor& value,
-    int64_t dim) {
-  // We use "View" + "Broadcast" so that index tensor becomes same shape as
-  // value tensor with indices repeated in right pattern. This 2-step approach
-  // is required because "Scatter" TPC kernel does not support Broadcast for
-  // index tensor.
-
-  // Expand 1D index tensor to same number of dimensions as value tensor
-  auto expanded_sizes = std::vector<int64_t>(value.ndimension(), 1);
-  expanded_sizes[dim] = index.sizes()[0];
-  auto index_expanded = index.view(expanded_sizes);
-
-  // Broadcast index tensor to same shape as value tensor
-  auto index_broadcast = at::empty(DimVector(value.sizes()), index.options());
-  std::vector<at::Tensor> pt_inputs{index_expanded};
-  std::vector<at::Tensor> pt_outputs{index_broadcast};
-  synapse_simple_generic_kernel(
-      pt_outputs, pt_inputs, "broadcast", nullptr, 0, SynapsePassType::NO_PASS);
-
-  return index_broadcast;
-}
-
 int GetOutputSize(Scalar start_, Scalar end_, Scalar step_) {
   auto start = start_.to<double>();
   auto end = end_.to<double>();
@@ -498,6 +474,61 @@ void IndexAddOperator::AllocateAndAddSynapseNode(
   p_context_->pt_outputs_.emplace_back(std::move(scatterOp.GetOutputs()[0]));
 }
 
+Tensor index_add_hpu(
+    Tensor& self,
+    int64_t dim_,
+    const Tensor& indices,
+    const Tensor& source) {
+  PT_KERNEL_BEGIN;
+  TORCH_CHECK(indices.dim() <= 1, "index tensor cannot be more than 1D")
+  // Convert index tensor from 0D to 1D if required
+  if (indices.dim() == 0) {
+    indices.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+  }
+  auto index_int = habana_helpers::cast_tensor_to_integer(indices);
+
+  auto dim = at::maybe_wrap_dim(dim_, self.dim(), /*wrap_scalar=*/true);
+
+  at::ScalarType scalar_type = self.scalar_type();
+  std::string node_type =
+      "index_add_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+
+  size_t device_id = self.device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  IndexAddOperator Op(device_id, scalar_type);
+
+  // Build Params for the graph
+  std::vector<c10::IValue> stack = {
+      IValue(self), IValue(dim), IValue(index_int), IValue(source)};
+  size_t key = Op.GetRecipeKey(node_type, stack);
+
+  // Assign Inputs to the Operator
+  std::vector<at::Tensor> pt_inputs{self, index_int, source};
+
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    auto output =
+        at::empty(self.sizes(), self.options(), self.suggest_memory_format());
+    Op.SetPTInputs(pt_inputs);
+    Op.SetPTOutput(output);
+    Op.Execute(key);
+  } else {
+    PT_KERNEL_DEBUG("Key:", key);
+    // Create Graph
+    auto graph = habana_helpers::create_graph(device_id, node_type);
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
+    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    // compile and execute the graph
+    Op.Compile(graph);
+  }
+
+  std::vector<at::Tensor> out = Op.GetOutputs();
+  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
+
+  PT_KERNEL_END;
+  return out.at(0);
+}
+
 /*************************************************************************
  * @brief Kernel implementation for index_add(dim, index, tensor) → Tensor
  * @param self - Input tensor 1-4D bf16/fp32
@@ -511,25 +542,7 @@ Tensor& index_add_hpu_(
     const Tensor& indices,
     const Tensor& source) {
   PT_KERNEL_BEGIN;
-
-  TORCH_CHECK(indices.dim() <= 1, "index tensor cannot be more than 1D")
-  // Convert index tensor from 0D to 1D if required
-  if (indices.dim() == 0) {
-    indices.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
-  }
-
-  auto dim = at::maybe_wrap_dim(dim_, self.dim(), /*wrap_scalar=*/true);
-
-  auto value_acc = source;
-  auto slice = at::index_select(self, dim, indices);
-  value_acc += slice;
-
-  auto index_int = habana_helpers::cast_tensor_to_integer(indices);
-
-  auto index_broadcast =
-      make_index_same_size_as_value(index_int, value_acc, dim);
-  self = scatter_inplace_src_hpu(self, dim, index_broadcast, value_acc);
-
+  self.copy_(index_add_hpu(self, dim_, indices, source));
   PT_KERNEL_END;
   return self;
 }
