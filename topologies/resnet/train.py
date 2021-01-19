@@ -13,6 +13,12 @@ import random
 
 import utils
 
+sys.path.insert(0, os.path.join(os.environ['BUILD_ROOT_LATEST']))
+try:
+    import hb_torch
+except ImportError:
+    assert False,"Could Not import hb_torch"
+
 #Instead of importing resnet model from the standard torchvision package,
 #import from a local copy. A local copy of resnet model file is used so that
 #modifications can be done to the resnet model if necessary.
@@ -33,7 +39,7 @@ try:
 except ImportError:
     amp = None
 
-def train_model(model, criterion, optimizer, image, target, trainMetaData, apex):
+def train_model(model, criterion, optimizer, image, target, trainMetaData, apex, lazy_mode):
     output = model(image)
     loss = criterion(output, target)
     optimizer.zero_grad()
@@ -43,6 +49,9 @@ def train_model(model, criterion, optimizer, image, target, trainMetaData, apex)
     else:
        loss.backward()
     optimizer.step()
+
+    if lazy_mode:
+        hb_torch.mark_step()
 
     return loss.item(),output.detach().to('cpu')
 
@@ -68,7 +77,7 @@ def train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, pri
 
         tp_probe_tensors_iteration_start(model, device, target, image, trainMetaData.ParamsDump, False)
 
-        loss_cpu,output_cpu = train_model(model, criterion, optimizer, image, target, trainMetaData, apex)
+        loss_cpu,output_cpu = train_model(model, criterion, optimizer, image, target, trainMetaData, apex, args.run_lazy_mode)
 
         tp_probe_tensors_iteration_end(model, device, output_cpu, loss_cpu, trainMetaData.ParamsDump, False)
 
@@ -145,7 +154,6 @@ def enable_tracing(device):
         torch._C._jit_set_profiling_executor(False)
         torch._C._jit_set_profiling_mode(False)
         if(device==torch.device('habana')):
-            import hb_torch
             hb_torch.enable()
         sample_trace_tensor = torch.zeros(args.batch_size, 3, 224, 224).to(device)
         return sample_trace_tensor
@@ -210,7 +218,7 @@ def load_data(traindir, valdir, cache_dataset, distributed):
 
 #permute the params from filters first (KCRS) to filters last(RSCK) or vice versa.
 #and permute from RSCK to KCRS is used for checkpoint saving
-def permute_params(model, to_filters_last):
+def permute_params(model, to_filters_last, lazy_mode):
     with torch.no_grad():
         for name, param in model.named_parameters():
             if(param.ndim == 4):
@@ -219,10 +227,13 @@ def permute_params(model, to_filters_last):
                 else:
                     param.data = param.data.permute((3,2,0,1)) # permute RSCK to KCRS
 
+    if lazy_mode:
+        hb_torch.mark_step()
+
 #permute the momentum from filters first (KCRS) to filters last(RSCK) or vice versa.
 #and permute from RSCK to KCRS is used for checkpoint saving
 #Used for Habana device only
-def permute_momentum(optimizer, to_filters_last):
+def permute_momentum(optimizer, to_filters_last, lazy_mode):
     #Permute the momentum buffer before using for checkpoint
     for group in optimizer.param_groups:
         for p in group['params']:
@@ -236,12 +247,19 @@ def permute_momentum(optimizer, to_filters_last):
                         buf = buf.permute((3,2,0,1))
                     param_state['momentum_buffer'] = buf
 
+    if lazy_mode:
+        hb_torch.mark_step()
+
 #Data loader worker init function
 def dl_worker_init_fn(seed):
     if seed is not None:
         random.seed(seed)
 
 def main(args):
+
+    if args.run_lazy_mode:
+       os.environ["PT_HPU_LAZY_MODE"] = "1"
+
     if args.is_hmp:
         from hmp import hmp
         hmp.convert(opt_level=args.hmp_opt_level, bf16_file_path=args.hmp_bf16,
@@ -323,7 +341,7 @@ def main(args):
             #So we are forced to rearrange such tensors ourselves.
 
     if(args.device == 'habana'):
-        permute_params(model, True)
+        permute_params(model, True, args.run_lazy_mode)
 
     trainMetaData.set_num_train_steps(args.num_train_steps)
     trainMetaData.set_num_eval_steps(args.num_eval_steps)
@@ -375,18 +393,18 @@ def main(args):
 
     if args.resume:
         if(args.device == 'habana'):
-            permute_params(model_without_ddp, False)
+            permute_params(model_without_ddp, False, args.run_lazy_mode)
         checkpoint = torch.load(args.resume, map_location='cpu')
         model_without_ddp.load_state_dict(checkpoint['model'])
         optimizer.load_state_dict(checkpoint['optimizer'])
         #Permute the weight momentum buffer before using for checkpoint
         if(args.device == 'habana'):
-            permute_momentum(optimizer, True)
+            permute_momentum(optimizer, True, args.run_lazy_mode)
 
         lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
         args.start_epoch = checkpoint['epoch'] + 1
         if(args.device == 'habana'):
-            permute_params(model_without_ddp, True)
+            permute_params(model_without_ddp, True, args.run_lazy_mode)
 
     if args.test_only:
         evaluate(model_for_eval, criterion, data_loader_test, trainMetaData, device=device, print_freq=args.print_freq)
@@ -406,13 +424,13 @@ def main(args):
 
         if (args.output_dir and args.save_checkpoint):
             if args.device == 'habana':
-                permute_params(model_without_ddp, False)
+                permute_params(model_without_ddp, False, args.run_lazy_mode)
                 #Use this model only to copy the state_dict of the actual model
                 copy_model = resnet_models.__dict__[args.model](pretrained=args.pretrained)
 
                 copy_model.load_state_dict(model_without_ddp.state_dict())
                 #Permute the weight momentum buffer before saving in checkpoint
-                permute_momentum(optimizer, False)
+                permute_momentum(optimizer, False, args.run_lazy_mode)
 
                 for state in optimizer.state.values():
                   for k, v in state.items():
@@ -436,7 +454,7 @@ def main(args):
                   for k, v in state.items():
                     if isinstance(v, torch.Tensor):
                         state[k] = v.to('habana')
-                permute_params(model_without_ddp, True)
+                permute_params(model_without_ddp, True, args.run_lazy_mode)
 
             else:
                 checkpoint = {
@@ -456,6 +474,9 @@ def main(args):
         #done for train and eval and if yes, break the epoch loop
         if (trainMetaData.end_train_n_eval()):
             break
+
+    if args.run_lazy_mode:
+        os.environ.pop("PT_HPU_LAZY_MODE")
 
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
@@ -550,6 +571,8 @@ def parse_args():
                             'Use associated env vars to set dataset size/num classes if necessary')
     parser.add_argument('--log-device-mem-alloc', action='store_true',
                         help='log live memory allocations on device at the given point')
+    parser.add_argument('--run-lazy-mode', action='store_true',
+                        help='run model in lazy execution mode')
     args = parser.parse_args()
 
     return args
