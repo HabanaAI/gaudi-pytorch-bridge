@@ -91,7 +91,7 @@ class GatherOperator : public HabanaOperator {
   virtual void SetPTOutputs(torch::jit::Stack& inputs);
 
  private:
-  Tensor AllocateOutput(torch::jit::Stack& inputs);
+  Tensor AllocateOutput(torch::jit::Stack& inputs, bool is_output_persistent);
 };
 
 // ScatterWrapperOperator Operator
@@ -118,7 +118,7 @@ class ScatterWrapperOperator : public HabanaOperator {
   void SetPTOutput(torch::jit::Stack& inputs);
 
  private:
-  Tensor AllocateOutput(torch::jit::Stack& inputs);
+  Tensor AllocateOutput(torch::jit::Stack& inputs, bool is_output_persistent);
 };
 
 // ScatterOperator Operator

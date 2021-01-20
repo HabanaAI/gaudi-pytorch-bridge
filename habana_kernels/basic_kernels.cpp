@@ -345,8 +345,7 @@ void MemCopyOperator::AllocateAndAddSynapseNode(
   if (inputs.size() == 2) {
     output = inputs[1].toTensor();
   } else {
-    output =
-        at::empty(self.sizes(), self.options(), self.suggest_memory_format());
+    output = habana_helpers::createPTTensor(self, is_output_persistent);
   }
   p_context_->params_size_ = 0;
   AllocateSynapseOutput(graph, output, is_output_persistent);
@@ -362,8 +361,7 @@ void IdentityOperator::AllocateAndAddSynapseNode(
   if (inputs.size() == 2) {
     output = inputs[1].toTensor();
   } else {
-    output =
-        at::empty(self.sizes(), self.options(), self.suggest_memory_format());
+    output = habana_helpers::createPTTensor(self, is_output_persistent);
   }
   p_context_->params_size_ = 0;
   AllocateSynapseOutput(graph, output, is_output_persistent);

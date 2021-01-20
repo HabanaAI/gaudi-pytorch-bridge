@@ -1349,6 +1349,7 @@ std::tuple<Tensor, Tensor, Tensor> LayerNormBackwardOperator::AllocatePTOutputs(
   return std::make_tuple(std::move(output), std::move(beta), std::move(gamma));
 }
 
+// This was added for Lazy Mode and is being used only in Lazy mode unit
 void LayerNormBackwardOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
@@ -1713,10 +1714,8 @@ void LpNormOperator::AllocateAndAddSynapseNode(
 
   TORCH_CHECK(p.toFloat() > 0.0, "norm with p > 0.0 is only supported");
 
-  auto output =
-      at::empty(self.sizes(), self.options(), self.suggest_memory_format());
-  auto retain =
-      at::empty(self.sizes(), self.options(), self.suggest_memory_format());
+  auto output = habana_helpers::createPTTensor(self, is_output_persistent[0]);
+  auto retain = habana_helpers::createPTTensor(self, is_output_persistent[1]);
 
   ns_LpNormKernel::Params params{};
   params.p = p.to<float>();

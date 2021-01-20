@@ -51,7 +51,10 @@ int GetOutputSize(Scalar start_, Scalar end_, Scalar step_) {
   depth = depth == 0 ? 1 : depth;
   return depth;
 }
-Tensor GatherOperator::AllocateOutput(torch::jit::Stack& inputs) {
+
+Tensor GatherOperator::AllocateOutput(
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
   auto self = inputs[0].toTensor();
   auto dim_ = inputs[1].toInt();
   auto index = inputs[2].toTensor();
@@ -60,12 +63,17 @@ Tensor GatherOperator::AllocateOutput(torch::jit::Stack& inputs) {
   auto shape = DimVector(self.sizes());
   shape.erase(shape.begin() + dim);
   shape.insert(shape.begin() + dim, index.numel());
-  auto output = at::empty(shape, self.options(), self.suggest_memory_format());
+  auto output = habana_helpers::createPTTensor(
+      self,
+      shape,
+      self.options(),
+      self.suggest_memory_format(),
+      is_output_persistent);
   return output;
 }
 
 void GatherOperator::SetPTOutputs(torch::jit::Stack& inputs) {
-  auto output = AllocateOutput(inputs);
+  auto output = AllocateOutput(inputs, true);
   HabanaOperator::SetPTOutput(output);
 }
 
@@ -99,7 +107,7 @@ void GatherOperator::AllocateAndAddSynapseNode(
 
   auto dim = at::maybe_wrap_dim(dim_, self.dim(), /*wrap_scalar=*/true);
 
-  auto output = AllocateOutput(inputs);
+  auto output = AllocateOutput(inputs, is_output_persistent);
 
   ns_GatherKernel::Params params;
   params.axis = self.dim() - dim - 1;
@@ -163,15 +171,16 @@ Tensor gather_src_hpu(
   return out.at(0);
 }
 
-Tensor ScatterWrapperOperator::AllocateOutput(torch::jit::Stack& inputs) {
+Tensor ScatterWrapperOperator::AllocateOutput(
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
   auto self = inputs[0].toTensor();
-  auto output = at::empty(
-      self.sizes().vec(), self.options(), self.suggest_memory_format());
+  auto output = habana_helpers::createPTTensor(self, is_output_persistent);
   return output;
 }
 
 void ScatterWrapperOperator::SetPTOutput(torch::jit::Stack& inputs) {
-  auto output = AllocateOutput(inputs);
+  auto output = AllocateOutput(inputs, true);
   HabanaOperator::SetPTOutputs({output});
 }
 
@@ -205,7 +214,7 @@ void ScatterWrapperOperator::AllocateAndAddSynapseNode(
 
   auto dim = at::maybe_wrap_dim(dim_, self.dim(), /*wrap_scalar=*/true);
 
-  auto output = AllocateOutput(inputs);
+  auto output = AllocateOutput(inputs, is_output_persistent);
 
   ns_ScatterKernel::Params params;
   params.axis = self.dim() - dim - 1;

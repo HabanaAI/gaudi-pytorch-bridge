@@ -250,10 +250,8 @@ void SoftmaxOperator::AllocateAndAddSynapseNode(
     auto output_float = intToFloatOp.GetOutputs()[0];
     p_context_->syn_inputs_[0] = std::move(float_syn);
 
-    auto output = at::empty(
-        output_float.sizes(),
-        output_float.options(),
-        output_float.suggest_memory_format());
+    auto output =
+        habana_helpers::createPTTensor(output_float, is_output_persistent);
     AllocateSynapseOutput(graph, output, is_output_persistent);
     synapse_helpers::tensor& synOutput = p_context_->syn_outputs_[0];
 
@@ -406,10 +404,8 @@ void SoftmaxIntOperator::AllocateAndAddSynapseNode(
     auto output_float = intToFloatOp.GetOutputs()[0];
     p_context_->syn_inputs_[0] = std::move(float_syn);
 
-    auto output = at::empty(
-        output_float.sizes(),
-        output_float.options(),
-        output_float.suggest_memory_format());
+    auto output =
+        habana_helpers::createPTTensor(output_float, is_output_persistent);
     AllocateSynapseOutput(graph, output, is_output_persistent);
     synapse_helpers::tensor& synOutput = p_context_->syn_outputs_[0];
 
@@ -507,8 +503,7 @@ void SoftmaxBackwardOperator::AllocateAndAddSynapseNode(
   p_context_->params_.emplace<ns_Softmax::Params>(params);
   p_context_->params_size_ = sizeof(params);
 
-  auto input_grad =
-      at::empty(input.sizes(), input.options(), input.suggest_memory_format());
+  auto input_grad = habana_helpers::createPTTensor(input, is_output_persistent);
 
   AllocateSynapseOutput(graph, input_grad, is_output_persistent);
   AddNodeToSynapseGraph(graph, &params, sizeof(params));

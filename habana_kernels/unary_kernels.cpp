@@ -430,12 +430,14 @@ void GeluOperator::AllocateAndAddSynapseNode(
       is_output_persistent);
 
   // TPC kernel expects two outputs first is gelu_fwd second output is tanhz
+  // In graph mode we want 2nd output to be non-persistent to reduce memory
+  // consumption
   auto output2 = habana_helpers::createPTTensor(
       self,
       self.sizes(),
       self.options(),
       self.suggest_memory_format(),
-      is_output_persistent);
+      isEagerMode() ? is_output_persistent : false);
 
   std::vector<at::Tensor> outputs{output1, output2};
   AllocateSynapseOutputs(graph, outputs, {is_output_persistent, false});
@@ -483,6 +485,7 @@ Tensor gelu_hpu(const Tensor& self) {
     Op.Execute(key);
   } else {
     PT_KERNEL_DEBUG("Key:", key);
+    Op.SetEagerMode();
     // Create Graph
     auto graph = habana_helpers::create_graph(device_id, node_type);
     Op.AllocateSynapseInputs(graph, pt_inputs, true);

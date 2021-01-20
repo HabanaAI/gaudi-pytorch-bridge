@@ -215,6 +215,17 @@ class GeluOperator : public HabanaOperator {
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
+
+  void SetEagerMode() {
+    is_eager_mode = true;
+  }
+
+  bool isEagerMode() const {
+    return is_eager_mode;
+  }
+
+ private:
+  bool is_eager_mode = false;
 };
 
 //

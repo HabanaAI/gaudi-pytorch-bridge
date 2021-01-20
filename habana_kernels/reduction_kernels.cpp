@@ -54,7 +54,8 @@ void allocate_reduction_result(
     const Tensor& self,
     DimMask mask,
     bool keepdim,
-    ScalarType dtype) {
+    ScalarType dtype,
+    bool is_result_persistent) {
   auto shape = DimVector(self.sizes());
   for (int dim = shape.size() - 1; dim >= 0; dim--) {
     if (mask[dim]) {
@@ -75,10 +76,13 @@ void allocate_reduction_result(
 
   if (result.defined()) {
     auto tht_result = result.unsafeGetTensorImpl();
-    THHTensor_resizeNd(tht_result, shape.size(), shape.data(), nullptr);
-    // result.resize_(shape);
+    if (result.numel() || is_result_persistent)
+      THHTensor_resizeNd(tht_result, shape.size(), shape.data(), nullptr);
+    else {
+      THHTensor_resizeNd_nonpersistent(
+          tht_result, shape.size(), shape.data(), nullptr);
+    }
   } else {
-    // TBD: Add a non-persistent tensor allocation
     result = at::empty(
         shape, self.options().dtype(dtype), self.suggest_memory_format());
   }
@@ -136,7 +140,7 @@ void ReduceOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   auto mask = make_dim_mask(dim_arr, ndim);
 
   allocate_reduction_result(
-      output, self, mask, keepdim, get_dtype(output, self, dtype, false));
+      output, self, mask, keepdim, get_dtype(output, self, dtype, false), true);
   TORCH_CHECK(
       output.scalar_type() == self.scalar_type(),
       "Habana reduction ops don't support casts yet");
@@ -291,7 +295,8 @@ void ReduceOperator::AllocateAndAddSynapseNode(
       self_reshaped,
       mask,
       keepdim,
-      get_dtype(output, self_reshaped, dtype, false));
+      get_dtype(output, self_reshaped, dtype, false),
+      is_output_persistent);
   TORCH_CHECK(
       output.scalar_type() == self_reshaped.scalar_type(),
       "Habana reduction ops don't support casts yet");
@@ -371,7 +376,13 @@ void SumDimOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(
       inputs[2].isBool(), "Input arg4 expected to be Bool for SumDim operator");
 
-  Tensor output;
+  auto self = inputs[0].toTensor();
+  Tensor output = habana_helpers::createPTTensor(
+      self,
+      {0},
+      self.options(),
+      self.suggest_memory_format(),
+      is_output_persistent);
   inputs.insert(inputs.begin(), IValue(output));
 
   ReduceOperator::AllocateAndAddSynapseNode(
@@ -550,7 +561,12 @@ void MeanDimOperator::AllocateAndAddSynapseNode(
       keepdim || static_cast<int64_t>(dim.size()) != ndim,
       "Reduction to 0d tensor not supported yet");
 
-  Tensor output;
+  Tensor output = habana_helpers::createPTTensor(
+      self,
+      {0},
+      self.options(),
+      self.suggest_memory_format(),
+      is_output_persistent);
   inputs.insert(inputs.begin(), IValue(output));
 
   ReduceOperator::AllocateAndAddSynapseNode(
@@ -705,8 +721,13 @@ void SumOperator::AllocateAndAddSynapseNode(
       "Input arg1 expected to be tensor for Sum operator");
 
   Tensor self = inputs[0].toTensor();
+  Tensor output = habana_helpers::createPTTensor(
+      self,
+      {0},
+      self.options(),
+      self.suggest_memory_format(),
+      is_output_persistent);
 
-  Tensor output;
   auto ndim = self.dim();
   int64_t data[4];
   for (int i = 0; i < ndim; i++) {
@@ -796,8 +817,12 @@ void MeanOperator::AllocateAndAddSynapseNode(
       "Input arg1 expected to be tensor for Mean operator");
 
   Tensor self = inputs[0].toTensor();
-
-  Tensor output;
+  Tensor output = habana_helpers::createPTTensor(
+      self,
+      {0},
+      self.options(),
+      self.suggest_memory_format(),
+      is_output_persistent);
   auto ndim = self.dim();
   int64_t data[4];
   for (int i = 0; i < ndim; i++) {
@@ -950,7 +975,8 @@ void AnyDimOutOperator::AllocateAndAddSynapseNode(
   // Resize output tensor based on reduction dimension
   auto ndim = self.dim();
   auto mask = make_dim_mask(dim_arr, ndim);
-  allocate_reduction_result(output, self, mask, keepdim, c10::ScalarType::Char);
+  allocate_reduction_result(
+      output, self, mask, keepdim, c10::ScalarType::Char, is_output_persistent);
 
   // Cast Reduced Float tensor to Int tensor
   node_type = "cast_f32_to_i8";
