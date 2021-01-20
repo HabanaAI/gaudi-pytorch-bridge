@@ -2929,7 +2929,10 @@ void optimizer_adamw_hpu_lazy(
   HABANA_ASSERT(false && "Not implemented yet");
 }
 
-Tensor fused_norm_hpu_lazy(const std::vector<Tensor>& grad, float norm_type) {
+Tensor fused_norm_hpu_lazy(
+    std::vector<Tensor>& grad,
+    const Tensor& max_norm,
+    float norm_type) {
   PT_LAZY_TRACE;
   HABANA_ASSERT(false && "Not implemented yet");
 

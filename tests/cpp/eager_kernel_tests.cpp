@@ -262,18 +262,65 @@ TEST(EagerKernelTest, FusedNormTest) {
   // torch::manual_seed(0);
   std::vector<torch::Tensor> grad_vec;
   std::vector<torch::Tensor> grad_vec_h;
-  for (auto i = 0; i < 4; i++) {
+  std::vector<torch::Tensor> grad_vec_norms;
+  auto num_params = 4;
+  // setup input grad tensor lists
+  for (auto i = 0; i < num_params; i++) {
     auto t = torch::randn({2, 2});
-    grad_vec.push_back(torch::norm(t));
+    grad_vec.push_back(t);
+    grad_vec_norms.push_back(torch::norm(t));
     auto tH = t.to(torch::kHABANA);
     grad_vec_h.push_back(tH);
   }
-  auto total_norm = fused_norm_hpu(grad_vec_h);
-  total_norm = fused_norm_hpu(grad_vec_h);
-  auto total_norm_cpu = torch::norm(torch::stack(grad_vec));
+  // init max_norm
+  torch::Tensor max_norm =
+      torch::ones({1}, torch::TensorOptions().dtype(torch::kFloat32)) * 1.0;
+  auto max_norm_hpu = max_norm.to(torch::kHABANA);
+  // do hpu and cpu fused_norm calcs
+  auto total_norm = fused_norm_hpu(grad_vec_h, max_norm_hpu, 2.0);
+  auto total_norm_cpu = torch::norm(torch::stack(grad_vec_norms));
+  // compare total_norm returned
   EXPECT_LT(
       std::abs(total_norm.item().toFloat() - total_norm_cpu.item().toFloat()),
       0.001);
+  auto clip_coeff_cpu = max_norm / (total_norm_cpu + 1e-6);
+  grad_vec_norms.clear();
+  // do grad update on cpu since that is what hpu fused_norm_hpu does
+  if (clip_coeff_cpu.item<float>() < 1.0) {
+    for (auto i = 0; i < num_params; i++) {
+      grad_vec.at(i) = grad_vec.at(i) * clip_coeff_cpu;
+      grad_vec_norms.push_back(torch::norm(grad_vec.at(i)));
+    }
+  }
+  // compare grad tensors after update
+  for (auto i = 0; i < num_params; i++) {
+    bool equal =
+        grad_vec[i].allclose(grad_vec_h[i].to(torch::kCPU), 0.0001, 0.0001);
+    EXPECT_EQ(equal, true);
+  }
+
+  // call fused norm kernels again to test caching in hpu
+  total_norm = fused_norm_hpu(grad_vec_h, max_norm_hpu, 2.0);
+  total_norm_cpu = torch::norm(torch::stack(grad_vec_norms));
+  clip_coeff_cpu = max_norm / (total_norm_cpu + 1e-6);
+  grad_vec_norms.clear();
+  // do grad update on cpu since that is what hpu fused_norm_hpu does
+  if (clip_coeff_cpu.item<float>() < 1.0) {
+    for (auto i = 0; i < num_params; i++) {
+      grad_vec.at(i) = grad_vec.at(i) * clip_coeff_cpu;
+      grad_vec_norms.push_back(torch::norm(grad_vec.at(i)));
+    }
+  }
+  // compare total_norm returned
+  EXPECT_LT(
+      std::abs(total_norm.item().toFloat() - total_norm_cpu.item().toFloat()),
+      0.002);
+  // compare grad tensors after update
+  for (auto i = 0; i < num_params; i++) {
+    bool equal =
+        grad_vec[i].allclose(grad_vec_h[i].to(torch::kCPU), 0.001, 0.001);
+    EXPECT_EQ(equal, true);
+  }
 }
 
 TEST(EagerKernelTest, LambOptPh1Test) {

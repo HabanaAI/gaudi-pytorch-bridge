@@ -100,13 +100,15 @@ void optimizer_fused_adamw(
 // Output
 // 1     Norm
 extern at::Tensor fused_norm_hpu_wrap(
-    const std::vector<at::Tensor>& grad,
+    std::vector<at::Tensor>& grad,
+    const at::Tensor& max_norm,
     float norm_type);
 
 at::Tensor custom_fused_norm(
-    const std::vector<at::Tensor>& grad,
+    std::vector<at::Tensor>& grad,
+    const at::Tensor& max_norm,
     float norm_type) {
-  return fused_norm_hpu_wrap(grad, norm_type);
+  return fused_norm_hpu_wrap(grad, max_norm, norm_type);
 }
 
 std::tuple<

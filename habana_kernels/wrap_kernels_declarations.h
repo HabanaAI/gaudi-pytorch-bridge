@@ -577,7 +577,8 @@ void optimizer_adamw_hpu_wrap(
     const int bias_correction,
     const float weight_decay);
 Tensor fused_norm_hpu_wrap(
-    const std::vector<Tensor>& grad,
+    std::vector<Tensor>& grad,
+    const Tensor& max_norm,
     float norm_type = 2.0);
 Tensor ones_like_hpu_wrap(
     const Tensor& self,

@@ -20,16 +20,15 @@
 #include "habana_helpers/tensor_utils.h"
 #include "habana_helpers/unused_macro.h"
 #include "habana_kernels/basic_kernels.h"
+#include "habana_kernels/binary_inplace_kernels.h"
+#include "habana_kernels/binary_kernels.h"
+#include "habana_kernels/compare_kernels.h"
+#include "habana_kernels/index_kernels.h"
 #include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/norm_kernels.h"
-#include "habana_kernels/resize.h"
 #include "habana_kernels/simple_generic_kernel.h"
 #include "habana_kernels/tensor_shape_kernels.h"
 #include "habana_kernels/unary_kernels.h"
-// Do not remove this comment. Added so that clang-formatter does not place this
-// header file before resize.h, which causes a namespace collision
-#include "habana_kernels/index_kernels.h"
-
 using namespace torch;
 /**********************************************************************
 *@brief Changes dimensions of the input tensor as per specified dimension.
@@ -1783,12 +1782,13 @@ void FusedNormOperator::AllocateAndAddSynapseNode(
     torch::jit::Stack& inputs,
     bool is_output_persistent) {
   TORCH_CHECK(
-      inputs.size() == 2,
+      inputs.size() == 3,
       "Incorrect size of inputs expected for FusedNorm Operator");
 
   auto gradients = inputs[0].toTensorList();
-  auto norm_type = inputs[1].toScalar();
-
+  auto max_grad_norm = inputs[1].toTensor();
+  auto norm_type = inputs[2].toScalar();
+  float eps = 1e-6;
   auto device_id = gradients.get(0).device().index();
   auto scalar_type = gradients.get(0).scalar_type();
   auto num_params = static_cast<int>(gradients.size());
@@ -1846,10 +1846,124 @@ void FusedNormOperator::AllocateAndAddSynapseNode(
     stack.emplace_back(IValue(2.0));
     norm_final.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
     stack.clear();
-
     p_context_->syn_outputs_.emplace_back(
         std::move(norm_final.GetSynOutputs()[0]));
     p_context_->pt_outputs_.emplace_back(std::move(norm_final.GetOutputs()[0]));
+
+    /*
+    Now use the total_norm calculated to update grads
+    max_norm = float(max_norm)
+    clip_coef = max_norm / (total_norm + 1e-6)
+    if clip_coef < 1:
+      for p in parameters:
+        p.grad.detach().mul_(clip_coef)
+    */
+
+    // total_norm + 1e-6
+    AddOperator add_op1(device_id, scalar_type);
+    auto& syn_in_add =
+        add_op1.SetSynapseInput(std::move(p_context_->syn_outputs_[0]));
+    stack.emplace_back(IValue(p_context_->pt_outputs_[0]));
+    stack.emplace_back(IValue(Scalar(eps)));
+    stack.emplace_back(IValue(1.0));
+    add_op1.AllocateAndAddSynapseNode(graph, stack, false);
+    p_context_->syn_outputs_[0] = std::move(syn_in_add);
+    stack.clear();
+
+    // clip_coef = max_norm / (total_norm + 1e-6)
+    DivOperator div_final(device_id, scalar_type);
+    auto& syn_in_div1 = div_final.SetSynapseInput(
+        std::move(p_context_->syn_inputs_[num_params]));
+    div_final.SetSynapseInput(std::move(add_op1.GetSynOutputs()[0]));
+    stack.emplace_back(IValue(max_grad_norm));
+    stack.emplace_back(IValue(add_op1.GetOutputs()[0]));
+    div_final.AllocateAndAddSynapseNode(graph, stack, false);
+    p_context_->syn_inputs_[num_params] = std::move(syn_in_div1);
+    stack.clear();
+
+    // mask = total_norm > max_grad_norm
+    GtOperator gt_op(device_id, scalar_type);
+    auto& syn_in_gt1 =
+        gt_op.SetSynapseInput(std::move(p_context_->syn_outputs_[0]));
+    auto& syn_in_gt2 =
+        gt_op.SetSynapseInput(std::move(p_context_->syn_inputs_[num_params]));
+    stack.emplace_back(IValue(p_context_->pt_outputs_[0]));
+    stack.emplace_back(IValue(max_grad_norm));
+    gt_op.AllocateAndAddSynapseNode(graph, stack, false);
+    p_context_->syn_outputs_[0] = std::move(syn_in_gt1);
+    p_context_->syn_inputs_[num_params] = std::move(syn_in_gt2);
+    stack.clear();
+
+    std::string node_type = "cast_i8_to_f32";
+    CastOperator cast1(device_id, node_type);
+    cast1.SetSynapseInput(std::move(gt_op.GetSynOutputs()[0]));
+    stack.emplace_back(IValue(gt_op.GetOutputs()[0]));
+    stack.emplace_back(IValue(c10::ScalarType::Float));
+    cast1.AllocateAndAddSynapseNode(graph, stack, false);
+    stack.clear();
+
+    // mul1 = mask * clip_coef
+    MulOperator mul1(device_id, scalar_type);
+    auto& syn_in_gt = mul1.SetSynapseInput(std::move(cast1.GetSynOutputs()[0]));
+    mul1.SetSynapseInput(std::move(div_final.GetSynOutputs()[0]));
+    stack.emplace_back(IValue(cast1.GetOutputs()[0]));
+    stack.emplace_back(IValue(div_final.GetOutputs()[0]));
+    mul1.AllocateAndAddSynapseNode(graph, stack, false);
+    stack.clear();
+    // imask = (mask == 0)
+    EqOperator eq_op(device_id, scalar_type);
+    eq_op.SetSynapseInput(std::move(syn_in_gt));
+    stack.emplace_back(IValue(cast1.GetOutputs()[0]));
+    stack.emplace_back(IValue(0.0));
+    eq_op.AllocateAndAddSynapseNode(graph, stack, false);
+    stack.clear();
+
+    node_type = "cast_i8_to_f32";
+    CastOperator cast2(device_id, node_type);
+    cast2.SetSynapseInput(std::move(eq_op.GetSynOutputs()[0]));
+    stack.emplace_back(IValue(eq_op.GetOutputs()[0]));
+    stack.emplace_back(IValue(c10::ScalarType::Float));
+    cast2.AllocateAndAddSynapseNode(graph, stack, false);
+    stack.clear();
+
+    // mask*clip_coef + imask
+    AddOperator add_op2(device_id, scalar_type);
+    add_op2.SetSynapseInput(std::move(mul1.GetSynOutputs()[0]));
+    add_op2.SetSynapseInput(std::move(cast2.GetSynOutputs()[0]));
+    stack.emplace_back(IValue(std::move(mul1.GetOutputs()[0])));
+    stack.emplace_back(IValue(std::move(cast2.GetOutputs()[0])));
+    stack.emplace_back(IValue(1.0));
+    add_op2.AllocateAndAddSynapseNode(graph, stack, false);
+    stack.clear();
+    // take just the first element of add since all values would be repeated
+    SliceOperator slice_op(device_id, scalar_type);
+    slice_op.SetSynapseInput(std::move(add_op2.GetSynOutputs()[0]));
+    stack.emplace_back(IValue(add_op2.GetOutputs()[0]));
+    stack.emplace_back(IValue(0));
+    stack.emplace_back(IValue(0));
+    stack.emplace_back(IValue(1));
+    stack.emplace_back(IValue(1));
+    slice_op.AllocateAndAddSynapseNode(graph, stack, false);
+    synapse_helpers::tensor_or_ref syn_clip_coeff =
+        std::move(slice_op.GetSynOutputs()[0]);
+    stack.clear();
+    // p.grad.detach().mul_(clip_coef)
+    for (auto i = 0; i < num_params; i++) {
+      MulInplaceOperator mul1(device_id, scalar_type);
+      auto& syn_in_grad =
+          mul1.SetSynapseInput(std::move(p_context_->syn_inputs_[i]));
+      auto& syn_in_slice = mul1.SetSynapseInput(std::move(syn_clip_coeff));
+      stack.emplace_back(IValue(gradients.get(i)));
+      stack.emplace_back(IValue(slice_op.GetOutputs()[0]));
+      mul1.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+      p_context_->syn_inputs_[i] = std::move(syn_in_grad);
+      syn_clip_coeff = std::move(syn_in_slice);
+      stack.clear();
+      // Add grads to output lists to satisfy GC (since grad updation is
+      // inplace)
+      p_context_->syn_outputs_.emplace_back(std::move(mul1.GetSynOutputs()[0]));
+      p_context_->pt_outputs_.emplace_back(mul1.GetOutputs()[0]);
+    }
   } else {
     // other norm_type not supported for now
     // BERT Hugging-face uses norm_type = 2.0
@@ -1858,7 +1972,10 @@ void FusedNormOperator::AllocateAndAddSynapseNode(
   }
 }
 
-Tensor fused_norm_hpu(const std::vector<Tensor>& grad, float norm_type = 2.0) {
+Tensor fused_norm_hpu(
+    std::vector<Tensor>& grad,
+    const Tensor& max_norm_t,
+    float norm_type = 2.0) {
   PT_KERNEL_BEGIN;
 
   size_t device_id = grad[0].device().index();
@@ -1868,7 +1985,8 @@ Tensor fused_norm_hpu(const std::vector<Tensor>& grad, float norm_type = 2.0) {
       "fused_norm_" + habana_helpers::name_suffix_from_type(scalar_type);
   FusedNormOperator Op(device_id, scalar_type);
   // Build Params for the graph
-  std::vector<c10::IValue> stack = {IValue(grad), IValue(norm_type)};
+  std::vector<c10::IValue> stack = {
+      IValue(grad), IValue(max_norm_t), IValue(norm_type)};
 
   std::vector<at::Tensor> pt_inputs;
   auto num_params = static_cast<int>(grad.size());
@@ -1876,6 +1994,7 @@ Tensor fused_norm_hpu(const std::vector<Tensor>& grad, float norm_type = 2.0) {
   for (auto j = 0; j < num_params; j++) {
     pt_inputs.push_back(grad[j]);
   }
+  pt_inputs.push_back(max_norm_t);
 
   size_t key = Op.GetRecipeKey(node_type, stack, true);
   if (device.get_recipe_handle_cache().isCached(key)) {
@@ -1886,8 +2005,13 @@ Tensor fused_norm_hpu(const std::vector<Tensor>& grad, float norm_type = 2.0) {
         grad[0].options(),
         grad[0].suggest_memory_format(),
         true);
+    std::vector<at::Tensor> pt_outputs;
+    pt_outputs.push_back(output);
+    for (auto j = 0; j < num_params; j++) {
+      pt_outputs.push_back(grad[j]);
+    }
     Op.SetPTInputs(pt_inputs);
-    Op.SetPTOutput(output);
+    Op.SetPTOutputs(pt_outputs);
     Op.Execute(key);
   } else {
     // Create Graph
@@ -1899,7 +2023,8 @@ Tensor fused_norm_hpu(const std::vector<Tensor>& grad, float norm_type = 2.0) {
   }
 
   std::vector<at::Tensor> out = Op.GetOutputs();
-  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
+  TORCH_CHECK(
+      out.size() == ((unsigned)num_params + 1), "Incorrect size of outputs");
   out.at(0).unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
 
   PT_KERNEL_END;

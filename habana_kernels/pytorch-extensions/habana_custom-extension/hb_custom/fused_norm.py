@@ -18,12 +18,7 @@ def FusedClipNorm(parameters, max_norm):
         norm_list.append(p.grad.detach())
 
     norm_type = 2.0
-    total_norm = hb_custom_C.fused_norm(norm_list, norm_type)
-
-    max_norm = float(max_norm)
-    clip_coef = max_norm / (total_norm + 1e-6)
-    if clip_coef < 1:
-        for p in parameters:
-            p.grad.detach().mul_(clip_coef)
+    max_norm_t = (torch.ones((1))*max_norm).to(hpu)
+    total_norm = hb_custom_C.fused_norm(norm_list, max_norm_t, norm_type)
 
     return total_norm

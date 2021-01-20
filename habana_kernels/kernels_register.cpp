@@ -2125,14 +2125,15 @@ void optimizer_adamw_hpu_wrap(
   }
 }
 Tensor fused_norm_hpu_wrap(
-    const std::vector<at::Tensor>& grad,
+    std::vector<at::Tensor>& grad,
+    const Tensor& max_norm,
     float norm_type) {
   TORCH_CHECK((grad.size() > 0), "Can not process empty grad vector");
   if (!habana_lazy::isDeviceInLoweringMode(grad[0].device().index()) &&
       std::getenv("PT_HPU_LAZY_MODE")) {
-    return fused_norm_hpu_lazy(grad, norm_type);
+    return fused_norm_hpu_lazy(grad, max_norm, norm_type);
   } else {
-    return fused_norm_hpu(grad, norm_type);
+    return fused_norm_hpu(grad, max_norm, norm_type);
   }
 }
 Tensor ones_like_hpu_wrap(
