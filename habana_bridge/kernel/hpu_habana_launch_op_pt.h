@@ -118,7 +118,6 @@ class HabanaLaunchOpPT {
 
   std::vector<PtTensorInfo> output_tensorinfos;
   std::vector<PtTensorInfo> duplicate_outtinfos;
-  std::vector<PtTensorInfo> duplicate_in_to_outtinfos;
   synapse_helpers::graph* syn_graph_ptr = nullptr;
 
   std::vector<at::Tensor> aten_intermediates;
@@ -142,6 +141,7 @@ class HabanaLaunchOpPT {
 
   PGMCachingPolicy caching_policy{PGMCachingPolicy::lru};
   IValPtrSharedToTesorInfoMap output_tensorinfo_map;
+  IValPtrSharedToTesorInfoMap duplicate_in_to_outtinfo_map;
 
   // caching :: end
 

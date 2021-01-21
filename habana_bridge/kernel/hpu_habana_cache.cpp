@@ -87,6 +87,11 @@ std::ostream& operator<<(std::ostream& O, const RecipeValueSpec& v) {
     << " <iteration : " << v.iter_idx << "> "
     << " <addr : " << v.recipe.get() << "> "
     << " <use_count : " << v.recipe.use_count() << "> " << '\n';
+  O << " ntensorbytes : " << synapse_helpers::get_mem_str(v.ntensorbytes)
+    << '\n';
+  O << " workspace    : "
+    << synapse_helpers::get_mem_str(v.launch_info->workspace_buffer_size_)
+    << '\n';
 
   O << " num_inputs       : " << v.num_inputs << '\n'
     << " num_induplicates : " << v.num_induplicates << '\n'
@@ -231,7 +236,7 @@ void RecipeValueSpec::launch(
     }
     // wait for input DMA to complete before launching the compute.
     device.add_wait_events_on_stream(inDevPtr, stream_handle);
-    outDevPtr.reserve(num_outputs);
+    outDevPtr.reserve(num_outputs + num_in_to_outduplicates);
     for (auto& output : *aten_outputs) {
       if (output && output->isTensor()) {
         outDevPtr.push_back(reinterpret_cast<synapse_helpers::device_ptr>(

@@ -70,6 +70,13 @@ class PtTensorInfo {
     parent_index_ = i;
   }
 
+  size_t get_output_index() const {
+    return output_index_;
+  }
+  void set_output_index(size_t i) {
+    output_index_ = i;
+  }
+
   // access functions for read only data members
   bool is_tensor() const {
     return is_tensor_;
@@ -79,6 +86,9 @@ class PtTensorInfo {
   }
   const std::string& get_ir_name() const {
     return ir_name_;
+  }
+  void set_ir_name(std::string& n) {
+    ir_name_ = n;
   }
   const std::string& get_syn_name() const {
     return syn_name_;
@@ -144,6 +154,7 @@ class PtTensorInfo {
   // Will hold the index of parent tensor info for aliases
   bool is_duplicate_{false};
   size_t parent_index_{ULONG_MAX};
+  size_t output_index_{ULONG_MAX};
   bool watch_ = false;
 
   std::vector<int64_t> shape_;

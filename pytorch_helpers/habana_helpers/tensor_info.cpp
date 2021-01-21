@@ -52,22 +52,25 @@ PtTensorInfo::PtTensorInfo(
 }
 
 std::ostream& operator<<(std::ostream& O, const PtTensorInfo& t) {
-  O << '<' << t.get_ir_name() << ':' << t.get_shape_str() << ':'
-    << t.get_numel() << ':' << '(' << t.get_size() << " b)"
-    << " :: " << t.get_syn_name() << ':' << t.get_buffer() << '>';
-
-  if (t.get_dma_cb() != nullptr) {
-    O << " dma_cb : " << (void*)t.get_dma_cb();
-    O << " dma_tensor_idx : " << t.get_dma_tensor_idx();
-  }
-  if (t.is_duplicate()) {
-    O << " duplicate";
-  }
-
+  O << '<' << t.get_ir_name();
   if (t.is_tensor()) {
-    O << " tensor";
+    O << ':' << t.get_shape_str() << ':' << t.get_numel() << ':' << '('
+      << t.get_size() << " b)"
+      << " :: " << t.get_syn_name() << ':' << t.get_buffer() << '>';
+
+    if (t.get_dma_cb() != nullptr) {
+      O << " dma_cb : " << (void*)t.get_dma_cb();
+      O << " dma_tensor_idx : " << t.get_dma_tensor_idx();
+    }
+    if (t.is_duplicate()) {
+      O << " duplicate of " << t.get_parent_index();
+    }
+
+    if (ULONG_MAX != t.get_output_index()) {
+      O << ", output_index " << t.get_output_index();
+    }
   } else {
-    O << " non-tensor";
+    O << "> non-tensor : ivalue :: " << t.iv_;
   }
   return O;
 }

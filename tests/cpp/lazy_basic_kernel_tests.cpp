@@ -59,3 +59,28 @@ TEST_F(LazyBasicKernelTest, CloneTest) {
   bool equal = hC_cpu.allclose(hd_cpu, 0, 0);
   EXPECT_EQ(equal, true);
 }
+
+TEST_F(LazyBasicKernelTest, ViewCopy) {
+  torch::Tensor A = torch::randn({20});
+  torch::Tensor hA = A.to(torch::kHABANA);
+  Tensor Out = A.narrow(0, 2, 5);
+  Tensor hOut = hA.narrow(0, 2, 5);
+  torch::Tensor g = torch::ones({5});
+  torch::Tensor hg = g.to(torch::kHABANA);
+  Out.copy_(g.view({-1}), true);
+  hOut.copy_(hg.view({-1}), true);
+
+  Tensor Out2 = A.narrow(0, 8, 5);
+  Tensor hOut2 = hA.narrow(0, 8, 5);
+  torch::Tensor g2 = torch::zeros({5});
+  torch::Tensor hg2 = g2.to(torch::kHABANA);
+  Out2.copy_(g2.view({-1}), true);
+  hOut2.copy_(hg2.view({-1}), true);
+  HbLazyTensor::StepMarker({});
+  A = A.div_(2);
+  hA = hA.div_(2);
+  HbLazyTensor::StepMarker({});
+  std::cout << A << "\n";
+  std::cout << hA.to(kCPU) << "\n";
+  EXPECT_EQ(allclose(hA.to(torch::kCPU), A), true);
+}
