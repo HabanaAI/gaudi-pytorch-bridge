@@ -797,7 +797,7 @@ def main():
                         average_loss = torch.tensor(average_loss, dtype=torch.float32).to(device)
                         average_loss = average_loss / (last_num_steps * divisor)
                         if (torch.distributed.is_initialized()):
-                            average_loss /= get_world_size()
+                            average_loss /= float(get_world_size())
                             torch.distributed.all_reduce(average_loss)
                         final_loss = average_loss.item()
                         if is_main_process():
