@@ -140,6 +140,7 @@ if (BUILD_PKGS)
   find_program(PIP "pip" REQUIRED)
   set(PKGS
     ${CMAKE_SOURCE_DIR}/habana_kernels/pytorch-extensions/embedding_bag_extension
+    ${CMAKE_SOURCE_DIR}/habana_kernels/pytorch-extensions/habana_custom-extension
     ${CMAKE_SOURCE_DIR}/habana_kernels/pytorch-extensions/gather2d-extension
     ${CMAKE_SOURCE_DIR}/habana_kernels/pytorch-extensions/optimizer_adagrad-extension
     ${CMAKE_SOURCE_DIR}/habana_kernels/pytorch-extensions/optimizer_sgd-extension
