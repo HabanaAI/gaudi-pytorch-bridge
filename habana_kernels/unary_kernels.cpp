@@ -1077,8 +1077,8 @@ void ClampOperator::AllocateAndAddSynapseNode(
         intToFloatOp.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
 
     // Build Params for the graph
-    std::vector<c10::IValue> stack{IValue(self),
-                                   IValue(c10::ScalarType::Float)};
+    std::vector<c10::IValue> stack{
+        IValue(self), IValue(c10::ScalarType::Float)};
     intToFloatOp.AllocateAndAddSynapseNode(graph, stack, false);
 
     synapse_helpers::tensor& float_syn_tensor = intToFloatOp.GetSynOutputs()[0];
@@ -1259,7 +1259,7 @@ Tensor& clamp_hpu_(
 
   size_t device_id = self.device().index();
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-  ClampInplaceOperator Op(device_id, node_type);
+  ClampInplaceOperator Op(device_id, scalar_type);
   // Assign Inputs to the Operator
   std::vector<at::Tensor> pt_inputs{self};
   // Build Params for the graph
@@ -1383,6 +1383,12 @@ static auto& KernelRegistry =
             "aten::clamp",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<ClampOperator>(device_id, node_type);
+            })
+        .add(
+            "aten::clamp_",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<ClampInplaceOperator>(
+                  device_id, node_type);
             })
         .add(
             "aten::reciprocal",

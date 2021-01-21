@@ -142,10 +142,12 @@ class ClampOperator : public UnaryOperator {
       bool is_output_persistent = false) override;
 };
 
-class ClampInplaceOperator : public HabanaOperator {
+class ClampInplaceOperator : public UnaryOperator {
  public:
-  ClampInplaceOperator(int device_id, const std::string& guid)
-      : HabanaOperator(guid) {
+  ClampInplaceOperator(int device_id, c10::ScalarType scalarType)
+      : UnaryOperator(
+            device_id,
+            "clamp_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
     kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
