@@ -580,6 +580,15 @@ Tensor fused_norm_hpu_wrap(
     std::vector<Tensor>& grad,
     const Tensor& max_norm,
     float norm_type = 2.0);
+Tensor& optimizer_adagrad_hpu_wrap(
+    const TensorList& gradients,
+    TensorList& weights,
+    TensorList& variances,
+    const at::Tensor& epoch_num,
+    at::Tensor& lr,
+    const float wd,
+    const float lrd,
+    const float epsilon);
 Tensor ones_like_hpu_wrap(
     const Tensor& self,
     const TensorOptions& options,

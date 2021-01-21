@@ -31,7 +31,6 @@ class GraphOptimizeTest : public ::testing::Test {
 };
 
 TEST_F(GraphOptimizeTest, PeepholeOptimTest) {
-  setenv("PT_HPU_LAZY_MODE", "1", 1);
   torch::Tensor tensor_in = torch::randn({2, 3});
 
   torch::Tensor hl_tensor_in = tensor_in.to(torch::kHABANA);
@@ -64,12 +63,10 @@ TEST_F(GraphOptimizeTest, PeepholeOptimTest) {
   torch::jit::testing::FileCheck().check_not("aten::t")->run(
       *hlexec->get_graph());
   exec::OptPassCfg::GetInstance()->enable_peephole_optimization = false;
-  unsetenv("PT_HPU_LAZY_MODE");
 }
 
 TEST_F(GraphOptimizeTest, SubGraphRewriteTest) {
   setenv("HABANA_TRANSFORM_GRAPH_FILE", "pattern.json", 1);
-  setenv("PT_HPU_LAZY_MODE", "1", 1);
 
   // write to .json file patterens
   std::string patterns =
@@ -128,5 +125,4 @@ TEST_F(GraphOptimizeTest, SubGraphRewriteTest) {
       ->run(*hlexec->get_graph());
 
   exec::OptPassCfg::GetInstance()->enable_subgraph_rewrite = false;
-  unsetenv("PT_HPU_LAZY_MODE");
 }

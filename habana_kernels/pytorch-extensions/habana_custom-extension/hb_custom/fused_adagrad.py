@@ -1,0 +1,93 @@
+import math
+from typing import Callable, Iterable
+
+import torch
+from torch.optim import Optimizer
+
+hpu = torch.device("habana")
+cpu = torch.device("cpu")
+
+class FusedAdagrad(Optimizer):
+    def __init__(
+        self,
+        params: Iterable[torch.nn.parameter.Parameter],
+        lr: float = 1e-2,
+        lr_decay: float = 0,
+        weight_decay: float = 0,
+        initial_accumulator_value: float = 0,
+        eps: float = 1e-5
+    ):
+        if not 0.0 <= lr:
+            raise ValueError("Invalid learning rate: {}".format(lr))
+        if not 0.0 <= lr_decay:
+            raise ValueError("Invalid lr_decay value: {}".format(lr_decay))
+        if not 0.0 <= weight_decay:
+            raise ValueError("Invalid weight_decay value: {}".format(weight_decay))
+        if not 0.0 <= initial_accumulator_value:
+            raise ValueError("Invalid initial_accumulator_value value: {}".format(initial_accumulator_value))
+        if not 0.0 <= eps:
+            raise ValueError("Invalid epsilon value: {}".format(eps))
+
+        defaults = dict(lr=lr, lr_decay=lr_decay, eps=eps, weight_decay=weight_decay,
+                        initial_accumulator_value=initial_accumulator_value)
+        super().__init__(params, defaults)
+
+        # State initialization
+        for group in self.param_groups:
+            for p in group['params']:
+                state = self.state[p]
+                # accumulated weight variance values
+                # state['sum'] = torch.zeros(p.shape).to(hpu)
+                state['sum'] = torch.full_like(p, fill_value = initial_accumulator_value)
+
+            group['lr_t'] = torch.tensor([lr], requires_grad=False).to(hpu)
+            group['step'] = 0
+
+    def step(self, closure: Callable = None):
+        """
+        Performs a single optimization step.
+
+        Arguments:
+            closure (:obj:`Callable`, `optional`): A closure that reevaluates the model and returns the loss.
+        """
+        import hb_custom_C
+
+        loss = None
+        if closure is not None:
+            loss = closure()
+
+        for group in self.param_groups:
+            grad_list, wt_list, var_list = [], [], []
+            for p in group["params"]:
+                if p.grad is None:
+                    continue
+
+                grad = p.grad.data
+                weight = p.data
+                if grad.is_sparse:
+                    raise RuntimeError("Adagrad does not support sparse gradients, please consider SparseAdagrad")
+
+                state = self.state[p]
+                wt_var = state["sum"]
+
+                grad_list.append(grad)
+                wt_list.append(weight)
+                var_list.append(wt_var)
+
+            # kernel needs a tensor for step
+            #TODO move tensor creation to constructor to support perf mode
+            group['step_t'] = torch.tensor([group['step']], dtype = torch.int32, requires_grad=False).to(hpu)
+
+            hb_custom_C.fused_adagrad(
+                    grad_list,
+                    wt_list,
+                    var_list,
+                    group['step_t'],
+                    group['lr_t'],
+                    group['weight_decay'],
+                    group['lr_decay'],
+                    group['eps'])
+
+            group['step'] += 1
+
+        return loss

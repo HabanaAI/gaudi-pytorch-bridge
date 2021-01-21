@@ -44,7 +44,7 @@ void OptimizerSparseSgdOperator::AllocateAndAddSynapseNode(
     std::vector<bool> is_output_persistent) {
   TORCH_CHECK(
       inputs.size() == 8,
-      "Incorrect size of inputs expected for optimizer_sparse_sgd operator");
+      "Incorrect size of inputs for optimizer_sparse_sgd operator");
   TORCH_CHECK(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
   TORCH_CHECK(inputs[1].isTensor(), "Input arg2 type expected to be tensor");
   TORCH_CHECK(inputs[2].isTensor(), "Input arg3 type expected to be tensor");
@@ -149,7 +149,7 @@ void OptimizerSparseAdagradOperator::AllocateAndAddSynapseNode(
     std::vector<bool> is_output_persistent) {
   TORCH_CHECK(
       inputs.size() == 6,
-      "Incorrect size of inputs expected for optimizer_adagrad_sgd operator");
+      "Incorrect size of inputs for optimizer_adagrad_sgd operator");
   TORCH_CHECK(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
   TORCH_CHECK(inputs[1].isTensor(), "Input arg2 type expected to be tensor");
   TORCH_CHECK(inputs[2].isTensor(), "Input arg3 type expected to be tensor");
@@ -555,6 +555,214 @@ void optimizer_adamw_hpu(
   return;
 }
 
+void OptimizerAdagradOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    std::vector<bool> is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 8,
+      "Incorrect size of inputs for optimizer_adagrad operator");
+  TORCH_CHECK(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
+  TORCH_CHECK(inputs[1].isTensor(), "Input arg2 type expected to be tensor");
+  TORCH_CHECK(inputs[2].isTensor(), "Input arg3 type expected to be tensor");
+  TORCH_CHECK(inputs[3].isTensor(), "Input arg4 type expected to be tensor");
+  TORCH_CHECK(inputs[4].isTensor(), "Input arg5 type expected to be tensor");
+  TORCH_CHECK(inputs[5].isDouble(), "Input arg6 type expected to be float");
+  TORCH_CHECK(inputs[6].isDouble(), "Input arg7 type expected to be float");
+  TORCH_CHECK(inputs[7].isDouble(), "Input arg8 type expected to be float");
+
+  auto gradients = inputs[0].toTensor();
+  auto weights = inputs[1].toTensor();
+  auto variances = inputs[2].toTensor();
+  auto epoch_num = inputs[3].toTensor();
+  auto lr = inputs[4].toTensor();
+
+  // std::cout << "weight size "
+  //           << weights.sizes() << std::endl;
+
+  ns_OptimizerAdagrad::Params params;
+  params.wd = inputs[5].toDouble();
+  params.lrd = inputs[6].toDouble();
+  params.eps = inputs[7].toDouble();
+
+  // execute in-place for weights & variance
+  p_context_->syn_outputs_.emplace_back(
+      habana_helpers::duplicate_tensor_in_memory_section(
+          p_context_->syn_inputs_[1]));
+
+  auto weights_in = inputs[1].toTensor();
+  p_context_->pt_outputs_.emplace_back(weights_in);
+
+  p_context_->syn_outputs_.emplace_back(
+      habana_helpers::duplicate_tensor_in_memory_section(
+          p_context_->syn_inputs_[2]));
+
+  auto variance_in = inputs[2].toTensor();
+  p_context_->pt_outputs_.emplace_back(variance_in);
+
+  AddNodeToSynapseGraph(graph, &params, sizeof(params));
+}
+
+void OptimizerFusedAdagradOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    std::vector<bool> is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 8,
+      "Incorrect size of inputs for optimizer fused adagrad operator");
+  TORCH_CHECK(
+      inputs[0].isTensorList(), "Input arg1 type expected to be tensorlist");
+  TORCH_CHECK(
+      inputs[1].isTensorList(), "Input arg2 type expected to be tensorlist");
+  TORCH_CHECK(
+      inputs[2].isTensorList(), "Input arg3 type expected to be tensorlist");
+  TORCH_CHECK(inputs[3].isTensor(), "Input arg4 type expected to be tensor");
+  TORCH_CHECK(inputs[4].isTensor(), "Input arg5 type expected to be tensor");
+  TORCH_CHECK(inputs[5].isDouble(), "Input arg6 type expected to be float");
+  TORCH_CHECK(inputs[6].isDouble(), "Input arg7 type expected to be float");
+  TORCH_CHECK(inputs[7].isDouble(), "Input arg8 type expected to be float");
+
+  auto gradients = inputs[0].toTensorList();
+  auto weights = inputs[1].toTensorList();
+  auto variances = inputs[2].toTensorList();
+  auto epoch_num = inputs[3].toTensor();
+  auto lr = inputs[4].toTensor();
+
+  auto num_params = static_cast<int>(gradients.size());
+
+  torch::jit::Stack stack;
+  size_t device_id = gradients.get(0).device().index();
+  auto scalar_type = gradients.get(0).scalar_type();
+
+  for (auto i = 0; i < num_params; i++) {
+    OptimizerAdagradOperator op(device_id, scalar_type);
+    auto& syn_grad = op.SetSynapseInput(std::move(p_context_->syn_inputs_[i]));
+    auto& syn_wt =
+        op.SetSynapseInput(std::move(p_context_->syn_inputs_[num_params + i]));
+    auto& syn_var = op.SetSynapseInput(
+        std::move(p_context_->syn_inputs_[2 * num_params + i]));
+    auto& syn_epoch_num =
+        op.SetSynapseInput(std::move(p_context_->syn_inputs_[3 * num_params]));
+    auto& syn_lr = op.SetSynapseInput(
+        std::move(p_context_->syn_inputs_[3 * num_params + 1]));
+
+    stack.emplace_back(IValue(gradients.get(i)));
+    stack.emplace_back(IValue(weights.get(i)));
+    stack.emplace_back(IValue(variances.get(i)));
+    stack.emplace_back(inputs[3]);
+    stack.emplace_back(inputs[4]);
+    stack.emplace_back(inputs[5]);
+    stack.emplace_back(inputs[6]);
+    stack.emplace_back(inputs[7]);
+
+    op.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+
+    stack.clear();
+
+    p_context_->syn_inputs_[i] = std::move(syn_grad);
+    p_context_->syn_inputs_[num_params + i] = std::move(syn_wt);
+    p_context_->syn_inputs_[2 * num_params + i] = std::move(syn_var);
+    p_context_->syn_inputs_[3 * num_params] = std::move(syn_epoch_num);
+    p_context_->syn_inputs_[3 * num_params + 1] = std::move(syn_lr);
+
+    p_context_->syn_outputs_.emplace_back(std::move(op.GetSynOutputs()[0]));
+    p_context_->pt_outputs_.emplace_back(op.GetOutputs()[0]);
+
+    p_context_->syn_outputs_.emplace_back(std::move(op.GetSynOutputs()[1]));
+    p_context_->pt_outputs_.emplace_back(op.GetOutputs()[1]);
+
+  } // for (auto i = 0;i < num_params;i++)
+}
+
+/*************************************************************************************
+@brief - Implements custom fused adgrad optimizer for dense parameters
+@param[in] - gradients - TensorList of gradients tensors FP32, 2D
+@param[in, out] - weights - TensorList of gradients tensors FP32, 2D
+@param[in, out] - variances - TensorList of weight variance FP32, 2D
+@param[in] - epoch_num - current epoch training number - I32, 1D
+@param[in] - learning rate - FP32, 1D
+@param[in] - wd - weight decay - FP32
+@param[in] - lrd - learning rate decay - FP32
+@param[in] - epsilon - constant to avoid division by zero, FP32
+
+@param[out] - lr - This is dummy output to be compliant with PT schema checker.
+Weights and variances are updated inplace by the kernel
+*************************************************************************************/
+Tensor& optimizer_adagrad_hpu(
+    const TensorList& gradients,
+    TensorList& weights,
+    TensorList& variances,
+    const at::Tensor& epoch_num,
+    at::Tensor& lr,
+    const float wd,
+    const float lrd,
+    const float epsilon) {
+  PT_KERNEL_BEGIN;
+
+  size_t device_id = gradients[0].device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  auto scalar_type = gradients[0].scalar_type();
+  std::string node_type = "optimizer_adagrad_bwd_" +
+      habana_helpers::name_suffix_from_type(scalar_type);
+  OptimizerFusedAdagradOperator Op(device_id, scalar_type);
+
+  // Build Params for the graph
+  std::vector<c10::IValue> stack = {
+      IValue(gradients),
+      IValue(weights),
+      IValue(variances),
+      IValue(epoch_num),
+      IValue(lr),
+      IValue(wd),
+      IValue(lrd),
+      IValue(epsilon)};
+
+  // Assign Inputs to the Operator
+  std::vector<at::Tensor> pt_inputs;
+  auto num_params = static_cast<int>(gradients.size());
+
+  for (auto j = 0; j < num_params; j++) {
+    pt_inputs.push_back(gradients[j]);
+  }
+
+  for (auto j = 0; j < num_params; j++) {
+    pt_inputs.push_back(weights[j]);
+  }
+
+  for (auto j = 0; j < num_params; j++) {
+    pt_inputs.push_back(variances[j]);
+  }
+
+  pt_inputs.push_back(epoch_num);
+  pt_inputs.push_back(lr);
+
+  size_t key = Op.GetRecipeKey(node_type, stack, true);
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    Op.SetPTInputs(pt_inputs);
+
+    std::vector<at::Tensor> pt_outputs;
+    for (auto j = 0; j < num_params; j++) {
+      pt_outputs.push_back(weights[j]);
+      pt_outputs.push_back(variances[j]);
+    }
+
+    Op.SetPTOutputs(pt_outputs);
+    Op.Execute(key);
+  } else {
+    // Create Graph
+    auto graph = habana_helpers::create_graph(device_id, node_type);
+
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
+    Op.AllocateAndAddSynapseNode(graph, stack, {true});
+    // compile and execute the graph
+    Op.Compile(graph);
+  }
+
+  PT_KERNEL_END;
+  return lr;
+}
+
 static auto& KernelRegistry =
     habana::KernelRegistry()
         .add(
@@ -573,5 +781,11 @@ static auto& KernelRegistry =
             "hpu::habanaOptimizerAdamW",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<OptimizerAdamwOperator>(
+                  device_id, node_type);
+            })
+        .add(
+            "hpu::habanaOptimizerFusedAdagrad",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<OptimizerFusedAdagradOperator>(
                   device_id, node_type);
             });

@@ -68,3 +68,33 @@ class OptimizerAdamwOperator : public HabanaOperator {
       const float neg_step,
       bool is_persistent);
 };
+
+class OptimizerAdagradOperator : public HabanaOperator {
+ public:
+  OptimizerAdagradOperator(int device_id, c10::ScalarType scalar_type)
+      : HabanaOperator(
+            "optimizer_adagrad_bwd_" +
+            habana_helpers::name_suffix_from_type(scalar_type)) {
+    this->CreateSynContext(device_id);
+  }
+
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      std::vector<bool> is_output_persistent) override;
+};
+
+class OptimizerFusedAdagradOperator : public HabanaOperator {
+ public:
+  OptimizerFusedAdagradOperator(int device_id, c10::ScalarType scalar_type)
+      : HabanaOperator(
+            "optimizer_adagrad_bwd_" +
+            habana_helpers::name_suffix_from_type(scalar_type)) {
+    this->CreateSynContext(device_id);
+  }
+
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      std::vector<bool> is_output_persistent) override;
+};

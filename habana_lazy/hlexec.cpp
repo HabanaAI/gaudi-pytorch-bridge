@@ -25,6 +25,8 @@
 
 namespace habana_lazy {
 namespace exec {
+OptPassCfg* OptPassCfg::p_instance_ = nullptr;
+
 HlExec::HlExec() {
   mp_g_ = std::make_shared<Graph>();
 }

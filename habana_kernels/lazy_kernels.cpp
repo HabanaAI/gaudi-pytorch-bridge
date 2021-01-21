@@ -32,6 +32,8 @@
 #include "habana_lazy/ops/loss.h"
 #include "habana_lazy/ops/mse_loss.h"
 #include "habana_lazy/ops/norm.h"
+#include "habana_lazy/ops/optimizer.h"
+#include "habana_lazy/ops/optimizer_sparse_sgd_with_valid_count.h"
 #include "habana_lazy/ops/pool.h"
 #include "habana_lazy/ops/reduce_ops.h"
 #include "habana_lazy/ops/shape_ops.h"
@@ -40,7 +42,6 @@
 #include "pytorch_helpers/habana_device/HPUAllocator.h"
 #include "pytorch_helpers/synapse_helpers/util.h"
 
-#include "habana_lazy/ops/optimizer_sparse_sgd_with_valid_count.h"
 at::Tensor preProcessIfLongorDouble(
     const at::Tensor& src,
     const at::Tensor& dst,
@@ -2356,10 +2357,12 @@ Tensor t_hpu_lazy(const Tensor& self) {
   auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
   auto node = habana_lazy::ir::Node::Create(
       Symbol::fromQualString("aten::t"), {hl_self.GetIrValue()});
+
   std::vector<int64_t> new_sizes, new_strides;
   std::tie(new_sizes, new_strides) = TOperator::compute_output_shape(self);
   auto result = at::native::empty_strided_hpu_lazy(
       new_sizes, new_strides, self.options(), false);
+
   auto hl_result = habana_lazy::GetHbLazyTensor(result);
   habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
@@ -2938,6 +2941,39 @@ Tensor fused_norm_hpu_lazy(
 
   Tensor ret_tensor = at::empty({1}, grad[0].device());
   return ret_tensor;
+}
+
+Tensor& optimizer_adagrad_hpu_lazy(
+    const TensorList& gradients,
+    TensorList& weights,
+    TensorList& variances,
+    const at::Tensor& epoch_num,
+    at::Tensor& lr,
+    const float wd,
+    const float lrd,
+    const float epsilon) {
+  PT_LAZY_TRACE;
+
+  habana_lazy::ir::NodePtr node =
+      std::make_shared<habana_lazy::ir::OptimizerFusedAdagrad>(
+          gradients, weights, variances, epoch_num, lr, wd, lrd, epsilon);
+
+  int64_t out_index = 0;
+  HABANA_ASSERT(weights.size() == variances.size());
+
+  for (size_t i = 0; i < weights.size(); i++) {
+    auto hlweight = habana_lazy::GetHbLazyTensor(weights[i]);
+    habana_lazy::ir::Value& out1 = hlweight.CurrentIrValue();
+    out1.m_index = out_index++;
+    out1.SetNode(node);
+
+    auto hlvariance = habana_lazy::GetHbLazyTensor(variances[i]);
+    habana_lazy::ir::Value& out2 = hlvariance.CurrentIrValue();
+    out2.m_index = out_index++;
+    out2.SetNode(node);
+  }
+
+  return lr;
 }
 
 Tensor ones_like_hpu_lazy(

@@ -38,7 +38,6 @@ import torch.nn as nn
 sys.path.insert(0, os.path.join(os.environ['BUILD_ROOT_LATEST']))
 import hb_torch
 
-
 from torch.nn.parallel import DistributedDataParallel as DDP
 
 from torch.nn.parallel.parallel_apply import parallel_apply
@@ -52,6 +51,7 @@ from tricks.md_embedding_bag import PrEmbeddingBag, md_solver
 import sklearn.metrics
 
 from dlrm_habana_kernels import HabanaEmbeddingBag, HabanaSparseOptimizer, AllToAllAcrossDevice
+
 # from torchviz import make_dot
 # import torch.nn.functional as Functional
 # from torch.nn.parameter import Parameter
@@ -869,7 +869,11 @@ if __name__ == "__main__":
             optimizer = torch.optim.SGD(list(dlrm_habana.top_l.parameters())
                                     + list(dlrm_habana.bot_l.parameters()), lr=lr_change)
         elif args.optimizer == "adagrad":
-            optimizer = torch.optim.Adagrad(list(dlrm_habana.top_l.parameters())
+            from hb_custom import FusedAdagrad
+            hb_torch.enable_eliminate_common_subexpression(False)
+            hb_torch.enable_constant_pooling(False)
+
+            optimizer = FusedAdagrad(list(dlrm_habana.top_l.parameters())
                                     + list(dlrm_habana.bot_l.parameters()), lr=lr_change)
         else:
             sys.exit("ERROR: --optimizer=" + args.optimizer + " is not supported")

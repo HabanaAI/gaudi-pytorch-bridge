@@ -171,6 +171,33 @@ at::Tensor optimizer_lamb_fused_norm(
   return optimizer_lamb_fused_norm_hpu(grad, max_grad_norm);
 }
 
+extern at::Tensor& optimizer_adagrad_hpu_wrap(
+    const at::TensorList& gradients,
+    at::TensorList& weights,
+    at::TensorList& variances,
+    const at::Tensor& epoch_num,
+    at::Tensor& lr,
+    const float wd,
+    const float lrd,
+    const float epsilon);
+
+void optimizer_fused_adagrad(
+    const std::vector<at::Tensor>& gradient_vec,
+    std::vector<at::Tensor>& weight_vec,
+    std::vector<at::Tensor>& variance_vec,
+    const at::Tensor& epoch_num,
+    at::Tensor& lr,
+    const float wd,
+    const float lrd,
+    const float epsilon) {
+  at::TensorList gradients(gradient_vec);
+  at::TensorList weights(weight_vec);
+  at::TensorList variances(variance_vec);
+
+  auto out = optimizer_adagrad_hpu_wrap(
+      gradients, weights, variances, epoch_num, lr, wd, lrd, epsilon);
+}
+
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def(
       "fused_adamw",
@@ -192,4 +219,8 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       "fused_lamb_norm",
       &optimizer_lamb_fused_norm,
       "Compute and apply global grad norm for lamb optimizer");
+  m.def(
+      "fused_adagrad",
+      &optimizer_fused_adagrad,
+      "Compute and apply gradient update to parameters for Adagrad optimizer");
 }

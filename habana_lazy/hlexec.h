@@ -39,20 +39,38 @@ using LazyOutputToJitValueMap = std::unordered_map<
     habana_lazy::ir::OutputEqual>;
 
 /**
- * Define data structure to enabling the optimization passes
+ * Define Singleton class to select/deselect the optimization passes
  */
 class OptPassCfg {
- public:
-  bool enable_eliminate_dead_code = true;
-  bool enable_eliminate_common_subexpression = true;
-  bool enable_constant_pooling = true;
-  bool enable_peephole_optimization = true;
-  bool enable_subgraph_rewrite = false;
+ private:
+  static OptPassCfg* p_instance_;
 
-  static std::shared_ptr<OptPassCfg> GetInstance() {
-    static auto p_instance_ = std::make_shared<OptPassCfg>();
+  OptPassCfg() {
+    enable_eliminate_dead_code = true;
+    enable_eliminate_common_subexpression = true;
+    enable_constant_pooling = true;
+    enable_peephole_optimization = true;
+    enable_subgraph_rewrite = false;
+  }
+
+ public:
+  OptPassCfg(const OptPassCfg&) = delete;
+  OptPassCfg& operator=(const OptPassCfg&) = delete;
+
+ public:
+  static OptPassCfg* GetInstance() {
+    if (p_instance_ == nullptr) {
+      p_instance_ = new OptPassCfg();
+    }
+
     return p_instance_;
   }
+
+  bool enable_eliminate_dead_code;
+  bool enable_eliminate_common_subexpression;
+  bool enable_constant_pooling;
+  bool enable_peephole_optimization;
+  bool enable_subgraph_rewrite;
 };
 
 /**

@@ -2136,6 +2136,27 @@ Tensor fused_norm_hpu_wrap(
     return fused_norm_hpu(grad, max_norm, norm_type);
   }
 }
+Tensor& optimizer_adagrad_hpu_wrap(
+    const TensorList& gradients,
+    TensorList& weights,
+    TensorList& variances,
+    const at::Tensor& epoch_num,
+    at::Tensor& lr,
+    const float wd,
+    const float lrd,
+    const float epsilon) {
+  if (!habana_lazy::isDeviceInLoweringMode(weights[0].device().index()) &&
+      std::getenv("PT_HPU_LAZY_MODE")) {
+    optimizer_adagrad_hpu_lazy(
+        gradients, weights, variances, epoch_num, lr, wd, lrd, epsilon);
+  } else {
+    optimizer_adagrad_hpu(
+        gradients, weights, variances, epoch_num, lr, wd, lrd, epsilon);
+  }
+
+  return lr;
+}
+
 Tensor ones_like_hpu_wrap(
     const Tensor& self,
     const TensorOptions& options,
@@ -3527,6 +3548,14 @@ static auto
                             decltype(
                                 optimizer_sparse_adagrad_with_valid_count_hpu_wrap),
                             &optimizer_sparse_adagrad_with_valid_count_hpu_wrap>(
+                            DispatchKey::HABANATensorId)
+                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+                .op(torch::RegisterOperators::options()
+                        .schema(
+                            "hpu::habanaOptimizerFusedAdagrad(Tensor[] gradients, Tensor[] weights_in, Tensor[] variances_in, Tensor epoch_num, Tensor learning_rate, float wd, float lrd, float eps) -> Tensor(a!)")
+                        .impl_unboxedOnlyKernel<
+                            decltype(optimizer_adagrad_hpu_wrap),
+                            &optimizer_adagrad_hpu_wrap>(
                             DispatchKey::HABANATensorId)
                         .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
                 .op(torch::RegisterOperators::options()

@@ -589,3 +589,12 @@ void optimizer_lamb_phase2_hpu(
 Tensor optimizer_lamb_fused_norm_hpu(
     const std::vector<at::Tensor>& grad,
     float max_grad_norm);
+Tensor& optimizer_adagrad_hpu(
+    const TensorList& gradient_vec,
+    TensorList& weight_vec,
+    TensorList& variance_vec,
+    const at::Tensor& epoch_num,
+    at::Tensor& lr,
+    const float wd,
+    const float lrd,
+    const float epsilon);
