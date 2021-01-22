@@ -53,12 +53,7 @@ TEST_F(GraphOptimizeTest, PeepholeOptimTest) {
       std::make_move_iterator(input_list.begin()),
       std::make_move_iterator(input_list.end()));
 
-  hlexec->GetOrCreate(
-      po_data.post_order,
-      stack,
-      po_data.inputs,
-      po_data.outputs,
-      po_data.post_order_nodes_hash);
+  hlexec->GetOrCreate(po_data, stack);
 
   torch::jit::testing::FileCheck().check_not("aten::t")->run(
       *hlexec->get_graph());
@@ -111,12 +106,7 @@ TEST_F(GraphOptimizeTest, SubGraphRewriteTest) {
       std::make_move_iterator(input_list.begin()),
       std::make_move_iterator(input_list.end()));
 
-  hlexec->GetOrCreate(
-      po_data.post_order,
-      stack,
-      po_data.inputs,
-      po_data.outputs,
-      po_data.post_order_nodes_hash);
+  hlexec->GetOrCreate(po_data, stack);
 
   torch::jit::testing::FileCheck()
       .check_not("aten::mm")
@@ -163,12 +153,7 @@ TEST_F(GraphOptimizeTest, FuseMmTransposeTest) {
       std::make_move_iterator(input_list.begin()),
       std::make_move_iterator(input_list.end()));
 
-  hlexec->GetOrCreate(
-      po_data.post_order,
-      stack,
-      po_data.inputs,
-      po_data.outputs,
-      po_data.post_order_nodes_hash);
+  hlexec->GetOrCreate(po_data, stack);
 
   torch::jit::testing::FileCheck()
       .check_count("hpu::mm_t", 2)

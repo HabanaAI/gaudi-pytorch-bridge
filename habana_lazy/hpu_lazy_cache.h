@@ -12,6 +12,7 @@
 #include <torch/csrc/jit/runtime/argument_spec.h>
 #include <mutex>
 #include "habana_lazy/ir.h"
+#include "habana_lazy/ir_utils.h"
 
 namespace habana_lazy {
 /**
@@ -78,7 +79,10 @@ class LazyArgumentSpec {
       bool with_grad,
       const ir::NodePtrList& post_order_graph,
       const at::ArrayRef<torch::jit::IValue> input_refs,
-      size_t post_order_nodes_hash);
+      size_t post_order_nodes_hash,
+      const ir::ValueList inputs,
+      const ir::ValueNodeListMap value_input_nodes_map,
+      const size_t num_outputs);
 
   bool operator==(const LazyArgumentSpec& rv) const {
     return m_hash_code == rv.m_hash_code &&
@@ -99,7 +103,13 @@ class LazyArgumentSpec {
   void GetArgSpecKey(
       bool with_grad,
       const ir::NodePtrList& post_order_graph,
-      const at::ArrayRef<torch::jit::IValue>& input_refs);
+      const at::ArrayRef<torch::jit::IValue>& input_refs,
+      const ir::ValueList& inputs,
+      const ir::ValueNodeListMap& value_input_nodes_map);
+
+  size_t GetInputHash(
+      const ir::ValueList& inputs,
+      const ir::ValueNodeListMap& value_input_nodes_map);
 
   size_t m_post_order_nodes_hash;
   size_t m_hash_code = 0;

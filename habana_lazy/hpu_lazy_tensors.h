@@ -70,14 +70,6 @@ struct Data {
   LazyTensorExecutionStatus execution_status;
 }; // namespace habana_lazy
 
-struct PostOrderData {
-  ir::NodePtrList post_order;
-  ir::Utils::EmissionMap emission_map;
-  ir::ValueList inputs;
-  ir::ValueList outputs;
-  size_t post_order_nodes_hash = 0;
-};
-
 class HbLazyTensor {
  public:
   // This is the core Lazy tensor data structure where all the tensor data is
@@ -143,7 +135,7 @@ class HbLazyTensor {
   ir::Value CreateTensorNode() const;
   static std::vector<int> CollectSyncTensors(
       const std::vector<HbLazyTensor>& tensors);
-  static PostOrderData RunPostOrder(
+  static ir::PostOrderData RunPostOrder(
       const std::vector<HbLazyTensor>& tensors,
       std::vector<int> indices);
 

@@ -64,19 +64,22 @@ void HlExec::Launch(torch::jit::Stack& stack) {
  * Get the JIT graph fron cache, or create it
  */
 void HlExec::GetOrCreate(
-    const ir::NodePtrList nodes,
-    torch::jit::Stack& stack,
-    const ir::ValueList inputs,
-    const ir::ValueList outputs,
-    size_t post_order_nodes_hash) {
+    const ir::PostOrderData& po_data,
+    torch::jit::Stack& stack) {
   PT_LAZY_TRACE;
   if (std::getenv("PT_HPU_LAZY_CACHE_DISABLE")) {
     mp_g_ = std::make_shared<Graph>();
-    Create(nodes, inputs, outputs);
+    Create(po_data.post_order, po_data.inputs, po_data.outputs);
     return;
   }
-  auto las =
-      habana_lazy::LazyArgumentSpec(true, nodes, stack, post_order_nodes_hash);
+  auto las = habana_lazy::LazyArgumentSpec(
+      true,
+      po_data.post_order,
+      stack,
+      po_data.post_order_nodes_hash,
+      po_data.inputs,
+      po_data.value_input_nodes_map,
+      po_data.outputs.size());
   mp_g_ = habana_lazy::LazyGraphCache::GetLazyCache().GetOptimizedJITGraph(
       las.hashCode());
 
@@ -89,10 +92,16 @@ void HlExec::GetOrCreate(
     // ===================
     // Create a JIT graph from the post order graph
     // Optimization is done during Create() itself
-    Create(nodes, inputs, outputs);
+    Create(po_data.post_order, po_data.inputs, po_data.outputs);
     // Create a lazyArgumentSpec
     las = habana_lazy::LazyArgumentSpec(
-        true, nodes, stack, post_order_nodes_hash);
+        true,
+        po_data.post_order,
+        stack,
+        po_data.post_order_nodes_hash,
+        po_data.inputs,
+        po_data.value_input_nodes_map,
+        po_data.outputs.size());
     LazyGraphCache::GetLazyCache().Add(las.hashCode(), mp_g_);
   } else {
     PT_LAZY_DEBUG("JIT Cache hit");

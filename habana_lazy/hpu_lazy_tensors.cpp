@@ -377,11 +377,11 @@ std::vector<int> HbLazyTensor::CollectSyncTensors(
  *valid IR values
  * @param[out] po_data - Post Ordered vector of tensors
  ************************************************************************/
-habana_lazy::PostOrderData HbLazyTensor::RunPostOrder(
+habana_lazy::ir::PostOrderData HbLazyTensor::RunPostOrder(
     const std::vector<HbLazyTensor>& tensors,
     std::vector<int> indices) {
   PT_LAZY_TRACE;
-  habana_lazy::PostOrderData po_data;
+  habana_lazy::ir::PostOrderData po_data;
   std::vector<ir::NodePtr> p_roots;
   p_roots.reserve(indices.size());
   for (auto index : indices) {
@@ -393,12 +393,7 @@ habana_lazy::PostOrderData HbLazyTensor::RunPostOrder(
     }
   }
 
-  ir::Utils::ComputePostOrder(
-      p_roots,
-      &po_data.emission_map,
-      po_data.post_order,
-      po_data.inputs,
-      po_data.post_order_nodes_hash);
+  ir::Utils::ComputePostOrder(p_roots, po_data);
 
   PT_LAZY_DEBUG(IrGraphDumpUtil::PostOrderToText(po_data.post_order, p_roots));
 
@@ -481,12 +476,7 @@ void HbLazyTensor::SyncTensorsGraphInternal(
     context->MarkTensorExecuting(d->unique_id);
   }
 
-  hlexec.GetOrCreate(
-      po_data.post_order,
-      stack,
-      po_data.inputs,
-      po_data.outputs,
-      po_data.post_order_nodes_hash);
+  hlexec.GetOrCreate(po_data, stack);
 
   // Dump the JIT graph with PT_LAZY_DEBUG
   PT_LAZY_DEBUG(hlexec.DumpGraph());

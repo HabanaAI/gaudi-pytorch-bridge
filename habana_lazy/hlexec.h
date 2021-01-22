@@ -28,10 +28,8 @@ using JitIValue = torch::jit::IValue;
 using GraphPtr = std::shared_ptr<Graph>;
 using JitValuePtr = std::shared_ptr<JitValue>;
 using ScopePtr = torch::jit::ScopePtr;
-
 using HabanaLazyTensorPtr = habana_lazy::HbLazyTensor*;
 using HabanaLazyTensorPtrList = std::vector<HabanaLazyTensorPtr>;
-
 using LazyOutputToJitValueMap = std::unordered_map<
     HabanaLazyOutput,
     JitValue*,
@@ -97,12 +95,7 @@ class HlExec {
    *   outputs: Lazy value pointers representing output tensors
    *   str: post order graph string
    */
-  void GetOrCreate(
-      const ir::NodePtrList nodes,
-      torch::jit::Stack& stack,
-      const ir::ValueList inputs,
-      const ir::ValueList outputs,
-      size_t post_order_nodes_hash);
+  void GetOrCreate(const ir::PostOrderData& po_data, torch::jit::Stack& stack);
 
   /**
    * This method calls torch::jit optimizer passes.

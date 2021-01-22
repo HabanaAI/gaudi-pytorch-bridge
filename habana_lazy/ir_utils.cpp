@@ -25,11 +25,8 @@ Computes input ir values asscoicated with the given output node
 */
 void Utils::ComputePostOrderNode(
     NodePtr& p_node,
-    EmissionMap* p_emap,
-    NodePtrList& post_order,
-    NodeSet& node_set,
-    ValueList& inputs,
-    size_t& post_order_nodes_hash) {
+    PostOrderData& po_data,
+    NodeSet& node_set) {
   PT_LAZY_TRACE;
   NodePtrList queue;
   queue.push_back(p_node);
@@ -39,43 +36,45 @@ void Utils::ComputePostOrderNode(
     // check and update input value list
     auto operands = p_node->GetInputs();
 
-    auto it = p_emap->find(p_node);
-    if (it == p_emap->end()) {
-      (*p_emap)[p_node] = kEmitting;
+    auto it = po_data.emission_map.find(p_node);
+    if (it == po_data.emission_map.end()) {
+      po_data.emission_map[p_node] = EmitStatus::kEmitting;
 
       for (auto& operand : operands) {
-        auto oit = p_emap->find(operand.mp_node);
-
+        auto oit = po_data.emission_map.find(operand.mp_node);
+        po_data.value_input_nodes_map[operand].emplace_back(p_node.get());
         if (operand.mp_node->is_input()) {
           if (node_set.count(operand.mp_node) == 0) {
             node_set.insert(operand.mp_node);
-            inputs.emplace_back(operand);
+            po_data.inputs.emplace_back(operand);
           }
         }
 
-        if (oit == p_emap->end()) {
+        if (oit == po_data.emission_map.end()) {
           queue.emplace_back(operand.mp_node);
         } else {
           // graph loop found at *operand.node
           // If the operand is in emap, it has to
           // be already emitted
-          HABANA_ASSERT(oit->second == kEmitted);
+          HABANA_ASSERT(oit->second == EmitStatus::kEmitted);
         }
       }
-    } else if (it->second == kEmitting) {
+    } else if (it->second == EmitStatus::kEmitting) {
       for (auto& operand : operands) {
-        auto oit = p_emap->find(operand.mp_node);
+        auto oit = po_data.emission_map.find(operand.mp_node);
         // check for graph loop at *operand.node
-        HABANA_ASSERT(oit != p_emap->end() && oit->second == kEmitted);
+        HABANA_ASSERT(
+            oit != po_data.emission_map.end() &&
+            oit->second == EmitStatus::kEmitted);
       }
-      post_order_nodes_hash =
-          torch::hash_combine(post_order_nodes_hash, p_node->get_hash());
-      (*p_emap)[p_node] = kEmitted;
-      post_order.emplace_back(p_node);
+      po_data.post_order_nodes_hash = torch::hash_combine(
+          po_data.post_order_nodes_hash, p_node->get_hash());
+      po_data.emission_map[p_node] = EmitStatus::kEmitted;
+      po_data.post_order.emplace_back(p_node);
       queue.pop_back();
 
     } else {
-      HABANA_ASSERT(it->second == kEmitted);
+      HABANA_ASSERT(it->second == EmitStatus::kEmitted);
       queue.pop_back();
     }
   }
@@ -84,18 +83,12 @@ void Utils::ComputePostOrderNode(
 /*
 @brief - Computes post order traveral across multiple output nodes
 */
-void Utils::ComputePostOrder(
-    NodePtrList& p_nodes,
-    EmissionMap* emap,
-    NodePtrList& post_order,
-    ValueList& inputs,
-    size_t& post_order_nodes_hash) {
+void Utils::ComputePostOrder(NodePtrList& p_nodes, PostOrderData& po_data) {
   PT_LAZY_TRACE;
   NodeSet node_set;
   for (auto& p_node : p_nodes) {
-    if ((*emap).count(p_node) == 0) {
-      Utils::ComputePostOrderNode(
-          p_node, emap, post_order, node_set, inputs, post_order_nodes_hash);
+    if (po_data.emission_map.count(p_node) == 0) {
+      Utils::ComputePostOrderNode(p_node, po_data, node_set);
     }
   }
 }

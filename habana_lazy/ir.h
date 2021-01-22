@@ -312,7 +312,7 @@ inline std::ostream& operator<<(std::ostream& stream, const Value& value) {
   return stream;
 }
 
-// Hash functor for Value
+// Hash functor for Output
 struct OutputHash {
  public:
   size_t operator()(const Output& v) const {
@@ -321,10 +321,27 @@ struct OutputHash {
   }
 };
 
-// Equal functor for Value
+// Equal functor for Output
 struct OutputEqual {
  public:
   bool operator()(const Output& v1, const Output& v2) const {
+    return v1 == v2;
+  }
+};
+
+// Hash functor for Value
+struct ValueHash {
+ public:
+  size_t operator()(const Value& v) const {
+    return StdHashCombine(
+        reinterpret_cast<uintptr_t>(v.mp_node.get()), v.m_index);
+  }
+};
+
+// Equal functor for Value
+struct ValueEqual {
+ public:
+  bool operator()(const Value& v1, const Value& v2) const {
     return v1 == v2;
   }
 };

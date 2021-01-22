@@ -1,14 +1,14 @@
 #include <gtest/gtest.h>
+#include <torch/csrc/jit/testing/file_check.h>
 #include <torch/torch.h>
 #include <stdexcept>
-#include <torch/csrc/jit/testing/file_check.h>
-#include "habana_lazy/hpu_lazy_tensors.h"
-#include "habana_lazy/aten_lazy_bridge.h"
-#include "habana_lazy/hlexec.h"
-#include "habana_lazy/ir.h"
-#include "habana_lazy/ir_utils.h"
 #include "habana_kernels/eager_kernels_declarations.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
+#include "habana_lazy/aten_lazy_bridge.h"
+#include "habana_lazy/hlexec.h"
+#include "habana_lazy/hpu_lazy_tensors.h"
+#include "habana_lazy/ir.h"
+#include "habana_lazy/ir_utils.h"
 
 using namespace habana_lazy;
 using namespace torch;
@@ -75,12 +75,7 @@ TEST(PostOrderTest, poTestFill) {
       std::make_move_iterator(input_list.end()));
 
   exec::HlExec* hlexec = new exec::HlExec();
-  hlexec->GetOrCreate(
-      po_data.post_order,
-      stack,
-      po_data.inputs,
-      po_data.outputs,
-      po_data.post_order_nodes_hash);
+  hlexec->GetOrCreate(po_data, stack);
 
   torch::jit::testing::FileCheck()
       .check_count("prim::Constant[value=1.]", 1)

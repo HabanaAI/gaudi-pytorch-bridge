@@ -43,12 +43,7 @@ TEST(LazyJITTest, CreateGraph) {
       std::make_move_iterator(input_list.end()));
 
   exec::HlExec* hlexec = new exec::HlExec();
-  hlexec->GetOrCreate(
-      po_data.post_order,
-      stack,
-      po_data.inputs,
-      po_data.outputs,
-      po_data.post_order_nodes_hash);
+  hlexec->GetOrCreate(po_data, stack);
 
   torch::jit::testing::FileCheck()
       .check("prim::Constant[value=4.]")
