@@ -15,6 +15,7 @@
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_helpers/graph.h"
 #include "habana_helpers/tensor_utils.h"
+#include "habana_kernels/basic_kernels.h"
 #include "habana_kernels/binary_inplace_kernels.h"
 #include "habana_kernels/binary_kernels.h"
 #include "habana_kernels/kernel_utils.h"
@@ -616,23 +617,35 @@ void habana::AddcmulInplaceOperator::AllocateAndAddSynapseNode(
   // special handling required. synapse cannot handle same tensor given as both
   // inputs to a binary op
   if (tensor1.is_same(tensor2)) {
-    // Create Pow operator
-    habana::PowOperator powOp(this->p_context_->device_id_, scalar_type);
-    auto& pow_syn_1 =
-        powOp.SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
+    // x^2 implemented as x*x. Identity node used to create aliased tensor
+    // since GC/TPC does not like giving same tensor as both inputs to a
+    // binary op
+    IdentityOperator identityOp(this->p_context_->device_id_, scalar_type);
+    auto& syn_arg0 =
+        identityOp.SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
+    torch::jit::Stack stack = {IValue(tensor1)};
+    identityOp.AllocateAndAddSynapseNode(graph, stack, false);
+    p_context_->syn_inputs_[1] = std::move(syn_arg0);
+    stack.clear();
+
+    habana::MulOperator mulOp(this->p_context_->device_id_, scalar_type);
+    auto& mul_syn_1 =
+        mulOp.SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
+    UNUSED auto& mul_syn_2 =
+        mulOp.SetSynapseInput(std::move(identityOp.GetSynOutputs()[0]));
     stack.emplace_back(IValue(tensor1));
-    stack.emplace_back(IValue(2.0));
-    powOp.AllocateAndAddSynapseNode(graph, stack, false);
-    p_context_->syn_inputs_[1] = std::move(pow_syn_1);
+    stack.emplace_back(IValue(identityOp.GetOutputs()[0]));
+    mulOp.AllocateAndAddSynapseNode(graph, stack, false);
+    p_context_->syn_inputs_[1] = std::move(mul_syn_1);
     stack.clear();
 
     // Create Add operator
     habana::AddInplaceOperator addOp(this->p_context_->device_id_, scalar_type);
     auto& add_syn =
         addOp.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
-    addOp.SetSynapseInput(std::move(powOp.GetSynOutputs()[0]));
+    addOp.SetSynapseInput(std::move(mulOp.GetSynOutputs()[0]));
     stack.emplace_back(IValue(self));
-    stack.emplace_back(IValue(powOp.GetOutputs()[0]));
+    stack.emplace_back(IValue(mulOp.GetOutputs()[0]));
     stack.emplace_back(IValue(alphaValue));
     addOp.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
     p_context_->syn_inputs_[0] = std::move(add_syn);

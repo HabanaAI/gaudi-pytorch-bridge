@@ -18,6 +18,7 @@
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_helpers/graph.h"
 #include "habana_helpers/tensor_utils.h"
+#include "habana_kernels/basic_kernels.h"
 #include "habana_kernels/binary_composite_kernels.h"
 #include "habana_kernels/binary_kernels.h"
 #include "habana_kernels/kernel_utils.h"
@@ -519,24 +520,47 @@ void GeluBackwardOperator::AllocateAndAddSynapseNode(
   auto self = inputs[1].toTensor();
   at::ScalarType scalar_type = self.scalar_type();
 
-  // Create Pow operator
-  PowOperator powOp(this->p_context_->device_id_, scalar_type);
-  auto& pow_syn = powOp.SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
-  // Build Params for the graph
-  Scalar powValue = 3.0;
-  std::vector<c10::IValue> stack{IValue(self), IValue(powValue)};
-  powOp.AllocateAndAddSynapseNode(graph, stack, false);
-  p_context_->syn_inputs_[1] = std::move(pow_syn);
+  // x^3 implemented as x*x*x. Identity node used to create aliased tensor
+  // since GC/TPC does not like giving same tensor as both inputs to a
+  // binary op
+  IdentityOperator identityOp(this->p_context_->device_id_, scalar_type);
+  auto& syn_arg0 =
+      identityOp.SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
+  torch::jit::Stack stack = {IValue(self)};
+  identityOp.AllocateAndAddSynapseNode(graph, stack, false);
+  p_context_->syn_inputs_[1] = std::move(syn_arg0);
+  stack.clear();
+
+  MulOperator mulpow1Op(this->p_context_->device_id_, scalar_type);
+  auto& mul_syn_1 =
+      mulpow1Op.SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
+  UNUSED auto& mul_syn_2 =
+      mulpow1Op.SetSynapseInput(std::move(identityOp.GetSynOutputs()[0]));
+  stack.emplace_back(IValue(self));
+  stack.emplace_back(IValue(identityOp.GetOutputs()[0]));
+  mulpow1Op.AllocateAndAddSynapseNode(graph, stack, false);
+  p_context_->syn_inputs_[1] = std::move(mul_syn_1);
+  stack.clear();
+
+  MulOperator mulpow2Op(this->p_context_->device_id_, scalar_type);
+  auto& mul_syn_11 =
+      mulpow2Op.SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
+  UNUSED auto& mul_syn_21 =
+      mulpow2Op.SetSynapseInput(std::move(mulpow1Op.GetSynOutputs()[0]));
+  stack.emplace_back(IValue(self));
+  stack.emplace_back(IValue(mulpow1Op.GetOutputs()[0]));
+  mulpow2Op.AllocateAndAddSynapseNode(graph, stack, false);
+  p_context_->syn_inputs_[1] = std::move(mul_syn_11);
   stack.clear();
 
   // Create Add operator
   AddOperator addOp(this->p_context_->device_id_, scalar_type);
   auto& add_syn = addOp.SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
-  addOp.SetSynapseInput(std::move(powOp.GetSynOutputs()[0]));
+  addOp.SetSynapseInput(std::move(mulpow2Op.GetSynOutputs()[0]));
   // Build Params for the graph
   Scalar alphaValue = 0.044715;
   stack.emplace_back(IValue(self));
-  stack.emplace_back(IValue(powOp.GetOutputs()[0]));
+  stack.emplace_back(IValue(mulpow2Op.GetOutputs()[0]));
   stack.emplace_back(IValue(alphaValue));
   addOp.AllocateAndAddSynapseNode(graph, stack, false);
   p_context_->syn_inputs_[1] = std::move(add_syn);
