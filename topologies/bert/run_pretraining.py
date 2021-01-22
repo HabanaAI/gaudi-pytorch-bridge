@@ -569,7 +569,12 @@ def take_optimizer_step(args, optimizer, model, overflow_buf, global_step):
             had_overflow = 0
         # 6. call optimizer step function
         if had_overflow == 0:
-            optimizer.step()
+            if args.use_habana and args.hmp and not(args.use_custom_lamb):
+                from hmp import hmp
+                with hmp.disable_casts():
+                    optimizer.step()
+            else:
+                optimizer.step()
             global_step += 1
         else:
             # Overflow detected, print message and clear gradients
@@ -583,7 +588,12 @@ def take_optimizer_step(args, optimizer, model, overflow_buf, global_step):
         for param in model.parameters():
             param.grad = None
     else:
-        optimizer.step()
+        if args.use_habana and args.hmp and not(args.use_custom_lamb):
+            from hmp import hmp
+            with hmp.disable_casts():
+                optimizer.step()
+        else:
+            optimizer.step()
         #optimizer.zero_grad()
         for param in model.parameters():
             param.grad = None

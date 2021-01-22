@@ -1,6 +1,30 @@
+import contextlib
 import torch
 from functools import wraps
 from . import config
+
+
+class HmpState(object):
+    def __init__(self):
+        self.disable_cast=False
+
+# Attribute store.  Can also just store things
+# as global module attributes.
+_hmp_state = HmpState()
+
+@contextlib.contextmanager
+def disable_casts():
+    """This function is used to create a
+       caller context where all casts are
+       disabled.
+       E.g. around optimizer.step()"""
+    if config.verbose_mode:
+        print("Disabled HMP casting")
+    _hmp_state.disable_cast = True
+    yield
+    if config.verbose_mode:
+        print("Enabled HMP casting")
+    _hmp_state.disable_cast = False
 
 
 def vprint(*args, **kwds):
@@ -130,6 +154,9 @@ def op_wrap_var_input_len(op, cast_fn, wrap_len):
 
     @wraps(op)
     def wrapper(*args, **kwds):
+        if _hmp_state.disable_cast:
+            return op(*args, **kwds)
+
         vprint("casting ", op, cast_fn.__name__)
         args_out = get_new_args(cast_fn, args[0:wrap_len], kwds)
         args_cast = args_out + args[wrap_len:]
@@ -155,6 +182,9 @@ def op_wrap(op, cast_fn):
 
     @wraps(op)
     def wrapper(*args, **kwds):
+        if _hmp_state.disable_cast:
+            return op(*args, **kwds)
+
         vprint("casting ", op, cast_fn.__name__)
         args_cast = get_new_args(cast_fn, args, kwds)
         return op(*args_cast, **kwds)
@@ -180,6 +210,9 @@ def op_wrap_dynamic(op):
 
     @wraps(op)
     def wrapper_dynamic(*args, **kwds):
+        if _hmp_state.disable_cast:
+            return op(*args, **kwds)
+
         if isinstance(args[0], list):
             # ops with tensorlist as input
             cast_fn = decide_cast_fn(*args[0], **kwds)
@@ -214,6 +247,9 @@ def op_wrap_dynamic_inplace(op):
 
     @wraps(op)
     def wrapper_dynamic_inplace(*args, **kwds):
+        if _hmp_state.disable_cast:
+            return op(*args, **kwds)
+
         cast_fn = decide_cast_fn_inplace(*args, **kwds)
         vprint("casting ", op, " to ", cast_fn.__name__)
 

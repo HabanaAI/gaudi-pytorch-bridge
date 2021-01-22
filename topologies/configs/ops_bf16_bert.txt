@@ -1,10 +1,15 @@
+add
 addmm
 bmm
+div
 dropout
 gelu
+iadd
 linear
 layer_norm
 log_softmax
 matmul
 mm
+rsub
 softmax
+truediv
