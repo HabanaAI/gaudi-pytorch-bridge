@@ -32,7 +32,8 @@ bool HabanaWhiteList::is_op_habana_whitelisted(torch::jit::Node* node) {
   // Since we do not support any other nodes other than prim::Constant
   // We have to ensure that we return true only for prim::Constant node
   if (node->kind().is_prim()) {
-    if (node->kind() == torch::jit::prim::Constant) {
+    if ((torch::jit::prim::Constant == node->kind()) ||
+        (torch::jit::prim::dtype == node->kind())) {
       return true;
     } else {
       return false;

@@ -63,14 +63,16 @@ void adjustSizesforPT(at::Tensor* tensor, bool is_output) {
 
   at::IntArrayRef new_pos_arr = is_output ? out_pos : in_pos;
   auto new_pos = new_pos_arr.vec();
-  std::vector<long int> swapped_sizes = {sizes[new_pos[0]],
-                                         sizes[new_pos[1]],
-                                         sizes[new_pos[2]],
-                                         sizes[new_pos[3]]};
-  std::vector<long int> swapped_strides = {strides[new_pos[0]],
-                                           strides[new_pos[1]],
-                                           strides[new_pos[2]],
-                                           strides[new_pos[3]]};
+  std::vector<long int> swapped_sizes = {
+      sizes[new_pos[0]],
+      sizes[new_pos[1]],
+      sizes[new_pos[2]],
+      sizes[new_pos[3]]};
+  std::vector<long int> swapped_strides = {
+      strides[new_pos[0]],
+      strides[new_pos[1]],
+      strides[new_pos[2]],
+      strides[new_pos[3]]};
 
   //*tensor_new = at::alias(*tensor);
   tensor->unsafeGetTensorImpl()->set_sizes_and_strides(
@@ -821,14 +823,16 @@ void adjustInputWeight(at::Tensor* tensor, bool is_input) {
   // TODO : Remove these hardcoded dims, maybe take it from config file?
   at::IntArrayRef new_pos_arr = is_input ? in : out;
   auto new_pos = new_pos_arr.vec();
-  std::vector<long int> swapped_sizes = {sizes[new_pos[0]],
-                                         sizes[new_pos[1]],
-                                         sizes[new_pos[2]],
-                                         sizes[new_pos[3]]};
-  std::vector<long int> swapped_strides = {strides[new_pos[0]],
-                                           strides[new_pos[1]],
-                                           strides[new_pos[2]],
-                                           strides[new_pos[3]]};
+  std::vector<long int> swapped_sizes = {
+      sizes[new_pos[0]],
+      sizes[new_pos[1]],
+      sizes[new_pos[2]],
+      sizes[new_pos[3]]};
+  std::vector<long int> swapped_strides = {
+      strides[new_pos[0]],
+      strides[new_pos[1]],
+      strides[new_pos[2]],
+      strides[new_pos[3]]};
   tensor->unsafeGetTensorImpl()->set_sizes_and_strides(
       swapped_sizes, swapped_strides);
 }
@@ -1067,16 +1071,24 @@ void HabanaLaunchOpPT::handleMetaOps(torch::jit::Node* node) {
   // Call the meta op via CPU impl
   // Some ops dont support c10 op.callBoxed so we need to call via JIT
   torch::jit::Stack stack;
-  void *in_data, *out_data;
   auto node_ins = node->inputs();
-  habana::LayoutFormat out_layout{}, out_origin_layout{};
   IValPtrShared input_ptr{nullptr};
+  // habana::LayoutFormat out_layout{}, out_origin_layout{};
+  // void* in_data, *out_data;
 
   for (const auto value_in : node_ins) {
     stack.insert(stack.end(), *value_to_ivalue[value_in]);
     if (value_to_ivalue[value_in]->isTensor()) {
       auto tensor = value_to_ivalue[value_in]->toTensor();
-      out_layout = value_to_tensor_layout[value_in].layout;
+      HABANA_ASSERT(
+          pt_to_synapse_tensors.find(value_to_ivalue[value_in]) !=
+          std::end(pt_to_synapse_tensors))
+
+      // Below code is commented for now, since we dont handle
+      // any meta ops that would create a new pytorch/syanpse tensor
+      // If we need view to be handled as a meta op, need to enable
+      // the below code
+      /*out_layout = value_to_tensor_layout[value_in].layout;
       out_origin_layout =
           value_to_tensor_layout[value_in].layout_at_graph_entry;
       if (pt_to_synapse_tensors.find(value_to_ivalue[value_in]) ==
@@ -1107,7 +1119,7 @@ void HabanaLaunchOpPT::handleMetaOps(torch::jit::Node* node) {
               value_in,
               watch_tensor_flag_));
         }
-      }
+      }*/
     }
   }
   torch::jit::Operator jit_op = node->getOperator();
@@ -1121,17 +1133,22 @@ void HabanaLaunchOpPT::handleMetaOps(torch::jit::Node* node) {
   for (const auto val_out : node_outs) {
     IValPtrShared ival = std::make_shared<IVal>(outputs[i]);
     value_to_ivalue[val_out] = ival;
-    if (ival->isTensor()) {
+    HABANA_ASSERT(ival->isTensor() == false);
+    // Below code is commented for now, since we dont handle
+    // any meta ops that would create a new pytorch/syanpse tensor
+    // If we need view to be handled as a meta op, need to enable
+    // the below code
+    /*if (ival->isTensor()) {
       auto tensor = ival->toTensor();
       value_to_tensor_layout[val_out].layout = out_layout;
       value_to_tensor_layout[val_out].layout_at_graph_entry = out_origin_layout;
       create_duplicate_syn_tensor(&tensor, val_out, true);
       out_data = tensor.data_ptr();
-    }
+    }*/
     i++;
   }
-  TORCH_CHECK(
-      in_data == out_data, "HabanaFusion : Data pointer changed in Meta op");
+  /* TORCH_CHECK(
+      in_data == out_data, "HabanaFusion : Data pointer changed in Meta op");*/
 }
 
 void HabanaLaunchOpPT::OrderInputs(RecipeValueSpec& rv) {
@@ -1431,12 +1448,6 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
       watch_tensor_flag_ = true;
     }
 
-    // Prim nodes require special handling and are a special case
-    if (node->kind().is_prim()) {
-      handlePrimNodes(node);
-      continue;
-    }
-
     // If its a meta op we need to call the CPU impl and capture changes
     // Only valid for single tensor ops
     // Can we avoid the string match here?
@@ -1444,6 +1455,13 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
       handleMetaOps(node);
       continue;
     }
+
+    // Prim nodes require special handling and are a special case
+    if (node->kind().is_prim()) {
+      handlePrimNodes(node);
+      continue;
+    }
+
     // Get kernel context
     habana::HabanaOperatorPtr HabanaKernel = habana::KernelRegistry().get(
         device_id, node->kind().toQualString(), getNodeScalarType(node));

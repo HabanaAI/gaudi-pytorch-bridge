@@ -25,7 +25,8 @@ class HabanaMetaOpList {
 const std::unordered_set<std::string> HabanaMetaOpList::HabanaMetaOpsList = {
     // Add aten string here for ops to support
     // e.g  :: "aten::view"
-};
+    "aten::size",
+    "prim::dtype"};
 
 bool HabanaMetaOpList::isHabanaMetaOp(std::string opName) {
   if (HabanaMetaOpsList.find(opName) != HabanaMetaOpsList.end())

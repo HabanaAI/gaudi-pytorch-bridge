@@ -145,6 +145,7 @@ struct HabanaGraphFuser {
     if (!shouldFuse) {
       return at::nullopt;
     }
+
     auto group = consumer;
     if (consumer->kind() != kind_) {
       group = SubgraphUtils::createSingletonSubgraph(consumer, kind_);
