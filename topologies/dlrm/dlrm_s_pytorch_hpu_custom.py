@@ -864,6 +864,9 @@ if __name__ == "__main__":
             lr_change = args.learning_rate #*args.world_size
         else:
             lr_change = args.learning_rate
+
+        hb_torch.enable_fuse_t_mm_optimization(True)
+
         # specify the optimizer algorithm
         if args.optimizer == "sgd":
             optimizer = torch.optim.SGD(list(dlrm_habana.top_l.parameters())
