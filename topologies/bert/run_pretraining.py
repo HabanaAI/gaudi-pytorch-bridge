@@ -452,6 +452,14 @@ def prepare_model_and_optimizer(args, device):
             print("resume step from ", args.resume_step)
 
     model.to(device)
+    if args.use_habana:
+        # Embedding weights are shared with decoder weights in the model,
+        # with this copy we explicitly specify that decoder weight is not
+        # a named parameter in the model and just a reference to the embedding
+        # weights.
+        # This extra copy is needed to re-establish the Link between shared
+        # weights because of device movement of the shared tensor
+        model.cls.predictions.decoder.weight = model.bert.embeddings.word_embeddings.weight
     param_optimizer = list(model.named_parameters())
     no_decay = ['bias', 'gamma', 'beta', 'LayerNorm']
     
