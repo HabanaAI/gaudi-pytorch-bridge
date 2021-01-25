@@ -207,7 +207,7 @@ class CustomPreProcessor(object):
         (X, lS_o, lS_i, T) = list_of_tuples[0]
         return self.collate_habana_preprocess(X, lS_o, lS_i, T)
 
-    def collate_wrapper_criteo(list_of_tuples):
+    def collate_wrapper_criteo(self,list_of_tuples):
         # where each tuple is (X_int, X_cat, y)
         transposed_data = list(zip(*list_of_tuples))
         X_int = torch.log(torch.tensor(transposed_data[0], dtype=torch.float) + 1)
