@@ -147,7 +147,7 @@ if (BUILD_PKGS)
     ${CMAKE_SOURCE_DIR}/habana_kernels/pytorch-extensions/optimizer_sgd-extension
     ${CMAKE_SOURCE_DIR}/habana_kernels/pytorch-extensions/preproc-extension
     ${CMAKE_SOURCE_DIR}/pytorch_helpers/hmp
-    $ENV{MODEL_GARDEN_PYTORCH_PATH}/nlp/transformers
+    $ENV{MODEL_GARDEN_PYTORCH_PATH}/nlp/bert/finetuning
   )
 
   foreach(PKG ${PKGS})
