@@ -30,8 +30,8 @@ def getValues(log,criterion):
 
 def compare_logs():
     if (len(sys.argv)!=7):
-        print(" USAGE: python log_compare.py ref tst criterion numValuesToCompare atol rtol   \n\
-                EXAMPLE: python log_compare.py ref_log.txt tst_log.txt loss 2000 1e-6 1e-6")
+        print(" USAGE: \n\
+                EXAMPLE: python compare_logs.py loss numValuesToCompare atol rtol ref.txt tst_log.txt")
         sys.exit(1)
     else:
         ref_log = sys.argv[5]
@@ -110,7 +110,7 @@ def compare_logs():
     plt.savefig('dlrm_error_plot.png')
     plt.close()
     print('Plot saved as dlrm_error_plot.png')
-
+    print(f'Command to compare: vimdiff {ref_log} {tst_log}')
 if __name__ == "__main__":
     print(sys.argv)
     compare_logs()

@@ -184,6 +184,15 @@ def ca_compare_tensor_files(dev1, dev2, file_pair_list, base_path=None, rtol=1e-
         t_dev1 = torch.load(file_dev1)
         t_dev2 = torch.load(file_dev2)
 
+        if (t_dev1.dtype == torch.bfloat16):
+            t_dev1 = t_dev1.float()
+            print(f'Casting{file_dev1}')
+
+        if (t_dev2.dtype == torch.bfloat16):
+            t_dev2 = t_dev2.float()
+            print(f'Casting{file_dev2}')
+
+
         #Some tensors like convolution weights need permutation when comparing habana tensors with GPU or CPU
         tid = tensor_to_permute(dev1, dev2, tensor_info, t_dev1, t_dev2, same_device, topology)
         if tid != 0 : # Need permute
@@ -198,8 +207,12 @@ def ca_compare_tensor_files(dev1, dev2, file_pair_list, base_path=None, rtol=1e-
 
         if equal is False:
             error = torch.isclose(t_dev1, t_dev2, rtol=rtol, atol=atol)
-            max_diff = torch.max(torch.abs(t_dev1[error.logical_not()] - t_dev2[error.logical_not()]))
-            print("MISMATCH: max_diff : ", max_diff,  "   \tfor tensor: ", tensor_info, " with  rtol : ", rtol, "atol : ", atol)
+            if t_dev1.ndim ==0 :
+                max_diff = abs(t_dev1.item()-t_dev2.item())
+            else:
+                max_diff = torch.max(torch.abs(t_dev1[error.logical_not()] - t_dev2[error.logical_not()]))
+
+            print("MISMATCH: max_diff : ", max_diff, "angle : ",tensor_cmp_stat_dict['angle'],  "   \tfor tensor: ", tensor_info, " with  rtol : ", rtol, "atol : ", atol)
             if 'loss' in tensor_info:
                 print("device1 loss = ", t_dev1.item(), "device2 loss = ", t_dev2.item())
         else:
