@@ -608,20 +608,33 @@ class Trainer:
                     if self.args.fp16:
                         torch.nn.utils.clip_grad_norm_(amp.master_params(optimizer), self.args.max_grad_norm)
                     else:
-                        if self.args.use_habana and self.args.use_fused_clip_norm:
-                            try:
-                                from hb_custom import FusedClipNorm
-                            except ImportError:
-                                raise ImportError("Please install hb_custom.")
+                        if self.args.use_habana:
+                            if self.args.use_fused_clip_norm:
+                                try:
+                                    from hb_custom import FusedClipNorm
+                                except ImportError:
+                                    raise ImportError("Please install hb_custom.")
 
-                            FusedClipNorm(model.parameters(), self.args.max_grad_norm)
+                                FusedClipNorm(model.parameters(), self.args.max_grad_norm)
+                            else:
+                                if self.args.hmp:
+                                    from hmp import hmp
+                                    with hmp.disable_casts():
+                                        torch.nn.utils.clip_grad_norm_(model.parameters(), self.args.max_grad_norm)
+                                else:
+                                    torch.nn.utils.clip_grad_norm_(model.parameters(), self.args.max_grad_norm)
                         else:
                             torch.nn.utils.clip_grad_norm_(model.parameters(), self.args.max_grad_norm)
 
                     if is_torch_tpu_available():
                         xm.optimizer_step(optimizer)
                     else:
-                        optimizer.step()
+                        if self.args.use_habana and self.args.hmp and not(self.args.use_fused_adam):
+                            from hmp import hmp
+                            with hmp.disable_casts():
+                                optimizer.step()
+                        else:
+                            optimizer.step()
 
                     scheduler.step()
                     model.zero_grad()
