@@ -25,8 +25,6 @@
 #include "synapse_helpers/event.h"
 #include "synapse_helpers/synapse_error.h"
 
-enum HclTag { HCL_TAG_SYNC = 11101 };
-
 namespace synapse_helpers {
 class stream;
 
@@ -190,6 +188,11 @@ class hcl_communicator {
 
   void negotiate_root_rank(int order);
 
+  uint32_t get_sync_tag() const {
+    sync_tag_++;
+    return sync_tag_;
+  }
+
  private:
   static const HCL_Rank HCL_RANK_UNASSIGNED{0xFFFF};
 
@@ -237,6 +240,7 @@ class hcl_communicator {
   std::mutex intermediate_buffer_allocation_mtx;
   HCL_Comm comm_id_;
   bool using_streams_;
+  mutable uint32_t sync_tag_{2020};
   int size_{0};
   HCL_Rank my_hcl_rank_{HCL_RANK_UNASSIGNED};
   HCL_Rank root_hcl_rank_{HCL_RANK_UNASSIGNED};
