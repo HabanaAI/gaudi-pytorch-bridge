@@ -51,6 +51,14 @@ class BatchNormForwardOperator : public habana::HabanaOperator {
 
   torch::jit::Stack& GetInputstack();
 
+  void SetEagerMode() {
+    is_eager_mode = true;
+  }
+
+  bool isEagerMode() const {
+    return is_eager_mode;
+  }
+
  private:
   void insert_memcopy_op(
       synapse_helpers::graph& graph,
@@ -81,6 +89,8 @@ class BatchNormForwardOperator : public habana::HabanaOperator {
   std::vector<synapse_helpers::tensor_or_ref> mean_var_temp;
   std::vector<std::pair<at::Tensor, at::Tensor>> dma_candidates;
   bool running_vars_def;
+
+  bool is_eager_mode = false;
 };
 
 class BatchNormBackwardOperator : public habana::HabanaOperator {

@@ -516,7 +516,9 @@ void BatchNormForwardOperator::AllocateAndAddSynapseNode(
     p_context_->pt_outputs_.emplace_back(pre_inputs[3]);
     p_context_->pt_outputs_.emplace_back(pre_inputs[4]);
   }
-  remove_non_persistent_patching_info();
+  if (isEagerMode()) {
+    remove_non_persistent_patching_info();
+  }
 }
 
 void BatchNormForwardOperator::SetPTOutputs(torch::jit::Stack& inputs) {
@@ -633,6 +635,7 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu(
       Op.Execute(key);
     } else {
       PT_KERNEL_DEBUG("key:", key);
+      Op.SetEagerMode();
       // Create Graph
       auto graph = habana_helpers::create_graph(device_id, node_type);
       for (auto ival : in_stack) {
