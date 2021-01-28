@@ -31,7 +31,9 @@ PYBIND11_MODULE(hb_torch, m) {
   m.def("remove_inplace_ops", []() { opts.remove_inplace_ops = true; });
 
   // python API to report device memory live allocation details
-  m.def("memstat_livealloc", [](const char* msg = "") { print_live_allocations(msg); });
+  m.def("memstat_livealloc", [](const char* msg = "") {
+    synapse_helpers::print_live_allocations(msg);
+  });
 
   // Lazy apis
   m.def(

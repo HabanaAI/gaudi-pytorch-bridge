@@ -13,8 +13,10 @@
 #include <sstream>
 #include <utility>
 
+#include <synapse_api.h>
 #include "habana_helpers/logging.h"
 #include "synapse_helpers/device.h"
+#include "synapse_helpers/devmem_logger.h"
 #include "synapse_helpers/env_flags.h"
 
 namespace synapse_helpers {
@@ -67,6 +69,18 @@ device_memory::device_memory(device& device) : device_{device} {
   if (suballoc_ && !suballoc_->pool_create(device_.id(), pool_size_)) {
     PT_SYNHELPER_FATAL("pool creation failed");
   }
+
+  if (pool_strategy_ != pool_allocator::startegy_static_coalesce) {
+    uint64_t dram_info[2] = {0};
+    const synDeviceAttribute deviceAttr[2] = {
+        DEVICE_ATTRIBUTE_DRAM_BASE_ADDRESS, DEVICE_ATTRIBUTE_DRAM_SIZE};
+    auto status = synDeviceGetAttribute(dram_info, deviceAttr, 2, device_.id());
+    if (synStatus::synSuccess != status) {
+      PT_SYNHELPER_FATAL("Cannot obtain dram info. Status: ", status);
+    }
+    log_DRAM_start(dram_info[0]);
+    log_DRAM_size(dram_info[1]);
+  }
 }
 
 device_memory::~device_memory() {
@@ -98,6 +112,7 @@ synStatus device_memory::malloc(void** v_ptr, uint64_t size) {
       *v_ptr = reinterpret_cast<void*>(ptr);
     }
   }
+  log_synDeviceMalloc(ptr, size, status);
 
   return status;
 }
@@ -115,6 +130,7 @@ synStatus device_memory::free(void* ptr) {
     auto status{synDeviceFree(device_.id(), ptr_address, 0)};
     PT_SYNHELPER_DEBUG("SynDeviceFree Failed.", status);
   }
+  log_synDeviceFree(reinterpret_cast<uint64_t>(ptr), status);
   return status;
 }
 

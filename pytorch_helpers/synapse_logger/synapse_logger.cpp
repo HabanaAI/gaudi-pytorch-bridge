@@ -8,7 +8,6 @@
  ******************************************************************************
  */
 #include "synapse_logger.h"
-#include "HPUAllocate_wrapper.h"
 
 #include <dlfcn.h>
 #include <sys/time.h>
@@ -159,55 +158,6 @@ void SynapseLogger::dump_host_data(
   }
 }
 
-void SynapseLogger::dump_device_alloc_data(
-    const uint64_t ptr,
-    size_t num_bytes,
-    const synDeviceId deviceId,
-    synStatus status,
-    data_dump_category data_category) {
-  if (is_enabled(data_category)) {
-    log_synDeviceMalloc(ptr, num_bytes, (synSuccess != status));
-    if (!dev_attr_recorded) {
-      uint64_t val[2];
-      const synDeviceAttribute deviceAttr[2] = {
-          DEVICE_ATTRIBUTE_DRAM_BASE_ADDRESS, DEVICE_ATTRIBUTE_DRAM_SIZE};
-      synDeviceGetAttribute(val, deviceAttr, 2, deviceId);
-      dev_attr_recorded = true;
-    }
-  }
-}
-
-void SynapseLogger::dump_device_free_data(
-    const uint64_t ptr,
-    synStatus status,
-    data_dump_category data_category) {
-  if (is_enabled(data_category)) {
-    log_synDeviceFree(ptr, (synSuccess != status));
-  }
-}
-
-void SynapseLogger::dump_device_attr(
-    const synDeviceAttribute* deviceAttr,
-    uint64_t* val,
-    const unsigned querySize,
-    data_dump_category data_category) {
-  if (is_enabled(data_category)) {
-    for (unsigned i = 0; i < querySize; ++i) {
-      switch (deviceAttr[i]) {
-        case DEVICE_ATTRIBUTE_DRAM_BASE_ADDRESS:
-          log_DRAM_start(val[i]);
-          break;
-        case DEVICE_ATTRIBUTE_DRAM_SIZE:
-          log_DRAM_size(val[i]);
-          break;
-        default:
-          // No action taken
-          break;
-      }
-    }
-  }
-}
-
 size_t SynapseLogger::dump_data(const void* ptr, int byte_size) {
   std::call_once(lazy_init_flag, &SynapseLogger::lazy_open, logger);
   size_t offset = data_fout_.tellp();
@@ -292,11 +242,6 @@ void SynapseLogger::command(absl::string_view cmd) {
   } else if (cmd_name == "start_ctensor_capture") {
     source_cat_mask_ |=
         static_cast<uint64_t>(data_dump_category::CONST_TENSOR_DATA);
-    std::lock_guard<std::mutex> tlock(transfer_lock_);
-    transfers_.clear();
-  } else if (cmd_name == "log_device_alloc") {
-    source_cat_mask_ |=
-        static_cast<uint64_t>(data_dump_category::DEVICE_ALLOC_TRACKING);
     std::lock_guard<std::mutex> tlock(transfer_lock_);
     transfers_.clear();
   } else if (cmd_name == "eager_flush") {

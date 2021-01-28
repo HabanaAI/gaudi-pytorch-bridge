@@ -24,6 +24,8 @@
 #include "absl/memory/memory.h"
 #include "habana_helpers/logging.h"
 #include "synapse_helpers/device.h"
+#include "synapse_helpers/devmem_logger.h"
+#include "synapse_helpers/env_flags.h"
 #include "synapse_helpers/util.h"
 #include "util/time_measure.h"
 
@@ -329,6 +331,11 @@ synapse_error_o graph::launch(
           table_checker) == inputs_and_outputs_info.end());
   auto& compute_stream = recipe_handle.device_.get_compute_stream();
 
+  if (GET_ENV_FLAG(PT_HABANA_MEM_LOG_LEVEL) == MEM_LOG_GRAPH_LAUNCH) {
+    std::string msg = absl::StrFormat(
+        "%s%s", "Before launch of graph", recipe_handle.recipe_name_.c_str());
+    synapse_helpers::print_live_allocations(msg.c_str());
+  }
   status = synLaunch(
       compute_stream,
       inputs_and_outputs_info.data(),

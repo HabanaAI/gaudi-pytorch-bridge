@@ -21,7 +21,7 @@
 #include "habana_helpers/logging.h"
 
 #include "habana_bridge/kernel/hpu_habana_launch_op_pt.h"
-
+#include "synapse_helpers/devmem_logger.h"
 namespace habana {
 namespace {
 
@@ -85,7 +85,3 @@ void torch_habana_register_fusion_pass(
 
 } // namespace
 } // namespace habana
-
-// This function is resolved to pre-loaded synapse_logger.
-// Otherwise, this function doesn't do anything.
-void print_live_allocations(const char* msg = "") __attribute__((weak));

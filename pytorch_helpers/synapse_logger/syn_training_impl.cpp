@@ -821,8 +821,6 @@ synStatus SYN_API_CALL synDeviceMalloc(
   synStatus status =
       lib_synapse::synDeviceMalloc(deviceId, size, reqAddr, flags, buffer);
   API_LOG_RESULT(S_ARG_X(buffer));
-  synapse_logger::logger.dump_device_alloc_data(
-      *buffer, size, deviceId, status);
   return status;
 }
 
@@ -834,7 +832,6 @@ synStatus SYN_API_CALL synDeviceFree(
   API_LOG_CALL(ARG(deviceId), ARG_X(buffer), ARG_X(flags));
   synStatus status = lib_synapse::synDeviceFree(deviceId, buffer, flags);
   API_LOG_RESULT();
-  synapse_logger::logger.dump_device_free_data(buffer, status);
   return status;
 }
 
@@ -848,7 +845,6 @@ synStatus SYN_API_CALL synDeviceGetAttribute(
   synStatus status = lib_synapse::synDeviceGetAttribute(
       retVal, deviceAttr, querySize, deviceId);
   API_LOG_RESULT();
-  synapse_logger::logger.dump_device_attr(deviceAttr, retVal, querySize);
   return status;
 }
 

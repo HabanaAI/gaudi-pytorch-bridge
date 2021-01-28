@@ -12,7 +12,6 @@ set(SYNAPSE_LOGGER_SRCS
   ./hcl_impl.cpp
   ./synapse_logger.cpp
   ./syn_training_impl.cpp
-  ./HPUAllocate_wrapper.cpp
   )
 
 add_library(pytorch_synapse_logger SHARED ${SYNAPSE_LOGGER_SRCS})

@@ -11,6 +11,7 @@
 
 #include <habana_helpers/logging.h>
 #include "CoalescedPoolAllocator.h"
+#include "synapse_helpers/devmem_logger.h"
 #include "utils.h"
 
 #define DEFRAGMENT_TH(arg) std::ceil(0.9 * (arg))
@@ -94,6 +95,8 @@ bool StaticCoalescedPooling::pool_create(synDeviceId deviceID, uint64_t size)
       " next :: ",
       p->next);
 
+  log_DRAM_start(p->memptr);
+  log_DRAM_size(max_pool_size);
   return true;
 }
 

@@ -16,6 +16,7 @@ foreach (FLAVOR abi11)
     event.cpp
     event_handle_cache.cpp
     device_memory.cpp
+    devmem_logger.cpp
     graph.cpp
     habana_tensor.cpp
     hcl_communicator.cpp

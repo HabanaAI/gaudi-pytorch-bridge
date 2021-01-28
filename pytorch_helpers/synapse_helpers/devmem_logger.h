@@ -15,6 +15,16 @@
 #include <unordered_map>
 #include <vector>
 
+namespace synapse_helpers {
+enum mem_log_level {
+  MEM_LOG_DISABLE = 0,
+  MEM_LOG_ALL, /* logs full summary including bt */
+  MEM_LOG_ALLOC, /* logs only alloc */
+  MEM_LOG_FREE, /* logs only free  */
+  MEM_LOG_ALLOC_FREE_NOBT, /*logs alloc and free, no backtrace */
+  MEM_LOG_GRAPH_LAUNCH, /*logs memory before graph launch, no backtrace */
+};
+
 class deviceMallocData final {
  private:
   using size_bt_pair_t = std::pair<size_t, std::vector<std::string>>;
@@ -30,6 +40,7 @@ class deviceMallocData final {
   const char* fragment_csv_file = "habana_log.fragment.csv";
   bool take_bt, print_bt, print_free_bt, print_alloc_bt;
   size_t bt_depth;
+  bool logging_enabled_;
 
   uint64_t dram_start_, dram_size_;
   std::ofstream out;
@@ -65,6 +76,10 @@ class deviceMallocData final {
     dram_size_ = dram_size;
   }
 
+  bool is_logging_enabled() {
+    return logging_enabled_;
+  }
+
   // TBD:: Make it private
   std::mutex m;
 
@@ -77,3 +92,4 @@ void log_synDeviceFree(uint64_t ptr, bool failed = false);
 void print_live_allocations(const char* msg = "");
 void log_DRAM_start(uint64_t dram_start);
 void log_DRAM_size(uint64_t dram_size);
+} // namespace synapse_helpers

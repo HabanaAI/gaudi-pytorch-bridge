@@ -97,6 +97,13 @@ struct PT_HABANA_POOL_STRATEGY : public std::numeric_limits<unsigned> {
   static constexpr unsigned default_value = 3;
 };
 
+struct PT_HABANA_MEM_LOG_LEVEL : public std::numeric_limits<unsigned> {
+  static constexpr unsigned default_value = 0;
+};
+
+struct PT_HABANA_MEM_LOG_FILENAME {
+  static constexpr const char* default_value = "habana_log.livealloc.log";
+};
 // Overloads for different type of default value
 
 template <class T>
