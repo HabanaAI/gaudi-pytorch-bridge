@@ -9,9 +9,9 @@
  */
 
 #include <algorithm>
+#include <chrono>
 #include <iomanip>
 #include <sstream>
-#include <chrono>
 
 #include "habana_bridge/kernel/hpu_habana_cache.h"
 #include "habana_device/HPUAllocator.h"
@@ -23,15 +23,15 @@
 size_t RecipeValueSpec::recipe_count = 0;
 size_t RecipeValueSpec::total_recipe_ntbytes = 0;
 
-std::ostream & operator<<(std::ostream & O, PGMCachingPolicy P) {
+std::ostream& operator<<(std::ostream& O, PGMCachingPolicy P) {
   switch (P) {
-    case PGMCachingPolicy::simple :
+    case PGMCachingPolicy::simple:
       O << "simple";
       break;
-    case PGMCachingPolicy::single :
+    case PGMCachingPolicy::single:
       O << "single";
       break;
-    case PGMCachingPolicy::lru :
+    case PGMCachingPolicy::lru:
       O << "lru";
       break;
     default:
@@ -44,7 +44,7 @@ RecipeArgumentSpec::RecipeArgumentSpec(
     bool with_grad,
     at::ArrayRef<torch::jit::IValue> input_refs,
     const std::shared_ptr<torch::jit::Graph>& irgraph,
-    const std::string &id)
+    const std::string& id)
     : cas(with_grad, input_refs),
       hash_code(cas.hashCode()),
       opstrs(std::string()) {
@@ -61,6 +61,7 @@ RecipeArgumentSpec::RecipeArgumentSpec(
     }
   }
   hash_code = torch::hash_combine(hash_code, str_hash(opstrs));
+  hash_code = torch::hash_combine(hash_code, irgraph->outputs().size());
 }
 
 std::ostream& operator<<(std::ostream& O, const RecipeArgumentSpec& v) {
@@ -71,10 +72,10 @@ std::ostream& operator<<(std::ostream& O, const RecipeArgumentSpec& v) {
 RecipeValueSpec::~RecipeValueSpec() {
   PT_BRIDGE_DEBUG("Destroying recipe with key : ", key);
 
-  if (htensor_wbuff ) {
+  if (htensor_wbuff) {
     synStatus status;
     auto& device = synapse_helpers::HPURegistrar::get_device();
-    auto  device_id = device.id();
+    auto device_id = device.id();
     status = synHostFree(device_id, (void*)(htensor_wbuff), 0);
     if (status != synSuccess)
       PT_BRIDGE_DEBUG("host-free failed");
@@ -168,7 +169,6 @@ void RecipeValueSpec::print_hbuff(
 
 void RecipeValueSpec::d2h_dbuff(size_t buf_idx) {
   TORCH_CHECK(num_tensors > buf_idx, "buf_idx is out of range");
-
 
   unsigned buf_size = dtensorinfos->at(buf_idx).get_size();
   if (buf_size > htensor_wbuff_size) {
@@ -318,13 +318,14 @@ std::ostream& operator<<(std::ostream& O, const RecipeCacheSimple& v) {
 }
 
 void RecipeCacheSingle::add(
-    std::shared_ptr<RecipeArgumentSpec> &rargpsh,
-    std::shared_ptr<RecipeValueSpec> &rvalpsh) {
+    std::shared_ptr<RecipeArgumentSpec>& rargpsh,
+    std::shared_ptr<RecipeValueSpec>& rvalpsh) {
   if (!is_valid) {
     RecipeValueSpec::recipe_count++;
     is_valid = true;
   } else {
-    TORCH_CHECK(RecipeValueSpec::total_recipe_ntbytes >= last_rvalpsh->ntensorbytes,
+    TORCH_CHECK(
+        RecipeValueSpec::total_recipe_ntbytes >= last_rvalpsh->ntensorbytes,
         "error in total tensor byte accounting, total_recipe_ntbytes ",
         RecipeValueSpec::total_recipe_ntbytes,
         " should be greater than last_recipe.ntensorbytes ",
@@ -351,47 +352,63 @@ void RecipeCacheLRU::add(
     std::shared_ptr<RecipeValueSpec>& val) {
   std::lock_guard<std::mutex> lg(mutex_);
 
-  TORCH_CHECK(map_.size() == list_.size(),
-      "lru cache corruption, map size ", map_.size(),
-      " not equal to list_size ", list_.size());
+  TORCH_CHECK(
+      map_.size() == list_.size(),
+      "lru cache corruption, map size ",
+      map_.size(),
+      " not equal to list_size ",
+      list_.size());
 
   size_t rcnt{0};
   bool dropped{true};
   while (!map_.empty() && dropped && map_.size() >= max_size_) {
     dropped = drop_lru_impl(rcnt);
     if (!dropped) {
-      PT_BRIDGE_DEBUG("all recipes are in use, could not drop any, current recipe count ", rcnt);
+      PT_BRIDGE_DEBUG(
+          "all recipes are in use, could not drop any, current recipe count ",
+          rcnt);
     }
   }
 
   RecipeValueSpec::recipe_count++;
 
   auto mit = map_.find(key);
-  TORCH_CHECK(mit == map_.end(), "problematic key ", key, " another recipe already exists in cache");
+  TORCH_CHECK(
+      mit == map_.end(),
+      "problematic key ",
+      key,
+      " another recipe already exists in cache");
 
-  list_.push_front(
-      std::pair<std::shared_ptr<RecipeArgumentSpec>, std::shared_ptr<RecipeValueSpec>>(key, val));
+  list_.push_front(std::pair<
+                   std::shared_ptr<RecipeArgumentSpec>,
+                   std::shared_ptr<RecipeValueSpec>>(key, val));
   map_.emplace(key, list_.begin());
 
   RecipeValueSpec::total_recipe_ntbytes += val->ntensorbytes;
 
-  PT_BRIDGE_DEBUG("  adding new recipe, key ",
+  PT_BRIDGE_DEBUG(
+      "  adding new recipe, key ",
       key->hashCode(),
       ", ntensorbytes ",
       val->ntensorbytes);
 
-  PT_BRIDGE_DEBUG("  after adding new recipe, nrecipes ",
+  PT_BRIDGE_DEBUG(
+      "  after adding new recipe, nrecipes ",
       RecipeValueSpec::recipe_count,
       " total_recipe_ntbytes ",
       RecipeValueSpec::total_recipe_ntbytes);
 }
 
-std::shared_ptr<RecipeValueSpec> RecipeCacheLRU::get(std::shared_ptr<RecipeArgumentSpec>& key) {
+std::shared_ptr<RecipeValueSpec> RecipeCacheLRU::get(
+    std::shared_ptr<RecipeArgumentSpec>& key) {
   std::lock_guard<std::mutex> lg(mutex_);
   if (exists(key)) {
-    TORCH_CHECK(map_.size() == list_.size(),
-        "lru cache corruption, map size ", map_.size(),
-        " not equal to list_size ", list_.size());
+    TORCH_CHECK(
+        map_.size() == list_.size(),
+        "lru cache corruption, map size ",
+        map_.size(),
+        " not equal to list_size ",
+        list_.size());
 
     TORCH_CHECK(exists(key), "Recipe does not exist in map");
 
@@ -399,11 +416,12 @@ std::shared_ptr<RecipeValueSpec> RecipeCacheLRU::get(std::shared_ptr<RecipeArgum
     list_.splice(list_.begin(), list_, mit->second);
 
     // wait till the execution complete
-    bool use_flag {false};
+    bool use_flag{false};
     do {
       use_flag = list_.front().second->get_use_flag();
       if (use_flag) {
-        PT_BRIDGE_DEBUG("waiting for the completion of recipe, key ", key->hashCode());
+        PT_BRIDGE_DEBUG(
+            "waiting for the completion of recipe, key ", key->hashCode());
         std::this_thread::sleep_for(std::chrono::milliseconds(200));
       }
     } while (use_flag);
@@ -419,23 +437,26 @@ std::shared_ptr<RecipeValueSpec> RecipeCacheLRU::get(std::shared_ptr<RecipeArgum
   return {nullptr};
 }
 
-bool RecipeCacheLRU::drop_lru(size_t &recipe_count) {
+bool RecipeCacheLRU::drop_lru(size_t& recipe_count) {
   std::lock_guard<std::mutex> lg(mutex_);
   bool dropped = drop_lru_impl(recipe_count, true);
   return dropped;
 }
 
-bool RecipeCacheLRU::drop_lru_impl(size_t &recipe_count, bool mem_exhausted) {
-  bool dropped {false};
+bool RecipeCacheLRU::drop_lru_impl(size_t& recipe_count, bool mem_exhausted) {
+  bool dropped{false};
   int use_count = 0;
   // remove a recipe from the last that is not being used
   if (!map_.empty()) {
     auto lit = list_.end();
     lit--;
 
-    while(lit->second->get_use_flag() == true && lit != list_.begin()) {
-      PT_BRIDGE_DEBUG("recipe is in use, key ", lit->first->hashCode(),
-          ", ntensorbytes ", lit->second->ntensorbytes);
+    while (lit->second->get_use_flag() == true && lit != list_.begin()) {
+      PT_BRIDGE_DEBUG(
+          "recipe is in use, key ",
+          lit->first->hashCode(),
+          ", ntensorbytes ",
+          lit->second->ntensorbytes);
       lit--;
     }
 
@@ -443,14 +464,19 @@ bool RecipeCacheLRU::drop_lru_impl(size_t &recipe_count, bool mem_exhausted) {
     // otherwise the caller need to wait
     if (lit->second->get_use_flag() == false) {
       if (mem_exhausted) {
-        PT_BRIDGE_DEBUG("memory exhausted : removing recipe, key ",
+        PT_BRIDGE_DEBUG(
+            "memory exhausted : removing recipe, key ",
             lit->first->hashCode(),
             ", ntensorbytes ",
             lit->second->ntensorbytes);
       } else {
-        PT_BRIDGE_DEBUG("lru max size ", max_size_,
-            " reached : removing recipe, key ", lit->first->hashCode(),
-            ", ntensorbytes ", lit->second->ntensorbytes);
+        PT_BRIDGE_DEBUG(
+            "lru max size ",
+            max_size_,
+            " reached : removing recipe, key ",
+            lit->first->hashCode(),
+            ", ntensorbytes ",
+            lit->second->ntensorbytes);
       }
 
       RecipeValueSpec::recipe_count--;

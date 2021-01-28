@@ -58,10 +58,9 @@ size_t LazyArgumentSpec::GetInputHash(
     HABANA_ASSERT(value_input_nodes_map.count(inputs[i]) > 0);
     auto nodes = value_input_nodes_map.at(inputs[i]);
     for (auto& node : nodes) {
-      if (node) {
-        input_connection_hash =
-            torch::hash_combine(node->get_hash(), input_connection_hash);
-      }
+      HABANA_ASSERT(node);
+      input_connection_hash =
+          torch::hash_combine(node->get_hash(), input_connection_hash);
     }
     hash_val = torch::hash_combine(input_connection_hash, hash_val);
   }
