@@ -1163,7 +1163,6 @@ if __name__ == "__main__":
                     and (args.data_generation == "dataset")
                     and (((j + 1) % args.test_freq == 0) or (j + 1 == nbatches))
                 )
-
                 # print time, loss and accuracy
                 if should_print or should_test:
                     i = 0
@@ -1249,9 +1248,12 @@ if __name__ == "__main__":
                             # loss
                             E_test = loss_fn_wrap(Z_test, T_test, use_gpu,use_hpu, device)
 
+                            if args.run_lazy_mode:
+                                hb_torch.mark_step()
+
                             # compute loss and accuracy
                             L_test = E_test.detach().cpu().numpy()  # numpy array
-                            S_test = Z_test.detach().cpu().numpy()  # numpy array
+                            S_test = Z_test.detach().cpu().float().numpy()  # numpy array
                             T_test = T_test.detach().cpu().numpy()  # numpy array
                             mbs_test = T_test.shape[0]  # = mini_batch_size except last
                             A_test = np.sum((np.round(S_test, 0) == T_test).astype(np.uint8))
@@ -1345,7 +1347,6 @@ if __name__ == "__main__":
                         is_best = validation_results['roc_auc'] > best_auc_test
                         if is_best:
                             best_auc_test = validation_results['roc_auc']
-
                         print(
                             "Testing at - {}/{} of epoch {},".format(j + 1, nbatches, k)
                             + " loss {:.6f}, recall {:.4f}, precision {:.4f},".format(
@@ -1370,7 +1371,7 @@ if __name__ == "__main__":
                         print(
                             "Testing at - {}/{} of epoch {},".format(j + 1, nbatches, 0)
                             + " loss {:.6f}, accuracy {:3.3f} %, best {:3.3f} %".format(
-                                gL_test, gA_test * 100, best_gA_test * 100
+                                gL_test[0], gA_test * 100, best_gA_test * 100
                             )
                         )
                     # Uncomment the line below to print out the total time with overhead
