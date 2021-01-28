@@ -51,18 +51,46 @@ def convert(opt_level="O1", bf16_file_path="", fp32_file_path="", isVerbose=Fals
 
         any_file_path = os.path.join(dir_path, "ops_multi_inputs.txt")
 
-        ops_bf16_list = get_list_from_file(bf16_file_path)
-
-        ops_fp32_list = get_list_from_file(fp32_file_path)
-
-        ops_any_list = get_list_from_file(any_file_path)
-
-        # Please always keep cast_ops_list call for multi input ops
-        # above calls for bf16 & fp32. This ensures that if a given
-        # OP is added to both multi input list and bf16 or fp32 list
-        # then bf16 or fp32 gets higher priority.
+        # Find a list of OPs common to bf16 and any list and remove
+        # these from any list (=> higher prio to bf16 list). Do same
+        # thing for fp32 and any list (=> higher prio to fp32 list).
         # E.g. if you have "add" in both multi-inputs OPs and bf16
         # lists, then "add" inputs will be casted to bf16.
+
+        ops_bf16_list = get_list_from_file(bf16_file_path)
+        if config.verbose_mode:
+            print(ops_bf16_list)
+
+        ops_fp32_list = get_list_from_file(fp32_file_path)
+        if config.verbose_mode:
+            print(ops_fp32_list)
+
+        ops_any_list = get_list_from_file(any_file_path)
+        if config.verbose_mode:
+            print(ops_any_list)
+
+        bf16_common = [i for i in ops_bf16_list if i in ops_any_list]
+        if config.verbose_mode:
+            print(bf16_common)
+
+        fp32_common = [i for i in ops_fp32_list if i in ops_any_list]
+        if config.verbose_mode:
+            print(fp32_common)
+
+        x = [i for i in ops_any_list if i not in bf16_common]
+        x = [i for i in x if i not in fp32_common]
+        ops_any_list = x
+        if config.verbose_mode:
+            print(ops_any_list)
+
+        # Make sure there is no OP which is there in more than
+        # 1 list
+        x = [i for i in ops_any_list if i in ops_bf16_list]
+        assert len(x) == 0, str(x) + " in both any & bf16 list"
+        x = [i for i in ops_any_list if i in ops_fp32_list]
+        assert len(x) == 0, str(x) + " in both any & fp32 list"
+        x = [i for i in ops_bf16_list if i in ops_fp32_list]
+        assert len(x) == 0, str(x) + " in both fp32 & bf16 list"
 
         # Handle the multi input ops
         cast_ops_list(ops_any_list, ops_dict)
