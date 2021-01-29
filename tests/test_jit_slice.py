@@ -26,7 +26,7 @@ def test_slice_backward(D1, D2):
     with torch.jit.optimized_execution(True):
         os.environ["HABANA_GRAPH_WHITELIST_FILE"] = os.path.join(
             os.environ["MODEL_GARDEN_PYTORCH_PATH"],
-            "utils/configs/BERT_whitelist_ops.txt",
+            "nlp/bert/BERT_whitelist_ops.txt",
         )
         cpu_result = slice_func(in_t)
         grad_out = torch.randn(3, 2, requires_grad=False)

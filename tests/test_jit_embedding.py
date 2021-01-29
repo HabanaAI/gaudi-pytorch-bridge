@@ -22,7 +22,7 @@ test_case_list = [((0, 512), (30522, 768)),
 def test_embedding(indices, weight):
     os.environ["HABANA_GRAPH_WHITELIST_FILE"] = os.path.join(
         os.environ["MODEL_GARDEN_PYTORCH_PATH"],
-        "utils/configs/BERT_whitelist_ops.txt",
+        "nlp/bert/BERT_whitelist_ops.txt",
     )
     hpu = torch.device("habana")
     cpu = torch.device("cpu")
