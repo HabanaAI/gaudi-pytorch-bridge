@@ -663,6 +663,7 @@ def main():
     # Prepare optimizer
     model, optimizer, lr_scheduler, checkpoint, global_step, criterion = prepare_model_and_optimizer(args, device)
     gradient_accumulation_steps = torch.tensor(args.gradient_accumulation_steps, dtype=torch.float32).to(device)
+    world_size = torch.tensor(get_world_size(), dtype=torch.float32).to(device)
 
     if is_main_process():
         dllogger.log(step="PARAMETER", data={"SEED": args.seed})
@@ -815,7 +816,7 @@ def main():
                         average_loss = torch.tensor(average_loss, dtype=torch.float32).to(device)
                         average_loss = average_loss / (last_num_steps * divisor)
                         if (torch.distributed.is_initialized()):
-                            average_loss /= float(get_world_size())
+                            average_loss /= world_size
                             torch.distributed.all_reduce(average_loss)
                         final_loss = average_loss.item()
                         if is_main_process():
