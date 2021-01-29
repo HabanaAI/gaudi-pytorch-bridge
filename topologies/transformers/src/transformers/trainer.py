@@ -474,10 +474,11 @@ class Trainer:
         # Distributed training (should be after apex fp16 initialization)
         if self.args.local_rank != -1:
             if self.args.use_habana:
-                model = torch.nn.parallel.DistributedDataParallel(
-                        model,
-                        find_unused_parameters=True
-                        )
+                if not self.args.use_jit_trace:
+                    model = torch.nn.parallel.DistributedDataParallel(
+                            model,
+                            find_unused_parameters=True
+                            )
             else:
                 model = torch.nn.parallel.DistributedDataParallel(
                     model,
