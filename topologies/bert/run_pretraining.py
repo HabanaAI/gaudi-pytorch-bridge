@@ -139,10 +139,8 @@ class BertPretrainingCriterion(torch.nn.Module):
         super(BertPretrainingCriterion, self).__init__()
         self.loss_fn = torch.nn.CrossEntropyLoss(ignore_index=-1)
         self.vocab_size = vocab_size
-    def forward(self, prediction_scores, seq_relationship_score, masked_lm_labels, next_sentence_labels, loss_correction_factor):
+    def forward(self, prediction_scores, seq_relationship_score, masked_lm_labels, next_sentence_labels):
         masked_lm_loss = self.loss_fn(prediction_scores.view(-1, self.vocab_size), masked_lm_labels.view(-1))
-        if loss_correction_factor is not None:
-            masked_lm_loss = torch.mul(masked_lm_loss,  loss_correction_factor)
         next_sentence_loss = self.loss_fn(seq_relationship_score.view(-1, 2), next_sentence_labels.view(-1))
         total_loss = masked_lm_loss + next_sentence_loss
         return total_loss
@@ -627,25 +625,6 @@ def enable_tracing():
     hb_torch.enable()
     hb_torch.remove_inplace_ops()
 
-# The HPU implementation of the Cross entropy/nll loss does not handle 'ignore' index
-# correctly as of now. It seems to ignore the loss elements corresponding to the target
-# (label) element values outside the class range while summing the individual loss elements.
-# Since ignore index is given as -1, such labels will be outside the class range and seems
-# to get ignored in loss summing. So this part is fine. But while finding the average loss,
-# it seems to divide by the total number of loss elements rather than the valid number of
-# loss elements.
-# i.e, correct loss L = =  S/(N-d)
-# where S = sum of losses excluding loss to be ignored, N = total no of loss elems,
-# d = number of loss elems to be ignored.
-# Current HPU Loss L' = S/N
-# so as as workaround apply a loss correction factor as: L = (S/N)*{N/(N-d)} = L' * {N/(N-d)}
-def hpu_loss_correction_factor(masked_lm_labels):
-    num_igored_elems = torch.lt(masked_lm_labels,0).sum().to(dtype=torch.double) # = d
-    total_elems = torch.tensor(masked_lm_labels.numel()).to(dtype=torch.double)  # = N
-    scale = total_elems/(total_elems - num_igored_elems) # {N/(N-d)}
-    scale = scale.to(dtype=torch.float32)
-    return scale
-
 def main():
     global timeout_sent
 
@@ -682,7 +661,6 @@ def main():
         training_steps = 0
         model_traced = False
 
-        loss_correction_factor = None
         if device.type == 'cuda':
             pool = ProcessPoolExecutor(1)
 
@@ -756,10 +734,8 @@ def main():
                     training_steps += 1
                     position_ids = compute_position_ids(batch[0])
                     if args.use_habana:
-                        loss_correction_factor = hpu_loss_correction_factor(batch[3])
                         batch = [t.to(dtype=torch.int32) for t in batch]
                         position_ids = position_ids.to(dtype=torch.int32)
-                        loss_correction_factor = loss_correction_factor.to(device)
 
                     position_ids = position_ids.to(device)
                     batch = [t.to(device) for t in batch]
@@ -788,7 +764,7 @@ def main():
                         else:
                             prediction_scores, seq_relationship_score = model(input_ids=input_ids, token_type_ids=segment_ids, attention_mask=input_mask, position_ids=position_ids)
 
-                    loss = criterion(prediction_scores, seq_relationship_score, masked_lm_labels, next_sentence_labels, loss_correction_factor)
+                    loss = criterion(prediction_scores, seq_relationship_score, masked_lm_labels, next_sentence_labels)
                     if args.n_pu > 1:
                         loss = loss.mean()  # mean() to average on multi-pu.
 

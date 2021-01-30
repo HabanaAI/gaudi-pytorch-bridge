@@ -24,9 +24,9 @@
 using namespace torch;
 using namespace habana;
 
-static ns_NLLLossKernel::Params synapse_nll_loss_params_builder(
-    int64_t reduction) {
-  auto param = ns_NLLLossKernel::Params{};
+static ns_NLLLossKernel::ParamsOptionalIgnoreIndex
+synapse_nll_loss_params_builder(int64_t reduction, int64_t ignore_index) {
+  auto param = ns_NLLLossKernel::ParamsOptionalIgnoreIndex{};
   if (reduction == at::Reduction::Reduction::None) {
     param.mode = NLLLossMode_t::NLL_LOSS_MODE_NONE;
   } else if (reduction == at::Reduction::Reduction::Mean) {
@@ -35,6 +35,7 @@ static ns_NLLLossKernel::Params synapse_nll_loss_params_builder(
     param.mode = NLLLossMode_t::NLL_LOSS_MODE_SUM;
   } else
     TORCH_CHECK(false, "nll_loss got unsuported reduction type: ", reduction);
+  param.ignoreIndexValue = (int)ignore_index;
 
   return param;
 }
@@ -102,15 +103,16 @@ void NLLLossFwdOperator::AllocateAndAddSynapseNode(
   auto self = inputs[0].toTensor();
   auto target = inputs[1].toTensor();
   int64_t reduction = inputs[3].toInt();
+  int64_t ignore_index = inputs[4].toInt();
 
   TORCH_CHECK(
       target.scalar_type() == c10::ScalarType::Int,
       "Input arg 2 expected to be of Int Tensor for nll_loss operator");
-
-  ns_NLLLossKernel::Params param = synapse_nll_loss_params_builder(reduction);
-  p_context_->params_.emplace<ns_NLLLossKernel::Params>(param);
-  p_context_->params_size_ = sizeof(param);
-
+  ns_NLLLossKernel::ParamsOptionalIgnoreIndex params =
+      synapse_nll_loss_params_builder(reduction, ignore_index);
+  p_context_->params_.emplace<ns_NLLLossKernel::ParamsOptionalIgnoreIndex>(
+      params);
+  p_context_->params_size_ = sizeof(params);
   auto output1 = habana_helpers::createPTTensor(
       self,
       {1},
@@ -118,7 +120,7 @@ void NLLLossFwdOperator::AllocateAndAddSynapseNode(
       self.suggest_memory_format(),
       is_output_persistent[0]);
   AllocateSynapseOutput(graph, output1, is_output_persistent[0]);
-  AddNodeToSynapseGraph(graph, &param, sizeof(param));
+  AddNodeToSynapseGraph(graph, &params, sizeof(params));
 
   // create a dummy output, we do not support weights therefore there is no
   // sum_weights tensor, but we still need to return an empty tensor to keep
@@ -158,7 +160,6 @@ std::tuple<Tensor, Tensor> nll_loss_forward_hpu(
   PT_KERNEL_BEGIN;
 
   TORCH_CHECK(!weight.defined(), "weighted nll_loss is not yet supported")
-  // TORCH_CHECK(ignore_index == -100, "ignore_index is not yet supported")
 
   auto modified_target = habana_helpers::cast_tensor_to_integer(target);
 
@@ -241,14 +242,17 @@ void NLLLossBwdOperator::AllocateAndAddSynapseNode(
 
   auto self = inputs[1].toTensor();
   int64_t reduction = inputs[4].toInt();
+  int64_t ignore_index = inputs[5].toInt();
 
-  ns_NLLLossKernel::Params param = synapse_nll_loss_params_builder(reduction);
-  p_context_->params_.emplace<ns_NLLLossKernel::Params>(param);
-  p_context_->params_size_ = sizeof(param);
+  ns_NLLLossKernel::ParamsOptionalIgnoreIndex params =
+      synapse_nll_loss_params_builder(reduction, ignore_index);
+  p_context_->params_.emplace<ns_NLLLossKernel::ParamsOptionalIgnoreIndex>(
+      params);
+  p_context_->params_size_ = sizeof(params);
 
   auto output = habana_helpers::createPTTensor(self, is_output_persistent);
   AllocateSynapseOutput(graph, output, is_output_persistent);
-  AddNodeToSynapseGraph(graph, &param, sizeof(param));
+  AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
 /** @brief Function implements backward pass for torch.nn.NLLLoss
@@ -277,7 +281,6 @@ Tensor nll_loss_backward_hpu(
     const Tensor& total_weight) {
   PT_KERNEL_BEGIN;
   TORCH_CHECK(!weight.defined(), "weighted nll_loss is not yet supported")
-  // TORCH_CHECK(ignore_index == -100, "ignore_index is not yet supported")
 
   // Convert 0D tensor to 1D tensor before passing to Synapse
   if (grad_output.dim() == 0) {
