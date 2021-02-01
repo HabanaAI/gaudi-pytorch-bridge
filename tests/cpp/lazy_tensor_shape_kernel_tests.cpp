@@ -161,3 +161,16 @@ TEST_F(LazyTensorShapeKernelTest, TransposeTest) {
 
   EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out), true);
 }
+
+TEST_F(LazyTensorShapeKernelTest, ExpandTest) {
+  torch::Tensor A = torch::randn({3, 1}, torch::requires_grad(false));
+
+  torch::Tensor hA = A.to(torch::kHABANA);
+  torch::Tensor hOut = hA.expand({3, 4}, false);
+  torch::Tensor Out = A.expand({3, 4}, false);
+
+  std::vector<HbLazyTensor> hl_tensors = {GetHbLazyTensor(hOut)};
+  HbLazyTensor::SyncTensorsGraph(&hl_tensors);
+
+  EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out), true);
+}

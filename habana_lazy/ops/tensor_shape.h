@@ -40,6 +40,32 @@ class Permute : public ir::Node {
   }
 };
 
+class Expand : public ir::Node {
+ public:
+  enum class ExpandIdx { kDimIdx = 1, kImplicitIdx = 2 };
+  Expand() = delete;
+  Expand(const Tensor& self, IntArrayRef dims, bool implicit)
+      : Node(c10::Symbol::fromQualString("aten::expand")) {
+    auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHABANA);
+    AddInput(hl_self.GetIrValue());
+
+    std::vector<at::Tensor> input_pt_vec{self};
+    AddInputPtTensors(input_pt_vec);
+
+    m_meta_data.set(dims, static_cast<size_t>(ExpandIdx::kDimIdx));
+    m_meta_data.set(implicit, static_cast<size_t>(ExpandIdx::kImplicitIdx));
+  }
+
+  std::string ToString() const override {
+    std::stringstream ss;
+    ss << Node::ToString()
+       << ", dims=" << m_meta_data.get(static_cast<size_t>(ExpandIdx::kDimIdx))
+       << ", implicit="
+       << m_meta_data.get(static_cast<size_t>(ExpandIdx::kDimIdx));
+    return ss.str();
+  }
+};
+
 class Transpose : public ir::Node {
  public:
   enum class TransposeIdx { kDim0Idx = 1, kDim1Idx = 2 };

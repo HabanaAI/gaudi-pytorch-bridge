@@ -2633,8 +2633,18 @@ Tensor permute_hpu_lazy(const Tensor& self, IntArrayRef dims_) {
 };
 
 Tensor expand_hpu_lazy(const Tensor& self, IntArrayRef size, bool implicit) {
-  HABANA_ASSERT(0);
-  return expand_hpu(self, size, implicit);
+  PT_LAZY_TRACE;
+  habana_lazy::ir::NodePtr node =
+      std::make_shared<habana_lazy::ir::Expand>(self, size, implicit);
+  auto shape_out = size;
+  auto result = at::native::empty_hpu_lazy(
+      shape_out, self.options(), self.suggest_memory_format(), false);
+  auto hl_result = habana_lazy::GetHbLazyTensor(result);
+  habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+
+  return result;
 };
 std::vector<Tensor> split_with_sizes_hpu_lazy(
     const Tensor& self,
