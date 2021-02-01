@@ -42,6 +42,7 @@ class FusedAdagrad(Optimizer):
 
             group['lr_t'] = torch.tensor([lr], requires_grad=False).to(hpu)
             group['step'] = 0
+            group['step_t'] = torch.tensor([group['step']], dtype = torch.int32, requires_grad=False).to(hpu, non_blocking= True)
 
     def step(self, closure: Callable = None):
         """
@@ -74,10 +75,6 @@ class FusedAdagrad(Optimizer):
                 wt_list.append(weight)
                 var_list.append(wt_var)
 
-            # kernel needs a tensor for step
-            #TODO move tensor creation to constructor to support perf mode
-            group['step_t'] = torch.tensor([group['step']], dtype = torch.int32, requires_grad=False).to(hpu)
-
             hb_custom_C.fused_adagrad(
                     grad_list,
                     wt_list,
@@ -89,5 +86,6 @@ class FusedAdagrad(Optimizer):
                     group['eps'])
 
             group['step'] += 1
+            group['step_t'] = torch.tensor([group['step']], dtype = torch.int32, requires_grad=False).to(hpu, non_blocking= True)
 
         return loss
