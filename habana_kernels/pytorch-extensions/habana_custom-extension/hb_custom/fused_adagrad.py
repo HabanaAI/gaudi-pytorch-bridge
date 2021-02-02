@@ -15,7 +15,7 @@ class FusedAdagrad(Optimizer):
         lr_decay: float = 0,
         weight_decay: float = 0,
         initial_accumulator_value: float = 0,
-        eps: float = 1e-5
+        eps: float = 1e-10
     ):
         if not 0.0 <= lr:
             raise ValueError("Invalid learning rate: {}".format(lr))
@@ -41,8 +41,7 @@ class FusedAdagrad(Optimizer):
                 state['sum'] = torch.full_like(p, fill_value = initial_accumulator_value)
 
             group['lr_t'] = torch.tensor([lr], requires_grad=False).to(hpu)
-            group['step'] = 0
-            group['step_t'] = torch.tensor([group['step']], dtype = torch.int32, requires_grad=False).to(hpu, non_blocking= True)
+            group['step_t'] = torch.tensor([0], dtype = torch.int32, requires_grad=False).to(hpu, non_blocking= True)
 
     def step(self, closure: Callable = None):
         """
@@ -75,6 +74,8 @@ class FusedAdagrad(Optimizer):
                 wt_list.append(weight)
                 var_list.append(wt_var)
 
+            group['step_t'].add_(1)
+
             hb_custom_C.fused_adagrad(
                     grad_list,
                     wt_list,
@@ -84,8 +85,4 @@ class FusedAdagrad(Optimizer):
                     group['weight_decay'],
                     group['lr_decay'],
                     group['eps'])
-
-            group['step'] += 1
-            group['step_t'] = torch.tensor([group['step']], dtype = torch.int32, requires_grad=False).to(hpu, non_blocking= True)
-
         return loss

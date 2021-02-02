@@ -163,7 +163,6 @@ class CustomPreProcessor(object):
 
         self.offsets = torch.empty([len(self.ln_emb), self.batch_size+1], dtype=torch.int32, requires_grad = False).to(device)
         self.X = torch.empty([batch_size, m_den], dtype=torch.float, requires_grad = False).to(device)
-        self.T = torch.empty([batch_size, 1], dtype=torch.float, requires_grad = False).to(device)
 
     def collate_habana_preprocess(self, X, lS_o, lS_i, T):
         lS_o_habana = []
@@ -199,9 +198,7 @@ class CustomPreProcessor(object):
             self._preallocated_buffer[i]["countUniqueIndices"].copy_(countUniqueIndices, non_blocking=True)
         self.X.copy_(X, non_blocking=True)
         self.offsets.copy_(torch.stack(lS_o_habana))
-        self.T.copy_(T, non_blocking=True)
-
-        return (self.X, self.offsets, self._preallocated_buffer, self.T)
+        return (self.X, self.offsets, self._preallocated_buffer, T)
 
     def collate_wrapper_random(self, list_of_tuples):
         (X, lS_o, lS_i, T) = list_of_tuples[0]

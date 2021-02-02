@@ -575,6 +575,8 @@ if __name__ == "__main__":
                         help='run model in lazy execution mode')
     parser.add_argument('--perf-mode', action='store_true', default=False,
                         help='perf mode')
+    parser.add_argument('--measure-perf', action='store_true', default=False,
+                        help='Report performance')
 
     args = parser.parse_args()
 
@@ -878,6 +880,7 @@ if __name__ == "__main__":
 
             optimizer = FusedAdagrad(list(dlrm_habana.top_l.parameters())
                                     + list(dlrm_habana.bot_l.parameters()), lr=lr_change)
+
         else:
             sys.exit("ERROR: --optimizer=" + args.optimizer + " is not supported")
         emb_optimizer = HabanaSparseOptimizer(list(dlrm_habana.emb_l.parameters()), args)
@@ -911,7 +914,7 @@ if __name__ == "__main__":
 
     def loss_fn_wrap(Z, T, use_gpu,use_hpu, device):
         if args.loss_function == "mse" or args.loss_function == "bce":
-            if use_gpu:
+            if use_gpu or use_hpu:
                 return loss_fn(Z, T.to(device))
             else:
                 return loss_fn(Z, T)
@@ -1038,6 +1041,15 @@ if __name__ == "__main__":
             is_perf_enable = True
         return is_perf_enable
 
+    def generate_input(measure_perf,numBatches=1):
+        if measure_perf:
+            b = next(iter(train_ld))
+            for a in range(numBatches):
+                yield (a,b)
+        else:
+            for a,b in enumerate(train_ld):
+                yield (a,b)
+
     with torch.autograd.profiler.profile(args.enable_profiling, use_gpu) as prof:
         while k < args.nepochs:
             trainMetaData.set_current_epoch_no(k)
@@ -1055,13 +1067,13 @@ if __name__ == "__main__":
             Z_habana_list = []
             T_list = []
 
-            for j, (X, lS_o, lS_i, T) in enumerate(train_ld):
+            input_generator = generate_input(args.measure_perf,args.num_batches)
+
+            for j,inp in input_generator:
+                X, lS_o, lS_i, T = inp
                 start_time = time.time()
                 trainMetaData.tracept.start(start_time, 'train_iteration_'+str(trainMetaData.current_train_step))
                 tp_probe_tensors_iteration_start(dlrm_habana, device, T, X, trainMetaData.ParamsDump, False)
-                # np.random.seed(args.numpy_rand_seed)
-                # torch.manual_seed(args.numpy_rand_seed)
-#               print('j={} skip_upto_batch={}'.format(j,skip_upto_batch))
 
                 if j < skip_upto_batch and not(training_resumed):
                     if j == (skip_upto_batch-1):
@@ -1104,6 +1116,7 @@ if __name__ == "__main__":
                     Z_habana = dlrm_wrap(X, lS_o, lS_i, use_gpu, use_hpu, device)
 
                     E_habana = loss_fn_wrap(Z_habana, T, use_gpu,use_hpu, device)
+
                     '''
                     # debug prints
                     print("output and loss")
@@ -1128,6 +1141,7 @@ if __name__ == "__main__":
                             param.grad = None
                         # backward pass
                         E_habana.backward(retain_graph=False)
+
                         # debug prints (check gradient norm)
                         # for l in mlp.layers:
                         #     if hasattr(l, 'weight'):
@@ -1143,7 +1157,6 @@ if __name__ == "__main__":
                     if args.run_lazy_mode:
                         hb_torch.mark_step()
 
-                # print("loss ", E_habana.float().detach().cpu().item())
 
                 # # compute loss and accuracy
                 E_habana_list.append(E_habana)
@@ -1170,7 +1183,7 @@ if __name__ == "__main__":
                         t3 = time_wrap(use_gpu)
                         L_habana = E_habana_list[i].float().detach().cpu().item()
                         S_habana = Z_habana.detach().cpu().float().numpy()  # numpy array
-                        T = T_list[i].detach().cpu().numpy()  # numpy array
+                        T = T_list[i].detach().numpy()  # numpy array
                         t4 = time_wrap(use_gpu)
                         total_time += t4 - t3
                         mbs = T.shape[0]  # = args.mini_batch_size except maybe for last
