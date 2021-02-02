@@ -633,7 +633,7 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
         IValue(shape),
         IValue(false),
         IValue(scalar_type)};
-    SumOp.AllocateAndAddSynapseNode(graph, stack, is_output_persistent[0]);
+    SumOp.AllocateAndAddSynapseNode(graph, stack, is_output_persistent[2]);
 
     synapse_helpers::tensor& bias_syn_tensor = SumOp.GetSynOutputs()[0];
 
