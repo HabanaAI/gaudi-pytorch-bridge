@@ -163,8 +163,11 @@ class MetaData {
   IndexToIvalMap m_data;
 
   size_t ival_hash(const torch::jit::IValue& v, size_t h = 0) {
-    if (v.isScalar() || v.isBool()) {
+    if (v.isScalar()) {
       return torch::hash_combine(v.hash(), h);
+    } else if (v.isBool()) {
+      size_t bv = v.toBool();
+      return torch::hash_combine(bv, h);
     }
     return 0;
   }
