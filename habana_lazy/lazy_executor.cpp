@@ -26,6 +26,10 @@ bool allocateTensorWithStorage(int device_index) {
 }
 
 bool isDeviceInLoweringMode(int device_index) {
+  // Usage of this API is deprecared, return false for now
+  // We will remove the usage from the code, not doing untill next spring to
+  // avoid last time messy reverts
+  return false;
   bool is_in_lowering_mode = false;
   auto context =
       habana_lazy::habana_lazy_executor.getDeviceExecutionContext(device_index);
