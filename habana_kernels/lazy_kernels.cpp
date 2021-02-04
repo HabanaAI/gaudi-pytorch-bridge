@@ -16,6 +16,7 @@
 #include "habana_kernels/embedding_kernels.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_kernels/linear_kernels.h"
+#include "habana_kernels/loss_kernels.h"
 #include "habana_kernels/norm_kernels.h"
 #include "habana_kernels/pool_kernels.h"
 #include "habana_kernels/tensor_shape_kernels.h"
@@ -1640,7 +1641,11 @@ Tensor mse_loss_forward_hpu_lazy(
   PT_LAZY_TRACE;
   auto node =
       std::make_shared<habana_lazy::ir::MseLoss>(self, target, reduction);
-  Tensor result = mse_loss_forward_hpu(self, target, reduction);
+
+  auto out_shape = MSELossFwdOperator::compute_output_shape(self, reduction);
+  auto result = at::native::empty_hpu_lazy(
+      out_shape, self.options(), self.suggest_memory_format(), false);
+
   auto hlresult = habana_lazy::GetHbLazyTensor(result);
   habana_lazy::ir::Value& out =
       habana_lazy::GetHbLazyTensor(result).CurrentIrValue();

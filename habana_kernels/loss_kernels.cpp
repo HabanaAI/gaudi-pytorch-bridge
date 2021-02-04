@@ -338,6 +338,16 @@ Tensor nll_loss_backward_hpu(
   return out.at(0);
 }
 
+std::vector<int64_t> MSELossFwdOperator::compute_output_shape(
+    const at::Tensor& self,
+    int64_t reduction) {
+  if (reduction == at::Reduction::Reduction::None) {
+    return self.sizes().vec();
+  } else {
+    return {1};
+  }
+}
+
 void MSELossFwdOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
@@ -355,17 +365,13 @@ void MSELossFwdOperator::AllocateAndAddSynapseNode(
   p_context_->params_.emplace<ns_MSELossKernel::Params>(param);
   p_context_->params_size_ = sizeof(param);
 
-  Tensor output;
-  if (reduction == at::Reduction::Reduction::None) {
-    output = habana_helpers::createPTTensor(self, is_output_persistent);
-  } else {
-    output = habana_helpers::createPTTensor(
-        self,
-        {1},
-        self.options(),
-        self.suggest_memory_format(),
-        is_output_persistent);
-  }
+  auto sizes = MSELossFwdOperator::compute_output_shape(self, reduction);
+  auto output = habana_helpers::createPTTensor(
+      self,
+      sizes,
+      self.options(),
+      self.suggest_memory_format(),
+      is_output_persistent);
 
   AllocateSynapseOutput(graph, output, is_output_persistent);
   AddNodeToSynapseGraph(graph, &param, sizeof(param));

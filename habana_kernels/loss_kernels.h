@@ -64,6 +64,10 @@ class MSELossFwdOperator : public HabanaOperator {
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       bool is_output_persistent = false);
+
+  static std::vector<int64_t> compute_output_shape(
+      const at::Tensor& self,
+      int64_t reduction);
 };
 
 // MSELossBWD Operator
