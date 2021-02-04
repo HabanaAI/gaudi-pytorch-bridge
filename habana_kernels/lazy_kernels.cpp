@@ -42,6 +42,7 @@
 #include "habana_lazy/ops/shape_ops.h"
 #include "habana_lazy/ops/softmax.h"
 #include "habana_lazy/ops/tensor_shape.h"
+#include "habana_lazy/ops/topk.h"
 #include "pytorch_helpers/habana_device/HPUAllocator.h"
 #include "pytorch_helpers/synapse_helpers/util.h"
 
@@ -2701,8 +2702,38 @@ std::tuple<Tensor, Tensor> topk_hpu_lazy(
     int64_t dim,
     bool largest,
     bool sorted) {
-  HABANA_ASSERT(0);
-  return topk_hpu(self, k, dim, largest, sorted);
+  PT_LAZY_TRACE;
+  habana_lazy::ir::NodePtr node =
+      std::make_shared<habana_lazy::ir::TopK>(self, k, dim, largest, sorted);
+
+  std::vector<long int> shape_out = self.sizes().vec();
+  shape_out[dim] = k;
+
+  // out 0
+  auto result_0 = at::native::empty_hpu_lazy(
+      shape_out, self.options(), self.suggest_memory_format(), false);
+
+  auto hlresult_0 = habana_lazy::GetHbLazyTensor(result_0);
+  habana_lazy::ir::Value& out_0 = hlresult_0.CurrentIrValue();
+  out_0.m_index = 0;
+  out_0.SetNode(node);
+
+  // out 1
+  auto type = kInt;
+  if (self.scalar_type() == c10::ScalarType::BFloat16) {
+    type = kShort;
+  }
+  auto result_1 = at::native::empty_hpu_lazy(
+      shape_out,
+      self.options().dtype(type),
+      self.suggest_memory_format(),
+      false);
+  auto hlresult_1 = habana_lazy::GetHbLazyTensor(result_1);
+  habana_lazy::ir::Value& out_1 = hlresult_1.CurrentIrValue();
+  out_1.m_index = 1;
+  out_1.SetNode(node);
+
+  return std::make_tuple(result_0, result_1);
 };
 std::tuple<Tensor, Tensor> sort_hpu_lazy(
     const Tensor& self,
