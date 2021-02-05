@@ -513,7 +513,8 @@ def make_criteo_data_and_loaders(args):
 
         if deviceIsHabana(args):
             from dlrm_habana_kernels import CustomPreProcessor
-            collate_fn = CustomPreProcessor(train_data.counts, train_data.m_den, args).collate_wrapper_criteo
+            collate_fn_train = CustomPreProcessor(train_data.counts, train_data.m_den, args,is_train=True).collate_wrapper_criteo
+            collate_fn_test  = CustomPreProcessor(train_data.counts, train_data.m_den, args,is_train=False).collate_wrapper_criteo
         else:
             collate_fn = collate_wrapper_criteo
 
@@ -523,9 +524,9 @@ def make_criteo_data_and_loaders(args):
             batch_size=args.mini_batch_size,
             shuffle=False,
             num_workers=args.num_workers,
-            collate_fn=collate_fn,
+            collate_fn=collate_fn_train,
             pin_memory = use_pin_memory,
-            drop_last=False,  # True
+            drop_last=True,
         )
 
         test_loader = torch.utils.data.DataLoader(
@@ -533,9 +534,9 @@ def make_criteo_data_and_loaders(args):
             batch_size=args.test_mini_batch_size,
             shuffle=False,
             num_workers=args.test_num_workers,
-            collate_fn=collate_fn,
+            collate_fn=collate_fn_test,
             pin_memory = use_pin_memory,
-            drop_last=False,  # True
+            drop_last=True,
         )
 
     return train_data, train_loader, test_data, test_loader

@@ -123,10 +123,10 @@ class PrintDataAcrossPass(torch.autograd.Function):
         return input_gradient
 
 class CustomPreProcessor(object):
-    def __init__(self, ln_emb, m_den, args):
+    def __init__(self, ln_emb, m_den, args, is_train=True):
         self._init_done = False
         self.num_indices_per_lookup = args.num_indices_per_lookup
-        self.batch_size = args.mini_batch_size
+        self.batch_size = args.mini_batch_size if is_train is True else args.test_mini_batch_size
         self.distributed = args.distributed
         max_size_fwd = self.num_indices_per_lookup * self.batch_size
         self.num_total_tables = len(ln_emb)

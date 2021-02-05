@@ -1384,7 +1384,7 @@ if __name__ == "__main__":
                         print(
                             "Testing at - {}/{} of epoch {},".format(j + 1, nbatches, 0)
                             + " loss {:.6f}, accuracy {:3.3f} %, best {:3.3f} %".format(
-                                gL_test[0], gA_test * 100, best_gA_test * 100
+                                gL_test, gA_test * 100, best_gA_test * 100
                             )
                         )
                     # Uncomment the line below to print out the total time with overhead
