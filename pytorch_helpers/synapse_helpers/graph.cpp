@@ -247,10 +247,6 @@ synapse_error_v<std::shared_ptr<graph::recipe_handle>> graph::compile() {
   START_TIME_MEASURE;
   auto recipe_handle{absl::make_unique<graph::recipe_handle>(device_)};
 
-  status = synSetCfg("DISABLE_DEBUG_INFO", "1");
-  SYNAPSE_SUCCESS_CHECK(
-      "Graph compile failed - setting GCFG_DISABLE_DEBUG_INFO=1", status)
-
   auto name = get_unique_recipe_name(name_);
   status = synGraphCompile(
       &recipe_handle->syn_recipe_handle_,
