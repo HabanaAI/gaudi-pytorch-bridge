@@ -492,25 +492,11 @@ void DropoutOperator::AllocateAndAddSynapseNode(
       self.options(),
       self.suggest_memory_format(),
       c10::ScalarType::Char,
-      false);
+      is_output_persistent[1]);
   std::vector<at::Tensor> pt_outputs{output, output_mask};
-  AllocateSynapseOutputs(graph, pt_outputs, {is_output_persistent[0], false});
+  AllocateSynapseOutputs(
+      graph, pt_outputs, {is_output_persistent[0], is_output_persistent[1]});
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
-  // Cast mask tensor to self data type for use with backward
-  std::string node_type = (scalar_type == c10::ScalarType::BFloat16)
-      ? "cast_i8_to_bf16"
-      : "cast_i8_to_f32";
-  // Create Cast operator
-  CastOperator castOp(this->p_context_->device_id_, node_type);
-  castOp.SetSynapseInput(std::move(p_context_->syn_outputs_[1]));
-  torch::jit::Stack stack;
-  stack.emplace_back(IValue(p_context_->pt_outputs_[1]));
-  stack.emplace_back(IValue(scalar_type));
-  castOp.AllocateAndAddSynapseNode(graph, stack, is_output_persistent[1]);
-  stack.clear();
-  synapse_helpers::tensor& syn_cast_out = castOp.GetSynOutputs()[0];
-  p_context_->syn_outputs_[1] = std::move(syn_cast_out);
-  p_context_->pt_outputs_[1] = castOp.GetOutputs()[0];
 }
 
 void DropoutOperator::SetPTOutputs(
@@ -529,7 +515,7 @@ void DropoutOperator::SetPTOutputs(
       self.sizes(),
       self.options(),
       self.suggest_memory_format(),
-      self.scalar_type(),
+      c10::ScalarType::Char,
       is_output_persistent);
   std::vector<at::Tensor> pt_outputs{output, output_mask};
   HabanaOperator::SetPTOutputs(pt_outputs);

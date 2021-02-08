@@ -1,5 +1,6 @@
 import torch
 import pytest
+import os
 import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
@@ -12,6 +13,10 @@ test_case_list = [
 
 @pytest.mark.parametrize("D1, D2", test_case_list)
 def test_dropout(D1, D2):
+    os.environ["HABANA_GRAPH_WHITELIST_FILE"] = os.path.join(
+        os.environ["MODEL_GARDEN_PYTORCH_PATH"],
+        "nlp/bert/BERT_whitelist_ops.txt",
+    )
     hpu = torch.device("habana")
     cpu = torch.device("cpu")
     shape = (D1, D2)
@@ -35,8 +40,9 @@ def test_dropout(D1, D2):
         grad_out = torch.randn((D1, D2), requires_grad=False)
         hpu_out.backward(grad_out.detach().to(hpu))
         # Determine the sample dropout probability
-        dropout_prob_sample = float(np.nonzero(output1)[0].size)/np.cumprod(shape)[-1]
+        dropout_prob_sample = 1.0 - float(np.nonzero(output1)[0].size)/np.cumprod(shape)[-1]
         np.testing.assert_almost_equal(dp, dropout_prob_sample, decimal=2)
+    os.environ.pop("HABANA_GRAPH_WHITELIST_FILE")
 
 if __name__ == '__main__':
     test_dropout(*test_case_list[0])

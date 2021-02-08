@@ -30,6 +30,15 @@ using namespace torch;
 #define PT_KERNEL_END (void)(0)
 #endif
 
+// Add new src->dst cast mappings to this
+std::map<c10::ScalarType, std::vector<c10::ScalarType>> const
+    d2d_copy_supported_casts{
+        {c10::ScalarType::Float, {c10::ScalarType::BFloat16}},
+        {c10::ScalarType::BFloat16, {c10::ScalarType::Float}},
+        {c10::ScalarType::Char,
+         {c10::ScalarType::Float, c10::ScalarType::BFloat16}},
+        {c10::ScalarType::Int, {c10::ScalarType::Float}}};
+
 bool copy_transpose_valid(const Tensor& self, const Tensor& src) {
   return (
       self.is_contiguous(c10::MemoryFormat::ChannelsLast) && src.numel() != 0 &&
@@ -64,6 +73,46 @@ void do_copy_transpose(Tensor& dst, const Tensor& src) {
   adjustPTSizes(dst);
 }
 
+static void do_d2d_copy(Tensor& dst, const Tensor& src_in, bool non_blocking) {
+  // No direct support for Long in device
+  bool same_type = (src_in.scalar_type() == dst.scalar_type());
+  auto src = ((src_in.scalar_type() != c10::ScalarType::Long) || same_type)
+      ? src_in
+      : habana_helpers::cast_tensor_to_integer(src_in);
+  auto src_iter = d2d_copy_supported_casts.find(src.scalar_type());
+  auto src_scalar_type = src.scalar_type();
+  auto dst_scalar_type = dst.scalar_type();
+  bool cast_supported = false;
+  // cast is possible if src and dst type mapping present in
+  // d2d_copy_supported_casts
+  if ((src_iter != d2d_copy_supported_casts.end()) &&
+      (std::find(
+           src_iter->second.begin(), src_iter->second.end(), dst_scalar_type) !=
+       src_iter->second.end()))
+    cast_supported = true;
+
+  if (cast_supported) { // if supported src->dst mapping
+    dst = habana_helpers::hpu_cast_tensor(
+        src, at::scalarTypeToTypeMeta(dst_scalar_type));
+
+  } else { // special cases
+    if (dst_scalar_type == c10::ScalarType::Long &&
+        src_scalar_type == c10::ScalarType::Int) {
+      TORCH_CHECK(
+          dst.nbytes() >= src.nbytes(),
+          "Unsupported device to device copy: dst size needs to be >= src size");
+    } else {
+      TORCH_CHECK(
+          dst.nbytes() == src.nbytes(), "Unsupported device to device copy");
+    }
+    if (copy_transpose_valid(dst, src)) {
+      do_copy_transpose(dst, src);
+    } else {
+      habana_helpers::copy_data_within_device(src, dst, non_blocking);
+    }
+  }
+}
+
 // cpu->hpu and hpu->cpu copy implementation
 Tensor& copy_hpu_(Tensor& self, const Tensor& src, bool non_blocking) {
   PT_KERNEL_BEGIN;
@@ -85,40 +134,7 @@ Tensor& copy_hpu_(Tensor& self, const Tensor& src, bool non_blocking) {
   } else if (
       src_device == c10::DeviceType::HABANA &&
       dst_device == c10::DeviceType::HABANA) {
-    if ((src.scalar_type() == c10::ScalarType::Float) &&
-        (dst.scalar_type() == c10::ScalarType::BFloat16)) {
-      dst = habana_helpers::hpu_cast_tensor(
-          src, at::scalarTypeToTypeMeta(c10::ScalarType::BFloat16));
-    } else if (
-        (src.scalar_type() == c10::ScalarType::BFloat16) &&
-        (dst.scalar_type() == c10::ScalarType::Float)) {
-      dst = habana_helpers::hpu_cast_tensor(
-          src, at::scalarTypeToTypeMeta(c10::ScalarType::Float));
-    } else {
-      if ((src.scalar_type() == c10::ScalarType::Long) &&
-          (dst.scalar_type() == c10::ScalarType::Float)) {
-        dst = habana_helpers::hpu_cast_tensor(
-            habana_helpers::cast_tensor_to_integer(src),
-            at::scalarTypeToTypeMeta(c10::ScalarType::Float));
-      } else if (
-          (src.scalar_type() == c10::ScalarType::Int) &&
-          (dst.scalar_type() == c10::ScalarType::Float)) {
-        dst = habana_helpers::hpu_cast_tensor(
-            src, at::scalarTypeToTypeMeta(c10::ScalarType::Float));
-      } else {
-        if (dst.scalar_type() == c10::ScalarType::Long &&
-            src.scalar_type() == c10::ScalarType::Int) {
-          HABANA_ASSERT(dst.nbytes() >= src.nbytes());
-        } else {
-          HABANA_ASSERT(dst.nbytes() == src.nbytes());
-        }
-        if (copy_transpose_valid(dst, src)) {
-          do_copy_transpose(dst, src);
-        } else {
-          habana_helpers::copy_data_within_device(src, dst, non_blocking);
-        }
-      }
-    }
+    do_d2d_copy(dst, src, non_blocking);
   } else {
     PT_KERNEL_FATAL(
         "copy_hpu_ doesn't support ", src_device, " to ", dst_device, "copy");
@@ -209,8 +225,9 @@ void ToDtypeOperator::AllocateAndAddSynapseNode(
   // This function can handle following 2 schemas only:
   // (1) to.device(Tensor self, Device device, ScalarType dtype, bool
   // non_blocking=False, bool copy=False, MemoryFormat? memory_format=None) ->
-  // (2) Tensor to.dtype(Tensor self, ScalarType dtype, bool non_blocking=False,
-  // bool copy=False, MemoryFormat? memory_format=None) -> Tensor
+  // (2) Tensor to.dtype(Tensor self, ScalarType dtype, bool
+  // non_blocking=False, bool copy=False, MemoryFormat? memory_format=None) ->
+  // Tensor
   TORCH_CHECK(
       inputs.size() >= 5,
       "Incorrect size of inputs expected for cast operator");
@@ -239,16 +256,19 @@ void ToDtypeOperator::AllocateAndAddSynapseNode(
       self.dtype() == c10::ScalarType::Int && type == c10::ScalarType::Float) {
     node_type = "cast_i32_to_f32";
   } else if (
-      self.dtype() == c10::ScalarType::Bool && type == c10::ScalarType::Float) {
+      (self.dtype() == c10::ScalarType::Bool ||
+       self.dtype() == c10::ScalarType::Char) &&
+      type == c10::ScalarType::Float) {
     node_type = "cast_i8_to_f32";
   } else if (
-      self.dtype() == c10::ScalarType::Bool &&
+      (self.dtype() == c10::ScalarType::Bool ||
+       self.dtype() == c10::ScalarType::Char) &&
       type == c10::ScalarType::BFloat16) {
     node_type = "cast_i8_to_bf16";
   } else if (self.dtype() == type) {
     // Cases where a simple copy is being done (input_new = input) come as .to
-    // call with same input & output data types. we add a identity node to graph
-    // to handle this
+    // call with same input & output data types. we add a identity node to
+    // graph to handle this
     IdentityOperator memcopyOp(self.device().index(), self.scalar_type());
     auto& syn_arg0 =
         memcopyOp.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
