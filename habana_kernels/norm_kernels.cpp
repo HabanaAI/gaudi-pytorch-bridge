@@ -26,6 +26,7 @@
 #include "habana_kernels/index_kernels.h"
 #include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/norm_kernels.h"
+#include "habana_kernels/reduction_kernels.h"
 #include "habana_kernels/simple_generic_kernel.h"
 #include "habana_kernels/tensor_shape_kernels.h"
 #include "habana_kernels/unary_kernels.h"
@@ -1626,10 +1627,16 @@ void NormOperator::SetPTOutputs(torch::jit::Stack& inputs) {
       "Input arg2 expected to be Scalar for Norm Operator");
 
   auto self = inputs[0].toTensor();
-  auto shape = NormOperator::compute_output_shape(self);
+  auto p = inputs[1].toScalar();
+  if (p.toFloat() == 2.0) {
+    auto output = at::empty({1}, self.options(), c10::nullopt);
+    HabanaOperator::SetPTOutput(output);
+  } else {
+    auto shape = NormOperator::compute_output_shape(self);
 
-  auto output = at::empty(shape, self.options(), c10::nullopt);
-  HabanaOperator::SetPTOutput(output);
+    auto output = at::empty(shape, self.options(), c10::nullopt);
+    HabanaOperator::SetPTOutput(output);
+  }
 }
 void NormOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
@@ -1648,51 +1655,96 @@ void NormOperator::AllocateAndAddSynapseNode(
   auto self = inputs[0].toTensor();
   auto p = inputs[1].toScalar();
 
-  // ReShape Operator
-  at::ScalarType scalar_type = self.scalar_type();
-  auto shape = NormOperator::compute_output_shape(self);
+  if (p.toFloat() == 2.0) {
+    auto device_id = self.device().index();
+    auto scalar_type = self.scalar_type();
+    // x^2 implemented as x*x. Identity node used to create aliased tensor
+    // since GC/TPC does not like giving same tensor as both inputs to a
+    // binary op
+    IdentityOperator identityOp(this->p_context_->device_id_, scalar_type);
+    auto& syn_arg0 =
+        identityOp.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+    torch::jit::Stack stack = {IValue(self)};
+    identityOp.AllocateAndAddSynapseNode(graph, stack, false);
+    p_context_->syn_inputs_[0] = std::move(syn_arg0);
+    stack.clear();
 
-  // Create the operator
-  ReshapeOperator ReShapeOp(this->p_context_->device_id_, scalar_type);
-  auto& reShape_syn =
-      ReShapeOp.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+    habana::MulOperator mulOp(this->p_context_->device_id_, scalar_type);
+    auto& mul_syn_1 =
+        mulOp.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+    UNUSED auto& mul_syn_2 =
+        mulOp.SetSynapseInput(std::move(identityOp.GetSynOutputs()[0]));
+    stack.emplace_back(IValue(self));
+    stack.emplace_back(IValue(identityOp.GetOutputs()[0]));
+    mulOp.AllocateAndAddSynapseNode(graph, stack, false);
+    p_context_->syn_inputs_[0] = std::move(mul_syn_1);
+    stack.clear();
+    // add node to compute reduce_sum
+    SumOperator sum_lp(device_id, scalar_type);
+    sum_lp.SetSynapseInput(std::move(mulOp.GetSynOutputs()[0]));
+    stack.emplace_back(IValue(mulOp.GetOutputs()[0]));
+    stack.emplace_back(IValue(scalar_type));
+    sum_lp.AllocateAndAddSynapseNode(graph, stack, false);
+    stack.clear();
 
-  // Build Params for the graph
-  std::vector<c10::IValue> stack{IValue(self), IValue(c10::IntArrayRef(shape))};
-  ReShapeOp.AllocateAndAddSynapseNode(graph, stack, false);
+    SqrtOperator sqrt_op(device_id, scalar_type);
+    UNUSED auto& syn_in_sqrt =
+        sqrt_op.SetSynapseInput(std::move(sum_lp.GetSynOutputs()[0]));
+    stack.emplace_back(IValue(sum_lp.GetOutputs()[0]));
+    sqrt_op.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+    stack.clear();
+    // synapse_helpers::tensor& sum_syn_tensor = sum_lp.GetSynOutputs()[0];
+    p_context_->syn_outputs_.emplace_back(
+        std::move(sqrt_op.GetSynOutputs()[0]));
+    p_context_->pt_outputs_.emplace_back(sqrt_op.GetOutputs()[0]);
+  } else {
+    // ReShape Operator
+    at::ScalarType scalar_type = self.scalar_type();
+    auto shape = NormOperator::compute_output_shape(self);
 
-  synapse_helpers::tensor& reshape_syn_tensor = ReShapeOp.GetSynOutputs()[0];
-  auto output_reshape = ReShapeOp.GetOutputs()[0];
-  p_context_->syn_inputs_[0] = std::move(reShape_syn);
-  stack.clear();
+    // Create the operator
+    ReshapeOperator ReShapeOp(this->p_context_->device_id_, scalar_type);
+    auto& reShape_syn =
+        ReShapeOp.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
 
-  // LpNorm Operator
-  // Create the operator
-  LpNormOperator LpNormOp(this->p_context_->device_id_, scalar_type);
-  LpNormOp.SetSynapseInput(std::move(reshape_syn_tensor));
+    // Build Params for the graph
+    std::vector<c10::IValue> stack{
+        IValue(self), IValue(c10::IntArrayRef(shape))};
+    ReShapeOp.AllocateAndAddSynapseNode(graph, stack, false);
 
-  // Build Params for the graph
-  stack.emplace_back(IValue(output_reshape));
-  stack.emplace_back(IValue(p));
-  LpNormOp.AllocateAndAddSynapseNode(graph, stack, {false, false});
+    synapse_helpers::tensor& reshape_syn_tensor = ReShapeOp.GetSynOutputs()[0];
+    auto output_reshape = ReShapeOp.GetOutputs()[0];
+    p_context_->syn_inputs_[0] = std::move(reShape_syn);
+    stack.clear();
 
-  synapse_helpers::tensor& norm_syn_tensor = LpNormOp.GetSynOutputs()[1];
-  auto output_norm = LpNormOp.GetOutputs()[1];
-  stack.clear();
+    // LpNorm Operator
+    // Create the operator
+    LpNormOperator LpNormOp(this->p_context_->device_id_, scalar_type);
+    LpNormOp.SetSynapseInput(std::move(reshape_syn_tensor));
 
-  // Reciprocal Operator
-  // Create the operator
-  ReciprocalOperator reciprocalOp(this->p_context_->device_id_, scalar_type);
-  reciprocalOp.SetSynapseInput(std::move(norm_syn_tensor));
+    // Build Params for the graph
+    stack.emplace_back(IValue(output_reshape));
+    stack.emplace_back(IValue(p));
+    LpNormOp.AllocateAndAddSynapseNode(graph, stack, {false, false});
 
-  // Build Params for the graph
-  stack.emplace_back(IValue(output_norm));
-  reciprocalOp.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+    synapse_helpers::tensor& norm_syn_tensor = LpNormOp.GetSynOutputs()[1];
+    auto output_norm = LpNormOp.GetOutputs()[1];
+    stack.clear();
 
-  synapse_helpers::tensor& reciprocal_syn_tensor =
-      reciprocalOp.GetSynOutputs()[0];
-  p_context_->syn_outputs_.emplace_back(std::move(reciprocal_syn_tensor));
-  p_context_->pt_outputs_.emplace_back(reciprocalOp.GetOutputs()[0]);
+    // Reciprocal Operator
+    // Create the operator
+    ReciprocalOperator reciprocalOp(this->p_context_->device_id_, scalar_type);
+    reciprocalOp.SetSynapseInput(std::move(norm_syn_tensor));
+
+    // Build Params for the graph
+    stack.emplace_back(IValue(output_norm));
+    reciprocalOp.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+
+    synapse_helpers::tensor& reciprocal_syn_tensor =
+        reciprocalOp.GetSynOutputs()[0];
+    p_context_->syn_outputs_.emplace_back(std::move(reciprocal_syn_tensor));
+    p_context_->pt_outputs_.emplace_back(reciprocalOp.GetOutputs()[0]);
+  }
 }
 
 void LpNormOperator::AllocateAndAddSynapseNode(
@@ -1810,27 +1862,9 @@ void FusedNormOperator::AllocateAndAddSynapseNode(
       norm_lp.AllocateAndAddSynapseNode(graph, stack, false);
       p_context_->syn_inputs_[i] = std::move(syn_in_10);
       stack.clear();
-
-      // Norm node gives a tensor of same shape as grad tensor (all same values)
-      // select only 1st value to create a tensor of shape {1}
-      SelectOperator select_lp(device_id, scalar_type);
-      select_lp.SetSynapseInput(std::move(norm_lp.GetSynOutputs()[0]));
-      stack.emplace_back(IValue(norm_lp.GetOutputs()[0]));
-      stack.emplace_back(IValue(0));
-      stack.emplace_back(IValue(0));
-      select_lp.AllocateAndAddSynapseNode(graph, stack, false);
-      stack.clear();
-
-      // Unsqueeze norm output (tensor of shape {1}) to new tensor of shape
-      // {1,1}
-      ReshapeOperator reshape_lp(device_id, scalar_type);
-      reshape_lp.SetSynapseInput(std::move(select_lp.GetSynOutputs()[0]));
-      stack.emplace_back(IValue(select_lp.GetOutputs()[0]));
-      stack.emplace_back(IValue(shape));
-      reshape_lp.AllocateAndAddSynapseNode(graph, stack, false);
-      // each unsqueezed grad_norm connected to cat node
-      cat_input.push_back(reshape_lp.GetOutputs()[0]);
-      cat_grad_norms.SetSynapseInput(std::move(reshape_lp.GetSynOutputs()[0]));
+      // each grad_norm connected to cat node
+      cat_input.push_back(norm_lp.GetOutputs()[0]);
+      cat_grad_norms.SetSynapseInput(std::move(norm_lp.GetSynOutputs()[0]));
       stack.clear();
     }
 

@@ -354,9 +354,24 @@ optimizer_lamb_phase1_hpu(
     PT_KERNEL_DEBUG("Cache hit key:", key);
     std::vector<at::Tensor> pt_outputs;
     for (auto j = 0; j < num_params; j++) {
-      pt_outputs.push_back(at::empty_like(weights[j])); // adam_step
-      pt_outputs.push_back(at::empty_like(weights[j])); // adam_norm
-      pt_outputs.push_back(at::empty_like(weights[j])); // weight_norm
+      pt_outputs.push_back(habana_helpers::createPTTensor(
+          weights[j],
+          weights[j].sizes().vec(),
+          weights[j].options(),
+          weights[j].suggest_memory_format(),
+          true)); // adam_step
+      pt_outputs.push_back(habana_helpers::createPTTensor(
+          weights[j],
+          {1},
+          weights[j].options(),
+          weights[j].suggest_memory_format(),
+          true)); // adam_norm
+      pt_outputs.push_back(habana_helpers::createPTTensor(
+          weights[j],
+          {1},
+          weights[j].options(),
+          weights[j].suggest_memory_format(),
+          true)); // weight_norm
       pt_outputs.push_back(exp_avg[j]);
       pt_outputs.push_back(exp_avg[j]);
       pt_outputs.push_back(exp_avg_sq[j]);
@@ -378,21 +393,13 @@ optimizer_lamb_phase1_hpu(
   TORCH_CHECK(
       out.size() == static_cast<unsigned int>(7 * num_params),
       "Incorrect size of outputs");
-  // TBD: Currently Norm output is of same shape as Norm input
-  // due to TPC kernel limitation, therefore to get correct Norm
-  // output shape we manipulate tensor meta-data. This can be
-  // removed once we have updated TPC kernel for Norm.
   std::vector<Tensor> weight_norm, adam_norm, adam_step;
   adam_step.push_back(out[0]);
-  out[1].unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
   adam_norm.push_back(out[1]);
-  out[2].unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
   weight_norm.push_back(out[2]);
   for (auto j = 1; j < num_params; j++) {
     adam_step.push_back(out[7 * j]);
-    out[7 * j + 1].unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
     adam_norm.push_back(out[7 * j + 1]);
-    out[7 * j + 2].unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
     weight_norm.push_back(out[7 * j + 2]);
   }
 
