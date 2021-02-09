@@ -44,7 +44,11 @@ def dlrm_get_emb_table_map(ln_emb, rank, world_size):
     return selected_tables, all_reduce_reorder
 
 def init_distributed_mode(args):
-    if 'RANK' in os.environ and 'WORLD_SIZE' in os.environ:
+    if 'OMPI_COMM_WORLD_LOCAL_RANK' in os.environ and 'OMPI_COMM_WORLD_SIZE' in os.environ:
+        args.rank = int(os.environ["OMPI_COMM_WORLD_LOCAL_RANK"])
+        args.world_size = int(os.environ['OMPI_COMM_WORLD_SIZE'])
+        args.gpu = int(os.environ['OMPI_COMM_WORLD_LOCAL_RANK'])
+    elif 'RANK' in os.environ and 'WORLD_SIZE' in os.environ:
         args.rank = int(os.environ["RANK"])
         args.world_size = int(os.environ['WORLD_SIZE'])
         args.gpu = int(os.environ['LOCAL_RANK'])
@@ -64,7 +68,13 @@ def init_distributed_mode(args):
         args.rank, args.world_size), flush=True)
 
     use_hpu = not args.no_habana
-    if use_hpu == True and 'RANK' in os.environ and 'WORLD_SIZE' in os.environ:
+    if use_hpu == True and 'OMPI_COMM_WORLD_LOCAL_RANK' in os.environ and 'OMPI_COMM_WORLD_SIZE' in os.environ:
+        args.dist_backend = 'hcl'
+        os.environ["ID"] = str(args.rank)
+        os.environ['MASTER_ADDR'] = 'localhost'
+        os.environ['MASTER_PORT'] = '12355'
+        torch.distributed.init_process_group(args.dist_backend, rank=args.rank, world_size=args.world_size)
+    elif use_hpu == True and 'RANK' in os.environ and 'WORLD_SIZE' in os.environ:
         args.dist_backend = 'hcl'
         if 'TP_DATA_DUMP_PATH' in os.environ:
             os.environ['TP_DATA_DUMP_PATH'] = os.environ['TP_DATA_DUMP_PATH'] + '_' + str(args.rank)

@@ -1582,7 +1582,7 @@ if __name__ == "__main__":
                     torch.distributed.all_reduce(distloss_hpu)
                     distloss_cpu = distloss_hpu.to("cpu")
                     e_result = distloss_cpu/args.world_size
-                    print(" Distributed Loss :: {:.6f}".format(e_result))
+                    print(" Distributed Loss :: {:.6f}".format(e_result.item()))
 
                 S_habana = Z_habana.float().detach().cpu().numpy()  # numpy array
                 T = T.detach().cpu().numpy()  # numpy array
