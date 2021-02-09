@@ -91,3 +91,38 @@ TEST_F(LazyCompareKernelTest, GeTensorTest) {
       allclose(expected.to(torch::kInt8), habanaGenerated.to(torch::kInt8)),
       true);
 }
+
+TEST_F(LazyCompareKernelTest, NeScalarTest) {
+  exec::OptPassCfg::GetInstance()->enable_subgraph_rewrite = true;
+  torch::Tensor A = torch::rand({2, 2}, torch::requires_grad(false));
+  float compVal = 1.1f;
+  auto out_cpu = torch::ne(A, compVal);
+
+  auto hA = A.to(torch::kHABANA);
+  auto result = torch::ne(hA, compVal);
+  torch::Tensor out_hpu = result.to(torch::kCPU);
+
+  EXPECT_EQ(
+      allclose(out_cpu.to(torch::kFloat), out_hpu.to(torch::kFloat)), true);
+  exec::OptPassCfg::GetInstance()->enable_subgraph_rewrite = false;
+}
+
+TEST_F(LazyCompareKernelTest, NeTensorTest) {
+  exec::OptPassCfg::GetInstance()->enable_subgraph_rewrite = true;
+  const std::vector<int64_t> dimensions{5, 3, 4};
+
+  torch::Tensor A = torch::randn(dimensions);
+  torch::Tensor B = torch::randn(dimensions);
+
+  auto expected = torch::ne(A, B);
+  auto hA = A.to(torch::kHABANA);
+  auto hB = B.to(torch::kHABANA);
+
+  auto result = torch::ne(hA, hB);
+  torch::Tensor habanaGenerated = result.to(torch::kCPU);
+
+  EXPECT_EQ(
+      allclose(expected.to(torch::kInt8), habanaGenerated.to(torch::kInt8)),
+      true);
+  exec::OptPassCfg::GetInstance()->enable_subgraph_rewrite = false;
+}

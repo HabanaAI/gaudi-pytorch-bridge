@@ -23,6 +23,7 @@ compare_op_list = [
     (torch.eq, {}),
     (torch.lt, {}),
     (torch.ge, {}),
+    (torch.ne, {})
 ]
 
 compare_op_out_list_bool = [
@@ -46,7 +47,6 @@ def test_hpu_compare_op(N, H, W, C, compare_op, kernel_params_fwd):
     kernel_params_fwd["input"] = torch.randn(N, C, H, W)
     kernel_params_fwd["other"] = torch.randn(N, C, H, W)
     evaluate_fwd_kernel(kernel=compare_op, kernel_params=kernel_params_fwd)
-
 
 @pytest.mark.parametrize("N, H, W, C", test_case_list)
 @pytest.mark.parametrize("compare_op, kernel_params_fwd", compare_op_list)

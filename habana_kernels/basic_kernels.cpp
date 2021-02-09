@@ -236,6 +236,13 @@ void ToDtypeOperator::AllocateAndAddSynapseNode(
   } else if (
       self.dtype() == c10::ScalarType::Int && type == c10::ScalarType::Float) {
     node_type = "cast_i32_to_f32";
+  } else if (
+      self.dtype() == c10::ScalarType::Bool && type == c10::ScalarType::Float) {
+    node_type = "cast_i8_to_f32";
+  } else if (
+      self.dtype() == c10::ScalarType::Bool &&
+      type == c10::ScalarType::BFloat16) {
+    node_type = "cast_i8_to_bf16";
   } else if (self.dtype() == type) {
     // Cases where a simple copy is being done (input_new = input) come as .to
     // call with same input & output data types. we add a identity node to graph

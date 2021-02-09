@@ -90,6 +90,8 @@ void eq_tensor_out_hpu_lazy(
     const Tensor& other);
 Tensor eq_tensor_hpu_lazy(Tensor& self, Tensor& other);
 Tensor eq_tensor_scalar_hpu_lazy(Tensor& self, Scalar other);
+Tensor ne_scalar_hpu_lazy(Tensor& self, Scalar other);
+Tensor ne_tensor_hpu_lazy(Tensor& self, Tensor& other);
 Tensor lt_scalar_hpu_lazy(Tensor& self, Scalar other);
 Tensor lt_tensor_hpu_lazy(Tensor& self, Tensor& other);
 Tensor ge_scalar_hpu_lazy(Tensor& self, Scalar other);

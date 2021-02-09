@@ -86,6 +86,8 @@ Tensor lt_scalar_hpu(Tensor& self, Scalar other);
 Tensor lt_tensor_hpu(Tensor& self, Tensor& other);
 Tensor ge_scalar_hpu(Tensor& self, Scalar other);
 Tensor ge_tensor_hpu(Tensor& self, Tensor& other);
+Tensor ne_scalar_hpu(Tensor& self, Scalar other);
+Tensor ne_tensor_hpu(Tensor& self, Tensor& other);
 Tensor convolution_hpu(
     const Tensor& input,
     const Tensor& weight,

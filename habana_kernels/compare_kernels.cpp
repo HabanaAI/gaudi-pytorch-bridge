@@ -10,8 +10,10 @@
 #include <ATen/ExpandUtils.h>
 #include <ATen/InferSize.h>
 #include <synapse_api.h>
+#include <torch/csrc/jit/ir/irparser.h>
 #include <torch/script.h>
 
+#include "habana_bridge/kernel/hpu_habana_launch_op_pt.h"
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_helpers/graph.h"
@@ -21,6 +23,8 @@
 #include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/simple_generic_kernel.h"
 #include "habana_kernels/tensor_shape_kernels.h"
+#include "habana_lazy/hlexec.h"
+#include "habana_lazy/passes/transform_graph.h"
 
 using namespace torch;
 
@@ -365,6 +369,74 @@ Tensor ge_tensor_hpu(Tensor& self, Tensor& other) {
   auto output = compare_op_hpu<GeOperator>(pt_inputs, stack, "ge");
   PT_KERNEL_END;
   return output;
+}
+
+/*************************************************************************
+ * @brief Kernel implementation for aten.ne(self, other)
+ * @param self - tensor_0
+ * @param other - tensor_1
+ ************************************************************************/
+Tensor ne_tensor_hpu(Tensor& self, Tensor& other) {
+  PT_KERNEL_BEGIN;
+  // create OP graph and populate the stack with inputs
+  auto graph = std::make_shared<torch::jit::Graph>();
+  const auto graph_string = R"IR(
+  graph(%a, %b):
+    %c : Tensor = aten::ne(%a, %b)
+    return (%c))IR";
+  torch::jit::parseIR(graph_string, graph.get());
+  torch::jit::Stack stack = {self, other};
+
+  habana_lazy::exec::OptPassCfg::GetInstance()->enable_subgraph_rewrite = true;
+  habana_lazy::transform_graph(graph);
+  habana_lazy::exec::OptPassCfg::GetInstance()->enable_subgraph_rewrite = false;
+  // reset instance count so that graph_id always remains same
+  // this ensures that we get a cache hit if inputs have not changed
+  HabanaLaunchOpPT::instance_count_ = 0;
+
+  // Execute OP graph
+  HabanaLaunchOpPT launch{graph, false};
+  launch.run(stack);
+
+  // Pop output from stack
+  PT_KERNEL_END;
+  return stack.back().toTensor();
+}
+
+/*************************************************************************
+ * @brief Kernel implementation for aten.ne(self, other)
+ * @param self - tensor_0
+ * @param other - Scalar
+ ************************************************************************/
+Tensor ne_scalar_hpu(Tensor& self, Scalar other) {
+  PT_KERNEL_BEGIN;
+  if (self.dim() == 0) {
+    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+  }
+  // create OP graph and populate the stack with inputs
+  auto graph = std::make_shared<torch::jit::Graph>();
+  const auto graph_string = R"IR(
+  graph(%a, %b : int):
+    %c : Tensor = aten::ne(%a, %b)
+    return (%c))IR";
+  torch::jit::parseIR(graph_string, graph.get());
+  torch::jit::Stack stack = {self, other};
+
+  habana_lazy::exec::OptPassCfg::GetInstance()->enable_subgraph_rewrite = true;
+  habana_lazy::transform_graph(graph);
+  habana_lazy::exec::OptPassCfg::GetInstance()->enable_subgraph_rewrite = false;
+
+  // reset instance count so that graph_id always remains same
+  // this ensures that we get a cache hit if inputs have not changed
+  HabanaLaunchOpPT::instance_count_ = 0;
+
+  // Execute OP graph
+  HabanaLaunchOpPT launch{graph, false};
+  launch.run(stack);
+
+  // Pop output from stack
+  PT_KERNEL_END;
+  return stack.back().toTensor();
 }
 
 static auto& KernelRegistry =

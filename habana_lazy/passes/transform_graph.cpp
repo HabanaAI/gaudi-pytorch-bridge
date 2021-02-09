@@ -14,14 +14,32 @@
 using json = nlohmannV340::json;
 
 namespace habana_lazy {
-
 using Graph = torch::jit::Graph;
 using SubgraphRewriter = torch::jit::SubgraphRewriter;
 using Pattern = std::tuple<std::string, std::string>;
 using Patterns = std::vector<Pattern>;
 
+Patterns internal_patts = {
+    // torch.ne OP pattern
+    {"graph(%a, %b):\n\
+      %c = aten::ne(%a, %b)\n\
+      return (%c)",
+     "graph(%a, %b):\n\
+      %2 : None = prim::Constant()\n\
+      %3 : bool = prim::Constant[value=0]()\n\
+      %4 : int = prim::Constant[value=0.0]()\n\
+      %c : Tensor = aten::eq(%a, %b)\n\
+      %1 : int = prim::dtype(%a)\n\
+      %d : Tensor = aten::to(%c, %1, %2, %2, %3)\n\
+      %e : Tensor = aten::eq(%d, %4)\n\
+      return (%e)"}};
+
 std::string get_transform_graph_file() {
-  return static_cast<std::string>(std::getenv("HABANA_TRANSFORM_GRAPH_FILE"));
+  if (std::getenv("HABANA_TRANSFORM_GRAPH_FILE")) {
+    return static_cast<std::string>(std::getenv("HABANA_TRANSFORM_GRAPH_FILE"));
+  } else {
+    return {};
+  }
 }
 
 Pattern make_pattern(const char* p, const char* r) {
@@ -62,19 +80,23 @@ void get_patterns(Patterns& patterns) {
       patterns.emplace_back(p, r);
     }
   }
+
+  // add internal patterns written to realize complex OPs
+  // using existing simple OPs
+  for (unsigned int i = 0; i < internal_patts.size(); i++) {
+    patterns.emplace_back(internal_patts.at(i));
+  }
 }
 
 void transform_graph(std::shared_ptr<Graph>& graph) {
-  SubgraphRewriter graph_rewriter;
   // Get all the patterns to be proccessed
   Patterns patterns;
   get_patterns(patterns);
   // Iterate thru each pattern and register for re writing
-  for (auto& p : patterns) {
-    graph_rewriter.RegisterRewritePattern(std::get<0>(p), std::get<1>(p));
-  }
   // if there were patterns to be processed, then re-write the graph
-  if (patterns.size()) {
+  for (auto& p : patterns) {
+    SubgraphRewriter graph_rewriter;
+    graph_rewriter.RegisterRewritePattern(std::get<0>(p), std::get<1>(p));
     graph_rewriter.runOnGraph(graph);
   }
 }

@@ -179,9 +179,6 @@ TEST_F(LazyNormKernelTest, BatchNormBackwardExecute) {
       {true, true, true});
 
   at::Tensor result_lazy = std::get<0>(results).to(torch::kCPU);
-  std::cout << "result_cpu = " << result_cpu << std::endl;
-  std::cout << "result_lazy = " << result_lazy << std::endl;
-
   EXPECT_EQ(allclose(result_lazy, result_cpu, 0.01, 0.01), true);
 }
 
