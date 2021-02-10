@@ -26,21 +26,8 @@ class HbExecutionContext {
   HbExecutionContext() = default;
   void RegisterTensor(std::shared_ptr<Data> data);
   void UnregisterTensor(Data* data);
-  const LazyExecutionMode& getExecutionMode() {
-    auto mode = per_thread_execution_mode.find(pthread_self());
-    if (mode != std::end(per_thread_execution_mode)) {
-      return mode->second;
-    }
-    // If its the first time we are calling it for the thread it means its not
-    // initialized yet and we can mark it in lazy mode as threads start from
-    // there Need to check if threads can start executing from lowering statge
-    // itself?
-    per_thread_execution_mode[pthread_self()] = kLAZY;
-    return per_thread_execution_mode[pthread_self()];
-  }
-  void setExecutionMode(LazyExecutionMode mode) {
-    per_thread_execution_mode[pthread_self()] = mode;
-  }
+  const LazyExecutionMode& getExecutionMode();
+  void setExecutionMode(LazyExecutionMode mode);
   void MarkTensorsExecuted(bool check_executing = true) {
     for (auto& tensor : m_tensor_execution_status) {
       // Mark all the tensors in executing state as done

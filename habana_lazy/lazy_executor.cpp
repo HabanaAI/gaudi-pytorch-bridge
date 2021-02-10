@@ -124,7 +124,29 @@ void HbExecutionContext::saveInputsAndOutputs(
     m_hblazy_tensors.emplace_back((tensors)[i]);
   }
 }
+const LazyExecutionMode& HbExecutionContext::getExecutionMode() {
+  std::lock_guard<std::recursive_mutex> lock(HbContextArena::Get()->GetMutex());
+  auto mode = per_thread_execution_mode.find(pthread_self());
+  if (mode != std::end(per_thread_execution_mode)) {
+    return mode->second;
+  }
+  // If its the first time we are calling it for the thread it means its not
+  // initialized yet and we can mark it in lazy mode as threads start from
+  // there Need to check if threads can start executing from lowering statge
+  // itself?
+  per_thread_execution_mode[pthread_self()] = kLAZY;
+  return per_thread_execution_mode[pthread_self()];
+}
 
+void HbExecutionContext::setExecutionMode(LazyExecutionMode mode) {
+  std::lock_guard<std::recursive_mutex> lock(HbContextArena::Get()->GetMutex());
+  if (per_thread_execution_mode.find(pthread_self()) !=
+      std::end(per_thread_execution_mode)) {
+    per_thread_execution_mode.at(pthread_self()) = mode;
+  } else {
+    per_thread_execution_mode[pthread_self()] = mode;
+  }
+}
 //////////////////////////////////////////////////////////////////////////////ARENA/////////////////////////////////////////////////////////////////////////////////
 
 HbExecutionContext* HbExecutionContextArena::getDeviceExecutionContext(

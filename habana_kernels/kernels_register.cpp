@@ -17,8 +17,7 @@ using namespace torch;
 using namespace at;
 
 Tensor& copy_hpu_wrap_(Tensor& self, const Tensor& src, bool non_blocking) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto& t = copy_hpu_lazy_(self, src, non_blocking);
     return t;
   } else {
@@ -30,8 +29,7 @@ Tensor as_strided_hpu_wrap(
     IntArrayRef size,
     IntArrayRef stride,
     c10::optional<int64_t> storage_offset) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = as_strided_hpu_lazy(self, size, stride, storage_offset);
 
     return t;
@@ -45,8 +43,7 @@ Tensor& set_hpu_wrap_(
     int64_t storage_offset,
     IntArrayRef size,
     IntArrayRef stride) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto& t = set_hpu_lazy_(self, source, storage_offset, size, stride);
 
     return t;
@@ -55,8 +52,7 @@ Tensor& set_hpu_wrap_(
   }
 };
 Tensor view_hpu_wrap(const Tensor& self, IntArrayRef size) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = view_hpu_lazy(self, size);
 
     return t;
@@ -69,8 +65,7 @@ Tensor addcmul_hpu_wrap(
     const Tensor& tensor1,
     const Tensor& tensor2,
     Scalar alpha) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = addcmul_hpu_lazy(self, tensor1, tensor2, alpha);
 
     return t;
@@ -83,8 +78,7 @@ Tensor& addcmul_hpu_wrap_(
     const Tensor& tensor1,
     const Tensor& tensor2,
     Scalar alpha) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto& t = addcmul_hpu_lazy_(self, tensor1, tensor2, alpha);
 
     return t;
@@ -97,8 +91,7 @@ Tensor addcdiv_hpu_wrap(
     const Tensor& tensor1,
     const Tensor& tensor2,
     Scalar alpha) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = addcdiv_hpu_lazy(self, tensor1, tensor2, alpha);
 
     return t;
@@ -111,8 +104,7 @@ Tensor& addcdiv_hpu_wrap_(
     const Tensor& tensor1,
     const Tensor& tensor2,
     Scalar alpha) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto& t = addcdiv_hpu_lazy_(self, tensor1, tensor2, alpha);
 
     return t;
@@ -124,16 +116,14 @@ Tensor add_tensor_hpu_wrap(
     const Tensor& self,
     const Tensor& other,
     Scalar alpha) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     return add_tensor_hpu_lazy(self, other, alpha);
   } else {
     return add_tensor_hpu(self, other, alpha);
   }
 };
 Tensor add_scalar_hpu_wrap(const Tensor& self, Scalar other, Scalar alpha) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = add_scalar_hpu_lazy(self, other, alpha);
 
     return t;
@@ -142,8 +132,7 @@ Tensor add_scalar_hpu_wrap(const Tensor& self, Scalar other, Scalar alpha) {
   }
 };
 Tensor& add_scalar_hpu_wrap_(Tensor& self, Scalar other, Scalar alpha) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto& t = add_scalar_hpu_lazy_(self, other, alpha);
 
     return t;
@@ -152,8 +141,7 @@ Tensor& add_scalar_hpu_wrap_(Tensor& self, Scalar other, Scalar alpha) {
   }
 };
 Tensor& add_tensor_hpu_wrap_(Tensor& self, const Tensor& other, Scalar alpha) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     return add_tensor_hpu_lazy_(self, other, alpha);
   } else {
     return add_tensor_hpu_(self, other, alpha);
@@ -163,8 +151,7 @@ Tensor sub_tensor_hpu_wrap(
     const Tensor& self,
     const Tensor& other,
     Scalar alpha) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = sub_tensor_hpu_lazy(self, other, alpha);
 
     return t;
@@ -173,8 +160,7 @@ Tensor sub_tensor_hpu_wrap(
   }
 };
 Tensor& sub_tensor_hpu_wrap_(Tensor& self, const Tensor& other, Scalar alpha) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto& t = sub_tensor_hpu_lazy_(self, other, alpha);
 
     return t;
@@ -183,8 +169,7 @@ Tensor& sub_tensor_hpu_wrap_(Tensor& self, const Tensor& other, Scalar alpha) {
   }
 };
 Tensor sub_scalar_hpu_wrap(const Tensor& self, Scalar other, Scalar alpha) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = sub_scalar_hpu_lazy(self, other, alpha);
 
     return t;
@@ -193,8 +178,7 @@ Tensor sub_scalar_hpu_wrap(const Tensor& self, Scalar other, Scalar alpha) {
   }
 };
 Tensor& sub_scalar_hpu_wrap_(Tensor& self, Scalar other, Scalar alpha) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto& t = sub_scalar_hpu_lazy_(self, other, alpha);
 
     return t;
@@ -203,8 +187,7 @@ Tensor& sub_scalar_hpu_wrap_(Tensor& self, Scalar other, Scalar alpha) {
   }
 };
 Tensor rsub_scalar_hpu_wrap(const Tensor& self, Scalar other, Scalar alpha) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = rsub_scalar_hpu_lazy(self, other, alpha);
 
     return t;
@@ -213,24 +196,21 @@ Tensor rsub_scalar_hpu_wrap(const Tensor& self, Scalar other, Scalar alpha) {
   }
 };
 Tensor& mul_tensor_hpu_wrap_(Tensor& self, const Tensor& other) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     return mul_tensor_hpu_lazy_(self, other);
   } else {
     return mul_tensor_hpu_(self, other);
   }
 };
 Tensor mul_tensor_hpu_wrap(const Tensor& self, const Tensor& other) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     return mul_tensor_hpu_lazy(self, other);
   } else {
     return mul_tensor_hpu(self, other);
   }
 };
 Tensor mul_scalar_hpu_wrap(const Tensor& self, Scalar other) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = mul_scalar_hpu_lazy(self, other);
 
     return t;
@@ -239,8 +219,7 @@ Tensor mul_scalar_hpu_wrap(const Tensor& self, Scalar other) {
   }
 };
 Tensor& mul_scalar_hpu_wrap_(Tensor& self, Scalar other) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto& t = mul_scalar_hpu_lazy_(self, other);
 
     return t;
@@ -249,8 +228,7 @@ Tensor& mul_scalar_hpu_wrap_(Tensor& self, Scalar other) {
   }
 };
 Tensor div_tensor_hpu_wrap(const Tensor& self, const Tensor& other) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = div_tensor_hpu_lazy(self, other);
 
     return t;
@@ -262,8 +240,7 @@ Tensor& div_tensor_hpu_wrap_out(
     Tensor& result,
     const Tensor& self,
     const Tensor& other) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto& t = div_tensor_hpu_lazy_out(result, self, other);
 
     return t;
@@ -272,8 +249,7 @@ Tensor& div_tensor_hpu_wrap_out(
   }
 };
 Tensor& div_tensor_hpu_wrap_(Tensor& self, const Tensor& other) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto& t = div_tensor_hpu_lazy_(self, other);
 
     return t;
@@ -282,8 +258,7 @@ Tensor& div_tensor_hpu_wrap_(Tensor& self, const Tensor& other) {
   }
 };
 Tensor div_scalar_hpu_wrap(const Tensor& self, Scalar other) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = div_scalar_hpu_lazy(self, other);
 
     return t;
@@ -292,8 +267,7 @@ Tensor div_scalar_hpu_wrap(const Tensor& self, Scalar other) {
   }
 };
 Tensor& div_scalar_hpu_wrap_(Tensor& self, Scalar other) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto& t = div_scalar_hpu_lazy_(self, other);
 
     return t;
@@ -302,8 +276,7 @@ Tensor& div_scalar_hpu_wrap_(Tensor& self, Scalar other) {
   }
 };
 Tensor pow_tensor_tensor_hpu_wrap(const Tensor& self, const Tensor& other) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = pow_tensor_tensor_hpu_lazy(self, other);
 
     return t;
@@ -312,8 +285,7 @@ Tensor pow_tensor_tensor_hpu_wrap(const Tensor& self, const Tensor& other) {
   }
 };
 Tensor& pow_tensor_tensor_hpu_wrap_(Tensor& self, const Tensor& other) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto& t = pow_tensor_tensor_hpu_lazy_(self, other);
 
     return t;
@@ -322,8 +294,7 @@ Tensor& pow_tensor_tensor_hpu_wrap_(Tensor& self, const Tensor& other) {
   }
 };
 Tensor pow_tensor_scalar_hpu_wrap(const Tensor& self, Scalar other) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = pow_tensor_scalar_hpu_lazy(self, other);
 
     return t;
@@ -332,8 +303,7 @@ Tensor pow_tensor_scalar_hpu_wrap(const Tensor& self, Scalar other) {
   }
 };
 Tensor& pow_tensor_scalar_hpu_wrap_(Tensor& self, Scalar other) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto& t = pow_tensor_scalar_hpu_lazy_(self, other);
 
     return t;
@@ -342,8 +312,7 @@ Tensor& pow_tensor_scalar_hpu_wrap_(Tensor& self, Scalar other) {
   }
 };
 Tensor pow_scalar_tensor_hpu_wrap(Scalar other, const Tensor& self) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = pow_scalar_tensor_hpu_lazy(other, self);
 
     return t;
@@ -352,8 +321,7 @@ Tensor pow_scalar_tensor_hpu_wrap(Scalar other, const Tensor& self) {
   }
 };
 Tensor gt_tensor_hpu_wrap(Tensor& self, Tensor& other) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = gt_tensor_hpu_lazy(self, other);
 
     return t;
@@ -362,8 +330,7 @@ Tensor gt_tensor_hpu_wrap(Tensor& self, Tensor& other) {
   }
 };
 Tensor gt_scalar_hpu_wrap(Tensor& self, Scalar other) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = gt_scalar_hpu_lazy(self, other);
 
     return t;
@@ -375,16 +342,14 @@ void eq_tensor_out_hpu_wrap(
     Tensor& output,
     const Tensor& self,
     const Tensor& other) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     eq_tensor_out_hpu_lazy(output, self, other);
   } else {
     eq_tensor_out_hpu(output, self, other);
   }
 };
 Tensor eq_tensor_hpu_wrap(Tensor& self, Tensor& other) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = eq_tensor_hpu_lazy(self, other);
 
     return t;
@@ -393,8 +358,7 @@ Tensor eq_tensor_hpu_wrap(Tensor& self, Tensor& other) {
   }
 };
 Tensor eq_tensor_scalar_hpu_wrap(Tensor& self, Scalar other) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = eq_tensor_scalar_hpu_lazy(self, other);
 
     return t;
@@ -403,8 +367,7 @@ Tensor eq_tensor_scalar_hpu_wrap(Tensor& self, Scalar other) {
   }
 };
 Tensor lt_scalar_hpu_wrap(Tensor& self, Scalar other) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = lt_scalar_hpu_lazy(self, other);
 
     return t;
@@ -413,8 +376,7 @@ Tensor lt_scalar_hpu_wrap(Tensor& self, Scalar other) {
   }
 };
 Tensor lt_tensor_hpu_wrap(Tensor& self, Tensor& other) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = lt_tensor_hpu_lazy(self, other);
 
     return t;
@@ -472,8 +434,7 @@ Tensor convolution_hpu_wrap(
     bool transposed,
     IntArrayRef output_padding,
     int64_t groups) {
-  if (!habana_lazy::isDeviceInLoweringMode(input.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     return convolution_hpu_lazy(
         input,
         weight,
@@ -508,8 +469,7 @@ std::tuple<Tensor, Tensor, Tensor> convolution_backward_hpu_wrap(
     IntArrayRef output_padding,
     int64_t groups,
     std::array<bool, 3> output_mask) {
-  if (!habana_lazy::isDeviceInLoweringMode(input.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = convolution_backward_hpu_lazy(
         grad_output,
         input,
@@ -546,8 +506,7 @@ std::tuple<Tensor, Tensor, Tensor, Tensor> embedding_bag_hpu_wrap(
     UNUSED bool sparse,
     Tensor& per_sample_weights,
     UNUSED bool include_last_offset) {
-  if (!habana_lazy::isDeviceInLoweringMode(weight.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = embedding_bag_hpu_lazy(
         weight,
         indices,
@@ -582,8 +541,7 @@ Tensor embedding_bag_bwd_hpu_wrap(
     bool scale_grad_by_freq,
     int mode,
     Tensor per_sample_weights) {
-  if (!habana_lazy::isDeviceInLoweringMode(grad.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = embedding_bag_bwd_hpu_lazy(
         grad,
         indices,
@@ -615,8 +573,7 @@ Tensor constant_pad_hpu_wrap(
     const Tensor& self,
     IntArrayRef pad,
     Scalar value) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = constant_pad_hpu_lazy(self, pad, value);
 
     return t;
@@ -630,8 +587,7 @@ Tensor embedding_hpu_wrap(
     int64_t padding_idx,
     bool scale_grad_by_freq,
     bool sparse) {
-  if (!habana_lazy::isDeviceInLoweringMode(weight.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = embedding_hpu_lazy(
         weight, indices, padding_idx, scale_grad_by_freq, sparse);
 
@@ -647,8 +603,7 @@ Tensor embedding_dense_backward_hpu_wrap(
     int64_t num_weights,
     int64_t padding_idx,
     bool scale_grad_by_freq) {
-  if (!habana_lazy::isDeviceInLoweringMode(grad.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = embedding_dense_backward_hpu_lazy(
         grad, indices, num_weights, padding_idx, scale_grad_by_freq);
 
@@ -664,8 +619,7 @@ Tensor embedding_bag_sum_hpu_wrap(
     const Tensor& offsets,
     const Tensor& valid_count,
     int64_t kernel_mode) {
-  if (!habana_lazy::isDeviceInLoweringMode(input.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = embedding_bag_sum_hpu_lazy(
         input, indices, offsets, valid_count, kernel_mode);
 
@@ -684,8 +638,7 @@ Tensor embedding_bag_sum_fwd_hpu_wrap(
     const Tensor& offsets_bwd,
     const Tensor& valid_count_bwd,
     const Tensor& grad_weight) {
-  if (!habana_lazy::isDeviceInLoweringMode(input.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = embedding_bag_sum_fwd_hpu_lazy(
         input,
         indices_fwd,
@@ -715,8 +668,7 @@ Tensor& embedding_bag_sum_bwd_out_hpu_wrap(
     const Tensor& indices_bwd,
     const Tensor& offsets_bwd,
     const Tensor& valid_count_bwd) {
-  if (!habana_lazy::isDeviceInLoweringMode(input.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto& t = embedding_bag_sum_bwd_out_hpu_lazy(
         out, input, indices_bwd, offsets_bwd, valid_count_bwd);
 
@@ -733,8 +685,7 @@ Tensor& embedding_bag_sum_bwd_out_kernel_mode_hpu_wrap(
     const Tensor& offsets,
     const Tensor& valid_count,
     int64_t kernel_mode) {
-  if (!habana_lazy::isDeviceInLoweringMode(input.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto& t = embedding_bag_sum_bwd_out_kernel_mode_hpu_lazy(
         out, input, indices, offsets, valid_count, kernel_mode);
 
@@ -745,8 +696,7 @@ Tensor& embedding_bag_sum_bwd_out_kernel_mode_hpu_wrap(
   }
 };
 Tensor& fill_hpu_wrap_(Tensor& self, Scalar value) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto& t = fill_hpu_lazy_(self, value);
 
     return t;
@@ -758,8 +708,7 @@ Tensor& masked_fill_hpu_wrap_(
     Tensor& self,
     const Tensor& mask,
     const Tensor& value) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto& t = masked_fill_hpu_lazy_(self, mask, value);
 
     return t;
@@ -771,8 +720,7 @@ Tensor& masked_fill_scalar_hpu_wrap_(
     Tensor& self,
     const Tensor& mask,
     Scalar value) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto& t = masked_fill_scalar_hpu_lazy_(self, mask, value);
 
     return t;
@@ -785,8 +733,7 @@ Tensor gather_src_hpu_wrap(
     int64_t dim_,
     const Tensor& index,
     bool sparse_grad) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = gather_src_hpu_lazy(self, dim_, index, sparse_grad);
 
     return t;
@@ -799,8 +746,7 @@ Tensor& scatter_inplace_src_hpu_wrap(
     int64_t dim_,
     const Tensor& index,
     const Tensor& src) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto& t = scatter_inplace_src_hpu_lazy(self, dim_, index, src);
 
     return t;
@@ -813,8 +759,7 @@ Tensor scatter_src_hpu_wrap(
     int64_t dim_,
     const Tensor& index,
     const Tensor& src) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = scatter_src_hpu_lazy(self, dim_, index, src);
 
     return t;
@@ -827,8 +772,7 @@ Tensor scatter_add_src_hpu_wrap(
     int64_t dim_,
     const Tensor& index,
     const Tensor& src) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = scatter_add_src_hpu_lazy(self, dim_, index, src);
 
     return t;
@@ -841,8 +785,7 @@ Tensor& scatter_add_inplace_src_hpu_wrap(
     int64_t dim_,
     const Tensor& index,
     const Tensor& src) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto& t = scatter_add_inplace_src_hpu_lazy(self, dim_, index, src);
 
     return t;
@@ -855,8 +798,7 @@ Tensor& index_add_hpu_wrap_(
     int64_t dim_,
     const Tensor& indices,
     const Tensor& source) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto& t = index_add_hpu_lazy_(self, dim_, indices, source);
 
     return t;
@@ -869,8 +811,7 @@ Tensor index_put_hpu_wrap(
     TensorList indices,
     const Tensor& value,
     bool accumulate) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = index_put_hpu_lazy(self, indices, value, accumulate);
 
     return t;
@@ -883,8 +824,7 @@ Tensor& index_put_hpu_wrap_(
     TensorList indices,
     const Tensor& value,
     bool accumulate) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto& t = index_put_hpu_lazy_(self, indices, value, accumulate);
 
     return t;
@@ -896,8 +836,7 @@ Tensor index_select_hpu_wrap(
     const Tensor& self,
     int64_t dim,
     const Tensor& index) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = index_select_hpu_lazy(self, dim, index);
 
     return t;
@@ -909,8 +848,7 @@ Tensor gather2d_hpu_wrap(
     const Tensor& input,
     const Tensor& indices,
     int64_t validCount) {
-  if (!habana_lazy::isDeviceInLoweringMode(input.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = gather2d_hpu_lazy(input, indices, validCount);
 
     return t;
@@ -924,8 +862,7 @@ Tensor slice_hpu_wrap(
     int64_t start,
     int64_t end,
     int64_t step) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = slice_hpu_lazy(self, dim, start, end, step);
 
     return t;
@@ -934,8 +871,7 @@ Tensor slice_hpu_wrap(
   }
 };
 Tensor select_hpu_wrap(const Tensor& self, int64_t dim, int64_t index) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = select_hpu_lazy(self, dim, index);
 
     return t;
@@ -944,8 +880,7 @@ Tensor select_hpu_wrap(const Tensor& self, int64_t dim, int64_t index) {
   }
 };
 Tensor& arange_hpu_wrap(Tensor& output, Scalar start, Scalar end, Scalar step) {
-  if (!habana_lazy::isDeviceInLoweringMode(output.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto& t = arange_hpu_lazy(output, start, end, step);
 
     return t;
@@ -954,8 +889,7 @@ Tensor& arange_hpu_wrap(Tensor& output, Scalar start, Scalar end, Scalar step) {
   }
 };
 Tensor mm_hpu_wrap(const at::Tensor& mat1, const at::Tensor& mat2) {
-  if (!habana_lazy::isDeviceInLoweringMode(mat1.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     return mm_hpu_lazy(mat1, mat2);
   } else {
     return mm_hpu(mat1, mat2);
@@ -967,8 +901,7 @@ Tensor addmm_hpu_wrap(
     const Tensor& mat2,
     Scalar beta,
     Scalar alpha) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     return addmm_hpu_lazy(self, mat1, mat2, beta, alpha);
   } else {
     return addmm_hpu(self, mat1, mat2, beta, alpha);
@@ -978,8 +911,7 @@ Tensor& batch_gemm_out_hpu_wrap(
     Tensor& out,
     const Tensor& self,
     const Tensor& mat2) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto& t = batch_gemm_out_hpu_lazy(out, self, mat2);
     return t;
   } else {
@@ -987,8 +919,7 @@ Tensor& batch_gemm_out_hpu_wrap(
   }
 };
 Tensor batch_gemm_hpu_wrap(const Tensor& self, const Tensor& mat2) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = batch_gemm_hpu_lazy(self, mat2);
     return t;
   } else {
@@ -996,8 +927,7 @@ Tensor batch_gemm_hpu_wrap(const Tensor& self, const Tensor& mat2) {
   }
 };
 Tensor dot_hpu_wrap(const Tensor& self, const Tensor& other) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = dot_hpu_lazy(self, other);
     return t;
   } else {
@@ -1005,8 +935,7 @@ Tensor dot_hpu_wrap(const Tensor& self, const Tensor& other) {
   }
 };
 Tensor mv_hpu_wrap(const Tensor& self, const Tensor& other) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = mv_hpu_lazy(self, other);
     return t;
   } else {
@@ -1019,8 +948,7 @@ std::tuple<Tensor, Tensor> nll_loss_forward_hpu_wrap(
     const Tensor& weight,
     int64_t reduction,
     int64_t ignore_index) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = nll_loss_forward_hpu_lazy(
         self, target, weight, reduction, ignore_index);
     return t;
@@ -1036,8 +964,7 @@ Tensor nll_loss_backward_hpu_wrap(
     int64_t reduction,
     int64_t ignore_index,
     UNUSED const Tensor& total_weight) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = nll_loss_backward_hpu_lazy(
         grad_output,
         self,
@@ -1062,8 +989,7 @@ Tensor mse_loss_forward_hpu_wrap(
     const Tensor& self,
     const Tensor& target,
     int64_t reduction) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = mse_loss_forward_hpu_lazy(self, target, reduction);
     return t;
   } else {
@@ -1075,8 +1001,7 @@ Tensor mse_loss_backward_hpu_wrap(
     const Tensor& self,
     const Tensor& target,
     int64_t reduction) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = mse_loss_backward_hpu_lazy(grad_output, self, target, reduction);
     return t;
   } else {
@@ -1088,8 +1013,7 @@ Tensor binary_cross_entropy_hpu_wrap(
     const Tensor& target,
     const Tensor& weight,
     int64_t reduction) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = binary_cross_entropy_hpu_lazy(self, target, weight, reduction);
     return t;
   } else {
@@ -1102,8 +1026,7 @@ Tensor binary_cross_entropy_backward_hpu_wrap(
     const Tensor& target,
     const Tensor& weight,
     int64_t reduction) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = binary_cross_entropy_backward_hpu_lazy(
         grad_output, self, target, weight, reduction);
     return t;
@@ -1121,8 +1044,7 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu_wrap(
     bool training,
     double momentum,
     double eps) {
-  if (!habana_lazy::isDeviceInLoweringMode(input.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = batch_norm_hpu_lazy(
         input,
         weight,
@@ -1156,8 +1078,7 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu_wrap(
     bool train,
     double eps,
     UNUSED std::array<bool, 3> output_mask) {
-  if (!habana_lazy::isDeviceInLoweringMode(input.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = batch_norm_bwd_hpu_lazy(
         grad_out,
         input,
@@ -1191,8 +1112,7 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_hpu_wrap(
     int64_t m,
     int64_t n,
     double eps) {
-  if (!habana_lazy::isDeviceInLoweringMode(input.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = layer_norm_hpu_lazy(input, weight, bias, m, n, eps);
     return t;
   } else {
@@ -1208,8 +1128,7 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_backward_hpu_wrap(
     int64_t M,
     int64_t N,
     std::array<bool, 3> grad_input_mask) {
-  if (!habana_lazy::isDeviceInLoweringMode(X.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = layer_norm_backward_hpu_lazy(
         dY, X, mean, rstd, gamma, M, N, grad_input_mask);
     return t;
@@ -1219,8 +1138,7 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_backward_hpu_wrap(
   }
 };
 Tensor norm_scalar_hpu_wrap(const Tensor& self, Scalar p) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = norm_scalar_hpu_lazy(self, p);
     return t;
   } else {
@@ -1234,8 +1152,7 @@ std::tuple<Tensor, Tensor> max_pool2d_with_indices_hpu_wrap(
     IntArrayRef padding,
     IntArrayRef dilation,
     bool ceil_mode) {
-  if (!habana_lazy::isDeviceInLoweringMode(input.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     return max_pool2d_with_indices_hpu_lazy(
         input, kernel_size, stride, padding, dilation, ceil_mode);
   } else {
@@ -1253,8 +1170,7 @@ Tensor& max_pool2d_with_indices_backward_out_hpu_wrap(
     IntArrayRef padding,
     IntArrayRef dilation,
     bool ceil_mode) {
-  if (!habana_lazy::isDeviceInLoweringMode(input.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     return max_pool2d_with_indices_backward_out_hpu_lazy(
         grad_input,
         grad_output,
@@ -1287,8 +1203,7 @@ Tensor max_pool2d_with_indices_backward_hpu_wrap(
     IntArrayRef dilation,
     bool ceil_mode,
     const Tensor& indices) {
-  if (!habana_lazy::isDeviceInLoweringMode(input.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     return max_pool2d_with_indices_backward_hpu_lazy(
         grad_output,
         input,
@@ -1318,8 +1233,7 @@ Tensor avg_pool2d_hpu_wrap(
     bool ceil_mode,
     bool count_include_pad,
     c10::optional<int64_t> divisor_override) {
-  if (!habana_lazy::isDeviceInLoweringMode(input.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = avg_pool2d_hpu_lazy(
         input,
         kernel_size,
@@ -1350,8 +1264,7 @@ Tensor& avg_pool2d_backward_out_hpu_wrap(
     bool ceil_mode,
     bool count_include_pad,
     c10::optional<int64_t> divisor_override) {
-  if (!habana_lazy::isDeviceInLoweringMode(input.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto& t = avg_pool2d_backward_out_hpu_lazy(
         grad_input,
         grad_output,
@@ -1385,8 +1298,7 @@ Tensor avg_pool2d_backward_hpu_wrap(
     bool ceil_mode,
     bool count_include_pad,
     c10::optional<int64_t> divisor_override) {
-  if (!habana_lazy::isDeviceInLoweringMode(input.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = avg_pool2d_backward_hpu_lazy(
         grad_output,
         input,
@@ -1414,8 +1326,7 @@ void uniform_hpu_wrap(
     double from,
     double to,
     CPUGenerator* gen) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     uniform_hpu_lazy(self, from, to, gen);
   } else {
     uniform_hpu(self, from, to, gen);
@@ -1426,16 +1337,14 @@ void normal_hpu_wrap(
     double mean,
     double std,
     CPUGenerator* gen) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     normal_hpu_lazy(self, mean, std, gen);
   } else {
     normal_hpu(self, mean, std, gen);
   }
 };
 Tensor bernoulli_hpu_wrap(const Tensor& self, CPUGenerator* gen) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = bernoulli_hpu_lazy(self, gen);
     return t;
   } else {
@@ -1443,8 +1352,7 @@ Tensor bernoulli_hpu_wrap(const Tensor& self, CPUGenerator* gen) {
   }
 };
 Tensor& bernoulli_scalar_hpu_wrap(Tensor& self, double p, CPUGenerator* gen) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto& t = bernoulli_scalar_hpu_lazy(self, p, gen);
     return t;
   } else {
@@ -1455,8 +1363,7 @@ std::tuple<Tensor, Tensor> fused_dropout_hpu_wrap(
     Tensor self,
     double p,
     CPUGenerator* gen) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     // auto& t = fused_dropout_hpu_lazy(self, p, gen);
     // return t;
     return fused_dropout_hpu_lazy(self, p, gen);
@@ -1470,8 +1377,7 @@ Tensor sum_dim_IntList_hpu_wrap(
     IntArrayRef dim,
     bool keepdim,
     c10::optional<ScalarType> dtype) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = sum_dim_IntList_hpu_lazy(self, dim, keepdim, dtype);
     return t;
   } else {
@@ -1484,8 +1390,7 @@ Tensor& sum_IntList_out_hpu_wrap(
     IntArrayRef dim,
     bool keepdim,
     c10::optional<ScalarType> dtype) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto& t = sum_IntList_out_hpu_lazy(output, self, dim, keepdim, dtype);
     return t;
   } else {
@@ -1497,8 +1402,7 @@ Tensor mean_dim_hpu_wrap(
     IntArrayRef dim,
     bool keepdim,
     c10::optional<ScalarType> dtype) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = mean_dim_hpu_lazy(self, dim, keepdim, dtype);
     return t;
   } else {
@@ -1511,8 +1415,7 @@ Tensor& mean_dim_out_hpu_wrap(
     IntArrayRef dim,
     bool keepdim,
     c10::optional<ScalarType> dtype) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto& t = mean_dim_out_hpu_lazy(output, self, dim, keepdim, dtype);
     return t;
   } else {
@@ -1520,8 +1423,7 @@ Tensor& mean_dim_out_hpu_wrap(
   }
 };
 Tensor sum_hpu_wrap(const Tensor& self, c10::optional<ScalarType> dtype) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = sum_hpu_lazy(self, dtype);
     return t;
   } else {
@@ -1529,8 +1431,7 @@ Tensor sum_hpu_wrap(const Tensor& self, c10::optional<ScalarType> dtype) {
   }
 };
 Tensor mean_hpu_wrap(const Tensor& self, c10::optional<ScalarType> dtype) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = mean_hpu_lazy(self, dtype);
 
     return t;
@@ -1543,8 +1444,7 @@ Tensor& any_dim_out_hpu_wrap(
     const Tensor& self,
     int64_t dim,
     bool keepdim) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto& t = any_dim_out_hpu_lazy(output, self, dim, keepdim);
     return t;
   } else {
@@ -1552,8 +1452,7 @@ Tensor& any_dim_out_hpu_wrap(
   }
 };
 Tensor any_dim_hpu_wrap(const Tensor& self, int64_t dim, bool keepdim) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = any_dim_hpu_lazy(self, dim, keepdim);
     return t;
   } else {
@@ -1561,8 +1460,7 @@ Tensor any_dim_hpu_wrap(const Tensor& self, int64_t dim, bool keepdim) {
   }
 };
 Tensor any_hpu_wrap(const Tensor& self) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = any_hpu_lazy(self);
     return t;
   } else {
@@ -1574,8 +1472,7 @@ Tensor log_softmax_hpu_wrap(
     const Tensor& self,
     const int64_t dim,
     const bool half_to_float) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = log_softmax_hpu_lazy(self, dim, half_to_float);
     return t;
   } else {
@@ -1587,8 +1484,7 @@ Tensor log_softmax_backward_hpu_wrap(
     const Tensor& output,
     int64_t dim,
     const Tensor& input) {
-  if (!habana_lazy::isDeviceInLoweringMode(input.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = log_softmax_backward_hpu_lazy(grad, output, dim, input);
     return t;
   } else {
@@ -1599,8 +1495,7 @@ Tensor softmax_hpu_wrap(
     const Tensor& self,
     int64_t dim,
     const bool half_to_float) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = softmax_hpu_lazy(self, dim, half_to_float);
     return t;
   } else {
@@ -1612,8 +1507,7 @@ Tensor softmax_backward_hpu_wrap(
     const Tensor& output,
     int64_t dim,
     const Tensor& input) {
-  if (!habana_lazy::isDeviceInLoweringMode(input.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = softmax_backward_hpu_lazy(grad, output, dim, input);
     return t;
   } else {
@@ -1646,8 +1540,7 @@ Tensor empty_strided_hpu_wrap(
 Tensor clone_hpu_wrap(
     const Tensor& self,
     c10::optional<MemoryFormat> memory_format) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = clone_hpu_lazy(self, memory_format);
     return t;
   } else {
@@ -1655,8 +1548,7 @@ Tensor clone_hpu_wrap(
   }
 };
 Tensor& zero_hpu_wrap(Tensor& self) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto& t = zero_hpu_lazy(self);
     return t;
   } else {
@@ -1664,8 +1556,7 @@ Tensor& zero_hpu_wrap(Tensor& self) {
   }
 };
 Tensor cat_hpu_wrap(const TensorList tensors, int64_t dim_) {
-  if (!habana_lazy::isDeviceInLoweringMode(tensors[0].device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = cat_hpu_lazy(tensors, dim_);
     return t;
   } else {
@@ -1676,8 +1567,7 @@ Tensor& cat_hpu_wrap_out(
     Tensor& result,
     const TensorList tensors,
     int64_t dim_) {
-  if (!habana_lazy::isDeviceInLoweringMode(tensors[0].device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto& t = cat_hpu_lazy_out(result, tensors, dim_);
     return t;
   } else {
@@ -1685,8 +1575,7 @@ Tensor& cat_hpu_wrap_out(
   }
 };
 Tensor transpose_hpu_wrap(const Tensor& self, int64_t dim0_, int64_t dim1_) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = transpose_hpu_lazy(self, dim0_, dim1_);
     return t;
   } else {
@@ -1694,8 +1583,7 @@ Tensor transpose_hpu_wrap(const Tensor& self, int64_t dim0_, int64_t dim1_) {
   }
 };
 Tensor& transpose_hpu_wrap_(Tensor& self, int64_t dim0_, int64_t dim1_) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto& t = transpose_hpu_lazy_(self, dim0_, dim1_);
     return t;
   } else {
@@ -1703,8 +1591,7 @@ Tensor& transpose_hpu_wrap_(Tensor& self, int64_t dim0_, int64_t dim1_) {
   }
 };
 Tensor t_hpu_wrap(const Tensor& self) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = t_hpu_lazy(self);
     return t;
   } else {
@@ -1712,8 +1599,7 @@ Tensor t_hpu_wrap(const Tensor& self) {
   }
 };
 Tensor& t_hpu_wrap_(Tensor& self) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto& t = t_hpu_lazy_(self);
     return t;
   } else {
@@ -1721,8 +1607,7 @@ Tensor& t_hpu_wrap_(Tensor& self) {
   }
 };
 Tensor permute_hpu_wrap(const Tensor& self, IntArrayRef dims_) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = permute_hpu_lazy(self, dims_);
     return t;
   } else {
@@ -1730,8 +1615,7 @@ Tensor permute_hpu_wrap(const Tensor& self, IntArrayRef dims_) {
   }
 };
 Tensor expand_hpu_wrap(const Tensor& self, IntArrayRef size, bool implicit) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = expand_hpu_lazy(self, size, implicit);
     return t;
   } else {
@@ -1742,8 +1626,7 @@ std::vector<Tensor> split_with_sizes_hpu_wrap(
     const Tensor& self,
     IntArrayRef split_sizes,
     int64_t dim) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = split_with_sizes_hpu_lazy(self, split_sizes, dim);
     return t;
   } else {
@@ -1754,8 +1637,7 @@ Tensor threshold_backward_hpu_wrap(
     const Tensor& grad_output,
     const Tensor& self,
     Scalar threshold) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = threshold_backward_hpu_lazy(grad_output, self, threshold);
     return t;
   } else {
@@ -1770,8 +1652,7 @@ std::tuple<Tensor&, Tensor&> topk_out_hpu_wrap(
     int64_t dim_,
     bool largest,
     bool sorted) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = topk_out_hpu_lazy(values, indices, self, k, dim_, largest, sorted);
     return t;
   } else {
@@ -1784,8 +1665,7 @@ std::tuple<Tensor, Tensor> topk_hpu_wrap(
     int64_t dim,
     bool largest,
     bool sorted) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = topk_hpu_lazy(self, k, dim, largest, sorted);
     return t;
   } else {
@@ -1796,8 +1676,7 @@ std::tuple<Tensor, Tensor> sort_hpu_wrap(
     const Tensor& self,
     int64_t dim,
     bool descending) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = sort_hpu_lazy(self, dim, descending);
     return t;
   } else {
@@ -1808,8 +1687,7 @@ Tensor unary_op_hpu_wrap(
     const Tensor& input,
     std::string& node_type,
     UnaryOperator* Op) {
-  if (!habana_lazy::isDeviceInLoweringMode(input.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = unary_op_hpu_lazy(input, node_type, Op);
     return t;
   } else {
@@ -1821,8 +1699,7 @@ Tensor unary_backward_op_hpu_wrap(
     const Tensor& input,
     std::string& node_type,
     UnaryBackwardOperator* Op) {
-  if (!habana_lazy::isDeviceInLoweringMode(input.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = unary_backward_op_hpu_lazy(grad_in, input, node_type, Op);
     return t;
   } else {
@@ -1830,24 +1707,21 @@ Tensor unary_backward_op_hpu_wrap(
   }
 };
 Tensor relu_hpu_wrap(const Tensor& input) {
-  if (!habana_lazy::isDeviceInLoweringMode(input.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     return relu_hpu_lazy(input);
   } else {
     return relu_hpu(input);
   }
 };
 Tensor& relu_hpu_wrap_(Tensor& self) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     return relu_hpu_lazy_(self);
   } else {
     return relu_hpu_(self);
   }
 };
 Tensor sigmoid_hpu_wrap(const Tensor& input) {
-  if (!habana_lazy::isDeviceInLoweringMode(input.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = sigmoid_hpu_lazy(input);
     return t;
   } else {
@@ -1855,8 +1729,7 @@ Tensor sigmoid_hpu_wrap(const Tensor& input) {
   }
 };
 Tensor sigmoid_backward_hpu_wrap(const Tensor& grad_in, const Tensor& input) {
-  if (!habana_lazy::isDeviceInLoweringMode(input.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = sigmoid_backward_hpu_lazy(grad_in, input);
     return t;
   } else {
@@ -1864,8 +1737,7 @@ Tensor sigmoid_backward_hpu_wrap(const Tensor& grad_in, const Tensor& input) {
   }
 };
 Tensor sqrt_hpu_wrap(Tensor& input) {
-  if (!habana_lazy::isDeviceInLoweringMode(input.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = sqrt_hpu_lazy(input);
     return t;
   } else {
@@ -1873,8 +1745,7 @@ Tensor sqrt_hpu_wrap(Tensor& input) {
   }
 };
 Tensor tanh_hpu_wrap(const Tensor& input) {
-  if (!habana_lazy::isDeviceInLoweringMode(input.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = tanh_hpu_lazy(input);
     return t;
   } else {
@@ -1882,8 +1753,7 @@ Tensor tanh_hpu_wrap(const Tensor& input) {
   }
 };
 Tensor& tanh_hpu_wrap_(Tensor& self) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto& t = tanh_hpu_lazy_(self);
     return t;
   } else {
@@ -1891,8 +1761,7 @@ Tensor& tanh_hpu_wrap_(Tensor& self) {
   }
 };
 Tensor& tanh_out_hpu_wrap(Tensor& out, Tensor& self) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto& t = tanh_out_hpu_lazy(out, self);
     return t;
   } else {
@@ -1900,8 +1769,7 @@ Tensor& tanh_out_hpu_wrap(Tensor& out, Tensor& self) {
   }
 };
 Tensor tanh_backward_hpu_wrap(const Tensor& grad_in, const Tensor& input) {
-  if (!habana_lazy::isDeviceInLoweringMode(input.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = tanh_backward_hpu_lazy(grad_in, input);
     return t;
   } else {
@@ -1909,8 +1777,7 @@ Tensor tanh_backward_hpu_wrap(const Tensor& grad_in, const Tensor& input) {
   }
 };
 Tensor gelu_hpu_wrap(const Tensor& self) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = gelu_hpu_lazy(self);
     return t;
   } else {
@@ -1918,8 +1785,7 @@ Tensor gelu_hpu_wrap(const Tensor& self) {
   }
 };
 Tensor gelu_backward_hpu_wrap(const Tensor& grad, const Tensor& self) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = gelu_backward_hpu_lazy(grad, self);
     return t;
   } else {
@@ -1927,8 +1793,7 @@ Tensor gelu_backward_hpu_wrap(const Tensor& grad, const Tensor& self) {
   }
 };
 Tensor& erf_hpu_wrap_(Tensor& self) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto& t = erf_hpu_lazy_(self);
     return t;
   } else {
@@ -1936,8 +1801,7 @@ Tensor& erf_hpu_wrap_(Tensor& self) {
   }
 };
 Tensor erf_hpu_wrap(const Tensor& self) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = erf_hpu_lazy(self);
     return t;
   } else {
@@ -1945,8 +1809,7 @@ Tensor erf_hpu_wrap(const Tensor& self) {
   }
 };
 Tensor& exp_hpu_wrap_(Tensor& self) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto& t = exp_hpu_lazy_(self);
     return t;
   } else {
@@ -1954,8 +1817,7 @@ Tensor& exp_hpu_wrap_(Tensor& self) {
   }
 };
 Tensor exp_hpu_wrap(const Tensor& self) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = exp_hpu_lazy(self);
     return t;
   } else {
@@ -1963,8 +1825,7 @@ Tensor exp_hpu_wrap(const Tensor& self) {
   }
 };
 Tensor& neg_out_hpu_wrap(Tensor& result, const Tensor& input) {
-  if (!habana_lazy::isDeviceInLoweringMode(input.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto& t = neg_out_hpu_lazy(result, input);
     return t;
   } else {
@@ -1972,8 +1833,7 @@ Tensor& neg_out_hpu_wrap(Tensor& result, const Tensor& input) {
   }
 };
 Tensor& reciprocal_hpu_wrap_(Tensor& self) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto& t = reciprocal_hpu_lazy_(self);
     return t;
   } else {
@@ -1981,8 +1841,7 @@ Tensor& reciprocal_hpu_wrap_(Tensor& self) {
   }
 };
 Tensor reciprocal_hpu_wrap(const Tensor& self) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = reciprocal_hpu_lazy(self);
     return t;
   } else {
@@ -1990,8 +1849,7 @@ Tensor reciprocal_hpu_wrap(const Tensor& self) {
   }
 };
 Tensor& reciprocal_out_hpu_wrap(Tensor& result, const Tensor& self) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto& t = reciprocal_out_hpu_lazy(result, self);
     return t;
   } else {
@@ -1999,8 +1857,7 @@ Tensor& reciprocal_out_hpu_wrap(Tensor& result, const Tensor& self) {
   }
 };
 Tensor clamp_min_hpu_wrap(const Tensor& self, Scalar min) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = clamp_min_hpu_lazy(self, min);
     return t;
   } else {
@@ -2011,8 +1868,7 @@ Tensor& clamp_hpu_wrap_(
     Tensor& self,
     c10::optional<Scalar> min,
     c10::optional<Scalar> max) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto& t = clamp_hpu_lazy_(self, min, max);
     return t;
   } else {
@@ -2023,8 +1879,7 @@ Tensor clamp_hpu_wrap(
     const Tensor& self,
     c10::optional<Scalar> min,
     c10::optional<Scalar> max) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = clamp_hpu_lazy(self, min, max);
     return t;
   } else {
@@ -2032,8 +1887,7 @@ Tensor clamp_hpu_wrap(
   }
 };
 Tensor abs_hpu_wrap(const Tensor& self) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = abs_hpu_lazy(self);
     return t;
   } else {
@@ -2041,8 +1895,7 @@ Tensor abs_hpu_wrap(const Tensor& self) {
   }
 };
 Tensor neg_hpu_wrap(const Tensor& self) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = neg_hpu_lazy(self);
     return t;
   } else {
@@ -2068,8 +1921,7 @@ Tensor& floor_hpu_wrap_(Tensor& self) {
 namespace at {
 namespace native {
 Scalar _local_scalar_dense_hpu_wrap(const Tensor& self) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = _local_scalar_dense_hpu_lazy(self);
     return t;
   } else {
@@ -2088,8 +1940,7 @@ optimizer_sparse_sgd_with_valid_count_hpu_wrap(
     const Tensor& valid_count_tensor,
     float mom,
     bool nesterov) {
-  if (!habana_lazy::isDeviceInLoweringMode(weights_in.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     return optimizer_sparse_sgd_with_valid_count_hpu_lazy(
         gradients,
         weights_in,
@@ -2119,8 +1970,7 @@ optimizer_sparse_adagrad_with_valid_count_hpu_wrap(
     const Tensor& indices,
     const Tensor& learning_rate,
     const Tensor& valid_count_tensor) {
-  if (!habana_lazy::isDeviceInLoweringMode(weights_in.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     return optimizer_sparse_adagrad_with_valid_count_hpu_lazy(
         gradients,
         weights_in,
@@ -2151,8 +2001,7 @@ void optimizer_adamw_hpu_wrap(
     const int bias_correction,
     const float weight_decay) {
   TORCH_CHECK((weight_vec.size() > 0), "Can not process empty weight vector");
-  if (!habana_lazy::isDeviceInLoweringMode(weight_vec[0].device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     optimizer_adamw_hpu_lazy(
         gradient_vec,
         weight_vec,
@@ -2185,8 +2034,7 @@ Tensor fused_norm_hpu_wrap(
     const Tensor& max_norm,
     float norm_type) {
   TORCH_CHECK((grad.size() > 0), "Can not process empty grad vector");
-  if (!habana_lazy::isDeviceInLoweringMode(grad[0].device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     return fused_norm_hpu_lazy(grad, max_norm, norm_type);
   } else {
     return fused_norm_hpu(grad, max_norm, norm_type);
@@ -2201,8 +2049,7 @@ Tensor& optimizer_adagrad_hpu_wrap(
     const float wd,
     const float lrd,
     const float epsilon) {
-  if (!habana_lazy::isDeviceInLoweringMode(weights[0].device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     optimizer_adagrad_hpu_lazy(
         gradients, weights, variances, epoch_num, lr, wd, lrd, epsilon);
   } else {
@@ -2217,8 +2064,7 @@ Tensor ones_like_hpu_wrap(
     const Tensor& self,
     const TensorOptions& options,
     c10::optional<c10::MemoryFormat> optional_memory_format) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     return ones_like_hpu_lazy(self, options, optional_memory_format);
   } else {
     return ones_like_hpu(self, options, optional_memory_format);
@@ -2229,8 +2075,7 @@ std::tuple<Tensor, Tensor> matmul_backward_hpu_wrap(
     const Tensor& grad_output,
     const Tensor& self,
     const Tensor& other) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     return matmul_backward_hpu(grad_output, self, other);
   } else {
     return matmul_backward_hpu(grad_output, self, other);
@@ -2241,8 +2086,7 @@ Tensor masked_scale_hpu_wrap(
     const Tensor& self,
     const Tensor& mask,
     double scale) {
-  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
     HABANA_ASSERT(0); // Not supported for Lazy mode
     return masked_scale_hpu(self, mask, scale);
   } else {
