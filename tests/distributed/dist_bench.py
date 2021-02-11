@@ -7,7 +7,7 @@ import timeit
 import numpy as np
 from torch._utils_internal import TEST_MASTER_ADDR as MASTER_ADDR
 from torch._utils_internal import TEST_MASTER_PORT as MASTER_PORT
-torch.ops.load_library(os.environ.get("BUILD_ROOT_LATEST") + "/libhabana_pytorch_plugin.so")
+torch.ops.load_library(os.environ.get("PYTORCH_MODULES_RELEASE_BUILD") + "/libhabana_pytorch_plugin.so")
 
 def _init_global_test():
     group = list(range(0, dist.get_world_size()))

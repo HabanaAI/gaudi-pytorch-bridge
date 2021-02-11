@@ -102,7 +102,7 @@ def enable_tracing():
     torch._C._debug_set_autodiff_subgraph_inlining(False)
     torch._C._jit_set_profiling_executor(False)
     torch._C._jit_set_profiling_mode(False)
-    sys.path.insert(0, os.path.join(os.environ['BUILD_ROOT_LATEST']))
+    sys.path.insert(0, os.path.join(os.environ['PYTORCH_MODULES_RELEASE_BUILD']))
     try:
             import hb_torch
     except ImportError:
@@ -883,9 +883,9 @@ def main():
     # Setup CUDA, GPU & distributed training
 
     if args.use_habana:
-        print("Attempting to load library from path ", os.environ['BUILD_ROOT_LATEST'], flush=True)
-        torch.ops.load_library(os.path.join(os.environ['BUILD_ROOT_LATEST'], "libhabana_pytorch_plugin.so"))
-        sys.path.insert(0, os.path.join(os.environ['BUILD_ROOT_LATEST']))
+        print("Attempting to load library from path ", os.environ['PYTORCH_MODULES_RELEASE_BUILD'], flush=True)
+        torch.ops.load_library(os.path.join(os.environ['PYTORCH_MODULES_RELEASE_BUILD'], "libhabana_pytorch_plugin.so"))
+        sys.path.insert(0, os.path.join(os.environ['PYTORCH_MODULES_RELEASE_BUILD']))
         device = torch.device("habana")
 
         if args.local_rank == -1:

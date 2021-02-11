@@ -35,7 +35,7 @@ import inspect
 import torch
 import torch.nn as nn
 
-sys.path.insert(0, os.path.join(os.environ['BUILD_ROOT_LATEST']))
+sys.path.insert(0, os.path.join(os.environ['PYTORCH_MODULES_RELEASE_BUILD']))
 import hb_torch
 
 from torch.nn.parallel import DistributedDataParallel as DDP
@@ -620,8 +620,8 @@ if __name__ == "__main__":
         ngpus = torch.cuda.device_count()  # 1
         print("Using {} GPU(s)...".format(ngpus))
     elif use_hpu:
-        print('Loading HPU Plugin',os.path.join(os.environ['BUILD_ROOT_LATEST'], "libhabana_pytorch_plugin.so"))
-        torch.ops.load_library(os.path.join(os.environ['BUILD_ROOT_LATEST'], "libhabana_pytorch_plugin.so"))
+        print('Loading HPU Plugin',os.path.join(os.environ['PYTORCH_MODULES_RELEASE_BUILD'], "libhabana_pytorch_plugin.so"))
+        torch.ops.load_library(os.path.join(os.environ['PYTORCH_MODULES_RELEASE_BUILD'], "libhabana_pytorch_plugin.so"))
         device = torch.device('habana')
         print('Using HPU...')
     else:

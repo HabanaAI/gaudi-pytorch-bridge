@@ -299,9 +299,9 @@ class TrainingArguments:
     def _setup_devices(self) -> Tuple["torch.device", int]:
         logger.info("PyTorch: setting up devices")
         if self.use_habana:
-            logger.info("Attempting to load library from path {}".format(os.environ['BUILD_ROOT_LATEST']))
-            torch.ops.load_library(os.path.join(os.environ['BUILD_ROOT_LATEST'], "libhabana_pytorch_plugin.so"))
-            sys.path.insert(0, os.path.join(os.environ['BUILD_ROOT_LATEST']))
+            logger.info("Attempting to load library from path {}".format(os.environ['PYTORCH_MODULES_RELEASE_BUILD']))
+            torch.ops.load_library(os.path.join(os.environ['PYTORCH_MODULES_RELEASE_BUILD'], "libhabana_pytorch_plugin.so"))
+            sys.path.insert(0, os.path.join(os.environ['PYTORCH_MODULES_RELEASE_BUILD']))
             device = torch.device("habana")
 
             if self.local_rank == -1:

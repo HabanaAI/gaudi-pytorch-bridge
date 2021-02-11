@@ -402,7 +402,7 @@ class Trainer:
         torch._C._debug_set_autodiff_subgraph_inlining(False)
         torch._C._jit_set_profiling_executor(False)
         torch._C._jit_set_profiling_mode(False)
-        sys.path.insert(0, os.path.join(os.environ['BUILD_ROOT_LATEST']))
+        sys.path.insert(0, os.path.join(os.environ['PYTORCH_MODULES_RELEASE_BUILD']))
         try:
                 import hb_torch
         except ImportError:

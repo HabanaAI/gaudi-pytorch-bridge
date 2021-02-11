@@ -3,7 +3,7 @@ import random
 import os
 import pytest
 from torch.utils.data import _utils, Dataset, TensorDataset, DataLoader
-torch.ops.load_library(os.path.join(os.environ['BUILD_ROOT_LATEST'], "libhabana_pytorch_plugin.so"))
+torch.ops.load_library(os.path.join(os.environ['PYTORCH_MODULES_RELEASE_BUILD'], "libhabana_pytorch_plugin.so"))
 
 def test_hpu_pin_memory():
     inps = torch.arange(10 * 5, dtype=torch.float32).view(10, 5)

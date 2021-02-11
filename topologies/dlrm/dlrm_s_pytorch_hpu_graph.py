@@ -41,8 +41,8 @@ import sys
 #torch.autograd.set_detect_anomaly(True)
 #torch.set_printoptions(precision=10, sci_mode= True)
 
-torch.ops.load_library(os.path.join(os.environ['BUILD_ROOT_LATEST'], "libhabana_pytorch_plugin.so"))
-sys.path.insert(0, os.path.join(os.environ['BUILD_ROOT_LATEST']))
+torch.ops.load_library(os.path.join(os.environ['PYTORCH_MODULES_RELEASE_BUILD'], "libhabana_pytorch_plugin.so"))
+sys.path.insert(0, os.path.join(os.environ['PYTORCH_MODULES_RELEASE_BUILD']))
 
 try:
     import hb_torch
@@ -1014,9 +1014,9 @@ if __name__ == "__main__":
         ngpus = torch.cuda.device_count()  # 1
         print("Using {} GPU(s)...".format(ngpus))
     elif use_hpu:
-        torch.ops.load_library(os.path.join(os.environ['BUILD_ROOT_LATEST'], "libhabana_pytorch_plugin.so"))
+        torch.ops.load_library(os.path.join(os.environ['PYTORCH_MODULES_RELEASE_BUILD'], "libhabana_pytorch_plugin.so"))
         device = torch.device('habana')
-        sys.path.insert(0, os.path.join(os.environ['BUILD_ROOT_LATEST']))
+        sys.path.insert(0, os.path.join(os.environ['PYTORCH_MODULES_RELEASE_BUILD']))
         print('Using HPU...')
     else:
         device = torch.device("cpu")

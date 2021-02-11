@@ -3,7 +3,7 @@ import pytest
 import torch
 import numpy as np
 from copy import deepcopy
-torch.ops.load_library(os.path.join(os.environ['BUILD_ROOT_LATEST'], "libhabana_pytorch_plugin.so"))
+torch.ops.load_library(os.path.join(os.environ['PYTORCH_MODULES_RELEASE_BUILD'], "libhabana_pytorch_plugin.so"))
 
 hpu = torch.device('habana')
 cpu = torch.device('cpu')

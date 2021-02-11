@@ -279,9 +279,9 @@ def main(args):
     print(args)
 
     if args.device == 'habana':
-        print("Attempting to load library from path ", os.environ['BUILD_ROOT_LATEST'], flush=True)
-        torch.ops.load_library(os.path.join(os.environ['BUILD_ROOT_LATEST'], "libhabana_pytorch_plugin.so"))
-        sys.path.insert(0, os.path.join(os.environ['BUILD_ROOT_LATEST']))
+        print("Attempting to load library from path ", os.environ['PYTORCH_MODULES_RELEASE_BUILD'], flush=True)
+        torch.ops.load_library(os.path.join(os.environ['PYTORCH_MODULES_RELEASE_BUILD'], "libhabana_pytorch_plugin.so"))
+        sys.path.insert(0, os.path.join(os.environ['PYTORCH_MODULES_RELEASE_BUILD']))
 
     torch.manual_seed(args.seed)
 
