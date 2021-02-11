@@ -91,6 +91,8 @@ Tensor eq_tensor_hpu_wrap(Tensor& self, Tensor& other);
 Tensor eq_tensor_scalar_hpu_wrap(Tensor& self, Scalar other);
 Tensor lt_scalar_hpu_wrap(Tensor& self, Scalar other);
 Tensor lt_tensor_hpu_wrap(Tensor& self, Tensor& other);
+Tensor ge_scalar_hpu_wrap(Tensor& self, Scalar other);
+Tensor ge_tensor_hpu_wrap(Tensor& self, Tensor& other);
 Tensor convolution_hpu_wrap(
     const Tensor& input,
     const Tensor& weight,

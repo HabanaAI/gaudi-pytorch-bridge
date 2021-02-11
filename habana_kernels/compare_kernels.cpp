@@ -336,6 +336,37 @@ Tensor lt_tensor_hpu(Tensor& self, Tensor& other) {
   return output;
 }
 
+/*************************************************************************
+ * @brief Kernel implementation for out = torch.ge(self,other)
+ * @param self [in] - input tensor, 1-4D, FP32/BF16
+ * @param other [in] - Scalar
+ ************************************************************************/
+Tensor ge_scalar_hpu(Tensor& self, Scalar other) {
+  PT_KERNEL_BEGIN;
+  if (self.dim() == 0) {
+    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+  }
+  std::vector<at::Tensor> pt_inputs{self};
+  torch::jit::Stack stack{IValue(self), IValue(other)};
+  auto output = compare_op_hpu<GeOperator>(pt_inputs, stack, "ge");
+  PT_KERNEL_END;
+  return output;
+}
+
+/*************************************************************************
+ * @brief Kernel implementation for out = torch.ge(self,other)
+ * @param self [in] - input tensor, 1-4D, FP32/BF16
+ * @param other [in] - input tensor, 1-4D, FP32/BF16
+ ************************************************************************/
+Tensor ge_tensor_hpu(Tensor& self, Tensor& other) {
+  PT_KERNEL_BEGIN;
+  std::vector<at::Tensor> pt_inputs{self, other};
+  torch::jit::Stack stack{IValue(self), IValue(other)};
+  auto output = compare_op_hpu<GeOperator>(pt_inputs, stack, "ge");
+  PT_KERNEL_END;
+  return output;
+}
+
 static auto& KernelRegistry =
     habana::KernelRegistry()
         .add(
@@ -348,6 +379,11 @@ static auto& KernelRegistry =
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<EqOperator>(device_id, node_type);
             })
-        .add("aten::lt", [](const int device_id, c10::ScalarType node_type) {
-          return std::make_shared<LtOperator>(device_id, node_type);
+        .add(
+            "aten::lt",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<LtOperator>(device_id, node_type);
+            })
+        .add("aten::ge", [](const int device_id, c10::ScalarType node_type) {
+          return std::make_shared<GeOperator>(device_id, node_type);
         });

@@ -112,3 +112,13 @@ class LtOperator : public CompareWrapperOperator {
             scalarType,
             "less_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {}
 };
+
+class GeOperator : public CompareWrapperOperator {
+ public:
+  GeOperator(int device_id, c10::ScalarType scalarType)
+      : CompareWrapperOperator(
+            device_id,
+            scalarType,
+            "greater_equal_fwd_" +
+                habana_helpers::name_suffix_from_type(scalarType)) {}
+};

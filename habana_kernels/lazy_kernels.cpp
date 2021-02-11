@@ -939,6 +939,53 @@ Tensor lt_tensor_hpu_lazy(Tensor& self, Tensor& other) {
   return result;
 };
 
+Tensor ge_scalar_hpu_lazy(Tensor& self, Scalar other) {
+  PT_LAZY_TRACE;
+  auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
+  auto hl_other = habana_lazy::GetIrValueForScalar(other);
+
+  auto node = habana_lazy::ir::Node::Create(
+      Symbol::fromQualString("aten::ge"), {hl_self.GetIrValue(), hl_other});
+
+  auto result = at::native::empty_hpu_lazy(
+      self.sizes(),
+      self.options().dtype(c10::ScalarType::Bool),
+      self.suggest_memory_format(),
+      false);
+
+  auto hl_result = habana_lazy::GetHbLazyTensor(result);
+  habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+
+  std::vector<at::Tensor> input_pt_vec{self};
+  node->AddInputPtTensors(input_pt_vec);
+
+  return result;
+};
+
+Tensor ge_tensor_hpu_lazy(Tensor& self, Tensor& other) {
+  PT_LAZY_TRACE;
+  auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
+  auto hl_other = habana_lazy::GetOrCreateHbLazyTensor(other, c10::kHABANA);
+
+  auto node = habana_lazy::ir::Node::Create(
+      Symbol::fromQualString("aten::ge"),
+      {hl_self.GetIrValue(), hl_other.GetIrValue()});
+  auto result = at::native::empty_hpu_lazy(
+      self.sizes(),
+      self.options().dtype(c10::ScalarType::Bool),
+      self.suggest_memory_format(),
+      false);
+  auto hl_result = habana_lazy::GetHbLazyTensor(result);
+  habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+  std::vector<at::Tensor> input_pt_vec{self, other};
+  node->AddInputPtTensors(input_pt_vec);
+  return result;
+};
+
 Tensor convolution_hpu_lazy(
     const Tensor& input,
     const Tensor& weight,

@@ -22,6 +22,7 @@ compare_op_list = [
     # op, op params dict
     (torch.eq, {}),
     (torch.lt, {}),
+    (torch.ge, {}),
 ]
 
 compare_op_out_list_bool = [

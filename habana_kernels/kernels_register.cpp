@@ -422,6 +422,26 @@ Tensor lt_tensor_hpu_wrap(Tensor& self, Tensor& other) {
     return lt_tensor_hpu(self, other);
   }
 };
+Tensor ge_scalar_hpu_wrap(Tensor& self, Scalar other) {
+  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
+      std::getenv("PT_HPU_LAZY_MODE")) {
+    auto t = ge_scalar_hpu_lazy(self, other);
+
+    return t;
+  } else {
+    return ge_scalar_hpu(self, other);
+  }
+};
+Tensor ge_tensor_hpu_wrap(Tensor& self, Tensor& other) {
+  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
+      std::getenv("PT_HPU_LAZY_MODE")) {
+    auto t = ge_tensor_hpu_lazy(self, other);
+
+    return t;
+  } else {
+    return ge_tensor_hpu(self, other);
+  }
+};
 Tensor convolution_hpu_wrap(
     const Tensor& input,
     const Tensor& weight,
@@ -2477,6 +2497,18 @@ static auto registry =
                     &lt_tensor_hpu_wrap>(DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
+                .schema("aten::ge.Scalar(Tensor self, Scalar other) -> Tensor")
+                .impl_unboxedOnlyKernel<
+                    decltype(ge_scalar_hpu_wrap),
+                    &ge_scalar_hpu_wrap>(DispatchKey::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
+                .schema("aten::ge.Tensor(Tensor self, Tensor other) -> Tensor")
+                .impl_unboxedOnlyKernel<
+                    decltype(ge_tensor_hpu_wrap),
+                    &ge_tensor_hpu_wrap>(DispatchKey::HABANATensorId)
+                .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+        .op(torch::RegisterOperators::options()
                 .schema(
                     "aten::convolution_overrideable(Tensor input, Tensor weight, Tensor? bias, int[] stride, int[] padding, int[] dilation, bool transposed, int[] output_padding, int groups) -> Tensor")
                 .impl_unboxedOnlyKernel<
@@ -2677,7 +2709,8 @@ static auto registry =
                 .schema("aten::bmm(Tensor self, Tensor mat2) -> Tensor")
                 .impl_unboxedOnlyKernel<
                     decltype(batch_gemm_hpu_wrap),
-                    &batch_gemm_hpu_wrap>(DispatchKey::HABANATensorId)
+                    &batch_gemm_hpu_wrap>(
+                    DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema("aten::dot(Tensor self, Tensor tensor) -> Tensor")
@@ -2969,8 +3002,7 @@ static auto registry =
                 .schema("aten::zero_(Tensor(a!) self) -> Tensor(a!)")
                 .impl_unboxedOnlyKernel<
                     decltype(zero_hpu_wrap),
-                    &zero_hpu_wrap>(
-                    DispatchKey::HABANATensorId)
+                    &zero_hpu_wrap>(DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema(
@@ -3053,8 +3085,7 @@ static auto registry =
                     "aten::topk(Tensor self, int k, int dim=-1, bool largest=True, bool sorted=True) -> (Tensor values, Tensor indices)")
                 .impl_unboxedOnlyKernel<
                     decltype(topk_hpu_wrap),
-                    &topk_hpu_wrap>(
-                    DispatchKey::HABANATensorId)
+                    &topk_hpu_wrap>(DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema(
@@ -3068,8 +3099,7 @@ static auto registry =
                     "aten::sort(Tensor self, int dim=-1, bool descending=False) -> (Tensor values, Tensor indices)")
                 .impl_unboxedOnlyKernel<
                     decltype(sort_hpu_wrap),
-                    &sort_hpu_wrap>(
-                    DispatchKey::HABANATensorId)
+                    &sort_hpu_wrap>(DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema("aten::relu_(Tensor(a!) self) -> Tensor(a!)")
@@ -3081,8 +3111,7 @@ static auto registry =
                 .schema("aten::relu(Tensor self) -> Tensor")
                 .impl_unboxedOnlyKernel<
                     decltype(relu_hpu_wrap),
-                    &relu_hpu_wrap>(
-                    DispatchKey::HABANATensorId)
+                    &relu_hpu_wrap>(DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema("aten::sigmoid(Tensor self) -> Tensor")
@@ -3101,15 +3130,13 @@ static auto registry =
                 .schema("aten::sqrt(Tensor self) -> Tensor")
                 .impl_unboxedOnlyKernel<
                     decltype(sqrt_hpu_wrap),
-                    &sqrt_hpu_wrap>(
-                    DispatchKey::HABANATensorId)
+                    &sqrt_hpu_wrap>(DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema("aten::tanh(Tensor self) -> Tensor")
                 .impl_unboxedOnlyKernel<
                     decltype(tanh_hpu_wrap),
-                    &tanh_hpu_wrap>(
-                    DispatchKey::HABANATensorId)
+                    &tanh_hpu_wrap>(DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema(
@@ -3135,8 +3162,7 @@ static auto registry =
                 .schema("aten::gelu(Tensor self) -> Tensor")
                 .impl_unboxedOnlyKernel<
                     decltype(gelu_hpu_wrap),
-                    &gelu_hpu_wrap>(
-                    DispatchKey::HABANATensorId)
+                    &gelu_hpu_wrap>(DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema(
@@ -3149,8 +3175,7 @@ static auto registry =
                 .schema("aten::erf_(Tensor(a!) self) -> Tensor(a!)")
                 .impl_unboxedOnlyKernel<
                     decltype(erf_hpu_wrap_),
-                    &erf_hpu_wrap_>(
-                    DispatchKey::HABANATensorId)
+                    &erf_hpu_wrap_>(DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema("aten::erf(Tensor self) -> Tensor")
@@ -3161,8 +3186,7 @@ static auto registry =
                 .schema("aten::exp_(Tensor(a!) self) -> Tensor(a!)")
                 .impl_unboxedOnlyKernel<
                     decltype(exp_hpu_wrap_),
-                    &exp_hpu_wrap_>(
-                    DispatchKey::HABANATensorId)
+                    &exp_hpu_wrap_>(DispatchKey::HABANATensorId)
                 .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
         .op(torch::RegisterOperators::options()
                 .schema("aten::exp(Tensor self) -> Tensor")
