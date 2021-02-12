@@ -198,7 +198,7 @@ def train(args, train_dataset, model, tokenizer, trainMetaData):
     logger.info("  Gradient Accumulation steps = %d", args.gradient_accumulation_steps)
     logger.info("  Total optimization steps = %d", t_total)
 
-    global_step = 1
+    global_step = 0
     epochs_trained = 0
     steps_trained_in_current_epoch = 0
     is_model_traced = False
@@ -312,6 +312,9 @@ def train(args, train_dataset, model, tokenizer, trainMetaData):
 
             tr_loss += loss.item()
             if (step + 1) % args.gradient_accumulation_steps == 0:
+                # Increment the global step
+                global_step += 1
+
                 if args.fp16:
                     torch.nn.utils.clip_grad_norm_(amp.master_params(optimizer), args.max_grad_norm)
                 else:
@@ -347,20 +350,23 @@ def train(args, train_dataset, model, tokenizer, trainMetaData):
                 else:
                     for param in model.parameters():
                         param.grad = None
-                global_step += 1
+
+                # Report the loss
+                logger.info("Global Step: %s, Loss: %s", global_step, loss.item())
 
                 # Log metrics
                 if args.local_rank in [-1, 0] and args.logging_steps > 0 and global_step % args.logging_steps == 0:
                     # Only evaluate when single GPU otherwise metrics may not average well
                     if args.local_rank == -1 and args.evaluate_during_training:
-                        results = evaluate(args, model, tokenizer, trainMetaData)
-                        for key, value in results.items():
+                        result = evaluate(args, model, tokenizer, trainMetaData)
+                        for key, value in result.items():
                             tb_writer.add_scalar("eval_{}".format(key), value, global_step)
+                        result = dict(("global_step-{}_".format(global_step)+k, v) for k, v in result.items())
+                        logger.info("Results: {}".format(result))
                     tb_writer.add_scalar("lr", scheduler.get_lr()[0], global_step)
                     tb_writer.add_scalar("loss", (tr_loss - logging_loss) / args.logging_steps, global_step)
                     logging_loss = tr_loss
 
-                logger.info("Global Step: %s, Loss: %s", global_step, loss.item())
                 # Save model checkpoint
                 if args.local_rank in [-1, 0] and args.save_steps > 0 and global_step % args.save_steps == 0:
                     output_dir = os.path.join(args.output_dir, "checkpoint-{}".format(global_step))
@@ -1028,6 +1034,8 @@ def main():
         for checkpoint in checkpoints:
             # Reload the model
             global_step = checkpoint.split("-")[-1] if len(checkpoints) > 1 else ""
+            if global_step.isnumeric() == False:
+                global_step = ""
             model = AutoModelForQuestionAnswering.from_pretrained(checkpoint)  # , force_download=True)
             model.to(args.device)
 
