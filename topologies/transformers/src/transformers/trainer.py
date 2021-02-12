@@ -673,7 +673,8 @@ class Trainer:
                         if hasattr(model, "module"):
                             assert model.module is self.model
                         else:
-                            assert model is self.model
+                            if not self.args.use_jit_trace:
+                                assert model is self.model
                         # Save model checkpoint
                         output_dir = os.path.join(self.args.output_dir, f"{PREFIX_CHECKPOINT_DIR}-{self.global_step}")
 
