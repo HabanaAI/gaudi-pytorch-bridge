@@ -426,6 +426,9 @@ synapse_error device::copy_data_to_device(
           ".");
       std::this_thread::sleep_for(dma_copy_retry_delay_);
     } else {
+      if (!is_pinned) {
+        host_memory_.free((void*)dst_ptr);
+      }
       return synapse_error{"DMA to HPU start failed.", status};
     }
   } while (++attempt < max_dma_copy_retry_count_);
@@ -495,6 +498,9 @@ synapse_error device::copy_data_to_host(
           ".");
       std::this_thread::sleep_for(dma_copy_retry_delay_);
     } else {
+      if (!is_pinned) {
+        host_memory_.free((void*)dst_ptr);
+      }
       return synapse_error{"DMA from HPU start failed.", status};
     }
   } while (++attempt < max_dma_copy_retry_count_);
