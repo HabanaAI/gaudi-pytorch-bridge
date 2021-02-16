@@ -1862,47 +1862,70 @@ void NormOperator::AllocateAndAddSynapseNode(
   auto p = inputs[1].toScalar();
 
   if (p.toFloat() == 2.0) {
-    auto device_id = self.device().index();
-    auto scalar_type = self.scalar_type();
-    // x^2 implemented as x*x. Identity node used to create aliased tensor
-    // since GC/TPC does not like giving same tensor as both inputs to a
-    // binary op
-    IdentityOperator identityOp(this->p_context_->device_id_, scalar_type);
-    auto& syn_arg0 =
-        identityOp.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
-    torch::jit::Stack stack = {IValue(self)};
-    identityOp.AllocateAndAddSynapseNode(graph, stack, false);
-    p_context_->syn_inputs_[0] = std::move(syn_arg0);
-    stack.clear();
+    if (self.dim() <= 1) {
+      auto device_id = self.device().index();
+      auto scalar_type = self.scalar_type();
+      // x^2 implemented as x*x. Identity node used to create aliased tensor
+      // since GC/TPC does not like giving same tensor as both inputs to a
+      // binary op
+      IdentityOperator identityOp(this->p_context_->device_id_, scalar_type);
+      auto& syn_arg0 =
+          identityOp.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+      torch::jit::Stack stack = {IValue(self)};
+      identityOp.AllocateAndAddSynapseNode(graph, stack, false);
+      p_context_->syn_inputs_[0] = std::move(syn_arg0);
+      stack.clear();
 
-    habana::MulOperator mulOp(this->p_context_->device_id_, scalar_type);
-    auto& mul_syn_1 =
-        mulOp.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
-    UNUSED auto& mul_syn_2 =
-        mulOp.SetSynapseInput(std::move(identityOp.GetSynOutputs()[0]));
-    stack.emplace_back(IValue(self));
-    stack.emplace_back(IValue(identityOp.GetOutputs()[0]));
-    mulOp.AllocateAndAddSynapseNode(graph, stack, false);
-    p_context_->syn_inputs_[0] = std::move(mul_syn_1);
-    stack.clear();
-    // add node to compute reduce_sum
-    SumOperator sum_lp(device_id, scalar_type);
-    sum_lp.SetSynapseInput(std::move(mulOp.GetSynOutputs()[0]));
-    stack.emplace_back(IValue(mulOp.GetOutputs()[0]));
-    stack.emplace_back(IValue(scalar_type));
-    sum_lp.AllocateAndAddSynapseNode(graph, stack, false);
-    stack.clear();
+      habana::MulOperator mulOp(this->p_context_->device_id_, scalar_type);
+      auto& mul_syn_1 =
+          mulOp.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+      UNUSED auto& mul_syn_2 =
+          mulOp.SetSynapseInput(std::move(identityOp.GetSynOutputs()[0]));
+      stack.emplace_back(IValue(self));
+      stack.emplace_back(IValue(identityOp.GetOutputs()[0]));
+      mulOp.AllocateAndAddSynapseNode(graph, stack, false);
+      p_context_->syn_inputs_[0] = std::move(mul_syn_1);
+      stack.clear();
+      // add node to compute reduce_sum
+      SumOperator sum_lp(device_id, scalar_type);
+      sum_lp.SetSynapseInput(std::move(mulOp.GetSynOutputs()[0]));
+      stack.emplace_back(IValue(mulOp.GetOutputs()[0]));
+      stack.emplace_back(IValue(scalar_type));
+      sum_lp.AllocateAndAddSynapseNode(graph, stack, false);
+      stack.clear();
 
-    SqrtOperator sqrt_op(device_id, scalar_type);
-    UNUSED auto& syn_in_sqrt =
-        sqrt_op.SetSynapseInput(std::move(sum_lp.GetSynOutputs()[0]));
-    stack.emplace_back(IValue(sum_lp.GetOutputs()[0]));
-    sqrt_op.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
-    stack.clear();
-    // synapse_helpers::tensor& sum_syn_tensor = sum_lp.GetSynOutputs()[0];
-    p_context_->syn_outputs_.emplace_back(
-        std::move(sqrt_op.GetSynOutputs()[0]));
-    p_context_->pt_outputs_.emplace_back(sqrt_op.GetOutputs()[0]);
+      SqrtOperator sqrt_op(device_id, scalar_type);
+      UNUSED auto& syn_in_sqrt =
+          sqrt_op.SetSynapseInput(std::move(sum_lp.GetSynOutputs()[0]));
+      stack.emplace_back(IValue(sum_lp.GetOutputs()[0]));
+      sqrt_op.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+      stack.clear();
+      // synapse_helpers::tensor& sum_syn_tensor = sum_lp.GetSynOutputs()[0];
+      p_context_->syn_outputs_.emplace_back(
+          std::move(sqrt_op.GetSynOutputs()[0]));
+      p_context_->pt_outputs_.emplace_back(sqrt_op.GetOutputs()[0]);
+    } else {
+      at::ScalarType scalar_type = self.scalar_type();
+      std::vector<c10::IValue> stack{};
+
+      // LpNorm Operator
+      // Create the operator
+      LpNormFrobeniusOperator LpNormFrobeniusOp(
+          this->p_context_->device_id_, scalar_type);
+      auto& lpNorm_syn = LpNormFrobeniusOp.SetSynapseInput(
+          std::move(p_context_->syn_inputs_[0]));
+
+      // Build Params for the graph
+      stack.emplace_back(IValue(self));
+      LpNormFrobeniusOp.AllocateAndAddSynapseNode(
+          graph, stack, is_output_persistent);
+
+      p_context_->syn_inputs_[0] = std::move(lpNorm_syn);
+      stack.clear();
+      p_context_->syn_outputs_.emplace_back(
+          std::move(LpNormFrobeniusOp.GetSynOutputs()[0]));
+      p_context_->pt_outputs_.emplace_back(LpNormFrobeniusOp.GetOutputs()[0]);
+    }
   } else {
     // ReShape Operator
     at::ScalarType scalar_type = self.scalar_type();
@@ -1986,6 +2009,30 @@ void LpNormOperator::AllocateAndAddSynapseNode(
   std::vector<at::Tensor> outputs{output, retain};
   AllocateSynapseOutputs(graph, outputs, is_output_persistent);
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
+}
+
+void LpNormFrobeniusOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 1,
+      "Incorrect size of inputs expected for LpNorm Operator");
+  TORCH_CHECK(
+      inputs[0].isTensor(),
+      "Input arg1 expected to be Tensor for LpNorm Operator");
+
+  auto self = inputs[0].toTensor();
+  auto output = habana_helpers::createPTTensor(
+      self,
+      {1},
+      self.options(),
+      self.suggest_memory_format(),
+      self.scalar_type(),
+      is_output_persistent);
+
+  AllocateSynapseOutput(graph, output, is_output_persistent);
+  AddNodeToSynapseGraph(graph, nullptr, 0);
 }
 
 /*************************************************************************

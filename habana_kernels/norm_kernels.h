@@ -344,6 +344,24 @@ class LpNormOperator : public HabanaOperator {
       std::vector<bool> is_output_persistent) override;
 };
 
+// LpNormFrobenius Operator
+class LpNormFrobeniusOperator : public HabanaOperator {
+ public:
+  LpNormFrobeniusOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator(
+            "frobenius_norm_fwd_" +
+            habana_helpers::name_suffix_from_type(scalarType)) {
+    this->CreateSynContext(device_id);
+    kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
+    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
+  }
+
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent) override;
+};
+
 // FusedNorm Operator
 class FusedNormOperator : public HabanaOperator {
  public:

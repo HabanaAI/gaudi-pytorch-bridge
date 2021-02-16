@@ -275,6 +275,16 @@ def test_hpu_layer_norm_bert_graphmode(N, H, W, split_dim):
         grad_on_grad_enable=False,
     )
 
+@pytest.mark.parametrize("N, H", [(1024,4096),(1024, 4096),(391,1)])
+@pytest.mark.parametrize("lp_norm_op", [torch.norm])
+@pytest.mark.parametrize("value", [2.0])
+def test_hpu_lp_norm_op_fwd_bwd(N, H, lp_norm_op, value):
+    kernel_params_fwd = {'input': torch.randn(N, H, requires_grad=True),
+                        'p': value}
+    bwd_tensors = [torch.randn(N, H)]
+    evaluate_fwd_bwd_kernel(kernel=lp_norm_op, tensor_list_bwd=bwd_tensors,
+        kernel_params_fwd=kernel_params_fwd)
+
 if __name__ == "__main__":
     test_hpu_native_layer_norm(*layer_norm_test_case_list[0], 1)
     test_hpu_batch_norm_2d_fwd_bwd(*batch_norm_test_case_list_2d[0])
