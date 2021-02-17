@@ -16,6 +16,7 @@
 #include <unordered_set>
 #include "ir.h"
 #include "ir_utils.h"
+#include "view.h"
 
 enum LazyTensorExecutionStatus {
   kUN_REGISTERED = 0,
@@ -58,6 +59,7 @@ struct Data {
     static std::atomic<int64_t>* id_generator = new std::atomic<int64_t>(1);
     return id_generator->fetch_add(1);
   }
+
   void* data_ptr;
   ir::Value ir_value;
   LayoutFormat tensor_layout;
@@ -68,6 +70,8 @@ struct Data {
   const int64_t unique_id = 0;
   std::vector<int64_t> sizes;
   LazyTensorExecutionStatus execution_status;
+  ir::LazyView parent_view;
+  int num_views = 0;
 }; // namespace habana_lazy
 
 class HbLazyTensor {
@@ -173,6 +177,21 @@ class HbLazyTensor {
   ir::Value GetIrValueForTensor(
       const at::Tensor& tensor,
       const c10::Device& device) const;
+  void addView(ir::LazyView view) {
+    // WE will support multiple views in future , but for now a single one is
+    // supported
+    TORCH_CHECK(
+        data()->num_views == 0,
+        "Trying to create a duplicate view on Lazy tensor");
+    data()->parent_view = std::move(view);
+    data()->num_views++;
+  }
+  c10::optional<ir::LazyView> getView() {
+    if (data()->num_views)
+      return c10::make_optional(data()->parent_view);
+    else
+      return c10::nullopt;
+  }
 
  private:
   Data* data() const;

@@ -90,3 +90,14 @@ class IdentityOperator : public habana::HabanaOperator {
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
 };
+class DummyOperator : public habana::HabanaOperator {
+ public:
+  DummyOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator("dummy") {
+    this->CreateSynContext(device_id);
+  }
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+};

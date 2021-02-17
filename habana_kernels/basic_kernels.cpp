@@ -411,6 +411,23 @@ void IdentityOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, NULL, 0);
 }
 
+/*************************************************************************
+ * @brief Kernel implementation for dummy, used for graph ordering
+ ************************************************************************/
+void DummyOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    Stack& inputs,
+    bool is_output_persistent) {
+  at::Tensor output;
+  int out_index = inputs.size() - 1;
+  output = inputs[out_index].toTensor();
+  p_context_->params_size_ = 0;
+  p_context_->syn_outputs_.emplace_back(
+      habana_helpers::duplicate_tensor_in_memory_section(
+          p_context_->syn_inputs_[out_index]));
+  p_context_->pt_outputs_.emplace_back(output);
+}
+
 Tensor as_strided_hpu(
     const Tensor& self,
     IntArrayRef size,
@@ -442,6 +459,18 @@ static auto& KernelRegistry =
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<CastLazyOperator>(device_id, node_type);
             })
-        .add("aten::to", [](const int device_id, c10::ScalarType node_type) {
-          return std::make_shared<ToDtypeOperator>(device_id, node_type);
-        });
+        .add(
+            "aten::to",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<ToDtypeOperator>(device_id, node_type);
+            })
+        .add(
+            "hpu::control_edge_",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<DummyOperator>(device_id, node_type);
+            })
+        .add(
+            "hpu::control_edge_other_",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<DummyOperator>(device_id, node_type);
+            });

@@ -71,6 +71,10 @@ class graph {
         std::move(node_type));
   }
 
+  synStatus set_synapse_control_edges_pt(
+      std::vector<synNodeId>,
+      std::vector<synNodeId>);
+
   bool is_empty() const {
     return graph_is_empty_;
   }
@@ -161,6 +165,16 @@ class graph {
   device& get_device() {
     return device_;
   }
+
+  absl::flat_hash_set<synNodeId>& get_node_indices() {
+    return op_to_node_container_["jit_node"];
+  }
+
+  void clear_node_indices() {
+    op_to_node_container_["jit_node"].clear();
+  }
+
+  absl::flat_hash_map<size_t, std::vector<size_t>> jit_synapse_node_idx_map;
 
  private:
   using Op2NodeContainer =

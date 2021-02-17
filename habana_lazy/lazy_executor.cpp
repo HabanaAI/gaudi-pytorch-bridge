@@ -14,6 +14,7 @@ namespace habana_lazy {
 HbExecutionContextArena habana_lazy_executor = HbExecutionContextArena::Get();
 
 bool allocateTensorWithStorage(int device_index) {
+  device_index = 0;
   bool allocate = false;
   auto context = habana_lazy_executor.getDeviceExecutionContext(device_index);
   if (context != nullptr) {
@@ -26,10 +27,7 @@ bool allocateTensorWithStorage(int device_index) {
 }
 
 bool isDeviceInLoweringMode(int device_index) {
-  // Usage of this API is deprecared, return false for now
-  // We will remove the usage from the code, not doing untill next spring to
-  // avoid last time messy reverts
-  return false;
+  device_index = 0;
   bool is_in_lowering_mode = false;
   auto context =
       habana_lazy::habana_lazy_executor.getDeviceExecutionContext(device_index);
@@ -151,6 +149,7 @@ void HbExecutionContext::setExecutionMode(LazyExecutionMode mode) {
 
 HbExecutionContext* HbExecutionContextArena::getDeviceExecutionContext(
     int index) {
+  index = 0;
   std::lock_guard<std::recursive_mutex> lock(HbContextArena::Get()->GetMutex());
   auto hbcontext = m_execution_context_list.find(index);
   if (hbcontext != std::end(m_execution_context_list)) {
@@ -161,6 +160,7 @@ HbExecutionContext* HbExecutionContextArena::getDeviceExecutionContext(
 }
 
 HbExecutionContext* HbExecutionContextArena::createExecutionContext(int index) {
+  index = 0;
   m_execution_context_list[index] = new HbExecutionContext;
   // m_execution_context_list[index]->setDevice(device);
   return m_execution_context_list[index];
@@ -168,6 +168,7 @@ HbExecutionContext* HbExecutionContextArena::createExecutionContext(int index) {
 
 void HbExecutionContextArena::removeExecutionContext(int index) {
   std::lock_guard<std::recursive_mutex> lock(HbContextArena::Get()->GetMutex());
+  index = 0;
   auto context = m_execution_context_list[index];
   delete context;
   m_execution_context_list.erase(index);

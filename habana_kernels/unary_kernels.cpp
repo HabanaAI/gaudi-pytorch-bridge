@@ -1267,7 +1267,8 @@ void ClampInplaceOperator::AllocateAndAddSynapseNode(
   ns_ClampKernel::Params param;
   param.upperBound.f = max.value().to<float>();
   param.lowerBound.f = min.value().to<float>();
-
+  if (p_context_->pt_inputs_.size() == 0)
+    p_context_->pt_inputs_.emplace_back(inputs[0].toTensor());
   AllocateSynapseInplaceOutput(graph);
   AddNodeToSynapseGraph(graph, &param, sizeof(param));
 }

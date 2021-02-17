@@ -92,7 +92,6 @@ TEST_F(LazyBasicKernelTest, CloneTest) {
   bool equal = hC_cpu.allclose(hd_cpu, 0, 0);
   EXPECT_EQ(equal, true);
 }
-
 TEST_F(LazyBasicKernelTest, ViewCopy) {
   torch::Tensor A = torch::randn({20});
   torch::Tensor hA = A.to(torch::kHABANA);
@@ -116,4 +115,27 @@ TEST_F(LazyBasicKernelTest, ViewCopy) {
   std::cout << A << "\n";
   std::cout << hA.to(kCPU) << "\n";
   EXPECT_EQ(allclose(hA.to(torch::kCPU), A), true);
+}
+TEST_F(LazyBasicKernelTest, ControlEdge) {
+  // Inplace op as output node is not supported yet.
+  torch::Tensor A = torch::randn({2, 3});
+  torch::Tensor B = torch::randn({2, 3});
+  torch::Tensor C = torch::randn({2, 3});
+  torch::Tensor F = torch::randn({2, 3});
+  auto hA = A.to(torch::kHABANA);
+  auto hB = B.to(torch::kHABANA);
+  auto hC = C.to(torch::kHABANA);
+  auto hF = F.to(torch::kHABANA);
+
+  auto D = A.mul(B);
+  auto E = C.mul(B);
+  B = B.add_(F);
+
+  auto hD = hA.mul(hB);
+  auto hE = hC.mul(hB);
+  hB = hB.add_(hF);
+  HbLazyTensor::StepMarker({});
+  Tensor out = hB.to(kCPU);
+
+  EXPECT_EQ(allclose(out, B), true);
 }

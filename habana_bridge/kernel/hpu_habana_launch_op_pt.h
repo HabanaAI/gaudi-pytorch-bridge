@@ -160,6 +160,9 @@ class HabanaLaunchOpPT {
 
   size_t iteration_count_ = 0;
 
+  std::unordered_map<torch::jit::Node*, absl::flat_hash_set<synNodeId>>
+      jit_to_synapse_node_idx_map;
+
   habana::LayoutFormat getTensorChannelOrder(torch::jit::Value* val);
   void runMetaDataAdjustmentPasses(torch::jit::graph_node_list graph_nodes);
   void weightLayoutMarkingPass(torch::jit::graph_node_list graph_nodes);
@@ -182,6 +185,9 @@ class HabanaLaunchOpPT {
   bool isInGraphOutputs(torch::jit::Node* node, size_t index);
   std::vector<bool> nodeOutputPersistence(torch::jit::Node* node);
   void CompileAndExecuteHabanaFusedOpKernel();
+  bool isBlockingNode(torch::jit::Node*, torch::jit::Node*);
+  void addSynNodes(std::vector<synNodeId>&, torch::jit::Node*);
+  void ProcessControlEdges();
   void HandleMappedTensor(
       CValPtr value_in,
       const HabanaOperatorPtr& habana_op,

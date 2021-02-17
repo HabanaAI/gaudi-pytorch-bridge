@@ -45,6 +45,7 @@
 #include "habana_lazy/ops/softmax.h"
 #include "habana_lazy/ops/tensor_shape.h"
 #include "habana_lazy/ops/topk.h"
+#include "habana_lazy/view.h"
 #include "pytorch_helpers/habana_device/HPUAllocator.h"
 #include "pytorch_helpers/synapse_helpers/util.h"
 
@@ -86,13 +87,64 @@ std::vector<int64_t> CalculateStrides(
   return {sizes[1] * sizes[2] * sizes[3], sizes[1] * sizes[2], sizes[1], 1};
 }
 
+habana_lazy::ir::Value AddControlEdge(
+    const at::Tensor& src,
+    const at::Tensor& dst) {
+  auto hb_result = habana_lazy::GetOrCreateHbLazyTensor(dst, dst.device());
+  auto hb_tensor = habana_lazy::GetOrCreateHbLazyTensor(src, src.device());
+  auto node = habana_lazy::ir::Node::Create(
+      Symbol::fromQualString("hpu::control_edge_other_"),
+      {hb_tensor.GetIrValue(), hb_result.GetIrValue()});
+  std::vector<at::Tensor> input_pt_vec;
+  input_pt_vec.push_back(src);
+  input_pt_vec.push_back(dst);
+  habana_lazy::ir::Value& out = hb_result.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+  node->AddInputPtTensors(input_pt_vec);
+  return out;
+}
+
+void updateDstDependencies(
+    habana_lazy::HbLazyTensor& hl_dst,
+    const Tensor& dst,
+    bool in_place = false) {
+  auto view = hl_dst.getView();
+  if (view) {
+    // Now we have to update the IR of the input as it got modified
+    // We need to link it as output of this node as we need to generate the
+    // correct order
+    // Create a dummy node from the output back to input thats creating a
+    // view on  input
+    auto view_val = view.value();
+    at::Tensor view_tensor = view_val.getAtTensor();
+    habana_lazy::ir::Value val{view_val.getIR().m_data_ptr.lock()};
+
+    auto view_lazy_tensor = habana_lazy::GetHbLazyTensor(view_tensor);
+    view_lazy_tensor.AssignIrValue(val);
+    AddControlEdge(dst, view_tensor);
+  } else if (in_place) {
+    auto hb_result = habana_lazy::GetOrCreateHbLazyTensor(dst, dst.device());
+    habana_lazy::ir::Value val{hb_result.GetIrValue().m_data_ptr.lock()};
+    auto node = habana_lazy::ir::Node::Create(
+        Symbol::fromQualString("hpu::control_edge_"), {hb_result.GetIrValue()});
+    std::vector<at::Tensor> input_pt_vec;
+    input_pt_vec.push_back(dst);
+    habana_lazy::ir::Value& out = val;
+    out.m_index = 0;
+    out.SetNode(node);
+    hb_result.AssignIrValue(val);
+    node->AddInputPtTensors(input_pt_vec);
+  }
+}
+
 Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
   PT_LAZY_TRACE;
   habana_lazy::ir::NodePtr node;
   std::vector<at::Tensor> input_pt_vec;
   habana_lazy::HbLazyTensor hb_tensor =
       habana_lazy::GetOrCreateHbLazyTensor(src, src.device());
-  auto hlresult = habana_lazy::GetHbLazyTensor(self);
+  auto hlresult = habana_lazy::GetOrCreateHbLazyTensor(self, src.device());
   if (src.dtype() == self.dtype()) {
     // If both src and dst are already processed ,  go and do the DMA dont wait
     // Else , If we already have storage in dst, add memcopy node to lazy
@@ -119,6 +171,8 @@ Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
       out.m_index = 0;
       out.SetNode(node);
       node->AddInputPtTensors(input_pt_vec);
+      // updatet the view if any
+      updateDstDependencies(hlresult, self);
     } else {
       node = habana_lazy::ir::Node::Create(
           Symbol::fromQualString("hpu::habana_d2d_memcpy"),
@@ -128,6 +182,8 @@ Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
       out.m_index = 0;
       out.SetNode(node);
       node->AddInputPtTensors(input_pt_vec);
+      // updatet the view if any
+      updateDstDependencies(hlresult, self);
     }
   } else {
     node = std::make_shared<habana_lazy::ir::Cast>(
@@ -136,6 +192,8 @@ Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
     habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
     out.m_index = 0;
     out.SetNode(node);
+    // updatet the view if any
+    updateDstDependencies(hlresult, self);
   }
   return self;
 }
@@ -189,7 +247,8 @@ Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src, bool non_blocking) {
       self.device().index());
   auto exec_mode = context->getExecutionMode();
   if (exec_mode != kLOWERING) {
-    auto self_hb_tensor = habana_lazy::GetHbLazyTensor(self);
+    auto self_hb_tensor =
+        habana_lazy::GetOrCreateHbLazyTensor(self, self.device());
     // WE need to add storage if it wasnt created
     // right now as soon as we do a H2D transfer, we create memory and mark
     // executed
@@ -224,7 +283,8 @@ Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src, bool non_blocking) {
 
   // Get the internal tensor for copy kernel
   // First get the lazy tensor
-  auto self_hb_tensor = habana_lazy::GetHbLazyTensor(self);
+  auto self_hb_tensor =
+      habana_lazy::GetOrCreateHbLazyTensor(self, self.device());
   // We need to mark this tensor as executed
   // As this will be an input coming from host side, its doesnt need further
   // execution and is ready for consumption as input
@@ -271,7 +331,8 @@ Tensor& copy_hpu_lazy_(Tensor& self, const Tensor& src, bool non_blocking) {
     is_d2d_copy = true;
   }
   if (habana_lazy::IsHbLazyTensor(src) && !is_d2d_copy) {
-    auto src_hb_tensor = habana_lazy::GetHbLazyTensor(src);
+    auto src_hb_tensor =
+        habana_lazy::GetOrCreateHbLazyTensor(src, src.device());
     auto src_hb_tensor_data = src_hb_tensor.GetHbLazyTensorData();
     if (!src_hb_tensor_data) {
       TORCH_CHECK(
@@ -284,7 +345,8 @@ Tensor& copy_hpu_lazy_(Tensor& self, const Tensor& src, bool non_blocking) {
           "Habana copy_hpu_lazy_: trying to copy from a storage less lazy tensor");
     }
   } else if (habana_lazy::IsHbLazyTensor(src) && !is_d2d_copy) {
-    auto src_hb_tensor = habana_lazy::GetHbLazyTensor(src);
+    auto src_hb_tensor =
+        habana_lazy::GetOrCreateHbLazyTensor(src, src.device());
     TORCH_CHECK(
         src_hb_tensor.isStorageAttached(),
         "Habana copy_hpu_lazy_: trying to copy from a storage less tensor");
@@ -392,24 +454,19 @@ Tensor as_strided_hpu_lazy(
     IntArrayRef size,
     IntArrayRef stride,
     c10::optional<int64_t> storage_offset) {
-  PT_LAZY_TRACE;
-
-  auto hb_tensor = habana_lazy::GetHbLazyTensor(self);
+  auto hb_tensor = habana_lazy::GetOrCreateHbLazyTensor(self, self.device());
   auto src_data = hb_tensor.CurrentTensorData();
   if (size.vec().size() == 1 && stride.vec()[0] == 1) {
     auto result = emtpy_from_storage_lazy(
         self, size, c10::make_optional(stride), storage_offset);
-    auto hb_result = habana_lazy::GetHbLazyTensor(result);
-    auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
-        self.device().index());
-    // auto status =
-    //    context->getTensorExecutionStatus(hb_tensor.getTensorUniqueId());
-    // status = (status == kINPUT || status == kEXECUTION_COMPLETE) ? kINPUT
-    //                                                             :
-    //                                                             kREGISTERED;
-    context->MarkTensorStatus(
-        hb_result.getTensorUniqueId(), kEXECUTION_COMPLETE);
-    setTensorAsInputNode(hb_result);
+    auto hb_result =
+        habana_lazy::GetOrCreateHbLazyTensor(result, result.device());
+    AddControlEdge(self, result);
+    // Add a view of the parent to the result so that its remembered
+    // If this tensor is used as a dst in any op, we need to update the parent
+    auto hb_tensor = habana_lazy::GetHbLazyTensor(self);
+    habana_lazy::ir::LazyView view(self, hb_tensor.GetIrValue());
+    hb_result.addView(view);
     return result;
   } else {
     TORCH_CHECK(
@@ -442,9 +499,12 @@ Tensor view_hpu_lazy(const Tensor& self, IntArrayRef size) {
   auto result = at::native::empty_hpu_lazy(
       inferred_size, self.options(), self.suggest_memory_format(), false);
 
-  auto hl_result = habana_lazy::GetHbLazyTensor(result);
+  auto hl_result =
+      habana_lazy::GetOrCreateHbLazyTensor(result, result.device());
   habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
+  // updatet the view if any
+  updateDstDependencies(hl_result, result);
   out.SetNode(node);
   return result;
 };
@@ -469,6 +529,8 @@ Tensor& addcmul_hpu_lazy_(
     auto hl_tensor2 =
         habana_lazy::GetOrCreateHbLazyTensor(tensor2, c10::kHABANA);
     auto hl_alpha = habana_lazy::GetIrValueForScalar(alpha);
+
+    updateDstDependencies(hl_self, self, true);
 
     auto node = habana_lazy::ir::Node::Create(
         Symbol::fromQualString("aten::addcmul_"),
@@ -517,6 +579,8 @@ Tensor& addcdiv_hpu_lazy_(
   auto hl_tensor2 = habana_lazy::GetOrCreateHbLazyTensor(tensor2, c10::kHABANA);
   auto hl_alpha = habana_lazy::GetIrValueForScalar(alpha);
 
+  updateDstDependencies(hl_self, self, true);
+
   auto node = habana_lazy::ir::Node::Create(
       Symbol::fromQualString("aten::addcdiv_"),
       {hl_self.GetIrValue(),
@@ -527,7 +591,6 @@ Tensor& addcdiv_hpu_lazy_(
   habana_lazy::ir::Value& out = hl_self.CurrentIrValue();
   out.m_index = 0;
   out.SetNode(node);
-
   std::vector<at::Tensor> input_pt_vec{self, tensor1, tensor2};
   node->AddInputPtTensors(input_pt_vec);
   // As its an inplace op and we want this op to execute
@@ -566,6 +629,8 @@ Tensor add_tensor_hpu_lazy(
   habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
   out.SetNode(node);
+  // updatet the view if any
+  updateDstDependencies(hl_result, result);
 
   std::vector<at::Tensor> input_pt_vec{self, other};
   node->AddInputPtTensors(input_pt_vec);
@@ -616,7 +681,7 @@ Tensor& add_tensor_hpu_lazy_(Tensor& self, const Tensor& other, Scalar alpha) {
       auto val = other.item();
       auto hl_other = habana_lazy::GetIrValueForScalar(val);
       auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
-
+      updateDstDependencies(hl_self, self, true);
       auto node = habana_lazy::ir::Node::Create(
           Symbol::fromQualString("aten::add_"),
           {hl_self.GetIrValue(), hl_other, hl_alpha});
@@ -641,6 +706,8 @@ Tensor& add_tensor_hpu_lazy_(Tensor& self, const Tensor& other, Scalar alpha) {
     auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
     auto hl_other = habana_lazy::GetOrCreateHbLazyTensor(other, c10::kHABANA);
 
+    updateDstDependencies(hl_self, self, true);
+
     auto node = habana_lazy::ir::Node::Create(
         Symbol::fromQualString("aten::add_"),
         {hl_self.GetIrValue(), hl_other.GetIrValue(), hl_alpha});
@@ -648,6 +715,7 @@ Tensor& add_tensor_hpu_lazy_(Tensor& self, const Tensor& other, Scalar alpha) {
     habana_lazy::ir::Value& out = hl_self.CurrentIrValue();
     out.m_index = 0;
     out.SetNode(node);
+    // updatet the view if any
 
     std::vector<at::Tensor> input_pt_vec{self, other};
     node->AddInputPtTensors(input_pt_vec);
@@ -713,7 +781,7 @@ Tensor& mul_tensor_hpu_lazy_(Tensor& self, const Tensor& other) {
       auto val = other.item();
       auto hl_other = habana_lazy::GetIrValueForScalar(val);
       auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
-
+      updateDstDependencies(hl_self, self, true);
       auto node = habana_lazy::ir::Node::Create(
           Symbol::fromQualString("aten::mul_"),
           {hl_self.GetIrValue(), hl_other});
@@ -737,7 +805,7 @@ Tensor& mul_tensor_hpu_lazy_(Tensor& self, const Tensor& other) {
   } else {
     auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
     auto hl_other = habana_lazy::GetOrCreateHbLazyTensor(other, c10::kHABANA);
-
+    updateDstDependencies(hl_self, self, true);
     auto node = habana_lazy::ir::Node::Create(
         Symbol::fromQualString("aten::mul_"),
         {hl_self.GetIrValue(), hl_other.GetIrValue()});
@@ -776,6 +844,8 @@ Tensor mul_tensor_hpu_lazy(const Tensor& self, const Tensor& other) {
   habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
   out.m_index = 0;
   out.SetNode(node);
+  // updatet the view if any
+  updateDstDependencies(hlresult, result);
 
   std::vector<at::Tensor> input_pt_vec{self, other};
   node->AddInputPtTensors(input_pt_vec);
@@ -831,15 +901,18 @@ Tensor div_scalar_hpu_lazy(const Tensor& self, Scalar other) {
 Tensor& div_scalar_hpu_lazy_(Tensor& self, Scalar other) {
   auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
   auto hl_other = habana_lazy::GetIrValueForScalar(other);
-
+  updateDstDependencies(hl_self, self, true);
   auto node = habana_lazy::ir::Node::Create(
       Symbol::fromQualString("aten::div_"), {hl_self.GetIrValue(), hl_other});
 
+  std::vector<at::Tensor> input_pt_vec{self};
+  node->AddInputPtTensors(input_pt_vec);
+
+  // habana_lazy::ir::Value val = hl_self.createIrValueFromData();
+  // hl_self.AssignIrValue(val);
   habana_lazy::ir::Value& out = hl_self.CurrentIrValue();
   out.m_index = 0;
   out.SetNode(node);
-  std::vector<at::Tensor> input_pt_vec{self};
-  node->AddInputPtTensors(input_pt_vec);
   // As its an inplace op and we want this op to execute
   // we want to wind back status of this tensor to registered
   // so that when post order is created, we actually execute it
@@ -875,7 +948,8 @@ Tensor pow_tensor_scalar_hpu_lazy(const Tensor& self, Scalar other) {
   habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
   out.SetNode(node);
-
+  // updatet the view if any
+  updateDstDependencies(hl_result, result);
   std::vector<at::Tensor> input_pt_vec{self};
   node->AddInputPtTensors(input_pt_vec);
 
@@ -1097,7 +1171,8 @@ Tensor convolution_hpu_lazy(
   habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
   out.m_index = 0;
   out.SetNode(conv_node);
-
+  // updatet the view if any
+  updateDstDependencies(hlresult, result);
   return result;
 };
 
@@ -1272,7 +1347,7 @@ Tensor embedding_bag_sum_hpu_lazy(
   habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
   out.m_index = 0;
   out.SetNode(node);
-
+  updateDstDependencies(hlresult, result);
   return result;
 };
 Tensor embedding_bag_sum_fwd_hpu_lazy(
@@ -1318,7 +1393,7 @@ Tensor embedding_bag_sum_fwd_hpu_lazy(
   habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
   out.m_index = 0;
   out.SetNode(node);
-
+  updateDstDependencies(hlresult, result);
   std::vector<at::Tensor> input_pt_vec{
       input,
       indices_fwd,
@@ -1394,7 +1469,7 @@ Tensor& fill_hpu_lazy_(Tensor& self, Scalar value) {
   PT_LAZY_TRACE;
   auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
   auto hl_alpha = habana_lazy::GetIrValueForScalar(value);
-
+  updateDstDependencies(hl_self, self, true);
   auto node = habana_lazy::ir::Node::Create(
       Symbol::fromQualString("aten::fill_"), {hl_self.GetIrValue(), hl_alpha});
 
@@ -1475,10 +1550,10 @@ Tensor& index_add_hpu_lazy_(
     const Tensor& indices,
     const Tensor& source) {
   PT_LAZY_TRACE;
+  auto hl_result = habana_lazy::GetHbLazyTensor(self);
+  updateDstDependencies(hl_result, self, true);
   auto node =
       std::make_shared<habana_lazy::ir::IndexAdd_>(self, dim_, indices, source);
-
-  auto hl_result = habana_lazy::GetHbLazyTensor(self);
 
   habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
@@ -1519,7 +1594,7 @@ Tensor index_select_hpu_lazy(
   habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
   out.SetNode(node);
-
+  updateDstDependencies(hl_result, result);
   std::vector<at::Tensor> input_pt_vec{self, index};
   node->AddInputPtTensors(input_pt_vec);
 
@@ -1552,7 +1627,7 @@ Tensor slice_hpu_lazy(
   habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
   out.SetNode(node);
-
+  updateDstDependencies(hl_result, result);
   return result;
 };
 
@@ -1568,7 +1643,7 @@ Tensor select_hpu_lazy(const Tensor& self, int64_t dim, int64_t index) {
   habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
   out.SetNode(node);
-
+  updateDstDependencies(hl_result, result);
   return result;
 };
 
@@ -1593,7 +1668,7 @@ Tensor mm_hpu_lazy(const at::Tensor& mat1, const at::Tensor& mat2) {
   habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
   out.m_index = 0;
   out.SetNode(node);
-
+  updateDstDependencies(hlresult, result);
   std::vector<at::Tensor> input_pt_vec{mat1, mat2};
   node->AddInputPtTensors(input_pt_vec);
 
@@ -1627,7 +1702,7 @@ Tensor addmm_hpu_lazy(
   habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
   out.m_index = 0;
   out.SetNode(node);
-
+  updateDstDependencies((habana_lazy::HbLazyTensor&)hlresult, (Tensor&)result);
   std::vector<at::Tensor> input_pt_vec{self, mat1, mat2};
   node->AddInputPtTensors(input_pt_vec);
 
@@ -1673,7 +1748,7 @@ Tensor batch_gemm_hpu_lazy(const Tensor& self, const Tensor& mat2) {
   habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
   out.m_index = 0;
   out.SetNode(node);
-
+  updateDstDependencies((habana_lazy::HbLazyTensor&)hlresult, (Tensor&)result);
   std::vector<at::Tensor> input_pt_vec{self, mat2};
   node->AddInputPtTensors(input_pt_vec);
 
@@ -1748,7 +1823,7 @@ Tensor nll_loss_backward_hpu_lazy(
   habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
   out.m_index = 0;
   out.SetNode(nll_loss_bwd_node);
-
+  updateDstDependencies(hlresult, result);
   return result;
 };
 
@@ -1769,7 +1844,7 @@ Tensor mse_loss_forward_hpu_lazy(
       habana_lazy::GetHbLazyTensor(result).CurrentIrValue();
   out.m_index = 0;
   out.SetNode(node);
-
+  updateDstDependencies(hlresult, result);
   return result;
 };
 
@@ -1787,7 +1862,7 @@ Tensor mse_loss_backward_hpu_lazy(
       habana_lazy::GetHbLazyTensor(result).CurrentIrValue();
   out.m_index = 0;
   out.SetNode(node);
-
+  updateDstDependencies(hlresult, result);
   return result;
 };
 
@@ -1809,7 +1884,7 @@ Tensor binary_cross_entropy_hpu_lazy(
   habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
   out.m_index = 0;
   out.SetNode(bce_loss_node);
-
+  updateDstDependencies(hlresult, result);
   return result;
 };
 
@@ -1832,7 +1907,7 @@ Tensor binary_cross_entropy_backward_hpu_lazy(
   habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
   out.m_index = 0;
   out.SetNode(bce_bwd_loss_node);
-
+  updateDstDependencies(hlresult, result);
   return result;
 };
 
@@ -1978,6 +2053,7 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_hpu_lazy(
   habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
   out.m_index = 0;
   out.SetNode(node);
+  updateDstDependencies((habana_lazy::HbLazyTensor&)hlresult, result_img);
   // Get output mean and var
   auto result_mean = at::native::empty_hpu_lazy(
       std::get<1>(sizes),
@@ -1988,7 +2064,7 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_hpu_lazy(
   habana_lazy::ir::Value& out2 = hlresult2.CurrentIrValue();
   out2.m_index = 1;
   out2.SetNode(node);
-
+  updateDstDependencies((habana_lazy::HbLazyTensor&)hlresult2, result_mean);
   auto result_var = at::native::empty_hpu_lazy(
       std::get<2>(sizes),
       input.options(),
@@ -1998,6 +2074,7 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_hpu_lazy(
   habana_lazy::ir::Value& out3 = hlresult3.CurrentIrValue();
   out3.m_index = 2;
   out3.SetNode(node);
+  updateDstDependencies((habana_lazy::HbLazyTensor&)hlresult3, result_var);
   return std::make_tuple(result_img, result_mean, result_var);
 };
 std::tuple<Tensor, Tensor, Tensor> layer_norm_backward_hpu_lazy(
@@ -2021,7 +2098,7 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_backward_hpu_lazy(
   habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
   out.m_index = 0;
   out.SetNode(node);
-
+  updateDstDependencies((habana_lazy::HbLazyTensor&)hlresult, result_dY);
   at::Tensor result2, result3;
   // Check if to return optional results
   if (grad_input_mask[1]) {
@@ -2064,6 +2141,7 @@ Tensor norm_scalar_hpu_lazy(const Tensor& self, Scalar p) {
   habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
   out.m_index = 0;
   out.SetNode(node);
+  updateDstDependencies(hlresult, result);
   std::vector<at::Tensor> input_pt_vec{self};
   node->AddInputPtTensors(input_pt_vec);
   return result;
@@ -2184,7 +2262,7 @@ Tensor max_pool2d_with_indices_backward_hpu_lazy(
   habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
   out.m_index = 0;
   out.SetNode(maxpool_bwd_node);
-
+  updateDstDependencies(hlresult, result);
   return result;
 };
 
@@ -2227,7 +2305,7 @@ Tensor avg_pool2d_hpu_lazy(
   habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
   out.m_index = 0;
   out.SetNode(avgpool_node);
-
+  updateDstDependencies(hlresult, result);
   return result;
 };
 
@@ -2296,7 +2374,7 @@ Tensor avg_pool2d_backward_hpu_lazy(
   habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
   out.m_index = 0;
   out.SetNode(avgpool_bwd_node);
-
+  updateDstDependencies(hlresult, result);
   return result;
 };
 
@@ -2366,6 +2444,7 @@ Tensor sum_dim_IntList_hpu_lazy(
   habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
   out.SetNode(node);
+  updateDstDependencies(hl_result, result);
   return result;
 };
 
@@ -2405,6 +2484,7 @@ Tensor sum_hpu_lazy(const Tensor& self, c10::optional<ScalarType> dtype) {
   habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
   out.SetNode(node);
+  updateDstDependencies(hl_result, result);
   return result;
 };
 
@@ -2444,6 +2524,7 @@ Tensor log_softmax_hpu_lazy(
   habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
   out.SetNode(node);
+  updateDstDependencies(hl_result, result);
   return result;
 };
 Tensor log_softmax_backward_hpu_lazy(
@@ -2462,7 +2543,7 @@ Tensor log_softmax_backward_hpu_lazy(
   habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
   out.SetNode(node);
-
+  updateDstDependencies(hl_result, result);
   return result;
 };
 
@@ -2481,6 +2562,7 @@ Tensor softmax_hpu_lazy(
   habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
   out.SetNode(node);
+  updateDstDependencies(hl_result, result);
   return result;
 };
 
@@ -2500,7 +2582,7 @@ Tensor softmax_backward_hpu_lazy(
   habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
   out.SetNode(node);
-
+  updateDstDependencies(hl_result, result);
   return result;
 };
 } // namespace habana
@@ -2584,6 +2666,15 @@ Tensor empty_hpu_lazy(
       auto at_internal_impl =
           habana_lazy::GetHbInternalTensorImpl(at_internal_tensor);
       HABANA_ASSERT(at_internal_impl != nullptr);
+
+      // As its an inplace op and we want this op to execute
+      // we want to wind back status of this tensor to registered
+      // so that when post order is created, we actually execute it
+      // auto context =
+      //    habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
+      //        options.device().index());
+      // context->MarkTensorStatus(
+      //    hb_tensor.getTensorUniqueId(), LazyTensorExecutionStatus::kINPUT);
       // setTensorAsInputNode(hb_tensor);
     }
 
@@ -2662,7 +2753,7 @@ Tensor clone_hpu_lazy(
   habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
   out.m_index = 0;
   out.SetNode(node);
-
+  updateDstDependencies(hlresult, result);
   std::vector<at::Tensor> input_pt_vec{self};
   node->AddInputPtTensors(input_pt_vec);
   return result;
@@ -2694,7 +2785,7 @@ Tensor cat_hpu_lazy(const TensorList tensors, int64_t dim_) {
   habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
   out.SetNode(node);
-
+  updateDstDependencies(hl_result, result);
   return result;
 };
 Tensor& cat_hpu_lazy_out(
@@ -2718,6 +2809,7 @@ Tensor transpose_hpu_lazy(const Tensor& self, int64_t dim0_, int64_t dim1_) {
   habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
   out.SetNode(node);
+  updateDstDependencies(hl_result, result);
   return result;
 };
 
@@ -2741,7 +2833,7 @@ Tensor t_hpu_lazy(const Tensor& self) {
   habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
   out.SetNode(node);
-
+  updateDstDependencies(hl_result, result);
   std::vector<at::Tensor> input_pt_vec{self};
   node->AddInputPtTensors(input_pt_vec);
 
@@ -2783,6 +2875,7 @@ Tensor permute_hpu_lazy(const Tensor& self, IntArrayRef dims_) {
   habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
   out.SetNode(node);
+  updateDstDependencies(hl_result, result);
   return result;
 };
 
@@ -2826,7 +2919,7 @@ Tensor threshold_backward_hpu_lazy(
   habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
   out.m_index = 0;
   out.SetNode(node);
-
+  updateDstDependencies(hlresult, result);
   std::vector<at::Tensor> input_pt_vec{grad_output, self};
   node->AddInputPtTensors(input_pt_vec);
 
@@ -2917,18 +3010,19 @@ Tensor relu_hpu_lazy(const Tensor& input) {
   habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
   out.SetNode(node);
-
+  updateDstDependencies(hl_result, result);
   std::vector<at::Tensor> input_pt_vec{input};
   node->AddInputPtTensors(input_pt_vec);
   return result;
 };
 Tensor& relu_hpu_lazy_(Tensor& input) {
   PT_LAZY_TRACE;
+  auto hl_result = habana_lazy::GetHbLazyTensor(input);
   auto hl_input = habana_lazy::GetOrCreateHbLazyTensor(input, c10::kHABANA);
-
+  updateDstDependencies(hl_result, input, true);
   auto node = habana_lazy::ir::Node::Create(
       Symbol::fromQualString("aten::relu"), {hl_input.GetIrValue()});
-  auto hl_result = habana_lazy::GetHbLazyTensor(input);
+
   habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
   out.SetNode(node);
@@ -3002,7 +3096,7 @@ Tensor sigmoid_hpu_lazy(const Tensor& input) {
   habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
   out.SetNode(node);
-
+  updateDstDependencies(hl_result, result);
   std::vector<at::Tensor> input_pt_vec{input};
   node->AddInputPtTensors(input_pt_vec);
 
@@ -3024,7 +3118,7 @@ Tensor sigmoid_backward_hpu_lazy(const Tensor& grad_in, const Tensor& input) {
   habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
   out.SetNode(node);
-
+  updateDstDependencies(hl_result, result);
   std::vector<at::Tensor> input_pt_vec{grad_in, input};
   node->AddInputPtTensors(input_pt_vec);
 
@@ -3035,7 +3129,7 @@ Tensor sigmoid_backward_hpu_lazy(const Tensor& grad_in, const Tensor& input) {
 Tensor sqrt_hpu_lazy_(Tensor& input) {
   PT_LAZY_TRACE;
   auto hl_input = habana_lazy::GetOrCreateHbLazyTensor(input, c10::kHABANA);
-
+  updateDstDependencies(hl_input, input, true);
   auto node = habana_lazy::ir::Node::Create(
       Symbol::fromQualString("aten::sqrt_"), {hl_input.GetIrValue()});
 
@@ -3069,7 +3163,7 @@ Tensor sqrt_hpu_lazy(const Tensor& input) {
   habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
   out.SetNode(node);
-
+  updateDstDependencies(hl_result, result);
   std::vector<at::Tensor> input_pt_vec{input};
   node->AddInputPtTensors(input_pt_vec);
 
@@ -3089,7 +3183,7 @@ Tensor tanh_hpu_lazy(const Tensor& input) {
   habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
   out.SetNode(node);
-
+  updateDstDependencies(hl_result, result);
   std::vector<at::Tensor> input_pt_vec{input};
   node->AddInputPtTensors(input_pt_vec);
 
@@ -3120,7 +3214,7 @@ Tensor tanh_backward_hpu_lazy(const Tensor& grad_in, const Tensor& input) {
   habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
   out.SetNode(node);
-
+  updateDstDependencies(hl_result, result);
   std::vector<at::Tensor> input_pt_vec{grad_in, input};
   node->AddInputPtTensors(input_pt_vec);
 
@@ -3139,6 +3233,7 @@ Tensor gelu_hpu_lazy(const Tensor& self) {
   habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
   out.SetNode(node);
+  updateDstDependencies(hl_result, result);
   std::vector<at::Tensor> input_pt_vec{self};
   node->AddInputPtTensors(input_pt_vec);
 
@@ -3159,6 +3254,7 @@ Tensor gelu_backward_hpu_lazy(const Tensor& grad, const Tensor& self) {
   habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
   out.SetNode(node);
+  updateDstDependencies(hl_result, result);
   std::vector<at::Tensor> input_pt_vec{grad, self};
   node->AddInputPtTensors(input_pt_vec);
   return result;
@@ -3167,14 +3263,14 @@ Tensor gelu_backward_hpu_lazy(const Tensor& grad, const Tensor& self) {
 Tensor& erf_hpu_lazy_(Tensor& self) {
   PT_LAZY_TRACE;
   auto hl_input = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
-
+  auto hl_result = habana_lazy::GetHbLazyTensor(self);
+  updateDstDependencies(hl_result, self, true);
   auto node = habana_lazy::ir::Node::Create(
       Symbol::fromQualString("aten::erf"), {hl_input.GetIrValue()});
-  auto hl_result = habana_lazy::GetHbLazyTensor(self);
+
   habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
   out.SetNode(node);
-
   std::vector<at::Tensor> input_pt_vec{self};
   node->AddInputPtTensors(input_pt_vec);
   // As its an inplace op and we want this op to execute
@@ -3193,10 +3289,11 @@ Tensor erf_hpu_lazy(const Tensor& self) {
 Tensor& exp_hpu_lazy_(Tensor& self) {
   PT_LAZY_TRACE;
   auto hl_input = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
-
+  auto hl_result = habana_lazy::GetHbLazyTensor(self);
+  updateDstDependencies(hl_result, self, true);
   auto node = habana_lazy::ir::Node::Create(
       Symbol::fromQualString("aten::exp"), {hl_input.GetIrValue()});
-  auto hl_result = habana_lazy::GetHbLazyTensor(self);
+
   habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
   out.SetNode(node);
@@ -3236,6 +3333,7 @@ Tensor reciprocal_hpu_lazy(const Tensor& self) {
   habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
   out.m_index = 0;
   out.SetNode(node);
+  updateDstDependencies(hlresult, result);
   std::vector<at::Tensor> input_pt_vec{self};
   node->AddInputPtTensors(input_pt_vec);
   return result;
@@ -3253,12 +3351,15 @@ Tensor& clamp_hpu_lazy_(
     Tensor& self,
     c10::optional<Scalar> min,
     c10::optional<Scalar> max) {
+  auto hl_result = habana_lazy::GetHbLazyTensor(self);
+  updateDstDependencies(hl_result, self, true);
   habana_lazy::ir::NodePtr node =
       std::make_shared<habana_lazy::ir::Clamp>(self, min, max);
-  auto hl_result = habana_lazy::GetHbLazyTensor(self);
+
   habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
   out.SetNode(node);
+
   std::vector<at::Tensor> input_pt_vec{self};
   node->AddInputPtTensors(input_pt_vec);
 
@@ -3428,6 +3529,14 @@ Tensor& optimizer_adagrad_hpu_lazy(
     const float epsilon) {
   PT_LAZY_TRACE;
 
+  for (size_t i = 0; i < weights.size(); i++) {
+    auto hlweight = habana_lazy::GetHbLazyTensor(weights[i]);
+    updateDstDependencies(hlweight, weights[i], true);
+
+    auto hlvariance = habana_lazy::GetHbLazyTensor(variances[i]);
+    updateDstDependencies(hlvariance, variances[i], true);
+  }
+
   habana_lazy::ir::NodePtr node =
       std::make_shared<habana_lazy::ir::OptimizerFusedAdagrad>(
           gradients, weights, variances, epoch_num, lr, wd, lrd, epsilon);
@@ -3469,5 +3578,6 @@ Tensor ones_like_hpu_lazy(
   habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
   out.m_index = 0;
   out.SetNode(node);
+  updateDstDependencies(hlresult, result);
   return result;
 };

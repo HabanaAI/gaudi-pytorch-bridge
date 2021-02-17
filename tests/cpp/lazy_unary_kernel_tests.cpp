@@ -180,7 +180,6 @@ TEST_F(LazyUnaryKernelTest, ClampInPlaceTest) {
   torch::Tensor cpu_out = torch::clamp_(input_tensor, min_value, max_value);
 
   torch::Tensor hresult = torch::clamp_(hinput, min_value, max_value);
-
   auto hout = hresult.to(torch::kCPU);
 
   EXPECT_EQ(allclose(hout, cpu_out, 0.001, 0.001, /*equal_nan*/ true), true);

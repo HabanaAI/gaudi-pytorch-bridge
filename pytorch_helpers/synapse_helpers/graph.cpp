@@ -192,7 +192,8 @@ synapse_error_o graph::add_node(
       node_type.c_str(),
       ", name=\"\");");
 
-  if (current_op_name_) {
+  // PT always uses node creation with Id
+  if (1) {
     synNodeId nodeId;
     auto status = synNodeCreateWithId(
         *graph_handle_,
@@ -209,7 +210,7 @@ synapse_error_o graph::add_node(
         nullptr);
     SYNAPSE_SUCCESS_CHECK("Node " + node_type + " add failed.", status)
     graph_is_empty_ = false;
-    op_to_node_container_[*current_op_name_].emplace(nodeId);
+    op_to_node_container_["jit_node"].emplace(nodeId);
   } else {
     auto status = synNodeCreate(
         *graph_handle_,
@@ -444,4 +445,27 @@ synStatus graph::set_synapse_control_edges() {
   }
   return status;
 }
+
+synStatus graph::set_synapse_control_edges_pt(
+    std::vector<synNodeId> src_synapse_node_ids_vector,
+    std::vector<synNodeId> dst_synapse_node_ids_vector) {
+  synStatus status = synStatus::synSuccess;
+
+  status = synNodeDependencySet(
+      *graph_handle_,
+      src_synapse_node_ids_vector.data(),
+      dst_synapse_node_ids_vector.data(),
+      src_synapse_node_ids_vector.size(),
+      dst_synapse_node_ids_vector.size());
+
+  PT_SYNHELPER_DEBUG(
+      "Added synapse control edges from node ",
+      " src size = ",
+      src_synapse_node_ids_vector.size(),
+      " dst size = ",
+      dst_synapse_node_ids_vector.size());
+
+  return status;
+}
+
 } // namespace synapse_helpers

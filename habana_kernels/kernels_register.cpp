@@ -2116,6 +2116,13 @@ Tensor& permute_cl_registration_only(Tensor& out) {
   // we should never reach here. This function is a dummy written
   // only to satisfy registration requirements.
   // Registration of custom permute_cl OP (hpu::permute_cl) is done so that
+  HABANA_ASSERT(0);
+}
+
+Tensor& graph_connect_for_registration_only(Tensor& out, const Tensor& self) {
+  // we should never reach here. This function is a dummy written
+  // only to satisfy registration requirements.
+  // Registration of custom cast OP (hpu::control_edge_) is done so that
   // JIT optimization passes recognize this OP as a valid OP.
   HABANA_ASSERT(0);
 }
@@ -3513,5 +3520,20 @@ static auto
                         .impl_unboxedOnlyKernel<
                             decltype(permute_cl_registration_only),
                             &permute_cl_registration_only>(
+                            DispatchKey::HABANATensorId)
+                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+                .op(torch::RegisterOperators::options()
+                        .schema(
+                            "hpu::control_edge_other_(Tensor self, Tensor other) -> Tensor(a!)")
+                        .impl_unboxedOnlyKernel<
+                            decltype(graph_connect_for_registration_only),
+                            &graph_connect_for_registration_only>(
+                            DispatchKey::HABANATensorId)
+                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+                .op(torch::RegisterOperators::options()
+                        .schema("hpu::control_edge_(Tensor self) -> Tensor(a!)")
+                        .impl_unboxedOnlyKernel<
+                            decltype(graph_connect_for_registration_only),
+                            &graph_connect_for_registration_only>(
                             DispatchKey::HABANATensorId)
                         .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));

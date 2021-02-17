@@ -308,6 +308,10 @@ struct Value {
    * each Value created
    */
   static std::atomic_uint64_t unique_id_count;
+  // This keeps track of the version of the data this IR points to
+  // helps us track view scenarios where we have RAW or WAR kind of ops on
+  // different sections of the same tensor
+  uint64_t version_;
 };
 
 inline std::ostream& operator<<(std::ostream& stream, const Value& value) {
