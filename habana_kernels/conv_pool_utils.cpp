@@ -20,9 +20,16 @@ int64_t compute_output_size(
     const int64_t pad,
     const int64_t filter,
     const int64_t stride,
-    const bool ceil_mode) {
+    const bool ceil_mode,
+    const bool transposed) {
   TORCH_CHECK(!ceil_mode, "ceil_mode is not yet supported");
-  return (input + 2 * pad - filter) / stride + 1;
+  if (!transposed) {
+    return (input + 2 * pad - filter) / stride + 1;
+  } else {
+    // conv2d fwd output shape computation done as per formula provided below
+    // https://pytorch.org/docs/stable/generated/torch.nn.ConvTranspose2d.html#torch.nn.ConvTranspose2d
+    return ((input - 1) * stride - 2 * pad + (filter - 1) + 1);
+  }
 }
 
 void check_pool_params(
@@ -65,7 +72,7 @@ void check_convolution_params(
     const at::IntArrayRef stride,
     const at::IntArrayRef padding,
     const at::IntArrayRef dilation,
-    const bool transposed,
+    UNUSED const bool transposed,
     const at::IntArrayRef output_padding,
     const int64_t groups,
     const int input_channel,
@@ -73,8 +80,6 @@ void check_convolution_params(
   at::Tensor input = inputs[0];
   at::Tensor weight = inputs[1];
   TORCH_CHECK(groups == 1, "convolution_hpu doesn't support groups");
-  TORCH_CHECK(
-      transposed == false, "convolution_hpu doesn't support transposition");
   TORCH_CHECK(
       std::all_of(
           output_padding.cbegin(),
@@ -87,7 +92,10 @@ void check_convolution_params(
   TORCH_CHECK(weight.ndimension() == 4, "weight tensordimension count  != 4");
   TORCH_CHECK(
       weight.size(weight_channel) == input.size(input_channel),
-      "Number of input channels doesn't match weight channels");
+      "Number of input channels doesn't match weight channels",
+      weight.sizes().vec(),
+      " ",
+      input.sizes().vec());
   if (inputs.size() > 2) {
     at::Tensor bias = inputs[2];
     TORCH_CHECK(

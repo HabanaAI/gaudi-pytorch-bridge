@@ -60,6 +60,7 @@ add_library(habana_pytorch_plugin SHARED
   habana_kernels/binary_inplace_kernels.cpp
   habana_kernels/compare_kernels.cpp
   habana_kernels/conv_kernels.cpp
+  habana_kernels/conv_bwd_kernels.cpp
   habana_kernels/conv_pool_utils.cpp
   habana_kernels/embedding_kernels.cpp
   habana_kernels/fill_kernels.cpp

@@ -36,9 +36,115 @@ conv_test_case_list = [
     (8, 28, 28, 3, 2, 2, 16, 1, 1, False)
 ] + mnist_test_case_list + resnet50_test_case_list
 
+conv_transpose_test_case_list = [
+    # N, H, W, C, R, S, K, str, pad, bias
+    (8, 28, 28, 3, 2, 2, 16, 1, 1, False),
+    (64, 28, 28, 1, 5, 5, 20, 1, 0, True),
+    (64, 11, 11, 20, 5, 5, 50, 1, 0, True)
+]
+
 data_type_list = [
   (torch.float, 0.001)
 ]
+
+@pytest.mark.parametrize("N, H, W, C, R, S, K, stride, padding, bias", conv_transpose_test_case_list)
+def test_hpu_conv_transpose(N, H, W, C, R, S, K, stride, padding, bias):
+    hpu = torch.device('habana')
+    cpu = torch.device('cpu')
+    input_nchw = torch.randn((N,C,H,W),dtype=torch.float, requires_grad=True)
+
+    kernel_nchw = nn.ConvTranspose2d(C,K,R,stride,padding, 0, 1, bias)
+    kernel_copy = deepcopy(kernel_nchw)
+    #cpu forward
+    out_cpu_nchw = kernel_nchw(input_nchw)
+
+    input_nchw_hpu = input_nchw.to(hpu)
+    kernel_nhwc_hpu = kernel_copy.to(hpu)
+    #Keep HPU weights metadata like sizes and strides same as in CPU, but data permuted for HWKC
+    kernel_nhwc_hpu.weight.data = kernel_nhwc_hpu.weight.data.permute((2, 3, 1, 0))
+    #hpu forward
+    out_nchw_hpu = kernel_nhwc_hpu(input_nchw_hpu)
+    tt = out_nchw_hpu.to(cpu)
+    np.testing.assert_allclose(tt.detach().numpy(), out_cpu_nchw.detach().numpy(), atol=0.01, rtol=0.01, equal_nan=True)
+
+@pytest.mark.parametrize("N, H, W, C, R, S, K, stride, padding, bias", conv_transpose_test_case_list)
+def test_hpu_conv_transpose_chlast(N, H, W, C, R, S, K, stride, padding, bias):
+    hpu = torch.device('habana')
+    cpu = torch.device('cpu')
+    input_nchw = torch.randn((N,C,H,W),dtype=torch.float, requires_grad=True)
+
+    kernel_nchw = nn.ConvTranspose2d(C,K,R,stride,padding, 0, 1, bias)
+    kernel_copy = deepcopy(kernel_nchw)
+    #cpu forward
+    out_cpu_nchw = kernel_nchw(input_nchw)
+
+    input_c_last_hpu = input_nchw.contiguous(memory_format=torch.channels_last).to(hpu)
+    kernel_nhwc_hpu = kernel_copy.to(hpu)
+    #Keep HPU weights metadata like sizes and strides same as in CPU, but data permuted for HWKC
+    kernel_nhwc_hpu.weight.data = kernel_nhwc_hpu.weight.data.permute((2, 3, 1, 0))
+    #hpu forward
+    out_nhwc_hpu = kernel_nhwc_hpu(input_c_last_hpu)
+    tt = out_nhwc_hpu.to(cpu)
+    np.testing.assert_allclose(tt.detach().numpy(), out_cpu_nchw.detach().numpy(), atol=0.01, rtol=0.01, equal_nan=True)
+
+@pytest.mark.parametrize("N, H, W, C, R, S, K, stride, padding, bias", conv_transpose_test_case_list)
+def test_hpu_conv_transpose_fwd_bwd(N, H, W, C, R, S, K, stride, padding, bias):
+    hpu = torch.device('habana')
+    cpu = torch.device('cpu')
+    input_nchw = torch.randn((N,C,H,W),dtype=torch.float, requires_grad=True)
+
+    kernel_nchw = nn.ConvTranspose2d(C,K,R,stride,padding, 0, 1, bias)
+    kernel_copy = deepcopy(kernel_nchw)
+    #cpu forward
+    out_cpu_nchw = kernel_nchw(input_nchw)
+
+    input_nchw_hpu = input_nchw.to(hpu)
+    kernel_nhwc_hpu = kernel_copy.to(hpu)
+    #Keep HPU weights metadata like sizes and strides same as in CPU, but data permuted for HWKC
+    kernel_nhwc_hpu.weight.data = kernel_nhwc_hpu.weight.data.permute((2, 3, 1, 0))
+    #hpu forward
+    out_cpu_nchw_hpu = kernel_nhwc_hpu(input_nchw_hpu)
+    #create bwd input tensor
+    bwd_in = torch.randn(out_cpu_nchw.shape)
+    out_cpu_bwd = out_cpu_nchw.grad_fn(bwd_in)
+    out_hpu_bwd = out_cpu_nchw_hpu.grad_fn(bwd_in.to(hpu))
+    np.testing.assert_allclose(out_hpu_bwd[0].to(cpu).detach().numpy(),
+                out_cpu_bwd[0].detach().numpy(), atol=0.01, rtol=0.01, equal_nan=True)
+    np.testing.assert_allclose(out_hpu_bwd[1].permute(3,2,0,1).to(cpu).detach().numpy(),
+                out_cpu_bwd[1].detach().numpy(), atol=0.01, rtol=0.01, equal_nan=True)
+    if (out_cpu_bwd[2] != None):
+      np.testing.assert_allclose(out_hpu_bwd[2].to(cpu).detach().numpy(),
+            out_cpu_bwd[2].detach().numpy(), atol=0.01, rtol=0.01, equal_nan=True)
+
+@pytest.mark.parametrize("N, H, W, C, R, S, K, stride, padding, bias", conv_transpose_test_case_list)
+def test_hpu_conv_transpose_chlast_fwd_bwd(N, H, W, C, R, S, K, stride, padding, bias):
+    hpu = torch.device('habana')
+    cpu = torch.device('cpu')
+    input_nchw = torch.randn((N,C,H,W),dtype=torch.float, requires_grad=True)
+
+    kernel_nchw = nn.ConvTranspose2d(C,K,R,stride,padding, 0, 1, bias)
+    kernel_copy = deepcopy(kernel_nchw)
+    #cpu forward
+    out_cpu_nchw = kernel_nchw(input_nchw)
+
+    input_c_last_hpu = input_nchw.contiguous(memory_format=torch.channels_last).to(hpu)
+    kernel_nhwc_hpu = kernel_copy.to(hpu)
+    #Keep HPU weights metadata like sizes and strides same as in CPU, but data permuted for HWKC
+    kernel_nhwc_hpu.weight.data = kernel_nhwc_hpu.weight.data.permute((2, 3, 1, 0))
+    #hpu forward
+    out_cpu_nhwc_hpu = kernel_nhwc_hpu(input_c_last_hpu)
+    #create bwd input tensor
+    bwd_in = torch.randn(out_cpu_nchw.shape)
+    out_cpu_bwd = out_cpu_nchw.grad_fn(bwd_in)
+    out_hpu_bwd = out_cpu_nhwc_hpu.grad_fn(bwd_in.contiguous(memory_format=torch.channels_last).to(hpu))
+    np.testing.assert_allclose(out_hpu_bwd[0].to(cpu).detach().numpy(),
+                out_cpu_bwd[0].detach().numpy(), atol=0.01, rtol=0.01, equal_nan=True)
+    np.testing.assert_allclose(out_hpu_bwd[1].permute(3,2,0,1).to(cpu).detach().numpy(),
+                out_cpu_bwd[1].detach().numpy(), atol=0.01, rtol=0.01, equal_nan=True)
+    if (out_cpu_bwd[2] != None):
+      np.testing.assert_allclose(out_hpu_bwd[2].to(cpu).detach().numpy(),
+            out_cpu_bwd[2].detach().numpy(), atol=0.01, rtol=0.01, equal_nan=True)
+
 
 @pytest.mark.parametrize("N, H, W, C, R, S, K, stride, padding, bias", conv_test_case_list)
 @pytest.mark.parametrize("dtype, tol", data_type_list)
@@ -58,7 +164,7 @@ def test_hpu_conv(N, H, W, C, R, S, K, stride, padding, bias, dtype, tol):
     kernel_nhwc_hpu.weight.data = kernel_nhwc_hpu.weight.data.permute((2, 3, 1, 0))
     #hpu forward
     out_cpu_nchw_hpu = kernel_nhwc_hpu(input_nchw_hpu)
-    print(out_cpu_nchw_hpu.shape, out_cpu_nchw_hpu.stride(), out_cpu_nchw.shape, out_cpu_nchw.stride())
+    #print(out_cpu_nchw_hpu.shape, out_cpu_nchw_hpu.stride(), out_cpu_nchw.shape, out_cpu_nchw.stride())
     #hpu result permute since in channels_last, the kernel output is also in channels_last
     #but for C=1, contiguous(memory_format=torch.channels_last) doesn't convert to channels_last
     tt = out_cpu_nchw_hpu.to(cpu)
@@ -181,5 +287,4 @@ def test_hpu_chain_loop_conv_chlast_fwd_bwd(N, H, W, C, R, S, K, stride, padding
                     out_cpu_bwd[0].detach().numpy(), atol=0.01, rtol=0.01, equal_nan=True)
 
 if __name__ == '__main__':
-    #test_hpu_conv_fwd_bwd(*resnet50_test_case_list[0])
-    test_hpu_conv(*conv_test_case_list[0], torch.bfloat16)
+    test_hpu_conv_fwd_bwd(*resnet50_test_case_list[0])

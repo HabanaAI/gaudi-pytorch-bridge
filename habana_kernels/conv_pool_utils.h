@@ -21,7 +21,8 @@ int64_t compute_output_size(
     const int64_t pad,
     const int64_t filter,
     const int64_t stride,
-    const bool ceil_mode);
+    const bool ceil_mode,
+    const bool transposed);
 
 void check_pool_params(
     const at::Tensor& input,

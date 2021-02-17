@@ -1216,6 +1216,7 @@ Tensor convolution_hpu_lazy(
       padding.vec(),
       stride.vec(),
       false,
+      transposed,
       c10::MemoryFormat::Contiguous);
   auto result = at::native::empty_hpu_lazy(
       shape_out, input.options(), memory_format, false);
