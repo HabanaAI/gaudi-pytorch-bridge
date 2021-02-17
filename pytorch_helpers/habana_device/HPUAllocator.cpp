@@ -14,6 +14,12 @@
 #include "HPUGuardImpl.h"
 #include "hpu_cached_devices.h"
 
+bool synapse_helpers::HPURegistrar::initialized_ = false;
+
+// Note the main thread id
+const std::thread::id synapse_helpers::HPURegistrar::main_thread_id_ =
+    std::this_thread::get_id();
+
 namespace at {
 namespace habana {
 
@@ -247,9 +253,52 @@ void HPUDeviceAllocator::flush_stream_events() const {
 
 namespace synapse_helpers {
 
+/**
+  The HPURegistrar object is created once for the first time
+  at::detail::HABANAGuardImpl::getDevice is called.
+  Since HPURegistrar object is a static, it gets destroyed when
+  main thread exits via exit_handler.
+  However, synapse has a few objects (like KernelDB) that are
+  thread_local static. They are created once per thread, and they
+  get destroyed from the main thread before the static objects are
+  destroyed. These synapse objects are required to be present when
+  the synapse devices are destroyed.
+  Currently, here is the sequence of object creation -
+   OSAL, KernelDB -> synapse devices -> HPURegistrar
+  We expect the destruction order to be -
+   ~HPURegistrar -> ~synapse devices -> ~OSAL, ~KernelDB
+  The destruction order, when KernelDB is created from more than one
+  thread (it gets created if a thread creates a synapse graph and compiles)
+   ~KernelDB ->  ~HPURegistrar -> ~synapse devices (This fails)
+
+  Hence, we have a thread_local HPURegistrarPerThreadTracker object.
+  This is used to drive the cleanup before the ~KernelDB happens. With this,
+  the object construction order -
+   OSAL, KernelDB -> synapse devices -> HPURegistrar,
+  HPURegistrarPerThreadTracker Object destruction order
+   ~HPURegistrarPerThreadTracker -> ~synapse devices -> ~KernelDB ->
+  ~HPURegistrar -> ~OSAL
+ */
+class HPURegistrarPerThreadTracker {
+ public:
+  HPURegistrarPerThreadTracker() = default;
+  ~HPURegistrarPerThreadTracker();
+};
+
 HPURegistrar& HPURegistrar::get_hpu_registrar() {
-  static HPURegistrar* instance = new HPURegistrar();
-  return *instance;
+  static HPURegistrar instance;
+  thread_local static HPURegistrarPerThreadTracker per_thread_tracker;
+  return instance;
+}
+
+HPURegistrarPerThreadTracker::~HPURegistrarPerThreadTracker() {
+  // Cleanup the synapse devices only for the main thread exit path
+  // This ensures synapse devices are removed before thread_local synapse
+  // objects (Ex: KernelDB) are gone.
+  if (HPURegistrar::getMainThreadId() == std::this_thread::get_id()) {
+    HPURegistrar::deleteDevices();
+    at::habana::HPUDeviceAllocator::allocator_active_device_id = -1;
+  }
 }
 
 } // namespace synapse_helpers

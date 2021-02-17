@@ -13,6 +13,7 @@
 #include <synapse_helpers/device.h>
 #include <array>
 #include <memory>
+#include <thread>
 
 namespace synapse_helpers {
 class HPURegistrar {
@@ -54,6 +55,31 @@ class HPURegistrar {
 
     return true;
   }
+
+  static bool isInitialized() {
+    return initialized_;
+  }
+  static void markInitialized() {
+    initialized_ = true;
+  }
+
+  // Delete the acquired device and reset the acquired_devices
+  static void deleteDevices() {
+    auto& device = get_hpu_registrar().get_device();
+    // Cleanup the device
+    device.cleanup();
+    // Reset acquired_devices
+    get_hpu_registrar().acquired_devices[0] = nullptr;
+  }
+
+  static const std::thread::id& getMainThreadId() {
+    return main_thread_id_;
+  }
+
+ private:
+  static bool initialized_;
+  // Note the main thread id
+  static const std::thread::id main_thread_id_;
 };
 
 } // namespace synapse_helpers

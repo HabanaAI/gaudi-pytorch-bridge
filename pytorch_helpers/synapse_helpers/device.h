@@ -107,6 +107,7 @@ class device {
   device& operator=(device&&) = delete;
   ~device();
 
+  void cleanup();
   void flush_stream_events();
 
   // Function passed here will be called at the begining od device dtor.
@@ -329,6 +330,7 @@ class device {
   device_memory device_memory_;
 
   bool enable_dynamic_workspace_{false};
+  bool cleanup_done_{false};
 
   // Empty be default, framework can register its function to be called before
   // device is released

@@ -283,8 +283,11 @@ uint64_t device::get_workspace_size() {
   return workspaceSize;
 }
 
-device::~device() {
-  PT_SYNHELPER_DEBUG("Device dectructor entry");
+void device::cleanup() {
+  if (cleanup_done_) {
+    return;
+  }
+  cleanup_done_ = true;
 
   if (is_hcl_same_addr_enabled_ && (std::getenv("ID") != nullptr)) {
     device_ptr prealloc_addr = preallocated_reduction_buffer_->get();
@@ -303,6 +306,11 @@ device::~device() {
   if (synStatus::synSuccess != status) {
     PT_SYNHELPER_FATAL("memory_mapper::drop_cache() failed. Status: ", status);
   }
+}
+
+device::~device() {
+  PT_SYNHELPER_DEBUG("Device dectructor entry");
+  cleanup();
 }
 
 void device::flush_stream_events() {
