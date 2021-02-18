@@ -278,6 +278,15 @@ std::vector<bool> HabanaLaunchOpPT::nodeOutputPersistence(
     if (use_persistent_tensors || isInGraphOutputs(value_out)) {
       // Highest priority is given to the env variable, and if
       // part of the graph output
+      auto in_graph_output = isInGraphOutputs(value_out);
+      if (in_graph_output) {
+        PT_BRIDGE_DEBUG(
+            "Persistent tensor for ",
+            node->kind().toQualString(),
+            " for value %",
+            value_out->debugName(),
+            " appears in graph output");
+      }
       is_persistent.emplace_back(true);
     } else if (
         value_to_persistent_flag.find(value_out) !=
@@ -1646,6 +1655,10 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
           PtTensorInfo ti(p.second, p.first, irn, watch_tensor_flag_);
           interim_tensorinfos.emplace_back(ti);
           aten_intermediates.push_back(p.second);
+          PT_BRIDGE_DEBUG(
+              "Persistent tensor for ",
+              node->kind().toQualString(),
+              " appended tensor");
         }
       }
     }
@@ -2124,6 +2137,7 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
           dma_cb(ti, dma_tensor);
 
           IValPtrShared dma_ivpsh = std::make_shared<IVal>(dma_tensor);
+          PT_BRIDGE_DEBUG("Persistent tensor for DMA\n");
           dma_inputs->push_back(dma_ivpsh);
 
           PT_BRIDGE_DEBUG(
