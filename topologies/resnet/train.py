@@ -24,16 +24,9 @@ except ImportError:
 # import from a local copy. A local copy of resnet model file is used so that
 # modifications can be done to the resnet model if necessary.
 
-try:
-    path = os.path.join(os.environ['PYTORCH_MODULES_ROOT_PATH'], 'topologies')
-    tools_path = os.path.join(path, 'tools')
-    if os.path.exists(path) is False or os.path.exists(tools_path) is False:
-        raise Exception("path for 'tools' NOT found")
-    sys.path.append(path)
-    from tools import *
-except:
-    assert False, ("tools directory should be availabe as somedir/topologies/tools",
-                   "PYTORCH_MODULES_ROOT_PATH should be set to 'somedir'")
+sys.path.append(os.environ['PYTORCH_MODULES_ROOT_PATH'])
+from topologies import tools
+
 try:
     from apex import amp
 except ImportError:
@@ -92,12 +85,12 @@ def train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, pri
                 hb_torch.mark_step()
 
 
-        tp_probe_tensors_iteration_start(model, device, target, image, trainMetaData.ParamsDump, False)
+        tools.tp_probe_tensors_iteration_start(model, device, target, image, trainMetaData.ParamsDump, False)
 
         loss_cpu, output_cpu = train_model(model, criterion, optimizer, image, target,
                                            trainMetaData, apex, args.run_lazy_mode)
 
-        tp_probe_tensors_iteration_end(model, device, output_cpu, loss_cpu, trainMetaData.ParamsDump, False)
+        tools.tp_probe_tensors_iteration_end(model, device, output_cpu, loss_cpu, trainMetaData.ParamsDump, False)
 
         acc1, acc5 = utils.accuracy(output_cpu, target, topk=(1, 5))
         trainMetaData.tracept.end(time.time(), 'train_iteration_' + str(trainMetaData.current_train_step))
@@ -355,8 +348,8 @@ def main(args):
             dataset_test, batch_size=test_batch_size,
             sampler=test_sampler, num_workers=args.workers, worker_init_fn=dl_worker_init_fn(seed), pin_memory=True, drop_last=True)
     else:
-        data_loader = ImageRandomDataLoader(batch_size=args.batch_size, train=True, drop_last=True)
-        data_loader_test = ImageRandomDataLoader(batch_size=test_batch_size, train=False, drop_last=True)
+        data_loader = tools.ImageRandomDataLoader(batch_size=args.batch_size, train=True, drop_last=True)
+        data_loader_test = tools.ImageRandomDataLoader(batch_size=test_batch_size, train=False, drop_last=True)
 
     print("Creating model")
     #model = torchvision.models.__dict__[args.model](pretrained=args.pretrained)
@@ -365,7 +358,7 @@ def main(args):
     # modifications can be done to the resnet model if necessary.
     model = resnet_models.__dict__[args.model](pretrained=args.pretrained)
 
-    trainMetaData = TrainMetaData(model, device)
+    trainMetaData = tools.TrainMetaData(model, device)
     model.to(device)
     trainMetaData.log_live_mem_alloc("After model.to()")
 
