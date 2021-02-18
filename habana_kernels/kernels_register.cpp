@@ -2049,6 +2049,22 @@ Tensor neg_hpu_wrap(const Tensor& self) {
     return neg_hpu(self);
   }
 };
+Tensor floor_hpu_wrap(const Tensor& input) {
+  if (!habana_lazy::isDeviceInLoweringMode(input.device().index()) &&
+      std::getenv("PT_HPU_LAZY_MODE")) {
+    return floor_hpu_lazy(input);
+  } else {
+    return floor_hpu(input);
+  }
+};
+Tensor& floor_hpu_wrap_(Tensor& self) {
+  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
+      std::getenv("PT_HPU_LAZY_MODE")) {
+    return floor_hpu_lazy_(self);
+  } else {
+    return floor_hpu_(self);
+  }
+};
 namespace at {
 namespace native {
 Scalar _local_scalar_dense_hpu_wrap(const Tensor& self) {
@@ -3626,4 +3642,16 @@ static auto
                             decltype(cast_hpu_for_registration_only),
                             &cast_hpu_for_registration_only>(
                             DispatchKey::HABANATensorId)
+                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+                .op(torch::RegisterOperators::options()
+                        .schema("aten::floor_(Tensor(a!) self) -> Tensor(a!)")
+                        .impl_unboxedOnlyKernel<
+                            decltype(floor_hpu_wrap_),
+                            &floor_hpu_wrap_>(DispatchKey::HABANATensorId)
+                        .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA))
+                .op(torch::RegisterOperators::options()
+                        .schema("aten::floor(Tensor self) -> Tensor")
+                        .impl_unboxedOnlyKernel<
+                            decltype(floor_hpu_wrap),
+                            &floor_hpu_wrap>(DispatchKey::HABANATensorId)
                         .aliasAnalysis(c10::AliasAnalysisKind::FROM_SCHEMA));

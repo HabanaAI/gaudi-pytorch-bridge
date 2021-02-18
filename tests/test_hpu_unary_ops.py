@@ -27,6 +27,7 @@ unary_op_list = [
     torch.sigmoid,
     torch.sqrt,
     torch.reciprocal,
+    torch.floor,
 ]
 
 unary_inplace_op_list = [
@@ -35,6 +36,7 @@ unary_inplace_op_list = [
     ('erf_'),
     ('exp_'),
     ('reciprocal_'),
+    ('floor_'),
 ]
 
 unary_op_out_list = [

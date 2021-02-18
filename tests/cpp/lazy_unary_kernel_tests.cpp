@@ -62,6 +62,36 @@ TEST_F(LazyUnaryKernelTest, ReluInplaceTest) {
   EXPECT_EQ(allclose(out, exp), true);
 }
 
+TEST_F(LazyUnaryKernelTest, FloorInplaceTest) {
+  // Inplace op as output node is not supported yet.
+  torch::Tensor A = torch::randn({4, 5});
+
+  auto hA = A.to(torch::kHABANA);
+  A = A.floor_();
+  auto exp = torch::floor(A);
+
+  hA = hA.floor_();
+  auto result = torch::floor(hA);
+
+  std::vector<HbLazyTensor> tensors = {GetHbLazyTensor(result)};
+  HbLazyTensor::SyncTensorsGraph(&tensors);
+
+  Tensor out = result.to(kCPU);
+
+  EXPECT_EQ(allclose(out, exp), true);
+}
+
+TEST_F(LazyUnaryKernelTest, FloorTest) {
+  auto input_tensor = torch::randn({4, 5});
+  torch::Tensor cpu_out = torch::floor(input_tensor);
+
+  torch::Tensor tHabanaX = input_tensor.to(torch::kHABANA);
+  torch::Tensor outHabana = torch::floor(tHabanaX);
+  torch::Tensor hout_lazy = outHabana.to(torch::kCPU);
+
+  EXPECT_EQ(allclose(hout_lazy, cpu_out), true);
+}
+
 TEST_F(LazyUnaryKernelTest, SigmoidFwdTest) {
   auto input_tensor =
       torch::arange(4, torch::dtype(torch::kFloat).requires_grad(true))

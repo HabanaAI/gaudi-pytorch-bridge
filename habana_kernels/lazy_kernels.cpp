@@ -2892,6 +2892,50 @@ Tensor& relu_hpu_lazy_(Tensor& input) {
 
   return input;
 };
+
+Tensor floor_hpu_lazy(const Tensor& input) {
+  PT_LAZY_TRACE;
+  auto hl_input = habana_lazy::GetOrCreateHbLazyTensor(input, c10::kHABANA);
+
+  auto node = habana_lazy::ir::Node::Create(
+      Symbol::fromQualString("aten::floor"), {hl_input.GetIrValue()});
+  auto result = at::native::empty_hpu_lazy(
+      input.sizes(), input.options(), input.suggest_memory_format(), false);
+  auto hl_result = habana_lazy::GetHbLazyTensor(result);
+  habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+
+  std::vector<at::Tensor> input_pt_vec{input};
+  node->AddInputPtTensors(input_pt_vec);
+
+  return result;
+};
+
+Tensor& floor_hpu_lazy_(Tensor& input) {
+  PT_LAZY_TRACE;
+  auto hl_input = habana_lazy::GetOrCreateHbLazyTensor(input, c10::kHABANA);
+
+  auto node = habana_lazy::ir::Node::Create(
+      Symbol::fromQualString("aten::floor"), {hl_input.GetIrValue()});
+  auto hl_result = habana_lazy::GetHbLazyTensor(input);
+  habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+
+  std::vector<at::Tensor> input_pt_vec{input};
+  node->AddInputPtTensors(input_pt_vec);
+  // As its an inplace op and we want this op to execute
+  // we want to wind back status of this tensor to registered
+  // so that when post order is created, we actually execute it
+  auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
+      input.device().index());
+  context->MarkTensorStatus(
+      hl_input.getTensorUniqueId(), LazyTensorExecutionStatus::kREGISTERED);
+
+  return input;
+};
+
 Tensor sigmoid_hpu_lazy(const Tensor& input) {
   PT_LAZY_TRACE;
   auto hl_input = habana_lazy::GetOrCreateHbLazyTensor(input, c10::kHABANA);

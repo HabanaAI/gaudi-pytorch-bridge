@@ -26,6 +26,21 @@ class UnaryOperator : public HabanaOperator {
       bool is_output_persistent = false);
 };
 
+class UnaryInplaceOperator : public HabanaOperator {
+ public:
+  UnaryInplaceOperator(int device_id, const std::string& guid)
+      : HabanaOperator(guid) {
+    this->CreateSynContext(device_id);
+    kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
+    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
+  }
+
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false);
+};
+
 // Unary Backward Operator
 class UnaryBackwardOperator : public HabanaOperator {
  public:
@@ -52,20 +67,13 @@ class ReluOperator : public UnaryOperator {
             "relu_fwd_" + habana_helpers::name_suffix_from_type(scalarType)){};
 };
 
-// Relu Operator
-class ReluInplaceOperator : public HabanaOperator {
+// Relu Inplace Operator
+class ReluInplaceOperator : public UnaryInplaceOperator {
  public:
-  ReluInplaceOperator(int device_id, const std::string& guid)
-      : HabanaOperator(guid) {
-    this->CreateSynContext(device_id);
-    kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
-    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
-  }
-
-  virtual void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+  ReluInplaceOperator(int device_id, c10::ScalarType scalarType)
+      : UnaryInplaceOperator(
+            device_id,
+            "relu_fwd_" + habana_helpers::name_suffix_from_type(scalarType)){};
 };
 
 // Sigmoid Operator
@@ -285,15 +293,28 @@ class ExpOperator : public HabanaOperator {
       bool is_output_persistent = false) override;
 };
 
-class SqrtInplaceOperator : public UnaryOperator {
+class SqrtInplaceOperator : public UnaryInplaceOperator {
  public:
   SqrtInplaceOperator(int device_id, c10::ScalarType scalarType)
-      : UnaryOperator(
+      : UnaryInplaceOperator(
             device_id,
             "sqrt_fwd_" + habana_helpers::name_suffix_from_type(scalarType)){};
+};
 
-  virtual void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+// Floor Operator
+class FloorOperator : public UnaryOperator {
+ public:
+  FloorOperator(int device_id, c10::ScalarType scalarType)
+      : UnaryOperator(
+            device_id,
+            "floor_fwd_" + habana_helpers::name_suffix_from_type(scalarType)){};
+};
+
+// Floor Inplace Operator
+class FloorInplaceOperator : public UnaryInplaceOperator {
+ public:
+  FloorInplaceOperator(int device_id, c10::ScalarType scalarType)
+      : UnaryInplaceOperator(
+            device_id,
+            "floor_fwd_" + habana_helpers::name_suffix_from_type(scalarType)){};
 };

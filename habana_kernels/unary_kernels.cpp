@@ -46,21 +46,11 @@ void UnaryOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, nullptr, 0);
 }
 
-void SqrtInplaceOperator::AllocateAndAddSynapseNode(
+void UnaryInplaceOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
     bool is_output_persistent) {
-  TORCH_CHECK(
-      inputs.size() == 1,
-      "Incorrect size of inpust expected for Sqrt operator");
-  TORCH_CHECK(inputs[0].isTensor(), "Input type expected to be tensor");
-
-  at::Tensor input = inputs[0].toTensor();
-  p_context_->syn_outputs_.emplace_back(
-      habana_helpers::duplicate_tensor_in_memory_section(
-          p_context_->syn_inputs_[0]));
-  p_context_->pt_outputs_.emplace_back(input);
-
+  AllocateSynapseInplaceOutput(graph);
   AddNodeToSynapseGraph(graph, nullptr, 0);
 }
 
@@ -102,12 +92,36 @@ Tensor unary_op_hpu(
   return out.at(0);
 }
 
-void ReluInplaceOperator::AllocateAndAddSynapseNode(
-    synapse_helpers::graph& graph,
-    Stack& inputs,
-    bool is_output_persistent) {
-  AllocateSynapseInplaceOutput(graph);
-  AddNodeToSynapseGraph(graph, nullptr, 0);
+void unary_inplace_op_hpu(
+    const Tensor& self,
+    std::string& node_type,
+    UnaryInplaceOperator* Op) {
+  size_t device_id = self.device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  std::vector<at::Tensor> pt_inputs{self};
+  // Build Params for the graph
+  std::vector<c10::IValue> stack = {IValue(self)};
+
+  size_t key = Op->GetRecipeKey(node_type, stack, true);
+
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    Op->SetPTInputs(pt_inputs);
+    Op->SetPTOutput(pt_inputs[0]);
+    Op->Execute(key);
+  } else {
+    PT_KERNEL_DEBUG("Key:", key);
+    // Create Graph
+    auto graph = habana_helpers::create_graph(device_id, node_type);
+
+    // Assign Inputs to the Operator
+    Op->AllocateSynapseInputs(graph, pt_inputs, true);
+
+    Op->AllocateAndAddSynapseNode(graph, stack, true);
+
+    // compile and execute the graph
+    Op->Compile(graph);
+  }
 }
 
 void UnaryBackwardOperator::AllocateAndAddSynapseNode(
@@ -234,35 +248,11 @@ Tensor& relu_hpu_(Tensor& self) {
   at::ScalarType scalar_type = self.scalar_type();
   std::string node_type =
       "relu_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+  size_t device_id = self.device().index();
 
   // Create the operator
-  size_t device_id = self.device().index();
-  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-  std::vector<at::Tensor> pt_inputs{self};
-  // Build Params for the graph
-  std::vector<c10::IValue> stack = {IValue(self)};
-  ReluInplaceOperator Op(device_id, node_type);
-  size_t key = Op.GetRecipeKey(node_type, stack, true);
-
-  if (device.get_recipe_handle_cache().isCached(key)) {
-    PT_KERNEL_DEBUG("Cache hit key:", key);
-    Op.SetPTInputs(pt_inputs);
-    Op.SetPTOutput(pt_inputs[0]);
-    Op.Execute(key);
-  } else {
-    PT_KERNEL_DEBUG("Key:", key);
-    // Create Graph
-    auto graph = habana_helpers::create_graph(device_id, node_type);
-
-    // Assign Inputs to the Operator
-    Op.AllocateSynapseInputs(graph, pt_inputs, true);
-
-    Op.AllocateAndAddSynapseNode(graph, stack, true);
-
-    // compile and execute the graph
-    Op.Compile(graph);
-  }
-
+  ReluInplaceOperator Op(device_id, scalar_type);
+  unary_inplace_op_hpu(self, node_type, &Op);
   PT_KERNEL_END;
   return self;
 }
@@ -408,6 +398,47 @@ Tensor tanh_backward_hpu(const Tensor& grad_in, const Tensor& input) {
 
   PT_KERNEL_END;
   return grad_output;
+}
+
+/*************************************************************************
+ * @brief Kernel implementation for output = torch.floor(input)
+ * @param [out] output - output tensor, 1-4D, BF16/FP32
+ * @param [in] input - input tensor, 1-4D, BF16/FP32
+ ************************************************************************/
+Tensor floor_hpu(const Tensor& input) {
+  PT_KERNEL_BEGIN;
+  at::ScalarType scalar_type = input.scalar_type();
+  std::string node_type =
+      "floor_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+
+  // Create the operator
+  size_t device_id = input.device().index();
+  FloorOperator Op(device_id, scalar_type);
+
+  auto out = unary_op_hpu(input, node_type, &Op);
+  PT_KERNEL_END;
+  return out;
+}
+
+/*************************************************************************
+ * @brief Kernel implementation for output = torch.floor_(input)
+ * @param [out] output - output tensor, 1-4D, BF16/FP32
+ * @param [in] input - input tensor, 1-4D, BF16/FP32
+ ************************************************************************/
+Tensor& floor_hpu_(Tensor& self) {
+  PT_KERNEL_BEGIN;
+
+  at::ScalarType scalar_type = self.scalar_type();
+  std::string node_type =
+      "floor_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+  size_t device_id = self.device().index();
+
+  // Create the operator
+  FloorInplaceOperator Op(device_id, scalar_type);
+  unary_inplace_op_hpu(self, node_type, &Op);
+
+  PT_KERNEL_END;
+  return self;
 }
 
 void GeluOperator::AllocateAndAddSynapseNode(
@@ -1411,6 +1442,11 @@ static auto& KernelRegistry =
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<ErfOperator>(device_id, node_type);
             })
-        .add("aten::exp", [](const int device_id, c10::ScalarType node_type) {
-          return std::make_shared<ExpOperator>(device_id, node_type);
+        .add(
+            "aten::exp",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<ExpOperator>(device_id, node_type);
+            })
+        .add("aten::floor", [](const int device_id, c10::ScalarType node_type) {
+          return std::make_shared<FloorOperator>(device_id, node_type);
         });
