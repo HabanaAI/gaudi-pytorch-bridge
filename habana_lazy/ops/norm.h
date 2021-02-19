@@ -157,7 +157,7 @@ class BatchNormForward : public ir::Node {
       bool training,
       double momentum,
       double eps)
-      : Node(c10::Symbol::fromQualString("aten::native_batch_norm")) {
+      : Node(c10::Symbol::fromQualString("hpu::native_batch_norm_rmv")) {
     auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHABANA);
     AddInput(hl_input.GetIrValue());
     std::vector<at::Tensor> input_pt_vec{input};
@@ -217,6 +217,89 @@ class BatchNormForward : public ir::Node {
               static_cast<size_t>(BatchNormForwardMeta::MOMENTUM_INDEX))
        << ", EPS="
        << m_meta_data.get(static_cast<size_t>(BatchNormForwardMeta::EPS_INDEX));
+    return ss.str();
+  }
+};
+
+class BatchNormInf : public ir::Node {
+ public:
+  enum class BatchNormInfMeta {
+    BIAS_INDEX = 1,
+    WEIGHT_INDEX = 2,
+    RUNNING_MEAN_INDEX = 3,
+    RUNNING_VAR_INDEX = 4,
+    TRAINING_INDEX = 5,
+    MOMENTUM_INDEX = 6,
+    EPS_INDEX = 7
+  };
+  BatchNormInf() = delete;
+  BatchNormInf(
+      const Tensor& input,
+      const Tensor& weight,
+      const Tensor& bias,
+      const Tensor& running_mean,
+      const Tensor& running_var,
+      bool training,
+      double momentum,
+      double eps)
+      : Node(c10::Symbol::fromQualString("hpu::native_batch_norm_inf")) {
+    auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHABANA);
+    AddInput(hl_input.GetIrValue());
+    std::vector<at::Tensor> input_pt_vec{input};
+    if (bias.defined()) {
+      auto hl_bias = GetOrCreateHbLazyTensor(bias, c10::kHABANA);
+      AddInput(hl_bias.GetIrValue());
+      input_pt_vec.emplace_back(bias);
+    } else {
+      m_meta_data.set(
+          torch::jit::IValue(),
+          static_cast<size_t>(BatchNormInfMeta::BIAS_INDEX));
+    }
+    if (weight.defined()) {
+      auto hl_weight = GetOrCreateHbLazyTensor(weight, c10::kHABANA);
+      AddInput(hl_weight.GetIrValue());
+      input_pt_vec.emplace_back(weight);
+    } else {
+      m_meta_data.set(
+          torch::jit::IValue(),
+          static_cast<size_t>(BatchNormInfMeta::WEIGHT_INDEX));
+    }
+    if (running_mean.defined()) {
+      auto hl_running_mean =
+          GetOrCreateHbLazyTensor(running_mean, c10::kHABANA);
+      AddInput(hl_running_mean.GetIrValue());
+      input_pt_vec.emplace_back(running_mean);
+    } else {
+      m_meta_data.set(
+          torch::jit::IValue(),
+          static_cast<size_t>(BatchNormInfMeta::RUNNING_MEAN_INDEX));
+    }
+    if (running_var.defined()) {
+      auto hl_running_var = GetOrCreateHbLazyTensor(running_var, c10::kHABANA);
+      AddInput(hl_running_var.GetIrValue());
+      input_pt_vec.emplace_back(running_var);
+    } else {
+      m_meta_data.set(
+          torch::jit::IValue(),
+          static_cast<size_t>(BatchNormInfMeta::RUNNING_VAR_INDEX));
+    }
+    AddInputPtTensors(input_pt_vec);
+
+    m_meta_data.set(
+        training, static_cast<size_t>(BatchNormInfMeta::TRAINING_INDEX));
+    m_meta_data.set(
+        momentum, static_cast<size_t>(BatchNormInfMeta::MOMENTUM_INDEX));
+    m_meta_data.set(eps, static_cast<size_t>(BatchNormInfMeta::EPS_INDEX));
+  }
+
+  std::string ToString() const override {
+    std::stringstream ss;
+    ss << Node::ToString() << ", Training = "
+       << m_meta_data.get(static_cast<size_t>(BatchNormInfMeta::TRAINING_INDEX))
+       << ", Momentum = "
+       << m_meta_data.get(static_cast<size_t>(BatchNormInfMeta::MOMENTUM_INDEX))
+       << ", EPS="
+       << m_meta_data.get(static_cast<size_t>(BatchNormInfMeta::EPS_INDEX));
     return ss.str();
   }
 };

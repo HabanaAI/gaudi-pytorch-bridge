@@ -85,47 +85,74 @@ TEST_F(LazyNormKernelTest, LayerNormBackwardExecute) {
 }
 
 TEST_F(LazyNormKernelTest, BatchNormForwardExecute) {
-  auto input_tensor =
-      torch::arange(480, torch::dtype(torch::kFloat).requires_grad(false))
-          .resize_({10, 3, 4, 4}, c10::MemoryFormat::Contiguous); // nchw
+  auto input_tensor = torch::randn(
+      {10, 3, 4, 2}, torch::dtype(torch::kFloat).requires_grad(false));
   torch::Tensor tHabanaX = input_tensor.to(torch::kHABANA);
   at::Tensor weight =
-      torch::arange(3, torch::dtype(torch::kFloat).requires_grad(false));
+      torch::randn(3, torch::dtype(torch::kFloat).requires_grad(false));
   torch::Tensor tWeight = weight.to(torch::kHABANA);
   at::Tensor bias =
-      torch::arange(3, torch::dtype(torch::kFloat).requires_grad(false));
+      torch::randn(3, torch::dtype(torch::kFloat).requires_grad(false));
   torch::Tensor tBias = bias.to(torch::kHABANA);
-  auto mean =
-      torch::arange(3, torch::dtype(torch::kFloat).requires_grad(false));
+  auto mean = torch::randn(3, torch::dtype(torch::kFloat).requires_grad(false));
   torch::Tensor tHabanaMean = mean.to(torch::kHABANA);
-  auto var = torch::arange(3, torch::dtype(torch::kFloat).requires_grad(false));
+  auto var = torch::ones(3, torch::dtype(torch::kFloat).requires_grad(false));
   torch::Tensor tHabanaVar = var.to(torch::kHABANA);
 
-  // at::Tensor w, b; --> Need to fix
-  // BatchNormForwardOperator::preProcessInputs(..)
+  float mom = 0.1;
+  float eps = 1e-5;
   // Training = True
   auto results_cpu = torch::native_batch_norm(
-      input_tensor, weight, bias, mean, var, true, 0.1, 0.01);
+      input_tensor, weight, bias, mean, var, true, mom, eps);
+
   at::Tensor result_cpu = std::get<0>(results_cpu);
+  auto curr_mean_cpu = std::get<1>(results_cpu);
 
   auto results = torch::native_batch_norm(
-      tHabanaX, tWeight, tBias, tHabanaMean, tHabanaVar, true, 0.1, 0.01);
+      tHabanaX, tWeight, tBias, tHabanaMean, tHabanaVar, true, mom, eps);
 
+  HbLazyTensor::StepMarker({});
   at::Tensor result_lazy = std::get<0>(results).to(torch::kCPU);
+  auto curr_mean_lazy = std::get<1>(results).to(torch::kCPU);
 
   EXPECT_EQ(allclose(result_lazy, result_cpu, 0.01, 0.01), true);
+  EXPECT_EQ(allclose(curr_mean_lazy.cpu(), curr_mean_cpu, 0.01, 0.01), true);
+  EXPECT_EQ(allclose(tHabanaMean.cpu(), mean, 0.01, 0.01), true);
+  // Note higher tolerance needed for variance due to TPC kernel accuracy
+  // limitation
+  EXPECT_EQ(allclose(tHabanaVar.cpu(), var, 0.1, 0.1), true);
+}
+
+TEST_F(LazyNormKernelTest, BatchNormInferenceExecute) {
+  auto input_tensor = torch::randn(
+      {5, 3, 7, 2}, torch::dtype(torch::kFloat).requires_grad(false));
+  torch::Tensor tHabanaX = input_tensor.to(torch::kHABANA);
+  at::Tensor weight =
+      torch::randn(3, torch::dtype(torch::kFloat).requires_grad(false));
+  torch::Tensor tWeight = weight.to(torch::kHABANA);
+  at::Tensor bias =
+      torch::randn(3, torch::dtype(torch::kFloat).requires_grad(false));
+  torch::Tensor tBias = bias.to(torch::kHABANA);
+  auto mean = torch::randn(3, torch::dtype(torch::kFloat).requires_grad(false));
+  torch::Tensor tHabanaMean = mean.to(torch::kHABANA);
+  auto var = torch::ones(3, torch::dtype(torch::kFloat).requires_grad(false));
+  torch::Tensor tHabanaVar = var.to(torch::kHABANA);
+
+  float mom = 0.1;
+  float eps = 1e-5;
 
   // Training = False
-  results_cpu = torch::native_batch_norm(
-      input_tensor, weight, bias, mean, var, false, 0.1, 0.01);
-  result_cpu = std::get<0>(results_cpu);
+  auto results_cpu = torch::native_batch_norm(
+      input_tensor, weight, bias, mean, var, false, mom, eps);
+  auto result_cpu = std::get<0>(results_cpu);
 
-  results = torch::native_batch_norm(
-      tHabanaX, tWeight, tBias, tHabanaMean, tHabanaVar, false, 0.1, 0.01);
+  auto results = torch::native_batch_norm(
+      tHabanaX, tWeight, tBias, tHabanaMean, tHabanaVar, false, mom, eps);
 
-  result_lazy = std::get<0>(results).to(torch::kCPU);
+  HbLazyTensor::StepMarker({});
+  auto result_lazy = std::get<0>(results).to(torch::kCPU);
 
-  EXPECT_EQ(allclose(result_lazy, result_cpu, 0.01, 0.01), true);
+  EXPECT_EQ(allclose(result_lazy, result_cpu, 0.001, 0.001), true);
 }
 
 TEST_F(LazyNormKernelTest, BatchNormBackwardExecute) {

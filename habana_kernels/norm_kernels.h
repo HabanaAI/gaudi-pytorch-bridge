@@ -93,6 +93,82 @@ class BatchNormForwardOperator : public habana::HabanaOperator {
   bool is_eager_mode = false;
 };
 
+// Used in lazy mode to avoid the memcopy nodes for RMV
+class BatchNormForwardRmvOperator : public habana::HabanaOperator {
+ public:
+  // Used in training mode
+  BatchNormForwardRmvOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator("bn_fwd_rmv") {
+    this->CreateSynContext(device_id);
+    scalarType_ = scalarType;
+    // assign layouts for input and output tensors
+
+    kernel_meta_data_.input_layout.assign(
+        {habana::LayoutFormat::NHWC,
+         habana::LayoutFormat::ANY,
+         habana::LayoutFormat::ANY,
+         habana::LayoutFormat::ANY,
+         habana::LayoutFormat::ANY});
+    kernel_meta_data_.output_layout.assign(
+        {habana::LayoutFormat::NHWC,
+         habana::LayoutFormat::ANY,
+         habana::LayoutFormat::ANY,
+         habana::LayoutFormat::ANY,
+         habana::LayoutFormat::ANY});
+  }
+
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      std::vector<bool> is_output_persistent) override;
+
+  void preProcessInputs(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs);
+
+ private:
+  at::Tensor create_or_return_tensor_bn(
+      synapse_helpers::graph& graph,
+      const at::Tensor& input,
+      uint size,
+      at::Device device,
+      int syn_index);
+  at::Tensor create_or_return_pt_tensor_bn(
+      const at::Tensor& input,
+      uint size,
+      at::Device device);
+
+  c10::ScalarType scalarType_;
+  std::vector<synapse_helpers::tensor_or_ref> tensors_;
+  std::vector<at::Tensor> pt_inputs;
+  std::vector<at::Tensor> pt_outputs;
+  std::vector<at::Tensor> pre_inputs;
+};
+
+// Used in lazy mode to avoid the memcopy nodes for RMV
+class BatchNormInfOperator : public habana::HabanaOperator {
+ public:
+  // Used in eval mode
+  BatchNormInfOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator("bn_fwd_inf") {
+    this->CreateSynContext(device_id);
+    // assign layouts for input and output tensors
+
+    kernel_meta_data_.input_layout.assign(
+        {habana::LayoutFormat::NHWC,
+         habana::LayoutFormat::ANY,
+         habana::LayoutFormat::ANY,
+         habana::LayoutFormat::ANY,
+         habana::LayoutFormat::ANY});
+    kernel_meta_data_.output_layout.assign({habana::LayoutFormat::NHWC});
+  }
+
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent) override;
+};
+
 class BatchNormBackwardOperator : public habana::HabanaOperator {
  public:
   // NOTE: BatchNormBackwardOperator node_type differs for training and eval

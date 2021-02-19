@@ -1044,6 +1044,7 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu_wrap(
         output_mask);
   }
 };
+
 std::tuple<Tensor, Tensor, Tensor> layer_norm_hpu_wrap(
     const Tensor& input,
     const Tensor& weight,
@@ -2464,6 +2465,10 @@ TORCH_LIBRARY(hpu, m) {
   m.def("permute_cl(Tensor(a) self, int[] dims) -> Tensor(a)");
   m.def("control_edge_other_(Tensor self, Tensor other) -> Tensor(a!)");
   m.def("control_edge_(Tensor self)-> Tensor(a!)");
+  m.def(
+      "hpu::native_batch_norm_rmv(Tensor input, Tensor? weight, Tensor? bias, Tensor? running_mean, Tensor? running_var, bool training, float momentum, float eps) -> (Tensor, Tensor, Tensor)");
+  m.def(
+      "hpu::native_batch_norm_inf(Tensor input, Tensor? weight, Tensor? bias, Tensor? running_mean, Tensor? running_var, bool training, float momentum, float eps) -> (Tensor)");
 }
 
 TORCH_LIBRARY_IMPL(hpu, HABANATensorId, m) {

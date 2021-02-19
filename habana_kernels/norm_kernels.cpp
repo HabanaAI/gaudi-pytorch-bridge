@@ -673,6 +673,213 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu(
   return std::make_tuple(output_resized, bn_outputs[3], bn_outputs[4]);
 }
 
+/*********************************************************************************
+ * @brief - This op is used in lazy mode to avoid memcopy nodes for RMV
+ *********************************************************************************/
+at::Tensor BatchNormForwardRmvOperator::create_or_return_tensor_bn(
+    synapse_helpers::graph& graph,
+    const Tensor& input,
+    uint size,
+    Device device,
+    int syn_index) {
+  Tensor ret_tensor;
+  if (!input.defined()) {
+    // If optiona tensor is undefined, we create one and synapse tensor
+    // appended info is patching info passed back to the kernel for this new
+    // tensor which lowering kernel is unaware of
+    ret_tensor = at::empty({size}, device);
+    auto syn_tensor = habana_helpers::create_tensor(
+        ret_tensor, graph.get_graph_handle(), true, c10::nullopt);
+    auto it = p_context_->syn_inputs_.begin() + syn_index;
+    p_context_->syn_inputs_.insert(it, std::move(syn_tensor));
+
+    appended_tensor_infos.emplace_back((syn_tensor).tensor_name_, ret_tensor);
+  } else if (input.defined() && input.device() != DeviceType::HABANA) {
+    ret_tensor = input.to(DeviceType::HABANA);
+    ;
+  } else {
+    return input;
+  }
+
+  return ret_tensor;
+}
+at::Tensor BatchNormForwardRmvOperator::create_or_return_pt_tensor_bn(
+    const at::Tensor& input,
+    uint size,
+    Device device) {
+  Tensor ret_tensor;
+  if (!input.defined()) {
+    ret_tensor = at::empty({size}, device);
+  } else if (input.defined() && input.device() != DeviceType::HABANA) {
+    ret_tensor = input.to(DeviceType::HABANA);
+  } else {
+    return input;
+  }
+  return ret_tensor;
+}
+
+void BatchNormForwardRmvOperator::preProcessInputs(
+    synapse_helpers::graph& graph,
+    Stack& inputs) {
+  TORCH_CHECK(
+      inputs.size() == 8,
+      "Incorrect number of inputs against expected count for BatchNormForward operator");
+  TORCH_CHECK(inputs[0].isTensor(), "Input type expected to be tensor");
+  TORCH_CHECK(inputs[1].isTensor(), "Input type expected to be tensor");
+  TORCH_CHECK(inputs[2].isTensor(), "Input type expected to be tensor");
+  TORCH_CHECK(inputs[3].isTensor(), "Input type expected to be tensor");
+  TORCH_CHECK(inputs[4].isTensor(), "Input type expected to be tensor");
+  TORCH_CHECK(inputs[5].isBool(), "Input type expected to be bool");
+  TORCH_CHECK(inputs[6].isDouble(), "Input type expected to be double");
+  TORCH_CHECK(inputs[7].isDouble(), "Input type expected to be double");
+
+  const auto input = inputs[0].toTensor();
+  const auto weight = inputs[1].toTensor();
+  const auto bias = inputs[2].toTensor();
+  const auto running_mean = inputs[3].toTensor();
+  const auto running_var = inputs[4].toTensor();
+  const auto training = inputs[5].toBool();
+
+  std::string guid = training ? "cud_bn_fwd_ex"
+                              : "batch_norm_inf_" +
+          habana_helpers::name_suffix_from_type(input.scalar_type());
+  SetGuid(guid);
+
+  Tensor wt_hpu, bias_hpu;
+  auto device = DeviceType::HABANA;
+
+  if (training) {
+    wt_hpu = create_or_return_tensor_bn(
+        graph, weight, input.sizes()[3], device, (uint)1);
+    bias_hpu = create_or_return_tensor_bn(
+        graph, bias, input.sizes()[3], device, (uint)2);
+  } else {
+    bias_hpu = create_or_return_tensor_bn(
+        graph, bias, input.sizes()[3], device, (uint)1);
+    wt_hpu = create_or_return_tensor_bn(
+        graph, weight, input.sizes()[3], device, (uint)2);
+  }
+
+  Tensor running_mean_hpu = create_or_return_tensor_bn(
+      graph, running_mean, input.sizes()[3], device, (uint)3);
+  Tensor running_var_hpu = create_or_return_tensor_bn(
+      graph, running_var, input.sizes()[3], device, (uint)4);
+
+  Tensor residualAdd;
+  // create a new syn tensor for bias and add it
+  // This residual add is dummy tensor to match the API requirements
+  residualAdd = at::empty(input.sizes(), input.options());
+  auto syn_tensor_add = habana_helpers::create_tensor(
+      residualAdd, graph.get_graph_handle(), true, c10::nullopt);
+  auto it = p_context_->syn_inputs_.begin() + 3;
+
+  // This is to communicate to graph lowering that a new tensor was
+  // added by the kernel and it can add to patching in lowering
+  appended_tensor_infos.emplace_back(
+      (syn_tensor_add).tensor_name_, residualAdd);
+  p_context_->syn_inputs_.insert(it, std::move(syn_tensor_add));
+
+  pre_inputs = {
+      std::move(input),
+      std::move(wt_hpu),
+      std::move(bias_hpu),
+      std::move(residualAdd),
+      std::move(running_mean_hpu),
+      std::move(running_var_hpu)};
+  pt_inputs = {
+      pre_inputs[0],
+      pre_inputs[1],
+      pre_inputs[2],
+      pre_inputs[3],
+      pre_inputs[4],
+      pre_inputs[5]};
+
+  p_context_->pt_inputs_.clear();
+  SetPTInputs(pt_inputs);
+}
+
+void BatchNormForwardRmvOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    Stack& in_stack,
+    std::vector<bool> is_output_persistent) {
+  // Add intermediate tensors and add to op
+  preProcessInputs(graph, in_stack);
+
+  TORCH_CHECK(in_stack[5].isBool(), "Input type expected to be bool");
+  TORCH_CHECK(in_stack[6].isDouble(), "Input type expected to be double");
+  TORCH_CHECK(in_stack[7].isDouble(), "Input type expected to be double");
+  TORCH_CHECK(
+      is_output_persistent.size() == 5,
+      "BatchNormForwardOperator: is_output_persistent should be 5 in training mode");
+  const auto momentum = in_stack[6].toDouble();
+  const auto eps = in_stack[7].toDouble();
+
+  auto output =
+      habana_helpers::createPTTensor(pre_inputs[0], is_output_persistent[0]);
+
+  AllocateSynapseOutput(graph, output, is_output_persistent[0]);
+
+  auto current_mean =
+      habana_helpers::createPTTensor(pre_inputs[4], is_output_persistent[1]);
+  auto current_istd =
+      habana_helpers::createPTTensor(pre_inputs[5], is_output_persistent[2]);
+
+  std::vector<bool> persistent_output_flags{
+      is_output_persistent[1], is_output_persistent[2]};
+  AllocateSynapseOutputs(
+      graph, {current_mean, current_istd}, persistent_output_flags);
+
+  auto running_mean_out =
+      habana_helpers::createPTTensor(pre_inputs[4], is_output_persistent[3]);
+  auto running_var_out =
+      habana_helpers::createPTTensor(pre_inputs[5], is_output_persistent[4]);
+
+  AllocateSynapseOutputs(
+      graph,
+      {running_mean_out, running_var_out},
+      {is_output_persistent[3], is_output_persistent[4]});
+
+  // synapse uses expAvgfactor = 1 - momentum
+  struct synCudBnExParams params = {
+      synBnOps::BN_OPS_BN,
+      static_cast<float>(1 - momentum),
+      static_cast<float>(eps)};
+  p_context_->params_.emplace<synCudBnExParams>(params);
+  p_context_->params_size_ = sizeof(params);
+  AddNodeToSynapseGraph(graph, &params, sizeof(params));
+}
+
+void BatchNormInfOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    Stack& in_stack,
+    bool is_output_persistent) {
+  TORCH_CHECK(in_stack[0].isTensor(), "Input type expected to be tensor");
+  TORCH_CHECK(in_stack[1].isTensor(), "Input type expected to be tensor");
+  TORCH_CHECK(in_stack[5].isBool(), "Input type expected to be bool");
+  TORCH_CHECK(in_stack[6].isDouble(), "Input type expected to be double");
+  TORCH_CHECK(in_stack[7].isDouble(), "Input type expected to be double");
+
+  auto input = in_stack[0].toTensor();
+  const auto momentum = in_stack[6].toDouble();
+  const auto eps = in_stack[7].toDouble();
+
+  std::string guid = "batch_norm_inf_" +
+      habana_helpers::name_suffix_from_type(input.scalar_type());
+  SetGuid(guid);
+
+  auto output = habana_helpers::createPTTensor(input, is_output_persistent);
+
+  AllocateSynapseOutput(graph, output, is_output_persistent);
+
+  struct ns_BatchNormKernel::Params params;
+  params.threshold.f = 0.0;
+  params.momentum = static_cast<float>(momentum);
+  params.epsilon = static_cast<float>(eps);
+  p_context_->params_.emplace<ns_BatchNormKernel::Params>(params);
+  p_context_->params_size_ = sizeof(params);
+  AddNodeToSynapseGraph(graph, &params, sizeof(params));
+}
+
 Tensor BatchNormBackwardOperator::create_or_return_input_tensor_bn_bwd(
     synapse_helpers::graph& graph,
     const Tensor& input,
@@ -2073,6 +2280,18 @@ static auto& KernelRegistry =
             "aten::native_batch_norm",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<BatchNormForwardOperator>(
+                  device_id, node_type);
+            })
+        .add(
+            "hpu::native_batch_norm_rmv",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<BatchNormForwardRmvOperator>(
+                  device_id, node_type);
+            })
+        .add(
+            "hpu::native_batch_norm_inf",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<BatchNormInfOperator>(
                   device_id, node_type);
             })
         .add(
