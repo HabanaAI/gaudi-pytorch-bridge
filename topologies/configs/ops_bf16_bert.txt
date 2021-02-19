@@ -7,7 +7,6 @@ gelu
 iadd
 linear
 layer_norm
-log_softmax
 matmul
 mm
 rsub
