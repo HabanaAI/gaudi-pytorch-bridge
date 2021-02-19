@@ -1,10 +1,48 @@
+# Copyright (c) 2021, Habana Labs Ltd.  All rights reserved.
+# Copyright (c) 2019-2020, NVIDIA CORPORATION. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#       http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# MIT License
+#
+# Copyright (c) 2019 cybertronai
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
 import torch
 from torch.optim import Optimizer
 
 
 class NVLAMB(Optimizer):
 
-    """Implements a pure pytorch variant of FuseLAMB optimizer from apex.optimizers.FusedLAMB.
+    """Implements a pure pytorch variant of FuseLAMB (NVLAMB variant) optimizer from apex.optimizers.FusedLAMB
+    reference: https://github.com/NVIDIA/DeepLearningExamples/blob/master/PyTorch/LanguageModeling/Transformer-XL/pytorch/lamb.py
 
     LAMB was proposed in `Large Batch Optimization for Deep Learning: Training BERT in 76 minutes`_.
 
@@ -140,14 +178,14 @@ class NVLAMB(Optimizer):
                 exp_avg_sq = exp_avg_sq_.div(bias_correction2)
 
                 # || w_t ||
-                weight_norm = p.data.norm()
+                weight_norm = p.data.norm(2.0)
                 # u_t
                 exp_avg_sq_sqrt = torch.sqrt(exp_avg_sq)
                 adam_step = exp_avg.div_(exp_avg_sq_sqrt.add_(group['eps']))
                 if group['weight_decay'] != 0:
                     adam_step.add_(p.data, alpha=group['weight_decay'])
                 # || u_t ||
-                adam_norm = adam_step.norm()
+                adam_norm = adam_step.norm(2.0)
                 if (group['weight_decay'] != 0 or self.use_nvlamb) and adam_norm > 0 and weight_norm > 0:
                     trust_ratio = weight_norm / adam_norm
                     trust_ratio = trust_ratio.item()

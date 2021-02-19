@@ -1,4 +1,5 @@
 # coding=utf-8
+# Copyright (c) 2021, Habana Labs Ltd.  All rights reserved.
 # Copyright (c) 2019 NVIDIA CORPORATION. All rights reserved.
 # Copyright 2018 The Google AI Language Team Authors and The HugginFace Inc. team.
 
@@ -60,7 +61,6 @@ except ImportError:
     else:
         from torch.nn.parallel import DistributedDataParallel as DDP
 
-from optimization import BertAdam
 from lamb import NVLAMB
 
 import dllogger
@@ -99,7 +99,7 @@ def create_pretraining_dataset(input_file, max_pred_length, shared_list, args, w
     train_dataloader = DataLoader(train_data, sampler=train_sampler,
                                   batch_size=args.train_batch_size * args.n_pu,
                                   num_workers=num_workers, worker_init_fn=worker_init,
-                                  pin_memory=use_pin_memory)
+                                  pin_memory=use_pin_memory, drop_last=True)
     return train_dataloader, input_file
 
 class pretraining_dataset(Dataset):
@@ -317,10 +317,7 @@ def parse_arguments():
     parser.add_argument('--hmp_verbose',
                         action='store_true',
                         help='enable verbose mode for hmp')
-    parser.add_argument("--use_adam",
-                        action='store_true',
-                        help='use Adam optimizer else use pure pytorch LAMB optimizer')
-    parser.add_argument("--use_custom_lamb",
+    parser.add_argument("--use_fused_lamb",
                         action='store_true',
                         help='use FusedLamb optimizer')
 
@@ -329,7 +326,7 @@ def parse_arguments():
 
     if args.steps_this_run < 0:
         args.steps_this_run = args.max_steps
-
+    
     return args
 
 def setup_training(args):
@@ -450,14 +447,11 @@ def prepare_model_and_optimizer(args, device):
             print("resume step from ", args.resume_step)
 
     model.to(device)
+    # BERT modeling  uses weight sharing between word embedding and prediction decoder.
+    # So make sure the storage is pointing properly even after model is moved to device.
     if args.use_habana:
-        # Embedding weights are shared with decoder weights in the model,
-        # with this copy we explicitly specify that decoder weight is not
-        # a named parameter in the model and just a reference to the embedding
-        # weights.
-        # This extra copy is needed to re-establish the Link between shared
-        # weights because of device movement of the shared tensor
         model.cls.predictions.decoder.weight = model.bert.embeddings.word_embeddings.weight
+
     param_optimizer = list(model.named_parameters())
     no_decay = ['bias', 'gamma', 'beta', 'LayerNorm']
     
@@ -465,23 +459,22 @@ def prepare_model_and_optimizer(args, device):
         {'params': [p for n, p in param_optimizer if not any(nd in n for nd in no_decay)], 'weight_decay': 0.01},
         {'params': [p for n, p in param_optimizer if any(nd in n for nd in no_decay)], 'weight_decay': 0.0}]
 
-    if torch.cuda.is_available():
-        optimizer = FusedLAMB(optimizer_grouped_parameters,
-                              lr=args.learning_rate)
-    else:
-        if args.use_adam:
-            optimizer = BertAdam(
-                        optimizer_grouped_parameters,
-                        lr=args.learning_rate,
-                        warmup=args.warmup_proportion,
-                        t_total=args.max_steps)
-        elif args.use_custom_lamb and args.use_habana:
+    if args.use_habana:
+        if args.use_fused_lamb:
             try:
                 from hb_custom import FusedLamb
             except ImportError:
                 raise ImportError("Please install hbopt.")
             optimizer = FusedLamb(optimizer_grouped_parameters,
-                                  lr=args.learning_rate)
+                              lr=args.learning_rate)
+        else:
+            optimizer = NVLAMB(
+                        optimizer_grouped_parameters,
+                        lr=args.learning_rate)
+    else:
+        if torch.cuda.is_available():
+            optimizer = FusedLAMB(optimizer_grouped_parameters,
+                              lr=args.learning_rate)
         else:
             optimizer = NVLAMB(
                         optimizer_grouped_parameters,
@@ -575,7 +568,7 @@ def take_optimizer_step(args, optimizer, model, overflow_buf, global_step):
             had_overflow = 0
         # 6. call optimizer step function
         if had_overflow == 0:
-            if args.use_habana and args.hmp and not(args.use_custom_lamb):
+            if args.use_habana and args.hmp and not(args.use_fused_lamb):
                 from hmp import hmp
                 with hmp.disable_casts():
                     optimizer.step()
@@ -594,7 +587,7 @@ def take_optimizer_step(args, optimizer, model, overflow_buf, global_step):
         for param in model.parameters():
             param.grad = None
     else:
-        if args.use_habana and args.hmp and not(args.use_custom_lamb):
+        if args.use_habana and args.hmp and not(args.use_fused_lamb):
             from hmp import hmp
             with hmp.disable_casts():
                 optimizer.step()
@@ -702,7 +695,7 @@ def main():
                 train_dataloader = DataLoader(train_data, sampler=train_sampler,
                                               batch_size=args.train_batch_size * args.n_pu,
                                               num_workers=num_workers, worker_init_fn=worker_init,
-                                              pin_memory=use_pin_memory)
+                                              pin_memory=use_pin_memory, drop_last=True)
                 # shared_file_list["0"] = (train_dataloader, data_file)
             else:
                 train_dataloader = restored_data_loader

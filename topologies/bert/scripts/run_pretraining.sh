@@ -1,5 +1,5 @@
 #!/bin/bash
-
+# Copyright (c) 2021, Habana Labs Ltd.  All rights reserved.
 # Copyright (c) 2019 NVIDIA CORPORATION. All rights reserved.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
 
 train_batch_size=${1:-8192}
 learning_rate=${2:-"6e-3"}
-precision=${3:-"fp32"}
+precision=${3:-"bf16"}
 n_pu=${4:-1} #Number of processing units
 warmup_proportion=${5:-"0.2843"}
 train_steps=${6:-7038}
@@ -23,7 +23,7 @@ save_checkpoint_steps=${7:-200}
 resume_training=${8:-"false"}
 create_logfile=${9:-"true"}
 accumulate_gradients=${10:-"true"}
-gradient_accumulation_steps=${11:-256}
+gradient_accumulation_steps=${11:-128}
 seed=${12:-12439}
 job_name=${13:-"bert_lamb_pretraining"}
 allreduce_post_accumulation=${14:-"true"}
@@ -38,7 +38,7 @@ DATA_DIR_PHASE1=${21:-$BERT_DATASET_DIR/${DATASET}/}
 BERT_CONFIG=bert_config.json
 DATASET2=hdf5_lower_case_1_seq_len_512_max_pred_80_masked_lm_prob_0.15_random_seed_12345_dupe_factor_5/books_wiki_en_corpus # change this for other datasets
 DATA_DIR_PHASE2=${22:-$BERT_DATASET_DIR/${DATASET2}/}
-CODEDIR=${23:-"$BERT_REPO_BASE"}
+CODEDIR=${23:-"$BERT_REPO_BASE/pretraining"}
 init_checkpoint=${24:-"None"}
 RESULTS_DIR=$BERT_OUT_DIR/results
 CHECKPOINTS_DIR=$RESULTS_DIR/checkpoints
@@ -69,6 +69,8 @@ if [ "$precision" = "fp16" ] ; then
 elif [ "$precision" = "fp32" ] ; then
    PREC=""
 elif [ "$precision" = "tf32" ] ; then
+   PREC=""
+elif [ "$precision" = "bf16" ] ; then
    PREC=""
 else
    echo "Unknown <precision> argument"
@@ -125,9 +127,11 @@ CMD+=" --do_train"
 CMD+=" --json-summary ${RESULTS_DIR}/dllogger.json "
 CMD+=" --use_habana "
 CMD+=" --use_jit_trace "
-CMD+=" --hmp "
-CMD+=" --hmp_bf16 $BERT_REPO_BASE/../configs/ops_bf16_bert.txt "
-CMD+=" --hmp_fp32 $BERT_REPO_BASE/../configs/ops_fp32_bert.txt "
+if [ "$precision" = "bf16" ] ; then
+    CMD+=" --hmp "
+    CMD+=" --hmp_bf16 $BERT_REPO_BASE/../configs/ops_bf16_bert_pt.txt "
+    CMD+=" --hmp_fp32 $BERT_REPO_BASE/../configs/ops_fp32_bert_pt.txt "
+fi
 
 if [ "$n_pu" -gt "1" ]; then
     CMD="python3 -m torch.distributed.launch --nproc_per_node=$n_pu $CMD"
@@ -165,6 +169,8 @@ if [ "$precision" = "fp16" ] ; then
 elif [ "$precision" = "fp32" ] ; then
    PREC=""
 elif [ "$precision" = "tf32" ] ; then
+   PREC=""
+elif [ "$precision" = "bf16" ] ; then
    PREC=""
 else
    echo "Unknown <precision> argument"
@@ -210,9 +216,11 @@ CMD+=" --do_train --phase2 --resume_from_checkpoint --phase1_end_step=$train_ste
 CMD+=" --json-summary ${RESULTS_DIR}/dllogger.json "
 CMD+=" --use_habana "
 CMD+=" --use_jit_trace "
-CMD+=" --hmp "
-CMD+=" --hmp_bf16 $BERT_REPO_BASE/../configs/ops_bf16_bert.txt "
-CMD+=" --hmp_fp32 $BERT_REPO_BASE/../configs/ops_fp32_bert.txt "
+if [ "$precision" = "bf16" ] ; then
+    CMD+=" --hmp "
+    CMD+=" --hmp_bf16 $BERT_REPO_BASE/../configs/ops_bf16_bert_pt.txt "
+    CMD+=" --hmp_fp32 $BERT_REPO_BASE/../configs/ops_fp32_bert_pt.txt "
+fi
 
 if [ "$n_pu" -gt "1" ]; then
     CMD="python3 -m torch.distributed.launch --nproc_per_node=$n_pu $CMD"
