@@ -345,7 +345,7 @@ Tensor lt_tensor_hpu(Tensor& self, Tensor& other) {
  * @param self [in] - input tensor, 1-4D, FP32/BF16
  * @param other [in] - Scalar
  ************************************************************************/
-Tensor ge_scalar_hpu(Tensor& self, Scalar other) {
+Tensor ge_scalar_hpu(const Tensor& self, Scalar other) {
   PT_KERNEL_BEGIN;
   if (self.dim() == 0) {
     self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
@@ -362,7 +362,7 @@ Tensor ge_scalar_hpu(Tensor& self, Scalar other) {
  * @param self [in] - input tensor, 1-4D, FP32/BF16
  * @param other [in] - input tensor, 1-4D, FP32/BF16
  ************************************************************************/
-Tensor ge_tensor_hpu(Tensor& self, Tensor& other) {
+Tensor ge_tensor_hpu(const Tensor& self, const Tensor& other) {
   PT_KERNEL_BEGIN;
   std::vector<at::Tensor> pt_inputs{self, other};
   torch::jit::Stack stack{IValue(self), IValue(other)};
@@ -376,7 +376,7 @@ Tensor ge_tensor_hpu(Tensor& self, Tensor& other) {
  * @param self - tensor_0
  * @param other - tensor_1
  ************************************************************************/
-Tensor ne_tensor_hpu(Tensor& self, Tensor& other) {
+Tensor ne_tensor_hpu(const Tensor& self, const Tensor& other) {
   PT_KERNEL_BEGIN;
   // create OP graph and populate the stack with inputs
   auto graph = std::make_shared<torch::jit::Graph>();
@@ -408,7 +408,7 @@ Tensor ne_tensor_hpu(Tensor& self, Tensor& other) {
  * @param self - tensor_0
  * @param other - Scalar
  ************************************************************************/
-Tensor ne_scalar_hpu(Tensor& self, Scalar other) {
+Tensor ne_scalar_hpu(const Tensor& self, Scalar other) {
   PT_KERNEL_BEGIN;
   if (self.dim() == 0) {
     self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});

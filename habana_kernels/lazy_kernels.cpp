@@ -990,7 +990,7 @@ Tensor eq_tensor_scalar_hpu_lazy(Tensor& self, Scalar other) {
   return eq_tensor_scalar_hpu(self, other);
 };
 
-Tensor ne_scalar_hpu_lazy(Tensor& self, Scalar other) {
+Tensor ne_scalar_hpu_lazy(const Tensor& self, Scalar other) {
   PT_LAZY_TRACE;
   auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
   auto hl_other = habana_lazy::GetIrValueForScalar(other);
@@ -1015,7 +1015,7 @@ Tensor ne_scalar_hpu_lazy(Tensor& self, Scalar other) {
   return result;
 };
 
-Tensor ne_tensor_hpu_lazy(Tensor& self, Tensor& other) {
+Tensor ne_tensor_hpu_lazy(const Tensor& self, const Tensor& other) {
   PT_LAZY_TRACE;
   auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
   auto hl_other = habana_lazy::GetOrCreateHbLazyTensor(other, c10::kHABANA);
@@ -1084,7 +1084,7 @@ Tensor lt_tensor_hpu_lazy(Tensor& self, Tensor& other) {
   return result;
 };
 
-Tensor ge_scalar_hpu_lazy(Tensor& self, Scalar other) {
+Tensor ge_scalar_hpu_lazy(const Tensor& self, Scalar other) {
   PT_LAZY_TRACE;
   auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
   auto hl_other = habana_lazy::GetIrValueForScalar(other);
@@ -1109,7 +1109,7 @@ Tensor ge_scalar_hpu_lazy(Tensor& self, Scalar other) {
   return result;
 };
 
-Tensor ge_tensor_hpu_lazy(Tensor& self, Tensor& other) {
+Tensor ge_tensor_hpu_lazy(const Tensor& self, const Tensor& other) {
   PT_LAZY_TRACE;
   auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
   auto hl_other = habana_lazy::GetOrCreateHbLazyTensor(other, c10::kHABANA);

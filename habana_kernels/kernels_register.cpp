@@ -384,7 +384,7 @@ Tensor lt_tensor_hpu_wrap(Tensor& self, Tensor& other) {
     return lt_tensor_hpu(self, other);
   }
 };
-Tensor ge_scalar_hpu_wrap(Tensor& self, Scalar other) {
+Tensor ge_scalar_hpu_wrap(const Tensor& self, Scalar other) {
   if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
       std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = ge_scalar_hpu_lazy(self, other);
@@ -394,7 +394,7 @@ Tensor ge_scalar_hpu_wrap(Tensor& self, Scalar other) {
     return ge_scalar_hpu(self, other);
   }
 };
-Tensor ge_tensor_hpu_wrap(Tensor& self, Tensor& other) {
+Tensor ge_tensor_hpu_wrap(const Tensor& self, const Tensor& other) {
   if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
       std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = ge_tensor_hpu_lazy(self, other);
@@ -404,7 +404,7 @@ Tensor ge_tensor_hpu_wrap(Tensor& self, Tensor& other) {
     return ge_tensor_hpu(self, other);
   }
 };
-Tensor ne_scalar_hpu_wrap(Tensor& self, Scalar other) {
+Tensor ne_scalar_hpu_wrap(const Tensor& self, Scalar other) {
   if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
       std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = ne_scalar_hpu_lazy(self, other);
@@ -414,7 +414,7 @@ Tensor ne_scalar_hpu_wrap(Tensor& self, Scalar other) {
     return ne_scalar_hpu(self, other);
   }
 };
-Tensor ne_tensor_hpu_wrap(Tensor& self, Tensor& other) {
+Tensor ne_tensor_hpu_wrap(const Tensor& self, const Tensor& other) {
   if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
       std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = ne_tensor_hpu_lazy(self, other);
