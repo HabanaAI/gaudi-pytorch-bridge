@@ -75,7 +75,7 @@ Tensor batch_norm_resize(
         shape.insert(shape.end(), view_sizes.begin(), view_sizes.end());
         shape.push_back(last);
         input_resize = input_resize.view(shape);
-      } else {
+      } else if (num_out_dim < num_in_dim) {
         // Remove the additional x1 dimensions
         // TODO: The logic here won't work when size of any intermediate
         // (non-start,end) dimensions is 1
@@ -97,7 +97,7 @@ Tensor batch_norm_resize(
         // and append to shape
         shape.insert(shape.end(), view_sizes.begin(), view_sizes.end());
         input_resize = input_resize.view(shape);
-      } else {
+      } else if (num_out_dim < num_in_dim) {
         // Remove the additional x1 dimensions
         std::vector<int64_t> new_shape;
         for (uint cnt = 0; cnt < num_out_dim; cnt++) {
