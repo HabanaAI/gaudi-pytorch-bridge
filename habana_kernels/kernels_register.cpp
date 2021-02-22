@@ -497,78 +497,6 @@ std::tuple<Tensor, Tensor, Tensor> convolution_backward_hpu_wrap(
         output_mask);
   }
 };
-std::tuple<Tensor, Tensor, Tensor, Tensor> embedding_bag_hpu_wrap(
-    const Tensor& weight,
-    const Tensor& indices,
-    const Tensor& offsets,
-    bool scale_grad_by_freq,
-    int64_t mode,
-    UNUSED bool sparse,
-    Tensor& per_sample_weights,
-    UNUSED bool include_last_offset) {
-  if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = embedding_bag_hpu_lazy(
-        weight,
-        indices,
-        offsets,
-        scale_grad_by_freq,
-        mode,
-        sparse,
-        per_sample_weights,
-        include_last_offset);
-
-    return t;
-  } else {
-    return embedding_bag_hpu(
-        weight,
-        indices,
-        offsets,
-        scale_grad_by_freq,
-        mode,
-        sparse,
-        per_sample_weights,
-        include_last_offset);
-  }
-};
-Tensor embedding_bag_bwd_hpu_wrap(
-    Tensor& grad,
-    Tensor& indices,
-    Tensor& offsets,
-    UNUSED Tensor& offset2bag,
-    UNUSED Tensor& bag_size,
-    UNUSED Tensor& maximum_indices,
-    int num_weights,
-    bool scale_grad_by_freq,
-    int mode,
-    Tensor per_sample_weights) {
-  if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = embedding_bag_bwd_hpu_lazy(
-        grad,
-        indices,
-        offsets,
-        offset2bag,
-        bag_size,
-        maximum_indices,
-        num_weights,
-        scale_grad_by_freq,
-        mode,
-        per_sample_weights);
-
-    return t;
-  } else {
-    return embedding_bag_bwd_hpu(
-        grad,
-        indices,
-        offsets,
-        offset2bag,
-        bag_size,
-        maximum_indices,
-        num_weights,
-        scale_grad_by_freq,
-        mode,
-        per_sample_weights);
-  }
-};
 Tensor constant_pad_hpu_wrap(
     const Tensor& self,
     IntArrayRef pad,
@@ -2579,28 +2507,6 @@ static auto
                                 .impl_unboxedOnlyKernel<
                                     decltype(convolution_backward_hpu_wrap),
                                     &convolution_backward_hpu_wrap>(
-                                    DispatchKey::HABANATensorId)
-                                .aliasAnalysis(
-                                    c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::
-                        RegisterOperators::
-                            options()
-                                .schema(
-                                    "aten::_embedding_bag(Tensor weight, Tensor indices, Tensor offsets, bool scale_grad_by_freq=False, int mode=0, bool sparse=False, Tensor? per_sample_weights=None, bool include_last_offset=False) -> (Tensor, Tensor, Tensor, Tensor)")
-                                .impl_unboxedOnlyKernel<
-                                    decltype(embedding_bag_hpu_wrap),
-                                    &embedding_bag_hpu_wrap>(DispatchKey::
-                                                                 HABANATensorId)
-                                .aliasAnalysis(
-                                    c10::AliasAnalysisKind::FROM_SCHEMA))
-                .op(torch::
-                        RegisterOperators::
-                            options()
-                                .schema(
-                                    "aten::_embedding_bag_dense_backward(Tensor grad, Tensor indices, Tensor offsets, Tensor offset2bag, Tensor bag_size, Tensor maximum_indices, int num_weights, bool scale_grad_by_freq, int mode, Tensor? per_sample_weights) -> Tensor")
-                                .impl_unboxedOnlyKernel<
-                                    decltype(embedding_bag_bwd_hpu_wrap),
-                                    &embedding_bag_bwd_hpu_wrap>(
                                     DispatchKey::HABANATensorId)
                                 .aliasAnalysis(
                                     c10::AliasAnalysisKind::FROM_SCHEMA))

@@ -117,26 +117,6 @@ std::tuple<Tensor, Tensor, Tensor> convolution_backward_hpu_lazy(
     IntArrayRef output_padding,
     int64_t groups,
     std::array<bool, 3> output_mask);
-std::tuple<Tensor, Tensor, Tensor, Tensor> embedding_bag_hpu_lazy(
-    const Tensor& weight,
-    const Tensor& indices,
-    const Tensor& offsets,
-    bool scale_grad_by_freq,
-    int64_t mode,
-    UNUSED bool sparse,
-    Tensor& per_sample_weights,
-    UNUSED bool include_last_offset);
-Tensor embedding_bag_bwd_hpu_lazy(
-    Tensor& grad,
-    Tensor& indices,
-    Tensor& offsets,
-    UNUSED Tensor& offset2bag,
-    UNUSED Tensor& bag_size,
-    UNUSED Tensor& maximum_indices,
-    int num_weights,
-    bool scale_grad_by_freq,
-    int mode,
-    Tensor per_sample_weights);
 Tensor constant_pad_hpu_lazy(const Tensor& self, IntArrayRef pad, Scalar value);
 Tensor embedding_hpu_lazy(
     const Tensor& weight,
