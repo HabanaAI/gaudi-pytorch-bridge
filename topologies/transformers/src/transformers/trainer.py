@@ -538,6 +538,8 @@ class Trainer:
         train_iterator = trange(
             epochs_trained, int(num_train_epochs), desc="Epoch", disable=not self.is_local_master()
         )
+        for param in model.parameters():
+            param.grad = None
         # log the pre-epoch-loop memory usage
         self.trainMetaData.log_live_mem_alloc("before entering train Iteration " + str(self.trainMetaData.current_train_step))
         #self.trainMetaData.increment_train_step()
@@ -638,7 +640,12 @@ class Trainer:
                             optimizer.step()
 
                     scheduler.step()
-                    model.zero_grad()
+                    if self.args.use_jit_trace:
+                        for param in model_trace.parameters():
+                            param.grad = None
+                    else:
+                        for param in model.parameters():
+                            param.grad = None
                     self.global_step += 1
                     self.epoch = epoch + (step + 1) / len(epoch_iterator)
 
