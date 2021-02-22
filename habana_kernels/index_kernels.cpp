@@ -618,9 +618,10 @@ void IndexPutOperator::AllocateAndAddSynapseNode(
 
     ////value_acc += slice;
     AddOperator addOp(this->p_context_->device_id_, value.scalar_type());
-    temp_stack = {IValue(value),
-                  IValue(index_selectOp.GetOutputs()[0]),
-                  IValue(Scalar(1.0))};
+    temp_stack = {
+        IValue(value),
+        IValue(index_selectOp.GetOutputs()[0]),
+        IValue(Scalar(1.0))};
     addOp.SetSynapseInput(std::move(memcpyOp.GetSynOutputs()[0]));
     addOp.SetSynapseInput(std::move(index_selectOp.GetSynOutputs()[0]));
     addOp.AllocateAndAddSynapseNode(graph, temp_stack, false);
@@ -646,19 +647,21 @@ void IndexPutOperator::AllocateAndAddSynapseNode(
       false; // The value of implicit is currently ignored in broadcast kernel
   BroadcastOperator bcastOp(
       this->p_context_->device_id_, reshapeOp.GetOutputs()[0].scalar_type());
-  temp_stack = {IValue(reshapeOp.GetOutputs()[0]),
-                IValue(value.sizes()),
-                IValue(implicit)};
+  temp_stack = {
+      IValue(reshapeOp.GetOutputs()[0]),
+      IValue(value.sizes()),
+      IValue(implicit)};
   bcastOp.SetSynapseInput(std::move(reshapeOp.GetSynOutputs()[0]));
   bcastOp.AllocateAndAddSynapseNode(graph, temp_stack, false);
   temp_stack.clear();
 
   ////auto temp  = scatter_src_hpu(self, dim, index_broadcast, value_acc);
   ScatterOperator scatterOp(this->p_context_->device_id_, self.scalar_type());
-  temp_stack = {IValue(self),
-                IValue(dim),
-                IValue(bcastOp.GetOutputs()[0]),
-                IValue(value)};
+  temp_stack = {
+      IValue(self),
+      IValue(dim),
+      IValue(bcastOp.GetOutputs()[0]),
+      IValue(value)};
 
   auto& syn_scatter1 =
       scatterOp.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
@@ -1200,8 +1203,8 @@ void SelectOperator::AllocateAndAddSynapseNode(
   auto slice_out_tensor = slice_op.GetOutputs()[0];
   auto shape = slice_out_tensor.sizes().vec();
   shape.erase(shape.begin() + dim);
-  torch::jit::Stack stack2 = {c10::IValue(slice_out_tensor),
-                              c10::IValue(shape)};
+  torch::jit::Stack stack2 = {
+      c10::IValue(slice_out_tensor), c10::IValue(shape)};
   reshape_op.AllocateAndAddSynapseNode(graph, stack2, is_output_persistent);
 
   p_context_->syn_outputs_.emplace_back(
@@ -1458,10 +1461,10 @@ Tensor& arange_hpu(Tensor& output, Scalar start, Scalar end, Scalar step) {
   } else if (output.scalar_type() == ScalarType::Bool) {
     out.at(0).to(c10::ScalarType::Bool);
     PT_KERNEL_END;
-    return out.at(0);
+    return output;
   } else {
     PT_KERNEL_END;
-    return out.at(0);
+    return output;
   }
 }
 
