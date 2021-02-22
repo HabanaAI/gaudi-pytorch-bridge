@@ -11,10 +11,8 @@
 
 #include <absl/strings/str_format.h>
 #include <synapse.h>
-
 #include <algorithm>
 #include <iterator>
-
 #include "habana_helpers/logging.h"
 
 namespace synapse_helpers {

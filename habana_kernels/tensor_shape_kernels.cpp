@@ -528,6 +528,7 @@ inline bool is_hpu_supported_transpose_type(const c10::ScalarType pt_type) {
     case c10::ScalarType::BFloat16:
     case c10::ScalarType::Int:
     case c10::ScalarType::Byte:
+    case c10::ScalarType::Short:
       return true;
     default:
       return false;
@@ -722,9 +723,9 @@ void ReshapeOperator::AllocateAndAddSynapseNode(
       inputs.size() == 2,
       "Incorrect size of input arguments for Reshape Operator");
   Tensor self = inputs[0].toTensor();
-  TORCH_CHECK(
-      self.is_contiguous(),
-      "Right now Reshape is only supported for contiguous Tensor.");
+  // TORCH_CHECK(
+  //    self.is_contiguous(self.suggest_memory_format()),
+  //    "Right now Reshape is only supported for contiguous Tensor.");
 
   auto shape = inputs[1].toIntList();
   auto shape_vector = shape.vec();

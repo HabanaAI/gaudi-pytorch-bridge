@@ -86,6 +86,7 @@ def train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, pri
             # create and evaluate the graph to infer the resulting tensor
             # as channels_last
             hb_torch.mark_step()
+        
 
         tp_probe_tensors_iteration_start(model, device, target, image, trainMetaData.ParamsDump, False)
 
@@ -116,12 +117,14 @@ def evaluate(model, criterion, data_loader, trainMetaData, device, print_freq=10
     header = 'Test:'
     with torch.no_grad():
         for image, target in metric_logger.log_every(data_loader, print_freq, header):
+
             image = image.to(device, non_blocking=True)
+
             if args.channels_last:
                 import hb_torch
                 image = image.contiguous(memory_format=torch.channels_last)
                 hb_torch.mark_step()
-
+            
             target = target.to(device, non_blocking=True)
             trainMetaData.tracept.start(time.time(), 'val_iteration_' + str(trainMetaData.current_eval_step))
             output = model(image)
@@ -448,7 +451,7 @@ def main(args):
     for epoch in range(args.start_epoch, args.epochs):
         trainMetaData.set_current_epoch_no(epoch)
 
-        if args.distributed:
+        if args.distributed and not args.synthetic_data:
             train_sampler.set_epoch(epoch)
 
         train_one_epoch(model_for_train, criterion, optimizer, data_loader,

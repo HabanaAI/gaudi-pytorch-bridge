@@ -63,7 +63,7 @@ class ConvBackwardOperator : public HabanaOperator {
     kernel_meta_data_.input_layout.assign(
         {LayoutFormat::NHWC, LayoutFormat::NHWC, LayoutFormat::HWCK});
     kernel_meta_data_.output_layout.assign(
-        {LayoutFormat::NHWC, LayoutFormat::HWCK, LayoutFormat::ANY});
+        {LayoutFormat::NHWC, LayoutFormat::HWCK, LayoutFormat::NHWC});
   }
 
   virtual void SetPTOutputs(torch::jit::Stack& inputs);

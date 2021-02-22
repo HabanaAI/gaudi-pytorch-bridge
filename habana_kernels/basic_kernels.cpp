@@ -40,9 +40,12 @@ std::map<c10::ScalarType, std::vector<c10::ScalarType>> const
         {c10::ScalarType::Int, {c10::ScalarType::Float}}};
 
 bool copy_transpose_valid(const Tensor& self, const Tensor& src) {
+  // return false;
   return (
-      self.is_contiguous(c10::MemoryFormat::ChannelsLast) && src.numel() != 0 &&
-      self.dim() == 4 && self.scalar_type() == src.scalar_type());
+      self.suggest_memory_format() == c10::MemoryFormat::ChannelsLast &&
+      src.numel() != 0 && self.dim() == 4 &&
+      self.scalar_type() == src.scalar_type() &&
+      src.is_contiguous(c10::MemoryFormat::Contiguous));
 }
 
 void adjustPTSizes(Tensor& t) {
@@ -50,20 +53,19 @@ void adjustPTSizes(Tensor& t) {
   // but data permuted for channel last, so change the size and stride
   // NCHW
   auto sizes = t.sizes().vec();
-  auto strides = t.strides().vec();
   std::vector<int> out_pos = {0, 3, 1, 2};
   std::vector<long int> swapped_sizes = {
       sizes[out_pos[0]],
       sizes[out_pos[1]],
       sizes[out_pos[2]],
       sizes[out_pos[3]]};
-  std::vector<long int> swapped_strides = {
-      strides[out_pos[0]],
-      strides[out_pos[1]],
-      strides[out_pos[2]],
-      strides[out_pos[3]]};
-  t.unsafeGetTensorImpl()->set_sizes_and_strides(
-      swapped_sizes, swapped_strides);
+  t.unsafeGetTensorImpl()->set_sizes_contiguous(swapped_sizes);
+  // For 4D tensors we need to make sure that we generate the PT channel last
+  // strides
+  if (t.dim() == 4) {
+    t.unsafeGetTensorImpl()->empty_tensor_restride(
+        c10::MemoryFormat::ChannelsLast);
+  }
 }
 
 void do_copy_transpose(Tensor& dst, const Tensor& src) {

@@ -145,6 +145,13 @@ Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
   habana_lazy::HbLazyTensor hb_tensor =
       habana_lazy::GetOrCreateHbLazyTensor(src, src.device());
   auto hlresult = habana_lazy::GetOrCreateHbLazyTensor(self, src.device());
+  Tensor src_copy = src;
+  if (src.dim() == 0) {
+    src_copy = src.view(-1);
+    self = self.view(-1);
+  }
+  bool permuted = false;
+  bool storage_attached = hlresult.isStorageAttached();
   if (src.dtype() == self.dtype()) {
     // If both src and dst are already processed ,  go and do the DMA dont wait
     // Else , If we already have storage in dst, add memcopy node to lazy
@@ -153,37 +160,39 @@ Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
     auto result_data = hlresult.CurrentTensorData();
     auto src_data = hb_tensor.CurrentTensorData();
     if (copy_transpose_valid(self, src)) {
+      permuted = true;
       int64_t dim_chl_pos[] = {0, 2, 3, 1};
       at::IntArrayRef chl_pos = dim_chl_pos;
-      Tensor inter = permute_cl_hpu_lazy(src, chl_pos);
-      self = inter;
-    } else if (hlresult.isStorageAttached()) {
-      node = habana_lazy::ir::Node::Create(
-          Symbol::fromQualString("hpu::habana_d2d_memcpy_other"),
-          {hb_tensor.GetIrValue(), hlresult.GetIrValue()});
-      input_pt_vec.push_back(src);
-      input_pt_vec.push_back(self);
-      auto context =
-          habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
-              self.device().index());
-      context->MarkTensorRegistered(hlresult.getTensorUniqueId());
-      habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
-      out.m_index = 0;
-      out.SetNode(node);
-      node->AddInputPtTensors(input_pt_vec);
-      // updatet the view if any
-      updateDstDependencies(hlresult, self);
-    } else {
-      node = habana_lazy::ir::Node::Create(
-          Symbol::fromQualString("hpu::habana_d2d_memcpy"),
-          {hb_tensor.GetIrValue()});
-      input_pt_vec.push_back(src);
-      habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
-      out.m_index = 0;
-      out.SetNode(node);
-      node->AddInputPtTensors(input_pt_vec);
-      // updatet the view if any
-      updateDstDependencies(hlresult, self);
+      self = permute_cl_hpu_lazy(src, chl_pos);
+    } else if (!permuted || storage_attached) {
+      if (storage_attached) {
+        node = habana_lazy::ir::Node::Create(
+            Symbol::fromQualString("hpu::habana_d2d_memcpy_other"),
+            {hb_tensor.GetIrValue(), hlresult.GetIrValue()});
+        input_pt_vec.push_back(src);
+        input_pt_vec.push_back(self);
+        auto context =
+            habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
+                self.device().index());
+        context->MarkTensorRegistered(hlresult.getTensorUniqueId());
+        habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
+        out.m_index = 0;
+        out.SetNode(node);
+        node->AddInputPtTensors(input_pt_vec);
+        // updatet the view if any
+        updateDstDependencies(hlresult, self);
+      } else {
+        node = habana_lazy::ir::Node::Create(
+            Symbol::fromQualString("hpu::habana_d2d_memcpy"),
+            {hb_tensor.GetIrValue()});
+        input_pt_vec.push_back(src);
+        habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
+        out.m_index = 0;
+        out.SetNode(node);
+        node->AddInputPtTensors(input_pt_vec);
+        // updatet the view if any
+        updateDstDependencies(hlresult, self);
+      }
     }
   } else {
     node = std::make_shared<habana_lazy::ir::Cast>(
@@ -195,6 +204,7 @@ Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
     // updatet the view if any
     updateDstDependencies(hlresult, self);
   }
+
   return self;
 }
 
@@ -220,6 +230,7 @@ Tensor& copy_hpu_lazy_D2H(Tensor& self, const Tensor& src, bool non_blocking) {
       // It rebinds the self reference to the new tensor
       // We need to check the memory deletion of the original tensor created
       // by PT
+      self = self.to(src.dtype());
       self = copy_hpu_(self, tensor_data.value(), non_blocking);
       self = self.to(type);
     } else {
@@ -240,6 +251,11 @@ Tensor& copy_hpu_lazy_D2H(Tensor& self, const Tensor& src, bool non_blocking) {
 Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src, bool non_blocking) {
   PT_LAZY_TRACE;
   bool processed = false;
+  at::Tensor src_new = src;
+  if (src.dim() == 0) {
+    src_new = src.view(-1);
+    self = self.view(-1);
+  }
   // This tensor would have been created without storage(as all H2D .to calls
   // come via lazy), so create actual memory and set as input and mark
   // executed
@@ -266,20 +282,20 @@ Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src, bool non_blocking) {
           /*resizeable=*/true);
       Tensor at_internal_tensor = habana_lazy::AtenInternalHbTensor(
           std::move(storage_impl), self.dtype());
-      // Setup the tensor sizes & strides for tensor with dim = 4, else for now
-      // assuming contiguous
+      // Setup the tensor sizes & strides for tensor with dim = 4, else for
+      // now assuming contiguous
       if (4 == self.dim()) {
         at_internal_tensor.unsafeGetTensorImpl()->set_sizes_and_strides(
-            src.sizes(),
-            CalculateStrides(src.sizes(), src.suggest_memory_format()));
+            src_new.sizes(),
+            CalculateStrides(src_new.sizes(), src_new.suggest_memory_format()));
       } else {
         at_internal_tensor.unsafeGetTensorImpl()->set_sizes_contiguous(
-            src.sizes());
+            src_new.sizes());
       }
       self_hb_tensor.SetTensorData(at_internal_tensor);
     }
   }
-  auto new_tensor = preProcessIfLongorDouble(src, self, processed);
+  auto new_tensor = preProcessIfLongorDouble(src_new, self, processed);
 
   // Get the internal tensor for copy kernel
   // First get the lazy tensor
@@ -301,7 +317,7 @@ Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src, bool non_blocking) {
         internal_tensor_from_copy.storage().data_ptr());
   } else {
     auto internal_tensor_from_copy =
-        copy_hpu_(self_internal_tesor, src, non_blocking);
+        copy_hpu_(self_internal_tesor, src_new, non_blocking);
     // We should get back the same internal tensor passed to copy
     HABANA_ASSERT(
         self_internal_tesor.storage().data_ptr() ==
@@ -313,6 +329,9 @@ Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src, bool non_blocking) {
 
   // Return the self tensor, as copy_hpu_ doesn't create a new tensor and
   // returns the dst
+  if (self.dim() == 0) {
+    std::cout << "\n we are creating a 0 dim tensor sonehow" << std::flush;
+  }
   return self;
 }
 
@@ -456,7 +475,7 @@ Tensor as_strided_hpu_lazy(
     c10::optional<int64_t> storage_offset) {
   auto hb_tensor = habana_lazy::GetOrCreateHbLazyTensor(self, self.device());
   auto src_data = hb_tensor.CurrentTensorData();
-  if (size.vec().size() == 1 && stride.vec()[0] == 1) {
+  if (size.vec().size() <= 4 && stride.vec()[stride.size() - 1] == 1) {
     auto result = emtpy_from_storage_lazy(
         self, size, c10::make_optional(stride), storage_offset);
     auto hb_result =
@@ -491,13 +510,24 @@ Tensor view_hpu_lazy(const Tensor& self, IntArrayRef size) {
   // Make sure it points to
   // /aten/src/ATen/InferSize.h
   // Header file mismatch can point it to other variant which is not correct
-  // Did not duplicate code from aten for maintenance.
-  auto inferred_size = at::infer_size(size, static_cast<int64_t>(self.numel()));
+  Tensor self_hpu = self;
+  if (self.dim() == 0) {
+    auto self_cpu = self.to(torch::kCPU).view(-1);
+    self_hpu = self_cpu.to(torch::kHABANA);
+  } else {
+    self_hpu = self;
+  }
+
+  auto inferred_size =
+      at::infer_size(size, static_cast<int64_t>(self_hpu.numel()));
   habana_lazy::ir::NodePtr node =
-      std::make_shared<habana_lazy::ir::View>(self, inferred_size);
+      std::make_shared<habana_lazy::ir::View>(self_hpu, inferred_size);
   // View is internally handled as reshape and we get a new tensor as output
   auto result = at::native::empty_hpu_lazy(
-      inferred_size, self.options(), self.suggest_memory_format(), false);
+      inferred_size,
+      self_hpu.options(),
+      self_hpu.suggest_memory_format(),
+      false);
 
   auto hl_result =
       habana_lazy::GetOrCreateHbLazyTensor(result, result.device());
@@ -917,8 +947,20 @@ Tensor& div_tensor_hpu_lazy_(Tensor& self, const Tensor& other) {
   return div_tensor_hpu_(self, other);
 };
 Tensor div_scalar_hpu_lazy(const Tensor& self, Scalar other) {
-  HABANA_ASSERT(0);
-  return div_scalar_hpu(self, other);
+  auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
+  auto hl_other = habana_lazy::GetIrValueForScalar(other);
+
+  auto node = habana_lazy::ir::Node::Create(
+      Symbol::fromQualString("aten::div"), {hl_self.GetIrValue(), hl_other});
+  auto result = at::native::empty_hpu_lazy(
+      self.sizes(), self.options(), self.suggest_memory_format(), false);
+  auto hl_result = habana_lazy::GetHbLazyTensor(result);
+  habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+  std::vector<at::Tensor> input_pt_vec{self};
+  node->AddInputPtTensors(input_pt_vec);
+  return result;
 };
 Tensor& div_scalar_hpu_lazy_(Tensor& self, Scalar other) {
   auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
@@ -2635,8 +2677,8 @@ Tensor empty_hpu_lazy(
       // The lazy tensor will have a reference to the internal tensor
       hb_tensor.SetTensorData(at_internal_tensor);
 
-      // Setup the tensor sizes & strides for tensor with dim = 4, else for now
-      // assuming contiguous
+      // Setup the tensor sizes & strides for tensor with dim = 4, else for
+      // now assuming contiguous
       if ((4 == size.size()) && mem_format.has_value()) {
         at_tensor.unsafeGetTensorImpl()->set_sizes_and_strides(
             size, CalculateStrides(size, mem_format.value()));
@@ -2827,6 +2869,32 @@ Tensor& t_hpu_lazy_(Tensor& self) {
   return t_hpu_(self);
 };
 
+void adjustPTSizesLazy(Tensor& t) {
+  // PT expects metadata like sizes and strides same as in NCHW,
+  // but data permuted for channel last, so change the size and stride
+  // NCHW
+  auto sizes = t.sizes().vec();
+  std::vector<int> out_pos = {0, 3, 1, 2};
+  std::vector<long int> swapped_sizes = {
+      sizes[out_pos[0]],
+      sizes[out_pos[1]],
+      sizes[out_pos[2]],
+      sizes[out_pos[3]]};
+  t.unsafeGetTensorImpl()->set_sizes_contiguous(swapped_sizes);
+  // For 4D tensors we need to make sure that we generate the PT channel last
+  // strides. Also as its a front end tensor, there may be a backend tensor
+  // already if so, change dims for that tensor too.
+  if (t.dim() == 4) {
+    t.unsafeGetTensorImpl()->empty_tensor_restride(
+        c10::MemoryFormat::ChannelsLast);
+    auto hl_result = habana_lazy::GetHbLazyTensor(t);
+    if (hl_result.getAttachedTensorImpl()) {
+      hl_result.getAttachedTensorImpl()->empty_tensor_restride(
+          c10::MemoryFormat::ChannelsLast);
+    }
+  }
+};
+
 Tensor permute_cl_hpu_lazy(const Tensor& self, IntArrayRef dims_) {
   PT_LAZY_TRACE;
   habana_lazy::ir::NodePtr node =
@@ -2836,7 +2904,7 @@ Tensor permute_cl_hpu_lazy(const Tensor& self, IntArrayRef dims_) {
       PermuteOperator::compute_output_shape(self, dims_.vec());
   auto result = at::native::empty_strided_hpu_lazy(
       new_sizes, new_strides, self.options(), false);
-  adjustPTSizes(result);
+  adjustPTSizesLazy(result);
   auto hl_result = habana_lazy::GetHbLazyTensor(result);
   habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;

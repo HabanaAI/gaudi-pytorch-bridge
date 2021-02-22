@@ -2157,7 +2157,17 @@ Tensor habana_d2d_memcpy_other(const Tensor& self, Tensor& other) {
   return self;
 }
 
+#if 0
 Tensor& cast_hpu_for_registration_only(Tensor& out, const Tensor& self) {
+  // we should never reach here. This function is a dummy written
+  // only to satisfy registration requirements.
+  // Registration of custom cast OP (hpu::cast) is done so that
+  // JIT optimization passes recognize this OP as a valid OP.
+  HABANA_ASSERT(0);
+}
+#endif
+
+Tensor cast_hpu_for_registration_only(const Tensor& self, Scalar type) {
   // we should never reach here. This function is a dummy written
   // only to satisfy registration requirements.
   // Registration of custom cast OP (hpu::cast) is done so that
@@ -2450,7 +2460,7 @@ TORCH_LIBRARY(hpu, m) {
       "habanaOptimizerSparseSgd(Tensor gradients, Tensor weights_in, Tensor moments_in, Tensor indices, Tensor learning_rate, Tensor valid_count_tensor, float mom, bool nesterov) -> (Tensor, Tensor)");
   m.def(
       "habanaOptimizerSparseAdagrad(Tensor gradients, Tensor weights_in, Tensor moments_in, Tensor indices, Tensor learning_rate, Tensor valid_count_tensor) -> (Tensor, Tensor)");
-  m.def("cast(Tensor self, Tensor(a!) out) -> Tensor(a!)");
+  m.def("cast(Tensor self, Scalar type) -> Tensor(a)");
   m.def(
       "embedding_bag_sum(Tensor input, Tensor indices, Tensor offsets, Tensor valid_count, int kernel_mode) -> (Tensor)");
   m.def(
@@ -2474,7 +2484,7 @@ TORCH_LIBRARY_IMPL(hpu, HABANATensorId, m) {
   /*m.impl(
       "habanaOptimizerSparseAdagrad",
       optimizer_sparse_adagrad_with_valid_count_hpu_wrap);*/
-  m.impl("cast", cast_hpu_for_registration_only);
+  // m.impl("cast", cast_hpu_for_registration_only);
   m.impl("embedding_bag_sum", embedding_bag_sum_hpu_wrap);
   m.impl(
       "embedding_bag_sum_bwd_out",

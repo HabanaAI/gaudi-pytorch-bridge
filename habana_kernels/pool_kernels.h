@@ -121,6 +121,7 @@ class AvgPool2dBackwardOutOperator : public HabanaOperator {
     kernel_meta_data_.input_layout.assign(
         {LayoutFormat::NHWC, LayoutFormat::NHWC, LayoutFormat::NHWC});
     kernel_meta_data_.output_layout.assign({LayoutFormat::NHWC});
+    kernel_meta_data_.tpc_input_order = {0};
   }
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,

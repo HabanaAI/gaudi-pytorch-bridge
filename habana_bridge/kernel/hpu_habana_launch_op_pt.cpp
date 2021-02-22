@@ -68,15 +68,17 @@ void adjustSizesforPT(at::Tensor* tensor, bool is_output) {
       sizes[new_pos[1]],
       sizes[new_pos[2]],
       sizes[new_pos[3]]};
-  std::vector<long int> swapped_strides = {
-      strides[new_pos[0]],
-      strides[new_pos[1]],
-      strides[new_pos[2]],
-      strides[new_pos[3]]};
 
-  //*tensor_new = at::alias(*tensor);
-  tensor->unsafeGetTensorImpl()->set_sizes_and_strides(
-      swapped_sizes, swapped_strides);
+  tensor->unsafeGetTensorImpl()->set_sizes_contiguous(swapped_sizes);
+  // make the output layouts correct for PT
+
+  if (is_output) {
+    tensor->unsafeGetTensorImpl()->empty_tensor_restride(
+        c10::MemoryFormat::ChannelsLast);
+  } else {
+    tensor->unsafeGetTensorImpl()->empty_tensor_restride(
+        c10::MemoryFormat::Contiguous);
+  }
 }
 
 bool dropCachedRecipe_LRU(size_t& recipe_count) {
@@ -160,7 +162,6 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
       enable_caching_ = false;
     }
   }
-
   use_persistent_tensors = false;
   if (const auto envp = getenv("HABANA_USE_PERSISTENT_TENSOR")) {
     use_persistent_tensors = atoi(envp) == 1;
@@ -225,6 +226,8 @@ HabanaLaunchOpPT::~HabanaLaunchOpPT() {
 }
 
 habana::LayoutFormat getPTTensorLayout(at::Tensor& tensor) {
+  // tensor.unsafeGetTensorImpl()->set_sizes_and_strides(
+  //    tensor.sizes(), tensor.strides());
   auto mem_format = tensor.suggest_memory_format();
   if (mem_format == at::MemoryFormat::ChannelsLast ||
       mem_format == at::MemoryFormat::ChannelsLast3d) {
@@ -335,6 +338,7 @@ void HabanaLaunchOpPT::HandleUnmappedTensor(
     if (!pt_tensor.defined()) {
       continue;
     }
+
     auto& syn_tensor =
         habana_op->AllocateSynapseInput(*syn_graph_ptr, pt_tensor, true);
 
@@ -389,13 +393,6 @@ void HabanaLaunchOpPT::GetSynapseInputs(
     if (value_to_ivalue[value_in] &&
         (value_to_ivalue[value_in]->isTensor() ||
          value_to_ivalue[value_in]->isTensorList())) {
-      // special case for avg pool backward, we only need to set 1 input, since
-      // TPC kernel expects only 1 input
-      if (!strcmp("aten::avg_pool2d_backward", node->kind().toQualString()) &&
-          (input_idx > 0)) {
-        continue;
-      }
-
       // Find if an input tensor is already mapped
       // NB: It seems Habana doesn't support shared input to
       // different nodes in graph
@@ -483,11 +480,12 @@ void HabanaLaunchOpPT::GetSynapseOutputs(
            getTensorChannelOrder(value_in) == habana::LayoutFormat::HWCK)
           ? getTensorChannelOrder(value_in)
           : assigned_input_layout;
+
       // Get the origin layout too, to pass it along..we see if any of the
-      // inputs in NHWC origin then we mark the origin layout as NHWC We need to
-      // make this more robust by having a tensor level memory of layout We need
-      // to mark weight tensors by meta data so that we can recognize them and
-      // not permute to NHWC at exit.
+      // inputs in NHWC origin then we mark the origin layout as NHWC We need
+      // to make this more robust by having a tensor level memory of layout We
+      // need to mark weight tensors by meta data so that we can recognize
+      // them and not permute to NHWC at exit.
       origin_input_layout =
           value_to_tensor_layout[value_in].layout_at_graph_entry ==
               habana::LayoutFormat::NHWC
@@ -522,9 +520,11 @@ void HabanaLaunchOpPT::GetSynapseOutputs(
       IValPtrShared ivpsh =
           std::make_shared<IVal>(output_tensors_pt[output_tensor_idx]);
       value_to_ivalue[output_nodes[output_nodes_idx]] = ivpsh;
+
       // For kernels like inplace, output is always created persistent even if
       // we dont mark it
-      // such scenarios such be treated persistent and output should be patched
+      // such scenarios such be treated persistent and output should be
+      // patched
       bool is_output_persistent =
           use_persistent_tensors || out_tensor_syn.is_persistent();
 
@@ -721,6 +721,7 @@ at::Tensor HabanaLaunchOpPT::permuteTensor(
       getDimsForLayout(permute_order, value_to_tensor_layout[value_in].layout);
 
   torch::jit::Stack input_stack = {IValue(input), IValue(dims)};
+
   // setup the config params for the kernels
   bool persistent = isInGraphOutputs(value_in) || is_permute_input_persistant;
   permute_kernel->AllocateAndAddSynapseNode(
@@ -873,8 +874,9 @@ void HabanaLaunchOpPT::processInputs(
           : habana_kernel_meta_data.input_layout.at(tensor_idx);
 
       if (std::getenv("PT_HPU_LAZY_MODE")) {
-        // For weight tensors we update the map before execution starts through
-        // a pass If its marked HWCK in the map, we can override with it
+        // For weight tensors we update the map before execution starts
+        // through a pass If its marked HWCK in the map, we can override with
+        // it
         auto tensor_layout = getTensorChannelOrder(value_in);
         if (tensor_layout == habana::LayoutFormat::HWCK) {
           TORCH_CHECK(
@@ -908,7 +910,8 @@ void HabanaLaunchOpPT::processInputs(
       if (habana_kernel_meta_data.changes_dims &&
           std::getenv("PT_HPU_LAZY_MODE")) {
         if (getTensorChannelOrder(value_in) !=
-            value_to_tensor_layout[value_in].layout_at_graph_entry) {
+                value_to_tensor_layout[value_in].layout_at_graph_entry &&
+            getTensorChannelOrder(value_in) != habana::LayoutFormat::HWCK) {
           permute_required = true;
           perm_layout = value_to_tensor_layout[value_in].layout_at_graph_entry;
         }
@@ -960,8 +963,23 @@ void HabanaLaunchOpPT::postProcessOutputs() {
               // even for NHWC tensors Whereas we process internally as NHWC
               // shape only
               adjustSizesforPT(&tensor, true);
+              auto ivpsh =
+                  (value_to_ivalue.count(value_out) ? value_to_ivalue[value_out]
+                                                    : nullptr);
               value_to_ivalue.erase(value_out);
-              value_to_ivalue[value_out] = std::make_shared<IVal>(tensor);
+              auto ivptrsh_updated = std::make_shared<IVal>(tensor);
+              if (enable_tensor_release_ && ivpsh &&
+                  output_tensorinfo_map.count(ivpsh)) {
+                auto a = output_tensorinfo_map.find(ivpsh);
+                auto ti = PtTensorInfo(
+                    ivptrsh_updated,
+                    a->second.get_syn_name(),
+                    value_out,
+                    watch_tensor_flag_);
+                output_tensorinfo_map.erase(ivpsh);
+                output_tensorinfo_map.emplace(ivptrsh_updated, ti);
+              }
+              value_to_ivalue[value_out] = ivptrsh_updated;
             }
           } else {
             if (getTensorChannelOrder(value_out) ==
@@ -970,8 +988,23 @@ void HabanaLaunchOpPT::postProcessOutputs() {
               // even for NHWC tensors Whereas we process internally as NHWC
               // shape only
               adjustSizesforPT(&tensor, true);
+              auto ivpsh =
+                  (value_to_ivalue.count(value_out) ? value_to_ivalue[value_out]
+                                                    : nullptr);
               value_to_ivalue.erase(value_out);
-              value_to_ivalue[value_out] = std::make_shared<IVal>(tensor);
+              auto ivptrsh_updated = std::make_shared<IVal>(tensor);
+              if (enable_tensor_release_ && ivpsh &&
+                  output_tensorinfo_map.count(ivpsh)) {
+                auto a = output_tensorinfo_map.find(ivpsh);
+                auto ti = PtTensorInfo(
+                    ivptrsh_updated,
+                    a->second.get_syn_name(),
+                    value_out,
+                    watch_tensor_flag_);
+                output_tensorinfo_map.erase(ivpsh);
+                output_tensorinfo_map.emplace(ivptrsh_updated, ti);
+              }
+              value_to_ivalue[value_out] = ivptrsh_updated;
             }
           }
         }
@@ -1006,7 +1039,8 @@ void HabanaLaunchOpPT::handlePrimNodes(torch::jit::Node* node) {
         auto ivptrsh_updated = castConstantTensor(ivptrsh);
         value_to_ivalue[value] = ivptrsh_updated;
         // Marking NCHW for now, for non 4D tensors layour doesnt matter
-        // Marking default...can update it after ""first use" to correct format
+        // Marking default...can update it after ""first use" to correct
+        // format
         value_to_tensor_layout[value].layout = habana::LayoutFormat::NCHW;
         value_to_tensor_layout[value].layout_at_graph_entry =
             habana::LayoutFormat::NCHW;
@@ -1065,7 +1099,7 @@ torch::jit::Stack HabanaLaunchOpPT::getStackForNode(torch::jit::Node* node) {
   torch::jit::Stack stack_in;
   auto node_inputs = node->inputs();
   for (auto input : node_inputs) {
-    if (value_to_ivalue[input])
+    if (value_to_ivalue.count(input))
       stack_in.insert(stack_in.end(), *value_to_ivalue[input]);
     else
       stack_in.insert(stack_in.end(), IValue());
@@ -1076,7 +1110,7 @@ torch::jit::Stack HabanaLaunchOpPT::getStackForNode(torch::jit::Node* node) {
 c10::ScalarType HabanaLaunchOpPT::getNodeScalarType(torch::jit::Node* node) {
   // return the data type of first input tensor
   for (auto input : node->inputs()) {
-    if (value_to_ivalue[input] && value_to_ivalue[input]->isTensor()) {
+    if (value_to_ivalue.count(input) && value_to_ivalue[input]->isTensor()) {
       return value_to_ivalue[input]->toTensor().scalar_type();
     }
   }
@@ -1159,14 +1193,15 @@ void HabanaLaunchOpPT::handleMetaOps(torch::jit::Node* node) {
     /*if (ival->isTensor()) {
       auto tensor = ival->toTensor();
       value_to_tensor_layout[val_out].layout = out_layout;
-      value_to_tensor_layout[val_out].layout_at_graph_entry = out_origin_layout;
-      create_duplicate_syn_tensor(&tensor, val_out, true);
+      value_to_tensor_layout[val_out].layout_at_graph_entry =
+    out_origin_layout; create_duplicate_syn_tensor(&tensor, val_out, true);
       out_data = tensor.data_ptr();
     }*/
     i++;
   }
   /* TORCH_CHECK(
-      in_data == out_data, "HabanaFusion : Data pointer changed in Meta op");*/
+      in_data == out_data, "HabanaFusion : Data pointer changed in Meta
+     op");*/
 }
 
 void HabanaLaunchOpPT::OrderInputs(RecipeValueSpec& rv) {
@@ -1326,9 +1361,9 @@ void HabanaLaunchOpPT::OrderOutputTinfos(RecipeValueSpec& rv) {
 
   TORCH_CHECK(!has_empty_name, "empty tensor name");
 
-  // Now only intermediate persistent tensors are left in output_tensorinfo_map
-  // Add the remaining tensor infos in output_tensorinfo_map to
-  // interim_tensorinfos
+  // Now only intermediate persistent tensors are left in
+  // output_tensorinfo_map Add the remaining tensor infos in
+  // output_tensorinfo_map to interim_tensorinfos
   PT_BRIDGE_DEBUG(
       "interims in output_tensorinfo_map = ", output_tensorinfo_map.size());
   for (auto a : output_tensorinfo_map) {
@@ -1442,8 +1477,8 @@ void HabanaLaunchOpPT::OrderOutputTinfos(RecipeValueSpec& rv) {
 /*
 Currently we exclude parents nodes from blocking list as they can affect
 pipelining. Ideally we need to exclude all the ancestors. Revisit if current
-approach results in performance issues. Alternateively check if GC can handle do
-this exclusion
+approach results in performance issues. Alternateively check if GC can handle
+do this exclusion
 */
 bool HabanaLaunchOpPT::isBlockingNode(
     torch::jit::Node* blocking_node,
@@ -1559,9 +1594,8 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
   // topoloically sorted
   // TODO : check if we need to reorder nodes in any case
   torch::jit::graph_node_list graph_nodes = subgraph_->nodes();
-  // This is an optimization pass to mark all the nodes with sepcial layout like
-  // weights which have HWCK
-  // Only activated in lazy mode for now
+  // This is an optimization pass to mark all the nodes with sepcial layout
+  // like weights which have HWCK Only activated in lazy mode for now
   if (std::getenv("PT_HPU_LAZY_MODE")) {
     runMetaDataAdjustmentPasses(subgraph_->nodes());
   }
@@ -1595,7 +1629,6 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
         HabanaKernel != nullptr,
         std::string(" \n  kernel ") + std::string(node->kind().toQualString()) +
             std::string(" isnt supported in graph mode "));
-
     // See if we need to modify/permute tesnors
     processInputs(node, HabanaKernel);
 
