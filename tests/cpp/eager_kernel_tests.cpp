@@ -23,20 +23,6 @@ TEST(EagerKernelTest, AddTest) {
   EXPECT_EQ(equal, true);
 }
 
-TEST(EagerKernelTest, MulOut) {
-  torch::Tensor input1 = torch::randn({2, 3});
-  // torch::Tensor input2 = torch::randn({2, 3});
-  int divFactor_ = 2;
-  auto wrapped = c10::scalar_to_tensor(double(1.) / divFactor_);
-  wrapped.unsafeGetTensorImpl()->set_wrapped_number(true);
-  torch::Tensor out_cpu = torch::zeros_like(input1);
-  torch::Tensor out_hpu = torch::zeros_like(input1).to(torch::kHABANA);
-  at::mul_out(out_cpu, input1, wrapped);
-  at::mul_out(out_hpu, input1.to(torch::kHABANA), wrapped);
-  bool equal = out_cpu.allclose(out_hpu.to(torch::kCPU), 0, 0);
-  EXPECT_EQ(equal, true);
-}
-
 TEST(EagerKernelTest, MatMulTest) {
   auto matmul_test = [](c10::IntArrayRef size1, c10::IntArrayRef size2) {
     torch::Tensor tensor1 = torch::randn(size1);

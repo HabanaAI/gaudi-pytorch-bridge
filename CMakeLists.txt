@@ -87,6 +87,7 @@ add_library(habana_pytorch_plugin SHARED
   habana_kernels/threshold_kernels.cpp
   habana_kernels/topk_kernels.cpp
   habana_kernels/unary_kernels.cpp
+  habana_kernels/upsample_kernels.cpp
   habana_lazy/aten_lazy_bridge.cpp
   habana_lazy/debug_utils.cpp
   habana_lazy/hpu_lazy_tensors.cpp

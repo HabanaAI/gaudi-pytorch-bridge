@@ -24,6 +24,7 @@
 #include "habana_kernels/pool_kernels.h"
 #include "habana_kernels/resize.h"
 #include "habana_kernels/tensor_shape_kernels.h"
+#include "habana_kernels/upsample_kernels.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/lazy_executor.h"
@@ -48,6 +49,7 @@
 #include "habana_lazy/ops/softmax.h"
 #include "habana_lazy/ops/tensor_shape.h"
 #include "habana_lazy/ops/topk.h"
+#include "habana_lazy/ops/upsample.h"
 #include "habana_lazy/view.h"
 #include "pytorch_helpers/habana_device/HPUAllocator.h"
 #include "pytorch_helpers/synapse_helpers/util.h"
@@ -3493,6 +3495,59 @@ Tensor& log2_hpu_lazy_(Tensor& input) {
       hl_input.getTensorUniqueId(), LazyTensorExecutionStatus::kREGISTERED);
 
   return input;
+};
+
+Tensor upsample_nearest2d_hpu_lazy(
+    const Tensor& input,
+    c10::optional<at::IntArrayRef> output_size,
+    c10::optional<at::ArrayRef<double>> scale_factors) {
+  PT_LAZY_TRACE;
+  habana_lazy::ir::NodePtr node =
+      std::make_shared<habana_lazy::ir::UpsampleNearest2d>(
+          input, output_size, scale_factors);
+
+  auto memory_format = input.suggest_memory_format();
+  auto shape_out = UpsampleOperator::compute_output_shape(
+      input.sizes().vec(), output_size, scale_factors, memory_format);
+  auto result = at::native::empty_hpu_lazy(
+      shape_out, input.options(), memory_format, false);
+  auto hlresult = habana_lazy::GetHbLazyTensor(result);
+  habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+  // updatet the view if any
+  updateDstDependencies(hlresult, result);
+  return result;
+};
+
+Tensor upsample_nearest2d_backward_hpu_lazy(
+    const Tensor& grad_output,
+    c10::optional<at::IntArrayRef> output_size,
+    at::IntArrayRef input_size,
+    c10::optional<at::ArrayRef<double>> scale_factors) {
+  PT_LAZY_TRACE;
+  auto memory_format = grad_output.suggest_memory_format();
+  std::vector<int64_t> permuted_sizes = input_size.vec();
+  if (memory_format == c10::MemoryFormat::Contiguous) {
+    permuted_sizes[0] = input_size[0];
+    permuted_sizes[1] = input_size[2];
+    permuted_sizes[2] = input_size[3];
+    permuted_sizes[3] = input_size[1];
+  }
+
+  habana_lazy::ir::NodePtr node =
+      std::make_shared<habana_lazy::ir::UpsampleNearest2dBackward>(
+          grad_output, output_size, permuted_sizes, scale_factors);
+
+  auto result = at::native::empty_hpu_lazy(
+      input_size, grad_output.options(), memory_format, false);
+  auto hlresult = habana_lazy::GetHbLazyTensor(result);
+  habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+  // updatet the view if any
+  updateDstDependencies(hlresult, result);
+  return result;
 };
 
 Tensor sigmoid_hpu_lazy(const Tensor& input) {

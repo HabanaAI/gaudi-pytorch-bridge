@@ -2066,6 +2066,31 @@ std::vector<at::Tensor> hpu_wrap::split(
   return at::native::split(self, split_size, dim);
 }
 
+Tensor hpu_wrap::upsample_nearest2d(
+    const Tensor& input,
+    c10::optional<at::IntArrayRef> output_size,
+    c10::optional<at::ArrayRef<double>> scale_factors) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    return upsample_nearest2d_hpu_lazy(input, output_size, scale_factors);
+  } else {
+    return upsample_nearest2d_hpu(input, output_size, scale_factors);
+  }
+};
+
+Tensor hpu_wrap::upsample_nearest2d_backward(
+    const Tensor& grad_output,
+    c10::optional<at::IntArrayRef> output_size,
+    at::IntArrayRef input_size,
+    c10::optional<at::ArrayRef<double>> scale_factors) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    return upsample_nearest2d_backward_hpu_lazy(
+        grad_output, output_size, input_size, scale_factors);
+  } else {
+    return upsample_nearest2d_backward_hpu(
+        grad_output, output_size, input_size, scale_factors);
+  }
+};
+
 Scalar hpu_wrap::_local_scalar_dense(const Tensor& self) {
   if (std::getenv("PT_HPU_LAZY_MODE")) {
     return at::native::_local_scalar_dense_hpu_lazy(self);

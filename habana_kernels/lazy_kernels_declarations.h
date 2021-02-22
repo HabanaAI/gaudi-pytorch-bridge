@@ -101,6 +101,15 @@ Tensor eq_tensor_hpu_lazy(const Tensor& self, const Tensor& other);
 Tensor eq_tensor_scalar_hpu_lazy(const Tensor& self, Scalar other);
 Tensor lt_scalar_hpu_lazy(const Tensor& self, Scalar other);
 Tensor lt_tensor_hpu_lazy(const Tensor& self, const Tensor& other);
+Tensor upsample_nearest2d_hpu_lazy(
+    const Tensor& input,
+    c10::optional<at::IntArrayRef> output_size,
+    c10::optional<at::ArrayRef<double>> scale_factors);
+Tensor upsample_nearest2d_backward_hpu_lazy(
+    const Tensor& grad_output,
+    c10::optional<at::IntArrayRef> output_size,
+    at::IntArrayRef input_size,
+    c10::optional<at::ArrayRef<double>> scale_factors);
 Tensor convolution_hpu_lazy(
     const Tensor& input,
     const Tensor& weight,

@@ -96,6 +96,15 @@ Tensor eq_tensor_hpu(const Tensor& self, const Tensor& other);
 Tensor eq_tensor_scalar_hpu(const Tensor& self, Scalar other);
 Tensor lt_scalar_hpu(const Tensor& self, Scalar other);
 Tensor lt_tensor_hpu(const Tensor& self, const Tensor& other);
+Tensor upsample_nearest2d_hpu(
+    const Tensor& input,
+    c10::optional<at::IntArrayRef> output_size,
+    c10::optional<at::ArrayRef<double>> scale_factors);
+Tensor upsample_nearest2d_backward_hpu(
+    const Tensor& grad_output,
+    c10::optional<at::IntArrayRef> output_size,
+    at::IntArrayRef input_size,
+    c10::optional<at::ArrayRef<double>> scale_factors);
 Tensor convolution_hpu(
     const Tensor& input,
     const Tensor& weight,

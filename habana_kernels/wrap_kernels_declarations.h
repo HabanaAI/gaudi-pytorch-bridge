@@ -625,6 +625,15 @@ struct hpu_wrap {
       at::Tensor& out,
       const at::Tensor& self,
       at::Scalar other);*/
+  static at::Tensor upsample_nearest2d(
+      const at::Tensor& input,
+      c10::optional<at::IntArrayRef> output_size,
+      c10::optional<at::ArrayRef<double>> scale_factors);
+  static at::Tensor upsample_nearest2d_backward(
+      const at::Tensor& grad_output,
+      c10::optional<at::IntArrayRef> output_size,
+      at::IntArrayRef input_size,
+      c10::optional<at::ArrayRef<double>> scale_factors);
 };
 
 std::tuple<at::Tensor&, at::Tensor&>
