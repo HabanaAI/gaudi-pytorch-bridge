@@ -235,9 +235,7 @@ class SynapseLogger {
  private:
   // std::chrono::time_point<std::chrono::high_resolution_clock>
   // log_start_time_;
-  std::atomic_uint64_t source_cat_mask_{
-      std::numeric_limits<uint64_t>::max() &
-      ~(static_cast<uint64_t>(data_dump_category::DEVICE_ALLOC_TRACKING))};
+  std::atomic_uint64_t source_cat_mask_{std::numeric_limits<uint64_t>::max()};
   struct timespec log_start_time_;
   std::string log_file_name_;
   std::string data_file_name_;

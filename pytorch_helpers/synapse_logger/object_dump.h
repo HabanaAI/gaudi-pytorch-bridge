@@ -26,7 +26,6 @@ enum class data_dump_category : unsigned {
       << 1, ///< Calls introduced to code by runtime tracing structures
   VAR_TENSOR_DATA = (0x1) << 16, ///< Host-memory data (non-const tensor data)
   CONST_TENSOR_DATA = (0x1) << 17, ///< Host-memory data (const tensor data)
-  DEVICE_ALLOC_TRACKING = (0x1) << 18, ///< Track synDeviceMalloc/Free
 };
 
 bool logger_is_enabled(data_dump_category cat);
