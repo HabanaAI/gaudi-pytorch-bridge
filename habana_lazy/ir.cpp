@@ -78,7 +78,7 @@ void Node::AddInputPtTensors(std::vector<at::Tensor>& input_pt_vec) {
   }
 }
 
-NodePtr Node::Create(c10::Symbol oper, ValueList inputs) {
+NodePtr Node::Create(c10::Symbol oper, const ValueList& inputs) {
   NodePtr node = std::make_shared<Node>(oper);
   for (auto& i : inputs) {
     node->AddInput(i);

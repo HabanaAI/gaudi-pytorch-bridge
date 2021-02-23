@@ -38,7 +38,7 @@ class deviceMallocData final {
 
   const char* filename = "habana_log.livealloc.log";
   const char* fragment_csv_file = "habana_log.fragment.csv";
-  bool take_bt, print_bt, print_free_bt, print_alloc_bt;
+  bool take_bt, print_free_bt, print_alloc_bt;
   size_t bt_depth;
   bool logging_enabled_;
 

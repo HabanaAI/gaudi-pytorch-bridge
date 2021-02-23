@@ -81,6 +81,7 @@ SynapseLogger::SynapseLogger()
           dlopen_or_die("libSynapse.so", RTLD_GLOBAL | RTLD_NOW)),
       dev_attr_recorded(false) {
   SLOG(S_TRACE) << __FUNCTION__ << "\n";
+  static_cast<void>(dev_attr_recorded);
   std::signal(SIGUSR1, SynapseLogger::command_signal_handler);
   lib_synapse::LoadSymbols(synapse_lib_handle_.get());
   lib_hcl::LoadSymbols(synapse_lib_handle_.get());

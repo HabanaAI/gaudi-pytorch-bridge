@@ -1,0 +1,215 @@
+#pragma once
+
+#include <utility>
+
+#include "habana_lazy/aten_lazy_bridge.h"
+#include "habana_lazy/lazy_executor.h"
+#include "lazy_kernels_declarations.h"
+
+void updateDstDependencies(
+    habana_lazy::HbLazyTensor& hl_dst,
+    const at::Tensor& dst,
+    bool in_place = false);
+
+namespace habana_lazy {
+
+template <class F, class... Ts, std::size_t... Is>
+void for_each_in_tuple(
+    std::tuple<Ts...>& tuple,
+    F func,
+    std::index_sequence<Is...>) {
+  (void)(int[]){0, ((void)func(std::get<Is>(tuple)), 0)...};
+}
+template <class F, class... Ts>
+void for_each_in_tuple(std::tuple<Ts...>& tuple, F func) {
+  for_each_in_tuple(tuple, func, std::make_index_sequence<sizeof...(Ts)>());
+}
+
+template <typename ReturnType, typename NodeConstruct = void>
+class LazyOp {
+ public:
+  explicit LazyOp(
+      const std::string& qualstring,
+      const std::vector<at::IValue>& inputs,
+      std::set<size_t> metadata_indices = {},
+      std::vector<std::vector<int64_t>> out_shapes = {},
+      int out_index = 0)
+      : m_symbol{at::Symbol::fromQualString(qualstring)},
+        m_metadata_indices{std::move(metadata_indices)},
+        m_out_shapes{std::move(out_shapes)},
+        m_out_index{out_index} {
+    set_inputs(inputs);
+  }
+
+  virtual ~LazyOp() = default;
+
+  template <typename T = ReturnType>
+  typename std::enable_if<std::tuple_size<T>::value >= 2, T>::type call() {
+    auto node = create_node();
+    auto results = get_result();
+    int i = 0;
+    for_each_in_tuple(results, [&node, &i](const auto& result) {
+      auto hl_result = GetHbLazyTensor(result);
+      ir::Value& out = GetHbLazyTensor(result).CurrentIrValue();
+      out.SetNode(node, i++);
+      updateDstDependencies(hl_result, result, false);
+    });
+
+    return results;
+  }
+
+  template <typename T = ReturnType>
+  typename std::enable_if<std::is_same<T, at::Tensor>::value, T>::type call() {
+    const auto& node = create_node();
+    const auto& result = get_result();
+    auto hl_result = GetHbLazyTensor(result);
+    ir::Value& out = GetHbLazyTensor(result).CurrentIrValue();
+    out.SetNode(node);
+    updateDstDependencies(hl_result, result, false);
+
+    return result;
+  }
+
+  // For inplace/out variants
+  template <typename T = ReturnType>
+  typename std::enable_if<std::is_same<T, at::Tensor&>::value, T>::type call(
+      at::Tensor& self) {
+    const auto& node = create_node();
+    auto& result = self;
+    auto hl_result = GetHbLazyTensor(result);
+    ir::Value& out = GetHbLazyTensor(result).CurrentIrValue();
+    out.SetNode(node);
+    updateDstDependencies(hl_result, result, true);
+
+    auto context = habana_lazy_executor.getDeviceExecutionContext();
+    auto hl_self = GetOrCreateHbLazyTensor(self);
+    context->MarkTensorStatus(
+        hl_self.getTensorUniqueId(), LazyTensorExecutionStatus::kREGISTERED);
+    return result;
+  }
+
+ private:
+  template <typename T = ReturnType>
+  typename std::enable_if<std::tuple_size<T>::value >= 2, ReturnType>::type
+  get_result() {
+    // Get results from derived class when index is negative
+    if (m_out_index < 0) {
+      return get_result_overrideable();
+    }
+    HABANA_ASSERT(std::tuple_size<T>::value == m_out_shapes.size());
+
+    unsigned i = 0;
+    ReturnType results;
+
+    for_each_in_tuple(results, [&](auto& result) {
+      auto t = get_inputs().at(m_out_index).toTensor();
+      result = at::native::empty_hpu_lazy(
+          m_out_shapes[i++], t.options(), t.suggest_memory_format(), false);
+    });
+    return results;
+  }
+
+  template <typename T = ReturnType>
+  typename std::enable_if<std::is_same<T, at::Tensor>::value, T>::type
+  get_result() {
+    // Get results from derived class when index is negative
+    if (m_out_index < 0) {
+      return get_result_overrideable();
+    }
+    auto t = get_inputs().at(m_out_index).toTensor();
+    const auto& out_shape = m_out_shapes.empty() ? t.sizes() : m_out_shapes[0];
+    return at::native::empty_hpu_lazy(
+        out_shape, t.options(), t.suggest_memory_format(), false);
+  }
+
+  ir::NodePtr create_node() {
+    ir::ValueList values;
+    std::vector<at::Tensor> input_pt_vec;
+    ir::MetaData metadata;
+
+    for (size_t i = 0; i < m_inputs.size(); ++i) {
+      const auto& input = m_inputs[i];
+      if (m_metadata_indices.count(i)) {
+        metadata.set(input, i);
+        continue;
+      }
+
+      if (input.isScalar()) {
+        auto val = GetIrValueForScalar(input.toScalar());
+        values.emplace_back(val);
+      } else if (input.isTensor()) {
+        const auto& t = input.toTensor();
+        if (t.defined()) {
+          if (i != 0 && t.device().type() == c10::DeviceType::CPU &&
+              t.scalar_type() == c10::ScalarType::Double) {
+            // Non first arg can be a 0-dim CPU tensor
+            // Convert such tensor to scalar and add as node
+            // input
+            auto val = GetIrValueForScalar(t.item());
+            values.emplace_back(val);
+          } else {
+            auto val = GetOrCreateHbLazyTensor(t).GetIrValue();
+            input_pt_vec.emplace_back(t);
+            values.emplace_back(val);
+          }
+        } else {
+          metadata.set(torch::jit::IValue(), i);
+        }
+      } else if (input.isTensorList()) {
+        const auto& tensors = input.toTensorList();
+        ir::ValueList hl_tensors;
+        std::vector<at::Tensor> list_input_pt_vec;
+        for (const auto& t : tensors) {
+          auto val = GetOrCreateHbLazyTensor(t).GetIrValue();
+          hl_tensors.emplace_back(val);
+          list_input_pt_vec.emplace_back(t);
+        }
+
+        auto list_input = GetIrValueForListConstruct(hl_tensors);
+        list_input.mp_node->AddInputPtTensors(list_input_pt_vec);
+        values.emplace_back(list_input);
+      } else {
+        PT_BRIDGE_FATAL("Got unhandled type at index ", i);
+        HABANA_ASSERT(0);
+      }
+    }
+
+    auto node = create_node_helper(values);
+
+    if (metadata.size()) {
+      node->SetMetaData(metadata);
+    }
+
+    node->AddInputPtTensors(input_pt_vec);
+
+    return node;
+  }
+
+ protected:
+  const std::vector<at::IValue>& get_inputs() const {
+    return m_inputs;
+  }
+
+  void set_inputs(const std::vector<at::IValue>& inputs) {
+    m_inputs = inputs;
+  }
+
+  virtual ir::NodePtr create_node_helper(const ir::ValueList& values) {
+    HABANA_ASSERT(
+        !std::is_class<NodeConstruct>::value &&
+        "Should override when node is constructed using a class");
+    return ir::Node::Create(m_symbol, values);
+  }
+
+  virtual ReturnType get_result_overrideable() {
+    HABANA_ASSERT(0 && "Implement get_result_overrideable() in your kernel");
+  }
+
+ private:
+  const at::Symbol m_symbol;
+  const std::set<size_t> m_metadata_indices;
+  const std::vector<std::vector<int64_t>> m_out_shapes;
+  const int m_out_index;
+  std::vector<at::IValue> m_inputs = {};
+};
+} // namespace habana_lazy

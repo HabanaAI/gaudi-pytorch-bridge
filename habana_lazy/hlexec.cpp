@@ -196,7 +196,7 @@ void HlExec::Create(
 
   for (auto output : outputs) {
     auto out = ir::Output(output);
-    mp_g_->registerOutput(ir_map[out]);
+    mp_g_->registerOutput(ir_map.at(out));
   }
 
   // Optimize the graph based on the passes enabled

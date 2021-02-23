@@ -197,7 +197,7 @@ class HbLazyTensor {
     data()->parent_view = std::move(view);
     data()->num_views++;
   }
-  c10::optional<ir::LazyView> getView() {
+  c10::optional<ir::LazyView> getView() const {
     if (data()->num_views)
       return c10::make_optional(data()->parent_view);
     else

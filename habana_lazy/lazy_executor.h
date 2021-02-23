@@ -122,7 +122,8 @@ class HbExecutionContext {
 class HbExecutionContextArena {
  public:
   static HbExecutionContextArena Get();
-  HbExecutionContext* getDeviceExecutionContext(int device);
+  HbExecutionContext* getDeviceExecutionContext(
+      int device = 0); // TODO remove device from everywhere
   HbExecutionContext* createExecutionContext(int device);
   void removeExecutionContext(int device);
   HbExecutionContextArena() = default;

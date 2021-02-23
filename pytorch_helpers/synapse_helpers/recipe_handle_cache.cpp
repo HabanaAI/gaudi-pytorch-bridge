@@ -10,8 +10,6 @@
  */
 #include "synapse_helpers/recipe_handle_cache.h"
 
-constexpr std::size_t MAX_CACHE_SIZE = 10000;
-
 namespace synapse_helpers {
 recipe_handle_cache::recipe_handle_cache(device& device)
     : mutex_{}, device_{device} {}
@@ -19,6 +17,7 @@ recipe_handle_cache::recipe_handle_cache(device& device)
 std::shared_ptr<recipe> recipe_handle_cache::get_recipe(
     const size_t key,
     synapse_helpers::graph& graph) {
+  static_cast<void>(device_);
   std::unique_lock<std::mutex> lck(mutex_);
   auto iter = cache_map_.find(key);
   if (iter != cache_map_.end()) {

@@ -14,7 +14,7 @@
 #include <iostream>
 #include <sstream>
 
-class synTensorDescriptor;
+struct synTensorDescriptor;
 namespace synapse_logger {
 #define UNUSED __attribute__((unused))
 

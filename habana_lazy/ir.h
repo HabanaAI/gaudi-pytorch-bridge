@@ -13,6 +13,7 @@
 #include <iostream>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 #include "habana_helpers/logging.h"
 
@@ -123,7 +124,7 @@ class MetaData {
     return m_data.at(index);
   }
 
-  bool set(torch::jit::IValue value, size_t index) {
+  bool set(const torch::jit::IValue& value, size_t index) {
     return m_data.insert({index, value}).second;
   }
 
@@ -217,7 +218,7 @@ class Node {
     m_outputs.clear();
   }
 
-  static NodePtr Create(c10::Symbol oper, ValueList inputs);
+  static NodePtr Create(c10::Symbol oper, const ValueList& inputs);
 
   size_t GetNumOutputs() const {
     return m_outputs.size();
@@ -225,6 +226,10 @@ class Node {
 
   const MetaData& GetMetaData() const {
     return m_meta_data;
+  }
+
+  void SetMetaData(MetaData metadata) {
+    m_meta_data = std::move(metadata);
   }
 
   void AddInputPtTensors(std::vector<at::Tensor>& input_pt_vec);
@@ -282,8 +287,13 @@ struct Value {
     m_index = index;
   }
 
-  void SetNode(NodePtr node) {
-    mp_node = node;
+  void SetNode(NodePtr node, size_t index = 0) {
+    if (m_index == 0) {
+      // m_index has been set directly, don't reset to 0
+      // TODO: make m_index private.
+      m_index = index;
+    }
+    mp_node = std::move(node);
     mp_node->m_outputs.emplace_back(Output(*this));
   }
 
