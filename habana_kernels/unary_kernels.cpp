@@ -1337,6 +1337,49 @@ Tensor abs_hpu(const Tensor& self) {
 }
 
 /*************************************************************************
+ * @brief Kernel implementation for output = torch.round(self)
+ * @param [out] output - output tensor, 1-4D, BF16/FP32
+ * @param [in] self - input tensor, 1-4D, BF16/FP32
+ ************************************************************************/
+Tensor round_hpu(const Tensor& self) {
+  PT_KERNEL_BEGIN;
+
+  at::ScalarType scalar_type = self.scalar_type();
+  std::string node_type =
+      "round_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+
+  // Create the operator
+  size_t device_id = self.device().index();
+  RoundOperator Op(device_id, scalar_type);
+
+  auto out = unary_op_hpu(self, node_type, &Op);
+
+  PT_KERNEL_END;
+  return out;
+}
+
+/*************************************************************************
+ * @brief Kernel implementation for output = torch.round_(input)
+ * @param [out] output - output tensor, 1-4D, BF16/FP32
+ * @param [in] input - input tensor, 1-4D, BF16/FP32
+ ************************************************************************/
+Tensor& round_hpu_(Tensor& self) {
+  PT_KERNEL_BEGIN;
+
+  at::ScalarType scalar_type = self.scalar_type();
+  std::string node_type =
+      "round_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+  size_t device_id = self.device().index();
+
+  // Create the operator
+  RoundInplaceOperator Op(device_id, scalar_type);
+  unary_inplace_op_hpu(self, node_type, &Op);
+
+  PT_KERNEL_END;
+  return self;
+}
+
+/*************************************************************************
  * @brief Kernel implementation for output = torch.neg(self)
  * @param [out] output - output tensor, 1-4D, BF16/FP32
  * @param [in] self - input tensor, 1-4D, BF16/FP32
@@ -1380,6 +1423,11 @@ static auto& KernelRegistry =
             "aten::abs",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<AbsOperator>(device_id, node_type);
+            })
+        .add(
+            "aten::round",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<RoundOperator>(device_id, node_type);
             })
         .add(
             "aten::tanh",

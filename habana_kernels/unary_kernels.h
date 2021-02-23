@@ -123,6 +123,24 @@ class AbsOperator : public UnaryOperator {
             "abs_fwd_" + habana_helpers::name_suffix_from_type(scalarType)){};
 };
 
+// Round Operator
+class RoundOperator : public UnaryOperator {
+ public:
+  RoundOperator(int device_id, c10::ScalarType scalarType)
+      : UnaryOperator(
+            device_id,
+            "round_fwd_" + habana_helpers::name_suffix_from_type(scalarType)){};
+};
+
+// Round Inplace Operator
+class RoundInplaceOperator : public UnaryInplaceOperator {
+ public:
+  RoundInplaceOperator(int device_id, c10::ScalarType scalarType)
+      : UnaryInplaceOperator(
+            device_id,
+            "round_fwd_" + habana_helpers::name_suffix_from_type(scalarType)){};
+};
+
 // Sqrt Operator
 class SqrtOperator : public UnaryOperator {
  public:

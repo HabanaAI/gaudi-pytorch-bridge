@@ -1866,6 +1866,22 @@ Tensor abs_hpu_wrap(const Tensor& self) {
     return abs_hpu(self);
   }
 };
+Tensor round_hpu_wrap(const Tensor& self) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    auto t = round_hpu_lazy(self);
+    return t;
+  } else {
+    return round_hpu(self);
+  }
+};
+Tensor& round_hpu_wrap_(Tensor& self) {
+  if (!habana_lazy::isDeviceInLoweringMode(self.device().index()) &&
+      std::getenv("PT_HPU_LAZY_MODE")) {
+    return round_hpu_lazy_(self);
+  } else {
+    return round_hpu_(self);
+  }
+};
 Tensor neg_hpu_wrap(const Tensor& self) {
   if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = neg_hpu_lazy(self);
@@ -2373,6 +2389,8 @@ TORCH_LIBRARY_IMPL(aten, HABANATensorId, m) {
   m.impl_UNBOXED("clamp_", clamp_hpu_wrap_);
   m.impl_UNBOXED("clamp", clamp_hpu_wrap);
   m.impl_UNBOXED("abs", abs_hpu_wrap);
+  m.impl_UNBOXED("round", round_hpu_wrap);
+  m.impl_UNBOXED("round_", round_hpu_wrap_);
   m.impl_UNBOXED("neg", neg_hpu_wrap);
   m.impl_UNBOXED("ones_like", ones_like_hpu_new);
   m.impl_UNBOXED("matmul", matmul_hpu_wrap);

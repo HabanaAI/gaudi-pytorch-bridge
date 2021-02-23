@@ -533,6 +533,8 @@ Tensor clamp_hpu_lazy(
     c10::optional<Scalar> min,
     c10::optional<Scalar> max);
 Tensor abs_hpu_lazy(const Tensor& self);
+Tensor round_hpu_lazy(const Tensor& self);
+Tensor& round_hpu_lazy_(Tensor& self);
 Tensor neg_hpu_lazy(const Tensor& self);
 namespace at {
 namespace native {

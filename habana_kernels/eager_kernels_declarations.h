@@ -504,6 +504,8 @@ Tensor clamp_hpu(
     c10::optional<Scalar> min,
     c10::optional<Scalar> max);
 Tensor abs_hpu(const Tensor& self);
+Tensor round_hpu(const Tensor& self);
+Tensor& round_hpu_(Tensor& self);
 Tensor neg_hpu(const Tensor& self);
 namespace at {
 namespace native {

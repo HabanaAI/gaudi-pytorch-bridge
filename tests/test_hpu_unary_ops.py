@@ -28,6 +28,7 @@ unary_op_list = [
     torch.sqrt,
     torch.reciprocal,
     torch.floor,
+    torch.round,
 ]
 
 unary_inplace_op_list = [
@@ -37,6 +38,7 @@ unary_inplace_op_list = [
     ('exp_'),
     ('reciprocal_'),
     ('floor_'),
+    ('round_'),
 ]
 
 unary_op_out_list = [

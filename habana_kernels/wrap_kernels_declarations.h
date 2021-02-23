@@ -525,6 +525,8 @@ Tensor clamp_hpu_wrap(
     c10::optional<Scalar> min,
     c10::optional<Scalar> max);
 Tensor abs_hpu_wrap(const Tensor& self);
+Tensor round_hpu_wrap(const Tensor& self);
+Tensor& round_hpu_wrap_(Tensor& self);
 Tensor neg_hpu_wrap(const Tensor& self);
 namespace at {
 namespace native {
