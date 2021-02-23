@@ -229,10 +229,18 @@ def train(args, train_dataset, model, tokenizer, trainMetaData):
     # log the pre-epoch-loop memory usage
     trainMetaData.tracept.end(time.time(), 'train_iteration_' + str(trainMetaData.current_train_step))
     trainMetaData.log_live_mem_alloc("before entering train Iteration " + str(trainMetaData.current_train_step))
+    if args.use_device_profiler:
+        spapi = SynapseProfilerApi()
+        # TODO: Get the real device id from synapse
+        device_id = 0
+
     for epoch in train_iterator:
         epoch_iterator = tqdm(train_dataloader, desc="Iteration", disable=args.local_rank not in [-1, 0])
         trainMetaData.set_current_epoch_no(epoch)
         for step, batch in enumerate(epoch_iterator):
+            if args.use_device_profiler and step == args.device_profiler_step:
+                spapi.profiler_start(TraceType.TraceDevice, device_id)
+
             start_time = time.time()
             trainMetaData.tracept.start(start_time, 'train_iteration_' + str(trainMetaData.current_train_step))
 
@@ -413,6 +421,11 @@ def train(args, train_dataset, model, tokenizer, trainMetaData):
             trainMetaData.tracept.end(time.time(), 'train_iteration_' + str(trainMetaData.current_train_step))
             trainMetaData.log_live_mem_alloc("train Iteration " + str(trainMetaData.current_train_step))
             trainMetaData.increment_train_step()
+
+            if args.use_device_profiler and step == args.device_profiler_step:
+                spapi.profiler_stop(TraceType.TraceDevice, device_id)
+                spapi.profiler_get_trace_json(TraceType.TraceDevice, device_id)
+
             if args.max_steps > 0 and global_step > args.max_steps:
                 epoch_iterator.close()
                 break
@@ -856,6 +869,8 @@ def main():
     parser.add_argument("--no_dropout", action='store_true', help='Disable Dropout in the model')
     parser.add_argument("--use_fused_adam", action="store_true", help="Whether to use fused adamw on habana device")
     parser.add_argument("--use_fused_clip_norm", action="store_true", help="Whether to use fused clip norm on habana device")
+    parser.add_argument('--use_device_profiler', action='store_true', default=False, help='Enable device profiler activation via API')
+    parser.add_argument("--device_profiler_step", type=int, default=10, help="Step number on which device profiler is activated")
     args = parser.parse_args()
 
     if args.doc_stride >= args.max_seq_length - args.max_query_length:
