@@ -51,7 +51,7 @@ def train_model(model, criterion, optimizer, image, target, trainMetaData, apex,
     else:
         loss.backward()
     optimizer.step()
-    tacc = time.time()
+
     if lazy_mode:
         hb_torch.mark_step()
 
@@ -244,9 +244,6 @@ def permute_params(model, to_filters_last, lazy_mode):
                     param.data = param.data.permute((3, 2, 0, 1))  # permute RSCK to KCRS
 
     if args.run_lazy_mode:
-        hb_torch.mark_step()
-
-    if lazy_mode:
         hb_torch.mark_step()
 
 # permute the momentum from filters first (KCRS) to filters last(RSCK) or vice versa.
