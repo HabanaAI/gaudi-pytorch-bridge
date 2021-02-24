@@ -394,8 +394,8 @@ class BertSelfAttention(nn.Module):
         self.dropout = nn.Dropout(config.attention_probs_dropout_prob)
 
     def transpose_for_scores(self, x):
-        new_x_shape = x.size()[:-1] + (self.num_attention_heads, self.attention_head_size)
-        x = torch.reshape(x, new_x_shape)
+        batch_size = len(x)
+        x = x.reshape(batch_size, -1, self.num_attention_heads, self.attention_head_size)
         return x.permute(0, 2, 1, 3)
 
     def transpose_key_for_scores(self, x):
