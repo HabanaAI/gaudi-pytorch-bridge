@@ -40,14 +40,15 @@ at::Tensor habana_helpers::hpu_cast_tensor(
   }
 
   std::string node_type;
-  if (Input.dtype() == c10::ScalarType::Bool &&
+  if ((Input.dtype() == c10::ScalarType::Bool ||
+       Input.dtype() == c10::ScalarType::Char) &&
       type == c10::ScalarType::Float) {
     node_type = "cast_i8_to_f32";
   } else if (
-
-      Input.dtype() == c10::ScalarType::Char &&
-      type == c10::ScalarType::Float) {
-    node_type = "cast_i8_to_f32";
+      (Input.dtype() == c10::ScalarType::Bool ||
+       Input.dtype() == c10::ScalarType::Char) &&
+      type == c10::ScalarType::BFloat16) {
+    node_type = "cast_i8_to_bf16";
   } else if (
       Input.dtype() == c10::ScalarType::Int && type == c10::ScalarType::Float) {
     node_type = "cast_i32_to_f32";
