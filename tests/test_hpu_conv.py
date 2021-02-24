@@ -37,8 +37,6 @@ conv_test_case_list = [
 ] + mnist_test_case_list + resnet50_test_case_list
 
 data_type_list = [
-  pytest.param(torch.bfloat16, 0.1, marks=pytest.mark.xfail(
-        reason="large difference w.r.t. CPU")),
   (torch.float, 0.001)
 ]
 

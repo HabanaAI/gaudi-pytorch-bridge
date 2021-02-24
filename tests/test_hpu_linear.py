@@ -35,8 +35,6 @@ test_case_list_dot = [
 ]
 
 data_type_list = [
-  pytest.param(torch.bfloat16, 0.1, marks=pytest.mark.xfail(
-        reason="large difference w.r.t. CPU")),
   (torch.float, 0.001)
 ]
 

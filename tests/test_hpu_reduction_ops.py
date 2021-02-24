@@ -36,7 +36,6 @@ reduction_dim_list = [
 ]
 
 data_type_list = [
-    (torch.bfloat16, 0.1),
     (torch.float, 0.001)
 ]
 

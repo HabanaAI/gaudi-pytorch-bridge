@@ -42,11 +42,6 @@ binary_op_out_list = [
 ]
 
 data_type_list = [
-    pytest.param(
-        torch.bfloat16,
-        0.001,
-        marks=pytest.mark.xfail(reason="Large difference w.r.t CPU for add & div"),
-    ),
     (torch.float, 0.001),
 ]
 

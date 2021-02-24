@@ -36,8 +36,6 @@ pool_test_case_list = [
 ] + mnist_test_case_list + resnet50_test_case_list
 
 data_type_list = [
-  pytest.param(torch.bfloat16, 0.001, marks=pytest.mark.xfail(
-        reason="max_pool2d_with_indices_cpu not implemented for BFloat16")),
   (torch.float, 0.001)
 ]
 

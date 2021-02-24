@@ -47,8 +47,6 @@ unary_op_out_list = [
 ]
 
 data_type_list = [
-    pytest.param(torch.bfloat16, 0.001, marks=pytest.mark.xfail(
-        reason="CPU does not support bfloat16")),
     (torch.float, 0.001)
 ]
 
