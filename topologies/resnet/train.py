@@ -52,6 +52,9 @@ def train_model(model, criterion, optimizer, image, target, trainMetaData, apex,
         loss.backward()
     optimizer.step()
 
+    for param in model.parameters():
+        param.grad = None
+
     if lazy_mode:
         hb_torch.mark_step()
 
