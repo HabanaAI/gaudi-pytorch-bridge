@@ -2063,9 +2063,19 @@ std::tuple<Tensor, Tensor> matmul_backward_hpu_wrap(
     const Tensor& self,
     const Tensor& other) {
   if (std::getenv("PT_HPU_LAZY_MODE")) {
+    HABANA_ASSERT(0 && "matmul_backward not implemented for lazy mode");
     return matmul_backward_hpu(grad_output, self, other);
   } else {
     return matmul_backward_hpu(grad_output, self, other);
+  }
+}
+
+Tensor matmul_hpu_wrap(const at::Tensor& tensor1, const at::Tensor& tensor2) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    HABANA_ASSERT(0 && "matmul not implemented for lazy mode");
+    return matmul_hpu(tensor1, tensor2);
+  } else {
+    return matmul_hpu(tensor1, tensor2);
   }
 }
 
@@ -2365,6 +2375,7 @@ TORCH_LIBRARY_IMPL(aten, HABANATensorId, m) {
   m.impl_UNBOXED("abs", abs_hpu_wrap);
   m.impl_UNBOXED("neg", neg_hpu_wrap);
   m.impl_UNBOXED("ones_like", ones_like_hpu_new);
+  m.impl_UNBOXED("matmul", matmul_hpu_wrap);
   m.impl_UNBOXED("matmul_backward", matmul_backward_hpu_wrap);
   m.impl_UNBOXED("_masked_scale", masked_scale_hpu_wrap);
   m.impl_UNBOXED("floor", floor_hpu_wrap);

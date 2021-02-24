@@ -36,12 +36,20 @@ TEST(EagerKernelTest, MatMulTest) {
     EXPECT_EQ(equal, true);
   };
 
-  matmul_test({2, 2, 2}, {2});
-  matmul_test({2, 2, 2}, {2, 2, 2});
-  matmul_test({12, 384, 1024}, {1024, 4096});
-  matmul_test({12, 384, 768}, {768, 768});
-  matmul_test({12, 384, 1024}, {1024, 1024});
-  matmul_test({12, 16, 384, 64}, {12, 16, 64, 384});
+  // Testing all configurations supported by CPU.
+  // Do not delete from this list
+  matmul_test({10}, {10});
+  matmul_test({2, 10}, {10});
+  matmul_test({10}, {10, 2});
+  matmul_test({2, 10}, {10, 2});
+  matmul_test({2, 3, 4}, {4});
+  matmul_test({2, 3, 4}, {2, 4, 3});
+  matmul_test({12, 20, 24}, {24, 20});
+  matmul_test({12, 16, 20, 24}, {12, 16, 24, 20});
+  matmul_test({3}, {2, 3, 4});
+  matmul_test({3, 4}, {2, 4, 3});
+  matmul_test({12, 16, 20, 24}, {16, 24, 20});
+  matmul_test({16, 20, 24}, {12, 16, 24, 20});
 }
 
 TEST(EagerKernelTest, MatmulBackwardTest) {
