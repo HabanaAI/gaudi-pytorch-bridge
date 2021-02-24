@@ -592,3 +592,21 @@ Tensor& optimizer_adagrad_hpu(
     const float wd,
     const float lrd,
     const float epsilon);
+Tensor& optimizer_sgd_hpu(
+    const TensorList& gradient_vec,
+    TensorList& weight_vec,
+    at::Tensor& lr,
+    const float wd,
+    const float mom,
+    const float damp,
+    const bool nesterov);
+Tensor& optimizer_sgd_momentum_hpu(
+    const TensorList& gradient_vec,
+    TensorList& weight_vec,
+    TensorList& momentum_vec,
+    const at::Tensor& epoch_num,
+    at::Tensor& lr,
+    const float wd,
+    const float mom,
+    const float damp,
+    const bool nesterov);

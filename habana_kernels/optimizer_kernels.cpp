@@ -763,6 +763,405 @@ Tensor& optimizer_adagrad_hpu(
   return lr;
 }
 
+// SGD Optimizer
+void OptimizerSGDOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    std::vector<bool> is_output_persistent) {
+  PT_KERNEL_BEGIN;
+  TORCH_CHECK(
+      inputs.size() == 7,
+      "Incorrect size of inputs for optimizer SGD operator");
+  TORCH_CHECK(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
+  TORCH_CHECK(inputs[1].isTensor(), "Input arg2 type expected to be tensor");
+  TORCH_CHECK(inputs[2].isTensor(), "Input arg3 type expected to be tensor");
+  TORCH_CHECK(inputs[3].isDouble(), "Input arg4 type expected to be float");
+  TORCH_CHECK(inputs[4].isDouble(), "Input arg5 type expected to be float");
+  TORCH_CHECK(inputs[5].isDouble(), "Input arg6 type expected to be float");
+  TORCH_CHECK(inputs[6].isBool(), "Input arg7 type expected to be bool");
+
+  auto gradients = inputs[0].toTensor();
+  auto weights = inputs[1].toTensor();
+  auto lr = inputs[2].toTensor();
+
+  ns_OptimizerSGD::Params params;
+  params.wd = inputs[3].toDouble();
+  params.mom = inputs[4].toDouble();
+  params.damp = inputs[5].toDouble();
+  params.nesterov = inputs[6].toBool();
+
+  // execute in-place for weights
+  p_context_->syn_outputs_.emplace_back(
+      habana_helpers::duplicate_tensor_in_memory_section(
+          p_context_->syn_inputs_[1]));
+
+  auto weights_in = inputs[1].toTensor();
+  p_context_->pt_outputs_.emplace_back(weights_in);
+
+  AddNodeToSynapseGraph(graph, &params, sizeof(params));
+  PT_KERNEL_END;
+}
+
+void OptimizerFusedSGDOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    std::vector<bool> is_output_persistent) {
+  PT_KERNEL_BEGIN;
+
+  TORCH_CHECK(
+      inputs.size() == 7,
+      "Incorrect size of inputs for optimizer fused SGD operator");
+  TORCH_CHECK(
+      inputs[0].isTensorList(), "Input arg1 type expected to be tensorlist");
+  TORCH_CHECK(
+      inputs[1].isTensorList(), "Input arg2 type expected to be tensorlist");
+  TORCH_CHECK(inputs[2].isTensor(), "Input arg3 type expected to be tensor");
+  TORCH_CHECK(inputs[3].isDouble(), "Input arg4 type expected to be float");
+  TORCH_CHECK(inputs[4].isDouble(), "Input arg5 type expected to be float");
+  TORCH_CHECK(inputs[5].isDouble(), "Input arg6 type expected to be float");
+  TORCH_CHECK(inputs[6].isBool(), "Input arg7 type expected to be bool");
+
+  auto gradients = inputs[0].toTensorList();
+  auto weights = inputs[1].toTensorList();
+  auto lr = inputs[2].toTensor();
+
+  auto num_params = static_cast<int>(gradients.size());
+
+  torch::jit::Stack stack;
+  size_t device_id = gradients.get(0).device().index();
+  auto scalar_type = gradients.get(0).scalar_type();
+
+  for (auto i = 0; i < num_params; i++) {
+    OptimizerSGDOperator op(device_id, scalar_type);
+    auto& syn_grad = op.SetSynapseInput(std::move(p_context_->syn_inputs_[i]));
+    auto& syn_wt =
+        op.SetSynapseInput(std::move(p_context_->syn_inputs_[num_params + i]));
+    auto& syn_lr =
+        op.SetSynapseInput(std::move(p_context_->syn_inputs_[2 * num_params]));
+
+    stack.emplace_back(IValue(gradients.get(i)));
+    stack.emplace_back(IValue(weights.get(i)));
+    stack.emplace_back(inputs[2]);
+    stack.emplace_back(inputs[3]);
+    stack.emplace_back(inputs[4]);
+    stack.emplace_back(inputs[5]);
+    stack.emplace_back(inputs[6]);
+
+    op.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+
+    stack.clear();
+
+    p_context_->syn_inputs_[i] = std::move(syn_grad);
+    p_context_->syn_inputs_[num_params + i] = std::move(syn_wt);
+    p_context_->syn_inputs_[2 * num_params] = std::move(syn_lr);
+
+    p_context_->syn_outputs_.emplace_back(std::move(op.GetSynOutputs()[0]));
+    p_context_->pt_outputs_.emplace_back(op.GetOutputs()[0]);
+
+  } // for (auto i = 0;i < num_params;i++)
+  PT_KERNEL_END;
+}
+
+/*************************************************************************************
+@brief - Implements custom fused adgrad optimizer for SGD parameters
+@param[in] - gradients - TensorList of gradients tensors FP32, 2D
+@param[in, out] - weights - TensorList of gradients tensors FP32, 2D
+@param[in] - lr - learning rate - FP32, 1D
+@param[in] - wd -  weight deca - FP32
+@param[in] - mom - momentum factor - FP32
+@param[in] - damp - dampening for momentum - FP32
+@param[in] - nesterov - enables Nesterov momentum - BOOL
+
+@param[out] - lr - This is dummy output to be compliant with PT schema checker.
+Weights are updated inplace by the kernel
+*************************************************************************************/
+Tensor& optimizer_sgd_hpu(
+    const TensorList& gradients,
+    TensorList& weights,
+    at::Tensor& lr,
+    const float wd,
+    const float mom,
+    const float damp,
+    const bool nesterov) {
+  PT_KERNEL_BEGIN;
+
+  size_t device_id = gradients[0].device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  auto scalar_type = gradients[0].scalar_type();
+  std::string node_type =
+      "optimizer_sgd_bwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+
+  OptimizerFusedSGDOperator Op(device_id, scalar_type);
+
+  // Build Params for the graph
+  std::vector<c10::IValue> stack = {
+      IValue(gradients),
+      IValue(weights),
+      IValue(lr),
+      IValue(wd),
+      IValue(mom),
+      IValue(damp),
+      IValue(nesterov)};
+
+  // Assign Inputs to the Operator
+  std::vector<at::Tensor> pt_inputs;
+  auto num_params = static_cast<int>(gradients.size());
+
+  for (auto j = 0; j < num_params; j++) {
+    pt_inputs.push_back(gradients[j]);
+  }
+
+  for (auto j = 0; j < num_params; j++) {
+    pt_inputs.push_back(weights[j]);
+  }
+
+  pt_inputs.push_back(lr);
+
+  size_t key = Op.GetRecipeKey(node_type, stack, true);
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    Op.SetPTInputs(pt_inputs);
+
+    std::vector<at::Tensor> pt_outputs;
+    for (auto j = 0; j < num_params; j++) {
+      pt_outputs.push_back(weights[j]);
+    }
+
+    Op.SetPTOutputs(pt_outputs);
+    Op.Execute(key);
+  } else {
+    // Create Graph
+    auto graph = habana_helpers::create_graph(device_id, node_type);
+
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
+
+    Op.AllocateAndAddSynapseNode(graph, stack, {true});
+    // compile and execute the graph
+    Op.Compile(graph);
+  }
+
+  PT_KERNEL_END;
+  return lr;
+}
+
+void OptimizerSGDMomentumOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    std::vector<bool> is_output_persistent) {
+  PT_KERNEL_BEGIN;
+  TORCH_CHECK(
+      inputs.size() == 9,
+      "Incorrect size of inputs for optimizer SGD operator");
+  TORCH_CHECK(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
+  TORCH_CHECK(inputs[1].isTensor(), "Input arg2 type expected to be tensor");
+  TORCH_CHECK(inputs[2].isTensor(), "Input arg3 type expected to be tensor");
+  TORCH_CHECK(inputs[3].isTensor(), "Input arg4 type expected to be tensor");
+  TORCH_CHECK(inputs[4].isTensor(), "Input arg5 type expected to be tensor");
+  TORCH_CHECK(inputs[5].isDouble(), "Input arg6 type expected to be float");
+  TORCH_CHECK(inputs[6].isDouble(), "Input arg7 type expected to be float");
+  TORCH_CHECK(inputs[7].isDouble(), "Input arg8 type expected to be float");
+  TORCH_CHECK(inputs[8].isBool(), "Input arg9 type expected to be bool");
+
+  auto gradients = inputs[0].toTensor();
+  auto weights = inputs[1].toTensor();
+  auto momentum = inputs[2].toTensor();
+  auto epoch_num = inputs[3].toTensor();
+  auto lr = inputs[4].toTensor();
+
+  ns_OptimizerSGD::Params params;
+  params.wd = inputs[5].toDouble();
+  params.mom = inputs[6].toDouble();
+  params.damp = inputs[7].toDouble();
+  params.nesterov = inputs[8].toBool();
+
+  // execute in-place for weights & momentum
+  p_context_->syn_outputs_.emplace_back(
+      habana_helpers::duplicate_tensor_in_memory_section(
+          p_context_->syn_inputs_[1]));
+
+  auto weights_in = inputs[1].toTensor();
+  p_context_->pt_outputs_.emplace_back(weights_in);
+
+  p_context_->syn_outputs_.emplace_back(
+      habana_helpers::duplicate_tensor_in_memory_section(
+          p_context_->syn_inputs_[2]));
+
+  auto momentum_in = inputs[2].toTensor();
+  p_context_->pt_outputs_.emplace_back(momentum_in);
+
+  AddNodeToSynapseGraph(graph, &params, sizeof(params));
+  PT_KERNEL_END;
+}
+
+void OptimizerFusedSGDMomentumOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    std::vector<bool> is_output_persistent) {
+  PT_KERNEL_BEGIN;
+  TORCH_CHECK(
+      inputs.size() == 9,
+      "Incorrect size of inputs for optimizer fused SGD operator");
+  TORCH_CHECK(
+      inputs[0].isTensorList(), "Input arg1 type expected to be tensorlist");
+  TORCH_CHECK(
+      inputs[1].isTensorList(), "Input arg2 type expected to be tensorlist");
+  TORCH_CHECK(
+      inputs[2].isTensorList(), "Input arg3 type expected to be tensorlist");
+  TORCH_CHECK(inputs[3].isTensor(), "Input arg4 type expected to be tensor");
+  TORCH_CHECK(inputs[4].isTensor(), "Input arg5 type expected to be tensor");
+  TORCH_CHECK(inputs[5].isDouble(), "Input arg6 type expected to be float");
+  TORCH_CHECK(inputs[6].isDouble(), "Input arg7 type expected to be float");
+  TORCH_CHECK(inputs[7].isDouble(), "Input arg8 type expected to be float");
+  TORCH_CHECK(inputs[8].isBool(), "Input arg9 type expected to be bool");
+
+  auto gradients = inputs[0].toTensorList();
+  auto weights = inputs[1].toTensorList();
+  auto momentum = inputs[2].toTensorList();
+  auto epoch_num = inputs[3].toTensor();
+  auto lr = inputs[4].toTensor();
+
+  auto num_params = static_cast<int>(gradients.size());
+
+  torch::jit::Stack stack;
+  size_t device_id = gradients.get(0).device().index();
+  auto scalar_type = gradients.get(0).scalar_type();
+
+  for (auto i = 0; i < num_params; i++) {
+    OptimizerSGDMomentumOperator op(device_id, scalar_type);
+    auto& syn_grad = op.SetSynapseInput(std::move(p_context_->syn_inputs_[i]));
+    auto& syn_wt =
+        op.SetSynapseInput(std::move(p_context_->syn_inputs_[num_params + i]));
+    auto& syn_momentum = op.SetSynapseInput(
+        std::move(p_context_->syn_inputs_[2 * num_params + i]));
+    auto& syn_epoch_num =
+        op.SetSynapseInput(std::move(p_context_->syn_inputs_[3 * num_params]));
+    auto& syn_lr = op.SetSynapseInput(
+        std::move(p_context_->syn_inputs_[3 * num_params + 1]));
+
+    stack.emplace_back(IValue(gradients.get(i)));
+    stack.emplace_back(IValue(weights.get(i)));
+    stack.emplace_back(IValue(momentum.get(i)));
+    stack.emplace_back(inputs[3]);
+    stack.emplace_back(inputs[4]);
+    stack.emplace_back(inputs[5]);
+    stack.emplace_back(inputs[6]);
+    stack.emplace_back(inputs[7]);
+    stack.emplace_back(inputs[8]);
+
+    op.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+
+    stack.clear();
+
+    p_context_->syn_inputs_[i] = std::move(syn_grad);
+    p_context_->syn_inputs_[num_params + i] = std::move(syn_wt);
+    p_context_->syn_inputs_[2 * num_params + i] = std::move(syn_momentum);
+    p_context_->syn_inputs_[3 * num_params] = std::move(syn_epoch_num);
+    p_context_->syn_inputs_[3 * num_params + 1] = std::move(syn_lr);
+
+    p_context_->syn_outputs_.emplace_back(std::move(op.GetSynOutputs()[0]));
+
+    p_context_->pt_outputs_.emplace_back(op.GetOutputs()[0]);
+
+    p_context_->syn_outputs_.emplace_back(std::move(op.GetSynOutputs()[1]));
+    p_context_->pt_outputs_.emplace_back(op.GetOutputs()[1]);
+  } // for (auto i = 0;i < num_params;i++)
+
+  PT_KERNEL_END;
+}
+
+/*************************************************************************************
+@brief - Implements custom fused adgrad optimizer for SGD parameters
+@param[in] - gradients - TensorList of gradients tensors FP32, 2D
+@param[in, out] - weights - TensorList of gradients tensors FP32, 2D
+@param[in, out] - momentum - TensorList of momentum variance FP32, 2D
+@param[in] - epoch_num - current epoch training number - I32, 1D
+@param[in] - lr - learning rate - FP32, 1D
+@param[in] - wd -  weight deca - FP32
+@param[in] - mom - momentum factor - FP32
+@param[in] - damp - dampening for momentum - FP32
+@param[in] - nesterov - enables Nesterov momentum - BOOL
+
+@param[out] - lr - This is dummy output to be compliant with PT schema checker.
+Weights and momentum are updated inplace by the kernel
+*************************************************************************************/
+Tensor& optimizer_sgd_momentum_hpu(
+    const TensorList& gradients,
+    TensorList& weights,
+    TensorList& momentum,
+    const at::Tensor& epoch_num,
+    at::Tensor& lr,
+    const float wd,
+    const float mom,
+    const float damp,
+    const bool nesterov) {
+  PT_KERNEL_BEGIN;
+
+  size_t device_id = gradients[0].device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  auto scalar_type = gradients[0].scalar_type();
+  std::string node_type =
+      "optimizer_sgd_bwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+
+  OptimizerFusedSGDMomentumOperator Op(device_id, scalar_type);
+
+  // Build Params for the graph
+  std::vector<c10::IValue> stack = {
+      IValue(gradients),
+      IValue(weights),
+      IValue(momentum),
+      IValue(epoch_num),
+      IValue(lr),
+      IValue(wd),
+      IValue(mom),
+      IValue(damp),
+      IValue(nesterov)};
+
+  // Assign Inputs to the Operator
+  std::vector<at::Tensor> pt_inputs;
+  auto num_params = static_cast<int>(gradients.size());
+
+  for (auto j = 0; j < num_params; j++) {
+    pt_inputs.push_back(gradients[j]);
+  }
+
+  for (auto j = 0; j < num_params; j++) {
+    pt_inputs.push_back(weights[j]);
+  }
+
+  for (auto j = 0; j < num_params; j++) {
+    pt_inputs.push_back(momentum[j]);
+  }
+
+  pt_inputs.push_back(epoch_num);
+  pt_inputs.push_back(lr);
+
+  size_t key = Op.GetRecipeKey(node_type, stack, true);
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    Op.SetPTInputs(pt_inputs);
+
+    std::vector<at::Tensor> pt_outputs;
+    for (auto j = 0; j < num_params; j++) {
+      pt_outputs.push_back(weights[j]);
+      pt_outputs.push_back(momentum[j]);
+    }
+
+    Op.SetPTOutputs(pt_outputs);
+    Op.Execute(key);
+  } else {
+    // Create Graph
+    auto graph = habana_helpers::create_graph(device_id, node_type);
+
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
+    Op.AllocateAndAddSynapseNode(graph, stack, {true});
+    // compile and execute the graph
+    Op.Compile(graph);
+  }
+
+  PT_KERNEL_END;
+  return lr;
+}
+
 static auto& KernelRegistry =
     habana::KernelRegistry()
         .add(
@@ -787,5 +1186,17 @@ static auto& KernelRegistry =
             "hpu::habanaOptimizerFusedAdagrad",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<OptimizerFusedAdagradOperator>(
+                  device_id, node_type);
+            })
+        .add(
+            "hpu::habanaOptimizerFusedSGD",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<OptimizerFusedSGDOperator>(
+                  device_id, node_type);
+            })
+        .add(
+            "hpu::habanaOptimizerFusedSGDMomentum",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<OptimizerFusedSGDMomentumOperator>(
                   device_id, node_type);
             });

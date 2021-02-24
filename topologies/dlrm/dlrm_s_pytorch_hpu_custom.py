@@ -871,7 +871,10 @@ if __name__ == "__main__":
 
         # specify the optimizer algorithm
         if args.optimizer == "sgd":
-            optimizer = torch.optim.SGD(list(dlrm_habana.top_l.parameters())
+            from hb_custom import FusedSGD
+            hb_torch.enable_eliminate_common_subexpression(False)
+            hb_torch.enable_constant_pooling(False)
+            optimizer = FusedSGD(list(dlrm_habana.top_l.parameters())
                                     + list(dlrm_habana.bot_l.parameters()), lr=lr_change)
         elif args.optimizer == "adagrad":
             from hb_custom import FusedAdagrad

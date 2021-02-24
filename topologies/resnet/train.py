@@ -375,8 +375,16 @@ def main(args):
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
 
     criterion = nn.CrossEntropyLoss()
+    try:
+        from hb_custom import FusedSGD
+        import hb_torch
+        hb_torch.enable_eliminate_common_subexpression(False)
+        hb_torch.enable_constant_pooling(False)
+        sgd_optimizer = FusedSGD
+    except:
+        sgd_optimizer = torch.optim.SGD
 
-    optimizer = torch.optim.SGD(
+    optimizer = sgd_optimizer(
         model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
 
     if args.apex:

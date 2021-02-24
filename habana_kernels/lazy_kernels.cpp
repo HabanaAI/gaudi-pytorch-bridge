@@ -3582,6 +3582,66 @@ Tensor& optimizer_adagrad_hpu_lazy(
   return lr;
 }
 
+Tensor& optimizer_sgd_hpu_lazy(
+    const TensorList& gradients,
+    TensorList& weights,
+    at::Tensor& lr,
+    const float wd,
+    const float mom,
+    const float damp,
+    const bool nesterov) {
+  PT_LAZY_TRACE;
+
+  habana_lazy::ir::NodePtr node =
+      std::make_shared<habana_lazy::ir::OptimizerFusedSGD>(
+          gradients, weights, lr, wd, mom, damp, nesterov);
+
+  int64_t out_index = 0;
+
+  for (size_t i = 0; i < weights.size(); i++) {
+    auto hlweight = habana_lazy::GetHbLazyTensor(weights[i]);
+    habana_lazy::ir::Value& out1 = hlweight.CurrentIrValue();
+    out1.m_index = out_index++;
+    out1.SetNode(node);
+  }
+
+  return lr;
+}
+
+Tensor& optimizer_sgd_momentum_hpu_lazy(
+    const TensorList& gradients,
+    TensorList& weights,
+    TensorList& momentum,
+    const at::Tensor& epoch_num,
+    at::Tensor& lr,
+    const float wd,
+    const float mom,
+    const float damp,
+    const bool nesterov) {
+  PT_LAZY_TRACE;
+
+  habana_lazy::ir::NodePtr node =
+      std::make_shared<habana_lazy::ir::OptimizerFusedSGDMomentum>(
+          gradients, weights, momentum, epoch_num, lr, wd, mom, damp, nesterov);
+
+  int64_t out_index = 0;
+  HABANA_ASSERT(weights.size() == momentum.size());
+
+  for (size_t i = 0; i < weights.size(); i++) {
+    auto hlweight = habana_lazy::GetHbLazyTensor(weights[i]);
+    habana_lazy::ir::Value& out1 = hlweight.CurrentIrValue();
+    out1.m_index = out_index++;
+    out1.SetNode(node);
+
+    auto hlmomentum = habana_lazy::GetHbLazyTensor(momentum[i]);
+    habana_lazy::ir::Value& out2 = hlmomentum.CurrentIrValue();
+    out2.m_index = out_index++;
+    out2.SetNode(node);
+  }
+
+  return lr;
+}
+
 Tensor ones_like_hpu_lazy(
     const Tensor& self,
     const TensorOptions& options,

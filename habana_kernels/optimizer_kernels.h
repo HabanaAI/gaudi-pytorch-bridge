@@ -98,3 +98,63 @@ class OptimizerFusedAdagradOperator : public HabanaOperator {
       torch::jit::Stack& inputs,
       std::vector<bool> is_output_persistent) override;
 };
+
+class OptimizerSGDOperator : public HabanaOperator {
+ public:
+  OptimizerSGDOperator(int device_id, c10::ScalarType scalar_type)
+      : HabanaOperator(
+            "optimizer_sgd_bwd_" +
+            habana_helpers::name_suffix_from_type(scalar_type)) {
+    this->CreateSynContext(device_id);
+  }
+
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      std::vector<bool> is_output_persistent) override;
+};
+
+class OptimizerFusedSGDOperator : public HabanaOperator {
+ public:
+  OptimizerFusedSGDOperator(int device_id, c10::ScalarType scalar_type)
+      : HabanaOperator(
+            "optimizer_sgd_bwd_" +
+            habana_helpers::name_suffix_from_type(scalar_type)) {
+    this->CreateSynContext(device_id);
+  }
+
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      std::vector<bool> is_output_persistent) override;
+};
+
+class OptimizerSGDMomentumOperator : public HabanaOperator {
+ public:
+  OptimizerSGDMomentumOperator(int device_id, c10::ScalarType scalar_type)
+      : HabanaOperator(
+            "optimizer_sgd_bwd_" +
+            habana_helpers::name_suffix_from_type(scalar_type)) {
+    this->CreateSynContext(device_id);
+  }
+
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      std::vector<bool> is_output_persistent) override;
+};
+
+class OptimizerFusedSGDMomentumOperator : public HabanaOperator {
+ public:
+  OptimizerFusedSGDMomentumOperator(int device_id, c10::ScalarType scalar_type)
+      : HabanaOperator(
+            "optimizer_sgd_bwd_" +
+            habana_helpers::name_suffix_from_type(scalar_type)) {
+    this->CreateSynContext(device_id);
+  }
+
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      std::vector<bool> is_output_persistent) override;
+};

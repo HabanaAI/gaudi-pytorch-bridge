@@ -2063,6 +2063,46 @@ Tensor ones_like_hpu_new(
   return ones_like_hpu_wrap(self, options, memory_format);
 }
 
+Tensor& optimizer_sgd_hpu_wrap(
+    const TensorList& gradients,
+    TensorList& weights,
+    at::Tensor& lr,
+    const float wd,
+    const float mom,
+    const float damp,
+    const bool nesterov) {
+  if (!habana_lazy::isDeviceInLoweringMode(weights[0].device().index()) &&
+      std::getenv("PT_HPU_LAZY_MODE")) {
+    optimizer_sgd_hpu_lazy(gradients, weights, lr, wd, mom, damp, nesterov);
+  } else {
+    optimizer_sgd_hpu(gradients, weights, lr, wd, mom, damp, nesterov);
+  }
+
+  return lr;
+}
+
+Tensor& optimizer_sgd_momentum_hpu_wrap(
+    const TensorList& gradients,
+    TensorList& weights,
+    TensorList& momentum,
+    const at::Tensor& epoch_num,
+    at::Tensor& lr,
+    const float wd,
+    const float mom,
+    const float damp,
+    const bool nesterov) {
+  if (!habana_lazy::isDeviceInLoweringMode(weights[0].device().index()) &&
+      std::getenv("PT_HPU_LAZY_MODE")) {
+    optimizer_sgd_momentum_hpu_lazy(
+        gradients, weights, momentum, epoch_num, lr, wd, mom, damp, nesterov);
+  } else {
+    optimizer_sgd_momentum_hpu(
+        gradients, weights, momentum, epoch_num, lr, wd, mom, damp, nesterov);
+  }
+
+  return lr;
+}
+
 Tensor ones_like_hpu_wrap(
     const Tensor& self,
     const TensorOptions& options,
@@ -2417,6 +2457,10 @@ TORCH_LIBRARY(hpu, m) {
       "embedding_bag_sum_bwd_out(Tensor out, Tensor input, Tensor indices_bwd, Tensor offsets_bwd, Tensor valid_count_bwd, int kernel_mode) -> (Tensor)");
   m.def(
       "habanaOptimizerFusedAdagrad(Tensor[] gradients, Tensor[] weights_in, Tensor[] variances_in, Tensor epoch_num, Tensor learning_rate, float wd, float lrd, float eps) -> Tensor(a!)");
+  m.def(
+      "habanaOptimizerFusedSGD(Tensor[] gradients, Tensor[] weights_in, Tensor learning_rate, float wd, float mom, float damp, bool nesterov) -> Tensor(a!)");
+  m.def(
+      "habanaOptimizerFusedSGDMomentum(Tensor[] gradients, Tensor[] weights_in, Tensor[] momentum_in, Tensor epoch_num, Tensor learning_rate, float wd, float mom, float damp, bool nesterov) -> Tensor(a!)");
   m.def("permute_cl(Tensor(a) self, int[] dims) -> Tensor(a)");
   m.def("control_edge_other_(Tensor self, Tensor other) -> Tensor(a!)");
   m.def("control_edge_(Tensor self)-> Tensor(a!)");

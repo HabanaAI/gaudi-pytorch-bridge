@@ -584,6 +584,24 @@ Tensor& optimizer_adagrad_hpu_lazy(
     const float wd,
     const float lrd,
     const float epsilon);
+Tensor& optimizer_sgd_hpu_lazy(
+    const TensorList& gradients,
+    TensorList& weights,
+    at::Tensor& lr,
+    const float wd,
+    const float mom,
+    const float damp,
+    const bool nesterov);
+Tensor& optimizer_sgd_momentum_hpu_lazy(
+    const TensorList& gradients,
+    TensorList& weights,
+    TensorList& momentum,
+    const at::Tensor& epoch_num,
+    at::Tensor& lr,
+    const float wd,
+    const float mom,
+    const float damp,
+    const bool nesterov);
 Tensor ones_like_hpu_lazy(
     const Tensor& self,
     const TensorOptions& options,
