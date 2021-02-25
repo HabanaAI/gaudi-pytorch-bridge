@@ -89,7 +89,8 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
       };
       // Create the synapse_helpers::device, which will create the OSAL object.
       auto device_ptr_or_error = synapse_helpers::device::get_or_create(
-          synDeviceType::synDeviceGaudi, allocatorVar);
+          {synDeviceType::synDeviceGaudi, synDeviceType::synDeviceGaudiM},
+          allocatorVar);
 
       if (absl::holds_alternative<synapse_helpers::synapse_error>(
               device_ptr_or_error)) {

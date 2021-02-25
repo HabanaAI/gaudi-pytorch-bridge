@@ -20,6 +20,7 @@
 #include <iosfwd>
 #include <memory>
 #include <mutex>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -95,7 +96,7 @@ class device {
 
   using ref = std::reference_wrapper<synapse_helpers::device>;
   static synapse_error_v<std::shared_ptr<device>> get_or_create(
-      synDeviceType device_type,
+      const std::set<synDeviceType>& allowed_device_types,
       const create_allocator_fnc& create_allocator);
 
   static synapse_error_v<std::shared_ptr<device>> get_by_id(
@@ -281,7 +282,7 @@ class device {
  private:
   friend class stream;
   static synapse_error_v<std::shared_ptr<device>> create(
-      synDeviceType device_type,
+      const std::set<synDeviceType>& allowed_device_types,
       const create_allocator_fnc& create_allocator);
   device(
       std::shared_ptr<session> synapse_session,

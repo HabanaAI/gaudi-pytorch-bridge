@@ -69,6 +69,16 @@ hcl_collective_ops = {
     6: "eHCLAll2AllV",
 }
 
+class synDeviceType(Enum):
+    synDeviceGoya = 0
+    synDeviceGoya2 = 1
+    synDeviceGaudi = 2
+    synDeviceGaudiM = 3
+    synDeviceGaudi2 = 4
+    synDeviceEmulator = 5
+    synDeviceTypeInvalid = 6
+    synDeviceTypeSize = 7
+
 hcl_ops = {0: "eHCLOpNone", 1: "eHCLSum", 2: "eHCLMul"}
 
 FuncDef = namedtuple("FuncDef", ["name", "args", "return_type"])
@@ -224,7 +234,7 @@ def gson_iterator(gson_file_name, end_on_error=True):
                         if "deviceId" in args:
                             args["deviceId"] = "device_id"
                         if "deviceType" in args:
-                            args["deviceType"] = "synDeviceGaudi"
+                            args["deviceType"] = f'synDeviceType::{synDeviceType(int(args["deviceType"])).name}'
 
                         for arg, arg_type in entry["func"].args.items():
                             if arg_type in ("const char*", "const char *") and args[arg] != "nullptr":

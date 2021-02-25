@@ -696,7 +696,12 @@ class Flow:
                 elif entry["name"] == "call" and entry["ph"] == "B":
                     func_def = entry["func"]
                     if func_def.name == "synDeviceAcquireByDeviceType":
-                        out(Flow.call(entry, {"pDeviceId": "&device_id", "deviceType": "synDeviceGaudi"}))
+                        # this command can fail, if the device was not available
+                        # it happens if the machine has GaudiM card instead of Gaudi
+                        # in that case, we record only successful device acquisitions
+                        if entry["result"]["status"] == 0:
+                            out(Flow.call(
+                                entry, {"pDeviceId": "&device_id"}))
                     elif func_def.name == "synDeviceGetMemoryInfo":
                         v = space.add(entry["result"]["free"], "uint64_t", f"device_free_memory{no}", local=True)
                         args["free"] = entry["result"]["free"]

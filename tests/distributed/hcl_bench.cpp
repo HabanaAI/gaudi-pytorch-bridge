@@ -63,6 +63,9 @@ public:
         {
             std::cout<<"Called synDeviceAcquireByDeviceType";
             ret = synDeviceAcquireByDeviceType(&m_DeviceId, synDeviceGaudi);
+            if (ret != synSuccess) {
+              ret = synDeviceAcquireByDeviceType(&m_DeviceId, synDeviceGaudiM);
+            }
         }
 
         VERIFY(synSuccess == ret);

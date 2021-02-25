@@ -175,19 +175,19 @@ device::device(
 }
 
 synapse_error_v<std::shared_ptr<device>> device::get_or_create(
-    synDeviceType device_type,
+    const std::set<synDeviceType>& allowed_device_types,
     const create_allocator_fnc& allocator) {
   std::lock_guard<std::mutex> lock(device_mtx);
   std::shared_ptr<device> device_ptr = device_in_use.lock();
   if (device_ptr != nullptr) {
-    if (device_ptr->type() != device_type) {
+    if (!allowed_device_types.count(device_ptr->type())) {
       return synapse_error{"Process already acquired device of different type.",
                            synDeviceTypeMismatch};
     }
     return device_ptr;
   }
 
-  return device::create(device_type, allocator);
+  return device::create(allowed_device_types, allocator);
 }
 
 synapse_error_v<std::shared_ptr<device>> device::get_by_id(
@@ -204,7 +204,7 @@ synapse_error_v<std::shared_ptr<device>> device::get_by_id(
 }
 
 synapse_error_v<std::shared_ptr<device>> device::create(
-    synDeviceType device_type,
+    const std::set<synDeviceType>& allowed_device_types,
     const create_allocator_fnc& create_allocator) {
   PT_SYNHELPER_DEBUG("synHPU Init");
   uint32_t new_device_id;
@@ -227,12 +227,35 @@ synapse_error_v<std::shared_ptr<device>> device::create(
   auto synapse_session =
       synapse_helpers::get_value(std::move(synapse_session_create_result));
 
+  synDeviceType acquired_device_type = synDeviceGaudi;
   if (std::getenv("ID") != nullptr) {
     // Required for  multi chip configuration
     status = synDeviceAcquireByModuleId(
         &new_device_id, std::stoll(std::getenv("ID")));
+    if (status == synSuccess) {
+      synDeviceInfo dinfo;
+      auto status_info = synDeviceGetInfo(new_device_id, &dinfo);
+      if (status_info != synSuccess) {
+        return synapse_error{"Device get info failed.", status_info};
+      }
+      acquired_device_type = dinfo.deviceType;
+    }
   } else {
-    status = synDeviceAcquireByDeviceType(&new_device_id, device_type);
+    for (auto const& device_type : allowed_device_types) {
+      status = synDeviceAcquireByDeviceType(&new_device_id, device_type);
+      if (status == synSuccess) {
+        PT_SYNHELPER_DEBUG(
+            "Device acquire successful for device_type: ", device_type);
+        acquired_device_type = device_type;
+        break;
+      } else {
+        PT_SYNHELPER_DEBUG(
+            "Device acquire failed for device_type: ",
+            device_type,
+            " with status ",
+            status);
+      }
+    }
   }
 
   if (status != synSuccess) {
@@ -240,7 +263,7 @@ synapse_error_v<std::shared_ptr<device>> device::create(
   }
 
   std::shared_ptr<device> device_ptr{new device(
-      synapse_session, new_device_id, device_type, create_allocator)};
+      synapse_session, new_device_id, acquired_device_type, create_allocator)};
 
   uint64_t free_mem, total_mem;
   status = synDeviceGetMemoryInfo(device_ptr->id(), &free_mem, &total_mem);
@@ -353,6 +376,9 @@ std::ostream& operator<<(std::ostream& stream, const device& syn_device) {
   switch (syn_device.type()) {
     case synDeviceGaudi:
       stream << " Gaudi ";
+      break;
+    case synDeviceGaudiM:
+      stream << " GaudiM ";
       break;
     default:
       stream << " UNKNOWN ";
