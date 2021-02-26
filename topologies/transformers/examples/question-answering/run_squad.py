@@ -83,7 +83,7 @@ MODEL_TYPES = tuple(conf.model_type for conf in MODEL_CONFIG_CLASSES)
 def compute_position_ids(input_ids):
     input_shape = input_ids.size()
     seq_length = input_shape[1]
-    position_ids_seq = torch.arange(seq_length, dtype=torch.int32)
+    position_ids_seq = torch.arange(seq_length, dtype=input_ids.dtype)
     position_ids_ = position_ids_seq.unsqueeze(0).expand(input_shape)
     position_ids = position_ids_.contiguous()
     return position_ids
