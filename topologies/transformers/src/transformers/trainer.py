@@ -540,6 +540,13 @@ class Trainer:
         )
         for param in model.parameters():
             param.grad = None
+        if self.args.use_habana and not self.args.use_jit_trace:
+            if self.args.use_fused_clip_norm:
+                try:
+                    from hb_custom import FusedClipNorm
+                except ImportError:
+                    raise ImportError("Please install hb_custom.")
+                FusedNorm = FusedClipNorm(model.parameters(), self.args.max_grad_norm)
         # log the pre-epoch-loop memory usage
         self.trainMetaData.log_live_mem_alloc("before entering train Iteration " + str(self.trainMetaData.current_train_step))
         #self.trainMetaData.increment_train_step()
@@ -593,6 +600,13 @@ class Trainer:
                    model_trace = torch.jit.trace(model, (input_ids, attention_mask, token_type_ids, position_ids, tensor_dummy, tensor_dummy, labels, tensor_dummy, tensor_dummy), check_trace=False)
                    is_model_traced = True
                    model = model_trace
+                   if self.args.use_habana:
+                    if self.args.use_fused_clip_norm:
+                        try:
+                            from hb_custom import FusedClipNorm
+                        except ImportError:
+                            raise ImportError("Please install hb_custom.")
+                        FusedNorm = FusedClipNorm(model_trace.parameters(), self.args.max_grad_norm)
                    if self.args.local_rank != -1:
                     if self.args.use_habana:
                         model = torch.nn.parallel.DistributedDataParallel(
@@ -613,12 +627,10 @@ class Trainer:
                     else:
                         if self.args.use_habana:
                             if self.args.use_fused_clip_norm:
-                                try:
-                                    from hb_custom import FusedClipNorm
-                                except ImportError:
-                                    raise ImportError("Please install hb_custom.")
-
-                                FusedClipNorm(model.parameters(), self.args.max_grad_norm)
+                                if self.args.use_jit_trace:
+                                    FusedNorm.clip_norm(model_trace.parameters())
+                                else:
+                                    FusedNorm.clip_norm(model.parameters())
                             else:
                                 if self.args.hmp:
                                     from hmp import hmp

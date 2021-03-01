@@ -4,7 +4,8 @@ import math
 import torch
 
 # Our module!
-from hb_custom_C import fused_norm
+#from hb_custom_C import fused_norm
+from hb_custom import FusedClipNorm
 
 torch.ops.load_library(os.path.join(os.environ['BUILD_ROOT_LATEST'], "libhabana_pytorch_plugin.so"))
 habana = torch.device("habana")
@@ -20,9 +21,10 @@ if __name__ == "__main__":
         vec_n_cpu.append(torch.norm(u))
         v = u.detach().to(habana)
         vec_hpu.append(v)
-    max_norm_t = (torch.ones((1))*max_norm_val).to(habana)
+    #max_norm_t = (torch.ones((1))*max_norm_val).to(habana)
     n_cpu = torch.norm(torch.stack(vec_n_cpu), norm_type)
-    n_hpu = fused_norm(vec_hpu, max_norm_t, norm_type)
+    fn_hpu = FusedClipNorm(max_norm_val)
+    n_hpu = fn_hpu.clip_norm(vec_hpu, norm_type)
     max_norm_cpu = float(max_norm_val)
     clip_coef = max_norm_cpu / (n_cpu + 1e-6)
     if clip_coef < 1:

@@ -226,6 +226,13 @@ def train(args, train_dataset, model, tokenizer, trainMetaData):
     )
     # Added here for reproductibility
     set_seed(args)
+    if args.use_habana and not args.use_jit_trace:
+        if args.use_fused_clip_norm:
+            try:
+                from hb_custom import FusedClipNorm
+            except ImportError:
+                raise ImportError("Please install hb_custom.")
+            FusedNorm = FusedClipNorm(model.parameters(), args.max_grad_norm)
     # log the pre-epoch-loop memory usage
     trainMetaData.tracept.end(time.time(), 'train_iteration_' + str(trainMetaData.current_train_step))
     trainMetaData.log_live_mem_alloc("before entering train Iteration " + str(trainMetaData.current_train_step))
@@ -294,6 +301,13 @@ def train(args, train_dataset, model, tokenizer, trainMetaData):
             if args.use_jit_trace and is_model_traced == False:
                 model_trace = torch.jit.trace(model, (batch[0], batch[1], batch[2], position_ids, tensor_dummy, tensor_dummy, batch[3], batch[4], tensor_dummy, tensor_dummy), check_trace=False)
                 is_model_traced = True
+                if args.use_habana:
+                    if args.use_fused_clip_norm:
+                        try:
+                            from hb_custom import FusedClipNorm
+                        except ImportError:
+                            raise ImportError("Please install hb_custom.")
+                        FusedNorm = FusedClipNorm(model_trace.parameters(), args.max_grad_norm)
                 if args.local_rank != -1:
                     if args.use_habana:
                         model_trace = torch.nn.parallel.DistributedDataParallel(
@@ -328,12 +342,10 @@ def train(args, train_dataset, model, tokenizer, trainMetaData):
                 else:
                     if args.use_habana:
                         if args.use_fused_clip_norm:
-                            try:
-                                from hb_custom import FusedClipNorm
-                            except ImportError:
-                                raise ImportError("Please install hb_custom.")
-
-                            FusedClipNorm(model.parameters(), args.max_grad_norm)
+                            if args.use_jit_trace:
+                                FusedNorm.clip_norm(model_trace.parameters())
+                            else:
+                                FusedNorm.clip_norm(model.parameters())
                         else:
                             if args.hmp:
                                 from hmp import hmp

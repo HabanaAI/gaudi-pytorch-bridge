@@ -83,7 +83,8 @@ if __name__ == "__main__":
         l_hpu.backward()
         opt_hpu.step()
 
-        n_hpu = FusedClipNorm(m_hpu.parameters(), max_norm)
+        FusedNorm = FusedClipNorm(m_hpu.parameters(), max_norm)
+        n_hpu = FusedNorm.clip_norm()
 
         comp = np.allclose(
                 n_cpu_list[i].detach().numpy(),
