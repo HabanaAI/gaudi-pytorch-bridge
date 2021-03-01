@@ -260,7 +260,15 @@ class GeluOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      bool is_output_persistent) override {
+    AllocateAndAddSynapseNode(
+        graph, inputs, {is_output_persistent, is_output_persistent});
+  }
+
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      std::vector<bool> is_output_persistent) override;
 
   void SetEagerMode() {
     is_eager_mode = true;

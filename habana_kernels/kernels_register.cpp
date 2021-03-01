@@ -1744,6 +1744,21 @@ Tensor hpu_wrap::gelu_backward(const Tensor& grad, const Tensor& self) {
     return gelu_backward_hpu(grad, self);
   }
 };
+std::tuple<at::Tensor, at::Tensor> hpu_wrap::hbgelu2(const Tensor& self) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    HABANA_ASSERT(0 && "hbgelu2 not implemented for lazy mode");
+  }
+  return gelu2_hpu(self);
+};
+Tensor hpu_wrap::hbgelu2_backward(
+    const Tensor& grad,
+    const Tensor& self,
+    const Tensor& saved) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    HABANA_ASSERT(0 && "hbgelu2_backward not implemented for lazy mode");
+  }
+  return gelu2_backward_hpu(grad, self, saved);
+};
 Tensor& hpu_wrap::erf_(Tensor& self) {
   if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto& t = erf_hpu_lazy_(self);

@@ -484,6 +484,11 @@ Tensor& tanh_out_hpu(Tensor& out, const Tensor& self);
 Tensor tanh_backward_hpu(const Tensor& grad_in, const Tensor& input);
 Tensor gelu_hpu(const Tensor& self);
 Tensor gelu_backward_hpu(const Tensor& grad, const Tensor& self);
+std::tuple<at::Tensor, at::Tensor> gelu2_hpu(const Tensor& self);
+Tensor gelu2_backward_hpu(
+    const Tensor& grad,
+    const Tensor& self,
+    const Tensor& saved);
 Tensor& erf_hpu_(Tensor& self);
 Tensor erf_hpu(const Tensor& self);
 Tensor& exp_hpu_(Tensor& self);

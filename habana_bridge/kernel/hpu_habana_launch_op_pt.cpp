@@ -494,10 +494,17 @@ void HabanaLaunchOpPT::GetSynapseOutputs(
 
   size_t output_nodes_idx = 0, output_tensor_idx = 0;
 
-  TORCH_CHECK(
-      output_nodes.size() ==
-          output_tensors_pt.size() - excluded_out_indices.size(),
-      "HabanaFusionOp Lowering: Number of output nodes generated doesnt match the graph");
+  if (node->kind().toQualString() != std::string("aten::gelu")) {
+    TORCH_CHECK(
+        output_nodes.size() ==
+            output_tensors_pt.size() - excluded_out_indices.size(),
+        "HabanaFusionOp Lowering of node : ",
+        node->kind().toQualString(),
+        " Number of output nodes ",
+        output_nodes.size(),
+        " doesnt match the generated ",
+        output_tensors_pt.size() - excluded_out_indices.size());
+  }
 
   size_t meta_size = habana_kernel_meta_data.output_layout.size();
   for (synapse_helpers::tensor& out_tensor_syn : output_tensors_syn) {
