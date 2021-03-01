@@ -147,4 +147,102 @@ ir::Value GetIrValueForListConstruct(const ir::ValueList values) {
   return ir::Value(std::make_shared<ir::ListConstruct>(values));
 }
 
+std::vector<at::Tensor> HpuGetFallbackTensorList(
+    const std::vector<at::Tensor>& tensors) {
+  std::vector<at::Tensor> fbtensors;
+  fbtensors.reserve(tensors.size());
+  for (const auto& tensor : tensors) {
+    fbtensors.push_back(tensor.to(c10::kCPU));
+  }
+  return fbtensors;
+}
+
+const std::vector<c10::optional<at::Tensor>> HpuGetFallbackOptTensorList(
+    const std::vector<c10::optional<at::Tensor>>& tensors) {
+  std::vector<c10::optional<at::Tensor>> fbtensors;
+  fbtensors.reserve(tensors.size());
+  for (const auto& tensor : tensors) {
+    if (tensor.has_value()) {
+      fbtensors.emplace_back(tensor.value().to(c10::kCPU));
+    } else {
+      fbtensors.emplace_back(tensor);
+    }
+  }
+  return fbtensors;
+}
+
+at::Tensor CreateHpuTensor(
+    const at::Tensor& tensor,
+    const c10::optional<c10::Device>& device) {
+  if (tensor.defined() && device) {
+    return tensor.to(device.value());
+  }
+  return tensor;
+}
+
+std::vector<at::Tensor> CreateHpuTensors(
+    const std::vector<at::Tensor>& tensors,
+    const c10::optional<c10::Device>& device) {
+  std::vector<at::Tensor> htensors;
+  htensors.reserve(tensors.size());
+  for (auto& tensor : tensors) {
+    htensors.push_back(CreateHpuTensor(tensor, device));
+  }
+  return htensors;
+}
+
+void HpuUpdateTensors(
+    std::vector<at::Tensor>& dst_tensors,
+    std::vector<at::Tensor>& src_tensors,
+    const std::vector<size_t>& indices) {
+  for (auto index : indices) {
+    auto dst = dst_tensors.at(index);
+    auto src = src_tensors.at(index);
+    dst.copy_(src, /*non_blocking*/ true);
+  }
+}
+c10::optional<c10::Device> GetHpuDevice(const at::Tensor& tensor) {
+  return tensor.device();
+}
+
+c10::optional<c10::Device> GetHpuDevice(
+    const c10::optional<at::Tensor>& tensor) {
+  if (!tensor.has_value()) {
+    return c10::nullopt;
+  }
+  return GetHpuDevice(*tensor);
+}
+
+c10::optional<c10::Device> GetHpuDevice(const at::TensorList& tensors) {
+  for (const auto& tensor : tensors) {
+    auto device = GetHpuDevice(tensor);
+    if (device) {
+      return device;
+    }
+  }
+  return c10::nullopt;
+}
+
+c10::optional<c10::Device> GetHpuDevice(
+    const at::TensorOptions& tensor_options) {
+  if (!tensor_options.has_device()) {
+    return c10::nullopt;
+  }
+  return GetHpuDevice(tensor_options.device());
+}
+
+c10::optional<c10::Device> GetHpuDevice(const c10::Device& device) {
+  if (device.type() != at::kHABANA) {
+    return c10::nullopt;
+  }
+  return device;
+}
+
+c10::optional<c10::Device> GetHpuDevice(
+    const c10::optional<c10::Device>& device) {
+  if (!device) {
+    return c10::nullopt;
+  }
+  return GetHpuDevice(*device);
+}
 } // namespace habana_lazy

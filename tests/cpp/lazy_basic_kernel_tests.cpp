@@ -112,8 +112,6 @@ TEST_F(LazyBasicKernelTest, ViewCopy) {
   A = A.div_(2);
   hA = hA.div_(2);
   HbLazyTensor::StepMarker({});
-  std::cout << A << "\n";
-  std::cout << hA.to(kCPU) << "\n";
   EXPECT_EQ(allclose(hA.to(torch::kCPU), A), true);
 }
 TEST_F(LazyBasicKernelTest, ControlEdge) {

@@ -24,11 +24,11 @@ TEST(LazyJITTest, CreateGraph) {
   torch::Tensor tensor_in2 = tensor_in2_cpu.to(torch::kHABANA);
 
   Scalar alpha = 4.0f, beta = 99.5f;
-  auto result = add_tensor_hpu_wrap(tensor_in1, tensor_in2, alpha);
+  auto result = hpu_wrap::add(tensor_in1, tensor_in2, alpha);
   // auto result = torch::add(tensor_in1, tensor_in2);
 
   // torch::Tensor tensor_in3 = torch::randn({2, 3}).to(torch::kHABANA);
-  auto result2 = add_tensor_hpu_wrap(result, tensor_in2, beta);
+  auto result2 = hpu_wrap::add(result, tensor_in2, beta);
   // auto result2 = torch::add(result, tensor_in2);
   auto hl_result = GetHbLazyTensor(result2);
 
@@ -65,8 +65,8 @@ TEST(LazyJITTest, ExecuteGraph) {
   setenv("PT_HPU_LAZY_MODE", "1", 1);
   torch::Tensor htensor_in1 = tensor_in1.to(torch::kHABANA);
   torch::Tensor htensor_in2 = tensor_in2.to(torch::kHABANA);
-  auto result1 = add_tensor_hpu_wrap(htensor_in1, htensor_in2, alpha);
-  auto result2 = add_tensor_hpu_wrap(result1, htensor_in1, alpha);
+  auto result1 = hpu_wrap::add(htensor_in1, htensor_in2, alpha);
+  auto result2 = hpu_wrap::add(result1, htensor_in1, alpha);
 
   Tensor out1 = result1.to(kCPU);
   Tensor out2 = result2.to(kCPU);

@@ -9,7 +9,7 @@
  */
 #include "hpu_lazy_tensors.h"
 #include "tensor_impl.h"
-// namespace habana_lazy
+#pragma once
 namespace habana_lazy {
 
 at::Tensor HbLazyToAtenTensor(
@@ -53,4 +53,31 @@ at::Tensor CreateHbLazyTensor(
 c10::optional<at::Device> GetHblazyDevice(const at::Tensor& tensor);
 
 ir::Value GetIrValueForListConstruct(const ir::ValueList values);
+
+std::vector<at::Tensor> HpuGetFallbackTensorList(
+    const std::vector<at::Tensor>& tensors);
+const std::vector<c10::optional<at::Tensor>> HpuGetFallbackOptTensorList(
+    const std::vector<c10::optional<at::Tensor>>& tensors);
+
+at::Tensor CreateHpuTensor(
+    const at::Tensor& tensor,
+    const c10::optional<c10::Device>& device);
+std::vector<at::Tensor> CreateHpuTensors(
+    const std::vector<at::Tensor>& tensors,
+    const c10::optional<c10::Device>& device);
+
+void HpuUpdateTensors(
+    std::vector<at::Tensor>& dst_tensors,
+    std::vector<at::Tensor>& src_tensors,
+    const std::vector<size_t>& indices);
+
+c10::optional<c10::Device> GetHpuDevice(const at::Tensor& tensor);
+c10::optional<c10::Device> GetHpuDevice(
+    const c10::optional<at::Tensor>& tensor);
+c10::optional<c10::Device> GetHpuDevice(const at::TensorList& tensors);
+c10::optional<c10::Device> GetHpuDevice(
+    const at::TensorOptions& tensor_options);
+c10::optional<c10::Device> GetHpuDevice(const c10::Device& device);
+c10::optional<c10::Device> GetHpuDevice(
+    const c10::optional<c10::Device>& device);
 } // namespace habana_lazy

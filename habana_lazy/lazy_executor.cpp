@@ -151,6 +151,9 @@ HbExecutionContext* HbExecutionContextArena::getDeviceExecutionContext(
     int index) {
   index = 0;
   std::lock_guard<std::recursive_mutex> lock(HbContextArena::Get()->GetMutex());
+  // Force everything to use index 0. Need to remove device index as
+  // a whole
+  index = 0;
   auto hbcontext = m_execution_context_list.find(index);
   if (hbcontext != std::end(m_execution_context_list)) {
     return hbcontext->second;

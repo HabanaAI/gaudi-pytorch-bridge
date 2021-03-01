@@ -132,7 +132,7 @@ TEST_F(LazyBinaryKernelTest, DivTensorTestByNonZero) {
   torch::Tensor B = torch::randn(dimentions);
 
   // Make sure no element of B is zero
-  size_t index[dimentions.size()];
+  int64_t index[dimentions.size()];
   for (index[0] = 0; index[0] < dimentions[0]; ++index[0]) {
     for (index[1] = 0; index[1] < dimentions[1]; ++index[1]) {
       for (index[2] = 0; index[2] < dimentions[2]; ++index[2]) {

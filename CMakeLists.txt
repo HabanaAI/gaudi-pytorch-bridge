@@ -52,6 +52,7 @@ add_library(habana_pytorch_plugin SHARED
   pytorch_helpers/habana_helpers/tensor_info.cpp
   pytorch_helpers/habana_helpers/tensor_utils.cpp
   habana_hooks/HabanaHooks.cpp
+  habana_kernels/aten_hpu_type_default.cpp
   habana_kernels/basic_kernels.cpp
   habana_kernels/binary_kernels.cpp
   habana_kernels/binary_composite_kernels.cpp
@@ -102,14 +103,26 @@ target_compile_options(habana_pytorch_plugin PRIVATE -Wall -Wextra  -Wno-error=d
 target_link_libraries(habana_pytorch_plugin PRIVATE "${TORCH_LIBRARIES}" pytorch_synapse_helpers_abi11 json)
 target_include_directories(habana_pytorch_plugin PRIVATE ${CMAKE_SOURCE_DIR})
 
-set(BRIDGE_SOURCES habana_bridge/register/register.cpp)
-
-pybind11_add_module(hb_torch SHARED ${BRIDGE_SOURCES})
+pybind11_add_module(hb_torch SHARED habana_bridge/register/register.cpp)
 target_compile_definitions(hb_torch PRIVATE "GENERIC_HELPERS" MAX_DEVICES_PER_BOX=8)
 target_compile_options(hb_torch PRIVATE -Wall -Wextra -Wno-error=deprecated-declarations)
 target_link_libraries(hb_torch PRIVATE "${TORCH_LIBRARIES}" habana_pytorch_plugin pytorch_synapse_helpers_abi11)
 target_include_directories(hb_torch PRIVATE ${CMAKE_SOURCE_DIR})
 target_compile_features(hb_torch PRIVATE cxx_std_14)
+
+execute_process(COMMAND python -m pip install --user lark) # TODO remove after https://gerrit.habana-labs.com/79493 is merged
+add_custom_command(OUTPUT ${CMAKE_SOURCE_DIR}/habana_kernels/aten_hpu_type_default.cpp
+                   COMMAND python ${CMAKE_SOURCE_DIR}/scripts/gen.py --gen_class_mode
+                     --output_folder=${CMAKE_SOURCE_DIR}/habana_kernels
+                     ${CMAKE_SOURCE_DIR}/habana_kernels/wrap_kernels_declarations.h
+                     ${CMAKE_PREFIX_PATH}/include/torch/csrc/autograd/generated/RegistrationDeclarations.h
+                     ${CMAKE_PREFIX_PATH}/include/ATen/Functions.h
+                   MAIN_DEPENDENCY scripts/gen.py
+                   DEPENDS
+                     ${CMAKE_SOURCE_DIR}/habana_kernels/wrap_kernels_declarations.h
+                     ${CMAKE_PREFIX_PATH}/include/torch/csrc/autograd/generated/RegistrationDeclarations.h
+                     ${CMAKE_PREFIX_PATH}/include/ATen/Functions.h
+)
 
 # Create symlink to latest build from tests dir
 add_custom_command(TARGET habana_pytorch_plugin POST_BUILD COMMAND

@@ -10,6 +10,7 @@
 
 #include <ATen/InferSize.h>
 #include "habana_helpers/logging.h"
+#include "habana_kernels/aten_hpu_type_default.h"
 #include "habana_kernels/basic_kernels.h"
 #include "habana_kernels/binary_kernels.h"
 #include "habana_kernels/conv_kernels.h"
@@ -341,7 +342,6 @@ Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src, bool non_blocking) {
   return self;
 }
 
-// calling eager mode kernels as a temporary placeholder to avoid warnings
 Tensor& copy_hpu_lazy_(Tensor& self, const Tensor& src, bool non_blocking) {
   PT_LAZY_TRACE;
   TORCH_CHECK(self.defined(), "dst is undefined");
@@ -494,10 +494,7 @@ Tensor as_strided_hpu_lazy(
     hb_result.addView(view);
     return result;
   } else {
-    TORCH_CHECK(
-        false,
-        "Habana Lazy : we dont support strided tensors for non 1D/stride != 1");
-    return self;
+    return AtenHpuTypeDefault::as_strided(self, size, stride, storage_offset);
   }
   return self;
 };
