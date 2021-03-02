@@ -43,6 +43,16 @@ class FusedSGD(Optimizer):
                     state = self.state[p]
                     state['momentum_buffer'] = torch.zeros(p.shape).to(hpu)
 
+    def __setstate__(self, state):
+        super().__setstate__(state)
+        # State initialization
+        for group in self.param_groups:
+            if 'lr_t' not in group:
+                group['lr_t'] = torch.tensor([group['lr']], requires_grad=False).to(hpu)
+            if (group['momentum'] != 0):
+                if 'step_t' not in group:
+                    group['step_t'] = torch.tensor([0], dtype = torch.int32, requires_grad=False).to(hpu, non_blocking=True)
+
     def step(self, closure: Callable = None):
         """
         Performs a single optimization step.
