@@ -29,7 +29,8 @@ class IrGraphDumpUtil {
 
   static std::string PostOrderToText(
       const std::vector<ir::NodePtr>& post_order,
-      const std::vector<ir::NodePtr>& roots);
+      const std::vector<ir::NodePtr>& roots,
+      const bool use_ir_names = true);
 };
 
 } // namespace habana_lazy

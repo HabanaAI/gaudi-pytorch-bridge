@@ -220,12 +220,13 @@ std::string IrGraphDumpUtil::PostOrderToDot(
 std::string IrGraphDumpUtil::ToText(std::vector<ir::NodePtr> nodes) {
   habana_lazy::ir::PostOrderData po_data;
   ir::Utils::ComputePostOrder(nodes, po_data);
-  return PostOrderToText(po_data.post_order, nodes);
+  return PostOrderToText(po_data.post_order, nodes, false);
 }
 
 std::string IrGraphDumpUtil::PostOrderToText(
     const std::vector<ir::NodePtr>& post_order,
-    const std::vector<ir::NodePtr>& roots) {
+    const std::vector<ir::NodePtr>& roots,
+    const bool use_ir_names) {
   PT_LAZY_TRACE;
   std::unordered_map<ir::NodePtr, size_t> roots_ids = GetRootsIds(roots);
   NodeIdMap id_map = GenerateIdMap(post_order);
@@ -233,8 +234,26 @@ std::string IrGraphDumpUtil::PostOrderToText(
   ss << "IR {\n";
   for (auto& node : post_order) {
     auto opt_root_id = GetRootNodeId(node, roots_ids);
-    ss << "  %" << id_map.at(node) << " = "
-       << GenerateTextNodeSpec(node, id_map);
+    if (use_ir_names) {
+      ss << "  ";
+      auto num_outputs = node->GetNumOutputs();
+      for (auto id = 0u; id < num_outputs; ++id) {
+        ss << " %" << node->GetOutput(id).ToString();
+        if (id == num_outputs - 1) {
+          ss << " = ";
+        } else {
+          ss << ",";
+        }
+      }
+      // Replace the \n at the end of node op name with space
+      std::string node_string = node->ToString();
+      std::string::size_type pos = node_string.find("\n");
+      node_string[pos] = ' ';
+      ss << node_string;
+    } else {
+      ss << "  %" << id_map.at(node) << " = "
+         << GenerateTextNodeSpec(node, id_map);
+    }
     if (opt_root_id) {
       ss << ", ROOT=" << *opt_root_id;
     }

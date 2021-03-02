@@ -43,7 +43,7 @@ std::string Use::ToString() const {
 
 std::string Node::ToString() const {
   std::stringstream ss;
-  ss << "Op: " << m_op.toQualString() << ", Inputs: {";
+  ss << m_op.toQualString() << "{";
   for (auto& v : m_inputs) {
     ss << v.ToString() << " ";
   }
@@ -108,7 +108,8 @@ bool Value::IsHpuInputNode() const {
 
 Value::~Value() {}
 
-Output::Output(const Value& v) : m_node(v.mp_node.get()), m_index(v.m_index) {}
+Output::Output(const Value& v)
+    : m_node(v.mp_node.get()), m_index(v.m_index), m_name(v.ToString()) {}
 
 } // namespace ir
 } // namespace habana_lazy

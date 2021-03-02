@@ -56,7 +56,7 @@ struct Use {
 };
 
 inline std::ostream& operator<<(std::ostream& stream, const Use& use) {
-  stream << use.ToString();
+  stream << use.ToString() << "\n";
   return stream;
 }
 
@@ -92,9 +92,14 @@ class Output {
     return m_node != nullptr;
   }
 
+  const std::string& ToString() const {
+    return m_name;
+  }
+
  protected:
   Node* m_node = nullptr;
   size_t m_index;
+  const std::string m_name;
 };
 using OutputList = std::vector<Output>;
 
@@ -244,7 +249,7 @@ class Node {
 };
 
 inline std::ostream& operator<<(std::ostream& stream, const Node& node) {
-  stream << node.ToString();
+  stream << node.ToString() << "\n";
   return stream;
 }
 
@@ -316,7 +321,7 @@ struct Value {
 };
 
 inline std::ostream& operator<<(std::ostream& stream, const Value& value) {
-  stream << value.ToString();
+  stream << value.ToString() << "\n";
   return stream;
 }
 
