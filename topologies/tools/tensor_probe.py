@@ -384,7 +384,13 @@ def tp_probe_tensors_iteration_start(model, device, target, inp, ParamsDump, for
         if ParamsDump.to_dump_data is False:
             return
         if tp_model_params_check_tensor_group('tg'):
-            ParamsDump.save_tensor(device, target, 'target', force_dump=force_dump)
+            if isinstance(target, torch.Tensor):
+                ParamsDump.save_tensor(device, target, 'target', force_dump=force_dump)
+            elif isinstance(target, dict):
+                for k, v in target.items():
+                    if isinstance(v, torch.Tensor):
+                        target_key = 'target_' + k
+                        ParamsDump.save_tensor(device, target[k], target_key, force_dump=force_dump)
 
         if tp_model_params_check_tensor_group('ip'):
             if isinstance(inp, torch.Tensor):

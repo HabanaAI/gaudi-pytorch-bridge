@@ -47,6 +47,17 @@ from utils import is_main_process, format_step, get_world_size, get_rank
 from schedulers import LinearWarmUpScheduler
 
 try:
+    path = os.path.join(os.environ['PYTORCH_MODULES_ROOT_PATH'], 'topologies')
+    tools_path = os.path.join(path, 'tools')
+    if os.path.exists(path) is False or os.path.exists(tools_path) is False:
+        raise Exception("path for 'tools' NOT found")
+    sys.path.append(path)
+    from tools import *
+except:
+    assert False, ("tools directory should be availabe as somedir/topologies/tools",
+                     "PYTORCH_MODULES_ROOT_PATH should be set to 'somedir'")
+
+try:
     from apex import amp
     from apex.optimizers import FusedLAMB
     from apex.parallel import DistributedDataParallel as DDP
@@ -641,6 +652,7 @@ def main():
         dllogger.log(step="PARAMETER", data={"SEED": args.seed})
 
     raw_train_start = None
+    trainMetaData = TrainMetaData(model, device)
     if args.do_train:
         if is_main_process():
             dllogger.log(step="PARAMETER", data={"train_start": True})
@@ -733,6 +745,24 @@ def main():
                     position_ids = position_ids.to(device)
                     batch = [t.to(device) for t in batch]
                     input_ids, segment_ids, input_mask, masked_lm_labels, next_sentence_labels = batch
+                    inputs = {
+                        "input_ids": batch[0],
+                        "segment_ids": batch[1],
+                        "input_mask": batch[2],
+                        "masked_lm_labels": batch[3],
+                        "next_sentence_labels": batch[4],
+                        "position_ids": position_ids
+                    }
+                    input_keys = ('input_ids', 'segment_ids', 'input_mask', 'position_ids')
+                    input_dict = {k: inputs[k] for k in input_keys if k in inputs}
+                    targets = {
+                        "masked_lm_labels":inputs['masked_lm_labels'],
+                        "next_sentence_labels":inputs['next_sentence_labels']
+                    }
+                    target_keys = ('masked_lm_labels', 'next_sentence_labels')
+                    target_dict = {k: targets[k] for k in target_keys if k in targets}
+
+                    tp_probe_tensors_iteration_start(model, device, target_dict, input_dict, trainMetaData.ParamsDump, False, 0) #local rank
 
                     if args.use_jit_trace:
                         if model_traced == False:
@@ -773,6 +803,7 @@ def main():
                     else:
                         loss.backward()
                     average_loss += loss.item()
+                    tp_probe_tensors_iteration_end(model, device, prediction_scores, loss.item(), trainMetaData.ParamsDump, False, 0) #local rank
 
                     if training_steps % args.gradient_accumulation_steps == 0:
                         lr_scheduler.step()  # learning rate warmup
