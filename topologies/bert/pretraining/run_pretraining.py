@@ -781,7 +781,7 @@ def main():
 
                     if args.use_jit_trace:
                         if model_traced == False:
-                            model = torch.jit.trace(model, (input_ids, segment_ids, input_mask, position_ids), check_trace=False)
+                            model = torch.jit.trace(model, (input_ids, segment_ids, input_mask, position_ids, masked_lm_labels, next_sentence_labels), check_trace=False)
                             model_traced = True
                             if args.local_rank != -1 and not args.allreduce_post_accumulation:
                                 if args.use_habana:
@@ -791,18 +791,16 @@ def main():
                         if args.local_rank != -1 and not args.allreduce_post_accumulation \
                                 and (training_steps % args.gradient_accumulation_steps != 0):
                             with model.no_sync():
-                                prediction_scores, seq_relationship_score = model(input_ids, segment_ids, input_mask, position_ids)
+                                loss = model(input_ids, segment_ids, input_mask, position_ids, masked_lm_labels, next_sentence_labels)
                         else:
-                            prediction_scores, seq_relationship_score = model(input_ids, segment_ids, input_mask, position_ids)
+                            loss = model(input_ids, segment_ids, input_mask, position_ids, masked_lm_labels, next_sentence_labels)
                     else:
                         if args.local_rank != -1 and not args.allreduce_post_accumulation \
                                 and (training_steps % args.gradient_accumulation_steps != 0):
                             with model.no_sync():
-                                prediction_scores, seq_relationship_score = model(input_ids=input_ids, token_type_ids=segment_ids, attention_mask=input_mask, position_ids=position_ids)
+                                loss = model(input_ids=input_ids, token_type_ids=segment_ids, attention_mask=input_mask, position_ids=position_ids, masked_lm_labels=masked_lm_labels, next_sentence_labels=next_sentence_labels)
                         else:
-                            prediction_scores, seq_relationship_score = model(input_ids=input_ids, token_type_ids=segment_ids, attention_mask=input_mask, position_ids=position_ids)
-
-                    loss = criterion(prediction_scores, seq_relationship_score, masked_lm_labels, next_sentence_labels)
+                            loss = model(input_ids=input_ids, token_type_ids=segment_ids, attention_mask=input_mask, position_ids=position_ids, masked_lm_labels=masked_lm_labels, next_sentence_labels=next_sentence_labels)
                     if args.n_pu > 1:
                         loss = loss.mean()  # mean() to average on multi-pu.
 

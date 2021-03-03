@@ -907,15 +907,22 @@ class BertForPreTraining(BertPreTrainedModel):
         super(BertForPreTraining, self).__init__(config)
         self.bert = BertModel(config)
         self.cls = BertPreTrainingHeads(config, self.bert.embeddings.word_embeddings.weight)
+        self.loss_fn = torch.nn.CrossEntropyLoss(ignore_index=-1)
         self.apply(self.init_bert_weights)
 
-    def forward(self, input_ids, token_type_ids, attention_mask, position_ids):
+    def forward(self, input_ids, token_type_ids, attention_mask, position_ids, masked_lm_labels=None, next_sentence_labels=None):
         encoded_layers, pooled_output = self.bert(input_ids, token_type_ids, attention_mask, position_ids)
         sequence_output = encoded_layers[-1]
         prediction_scores, seq_relationship_score = self.cls(sequence_output, pooled_output)
-
-        return prediction_scores, seq_relationship_score
-
+        if masked_lm_labels is not None:
+             masked_lm_loss = self.loss_fn(
+                 prediction_scores.view(-1, self.config.vocab_size), masked_lm_labels.view(-1))
+             next_sentence_loss = self.loss_fn(
+                 seq_relationship_score.view(-1, 2), next_sentence_labels.view(-1))
+             total_loss = masked_lm_loss + next_sentence_loss
+             return total_loss
+        else:
+             return prediction_scores
 
 class BertForMaskedLM(BertPreTrainedModel):
     """BERT model with the masked language modeling head.
