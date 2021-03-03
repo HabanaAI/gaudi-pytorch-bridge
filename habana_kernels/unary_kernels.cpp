@@ -35,8 +35,7 @@ void UnaryOperator::AllocateAndAddSynapseNode(
     Stack& inputs,
     bool is_output_persistent) {
   TORCH_CHECK(
-      inputs.size() == 1,
-      "Incorrect size of inpust expected for Relu operator");
+      inputs.size() == 1, "Incorrect size of inputs expected for operator");
   TORCH_CHECK(inputs[0].isTensor(), "Input type expected to be tensor");
 
   at::Tensor input = inputs[0].toTensor();
@@ -437,6 +436,85 @@ Tensor& floor_hpu_(Tensor& self) {
   FloorInplaceOperator Op(device_id, scalar_type);
   unary_inplace_op_hpu(self, node_type, &Op);
 
+  PT_KERNEL_END;
+  return self;
+}
+
+/*************************************************************************
+ * @brief Kernel implementation for output = torch.log(input)
+ * @param [out] output - output tensor, 1-4D, BF16/FP32
+ * @param [in] input - input tensor, 1-4D, BF16/FP32
+ ************************************************************************/
+Tensor log_hpu(const Tensor& input) {
+  PT_KERNEL_BEGIN;
+  at::ScalarType scalar_type = input.scalar_type();
+  std::string node_type =
+      "log_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+
+  // Create the operator
+  size_t device_id = input.device().index();
+  LogOperator Op(device_id, scalar_type);
+
+  auto out = unary_op_hpu(input, node_type, &Op);
+  PT_KERNEL_END;
+  return out;
+}
+
+/*************************************************************************
+ * @brief Kernel implementation for output = torch.log_(input)
+ * @param [out] output - output tensor, 1-4D, BF16/FP32
+ * @param [in] input - input tensor, 1-4D, BF16/FP32
+ ************************************************************************/
+Tensor& log_hpu_(Tensor& self) {
+  PT_KERNEL_BEGIN;
+  at::ScalarType scalar_type = self.scalar_type();
+  std::string node_type =
+      "log_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+  size_t device_id = self.device().index();
+
+  // Create the operator
+  LogInplaceOperator Op(device_id, scalar_type);
+  unary_inplace_op_hpu(self, node_type, &Op);
+  PT_KERNEL_END;
+  return self;
+}
+
+/*************************************************************************
+ * @brief Kernel implementation for output = torch.log2(input)
+ * @param [out] output - output tensor, 1-4D, BF16/FP32
+ * @param [in] input - input tensor, 1-4D, BF16/FP32
+ ************************************************************************/
+Tensor log2_hpu(const Tensor& input) {
+  PT_KERNEL_BEGIN;
+  at::ScalarType scalar_type = input.scalar_type();
+  std::string node_type =
+      "log2_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+
+  // Create the operator
+  size_t device_id = input.device().index();
+  Log2Operator Op(device_id, scalar_type);
+
+  auto out = unary_op_hpu(input, node_type, &Op);
+  PT_KERNEL_END;
+  return out;
+}
+
+/*************************************************************************
+ * @brief Kernel implementation for output = torch.log2_(input)
+ * @param [out] output - output tensor, 1-4D, BF16/FP32
+ * @param [in] input - input tensor, 1-4D, BF16/FP32
+ ************************************************************************/
+Tensor& log2_hpu_(Tensor& self) {
+  PT_KERNEL_BEGIN;
+
+  at::ScalarType scalar_type = self.scalar_type();
+  std::string node_type =
+      "log2_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+  size_t device_id = self.device().index();
+
+  // Create the operator
+  Log2InplaceOperator Op(device_id, scalar_type);
+  unary_inplace_op_hpu(self, node_type, &Op);
   PT_KERNEL_END;
   return self;
 }
@@ -1547,6 +1625,16 @@ static auto& KernelRegistry =
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<ExpOperator>(device_id, node_type);
             })
-        .add("aten::floor", [](const int device_id, c10::ScalarType node_type) {
-          return std::make_shared<FloorOperator>(device_id, node_type);
+        .add(
+            "aten::floor",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<FloorOperator>(device_id, node_type);
+            })
+        .add(
+            "aten::log",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<LogOperator>(device_id, node_type);
+            })
+        .add("aten::log2", [](const int device_id, c10::ScalarType node_type) {
+          return std::make_shared<Log2Operator>(device_id, node_type);
         });

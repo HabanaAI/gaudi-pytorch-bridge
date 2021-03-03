@@ -1922,6 +1922,34 @@ Tensor& floor_hpu_wrap_(Tensor& self) {
     return floor_hpu_(self);
   }
 };
+Tensor log_hpu_wrap(const Tensor& input) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    return log_hpu_lazy(input);
+  } else {
+    return log_hpu(input);
+  }
+};
+Tensor& log_hpu_wrap_(Tensor& self) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    return log_hpu_lazy_(self);
+  } else {
+    return log_hpu_(self);
+  }
+};
+Tensor log2_hpu_wrap(const Tensor& input) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    return log2_hpu_lazy(input);
+  } else {
+    return log2_hpu(input);
+  }
+};
+Tensor& log2_hpu_wrap_(Tensor& self) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    return log2_hpu_lazy_(self);
+  } else {
+    return log2_hpu_(self);
+  }
+};
 namespace at {
 namespace native {
 Scalar _local_scalar_dense_hpu_wrap(const Tensor& self) {
@@ -2456,6 +2484,10 @@ TORCH_LIBRARY_IMPL(aten, HABANATensorId, m) {
   m.impl_UNBOXED("_masked_scale", masked_scale_hpu_wrap);
   m.impl_UNBOXED("floor", floor_hpu_wrap);
   m.impl_UNBOXED("floor_", floor_hpu_wrap_);
+  m.impl_UNBOXED("log", log_hpu_wrap);
+  m.impl_UNBOXED("log_", log_hpu_wrap_);
+  m.impl_UNBOXED("log2", log2_hpu_wrap);
+  m.impl_UNBOXED("log2_", log2_hpu_wrap_);
 }
 
 TORCH_LIBRARY(hpu, m) {

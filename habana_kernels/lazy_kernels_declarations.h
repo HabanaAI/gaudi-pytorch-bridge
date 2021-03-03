@@ -524,6 +524,10 @@ Tensor& reciprocal_out_hpu_lazy(Tensor& result, const Tensor& self);
 Tensor clamp_min_hpu_lazy(const Tensor& self, Scalar min);
 Tensor floor_hpu_lazy(const Tensor& input);
 Tensor& floor_hpu_lazy_(Tensor& self);
+Tensor log_hpu_lazy(const Tensor& input);
+Tensor& log_hpu_lazy_(Tensor& self);
+Tensor log2_hpu_lazy(const Tensor& input);
+Tensor& log2_hpu_lazy_(Tensor& self);
 Tensor& clamp_hpu_lazy_(
     Tensor& self,
     c10::optional<Scalar> min,

@@ -495,6 +495,10 @@ Tensor& reciprocal_out_hpu(Tensor& result, const Tensor& self);
 Tensor clamp_min_hpu(const Tensor& self, Scalar min);
 Tensor floor_hpu(const Tensor& input);
 Tensor& floor_hpu_(Tensor& self);
+Tensor log_hpu(const Tensor& input);
+Tensor& log_hpu_(Tensor& self);
+Tensor log2_hpu(const Tensor& input);
+Tensor& log2_hpu_(Tensor& self);
 Tensor& clamp_hpu_(
     Tensor& self,
     c10::optional<Scalar> min,

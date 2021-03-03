@@ -354,3 +354,35 @@ class FloorInplaceOperator : public UnaryInplaceOperator {
             device_id,
             "floor_fwd_" + habana_helpers::name_suffix_from_type(scalarType)){};
 };
+
+class LogOperator : public UnaryOperator {
+ public:
+  LogOperator(int device_id, c10::ScalarType scalarType)
+      : UnaryOperator(
+            device_id,
+            "log_fwd_" + habana_helpers::name_suffix_from_type(scalarType)){};
+};
+
+class LogInplaceOperator : public UnaryInplaceOperator {
+ public:
+  LogInplaceOperator(int device_id, c10::ScalarType scalarType)
+      : UnaryInplaceOperator(
+            device_id,
+            "log_fwd_" + habana_helpers::name_suffix_from_type(scalarType)){};
+};
+
+class Log2Operator : public UnaryOperator {
+ public:
+  Log2Operator(int device_id, c10::ScalarType scalarType)
+      : UnaryOperator(
+            device_id,
+            "log2_fwd_" + habana_helpers::name_suffix_from_type(scalarType)){};
+};
+
+class Log2InplaceOperator : public UnaryInplaceOperator {
+ public:
+  Log2InplaceOperator(int device_id, c10::ScalarType scalarType)
+      : UnaryInplaceOperator(
+            device_id,
+            "log2_fwd_" + habana_helpers::name_suffix_from_type(scalarType)){};
+};

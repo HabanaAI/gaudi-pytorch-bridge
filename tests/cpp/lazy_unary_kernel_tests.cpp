@@ -92,6 +92,66 @@ TEST_F(LazyUnaryKernelTest, FloorTest) {
   EXPECT_EQ(allclose(hout_lazy, cpu_out), true);
 }
 
+TEST_F(LazyUnaryKernelTest, LogInplaceTest) {
+  // Inplace op as output node is not supported yet.
+  torch::Tensor A = torch::range(1, 100, 0.1);
+
+  auto hA = A.to(torch::kHABANA);
+  A = A.log_();
+  auto exp = torch::log_(A);
+
+  hA = hA.log_();
+  auto result = torch::log_(hA);
+
+  std::vector<HbLazyTensor> tensors = {GetHbLazyTensor(result)};
+  HbLazyTensor::SyncTensorsGraph(&tensors);
+
+  Tensor out = result.to(kCPU);
+
+  EXPECT_EQ(allclose(out, exp), true);
+}
+
+TEST_F(LazyUnaryKernelTest, LogTest) {
+  auto input_tensor = torch::range(1, 100, 0.1);
+  torch::Tensor cpu_out = torch::log(input_tensor);
+
+  torch::Tensor tHabanaX = input_tensor.to(torch::kHABANA);
+  torch::Tensor outHabana = torch::log(tHabanaX);
+  torch::Tensor hout_lazy = outHabana.to(torch::kCPU);
+
+  EXPECT_EQ(allclose(hout_lazy, cpu_out), true);
+}
+
+TEST_F(LazyUnaryKernelTest, Log2InplaceTest) {
+  // Inplace op as output node is not supported yet.
+  torch::Tensor A = torch::range(1, 100, 0.1);
+
+  auto hA = A.to(torch::kHABANA);
+  A = A.log2_();
+  auto exp = torch::log2_(A);
+
+  hA = hA.log2_();
+  auto result = torch::log2_(hA);
+
+  std::vector<HbLazyTensor> tensors = {GetHbLazyTensor(result)};
+  HbLazyTensor::SyncTensorsGraph(&tensors);
+
+  Tensor out = result.to(kCPU);
+
+  EXPECT_EQ(allclose(out, exp), true);
+}
+
+TEST_F(LazyUnaryKernelTest, Log2Test) {
+  auto input_tensor = torch::range(1, 100, 0.1);
+  torch::Tensor cpu_out = torch::log2(input_tensor);
+
+  torch::Tensor tHabanaX = input_tensor.to(torch::kHABANA);
+  torch::Tensor outHabana = torch::log2(tHabanaX);
+  torch::Tensor hout_lazy = outHabana.to(torch::kCPU);
+
+  EXPECT_EQ(allclose(hout_lazy, cpu_out), true);
+}
+
 TEST_F(LazyUnaryKernelTest, SigmoidFwdTest) {
   auto input_tensor =
       torch::arange(4, torch::dtype(torch::kFloat).requires_grad(true))

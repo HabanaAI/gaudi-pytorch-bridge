@@ -516,6 +516,10 @@ Tensor& reciprocal_out_hpu_wrap(Tensor& result, const Tensor& self);
 Tensor clamp_min_hpu_wrap(const Tensor& self, Scalar min);
 Tensor floor_hpu_wrap(const Tensor& input);
 Tensor& floor_hpu_wrap_(Tensor& self);
+Tensor log_hpu_wrap(const Tensor& input);
+Tensor& log_hpu_wrap_(Tensor& self);
+Tensor log2_hpu_wrap(const Tensor& input);
+Tensor& log2_hpu_wrap_(Tensor& self);
 Tensor& clamp_hpu_wrap_(
     Tensor& self,
     c10::optional<Scalar> min,

@@ -30,6 +30,8 @@ unary_op_list = [
     torch.floor,
     torch.round,
     torch.rsqrt,
+    torch.log,
+    torch.log2,
 ]
 
 unary_inplace_op_list = [
@@ -41,6 +43,8 @@ unary_inplace_op_list = [
     ('floor_'),
     ('round_'),
     ('rsqrt_'),
+    ('log_'),
+    ('log2_'),
 ]
 
 unary_op_out_list = [
@@ -59,38 +63,41 @@ data_type_list = [
 @pytest.mark.parametrize("unary_op", unary_op_list)
 @pytest.mark.parametrize("dtype, tol", data_type_list)
 def test_hpu_unary_op(N, H, W, C, unary_op, dtype, tol):
+    kernel_params = {}
     if unary_op == torch.norm:
         kernel_params = {'input': torch.randn(N, C, H, W).to(dtype), 'p': 6.0}
-        evaluate_fwd_kernel(kernel=unary_op, kernel_params=kernel_params, atol=tol, rtol=tol)
+    elif unary_op == torch.rsqrt:
+        kernel_params = {'input': torch.add(torch.rand(N, C, H, W, requires_grad=True),1).to(dtype)}
+    elif unary_op == torch.log or unary_op == torch.log2:
+        kernel_params = {'input': torch.arange(1, 100, 0.1, dtype=dtype, requires_grad=True)}
     else:
-        kernel_params = {}
-        if unary_op == torch.rsqrt:
-            kernel_params = {'input': torch.add(torch.rand(N, C, H, W, requires_grad=True),1).to(dtype)}
-        else:
-            kernel_params = {'input': torch.randn(N, C, H, W, requires_grad=True).to(dtype)}
-        evaluate_fwd_kernel(kernel=unary_op, kernel_params=kernel_params, atol=tol, rtol=tol)
+        kernel_params = {'input': torch.randn(N, C, H, W, requires_grad=True).to(dtype)}
+
+    evaluate_fwd_kernel(kernel=unary_op, kernel_params=kernel_params, atol=tol, rtol=tol)
 
 
 @pytest.mark.parametrize("N, H, W, C", test_case_list)
 @pytest.mark.parametrize("unary_op", unary_op_list)
 @pytest.mark.parametrize("dtype, tol", data_type_list)
 def test_hpu_unary_op_fwd_bwd(N, H, W, C, unary_op, dtype, tol):
+    kernel_params_fwd = {}
     if unary_op == torch.norm:
         kernel_params_fwd = {'input': torch.randn(N, C, H, W, requires_grad=True).to(dtype),
                             'p': 6.0}
         bwd_tensors = [torch.tensor(1).to(dtype)]
-        evaluate_fwd_bwd_kernel(kernel=unary_op, tensor_list_bwd=bwd_tensors,
-                            kernel_params_fwd=kernel_params_fwd, atol=tol, rtol=tol)
-    else:
-        kernel_params_fwd = {}
-        if unary_op == torch.rsqrt:
-            kernel_params_fwd = {'input': torch.add(torch.rand(N, C, H, W, requires_grad=True),1).to(dtype)}
-        else:
-            kernel_params_fwd = {'input': torch.randn(N, C, H, W, requires_grad=True).to(dtype)}
-        # TODO: extend that test to all features
+    elif unary_op == torch.rsqrt:
+        kernel_params_fwd = {'input': torch.add(torch.rand(N, C, H, W, requires_grad=True),1).to(dtype)}
         bwd_tensors = [torch.randn(N, C, H, W).to(dtype)]
-        evaluate_fwd_bwd_kernel(kernel=unary_op, tensor_list_bwd=bwd_tensors,
-                                kernel_params_fwd=kernel_params_fwd, atol=tol, rtol=tol)
+    elif unary_op == torch.log or unary_op == torch.log2:
+        kernel_params_fwd = {'input': torch.arange(1, 100, 0.1, dtype=dtype, requires_grad=True)}
+        bwd_tensors = [torch.arange(1, 100, 0.1, dtype=dtype)]
+    else:
+        # TODO: extend that test to all features
+        kernel_params_fwd = {'input': torch.randn(N, C, H, W, requires_grad=True).to(dtype)}
+        bwd_tensors = [torch.randn(N, C, H, W).to(dtype)]
+
+    evaluate_fwd_bwd_kernel(kernel=unary_op, tensor_list_bwd=bwd_tensors,
+                    kernel_params_fwd=kernel_params_fwd, atol=tol, rtol=tol)
 
 
 @pytest.mark.parametrize("N, H, W, C", test_case_list)
@@ -105,9 +112,14 @@ def test_hpu_gelu_op_fwd_bwd(N, H, W, C, dtype, tol):
 @pytest.mark.parametrize("N, H, W, C", test_case_list)
 @pytest.mark.parametrize("unary_inplace_op", unary_inplace_op_list)
 def test_hpu_unary_inplace_op(N, H, W, C, unary_inplace_op):
-    in_out_tensor = torch.randn(N, C, H, W)
-    evaluate_fwd_inplace_kernel(in_out_tensor=in_out_tensor, kernel_name=unary_inplace_op, kernel_params=None)
+    if unary_inplace_op == 'rsqrt_':
+        in_out_tensor = torch.add(torch.rand(N, C, H, W),1)
+    elif unary_inplace_op == 'log_' or unary_inplace_op == 'log2_':
+        in_out_tensor = torch.arange(1, 100, 0.1)
+    else:
+        in_out_tensor = torch.randn(N, C, H, W)
 
+    evaluate_fwd_inplace_kernel(in_out_tensor=in_out_tensor, kernel_name=unary_inplace_op, kernel_params=None)
 
 @pytest.mark.parametrize("N, H, W, C", test_case_list)
 @pytest.mark.parametrize("unary_op, kernel_params_fwd", unary_op_out_list)
