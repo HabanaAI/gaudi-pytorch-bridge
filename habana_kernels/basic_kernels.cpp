@@ -40,7 +40,6 @@ std::map<c10::ScalarType, std::vector<c10::ScalarType>> const
         {c10::ScalarType::Int, {c10::ScalarType::Float}}};
 
 bool copy_transpose_valid(const Tensor& self, const Tensor& src) {
-  // return false;
   return (
       self.suggest_memory_format() == c10::MemoryFormat::ChannelsLast &&
       src.numel() != 0 && self.dim() == 4 &&

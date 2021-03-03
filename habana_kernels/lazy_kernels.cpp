@@ -148,7 +148,16 @@ Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
   Tensor src_copy = src;
   if (src.dim() == 0) {
     src_copy = src.view(-1);
-    self = self.view(-1);
+    if (self.unsafeGetTensorImpl()) {
+      std::vector<long int> new_size = {1};
+      self.unsafeGetTensorImpl()->set_sizes_contiguous(new_size);
+      auto hl_result = habana_lazy::GetHbLazyTensor(self);
+      if (hl_result.getAttachedTensorImpl()) {
+        hl_result.getAttachedTensorImpl()->set_sizes_contiguous(new_size);
+      }
+    } else {
+      self = self.view(-1);
+    }
   }
   bool permuted = false;
   bool storage_attached = hlresult.isStorageAttached();
@@ -329,9 +338,6 @@ Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src, bool non_blocking) {
 
   // Return the self tensor, as copy_hpu_ doesn't create a new tensor and
   // returns the dst
-  if (self.dim() == 0) {
-    std::cout << "\n we are creating a 0 dim tensor sonehow" << std::flush;
-  }
   return self;
 }
 

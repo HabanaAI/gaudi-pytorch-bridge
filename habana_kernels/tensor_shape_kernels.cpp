@@ -723,9 +723,6 @@ void ReshapeOperator::AllocateAndAddSynapseNode(
       inputs.size() == 2,
       "Incorrect size of input arguments for Reshape Operator");
   Tensor self = inputs[0].toTensor();
-  // TORCH_CHECK(
-  //    self.is_contiguous(self.suggest_memory_format()),
-  //    "Right now Reshape is only supported for contiguous Tensor.");
 
   auto shape = inputs[1].toIntList();
   auto shape_vector = shape.vec();

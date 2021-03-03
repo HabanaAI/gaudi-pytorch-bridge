@@ -226,8 +226,6 @@ HabanaLaunchOpPT::~HabanaLaunchOpPT() {
 }
 
 habana::LayoutFormat getPTTensorLayout(at::Tensor& tensor) {
-  // tensor.unsafeGetTensorImpl()->set_sizes_and_strides(
-  //    tensor.sizes(), tensor.strides());
   auto mem_format = tensor.suggest_memory_format();
   if (mem_format == at::MemoryFormat::ChannelsLast ||
       mem_format == at::MemoryFormat::ChannelsLast3d) {
@@ -396,7 +394,6 @@ void HabanaLaunchOpPT::GetSynapseInputs(
       // Find if an input tensor is already mapped
       // NB: It seems Habana doesn't support shared input to
       // different nodes in graph
-
       // note: else path is only of listcontruct is fused with another op like
       // cat. This case occurs in lazy eval but not in torch trace mode
       if (value_to_ivalue[value_in]->isTensor() ||

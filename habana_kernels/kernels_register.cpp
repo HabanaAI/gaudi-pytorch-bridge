@@ -2157,16 +2157,6 @@ Tensor habana_d2d_memcpy_other(const Tensor& self, Tensor& other) {
   return self;
 }
 
-#if 0
-Tensor& cast_hpu_for_registration_only(Tensor& out, const Tensor& self) {
-  // we should never reach here. This function is a dummy written
-  // only to satisfy registration requirements.
-  // Registration of custom cast OP (hpu::cast) is done so that
-  // JIT optimization passes recognize this OP as a valid OP.
-  HABANA_ASSERT(0);
-}
-#endif
-
 Tensor cast_hpu_for_registration_only(const Tensor& self, Scalar type) {
   // we should never reach here. This function is a dummy written
   // only to satisfy registration requirements.
@@ -2484,7 +2474,6 @@ TORCH_LIBRARY_IMPL(hpu, HABANATensorId, m) {
   /*m.impl(
       "habanaOptimizerSparseAdagrad",
       optimizer_sparse_adagrad_with_valid_count_hpu_wrap);*/
-  // m.impl("cast", cast_hpu_for_registration_only);
   m.impl("embedding_bag_sum", embedding_bag_sum_hpu_wrap);
   m.impl(
       "embedding_bag_sum_bwd_out",
