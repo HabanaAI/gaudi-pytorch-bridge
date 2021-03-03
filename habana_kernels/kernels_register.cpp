@@ -357,9 +357,9 @@ Tensor& eq_tensor_out_hpu_wrap(
     const Tensor& self,
     const Tensor& other) {
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    eq_tensor_out_hpu_lazy(output, self, other);
+    return eq_tensor_out_hpu_lazy(output, self, other);
   } else {
-    eq_tensor_out_hpu(output, self, other);
+    return eq_tensor_out_hpu(output, self, other);
   }
 };
 Tensor eq_tensor_hpu_wrap(const Tensor& self, const Tensor& other) {
@@ -1277,9 +1277,9 @@ Tensor& uniform_hpu_wrap(
     double to,
     c10::optional<Generator> gen) {
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    uniform_hpu_lazy(self, from, to, gen);
+    return uniform_hpu_lazy(self, from, to, gen);
   } else {
-    uniform_hpu(self, from, to, gen);
+    return uniform_hpu(self, from, to, gen);
   }
 };
 Tensor& normal_hpu_wrap(
@@ -1288,9 +1288,9 @@ Tensor& normal_hpu_wrap(
     double std,
     c10::optional<Generator> gen) {
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    normal_hpu_lazy(self, mean, std, gen);
+    return normal_hpu_lazy(self, mean, std, gen);
   } else {
-    normal_hpu(self, mean, std, gen);
+    return normal_hpu(self, mean, std, gen);
   }
 };
 

@@ -252,7 +252,9 @@ void RecipeValueSpec::launch(
     if (dtensorinfos->at(i).is_tensor()) {
       syn_launch_info.emplace_back(synLaunchTensorInfo{
           dtensorinfos->at(i).get_syn_namec_str(),
-          reinterpret_cast<uint64_t>(dtensorinfos->at(i).get_buffer())});
+          reinterpret_cast<uint64_t>(dtensorinfos->at(i).get_buffer()),
+          DATA_TENSOR,
+          {0}});
     }
   }
 

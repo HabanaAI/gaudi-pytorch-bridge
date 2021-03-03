@@ -168,7 +168,7 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
   }
 
   if (enable_tensor_dump_) {
-    struct stat st = {0};
+    struct stat st = {};
     std::string dir_name{"./tensor_dumps"};
     mode_t dir_mode{0755};
 

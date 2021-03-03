@@ -80,7 +80,7 @@ inline void maybe_resize_storage_hpu(TensorImpl* self, int64_t new_size) {
     if (!THTensor_getStoragePtr(self)) {
       AT_ERROR("Tensor: invalid null storage");
     }
-    int64_t new_size_bytes =
+    uint64_t new_size_bytes =
         (new_size + self->storage_offset()) * self->dtype().itemsize();
     if (new_size_bytes > self->storage().nbytes()) {
       THStorage_resizeBytes(THTensor_getStoragePtr(self), new_size_bytes);

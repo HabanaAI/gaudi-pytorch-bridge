@@ -32,10 +32,16 @@ std::vector<synLaunchTensorInfo> habana_helpers::
 
   for (size_t i = 0; i < in_names.size(); ++i)
     syn_info.emplace_back(synLaunchTensorInfo{
-        in_names[i].c_str(), reinterpret_cast<uint64_t>(in_buffers[i])});
+        in_names[i].c_str(),
+        reinterpret_cast<uint64_t>(in_buffers[i]),
+        DATA_TENSOR,
+        {0}});
   for (size_t i = 0; i < out_names.size(); ++i)
     syn_info.emplace_back(synLaunchTensorInfo{
-        out_names[i].c_str(), reinterpret_cast<uint64_t>(out_buffers[i])});
+        out_names[i].c_str(),
+        reinterpret_cast<uint64_t>(out_buffers[i]),
+        DATA_TENSOR,
+        {0}});
 
   return syn_info;
 }
