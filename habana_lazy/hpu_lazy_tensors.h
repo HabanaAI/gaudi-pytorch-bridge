@@ -77,6 +77,12 @@ struct Data {
   LazyTensorExecutionStatus execution_status;
   ir::LazyView parent_view;
   int num_views = 0;
+  // Version counter tracks the number of times we use tensor as output
+  // if its zero, that means this tensor hasnt been output in any op
+  // IMPORTANT : this is used per graph right now, that means for each lazy
+  // graph generated it will be reset to 0. We are only tracking version for
+  // that particular graph execution.
+  int version = 0;
 }; // namespace habana_lazy
 
 class HbLazyTensor {
@@ -196,6 +202,15 @@ class HbLazyTensor {
       return c10::make_optional(data()->parent_view);
     else
       return c10::nullopt;
+  }
+  void updateVersion() {
+    data()->version++;
+  }
+  void resetVersionCounter() {
+    data()->version = 0;
+  }
+  int getVersion() const {
+    return data()->version;
   }
 
  private:

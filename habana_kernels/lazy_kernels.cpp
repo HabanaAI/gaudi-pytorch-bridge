@@ -93,6 +93,10 @@ habana_lazy::ir::Value AddControlEdge(
     const at::Tensor& dst) {
   auto hb_result = habana_lazy::GetOrCreateHbLazyTensor(dst, dst.device());
   auto hb_tensor = habana_lazy::GetOrCreateHbLazyTensor(src, src.device());
+  // We are using this lazy tensor as output on some op
+  // Version counter tracks the number of times we do that
+  // if its zero, that means this tensor hasnt been output in any op
+  hb_result.updateVersion();
   auto node = habana_lazy::ir::Node::Create(
       Symbol::fromQualString("hpu::control_edge_other_"),
       {hb_tensor.GetIrValue(), hb_result.GetIrValue()});
@@ -112,7 +116,14 @@ void updateDstDependencies(
     const Tensor& dst,
     bool in_place = false) {
   auto view = hl_dst.getView();
+  // FIXME: deactivating code to add control edge for updating views of the
+  // tensors
+  // This case isnt hit right now and ww got cache crashes with this control
+  // edge needs a design review and fix to activate
   if (view) {
+    PT_LAZY_DEBUG(
+        "WARNING: We are hitting a case where the dst tensor has a view. Not all cases are covered so functionality might be impacted ");
+    return;
     // Now we have to update the IR of the input as it got modified
     // We need to link it as output of this node as we need to generate the
     // correct order
@@ -126,6 +137,10 @@ void updateDstDependencies(
     view_lazy_tensor.AssignIrValue(val);
     AddControlEdge(dst, view_tensor);
   } else if (in_place) {
+    // We are using this lazy tensor as output on some op
+    // Version counter tracks the number of times we do that
+    // if its zero, that means this tensor hasnt been output in any op
+    hl_dst.updateVersion();
     auto hb_result = habana_lazy::GetOrCreateHbLazyTensor(dst, dst.device());
     habana_lazy::ir::Value val{hb_result.GetIrValue().m_data_ptr.lock()};
     auto node = habana_lazy::ir::Node::Create(
@@ -383,7 +398,8 @@ Tensor emtpy_from_storage_lazy(
     c10::optional<int64_t> storage_offset) {
   PT_LAZY_TRACE;
 
-  auto hb_tensor_self = habana_lazy::GetHbLazyTensor(self);
+  auto hb_tensor_self =
+      habana_lazy::GetOrCreateHbLazyTensor(self, self.device());
   TORCH_CHECK(
       hb_tensor_self.isStorageAttached(),
       "Habana Lazy : we dont support as_strided for non storage");
@@ -470,7 +486,7 @@ Tensor as_strided_hpu_lazy(
     AddControlEdge(self, result);
     // Add a view of the parent to the result so that its remembered
     // If this tensor is used as a dst in any op, we need to update the parent
-    auto hb_tensor = habana_lazy::GetHbLazyTensor(self);
+    auto hb_tensor = habana_lazy::GetOrCreateHbLazyTensor(self, self.device());
     habana_lazy::ir::LazyView view(self, hb_tensor.GetIrValue());
     hb_result.addView(view);
     return result;
@@ -927,6 +943,8 @@ Tensor div_scalar_hpu_lazy(const Tensor& self, Scalar other) {
   habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
   out.SetNode(node);
+  // updatet the view if any
+  updateDstDependencies(hl_result, result);
   std::vector<at::Tensor> input_pt_vec{self};
   node->AddInputPtTensors(input_pt_vec);
   return result;

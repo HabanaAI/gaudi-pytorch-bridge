@@ -364,8 +364,7 @@ std::vector<int> HbLazyTensor::CollectSyncTensors(
     auto ir_value = tensors[i].CurrentIrValue();
     // Skip the tensors which don't have any node to evaluate and points
     // to hpu::input node.
-    if (ir_value && ir_value.mp_node->is_input() == false &&
-        ir_value.mp_node->is_control_edge() == false) {
+    if (ir_value && ir_value.mp_node->is_input() == false) {
       indices.push_back(i);
     }
   }
@@ -448,7 +447,7 @@ void HbLazyTensor::SyncLiveTensorsGraph(
 void HbLazyTensor::SyncTensorsGraphInternal(
     std::vector<HbLazyTensor>* tensors) {
   PT_LAZY_TRACE;
-  const std::vector<int>& indices = CollectSyncTensors(*tensors);
+  std::vector<int> indices = CollectSyncTensors(*tensors);
   if (indices.empty()) {
     // Nothing to do, return without trying to execute an empty graph
     return;
@@ -481,6 +480,33 @@ void HbLazyTensor::SyncTensorsGraphInternal(
   }
 
   hlexec.GetOrCreate(po_data, stack);
+  // This is the logic to remove outputs of control edges that are dangling from
+  // the outputs of JIT graph We dont want to alter graph execution, so removing
+  // after graph is already prepared. Also we DO want that the tensors of this
+  // node are marked processed, as they would have through output stack So we do
+  // all the markings before entering execution
+  bool remove_control_edge_outputs = true;
+  if (remove_control_edge_outputs) {
+    int vec_index = 0;
+    int num_outputs = po_data.outputs.size();
+    for (int i = 0; i < num_outputs; i++) {
+      auto ir_value = po_data.outputs[vec_index];
+      auto data = ir_value.m_data_ptr.lock();
+      if (ir_value.mp_node->is_control_edge() && data->version == 0) {
+        auto& tensor = (*tensors)[i];
+
+        ir::Value val = tensor.createIrValueFromData();
+        tensor.AssignIrValue(val);
+        context->MarkTensorExecuted(data->unique_id);
+
+        po_data.outputs.erase(po_data.outputs.begin() + vec_index);
+        indices.erase(indices.begin() + vec_index);
+        hlexec.get_graph()->eraseOutput(vec_index);
+      } else {
+        vec_index++;
+      }
+    }
+  }
 
   // Dump the JIT graph with PT_LAZY_DEBUG
   PT_LAZY_DEBUG(hlexec.DumpGraph());
@@ -509,6 +535,9 @@ void HbLazyTensor::SyncTensorsGraphInternal(
     //   graph associated with it and can be used as an input
     //   tensor to further ops using this tensor.
     ir::Value val = i.createIrValueFromData();
+    // The version of lazy tensors is maintained per graph execution
+    // reset the counter for use in next graph
+    i.resetVersionCounter();
     i.AssignIrValue(val);
   }
 
