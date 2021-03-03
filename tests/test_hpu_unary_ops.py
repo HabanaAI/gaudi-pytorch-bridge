@@ -29,6 +29,7 @@ unary_op_list = [
     torch.reciprocal,
     torch.floor,
     torch.round,
+    torch.rsqrt,
 ]
 
 unary_inplace_op_list = [
@@ -39,6 +40,7 @@ unary_inplace_op_list = [
     ('reciprocal_'),
     ('floor_'),
     ('round_'),
+    ('rsqrt_'),
 ]
 
 unary_op_out_list = [
@@ -61,7 +63,11 @@ def test_hpu_unary_op(N, H, W, C, unary_op, dtype, tol):
         kernel_params = {'input': torch.randn(N, C, H, W).to(dtype), 'p': 6.0}
         evaluate_fwd_kernel(kernel=unary_op, kernel_params=kernel_params, atol=tol, rtol=tol)
     else:
-        kernel_params = {'input': torch.randn(N, C, H, W).to(dtype)}
+        kernel_params = {}
+        if unary_op == torch.rsqrt:
+            kernel_params = {'input': torch.add(torch.rand(N, C, H, W, requires_grad=True),1).to(dtype)}
+        else:
+            kernel_params = {'input': torch.randn(N, C, H, W, requires_grad=True).to(dtype)}
         evaluate_fwd_kernel(kernel=unary_op, kernel_params=kernel_params, atol=tol, rtol=tol)
 
 
@@ -76,8 +82,12 @@ def test_hpu_unary_op_fwd_bwd(N, H, W, C, unary_op, dtype, tol):
         evaluate_fwd_bwd_kernel(kernel=unary_op, tensor_list_bwd=bwd_tensors,
                             kernel_params_fwd=kernel_params_fwd, atol=tol, rtol=tol)
     else:
+        kernel_params_fwd = {}
+        if unary_op == torch.rsqrt:
+            kernel_params_fwd = {'input': torch.add(torch.rand(N, C, H, W, requires_grad=True),1).to(dtype)}
+        else:
+            kernel_params_fwd = {'input': torch.randn(N, C, H, W, requires_grad=True).to(dtype)}
         # TODO: extend that test to all features
-        kernel_params_fwd = {'input': torch.randn(N, C, H, W, requires_grad=True).to(dtype)}
         bwd_tensors = [torch.randn(N, C, H, W).to(dtype)]
         evaluate_fwd_bwd_kernel(kernel=unary_op, tensor_list_bwd=bwd_tensors,
                                 kernel_params_fwd=kernel_params_fwd, atol=tol, rtol=tol)

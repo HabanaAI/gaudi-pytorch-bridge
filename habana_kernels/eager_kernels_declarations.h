@@ -506,6 +506,8 @@ Tensor clamp_hpu(
 Tensor abs_hpu(const Tensor& self);
 Tensor round_hpu(const Tensor& self);
 Tensor& round_hpu_(Tensor& self);
+Tensor rsqrt_hpu(const Tensor& self);
+Tensor& rsqrt_hpu_(Tensor& self);
 Tensor neg_hpu(const Tensor& self);
 namespace at {
 namespace native {

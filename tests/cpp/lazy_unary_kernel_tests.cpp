@@ -152,7 +152,7 @@ TEST_F(LazyUnaryKernelTest, RoundInplaceTest) {
 
   auto hA = A.to(torch::kHABANA);
   auto round = torch::round_(A);
-  auto result = torch::round_(A);
+  auto result = torch::round_(hA);
 
   auto out = result.to(kCPU);
 
@@ -165,6 +165,28 @@ TEST_F(LazyUnaryKernelTest, RoundTest) {
 
   torch::Tensor tHabanaX = input_tensor.to(torch::kHABANA);
   torch::Tensor outHabana = torch::round(tHabanaX);
+  torch::Tensor hout_lazy = outHabana.to(torch::kCPU);
+
+  EXPECT_EQ(allclose(hout_lazy, cpu_out, 0.001, 0.001, true), true);
+}
+
+TEST_F(LazyUnaryKernelTest, RsqrtInplaceTest) {
+  torch::Tensor A = torch::add(torch::rand({4, 5}), 1);
+
+  auto hA = A.to(torch::kHABANA);
+  auto rsqrt = torch::rsqrt_(A);
+  auto result = torch::rsqrt_(hA);
+  auto out = result.to(kCPU);
+
+  EXPECT_EQ(allclose(out, rsqrt), true);
+}
+
+TEST_F(LazyUnaryKernelTest, RsqrtTest) {
+  auto input_tensor = torch::add(torch::rand({4, 5}), 1);
+  torch::Tensor cpu_out = torch::rsqrt(input_tensor);
+
+  torch::Tensor tHabanaX = input_tensor.to(torch::kHABANA);
+  torch::Tensor outHabana = torch::rsqrt(tHabanaX);
   torch::Tensor hout_lazy = outHabana.to(torch::kCPU);
 
   EXPECT_EQ(allclose(hout_lazy, cpu_out, 0.001, 0.001, true), true);

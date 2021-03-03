@@ -527,6 +527,8 @@ Tensor clamp_hpu_wrap(
 Tensor abs_hpu_wrap(const Tensor& self);
 Tensor round_hpu_wrap(const Tensor& self);
 Tensor& round_hpu_wrap_(Tensor& self);
+Tensor rsqrt_hpu_wrap(const Tensor& self);
+Tensor& rsqrt_hpu_wrap_(Tensor& self);
 Tensor neg_hpu_wrap(const Tensor& self);
 namespace at {
 namespace native {

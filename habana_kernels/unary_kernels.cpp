@@ -1380,6 +1380,49 @@ Tensor& round_hpu_(Tensor& self) {
 }
 
 /*************************************************************************
+ * @brief Kernel implementation for output = torch.rsqrt(self)
+ * @param [out] output - output tensor, 1-4D, BF16/FP32
+ * @param [in] self - input tensor, 1-4D, BF16/FP32
+ ************************************************************************/
+Tensor rsqrt_hpu(const Tensor& self) {
+  PT_KERNEL_BEGIN;
+
+  at::ScalarType scalar_type = self.scalar_type();
+  std::string node_type =
+      "rsqrt_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+
+  // Create the operator
+  size_t device_id = self.device().index();
+  RsqrtOperator Op(device_id, scalar_type);
+
+  auto out = unary_op_hpu(self, node_type, &Op);
+
+  PT_KERNEL_END;
+  return out;
+}
+
+/*************************************************************************
+ * @brief Kernel implementation for output = torch.rsqrt_(input)
+ * @param [out] output - output tensor, 1-4D, BF16/FP32
+ * @param [in] input - input tensor, 1-4D, BF16/FP32
+ ************************************************************************/
+Tensor& rsqrt_hpu_(Tensor& self) {
+  PT_KERNEL_BEGIN;
+
+  at::ScalarType scalar_type = self.scalar_type();
+  std::string node_type =
+      "rsqrt_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+  size_t device_id = self.device().index();
+
+  // Create the operator
+  RsqrtInplaceOperator Op(device_id, scalar_type);
+  unary_inplace_op_hpu(self, node_type, &Op);
+
+  PT_KERNEL_END;
+  return self;
+}
+
+/*************************************************************************
  * @brief Kernel implementation for output = torch.neg(self)
  * @param [out] output - output tensor, 1-4D, BF16/FP32
  * @param [in] self - input tensor, 1-4D, BF16/FP32
@@ -1449,6 +1492,17 @@ static auto& KernelRegistry =
             "aten::sqrt_",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<SqrtInplaceOperator>(
+                  device_id, node_type);
+            })
+        .add(
+            "aten::rsqrt",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<RsqrtOperator>(device_id, node_type);
+            })
+        .add(
+            "aten::rsqrt_",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<RsqrtInplaceOperator>(
                   device_id, node_type);
             })
         .add(

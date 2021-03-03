@@ -141,6 +141,24 @@ class RoundInplaceOperator : public UnaryInplaceOperator {
             "round_fwd_" + habana_helpers::name_suffix_from_type(scalarType)){};
 };
 
+// Rsqrt Operator
+class RsqrtOperator : public UnaryOperator {
+ public:
+  RsqrtOperator(int device_id, c10::ScalarType scalarType)
+      : UnaryOperator(
+            device_id,
+            "rsqrt_fwd_" + habana_helpers::name_suffix_from_type(scalarType)){};
+};
+
+// Rsqrt Inplace Operator
+class RsqrtInplaceOperator : public UnaryInplaceOperator {
+ public:
+  RsqrtInplaceOperator(int device_id, c10::ScalarType scalarType)
+      : UnaryInplaceOperator(
+            device_id,
+            "rsqrt_fwd_" + habana_helpers::name_suffix_from_type(scalarType)){};
+};
+
 // Sqrt Operator
 class SqrtOperator : public UnaryOperator {
  public:
