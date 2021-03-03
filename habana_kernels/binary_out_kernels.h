@@ -1,0 +1,64 @@
+/******************************************************************************
+ * Copyright (C) 2020 HabanaLabs, Ltd.
+ * All Rights Reserved.
+ *
+ * Unauthorized copying of this file, via any medium is strictly prohibited.
+ * Proprietary and confidential.
+ *
+ ******************************************************************************
+ */
+#pragma once
+#include "habana_kernels/habana_operator.h"
+#include "habana_kernels/simple_generic_kernel.h"
+#include "habana_kernels/tensor_shape_kernels.h"
+
+namespace habana {
+
+class BinaryOutOperator : public habana::HabanaOperator {
+ public:
+  BinaryOutOperator(
+      int device_id,
+      const std::string& guid,
+      c10::ScalarType scalarType)
+      : HabanaOperator(guid) {
+    this->CreateSynContext(device_id);
+    scalarType_ = scalarType;
+  }
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+  void insert_reshape_op(
+      synapse_helpers::graph& graph,
+      ReshapeOperator& reshapeOp,
+      at::Tensor& arg,
+      int32_t position,
+      int64_t out_dims);
+
+ protected:
+  c10::ScalarType scalarType_;
+};
+
+class MulOutOperator : public BinaryOutOperator {
+ public:
+  // Mul op
+  MulOutOperator(int device_id, c10::ScalarType scalarType)
+      : BinaryOutOperator(
+            device_id,
+            "mult_fwd_" + habana_helpers::name_suffix_from_type(scalarType),
+            scalarType) {}
+};
+
+class DivOutOperator : public BinaryOutOperator {
+ public:
+  // Div op
+  DivOutOperator(int device_id, c10::ScalarType scalarType)
+      : BinaryOutOperator(
+            device_id,
+            "div_fwd_" + habana_helpers::name_suffix_from_type(scalarType),
+            scalarType) {}
+};
+
+// TODO add wrapper for add and sub out varient
+
+} // namespace habana

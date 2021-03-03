@@ -55,6 +55,7 @@ add_library(habana_pytorch_plugin SHARED
   habana_kernels/aten_hpu_type_default.cpp
   habana_kernels/basic_kernels.cpp
   habana_kernels/binary_kernels.cpp
+  habana_kernels/binary_out_kernels.cpp
   habana_kernels/binary_composite_kernels.cpp
   habana_kernels/binary_inplace_kernels.cpp
   habana_kernels/compare_kernels.cpp

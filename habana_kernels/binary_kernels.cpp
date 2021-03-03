@@ -50,61 +50,6 @@ inline Tensor get_hpu_tensor(Tensor input) {
   return output;
 }
 
-// helper that finally interfaces with synapse generic kernel
-static inline Tensor& do_binary_op(
-    Tensor& out,
-    const Tensor& operand1,
-    const Tensor& operand2,
-    const std::string& op,
-    SynapsePassType pass_type) {
-  std::vector<at::Tensor> pt_inputs;
-  pt_inputs.push_back(operand1);
-  pt_inputs.push_back(operand2);
-  std::vector<at::Tensor> pt_outputs;
-  pt_outputs.push_back(out);
-  synapse_simple_generic_kernel(
-      pt_outputs, pt_inputs, op, nullptr, 0, pass_type);
-  return out;
-}
-
-// generic binary tensor op interface that takes care of broadcasting
-// semantics requirements
-inline void do_generic_tensor_binary_op_out(
-    Tensor& output,
-    const Tensor& operand1,
-    const Tensor& operand2,
-    const std::string& op,
-    SynapsePassType pass_type) {
-  auto operand1_hpu = get_hpu_tensor(operand1);
-  auto operand2_hpu = get_hpu_tensor(operand2);
-
-  check_ew_kernel_constraints(operand1_hpu, operand2_hpu);
-
-  auto out_sizes = output.sizes().vec();
-  auto out_dims = output.ndimension();
-  // Make sure that we give tensors that match dims to Synapse
-  if (operand1.ndimension() > operand2.ndimension()) {
-    auto operand2_sizes = operand2.sizes().vec();
-    // Create view_sizes initialized to part which has size=1 for upper dims
-    auto view_sizes = std::vector<int64_t>(out_dims - operand2.ndimension(), 1);
-    // and append the smaller tensor dims
-    view_sizes.insert(
-        view_sizes.end(), operand2_sizes.begin(), operand2_sizes.end());
-    auto expanded_operand2_tensor = operand2_hpu.view(view_sizes);
-    output = do_binary_op(
-        output, operand1_hpu, expanded_operand2_tensor, op, pass_type);
-  } else {
-    auto operand1_sizes = operand1.sizes().vec();
-    // Create view_sizes initialized to part which has size=1 for upper dims
-    auto view_sizes = std::vector<int64_t>(out_dims - operand1.ndimension(), 1);
-    view_sizes.insert(
-        view_sizes.end(), operand1_sizes.begin(), operand1_sizes.end());
-    auto operand1_expanded = operand1_hpu.view(view_sizes);
-    output =
-        do_binary_op(output, operand1_expanded, operand2_hpu, op, pass_type);
-  }
-}
-
 inline Tensor get_correct_input_tensor(const Tensor& arg1, const Tensor& arg2) {
   auto arg_final = arg1.ndimension() > arg2.ndimension()
       ? arg1
@@ -756,13 +701,6 @@ Tensor mul_tensor_hpu(const Tensor& self, const Tensor& other) {
   return output;
 }
 
-Tensor& mul_out_hpu(Tensor& out, const Tensor& self, const Tensor& other) {
-  PT_KERNEL_BEGIN;
-  do_generic_tensor_binary_op_out(
-      out, self, other, "mult", SynapsePassType::FORWARD_PASS);
-  PT_KERNEL_END;
-  return out;
-}
 /*************************************************************************
  * @brief Kernel implementation for output = torch.mul(self, Scalar other)
  * @param self - first input
@@ -808,23 +746,6 @@ Tensor div_tensor_hpu(const Tensor& self, const Tensor& other) {
 
   PT_KERNEL_END;
   return output;
-}
-
-/****************************************************************************
- * @brief Kernel implementation for result = torch.div(input, denom, out=out)
- * @param result - output
- * @param self - first input
- * @param other - second input
- ***************************************************************************/
-Tensor& div_tensor_hpu_out(
-    Tensor& result,
-    const Tensor& self,
-    const Tensor& other) {
-  PT_KERNEL_BEGIN;
-  do_generic_tensor_binary_op_out(
-      result, self, other, "div", SynapsePassType::FORWARD_PASS);
-  PT_KERNEL_END;
-  return result;
 }
 
 /*************************************************************************
