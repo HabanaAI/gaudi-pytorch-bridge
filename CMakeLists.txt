@@ -95,6 +95,7 @@ add_library(habana_pytorch_plugin SHARED
   habana_lazy/lazy_executor.cpp
   habana_lazy/passes/transform_graph.cpp
   habana_lazy/passes/fuse_mm_transpose.cpp
+  habana_lazy/passes/fuse_bn_relu_residual_add.cpp
   habana_lazy/hpu_lazy_cache.cpp
 )
 target_compile_features(habana_pytorch_plugin PRIVATE cxx_std_14)

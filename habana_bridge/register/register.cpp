@@ -83,6 +83,12 @@ PYBIND11_MODULE(hb_torch, m) {
             ->enable_fuse_t_mm_optimization = flag;
       },
       py::arg("flag"));
-
+  m.def(
+      "enable_fuse_bn_relu_optimization",
+      [](const bool flag) {
+        habana_lazy::exec::OptPassCfg::GetInstance()
+            ->enable_fuse_bn_relu_optimization = flag;
+      },
+      py::arg("flag"));
   m.doc() = "This module registers habana backend.";
 }

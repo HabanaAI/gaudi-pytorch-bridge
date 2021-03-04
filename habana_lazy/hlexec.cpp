@@ -19,6 +19,7 @@
 #include "hpu_lazy_cache.h"
 #include "ops/constant.h"
 #include "ops/convolution.h"
+#include "passes/fuse_bn_relu_residual_add.h"
 #include "passes/fuse_mm_transpose.h"
 #include "passes/transform_graph.h"
 #include "pytorch_helpers/habana_device/hpu_cached_devices.h"
@@ -210,8 +211,13 @@ void HlExec::Optimize() {
     fuse_mm_transpose(mp_g_);
   }
 
+  if (OptPassCfg::GetInstance()->enable_fuse_bn_relu_optimization) {
+    fuse_bn_relu(mp_g_);
+  }
+
   if (OptPassCfg::GetInstance()->enable_fuse_t_mm_optimization ||
-      OptPassCfg::GetInstance()->enable_eliminate_dead_code) {
+      OptPassCfg::GetInstance()->enable_eliminate_dead_code ||
+      OptPassCfg::GetInstance()->enable_fuse_bn_relu_optimization) {
     torch::jit::EliminateDeadCode(mp_g_);
   }
 
