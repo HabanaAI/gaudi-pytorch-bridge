@@ -85,8 +85,9 @@ def train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, pri
             # This mark_step is added so that the the lazy kernel can
             # create and evaluate the graph to infer the resulting tensor
             # as channels_last
-            hb_torch.mark_step()
-        
+            if args.run_lazy_mode:
+                hb_torch.mark_step()
+
 
         tp_probe_tensors_iteration_start(model, device, target, image, trainMetaData.ParamsDump, False)
 
@@ -123,8 +124,9 @@ def evaluate(model, criterion, data_loader, trainMetaData, device, print_freq=10
             if args.channels_last:
                 import hb_torch
                 image = image.contiguous(memory_format=torch.channels_last)
-                hb_torch.mark_step()
-            
+                if args.run_lazy_mode:
+                    hb_torch.mark_step()
+
             target = target.to(device, non_blocking=True)
             trainMetaData.tracept.start(time.time(), 'val_iteration_' + str(trainMetaData.current_eval_step))
             output = model(image)
@@ -378,13 +380,13 @@ def main(args):
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
 
     criterion = nn.CrossEntropyLoss()
-    try:
+    if args.run_lazy_mode:
         from hb_custom import FusedSGD
         import hb_torch
         hb_torch.enable_eliminate_common_subexpression(False)
         hb_torch.enable_constant_pooling(False)
         sgd_optimizer = FusedSGD
-    except:
+    else:
         sgd_optimizer = torch.optim.SGD
 
     optimizer = sgd_optimizer(
@@ -404,7 +406,6 @@ def main(args):
         if args.channels_last:
             import hb_torch
             sample_trace_tensor = sample_trace_tensor.contiguous(memory_format=torch.channels_last)
-            hb_torch.mark_step()
         # Create traced model for eval
         model.eval()
         model_for_eval = torch.jit.trace(model, sample_trace_tensor, check_trace=False)
