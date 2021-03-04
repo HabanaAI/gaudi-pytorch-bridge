@@ -321,6 +321,8 @@ ir::Value HbLazyTensor::createIrValueFromData() {
 ir::Value HbLazyTensor::GetIrValueForTensor(
     const at::Tensor& tensor,
     const c10::Device& device) const {
+  static_cast<void>(device);
+  static_cast<void>(tensor);
   return CreateTensorNode();
 }
 
@@ -330,6 +332,7 @@ HbLazyTensor HbLazyTensor::CreateHbLazyTensor(
     const at::Device& device,
     at::ScalarType scalar_type) {
   PT_LAZY_TRACE;
+  static_cast<void>(fill_value);
   ir::Value val;
   // Creating a dummy IR::Value right now
   // After Vaibhav's update, we should plug in utility to create IR

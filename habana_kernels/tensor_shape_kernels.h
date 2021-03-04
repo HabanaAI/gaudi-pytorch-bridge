@@ -16,6 +16,7 @@ class CatOutOperator : public ::habana::HabanaOperator {
  public:
   CatOutOperator(int device_id, c10::ScalarType scalarType)
       : HabanaOperator("concat") {
+    static_cast<void>(scalarType);
     this->CreateSynContext(device_id);
   }
 
@@ -81,6 +82,7 @@ class ReshapeOperator : public ::habana::HabanaOperator {
  public:
   ReshapeOperator(int device_id, c10::ScalarType scalarType)
       : HabanaOperator("reshape") {
+    static_cast<void>(scalarType);
     this->CreateSynContext(device_id);
     kernel_meta_data_.changes_dims = true;
   }
@@ -132,6 +134,7 @@ class BroadcastOperator : public ::habana::HabanaOperator {
  public:
   BroadcastOperator(int device_id, c10::ScalarType scalarType)
       : HabanaOperator("broadcast") {
+    static_cast<void>(scalarType);
     this->CreateSynContext(device_id);
   }
   virtual void AllocateAndAddSynapseNode(
@@ -146,6 +149,7 @@ class SplitWithSizeOperator : public ::habana::HabanaOperator {
  public:
   SplitWithSizeOperator(int device_id, c10::ScalarType scalarType)
       : HabanaOperator("split_with_size") {
+    static_cast<void>(scalarType);
     this->CreateSynContext(device_id);
   }
   virtual void AllocateAndAddSynapseNode(

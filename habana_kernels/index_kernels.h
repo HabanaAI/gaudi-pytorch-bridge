@@ -36,6 +36,7 @@ class SliceOperator : public HabanaOperator {
  public:
   SliceOperator(int device_id, c10::ScalarType scalarType)
       : HabanaOperator("slice") {
+    static_cast<void>(scalarType);
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
     kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
@@ -160,6 +161,7 @@ class SelectOperator : public HabanaOperator {
  public:
   SelectOperator(int device_id, c10::ScalarType scalarType)
       : HabanaOperator("select") {
+    static_cast<void>(scalarType);
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
     kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});

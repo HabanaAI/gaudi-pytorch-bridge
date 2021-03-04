@@ -73,6 +73,7 @@ void habana::HabanaOperator::Compile(synapse_helpers::graph& graph) {
 }
 
 void habana::HabanaOperator::Execute(size_t key) {
+  static_cast<void>(key);
   //
   // Execute the graph
   habana_helpers::execute_recipe(
@@ -162,6 +163,7 @@ std::vector<std::pair<std::string, at::Tensor>> habana::HabanaOperator::
 
 void habana::HabanaOperator::AllocateSynapseInplaceOutput(
     synapse_helpers::graph& graph) {
+  static_cast<void>(graph);
   p_context_->syn_outputs_.emplace_back(
       habana_helpers::duplicate_tensor_in_memory_section(
           p_context_->syn_inputs_[0]));

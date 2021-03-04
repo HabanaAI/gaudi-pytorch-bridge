@@ -3728,6 +3728,17 @@ void optimizer_adamw_hpu_lazy(
     const int bias_correction,
     const float weight_decay) {
   PT_LAZY_TRACE;
+  static_cast<void>(gradient_vec);
+  static_cast<void>(weight_vec);
+  static_cast<void>(exp_avg_vec);
+  static_cast<void>(exp_avg_sq_vec);
+  static_cast<void>(lr);
+  static_cast<void>(beta1);
+  static_cast<void>(beta2);
+  static_cast<void>(epsilon);
+  static_cast<void>(step);
+  static_cast<void>(bias_correction);
+  static_cast<void>(weight_decay);
   HABANA_ASSERT(false && "Not implemented yet");
 }
 

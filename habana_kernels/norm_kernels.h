@@ -151,6 +151,7 @@ class BatchNormInfOperator : public habana::HabanaOperator {
   // Used in eval mode
   BatchNormInfOperator(int device_id, c10::ScalarType scalarType)
       : HabanaOperator("bn_fwd_inf") {
+    static_cast<void>(scalarType);
     this->CreateSynContext(device_id);
     // assign layouts for input and output tensors
 

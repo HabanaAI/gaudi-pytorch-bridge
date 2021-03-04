@@ -26,6 +26,7 @@ class ToDtypeOperator : public habana::HabanaOperator {
  public:
   ToDtypeOperator(int device_id, c10::ScalarType scalarType)
       : HabanaOperator("to_dtype") {
+    static_cast<void>(scalarType);
     this->CreateSynContext(device_id);
   }
 
@@ -43,6 +44,7 @@ class CastLazyOperator : public habana::HabanaOperator {
  public:
   CastLazyOperator(int device_id, c10::ScalarType scalarType)
       : HabanaOperator("cast_lazy") {
+    static_cast<void>(scalarType);
     this->CreateSynContext(device_id);
     kernel_meta_data_.tpc_input_order = {0};
   }
@@ -68,6 +70,7 @@ class MemCopyOperator : public habana::HabanaOperator {
  public:
   MemCopyOperator(int device_id, c10::ScalarType scalarType)
       : HabanaOperator("memcpy") {
+    static_cast<void>(scalarType);
     kernel_meta_data_.tpc_input_order = {0};
     this->CreateSynContext(device_id);
   }
@@ -83,6 +86,7 @@ class IdentityOperator : public habana::HabanaOperator {
  public:
   IdentityOperator(int device_id, c10::ScalarType scalarType)
       : HabanaOperator("identity") {
+    static_cast<void>(scalarType);
     this->CreateSynContext(device_id);
   }
   virtual void AllocateAndAddSynapseNode(
@@ -94,6 +98,7 @@ class DummyOperator : public habana::HabanaOperator {
  public:
   DummyOperator(int device_id, c10::ScalarType scalarType)
       : HabanaOperator("dummy") {
+    static_cast<void>(scalarType);
     this->CreateSynContext(device_id);
   }
   virtual void AllocateAndAddSynapseNode(

@@ -142,6 +142,7 @@ class AddcmulInplaceOperator : public habana::HabanaOperator {
  public:
   AddcmulInplaceOperator(int device_id, c10::ScalarType scalarType)
       : HabanaOperator("addcmul_fwd_") {
+    static_cast<void>(scalarType);
     this->CreateSynContext(device_id);
   }
   virtual void AllocateAndAddSynapseNode(
@@ -154,6 +155,7 @@ class AddcdivInplaceOperator : public habana::HabanaOperator {
  public:
   AddcdivInplaceOperator(int device_id, c10::ScalarType scalarType)
       : HabanaOperator("addcdiv_fwd_") {
+    static_cast<void>(scalarType);
     this->CreateSynContext(device_id);
   }
   virtual void AllocateAndAddSynapseNode(

@@ -39,11 +39,16 @@ struct Data {
         logical_element_type(tensor_data.scalar_type()),
         tensor_data(std::move(tensor_data)),
         original_element_type(tensor_data.scalar_type()),
-        unique_id(GetNextTensorId()) {}
+        unique_id(GetNextTensorId()) {
+    static_cast<void>(device);
+  }
+
   Data(const c10::Device& device)
       : data_ptr(nullptr),
         device(c10::Device(c10::DeviceType::HABANA, 0)),
-        unique_id(GetNextTensorId()) {}
+        unique_id(GetNextTensorId()) {
+    static_cast<void>(device);
+  }
   Data(
       ir::Value ir_value,
       const at::Device& device,

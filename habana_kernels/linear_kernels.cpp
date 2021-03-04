@@ -1488,21 +1488,25 @@ static auto& KernelRegistry =
         .add(
             "aten::mm",
             [](const int device_id, c10::ScalarType node_type) {
+              static_cast<void>(node_type);
               return std::make_shared<habana::MMOperator>(device_id);
             })
         .add(
             "hpu::mm_t",
             [](const int device_id, c10::ScalarType node_type) {
+              static_cast<void>(node_type);
               return std::make_shared<habana::MMOperator>(device_id);
             })
         .add(
             "aten::mv",
             [](const int device_id, c10::ScalarType node_type) {
+              static_cast<void>(node_type);
               return std::make_shared<habana::MvOperator>(device_id);
             })
         .add(
             "aten::dot",
             [](const int device_id, c10::ScalarType node_type) {
+              static_cast<void>(node_type);
               return std::make_shared<habana::DotOperator>(device_id);
             })
         .add(
@@ -1526,11 +1530,13 @@ static auto& KernelRegistry =
         .add(
             "aten::matmul_backward",
             [](const int device_id, c10::ScalarType node_type) {
+              static_cast<void>(node_type);
               return std::make_shared<habana::MatmulBackwardOperator>(
                   device_id);
             })
         .add(
             "aten::matmul",
             [](const int device_id, c10::ScalarType node_type) {
+              static_cast<void>(node_type);
               return std::make_shared<habana::MatMulOperator>(device_id);
             });

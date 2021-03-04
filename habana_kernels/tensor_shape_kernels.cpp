@@ -323,6 +323,7 @@ inline void recalc_strides(
  ***************************************************************************/
 TransposeOperator::TransposeOperator(int device_id, c10::ScalarType scalarType)
     : HabanaOperator("transpose") {
+  static_cast<void>(scalarType);
   this->CreateSynContext(device_id);
 }
 
@@ -542,6 +543,7 @@ inline bool is_hpu_supported_transpose_type(const c10::ScalarType pt_type) {
  ************************************************************************/
 PermuteOperator::PermuteOperator(int device_id, c10::ScalarType scalarType)
     : HabanaOperator("transpose") {
+  static_cast<void>(scalarType);
   this->CreateSynContext(device_id);
 }
 

@@ -59,6 +59,7 @@ class ConvBackwardOperator : public HabanaOperator {
  public:
   ConvBackwardOperator(int device_id, c10::ScalarType scalarType)
       : HabanaOperator("convolution_bwd") {
+    static_cast<void>(scalarType);
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign(
         {LayoutFormat::NHWC, LayoutFormat::NHWC, LayoutFormat::HWCK});

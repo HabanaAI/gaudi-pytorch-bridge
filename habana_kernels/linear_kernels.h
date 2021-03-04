@@ -55,6 +55,7 @@ class BmmOutOperator : public HabanaOperator {
  public:
   BmmOutOperator(int device_id, c10::ScalarType scalarType)
       : HabanaOperator("batch_gemm") {
+    static_cast<void>(scalarType);
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign(
         {LayoutFormat::ANY, LayoutFormat::ANY, LayoutFormat::ANY});
