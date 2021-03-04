@@ -2214,7 +2214,7 @@ TORCH_LIBRARY(hpu, m) {
   m.def("control_edge_other_(Tensor self, Tensor other) -> Tensor(a!)");
   m.def("control_edge_(Tensor self)-> Tensor(a!)");
   m.def(
-      "hpu::native_batch_norm_rmv(Tensor input, Tensor? weight, Tensor? bias, Tensor? running_mean, Tensor? running_var, bool training, float momentum, float eps) -> (Tensor, Tensor, Tensor)");
+      "hpu::native_batch_norm_rmv(Tensor input, Tensor? weight, Tensor? bias, Tensor? running_mean, Tensor? running_var, bool training, float momentum, float eps) -> (Tensor, Tensor, Tensor, Tensor, Tensor)");
   m.def(
       "hpu::native_batch_norm_inf(Tensor input, Tensor? weight, Tensor? bias, Tensor? running_mean, Tensor? running_var, bool training, float momentum, float eps) -> (Tensor)");
 }
