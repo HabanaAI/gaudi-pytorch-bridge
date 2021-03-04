@@ -2312,12 +2312,15 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
         // want, we can review it with PT folks
 
         auto tensor = at::alias(pt_stack_sh[j]->toTensor());
+        // WE dont support 0D tensors internally, so convert to 1D internally
+        if (tensor.dim() == 0) {
+          tensor.unsafeGetTensorImpl()->set_sizes_contiguous({1});
+        }
 
         // Get  the logical layout from PT tensor
         // We dont touch this, even while doing permutes, the PT logical
         // tensor is retained For us all tensors are contiguous PT doesnt let
         // us mark logical layout directly so we dont change them
-
         value_to_tensor_layout[value_input].layout = getPTTensorLayout(tensor);
         value_to_tensor_layout[value_input].layout_at_graph_entry =
             getPTTensorLayout(tensor);

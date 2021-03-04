@@ -146,20 +146,6 @@ Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
   habana_lazy::HbLazyTensor hb_tensor =
       habana_lazy::GetOrCreateHbLazyTensor(src, src.device());
   auto hlresult = habana_lazy::GetOrCreateHbLazyTensor(self, src.device());
-  Tensor src_copy = src;
-  if (src.dim() == 0) {
-    src_copy = src.view(-1);
-    if (self.unsafeGetTensorImpl()) {
-      std::vector<long int> new_size = {1};
-      self.unsafeGetTensorImpl()->set_sizes_contiguous(new_size);
-      auto hl_result = habana_lazy::GetHbLazyTensor(self);
-      if (hl_result.getAttachedTensorImpl()) {
-        hl_result.getAttachedTensorImpl()->set_sizes_contiguous(new_size);
-      }
-    } else {
-      self = self.view(-1);
-    }
-  }
   bool permuted = false;
   bool storage_attached = hlresult.isStorageAttached();
   if (src.dtype() == self.dtype()) {
@@ -261,14 +247,7 @@ Tensor& copy_hpu_lazy_D2H(Tensor& self, const Tensor& src, bool non_blocking) {
 Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src, bool non_blocking) {
   PT_LAZY_TRACE;
   bool processed = false;
-  at::Tensor src_new = src;
-  if (src.dim() == 0) {
-    src_new = src.view(-1);
-    self = self.view(-1);
-  }
-  // This tensor would have been created without storage(as all H2D .to calls
-  // come via lazy), so create actual memory and set as input and mark
-  // executed
+
   auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
       self.device().index());
   auto exec_mode = context->getExecutionMode();
@@ -296,16 +275,16 @@ Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src, bool non_blocking) {
       // now assuming contiguous
       if (4 == self.dim()) {
         at_internal_tensor.unsafeGetTensorImpl()->set_sizes_and_strides(
-            src_new.sizes(),
-            CalculateStrides(src_new.sizes(), src_new.suggest_memory_format()));
+            src.sizes(),
+            CalculateStrides(src.sizes(), src.suggest_memory_format()));
       } else {
         at_internal_tensor.unsafeGetTensorImpl()->set_sizes_contiguous(
-            src_new.sizes());
+            src.sizes());
       }
       self_hb_tensor.SetTensorData(at_internal_tensor);
     }
   }
-  auto new_tensor = preProcessIfLongorDouble(src_new, self, processed);
+  auto new_tensor = preProcessIfLongorDouble(src, self, processed);
 
   // Get the internal tensor for copy kernel
   // First get the lazy tensor
@@ -327,7 +306,7 @@ Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src, bool non_blocking) {
         internal_tensor_from_copy.storage().data_ptr());
   } else {
     auto internal_tensor_from_copy =
-        copy_hpu_(self_internal_tesor, src_new, non_blocking);
+        copy_hpu_(self_internal_tesor, src, non_blocking);
     // We should get back the same internal tensor passed to copy
     HABANA_ASSERT(
         self_internal_tesor.storage().data_ptr() ==
@@ -509,28 +488,13 @@ Tensor& set_hpu_lazy_(
 };
 Tensor view_hpu_lazy(const Tensor& self, IntArrayRef size) {
   PT_LAZY_TRACE;
-  // Make the size non zero if -1 is used
-  // Make sure it points to
-  // /aten/src/ATen/InferSize.h
-  // Header file mismatch can point it to other variant which is not correct
-  Tensor self_hpu = self;
-  if (self.dim() == 0) {
-    auto self_cpu = self.to(torch::kCPU).view(-1);
-    self_hpu = self_cpu.to(torch::kHABANA);
-  } else {
-    self_hpu = self;
-  }
 
-  auto inferred_size =
-      at::infer_size(size, static_cast<int64_t>(self_hpu.numel()));
+  auto inferred_size = at::infer_size(size, static_cast<int64_t>(self.numel()));
   habana_lazy::ir::NodePtr node =
-      std::make_shared<habana_lazy::ir::View>(self_hpu, inferred_size);
+      std::make_shared<habana_lazy::ir::View>(self, inferred_size);
   // View is internally handled as reshape and we get a new tensor as output
   auto result = at::native::empty_hpu_lazy(
-      inferred_size,
-      self_hpu.options(),
-      self_hpu.suggest_memory_format(),
-      false);
+      inferred_size, self.options(), self.suggest_memory_format(), false);
 
   auto hl_result =
       habana_lazy::GetOrCreateHbLazyTensor(result, result.device());
