@@ -437,5 +437,6 @@ std::tuple<Tensor, Tensor> sort_hpu(
 static auto& KernelRegistry = ::habana::KernelRegistry().add(
     "aten::topk",
     [](const int device_id, c10::ScalarType node_type) {
+      static_cast<void>(node_type);
       return std::make_shared<TopkOperator>(device_id, "topk");
     });

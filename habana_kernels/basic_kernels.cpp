@@ -202,12 +202,11 @@ Tensor& set_hpu_(
   auto source_storage = source_.unsafeGetStorageImpl();
   if (self_storage != source_storage) {
     TORCH_CHECK(self_storage, "Invalid null storage");
-    auto data_type = self_->dtype();
     if (self_storage) {
       c10::raw::intrusive_ptr::incref(source_storage);
       THTensor_stealAndSetStoragePtr(self_, source_storage);
     } else {
-      auto THHStorage_new = [](caffe2::TypeMeta data_type) -> THStorage* {
+      auto THHStorage_new = []() -> THStorage* {
         THStorage* storage = c10::make_intrusive<at::StorageImpl>(
                                  c10::StorageImpl::use_byte_size_t(),
                                  0,
@@ -216,7 +215,7 @@ Tensor& set_hpu_(
                                  .release();
         return storage;
       };
-      THTensor_stealAndSetStoragePtr(self_, THHStorage_new(data_type));
+      THTensor_stealAndSetStoragePtr(self_, THHStorage_new());
     }
   }
 
@@ -430,6 +429,8 @@ void DummyOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
     bool is_output_persistent) {
+  static_cast<void>(graph);
+  static_cast<void>(is_output_persistent);
   at::Tensor output;
   int out_index = inputs.size() - 1;
   output = inputs[out_index].toTensor();

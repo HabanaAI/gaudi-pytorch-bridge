@@ -1208,7 +1208,7 @@ void HabanaLaunchOpPT::handleMetaOps(torch::jit::Node* node) {
      op");*/
 }
 
-void HabanaLaunchOpPT::OrderInputs(RecipeValueSpec& rv) {
+void HabanaLaunchOpPT::OrderInputs() {
   if (enable_caching_) {
     // Order the input_tivs according to the order of suggraph inputs
     size_t i = pt_stack_sh.size() - num_inputs;
@@ -1626,7 +1626,7 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
   RecipeValueSpec& rv = *rvalpsh;
 
   // input_tivs need to be reordered for patching
-  OrderInputs(rv);
+  OrderInputs();
 
   // rv.num_inputs and rv.num_induplicates will be set by
   // FlattenAndLinkInputTIVs

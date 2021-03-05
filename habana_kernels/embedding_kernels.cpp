@@ -975,6 +975,7 @@ void EmbeddingBagSumBwdKernelModeOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     bool is_output_persistent) {
+  static_cast<void>(is_output_persistent);
   HABANA_ASSERT(inputs.size() == 6);
 
   HABANA_ASSERT(inputs[0].isTensor());

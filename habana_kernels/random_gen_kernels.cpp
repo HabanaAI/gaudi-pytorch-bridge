@@ -561,6 +561,7 @@ std::tuple<Tensor, Tensor> fused_dropout_hpu(
     double p,
     c10::optional<Generator> gen) {
   PT_KERNEL_BEGIN;
+  static_cast<void>(gen);
   at::ScalarType scalar_type = self.scalar_type();
   std::string node_type =
       "dropout_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);

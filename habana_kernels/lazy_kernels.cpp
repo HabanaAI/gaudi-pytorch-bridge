@@ -1369,6 +1369,7 @@ Tensor embedding_bag_sum_fwd_hpu_lazy(
     const Tensor& valid_count_bwd,
     const Tensor& grad_weight) {
   PT_LAZY_TRACE;
+  static_cast<void>(valid_count_bwd);
   auto node = habana_lazy::ir::Node::Create(
       Symbol::fromQualString("aten::embedding_bag_sum_fwd"), {});
 
@@ -2825,6 +2826,7 @@ Tensor clone_hpu_lazy(
     const Tensor& self,
     c10::optional<MemoryFormat> memory_format) {
   PT_LAZY_TRACE;
+  static_cast<void>(memory_format);
   TORCH_CHECK(self.defined(), "src is undefined");
   TORCH_CHECK(
       self.device().type() == c10::DeviceType::HABANA,
@@ -3673,6 +3675,7 @@ Tensor clamp_hpu_lazy(
 };
 Tensor abs_hpu_lazy(const Tensor& input) {
   HABANA_ASSERT(0);
+  static_cast<void>(input);
   PT_LAZY_TRACE;
 };
 Tensor neg_hpu_lazy(const Tensor& self) {
@@ -3815,6 +3818,8 @@ Tensor fused_norm_hpu_lazy(
     float norm_type) {
   PT_LAZY_TRACE;
   HABANA_ASSERT(false && "Not implemented yet");
+  static_cast<void>(max_norm);
+  static_cast<void>(norm_type);
 
   Tensor ret_tensor = at::empty({1}, grad[0].device());
   return ret_tensor;

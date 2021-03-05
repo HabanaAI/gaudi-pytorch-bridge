@@ -281,6 +281,7 @@ void OptimizerAdamwOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     bool is_output_persistent) {
+  static_cast<void>(is_output_persistent);
   TORCH_CHECK(
       inputs.size() == 10,
       "Incorrect size of inputs for adamw optimizer graph creation call");
@@ -559,6 +560,7 @@ void OptimizerAdagradOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     std::vector<bool> is_output_persistent) {
+  static_cast<void>(is_output_persistent);
   TORCH_CHECK(
       inputs.size() == 8,
       "Incorrect size of inputs for optimizer_adagrad operator");
@@ -769,6 +771,7 @@ void OptimizerSGDOperator::AllocateAndAddSynapseNode(
     torch::jit::Stack& inputs,
     std::vector<bool> is_output_persistent) {
   PT_KERNEL_BEGIN;
+  static_cast<void>(is_output_persistent);
   TORCH_CHECK(
       inputs.size() == 7,
       "Incorrect size of inputs for optimizer SGD operator");
@@ -949,6 +952,7 @@ void OptimizerSGDMomentumOperator::AllocateAndAddSynapseNode(
     torch::jit::Stack& inputs,
     std::vector<bool> is_output_persistent) {
   PT_KERNEL_BEGIN;
+  static_cast<void>(is_output_persistent);
   TORCH_CHECK(
       inputs.size() == 9,
       "Incorrect size of inputs for optimizer SGD operator");

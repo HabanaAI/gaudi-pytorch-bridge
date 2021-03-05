@@ -22,7 +22,6 @@
 TEST(LazyCacheTest, CacheMissEmptyCache) {
   // 3 Node vector from first level IR
   auto post_order_struct = habana_lazy_test::GetPostOrderNodes();
-  auto& post_order_nodes = post_order_struct.post_order_nodes;
   auto& post_order_nodes_hash = post_order_struct.post_order_nodes_hash;
   habana_lazy::ir::ValueNodeListMap value_input_nodes_map;
 
@@ -33,7 +32,6 @@ TEST(LazyCacheTest, CacheMissEmptyCache) {
   // Create an lazyArgumentSpec for the IR nodes and inputs
   auto las = habana_lazy::LazyArgumentSpec(
       true,
-      post_order_nodes,
       inputs,
       post_order_nodes_hash,
       {},
@@ -60,7 +58,6 @@ TEST(LazyCacheTest, CacheMissEmptyCache) {
 TEST(LazyCacheTest, CacheHitSameInput) {
   // 3 Node vector from first level IR
   auto post_order_struct = habana_lazy_test::GetPostOrderNodes();
-  auto& post_order_nodes = post_order_struct.post_order_nodes;
   auto& post_order_nodes_hash = post_order_struct.post_order_nodes_hash;
   habana_lazy::ir::ValueNodeListMap value_input_nodes_map;
 
@@ -71,7 +68,6 @@ TEST(LazyCacheTest, CacheHitSameInput) {
   // Create an LazyArgumentSpec for the IR nodes and inputs
   auto las = habana_lazy::LazyArgumentSpec(
       true,
-      post_order_nodes,
       inputs,
       post_order_nodes_hash,
       {},
@@ -110,7 +106,6 @@ TEST(LazyCacheTest, CacheHitSameInput) {
 TEST(LazyCacheTest, CacheHitSameDimTensors) {
   // 3 Node vector from first level IR
   auto post_order_struct = habana_lazy_test::GetPostOrderNodes();
-  auto& post_order_nodes = post_order_struct.post_order_nodes;
   auto& post_order_nodes_hash = post_order_struct.post_order_nodes_hash;
   habana_lazy::ir::ValueNodeListMap value_input_nodes_map;
 
@@ -121,7 +116,6 @@ TEST(LazyCacheTest, CacheHitSameDimTensors) {
   // Create an LazyArgumentSpec for the IR nodes and inputs
   auto las1 = habana_lazy::LazyArgumentSpec(
       true,
-      post_order_nodes,
       inputs1,
       post_order_nodes_hash,
       {},
@@ -149,7 +143,6 @@ TEST(LazyCacheTest, CacheHitSameDimTensors) {
   // Create an LazyArgumentSpec for the IR nodes and inputs
   auto las2 = habana_lazy::LazyArgumentSpec(
       true,
-      post_order_nodes,
       inputs2,
       post_order_nodes_hash,
       {},
@@ -176,7 +169,6 @@ TEST(LazyCacheTest, CacheHitSameDimTensors) {
 TEST(LazyCacheTest, CacheMissDiffInputs) {
   // 3 Node vector from first level IR
   auto post_order_struct = habana_lazy_test::GetPostOrderNodes();
-  auto& post_order_nodes = post_order_struct.post_order_nodes;
   auto& post_order_nodes_hash = post_order_struct.post_order_nodes_hash;
   habana_lazy::ir::ValueNodeListMap value_input_nodes_map;
 
@@ -187,7 +179,6 @@ TEST(LazyCacheTest, CacheMissDiffInputs) {
   // Create an LazyArgumentSpec for the IR nodes and inputs
   auto las1 = habana_lazy::LazyArgumentSpec(
       true,
-      post_order_nodes,
       inputs1,
       post_order_nodes_hash,
       {},
@@ -216,7 +207,6 @@ TEST(LazyCacheTest, CacheMissDiffInputs) {
   // Create an LazyArgumentSpec for the IR nodes and new inputs
   auto las2 = habana_lazy::LazyArgumentSpec(
       true,
-      post_order_nodes,
       inputs2,
       post_order_nodes_hash,
       {},
@@ -242,7 +232,6 @@ TEST(LazyCacheTest, CacheMissDiffInputs) {
 TEST(LazyCacheTest, CacheMissDiffGraph) {
   // 3 Node vector from first level IR
   auto post_order_struct = habana_lazy_test::GetPostOrderNodes();
-  auto& post_order_nodes = post_order_struct.post_order_nodes;
   auto& post_order_nodes_hash = post_order_struct.post_order_nodes_hash;
   habana_lazy::ir::ValueNodeListMap value_input_nodes_map;
 
@@ -253,7 +242,6 @@ TEST(LazyCacheTest, CacheMissDiffGraph) {
   // Create an LazyArgumentSpec for the IR nodes and inputs
   auto las1 = habana_lazy::LazyArgumentSpec(
       true,
-      post_order_nodes,
       inputs,
       post_order_nodes_hash,
       {},
@@ -276,13 +264,11 @@ TEST(LazyCacheTest, CacheMissDiffGraph) {
 
   // Create another post order graph
   auto post_order_struct2 = habana_lazy_test::GetPostOrderNodes(true);
-  auto& post_order_nodes2 = post_order_struct2.post_order_nodes;
   auto& post_order_nodes_hash2 = post_order_struct2.post_order_nodes_hash;
 
   // Create an LazyArgumentSpec for the new IR nodes and inputs
   auto las2 = habana_lazy::LazyArgumentSpec(
       true,
-      post_order_nodes2,
       inputs,
       post_order_nodes_hash2,
       {},
@@ -312,7 +298,6 @@ TEST(LazyCacheTest, CacheMissDiffGraph) {
 TEST(LazyCacheTest, DISABLED_CacheMissDiffScalars) {
   // 3 Node vector from first level IR
   auto post_order_struct = habana_lazy_test::GetPostOrderNodes(true);
-  auto& post_order_nodes = post_order_struct.post_order_nodes;
   auto& post_order_nodes_hash = post_order_struct.post_order_nodes_hash;
   habana_lazy::ir::ValueNodeListMap value_input_nodes_map;
 
@@ -324,7 +309,6 @@ TEST(LazyCacheTest, DISABLED_CacheMissDiffScalars) {
   // Create an LazyArgumentSpec for the IR nodes and inputs
   auto las1 = habana_lazy::LazyArgumentSpec(
       true,
-      post_order_nodes,
       inputs1,
       post_order_nodes_hash,
       {},
@@ -353,7 +337,6 @@ TEST(LazyCacheTest, DISABLED_CacheMissDiffScalars) {
   // Create an LazyArgumentSpec for the IR nodes and new inputs
   auto las2 = habana_lazy::LazyArgumentSpec(
       true,
-      post_order_nodes,
       inputs2,
       post_order_nodes_hash,
       {},

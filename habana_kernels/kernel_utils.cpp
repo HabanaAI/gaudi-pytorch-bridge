@@ -225,6 +225,7 @@ void ConstantOutOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     bool is_output_persistent) {
+  static_cast<void>(is_output_persistent);
   TORCH_CHECK(
       inputs.size() >= 2,
       "Incorrect size of inputs expected for constant operator");

@@ -189,6 +189,9 @@ void habana::HabanaOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     bool is_output_persistent) {
+  static_cast<void>(graph);
+  static_cast<void>(inputs);
+  static_cast<void>(is_output_persistent);
   TORCH_CHECK(
       0, "Shuold never reach this empty base AllocateAndAddSynapseNode");
 }
@@ -197,6 +200,9 @@ void habana::HabanaOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     std::vector<bool> is_output_persistent) {
+  static_cast<void>(graph);
+  static_cast<void>(inputs);
+  static_cast<void>(is_output_persistent);
   TORCH_CHECK(
       0, "Shuold never reach this empty base AllocateAndAddSynapseNode");
 }

@@ -52,6 +52,7 @@ void habana::BinaryOutOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     bool is_output_persistent) {
+  static_cast<void>(is_output_persistent);
   // this check is for stack during graph execution
   TORCH_CHECK(
       inputs.size() == 3,

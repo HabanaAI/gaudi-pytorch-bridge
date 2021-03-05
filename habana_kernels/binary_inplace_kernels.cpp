@@ -34,6 +34,7 @@ void habana::BinaryInplaceOperatorWithAlpha::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     bool is_output_persistent) {
+  static_cast<void>(is_output_persistent);
   TORCH_CHECK(
       inputs.size() == 3, "Incorrect size of input expected for add operator");
   TORCH_CHECK(inputs[0].isTensor(), "Input 0 type expected to be tensor");
@@ -210,6 +211,7 @@ void habana::BinaryInplaceOperator::AllocateAndAddSynapseNode(
     torch::jit::Stack& inputs,
     bool is_output_persistent) {
   // this check is for stack during graph execution
+  static_cast<void>(is_output_persistent);
   TORCH_CHECK(
       inputs.size() == 2,
       "Incorrect size of input expected for Binary operator");

@@ -49,6 +49,8 @@ void UnaryInplaceOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
     bool is_output_persistent) {
+  static_cast<void>(inputs);
+  static_cast<void>(is_output_persistent);
   AllocateSynapseInplaceOutput(graph);
   AddNodeToSynapseGraph(graph, nullptr, 0);
 }
@@ -1405,6 +1407,7 @@ void ClampInplaceOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
     bool is_output_persistent) {
+  static_cast<void>(is_output_persistent);
   TORCH_CHECK(
       inputs.size() == 3,
       "Incorrect size of inputs expected for Clamp operator");

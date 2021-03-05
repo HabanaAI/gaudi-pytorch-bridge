@@ -231,7 +231,7 @@ class HabanaLaunchOpPT {
       std::shared_ptr<RecipeArgumentSpec>& spec_key);
   void ReturnCachedRecipe(RecipeValueSpec& rv);
 
-  void OrderInputs(RecipeValueSpec& rv);
+  void OrderInputs();
   void FlattenAndLinkInputTIVs(RecipeValueSpec& rv);
   void OrderOutputTinfos(RecipeValueSpec& rv);
 

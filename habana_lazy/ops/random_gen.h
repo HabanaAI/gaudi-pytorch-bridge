@@ -23,6 +23,7 @@ class Dropout : public Node {
   Dropout() = delete;
   Dropout(const Tensor& self, double p, CPUGeneratorImpl* gen = nullptr)
       : Node(c10::Symbol::fromQualString("aten::_fused_dropout")) {
+    static_cast<void>(gen);
     auto hl_input = GetOrCreateHbLazyTensor(self, c10::kHABANA);
     AddInput(hl_input.GetIrValue());
     std::vector<at::Tensor> input_pt_vec{self};

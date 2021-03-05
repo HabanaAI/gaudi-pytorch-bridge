@@ -285,6 +285,7 @@ optimizer_lamb_phase1_hpu(
   TensorList weights(weight_vec);
   TensorList exp_avg(exp_avg_vec);
   TensorList exp_avg_sq(exp_avg_sq_vec);
+  static_cast<void>(lr);
 
   // TBD: Encapsulate all pre-processing on inputs (before graph creation)
   // into a separate function. Will be needed if this custom optimizer is

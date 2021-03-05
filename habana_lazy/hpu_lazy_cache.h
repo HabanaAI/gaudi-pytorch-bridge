@@ -77,7 +77,6 @@ class LazyArgumentSpec {
  public:
   LazyArgumentSpec(
       bool with_grad,
-      const ir::NodePtrList& post_order_graph,
       const at::ArrayRef<torch::jit::IValue> input_refs,
       size_t post_order_nodes_hash,
       const ir::ValueList inputs,
@@ -102,7 +101,6 @@ class LazyArgumentSpec {
 
   void GetArgSpecKey(
       bool with_grad,
-      const ir::NodePtrList& post_order_graph,
       const at::ArrayRef<torch::jit::IValue>& input_refs,
       const ir::ValueList& inputs,
       const ir::ValueNodeListMap& value_input_nodes_map);

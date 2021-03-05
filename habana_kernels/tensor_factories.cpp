@@ -116,6 +116,8 @@ Tensor ones_like_hpu(
     const Tensor& self,
     const TensorOptions& options,
     c10::optional<c10::MemoryFormat> optional_memory_format) {
+  static_cast<void>(options);
+  static_cast<void>(optional_memory_format);
   size_t device_id = self.device().index();
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
   at::ScalarType scalar_type = self.scalar_type();

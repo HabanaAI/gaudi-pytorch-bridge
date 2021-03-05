@@ -55,6 +55,7 @@ class Cast : public Node {
   Cast() = delete;
   Cast(const Tensor& src, c10::ScalarType type, bool non_blocking)
       : Node(c10::Symbol::fromQualString("hpu::cast")) {
+    static_cast<void>(non_blocking);
     auto hl_src = GetOrCreateHbLazyTensor(src, c10::kHABANA);
     auto ir_value_src = hl_src.GetIrValue();
     AddInput(ir_value_src);

@@ -17,7 +17,6 @@ std::unordered_map<size_t, std::shared_ptr<torch::jit::Graph>>
 
 LazyArgumentSpec::LazyArgumentSpec(
     bool with_grad,
-    const ir::NodePtrList& post_order_graph,
     const at::ArrayRef<torch::jit::IValue> input_refs,
     size_t post_order_nodes_hash,
     const ir::ValueList inputs,
@@ -26,8 +25,7 @@ LazyArgumentSpec::LazyArgumentSpec(
   PT_LAZY_TRACE;
   // Create the ArgumentSpec from nodes and inputs
   // ArgumentSpec hash is created based on the inputs
-  GetArgSpecKey(
-      with_grad, post_order_graph, input_refs, inputs, value_input_nodes_map);
+  GetArgSpecKey(with_grad, input_refs, inputs, value_input_nodes_map);
 
   m_post_order_nodes_hash = post_order_nodes_hash;
   HABANA_ASSERT(m_post_order_nodes_hash > 0);
@@ -69,7 +67,6 @@ size_t LazyArgumentSpec::GetInputHash(
 
 void LazyArgumentSpec::GetArgSpecKey(
     bool with_grad,
-    const ir::NodePtrList& post_order_graph,
     const at::ArrayRef<torch::jit::IValue>& input_refs,
     const ir::ValueList& inputs,
     const ir::ValueNodeListMap& value_input_nodes_map) {

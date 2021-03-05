@@ -75,7 +75,6 @@ void HlExec::GetOrCreate(
   }
   auto las = habana_lazy::LazyArgumentSpec(
       true,
-      po_data.post_order,
       stack,
       po_data.post_order_nodes_hash,
       po_data.inputs,
@@ -97,7 +96,6 @@ void HlExec::GetOrCreate(
     // Create a lazyArgumentSpec
     las = habana_lazy::LazyArgumentSpec(
         true,
-        po_data.post_order,
         stack,
         po_data.post_order_nodes_hash,
         po_data.inputs,

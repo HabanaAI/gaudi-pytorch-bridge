@@ -253,6 +253,7 @@ at::Tensor habana_helpers::nonPersistentTensor(
     const at::TensorOptions& options,
     at::optional<c10::MemoryFormat> optional_memory_format,
     at::optional<caffe2::TypeMeta> data_type) {
+  static_cast<void>(options);
   auto t =
       at::detail::make_tensor<habana_helpers::StorageLessWrapperTensorImpl>(
           input, data_type);
@@ -279,6 +280,7 @@ at::Tensor habana_helpers::nonPersistentTensor(
     const at::TensorOptions& options,
     at::optional<c10::MemoryFormat> optional_memory_format,
     at::optional<caffe2::TypeMeta> data_type) {
+  static_cast<void>(options);
   auto t =
       at::detail::make_tensor<habana_helpers::StorageLessWrapperTensorImpl>(
           input, data_type);

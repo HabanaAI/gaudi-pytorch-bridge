@@ -466,6 +466,7 @@ Tensor softmax_int_hpu(
     int64_t dim,
     c10::optional<ScalarType> dtype) {
   PT_KERNEL_BEGIN;
+  static_cast<void>(dtype);
   auto result = softmax_hpu(self, dim, false);
   PT_KERNEL_END;
   return result;
