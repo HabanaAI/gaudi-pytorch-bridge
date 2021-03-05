@@ -290,7 +290,7 @@ def train(args, train_dataset, model, tokenizer, trainMetaData):
                     inputs.update(
                         {"langs": (torch.ones(batch[0].shape, dtype=torch.int64) * args.lang_id).to(args.device)}
                     )
-            tp_probe_tensors_iteration_start(model, device, target, input_dict, trainMetaData.ParamsDump, False, args.local_rank)
+            tp_probe_tensors_iteration_start(model, device, target, input_dict, trainMetaData.ParamsDump, False)
             if args.use_jit_trace and is_model_traced == False:
                 model_trace = torch.jit.trace(model, (batch[0], batch[1], batch[2], position_ids, tensor_dummy, tensor_dummy, batch[3], batch[4], tensor_dummy, tensor_dummy), check_trace=False)
                 is_model_traced = True
@@ -344,7 +344,7 @@ def train(args, train_dataset, model, tokenizer, trainMetaData):
                     else:
                         torch.nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
 
-                tp_probe_tensors_iteration_end(model, device, outputs[1].detach().to('cpu'), loss.item(), trainMetaData.ParamsDump, False, args.local_rank)
+                tp_probe_tensors_iteration_end(model, device, outputs[1].detach().to('cpu'), loss.item(), trainMetaData.ParamsDump, False)
                 if args.use_habana and args.hmp and not(args.use_fused_adam):
                     from hmp import hmp
                     with hmp.disable_casts():
