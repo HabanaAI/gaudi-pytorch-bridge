@@ -192,6 +192,10 @@ def ca_compare_tensor_files(dev1, dev2, file_pair_list, base_path=None, rtol=1e-
             t_dev2 = t_dev2.float()
             print(f'Casting{file_dev2}')
 
+        if (t_dev1.dtype == torch.int):
+            t_dev1 = t_dev1.long()
+        if (t_dev2.dtype == torch.int):
+            t_dev2 = t_dev2.long()
 
         #Some tensors like convolution weights need permutation when comparing habana tensors with GPU or CPU
         tid = tensor_to_permute(dev1, dev2, tensor_info, t_dev1, t_dev2, same_device, topology)
