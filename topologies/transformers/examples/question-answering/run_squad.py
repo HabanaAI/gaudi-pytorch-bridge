@@ -177,7 +177,7 @@ def train(args, train_dataset, model, tokenizer, trainMetaData):
     if args.local_rank != -1 and not args.use_jit_trace:
         if args.use_habana:
             model = torch.nn.parallel.DistributedDataParallel(
-                model, bucket_cap_mb=230, find_unused_parameters=True
+                model, bucket_cap_mb=230, find_unused_parameters=True, gradient_as_bucket_view=True
             )
         else:
             model = torch.nn.parallel.DistributedDataParallel(
@@ -297,7 +297,7 @@ def train(args, train_dataset, model, tokenizer, trainMetaData):
                 if args.local_rank != -1:
                     if args.use_habana:
                         model_trace = torch.nn.parallel.DistributedDataParallel(
-                            model_trace, bucket_cap_mb=230, find_unused_parameters=True
+                            model_trace, bucket_cap_mb=230, find_unused_parameters=True, gradient_as_bucket_view=True
                         )
             if args.use_jit_trace:
                 outputs = model_trace(batch[0], batch[1], batch[2], position_ids, tensor_dummy, tensor_dummy, batch[3], batch[4], tensor_dummy, tensor_dummy)
