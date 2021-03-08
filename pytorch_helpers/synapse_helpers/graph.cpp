@@ -212,7 +212,7 @@ synapse_error_o graph::add_node(
         nullptr);
     SYNAPSE_SUCCESS_CHECK("Node " + node_type + " add failed.", status)
     graph_is_empty_ = false;
-    op_to_node_container_["jit_node"].emplace(nodeId);
+    op_to_node_container_pt_["jit_node"].emplace_back(nodeId);
   } else {
     auto status = synNodeCreate(
         *graph_handle_,

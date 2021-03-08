@@ -160,8 +160,15 @@ class HabanaLaunchOpPT {
 
   size_t iteration_count_ = 0;
 
-  std::unordered_map<torch::jit::Node*, absl::flat_hash_set<synNodeId>>
+  std::unordered_map<torch::jit::Node*, std::vector<synNodeId>>
       jit_to_synapse_node_idx_map;
+  std::vector<synNodeId> blocking_syn_nodes_vec;
+  std::vector<synNodeId> blocked_syn_nodes_vec;
+
+  // TODO add all the optimizers
+  std::vector<std::string> custom_optimizer_nodestr_vec = {
+      "hpu::habanaOptimizerFusedSGDMomentum",
+      "hpu::habanaOptimizerFusedAdagrad"};
 
   habana::LayoutFormat getTensorChannelOrder(torch::jit::Value* val);
   void runMetaDataAdjustmentPasses(torch::jit::graph_node_list graph_nodes);
@@ -188,6 +195,8 @@ class HabanaLaunchOpPT {
   bool isBlockingNode(torch::jit::Node*, torch::jit::Node*);
   void addSynNodes(std::vector<synNodeId>&, torch::jit::Node*);
   void ProcessControlEdges();
+  void PrepareBlockingNodeList(torch::jit::Node*);
+  void ProcessCustomOptControlEdges(torch::jit::graph_node_list);
   void HandleMappedTensor(
       CValPtr value_in,
       const HabanaOperatorPtr& habana_op,
@@ -232,4 +241,5 @@ class HabanaLaunchOpPT {
       at::Tensor* tensor,
       torch::jit::Value* value_in,
       bool persistence = true);
+  bool IsCustomOptimizer(std::string node_str);
 };

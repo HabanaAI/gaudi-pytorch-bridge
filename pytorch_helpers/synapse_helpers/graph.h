@@ -166,12 +166,12 @@ class graph {
     return device_;
   }
 
-  absl::flat_hash_set<synNodeId>& get_node_indices() {
-    return op_to_node_container_["jit_node"];
+  std::vector<synNodeId>& get_node_indices() {
+    return op_to_node_container_pt_["jit_node"];
   }
 
   void clear_node_indices() {
-    op_to_node_container_["jit_node"].clear();
+    op_to_node_container_pt_["jit_node"].clear();
   }
 
   absl::flat_hash_map<size_t, std::vector<size_t>> jit_synapse_node_idx_map;
@@ -179,6 +179,8 @@ class graph {
  private:
   using Op2NodeContainer =
       absl::flat_hash_map<std::string, absl::flat_hash_set<synNodeId>>;
+  using Op2NodeContainerPt =
+      absl::flat_hash_map<std::string, std::vector<synNodeId>>;
   using EdgeContainer =
       absl::flat_hash_map<std::string, absl::flat_hash_set<std::string>>;
   void collect_dst_synapse_nodes(
@@ -196,6 +198,7 @@ class graph {
   bool graph_is_empty_{true};
   std::unique_ptr<synGraphHandle> graph_handle_;
   Op2NodeContainer op_to_node_container_;
+  Op2NodeContainerPt op_to_node_container_pt_;
   EdgeContainer control_edges_container_;
   EdgeContainer data_edges_container_;
   absl::optional<std::string> current_op_name_;

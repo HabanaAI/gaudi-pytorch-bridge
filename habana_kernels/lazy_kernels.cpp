@@ -3871,6 +3871,11 @@ Tensor& optimizer_sgd_hpu_lazy(
     const bool nesterov) {
   PT_LAZY_TRACE;
 
+  for (size_t i = 0; i < weights.size(); i++) {
+    auto hlweight = habana_lazy::GetHbLazyTensor(weights[i]);
+    updateDstDependencies(hlweight, weights[i], true);
+  }
+
   habana_lazy::ir::NodePtr node =
       std::make_shared<habana_lazy::ir::OptimizerFusedSGD>(
           gradients, weights, lr, wd, mom, damp, nesterov);
@@ -3898,6 +3903,14 @@ Tensor& optimizer_sgd_momentum_hpu_lazy(
     const float damp,
     const bool nesterov) {
   PT_LAZY_TRACE;
+
+  for (size_t i = 0; i < weights.size(); i++) {
+    auto hlweight = habana_lazy::GetHbLazyTensor(weights[i]);
+    updateDstDependencies(hlweight, weights[i], true);
+
+    auto hlmomentum = habana_lazy::GetHbLazyTensor(momentum[i]);
+    updateDstDependencies(hlmomentum, momentum[i], true);
+  }
 
   habana_lazy::ir::NodePtr node =
       std::make_shared<habana_lazy::ir::OptimizerFusedSGDMomentum>(

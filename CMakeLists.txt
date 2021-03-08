@@ -45,6 +45,7 @@ add_library(habana_pytorch_plugin SHARED
   habana_bridge/kernel/hpu_habana_launch_op_pt.cpp
   habana_bridge/kernel/hpu_habna_launch_op_opt_pass.cpp
   habana_bridge/kernel/hpu_habana_cache.cpp
+  habana_bridge/kernel/hpu_process_control_edges.cpp
   habana_bridge/passes/habana_fuser.cpp
   habana_bridge/passes/remove_inplace_ops.cpp
   pytorch_helpers/habana_device/HPUAllocator.cpp
