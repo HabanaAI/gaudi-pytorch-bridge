@@ -322,7 +322,7 @@ TEST_F(LazyUnaryKernelTest, TanhBwdTest) {
   EXPECT_EQ(allclose(hout_lazy, out_exp), true);
 }
 
-TEST_F(LazyUnaryKernelTest, GeluTest) {
+TEST_F(LazyUnaryKernelTest, DISABLED_GeluTest) {
   torch::Tensor A = torch::randn({2, 2}, torch::dtype(torch::kFloat));
   auto hA = A.to(torch::kHABANA);
 
@@ -334,7 +334,7 @@ TEST_F(LazyUnaryKernelTest, GeluTest) {
   EXPECT_EQ(allclose(out, exp, 0.001, 0.001), true);
 }
 
-TEST_F(LazyUnaryKernelTest, GeluBackward) {
+TEST_F(LazyUnaryKernelTest, DISABLED_GeluBackward) {
   auto grad = torch::randn({2, 2});
   auto self = torch::randn({2, 2});
 
