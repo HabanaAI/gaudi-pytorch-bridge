@@ -1943,14 +1943,65 @@ Tensor& hpu_wrap::log2_(Tensor& self) {
   }
 }
 
+Tensor hpu_wrap::stack(TensorList tensors, int64_t dim) {
+  return at::native::stack(tensors, dim);
+}
+
+Tensor hpu_wrap::alias(const at::Tensor& self) {
+  return at::native::alias(self);
+}
+
+Tensor hpu_wrap::_unsafe_view(const at::Tensor& self, at::IntArrayRef size) {
+  return at::native::_unsafe_view(self, size);
+}
+
+at::Tensor hpu_wrap::squeeze(const at::Tensor& self) {
+  return at::native::squeeze(self);
+}
+
+at::Tensor hpu_wrap::squeeze(const at::Tensor& self, int64_t dim) {
+  return at::native::squeeze(self, dim);
+}
+
+at::Tensor& hpu_wrap::squeeze_(at::Tensor& self) {
+  return at::native::squeeze_(self);
+}
+
+at::Tensor& hpu_wrap::squeeze_(at::Tensor& self, int64_t dim) {
+  return at::native::squeeze_(self, dim);
+}
+
+at::Tensor hpu_wrap::unsqueeze(const at::Tensor& self, int64_t dim) {
+  return at::native::unsqueeze(self, dim);
+}
+
+at::Tensor& hpu_wrap::unsqueeze_(at::Tensor& self, int64_t dim) {
+  return at::native::unsqueeze_(self, dim);
+}
+
+at::Tensor& hpu_wrap::as_strided_(
+    at::Tensor& self,
+    at::IntArrayRef size,
+    at::IntArrayRef stride,
+    c10::optional<int64_t> storage_offset) {
+  return at::native::as_strided_(self, size, stride, std::move(storage_offset));
+}
+
+std::vector<at::Tensor> hpu_wrap::split(
+    const at::Tensor& self,
+    int64_t split_size,
+    int64_t dim) {
+  return at::native::split(self, split_size, dim);
+}
+
 Scalar hpu_wrap::_local_scalar_dense(const Tensor& self) {
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = at::native::_local_scalar_dense_hpu_lazy(self);
-    return t;
+    return at::native::_local_scalar_dense_hpu_lazy(self);
   } else {
     return at::native::_local_scalar_dense_hpu(self);
   }
 }
+
 std::tuple<torch::Tensor&, torch::Tensor&>
 optimizer_sparse_sgd_with_valid_count_hpu_wrap(
     const Tensor& gradients,
@@ -2201,8 +2252,8 @@ Tensor& graph_connect_for_registration_only(Tensor& out, const Tensor& self) {
   HABANA_ASSERT(0);
 }
 
-// Registration for all non-custom/aten ops are auto-generated and can be found
-// in habana_kernels/aten_hpu_type_default.cpp.
+// Registration for all non-custom/aten ops are auto-generated and can be
+// found in habana_kernels/aten_hpu_type_default.cpp.
 
 TORCH_LIBRARY(hpu, m) {
   m.def("mm_t(Tensor mm, Tensor t , bool tr, bool no_tr) -> Tensor");

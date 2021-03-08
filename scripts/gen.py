@@ -86,14 +86,7 @@ _XPARSER = lark.Lark(
 )
 
 # _FN_AUTOGRAD_HPU/_FN_BLACKLIST takes either name or mapsig.
-_FN_BLACKLIST = set(
-    [
-        # These two don't require to be overridden. TODO: Implement hpu_wrap for
-        # these instead of blacklisting
-        "alias",
-        "_unsafe_view",
-    ]
-)
+_FN_BLACKLIST = set([])
 
 # List of non-leaf ops we want to override both forward + backward.
 # TODO(https://github.com/pytorch/pytorch/issues/39959)
@@ -603,21 +596,19 @@ def get_return_type_str(t, orig_sig):
 
 def generate_entry_debug_code(t, fname, params, fname_ns=None):
     # Emits debug code for a given intercepted ATEN type function.
-    return ""
 
-    # TODO Implement logging
-    #code = "  PT_FALLBACK_TRACE;\n"
-    #if fname_ns is not None:
-    #    code += '  HPU_COUNTER("{}::{}", 1);\n'.format(fname_ns, fname)
-    #code += '  std::clog << "HPU fallback {} :"'.format(fname)
-    #for p in params:
-    #    ptype = param_type(p)
-    #    cptype = type_core(ptype)
-    #    pname = param_name(p)
-    #    if cptype == "Tensor":
-    #        code += ' << " {}=" << {}.toString()'.format(pname, pname)
-    #code += ' << "\\n";\n'
-    #return code
+    code = "  PT_FALLBACK_TRACE;\n"
+    if fname_ns is not None:
+        code += '  PT_FALLBACK_WARN("{}::{}"'.format(fname_ns, fname)
+
+    for p in params:
+        ptype = param_type(p)
+        cptype = type_core(ptype)
+        pname = param_name(p)
+        if cptype == "Tensor":
+            code += ', " {}=", {}.toString()'.format(pname, pname)
+    code += ");\n"
+    return code
 
 
 def generate_exit_debug_code(t, fname, rname, params, param_vars):
@@ -787,7 +778,9 @@ def generate_aten_to_hpu(ctx, tree, rwxtree, fname, sig, rwsig, params, fnopts):
         pname = param_name(p)
         if cptype == "TensorList":
             xname = "l_{}".format(pname)
-            code += ("  auto {} = {};\n").format(xname, pname)
+            code += (
+                "  auto {} = habana_lazy::HpuGetFallbackTensorList({}.vec());\n"
+            ).format(xname, pname)
             param_vars.append(xname)
         elif cptype == "TensorOptions":
             gcode, xname = rewrite_tensor_options(fname, pname)

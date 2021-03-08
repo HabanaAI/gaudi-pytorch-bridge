@@ -125,6 +125,7 @@ class PtLogger {
     DISTRIBUTED = 16,
     LAZY = 32,
     HABANAHOOKS = 64,
+    FALLBACK = 128,
   };
 };
 
@@ -260,6 +261,10 @@ class PTFuncLog {
 #define PT_LAZY_TRACE \
   PT_MOD_TRACE(PtLogger::ModuleMask::LAZY, __PRETTY_FUNCTION__, __FUNCTION__)
 
+#define PT_FALLBACK_TRACE \
+  PT_MOD_TRACE(           \
+      PtLogger::ModuleMask::FALLBACK, __PRETTY_FUNCTION__, __FUNCTION__)
+
 /************************DEBUG MACROS************************************/
 #define PT_MOD_DEBUG(MOD, ...)                             \
   if (((PtLogger::getLogger()->getModuleMask() & (MOD)) && \
@@ -281,3 +286,5 @@ class PTFuncLog {
 #define PT_LAZY_DEBUG(...) PT_MOD_DEBUG(PtLogger::ModuleMask::LAZY, __VA_ARGS__)
 #define PT_HABANAHOOKS_DEBUG(...) \
   PT_MOD_DEBUG(PtLogger::ModuleMask::HABANAHOOKS, __VA_ARGS__)
+#define PT_FALLBACK_WARN(...) \
+  PT_MOD_WARN(PtLogger::ModuleMask::FALLBACK, __VA_ARGS__)

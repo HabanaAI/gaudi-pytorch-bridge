@@ -580,6 +580,24 @@ struct hpu_wrap {
   static at::Tensor& log_(at::Tensor& self);
   static at::Tensor log2(const at::Tensor& self);
   static at::Tensor& log2_(at::Tensor& self);
+  static at::Tensor stack(at::TensorList tensors, int64_t dim);
+  static at::Tensor alias(const at::Tensor& self);
+  static at::Tensor _unsafe_view(const at::Tensor& self, at::IntArrayRef size);
+  static at::Tensor squeeze(const at::Tensor& self);
+  static at::Tensor squeeze(const at::Tensor& self, int64_t dim);
+  static at::Tensor& squeeze_(at::Tensor& self);
+  static at::Tensor& squeeze_(at::Tensor& self, int64_t dim);
+  static at::Tensor unsqueeze(const at::Tensor& self, int64_t dim);
+  static at::Tensor& unsqueeze_(at::Tensor& self, int64_t dim);
+  static at::Tensor& as_strided_(
+      at::Tensor& self,
+      at::IntArrayRef size,
+      at::IntArrayRef stride,
+      c10::optional<int64_t> storage_offset);
+  static std::vector<at::Tensor> split(
+      const at::Tensor& self,
+      int64_t split_size,
+      int64_t dim);
 };
 
 std::tuple<at::Tensor&, at::Tensor&>
