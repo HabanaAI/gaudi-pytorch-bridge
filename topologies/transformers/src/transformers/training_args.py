@@ -199,6 +199,7 @@ class TrainingArguments:
     use_jit_trace: bool = field(default=False, metadata={"help": "Run in torchscript mode"})
     log_device_mem_alloc: bool = field(default=False, metadata={"help": "Log live memory allocations on device at the given point"})
     seed: int = field(default=42, metadata={"help": "random seed for initialization"})
+    no_dropout: bool = field(default=False, metadata={"help": "Disable Dropout in the model"})
 
     fp16: bool = field(
         default=False,

@@ -121,6 +121,8 @@ def main():
     except KeyError:
         raise ValueError("Task not found: %s" % (data_args.task_name))
 
+    extra_kwargs = {'attention_probs_dropout_prob': 0.0, 'hidden_dropout_prob' : 0.0}  if training_args.no_dropout else {}
+
     # Load pretrained model and tokenizer
     #
     # Distributed training:
@@ -132,6 +134,7 @@ def main():
         num_labels=num_labels,
         finetuning_task=data_args.task_name,
         cache_dir=model_args.cache_dir,
+        **extra_kwargs
     )
     tokenizer = AutoTokenizer.from_pretrained(
         model_args.tokenizer_name if model_args.tokenizer_name else model_args.model_name_or_path,
