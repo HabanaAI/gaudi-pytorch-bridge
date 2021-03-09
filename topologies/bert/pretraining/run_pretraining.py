@@ -301,6 +301,11 @@ def parse_arguments():
                         default=False,
                         action='store_true',
                         help='Disable tqdm progress bar')
+    parser.add_argument('--tqdm_smoothing',
+                        default=None,
+                        type=float,
+                        help='Smoothing factor to be applied to tqdm.'
+                             'It will affect how tqdm reports per iteration timings.')
     parser.add_argument('--steps_this_run', type=int, default=-1,
                         help='If provided, only run this many steps before exiting')
     parser.add_argument("--no_cuda",
@@ -730,7 +735,11 @@ def main():
                 if device.type == 'cuda':
                     dataset_future = pool.submit(create_pretraining_dataset, data_file, args.max_predictions_per_seq, shared_file_list, args, worker_init)
 
-                train_iter = tqdm(train_dataloader, desc="Iteration", disable=args.disable_progress_bar) if is_main_process() else train_dataloader
+                if args.tqdm_smoothing:
+                    train_iter = tqdm(train_dataloader, desc="Iteration", disable=args.disable_progress_bar, smoothing=args.tqdm_smoothing) \
+                                     if is_main_process() else train_dataloader
+                else:
+                    train_iter = tqdm(train_dataloader, desc="Iteration", disable=args.disable_progress_bar) if is_main_process() else train_dataloader
 
                 if raw_train_start is None:
                     raw_train_start = time.time()
