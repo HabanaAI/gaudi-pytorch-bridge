@@ -879,7 +879,7 @@ def main():
                                                 'files': [f_id] + files,
                                                 'epoch': epoch,
                                                 'data_loader': None if global_step >= args.max_steps else train_dataloader}
-                                elif no_cuda:
+                                elif args.no_cuda:
                                     checkpoint_dict = {'model': model_to_save.state_dict(),
                                                 'optimizer': optimizer.state_dict(),
                                                 'files': [f_id] + files,
