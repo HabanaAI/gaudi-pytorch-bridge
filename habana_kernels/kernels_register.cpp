@@ -1964,6 +1964,10 @@ Tensor& hpu_wrap::log2_(Tensor& self) {
   }
 }
 
+std::vector<at::Tensor> hpu_wrap::unbind(const at::Tensor& self, int64_t dim) {
+  return at::native::unbind(self, dim);
+}
+
 Tensor hpu_wrap::stack(TensorList tensors, int64_t dim) {
   return at::native::stack(tensors, dim);
 }

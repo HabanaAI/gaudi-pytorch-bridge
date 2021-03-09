@@ -33,7 +33,8 @@ using namespace torch;
 // Add new src->dst cast mappings to this
 std::map<c10::ScalarType, std::vector<c10::ScalarType>> const
     d2d_copy_supported_casts{
-        {c10::ScalarType::Float, {c10::ScalarType::BFloat16}},
+        {c10::ScalarType::Float,
+         {c10::ScalarType::BFloat16, c10::ScalarType::Int}},
         {c10::ScalarType::BFloat16, {c10::ScalarType::Float}},
         {c10::ScalarType::Char,
          {c10::ScalarType::Float, c10::ScalarType::BFloat16}},
@@ -75,6 +76,14 @@ void do_copy_transpose(Tensor& dst, const Tensor& src) {
 }
 
 static void do_d2d_copy(Tensor& dst, const Tensor& src_in, bool non_blocking) {
+  // Nothing to do if copy is triggered with same src & dst addresses
+  // it actually triggers an assert on func_sim if we trigger this DMA
+  // therefore return without doing anything. (this case seen with Mask R-CNN
+  // Detectron2 model when copying check-point weights)
+  if (dst.data_ptr() == src_in.data_ptr()) {
+    return;
+  }
+
   // No direct support for Long in device
   bool same_type = (src_in.scalar_type() == dst.scalar_type());
   auto src = ((src_in.scalar_type() != c10::ScalarType::Long) || same_type)

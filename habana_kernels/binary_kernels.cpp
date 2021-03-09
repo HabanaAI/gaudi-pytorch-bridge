@@ -10,6 +10,7 @@
 #include <ATen/ExpandUtils.h>
 #include <torch/script.h>
 #include <memory>
+#include <vector>
 
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
@@ -22,19 +23,9 @@
 
 using namespace torch;
 
-void check_ew_kernel_constraints(const Tensor& arg1, const Tensor& arg2) {
-  TORCH_CHECK(
-      arg1.scalar_type() == arg2.scalar_type(),
-      "Types don't match. arg1 type: ",
-      arg1.scalar_type(),
-      " arg2 type: ",
-      arg2.scalar_type());
-  // Since binary ops are required to broadcast, we don't check tensor sizes
-}
-
-// if the tensor is in CPU push it to HPU. Further if the CPU tensor is of
-// double dtype typecast to float. This workaround needed if
-// one the binary operand of torch op is scalar. TODO: [SW-9849]
+/** @brief if the tensor is in CPU push it to HPU. Further if the CPU tensor is
+ *of double dtype typecast to float.
+ **/
 inline Tensor get_hpu_tensor(Tensor input) {
   Tensor output;
   if (input.device().type() == c10::DeviceType::CPU) {
@@ -50,18 +41,48 @@ inline Tensor get_hpu_tensor(Tensor input) {
   return output;
 }
 
-inline Tensor get_correct_input_tensor(const Tensor& arg1, const Tensor& arg2) {
-  auto arg_final = arg1.ndimension() > arg2.ndimension()
-      ? arg1
-      : arg1.numel() > arg2.numel() ? arg1 : arg2;
-  return arg_final;
-}
-
+/**
+ * @brief This function computes the shape of output tensor resulting from a
+ *binary operation. Shape is computed as per Pytorch broadcasting rules for such
+ *operators.
+ *https://pytorch.org/docs/stable/notes/broadcasting.html#broadcasting-semantics
+ **/
 std::vector<int64_t> habana::BinaryOperator::compute_output_shape(
     const Tensor& arg1,
     const Tensor& arg2) {
-  auto arg_final = get_correct_input_tensor(arg1, arg2);
-  return arg_final.sizes().vec();
+  std::vector<int64_t> out_size;
+  auto sz1 = arg1.sizes().vec();
+  auto sz2 = arg2.sizes().vec();
+  // reverse sizes to start from FCD
+  std::reverse(sz1.begin(), sz1.end());
+  std::reverse(sz2.begin(), sz2.end());
+  // compare sizes of input tensors along each dim starting from FCD
+  for (auto i = 0; i < std::min(arg1.ndimension(), arg2.ndimension()); i++) {
+    if (sz1[i] == sz2[i]) {
+      // sizes match, add either input size to output size
+      out_size.push_back(sz1[i]);
+    } else if (sz1[i] == 1 || sz2[i] == 1) {
+      // sizes do not match, but one of the input sizes is 1 => push other input
+      // size to output size
+      out_size.push_back(std::max(sz1[i], sz2[i]));
+    } else {
+      // sizes do not match and none of the input sizes is 1 => sizes
+      // inconsistent for broadcast
+      TORCH_CHECK(0, "BinaryOperator: Incompatible input shapes", sz1, sz2);
+    }
+  }
+
+  if (arg1.ndimension() > arg2.ndimension()) {
+    // add remaining input1 sizes to output_size
+    out_size.insert(out_size.end(), sz1.begin() + arg2.ndimension(), sz1.end());
+  } else if (arg1.ndimension() < arg2.ndimension()) {
+    // add remaining input2 sizes to output_size
+    out_size.insert(out_size.end(), sz2.begin() + arg1.ndimension(), sz2.end());
+  }
+
+  // reverse output sizes to natural Pytorch order
+  std::reverse(out_size.begin(), out_size.end());
+  return out_size;
 }
 
 void habana::BinaryOperator::insert_reshape_op(
@@ -145,19 +166,24 @@ void habana::BinaryOperator::AllocateAndAddSynapseNode(
 
     synapse_helpers::tensor& syn_tensor = std::move(castOp.GetSynOutputs()[0]);
     syn_inputs.push_back(syn_tensor.get());
-    auto operand = get_correct_input_tensor(arg1, arg2);
+    auto out_shape = BinaryOperator::compute_output_shape(arg1, arg2);
     auto output = habana_helpers::createPTTensor(
-        operand,
-        operand.sizes(),
-        operand.options(),
-        operand.suggest_memory_format(),
+        arg1,
+        IntArrayRef(out_shape.data(), out_shape.size()),
+        arg1.options(),
+        arg1.suggest_memory_format(),
         c10::ScalarType::BFloat16,
         is_output_persistent);
     AllocateSynapseOutput(graph, output, is_output_persistent);
   } else {
     syn_inputs.push_back(arg2_syn_tensor.get());
-    auto operand = get_correct_input_tensor(arg1, arg2);
-    auto output = habana_helpers::createPTTensor(operand, is_output_persistent);
+    auto out_shape = BinaryOperator::compute_output_shape(arg1, arg2);
+    auto output = habana_helpers::createPTTensor(
+        arg1,
+        IntArrayRef(out_shape.data(), out_shape.size()),
+        arg1.options(),
+        arg1.suggest_memory_format(),
+        is_output_persistent);
     AllocateSynapseOutput(graph, output, is_output_persistent);
   }
 
@@ -247,10 +273,12 @@ void habana::BinaryWrapperOperator::AllocateAndAddSynapseNode(
 void habana::BinaryWrapperOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   Tensor output;
   if (inputs[0].isTensor() && inputs[1].isTensor()) {
-    auto operand =
-        get_correct_input_tensor(inputs[0].toTensor(), inputs[1].toTensor());
+    auto out_shape = BinaryOperator::compute_output_shape(
+        inputs[0].toTensor(), inputs[1].toTensor());
     output = at::empty(
-        operand.sizes(), operand.options(), operand.suggest_memory_format());
+        IntArrayRef(out_shape.data(), out_shape.size()),
+        inputs[0].toTensor().options(),
+        inputs[0].toTensor().suggest_memory_format());
   } else if (inputs[0].isTensor()) {
     auto operand = inputs[0].toTensor();
     output = at::empty(
@@ -311,8 +339,13 @@ void habana::BinaryOperatorWithAlpha::AllocateAndAddSynapseNode(
     // mulOp output
     p_context_->syn_inputs_[1] = std::move(arg2_syn);
 
-    auto operand = get_correct_input_tensor(arg1, arg2);
-    auto output = habana_helpers::createPTTensor(operand, is_output_persistent);
+    auto out_shape = BinaryOperator::compute_output_shape(arg1, arg2);
+    auto output = habana_helpers::createPTTensor(
+        arg1,
+        IntArrayRef(out_shape.data(), out_shape.size()),
+        arg1.options(),
+        arg1.suggest_memory_format(),
+        is_output_persistent);
 
     AllocateSynapseOutput(graph, output, is_output_persistent);
 
@@ -350,8 +383,13 @@ void habana::BinaryOperatorWithAlpha::AllocateAndAddSynapseNode(
       reshape_syn_output.push_back(std::move(reshapeOp.GetSynOutputs()[0]));
     }
 
-    auto operand = get_correct_input_tensor(arg1, arg2);
-    auto output = habana_helpers::createPTTensor(operand, is_output_persistent);
+    auto out_shape = BinaryOperator::compute_output_shape(arg1, arg2);
+    auto output = habana_helpers::createPTTensor(
+        arg1,
+        IntArrayRef(out_shape.data(), out_shape.size()),
+        arg1.options(),
+        arg1.suggest_memory_format(),
+        is_output_persistent);
     AllocateSynapseOutput(graph, output, is_output_persistent);
 
     synapse_helpers::tensor& arg1_syn_tensor =
@@ -448,10 +486,12 @@ void habana::BinaryWrapperOperatorWithAlpha::SetPTOutputs(
     torch::jit::Stack& inputs) {
   Tensor output;
   if (inputs[0].isTensor() && inputs[1].isTensor()) {
-    auto operand =
-        get_correct_input_tensor(inputs[0].toTensor(), inputs[1].toTensor());
+    auto out_shape = BinaryOperator::compute_output_shape(
+        inputs[0].toTensor(), inputs[1].toTensor());
     output = at::empty(
-        operand.sizes(), operand.options(), operand.suggest_memory_format());
+        IntArrayRef(out_shape.data(), out_shape.size()),
+        inputs[0].toTensor().options(),
+        inputs[0].toTensor().suggest_memory_format());
   } else if (inputs[0].isTensor()) {
     auto operand = inputs[0].toTensor();
     output = at::empty(

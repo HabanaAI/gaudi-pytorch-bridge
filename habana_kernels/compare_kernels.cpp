@@ -147,6 +147,11 @@ void CompareOutWrapperOperator::AllocateAndAddSynapseNode(
       std::move(compareOp.GetSynOutputs()[0]));
 }
 
+void CompareOutWrapperOperator::SetPTOutputs(torch::jit::Stack& inputs) {
+  auto output = inputs[2].toTensor();
+  HabanaOperator::SetPTOutputs({output});
+}
+
 void CompareWrapperOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
@@ -158,12 +163,24 @@ void CompareWrapperOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(
       inputs[1].isTensor() || inputs[1].isScalar(),
       "Input arg2 type expected to be a tensor or scalar");
-  Tensor self = inputs[0].toTensor();
+  std::vector<int64_t> out_shape;
+  Tensor operand;
+  if (inputs[0].isTensor() && inputs[1].isTensor()) {
+    operand = inputs[0].toTensor();
+    out_shape =
+        compute_output_shape(inputs[0].toTensor(), inputs[1].toTensor());
+  } else if (inputs[0].isTensor()) {
+    operand = inputs[0].toTensor();
+    out_shape = operand.sizes().vec();
+  } else {
+    operand = inputs[1].toTensor();
+    out_shape = operand.sizes().vec();
+  }
   auto output = habana_helpers::createPTTensor(
-      self,
-      self.sizes(),
-      self.options(),
-      self.suggest_memory_format(),
+      operand,
+      IntArrayRef(out_shape.data(), out_shape.size()),
+      operand.options(),
+      operand.suggest_memory_format(),
       c10::ScalarType::Bool,
       is_output_persistent);
   inputs.push_back(output);
@@ -171,24 +188,66 @@ void CompareWrapperOperator::AllocateAndAddSynapseNode(
       graph, inputs, is_output_persistent);
 }
 
-void CompareOutWrapperOperator::SetPTOutputs(torch::jit::Stack& inputs) {
+void CompareWrapperOperator::SetPTOutputs(torch::jit::Stack& inputs) {
+  std::vector<int64_t> out_shape;
   Tensor operand;
   if (inputs[0].isTensor() && inputs[1].isTensor()) {
-    operand =
-        get_correct_input_tensor(inputs[0].toTensor(), inputs[1].toTensor());
+    operand = inputs[0].toTensor();
+    out_shape =
+        compute_output_shape(inputs[0].toTensor(), inputs[1].toTensor());
   } else if (inputs[0].isTensor()) {
     operand = inputs[0].toTensor();
+    out_shape = operand.sizes().vec();
   } else {
     operand = inputs[1].toTensor();
+    out_shape = operand.sizes().vec();
   }
   auto output = habana_helpers::createPTTensor(
       operand,
-      operand.sizes(),
+      IntArrayRef(out_shape.data(), out_shape.size()),
       operand.options(),
       operand.suggest_memory_format(),
       c10::ScalarType::Bool,
       true);
   HabanaOperator::SetPTOutputs({output});
+}
+
+std::vector<int64_t> CompareWrapperOperator::compute_output_shape(
+    const Tensor& arg1,
+    const Tensor& arg2) {
+  std::vector<int64_t> out_size;
+  auto sz1 = arg1.sizes().vec();
+  auto sz2 = arg2.sizes().vec();
+  // reverse sizes to start from FCD
+  std::reverse(sz1.begin(), sz1.end());
+  std::reverse(sz2.begin(), sz2.end());
+  // compare sizes of input tensors along each dim starting from FCD
+  for (auto i = 0; i < std::min(arg1.ndimension(), arg2.ndimension()); i++) {
+    if (sz1[i] == sz2[i]) {
+      // sizes match, add either input size to output size
+      out_size.push_back(sz1[i]);
+    } else if (sz1[i] == 1 || sz2[i] == 1) {
+      // sizes do not match, but one of the input sizes is 1 => push other input
+      // size to output size
+      out_size.push_back(std::max(sz1[i], sz2[i]));
+    } else {
+      // sizes do not match and none of the input sizes is 1 => sizes
+      // inconsistent for broadcast
+      TORCH_CHECK(0, "BinaryOperator: Incompatible input shapes", sz1, sz2);
+    }
+  }
+
+  if (arg1.ndimension() > arg2.ndimension()) {
+    // add remaining input1 sizes to output_size
+    out_size.insert(out_size.end(), sz1.begin() + arg2.ndimension(), sz1.end());
+  } else if (arg1.ndimension() < arg2.ndimension()) {
+    // add remaining input2 sizes to output_size
+    out_size.insert(out_size.end(), sz2.begin() + arg1.ndimension(), sz2.end());
+  }
+
+  // reverse output sizes to natural Pytorch order
+  std::reverse(out_size.begin(), out_size.end());
+  return out_size;
 }
 
 template <class CompareOp>

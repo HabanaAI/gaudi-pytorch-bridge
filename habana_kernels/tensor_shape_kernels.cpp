@@ -587,7 +587,7 @@ void PermuteOperator::AllocateAndAddSynapseNode(
       dims.size() == static_cast<size_t>(self.dim()),
       "Number of dims in tensor don't match in permute");
   TORCH_CHECK(
-      (self.dim() <= 4) && is_hpu_supported_transpose_type(self.scalar_type()),
+      (self.dim() <= 5) && is_hpu_supported_transpose_type(self.scalar_type()),
       "Unsupported permute operation on Habana device");
 
   std::vector<int64_t> new_sizes, new_strides;
@@ -700,7 +700,7 @@ Tensor permute_hpu(const Tensor& self, IntArrayRef dims_) {
     return out.at(0);
   };
 
-  if ((self.dim() <= 4) &&
+  if ((self.dim() <= 5) &&
       is_hpu_supported_transpose_type(self.scalar_type())) {
     return permute();
   }

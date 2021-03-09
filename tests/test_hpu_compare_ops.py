@@ -59,7 +59,7 @@ def test_hpu_compare_op_broadcast_case1(N, H, W, C, compare_op, kernel_params_fw
 @pytest.mark.parametrize("N, H, W, C", test_case_list)
 @pytest.mark.parametrize("compare_op, kernel_params_fwd", compare_op_list)
 def test_hpu_compare_op_broadcast_case2(N, H, W, C, compare_op, kernel_params_fwd):
-    kernel_params_fwd["input"] = torch.randn(N, C, H, W)
+    kernel_params_fwd["input"] = torch.randn(N, C, 1, W)
     kernel_params_fwd["other"] = torch.randn(H, 1)
     evaluate_fwd_kernel(kernel=compare_op, kernel_params=kernel_params_fwd)
 

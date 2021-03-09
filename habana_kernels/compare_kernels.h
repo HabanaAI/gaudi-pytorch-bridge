@@ -49,15 +49,6 @@ class CompareOutWrapperOperator : public habana::HabanaOperator {
 
   void SetPTOutputs(torch::jit::Stack& inputs);
 
-  inline Tensor get_correct_input_tensor(
-      const Tensor& arg1,
-      const Tensor& arg2) {
-    auto arg_final = arg1.ndimension() > arg2.ndimension()
-        ? arg1
-        : arg1.numel() > arg2.numel() ? arg1 : arg2;
-    return arg_final;
-  }
-
  protected:
   c10::ScalarType scalarType_;
 };
@@ -74,6 +65,12 @@ class CompareWrapperOperator : public CompareOutWrapperOperator {
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) final;
+
+  void SetPTOutputs(torch::jit::Stack& inputs);
+
+  std::vector<int64_t> compute_output_shape(
+      const Tensor& arg1,
+      const Tensor& arg2);
 };
 
 class GtOperator : public CompareWrapperOperator {

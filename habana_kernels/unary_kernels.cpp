@@ -1243,8 +1243,10 @@ void ClampOperator::AllocateAndAddSynapseNode(
                                   : inputs[2].toOptional<Scalar>();
 
   ns_ClampKernel::Params param;
-  param.upperBound.f = max.value().to<float>();
-  param.lowerBound.f = min.value().to<float>();
+  param.upperBound.f = max.has_value() ? max.value().to<float>()
+                                       : std::numeric_limits<float>::max();
+  param.lowerBound.f = min.has_value() ? min.value().to<float>()
+                                       : -std::numeric_limits<float>::max();
 
   if (self.scalar_type() == c10::ScalarType::Int) {
     // Guid needs to be updated since TPC only supports F32/BF16
@@ -1415,8 +1417,10 @@ void ClampInplaceOperator::AllocateAndAddSynapseNode(
                                   : inputs[2].toOptional<Scalar>();
 
   ns_ClampKernel::Params param;
-  param.upperBound.f = max.value().to<float>();
-  param.lowerBound.f = min.value().to<float>();
+  param.upperBound.f = max.has_value() ? max.value().to<float>()
+                                       : std::numeric_limits<float>::max();
+  param.lowerBound.f = min.has_value() ? min.value().to<float>()
+                                       : -std::numeric_limits<float>::max();
   if (p_context_->pt_inputs_.size() == 0)
     p_context_->pt_inputs_.emplace_back(inputs[0].toTensor());
   AllocateSynapseInplaceOutput(graph);
