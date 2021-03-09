@@ -364,7 +364,8 @@ std::vector<int> HbLazyTensor::CollectSyncTensors(
     auto ir_value = tensors[i].CurrentIrValue();
     // Skip the tensors which don't have any node to evaluate and points
     // to hpu::input node.
-    if (ir_value && ir_value.mp_node->is_input() == false) {
+    if (ir_value && ir_value.mp_node->is_input() == false &&
+        ir_value.mp_node->is_control_edge() == false) {
       indices.push_back(i);
     }
   }

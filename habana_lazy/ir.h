@@ -193,7 +193,7 @@ class Node {
  public:
   Node() = delete;
   Node(c10::Symbol op, bool _is_input = false)
-      : m_op(op), m_is_input(_is_input) {}
+      : m_op(op), m_is_input(_is_input), m_is_control_edge(false) {}
 
   const c10::Symbol op() const {
     return m_op;
@@ -237,9 +237,17 @@ class Node {
     return m_is_input;
   }
 
+  bool is_control_edge() const {
+    return m_is_control_edge;
+  }
+  void set_as_control_edge() {
+    m_is_control_edge = true;
+  }
+
  protected:
   c10::Symbol m_op;
   bool m_is_input = false;
+  bool m_is_control_edge = false;
   ValueList m_inputs;
   OutputList m_outputs;
   std::set<Use> m_uses;

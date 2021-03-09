@@ -96,6 +96,7 @@ habana_lazy::ir::Value AddControlEdge(
   auto node = habana_lazy::ir::Node::Create(
       Symbol::fromQualString("hpu::control_edge_other_"),
       {hb_tensor.GetIrValue(), hb_result.GetIrValue()});
+  node->set_as_control_edge();
   std::vector<at::Tensor> input_pt_vec;
   input_pt_vec.push_back(src);
   input_pt_vec.push_back(dst);
@@ -129,6 +130,7 @@ void updateDstDependencies(
     habana_lazy::ir::Value val{hb_result.GetIrValue().m_data_ptr.lock()};
     auto node = habana_lazy::ir::Node::Create(
         Symbol::fromQualString("hpu::control_edge_"), {hb_result.GetIrValue()});
+    node->set_as_control_edge();
     std::vector<at::Tensor> input_pt_vec;
     input_pt_vec.push_back(dst);
     habana_lazy::ir::Value& out = val;
