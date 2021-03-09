@@ -23,7 +23,7 @@ class LazyReductionKernelTest : public ::testing::Test {
   }
 };
 
-TEST(LazyReductionKernelTest, SumTest) {
+TEST_F(LazyReductionKernelTest, SumTest) {
   torch::Tensor A = torch::randn({2, 2}, torch::requires_grad(false));
   torch::Tensor hA = A.to(torch::kHABANA);
   torch::Tensor hOut = torch::sum(hA);
@@ -32,11 +32,29 @@ TEST(LazyReductionKernelTest, SumTest) {
   EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out, 0.001, 0.001), true);
 }
 
-TEST(LazyReductionKernelTest, SumDimIntTest) {
+TEST_F(LazyReductionKernelTest, SumDimIntTest) {
   torch::Tensor A = torch::randn({2, 2}, torch::requires_grad(false));
   torch::Tensor hA = A.to(torch::kHABANA);
   torch::Tensor hOut = torch::sum(hA, 1);
   torch::Tensor Out = torch::sum(A, 1);
+
+  EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out), true);
+}
+
+TEST_F(LazyReductionKernelTest, ProdTest) {
+  torch::Tensor A = torch::randn({2, 2}, torch::requires_grad(false));
+  torch::Tensor hA = A.to(torch::kHABANA);
+  torch::Tensor hOut = torch::prod(hA);
+  torch::Tensor Out = torch::prod(A);
+
+  EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out, 0.001, 0.001), true);
+}
+
+TEST_F(LazyReductionKernelTest, ProdDimIntTest) {
+  torch::Tensor A = torch::randn({2, 2}, torch::requires_grad(false));
+  torch::Tensor hA = A.to(torch::kHABANA);
+  torch::Tensor hOut = torch::prod(hA, 1);
+  torch::Tensor Out = torch::prod(A, 1);
 
   EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out), true);
 }

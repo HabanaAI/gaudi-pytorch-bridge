@@ -1407,6 +1407,27 @@ Tensor hpu_wrap::mean(const Tensor& self, c10::optional<ScalarType> dtype) {
     return mean_hpu(self, dtype);
   }
 };
+Tensor hpu_wrap::prod(const Tensor& self, c10::optional<ScalarType> dtype) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    auto t = prod_hpu_lazy(self, dtype);
+
+    return t;
+  } else {
+    return prod_hpu(self, dtype);
+  }
+};
+Tensor hpu_wrap::prod(
+    const Tensor& self,
+    int64_t dim,
+    bool keepdim,
+    c10::optional<ScalarType> dtype) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    auto t = prod_dim_hpu_lazy(self, dim, keepdim, dtype);
+    return t;
+  } else {
+    return prod_dim_hpu(self, dim, keepdim, dtype);
+  }
+};
 Tensor& hpu_wrap::any_out(
     Tensor& output,
     const Tensor& self,
@@ -2260,6 +2281,8 @@ TORCH_LIBRARY(hpu, m) {
   m.def("habana_d2d_memcpy_other(Tensor s, Tensor d) -> Tensor");
   m.def(
       "sum_dim_IntList(Tensor self, int[1] dim, bool keepdim=False, *, ScalarType? dtype=None) -> Tensor");
+  m.def(
+      "prod_dim_Int(Tensor self, int dim, bool keepdim=False, *, ScalarType? dtype=None) -> Tensor");
   m.def("habana_d2d_memcpy(Tensor self) -> (Tensor)");
   m.def(
       "habanaOptimizerSparseSgd(Tensor gradients, Tensor weights_in, Tensor moments_in, Tensor indices, Tensor learning_rate, Tensor valid_count_tensor, float mom, bool nesterov) -> (Tensor, Tensor)");
@@ -2298,4 +2321,9 @@ TORCH_LIBRARY_IMPL(hpu, HABANATensorId, m) {
           at::IntArrayRef,
           bool,
           c10::optional<at::ScalarType>)>(&hpu_wrap::sum));
+  m.impl(
+      "prod_dim_Int",
+      static_cast<at::Tensor (*)(
+          const at::Tensor&, int64_t, bool, c10::optional<at::ScalarType>)>(
+          &hpu_wrap::prod));
 }

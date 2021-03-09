@@ -390,6 +390,12 @@ Tensor& mean_dim_out_hpu(
     c10::optional<ScalarType> dtype);
 Tensor sum_hpu(const Tensor& self, c10::optional<ScalarType> dtype);
 Tensor mean_hpu(const Tensor& self, c10::optional<ScalarType> dtype);
+Tensor prod_dim_hpu(
+    const Tensor& self,
+    int64_t dim,
+    bool keepdim,
+    c10::optional<ScalarType> dtype);
+Tensor prod_hpu(const Tensor& self, c10::optional<ScalarType> dtype);
 Tensor& any_dim_out_hpu(
     Tensor& output,
     const Tensor& self,

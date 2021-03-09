@@ -81,6 +81,42 @@ class MeanOperator : public ReduceOperator {
 };
 
 //
+// ProdDim Operator
+class ProdDimOperator : public ReduceOperator {
+ public:
+  ProdDimOperator(int device_id, c10::ScalarType scalarType)
+      : ReduceOperator(
+            device_id,
+            "reduce_prod_fwd_" +
+                habana_helpers::name_suffix_from_type(scalarType)) {}
+
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+
+  virtual void SetPTOutputs(torch::jit::Stack& inputs);
+};
+
+//
+// Prod Operator
+class ProdOperator : public ReduceOperator {
+ public:
+  ProdOperator(int device_id, c10::ScalarType scalarType)
+      : ReduceOperator(
+            device_id,
+            "reduce_prod_fwd_" +
+                habana_helpers::name_suffix_from_type(scalarType)) {}
+
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+
+  virtual void SetPTOutputs(torch::jit::Stack& inputs);
+};
+
+//
 // SumDimOutOperator Operator
 class SumDimOutOperator : public ReduceOperator {
  public:

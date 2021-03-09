@@ -445,6 +445,14 @@ struct hpu_wrap {
   static at::Tensor mean(
       const at::Tensor& self,
       c10::optional<at::ScalarType> dtype);
+  static at::Tensor prod(
+      const at::Tensor& self,
+      c10::optional<at::ScalarType> dtype);
+  static at::Tensor prod(
+      const at::Tensor& self,
+      int64_t dim,
+      bool keepdim,
+      c10::optional<at::ScalarType> dtype);
   static at::Tensor& any_out(
       at::Tensor& output,
       const at::Tensor& self,

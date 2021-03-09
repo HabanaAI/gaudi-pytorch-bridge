@@ -2544,6 +2544,52 @@ Tensor mean_hpu_lazy(const Tensor& self, c10::optional<ScalarType> dtype) {
   HABANA_ASSERT(0);
   return mean_hpu(self, dtype);
 };
+
+Tensor prod_dim_hpu_lazy(
+    const Tensor& self,
+    int64_t dim,
+    bool keepdim,
+    c10::optional<ScalarType> dtype) {
+  PT_LAZY_TRACE;
+  auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
+  habana_lazy::ir::NodePtr node =
+      std::make_shared<habana_lazy::ir::ProdDimInt>(self, dim, keepdim, dtype);
+
+  // Infer Output shape
+  auto shape_out = self.sizes().vec();
+  if (keepdim == true) {
+    shape_out[dim] = 1;
+  } else {
+    shape_out.erase(shape_out.begin() + dim);
+  }
+
+  auto result = at::native::empty_hpu_lazy(
+      shape_out, self.options(), self.suggest_memory_format(), false);
+  auto hl_result = habana_lazy::GetHbLazyTensor(result);
+  habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+  updateDstDependencies(hl_result, result);
+  return result;
+};
+
+Tensor prod_hpu_lazy(const Tensor& self, c10::optional<ScalarType> dtype) {
+  PT_LAZY_TRACE;
+  habana_lazy::ir::NodePtr node =
+      std::make_shared<habana_lazy::ir::Prod>(self, dtype);
+
+  // Output of Prod is product of all elements
+  std::vector<int64_t> shape_out{1};
+  auto result = at::native::empty_hpu_lazy(
+      shape_out, self.options(), self.suggest_memory_format(), false);
+  auto hl_result = habana_lazy::GetHbLazyTensor(result);
+  habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+  updateDstDependencies(hl_result, result);
+  return result;
+};
+
 Tensor& any_dim_out_hpu_lazy(
     Tensor& output,
     const Tensor& self,

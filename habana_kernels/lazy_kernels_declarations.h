@@ -407,6 +407,12 @@ Tensor& mean_dim_out_hpu_lazy(
     c10::optional<ScalarType> dtype);
 Tensor sum_hpu_lazy(const Tensor& self, c10::optional<ScalarType> dtype);
 Tensor mean_hpu_lazy(const Tensor& self, c10::optional<ScalarType> dtype);
+Tensor prod_dim_hpu_lazy(
+    const Tensor& self,
+    int64_t dim,
+    bool keepdim,
+    c10::optional<ScalarType> dtype);
+Tensor prod_hpu_lazy(const Tensor& self, c10::optional<ScalarType> dtype);
 Tensor& any_dim_out_hpu_lazy(
     Tensor& output,
     const Tensor& self,
