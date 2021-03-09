@@ -336,6 +336,9 @@ def parse_arguments():
     parser.add_argument("--use_fused_lamb",
                         action='store_true',
                         help='use FusedLamb optimizer')
+    parser.add_argument("--no_dropout",
+                        action='store_true',
+                        help='Disable Dropout in the model')
 
     args = parser.parse_args()
     args.fp16 = args.fp16 or args.amp
@@ -432,6 +435,9 @@ def prepare_model_and_optimizer(args, device):
 
     # Prepare model
     config = modeling.BertConfig.from_json_file(args.config_file)
+    if args.no_dropout:
+        config.attention_probs_dropout_prob = 0.0
+        config.hidden_dropout_prob = 0.0
 
     # Padding for divisibility by 8
     if config.vocab_size % 8 != 0:
@@ -853,6 +859,9 @@ def main():
                             if args.do_train:
                                 if args.use_habana:
                                     config = modeling.BertConfig.from_json_file(args.config_file)
+                                    if args.no_dropout:
+                                        config.attention_probs_dropout_prob = 0.0
+                                        config.hidden_dropout_prob = 0.0
 
                                     # Padding for divisibility by 8
                                     if config.vocab_size % 8 != 0:
