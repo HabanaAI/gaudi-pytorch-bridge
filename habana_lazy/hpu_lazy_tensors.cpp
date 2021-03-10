@@ -417,7 +417,15 @@ void HbLazyTensor::applyPendingGraph() {
   // requested have the data required updated in them. This is usually done
   // before sync points in execution
   if (!CurrentTensorData()) {
-    std::vector<HbLazyTensor> tensors({*this});
+    std::vector<HbLazyTensor> tensors;
+    auto node = data()->ir_value.mp_node.get();
+    auto live_tensors = GetLiveTensors(&GetDevice());
+    for (auto& tensor : live_tensors) {
+      if (tensor.data()->ir_value.mp_node.get() == node) {
+        tensors.emplace_back(tensor);
+      }
+    }
+
     SyncTensorsGraph(&tensors);
   }
 }
