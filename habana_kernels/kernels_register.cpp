@@ -1844,6 +1844,20 @@ Tensor hpu_wrap::hbgelu2_backward(
   }
   return gelu2_backward_hpu(grad, self, saved);
 };
+
+Tensor& hpu_wrap::idop_(Tensor& self) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    HABANA_ASSERT(0 && "idop_ not implemented for lazy mode");
+  }
+  return idop_hpu_(self);
+};
+Tensor hpu_wrap::idop(const Tensor& self) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    HABANA_ASSERT(0 && "idop not implemented for lazy mode");
+  }
+  return idop_hpu(self);
+};
+
 Tensor& hpu_wrap::erf_(Tensor& self) {
   if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto& t = erf_hpu_lazy_(self);

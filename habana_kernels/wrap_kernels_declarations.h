@@ -534,11 +534,16 @@ struct hpu_wrap {
   static at::Tensor gelu_backward(
       const at::Tensor& grad,
       const at::Tensor& self);
+
   static std::tuple<at::Tensor, at::Tensor> hbgelu2(const at::Tensor& self);
   static at::Tensor hbgelu2_backward(
       const at::Tensor& grad,
       const at::Tensor& self,
       const at::Tensor& saved);
+
+  static at::Tensor& idop_(at::Tensor& self);
+  static at::Tensor idop(const at::Tensor& self);
+
   static at::Tensor& erf_(at::Tensor& self);
   static at::Tensor erf(const at::Tensor& self);
   static at::Tensor& exp_(at::Tensor& self);

@@ -524,6 +524,10 @@ Tensor gelu2_backward_hpu(
     const Tensor& grad,
     const Tensor& self,
     const Tensor& saved);
+
+Tensor& idop_hpu_(Tensor& self);
+Tensor idop_hpu(const Tensor& self);
+
 Tensor& erf_hpu_(Tensor& self);
 Tensor erf_hpu(const Tensor& self);
 Tensor& exp_hpu_(Tensor& self);

@@ -841,6 +841,19 @@ Tensor gelu_backward_hpu(const Tensor& grad, const Tensor& self) {
   return out.at(0);
 }
 
+Tensor& idop_hpu_(Tensor& self) {
+  PT_KERNEL_BEGIN;
+  PT_KERNEL_END;
+  return self;
+}
+
+Tensor idop_hpu(const Tensor& self) {
+  PT_KERNEL_BEGIN;
+  auto result = const_cast<Tensor&>(self);
+  PT_KERNEL_END;
+  return result;
+}
+
 /*************************************************************************
  * @brief Kernel implementation for erf_
  * output = x.erf_()
