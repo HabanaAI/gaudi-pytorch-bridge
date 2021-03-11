@@ -764,7 +764,8 @@ class Trainer:
                         type(v),
                         k,
                     )
-            self.tb_writer.flush()
+            if not self.args.use_habana:
+                self.tb_writer.flush()
         if is_wandb_available():
             if self.is_world_master():
                 wandb.log(logs, step=self.global_step)
