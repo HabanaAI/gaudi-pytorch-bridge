@@ -225,6 +225,16 @@ Tensor hpu_wrap::rsub(const Tensor& self, Scalar other, Scalar alpha) {
     return rsub_scalar_hpu(self, other, alpha);
   }
 };
+Tensor hpu_wrap::_s_where(
+    const Tensor& condition,
+    const Tensor& self,
+    const Tensor& other) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    return where_tensor_hpu_lazy(condition, self, other);
+  } else {
+    return where_tensor_hpu(condition, self, other);
+  }
+}
 Tensor& hpu_wrap::mul_(Tensor& self, const Tensor& other) {
   hpu_check_inputs("mul_", {self, other});
 

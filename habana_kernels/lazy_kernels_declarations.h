@@ -70,6 +70,10 @@ Tensor& mul_out_hpu_lazy(Tensor& out, const Tensor& self, const Tensor& other);
 Tensor mul_tensor_hpu_lazy(const Tensor& self, const Tensor& other);
 Tensor mul_scalar_hpu_lazy(const Tensor& self, Scalar other);
 Tensor& mul_scalar_hpu_lazy_(Tensor& self, Scalar other);
+Tensor where_tensor_hpu_lazy(
+    const Tensor& condition,
+    const Tensor& self,
+    const Tensor& other);
 Tensor div_tensor_hpu_lazy(const Tensor& self, const Tensor& other);
 Tensor& div_tensor_hpu_lazy_out(
     Tensor& result,

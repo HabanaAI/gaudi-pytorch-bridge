@@ -52,6 +52,40 @@ TEST(EagerKernelTest, MatMulTest) {
   matmul_test({16, 20, 24}, {12, 16, 24, 20});
 }
 
+TEST(EagerKernelTest, WhereTest) {
+  torch::Tensor x = torch::randn({2, 3});
+  torch::Tensor y = torch::randn({2, 3});
+  auto out = torch::_s_where(x > 0, x, y);
+
+  auto hx = x.to(torch::kHABANA);
+  auto hy = y.to(torch::kHABANA);
+  auto outHabana = torch::_s_where(hx > 0, hx, hy);
+
+  auto result = outHabana.to(torch::kCPU);
+
+  bool equal = out.allclose(result, 0.001, 0.001);
+  EXPECT_EQ(equal, true);
+}
+
+TEST(EagerKernelTest, WhereBroadcastTest) {
+  torch::Tensor cond = torch::randint(0, 2, {2, 3});
+  torch::Tensor condBool = cond > 0;
+  torch::Tensor x = torch::randn({2, 3});
+  torch::Tensor y = torch::randn({1});
+
+  auto out = torch::_s_where(condBool, x, y);
+
+  auto hcond = condBool.to(torch::kHABANA);
+  auto hx = x.to(torch::kHABANA);
+  auto hy = y.to(torch::kHABANA);
+  auto outHabana = torch::_s_where(hcond, hx, hy);
+
+  auto result = outHabana.to(torch::kCPU);
+
+  bool equal = out.allclose(result, 0.001, 0.001);
+  EXPECT_EQ(equal, true);
+}
+
 TEST(EagerKernelTest, MatmulBackwardTest) {
   torch::manual_seed(0);
   auto matmul_test = [](c10::IntArrayRef size1, c10::IntArrayRef size2) {

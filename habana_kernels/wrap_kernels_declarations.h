@@ -278,6 +278,10 @@ struct hpu_wrap {
   static at::Tensor bmm(const at::Tensor& self, const at::Tensor& mat2);
   static at::Tensor dot(const at::Tensor& self, const at::Tensor& other);
   static at::Tensor mv(const at::Tensor& self, const at::Tensor& other);
+  static at::Tensor _s_where(
+      const at::Tensor& condition,
+      const at::Tensor& self,
+      const at::Tensor& other);
   static std::tuple<at::Tensor, at::Tensor> nll_loss_forward(
       const at::Tensor& self,
       const at::Tensor& target,

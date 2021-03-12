@@ -62,6 +62,10 @@ Tensor& sub_scalar_hpu_(Tensor& self, Scalar other, Scalar alpha);
 Tensor rsub_scalar_hpu(const Tensor& self, Scalar other, Scalar alpha);
 Tensor& mul_tensor_hpu_(Tensor& self, const Tensor& other);
 Tensor mul_tensor_hpu(const Tensor& self, const Tensor& other);
+Tensor where_tensor_hpu(
+    const Tensor& condition,
+    const Tensor& self,
+    const Tensor& other);
 Tensor& mul_out_hpu(Tensor& out, const Tensor& self, const Tensor& other);
 Tensor mul_scalar_hpu(const Tensor& self, Scalar other);
 Tensor& mul_scalar_hpu_(Tensor& self, Scalar other);
