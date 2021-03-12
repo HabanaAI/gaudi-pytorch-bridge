@@ -130,11 +130,6 @@ void* HPUAllocator::alloc(size_t num_bytes) {
     status = waitTillRecipeExecution(device_id, num_bytes, v_ptr);
   }
 
-  if (v_ptr == nullptr && drop_cached_recipe_cb != nullptr) {
-    status = waitTillCachedRecipesDropped(
-        device_id, num_bytes, v_ptr, drop_cached_recipe_cb);
-  }
-
   if (v_ptr == nullptr) {
     TORCH_HABANA_CHECK(
         status, "synDeviceMalloc failed to allocate ", num_bytes, " bytes");

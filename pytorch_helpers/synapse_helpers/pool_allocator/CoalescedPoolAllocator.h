@@ -11,6 +11,7 @@
 #include <synapse_api_types.h>
 #include <synapse_helpers/device.h>
 #include <list>
+#include <unordered_map>
 #include "PoolAllocator.h"
 
 namespace synapse_helpers {
@@ -25,6 +26,29 @@ struct Chunk {
   Chunk* prev;
   Chunk* next;
   uint64_t memptr;
+
+  Chunk(size_t sz)
+      : size(sz), used(false), prev(nullptr), next(nullptr), memptr(0) {}
+  Chunk()
+      : size(0),
+        extra_space(0),
+        used(false),
+        prev(nullptr),
+        next(nullptr),
+        memptr(0) {}
+  Chunk(
+      uint64_t sz,
+      uint64_t extra,
+      bool use,
+      Chunk* pv,
+      Chunk* nxt,
+      uint64_t ptr)
+      : size(sz),
+        extra_space(extra),
+        used(use),
+        prev(pv),
+        next(nxt),
+        memptr(ptr) {}
 };
 
 struct simple_coalesced_pool_t {
@@ -38,8 +62,17 @@ struct simple_coalesced_pool_t {
 
 class StaticCoalescedPooling : public PoolingStrategy {
  private:
-  mutable std::list<Chunk*> pool_list;
-  mutable std::list<Chunk*> free_list;
+  struct chunkcompare {
+    bool operator()(const Chunk* a, const Chunk* b) {
+      // sort by size, break ties with pointer
+      if (a->size != b->size) {
+        return a->size < b->size;
+      }
+      return a->memptr < b->memptr;
+    };
+  };
+  mutable std::set<Chunk*, chunkcompare> free_list;
+  mutable std::unordered_map<uint64_t, Chunk*> chunks;
   mutable synDeviceId pool_id;
   mutable uint64_t max_pool_size;
   mutable uint64_t chunk_count;
@@ -48,15 +81,15 @@ class StaticCoalescedPooling : public PoolingStrategy {
   mutable uint64_t free_chunks_size;
   mutable simple_coalesced_pool_t* prealloc_pool;
   Chunk* reuse_chunks(uint64_t size) const;
-  void* get_free_chunk(uint64_t size) const;
+  Chunk* get_free_chunk(uint64_t size) const;
   Chunk* get_any_available_free_chunk(uint64_t size) const;
   bool skip_chunk(Chunk* chunk, uint64_t size_req) const;
   bool canMergePreviousChunk(Chunk* chunk, uint64_t size) const;
   Chunk* mergePreviousChunk(Chunk* chunk) const;
   bool canMergeNextChunk(Chunk* chunk, uint64_t size) const;
   Chunk* mergeNextChunk(Chunk* chunk) const;
-  Chunk* try_coalescing_chunks(void* ptr, uint64_t size) const;
-  Chunk* try_splitting_chunks(void* ptr, uint64_t size) const;
+  Chunk* try_coalescing_chunks(Chunk* chunk, uint64_t size) const;
+  Chunk* try_splitting_chunks(Chunk* chunk, uint64_t size) const;
   bool pool_defragment(uint64_t size) const;
   Chunk* create_chunk() const;
   Chunk* try_block_splitting(uint64_t size) const;
@@ -66,7 +99,7 @@ class StaticCoalescedPooling : public PoolingStrategy {
   uint64_t getContigousChunkSize(Chunk* chunk) const;
   Chunk* defragment_on_reuse(void* ptr, uint64_t size) const;
   void print_pool_stats() const;
-  mutable std::recursive_mutex sp_mutex;
+  mutable std::mutex sp_mutex;
 
  public:
   StaticCoalescedPooling();
