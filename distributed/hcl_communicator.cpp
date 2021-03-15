@@ -614,6 +614,26 @@ synapse_error_o hcl_communicator::memcpy_out_interim_buffer(
   return {};
 }
 
+void hcl_communicator::print_collective_buffer_size(
+    size_t elem_cnt,
+    synDataType data_type,
+    HCL_CollectiveOp operation) {
+  HCLStatus status{eHCLSuccess};
+  size_t required_int_buff_size{0};
+  elem_cnt = get_aligned_elem_cnt(elem_cnt);
+  status = HCL_Get_Intermediate_Buffer_size(
+      &required_int_buff_size, operation, elem_cnt, data_type, hcl_comm());
+  HABANA_ASSERT(status == eHCLSuccess);
+  HABANA_ASSERT(required_int_buff_size != 0);
+  size_t data_size = get_aligned_data_size(elem_cnt, data_type);
+
+  if (my_hcl_rank_ == 0) {
+    std::cerr << " intermediate_buf_size :: " << required_int_buff_size
+              << std::endl;
+    std::cerr << " data_size :: " << data_size << std::endl;
+  }
+}
+
 synapse_error_o hcl_communicator::execute_collective_with_fusion_buffer(
     const hcl_communicator::hcl_collective_fnc& collective,
     const HCL_CollectiveOp operation,

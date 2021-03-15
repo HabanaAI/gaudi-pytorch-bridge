@@ -159,6 +159,11 @@ class hcl_communicator {
       synDataType data_type,
       HCL_CollectiveOp operation);
 
+  void print_collective_buffer_size(
+      size_t elem_cnt,
+      synDataType data_type,
+      HCL_CollectiveOp operation);
+
   size_t get_aligned_data_size(size_t elem_cnt, synDataType data_type);
 
   size_t get_aligned_elem_cnt(size_t elem_cnt) {
