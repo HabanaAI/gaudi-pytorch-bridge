@@ -59,8 +59,8 @@ bool HabanaWhiteList::is_op_habana_whitelisted(torch::jit::Node* node) {
 }
 
 void HabanaWhiteList::load_whitelisted_ops() {
-  if (std::getenv("HABANA_GRAPH_WHITELIST_FILE")) {
-    const char* wl_filename = std::getenv("HABANA_GRAPH_WHITELIST_FILE");
+  if (std::getenv("HABANA_GRAPH_FUSION_OPS_FILE")) {
+    const char* wl_filename = std::getenv("HABANA_GRAPH_FUSION_OPS_FILE");
     std::string wl_file =
         (wl_filename == NULL) ? std::string() : std::string(wl_filename);
 
