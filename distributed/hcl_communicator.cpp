@@ -117,9 +117,6 @@ synapse_error_o hcl_communicator::allreduce(
                                 device_ptr intermediate_address,
                                 size_t intermediate_size,
                                 uint32_t flags) {
-    HCLStatus status = HCL_Sync(hcl_comm(), 111);
-    if (eHCLSuccess != status)
-      return status;
     return HCL_Allreduce(
         collective_stream,
         input_address,
