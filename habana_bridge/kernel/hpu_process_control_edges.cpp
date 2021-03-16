@@ -118,15 +118,9 @@ void HabanaLaunchOpPT::PrepareBlockingNodeList(Node* node) {
 
   } // for (auto& u : src_node_uses)
 
-  if (blocking_syn_nodes_vec.size() == 0) {
-    // check if parent to control edge node is an inplace
-    auto parent_node = node->input(0)->node();
-    auto parent_node_str = parent_node->kind().toQualString();
-    char end_ch = parent_node_str[strlen(parent_node_str) - 1];
-    if (end_ch == '_') {
-      HabanaLaunchOpPT::addSynNodes(blocking_syn_nodes_vec, parent_node);
-    }
-  }
+  // Add the parent node as well
+  auto parent_node = node->input(0)->node();
+  HabanaLaunchOpPT::addSynNodes(blocking_syn_nodes_vec, parent_node);
 }
 
 void HabanaLaunchOpPT::ProcessControlEdges() {
