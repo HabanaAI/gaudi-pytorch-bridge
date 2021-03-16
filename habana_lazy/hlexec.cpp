@@ -64,15 +64,155 @@ void HlExec::Launch(torch::jit::Stack& stack) {
 }
 
 /*
+ * Find duplicate in stack
+ */
+void HlExec::FindDuplicateInStack(
+    const ir::PostOrderData& po_data,
+    torch::jit::Stack& stack,
+    std::vector<size_t>& parent_vec,
+    std::vector<bool>& is_duplicate_vec) {
+  size_t num_inputs = po_data.inputs.size();
+
+  // Assumption : stack[i] is the corresponding input of po_data.inputs[i]
+  TORCH_CHECK(
+      stack.size() == num_inputs,
+      " stack_size ",
+      stack.size(),
+      " != num_inputs ",
+      num_inputs);
+
+  std::unordered_map<uint64_t, size_t> input_addr_map;
+  size_t num_duplicate_inputs = 0;
+  size_t stack_size = stack.size();
+
+  for (size_t i = 0; i < stack_size; i++) {
+    auto& input = stack[i];
+    HABANA_ASSERT(input.isTensor());
+    if (!input.toTensor().has_storage()) {
+      return;
+    }
+  }
+
+  for (size_t i = 0; i < stack_size; i++) {
+    auto& input = stack[i];
+    HABANA_ASSERT(input.isTensor());
+    auto input_addr = (uint64_t)(input.toTensor().data_ptr());
+
+    if (input_addr_map.count(input_addr) != 0) {
+      auto pidx = input_addr_map.at(input_addr);
+      auto parent_tensor = stack[pidx].toTensor();
+      auto input_tensor = input.toTensor();
+      // Check for shape and stride match
+      if (input_tensor.sizes() == parent_tensor.sizes() &&
+          input_tensor.strides() == parent_tensor.sizes()) {
+        is_duplicate_vec[i] = true;
+        parent_vec[i] = pidx;
+        num_duplicate_inputs++;
+
+        PT_LAZY_DEBUG(
+            "Duplicate input address ",
+            input_addr,
+            " found for value %",
+            po_data.inputs[i].ToString(),
+            " current duplicate count ",
+            num_duplicate_inputs);
+      } else {
+        PT_LAZY_DEBUG(
+            "Same input address ",
+            input_addr,
+            " with different shape/stride found for value %",
+            po_data.inputs[i].ToString(),
+            " and value%",
+            po_data.inputs[pidx].ToString());
+      }
+    } else {
+      input_addr_map[input_addr] = i;
+    }
+  }
+}
+
+/*
+ * Prune duplicate stack inputs
+ */
+void HlExec::PruneDuplicateStackInputs(
+    torch::jit::Stack& stack,
+    std::vector<bool>& is_duplicate_vec) {
+  for (int64_t j = (int64_t)is_duplicate_vec.size() - 1; j >= 0; j--) {
+    if (is_duplicate_vec[j]) {
+      PT_LAZY_DEBUG("Deleting ", j, "th entry from the stack");
+      stack.erase(stack.begin() + j);
+    }
+  }
+}
+
+/*
+ * Prune duplicate graph inputs
+ */
+void HlExec::PruneDuplicateGraphInputs(
+    std::vector<size_t>& parent_vec,
+    std::vector<bool>& is_duplicate_vec) {
+  PT_LAZY_TRACE;
+
+  PT_LAZY_DEBUG(
+      "Initial JIT IR Graph ====\n", mp_g_->toString(), "JIT IR Graph ----\n");
+
+  auto jit_ir_graph_inputs = mp_g_->inputs();
+  for (size_t i = 0; i < jit_ir_graph_inputs.size(); i++) {
+    if (is_duplicate_vec[i]) {
+      size_t parent_idx = parent_vec[i];
+      TORCH_CHECK(
+          parent_idx != ULONG_MAX && parent_idx < i,
+          " invalid parent index ",
+          parent_idx,
+          " found for input index ",
+          i);
+      auto vptr = jit_ir_graph_inputs[parent_idx];
+      PT_LAZY_DEBUG(
+          "Replacing %",
+          jit_ir_graph_inputs[i]->debugName(),
+          " with %",
+          vptr->debugName());
+      jit_ir_graph_inputs[i]->replaceAllUsesWith(vptr);
+    }
+  }
+
+  for (int64_t j = (int64_t)is_duplicate_vec.size() - 1; j >= 0; j--) {
+    if (is_duplicate_vec[j]) {
+      PT_LAZY_DEBUG(
+          "Deleting ",
+          j,
+          "th input %",
+          mp_g_->inputs().at(j)->debugName(),
+          "of the graph");
+      mp_g_->eraseInput(j);
+    }
+  }
+
+  PT_LAZY_DEBUG(
+      "After pruning duplicates, JIT IR Graph ====\n",
+      mp_g_->toString(),
+      "JIT IR Graph ----\n");
+}
+
+/*
  * Get the JIT graph fron cache, or create it
  */
 void HlExec::GetOrCreate(
     const ir::PostOrderData& po_data,
     torch::jit::Stack& stack) {
   PT_LAZY_TRACE;
+
+  size_t num_inputs = po_data.inputs.size();
+
+  std::vector<size_t> parent_vec(num_inputs, ULONG_MAX);
+  std::vector<bool> is_duplicate_vec(num_inputs, false);
+  FindDuplicateInStack(po_data, stack, parent_vec, is_duplicate_vec);
+  PruneDuplicateStackInputs(stack, is_duplicate_vec);
+
   if (std::getenv("PT_HPU_LAZY_CACHE_DISABLE")) {
     mp_g_ = std::make_shared<Graph>();
     Create(po_data.post_order, po_data.inputs, po_data.outputs, stack);
+    PruneDuplicateGraphInputs(parent_vec, is_duplicate_vec);
     return;
   }
   auto las = habana_lazy::LazyArgumentSpec(
@@ -81,7 +221,8 @@ void HlExec::GetOrCreate(
       po_data.post_order_nodes_hash,
       po_data.inputs,
       po_data.value_input_nodes_map,
-      po_data.outputs.size());
+      po_data.outputs.size(),
+      parent_vec);
   mp_g_ = habana_lazy::LazyGraphCache::GetLazyCache().GetOptimizedJITGraph(
       las.hashCode());
 
@@ -95,6 +236,9 @@ void HlExec::GetOrCreate(
     // Create a JIT graph from the post order graph
     // Optimization is done during Create() itself
     Create(po_data.post_order, po_data.inputs, po_data.outputs, stack);
+
+    PruneDuplicateGraphInputs(parent_vec, is_duplicate_vec);
+
     // Create a lazyArgumentSpec
     las = habana_lazy::LazyArgumentSpec(
         true,
@@ -102,7 +246,8 @@ void HlExec::GetOrCreate(
         po_data.post_order_nodes_hash,
         po_data.inputs,
         po_data.value_input_nodes_map,
-        po_data.outputs.size());
+        po_data.outputs.size(),
+        parent_vec);
     LazyGraphCache::GetLazyCache().Add(las.hashCode(), mp_g_);
   } else {
     PT_LAZY_DEBUG("JIT Cache hit");

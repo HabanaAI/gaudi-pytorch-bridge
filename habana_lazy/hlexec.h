@@ -153,6 +153,29 @@ class HlExec {
   virtual ~HlExec() {}
 
   /**
+   * This method finds the duplicate inputs in the stack
+   */
+  void FindDuplicateInStack(
+      const ir::PostOrderData& po_data,
+      torch::jit::Stack& stack,
+      std::vector<size_t>& parent_vec,
+      std::vector<bool>& is_duplicate_vec);
+
+  /**
+   * This method prunes the duplicate inputs from the stack
+   */
+  void PruneDuplicateStackInputs(
+      torch::jit::Stack& stack,
+      std::vector<bool>& is_duplicate_vec);
+
+  /**
+   * This method prunes the duplicate inputs from the JIT IR Graph
+   */
+  void PruneDuplicateGraphInputs(
+      std::vector<size_t>& parent_vec,
+      std::vector<bool>& is_duplicate_vec);
+
+  /**
    * This method gets an optimized JIT IR graph from cache
    * or creates the JIT IR Graph
    * Inputs:

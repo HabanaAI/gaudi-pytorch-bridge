@@ -30,13 +30,15 @@ TEST(LazyCacheTest, CacheMissEmptyCache) {
   const at::ArrayRef<torch::jit::IValue> inputs(input_ivalues);
 
   // Create an lazyArgumentSpec for the IR nodes and inputs
+  std::vector<size_t> parent_vec(inputs.size(), ULONG_MAX);
   auto las = habana_lazy::LazyArgumentSpec(
       true,
       inputs,
       post_order_nodes_hash,
       {},
       value_input_nodes_map,
-      0);
+      0,
+      parent_vec);
 
   // Look for the lazyArgumentSpec in lazy cache
   auto jit_graph =
@@ -66,13 +68,15 @@ TEST(LazyCacheTest, CacheHitSameInput) {
   const at::ArrayRef<torch::jit::IValue> inputs(input_ivalues);
 
   // Create an LazyArgumentSpec for the IR nodes and inputs
+  std::vector<size_t> parent_vec(inputs.size(), ULONG_MAX);
   auto las = habana_lazy::LazyArgumentSpec(
       true,
       inputs,
       post_order_nodes_hash,
       {},
       value_input_nodes_map,
-      0);
+      0,
+      parent_vec);
 
   // Look for the LazyArgumentSpec in lazy cache
   auto jit_graph =
@@ -114,13 +118,15 @@ TEST(LazyCacheTest, CacheHitSameDimTensors) {
   const at::ArrayRef<torch::jit::IValue> inputs1(inputs1_ivalues);
 
   // Create an LazyArgumentSpec for the IR nodes and inputs
+  std::vector<size_t> parent_vec1(inputs1.size(), ULONG_MAX);
   auto las1 = habana_lazy::LazyArgumentSpec(
       true,
       inputs1,
       post_order_nodes_hash,
       {},
       value_input_nodes_map,
-      0);
+      0,
+      parent_vec1);
 
   // Look for the LazyArgumentSpec in lazy cache
   auto jit_graph =
@@ -141,13 +147,15 @@ TEST(LazyCacheTest, CacheHitSameDimTensors) {
   const at::ArrayRef<torch::jit::IValue> inputs2(inputs2_ivalues);
 
   // Create an LazyArgumentSpec for the IR nodes and inputs
+  std::vector<size_t> parent_vec2(inputs2.size(), ULONG_MAX);
   auto las2 = habana_lazy::LazyArgumentSpec(
       true,
       inputs2,
       post_order_nodes_hash,
       {},
       value_input_nodes_map,
-      0);
+      0,
+      parent_vec2);
 
   // Look for the LazyArgumentSpec in lazy cache
   jit_graph = habana_lazy::LazyGraphCache::GetLazyCache().GetOptimizedJITGraph(
@@ -177,13 +185,15 @@ TEST(LazyCacheTest, CacheMissDiffInputs) {
   const at::ArrayRef<torch::jit::IValue> inputs1(inputs1_ivalues);
 
   // Create an LazyArgumentSpec for the IR nodes and inputs
+  std::vector<size_t> parent_vec1(inputs1.size(), ULONG_MAX);
   auto las1 = habana_lazy::LazyArgumentSpec(
       true,
       inputs1,
       post_order_nodes_hash,
       {},
       value_input_nodes_map,
-      0);
+      0,
+      parent_vec1);
 
   // Look for the LazyArgumentSpec in lazy cache
   auto jit_graph =
@@ -205,13 +215,15 @@ TEST(LazyCacheTest, CacheMissDiffInputs) {
   const at::ArrayRef<torch::jit::IValue> inputs2(inputs2_ivalues);
 
   // Create an LazyArgumentSpec for the IR nodes and new inputs
+  std::vector<size_t> parent_vec2(inputs2.size(), ULONG_MAX);
   auto las2 = habana_lazy::LazyArgumentSpec(
       true,
       inputs2,
       post_order_nodes_hash,
       {},
       value_input_nodes_map,
-      0);
+      0,
+      parent_vec2);
 
   // Look for the LazyArgumentSpec in lazy cache
   jit_graph = habana_lazy::LazyGraphCache::GetLazyCache().GetOptimizedJITGraph(
@@ -240,13 +252,15 @@ TEST(LazyCacheTest, CacheMissDiffGraph) {
   const at::ArrayRef<torch::jit::IValue> inputs(inputs_ivalues);
 
   // Create an LazyArgumentSpec for the IR nodes and inputs
+  std::vector<size_t> parent_vec(inputs.size(), ULONG_MAX);
   auto las1 = habana_lazy::LazyArgumentSpec(
       true,
       inputs,
       post_order_nodes_hash,
       {},
       value_input_nodes_map,
-      0);
+      0,
+      parent_vec);
 
   // Look for the LazyArgumentSpec in lazy cache
   auto jit_graph =
@@ -267,13 +281,15 @@ TEST(LazyCacheTest, CacheMissDiffGraph) {
   auto& post_order_nodes_hash2 = post_order_struct2.post_order_nodes_hash;
 
   // Create an LazyArgumentSpec for the new IR nodes and inputs
+  std::vector<size_t> parent_vec2(inputs.size(), ULONG_MAX);
   auto las2 = habana_lazy::LazyArgumentSpec(
       true,
       inputs,
       post_order_nodes_hash2,
       {},
       value_input_nodes_map,
-      0);
+      0,
+      parent_vec2);
 
   // Look for the LazyArgumentSpec in lazy cache
   jit_graph = habana_lazy::LazyGraphCache::GetLazyCache().GetOptimizedJITGraph(
@@ -307,13 +323,15 @@ TEST(LazyCacheTest, DISABLED_CacheMissDiffScalars) {
   const at::ArrayRef<torch::jit::IValue> inputs1(inputs1_ivalues);
 
   // Create an LazyArgumentSpec for the IR nodes and inputs
+  std::vector<size_t> parent_vec1(inputs1.size(), ULONG_MAX);
   auto las1 = habana_lazy::LazyArgumentSpec(
       true,
       inputs1,
       post_order_nodes_hash,
       {},
       value_input_nodes_map,
-      0);
+      0,
+      parent_vec1);
 
   // Look for the LazyArgumentSpec in lazy cache
   auto jit_graph =
@@ -335,13 +353,15 @@ TEST(LazyCacheTest, DISABLED_CacheMissDiffScalars) {
   const at::ArrayRef<torch::jit::IValue> inputs2(inputs2_ivalues);
 
   // Create an LazyArgumentSpec for the IR nodes and new inputs
+  std::vector<size_t> parent_vec2(inputs2.size(), ULONG_MAX);
   auto las2 = habana_lazy::LazyArgumentSpec(
       true,
       inputs2,
       post_order_nodes_hash,
       {},
       value_input_nodes_map,
-      0);
+      0,
+      parent_vec2);
 
   // Look for the LazyArgumentSpec in lazy cache
   jit_graph = habana_lazy::LazyGraphCache::GetLazyCache().GetOptimizedJITGraph(

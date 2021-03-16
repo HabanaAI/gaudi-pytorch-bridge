@@ -25,6 +25,7 @@ using IValPtrShared = std::shared_ptr<IVal>;
 using ValPtr = torch::jit::Value*;
 
 void PrintATenTensor(const at::Tensor& a);
+void PrintATenTensor(const IVal& a);
 void PrintATenTensor(const IValPtrShared& a);
 
 class PtTensorInfo;

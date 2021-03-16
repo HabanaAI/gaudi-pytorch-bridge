@@ -24,7 +24,8 @@ LazyArgumentSpec::LazyArgumentSpec(
     size_t post_order_nodes_hash,
     const ir::ValueList inputs,
     const ir::ValueNodeListMap value_input_nodes_map,
-    const size_t num_outputs) {
+    const size_t num_outputs,
+    const std::vector<size_t>& parent_vec) {
   PT_LAZY_TRACE;
   // Create the ArgumentSpec from nodes and inputs
   // ArgumentSpec hash is created based on the inputs
@@ -39,6 +40,11 @@ LazyArgumentSpec::LazyArgumentSpec(
 
   // Include num_outputs also part of the hash code
   m_hash_code = at::hash_combine(m_hash_code, num_outputs);
+
+  // Include the initial duplicate information within the hash code
+  for (const auto& a : parent_vec) {
+    m_hash_code = at::hash_combine(m_hash_code, a);
+  }
 }
 
 torch::jit::Stack LazyArgumentSpec::CreateStack(

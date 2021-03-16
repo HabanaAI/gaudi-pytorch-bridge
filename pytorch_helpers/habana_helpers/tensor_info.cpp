@@ -144,6 +144,14 @@ void PrintATenTensor(const at::Tensor& a) {
   O << ',' << " use_count " << a.use_count() << '\n';
 }
 
+void PrintATenTensor(const IVal& a) {
+  if (a.isTensor()) {
+    PrintATenTensor(a.toTensor());
+  } else {
+    std::cout << "Non-tensor : ivalue :: " << a << '\n';
+  }
+}
+
 void PrintATenTensor(const IValPtrShared& a) {
   if (a->isTensor()) {
     PrintATenTensor(a->toTensor());

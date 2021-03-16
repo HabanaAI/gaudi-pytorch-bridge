@@ -1691,7 +1691,7 @@ void HabanaLaunchOpPT::OrderInputs() {
         if (it != input_tiv_map.end()) {
           input_tivs.push_back(it->second);
         } else {
-          TORCH_CHECK(false, "synapse tensor not found");
+          TORCH_CHECK(false, "synapse tensor not found for input index", i);
         }
       }
     }
@@ -2945,6 +2945,11 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
   TORCH_CHECK(
       is_all_hpu == true, " Habana Fusion needs all tensors to be in HPU ");
 
+  PT_BRIDGE_DEBUG(
+      "Lowering JIT IR Graph ====\n",
+      jit_ir_graph->toString(),
+      "JIT IR Graph ----\n");
+
   if (refine_ds_enabled_) {
     ProcessHabanaFusedOpWithDS();
     return;
@@ -3284,6 +3289,7 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
       if (enable_tensor_dump_) {
         DumpTensors_pre(rv);
       }
+
       rv.launch(input_refs, dma_inputs);
 
       if (enable_tensor_dump_) {
