@@ -127,6 +127,7 @@ CMD+=" --do_train"
 CMD+=" --json-summary ${RESULTS_DIR}/dllogger.json "
 CMD+=" --use_habana "
 CMD+=" --use_jit_trace "
+CMD+=" --use_fused_lamb "
 if [ "$precision" = "bf16" ] ; then
     CMD+=" --hmp "
     CMD+=" --hmp_bf16 $BERT_REPO_BASE/../configs/ops_bf16_bert_pt.txt "
@@ -216,6 +217,7 @@ CMD+=" --do_train --phase2 --resume_from_checkpoint --phase1_end_step=$train_ste
 CMD+=" --json-summary ${RESULTS_DIR}/dllogger.json "
 CMD+=" --use_habana "
 CMD+=" --use_jit_trace "
+CMD+=" --use_fused_lamb "
 if [ "$precision" = "bf16" ] ; then
     CMD+=" --hmp "
     CMD+=" --hmp_bf16 $BERT_REPO_BASE/../configs/ops_bf16_bert_pt.txt "
