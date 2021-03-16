@@ -1230,10 +1230,13 @@ Tensor select_hpu(const Tensor& in_self, int64_t dim, int64_t index) {
   }
 
   at::ScalarType scalar_type = self.scalar_type();
-  HABANA_ASSERT(
-      ((scalar_type == c10::ScalarType::Int) ||
-       (scalar_type == c10::ScalarType::Float) ||
-       (scalar_type == c10::ScalarType::BFloat16)));
+  TORCH_CHECK(
+      scalar_type == c10::ScalarType::Int ||
+          scalar_type == c10::ScalarType::Float ||
+          scalar_type == c10::ScalarType::BFloat16,
+      "Input 1 of select operator is expected to be of type int, float or "
+      "bfloat16 but got ",
+      scalar_type);
 
   std::string node_type = "slice";
   size_t device_id = self.device().index();
