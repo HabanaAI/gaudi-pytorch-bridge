@@ -321,6 +321,12 @@ def train(args, train_dataset, model, tokenizer, trainMetaData):
             # model outputs are always tuple in transformers (see doc)
             loss = outputs[0]
 
+            if args.local_rank != -1:
+                if mpi_comm is not None:
+                  mpi_comm.Barrier()
+                else:
+                  torch.distributed.barrier()
+
             if args.n_gpu > 1:
                 loss = loss.mean()  # mean() to average on multi-gpu parallel (not distributed) training
             if args.gradient_accumulation_steps > 1:
@@ -373,6 +379,12 @@ def train(args, train_dataset, model, tokenizer, trainMetaData):
 
                 # Report the loss
                 logger.info("Global Step: %s, Loss: %s", global_step, loss.item())
+
+                if args.local_rank != -1:
+                    if mpi_comm is not None:
+                        mpi_comm.Barrier()
+                    else:
+                        torch.distributed.barrier()
 
                 # Log metrics
                 if args.local_rank in [-1, 0] and args.logging_steps > 0 and global_step % args.logging_steps == 0:
@@ -921,6 +933,31 @@ def main():
         sys.path.insert(0, os.path.join(os.environ['PYTORCH_MODULES_RELEASE_BUILD']))
         device = torch.device("habana")
 
+        try:
+            global mpi_comm
+            from mpi4py import MPI
+            mpi_comm = MPI.COMM_WORLD
+            args.world_size = mpi_comm.Get_size()
+            if args.world_size > 1:
+                args.rank = mpi_comm.Get_rank()
+                if args.local_rank == -1:
+                    args.local_rank = args.rank
+            else:
+                mpi_comm = None
+                raise('Not an MPI run')
+        except Exception as e:
+            mpi_comm = None
+            if 'WORLD_SIZE' in os.environ and 'RANK' in os.environ and 'LOCAL_RANK' in os.environ:
+                args.world_size = int(os.environ["WORLD_SIZE"])
+                args.rank       = int(os.environ["RANK"])
+                args.local_rank = int(os.environ["LOCAL_RANK"])
+            elif 'OMPI_COMM_WORLD_LOCAL_RANK' in os.environ and 'OMPI_COMM_WORLD_SIZE' in os.environ:
+                args.world_size = int(os.environ["OMPI_COMM_WORLD_SIZE"])
+                args.local_rank = int(os.environ["OMPI_COMM_WORLD_LOCAL_RANK"])
+                args.rank       = args.local_rank
+            else:
+                print("Single node run")
+
         if args.local_rank == -1:
             args.n_gpu = 0
         else:
@@ -929,7 +966,6 @@ def main():
                 exit(0)
             args.dist_backend = 'hcl'
             os.environ["ID"] = str(args.local_rank)
-            args.world_size = int(os.environ['WORLD_SIZE'])
             torch.distributed.init_process_group(args.dist_backend, rank=args.local_rank, world_size=args.world_size)
             args.n_gpu = 1
 
