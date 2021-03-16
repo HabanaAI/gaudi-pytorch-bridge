@@ -14,7 +14,7 @@ import random
 
 import utils
 
-sys.path.insert(0, os.path.join(os.environ['BUILD_ROOT_LATEST']))
+sys.path.insert(0, os.path.join(os.environ['PYTORCH_MODULES_RELEASE_BUILD']))
 try:
     import hb_torch
 except ImportError:
