@@ -971,6 +971,20 @@ Tensor hpu_wrap::binary_cross_entropy_backward(
         grad_output, self, target, weight, reduction);
   }
 };
+Tensor hpu_wrap::binary_cross_entropy_with_logits(
+    const Tensor& self,
+    const Tensor& target,
+    const c10::optional<Tensor>& weight,
+    const c10::optional<Tensor>& pos_weight,
+    int64_t reduction) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    return binary_cross_entropy_with_logits_hpu_lazy(
+        self, target, weight, pos_weight, reduction);
+  } else {
+    return binary_cross_entropy_with_logits_hpu(
+        self, target, weight, pos_weight, reduction);
+  }
+};
 std::tuple<Tensor, Tensor, Tensor> hpu_wrap::native_batch_norm(
     const Tensor& input,
     const c10::optional<Tensor>& weight_opt,

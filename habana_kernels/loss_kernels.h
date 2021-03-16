@@ -123,3 +123,19 @@ class BceBwdOperator : public HabanaOperator {
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
 };
+
+// BceWithLogitsFwd Operator
+class BceLogitsFwdOperator : public HabanaOperator {
+ public:
+  BceLogitsFwdOperator(const int device_id, c10::ScalarType scalarType)
+      : HabanaOperator(
+            "binary_cross_entropy_fwd_" +
+            habana_helpers::name_suffix_from_type(scalarType)) {
+    this->CreateSynContext(device_id);
+  }
+
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+};

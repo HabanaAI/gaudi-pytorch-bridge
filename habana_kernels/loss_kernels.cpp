@@ -56,6 +56,22 @@ static ns_BinaryCrossEntropy::ParamsOptionalSigmoid synapse_bce_params_builder(
   return param;
 }
 
+static ns_BinaryCrossEntropy::Params synapse_bce_logits_params_builder(
+    int64_t reduction,
+    bool weightsDefined) {
+  auto param = ns_BinaryCrossEntropy::Params{};
+  if (reduction == at::Reduction::Reduction::Mean) {
+    param.mode = ECrossEntropyMode_t::CROSS_ENTROPY_MODE_MEAN;
+  } else if (reduction == at::Reduction::Reduction::Sum) {
+    param.mode = ECrossEntropyMode_t::CROSS_ENTROPY_MODE_SUM;
+  } else {
+    HABANA_ASSERT(0 && "https://jira.habana-labs.com/browse/SW-36304")
+    param.mode = ECrossEntropyMode_t::CROSS_ENTROPY_MODE_NO_REDUCTION;
+  }
+  param.isWeightsUsed = weightsDefined;
+  return param;
+}
+
 static ns_MSELossKernel::Params synapse_mse_loss_params_builder(
     int64_t reduction) {
   auto param = ns_MSELossKernel::Params{};
@@ -170,11 +186,12 @@ std::tuple<Tensor, Tensor> nll_loss_forward_hpu(
   size_t device_id = self.device().index();
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
   // Build Params for the graph
-  std::vector<c10::IValue> stack = {IValue(self),
-                                    IValue(modified_target),
-                                    IValue(weight),
-                                    IValue(reduction),
-                                    IValue(ignore_index)};
+  std::vector<c10::IValue> stack = {
+      IValue(self),
+      IValue(modified_target),
+      IValue(weight),
+      IValue(reduction),
+      IValue(ignore_index)};
   NLLLossFwdOperator Op(device_id, scalar_type);
   size_t key = Op.GetRecipeKey(node_type, stack);
 
@@ -298,13 +315,14 @@ Tensor nll_loss_backward_hpu(
 
   size_t device_id = grad_output.device().index();
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-  std::vector<c10::IValue> stack = {IValue(grad_output),
-                                    IValue(self),
-                                    IValue(target),
-                                    IValue(weight),
-                                    IValue(reduction),
-                                    IValue(ignore_index),
-                                    IValue(total_weight)};
+  std::vector<c10::IValue> stack = {
+      IValue(grad_output),
+      IValue(self),
+      IValue(target),
+      IValue(weight),
+      IValue(reduction),
+      IValue(ignore_index),
+      IValue(total_weight)};
   NLLLossBwdOperator Op(device_id, scalar_type);
   size_t key = Op.GetRecipeKey(node_type, stack);
 
@@ -754,8 +772,8 @@ void BceBwdOperator::AllocateAndAddSynapseNode(
   // add reshape node on output
   ReshapeOperator reshape_grad_in(self.device().index(), self.scalar_type());
   reshape_grad_in.SetSynapseInput(std::move(p_context_->syn_outputs_[0]));
-  stack = {c10::IValue(p_context_->pt_outputs_[0]),
-           c10::IValue(self.sizes().vec())};
+  stack = {
+      c10::IValue(p_context_->pt_outputs_[0]), c10::IValue(self.sizes().vec())};
   reshape_grad_in.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
   synapse_helpers::tensor& syn_reshape_grad_in =
       reshape_grad_in.GetSynOutputs()[0];
@@ -787,11 +805,12 @@ Tensor binary_cross_entropy_backward_hpu(
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
 
   // Build Params for the graph
-  std::vector<c10::IValue> stack = {IValue(grad_output),
-                                    IValue(self),
-                                    IValue(target),
-                                    IValue(weight),
-                                    IValue(reduction)};
+  std::vector<c10::IValue> stack = {
+      IValue(grad_output),
+      IValue(self),
+      IValue(target),
+      IValue(weight),
+      IValue(reduction)};
   BceBwdOperator Op(device_id, scalar_type);
   size_t key = Op.GetRecipeKey(node_type, stack);
 
@@ -826,6 +845,117 @@ Tensor binary_cross_entropy_backward_hpu(
   return output;
 }
 
+void BceLogitsFwdOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 5,
+      "Incorrect size of inputs expected for BCELogits operator");
+  TORCH_CHECK(
+      inputs[0].isTensor(),
+      "Input arg1 expected to be tensor for BCELogits operator");
+  TORCH_CHECK(
+      inputs[1].isTensor(),
+      "Input arg2 expected to be tensor for BCELogits operator");
+  TORCH_CHECK(
+      inputs[2].isTensor() || inputs[2].isNone(),
+      "Input arg3 expected to be tensor or None for BCELogits operator");
+  TORCH_CHECK(
+      inputs[3].isTensor() || inputs[3].isNone(),
+      "Input arg4 expected to be tensor or None for BCELogits operator");
+  TORCH_CHECK(
+      inputs[4].isInt(),
+      "Input arg5 expected to be of type Int for BCELogits operator");
+
+  auto self = inputs[0].toTensor();
+  auto target = inputs[1].toTensor();
+  auto weight = inputs[2].toOptional<Tensor>();
+  auto pos_weight = inputs[3].toOptional<Tensor>();
+  auto reduction = inputs[4].toInt();
+
+  TORCH_CHECK(
+      !weight.has_value(), "BCELogits kernel does not support weight for now");
+  TORCH_CHECK(
+      !pos_weight.has_value(),
+      "BCELogits kernel does not support pos_weight for now");
+
+  ns_BinaryCrossEntropy::Params param =
+      synapse_bce_logits_params_builder(reduction, false);
+  p_context_->params_.emplace<ns_BinaryCrossEntropy::Params>(param);
+  p_context_->params_size_ = sizeof(param);
+
+  Tensor output;
+  if (reduction == at::Reduction::Reduction::Mean ||
+      reduction == at::Reduction::Reduction::Sum) {
+    output = habana_helpers::createPTTensor(
+        self, {1}, self.options(), is_output_persistent);
+  } else {
+    output = habana_helpers::createPTTensor(
+        self, self.sizes(), self.options(), is_output_persistent);
+  }
+
+  AllocateSynapseOutput(graph, output, is_output_persistent);
+  AddNodeToSynapseGraph(graph, &param, sizeof(param));
+}
+
+Tensor binary_cross_entropy_with_logits_hpu(
+    const Tensor& self,
+    const Tensor& target,
+    const c10::optional<Tensor>& weight,
+    const c10::optional<Tensor>& pos_weight,
+    int64_t reduction) {
+  PT_KERNEL_BEGIN;
+
+  at::ScalarType scalar_type = self.scalar_type();
+  std::string node_type = "binary_cross_entropy_fwd_" +
+      habana_helpers::name_suffix_from_type(scalar_type);
+
+  size_t device_id = self.device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+
+  // Build Params for the graph
+  std::vector<c10::IValue> stack = {
+      IValue(self),
+      IValue(target),
+      IValue(weight),
+      IValue(pos_weight),
+      IValue(reduction)};
+  BceLogitsFwdOperator Op(device_id, scalar_type);
+  size_t key = Op.GetRecipeKey(node_type, stack);
+
+  std::vector<at::Tensor> pt_inputs{self, target};
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    auto output = at::empty({self.sizes()[1]}, self.options());
+    Op.SetPTInputs(pt_inputs);
+    Op.SetPTOutput(output);
+    Op.Execute(key);
+  } else {
+    PT_KERNEL_DEBUG("Key:", key);
+    // Create Graph
+    auto graph = habana_helpers::create_graph(device_id, node_type);
+
+    // Assign Inputs to the Operator
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
+
+    // Build Params for the graph
+    Op.AllocateAndAddSynapseNode(graph, stack, true);
+
+    // compile and execute the graph
+    Op.Compile(graph);
+  }
+
+  std::vector<at::Tensor> out = Op.GetOutputs();
+  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
+
+  // Note: pytorch expects 0d tensor (scalar)
+  out.at(0).unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+
+  PT_KERNEL_END;
+  return out.at(0);
+}
+
 static auto& KernelRegistry =
     habana::KernelRegistry()
         .add(
@@ -837,6 +967,12 @@ static auto& KernelRegistry =
             "aten::binary_cross_entropy_backward",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<BceBwdOperator>(device_id, node_type);
+            })
+        .add(
+            "aten::binary_cross_entropy_with_logits",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<BceLogitsFwdOperator>(
+                  device_id, node_type);
             })
         .add(
             "aten::mse_loss",

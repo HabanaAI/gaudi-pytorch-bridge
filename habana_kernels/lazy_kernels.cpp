@@ -751,16 +751,63 @@ Tensor sub_tensor_hpu_lazy(
     const Tensor& self,
     const Tensor& other,
     Scalar alpha) {
-  HABANA_ASSERT(0);
-  return sub_tensor_hpu(self, other, alpha);
+  if (c10::DeviceType::CPU == other.device().type()) {
+    HABANA_ASSERT(other.scalar_type() != c10::ScalarType::Undefined);
+    return sub_scalar_hpu_lazy(self, other.item(), alpha);
+  }
+  auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
+  auto hl_other = habana_lazy::GetOrCreateHbLazyTensor(other, c10::kHABANA);
+  auto hl_alpha = habana_lazy::GetIrValueForScalar(alpha);
+
+  auto node = habana_lazy::ir::Node::Create(
+      Symbol::fromQualString("aten::sub"),
+      {hl_self.GetIrValue(), hl_other.GetIrValue(), hl_alpha});
+  auto shape_out = BinaryOperator::compute_output_shape(self, other);
+  auto result = at::native::empty_hpu_lazy(
+      shape_out, self.options(), self.suggest_memory_format(), false);
+  auto hl_result = habana_lazy::GetHbLazyTensor(result);
+  habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+  // updatet the view if any
+  updateDstDependencies(hl_result, result);
+
+  std::vector<at::Tensor> input_pt_vec{self, other};
+  node->AddInputPtTensors(input_pt_vec);
+
+  return result;
 };
 Tensor& sub_tensor_hpu_lazy_(Tensor& self, const Tensor& other, Scalar alpha) {
   HABANA_ASSERT(0);
   return sub_tensor_hpu_(self, other, alpha);
 };
 Tensor sub_scalar_hpu_lazy(const Tensor& self, Scalar other, Scalar alpha) {
-  HABANA_ASSERT(0);
-  return sub_scalar_hpu(self, other, alpha);
+  auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
+  auto hl_other = habana_lazy::GetIrValueForScalar(other);
+  auto hl_alpha = habana_lazy::GetIrValueForScalar(alpha);
+
+  if (self.dim() == 0) {
+    auto tensor_impl = hl_self.getAttachedTensorImpl();
+    HABANA_ASSERT(tensor_impl);
+    tensor_impl->set_sizes_and_strides({1}, {1});
+  }
+
+  auto node = habana_lazy::ir::Node::Create(
+      Symbol::fromQualString("aten::sub"),
+      {hl_self.GetIrValue(), hl_other, hl_alpha});
+  auto shape_out = self.sizes().vec();
+  auto result = at::native::empty_hpu_lazy(
+      shape_out, self.options(), self.suggest_memory_format(), false);
+  auto hl_result = habana_lazy::GetHbLazyTensor(result);
+  habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+  updateDstDependencies(hl_result, self);
+
+  std::vector<at::Tensor> input_pt_vec{self};
+  node->AddInputPtTensors(input_pt_vec);
+
+  return result;
 };
 Tensor& sub_scalar_hpu_lazy_(Tensor& self, Scalar other, Scalar alpha) {
   HABANA_ASSERT(0);
@@ -1920,6 +1967,35 @@ Tensor binary_cross_entropy_backward_hpu_lazy(
   updateDstDependencies(hlresult, result);
   return result;
 };
+
+Tensor binary_cross_entropy_with_logits_hpu_lazy(
+    const Tensor& self,
+    const Tensor& target,
+    const c10::optional<Tensor>& weight,
+    const c10::optional<Tensor>& pos_weight,
+    int64_t reduction) {
+  PT_LAZY_TRACE;
+  habana_lazy::ir::NodePtr bce_loss_node =
+      std::make_shared<habana_lazy::ir::BceLogitsLoss_forward>(
+          self, target, weight, pos_weight, reduction);
+
+  // allocate Output
+  Tensor result;
+  if (reduction == at::Reduction::Reduction::None) {
+    result = at::native::empty_hpu_lazy(
+        self.sizes(), self.options(), self.suggest_memory_format(), false);
+  } else {
+    result = at::native::empty_hpu_lazy(
+        {1}, self.options(), self.suggest_memory_format(), false);
+  }
+
+  auto hlresult = habana_lazy::GetHbLazyTensor(result);
+  habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(bce_loss_node);
+  updateDstDependencies(hlresult, result);
+  return result;
+}
 
 std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu_lazy(
     const Tensor& input,

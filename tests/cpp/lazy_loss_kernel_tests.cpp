@@ -35,8 +35,8 @@ TEST_F(LazyLossKernelTest, MseLossTest) {
   torch::Tensor hout2 = torch::mse_loss_backward(
       hgrad_input, hinput, htarget, at::Reduction::None);
 
-  std::vector<HbLazyTensor> tensors = {GetHbLazyTensor(hout1),
-                                       GetHbLazyTensor(hout2)};
+  std::vector<HbLazyTensor> tensors = {
+      GetHbLazyTensor(hout1), GetHbLazyTensor(hout2)};
   HbLazyTensor::SyncTensorsGraph(&tensors);
 
   auto out1 = hout1.to(torch::kCPU);
@@ -101,8 +101,8 @@ TEST_F(LazyLossKernelTest, NllLossBwdTest) {
   EXPECT_EQ(allclose(grad_in_cpu, grad_in_hpu), true);
 }
 TEST_F(LazyLossKernelTest, BCELossTest) {
-  auto input = torch::randn({6,1});
-  auto target = torch::randn({6,1}); // Nx1
+  auto input = torch::randn({6, 1});
+  auto target = torch::randn({6, 1}); // Nx1
   auto grad_output = torch::randn({1});
 
   torch::Tensor hinput = input.to(torch::kHABANA);
@@ -110,16 +110,47 @@ TEST_F(LazyLossKernelTest, BCELossTest) {
   torch::Tensor hgrad_out = grad_output.to(torch::kHABANA);
 
   auto hsigmout = torch::sigmoid(hinput);
-  auto houtput = torch::binary_cross_entropy(hsigmout, htarget, {}, at::Reduction::Mean);
-  auto hboutput = torch::binary_cross_entropy_backward(hgrad_out, hsigmout, htarget, {}, at::Reduction::Mean);
+  auto houtput =
+      torch::binary_cross_entropy(hsigmout, htarget, {}, at::Reduction::Mean);
+  auto hboutput = torch::binary_cross_entropy_backward(
+      hgrad_out, hsigmout, htarget, {}, at::Reduction::Mean);
 
   auto houtfwd = houtput.to(torch::kCPU);
   auto houtbwd = hboutput.to(torch::kCPU);
 
   // reference output
-  auto expfwd = torch::binary_cross_entropy(torch::sigmoid(input), target, {}, at::Reduction::Mean);
-  auto expbwd = torch::binary_cross_entropy_backward(grad_output, torch::sigmoid(input), target, {}, at::Reduction::Mean);
+  auto expfwd = torch::binary_cross_entropy(
+      torch::sigmoid(input), target, {}, at::Reduction::Mean);
+  auto expbwd = torch::binary_cross_entropy_backward(
+      grad_output, torch::sigmoid(input), target, {}, at::Reduction::Mean);
 
   EXPECT_EQ(allclose(houtfwd, expfwd), true);
   EXPECT_EQ(allclose(houtbwd, expbwd), true);
+}
+
+TEST_F(LazyLossKernelTest, BCELogitsLossTest) {
+  auto input = torch::randn({5, 2, 4, 3});
+  auto target = torch::randn({5, 2, 4, 3});
+  auto grad_output = torch::randn({1});
+
+  torch::Tensor hinput = input.to(torch::kHABANA);
+  torch::Tensor htarget = target.to(torch::kHABANA);
+  torch::Tensor hgrad_out = grad_output.to(torch::kHABANA);
+
+  auto houtput = torch::binary_cross_entropy_with_logits(
+      hinput, htarget, {}, {}, at::Reduction::Sum);
+  auto hboutput = torch::binary_cross_entropy_with_logits_backward(
+      hgrad_out, hinput, htarget, {}, {}, at::Reduction::Sum);
+
+  auto houtfwd = houtput.to(torch::kCPU);
+  auto houtbwd = hboutput.to(torch::kCPU);
+
+  // reference output
+  auto expfwd = torch::binary_cross_entropy_with_logits(
+      input, target, {}, {}, at::Reduction::Sum);
+  auto expbwd = torch::binary_cross_entropy_with_logits_backward(
+      grad_output, input, target, {}, {}, at::Reduction::Sum);
+
+  EXPECT_EQ(allclose(houtfwd, expfwd, 0.001, 0.001), true);
+  EXPECT_EQ(allclose(houtbwd, expbwd, 0.001, 0.001), true);
 }

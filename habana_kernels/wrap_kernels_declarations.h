@@ -299,6 +299,12 @@ struct hpu_wrap {
       const at::Tensor& target,
       const c10::optional<at::Tensor>& weight_opt,
       int64_t reduction);
+  static at::Tensor binary_cross_entropy_with_logits(
+      const at::Tensor& self,
+      const at::Tensor& target,
+      const c10::optional<at::Tensor>& weight,
+      const c10::optional<at::Tensor>& pos_weight,
+      int64_t reduction);
   static std::tuple<at::Tensor, at::Tensor, at::Tensor> native_batch_norm(
       const at::Tensor& input,
       const c10::optional<at::Tensor>& weight_opt,

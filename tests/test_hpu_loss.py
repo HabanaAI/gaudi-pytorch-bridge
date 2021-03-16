@@ -8,6 +8,11 @@ test_case_list = [
     (500, 10,),
 ]
 
+test_case_list_4d = [
+    # N, C, H, W
+    (5, 3, 2, 4),
+]
+
 @pytest.mark.parametrize("N, C", test_case_list)
 @pytest.mark.parametrize("ignore_index", [-1, -100])
 def test_hpu_nllloss(N, C, ignore_index):
@@ -107,6 +112,23 @@ def test_hpu_bceloss_fwd_bwd(N, C):
         "target": torch.randn(N, 1),
     }
     bwd_tensors = [torch.randn(1)]
+    evaluate_fwd_bwd_kernel(
+        kernel=kernel, tensor_list_bwd=bwd_tensors, kernel_params_fwd=kernel_params_fwd
+    )
+
+@pytest.mark.parametrize("N, C, H, W", test_case_list_4d)
+@pytest.mark.parametrize("mode", ("sum", "mean"))
+def test_hpu_bcelogitsloss_fwd_bwd(N, C, H, W, mode):
+    kernel = torch.nn.functional.binary_cross_entropy_with_logits
+    kernel_params_fwd = {
+        "input": torch.randn(N, C, H, W, requires_grad=True),
+        "target": torch.randn(N, C, H, W, requires_grad=True),
+        "reduction": mode
+    }
+    if mode == "none":
+        bwd_tensors = [torch.randn(N, C, H, W)]
+    else:
+        bwd_tensors = [torch.randn(1)]
     evaluate_fwd_bwd_kernel(
         kernel=kernel, tensor_list_bwd=bwd_tensors, kernel_params_fwd=kernel_params_fwd
     )

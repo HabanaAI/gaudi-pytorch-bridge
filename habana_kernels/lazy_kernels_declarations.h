@@ -272,6 +272,12 @@ Tensor binary_cross_entropy_backward_hpu_lazy(
     const Tensor& target,
     const Tensor& weight,
     int64_t reduction);
+Tensor binary_cross_entropy_with_logits_hpu_lazy(
+    const Tensor& self,
+    const Tensor& target,
+    const c10::optional<Tensor>& weight,
+    const c10::optional<Tensor>& pos_weight,
+    int64_t reduction);
 std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu_lazy(
     const Tensor& input,
     const Tensor& weight,
