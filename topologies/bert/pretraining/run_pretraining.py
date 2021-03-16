@@ -591,7 +591,7 @@ def prepare_model_and_optimizer(args, device):
         if not args.allreduce_post_accumulation:
             if not args.use_jit_trace:
                 if args.use_habana:
-                    model = DDP(model)
+                    model = DDP(model, bucket_cap_mb=230)
                 else:
                     model = DDP(model, message_size=250000000, gradient_predivide_factor=get_world_size())
         else:
@@ -858,7 +858,7 @@ def main():
                             model_traced = True
                             if args.local_rank != -1 and not args.allreduce_post_accumulation:
                                 if args.use_habana:
-                                    model = DDP(model)
+                                    model = DDP(model, bucket_cap_mb=230)
                                 else:
                                     model = DDP(model, message_size=250000000, gradient_predivide_factor=get_world_size())
                         if args.local_rank != -1 and not args.allreduce_post_accumulation \
