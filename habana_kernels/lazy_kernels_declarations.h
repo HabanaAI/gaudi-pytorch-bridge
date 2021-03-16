@@ -659,5 +659,8 @@ Tensor& optimizer_sgd_momentum_hpu_lazy(
     const bool nesterov);
 Tensor ones_like_hpu_lazy(
     const Tensor& self,
-    const TensorOptions& options,
-    c10::optional<c10::MemoryFormat> optional_memory_format);
+    c10::optional<at::ScalarType> dtype,
+    c10::optional<at::Layout> layout,
+    c10::optional<at::Device> device,
+    c10::optional<bool> pin_memory,
+    c10::optional<c10::MemoryFormat> memory_format);

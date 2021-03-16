@@ -2342,14 +2342,15 @@ Tensor hpu_wrap::ones_like(
     c10::optional<at::Device> device,
     c10::optional<bool> pin_memory,
     c10::optional<c10::MemoryFormat> memory_format) {
-  at::TensorOptions options = at::TensorOptions()
-                                  .dtype(dtype)
-                                  .layout(layout)
-                                  .pinned_memory(pin_memory)
-                                  .device(device);
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    return ones_like_hpu_lazy(self, options, memory_format);
+    return ones_like_hpu_lazy(
+        self, dtype, layout, device, pin_memory, memory_format);
   } else {
+    at::TensorOptions options = at::TensorOptions()
+                                    .dtype(dtype)
+                                    .layout(layout)
+                                    .pinned_memory(pin_memory)
+                                    .device(device);
     return ones_like_hpu(self, options, memory_format);
   }
 }
@@ -2477,6 +2478,7 @@ Tensor hpu_wrap::isfinite(const Tensor& self) {
 
 TORCH_LIBRARY(hpu, m) {
   m.def("mul_out(Tensor out, Tensor self, Tensor other) -> Tensor");
+  m.def("div_out(Tensor out, Tensor self, Tensor other) -> Tensor");
   m.def(
       "bitwise_and_Tensor_out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)");
   m.def("mm_t(Tensor mm, Tensor t , bool tr, bool no_tr) -> Tensor");

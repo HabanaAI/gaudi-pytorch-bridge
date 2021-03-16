@@ -207,8 +207,17 @@ Tensor& div_tensor_hpu_out(
   return out;
 }
 
-static auto& KernelRegistry = habana::KernelRegistry().add(
-    "hpu::mul_out",
-    [](const int device_id, c10::ScalarType node_type) {
-      return std::make_shared<habana::MulOutOperator>(device_id, node_type);
-    });
+static auto& KernelRegistry =
+    habana::KernelRegistry()
+        .add(
+            "hpu::mul_out",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<habana::MulOutOperator>(
+                  device_id, node_type);
+            })
+        .add(
+            "hpu::div_out",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<habana::DivOutOperator>(
+                  device_id, node_type);
+            });

@@ -217,3 +217,17 @@ TEST_F(LazyBinaryKernelTest, Minimum) {
   bool equal = out_cpu.allclose(out_hpu.to(torch::kCPU), 0, 0);
   EXPECT_EQ(equal, true);
 }
+
+TEST_F(LazyBinaryKernelTest, DivOut) {
+  auto a = torch::randn({2, 3, 4});
+  auto b = torch::randn({2, 3, 4});
+  auto out = torch::empty_like(a);
+  out = torch::div_out(out, a, b);
+
+  auto ha = a.to("habana");
+  auto hb = b.to("habana");
+  auto hout = torch::empty_like(ha);
+  hout = torch::div_out(hout, ha, hb);
+
+  EXPECT_TRUE(allclose(out, hout.to("cpu")));
+}

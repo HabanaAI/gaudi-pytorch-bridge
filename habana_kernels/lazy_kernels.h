@@ -1,3 +1,12 @@
+/******************************************************************************
+ * Copyright (C) 2021 HabanaLabs, Ltd.
+ * All Rights Reserved.
+ *
+ * Unauthorized copying of this file, via any medium is strictly prohibited.
+ * Proprietary and confidential.
+ *
+ ******************************************************************************
+ */
 #pragma once
 
 #include <utility>
@@ -25,6 +34,9 @@ void for_each_in_tuple(std::tuple<Ts...>& tuple, F func) {
   for_each_in_tuple(tuple, func, std::make_index_sequence<sizeof...(Ts)>());
 }
 
+// TODO: Ideally we want a variant of HABANA_ASSERT like
+// TORCH_INTERNAL_ASSERT_DEBUG_ONLY
+
 template <typename ReturnType, typename NodeConstruct = void>
 class LazyOp {
  public:
@@ -38,6 +50,23 @@ class LazyOp {
         m_metadata_indices{std::move(metadata_indices)},
         m_out_shapes{std::move(out_shapes)},
         m_out_index{out_index} {
+    TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
+        !std::is_class<NodeConstruct>::value,
+        "This constructor is valid only when NodeConstruct is not a class.");
+    set_inputs(inputs);
+  }
+
+  explicit LazyOp(
+      ir::NodePtr node,
+      const std::vector<at::IValue>& inputs,
+      std::vector<std::vector<int64_t>> out_shapes = {},
+      int out_index = 0)
+      : m_node{std::move(node)},
+        m_out_shapes{std::move(out_shapes)},
+        m_out_index{out_index} {
+    TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
+        std::is_class<NodeConstruct>::value,
+        "This constructor is valid only when NodeConstruct is a class.");
     set_inputs(inputs);
   }
 
@@ -96,7 +125,8 @@ class LazyOp {
     if (m_out_index < 0) {
       return get_result_overrideable();
     }
-    HABANA_ASSERT(std::tuple_size<T>::value == m_out_shapes.size());
+    TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
+        std::tuple_size<T>::value == m_out_shapes.size());
 
     unsigned i = 0;
     ReturnType results;
@@ -122,7 +152,13 @@ class LazyOp {
         out_shape, t.options(), t.suggest_memory_format(), false);
   }
 
-  ir::NodePtr create_node() {
+  template <typename N = NodeConstruct>
+  std::enable_if_t<std::is_class<N>::value, ir::NodePtr> create_node() {
+    return m_node;
+  }
+
+  template <typename N = NodeConstruct>
+  std::enable_if_t<!std::is_class<N>::value, ir::NodePtr> create_node() {
     ir::ValueList values;
     std::vector<at::Tensor> input_pt_vec;
     ir::MetaData metadata;
@@ -140,12 +176,13 @@ class LazyOp {
       } else if (input.isTensor()) {
         const auto& t = input.toTensor();
         if (t.defined()) {
-          if (i != 0 && t.device().type() == c10::DeviceType::CPU &&
-              t.scalar_type() == c10::ScalarType::Double) {
+          if (i != 0 && t.device().type() == c10::DeviceType::CPU) {
             // Non first arg can be a 0-dim CPU tensor
-            // Convert such tensor to scalar and add as node
+            // DMA such tensor to device and add as node
             // input
-            auto val = GetIrValueForScalar(t.item());
+            auto t1 = t.to(c10::kHABANA);
+            auto val = GetOrCreateHbLazyTensor(t1).GetIrValue();
+            input_pt_vec.emplace_back(t1);
             values.emplace_back(val);
           } else {
             auto val = GetOrCreateHbLazyTensor(t).GetIrValue();
@@ -174,7 +211,7 @@ class LazyOp {
       }
     }
 
-    auto node = create_node_helper(values);
+    auto node = ir::Node::Create(m_symbol, values);
 
     if (metadata.size()) {
       node->SetMetaData(metadata);
@@ -194,18 +231,14 @@ class LazyOp {
     m_inputs = inputs;
   }
 
-  virtual ir::NodePtr create_node_helper(const ir::ValueList& values) {
-    HABANA_ASSERT(
-        !std::is_class<NodeConstruct>::value &&
-        "Should override when node is constructed using a class");
-    return ir::Node::Create(m_symbol, values);
-  }
-
   virtual ReturnType get_result_overrideable() {
-    HABANA_ASSERT(0 && "Implement get_result_overrideable() in your kernel");
+    HABANA_ASSERT(
+        0 &&
+        "out_index is negative, implement get_result_overrideable() in your kernel.");
   }
 
  private:
+  ir::NodePtr m_node = nullptr;
   const at::Symbol m_symbol;
   const std::set<size_t> m_metadata_indices;
   const std::vector<std::vector<int64_t>> m_out_shapes;
