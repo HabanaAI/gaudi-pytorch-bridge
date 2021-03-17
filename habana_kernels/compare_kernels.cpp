@@ -215,38 +215,7 @@ void CompareWrapperOperator::SetPTOutputs(torch::jit::Stack& inputs) {
 std::vector<int64_t> CompareWrapperOperator::compute_output_shape(
     const Tensor& arg1,
     const Tensor& arg2) {
-  std::vector<int64_t> out_size;
-  auto sz1 = arg1.sizes().vec();
-  auto sz2 = arg2.sizes().vec();
-  // reverse sizes to start from FCD
-  std::reverse(sz1.begin(), sz1.end());
-  std::reverse(sz2.begin(), sz2.end());
-  // compare sizes of input tensors along each dim starting from FCD
-  for (auto i = 0; i < std::min(arg1.ndimension(), arg2.ndimension()); i++) {
-    if (sz1[i] == sz2[i]) {
-      // sizes match, add either input size to output size
-      out_size.push_back(sz1[i]);
-    } else if (sz1[i] == 1 || sz2[i] == 1) {
-      // sizes do not match, but one of the input sizes is 1 => push other input
-      // size to output size
-      out_size.push_back(std::max(sz1[i], sz2[i]));
-    } else {
-      // sizes do not match and none of the input sizes is 1 => sizes
-      // inconsistent for broadcast
-      TORCH_CHECK(0, "BinaryOperator: Incompatible input shapes", sz1, sz2);
-    }
-  }
-
-  if (arg1.ndimension() > arg2.ndimension()) {
-    // add remaining input1 sizes to output_size
-    out_size.insert(out_size.end(), sz1.begin() + arg2.ndimension(), sz1.end());
-  } else if (arg1.ndimension() < arg2.ndimension()) {
-    // add remaining input2 sizes to output_size
-    out_size.insert(out_size.end(), sz2.begin() + arg1.ndimension(), sz2.end());
-  }
-
-  // reverse output sizes to natural Pytorch order
-  std::reverse(out_size.begin(), out_size.end());
+  auto out_size = habana_helpers::compute_broadcast_shape(arg1, arg2);
   return out_size;
 }
 

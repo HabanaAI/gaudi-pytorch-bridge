@@ -409,6 +409,11 @@ Tensor& any_dim_out_hpu(
     bool keepdim);
 Tensor any_dim_hpu(const Tensor& self, int64_t dim, bool keepdim);
 Tensor any_hpu(const Tensor& self);
+Tensor& bitwise_and_out_hpu(Tensor& out, const Tensor& self, Scalar other);
+Tensor& bitwise_and_out_hpu(
+    Tensor& out,
+    const Tensor& self,
+    const Tensor& other);
 namespace habana {
 Tensor log_softmax_hpu(
     const Tensor& self,

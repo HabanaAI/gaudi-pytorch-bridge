@@ -26,6 +26,10 @@
 #include "habana_kernels/habana_operator.h"
 
 namespace habana_helpers {
+std::vector<int64_t> compute_broadcast_shape(
+    const at::Tensor& arg1,
+    const at::Tensor& arg2);
+
 std::string unique_recipe_name_generator(std::string recipe_name);
 
 void compile_and_run(

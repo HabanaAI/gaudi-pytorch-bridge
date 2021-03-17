@@ -13,6 +13,7 @@
 #include "habana_kernels/aten_hpu_type_default.h"
 #include "habana_kernels/basic_kernels.h"
 #include "habana_kernels/binary_kernels.h"
+#include "habana_kernels/bitwise_kernels.h"
 #include "habana_kernels/conv_kernels.h"
 #include "habana_kernels/eager_kernels_declarations.h"
 #include "habana_kernels/embedding_kernels.h"
@@ -21,6 +22,7 @@
 #include "habana_kernels/loss_kernels.h"
 #include "habana_kernels/norm_kernels.h"
 #include "habana_kernels/pool_kernels.h"
+#include "habana_kernels/resize.h"
 #include "habana_kernels/tensor_shape_kernels.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
@@ -4041,4 +4043,44 @@ Tensor ones_like_hpu_lazy(
   out.SetNode(node);
   updateDstDependencies(hlresult, result);
   return result;
+};
+
+Tensor& bitwise_and_out_hpu_lazy(
+    Tensor& out,
+    const Tensor& self,
+    const Tensor& other) {
+  PT_LAZY_TRACE;
+  auto hl_out = habana_lazy::GetOrCreateHbLazyTensor(out, c10::kHABANA);
+  auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
+  auto hl_other = habana_lazy::GetOrCreateHbLazyTensor(other, c10::kHABANA);
+  auto out_shape = BitwiseOutOperator::compute_output_shape(self, other);
+  // Resize output tensor(s) to correct shape if required
+  if (out.sizes().vec() != out_shape) {
+    auto out_reshaped = hl_out.getAttachedTensorImpl();
+    THHTensor_resizeNd(
+        out_reshaped, out_shape.size(), out_shape.data(), nullptr);
+    out.unsafeGetTensorImpl()->set_sizes_contiguous(IntArrayRef(out_shape));
+  }
+  auto node = habana_lazy::ir::Node::Create(
+      Symbol::fromQualString("hpu::bitwise_and_Tensor_out"),
+      {hl_out.GetIrValue(), hl_self.GetIrValue(), hl_other.GetIrValue()});
+  auto hl_result = habana_lazy::GetHbLazyTensor(out);
+  habana_lazy::ir::Value& output = hl_result.CurrentIrValue();
+  output.m_index = 0;
+  output.SetNode(node);
+  // updatet the view if any
+  updateDstDependencies(hl_result, out);
+  std::vector<at::Tensor> input_pt_vec{out, self, other};
+  node->AddInputPtTensors(input_pt_vec);
+  return out;
+};
+
+Tensor& bitwise_and_out_hpu_lazy(
+    Tensor& out,
+    const Tensor& self,
+    Scalar other) {
+  HABANA_ASSERT(false && "Not implemented yet");
+  static_cast<void>(out);
+  static_cast<void>(self);
+  static_cast<void>(other);
 };

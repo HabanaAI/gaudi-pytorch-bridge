@@ -613,6 +613,14 @@ struct hpu_wrap {
       const at::Tensor& self,
       int64_t split_size,
       int64_t dim);
+  static at::Tensor& bitwise_and_out(
+      at::Tensor& out,
+      const at::Tensor& self,
+      const at::Tensor& other);
+  /*static at::Tensor& bitwise_and_out(
+      at::Tensor& out,
+      const at::Tensor& self,
+      at::Scalar other);*/
 };
 
 std::tuple<at::Tensor&, at::Tensor&>

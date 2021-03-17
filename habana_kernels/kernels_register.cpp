@@ -2041,6 +2041,28 @@ Scalar hpu_wrap::_local_scalar_dense(const Tensor& self) {
   }
 }
 
+Tensor& hpu_wrap::bitwise_and_out(
+    Tensor& out,
+    const Tensor& self,
+    const Tensor& other) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    return bitwise_and_out_hpu_lazy(out, self, other);
+  } else {
+    return bitwise_and_out_hpu(out, self, other);
+  }
+}
+
+/*Tensor& hpu_wrap::bitwise_and_out(
+    Tensor& out,
+    const Tensor& self,
+    Scalar other) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    return bitwise_and_out_hpu_lazy(out, self, other);
+  } else {
+    return bitwise_and_out_hpu(out, self, other);
+  }
+}*/
+
 std::tuple<torch::Tensor&, torch::Tensor&>
 optimizer_sparse_sgd_with_valid_count_hpu_wrap(
     const Tensor& gradients,
@@ -2296,6 +2318,8 @@ Tensor& graph_connect_for_registration_only(Tensor& out, const Tensor& self) {
 
 TORCH_LIBRARY(hpu, m) {
   m.def("mul_out(Tensor out, Tensor self, Tensor other) -> Tensor");
+  m.def(
+      "bitwise_and_Tensor_out(Tensor self, Tensor other, *, Tensor(a!) out) -> Tensor(a!)");
   m.def("mm_t(Tensor mm, Tensor t , bool tr, bool no_tr) -> Tensor");
   m.def("habana_d2d_memcpy_other(Tensor s, Tensor d) -> Tensor");
   m.def(
@@ -2345,4 +2369,9 @@ TORCH_LIBRARY_IMPL(hpu, HABANATensorId, m) {
       static_cast<at::Tensor (*)(
           const at::Tensor&, int64_t, bool, c10::optional<at::ScalarType>)>(
           &hpu_wrap::prod));
+  m.impl(
+      "bitwise_and_Tensor_out",
+      static_cast<
+          at::Tensor& (*)(at::Tensor&, const at::Tensor&, const at::Tensor&)>(
+          &hpu_wrap::bitwise_and_out));
 }
