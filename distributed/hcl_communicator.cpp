@@ -731,6 +731,12 @@ synapse_error_o hcl_communicator::execute_collective_with_fusion_buffer(
   auto input = input_address;
   auto output = output_address;
   uint32_t flags = 0;
+
+  // TBD: ensure allreduce buffers are not dependant
+  if (eHCLAllReduce == operation) {
+    flags = eHCLWeakOrder;
+  }
+
   if (same_address) {
     input = reinterpret_cast<synapse_helpers::device_ptr>(fused_input_data);
     output = reinterpret_cast<synapse_helpers::device_ptr>(fused_output_data);
