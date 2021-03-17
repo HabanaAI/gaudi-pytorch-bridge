@@ -8,6 +8,7 @@
  ******************************************************************************
  */
 #include "aten_lazy_bridge.h"
+#include "habana_kernels/resize.h"
 #include "habana_lazy/ops/constant.h"
 #include "habana_lazy/ops/hpu_input.h"
 
@@ -198,6 +199,21 @@ void HpuUpdateTensors(
   for (auto index : indices) {
     auto dst = dst_tensors.at(index);
     auto src = src_tensors.at(index);
+    // https://github.com/pytorch/pytorch/wiki/Developer-FAQ#how-does-out-work-in-pytorch
+    // says:
+    // When a user passes one or more tensors to out= the contract is as
+    // follows:
+    // * if an out tensor has no elements it may be resized
+    // * passing out= tensors is numerically equivalent to performing the
+    //   operation and "safe" copying its results to the (possibly resized if
+    //   empty) out tensors
+
+    if (dst.numel() == 0) {
+      auto shape = at::DimVector(src.sizes());
+      THHTensor_resizeNd(
+          dst.unsafeGetTensorImpl(), shape.size(), shape.data(), nullptr);
+    }
+
     dst.copy_(src, /*non_blocking*/ true);
   }
 }

@@ -319,6 +319,10 @@ Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src, bool non_blocking) {
   // This is the internal tensor, it isn't a lazy tensor
   auto self_internal_tesor = self_hb_tensor_data.value();
   HABANA_ASSERT(!habana_lazy::TryGetHbLazyTensor(self_internal_tesor));
+
+  // self may have been resized, so re-set its size and strides
+  self_internal_tesor.unsafeGetTensorImpl()->set_sizes_and_strides(
+      self.sizes(), self.strides());
   if (processed) {
     auto internal_tensor_from_copy =
         copy_hpu_(self_internal_tesor, new_tensor, non_blocking);

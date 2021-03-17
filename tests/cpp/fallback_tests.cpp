@@ -55,3 +55,16 @@ TEST_P(FallbackTest, NonSupportedAsStrided) {
 
   EXPECT_TRUE(allclose(Out, hOut.to("cpu"))) << Out << hOut.to("cpu");
 }
+
+TEST_P(FallbackTest, bitwise_or) {
+  auto self = torch::tensor({-1, -2, 3}, torch::kInt8);
+  auto other = torch::tensor({1, 0, 3}, torch::kInt8);
+  at::Tensor Out = self.bitwise_or(other);
+
+  auto hself = self.to(torch::kHABANA);
+  auto hother = other.to(torch::kHABANA);
+  // Uses out variant - bitwise_or_out internally
+  at::Tensor hOut = hself.bitwise_or(hother);
+
+  EXPECT_TRUE(allclose(Out, hOut.to("cpu"))) << Out << hOut.to("cpu");
+}

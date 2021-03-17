@@ -706,6 +706,9 @@ void habana_helpers::copy_data_to_host(
   size_t device_id = src.device().index();
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
   bool is_pinned = at::habana::PinnedMemoryAllocator_is_pinned(dst.data_ptr());
+  if (src.nbytes() == 0) {
+    return;
+  }
   if (non_blocking) {
     // keeps a reference to the tensor it is
     // operating on to prevent it from being deallocated while the
@@ -752,6 +755,10 @@ void habana_helpers::copy_data_to_device(
   auto device_id = dst.device().index();
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
   bool is_pinned = at::habana::PinnedMemoryAllocator_is_pinned(src.data_ptr());
+
+  if (src.nbytes() == 0) {
+    return;
+  }
 
   if (non_blocking) {
     // keeps a reference to the tensor it is
