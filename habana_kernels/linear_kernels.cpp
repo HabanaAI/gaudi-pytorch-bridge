@@ -1464,7 +1464,8 @@ std::tuple<Tensor, Tensor> matmul_backward_hpu(
     auto output1 = at::empty(self.sizes(), self.options());
     auto output2 = at::empty(other.sizes(), other.options());
     Op.SetPTInputs(pt_inputs);
-    Op.SetPTOutputs({output1, output2});
+    std::vector<at::Tensor> v{output1, output2};
+    Op.SetPTOutputs(v);
     Op.Execute(key);
   } else {
     PT_KERNEL_DEBUG("Key:", key);

@@ -196,10 +196,11 @@ std::string IrGraphDumpUtil::PostOrderToDot(
   for (auto it = post_order.rbegin(); it != post_order.rend(); ++it) {
     ir::NodePtr node = *it;
     size_t id = id_map.at(node);
-    for (size_t i = 0; i < node->GetInputs().size(); ++i) {
-      auto& output = node->GetInputs()[i];
+    const auto& node_ips = node->GetInputs();
+    for (size_t i = 0; i < node_ips.size(); ++i) {
+      const auto& output = node_ips[i];
       ss << "  node" << id_map.at(output.mp_node) << " -> node" << id;
-      if (node->GetInputs().size() > 1) {
+      if (node_ips.size() > 1) {
         ss << " [label=\"i=" << i;
         if (output.mp_node->GetNumOutputs() > 1) {
           ss << ",o=" << output.m_index;

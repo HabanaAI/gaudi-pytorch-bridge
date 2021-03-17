@@ -336,8 +336,8 @@ void MaxPool2dWithIndicesOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   auto output_idx_nhwc = at::empty(
       {out_shape[0], out_shape[1], out_shape[2], out_shape[3]},
       input.options().dtype(type));
-
-  HabanaOperator::SetPTOutputs({output_nhwc, output_idx_nhwc});
+  std::vector<at::Tensor> v{output_nhwc, output_idx_nhwc};
+  HabanaOperator::SetPTOutputs(v);
 }
 
 void MaxPool2dWithIndicesBackwardOutOperator::SetPTOutputs(
@@ -364,8 +364,8 @@ void MaxPool2dWithIndicesBackwardOutOperator::SetPTOutputs(
   TORCH_CHECK(
       (indices.scalar_type() == c10::ScalarType::Byte) ||
       (indices.scalar_type() == c10::ScalarType::Short));
-
-  HabanaOperator::SetPTOutputs({grad_input});
+  std::vector<at::Tensor> v{grad_input};
+  HabanaOperator::SetPTOutputs(v);
 }
 
 /**
@@ -797,7 +797,6 @@ void AvgPool2dOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   const auto stride = inputs[2].toIntList().vec();
   const auto padding = inputs[3].toIntList().vec();
   auto ceil_mode = inputs[4].toBool();
-  auto divisor_override = inputs[6].toOptional<int64_t>();
   // Dilation set to 1, since for AvgPool Pytorch API does not give dilation
   // values
   std::vector<int64_t> d{1, 1};
@@ -810,8 +809,8 @@ void AvgPool2dOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   auto output_nhwc = at::empty(
       {out_shape[0], out_shape[1], out_shape[2], out_shape[3]},
       input.options());
-
-  HabanaOperator::SetPTOutputs({output_nhwc});
+  std::vector<at::Tensor> v{output_nhwc};
+  HabanaOperator::SetPTOutputs(v);
 }
 
 /**
@@ -981,7 +980,6 @@ void AvgPool2dBackwardOutOperator::SetPTOutputs(Stack& inputs) {
   const auto stride = inputs[4].toIntList().vec();
   const auto padding = inputs[5].toIntList().vec();
   auto ceil_mode = inputs[6].toBool();
-  auto divisor_override = inputs[8].toOptional<int64_t>();
 
   // Dilation set to 1, since for AvgPool Pytorch API does not give dilation
   // values
@@ -997,8 +995,8 @@ void AvgPool2dBackwardOutOperator::SetPTOutputs(Stack& inputs) {
       input_nhwc.sizes() == grad_input_nhwc.sizes(),
       "Input and grad_input sizes don't match");
   TORCH_CHECK(grad_out_nhwc.sizes().vec() == expected_output_size);
-
-  HabanaOperator::SetPTOutputs({grad_input_nhwc});
+  std::vector<at::Tensor> v{grad_input_nhwc};
+  HabanaOperator::SetPTOutputs(v);
 }
 
 /**

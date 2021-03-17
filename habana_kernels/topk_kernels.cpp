@@ -162,8 +162,8 @@ void TopkOutOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   int64_t dim = at::maybe_wrap_dim(dim_, self.dim(), /*wrap_scalar=*/true);
   _allocate_or_resize_output_with_indices(
       values, indices, self, dim, k, true, true);
-
-  HabanaOperator::SetPTOutputs({values, indices});
+  std::vector<at::Tensor> v{values, indices};
+  HabanaOperator::SetPTOutputs(v);
 }
 
 std::tuple<Tensor&, Tensor&> topk_out_hpu(

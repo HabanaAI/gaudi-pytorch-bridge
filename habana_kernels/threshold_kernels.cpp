@@ -74,7 +74,8 @@ Tensor threshold_backward_hpu(
     auto output =
         at::empty(self.sizes(), self.options(), self.suggest_memory_format());
     Op.SetPTInputs(pt_inputs);
-    Op.SetPTOutputs({output});
+    std::vector<at::Tensor> v{output};
+    Op.SetPTOutputs(v);
     Op.Execute(key);
   } else {
     PT_KERNEL_DEBUG("Key:", key);

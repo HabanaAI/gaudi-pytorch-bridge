@@ -49,7 +49,6 @@ class BinaryInplaceWrapperOperator : public habana::HabanaOperator {
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) final;
-  void SetPTOutputs(torch::jit::Stack& inputs);
 
  protected:
   c10::ScalarType scalarType_;
@@ -112,7 +111,6 @@ class BinaryInplaceWrapperOperatorWithAlpha : public habana::HabanaOperator {
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
-  void SetPTOutputs(torch::jit::Stack& inputs);
 
  protected:
   c10::ScalarType scalarType_;

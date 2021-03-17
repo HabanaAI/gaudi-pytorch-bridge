@@ -43,7 +43,7 @@ class host_memory {
     size_t size; // allocation size
     void* ptr; // host memory pointer
 
-    BlockSize(size_t size, void* ptr = NULL) : size(size), ptr(ptr) {}
+    BlockSize(size_t size, void* ptr = nullptr) : size(size), ptr(ptr) {}
   };
 
   struct Block : public BlockSize {
@@ -60,7 +60,7 @@ class host_memory {
     }
     return (uintptr_t)a.ptr < (uintptr_t)b.ptr;
   }
-  typedef bool (*Comparison)(const BlockSize&, const BlockSize&);
+  using Comparison = bool (*)(const BlockSize&, const BlockSize&);
 
   // lock around all operations
   std::mutex mutex_;

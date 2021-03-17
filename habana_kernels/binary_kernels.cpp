@@ -251,7 +251,8 @@ void habana::BinaryWrapperOperator::SetPTOutputs(torch::jit::Stack& inputs) {
     output = at::empty(
         operand.sizes(), operand.options(), operand.suggest_memory_format());
   }
-  HabanaOperator::SetPTOutputs({output});
+  std::vector<at::Tensor> v{output};
+  HabanaOperator::SetPTOutputs(v);
 }
 
 /************************************************************************
@@ -464,7 +465,8 @@ void habana::BinaryWrapperOperatorWithAlpha::SetPTOutputs(
     output = at::empty(
         operand.sizes(), operand.options(), operand.suggest_memory_format());
   }
-  HabanaOperator::SetPTOutputs({output});
+  std::vector<at::Tensor> v{output};
+  HabanaOperator::SetPTOutputs(v);
 }
 
 /************************************************************************

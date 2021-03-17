@@ -34,7 +34,7 @@ class MaxPool2dWithIndicesOperator : public HabanaOperator {
       torch::jit::Stack& inputs,
       std::vector<bool> is_output_persistent) override;
 
-  virtual void SetPTOutputs(torch::jit::Stack& inputs);
+  virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
 };
 
 class MaxPool2dOperator : public MaxPool2dWithIndicesOperator {
@@ -69,7 +69,7 @@ class MaxPool2dWithIndicesBackwardOutOperator : public HabanaOperator {
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
-  virtual void SetPTOutputs(torch::jit::Stack& inputs);
+  virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
 };
 
 //
@@ -90,7 +90,7 @@ class MaxPool2dWithIndicesBackwardOperator
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
 
-  virtual void SetPTOutputs(torch::jit::Stack& inputs);
+  virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
 };
 
 class AvgPool2dOperator : public HabanaOperator {
@@ -108,7 +108,7 @@ class AvgPool2dOperator : public HabanaOperator {
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
 
-  virtual void SetPTOutputs(torch::jit::Stack& inputs);
+  virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
 };
 
 class AvgPool2dBackwardOutOperator : public HabanaOperator {
@@ -127,7 +127,7 @@ class AvgPool2dBackwardOutOperator : public HabanaOperator {
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
-  virtual void SetPTOutputs(torch::jit::Stack& inputs);
+  virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
 };
 
 class AvgPool2dBackwardOperator : public AvgPool2dBackwardOutOperator {
@@ -142,7 +142,7 @@ class AvgPool2dBackwardOperator : public AvgPool2dBackwardOutOperator {
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
 
-  virtual void SetPTOutputs(torch::jit::Stack& inputs);
+  virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
 };
 class PoolHelper {
  public:

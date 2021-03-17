@@ -47,7 +47,7 @@ class SliceOperator : public HabanaOperator {
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
 
-  void SetPTOutputs(const torch::jit::Stack& inputs);
+  void SetPTOutputs(torch::jit::Stack& inputs) override;
 
   Tensor AllocateOutputTensor(
       const Tensor& self,
@@ -89,7 +89,7 @@ class GatherOperator : public HabanaOperator {
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
 
-  virtual void SetPTOutputs(torch::jit::Stack& inputs);
+  virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
 
  private:
   Tensor AllocateOutput(torch::jit::Stack& inputs, bool is_output_persistent);
@@ -116,7 +116,7 @@ class ScatterWrapperOperator : public HabanaOperator {
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
 
-  void SetPTOutput(torch::jit::Stack& inputs);
+  void SetPTOutput(torch::jit::Stack& inputs) override;
 
  private:
   Tensor AllocateOutput(torch::jit::Stack& inputs, bool is_output_persistent);
@@ -182,7 +182,7 @@ class SelectOperator : public HabanaOperator {
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
 
-  void SetPTOutputs(const torch::jit::Stack& inputs);
+  void SetPTOutputs(torch::jit::Stack& inputs) override;
 };
 
 // IndexPutOperator
@@ -239,7 +239,8 @@ class ArangeOperator : public HabanaOperator {
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
-  void SetPTOutputs(torch::jit::Stack& inputs);
 
   static int GetOutputSize(Scalar start_, Scalar end_, Scalar step_);
+
+  void SetPTOutputs(torch::jit::Stack& inputs) override;
 };

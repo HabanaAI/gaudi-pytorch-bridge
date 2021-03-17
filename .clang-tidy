@@ -23,11 +23,12 @@ modernize-*,
 -modernize-return-braced-init-list,
 -modernize-use-auto,
 -modernize-use-default-member-init,
--modernize-use-trailing-return-type,
 -modernize-use-using,
+-modernize-use-trailing-return-type,
 performance-*,
 -performance-noexcept-move-constructor,
   '
+HeaderFilterRegex: 'habana_bridge/.*|pytorch_helpers/.*|habana_hooks/.*|habana_kernels/.*|habana_lazy/.*|tests/.*|distributed/.*'
 AnalyzeTemporaryDtors: false
 CheckOptions:
 ...

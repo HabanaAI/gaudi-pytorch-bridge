@@ -616,7 +616,8 @@ std::tuple<at::Tensor, at::Tensor> gelu2_hpu(const Tensor& self) {
         at::empty(self.sizes(), self.options(), self.suggest_memory_format());
 
     Op.SetPTInputs(pt_inputs);
-    Op.SetPTOutputs({output1, output2});
+    std::vector<at::Tensor> v{output1, output2};
+    Op.SetPTOutputs(v);
     Op.Execute(key);
   } else {
     PT_KERNEL_DEBUG("Key:", key);

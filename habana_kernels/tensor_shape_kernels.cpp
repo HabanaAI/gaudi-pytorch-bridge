@@ -91,10 +91,6 @@ Tensor CatOperator::CheckAllocateOutput(
   return out;
 }
 
-void CatOperator::SetPTOutput(Tensor& out) {
-  HabanaOperator::SetPTOutput(out);
-}
-
 void CatOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
@@ -238,6 +234,10 @@ void CatOutOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, &kernel_dim, sizeof(kernel_dim));
 }
 
+void CatOutOperator::SetPTOutput(const Tensor& out) {
+  HabanaOperator::SetPTOutput(out);
+}
+
 void CatOutOperator::SetPTOutput(torch::jit::Stack& inputs) {
   CheckAllocateOutput(inputs);
   auto out = inputs[0].toTensor();
@@ -302,7 +302,7 @@ Tensor& cat_hpu_out(
   std::vector<at::Tensor> out = Op.GetOutputs();
   TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
   PT_KERNEL_END;
-  return out.at(0);
+  return result;
 }
 
 inline void recalc_strides(

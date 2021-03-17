@@ -115,7 +115,7 @@ class BinaryWrapperOperatorWithAlpha : public habana::HabanaOperator {
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
-  void SetPTOutputs(torch::jit::Stack& inputs);
+  void SetPTOutputs(torch::jit::Stack& inputs) override;
 
  protected:
   c10::ScalarType scalarType_;

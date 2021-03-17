@@ -97,8 +97,17 @@ void habana::HabanaOperator::SetPTOutput(const at::Tensor& output) {
   p_context_->pt_outputs_.emplace_back(output);
 }
 
-void habana::HabanaOperator::SetPTOutputs(
-    const std::vector<at::Tensor>& outputs) {
+void habana::HabanaOperator::SetPTOutput(torch::jit::Stack& inputs) {
+  static_cast<void>(inputs);
+  TORCH_CHECK(0, "Should never reach this empty base SetPTOutput Stack");
+}
+
+void habana::HabanaOperator::SetPTOutputs(torch::jit::Stack& inputs) {
+  static_cast<void>(inputs);
+  TORCH_CHECK(0, "Should never reach this empty base SetPTOutputs Stack");
+}
+
+void habana::HabanaOperator::SetPTOutputs(std::vector<at::Tensor>& outputs) {
   TORCH_CHECK(outputs.size() != 0, "Outputs cannot be null");
 
   for (auto& output : outputs) {
@@ -193,7 +202,7 @@ void habana::HabanaOperator::AllocateAndAddSynapseNode(
   static_cast<void>(inputs);
   static_cast<void>(is_output_persistent);
   TORCH_CHECK(
-      0, "Shuold never reach this empty base AllocateAndAddSynapseNode");
+      0, "Should never reach this empty base AllocateAndAddSynapseNode");
 }
 
 void habana::HabanaOperator::AllocateAndAddSynapseNode(
@@ -204,7 +213,7 @@ void habana::HabanaOperator::AllocateAndAddSynapseNode(
   static_cast<void>(inputs);
   static_cast<void>(is_output_persistent);
   TORCH_CHECK(
-      0, "Shuold never reach this empty base AllocateAndAddSynapseNode");
+      0, "Should never reach this empty base AllocateAndAddSynapseNode");
 }
 
 synapse_helpers::tensor_or_ref& habana::HabanaOperator::SetSynapseInput(

@@ -267,7 +267,7 @@ class LayerNormOperator : public habana::HabanaOperator {
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       std::vector<bool> is_output_persistent) override;
-  virtual void SetPTOutputs(torch::jit::Stack& inputs);
+  virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
   std::tuple<at::Tensor, at::Tensor, at::Tensor> AllocatePTOutputs(
       const at::Tensor& input,
       const at::Tensor& bias,
@@ -296,7 +296,7 @@ class LayerNormBackwardOperator : public habana::HabanaOperator {
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       std::vector<bool> is_output_persistent) override;
-  virtual void SetPTOutputs(torch::jit::Stack& inputs);
+  virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
   std::tuple<at::Tensor, at::Tensor, at::Tensor> AllocatePTOutputs(
       const at::Tensor& input,
       const at::Tensor& weight,
@@ -322,7 +322,7 @@ class NormOperator : public HabanaOperator {
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
 
-  virtual void SetPTOutputs(torch::jit::Stack& inputs);
+  virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
   static std::vector<int64_t> compute_output_shape(const at::Tensor& self);
   static std::vector<int64_t> compute_output_shape(
       const at::Tensor& self,

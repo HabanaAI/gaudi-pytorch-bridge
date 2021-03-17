@@ -181,7 +181,8 @@ Tensor ScatterWrapperOperator::AllocateOutput(
 
 void ScatterWrapperOperator::SetPTOutput(torch::jit::Stack& inputs) {
   auto output = AllocateOutput(inputs, true);
-  HabanaOperator::SetPTOutputs({output});
+  std::vector<at::Tensor> v{output};
+  HabanaOperator::SetPTOutputs(v);
 }
 
 void ScatterWrapperOperator::AllocateAndAddSynapseNode(
@@ -845,7 +846,8 @@ Tensor index_put_hpu(
     PT_KERNEL_DEBUG("Cache hit key:", key);
     auto output = at::empty_like(self);
     Op.SetPTInputs(pt_inputs);
-    Op.SetPTOutputs({output});
+    std::vector<at::Tensor> v{output};
+    Op.SetPTOutputs(v);
     Op.Execute(key);
   } else {
     PT_KERNEL_DEBUG("key:", key);
@@ -1143,14 +1145,15 @@ Tensor SliceOperator::AllocateOutputTensor(
   return output;
 }
 
-void SliceOperator::SetPTOutputs(const torch::jit::Stack& inputs) {
+void SliceOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   auto self = inputs[0].toTensor();
   auto dim = inputs[1].toInt();
   auto start = inputs[2].toInt();
   auto end = inputs[3].toInt();
   auto step = inputs[4].toInt();
   auto output = AllocateOutputTensor(self, dim, start, end, step, true);
-  HabanaOperator::SetPTOutputs({output});
+  std::vector<at::Tensor> v{output};
+  HabanaOperator::SetPTOutputs(v);
 }
 
 void SliceOperator::AllocateAndAddSynapseNode(
@@ -1267,7 +1270,7 @@ Tensor slice_hpu(
   return cast_out;
 }
 
-void SelectOperator::SetPTOutputs(const torch::jit::Stack& inputs) {
+void SelectOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   auto self = inputs[0].toTensor();
   auto dim = inputs[1].toInt();
   auto index = inputs[2].toInt();
@@ -1287,8 +1290,8 @@ void SelectOperator::SetPTOutputs(const torch::jit::Stack& inputs) {
   shape.erase(shape.begin() + dim);
   auto output = habana_helpers::createPTTensor(
       self, shape, self.options(), memory_format, true);
-
-  HabanaOperator::SetPTOutputs({output});
+  std::vector<at::Tensor> v{output};
+  HabanaOperator::SetPTOutputs(v);
 }
 
 void SelectOperator::AllocateAndAddSynapseNode(

@@ -32,7 +32,7 @@ enum PoolStrategyType {
 
 class PoolingStrategy {
  public:
-  virtual ~PoolingStrategy() {}
+  virtual ~PoolingStrategy() = default;
   virtual bool pool_create(synDeviceId deviceID, uint64_t size) const = 0;
   virtual void pool_destroy() const = 0;
   virtual void* pool_alloc_chunk(uint64_t size) const = 0;

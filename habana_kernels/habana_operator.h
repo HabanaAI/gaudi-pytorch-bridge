@@ -101,7 +101,9 @@ class HabanaOperator {
   virtual void Execute(size_t key);
   virtual void SetPTInputs(const std::vector<at::Tensor>& inputs);
   virtual void SetPTOutput(const at::Tensor& output);
-  virtual void SetPTOutputs(const std::vector<at::Tensor>& outputs);
+  virtual void SetPTOutput(torch::jit::Stack& inputs);
+  virtual void SetPTOutputs(torch::jit::Stack& inputs);
+  virtual void SetPTOutputs(std::vector<at::Tensor>& outputs);
   virtual size_t GetRecipeKey(
       std::string node,
       std::vector<c10::IValue> stack,

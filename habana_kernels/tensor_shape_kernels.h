@@ -25,7 +25,8 @@ class CatOutOperator : public ::habana::HabanaOperator {
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
 
-  virtual void SetPTOutput(torch::jit::Stack& inputs);
+  virtual void SetPTOutput(torch::jit::Stack& inputs) override;
+  virtual void SetPTOutput(const at::Tensor& out) override;
 
  private:
   void validate_tensor_dim_sizes(c10::List<at::Tensor> tensors, int64_t dim);
@@ -43,8 +44,6 @@ class CatOperator : public CatOutOperator {
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
-
-  virtual void SetPTOutput(at::Tensor& out);
 
   at::Tensor CheckAllocateOutput(
       torch::jit::Stack& inputs,
@@ -157,7 +156,7 @@ class SplitWithSizeOperator : public ::habana::HabanaOperator {
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
 
-  void SetPTOutputs(torch::jit::Stack& inputs);
+  void SetPTOutputs(torch::jit::Stack& inputs) override;
 };
 
 // Flatten Operator

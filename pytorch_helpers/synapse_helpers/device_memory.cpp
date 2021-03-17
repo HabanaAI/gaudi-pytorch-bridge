@@ -71,9 +71,11 @@ device_memory::device_memory(device& device) : device_{device} {
   }
 
   if (pool_strategy_ != pool_allocator::startegy_static_coalesce) {
-    uint64_t dram_info[2] = {0};
-    const synDeviceAttribute deviceAttr[2] = {
+    std::array<uint64_t, 2> dram_infos = {0, 0};
+    uint64_t* dram_info = dram_infos.data();
+    std::array<synDeviceAttribute, 2> deviceAttrs = {
         DEVICE_ATTRIBUTE_DRAM_BASE_ADDRESS, DEVICE_ATTRIBUTE_DRAM_SIZE};
+    synDeviceAttribute* deviceAttr = deviceAttrs.data();
     auto status = synDeviceGetAttribute(dram_info, deviceAttr, 2, device_.id());
     if (synStatus::synSuccess != status) {
       PT_SYNHELPER_FATAL("Cannot obtain dram info. Status: ", status);

@@ -29,7 +29,7 @@ class WhereOperator : public HabanaOperator {
       const at::Tensor& condition,
       const at::Tensor& self,
       const at::Tensor& other);
-  void SetPTOutputs(torch::jit::Stack& inputs);
+  void SetPTOutputs(torch::jit::Stack& inputs) override;
 };
 
 } // namespace pt_habana_ops

@@ -62,7 +62,8 @@ void WhereOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   output =
       at::empty(output_shape, self.options(), self.suggest_memory_format());
 
-  HabanaOperator::SetPTOutputs({output});
+  std::vector<at::Tensor> v{output};
+  HabanaOperator::SetPTOutputs(v);
 }
 
 std::vector<int64_t> pt_habana_ops::WhereOperator::compute_output_shape(

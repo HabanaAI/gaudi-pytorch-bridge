@@ -533,14 +533,12 @@ void BatchNormForwardOperator::SetPTOutputs(torch::jit::Stack& inputs) {
         at::empty(running_mean_hpu.sizes(), running_mean_hpu.options());
     auto current_istd =
         at::empty(running_mean_hpu.sizes(), running_mean_hpu.options());
-    HabanaOperator::SetPTOutputs(
-        {output,
-         running_mean_hpu,
-         running_var_hpu,
-         current_mean,
-         current_istd});
+    std::vector<at::Tensor> v{
+        output, running_mean_hpu, running_var_hpu, current_mean, current_istd};
+    HabanaOperator::SetPTOutputs(v);
   } else {
-    HabanaOperator::SetPTOutputs({output, running_mean_hpu, running_var_hpu});
+    std::vector<at::Tensor> v{output, running_mean_hpu, running_var_hpu};
+    HabanaOperator::SetPTOutputs(v);
   }
 }
 
@@ -1119,7 +1117,8 @@ void BatchNormBackwardOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   auto grad_in_nhwc = at::empty(input.sizes(), input.options());
   auto grad_beta = at::empty(wt_hpu.sizes(), wt_hpu.options());
   auto grad_gamma = at::empty(wt_hpu.sizes(), wt_hpu.options());
-  HabanaOperator::SetPTOutputs({grad_in_nhwc, grad_gamma, grad_beta});
+  std::vector<at::Tensor> v{grad_in_nhwc, grad_gamma, grad_beta};
+  HabanaOperator::SetPTOutputs(v);
 }
 /*******************************************************************
 *@brief Implements backward pass for batch norm
@@ -1150,12 +1149,8 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu(
     const Tensor& save_invstd,
     bool train,
     double eps,
-    UNUSED std::array<bool, 3> output_mask) {
+    std::array<bool, 3> output_mask) {
   PT_KERNEL_BEGIN;
-  bool output_mask_in[3];
-  output_mask_in[0] = output_mask[0];
-  output_mask_in[1] = output_mask[1];
-  output_mask_in[2] = output_mask[2];
   // Build Params for the graph
   Stack cache_stack = {
       IValue(grad_out),
@@ -1167,7 +1162,7 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu(
       IValue(save_invstd),
       IValue(train),
       IValue(eps),
-      IValue(output_mask_in)};
+      IValue(output_mask.data())};
   auto num_input_dim = input.dim();
   TORCH_CHECK(num_input_dim > 1, "Expected range of input dimensions is [2,4]");
   TORCH_CHECK(
@@ -1202,7 +1197,7 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu(
       IValue(save_invstd),
       IValue(train),
       IValue(eps),
-      IValue(output_mask_in)};
+      IValue(output_mask.data())};
   auto batch_norm_bwd = [&] {
     // Create the operator
     BatchNormBackwardOperator Op(device_id, scalar_type);
@@ -1463,8 +1458,9 @@ void LayerNormOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   }
 
   auto outputs = AllocatePTOutputs(input, bias, weight, m, {true, true, true});
-  HabanaOperator::SetPTOutputs(
-      {std::get<0>(outputs), std::get<1>(outputs), std::get<2>(outputs)});
+  std::vector<at::Tensor> v{
+      std::get<0>(outputs), std::get<1>(outputs), std::get<2>(outputs)};
+  HabanaOperator::SetPTOutputs(v);
 }
 
 /** @brief This function implements forward pass for torch.nn.LayerNorm()
@@ -1727,8 +1723,9 @@ void LayerNormBackwardOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   const auto gamma = inputs[4].toTensor();
 
   auto outputs = AllocatePTOutputs(dY, gamma, true);
-  HabanaOperator::SetPTOutputs(
-      {std::get<0>(outputs), std::get<1>(outputs), std::get<2>(outputs)});
+  std::vector<at::Tensor> v{
+      std::get<0>(outputs), std::get<1>(outputs), std::get<2>(outputs)};
+  HabanaOperator::SetPTOutputs(v);
 }
 
 std::tuple<std::vector<int64_t>, std::vector<int64_t>, std::vector<int64_t>>

@@ -26,8 +26,8 @@ class recipe {
   bool create(synapse_helpers::graph& graph);
   void create_launch_info();
   void set_inputs_outputs_names(
-      std::vector<std::string> input_names,
-      std::vector<std::string> output_names);
+      const std::vector<std::string>& input_names,
+      const std::vector<std::string>& output_names);
   bool launch(
       const std::vector<void*>& in_buffers,
       const std::vector<void*>& out_buffers);

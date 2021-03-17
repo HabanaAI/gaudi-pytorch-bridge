@@ -30,7 +30,7 @@ class ReduceOperator : public HabanaOperator {
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
 
-  virtual void SetPTOutputs(torch::jit::Stack& inputs);
+  virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
 
  private:
   /**
@@ -73,7 +73,7 @@ class MeanDimOutOperator : public ReduceOperator {
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
 
-  virtual void SetPTOutputs(torch::jit::Stack& inputs);
+  virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
 };
 
 //
@@ -90,7 +90,7 @@ class MeanDimOperator : public ReduceOperator {
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
 
-  virtual void SetPTOutputs(torch::jit::Stack& inputs);
+  virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
 };
 
 //
@@ -107,7 +107,7 @@ class MeanOperator : public ReduceOperator {
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
 
-  virtual void SetPTOutputs(torch::jit::Stack& inputs);
+  virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
 };
 
 //
@@ -125,7 +125,7 @@ class ProdDimOperator : public ReduceOperator {
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
 
-  virtual void SetPTOutputs(torch::jit::Stack& inputs);
+  virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
 };
 
 //
@@ -143,7 +143,7 @@ class ProdOperator : public ReduceOperator {
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
 
-  virtual void SetPTOutputs(torch::jit::Stack& inputs);
+  virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
 };
 
 //
@@ -178,7 +178,7 @@ class SumDimOperator : public ReduceOperator {
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
 
-  virtual void SetPTOutputs(torch::jit::Stack& inputs);
+  virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
 };
 
 //
@@ -198,7 +198,7 @@ class SumOperator : public ReduceOperator {
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
 
-  virtual void SetPTOutputs(torch::jit::Stack& inputs);
+  virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
 };
 
 //
@@ -283,5 +283,5 @@ class ArgMaxOperator : public ReduceOperator {
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
 
-  virtual void SetPTOutputs(torch::jit::Stack& inputs);
+  virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
 };

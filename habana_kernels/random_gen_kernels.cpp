@@ -418,7 +418,7 @@ Tensor& bernoulli_scalar_hpu(
   TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
 
   PT_KERNEL_END;
-  return out.at(0);
+  return self;
 }
 
 /*

@@ -201,7 +201,8 @@ std::tuple<Tensor, Tensor> nll_loss_forward_hpu(
     auto output1 = at::empty({1}, self.options(), self.suggest_memory_format());
     auto output2 = at::empty({1}, self.options(), self.suggest_memory_format());
     Op.SetPTInputs(pt_inputs);
-    Op.SetPTOutputs({output1, output2});
+    std::vector<at::Tensor> v{output1, output2};
+    Op.SetPTOutputs(v);
     Op.Execute(key);
   } else {
     PT_KERNEL_DEBUG("Key:", key);

@@ -195,7 +195,7 @@ synapse_error_o graph::add_node(
       ", name=\"\");");
 
   // PT always uses node creation with Id
-  if (1) {
+  if (true) {
     synNodeId nodeId;
     auto status = synNodeCreateWithId(
         *graph_handle_,

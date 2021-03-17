@@ -448,7 +448,7 @@ Tensor emtpy_from_storage_lazy(
       "Habana Lazy : we dont support as_strided for non storage");
   auto storage_impl = hb_tensor_self.getAttachedTensorImpl();
   Tensor at_internal_tensor = habana_lazy::AtenInternalHbTensor(
-      std::move(c10::Storage(storage_impl->storage())), self.dtype());
+      c10::Storage(storage_impl->storage()), self.dtype());
 
   at_internal_tensor.unsafeGetTensorImpl()->set_sizes_contiguous(size);
   c10::IntArrayRef stride_new;

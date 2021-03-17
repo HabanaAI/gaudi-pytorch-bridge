@@ -336,7 +336,8 @@ void ConvOperator::SetPTOutputs(torch::jit::Stack& inputs) {
       c10::MemoryFormat::ChannelsLast);
 
   auto output = at::empty(shape_out, input.options(), memory_format);
-  HabanaOperator::SetPTOutputs({output});
+  std::vector<at::Tensor> v{output};
+  HabanaOperator::SetPTOutputs(v);
 }
 
 Tensor convolution_hpu(

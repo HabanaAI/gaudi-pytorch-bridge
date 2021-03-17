@@ -88,7 +88,8 @@ at::Tensor habana_helpers::hpu_cast_tensor(
         Input.options().dtype(type),
         Input.suggest_memory_format());
     Op.SetPTInputs(pt_inputs);
-    Op.SetPTOutputs({Output});
+    std::vector<at::Tensor> v{Output};
+    Op.SetPTOutputs(v);
     Op.Execute(key);
   } else {
     PT_KERNEL_DEBUG("key:", key);

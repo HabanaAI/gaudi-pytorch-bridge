@@ -714,7 +714,8 @@ Tensor& addcmul_hpu_(
   if (device.get_recipe_handle_cache().isCached(key)) {
     PT_KERNEL_DEBUG("Cache hit key:", key);
     Op.SetPTInputs(pt_inputs);
-    Op.SetPTOutputs({self});
+    std::vector<at::Tensor> v{self};
+    Op.SetPTOutputs(v);
     Op.Execute(key);
   } else {
     PT_KERNEL_DEBUG("Key:", key);
@@ -841,7 +842,8 @@ Tensor& addcdiv_hpu_(
   if (device.get_recipe_handle_cache().isCached(key)) {
     PT_KERNEL_DEBUG("Cache hit key:", key);
     Op.SetPTInputs(pt_inputs);
-    Op.SetPTOutputs({self});
+    std::vector<at::Tensor> v{self};
+    Op.SetPTOutputs(v);
     Op.Execute(key);
   } else {
     PT_KERNEL_DEBUG("Key:", key);

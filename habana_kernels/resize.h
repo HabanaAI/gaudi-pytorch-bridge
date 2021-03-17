@@ -52,7 +52,7 @@ inline void THStorage_resizeBytes(THStorage* self, ptrdiff_t size_bytes) {
           reinterpret_cast<synapse_helpers::device_ptr>(data.get()),
           reinterpret_cast<synapse_helpers::device_ptr>(self->data()),
           reinterpret_cast<synapse_helpers::device_ptr>(data.get()),
-          THMin(self->nbytes(), size_bytes),
+          THMin(self->nbytes(), (unsigned long)size_bytes),
           [&copyDone]() { copyDone = true; });
       TORCH_CHECK(syn_error.status == 0, syn_error.error);
 

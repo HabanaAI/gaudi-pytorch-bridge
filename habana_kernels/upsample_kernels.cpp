@@ -152,7 +152,8 @@ void UpsampleOperator::SetPTOutputs(torch::jit::Stack& inputs) {
       scales,
       c10::MemoryFormat::ChannelsLast);
   auto output = at::empty(shape_out, input.options(), memory_format);
-  HabanaOperator::SetPTOutputs({output});
+  std::vector<at::Tensor> v{output};
+  HabanaOperator::SetPTOutputs(v);
 }
 
 void UpsampleBackwardOperator::SetPTOutputs(torch::jit::Stack& inputs) {
@@ -161,7 +162,8 @@ void UpsampleBackwardOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   std::vector<int64_t> grad_out_shape = grad_size.vec();
   auto output = at::empty(
       grad_out_shape, grad_output.options(), c10::MemoryFormat::ChannelsLast);
-  HabanaOperator::SetPTOutputs({output});
+  std::vector<at::Tensor> v{output};
+  HabanaOperator::SetPTOutputs(v);
 }
 
 /* Mode and Alligned corners can be added here */

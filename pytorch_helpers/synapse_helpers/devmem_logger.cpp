@@ -8,13 +8,12 @@
  ******************************************************************************
  */
 #include <dlfcn.h>
-#include <inttypes.h>
-#include <stdlib.h>
+#include <cinttypes>
+#include <cstdlib>
 
-#include <assert.h>
 #include <execinfo.h>
-#include <stdbool.h>
 #include <unistd.h>
+#include <cassert>
 
 #include <cxxabi.h>
 #include <cstdlib>
@@ -49,10 +48,6 @@ deviceMallocData::deviceMallocData() {
       take_bt = true;
       break;
     case MEM_LOG_ALLOC_FREE_NOBT:
-      print_free_bt = true;
-      print_alloc_bt = true;
-      take_bt = false;
-      break;
     case MEM_LOG_GRAPH_LAUNCH:
       print_free_bt = true;
       print_alloc_bt = true;
@@ -85,14 +80,14 @@ deviceMallocData& deviceMallocData::singleton() {
 }
 
 bool deviceMallocData::sort_by_size(
-    std::pair<uint64_t, size_bt_pair_t> a,
-    std::pair<uint64_t, size_bt_pair_t> b) {
+    std::pair<uint64_t, size_bt_pair_t>& a,
+    std::pair<uint64_t, size_bt_pair_t>& b) {
   return a.second.first > b.second.first;
 }
 
 bool deviceMallocData::sort_by_ptr(
-    std::pair<uint64_t, size_bt_pair_t> a,
-    std::pair<uint64_t, size_bt_pair_t> b) {
+    std::pair<uint64_t, size_bt_pair_t>& a,
+    std::pair<uint64_t, size_bt_pair_t>& b) {
   return a.first < b.first;
 }
 /*
@@ -112,7 +107,7 @@ bool deviceMallocData::interesting_function(const std::string& name) {
   };
 
   bool interesting = false;
-  for (auto name_entry : list_of_interest) {
+  for (const auto& name_entry : list_of_interest) {
     if (name.find(name_entry) != std::string::npos) {
       interesting = true;
       break;
@@ -143,11 +138,11 @@ void deviceMallocData::print_an_entry(
     bool dot_marker_placed = false;
     for (const auto& string : bt_strings) {
       // Find the mangled function name in the frame
-      const auto start_of_func_name = string.find("(");
+      const auto start_of_func_name = string.find('(');
       std::size_t end_of_func_name;
       bool formatted_name = true;
       if (start_of_func_name != std::string::npos) {
-        end_of_func_name = string.find("+", start_of_func_name);
+        end_of_func_name = string.find('+', start_of_func_name);
         if ((end_of_func_name == std::string::npos) ||
             (end_of_func_name == start_of_func_name + 1)) {
           formatted_name = false;
@@ -161,7 +156,7 @@ void deviceMallocData::print_an_entry(
         int status;
         const auto& name = string.substr(start_of_func_name + 1, len);
         const auto demangled_name =
-            abi::__cxa_demangle(name.c_str(), NULL, NULL, &status);
+            abi::__cxa_demangle(name.c_str(), nullptr, nullptr, &status);
         if (!print_all_frames &&
             !interesting_function((status == 0) ? demangled_name : name)) {
           // If the function isn't of interest, don't print the frame
@@ -202,8 +197,10 @@ void deviceMallocData::collect_backtrace(
     size_t size,
     bool failure) {
   int nptrs;
-  void* buffer[bt_depth];
-  char** strings;
+  std::vector<void*> vbuf;
+  vbuf.reserve(bt_depth);
+  void** buffer = vbuf.data();
+  char** strings = nullptr;
 
   if (!logging_enabled_)
     return;
@@ -215,13 +212,13 @@ void deviceMallocData::collect_backtrace(
     nptrs = backtrace(buffer, bt_depth);
 
     strings = backtrace_symbols(buffer, nptrs);
-    if (strings == NULL) {
+    if (strings == nullptr) {
       perror("backtrace_symbols");
       exit(EXIT_FAILURE);
     }
 
     for (int i = 2; i < nptrs; i++) {
-      bt_string.push_back(strings[i]);
+      bt_string.emplace_back(strings[i]);
     }
 
     free(strings);

@@ -149,7 +149,8 @@ void CompareOutWrapperOperator::AllocateAndAddSynapseNode(
 
 void CompareOutWrapperOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   auto output = inputs[2].toTensor();
-  HabanaOperator::SetPTOutputs({output});
+  std::vector<at::Tensor> v{output};
+  HabanaOperator::SetPTOutputs(v);
 }
 
 void CompareWrapperOperator::AllocateAndAddSynapseNode(
@@ -209,7 +210,8 @@ void CompareWrapperOperator::SetPTOutputs(torch::jit::Stack& inputs) {
       operand.suggest_memory_format(),
       c10::ScalarType::Bool,
       true);
-  HabanaOperator::SetPTOutputs({output});
+  std::vector<at::Tensor> v{output};
+  HabanaOperator::SetPTOutputs(v);
 }
 
 std::vector<int64_t> CompareWrapperOperator::compute_output_shape(

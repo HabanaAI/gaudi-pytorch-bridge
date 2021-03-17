@@ -31,7 +31,7 @@ class TopkOutOperator : public HabanaOperator {
       torch::jit::Stack& inputs,
       std::vector<bool> is_output_persistent) override;
 
-  virtual void SetPTOutputs(torch::jit::Stack& inputs);
+  virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
 
  private:
   bool values_persistent;
@@ -51,7 +51,7 @@ class TopkOperator : public TopkOutOperator {
       torch::jit::Stack& inputs,
       std::vector<bool> is_output_persistent) override;
 
-  virtual void SetPTOutputs(torch::jit::Stack& inputs);
+  virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
 };
 
 //
@@ -67,5 +67,5 @@ class SortOperator : public TopkOutOperator {
       torch::jit::Stack& inputs,
       std::vector<bool> is_output_persistent) override;
 
-  virtual void SetPTOutputs(torch::jit::Stack& inputs);
+  virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
 };

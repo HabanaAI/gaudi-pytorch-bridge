@@ -15,13 +15,13 @@
 namespace synapse_helpers {
 recipe_handle_cache::recipe_handle_cache(device& device)
     : mutex_{}, device_{device} {
+  static_cast<void>(device_);
   enable_hit_count_ = (GET_ENV_FLAG(PT_HABANA_MAX_RECIPE_HIT_COUNT) != 0);
 }
 
 std::shared_ptr<recipe> recipe_handle_cache::get_recipe(
     const size_t key,
     synapse_helpers::graph& graph) {
-  static_cast<void>(device_);
   std::unique_lock<std::mutex> lck(mutex_);
   auto iter = cache_map_.find(key);
   if (iter != cache_map_.end()) {

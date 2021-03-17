@@ -129,7 +129,8 @@ void ReduceOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   /*TORCH_CHECK(
       output.scalar_type() == self.scalar_type(),
       "Habana reduction ops don't support casts yet");*/
-  HabanaOperator::SetPTOutputs({output});
+  std::vector<at::Tensor> v{output};
+  HabanaOperator::SetPTOutputs(v);
 }
 
 void ReduceOperator::sort_dims(
@@ -536,7 +537,7 @@ Tensor& sum_IntList_out_hpu(
   std::vector<at::Tensor> out = Op.GetOutputs();
   TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
   PT_KERNEL_END;
-  return out.at(0);
+  return output;
 }
 
 void MeanDimOperator::SetPTOutputs(torch::jit::Stack& inputs) {
@@ -718,7 +719,7 @@ Tensor& mean_dim_out_hpu(
   std::vector<at::Tensor> out = Op.GetOutputs();
   TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
   PT_KERNEL_END;
-  return out.at(0);
+  return output;
 }
 
 void ProdDimOperator::SetPTOutputs(torch::jit::Stack& inputs) {
@@ -1250,7 +1251,7 @@ Tensor& any_dim_out_hpu(
 
   out.at(0).to(c10::ScalarType::Bool);
   PT_KERNEL_END;
-  return out.at(0);
+  return output;
 }
 
 void AnyDimOperator::AllocateAndAddSynapseNode(

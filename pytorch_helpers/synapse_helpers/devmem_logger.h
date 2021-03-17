@@ -53,11 +53,11 @@ class deviceMallocData final {
   ~deviceMallocData();
 
   static bool sort_by_size(
-      std::pair<uint64_t, size_bt_pair_t> a,
-      std::pair<uint64_t, size_bt_pair_t> b);
+      std::pair<uint64_t, size_bt_pair_t>& a,
+      std::pair<uint64_t, size_bt_pair_t>& b);
   static bool sort_by_ptr(
-      std::pair<uint64_t, size_bt_pair_t> a,
-      std::pair<uint64_t, size_bt_pair_t> b);
+      std::pair<uint64_t, size_bt_pair_t>& a,
+      std::pair<uint64_t, size_bt_pair_t>& b);
   bool interesting_function(const std::string& name);
   void print_an_entry(
       const std::pair<uint64_t, size_bt_pair_t>& entry,

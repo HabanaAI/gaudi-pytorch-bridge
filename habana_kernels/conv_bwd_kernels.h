@@ -34,7 +34,7 @@ class ConvBackwardOperator : public HabanaOperator {
         {LayoutFormat::NHWC, LayoutFormat::HWCK, LayoutFormat::NHWC});
   }
 
-  virtual void SetPTOutputs(torch::jit::Stack& inputs);
+  virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,

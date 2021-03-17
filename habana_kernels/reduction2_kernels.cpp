@@ -142,7 +142,8 @@ std::tuple<at::Tensor, at::Tensor> max_dim_hpu(
         self.options().dtype(c10::ScalarType::Int),
         self.suggest_memory_format());
     Op.SetPTInputs(pt_inputs);
-    Op.SetPTOutputs({output1, output2});
+    std::vector<at::Tensor> v{output1, output2};
+    Op.SetPTOutputs(v);
     Op.Execute(key);
   } else {
     PT_KERNEL_DEBUG("key:", key);
@@ -236,7 +237,8 @@ Tensor max_hpu(const at::Tensor& self) {
     auto output =
         at::empty(out_shape, self.options(), self.suggest_memory_format());
     Op.SetPTInputs(pt_inputs);
-    Op.SetPTOutputs({output});
+    std::vector<at::Tensor> v{output};
+    Op.SetPTOutputs(v);
     Op.Execute(key);
   } else {
     PT_KERNEL_DEBUG("key:", key);

@@ -23,7 +23,7 @@ struct CanonicalizeStrTypes {
 };
 
 template <size_t N>
-struct CanonicalizeStrTypes<char[N]> {
+struct CanonicalizeStrTypes<std::array<char, N>> {
   using type = const char*;
 };
 

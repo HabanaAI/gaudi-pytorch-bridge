@@ -36,7 +36,7 @@ void PinnedMemoryAllocator::deleter(void* ptr) {
 }
 
 at::DataPtr PinnedMemoryAllocator::allocate(size_t size) const {
-  void* ptr;
+  void* ptr = nullptr;
   if (size != 0) {
     auto& device = synapse_helpers::HPURegistrar::get_device(
         habana::PinnedMemoryAllocator::allocator_active_device_id);

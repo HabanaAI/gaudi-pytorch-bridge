@@ -25,7 +25,7 @@
 #include "synapse_helpers/synapse_error.h"
 
 namespace synapse_helpers {
-recipe::recipe() {}
+recipe::recipe() = default;
 
 bool recipe::create(synapse_helpers::graph& graph) {
   auto compile_result = graph.compile();
@@ -49,8 +49,8 @@ void recipe::create_launch_info() {
 }
 
 void recipe::set_inputs_outputs_names(
-    std::vector<std::string> input_names,
-    std::vector<std::string> output_names) {
+    const std::vector<std::string>& input_names,
+    const std::vector<std::string>& output_names) {
   for (auto input : input_names) {
     input_names_.emplace_back(std::move(input));
   }
@@ -88,5 +88,5 @@ bool recipe::launch(
   return true;
 }
 
-recipe::~recipe() {}
+recipe::~recipe() = default;
 } // namespace synapse_helpers

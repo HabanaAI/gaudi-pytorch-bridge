@@ -40,7 +40,7 @@ synStatus host_memory::malloc(void** ptr, size_t size) {
     }
   }
 
-  *ptr = 0;
+  *ptr = nullptr;
   /* allocate a new block if no cached allocation is found */
   auto err = synHostMalloc(device_.id(), size, 0, ptr);
   /* release the cache and retry malloc if the error is OOM */
