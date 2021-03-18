@@ -19,6 +19,7 @@
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_helpers/logging.h"
 #include "habana_helpers/tensor_info.h"
+#include "habana_helpers/tensor_utils.h"
 
 size_t RecipeValueSpec::recipe_count = 0;
 size_t RecipeValueSpec::total_recipe_ntbytes = 0;
@@ -62,6 +63,7 @@ RecipeArgumentSpec::RecipeArgumentSpec(
   }
   hash_code = at::hash_combine(hash_code, str_hash(opstrs));
   hash_code = at::hash_combine(hash_code, irgraph->outputs().size());
+  hash_code = habana_helpers::hash_combine_scalars(hash_code, input_refs);
 }
 
 std::ostream& operator<<(std::ostream& O, const RecipeArgumentSpec& v) {

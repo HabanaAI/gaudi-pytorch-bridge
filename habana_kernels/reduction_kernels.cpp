@@ -11,8 +11,10 @@
 #include <bitset>
 
 #include <perf_lib_layer_params.h>
+#include <torch/csrc/jit/ir/irparser.h>
 #include <torch/script.h>
 
+#include "habana_bridge/kernel/hpu_habana_launch_op_pt.h"
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_helpers/graph.h"
@@ -23,6 +25,8 @@
 #include "habana_kernels/resize.h"
 #include "habana_kernels/simple_generic_kernel.h"
 #include "habana_kernels/tensor_shape_kernels.h"
+#include "habana_lazy/hlexec.h"
+#include "habana_lazy/passes/transform_graph.h"
 
 using namespace torch;
 // TODO: DimMask = TensorIterator::DimMask
@@ -1485,6 +1489,67 @@ void GradSumToSizeOperator::AllocateAndAddSynapseNode(
           std::move(identityOp.GetOutputs()[0]));
     }
   }
+}
+
+/*************************************************************************
+ * @brief Kernel implementation for aten.all(self)
+ * @param self - tensor_0
+ ************************************************************************/
+Tensor all_hpu(const Tensor& self) {
+  PT_KERNEL_BEGIN;
+  // create OP graph and populate the stack with inputs
+  auto graph = std::make_shared<torch::jit::Graph>();
+  const auto graph_string = R"IR(
+  graph(%a):
+    %b : Tensor = aten::all(%a)
+    return (%b))IR";
+  torch::jit::parseIR(graph_string, graph.get());
+  torch::jit::Stack stack = {IValue(self)};
+
+  habana_lazy::exec::OptPassCfg::GetInstance()->enable_subgraph_rewrite = true;
+  habana_lazy::transform_graph(graph);
+  habana_lazy::exec::OptPassCfg::GetInstance()->enable_subgraph_rewrite = false;
+  // reset instance count so that graph_id always remains same
+  // this ensures that we get a cache hit if inputs have not changed
+  HabanaLaunchOpPT::instance_count_ = 0;
+
+  // Execute OP graph
+  HabanaLaunchOpPT launch{graph, false};
+  launch.run(stack);
+
+  // Pop output from stack
+  PT_KERNEL_END;
+  return stack.back().toTensor();
+}
+
+/*************************************************************************
+ * @brief Kernel implementation for aten.all(self, dim, keepdim)
+ * @param self - tensor_0
+ ************************************************************************/
+Tensor all_dim_hpu(const Tensor& self, int64_t dim, bool keepdim) {
+  PT_KERNEL_BEGIN;
+  // create OP graph and populate the stack with inputs
+  auto graph = std::make_shared<torch::jit::Graph>();
+  const auto graph_string = R"IR(
+  graph(%a, %dim : int, %keepdim : bool):
+    %b : Tensor = aten::all(%a, %dim, %keepdim)
+    return (%b))IR";
+  torch::jit::parseIR(graph_string, graph.get());
+  torch::jit::Stack stack = {IValue(self), IValue(dim), IValue(keepdim)};
+
+  habana_lazy::exec::OptPassCfg::GetInstance()->enable_subgraph_rewrite = true;
+  habana_lazy::transform_graph(graph);
+  habana_lazy::exec::OptPassCfg::GetInstance()->enable_subgraph_rewrite = false;
+  // reset instance count so that graph_id always remains same
+  // this ensures that we get a cache hit if inputs have not changed
+  HabanaLaunchOpPT::instance_count_ = 0;
+  // Execute OP graph
+  HabanaLaunchOpPT launch{graph, false};
+  launch.run(stack);
+
+  // Pop output from stack
+  PT_KERNEL_END;
+  return stack.back().toTensor();
 }
 
 static auto& KernelRegistry =

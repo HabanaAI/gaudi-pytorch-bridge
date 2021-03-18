@@ -58,3 +58,38 @@ TEST_F(LazyReductionKernelTest, ProdDimIntTest) {
 
   EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out), true);
 }
+
+TEST_F(LazyReductionKernelTest, AllTensorTest) {
+  exec::OptPassCfg::GetInstance()->enable_subgraph_rewrite = true;
+  const std::vector<int64_t> dimensions{5, 3, 4};
+
+  torch::Tensor A = (torch::randn(dimensions) > 0.5);
+
+  auto expected = torch::all(A);
+  auto hA = A.to(torch::kHABANA);
+  auto result = torch::all(hA);
+  torch::Tensor habanaGenerated = result.to(torch::kCPU);
+
+  EXPECT_EQ(
+      allclose(expected.to(torch::kInt8), habanaGenerated.to(torch::kInt8)),
+      true);
+  exec::OptPassCfg::GetInstance()->enable_subgraph_rewrite = false;
+}
+
+TEST_F(LazyReductionKernelTest, AllDimTensorTest) {
+  exec::OptPassCfg::GetInstance()->enable_subgraph_rewrite = true;
+  const std::vector<int64_t> dimensions{5, 3, 4};
+
+  torch::Tensor A = (torch::randn(dimensions) > 0.5);
+  int64_t dim = 1;
+  bool keepdim = false;
+  auto expected = torch::all(A, dim, keepdim);
+  auto hA = A.to(torch::kHABANA);
+  auto result = torch::all(hA, dim, keepdim);
+  torch::Tensor habanaGenerated = result.to(torch::kCPU);
+
+  EXPECT_EQ(
+      allclose(expected.to(torch::kInt8), habanaGenerated.to(torch::kInt8)),
+      true);
+  exec::OptPassCfg::GetInstance()->enable_subgraph_rewrite = false;
+}

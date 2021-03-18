@@ -921,3 +921,43 @@ c10::MemoryFormat habana_helpers::get_memory_format(
   }
   return memory_format;
 }
+
+size_t habana_helpers::hash_combine_scalars(
+    size_t hash_code,
+    at::ArrayRef<torch::jit::IValue> input_refs) {
+  auto num_inputs = input_refs.size();
+  for (unsigned i = 0; i < num_inputs; i++) {
+    if (!input_refs[i].isTensor()) {
+      if (input_refs[i].isInt()) {
+        int val = input_refs[i].toInt();
+        std::hash<int> valhash;
+        hash_code = at::hash_combine(hash_code, valhash(val));
+      } else if (input_refs[i].isBool()) {
+        bool val = input_refs[i].toBool();
+        hash_code = at::hash_combine(hash_code, val);
+      } else if (input_refs[i].isDouble()) {
+        double val = input_refs[i].toDouble();
+        std::hash<double> valhash;
+        hash_code = at::hash_combine(hash_code, valhash(val));
+      } else if (input_refs[i].isList()) {
+        auto vlist = input_refs[i].toListRef();
+        for (auto& v : vlist) {
+          if (v.isInt()) {
+            int val = v.toInt();
+            std::hash<int> valhash;
+            hash_code = at::hash_combine(hash_code, valhash(val));
+          } else if (v.isBool()) {
+            hash_code = at::hash_combine(hash_code, v.toBool());
+          } else if (v.isDouble()) {
+            double val = v.toDouble();
+            std::hash<double> valhash;
+            hash_code = at::hash_combine(hash_code, valhash(val));
+          }
+        }
+      } else {
+        PT_BRIDGE_DEBUG("Got unhandled Scalar type in hashing");
+      }
+    }
+  }
+  return hash_code;
+}

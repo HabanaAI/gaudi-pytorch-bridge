@@ -91,6 +91,8 @@ Tensor& eq_tensor_out_hpu_lazy(
     const Tensor& other);
 Tensor ne_scalar_hpu_lazy(const Tensor& self, Scalar other);
 Tensor ne_tensor_hpu_lazy(const Tensor& self, const Tensor& other);
+Tensor all_hpu_lazy(const Tensor& self);
+Tensor all_dim_hpu_lazy(const Tensor& self, int64_t dim, bool keepdim);
 Tensor ge_scalar_hpu_lazy(const Tensor& self, Scalar other);
 Tensor ge_tensor_hpu_lazy(const Tensor& self, const Tensor& other);
 Tensor eq_tensor_hpu_lazy(const Tensor& self, const Tensor& other);

@@ -428,6 +428,22 @@ Tensor hpu_wrap::ne(const Tensor& self, const Tensor& other) {
     return ne_tensor_hpu(self, other);
   }
 };
+Tensor hpu_wrap::all(const Tensor& self, int64_t dim, bool keepdim) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    auto t = all_dim_hpu_lazy(self, dim, keepdim);
+    return t;
+  } else {
+    return all_dim_hpu(self, dim, keepdim);
+  }
+};
+Tensor hpu_wrap::all(const Tensor& self) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    auto t = all_hpu_lazy(self);
+    return t;
+  } else {
+    return all_hpu(self);
+  }
+};
 Tensor hpu_wrap::convolution_overrideable(
     const Tensor& input,
     const Tensor& weight,
@@ -2326,6 +2342,7 @@ TORCH_LIBRARY(hpu, m) {
       "sum_dim_IntList(Tensor self, int[1] dim, bool keepdim=False, *, ScalarType? dtype=None) -> Tensor");
   m.def(
       "prod_dim_Int(Tensor self, int dim, bool keepdim=False, *, ScalarType? dtype=None) -> Tensor");
+  m.def("all_dim(Tensor self, int dim, bool keepdim=False) -> Tensor");
   m.def("habana_d2d_memcpy(Tensor self) -> (Tensor)");
   m.def(
       "habanaOptimizerSparseSgd(Tensor gradients, Tensor weights_in, Tensor moments_in, Tensor indices, Tensor learning_rate, Tensor valid_count_tensor, float mom, bool nesterov) -> (Tensor, Tensor)");

@@ -130,6 +130,8 @@ struct hpu_wrap {
   static at::Tensor eq(const at::Tensor& self, at::Scalar other);
   static at::Tensor ne(const at::Tensor& self, const at::Tensor& other);
   static at::Tensor ne(const at::Tensor& self, at::Scalar other);
+  static at::Tensor all(const at::Tensor& self);
+  static at::Tensor all(const at::Tensor& self, int64_t dim, bool keepdim);
   static at::Tensor lt(const at::Tensor& self, at::Scalar other);
   static at::Tensor lt(const at::Tensor& self, const at::Tensor& other);
   static at::Tensor ge(const at::Tensor& self, at::Scalar other);

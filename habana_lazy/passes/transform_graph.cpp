@@ -32,7 +32,46 @@ Patterns internal_patts = {
       %1 : int = prim::dtype(%a)\n\
       %d : Tensor = aten::to(%c, %1, %2, %2, %3)\n\
       %e : Tensor = aten::eq(%d, %4)\n\
-      return (%e)"}};
+      return (%e)"},
+    // torch.all(tensor) pattern
+    {"graph(%a):\n\
+      %b : Tensor = aten::all(%a)\n\
+      return (%b)",
+     "graph(%x):\n\
+      %11 : int = prim::Constant[value=11]()\n\
+      %5 : None = prim::Constant()\n\
+      %3 : bool = prim::Constant[value=0]()\n\
+      %2 : int = prim::Constant[value=6]()\n\
+      %y : Tensor = aten::to(%x, %2, %3, %3, %5)\n\
+      %z : Tensor = aten::prod(%y, %5)\n\
+      %a : Tensor = aten::to(%z, %11, %3, %3, %5)\n\
+      return (%a)"},
+    // torch.all(tensor, dim, keepdim) pattern
+    {"graph(%a, %dim : int, %keepdim : bool):\n\
+      %b : Tensor = aten::all(%a, %dim, %keepdim)\n\
+      return (%b)",
+     "graph(%x, %dim : int, %keepdim : bool):\n\
+      %16 : int = prim::Constant[value=11]()\n\
+      %7 : None = prim::Constant()\n\
+      %5 : bool = prim::Constant[value=0]()\n\
+      %4 : int = prim::Constant[value=6]()\n\
+      %y : Tensor = aten::to(%x, %4, %5, %5, %7)\n\
+      %z : Tensor = hpu::prod_dim_Int(%y, %dim, %keepdim, %7)\n\
+      %a : Tensor = aten::to(%z, %16, %5, %5, %7)\n\
+      return (%a)"},
+    // torch.all(tensor, dim, keepdim) pattern for Lazy
+    {"graph(%a, %dim : int, %keepdim : bool):\n\
+      %b : Tensor = hpu::all_dim(%a, %dim, %keepdim)\n\
+      return (%b)",
+     "graph(%x, %dim : int, %keepdim : bool):\n\
+      %16 : int = prim::Constant[value=11]()\n\
+      %7 : None = prim::Constant()\n\
+      %5 : bool = prim::Constant[value=0]()\n\
+      %4 : int = prim::Constant[value=6]()\n\
+      %y : Tensor = aten::to(%x, %4, %5, %5, %7)\n\
+      %z : Tensor = hpu::prod_dim_Int(%y, %dim, %keepdim, %7)\n\
+      %a : Tensor = aten::to(%z, %16, %5, %5, %7)\n\
+      return (%a)"}};
 
 std::string get_transform_graph_file() {
   if (std::getenv("HABANA_TRANSFORM_GRAPH_FILE")) {

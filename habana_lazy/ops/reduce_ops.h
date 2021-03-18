@@ -133,5 +133,32 @@ class ProdDimInt : public Node {
   }
 };
 
+enum class AllDimIndex { kDimIdx = 1, kKeepdimIdx = 2 };
+class AllDim : public Node {
+ public:
+  AllDim() = delete;
+  AllDim(const Tensor& self, int64_t dim, bool keepdim)
+      : Node(c10::Symbol::fromQualString("hpu::all_dim")) {
+    auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHABANA);
+    auto ir_value = hl_self.GetIrValue();
+    AddInput(ir_value);
+
+    std::vector<at::Tensor> input_pt_vec{self};
+    AddInputPtTensors(input_pt_vec);
+
+    m_meta_data.set(dim, static_cast<size_t>(AllDimIndex::kDimIdx));
+    m_meta_data.set(keepdim, static_cast<size_t>(AllDimIndex::kKeepdimIdx));
+  }
+
+  std::string ToString() const override {
+    std::stringstream ss;
+    ss << Node::ToString()
+       << ", dim=" << m_meta_data.get(static_cast<size_t>(AllDimIndex::kDimIdx))
+       << ", keepdim="
+       << m_meta_data.get(static_cast<size_t>(AllDimIndex::kKeepdimIdx));
+    return ss.str();
+  }
+};
+
 }; // namespace ir
 }; // namespace habana_lazy

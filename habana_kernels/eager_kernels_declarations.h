@@ -82,6 +82,8 @@ Tensor ge_scalar_hpu(const Tensor& self, Scalar other);
 Tensor ge_tensor_hpu(const Tensor& self, const Tensor& other);
 Tensor ne_scalar_hpu(const Tensor& self, Scalar other);
 Tensor ne_tensor_hpu(const Tensor& self, const Tensor& other);
+Tensor all_hpu(const Tensor& self);
+Tensor all_dim_hpu(const Tensor& self, int64_t dim, bool keepdim);
 Tensor gt_tensor_hpu(const Tensor& self, const Tensor& other);
 Tensor gt_scalar_hpu(const Tensor& self, Scalar other);
 Tensor& eq_tensor_out_hpu(

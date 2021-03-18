@@ -1143,6 +1143,55 @@ Tensor ne_tensor_hpu_lazy(const Tensor& self, const Tensor& other) {
   return result;
 };
 
+Tensor all_hpu_lazy(const Tensor& self) {
+  PT_LAZY_TRACE;
+  auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
+  auto node = habana_lazy::ir::Node::Create(
+      Symbol::fromQualString("aten::all"), {hl_self.GetIrValue()});
+
+  // Output of torch.all is single dimension
+  std::vector<int64_t> shape_out{1};
+  auto result = at::native::empty_hpu_lazy(
+      shape_out,
+      self.options().dtype(c10::ScalarType::Bool),
+      self.suggest_memory_format(),
+      false);
+  auto hl_result = habana_lazy::GetHbLazyTensor(result);
+  habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+  std::vector<at::Tensor> input_pt_vec{self};
+  node->AddInputPtTensors(input_pt_vec);
+  return result;
+};
+
+Tensor all_dim_hpu_lazy(const Tensor& self, int64_t dim, bool keepdim) {
+  PT_LAZY_TRACE;
+  auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
+  habana_lazy::ir::NodePtr node =
+      std::make_shared<habana_lazy::ir::AllDim>(self, dim, keepdim);
+
+  // Infer Output shape
+  auto shape_out = self.sizes().vec();
+  if (keepdim == true) {
+    shape_out[dim] = 1;
+  } else {
+    shape_out.erase(shape_out.begin() + dim);
+  }
+  auto result = at::native::empty_hpu_lazy(
+      shape_out,
+      self.options().dtype(c10::ScalarType::Bool),
+      self.suggest_memory_format(),
+      false);
+  auto hl_result = habana_lazy::GetHbLazyTensor(result);
+  habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+  std::vector<at::Tensor> input_pt_vec{self};
+  node->AddInputPtTensors(input_pt_vec);
+  return result;
+};
+
 Tensor lt_scalar_hpu_lazy(const Tensor& self, Scalar other) {
   PT_LAZY_TRACE;
   auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);

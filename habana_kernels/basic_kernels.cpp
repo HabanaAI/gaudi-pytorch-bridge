@@ -276,6 +276,10 @@ void ToDtypeOperator::AllocateAndAddSynapseNode(
        self.dtype() == c10::ScalarType::Char) &&
       type == c10::ScalarType::BFloat16) {
     node_type = "cast_i8_to_bf16";
+  } else if (
+      self.dtype() == c10::ScalarType::Float &&
+      (type == c10::ScalarType::Bool || type == c10::ScalarType::Char)) {
+    node_type = "cast_f32_to_i8";
   } else if (self.dtype() == type) {
     // Cases where a simple copy is being done (input_new = input) come as .to
     // call with same input & output data types. we add a identity node to

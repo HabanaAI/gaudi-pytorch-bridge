@@ -14,6 +14,7 @@
 #include <functional>
 #include <string>
 #include <vector>
+#include "habana_helpers/tensor_utils.h"
 
 namespace habana_helpers {
 
@@ -52,37 +53,7 @@ struct RecipeSignature {
     // are different, need to do this.
     hash_ = at::hash_combine(hash_, in_place);
     hash_ = at::hash_combine(hash_, outOp);
-    for (unsigned i = 0; i < num_inputs; i++) {
-      if (!inputs[i].isTensor()) {
-        if (inputs[i].isInt()) {
-          int val = inputs[i].toInt();
-          std::hash<int> valhash;
-          hash_ = at::hash_combine(hash_, valhash(val));
-        } else if (inputs[i].isBool()) {
-          bool val = inputs[i].toBool();
-          hash_ = at::hash_combine(hash_, val);
-        } else if (inputs[i].isDouble()) {
-          double val = inputs[i].toDouble();
-          std::hash<double> valhash;
-          hash_ = at::hash_combine(hash_, valhash(val));
-        } else if (inputs[i].isList()) {
-          auto vlist = inputs[i].toListRef();
-          for (auto& v : vlist) {
-            if (v.isInt()) {
-              int val = v.toInt();
-              std::hash<int> valhash;
-              hash_ = at::hash_combine(hash_, valhash(val));
-            } else if (v.isBool()) {
-              hash_ = at::hash_combine(hash_, v.toBool());
-            } else if (v.isDouble()) {
-              double val = v.toDouble();
-              std::hash<double> valhash;
-              hash_ = at::hash_combine(hash_, valhash(val));
-            }
-          }
-        }
-      }
-    }
+    hash_ = hash_combine_scalars(hash_, inputs);
   }
 
   bool operator==(const RecipeSignature& rv) const {

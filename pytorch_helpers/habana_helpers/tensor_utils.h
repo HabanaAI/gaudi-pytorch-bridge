@@ -195,4 +195,7 @@ void change_tensor_strides(
 
 c10::MemoryFormat get_memory_format(std::vector<const at::Tensor*> pt_inputs);
 
+size_t hash_combine_scalars(
+    size_t hash_code,
+    at::ArrayRef<torch::jit::IValue> input_refs);
 } // namespace habana_helpers
