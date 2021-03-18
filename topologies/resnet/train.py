@@ -390,7 +390,8 @@ def main(args):
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
 
     criterion = nn.CrossEntropyLoss()
-    if args.run_lazy_mode:
+    # FusedSGD disabled
+    if False and args.run_lazy_mode:
         from hb_custom import FusedSGD
         import hb_torch
         hb_torch.enable_eliminate_common_subexpression(False)
