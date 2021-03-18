@@ -119,13 +119,13 @@ add_custom_command(OUTPUT ${CMAKE_SOURCE_DIR}/habana_kernels/aten_hpu_type_defau
                    COMMAND python ${CMAKE_SOURCE_DIR}/scripts/gen.py --gen_class_mode
                      --output_folder=${CMAKE_SOURCE_DIR}/habana_kernels
                      ${CMAKE_SOURCE_DIR}/habana_kernels/wrap_kernels_declarations.h
-                     ${CMAKE_PREFIX_PATH}/include/torch/csrc/autograd/generated/RegistrationDeclarations.h
-                     ${CMAKE_PREFIX_PATH}/include/ATen/Functions.h
+                     ${TORCH_INSTALL_PREFIX}/include/torch/csrc/autograd/generated/RegistrationDeclarations.h
+                     ${TORCH_INSTALL_PREFIX}/include/ATen/Functions.h
                    MAIN_DEPENDENCY scripts/gen.py
                    DEPENDS
                      ${CMAKE_SOURCE_DIR}/habana_kernels/wrap_kernels_declarations.h
-                     ${CMAKE_PREFIX_PATH}/include/torch/csrc/autograd/generated/RegistrationDeclarations.h
-                     ${CMAKE_PREFIX_PATH}/include/ATen/Functions.h
+                     ${TORCH_INSTALL_PREFIX}/include/torch/csrc/autograd/generated/RegistrationDeclarations.h
+                     ${TORCH_INSTALL_PREFIX}/include/ATen/Functions.h
 )
 
 # Create symlink to latest build from tests dir
