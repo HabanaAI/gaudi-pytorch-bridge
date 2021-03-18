@@ -434,7 +434,8 @@ def main(args):
 
     if args.distributed:
         if args.device == 'habana':
-            model = torch.nn.parallel.DistributedDataParallel(model, bucket_cap_mb=100, broadcast_buffers=False)
+            model = torch.nn.parallel.DistributedDataParallel(model, bucket_cap_mb=100, broadcast_buffers=False,
+                    first_bucket_cap_mb=100)
         else:
             model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
         model_without_ddp = model.module
