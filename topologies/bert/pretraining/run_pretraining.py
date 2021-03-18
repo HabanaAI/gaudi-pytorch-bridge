@@ -816,7 +816,7 @@ def main():
                     else:
                         loss.backward()
                     average_loss += loss.item()
-                    tp_probe_tensors_iteration_end(model, device, prediction_scores, loss.item(), trainMetaData.ParamsDump, False, 0) #local rank
+                    tp_probe_tensors_iteration_end(model, device, loss, loss.item(), trainMetaData.ParamsDump, False, 0) #local rank
 
                     if training_steps % args.gradient_accumulation_steps == 0:
                         lr_scheduler.step()  # learning rate warmup
