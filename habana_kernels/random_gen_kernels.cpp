@@ -118,7 +118,7 @@ Tensor& uniform_hpu(
   TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
 
   PT_KERNEL_END;
-  return out.at(0);
+  return self;
 }
 
 void NormalOperator::AllocateAndAddSynapseNode(
@@ -205,7 +205,7 @@ Tensor& normal_hpu(
   TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
 
   PT_KERNEL_END;
-  return out.at(0);
+  return self; // out.at(0);
 }
 
 void BernoulliOperator::AllocateAndAddSynapseNode(
