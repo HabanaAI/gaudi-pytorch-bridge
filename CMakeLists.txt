@@ -114,7 +114,6 @@ target_link_libraries(hb_torch PRIVATE "${TORCH_LIBRARIES}" habana_pytorch_plugi
 target_include_directories(hb_torch PRIVATE ${CMAKE_SOURCE_DIR})
 target_compile_features(hb_torch PRIVATE cxx_std_14)
 
-execute_process(COMMAND python -m pip install --user lark) # TODO remove after https://gerrit.habana-labs.com/79493 is merged
 add_custom_command(OUTPUT ${CMAKE_SOURCE_DIR}/habana_kernels/aten_hpu_type_default.cpp
                    COMMAND python ${CMAKE_SOURCE_DIR}/scripts/gen.py --gen_class_mode
                      --output_folder=${CMAKE_SOURCE_DIR}/habana_kernels
