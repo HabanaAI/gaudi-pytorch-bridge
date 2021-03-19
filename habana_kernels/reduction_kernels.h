@@ -11,10 +11,8 @@
 #include "habana_kernels/habana_operator.h"
 using namespace habana;
 
-/**
- * Base class for reduce operators such as Mean, Sum etc.
- * Should never be instantiated directly.
- */
+//
+// Reduce Operator
 class ReduceOperator : public HabanaOperator {
  public:
   ReduceOperator(int device_id, const std::string& guid)
@@ -31,33 +29,6 @@ class ReduceOperator : public HabanaOperator {
       bool is_output_persistent = false) override;
 
   virtual void SetPTOutputs(torch::jit::Stack& inputs);
-
- private:
-  /**
-   * @brief This function wraps any negative dims in the input dims List
-   * to a positive value within valid range. Also sorts inputs dims in
-   * ascending order.
-   */
-  void sort_dims(
-      c10::List<int64_t>& in_dim,
-      int64_t dim,
-      int64_t dims_to_reduce);
-
-  /**
-   * @brief This function creates a graph with 1 or more reduction nodes
-   * (according to dims provided in "in_dim"). This is done because TPC
-   * reduction kernels can reduce along only 1 dim at a time.Additionally
-   * a reshape node maybe added as the last node to remove reduced dims
-   * in keepdim = False case.
-   */
-  std::tuple<synapse_helpers::tensor_or_ref, synapse_helpers::tensor_or_ref>
-  CreateReductionGraph(
-      synapse_helpers::graph& graph,
-      at::Tensor& pyt_tensor,
-      synapse_helpers::tensor_or_ref syn_tensor_in,
-      synapse_helpers::tensor_or_ref syn_tensor_out,
-      c10::IntArrayRef in_dim,
-      bool keepdim);
 };
 
 //

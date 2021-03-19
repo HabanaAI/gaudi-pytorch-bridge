@@ -27,11 +27,12 @@ any_op_dim_list = [
 reduction_dim_list = [
     ([1], True),
     ([1], False),
+    ([2], True),
+    ([2], False),
     ([1, 2, 0], True),
     ([1, 2, 0], False),
     ([2, 0], True),
     ([1, 0, 3], True),
-    ([1, 0, 3], False)
 ]
 
 reduction_dim_int_list = [
