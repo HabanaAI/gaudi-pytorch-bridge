@@ -432,6 +432,11 @@ Tensor prod_dim_hpu_lazy(
     bool keepdim,
     c10::optional<ScalarType> dtype);
 Tensor prod_hpu_lazy(const Tensor& self, c10::optional<ScalarType> dtype);
+std::tuple<at::Tensor, at::Tensor> max_dim_hpu_lazy(
+    const at::Tensor& self,
+    int64_t dim,
+    bool keepdim);
+at::Tensor max_hpu_lazy(const at::Tensor& self);
 Tensor& any_dim_out_hpu_lazy(
     Tensor& output,
     const Tensor& self,

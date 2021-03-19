@@ -22,6 +22,7 @@
 #include "habana_kernels/loss_kernels.h"
 #include "habana_kernels/norm_kernels.h"
 #include "habana_kernels/pool_kernels.h"
+#include "habana_kernels/reduction2_kernels.h"
 #include "habana_kernels/resize.h"
 #include "habana_kernels/tensor_shape_kernels.h"
 #include "habana_kernels/upsample_kernels.h"
@@ -4259,3 +4260,58 @@ Tensor& bitwise_and_out_hpu_lazy(
   static_cast<void>(self);
   static_cast<void>(other);
 };
+
+std::tuple<at::Tensor, at::Tensor> max_dim_hpu_lazy(
+    const at::Tensor& self,
+    int64_t dim,
+    bool keepdim) {
+  PT_LAZY_TRACE;
+  habana_lazy::ir::NodePtr node =
+      std::make_shared<habana_lazy::ir::MaxDim>(self, dim, keepdim);
+
+  // Infer Output shape
+  auto shape_out =
+      pt_habana_ops::MaxDimOperator::compute_output_shape(self, dim, keepdim);
+
+  auto result = at::native::empty_hpu_lazy(
+      shape_out, self.options(), self.suggest_memory_format(), false);
+  auto index = at::native::empty_hpu_lazy(
+      shape_out,
+      self.options().dtype(c10::ScalarType::Int),
+      self.suggest_memory_format(),
+      false);
+  auto hl_result1 = habana_lazy::GetHbLazyTensor(result);
+  auto hl_result2 = habana_lazy::GetHbLazyTensor(index);
+  habana_lazy::ir::Value& out1 = hl_result1.CurrentIrValue();
+  habana_lazy::ir::Value& out2 = hl_result2.CurrentIrValue();
+  out1.m_index = 0;
+  out1.SetNode(node);
+  out2.m_index = 1;
+  out2.SetNode(node);
+  updateDstDependencies(hl_result1, result);
+  updateDstDependencies(hl_result2, index);
+  return std::make_tuple(result, index);
+}
+
+at::Tensor max_hpu_lazy(const at::Tensor& self) {
+  PT_LAZY_TRACE;
+  auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
+
+  auto node = habana_lazy::ir::Node::Create(
+      Symbol::fromQualString("aten::max"), {hl_self.GetIrValue()});
+
+  std::vector<at::Tensor> input_pt_vec{self};
+  node->AddInputPtTensors(input_pt_vec);
+
+  // Infer Output shape
+  auto shape_out = pt_habana_ops::MaxOperator::compute_output_shape();
+
+  auto result = at::native::empty_hpu_lazy(
+      shape_out, self.options(), self.suggest_memory_format(), false);
+  auto hl_result = habana_lazy::GetHbLazyTensor(result);
+  habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+  updateDstDependencies(hl_result, result);
+  return result;
+}

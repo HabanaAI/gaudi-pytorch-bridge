@@ -160,5 +160,32 @@ class AllDim : public Node {
   }
 };
 
+enum class MaxDimIndex { kDimIdx = 1, kKeepdimIdx = 2 };
+class MaxDim : public Node {
+ public:
+  MaxDim() = delete;
+  MaxDim(const Tensor& self, int64_t dim, bool keepdim)
+      : Node(c10::Symbol::fromQualString("hpu::max_dim")) {
+    auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHABANA);
+    auto ir_value = hl_self.GetIrValue();
+    AddInput(ir_value);
+
+    std::vector<at::Tensor> input_pt_vec{self};
+    AddInputPtTensors(input_pt_vec);
+
+    m_meta_data.set(dim, static_cast<size_t>(ProdDimIntIndex::kDimIdx));
+    m_meta_data.set(keepdim, static_cast<size_t>(ProdDimIntIndex::kKeepdimIdx));
+  }
+
+  std::string ToString() const override {
+    std::stringstream ss;
+    ss << Node::ToString() << ", dim="
+       << m_meta_data.get(static_cast<size_t>(ProdDimIntIndex::kDimIdx))
+       << ", keepdim="
+       << m_meta_data.get(static_cast<size_t>(ProdDimIntIndex::kKeepdimIdx));
+    return ss.str();
+  }
+};
+
 }; // namespace ir
 }; // namespace habana_lazy

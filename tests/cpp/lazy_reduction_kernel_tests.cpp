@@ -93,3 +93,23 @@ TEST_F(LazyReductionKernelTest, AllDimTensorTest) {
       true);
   exec::OptPassCfg::GetInstance()->enable_subgraph_rewrite = false;
 }
+
+TEST_F(LazyReductionKernelTest, MaxDimTest) {
+  torch::Tensor A = torch::randn({2, 2}, torch::requires_grad(false));
+  torch::Tensor hA = A.to(torch::kHABANA);
+  torch::Tensor hOut, hIndex, Out, Index;
+  std::tie(hOut, hIndex) = torch::max(hA, 1);
+  std::tie(Out, Index) = torch::max(A, 1);
+
+  EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out), true);
+  EXPECT_EQ(allclose(hIndex.to(torch::kCPU).to(torch::kLong), Index), true);
+}
+
+TEST_F(LazyReductionKernelTest, MaxTest) {
+  torch::Tensor A = torch::randn({2, 3, 4}, torch::requires_grad(false));
+  torch::Tensor hA = A.to(torch::kHABANA);
+  auto hOut = torch::max(hA);
+  auto Out = torch::max(A);
+
+  EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out), true);
+}

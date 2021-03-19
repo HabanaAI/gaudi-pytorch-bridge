@@ -463,6 +463,11 @@ struct hpu_wrap {
       int64_t dim,
       bool keepdim,
       c10::optional<at::ScalarType> dtype);
+  static std::tuple<at::Tensor, at::Tensor> max(
+      const at::Tensor& self,
+      int64_t dim,
+      bool keepdim);
+  static at::Tensor max(const at::Tensor& self);
   static at::Tensor& any_out(
       at::Tensor& output,
       const at::Tensor& self,

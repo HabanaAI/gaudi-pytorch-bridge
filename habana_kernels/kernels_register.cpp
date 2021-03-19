@@ -1475,6 +1475,23 @@ Tensor hpu_wrap::prod(
     return prod_dim_hpu(self, dim, keepdim, dtype);
   }
 };
+std::tuple<at::Tensor, at::Tensor> hpu_wrap::max(
+    const at::Tensor& self,
+    int64_t dim,
+    bool keepdim) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    return max_dim_hpu_lazy(self, dim, keepdim);
+  } else {
+    return max_dim_hpu(self, dim, keepdim);
+  }
+};
+at::Tensor hpu_wrap::max(const at::Tensor& self) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    return max_hpu_lazy(self);
+  } else {
+    return max_hpu(self);
+  }
+};
 Tensor& hpu_wrap::any_out(
     Tensor& output,
     const Tensor& self,
@@ -2385,6 +2402,8 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "prod_dim_Int(Tensor self, int dim, bool keepdim=False, *, ScalarType? dtype=None) -> Tensor");
   m.def("all_dim(Tensor self, int dim, bool keepdim=False) -> Tensor");
+  m.def(
+      "max_dim(Tensor self, int dim, bool keepdim=False) -> (Tensor values, Tensor indices)");
   m.def("habana_d2d_memcpy(Tensor self) -> (Tensor)");
   m.def(
       "habanaOptimizerSparseSgd(Tensor gradients, Tensor weights_in, Tensor moments_in, Tensor indices, Tensor learning_rate, Tensor valid_count_tensor, float mom, bool nesterov) -> (Tensor, Tensor)");
@@ -2433,4 +2452,8 @@ TORCH_LIBRARY_IMPL(hpu, HABANATensorId, m) {
       static_cast<
           at::Tensor& (*)(at::Tensor&, const at::Tensor&, const at::Tensor&)>(
           &hpu_wrap::bitwise_and_out));
+  m.impl(
+      "max_dim",
+      static_cast<std::tuple<at::Tensor, at::Tensor> (*)(
+          const at::Tensor&, int64_t, bool)>(&hpu_wrap::max));
 }
