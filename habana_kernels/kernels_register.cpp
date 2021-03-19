@@ -2295,6 +2295,7 @@ Tensor& graph_connect_for_registration_only(Tensor& out, const Tensor& self) {
 // found in habana_kernels/aten_hpu_type_default.cpp.
 
 TORCH_LIBRARY(hpu, m) {
+  m.def("mul_out(Tensor out, Tensor self, Tensor other) -> Tensor");
   m.def("mm_t(Tensor mm, Tensor t , bool tr, bool no_tr) -> Tensor");
   m.def("habana_d2d_memcpy_other(Tensor s, Tensor d) -> Tensor");
   m.def(

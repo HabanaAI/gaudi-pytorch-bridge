@@ -919,21 +919,26 @@ Tensor& mul_out_hpu_lazy(
     const Tensor& self,
     const Tensor& other) {
   PT_LAZY_TRACE;
-  auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
-  auto hl_other = habana_lazy::GetOrCreateHbLazyTensor(other, c10::kHABANA);
-
-  auto node = habana_lazy::ir::Node::Create(
-      Symbol::fromQualString("aten::mul"),
-      {hl_self.GetIrValue(), hl_other.GetIrValue()});
-
+  Tensor hpu_other = other;
   auto hlresult = habana_lazy::GetHbLazyTensor(result);
+  auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
+  updateDstDependencies(hlresult, result, true);
+  if (other.device().type() == c10::DeviceType::CPU) {
+    hpu_other = other.to(torch::kHABANA, true);
+  }
+  auto hl_other = habana_lazy::GetOrCreateHbLazyTensor(hpu_other, c10::kHABANA);
+  auto node = habana_lazy::ir::Node::Create(
+      Symbol::fromQualString("hpu::mul_out"),
+      {hlresult.GetIrValue(), hl_self.GetIrValue(), hl_other.GetIrValue()});
   habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
   out.m_index = 0;
   out.SetNode(node);
-
-  std::vector<at::Tensor> input_pt_vec{self, other};
+  std::vector<at::Tensor> input_pt_vec{result, self, hpu_other};
   node->AddInputPtTensors(input_pt_vec);
-
+  auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
+      result.device().index());
+  context->MarkTensorStatus(
+      hlresult.getTensorUniqueId(), LazyTensorExecutionStatus::kREGISTERED);
   return result;
 }
 Tensor mul_scalar_hpu_lazy(const Tensor& self, Scalar other) {

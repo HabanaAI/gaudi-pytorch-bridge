@@ -74,10 +74,8 @@ TEST_F(LazyBinaryKernelTest, AddInplaceTest) {
   Tensor out = result.to(kCPU);
 
   EXPECT_EQ(allclose(out, exp), true);
-  unsetenv("PT_HPU_LAZY_MODE");
 }
 TEST_F(LazyBinaryKernelTest, LazyRsubscalarTest) {
-  setenv("PT_HPU_LAZY_MODE", "1", 1);
   torch::Tensor input = torch::ones({10, 10});
 
   auto hinput = input.to(torch::kHABANA);
@@ -86,7 +84,6 @@ TEST_F(LazyBinaryKernelTest, LazyRsubscalarTest) {
 
   auto cout = torch::rsub(input, 8, 2);
   EXPECT_EQ(allclose(hout, cout), true);
-  unsetenv("PT_HPU_LAZY_MODE");
 }
 
 TEST_F(LazyBinaryKernelTest, DivTensorTestWithDivByZero) {
@@ -154,4 +151,47 @@ TEST_F(LazyBinaryKernelTest, DivTensorTestByNonZero) {
   Tensor generated = result.to(kCPU);
 
   EXPECT_EQ(allclose(generated, expected), true);
+}
+
+TEST_F(LazyBinaryKernelTest, MulOutScalar) {
+  torch::Tensor input1 = torch::randn({2, 2});
+  int divFactor_ = 2;
+  auto wrapped = c10::scalar_to_tensor(double(1.) / divFactor_);
+  wrapped.unsafeGetTensorImpl()->set_wrapped_number(true);
+  torch::Tensor out_cpu = torch::zeros_like(input1);
+  torch::Tensor out_hpu = torch::zeros_like(input1).to(torch::kHABANA);
+  at::mul_out(out_cpu, input1, wrapped);
+  at::mul_out(out_hpu, input1.to(torch::kHABANA), wrapped);
+  bool equal = out_cpu.allclose(out_hpu.to(torch::kCPU), 0, 0);
+  EXPECT_EQ(equal, true);
+}
+
+TEST_F(LazyBinaryKernelTest, MulOut) {
+  torch::Tensor input1 = torch::randn({2, 2});
+  torch::Tensor input2 = torch::randn({2, 2});
+  torch::Tensor out_cpu = torch::zeros_like(input1);
+  torch::Tensor out_hpu = torch::zeros_like(input1).to(torch::kHABANA);
+  at::mul_out(out_cpu, input1, input2);
+  at::mul_out(out_hpu, input1.to(torch::kHABANA), input2.to(torch::kHABANA));
+  bool equal = out_cpu.allclose(out_hpu.to(torch::kCPU), 0, 0);
+  EXPECT_EQ(equal, true);
+}
+
+TEST_F(LazyBinaryKernelTest, MulOutNarrow) {
+  torch::Tensor input1 =
+      torch::arange(6, torch::dtype(torch::kFloat)).reshape({2, 3});
+  torch::Tensor input2 =
+      torch::arange(6, torch::dtype(torch::kFloat)).reshape({2, 3});
+
+  torch::Tensor A =
+      torch::arange(6, torch::dtype(torch::kFloat)).reshape({2, 3});
+  torch::Tensor hA = A.to(torch::kHABANA);
+  Tensor out_cpu = A.as_strided({2, 3}, input2.strides(), 0);
+  Tensor out_hpu = hA.as_strided({2, 3}, input2.strides(), 0);
+
+  at::mul_out(out_cpu, input1, input2);
+  at::mul_out(out_hpu, input1.to(torch::kHABANA), input2.to(torch::kHABANA));
+  HbLazyTensor::StepMarker({});
+  bool equal = A.allclose(hA.to(torch::kCPU), 0, 0);
+  EXPECT_EQ(equal, true);
 }
