@@ -215,6 +215,7 @@ Tensor& scatter_add_inplace_src_hpu_lazy(
     int64_t dim_,
     const Tensor& index,
     const Tensor& src);
+Tensor index_hpu_lazy(const Tensor& self, TensorList indices);
 Tensor& index_add_hpu_lazy_(
     Tensor& self,
     int64_t dim_,

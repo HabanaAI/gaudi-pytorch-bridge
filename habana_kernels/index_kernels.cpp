@@ -19,6 +19,7 @@
 #include "habana_helpers/graph.h"
 #include "habana_helpers/logging.h"
 #include "habana_helpers/tensor_utils.h"
+#include "habana_kernels/aten_hpu_type_default.h"
 #include "habana_kernels/basic_kernels.h"
 #include "habana_kernels/binary_kernels.h"
 #include "habana_kernels/index_kernels.h"
@@ -1585,6 +1586,226 @@ Tensor& arange_hpu(Tensor& output, Scalar start, Scalar end, Scalar step) {
   return output;
 }
 
+// brodcast index tensor shape and get the correct shape and size
+std::vector<int64_t> broadcast_size(at::TensorList indices) {
+  auto size = indices[0].sizes().vec();
+  for (size_t i = 1; i < indices.size(); i++) {
+    size = infer_size(size, indices[i].sizes());
+  }
+  return size;
+}
+
+// get the first index tensor shape and size
+std::vector<int64_t> indices_size(at::TensorList indices) {
+  auto first_size = broadcast_size(indices);
+
+  int64_t in_tensor_count = indices.size(); // num input tensors
+
+  std::vector<int64_t> out_size{in_tensor_count};
+  out_size.insert(out_size.end(), first_size.begin(), first_size.end());
+
+  return out_size;
+}
+// index is implemented using mxnet_gatherNd, refer below for output shape
+// computation
+// ref:https://github.com/apache/incubator-mxnet/blob/master/src/operator/tensor/indexing_op.h#L1319
+std::vector<int64_t> IndexOperator::compute_output_shape(
+    const Tensor& input,
+    at::TensorList indices) {
+  auto input_shape = input.sizes();
+  auto indices_shape = indices_size(indices);
+
+  auto output_rank = static_cast<int64_t>(
+      indices_shape.size() + input.ndimension() - indices_shape[0] - 1);
+
+  std::vector<int64_t> output_shape(output_rank, -1);
+
+  for (size_t i = 0; i < indices_shape.size() - 1; i++) {
+    output_shape[i] = indices_shape[i + 1];
+  }
+
+  for (int64_t i = 0;
+       i < static_cast<int64_t>(input.ndimension() - indices_shape[0]);
+       i++) {
+    output_shape[indices_shape.size() - 1 + i] =
+        input_shape[indices_shape[0] + i];
+  }
+  return output_shape;
+}
+
+void IndexOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 2,
+      "Incorrect size of inputs expected for gather2d operator");
+  TORCH_CHECK(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
+  TORCH_CHECK(
+      inputs[1].isTensorList(),
+      "Input 1 type expected to be TensorList for [] operator");
+
+  auto input = inputs[0].toTensor();
+  auto tensorlist = inputs[1].toTensorList().vec();
+
+  auto max_size = broadcast_size(tensorlist);
+  auto device_id = this->p_context_->device_id_;
+  auto scalar_type = tensorlist[0].scalar_type();
+
+  std::vector<Tensor> cat_input;
+  CatOperator cat_indices(device_id, scalar_type);
+
+  for (size_t i = 0; i < tensorlist.size(); i++) {
+    // broadcast index tensor to largest index tensor size
+    BroadcastOperator bcastOp(device_id, scalar_type);
+    Stack stack = {IValue(tensorlist[i]), IValue(max_size), IValue(false)};
+    auto& broadcast_syn =
+        bcastOp.SetSynapseInput(std::move(p_context_->syn_inputs_[i + 1]));
+    bcastOp.AllocateAndAddSynapseNode(graph, stack, false);
+    p_context_->syn_inputs_[i + 1] = std::move(broadcast_syn);
+
+    stack.clear();
+
+    std::vector<int64_t> expanded_size{1};
+    for (auto s : bcastOp.GetOutputs()[0].sizes()) {
+      expanded_size.push_back(s);
+    }
+    stack = {IValue(bcastOp.GetOutputs()[0]), IValue(expanded_size)};
+    ReshapeOperator ReshapeOp(device_id, scalar_type);
+    ReshapeOp.SetSynapseInput(std::move(bcastOp.GetSynOutputs()[0]));
+    ReshapeOp.AllocateAndAddSynapseNode(graph, stack, false);
+
+    cat_input.emplace_back(ReshapeOp.GetOutputs()[0]);
+    cat_indices.SetSynapseInput(std::move(ReshapeOp.GetSynOutputs()[0]));
+  }
+  // index is implemented using mxnet_gatherNd, where indices needs to be
+  // single tensor, wherease we get tensorlist. so we stack the tensors
+  // from tensorlist by reshape followed by cat
+
+  Stack stack = {IValue(cat_input), IValue(0)};
+  cat_indices.AllocateAndAddSynapseNode(graph, stack, false);
+
+  auto shape = compute_output_shape(input, tensorlist);
+
+  auto output = habana_helpers::createPTTensor(
+      input,
+      IntArrayRef(shape.data(), shape.size()),
+      input.options(),
+      input.suggest_memory_format(),
+      is_output_persistent);
+
+  AllocateSynapseOutput(graph, output, is_output_persistent);
+
+  synapse_helpers::tensor& arg1_syn_tensor = p_context_->syn_inputs_[0];
+  synapse_helpers::tensor& arg2_syn_tensor =
+      std::move(cat_indices.GetSynOutputs()[0]);
+
+  std::vector<synTensor> syn_inputs;
+  syn_inputs.emplace_back(arg1_syn_tensor.get());
+  syn_inputs.emplace_back(arg2_syn_tensor.get());
+
+  synapse_helpers::tensor& output_syn_tensor = p_context_->syn_outputs_[0];
+  std::vector<synTensor> syn_outputs{output_syn_tensor.get()};
+
+  graph.add_node(
+      std::move(syn_inputs),
+      std::move(syn_outputs),
+      nullptr,
+      0,
+      std::move(guid_));
+}
+
+/*************************************************************************
+ * @brief Kernel implementation for index
+ * @param input - Input tensor 2D fp32
+ * @param indices - TensorList for indices
+ ************************************************************************/
+Tensor index_hpu(const Tensor& input, TensorList indices) {
+  PT_KERNEL_BEGIN;
+
+  // fallback to cpu for boolean indexing
+  if (indices[0].scalar_type() == c10::ScalarType::Bool) {
+    return AtenHpuTypeDefault::index(input, indices);
+  }
+
+  // cast input to fp32 int32 not supported yet
+  Tensor input_cast;
+  if (input.scalar_type() == c10::ScalarType::Long ||
+      input.scalar_type() == c10::ScalarType::Int) {
+    auto input_i32 = habana_helpers::cast_tensor_to_integer(input);
+    input_cast = habana_helpers::hpu_cast_tensor(
+        input_i32, at::scalarTypeToTypeMeta(c10::ScalarType::Float));
+  } else {
+    input_cast = input;
+  }
+  at::ScalarType scalar_type = input_cast.scalar_type();
+  std::string node_type = "gather_nd_mxnet_fwd_" +
+      habana_helpers::name_suffix_from_type(scalar_type);
+
+  size_t device_id = input_cast.device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+
+  IndexOperator Op(device_id, scalar_type);
+
+  std::vector<at::Tensor> pt_inputs{input_cast};
+
+  std::vector<at::Tensor> indices_cast;
+
+  for (const auto& t : indices) {
+    if (t.scalar_type() == c10::ScalarType::Long) {
+      indices_cast.emplace_back(habana_helpers::cast_tensor_to_integer(t));
+    } else {
+      indices_cast.emplace_back(t);
+    }
+  }
+
+  pt_inputs.insert(pt_inputs.end(), indices_cast.begin(), indices_cast.end());
+  TensorList new_indices_list{indices_cast};
+  // Build Params for the graph
+  std::vector<c10::IValue> stack = {
+      IValue(input_cast), IValue(new_indices_list)};
+
+  size_t key = Op.GetRecipeKey(node_type, stack);
+
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    Op.SetPTInputs(pt_inputs);
+    auto shape =
+        IndexOperator::compute_output_shape(input_cast, new_indices_list);
+    auto output = habana_helpers::createPTTensor(
+        input_cast,
+        IntArrayRef(shape.data(), shape.size()),
+        input_cast.options(),
+        input_cast.suggest_memory_format(),
+        true);
+    Op.SetPTOutput(output);
+    Op.Execute(key);
+  } else {
+    PT_KERNEL_DEBUG("Key:", key);
+    // Create Graph
+    auto graph = habana_helpers::create_graph(device_id, node_type);
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
+    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    // compile and execute the graph
+    Op.Compile(graph);
+  }
+
+  std::vector<at::Tensor> out = Op.GetOutputs();
+
+  if (input.scalar_type() == c10::ScalarType::Long ||
+      input.scalar_type() == c10::ScalarType::Int) {
+    auto output = habana_helpers::hpu_cast_tensor(
+        out.at(0), at::scalarTypeToTypeMeta(c10::ScalarType::Int));
+    if (input.scalar_type() == c10::ScalarType::Long) {
+      output = habana_helpers::cast_tensor_to_long(output);
+    }
+    PT_KERNEL_END;
+    return output;
+  }
+
+  PT_KERNEL_END;
+  return out.at(0);
+}
 static auto& KernelRegistry =
     ::habana::KernelRegistry()
         .add(
@@ -1643,4 +1864,7 @@ static auto& KernelRegistry =
             "hpu::arange_out",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<ArangeOperator>(device_id, node_type);
-            });
+            })
+        .add("aten::index", [](const int device_id, c10::ScalarType node_type) {
+          return std::make_shared<IndexOperator>(device_id, node_type);
+        });

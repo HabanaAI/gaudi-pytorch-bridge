@@ -225,6 +225,7 @@ Tensor& index_put_hpu_(
     const Tensor& value,
     bool accumulate);
 Tensor index_select_hpu(const Tensor& self, int64_t dim, const Tensor& index);
+Tensor index_hpu(const Tensor& self, TensorList indices);
 Tensor gather2d_hpu(
     const Tensor& input,
     const Tensor& indices,

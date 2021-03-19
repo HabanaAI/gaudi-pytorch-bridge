@@ -244,3 +244,22 @@ class ArangeOperator : public HabanaOperator {
 
   void SetPTOutputs(torch::jit::Stack& inputs) override;
 };
+
+class IndexOperator : public HabanaOperator {
+ public:
+  IndexOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator(
+            "gather_nd_mxnet_fwd_" +
+            habana_helpers::name_suffix_from_type(scalarType)) {
+    this->CreateSynContext(device_id);
+  }
+
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+
+  static std::vector<int64_t> compute_output_shape(
+      const Tensor& input,
+      at::TensorList indices);
+};

@@ -1,3 +1,4 @@
+#include <ATen/ExpandUtils.h>
 #include <gtest/gtest.h>
 #include <torch/torch.h>
 #include <stdexcept>
@@ -525,3 +526,37 @@ TEST(EagerKernelTest, LambOptPh1Test) {
     EXPECT_EQ(equal, true);
   }
 }
+
+TEST(EagerKernelTest, IndexTest) {
+  torch::Tensor input_cpu = torch::arange(4).reshape({2, 2});
+  torch::Tensor input_hpu = input_cpu.to(torch::kHABANA);
+
+  std::vector<torch::Tensor> vec_cpu{torch::tensor({{0, 1}, {0, 1}})};
+  std::vector<torch::Tensor> vec_hpu;
+  for (auto t : vec_cpu) {
+    vec_hpu.push_back(t.to(torch::kHABANA));
+  }
+
+  auto out_cpu = at::index(input_cpu, vec_cpu);
+  auto out_hpu = at::index(input_hpu, vec_hpu);
+
+  bool equal = out_cpu.allclose(out_hpu.to(torch::kCPU), 0.001, 0.001);
+  EXPECT_EQ(equal, true);
+};
+
+TEST(EagerKernelTest, BroadCastIndexTest) {
+  torch::Tensor input_cpu = torch::arange(4).reshape({2, 2});
+  torch::Tensor input_hpu = input_cpu.to(torch::kHABANA);
+
+  std::vector<torch::Tensor> vec_cpu{torch::tensor({1}), torch::tensor({0, 1})};
+  std::vector<torch::Tensor> vec_hpu;
+  for (auto t : vec_cpu) {
+    vec_hpu.push_back(t.to(torch::kHABANA));
+  }
+
+  auto out_cpu = at::index(input_cpu, vec_cpu);
+  auto out_hpu = at::index(input_hpu, vec_hpu);
+
+  bool equal = out_cpu.allclose(out_hpu.to(torch::kCPU), 0.001, 0.001);
+  EXPECT_EQ(equal, true);
+};

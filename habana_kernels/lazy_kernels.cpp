@@ -2067,6 +2067,16 @@ Tensor& scatter_add_inplace_src_hpu_lazy(
   HABANA_ASSERT(0);
   return scatter_add_inplace_src_hpu(self, dim_, index, src);
 };
+
+Tensor index_hpu_lazy(const at::Tensor& self, at::TensorList indices) {
+  PT_LAZY_TRACE;
+  LazyOp<at::Tensor> k{
+      "aten::index",
+      {self, indices},
+      {},
+      {IndexOperator::compute_output_shape(self, indices)}};
+  return k.call();
+}
 Tensor& index_add_hpu_lazy_(
     Tensor& self,
     int64_t dim_,

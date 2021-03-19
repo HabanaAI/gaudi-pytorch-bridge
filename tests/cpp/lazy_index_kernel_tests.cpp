@@ -134,3 +134,21 @@ TEST_F(LazyIndexKernelTest, ArangeIntOutTest) {
   auto a = torch::arange(start, end, step, cpu_options);
   EXPECT_EQ(allclose(h_cout, a), true);
 }
+
+TEST_F(LazyIndexKernelTest, IndexTest) {
+  torch::Tensor input_cpu = torch::arange(9).reshape({3, 3});
+  torch::Tensor input_hpu = input_cpu.to(torch::kFloat).to(torch::kHABANA);
+
+  std::vector<torch::Tensor> vec_cpu{
+      torch::tensor({0, 1}), torch::tensor({0, 1})};
+  std::vector<torch::Tensor> vec_hpu;
+  for (auto t : vec_cpu) {
+    vec_hpu.push_back(t.to(torch::kInt32).to(torch::kHABANA));
+  }
+
+  auto out_cpu = at::index(input_cpu, vec_cpu).to(torch::kFloat);
+  auto out_hpu = at::index(input_hpu, vec_hpu);
+
+  bool equal = out_cpu.allclose(out_hpu.to(torch::kCPU), 0.001, 0.001);
+  EXPECT_EQ(equal, true);
+};

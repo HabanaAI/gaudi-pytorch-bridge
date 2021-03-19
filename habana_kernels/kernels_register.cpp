@@ -961,6 +961,15 @@ Tensor& hpu_wrap::index_put_(
     return index_put_hpu_(self, indices, value, accumulate);
   }
 };
+Tensor hpu_wrap::index(const at::Tensor& self, at::TensorList indices) {
+  hpu_check_inputs("index", {self, indices[0]});
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    return index_hpu_lazy(self, indices);
+  } else {
+    return index_hpu(self, indices);
+  }
+};
+
 Tensor hpu_wrap::index_select(
     const Tensor& self,
     int64_t dim,
