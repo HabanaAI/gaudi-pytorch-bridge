@@ -264,9 +264,6 @@ class PTFuncLog {
 #define PT_FALLBACK_TRACE \
   PT_MOD_TRACE(           \
       PtLogger::ModuleMask::FALLBACK, __PRETTY_FUNCTION__, __FUNCTION__)
-#define PT_SYNHELPER_TRACE \
-  PT_MOD_TRACE(            \
-      PtLogger::ModuleMask::SYNHELPER, __PRETTY_FUNCTION__, __FUNCTION__)
 
 /************************DEBUG MACROS************************************/
 #define PT_MOD_DEBUG(MOD, ...)                             \
