@@ -63,8 +63,8 @@ struct HabanaGraphFuser {
       return true;
     }
 
-    // Looking up the Op to see if it is whitelisted
-    return HabanaWhiteList::is_op_habana_whitelisted(node);
+    // Looking up the Op to see if it is in fusion list
+    return HabanaFusionList::is_op_in_habana_fusion_list(node);
   }
 
   std::shared_ptr<Graph> getSubgraph(Node* n) {
@@ -406,7 +406,7 @@ struct HabanaGraphFuser {
 void HabanaFuseGraph(std::shared_ptr<torch::jit::Graph>& graph) {
   PT_BRIDGE_BEGIN;
   // First call HPU graph fuser to fuse ops for HPU
-  HabanaWhiteList::load_whitelisted_ops();
+  HabanaFusionList::load_fusion_ops();
   torch::jit::Symbol kind = getHabanaFusedOpSymbol();
   auto g = habana::HabanaGraphFuser(graph->block(), graph, kind);
   g.run();

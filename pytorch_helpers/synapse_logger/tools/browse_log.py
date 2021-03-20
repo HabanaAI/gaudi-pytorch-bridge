@@ -795,7 +795,7 @@ class Log:
             tss |= set([ e["end_ts"] for e in graph.events() if "end_ts" in e ])
             return tss
 
-        whitelist = set([
+        test_op_list = set([
             "synStreamCreate",
             "synStreamDestroy",
             # "synStreamSynchronize",
@@ -816,7 +816,7 @@ class Log:
             entry = elem[1]
             if entry["ts"] in selected_tss:
                 return True
-            if "func" in entry and entry["func"].name in whitelist:
+            if "func" in entry and entry["func"].name in test_op_list:
                 return True
             return False
 

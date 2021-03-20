@@ -16,18 +16,18 @@
 #include <unordered_set>
 #include "habana_helpers/logging.h"
 
-class HabanaWhiteList {
+class HabanaFusionList {
  private:
-  static std::unordered_set<std::string> HabanaWhiteListOps;
+  static std::unordered_set<std::string> HabanaFusionListOps;
 
  public:
-  static bool is_op_habana_whitelisted(torch::jit::Node* node);
-  static void load_whitelisted_ops();
+  static bool is_op_in_habana_fusion_list(torch::jit::Node* node);
+  static void load_fusion_ops();
 };
 
-std::unordered_set<std::string> HabanaWhiteList::HabanaWhiteListOps = {};
+std::unordered_set<std::string> HabanaFusionList::HabanaFusionListOps = {};
 
-bool HabanaWhiteList::is_op_habana_whitelisted(torch::jit::Node* node) {
+bool HabanaFusionList::is_op_in_habana_fusion_list(torch::jit::Node* node) {
   // This section of code is required for prim::Constant handling
   // Since we do not support any other nodes other than prim::Constant
   // We have to ensure that we return true only for prim::Constant node
@@ -47,7 +47,8 @@ bool HabanaWhiteList::is_op_habana_whitelisted(torch::jit::Node* node) {
     if (node->kind().is_aten()) {
       auto schema = node->getOperator().schema();
       std::string schema_string = torch::jit::canonicalSchemaString(schema);
-      if (HabanaWhiteListOps.find(schema_string) != HabanaWhiteListOps.end()) {
+      if (HabanaFusionListOps.find(schema_string) !=
+          HabanaFusionListOps.end()) {
         return true;
       } else {
         return false;
@@ -58,27 +59,28 @@ bool HabanaWhiteList::is_op_habana_whitelisted(torch::jit::Node* node) {
   return false;
 }
 
-void HabanaWhiteList::load_whitelisted_ops() {
+void HabanaFusionList::load_fusion_ops() {
   if (std::getenv("HABANA_GRAPH_FUSION_OPS_FILE")) {
-    const char* wl_filename = std::getenv("HABANA_GRAPH_FUSION_OPS_FILE");
-    std::string wl_file =
-        (wl_filename == NULL) ? std::string() : std::string(wl_filename);
+    const char* fusion_filename = std::getenv("HABANA_GRAPH_FUSION_OPS_FILE");
+    std::string fusion_file = (fusion_filename == NULL)
+        ? std::string()
+        : std::string(fusion_filename);
 
-    if (!wl_file.empty()) {
-      std::ifstream whiteListFile(wl_file);
-      if (!whiteListFile.is_open()) {
-        PT_BRIDGE_FATAL(" Unable to open whitelist File!");
-        PT_BRIDGE_FATAL(wl_file);
+    if (!fusion_file.empty()) {
+      std::ifstream fusionListFile(fusion_file);
+      if (!fusionListFile.is_open()) {
+        PT_BRIDGE_FATAL(" Unable to open fusion list File!");
+        PT_BRIDGE_FATAL(fusion_file);
       }
       std::string opname;
-      while (whiteListFile) {
-        getline(whiteListFile, opname);
-        HabanaWhiteList::HabanaWhiteListOps.insert(opname);
+      while (fusionListFile) {
+        getline(fusionListFile, opname);
+        HabanaFusionList::HabanaFusionListOps.insert(opname);
       }
-      whiteListFile.close();
+      fusionListFile.close();
     }
   } else {
-    HabanaWhiteList::HabanaWhiteListOps = {
+    HabanaFusionList::HabanaFusionListOps = {
         "aten::_log_softmax_backward_data(Tensor grad_output, Tensor output, int dim, Tensor self) -> Tensor",
         "aten::abs(Tensor self) -> Tensor",
         "aten::add(Tensor self, Scalar other, Scalar alpha) -> Tensor",
