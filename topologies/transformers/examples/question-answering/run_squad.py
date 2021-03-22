@@ -1004,6 +1004,7 @@ def main():
                 exit(0)
             args.dist_backend = 'hcl'
             os.environ["ID"] = str(args.local_rank)
+            import habana_torch_hcl
             torch.distributed.init_process_group(args.dist_backend, rank=args.local_rank, world_size=args.world_size)
             args.n_gpu = 1
 

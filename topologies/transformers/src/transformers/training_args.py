@@ -314,6 +314,7 @@ class TrainingArguments:
                 self.dist_backend = 'hcl'
                 os.environ["ID"] = str(self.local_rank)
                 self.world_size = int(os.environ['WORLD_SIZE'])
+                import habana_torch_hcl
                 torch.distributed.init_process_group(self.dist_backend, rank=self.local_rank, world_size=self.world_size)
                 n_gpu = 1
         elif self.no_cuda:

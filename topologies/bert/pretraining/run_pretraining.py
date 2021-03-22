@@ -384,6 +384,7 @@ def setup_training(args):
             os.environ["ID"] = str(args.local_rank)
             args.world_size = int(os.environ["WORLD_SIZE"])
             args.rank = int(os.environ["RANK"])
+            import habana_torch_hcl
             torch.distributed.init_process_group('hcl',
                     rank=args.rank, world_size=args.world_size)
 

@@ -314,6 +314,7 @@ def init_distributed_mode(args):
         os.environ["ID"] = str(args.rank % NUM_GAUDI_PERNODE )
         #not used currently
         os.environ["LOCAL_RANK"] = str(args.rank % NUM_GAUDI_PERNODE )
+        import habana_torch_hcl
         dist.init_process_group(args.dist_backend, rank=args.rank, world_size=args.world_size)
     else:
         torch.cuda.set_device(args.gpu)

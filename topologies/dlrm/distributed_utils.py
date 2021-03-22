@@ -73,12 +73,14 @@ def init_distributed_mode(args):
         os.environ["ID"] = str(args.rank)
         os.environ['MASTER_ADDR'] = 'localhost'
         os.environ['MASTER_PORT'] = '12355'
+        import habana_torch_hcl
         torch.distributed.init_process_group(args.dist_backend, rank=args.rank, world_size=args.world_size)
     elif use_hpu == True and 'RANK' in os.environ and 'WORLD_SIZE' in os.environ:
         args.dist_backend = 'hcl'
         if 'TP_DATA_DUMP_PATH' in os.environ:
             os.environ['TP_DATA_DUMP_PATH'] = os.environ['TP_DATA_DUMP_PATH'] + '_' + str(args.rank)
         os.environ["ID"] = os.environ['LOCAL_RANK']
+        import habana_torch_hcl
         torch.distributed.init_process_group(args.dist_backend, rank=args.rank, world_size=args.world_size)
     elif args.use_gpu == False:
         args.dist_backend = 'gloo'

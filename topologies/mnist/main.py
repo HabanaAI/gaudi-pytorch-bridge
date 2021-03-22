@@ -223,6 +223,8 @@ def setup_dist(rank, world_size,backend):
     os.environ['MASTER_ADDR'] = 'localhost'
     os.environ['MASTER_PORT'] = '12355'
     os.environ["ID"] = str(rank)
+    if backend == "hcl":
+        import habana_torch_hcl
     dist.init_process_group(backend, rank=rank, world_size=world_size)
 
 
