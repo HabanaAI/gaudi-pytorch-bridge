@@ -50,6 +50,9 @@ def train_model(model, criterion, optimizer, image, target, trainMetaData, apex,
             scaled_loss.backward()
     else:
         loss.backward()
+    if lazy_mode:
+        hb_torch.mark_step()
+
     optimizer.step()
 
     for param in model.parameters():
