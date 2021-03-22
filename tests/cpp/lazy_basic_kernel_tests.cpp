@@ -76,6 +76,12 @@ TEST_F(LazyBasicKernelTest, BasicCopyTest) {
   EXPECT_EQ(equal, true);
 }
 
+TEST_F(LazyBasicKernelTest, BasicNegCopyTest) {
+  auto tensor = torch::tensor(1, torch::dtype(ScalarType::ComplexFloat));
+  torch::Tensor hA;
+  EXPECT_THROW(hA = tensor.to("habana"), c10::Error);
+}
+
 TEST_F(LazyBasicKernelTest, CloneTest) {
   at::TensorOptions opts = at::TensorOptions().requires_grad(false);
   torch::Tensor A = torch::randn({50, 50}, opts);
