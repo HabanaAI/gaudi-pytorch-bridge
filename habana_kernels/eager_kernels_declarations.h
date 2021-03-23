@@ -78,6 +78,8 @@ Tensor& pow_tensor_tensor_hpu_(Tensor& self, const Tensor& other);
 Tensor pow_tensor_scalar_hpu(const Tensor& self, Scalar other);
 Tensor& pow_tensor_scalar_hpu_(Tensor& self, Scalar other);
 Tensor pow_scalar_tensor_hpu(Scalar other, const Tensor& self);
+Tensor maximum_hpu(const Tensor& self, const Tensor& other);
+Tensor minimum_hpu(const Tensor& self, const Tensor& other);
 Tensor ge_scalar_hpu(const Tensor& self, Scalar other);
 Tensor ge_tensor_hpu(const Tensor& self, const Tensor& other);
 Tensor ne_scalar_hpu(const Tensor& self, Scalar other);

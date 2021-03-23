@@ -195,3 +195,25 @@ TEST_F(LazyBinaryKernelTest, MulOutNarrow) {
   bool equal = A.allclose(hA.to(torch::kCPU), 0, 0);
   EXPECT_EQ(equal, true);
 }
+
+TEST_F(LazyBinaryKernelTest, Maximum) {
+  torch::Tensor input1 = torch::randn({2, 2});
+  torch::Tensor input2 = torch::randn({2, 2});
+
+  torch::Tensor out_cpu = at::max(input1, input2);
+  torch::Tensor out_hpu =
+      at::max(input1.to(torch::kHABANA), input2.to(torch::kHABANA));
+  bool equal = out_cpu.allclose(out_hpu.to(torch::kCPU), 0, 0);
+  EXPECT_EQ(equal, true);
+}
+
+TEST_F(LazyBinaryKernelTest, Minimum) {
+  torch::Tensor input1 = torch::randn({2, 2});
+  torch::Tensor input2 = torch::randn({2, 2});
+
+  torch::Tensor out_cpu = at::min(input1, input2);
+  torch::Tensor out_hpu =
+      at::min(input1.to(torch::kHABANA), input2.to(torch::kHABANA));
+  bool equal = out_cpu.allclose(out_hpu.to(torch::kCPU), 0, 0);
+  EXPECT_EQ(equal, true);
+}

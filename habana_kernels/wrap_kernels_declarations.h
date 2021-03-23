@@ -120,6 +120,8 @@ struct hpu_wrap {
   static at::Tensor pow(const at::Tensor& self, at::Scalar other);
   static at::Tensor& pow_(at::Tensor& self, at::Scalar other);
   static at::Tensor pow(at::Scalar other, const at::Tensor& self);
+  static at::Tensor maximum(const at::Tensor& self, const at::Tensor& other);
+  static at::Tensor minimum(const at::Tensor& self, const at::Tensor& other);
   static at::Tensor gt(const at::Tensor& self, const at::Tensor& other);
   static at::Tensor gt(const at::Tensor& self, at::Scalar other);
   static at::Tensor& eq_out(

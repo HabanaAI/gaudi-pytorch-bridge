@@ -150,4 +150,26 @@ class RsubOperator : public SubOperator {
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) final;
 };
+
+class MaximumOperator : public BinaryWrapperOperator {
+ public:
+  // Maximum op
+  MaximumOperator(int device_id, c10::ScalarType scalarType)
+      : BinaryWrapperOperator(
+            device_id,
+            "max_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
+    scalarType_ = scalarType;
+  }
+};
+
+class MinimumOperator : public BinaryWrapperOperator {
+ public:
+  // Minimum op
+  MinimumOperator(int device_id, c10::ScalarType scalarType)
+      : BinaryWrapperOperator(
+            device_id,
+            "min_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
+    scalarType_ = scalarType;
+  }
+};
 } // namespace habana

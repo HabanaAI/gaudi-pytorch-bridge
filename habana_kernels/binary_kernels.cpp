@@ -864,6 +864,58 @@ Tensor masked_scale_hpu(const Tensor& self, const Tensor& mask, double scale) {
   return output;
 }
 
+/*************************************************************************
+ * @brief Kernel implementation for output = torch.maximum(self, other)
+ * @param self - first input
+ * @param other - second input
+ * output[i] = self[i] > other[i] ? self[i] : other[i]
+ ************************************************************************/
+Tensor maximum_hpu(const Tensor& self, const Tensor& other) {
+  PT_KERNEL_BEGIN;
+
+  if (self.dim() == 0) {
+    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+  }
+  if (other.dim() == 0) {
+    other.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+  }
+  auto self_hpu = get_hpu_tensor(self);
+  auto other_hpu = get_hpu_tensor(other);
+  std::vector<at::Tensor> pt_inputs{self_hpu, other_hpu};
+  torch::jit::Stack stack{IValue(self_hpu), IValue(other_hpu)};
+  auto output = process_generic_tensor_binary_op<habana::MaximumOperator>(
+      pt_inputs, stack, "max");
+
+  PT_KERNEL_END;
+  return output;
+}
+
+/*************************************************************************
+ * @brief Kernel implementation for output = torch.minimum(self, other)
+ * @param self - first input
+ * @param other - second input
+ * output[i] = self[i] < other[i] ? self[i] : other[i]
+ ************************************************************************/
+Tensor minimum_hpu(const Tensor& self, const Tensor& other) {
+  PT_KERNEL_BEGIN;
+
+  if (self.dim() == 0) {
+    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+  }
+  if (other.dim() == 0) {
+    other.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+  }
+  auto self_hpu = get_hpu_tensor(self);
+  auto other_hpu = get_hpu_tensor(other);
+  std::vector<at::Tensor> pt_inputs{self_hpu, other_hpu};
+  torch::jit::Stack stack{IValue(self_hpu), IValue(other_hpu)};
+  auto output = process_generic_tensor_binary_op<habana::MinimumOperator>(
+      pt_inputs, stack, "min");
+
+  PT_KERNEL_END;
+  return output;
+}
+
 static auto& KernelRegistry =
     habana::KernelRegistry()
         .add(
@@ -896,6 +948,21 @@ static auto& KernelRegistry =
               return std::make_shared<habana::DivOperator>(
                   device_id, node_type);
             })
-        .add("aten::pow", [](const int device_id, c10::ScalarType node_type) {
-          return std::make_shared<habana::PowOperator>(device_id, node_type);
-        });
+        .add(
+            "aten::pow",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<habana::PowOperator>(
+                  device_id, node_type);
+            })
+        .add(
+            "aten::maximum",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<habana::MaximumOperator>(
+                  device_id, node_type);
+            })
+        .add(
+            "aten::minimum",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<habana::MinimumOperator>(
+                  device_id, node_type);
+            });

@@ -33,6 +33,8 @@ binary_op_list = [
     (torch.add, {"alpha": 0.1}),
     (torch.mul, {}),
     (torch.div, {}),
+    (torch.max, {}),
+    (torch.min, {}),
 ]
 
 # This list is used to test tensor_out variants of operators

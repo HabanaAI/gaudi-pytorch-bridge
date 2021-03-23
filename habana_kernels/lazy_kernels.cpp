@@ -1073,6 +1073,54 @@ Tensor pow_scalar_tensor_hpu_lazy(Scalar other, const Tensor& self) {
   HABANA_ASSERT(0);
   return pow_scalar_tensor_hpu(other, self);
 };
+
+Tensor maximum_hpu_lazy(const Tensor& self, const Tensor& other) {
+  PT_LAZY_TRACE;
+  auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
+  auto hl_other = habana_lazy::GetOrCreateHbLazyTensor(other, c10::kHABANA);
+
+  auto node = habana_lazy::ir::Node::Create(
+      Symbol::fromQualString("aten::maximum"),
+      {hl_self.GetIrValue(), hl_other.GetIrValue()});
+  auto shape_out = BinaryOperator::compute_output_shape(self, other);
+  auto result = at::native::empty_hpu_lazy(
+      shape_out, self.options(), self.suggest_memory_format(), false);
+  auto hlresult = habana_lazy::GetHbLazyTensor(result);
+  habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+  // updatet the view if any
+  updateDstDependencies(hlresult, result);
+
+  std::vector<at::Tensor> input_pt_vec{self, other};
+  node->AddInputPtTensors(input_pt_vec);
+
+  return result;
+};
+
+Tensor minimum_hpu_lazy(const Tensor& self, const Tensor& other) {
+  PT_LAZY_TRACE;
+  auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
+  auto hl_other = habana_lazy::GetOrCreateHbLazyTensor(other, c10::kHABANA);
+
+  auto node = habana_lazy::ir::Node::Create(
+      Symbol::fromQualString("aten::minimum"),
+      {hl_self.GetIrValue(), hl_other.GetIrValue()});
+  auto shape_out = BinaryOperator::compute_output_shape(self, other);
+  auto result = at::native::empty_hpu_lazy(
+      shape_out, self.options(), self.suggest_memory_format(), false);
+  auto hlresult = habana_lazy::GetHbLazyTensor(result);
+  habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+  // updatet the view if any
+  updateDstDependencies(hlresult, result);
+
+  std::vector<at::Tensor> input_pt_vec{self, other};
+  node->AddInputPtTensors(input_pt_vec);
+
+  return result;
+};
 Tensor gt_tensor_hpu_lazy(const Tensor& self, const Tensor& other) {
   HABANA_ASSERT(0);
   return gt_tensor_hpu(self, other);

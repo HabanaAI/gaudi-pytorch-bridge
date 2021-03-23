@@ -327,6 +327,23 @@ Tensor hpu_wrap::pow(Scalar other, const Tensor& self) {
     return pow_scalar_tensor_hpu(other, self);
   }
 };
+
+Tensor hpu_wrap::maximum(const Tensor& self, const Tensor& other) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    return maximum_hpu_lazy(self, other);
+  } else {
+    return maximum_hpu(self, other);
+  }
+};
+
+Tensor hpu_wrap::minimum(const Tensor& self, const Tensor& other) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    return minimum_hpu_lazy(self, other);
+  } else {
+    return minimum_hpu(self, other);
+  }
+};
+
 Tensor hpu_wrap::gt(const Tensor& self, const Tensor& other) {
   if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto t = gt_tensor_hpu_lazy(self, other);
