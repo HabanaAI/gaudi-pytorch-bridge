@@ -33,11 +33,16 @@ using namespace torch;
 // Add new src->dst cast mappings to this
 std::map<c10::ScalarType, std::vector<c10::ScalarType>> const
     d2d_copy_supported_casts{
+        {c10::ScalarType::Byte, {c10::ScalarType::Int}},
         {c10::ScalarType::Float,
          {c10::ScalarType::BFloat16, c10::ScalarType::Int}},
         {c10::ScalarType::BFloat16, {c10::ScalarType::Float}},
         {c10::ScalarType::Char,
          {c10::ScalarType::Float, c10::ScalarType::BFloat16}},
+        {c10::ScalarType::Bool,
+         {c10::ScalarType::Float,
+          c10::ScalarType::BFloat16,
+          c10::ScalarType::Int}},
         {c10::ScalarType::Int, {c10::ScalarType::Float}}};
 
 bool copy_transpose_valid(const Tensor& self, const Tensor& src) {

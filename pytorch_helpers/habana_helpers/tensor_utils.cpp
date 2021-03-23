@@ -39,45 +39,23 @@ at::Tensor habana_helpers::hpu_cast_tensor(
     Input.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
   }
 
+  // Determine cast node_type to use based on src & dst dtypes
+  std::pair<c10::ScalarType, c10::ScalarType> type_key{
+      Input.scalar_type(), at::typeMetaToScalarType(type)};
+  auto iter = habana_helpers::cast_map.find(type_key);
   std::string node_type;
-  if ((Input.dtype() == c10::ScalarType::Bool ||
-       Input.dtype() == c10::ScalarType::Char) &&
-      type == c10::ScalarType::Float) {
-    node_type = "cast_i8_to_f32";
-  } else if (
-      (Input.dtype() == c10::ScalarType::Bool ||
-       Input.dtype() == c10::ScalarType::Char) &&
-      type == c10::ScalarType::BFloat16) {
-    node_type = "cast_i8_to_bf16";
-  } else if (
-      Input.dtype() == c10::ScalarType::Int && type == c10::ScalarType::Float) {
-    node_type = "cast_i32_to_f32";
-  } else if (
-      Input.dtype() == c10::ScalarType::BFloat16 &&
-      type == c10::ScalarType::Float) {
-    node_type = "cast_bf16_to_f32";
-  } else if (
-      type == c10::ScalarType::Bool &&
-      Input.dtype() == c10::ScalarType::Float) {
-    node_type = "cast_f32_to_i8";
-  } else if (
-      type == c10::ScalarType::Char &&
-      Input.dtype() == c10::ScalarType::Float) {
-    node_type = "cast_f32_to_i8";
-  } else if (
-      type == c10::ScalarType::Int && Input.dtype() == c10::ScalarType::Float) {
-    node_type = "cast_f32_to_i32";
-  } else if (
-      type == c10::ScalarType::BFloat16 &&
-      Input.dtype() == c10::ScalarType::Float) {
-    node_type = "cast_f32_to_bf16";
+  if (iter != habana_helpers::cast_map.end()) {
+    node_type = iter->second;
+  } else {
+    HABANA_ASSERT(
+        0 && "Unsupported Cast operation requested in hpu_cast_tensor()");
   }
 
   int device_id = Input.device().index();
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
   CastOperator Op(device_id, node_type);
-  std::vector<c10::IValue> stack = {IValue(Input),
-                                    IValue(typeMetaToScalarType(type))};
+  std::vector<c10::IValue> stack = {
+      IValue(Input), IValue(typeMetaToScalarType(type))};
   std::vector<at::Tensor> pt_inputs{Input};
 
   size_t key = Op.GetRecipeKey(node_type, stack);
@@ -847,15 +825,17 @@ void habana_helpers::change_tensor_strides(
     const at::IntArrayRef* pt_new_pos) {
   auto sizes = pt_input->sizes().vec();
   auto new_pos = *pt_new_pos;
-  std::vector<long int> swapped_sizes = {sizes[new_pos[0]],
-                                         sizes[new_pos[1]],
-                                         sizes[new_pos[2]],
-                                         sizes[new_pos[3]]};
+  std::vector<long int> swapped_sizes = {
+      sizes[new_pos[0]],
+      sizes[new_pos[1]],
+      sizes[new_pos[2]],
+      sizes[new_pos[3]]};
   auto strides = pt_input->strides().vec();
-  std::vector<long int> swapped_strides = {strides[new_pos[0]],
-                                           strides[new_pos[1]],
-                                           strides[new_pos[2]],
-                                           strides[new_pos[3]]};
+  std::vector<long int> swapped_strides = {
+      strides[new_pos[0]],
+      strides[new_pos[1]],
+      strides[new_pos[2]],
+      strides[new_pos[3]]};
   /* The following method of using 'alias' followed by
    * set_sizes_and_strides is necessary to "dereference" pt_outputs[i]
    * from pt_inputs[i] and create new copies of sizes and strides.
@@ -878,15 +858,17 @@ void habana_helpers::change_tensors_to_memory_format(
       case c10::MemoryFormat::ChannelsLast: {
         auto sizes = pt_inputs[i]->sizes().vec();
         auto new_pos = *pt_new_pos[i];
-        std::vector<long int> swapped_sizes = {sizes[new_pos[0]],
-                                               sizes[new_pos[1]],
-                                               sizes[new_pos[2]],
-                                               sizes[new_pos[3]]};
+        std::vector<long int> swapped_sizes = {
+            sizes[new_pos[0]],
+            sizes[new_pos[1]],
+            sizes[new_pos[2]],
+            sizes[new_pos[3]]};
         auto strides = pt_inputs[i]->strides().vec();
-        std::vector<long int> swapped_strides = {strides[new_pos[0]],
-                                                 strides[new_pos[1]],
-                                                 strides[new_pos[2]],
-                                                 strides[new_pos[3]]};
+        std::vector<long int> swapped_strides = {
+            strides[new_pos[0]],
+            strides[new_pos[1]],
+            strides[new_pos[2]],
+            strides[new_pos[3]]};
         /* The following method of using 'alias' followed by
          * set_sizes_and_strides is necessary to "dereference" pt_outputs[i]
          * from pt_inputs[i] and create new copies of sizes and strides.

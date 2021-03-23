@@ -871,8 +871,17 @@ void SumOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   ReduceOperator::SetPTOutputs(inputs);
 }
 
-Tensor sum_hpu(const Tensor& self, c10::optional<ScalarType> dtype) {
+Tensor sum_hpu(const Tensor& self_in, c10::optional<ScalarType> dtype) {
   PT_KERNEL_BEGIN;
+
+  // Cast Boolean (I8) inputs to Float since TPC kernel supports only f32 and
+  // bf16. Only use-case for sum() on Bool input seen is to count the number of
+  // "True" or "False" entries where this solution should be fine.
+  auto self = self_in;
+  if (self_in.scalar_type() == c10::ScalarType::Bool) {
+    self = habana_helpers::hpu_cast_tensor(
+        self_in, at::scalarTypeToTypeMeta(c10::ScalarType::Float));
+  }
 
   at::ScalarType scalar_type = self.scalar_type();
   std::string node_type =
@@ -1561,7 +1570,6 @@ Tensor all_dim_hpu(const Tensor& self, int64_t dim, bool keepdim) {
 }
 
 void ArgMaxOperator::SetPTOutputs(torch::jit::Stack& inputs) {
-  Tensor output;
   Tensor self = inputs[0].toTensor();
   auto dim = inputs[1].toOptional<int64_t>();
   std::vector<int64_t> dimArr;
@@ -1575,7 +1583,15 @@ void ArgMaxOperator::SetPTOutputs(torch::jit::Stack& inputs) {
     }
   }
   inputs[1] = IValue(dimArr);
+  Tensor output = habana_helpers::createPTTensor(
+      self,
+      {0},
+      self.options(),
+      self.suggest_memory_format(),
+      c10::ScalarType::Int,
+      true);
   inputs.insert(inputs.begin(), IValue(output));
+  inputs.emplace_back(IValue(output.scalar_type()));
   ReduceOperator::SetPTOutputs(inputs);
 }
 

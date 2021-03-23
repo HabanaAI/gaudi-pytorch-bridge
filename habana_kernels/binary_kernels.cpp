@@ -475,9 +475,33 @@ void habana::BinaryWrapperOperatorWithAlpha::SetPTOutputs(
  ************************************************************************/
 template <class BinaryOp>
 Tensor process_generic_tensor_binary_op(
-    const std::vector<at::Tensor>& pt_inputs,
+    std::vector<at::Tensor>& pt_inputs,
     torch::jit::Stack& stack,
     const std::string& node_guid) {
+  for (auto i = 0u; i < stack.size(); i++) {
+    if (stack[i].isTensor()) {
+      if (stack[i].toTensor().scalar_type() == c10::ScalarType::Long) {
+        auto dst = habana_helpers::cast_tensor_to_integer(stack[i].toTensor());
+        // overwrite original tensor with corresponding casted tensor
+        pt_inputs[i] = dst;
+        stack[i] = IValue(dst);
+      }
+    }
+  }
+
+  // If dtypes of input tensors differ we need to cast one of them to larger
+  // dtype.
+  int pos = -1;
+  c10::ScalarType dst_dtype = c10::ScalarType::Float;
+  habana_helpers::type_promotion_for_two_tensor_inputs(stack, pos, dst_dtype);
+  if (pos != -1) {
+    auto dst = habana_helpers::hpu_cast_tensor(
+        stack[pos].toTensor(), at::scalarTypeToTypeMeta(dst_dtype));
+    // overwrite original tensor with corresponding casted tensor
+    pt_inputs[pos] = dst;
+    stack[pos] = IValue(dst);
+  }
+
   size_t device_id = pt_inputs[0].device().index();
   at::ScalarType scalar_type = pt_inputs[0].scalar_type();
   std::string node_type =

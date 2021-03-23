@@ -425,15 +425,26 @@ Tensor scatter_value_hpu(
  * @param value - Scalar with values to be updated (of same type as self)
  ************************************************************************/
 Tensor& scatter_inplace_value_hpu(
-    Tensor& self,
+    Tensor& self_in,
     int64_t dim_,
     const Tensor& index,
     Scalar value) {
   PT_KERNEL_BEGIN;
+  auto self = self_in;
+  // WA for https://jira.habana-labs.com/browse/SW-38110
+  if (self_in.scalar_type() == c10::ScalarType::Char) {
+    self = habana_helpers::hpu_cast_tensor(
+        self_in, at::scalarTypeToTypeMeta(c10::ScalarType::Int));
+  }
   auto out = scatter_value_hpu(self, dim_, index, value);
-  self.copy_(out);
+  // WA for https://jira.habana-labs.com/browse/SW-38110
+  if (self_in.scalar_type() == c10::ScalarType::Char) {
+    out = habana_helpers::hpu_cast_tensor(
+        out, at::scalarTypeToTypeMeta(c10::ScalarType::Char));
+  }
+  self_in.copy_(out);
   PT_KERNEL_END;
-  return self;
+  return self_in;
 }
 
 /*************************************************************************
@@ -884,6 +895,15 @@ Tensor& index_put_hpu_(
     bool accumulate) {
   PT_KERNEL_BEGIN;
 
+  // We need a Scatter-ND TPC kernel to support all input configurations
+  // possible for this operator. Also Boolean indexing needs "nonzero"
+  // operation. Until TPC supports all these
+  // https://jira.habana-labs.com/browse/SW-37171, fallback to CPU
+  if ((indices[0].scalar_type() == c10::ScalarType::Bool) ||
+      (value.dim() == 0) || (self.scalar_type() == c10::ScalarType::Bool)) {
+    return AtenHpuTypeDefault::index_put_(self, indices, value, accumulate);
+  }
+
   auto temp = index_put_hpu(self, indices, value, accumulate);
   self.copy_(temp);
 
@@ -1231,7 +1251,14 @@ Tensor slice_hpu(
   // which creates new storage for output storage
   if ((self.dim() <= 1) && (step == 1)) {
     PT_KERNEL_END;
-    return at::native::slice(self, dim, start, end, step);
+    return at::native::slice(in_self, dim, start, end, step);
+  }
+
+  // WA for https://jira.habana-labs.com/browse/SW-37197
+  auto dim_orig = dim;
+  if ((dim == self.dim() - 1) && (step > 1)) {
+    self.transpose_(self.dim() - 1, self.dim() - 2);
+    dim = self.dim() - 2;
   }
 
   at::ScalarType scalar_type = self.scalar_type();
@@ -1267,6 +1294,12 @@ Tensor slice_hpu(
   } else {
     cast_out = out.at(0);
   }
+
+  // WA for https://jira.habana-labs.com/browse/SW-37197
+  if ((dim_orig == self.dim() - 1) && (step > 1)) {
+    cast_out.transpose_(self.dim() - 1, self.dim() - 2);
+  }
+
   PT_KERNEL_END;
   return cast_out;
 }

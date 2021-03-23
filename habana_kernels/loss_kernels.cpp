@@ -928,7 +928,14 @@ Tensor binary_cross_entropy_with_logits_hpu(
   std::vector<at::Tensor> pt_inputs{self, target};
   if (device.get_recipe_handle_cache().isCached(key)) {
     PT_KERNEL_DEBUG("Cache hit key:", key);
-    auto output = at::empty({self.sizes()[1]}, self.options());
+    Tensor output;
+    if (reduction == at::Reduction::Reduction::Mean ||
+        reduction == at::Reduction::Reduction::Sum) {
+      output = habana_helpers::createPTTensor(self, {1}, self.options(), true);
+    } else {
+      output = habana_helpers::createPTTensor(
+          self, self.sizes(), self.options(), true);
+    }
     Op.SetPTInputs(pt_inputs);
     Op.SetPTOutput(output);
     Op.Execute(key);

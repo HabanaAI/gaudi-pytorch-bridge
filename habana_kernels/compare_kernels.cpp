@@ -223,10 +223,34 @@ std::vector<int64_t> CompareWrapperOperator::compute_output_shape(
 
 template <class CompareOp>
 Tensor compare_op_hpu(
-    const std::vector<at::Tensor>& pt_inputs,
+    std::vector<at::Tensor>& pt_inputs,
     torch::jit::Stack& stack,
     const std::string& node_guid) {
   PT_KERNEL_BEGIN;
+  for (auto i = 0u; i < stack.size(); i++) {
+    if (stack[i].isTensor()) {
+      if (stack[i].toTensor().scalar_type() == c10::ScalarType::Long) {
+        auto dst = habana_helpers::cast_tensor_to_integer(stack[i].toTensor());
+        // overwrite original tensor with corresponding casted tensor
+        pt_inputs[i] = dst;
+        stack[i] = IValue(dst);
+      }
+    }
+  }
+
+  // If dtypes of input tensors differ we need to cast one of them to larger
+  // dtype.
+  int pos = -1;
+  c10::ScalarType dst_dtype = c10::ScalarType::Float;
+  habana_helpers::type_promotion_for_two_tensor_inputs(stack, pos, dst_dtype);
+  if (pos != -1) {
+    auto dst = habana_helpers::hpu_cast_tensor(
+        stack[pos].toTensor(), at::scalarTypeToTypeMeta(dst_dtype));
+    // overwrite original tensor with corresponding casted tensor
+    pt_inputs[pos] = dst;
+    stack[pos] = IValue(dst);
+  }
+
   size_t device_id = pt_inputs[0].device().index();
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
   at::ScalarType scalar_type = pt_inputs[0].scalar_type();
@@ -407,8 +431,18 @@ Tensor ge_tensor_hpu(const Tensor& self, const Tensor& other) {
  * @param self - tensor_0
  * @param other - tensor_1
  ************************************************************************/
-Tensor ne_tensor_hpu(const Tensor& self, const Tensor& other) {
+Tensor ne_tensor_hpu(const Tensor& self_in, const Tensor& other_in) {
   PT_KERNEL_BEGIN;
+  auto self = self_in;
+  // Char & Bool are both treated as I8 on Habana device. This cosmetic dtype
+  // overwrite is done here to avoid problems in adding trivial cast node later.
+  if (self.scalar_type() == c10::ScalarType::Char) {
+    self = self.to(c10::ScalarType::Bool);
+  }
+  auto other = other_in;
+  if (other.scalar_type() == c10::ScalarType::Char) {
+    other = other.to(c10::ScalarType::Bool);
+  }
   // create OP graph and populate the stack with inputs
   auto graph = std::make_shared<torch::jit::Graph>();
   const auto graph_string = R"IR(
@@ -439,10 +473,19 @@ Tensor ne_tensor_hpu(const Tensor& self, const Tensor& other) {
  * @param self - tensor_0
  * @param other - Scalar
  ************************************************************************/
-Tensor ne_scalar_hpu(const Tensor& self, Scalar other) {
+Tensor ne_scalar_hpu(const Tensor& self_in, Scalar other) {
   PT_KERNEL_BEGIN;
-  if (self.dim() == 0) {
-    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+  if (self_in.dim() == 0) {
+    self_in.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+  }
+  auto self = self_in;
+  if (self.scalar_type() == c10::ScalarType::Long) {
+    self = habana_helpers::cast_tensor_to_integer(self_in);
+  } else if (self.scalar_type() == c10::ScalarType::Char) {
+    // Char & Bool are both treated as I8 on Habana device. This cosmetic dtype
+    // overwrite is done here to avoid problems in adding trivial cast node
+    // later.
+    self = self.to(c10::ScalarType::Bool);
   }
   // create OP graph and populate the stack with inputs
   auto graph = std::make_shared<torch::jit::Graph>();

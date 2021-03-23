@@ -109,6 +109,7 @@ void CatOperator::AllocateAndAddSynapseNode(
  ************************************************************************/
 Tensor cat_hpu(const TensorList in_tensors, int64_t dim_ = 0) {
   PT_KERNEL_BEGIN;
+
   size_t device_id = in_tensors[0].device().index();
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
   at::ScalarType scalar_type = in_tensors[0].scalar_type();
@@ -129,6 +130,23 @@ Tensor cat_hpu(const TensorList in_tensors, int64_t dim_ = 0) {
       tensors.push_back(in_tensors[i]);
       pt_inputs.push_back(in_tensors[i]);
     }
+  }
+
+  // Handle duplicate tensors. GC runtime expects each input to a Synapse graph
+  // to be unique, therefore check if we have same tensor(s) given as input more
+  // than once, replace duplicated tensor with its clone. Note this a eager mode
+  // only solution where performance is not a concern, in graph mode this will
+  // be handled as part of lowering of JIT graph to synapse graph.
+  std::vector<void*> tensor_dptr;
+  for (unsigned i = 0; i < tensors.size(); i++) {
+    auto iter = std::find(
+        tensor_dptr.begin(), tensor_dptr.end(), tensors[i].data_ptr());
+    if (iter != tensor_dptr.end()) {
+      auto clone = tensors[i].clone();
+      tensors[i] = clone;
+      pt_inputs[i] = clone;
+    }
+    tensor_dptr.push_back(tensors[i].data_ptr());
   }
 
   TensorList out_tensorlist(tensors);
