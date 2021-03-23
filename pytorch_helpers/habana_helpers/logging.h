@@ -75,7 +75,7 @@ class PtLogger {
   PtLogger() {
     char* mask = getenv("PT_HABANA_LOG_MOD_MASK");
     if (mask != nullptr) {
-      module_mask_ = std::stoul(mask, nullptr, 16);
+      module_mask_ = std::stoul(mask, nullptr, 16); // expects hex
     } else {
       // enable all modules by default
       module_mask_ = INT64_MAX;
@@ -83,7 +83,7 @@ class PtLogger {
 
     mask = getenv("PT_HABANA_LOG_TYPE_MASK");
     if (mask != nullptr) {
-      type_mask_ = std::stoul(mask, nullptr, 16);
+      type_mask_ = std::stoul(mask, nullptr, 16); // expects hex
     } else {
       // enable fatal errors and warnings by default
       type_mask_ = TypeMask::FATAL + TypeMask::WARNING;
@@ -111,21 +111,21 @@ class PtLogger {
   }
 
   enum TypeMask {
-    FATAL = 1,
-    WARNING = 2,
-    TRACE = 4,
-    DEBUG = 8,
+    FATAL = 0x1,
+    WARNING = 0x2,
+    TRACE = 0x4,
+    DEBUG = 0x8,
   };
 
   enum ModuleMask {
-    DEVICE = 1,
-    KERNEL = 2,
-    BRIDGE = 4,
-    SYNHELPER = 8,
-    DISTRIBUTED = 16,
-    LAZY = 32,
-    HABANAHOOKS = 64,
-    FALLBACK = 128,
+    DEVICE = 0x1,
+    KERNEL = 0x2,
+    BRIDGE = 0x4,
+    SYNHELPER = 0x8,
+    DISTRIBUTED = 0x10,
+    LAZY = 0x20,
+    HABANAHOOKS = 0x40,
+    FALLBACK = 0x80,
   };
 };
 
@@ -199,6 +199,13 @@ class PTFuncLog {
               << __LINE__ << "\t" << __func__ << "\n";              \
   }
 
+#define PT_MOD_WARN_WITHOUT_LINE_FILE(MOD, ...)            \
+  if (((PtLogger::getLogger()->getModuleMask() & (MOD)) && \
+       (PtLogger::getLogger()->getTypeMask() &             \
+        (PtLogger::TypeMask::WARNING)))) {                 \
+    std::cerr << Logger::str(__VA_ARGS__) << "\n";         \
+  }
+
 #define PT_DEVICE_WARN(...) \
   PT_MOD_WARN(PtLogger::ModuleMask::DEVICE, __VA_ARGS__)
 
@@ -218,6 +225,10 @@ class PTFuncLog {
 
 #define PT_HABANAHOOKS_WARN(...) \
   PT_MOD_WARN(PtLogger::ModuleMask::HABANAHOOKS, __VA_ARGS__)
+
+#define PT_FALLBACK_WARN(...) \
+  PT_MOD_WARN_WITHOUT_LINE_FILE(PtLogger::ModuleMask::FALLBACK, __VA_ARGS__)
+
 /************************TRACE MACROS************************************/
 #define PT_MOD_BEGIN(MOD)                                                \
   if (((PtLogger::getLogger()->getModuleMask() & (MOD)) &&               \
@@ -289,5 +300,5 @@ class PTFuncLog {
 #define PT_LAZY_DEBUG(...) PT_MOD_DEBUG(PtLogger::ModuleMask::LAZY, __VA_ARGS__)
 #define PT_HABANAHOOKS_DEBUG(...) \
   PT_MOD_DEBUG(PtLogger::ModuleMask::HABANAHOOKS, __VA_ARGS__)
-#define PT_FALLBACK_WARN(...) \
-  PT_MOD_WARN(PtLogger::ModuleMask::FALLBACK, __VA_ARGS__)
+#define PT_FALLBACK_DEBUG(...) \
+  PT_MOD_DEBUG(PtLogger::ModuleMask::FALLBACK, __VA_ARGS__)
