@@ -28,7 +28,6 @@ modernize-*,
 performance-*,
 -performance-noexcept-move-constructor,
   '
-HeaderFilterRegex: 'torch/csrc/.*'
 AnalyzeTemporaryDtors: false
 CheckOptions:
 ...
