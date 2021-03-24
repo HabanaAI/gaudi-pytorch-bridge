@@ -48,6 +48,7 @@ std::string Node::ToString() const {
     ss << v.ToString() << " ";
   }
   ss << "}\n";
+  ss << m_meta_data.ToString();
   return ss.str();
 }
 

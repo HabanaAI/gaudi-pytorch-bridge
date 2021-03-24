@@ -136,12 +136,20 @@ class MetaData {
     return m_data.end();
   }
 
-  const_iterator cbegin() const {
+  const_iterator begin() const {
     return m_data.begin();
   }
 
-  const_iterator cend() const {
+  const_iterator end() const {
     return m_data.end();
+  }
+
+  const_iterator cbegin() const {
+    return m_data.cbegin();
+  }
+
+  const_iterator cend() const {
+    return m_data.cend();
   }
 
   bool count(size_t key) const {
@@ -162,6 +170,26 @@ class MetaData {
     return hash;
   }
 
+  void enableToString() {
+    m_enable_to_string = true;
+  }
+
+  std::string ToString() const {
+    if (!m_enable_to_string) {
+      return {};
+    }
+
+    std::stringstream ss;
+    unsigned i = 0;
+    for (const auto& m : m_data) {
+      ss << '@' << m.first << '=' << m.second;
+      if (i++ != m_data.size() - 1) {
+        ss << ", ";
+      }
+    }
+    return ss.str();
+  }
+
  protected:
   /* This meta data store mapping of index of jit input
    * to the IValue
@@ -178,6 +206,9 @@ class MetaData {
     }
     return 0;
   }
+
+ private:
+  bool m_enable_to_string = false;
 };
 
 /**
@@ -230,6 +261,7 @@ class Node {
 
   void SetMetaData(MetaData metadata) {
     m_meta_data = std::move(metadata);
+    m_meta_data.enableToString();
   }
 
   void AddInputPtTensors(std::vector<at::Tensor>& input_pt_vec);
