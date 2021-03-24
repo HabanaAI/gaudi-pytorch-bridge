@@ -122,8 +122,6 @@ class FusedLamb(Optimizer):
                     state['exp_avg'] = torch.zeros_like(p.data)
                     # Exponential moving average of squared gradient values
                     state['exp_avg_sq'] = torch.zeros_like(p.data)
-                    # Trust ratio default values
-                    state['tr_ones'] = torch.ones(1).to(hpu)
 
                 exp_avg, exp_avg_sq = state['exp_avg'], state['exp_avg_sq']
 
@@ -131,7 +129,7 @@ class FusedLamb(Optimizer):
                 wt_list.append(p.data)
                 exp_avg_list.append(exp_avg)
                 exp_avg_sq_list.append(exp_avg_sq)
-                tr_ones_list.append(state['tr_ones'])
+                tr_ones_list.append(torch.ones(1).to(hpu))
 
             (wt_norm_list, adam_norm_list, adam_step_list) = hb_custom_C.fused_lamb_phase1(
                     grad_list,
