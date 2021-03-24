@@ -45,10 +45,10 @@ TEST_P(FallbackTest, Inplace) {
 }
 
 TEST_P(FallbackTest, NonSupportedAsStrided) {
-  torch::Tensor A = torch::rand({3, 3});
+  torch::Tensor A = torch::rand({3, 3, 3, 3, 3});
   torch::Tensor hA = A.to(torch::kHABANA);
-  at::Tensor Out = A.as_strided({2, 2}, {2, 1});
-  at::Tensor hOut = hA.as_strided({2, 2}, {2, 1});
+  at::Tensor Out = A.as_strided({2, 2}, {1, 2});
+  at::Tensor hOut = hA.as_strided({2, 2}, {1, 2});
 
   Out.div_(4);
   hOut.div_(4);
