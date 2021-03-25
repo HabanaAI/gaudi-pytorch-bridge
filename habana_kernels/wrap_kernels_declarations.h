@@ -213,6 +213,11 @@ struct hpu_wrap {
       int64_t dim_,
       const at::Tensor& index,
       const at::Tensor& src);
+  static at::Tensor& scatter_(
+      at::Tensor& self,
+      int64_t dim_,
+      const at::Tensor& index,
+      at::Scalar value);
   static at::Tensor scatter(
       const at::Tensor& self,
       int64_t dim_,

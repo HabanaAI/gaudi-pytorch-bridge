@@ -141,13 +141,12 @@ inline Tensor get_batch_norm_optional_tensors(
 void BatchNormForwardOperator::insert_memcopy_op(
     synapse_helpers::graph& graph,
     at::Tensor& src,
-    at::Tensor& dst,
     int in_position) {
   MemCopyOperator memcopyOp(this->p_context_->device_id_, this->scalarType_);
   auto& syn_temp = memcopyOp.SetSynapseInput(
       std::move(p_context_->syn_inputs_[in_position]));
   // No need for output PT tensor as its non persistent
-  torch::jit::Stack stack = {IValue(src), IValue(dst)};
+  torch::jit::Stack stack = {IValue(src)};
   memcopyOp.AllocateAndAddSynapseNode(graph, stack, false);
   synapse_helpers::tensor& syn_tensor = memcopyOp.GetSynOutputs()[0];
   mean_var_temp.emplace_back(std::move(syn_temp));
@@ -353,8 +352,8 @@ void BatchNormForwardOperator::preProcessInputs(
     // As the intermediate tensor is non persistent, they dont need PT Tensor
     // So we reuse the original PT tensor(for meta data)
     if (running_vars_def) {
-      insert_memcopy_op(graph, running_mean_hpu, running_mean_hpu, 3);
-      insert_memcopy_op(graph, running_var_hpu, running_var_hpu, 4);
+      insert_memcopy_op(graph, running_mean_hpu, 3);
+      insert_memcopy_op(graph, running_var_hpu, 4);
     }
     // Mean and Var syn tensors may be reused as they are not bound to data
     // create a new syn tensor for bias and add it

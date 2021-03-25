@@ -196,6 +196,11 @@ Tensor scatter_src_hpu_lazy(
     int64_t dim_,
     const Tensor& index,
     const Tensor& src);
+Tensor& scatter_inplace_value_hpu_lazy(
+    Tensor& self,
+    int64_t dim_,
+    const Tensor& index,
+    Scalar value);
 Tensor scatter_add_src_hpu_lazy(
     const Tensor& self,
     int64_t dim_,

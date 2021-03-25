@@ -63,7 +63,6 @@ class BatchNormForwardOperator : public habana::HabanaOperator {
   void insert_memcopy_op(
       synapse_helpers::graph& graph,
       at::Tensor& src,
-      at::Tensor& dst,
       int32_t in_position);
   at::Tensor create_or_return_tensor_bn(
       synapse_helpers::graph& graph,

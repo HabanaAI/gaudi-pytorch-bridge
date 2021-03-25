@@ -402,11 +402,14 @@ void MemCopyOperator::AllocateAndAddSynapseNode(
   at::Tensor output;
   if (inputs.size() == 2) {
     output = inputs[1].toTensor();
+    p_context_->syn_outputs_.emplace_back(
+        std::move(p_context_->syn_inputs_[1]));
+    p_context_->pt_outputs_.emplace_back(output);
   } else {
     output = habana_helpers::createPTTensor(self, is_output_persistent);
+    AllocateSynapseOutput(graph, output, is_output_persistent);
   }
   p_context_->params_size_ = 0;
-  AllocateSynapseOutput(graph, output, is_output_persistent);
   AddNodeToSynapseGraph(graph, NULL, 0);
 }
 

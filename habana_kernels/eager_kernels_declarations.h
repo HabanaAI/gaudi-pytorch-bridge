@@ -180,11 +180,21 @@ Tensor& scatter_inplace_src_hpu(
     int64_t dim_,
     const Tensor& index,
     const Tensor& src);
+Tensor& scatter_inplace_value_hpu(
+    Tensor& self,
+    int64_t dim_,
+    const Tensor& index,
+    Scalar value);
 Tensor scatter_src_hpu(
     const Tensor& self,
     int64_t dim_,
     const Tensor& index,
     const Tensor& src);
+Tensor scatter_value_hpu(
+    const Tensor& self,
+    int64_t dim_,
+    const Tensor& index,
+    Scalar value);
 Tensor scatter_add_src_hpu(
     const Tensor& self,
     int64_t dim_,

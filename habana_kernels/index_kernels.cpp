@@ -298,6 +298,142 @@ Tensor& scatter_inplace_src_hpu(
   return self;
 }
 
+void ScatterValueOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 4,
+      "Incorrect size of inputs for scatter_value operator");
+  TORCH_CHECK(
+      inputs[0].isTensor(),
+      "Input 0 type expected to be Tensor for scatter-value operator");
+  TORCH_CHECK(
+      inputs[1].isInt(),
+      "Input 1 type expected to be int64_t for scatter_value operator");
+  TORCH_CHECK(
+      inputs[2].isTensor(),
+      "Input 2 type expected to be Tensor for scatter_value operator");
+  TORCH_CHECK(
+      inputs[3].isScalar(),
+      "Input 3 type expected to be Scalar for scatter_value operator");
+
+  auto self = inputs[0].toTensor();
+  auto dim = inputs[1].toInt();
+  auto index = inputs[2].toTensor();
+  auto value = inputs[3].toScalar();
+  at::ScalarType scalar_type = self.scalar_type();
+
+  torch::jit::Stack stack;
+  Tensor src = habana_helpers::createPTTensor(
+      self,
+      index.sizes(),
+      self.options(),
+      self.suggest_memory_format(),
+      scalar_type,
+      false);
+
+  // Create Constant Operator to convert scalar to tensor
+  ConstantOperator constOp(this->p_context_->device_id_, scalar_type);
+  stack = {IValue(src), IValue(value)};
+  constOp.AllocateAndAddSynapseNode(graph, stack, false);
+  stack.clear();
+
+  ScatterOperator scatterOp(this->p_context_->device_id_, scalar_type);
+  stack = {
+      IValue(self),
+      IValue(dim),
+      IValue(index),
+      IValue(constOp.GetOutputs()[0])};
+
+  auto& syn_scatter1 =
+      scatterOp.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+  auto& syn_scatter2 =
+      scatterOp.SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
+  UNUSED auto& syn_scatter3 =
+      scatterOp.SetSynapseInput(std::move(constOp.GetSynOutputs()[0]));
+  scatterOp.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+
+  p_context_->syn_inputs_[0] = std::move(syn_scatter1);
+  p_context_->syn_inputs_[1] = std::move(syn_scatter2);
+  p_context_->syn_outputs_.emplace_back(
+      std::move(scatterOp.GetSynOutputs()[0]));
+  p_context_->pt_outputs_.emplace_back(std::move(scatterOp.GetOutputs()[0]));
+}
+
+/*************************************************************************
+ * @brief Kernel implementation for torch.scatter
+ * @param self - Input tensor 1-4D bf16/fp32
+ * @param dim - dimension along which to index
+ * @param index - Tensor used to index into self
+ * @param value - Scalar with value to be updated (of same type as self)
+ ************************************************************************/
+Tensor scatter_value_hpu(
+    const Tensor& self,
+    int64_t dim_,
+    const Tensor& index,
+    Scalar value) {
+  PT_KERNEL_BEGIN;
+
+  auto index_int = habana_helpers::cast_tensor_to_integer(index);
+
+  size_t device_id = self.device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  at::ScalarType scalar_type = self.scalar_type();
+
+  std::string node_type =
+      "scatter_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+
+  // create the operator
+  ScatterValueOperator Op(device_id, scalar_type);
+  std::vector<c10::IValue> stack = {
+      IValue(self), IValue(dim_), IValue(index_int), IValue(value)};
+  size_t key = Op.GetRecipeKey(node_type, stack);
+  // Assign Inputs to the Operator
+  std::vector<at::Tensor> pt_inputs{self, index_int};
+
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    Op.SetPTInputs(pt_inputs);
+    Op.SetPTOutput(stack);
+    Op.Execute(key);
+  } else {
+    PT_KERNEL_DEBUG("Key:", key);
+    // create graph
+    auto graph = habana_helpers::create_graph(device_id, node_type);
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
+    Op.AllocateAndAddSynapseNode(graph, stack, true);
+
+    // compile and execute the graph
+    Op.Compile(graph);
+  }
+  std::vector<at::Tensor> out = Op.GetOutputs();
+  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
+  PT_KERNEL_END;
+
+  return out.at(0);
+}
+
+/*************************************************************************
+ * @brief Kernel implementation for scatter_.value(Tensor(a!) self, int dim,
+ *Tensor index, Tensor src) -> Tensor(a!)
+ * @param self - Input tensor 1-4D bf16/fp32
+ * @param dim - dimension along which to index
+ * @param index - Tensor used to index into self
+ * @param value - Scalar with values to be updated (of same type as self)
+ ************************************************************************/
+Tensor& scatter_inplace_value_hpu(
+    Tensor& self,
+    int64_t dim_,
+    const Tensor& index,
+    Scalar value) {
+  PT_KERNEL_BEGIN;
+  auto out = scatter_value_hpu(self, dim_, index, value);
+  self.copy_(out);
+  PT_KERNEL_END;
+  return self;
+}
+
 /*************************************************************************
  * @brief Kernel implementation for torch.scatter_add
  * @param self - Input tensor 1-4D bf16/fp32
@@ -399,16 +535,6 @@ void IndexAddOperator::AllocateAndAddSynapseNode(
   std::vector<synapse_helpers::tensor_or_ref> addSynOutput;
   torch::jit::Stack temp_stack;
 
-  // Create MemCopy operator to copy value into value_acc
-  MemCopyOperator memcpyOp(this->p_context_->device_id_, value.scalar_type());
-  // No need for output PT tensor as it's non persistent
-  temp_stack = {IValue(value), IValue(value)};
-  auto& syn_memcpyIn =
-      memcpyOp.SetSynapseInput(std::move(p_context_->syn_inputs_[2]));
-  memcpyOp.AllocateAndAddSynapseNode(graph, temp_stack, false);
-  p_context_->syn_inputs_[2] = std::move(syn_memcpyIn);
-  temp_stack.clear();
-
   ////auto slice = at::index_select(self, 0, indices[0]);
   IndexSelectOperator index_selectOp(
       this->p_context_->device_id_, self.scalar_type());
@@ -428,10 +554,12 @@ void IndexAddOperator::AllocateAndAddSynapseNode(
       IValue(value),
       IValue(index_selectOp.GetOutputs()[0]),
       IValue(Scalar(1.0))};
-  addOp.SetSynapseInput(std::move(memcpyOp.GetSynOutputs()[0]));
+  auto& syn_isValue =
+      addOp.SetSynapseInput(std::move(p_context_->syn_inputs_[2]));
   addOp.SetSynapseInput(std::move(index_selectOp.GetSynOutputs()[0]));
   addOp.AllocateAndAddSynapseNode(graph, temp_stack, false);
   addSynOutput.push_back(std::move(addOp.GetSynOutputs()[0]));
+  p_context_->syn_inputs_[2] = std::move(syn_isValue);
   temp_stack.clear();
 
   // Expand 1D index tensor to same number of dimensions as value tensor
@@ -593,16 +721,6 @@ void IndexPutOperator::AllocateAndAddSynapseNode(
   torch::jit::Stack temp_stack;
 
   if (accumulate) {
-    // Create MemCopy operator to copy value into value_acc
-    MemCopyOperator memcpyOp(this->p_context_->device_id_, value.scalar_type());
-    // No need for output PT tensor as it's non persistent
-    temp_stack = {IValue(value), IValue(value)};
-    auto& syn_memcpyIn = memcpyOp.SetSynapseInput(
-        std::move(p_context_->syn_inputs_[last_index]));
-    memcpyOp.AllocateAndAddSynapseNode(graph, temp_stack, false);
-    p_context_->syn_inputs_[last_index] = std::move(syn_memcpyIn);
-    temp_stack.clear();
-
     ////auto slice = at::index_select(self, 0, indices[0]);
     IndexSelectOperator index_selectOp(
         this->p_context_->device_id_, self.scalar_type());
@@ -622,10 +740,12 @@ void IndexPutOperator::AllocateAndAddSynapseNode(
         IValue(value),
         IValue(index_selectOp.GetOutputs()[0]),
         IValue(Scalar(1.0))};
-    addOp.SetSynapseInput(std::move(memcpyOp.GetSynOutputs()[0]));
+    auto& syn_isValue =
+        addOp.SetSynapseInput(std::move(p_context_->syn_inputs_[last_index]));
     addOp.SetSynapseInput(std::move(index_selectOp.GetSynOutputs()[0]));
     addOp.AllocateAndAddSynapseNode(graph, temp_stack, false);
     addSynOutput.push_back(std::move(addOp.GetSynOutputs()[0]));
+    p_context_->syn_inputs_[last_index] = std::move(syn_isValue);
     temp_stack.clear();
   }
 
@@ -1493,6 +1613,12 @@ static auto& KernelRegistry =
             "aten::scatter_add",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<ScatterAddOperator>(device_id, node_type);
+            })
+        .add(
+            "hpu::scatter_value",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<ScatterValueOperator>(
+                  device_id, node_type);
             })
         .add(
             "aten::select",

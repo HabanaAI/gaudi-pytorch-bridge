@@ -58,3 +58,33 @@ TEST_F(LazyIndexKernelTest, IndexAddInplaceTest) {
 
   EXPECT_EQ(allclose(h_cout, a), true);
 }
+
+TEST_F(LazyIndexKernelTest, ScatterValueInplaceTest) {
+  torch::Tensor a = torch::randn({5, 7}, torch::requires_grad(false));
+  torch::Tensor h_a = a.to(torch::kHABANA);
+  int64_t dim = 0;
+  auto index = torch::randint(0, 5, {5, 7}, torch::dtype(torch::kInt64));
+  auto h_index = index.to(torch::kHABANA);
+  auto value = 2;
+
+  h_a.scatter_(dim, h_index, value);
+  auto h_cout = h_a.to(torch::kCPU);
+  a.scatter_(dim, index, value);
+
+  EXPECT_EQ(allclose(h_cout, a), true);
+}
+
+TEST_F(LazyIndexKernelTest, ScatterValueTest) {
+  torch::Tensor a = torch::randn({5, 7}, torch::requires_grad(false));
+  torch::Tensor h_a = a.to(torch::kHABANA);
+  int64_t dim = 0;
+  auto index = torch::randint(0, 5, {5, 7}, torch::dtype(torch::kInt64));
+  auto h_index = index.to(torch::kHABANA);
+  auto value = 2;
+
+  torch::Tensor hOut = torch::scatter(h_a, dim, h_index, value);
+  auto h_cout = hOut.to(torch::kCPU);
+  torch::Tensor out = torch::scatter(a, dim, index, value);
+
+  EXPECT_EQ(allclose(h_cout, out), true);
+}

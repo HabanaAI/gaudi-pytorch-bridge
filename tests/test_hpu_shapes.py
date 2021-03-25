@@ -143,6 +143,17 @@ def test_hpu_scatter_inplace(N, H, I, S):
     thpu_out = self_hpu.scatter_(0, indices_torch.to(hpu), src.to(hpu))
     compare_tensors(thpu_out, tcpu_out, atol=0, rtol=0)
 
+@pytest.mark.parametrize("N, H, I, S", test_case_scatter_add)
+def test_hpu_scatter_value_inplace(N, H, I, S):
+    hpu = torch.device('habana')
+    indices_torch = torch.randint(0, I * S, (N, H), dtype=torch.long)
+    value = 2
+    self_t = torch.randn(N, H)
+    self_hpu = self_t.to(hpu)
+
+    tcpu_out = self_t.scatter_(0, indices_torch, value)
+    thpu_out = self_hpu.scatter_(0, indices_torch.to(hpu), value)
+    compare_tensors(thpu_out, tcpu_out, atol=0, rtol=0)
 
 @pytest.mark.skip(reason=f"https://jira.habana-labs.com/browse/SW-25327")
 @pytest.mark.parametrize("N, H, I, S", test_case_scatter_add)
@@ -218,3 +229,4 @@ if __name__ == '__main__':
     test_hpu_index_put(*test_case_list[0])
     test_hpu_index_add(*test_case_list[0], 0)
     test_hpu_broadcast(broadcast_test_case_list[2])
+    test_hpu_scatter_value_inplace(*test_case_scatter_add[0])

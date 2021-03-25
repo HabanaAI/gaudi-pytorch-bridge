@@ -126,5 +126,32 @@ struct IndexAdd_ : public ir::Node {
   }
 };
 
+struct ScatterValue : public ir::Node {
+  enum class ScatterValue_Params { DIM_INDEX = 1 };
+  ScatterValue() = delete;
+  ScatterValue(at::Tensor& self, int64_t dim, const Tensor& index, Scalar value)
+      : Node(c10::Symbol::fromQualString("hpu::scatter_value")) {
+    auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
+    auto hl_index = habana_lazy::GetOrCreateHbLazyTensor(index, c10::kHABANA);
+    auto hl_value = habana_lazy::GetIrValueForScalar(value);
+
+    AddInput(hl_self.GetIrValue());
+    AddInput(hl_index.GetIrValue());
+    AddInput(hl_value);
+    std::vector<at::Tensor> input_pt_vec{self, index};
+    AddInputPtTensors(input_pt_vec);
+
+    m_meta_data.set(dim, static_cast<size_t>(ScatterValue_Params::DIM_INDEX));
+  }
+
+  std::string ToString() const override {
+    std::stringstream ss;
+    ss << Node::ToString() << ", dim="
+       << m_meta_data.get(static_cast<size_t>(ScatterValue_Params::DIM_INDEX));
+
+    return ss.str();
+  }
+};
+
 } // namespace ir
 } // namespace habana_lazy

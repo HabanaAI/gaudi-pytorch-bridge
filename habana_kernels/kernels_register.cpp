@@ -731,6 +731,18 @@ Tensor hpu_wrap::scatter(
     return scatter_src_hpu(self, dim_, index, src);
   }
 };
+Tensor& hpu_wrap::scatter_(
+    Tensor& self,
+    int64_t dim_,
+    const Tensor& index,
+    Scalar value) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    auto& t = scatter_inplace_value_hpu_lazy(self, dim_, index, value);
+    return t;
+  } else {
+    return scatter_inplace_value_hpu(self, dim_, index, value);
+  }
+};
 Tensor hpu_wrap::scatter_add(
     const Tensor& self,
     int64_t dim_,
@@ -2465,6 +2477,8 @@ TORCH_LIBRARY(hpu, m) {
       "prod_dim_Int(Tensor self, int dim, bool keepdim=False, *, ScalarType? dtype=None) -> Tensor");
   m.def("all_dim(Tensor self, int dim, bool keepdim=False) -> Tensor");
   m.def(
+      "scatter_value(Tensor self, int dim, Tensor index, Scalar value) -> Tensor(a!)");
+  m.def(
       "max_dim(Tensor self, int dim, bool keepdim=False) -> (Tensor values, Tensor indices)");
   m.def("habana_d2d_memcpy(Tensor self) -> (Tensor)");
   m.def(
@@ -2510,6 +2524,11 @@ TORCH_LIBRARY_IMPL(hpu, HABANATensorId, m) {
       static_cast<at::Tensor (*)(
           const at::Tensor&, int64_t, bool, c10::optional<at::ScalarType>)>(
           &hpu_wrap::prod));
+  m.impl(
+      "scatter_value",
+      static_cast<
+          at::Tensor& (*)(at::Tensor&, int64_t, const at::Tensor&, Scalar)>(
+          &hpu_wrap::scatter_));
   m.impl(
       "bitwise_and_Tensor_out",
       static_cast<

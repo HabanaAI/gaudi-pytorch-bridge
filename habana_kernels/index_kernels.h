@@ -122,12 +122,22 @@ class ScatterWrapperOperator : public HabanaOperator {
   Tensor AllocateOutput(torch::jit::Stack& inputs, bool is_output_persistent);
 };
 
-// ScatterOperator Operator
+// ScatterValueOperator Operator
 //
 class ScatterOperator : public ScatterWrapperOperator {
  public:
   ScatterOperator(int device_id, c10::ScalarType scalarType)
       : ScatterWrapperOperator(device_id, scalarType, "scatter_fwd_") {}
+};
+
+class ScatterValueOperator : public ScatterWrapperOperator {
+ public:
+  ScatterValueOperator(int device_id, c10::ScalarType scalarType)
+      : ScatterWrapperOperator(device_id, scalarType, "scatter_fwd_") {}
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
 };
 
 // ScatterAddOperator Operator
