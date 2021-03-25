@@ -449,6 +449,10 @@ Tensor& any_dim_out_hpu_lazy(
     bool keepdim);
 Tensor any_dim_hpu_lazy(const Tensor& self, int64_t dim, bool keepdim);
 Tensor any_hpu_lazy(const Tensor& self);
+Tensor argmax_hpu_lazy(
+    const Tensor& self,
+    c10::optional<int64_t> dim,
+    bool keepdim);
 Tensor& bitwise_and_out_hpu_lazy(
     Tensor& out,
     const Tensor& self,

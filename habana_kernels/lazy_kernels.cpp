@@ -2848,6 +2848,39 @@ Tensor any_hpu_lazy(const Tensor& self) {
   HABANA_ASSERT(0);
   return any_hpu(self);
 };
+Tensor argmax_hpu_lazy(
+    const Tensor& self,
+    c10::optional<int64_t> dim,
+    bool keepdim) {
+  PT_LAZY_TRACE;
+  auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
+  habana_lazy::ir::NodePtr node =
+      std::make_shared<habana_lazy::ir::ArgMax>(self, dim, keepdim);
+  std::vector<int64_t> shape_out;
+
+  if (dim.has_value()) {
+    shape_out = self.sizes().vec();
+    if (keepdim == true) {
+      shape_out[dim.value()] = 1;
+    } else {
+      shape_out.erase(shape_out.begin() + dim.value());
+    }
+  } else {
+    shape_out.push_back(1);
+  }
+
+  auto result = at::native::empty_hpu_lazy(
+      shape_out,
+      self.options().dtype(c10::ScalarType::Int),
+      self.suggest_memory_format(),
+      false);
+  auto hl_result = habana_lazy::GetHbLazyTensor(result);
+  habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+  updateDstDependencies(hl_result, result);
+  return result;
+};
 namespace habana {
 Tensor log_softmax_hpu_lazy(
     const Tensor& self,

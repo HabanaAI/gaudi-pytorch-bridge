@@ -126,9 +126,9 @@ void ReduceOperator::SetPTOutputs(torch::jit::Stack& inputs) {
 
   allocate_reduction_result(
       output, self, mask, keepdim, get_dtype(output, self, dtype, false), true);
-  TORCH_CHECK(
+  /*TORCH_CHECK(
       output.scalar_type() == self.scalar_type(),
-      "Habana reduction ops don't support casts yet");
+      "Habana reduction ops don't support casts yet");*/
   HabanaOperator::SetPTOutputs({output});
 }
 
@@ -259,9 +259,9 @@ void ReduceOperator::AllocateAndAddSynapseNode(
         keepdim,
         get_dtype(output, self_reshaped, dtype, false),
         is_output_persistent);
-    TORCH_CHECK(
+    /*TORCH_CHECK(
         output.scalar_type() == self_reshaped.scalar_type(),
-        "Habana reduction ops don't support casts yet");
+        "Habana reduction ops don't support casts yet");*/
     AllocateSynapseOutput(graph, output, is_output_persistent);
 
     std::tie(std::ignore, p_context_->syn_outputs_[0]) = CreateReductionGraph(
@@ -270,7 +270,8 @@ void ReduceOperator::AllocateAndAddSynapseNode(
         std::move(ReshapeOp.GetSynOutputs()[0]),
         std::move(p_context_->syn_outputs_[0]),
         reshaped_in_dim,
-        keepdim);
+        keepdim,
+        output.scalar_type());
   } else {
     int64_t in_dim_copy[in_dim.size()];
     std::copy(in_dim.begin(), in_dim.end(), in_dim_copy);
@@ -283,9 +284,9 @@ void ReduceOperator::AllocateAndAddSynapseNode(
         keepdim,
         get_dtype(output, self, dtype, false),
         is_output_persistent);
-    TORCH_CHECK(
+    /*TORCH_CHECK(
         output.scalar_type() == self.scalar_type(),
-        "Habana reduction ops don't support casts yet");
+        "Habana reduction ops don't support casts yet");*/
     AllocateSynapseOutput(graph, output, is_output_persistent);
 
     std::tie(p_context_->syn_inputs_[0], p_context_->syn_outputs_[0]) =
@@ -295,7 +296,8 @@ void ReduceOperator::AllocateAndAddSynapseNode(
             std::move(p_context_->syn_inputs_[0]),
             std::move(p_context_->syn_outputs_[0]),
             in_dim_arr,
-            keepdim);
+            keepdim,
+            output.scalar_type());
   }
 }
 
@@ -306,7 +308,8 @@ ReduceOperator::CreateReductionGraph(
     synapse_helpers::tensor_or_ref syn_tensor_in,
     synapse_helpers::tensor_or_ref syn_tensor_out,
     IntArrayRef in_dim,
-    bool keepdim) {
+    bool keepdim,
+    ScalarType dtype) {
   // In the code below syn_helper_intermediate[0] holds the reshaped/original
   // input, syn_helper_intermediate[<last_index>] holds the final output and
   // all others in between holds intermediate output/net-stage-input in the
@@ -327,7 +330,7 @@ ReduceOperator::CreateReductionGraph(
         graph.get_graph_handle(),
         false,
         pyt_tensor.device().index(),
-        pyt_tensor.scalar_type()));
+        dtype));
     syn_intermediate.emplace_back(syn_helper_intermediate[i].get());
   }
   // add syn_output tensor
@@ -1554,6 +1557,112 @@ Tensor all_dim_hpu(const Tensor& self, int64_t dim, bool keepdim) {
   return stack.back().toTensor();
 }
 
+void ArgMaxOperator::SetPTOutputs(torch::jit::Stack& inputs) {
+  Tensor output;
+  Tensor self = inputs[0].toTensor();
+  auto dim = inputs[1].toOptional<int64_t>();
+  std::vector<int64_t> dimArr;
+  if (dim.has_value()) {
+    // Replacing Int value with single element IntList
+    dimArr.push_back(dim.value());
+  } else {
+    auto ndim = self.dim();
+    for (int i = 0; i < ndim; i++) {
+      dimArr.push_back(i);
+    }
+  }
+  inputs[1] = IValue(dimArr);
+  inputs.insert(inputs.begin(), IValue(output));
+  ReduceOperator::SetPTOutputs(inputs);
+}
+
+void ArgMaxOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  PT_KERNEL_BEGIN;
+  TORCH_CHECK(
+      inputs.size() == 3,
+      "Incorrect size of inputs expected for ArgMax operator");
+  TORCH_CHECK(
+      inputs[0].isTensor(),
+      "Input arg1 expected to be tensor for ArgMax operator");
+  TORCH_CHECK(
+      inputs[2].isBool(), "Input arg4 expected to be Bool for ArgMax operator");
+
+  Tensor self = inputs[0].toTensor();
+  auto dim = inputs[1].toOptional<int64_t>();
+  std::vector<int64_t> dimArr;
+
+  if (dim.has_value()) {
+    // Replacing Int value with single element IntList
+    dimArr.push_back(dim.value());
+  } else {
+    auto ndim = self.dim();
+    for (int i = 0; i < ndim; i++) {
+      dimArr.push_back(i);
+    }
+  }
+  inputs[1] = IValue(dimArr);
+  Tensor output = habana_helpers::createPTTensor(
+      self,
+      {0},
+      self.options(),
+      self.suggest_memory_format(),
+      c10::ScalarType::Int,
+      is_output_persistent);
+  inputs.insert(inputs.begin(), IValue(output));
+  inputs.emplace_back(IValue(output.scalar_type()));
+  ReduceOperator::AllocateAndAddSynapseNode(
+      graph, inputs, is_output_persistent);
+  PT_KERNEL_END;
+}
+
+Tensor argmax_hpu(
+    const Tensor& self,
+    c10::optional<int64_t> dim,
+    bool keepdim) {
+  PT_KERNEL_BEGIN;
+  at::ScalarType scalar_type = self.scalar_type();
+  std::string node_type =
+      "argmax_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+  size_t device_id = self.device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  std::vector<at::Tensor> pt_inputs{self};
+  // Build Params for the graph
+  std::vector<c10::IValue> stack = {IValue(self), IValue(dim), IValue(keepdim)};
+  // Create the operator
+  ArgMaxOperator Op(device_id, scalar_type);
+  size_t key = Op.GetRecipeKey(node_type, stack);
+
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    Tensor output;
+    Op.SetPTInputs(pt_inputs);
+    Op.SetPTOutputs(stack);
+    Op.Execute(key);
+  } else {
+    PT_KERNEL_DEBUG("key:", key);
+    // Create Graph
+    auto graph = habana_helpers::create_graph(device_id, node_type);
+
+    // Assign Inputs to the Operator
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
+
+    // Add nodes to the graph
+    Op.AllocateAndAddSynapseNode(graph, stack, true);
+
+    // compile and execute the graph
+    Op.Compile(graph);
+  }
+
+  std::vector<at::Tensor> out = Op.GetOutputs();
+  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
+
+  PT_KERNEL_END;
+  return out.at(0);
+}
+
 static auto& KernelRegistry =
     ::habana::KernelRegistry()
         .add(
@@ -1591,4 +1700,9 @@ static auto& KernelRegistry =
             "aten::prod.dim_Int",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<ProdDimOperator>(device_id, node_type);
+            })
+        .add(
+            "aten::argmax",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<ArgMaxOperator>(device_id, node_type);
             });

@@ -57,7 +57,8 @@ class ReduceOperator : public HabanaOperator {
       synapse_helpers::tensor_or_ref syn_tensor_in,
       synapse_helpers::tensor_or_ref syn_tensor_out,
       c10::IntArrayRef in_dim,
-      bool keepdim);
+      bool keepdim,
+      c10::ScalarType dtype);
 };
 
 //
@@ -265,4 +266,22 @@ class GradSumToSizeOperator : public HabanaOperator {
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
+};
+
+//
+// ArgMax Operator
+class ArgMaxOperator : public ReduceOperator {
+ public:
+  ArgMaxOperator(int device_id, c10::ScalarType scalarType)
+      : ReduceOperator(
+            device_id,
+            "argmax_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
+  }
+
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+
+  virtual void SetPTOutputs(torch::jit::Stack& inputs);
 };

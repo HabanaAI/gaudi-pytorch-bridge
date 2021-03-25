@@ -133,6 +133,33 @@ class ProdDimInt : public Node {
   }
 };
 
+enum class ArgMaxIndex { kDimIdx = 1, kKeepdimIdx = 2 };
+class ArgMax : public Node {
+ public:
+  ArgMax() = delete;
+  ArgMax(const Tensor& self, c10::optional<int64_t> dim, bool keepdim)
+      : Node(c10::Symbol::fromQualString("aten::argmax")) {
+    auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHABANA);
+    auto ir_value = hl_self.GetIrValue();
+    AddInput(ir_value);
+
+    std::vector<at::Tensor> input_pt_vec{self};
+    AddInputPtTensors(input_pt_vec);
+
+    m_meta_data.set(dim, static_cast<size_t>(ArgMaxIndex::kDimIdx));
+    m_meta_data.set(keepdim, static_cast<size_t>(ArgMaxIndex::kKeepdimIdx));
+  }
+
+  std::string ToString() const override {
+    std::stringstream ss;
+    ss << Node::ToString()
+       << ", dim=" << m_meta_data.get(static_cast<size_t>(ArgMaxIndex::kDimIdx))
+       << ", keepdim="
+       << m_meta_data.get(static_cast<size_t>(ArgMaxIndex::kKeepdimIdx));
+    return ss.str();
+  }
+};
+
 enum class AllDimIndex { kDimIdx = 1, kKeepdimIdx = 2 };
 class AllDim : public Node {
  public:

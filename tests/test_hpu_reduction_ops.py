@@ -47,6 +47,11 @@ reduction_dim_int_list = [
     (torch.prod, 1, False),
     (torch.prod, 2, True),
     (torch.prod, 2, False),
+    (torch.argmax, 2, False),
+    (torch.argmax, 1, True),
+    (torch.argmax, None, True),
+    (torch.argmax, 3, True),
+    (torch.argmax, 0, False),
 ]
 
 data_type_list = [

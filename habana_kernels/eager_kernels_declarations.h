@@ -572,6 +572,10 @@ Tensor rsqrt_hpu(const Tensor& self);
 Tensor& rsqrt_hpu_(Tensor& self);
 Tensor isfinite_hpu(const Tensor& self);
 Tensor neg_hpu(const Tensor& self);
+Tensor argmax_hpu(
+    const at::Tensor& self,
+    c10::optional<int64_t> dim,
+    bool keepdim);
 namespace at {
 namespace native {
 Scalar _local_scalar_dense_hpu(const Tensor& self);

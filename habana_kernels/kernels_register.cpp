@@ -2085,6 +2085,16 @@ Tensor& hpu_wrap::log2_(Tensor& self) {
     return log2_hpu_(self);
   }
 }
+Tensor hpu_wrap::argmax(
+    const at::Tensor& self,
+    c10::optional<int64_t> dim,
+    bool keepdim) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    return argmax_hpu_lazy(self, dim, keepdim);
+  } else {
+    return argmax_hpu(self, dim, keepdim);
+  }
+}
 
 std::vector<at::Tensor> hpu_wrap::unbind(const at::Tensor& self, int64_t dim) {
   return at::native::unbind(self, dim);

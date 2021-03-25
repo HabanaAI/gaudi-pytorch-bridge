@@ -59,6 +59,15 @@ TEST_F(LazyReductionKernelTest, ProdDimIntTest) {
   EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out), true);
 }
 
+TEST_F(LazyReductionKernelTest, ArgMaxTest) {
+  torch::Tensor A = torch::randn({2, 2, 3, 4}, torch::requires_grad(false));
+  torch::Tensor hA = A.to(torch::kHABANA);
+  torch::Tensor hOut = torch::argmax(hA, 2, true);
+  torch::Tensor Out = torch::argmax(A, 2, true);
+  auto cOut = Out.to(torch::dtype(torch::kInt));
+  EXPECT_EQ(allclose(hOut.to(torch::kCPU), cOut), true);
+}
+
 TEST_F(LazyReductionKernelTest, AllTensorTest) {
   exec::OptPassCfg::GetInstance()->enable_subgraph_rewrite = true;
   const std::vector<int64_t> dimensions{5, 3, 4};
