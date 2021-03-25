@@ -173,6 +173,24 @@ class IsfiniteOperator : public UnaryOperator {
       bool is_output_persistent = false) override;
 };
 
+// Sign operator
+class SignOperator : public UnaryOperator {
+ public:
+  SignOperator(int device_id, c10::ScalarType scalarType)
+      : UnaryOperator(
+            device_id,
+            "sign_fwd_" + habana_helpers::name_suffix_from_type(scalarType)){};
+};
+
+// Sign Inplace Operator
+class SignInplaceOperator : public UnaryInplaceOperator {
+ public:
+  SignInplaceOperator(int device_id, c10::ScalarType scalarType)
+      : UnaryInplaceOperator(
+            device_id,
+            "sign_fwd_" + habana_helpers::name_suffix_from_type(scalarType)){};
+};
+
 // Sqrt Operator
 class SqrtOperator : public UnaryOperator {
  public:

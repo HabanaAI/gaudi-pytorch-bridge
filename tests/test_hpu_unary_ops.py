@@ -32,6 +32,8 @@ unary_op_list = [
     torch.rsqrt,
     torch.log,
     torch.log2,
+    torch.sign,
+    torch.sgn,
 ]
 
 unary_inplace_op_list = [
@@ -45,6 +47,8 @@ unary_inplace_op_list = [
     ('rsqrt_'),
     ('log_'),
     ('log2_'),
+    ('sign_'),
+    ('sgn_'),
 ]
 
 unary_op_out_list = [
@@ -163,7 +167,7 @@ def test_hpu_unary_op_clamp_inplace(N, H, W, C):
     evaluate_fwd_inplace_kernel(in_out_tensor=in_out_tensor, kernel_name='clamp_', kernel_params=kernel_params)
 
 if __name__ == '__main__':
-    test_hpu_unary_op(*test_case_list[0], unary_op_list[0])
-    test_hpu_unary_op_fwd_bwd(*test_case_list[0], unary_op_list[0])
-    test_hpu_unary_inplace_op(*test_case_list[0], unary_inplace_op_list[0])
+    test_hpu_unary_op(*test_case_list[0], temp_list[0])
+    test_hpu_unary_op_fwd_bwd(*test_case_list[0], temp_list[0])
+    test_hpu_unary_inplace_op(*test_case_list[0], temp_inplace_list[0])
     test_hpu_binary_op_out_intype(*test_case_list[0], unary_op_out_list[0])

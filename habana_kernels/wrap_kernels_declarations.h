@@ -99,6 +99,10 @@ struct hpu_wrap {
       const at::Tensor& self,
       at::Scalar other,
       at::Scalar alpha);
+  static at::Tensor sign(const at::Tensor& self);
+  static at::Tensor& sign_(at::Tensor& self);
+  static at::Tensor sgn(const at::Tensor& self);
+  static at::Tensor& sgn_(at::Tensor& self);
   static at::Tensor& mul_(at::Tensor& self, const at::Tensor& other);
   static at::Tensor& mul_out(
       at::Tensor& out,

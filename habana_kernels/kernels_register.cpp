@@ -1890,6 +1890,38 @@ Tensor hpu_wrap::exp(const Tensor& self) {
     return exp_hpu(self);
   }
 };
+Tensor hpu_wrap::sign(const Tensor& self) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    auto t = sign_hpu_lazy(self);
+    return t;
+  } else {
+    return sign_hpu(self);
+  }
+}
+Tensor& hpu_wrap::sign_(at::Tensor& self) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    auto& t = sign_hpu_lazy_(self);
+    return t;
+  } else {
+    return sign_hpu_(self);
+  }
+}
+Tensor hpu_wrap::sgn(const Tensor& self) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    auto t = sgn_hpu_lazy(self);
+    return t;
+  } else {
+    return sgn_hpu(self);
+  }
+}
+Tensor& hpu_wrap::sgn_(at::Tensor& self) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    auto& t = sgn_hpu_lazy_(self);
+    return t;
+  } else {
+    return sgn_hpu_(self);
+  }
+}
 Tensor& hpu_wrap::neg_out(Tensor& result, const Tensor& input) {
   if (std::getenv("PT_HPU_LAZY_MODE")) {
     auto& t = neg_out_hpu_lazy(result, input);

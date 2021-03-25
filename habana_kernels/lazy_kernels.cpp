@@ -8,6 +8,7 @@
  ******************************************************************************
  */
 
+#include "habana_kernels/lazy_kernels.h"
 #include <ATen/InferSize.h>
 #include "habana_helpers/logging.h"
 #include "habana_kernels/aten_hpu_type_default.h"
@@ -54,6 +55,8 @@
 #include "habana_lazy/view.h"
 #include "pytorch_helpers/habana_device/HPUAllocator.h"
 #include "pytorch_helpers/synapse_helpers/util.h"
+
+using namespace habana_lazy;
 
 at::Tensor preProcessIfLongorDouble(
     const at::Tensor& src,
@@ -119,7 +122,7 @@ habana_lazy::ir::Value AddControlEdge(
 void updateDstDependencies(
     habana_lazy::HbLazyTensor& hl_dst,
     const Tensor& dst,
-    bool in_place = false) {
+    bool in_place) {
   auto view = hl_dst.getView();
   // FIXME: deactivating code to add control edge for updating views of the
   // tensors
@@ -3362,6 +3365,30 @@ Tensor& relu_hpu_lazy_(Tensor& input) {
       hl_input.getTensorUniqueId(), LazyTensorExecutionStatus::kREGISTERED);
 
   return input;
+};
+
+Tensor sign_hpu_lazy(const Tensor& input) {
+  PT_LAZY_TRACE;
+  LazyOp<at::Tensor> k{"aten::sign", {input}};
+  return k.call();
+};
+
+Tensor& sign_hpu_lazy_(Tensor& input) {
+  PT_LAZY_TRACE;
+  LazyOp<at::Tensor&> k{"aten::sign", {input}};
+  return k.call(input);
+};
+
+Tensor sgn_hpu_lazy(const Tensor& input) {
+  PT_LAZY_TRACE;
+  TORCH_CHECK(!input.is_complex(), "Unsupported complex data type provided");
+  return sign_hpu_lazy(input);
+};
+
+Tensor& sgn_hpu_lazy_(Tensor& input) {
+  PT_LAZY_TRACE;
+  TORCH_CHECK(!input.is_complex(), "Unsupported complex data type provided");
+  return sign_hpu_lazy_(input);
 };
 
 Tensor floor_hpu_lazy(const Tensor& input) {

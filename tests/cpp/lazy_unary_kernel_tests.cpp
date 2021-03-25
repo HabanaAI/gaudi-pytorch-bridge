@@ -241,6 +241,70 @@ TEST_F(LazyUnaryKernelTest, RsqrtInplaceTest) {
   EXPECT_EQ(allclose(out, rsqrt), true);
 }
 
+TEST_F(LazyUnaryKernelTest, SignTest) {
+  auto input_tensor = torch::randn({4, 3});
+
+  torch::Tensor cpu_out = torch::sign(input_tensor);
+
+  torch::Tensor tHabanaX = input_tensor.to(torch::kHABANA);
+  torch::Tensor outHabana = torch::sign(tHabanaX);
+  torch::Tensor hout_lazy = outHabana.to(torch::kCPU);
+
+  bool equal = cpu_out.equal(hout_lazy);
+  EXPECT_EQ(equal, true);
+}
+
+TEST_F(LazyUnaryKernelTest, SignInplaceTest) {
+  // Inplace op as output node is not supported yet.
+  torch::Tensor A = torch::randn({4, 5});
+
+  auto hA = A.to(torch::kHABANA);
+  A = A.sign_();
+  auto sign = torch::sign(A);
+
+  hA = hA.sign_();
+  auto result = torch::sign(hA);
+
+  std::vector<HbLazyTensor> tensors = {GetHbLazyTensor(result)};
+  HbLazyTensor::SyncTensorsGraph(&tensors);
+
+  Tensor out = result.to(kCPU);
+
+  EXPECT_EQ(allclose(out, sign), true);
+}
+
+TEST_F(LazyUnaryKernelTest, SgnTest) {
+  auto input_tensor = torch::randn({4, 3});
+
+  torch::Tensor cpu_out = torch::sgn(input_tensor);
+
+  torch::Tensor tHabanaX = input_tensor.to(torch::kHABANA);
+  torch::Tensor outHabana = torch::sgn(tHabanaX);
+  torch::Tensor hout_lazy = outHabana.to(torch::kCPU);
+
+  bool equal = cpu_out.equal(hout_lazy);
+  EXPECT_EQ(equal, true);
+}
+
+TEST_F(LazyUnaryKernelTest, SgnInplaceTest) {
+  // Inplace op as output node is not supported yet.
+  torch::Tensor A = torch::randn({4, 5});
+
+  auto hA = A.to(torch::kHABANA);
+  A = A.sgn_();
+  auto sgn = torch::sgn(A);
+
+  hA = hA.sign_();
+  auto result = torch::sgn(hA);
+
+  std::vector<HbLazyTensor> tensors = {GetHbLazyTensor(result)};
+  HbLazyTensor::SyncTensorsGraph(&tensors);
+
+  Tensor out = result.to(kCPU);
+
+  EXPECT_EQ(allclose(out, sgn), true);
+}
+
 TEST_F(LazyUnaryKernelTest, RsqrtTest) {
   auto input_tensor = torch::add(torch::rand({4, 5}), 1);
   torch::Tensor cpu_out = torch::rsqrt(input_tensor);

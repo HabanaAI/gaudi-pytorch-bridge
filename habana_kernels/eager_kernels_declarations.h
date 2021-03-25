@@ -510,6 +510,10 @@ Tensor unary_backward_op_hpu(
     UnaryBackwardOperator* Op);
 Tensor relu_hpu(const Tensor& input);
 Tensor& relu_hpu_(Tensor& self);
+Tensor sign_hpu(const Tensor& self);
+Tensor& sign_hpu_(Tensor& self);
+Tensor sgn_hpu(const Tensor& self);
+Tensor& sgn_hpu_(Tensor& self);
 Tensor sigmoid_hpu(const Tensor& input);
 Tensor sigmoid_backward_hpu(const Tensor& grad_in, const Tensor& input);
 Tensor sqrt_hpu(const Tensor& input);
