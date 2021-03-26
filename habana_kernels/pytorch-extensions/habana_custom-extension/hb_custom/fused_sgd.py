@@ -37,18 +37,12 @@ class FusedSGD(Optimizer):
         # State initialization
         for group in self.param_groups:
             if (momentum != 0):
-                group['step_t'] = torch.tensor([0], dtype = torch.int32, requires_grad=False).to(hpu, non_blocking=True)
                 for p in group['params']:
                     state = self.state[p]
-                    state['momentum_buffer'] = torch.zeros(p.shape).to(hpu)
+                    state['momentum_buffer'] = torch.zeros_like(p).to(hpu, non_blocking=True)
 
-    def __setstate__(self, state):
-        super().__setstate__(state)
-        # State initialization
-        for group in self.param_groups:
-            if (group['momentum'] != 0):
-                if 'step_t' not in group:
-                    group['step_t'] = torch.tensor([0], dtype = torch.int32, requires_grad=False).to(hpu, non_blocking=True)
+        self.lr_t = None
+        self.step_t = torch.tensor([0], dtype=torch.int32, requires_grad=False).to(hpu, non_blocking=True)
 
     def step(self, closure: Callable = None):
         """
@@ -63,7 +57,7 @@ class FusedSGD(Optimizer):
             loss = closure()
 
         for group in self.param_groups:
-            group['lr_t'] = torch.tensor([group['lr']], requires_grad=False).to(hpu)
+            self.lr_t = torch.tensor([group['lr']], dtype=torch.float, requires_grad=False).to(hpu, non_blocking=True)
             if (group['momentum'] == 0):
                 grad_list, d_p_list = [], []
                 for p in group["params"]:
@@ -81,7 +75,7 @@ class FusedSGD(Optimizer):
                 hb_custom_C.fused_sgd(
                         grad_list,
                         d_p_list,
-                        group['lr_t'],
+                        self.lr_t,
                         group['weight_decay'],
                         group['momentum'],
                         group['dampening'],
@@ -106,8 +100,8 @@ class FusedSGD(Optimizer):
                             grad_list,
                             d_p_list,
                             momentum_buffer_list,
-                            group['step_t'],
-                            group['lr_t'],
+                            self.step_t,
+                            self.lr_t,
                             group['weight_decay'],
                             group['momentum'],
                             group['dampening'],

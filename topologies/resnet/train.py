@@ -381,9 +381,6 @@ def main(args):
             # to channels_last for many components - e.g. convolution.
             # So we are forced to rearrange such tensors ourselves.
 
-    if(args.device == 'habana'):
-        permute_params(model, True, args.run_lazy_mode)
-
     trainMetaData.set_num_train_steps(args.num_train_steps)
     trainMetaData.set_num_eval_steps(args.num_eval_steps)
     trainMetaData.set_save_checkpoint_enable(args.save_checkpoint)
@@ -404,6 +401,10 @@ def main(args):
 
     optimizer = sgd_optimizer(
         model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
+
+    if(args.device == 'habana'):
+        permute_params(model, True, args.run_lazy_mode)
+        permute_momentum(optimizer, True, args.run_lazy_mode)
 
     if args.apex:
         model, optimizer = amp.initialize(model, optimizer,
@@ -448,6 +449,8 @@ def main(args):
     if args.resume:
         if(args.device == 'habana'):
             permute_params(model_without_ddp, False, args.run_lazy_mode)
+            permute_momentum(optimizer, False, args.run_lazy_mode)
+
         checkpoint = torch.load(args.resume, map_location='cpu')
         model_without_ddp.load_state_dict(checkpoint['model'])
         optimizer.load_state_dict(checkpoint['optimizer'])
@@ -517,6 +520,7 @@ def main(args):
                         if isinstance(v, torch.Tensor):
                             state[k] = v.to('habana')
                 permute_params(model_without_ddp, True, args.run_lazy_mode)
+                permute_momentum(optimizer, True, args.run_lazy_mode)
 
             else:
                 checkpoint = {

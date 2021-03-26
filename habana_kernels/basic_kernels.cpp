@@ -139,8 +139,26 @@ Tensor& copy_hpu_(Tensor& self, const Tensor& src, bool non_blocking) {
   } else if (
       src_device == c10::DeviceType::HABANA &&
       dst_device == c10::DeviceType::CPU) {
-    HABANA_ASSERT(dst.nbytes() == src.nbytes());
-    habana_helpers::copy_data_to_host(src, dst, non_blocking);
+    HABANA_ASSERT(dst.nbytes() >= src.nbytes());
+    if (dst.nbytes() > src.nbytes()) {
+      // special handling for int to long cast. Needed in saving checkpoints for
+      // RN50 lazy The long integer tensor that is used by PT for BN exp
+      // averaging (num_batches_tracked) is converted into int in lazy mode. It
+      // needs to be converted back to long while saving the checkpoint
+      if ((src.scalar_type() == c10::ScalarType::Int) &&
+          (dst.scalar_type() == c10::ScalarType::Long)) {
+        Tensor dst_tmp = at::empty(
+            dst.sizes(),
+            at::CPU(at::kInt).options(),
+            dst.suggest_memory_format());
+        habana_helpers::copy_data_to_host(src, dst_tmp, non_blocking);
+        dst = dst_tmp.to(c10::ScalarType::Long);
+      } else {
+        HABANA_ASSERT(dst.nbytes() != src.nbytes());
+      }
+    } else {
+      habana_helpers::copy_data_to_host(src, dst, non_blocking);
+    }
   } else if (
       src_device == c10::DeviceType::HABANA &&
       dst_device == c10::DeviceType::HABANA) {
