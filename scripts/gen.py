@@ -90,7 +90,7 @@ _FN_BLACKLIST = set([])
 
 # List of non-leaf ops we want to override both forward + backward.
 # TODO(https://github.com/pytorch/pytorch/issues/39959)
-_FN_AUTOGRAD_HPU = set([])
+_FN_AUTOGRAD_HPU = set(["isfinite(Tensor) -> Tensor"])
 
 _FN_BLACKLIST_REGEX = [
     # ATEN functions
@@ -968,6 +968,7 @@ def generate_unboxed(aten_sig, overload, override_fn):
 
 def generate_registrations(fgens, overrides):
     aten_code = "TORCH_LIBRARY_IMPL(aten, HABANATensorId, m) {\n"
+    autogradhpu_code = "TORCH_LIBRARY_IMPL(aten, AutogradHABANA, m) {\n"
     overridden = set()
     for fgen in fgens:
         if not requires_registration(fgen, overrides):
@@ -982,8 +983,11 @@ def generate_registrations(fgens, overrides):
             pos = fgen.funsig.find("(")
             overload = fgen.funsig[:pos] + " (*)" + fgen.funsig[pos:]
             unboxed = generate_unboxed(fgen.aten_sig, overload, override_fn)
-            aten_code += unboxed
-    return aten_code + "\n}\n", overridden
+            if fgen.mapsig in _FN_AUTOGRAD_HPU:
+                autogradhpu_code += unboxed
+            else:
+                aten_code += unboxed
+    return aten_code + "\n}\n" + autogradhpu_code + "\n}\n", overridden
 
 
 def requires_registration(fgen, overrides):

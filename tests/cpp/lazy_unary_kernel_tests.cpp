@@ -252,6 +252,22 @@ TEST_F(LazyUnaryKernelTest, RsqrtTest) {
   EXPECT_EQ(allclose(hout_lazy, cpu_out, 0.001, 0.001, true), true);
 }
 
+TEST_F(LazyUnaryKernelTest, IsfiniteTest) {
+  auto input_tensor = torch::Tensor(torch::zeros({5}));
+  input_tensor[0] = input_tensor[0] / 0.0;
+  input_tensor[1] = 2.0 / 0.0;
+  input_tensor[2] = -2.0 / 0.0;
+
+  torch::Tensor cpu_out = torch::isfinite(input_tensor);
+
+  torch::Tensor tHabanaX = input_tensor.to(torch::kHABANA);
+  torch::Tensor outHabana = torch::isfinite(tHabanaX);
+  torch::Tensor hout_lazy = outHabana.to(torch::kCPU);
+
+  bool equal = cpu_out.equal(hout_lazy);
+  EXPECT_EQ(equal, true);
+}
+
 TEST_F(LazyUnaryKernelTest, ErfInplaceTest) {
   torch::Tensor A = torch::randn({2, 2}, torch::dtype(torch::kFloat));
 

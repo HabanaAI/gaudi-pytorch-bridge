@@ -159,6 +159,20 @@ class RsqrtInplaceOperator : public UnaryInplaceOperator {
             "rsqrt_fwd_" + habana_helpers::name_suffix_from_type(scalarType)){};
 };
 
+// Isfinite Operator
+class IsfiniteOperator : public UnaryOperator {
+ public:
+  IsfiniteOperator(int device_id, c10::ScalarType scalarType)
+      : UnaryOperator(
+            device_id,
+            "isfinite_fwd_" +
+                habana_helpers::name_suffix_from_type(scalarType)){};
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+};
+
 // Sqrt Operator
 class SqrtOperator : public UnaryOperator {
  public:

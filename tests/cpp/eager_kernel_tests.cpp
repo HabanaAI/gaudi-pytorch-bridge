@@ -84,6 +84,22 @@ TEST(EagerKernelTest, MatmulBackwardTest) {
   matmul_test({2, 2, 3, 4}, {2, 4, 3});
 }
 
+TEST(EagerKernelTest, IsfiniteTest) {
+  auto input_tensor = torch::Tensor(torch::zeros({5}));
+  input_tensor[0] = input_tensor[0] / 0.0;
+  input_tensor[1] = 2.0 / 0.0;
+  input_tensor[2] = -2.0 / 0.0;
+
+  torch::Tensor cpu_out = torch::isfinite(input_tensor);
+
+  torch::Tensor tHabanaX = input_tensor.to(torch::kHABANA);
+  torch::Tensor outHabana = torch::isfinite(tHabanaX);
+  torch::Tensor hout = outHabana.to(torch::kCPU);
+
+  bool equal = cpu_out.equal(hout);
+  EXPECT_EQ(equal, true);
+}
+
 TEST(EagerKernelTest, AdamwOptTest) {
   torch::manual_seed(0);
   int num_params = 2;

@@ -556,6 +556,7 @@ Tensor round_hpu(const Tensor& self);
 Tensor& round_hpu_(Tensor& self);
 Tensor rsqrt_hpu(const Tensor& self);
 Tensor& rsqrt_hpu_(Tensor& self);
+Tensor isfinite_hpu(const Tensor& self);
 Tensor neg_hpu(const Tensor& self);
 namespace at {
 namespace native {

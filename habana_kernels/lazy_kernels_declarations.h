@@ -576,6 +576,7 @@ Tensor round_hpu_lazy(const Tensor& self);
 Tensor& round_hpu_lazy_(Tensor& self);
 Tensor rsqrt_hpu_lazy(const Tensor& self);
 Tensor& rsqrt_hpu_lazy_(Tensor& self);
+Tensor isfinite_hpu_lazy(const Tensor& self);
 Tensor neg_hpu_lazy(const Tensor& self);
 namespace at {
 namespace native {

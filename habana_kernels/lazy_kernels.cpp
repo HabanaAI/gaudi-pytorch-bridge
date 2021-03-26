@@ -3924,6 +3924,28 @@ Tensor& rsqrt_hpu_lazy_(Tensor& input) {
   return input;
 };
 
+Tensor isfinite_hpu_lazy(const Tensor& input) {
+  PT_LAZY_TRACE;
+  auto hl_input = habana_lazy::GetOrCreateHbLazyTensor(input, c10::kHABANA);
+
+  auto node = habana_lazy::ir::Node::Create(
+      Symbol::fromQualString("aten::isfinite"), {hl_input.GetIrValue()});
+  auto result = at::native::empty_hpu_lazy(
+      input.sizes(),
+      input.options().dtype(c10::ScalarType::Bool),
+      input.suggest_memory_format(),
+      false);
+  auto hl_result = habana_lazy::GetHbLazyTensor(result);
+  habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+
+  std::vector<at::Tensor> input_pt_vec{input};
+  node->AddInputPtTensors(input_pt_vec);
+
+  return result;
+};
+
 Tensor clamp_hpu_lazy(
     const Tensor& self,
     c10::optional<Scalar> min,

@@ -604,6 +604,7 @@ struct hpu_wrap {
   static at::Tensor& round_(at::Tensor& self);
   static at::Tensor rsqrt(const at::Tensor& self);
   static at::Tensor& rsqrt_(at::Tensor& self);
+  static at::Tensor isfinite(const at::Tensor& self);
   static at::Tensor log(const at::Tensor& self);
   static at::Tensor& log_(at::Tensor& self);
   static at::Tensor log2(const at::Tensor& self);

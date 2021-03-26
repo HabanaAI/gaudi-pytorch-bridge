@@ -2384,6 +2384,40 @@ Tensor habana_d2d_memcpy_other(const Tensor& self, Tensor& other) {
   return self;
 }
 
+/***********************************************************************************
+ * Kernels requiring autograd override
+ **********************************************************************************/
+using namespace torch::autograd;
+
+// Pytorch fork's isfinite is a compound op that is realized through a sequence
+// of simpler ops. For better performance, using the underlying TPC kernel.
+
+struct IsfiniteFunction : public torch::autograd::Function<IsfiniteFunction> {
+  static at::Tensor forward(AutogradContext* ctx, at::Tensor input) {
+    at::Tensor result;
+    if (std::getenv("PT_HPU_LAZY_MODE")) {
+      result = isfinite_hpu_lazy(input);
+    } else {
+      result = isfinite_hpu(input);
+    }
+
+    static_cast<void>(ctx);
+    return result;
+  }
+
+  static variable_list backward(
+      AutogradContext* ctx,
+      variable_list grad_output) {
+    static_cast<void>(ctx);
+    static_cast<void>(grad_output);
+    return {};
+  }
+};
+
+Tensor hpu_wrap::isfinite(const Tensor& self) {
+  return IsfiniteFunction::apply(self);
+};
+
 // Registration for all non-custom/aten ops are auto-generated and can be
 // found in habana_kernels/aten_hpu_type_default.cpp.
 

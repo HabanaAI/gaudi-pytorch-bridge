@@ -72,7 +72,10 @@ Tensor empty_hpu(
       /*resizeable=*/true);
 
   auto tensor = at::detail::make_tensor<TensorImpl>(
-      std::move(storage_impl), at::DispatchKey::HABANATensorId, dtype);
+      std::move(storage_impl),
+      c10::DispatchKeySet{
+          at::DispatchKey::HABANATensorId, at::DispatchKey::AutogradHABANA},
+      dtype);
   // Default TensorImpl has size [0]
   if (size.size() != 1 || size[0] != 0) {
     tensor.unsafeGetTensorImpl()->set_sizes_contiguous(size);
