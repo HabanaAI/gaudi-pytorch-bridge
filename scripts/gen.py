@@ -94,6 +94,7 @@ _FN_AUTOGRAD_HPU = set(
     [
         "isfinite(Tensor) -> Tensor",
         "one_hot(Tensor, int64_t) -> Tensor",
+        "matmul(Tensor, Tensor) -> Tensor",
     ]
 )
 

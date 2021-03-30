@@ -82,3 +82,79 @@ TEST_F(LazyLinearKernelTest, BmmOutTest) {
 
   EXPECT_EQ(allclose(out, exp, 0.001, 0.001), true);
 }
+
+TEST_F(LazyLinearKernelTest, MatmulTest) {
+  auto matmul_test = [](c10::IntArrayRef size1, c10::IntArrayRef size2) {
+    auto mat1 = torch::randn(size1).requires_grad_();
+    auto mat2 = torch::randn(size2).requires_grad_();
+    auto mat1_h = mat1.to(torch::kHABANA);
+    auto mat2_h = mat2.to(torch::kHABANA);
+
+    auto out = torch::matmul(mat1, mat2);
+    auto out_h = torch::matmul(mat1_h, mat2_h).to(torch::kCPU);
+
+    EXPECT_EQ(allclose(out, out_h, 0.01, 0.01), true);
+  };
+
+  matmul_test({10}, {10});
+  matmul_test({2, 10}, {10});
+  matmul_test({10}, {10, 2});
+  matmul_test({2, 10}, {10, 2});
+  matmul_test({2, 3, 4}, {4});
+  matmul_test({2, 3, 4}, {2, 4, 3});
+  matmul_test({12, 20, 24}, {24, 20});
+  matmul_test({12, 16, 20, 24}, {12, 16, 24, 20});
+  matmul_test({3}, {2, 3, 4});
+  matmul_test({3, 4}, {2, 4, 3});
+  matmul_test({12, 16, 20, 24}, {16, 24, 20});
+  matmul_test({16, 20, 24}, {12, 16, 24, 20});
+}
+
+/*
+ * Commenting out cpp test for matmul backward for now, due to an error in Test
+ * Case code. Added a python unit test at
+ * pytorch-integration/tests/test_lazy_matmul.py
+ */
+/*
+TEST_F(LazyLinearKernelTest, MatmulBwdTest) {
+  auto matmulbwd_test = [](c10::IntArrayRef size1, c10::IntArrayRef size2) {
+    auto mat1 = torch::randn(size1, torch::requires_grad());
+    auto mat2 = torch::randn(size2, torch::requires_grad());
+    auto mat1_h = mat1.to(torch::kHABANA);
+    auto mat2_h = mat2.to(torch::kHABANA);
+
+    auto out = torch::matmul(mat1, mat2);
+
+    auto grad_out = torch::ones_like(out);
+    //auto grad_out_h = grad_out.to(torch::kHABANA);
+    out.backward(grad_out);
+    auto grad_mat1 = mat1.grad();
+    auto grad_mat2 = mat2.grad();
+
+    auto out_h = torch::matmul(mat1_h, mat2_h);
+    auto grad_out_h = grad_out.to(torch::kHABANA);
+    out_h.backward(grad_out_h);
+    auto grad_mat1_h = mat1_h.grad();
+    auto grad_mat2_h = mat2_h.grad();
+    std::cout << "$$ grad_mat1 - " << grad_mat1 << std::endl;
+    std::cout << mat1_h.to(torch::kCPU).sizes().vec() << std::endl;
+
+    // torch::Tensor grad_mat1_h, grad_mat2_h;
+    // std::tie(grad_mat1_h, grad_mat2_h) =
+    //    hpu_wrap::matmul_backward(grad_out_h, mat1_h, mat2_h);
+
+    HbLazyTensor::StepMarker({});
+
+    EXPECT_EQ(
+        allclose(grad_mat1, grad_mat1_h.to(torch::kCPU), 0.01, 0.01), true);
+    EXPECT_EQ(
+        allclose(grad_mat2, grad_mat2_h.to(torch::kCPU), 0.01, 0.01), true);
+  };
+
+  matmulbwd_test({2, 3, 4}, {4, 5});
+  matmulbwd_test({2, 3, 4}, {2, 4, 5});
+  matmulbwd_test({2, 3, 4}, {4});
+  matmulbwd_test({2, 2, 3, 4}, {2, 4, 3});
+  matmulbwd_test({2, 3}, {3, 4});
+}
+*/

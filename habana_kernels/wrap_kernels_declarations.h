@@ -599,10 +599,6 @@ struct hpu_wrap {
       c10::optional<at::Device> device,
       c10::optional<bool> pin_memory,
       c10::optional<at::MemoryFormat> memory_format);
-  static std::tuple<at::Tensor, at::Tensor> matmul_backward(
-      const at::Tensor& grad_output,
-      const at::Tensor& self,
-      const at::Tensor& other);
   static at::Tensor one_hot(const at::Tensor& self, int64_t num_classes);
   static at::Tensor _log_softmax(
       const at::Tensor& self,

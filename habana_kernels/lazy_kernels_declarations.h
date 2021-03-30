@@ -693,3 +693,8 @@ Tensor masked_scale_hpu_lazy(
     const Tensor& self,
     const Tensor& mask,
     double scale);
+Tensor matmul_hpu_lazy(const Tensor& self, const Tensor& other);
+std::tuple<Tensor, Tensor> matmul_backward_hpu_lazy(
+    const Tensor& grad_output,
+    const Tensor& self,
+    const Tensor& other);

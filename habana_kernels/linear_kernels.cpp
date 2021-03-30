@@ -754,6 +754,105 @@ Tensor mv_hpu(const Tensor& self, const Tensor& other) {
   return out.at(0);
 }
 
+std::vector<int64_t> habana::MatMulOperator::compute_output_shape(
+    const Tensor& self,
+    const Tensor& other) {
+  auto self_sizes = self.sizes();
+  auto other_sizes = other.sizes();
+  auto self_dims = self.dim();
+  auto other_dims = other.dim();
+  auto self_end_iter = self_sizes.end();
+  auto other_end_iter = other_sizes.end();
+
+  /*
+  The output shape for depends on the dimensionality of the input Tensors as
+  follows:
+  - 1D x 1D:
+    dot product (scalar) is returned.
+    (a) x (a)
+    => ()
+
+  - 2D x 2D:
+    matrix-matrix product is returned.
+    (a, b) x (b, c)
+    => (a, c)
+
+  - 1D x 2D:
+    1 is prepended to dimension of 1st Tensor, then mm() is performed.
+    Then 1 is removed from 1st dimension after multiplication is done.
+    (a) x (a, b)
+    => (1, a) x (a, b)
+    => (1, b)
+    => (b)
+
+  - 2D x 1D:
+    the matrix-vector product is returned.
+    (a, b) x (b)
+    => (a)
+
+  - (MD x ND) || (ND x MD) :
+    M > 1 and N > 2
+    In this case bmm() is performed
+    Check habana::BmmOperator::compute_output_shape() for cases:
+    4D x 4D
+    4D x 3D
+    3D x 4D
+    2D x 3D
+    3D x 3D
+
+  - (1D x ND) || (ND x 1D) : N > 2
+    1D x ND
+      1 is prepended to dimension of first tensor
+      1D x ND => 2D x ND
+      Now its a case of above one. bmm() is performed.
+      Finally 1 removed.
+    ND x 1D
+      1 is appended to dimension of 2nd tensor
+      bmm() performed
+      1 removed
+
+    The non-matrix (i.e. batch) dimensions are broadcasted (and thus must be
+  broadcastable). e.g., (j, 1, n, m) x (k, m, p) => (j, k, n, p)
+  */
+
+  std::vector<int64_t> shape_out;
+  if (self_dims == 1 && other_dims == 1) {
+  } else if (self_dims == 2 && other_dims == 1) {
+    shape_out.push_back(self_sizes[0]);
+  } else if (self_dims == 1 && other_dims == 2) {
+    shape_out.push_back(other_sizes[1]);
+  } else if (self_dims == 2 && other_dims == 2) {
+    shape_out.push_back(self_sizes[0]);
+    shape_out.push_back(other_sizes[1]);
+  } else if ((self_dims == 4) && ((other_dims == 4) || (other_dims == 3))) {
+    shape_out.push_back(self_sizes[0]);
+    shape_out.push_back(self_sizes[1]);
+    shape_out.push_back(*(self_end_iter - 2));
+    shape_out.push_back(*(other_end_iter - 1));
+  } else if (self_dims == 3 && other_dims == 4) {
+    shape_out.push_back(other_sizes[0]);
+    shape_out.push_back(self_sizes[0]);
+    shape_out.push_back(self_sizes[1]);
+    shape_out.push_back(other_sizes[3]);
+  } else if ((self_dims == 3) && ((other_dims == 3) || (other_dims == 2))) {
+    shape_out.push_back(self_sizes[0]);
+    shape_out.push_back(self_sizes[1]);
+    shape_out.push_back(*(other_end_iter - 1));
+  } else if (self_dims == 2 && other_dims == 3) {
+    shape_out.push_back(other_sizes[0]);
+    shape_out.push_back(self_sizes[0]);
+    shape_out.push_back(other_sizes[2]);
+  } else if (self_dims == 1 && other_dims == 3) {
+    shape_out.push_back(other_sizes[0]);
+    shape_out.push_back(other_sizes[2]);
+  } else if (self_dims == 3 && other_dims == 1) {
+    shape_out.push_back(self_sizes[0]);
+    shape_out.push_back(self_sizes[1]);
+  }
+
+  return shape_out;
+}
+
 void habana::MatMulOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
@@ -1045,7 +1144,8 @@ Tensor matmul_hpu(const Tensor& tensor1, const Tensor& tensor2) {
 
   if (device.get_recipe_handle_cache().isCached(key)) {
     PT_KERNEL_DEBUG("Cache hit key:", key);
-    auto shape_out = habana::MMOperator::compute_output_shape(tensor1, tensor2);
+    auto shape_out =
+        habana::MatMulOperator::compute_output_shape(tensor1, tensor2);
     auto output = at::empty(shape_out, tensor1.options());
     Op.SetPTInputs(pt_inputs);
     Op.SetPTOutput(output);

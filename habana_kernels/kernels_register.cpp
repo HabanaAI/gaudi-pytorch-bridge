@@ -2820,31 +2820,6 @@ Tensor& optimizer_sgd_momentum_hpu_wrap(
   return lr;
 }
 
-std::tuple<Tensor, Tensor> hpu_wrap::matmul_backward(
-    const Tensor& grad_output,
-    const Tensor& self,
-    const Tensor& other) {
-  hpu_check_inputs("matmul_backward", {grad_output, self, other});
-
-  if (std::getenv("PT_HPU_LAZY_MODE")) {
-    HABANA_ASSERT(0 && "matmul_backward not implemented for lazy mode");
-    return matmul_backward_hpu(grad_output, self, other);
-  } else {
-    return matmul_backward_hpu(grad_output, self, other);
-  }
-}
-
-Tensor hpu_wrap::matmul(const at::Tensor& tensor1, const at::Tensor& tensor2) {
-  hpu_check_inputs("matmul", {tensor1, tensor2});
-
-  if (std::getenv("PT_HPU_LAZY_MODE")) {
-    HABANA_ASSERT(0 && "matmul not implemented for lazy mode");
-    return matmul_hpu(tensor1, tensor2);
-  } else {
-    return matmul_hpu(tensor1, tensor2);
-  }
-}
-
 Tensor hpu_wrap::_masked_scale(
     const Tensor& self,
     const Tensor& mask,
@@ -2900,6 +2875,44 @@ struct IsfiniteFunction : public torch::autograd::Function<IsfiniteFunction> {
 
 Tensor hpu_wrap::isfinite(const Tensor& self) {
   return IsfiniteFunction::apply(self);
+}
+
+struct MatmulFunction : public torch::autograd::Function<MatmulFunction> {
+  static at::Tensor forward(
+      AutogradContext* ctx,
+      at::Tensor self,
+      at::Tensor other) {
+    at::Tensor result;
+    ctx->save_for_backward({self, other});
+    if (std::getenv("PT_HPU_LAZY_MODE")) {
+      result = matmul_hpu_lazy(self, other);
+    } else {
+      result = matmul_hpu(self, other);
+    }
+
+    return result;
+  }
+
+  static variable_list backward(
+      AutogradContext* ctx,
+      variable_list grad_output) {
+    std::tuple<Tensor, Tensor> result;
+    variable_list saved_vars = ctx->get_saved_variables();
+
+    if (std::getenv("PT_HPU_LAZY_MODE")) {
+      result = matmul_backward_hpu_lazy(
+          grad_output[0], saved_vars[0], saved_vars[1]);
+    } else {
+      result =
+          matmul_backward_hpu(grad_output[0], saved_vars[0], saved_vars[1]);
+    }
+
+    return {std::get<0>(result), std::get<1>(result)};
+  }
+};
+
+Tensor hpu_wrap::matmul(const Tensor& self, const Tensor& other) {
+  return MatmulFunction::apply(self, other);
 };
 
 // Registration for all non-custom/aten ops are auto-generated and can be

@@ -44,6 +44,7 @@
 #include "habana_lazy/ops/hpu_input.h"
 #include "habana_lazy/ops/index.h"
 #include "habana_lazy/ops/loss.h"
+#include "habana_lazy/ops/matmul.h"
 #include "habana_lazy/ops/mse_loss.h"
 #include "habana_lazy/ops/norm.h"
 #include "habana_lazy/ops/optimizer.h"
@@ -5113,4 +5114,57 @@ Tensor masked_scale_hpu_lazy(
   auto masked = mul_tensor_hpu_lazy(self, maskTmp);
   auto scaled = mul_scalar_hpu_lazy(masked, scale);
   return scaled;
+}
+
+Tensor matmul_hpu_lazy(const Tensor& self, const Tensor& other) {
+  PT_LAZY_TRACE;
+  auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
+  auto hl_other = habana_lazy::GetOrCreateHbLazyTensor(other, c10::kHABANA);
+
+  std::vector<int64_t> shape_out =
+      MatMulOperator::compute_output_shape(self, other);
+  auto node = habana_lazy::ir::Node::Create(
+      Symbol::fromQualString("aten::matmul"),
+      {hl_self.GetIrValue(), hl_other.GetIrValue()});
+  auto result = at::native::empty_hpu_lazy(
+      shape_out, self.options(), self.suggest_memory_format(), false);
+
+  auto hlresult = habana_lazy::GetHbLazyTensor(result);
+  habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+  updateDstDependencies(hlresult, result);
+  std::vector<at::Tensor> input_pt_vec{self, other};
+  node->AddInputPtTensors(input_pt_vec);
+
+  return result;
+}
+
+std::tuple<Tensor, Tensor> matmul_backward_hpu_lazy(
+    const Tensor& grad_output,
+    const Tensor& self,
+    const Tensor& other) {
+  PT_LAZY_TRACE;
+  habana_lazy::ir::NodePtr node =
+      std::make_shared<habana_lazy::ir::MatmulBwd>(grad_output, self, other);
+
+  auto grad_self = at::native::empty_hpu_lazy(
+      self.sizes(), grad_output.options(), c10::nullopt, false);
+  auto grad_other = at::native::empty_hpu_lazy(
+      other.sizes(), grad_output.options(), c10::nullopt, false);
+
+  auto hl_grad_self = habana_lazy::GetHbLazyTensor(grad_self);
+  auto hl_grad_other = habana_lazy::GetHbLazyTensor(grad_other);
+
+  habana_lazy::ir::Value& value_grad_self = hl_grad_self.CurrentIrValue();
+  value_grad_self.m_index = 0;
+  value_grad_self.SetNode(node);
+
+  habana_lazy::ir::Value& value_grad_other = hl_grad_other.CurrentIrValue();
+  value_grad_other.m_index = 1;
+  value_grad_other.SetNode(node);
+
+  auto matmulbwd_out = std::make_tuple(grad_self, grad_other);
+
+  return matmulbwd_out;
 }
