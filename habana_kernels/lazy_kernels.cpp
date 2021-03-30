@@ -165,6 +165,22 @@ void updateDstDependencies(
   }
 }
 
+at::Tensor get_tensor_for_scalar(float alpha) {
+  at::Tensor alpha_tensor;
+
+  auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(0);
+
+  auto map_it = context->scalar_to_tensor_map.find(alpha);
+  if (map_it == context->scalar_to_tensor_map.end()) {
+    alpha_tensor = at::tensor(alpha).to(c10::kHABANA, true);
+    context->scalar_to_tensor_map[alpha] = alpha_tensor;
+  } else {
+    alpha_tensor = map_it->second;
+  }
+
+  return alpha_tensor;
+}
+
 Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
   PT_LAZY_TRACE;
   habana_lazy::ir::NodePtr node;
@@ -551,35 +567,8 @@ Tensor& addcmul_hpu_lazy_(
     Scalar alpha) {
   PT_LAZY_TRACE;
   if (!tensor1.is_same(tensor2)) {
-    auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
-    auto hl_tensor1 =
-        habana_lazy::GetOrCreateHbLazyTensor(tensor1, c10::kHABANA);
-    auto hl_tensor2 =
-        habana_lazy::GetOrCreateHbLazyTensor(tensor2, c10::kHABANA);
-    auto hl_alpha = habana_lazy::GetIrValueForScalar(alpha);
-
-    updateDstDependencies(hl_self, self, true);
-
-    auto node = habana_lazy::ir::Node::Create(
-        Symbol::fromQualString("aten::addcmul_"),
-        {hl_self.GetIrValue(),
-         hl_tensor1.GetIrValue(),
-         hl_tensor2.GetIrValue(),
-         hl_alpha});
-
-    habana_lazy::ir::Value& out = hl_self.CurrentIrValue();
-    out.m_index = 0;
-    out.SetNode(node);
-
-    std::vector<at::Tensor> input_pt_vec{self, tensor1, tensor2};
-    node->AddInputPtTensors(input_pt_vec);
-    // As its an inplace op and we want this op to execute
-    // we want to wind back status of this tensor to registered
-    // so that when post order is created, we actually execute it
-    auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
-        self.device().index());
-    context->MarkTensorStatus(
-        hl_self.getTensorUniqueId(), LazyTensorExecutionStatus::kREGISTERED);
+    auto mul_out = mul_tensor_hpu_lazy(tensor1, tensor2);
+    add_tensor_hpu_lazy_(self, mul_out, alpha);
   } else {
     // implement addcmul_ as add_(pow(tensor1,2), alpha)
     auto temp = pow_tensor_scalar_hpu_lazy(tensor1, 2.0);
@@ -605,30 +594,39 @@ Tensor& addcdiv_hpu_lazy_(
   auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
   auto hl_tensor1 = habana_lazy::GetOrCreateHbLazyTensor(tensor1, c10::kHABANA);
   auto hl_tensor2 = habana_lazy::GetOrCreateHbLazyTensor(tensor2, c10::kHABANA);
-  auto hl_alpha = habana_lazy::GetIrValueForScalar(alpha);
 
-  updateDstDependencies(hl_self, self, true);
+  auto alpha_float = alpha.toFloat();
+  if (alpha_float == 1.0) {
+    auto hl_alpha = habana_lazy::GetIrValueForScalar(alpha);
 
-  auto node = habana_lazy::ir::Node::Create(
-      Symbol::fromQualString("aten::addcdiv_"),
-      {hl_self.GetIrValue(),
-       hl_tensor1.GetIrValue(),
-       hl_tensor2.GetIrValue(),
-       hl_alpha});
+    updateDstDependencies(hl_self, self, true);
 
-  habana_lazy::ir::Value& out = hl_self.CurrentIrValue();
-  out.m_index = 0;
-  out.SetNode(node);
-  std::vector<at::Tensor> input_pt_vec{self, tensor1, tensor2};
-  node->AddInputPtTensors(input_pt_vec);
-  // As its an inplace op and we want this op to execute
-  // we want to wind back status of this tensor to registered
-  // so that when post order is created, we actually execute it
-  auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
-      self.device().index());
-  context->MarkTensorStatus(
-      hl_self.getTensorUniqueId(), LazyTensorExecutionStatus::kREGISTERED);
-  // context->MarkTensorRegistered(hl_self.getTensorUniqueId());
+    auto node = habana_lazy::ir::Node::Create(
+        Symbol::fromQualString("aten::addcdiv_"),
+        {hl_self.GetIrValue(),
+         hl_tensor1.GetIrValue(),
+         hl_tensor2.GetIrValue(),
+         hl_alpha});
+
+    habana_lazy::ir::Value& out = hl_self.CurrentIrValue();
+    out.m_index = 0;
+    out.SetNode(node);
+    std::vector<at::Tensor> input_pt_vec{self, tensor1, tensor2};
+    node->AddInputPtTensors(input_pt_vec);
+    // As its an inplace op and we want this op to execute
+    // we want to wind back status of this tensor to registered
+    // so that when post order is created, we actually execute it
+    auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
+        self.device().index());
+    context->MarkTensorStatus(
+        hl_self.getTensorUniqueId(), LazyTensorExecutionStatus::kREGISTERED);
+    // context->MarkTensorRegistered(hl_self.getTensorUniqueId());
+  } else {
+    auto div_out = div_tensor_hpu_lazy(tensor1, tensor2);
+    auto alpha_tensor = get_tensor_for_scalar(alpha_float);
+    auto mul_out = mul_tensor_hpu_lazy(alpha_tensor, div_out);
+    auto out = add_tensor_hpu_lazy_(self, mul_out, 1.0);
+  }
 
   return self;
 };
@@ -643,27 +641,39 @@ Tensor add_tensor_hpu_lazy(
     HABANA_ASSERT(other.scalar_type() != c10::ScalarType::Undefined);
     return add_scalar_hpu_lazy(self, other.item(), alpha);
   }
-  auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
-  auto hl_other = habana_lazy::GetOrCreateHbLazyTensor(other, c10::kHABANA);
-  auto hl_alpha = habana_lazy::GetIrValueForScalar(alpha);
 
-  auto node = habana_lazy::ir::Node::Create(
-      Symbol::fromQualString("aten::add"),
-      {hl_self.GetIrValue(), hl_other.GetIrValue(), hl_alpha});
-  auto shape_out = BinaryOperator::compute_output_shape(self, other);
-  auto result = at::native::empty_hpu_lazy(
-      shape_out, self.options(), self.suggest_memory_format(), false);
-  auto hl_result = habana_lazy::GetHbLazyTensor(result);
-  habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
-  out.m_index = 0;
-  out.SetNode(node);
-  // updatet the view if any
-  updateDstDependencies(hl_result, result);
+  auto alpha_float = alpha.toFloat();
 
-  std::vector<at::Tensor> input_pt_vec{self, other};
-  node->AddInputPtTensors(input_pt_vec);
+  if (alpha_float != 1.0) {
+    at::Tensor alpha_tensor = get_tensor_for_scalar(alpha_float);
 
-  return result;
+    auto hl_alpha =
+        habana_lazy::GetOrCreateHbLazyTensor(alpha_tensor, c10::kHABANA);
+    auto mul_out = mul_tensor_hpu_lazy(other, alpha_tensor);
+    return add_tensor_hpu_lazy(self, mul_out, 1.0);
+  } else {
+    auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
+    auto hl_other = habana_lazy::GetOrCreateHbLazyTensor(other, c10::kHABANA);
+    auto hl_alpha = habana_lazy::GetIrValueForScalar(1.0);
+
+    auto node = habana_lazy::ir::Node::Create(
+        Symbol::fromQualString("aten::add"),
+        {hl_self.GetIrValue(), hl_other.GetIrValue(), hl_alpha});
+
+    auto shape_out = BinaryOperator::compute_output_shape(self, other);
+    auto result = at::native::empty_hpu_lazy(
+        shape_out, self.options(), self.suggest_memory_format(), false);
+    auto hl_result = habana_lazy::GetHbLazyTensor(result);
+    habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
+    out.m_index = 0;
+    out.SetNode(node);
+    // update the view if any
+    updateDstDependencies(hl_result, result);
+
+    std::vector<at::Tensor> input_pt_vec{self, other};
+    node->AddInputPtTensors(input_pt_vec);
+    return result;
+  }
 }
 
 Tensor add_scalar_hpu_lazy(const Tensor& self, Scalar other, Scalar alpha) {

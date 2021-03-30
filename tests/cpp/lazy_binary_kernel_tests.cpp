@@ -32,12 +32,13 @@ TEST_F(LazyBinaryKernelTest, LazyDoATest) {
   torch::Tensor hA = A.to(torch::kHABANA);
   torch::Tensor hB = B.to(torch::kHABANA);
   torch::Tensor hC = C.to(torch::kHABANA);
-  torch::Tensor I = torch::add(hA, hB);
-  torch::Tensor out = torch::add(hC, I);
+  torch::Tensor I = torch::add(hA, hB, 2.3);
+  torch::Tensor out = torch::add(hC, I, 2.3);
 
-  torch::Tensor I_cpu = torch::add(A, B);
-  torch::Tensor out_cpu = torch::add(C, I_cpu);
+  torch::Tensor I_cpu = torch::add(A, B, 2.3);
+  torch::Tensor out_cpu = torch::add(C, I_cpu, 2.3);
   torch::Tensor out_h = out.to(torch::kCPU);
+
   EXPECT_EQ(allclose(out_h, out_cpu), true);
 }
 

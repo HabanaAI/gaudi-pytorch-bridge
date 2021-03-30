@@ -131,3 +131,26 @@ TEST_F(LazyBinaryInplaceKernelTest, AddcdivInplaceTest) {
 
   EXPECT_EQ(allclose(out, exp), true);
 }
+
+TEST_F(LazyBinaryInplaceKernelTest, AddcdivInplaceTest2) {
+  // Inplace op as output node is not supported yet.
+  torch::Tensor A = torch::randn({2, 3});
+  torch::Tensor B = torch::randn({2, 3});
+  torch::Tensor C = torch::randn({2, 3});
+  torch::Tensor D = torch::zeros({2, 3});
+
+  auto hA = A.to(torch::kHABANA);
+  auto hB = B.to(torch::kHABANA);
+  auto hC = C.to(torch::kHABANA);
+  auto hD = D.to(torch::kHABANA);
+
+  A = A.addcdiv_(B, C, 3.5);
+  auto exp = A;
+
+  hA = hA.addcdiv_(hB, hC, 3.5);
+  // Dummy add to avoid hA as output node
+  auto result = torch::add(hA, hD);
+  Tensor out = result.to(kCPU);
+
+  EXPECT_EQ(allclose(out, exp), true);
+}

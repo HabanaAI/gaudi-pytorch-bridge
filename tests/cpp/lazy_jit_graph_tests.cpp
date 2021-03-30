@@ -46,8 +46,7 @@ TEST(LazyJITTest, CreateGraph) {
   hlexec->GetOrCreate(po_data, stack);
 
   torch::jit::testing::FileCheck()
-      .check("prim::Constant[value=4.]")
-      ->check("prim::Constant[value=99.5]")
+      .check("prim::Constant[value=1.]")
       ->check_count("aten::add", 2)
       ->run(*hlexec->get_graph());
 

@@ -101,6 +101,8 @@ class HbExecutionContext {
 
   bool m_is_cached = false;
 
+  std::unordered_map<float, at::Tensor> scalar_to_tensor_map;
+
  private:
   // A map between unique lazy tensor ID and execution status
   // Although our execution modes are per thread but tensor status is per

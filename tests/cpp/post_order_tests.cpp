@@ -108,20 +108,26 @@ TEST(PostOrderTest, poTestCommonInput) {
   cond = (str.find("hpu::input") != string::npos);
   EXPECT_TRUE(cond);
   str = po_data.post_order[2]->ToString();
-  cond = (str.find("prim::constant") != string::npos);
-  EXPECT_TRUE(cond);
-  str = po_data.post_order[3]->ToString();
   cond = (str.find("hpu::input") != string::npos);
   EXPECT_TRUE(cond);
+  str = po_data.post_order[3]->ToString();
+  cond = (str.find("aten::mul") != string::npos);
+  EXPECT_TRUE(cond);
   str = po_data.post_order[4]->ToString();
-  cond = (str.find("aten::add") != string::npos);
+  cond = (str.find("prim::constant") != string::npos);
   EXPECT_TRUE(cond);
   str = po_data.post_order[5]->ToString();
+  cond = (str.find("hpu::input") != string::npos);
+  EXPECT_TRUE(cond);
+  str = po_data.post_order[6]->ToString();
+  cond = (str.find("aten::add") != string::npos);
+  EXPECT_TRUE(cond);
+  str = po_data.post_order[7]->ToString();
   cond = (str.find("aten::add") != string::npos);
   EXPECT_TRUE(cond);
   EXPECT_TRUE(po_data.outputs.size() == 1);
   EXPECT_TRUE(cond);
-  EXPECT_TRUE(po_data.inputs.size() == 2);
+  EXPECT_TRUE(po_data.inputs.size() == 3);
   unsetenv("PT_HPU_LAZY_MODE");
 }
 

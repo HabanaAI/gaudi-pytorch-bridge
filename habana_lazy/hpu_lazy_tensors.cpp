@@ -555,6 +555,9 @@ void HbLazyTensor::SyncTensorsGraphInternal(
         po_data.inputs, po_data.outputs, *tensors, indices);
     context->m_is_cached = true;
   }
+
+  // clear the scalar to tensor cache
+  context->scalar_to_tensor_map.clear();
 }
 
 void HbLazyTensor::ExecuteCachedGraph() {

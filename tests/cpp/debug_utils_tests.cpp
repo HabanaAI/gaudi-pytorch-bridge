@@ -24,7 +24,7 @@ TEST_F(DebugUtilsTest, GraphTextDump1) {
   auto B = torch::randn({2, 2}, torch::requires_grad(false));
   auto hA = A.to(torch::kHABANA);
   auto hB = B.to(torch::kHABANA);
-  auto I = torch::add(hA, hB, 4.0);
+  auto I = torch::add(hA, hB, 1.0);
   I = torch::relu(I);
   auto out = torch::relu(I);
 
@@ -32,9 +32,10 @@ TEST_F(DebugUtilsTest, GraphTextDump1) {
   auto ir_value = hl_result->CurrentIrValue();
   std::vector<ir::NodePtr> a{ir_value.mp_node};
   auto out_string = IrGraphDumpUtil::ToText(a);
+
   EXPECT_EQ(
       out_string.find("IR {\n"
-                      "  %0 = prim::constant(), value=4.\n"
+                      "  %0 = prim::constant(), value=1.\n"
                       "  %1 = hpu::input()\n"
                       "  %2 = hpu::input()\n"
                       "  %3 = aten::add(%2, %1, %0)\n"
@@ -49,7 +50,7 @@ TEST_F(DebugUtilsTest, GraphDotDump1) {
   auto B = torch::randn({2, 2}, torch::requires_grad(false));
   auto hA = A.to(torch::kHABANA);
   auto hB = B.to(torch::kHABANA);
-  auto I = torch::add(hA, hB, 4.0);
+  auto I = torch::add(hA, hB, 1.0);
   I = torch::relu(I);
   auto out = torch::relu(I);
 
@@ -59,7 +60,7 @@ TEST_F(DebugUtilsTest, GraphDotDump1) {
   auto out_string = IrGraphDumpUtil::ToDot(a);
   EXPECT_EQ(
       out_string.find("digraph G {\n"
-                      "  node0 [label=\"prim::constant\\n\\nvalue=4.\"]\n"
+                      "  node0 [label=\"prim::constant\\n\\nvalue=1.\"]\n"
                       "  node1 [label=\"hpu::input\\n\"]\n"
                       "  node2 [label=\"hpu::input\\n\"]\n"
                       "  node3 [label=\"aten::add\\n\"]\n"
