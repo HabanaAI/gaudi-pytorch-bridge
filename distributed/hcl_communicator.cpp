@@ -34,18 +34,25 @@
 
 namespace synapse_helpers {
 
-#define VERIFY_HCL_STATUS(msg, status)                         \
-  {                                                            \
-    if ((status) != eHCLSuccess) {                             \
-      std::string msg_str(msg);                                \
-      msg_str.append(" HclStatus:");                           \
-      msg_str.append(std::to_string(status));                  \
-      msg_str.append(" ");                                     \
-      msg_str.append(__FILE__);                                \
-      msg_str.append("::");                                    \
-      msg_str.append(std::to_string(__LINE__));                \
-      return make_synapse_error((status), std::move(msg_str)); \
-    }                                                          \
+#define VERIFY_HCL_STATUS(msg, status)          \
+  {                                             \
+    if ((status) != eHCLSuccess) {              \
+      std::string msg_str(msg);                 \
+      msg_str.append(" HclStatus:");            \
+      msg_str.append(std::to_string(status));   \
+      msg_str.append(" ");                      \
+      msg_str.append(__FILE__);                 \
+      msg_str.append("::");                     \
+      msg_str.append(std::to_string(__LINE__)); \
+      HABANA_ASSERT(status == eHCLSuccess);     \
+    }                                           \
+  }
+
+#define HCL_SYNC()                          \
+  {                                         \
+    if (GET_ENV_FLAG(PT_USE_HCL_SYNC)) {    \
+      HCL_Sync(hcl_comm(), get_sync_tag()); \
+    }                                       \
   }
 
 hcl_communicator::hcl_communicator(
@@ -117,6 +124,7 @@ synapse_error_o hcl_communicator::allreduce(
                                 device_ptr intermediate_address,
                                 size_t intermediate_size,
                                 uint32_t flags) {
+    HCL_SYNC()
     return HCL_Allreduce(
         collective_stream,
         input_address,
@@ -274,6 +282,7 @@ synapse_error_o hcl_communicator::alltoall(
                                device_ptr intermediate_address,
                                size_t intermediate_size,
                                uint32_t flags) {
+    HCL_SYNC()
     return HCL_AlltoAll(
         collective_stream,
         input_address,
@@ -315,6 +324,7 @@ synapse_error_o hcl_communicator::broadcast(
   synStreamHandle stream_handle = get_synapse_stream_handle(collective_stream);
   // For root (sending) rank address is input - root does not produce output
   prepare_stream(collective_stream, event_addr);
+  HCL_SYNC()
   status = HCL_Bcast(
       stream_handle,
       address,
@@ -344,6 +354,7 @@ synapse_error_o hcl_communicator::allgather(
   synStreamHandle stream_handle = get_synapse_stream_handle(collective_stream);
 
   prepare_stream(collective_stream, in_event_addr);
+  HCL_SYNC()
   status = HCL_AllGather(
       stream_handle,
       input_address,
@@ -575,7 +586,7 @@ synapse_error_o hcl_communicator::memcpy_in_interim_buffer(
   transfers.reserve(1);
 
   size_t offset{0};
-  synapse_helpers::device::transfer_desc transfer;
+  synapse_helpers::device::transfer_desc transfer{};
   transfer.src = reinterpret_cast<synapse_helpers::device_ptr>(input_address);
   transfer.dst = reinterpret_cast<synapse_helpers::device_ptr>(
       (uint8_t*)buffer_data + offset);
@@ -597,7 +608,7 @@ synapse_error_o hcl_communicator::memcpy_out_interim_buffer(
   synapse_helpers::device::transfer_manifest transfers;
   transfers.reserve(1);
   void* buffer_data_at_offset = (uint8_t*)buffer_data + offset;
-  synapse_helpers::device::transfer_desc transfer;
+  synapse_helpers::device::transfer_desc transfer{};
   transfer.src =
       reinterpret_cast<synapse_helpers::device_ptr>(buffer_data_at_offset);
   transfer.dst = reinterpret_cast<synapse_helpers::device_ptr>(output_address);

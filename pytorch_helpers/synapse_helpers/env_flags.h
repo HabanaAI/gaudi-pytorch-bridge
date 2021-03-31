@@ -109,6 +109,10 @@ struct PT_ENABLE_SYNC_OUTPUT_HOST {
   static constexpr bool default_value = true;
 };
 
+struct PT_USE_HCL_SYNC {
+  static constexpr bool default_value = true;
+};
+
 // Overloads for different type of default value
 
 template <class T>
