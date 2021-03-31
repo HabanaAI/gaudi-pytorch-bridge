@@ -110,6 +110,14 @@ void TopkOutOperator::AllocateAndAddSynapseNode(
   bool largest = inputs[5].toBool();
   bool sorted = inputs[6].toBool();
 
+  /*
+   * BFloat16 is currently not supported. Look at the following jira for more
+   * details https://jira.habana-labs.com/browse/SW-37999
+   */
+  TORCH_CHECK(
+      !(self.dtype() == c10::ScalarType::BFloat16),
+      "BFloat16 is not supported");
+
   int64_t dim = at::maybe_wrap_dim(dim_, self.dim(), /*wrap_scalar=*/true);
 
   TORCH_CHECK(

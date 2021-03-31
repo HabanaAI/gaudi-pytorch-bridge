@@ -3379,8 +3379,34 @@ std::tuple<Tensor, Tensor> sort_hpu_lazy(
     const Tensor& self,
     int64_t dim,
     bool descending) {
-  HABANA_ASSERT(0);
-  return sort_hpu(self, dim, descending);
+  PT_LAZY_TRACE;
+
+  habana_lazy::ir::NodePtr node = std::make_shared<habana_lazy::ir::TopK>(
+      self, self.size(dim), dim, descending, true);
+
+  auto shape_out = self.sizes().vec();
+
+  // out 0
+  auto result_0 = at::native::empty_hpu_lazy(
+      shape_out, self.options(), self.suggest_memory_format(), false);
+
+  auto hlresult_0 = habana_lazy::GetHbLazyTensor(result_0);
+  habana_lazy::ir::Value& out_0 = hlresult_0.CurrentIrValue();
+  out_0.m_index = 0;
+  out_0.SetNode(node);
+
+  // out 1
+  auto result_1 = at::native::empty_hpu_lazy(
+      shape_out,
+      self.options().dtype(kInt),
+      self.suggest_memory_format(),
+      false);
+  auto hlresult_1 = habana_lazy::GetHbLazyTensor(result_1);
+  habana_lazy::ir::Value& out_1 = hlresult_1.CurrentIrValue();
+  out_1.m_index = 1;
+  out_1.SetNode(node);
+
+  return std::make_tuple(result_0, result_1);
 };
 Tensor unary_op_hpu_lazy(
     const Tensor& input,
