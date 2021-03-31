@@ -410,6 +410,14 @@ void HabanaLaunchOpPT::HandleUnmappedTensor(
 
     if (enable_caching_) {
       input_tiv_map.emplace(value_to_ivalue[value_in], tiv);
+      if (strcmp(value_in->node()->kind().toQualString(), "hpu::restride_cl") ==
+          0) {
+        auto restride_node = value_in->node();
+        auto restride_value_in = restride_node->input(0);
+        if (isInGraphInputs(restride_value_in)) {
+          input_tiv_map.emplace(value_to_ivalue[restride_value_in], tiv);
+        }
+      }
     } else {
       input_tivs.emplace_back(tiv);
     }
@@ -1123,6 +1131,9 @@ void HabanaLaunchOpPT::handleRestrideNode(torch::jit::Node* node) {
     value_to_ivalue[value_out] = ivptrsh_updated;
   } else {
     value_to_ivalue[value_out] = ivptrsh_updated;
+    value_to_tensor_layout[value_out].layout = habana::LayoutFormat::NHWC;
+    value_to_tensor_layout[value_out].layout_at_graph_entry =
+        habana::LayoutFormat::NHWC;
   }
 }
 
@@ -2332,7 +2343,9 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
         if (getPTTensorLayout(tensor) == habana::LayoutFormat::NHWC) {
           // Make the sizes according to NCHW as PT maintains
           // NCHW shapes even for NHWC tensors(It doesnt change shape)
-          adjustSizesforPT(&tensor, false);
+          if (!habana_lazy::exec::OptPassCfg::GetInstance()
+                   ->enable_permute_pass)
+            adjustSizesforPT(&tensor, false);
           IValPtrShared ivptrsh = std::make_shared<IVal>(tensor);
           value_to_ivalue[value_input] = ivptrsh;
           pt_stack_sh[j] = ivptrsh;

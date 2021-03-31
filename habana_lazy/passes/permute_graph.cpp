@@ -245,20 +245,20 @@ void RemoveRedundantRestrideNodes(std::shared_ptr<Graph>& graph) {
 }
 
 /*Layout optimization pass
-  1. Parse each node inputs and add permutes only for layout agnositc nodes
-  2. Channles last nodes should return restride output since PT expects
+  1. Parse each node inputs and add permutes only for layout non-agnostic nodes
+  2. ChannelsLast nodes should return restrided output since PT expects
      format in except in NCHW format.
   3. Node layout info is passed to output Value
-     a. Assign layout agnostic format as per kernel meta data
+     a. Assign layout format as per kernel meta data
      b. Single input/output nodes should pass input layout info
-     c. Any existing permutes in the graph pass dims Layout info to output
-     d. Non layout agnostic nodes pass first input layout info
-        this is the assumption, in most cases this should be sufficient
-        and any corner cases should be added as special cases
-        like hpu::cast, hpu::habana_d2d_memcpy_other etc
-  4. Graph retrun outputs should add permutes if entry and config layout
+     c. Existing permute nodes in the graph should pass dims Layout info to
+  output d. Non layout agnostic nodes pass first input layout info this is the
+  assumption and in most cases this should be sufficient and any corner cases
+  should be added as special cases like hpu::cast, hpu::habana_d2d_memcpy_other
+  etc
+  4. Graph return outputs should add permutes if entry and config layout
   mismatch
-  5. Graph return outputs add restride node to it if inputs are Channels last
+  5. Graph return outputs add restride node if inputs are ChannelsLast
   6. Finally remove duplicate permutes in the graph
 */
 
@@ -274,8 +274,25 @@ void InsertPermute_graph(
       auto tensor = stack[idx + j].toTensor();
       if (tensor.suggest_memory_format() == at::MemoryFormat::ChannelsLast ||
           tensor.suggest_memory_format() == at::MemoryFormat::ChannelsLast3d) {
-        value_to_tensor_layout[value_input].layout = habana::LayoutFormat::NCHW;
+        value_to_tensor_layout[value_input].layout = habana::LayoutFormat::NHWC;
         value_to_tensor_layout[value_input].layout_at_graph_entry =
+            habana::LayoutFormat::NHWC;
+        // Add restride nodes to all inputs
+        auto node_insert = value_input->uses().at(0).user;
+        WithInsertPoint insert_point(node_insert);
+        auto op_restride = c10::Symbol::fromQualString("hpu::restride_cl");
+        auto dims = getDimsForLayout(
+            habana::LayoutFormat::NHWC, habana::LayoutFormat::NCHW);
+        auto value_dims = graph->insertConstant(IValue(dims));
+        auto restride_node =
+            graph->create(op_restride, {value_input, value_dims}, 1);
+        graph->insertNode(restride_node);
+        value_input->replaceAllUsesAfterNodeWith(
+            restride_node, restride_node->output(0));
+        // mark output layouts
+        value_to_tensor_layout[restride_node->output(0)].layout =
+            habana::LayoutFormat::NHWC;
+        value_to_tensor_layout[restride_node->output(0)].layout_at_graph_entry =
             habana::LayoutFormat::NHWC;
       } else {
         value_to_tensor_layout[value_input].layout = habana::LayoutFormat::NCHW;
@@ -284,7 +301,6 @@ void InsertPermute_graph(
       }
     }
   }
-
   WeightIdentificationPass weight_pass;
   weight_pass.markWeightTensors(graph);
 
@@ -308,7 +324,8 @@ void InsertPermute_graph(
   for (auto* node : graph_nodes) {
     if (node == graph->param_node() ||
         node->kind() == torch::jit::prim::Constant ||
-        node->kind() == torch::jit::prim::ListConstruct)
+        node->kind() == torch::jit::prim::ListConstruct ||
+        (strcmp(node->kind().toQualString(), "hpu::restride_cl") == 0))
       continue;
 
     // Get kernel MetaData
@@ -534,7 +551,6 @@ void InsertPermute_graph(
   // :
   // %2 = permute(%0)
   // conv_backward(%2)
-
   RemoveRedundantPermutes(graph);
   RemoveRedundantRestrideNodes(graph);
 }

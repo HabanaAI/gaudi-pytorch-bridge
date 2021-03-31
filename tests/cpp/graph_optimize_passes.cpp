@@ -245,27 +245,28 @@ TEST_F(GraphOptimizeTest, PermutePassTest_CL) {
 }
 
 TEST_F(GraphOptimizeTest, PermutePassTest_Contig) {
-  auto input_tensor =
-      torch::arange(27, torch::dtype(torch::kFloat).requires_grad(false))
-          .reshape({1, 3, 3, 3}); // nchw
-  torch::Tensor tHabanaX = input_tensor.to(torch::kHABANA);
+  setenv("PT_HPU_LAZY_MODE", "1", 1);
+  auto in = torch::randn(
+      {6, 4, 28, 28}, torch::dtype(torch::kFloat).requires_grad(false));
+  auto wt = torch::randn(
+      {5, 4, 3, 3}, torch::dtype(torch::kFloat).requires_grad(false));
+  auto exp1 = torch::conv2d(in, wt, {}, 1, 0, 1, 1);
+  auto exp = torch::relu(exp1);
 
-  auto weight_tensor =
-      torch::arange(27, torch::dtype(torch::kFloat).requires_grad(false))
-          .reshape({3, 3, 3, 1}); // hwck
-
-  auto wt_hwck = weight_tensor.permute({2, 3, 1, 0}).contiguous();
-  torch::Tensor tHabanaW = wt_hwck.to(torch::kHABANA);
-
-  torch::Tensor outConv = torch::conv2d(tHabanaX, tHabanaW, {}, 1, 0, 1, 1);
-  torch::Tensor outhpu = torch::relu(outConv);
+  auto h_in = in.to(torch::kHABANA);
+  auto h_in_cl = permute_cl_hpu_lazy(h_in, {0, 2, 3, 1});
   exec::OptPassCfg::GetInstance()->enable_permute_pass = true;
-  torch::Tensor out = outhpu.to(torch::kCPU);
+  Tensor h_in_cl_out = h_in_cl.to(kCPU);
+
+  auto h_in1 = h_in_cl_out.to(torch::kHABANA);
+  auto wt_hwck = wt.permute({2, 3, 1, 0}).contiguous();
+  auto h_wt = wt_hwck.to(torch::kHABANA);
+
+  auto result1 = torch::conv2d(h_in1, h_wt, {}, 1, 0, 1, 1);
+  auto result = torch::relu(result1);
+
+  Tensor out = result.to(kCPU);
+  EXPECT_EQ(allclose(out, exp, 0.01, 0.01), true);
   exec::OptPassCfg::GetInstance()->enable_permute_pass = false;
-
-  torch::Tensor outConv1 =
-      torch::conv2d(input_tensor, weight_tensor, {}, 1, 0, 1, 1);
-  torch::Tensor outcpu = torch::relu(outConv1);
-
-  EXPECT_EQ(allclose(out, outcpu, 0.01, 0.01), true);
+  unsetenv("PT_HPU_LAZY_MODE");
 }
