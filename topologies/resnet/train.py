@@ -73,13 +73,13 @@ def train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, pri
     header = 'Epoch: [{}]'.format(epoch)
     for image, target in metric_logger.log_every(data_loader, print_freq, header):
 
+        image, target = image.to(device, non_blocking=False), target.to(device, non_blocking=False)
+
         if args.distributed:
             utils.barrier()
 
         start_time = time.time()
         trainMetaData.tracept.start(start_time, 'train_iteration_' + str(trainMetaData.current_train_step))
-
-        image, target = image.to(device, non_blocking=True), target.to(device, non_blocking=True)
 
         if args.channels_last:
             import hb_torch
