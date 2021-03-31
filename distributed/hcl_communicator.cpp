@@ -799,7 +799,9 @@ inline void hcl_communicator::submit_events(
 
 void hcl_communicator::synchronize_output(
     synapse_helpers::device_ptr output_address) {
-  if (using_streams_) {
+  // Added to pipeline the lazy host copy operations after
+  // communication collective is called.
+  if (using_streams_ && GET_ENV_FLAG(PT_ENABLE_SYNC_OUTPUT_HOST)) {
     my_device_->wait_until_address_ready(output_address);
   } else {
     return;

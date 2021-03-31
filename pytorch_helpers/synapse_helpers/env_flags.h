@@ -104,6 +104,11 @@ struct PT_HABANA_MEM_LOG_LEVEL : public std::numeric_limits<unsigned> {
 struct PT_HABANA_MEM_LOG_FILENAME {
   static constexpr const char* default_value = "habana_log.livealloc.log";
 };
+
+struct PT_ENABLE_SYNC_OUTPUT_HOST {
+  static constexpr bool default_value = true;
+};
+
 // Overloads for different type of default value
 
 template <class T>
