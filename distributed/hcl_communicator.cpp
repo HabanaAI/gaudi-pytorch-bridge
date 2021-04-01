@@ -99,6 +99,8 @@ hcl_communicator::hcl_communicator(
 hcl_communicator::~hcl_communicator() {
   PT_SYNHELPER_DEBUG("~hcl_communicator() entry.");
   HCLStatus hcl_status{eHCLSuccess};
+  get_collective_stream()->synchronize();
+  HCL_Sync(hcl_comm(), get_sync_tag());
   PT_SYNHELPER_DEBUG("Destroying HCL..");
   hcl_status = HCL_Destroy();
   HABANA_ASSERT(hcl_status == eHCLSuccess);

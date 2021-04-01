@@ -69,6 +69,11 @@ class stream {
    */
   void register_pending_event(const shared_event& event);
 
+  /*! \brief Synchronizes stream. This is blocking call that will return only
+   * when on computation is done on device side.
+   */
+  void synchronize();
+
   /*! \return device
    */
   device& get_device() const {

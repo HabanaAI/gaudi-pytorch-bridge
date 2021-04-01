@@ -106,6 +106,12 @@ void stream::gc_thread_proc() {
   }
 }
 
+void stream::synchronize() {
+  synStatus status = synStreamSynchronize(handle_);
+  if (synStatus::synSuccess != status)
+    PT_SYNHELPER_FATAL("synStreamSynchronize failed with status: ", status);
+}
+
 void stream::flush(int timeout_ms) {
   std::unique_lock<std::mutex> lock(mut_);
   cond_var_empty.wait_for(lock, std::chrono::milliseconds(timeout_ms), [this] {
