@@ -52,6 +52,7 @@
 #include "habana_lazy/ops/softmax.h"
 #include "habana_lazy/ops/tensor_shape.h"
 #include "habana_lazy/ops/topk.h"
+#include "habana_lazy/ops/unpack.h"
 #include "habana_lazy/ops/upsample.h"
 #include "habana_lazy/view.h"
 #include "pytorch_helpers/habana_device/HPUAllocator.h"
@@ -4822,16 +4823,25 @@ Tensor& optimizer_sgd_momentum_hpu_lazy(
   int64_t out_index = 0;
   HABANA_ASSERT(weights.size() == momentum.size());
 
+  auto hlweight = habana_lazy::GetHbLazyTensor(weights[0]);
+  habana_lazy::ir::Value& out = hlweight.CurrentIrValue();
+  node->set_as_output_tensor_list();
+  out.m_index = 0;
+  out.SetNode(node);
+
+  habana_lazy::ir::NodePtr node_unpack =
+      std::make_shared<habana_lazy::ir::ListUnpack>(out);
+
   for (size_t i = 0; i < weights.size(); i++) {
     auto hlweight = habana_lazy::GetHbLazyTensor(weights[i]);
     habana_lazy::ir::Value& out1 = hlweight.CurrentIrValue();
     out1.m_index = out_index++;
-    out1.SetNode(node);
+    out1.SetNode(node_unpack);
 
     auto hlmomentum = habana_lazy::GetHbLazyTensor(momentum[i]);
     habana_lazy::ir::Value& out2 = hlmomentum.CurrentIrValue();
     out2.m_index = out_index++;
-    out2.SetNode(node);
+    out2.SetNode(node_unpack);
   }
 
   return lr;

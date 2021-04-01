@@ -231,6 +231,8 @@ class HabanaLaunchOpPT {
   bool IsOutputToRestride(torch::jit::Value* val);
   torch::jit::Value* GetRestridedOutvalue(torch::jit::Value* val);
 
+  torch::jit::Node* GetUnpackNodeFromTensorList(torch::jit::Value* val);
+
   void PrintATenTensors(RecipeValueSpec& rv);
   void UpdateOutputs(RecipeValueSpec& rv);
   template <class T>

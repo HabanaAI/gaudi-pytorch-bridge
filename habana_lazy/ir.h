@@ -281,10 +281,19 @@ class Node {
     m_is_control_edge = true;
   }
 
+  void set_as_output_tensor_list() {
+    m_is_output_tensor_list = true;
+  }
+
+  bool is_output_tensor_list() const {
+    return m_is_output_tensor_list;
+  }
+
  protected:
   c10::Symbol m_op;
   bool m_is_input = false;
   bool m_is_control_edge = false;
+  bool m_is_output_tensor_list = false;
   ValueList m_inputs;
   OutputList m_outputs;
   std::set<Use> m_uses;

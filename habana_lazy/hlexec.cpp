@@ -184,7 +184,8 @@ void HlExec::Create(
       auto jit_node = mp_g_->create(node->op(), args, node->GetNumOutputs());
       mp_g_->insertNode(jit_node);
 
-      if (c10::Symbol::fromQualString("prim::ListConstruct") == node->op()) {
+      if (c10::Symbol::fromQualString("prim::ListConstruct") == node->op() ||
+          node->is_output_tensor_list()) {
         jit_node->output()->setType(torch::jit::ListType::ofTensors());
       }
 

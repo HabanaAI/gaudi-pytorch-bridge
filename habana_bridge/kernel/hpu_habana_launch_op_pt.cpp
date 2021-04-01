@@ -292,6 +292,17 @@ torch::jit::Value* HabanaLaunchOpPT::GetRestridedOutvalue(
   return nullptr;
 }
 
+torch::jit::Node* HabanaLaunchOpPT::GetUnpackNodeFromTensorList(
+    torch::jit::Value* val) {
+  for (auto u : val->uses()) {
+    auto node = u.user;
+    if (strcmp(node->kind().toQualString(), "prim::ListUnpack") == 0) {
+      return node;
+    }
+  }
+  return nullptr;
+}
+
 bool HabanaLaunchOpPT::isInGraphOutputs(torch::jit::Value* value) {
   auto graph_outs = subgraph_->outputs();
   for (auto value_out : graph_outs) {
@@ -324,27 +335,44 @@ std::vector<bool> HabanaLaunchOpPT::nodeOutputPersistence(
     torch::jit::Node* node) {
   auto node_outs = node->outputs();
   std::vector<bool> is_persistent{};
-  for (auto value_out : node_outs) {
-    if (use_persistent_tensors || isInGraphOutputs(value_out)) {
-      // Highest priority is given to the env variable, and if
-      // part of the graph output
-      auto in_graph_output = isInGraphOutputs(value_out);
-      if (in_graph_output) {
-        PT_BRIDGE_DEBUG(
-            "Persistent tensor for ",
-            node->kind().toQualString(),
-            " for value %",
-            value_out->debugName(),
-            " appears in graph output");
+  // If node output is tensor list
+  // tensorList and Unpack pair is supported
+  if (node->output(0)->type() == torch::ListType::ofTensors() &&
+      node->outputs().size() == 1) {
+    auto unpack_node = GetUnpackNodeFromTensorList(node->output(0));
+    if (unpack_node != nullptr) {
+      for (auto value_out : unpack_node->outputs()) {
+        if (use_persistent_tensors || isInGraphOutputs(value_out)) {
+          is_persistent.emplace_back(true);
+        }
       }
-      is_persistent.emplace_back(true);
-    } else if (
-        value_to_persistent_flag.find(value_out) !=
-        value_to_persistent_flag.end()) {
-      is_persistent.emplace_back(value_to_persistent_flag[value_out]);
     } else {
-      // If no specific flag is set, the mark as false
-      is_persistent.emplace_back(false);
+      PT_BRIDGE_DEBUG("TensorList is not input to ListUnpack Node");
+      HABANA_ASSERT(0);
+    }
+  } else {
+    for (auto value_out : node_outs) {
+      if (use_persistent_tensors || isInGraphOutputs(value_out)) {
+        // Highest priority is given to the env variable, and if
+        // part of the graph output
+        auto in_graph_output = isInGraphOutputs(value_out);
+        if (in_graph_output) {
+          PT_BRIDGE_DEBUG(
+              "Persistent tensor for ",
+              node->kind().toQualString(),
+              " for value %",
+              value_out->debugName(),
+              " appears in graph output");
+        }
+        is_persistent.emplace_back(true);
+      } else if (
+          value_to_persistent_flag.find(value_out) !=
+          value_to_persistent_flag.end()) {
+        is_persistent.emplace_back(value_to_persistent_flag[value_out]);
+      } else {
+        // If no specific flag is set, the mark as false
+        is_persistent.emplace_back(false);
+      }
     }
   }
   return is_persistent;
@@ -517,6 +545,17 @@ void HabanaLaunchOpPT::GetSynapseOutputs(
   auto output_nodes = node->outputs();
   auto habana_kernel_meta_data = habana_op->GetKernelMetaData();
   habana::LayoutFormat out_layout;
+
+  if (node->output(0)->type() == torch::ListType::ofTensors() &&
+      node->outputs().size() == 1) {
+    auto unpack_node = GetUnpackNodeFromTensorList(node->output(0));
+    if (unpack_node != nullptr) {
+      output_nodes = unpack_node->outputs();
+    } else {
+      PT_BRIDGE_DEBUG("TensorList is not input to ListUnpack Node");
+      HABANA_ASSERT(0);
+    }
+  }
 
   /* Note the input layout information for the node to pass on to output edge
    */
@@ -1221,10 +1260,14 @@ void HabanaLaunchOpPT::handlePrimNodes(torch::jit::Node* node) {
     auto node_vals = node->outputs();
     HABANA_ASSERT(node_vals.size() == 1);
     value_to_ivalue[node_vals[0]] = ivptrsh_tensor_list;
+  } else if (node->kind() == torch::jit::prim::ListUnpack) {
+    // currently lowering code supports only TensorList+Unpack combination
+    // [ToDo] Standalone ListUnpack support is not added here
   } else {
     HABANA_ASSERT(
         (node->kind() == torch::jit::prim::Constant) ||
-        (node->kind() == torch::jit::prim::ListConstruct));
+        (node->kind() == torch::jit::prim::ListConstruct) ||
+        (node->kind() == torch::jit::prim::ListUnpack));
   }
 }
 
