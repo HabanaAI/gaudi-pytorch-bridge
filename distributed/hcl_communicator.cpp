@@ -125,7 +125,7 @@ synapse_error_o hcl_communicator::allreduce(
                                 size_t intermediate_size,
                                 uint32_t flags) {
     HCL_SYNC()
-    return HCL_Allreduce(
+    auto status = HCL_Allreduce(
         collective_stream,
         input_address,
         output_address,
@@ -136,6 +136,8 @@ synapse_error_o hcl_communicator::allreduce(
         hclop,
         hcl_comm(),
         flags);
+    HCL_SYNC()
+    return status;
   };
   PT_DISTRIBUTED_BEGIN;
   auto status = execute_collective_with_fusion_buffer(
