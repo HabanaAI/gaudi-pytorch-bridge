@@ -62,6 +62,16 @@ TEST_F(LazyUnaryKernelTest, ReluInplaceTest) {
   EXPECT_EQ(allclose(out, exp), true);
 }
 
+TEST_F(LazyUnaryKernelTest, LeakyReluInplaceTest) {
+  auto A = torch::randn({4, 5});
+  auto hA = A.to(torch::kHABANA);
+
+  torch::leaky_relu_(A);
+  torch::leaky_relu_(hA);
+
+  EXPECT_TRUE(allclose(A, hA.to("cpu"))) << A << hA.to("cpu");
+}
+
 TEST_F(LazyUnaryKernelTest, FloorInplaceTest) {
   // Inplace op as output node is not supported yet.
   torch::Tensor A = torch::randn({4, 5});

@@ -537,6 +537,12 @@ struct hpu_wrap {
       bool sorted);
   static at::Tensor relu(const at::Tensor& input);
   static at::Tensor& relu_(at::Tensor& self);
+  static at::Tensor& leaky_relu_(at::Tensor& self, at::Scalar negative_slope);
+  // static at::Tensor leaky_relu_backward(
+  //    const at::Tensor& grad_output,
+  //    const at::Tensor& self,
+  //    at::Scalar negative_slope,
+  //    bool self_is_result);
   static at::Tensor sigmoid(const at::Tensor& input);
   static at::Tensor sigmoid_backward(
       const at::Tensor& grad_in,

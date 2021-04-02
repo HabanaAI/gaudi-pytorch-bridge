@@ -520,6 +520,29 @@ Tensor& log2_hpu_(Tensor& self) {
   return self;
 }
 
+void LeakyReluOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 2,
+      std::string("Incorrect size of inputs expected for ") +
+          (m_inplace ? "LeakyRelu_" : "LeakyRelu") + " operator");
+  TORCH_CHECK(inputs[0].isTensor(), "Input 1 type expected to be tensor");
+  TORCH_CHECK(inputs[1].isScalar(), "Input 2 type expected to be scalar");
+
+  ns_LeakyReluKernel::Params param{inputs[1].toScalar().to<double>()};
+  auto output = habana_helpers::createPTTensor(
+      inputs[0].toTensor(), is_output_persistent);
+
+  if (m_inplace) {
+    AllocateSynapseOutput(graph, output, is_output_persistent);
+  } else {
+    AllocateSynapseInplaceOutput(graph);
+  }
+  AddNodeToSynapseGraph(graph, &param, sizeof(param));
+}
+
 void GeluOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
@@ -1740,6 +1763,17 @@ static auto& KernelRegistry =
             "aten::relu",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<ReluOperator>(device_id, node_type);
+            })
+        .add(
+            "aten::leaky_relu",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<LeakyReluOperator>(device_id, node_type);
+            })
+        .add(
+            "aten::leaky_relu_",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<LeakyReluOperator>(
+                  device_id, node_type, true);
             })
         .add(
             "aten::sigmoid",

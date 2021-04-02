@@ -78,12 +78,19 @@ class LazyOp {
     auto node = create_node();
     auto results = get_result();
     int i = 0;
-    for_each_in_tuple(results, [&node, &i](const auto& result) {
+    std::vector<HbLazyTensor> hl_tensors;
+    hl_tensors.reserve(std::tuple_size<T>::value);
+
+    for_each_in_tuple(results, [&node, &i, &hl_tensors](const auto& result) {
       auto hl_result = GetHbLazyTensor(result);
-      ir::Value& out = GetHbLazyTensor(result).CurrentIrValue();
+      ir::Value& out = hl_result.CurrentIrValue();
       out.SetNode(node, i++);
       updateDstDependencies(hl_result, result, false);
+      hl_tensors.push_back(hl_result);
     });
+    if (m_flush_op) {
+      HbLazyTensor::SyncTensorsGraph(&hl_tensors);
+    }
 
     return results;
   }
@@ -93,10 +100,14 @@ class LazyOp {
     const auto& node = create_node();
     const auto& result = get_result();
     auto hl_result = GetHbLazyTensor(result);
-    ir::Value& out = GetHbLazyTensor(result).CurrentIrValue();
+    ir::Value& out = hl_result.CurrentIrValue();
     out.SetNode(node);
     updateDstDependencies(hl_result, result, false);
 
+    if (m_flush_op) {
+      std::vector<HbLazyTensor> hl_tensors = {hl_result};
+      HbLazyTensor::SyncTensorsGraph(&hl_tensors);
+    }
     return result;
   }
 
@@ -113,6 +124,11 @@ class LazyOp {
     auto context = habana_lazy_executor.getDeviceExecutionContext();
     context->MarkTensorStatus(
         hl_self.getTensorUniqueId(), LazyTensorExecutionStatus::kREGISTERED);
+
+    if (m_flush_op) {
+      std::vector<HbLazyTensor> hl_tensors = {hl_self};
+      HbLazyTensor::SyncTensorsGraph(&hl_tensors);
+    }
     return self;
   }
 
@@ -257,6 +273,10 @@ class LazyOp {
   const std::vector<std::vector<int64_t>> m_out_shapes;
   const int m_out_index;
   std::vector<at::IValue> m_inputs = {};
+  // PT_HPU_LAZY_MODE=2 will flush the node as soon as it is created, more like
+  // a eager way of executing using lazy infrastructure.
+  const bool m_flush_op = std::getenv("PT_HPU_LAZY_MODE") &&
+      *std::getenv("PT_HPU_LAZY_MODE") == '2';
 };
 
 template <typename ReturnType>

@@ -22,8 +22,8 @@ Tensor& hpu_wrap::copy_(Tensor& self, const Tensor& src, bool non_blocking) {
   hpu_check_inputs("copy_", {self, src});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto& t = copy_hpu_lazy_(self, src, non_blocking);
-    return t;
+    return copy_hpu_lazy_(self, src, non_blocking);
+
   } else {
     return copy_hpu_(self, src, non_blocking);
   }
@@ -36,9 +36,8 @@ Tensor hpu_wrap::as_strided(
   hpu_check_inputs("as_strided", {self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = as_strided_hpu_lazy(self, size, stride, storage_offset);
+    return as_strided_hpu_lazy(self, size, stride, storage_offset);
 
-    return t;
   } else {
     return as_strided_hpu(self, size, stride, storage_offset);
   }
@@ -52,9 +51,8 @@ Tensor& hpu_wrap::set_(
   hpu_check_inputs("set_", {self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto& t = set_hpu_lazy_(self, source, storage_offset, size, stride);
+    return set_hpu_lazy_(self, source, storage_offset, size, stride);
 
-    return t;
   } else {
     return set_hpu_(self, source, storage_offset, size, stride);
   }
@@ -63,9 +61,8 @@ Tensor hpu_wrap::view(const Tensor& self, IntArrayRef size) {
   hpu_check_inputs("view", {self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = view_hpu_lazy(self, size);
+    return view_hpu_lazy(self, size);
 
-    return t;
   } else {
     return view_hpu(self, size);
   }
@@ -78,9 +75,8 @@ Tensor hpu_wrap::addcmul(
   hpu_check_inputs("addcmul", {self, tensor1, tensor2});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = addcmul_hpu_lazy(self, tensor1, tensor2, alpha);
+    return addcmul_hpu_lazy(self, tensor1, tensor2, alpha);
 
-    return t;
   } else {
     return addcmul_hpu(self, tensor1, tensor2, alpha);
   }
@@ -93,9 +89,8 @@ Tensor& hpu_wrap::addcmul_(
   hpu_check_inputs("addcmul_", {self, tensor1, tensor2});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto& t = addcmul_hpu_lazy_(self, tensor1, tensor2, alpha);
+    return addcmul_hpu_lazy_(self, tensor1, tensor2, alpha);
 
-    return t;
   } else {
     return addcmul_hpu_(self, tensor1, tensor2, alpha);
   }
@@ -108,9 +103,8 @@ Tensor hpu_wrap::addcdiv(
   hpu_check_inputs("addcdiv", {self, tensor1, tensor2});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = addcdiv_hpu_lazy(self, tensor1, tensor2, alpha);
+    return addcdiv_hpu_lazy(self, tensor1, tensor2, alpha);
 
-    return t;
   } else {
     return addcdiv_hpu(self, tensor1, tensor2, alpha);
   }
@@ -123,9 +117,8 @@ Tensor& hpu_wrap::addcdiv_(
   hpu_check_inputs("addcdiv_", {self, tensor1, tensor2});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto& t = addcdiv_hpu_lazy_(self, tensor1, tensor2, alpha);
+    return addcdiv_hpu_lazy_(self, tensor1, tensor2, alpha);
 
-    return t;
   } else {
     return addcdiv_hpu_(self, tensor1, tensor2, alpha);
   }
@@ -143,9 +136,8 @@ Tensor hpu_wrap::add(const Tensor& self, Scalar other, Scalar alpha) {
   hpu_check_inputs("add", {self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = add_scalar_hpu_lazy(self, other, alpha);
+    return add_scalar_hpu_lazy(self, other, alpha);
 
-    return t;
   } else {
     return add_scalar_hpu(self, other, alpha);
   }
@@ -154,9 +146,8 @@ Tensor& hpu_wrap::add_(Tensor& self, Scalar other, Scalar alpha) {
   hpu_check_inputs("add_", {self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto& t = add_scalar_hpu_lazy_(self, other, alpha);
+    return add_scalar_hpu_lazy_(self, other, alpha);
 
-    return t;
   } else {
     return add_scalar_hpu_(self, other, alpha);
   }
@@ -174,9 +165,8 @@ Tensor hpu_wrap::sub(const Tensor& self, const Tensor& other, Scalar alpha) {
   hpu_check_inputs("sub", {self, other});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = sub_tensor_hpu_lazy(self, other, alpha);
+    return sub_tensor_hpu_lazy(self, other, alpha);
 
-    return t;
   } else {
     return sub_tensor_hpu(self, other, alpha);
   }
@@ -185,9 +175,8 @@ Tensor& hpu_wrap::sub_(Tensor& self, const Tensor& other, Scalar alpha) {
   hpu_check_inputs("sub_", {self, other});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto& t = sub_tensor_hpu_lazy_(self, other, alpha);
+    return sub_tensor_hpu_lazy_(self, other, alpha);
 
-    return t;
   } else {
     return sub_tensor_hpu_(self, other, alpha);
   }
@@ -196,9 +185,8 @@ Tensor hpu_wrap::sub(const Tensor& self, Scalar other, Scalar alpha) {
   hpu_check_inputs("sub", {self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = sub_scalar_hpu_lazy(self, other, alpha);
+    return sub_scalar_hpu_lazy(self, other, alpha);
 
-    return t;
   } else {
     return sub_scalar_hpu(self, other, alpha);
   }
@@ -207,9 +195,8 @@ Tensor& hpu_wrap::sub_(Tensor& self, Scalar other, Scalar alpha) {
   hpu_check_inputs("sub_", {self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto& t = sub_scalar_hpu_lazy_(self, other, alpha);
+    return sub_scalar_hpu_lazy_(self, other, alpha);
 
-    return t;
   } else {
     return sub_scalar_hpu_(self, other, alpha);
   }
@@ -218,9 +205,8 @@ Tensor hpu_wrap::rsub(const Tensor& self, Scalar other, Scalar alpha) {
   hpu_check_inputs("rsub", {self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = rsub_scalar_hpu_lazy(self, other, alpha);
+    return rsub_scalar_hpu_lazy(self, other, alpha);
 
-    return t;
   } else {
     return rsub_scalar_hpu(self, other, alpha);
   }
@@ -271,9 +257,8 @@ Tensor hpu_wrap::mul(const Tensor& self, Scalar other) {
   hpu_check_inputs("mul", {self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = mul_scalar_hpu_lazy(self, other);
+    return mul_scalar_hpu_lazy(self, other);
 
-    return t;
   } else {
     return mul_scalar_hpu(self, other);
   }
@@ -282,9 +267,8 @@ Tensor& hpu_wrap::mul_(Tensor& self, Scalar other) {
   hpu_check_inputs("mul_", {self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto& t = mul_scalar_hpu_lazy_(self, other);
+    return mul_scalar_hpu_lazy_(self, other);
 
-    return t;
   } else {
     return mul_scalar_hpu_(self, other);
   }
@@ -293,9 +277,8 @@ Tensor hpu_wrap::div(const Tensor& self, const Tensor& other) {
   hpu_check_inputs("div", {self, other});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = div_tensor_hpu_lazy(self, other);
+    return div_tensor_hpu_lazy(self, other);
 
-    return t;
   } else {
     return div_tensor_hpu(self, other);
   }
@@ -307,9 +290,8 @@ Tensor& hpu_wrap::div_out(
   hpu_check_inputs("div_out", {result, self, other});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto& t = div_tensor_hpu_lazy_out(result, self, other);
+    return div_tensor_hpu_lazy_out(result, self, other);
 
-    return t;
   } else {
     return div_tensor_hpu_out(result, self, other);
   }
@@ -318,9 +300,8 @@ Tensor& hpu_wrap::div_(Tensor& self, const Tensor& other) {
   hpu_check_inputs("div_", {self, other});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto& t = div_tensor_hpu_lazy_(self, other);
+    return div_tensor_hpu_lazy_(self, other);
 
-    return t;
   } else {
     return div_tensor_hpu_(self, other);
   }
@@ -329,9 +310,8 @@ Tensor hpu_wrap::div(const Tensor& self, Scalar other) {
   hpu_check_inputs("div", {self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = div_scalar_hpu_lazy(self, other);
+    return div_scalar_hpu_lazy(self, other);
 
-    return t;
   } else {
     return div_scalar_hpu(self, other);
   }
@@ -340,9 +320,8 @@ Tensor& hpu_wrap::div_(Tensor& self, Scalar other) {
   hpu_check_inputs("div_", {self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto& t = div_scalar_hpu_lazy_(self, other);
+    return div_scalar_hpu_lazy_(self, other);
 
-    return t;
   } else {
     return div_scalar_hpu_(self, other);
   }
@@ -351,9 +330,8 @@ Tensor hpu_wrap::pow(const Tensor& self, const Tensor& other) {
   hpu_check_inputs("pow", {self, other});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = pow_tensor_tensor_hpu_lazy(self, other);
+    return pow_tensor_tensor_hpu_lazy(self, other);
 
-    return t;
   } else {
     return pow_tensor_tensor_hpu(self, other);
   }
@@ -362,9 +340,8 @@ Tensor& hpu_wrap::pow_(Tensor& self, const Tensor& other) {
   hpu_check_inputs("pow_", {self, other});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto& t = pow_tensor_tensor_hpu_lazy_(self, other);
+    return pow_tensor_tensor_hpu_lazy_(self, other);
 
-    return t;
   } else {
     return pow_tensor_tensor_hpu_(self, other);
   }
@@ -373,9 +350,8 @@ Tensor hpu_wrap::pow(const Tensor& self, Scalar other) {
   hpu_check_inputs("pow", {self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = pow_tensor_scalar_hpu_lazy(self, other);
+    return pow_tensor_scalar_hpu_lazy(self, other);
 
-    return t;
   } else {
     return pow_tensor_scalar_hpu(self, other);
   }
@@ -384,9 +360,8 @@ Tensor& hpu_wrap::pow_(Tensor& self, Scalar other) {
   hpu_check_inputs("pow_", {self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto& t = pow_tensor_scalar_hpu_lazy_(self, other);
+    return pow_tensor_scalar_hpu_lazy_(self, other);
 
-    return t;
   } else {
     return pow_tensor_scalar_hpu_(self, other);
   }
@@ -395,9 +370,8 @@ Tensor hpu_wrap::pow(Scalar other, const Tensor& self) {
   hpu_check_inputs("pow", {self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = pow_scalar_tensor_hpu_lazy(other, self);
+    return pow_scalar_tensor_hpu_lazy(other, self);
 
-    return t;
   } else {
     return pow_scalar_tensor_hpu(other, self);
   }
@@ -427,9 +401,8 @@ Tensor hpu_wrap::gt(const Tensor& self, const Tensor& other) {
   hpu_check_inputs("gt", {self, other});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = gt_tensor_hpu_lazy(self, other);
+    return gt_tensor_hpu_lazy(self, other);
 
-    return t;
   } else {
     return gt_tensor_hpu(self, other);
   }
@@ -439,9 +412,7 @@ Tensor hpu_wrap::gt(const Tensor& self, Scalar other) {
   hpu_check_inputs("gt", {self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = gt_scalar_hpu_lazy(self, other);
-
-    return t;
+    return gt_scalar_hpu_lazy(self, other);
   } else {
     return gt_scalar_hpu(self, other);
   }
@@ -462,9 +433,7 @@ Tensor hpu_wrap::eq(const Tensor& self, const Tensor& other) {
   hpu_check_inputs("eq", {self, other});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = eq_tensor_hpu_lazy(self, other);
-
-    return t;
+    return eq_tensor_hpu_lazy(self, other);
   } else {
     return eq_tensor_hpu(self, other);
   }
@@ -473,9 +442,8 @@ Tensor hpu_wrap::eq(const Tensor& self, Scalar other) {
   hpu_check_inputs("eq", {self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = eq_tensor_scalar_hpu_lazy(self, other);
+    return eq_tensor_scalar_hpu_lazy(self, other);
 
-    return t;
   } else {
     return eq_tensor_scalar_hpu(self, other);
   }
@@ -484,9 +452,8 @@ Tensor hpu_wrap::lt(const Tensor& self, Scalar other) {
   hpu_check_inputs("lt", {self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = lt_scalar_hpu_lazy(self, other);
+    return lt_scalar_hpu_lazy(self, other);
 
-    return t;
   } else {
     return lt_scalar_hpu(self, other);
   }
@@ -495,9 +462,8 @@ Tensor hpu_wrap::lt(const Tensor& self, const Tensor& other) {
   hpu_check_inputs("lt", {self, other});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = lt_tensor_hpu_lazy(self, other);
+    return lt_tensor_hpu_lazy(self, other);
 
-    return t;
   } else {
     return lt_tensor_hpu(self, other);
   }
@@ -506,9 +472,8 @@ Tensor hpu_wrap::ge(const Tensor& self, Scalar other) {
   hpu_check_inputs("ge", {self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = ge_scalar_hpu_lazy(self, other);
+    return ge_scalar_hpu_lazy(self, other);
 
-    return t;
   } else {
     return ge_scalar_hpu(self, other);
   }
@@ -517,9 +482,8 @@ Tensor hpu_wrap::ge(const Tensor& self, const Tensor& other) {
   hpu_check_inputs("ge", {self, other});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = ge_tensor_hpu_lazy(self, other);
+    return ge_tensor_hpu_lazy(self, other);
 
-    return t;
   } else {
     return ge_tensor_hpu(self, other);
   }
@@ -528,9 +492,7 @@ Tensor hpu_wrap::ne(const Tensor& self, Scalar other) {
   hpu_check_inputs("ne", {self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = ne_scalar_hpu_lazy(self, other);
-
-    return t;
+    return ne_scalar_hpu_lazy(self, other);
   } else {
     return ne_scalar_hpu(self, other);
   }
@@ -539,9 +501,7 @@ Tensor hpu_wrap::ne(const Tensor& self, const Tensor& other) {
   hpu_check_inputs("ne", {self, other});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = ne_tensor_hpu_lazy(self, other);
-
-    return t;
+    return ne_tensor_hpu_lazy(self, other);
   } else {
     return ne_tensor_hpu(self, other);
   }
@@ -550,8 +510,7 @@ Tensor hpu_wrap::all(const Tensor& self, int64_t dim, bool keepdim) {
   hpu_check_inputs("all", {self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = all_dim_hpu_lazy(self, dim, keepdim);
-    return t;
+    return all_dim_hpu_lazy(self, dim, keepdim);
   } else {
     return all_dim_hpu(self, dim, keepdim);
   }
@@ -560,8 +519,7 @@ Tensor hpu_wrap::all(const Tensor& self) {
   hpu_check_inputs("all", {self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = all_hpu_lazy(self);
-    return t;
+    return all_hpu_lazy(self);
   } else {
     return all_hpu(self);
   }
@@ -618,7 +576,7 @@ std::tuple<Tensor, Tensor, Tensor> hpu_wrap::convolution_backward_overrideable(
       "convolution_backward_overrideable", {grad_output, input, weight});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = convolution_backward_hpu_lazy(
+    return convolution_backward_hpu_lazy(
         grad_output,
         input,
         weight,
@@ -630,7 +588,6 @@ std::tuple<Tensor, Tensor, Tensor> hpu_wrap::convolution_backward_overrideable(
         groups,
         output_mask);
 
-    return t;
   } else {
     return convolution_backward_hpu(
         grad_output,
@@ -653,9 +610,8 @@ Tensor hpu_wrap::constant_pad_nd(
   hpu_check_inputs("constant_pad_nd", {self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = constant_pad_hpu_lazy(self, pad, value);
+    return constant_pad_hpu_lazy(self, pad, value);
 
-    return t;
   } else {
     return constant_pad_hpu(self, pad, value);
   }
@@ -669,10 +625,9 @@ Tensor hpu_wrap::embedding(
   hpu_check_inputs("embedding", {weight, indices});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = embedding_hpu_lazy(
+    return embedding_hpu_lazy(
         weight, indices, padding_idx, scale_grad_by_freq, sparse);
 
-    return t;
   } else {
     return embedding_hpu(
         weight, indices, padding_idx, scale_grad_by_freq, sparse);
@@ -687,10 +642,9 @@ Tensor hpu_wrap::embedding_dense_backward(
   hpu_check_inputs("embedding_dense_backward", {grad, indices});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = embedding_dense_backward_hpu_lazy(
+    return embedding_dense_backward_hpu_lazy(
         grad, indices, num_weights, padding_idx, scale_grad_by_freq);
 
-    return t;
   } else {
     return embedding_dense_backward_hpu(
         grad, indices, num_weights, padding_idx, scale_grad_by_freq);
@@ -703,10 +657,9 @@ Tensor embedding_bag_sum_hpu_wrap(
     const Tensor& valid_count,
     int64_t kernel_mode) {
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = embedding_bag_sum_hpu_lazy(
+    return embedding_bag_sum_hpu_lazy(
         input, indices, offsets, valid_count, kernel_mode);
 
-    return t;
   } else {
     return embedding_bag_sum_hpu(
         input, indices, offsets, valid_count, kernel_mode);
@@ -733,7 +686,7 @@ Tensor hpu_wrap::embedding_bag_sum_fwd(
        grad_weight});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = embedding_bag_sum_fwd_hpu_lazy(
+    return embedding_bag_sum_fwd_hpu_lazy(
         input,
         indices_fwd,
         offsets_fwd,
@@ -743,7 +696,6 @@ Tensor hpu_wrap::embedding_bag_sum_fwd(
         valid_count_bwd,
         grad_weight);
 
-    return t;
   } else {
     return embedding_bag_sum_fwd_hpu(
         input,
@@ -767,10 +719,9 @@ Tensor& hpu_wrap::embedding_bag_sum_bwd_out(
       {out, input, indices_bwd, offsets_bwd, valid_count_bwd});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto& t = embedding_bag_sum_bwd_out_hpu_lazy(
+    return embedding_bag_sum_bwd_out_hpu_lazy(
         out, input, indices_bwd, offsets_bwd, valid_count_bwd);
 
-    return t;
   } else {
     return embedding_bag_sum_bwd_out_hpu(
         out, input, indices_bwd, offsets_bwd, valid_count_bwd);
@@ -784,10 +735,9 @@ Tensor& embedding_bag_sum_bwd_out_kernel_mode_hpu_wrap(
     const Tensor& valid_count,
     int64_t kernel_mode) {
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto& t = embedding_bag_sum_bwd_out_kernel_mode_hpu_lazy(
+    return embedding_bag_sum_bwd_out_kernel_mode_hpu_lazy(
         out, input, indices, offsets, valid_count, kernel_mode);
 
-    return t;
   } else {
     return embedding_bag_sum_bwd_out_kernel_mode_hpu(
         out, input, indices, offsets, valid_count, kernel_mode);
@@ -797,9 +747,7 @@ Tensor& hpu_wrap::fill_(Tensor& self, Scalar value) {
   hpu_check_inputs("fill_", {self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto& t = fill_hpu_lazy_(self, value);
-
-    return t;
+    return fill_hpu_lazy_(self, value);
   } else {
     return fill_hpu_(self, value);
   }
@@ -811,9 +759,8 @@ Tensor& hpu_wrap::masked_fill_(
   hpu_check_inputs("masked_fill_", {self, mask, value});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto& t = masked_fill_hpu_lazy_(self, mask, value);
+    return masked_fill_hpu_lazy_(self, mask, value);
 
-    return t;
   } else {
     return masked_fill_hpu_(self, mask, value);
   }
@@ -822,9 +769,8 @@ Tensor& hpu_wrap::masked_fill_(Tensor& self, const Tensor& mask, Scalar value) {
   hpu_check_inputs("masked_fill_", {self, mask});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto& t = masked_fill_scalar_hpu_lazy_(self, mask, value);
+    return masked_fill_scalar_hpu_lazy_(self, mask, value);
 
-    return t;
   } else {
     return masked_fill_scalar_hpu_(self, mask, value);
   }
@@ -837,9 +783,8 @@ Tensor hpu_wrap::gather(
   hpu_check_inputs("gather", {self, index});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = gather_src_hpu_lazy(self, dim_, index, sparse_grad);
+    return gather_src_hpu_lazy(self, dim_, index, sparse_grad);
 
-    return t;
   } else {
     return gather_src_hpu(self, dim_, index, sparse_grad);
   }
@@ -852,9 +797,8 @@ Tensor& hpu_wrap::scatter_(
   hpu_check_inputs("scatter_", {self, index, src});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto& t = scatter_inplace_src_hpu_lazy(self, dim_, index, src);
+    return scatter_inplace_src_hpu_lazy(self, dim_, index, src);
 
-    return t;
   } else {
     return scatter_inplace_src_hpu(self, dim_, index, src);
   }
@@ -867,9 +811,8 @@ Tensor hpu_wrap::scatter(
   hpu_check_inputs("scatter", {self, index, src});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = scatter_src_hpu_lazy(self, dim_, index, src);
+    return scatter_src_hpu_lazy(self, dim_, index, src);
 
-    return t;
   } else {
     return scatter_src_hpu(self, dim_, index, src);
   }
@@ -880,8 +823,8 @@ Tensor& hpu_wrap::scatter_(
     const Tensor& index,
     Scalar value) {
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto& t = scatter_inplace_value_hpu_lazy(self, dim_, index, value);
-    return t;
+    return scatter_inplace_value_hpu_lazy(self, dim_, index, value);
+
   } else {
     return scatter_inplace_value_hpu(self, dim_, index, value);
   }
@@ -894,9 +837,8 @@ Tensor hpu_wrap::scatter_add(
   hpu_check_inputs("scatter_add", {self, index, src});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = scatter_add_src_hpu_lazy(self, dim_, index, src);
+    return scatter_add_src_hpu_lazy(self, dim_, index, src);
 
-    return t;
   } else {
     return scatter_add_src_hpu(self, dim_, index, src);
   }
@@ -909,9 +851,8 @@ Tensor& hpu_wrap::scatter_add_(
   hpu_check_inputs("scatter_add_", {self, index, src});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto& t = scatter_add_inplace_src_hpu_lazy(self, dim_, index, src);
+    return scatter_add_inplace_src_hpu_lazy(self, dim_, index, src);
 
-    return t;
   } else {
     return scatter_add_inplace_src_hpu(self, dim_, index, src);
   }
@@ -924,9 +865,8 @@ Tensor& hpu_wrap::index_add_(
   hpu_check_inputs("index_add_", {self, indices, source});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto& t = index_add_hpu_lazy_(self, dim_, indices, source);
+    return index_add_hpu_lazy_(self, dim_, indices, source);
 
-    return t;
   } else {
     return index_add_hpu_(self, dim_, indices, source);
   }
@@ -939,9 +879,8 @@ Tensor hpu_wrap::index_put(
   hpu_check_inputs("index_put", {self, indices[0], value});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = index_put_hpu_lazy(self, indices, value, accumulate);
+    return index_put_hpu_lazy(self, indices, value, accumulate);
 
-    return t;
   } else {
     return index_put_hpu(self, indices, value, accumulate);
   }
@@ -954,9 +893,8 @@ Tensor& hpu_wrap::index_put_(
   hpu_check_inputs("index_put_", {self, indices[0], value});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto& t = index_put_hpu_lazy_(self, indices, value, accumulate);
+    return index_put_hpu_lazy_(self, indices, value, accumulate);
 
-    return t;
   } else {
     return index_put_hpu_(self, indices, value, accumulate);
   }
@@ -977,9 +915,8 @@ Tensor hpu_wrap::index_select(
   hpu_check_inputs("index_select", {self, index});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = index_select_hpu_lazy(self, dim, index);
+    return index_select_hpu_lazy(self, dim, index);
 
-    return t;
   } else {
     return index_select_hpu(self, dim, index);
   }
@@ -989,9 +926,8 @@ Tensor gather2d_hpu_wrap(
     const Tensor& indices,
     int64_t validCount) {
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = gather2d_hpu_lazy(input, indices, validCount);
+    return gather2d_hpu_lazy(input, indices, validCount);
 
-    return t;
   } else {
     return gather2d_hpu(input, indices, validCount);
   }
@@ -1005,9 +941,8 @@ Tensor hpu_wrap::slice(
   hpu_check_inputs("slice", {self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = slice_hpu_lazy(self, dim, start, end, step);
+    return slice_hpu_lazy(self, dim, start, end, step);
 
-    return t;
   } else {
     return slice_hpu(self, dim, start, end, step);
   }
@@ -1016,9 +951,8 @@ Tensor hpu_wrap::select(const Tensor& self, int64_t dim, int64_t index) {
   hpu_check_inputs("select", {self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = select_hpu_lazy(self, dim, index);
+    return select_hpu_lazy(self, dim, index);
 
-    return t;
   } else {
     return select_hpu(self, dim, index);
   }
@@ -1031,9 +965,8 @@ Tensor& hpu_wrap::arange_out(
   hpu_check_inputs("arange_out", {output});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto& t = arange_hpu_lazy(output, start, end, step);
+    return arange_hpu_lazy(output, start, end, step);
 
-    return t;
   } else {
     return arange_hpu(output, start, end, step);
   }
@@ -1065,8 +998,8 @@ Tensor& hpu_wrap::bmm_out(Tensor& out, const Tensor& self, const Tensor& mat2) {
   hpu_check_inputs("bmm_out", {out, self, mat2});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto& t = batch_gemm_out_hpu_lazy(out, self, mat2);
-    return t;
+    return batch_gemm_out_hpu_lazy(out, self, mat2);
+
   } else {
     return batch_gemm_out_hpu(out, self, mat2);
   }
@@ -1075,8 +1008,8 @@ Tensor hpu_wrap::bmm(const Tensor& self, const Tensor& mat2) {
   hpu_check_inputs("bmm", {self, mat2});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = batch_gemm_hpu_lazy(self, mat2);
-    return t;
+    return batch_gemm_hpu_lazy(self, mat2);
+
   } else {
     return batch_gemm_hpu(self, mat2);
   }
@@ -1085,8 +1018,8 @@ Tensor hpu_wrap::dot(const Tensor& self, const Tensor& other) {
   hpu_check_inputs("dot", {self, other});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = dot_hpu_lazy(self, other);
-    return t;
+    return dot_hpu_lazy(self, other);
+
   } else {
     return dot_hpu(self, other);
   }
@@ -1095,8 +1028,8 @@ Tensor hpu_wrap::mv(const Tensor& self, const Tensor& other) {
   hpu_check_inputs("mv", {self, other});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = mv_hpu_lazy(self, other);
-    return t;
+    return mv_hpu_lazy(self, other);
+
   } else {
     return mv_hpu(self, other);
   }
@@ -1111,9 +1044,9 @@ std::tuple<Tensor, Tensor> hpu_wrap::nll_loss_forward(
   hpu_check_inputs("nll_loss_forward", {self, target, weight});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = nll_loss_forward_hpu_lazy(
+    return nll_loss_forward_hpu_lazy(
         self, target, weight, reduction, ignore_index);
-    return t;
+
   } else {
     return nll_loss_forward_hpu(self, target, weight, reduction, ignore_index);
   }
@@ -1131,7 +1064,7 @@ Tensor hpu_wrap::nll_loss_backward(
       "nll_loss_backward", {grad_output, self, target, weight, total_weight});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = nll_loss_backward_hpu_lazy(
+    return nll_loss_backward_hpu_lazy(
         grad_output,
         self,
         target,
@@ -1139,7 +1072,7 @@ Tensor hpu_wrap::nll_loss_backward(
         reduction,
         ignore_index,
         total_weight);
-    return t;
+
   } else {
     return nll_loss_backward_hpu(
         grad_output,
@@ -1158,8 +1091,8 @@ Tensor hpu_wrap::mse_loss(
   hpu_check_inputs("mse_loss", {self, target});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = mse_loss_forward_hpu_lazy(self, target, reduction);
-    return t;
+    return mse_loss_forward_hpu_lazy(self, target, reduction);
+
   } else {
     return mse_loss_forward_hpu(self, target, reduction);
   }
@@ -1172,8 +1105,8 @@ Tensor hpu_wrap::mse_loss_backward(
   hpu_check_inputs("mse_loss_backward", {grad_output, self, target});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = mse_loss_backward_hpu_lazy(grad_output, self, target, reduction);
-    return t;
+    return mse_loss_backward_hpu_lazy(grad_output, self, target, reduction);
+
   } else {
     return mse_loss_backward_hpu(grad_output, self, target, reduction);
   }
@@ -1187,8 +1120,8 @@ Tensor hpu_wrap::binary_cross_entropy(
   hpu_check_inputs("binary_cross_entropy", {self, target, weight});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = binary_cross_entropy_hpu_lazy(self, target, weight, reduction);
-    return t;
+    return binary_cross_entropy_hpu_lazy(self, target, weight, reduction);
+
   } else {
     return binary_cross_entropy_hpu(self, target, weight, reduction);
   }
@@ -1204,9 +1137,9 @@ Tensor hpu_wrap::binary_cross_entropy_backward(
       "binary_cross_entropy_backward", {grad_output, self, target, weight});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = binary_cross_entropy_backward_hpu_lazy(
+    return binary_cross_entropy_backward_hpu_lazy(
         grad_output, self, target, weight, reduction);
-    return t;
+
   } else {
     return binary_cross_entropy_backward_hpu(
         grad_output, self, target, weight, reduction);
@@ -1247,7 +1180,7 @@ std::tuple<Tensor, Tensor, Tensor> hpu_wrap::native_batch_norm(
       "native_batch_norm", {input, weight, bias, running_mean, running_var});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = batch_norm_hpu_lazy(
+    return batch_norm_hpu_lazy(
         input,
         weight,
         bias,
@@ -1256,7 +1189,7 @@ std::tuple<Tensor, Tensor, Tensor> hpu_wrap::native_batch_norm(
         training,
         momentum,
         eps);
-    return t;
+
   } else {
     return batch_norm_hpu(
         input,
@@ -1296,7 +1229,7 @@ std::tuple<Tensor, Tensor, Tensor> hpu_wrap::native_batch_norm_backward(
        save_invstd});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = batch_norm_bwd_hpu_lazy(
+    return batch_norm_bwd_hpu_lazy(
         grad_out,
         input,
         weight,
@@ -1307,7 +1240,7 @@ std::tuple<Tensor, Tensor, Tensor> hpu_wrap::native_batch_norm_backward(
         train,
         eps,
         output_mask);
-    return t;
+
   } else {
     return batch_norm_bwd_hpu(
         grad_out,
@@ -1335,8 +1268,8 @@ std::tuple<Tensor, Tensor, Tensor> hpu_wrap::native_layer_norm(
   hpu_check_inputs("native_layer_norm", {input, weight, bias});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = layer_norm_hpu_lazy(input, weight, bias, m, n, eps);
-    return t;
+    return layer_norm_hpu_lazy(input, weight, bias, m, n, eps);
+
   } else {
     return layer_norm_hpu(input, weight, bias, m, n, eps);
   }
@@ -1354,9 +1287,9 @@ std::tuple<Tensor, Tensor, Tensor> hpu_wrap::native_layer_norm_backward(
   hpu_check_inputs("native_layer_norm_backward", {dY, X, mean, rstd, gamma});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = layer_norm_backward_hpu_lazy(
+    return layer_norm_backward_hpu_lazy(
         dY, X, mean, rstd, gamma, M, N, grad_input_mask);
-    return t;
+
   } else {
     return layer_norm_backward_hpu(
         dY, X, mean, rstd, gamma, M, N, grad_input_mask);
@@ -1380,8 +1313,8 @@ Tensor hpu_wrap::norm(const Tensor& self, c10::Scalar p) {
   hpu_check_inputs("norm", {self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = norm_scalar_hpu_lazy(self, p);
-    return t;
+    return norm_scalar_hpu_lazy(self, p);
+
   } else {
     return norm_scalar_hpu(self, p);
   }
@@ -1489,7 +1422,7 @@ Tensor hpu_wrap::avg_pool2d(
   hpu_check_inputs("avg_pool2d", {input});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = avg_pool2d_hpu_lazy(
+    return avg_pool2d_hpu_lazy(
         input,
         kernel_size,
         stride,
@@ -1497,7 +1430,7 @@ Tensor hpu_wrap::avg_pool2d(
         ceil_mode,
         count_include_pad,
         divisor_override);
-    return t;
+
   } else {
     return avg_pool2d_hpu(
         input,
@@ -1522,7 +1455,7 @@ Tensor& hpu_wrap::avg_pool2d_backward_out(
   hpu_check_inputs("avg_pool2d_backward_out", {grad_input, grad_output, input});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto& t = avg_pool2d_backward_out_hpu_lazy(
+    return avg_pool2d_backward_out_hpu_lazy(
         grad_input,
         grad_output,
         input,
@@ -1532,7 +1465,7 @@ Tensor& hpu_wrap::avg_pool2d_backward_out(
         ceil_mode,
         count_include_pad,
         divisor_override);
-    return t;
+
   } else {
     return avg_pool2d_backward_out_hpu(
         grad_input,
@@ -1558,7 +1491,7 @@ Tensor hpu_wrap::avg_pool2d_backward(
   hpu_check_inputs("avg_pool2d_backward", {grad_output, input});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = avg_pool2d_backward_hpu_lazy(
+    return avg_pool2d_backward_hpu_lazy(
         grad_output,
         input,
         kernel_size,
@@ -1567,7 +1500,7 @@ Tensor hpu_wrap::avg_pool2d_backward(
         ceil_mode,
         count_include_pad,
         divisor_override);
-    return t;
+
   } else {
     return avg_pool2d_backward_hpu(
         grad_output,
@@ -1610,8 +1543,8 @@ Tensor hpu_wrap::bernoulli(const Tensor& self, c10::optional<Generator> gen) {
   hpu_check_inputs("bernoulli", {self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = bernoulli_hpu_lazy(self, gen);
-    return t;
+    return bernoulli_hpu_lazy(self, gen);
+
   } else {
     return bernoulli_hpu(self, gen);
   }
@@ -1623,8 +1556,8 @@ Tensor& hpu_wrap::bernoulli_(
   hpu_check_inputs("bernoulli_", {self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto& t = bernoulli_scalar_hpu_lazy(self, p, gen);
-    return t;
+    return bernoulli_scalar_hpu_lazy(self, p, gen);
+
   } else {
     return bernoulli_scalar_hpu(self, p, gen);
   }
@@ -1651,8 +1584,8 @@ Tensor hpu_wrap::sum(
   hpu_check_inputs("sum", {self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = sum_dim_IntList_hpu_lazy(self, dim, keepdim, dtype);
-    return t;
+    return sum_dim_IntList_hpu_lazy(self, dim, keepdim, dtype);
+
   } else {
     return sum_dim_IntList_hpu(self, dim, keepdim, dtype);
   }
@@ -1666,8 +1599,8 @@ Tensor& hpu_wrap::sum_out(
   hpu_check_inputs("sum_out", {output, self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto& t = sum_IntList_out_hpu_lazy(output, self, dim, keepdim, dtype);
-    return t;
+    return sum_IntList_out_hpu_lazy(output, self, dim, keepdim, dtype);
+
   } else {
     return sum_IntList_out_hpu(output, self, dim, keepdim, dtype);
   }
@@ -1680,8 +1613,8 @@ Tensor hpu_wrap::mean(
   hpu_check_inputs("mean", {self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = mean_dim_hpu_lazy(self, dim, keepdim, dtype);
-    return t;
+    return mean_dim_hpu_lazy(self, dim, keepdim, dtype);
+
   } else {
     return mean_dim_hpu(self, dim, keepdim, dtype);
   }
@@ -1695,8 +1628,8 @@ Tensor& hpu_wrap::mean_out(
   hpu_check_inputs("mean_out", {output, self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto& t = mean_dim_out_hpu_lazy(output, self, dim, keepdim, dtype);
-    return t;
+    return mean_dim_out_hpu_lazy(output, self, dim, keepdim, dtype);
+
   } else {
     return mean_dim_out_hpu(output, self, dim, keepdim, dtype);
   }
@@ -1705,8 +1638,8 @@ Tensor hpu_wrap::sum(const Tensor& self, c10::optional<ScalarType> dtype) {
   hpu_check_inputs("sum", {self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = sum_hpu_lazy(self, dtype);
-    return t;
+    return sum_hpu_lazy(self, dtype);
+
   } else {
     return sum_hpu(self, dtype);
   }
@@ -1715,9 +1648,8 @@ Tensor hpu_wrap::mean(const Tensor& self, c10::optional<ScalarType> dtype) {
   hpu_check_inputs("mean", {self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = mean_hpu_lazy(self, dtype);
+    return mean_hpu_lazy(self, dtype);
 
-    return t;
   } else {
     return mean_hpu(self, dtype);
   }
@@ -1726,9 +1658,8 @@ Tensor hpu_wrap::prod(const Tensor& self, c10::optional<ScalarType> dtype) {
   hpu_check_inputs("prod", {self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = prod_hpu_lazy(self, dtype);
+    return prod_hpu_lazy(self, dtype);
 
-    return t;
   } else {
     return prod_hpu(self, dtype);
   }
@@ -1741,8 +1672,8 @@ Tensor hpu_wrap::prod(
   hpu_check_inputs("prod", {self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = prod_dim_hpu_lazy(self, dim, keepdim, dtype);
-    return t;
+    return prod_dim_hpu_lazy(self, dim, keepdim, dtype);
+
   } else {
     return prod_dim_hpu(self, dim, keepdim, dtype);
   }
@@ -1776,8 +1707,8 @@ Tensor& hpu_wrap::any_out(
   hpu_check_inputs("any_out", {output, self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto& t = any_dim_out_hpu_lazy(output, self, dim, keepdim);
-    return t;
+    return any_dim_out_hpu_lazy(output, self, dim, keepdim);
+
   } else {
     return any_dim_out_hpu(output, self, dim, keepdim);
   }
@@ -1786,8 +1717,8 @@ Tensor hpu_wrap::any(const Tensor& self, int64_t dim, bool keepdim) {
   hpu_check_inputs("any", {self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = any_dim_hpu_lazy(self, dim, keepdim);
-    return t;
+    return any_dim_hpu_lazy(self, dim, keepdim);
+
   } else {
     return any_dim_hpu(self, dim, keepdim);
   }
@@ -1796,8 +1727,8 @@ Tensor hpu_wrap::any(const Tensor& self) {
   hpu_check_inputs("any", {self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = any_hpu_lazy(self);
-    return t;
+    return any_hpu_lazy(self);
+
   } else {
     return any_hpu(self);
   }
@@ -1809,8 +1740,8 @@ Tensor hpu_wrap::_log_softmax(
   hpu_check_inputs("_log_softmax", {self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = log_softmax_hpu_lazy(self, dim, half_to_float);
-    return t;
+    return log_softmax_hpu_lazy(self, dim, half_to_float);
+
   } else {
     return log_softmax_hpu(self, dim, half_to_float);
   }
@@ -1823,8 +1754,8 @@ Tensor hpu_wrap::_log_softmax_backward_data(
   hpu_check_inputs("_log_softmax_backward_data", {grad, output, input});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = log_softmax_backward_hpu_lazy(grad, output, dim, input);
-    return t;
+    return log_softmax_backward_hpu_lazy(grad, output, dim, input);
+
   } else {
     return log_softmax_backward_hpu(grad, output, dim, input);
   }
@@ -1836,8 +1767,8 @@ Tensor hpu_wrap::_softmax(
   hpu_check_inputs("_softmax", {self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = softmax_hpu_lazy(self, dim, half_to_float);
-    return t;
+    return softmax_hpu_lazy(self, dim, half_to_float);
+
   } else {
     return softmax_hpu(self, dim, half_to_float);
   }
@@ -1850,8 +1781,8 @@ Tensor hpu_wrap::_softmax_backward_data(
   hpu_check_inputs("_softmax_backward_data", {grad, output, input});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = softmax_backward_hpu_lazy(grad, output, dim, input);
-    return t;
+    return softmax_backward_hpu_lazy(grad, output, dim, input);
+
   } else {
     return softmax_backward_hpu(grad, output, dim, input);
   }
@@ -1893,8 +1824,8 @@ Tensor hpu_wrap::clone(
   hpu_check_inputs("clone", {self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = clone_hpu_lazy(self, memory_format);
-    return t;
+    return clone_hpu_lazy(self, memory_format);
+
   } else {
     return clone_hpu(self, memory_format);
   }
@@ -1903,8 +1834,8 @@ Tensor& hpu_wrap::zero_(Tensor& self) {
   hpu_check_inputs("zero_", {self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto& t = zero_hpu_lazy(self);
-    return t;
+    return zero_hpu_lazy(self);
+
   } else {
     return zero_hpu(self);
   }
@@ -1913,8 +1844,8 @@ Tensor hpu_wrap::cat(const TensorList tensors, int64_t dim_) {
   hpu_check_inputs("cat", {tensors[0]});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = cat_hpu_lazy(tensors, dim_);
-    return t;
+    return cat_hpu_lazy(tensors, dim_);
+
   } else {
     return cat_hpu(tensors, dim_);
   }
@@ -1926,8 +1857,8 @@ Tensor& hpu_wrap::cat_out(
   hpu_check_inputs("cat_out", {result, tensors[0]});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto& t = cat_hpu_lazy_out(result, tensors, dim_);
-    return t;
+    return cat_hpu_lazy_out(result, tensors, dim_);
+
   } else {
     return cat_hpu_out(result, tensors, dim_);
   }
@@ -1936,8 +1867,8 @@ Tensor hpu_wrap::transpose(const Tensor& self, int64_t dim0_, int64_t dim1_) {
   hpu_check_inputs("transpose", {self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = transpose_hpu_lazy(self, dim0_, dim1_);
-    return t;
+    return transpose_hpu_lazy(self, dim0_, dim1_);
+
   } else {
     return transpose_hpu(self, dim0_, dim1_);
   }
@@ -1946,8 +1877,8 @@ Tensor& hpu_wrap::transpose_(Tensor& self, int64_t dim0_, int64_t dim1_) {
   hpu_check_inputs("transpose_", {self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto& t = transpose_hpu_lazy_(self, dim0_, dim1_);
-    return t;
+    return transpose_hpu_lazy_(self, dim0_, dim1_);
+
   } else {
     return transpose_hpu_(self, dim0_, dim1_);
   }
@@ -1956,8 +1887,8 @@ Tensor hpu_wrap::t(const Tensor& self) {
   hpu_check_inputs("t", {self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = t_hpu_lazy(self);
-    return t;
+    return t_hpu_lazy(self);
+
   } else {
     return t_hpu(self);
   }
@@ -1966,8 +1897,8 @@ Tensor& hpu_wrap::t_(Tensor& self) {
   hpu_check_inputs("t_", {self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto& t = t_hpu_lazy_(self);
-    return t;
+    return t_hpu_lazy_(self);
+
   } else {
     return t_hpu_(self);
   }
@@ -1976,8 +1907,8 @@ Tensor hpu_wrap::permute(const Tensor& self, IntArrayRef dims_) {
   hpu_check_inputs("permute", {self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = permute_hpu_lazy(self, dims_);
-    return t;
+    return permute_hpu_lazy(self, dims_);
+
   } else {
     return permute_hpu(self, dims_);
   }
@@ -1986,8 +1917,8 @@ Tensor hpu_wrap::expand(const Tensor& self, IntArrayRef size, bool implicit) {
   hpu_check_inputs("expand", {self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = expand_hpu_lazy(self, size, implicit);
-    return t;
+    return expand_hpu_lazy(self, size, implicit);
+
   } else {
     return expand_hpu(self, size, implicit);
   }
@@ -1999,8 +1930,8 @@ std::vector<Tensor> hpu_wrap::split_with_sizes(
   hpu_check_inputs("split_with_sizes", {self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = split_with_sizes_hpu_lazy(self, split_sizes, dim);
-    return t;
+    return split_with_sizes_hpu_lazy(self, split_sizes, dim);
+
   } else {
     return split_with_sizes_hpu(self, split_sizes, dim);
   }
@@ -2012,8 +1943,8 @@ Tensor hpu_wrap::threshold_backward(
   hpu_check_inputs("threshold_backward", {grad_output, self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = threshold_backward_hpu_lazy(grad_output, self, threshold);
-    return t;
+    return threshold_backward_hpu_lazy(grad_output, self, threshold);
+
   } else {
     return threshold_backward_hpu(grad_output, self, threshold);
   }
@@ -2029,8 +1960,8 @@ std::tuple<Tensor&, Tensor&> hpu_wrap::topk_out(
   hpu_check_inputs("topk_out", {values, indices, self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = topk_out_hpu_lazy(values, indices, self, k, dim_, largest, sorted);
-    return t;
+    return topk_out_hpu_lazy(values, indices, self, k, dim_, largest, sorted);
+
   } else {
     return topk_out_hpu(values, indices, self, k, dim_, largest, sorted);
   }
@@ -2044,8 +1975,8 @@ std::tuple<Tensor, Tensor> hpu_wrap::topk(
   hpu_check_inputs("topk", {self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = topk_hpu_lazy(self, k, dim, largest, sorted);
-    return t;
+    return topk_hpu_lazy(self, k, dim, largest, sorted);
+
   } else {
     return topk_hpu(self, k, dim, largest, sorted);
   }
@@ -2057,8 +1988,8 @@ std::tuple<Tensor, Tensor> hpu_wrap::sort(
   hpu_check_inputs("sort", {self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = sort_hpu_lazy(self, dim, descending);
-    return t;
+    return sort_hpu_lazy(self, dim, descending);
+
   } else {
     return sort_hpu(self, dim, descending);
   }
@@ -2081,13 +2012,27 @@ Tensor& hpu_wrap::relu_(Tensor& self) {
   } else {
     return relu_hpu_(self);
   }
-};
+}
+
+at::Tensor& hpu_wrap::leaky_relu_(at::Tensor& self, at::Scalar negative_slope) {
+  return leaky_relu_lazy_(self, negative_slope);
+}
+
+// at::Tensor hpu_wrap::leaky_relu_backward(
+//    const at::Tensor& grad_output,
+//    const at::Tensor& self,
+//    at::Scalar negative_slope,
+//    bool self_is_result) {
+//  return leaky_relu_backward_lazy(
+//      grad_output, self, negative_slope, self_is_result);
+//}
+
 Tensor hpu_wrap::sigmoid(const Tensor& input) {
   hpu_check_inputs("sigmoid", {input});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = sigmoid_hpu_lazy(input);
-    return t;
+    return sigmoid_hpu_lazy(input);
+
   } else {
     return sigmoid_hpu(input);
   }
@@ -2096,8 +2041,8 @@ Tensor hpu_wrap::sigmoid_backward(const Tensor& grad_in, const Tensor& input) {
   hpu_check_inputs("sigmoid_backward", {grad_in, input});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = sigmoid_backward_hpu_lazy(grad_in, input);
-    return t;
+    return sigmoid_backward_hpu_lazy(grad_in, input);
+
   } else {
     return sigmoid_backward_hpu(grad_in, input);
   }
@@ -2107,8 +2052,8 @@ Tensor hpu_wrap::sqrt(const Tensor& input) {
   hpu_check_inputs("sqrt", {input});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = sqrt_hpu_lazy(input);
-    return t;
+    return sqrt_hpu_lazy(input);
+
   } else {
     return sqrt_hpu(input);
   }
@@ -2117,8 +2062,8 @@ Tensor hpu_wrap::tanh(const Tensor& input) {
   hpu_check_inputs("tanh", {input});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = tanh_hpu_lazy(input);
-    return t;
+    return tanh_hpu_lazy(input);
+
   } else {
     return tanh_hpu(input);
   }
@@ -2127,8 +2072,8 @@ Tensor& hpu_wrap::tanh_(Tensor& self) {
   hpu_check_inputs("tanh_", {self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto& t = tanh_hpu_lazy_(self);
-    return t;
+    return tanh_hpu_lazy_(self);
+
   } else {
     return tanh_hpu_(self);
   }
@@ -2137,8 +2082,8 @@ Tensor& hpu_wrap::tanh_out(Tensor& out, const Tensor& self) {
   hpu_check_inputs("tanh_out", {out, self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto& t = tanh_out_hpu_lazy(out, self);
-    return t;
+    return tanh_out_hpu_lazy(out, self);
+
   } else {
     return tanh_out_hpu(out, self);
   }
@@ -2147,8 +2092,8 @@ Tensor hpu_wrap::tanh_backward(const Tensor& grad_in, const Tensor& input) {
   hpu_check_inputs("tanh_backward", {grad_in, input});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = tanh_backward_hpu_lazy(grad_in, input);
-    return t;
+    return tanh_backward_hpu_lazy(grad_in, input);
+
   } else {
     return tanh_backward_hpu(grad_in, input);
   }
@@ -2157,8 +2102,8 @@ Tensor hpu_wrap::gelu(const Tensor& self) {
   hpu_check_inputs("gelu", {self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = gelu_hpu_lazy(self);
-    return t;
+    return gelu_hpu_lazy(self);
+
   } else {
     return gelu_hpu(self);
   }
@@ -2167,8 +2112,8 @@ Tensor hpu_wrap::gelu_backward(const Tensor& grad, const Tensor& self) {
   hpu_check_inputs("gelu_backward", {grad, self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = gelu_backward_hpu_lazy(grad, self);
-    return t;
+    return gelu_backward_hpu_lazy(grad, self);
+
   } else {
     return gelu_backward_hpu(grad, self);
   }
@@ -2214,8 +2159,8 @@ Tensor& hpu_wrap::erf_(Tensor& self) {
   hpu_check_inputs("erf_", {self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto& t = erf_hpu_lazy_(self);
-    return t;
+    return erf_hpu_lazy_(self);
+
   } else {
     return erf_hpu_(self);
   }
@@ -2224,8 +2169,8 @@ Tensor hpu_wrap::erf(const Tensor& self) {
   hpu_check_inputs("erf", {self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = erf_hpu_lazy(self);
-    return t;
+    return erf_hpu_lazy(self);
+
   } else {
     return erf_hpu(self);
   }
@@ -2234,8 +2179,8 @@ Tensor& hpu_wrap::exp_(Tensor& self) {
   hpu_check_inputs("exp_", {self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto& t = exp_hpu_lazy_(self);
-    return t;
+    return exp_hpu_lazy_(self);
+
   } else {
     return exp_hpu_(self);
   }
@@ -2244,40 +2189,40 @@ Tensor hpu_wrap::exp(const Tensor& self) {
   hpu_check_inputs("exp", {self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = exp_hpu_lazy(self);
-    return t;
+    return exp_hpu_lazy(self);
+
   } else {
     return exp_hpu(self);
   }
 };
 Tensor hpu_wrap::sign(const Tensor& self) {
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = sign_hpu_lazy(self);
-    return t;
+    return sign_hpu_lazy(self);
+
   } else {
     return sign_hpu(self);
   }
 }
 Tensor& hpu_wrap::sign_(at::Tensor& self) {
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto& t = sign_hpu_lazy_(self);
-    return t;
+    return sign_hpu_lazy_(self);
+
   } else {
     return sign_hpu_(self);
   }
 }
 Tensor hpu_wrap::sgn(const Tensor& self) {
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = sgn_hpu_lazy(self);
-    return t;
+    return sgn_hpu_lazy(self);
+
   } else {
     return sgn_hpu(self);
   }
 }
 Tensor& hpu_wrap::sgn_(at::Tensor& self) {
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto& t = sgn_hpu_lazy_(self);
-    return t;
+    return sgn_hpu_lazy_(self);
+
   } else {
     return sgn_hpu_(self);
   }
@@ -2286,8 +2231,8 @@ Tensor& hpu_wrap::neg_out(Tensor& result, const Tensor& input) {
   hpu_check_inputs("neg_out", {result, input});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto& t = neg_out_hpu_lazy(result, input);
-    return t;
+    return neg_out_hpu_lazy(result, input);
+
   } else {
     return neg_out_hpu(result, input);
   }
@@ -2296,8 +2241,8 @@ Tensor& hpu_wrap::reciprocal_(Tensor& self) {
   hpu_check_inputs("reciprocal_", {self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto& t = reciprocal_hpu_lazy_(self);
-    return t;
+    return reciprocal_hpu_lazy_(self);
+
   } else {
     return reciprocal_hpu_(self);
   }
@@ -2306,8 +2251,8 @@ Tensor hpu_wrap::reciprocal(const Tensor& self) {
   hpu_check_inputs("reciprocal", {self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = reciprocal_hpu_lazy(self);
-    return t;
+    return reciprocal_hpu_lazy(self);
+
   } else {
     return reciprocal_hpu(self);
   }
@@ -2316,8 +2261,8 @@ Tensor& hpu_wrap::reciprocal_out(Tensor& result, const Tensor& self) {
   hpu_check_inputs("reciprocal_out", {result, self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto& t = reciprocal_out_hpu_lazy(result, self);
-    return t;
+    return reciprocal_out_hpu_lazy(result, self);
+
   } else {
     return reciprocal_out_hpu(result, self);
   }
@@ -2326,8 +2271,8 @@ Tensor hpu_wrap::clamp_min(const Tensor& self, Scalar min) {
   hpu_check_inputs("clamp_min", {self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = clamp_min_hpu_lazy(self, min);
-    return t;
+    return clamp_min_hpu_lazy(self, min);
+
   } else {
     return clamp_min_hpu(self, min);
   }
@@ -2339,8 +2284,8 @@ Tensor& hpu_wrap::clamp_(
   hpu_check_inputs("clamp_", {self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto& t = clamp_hpu_lazy_(self, min, max);
-    return t;
+    return clamp_hpu_lazy_(self, min, max);
+
   } else {
     return clamp_hpu_(self, min, max);
   }
@@ -2352,8 +2297,8 @@ Tensor hpu_wrap::clamp(
   hpu_check_inputs("clamp", {self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = clamp_hpu_lazy(self, min, max);
-    return t;
+    return clamp_hpu_lazy(self, min, max);
+
   } else {
     return clamp_hpu(self, min, max);
   }
@@ -2362,8 +2307,8 @@ Tensor hpu_wrap::abs(const Tensor& self) {
   hpu_check_inputs("abs", {self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = abs_hpu_lazy(self);
-    return t;
+    return abs_hpu_lazy(self);
+
   } else {
     return abs_hpu(self);
   }
@@ -2382,8 +2327,8 @@ Tensor hpu_wrap::round(const Tensor& self) {
   hpu_check_inputs("round", {self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = round_hpu_lazy(self);
-    return t;
+    return round_hpu_lazy(self);
+
   } else {
     return round_hpu(self);
   }
@@ -2401,8 +2346,8 @@ Tensor hpu_wrap::rsqrt(const Tensor& self) {
   hpu_check_inputs("rsqrt", {self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = rsqrt_hpu_lazy(self);
-    return t;
+    return rsqrt_hpu_lazy(self);
+
   } else {
     return rsqrt_hpu(self);
   }
@@ -2420,8 +2365,7 @@ Tensor hpu_wrap::neg(const Tensor& self) {
   hpu_check_inputs("neg", {self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    auto t = neg_hpu_lazy(self);
-    return t;
+    return neg_hpu_lazy(self);
   } else {
     return neg_hpu(self);
   }

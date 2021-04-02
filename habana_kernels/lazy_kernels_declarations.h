@@ -552,6 +552,12 @@ Tensor unary_backward_op_hpu_lazy(
     UnaryBackwardOperator* Op);
 Tensor relu_hpu_lazy(const Tensor& input);
 Tensor& relu_hpu_lazy_(Tensor& self);
+at::Tensor& leaky_relu_lazy_(at::Tensor& self, at::Scalar negative_slope);
+at::Tensor leaky_relu_backward_lazy(
+    const at::Tensor& grad_output,
+    const at::Tensor& self,
+    at::Scalar negative_slope,
+    bool self_is_result);
 Tensor sigmoid_hpu_lazy(const Tensor& input);
 Tensor sigmoid_backward_hpu_lazy(const Tensor& grad_in, const Tensor& input);
 Tensor sqrt_hpu_lazy(const Tensor& input);
