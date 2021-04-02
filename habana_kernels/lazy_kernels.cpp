@@ -1167,13 +1167,54 @@ Tensor& eq_tensor_out_hpu_lazy(
   HABANA_ASSERT(0);
   return eq_tensor_out_hpu(output, self, other);
 };
-Tensor eq_tensor_hpu_lazy(const Tensor& self, const Tensor& other) {
-  HABANA_ASSERT(0);
-  return eq_tensor_hpu(self, other);
-};
 Tensor eq_tensor_scalar_hpu_lazy(const Tensor& self, Scalar other) {
-  HABANA_ASSERT(0);
-  return eq_tensor_scalar_hpu(self, other);
+  PT_LAZY_TRACE;
+  auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
+  auto hl_other = habana_lazy::GetIrValueForScalar(other);
+
+  auto node = habana_lazy::ir::Node::Create(
+      Symbol::fromQualString("aten::eq"), {hl_self.GetIrValue(), hl_other});
+
+  auto result = at::native::empty_hpu_lazy(
+      self.sizes(),
+      self.options().dtype(c10::ScalarType::Bool),
+      self.suggest_memory_format(),
+      false);
+
+  auto hl_result = habana_lazy::GetHbLazyTensor(result);
+  habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+  // updatet the view if any
+  updateDstDependencies(hl_result, result);
+  std::vector<at::Tensor> input_pt_vec{self};
+  node->AddInputPtTensors(input_pt_vec);
+
+  return result;
+};
+
+Tensor eq_tensor_hpu_lazy(const Tensor& self, const Tensor& other) {
+  PT_LAZY_TRACE;
+  auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
+  auto hl_other = habana_lazy::GetOrCreateHbLazyTensor(other, c10::kHABANA);
+
+  auto node = habana_lazy::ir::Node::Create(
+      Symbol::fromQualString("aten::eq"),
+      {hl_self.GetIrValue(), hl_other.GetIrValue()});
+  auto result = at::native::empty_hpu_lazy(
+      self.sizes(),
+      self.options().dtype(c10::ScalarType::Bool),
+      self.suggest_memory_format(),
+      false);
+  auto hl_result = habana_lazy::GetHbLazyTensor(result);
+  habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+  // updatet the view if any
+  updateDstDependencies(hl_result, result);
+  std::vector<at::Tensor> input_pt_vec{self, other};
+  node->AddInputPtTensors(input_pt_vec);
+  return result;
 };
 
 Tensor ne_scalar_hpu_lazy(const Tensor& self, Scalar other) {

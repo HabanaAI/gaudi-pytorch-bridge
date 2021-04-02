@@ -23,6 +23,44 @@ class LazyCompareKernelTest : public ::testing::Test {
   }
 };
 
+TEST_F(LazyCompareKernelTest, EqScalarTest) {
+  setenv("PT_HPU_LAZY_MODE", "1", 1);
+
+  torch::Tensor A = torch::rand({2, 2}, torch::requires_grad(false));
+  float compVal = 1.1f;
+  auto out_cpu = torch::eq(A, compVal);
+
+  auto hA = A.to(torch::kHABANA);
+  auto result = torch::eq(hA, compVal);
+  torch::Tensor out_hpu = result.to(torch::kCPU);
+
+  EXPECT_EQ(
+      allclose(out_cpu.to(torch::kFloat), out_hpu.to(torch::kFloat)), true);
+
+  unsetenv("PT_HPU_LAZY_MODE");
+}
+
+TEST_F(LazyCompareKernelTest, EqTensorTest) {
+  setenv("PT_HPU_LAZY_MODE", "1", 1);
+
+  const std::vector<int64_t> dimentions{5, 3, 4};
+
+  torch::Tensor A = torch::randn(dimentions);
+  torch::Tensor B = torch::randn(dimentions);
+
+  auto expected = torch::eq(A, B);
+  auto hA = A.to(torch::kHABANA);
+  auto hB = B.to(torch::kHABANA);
+
+  auto result = torch::eq(hA, hB);
+  torch::Tensor habanaGenerated = result.to(torch::kCPU);
+
+  EXPECT_EQ(
+      allclose(expected.to(torch::kInt8), habanaGenerated.to(torch::kInt8)),
+      true);
+  unsetenv("PT_HPU_LAZY_MODE");
+}
+
 TEST_F(LazyCompareKernelTest, LtScalarTest) {
   setenv("PT_HPU_LAZY_MODE", "1", 1);
 
