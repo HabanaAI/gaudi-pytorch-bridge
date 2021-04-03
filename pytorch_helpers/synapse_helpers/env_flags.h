@@ -113,6 +113,10 @@ struct PT_USE_HCL_SYNC {
   static constexpr bool default_value = true;
 };
 
+struct PT_USE_HCL_OPTS {
+  static constexpr bool default_value = false;
+};
+
 // Overloads for different type of default value
 
 template <class T>

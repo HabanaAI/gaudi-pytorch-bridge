@@ -115,6 +115,7 @@ synapse_error_o hcl_communicator::allreduce(
     const event_done_callback& done_callback) {
   // TBD: Add it to the API.  Will do it as separate release as it needs to be
   // synchronized with pytorch-fork
+  HABANA_ASSERT(hclop == eHCLSum || hclop == eHCLMul)
   auto allreduce_function = [this, hclop](
                                 synStreamHandle collective_stream,
                                 device_ptr input_address,
@@ -743,7 +744,8 @@ synapse_error_o hcl_communicator::execute_collective_with_fusion_buffer(
   uint32_t flags = 0;
 
   // TBD: ensure allreduce buffers are not dependant
-  if (eHCLAllReduce == operation) {
+  if ((eHCLAllReduce == operation) && GET_ENV_FLAG(PT_USE_HCL_OPTS)) {
+    // this will aid in pipelining allreduce calls in hcl
     flags = eHCLWeakOrder;
   }
 
