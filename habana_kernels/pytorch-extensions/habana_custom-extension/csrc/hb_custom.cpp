@@ -22,16 +22,15 @@
 // Output
 // None
 extern void optimizer_adamw_hpu_wrap(
-    const std::vector<at::Tensor>& gradient_vec,
-    std::vector<at::Tensor>& weight_vec,
-    std::vector<at::Tensor>& exp_avg_vec,
-    std::vector<at::Tensor>& exp_avg_sq_vec,
-    const float lr,
+    const at::TensorList& gradient_vec,
+    at::TensorList& weight_vec,
+    at::TensorList& exp_avg_vec,
+    at::TensorList& exp_avg_sq_vec,
+    at::Tensor& lr,
+    at::Tensor& neg_step,
     const float beta1,
     const float beta2,
     const float epsilon,
-    const int step,
-    const int bias_correction,
     const float weight_decay);
 
 extern std::tuple<
@@ -72,24 +71,27 @@ void optimizer_fused_adamw(
     std::vector<at::Tensor>& weight_vec,
     std::vector<at::Tensor>& exp_avg_vec,
     std::vector<at::Tensor>& exp_avg_sq_vec,
-    const float lr,
+    at::Tensor& lr,
+    at::Tensor& neg_step,
     const float beta1,
     const float beta2,
     const float epsilon,
-    const int step,
-    const int bias_correction,
     const float weight_decay) {
+  at::TensorList gradients(gradient_vec);
+  at::TensorList weights(weight_vec);
+  at::TensorList exp_avg(exp_avg_vec);
+  at::TensorList exp_avg_sq(exp_avg_sq_vec);
+
   optimizer_adamw_hpu_wrap(
-      gradient_vec,
-      weight_vec,
-      exp_avg_vec,
-      exp_avg_sq_vec,
+      gradients,
+      weights,
+      exp_avg,
+      exp_avg_sq,
       lr,
+      neg_step,
       beta1,
       beta2,
       epsilon,
-      step,
-      bias_correction,
       weight_decay);
 }
 

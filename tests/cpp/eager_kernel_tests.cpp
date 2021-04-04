@@ -120,7 +120,14 @@ TEST(EagerKernelTest, AdamwOptTest) {
     exp_avg_sq_vec.push_back(torch::zeros_like(t));
   }
 
+  torch::TensorList gradients(grad_vec);
+  torch::TensorList weights(wt_vec);
+  torch::TensorList exp_avg(exp_avg_vec);
+  torch::TensorList exp_avg_sq(exp_avg_sq_vec);
+
   auto lr = 0.1;
+  auto lr_t = torch::tensor({lr}).to(torch::kHABANA);
+  auto neg_step_t = torch::tensor({-lr}).to(torch::kHABANA);
   auto beta1 = 0.5;
   auto beta2 = 0.5;
   auto epsilon = 1e-3;
@@ -128,16 +135,15 @@ TEST(EagerKernelTest, AdamwOptTest) {
   auto bias_correction = false;
   auto weight_decay = 0.0;
   optimizer_adamw_hpu(
-      grad_vec,
-      wt_vec,
-      exp_avg_vec,
-      exp_avg_sq_vec,
-      lr,
+      gradients,
+      weights,
+      exp_avg,
+      exp_avg_sq,
+      lr_t,
+      neg_step_t,
       beta1,
       beta2,
       epsilon,
-      step,
-      bias_correction,
       weight_decay);
 
   // CPU calculations
@@ -206,6 +212,12 @@ TEST(EagerKernelCacheTest, AdamwOptTest) {
     exp_avg_vec.push_back(torch::zeros_like(t));
     exp_avg_sq_vec.push_back(torch::zeros_like(t));
   }
+
+  torch::TensorList gradients(grad_vec);
+  torch::TensorList weights(wt_vec);
+  torch::TensorList exp_avg(exp_avg_vec);
+  torch::TensorList exp_avg_sq(exp_avg_sq_vec);
+
   auto starting_lr = 0.1;
   auto lr = starting_lr;
   auto delta_lr = 0.00001;
@@ -216,17 +228,19 @@ TEST(EagerKernelCacheTest, AdamwOptTest) {
   auto bias_correction = false;
   auto weight_decay = 0.0;
   for (int i = 0; i < 2; i++) {
+    auto lr_t = torch::tensor({lr}).to(torch::kHABANA);
+    auto neg_step_t = torch::tensor({-lr}).to(torch::kHABANA);
+
     optimizer_adamw_hpu(
-        grad_vec,
-        wt_vec,
-        exp_avg_vec,
-        exp_avg_sq_vec,
-        lr,
+        gradients,
+        weights,
+        exp_avg,
+        exp_avg_sq,
+        lr_t,
+        neg_step_t,
         beta1,
         beta2,
         epsilon,
-        step,
-        bias_correction,
         weight_decay);
     lr -= delta_lr; // to check for cache hit with changing lr
   }

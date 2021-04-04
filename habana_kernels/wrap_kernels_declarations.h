@@ -680,16 +680,15 @@ optimizer_sparse_adagrad_with_valid_count_hpu_wrap(
     const at::Tensor& learning_rate,
     const at::Tensor& valid_count_tensor);
 void optimizer_adamw_hpu_wrap(
-    const std::vector<at::Tensor>& gradient_vec,
-    std::vector<at::Tensor>& weight_vec,
-    std::vector<at::Tensor>& exp_avg_vec,
-    std::vector<at::Tensor>& exp_avg_sq_vec,
-    const float lr,
+    const at::TensorList& gradient_vec,
+    at::TensorList& weight_vec,
+    at::TensorList& exp_avg_vec,
+    at::TensorList& exp_avg_sq_vec,
+    at::Tensor& lr_t,
+    at::Tensor& neg_step_t,
     const float beta1,
     const float beta2,
     const float epsilon,
-    const int step,
-    const int bias_correction,
     const float weight_decay);
 at::Tensor fused_norm_hpu_wrap(
     std::vector<at::Tensor>& grad,

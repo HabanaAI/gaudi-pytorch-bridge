@@ -25,6 +25,9 @@ class FusedAdamW(Optimizer):
         defaults = dict(lr=lr, betas=betas, eps=eps, weight_decay=weight_decay, correct_bias=correct_bias)
         super().__init__(params, defaults)
 
+        self.lr_t = None
+        self.neg_step_t = None
+
     def step(self, closure: Callable = None):
         """
         Performs a single optimization step.
@@ -41,6 +44,7 @@ class FusedAdamW(Optimizer):
             loss = closure()
 
         for group in self.param_groups:
+            self.lr_t = torch.tensor([group['lr']], dtype=torch.float, requires_grad=False).to(hpu, non_blocking=True)
             grad_list, wt_list, exp_avg_list, exp_avg_sq_list = [], [], [], []
             for p in group["params"]:
                 if p.grad is None:
@@ -75,17 +79,25 @@ class FusedAdamW(Optimizer):
                 group['step'] = 1
             bias_correction = 1 if group['correct_bias'] else 0
 
+            step_size = group['lr']
+            if bias_correction:
+                bias_correction1 = 1.0 - pow(beta1, group['step'])
+                bias_correction2 = 1.0 - pow(beta2, group['step'])
+                step_size = step_size * math.sqrt(bias_correction2) / bias_correction1
+
+            neg_step = -step_size
+            self.neg_step_t = torch.tensor([neg_step], dtype=torch.float, requires_grad=False).to(hpu, non_blocking=True)
+
             hb_custom_C.fused_adamw(
                     grad_list,
                     wt_list,
                     exp_avg_list,
                     exp_avg_sq_list,
-                    group['lr'],
+                    self.lr_t,
+                    self.neg_step_t,
                     beta1,
                     beta2,
                     group['eps'],
-                    group['step'],
-                    bias_correction,
                     group['weight_decay'])
 
         return loss

@@ -60,13 +60,7 @@ class OptimizerAdamwOperator : public HabanaOperator {
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent) override;
-
-  static std::tuple<Tensor, Tensor> GenerateAndCopyTensorsToHPU(
-      const Tensor& ref_tensor,
-      const float lr,
-      const float neg_step,
-      bool is_persistent);
+      std::vector<bool> is_output_persistent) override;
 };
 
 class OptimizerAdagradOperator : public HabanaOperator {

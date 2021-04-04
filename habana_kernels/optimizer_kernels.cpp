@@ -243,44 +243,10 @@ optimizer_sparse_adagrad_with_valid_count_hpu(
   return std::tie(weights_in, moments_in);
 }
 
-/*
-Generate tensors for LR and neg_step and copy to HPU
-*/
-std::tuple<Tensor, Tensor> OptimizerAdamwOperator::GenerateAndCopyTensorsToHPU(
-    const Tensor& ref_tensor,
-    const float lr,
-    const float neg_step,
-    bool is_persistent) {
-  // Convert neg_step and lr to tensors to avoid cache misses
-  Tensor neg_step_t = habana_helpers::createPTTensor(
-      ref_tensor,
-      {1},
-      ref_tensor.options(),
-      ref_tensor.suggest_memory_format(),
-      c10::ScalarType::Float,
-      is_persistent);
-  auto size1 = neg_step_t.numel() * neg_step_t.element_size();
-  std::vector<float> buffer1(size1, neg_step);
-  habana_helpers::copy_scalar_to_device(buffer1.data(), neg_step_t, size1);
-
-  Tensor lr_t = habana_helpers::createPTTensor(
-      ref_tensor,
-      {1},
-      ref_tensor.options(),
-      ref_tensor.suggest_memory_format(),
-      c10::ScalarType::Float,
-      is_persistent);
-  auto size2 = lr_t.numel() * lr_t.element_size();
-  std::vector<float> buffer2(size2, lr);
-  habana_helpers::copy_scalar_to_device(buffer2.data(), lr_t, size2);
-
-  return std::tuple<Tensor, Tensor>(neg_step_t, lr_t);
-}
-
 void OptimizerAdamwOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    std::vector<bool> is_output_persistent) {
   static_cast<void>(is_output_persistent);
   TORCH_CHECK(
       inputs.size() == 10,
@@ -291,10 +257,10 @@ void OptimizerAdamwOperator::AllocateAndAddSynapseNode(
   auto exp_avg = inputs[2].toTensorList();
   auto exp_avg_sq = inputs[3].toTensorList();
   UNUSED auto lr = inputs[4].toTensor();
-  auto beta1 = inputs[5].toScalar();
-  auto beta2 = inputs[6].toScalar();
-  auto epsilon = inputs[7].toScalar();
-  auto neg_step_size = inputs[8].toTensor();
+  auto neg_step_size = inputs[5].toTensor();
+  auto beta1 = inputs[6].toScalar();
+  auto beta2 = inputs[7].toScalar();
+  auto epsilon = inputs[8].toScalar();
   UNUSED auto weight_decay = inputs[9].toScalar();
 
   /*  This are the operations we need to perform per parameter
@@ -447,49 +413,17 @@ void OptimizerAdamwOperator::AllocateAndAddSynapseNode(
 }
 
 void optimizer_adamw_hpu(
-    const std::vector<at::Tensor>& gradient_vec,
-    std::vector<at::Tensor>& weight_vec,
-    std::vector<at::Tensor>& exp_avg_vec,
-    std::vector<at::Tensor>& exp_avg_sq_vec,
-    const float lr,
+    const TensorList& gradients,
+    TensorList& weights,
+    TensorList& exp_avg,
+    TensorList& exp_avg_sq,
+    Tensor& lr_t,
+    Tensor& neg_step_t,
     const float beta1,
     const float beta2,
     const float epsilon,
-    const int step,
-    const int bias_correction,
     const float weight_decay) {
   PT_KERNEL_BEGIN;
-
-  TensorList gradients(gradient_vec);
-  TensorList weights(weight_vec);
-  TensorList exp_avg(exp_avg_vec);
-  TensorList exp_avg_sq(exp_avg_sq_vec);
-
-  std::vector<c10::IValue> orig_stack = {
-      IValue(gradients),
-      IValue(weights),
-      IValue(exp_avg),
-      IValue(exp_avg_sq),
-      IValue(lr),
-      IValue(beta1),
-      IValue(beta2),
-      IValue(epsilon),
-      IValue(step),
-      IValue(bias_correction),
-      IValue(weight_decay)};
-  auto step_size = lr;
-  if (bias_correction) {
-    auto bias_correction1 = 1.0 - std::pow(beta1, step);
-    auto bias_correction2 = 1.0 - std::pow(beta2, step);
-    step_size = step_size * std::sqrt(bias_correction2) / bias_correction1;
-  }
-  // Negate step here itself before converting it to tensor
-  // easier then negating after conversion to tensor
-  auto neg_step = -step_size;
-  auto ret_tuple = OptimizerAdamwOperator::GenerateAndCopyTensorsToHPU(
-      gradients[0], lr, neg_step, true);
-  auto neg_step_t = std::get<0>(ret_tuple);
-  auto lr_t = std::get<1>(ret_tuple);
 
   size_t device_id = gradients[0].device().index();
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
@@ -504,10 +438,10 @@ void optimizer_adamw_hpu(
       IValue(exp_avg),
       IValue(exp_avg_sq),
       IValue(lr_t),
+      IValue(neg_step_t),
       IValue(beta1),
       IValue(beta2),
       IValue(epsilon),
-      IValue(neg_step_t),
       IValue(weight_decay)};
 
   // Assign Inputs to the Operator
@@ -547,7 +481,7 @@ void optimizer_adamw_hpu(
     auto graph = habana_helpers::create_graph(device_id, node_type);
 
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
-    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    Op.AllocateAndAddSynapseNode(graph, stack, {true, true, true, true, true});
     // compile and execute the graph
     Op.Compile(graph);
   }

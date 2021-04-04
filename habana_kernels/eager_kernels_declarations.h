@@ -611,16 +611,15 @@ std::tuple<at::Tensor, at::Tensor> matmul_backward_hpu(
     const at::Tensor& other);
 Tensor masked_scale_hpu(const Tensor& self, const Tensor& mask, double scale);
 void optimizer_adamw_hpu(
-    const std::vector<at::Tensor>& gradient_vec,
-    std::vector<at::Tensor>& weight_vec,
-    std::vector<at::Tensor>& exp_avg_vec,
-    std::vector<at::Tensor>& exp_avg_sq_vec,
-    const float lr,
+    const TensorList& gradient_vec,
+    TensorList& weight_vec,
+    TensorList& exp_avg_vec,
+    TensorList& exp_avg_sq_vec,
+    at::Tensor& lr_t,
+    at::Tensor& neg_step_t,
     const float beta1,
     const float beta2,
     const float epsilon,
-    const int step,
-    const int bias_correction,
     const float weight_decay);
 Tensor fused_norm_hpu(
     std::vector<Tensor>& grad,

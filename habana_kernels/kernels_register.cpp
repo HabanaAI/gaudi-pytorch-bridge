@@ -2680,16 +2680,15 @@ optimizer_sparse_adagrad_with_valid_count_hpu_wrap(
   }
 }
 void optimizer_adamw_hpu_wrap(
-    const std::vector<at::Tensor>& gradient_vec,
-    std::vector<at::Tensor>& weight_vec,
-    std::vector<at::Tensor>& exp_avg_vec,
-    std::vector<at::Tensor>& exp_avg_sq_vec,
-    const float lr,
+    const TensorList& gradient_vec,
+    TensorList& weight_vec,
+    TensorList& exp_avg_vec,
+    TensorList& exp_avg_sq_vec,
+    at::Tensor& lr_t,
+    at::Tensor& neg_step_t,
     const float beta1,
     const float beta2,
     const float epsilon,
-    const int step,
-    const int bias_correction,
     const float weight_decay) {
   TORCH_CHECK((weight_vec.size() > 0), "Can not process empty weight vector");
   if (std::getenv("PT_HPU_LAZY_MODE")) {
@@ -2698,12 +2697,11 @@ void optimizer_adamw_hpu_wrap(
         weight_vec,
         exp_avg_vec,
         exp_avg_sq_vec,
-        lr,
+        lr_t,
+        neg_step_t,
         beta1,
         beta2,
         epsilon,
-        step,
-        bias_correction,
         weight_decay);
   } else {
     optimizer_adamw_hpu(
@@ -2711,12 +2709,11 @@ void optimizer_adamw_hpu_wrap(
         weight_vec,
         exp_avg_vec,
         exp_avg_sq_vec,
-        lr,
+        lr_t,
+        neg_step_t,
         beta1,
         beta2,
         epsilon,
-        step,
-        bias_correction,
         weight_decay);
   }
 }
@@ -2933,6 +2930,8 @@ TORCH_LIBRARY(hpu, m) {
       "habanaOptimizerFusedSGD(Tensor[] gradients, Tensor[] weights_in, Tensor learning_rate, float wd, float mom, float damp, bool nesterov) -> Tensor(a!)");
   m.def(
       "habanaOptimizerFusedSGDMomentum(Tensor[] gradients, Tensor[] weights_in, Tensor[] momentum_in, Tensor epoch_num, Tensor learning_rate, float wd, float mom, float damp, bool nesterov) -> Tensor(a!)");
+  m.def(
+      "hpu::habanaOptimizerAdamW(Tensor[] gradient_vec, Tensor[] weight_vec, Tensor[] exp_avg_vec, Tensor[] exp_avg_sq_vec, Tensor lr_t, Tensor neg_step_t, float beta1, float beta2, float epsilon, float weight_decay) -> ()");
   m.def("permute_cl(Tensor(a) self, int[] dims) -> Tensor(a)");
   m.def("restride_cl(Tensor(a) self, int[] dims) -> Tensor(a)");
   m.def("control_edge_other_(Tensor self, Tensor other) -> Tensor(a!)");
