@@ -230,6 +230,29 @@ TEST_F(LazyUnaryKernelTest, RoundTest) {
   EXPECT_EQ(allclose(hout_lazy, cpu_out, 0.001, 0.001, true), true);
 }
 
+TEST_F(LazyUnaryKernelTest, AbsTest) {
+  auto input_tensor = torch::randn({4, 5});
+  torch::Tensor cpu_out = torch::abs(input_tensor);
+
+  torch::Tensor tHabanaX = input_tensor.to(torch::kHABANA);
+  torch::Tensor outHabana = torch::abs(tHabanaX);
+  torch::Tensor hout_lazy = outHabana.to(torch::kCPU);
+
+  EXPECT_EQ(allclose(hout_lazy, cpu_out, 0.001, 0.001, true), true);
+}
+
+TEST_F(LazyUnaryKernelTest, AbsInplaceTest) {
+  torch::Tensor A = torch::randn({4, 5});
+
+  auto hA = A.to(torch::kHABANA);
+  auto abs = torch::abs_(A);
+  auto result = torch::abs_(hA);
+
+  auto out = result.to(kCPU);
+
+  EXPECT_EQ(allclose(out, abs), true);
+}
+
 TEST_F(LazyUnaryKernelTest, RsqrtInplaceTest) {
   torch::Tensor A = torch::add(torch::rand({4, 5}), 1);
 
@@ -330,6 +353,17 @@ TEST_F(LazyUnaryKernelTest, IsfiniteTest) {
 
   bool equal = cpu_out.equal(hout_lazy);
   EXPECT_EQ(equal, true);
+}
+
+TEST_F(LazyUnaryKernelTest, ExpTest) {
+  auto input_tensor = torch::randn({4, 5});
+  torch::Tensor cpu_out = torch::exp(input_tensor);
+
+  torch::Tensor tHabanaX = input_tensor.to(torch::kHABANA);
+  torch::Tensor outHabana = torch::exp(tHabanaX);
+  torch::Tensor hout_lazy = outHabana.to(torch::kCPU);
+
+  EXPECT_EQ(allclose(hout_lazy, cpu_out, 0.001, 0.001, true), true);
 }
 
 TEST_F(LazyUnaryKernelTest, ErfInplaceTest) {

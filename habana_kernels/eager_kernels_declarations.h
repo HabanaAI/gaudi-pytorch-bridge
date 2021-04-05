@@ -566,6 +566,7 @@ Tensor clamp_hpu(
     c10::optional<Scalar> min,
     c10::optional<Scalar> max);
 Tensor abs_hpu(const Tensor& self);
+Tensor& abs_hpu_(Tensor& self);
 Tensor round_hpu(const Tensor& self);
 Tensor& round_hpu_(Tensor& self);
 Tensor rsqrt_hpu(const Tensor& self);

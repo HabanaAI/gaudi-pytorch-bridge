@@ -575,6 +575,7 @@ struct hpu_wrap {
       c10::optional<at::Scalar> min,
       c10::optional<at::Scalar> max);
   static at::Tensor abs(const at::Tensor& self);
+  static at::Tensor& abs_(at::Tensor& self);
   static at::Tensor neg(const at::Tensor& self);
   static at::Tensor ones_like(
       const at::Tensor& self,

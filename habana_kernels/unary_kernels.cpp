@@ -1010,86 +1010,44 @@ Tensor erf_hpu(const Tensor& self) {
 }
 
 /*************************************************************************
- * @brief Kernel implementation for exp_
- * output = x.exp_()
- * @param [out, in]  1-4D, BF16/FP32
+ * @brief Kernel implementation for output = torch.exp(input)
+ * @param [out] output - output tensor, 1-4D, BF16/FP32
+ * @param [in] input - input tensor, 1-4D, BF16/FP32
+ ************************************************************************/
+Tensor exp_hpu(const Tensor& input) {
+  PT_KERNEL_BEGIN;
+  at::ScalarType scalar_type = input.scalar_type();
+  std::string node_type =
+      "exp_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+
+  // Create the operator
+  size_t device_id = input.device().index();
+  ExpOperator Op(device_id, scalar_type);
+
+  auto out = unary_op_hpu(input, node_type, &Op);
+  PT_KERNEL_END;
+  return out;
+}
+
+/*************************************************************************
+ * @brief Kernel implementation for output = torch.exp_(input)
+ * @param [out] output - output tensor, 1-4D, BF16/FP32
+ * @param [in] input - input tensor, 1-4D, BF16/FP32
  ************************************************************************/
 Tensor& exp_hpu_(Tensor& self) {
-  PT_KERNEL_BEGIN;
-
-  auto self_copy =
-      at::empty(self.sizes(), self.options(), self.suggest_memory_format());
-  habana_helpers::copy_data_within_device(self, self_copy, true);
-
-  std::vector<at::Tensor> pt_outputs{self};
-  std::vector<at::Tensor> pt_inputs{self_copy};
-
-  synapse_simple_generic_kernel(
-      pt_outputs, pt_inputs, "exp", nullptr, 0, SynapsePassType::FORWARD_PASS);
-
-  PT_KERNEL_END;
-  return self;
-}
-
-void ExpOperator::AllocateAndAddSynapseNode(
-    synapse_helpers::graph& graph,
-    torch::jit::Stack& inputs,
-    bool is_output_persistent) {
-  TORCH_CHECK(
-      inputs.size() == 1, "Incorrect size of inputs expected for Exp operator");
-  TORCH_CHECK(
-      inputs[0].isTensor(),
-      "Input arg1 expected to be tensor for Exp operator");
-
-  auto self = inputs[0].toTensor();
-  auto output = habana_helpers::createPTTensor(self, is_output_persistent);
-
-  AllocateSynapseOutput(graph, output, is_output_persistent);
-  AddNodeToSynapseGraph(graph, nullptr, 0);
-}
-
-Tensor exp_hpu(const Tensor& self) {
   PT_KERNEL_BEGIN;
 
   at::ScalarType scalar_type = self.scalar_type();
   std::string node_type =
       "exp_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
-
   size_t device_id = self.device().index();
-  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
 
-  // create the operator
-  ExpOperator Op(device_id, scalar_type);
-
-  // Build Params for the graph
-  std::vector<c10::IValue> stack = {IValue(self)};
-  size_t key = Op.GetRecipeKey(node_type, stack);
-
-  // Assign Inputs to the Operator
-  std::vector<at::Tensor> pt_inputs{self};
-
-  if (device.get_recipe_handle_cache().isCached(key)) {
-    PT_KERNEL_DEBUG("Cache hit key:", key);
-    auto result =
-        at::empty(self.sizes(), self.options(), self.suggest_memory_format());
-    Op.SetPTInputs(pt_inputs);
-    Op.SetPTOutput(result);
-    Op.Execute(key);
-  } else {
-    PT_KERNEL_DEBUG("Key:", key);
-    // Create Graph
-    auto graph = habana_helpers::create_graph(device_id, node_type);
-    Op.AllocateSynapseInputs(graph, pt_inputs, true);
-    Op.AllocateAndAddSynapseNode(graph, stack, true);
-    // compile and execute the graph
-    Op.Compile(graph);
-  }
-
-  std::vector<at::Tensor> out = Op.GetOutputs();
-  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
+  // Create the operator
+  ExpInplaceOperator Op(device_id, scalar_type);
+  unary_inplace_op_hpu(self, node_type, &Op);
 
   PT_KERNEL_END;
-  return out.at(0);
+  return self;
 }
 
 /*************************************************************************
@@ -1534,6 +1492,27 @@ Tensor abs_hpu(const Tensor& self) {
 }
 
 /*************************************************************************
+ * @brief Kernel implementation for output = torch.abs_(input)
+ * @param [out] output - output tensor, 1-4D, BF16/FP32
+ * @param [in] input - input tensor, 1-4D, BF16/FP32
+ ************************************************************************/
+Tensor& abs_hpu_(Tensor& self) {
+  PT_KERNEL_BEGIN;
+
+  at::ScalarType scalar_type = self.scalar_type();
+  std::string node_type =
+      "abs_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+  size_t device_id = self.device().index();
+
+  // Create the operator
+  AbsInplaceOperator Op(device_id, scalar_type);
+  unary_inplace_op_hpu(self, node_type, &Op);
+
+  PT_KERNEL_END;
+  return self;
+}
+
+/*************************************************************************
  * @brief Kernel implementation for output = torch.round(self)
  * @param [out] output - output tensor, 1-4D, BF16/FP32
  * @param [in] self - input tensor, 1-4D, BF16/FP32
@@ -1778,6 +1757,11 @@ static auto& KernelRegistry =
               return std::make_shared<AbsOperator>(device_id, node_type);
             })
         .add(
+            "aten::abs_",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<AbsInplaceOperator>(device_id, node_type);
+            })
+        .add(
             "aten::round",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<RoundOperator>(device_id, node_type);
@@ -1877,6 +1861,11 @@ static auto& KernelRegistry =
             "aten::exp",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<ExpOperator>(device_id, node_type);
+            })
+        .add(
+            "aten::exp_",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<ExpInplaceOperator>(device_id, node_type);
             })
         .add(
             "aten::floor",

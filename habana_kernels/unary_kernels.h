@@ -123,6 +123,16 @@ class AbsOperator : public UnaryOperator {
             "abs_fwd_" + habana_helpers::name_suffix_from_type(scalarType)){};
 };
 
+// Abs Inplace Operator
+
+class AbsInplaceOperator : public UnaryInplaceOperator {
+ public:
+  AbsInplaceOperator(int device_id, c10::ScalarType scalarType)
+      : UnaryInplaceOperator(
+            device_id,
+            "abs_fwd_" + habana_helpers::name_suffix_from_type(scalarType)){};
+};
+
 // Round Operator
 class RoundOperator : public UnaryOperator {
  public:
@@ -351,22 +361,22 @@ class ErfOperator : public HabanaOperator {
       bool is_output_persistent = false) override;
 };
 
-//
 // Exp Operator
-class ExpOperator : public HabanaOperator {
+class ExpOperator : public UnaryOperator {
  public:
   ExpOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(
-            "exp_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
-    this->CreateSynContext(device_id);
-    kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
-    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
-  }
+      : UnaryOperator(
+            device_id,
+            "exp_fwd_" + habana_helpers::name_suffix_from_type(scalarType)){};
+};
 
-  virtual void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+// Exp Inplace Operator
+class ExpInplaceOperator : public UnaryInplaceOperator {
+ public:
+  ExpInplaceOperator(int device_id, c10::ScalarType scalarType)
+      : UnaryInplaceOperator(
+            device_id,
+            "exp_fwd_" + habana_helpers::name_suffix_from_type(scalarType)){};
 };
 
 class SqrtInplaceOperator : public UnaryInplaceOperator {

@@ -2351,6 +2351,16 @@ Tensor hpu_wrap::abs(const Tensor& self) {
     return abs_hpu(self);
   }
 };
+Tensor& hpu_wrap::abs_(Tensor& self) {
+  hpu_check_inputs("abs_", {self});
+
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    auto& t = abs_hpu_lazy_(self);
+    return t;
+  } else {
+    return abs_hpu_(self);
+  }
+};
 Tensor hpu_wrap::round(const Tensor& self) {
   hpu_check_inputs("round", {self});
 

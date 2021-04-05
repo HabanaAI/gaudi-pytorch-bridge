@@ -1917,6 +1917,18 @@ static std::unordered_map<std::string, std::vector<std::set<at::ScalarType>>>
               at::ScalarType::Long}},
         },
         {
+            "abs_",
+            {{at::ScalarType::Float,
+              at::ScalarType::Double,
+              at::ScalarType::BFloat16,
+              at::ScalarType::Char,
+              at::ScalarType::Byte,
+              at::ScalarType::Bool,
+              at::ScalarType::Int,
+              at::ScalarType::Short,
+              at::ScalarType::Long}},
+        },
+        {
             "abs",
             {{at::ScalarType::Float,
               at::ScalarType::Double,

@@ -49,6 +49,7 @@ unary_inplace_op_list = [
     ('log2_'),
     ('sign_'),
     ('sgn_'),
+    ('abs_'),
 ]
 
 unary_op_out_list = [

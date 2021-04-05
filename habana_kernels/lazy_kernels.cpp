@@ -4258,30 +4258,13 @@ Tensor erf_hpu_lazy(const Tensor& self) {
 };
 Tensor& exp_hpu_lazy_(Tensor& self) {
   PT_LAZY_TRACE;
-  auto hl_input = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
-  auto hl_result = habana_lazy::GetHbLazyTensor(self);
-  updateDstDependencies(hl_result, self, true);
-  auto node = habana_lazy::ir::Node::Create(
-      Symbol::fromQualString("aten::exp"), {hl_input.GetIrValue()});
-
-  habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
-  out.m_index = 0;
-  out.SetNode(node);
-
-  std::vector<at::Tensor> input_pt_vec{self};
-  node->AddInputPtTensors(input_pt_vec);
-  // As its an inplace op and we want this op to execute
-  // we want to wind back status of this tensor to registered
-  // so that when post order is created, we actually execute it
-  auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
-      self.device().index());
-  context->MarkTensorRegistered(hl_input.getTensorUniqueId());
-
-  return self;
+  LazyOp<at::Tensor&> k{"aten::exp_", {self}};
+  return k.call(self);
 };
 Tensor exp_hpu_lazy(const Tensor& self) {
-  HABANA_ASSERT(0);
-  return exp_hpu(self);
+  PT_LAZY_TRACE;
+  LazyOp<at::Tensor> k{"aten::exp", {self}};
+  return k.call();
 };
 Tensor& neg_out_hpu_lazy(Tensor& result, const Tensor& input) {
   HABANA_ASSERT(0);
@@ -4457,11 +4440,19 @@ Tensor clamp_hpu_lazy(
   LazyOp<at::Tensor> k{"aten::clamp", {self, min, max}, {1, 2}};
   return k.call();
 };
+
 Tensor abs_hpu_lazy(const Tensor& input) {
-  HABANA_ASSERT(0);
-  static_cast<void>(input);
   PT_LAZY_TRACE;
+  LazyOp<at::Tensor> k{"aten::abs", {input}};
+  return k.call();
 };
+
+Tensor& abs_hpu_lazy_(Tensor& self) {
+  PT_LAZY_TRACE;
+  LazyOp<at::Tensor&> k{"aten::abs_", {self}};
+  return k.call(self);
+};
+
 Tensor neg_hpu_lazy(const Tensor& self) {
   HABANA_ASSERT(0);
   return neg_hpu(self);

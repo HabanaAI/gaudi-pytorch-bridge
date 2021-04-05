@@ -584,7 +584,8 @@ Tensor clamp_hpu_lazy(
     const Tensor& self,
     c10::optional<Scalar> min,
     c10::optional<Scalar> max);
-Tensor abs_hpu_lazy(const Tensor& self);
+Tensor abs_hpu_lazy(const Tensor& input);
+Tensor& abs_hpu_lazy_(Tensor& self);
 Tensor round_hpu_lazy(const Tensor& self);
 Tensor& round_hpu_lazy_(Tensor& self);
 Tensor rsqrt_hpu_lazy(const Tensor& self);
