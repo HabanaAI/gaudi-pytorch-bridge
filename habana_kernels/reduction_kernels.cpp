@@ -1192,14 +1192,16 @@ void AnyDimOutOperator::AllocateAndAddSynapseNode(
   // Create the operator
   CastOutOperator floatToIntOp(this->p_context_->device_id_, node_type);
   floatToIntOp.SetSynapseInput(std::move(reduce_syn_tensor));
-
+  AllocateSynapseOutput(graph, output, is_output_persistent);
+  floatToIntOp.SetSynapseInput(std::move(p_context_->syn_outputs_.back()));
   // Build Params for the graph
   stack.emplace_back(IValue(output_reduce));
   stack.emplace_back(IValue(output));
 
   floatToIntOp.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
   synapse_helpers::tensor& int_syn_tensor = floatToIntOp.GetSynOutputs()[0];
-
+  p_context_->syn_outputs_.pop_back();
+  p_context_->pt_outputs_.pop_back();
   p_context_->syn_outputs_.emplace_back(std::move(int_syn_tensor));
   p_context_->pt_outputs_.emplace_back(std::move(output));
 }

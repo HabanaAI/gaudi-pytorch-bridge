@@ -2904,6 +2904,8 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "scatter_value(Tensor self, int dim, Tensor index, Scalar value) -> Tensor(a!)");
   m.def(
+      "arange_out(Tensor result, Scalar start, Scalar end, Scalar step) -> Tensor(a!)");
+  m.def(
       "max_dim(Tensor self, int dim, bool keepdim=False) -> (Tensor values, Tensor indices)");
   m.def("habana_d2d_memcpy(Tensor self) -> (Tensor)");
   m.def(
@@ -2954,6 +2956,10 @@ TORCH_LIBRARY_IMPL(hpu, HABANATensorId, m) {
       static_cast<
           at::Tensor& (*)(at::Tensor&, int64_t, const at::Tensor&, Scalar)>(
           &hpu_wrap::scatter_));
+  m.impl(
+      "arange_out",
+      static_cast<at::Tensor& (*)(at::Tensor&, Scalar, Scalar, Scalar)>(
+          &hpu_wrap::arange_out));
   m.impl(
       "bitwise_and_Tensor_out",
       static_cast<

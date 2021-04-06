@@ -27,6 +27,7 @@ arange_test_case_list = [
     #start, end, step, dtype
     (0.0, 10.0, 2.0, torch.float),
     (1, 16, 2, torch.int32),
+    (1, 16, 2, torch.int32),
     (20, 40, 5, torch.long),
     (0, -10, -2, torch.long),
 

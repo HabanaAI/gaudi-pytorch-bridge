@@ -235,10 +235,13 @@ void CastOperator::AllocateAndAddSynapseNode(
       self.suggest_memory_format(),
       type,
       is_output_persistent);
-  inputs.pop_back();
-  inputs.push_back(output);
-  CastOutOperator::AllocateAndAddSynapseNode(
-      graph, inputs, is_output_persistent);
+
+  ns_CastKernel::Params params = synapse_cast_params_builder();
+  p_context_->params_.emplace<ns_CastKernel::Params>(params);
+  p_context_->params_size_ = sizeof(params);
+
+  AllocateSynapseOutput(graph, output, is_output_persistent);
+  AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
 void CastOutOperator::AllocateAndAddSynapseNode(
@@ -255,14 +258,17 @@ void CastOutOperator::AllocateAndAddSynapseNode(
       inputs[1].isTensor(),
       "Input arg2 expected to be tensor for cast operator");
 
+  static_cast<void>(is_output_persistent);
   auto self = inputs[0].toTensor();
   auto output = inputs[1].toTensor();
 
   ns_CastKernel::Params params = synapse_cast_params_builder();
   p_context_->params_.emplace<ns_CastKernel::Params>(params);
   p_context_->params_size_ = sizeof(params);
-
-  AllocateSynapseOutput(graph, output, is_output_persistent);
+  p_context_->syn_outputs_.emplace_back(std::move(p_context_->syn_inputs_[1]));
+  p_context_->pt_outputs_.emplace_back(output);
+  // Cast requires only 1 input popping second as it is output
+  p_context_->syn_inputs_.pop_back();
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 

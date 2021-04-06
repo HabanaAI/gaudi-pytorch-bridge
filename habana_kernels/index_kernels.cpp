@@ -33,7 +33,7 @@ using namespace torch;
  * @brief This helper function makes the size of index tensor to be same as
  * value tensor, with broadcast of indices (within index tensor)
  ************************************************************************/
-int GetOutputSize(Scalar start_, Scalar end_, Scalar step_) {
+int ArangeOperator::GetOutputSize(Scalar start_, Scalar end_, Scalar step_) {
   auto start = start_.to<double>();
   auto end = end_.to<double>();
   auto step = step_.to<double>();
@@ -1394,20 +1394,8 @@ Tensor select_hpu(const Tensor& in_self, int64_t dim, int64_t index) {
 }
 
 void ArangeOperator::SetPTOutputs(torch::jit::Stack& inputs) {
-  auto result = inputs[3].toTensor();
-
-  if (result.scalar_type() == ScalarType::Long) {
-    auto output_int = habana_helpers::createPTTensor(
-        result,
-        result.sizes(),
-        result.options(),
-        result.suggest_memory_format(),
-        c10::ScalarType::Int,
-        true);
-    HabanaOperator::SetPTOutput(output_int);
-  } else {
-    HabanaOperator::SetPTOutput(result);
-  }
+  auto result = inputs[0].toTensor();
+  HabanaOperator::SetPTOutput(result);
 }
 
 void ArangeOperator::AllocateAndAddSynapseNode(
@@ -1418,23 +1406,25 @@ void ArangeOperator::AllocateAndAddSynapseNode(
       inputs.size() == 4,
       "Incorrect size of inputs expected for Arange operator");
   TORCH_CHECK(
-      inputs[3].isTensor(),
-      "Input arg3 expected to be tensor for Arange operator");
-  TORCH_CHECK(
-      inputs[0].isScalar(),
-      "Input arg1 expected to be Scalar for Arange operator");
+      inputs[0].isTensor(),
+      "Input arg0 expected to be tensor for Arange operator");
   TORCH_CHECK(
       inputs[1].isScalar(),
-      "Input arg2 expected to be Scalar for Arange operator");
+      "Input arg1 expected to be Scalar for Arange operator");
   TORCH_CHECK(
       inputs[2].isScalar(),
+      "Input arg2 expected to be Scalar for Arange operator");
+  TORCH_CHECK(
+      inputs[3].isScalar(),
       "Input arg3 expected to be Scalar for Arange operator");
 
-  auto start = inputs[0].toScalar();
-  auto end = inputs[1].toScalar();
-  auto step = inputs[2].toScalar();
-  auto result = inputs[3].toTensor();
+  auto result = inputs[0].toTensor();
+  auto start = inputs[1].toScalar();
+  auto end = inputs[2].toScalar();
+  auto step = inputs[3].toScalar();
 
+  p_context_->syn_outputs_.emplace_back(std::move(p_context_->syn_inputs_[0]));
+  p_context_->pt_outputs_.emplace_back(result);
   // Adding a clear for inputs as arange TPC kernel expects no inputs
   // but graph mode call creates a syn tensor anyway, which causes a
   // synapse graph compilation failure
@@ -1457,7 +1447,6 @@ void ArangeOperator::AllocateAndAddSynapseNode(
   // If datatype is bf16/fp32 , no cast node is required
   if (result.scalar_type() == ScalarType::Float ||
       result.scalar_type() == ScalarType::BFloat16) {
-    AllocateSynapseOutput(graph, result, is_output_persistent);
     AddNodeToSynapseGraph(graph, &param, sizeof(param));
   } else {
     // For datatypes Int, Long, Char, Bool one additional cast node is required.
@@ -1473,7 +1462,7 @@ void ArangeOperator::AllocateAndAddSynapseNode(
         false);
 
     AllocateSynapseOutput(graph, output_range, false);
-    synapse_helpers::tensor& synOutput = p_context_->syn_outputs_[0];
+    synapse_helpers::tensor& synOutput = p_context_->syn_outputs_[1];
 
     std::vector<synTensor> syn_in{};
     std::vector<synTensor> syn_out{synOutput.get()};
@@ -1496,29 +1485,17 @@ void ArangeOperator::AllocateAndAddSynapseNode(
 
     // Create cast operator
     CastOutOperator castOp(this->p_context_->device_id_, node_type);
-    castOp.SetSynapseInput(std::move(p_context_->syn_outputs_[0]));
 
     // Build Params for the graph
-    torch::jit::Stack stack;
-    stack.emplace_back(IValue(output_range));
-
-    // cast is not supported for Long. It has to be cast first to Int
-    // The Int value will be converted to long on CPU
-    // That converted value will be copied to output tensor.
-    // For this we have to create one extra Int tensor
-    if (result.scalar_type() == ScalarType::Long) {
-      auto output_int = habana_helpers::createPTTensor(
-          result,
-          result.sizes(),
-          result.options(),
-          result.suggest_memory_format(),
-          c10::ScalarType::Int,
-          is_output_persistent);
-      stack.emplace_back(IValue(output_int));
-    } else {
-      stack.emplace_back(IValue(result));
-    }
+    torch::jit::Stack stack = {IValue(output_range), IValue(result)};
+    // syn_output_[1] is the output of range node
+    castOp.SetSynapseInput(std::move(p_context_->syn_outputs_[1]));
+    // syn_output_[0] is the original Out result tensor
+    castOp.SetSynapseInput(std::move(p_context_->syn_outputs_[0]));
     castOp.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+    // There are 2 outputs {result, rangeOut}, we need only one {result}
+    p_context_->syn_outputs_.pop_back();
+    p_context_->pt_outputs_.pop_back();
     p_context_->syn_outputs_[0] = std::move(castOp.GetSynOutputs()[0]);
     p_context_->pt_outputs_[0] = std::move(castOp.GetOutputs()[0]);
   }
@@ -1536,10 +1513,20 @@ Tensor& arange_hpu(Tensor& output, Scalar start, Scalar end, Scalar step) {
   PT_KERNEL_BEGIN;
 
   // resizing the output as it is coming as empty from model
-  int depth = GetOutputSize(start, end, step);
+  int depth = ArangeOperator::GetOutputSize(start, end, step);
   auto shape = DimVector({depth});
   auto tht_result = output.unsafeGetTensorImpl();
   THHTensor_resizeNd(tht_result, shape.size(), shape.data(), nullptr);
+  Tensor output_int;
+  if (output.scalar_type() == ScalarType::Long) {
+    output_int = habana_helpers::createPTTensor(
+        output,
+        output.sizes(),
+        output.options(),
+        output.suggest_memory_format(),
+        c10::ScalarType::Int,
+        true);
+  }
   at::ScalarType scalar_type;
   if (output.scalar_type() == ScalarType::BFloat16) {
     scalar_type = c10::ScalarType::BFloat16;
@@ -1556,19 +1543,28 @@ Tensor& arange_hpu(Tensor& output, Scalar start, Scalar end, Scalar step) {
   ArangeOperator Op(device_id, scalar_type);
 
   // Build Params for the graph
-  std::vector<c10::IValue> stack = {
-      IValue(start), IValue(end), IValue(step), IValue(output)};
+  std::vector<at::Tensor> pt_inputs;
+  std::vector<c10::IValue> stack = {IValue(start), IValue(end), IValue(step)};
+
+  if (output.scalar_type() == ScalarType::Long) {
+    stack.insert(stack.begin(), IValue(output_int));
+    pt_inputs.emplace_back(output_int);
+  } else {
+    stack.insert(stack.begin(), IValue(output));
+    pt_inputs.emplace_back(output);
+  }
 
   size_t key = Op.GetRecipeKey(node_type, stack);
-
   if (device.get_recipe_handle_cache().isCached(key)) {
     PT_KERNEL_DEBUG("Cache hit key:", key);
+    Op.SetPTInputs(pt_inputs);
     Op.SetPTOutputs(stack);
     Op.Execute(key);
   } else {
     PT_KERNEL_DEBUG("Key:", key);
     // Create Graph
     auto graph = habana_helpers::create_graph(device_id, node_type);
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
     Op.AllocateAndAddSynapseNode(graph, stack, true);
     // compile and execute the graph
     Op.Compile(graph);
@@ -1579,16 +1575,11 @@ Tensor& arange_hpu(Tensor& output, Scalar start, Scalar end, Scalar step) {
 
   if (output.scalar_type() == ScalarType::Long) {
     output.copy_(habana_helpers::cast_tensor_to_long(out.at(0)));
-    PT_KERNEL_END;
-    return output;
   } else if (output.scalar_type() == ScalarType::Bool) {
     out.at(0).to(c10::ScalarType::Bool);
-    PT_KERNEL_END;
-    return output;
-  } else {
-    PT_KERNEL_END;
-    return output;
   }
+  PT_KERNEL_END;
+  return output;
 }
 
 static auto& KernelRegistry =
@@ -1644,4 +1635,9 @@ static auto& KernelRegistry =
             "aten::index_add",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<IndexAddOperator>(device_id, node_type);
+            })
+        .add(
+            "hpu::arange_out",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<ArangeOperator>(device_id, node_type);
             });

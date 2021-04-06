@@ -82,7 +82,7 @@ class CastOutOperator : public habana::HabanaOperator {
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
 
- private:
+ protected:
   ns_CastKernel::Params synapse_cast_params_builder();
 };
 

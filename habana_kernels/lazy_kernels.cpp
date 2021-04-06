@@ -18,6 +18,7 @@
 #include "habana_kernels/conv_kernels.h"
 #include "habana_kernels/eager_kernels_declarations.h"
 #include "habana_kernels/embedding_kernels.h"
+#include "habana_kernels/index_kernels.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_kernels/linear_kernels.h"
 #include "habana_kernels/loss_kernels.h"
@@ -2083,8 +2084,31 @@ Tensor select_hpu_lazy(const Tensor& self, int64_t dim, int64_t index) {
 };
 
 Tensor& arange_hpu_lazy(Tensor& output, Scalar start, Scalar end, Scalar step) {
-  HABANA_ASSERT(0);
-  return arange_hpu(output, start, end, step);
+  PT_LAZY_TRACE;
+  auto hl_result = habana_lazy::GetOrCreateHbLazyTensor(output, c10::kHABANA);
+  auto hl_start = habana_lazy::GetIrValueForScalar(start);
+  auto hl_end = habana_lazy::GetIrValueForScalar(end);
+  auto hl_step = habana_lazy::GetIrValueForScalar(step);
+
+  // resizing the output as it is coming as empty from model
+  int out_depth = ArangeOperator::GetOutputSize(start, end, step);
+  auto out_shape = DimVector({out_depth});
+  auto out_reshaped = hl_result.getAttachedTensorImpl();
+  THHTensor_resizeNd(out_reshaped, out_shape.size(), out_shape.data(), nullptr);
+  output.unsafeGetTensorImpl()->set_sizes_contiguous(IntArrayRef(out_shape));
+
+  auto node = habana_lazy::ir::Node::Create(
+      Symbol::fromQualString("hpu::arange_out"),
+      {hl_result.GetIrValue(), hl_start, hl_end, hl_step});
+
+  habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+  // updatet the view if any
+  updateDstDependencies(hl_result, output);
+  std::vector<at::Tensor> input_pt_vec{output};
+  node->AddInputPtTensors(input_pt_vec);
+  return output;
 };
 Tensor mm_hpu_lazy(const at::Tensor& mat1, const at::Tensor& mat2) {
   PT_LAZY_TRACE;

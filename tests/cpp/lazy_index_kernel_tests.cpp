@@ -88,3 +88,49 @@ TEST_F(LazyIndexKernelTest, ScatterValueTest) {
 
   EXPECT_EQ(allclose(h_cout, out), true);
 }
+
+TEST_F(LazyIndexKernelTest, ArangeFloatOutTest) {
+  torch::Tensor tStart = torch::tensor(0.0);
+  torch::Tensor tEnd = torch::tensor(10.0);
+  torch::Tensor tStep = torch::tensor(0.25);
+  torch::Scalar start = tStart.item();
+  torch::Scalar end = tEnd.item();
+  torch::Scalar step = tStep.item();
+
+  c10::optional<at::ScalarType> dtype = c10::ScalarType::Float;
+
+  c10::optional<at::Device> hb_device = at::DeviceType::HABANA;
+  at::TensorOptions hb_options =
+      at::TensorOptions().dtype(dtype).device(hb_device);
+  c10::optional<at::Device> cpu_device = at::DeviceType::CPU;
+  at::TensorOptions cpu_options =
+      at::TensorOptions().dtype(dtype).device(cpu_device);
+
+  auto h_a = torch::arange(start, end, step, hb_options);
+  auto h_cout = h_a.to(torch::kCPU);
+  auto a = torch::arange(start, end, step, cpu_options);
+  EXPECT_EQ(allclose(h_cout, a), true);
+}
+
+TEST_F(LazyIndexKernelTest, ArangeIntOutTest) {
+  torch::Tensor tStart = torch::tensor(0);
+  torch::Tensor tEnd = torch::tensor(10);
+  torch::Tensor tStep = torch::tensor(1);
+  torch::Scalar start = tStart.item();
+  torch::Scalar end = tEnd.item();
+  torch::Scalar step = tStep.item();
+
+  c10::optional<at::ScalarType> dtype = c10::ScalarType::Int;
+
+  c10::optional<at::Device> hb_device = at::DeviceType::HABANA;
+  at::TensorOptions hb_options =
+      at::TensorOptions().dtype(dtype).device(hb_device);
+  c10::optional<at::Device> cpu_device = at::DeviceType::CPU;
+  at::TensorOptions cpu_options =
+      at::TensorOptions().dtype(dtype).device(cpu_device);
+
+  auto h_a = torch::arange(start, end, step, hb_options);
+  auto h_cout = h_a.to(torch::kCPU);
+  auto a = torch::arange(start, end, step, cpu_options);
+  EXPECT_EQ(allclose(h_cout, a), true);
+}
