@@ -68,7 +68,7 @@ class CompareWrapperOperator : public CompareOutWrapperOperator {
 
   void SetPTOutputs(torch::jit::Stack& inputs);
 
-  std::vector<int64_t> compute_output_shape(
+  static std::vector<int64_t> compute_output_shape(
       const Tensor& arg1,
       const Tensor& arg2);
 };

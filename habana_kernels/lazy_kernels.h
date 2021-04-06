@@ -11,6 +11,7 @@
 
 #include <utility>
 
+#include "habana_kernels/kernel_utils.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/lazy_executor.h"
 #include "lazy_kernels_declarations.h"
@@ -238,6 +239,10 @@ class LazyOp {
     m_inputs = inputs;
   }
 
+  const std::vector<std::vector<int64_t>>& get_out_shapes() const {
+    return m_out_shapes;
+  }
+
   virtual ReturnType get_result_overrideable() {
     HABANA_ASSERT(
         0 &&
@@ -253,4 +258,104 @@ class LazyOp {
   const int m_out_index;
   std::vector<at::IValue> m_inputs = {};
 };
+
+template <typename ReturnType>
+class LazyBinaryOp : public LazyOp<ReturnType> {
+ public:
+  explicit LazyBinaryOp(
+      const std::string& qualstring,
+      const std::vector<at::IValue>& inputs,
+      std::set<size_t> metadata_indices = {},
+      std::vector<std::vector<int64_t>> out_shapes = {},
+      int out_index = 0)
+      : LazyOp<ReturnType>(
+            qualstring,
+            inputs,
+            metadata_indices,
+            out_shapes,
+            out_index) {}
+
+  virtual ~LazyBinaryOp() = default;
+
+  template <typename T = ReturnType>
+  typename std::enable_if<std::is_same<T, at::Tensor>::value, T>::type call() {
+    auto inputs = LazyOp<T>::get_inputs();
+
+    int pos = -1;
+    c10::ScalarType dst_dtype = c10::ScalarType::Float;
+    habana_helpers::type_promotion_for_two_tensor_inputs(
+        inputs, pos, dst_dtype);
+    if (pos != -1) {
+      auto tensor_promote = inputs[pos].toTensor();
+      auto self = at::native::empty_hpu_lazy(
+          tensor_promote.sizes(),
+          tensor_promote.options().dtype(dst_dtype),
+          tensor_promote.suggest_memory_format(),
+          false);
+      self = copy_hpu_lazy_(self, tensor_promote, true);
+      inputs[pos] = IValue(self);
+      LazyOp<T>::set_inputs(inputs);
+    }
+
+    auto results = LazyOp<T>::call();
+    return results;
+  }
+};
+
+template <typename ReturnType>
+class LazyCompareOp : public LazyOp<ReturnType> {
+ public:
+  explicit LazyCompareOp(
+      const std::string& qualstring,
+      const std::vector<at::IValue>& inputs,
+      std::set<size_t> metadata_indices = {},
+      std::vector<std::vector<int64_t>> out_shapes = {},
+      int out_index = -1)
+      : LazyOp<ReturnType>(
+            qualstring,
+            inputs,
+            metadata_indices,
+            out_shapes,
+            out_index) {}
+
+  virtual ~LazyCompareOp() = default;
+
+  template <typename T = ReturnType>
+  typename std::enable_if<std::is_same<T, at::Tensor>::value, T>::type call() {
+    auto inputs = LazyOp<T>::get_inputs();
+
+    int pos = -1;
+    c10::ScalarType dst_dtype = c10::ScalarType::Float;
+    habana_helpers::type_promotion_for_two_tensor_inputs(
+        inputs, pos, dst_dtype);
+    if (pos != -1) {
+      auto tensor_promote = inputs[pos].toTensor();
+      auto self = at::native::empty_hpu_lazy(
+          tensor_promote.sizes(),
+          tensor_promote.options().dtype(dst_dtype),
+          tensor_promote.suggest_memory_format(),
+          false);
+      self = copy_hpu_lazy_(self, tensor_promote, true);
+      inputs[pos] = IValue(self);
+      LazyOp<T>::set_inputs(inputs);
+    }
+
+    auto results = LazyOp<T>::call();
+    return results;
+  }
+
+ private:
+  at::Tensor get_result_overrideable() override {
+    auto inputs = LazyOp<ReturnType>::get_inputs();
+    auto self = inputs[0].toTensor();
+    auto out_shapes = LazyOp<ReturnType>::get_out_shapes()[0];
+    auto result = at::native::empty_hpu_lazy(
+        out_shapes,
+        self.options().dtype(c10::ScalarType::Bool),
+        self.suggest_memory_format(),
+        false);
+    return result;
+  }
+};
+
 } // namespace habana_lazy

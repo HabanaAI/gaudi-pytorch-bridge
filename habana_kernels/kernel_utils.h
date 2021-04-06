@@ -26,6 +26,16 @@
 #include "habana_kernels/habana_operator.h"
 
 namespace habana_helpers {
+extern std::map<std::pair<c10::ScalarType, c10::ScalarType>, c10::ScalarType>
+    promote_dtype;
+extern std::map<std::pair<c10::ScalarType, c10::ScalarType>, std::string>
+    cast_map;
+
+void type_promotion_for_two_tensor_inputs(
+    std::vector<at::IValue>& inputs,
+    int& pos,
+    c10::ScalarType& dst_dtype);
+
 std::vector<int64_t> compute_broadcast_shape(
     const at::Tensor& arg1,
     const at::Tensor& arg2);

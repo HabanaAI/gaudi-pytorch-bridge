@@ -290,32 +290,20 @@ void ToDtypeOperator::AllocateAndAddSynapseNode(
   auto self = inputs[0].toTensor();
   auto type = inputs[1].toScalarType();
 
+  // Determine cast node_type to use based on src & dst dtypes
   std::string node_type;
-  if (self.dtype() == c10::ScalarType::BFloat16 &&
-      type == c10::ScalarType::Float) {
-    node_type = "cast_bf16_to_f32";
-  } else if (
-      self.dtype() == c10::ScalarType::Float &&
-      type == c10::ScalarType::BFloat16) {
-    node_type = "cast_f32_to_bf16";
-  } else if (
-      self.dtype() == c10::ScalarType::Int && type == c10::ScalarType::Float) {
-    node_type = "cast_i32_to_f32";
-  } else if (
-      (self.dtype() == c10::ScalarType::Bool ||
-       self.dtype() == c10::ScalarType::Char) &&
-      type == c10::ScalarType::Float) {
-    node_type = "cast_i8_to_f32";
-  } else if (
-      (self.dtype() == c10::ScalarType::Bool ||
-       self.dtype() == c10::ScalarType::Char) &&
-      type == c10::ScalarType::BFloat16) {
-    node_type = "cast_i8_to_bf16";
-  } else if (
-      self.dtype() == c10::ScalarType::Float &&
-      (type == c10::ScalarType::Bool || type == c10::ScalarType::Char)) {
-    node_type = "cast_f32_to_i8";
-  } else if (self.dtype() == type) {
+  if (type != self.scalar_type()) {
+    std::pair<c10::ScalarType, c10::ScalarType> type_key{
+        self.scalar_type(), type};
+    auto iter = habana_helpers::cast_map.find(type_key);
+    if (iter != habana_helpers::cast_map.end()) {
+      node_type = iter->second;
+    } else {
+      HABANA_ASSERT(
+          0 &&
+          "Unsupported Cast operation requested in ToDtypeOperator::AllocateAndAddSynapseNode");
+    }
+  } else {
     // Cases where a simple copy is being done (input_new = input) come as .to
     // call with same input & output data types. we add a identity node to
     // graph to handle this
@@ -331,9 +319,6 @@ void ToDtypeOperator::AllocateAndAddSynapseNode(
         std::move(memcopyOp.GetSynOutputs()[0]));
     p_context_->pt_outputs_.emplace_back(std::move(memcopyOp.GetOutputs()[0]));
     return;
-  } else {
-    // Casts between other types are not supported for now
-    HABANA_ASSERT(0);
   }
 
   // we do not care about last 3 entries dtype conversion, so throw them away
@@ -365,31 +350,15 @@ void CastLazyOperator::AllocateAndAddSynapseNode(
   auto type = inputs[1].toScalarType();
 
   std::string node_type;
-  if (self.dtype() == c10::ScalarType::BFloat16 &&
-      type == c10::ScalarType::Float) {
-    node_type = "cast_bf16_to_f32";
-  } else if (
-      type == c10::ScalarType::BFloat16 &&
-      self.dtype() == c10::ScalarType::Float) {
-    node_type = "cast_f32_to_bf16";
-  } else if (
-      type == c10::ScalarType::Int && self.dtype() == c10::ScalarType::Float) {
-    node_type = "cast_i32_to_f32";
-  } else if (
-      type == c10::ScalarType::Float && self.dtype() == c10::ScalarType::Int) {
-    node_type = "cast_f32_to_i32";
-  } else if (
-      type == c10::ScalarType::Char && self.dtype() == c10::ScalarType::Float) {
-    node_type = "cast_i8_to_f32";
-  } else if (
-      type == c10::ScalarType::Float && self.dtype() == c10::ScalarType::Char) {
-    node_type = "cast_f32_to_i8";
-  } else if (
-      type == c10::ScalarType::Bool && self.dtype() == c10::ScalarType::Float) {
-    node_type = "cast_i8_to_f32";
-  } else if (
-      type == c10::ScalarType::Float && self.dtype() == c10::ScalarType::Bool) {
-    node_type = "cast_f32_to_i8";
+  std::pair<c10::ScalarType, c10::ScalarType> type_key{
+      self.scalar_type(), type};
+  auto iter = habana_helpers::cast_map.find(type_key);
+  if (iter != habana_helpers::cast_map.end()) {
+    node_type = iter->second;
+  } else {
+    HABANA_ASSERT(
+        0 &&
+        "Unsupported Cast operation requested in CastLazyOperator::AllocateAndAddSynapseNode");
   }
 
   /*

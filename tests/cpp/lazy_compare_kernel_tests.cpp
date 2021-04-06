@@ -164,3 +164,30 @@ TEST_F(LazyCompareKernelTest, NeTensorTest) {
       true);
   exec::OptPassCfg::GetInstance()->enable_subgraph_rewrite = false;
 }
+
+TEST_F(LazyCompareKernelTest, TypePromotion) {
+  auto typetest = [](at::Tensor (*op)(const at::Tensor&, const at::Tensor&),
+                     c10::ScalarType dtype1,
+                     c10::ScalarType dtype2,
+                     c10::IntArrayRef size) {
+    auto a = torch::randn(size).to(dtype1);
+    auto b = torch::randn(size).to(dtype2);
+    auto out = op(a, b);
+
+    auto ha = a.to("habana");
+    auto hb = b.to("habana");
+    auto hout = op(ha, hb);
+    EXPECT_TRUE(allclose(out.to(kFloat), hout.to("cpu").to(kFloat)));
+  };
+  // Do not create 2 or more tests with same operator and shapes, those will
+  // fail when running back 2 back because lowering cache does not check for
+  // dependencies within graph
+  typetest(&torch::eq, torch::kFloat, torch::kLong, {3, 4});
+  typetest(&torch::eq, torch::kLong, torch::kFloat, {2, 4});
+  exec::OptPassCfg::GetInstance()->enable_subgraph_rewrite = true;
+  typetest(&torch::ne, torch::kInt8, torch::kInt, {2, 4});
+  exec::OptPassCfg::GetInstance()->enable_subgraph_rewrite = false;
+  typetest(&torch::gt, torch::kLong, torch::kFloat, {2, 4});
+  typetest(&torch::lt, torch::kLong, torch::kFloat, {2, 4});
+  typetest(&torch::ge, torch::kLong, torch::kFloat, {2, 4});
+}

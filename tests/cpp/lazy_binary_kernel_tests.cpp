@@ -232,3 +232,46 @@ TEST_F(LazyBinaryKernelTest, DivOut) {
 
   EXPECT_TRUE(allclose(out, hout.to("cpu")));
 }
+
+TEST_F(LazyBinaryKernelTest, TypePromotion1) {
+  auto typetest = [](at::Tensor (*op)(const at::Tensor&, const at::Tensor&),
+                     c10::ScalarType dtype1,
+                     c10::ScalarType dtype2,
+                     c10::IntArrayRef size) {
+    auto a = torch::randn(size).to(dtype1);
+    auto b = torch::randn(size).to(dtype2);
+    auto out = op(a, b);
+
+    auto ha = a.to("habana");
+    auto hb = b.to("habana");
+    auto hout = op(ha, hb);
+    EXPECT_TRUE(allclose(out, hout.to("cpu")));
+  };
+  // Do not create 2 or more tests with same operator and shapes, those will
+  // fail when running back 2 back because lowering cache does not check for
+  // dependencies within graph
+  typetest(&torch::div, torch::kFloat, torch::kByte, {2, 3});
+  typetest(&torch::div, torch::kByte, torch::kFloat, {2, 4});
+  typetest(&torch::mul, torch::kFloat, torch::kLong, {2, 3});
+  typetest(&torch::mul, torch::kLong, torch::kFloat, {2, 4});
+  typetest(&torch::mul, torch::kInt8, torch::kInt, {3, 4});
+}
+
+TEST_F(LazyBinaryKernelTest, TypePromotion2) {
+  auto typetest =
+      [](at::Tensor (*op)(const at::Tensor&, const at::Tensor&, Scalar),
+         c10::ScalarType dtype1,
+         c10::ScalarType dtype2,
+         c10::IntArrayRef size) {
+        auto a = torch::randn(size).to(dtype1);
+        auto b = torch::randn(size).to(dtype2);
+        auto out = op(a, b, 1);
+
+        auto ha = a.to("habana");
+        auto hb = b.to("habana");
+        auto hout = op(ha, hb, 1);
+        EXPECT_TRUE(allclose(out, hout.to("cpu")));
+      };
+  typetest(&torch::sub, torch::kFloat, torch::kLong, {3, 4});
+  typetest(&torch::add, torch::kLong, torch::kFloat, {3, 4});
+}

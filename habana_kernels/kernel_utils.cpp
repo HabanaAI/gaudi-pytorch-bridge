@@ -17,6 +17,93 @@
 #include "synapse_helpers/recipe.h"
 
 using namespace torch;
+/** @brief This data structure is used to encapsulate dtype promotion rules for
+ *OPs with 2 inputs.
+ * @param key: dtype tensor1, dtype tensor2
+ * @param value: dtype promoted tensor
+ **/
+std::map<std::pair<c10::ScalarType, c10::ScalarType>, c10::ScalarType>
+    habana_helpers::promote_dtype{
+        {{c10::ScalarType::Char, c10::ScalarType::Int}, c10::ScalarType::Int},
+        {{c10::ScalarType::Int, c10::ScalarType::Char}, c10::ScalarType::Int},
+        {{c10::ScalarType::Byte, c10::ScalarType::Int}, c10::ScalarType::Int},
+        {{c10::ScalarType::Int, c10::ScalarType::Byte}, c10::ScalarType::Int},
+        {{c10::ScalarType::Float, c10::ScalarType::Int},
+         c10::ScalarType::Float},
+        {{c10::ScalarType::Int, c10::ScalarType::Float},
+         c10::ScalarType::Float},
+        {{c10::ScalarType::BFloat16, c10::ScalarType::Float},
+         c10::ScalarType::Float},
+        {{c10::ScalarType::Float, c10::ScalarType::BFloat16},
+         c10::ScalarType::Float},
+        {{c10::ScalarType::Byte, c10::ScalarType::Float},
+         c10::ScalarType::Float},
+        {{c10::ScalarType::Float, c10::ScalarType::Byte},
+         c10::ScalarType::Float},
+    };
+
+/** @brief This data structure is used to map src & dst (for a cast) to
+ *corresponding cast node guid.
+ * @param key: dtype src, dtype dst
+ * @param value: node guid
+ **/
+std::map<std::pair<c10::ScalarType, c10::ScalarType>, std::string>
+    habana_helpers::cast_map{
+        {{c10::ScalarType::Bool, c10::ScalarType::Float}, "cast_i8_to_f32"},
+        {{c10::ScalarType::Char, c10::ScalarType::Float}, "cast_i8_to_f32"},
+        {{c10::ScalarType::Float, c10::ScalarType::Bool}, "cast_f32_to_i8"},
+        {{c10::ScalarType::Float, c10::ScalarType::Char}, "cast_f32_to_i8"},
+        {{c10::ScalarType::Bool, c10::ScalarType::BFloat16}, "cast_i8_to_bf16"},
+        {{c10::ScalarType::Char, c10::ScalarType::BFloat16}, "cast_i8_to_bf16"},
+        {{c10::ScalarType::BFloat16, c10::ScalarType::Bool}, "cast_bf16_to_i8"},
+        {{c10::ScalarType::BFloat16, c10::ScalarType::Char}, "cast_bf16_to_i8"},
+        {{c10::ScalarType::Bool, c10::ScalarType::Int}, "cast_i8_to_i32"},
+        {{c10::ScalarType::Char, c10::ScalarType::Int}, "cast_i8_to_i32"},
+        {{c10::ScalarType::Int, c10::ScalarType::Bool}, "cast_i32_to_i8"},
+        {{c10::ScalarType::Int, c10::ScalarType::Char}, "cast_i32_to_i8"},
+        {{c10::ScalarType::Int, c10::ScalarType::Float}, "cast_i32_to_f32"},
+        {{c10::ScalarType::Float, c10::ScalarType::Int}, "cast_f32_to_i32"},
+        {{c10::ScalarType::BFloat16, c10::ScalarType::Float},
+         "cast_bf16_to_f32"},
+        {{c10::ScalarType::Float, c10::ScalarType::BFloat16},
+         "cast_f32_to_bf16"},
+        {{c10::ScalarType::Byte, c10::ScalarType::Int}, "cast_u8_to_i32"},
+        {{c10::ScalarType::Int, c10::ScalarType::Byte}, "cast_i32_to_u8"},
+        {{c10::ScalarType::Byte, c10::ScalarType::Float}, "cast_u8_to_f32"},
+    };
+
+/** @brief For OPs with two input arguments (e.g. binary, compare), we may get
+ *input arguments with different dtypes. For such cases, this function
+ *determines which input argument can be promoted to larger dtype. This function
+ *takes IValue stack of input arguments as input and returns the position of
+ *input argument to be promoted alongwith the dtype to which this argument needs
+ *to be promoted.
+ **/
+void habana_helpers::type_promotion_for_two_tensor_inputs(
+    std::vector<at::IValue>& inputs,
+    int& pos,
+    c10::ScalarType& dst_dtype) {
+  if (inputs[0].isTensor() && inputs[1].isTensor()) {
+    auto tensor1 = inputs[0].toTensor();
+    auto tensor2 = inputs[1].toTensor();
+    auto type1 = (tensor1.scalar_type() == c10::ScalarType::Long)
+        ? c10::ScalarType::Int
+        : tensor1.scalar_type();
+    auto type2 = (tensor2.scalar_type() == c10::ScalarType::Long)
+        ? c10::ScalarType::Int
+        : tensor2.scalar_type();
+    // Generate key using input dtype(s)
+    std::pair<ScalarType, ScalarType> type{type1, type2};
+    // Check if we have this key to find the dtype to which smaller dtype
+    // tensor should be promoted to
+    auto iter = habana_helpers::promote_dtype.find(type);
+    if (iter != habana_helpers::promote_dtype.end()) {
+      dst_dtype = iter->second;
+      // pos = position of tensor to be promoted (smaller dytpe)
+      pos = (type.first == dst_dtype) ? 1 : 0;
+    }
+  }
+}
 
 /**
  * @brief This function computes the shape of output tensor resulting from a
