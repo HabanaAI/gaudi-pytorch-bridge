@@ -358,4 +358,41 @@ class LazyCompareOp : public LazyOp<ReturnType> {
   }
 };
 
+template <
+    typename ReturnType = std::tuple<at::Tensor, at::Tensor>,
+    typename NodeConstruct = void>
+class FusedDropout : public LazyOp<ReturnType> {
+ public:
+  explicit FusedDropout(
+      const std::vector<at::IValue>& inputs,
+      std::set<size_t> metadata_indices = {})
+      : LazyOp<ReturnType>(
+            "aten::_fused_dropout",
+            inputs,
+            metadata_indices,
+            {},
+            -1) {}
+
+  virtual ~FusedDropout() = default;
+
+  template <typename T = ReturnType>
+  typename std::enable_if<std::tuple_size<T>::value >= 2, T>::type call() {
+    return LazyOp<ReturnType>::call();
+  }
+
+ protected:
+  virtual ReturnType get_result_overrideable() {
+    ReturnType results;
+    auto t = LazyOp<ReturnType>::get_inputs().at(0).toTensor();
+    std::get<0>(results) = at::native::empty_hpu_lazy(
+        t.sizes(), t.options(), t.suggest_memory_format(), false);
+    std::get<1>(results) = at::native::empty_hpu_lazy(
+        t.sizes(),
+        t.options().dtype(c10::ScalarType::Char),
+        t.suggest_memory_format(),
+        false);
+    return results;
+  }
+};
+
 } // namespace habana_lazy

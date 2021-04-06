@@ -14,29 +14,29 @@ using namespace habana_lazy;
 
 class LazyRandomGenKernelTest : public ::testing::Test {
  protected:
-  void SetUp() override {
-    setenv("PT_HPU_LAZY_MODE", "1", 1);
-  }
+  void SetUp() override {}
 
-  void TearDown() override {
-    unsetenv("PT_HPU_LAZY_MODE");
-  }
+  void TearDown() override {}
 };
 
 TEST_F(LazyRandomGenKernelTest, FusedDropoutTest) {
-  auto in = torch::randn({64, 4, 28, 28}, torch::dtype(torch::kFloat)); // nchw
-  double p = 0.3;
-
-  // auto exp = torch::_fused_dropout(in, p);
-  // [TO VERIFY] C++ exception with description "Could not run
-  // 'aten::_fused_dropout' with arguments from the 'CPUTensorId' backend.
-  // 'aten::_fused_dropout' is only available for these backends:
-  // [UNKNOWN_TENSOR_TYPE_ID, VariableTensorId]. (reportError at
-  // ../aten/src/ATen/core/dispatch/Dispatcher.cpp:176)
+  auto in = torch::randn({2, 3, 4}, torch::dtype(torch::kFloat));
+  constexpr double p = 0.3;
 
   auto h_in = in.to(torch::kHABANA);
-  auto result = torch::_fused_dropout(h_in, p);
+  auto eager_results = torch::_fused_dropout(h_in, p);
+  auto eager_result1 = std::get<0>(eager_results).to("cpu");
+  auto eager_result2 = std::get<1>(eager_results).to("cpu");
 
-  // auto out = result.to(kCPU);
-  // EXPECT_EQ(allclose(out, exp, 0.01, 0.01), true);
+  setenv("PT_HPU_LAZY_MODE", "1", 1);
+  auto lazy_h_in = in.to(torch::kHABANA);
+  auto lazy_results = torch::_fused_dropout(lazy_h_in, p);
+
+  auto lResult1 = std::get<0>(lazy_results).to("cpu");
+  auto lResult2 = std::get<1>(lazy_results).to("cpu");
+
+  // EXPECT_TRUE(allclose(eager_result1, lResut1, 0.01, 0.01));
+  // EXPECT_TRUE(allclose(eager_result2, lResut2, 0.01, 0.01));
+
+  unsetenv("PT_HPU_LAZY_MODE");
 }

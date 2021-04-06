@@ -275,3 +275,21 @@ TEST_F(LazyBinaryKernelTest, TypePromotion2) {
   typetest(&torch::sub, torch::kFloat, torch::kLong, {3, 4});
   typetest(&torch::add, torch::kLong, torch::kFloat, {3, 4});
 }
+
+TEST_F(LazyBinaryKernelTest, MulScalarTest) {
+  const std::vector<int64_t> dimentions{4, 5, 3};
+
+  torch::Tensor A = torch::randn(dimentions);
+  Scalar s = 3.27;
+
+  auto expected = torch::mul(A, s);
+
+  auto hA = A.to(torch::kHABANA);
+
+  auto result = torch::mul(hA, s);
+  std::vector<HbLazyTensor> tensors = {GetHbLazyTensor(result)};
+  HbLazyTensor::SyncTensorsGraph(&tensors);
+  Tensor generated = result.to(kCPU);
+
+  EXPECT_EQ(allclose(generated, expected), true);
+}

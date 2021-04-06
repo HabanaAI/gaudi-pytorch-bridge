@@ -47,7 +47,6 @@
 #include "habana_lazy/ops/optimizer.h"
 #include "habana_lazy/ops/optimizer_sparse_sgd_with_valid_count.h"
 #include "habana_lazy/ops/pool.h"
-#include "habana_lazy/ops/random_gen.h"
 #include "habana_lazy/ops/reduce_ops.h"
 #include "habana_lazy/ops/shape_ops.h"
 #include "habana_lazy/ops/softmax.h"
@@ -440,6 +439,9 @@ Tensor emtpy_from_storage_lazy(
 
   auto hb_tensor_self =
       habana_lazy::GetOrCreateHbLazyTensor(self, self.device());
+  if (!hb_tensor_self.isStorageAttached()) {
+    hb_tensor_self.GetHbLazyTensorData();
+  }
   TORCH_CHECK(
       hb_tensor_self.isStorageAttached(),
       "Habana Lazy : we dont support as_strided for non storage");
@@ -771,8 +773,62 @@ Tensor sub_tensor_hpu_lazy(
   return k.call();
 };
 Tensor& sub_tensor_hpu_lazy_(Tensor& self, const Tensor& other, Scalar alpha) {
-  HABANA_ASSERT(0);
-  return sub_tensor_hpu_(self, other, alpha);
+  PT_LAZY_TRACE;
+  auto hl_alpha = habana_lazy::GetIrValueForScalar(alpha);
+
+  if (other.device().type() == c10::DeviceType::CPU) {
+    // Convert 0-dim CPU tensor to a scalar and then add to JIT graph
+    auto val = other.item();
+    auto hl_other = habana_lazy::GetIrValueForScalar(val);
+    auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
+    updateDstDependencies(hl_self, self, true);
+    auto node = habana_lazy::ir::Node::Create(
+        Symbol::fromQualString("aten::sub_"),
+        {hl_self.GetIrValue(), hl_other, hl_alpha});
+
+    habana_lazy::ir::Value& out = hl_self.CurrentIrValue();
+    out.m_index = 0;
+    out.SetNode(node);
+
+    std::vector<at::Tensor> input_pt_vec{self};
+    node->AddInputPtTensors(input_pt_vec);
+    // As its an inplace op and we want this op to execute
+    // we want to wind back status of this tensor to registered
+    // so that when post order is created, we actually execute it
+    auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
+        self.device().index());
+    // context->MarkTensorRegistered(hl_self.getTensorUniqueId());
+    context->MarkTensorStatus(
+        hl_self.getTensorUniqueId(), LazyTensorExecutionStatus::kREGISTERED);
+    return self;
+  } else {
+    auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
+    auto hl_other = habana_lazy::GetOrCreateHbLazyTensor(other, c10::kHABANA);
+
+    updateDstDependencies(hl_self, self, true);
+
+    auto node = habana_lazy::ir::Node::Create(
+        Symbol::fromQualString("aten::sub_"),
+        {hl_self.GetIrValue(), hl_other.GetIrValue(), hl_alpha});
+
+    habana_lazy::ir::Value& out = hl_self.CurrentIrValue();
+    out.m_index = 0;
+    out.SetNode(node);
+    // updatet the view if any
+
+    std::vector<at::Tensor> input_pt_vec{self, other};
+    node->AddInputPtTensors(input_pt_vec);
+    // As its an inplace op and we want this op to execute
+    // we want to wind back status of this tensor to registered
+    // so that when post order is created, we actually execute it
+    auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
+        self.device().index());
+    // context->MarkTensorRegistered(hl_self.getTensorUniqueId());
+    context->MarkTensorStatus(
+        hl_self.getTensorUniqueId(), LazyTensorExecutionStatus::kREGISTERED);
+  }
+
+  return self;
 };
 Tensor sub_scalar_hpu_lazy(const Tensor& self, Scalar other, Scalar alpha) {
   auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
@@ -935,21 +991,63 @@ Tensor& mul_out_hpu_lazy(Tensor& out, const Tensor& self, const Tensor& other) {
 }
 
 Tensor mul_scalar_hpu_lazy(const Tensor& self, Scalar other) {
-  HABANA_ASSERT(0);
-  return mul_scalar_hpu(self, other);
+  auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
+  auto hl_other = habana_lazy::GetIrValueForScalar(other);
+
+  auto node = habana_lazy::ir::Node::Create(
+      Symbol::fromQualString("aten::mul"), {hl_self.GetIrValue(), hl_other});
+  auto result = at::native::empty_hpu_lazy(
+      self.sizes(), self.options(), self.suggest_memory_format(), false);
+  auto hl_result = habana_lazy::GetHbLazyTensor(result);
+  habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+  updateDstDependencies(hl_result, result);
+  std::vector<at::Tensor> input_pt_vec{self};
+  node->AddInputPtTensors(input_pt_vec);
+  return result;
 };
+
 Tensor& mul_scalar_hpu_lazy_(Tensor& self, Scalar other) {
   HABANA_ASSERT(0);
   return mul_scalar_hpu_(self, other);
 };
 Tensor div_tensor_hpu_lazy(const Tensor& self, const Tensor& other) {
   PT_LAZY_TRACE;
+#ifndef USE_LAZYOP
+  if (c10::DeviceType::CPU == other.device().type()) {
+    HABANA_ASSERT(other.scalar_type() != c10::ScalarType::Undefined);
+    return div_scalar_hpu_lazy(self, other.item());
+  }
+  auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
+  auto hl_other = habana_lazy::GetOrCreateHbLazyTensor(other, c10::kHABANA);
+
+  auto node = habana_lazy::ir::Node::Create(
+      Symbol::fromQualString("aten::div"),
+      {hl_self.GetIrValue(), hl_other.GetIrValue()});
+  auto shape_out = BinaryOperator::compute_output_shape(self, other);
+
+  auto result = at::native::empty_hpu_lazy(
+      shape_out, self.options(), self.suggest_memory_format(), false);
+  auto hlresult = habana_lazy::GetHbLazyTensor(result);
+
+  habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+  updateDstDependencies(hlresult, self);
+
+  std::vector<at::Tensor> input_pt_vec{self, other};
+  node->AddInputPtTensors(input_pt_vec);
+
+  return result;
+#else
   LazyBinaryOp<at::Tensor> k{
       "aten::div",
       {self, other},
       {},
       {BinaryOperator::compute_output_shape(self, other)}};
   return k.call();
+#endif
 }
 Tensor& div_tensor_hpu_lazy_out(
     Tensor& out,
@@ -966,9 +1064,61 @@ Tensor& div_tensor_hpu_lazy_out(
 
 Tensor& div_tensor_hpu_lazy_(Tensor& self, const Tensor& other) {
   PT_LAZY_TRACE;
+#ifndef USE_LAZYOP
+  if (other.device().type() == c10::DeviceType::CPU) {
+    // Convert 0-dim CPU tensor to a scalar and then add to JIT graph
+    auto val = other.item();
+    auto hl_other = habana_lazy::GetIrValueForScalar(val);
+    auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
+    updateDstDependencies(hl_self, self, true);
+    auto node = habana_lazy::ir::Node::Create(
+        Symbol::fromQualString("aten::div_"), {hl_self.GetIrValue(), hl_other});
+
+    habana_lazy::ir::Value& out = hl_self.CurrentIrValue();
+    out.m_index = 0;
+    out.SetNode(node);
+
+    std::vector<at::Tensor> input_pt_vec{self};
+    node->AddInputPtTensors(input_pt_vec);
+    // As its an inplace op and we want this op to execute
+    // we want to wind back status of this tensor to registered
+    // so that when post order is created, we actually execute it
+    auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
+        self.device().index());
+    // context->MarkTensorRegistered(hl_self.getTensorUniqueId());
+    context->MarkTensorStatus(
+        hl_self.getTensorUniqueId(), LazyTensorExecutionStatus::kREGISTERED);
+  } else {
+    auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
+    auto hl_other = habana_lazy::GetOrCreateHbLazyTensor(other, c10::kHABANA);
+    updateDstDependencies(hl_self, self, true);
+    auto node = habana_lazy::ir::Node::Create(
+        Symbol::fromQualString("aten::div_"),
+        {hl_self.GetIrValue(), hl_other.GetIrValue()});
+
+    habana_lazy::ir::Value& out = hl_self.CurrentIrValue();
+    out.m_index = 0;
+    out.SetNode(node);
+
+    std::vector<at::Tensor> input_pt_vec{self, other};
+    node->AddInputPtTensors(input_pt_vec);
+    // As its an inplace op and we want this op to execute
+    // we want to wind back status of this tensor to registered
+    // so that when post order is created, we actually execute it
+    auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
+        self.device().index());
+    // context->MarkTensorRegistered(hl_self.getTensorUniqueId());
+    context->MarkTensorStatus(
+        hl_self.getTensorUniqueId(), LazyTensorExecutionStatus::kREGISTERED);
+  }
+
+  return self;
+#else
   LazyOp<at::Tensor&> k{"aten::div_", {self, other}};
   return k.call(self);
-}
+
+#endif
+};
 
 Tensor div_scalar_hpu_lazy(const Tensor& self, Scalar other) {
   PT_LAZY_TRACE;
@@ -1126,8 +1276,34 @@ Tensor gt_tensor_hpu_lazy(const Tensor& self, const Tensor& other) {
 };
 
 Tensor gt_scalar_hpu_lazy(const Tensor& self, Scalar other) {
-  HABANA_ASSERT(0);
-  return gt_scalar_hpu(self, other);
+#ifndef USE_LAZYOP
+  PT_LAZY_TRACE;
+  auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
+  auto hl_other = habana_lazy::GetIrValueForScalar(other);
+
+  auto node = habana_lazy::ir::Node::Create(
+      Symbol::fromQualString("aten::gt"), {hl_self.GetIrValue(), hl_other});
+
+  auto result = at::native::empty_hpu_lazy(
+      self.sizes(),
+      self.options().dtype(c10::ScalarType::Bool),
+      self.suggest_memory_format(),
+      false);
+
+  auto hl_result = habana_lazy::GetHbLazyTensor(result);
+  habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+  // updatet the view if any
+  updateDstDependencies(hl_result, result);
+  std::vector<at::Tensor> input_pt_vec{self};
+  node->AddInputPtTensors(input_pt_vec);
+
+  return result;
+#else
+  LazyOp<at::Tensor> k{"aten::gt", {self, other}};
+  return k.call();
+#endif
 };
 
 Tensor& eq_tensor_out_hpu_lazy(
@@ -1588,8 +1764,21 @@ Tensor embedding_hpu_lazy(
           weight, indices, padding_idx, scale_grad_by_freq, sparse);
 
   // allocate Output storage
+  auto size = indices.sizes().vec();
+
+  if (indices.dim() == 1) {
+    // TORCH_CHECK(false, "Lazy Emedding: indices of dim 1 not expected");
+    size = weight.sizes().vec();
+  }
+
+  else {
+    // append size of last N-1 dimensions of weight (assuming its a Nd tensor)
+    for (auto d : weight.sizes().slice(1)) {
+      size.push_back(d);
+    }
+  }
   auto result = at::native::empty_hpu_lazy(
-      weight.sizes(), weight.options(), weight.suggest_memory_format(), false);
+      size, weight.options(), weight.suggest_memory_format(), false);
   auto hlresult = habana_lazy::GetHbLazyTensor(result);
   habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
   out.m_index = 0;
@@ -2606,10 +2795,11 @@ Tensor norm_scalar_hpu_lazy(const Tensor& self, Scalar p) {
   auto node = habana_lazy::ir::Node::Create(
       Symbol::fromQualString("aten::norm"),
       {hl_self.GetIrValue(), hl_p_ir_value});
-
-  auto shape = NormOperator::compute_output_shape(self);
-  auto result = at::native::empty_hpu_lazy(
+  Tensor result;
+  auto shape = NormOperator::compute_output_shape(self, p);
+  result = at::native::empty_hpu_lazy(
       shape, self.options(), self.suggest_memory_format(), false);
+
   auto hlresult = habana_lazy::GetHbLazyTensor(result);
   habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
   out.m_index = 0;
@@ -2879,37 +3069,21 @@ Tensor& bernoulli_scalar_hpu_lazy(
   HABANA_ASSERT(0);
   return bernoulli_scalar_hpu(self, p, gen);
 };
+
 std::tuple<Tensor, Tensor> fused_dropout_hpu_lazy(
     const Tensor& self,
     double p,
     c10::optional<Generator> gen) {
   PT_LAZY_TRACE;
-  CPUGeneratorImpl* generator = get_generator_or_default<CPUGeneratorImpl>(
-      gen, at::detail::getDefaultCPUGenerator());
-  auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
-  habana_lazy::ir::NodePtr node =
-      std::make_shared<habana_lazy::ir::Dropout>(self, p, generator);
+  auto res = fused_dropout_hpu(self, p, gen);
+  using T = std::tuple<at::Tensor, at::Tensor>;
+  FusedDropout<T> k(
+      {self, p, std::move(gen)}, {1, 2} // metadata_indices
+  );
 
-  auto result_0 = at::native::empty_hpu_lazy(
-      {1}, self.options(), self.suggest_memory_format(), false);
-  result_0.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
-  auto hlresult_0 = habana_lazy::GetHbLazyTensor(result_0);
-  habana_lazy::ir::Value& out_0 = hlresult_0.CurrentIrValue();
-  out_0.m_index = 0;
-  out_0.SetNode(node);
-  updateDstDependencies(hlresult_0, result_0);
+  return k.call();
+}
 
-  auto result_1 = at::native::empty_hpu_lazy(
-      {}, self.options(), self.suggest_memory_format(), false);
-  result_1.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
-  auto hlresult_1 = habana_lazy::GetHbLazyTensor(result_1);
-  habana_lazy::ir::Value& out_1 = hlresult_1.CurrentIrValue();
-  out_1.m_index = 0;
-  out_1.SetNode(node);
-  updateDstDependencies(hlresult_1, result_1);
-
-  return {result_0, result_1};
-};
 Tensor sum_dim_IntList_hpu_lazy(
     const Tensor& self,
     IntArrayRef dim,
@@ -2927,7 +3101,7 @@ Tensor sum_dim_IntList_hpu_lazy(
   out.SetNode(node);
   updateDstDependencies(hl_result, result);
   return result;
-};
+}
 
 Tensor& sum_IntList_out_hpu_lazy(
     Tensor& output,
@@ -4779,4 +4953,20 @@ at::Tensor max_hpu_lazy(const at::Tensor& self) {
   out.SetNode(node);
   updateDstDependencies(hl_result, result);
   return result;
+}
+Tensor masked_scale_hpu_lazy(
+    const Tensor& self,
+    const Tensor& mask,
+    double scale) {
+  PT_LAZY_TRACE;
+  // scale changed to support dropout backward based on what we pass for dropout
+  scale = scale / (scale - 1);
+
+  auto maskTmp = (self.dtype() != mask.dtype())
+      ? habana_helpers::hpu_cast_tensor(mask, self.dtype())
+      : mask;
+
+  auto masked = mul_tensor_hpu_lazy(self, maskTmp);
+  auto scaled = mul_scalar_hpu_lazy(masked, scale);
+  return scaled;
 }

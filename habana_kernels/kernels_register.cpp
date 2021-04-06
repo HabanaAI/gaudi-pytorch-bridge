@@ -1619,7 +1619,8 @@ Tensor& hpu_wrap::bernoulli_(
   } else {
     return bernoulli_scalar_hpu(self, p, gen);
   }
-};
+}
+
 std::tuple<Tensor, Tensor> hpu_wrap::_fused_dropout(
     const Tensor& self,
     double p,
@@ -1627,14 +1628,11 @@ std::tuple<Tensor, Tensor> hpu_wrap::_fused_dropout(
   hpu_check_inputs("_fused_dropout", {self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    // auto& t = fused_dropout_hpu_lazy(self, p, gen);
-    // return t;
     return fused_dropout_hpu_lazy(self, p, gen);
-    ;
   } else {
     return fused_dropout_hpu(self, p, gen);
   }
-};
+}
 
 Tensor hpu_wrap::sum(
     const Tensor& self,
@@ -2765,7 +2763,6 @@ Tensor hpu_wrap::ones_like(
     c10::optional<bool> pin_memory,
     c10::optional<c10::MemoryFormat> memory_format) {
   hpu_check_inputs("ones_like", {self});
-
   if (std::getenv("PT_HPU_LAZY_MODE")) {
     return ones_like_hpu_lazy(
         self, dtype, layout, device, pin_memory, memory_format);
@@ -2849,10 +2846,8 @@ Tensor hpu_wrap::_masked_scale(
     const Tensor& mask,
     double scale) {
   hpu_check_inputs("_masked_scale", {self, mask});
-
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    HABANA_ASSERT(0); // Not supported for Lazy mode
-    return masked_scale_hpu(self, mask, scale);
+    return masked_scale_hpu_lazy(self, mask, scale);
   } else {
     return masked_scale_hpu(self, mask, scale);
   }

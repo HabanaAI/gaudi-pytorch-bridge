@@ -1817,6 +1817,16 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_backward_hpu(
 }
 
 std::vector<int64_t> NormOperator::compute_output_shape(
+    const at::Tensor& self,
+    Scalar p) {
+  if (p.toFloat() == 2.0) {
+    return {1};
+  } else {
+    return {self.numel()};
+  }
+}
+
+std::vector<int64_t> NormOperator::compute_output_shape(
     const at::Tensor& self) {
   return {self.numel()};
 }

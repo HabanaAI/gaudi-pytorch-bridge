@@ -668,3 +668,7 @@ Tensor ones_like_hpu_lazy(
     c10::optional<at::Device> device,
     c10::optional<bool> pin_memory,
     c10::optional<c10::MemoryFormat> memory_format);
+Tensor masked_scale_hpu_lazy(
+    const Tensor& self,
+    const Tensor& mask,
+    double scale);

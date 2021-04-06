@@ -324,6 +324,9 @@ class NormOperator : public HabanaOperator {
 
   virtual void SetPTOutputs(torch::jit::Stack& inputs);
   static std::vector<int64_t> compute_output_shape(const at::Tensor& self);
+  static std::vector<int64_t> compute_output_shape(
+      const at::Tensor& self,
+      Scalar p);
 };
 
 // LpNorm Operator
