@@ -30,8 +30,8 @@ synConvolutionParams synapse_conv_params_builder(
     const IntArrayRef& weight, // HWCK
     const IntArrayRef& stride, // HW
     const IntArrayRef& padding, // HW
-    const IntArrayRef& dilation // HW
-) {
+    const IntArrayRef& dilation, // HW
+    int64_t groups) {
   const int64_t filter_H = weight[0];
   const int64_t filter_W = weight[1];
   const int64_t stride_H = stride[0];
@@ -50,6 +50,7 @@ synConvolutionParams synapse_conv_params_builder(
   syn_conv_params.setPadB(padding[0]);
   syn_conv_params.setPadL(padding[1]);
   syn_conv_params.setPadR(padding[1]);
+  syn_conv_params.nGroups = groups;
 
   return syn_conv_params;
 }
@@ -213,7 +214,8 @@ void SpatialConvOperator::AllocateAndAddSynapseNode(
       weight.sizes(),
       IntArrayRef(stride),
       IntArrayRef(padding),
-      IntArrayRef(dilation));
+      IntArrayRef(dilation),
+      groups);
 
   p_context_->params_.emplace<synConvolutionParams>(params);
   p_context_->params_size_ = sizeof(params);

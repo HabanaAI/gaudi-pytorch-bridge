@@ -72,14 +72,13 @@ void check_convolution_params(
     const at::IntArrayRef stride,
     const at::IntArrayRef padding,
     const at::IntArrayRef dilation,
-    UNUSED const bool transposed,
+    const bool transposed,
     const at::IntArrayRef output_padding,
     const int64_t groups,
     const int input_channel,
     const int weight_channel) {
   at::Tensor input = inputs[0];
   at::Tensor weight = inputs[1];
-  TORCH_CHECK(groups == 1, "convolution_hpu doesn't support groups");
   TORCH_CHECK(
       std::all_of(
           output_padding.cbegin(),
@@ -90,12 +89,20 @@ void check_convolution_params(
       weight.device().type() == c10::DeviceType::HABANA,
       "weight is not habana at::Tensor");
   TORCH_CHECK(weight.ndimension() == 4, "weight tensordimension count  != 4");
-  TORCH_CHECK(
-      weight.size(weight_channel) == input.size(input_channel),
-      "Number of input channels doesn't match weight channels",
-      weight.sizes().vec(),
-      " ",
-      input.sizes().vec());
+
+  if (transposed) {
+    TORCH_CHECK(groups == 1, "transpose convolution doesn't support groups");
+  } else {
+    TORCH_CHECK(
+        groups * weight.size(weight_channel) == input.size(input_channel),
+        "Number of input channels doesn't match weight channels times groups ",
+        weight.sizes().vec(),
+        " ",
+        input.sizes().vec(),
+        " groups = ",
+        groups);
+  }
+
   if (inputs.size() > 2) {
     at::Tensor bias = inputs[2];
     TORCH_CHECK(

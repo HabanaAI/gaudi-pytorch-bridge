@@ -30,15 +30,15 @@ extern synConvolutionParams synapse_conv_params_builder(
     const IntArrayRef& weight, // HWCK
     const IntArrayRef& stride, // HW
     const IntArrayRef& padding, // HW
-    const IntArrayRef& dilation // HW
-);
+    const IntArrayRef& dilation, // HW
+    int64_t groups);
 
 void ConvInputDifferentiationOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     bool is_output_persistent) {
   TORCH_CHECK(
-      inputs.size() == 9,
+      inputs.size() == 10,
       "Incorrect size of inputs expected for ConvInputDifferentiation operator");
   TORCH_CHECK(
       inputs[0].isTensor(),
@@ -67,6 +67,9 @@ void ConvInputDifferentiationOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(
       inputs[8].isTensor(),
       "Input arg9 expected to be tensor for ConvInputDifferentiation operator");
+  TORCH_CHECK(
+      inputs[9].isInt(),
+      "Input arg10 expected to be Int for ConvInputDifferentiation operator");
 
   auto grad_out_nhwc = inputs[0].toTensor();
   auto input_nhwc = inputs[1].toTensor();
@@ -77,12 +80,14 @@ void ConvInputDifferentiationOperator::AllocateAndAddSynapseNode(
   auto output_padding = inputs[6].toIntList();
   auto output_mask_in = inputs[7].toBoolList();
   auto grad_input_nhwc = inputs[8].toTensor();
+  auto groups = inputs[9].toInt();
 
   synConvolutionParams syn_params = synapse_conv_params_builder(
       weight_hwck.sizes(),
       IntArrayRef(stride),
       IntArrayRef(padding),
-      IntArrayRef(dilation));
+      IntArrayRef(dilation),
+      groups);
 
   p_context_->params_.emplace<synConvolutionParams>(syn_params);
   p_context_->params_size_ = sizeof(syn_params);
@@ -96,7 +101,7 @@ void ConvWeightDifferentiationOperator::AllocateAndAddSynapseNode(
     torch::jit::Stack& inputs,
     bool is_output_persistent) {
   TORCH_CHECK(
-      inputs.size() == 9,
+      inputs.size() == 10,
       "Incorrect size of inputs expected for ConvWeightDifferentiation operator");
   TORCH_CHECK(
       inputs[0].isTensor(),
@@ -125,6 +130,9 @@ void ConvWeightDifferentiationOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(
       inputs[8].isTensor(),
       "Input arg9 expected to be tensor for ConvInputDifferentiation operator");
+  TORCH_CHECK(
+      inputs[9].isInt(),
+      "Input arg10 expected to be Int for ConvInputDifferentiation operator");
 
   auto grad_out_nhwc = inputs[0].toTensor();
   auto input_nhwc = inputs[1].toTensor();
@@ -135,12 +143,14 @@ void ConvWeightDifferentiationOperator::AllocateAndAddSynapseNode(
   auto output_padding = inputs[6].toIntList();
   auto output_mask_in = inputs[7].toBoolList();
   auto grad_weight = inputs[8].toTensor();
+  auto groups = inputs[9].toInt();
 
   synConvolutionParams syn_params = synapse_conv_params_builder(
       grad_weight.sizes(),
       IntArrayRef(stride),
       IntArrayRef(padding),
-      IntArrayRef(dilation));
+      IntArrayRef(dilation),
+      groups);
 
   p_context_->params_.emplace<synConvolutionParams>(syn_params);
   p_context_->params_size_ = sizeof(syn_params);
@@ -342,7 +352,8 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
           IValue(dilation),
           IValue(output_padding),
           IValue(output_mask_in),
-          IValue(grad_weight)};
+          IValue(grad_weight),
+          IValue(groups)};
       ConvWeightDiffOp.AllocateAndAddSynapseNode(
           graph, stack, is_output_persistent[1]);
 
@@ -388,7 +399,8 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
           IValue(dilation),
           IValue(output_padding),
           IValue(output_mask_in),
-          IValue(grad_weight)};
+          IValue(grad_weight),
+          IValue(groups)};
       ConvWeightDiffOp.AllocateAndAddSynapseNode(
           graph, stack, is_output_persistent[1]);
 
@@ -417,7 +429,8 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
           IValue(dilation),
           IValue(output_padding),
           IValue(output_mask_in),
-          IValue(grad_input_nhwc)};
+          IValue(grad_input_nhwc),
+          IValue(groups)};
       ConvInputDiffOp.AllocateAndAddSynapseNode(
           graph, stack, is_output_persistent[0]);
 
