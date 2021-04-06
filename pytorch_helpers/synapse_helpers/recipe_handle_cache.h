@@ -32,10 +32,21 @@ class recipe_handle_cache {
   void remove_recipe(const size_t key);
   bool isCached(size_t key);
 
+  size_t getCount();
+  void increaseHitCount(const size_t key);
+  int getActiveRecipeCount();
+  int getHitCount(const size_t key);
+  void clearHitCount();
+  void printHitCount();
+
  private:
   std::mutex mutex_;
   device& device_;
   absl::flat_hash_map<size_t, std::shared_ptr<recipe>> cache_map_;
+
+  bool enable_hit_count_{false};
+  std::unordered_map<size_t, int> hit_counter_;
+  void increaseHitCount_(const size_t key);
 };
 
 } // namespace synapse_helpers

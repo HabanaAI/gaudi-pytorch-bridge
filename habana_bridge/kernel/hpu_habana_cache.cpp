@@ -395,18 +395,6 @@ void RecipeCacheLRU::add(
   map_.emplace(key, list_.begin());
 
   RecipeValueSpec::total_recipe_ntbytes += val->ntensorbytes;
-
-  PT_BRIDGE_DEBUG(
-      "  adding new recipe, key ",
-      key->hashCode(),
-      ", ntensorbytes ",
-      val->ntensorbytes);
-
-  PT_BRIDGE_DEBUG(
-      "  after adding new recipe, nrecipes ",
-      RecipeValueSpec::recipe_count,
-      " total_recipe_ntbytes ",
-      RecipeValueSpec::total_recipe_ntbytes);
 }
 
 std::shared_ptr<RecipeValueSpec> RecipeCacheLRU::get(
@@ -465,8 +453,8 @@ bool RecipeCacheLRU::drop_lru_impl(size_t& recipe_count, bool mem_exhausted) {
       PT_BRIDGE_DEBUG(
           "recipe is in use, key ",
           lit->first->hashCode(),
-          ", ntensorbytes ",
-          lit->second->ntensorbytes);
+          ", size ",
+          synapse_helpers::get_mem_str(lit->second->ntensorbytes));
       lit--;
     }
 
@@ -477,31 +465,31 @@ bool RecipeCacheLRU::drop_lru_impl(size_t& recipe_count, bool mem_exhausted) {
         PT_BRIDGE_DEBUG(
             "memory exhausted : removing recipe, key ",
             lit->first->hashCode(),
-            ", ntensorbytes ",
-            lit->second->ntensorbytes);
+            ", size ",
+            synapse_helpers::get_mem_str(lit->second->ntensorbytes));
       } else {
         PT_BRIDGE_DEBUG(
             "lru max size ",
             max_size_,
             " reached : removing recipe, key ",
             lit->first->hashCode(),
-            ", ntensorbytes ",
-            lit->second->ntensorbytes);
+            ", size ",
+            synapse_helpers::get_mem_str(lit->second->ntensorbytes));
       }
 
       RecipeValueSpec::recipe_count--;
       RecipeValueSpec::total_recipe_ntbytes -= lit->second->ntensorbytes;
 
-      // Drop the entry from list_ and map_
+      // Drop the entry from map_ and list_
       map_.erase(lit->first);
-      list_.pop_back();
+      list_.erase(lit);
       dropped = true;
 
       PT_BRIDGE_DEBUG(
-          "after dropping lru recipe, nrecipes ",
+          "after dropping lru recipe, #recipes ",
           RecipeValueSpec::recipe_count,
-          " total_recipe_ntbytes ",
-          RecipeValueSpec::total_recipe_ntbytes);
+          ", total size of graph recipes ",
+          synapse_helpers::get_mem_str(RecipeValueSpec::total_recipe_ntbytes));
     } else {
       use_count++;
       PT_BRIDGE_DEBUG(

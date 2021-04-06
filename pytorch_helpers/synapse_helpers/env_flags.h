@@ -101,6 +101,10 @@ struct PT_HABANA_MEM_LOG_LEVEL : public std::numeric_limits<unsigned> {
   static constexpr unsigned default_value = 0;
 };
 
+struct PT_HABANA_MAX_RECIPE_HIT_COUNT : public std::numeric_limits<unsigned> {
+  static constexpr unsigned default_value = 0;
+};
+
 struct PT_HABANA_MEM_LOG_FILENAME {
   static constexpr const char* default_value = "habana_log.livealloc.log";
 };

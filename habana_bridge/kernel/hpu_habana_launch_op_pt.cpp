@@ -40,6 +40,7 @@
 #include "habana_kernels/random_gen_kernels.h"
 #include "habana_kernels/unary_kernels.h"
 #include "habana_lazy/hlexec.h"
+#include "synapse_helpers/env_flags.h"
 
 using namespace torch::jit;
 
@@ -967,7 +968,7 @@ void HabanaLaunchOpPT::processInputs(
           TORCH_CHECK(
               in_layout == habana::LayoutFormat::HWCK ||
                   in_layout == habana::LayoutFormat::ANY,
-              "HabanaFusedOp, got contradicting layout info from meta data and opt pass");
+              "HabanaOp, got contradicting layout info from meta data and opt pass");
           in_layout = habana::LayoutFormat::HWCK;
         }
       }
@@ -1974,6 +1975,38 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
       default:
         TORCH_CHECK(false, "should not be reachable");
     }
+    device.get_recipe_handle_cache().increaseHitCount(rv.key);
+
+    PT_BRIDGE_DEBUG(
+        "HabanaOp recipe cache :: adding new recipe",
+        "\n key ",
+        rv.key,
+        "\n num_inputs ",
+        rv.num_inputs,
+        "\n num_induplicates ",
+        rv.num_induplicates,
+        "\n num_dma_inputs ",
+        rv.num_dma_inputs,
+        "\n num_interims ",
+        rv.num_interims,
+        "\n num_outputs ",
+        rv.num_outputs,
+        "\n num_outduplicates ",
+        rv.num_outduplicates,
+        "\n num_input_to_outduplicates ",
+        rv.num_input_to_outduplicates,
+        "\n num_interim_to_outduplicates ",
+        rv.num_interim_to_outduplicates,
+        "\n #hits ",
+        device.get_recipe_handle_cache().getHitCount(rv.key),
+        "\n #graph_recipes ",
+        RecipeValueSpec::recipe_count,
+        "\n #eager_recipes ",
+        device.get_recipe_handle_cache().getCount(),
+        "\n size ",
+        synapse_helpers::get_mem_str(rv.ntensorbytes),
+        "\n total size of graph recipes ",
+        synapse_helpers::get_mem_str(RecipeValueSpec::total_recipe_ntbytes));
   }
 
   UpdateOutputs(rv);
@@ -2131,6 +2164,7 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
   input_refs = last(stack, num_inputs);
   ref_count_++;
   iteration_count_++;
+  auto& device = synapse_helpers::HPURegistrar::get_device();
 
   // Keep a handle to the stack for future use
   pt_stack = &stack;
@@ -2171,32 +2205,49 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
     std::shared_ptr<RecipeValueSpec> rvpsh = GetCachedRecipe(spec_key);
     if (ABSL_PREDICT_TRUE(rvpsh)) {
       RecipeValueSpec& rv = *rvpsh;
-      std::shared_ptr<std::vector<IValPtrShared>> dma_inputs =
-          std::make_shared<std::vector<IValPtrShared>>(
-              std::vector<IValPtrShared>());
+      device.get_recipe_handle_cache().increaseHitCount(rv.key);
+      auto rv_hit_count = device.get_recipe_handle_cache().getHitCount(rv.key);
 
       PT_BRIDGE_DEBUG(
-          "PGM cache hit, key:",
-          spec_key->hashCode(),
-          ", ntensorbytes ",
-          rv.ntensorbytes,
-          ", total_recipe_ntbytes ",
-          RecipeValueSpec::total_recipe_ntbytes,
-          ", #recipes ",
-          RecipeValueSpec::recipe_count);
+          "HabanaOp recipe cache hit ::",
+          "\n key ",
+          rv.key,
+          "\n num_inputs ",
+          rv.num_inputs,
+          "\n num_induplicates ",
+          rv.num_induplicates,
+          "\n num_dma_inputs ",
+          rv.num_dma_inputs,
+          "\n num_interims ",
+          rv.num_interims,
+          "\n num_outputs ",
+          rv.num_outputs,
+          "\n num_outduplicates ",
+          rv.num_outduplicates,
+          "\n num_input_to_outduplicates ",
+          rv.num_input_to_outduplicates,
+          "\n num_interim_to_outduplicates ",
+          rv.num_interim_to_outduplicates,
+          "\n #hits ",
+          rv_hit_count,
+          "\n #graph_recipes ",
+          RecipeValueSpec::recipe_count,
+          "\n #eager_recipes ",
+          device.get_recipe_handle_cache().getCount(),
+          "\n size ",
+          synapse_helpers::get_mem_str(rv.ntensorbytes),
+          "\n total size of graph recipes ",
+          synapse_helpers::get_mem_str(RecipeValueSpec::total_recipe_ntbytes));
 
-      PT_BRIDGE_DEBUG("Cache hit: num_inputs ", rv.num_inputs);
-      PT_BRIDGE_DEBUG("Cache hit: num_induplicates ", rv.num_induplicates);
-      PT_BRIDGE_DEBUG("Cache hit: num_dma_inputs ", rv.num_dma_inputs);
-      PT_BRIDGE_DEBUG("Cache hit: num_interims ", rv.num_interims);
-      PT_BRIDGE_DEBUG("Cache hit: num_outputs ", rv.num_outputs);
-      PT_BRIDGE_DEBUG("Cache hit: num_outduplicates ", rv.num_outduplicates);
-      PT_BRIDGE_DEBUG(
-          "Cache hit: num_input_to_outduplicates ",
-          rv.num_input_to_outduplicates);
-      PT_BRIDGE_DEBUG(
-          "Cache hit: num_interim_to_outduplicates ",
-          rv.num_interim_to_outduplicates);
+      auto max_hit_count = GET_ENV_FLAG(PT_HABANA_MAX_RECIPE_HIT_COUNT);
+      if (max_hit_count && rv_hit_count >= int(max_hit_count)) {
+        device.get_recipe_handle_cache().printHitCount();
+        PT_BRIDGE_DEBUG(
+            "Max hit count ",
+            max_hit_count,
+            " reached. Resetting the hit counter.");
+        device.get_recipe_handle_cache().clearHitCount();
+      }
 
       // Patch the input buffers
       // Running index on rv.dtensorinfos
@@ -2234,14 +2285,18 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
           rv.dtensorinfos->at(ridx).set_buffer(
               rv.dtensorinfos->at(parent_idx).get_buffer());
           PT_BRIDGE_DEBUG(
-              "Cache hit: Input duplicate: parent idx ",
+              "HabanaOp recipe cache hit :: Input duplicate : parent idx ",
               parent_idx,
-              " parent buffer ptr ",
+              ", parent buffer ptr ",
               rv.dtensorinfos->at(parent_idx).get_buffer());
         }
       }
 
       // Patch the dma inputs if there are any
+      std::shared_ptr<std::vector<IValPtrShared>> dma_inputs =
+          std::make_shared<std::vector<IValPtrShared>>(
+              std::vector<IValPtrShared>());
+
       if (rv.num_dma_inputs) {
         size_t dma_inputs_index_end =
             rv.num_inputs + rv.num_induplicates + rv.num_dma_inputs;
@@ -2254,7 +2309,7 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
               dma_tensor_idx < rv.aten_intermediates.size(),
               "out of range dma_tensor_idx ",
               dma_tensor_idx,
-              " #aten_intermediates ",
+              ", #aten_intermediates ",
               rv.aten_intermediates.size());
           auto dma_tensor = rv.aten_intermediates[dma_tensor_idx];
 
@@ -2265,7 +2320,7 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
           dma_inputs->push_back(dma_ivpsh);
 
           PT_BRIDGE_DEBUG(
-              "Cache hit: DMA Input: buffer ptr ",
+              "HabanaOp recipe cache hit :: DMA input : buffer ptr ",
               rv.dtensorinfos->at(ridx).get_buffer());
         }
       }
@@ -2288,7 +2343,7 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
             IValPtrShared ivpsh = std::make_shared<IVal>(rv_interim_tensor);
             interimIVpshMap.emplace(ridx, ivpsh);
             PT_BRIDGE_DEBUG(
-                "Cache hit: Interims: buffer ptr ",
+                "HabanaOp recipe cache hit :: Interims : buffer ptr ",
                 rv_interim_tensor.data_ptr());
           } else {
             TORCH_CHECK(
@@ -2324,7 +2379,8 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
             at::IntArrayRef tshape{ti.get_shape()};
             auto pt_output = at::empty(tshape, ti.get_topts(), ti.get_mf());
             PT_BRIDGE_DEBUG(
-                "PGM cache hit, creating new output : ", pt_output.sizes());
+                "HabanaOp recipe cache hit :: Creating new output with shape : ",
+                pt_output.sizes());
             IValPtrShared ivpsh = std::make_shared<IVal>(pt_output);
             rv.aten_outputs->at(output_idx) = ivpsh;
 
@@ -2453,7 +2509,8 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
       PT_BRIDGE_END;
       return;
     } else {
-      PT_BRIDGE_DEBUG("PGM cache miss, key : ", spec_key->hashCode());
+      PT_BRIDGE_DEBUG(
+          "HabanaOp recipe cache miss :: key ", spec_key->hashCode());
     }
   }
   // caching :: end
