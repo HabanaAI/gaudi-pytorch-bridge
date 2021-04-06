@@ -4414,8 +4414,9 @@ Tensor clamp_hpu_lazy(
     const Tensor& self,
     c10::optional<Scalar> min,
     c10::optional<Scalar> max) {
-  HABANA_ASSERT(0);
-  return clamp_hpu(self, min, max);
+  PT_LAZY_TRACE;
+  LazyOp<at::Tensor> k{"aten::clamp", {self, min, max}, {1, 2}};
+  return k.call();
 };
 Tensor abs_hpu_lazy(const Tensor& input) {
   HABANA_ASSERT(0);
