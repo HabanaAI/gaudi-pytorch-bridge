@@ -1258,17 +1258,15 @@ void HabanaLaunchOpPT::handleRestrideNode(torch::jit::Node* node) {
   auto tensor = value_to_ivalue[value_in]->toTensor();
   auto sizes = tensor.sizes().vec();
   auto new_pos = toIValue(node->input(1))->toIntVector();
-  std::vector<int64_t> swapped_sizes = {
-      sizes[new_pos[0]],
-      sizes[new_pos[1]],
-      sizes[new_pos[2]],
-      sizes[new_pos[3]]};
+  std::vector<int64_t> swapped_sizes;
+  for (auto& pos : new_pos) {
+    swapped_sizes.emplace_back(sizes[pos]);
+  }
   auto strides = tensor.strides().vec();
-  std::vector<long int> swapped_strides = {
-      strides[new_pos[0]],
-      strides[new_pos[1]],
-      strides[new_pos[2]],
-      strides[new_pos[3]]};
+  std::vector<long int> swapped_strides;
+  for (auto& pos : new_pos) {
+    swapped_strides.emplace_back(strides[pos]);
+  }
   tensor.unsafeGetTensorImpl()->set_sizes_and_strides(
       swapped_sizes, swapped_strides);
   auto ivptrsh_updated = std::make_shared<IVal>(tensor);

@@ -531,9 +531,16 @@ void InsertPermute_graph(
     if (value_out->type()->kind() == c10::TypeKind::TensorType) {
       if (prev_layout == habana::LayoutFormat::NHWC) {
         if (cur_layout == habana::LayoutFormat::NHWC) {
-          at::IntArrayRef dims = {0, 3, 1, 2};
-          anchor_restride_nodes_[node_return].push_back(
-              std::make_pair(ret_idx, dims));
+          std::string node_str = value_out->node()->kind().toQualString();
+          if (node_str == "aten::select") {
+            at::IntArrayRef dims = {2, 0, 1};
+            anchor_restride_nodes_[node_return].push_back(
+                std::make_pair(ret_idx, dims));
+          } else {
+            at::IntArrayRef dims = {0, 3, 1, 2};
+            anchor_restride_nodes_[node_return].push_back(
+                std::make_pair(ret_idx, dims));
+          }
         }
       } else {
         if (prev_layout != cur_layout) {
