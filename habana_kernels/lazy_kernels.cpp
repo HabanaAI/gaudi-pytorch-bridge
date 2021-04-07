@@ -958,6 +958,7 @@ Tensor& mul_out_hpu_lazy(Tensor& out, const Tensor& self, const Tensor& other) {
   return out;
 #else
   LazyOp<at::Tensor&> k("hpu::mul_out", {out, self, other});
+  k.do_dma_non_first_cpu_tensor(); // find a better way to do this
   return k.call(out);
 #endif
 }
@@ -995,7 +996,11 @@ Tensor div_tensor_hpu_lazy(const Tensor& self, const Tensor& other) {
 
   return result;
 #else
-  LazyOp<at::Tensor> k{"aten::div", {self, other}};
+  LazyOp<at::Tensor> k{
+      "aten::div",
+      {self, other},
+      {},
+      {BinaryOperator::compute_output_shape(self, other)}};
   return k.call();
 #endif
 }

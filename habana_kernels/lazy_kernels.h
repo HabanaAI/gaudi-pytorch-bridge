@@ -104,17 +104,19 @@ class LazyOp {
   typename std::enable_if<std::is_same<T, at::Tensor&>::value, T>::type call(
       at::Tensor& self) {
     const auto& node = create_node();
-    auto& result = self;
-    auto hl_result = GetHbLazyTensor(result);
-    ir::Value& out = GetHbLazyTensor(result).CurrentIrValue();
+    auto hl_self = GetHbLazyTensor(self);
+    updateDstDependencies(hl_self, self, true);
+    ir::Value& out = hl_self.CurrentIrValue();
     out.SetNode(node);
-    updateDstDependencies(hl_result, result, true);
 
     auto context = habana_lazy_executor.getDeviceExecutionContext();
-    auto hl_self = GetOrCreateHbLazyTensor(self);
     context->MarkTensorStatus(
         hl_self.getTensorUniqueId(), LazyTensorExecutionStatus::kREGISTERED);
-    return result;
+    return self;
+  }
+
+  void do_dma_non_first_cpu_tensor() {
+    m_dma_non_first_cpu_tensor = true;
   }
 
  private:
@@ -177,17 +179,22 @@ class LazyOp {
         const auto& t = input.toTensor();
         if (t.defined()) {
           if (i != 0 && t.device().type() == c10::DeviceType::CPU) {
-            // Non first arg can be a 0-dim CPU tensor
-            // DMA such tensor to device and add as node
-            // input
-            auto t1 = t.to(c10::kHABANA);
-            auto val = GetOrCreateHbLazyTensor(t1).GetIrValue();
-            input_pt_vec.emplace_back(t1);
-            values.emplace_back(val);
+            // Non first arg can be a non habana tensor.
+            // Convert to scalar/DMA such tensor to device and add as node
+            // input.
+            if (m_dma_non_first_cpu_tensor) {
+              auto tinput = t.to(c10::kHABANA);
+              auto val = GetOrCreateHbLazyTensor(tinput).GetIrValue();
+              values.emplace_back(val);
+              input_pt_vec.emplace_back(tinput);
+            } else {
+              auto val = GetIrValueForScalar(t.item());
+              values.emplace_back(val);
+            }
           } else {
             auto val = GetOrCreateHbLazyTensor(t).GetIrValue();
-            input_pt_vec.emplace_back(t);
             values.emplace_back(val);
+            input_pt_vec.emplace_back(t);
           }
         } else {
           metadata.set(torch::jit::IValue(), i);
@@ -238,6 +245,7 @@ class LazyOp {
   }
 
  private:
+  bool m_dma_non_first_cpu_tensor = false;
   ir::NodePtr m_node = nullptr;
   const at::Symbol m_symbol;
   const std::set<size_t> m_metadata_indices;
