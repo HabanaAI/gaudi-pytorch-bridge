@@ -102,7 +102,8 @@ class HabanaLaunchOpPT {
   std::vector<absl::variant<PtTensorInfo, std::vector<PtTensorInfo>>>
       duplicate_tivs;
   // tiv : absl::variant<TensorInfo, std::vector<TensorInfo>> objects
-  std::unordered_map<void*, IValPtrShared> buff_to_inivpsh_map;
+  std::unordered_map<void*, IValPtrShared> buff_to_input_ivpsh_map;
+  std::unordered_map<void*, IValPtrShared> buff_to_interim_ivpsh_map;
 
   size_t dma_input_idx{0};
   size_t interim_idx{0};
@@ -143,7 +144,8 @@ class HabanaLaunchOpPT {
 
   PGMCachingPolicy caching_policy{PGMCachingPolicy::lru};
   IValPtrSharedToTesorInfoMap output_tensorinfo_map;
-  IValPtrSharedToTesorInfoMap duplicate_in_to_outtinfo_map;
+  IValPtrSharedToTesorInfoMap duplicate_input_to_outtinfo_map;
+  IValPtrSharedToTesorInfoMap duplicate_interim_to_outtinfo_map;
 
   // caching :: end
 

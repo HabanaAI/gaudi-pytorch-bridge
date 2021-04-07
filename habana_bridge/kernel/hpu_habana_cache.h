@@ -109,7 +109,7 @@ struct RecipeValueSpec {
   void SelfCheck() {
     TORCH_CHECK(recipe != nullptr)
     TORCH_CHECK(dtensorinfos != nullptr);
-    TORCH_CHECK(dtensorinfos->size() == num_tensors);
+    TORCH_CHECK(dtensorinfos->size() == num_tinfos);
     TORCH_CHECK(!aten_outputs->empty());
   }
 
@@ -147,7 +147,7 @@ struct RecipeValueSpec {
 
   size_t id{0};
   size_t iter_idx{0};
-  size_t num_tensors{0};
+  size_t num_tinfos{0};
 
   size_t num_inputs{0};
   size_t num_induplicates{0};
@@ -155,7 +155,8 @@ struct RecipeValueSpec {
   size_t num_interims{0};
   size_t num_outputs{0};
   size_t num_outduplicates{0};
-  size_t num_in_to_outduplicates{0};
+  size_t num_input_to_outduplicates{0};
+  size_t num_interim_to_outduplicates{0};
 
   size_t ntensorbytes{0};
 

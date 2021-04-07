@@ -96,11 +96,15 @@ std::ostream& operator<<(std::ostream& O, const RecipeValueSpec& v) {
     << synapse_helpers::get_mem_str(v.launch_info->workspace_buffer_size_)
     << '\n';
 
-  O << " num_inputs       : " << v.num_inputs << '\n'
-    << " num_induplicates : " << v.num_induplicates << '\n'
-    << " num_dma_inputs   : " << v.num_dma_inputs << '\n'
-    << " num_interims     : " << v.num_interims << '\n'
-    << " num_outputs      : " << v.num_outputs << '\n';
+  O << " #inputs                   : " << v.num_inputs << '\n'
+    << " #induplicates             : " << v.num_induplicates << '\n'
+    << " #dma_inputs               : " << v.num_dma_inputs << '\n'
+    << " #interims                 : " << v.num_interims << '\n'
+    << " #outputs                  : " << v.num_outputs << '\n'
+    << " #outduplicates            : " << v.num_outduplicates << '\n'
+    << " #input_to_outduplicates   : " << v.num_input_to_outduplicates << '\n'
+    << " #interim_to_outduplicates : " << v.num_interim_to_outduplicates
+    << '\n';
 
   if (v.aten_intermediates.size()) {
     O << "aten_intermediates #" << v.aten_intermediates.size() << " ::";
@@ -170,7 +174,7 @@ void RecipeValueSpec::print_hbuff(
 }
 
 void RecipeValueSpec::d2h_dbuff(size_t buf_idx) {
-  TORCH_CHECK(num_tensors > buf_idx, "buf_idx is out of range");
+  TORCH_CHECK(num_tinfos > buf_idx, "buf_idx is out of range");
 
   unsigned buf_size = dtensorinfos->at(buf_idx).get_size();
   if (buf_size > htensor_wbuff_size) {
@@ -238,7 +242,9 @@ void RecipeValueSpec::launch(
     }
     // wait for input DMA to complete before launching the compute.
     device.add_wait_events_on_stream(inDevPtr, stream_handle);
-    outDevPtr.reserve(num_outputs + num_in_to_outduplicates);
+    outDevPtr.reserve(
+        num_outputs + num_input_to_outduplicates +
+        num_interim_to_outduplicates);
     for (auto& output : *aten_outputs) {
       if (output && output->isTensor()) {
         outDevPtr.push_back(reinterpret_cast<synapse_helpers::device_ptr>(
@@ -250,7 +256,7 @@ void RecipeValueSpec::launch(
   std::vector<synLaunchTensorInfo> syn_launch_info;
 
   // Populate the <name,buffer> pairs from PtTensorInfo for synLaunch
-  for (size_t i = 0; i < num_tensors; ++i) {
+  for (size_t i = 0; i < num_tinfos; ++i) {
     if (dtensorinfos->at(i).is_tensor()) {
       syn_launch_info.emplace_back(synLaunchTensorInfo{
           dtensorinfos->at(i).get_syn_namec_str(),
