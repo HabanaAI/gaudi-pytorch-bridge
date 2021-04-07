@@ -282,3 +282,16 @@ TEST_F(LazyBinaryKernelTest, MulScalarTest) {
 
   EXPECT_EQ(allclose(generated, expected), true);
 }
+
+TEST_F(LazyBinaryKernelTest, AddSame) {
+  auto b = torch::randn({2, 3, 4});
+  auto a = torch::relu(b);
+  auto c = torch::add(a, a, 1);
+  auto out = torch::relu(c);
+
+  auto hb = b.to("habana");
+  auto ha = torch::relu(hb);
+  auto hout = torch::add(ha, ha, 1);
+  auto hc = torch::relu(hout);
+  EXPECT_TRUE(allclose(out, hc.to("cpu")));
+}

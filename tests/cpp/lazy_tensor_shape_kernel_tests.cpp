@@ -68,6 +68,21 @@ TEST_F(LazyTensorShapeKernelTest, CatExecTest3) {
   EXPECT_EQ(allclose(result, exp), true);
 }
 
+TEST_F(LazyTensorShapeKernelTest, CatExecTest4) {
+  torch::Tensor A = torch::randn({10, 2}, torch::requires_grad(false));
+
+  auto B = torch::relu(A);
+  auto C = torch::cat({B, B});
+  auto exp = torch::relu(C);
+
+  torch::Tensor hA = A.to(torch::kHABANA);
+  auto hB = torch::relu(hA);
+  auto hC = torch::cat({hB, hB});
+  auto out = torch::relu(hC);
+  auto result = out.to(torch::kCPU);
+  EXPECT_EQ(allclose(result, exp), true);
+}
+
 TEST_F(LazyTensorShapeKernelTest, PermuteTest) {
   torch::Tensor A = torch::randn({2, 3}, torch::requires_grad(false));
   torch::Tensor hA = A.to(torch::kHABANA);
