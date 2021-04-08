@@ -191,7 +191,14 @@ Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
   auto hlresult = habana_lazy::GetOrCreateHbLazyTensor(self, src.device());
   bool permuted = false;
   bool storage_attached = hlresult.isStorageAttached();
-  if (src.dtype() == self.dtype()) {
+  /* We can't create a long/double target in the device. Even a cast will not
+    work as these data types are not available within the device. The only way
+    to make progress is to just do a normal D2D so that the target will also be
+    the same as source, and when we want to pull this out to CPU, the D2H will
+    handle the type conversion*/
+  if ((self.scalar_type() == c10::ScalarType::Long) ||
+      (self.scalar_type() == c10::ScalarType::Double) ||
+      (src.dtype() == self.dtype())) {
     // If both src and dst are already processed ,  go and do the DMA dont wait
     // Else , If we already have storage in dst, add memcopy node to lazy
     // graph and we want to copy to existing tensor and not a new one
@@ -269,6 +276,8 @@ Tensor& copy_hpu_lazy_D2H(Tensor& self, const Tensor& src, bool non_blocking) {
       // It rebinds the self reference to the new tensor
       // We need to check the memory deletion of the original tensor created
       // by PT
+      PT_LAZY_DEBUG(
+          "WARNING: We are hitting a case in H2D where the PyTorch tensor original data types mismatch.");
       self = self.to(src.dtype());
       self = copy_hpu_(self, tensor_data.value(), non_blocking);
       self = self.to(type);
@@ -3260,13 +3269,13 @@ Tensor empty_hpu_lazy(
   c10::optional<MemoryFormat> mem_format = optional_memory_format.has_value()
       ? optional_memory_format
       : options.memory_format_opt();
-  auto dtype = options.dtype();
-  auto type = typeMetaToScalarType(dtype);
+  auto original_dtype = options.dtype();
+  auto type = typeMetaToScalarType(original_dtype);
   // Dont allocate 8 bytes for double/long as we are anyway going to cast at
   // CPU and then copy to device @ 4byts per element
   type = type == c10::ScalarType::Long ? c10::ScalarType::Int : type;
   type = type == c10::ScalarType::Double ? c10::ScalarType::Float : type;
-  dtype = scalarTypeToTypeMeta(type);
+  auto new_dtype = scalarTypeToTypeMeta(type);
 
   if (create_storage) {
     c10 ::Allocator* allocator;
@@ -3276,7 +3285,7 @@ Tensor empty_hpu_lazy(
       allocator = habana::getHABANADeviceAllocator();
     }
     int64_t nelements = prod_intlist(size);
-    int elem_size = dtype.itemsize();
+    int elem_size = new_dtype.itemsize();
     auto storage_impl = c10::make_intrusive<StorageImpl>(
         c10::StorageImpl::use_byte_size_t(),
         nelements,
@@ -3284,7 +3293,7 @@ Tensor empty_hpu_lazy(
         allocator,
         /*resizeable=*/true);
     Tensor at_internal_tensor =
-        habana_lazy::AtenInternalHbTensor(std::move(storage_impl), dtype);
+        habana_lazy::AtenInternalHbTensor(std::move(storage_impl), new_dtype);
     // Setup the tensor sizes & strides for tensor with dim = 4, else for now
     // assuming contiguous
     if ((4 == size.size()) && mem_format.has_value()) {
@@ -3308,7 +3317,10 @@ Tensor empty_hpu_lazy(
     if (!is_in_lowering_mode) {
       habana_lazy::HbLazyTensor hb_tensor =
           habana_lazy::HbLazyTensor::CreateHbLazyTensor(
-              size, 0, options.device(), c10::typeMetaToScalarType(dtype));
+              size,
+              0,
+              options.device(),
+              c10::typeMetaToScalarType(original_dtype));
       at_tensor = habana_lazy::AtenFromHbLazyTensor(hb_tensor);
 
       // The lazy tensor will have a reference to the internal tensor
@@ -3349,7 +3361,10 @@ Tensor empty_hpu_lazy(
   } else {
     habana_lazy::HbLazyTensor hb_tensor =
         habana_lazy::HbLazyTensor::CreateHbLazyTensor(
-            size, 0, options.device(), c10::typeMetaToScalarType(dtype));
+            size,
+            0,
+            options.device(),
+            c10::typeMetaToScalarType(original_dtype));
     Tensor at_tensor = habana_lazy::AtenFromHbLazyTensor(hb_tensor);
     // Setup the tensor sizes & strides for tensor with dim = 4, else for now
     // assuming contiguous

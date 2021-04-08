@@ -153,8 +153,25 @@ Tensor& copy_hpu_(Tensor& self, const Tensor& src, bool non_blocking) {
             dst.suggest_memory_format());
         habana_helpers::copy_data_to_host(src, dst_tmp, non_blocking);
         dst = dst_tmp.to(c10::ScalarType::Long);
+      } else if (
+          (src.scalar_type() == c10::ScalarType::Float) &&
+          (dst.scalar_type() == c10::ScalarType::Double)) {
+        // Handle Float to Double D2H
+        Tensor dst_tmp = at::empty(
+            dst.sizes(),
+            at::CPU(at::kFloat).options(),
+            dst.suggest_memory_format());
+        habana_helpers::copy_data_to_host(src, dst_tmp, non_blocking);
+        dst = dst_tmp.to(c10::ScalarType::Double);
+
       } else {
         HABANA_ASSERT(dst.nbytes() != src.nbytes());
+        PT_KERNEL_WARN(
+            "copy_hpu_ doesn't support ",
+            src.scalar_type(),
+            " to ",
+            dst.scalar_type(),
+            "copy");
       }
     } else {
       habana_helpers::copy_data_to_host(src, dst, non_blocking);

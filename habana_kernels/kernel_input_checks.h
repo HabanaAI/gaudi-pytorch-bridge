@@ -821,6 +821,7 @@ static std::unordered_map<std::string, std::vector<std::set<at::ScalarType>>>
                 at::ScalarType::Float,
                 at::ScalarType::BFloat16,
                 at::ScalarType::Int,
+                at::ScalarType::Long,
             }},
         },
         {
