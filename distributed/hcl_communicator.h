@@ -209,7 +209,7 @@ class hcl_communicator {
       synDataType data_type,
       device_ptr intermediate_address,
       size_t intermediate_size,
-      bool same_address)>;
+      uint32_t flags)>;
   synapse_error_o execute_collective_with_fusion_buffer(
       const hcl_collective_fnc& collective,
       const HCL_CollectiveOp operation,
