@@ -772,6 +772,7 @@ Tensor sub_tensor_hpu_lazy(
       {BinaryOperator::compute_output_shape(self, other)}};
   return k.call();
 }
+
 Tensor& sub_tensor_hpu_lazy_(Tensor& self, const Tensor& other, Scalar alpha) {
   PT_LAZY_TRACE;
   auto hl_alpha = habana_lazy::GetIrValueForScalar(alpha);
@@ -830,6 +831,7 @@ Tensor& sub_tensor_hpu_lazy_(Tensor& self, const Tensor& other, Scalar alpha) {
 
   return self;
 }
+
 Tensor sub_scalar_hpu_lazy(const Tensor& self, Scalar other, Scalar alpha) {
   auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
   auto hl_other = habana_lazy::GetIrValueForScalar(other);
@@ -1257,6 +1259,7 @@ Tensor minimum_hpu_lazy(const Tensor& self, const Tensor& other) {
   return result;
 }
 Tensor gt_tensor_hpu_lazy(const Tensor& self, const Tensor& other) {
+  PT_LAZY_TRACE;
   LazyCompareOp<at::Tensor> k{
       "aten::gt",
       {self, other},
@@ -2197,6 +2200,7 @@ Tensor& arange_hpu_lazy(Tensor& output, Scalar start, Scalar end, Scalar step) {
   node->AddInputPtTensors(input_pt_vec);
   return output;
 }
+
 Tensor mm_hpu_lazy(const at::Tensor& mat1, const at::Tensor& mat2) {
   PT_LAZY_TRACE;
   auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(mat1, c10::kHABANA);
@@ -3949,6 +3953,33 @@ Tensor& sgn_hpu_lazy_(Tensor& input) {
   return sign_hpu_lazy_(input);
 }
 
+at::Tensor one_hot_hpu_lazy(const Tensor& self, int64_t num_classes) {
+  PT_LAZY_TRACE;
+  auto shape = self.sizes().vec();
+
+  // empty tensor could be converted to one hot representation,
+  // but shape inference is not possible.
+  if (self.numel() == 0) {
+    if (num_classes <= 0) {
+      AT_ERROR("Can not infer total number of classes from empty tensor.");
+    } else {
+      shape.push_back(num_classes);
+      return at::empty(shape, self.options());
+    }
+  }
+
+  if (num_classes == -1) {
+    // TODO enable this when reduce_max_fwd_i32 is available
+    // num_classes = self.max().item().toLong() + 1;
+    return AtenHpuTypeDefault::one_hot(self, num_classes);
+  }
+
+  shape.push_back(num_classes);
+  Tensor ret = at::zeros(shape, self.options());
+  ret.scatter_(-1, self.unsqueeze(-1), 1);
+  return ret;
+}
+
 Tensor floor_hpu_lazy(const Tensor& input) {
   PT_LAZY_TRACE;
   auto hl_input = habana_lazy::GetOrCreateHbLazyTensor(input, c10::kHABANA);
@@ -4343,15 +4374,18 @@ Tensor& exp_hpu_lazy_(Tensor& self) {
   LazyOp<at::Tensor&> k{"aten::exp_", {self}};
   return k.call(self);
 }
+
 Tensor exp_hpu_lazy(const Tensor& self) {
   PT_LAZY_TRACE;
   LazyOp<at::Tensor> k{"aten::exp", {self}};
   return k.call();
 }
+
 Tensor& neg_out_hpu_lazy(Tensor& result, const Tensor& input) {
   HABANA_ASSERT(0);
   return neg_out_hpu(result, input);
 }
+
 Tensor& reciprocal_hpu_lazy_(Tensor& self) {
   HABANA_ASSERT(0);
   return reciprocal_hpu_(self);

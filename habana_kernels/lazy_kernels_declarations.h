@@ -261,6 +261,7 @@ Tensor& batch_gemm_out_hpu_lazy(
 Tensor batch_gemm_hpu_lazy(const Tensor& self, const Tensor& mat2);
 Tensor dot_hpu_lazy(const Tensor& self, const Tensor& other);
 Tensor mv_hpu_lazy(const Tensor& self, const Tensor& other);
+at::Tensor one_hot_hpu_lazy(const at::Tensor& self, int64_t num_classes);
 std::tuple<Tensor, Tensor> nll_loss_forward_hpu_lazy(
     const Tensor& self,
     const Tensor& target,

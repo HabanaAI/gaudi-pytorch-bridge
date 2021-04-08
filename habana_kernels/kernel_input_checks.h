@@ -2289,6 +2289,16 @@ static std::unordered_map<std::string, std::vector<std::set<at::ScalarType>>>
               at::ScalarType::Long}},
         },
         {
+            "leaky_relu_",
+            {{at::ScalarType::Float,
+              at::ScalarType::Double,
+              at::ScalarType::BFloat16}},
+        },
+        {
+            "one_hot",
+            {{at::ScalarType::Long}},
+        },
+        {
             "matmul_backward",
             {{at::ScalarType::Float,
               at::ScalarType::Double,

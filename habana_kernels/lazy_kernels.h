@@ -183,7 +183,7 @@ class LazyOp {
     ir::MetaData metadata;
 
     for (size_t i = 0; i < m_inputs.size(); ++i) {
-      const auto& input = m_inputs[i];
+      const at::IValue& input = m_inputs[i];
       if (m_metadata_indices.count(i)) {
         metadata.set(input, i);
         continue;

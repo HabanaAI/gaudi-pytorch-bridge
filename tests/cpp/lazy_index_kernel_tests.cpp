@@ -49,7 +49,6 @@ TEST_F(LazyIndexKernelTest, IndexAddInplaceTest) {
 
   h_a.index_add_(dim, h_index, h_source);
   auto h_temp = torch::zeros({8, 3, 28, 28}).to(torch::kHABANA);
-  ;
   auto out = torch::add(h_a, h_temp);
 
   auto h_cout = out.to(torch::kCPU);
@@ -57,6 +56,16 @@ TEST_F(LazyIndexKernelTest, IndexAddInplaceTest) {
   a.index_add_(dim, index, source);
 
   EXPECT_EQ(allclose(h_cout, a), true);
+}
+
+TEST_F(LazyIndexKernelTest, Onehot) {
+  auto onehot = [](std::string device) {
+    auto t = (torch::arange(20) % 4).view({4, 5}).to(device);
+    auto result = torch::one_hot(t, 4);
+    return result.to("cpu");
+  };
+
+  EXPECT_TRUE(allclose(onehot("cpu"), onehot("habana")));
 }
 
 TEST_F(LazyIndexKernelTest, ScatterValueInplaceTest) {

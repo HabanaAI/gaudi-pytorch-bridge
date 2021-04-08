@@ -90,7 +90,12 @@ _FN_BLACKLIST = set([])
 
 # List of non-leaf ops we want to override both forward + backward.
 # TODO(https://github.com/pytorch/pytorch/issues/39959)
-_FN_AUTOGRAD_HPU = set(["isfinite(Tensor) -> Tensor"])
+_FN_AUTOGRAD_HPU = set(
+    [
+        "isfinite(Tensor) -> Tensor",
+        "one_hot(Tensor, int64_t) -> Tensor",
+    ]
+)
 
 _FN_BLACKLIST_REGEX = [
     # ATEN functions

@@ -1732,7 +1732,28 @@ Tensor hpu_wrap::any(const Tensor& self) {
   } else {
     return any_hpu(self);
   }
-};
+}
+
+Tensor hpu_wrap::one_hot(const Tensor& self, int64_t num_classes) {
+  hpu_check_inputs("one_hot", {self});
+  struct OneHot : public torch::autograd::Function<OneHot> {
+    static at::Tensor forward(
+        torch::autograd::AutogradContext*,
+        const at::Tensor& self,
+        int64_t num_classes) {
+      return one_hot_hpu_lazy(self, num_classes);
+    }
+
+    static torch::autograd::variable_list backward(
+        torch::autograd::AutogradContext*,
+        const torch::autograd::variable_list&) {
+      return {};
+    }
+  };
+
+  return OneHot::apply(self, num_classes);
+}
+
 Tensor hpu_wrap::_log_softmax(
     const Tensor& self,
     const int64_t dim,
@@ -1745,7 +1766,8 @@ Tensor hpu_wrap::_log_softmax(
   } else {
     return log_softmax_hpu(self, dim, half_to_float);
   }
-};
+}
+
 Tensor hpu_wrap::_log_softmax_backward_data(
     const Tensor& grad,
     const Tensor& output,
@@ -2015,6 +2037,7 @@ Tensor& hpu_wrap::relu_(Tensor& self) {
 }
 
 at::Tensor& hpu_wrap::leaky_relu_(at::Tensor& self, at::Scalar negative_slope) {
+  hpu_check_inputs(__func__, {self});
   return leaky_relu_lazy_(self, negative_slope);
 }
 
