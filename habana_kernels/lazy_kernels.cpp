@@ -2568,8 +2568,8 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_backward_hpu_lazy(
   if (grad_input_mask[1]) {
     result2 = at::native::empty_hpu_lazy(
         std::get<1>(sizes),
-        mean.options(),
-        mean.suggest_memory_format(),
+        gamma.options(),
+        gamma.suggest_memory_format(),
         false);
     const auto hlresult2 = habana_lazy::GetHbLazyTensor(result2);
     habana_lazy::ir::Value& out2 = hlresult2.CurrentIrValue();
@@ -2579,8 +2579,8 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_backward_hpu_lazy(
   if (grad_input_mask[2]) {
     result3 = at::native::empty_hpu_lazy(
         std::get<2>(sizes),
-        rstd.options(),
-        rstd.suggest_memory_format(),
+        gamma.options(),
+        gamma.suggest_memory_format(),
         false);
     const auto hlresult3 = habana_lazy::GetHbLazyTensor(result3);
     habana_lazy::ir::Value& out2 = hlresult3.CurrentIrValue();
