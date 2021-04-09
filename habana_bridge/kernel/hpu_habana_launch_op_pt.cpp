@@ -396,8 +396,7 @@ void HabanaLaunchOpPT::HandleMappedTensor(
   auto syn_tensor_input = pt_to_synapse_tensors.find(value_to_ivalue[value_in]);
 
   for (synapse_helpers::tensor& tensor : *(syn_tensor_input->second)) {
-    synapse_helpers::tensor& syn_tensor =
-        habana_op->SetSynapseInput(std::move(tensor));
+    synapse_helpers::tensor& syn_tensor = habana_op->SetSynapseInput(tensor);
     tensorList->emplace_back(tensor_or_ref(syn_tensor));
   }
 
@@ -861,7 +860,7 @@ at::Tensor HabanaLaunchOpPT::permuteTensor(
 
     for (synapse_helpers::tensor& tensor : *(syn_tensor_input->second)) {
       synapse_helpers::tensor& syn_tensor =
-          permute_kernel->SetSynapseInput(std::move(tensor));
+          permute_kernel->SetSynapseInput(tensor);
       is_permin_interim_persistant = syn_tensor.is_persistent();
       permute_input_synname = std::string(syn_tensor.tensor_name_);
       tensorList->emplace_back(tensor_or_ref(syn_tensor));

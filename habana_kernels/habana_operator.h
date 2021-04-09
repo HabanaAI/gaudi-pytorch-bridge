@@ -135,6 +135,12 @@ class HabanaOperator {
   //
   // If Synapse tensor is already exists for the py torch tensor, we just add
   // the synapse tensor to the context
+  virtual synapse_helpers::tensor_or_ref& SetSynapseInput(
+      synapse_helpers::tensor& tensor);
+
+  //
+  // If Synapse tensor is already exists for the py torch tensor, we just add
+  // the synapse tensor to the context
   virtual synapse_helpers::tensor_or_ref& SetSynapseOutput(
       synapse_helpers::tensor_or_ref&& tensor);
 

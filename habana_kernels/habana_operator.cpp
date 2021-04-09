@@ -236,6 +236,15 @@ synapse_helpers::tensor_or_ref& habana::HabanaOperator::SetSynapseInput(
   return p_context_->syn_inputs_.back();
 }
 
+synapse_helpers::tensor_or_ref& habana::HabanaOperator::SetSynapseInput(
+    synapse_helpers::tensor& tensor) {
+  //
+  // The tensor already exists and hence we just add this to the context
+  // no need to convert to synapse tensor
+  p_context_->syn_inputs_.emplace_back(tensor);
+  return p_context_->syn_inputs_.back();
+}
+
 synapse_helpers::tensor_or_ref& habana::HabanaOperator::SetSynapseOutput(
     synapse_helpers::tensor_or_ref&& tensor) {
   //
@@ -249,6 +258,11 @@ void habana::HabanaOperator::AddNodeToSynapseGraph(
     synapse_helpers::graph& graph,
     void* params,
     size_t params_size) {
+  if (!(std::getenv("PT_HPU_LAZY_LOWERING")) &&
+      std::getenv("PT_HPU_LAZY_MODE")) {
+    // Lazy mode shape inference call, early return without execution
+    return;
+  }
   std::vector<synTensor> syn_inputs;
   std::vector<synTensor> syn_outputs;
 
@@ -259,11 +273,13 @@ void habana::HabanaOperator::AddNodeToSynapseGraph(
       for (auto index : kernel_meta_data_.tpc_input_order) {
         HABANA_ASSERT(index < p_context_->syn_inputs_.size());
         synapse_helpers::tensor& tensor = p_context_->syn_inputs_[index];
+        HABANA_ASSERT(tensor.get());
         syn_inputs.emplace_back(tensor.get());
       }
     }
   } else {
     for (synapse_helpers::tensor& tensor : p_context_->syn_inputs_) {
+      HABANA_ASSERT(tensor.get());
       syn_inputs.emplace_back(tensor.get());
     }
   }
