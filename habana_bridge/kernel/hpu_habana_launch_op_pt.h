@@ -123,7 +123,12 @@ class HabanaLaunchOpPT {
   std::vector<PtTensorInfo> duplicate_outtinfos;
   synapse_helpers::graph* syn_graph_ptr = nullptr;
 
+  // The persistent intermediates are stored in the following two vectors.
+  // aten_intermediates is used for storing intermediates which are usually
+  // marked persistent by persistenceMarkingPass. aten_dma_intermediates is
+  // used for storing the seed tensors needed for dropout kernel.
   std::vector<at::Tensor> aten_intermediates;
+  std::vector<at::Tensor> aten_dma_intermediates;
 
   // caching :: begin
 
@@ -233,7 +238,7 @@ class HabanaLaunchOpPT {
 
   torch::jit::Node* GetUnpackNodeFromTensorList(torch::jit::Value* val);
 
-  void PrintATenTensors(RecipeValueSpec& rv);
+  void PrintRecipeInputs();
   void UpdateOutputs(RecipeValueSpec& rv);
   template <class T>
   void clearMember(T& m_container);

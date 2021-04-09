@@ -114,6 +114,14 @@ std::ostream& operator<<(std::ostream& O, const RecipeValueSpec& v) {
     }
   }
 
+  if (v.aten_dma_intermediates.size()) {
+    O << "aten_dma_intermediates #" << v.aten_dma_intermediates.size() << " ::";
+    O << '\n';
+    for (auto& a : v.aten_dma_intermediates) {
+      PrintATenTensor(a);
+    }
+  }
+
   if (v.aten_outputs) {
     O << "aten_outputs #" << v.aten_outputs->size() << " ::";
     O << '\n';

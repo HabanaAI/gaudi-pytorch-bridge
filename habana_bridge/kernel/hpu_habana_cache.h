@@ -139,7 +139,13 @@ struct RecipeValueSpec {
   std::shared_ptr<synapse_helpers::graph::recipe_handle> recipe;
   std::shared_ptr<std::vector<PtTensorInfo>> dtensorinfos;
   std::shared_ptr<std::vector<IValPtrShared>> aten_outputs;
+  // We keep two separate arrays for storing persistent intermediate.
+  // aten_intermediates is used for storing intermediates which are usually
+  // marked persistent by persistenceMarkingPass. aten_dma_intermediates is
+  // used for storing the seed tensors needed for dropout kernel within the
+  // recipe.
   std::vector<at::Tensor> aten_intermediates;
+  std::vector<at::Tensor> aten_dma_intermediates;
   absl::optional<synapse_helpers::graph::launch_info> launch_info;
 
   uint64_t htensor_wbuff = 0;
