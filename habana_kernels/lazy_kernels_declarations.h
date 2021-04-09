@@ -565,6 +565,13 @@ at::Tensor leaky_relu_backward_lazy(
     const at::Tensor& self,
     at::Scalar negative_slope,
     bool self_is_result);
+at::Tensor leaky_relu_lazy(const at::Tensor& self, at::Scalar negative_slope);
+Tensor leaky_relu_backward(
+    const Tensor& grad_output,
+    const Tensor& self,
+    Scalar negative_slope,
+    bool self_is_result);
+
 Tensor sigmoid_hpu_lazy(const Tensor& input);
 Tensor sigmoid_backward_hpu_lazy(const Tensor& grad_in, const Tensor& input);
 Tensor sqrt_hpu_lazy(const Tensor& input);

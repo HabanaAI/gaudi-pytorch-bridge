@@ -97,6 +97,19 @@ class LeakyReluOperator : public UnaryOperator {
   bool m_inplace;
 };
 
+class LeakyReluBackwardOperator : public UnaryBackwardOperator {
+ public:
+  LeakyReluBackwardOperator(int device_id, c10::ScalarType scalarType)
+      : UnaryBackwardOperator(
+            device_id,
+            "leakyrelu_bwd_" +
+                habana_helpers::name_suffix_from_type(scalarType)){};
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+};
+
 // Sigmoid Operator
 class SigmoidOperator : public UnaryOperator {
  public:

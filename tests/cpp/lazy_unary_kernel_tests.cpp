@@ -72,6 +72,34 @@ TEST_F(LazyUnaryKernelTest, LeakyReluInplaceTest) {
   EXPECT_TRUE(allclose(A, hA.to("cpu"))) << A << hA.to("cpu");
 }
 
+TEST_F(LazyUnaryKernelTest, LeakyReluTest) {
+  auto A = torch::randn({5, 7, 4});
+  auto hA = A.to(torch::kHABANA);
+
+  auto expectedOutput = torch::leaky_relu(A);
+  auto habanaOutput = torch::leaky_relu(hA);
+
+  EXPECT_TRUE(allclose(expectedOutput, habanaOutput.to("cpu")));
+}
+
+TEST_F(LazyUnaryKernelTest, LeakyReluBackwardTest) {
+  // const std::vector<int64_t> dimentions{5, 3, 4};
+  const std::vector<int64_t> dimentions{2, 3};
+
+  auto grad = torch::randn(dimentions, torch::requires_grad(false));
+  auto A = torch::randn(dimentions, torch::requires_grad(false));
+
+  Scalar scal_value(0.1);
+
+  auto hgrad = grad.to(torch::kHABANA);
+  auto hA = A.to(torch::kHABANA);
+
+  auto expectedOutput = torch::leaky_relu_backward(grad, A, scal_value, false);
+  auto habanaOutput = torch::leaky_relu_backward(hgrad, hA, scal_value, false);
+
+  EXPECT_TRUE(allclose(expectedOutput, habanaOutput.to("cpu")));
+}
+
 TEST_F(LazyUnaryKernelTest, FloorInplaceTest) {
   // Inplace op as output node is not supported yet.
   torch::Tensor A = torch::randn({4, 5});

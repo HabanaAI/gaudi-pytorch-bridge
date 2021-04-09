@@ -543,6 +543,25 @@ void LeakyReluOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, &param, sizeof(param));
 }
 
+void LeakyReluBackwardOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    Stack& inputs,
+    bool is_output_persistent) {
+  const unsigned short constExpectedNoOfInput = 4;
+
+  TORCH_CHECK(
+      inputs.size() == constExpectedNoOfInput,
+      std::string("Expected ") + std::to_string(constExpectedNoOfInput) +
+          " inputs for LeakyReluBackward operator" + " but received " +
+          std::to_string(inputs.size()) + " inputs.");
+  ns_LeakyReluKernel::Params param{
+      inputs[2].toScalar().to<double>()}; // 3rd input is the Scalar
+  auto output = habana_helpers::createPTTensor(
+      inputs[0].toTensor(), is_output_persistent);
+  AllocateSynapseOutput(graph, output, is_output_persistent);
+  AddNodeToSynapseGraph(graph, &param, sizeof(param));
+}
+
 void GeluOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
@@ -1805,6 +1824,12 @@ static auto& KernelRegistry =
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<LeakyReluOperator>(
                   device_id, node_type, true);
+            })
+        .add(
+            "aten::leaky_relu_backward",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<LeakyReluBackwardOperator>(
+                  device_id, node_type);
             })
         .add(
             "aten::sigmoid",

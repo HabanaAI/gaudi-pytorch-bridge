@@ -2055,14 +2055,22 @@ at::Tensor& hpu_wrap::leaky_relu_(at::Tensor& self, at::Scalar negative_slope) {
   return leaky_relu_lazy_(self, negative_slope);
 }
 
-// at::Tensor hpu_wrap::leaky_relu_backward(
-//    const at::Tensor& grad_output,
-//    const at::Tensor& self,
-//    at::Scalar negative_slope,
-//    bool self_is_result) {
-//  return leaky_relu_backward_lazy(
-//      grad_output, self, negative_slope, self_is_result);
-//}
+at::Tensor hpu_wrap::leaky_relu_backward(
+    const at::Tensor& grad_output,
+    const at::Tensor& self,
+    at::Scalar negative_slope,
+    bool self_is_result) {
+  hpu_check_inputs(__func__, {grad_output, self});
+  return leaky_relu_backward_lazy(
+      grad_output, self, negative_slope, self_is_result);
+}
+
+at::Tensor hpu_wrap::leaky_relu(
+    const at::Tensor& self,
+    at::Scalar negative_slope) {
+  hpu_check_inputs(__func__, {self});
+  return leaky_relu_lazy(self, negative_slope);
+}
 
 Tensor hpu_wrap::sigmoid(const Tensor& input) {
   hpu_check_inputs("sigmoid", {input});
