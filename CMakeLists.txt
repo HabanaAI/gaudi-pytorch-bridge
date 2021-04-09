@@ -89,6 +89,7 @@ add_library(habana_pytorch_plugin SHARED
   habana_kernels/random_gen_kernels.cpp
   habana_kernels/reduction_kernels.cpp
   habana_kernels/reduction2_kernels.cpp
+  habana_kernels/repeat.cpp
   habana_kernels/scalar.cpp
   habana_kernels/simple_generic_kernel.cpp
   habana_kernels/softmax_kernels.cpp

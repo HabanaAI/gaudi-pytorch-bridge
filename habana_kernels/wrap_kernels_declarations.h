@@ -441,6 +441,7 @@ struct hpu_wrap {
       const at::Tensor& self,
       double p,
       c10::optional<at::Generator> gen);
+  static at::Tensor repeat(const at::Tensor& self, at::IntArrayRef repeats);
   static at::Tensor sum(
       const at::Tensor& self,
       at::IntArrayRef dim,

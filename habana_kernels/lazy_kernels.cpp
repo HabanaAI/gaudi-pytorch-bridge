@@ -27,6 +27,7 @@
 #include "habana_kernels/norm_kernels.h"
 #include "habana_kernels/pool_kernels.h"
 #include "habana_kernels/reduction2_kernels.h"
+#include "habana_kernels/repeat.h"
 #include "habana_kernels/resize.h"
 #include "habana_kernels/tensor_shape_kernels.h"
 #include "habana_kernels/upsample_kernels.h"
@@ -3086,6 +3087,16 @@ std::tuple<Tensor, Tensor> fused_dropout_hpu_lazy(
       {self, p, std::move(gen)}, {1, 2} // metadata_indices
   );
 
+  return k.call();
+}
+
+at::Tensor repeat_hpu_lazy(const at::Tensor& self, at::IntArrayRef repeats) {
+  PT_LAZY_TRACE;
+  LazyOp<at::Tensor> k{
+      "aten::repeat",
+      {self, repeats},
+      {1},
+      {RepeatOperator::compute_output_shape(self, repeats)}};
   return k.call();
 }
 

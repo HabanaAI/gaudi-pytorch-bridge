@@ -174,3 +174,13 @@ TEST_F(LazyTensorShapeKernelTest, ExpandTest) {
 
   EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out), true);
 }
+
+TEST_F(LazyTensorShapeKernelTest, Repeat) {
+  torch::Tensor A = torch::randn({4, 5});
+
+  torch::Tensor hA = A.to(torch::kHABANA);
+  torch::Tensor hOut = hA.repeat({2, 3});
+  torch::Tensor Out = A.repeat({2, 3});
+
+  EXPECT_TRUE(allclose(hOut.to(torch::kCPU), Out));
+}

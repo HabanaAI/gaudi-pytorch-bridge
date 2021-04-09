@@ -2347,6 +2347,18 @@ static std::unordered_map<std::string, std::vector<std::set<at::ScalarType>>>
               at::ScalarType::Long},
              {at::ScalarType::Bool, at::ScalarType::Int, at::ScalarType::Long}},
         },
+        {
+            "repeat",
+            {{at::ScalarType::Double,
+              at::ScalarType::Float,
+              at::ScalarType::BFloat16,
+              at::ScalarType::Char,
+              at::ScalarType::Byte,
+              at::ScalarType::Bool,
+              at::ScalarType::Int,
+              at::ScalarType::Short,
+              at::ScalarType::Long}},
+        },
 };
 
 void hpu_check_inputs(

@@ -413,6 +413,7 @@ std::tuple<Tensor, Tensor> fused_dropout_hpu_lazy(
     const Tensor& self,
     double p,
     c10::optional<Generator> gen = c10::nullopt);
+at::Tensor repeat_hpu_lazy(const at::Tensor& self, at::IntArrayRef repeats);
 Tensor sum_dim_IntList_hpu_lazy(
     const Tensor& self,
     IntArrayRef dim,

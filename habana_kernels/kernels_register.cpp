@@ -1576,6 +1576,11 @@ std::tuple<Tensor, Tensor> hpu_wrap::_fused_dropout(
   }
 }
 
+at::Tensor hpu_wrap::repeat(const at::Tensor& self, at::IntArrayRef repeats) {
+  hpu_check_inputs("repeat", {self});
+  return repeat_hpu_lazy(self, repeats);
+}
+
 Tensor hpu_wrap::sum(
     const Tensor& self,
     IntArrayRef dim,
