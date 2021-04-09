@@ -10,6 +10,7 @@
 
 #include "habana_kernels/lazy_kernels.h"
 #include <ATen/InferSize.h>
+#include <bitset>
 #include "habana_helpers/logging.h"
 #include "habana_kernels/aten_hpu_type_default.h"
 #include "habana_kernels/basic_kernels.h"
@@ -3121,8 +3122,35 @@ Tensor mean_dim_hpu_lazy(
     IntArrayRef dim,
     bool keepdim,
     c10::optional<ScalarType> dtype) {
-  HABANA_ASSERT(0);
-  return mean_dim_hpu(self, dim, keepdim, dtype);
+  PT_LAZY_TRACE;
+
+  std::bitset<64> dim_mask;
+  if (dim.empty()) {
+    dim_mask = std::bitset<64>().flip();
+  } else {
+    size_t ndims = self.dim();
+    for (int64_t k : dim) {
+      size_t dim = c10::maybe_wrap_dim(k, ndims);
+      dim_mask[dim] = true;
+    }
+  }
+  std::vector<int64_t> shape = self.sizes().vec();
+  for (int64_t dim = shape.size() - 1; dim >= 0; dim--) {
+    if (dim_mask[dim]) {
+      if (keepdim) {
+        shape[dim] = 1;
+      } else {
+        shape.erase(shape.begin() + dim);
+      }
+    }
+  }
+
+  LazyOp<at::Tensor> k(
+      "aten::mean",
+      {self, dim, keepdim, std::move(dtype)},
+      {1, 2, 3}, // metadata_indices
+      {shape});
+  return k.call();
 }
 Tensor& mean_dim_out_hpu_lazy(
     Tensor& output,

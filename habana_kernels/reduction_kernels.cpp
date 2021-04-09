@@ -602,7 +602,7 @@ Tensor mean_dim_hpu(
   std::vector<c10::IValue> stack = {
       IValue(self), IValue(dim), IValue(keepdim), IValue(dtype)};
   // Create the operator
-  MeanDimOperator Op(device_id, node_type);
+  MeanDimOperator Op(device_id, scalar_type);
   size_t key = Op.GetRecipeKey(node_type, stack);
 
   if (device.get_recipe_handle_cache().isCached(key)) {
@@ -1694,6 +1694,11 @@ static auto& KernelRegistry =
             "aten::sum",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<SumOperator>(device_id, node_type);
+            })
+        .add(
+            "aten::mean",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<MeanDimOperator>(device_id, node_type);
             })
         .add(
             "aten::sum.dim_IntList",

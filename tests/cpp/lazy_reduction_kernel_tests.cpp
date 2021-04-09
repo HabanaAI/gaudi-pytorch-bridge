@@ -32,6 +32,14 @@ TEST_F(LazyReductionKernelTest, SumTest) {
   EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out, 0.001, 0.001), true);
 }
 
+TEST_F(LazyReductionKernelTest, MeanDim) {
+  torch::Tensor A = torch::randn({53, 13}, torch::requires_grad(false));
+  torch::Tensor hA = A.to(torch::kHABANA);
+  torch::Tensor hOut = at::mean(hA, {0});
+  torch::Tensor Out = at::mean(A, {0});
+
+  EXPECT_TRUE(allclose(hOut.to(torch::kCPU), Out));
+}
 TEST_F(LazyReductionKernelTest, SumDimIntTest) {
   torch::Tensor A = torch::randn({2, 2}, torch::requires_grad(false));
   torch::Tensor hA = A.to(torch::kHABANA);
