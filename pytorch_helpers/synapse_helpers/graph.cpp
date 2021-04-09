@@ -210,7 +210,8 @@ synapse_error_o graph::add_node(
         &nodeId,
         nullptr,
         nullptr);
-    SYNAPSE_SUCCESS_CHECK("Node " + node_type + " add failed.", status)
+    PT_SYNHELPER_WARN("Node " + node_type + " add failed.", " Err: ", status);
+    HABANA_ASSERT(status == synStatus::synSuccess)
     graph_is_empty_ = false;
     op_to_node_container_pt_["jit_node"].emplace_back(nodeId);
   } else {
@@ -226,7 +227,8 @@ synapse_error_o graph::add_node(
         "",
         nullptr,
         nullptr);
-    SYNAPSE_SUCCESS_CHECK("Node " + node_type + " add failed.", status)
+    PT_SYNHELPER_WARN("Node " + node_type + " add failed.", " Err: ", status);
+    HABANA_ASSERT(status == synStatus::synSuccess)
     graph_is_empty_ = false;
   }
   return {};
