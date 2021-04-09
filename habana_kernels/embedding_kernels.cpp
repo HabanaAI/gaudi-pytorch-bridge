@@ -68,7 +68,8 @@ void PadOperator::AllocateAndAddSynapseNode(
 
   auto shape = self.sizes().vec();
 
-  ns_PadKernel::Params param;
+  ns_PadKernelEx::Params param;
+  param.mode = PadMode_t::PAD_MODE_CONSTANT;
   param.value.f = value.to<float>();
   memset(param.pads, 0, sizeof(param.pads));
   for (unsigned int i = 0; i < lpad; i++) {
