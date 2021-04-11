@@ -3053,16 +3053,20 @@ Tensor& uniform_hpu_lazy(
     double from,
     double to,
     c10::optional<Generator> gen) {
-  HABANA_ASSERT(0);
-  uniform_hpu(self, from, to, gen);
+  PT_LAZY_TRACE;
+  LazyOp<Tensor&> op{
+      "aten::uniform_", {self, from, to, std::move(gen)}, {1, 2, 3}};
+  return op.call(self);
 }
 Tensor& normal_hpu_lazy(
     Tensor& self,
     double mean,
     double std,
     c10::optional<Generator> gen) {
-  HABANA_ASSERT(0);
-  normal_hpu(self, mean, std, gen);
+  PT_LAZY_TRACE;
+  LazyOp<Tensor&> op{
+      "aten::normal_", {self, mean, std, std::move(gen)}, {1, 2, 3}};
+  return op.call(self);
 }
 Tensor bernoulli_hpu_lazy(const Tensor& self, c10::optional<Generator> gen) {
   HABANA_ASSERT(0);

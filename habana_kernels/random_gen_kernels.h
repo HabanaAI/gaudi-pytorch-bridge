@@ -21,6 +21,7 @@ class UniformOperator : public HabanaOperator {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
     kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
+    kernel_meta_data_.tpc_input_order = {habana::NO_INPUTS};
   }
 
   virtual void AllocateAndAddSynapseNode(
@@ -39,6 +40,7 @@ class NormalOperator : public HabanaOperator {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
     kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
+    kernel_meta_data_.tpc_input_order = {habana::NO_INPUTS};
   }
 
   virtual void AllocateAndAddSynapseNode(
