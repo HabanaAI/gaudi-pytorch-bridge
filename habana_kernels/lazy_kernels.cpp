@@ -4655,7 +4655,6 @@ void optimizer_adamw_hpu_lazy(
     const float weight_decay) {
   PT_LAZY_TRACE;
   for (size_t i = 0; i < weights.size(); i++) {
-    auto hlgrad = habana_lazy::GetHbLazyTensor(gradients[i]);
     auto hlweight = habana_lazy::GetHbLazyTensor(weights[i]);
     updateDstDependencies(hlweight, weights[i], true);
     auto hlexpavg = habana_lazy::GetHbLazyTensor(exp_avg[i]);

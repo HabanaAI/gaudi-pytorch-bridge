@@ -10,12 +10,16 @@ torch.ops.load_library(os.path.join(os.environ['BUILD_ROOT_LATEST'], "libhabana_
 habana = torch.device("habana")
 cpu = torch.device("cpu")
 
+sys.path.insert(0, os.path.join(os.environ['PYTORCH_MODULES_RELEASE_BUILD']))
+import hb_torch
+
 if __name__ == "__main__":
-    d1, d2, lr = 2, 1024, 0.001
+    torch.manual_seed(0)
+    d1, d2, lr = 2, 1024, 0.1
 
     u = torch.rand(d1, d2)
     v = u.clone()
-    print('input ::\n{}'.format(u))
+    # print('input ::\n{}'.format(u))
 
     x = u.detach().to(habana)
     x.requires_grad = True
@@ -31,10 +35,17 @@ if __name__ == "__main__":
 
     # print('before adam.step x ::\n{}'.format(x.to(cpu)))
     optim_x.step()
-    print('after  adam.step x ::\n{}'.format(x.to(cpu)))
+    x_cpu = x.to(cpu)
+    # print('after  adam.step x ::\n{}'.format(x_cpu))
+
+    # Enable this env to validate lazy path
+    # os.environ['PT_HPU_LAZY_MODE'] = "1"
 
     y = v.detach().to(habana)
     y.requires_grad = True
+
+    optim_y = FusedAdamW([y], lr=lr)
+    hb_torch.mark_step()
 
     # Compute loss
     loss_y = y.sum()
@@ -42,15 +53,15 @@ if __name__ == "__main__":
     # Compute gradients of the parameters w.r.t. the loss
     loss_y.backward()
 
-    # Modify the parameters by subtracting the gradient
-    optim_y = FusedAdamW([y], lr=0.001)
-
     # print('before adam_habana.step y ::\n{}'.format(y.to(cpu)))
+    # Modify the parameters by subtracting the gradient
     optim_y.step()
-    print('after  adam_habana.step y ::\n{}'.format(y.to(cpu)))
 
-    x_cpu = x.to(cpu)
+    hb_torch.mark_step()
+
     y_cpu = y.to(cpu)
+
+    # print('after  adam_habana.step y ::\n{}'.format(y_cpu))
 
     comp = np.allclose(x_cpu.detach().numpy(), y_cpu.detach().numpy(), atol=0.001, rtol=1.e-3, equal_nan=True)
 

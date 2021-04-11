@@ -25,8 +25,20 @@ class FusedAdamW(Optimizer):
         defaults = dict(lr=lr, betas=betas, eps=eps, weight_decay=weight_decay, correct_bias=correct_bias)
         super().__init__(params, defaults)
 
-        self.lr_t = None
-        self.neg_step_t = None
+        self.lr_list = []
+        self.neg_step_list = []
+        self.device = self.param_groups[0]["params"][0].device
+
+        # State initialization
+        for group in self.param_groups:
+            for p in group["params"]:
+                state = self.state[p]
+                if len(state) == 0:
+                    state["step"] = 0
+                    # Exponential moving average of gradient values
+                    state["exp_avg"] = torch.zeros(p.data.shape).to(self.device)
+                    # Exponential moving average of squared gradient values
+                    state["exp_avg_sq"] = torch.zeros(p.data.shape).to(self.device)
 
     def step(self, closure: Callable = None):
         """
@@ -36,16 +48,19 @@ class FusedAdamW(Optimizer):
             closure (:obj:`Callable`, `optional`): A closure that reevaluates the model and returns the loss.
         """
         import hb_custom_C
-        hpu = torch.device("habana")
-        cpu = torch.device("cpu")
 
         loss = None
         if closure is not None:
             loss = closure()
 
+        self.lr_list.clear()
+        self.neg_step_list.clear()
+
         for group in self.param_groups:
-            self.lr_t = torch.tensor([group['lr']], dtype=torch.float, requires_grad=False).to(hpu, non_blocking=True)
+            lr_t = torch.tensor([group['lr']], dtype=torch.float, requires_grad=False).to(self.device, non_blocking=True)
+            self.lr_list.append(lr_t)
             grad_list, wt_list, exp_avg_list, exp_avg_sq_list = [], [], [], []
+
             for p in group["params"]:
                 if p.grad is None:
                     continue
@@ -56,14 +71,6 @@ class FusedAdamW(Optimizer):
                     raise RuntimeError("Adam does not support sparse gradients, please consider SparseAdam")
 
                 state = self.state[p]
-
-                # State initialization
-                if len(state) == 0:
-                    state["step"] = 0
-                    # Exponential moving average of gradient values
-                    state["exp_avg"] = torch.zeros_like(p.data)
-                    # Exponential moving average of squared gradient values
-                    state["exp_avg_sq"] = torch.zeros_like(p.data)
 
                 exp_avg, exp_avg_sq = state["exp_avg"], state["exp_avg_sq"]
 
@@ -86,15 +93,16 @@ class FusedAdamW(Optimizer):
                 step_size = step_size * math.sqrt(bias_correction2) / bias_correction1
 
             neg_step = -step_size
-            self.neg_step_t = torch.tensor([neg_step], dtype=torch.float, requires_grad=False).to(hpu, non_blocking=True)
+            neg_step_t = torch.tensor([neg_step], dtype=torch.float, requires_grad=False).to(self.device, non_blocking=True)
+            self.neg_step_list.append(neg_step_t)
 
             hb_custom_C.fused_adamw(
                     grad_list,
                     wt_list,
                     exp_avg_list,
                     exp_avg_sq_list,
-                    self.lr_t,
-                    self.neg_step_t,
+                    lr_t,
+                    neg_step_t,
                     beta1,
                     beta2,
                     group['eps'],
