@@ -2097,7 +2097,7 @@ Tensor norm_scalar_hpu(const Tensor& self, Scalar p) {
 void FusedNormOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    std::vector<bool> is_output_persistent) {
   TORCH_CHECK(
       inputs.size() == 3,
       "Incorrect size of inputs expected for FusedNorm Operator");
@@ -2143,7 +2143,7 @@ void FusedNormOperator::AllocateAndAddSynapseNode(
     norm_final.SetSynapseInput(std::move(cat_grad_norms.GetSynOutputs()[0]));
     stack.emplace_back(IValue(cat_grad_norms.GetOutputs()[0]));
     stack.emplace_back(IValue(2.0));
-    norm_final.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+    norm_final.AllocateAndAddSynapseNode(graph, stack, is_output_persistent[0]);
     stack.clear();
     p_context_->syn_outputs_.emplace_back(
         std::move(norm_final.GetSynOutputs()[0]));
@@ -2254,7 +2254,7 @@ void FusedNormOperator::AllocateAndAddSynapseNode(
       auto& syn_in_slice = mul1.SetSynapseInput(std::move(syn_clip_coeff));
       stack.emplace_back(IValue(gradients.get(i)));
       stack.emplace_back(IValue(slice_op.GetOutputs()[0]));
-      mul1.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+      mul1.AllocateAndAddSynapseNode(graph, stack, is_output_persistent[i + 1]);
       p_context_->syn_inputs_[i] = std::move(syn_in_grad);
       syn_clip_coeff = std::move(syn_in_slice);
       stack.clear();
@@ -2316,7 +2316,8 @@ Tensor fused_norm_hpu(
     // Create Graph
     auto graph = habana_helpers::create_graph(device_id, node_type);
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
-    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    std::vector<bool> is_output_persistent(num_params + 1, true);
+    Op.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
     // compile and execute the graph
     Op.Compile(graph);
   }
@@ -2349,6 +2350,11 @@ static auto& KernelRegistry =
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<BatchNormInfOperator>(
                   device_id, node_type);
+            })
+        .add(
+            "hpu::fused_norm",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<FusedNormOperator>(device_id, node_type);
             })
         .add(
             "aten::native_batch_norm_backward",

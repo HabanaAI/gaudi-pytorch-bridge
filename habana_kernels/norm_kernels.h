@@ -377,5 +377,5 @@ class FusedNormOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent) override;
+      std::vector<bool> is_output_persistent) override;
 };

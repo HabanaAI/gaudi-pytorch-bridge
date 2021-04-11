@@ -304,6 +304,46 @@ class BatchNormInf : public ir::Node {
   }
 };
 
+class FusedNorm : public ir::Node {
+ public:
+  enum class FusedNormMeta {
+    NORM_TYPE_INDEX = 2,
+  };
+  FusedNorm() = delete;
+  FusedNorm(std::vector<Tensor>& grad, const Tensor& max_norm, float norm_type)
+      : Node(c10::Symbol::fromQualString("hpu::fused_norm")) {
+    AddInputVec(grad);
+
+    auto hl_max_norm = GetOrCreateHbLazyTensor(max_norm, c10::kHABANA);
+    AddInput(hl_max_norm.GetIrValue());
+
+    m_meta_data.set(
+        norm_type, static_cast<size_t>(FusedNormMeta::NORM_TYPE_INDEX));
+  }
+
+  std::string ToString() const override {
+    std::stringstream ss;
+    ss << Node::ToString() << ", norm_type = "
+       << m_meta_data.get(static_cast<size_t>(FusedNormMeta::NORM_TYPE_INDEX));
+    return ss.str();
+  }
+
+ private:
+  void AddInputVec(std::vector<Tensor>& tensor_list) {
+    ValueList hl_tensors;
+    std::vector<at::Tensor> input_pt_vec;
+    for (auto& t : tensor_list) {
+      auto hl_tensor = GetOrCreateHbLazyTensor(t, c10::kHABANA);
+      hl_tensors.push_back(hl_tensor.GetIrValue());
+      input_pt_vec.emplace_back(t);
+    }
+
+    auto input = GetIrValueForListConstruct(hl_tensors);
+    input.mp_node->AddInputPtTensors(input_pt_vec);
+    AddInput(input);
+  }
+};
+
 class BatchNormBackward : public ir::Node {
  public:
   enum class BatchNormBackwardMeta {

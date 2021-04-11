@@ -217,3 +217,28 @@ TEST_F(LazyNormKernelTest, NormScalarTest) {
 
   EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out, 0.0001), true);
 }
+
+TEST_F(LazyNormKernelTest, FusedNormTest) {
+  std::vector<torch::Tensor> grad_vec;
+  std::vector<torch::Tensor> grad_vec_h;
+  std::vector<torch::Tensor> grad_vec_norms;
+  auto num_params = 4;
+  // setup input grad tensor lists
+  for (auto i = 0; i < num_params; i++) {
+    auto t = torch::randn({2, 2});
+    grad_vec.push_back(t);
+    grad_vec_norms.push_back(torch::norm(t));
+    auto tH = t.to(torch::kHABANA);
+    grad_vec_h.push_back(tH);
+  }
+  // init max_norm
+  torch::Tensor max_norm =
+      torch::ones({1}, torch::TensorOptions().dtype(torch::kFloat32)) * 1.0;
+  auto max_norm_hpu = max_norm.to(torch::kHABANA);
+  // do hpu and cpu fused_norm calcs
+  auto total_norm_hpu = fused_norm_hpu_wrap(grad_vec_h, max_norm_hpu, 2.0);
+  auto total_norm_cpu = torch::norm(torch::stack(grad_vec_norms));
+
+  EXPECT_EQ(
+      allclose(total_norm_hpu.to(torch::kCPU), total_norm_cpu, 0.0001), true);
+}

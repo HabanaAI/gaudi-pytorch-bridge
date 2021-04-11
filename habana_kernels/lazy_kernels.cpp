@@ -735,7 +735,6 @@ Tensor& add_tensor_hpu_lazy_(Tensor& self, const Tensor& other, Scalar alpha) {
     auto hl_other = habana_lazy::GetOrCreateHbLazyTensor(other, c10::kHABANA);
 
     updateDstDependencies(hl_self, self, true);
-
     auto node = habana_lazy::ir::Node::Create(
         Symbol::fromQualString("aten::add_"),
         {hl_self.GetIrValue(), hl_other.GetIrValue(), hl_alpha});
@@ -4699,12 +4698,29 @@ Tensor fused_norm_hpu_lazy(
     const Tensor& max_norm,
     float norm_type) {
   PT_LAZY_TRACE;
-  HABANA_ASSERT(false && "Not implemented yet");
-  static_cast<void>(max_norm);
-  static_cast<void>(norm_type);
+  for (size_t i = 0; i < grad.size(); i++) {
+    auto hlweight = habana_lazy::GetHbLazyTensor(grad[i]);
+    updateDstDependencies(hlweight, grad[i], true);
+  }
+  habana_lazy::ir::NodePtr node =
+      std::make_shared<habana_lazy::ir::FusedNorm>(grad, max_norm, norm_type);
+  int64_t out_index = 0;
+  auto result = at::native::empty_hpu_lazy(
+      {1}, grad[0].options(), grad[0].suggest_memory_format(), false);
 
-  Tensor ret_tensor = at::empty({1}, grad[0].device());
-  return ret_tensor;
+  auto hlresult = habana_lazy::GetHbLazyTensor(result);
+  habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
+  out.m_index = out_index++;
+  out.SetNode(node);
+
+  for (size_t i = 0; i < grad.size(); i++) {
+    auto hlweight = habana_lazy::GetHbLazyTensor(grad[i]);
+    habana_lazy::ir::Value& out1 = hlweight.CurrentIrValue();
+    out1.m_index = out_index++;
+    out1.SetNode(node);
+  }
+
+  return result;
 }
 
 Tensor& optimizer_adagrad_hpu_lazy(

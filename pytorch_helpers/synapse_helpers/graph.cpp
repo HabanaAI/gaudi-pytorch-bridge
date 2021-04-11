@@ -210,7 +210,6 @@ synapse_error_o graph::add_node(
         &nodeId,
         nullptr,
         nullptr);
-
     if (status != synStatus::synSuccess) {
       PT_SYNHELPER_WARN("Node " + node_type + " add failed.", " Err: ", status);
     }
@@ -230,7 +229,6 @@ synapse_error_o graph::add_node(
         "",
         nullptr,
         nullptr);
-
     if (status != synStatus::synSuccess) {
       PT_SYNHELPER_WARN("Node " + node_type + " add failed.", " Err: ", status);
     }

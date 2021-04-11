@@ -2937,6 +2937,8 @@ TORCH_LIBRARY(hpu, m) {
       "habanaOptimizerFusedSGDMomentum(Tensor[] gradients, Tensor[] weights_in, Tensor[] momentum_in, Tensor epoch_num, Tensor learning_rate, float wd, float mom, float damp, bool nesterov) -> Tensor(a!)");
   m.def(
       "hpu::habanaOptimizerAdamW(Tensor[] gradient_vec, Tensor[] weight_vec, Tensor[] exp_avg_vec, Tensor[] exp_avg_sq_vec, Tensor lr_t, Tensor neg_step_t, float beta1, float beta2, float epsilon, float weight_decay) -> ()");
+  m.def(
+      "fused_norm(Tensor[] grad, Tensor max_norm, float norm_type) -> (Tensor)");
   m.def("permute_cl(Tensor(a) self, int[] dims) -> Tensor(a)");
   m.def("restride_cl(Tensor(a) self, int[] dims) -> Tensor(a)");
   m.def("control_edge_other_(Tensor self, Tensor other) -> Tensor(a!)");
