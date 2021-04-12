@@ -368,6 +368,14 @@ std::vector<bool> HabanaLaunchOpPT::nodeOutputPersistence(
       } else if (
           value_to_persistent_flag.find(value_out) !=
           value_to_persistent_flag.end()) {
+        if (value_to_persistent_flag[value_out]) {
+          PT_BRIDGE_DEBUG(
+              "Persistent tensor for ",
+              node->kind().toQualString(),
+              " for value %",
+              value_out->debugName(),
+              " created for an in-place op");
+        }
         is_persistent.emplace_back(value_to_persistent_flag[value_out]);
       } else {
         // If no specific flag is set, the mark as false
