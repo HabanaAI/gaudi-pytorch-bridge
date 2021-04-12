@@ -14,9 +14,36 @@
 
 namespace synapse_helpers {
 recipe_handle_cache::recipe_handle_cache(device& device)
-    : mutex_{}, device_{device} {
+    : mutex_{}, device_{device}, evict_strategy_{NumberLimit(MAX_CACHE_SIZE)} {
   static_cast<void>(device_);
   enable_hit_count_ = (GET_ENV_FLAG(PT_HABANA_MAX_RECIPE_HIT_COUNT) != 0);
+}
+
+void recipe_handle_cache::insert(
+    std::shared_ptr<recipe> recipe,
+    const size_t key) {
+  auto key_it = keys_access_list_.insert(keys_access_list_.begin(), key);
+  cache_map_.emplace(key_wrapper_t(*key_it), std::make_pair(recipe, key_it));
+
+  evict_strategy_.Added();
+  while (evict_strategy_.IsEvictNeeded() && !cache_map_.empty()) {
+    evict();
+  }
+}
+
+void recipe_handle_cache::evict() {
+  auto it = cache_map_.find(key_wrapper_t(keys_access_list_.back()));
+  if (it != cache_map_.end()) {
+    evict_strategy_.Removed();
+    cache_map_.erase(it);
+    keys_access_list_.pop_back();
+  }
+}
+
+void recipe_handle_cache::drop() {
+  cache_map_.clear();
+  keys_access_list_.clear();
+  evict_strategy_.Reset();
 }
 
 std::shared_ptr<recipe> recipe_handle_cache::get_recipe(
@@ -25,12 +52,14 @@ std::shared_ptr<recipe> recipe_handle_cache::get_recipe(
   std::unique_lock<std::mutex> lck(mutex_);
   auto iter = cache_map_.find(key);
   if (iter != cache_map_.end()) {
+    keys_access_list_.splice(
+        keys_access_list_.begin(), keys_access_list_, iter->second.second);
     increaseHitCount_(key);
-    return iter->second;
+    return iter->second.first;
   } else {
     std::shared_ptr<recipe> r = std::make_shared<recipe>();
     if (r->create(graph)) {
-      cache_map_[key] = r;
+      insert(r, key);
       increaseHitCount_(key);
       return r;
     }
@@ -42,18 +71,12 @@ std::shared_ptr<recipe> recipe_handle_cache::get_recipe(size_t key) {
   std::unique_lock<std::mutex> lck(mutex_);
   auto iter = cache_map_.find(key);
   if (iter != cache_map_.end()) {
+    keys_access_list_.splice(
+        keys_access_list_.begin(), keys_access_list_, iter->second.second);
     increaseHitCount_(key);
-    return iter->second;
+    return iter->second.first;
   }
   return nullptr;
-}
-
-void recipe_handle_cache::remove_recipe(const size_t key) {
-  std::unique_lock<std::mutex> lck(mutex_);
-  auto iter = cache_map_.find(key);
-  if (iter != cache_map_.end()) {
-    cache_map_.erase(iter);
-  }
 }
 
 bool recipe_handle_cache::isCached(size_t hash) {
@@ -125,7 +148,7 @@ void recipe_handle_cache::clearHitCount() {
 }
 
 recipe_handle_cache::~recipe_handle_cache() {
-  cache_map_.clear();
+  drop();
   clearHitCount();
 }
 
