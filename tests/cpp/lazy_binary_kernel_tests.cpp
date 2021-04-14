@@ -247,11 +247,8 @@ TEST_F(LazyBinaryKernelTest, TypePromotion1) {
     auto hout = op(ha, hb);
     EXPECT_TRUE(allclose(out, hout.to("cpu")));
   };
-  // Do not create 2 or more tests with same operator and shapes, those will
-  // fail when running back 2 back because lowering cache does not check for
-  // dependencies within graph
-  typetest(&torch::div, torch::kFloat, torch::kByte, {2, 3});
-  typetest(&torch::div, torch::kByte, torch::kFloat, {2, 4});
+  typetest(&torch::div, torch::kFloat, torch::kByte, {3, 3});
+  typetest(&torch::div, torch::kByte, torch::kFloat, {3, 3});
   typetest(&torch::mul, torch::kFloat, torch::kLong, {2, 3});
   typetest(&torch::mul, torch::kLong, torch::kFloat, {2, 4});
   typetest(&torch::mul, torch::kInt8, torch::kInt, {3, 4});

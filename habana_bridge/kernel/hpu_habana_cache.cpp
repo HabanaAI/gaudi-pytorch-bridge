@@ -51,16 +51,28 @@ RecipeArgumentSpec::RecipeArgumentSpec(
       opstrs(std::string()) {
   std::hash<std::string> str_hash;
   opstrs.append(id + "::\n");
-  for (auto* node : irgraph->nodes()) {
-    std::string s(node->kind().toQualString());
-    // Adding delemeters for better readability
-    opstrs.append("<" + s + ">");
-    if (node->kind() == torch::jit::prim::Constant) {
+  for (auto node : irgraph->nodes()) {
+    if (node->kind() != torch::jit::prim::Constant) {
+      std::string s(node->kind().toQualString());
+      s.append("(");
+      bool is_start{true};
+      for (auto value_in : node->inputs()) {
+        if (!is_start) {
+          s.append(",");
+        }
+        is_start = false;
+        s.append(value_in->node()->kind().toQualString());
+      }
+      s.append(")");
+      // Adding delemeters for better readability
+      opstrs.append(s + "\n");
+    } else {
       std::ostringstream oss;
       oss << *node;
-      opstrs.append(":" + oss.str());
+      opstrs.append(oss.str());
     }
   }
+
   hash_code = at::hash_combine(hash_code, str_hash(opstrs));
   hash_code = at::hash_combine(hash_code, irgraph->outputs().size());
   hash_code = habana_helpers::hash_combine_scalars(hash_code, input_refs);
