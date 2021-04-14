@@ -1795,6 +1795,9 @@ void IndexOperator::AllocateAndAddSynapseNode(
  ************************************************************************/
 Tensor index_hpu(const Tensor& input, TensorList indices) {
   PT_KERNEL_BEGIN;
+  if (indices[0].numel() == 0) {
+    return input;
+  }
 
   // fallback to cpu for boolean indexing
   if (indices[0].scalar_type() == c10::ScalarType::Bool) {

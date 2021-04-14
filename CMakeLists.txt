@@ -83,6 +83,7 @@ add_library(habana_pytorch_plugin SHARED
   habana_kernels/lazy_kernels.cpp
   habana_kernels/linear_kernels.cpp
   habana_kernels/loss_kernels.cpp
+  habana_kernels/nms_kernels.cpp
   habana_kernels/norm_kernels.cpp
   habana_kernels/optimizer_kernels.cpp
   habana_kernels/optimizer_lamb.cpp

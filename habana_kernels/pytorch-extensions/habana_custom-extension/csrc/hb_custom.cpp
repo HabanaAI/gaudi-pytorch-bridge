@@ -253,6 +253,20 @@ void optimizer_fused_sgd_momentum(
       gradients, weights, momentum, epoch_num, lr, wd, mom, damp, nesterov);
 }
 
+extern at::Tensor HabanaNms(
+    const at::Tensor& boxes,
+    const at::Tensor& scores,
+    float iou_threshold,
+    float score_threshold);
+
+at::Tensor habana_custom_nms(
+    const at::Tensor& boxes,
+    const at::Tensor& scores,
+    float iou_threshold,
+    float score_threshold) {
+  return HabanaNms(boxes, scores, iou_threshold, score_threshold);
+}
+
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def(
       "fused_adamw",
@@ -286,4 +300,8 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       "fused_sgd_momentum",
       &optimizer_fused_sgd_momentum,
       "Compute and apply gradient update to parameters for SGD with momentum optimizer");
+  m.def(
+      "custom_nms",
+      &habana_custom_nms,
+      "NMS operation for boxes of a single class");
 }
