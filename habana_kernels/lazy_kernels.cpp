@@ -5087,6 +5087,214 @@ Tensor fused_norm_hpu_lazy(
   return result;
 }
 
+Tensor optimizer_lamb_fused_norm_hpu_lazy(
+    const std::vector<at::Tensor>& grad,
+    float max_grad_norm) {
+  PT_LAZY_TRACE;
+  auto clip_norm = get_tensor_for_scalar(1.0);
+  habana_lazy::ir::NodePtr node =
+      std::make_shared<habana_lazy::ir::LambFusedNorm>(
+          grad, max_grad_norm, clip_norm);
+
+  auto result = at::native::empty_hpu_lazy(
+      {1}, grad[0].options(), grad[0].suggest_memory_format(), false);
+  auto hlresult = habana_lazy::GetHbLazyTensor(result);
+  habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+
+  updateDstDependencies(hlresult, result);
+
+  return result;
+}
+
+std::tuple<
+    std::vector<at::Tensor>,
+    std::vector<at::Tensor>,
+    std::vector<at::Tensor>>
+optimizer_lamb_phase1_hpu_lazy(
+    const std::vector<at::Tensor>& gradients,
+    std::vector<at::Tensor>& weights,
+    std::vector<at::Tensor>& exp_avg,
+    std::vector<at::Tensor>& exp_avg_sq,
+    const at::Tensor& clip_global_grad_norm,
+    const int grad_averaging,
+    const float lr,
+    const float beta1,
+    const float beta2,
+    const float epsilon,
+    const int step,
+    const int bias_correction,
+    const float weight_decay) {
+  PT_LAZY_TRACE;
+  static_cast<void>(lr);
+
+  /*
+  Assuming mark step is present before optimizer is invoked
+  for (size_t i = 0; i < weights.size(); i++) {
+    auto hl_grad = habana_lazy::GetHbLazyTensor(gradients[i]);
+    updateDstDependencies(hl_grad, gradients[i], true);
+
+    auto hl_wts = habana_lazy::GetHbLazyTensor(weights[i]);
+    updateDstDependencies(hl_wts, weights[i], true);
+
+    auto hlexpavg = habana_lazy::GetHbLazyTensor(exp_avg[i]);
+    updateDstDependencies(hlexpavg, exp_avg[i], true);
+
+    auto hlexpavgsq = habana_lazy::GetHbLazyTensor(exp_avg_sq[i]);
+    updateDstDependencies(hlexpavgsq, exp_avg_sq[i], true);
+  }
+  */
+
+  auto hl_clip_global = habana_lazy::GetHbLazyTensor(clip_global_grad_norm);
+  updateDstDependencies(hl_clip_global, clip_global_grad_norm, true);
+
+  float bias_correction1 = 1.0, bias_correction2 = 1.0;
+  if (bias_correction) {
+    bias_correction1 = 1.0 - std::pow(beta1, step);
+    bias_correction2 = 1.0 - std::pow(beta2, step);
+  }
+
+  float beta3 = 1.0;
+  if (grad_averaging) {
+    beta3 = 1 - beta1;
+  }
+
+  auto bias_correction1_t = get_tensor_for_scalar(bias_correction1);
+  auto bias_correction2_t = get_tensor_for_scalar(bias_correction2);
+
+  habana_lazy::ir::NodePtr node =
+      std::make_shared<habana_lazy::ir::OptimizerFusedLambPhase1>(
+          gradients,
+          weights,
+          exp_avg,
+          exp_avg_sq,
+          clip_global_grad_norm,
+          beta1,
+          beta2,
+          beta3,
+          epsilon,
+          bias_correction1_t,
+          bias_correction2_t,
+          weight_decay);
+
+  int64_t out_index = 0;
+
+  auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(0);
+
+  std::vector<Tensor> weight_norm_vec, adam_norm_vec, adam_step_vec;
+  for (size_t i = 0; i < weights.size(); i++) {
+    auto adam_step = at::native::empty_hpu_lazy(
+        weights[i].sizes(),
+        weights[i].options(),
+        weights[i].suggest_memory_format(),
+        false);
+    auto hl_adam_step = habana_lazy::GetHbLazyTensor(adam_step);
+    habana_lazy::ir::Value& out1 = hl_adam_step.CurrentIrValue();
+    out1.m_index = out_index++;
+    out1.SetNode(node);
+
+    context->m_retained_tensor_list.emplace_back(adam_step);
+    adam_step_vec.push_back(adam_step);
+
+    auto adam_norm = at::native::empty_hpu_lazy(
+        {1}, weights[i].options(), weights[i].suggest_memory_format(), false);
+    auto hl_adam_norm = habana_lazy::GetHbLazyTensor(adam_norm);
+    habana_lazy::ir::Value& out2 = hl_adam_norm.CurrentIrValue();
+    out2.m_index = out_index++;
+    out2.SetNode(node);
+
+    context->m_retained_tensor_list.emplace_back(adam_norm);
+    adam_norm_vec.push_back(adam_norm);
+
+    auto weight_norm = at::native::empty_hpu_lazy(
+        {1}, weights[i].options(), weights[i].suggest_memory_format(), false);
+    auto hl_weight_norm = habana_lazy::GetHbLazyTensor(weight_norm);
+    habana_lazy::ir::Value& out3 = hl_weight_norm.CurrentIrValue();
+    out3.m_index = out_index++;
+    out3.SetNode(node);
+
+    context->m_retained_tensor_list.emplace_back(weight_norm);
+    weight_norm_vec.push_back(weight_norm);
+
+    // add the tensors that are updated inplace
+    auto exp_avg_temp = at::native::empty_hpu_lazy(
+        exp_avg[i].sizes(),
+        exp_avg[i].options(),
+        exp_avg[i].suggest_memory_format(),
+        false);
+    auto hl_exp_avg_temp = habana_lazy::GetHbLazyTensor(exp_avg_temp);
+    habana_lazy::ir::Value& out4 = hl_exp_avg_temp.CurrentIrValue();
+    out4.m_index = out_index++;
+    out4.SetNode(node);
+    context->m_retained_tensor_list.emplace_back(exp_avg_temp);
+
+    auto hl_exp_avg = habana_lazy::GetHbLazyTensor(exp_avg[i]);
+    habana_lazy::ir::Value& out5 = hl_exp_avg.CurrentIrValue();
+    out5.m_index = out_index++;
+    out5.SetNode(node);
+    context->m_retained_tensor_list.emplace_back(exp_avg[i]);
+
+    auto exp_avg_sq_temp = at::native::empty_hpu_lazy(
+        exp_avg_sq[i].sizes(),
+        exp_avg_sq[i].options(),
+        exp_avg_sq[i].suggest_memory_format(),
+        false);
+    auto hl_exp_avg_sq_temp = habana_lazy::GetHbLazyTensor(exp_avg_sq_temp);
+    habana_lazy::ir::Value& out6 = hl_exp_avg_sq_temp.CurrentIrValue();
+    out6.m_index = out_index++;
+    out6.SetNode(node);
+    context->m_retained_tensor_list.emplace_back(exp_avg_sq_temp);
+
+    auto hl_exp_avg_sq = habana_lazy::GetHbLazyTensor(exp_avg_sq[i]);
+    habana_lazy::ir::Value& out7 = hl_exp_avg_sq.CurrentIrValue();
+    out7.m_index = out_index++;
+    out7.SetNode(node);
+    context->m_retained_tensor_list.emplace_back(exp_avg_sq[i]);
+  }
+
+  return std::tie(weight_norm_vec, adam_norm_vec, adam_step_vec);
+}
+
+void optimizer_lamb_phase2_hpu_lazy(
+    std::vector<at::Tensor>& weights,
+    const std::vector<at::Tensor>& adam_norm,
+    const std::vector<at::Tensor>& weight_norm,
+    const std::vector<at::Tensor>& adam_step,
+    const std::vector<at::Tensor>& trust_ratio,
+    const float step,
+    const float weight_decay,
+    const int use_lamb) {
+  PT_LAZY_TRACE;
+
+  for (size_t i = 0; i < weights.size(); i++) {
+    auto hl_weights = habana_lazy::GetHbLazyTensor(weights[i]);
+    updateDstDependencies(hl_weights, weights[i], true);
+  }
+
+  auto nstep_t = at::tensor(-step).to(c10::kHABANA, true);
+
+  // Build Params for the graph
+  habana_lazy::ir::NodePtr node =
+      std::make_shared<habana_lazy::ir::OptimizerFusedLambPhase2>(
+          weights,
+          adam_norm,
+          weight_norm,
+          adam_step,
+          trust_ratio,
+          nstep_t,
+          weight_decay,
+          use_lamb);
+
+  int64_t out_index = 0;
+  for (size_t i = 0; i < weights.size(); i++) {
+    auto hl_weight = habana_lazy::GetHbLazyTensor(weights[i]);
+    habana_lazy::ir::Value& out1 = hl_weight.CurrentIrValue();
+    out1.m_index = out_index++;
+    out1.SetNode(node);
+  }
+}
+
 Tensor& optimizer_adagrad_hpu_lazy(
     const TensorList& gradients,
     TensorList& weights,

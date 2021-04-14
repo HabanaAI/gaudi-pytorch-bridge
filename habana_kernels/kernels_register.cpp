@@ -2877,6 +2877,99 @@ Tensor& optimizer_sgd_momentum_hpu_wrap(
   return lr;
 }
 
+Tensor optimizer_lamb_fused_norm_hpu_wrap(
+    const std::vector<at::Tensor>& grad,
+    float max_grad_norm) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    return optimizer_lamb_fused_norm_hpu_lazy(grad, max_grad_norm);
+  } else {
+    return optimizer_lamb_fused_norm_hpu(grad, max_grad_norm);
+  }
+}
+
+std::tuple<
+    std::vector<at::Tensor>,
+    std::vector<at::Tensor>,
+    std::vector<at::Tensor>>
+optimizer_lamb_phase1_hpu_wrap(
+    const std::vector<at::Tensor>& gradients,
+    std::vector<at::Tensor>& weights,
+    std::vector<at::Tensor>& exp_avg,
+    std::vector<at::Tensor>& exp_avg_sq,
+    const at::Tensor& clip_global_grad_norm,
+    const int grad_averaging,
+    const float lr,
+    const float beta1,
+    const float beta2,
+    const float epsilon,
+    const int step,
+    const int bias_correction,
+    const float weight_decay) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    return optimizer_lamb_phase1_hpu_lazy(
+        gradients,
+        weights,
+        exp_avg,
+        exp_avg_sq,
+        clip_global_grad_norm,
+        grad_averaging,
+        lr,
+        beta1,
+        beta2,
+        epsilon,
+        step,
+        bias_correction,
+        weight_decay);
+  } else {
+    return optimizer_lamb_phase1_hpu(
+        gradients,
+        weights,
+        exp_avg,
+        exp_avg_sq,
+        clip_global_grad_norm,
+        grad_averaging,
+        lr,
+        beta1,
+        beta2,
+        epsilon,
+        step,
+        bias_correction,
+        weight_decay);
+  }
+}
+
+void optimizer_lamb_phase2_hpu_wrap(
+    std::vector<at::Tensor>& weight_vec,
+    const std::vector<at::Tensor>& adam_norm_vec,
+    const std::vector<at::Tensor>& weight_norm_vec,
+    const std::vector<at::Tensor>& adam_step_vec,
+    const std::vector<at::Tensor>& trust_ratio_vec,
+    const float step,
+    const float weight_decay,
+    const int use_lamb) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    optimizer_lamb_phase2_hpu_lazy(
+        weight_vec,
+        adam_norm_vec,
+        weight_norm_vec,
+        adam_step_vec,
+        trust_ratio_vec,
+        step,
+        weight_decay,
+        use_lamb);
+  } else {
+    optimizer_lamb_phase2_hpu(
+        weight_vec,
+        adam_norm_vec,
+        weight_norm_vec,
+        adam_step_vec,
+        trust_ratio_vec,
+        step,
+        weight_decay,
+        use_lamb);
+  }
+}
+
 Tensor hpu_wrap::_masked_scale(
     const Tensor& self,
     const Tensor& mask,
@@ -3015,6 +3108,12 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::habanaOptimizerAdamW(Tensor[] gradient_vec, Tensor[] weight_vec, Tensor[] exp_avg_vec, Tensor[] exp_avg_sq_vec, Tensor lr_t, Tensor neg_step_t, float beta1, float beta2, float epsilon, float weight_decay) -> ()");
   m.def(
       "fused_norm(Tensor[] grad, Tensor max_norm, float norm_type) -> (Tensor)");
+  m.def(
+      "habanaOptimizerLambFusedNorm(Tensor[] grad, float max_norm, Tensor clip_norm) -> (Tensor)");
+  m.def(
+      "habanaOptimizerLambPhase1(Tensor[] grad, Tensor[] weights, Tensor[] exp_avg, Tensor[] exp_avg_sq, Tensor clip_global_grad_norm, float beta1, float beta2, float beta2, float epsilon, Tensor bias_corection1, Tensor bias_correction2, float weight_decay) -> (Tensor[], Tensor[], Tensor[])");
+  m.def(
+      "habanaOptimizerLambPhase2(Tensor[] weights, Tensor[] adam_norm, Tensor[] wt_norm, Tensor[] adam_step, Tensor[] trust_ratio, Tensor neg_step, float wd, int use_lamb) -> ()");
   m.def("permute_cl(Tensor(a) self, int[] dims) -> Tensor(a)");
   m.def("restride_cl(Tensor(a) self, int[] dims) -> Tensor(a)");
   m.def("control_edge_other_(Tensor self, Tensor other) -> Tensor(a!)");

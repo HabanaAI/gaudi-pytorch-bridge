@@ -772,3 +772,33 @@ at::Tensor gather2d_hpu_wrap(
     const at::Tensor& input,
     const at::Tensor& indices,
     int64_t validCount);
+at::Tensor optimizer_lamb_fused_norm_hpu_wrap(
+    const std::vector<at::Tensor>& grad,
+    float max_grad_norm);
+std::tuple<
+    std::vector<at::Tensor>,
+    std::vector<at::Tensor>,
+    std::vector<at::Tensor>>
+optimizer_lamb_phase1_hpu_wrap(
+    const std::vector<at::Tensor>& gradient_vec,
+    std::vector<at::Tensor>& weight_vec,
+    std::vector<at::Tensor>& exp_avg_vec,
+    std::vector<at::Tensor>& exp_avg_sq_vec,
+    const at::Tensor& clip_global_grad_norm,
+    const int grad_averaging,
+    const float lr,
+    const float beta1,
+    const float beta2,
+    const float epsilon,
+    const int step,
+    const int bias_correction,
+    const float weight_decay);
+void optimizer_lamb_phase2_hpu_wrap(
+    std::vector<at::Tensor>& weight_vec,
+    const std::vector<at::Tensor>& adam_norm_vec,
+    const std::vector<at::Tensor>& weight_norm_vec,
+    const std::vector<at::Tensor>& adam_step_vec,
+    const std::vector<at::Tensor>& trust_ratio_vec,
+    const float step,
+    const float weight_decay,
+    const int use_lamb);

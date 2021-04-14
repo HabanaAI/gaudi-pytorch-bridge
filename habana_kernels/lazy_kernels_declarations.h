@@ -668,6 +668,36 @@ Tensor fused_norm_hpu_lazy(
     std::vector<Tensor>& grad,
     const Tensor& max_norm,
     float norm_type = 2.0);
+Tensor optimizer_lamb_fused_norm_hpu_lazy(
+    const std::vector<at::Tensor>& grad,
+    float max_grad_norm);
+std::tuple<
+    std::vector<at::Tensor>,
+    std::vector<at::Tensor>,
+    std::vector<at::Tensor>>
+optimizer_lamb_phase1_hpu_lazy(
+    const std::vector<at::Tensor>& gradients,
+    std::vector<at::Tensor>& weights,
+    std::vector<at::Tensor>& exp_avg,
+    std::vector<at::Tensor>& exp_avg_sq,
+    const at::Tensor& clip_global_grad_norm,
+    const int grad_averaging,
+    const float lr,
+    const float beta1,
+    const float beta2,
+    const float epsilon,
+    const int step,
+    const int bias_correction,
+    const float weight_decay);
+void optimizer_lamb_phase2_hpu_lazy(
+    std::vector<at::Tensor>& weight_vec,
+    const std::vector<at::Tensor>& adam_norm_vec,
+    const std::vector<at::Tensor>& weight_norm_vec,
+    const std::vector<at::Tensor>& adam_step_vec,
+    const std::vector<at::Tensor>& trust_ratio_vec,
+    const float step,
+    const float weight_decay,
+    const int use_lamb);
 Tensor& optimizer_adagrad_hpu_lazy(
     const TensorList& gradients,
     TensorList& weights,

@@ -4,6 +4,15 @@ from typing import Callable, Iterable, Tuple
 import torch
 from torch.optim import Optimizer
 
+import sys
+import os
+
+sys.path.insert(0, os.path.join(os.environ['BUILD_ROOT_LATEST']))
+try:
+    import hb_torch
+except ImportError:
+    assert False, "Could Not import hb_torch"
+
 class FusedLamb(Optimizer):
 
     """Implements a version of LAMB optimizer customized for HABANA devices.
@@ -60,6 +69,19 @@ class FusedLamb(Optimizer):
         self.adam_w_mode = 1 if adam_w_mode else 0
         self.set_grad_none = set_grad_none
         self.use_lamb = use_lamb
+        self.device = self.param_groups[0]["params"][0].device
+
+        # State initialization
+        for group in self.param_groups:
+            for p in group['params']:
+                state = self.state[p]
+                if len(state) == 0:
+                    # Exponential moving average of gradient values
+                    state['exp_avg'] = torch.zeros(p.data.shape).to(self.device)
+                    # Exponential moving average of squared gradient values
+                    state['exp_avg_sq'] = torch.zeros(p.data.shape).to(self.device)
+
+
 
     def zero_grad(self):
         if self.set_grad_none:
@@ -76,8 +98,6 @@ class FusedLamb(Optimizer):
                 and returns the loss.
         """
         import hb_custom_C
-        hpu = torch.device("habana")
-        cpu = torch.device("cpu")
 
         loss = None
         if closure is not None:
@@ -111,17 +131,13 @@ class FusedLamb(Optimizer):
             step_size = group['lr']
 
             grad_list, wt_list, exp_avg_list, exp_avg_sq_list, wt_norm_list, adam_norm_list, adam_step_list, tr_ones_list = [], [], [], [], [], [], [], []
+
+            hb_torch.mark_step()
+
             for p in group['params']:
                 if p.grad is None:
                     continue
                 state = self.state[p]
-
-                # State initialization
-                if len(state) == 0:
-                    # Exponential moving average of gradient values
-                    state['exp_avg'] = torch.zeros_like(p.data)
-                    # Exponential moving average of squared gradient values
-                    state['exp_avg_sq'] = torch.zeros_like(p.data)
 
                 exp_avg, exp_avg_sq = state['exp_avg'], state['exp_avg_sq']
 
@@ -129,7 +145,7 @@ class FusedLamb(Optimizer):
                 wt_list.append(p.data)
                 exp_avg_list.append(exp_avg)
                 exp_avg_sq_list.append(exp_avg_sq)
-                tr_ones_list.append(torch.ones(1).to(hpu))
+                tr_ones_list.append(torch.ones(1).to(self.device))
 
             (wt_norm_list, adam_norm_list, adam_step_list) = hb_custom_C.fused_lamb_phase1(
                     grad_list,
@@ -146,5 +162,9 @@ class FusedLamb(Optimizer):
                     bias_correction,
                     group['weight_decay'])
 
+            hb_torch.mark_step()
+
             hb_custom_C.fused_lamb_phase2(wt_list, adam_norm_list, wt_norm_list, adam_step_list,
-                                               tr_ones_list, step_size, group['weight_decay'], self.use_lamb)
+                                                tr_ones_list, step_size, group['weight_decay'], self.use_lamb)
+
+            hb_torch.mark_step()

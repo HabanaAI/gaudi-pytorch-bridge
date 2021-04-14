@@ -37,7 +37,7 @@ extern std::tuple<
     std::vector<at::Tensor>,
     std::vector<at::Tensor>,
     std::vector<at::Tensor>>
-optimizer_lamb_phase1_hpu(
+optimizer_lamb_phase1_hpu_wrap(
     const std::vector<at::Tensor>& gradient_vec,
     std::vector<at::Tensor>& weight_vec,
     std::vector<at::Tensor>& exp_avg_vec,
@@ -52,11 +52,11 @@ optimizer_lamb_phase1_hpu(
     const int bias_correction,
     const float weight_decay);
 
-extern at::Tensor optimizer_lamb_fused_norm_hpu(
+extern at::Tensor optimizer_lamb_fused_norm_hpu_wrap(
     const std::vector<at::Tensor>& grad,
     float max_grad_norm);
 
-void optimizer_lamb_phase2_hpu(
+void optimizer_lamb_phase2_hpu_wrap(
     std::vector<at::Tensor>& weight_vec,
     const std::vector<at::Tensor>& adam_norm_vec,
     const std::vector<at::Tensor>& weight_norm_vec,
@@ -131,7 +131,7 @@ optimizer_fused_lamb_phase1(
     const int step,
     const int bias_correction,
     const float weight_decay) {
-  return optimizer_lamb_phase1_hpu(
+  return optimizer_lamb_phase1_hpu_wrap(
       gradient_vec,
       weight_vec,
       exp_avg_vec,
@@ -156,7 +156,7 @@ void optimizer_fused_lamb_phase2(
     const float step,
     const float weight_decay,
     const int use_lamb) {
-  optimizer_lamb_phase2_hpu(
+  optimizer_lamb_phase2_hpu_wrap(
       weight_vec,
       adam_norm_vec,
       weight_norm_vec,
@@ -170,7 +170,7 @@ void optimizer_fused_lamb_phase2(
 at::Tensor optimizer_lamb_fused_norm(
     const std::vector<at::Tensor>& grad,
     float max_grad_norm) {
-  return optimizer_lamb_fused_norm_hpu(grad, max_grad_norm);
+  return optimizer_lamb_fused_norm_hpu_wrap(grad, max_grad_norm);
 }
 
 extern at::Tensor& optimizer_adagrad_hpu_wrap(

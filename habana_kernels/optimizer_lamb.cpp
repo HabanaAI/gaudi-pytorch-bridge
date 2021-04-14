@@ -31,7 +31,7 @@ using namespace habana;
 void OptimizerLambPhase1Operator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    std::vector<bool> is_output_persistent) {
   TORCH_CHECK(
       inputs.size() == 12,
       "Incorrect size of inputs for lamb optimizer ph1 graph creation call");
@@ -188,7 +188,7 @@ void OptimizerLambPhase1Operator::AllocateAndAddSynapseNode(
       stack.emplace_back(IValue(div_wt.GetOutputs()[0]));
       stack.emplace_back(IValue(weights.get(i)));
       stack.emplace_back(IValue(weight_decay));
-      add_wt.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+      add_wt.AllocateAndAddSynapseNode(graph, stack, is_output_persistent[i]);
       p_context_->syn_inputs_[1 * num_params + i] = std::move(syn_in_200);
       stack.clear();
 
@@ -199,7 +199,7 @@ void OptimizerLambPhase1Operator::AllocateAndAddSynapseNode(
       stack.emplace_back(IValue(add_wt.GetOutputs()[0]));
       stack.emplace_back(IValue(2.0));
       norm_adam_step.AllocateAndAddSynapseNode(
-          graph, stack, is_output_persistent);
+          graph, stack, is_output_persistent[i + 1]);
       stack.clear();
       p_context_->syn_outputs_.emplace_back(std::move(syn_in_101));
       p_context_->pt_outputs_.emplace_back(add_wt.GetOutputs()[0]);
@@ -215,7 +215,8 @@ void OptimizerLambPhase1Operator::AllocateAndAddSynapseNode(
           div_wt.SetSynapseInput(std::move(add_exp_avg_sq.GetSynOutputs()[0]));
       stack.emplace_back(IValue(div_exp_avg.GetOutputs()[0]));
       stack.emplace_back(IValue(add_exp_avg_sq.GetOutputs()[0]));
-      div_wt.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+      div_wt.AllocateAndAddSynapseNode(
+          graph, stack, is_output_persistent[i + 2]);
       stack.clear();
 
       NormOperator norm_adam_step(device_id, scalar_type);
@@ -224,7 +225,7 @@ void OptimizerLambPhase1Operator::AllocateAndAddSynapseNode(
       stack.emplace_back(IValue(div_wt.GetOutputs()[0]));
       stack.emplace_back(IValue(2.0));
       norm_adam_step.AllocateAndAddSynapseNode(
-          graph, stack, is_output_persistent);
+          graph, stack, is_output_persistent[i + 1]);
       stack.clear();
       p_context_->syn_outputs_.emplace_back(std::move(syn_in_101));
       p_context_->pt_outputs_.emplace_back(div_wt.GetOutputs()[0]);
@@ -239,7 +240,8 @@ void OptimizerLambPhase1Operator::AllocateAndAddSynapseNode(
         std::move(p_context_->syn_inputs_[1 * num_params + i]));
     stack.emplace_back(IValue(weights.get(i)));
     stack.emplace_back(IValue(2.0));
-    norm_wt.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+    norm_wt.AllocateAndAddSynapseNode(
+        graph, stack, is_output_persistent[i + 2]);
     p_context_->syn_inputs_[1 * num_params + i] = std::move(syn_in_102);
     stack.clear();
 
@@ -385,7 +387,8 @@ optimizer_lamb_phase1_hpu(
     // Create Graph
     auto graph = habana_helpers::create_graph(device_id, node_type);
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
-    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    std::vector<bool> is_output_persistent(3 * num_params, true);
+    Op.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
     // compile and execute the graph
     Op.Compile(graph);
   }
@@ -411,7 +414,7 @@ optimizer_lamb_phase1_hpu(
 void OptimizerLambPhase2Operator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    std::vector<bool> is_output_persistent) {
   TORCH_CHECK(
       inputs.size() == 8,
       "Incorrect size of inputs for lamb optimizer ph2 graph creation call");
@@ -570,7 +573,7 @@ void OptimizerLambPhase2Operator::AllocateAndAddSynapseNode(
     stack.emplace_back(IValue(weights.get(i)));
     stack.emplace_back(IValue(mul4.GetOutputs()[0]));
     stack.emplace_back(IValue(1.0));
-    add3_lp.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+    add3_lp.AllocateAndAddSynapseNode(graph, stack, is_output_persistent[i]);
     p_context_->syn_inputs_[i] = std::move(syn_in_50);
     stack.clear();
 
@@ -660,7 +663,8 @@ void optimizer_lamb_phase2_hpu(
     // Create Graph
     auto graph = habana_helpers::create_graph(device_id, node_type);
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
-    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    std::vector<bool> is_output_persistent(num_params, true);
+    Op.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
     // compile and execute the graph
     Op.Compile(graph);
   }
@@ -868,3 +872,24 @@ Tensor optimizer_lamb_fused_norm_hpu(
   PT_KERNEL_END;
   return out[0];
 }
+
+static auto& KernelRegistry =
+    habana::KernelRegistry()
+        .add(
+            "hpu::habanaOptimizerLambFusedNorm",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<OptNormFusedNormOperator>(
+                  device_id, node_type);
+            })
+        .add(
+            "hpu::habanaOptimizerLambPhase1",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<OptimizerLambPhase1Operator>(
+                  device_id, node_type);
+            })
+        .add(
+            "hpu::habanaOptimizerLambPhase2",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<OptimizerLambPhase2Operator>(
+                  device_id, node_type);
+            });

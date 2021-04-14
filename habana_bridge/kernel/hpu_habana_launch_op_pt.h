@@ -177,7 +177,9 @@ class HabanaLaunchOpPT {
   std::vector<std::string> custom_optimizer_nodestr_vec = {
       "hpu::habanaOptimizerFusedSGDMomentum",
       "hpu::habanaOptimizerFusedAdagrad",
-      "hpu::habanaOptimizerAdamW"};
+      "hpu::habanaOptimizerAdamW",
+      "hpu::habanaOptimizerLambPhase1",
+      "hpu::habanaOptimizerLambPhase2"};
 
   habana::LayoutFormat getTensorChannelOrder(torch::jit::Value* val);
   void runMetaDataAdjustmentPasses(torch::jit::graph_node_list graph_nodes);
