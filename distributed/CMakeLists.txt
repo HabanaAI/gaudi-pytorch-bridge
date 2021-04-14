@@ -41,7 +41,7 @@ if (CLANG_TIDY)
 elseif (${DISABLE_CLANG_TIDY} STREQUAL "ON")
   message(AUTHOR_WARNING "clang-tidy-10 was disabled")
 else ()
-  message(AUTHOR_WARNING "clang-tidy-10 was not detected. Please install it and rerun CMake or set CLANG_TIDY to a valid path")
+  message(FATAL_ERROR "clang-tidy-10 was not detected. Please install it and rerun CMake or set CLANG_TIDY to a valid path")
 endif ()
 
 # workaround for cmake3.5. Starting from 3.13 sources are optional and we can add them in add_subdirectories

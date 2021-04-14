@@ -34,7 +34,7 @@ if (CLANG_TIDY)
 elseif (${DISABLE_CLANG_TIDY} STREQUAL "ON")
   message(AUTHOR_WARNING "clang-tidy-10 was disabled")
 else ()
-  message(AUTHOR_WARNING "clang-tidy-10 was not detected. Please install it and rerun CMake or set CLANG_TIDY to a valid path")
+  message(FATAL_ERROR "clang-tidy-10 was not detected. Please install it and rerun CMake or set CLANG_TIDY to a valid path")
 endif ()
 
 find_package(Torch REQUIRED)
