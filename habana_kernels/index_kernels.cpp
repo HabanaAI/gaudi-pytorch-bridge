@@ -1238,6 +1238,16 @@ Tensor slice_hpu(
     int64_t step) {
   PT_KERNEL_BEGIN;
 
+  // Handling the case where slice recieves NULL in_self tensor.
+  // Although tensor is NULL, still output is expected of correct size
+  if (in_self.numel() == 0) {
+    SliceOperator slice_op(in_self.device().index(), in_self.scalar_type());
+    auto slice_output =
+        slice_op.AllocateOutputTensor(in_self, dim, start, end, step, true);
+    PT_KERNEL_END;
+    return slice_output;
+  }
+
   Tensor self;
   if (in_self.scalar_type() == c10::ScalarType::Long) {
     self = habana_helpers::cast_tensor_to_integer(in_self);
@@ -1340,33 +1350,43 @@ void SelectOperator::AllocateAndAddSynapseNode(
   auto self = inputs[0].toTensor();
   auto dim = inputs[1].toInt();
   auto index = inputs[2].toInt();
+  auto input_shape = self.sizes();
+  auto dimensions = input_shape.size();
 
   auto start = index;
   auto end = index + 1;
   int64_t step = 1;
+
+  bool is_slice_output = false;
+  is_slice_output = (dimensions != 1) ? false : true;
 
   SliceOperator slice_op(self.device().index(), self.scalar_type());
   auto& syn_in_slice =
       slice_op.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
   std::vector<c10::IValue> stack1 = {
       IValue(self), IValue(dim), IValue(start), IValue(end), IValue(step)};
-  slice_op.AllocateAndAddSynapseNode(graph, stack1, false);
+  slice_op.AllocateAndAddSynapseNode(graph, stack1, is_slice_output);
   p_context_->syn_inputs_[0] = std::move(syn_in_slice);
 
-  // Add Reshape node to graph
-  ReshapeOperator reshape_op(self.device().index(), self.scalar_type());
-  UNUSED auto& syn_in_reshape =
-      reshape_op.SetSynapseInput(std::move(slice_op.GetSynOutputs()[0]));
-  auto slice_out_tensor = slice_op.GetOutputs()[0];
-  auto shape = slice_out_tensor.sizes().vec();
-  shape.erase(shape.begin() + dim);
-  torch::jit::Stack stack2 = {
-      c10::IValue(slice_out_tensor), c10::IValue(shape)};
-  reshape_op.AllocateAndAddSynapseNode(graph, stack2, is_output_persistent);
-
-  p_context_->syn_outputs_.emplace_back(
-      std::move(reshape_op.GetSynOutputs()[0]));
-  p_context_->pt_outputs_.emplace_back(std::move(reshape_op.GetOutputs()[0]));
+  if (is_slice_output == false) {
+    // Add Reshape node to graph
+    ReshapeOperator reshape_op(self.device().index(), self.scalar_type());
+    UNUSED auto& syn_in_reshape =
+        reshape_op.SetSynapseInput(std::move(slice_op.GetSynOutputs()[0]));
+    auto slice_out_tensor = slice_op.GetOutputs()[0];
+    auto shape = slice_out_tensor.sizes().vec();
+    shape.erase(shape.begin() + dim);
+    torch::jit::Stack stack2 = {
+        c10::IValue(slice_out_tensor), c10::IValue(shape)};
+    reshape_op.AllocateAndAddSynapseNode(graph, stack2, is_output_persistent);
+    p_context_->syn_outputs_.emplace_back(
+        std::move(reshape_op.GetSynOutputs()[0]));
+    p_context_->pt_outputs_.emplace_back(std::move(reshape_op.GetOutputs()[0]));
+  } else {
+    p_context_->syn_outputs_.emplace_back(
+        std::move(slice_op.GetSynOutputs()[0]));
+    p_context_->pt_outputs_.emplace_back(std::move(slice_op.GetOutputs()[0]));
+  }
 }
 
 /*************************************************************************
@@ -1379,6 +1399,26 @@ void SelectOperator::AllocateAndAddSynapseNode(
 Tensor select_hpu(const Tensor& in_self, int64_t dim, int64_t index) {
   PT_KERNEL_BEGIN;
 
+  // Handling the case where select recieves NULL in_self tensor.
+  // Although tensor is NULL, still output is expected of correct size
+  if (in_self.numel() == 0) {
+    auto start = index;
+    auto end = index + 1;
+    int64_t step = 1;
+    SliceOperator slice_op(in_self.device().index(), in_self.scalar_type());
+    auto slice_output =
+        slice_op.AllocateOutputTensor(in_self, dim, start, end, step, false);
+    // case for select op where tensor dimension is reduced
+    // only rank 4 tensor can have channels last format
+    at::MemoryFormat memory_format = at::MemoryFormat::Contiguous;
+    // allocate output tensor
+    auto shape = slice_output.sizes().vec();
+    shape.erase(shape.begin() + dim);
+    auto output = habana_helpers::createPTTensor(
+        in_self, shape, in_self.options(), memory_format, true);
+    PT_KERNEL_END;
+    return output;
+  }
   Tensor self;
   if (in_self.scalar_type() == c10::ScalarType::Long) {
     self = habana_helpers::cast_tensor_to_integer(in_self);
@@ -1839,6 +1879,7 @@ Tensor index_hpu(const Tensor& input, TensorList indices) {
   PT_KERNEL_END;
   return out.at(0);
 }
+
 static auto& KernelRegistry =
     ::habana::KernelRegistry()
         .add(

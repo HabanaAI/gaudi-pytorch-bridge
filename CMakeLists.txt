@@ -77,6 +77,7 @@ add_library(habana_pytorch_plugin SHARED
   habana_kernels/fill_kernels.cpp
   habana_kernels/habana_operator.cpp
   habana_kernels/index_kernels.cpp
+  habana_kernels/nonzero_kernel.cpp
   habana_kernels/kernels_register.cpp
   habana_kernels/kernel_utils.cpp
   habana_kernels/lazy_kernels.cpp

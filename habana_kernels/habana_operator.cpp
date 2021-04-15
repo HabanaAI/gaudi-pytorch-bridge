@@ -161,6 +161,17 @@ void habana::HabanaOperator::AllocateSynapseOutput(
   p_context_->pt_outputs_.emplace_back(output);
 }
 
+void habana::HabanaOperator::AllocateSynapseOutput(
+    synapse_helpers::graph& graph,
+    const at::Tensor& output,
+    const synDataType synType,
+    bool is_persistent) {
+  p_context_->syn_outputs_.emplace_back(habana_helpers::create_tensor(
+      output, graph.get_graph_handle(), is_persistent, synType));
+
+  p_context_->pt_outputs_.emplace_back(output);
+}
+
 getDMAInputTensorCBType habana::HabanaOperator::getDMAInputTensorCB() {
   HABANA_ASSERT(false && "This call needs to be supported by the derived op");
 }

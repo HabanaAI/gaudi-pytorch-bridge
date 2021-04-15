@@ -46,3 +46,11 @@ class BitwiseAndOutOperator : public BitwiseOutWrapOperator {
             device_id,
             "and_" + habana_helpers::name_suffix_from_type(scalarType)) {}
 };
+
+class BitwiseOrOutOperator : public BitwiseOutWrapOperator {
+ public:
+  BitwiseOrOutOperator(int device_id, c10::ScalarType scalarType)
+      : BitwiseOutWrapOperator(
+            device_id,
+            "or_" + habana_helpers::name_suffix_from_type(scalarType)) {}
+};

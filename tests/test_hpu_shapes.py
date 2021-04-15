@@ -38,6 +38,17 @@ test_case_scatter_add = [
     (512, 768, 1, 512),
 ]
 
+test_case_nonzero = [
+    # N, H, W, C, value, as_tuple
+    # Mix values and as_tupel true
+    (2, 3, 2, 4, 0, True),
+    # Mix values and as_tupel false
+    (2, 3, 2, 4, 0, False),
+    # False values and as_tupel true
+    (2, 3, 2, 4, 5, True),
+    # False values and as_tupel false
+    (2, 3, 2, 4, 5, False),
+]
 
 # @torch.jit.script
 @pytest.mark.parametrize("N, H, W, C", test_case_list)
@@ -63,6 +74,40 @@ def test_hpu_slice_and_select(N, H, W, C):
     cpu_result = in_tensor.to(cpu)[:, 0, 0:4:2, 0:4]
     compare_tensors(hpu_result, cpu_result, atol=0, rtol=0)
 
+# All False test case
+# Mix of True and False
+@pytest.mark.parametrize("N, H, W, C, value, format", test_case_nonzero)
+def test_hpu_nonzero(N, H, W, C, value, format):
+    hpu = torch.device('habana')
+    cpu = torch.device('cpu')
+    dim_list = [N, C, H, W]
+    in_tensor = torch.randn(tuple(dim_list))>value
+    hpu_result = torch.nonzero(in_tensor.to(hpu), as_tuple=format)
+    cpu_result = torch.nonzero(in_tensor.to(cpu), as_tuple=format)
+    compare_tensors(hpu_result, cpu_result, atol=0, rtol=0)
+
+# Empty Tensor case
+@pytest.mark.parametrize("N, H, W, C, value, format", test_case_nonzero)
+def test_hpu_nonzero_empty(N, H, W, C, value, format):
+    hpu = torch.device('habana')
+    cpu = torch.device('cpu')
+    dim_list = [0, 0, 0, 0]
+    in_tensor = torch.empty(tuple(dim_list), dtype=torch.float)
+    hpu_result = torch.nonzero(in_tensor.to(hpu), as_tuple=format)
+    cpu_result = torch.nonzero(in_tensor.to(cpu), as_tuple=format)
+    compare_tensors(hpu_result, cpu_result, atol=0, rtol=0)
+
+# Test 1D case
+# 1D case all false
+@pytest.mark.parametrize("N, H, W, C, value, format", test_case_nonzero)
+def test_hpu_nonzero_1D(N, H, W, C, value, format):
+    hpu = torch.device('habana')
+    cpu = torch.device('cpu')
+    dim_list = [H]
+    in_tensor = torch.randn(tuple(dim_list))>value
+    hpu_result = torch.nonzero(in_tensor.to(hpu), as_tuple=format)
+    cpu_result = torch.nonzero(in_tensor.to(cpu), as_tuple=format)
+    compare_tensors(hpu_result, cpu_result, atol=0, rtol=0)
 
 @pytest.mark.parametrize("N, H, W, C", test_case_list)
 @pytest.mark.parametrize("dim", [0, 1, 2, 3])
@@ -231,3 +276,6 @@ if __name__ == '__main__':
     test_hpu_index_add(*test_case_list[0], 0)
     test_hpu_broadcast(broadcast_test_case_list[2])
     test_hpu_scatter_value_inplace(*test_case_scatter_add[0])
+    test_hpu_nonzero(*test_case_nonzero[0])
+    test_hpu_nonzero_empty(*test_case_nonzero[0])
+    test_hpu_nonzero_1D(*test_case_nonzero[0])

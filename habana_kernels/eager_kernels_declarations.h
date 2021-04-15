@@ -174,6 +174,7 @@ Tensor& embedding_bag_sum_bwd_out_hpu(
 Tensor& fill_hpu_(Tensor& self, Scalar value);
 Tensor& masked_fill_hpu_(Tensor& self, const Tensor& mask, const Tensor& value);
 Tensor& masked_fill_scalar_hpu_(Tensor& self, const Tensor& mask, Scalar value);
+Tensor nonzero_hpu(const Tensor& self);
 Tensor gather_src_hpu(
     const Tensor& self,
     int64_t dim_,
@@ -444,6 +445,10 @@ Tensor any_dim_hpu(const Tensor& self, int64_t dim, bool keepdim);
 Tensor any_hpu(const Tensor& self);
 Tensor& bitwise_and_out_hpu(Tensor& out, const Tensor& self, Scalar other);
 Tensor& bitwise_and_out_hpu(
+    Tensor& out,
+    const Tensor& self,
+    const Tensor& other);
+Tensor& bitwise_or_out_hpu(
     Tensor& out,
     const Tensor& self,
     const Tensor& other);

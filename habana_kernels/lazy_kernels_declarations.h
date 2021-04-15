@@ -252,6 +252,7 @@ Tensor slice_hpu_lazy(
     int64_t step);
 Tensor select_hpu_lazy(const Tensor& self, int64_t dim, int64_t index);
 Tensor& arange_hpu_lazy(Tensor& output, Scalar start, Scalar end, Scalar step);
+Tensor nonzero_hpu_lazy(const Tensor& self);
 at::Tensor mm_hpu_lazy(const at::Tensor& mat1, const at::Tensor& mat2);
 Tensor addmm_hpu_lazy(
     const Tensor& self,
@@ -470,6 +471,10 @@ Tensor& bitwise_and_out_hpu_lazy(
     const Tensor& self,
     const Tensor& other);
 Tensor& bitwise_and_out_hpu_lazy(Tensor& out, const Tensor& self, Scalar other);
+Tensor& bitwise_or_out_hpu_lazy(
+    Tensor& out,
+    const Tensor& self,
+    const Tensor& other);
 namespace habana {
 Tensor log_softmax_hpu_lazy(
     const Tensor& self,

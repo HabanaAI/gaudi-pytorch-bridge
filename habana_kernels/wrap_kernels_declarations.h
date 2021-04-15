@@ -265,6 +265,7 @@ struct hpu_wrap {
       at::Scalar start,
       at::Scalar end,
       at::Scalar step);
+  static at::Tensor nonzero(const at::Tensor& self);
   static at::Tensor mm(const at::Tensor& mat1, const at::Tensor& mat2);
   static at::Tensor addmm(
       const at::Tensor& self,
@@ -669,6 +670,10 @@ struct hpu_wrap {
       at::Tensor& out,
       const at::Tensor& self,
       at::Scalar other);*/
+  static at::Tensor& bitwise_or_out(
+      at::Tensor& out,
+      const at::Tensor& self,
+      const at::Tensor& other);
   static at::Tensor upsample_nearest2d(
       const at::Tensor& input,
       c10::optional<at::IntArrayRef> output_size,

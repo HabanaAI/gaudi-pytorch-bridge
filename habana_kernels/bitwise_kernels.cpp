@@ -68,11 +68,6 @@ void BitwiseOutWrapOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(
       self.scalar_type() == c10::ScalarType::Bool,
       "Bitwise operator supports only Boolean inputs for now");
-  // Support for Scalar input dependent on
-  // https://jira.habana-labs.com/browse/SW-36577
-  TORCH_CHECK(
-      !inputs[2].isScalar(),
-      "Bitwise operator does not support scalar inputs for now");
 
   BitwiseOutOperator BitwiseOutOp(this->p_context_->device_id_, guid_);
 
@@ -199,8 +194,45 @@ Tensor& bitwise_and_out_hpu(Tensor& out, const Tensor& self, Scalar other) {
   return out;
 }
 
-static auto& KernelRegistry = habana::KernelRegistry().add(
-    "hpu::bitwise_and_Tensor_out",
-    [](const int device_id, c10::ScalarType node_type) {
-      return std::make_shared<BitwiseAndOutOperator>(device_id, node_type);
-    });
+Tensor& bitwise_or_out_hpu(
+    Tensor& out,
+    const Tensor& self,
+    const Tensor& other) {
+  PT_KERNEL_BEGIN;
+  if (self.dim() == 0) {
+    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+  }
+  if (other.dim() == 0) {
+    other.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+  }
+
+  auto out_shape = BitwiseOutOperator::compute_output_shape(self, other);
+  auto out_reshaped = out.unsafeGetTensorImpl();
+  if (out.sizes().vec() != out_shape) {
+    THHTensor_resizeNd(
+        out_reshaped, out_shape.size(), out_shape.data(), nullptr);
+  }
+
+  std::vector<at::Tensor> pt_inputs{out, self, other};
+  torch::jit::Stack stack{IValue(out), IValue(self), IValue(other)};
+  process_generic_tensor_bitwise_out_op<BitwiseOrOutOperator>(
+      pt_inputs, stack, "or");
+
+  PT_KERNEL_END;
+  return out;
+}
+
+static auto& KernelRegistry =
+    habana::KernelRegistry()
+        .add(
+            "hpu::bitwise_and_Tensor_out",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<BitwiseAndOutOperator>(
+                  device_id, node_type);
+            })
+        .add(
+            "hpu::bitwise_or_Tensor_out",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<BitwiseOrOutOperator>(
+                  device_id, node_type);
+            });

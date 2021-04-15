@@ -2132,7 +2132,6 @@ Tensor& scatter_add_inplace_src_hpu_lazy(
   HABANA_ASSERT(0);
   return scatter_add_inplace_src_hpu(self, dim_, index, src);
 }
-
 Tensor index_hpu_lazy(const at::Tensor& self, at::TensorList indices) {
   PT_LAZY_TRACE;
   LazyOp<at::Tensor> k{
@@ -2141,6 +2140,10 @@ Tensor index_hpu_lazy(const at::Tensor& self, at::TensorList indices) {
       {},
       {IndexOperator::compute_output_shape(self, indices)}};
   return k.call();
+}
+Tensor nonzero_hpu_lazy(const Tensor& self) {
+  HABANA_ASSERT(0);
+  return nonzero_hpu(self);
 }
 Tensor& index_add_hpu_lazy_(
     Tensor& self,
@@ -5180,6 +5183,36 @@ Tensor& bitwise_and_out_hpu_lazy(
   static_cast<void>(self);
   static_cast<void>(other);
 }
+
+Tensor& bitwise_or_out_hpu_lazy(
+    Tensor& out,
+    const Tensor& self,
+    const Tensor& other) {
+  PT_LAZY_TRACE;
+  auto hl_out = habana_lazy::GetOrCreateHbLazyTensor(out, c10::kHABANA);
+  auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
+  auto hl_other = habana_lazy::GetOrCreateHbLazyTensor(other, c10::kHABANA);
+  auto out_shape = BitwiseOutOperator::compute_output_shape(self, other);
+  // Resize output tensor(s) to correct shape if required
+  if (out.sizes().vec() != out_shape) {
+    auto out_reshaped = hl_out.getAttachedTensorImpl();
+    THHTensor_resizeNd(
+        out_reshaped, out_shape.size(), out_shape.data(), nullptr);
+    out.unsafeGetTensorImpl()->set_sizes_contiguous(IntArrayRef(out_shape));
+  }
+  auto node = habana_lazy::ir::Node::Create(
+      Symbol::fromQualString("hpu::bitwise_or_Tensor_out"),
+      {hl_out.GetIrValue(), hl_self.GetIrValue(), hl_other.GetIrValue()});
+  auto hl_result = habana_lazy::GetHbLazyTensor(out);
+  habana_lazy::ir::Value& output = hl_result.CurrentIrValue();
+  output.m_index = 0;
+  output.SetNode(node);
+  // updatet the view if any
+  updateDstDependencies(hl_result, out);
+  std::vector<at::Tensor> input_pt_vec{out, self, other};
+  node->AddInputPtTensors(input_pt_vec);
+  return out;
+};
 
 std::tuple<at::Tensor, at::Tensor> max_dim_hpu_lazy(
     const at::Tensor& self,

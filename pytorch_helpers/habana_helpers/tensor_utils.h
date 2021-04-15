@@ -14,6 +14,7 @@
 #include <c10/core/TensorOptions.h>
 #include <c10/util/ArrayRef.h>
 
+#include <synapse_common_types.h>
 #include <synapse_helpers/habana_tensor.h>
 #include <torch/script.h>
 #include <tuple>
@@ -105,11 +106,11 @@ at::Tensor createPTTensor(
     at::optional<c10::MemoryFormat> optional_memory_format,
     bool is_persistent);
 
-/*
+/**
 @brief This function can be used to create an intermediate
        synapse_helper tensor of required shape (which is
        different from shape of input & output tensors)
-*/
+**/
 synapse_helpers::tensor create_tensor(
     const c10::IntArrayRef& shape,
     synGraphHandle graph,
@@ -122,6 +123,17 @@ synapse_helpers::tensor create_tensor(
     const synGraphHandle graph,
     bool persistent,
     const c10::optional<c10::ScalarType> dtype = c10::nullopt);
+
+/**
+@brief This function can be used to create an intermediate
+       synapse_helper tensor of required shape and synDataType
+       as ScalarType dosen't represent all synapse supported types
+**/
+synapse_helpers::tensor create_tensor(
+    const at::Tensor& tensor,
+    const synGraphHandle graph,
+    bool persistent,
+    const synDataType dtype);
 
 std::tuple<std::vector<synapse_helpers::tensor>, std::vector<synTensor>>
 create_tensors(
