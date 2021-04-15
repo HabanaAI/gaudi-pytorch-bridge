@@ -62,6 +62,15 @@
 
 using namespace habana_lazy;
 #define USE_LAZYOP
+#define STRINGIFY(op_code) #op_code
+
+#define HPU_LAZY_FUNC_NAME(op_code) op_code##_hpu_lazy
+#define HPU_LAZY_WRAP_KERNEL(op_code)                       \
+  Tensor HPU_LAZY_FUNC_NAME(op_code)(const Tensor& self) {  \
+    PT_LAZY_TRACE;                                          \
+    LazyOp<at::Tensor> k{STRINGIFY(aten::op_code), {self}}; \
+    return k.call();                                        \
+  }
 
 at::Tensor preProcessIfLongorDouble(
     const at::Tensor& src,
@@ -539,7 +548,16 @@ Tensor as_strided_hpu_lazy(
     return AtenHpuTypeDefault::as_strided(self, size, stride, storage_offset);
   }
   return self;
+};
+
+Tensor asin_hpu_lazy(const Tensor& self) {
+  PT_LAZY_TRACE;
+  LazyOp<at::Tensor> k{"aten::asin", {self}};
+  return k.call();
 }
+
+HPU_LAZY_WRAP_KERNEL(acos)
+
 Tensor& set_hpu_lazy_(
     Tensor& self,
     Storage source,

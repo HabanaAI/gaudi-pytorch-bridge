@@ -12,6 +12,9 @@
 #include <pthread.h>
 #include <torch/script.h>
 
+#define HPU_LAZY_FUNC_DECL(op_code) \
+  Tensor op_code##_hpu_lazy(const Tensor& self);
+
 using namespace torch;
 using namespace at;
 
@@ -23,6 +26,8 @@ Tensor as_strided_hpu_lazy(
     IntArrayRef size,
     IntArrayRef stride,
     c10::optional<int64_t> storage_offset);
+Tensor asin_hpu_lazy(const Tensor& self);
+HPU_LAZY_FUNC_DECL(acos)
 Tensor& set_hpu_lazy_(
     Tensor& self,
     Storage source,

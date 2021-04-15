@@ -18,6 +18,15 @@
 using namespace torch;
 using namespace at;
 
+#define HPU_WRAP_OP(opcode) hpu_wrap::opcode
+#define HPU_LAZY_FUNC_NAME(op_code) op_code##_hpu_lazy
+
+#define HPU_LAZY_WRAP_FUNCTION(op_code)                     \
+  at::Tensor HPU_WRAP_OP(op_code)(const at::Tensor& self) { \
+    hpu_check_inputs(#op_code, {self});                     \
+    return HPU_LAZY_FUNC_NAME(op_code)(self);               \
+  }
+
 Tensor& hpu_wrap::copy_(Tensor& self, const Tensor& src, bool non_blocking) {
   hpu_check_inputs("copy_", {self, src});
 
@@ -2533,6 +2542,12 @@ at::Tensor& hpu_wrap::as_strided_(
 
   return at::native::as_strided_(self, size, stride, std::move(storage_offset));
 }
+
+at::Tensor hpu_wrap::asin(const at::Tensor& self) {
+  hpu_check_inputs("asin", {self});
+  return asin_hpu_lazy(self);
+}
+HPU_LAZY_WRAP_FUNCTION(acos)
 
 std::vector<at::Tensor> hpu_wrap::split(
     const at::Tensor& self,

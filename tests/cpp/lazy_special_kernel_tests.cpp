@@ -1,0 +1,51 @@
+#include <gtest/gtest.h>
+#include <torch/csrc/jit/testing/file_check.h>
+#include <torch/torch.h>
+#include <stdexcept>
+#include "habana_kernels/lazy_kernels_declarations.h"
+#include "habana_kernels/wrap_kernels_declarations.h"
+#include "habana_lazy/aten_lazy_bridge.h"
+#include "habana_lazy/debug_utils.h"
+#include "habana_lazy/hlexec.h"
+#include "habana_lazy/hpu_lazy_tensors.h"
+#include "habana_lazy/ir_utils.h"
+
+using namespace habana_lazy;
+
+#define HPU_LAZY_KERNEL_TEST(op_code, min_val, max_val)                        \
+  TEST_F(LazySpecialKernelTest, op_code##Forward) {                            \
+    auto A = torch::randn(4);                                                  \
+    auto min = min_val;                                                        \
+    auto max = max_val;                                                        \
+    A = at::clamp(A, min, max);                                                \
+    auto hA = A.to(torch::kHABANA);                                            \
+    auto expectedOutput = torch::op_code(A);                                   \
+    auto habanaOutput = torch::op_code(hA);                                    \
+    EXPECT_EQ(                                                                 \
+        allclose(habanaOutput.to("cpu"), expectedOutput, 0.001, 0.001), true); \
+  }
+
+class LazySpecialKernelTest : public ::testing::Test {
+ protected:
+  void SetUp() override {
+    setenv("PT_HPU_LAZY_MODE", "1", 1);
+  }
+
+  void TearDown() override {
+    unsetenv("PT_HPU_LAZY_MODE");
+  }
+};
+
+TEST_F(LazySpecialKernelTest, AsinForward) {
+  auto A = torch::randn(4, torch::dtype(torch::kFloat));
+  auto min = -1.0;
+  auto max = 1.0;
+  A = at::clamp(A, min, max);
+  auto hA = A.to(torch::kHABANA);
+  auto expectedOutput = torch::asin(A);
+  auto habanaOutput = torch::asin(hA);
+  EXPECT_EQ(
+      allclose(habanaOutput.to("cpu"), expectedOutput, 0.001, 0.001), true);
+}
+
+HPU_LAZY_KERNEL_TEST(acos, -1.0, 1.0)
