@@ -546,6 +546,37 @@ void LeakyReluOperator::AllocateAndAddSynapseNode(
 void GeluOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 1,
+      "Incorrect size of inputs expected for Gelu operator");
+  TORCH_CHECK(
+      inputs[0].isTensor(),
+      "Input arg1 expected to be tensor for Gelu operator");
+
+  auto self = inputs[0].toTensor();
+
+  auto output1 = habana_helpers::createPTTensor(
+      self,
+      self.sizes(),
+      self.options(),
+      self.suggest_memory_format(),
+      is_output_persistent);
+
+  // TPC kernel expects two outputs first is gelu_fwd second output is tanhz
+  // In graph mode we want 2nd output to be non-persistent to reduce memory
+  // consumption
+  auto output2 = habana_helpers::createPTTensor(
+      self, self.sizes(), self.options(), self.suggest_memory_format(), false);
+
+  std::vector<at::Tensor> outputs{output1, output2};
+  AllocateSynapseOutputs(graph, outputs, {is_output_persistent, false});
+  AddNodeToSynapseGraph(graph, nullptr, 0);
+}
+
+void HbGeluOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
     std::vector<bool> is_output_persistent) {
   TORCH_CHECK(
       inputs.size() == 1,
@@ -621,7 +652,7 @@ std::tuple<at::Tensor, at::Tensor> gelu2_hpu(const Tensor& self) {
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
 
   // create the operator
-  GeluOperator Op(device_id, scalar_type);
+  HbGeluOperator Op(device_id, scalar_type);
 
   // Build Params for the graph
   std::vector<c10::IValue> stack = {IValue(self)};
@@ -1879,7 +1910,7 @@ static auto& KernelRegistry =
         .add(
             "aten::hbgelu2",
             [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<GeluOperator>(device_id, node_type);
+              return std::make_shared<HbGeluOperator>(device_id, node_type);
             })
         .add(
             "aten::hbgelu2_backward",

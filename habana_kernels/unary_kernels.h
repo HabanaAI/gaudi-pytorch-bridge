@@ -318,6 +318,25 @@ class GeluOperator : public HabanaOperator {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
     kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
+    p_context_->excluded_output_indices_ = {1};
+  }
+
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+};
+
+//
+// HbGelu Operator
+class HbGeluOperator : public HabanaOperator {
+ public:
+  HbGeluOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator(
+            "gelu_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
+    this->CreateSynContext(device_id);
+    kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
+    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
   }
 
   virtual void AllocateAndAddSynapseNode(
