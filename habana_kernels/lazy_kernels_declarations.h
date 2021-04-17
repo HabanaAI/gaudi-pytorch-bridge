@@ -553,6 +553,16 @@ std::tuple<Tensor, Tensor> sort_hpu_lazy(
     const Tensor& self,
     int64_t dim,
     bool descending);
+at::Tensor elu_hpu_lazy(
+    const at::Tensor& self,
+    at::Scalar alpha,
+    at::Scalar scale,
+    at::Scalar input_scale);
+at::Tensor& elu_hpu_lazy_(
+    at::Tensor& self,
+    at::Scalar alpha,
+    at::Scalar scale,
+    at::Scalar input_scale);
 Tensor relu_hpu_lazy(const Tensor& input);
 Tensor& relu_hpu_lazy_(Tensor& self);
 at::Tensor& leaky_relu_lazy_(at::Tensor& self, at::Scalar negative_slope);

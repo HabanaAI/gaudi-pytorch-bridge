@@ -532,13 +532,43 @@ void LeakyReluOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(inputs[1].isScalar(), "Input 2 type expected to be scalar");
 
   ns_LeakyReluKernel::Params param{inputs[1].toScalar().to<double>()};
-  auto output = habana_helpers::createPTTensor(
-      inputs[0].toTensor(), is_output_persistent);
 
   if (m_inplace) {
-    AllocateSynapseOutput(graph, output, is_output_persistent);
-  } else {
     AllocateSynapseInplaceOutput(graph);
+  } else {
+    auto output = habana_helpers::createPTTensor(
+        inputs[0].toTensor(), is_output_persistent);
+    AllocateSynapseOutput(graph, output, is_output_persistent);
+  }
+  AddNodeToSynapseGraph(graph, &param, sizeof(param));
+}
+
+void EluOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 4,
+      std::string("Incorrect size of inputs expected for ") +
+          (m_inplace ? "Elu_" : "Elu") + " operator");
+  TORCH_CHECK(inputs[0].isTensor(), "Input 1 type expected to be a tensor");
+  TORCH_CHECK(inputs[1].isScalar(), "Input 2 type expected to be a scalar");
+  TORCH_CHECK(inputs[2].isScalar(), "Input 3 type expected to be a scalar");
+  TORCH_CHECK(inputs[3].isScalar(), "Input 4 type expected to be a scalar");
+
+  if (inputs[2].toScalar().toFloat() != 1. or
+      inputs[3].toScalar().toFloat() != 1.) {
+    PT_KERNEL_WARN("Elu supports scale and input_scale as 1.");
+  }
+
+  ns_EluKernel::Params param{inputs[1].toScalar().toFloat()};
+
+  if (m_inplace) {
+    AllocateSynapseInplaceOutput(graph);
+  } else {
+    auto output = habana_helpers::createPTTensor(
+        inputs[0].toTensor(), is_output_persistent);
+    AllocateSynapseOutput(graph, output, is_output_persistent);
   }
   AddNodeToSynapseGraph(graph, &param, sizeof(param));
 }
@@ -1855,6 +1885,16 @@ void HardsigmoidBackwardOperator::AllocateAndAddSynapseNode(
 
 static auto& KernelRegistry =
     ::habana::KernelRegistry()
+        .add(
+            "aten::elu",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<EluOperator>(device_id, node_type);
+            })
+        .add(
+            "aten::elu_",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<EluOperator>(device_id, node_type, true);
+            })
         .add(
             "aten::relu",
             [](const int device_id, c10::ScalarType node_type) {

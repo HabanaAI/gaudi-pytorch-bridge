@@ -2040,6 +2040,24 @@ std::tuple<Tensor, Tensor> hpu_wrap::sort(
   }
 };
 
+at::Tensor hpu_wrap::elu(
+    const at::Tensor& self,
+    at::Scalar alpha,
+    at::Scalar scale,
+    at::Scalar input_scale) {
+  hpu_check_inputs(__func__, {self});
+  return elu_hpu_lazy(self, alpha, scale, input_scale);
+}
+
+at::Tensor& hpu_wrap::elu_(
+    at::Tensor& self,
+    at::Scalar alpha,
+    at::Scalar scale,
+    at::Scalar input_scale) {
+  hpu_check_inputs(__func__, {self});
+  return elu_hpu_lazy_(self, alpha, scale, input_scale);
+}
+
 Tensor hpu_wrap::relu(const Tensor& input) {
   hpu_check_inputs("relu", {input});
 

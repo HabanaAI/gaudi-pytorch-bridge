@@ -4015,6 +4015,26 @@ std::tuple<Tensor, Tensor> sort_hpu_lazy(
   return std::make_tuple(result_0, result_1);
 }
 
+at::Tensor elu_hpu_lazy(
+    const at::Tensor& self,
+    at::Scalar alpha,
+    at::Scalar scale,
+    at::Scalar input_scale) {
+  PT_LAZY_TRACE;
+  LazyOp<at::Tensor> k{"aten::elu", {self, alpha, scale, input_scale}};
+  return k.call();
+}
+
+at::Tensor& elu_hpu_lazy_(
+    at::Tensor& self,
+    at::Scalar alpha,
+    at::Scalar scale,
+    at::Scalar input_scale) {
+  PT_LAZY_TRACE;
+  LazyOp<at::Tensor&> k{"aten::elu_", {self, alpha, scale, input_scale}};
+  return k.call(self);
+}
+
 Tensor relu_hpu_lazy(const Tensor& input) {
   PT_LAZY_TRACE;
   auto hl_input = habana_lazy::GetOrCreateHbLazyTensor(input, c10::kHABANA);

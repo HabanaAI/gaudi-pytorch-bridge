@@ -1621,6 +1621,20 @@ static std::unordered_map<std::string, std::vector<std::set<at::ScalarType>>>
               at::ScalarType::Long}},
         },
         {
+            "elu",
+            {{
+                at::ScalarType::Float,
+                at::ScalarType::BFloat16,
+            }},
+        },
+        {
+            "elu_",
+            {{
+                at::ScalarType::Float,
+                at::ScalarType::BFloat16,
+            }},
+        },
+        {
             "relu",
             {{at::ScalarType::Float,
               at::ScalarType::Double,

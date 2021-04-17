@@ -537,6 +537,16 @@ struct hpu_wrap {
       int64_t dim,
       bool largest,
       bool sorted);
+  static at::Tensor elu(
+      const at::Tensor& self,
+      at::Scalar alpha,
+      at::Scalar scale,
+      at::Scalar input_scale);
+  static at::Tensor& elu_(
+      at::Tensor& self,
+      at::Scalar alpha,
+      at::Scalar scale,
+      at::Scalar input_scale);
   static at::Tensor relu(const at::Tensor& input);
   static at::Tensor& relu_(at::Tensor& self);
   static at::Tensor& leaky_relu_(at::Tensor& self, at::Scalar negative_slope);

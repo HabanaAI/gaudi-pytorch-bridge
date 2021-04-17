@@ -62,6 +62,18 @@ TEST_F(LazyUnaryKernelTest, ReluInplaceTest) {
   EXPECT_EQ(allclose(out, exp), true);
 }
 
+TEST_F(LazyUnaryKernelTest, Elu) {
+  auto A = torch::randn({4, 5});
+  auto hA = A.to(torch::kHABANA);
+
+  constexpr double alpha = 0.43;
+
+  A = torch::elu(A, alpha);
+  hA = torch::elu(hA, alpha);
+
+  EXPECT_TRUE(allclose(A, hA.to("cpu"))) << A << hA.to("cpu");
+}
+
 TEST_F(LazyUnaryKernelTest, LeakyReluInplaceTest) {
   auto A = torch::randn({4, 5});
   auto hA = A.to(torch::kHABANA);
