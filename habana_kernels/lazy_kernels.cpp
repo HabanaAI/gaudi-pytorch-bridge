@@ -2856,6 +2856,27 @@ Tensor& normal_hpu_lazy(
       "aten::normal_", {self, mean, std, std::move(gen)}, {1, 2, 3}};
   return op.call(self);
 }
+Tensor& randperm_hpu_lazy(
+    Tensor& output,
+    int64_t n,
+    c10::optional<Generator> gen) {
+  PT_LAZY_TRACE;
+
+  // resizing the output as it is coming as empty from model
+  auto hl_result = habana_lazy::GetOrCreateHbLazyTensor(output, c10::kHABANA);
+  auto out_shape = DimVector({n});
+  auto out_reshaped = hl_result.getAttachedTensorImpl();
+  THHTensor_resizeNd(out_reshaped, out_shape.size(), out_shape.data(), nullptr);
+  output.unsafeGetTensorImpl()->set_sizes_contiguous(IntArrayRef(out_shape));
+
+  LazyOp<Tensor&> op{
+      "hpu::randperm_out",
+      {output, Scalar((int32_t)n), std::move(gen)},
+      {2},
+      {{n}}};
+
+  return op.call(output);
+}
 Tensor bernoulli_hpu_lazy(const Tensor& self, c10::optional<Generator> gen) {
   HABANA_ASSERT(0);
   return bernoulli_hpu(self, gen);

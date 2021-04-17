@@ -32,3 +32,28 @@ TEST_F(LazyRandomGenKernelTest, FusedDropoutTest) {
   // EXPECT_TRUE(allclose(eager_result1, lResut1, 0.01, 0.01));
   // EXPECT_TRUE(allclose(eager_result2, lResut2, 0.01, 0.01));
 }
+
+TEST_F(LazyRandomGenKernelTest, RandpermOutTest) {
+  constexpr int n = 10;
+
+  c10::optional<at::ScalarType> dtype = c10::ScalarType::Int;
+
+  c10::optional<at::Device> hb_device = at::DeviceType::HABANA;
+  at::TensorOptions hb_options =
+      at::TensorOptions().dtype(dtype).device(hb_device);
+
+  torch::manual_seed(0);
+  auto eager = torch::randperm(n, hb_options);
+  auto eager_cpu = eager.to(torch::kCPU);
+
+  setenv("PT_HPU_LAZY_MODE", "1", 0);
+
+  torch::manual_seed(0);
+  auto lazy = torch::randperm(n, hb_options);
+  auto lazy_cpu = lazy.to(torch::kCPU);
+
+  auto equal = eager_cpu.equal(lazy_cpu);
+  EXPECT_EQ(equal, true);
+
+  unsetenv("PT_HPU_LAZY_MODE");
+}

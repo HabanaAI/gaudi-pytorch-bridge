@@ -1586,6 +1586,17 @@ Tensor& hpu_wrap::bernoulli_(
   }
 }
 
+Tensor& hpu_wrap::randperm_out(
+    Tensor& out,
+    int64_t n,
+    c10::optional<Generator> gen) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    return randperm_hpu_lazy(out, n, gen);
+  } else {
+    return randperm_hpu(out, n, gen);
+  }
+}
+
 std::tuple<Tensor, Tensor> hpu_wrap::_fused_dropout(
     const Tensor& self,
     double p,
@@ -3156,6 +3167,8 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "arange_out(Tensor result, Scalar start, Scalar end, Scalar step) -> Tensor(a!)");
   m.def(
+      "randperm_out(Tensor output, int n, Generator? generator) -> Tensor(a!)");
+  m.def(
       "max_dim(Tensor self, int dim, bool keepdim=False) -> (Tensor values, Tensor indices)");
   m.def("habana_d2d_memcpy(Tensor self) -> (Tensor)");
   m.def(
@@ -3222,6 +3235,11 @@ TORCH_LIBRARY_IMPL(hpu, HABANATensorId, m) {
       "arange_out",
       static_cast<at::Tensor& (*)(at::Tensor&, Scalar, Scalar, Scalar)>(
           &hpu_wrap::arange_out));
+  m.impl(
+      "randperm_out",
+      static_cast<
+          at::Tensor& (*)(at::Tensor&, int64_t, c10::optional<at::Generator>)>(
+          &hpu_wrap::randperm_out));
   m.impl(
       "bitwise_and_Tensor_out",
       static_cast<

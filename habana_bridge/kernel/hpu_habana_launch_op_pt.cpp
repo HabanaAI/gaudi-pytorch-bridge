@@ -513,8 +513,10 @@ void HabanaLaunchOpPT::GetSynapseInputs(
       input_idx++;
     } // if (value_to_ivalue[value_in] && ..
     else if (
-        !strcmp("aten::_fused_dropout", node->kind().toQualString()) &&
-        1 == input_idx) {
+        (!strcmp("aten::_fused_dropout", node->kind().toQualString()) &&
+         1 == input_idx) ||
+        (!strcmp("hpu::randperm_out", node->kind().toQualString()) &&
+         1 == input_idx)) {
       auto stack = getStackForNode(node);
       // Create the seed tensor
       // TODO : check for the generator when the generator could be passed

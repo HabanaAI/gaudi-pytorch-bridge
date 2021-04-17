@@ -2,9 +2,8 @@
 #include <gtest/gtest.h>
 #include <torch/torch.h>
 #include <stdexcept>
-#include "habana_kernels/linear_kernels.h"
-
 #include "habana_kernels/eager_kernels_declarations.h"
+#include "habana_kernels/linear_kernels.h"
 
 TEST(EagerKernelTest, ReluTest) {
   torch::Tensor tensor = torch::randn({2, 3});
@@ -133,6 +132,23 @@ TEST(EagerKernelTest, IsfiniteTest) {
 
   bool equal = cpu_out.equal(hout);
   EXPECT_EQ(equal, true);
+}
+
+TEST(EagerKernelTest, RandomShuffleTest) {
+  torch::Tensor x = torch::randint(0, 10, {8}, torch::dtype(torch::kInt32));
+  torch::Tensor seed =
+      torch::Tensor(torch::ones({1}, torch::dtype(torch::kInt32)));
+
+  auto hx = x.to(torch::kHABANA);
+  auto hseed = seed.to(torch::kHABANA);
+
+  auto outHabana = random_shuffle_tensor_hpu(hx, hseed);
+
+  auto result = outHabana.to(torch::kCPU);
+
+  // verify that the output is shuffled
+  bool equal = result.equal(x);
+  EXPECT_EQ(equal, false);
 }
 
 TEST(EagerKernelTest, AdamwOptTest) {

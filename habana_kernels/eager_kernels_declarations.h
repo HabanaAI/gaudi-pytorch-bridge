@@ -80,6 +80,7 @@ Tensor& div_scalar_hpu_(Tensor& self, Scalar other);
 Tensor pow_tensor_tensor_hpu(const Tensor& self, const Tensor& other);
 Tensor& pow_tensor_tensor_hpu_(Tensor& self, const Tensor& other);
 Tensor pow_tensor_scalar_hpu(const Tensor& self, Scalar other);
+Tensor random_shuffle_tensor_hpu(const Tensor& self, const Tensor& seed);
 Tensor& pow_tensor_scalar_hpu_(Tensor& self, Scalar other);
 Tensor pow_scalar_tensor_hpu(Scalar other, const Tensor& self);
 Tensor maximum_hpu(const Tensor& self, const Tensor& other);
@@ -400,6 +401,10 @@ Tensor bernoulli_hpu(
 Tensor& bernoulli_scalar_hpu(
     Tensor& self,
     double p,
+    c10::optional<Generator> gen = c10::nullopt);
+Tensor& randperm_hpu(
+    Tensor& out,
+    int64_t n,
     c10::optional<Generator> gen = c10::nullopt);
 std::tuple<Tensor, Tensor> fused_dropout_hpu(
     const Tensor& self,

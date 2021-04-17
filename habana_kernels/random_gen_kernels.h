@@ -118,3 +118,37 @@ class DropoutOperator : public HabanaOperator {
 
   using HabanaOperator::SetPTOutputs;
 };
+
+// RandShuffle Operator
+class RandomShuffleOperator : public HabanaOperator {
+ public:
+  RandomShuffleOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator(
+            "random_shuffle_fwd_" +
+            habana_helpers::name_suffix_from_type(scalarType)) {
+    this->CreateSynContext(device_id);
+  }
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+};
+
+// RandPerm Operator
+class RandpermOperator : public HabanaOperator {
+ public:
+  RandpermOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator(
+            "randperm_" + habana_helpers::name_suffix_from_type(scalarType)) {
+    this->CreateSynContext(device_id);
+  }
+
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+
+  getDMAInputTensorCBType getDMAInputTensorCB() override {
+    return DropoutOperator::populateSeedTensor;
+  }
+};

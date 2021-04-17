@@ -9,6 +9,7 @@
  */
 
 #include <ATen/ExpandUtils.h>
+#include <TH/THTensor.hpp>
 #include <perf_lib_layer_params.h>
 #include <torch/script.h>
 #include <memory>
@@ -19,9 +20,18 @@
 #include "habana_helpers/tensor_utils.h"
 #include "habana_helpers/unused_macro.h"
 #include "habana_kernels/basic_kernels.h"
+#include "habana_kernels/index_kernels.h"
 #include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/random_gen_kernels.h"
 #include "habana_kernels/simple_generic_kernel.h"
+//#include "habana_kernels/resize.h"
+
+// TBD: Resolve "habana" namespace conflict and remove this extern
+extern void THHTensor_resizeNd(
+    THTensor* self,
+    int nDimension,
+    const int64_t* size,
+    const int64_t* stride);
 
 using namespace torch;
 
@@ -77,6 +87,83 @@ void UniformOperator::AllocateAndAddSynapseNode(
 
   AllocateSynapseOutput(graph, self, is_output_persistent);
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
+}
+
+/************************************************************************
+ * @brief This function implements synapse node addition for random_shuffle
+ * function with 2 input arguments (where all arguments are tensors)
+ ************************************************************************/
+void RandomShuffleOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 1,
+      "Incorrect size of input expected for random shuffle operator");
+  TORCH_CHECK(
+      inputs[0].isTensor(), "Input condition type expected to be a tensor");
+
+  auto self = inputs[0].toTensor();
+
+  auto output =
+      at::empty(self.sizes(), self.options(), self.suggest_memory_format());
+
+  AllocateSynapseOutput(graph, output, is_output_persistent);
+  AddNodeToSynapseGraph(graph, nullptr, 0);
+}
+
+void RandpermOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 3,
+      "Incorrect size",
+      inputs.size(),
+      " of inputs expected for Randperm Operator");
+  TORCH_CHECK(
+      inputs[0].isTensor(),
+      "Input arg1 expected to be Tensor for RandpermOperator Operator");
+  TORCH_CHECK(
+      inputs[1].isScalar(),
+      "Input arg2 expected to be Scalar for RandpermOperator operator");
+  TORCH_CHECK(
+      inputs[2].isGenerator() || inputs[2].isNone(),
+      "Input arg3 expected to be Generator for RandpermOperator Operator");
+
+  auto output = inputs[0].toTensor();
+  auto n = inputs[1].toInt();
+  auto start = 0;
+  auto end = n;
+  auto step = 1;
+  auto scalar_type = output.scalar_type();
+
+  auto arangeOutput = habana_helpers::createPTTensor(output, false);
+
+  ArangeOperator arangeOp(this->p_context_->device_id_, scalar_type);
+  arangeOp.AllocateSynapseInput(graph, arangeOutput, false);
+  torch::jit::Stack stack{
+      IValue(arangeOutput), IValue(start), IValue(end), IValue(step)};
+  arangeOp.AllocateAndAddSynapseNode(graph, stack, false);
+  stack.clear();
+
+  // Move inputs[0] as output tensor
+  p_context_->syn_outputs_.emplace_back(std::move(p_context_->syn_inputs_[0]));
+  p_context_->pt_outputs_.emplace_back(p_context_->pt_inputs_[0]);
+  p_context_->syn_inputs_.erase(p_context_->syn_inputs_.begin());
+  p_context_->pt_inputs_.erase(p_context_->pt_inputs_.begin());
+
+  // create RandomShuffle operator
+  RandomShuffleOperator randShuffleOp(
+      this->p_context_->device_id_, scalar_type);
+  stack.emplace_back(IValue(arangeOutput));
+  randShuffleOp.SetSynapseInput(std::move(arangeOp.GetSynOutputs()[0]));
+  auto& seed_syn =
+      randShuffleOp.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+  randShuffleOp.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+  p_context_->syn_inputs_[0] = std::move(seed_syn);
+  p_context_->syn_outputs_[0] = std::move(randShuffleOp.GetSynOutputs()[0]);
+  p_context_->pt_outputs_[0] = std::move(randShuffleOp.GetOutputs()[0]);
 }
 
 /*******************************************************************
@@ -434,7 +521,8 @@ at::Tensor DropoutOperator::GenerateAndCopySeedToHPU(
   // to Device memory instead of doing a synMemSetD[]Async due to SW-11757
   // TODO revert to synMemSet once SW-11757 is resolved
   auto ref_tensor = inputs[0].toTensor();
-  int64_t seed = get_seed_hpu(c10::nullopt);
+  int64_t seed = inputs[2].isNone() ? get_seed_hpu(c10::nullopt)
+                                    : get_seed_hpu(inputs[2].toGenerator());
   Tensor seed_tensor = habana_helpers::createPTTensor(
       ref_tensor,
       {1},
@@ -561,7 +649,6 @@ std::tuple<Tensor, Tensor> fused_dropout_hpu(
     double p,
     c10::optional<Generator> gen) {
   PT_KERNEL_BEGIN;
-  static_cast<void>(gen);
   at::ScalarType scalar_type = self.scalar_type();
   std::string node_type =
       "dropout_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
@@ -574,7 +661,7 @@ std::tuple<Tensor, Tensor> fused_dropout_hpu(
   // Create Graph
   auto graph = habana_helpers::create_graph(device_id, node_type);
   // Build Params for the graph
-  std::vector<c10::IValue> stack = {IValue(self), IValue(p)};
+  std::vector<c10::IValue> stack = {IValue(self), IValue(p), IValue(gen)};
   auto seed_tensor = DropoutOperator::GenerateAndCopySeedToHPU(stack, true);
   // Assign Inputs to the Operator
   std::vector<at::Tensor> pt_inputs{self, seed_tensor};
@@ -598,6 +685,113 @@ std::tuple<Tensor, Tensor> fused_dropout_hpu(
 
   PT_KERNEL_END;
   return std::tuple<Tensor, Tensor>(out.at(0), out.at(1));
+}
+
+Tensor process_random_shuffle_op(
+    const std::vector<at::Tensor>& pt_inputs,
+    torch::jit::Stack& stack,
+    const std::string& node_guid) {
+  size_t device_id = pt_inputs[0].device().index();
+  at::ScalarType scalar_type = pt_inputs[0].scalar_type();
+  std::string node_type =
+      node_guid + "_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  RandomShuffleOperator Op(device_id, scalar_type);
+
+  size_t key = Op.GetRecipeKey(node_type, stack);
+
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    Op.SetPTInputs(pt_inputs);
+    Op.SetPTOutputs(stack);
+    Op.Execute(key);
+  } else {
+    PT_KERNEL_DEBUG("key:", key);
+    // Create Graph
+    auto graph = habana_helpers::create_graph(device_id, node_type);
+
+    // Assign Inputs to the Operator
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
+
+    // both inputs are not required, just to match graph mode stack
+    Op.AllocateAndAddSynapseNode(graph, stack, true);
+
+    // compile and execute the graph
+    Op.Compile(graph);
+  }
+  std::vector<at::Tensor> out = Op.GetOutputs();
+  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
+  return out[0];
+}
+
+Tensor random_shuffle_tensor_hpu(const Tensor& self, const Tensor& seed) {
+  PT_KERNEL_BEGIN;
+
+  auto self_hpu = self.to(c10::DeviceType::HABANA);
+  auto seed_hpu = seed.to(c10::DeviceType::HABANA);
+
+  std::vector<at::Tensor> pt_inputs{self_hpu, seed_hpu};
+  torch::jit::Stack stack{IValue(self_hpu)};
+
+  auto output = process_random_shuffle_op(pt_inputs, stack, "random_shuffle");
+
+  PT_KERNEL_END;
+  return output;
+}
+
+Tensor& randperm_hpu(Tensor& output, int64_t n, c10::optional<Generator> gen) {
+  PT_KERNEL_BEGIN;
+
+  auto shape = DimVector({n});
+  Scalar n_scalar((int32_t(n)));
+  auto tht_result = output.unsafeGetTensorImpl();
+  THHTensor_resizeNd(tht_result, shape.size(), shape.data(), nullptr);
+
+  auto scalar_type = output.scalar_type();
+
+  std::string node_type =
+      "randperm_" + habana_helpers::name_suffix_from_type(scalar_type);
+
+  size_t device_id = output.device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+
+  RandpermOperator Op(device_id, scalar_type);
+
+  // Build Params for the graph
+  std::vector<at::Tensor> pt_inputs{output};
+  std::vector<at::Tensor> pt_outputs{output};
+  std::vector<c10::IValue> stack = {
+      IValue(output), IValue(n_scalar), IValue(gen)};
+
+  // create seed tensor
+  auto seed_tensor = DropoutOperator::GenerateAndCopySeedToHPU(stack, true);
+  pt_inputs.emplace_back(seed_tensor);
+
+  size_t key = Op.GetRecipeKey(node_type, stack);
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    pt_inputs.erase(pt_inputs.begin());
+    Op.SetPTInputs(pt_inputs);
+    Op.SetPTOutputs(pt_outputs);
+    Op.Execute(key);
+  } else {
+    PT_KERNEL_DEBUG("Key:", key);
+    // Create Graph
+    auto graph = habana_helpers::create_graph(device_id, node_type);
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
+    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    // compile and execute the graph
+    Op.Compile(graph);
+  }
+
+  std::vector<at::Tensor> out = Op.GetOutputs();
+  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
+
+  output.copy_(out.at(0));
+  PT_KERNEL_END;
+
+  return output;
 }
 
 static auto& KernelRegistry =
@@ -628,6 +822,11 @@ static auto& KernelRegistry =
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<BernoulliScalarOperator>(
                   device_id, node_type);
+            })
+        .add(
+            "hpu::randperm_out",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<RandpermOperator>(device_id, node_type);
             })
         .add(
             "aten::_fused_dropout",

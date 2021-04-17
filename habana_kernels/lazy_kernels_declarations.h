@@ -430,6 +430,10 @@ Tensor& normal_hpu_lazy(
     double mean = 0,
     double std = 1,
     c10::optional<Generator> gen = c10::nullopt);
+Tensor& randperm_hpu_lazy(
+    Tensor& output,
+    int64_t n,
+    c10::optional<Generator> gen = c10::nullopt);
 Tensor bernoulli_hpu_lazy(
     const Tensor& self,
     c10::optional<Generator> gen = c10::nullopt);
