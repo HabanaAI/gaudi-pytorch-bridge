@@ -3236,6 +3236,37 @@ Tensor avg_pool2d_backward_hpu_lazy(
   flush_op(result);
   return result;
 }
+
+Tensor adaptive_avg_pool2d_hpu_lazy(
+    const Tensor& input,
+    IntArrayRef output_size) {
+  PT_LAZY_TRACE;
+  auto opsize_nhwc =
+      PoolHelper::compute_output_shape(input, output_size, false);
+  // compute_output_shape return always nhwc. convert to nchw
+  std::vector<long int> shape_out = {
+      opsize_nhwc.at(0),
+      opsize_nhwc.at(3),
+      opsize_nhwc.at(1),
+      opsize_nhwc.at(2)};
+
+  LazyOp<Tensor> k{
+      "aten::_adaptive_avg_pool2d", {input, output_size}, {1}, {shape_out}};
+  return k.call();
+}
+
+Tensor adaptive_avg_pool2d_backward_hpu_lazy(
+    const Tensor& grad_output,
+    const Tensor& input) {
+  PT_LAZY_TRACE;
+  LazyOp<Tensor> k{
+      "aten::_adaptive_avg_pool2d_backward",
+      {grad_output, input},
+      {},
+      {input.sizes().vec()}};
+  return k.call();
+}
+
 Tensor& uniform_hpu_lazy(
     Tensor& self,
     double from,

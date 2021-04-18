@@ -380,6 +380,10 @@ Tensor avg_pool2d_backward_hpu(
     bool ceil_mode,
     bool count_include_pad,
     c10::optional<int64_t> divisor_override);
+Tensor adaptive_avg_pool2d_hpu(const Tensor& input, IntArrayRef output_size);
+Tensor adaptive_avg_pool2d_backward_hpu(
+    const Tensor& grad_output,
+    const Tensor& input);
 Tensor& uniform_hpu(
     Tensor& self,
     double from = 0,

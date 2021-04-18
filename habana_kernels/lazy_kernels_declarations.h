@@ -398,6 +398,12 @@ Tensor avg_pool2d_backward_hpu_lazy(
     bool ceil_mode,
     bool count_include_pad,
     c10::optional<int64_t> divisor_override);
+Tensor adaptive_avg_pool2d_hpu_lazy(
+    const Tensor& input,
+    IntArrayRef output_size);
+Tensor adaptive_avg_pool2d_backward_hpu_lazy(
+    const Tensor& grad_output,
+    const Tensor& input);
 Tensor& uniform_hpu_lazy(
     Tensor& self,
     double from = 0,

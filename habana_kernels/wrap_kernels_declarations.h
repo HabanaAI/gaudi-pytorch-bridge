@@ -421,6 +421,9 @@ struct hpu_wrap {
       bool ceil_mode,
       bool count_include_pad,
       c10::optional<int64_t> divisor_override);
+  static at::Tensor adaptive_avg_pool2d(
+      const at::Tensor& self,
+      at::IntArrayRef output_size);
   static at::Tensor& uniform_(
       at::Tensor& self,
       double from = 0,

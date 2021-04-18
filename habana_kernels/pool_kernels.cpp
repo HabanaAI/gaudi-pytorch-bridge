@@ -137,6 +137,32 @@ std::vector<int64_t> PoolHelper::compute_output_shape(
 }
 
 /**
+ * @brief Compute shape for output tensor(s) from given input tensor shape
+ *         & pooling params such as kernel, stride, pad, dilation, ceil_mode
+ */
+std::vector<int64_t> PoolHelper::compute_output_shape(
+    const at::Tensor& input,
+    const at::IntArrayRef output_size,
+    bool is_input_nhwc = false) {
+  const int output_H = safe_downcast<int, int64_t>(output_size[0]);
+  const int output_W = output_size.size() == 1
+      ? output_H
+      : safe_downcast<int, int64_t>(output_size[1]);
+
+  // If the input is already converted to NHWC, then the
+  // input dimensions should be picked up in {0, 3, 1, 2}
+  // order.
+  unsigned int input_dim0 = 0;
+  unsigned int input_dim1 = is_input_nhwc ? 3 : 1;
+
+  const int64_t N = input.size(input_dim0);
+  const int64_t C = input.size(input_dim1);
+
+  std::vector<int64_t> outshape{N, output_H, output_W, C};
+  return outshape;
+}
+
+/**
  * @brief Fill generic pooling params structure
  */
 ns_SpatialReduction::Params synapse_pool_params_builder(
@@ -185,6 +211,18 @@ ns_AveragePooling::Params synapse_avg_pool_params_builder(
   avg_pool_params.includePadding = include_padding;
 
   return avg_pool_params;
+}
+
+/**
+ * @brief Fill Adaptive Average pooling params structure
+ */
+ns_AdaptiveAvgPool::Params synapse_adaptive_avg_pool_params_builder(
+    const IntArrayRef& output_size) {
+  ns_AdaptiveAvgPool::Params adaptive_avg_pool_params{};
+  adaptive_avg_pool_params.outputHeight = output_size[0];
+  adaptive_avg_pool_params.outputWidth = output_size[1];
+
+  return adaptive_avg_pool_params;
 }
 
 void MaxPool2dWithIndicesOperator::AllocateAndAddSynapseNode(
@@ -1246,6 +1284,251 @@ Tensor avg_pool2d_backward_hpu(
   return grad_input;
 }
 
+// Adaptive Average pool2d
+void AdaptiveAvgPool2dOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(inputs[0].isTensor(), "Input0 type expected to be tensor");
+  TORCH_CHECK(inputs[1].isIntList(), "Input1 type expected to be IntList");
+
+  at::Tensor input = inputs[0].toTensor();
+  const auto output_size = inputs[1].toIntList().vec();
+
+  // Setup pool params
+  auto syn_pool_params = synapse_adaptive_avg_pool_params_builder(output_size);
+
+  p_context_->params_.emplace<ns_AdaptiveAvgPool::Params>(syn_pool_params);
+  p_context_->params_size_ = sizeof(syn_pool_params);
+
+  auto out_shape = PoolHelper::compute_output_shape(input, output_size, true);
+
+  // Setup output tensors
+  auto output_nhwc = habana_helpers::createPTTensor(
+      input,
+      {out_shape[0], out_shape[1], out_shape[2], out_shape[3]},
+      input.options(),
+      input.suggest_memory_format(),
+      is_output_persistent);
+  AllocateSynapseOutput(graph, output_nhwc, is_output_persistent);
+  AddNodeToSynapseGraph(graph, &syn_pool_params, sizeof(syn_pool_params));
+}
+
+void AdaptiveAvgPool2dOperator::SetPTOutputs(torch::jit::Stack& inputs) {
+  at::Tensor input = inputs[0].toTensor();
+  const auto output_size = inputs[1].toIntList().vec();
+
+  auto out_shape = PoolHelper::compute_output_shape(input, output_size, true);
+
+  // Setup output tensors
+  auto output_nhwc = at::empty(
+      {out_shape[0], out_shape[1], out_shape[2], out_shape[3]},
+      input.options());
+  std::vector<at::Tensor> v{output_nhwc};
+  HabanaOperator::SetPTOutputs(v);
+}
+
+/**
+ * @brief AdaptiveAveragePool2d (Forward Pass) implementation for Habana device
+ * @param [In] Input Tensor. 4D, bf16/fp32
+ * @param [In] Output size (Height and Width) int64 or int64 tuple
+ * @param [Out] Output Tensor. 4D, bf16/fp32
+ */
+Tensor adaptive_avg_pool2d_hpu(const Tensor& input, IntArrayRef output_size) {
+  PT_KERNEL_BEGIN;
+
+  // convert tensors to synapse memory format
+  Tensor input_nhwc = input;
+  std::vector<const at::Tensor*> pt_in = {&input};
+  std::vector<at::Tensor*> pt_out = {&input_nhwc};
+
+  IntArrayRef new_dim_pos_in =
+      HabanaOperator::getPermuteOrder(LayoutFormat::NHWC, true);
+  std::vector<const IntArrayRef*> pt_new_pos = {&new_dim_pos_in};
+  c10::MemoryFormat memory_format = habana_helpers::get_memory_format({&input});
+  habana_helpers::change_tensors_to_memory_format(
+      pt_out, pt_in, pt_new_pos, memory_format);
+
+  int device_id = input.device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  at::ScalarType scalar_type = input.scalar_type();
+  std::string node_type = "adaptive_avg_pool_2d_fwd_" +
+      habana_helpers::name_suffix_from_type(scalar_type);
+
+  auto adaptive_avgpool_2d = [&] {
+    std::vector<at::Tensor> pt_inputs{input_nhwc};
+    // Build Params for the graph
+    std::vector<c10::IValue> stack = {IValue(input_nhwc), IValue(output_size)};
+    // Create the operator
+    AdaptiveAvgPool2dOperator Op(device_id, scalar_type);
+    size_t key = Op.GetRecipeKey(node_type, stack);
+
+    if (device.get_recipe_handle_cache().isCached(key)) {
+      PT_KERNEL_DEBUG("Cache hit key:", key);
+      Op.SetPTInputs(pt_inputs);
+      Op.SetPTOutputs(stack);
+      Op.Execute(key);
+    } else {
+      PT_KERNEL_DEBUG("key:", key);
+      // Create Graph
+      auto graph = habana_helpers::create_graph(device_id, node_type);
+
+      // Allocate synapse inputs
+      Op.AllocateSynapseInputs(graph, pt_inputs, true);
+
+      // add node and allocate parms and output
+      Op.AllocateAndAddSynapseNode(graph, stack, true);
+
+      // compile and execute the graph
+      Op.Compile(graph);
+    }
+
+    return Op.GetOutputs();
+  };
+
+  std::vector<at::Tensor> out = adaptive_avgpool_2d();
+
+  Tensor output = out.at(0);
+  pt_in = {&out.at(0)};
+  pt_out = {&output};
+
+  IntArrayRef new_dim_pos_out =
+      HabanaOperator::getPermuteOrder(LayoutFormat::NHWC, false);
+  pt_new_pos = {&new_dim_pos_out};
+  habana_helpers::change_tensors_to_memory_format(
+      pt_out, pt_in, pt_new_pos, memory_format);
+
+  PT_KERNEL_END;
+  return output;
+}
+
+// AdaptiveAvgPool2dBackward
+void AdaptiveAvgPool2dBackwardOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(inputs[0].isTensor(), "Input0 type expected to be tensor");
+  TORCH_CHECK(inputs[1].isTensor(), "Input1 type expected to be tensor");
+
+  at::Tensor grad_input_nhwc = inputs[0].toTensor();
+  at::Tensor input_nhwc = inputs[1].toTensor();
+
+  const int H = safe_downcast<int, int64_t>(input_nhwc.size(1));
+  const int W = safe_downcast<int, int64_t>(input_nhwc.size(2));
+  int64_t output_HW[] = {H, W};
+  IntArrayRef output_size = output_HW;
+  auto out_shape =
+      PoolHelper::compute_output_shape(input_nhwc, output_size, true);
+
+  // Setup pool params
+  auto syn_pool_params = synapse_adaptive_avg_pool_params_builder(output_size);
+
+  p_context_->params_.emplace<ns_AdaptiveAvgPool::Params>(syn_pool_params);
+  p_context_->params_size_ = sizeof(syn_pool_params);
+
+  // Setup output tensors
+  auto output_nhwc = habana_helpers::createPTTensor(
+      input_nhwc,
+      out_shape,
+      input_nhwc.options(),
+      input_nhwc.suggest_memory_format(),
+      is_output_persistent);
+  AllocateSynapseOutput(graph, output_nhwc, is_output_persistent);
+  AddNodeToSynapseGraph(graph, &syn_pool_params, sizeof(syn_pool_params));
+}
+
+void AdaptiveAvgPool2dBackwardOperator::SetPTOutputs(
+    torch::jit::Stack& inputs) {
+  at::Tensor grad_input_nhwc = inputs[0].toTensor();
+  at::Tensor input_nhwc = inputs[1].toTensor();
+  const auto output_size = inputs[2].toIntList().vec();
+
+  auto out_shape =
+      PoolHelper::compute_output_shape(input_nhwc, output_size, true);
+  // Setup output tensors
+  auto output_nhwc = at::empty(out_shape, input_nhwc.options());
+  std::vector<at::Tensor> v{output_nhwc};
+  HabanaOperator::SetPTOutputs(v);
+}
+
+/**
+ * @brief AdaptiveAveragePool2d (Backward Pass) implementation for Habana device
+ * @param [In/Out] Backward pass Output Tensor. 4D, bf16/fp32
+ * @param [In] Backward pass Input Tensor. 4D, bf16/fp32
+ */
+Tensor adaptive_avg_pool2d_backward_hpu(
+    const Tensor& grad_output,
+    const Tensor& input) {
+  PT_KERNEL_BEGIN;
+  // convert tensors to synapse memory format
+  Tensor input_nhwc = input;
+  Tensor grad_out_nhwc = grad_output;
+  std::vector<const at::Tensor*> pt_in{&input, &grad_output};
+  std::vector<at::Tensor*> pt_out{&input_nhwc, &grad_out_nhwc};
+  IntArrayRef new_dim_pos_in =
+      HabanaOperator::getPermuteOrder(LayoutFormat::NHWC, true);
+  std::vector<const IntArrayRef*> pt_new_pos{&new_dim_pos_in, &new_dim_pos_in};
+  c10::MemoryFormat memory_format = habana_helpers::get_memory_format({&input});
+  habana_helpers::change_tensors_to_memory_format(
+      pt_out, pt_in, pt_new_pos, memory_format);
+
+  int device_id = input.device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  at::ScalarType scalar_type = input.scalar_type();
+  std::string node_type = "adaptive_avg_pool_2d_bwd_" +
+      habana_helpers::name_suffix_from_type(scalar_type);
+
+  const int H = safe_downcast<int, int64_t>(input_nhwc.size(1));
+  const int W = safe_downcast<int, int64_t>(input_nhwc.size(2));
+  int64_t output_HW[] = {H, W};
+  IntArrayRef output_size = output_HW;
+  auto adaptive_avgpool_bwd_2d = [&] {
+    std::vector<at::Tensor> pt_inputs{grad_out_nhwc};
+    // Build Params for the grapha
+    std::vector<c10::IValue> stack = {
+        IValue(grad_out_nhwc), IValue(input_nhwc), IValue(output_size)};
+    // Create the operator
+    AdaptiveAvgPool2dBackwardOperator Op(device_id, scalar_type);
+    size_t key = Op.GetRecipeKey(node_type, stack);
+
+    if (device.get_recipe_handle_cache().isCached(key)) {
+      PT_KERNEL_DEBUG("Cache hit key:", key);
+      Op.SetPTInputs(pt_inputs);
+      Op.SetPTOutputs(stack);
+      Op.Execute(key);
+    } else {
+      PT_KERNEL_DEBUG("key:", key);
+      // Create Graph
+      auto graph = habana_helpers::create_graph(device_id, node_type);
+
+      // Allocate synapse inputs
+      Op.AllocateSynapseInputs(graph, pt_inputs, true);
+
+      Op.AllocateAndAddSynapseNode(graph, stack, true);
+
+      // compile and execute the graph
+      Op.Compile(graph);
+    }
+
+    return Op.GetOutputs();
+  };
+
+  std::vector<at::Tensor> out = adaptive_avgpool_bwd_2d();
+
+  Tensor grad_input = out.at(0);
+  pt_in = {&out.at(0)};
+  pt_out = {&grad_input};
+
+  IntArrayRef new_dim_pos_out =
+      HabanaOperator::getPermuteOrder(LayoutFormat::NHWC, false);
+  pt_new_pos = {&new_dim_pos_out};
+  habana_helpers::change_tensors_to_memory_format(
+      pt_out, pt_in, pt_new_pos, memory_format);
+
+  PT_KERNEL_END;
+  return grad_input;
+}
+
 static auto& KernelRegistry =
     habana::KernelRegistry()
         .add(
@@ -1274,5 +1557,17 @@ static auto& KernelRegistry =
             "aten::avg_pool2d_backward",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<AvgPool2dBackwardOperator>(
+                  device_id, node_type);
+            })
+        .add(
+            "aten::_adaptive_avg_pool2d",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<AdaptiveAvgPool2dOperator>(
+                  device_id, node_type);
+            })
+        .add(
+            "aten::_adaptive_avg_pool2d_backward",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<AdaptiveAvgPool2dBackwardOperator>(
                   device_id, node_type);
             });

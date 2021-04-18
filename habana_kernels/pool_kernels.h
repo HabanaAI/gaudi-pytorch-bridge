@@ -144,6 +144,44 @@ class AvgPool2dBackwardOperator : public AvgPool2dBackwardOutOperator {
 
   virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
 };
+
+class AdaptiveAvgPool2dOperator : public HabanaOperator {
+ public:
+  AdaptiveAvgPool2dOperator(int device_id, c10::ScalarType scalar_type)
+      : HabanaOperator(
+            "adaptive_avg_pool_2d_fwd_" +
+            habana_helpers::name_suffix_from_type(scalar_type)) {
+    this->CreateSynContext(device_id);
+    kernel_meta_data_.input_layout.assign({LayoutFormat::NHWC});
+    kernel_meta_data_.output_layout.assign({LayoutFormat::NHWC});
+  }
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+
+  virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
+};
+
+class AdaptiveAvgPool2dBackwardOperator : public HabanaOperator {
+ public:
+  AdaptiveAvgPool2dBackwardOperator(int device_id, c10::ScalarType scalar_type)
+      : HabanaOperator(
+            "adaptive_avg_pool_2d_bwd_" +
+            habana_helpers::name_suffix_from_type(scalar_type)) {
+    this->CreateSynContext(device_id);
+    kernel_meta_data_.input_layout.assign(
+        {LayoutFormat::NHWC, LayoutFormat::NHWC});
+    kernel_meta_data_.output_layout.assign({LayoutFormat::NHWC});
+    kernel_meta_data_.tpc_input_order = {0};
+  }
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+  virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
+};
+
 class PoolHelper {
  public:
   static std::vector<int64_t> compute_output_shape(
@@ -153,5 +191,10 @@ class PoolHelper {
       const at::IntArrayRef padding,
       const at::IntArrayRef dilation,
       bool ceil_mode,
+      bool is_input_nhwc);
+
+  static std::vector<int64_t> compute_output_shape(
+      const at::Tensor& input,
+      const at::IntArrayRef output_size,
       bool is_input_nhwc);
 };

@@ -3065,6 +3065,41 @@ Tensor hpu_wrap::matmul(const Tensor& self, const Tensor& other) {
   return MatmulFunction::apply(self, other);
 };
 
+struct AdaptiveAvgPool2DFunction
+    : public torch::autograd::Function<AdaptiveAvgPool2DFunction> {
+  static at::Tensor forward(
+      AutogradContext* ctx,
+      const Tensor& input,
+      IntArrayRef output_size) {
+    ctx->save_for_backward({input});
+    if (std::getenv("PT_HPU_LAZY_MODE")) {
+      return adaptive_avg_pool2d_hpu_lazy(input, output_size);
+    } else {
+      return adaptive_avg_pool2d_hpu(input, output_size);
+    }
+  }
+
+  static variable_list backward(
+      AutogradContext* ctx,
+      variable_list grad_output) {
+    variable_list saved_vars = ctx->get_saved_variables();
+    auto& input = saved_vars[0];
+    at::Tensor result;
+    if (std::getenv("PT_HPU_LAZY_MODE")) {
+      result = adaptive_avg_pool2d_backward_hpu_lazy(grad_output[0], input);
+    } else {
+      result = adaptive_avg_pool2d_backward_hpu(grad_output[0], input);
+    }
+    return {result, torch::Tensor()};
+  }
+};
+
+Tensor hpu_wrap::adaptive_avg_pool2d(
+    const Tensor& input,
+    IntArrayRef output_size) {
+  return AdaptiveAvgPool2DFunction::apply(input, output_size);
+};
+
 // Registration for all non-custom/aten ops are auto-generated and can be
 // found in habana_kernels/aten_hpu_type_default.cpp.
 
