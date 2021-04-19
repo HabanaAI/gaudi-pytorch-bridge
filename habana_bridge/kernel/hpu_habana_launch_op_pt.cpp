@@ -817,20 +817,24 @@ at::Tensor HabanaLaunchOpPT::permuteTensor(
 
   SharedSynTensorOrRefListPtr tensorList =
       std::make_shared<SynTensorOrRefList>();
-  bool is_permute_input_persistant = false;
+  bool is_permin_interim_persistant = false;
+  std::string permute_input_synname;
   if (is_already_mapped) {
+    // value_in is not an input to the subgraph_
     auto syn_tensor_input =
         pt_to_synapse_tensors.find(value_to_ivalue[value_in]);
 
     for (synapse_helpers::tensor& tensor : *(syn_tensor_input->second)) {
       synapse_helpers::tensor& syn_tensor =
           permute_kernel->SetSynapseInput(std::move(tensor));
-      is_permute_input_persistant = syn_tensor.is_persistent();
+      is_permin_interim_persistant = syn_tensor.is_persistent();
+      permute_input_synname = std::string(syn_tensor.tensor_name_);
       tensorList->emplace_back(tensor_or_ref(syn_tensor));
     }
     pt_to_synapse_tensors.erase(value_to_ivalue[value_in]);
     pt_to_synapse_tensors.emplace(value_to_ivalue[value_in], tensorList);
   } else {
+    // value_in is an input to the subgraph_
     auto pt_tensor = value_to_ivalue[value_in]->toTensor();
 
     auto& syn_tensor =
@@ -858,7 +862,7 @@ at::Tensor HabanaLaunchOpPT::permuteTensor(
   torch::jit::Stack input_stack = {IValue(input), IValue(dims)};
 
   // setup the config params for the kernels
-  bool persistent = isInGraphOutputs(value_in) || is_permute_input_persistant;
+  bool persistent = isInGraphOutputs(value_in) || is_permin_interim_persistant;
   permute_kernel->AllocateAndAddSynapseNode(
       *syn_graph_ptr, input_stack, persistent);
   auto outputs_permute = permute_kernel->GetOutputs();
@@ -872,7 +876,46 @@ at::Tensor HabanaLaunchOpPT::permuteTensor(
         std::make_shared<SynTensorOrRefList>();
     tensorList->emplace_back(tensor_or_ref(out_tensor_syn));
     if (persistent) {
-      aten_intermediates.push_back(value_to_ivalue[value_in]->toTensor());
+      // The value_in can represent either of the following
+      // A: persistent interim
+      // B: a subgraph output
+      // The corresponding pt_tensor needs to kept within aten_intermediates.
+      auto ivpsh = value_to_ivalue[value_in];
+      aten_intermediates.push_back(ivpsh->toTensor());
+      if (!isInGraphOutputs(value_in)) {
+        // Case A: The corresponding tinfo needs to be retained within
+        // interim_tensorinfos.
+        PtTensorInfo ti(
+            ivpsh, permute_input_synname, value_in, watch_tensor_flag_);
+        interim_tensorinfos.emplace_back(ti);
+        PT_BRIDGE_DEBUG(
+            "After adding tinfo ",
+            interim_tensorinfos.back(),
+            " to interim_tensorinfos #interims ",
+            interim_tensorinfos.size());
+      } else {
+        if (enable_tensor_release_) {
+          // Case B: ivpsh should be present in output_tensorinfo_map.
+          // This used to be a graph output which has become an interim.
+          // The corresponding tinfo needs to be moved from
+          // output_tensorinfo_map to aten_intermediates.
+          TORCH_CHECK(
+              output_tensorinfo_map.count(ivpsh),
+              "output_tensorinfo_map does not contain tinfo for ",
+              out_tensor_syn.tensor_name_);
+
+          auto it = output_tensorinfo_map.find(ivpsh);
+          interim_tensorinfos.push_back(it->second);
+          output_tensorinfo_map.erase(ivpsh);
+          PT_BRIDGE_DEBUG(
+              "After moving tinfo ",
+              interim_tensorinfos.back(),
+              " form output_tensorinfo_map to interim_tensorinfos #interims ",
+              interim_tensorinfos.size());
+        }
+        // If tensor release is not enabled, output_tensorinfos store the
+        // tinfos for both outputs and persistent interims.
+      }
     }
     value_to_ivalue[value_in] = std::make_shared<IVal>(outputs_permute[0]);
     value_to_tensor_layout[value_in].layout = permute_order;
@@ -1244,10 +1287,6 @@ void HabanaLaunchOpPT::handlePrimNodes(torch::jit::Node* node) {
             irn,
             watch_tensor_flag_));
         aten_intermediates.push_back(tensor);
-
-        // nterim_tensorinfos.emplace_back(
-        //   PtTensorInfo(p.second, p.first, irn, watch_tensor_flag_));
-        // aten_intermediates.push_back(p.second);
       } else {
         value_to_ivalue[value] = ivptrsh;
       }
@@ -1554,28 +1593,18 @@ void HabanaLaunchOpPT::OrderOutputTinfos(RecipeValueSpec& rv) {
   size_t interims_start =
       rv.num_inputs + rv.num_induplicates + rv.num_dma_inputs;
 
-  // Now only intermediate persistent tinfos are left in
-  // output_tensorinfo_map. Add the remaining tinfos in
-  // output_tensorinfo_map to interim_tensorinfos
-  // TODO: Possible dead code. Needs to be removed.
-  // Otherwise aten_intermediate ordering will break.
-  PT_BRIDGE_DEBUG(
-      "interims in output_tensorinfo_map = ", output_tensorinfo_map.size());
-  for (auto a : output_tensorinfo_map) {
-    // aten_intermediates.push_back(a.first->toTensor());
-    interim_tensorinfos.push_back(a.second);
-  }
+  TORCH_CHECK(
+      output_tensorinfo_map.empty(),
+      "output_tensorinfo_map still contains ",
+      output_tensorinfo_map.size(),
+      " tensors.");
 
-  // TORCH_CHECK(output_tensorinfo_map.empty(),
-  //"output_tensorinfo_map still contains ",
-  // output_tensorinfo_map.size(),
-  //" tensors.");
-
-  // TORCH_CHECK(interim_tensorinfos.size() == rv.aten_intermediates.size(),
-  //"#intermediate tensor ",
-  // rv.aten_intermediates.size(),
-  //" does not match with #interim_tinfo ",
-  // interim_tensorinfos.size());
+  TORCH_CHECK(
+      interim_tensorinfos.size() == rv.aten_intermediates.size(),
+      "#intermediate tensor ",
+      rv.aten_intermediates.size(),
+      " does not match with #interim_tinfo ",
+      interim_tensorinfos.size());
 
   // Add the interims to rv.dtensorinfos
   std::unordered_map<void*, size_t> buff_to_interim_tividx_map;
