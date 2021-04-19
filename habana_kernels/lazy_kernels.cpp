@@ -5106,12 +5106,7 @@ Tensor masked_scale_hpu_lazy(
   PT_LAZY_TRACE;
   // scale changed to support dropout backward based on what we pass for dropout
   scale = scale / (scale - 1);
-
-  auto maskTmp = (self.dtype() != mask.dtype())
-      ? habana_helpers::hpu_cast_tensor(mask, self.dtype())
-      : mask;
-
-  auto masked = mul_tensor_hpu_lazy(self, maskTmp);
+  auto masked = mul_tensor_hpu_lazy(self, mask);
   auto scaled = mul_scalar_hpu_lazy(masked, scale);
   return scaled;
 }

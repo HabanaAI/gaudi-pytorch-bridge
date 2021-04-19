@@ -40,6 +40,14 @@ std::map<std::pair<c10::ScalarType, c10::ScalarType>, c10::ScalarType>
          c10::ScalarType::Float},
         {{c10::ScalarType::Float, c10::ScalarType::Byte},
          c10::ScalarType::Float},
+        {{c10::ScalarType::Float, c10::ScalarType::Char},
+         c10::ScalarType::Float},
+        {{c10::ScalarType::BFloat16, c10::ScalarType::Char},
+         c10::ScalarType::BFloat16},
+        {{c10::ScalarType::Char, c10::ScalarType::Float},
+         c10::ScalarType::Float},
+        {{c10::ScalarType::Char, c10::ScalarType::BFloat16},
+         c10::ScalarType::BFloat16},
     };
 
 /** @brief This data structure is used to map src & dst (for a cast) to
