@@ -231,6 +231,38 @@ TEST_F(LazyUnaryKernelTest, ReciprocalTest) {
   EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out), true);
 }
 
+TEST_F(LazyUnaryKernelTest, HardsigmoidTest) {
+  torch::Tensor A = torch::randn({2, 3}, torch::requires_grad(false));
+  torch::Tensor hA = A.to(torch::kHABANA);
+
+  torch::Tensor hOut = torch::hardsigmoid(hA);
+  torch::Tensor Out = torch::hardsigmoid(A);
+  EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out), true);
+}
+
+TEST_F(LazyUnaryKernelTest, HardsigmoidBwdTest) {
+  auto grad = torch::randn({2, 2}, torch::requires_grad(false));
+  auto self = torch::randn({2, 2}, torch::requires_grad(false));
+
+  auto hgrad = grad.to(torch::kHABANA);
+  auto hself = self.to(torch::kHABANA);
+
+  torch::Tensor hOut = torch::hardsigmoid_backward(hgrad, hself);
+  torch::Tensor Out = torch::hardsigmoid_backward(grad, self);
+
+  EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out), true);
+}
+
+TEST_F(LazyUnaryKernelTest, HardsigmoidInplaceTest) {
+  auto A = torch::randn({4, 5});
+  auto hA = A.to(torch::kHABANA);
+
+  torch::hardsigmoid_(A);
+  torch::hardsigmoid_(hA);
+
+  EXPECT_TRUE(allclose(A, hA.to("cpu"))) << A << hA.to("cpu");
+}
+
 TEST_F(LazyUnaryKernelTest, SqrtTest) {
   auto input_tensor = torch::randn({4, 5});
   torch::Tensor cpu_out = torch::sqrt(input_tensor);

@@ -1807,6 +1807,52 @@ Tensor neg_hpu(const Tensor& self) {
   return out;
 }
 
+void HardsigmoidOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    Stack& inputs,
+    bool is_output_persistent) {
+  const unsigned short constExpectedNoOfInput = 1;
+  const float alpha = 1 / 6.0f;
+  const float beta = 1 / 2.0f;
+  TORCH_CHECK(
+      inputs.size() == constExpectedNoOfInput,
+      std::string("Expected ") + std::to_string(constExpectedNoOfInput) +
+          " input for " +
+          (m_inplace ? "HardsigmoidOperator_" : "HardsigmoidOperator") +
+          " operator" + " but received " + std::to_string(inputs.size()) +
+          " inputs.");
+  TORCH_CHECK(inputs[0].isTensor(), "Input type expected to be tensor");
+
+  ns_HardSigmoidKernel::Params param{alpha, beta};
+  auto output = habana_helpers::createPTTensor(
+      inputs[0].toTensor(), is_output_persistent);
+  if (m_inplace) {
+    AllocateSynapseInplaceOutput(graph);
+  } else {
+    AllocateSynapseOutput(graph, output, is_output_persistent);
+  }
+  AddNodeToSynapseGraph(graph, &param, sizeof(param));
+}
+
+void HardsigmoidBackwardOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    Stack& inputs,
+    bool is_output_persistent) {
+  const unsigned short constExpectedNoOfInput = 2;
+  const float alpha = 1 / 6.0f;
+  const float beta = 1 / 2.0f;
+  TORCH_CHECK(
+      inputs.size() == constExpectedNoOfInput,
+      std::string("Expected ") + std::to_string(constExpectedNoOfInput) +
+          " inputs for HardsigmoidOperator operator" + " but received " +
+          std::to_string(inputs.size()) + " inputs.");
+  ns_HardSigmoidKernel::Params param{alpha, beta};
+  auto output = habana_helpers::createPTTensor(
+      inputs[0].toTensor(), is_output_persistent);
+  AllocateSynapseOutput(graph, output, is_output_persistent);
+  AddNodeToSynapseGraph(graph, &param, sizeof(param));
+}
+
 static auto& KernelRegistry =
     ::habana::KernelRegistry()
         .add(
@@ -1836,10 +1882,29 @@ static auto& KernelRegistry =
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<SigmoidOperator>(device_id, node_type);
             })
+
         .add(
             "aten::sigmoid_backward",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<SigmoidBackwardOperator>(
+                  device_id, node_type);
+            })
+        .add(
+            "aten::hardsigmoid",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<HardsigmoidOperator>(
+                  device_id, node_type);
+            })
+        .add(
+            "aten::hardsigmoid_",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<HardsigmoidOperator>(
+                  device_id, node_type, true);
+            })
+        .add(
+            "aten::hardsigmoid_backward",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<HardsigmoidBackwardOperator>(
                   device_id, node_type);
             })
         .add(

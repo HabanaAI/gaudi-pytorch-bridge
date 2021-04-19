@@ -130,6 +130,39 @@ class SigmoidBackwardOperator : public UnaryBackwardOperator {
                 habana_helpers::name_suffix_from_type(scalarType)){};
 };
 
+class HardsigmoidOperator : public UnaryOperator {
+ public:
+  HardsigmoidOperator(
+      int device_id,
+      c10::ScalarType scalarType,
+      bool inplace = false)
+      : UnaryOperator(
+            device_id,
+            "hard_sigmoid_fwd_" +
+                habana_helpers::name_suffix_from_type(scalarType)),
+        m_inplace{inplace} {};
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+
+ private:
+  bool m_inplace;
+};
+
+class HardsigmoidBackwardOperator : public UnaryBackwardOperator {
+ public:
+  HardsigmoidBackwardOperator(int device_id, c10::ScalarType scalarType)
+      : UnaryBackwardOperator(
+            device_id,
+            "hard_sigmoid_bwd_" +
+                habana_helpers::name_suffix_from_type(scalarType)){};
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+};
+
 // Tanh Operator
 class TanhOperator : public UnaryOperator {
  public:

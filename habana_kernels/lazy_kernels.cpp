@@ -4276,6 +4276,26 @@ Tensor sigmoid_backward_hpu_lazy(const Tensor& grad_in, const Tensor& input) {
   return result;
 }
 
+at::Tensor& hardsigmoid_hpu_lazy_(at::Tensor& self) {
+  PT_LAZY_TRACE;
+  LazyOp<at::Tensor&> k{"aten::hardsigmoid_", {self}};
+  return k.call(self);
+}
+
+Tensor hardsigmoid_hpu_lazy(const Tensor& input) {
+  PT_LAZY_TRACE;
+  LazyOp<at::Tensor> k{"aten::hardsigmoid", {input}};
+  return k.call();
+}
+
+Tensor hardsigmoid_backward_hpu_lazy(
+    const Tensor& grad_output,
+    const Tensor& self) {
+  PT_LAZY_TRACE;
+  LazyOp<at::Tensor> k{"aten::hardsigmoid_backward", {grad_output, self}};
+  return k.call();
+}
+
 // make sqrt as inplace op for workaround in SW-26172
 Tensor sqrt_hpu_lazy_(Tensor& input) {
   PT_LAZY_TRACE;

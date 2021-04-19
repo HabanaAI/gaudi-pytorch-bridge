@@ -2323,6 +2323,24 @@ static std::unordered_map<std::string, std::vector<std::set<at::ScalarType>>>
               at::ScalarType::BFloat16}},
         },
         {
+            "hardsigmoid_",
+            {{at::ScalarType::Float,
+              at::ScalarType::Double,
+              at::ScalarType::BFloat16}},
+        },
+        {
+            "hardsigmoid",
+            {{at::ScalarType::Float,
+              at::ScalarType::Double,
+              at::ScalarType::BFloat16}},
+        },
+        {
+            "hardsigmoid_backward",
+            {{at::ScalarType::Float,
+              at::ScalarType::Double,
+              at::ScalarType::BFloat16}},
+        },
+        {
             "one_hot",
             {{at::ScalarType::Long}},
         },

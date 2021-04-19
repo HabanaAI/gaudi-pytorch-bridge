@@ -2093,6 +2093,23 @@ Tensor hpu_wrap::sigmoid_backward(const Tensor& grad_in, const Tensor& input) {
   }
 };
 
+at::Tensor& hpu_wrap::hardsigmoid_(at::Tensor& self) {
+  hpu_check_inputs(__func__, {self});
+  return hardsigmoid_hpu_lazy_(self);
+}
+
+at::Tensor hpu_wrap::hardsigmoid(const at::Tensor& self) {
+  hpu_check_inputs(__func__, {self});
+  return hardsigmoid_hpu_lazy(self);
+}
+
+at::Tensor hpu_wrap::hardsigmoid_backward(
+    const at::Tensor& grad_output,
+    const at::Tensor& self) {
+  hpu_check_inputs(__func__, {grad_output, self});
+  return hardsigmoid_backward_hpu_lazy(grad_output, self);
+}
+
 Tensor hpu_wrap::sqrt(const Tensor& input) {
   hpu_check_inputs("sqrt", {input});
 
