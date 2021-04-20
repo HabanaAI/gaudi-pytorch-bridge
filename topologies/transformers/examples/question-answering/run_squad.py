@@ -29,6 +29,8 @@ import torch
 from torch.utils.data import DataLoader, RandomSampler, SequentialSampler
 from torch.utils.data.distributed import DistributedSampler
 from tqdm import tqdm, trange
+
+
 try:
     path = os.path.join(os.environ['PYTORCH_MODULES_ROOT_PATH'], 'topologies')
     tools_path = os.path.join(path, 'tools')
@@ -111,7 +113,6 @@ def enable_tracing():
     hb_torch.enable()
     hb_torch.remove_inplace_ops()
 
-
 def train(args, train_dataset, model, tokenizer, trainMetaData):
     """ Train the model """
     if args.local_rank in [-1, 0]:
@@ -169,6 +170,13 @@ def train(args, train_dataset, model, tokenizer, trainMetaData):
     if args.use_jit_trace:
         enable_tracing()
 
+    if args.use_lazy_mode:
+        sys.path.insert(0, os.path.join(os.environ['PYTORCH_MODULES_RELEASE_BUILD']))
+        try:
+           import hb_torch
+        except ImportError:
+           assert False, "Could Not import hb_torch"
+
     # multi-gpu training (should be after apex fp16 initialization)
     if args.n_gpu > 1:
         model = torch.nn.DataParallel(model)
@@ -202,6 +210,7 @@ def train(args, train_dataset, model, tokenizer, trainMetaData):
     epochs_trained = 0
     steps_trained_in_current_epoch = 0
     is_model_traced = False
+    trainMetaData.set_live_mem_alloc_logging(args.log_device_mem_alloc and args.use_habana)
     # Check if continuing training from a checkpoint
     if os.path.exists(args.model_name_or_path):
         try:
@@ -338,6 +347,9 @@ def train(args, train_dataset, model, tokenizer, trainMetaData):
             else:
                 loss.backward()
 
+            if args.use_lazy_mode:
+                hb_torch.mark_step()
+
             tr_loss += loss.item()
             if (step + 1) % args.gradient_accumulation_steps == 0:
                 # Increment the global step
@@ -363,6 +375,7 @@ def train(args, train_dataset, model, tokenizer, trainMetaData):
                         torch.nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
 
                 tp_probe_tensors_iteration_end(model, device, outputs[1].detach().to('cpu'), loss.item(), trainMetaData.ParamsDump, False)
+
                 if args.use_habana and args.hmp and not(args.use_fused_adam):
                     from hmp import hmp
                     with hmp.disable_casts():
@@ -377,14 +390,15 @@ def train(args, train_dataset, model, tokenizer, trainMetaData):
                     for param in model.parameters():
                         param.grad = None
 
-                # Report the loss
-                logger.info("Global Step: %s, Loss: %s", global_step, loss.item())
+                if args.use_lazy_mode:
+                    hb_torch.mark_step()
 
                 if args.local_rank != -1:
                     if mpi_comm is not None:
                         mpi_comm.Barrier()
                     else:
                         torch.distributed.barrier()
+
 
                 # Log metrics
                 if args.local_rank in [-1, 0] and args.logging_steps > 0 and global_step % args.logging_steps == 0:
@@ -396,8 +410,11 @@ def train(args, train_dataset, model, tokenizer, trainMetaData):
                         result = dict(("global_step-{}_".format(global_step)+k, v) for k, v in result.items())
                         logger.info("Results: {}".format(result))
                     tb_writer.add_scalar("lr", scheduler.get_lr()[0], global_step)
-                    tb_writer.add_scalar("loss", (tr_loss - logging_loss) / args.logging_steps, global_step)
+                    average_loss = (tr_loss - logging_loss) / args.logging_steps
+                    tb_writer.add_scalar("loss", average_loss, global_step)
                     logging_loss = tr_loss
+                    # Report the loss based on logging_steps frequency
+                    logger.info("Global Step: %s, Loss: %s", global_step, average_loss)
 
                 # Save model checkpoint
                 if args.local_rank in [-1, 0] and args.save_steps > 0 and global_step % args.save_steps == 0:
@@ -472,6 +489,13 @@ def evaluate(args, model, tokenizer, trainMetaData,  prefix=""):
     if args.use_jit_trace:
         enable_tracing()
 
+    if args.use_lazy_mode:
+        sys.path.insert(0, os.path.join(os.environ['PYTORCH_MODULES_RELEASE_BUILD']))
+        try:
+           import hb_torch
+        except ImportError:
+           assert False, "Could Not import hb_torch"
+
     args.eval_batch_size = args.per_gpu_eval_batch_size * max(1, args.n_gpu)
     is_eval_traced = False
 
@@ -536,8 +560,11 @@ def evaluate(args, model, tokenizer, trainMetaData,  prefix=""):
                 outputs = model_trace(batch[0], batch[1], batch[2], position_ids, tensor_dummy, tensor_dummy, tensor_dummy, tensor_dummy, tensor_dummy, tensor_dummy)
             else:
                 outputs = model(**inputs)
-            feature_indices = feature_indices.to("cpu")
 
+            if args.use_lazy_mode:
+                hb_torch.mark_step()
+
+            feature_indices = feature_indices.to("cpu")
 
         for i, feature_index in enumerate(feature_indices):
             eval_feature = features[feature_index.item()]
@@ -895,7 +922,12 @@ def main():
     parser.add_argument("--use_fused_clip_norm", action="store_true", help="Whether to use fused clip norm on habana device")
     parser.add_argument('--use_device_profiler', action='store_true', default=False, help='Enable device profiler activation via API')
     parser.add_argument("--device_profiler_step", type=int, default=10, help="Step number on which device profiler is activated")
+    parser.add_argument('--use_lazy_mode', action='store_true', help='run model in lazy execution mode')
+    parser.add_argument("--log_device_mem_alloc", action='store_true', default=False, help="Log live memory allocations on device at the given point")
+
     args = parser.parse_args()
+    if args.use_lazy_mode:
+        os.environ["PT_HPU_LAZY_MODE"] = "1"
 
     if args.doc_stride >= args.max_seq_length - args.max_query_length:
         logger.warning(
@@ -1109,6 +1141,8 @@ def main():
             results.update(result)
 
     logger.info("Results: {}".format(results))
+    if args.use_lazy_mode:
+        os.environ.pop("PT_HPU_LAZY_MODE")
 
     return results
 
