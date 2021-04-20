@@ -1700,32 +1700,13 @@ Tensor& embedding_bag_sum_bwd_out_kernel_mode_hpu_lazy(
   flush_op(out);
   return out;
 }
+
 Tensor& fill_hpu_lazy_(Tensor& self, Scalar value) {
   PT_LAZY_TRACE;
-  auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
-  auto hl_alpha = habana_lazy::GetIrValueForScalar(value);
-  updateDstDependencies(hl_self, self, true);
-  auto node = habana_lazy::ir::Node::Create(
-      Symbol::fromQualString("aten::fill_"), {hl_self.GetIrValue(), hl_alpha});
-
-  habana_lazy::ir::Value& out = hl_self.CurrentIrValue();
-  out.m_index = 0;
-  out.SetNode(node);
-
-  std::vector<at::Tensor> input_pt_vec{self};
-  node->AddInputPtTensors(input_pt_vec);
-  // As its an inplace op and we want this op to execute
-  // we want to wind back status of this tensor to registered
-  // so that when post order is created, we actually execute it
-  auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
-      self.device().index());
-  // context->MarkTensorRegistered(hl_self.getTensorUniqueId());
-  context->MarkTensorStatus(
-      hl_self.getTensorUniqueId(), LazyTensorExecutionStatus::kREGISTERED);
-
-  flush_op(self);
-  return self;
+  LazyOp<at::Tensor&> k{"aten::fill_", {self, value}};
+  return k.call(self);
 }
+
 Tensor& masked_fill_hpu_lazy_(
     Tensor& self,
     const Tensor& mask,
@@ -3715,30 +3696,11 @@ Tensor relu_hpu_lazy(const Tensor& input) {
   flush_op(result);
   return result;
 }
-Tensor& relu_hpu_lazy_(Tensor& input) {
+
+Tensor& relu_hpu_lazy_(Tensor& self) {
   PT_LAZY_TRACE;
-  auto hl_result = habana_lazy::GetHbLazyTensor(input);
-  auto hl_input = habana_lazy::GetOrCreateHbLazyTensor(input, c10::kHABANA);
-  updateDstDependencies(hl_result, input, true);
-  auto node = habana_lazy::ir::Node::Create(
-      Symbol::fromQualString("aten::relu"), {hl_input.GetIrValue()});
-
-  habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
-  out.m_index = 0;
-  out.SetNode(node);
-
-  std::vector<at::Tensor> input_pt_vec{input};
-  node->AddInputPtTensors(input_pt_vec);
-  // As its an inplace op and we want this op to execute
-  // we want to wind back status of this tensor to registered
-  // so that when post order is created, we actually execute it
-  auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
-      input.device().index());
-  context->MarkTensorStatus(
-      hl_input.getTensorUniqueId(), LazyTensorExecutionStatus::kREGISTERED);
-
-  flush_op(input);
-  return input;
+  LazyOp<at::Tensor&> k{"aten::relu_", {self}};
+  return k.call(self);
 }
 
 at::Tensor& leaky_relu_lazy_(at::Tensor& self, at::Scalar negative_slope) {

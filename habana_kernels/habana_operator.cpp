@@ -184,6 +184,9 @@ std::vector<std::pair<std::string, at::Tensor>> habana::HabanaOperator::
 void habana::HabanaOperator::AllocateSynapseInplaceOutput(
     synapse_helpers::graph& graph) {
   static_cast<void>(graph);
+  HABANA_ASSERT(p_context_->syn_inputs_.size() > 0);
+  HABANA_ASSERT(p_context_->pt_inputs_.size() > 0);
+
   p_context_->syn_outputs_.emplace_back(
       habana_helpers::duplicate_tensor_in_memory_section(
           p_context_->syn_inputs_[0]));

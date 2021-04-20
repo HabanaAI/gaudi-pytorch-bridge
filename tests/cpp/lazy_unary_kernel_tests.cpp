@@ -44,22 +44,16 @@ TEST_F(LazyUnaryKernelTest, ThresholdBackward) {
 }
 
 TEST_F(LazyUnaryKernelTest, ReluInplaceTest) {
-  // Inplace op as output node is not supported yet.
-  torch::Tensor A = torch::randn({4, 5});
+  torch::Tensor a = torch::randn({4, 5});
+  auto ha = a.to(torch::kHABANA);
 
-  auto hA = A.to(torch::kHABANA);
-  A = A.relu_();
-  auto exp = torch::relu(A);
+  auto A = a.clone();
+  auto hA = ha.clone();
 
-  hA = hA.relu_();
-  auto result = torch::relu(hA);
+  A.relu_();
+  hA.relu_();
 
-  std::vector<HbLazyTensor> tensors = {GetHbLazyTensor(result)};
-  HbLazyTensor::SyncTensorsGraph(&tensors);
-
-  Tensor out = result.to(kCPU);
-
-  EXPECT_EQ(allclose(out, exp), true);
+  EXPECT_TRUE(allclose(hA.to("cpu"), A));
 }
 
 TEST_F(LazyUnaryKernelTest, Elu) {
@@ -76,8 +70,9 @@ TEST_F(LazyUnaryKernelTest, Elu) {
 
 TEST_F(LazyUnaryKernelTest, LeakyReluInplaceTest) {
   auto A = torch::randn({4, 5});
-  auto hA = A.to(torch::kHABANA);
+  auto ha = A.to(torch::kHABANA);
 
+  auto hA = ha.clone();
   torch::leaky_relu_(A);
   torch::leaky_relu_(hA);
 

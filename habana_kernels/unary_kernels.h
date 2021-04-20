@@ -58,13 +58,32 @@ class UnaryBackwardOperator : public HabanaOperator {
       bool is_output_persistent = false);
 };
 
+// Wrapper of unary which produces one tensor output and accepts
+// one tensor and scalar(s) as inputs.
+class UnaryLikeOperator : public UnaryOperator {
+ public:
+  UnaryLikeOperator(
+      int device_id,
+      const std::string& guid,
+      bool inplace = false)
+      : UnaryOperator(device_id, guid), m_inplace{inplace} {}
+
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false);
+
+ protected:
+  bool m_inplace;
+};
+
 // Relu Operator
 class ReluOperator : public UnaryOperator {
  public:
   ReluOperator(int device_id, c10::ScalarType scalarType)
       : UnaryOperator(
             device_id,
-            "relu_fwd_" + habana_helpers::name_suffix_from_type(scalarType)){};
+            "relu_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {}
 };
 
 // Relu Inplace Operator
@@ -73,45 +92,40 @@ class ReluInplaceOperator : public UnaryInplaceOperator {
   ReluInplaceOperator(int device_id, c10::ScalarType scalarType)
       : UnaryInplaceOperator(
             device_id,
-            "relu_fwd_" + habana_helpers::name_suffix_from_type(scalarType)){};
+            "relu_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {}
 };
 
 // Leaky Relu Operator
-class LeakyReluOperator : public UnaryOperator {
+class LeakyReluOperator : public UnaryLikeOperator {
  public:
   LeakyReluOperator(
       int device_id,
       c10::ScalarType scalarType,
       bool inplace = false)
-      : UnaryOperator(
+      : UnaryLikeOperator(
             device_id,
             "leakyrelu_fwd_" +
-                habana_helpers::name_suffix_from_type(scalarType)),
-        m_inplace{inplace} {}
+                habana_helpers::name_suffix_from_type(scalarType),
+            inplace) {}
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
-
- private:
-  bool m_inplace;
 };
 
 // Elu Operator
-class EluOperator : public UnaryOperator {
+class EluOperator : public UnaryLikeOperator {
  public:
   EluOperator(int device_id, c10::ScalarType scalarType, bool inplace = false)
-      : UnaryOperator(
+      : UnaryLikeOperator(
             device_id,
-            "elu_fwd_" + habana_helpers::name_suffix_from_type(scalarType)),
-        m_inplace{inplace} {}
+            "elu_fwd_" + habana_helpers::name_suffix_from_type(scalarType),
+            inplace) {}
+
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
-
- private:
-  bool m_inplace;
 };
 
 class LeakyReluBackwardOperator : public UnaryBackwardOperator {
@@ -120,7 +134,7 @@ class LeakyReluBackwardOperator : public UnaryBackwardOperator {
       : UnaryBackwardOperator(
             device_id,
             "leakyrelu_bwd_" +
-                habana_helpers::name_suffix_from_type(scalarType)){};
+                habana_helpers::name_suffix_from_type(scalarType)) {}
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
@@ -134,7 +148,7 @@ class SigmoidOperator : public UnaryOperator {
       : UnaryOperator(
             device_id,
             "sigmoid_fwd_" +
-                habana_helpers::name_suffix_from_type(scalarType)){};
+                habana_helpers::name_suffix_from_type(scalarType)) {}
 };
 
 // SigmoidBackward Operator
@@ -144,27 +158,24 @@ class SigmoidBackwardOperator : public UnaryBackwardOperator {
       : UnaryBackwardOperator(
             device_id,
             "sigmoid_bwd_" +
-                habana_helpers::name_suffix_from_type(scalarType)){};
+                habana_helpers::name_suffix_from_type(scalarType)) {}
 };
 
-class HardsigmoidOperator : public UnaryOperator {
+class HardsigmoidOperator : public UnaryLikeOperator {
  public:
   HardsigmoidOperator(
       int device_id,
       c10::ScalarType scalarType,
       bool inplace = false)
-      : UnaryOperator(
+      : UnaryLikeOperator(
             device_id,
             "hard_sigmoid_fwd_" +
-                habana_helpers::name_suffix_from_type(scalarType)),
-        m_inplace{inplace} {};
+                habana_helpers::name_suffix_from_type(scalarType),
+            inplace) {}
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
-
- private:
-  bool m_inplace;
 };
 
 class HardsigmoidBackwardOperator : public UnaryBackwardOperator {
@@ -186,7 +197,7 @@ class TanhOperator : public UnaryOperator {
   TanhOperator(int device_id, c10::ScalarType scalarType)
       : UnaryOperator(
             device_id,
-            "tanh_fwd_" + habana_helpers::name_suffix_from_type(scalarType)){};
+            "tanh_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {}
 };
 
 // TanhBackward Operator
@@ -195,7 +206,7 @@ class TanhBackwardOperator : public UnaryBackwardOperator {
   TanhBackwardOperator(int device_id, c10::ScalarType scalarType)
       : UnaryBackwardOperator(
             device_id,
-            "tanh_bwd_" + habana_helpers::name_suffix_from_type(scalarType)){};
+            "tanh_bwd_" + habana_helpers::name_suffix_from_type(scalarType)) {}
 };
 
 // Abs Operator
@@ -204,7 +215,7 @@ class AbsOperator : public UnaryOperator {
   AbsOperator(int device_id, c10::ScalarType scalarType)
       : UnaryOperator(
             device_id,
-            "abs_fwd_" + habana_helpers::name_suffix_from_type(scalarType)){};
+            "abs_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {}
 };
 
 // Abs Inplace Operator
@@ -214,7 +225,7 @@ class AbsInplaceOperator : public UnaryInplaceOperator {
   AbsInplaceOperator(int device_id, c10::ScalarType scalarType)
       : UnaryInplaceOperator(
             device_id,
-            "abs_fwd_" + habana_helpers::name_suffix_from_type(scalarType)){};
+            "abs_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {}
 };
 
 // Round Operator
@@ -223,7 +234,7 @@ class RoundOperator : public UnaryOperator {
   RoundOperator(int device_id, c10::ScalarType scalarType)
       : UnaryOperator(
             device_id,
-            "round_fwd_" + habana_helpers::name_suffix_from_type(scalarType)){};
+            "round_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {}
 };
 
 // Round Inplace Operator
@@ -232,7 +243,7 @@ class RoundInplaceOperator : public UnaryInplaceOperator {
   RoundInplaceOperator(int device_id, c10::ScalarType scalarType)
       : UnaryInplaceOperator(
             device_id,
-            "round_fwd_" + habana_helpers::name_suffix_from_type(scalarType)){};
+            "round_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {}
 };
 
 // Rsqrt Operator
@@ -241,7 +252,7 @@ class RsqrtOperator : public UnaryOperator {
   RsqrtOperator(int device_id, c10::ScalarType scalarType)
       : UnaryOperator(
             device_id,
-            "rsqrt_fwd_" + habana_helpers::name_suffix_from_type(scalarType)){};
+            "rsqrt_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {}
 };
 
 // Rsqrt Inplace Operator
@@ -250,7 +261,7 @@ class RsqrtInplaceOperator : public UnaryInplaceOperator {
   RsqrtInplaceOperator(int device_id, c10::ScalarType scalarType)
       : UnaryInplaceOperator(
             device_id,
-            "rsqrt_fwd_" + habana_helpers::name_suffix_from_type(scalarType)){};
+            "rsqrt_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {}
 };
 
 // Isfinite Operator
@@ -260,7 +271,7 @@ class IsfiniteOperator : public UnaryOperator {
       : UnaryOperator(
             device_id,
             "isfinite_fwd_" +
-                habana_helpers::name_suffix_from_type(scalarType)){};
+                habana_helpers::name_suffix_from_type(scalarType)) {}
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
@@ -273,7 +284,7 @@ class SignOperator : public UnaryOperator {
   SignOperator(int device_id, c10::ScalarType scalarType)
       : UnaryOperator(
             device_id,
-            "sign_fwd_" + habana_helpers::name_suffix_from_type(scalarType)){};
+            "sign_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {}
 };
 
 // Sign Inplace Operator
@@ -282,7 +293,7 @@ class SignInplaceOperator : public UnaryInplaceOperator {
   SignInplaceOperator(int device_id, c10::ScalarType scalarType)
       : UnaryInplaceOperator(
             device_id,
-            "sign_fwd_" + habana_helpers::name_suffix_from_type(scalarType)){};
+            "sign_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {}
 };
 
 // Sqrt Operator
@@ -291,7 +302,7 @@ class SqrtOperator : public UnaryOperator {
   SqrtOperator(int device_id, c10::ScalarType scalarType)
       : UnaryOperator(
             device_id,
-            "sqrt_fwd_" + habana_helpers::name_suffix_from_type(scalarType)){};
+            "sqrt_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {}
 };
 
 // Clamp Operator
@@ -335,7 +346,7 @@ class NegOperator : public UnaryOperator {
   NegOperator(int device_id, c10::ScalarType scalarType)
       : UnaryOperator(
             device_id,
-            "neg_fwd_" + habana_helpers::name_suffix_from_type(scalarType)){};
+            "neg_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {}
 };
 //
 // ReciprocalOut Operator
@@ -470,7 +481,7 @@ class ExpOperator : public UnaryOperator {
   ExpOperator(int device_id, c10::ScalarType scalarType)
       : UnaryOperator(
             device_id,
-            "exp_fwd_" + habana_helpers::name_suffix_from_type(scalarType)){};
+            "exp_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {}
 };
 
 // Exp Inplace Operator
@@ -479,7 +490,7 @@ class ExpInplaceOperator : public UnaryInplaceOperator {
   ExpInplaceOperator(int device_id, c10::ScalarType scalarType)
       : UnaryInplaceOperator(
             device_id,
-            "exp_fwd_" + habana_helpers::name_suffix_from_type(scalarType)){};
+            "exp_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {}
 };
 
 class SqrtInplaceOperator : public UnaryInplaceOperator {
@@ -487,7 +498,7 @@ class SqrtInplaceOperator : public UnaryInplaceOperator {
   SqrtInplaceOperator(int device_id, c10::ScalarType scalarType)
       : UnaryInplaceOperator(
             device_id,
-            "sqrt_fwd_" + habana_helpers::name_suffix_from_type(scalarType)){};
+            "sqrt_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {}
 };
 
 // Floor Operator
@@ -496,7 +507,7 @@ class FloorOperator : public UnaryOperator {
   FloorOperator(int device_id, c10::ScalarType scalarType)
       : UnaryOperator(
             device_id,
-            "floor_fwd_" + habana_helpers::name_suffix_from_type(scalarType)){};
+            "floor_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {}
 };
 
 // Floor Inplace Operator
@@ -505,7 +516,7 @@ class FloorInplaceOperator : public UnaryInplaceOperator {
   FloorInplaceOperator(int device_id, c10::ScalarType scalarType)
       : UnaryInplaceOperator(
             device_id,
-            "floor_fwd_" + habana_helpers::name_suffix_from_type(scalarType)){};
+            "floor_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {}
 };
 
 class LogOperator : public UnaryOperator {
@@ -513,7 +524,7 @@ class LogOperator : public UnaryOperator {
   LogOperator(int device_id, c10::ScalarType scalarType)
       : UnaryOperator(
             device_id,
-            "log_fwd_" + habana_helpers::name_suffix_from_type(scalarType)){};
+            "log_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {}
 };
 
 class LogInplaceOperator : public UnaryInplaceOperator {
@@ -521,7 +532,7 @@ class LogInplaceOperator : public UnaryInplaceOperator {
   LogInplaceOperator(int device_id, c10::ScalarType scalarType)
       : UnaryInplaceOperator(
             device_id,
-            "log_fwd_" + habana_helpers::name_suffix_from_type(scalarType)){};
+            "log_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {}
 };
 
 class Log2Operator : public UnaryOperator {
@@ -529,7 +540,7 @@ class Log2Operator : public UnaryOperator {
   Log2Operator(int device_id, c10::ScalarType scalarType)
       : UnaryOperator(
             device_id,
-            "log2_fwd_" + habana_helpers::name_suffix_from_type(scalarType)){};
+            "log2_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {}
 };
 
 class Log2InplaceOperator : public UnaryInplaceOperator {
@@ -537,5 +548,5 @@ class Log2InplaceOperator : public UnaryInplaceOperator {
   Log2InplaceOperator(int device_id, c10::ScalarType scalarType)
       : UnaryInplaceOperator(
             device_id,
-            "log2_fwd_" + habana_helpers::name_suffix_from_type(scalarType)){};
+            "log2_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {}
 };

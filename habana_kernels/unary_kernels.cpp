@@ -48,10 +48,29 @@ void UnaryInplaceOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
     bool is_output_persistent) {
-  static_cast<void>(inputs);
   static_cast<void>(is_output_persistent);
-  AllocateSynapseInplaceOutput(graph);
+
+  p_context_->syn_outputs_.emplace_back(
+      habana_helpers::duplicate_tensor_in_memory_section(
+          p_context_->syn_inputs_[0]));
+  p_context_->pt_outputs_.emplace_back(inputs[0].toTensor());
   AddNodeToSynapseGraph(graph, nullptr, 0);
+}
+
+void UnaryLikeOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    Stack& inputs,
+    bool is_output_persistent) {
+  if (m_inplace) {
+    p_context_->syn_outputs_.emplace_back(
+        habana_helpers::duplicate_tensor_in_memory_section(
+            p_context_->syn_inputs_[0]));
+    p_context_->pt_outputs_.emplace_back(inputs[0].toTensor());
+  } else {
+    auto output = habana_helpers::createPTTensor(
+        inputs[0].toTensor(), is_output_persistent);
+    AllocateSynapseOutput(graph, output, is_output_persistent);
+  }
 }
 
 Tensor unary_op_hpu(
@@ -533,13 +552,8 @@ void LeakyReluOperator::AllocateAndAddSynapseNode(
 
   ns_LeakyReluKernel::Params param{inputs[1].toScalar().to<double>()};
 
-  if (m_inplace) {
-    AllocateSynapseInplaceOutput(graph);
-  } else {
-    auto output = habana_helpers::createPTTensor(
-        inputs[0].toTensor(), is_output_persistent);
-    AllocateSynapseOutput(graph, output, is_output_persistent);
-  }
+  UnaryLikeOperator::AllocateAndAddSynapseNode(
+      graph, inputs, is_output_persistent);
   AddNodeToSynapseGraph(graph, &param, sizeof(param));
 }
 
@@ -563,13 +577,8 @@ void EluOperator::AllocateAndAddSynapseNode(
 
   ns_EluKernel::Params param{inputs[1].toScalar().toFloat()};
 
-  if (m_inplace) {
-    AllocateSynapseInplaceOutput(graph);
-  } else {
-    auto output = habana_helpers::createPTTensor(
-        inputs[0].toTensor(), is_output_persistent);
-    AllocateSynapseOutput(graph, output, is_output_persistent);
-  }
+  UnaryLikeOperator::AllocateAndAddSynapseNode(
+      graph, inputs, is_output_persistent);
   AddNodeToSynapseGraph(graph, &param, sizeof(param));
 }
 
@@ -1842,8 +1851,8 @@ void HardsigmoidOperator::AllocateAndAddSynapseNode(
     Stack& inputs,
     bool is_output_persistent) {
   const unsigned short constExpectedNoOfInput = 1;
-  const float alpha = 1 / 6.0f;
-  const float beta = 1 / 2.0f;
+  constexpr float alpha = 1 / 6.0f;
+  constexpr float beta = 1 / 2.0f;
   TORCH_CHECK(
       inputs.size() == constExpectedNoOfInput,
       std::string("Expected ") + std::to_string(constExpectedNoOfInput) +
@@ -1854,13 +1863,8 @@ void HardsigmoidOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(inputs[0].isTensor(), "Input type expected to be tensor");
 
   ns_HardSigmoidKernel::Params param{alpha, beta};
-  auto output = habana_helpers::createPTTensor(
-      inputs[0].toTensor(), is_output_persistent);
-  if (m_inplace) {
-    AllocateSynapseInplaceOutput(graph);
-  } else {
-    AllocateSynapseOutput(graph, output, is_output_persistent);
-  }
+  UnaryLikeOperator::AllocateAndAddSynapseNode(
+      graph, inputs, is_output_persistent);
   AddNodeToSynapseGraph(graph, &param, sizeof(param));
 }
 
@@ -1869,8 +1873,8 @@ void HardsigmoidBackwardOperator::AllocateAndAddSynapseNode(
     Stack& inputs,
     bool is_output_persistent) {
   const unsigned short constExpectedNoOfInput = 2;
-  const float alpha = 1 / 6.0f;
-  const float beta = 1 / 2.0f;
+  constexpr float alpha = 1 / 6.0f;
+  constexpr float beta = 1 / 2.0f;
   TORCH_CHECK(
       inputs.size() == constExpectedNoOfInput,
       std::string("Expected ") + std::to_string(constExpectedNoOfInput) +
@@ -1899,6 +1903,12 @@ static auto& KernelRegistry =
             "aten::relu",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<ReluOperator>(device_id, node_type);
+            })
+        .add(
+            "aten::relu_",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<ReluInplaceOperator>(
+                  device_id, node_type);
             })
         .add(
             "aten::leaky_relu",

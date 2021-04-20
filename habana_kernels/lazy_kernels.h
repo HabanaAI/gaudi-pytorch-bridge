@@ -115,9 +115,9 @@ class LazyOp {
   template <typename T = ReturnType>
   typename std::enable_if<std::is_same<T, at::Tensor&>::value, T>::type call(
       at::Tensor& self) {
-    const auto& node = create_node();
     auto hl_self = GetHbLazyTensor(self);
     updateDstDependencies(hl_self, self, true);
+    const auto& node = create_node();
     ir::Value& out = hl_self.CurrentIrValue();
     out.SetNode(node);
 
