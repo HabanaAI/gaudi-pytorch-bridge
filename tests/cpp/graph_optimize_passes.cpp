@@ -99,7 +99,6 @@ TEST_F(GraphOptimizeTest, SubGraphRewriteTest) {
   auto po_data = HbLazyTensor::RunPostOrder(tensors, indices);
 
   exec::HlExec* hlexec = new exec::HlExec();
-  exec::OptPassCfg::GetInstance()->enable_subgraph_rewrite = true;
   exec::OptPassCfg::GetInstance()->enable_permute_pass = false;
 
   std::vector<at::Tensor> input_list{hA, hB};
@@ -115,7 +114,6 @@ TEST_F(GraphOptimizeTest, SubGraphRewriteTest) {
       ->check_count("aten::mmrelu", 1)
       ->run(*hlexec->get_graph());
 
-  exec::OptPassCfg::GetInstance()->enable_subgraph_rewrite = false;
   exec::OptPassCfg::GetInstance()->enable_permute_pass = true;
 }
 

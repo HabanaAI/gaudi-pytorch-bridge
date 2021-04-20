@@ -1523,9 +1523,7 @@ Tensor all_hpu(const Tensor& self) {
   torch::jit::parseIR(graph_string, graph.get());
   torch::jit::Stack stack = {IValue(self)};
 
-  habana_lazy::exec::OptPassCfg::GetInstance()->enable_subgraph_rewrite = true;
   habana_lazy::transform_graph(graph);
-  habana_lazy::exec::OptPassCfg::GetInstance()->enable_subgraph_rewrite = false;
   // reset instance count so that graph_id always remains same
   // this ensures that we get a cache hit if inputs have not changed
   HabanaLaunchOpPT::instance_count_ = 0;
@@ -1554,9 +1552,7 @@ Tensor all_dim_hpu(const Tensor& self, int64_t dim, bool keepdim) {
   torch::jit::parseIR(graph_string, graph.get());
   torch::jit::Stack stack = {IValue(self), IValue(dim), IValue(keepdim)};
 
-  habana_lazy::exec::OptPassCfg::GetInstance()->enable_subgraph_rewrite = true;
   habana_lazy::transform_graph(graph);
-  habana_lazy::exec::OptPassCfg::GetInstance()->enable_subgraph_rewrite = false;
   // reset instance count so that graph_id always remains same
   // this ensures that we get a cache hit if inputs have not changed
   HabanaLaunchOpPT::instance_count_ = 0;

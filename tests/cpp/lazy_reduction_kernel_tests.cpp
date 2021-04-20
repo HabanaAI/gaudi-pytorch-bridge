@@ -77,7 +77,6 @@ TEST_F(LazyReductionKernelTest, ArgMaxTest) {
 }
 
 TEST_F(LazyReductionKernelTest, AllTensorTest) {
-  exec::OptPassCfg::GetInstance()->enable_subgraph_rewrite = true;
   const std::vector<int64_t> dimensions{5, 3, 4};
 
   torch::Tensor A = (torch::randn(dimensions) > 0.5);
@@ -90,11 +89,9 @@ TEST_F(LazyReductionKernelTest, AllTensorTest) {
   EXPECT_EQ(
       allclose(expected.to(torch::kInt8), habanaGenerated.to(torch::kInt8)),
       true);
-  exec::OptPassCfg::GetInstance()->enable_subgraph_rewrite = false;
 }
 
 TEST_F(LazyReductionKernelTest, AllDimTensorTest) {
-  exec::OptPassCfg::GetInstance()->enable_subgraph_rewrite = true;
   const std::vector<int64_t> dimensions{5, 3, 4};
 
   torch::Tensor A = (torch::randn(dimensions) > 0.5);
@@ -108,7 +105,6 @@ TEST_F(LazyReductionKernelTest, AllDimTensorTest) {
   EXPECT_EQ(
       allclose(expected.to(torch::kInt8), habanaGenerated.to(torch::kInt8)),
       true);
-  exec::OptPassCfg::GetInstance()->enable_subgraph_rewrite = false;
 }
 
 TEST_F(LazyReductionKernelTest, MaxDimTest) {

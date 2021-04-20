@@ -48,7 +48,7 @@ class OptPassCfg {
     enable_eliminate_common_subexpression = true;
     enable_constant_pooling = true;
     enable_peephole_optimization = true;
-    enable_subgraph_rewrite = false;
+    enable_subgraph_rewrite = true;
     enable_fuse_t_mm_optimization = true;
     enable_fuse_bn_relu_optimization = true;
     enable_permute_pass = false;

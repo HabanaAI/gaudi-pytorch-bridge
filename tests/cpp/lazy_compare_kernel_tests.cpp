@@ -131,7 +131,6 @@ TEST_F(LazyCompareKernelTest, GeTensorTest) {
 }
 
 TEST_F(LazyCompareKernelTest, NeScalarTest) {
-  exec::OptPassCfg::GetInstance()->enable_subgraph_rewrite = true;
   torch::Tensor A = torch::rand({2, 2}, torch::requires_grad(false));
   float compVal = 1.1f;
   auto out_cpu = torch::ne(A, compVal);
@@ -142,11 +141,9 @@ TEST_F(LazyCompareKernelTest, NeScalarTest) {
 
   EXPECT_EQ(
       allclose(out_cpu.to(torch::kFloat), out_hpu.to(torch::kFloat)), true);
-  exec::OptPassCfg::GetInstance()->enable_subgraph_rewrite = false;
 }
 
 TEST_F(LazyCompareKernelTest, NeTensorTest) {
-  exec::OptPassCfg::GetInstance()->enable_subgraph_rewrite = true;
   const std::vector<int64_t> dimensions{5, 3, 4};
 
   torch::Tensor A = torch::randn(dimensions);
@@ -162,7 +159,6 @@ TEST_F(LazyCompareKernelTest, NeTensorTest) {
   EXPECT_EQ(
       allclose(expected.to(torch::kInt8), habanaGenerated.to(torch::kInt8)),
       true);
-  exec::OptPassCfg::GetInstance()->enable_subgraph_rewrite = false;
 }
 
 TEST_F(LazyCompareKernelTest, TypePromotion) {
@@ -184,9 +180,7 @@ TEST_F(LazyCompareKernelTest, TypePromotion) {
   // dependencies within graph
   typetest(&torch::eq, torch::kFloat, torch::kLong, {3, 4});
   typetest(&torch::eq, torch::kLong, torch::kFloat, {2, 4});
-  exec::OptPassCfg::GetInstance()->enable_subgraph_rewrite = true;
   typetest(&torch::ne, torch::kInt8, torch::kInt, {2, 4});
-  exec::OptPassCfg::GetInstance()->enable_subgraph_rewrite = false;
   typetest(&torch::gt, torch::kLong, torch::kFloat, {2, 4});
   typetest(&torch::lt, torch::kLong, torch::kFloat, {2, 4});
   typetest(&torch::ge, torch::kLong, torch::kFloat, {2, 4});

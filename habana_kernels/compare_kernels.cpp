@@ -452,9 +452,7 @@ Tensor ne_tensor_hpu(const Tensor& self_in, const Tensor& other_in) {
   torch::jit::parseIR(graph_string, graph.get());
   torch::jit::Stack stack = {self, other};
 
-  habana_lazy::exec::OptPassCfg::GetInstance()->enable_subgraph_rewrite = true;
   habana_lazy::transform_graph(graph);
-  habana_lazy::exec::OptPassCfg::GetInstance()->enable_subgraph_rewrite = false;
   // reset instance count so that graph_id always remains same
   // this ensures that we get a cache hit if inputs have not changed
   HabanaLaunchOpPT::instance_count_ = 0;
@@ -496,9 +494,7 @@ Tensor ne_scalar_hpu(const Tensor& self_in, Scalar other) {
   torch::jit::parseIR(graph_string, graph.get());
   torch::jit::Stack stack = {self, other};
 
-  habana_lazy::exec::OptPassCfg::GetInstance()->enable_subgraph_rewrite = true;
   habana_lazy::transform_graph(graph);
-  habana_lazy::exec::OptPassCfg::GetInstance()->enable_subgraph_rewrite = false;
 
   // reset instance count so that graph_id always remains same
   // this ensures that we get a cache hit if inputs have not changed
