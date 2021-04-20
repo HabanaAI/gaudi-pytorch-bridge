@@ -16,7 +16,7 @@ using namespace habana_lazy;
  * Create a JIT graph and check the nodes created within it.
  */
 TEST(LazyJITTest, CreateGraph) {
-  setenv("PT_HPU_LAZY_MODE", "1", 1);
+  setenv("PT_HPU_LAZY_MODE", "1", 0);
   torch::Tensor tensor_in1_cpu = torch::randn({2, 3});
   torch::Tensor tensor_in2_cpu = torch::randn({2, 3});
 
@@ -61,7 +61,7 @@ TEST(LazyJITTest, ExecuteGraph) {
   Tensor exp1 = add(tensor_in1, tensor_in2, alpha);
   Tensor exp2 = add(exp1, tensor_in1, alpha);
 
-  setenv("PT_HPU_LAZY_MODE", "1", 1);
+  setenv("PT_HPU_LAZY_MODE", "1", 0);
   torch::Tensor htensor_in1 = tensor_in1.to(torch::kHABANA);
   torch::Tensor htensor_in2 = tensor_in2.to(torch::kHABANA);
   auto result1 = hpu_wrap::add(htensor_in1, htensor_in2, alpha);
@@ -99,7 +99,7 @@ TEST(LazyJITTest, DISABLED_ExecuteGraphCustomSgd) {
   Tensor result1_eager = out1_eager.to(kCPU);
   Tensor result2_eager = out2_eager.to(kCPU);
 
-  setenv("PT_HPU_LAZY_MODE", "1", 1);
+  setenv("PT_HPU_LAZY_MODE", "1", 0);
   auto hgrad = grad.to(torch::kHABANA);
   auto hwts = wts.to(torch::kHABANA);
   auto hmoments = moments.to(torch::kHABANA);
@@ -145,7 +145,7 @@ TEST(LazyJITTest, ExecuteGraphCustomAdagrad) {
   Tensor result1_eager = out1_eager.to(kCPU);
   Tensor result2_eager = out2_eager.to(kCPU);
 
-  setenv("PT_HPU_LAZY_MODE", "1", 1);
+  setenv("PT_HPU_LAZY_MODE", "1", 0);
   auto hgrad = grad.to(torch::kHABANA);
   auto hwts = wts.to(torch::kHABANA);
   auto hmoments = moments.to(torch::kHABANA);

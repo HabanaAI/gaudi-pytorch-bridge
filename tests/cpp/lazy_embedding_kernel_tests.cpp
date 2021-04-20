@@ -20,7 +20,7 @@ class LazyEmbeddingKernelTest : public ::testing::Test {
 };
 
 TEST_F(LazyEmbeddingKernelTest, EmbeddingTest) {
-  setenv("PT_HPU_LAZY_MODE", "1", 1);
+  setenv("PT_HPU_LAZY_MODE", "1", 0);
 
   auto tindices = torch::randint(9, 10, at::IntArrayRef({10}), torch::kInt64);
   torch::Tensor htindices = tindices.to(torch::kHABANA);

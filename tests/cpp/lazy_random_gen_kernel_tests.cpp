@@ -28,7 +28,7 @@ TEST_F(LazyRandomGenKernelTest, FusedDropoutTest) {
   auto eager_result1 = std::get<0>(eager_results).to("cpu");
   auto eager_result2 = std::get<1>(eager_results).to("cpu");
 
-  setenv("PT_HPU_LAZY_MODE", "1", 1);
+  setenv("PT_HPU_LAZY_MODE", "1", 0);
   auto lazy_h_in = in.to(torch::kHABANA);
   auto lazy_results = torch::_fused_dropout(lazy_h_in, p);
 

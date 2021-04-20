@@ -28,7 +28,7 @@ using namespace habana_lazy;
 class LazySpecialKernelTest : public ::testing::Test {
  protected:
   void SetUp() override {
-    setenv("PT_HPU_LAZY_MODE", "1", 1);
+    setenv("PT_HPU_LAZY_MODE", "1", 0);
   }
 
   void TearDown() override {

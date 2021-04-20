@@ -15,7 +15,7 @@ using namespace habana_lazy;
 class LazyCompareKernelTest : public ::testing::Test {
  protected:
   void SetUp() override {
-    setenv("PT_HPU_LAZY_MODE", "1", 1);
+    setenv("PT_HPU_LAZY_MODE", "1", 0);
   }
 
   void TearDown() override {
@@ -24,7 +24,7 @@ class LazyCompareKernelTest : public ::testing::Test {
 };
 
 TEST_F(LazyCompareKernelTest, EqScalarTest) {
-  setenv("PT_HPU_LAZY_MODE", "1", 1);
+  setenv("PT_HPU_LAZY_MODE", "1", 0);
 
   torch::Tensor A = torch::rand({2, 2}, torch::requires_grad(false));
   float compVal = 1.1f;
@@ -41,7 +41,7 @@ TEST_F(LazyCompareKernelTest, EqScalarTest) {
 }
 
 TEST_F(LazyCompareKernelTest, EqTensorTest) {
-  setenv("PT_HPU_LAZY_MODE", "1", 1);
+  setenv("PT_HPU_LAZY_MODE", "1", 0);
 
   const std::vector<int64_t> dimentions{5, 3, 4};
 
@@ -62,7 +62,7 @@ TEST_F(LazyCompareKernelTest, EqTensorTest) {
 }
 
 TEST_F(LazyCompareKernelTest, LtScalarTest) {
-  setenv("PT_HPU_LAZY_MODE", "1", 1);
+  setenv("PT_HPU_LAZY_MODE", "1", 0);
 
   torch::Tensor A = torch::rand({2, 2}, torch::requires_grad(false));
   float compVal = 1.1f;
@@ -79,7 +79,7 @@ TEST_F(LazyCompareKernelTest, LtScalarTest) {
 }
 
 TEST_F(LazyCompareKernelTest, LtTensorTest) {
-  setenv("PT_HPU_LAZY_MODE", "1", 1);
+  setenv("PT_HPU_LAZY_MODE", "1", 0);
 
   const std::vector<int64_t> dimentions{5, 3, 4};
 

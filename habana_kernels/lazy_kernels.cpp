@@ -73,6 +73,20 @@ using namespace habana_lazy;
     return k.call();                                        \
   }
 
+// For the ops that don't use LazyOp to construct nodes.
+// Remove when all ops move to LazyOp style.
+static void flush_op(at::TensorList tensors) {
+  if (std::getenv("PT_HPU_LAZY_MODE") &&
+      *std::getenv("PT_HPU_LAZY_MODE") == '2') {
+    std::vector<HbLazyTensor> hl_tensors;
+    hl_tensors.reserve(tensors.size());
+    for (const auto& t : tensors) {
+      hl_tensors.push_back(GetOrCreateHbLazyTensor(t));
+    }
+    HbLazyTensor::SyncTensorsGraph(&hl_tensors);
+  }
+}
+
 at::Tensor preProcessIfLongorDouble(
     const at::Tensor& src,
     const at::Tensor& dst,
@@ -264,6 +278,7 @@ Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
     updateDstDependencies(hlresult, self);
   }
 
+  flush_op(self);
   return self;
 }
 
@@ -387,6 +402,7 @@ Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src, bool non_blocking) {
 
   // Return the self tensor, as copy_hpu_ doesn't create a new tensor and
   // returns the dst
+  flush_op(self);
   return self;
 }
 
@@ -544,10 +560,12 @@ Tensor as_strided_hpu_lazy(
     auto hb_tensor = habana_lazy::GetOrCreateHbLazyTensor(self, self.device());
     habana_lazy::ir::LazyView view(self, hb_tensor.GetIrValue());
     hb_result.addView(view);
+    flush_op(result);
     return result;
   } else {
     return AtenHpuTypeDefault::as_strided(self, size, stride, storage_offset);
   }
+  flush_op(self);
   return self;
 };
 
@@ -585,6 +603,7 @@ Tensor view_hpu_lazy(const Tensor& self, IntArrayRef size) {
   // updatet the view if any
   updateDstDependencies(hl_result, result);
   out.SetNode(node);
+  flush_op(result);
   return result;
 }
 Tensor addcmul_hpu_lazy(
@@ -610,6 +629,7 @@ Tensor& addcmul_hpu_lazy_(
     add_tensor_hpu_lazy_(self, temp, alpha);
   }
 
+  flush_op(self);
   return self;
 }
 Tensor addcdiv_hpu_lazy(
@@ -663,6 +683,7 @@ Tensor& addcdiv_hpu_lazy_(
     auto out = add_tensor_hpu_lazy_(self, mul_out, 1.0);
   }
 
+  flush_op(self);
   return self;
 }
 
@@ -716,6 +737,7 @@ Tensor add_scalar_hpu_lazy(const Tensor& self, Scalar other, Scalar alpha) {
   std::vector<at::Tensor> input_pt_vec{self};
   node->AddInputPtTensors(input_pt_vec);
 
+  flush_op(result);
   return result;
 }
 
@@ -778,6 +800,7 @@ Tensor& add_tensor_hpu_lazy_(Tensor& self, const Tensor& other, Scalar alpha) {
         hl_self.getTensorUniqueId(), LazyTensorExecutionStatus::kREGISTERED);
   }
 
+  flush_op(self);
   return self;
 }
 
@@ -822,6 +845,7 @@ Tensor& sub_tensor_hpu_lazy_(Tensor& self, const Tensor& other, Scalar alpha) {
     // context->MarkTensorRegistered(hl_self.getTensorUniqueId());
     context->MarkTensorStatus(
         hl_self.getTensorUniqueId(), LazyTensorExecutionStatus::kREGISTERED);
+    flush_op(self);
     return self;
   } else {
     auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
@@ -850,6 +874,7 @@ Tensor& sub_tensor_hpu_lazy_(Tensor& self, const Tensor& other, Scalar alpha) {
         hl_self.getTensorUniqueId(), LazyTensorExecutionStatus::kREGISTERED);
   }
 
+  flush_op(self);
   return self;
 }
 
@@ -879,6 +904,7 @@ Tensor sub_scalar_hpu_lazy(const Tensor& self, Scalar other, Scalar alpha) {
   std::vector<at::Tensor> input_pt_vec{self};
   node->AddInputPtTensors(input_pt_vec);
 
+  flush_op(result);
   return result;
 }
 Tensor& sub_scalar_hpu_lazy_(Tensor& self, Scalar other, Scalar alpha) {
@@ -906,6 +932,7 @@ Tensor rsub_scalar_hpu_lazy(const Tensor& self, Scalar other, Scalar alpha) {
   std::vector<at::Tensor> input_pt_vec{self};
   node->AddInputPtTensors(input_pt_vec);
 
+  flush_op(result);
   return result;
 }
 Tensor& mul_tensor_hpu_lazy_(Tensor& self, const Tensor& other) {
@@ -957,6 +984,7 @@ Tensor& mul_tensor_hpu_lazy_(Tensor& self, const Tensor& other) {
         hl_self.getTensorUniqueId(), LazyTensorExecutionStatus::kREGISTERED);
   }
 
+  flush_op(self);
   return self;
 }
 
@@ -1052,6 +1080,7 @@ Tensor div_tensor_hpu_lazy(const Tensor& self, const Tensor& other) {
   std::vector<at::Tensor> input_pt_vec{self, other};
   node->AddInputPtTensors(input_pt_vec);
 
+  flush_op(result);
   return result;
 #else
   LazyBinaryOp<at::Tensor> k{
@@ -1125,6 +1154,7 @@ Tensor& div_tensor_hpu_lazy_(Tensor& self, const Tensor& other) {
         hl_self.getTensorUniqueId(), LazyTensorExecutionStatus::kREGISTERED);
   }
 
+  flush_op(self);
   return self;
 #else
   LazyOp<at::Tensor&> k{"aten::div_", {self, other}};
@@ -1151,6 +1181,7 @@ Tensor div_scalar_hpu_lazy(const Tensor& self, Scalar other) {
   updateDstDependencies(hl_result, result);
   std::vector<at::Tensor> input_pt_vec{self};
   node->AddInputPtTensors(input_pt_vec);
+  flush_op(result);
   return result;
 #else
   LazyOp<at::Tensor> k{"aten::div", {self, other}};
@@ -1184,6 +1215,7 @@ Tensor& div_scalar_hpu_lazy_(Tensor& self, Scalar other) {
   context->MarkTensorStatus(
       hl_self.getTensorUniqueId(), LazyTensorExecutionStatus::kREGISTERED);
 
+  flush_op(self);
   return self;
 #else
   LazyOp<at::Tensor&> k{"aten::div_", {self, other}};
@@ -1219,6 +1251,7 @@ Tensor pow_tensor_scalar_hpu_lazy(const Tensor& self, Scalar other) {
   std::vector<at::Tensor> input_pt_vec{self};
   node->AddInputPtTensors(input_pt_vec);
 
+  flush_op(result);
   return result;
 }
 
@@ -1253,6 +1286,7 @@ Tensor maximum_hpu_lazy(const Tensor& self, const Tensor& other) {
   std::vector<at::Tensor> input_pt_vec{self, other};
   node->AddInputPtTensors(input_pt_vec);
 
+  flush_op(result);
   return result;
 }
 
@@ -1277,6 +1311,7 @@ Tensor minimum_hpu_lazy(const Tensor& self, const Tensor& other) {
   std::vector<at::Tensor> input_pt_vec{self, other};
   node->AddInputPtTensors(input_pt_vec);
 
+  flush_op(result);
   return result;
 }
 Tensor gt_tensor_hpu_lazy(const Tensor& self, const Tensor& other) {
@@ -1290,8 +1325,8 @@ Tensor gt_tensor_hpu_lazy(const Tensor& self, const Tensor& other) {
 }
 
 Tensor gt_scalar_hpu_lazy(const Tensor& self, Scalar other) {
-#ifndef USE_LAZYOP
   PT_LAZY_TRACE;
+#ifndef USE_LAZYOP
   auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
   auto hl_other = habana_lazy::GetIrValueForScalar(other);
 
@@ -1313,6 +1348,7 @@ Tensor gt_scalar_hpu_lazy(const Tensor& self, Scalar other) {
   std::vector<at::Tensor> input_pt_vec{self};
   node->AddInputPtTensors(input_pt_vec);
 
+  flush_op(result);
   return result;
 #else
   LazyOp<at::Tensor> k{"aten::gt", {self, other}};
@@ -1350,6 +1386,7 @@ Tensor eq_tensor_scalar_hpu_lazy(const Tensor& self, Scalar other) {
   std::vector<at::Tensor> input_pt_vec{self};
   node->AddInputPtTensors(input_pt_vec);
 
+  flush_op(result);
   return result;
 }
 
@@ -1386,6 +1423,7 @@ Tensor ne_scalar_hpu_lazy(const Tensor& self, Scalar other) {
   std::vector<at::Tensor> input_pt_vec{self};
   node->AddInputPtTensors(input_pt_vec);
 
+  flush_op(result);
   return result;
 }
 
@@ -1418,6 +1456,7 @@ Tensor all_hpu_lazy(const Tensor& self) {
   out.SetNode(node);
   std::vector<at::Tensor> input_pt_vec{self};
   node->AddInputPtTensors(input_pt_vec);
+  flush_op(result);
   return result;
 }
 
@@ -1445,6 +1484,7 @@ Tensor all_dim_hpu_lazy(const Tensor& self, int64_t dim, bool keepdim) {
   out.SetNode(node);
   std::vector<at::Tensor> input_pt_vec{self};
   node->AddInputPtTensors(input_pt_vec);
+  flush_op(result);
   return result;
 }
 
@@ -1471,6 +1511,7 @@ Tensor lt_scalar_hpu_lazy(const Tensor& self, Scalar other) {
   std::vector<at::Tensor> input_pt_vec{self};
   node->AddInputPtTensors(input_pt_vec);
 
+  flush_op(result);
   return result;
 }
 
@@ -1507,6 +1548,7 @@ Tensor ge_scalar_hpu_lazy(const Tensor& self, Scalar other) {
   std::vector<at::Tensor> input_pt_vec{self};
   node->AddInputPtTensors(input_pt_vec);
 
+  flush_op(result);
   return result;
 }
 
@@ -1563,6 +1605,7 @@ Tensor convolution_hpu_lazy(
   out.SetNode(conv_node);
   // updatet the view if any
   updateDstDependencies(hlresult, result);
+  flush_op(result);
   return result;
 #else
   LazyOp<at::Tensor> k(
@@ -1798,6 +1841,7 @@ Tensor embedding_hpu_lazy(
   out.m_index = 0;
   out.SetNode(embedding_node);
 
+  flush_op(result);
   return result;
 }
 Tensor embedding_dense_backward_hpu_lazy(
@@ -1821,6 +1865,7 @@ Tensor embedding_dense_backward_hpu_lazy(
   out.m_index = 0;
   out.SetNode(embedding_bwd_node);
 
+  flush_op(result);
   return result;
 }
 Tensor embedding_bag_sum_hpu_lazy(
@@ -1845,6 +1890,7 @@ Tensor embedding_bag_sum_hpu_lazy(
   out.m_index = 0;
   out.SetNode(node);
   updateDstDependencies(hlresult, result);
+  flush_op(result);
   return result;
 }
 Tensor embedding_bag_sum_fwd_hpu_lazy(
@@ -1902,6 +1948,7 @@ Tensor embedding_bag_sum_fwd_hpu_lazy(
       grad_weight};
   node->AddInputPtTensors(input_pt_vec);
 
+  flush_op(result);
   return result;
 }
 Tensor& embedding_bag_sum_bwd_out_hpu_lazy(
@@ -1937,6 +1984,7 @@ Tensor& embedding_bag_sum_bwd_out_hpu_lazy(
       input, indices_bwd, offsets_bwd, valid_count_bwd};
   node->AddInputPtTensors(input_pt_vec);
 
+  flush_op(out);
   return out;
 }
 Tensor& embedding_bag_sum_bwd_out_kernel_mode_hpu_lazy(
@@ -1961,6 +2009,7 @@ Tensor& embedding_bag_sum_bwd_out_kernel_mode_hpu_lazy(
   auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
       out.device().index());
   context->MarkTensorRegistered(hlresult.getTensorUniqueId());
+  flush_op(out);
   return out;
 }
 Tensor& fill_hpu_lazy_(Tensor& self, Scalar value) {
@@ -1986,6 +2035,7 @@ Tensor& fill_hpu_lazy_(Tensor& self, Scalar value) {
   context->MarkTensorStatus(
       hl_self.getTensorUniqueId(), LazyTensorExecutionStatus::kREGISTERED);
 
+  flush_op(self);
   return self;
 }
 Tensor& masked_fill_hpu_lazy_(
@@ -2055,6 +2105,7 @@ Tensor& scatter_inplace_value_hpu_lazy(
   out.SetNode(node2);
   node2->AddInputPtTensors(input_pt_vec);
 
+  flush_op(self);
   return self;
 }
 Tensor scatter_src_hpu_lazy(
@@ -2109,6 +2160,7 @@ Tensor& index_add_hpu_lazy_(
   std::vector<at::Tensor> input_pt_vec{self, indices, source};
   node->AddInputPtTensors(input_pt_vec);
 
+  flush_op(self);
   return self;
 }
 Tensor index_put_hpu_lazy(
@@ -2145,6 +2197,7 @@ Tensor index_select_hpu_lazy(
   std::vector<at::Tensor> input_pt_vec{self, index};
   node->AddInputPtTensors(input_pt_vec);
 
+  flush_op(result);
   return result;
 }
 Tensor gather2d_hpu_lazy(
@@ -2175,6 +2228,7 @@ Tensor slice_hpu_lazy(
   out.m_index = 0;
   out.SetNode(node);
   updateDstDependencies(hl_result, result);
+  flush_op(result);
   return result;
 }
 
@@ -2191,6 +2245,7 @@ Tensor select_hpu_lazy(const Tensor& self, int64_t dim, int64_t index) {
   out.m_index = 0;
   out.SetNode(node);
   updateDstDependencies(hl_result, result);
+  flush_op(result);
   return result;
 }
 
@@ -2219,6 +2274,7 @@ Tensor& arange_hpu_lazy(Tensor& output, Scalar start, Scalar end, Scalar step) {
   updateDstDependencies(hl_result, output);
   std::vector<at::Tensor> input_pt_vec{output};
   node->AddInputPtTensors(input_pt_vec);
+  flush_op(output);
   return output;
 }
 
@@ -2243,6 +2299,7 @@ Tensor mm_hpu_lazy(const at::Tensor& mat1, const at::Tensor& mat2) {
   std::vector<at::Tensor> input_pt_vec{mat1, mat2};
   node->AddInputPtTensors(input_pt_vec);
 
+  flush_op(result);
   return result;
 }
 
@@ -2277,6 +2334,7 @@ Tensor addmm_hpu_lazy(
   std::vector<at::Tensor> input_pt_vec{self, mat1, mat2};
   node->AddInputPtTensors(input_pt_vec);
 
+  flush_op(result);
   return result;
 }
 
@@ -2301,6 +2359,7 @@ Tensor& batch_gemm_out_hpu_lazy(
   std::vector<at::Tensor> input_pt_vec{self, mat2};
   node->AddInputPtTensors(input_pt_vec);
 
+  flush_op(out);
   return out;
 }
 
@@ -2324,6 +2383,7 @@ Tensor batch_gemm_hpu_lazy(const Tensor& self, const Tensor& mat2) {
   std::vector<at::Tensor> input_pt_vec{self, mat2};
   node->AddInputPtTensors(input_pt_vec);
 
+  flush_op(result);
   return result;
 }
 
@@ -2366,6 +2426,7 @@ std::tuple<Tensor, Tensor> nll_loss_forward_hpu_lazy(
   habana_lazy::ir::Value& out_1 = hlresult_1.CurrentIrValue();
   out_1.m_index = 1;
   out_1.SetNode(nll_loss_node);
+  flush_op(result_0, result_1);
   return {result_0, result_1};
 #else
   using T = std::tuple<at::Tensor, at::Tensor>;
@@ -2408,6 +2469,7 @@ Tensor nll_loss_backward_hpu_lazy(
   out.m_index = 0;
   out.SetNode(nll_loss_bwd_node);
   updateDstDependencies(hlresult, result);
+  flush_op(result);
   return result;
 #else
   LazyOp<at::Tensor> k(
@@ -2445,6 +2507,7 @@ Tensor mse_loss_forward_hpu_lazy(
   out.m_index = 0;
   out.SetNode(node);
   updateDstDependencies(hlresult, result);
+  flush_op(result);
   return result;
 #else
   LazyOp<at::Tensor> k(
@@ -2472,6 +2535,7 @@ Tensor mse_loss_backward_hpu_lazy(
   out.m_index = 0;
   out.SetNode(node);
   updateDstDependencies(hlresult, result);
+  flush_op(result);
   return result;
 #else
   LazyOp<at::Tensor> k(
@@ -2504,6 +2568,7 @@ Tensor binary_cross_entropy_hpu_lazy(
   out.m_index = 0;
   out.SetNode(bce_loss_node);
   updateDstDependencies(hlresult, result);
+  flush_op(result);
   return result;
 }
 
@@ -2527,6 +2592,7 @@ Tensor binary_cross_entropy_backward_hpu_lazy(
   out.m_index = 0;
   out.SetNode(bce_bwd_loss_node);
   updateDstDependencies(hlresult, result);
+  flush_op(result);
   return result;
 }
 
@@ -2556,6 +2622,7 @@ Tensor binary_cross_entropy_with_logits_hpu_lazy(
   out.m_index = 0;
   out.SetNode(bce_loss_node);
   updateDstDependencies(hlresult, result);
+  flush_op(result);
   return result;
 }
 
@@ -2642,8 +2709,10 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu_lazy(
   }
 
   if (training) {
+    flush_op({result_img, result_mean, result_var});
     return std::make_tuple(result_img, result_mean, result_var);
   } else {
+    flush_op({result_img, running_mean, running_var});
     return std::make_tuple(result_img, running_mean, running_var);
   }
 }
@@ -2714,6 +2783,7 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu_lazy(
     out_3.SetNode(node);
   }
 
+  flush_op({result_1, result_2, result_3});
   return std::make_tuple(result_1, result_2, result_3);
 }
 
@@ -2762,6 +2832,7 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_hpu_lazy(
   out3.m_index = 2;
   out3.SetNode(node);
   updateDstDependencies((habana_lazy::HbLazyTensor&)hlresult3, result_var);
+  flush_op({result_img, result_mean, result_var});
   return std::make_tuple(result_img, result_mean, result_var);
 }
 std::tuple<Tensor, Tensor, Tensor> layer_norm_backward_hpu_lazy(
@@ -2810,6 +2881,7 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_backward_hpu_lazy(
     out2.m_index = 2;
     out2.SetNode(node);
   }
+  flush_op({result_dY, result2, result3});
   return std::make_tuple(result_dY, result2, result3);
 }
 
@@ -2832,6 +2904,7 @@ Tensor norm_scalar_hpu_lazy(const Tensor& self, Scalar p) {
   updateDstDependencies(hlresult, result);
   std::vector<at::Tensor> input_pt_vec{self};
   node->AddInputPtTensors(input_pt_vec);
+  flush_op(result);
   return result;
 }
 
@@ -2883,6 +2956,7 @@ std::tuple<Tensor, Tensor> max_pool2d_with_indices_hpu_lazy(
   out_1.SetNode(maxpool_node);
   updateDstDependencies(hlresult_1, result_1);
 
+  flush_op({result_0, result_1});
   return {result_0, result_1};
 }
 Tensor& max_pool2d_with_indices_backward_out_hpu_lazy(
@@ -2953,6 +3027,7 @@ Tensor max_pool2d_with_indices_backward_hpu_lazy(
   out.m_index = 0;
   out.SetNode(maxpool_bwd_node);
   updateDstDependencies(hlresult, result);
+  flush_op(result);
   return result;
 }
 
@@ -2996,6 +3071,7 @@ Tensor avg_pool2d_hpu_lazy(
   out.m_index = 0;
   out.SetNode(avgpool_node);
   updateDstDependencies(hlresult, result);
+  flush_op(result);
   return result;
 }
 
@@ -3065,6 +3141,7 @@ Tensor avg_pool2d_backward_hpu_lazy(
   out.m_index = 0;
   out.SetNode(avgpool_bwd_node);
   updateDstDependencies(hlresult, result);
+  flush_op(result);
   return result;
 }
 Tensor& uniform_hpu_lazy(
@@ -3139,6 +3216,7 @@ Tensor sum_dim_IntList_hpu_lazy(
   out.m_index = 0;
   out.SetNode(node);
   updateDstDependencies(hl_result, result);
+  flush_op(result);
   return result;
 }
 
@@ -3206,6 +3284,7 @@ Tensor sum_hpu_lazy(const Tensor& self, c10::optional<ScalarType> dtype) {
   out.m_index = 0;
   out.SetNode(node);
   updateDstDependencies(hl_result, result);
+  flush_op(result);
   return result;
 }
 
@@ -3239,6 +3318,7 @@ Tensor prod_dim_hpu_lazy(
   out.m_index = 0;
   out.SetNode(node);
   updateDstDependencies(hl_result, result);
+  flush_op(result);
   return result;
 }
 
@@ -3256,6 +3336,7 @@ Tensor prod_hpu_lazy(const Tensor& self, c10::optional<ScalarType> dtype) {
   out.m_index = 0;
   out.SetNode(node);
   updateDstDependencies(hl_result, result);
+  flush_op(result);
   return result;
 }
 
@@ -3306,6 +3387,7 @@ Tensor argmax_hpu_lazy(
   out.m_index = 0;
   out.SetNode(node);
   updateDstDependencies(hl_result, result);
+  flush_op(result);
   return result;
 }
 namespace habana {
@@ -3325,6 +3407,7 @@ Tensor log_softmax_hpu_lazy(
   out.m_index = 0;
   out.SetNode(node);
   updateDstDependencies(hl_result, result);
+  flush_op(result);
   return result;
 }
 Tensor log_softmax_backward_hpu_lazy(
@@ -3344,6 +3427,7 @@ Tensor log_softmax_backward_hpu_lazy(
   out.m_index = 0;
   out.SetNode(node);
   updateDstDependencies(hl_result, result);
+  flush_op(result);
   return result;
 }
 
@@ -3363,6 +3447,7 @@ Tensor softmax_hpu_lazy(
   out.m_index = 0;
   out.SetNode(node);
   updateDstDependencies(hl_result, result);
+  flush_op(result);
   return result;
 }
 
@@ -3383,6 +3468,7 @@ Tensor softmax_backward_hpu_lazy(
   out.m_index = 0;
   out.SetNode(node);
   updateDstDependencies(hl_result, result);
+  flush_op(result);
   return result;
 }
 } // namespace habana
@@ -3562,6 +3648,7 @@ Tensor clone_hpu_lazy(
   updateDstDependencies(hlresult, result);
   std::vector<at::Tensor> input_pt_vec{self};
   node->AddInputPtTensors(input_pt_vec);
+  flush_op(result);
   return result;
 }
 Tensor& zero_hpu_lazy(Tensor& self) {
@@ -3593,6 +3680,7 @@ Tensor cat_hpu_lazy(const TensorList tensors, int64_t dim_) {
   out.m_index = 0;
   out.SetNode(node);
   updateDstDependencies(hl_result, result);
+  flush_op(result);
   return result;
 #else
   struct Kernel : public LazyOp<at::Tensor> {
@@ -3645,6 +3733,7 @@ Tensor transpose_hpu_lazy(const Tensor& self, int64_t dim0_, int64_t dim1_) {
   out.m_index = 0;
   out.SetNode(node);
   updateDstDependencies(hl_result, result);
+  flush_op(result);
   return result;
 }
 
@@ -3672,6 +3761,7 @@ Tensor t_hpu_lazy(const Tensor& self) {
   std::vector<at::Tensor> input_pt_vec{self};
   node->AddInputPtTensors(input_pt_vec);
 
+  flush_op(result);
   return result;
 }
 
@@ -3720,6 +3810,7 @@ Tensor permute_cl_hpu_lazy(const Tensor& self, IntArrayRef dims_) {
   habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
   out.SetNode(node);
+  flush_op(result);
   return result;
 }
 
@@ -3737,6 +3828,7 @@ Tensor permute_hpu_lazy(const Tensor& self, IntArrayRef dims_) {
   out.m_index = 0;
   out.SetNode(node);
   updateDstDependencies(hl_result, result);
+  flush_op(result);
   return result;
 }
 
@@ -3752,6 +3844,7 @@ Tensor expand_hpu_lazy(const Tensor& self, IntArrayRef size, bool implicit) {
   out.m_index = 0;
   out.SetNode(node);
 
+  flush_op(result);
   return result;
 }
 std::vector<Tensor> split_with_sizes_hpu_lazy(
@@ -3784,6 +3877,7 @@ Tensor threshold_backward_hpu_lazy(
   std::vector<at::Tensor> input_pt_vec{grad_output, self};
   node->AddInputPtTensors(input_pt_vec);
 
+  flush_op(result);
   return result;
 }
 
@@ -3835,6 +3929,7 @@ std::tuple<Tensor, Tensor> topk_hpu_lazy(
   out_1.m_index = 1;
   out_1.SetNode(node);
 
+  flush_op({result_0, result_1});
   return std::make_tuple(result_0, result_1);
 #else
   using T = std::tuple<at::Tensor, at::Tensor>;
@@ -3913,23 +4008,10 @@ std::tuple<Tensor, Tensor> sort_hpu_lazy(
   out_1.m_index = 1;
   out_1.SetNode(node);
 
+  flush_op({result_0, result_1});
   return std::make_tuple(result_0, result_1);
 }
-Tensor unary_op_hpu_lazy(
-    const Tensor& input,
-    std::string& node_type,
-    UnaryOperator* Op) {
-  HABANA_ASSERT(0);
-  return unary_op_hpu(input, node_type, Op);
-}
-Tensor unary_backward_op_hpu_lazy(
-    const Tensor& grad_in,
-    const Tensor& input,
-    std::string& node_type,
-    UnaryBackwardOperator* Op) {
-  HABANA_ASSERT(0);
-  return unary_backward_op_hpu(grad_in, input, node_type, Op);
-}
+
 Tensor relu_hpu_lazy(const Tensor& input) {
   PT_LAZY_TRACE;
   auto hl_input = habana_lazy::GetOrCreateHbLazyTensor(input, c10::kHABANA);
@@ -3945,6 +4027,7 @@ Tensor relu_hpu_lazy(const Tensor& input) {
   updateDstDependencies(hl_result, result);
   std::vector<at::Tensor> input_pt_vec{input};
   node->AddInputPtTensors(input_pt_vec);
+  flush_op(result);
   return result;
 }
 Tensor& relu_hpu_lazy_(Tensor& input) {
@@ -3969,6 +4052,7 @@ Tensor& relu_hpu_lazy_(Tensor& input) {
   context->MarkTensorStatus(
       hl_input.getTensorUniqueId(), LazyTensorExecutionStatus::kREGISTERED);
 
+  flush_op(input);
   return input;
 }
 
@@ -4064,6 +4148,7 @@ Tensor floor_hpu_lazy(const Tensor& input) {
   std::vector<at::Tensor> input_pt_vec{input};
   node->AddInputPtTensors(input_pt_vec);
 
+  flush_op(result);
   return result;
 }
 
@@ -4090,6 +4175,7 @@ Tensor& floor_hpu_lazy_(Tensor& input) {
   context->MarkTensorStatus(
       hl_input.getTensorUniqueId(), LazyTensorExecutionStatus::kREGISTERED);
 
+  flush_op(input);
   return input;
 }
 
@@ -4109,6 +4195,7 @@ Tensor log_hpu_lazy(const Tensor& input) {
   std::vector<at::Tensor> input_pt_vec{input};
   node->AddInputPtTensors(input_pt_vec);
 
+  flush_op(result);
   return result;
 }
 
@@ -4134,6 +4221,7 @@ Tensor& log_hpu_lazy_(Tensor& input) {
   context->MarkTensorStatus(
       hl_input.getTensorUniqueId(), LazyTensorExecutionStatus::kREGISTERED);
 
+  flush_op(input);
   return input;
 }
 
@@ -4153,6 +4241,7 @@ Tensor log2_hpu_lazy(const Tensor& input) {
   std::vector<at::Tensor> input_pt_vec{input};
   node->AddInputPtTensors(input_pt_vec);
 
+  flush_op(result);
   return result;
 }
 
@@ -4178,6 +4267,7 @@ Tensor& log2_hpu_lazy_(Tensor& input) {
   context->MarkTensorStatus(
       hl_input.getTensorUniqueId(), LazyTensorExecutionStatus::kREGISTERED);
 
+  flush_op(input);
   return input;
 }
 
@@ -4201,6 +4291,7 @@ Tensor upsample_nearest2d_hpu_lazy(
   out.SetNode(node);
   // updatet the view if any
   updateDstDependencies(hlresult, result);
+  flush_op(result);
   return result;
 }
 
@@ -4231,6 +4322,7 @@ Tensor upsample_nearest2d_backward_hpu_lazy(
   out.SetNode(node);
   // updatet the view if any
   updateDstDependencies(hlresult, result);
+  flush_op(result);
   return result;
 }
 
@@ -4251,6 +4343,7 @@ Tensor sigmoid_hpu_lazy(const Tensor& input) {
   std::vector<at::Tensor> input_pt_vec{input};
   node->AddInputPtTensors(input_pt_vec);
 
+  flush_op(result);
   return result;
 }
 
@@ -4273,6 +4366,7 @@ Tensor sigmoid_backward_hpu_lazy(const Tensor& grad_in, const Tensor& input) {
   std::vector<at::Tensor> input_pt_vec{grad_in, input};
   node->AddInputPtTensors(input_pt_vec);
 
+  flush_op(result);
   return result;
 }
 
@@ -4319,6 +4413,7 @@ Tensor sqrt_hpu_lazy_(Tensor& input) {
   context->MarkTensorStatus(
       hl_input.getTensorUniqueId(), LazyTensorExecutionStatus::kREGISTERED);
 
+  flush_op(input);
   return input;
 }
 Tensor sqrt_hpu_lazy(const Tensor& input) {
@@ -4338,6 +4433,7 @@ Tensor sqrt_hpu_lazy(const Tensor& input) {
   std::vector<at::Tensor> input_pt_vec{input};
   node->AddInputPtTensors(input_pt_vec);
 
+  flush_op(result);
   return result;
 }
 
@@ -4358,6 +4454,7 @@ Tensor tanh_hpu_lazy(const Tensor& input) {
   std::vector<at::Tensor> input_pt_vec{input};
   node->AddInputPtTensors(input_pt_vec);
 
+  flush_op(result);
   return result;
 }
 
@@ -4389,6 +4486,7 @@ Tensor tanh_backward_hpu_lazy(const Tensor& grad_in, const Tensor& input) {
   std::vector<at::Tensor> input_pt_vec{grad_in, input};
   node->AddInputPtTensors(input_pt_vec);
 
+  flush_op(result);
   return result;
 }
 
@@ -4408,6 +4506,7 @@ Tensor gelu_hpu_lazy(const Tensor& self) {
   std::vector<at::Tensor> input_pt_vec{self};
   node->AddInputPtTensors(input_pt_vec);
 
+  flush_op(result);
   return result;
 }
 
@@ -4428,6 +4527,7 @@ Tensor gelu_backward_hpu_lazy(const Tensor& grad, const Tensor& self) {
   updateDstDependencies(hl_result, result);
   std::vector<at::Tensor> input_pt_vec{grad, self};
   node->AddInputPtTensors(input_pt_vec);
+  flush_op(result);
   return result;
 }
 
@@ -4451,6 +4551,7 @@ Tensor& erf_hpu_lazy_(Tensor& self) {
       self.device().index());
   context->MarkTensorRegistered(hl_input.getTensorUniqueId());
 
+  flush_op(self);
   return self;
 }
 Tensor erf_hpu_lazy(const Tensor& self) {
@@ -4493,6 +4594,7 @@ Tensor reciprocal_hpu_lazy(const Tensor& self) {
   updateDstDependencies(hlresult, result);
   std::vector<at::Tensor> input_pt_vec{self};
   node->AddInputPtTensors(input_pt_vec);
+  flush_op(result);
   return result;
 }
 
@@ -4527,6 +4629,7 @@ Tensor& clamp_hpu_lazy_(
       self.device().index());
   context->MarkTensorRegistered(hl_result.getTensorUniqueId());
 
+  flush_op(self);
   return self;
 }
 
@@ -4546,6 +4649,7 @@ Tensor round_hpu_lazy(const Tensor& input) {
   std::vector<at::Tensor> input_pt_vec{input};
   node->AddInputPtTensors(input_pt_vec);
 
+  flush_op(result);
   return result;
 }
 
@@ -4569,6 +4673,7 @@ Tensor& round_hpu_lazy_(Tensor& input) {
   context->MarkTensorStatus(
       hl_input.getTensorUniqueId(), LazyTensorExecutionStatus::kREGISTERED);
 
+  flush_op(input);
   return input;
 }
 
@@ -4588,6 +4693,7 @@ Tensor rsqrt_hpu_lazy(const Tensor& input) {
   std::vector<at::Tensor> input_pt_vec{input};
   node->AddInputPtTensors(input_pt_vec);
 
+  flush_op(result);
   return result;
 }
 
@@ -4611,6 +4717,7 @@ Tensor& rsqrt_hpu_lazy_(Tensor& input) {
   context->MarkTensorStatus(
       hl_input.getTensorUniqueId(), LazyTensorExecutionStatus::kREGISTERED);
 
+  flush_op(input);
   return input;
 }
 
@@ -4633,6 +4740,7 @@ Tensor isfinite_hpu_lazy(const Tensor& input) {
   std::vector<at::Tensor> input_pt_vec{input};
   node->AddInputPtTensors(input_pt_vec);
 
+  flush_op(result);
   return result;
 }
 
@@ -4711,6 +4819,7 @@ optimizer_sparse_sgd_with_valid_count_hpu_lazy(
   habana_lazy::ir::Value& out2 = hlmoments.CurrentIrValue();
   out2.m_index = 1;
   out2.SetNode(node);
+  flush_op({weights_in, moments_in});
   return std::tie(weights_in, moments_in);
 }
 std::tuple<torch::Tensor&, torch::Tensor&>
@@ -4761,6 +4870,7 @@ optimizer_sparse_adagrad_with_valid_count_hpu_lazy(
       valid_count_tensor};
   node->AddInputPtTensors(input_pt_vec);
 
+  flush_op({weights_in, moments_in});
   return std::tie(weights_in, moments_in);
 }
 
@@ -4861,6 +4971,7 @@ Tensor fused_norm_hpu_lazy(
     out1.SetNode(node);
   }
 
+  flush_op(result);
   return result;
 }
 
@@ -4902,6 +5013,7 @@ Tensor& optimizer_adagrad_hpu_lazy(
     out2.SetNode(node);
   }
 
+  flush_op(lr);
   return lr;
 }
 
@@ -4933,6 +5045,7 @@ Tensor& optimizer_sgd_hpu_lazy(
     out1.SetNode(node);
   }
 
+  flush_op(lr);
   return lr;
 }
 
@@ -4984,6 +5097,7 @@ Tensor& optimizer_sgd_momentum_hpu_lazy(
     out2.SetNode(node_unpack);
   }
 
+  flush_op(lr);
   return lr;
 }
 
@@ -5016,6 +5130,7 @@ at::Tensor ones_like_hpu_lazy(
   out.m_index = 0;
   out.SetNode(node);
   updateDstDependencies(hlresult, result);
+  flush_op(result);
   return result;
 #else
   LazyOp<at::Tensor> op(
@@ -5052,6 +5167,7 @@ Tensor& bitwise_and_out_hpu_lazy(
   updateDstDependencies(hl_out, out);
   std::vector<at::Tensor> input_pt_vec{out, self, other};
   node->AddInputPtTensors(input_pt_vec);
+  flush_op(out);
   return out;
 }
 
@@ -5094,6 +5210,7 @@ std::tuple<at::Tensor, at::Tensor> max_dim_hpu_lazy(
   out2.SetNode(node);
   updateDstDependencies(hl_result1, result);
   updateDstDependencies(hl_result2, index);
+  flush_op({result, index});
   return std::make_tuple(result, index);
 }
 
@@ -5117,6 +5234,7 @@ at::Tensor max_hpu_lazy(const at::Tensor& self) {
   out.m_index = 0;
   out.SetNode(node);
   updateDstDependencies(hl_result, result);
+  flush_op(result);
   return result;
 }
 Tensor masked_scale_hpu_lazy(

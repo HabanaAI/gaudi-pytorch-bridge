@@ -15,7 +15,7 @@ using namespace habana_lazy;
 class LazyMaskScalarKernelTest : public ::testing::Test {
  protected:
   void SetUp() override {
-    setenv("PT_HPU_LAZY_MODE", "1", 1);
+    setenv("PT_HPU_LAZY_MODE", "1", 0);
   }
 
   void TearDown() override {
@@ -41,7 +41,7 @@ TEST_F(LazyMaskScalarKernelTest, MaskedScaleInplaceTest) {
   Tensor expected = hExpected.to(torch::kCPU);
 
   // Lazy Section
-  setenv("PT_HPU_LAZY_MODE", "1", 1);
+  setenv("PT_HPU_LAZY_MODE", "1", 0);
   auto hAL = A.to(torch::kHABANA);
   auto hBL = B.to(torch::kHABANA);
   auto hOut = _masked_scale(hAL, hBL, scale);

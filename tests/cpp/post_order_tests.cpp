@@ -15,7 +15,7 @@ using namespace torch;
 
 TEST(PostOrderTest, poTestAdd) {
   // test case for result = add(tensor1, tensor2, alpha)
-  setenv("PT_HPU_LAZY_MODE", "1", 1);
+  setenv("PT_HPU_LAZY_MODE", "1", 0);
   torch::Tensor tensor_in1 = torch::randn({2, 3}).to(torch::kHABANA);
   torch::Tensor tensor_in2 = torch::randn({2, 3}).to(torch::kHABANA);
   Scalar alpha = 1.0;
@@ -45,7 +45,7 @@ TEST(PostOrderTest, poTestAdd) {
 
 TEST(PostOrderTest, poTestFill) {
   // test case for result.fill_(val)
-  setenv("PT_HPU_LAZY_MODE", "1", 1);
+  setenv("PT_HPU_LAZY_MODE", "1", 0);
   torch::Tensor tensor_in1 = torch::randn({2, 3}).to(torch::kHABANA);
   Scalar alpha = 1.0;
 
@@ -89,7 +89,7 @@ TEST(PostOrderTest, poTestCommonInput) {
   // test case for
   // t = add(tensor1, tensor2, alpha)
   // result = add(t, tensor2, beta)
-  setenv("PT_HPU_LAZY_MODE", "1", 1);
+  setenv("PT_HPU_LAZY_MODE", "1", 0);
   torch::Tensor tensor_in1 = torch::randn({2, 3}).to(torch::kHABANA);
   torch::Tensor tensor_in2 = torch::randn({2, 3}).to(torch::kHABANA);
   Scalar alpha = 1.0f, beta = 2.0f;
@@ -133,7 +133,7 @@ TEST(PostOrderTest, poTestCommonInput) {
 
 TEST(PostOrderTest, poTestAddInplace) {
   // test case for tensor1 = add(tensor1, tensor2, alpha)
-  setenv("PT_HPU_LAZY_MODE", "1", 1);
+  setenv("PT_HPU_LAZY_MODE", "1", 0);
   torch::Tensor tensor_in1 = torch::randn({2, 3}).to(torch::kHABANA);
   torch::Tensor tensor_in2 = torch::randn({2, 3}).to(torch::kHABANA);
   tensor_in1 = tensor_in1.add_(tensor_in2);
@@ -162,7 +162,7 @@ TEST(PostOrderTest, poTestAddInplace) {
 
 TEST(PostOrderTest, poTestReluInplace) {
   // test case for tensor1 = relu(tensor1)
-  setenv("PT_HPU_LAZY_MODE", "1", 1);
+  setenv("PT_HPU_LAZY_MODE", "1", 0);
   torch::Tensor tensor_in1 = torch::randn({2, 3}).to(torch::kHABANA);
   tensor_in1 = tensor_in1.relu_();
   auto hl_result = GetHbLazyTensor(tensor_in1);

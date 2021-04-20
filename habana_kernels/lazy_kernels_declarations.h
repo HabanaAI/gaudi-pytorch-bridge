@@ -548,15 +548,6 @@ std::tuple<Tensor, Tensor> sort_hpu_lazy(
     const Tensor& self,
     int64_t dim,
     bool descending);
-Tensor unary_op_hpu_lazy(
-    const Tensor& input,
-    std::string& node_type,
-    UnaryOperator* Op);
-Tensor unary_backward_op_hpu_lazy(
-    const Tensor& grad_in,
-    const Tensor& input,
-    std::string& node_type,
-    UnaryBackwardOperator* Op);
 Tensor relu_hpu_lazy(const Tensor& input);
 Tensor& relu_hpu_lazy_(Tensor& self);
 at::Tensor& leaky_relu_lazy_(at::Tensor& self, at::Scalar negative_slope);

@@ -22,7 +22,7 @@ using namespace habana_lazy;
 class GraphOptimizeTest : public ::testing::Test {
  protected:
   void SetUp() override {
-    setenv("PT_HPU_LAZY_MODE", "1", 1);
+    setenv("PT_HPU_LAZY_MODE", "1", 0);
   }
 
   void TearDown() override {
@@ -118,7 +118,7 @@ TEST_F(GraphOptimizeTest, SubGraphRewriteTest) {
 }
 
 TEST_F(GraphOptimizeTest, FuseMmTransposeTest) {
-  setenv("PT_HPU_LAZY_MODE", "1", 1);
+  setenv("PT_HPU_LAZY_MODE", "1", 0);
   torch::Tensor tensor_in1 = torch::randn({4, 4});
   torch::Tensor tensor_in2 = torch::randn({4, 4});
   torch::Tensor out_t = torch::t(tensor_in1);
@@ -168,7 +168,7 @@ TEST_F(GraphOptimizeTest, FuseMmTransposeTest) {
 }
 
 TEST_F(GraphOptimizeTest, BnReluOptTest) {
-  setenv("PT_HPU_LAZY_MODE", "1", 1);
+  setenv("PT_HPU_LAZY_MODE", "1", 0);
   torch::Tensor tensor_in1 = torch::randn({4, 4});
   torch::Tensor tensor_in2 = torch::randn({4, 4});
   torch::Tensor out_t = torch::t(tensor_in1);
@@ -218,7 +218,7 @@ TEST_F(GraphOptimizeTest, BnReluOptTest) {
 }
 
 TEST_F(GraphOptimizeTest, PermutePassTest_CL) {
-  setenv("PT_HPU_LAZY_MODE", "1", 1);
+  setenv("PT_HPU_LAZY_MODE", "1", 0);
   auto in = torch::randn(
       {6, 4, 28, 28}, torch::dtype(torch::kFloat).requires_grad(false));
   auto wt = torch::randn(
@@ -243,7 +243,7 @@ TEST_F(GraphOptimizeTest, PermutePassTest_CL) {
 }
 
 TEST_F(GraphOptimizeTest, PermutePassTest_Contig) {
-  setenv("PT_HPU_LAZY_MODE", "1", 1);
+  setenv("PT_HPU_LAZY_MODE", "1", 0);
   auto in = torch::randn(
       {6, 4, 28, 28}, torch::dtype(torch::kFloat).requires_grad(false));
   auto wt = torch::randn(

@@ -5,7 +5,7 @@ class FallbackTest : public ::testing::TestWithParam<bool> {
   void SetUp() override {
     auto isLazy = GetParam();
     if (isLazy) {
-      setenv("PT_HPU_LAZY_MODE", "1", 1);
+      setenv("PT_HPU_LAZY_MODE", "1", 0);
     }
   }
 
