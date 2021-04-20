@@ -51,7 +51,7 @@ class OptPassCfg {
     enable_subgraph_rewrite = true;
     enable_fuse_t_mm_optimization = true;
     enable_fuse_bn_relu_optimization = true;
-    enable_permute_pass = false;
+    enable_permute_pass = true;
   }
 
  public:

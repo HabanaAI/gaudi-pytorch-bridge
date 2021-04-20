@@ -328,6 +328,18 @@ void InsertPermute_graph(
         (strcmp(node->kind().toQualString(), "hpu::restride_cl") == 0))
       continue;
 
+    // ListUnpack tensors should set layout format
+    if (node->kind() == torch::jit::prim::ListUnpack) {
+      for (auto value_out : node->outputs()) {
+        if (value_out->type()->kind() == c10::TypeKind::TensorType) {
+          value_to_tensor_layout[value_out].layout = habana::LayoutFormat::NCHW;
+          value_to_tensor_layout[value_out].layout_at_graph_entry =
+              habana::LayoutFormat::NCHW;
+        }
+      }
+      continue;
+    }
+
     // Get kernel MetaData
     auto& device = synapse_helpers::HPURegistrar::get_device();
     synDeviceId device_id = device.id();
