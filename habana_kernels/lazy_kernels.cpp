@@ -158,9 +158,9 @@ void updateDstDependencies(
   // This case isnt hit right now and ww got cache crashes with this control
   // edge needs a design review and fix to activate
   if (view) {
-    PT_LAZY_DEBUG(
-        "WARNING: We are hitting a case where the dst tensor has a view. Not all cases are covered so functionality might be impacted ");
-    return;
+    // PT_LAZY_DEBUG( "WARNING: We are hitting a case where the dst tensor has a
+    // view. Not all cases are covered so functionality might be impacted ");
+    // return;
     // Now we have to update the IR of the input as it got modified
     // We need to link it as output of this node as we need to generate the
     // correct order
@@ -173,7 +173,8 @@ void updateDstDependencies(
     auto view_lazy_tensor = habana_lazy::GetHbLazyTensor(view_tensor);
     view_lazy_tensor.AssignIrValue(val);
     AddControlEdge(dst, view_tensor);
-  } else if (in_place) {
+  }
+  if (in_place) {
     // We are using this lazy tensor as output on some op
     // Version counter tracks the number of times we do that
     // if its zero, that means this tensor hasnt been output in any op
@@ -217,7 +218,6 @@ Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
       habana_lazy::GetOrCreateHbLazyTensor(src, src.device());
   auto hlresult = habana_lazy::GetOrCreateHbLazyTensor(self, src.device());
   bool permuted = false;
-  bool storage_attached = hlresult.isStorageAttached();
   /* We can't create a long/double target in the device. Even a cast will not
     work as these data types are not available within the device. The only way
     to make progress is to just do a normal D2D so that the target will also be
@@ -237,35 +237,22 @@ Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
       int64_t dim_chl_pos[] = {0, 2, 3, 1};
       at::IntArrayRef chl_pos = dim_chl_pos;
       self = permute_cl_hpu_lazy(src, chl_pos);
-    } else if (!permuted || storage_attached) {
-      if (storage_attached) {
-        node = habana_lazy::ir::Node::Create(
-            Symbol::fromQualString("hpu::habana_d2d_memcpy_other"),
-            {hb_tensor.GetIrValue(), hlresult.GetIrValue()});
-        input_pt_vec.push_back(src);
-        input_pt_vec.push_back(self);
-        auto context =
-            habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
-                self.device().index());
-        context->MarkTensorRegistered(hlresult.getTensorUniqueId());
-        habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
-        out.m_index = 0;
-        out.SetNode(node);
-        node->AddInputPtTensors(input_pt_vec);
-        // updatet the view if any
-        updateDstDependencies(hlresult, self);
-      } else {
-        node = habana_lazy::ir::Node::Create(
-            Symbol::fromQualString("hpu::habana_d2d_memcpy"),
-            {hb_tensor.GetIrValue()});
-        input_pt_vec.push_back(src);
-        habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
-        out.m_index = 0;
-        out.SetNode(node);
-        node->AddInputPtTensors(input_pt_vec);
-        // updatet the view if any
-        updateDstDependencies(hlresult, self);
-      }
+    } else if (!permuted) {
+      node = habana_lazy::ir::Node::Create(
+          Symbol::fromQualString("hpu::habana_d2d_memcpy_other"),
+          {hb_tensor.GetIrValue(), hlresult.GetIrValue()});
+      input_pt_vec.push_back(src);
+      input_pt_vec.push_back(self);
+      auto context =
+          habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
+              self.device().index());
+      context->MarkTensorRegistered(hlresult.getTensorUniqueId());
+      habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
+      out.m_index = 0;
+      out.SetNode(node);
+      node->AddInputPtTensors(input_pt_vec);
+      // updatet the view if any
+      updateDstDependencies(hlresult, self);
     }
   } else {
     node = std::make_shared<habana_lazy::ir::Cast>(
@@ -459,7 +446,27 @@ Tensor& copy_hpu_lazy_(Tensor& self, const Tensor& src, bool non_blocking) {
   return self;
 }
 
-Tensor emtpy_from_storage_lazy(
+// This API should be called from lowering mode only
+// It is used to create th backend tensor for as_strided
+Tensor empty_as_strided_lazy(
+    const Tensor& self,
+    IntArrayRef size,
+    IntArrayRef stride,
+    c10::optional<int64_t> storage_offset) {
+  PT_LAZY_TRACE;
+  auto storage_impl = self.unsafeGetTensorImpl();
+  Tensor at_internal_tensor = habana_lazy::AtenInternalHbTensor(
+      c10::Storage(storage_impl->storage()), self.dtype());
+  at_internal_tensor.unsafeGetTensorImpl()->set_sizes_contiguous(size);
+  at_internal_tensor.unsafeGetTensorImpl()->set_sizes_and_strides(size, stride);
+  if (storage_offset) {
+    at_internal_tensor.unsafeGetTensorImpl()->set_storage_offset(
+        storage_offset.value());
+  }
+
+  return at_internal_tensor;
+}
+Tensor empty_from_storage_lazy(
     const Tensor& self,
     IntArrayRef size,
     c10::optional<IntArrayRef> stride,
@@ -542,22 +549,52 @@ Tensor emtpy_from_storage_lazy(
   }
 }
 
+// THis kernel has two paths, lowering and lazy
+// During lazy we set up the as strided tensor meta data
+// when we get a call back from lowering, we attache the tensor from same memory
+// as source
 Tensor as_strided_hpu_lazy(
     const Tensor& self,
     IntArrayRef size,
     IntArrayRef stride,
     c10::optional<int64_t> storage_offset) {
+  auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
+      self.device().index());
+
+  // when we get a call from lowering, we create a storage based backend tensor
+  if (context != nullptr) {
+    auto exec_mode = context->getExecutionMode();
+    if (exec_mode == kLOWERING) {
+      auto result = empty_as_strided_lazy(self, size, stride, storage_offset);
+      return result;
+    }
+  }
+
   auto hb_tensor = habana_lazy::GetOrCreateHbLazyTensor(self, self.device());
   auto src_data = hb_tensor.CurrentTensorData();
+
+  // We only support contiguous chunks of data to be taken as strided
+  // As Device doesnt support strided tensors we dont support that case
+  // We can add a better check here to check contigous on all sub dims
   if (size.vec().size() <= 4 && stride.vec()[stride.size() - 1] == 1) {
-    auto result = emtpy_from_storage_lazy(
-        self, size, c10::make_optional(stride), storage_offset);
-    auto hb_result =
-        habana_lazy::GetOrCreateHbLazyTensor(result, result.device());
-    AddControlEdge(self, result);
+    int64_t offset = storage_offset ? storage_offset.value() : 0;
+    habana_lazy::ir::NodePtr node =
+        std::make_shared<habana_lazy::ir::AsStrided>(
+            self, size, stride, offset);
+    auto result =
+        at::native::empty_strided_hpu_lazy(size, stride, self.options(), false);
+
+    auto hb_result = habana_lazy::GetHbLazyTensor(result);
+    auto hb_tensor = habana_lazy::GetOrCreateHbLazyTensor(self, self.device());
+    habana_lazy::ir::Value& out = hb_result.CurrentIrValue();
+    out.m_index = 0;
+    out.SetNode(node);
+    // update the view if any
+    updateDstDependencies(hb_result, result);
+    // std::vector<at::Tensor> input_pt_vec{self};
+    // node->AddInputPtTensors(input_pt_vec);
     // Add a view of the parent to the result so that its remembered
     // If this tensor is used as a dst in any op, we need to update the parent
-    auto hb_tensor = habana_lazy::GetOrCreateHbLazyTensor(self, self.device());
     habana_lazy::ir::LazyView view(self, hb_tensor.GetIrValue());
     hb_result.addView(view);
     flush_op(result);
@@ -1929,7 +1966,7 @@ Tensor index_select_hpu_lazy(
 
   auto result = index_select_hpu(self, dim, index);
 
-  auto hl_result = habana_lazy::GetHbLazyTensor(result);
+  auto hl_result = habana_lazy::GetOrCreateHbLazyTensor(result, c10::kHABANA);
 
   habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;

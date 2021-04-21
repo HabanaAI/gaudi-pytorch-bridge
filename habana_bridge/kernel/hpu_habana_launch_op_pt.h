@@ -50,6 +50,13 @@ struct habanaTensorLayoutInfo {
   habana::LayoutFormat layout_at_graph_entry;
 };
 
+enum ControlEdgeType {
+  kCONTROL_EDGE_NONE = 0,
+  kCONTROL_EDGE_INPLACE,
+  kCONTROL_EDGE_OTHER_,
+  kCONTROL_EDGE_AS_STRIDED
+};
+
 habana::LayoutFormat getLayoutFromDims(const std::vector<int64_t> dims);
 
 class HabanaLaunchOpPT {
@@ -208,7 +215,7 @@ class HabanaLaunchOpPT {
   bool isBlockingNode(torch::jit::Node*, torch::jit::Node*);
   void addSynNodes(std::vector<synNodeId>&, torch::jit::Node*);
   void ProcessControlEdges();
-  void PrepareBlockingNodeList(torch::jit::Node*);
+  void PrepareBlockingNodeList(torch::jit::Node*, ControlEdgeType control_type);
   void ProcessCustomOptControlEdges(torch::jit::graph_node_list);
   void HandleMappedTensor(
       CValPtr value_in,

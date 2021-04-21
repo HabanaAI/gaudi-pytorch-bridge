@@ -425,7 +425,6 @@ void HbLazyTensor::applyPendingGraph() {
         tensors.emplace_back(tensor);
       }
     }
-
     SyncTensorsGraph(&tensors);
   }
 }

@@ -2,6 +2,17 @@
 
 using namespace torch::jit;
 
+ControlEdgeType nodeRequiresControlEdge(const char* node_name) {
+  if (strcmp(node_name, "hpu::control_edge_") == 0)
+    return ControlEdgeType::kCONTROL_EDGE_INPLACE;
+  else if (strcmp(node_name, "hpu::control_edge_other_") == 0)
+    return ControlEdgeType::kCONTROL_EDGE_OTHER_;
+  else if (strcmp(node_name, "hpu::as_strided_lazy_") == 0)
+    return ControlEdgeType::kCONTROL_EDGE_AS_STRIDED;
+  else
+    return ControlEdgeType::kCONTROL_EDGE_NONE;
+}
+
 /*
 Currently we exclude parents nodes from blocking list as they can affect
 pipelining. Ideally we need to exclude all the ancestors. Revisit if current
@@ -18,7 +29,8 @@ bool HabanaLaunchOpPT::isBlockingNode(
   // In JIT IR, the parent of blocked node would actually be parent of control
   // edge node
   auto node_str = blocking_node->kind().toQualString();
-  if ((strcmp(node_str, "hpu::control_edge_") == 0) ||
+  auto c_edge = nodeRequiresControlEdge(node_str);
+  if (c_edge != ControlEdgeType::kCONTROL_EDGE_NONE ||
       (control_edge_node->input(0)->node() == blocking_node)) {
     is_blocking = false;
   }
@@ -73,18 +85,16 @@ void HabanaLaunchOpPT::ProcessCustomOptControlEdges(
           auto list_idx = 0;
           for (auto list_input_val : in_val->node()->inputs()) {
             auto list_input_node = list_input_val->node();
-
-            if (strcmp(
-                    list_input_node->kind().toQualString(),
-                    "hpu::control_edge_") == 0) {
+            auto c_edge =
+                nodeRequiresControlEdge(list_input_node->kind().toQualString());
+            if (c_edge != ControlEdgeType::kCONTROL_EDGE_NONE) {
               // prepare blocking nodes list
-              PrepareBlockingNodeList(list_input_node);
+              PrepareBlockingNodeList(list_input_node, c_edge);
 
               if (blocking_syn_nodes_vec.size()) {
                 auto syn_node =
                     *std::next(blocked_syn_nodes_set.begin(), list_idx);
                 blocked_syn_nodes_vec.emplace_back(syn_node);
-
                 syn_graph_ptr->set_synapse_control_edges_pt(
                     blocking_syn_nodes_vec, blocked_syn_nodes_vec);
               }
@@ -104,22 +114,34 @@ void HabanaLaunchOpPT::ProcessCustomOptControlEdges(
   } // for (auto node : graph_nodes)
 }
 
-void HabanaLaunchOpPT::PrepareBlockingNodeList(Node* node) {
-  auto src_val = node->input(0);
-  auto src_node_uses = src_val->uses();
+void HabanaLaunchOpPT::PrepareBlockingNodeList(
+    Node* node,
+    ControlEdgeType control_type) {
+  int num_inputs =
+      control_type == ControlEdgeType::kCONTROL_EDGE_OTHER_ ? 2 : 1;
 
-  for (auto& u : src_node_uses) {
-    auto blocking_node = u.user;
+  for (int i = 0; i < num_inputs; i++) {
+    auto src_val = node->input(i);
+    auto src_node_uses = src_val->uses();
+    for (auto& u : src_node_uses) {
+      auto blocking_node = u.user;
 
-    // exclude current use in control_edge as well as parent node
-    if (HabanaLaunchOpPT::isBlockingNode(blocking_node, node)) {
-      HabanaLaunchOpPT::addSynNodes(blocking_syn_nodes_vec, blocking_node);
-    }
+      // exclude current use in control_edge as well as parent node
+      if (HabanaLaunchOpPT::isBlockingNode(blocking_node, node)) {
+        HabanaLaunchOpPT::addSynNodes(blocking_syn_nodes_vec, blocking_node);
+      }
 
-  } // for (auto& u : src_node_uses)
+    } // for (auto& u : src_node_uses)
+  }
 
   // Add the parent node as well
   auto parent_node = node->input(0)->node();
+  auto c_edge = nodeRequiresControlEdge(parent_node->kind().toQualString());
+  while (c_edge != ControlEdgeType::kCONTROL_EDGE_NONE) {
+    parent_node = parent_node->input(0)->node();
+    c_edge = nodeRequiresControlEdge(parent_node->kind().toQualString());
+  }
+
   HabanaLaunchOpPT::addSynNodes(blocking_syn_nodes_vec, parent_node);
 }
 
@@ -127,9 +149,10 @@ void HabanaLaunchOpPT::ProcessControlEdges() {
   torch::jit::graph_node_list graph_nodes = fusion_op_graph->nodes();
 
   for (auto node : graph_nodes) {
-    if (strcmp(node->kind().toQualString(), "hpu::control_edge_") == 0) {
+    auto c_edge = nodeRequiresControlEdge(node->kind().toQualString());
+    if (c_edge != ControlEdgeType::kCONTROL_EDGE_NONE) {
       // prepare blocking nodes list
-      PrepareBlockingNodeList(node);
+      PrepareBlockingNodeList(node, c_edge);
 
       if (blocking_syn_nodes_vec.size()) {
         // prepare blocked nodes list
@@ -149,7 +172,7 @@ void HabanaLaunchOpPT::ProcessControlEdges() {
               blocked_node_str = blocked_node->kind().toQualString();
 
               // skip the custom optimizer nodes as they are handled separately
-              if (strcmp(blocked_node_str, "hpu::control_edge_") &&
+              if (strcmp(blocked_node_str, node->kind().toQualString()) &&
                   (!IsCustomOptimizer(blocked_node_str))) {
                 HabanaLaunchOpPT::addSynNodes(
                     blocked_syn_nodes_vec, blocked_node);
@@ -157,7 +180,7 @@ void HabanaLaunchOpPT::ProcessControlEdges() {
             }
           } else {
             // exclude current use in control_edge
-            if (strcmp(blocked_node_str, "hpu::control_edge_")) {
+            if (strcmp(blocked_node_str, node->kind().toQualString())) {
               HabanaLaunchOpPT::addSynNodes(
                   blocked_syn_nodes_vec, blocked_node);
             }

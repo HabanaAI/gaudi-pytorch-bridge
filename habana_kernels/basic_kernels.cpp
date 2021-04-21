@@ -457,6 +457,35 @@ void DummyOperator::AllocateAndAddSynapseNode(
   p_context_->pt_outputs_.emplace_back(output);
 }
 
+/*************************************************************************
+ * @brief Kernel implementation for As strided, used for tensor views
+ * @param self - input which needs to be viewed
+ ************************************************************************/
+void AsStridedOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    Stack& inputs,
+    bool is_output_persistent) {
+  auto self = inputs[0].toTensor();
+  static_cast<void>(graph);
+  static_cast<void>(is_output_persistent);
+  TORCH_CHECK(
+      inputs[1].isIntList(), "Input arg 1 needs to be of Int List type");
+  TORCH_CHECK(
+      inputs[2].isIntList(), "Input arg 2 needs to be of Int List type");
+  TORCH_CHECK(inputs[3].isScalar(), "Input arg 3 fneeds to be of scalar type");
+  auto size = inputs[1].toIntVector();
+  auto strides = inputs[2].toIntVector();
+  auto offset = inputs[3].toInt();
+  auto opt_offset = c10::make_optional(offset);
+  at::Tensor output;
+  output = at::as_strided(self, size, strides, opt_offset);
+
+  p_context_->syn_outputs_.emplace_back(
+      habana_helpers::duplicate_tensor_in_memory_section_with_size(
+          p_context_->syn_inputs_[0], size));
+  p_context_->pt_outputs_.emplace_back(output);
+}
+
 Tensor as_strided_hpu(
     const Tensor& self,
     IntArrayRef size,
@@ -502,4 +531,9 @@ static auto& KernelRegistry =
             "hpu::control_edge_other_",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<DummyOperator>(device_id, node_type);
+            })
+        .add(
+            "hpu::as_strided_lazy_",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<AsStridedOperator>(device_id, node_type);
             });

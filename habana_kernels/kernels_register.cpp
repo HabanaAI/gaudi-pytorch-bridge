@@ -3157,6 +3157,8 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::native_batch_norm_rmv(Tensor input, Tensor? weight, Tensor? bias, Tensor? running_mean, Tensor? running_var, bool training, float momentum, float eps) -> (Tensor, Tensor, Tensor, Tensor, Tensor)");
   m.def(
       "hpu::native_batch_norm_inf(Tensor input, Tensor? weight, Tensor? bias, Tensor? running_mean, Tensor? running_var, bool training, float momentum, float eps) -> (Tensor)");
+  m.def(
+      "as_strided_lazy_(Tensor self, int[] size, int[] stride, int offset) -> (Tensor)");
 }
 
 TORCH_LIBRARY_IMPL(hpu, HABANATensorId, m) {

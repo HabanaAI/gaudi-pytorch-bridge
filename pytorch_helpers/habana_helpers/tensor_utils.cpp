@@ -575,6 +575,29 @@ synapse_helpers::tensor habana_helpers::duplicate_tensor_in_memory_section(
   return absl::get<synapse_helpers::tensor>(std::move(maybe_tensor));
 }
 
+synapse_helpers::tensor habana_helpers::
+    duplicate_tensor_in_memory_section_with_size(
+        const synapse_helpers::tensor& tensor,
+        std::vector<int64_t>& sizes) {
+  if (!std::getenv("PT_HPU_LAZY_LOWERING") && std::getenv("PT_HPU_LAZY_MODE")) {
+    // Lazy mode shape inference call, just create a placeholder tensor
+    return synapse_helpers::tensor::create_placeholder(tensor.device_id());
+  }
+
+  TORCH_CHECK(
+      tensor.is_persistent(),
+      "Why would you like to create another tensor in the same memory section for non persistent tensor?");
+
+  auto maybe_tensor =
+      synapse_helpers::tensor_builder(sizes, tensor.type())
+          .with_memory_section(tensor.memorysection())
+          .mark_persistence(tensor.is_persistent())
+          .build(
+              synapse_helpers::HPURegistrar::get_device(tensor.device_id()),
+              tensor.graph());
+  return absl::get<synapse_helpers::tensor>(std::move(maybe_tensor));
+}
+
 std::vector<std::string> habana_helpers::names(
     const std::vector<synapse_helpers::tensor>& vec) {
   std::vector<std::string> names;

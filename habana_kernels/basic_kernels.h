@@ -106,3 +106,18 @@ class DummyOperator : public habana::HabanaOperator {
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
 };
+
+//
+// As Strided
+class AsStridedOperator : public habana::HabanaOperator {
+ public:
+  AsStridedOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator("dummy") {
+    static_cast<void>(scalarType);
+    this->CreateSynContext(device_id);
+  }
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+};
