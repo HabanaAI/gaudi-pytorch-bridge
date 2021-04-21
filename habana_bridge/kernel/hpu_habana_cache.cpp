@@ -108,28 +108,33 @@ std::ostream& operator<<(std::ostream& O, const RecipeValueSpec& v) {
     << synapse_helpers::get_mem_str(v.launch_info->workspace_buffer_size_)
     << '\n';
 
-  O << " #inputs                   : " << v.num_inputs << '\n'
-    << " #induplicates             : " << v.num_induplicates << '\n'
-    << " #dma_inputs               : " << v.num_dma_inputs << '\n'
-    << " #interims                 : " << v.num_interims << '\n'
-    << " #outputs                  : " << v.num_outputs << '\n'
-    << " #outduplicates            : " << v.num_outduplicates << '\n'
-    << " #input_to_outduplicates   : " << v.num_input_to_outduplicates << '\n'
-    << " #interim_to_outduplicates : " << v.num_interim_to_outduplicates
-    << '\n';
+  O << " #inputs                        : " << v.num_inputs << '\n'
+    << " #induplicates                  : " << v.num_induplicates << '\n'
+    << " #dma_inputs                    : " << v.num_dma_inputs << '\n'
+    << " #interims                      : " << v.num_intermediates << '\n'
+    << " #outputs                       : " << v.num_outputs << '\n'
+    << " #outduplicates                 : " << v.num_outduplicates << '\n'
+    << " #input_to_outduplicates        : " << v.num_input_to_outduplicates
+    << '\n'
+    << " #intermediate_to_outduplicates : "
+    << v.num_intermediate_to_outduplicates << '\n';
 
-  if (v.aten_intermediates.size()) {
-    O << "aten_intermediates #" << v.aten_intermediates.size() << " ::";
+  if (v.aten_dma_inputs.size()) {
+    O << "aten_dma_inputs #" << v.aten_dma_inputs.size() << " ::";
     O << '\n';
-    for (auto& a : v.aten_intermediates) {
+    size_t idx{0};
+    for (auto& a : v.aten_dma_inputs) {
+      O << idx++ << " : ";
       PrintATenTensor(a);
     }
   }
 
-  if (v.aten_dma_intermediates.size()) {
-    O << "aten_dma_intermediates #" << v.aten_dma_intermediates.size() << " ::";
+  if (v.aten_intermediates.size()) {
+    O << "aten_intermediates #" << v.aten_intermediates.size() << " ::";
     O << '\n';
-    for (auto& a : v.aten_dma_intermediates) {
+    size_t idx{0};
+    for (auto& a : v.aten_intermediates) {
+      O << idx++ << " : ";
       PrintATenTensor(a);
     }
   }
@@ -137,7 +142,9 @@ std::ostream& operator<<(std::ostream& O, const RecipeValueSpec& v) {
   if (v.aten_outputs) {
     O << "aten_outputs #" << v.aten_outputs->size() << " ::";
     O << '\n';
+    size_t idx{0};
     for (auto& a : *v.aten_outputs) {
+      O << idx++ << " : ";
       PrintATenTensor(a);
     }
   }
@@ -145,7 +152,9 @@ std::ostream& operator<<(std::ostream& O, const RecipeValueSpec& v) {
   if (v.dtensorinfos) {
     O << "dtensorinfos #" << v.dtensorinfos->size() << "::";
     O << '\n';
+    size_t idx{0};
     for (auto& a : *v.dtensorinfos) {
+      O << idx++ << " : ";
       O << a << '\n';
     }
   }
@@ -264,7 +273,7 @@ void RecipeValueSpec::launch(
     device.add_wait_events_on_stream(inDevPtr, stream_handle);
     outDevPtr.reserve(
         num_outputs + num_input_to_outduplicates +
-        num_interim_to_outduplicates);
+        num_intermediate_to_outduplicates);
     for (auto& output : *aten_outputs) {
       if (output && output->isTensor()) {
         outDevPtr.push_back(reinterpret_cast<synapse_helpers::device_ptr>(

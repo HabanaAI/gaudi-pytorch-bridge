@@ -126,7 +126,7 @@ void HabanaLaunchOpPT::persistenceMarkingPass(
     for (const auto value_in : node_ins) {
       if (value_in->type()->kind() == c10::TypeKind::TensorType) {
         if (tensor_idx == 0 && force_persistent) {
-          value_to_persistent_flag[value_in] = true;
+          valptr_to_persistent_map[value_in] = true;
         }
         tensor_idx++;
       }
@@ -136,7 +136,7 @@ void HabanaLaunchOpPT::persistenceMarkingPass(
     for (const auto value_out : node_outs) {
       if (value_out->type()->kind() == c10::TypeKind::TensorType) {
         if (tensor_idx == 0 && force_persistent) {
-          value_to_persistent_flag[value_out] = true;
+          valptr_to_persistent_map[value_out] = true;
         }
         tensor_idx++;
       }

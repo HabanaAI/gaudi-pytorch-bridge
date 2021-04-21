@@ -54,10 +54,11 @@ habana::LayoutFormat getLayoutFromDims(const std::vector<int64_t> dims);
 
 class HabanaLaunchOpPT {
  public:
-  explicit HabanaLaunchOpPT(const torch::jit::Node* node, bool debug);
+  explicit HabanaLaunchOpPT(const torch::jit::Node* node, bool dbg);
   explicit HabanaLaunchOpPT(
       std::shared_ptr<torch::jit::Graph> graph,
-      bool debug);
+      bool dbg,
+      const char* name = nullptr);
   ~HabanaLaunchOpPT();
   void run(torch::jit::Stack& stack);
 
@@ -65,11 +66,11 @@ class HabanaLaunchOpPT {
   static size_t instance_count_;
 
  private:
-  std::shared_ptr<torch::jit::Graph> subgraph_;
-  std::string opname_;
+  std::string op_name;
+  std::shared_ptr<torch::jit::Graph> fusion_op_graph;
+  bool debug;
   std::string id_str;
-  size_t ref_count_ = 0;
-  bool debug_;
+  synapse_helpers::graph* syn_graph_ptr = nullptr;
 
   // We keep a vector of kernels so that the context memory
   //   for each kernel is retained till graph execution
@@ -80,9 +81,6 @@ class HabanaLaunchOpPT {
   // stack
   std::unordered_map<CValPtr, habanaTensorLayoutInfo> value_to_tensor_layout;
 
-  // A map for value to persistent flag
-  std::unordered_map<CValPtr, bool> value_to_persistent_flag;
-
   // map between PT and synapse tensors
   std::deque<synapse_helpers::tensor> meta_syn_tensors;
 
@@ -91,44 +89,45 @@ class HabanaLaunchOpPT {
   std::unordered_map<IValPtrShared, SharedSynTensorOrRefListPtr>
       pt_to_synapse_tensors;
 
+  // A map for value to persistent flag
+  std::unordered_map<CValPtr, bool> valptr_to_persistent_map;
+
+  // TIV : absl::variant<PtTensorInfo, std::vector<PtTensorInfo>> objects
   // TIVs for launcing the recipe
-  // tiv : absl::variant<PtTensorInfo, std::vector<PtTensorInfo>> objects
+
+  // input_tivs and output_tensorinfos are used with caching disabled
+  std::vector<absl::variant<PtTensorInfo, std::vector<PtTensorInfo>>>
+      input_tivs;
+  std::vector<PtTensorInfo> output_tensorinfos;
+
+  // Following tiv stores are used with caching enabled
   std::unordered_map<
       IValPtrShared,
       absl::variant<PtTensorInfo, std::vector<PtTensorInfo>>>
       input_tiv_map;
   std::vector<absl::variant<PtTensorInfo, std::vector<PtTensorInfo>>>
-      input_tivs;
-  std::vector<absl::variant<PtTensorInfo, std::vector<PtTensorInfo>>>
       duplicate_tivs;
-  // tiv : absl::variant<TensorInfo, std::vector<TensorInfo>> objects
   std::unordered_map<void*, IValPtrShared> buff_to_input_ivpsh_map;
-  std::unordered_map<void*, IValPtrShared> buff_to_interim_ivpsh_map;
+  std::unordered_map<void*, IValPtrShared> buff_to_intermediate_ivpsh_map;
+  std::vector<PtTensorInfo> duplicate_outtinfos;
 
   size_t dma_input_idx{0};
-  size_t interim_idx{0};
+  size_t intermediate_index{0};
+
+  // The persistent intermediates are stored in the following two vectors.
+  // aten_intermediates is used for storing intermediates which are usually
+  // marked persistent by persistenceMarkingPass. aten_dma_inputs is
+  // used for storing the seed tensors needed for dropout kernel.
+  std::vector<at::Tensor> aten_intermediates;
+  // tinfos corresponding to aten_intermediates.
+  std::vector<PtTensorInfo> intermediate_tinfos;
 
   // For supporting operators that need inputs which are not present in the
   // stack. These inputs need to be DMA transferred during creation of the op
   // or patching a cached recipe.
+  std::vector<at::Tensor> aten_dma_inputs;
+  // tinfos corresponding to aten_intermediates.
   std::deque<PtTensorInfo> dma_input_tensorinfos;
-
-  // Temp additions to enable BatchNorm..tensors created that are not in graph
-  // We get this to enable correct patching
-  // Right now our patching is tightly coupled to graph nodes
-  // BN is exception case, we can review our patching design for this
-  std::vector<PtTensorInfo> interim_tensorinfos;
-
-  std::vector<PtTensorInfo> output_tensorinfos;
-  std::vector<PtTensorInfo> duplicate_outtinfos;
-  synapse_helpers::graph* syn_graph_ptr = nullptr;
-
-  // The persistent intermediates are stored in the following two vectors.
-  // aten_intermediates is used for storing intermediates which are usually
-  // marked persistent by persistenceMarkingPass. aten_dma_intermediates is
-  // used for storing the seed tensors needed for dropout kernel.
-  std::vector<at::Tensor> aten_intermediates;
-  std::vector<at::Tensor> aten_dma_intermediates;
 
   // caching :: begin
 
@@ -150,7 +149,7 @@ class HabanaLaunchOpPT {
   PGMCachingPolicy caching_policy{PGMCachingPolicy::lru};
   IValPtrSharedToTesorInfoMap output_tensorinfo_map;
   IValPtrSharedToTesorInfoMap duplicate_input_to_outtinfo_map;
-  IValPtrSharedToTesorInfoMap duplicate_interim_to_outtinfo_map;
+  IValPtrSharedToTesorInfoMap duplicate_intermediate_to_outtinfo_map;
 
   // caching :: end
 
@@ -222,7 +221,15 @@ class HabanaLaunchOpPT {
   void GetSynapseInputs(
       const HabanaOperatorPtr& habana_op,
       torch::jit::Node* node);
-  void GetSynapseOutputs(
+  void ProcessPersistentNodeOutput(
+      const torch::jit::Node* node,
+      const at::ArrayRef<ValPtr>& node_outputs,
+      const size_t output_idx,
+      const std::vector<at::Tensor>& output_pttensors,
+      const size_t output_tensor_idx,
+      const synapse_helpers::tensor& out_syntensor,
+      const IValPtrShared& ivpsh);
+  void ProcessSynapseOutputs(
       const HabanaOperatorPtr& habana_op,
       torch::jit::Node* node);
   bool isChannelOrderSupported(
