@@ -52,6 +52,7 @@ class OptPassCfg {
     enable_fuse_t_mm_optimization = true;
     enable_fuse_bn_relu_optimization = true;
     enable_permute_pass = true;
+    enable_replace_inplace_ops = true;
   }
 
  public:
@@ -75,6 +76,7 @@ class OptPassCfg {
   bool enable_fuse_t_mm_optimization;
   bool enable_fuse_bn_relu_optimization;
   bool enable_permute_pass;
+  bool enable_replace_inplace_ops;
 };
 
 /**

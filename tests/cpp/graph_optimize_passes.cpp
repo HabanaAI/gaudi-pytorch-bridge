@@ -268,3 +268,109 @@ TEST_F(GraphOptimizeTest, PermutePassTest_Contig) {
   exec::OptPassCfg::GetInstance()->enable_permute_pass = false;
   unsetenv("PT_HPU_LAZY_MODE");
 }
+
+TEST_F(GraphOptimizeTest, RemoveInplaceOps_pass1) {
+  setenv("PT_HPU_LAZY_MODE", "1", 0);
+  torch::Tensor A = torch::randn({4, 4});
+  torch::Tensor B = torch::randn({4, 4});
+  auto hA = A.to(torch::kHABANA);
+  auto hB = B.to(torch::kHABANA);
+
+  auto hA_relu = torch::relu(hA);
+  auto hB_relu = torch::relu(hB);
+  hA_relu += hB_relu;
+  auto h_Out = torch::relu(hA_relu);
+
+  auto hl_result = GetHbLazyTensor(h_Out);
+  std::vector<HbLazyTensor> tensors = {hl_result};
+  std::vector<int> indices = {0};
+  auto po_data = HbLazyTensor::RunPostOrder(tensors, indices);
+
+  exec::HlExec* hlexec = new exec::HlExec();
+  exec::OptPassCfg::GetInstance()->enable_replace_inplace_ops = true;
+
+  std::vector<at::Tensor> input_list{hA, hB};
+  auto stack = torch::jit::Stack(
+      std::make_move_iterator(input_list.begin()),
+      std::make_move_iterator(input_list.end()));
+
+  hlexec->GetOrCreate(po_data, stack);
+
+  torch::jit::testing::FileCheck()
+      .check_not("aten::add_")
+      ->run(*hlexec->get_graph());
+
+  Tensor Out = h_Out.to(kCPU);
+  exec::OptPassCfg::GetInstance()->enable_replace_inplace_ops = false;
+  unsetenv("PT_HPU_LAZY_MODE");
+}
+
+TEST_F(GraphOptimizeTest, RemoveInplaceOps_pass2) {
+  setenv("PT_HPU_LAZY_MODE", "1", 0);
+  torch::Tensor A = torch::randn({4, 4});
+  torch::Tensor B = torch::randn({4, 4});
+  auto hA = A.to(torch::kHABANA);
+  auto hB = B.to(torch::kHABANA);
+
+  auto hB_relu = torch::relu(hB);
+  hA += hB_relu;
+  auto h_Out = torch::relu(hA);
+
+  auto hl_result = GetHbLazyTensor(h_Out);
+  std::vector<HbLazyTensor> tensors = {hl_result};
+  std::vector<int> indices = {0};
+  auto po_data = HbLazyTensor::RunPostOrder(tensors, indices);
+
+  exec::HlExec* hlexec = new exec::HlExec();
+  exec::OptPassCfg::GetInstance()->enable_replace_inplace_ops = true;
+
+  std::vector<at::Tensor> input_list{hA, hB};
+  auto stack = torch::jit::Stack(
+      std::make_move_iterator(input_list.begin()),
+      std::make_move_iterator(input_list.end()));
+
+  hlexec->GetOrCreate(po_data, stack);
+
+  torch::jit::testing::FileCheck()
+      .check_count("aten::add_", 1)
+      ->run(*hlexec->get_graph());
+
+  Tensor Out = h_Out.to(kCPU);
+  exec::OptPassCfg::GetInstance()->enable_replace_inplace_ops = false;
+  unsetenv("PT_HPU_LAZY_MODE");
+}
+
+TEST_F(GraphOptimizeTest, RemoveInplaceOps_pass3) {
+  setenv("PT_HPU_LAZY_MODE", "1", 0);
+  torch::Tensor A = torch::randn({4, 4});
+  torch::Tensor B = torch::randn({4, 4});
+  auto hA = A.to(torch::kHABANA);
+  auto hB = B.to(torch::kHABANA);
+
+  auto h_Out = torch::relu(hA);
+  auto hB_relu = torch::relu(hB);
+  h_Out += hB_relu;
+
+  auto hl_result = GetHbLazyTensor(h_Out);
+  std::vector<HbLazyTensor> tensors = {hl_result};
+  std::vector<int> indices = {0};
+  auto po_data = HbLazyTensor::RunPostOrder(tensors, indices);
+
+  exec::HlExec* hlexec = new exec::HlExec();
+  exec::OptPassCfg::GetInstance()->enable_replace_inplace_ops = true;
+
+  std::vector<at::Tensor> input_list{hA, hB};
+  auto stack = torch::jit::Stack(
+      std::make_move_iterator(input_list.begin()),
+      std::make_move_iterator(input_list.end()));
+
+  hlexec->GetOrCreate(po_data, stack);
+
+  torch::jit::testing::FileCheck()
+      .check_count("aten::add_", 1)
+      ->run(*hlexec->get_graph());
+
+  Tensor Out = h_Out.to(kCPU);
+  exec::OptPassCfg::GetInstance()->enable_replace_inplace_ops = false;
+  unsetenv("PT_HPU_LAZY_MODE");
+}

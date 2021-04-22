@@ -90,5 +90,12 @@ PYBIND11_MODULE(hb_torch, m) {
             ->enable_fuse_bn_relu_optimization = flag;
       },
       py::arg("flag"));
+  m.def(
+      "enable_replace_inplace_ops",
+      [](const bool flag) {
+        habana_lazy::exec::OptPassCfg::GetInstance()
+            ->enable_replace_inplace_ops = flag;
+      },
+      py::arg("flag"));
   m.doc() = "This module registers habana backend.";
 }

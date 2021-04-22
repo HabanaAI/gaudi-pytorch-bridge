@@ -22,6 +22,7 @@
 #include "passes/fuse_bn_relu_residual_add.h"
 #include "passes/fuse_mm_transpose.h"
 #include "passes/permute_graph.h"
+#include "passes/replace_inplace_ops.h"
 #include "passes/transform_graph.h"
 #include "pytorch_helpers/habana_device/hpu_cached_devices.h"
 #include "synapse_helpers/device.h"
@@ -214,6 +215,11 @@ void HlExec::Optimize(torch::jit::Stack& stack) {
 
   if (OptPassCfg::GetInstance()->enable_fuse_bn_relu_optimization) {
     fuse_bn_relu(mp_g_);
+  }
+
+  if (OptPassCfg::GetInstance()->enable_replace_inplace_ops) {
+    replace_inplace_ops(mp_g_);
+    OptPassCfg::GetInstance()->enable_eliminate_dead_code = true;
   }
 
   if (OptPassCfg::GetInstance()->enable_fuse_t_mm_optimization ||
