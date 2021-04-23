@@ -118,7 +118,7 @@ struct PT_HPU_ENABLE_SYNC_OUTPUT_HOST {
 };
 
 struct PT_USE_HCL_SYNC {
-  static constexpr bool default_value = true;
+  static constexpr bool default_value = false;
 };
 
 struct PT_HPU_USE_HCL_SYNC {
