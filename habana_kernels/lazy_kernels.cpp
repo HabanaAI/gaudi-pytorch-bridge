@@ -785,60 +785,9 @@ Tensor& add_scalar_hpu_lazy_(Tensor& self, Scalar other, Scalar alpha) {
 
 Tensor& add_tensor_hpu_lazy_(Tensor& self, const Tensor& other, Scalar alpha) {
   PT_LAZY_TRACE;
-  auto hl_alpha = habana_lazy::GetIrValueForScalar(alpha);
 
-  if (other.device().type() == c10::DeviceType::CPU) {
-    // Convert 0-dim CPU tensor to a scalar and then add to JIT graph
-    auto val = other.item();
-    auto hl_other = habana_lazy::GetIrValueForScalar(val);
-    auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
-    updateDstDependencies(hl_self, self, true);
-    auto node = habana_lazy::ir::Node::Create(
-        Symbol::fromQualString("aten::add_"),
-        {hl_self.GetIrValue(), hl_other, hl_alpha});
-
-    habana_lazy::ir::Value& out = hl_self.CurrentIrValue();
-    out.m_index = 0;
-    out.SetNode(node);
-
-    std::vector<at::Tensor> input_pt_vec{self};
-    node->AddInputPtTensors(input_pt_vec);
-    // As its an inplace op and we want this op to execute
-    // we want to wind back status of this tensor to registered
-    // so that when post order is created, we actually execute it
-    auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
-        self.device().index());
-    // context->MarkTensorRegistered(hl_self.getTensorUniqueId());
-    context->MarkTensorStatus(
-        hl_self.getTensorUniqueId(), LazyTensorExecutionStatus::kREGISTERED);
-  } else {
-    auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
-    auto hl_other = habana_lazy::GetOrCreateHbLazyTensor(other, c10::kHABANA);
-
-    updateDstDependencies(hl_self, self, true);
-    auto node = habana_lazy::ir::Node::Create(
-        Symbol::fromQualString("aten::add_"),
-        {hl_self.GetIrValue(), hl_other.GetIrValue(), hl_alpha});
-
-    habana_lazy::ir::Value& out = hl_self.CurrentIrValue();
-    out.m_index = 0;
-    out.SetNode(node);
-    // updatet the view if any
-
-    std::vector<at::Tensor> input_pt_vec{self, other};
-    node->AddInputPtTensors(input_pt_vec);
-    // As its an inplace op and we want this op to execute
-    // we want to wind back status of this tensor to registered
-    // so that when post order is created, we actually execute it
-    auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
-        self.device().index());
-    // context->MarkTensorRegistered(hl_self.getTensorUniqueId());
-    context->MarkTensorStatus(
-        hl_self.getTensorUniqueId(), LazyTensorExecutionStatus::kREGISTERED);
-  }
-
-  flush_op(self);
-  return self;
+  LazyBinaryOp<Tensor&> op("aten::add_", {self, other, alpha});
+  return op.call(self);
 }
 
 Tensor sub_tensor_hpu_lazy(
@@ -856,63 +805,9 @@ Tensor sub_tensor_hpu_lazy(
 
 Tensor& sub_tensor_hpu_lazy_(Tensor& self, const Tensor& other, Scalar alpha) {
   PT_LAZY_TRACE;
-  auto hl_alpha = habana_lazy::GetIrValueForScalar(alpha);
 
-  if (other.device().type() == c10::DeviceType::CPU) {
-    // Convert 0-dim CPU tensor to a scalar and then add to JIT graph
-    auto val = other.item();
-    auto hl_other = habana_lazy::GetIrValueForScalar(val);
-    auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
-    updateDstDependencies(hl_self, self, true);
-    auto node = habana_lazy::ir::Node::Create(
-        Symbol::fromQualString("aten::sub_"),
-        {hl_self.GetIrValue(), hl_other, hl_alpha});
-
-    habana_lazy::ir::Value& out = hl_self.CurrentIrValue();
-    out.m_index = 0;
-    out.SetNode(node);
-
-    std::vector<at::Tensor> input_pt_vec{self};
-    node->AddInputPtTensors(input_pt_vec);
-    // As its an inplace op and we want this op to execute
-    // we want to wind back status of this tensor to registered
-    // so that when post order is created, we actually execute it
-    auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
-        self.device().index());
-    // context->MarkTensorRegistered(hl_self.getTensorUniqueId());
-    context->MarkTensorStatus(
-        hl_self.getTensorUniqueId(), LazyTensorExecutionStatus::kREGISTERED);
-    flush_op(self);
-    return self;
-  } else {
-    auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
-    auto hl_other = habana_lazy::GetOrCreateHbLazyTensor(other, c10::kHABANA);
-
-    updateDstDependencies(hl_self, self, true);
-
-    auto node = habana_lazy::ir::Node::Create(
-        Symbol::fromQualString("aten::sub_"),
-        {hl_self.GetIrValue(), hl_other.GetIrValue(), hl_alpha});
-
-    habana_lazy::ir::Value& out = hl_self.CurrentIrValue();
-    out.m_index = 0;
-    out.SetNode(node);
-    // updatet the view if any
-
-    std::vector<at::Tensor> input_pt_vec{self, other};
-    node->AddInputPtTensors(input_pt_vec);
-    // As its an inplace op and we want this op to execute
-    // we want to wind back status of this tensor to registered
-    // so that when post order is created, we actually execute it
-    auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
-        self.device().index());
-    // context->MarkTensorRegistered(hl_self.getTensorUniqueId());
-    context->MarkTensorStatus(
-        hl_self.getTensorUniqueId(), LazyTensorExecutionStatus::kREGISTERED);
-  }
-
-  flush_op(self);
-  return self;
+  LazyBinaryOp<Tensor&> op("aten::sub_", {self, other, alpha});
+  return op.call(self);
 }
 
 Tensor sub_scalar_hpu_lazy(const Tensor& self, Scalar other, Scalar alpha) {
@@ -974,55 +869,9 @@ Tensor rsub_scalar_hpu_lazy(const Tensor& self, Scalar other, Scalar alpha) {
 }
 Tensor& mul_tensor_hpu_lazy_(Tensor& self, const Tensor& other) {
   PT_LAZY_TRACE;
-  if (other.device().type() == c10::DeviceType::CPU) {
-    // Convert 0-dim CPU tensor to a scalar and then add to JIT graph
-    auto val = other.item();
-    auto hl_other = habana_lazy::GetIrValueForScalar(val);
-    auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
-    updateDstDependencies(hl_self, self, true);
-    auto node = habana_lazy::ir::Node::Create(
-        Symbol::fromQualString("aten::mul_"), {hl_self.GetIrValue(), hl_other});
 
-    habana_lazy::ir::Value& out = hl_self.CurrentIrValue();
-    out.m_index = 0;
-    out.SetNode(node);
-
-    std::vector<at::Tensor> input_pt_vec{self};
-    node->AddInputPtTensors(input_pt_vec);
-    // As its an inplace op and we want this op to execute
-    // we want to wind back status of this tensor to registered
-    // so that when post order is created, we actually execute it
-    auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
-        self.device().index());
-    // context->MarkTensorRegistered(hl_self.getTensorUniqueId());
-    context->MarkTensorStatus(
-        hl_self.getTensorUniqueId(), LazyTensorExecutionStatus::kREGISTERED);
-  } else {
-    auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
-    auto hl_other = habana_lazy::GetOrCreateHbLazyTensor(other, c10::kHABANA);
-    updateDstDependencies(hl_self, self, true);
-    auto node = habana_lazy::ir::Node::Create(
-        Symbol::fromQualString("aten::mul_"),
-        {hl_self.GetIrValue(), hl_other.GetIrValue()});
-
-    habana_lazy::ir::Value& out = hl_self.CurrentIrValue();
-    out.m_index = 0;
-    out.SetNode(node);
-
-    std::vector<at::Tensor> input_pt_vec{self, other};
-    node->AddInputPtTensors(input_pt_vec);
-    // As its an inplace op and we want this op to execute
-    // we want to wind back status of this tensor to registered
-    // so that when post order is created, we actually execute it
-    auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
-        self.device().index());
-    // context->MarkTensorRegistered(hl_self.getTensorUniqueId());
-    context->MarkTensorStatus(
-        hl_self.getTensorUniqueId(), LazyTensorExecutionStatus::kREGISTERED);
-  }
-
-  flush_op(self);
-  return self;
+  LazyBinaryOp<Tensor&> op("aten::mul_", {self, other});
+  return op.call(self);
 }
 
 Tensor where_tensor_hpu_lazy(
@@ -1098,7 +947,7 @@ Tensor& div_tensor_hpu_lazy_out(
 Tensor& div_tensor_hpu_lazy_(Tensor& self, const Tensor& other) {
   PT_LAZY_TRACE;
 
-  LazyOp<at::Tensor&> k{"aten::div_", {self, other}};
+  LazyBinaryOp<at::Tensor&> k{"aten::div_", {self, other}};
   return k.call(self);
 }
 

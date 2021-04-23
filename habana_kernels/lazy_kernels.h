@@ -193,13 +193,14 @@ class LazyOp {
         auto val = GetIrValueForScalar(input.toScalar());
         values.emplace_back(val);
       } else if (input.isTensor()) {
-        const auto& t = input.toTensor();
+        const at::Tensor& t = input.toTensor();
         if (t.defined()) {
-          if (i != 0 && t.device().type() == c10::DeviceType::CPU) {
+          if (i != 0 && t.device().type() != c10::DeviceType::HABANA) {
             // Non first arg can be a non habana tensor.
             // Convert to scalar/DMA such tensor to device and add as node
-            // input.
-            if (m_dma_non_first_cpu_tensor) {
+            // input. For a non 0-dim tensor, DMA is the only option.
+            if (m_dma_non_first_cpu_tensor ||
+                t.numel() != 1) { // numel because .item() uses that check
               auto tinput = t.to(c10::kHABANA);
               auto val = GetOrCreateHbLazyTensor(tinput).GetIrValue();
               values.emplace_back(val);
@@ -285,8 +286,8 @@ class LazyBinaryOp : public LazyOp<ReturnType> {
   explicit LazyBinaryOp(
       const std::string& qualstring,
       const std::vector<at::IValue>& inputs,
-      std::set<size_t> metadata_indices = {},
-      std::vector<std::vector<int64_t>> out_shapes = {},
+      const std::set<size_t>& metadata_indices = {},
+      const std::vector<std::vector<int64_t>>& out_shapes = {},
       int out_index = 0)
       : LazyOp<ReturnType>(
             qualstring,
@@ -320,6 +321,29 @@ class LazyBinaryOp : public LazyOp<ReturnType> {
     auto results = LazyOp<T>::call();
     return results;
   }
+
+  // For inplace binary, the promoted type takes the self's type
+  template <typename T = ReturnType>
+  typename std::enable_if<std::is_same<T, at::Tensor&>::value, T>::type call(
+      at::Tensor& self) {
+    auto inputs = LazyOp<T>::get_inputs();
+
+    c10::ScalarType dst_dtype = self.scalar_type();
+    at::Tensor other = inputs.at(1).toTensor();
+
+    if (self.scalar_type() != other.scalar_type()) {
+      at::Tensor casted_other = at::native::empty_hpu_lazy(
+          other.sizes(),
+          other.options().dtype(dst_dtype),
+          other.suggest_memory_format(),
+          false);
+      copy_hpu_lazy_(casted_other, other, true);
+      inputs[1] = casted_other;
+      LazyOp<T>::set_inputs(inputs);
+    }
+
+    return LazyOp<T>::call(self);
+  }
 };
 
 template <typename ReturnType>
@@ -328,8 +352,8 @@ class LazyCompareOp : public LazyOp<ReturnType> {
   explicit LazyCompareOp(
       const std::string& qualstring,
       const std::vector<at::IValue>& inputs,
-      std::set<size_t> metadata_indices = {},
-      std::vector<std::vector<int64_t>> out_shapes = {},
+      const std::set<size_t>& metadata_indices = {},
+      const std::vector<std::vector<int64_t>>& out_shapes = {},
       int out_index = -1)
       : LazyOp<ReturnType>(
             qualstring,
