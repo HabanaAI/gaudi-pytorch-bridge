@@ -546,34 +546,18 @@ Tensor process_generic_tensor_binary_op(
 Tensor add_tensor_hpu(const Tensor& self, const Tensor& other, Scalar alpha) {
   PT_KERNEL_BEGIN;
   Tensor output;
-  if ((other.dim() == 0) && (other.scalar_type() == c10::ScalarType::Long) &&
-      (other.device().type() == c10::DeviceType::CPU)) {
-    /*Fix for BN copy kernel issue. This is getting generated from unused code
-    in pytorch when momentum is configured. For now return w/o addition
-    // Ref:
-    https://github.com/pytorch/pytorch/blob/master/torch/nn/modules/batchnorm.py,
-    line - 446 should ideally be placed within if condition
-    TPC kernel are not invoked because add and mul kernels do not support
-    integer tensors. */
-
-    auto output_cpu = self;
-    output = output_cpu.to(c10::DeviceType::HABANA);
-    PT_KERNEL_WARN("Unsupported long int addition");
-  } else {
-    if (self.dim() == 0) {
-      self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
-    }
-    if (other.dim() == 0) {
-      other.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
-    }
-    auto self_hpu = get_hpu_tensor(self);
-    auto other_hpu = get_hpu_tensor(other);
-    std::vector<at::Tensor> pt_inputs{self_hpu, other_hpu};
-    torch::jit::Stack stack{IValue(self_hpu), IValue(other_hpu), IValue(alpha)};
-    output = process_generic_tensor_binary_op<habana::AddOperator>(
-        pt_inputs, stack, "add");
+  if (self.dim() == 0) {
+    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
   }
-
+  if (other.dim() == 0) {
+    other.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+  }
+  auto self_hpu = get_hpu_tensor(self);
+  auto other_hpu = get_hpu_tensor(other);
+  std::vector<at::Tensor> pt_inputs{self_hpu, other_hpu};
+  torch::jit::Stack stack{IValue(self_hpu), IValue(other_hpu), IValue(alpha)};
+  output = process_generic_tensor_binary_op<habana::AddOperator>(
+      pt_inputs, stack, "add");
   PT_KERNEL_END;
   return output;
 }

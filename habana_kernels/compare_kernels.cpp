@@ -226,7 +226,6 @@ Tensor compare_op_hpu(
     std::vector<at::Tensor>& pt_inputs,
     torch::jit::Stack& stack,
     const std::string& node_guid) {
-  PT_KERNEL_BEGIN;
   for (auto i = 0u; i < stack.size(); i++) {
     if (stack[i].isTensor()) {
       if (stack[i].toTensor().scalar_type() == c10::ScalarType::Long) {
@@ -280,7 +279,6 @@ Tensor compare_op_hpu(
 
   std::vector<at::Tensor> out = Op.GetOutputs();
   TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
-  PT_KERNEL_END;
   return out[0];
 }
 
