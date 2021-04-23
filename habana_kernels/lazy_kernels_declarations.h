@@ -587,8 +587,8 @@ Tensor leaky_relu_backward(
 Tensor sigmoid_hpu_lazy(const Tensor& input);
 Tensor sigmoid_backward_hpu_lazy(const Tensor& grad_in, const Tensor& input);
 
-at::Tensor& hardsigmoid_hpu_lazy_(at::Tensor& input);
-at::Tensor hardsigmoid_hpu_lazy(const at::Tensor& input);
+at::Tensor& hardsigmoid_hpu_lazy_(at::Tensor& self);
+at::Tensor hardsigmoid_hpu_lazy(const at::Tensor& self);
 Tensor hardsigmoid_backward_hpu_lazy(
     const Tensor& grad_output,
     const Tensor& self);

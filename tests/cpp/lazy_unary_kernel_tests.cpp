@@ -76,7 +76,7 @@ TEST_F(LazyUnaryKernelTest, LeakyReluInplaceTest) {
   torch::leaky_relu_(A);
   torch::leaky_relu_(hA);
 
-  EXPECT_TRUE(allclose(A, hA.to("cpu"))) << A << hA.to("cpu");
+  EXPECT_TRUE(allclose(A, hA.to("cpu")));
 }
 
 TEST_F(LazyUnaryKernelTest, LeakyReluTest) {
@@ -90,7 +90,6 @@ TEST_F(LazyUnaryKernelTest, LeakyReluTest) {
 }
 
 TEST_F(LazyUnaryKernelTest, LeakyReluBackwardTest) {
-  // const std::vector<int64_t> dimentions{5, 3, 4};
   const std::vector<int64_t> dimentions{2, 3};
 
   auto grad = torch::randn(dimentions, torch::requires_grad(false));
@@ -244,7 +243,7 @@ TEST_F(LazyUnaryKernelTest, HardsigmoidTest) {
 
   torch::Tensor hOut = torch::hardsigmoid(hA);
   torch::Tensor Out = torch::hardsigmoid(A);
-  EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out), true);
+  EXPECT_TRUE(allclose(hOut.to(torch::kCPU), Out));
 }
 
 TEST_F(LazyUnaryKernelTest, HardsigmoidBwdTest) {
@@ -257,7 +256,7 @@ TEST_F(LazyUnaryKernelTest, HardsigmoidBwdTest) {
   torch::Tensor hOut = torch::hardsigmoid_backward(hgrad, hself);
   torch::Tensor Out = torch::hardsigmoid_backward(grad, self);
 
-  EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out), true);
+  EXPECT_TRUE(allclose(hOut.to(torch::kCPU), Out));
 }
 
 TEST_F(LazyUnaryKernelTest, HardsigmoidInplaceTest) {
@@ -267,7 +266,7 @@ TEST_F(LazyUnaryKernelTest, HardsigmoidInplaceTest) {
   torch::hardsigmoid_(A);
   torch::hardsigmoid_(hA);
 
-  EXPECT_TRUE(allclose(A, hA.to("cpu"))) << A << hA.to("cpu");
+  EXPECT_TRUE(allclose(A, hA.to("cpu")));
 }
 
 TEST_F(LazyUnaryKernelTest, SqrtTest) {

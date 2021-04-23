@@ -591,7 +591,7 @@ void LeakyReluBackwardOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(
       inputs.size() == constExpectedNoOfInput,
       std::string("Expected ") + std::to_string(constExpectedNoOfInput) +
-          " inputs for LeakyReluBackward operator" + " but received " +
+          " inputs for LeakyReluBackward operator but received " +
           std::to_string(inputs.size()) + " inputs.");
   ns_LeakyReluKernel::Params param{
       inputs[2].toScalar().to<double>()}; // 3rd input is the Scalar
@@ -1851,14 +1851,18 @@ void HardsigmoidOperator::AllocateAndAddSynapseNode(
     Stack& inputs,
     bool is_output_persistent) {
   const unsigned short constExpectedNoOfInput = 1;
+  // hardsigmoid (x) = 0          if x <= -3
+  //                   1          if x >= +3
+  //                   x/6 + 1/2  otherwise
   constexpr float alpha = 1 / 6.0f;
   constexpr float beta = 1 / 2.0f;
+
   TORCH_CHECK(
       inputs.size() == constExpectedNoOfInput,
       std::string("Expected ") + std::to_string(constExpectedNoOfInput) +
           " input for " +
           (m_inplace ? "HardsigmoidOperator_" : "HardsigmoidOperator") +
-          " operator" + " but received " + std::to_string(inputs.size()) +
+          " operator but received " + std::to_string(inputs.size()) +
           " inputs.");
   TORCH_CHECK(inputs[0].isTensor(), "Input type expected to be tensor");
 
@@ -1932,7 +1936,6 @@ static auto& KernelRegistry =
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<SigmoidOperator>(device_id, node_type);
             })
-
         .add(
             "aten::sigmoid_backward",
             [](const int device_id, c10::ScalarType node_type) {
