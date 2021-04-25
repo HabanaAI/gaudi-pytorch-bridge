@@ -59,13 +59,14 @@ TEST_F(LazyIndexKernelTest, IndexAddInplaceTest) {
 }
 
 TEST_F(LazyIndexKernelTest, Onehot) {
-  auto onehot = [](std::string device) {
+  auto onehot = [](std::string device, int64_t num_classes) {
     auto t = (torch::arange(20) % 4).view({4, 5}).to(device);
-    auto result = torch::one_hot(t, 4);
+    auto result = torch::one_hot(t, num_classes);
     return result.to("cpu");
   };
 
-  EXPECT_TRUE(allclose(onehot("cpu"), onehot("habana")));
+  EXPECT_TRUE(allclose(onehot("cpu", 4), onehot("habana", 4)));
+  EXPECT_TRUE(allclose(onehot("cpu", -1), onehot("habana", -1)));
 }
 
 TEST_F(LazyIndexKernelTest, ScatterValueInplaceTest) {

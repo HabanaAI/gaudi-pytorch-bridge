@@ -3806,9 +3806,7 @@ at::Tensor one_hot_hpu_lazy(const Tensor& self, int64_t num_classes) {
   }
 
   if (num_classes == -1) {
-    // TODO enable this when reduce_max_fwd_i32 is available
-    // num_classes = self.max().item().toLong() + 1;
-    return AtenHpuTypeDefault::one_hot(self, num_classes);
+    num_classes = self.max().item().toLong() + 1;
   }
 
   shape.push_back(num_classes);
