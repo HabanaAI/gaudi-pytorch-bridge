@@ -22,7 +22,7 @@ class NonZeroOperator : public HabanaOperator {
     this->CreateSynContext(device_id);
   }
 
-  void AllocateAndAddSynapseNode(
+  virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       std::vector<bool> is_output_persistent) override;

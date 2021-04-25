@@ -24,6 +24,7 @@
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_kernels/linear_kernels.h"
 #include "habana_kernels/loss_kernels.h"
+#include "habana_kernels/nonzero_kernel.h"
 #include "habana_kernels/norm_kernels.h"
 #include "habana_kernels/pool_kernels.h"
 #include "habana_kernels/reduction2_kernels.h"
@@ -2142,8 +2143,77 @@ Tensor index_hpu_lazy(const at::Tensor& self, at::TensorList indices) {
   return k.call();
 }
 Tensor nonzero_hpu_lazy(const Tensor& self) {
-  HABANA_ASSERT(0);
-  return nonzero_hpu(self);
+  PT_LAZY_TRACE;
+  auto input_shape = self.sizes();
+  int dimensions = input_shape.size();
+  int elements = self.numel();
+  at::TensorOptions hb_options = self.options();
+  hb_options = hb_options.dtype(c10::ScalarType::Long);
+
+  // Handle case for empty tensor where we return empty tensor with size
+  if (elements == 0) {
+    auto shape = DimVector{0, dimensions};
+    auto output = at::native::empty_hpu_lazy(
+        shape, hb_options, self.suggest_memory_format(), true);
+    auto hl_output = habana_lazy::GetHbLazyTensor(output);
+    updateDstDependencies(hl_output, output);
+    flush_op(output);
+    return output;
+  }
+
+  // Add nonzero node
+  std::vector<int64_t> output_shape{elements, dimensions};
+  std::vector<int64_t> shape_tensor_shape{5};
+  using T = std::tuple<at::Tensor, at::Tensor>;
+  LazyOp<T> k("aten::nonzero", {self}, {}, {output_shape, shape_tensor_shape});
+  // nonzero returns 2 output where and shape tensor
+  auto result_nonzero = k.call();
+  auto where_tensor = std::get<0>(result_nonzero);
+  auto shape_tensor = std::get<1>(result_nonzero);
+
+  // Select second element from shape tensor
+  auto node_slice =
+      std::make_shared<habana_lazy::ir::Slice>(shape_tensor, 0, 1);
+  auto end_shape = DimVector{1};
+  auto end_tensor = at::native::empty_hpu_lazy(
+      end_shape, hb_options, self.suggest_memory_format(), false);
+  auto hl_end = habana_lazy::GetHbLazyTensor(end_tensor);
+  habana_lazy::ir::Value& end_out = hl_end.CurrentIrValue();
+  end_out.m_index = 0;
+  end_out.SetNode(node_slice);
+  // Force an exections here to capture second element of shape tensor.
+  // This element is required to determine shape of next node's output
+  std::vector<HbLazyTensor> hl_flush_end = {hl_end};
+  HbLazyTensor::SyncTensorsGraph(&hl_flush_end);
+  auto end = end_tensor.item<int64_t>();
+
+  // Handle case for all False where we return empty tensor with size
+  if (end == 0) {
+    auto shape = DimVector{0, dimensions};
+    auto output = at::native::empty_hpu_lazy(
+        shape, hb_options, self.suggest_memory_format(), true);
+    auto hl_output = habana_lazy::GetHbLazyTensor(output);
+    updateDstDependencies(hl_output, output);
+    flush_op(output);
+    return output;
+  }
+
+  // Add a slice node to capture relevent elements from nonzero node
+  // in case we have relevant elements
+  auto sliced_shape = DimVector{end, dimensions};
+  auto node =
+      std::make_shared<habana_lazy::ir::Slice>(where_tensor, 0, 0, end, 1);
+  auto result = at::native::empty_hpu_lazy(
+      sliced_shape, hb_options, self.suggest_memory_format(), true);
+  auto hl_result = habana_lazy::GetOrCreateHbLazyTensor(result, c10::kHABANA);
+  habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node);
+  updateDstDependencies(hl_result, result);
+  // Flushing to match eager mode execution
+  std::vector<HbLazyTensor> hl_flush_result = {hl_result};
+  HbLazyTensor::SyncTensorsGraph(&hl_flush_result);
+  return result;
 }
 Tensor& index_add_hpu_lazy_(
     Tensor& self,
@@ -2224,9 +2294,16 @@ Tensor slice_hpu_lazy(
       std::make_shared<habana_lazy::ir::Slice>(self, dim, start, end, step);
 
   auto result = slice_hpu(self, dim, start, end, step);
-
   auto hl_result = habana_lazy::GetHbLazyTensor(result);
 
+  // Handling the case for empty self tensor
+  // slice_hpu returns correct tensor shape of NULL result
+  // so, don't add the node, just return the empty result
+  if (self.numel() == 0) {
+    updateDstDependencies(hl_result, result);
+    flush_op(result);
+    return result;
+  }
   habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
   out.SetNode(node);
@@ -2241,9 +2318,16 @@ Tensor select_hpu_lazy(const Tensor& self, int64_t dim, int64_t index) {
 
   // infer shape
   auto result = select_hpu(self, dim, index);
-
   auto hl_result = habana_lazy::GetHbLazyTensor(result);
 
+  // Handling the case for empty self tensor
+  // select_hpu returns correct tensor shape of NULL result
+  // so, don't add the node, just return the empty result
+  if (self.numel() == 0) {
+    updateDstDependencies(hl_result, result);
+    flush_op(result);
+    return result;
+  }
   habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
   out.SetNode(node);

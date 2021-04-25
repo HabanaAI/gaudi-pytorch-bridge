@@ -298,3 +298,9 @@ Tensor nonzero_hpu(const Tensor& self) {
   PT_KERNEL_END;
   return output;
 }
+
+static auto& KernelRegistry = ::habana::KernelRegistry().add(
+    "aten::nonzero",
+    [](const int device_id, c10::ScalarType node_type) {
+      return std::make_shared<NonZeroOperator>(device_id, node_type);
+    });
