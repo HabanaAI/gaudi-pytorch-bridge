@@ -46,6 +46,7 @@ from file_utils import PYTORCH_PRETRAINED_BERT_CACHE
 from utils import is_main_process, format_step, get_world_size, get_rank
 from schedulers import LinearWarmUpScheduler
 
+
 try:
     path = os.path.join(os.environ['PYTORCH_MODULES_ROOT_PATH'], 'topologies')
     tools_path = os.path.join(path, 'tools')
@@ -339,13 +340,20 @@ def parse_arguments():
     parser.add_argument("--no_dropout",
                         action='store_true',
                         help='Disable Dropout in the model')
+    parser.add_argument("--use_lazy_mode",
+                        action='store_true',
+                        help='run model in lazy execution mode')
+    parser.add_argument("--log_device_mem_alloc",
+                        action='store_true',
+                        default=False,
+                        help="Log live memory allocations on device at the given point")
 
     args = parser.parse_args()
     args.fp16 = args.fp16 or args.amp
 
     if args.steps_this_run < 0:
         args.steps_this_run = args.max_steps
-    
+
     return args
 
 def setup_training(args):
@@ -364,6 +372,7 @@ def setup_training(args):
 
         if args.use_jit_trace:
             enable_tracing()
+
 
         args.n_pu = 1
         args.allreduce_post_accumulation = False
@@ -644,7 +653,15 @@ def main():
     global timeout_sent
 
     args = parse_arguments()
-        
+
+    if args.use_lazy_mode:
+        os.environ["PT_HPU_LAZY_MODE"] = "1"
+        sys.path.insert(0, os.path.join(os.environ['PYTORCH_MODULES_RELEASE_BUILD']))
+        try:
+            import hb_torch
+        except ImportError:
+            assert False, "Could Not import hb_torch"
+
     random.seed(args.seed + args.local_rank)
     np.random.seed(args.seed + args.local_rank)
     torch.manual_seed(args.seed + args.local_rank)
@@ -680,6 +697,7 @@ def main():
         if device.type == 'cuda':
             pool = ProcessPoolExecutor(1)
 
+        trainMetaData.set_live_mem_alloc_logging(args.log_device_mem_alloc and args.use_habana)
         # Note: We loop infinitely over epochs, termination is handled via iteration count
         while True:
             thread = None
@@ -747,6 +765,7 @@ def main():
                 else:
                     train_iter = tqdm(train_dataloader, desc="Iteration", disable=args.disable_progress_bar) if is_main_process() else train_dataloader
 
+                trainMetaData.log_live_mem_alloc("before entering train Iteration " + str(trainMetaData.current_train_step))
                 if raw_train_start is None:
                     raw_train_start = time.time()
                 for step, batch in enumerate(train_iter):
@@ -815,12 +834,19 @@ def main():
                             scaled_loss.backward()
                     else:
                         loss.backward()
+
+                    if args.use_lazy_mode:
+                        hb_torch.mark_step()
+
                     average_loss += loss.item()
                     tp_probe_tensors_iteration_end(model, device, loss, loss.item(), trainMetaData.ParamsDump, False, 0) #local rank
 
                     if training_steps % args.gradient_accumulation_steps == 0:
                         lr_scheduler.step()  # learning rate warmup
                         global_step = take_optimizer_step(args, optimizer, model, overflow_buf, global_step)
+
+                        if args.use_lazy_mode:
+                            hb_torch.mark_step()
 
                     if global_step >= args.steps_this_run or timeout_sent:
                         train_time_raw = time.time() - raw_train_start
@@ -906,6 +932,8 @@ def main():
                                     ckpt_to_be_removed = most_recent_ckpts_paths.pop(0)
                                     os.remove(ckpt_to_be_removed)
 
+                        trainMetaData.log_live_mem_alloc("train Iteration " + str(trainMetaData.current_train_step))
+                        trainMetaData.increment_train_step()
                         # Exiting the training due to hitting max steps, or being sent a 
                         # timeout from the cluster scheduler
                         if global_step >= args.steps_this_run or timeout_sent:
@@ -923,6 +951,8 @@ def main():
                     train_dataloader, data_file = create_pretraining_dataset(data_file, args.max_predictions_per_seq, shared_file_list, args, worker_init)
 
             epoch += 1
+    if args.use_lazy_mode:
+        os.environ.pop("PT_HPU_LAZY_MODE")
 
 
 if __name__ == "__main__":
