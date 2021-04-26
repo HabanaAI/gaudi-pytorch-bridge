@@ -175,6 +175,7 @@ if (BUILD_PKGS)
     ${CMAKE_SOURCE_DIR}/habana_distributed
     ${CMAKE_SOURCE_DIR}/python_packages
     $ENV{MODEL_GARDEN_PYTORCH_PATH}/nlp/bert/finetuning
+    $ENV{MODEL_GARDEN_PYTORCH_PATH}/../internal/PyTorch/computer_vision/detectron2
   )
 
   foreach(PKG ${PKGS})
