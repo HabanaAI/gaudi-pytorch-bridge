@@ -669,8 +669,23 @@ struct hpu_wrap {
       at::IntArrayRef size,
       at::IntArrayRef stride,
       c10::optional<int64_t> storage_offset);
+
   static at::Tensor asin(const at::Tensor& self);
   static at::Tensor acos(const at::Tensor& self);
+  static at::Tensor acosh(const at::Tensor& self);
+  static at::Tensor asinh(const at::Tensor& self);
+  static at::Tensor atan(const at::Tensor& self);
+  static at::Tensor atanh(const at::Tensor& self);
+  static at::Tensor cosh(const at::Tensor& self);
+
+  static at::Tensor& acos_(at::Tensor& self);
+  static at::Tensor& acosh_(at::Tensor& self);
+  static at::Tensor& asinh_(at::Tensor& self);
+  static at::Tensor& atan_(at::Tensor& self);
+  static at::Tensor& atanh_(at::Tensor& self);
+  static at::Tensor& cos_(at::Tensor& self);
+  static at::Tensor& cosh_(at::Tensor& self);
+
   static std::vector<at::Tensor> split(
       const at::Tensor& self,
       int64_t split_size,

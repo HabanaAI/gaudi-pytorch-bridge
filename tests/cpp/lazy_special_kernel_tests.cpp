@@ -12,6 +12,9 @@
 
 using namespace habana_lazy;
 
+#define MAX_VALUE_TO_TEST 127
+#define MIN_VALUE_TO_TEST -127
+
 #define HPU_LAZY_KERNEL_TEST(op_code, min_val, max_val)                        \
   TEST_F(LazySpecialKernelTest, op_code##Forward) {                            \
     auto A = torch::randn(4);                                                  \
@@ -49,3 +52,17 @@ TEST_F(LazySpecialKernelTest, AsinForward) {
 }
 
 HPU_LAZY_KERNEL_TEST(acos, -1.0, 1.0)
+
+HPU_LAZY_KERNEL_TEST(acosh, 1.0, MAX_VALUE_TO_TEST)
+HPU_LAZY_KERNEL_TEST(asinh, MIN_VALUE_TO_TEST, MAX_VALUE_TO_TEST)
+HPU_LAZY_KERNEL_TEST(atan, MIN_VALUE_TO_TEST, MAX_VALUE_TO_TEST)
+HPU_LAZY_KERNEL_TEST(atanh, -1.0, 1.0)
+HPU_LAZY_KERNEL_TEST(cosh, MIN_VALUE_TO_TEST, MAX_VALUE_TO_TEST)
+
+HPU_LAZY_KERNEL_TEST(acos_, -1.0, 1.0)
+HPU_LAZY_KERNEL_TEST(acosh_, 1.0, MAX_VALUE_TO_TEST)
+HPU_LAZY_KERNEL_TEST(asinh_, MIN_VALUE_TO_TEST, MAX_VALUE_TO_TEST)
+HPU_LAZY_KERNEL_TEST(atan_, MIN_VALUE_TO_TEST, MAX_VALUE_TO_TEST)
+HPU_LAZY_KERNEL_TEST(atanh_, -1.0, 1.0)
+HPU_LAZY_KERNEL_TEST(cos_, -1.0, 1.0)
+HPU_LAZY_KERNEL_TEST(cosh_, -1.0, 1.0)

@@ -9,6 +9,7 @@
  */
 #pragma once
 #include "habana_kernels/habana_operator.h"
+
 using namespace habana;
 // Special Operator
 class SpecialFunctionOperator : public HabanaOperator {
@@ -23,21 +24,43 @@ class SpecialFunctionOperator : public HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false);
+      bool is_output_persistent = false) = 0;
+  virtual ~SpecialFunctionOperator(){};
 };
 
-// Asin Operator
-std::string getString(const char* op_code) {
-  return std::string(op_code);
+// TODO: Use this function globally
+std::string getGUID(
+    const char* op_code,
+    bool inplace,
+    c10::ScalarType scalarType) {
+  std::string guid(op_code);
+  // For non inplace, op_code doesn't have "_" suffix
+  // Hence added
+  if (!inplace) {
+    guid += "_";
+  }
+
+  guid += "fwd_";
+  guid += habana_helpers::name_suffix_from_type(scalarType);
+  return guid;
 }
+
 class SpecialFunctionFwdOperator : public SpecialFunctionOperator {
  public:
   SpecialFunctionFwdOperator(
       int device_id,
       c10::ScalarType scalarType,
-      const char* op_code)
+      const char* op_code,
+      bool inplace = false)
       : SpecialFunctionOperator(
             device_id,
-            getString(op_code) + "_fwd_" +
-                habana_helpers::name_suffix_from_type(scalarType)){};
+            getGUID(op_code, inplace, scalarType)),
+        m_inplace{inplace} {};
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+
+ private:
+  bool m_inplace;
 };

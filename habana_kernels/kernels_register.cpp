@@ -20,11 +20,16 @@ using namespace at;
 
 #define HPU_WRAP_OP(opcode) hpu_wrap::opcode
 #define HPU_LAZY_FUNC_NAME(op_code) op_code##_hpu_lazy
-
-#define HPU_LAZY_WRAP_FUNCTION(op_code)                     \
-  at::Tensor HPU_WRAP_OP(op_code)(const at::Tensor& self) { \
-    hpu_check_inputs(#op_code, {self});                     \
-    return HPU_LAZY_FUNC_NAME(op_code)(self);               \
+#define HPU_LAZY_FUNC_NAME_INPLACE(op_code) op_code##hpu_lazy_
+#define HPU_LAZY_WRAP_FUNCTION(op_code)                 \
+  at::Tensor HPU_WRAP_OP(op_code)(const Tensor& self) { \
+    hpu_check_inputs(#op_code, {self});                 \
+    return HPU_LAZY_FUNC_NAME(op_code)(self);           \
+  }
+#define HPU_LAZY_WRAP_FUNCTION_INPLACE(op_code)       \
+  at::Tensor& HPU_WRAP_OP(op_code)(Tensor & self) {   \
+    hpu_check_inputs(#op_code, {self});               \
+    return HPU_LAZY_FUNC_NAME_INPLACE(op_code)(self); \
   }
 
 Tensor& hpu_wrap::copy_(Tensor& self, const Tensor& src, bool non_blocking) {
@@ -2600,6 +2605,35 @@ at::Tensor hpu_wrap::asin(const at::Tensor& self) {
   return asin_hpu_lazy(self);
 }
 HPU_LAZY_WRAP_FUNCTION(acos)
+
+at::Tensor hpu_wrap::acosh(const at::Tensor& self) {
+  hpu_check_inputs("acosh", {self});
+  return acosh_hpu_lazy(self);
+}
+at::Tensor hpu_wrap::asinh(const at::Tensor& self) {
+  hpu_check_inputs("asinh", {self});
+  return asinh_hpu_lazy(self);
+}
+at::Tensor hpu_wrap::atan(const at::Tensor& self) {
+  hpu_check_inputs("atan", {self});
+  return atan_hpu_lazy(self);
+}
+at::Tensor hpu_wrap::atanh(const at::Tensor& self) {
+  hpu_check_inputs("atanh", {self});
+  return atanh_hpu_lazy(self);
+}
+at::Tensor hpu_wrap::cosh(const at::Tensor& self) {
+  hpu_check_inputs("cosh", {self});
+  return cosh_hpu_lazy(self);
+}
+
+HPU_LAZY_WRAP_FUNCTION_INPLACE(acos_)
+HPU_LAZY_WRAP_FUNCTION_INPLACE(acosh_)
+HPU_LAZY_WRAP_FUNCTION_INPLACE(asinh_)
+HPU_LAZY_WRAP_FUNCTION_INPLACE(atan_)
+HPU_LAZY_WRAP_FUNCTION_INPLACE(atanh_)
+HPU_LAZY_WRAP_FUNCTION_INPLACE(cos_)
+HPU_LAZY_WRAP_FUNCTION_INPLACE(cosh_)
 
 std::vector<at::Tensor> hpu_wrap::split(
     const at::Tensor& self,

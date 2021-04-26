@@ -39,8 +39,15 @@ TEST_P(FallbackTest, Simple) {
 }
 
 TEST_P(FallbackTest, Inplace) {
-  auto t = torch::rand(10).to("habana");
-  auto res = t.acosh_();
+  auto randt = torch::rand(10).to("habana");
+  int p = 2; // Must be greater than 1
+
+  // All element of t must be greater than (p-1)/2
+  const float delta = 0.1;
+  float minValueOfElement = (p - 1) / 2.0 + delta;
+  auto t = randt + (1.0 + minValueOfElement);
+
+  auto res = t.mvlgamma_(p);
   EXPECT_EQ(t.storage().data_ptr().get(), res.storage().data_ptr().get());
 }
 
