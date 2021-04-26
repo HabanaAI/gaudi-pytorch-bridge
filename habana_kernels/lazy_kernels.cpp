@@ -994,7 +994,12 @@ Tensor where_tensor_hpu_lazy(
     const Tensor& self,
     const Tensor& other) {
   PT_LAZY_TRACE;
-  LazyOp<at::Tensor> k{"aten::where", {condition, self, other}};
+  LazyOp<at::Tensor> k(
+      "aten::_s_where",
+      {condition, self, other},
+      {},
+      {},
+      1 /*output metadata is picked from self*/);
   return k.call();
 }
 

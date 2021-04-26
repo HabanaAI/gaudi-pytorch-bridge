@@ -44,6 +44,9 @@ void WhereOperator::AllocateAndAddSynapseNode(
   auto self = inputs[1].toTensor();
   auto other = inputs[2].toTensor();
 
+  // Node type is decided by 2nd input's type
+  guid_ =
+      "where_fwd_" + habana_helpers::name_suffix_from_type(self.scalar_type());
   auto output_shape = compute_output_shape(condition, self, other);
 
   auto output =

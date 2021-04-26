@@ -24,7 +24,7 @@ class LazyWhereKernelTest : public ::testing::Test {
   }
 };
 
-TEST(LazyWhereKernelTest, WhereTest) {
+TEST_F(LazyWhereKernelTest, WhereTest) {
   torch::Tensor x = torch::randn({2, 3});
   torch::Tensor y = torch::randn({2, 3});
   auto out = torch::_s_where(x > 0, x, y);
@@ -39,7 +39,7 @@ TEST(LazyWhereKernelTest, WhereTest) {
   EXPECT_EQ(equal, true);
 }
 
-TEST(LazyWhereKernelTest, WhereBroadcastTest) {
+TEST_F(LazyWhereKernelTest, WhereBroadcastTest) {
   torch::Tensor cond = torch::randint(0, 2, {2, 3});
   torch::Tensor condBool = cond > 0;
   torch::Tensor x = torch::randn({2, 3});
