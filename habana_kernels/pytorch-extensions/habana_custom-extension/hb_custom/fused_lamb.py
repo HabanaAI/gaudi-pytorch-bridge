@@ -7,7 +7,6 @@ from torch.optim import Optimizer
 import sys
 import os
 
-sys.path.insert(0, os.path.join(os.environ['BUILD_ROOT_LATEST']))
 try:
     import hb_torch
 except ImportError:
