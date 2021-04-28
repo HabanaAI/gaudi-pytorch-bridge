@@ -14,6 +14,11 @@ import random
 
 import utils
 
+try:
+        # Default 'fork' doesn't work with synapse. Use 'forkserver' or 'spawn'
+            torch.multiprocessing.set_start_method('forkserver')
+except RuntimeError:
+        pass
 sys.path.insert(0, os.path.join(os.environ['PYTORCH_MODULES_RELEASE_BUILD']))
 try:
     import hb_torch
@@ -54,8 +59,7 @@ def train_model(model, criterion, optimizer, image, target, trainMetaData, apex,
     if lazy_mode:
         hb_torch.mark_step()
 
-    return loss.item(), output.detach().to('cpu')
-
+   return loss, output
 
 def train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, print_freq, trainMetaData, apex=False):
     model.train()
@@ -64,6 +68,7 @@ def train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, pri
     metric_logger.add_meter('img/s', utils.SmoothedValue(window_size=10, fmt='{value}'))
 
     header = 'Epoch: [{}]'.format(epoch)
+    last_print_time= time.time()
     for image, target in metric_logger.log_every(data_loader, print_freq, header):
 
         image, target = image.to(device, non_blocking=False), target.to(device, non_blocking=False)
@@ -87,19 +92,24 @@ def train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, pri
 
         tools.tp_probe_tensors_iteration_start(model, device, target, image, trainMetaData.ParamsDump, False)
 
-        loss_cpu, output_cpu = train_model(model, criterion, optimizer, image, target,
+        loss, output = train_model(model, criterion, optimizer, image, target,
                                            trainMetaData, apex, args.run_lazy_mode)
 
-        tools.tp_probe_tensors_iteration_end(model, device, output_cpu, loss_cpu, trainMetaData.ParamsDump, False)
+        if trainMetaData.current_train_step % print_freq == 0:
+            loss_cpu = loss.item()
+            output_cpu = output.detach().to('cpu')
+            tools.tp_probe_tensors_iteration_end(model, device, output_cpu, loss_cpu, trainMetaData.ParamsDump, False)
 
-        acc1, acc5 = utils.accuracy(output_cpu, target, topk=(1, 5))
-        trainMetaData.tracept.end(time.time(), 'train_iteration_' + str(trainMetaData.current_train_step))
-        batch_size = image.shape[0]
+            acc1, acc5 = utils.accuracy(output_cpu, target, topk=(1, 5))
+            batch_size = image.shape[0]
         # Bring the loss tensor back to CPU before printing. Certainly needed if running on Habana.
-        metric_logger.update(loss=loss_cpu, lr=optimizer.param_groups[0]["lr"])
-        metric_logger.meters['acc1'].update(acc1.item(), n=batch_size)
-        metric_logger.meters['acc5'].update(acc5.item(), n=batch_size)
-        metric_logger.meters['img/s'].update(batch_size / (time.time() - start_time))
+            metric_logger.update(loss=loss_cpu, lr=optimizer.param_groups[0]["lr"])
+            metric_logger.meters['acc1'].update(acc1.item(), n=batch_size*print_freq)
+            metric_logger.meters['acc5'].update(acc5.item(), n=batch_size*print_freq)
+            current_time = time.time()
+            iter_start_time = start_time if args.distributed else last_print_time
+            metric_logger.meters['img/s'].update(batch_size*print_freq / (current_time - iter_start_time))   
+            last_print_time = time.time()
         # If only the specified number of steps are to be executed, check if those many steps are
         # done and if yes, break the training loop
         trainMetaData.log_live_mem_alloc("train Iteration " + str(trainMetaData.current_train_step))
@@ -340,6 +350,9 @@ def main(args):
         val_dir = os.path.join(args.data_path, 'val')
         dataset, dataset_test, train_sampler, test_sampler = load_data(train_dir, val_dir,
                                                                        args.cache_dataset, args.distributed)
+        if args.workers > 0:
+            torch.cuda.current_device = lambda: None
+            torch.cuda.set_device = lambda x: None
         data_loader = torch.utils.data.DataLoader(
             dataset, batch_size=args.batch_size,
             sampler=train_sampler, num_workers=args.workers, worker_init_fn=dl_worker_init_fn(seed), pin_memory=True, drop_last=True)
