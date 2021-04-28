@@ -1109,14 +1109,12 @@ void NarrowOperator::AllocateAndAddSynapseNode(
   inputs.emplace_back(IValue(1));
   SliceOperator::AllocateAndAddSynapseNode(graph, inputs, is_output_persistent);
 }
-
-Tensor SliceOperator::AllocateOutputTensor(
+std::vector<int64_t> SliceOperator::compute_output_shape(
     const Tensor& self,
     int64_t& dim,
     int64_t& start,
     int64_t& end,
-    int64_t& step,
-    bool is_output_persistent) {
+    int64_t& step) {
   // convert dim to positive value if required
   dim = at::maybe_wrap_dim(dim, self.dim(), /*wrap_scalar=*/true);
   auto sizes = self.sizes().vec();
@@ -1142,9 +1140,20 @@ Tensor SliceOperator::AllocateOutputTensor(
   for (auto i = start; i < end; i += step) {
     len++;
   }
-  auto shape = DimVector(self.sizes());
+  auto shape = self.sizes().vec();
   shape.erase(shape.begin() + dim);
   shape.insert(shape.begin() + dim, len);
+
+  return shape;
+}
+Tensor SliceOperator::AllocateOutputTensor(
+    const Tensor& self,
+    int64_t& dim,
+    int64_t& start,
+    int64_t& end,
+    int64_t& step,
+    bool is_output_persistent) {
+  auto shape = compute_output_shape(self, dim, start, end, step);
 
   // allocate output tensor
   auto output = habana_helpers::createPTTensor(

@@ -244,6 +244,12 @@ struct hpu_wrap {
       const at::Tensor& value,
       bool accumulate);
   static at::Tensor index(const at::Tensor& self, at::TensorList indices);
+  static at::Tensor& _index_put_impl_(
+      at::Tensor& self,
+      at::TensorList indices,
+      const at::Tensor& value,
+      const bool accumulate,
+      const bool unsafe);
   static at::Tensor& index_put_(
       at::Tensor& self,
       at::TensorList indices,

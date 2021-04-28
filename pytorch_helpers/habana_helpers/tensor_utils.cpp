@@ -995,3 +995,14 @@ size_t habana_helpers::hash_combine_scalars(
   }
   return hash_code;
 }
+
+void habana_helpers::recalc_strides(
+    std::vector<int64_t>& self_strides,
+    const std::vector<int64_t>& self_sizes) {
+  int k;
+  self_strides[self_strides.size() - 1] = 1;
+  for (k = self_strides.size() - 2; k >= 0; k--) {
+    self_strides[k] = self_strides[k + 1] * self_sizes[k + 1];
+  }
+  return;
+}

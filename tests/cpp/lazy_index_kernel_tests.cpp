@@ -139,7 +139,7 @@ TEST_F(LazyIndexKernelTest, ArangeIntOutTest) {
 
 TEST_F(LazyIndexKernelTest, IndexTest) {
   torch::Tensor input_cpu = torch::arange(9).reshape({3, 3});
-  torch::Tensor input_hpu = input_cpu.to(torch::kFloat).to(torch::kHABANA);
+  torch::Tensor input_hpu = input_cpu.to(torch::kHABANA);
 
   std::vector<torch::Tensor> vec_cpu{
       torch::tensor({0, 1}), torch::tensor({0, 1})};
@@ -148,7 +148,7 @@ TEST_F(LazyIndexKernelTest, IndexTest) {
     vec_hpu.push_back(t.to(torch::kInt32).to(torch::kHABANA));
   }
 
-  auto out_cpu = at::index(input_cpu, vec_cpu).to(torch::kFloat);
+  auto out_cpu = at::index(input_cpu, vec_cpu).to(torch::kInt32);
   auto out_hpu = at::index(input_hpu, vec_hpu);
 
   bool equal = out_cpu.allclose(out_hpu.to(torch::kCPU), 0.001, 0.001);

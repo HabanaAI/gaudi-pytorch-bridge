@@ -14,6 +14,7 @@
 #include <cstdlib>
 #include <ctime>
 #include "habana_helpers/logging.h"
+#include "habana_helpers/tensor_utils.h"
 #include "habana_kernels/aten_hpu_type_default.h"
 #include "habana_kernels/basic_kernels.h"
 #include "habana_kernels/binary_kernels.h"
@@ -287,6 +288,9 @@ Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
         at::IntArrayRef chl_pos = dim_chl_pos;
         self = permute_cl_hpu_lazy(src, chl_pos);
       } else if (!permuted) {
+        if (hb_tensor.getTensorUniqueId() == hlresult.getTensorUniqueId()) {
+          return self;
+        }
         node = habana_lazy::ir::Node::Create(
             Symbol::fromQualString("hpu::habana_d2d_memcpy_other"),
             {hb_tensor.GetIrValue(), hlresult.GetIrValue()});
@@ -346,6 +350,9 @@ Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
         self = permute_cl_hpu_lazy(src, chl_pos);
       } else if (!permuted || storage_attached) {
         if (storage_attached) {
+          if (hb_tensor.getTensorUniqueId() == hlresult.getTensorUniqueId()) {
+            return self;
+          }
           node = habana_lazy::ir::Node::Create(
               Symbol::fromQualString("hpu::habana_d2d_memcpy_other"),
               {hb_tensor.GetIrValue(), hlresult.GetIrValue()});
@@ -832,7 +839,11 @@ Tensor& set_hpu_lazy_(
 Tensor view_hpu_lazy(const Tensor& self, IntArrayRef size) {
   PT_LAZY_TRACE;
 
-  auto inferred_size = at::infer_size(size, static_cast<int64_t>(self.numel()));
+  int64_t sum_elm = 1;
+  for (auto& i : self.sizes()) {
+    sum_elm *= i;
+  }
+  auto inferred_size = at::infer_size(size, static_cast<int64_t>(sum_elm));
   habana_lazy::ir::NodePtr node =
       std::make_shared<habana_lazy::ir::View>(self, inferred_size);
   // View is internally handled as reshape and we get a new tensor as output
@@ -1756,6 +1767,7 @@ Tensor& scatter_inplace_value_hpu_lazy(
     const Tensor& index,
     Scalar value) {
   PT_LAZY_TRACE;
+
   auto hl_self = habana_lazy::GetHbLazyTensor(self);
   auto node =
       std::make_shared<habana_lazy::ir::ScatterValue>(self, dim_, index, value);
@@ -1815,6 +1827,12 @@ Tensor& scatter_add_inplace_src_hpu_lazy(
 }
 Tensor index_hpu_lazy(const at::Tensor& self, at::TensorList indices) {
   PT_LAZY_TRACE;
+  // fallback to cpu for boolean indexing
+  // https://jira.habana-labs.com/browse/SW-37171
+  if (indices[0].scalar_type() == c10::ScalarType::Bool) {
+    return AtenHpuTypeDefault::index(self, indices);
+  }
+  // cast input to fp32, int32 not supported yet
   habana_lazy::HbLazyTensor hl_self =
       habana_lazy::GetOrCreateHbLazyTensor(self, self.device());
   at::Tensor self_cast = self;
@@ -1831,7 +1849,6 @@ Tensor index_hpu_lazy(const at::Tensor& self, at::TensorList indices) {
     out.m_index = 0;
     out.SetNode(node);
   }
-
   LazyOp<at::Tensor> k{
       "aten::index",
       {self_cast, indices},
@@ -1840,10 +1857,17 @@ Tensor index_hpu_lazy(const at::Tensor& self, at::TensorList indices) {
   auto result = k.call();
 
   if (self.scalar_type() != c10::ScalarType::Float) {
-    auto node = std::make_shared<habana_lazy::ir::Cast>(
-        result, self.scalar_type(), true);
+    at::TensorOptions hb_options = self.options();
+    auto type = self.scalar_type();
+
+    if (self.scalar_type() == c10::ScalarType::Long) {
+      type = c10::ScalarType::Int;
+      hb_options = hb_options.dtype(c10::ScalarType::Int);
+    }
+    auto node = std::make_shared<habana_lazy::ir::Cast>(result, type, true);
     auto result_cast = at::native::empty_hpu_lazy(
-        result.sizes(), self.options(), self.suggest_memory_format(), false);
+        result.sizes(), hb_options, result.suggest_memory_format(), false);
+
     auto hl_cast = habana_lazy::GetHbLazyTensor(result_cast);
     habana_lazy::ir::Value& out = hl_cast.CurrentIrValue();
     out.m_index = 0;
@@ -1854,6 +1878,30 @@ Tensor index_hpu_lazy(const at::Tensor& self, at::TensorList indices) {
   }
   return result;
 }
+
+Tensor& _index_put_impl_hpu_lazy_(
+    Tensor& self,
+    TensorList indices,
+    const Tensor& value,
+    bool accumulate,
+    const bool unsafe) {
+  PT_LAZY_TRACE;
+  // index backward is not supported on hpu, indices needs to be
+  // bool, byte or long type for cpu fallback
+  if (indices[0].scalar_type() == c10::ScalarType::Int) {
+    auto tensorlist = indices.vec();
+    std::vector<Tensor> indices_long;
+    for (size_t i = 0; i < tensorlist.size(); i++) {
+      auto long_tensor = habana_helpers::cast_tensor_to_long(tensorlist[i]);
+      indices_long.push_back(long_tensor);
+    }
+    return AtenHpuTypeDefault::_index_put_impl_(
+        self, indices_long, value, accumulate, unsafe);
+  }
+  return AtenHpuTypeDefault::_index_put_impl_(
+      self, indices, value, accumulate, unsafe);
+}
+
 Tensor nonzero_hpu_lazy(const Tensor& self) {
   PT_LAZY_TRACE;
   auto input_shape = self.sizes();
@@ -2016,19 +2064,28 @@ Tensor gather2d_hpu_lazy(
   return gather2d_hpu(input, indices, validCount);
 }
 Tensor slice_hpu_lazy(
-    const Tensor& self,
+    const Tensor& self_in,
     int64_t dim,
     int64_t start,
     int64_t end,
     int64_t step) {
   PT_LAZY_TRACE;
-  if (self.dim() <= 1 && step == 1) {
-    return at::native::slice(self, dim, start, end, step);
+  if (self_in.dim() <= 1 && step == 1) {
+    return at::native::slice(self_in, dim, start, end, step);
+  }
+  // WA for https://jira.habana-labs.com/browse/SW-37197
+  auto self = self_in;
+  auto dim_orig = dim;
+  if ((dim == self_in.dim() - 1) && (step > 1)) {
+    self = transpose_hpu_lazy(self_in, self_in.dim() - 1, self_in.dim() - 2);
+    dim = self.dim() - 2;
   }
   auto node =
       std::make_shared<habana_lazy::ir::Slice>(self, dim, start, end, step);
 
-  auto result = slice_hpu(self, dim, start, end, step);
+  auto shape = SliceOperator::compute_output_shape(self, dim, start, end, step);
+  auto result = at::native::empty_hpu_lazy(
+      shape, self.options(), self.suggest_memory_format(), false);
   auto hl_result = habana_lazy::GetHbLazyTensor(result);
 
   // Handling the case for empty self tensor
@@ -2043,8 +2100,13 @@ Tensor slice_hpu_lazy(
   out.m_index = 0;
   out.SetNode(node);
   updateDstDependencies(hl_result, result);
-  flush_op(result);
-  return result;
+  auto output = result;
+  // WA for https://jira.habana-labs.com/browse/SW-37197
+  if ((dim_orig == self_in.dim() - 1) && (step > 1)) {
+    output = transpose_hpu_lazy(result, result.dim() - 1, result.dim() - 2);
+  }
+  flush_op(output);
+  return output;
 }
 
 Tensor select_hpu_lazy(const Tensor& self, int64_t dim, int64_t index) {
@@ -3068,17 +3130,32 @@ Tensor& mean_dim_out_hpu_lazy(
   return mean_dim_out_hpu(output, self, dim, keepdim, dtype);
 }
 
-Tensor sum_hpu_lazy(const Tensor& self, c10::optional<ScalarType> dtype) {
+Tensor sum_hpu_lazy(const Tensor& self_in, c10::optional<ScalarType> dtype) {
+  PT_LAZY_TRACE;
+  auto self = self_in;
+  // Cast Boolean/Char (I8) inputs to Float since TPC kernel supports only f32
+  if (self_in.scalar_type() == c10::ScalarType::Bool ||
+      self_in.scalar_type() == c10::ScalarType::Char) {
+    c10::ScalarType dst_dtype = c10::ScalarType::Float;
+    self = at::native::empty_hpu_lazy(
+        self_in.sizes(),
+        self_in.options().dtype(dst_dtype),
+        self_in.suggest_memory_format(),
+        false);
+    self = copy_hpu_lazy_(self, self_in, true);
+  }
+
   habana_lazy::ir::NodePtr node =
       std::make_shared<habana_lazy::ir::Sum>(self, dtype);
-  PT_LAZY_TRACE;
-  auto result = sum_hpu(self, dtype);
+  auto result = at::native::empty_hpu_lazy(
+      {0}, self.options(), self.suggest_memory_format(), false);
   auto hl_result = habana_lazy::GetHbLazyTensor(result);
   habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
   out.SetNode(node);
   updateDstDependencies(hl_result, result);
   flush_op(result);
+  result.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
   return result;
 }
 
@@ -3505,8 +3582,7 @@ Tensor transpose_hpu_lazy(const Tensor& self, int64_t dim0_, int64_t dim1_) {
 }
 
 Tensor& transpose_hpu_lazy_(Tensor& self, int64_t dim0_, int64_t dim1_) {
-  HABANA_ASSERT(0);
-  return transpose_hpu_(self, dim0_, dim1_);
+  return AtenHpuTypeDefault::transpose_(self, dim0_, dim1_);
 }
 
 Tensor t_hpu_lazy(const Tensor& self) {
@@ -3603,9 +3679,19 @@ Tensor expand_hpu_lazy(const Tensor& self, IntArrayRef size, bool implicit) {
   PT_LAZY_TRACE;
   habana_lazy::ir::NodePtr node =
       std::make_shared<habana_lazy::ir::Expand>(self, size, implicit);
-  auto shape_out = size;
-  auto result = at::native::empty_hpu_lazy(
-      shape_out, self.options(), self.suggest_memory_format(), false);
+
+  std::vector<int64_t> expandedSizes;
+  std::vector<int64_t> expandedStrides;
+  std::tie(expandedSizes, expandedStrides) =
+      at::inferExpandGeometry(self.sizes(), self.strides(), size);
+
+  // expandedStrides will be set to 0 by inferExpandGeometry.
+  // Since we give back a contiguous tensor, we will set strides
+  // to proper values.
+  habana_helpers::recalc_strides(expandedStrides, expandedSizes);
+
+  auto result = at::native::empty_strided_hpu_lazy(
+      expandedSizes, expandedStrides, self.options(), false);
   auto hl_result = habana_lazy::GetHbLazyTensor(result);
   habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;

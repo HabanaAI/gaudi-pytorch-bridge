@@ -323,17 +323,6 @@ Tensor& cat_hpu_out(
   return result;
 }
 
-inline void recalc_strides(
-    std::vector<int64_t>& self_strides,
-    const std::vector<int64_t>& self_sizes) {
-  int k;
-  self_strides[self_strides.size() - 1] = 1;
-  for (k = self_strides.size() - 2; k >= 0; k--) {
-    self_strides[k] = self_strides[k + 1] * self_sizes[k + 1];
-  }
-  return;
-}
-
 /****************************************************************************
  * @brief Kernel implementation for N-D out = torch.transpose(self,dim0,dim1)
  * @param self - input
@@ -359,7 +348,7 @@ std::tuple<std::vector<int64_t>, std::vector<int64_t>> TransposeOperator::
   std::swap(self_sizes[dim0], self_sizes[dim1]);
   // Recalculate the strides to account for transpose size changes
   // In effect, keep the tensor contiguous.
-  recalc_strides(self_strides, self_sizes);
+  habana_helpers::recalc_strides(self_strides, self_sizes);
   return std::make_tuple(self_sizes, self_strides);
 }
 
@@ -436,7 +425,7 @@ Tensor transpose_hpu(const Tensor& self, int64_t dim0_, int64_t dim1_) {
     std::swap(self_sizes[dim0], self_sizes[dim1]);
     // Recalculate the strides to account for transpose size changes
     // In effect, keep the tensor contiguous.
-    recalc_strides(self_strides, self_sizes);
+    habana_helpers::recalc_strides(self_strides, self_sizes);
     auto output = at::empty_strided(self_sizes, self_strides, self.options());
     Op.SetPTInputs(pt_inputs);
     Op.SetPTOutput(output);
@@ -493,7 +482,7 @@ Tensor& transpose_hpu_(Tensor& self, int64_t dim0_, int64_t dim1_) {
   std::swap(self_sizes[dim0], self_sizes[dim1]);
   // Recalculate the strides to account for transpose size changes
   // In effect, keep the tensor contiguous.
-  recalc_strides(self_strides, self_sizes);
+  habana_helpers::recalc_strides(self_strides, self_sizes);
   auto tht_result = self.unsafeGetTensorImpl();
   THHTensor_resizeNd(
       tht_result, self.dim(), self_sizes.data(), self_strides.data());
@@ -752,12 +741,12 @@ void ReshapeOperator::AllocateAndAddSynapseNode(
   auto shape_vector = shape.vec();
   auto input_shape = IntArrayRef(shape_vector.data(), shape_vector.size());
   auto inferred_size = at::infer_size(input_shape, self.numel());
+  auto memory_format = self.suggest_memory_format();
+  if (self.dim() < 4) {
+    memory_format = at::MemoryFormat::Contiguous;
+  }
   auto output = habana_helpers::createPTTensor(
-      self,
-      inferred_size,
-      self.options(),
-      self.suggest_memory_format(),
-      is_output_persistent);
+      self, inferred_size, self.options(), memory_format, is_output_persistent);
   TORCH_CHECK(
       self.numel() == output.numel(),
       "Reshape doesnt support change in number of elements: ",
@@ -896,7 +885,7 @@ void BroadcastOperator::AllocateAndAddSynapseNode(
   // expandedStrides will be set to 0 by inferExpandGeometry.
   // Since we give back a contiguous tensor, we will set strides
   // to proper values.
-  recalc_strides(expandedStrides, expandedSizes);
+  habana_helpers::recalc_strides(expandedStrides, expandedSizes);
   Tensor result;
   // remove if part causing issue, if broadcast is used as intermediate node
   // let gc handle the optimizatin if sizes equal

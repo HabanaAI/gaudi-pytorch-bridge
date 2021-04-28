@@ -928,13 +928,13 @@ at::Tensor HabanaLaunchOpPT::permuteTensor(
       // B: a subgraph output
       // The corresponding pt_tensor needs to kept within aten_intermediates.
       auto ivpsh = value_to_ivalue[value_in];
-      aten_intermediates.push_back(ivpsh->toTensor());
       if (!isInGraphOutputs(value_in)) {
         // Case A: The corresponding tinfo needs to be retained within
         // intermediate_tinfos.
         PtTensorInfo ti(
             ivpsh, permute_input_synname, value_in, watch_tensor_flag_);
         intermediate_tinfos.emplace_back(ti);
+        aten_intermediates.push_back(ivpsh->toTensor());
         PT_BRIDGE_DEBUG(
             "After adding tinfo ",
             intermediate_tinfos.back(),
@@ -946,19 +946,17 @@ at::Tensor HabanaLaunchOpPT::permuteTensor(
           // This used to be a graph output which has become an interim.
           // The corresponding tinfo needs to be moved from
           // output_tensorinfo_map to aten_intermediates.
-          TORCH_CHECK(
-              output_tensorinfo_map.count(ivpsh),
-              "output_tensorinfo_map does not contain tinfo for ",
-              out_tensor_syn.tensor_name_);
-
           auto it = output_tensorinfo_map.find(ivpsh);
-          intermediate_tinfos.push_back(it->second);
-          output_tensorinfo_map.erase(ivpsh);
-          PT_BRIDGE_DEBUG(
-              "After moving tinfo ",
-              intermediate_tinfos.back(),
-              " form output_tensorinfo_map to intermediate_tinfos #intermediates ",
-              intermediate_tinfos.size());
+          if (it != output_tensorinfo_map.end()) {
+            intermediate_tinfos.push_back(it->second);
+            aten_intermediates.push_back(ivpsh->toTensor());
+            output_tensorinfo_map.erase(ivpsh);
+            PT_BRIDGE_DEBUG(
+                "After moving tinfo ",
+                intermediate_tinfos.back(),
+                " form output_tensorinfo_map to intermediate_tinfos #intermediates ",
+                intermediate_tinfos.size());
+          }
         }
         // If tensor release is not enabled, output_tensorinfos store the
         // tinfos for both outputs and persistent intermediates.
@@ -1894,7 +1892,6 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
   if (std::getenv("PT_HPU_LAZY_MODE")) {
     runMetaDataAdjustmentPasses(jit_ir_graph->nodes());
   }
-
   for (auto* node : graph_nodes) {
     watch_tensor_flag_ = false;
     std::string opname(node->kind().toQualString());

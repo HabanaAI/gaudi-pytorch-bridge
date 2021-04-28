@@ -9,6 +9,7 @@
  */
 #include <torch/library.h>
 
+#include "habana_kernels/aten_hpu_type_default.h"
 #include "habana_kernels/eager_kernels_declarations.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_kernels/wrap_kernels_declarations.h"
@@ -921,6 +922,21 @@ Tensor hpu_wrap::index(const at::Tensor& self, at::TensorList indices) {
     return index_hpu(self, indices);
   }
 };
+
+Tensor& hpu_wrap::_index_put_impl_(
+    Tensor& self,
+    TensorList indices,
+    const Tensor& value,
+    const bool accumulate,
+    const bool unsafe) {
+  hpu_check_inputs("_index_put_impl_", {self, indices[0]});
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    return _index_put_impl_hpu_lazy_(self, indices, value, accumulate, unsafe);
+  } else {
+    return AtenHpuTypeDefault::_index_put_impl_(
+        self, indices, value, accumulate, unsafe);
+  }
+}
 
 Tensor hpu_wrap::index_select(
     const Tensor& self,

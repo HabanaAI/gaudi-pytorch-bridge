@@ -215,4 +215,8 @@ c10::MemoryFormat get_memory_format(std::vector<const at::Tensor*> pt_inputs);
 size_t hash_combine_scalars(
     size_t hash_code,
     at::ArrayRef<torch::jit::IValue> input_refs);
+
+void recalc_strides(
+    std::vector<int64_t>& self_strides,
+    const std::vector<int64_t>& self_sizes);
 } // namespace habana_helpers

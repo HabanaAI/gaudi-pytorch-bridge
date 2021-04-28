@@ -56,6 +56,12 @@ class SliceOperator : public HabanaOperator {
       int64_t& end,
       int64_t& step,
       bool is_output_persistent);
+  static std::vector<int64_t> compute_output_shape(
+      const Tensor& self,
+      int64_t& dim,
+      int64_t& start,
+      int64_t& end,
+      int64_t& step);
 };
 
 //

@@ -297,7 +297,12 @@ void ToDtypeOperator::AllocateAndAddSynapseNode(
 
   // Determine cast node_type to use based on src & dst dtypes
   std::string node_type;
-  if (type != self.scalar_type()) {
+
+  if ((type != self.scalar_type()) &&
+      !((type == c10::ScalarType::Char &&
+         self.scalar_type() == c10::ScalarType::Bool) ||
+        (type == c10::ScalarType::Bool &&
+         self.scalar_type() == c10::ScalarType::Char))) {
     std::pair<c10::ScalarType, c10::ScalarType> type_key{
         self.scalar_type(), type};
     auto iter = habana_helpers::cast_map.find(type_key);
