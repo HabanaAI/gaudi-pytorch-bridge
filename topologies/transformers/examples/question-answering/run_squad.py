@@ -210,6 +210,7 @@ def train(args, train_dataset, model, tokenizer, trainMetaData):
     epochs_trained = 0
     steps_trained_in_current_epoch = 0
     is_model_traced = False
+    loss_list = []
     trainMetaData.set_live_mem_alloc_logging(args.log_device_mem_alloc and args.use_habana)
     # Check if continuing training from a checkpoint
     if os.path.exists(args.model_name_or_path):
@@ -306,7 +307,9 @@ def train(args, train_dataset, model, tokenizer, trainMetaData):
                     inputs.update(
                         {"langs": (torch.ones(batch[0].shape, dtype=torch.int64) * args.lang_id).to(args.device)}
                     )
-            tp_probe_tensors_iteration_start(model, device, target, input_dict, trainMetaData.ParamsDump, False)
+
+            if args.logging_steps ==1:
+                tp_probe_tensors_iteration_start(model, device, target, input_dict, trainMetaData.ParamsDump, False)
             if args.use_jit_trace and is_model_traced == False:
                 model_trace = torch.jit.trace(model, (batch[0], batch[1], batch[2], position_ids, tensor_dummy, tensor_dummy, batch[3], batch[4], tensor_dummy, tensor_dummy), check_trace=False)
                 is_model_traced = True
@@ -350,7 +353,7 @@ def train(args, train_dataset, model, tokenizer, trainMetaData):
             if args.use_lazy_mode:
                 hb_torch.mark_step()
 
-            tr_loss += loss.item()
+            loss_list.append(loss)
             if (step + 1) % args.gradient_accumulation_steps == 0:
                 # Increment the global step
                 global_step += 1
@@ -373,8 +376,8 @@ def train(args, train_dataset, model, tokenizer, trainMetaData):
                                 torch.nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
                     else:
                         torch.nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
-
-                tp_probe_tensors_iteration_end(model, device, outputs[1].detach().to('cpu'), loss.item(), trainMetaData.ParamsDump, False)
+                if args.logging_steps ==1:
+                    tp_probe_tensors_iteration_end(model, device, outputs[1].detach().to('cpu'), loss.item(), trainMetaData.ParamsDump, False)
 
                 if args.use_habana and args.hmp and not(args.use_fused_adam):
                     from hmp import hmp
@@ -402,6 +405,8 @@ def train(args, train_dataset, model, tokenizer, trainMetaData):
 
                 # Log metrics
                 if args.local_rank in [-1, 0] and args.logging_steps > 0 and global_step % args.logging_steps == 0:
+                    for loss_t in loss_list :
+                        tr_loss += loss_t.item()
                     # Only evaluate when single GPU otherwise metrics may not average well
                     if args.local_rank == -1 and args.evaluate_during_training:
                         result = evaluate(args, model, tokenizer, trainMetaData)
@@ -415,6 +420,7 @@ def train(args, train_dataset, model, tokenizer, trainMetaData):
                     logging_loss = tr_loss
                     # Report the loss based on logging_steps frequency
                     logger.info("Global Step: %s, Loss: %s", global_step, average_loss)
+                    loss_list.clear()
 
                 # Save model checkpoint
                 if args.local_rank in [-1, 0] and args.save_steps > 0 and global_step % args.save_steps == 0:
