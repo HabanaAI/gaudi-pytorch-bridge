@@ -21,6 +21,8 @@ void updateDstDependencies(
     const at::Tensor& dst,
     bool in_place = false);
 
+void flushWithMarkStep();
+
 namespace habana_lazy {
 
 template <class F, class... Ts, std::size_t... Is>
@@ -91,6 +93,9 @@ class LazyOp {
     if (m_flush_op) {
       HbLazyTensor::SyncTensorsGraph(&hl_tensors);
     }
+    if (m_random_flush) {
+      flushWithMarkStep();
+    }
 
     return results;
   }
@@ -107,6 +112,9 @@ class LazyOp {
     if (m_flush_op) {
       std::vector<HbLazyTensor> hl_tensors = {hl_result};
       HbLazyTensor::SyncTensorsGraph(&hl_tensors);
+    }
+    if (m_random_flush) {
+      flushWithMarkStep();
     }
     return result;
   }
@@ -128,6 +136,9 @@ class LazyOp {
     if (m_flush_op) {
       std::vector<HbLazyTensor> hl_tensors = {hl_self};
       HbLazyTensor::SyncTensorsGraph(&hl_tensors);
+    }
+    if (m_random_flush) {
+      flushWithMarkStep();
     }
     return self;
   }
@@ -278,6 +289,8 @@ class LazyOp {
   // a eager way of executing using lazy infrastructure.
   const bool m_flush_op = std::getenv("PT_HPU_LAZY_MODE") &&
       *std::getenv("PT_HPU_LAZY_MODE") == '2';
+  const bool m_random_flush = std::getenv("PT_HPU_LAZY_MODE") &&
+      *std::getenv("PT_HPU_LAZY_MODE") == '3';
 };
 
 template <typename ReturnType>

@@ -11,6 +11,8 @@
 #include "habana_kernels/lazy_kernels.h"
 #include <ATen/InferSize.h>
 #include <bitset>
+#include <cstdlib>
+#include <ctime>
 #include "habana_helpers/logging.h"
 #include "habana_kernels/aten_hpu_type_default.h"
 #include "habana_kernels/basic_kernels.h"
@@ -73,17 +75,49 @@ using namespace habana_lazy;
     return k.call();                                        \
   }
 
+void flushWithMarkStep() {
+  // Generate a random number and invoke the mark_step
+  static std::once_flag flag;
+  std::call_once(flag, [&]() { srand((unsigned)time(0)); });
+
+  // Generate a random number between 1 - 100
+  auto rand_num = rand() % 100 + 1;
+
+  // By default, we want to trigger 50% of the time
+  auto aggressiveness = 50;
+  if (const auto envp =
+          std::getenv("INTERNAL_PT_HPU_LAZY_MARK_STEP_TEST_TRIGGER")) {
+    aggressiveness = std::stoul(envp, nullptr, 10);
+    // Cap the trigger to at least 1% to at most 100%
+    if (aggressiveness < 1) {
+      aggressiveness = 0;
+    } else if (aggressiveness > 100) {
+      aggressiveness = 100;
+    }
+  }
+  if (rand_num < aggressiveness) {
+    PT_LAZY_DEBUG("Triggering a mark_step");
+    HbLazyTensor::StepMarker({});
+  }
+}
+
 // For the ops that don't use LazyOp to construct nodes.
 // Remove when all ops move to LazyOp style.
 static void flush_op(at::TensorList tensors) {
-  if (std::getenv("PT_HPU_LAZY_MODE") &&
-      *std::getenv("PT_HPU_LAZY_MODE") == '2') {
+  static const bool m_flush_op = std::getenv("PT_HPU_LAZY_MODE") &&
+      *std::getenv("PT_HPU_LAZY_MODE") == '2';
+  static const bool m_random_flush = std::getenv("PT_HPU_LAZY_MODE") &&
+      *std::getenv("PT_HPU_LAZY_MODE") == '3';
+
+  if (m_flush_op) {
     std::vector<HbLazyTensor> hl_tensors;
     hl_tensors.reserve(tensors.size());
     for (const auto& t : tensors) {
       hl_tensors.push_back(GetOrCreateHbLazyTensor(t));
     }
     HbLazyTensor::SyncTensorsGraph(&hl_tensors);
+  } else if (m_random_flush) {
+    flushWithMarkStep();
   }
 }
 

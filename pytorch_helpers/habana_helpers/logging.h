@@ -87,6 +87,14 @@ class PtLogger {
     } else {
       // enable fatal errors and warnings by default
       type_mask_ = TypeMask::FATAL + TypeMask::WARNING;
+      // Always set the debug logs for lazy and bridge so that
+      // we get the detailed info on the graphs etc that was launched
+      // when something fails and can be reproduced manually
+      if (const auto envp = std::getenv("PT_HPU_LAZY_MODE")) {
+        if (3 == std::stoul(envp, nullptr, 10)) {
+          type_mask_ += TypeMask::DEBUG;
+        }
+      }
     }
   }
 
