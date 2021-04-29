@@ -3689,7 +3689,8 @@ std::tuple<Tensor, Tensor> topk_hpu_lazy(
    private:
     T get_result_overrideable() override {
       auto shape_out = self.sizes().vec();
-      shape_out[dim] = k;
+      int64_t dim_ = c10::maybe_wrap_dim(dim, self.dim(), /*wrap_scalar=*/true);
+      shape_out[dim_] = k;
       auto type =
           self.scalar_type() == c10::ScalarType::BFloat16 ? kShort : kInt;
 
