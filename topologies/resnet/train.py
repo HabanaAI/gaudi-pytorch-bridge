@@ -59,7 +59,7 @@ def train_model(model, criterion, optimizer, image, target, trainMetaData, apex,
     if lazy_mode:
         hb_torch.mark_step()
 
-   return loss, output
+    return loss, output
 
 def train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, print_freq, trainMetaData, apex=False):
     model.train()
