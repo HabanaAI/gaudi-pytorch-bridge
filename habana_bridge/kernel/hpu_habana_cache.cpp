@@ -108,16 +108,26 @@ std::ostream& operator<<(std::ostream& O, const RecipeValueSpec& v) {
     << synapse_helpers::get_mem_str(v.launch_info->workspace_buffer_size_)
     << '\n';
 
-  O << " #inputs                        : " << v.num_inputs << '\n'
-    << " #induplicates                  : " << v.num_induplicates << '\n'
+  O << " #inputs                        : " << v.num_inputs << '\n';
+
+  O << " #aten_outputs                  : ";
+  if (v.aten_outputs) {
+    O << v.aten_outputs->size() << '\n';
+  } else {
+    O << "not populated yet" << '\n';
+  }
+
+  O << " #induplicates                  : " << v.num_induplicates << '\n'
     << " #dma_inputs                    : " << v.num_dma_inputs << '\n'
-    << " #interims                      : " << v.num_intermediates << '\n'
+    << " #intermediates                 : " << v.num_intermediates << '\n'
     << " #outputs                       : " << v.num_outputs << '\n'
     << " #outduplicates                 : " << v.num_outduplicates << '\n'
     << " #input_to_outduplicates        : " << v.num_input_to_outduplicates
     << '\n'
     << " #intermediate_to_outduplicates : "
-    << v.num_intermediate_to_outduplicates << '\n';
+    << v.num_intermediate_to_outduplicates << '\n'
+    << " #output_to_outduplicates       : " << v.num_output_to_outduplicates
+    << '\n';
 
   if (v.aten_dma_inputs.size()) {
     O << "aten_dma_inputs #" << v.aten_dma_inputs.size() << " ::";

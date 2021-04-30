@@ -163,6 +163,7 @@ struct RecipeValueSpec {
   size_t num_outduplicates{0};
   size_t num_input_to_outduplicates{0};
   size_t num_intermediate_to_outduplicates{0};
+  size_t num_output_to_outduplicates{0};
 
   size_t ntensorbytes{0};
 

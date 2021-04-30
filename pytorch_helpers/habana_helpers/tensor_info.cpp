@@ -13,6 +13,10 @@ void PtTensorInfo::populate_tinfo(
   oss << pt_tensor.sizes();
   shape_str_ = oss.str();
 
+  oss.str(std::string());
+  oss << pt_tensor.strides();
+  strides_str_ = oss.str();
+
   buffer_ = pt_tensor.data_ptr();
   numel_ = pt_tensor.numel();
   size_ = pt_tensor.nbytes();
@@ -21,6 +25,7 @@ void PtTensorInfo::populate_tinfo(
   dma_cb_ = dma_cb;
 
   shape_ = pt_tensor.sizes().vec();
+  strides_ = pt_tensor.strides().vec();
   topts_ = pt_tensor.options();
   mf_ = pt_tensor.suggest_memory_format();
 
@@ -54,8 +59,8 @@ PtTensorInfo::PtTensorInfo(
 std::ostream& operator<<(std::ostream& O, const PtTensorInfo& t) {
   O << '<' << t.get_ir_name();
   if (t.is_tensor()) {
-    O << ':' << t.get_shape_str() << ':' << t.get_numel() << ':' << '('
-      << t.get_size() << " b)"
+    O << ':' << t.get_shape_str() << ':' << t.get_strides_str() << ':'
+      << t.get_numel() << ':' << '(' << t.get_size() << " b)"
       << " :: " << t.get_syn_name() << ':' << t.get_buffer() << '>';
 
     if (t.get_dma_cb() != nullptr) {

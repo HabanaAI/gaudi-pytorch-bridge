@@ -595,6 +595,7 @@ void HabanaLaunchOpPT::ProcessPersistentNodeOutput(
   //       output.
   //       Add it to duplicate_intermediate_to_outtinfo_map with
   //       enable_tensor_release_
+  //    D: It is a duplicate of an existing output
 
   TORCH_CHECK(
       output_idx < node_outputs.size(),
@@ -659,10 +660,16 @@ void HabanaLaunchOpPT::ProcessPersistentNodeOutput(
             "Adding to duplicate_intermediate_to_outtinfo_map ",
             ti.get_buffer());
         duplicate_intermediate_to_outtinfo_map.emplace(ivpsh, ti);
+      } else if (buff_to_output_ivpsh_map.count(buffp)) {
+        // Case 2.D: Graph output that is duplicate of a previous output
+        PT_BRIDGE_DEBUG(
+            "Adding to duplicate_output_to_outtinfo_map ", ti.get_buffer());
+        duplicate_output_to_outtinfo_map.emplace(ivpsh, ti);
       } else {
         // Case 2.A: graph output tensor, enable_tensor_release_
         PT_BRIDGE_DEBUG("Adding to output_tensorinfo_map ", ti.get_buffer());
         output_tensorinfo_map.emplace(ivpsh, ti);
+        buff_to_output_ivpsh_map.emplace(buffp, ivpsh);
       }
     }
   }
@@ -1609,6 +1616,9 @@ void HabanaLaunchOpPT::OrderOutputTinfos(RecipeValueSpec& rv) {
       } else if (duplicate_intermediate_to_outtinfo_map.count(ivpsh)) {
         auto it_dup = duplicate_intermediate_to_outtinfo_map.find(ivpsh);
         it_dup->second.set_output_index(output_idx);
+      } else if (duplicate_output_to_outtinfo_map.count(ivpsh)) {
+        auto it_dup = duplicate_output_to_outtinfo_map.find(ivpsh);
+        it_dup->second.set_output_index(output_idx);
       } else {
         PT_BRIDGE_FATAL(
             "Unaccounted output at index ",
@@ -1714,10 +1724,10 @@ void HabanaLaunchOpPT::OrderOutputTinfos(RecipeValueSpec& rv) {
     }
   }
 
-  nduplicates = 0;
   // Link the inout tivs with the duplicate
   // These are tensors that are duplicated from an input and is part
   // of the graph output
+  nduplicates = 0;
   for (auto& mi : duplicate_input_to_outtinfo_map) {
     auto ivpsh = mi.first;
     auto& ti = mi.second;
@@ -1745,10 +1755,10 @@ void HabanaLaunchOpPT::OrderOutputTinfos(RecipeValueSpec& rv) {
 
   rv.num_input_to_outduplicates = nduplicates;
 
-  nduplicates = 0;
   // Link the out tivs which are duplicate of persistent intermediates
   // These are tensors that are duplicated from a persistent interim and is
   // part of the graph output
+  nduplicates = 0;
   for (auto& mi : duplicate_intermediate_to_outtinfo_map) {
     auto ivpsh = mi.first;
     auto& ti = mi.second;
@@ -1774,6 +1784,38 @@ void HabanaLaunchOpPT::OrderOutputTinfos(RecipeValueSpec& rv) {
     nduplicates++;
   }
   rv.num_intermediate_to_outduplicates = nduplicates;
+
+  // Link the out tivs which are duplicate of actual outputs
+  // These are tensors that are duplicated from outputs created by individual
+  // ops using aten::empty like calls and is part of the graph output
+  nduplicates = 0;
+  for (auto& mi : duplicate_output_to_outtinfo_map) {
+    auto ivpsh = mi.first;
+    auto& ti = mi.second;
+    auto it_parent = buff_to_outputtinfoidx_map.find(ti.get_buffer());
+    TORCH_CHECK(
+        buff_to_outputtinfoidx_map.end() != it_parent,
+        "parent tinfo is missing for output_to_out duplicate");
+    ti.set_duplicate_flag(true);
+    auto parent_idx = it_parent->second;
+    TORCH_CHECK(
+        parent_idx >= outputs_start && parent_idx < outputs_end,
+        parent_idx < rv.num_inputs,
+        "for out_to_out duplicate ",
+        ti.get_syn_name(),
+        "parent index ",
+        parent_idx,
+        " should be within [",
+        outputs_start,
+        ',',
+        outputs_end,
+        ')');
+    ti.set_parent_index(parent_idx);
+    rv.dtensorinfos->push_back(ti);
+    nduplicates++;
+  }
+  rv.num_output_to_outduplicates = nduplicates;
+
   rv.num_tinfos = rv.dtensorinfos->size();
 }
 
@@ -2019,7 +2061,8 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
   // intermediates, outputs and output duplicates are populated
   auto total_tinfos = rv.num_inputs + rv.num_induplicates + rv.num_dma_inputs +
       rv.num_intermediates + rv.num_outputs + rv.num_outduplicates +
-      rv.num_input_to_outduplicates + rv.num_intermediate_to_outduplicates;
+      rv.num_input_to_outduplicates + rv.num_intermediate_to_outduplicates +
+      rv.num_output_to_outduplicates;
 
   TORCH_CHECK(
       total_tinfos == rv.dtensorinfos->size(),
@@ -2041,6 +2084,8 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
       rv.num_input_to_outduplicates,
       " num_intermediate_to_outduplicates ",
       rv.num_intermediate_to_outduplicates,
+      " num_output_to_outduplicates ",
+      rv.num_output_to_outduplicates,
       " are not adding up to #dtensorinfos ",
       rv.dtensorinfos->size());
 
@@ -2131,6 +2176,8 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
         rv.num_input_to_outduplicates,
         "\n num_intermediate_to_outduplicates ",
         rv.num_intermediate_to_outduplicates,
+        "\n num_output_to_outduplicates ",
+        rv.num_output_to_outduplicates,
         "\n #hits ",
         device.get_recipe_handle_cache().getHitCount(rv.key),
         "\n #graph_recipes ",
@@ -2245,6 +2292,7 @@ void HabanaLaunchOpPT::clear() {
   meta_syn_tensors.clear();
   buff_to_input_ivpsh_map.clear();
   buff_to_intermediate_ivpsh_map.clear();
+  buff_to_output_ivpsh_map.clear();
 
   num_tensor_inputs = 0;
 }
@@ -2486,11 +2534,14 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
         // The aten_output_num is the total number of outputs
         size_t aten_output_num = rv.num_outputs +
             rv.num_input_to_outduplicates +
-            rv.num_intermediate_to_outduplicates;
+            rv.num_intermediate_to_outduplicates +
+            rv.num_output_to_outduplicates;
+
         rv.aten_outputs = std::make_shared<std::vector<IValPtrShared>>(
             std::vector<IValPtrShared>(aten_output_num));
 
         // Patch outputs
+        std::unordered_map<size_t, IValPtrShared> outputIVpshMap;
         size_t outputs_end = intermediates_end + rv.num_outputs;
         for (; ridx < outputs_end; ridx++) {
           PtTensorInfo& ti = rv.dtensorinfos->at(ridx);
@@ -2509,6 +2560,8 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
                 pt_output.sizes());
             IValPtrShared ivpsh = std::make_shared<IVal>(pt_output);
             rv.aten_outputs->at(output_idx) = ivpsh;
+
+            outputIVpshMap.emplace(ridx, ivpsh);
 
             // Patch the buffer for the output
             ti.set_buffer(pt_output.data_ptr());
@@ -2608,6 +2661,53 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
             ridx,
             " mismatch with interim_to_outduplicates_end ",
             interim_to_outduplicates_end);
+
+        // Patch the output duplicates if there are any
+        size_t output_to_outduplicates_end =
+            interim_to_outduplicates_end + rv.num_output_to_outduplicates;
+        if (rv.num_output_to_outduplicates) {
+          for (; ridx < output_to_outduplicates_end; ridx++) {
+            PtTensorInfo& ti = rv.dtensorinfos->at(ridx);
+            auto output_idx = ti.get_output_index();
+            TORCH_CHECK(
+                output_idx < aten_output_num,
+                "output index ",
+                output_idx,
+                " is greater than #outputs ",
+                aten_output_num);
+
+            size_t parent_idx = ti.get_parent_index();
+            auto ivpsh_parent = outputIVpshMap[parent_idx];
+            auto parent_tensor = ivpsh_parent->toTensor();
+            ti.set_buffer(rv.dtensorinfos->at(parent_idx).get_buffer());
+
+            auto& pt_sizes{ti.get_shape()};
+            auto& pt_strides{ti.get_strides()};
+
+            long int pt_offset = 0;
+            auto pt_opt_offset = c10::make_optional(pt_offset);
+
+            at::Tensor pt_output;
+            pt_output = at::as_strided(
+                parent_tensor, pt_sizes, pt_strides, pt_opt_offset);
+            IValPtrShared ivpsh = std::make_shared<IVal>(pt_output);
+
+            TORCH_CHECK(
+                outputIVpshMap.count(parent_idx),
+                "Actual output with idx ",
+                parent_idx,
+                " not found in outputIVpshMap");
+            // rv.aten_outputs->at(output_idx) = outputIVpshMap[parent_idx];
+            rv.aten_outputs->at(output_idx) = ivpsh;
+          }
+        }
+
+        TORCH_CHECK(
+            ridx == output_to_outduplicates_end,
+            "tensor info idx ",
+            ridx,
+            " mismatch with output_to_outduplicates_end ",
+            output_to_outduplicates_end);
 
         TORCH_CHECK(
             ridx == rv.num_tinfos,

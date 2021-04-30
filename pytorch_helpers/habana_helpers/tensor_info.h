@@ -99,6 +99,9 @@ class PtTensorInfo {
   const std::string& get_shape_str() const {
     return shape_str_;
   }
+  const std::string& get_strides_str() const {
+    return strides_str_;
+  }
   unsigned get_numel() const {
     return numel_;
   }
@@ -119,6 +122,9 @@ class PtTensorInfo {
   friend std::ostream& operator<<(std::ostream& O, const PtTensorInfo& t);
   const std::vector<int64_t>& get_shape() const {
     return shape_;
+  };
+  const std::vector<int64_t>& get_strides() const {
+    return strides_;
   };
   const c10::TensorOptions& get_topts() const {
     return topts_;
@@ -147,6 +153,7 @@ class PtTensorInfo {
   std::string ir_name_;
   std::string syn_name_;
   std::string shape_str_;
+  std::string strides_str_;
 
   unsigned numel_{0};
   unsigned size_{0};
@@ -158,6 +165,7 @@ class PtTensorInfo {
   bool watch_ = false;
 
   std::vector<int64_t> shape_;
+  std::vector<int64_t> strides_;
   c10::TensorOptions topts_;
   c10::MemoryFormat mf_;
 

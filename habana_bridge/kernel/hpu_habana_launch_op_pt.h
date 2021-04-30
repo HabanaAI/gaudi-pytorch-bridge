@@ -109,6 +109,7 @@ class HabanaLaunchOpPT {
       duplicate_tivs;
   std::unordered_map<void*, IValPtrShared> buff_to_input_ivpsh_map;
   std::unordered_map<void*, IValPtrShared> buff_to_intermediate_ivpsh_map;
+  std::unordered_map<void*, IValPtrShared> buff_to_output_ivpsh_map;
   std::vector<PtTensorInfo> duplicate_outtinfos;
 
   size_t dma_input_idx{0};
@@ -150,6 +151,7 @@ class HabanaLaunchOpPT {
   IValPtrSharedToTesorInfoMap output_tensorinfo_map;
   IValPtrSharedToTesorInfoMap duplicate_input_to_outtinfo_map;
   IValPtrSharedToTesorInfoMap duplicate_intermediate_to_outtinfo_map;
+  IValPtrSharedToTesorInfoMap duplicate_output_to_outtinfo_map;
 
   // caching :: end
 
