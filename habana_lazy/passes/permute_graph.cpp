@@ -79,14 +79,12 @@ void WeightIdentificationPass::markOutputs(const torch::jit::Value* in) {
 
     // TODO: check if its binary/unary ops & then mark
     std::string node_str = node->kind().toQualString();
-    if ((node_str == "aten::convolution_backward_overrideable") ||
-        (node_str == "aten::convolution_overrideable")) {
-      continue;
-    }
-    for (auto& out : node->outputs()) {
-      if (!weightTensors.count(out)) {
-        weightTensors.insert(out);
-        markOutputs(out);
+    if (0 == kernelWeightIdx.count(node_str)) {
+      for (auto& out : node->outputs()) {
+        if (!weightTensors.count(out)) {
+          weightTensors.insert(out);
+          markOutputs(out);
+        }
       }
     }
   }

@@ -109,7 +109,7 @@ bool canReplaceOp(const std::shared_ptr<Graph>& graph, const Node* node) {
   return true;
 }
 
-void replace_ops(
+void replace_inplace_ops(
     std::shared_ptr<Graph>& graph,
     const std::vector<Node*>& nodes) {
   for (auto& node : nodes) {
@@ -144,7 +144,7 @@ void replace_inplace_ops(std::shared_ptr<Graph>& graph) {
     }
   }
 
-  replace_ops(graph, inplace_ops);
+  replace_inplace_ops(graph, inplace_ops);
 }
 
 }; // namespace habana_lazy
