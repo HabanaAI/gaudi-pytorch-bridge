@@ -3095,13 +3095,30 @@ std::tuple<Tensor, Tensor> fused_dropout_hpu_lazy(
     double p,
     c10::optional<Generator> gen) {
   PT_LAZY_TRACE;
-  auto res = fused_dropout_hpu(self, p, gen);
-  using T = std::tuple<at::Tensor, at::Tensor>;
-  FusedDropout<T> k(
-      {self, p, std::move(gen)}, {1, 2} // metadata_indices
-  );
+  struct FusedDropout : LazyOp<std::tuple<Tensor, Tensor>> {
+    FusedDropout(const Tensor& self, double p, c10::optional<Generator> gen)
+        : LazyOp<std::tuple<Tensor, Tensor>>(
+              "aten::_fused_dropout",
+              {self, p, std::move(gen)},
+              {},
+              {},
+              -1) {}
 
-  return k.call();
+    std::tuple<Tensor, Tensor> get_result_overrideable() override {
+      auto t = get_inputs().at(0).toTensor();
+      at::Tensor result0 = at::native::empty_hpu_lazy(
+          t.sizes(), t.options(), t.suggest_memory_format(), false);
+      at::Tensor result1 = at::native::empty_hpu_lazy(
+          t.sizes(),
+          t.options().dtype(c10::ScalarType::Char),
+          t.suggest_memory_format(),
+          false);
+      return {result0, result1};
+    }
+  };
+
+  FusedDropout op(self, p, std::move(gen));
+  return op.call();
 }
 
 at::Tensor repeat_hpu_lazy(const at::Tensor& self, at::IntArrayRef repeats) {
