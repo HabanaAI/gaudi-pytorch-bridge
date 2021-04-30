@@ -653,7 +653,6 @@ def main():
     global timeout_sent
 
     args = parse_arguments()
-
     if args.use_lazy_mode:
         os.environ["PT_HPU_LAZY_MODE"] = "1"
         sys.path.insert(0, os.path.join(os.environ['PYTORCH_MODULES_RELEASE_BUILD']))
@@ -661,13 +660,11 @@ def main():
             import hb_torch
         except ImportError:
             assert False, "Could Not import hb_torch"
-
     random.seed(args.seed + args.local_rank)
     np.random.seed(args.seed + args.local_rank)
     torch.manual_seed(args.seed + args.local_rank)
     torch.cuda.manual_seed(args.seed + args.local_rank)
     worker_init = WorkerInitObj(args.seed + args.local_rank)
-
     device, args = setup_training(args)
     dllogger.log(step="PARAMETER", data={"Config": [str(args)]})
 
@@ -693,6 +690,7 @@ def main():
         epoch = 0
         training_steps = 0
         model_traced = False
+        loss_list = []
 
         if device.type == 'cuda':
             pool = ProcessPoolExecutor(1)
@@ -838,7 +836,7 @@ def main():
                     if args.use_lazy_mode:
                         hb_torch.mark_step()
 
-                    average_loss += loss.item()
+                    loss_list.append(loss)
                     tp_probe_tensors_iteration_end(model, device, loss, loss.item(), trainMetaData.ParamsDump, False, 0) #local rank
 
                     if training_steps % args.gradient_accumulation_steps == 0:
@@ -847,6 +845,11 @@ def main():
 
                         if args.use_lazy_mode:
                             hb_torch.mark_step()
+
+                    if global_step >= args.steps_this_run or timeout_sent or training_steps % (args.log_freq * args.gradient_accumulation_steps) == 0:
+                        for loss_t in loss_list:
+                            average_loss += loss_t.item()
+                        loss_list.clear()
 
                     if global_step >= args.steps_this_run or timeout_sent:
                         train_time_raw = time.time() - raw_train_start
