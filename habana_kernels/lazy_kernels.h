@@ -148,6 +148,12 @@ class LazyOp {
   }
 
  private:
+  bool isMetadataCandidate(const at::IValue& input) const {
+    return input.isBool() || input.isGenerator() || input.isDevice() ||
+        input.isIntList() || input.isDoubleList() || input.isBoolList() ||
+        input.isNone();
+  }
+
   template <typename T = ReturnType>
   typename std::enable_if<std::tuple_size<T>::value >= 2, ReturnType>::type
   get_result() {
@@ -241,8 +247,16 @@ class LazyOp {
         auto list_input = GetIrValueForListConstruct(hl_tensors);
         list_input.mp_node->AddInputPtTensors(list_input_pt_vec);
         values.emplace_back(list_input);
+      } else if (isMetadataCandidate(input)) {
+        metadata.set(input, i);
       } else {
-        PT_BRIDGE_FATAL("Got unhandled type at index ", i);
+        PT_BRIDGE_FATAL(
+            "Got unhandled type: ",
+            input.tagKind(),
+            " for ",
+            m_symbol.toQualString(),
+            " at index ",
+            i);
         HABANA_ASSERT(0);
       }
     }
