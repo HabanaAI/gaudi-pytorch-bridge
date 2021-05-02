@@ -98,7 +98,7 @@ void synapse_simple_generic_inplace_kernel(
       habana_helpers::compile_and_run(
           std::move(graph),
           habana_helpers::names(syn_helper_inputs),
-          {syn_helper_output.tensor_name_},
+          {syn_helper_output.name()},
           habana_helpers::extract_data_ptrs(pt_inputs),
           {pt_inputs[0].data_ptr()},
           habana_helpers::extract_storage_data_ptrs(pt_inputs),
@@ -191,7 +191,7 @@ void synapse_execute_inplace_kernel(
       habana_helpers::compile_and_run(
           std::move(graph),
           habana_helpers::names(syn_helper_inputs),
-          {syn_helper_output.tensor_name_},
+          {syn_helper_output.name()},
           habana_helpers::extract_data_ptrs(pt_inputs),
           {pt_inputs[0].data_ptr()},
           habana_helpers::extract_storage_data_ptrs(pt_inputs),

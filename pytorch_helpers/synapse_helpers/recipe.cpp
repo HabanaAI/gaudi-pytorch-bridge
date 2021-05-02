@@ -25,13 +25,34 @@
 #include "synapse_helpers/synapse_error.h"
 
 namespace synapse_helpers {
-recipe::recipe() = default;
+recipe::recipe(device& device) : device_{device} {}
 
 bool recipe::create(synapse_helpers::graph& graph) {
-  auto compile_result = graph.compile();
+  auto&& compile_result{graph.compile()};
+  if (ABSL_PREDICT_FALSE(
+          absl::holds_alternative<synapse_helpers::synapse_error>(
+              compile_result))) {
+    auto& error = absl::get<synapse_helpers::synapse_error>(compile_result);
+    PT_SYNHELPER_FATAL(
+        "syn compile encountered : ", error.error, " ", error.status);
+  }
   auto recipe_handle = get_value(std::move(compile_result));
   if (recipe_handle != nullptr) {
     recipe_handle_ = recipe_handle;
+    if (!graph.is_empty()) {
+      // first time, we need to get workspace size of the recipe, that was
+      // compiled
+      auto&& ws_size_result{
+          synapse_helpers::graph::query_workspace_size(*recipe_handle_)};
+      if (ABSL_PREDICT_FALSE(
+              absl::holds_alternative<synapse_helpers::synapse_error>(
+                  ws_size_result))) {
+        auto& error = absl::get<synapse_helpers::synapse_error>(ws_size_result);
+        PT_SYNHELPER_FATAL(
+            "syn query workspace failed: ", error.error, " ", error.status);
+      }
+      workspace_size_ = get_value(ws_size_result);
+    }
   }
   return (recipe_handle != nullptr);
 }
@@ -39,13 +60,6 @@ bool recipe::create(synapse_helpers::graph& graph) {
 std::shared_ptr<synapse_helpers::graph::recipe_handle> recipe::
     getRecipeHandle() {
   return recipe_handle_;
-}
-
-void recipe::create_launch_info() {
-  if (!launch_info_) {
-    launch_info_.emplace(recipe_handle_->device_);
-    synapse_helpers::graph::create_launch_info(*launch_info_, *recipe_handle_);
-  }
 }
 
 void recipe::set_inputs_outputs_names(
@@ -77,8 +91,8 @@ bool recipe::launch(
         DATA_TENSOR,
         {0}});
 
-  auto&& error_optional{
-      synapse_helpers::graph::launch(*launch_info_, *recipe_handle_, syn_info)};
+  auto&& error_optional{synapse_helpers::graph::launch(
+      device_, *recipe_handle_, workspace_size_, syn_info)};
   if (ABSL_PREDICT_FALSE(error_optional.has_value())) {
     auto& error = error_optional.value();
     PT_SYNHELPER_FATAL(

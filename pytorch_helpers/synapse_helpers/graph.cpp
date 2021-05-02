@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2020 HabanaLabs, Ltd.
+ * Copyright (C) 2020,2021 HabanaLabs, Ltd.
  * All Rights Reserved.
  *
  * Unauthorized copying of this file, via any medium is strictly prohibited.
@@ -8,24 +8,26 @@
  ******************************************************************************
  */
 #include "synapse_helpers/graph.h"
-
 #include <absl/strings/str_format.h>
 #include <absl/strings/str_join.h>
+#include <absl/types/optional.h>
+#include <absl/types/variant.h>
 #include <perf_lib_layer_params.h>
-#include <synapse.h>
 #include <synapse_api.h>
 #include <sys/stat.h>
-#include <cstdlib>
-
 #include <algorithm>
+#include <cstdlib>
+#include <iostream>
+#include <iterator>
 #include <ostream>
 #include <type_traits>
-
+#include "absl/container/flat_hash_set.h"
 #include "absl/memory/memory.h"
 #include "habana_helpers/logging.h"
 #include "synapse_helpers/device.h"
 #include "synapse_helpers/devmem_logger.h"
 #include "synapse_helpers/env_flags.h"
+#include "synapse_helpers/stream.h"
 #include "synapse_helpers/util.h"
 #include "util/time_measure.h"
 
@@ -72,44 +74,36 @@ GraphDirStaticMaker graph_dir_maker;
 
 } // namespace
 
+#define CHECK_KPARAMS_SIZE(name, size) \
+  static_assert(                       \
+      sizeof(name::Params) == size,    \
+      #name "::Params size has changed. Update TF code.");
+
+CHECK_KPARAMS_SIZE(ns_ConstantKernel, 4)
+CHECK_KPARAMS_SIZE(ns_Reduction, 4)
+CHECK_KPARAMS_SIZE(ns_SpatialReduction, 44)
+CHECK_KPARAMS_SIZE(ns_PadKernel, 44)
+CHECK_KPARAMS_SIZE(ns_TileKernel, 16)
+CHECK_KPARAMS_SIZE(ns_BatchNormKernel, 12)
+CHECK_KPARAMS_SIZE(ns_Softmax, 4)
+CHECK_KPARAMS_SIZE(ns_SoftmaxCrossEntropy, 8)
+
+#undef CHECK_KPARAMS_SIZE
+
 graph::graph(device& device, std::string name)
-    : device_{device},
-      name_{std::move(name)},
-      is_valid_{false},
-      in_build_phase_{true},
-      in_execution_phase_{false},
-      graph_handle_{new synGraphHandle()} {
-  static_assert(
-      sizeof(ns_ConstantKernel::Params) == 4,
-      "ns_ConstantKernel::Params has wrong size");
-  static_assert(
-      sizeof(ns_Reduction::Params) == 4, "ns_Reduction::Params has wrong size");
-  static_assert(
-      sizeof(ns_SpatialReduction::Params) == 44,
-      "ns_SpatialReduction::Params has wrong size");
-  static_assert(
-      sizeof(ns_PadKernel::Params) == 44,
-      "ns_PadKernel::Params has wrong size");
-  static_assert(
-      sizeof(ns_TileKernel::Params) == 16,
-      "ns_TileKernel::Params has wrong size");
-  static_assert(
-      sizeof(ns_BatchNormKernel::Params) == 12,
-      "ns_BatchNormKernel::Params has wrong size");
-  static_assert(
-      sizeof(ns_Softmax::Params) == 4, "ns_Softmax::Params has wrong size");
-  static_assert(
-      sizeof(ns_SoftmaxCrossEntropy::Params) == 8,
-      "ns_SoftmaxCrossEntropy::Params has wrong size");
-}
+    : device_{device}, name_{std::move(name)} {}
 
 std::mutex graph::instance_lock_{};
 
-synapse_error_v<graph> graph::create(device& device, std::string name) {
+synapse_error_v<graph> graph::create(
+    device& device,
+    std::string name,
+    bool dry_run) {
   graph syn_graph(device, std::move(name));
 
   if (!(std::getenv("PT_HPU_LAZY_LOWERING")) &&
       std::getenv("PT_HPU_LAZY_MODE")) {
+    syn_graph.dry_run_ = true;
     // Lazy mode shape inference call, early return without execution
     return {std::move(syn_graph)};
   }
@@ -117,10 +111,11 @@ synapse_error_v<graph> graph::create(device& device, std::string name) {
   PT_SYNHELPER_DEBUG("Graph Create.");
   graph::instance_lock_.lock();
   auto status =
-      synGraphCreate(syn_graph.graph_handle_.get(), syn_graph.device_.type());
+      synGraphCreate(&syn_graph.graph_handle_, syn_graph.device_.type());
   SYNAPSE_SUCCESS_CHECK_WITH_OP(
       "Graph creation failed.", status, graph::instance_lock_.unlock())
   syn_graph.is_valid_ = true;
+  syn_graph.dry_run_ = dry_run;
   return {std::move(syn_graph)};
 }
 
@@ -130,15 +125,16 @@ graph::graph(graph&& other) noexcept
       is_valid_{other.is_valid_},
       in_build_phase_(other.in_build_phase_),
       in_execution_phase_(other.in_execution_phase_),
-      graph_handle_{std::move(other.graph_handle_)} // namespace synapse_helpers
-{
+      graph_handle_(other.graph_handle_),
+      dry_run_(other.dry_run_) {
   other.is_valid_ = false;
+  other.graph_handle_ = {};
 }
 
 graph::~graph() {
   if (is_valid_) {
     PT_SYNHELPER_DEBUG("Graph destroy.");
-    synGraphDestroy(*graph_handle_);
+    synGraphDestroy(graph_handle_);
     graph::instance_lock_.unlock();
 
     is_valid_ = false;
@@ -164,16 +160,19 @@ synapse_error_o graph::add_node(
     std::vector<synTensor>&& outputs,
     void* const params,
     const unsigned params_size,
-    std::string&& node_type) {
-  if (!(std::getenv("PT_HPU_LAZY_LOWERING")) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+    const synapse_error_v<std::string>& node_type_or_err,
+    synNodeId* ret_node_id) {
+  if (dry_run_) {
     // Lazy mode shape inference call, early return without execution
     return {};
   }
-
+  SYNAPSE_RETURN_IF_ERROR_V(node_type_or_err);
+  const auto& node_type{get_value(node_type_or_err)};
   if (!in_build_phase_) {
     return synapse_error{"Graph not in build phase.", synStatus::synFail};
   }
+  /* TODO instead of passing mode name as empty string, need to pass op name
+   * using OpNameContext*/
 
   PT_SYNHELPER_DEBUG(
       "graph ",
@@ -191,49 +190,30 @@ synapse_error_o graph::add_node(
       ", params_size=",
       params_size,
       ", guid=",
-      node_type.c_str(),
-      ", name=\"\");");
+      node_type.c_str());
 
-  // PT always uses node creation with Id
-  if (true) {
-    synNodeId nodeId;
-    auto status = synNodeCreateWithId(
-        *graph_handle_,
-        inputs.empty() ? nullptr : inputs.data(),
-        outputs.empty() ? nullptr : outputs.data(),
-        inputs.size(),
-        outputs.size(),
-        params,
-        params_size,
-        node_type.c_str(),
-        "",
-        &nodeId,
-        nullptr,
-        nullptr);
-    if (status != synStatus::synSuccess) {
-      PT_SYNHELPER_WARN("Node " + node_type + " add failed.", " Err: ", status);
-    }
-    HABANA_ASSERT(status == synStatus::synSuccess)
-    graph_is_empty_ = false;
-    op_to_node_container_pt_["jit_node"].emplace_back(nodeId);
-  } else {
-    auto status = synNodeCreate(
-        *graph_handle_,
-        inputs.empty() ? nullptr : inputs.data(),
-        outputs.empty() ? nullptr : outputs.data(),
-        inputs.size(),
-        outputs.size(),
-        params,
-        params_size,
-        node_type.c_str(),
-        "",
-        nullptr,
-        nullptr);
-    if (status != synStatus::synSuccess) {
-      PT_SYNHELPER_WARN("Node " + node_type + " add failed.", " Err: ", status);
-    }
-    HABANA_ASSERT(status == synStatus::synSuccess)
-    graph_is_empty_ = false;
+  synNodeId nodeId;
+  auto status = synNodeCreateWithId(
+      graph_handle_,
+      inputs.empty() ? nullptr : inputs.data(),
+      outputs.empty() ? nullptr : outputs.data(),
+      inputs.size(),
+      outputs.size(),
+      params,
+      params_size,
+      node_type.c_str(),
+      "",
+      &nodeId,
+      nullptr,
+      nullptr);
+  if (status != synStatus::synSuccess) {
+    PT_SYNHELPER_WARN("Node " + node_type + " add failed.", " Err: ", status);
+  }
+  HABANA_ASSERT(status == synStatus::synSuccess)
+  graph_is_empty_ = false;
+  op_to_node_container_pt_["jit_node"].emplace_back(nodeId);
+  if (ret_node_id) {
+    *ret_node_id = nodeId;
   }
   return {};
 }
@@ -258,10 +238,7 @@ synapse_error_v<std::shared_ptr<graph::recipe_handle>> graph::compile() {
 
   auto name = get_unique_recipe_name(name_);
   status = synGraphCompile(
-      &recipe_handle->syn_recipe_handle_,
-      *graph_handle_,
-      name.c_str(),
-      nullptr);
+      &recipe_handle->syn_recipe_handle_, graph_handle_, name.c_str(), nullptr);
 
   SYNAPSE_SUCCESS_CHECK("Graph compile failed.", status);
   END_TIME_MEASURE("Synapse graph compilation took");
@@ -276,26 +253,41 @@ synapse_error_v<std::shared_ptr<graph::recipe_handle>> graph::compile() {
 std::string to_string(const std::vector<synLaunchTensorInfo>& patching_info) {
   return absl::StrJoin(
       patching_info, ",", [](std::string* out, const synLaunchTensorInfo& in) {
-        absl::StrAppendFormat(out, "%s:0x%X", in.tensorName, in.pTensorAddress);
+        absl::StrAppendFormat(
+            out,
+            "%s:0x%X [%d,%d,%d,%d,%d]",
+            in.tensorName,
+            in.pTensorAddress,
+            in.tensorSize[0],
+            in.tensorSize[1],
+            in.tensorSize[2],
+            in.tensorSize[3],
+            in.tensorSize[4]);
       });
 }
 
-synapse_error_o graph::create_launch_info(
-    launch_info& handle,
+synapse_error_v<uint64_t> graph::query_workspace_size(
     const graph::recipe_handle& recipe_handle) {
-  synStatus status;
-
-  status = synWorkspaceGetSize(
-      &handle.workspace_buffer_size_, recipe_handle.syn_recipe_handle_);
-  SYNAPSE_SUCCESS_CHECK("Getting workspace size failed", status);
-
-  return {};
+  uint64_t workspace_size;
+  SYNAPSE_SUCCESS_CHECK(
+      "Getting workspace size failed",
+      synWorkspaceGetSize(&workspace_size, recipe_handle.syn_recipe_handle_));
+  return workspace_size;
 }
 
 synapse_error_o graph::launch(
-    launch_info& handle,
+    device& device,
     const graph::recipe_handle& recipe_handle,
-    const std::vector<synLaunchTensorInfo>& inputs_and_outputs_info) {
+    uint64_t workspace_size,
+    std::vector<synLaunchTensorInfo>&& inputs_and_outputs_info) {
+  return launch(device, recipe_handle, workspace_size, inputs_and_outputs_info);
+}
+
+synapse_error_o graph::launch(
+    device& device,
+    const graph::recipe_handle& recipe_handle,
+    uint64_t workspace_size,
+    std::vector<synLaunchTensorInfo>& inputs_and_outputs_info) {
   synStatus status;
 
   if (recipe_handle.graph_is_empty_) {
@@ -306,17 +298,20 @@ synapse_error_o graph::launch(
   if (!recipe_handle.in_execution_phase_) {
     return synapse_error{"Graph not in execution phase.", synStatus::synFail};
   }
-  handle.runtime_measure_start_ = std::chrono::steady_clock::now();
   PT_SYNHELPER_DEBUG(
       "in graph::launch, launch handle string:\n",
       absl::StrFormat(
-          "------Launch-handle------\n"
+          "------Launch-handle %s------\n"
           "input_outputs_names={%s}\n"
           "-------------------------",
+          recipe_handle.recipe_name_,
           to_string(inputs_and_outputs_info)));
 
   auto table_checker{[&recipe_handle](const synLaunchTensorInfo& info) -> bool {
-    if (info.pTensorAddress == 0 || info.tensorName == nullptr) {
+    if ((info.tensorType != SHAPE_TENSOR &&
+         info.tensorType != INPUT_DESCRIBING_SHAPE_TENSOR &&
+         info.pTensorAddress == 0) ||
+        info.tensorName == nullptr || info.tensorName[0] == '\0') {
       PT_SYNHELPER_WARN(
           recipe_handle.recipe_name_,
           " null address:",
@@ -335,7 +330,7 @@ synapse_error_o graph::launch(
           inputs_and_outputs_info.begin(),
           inputs_and_outputs_info.end(),
           table_checker) == inputs_and_outputs_info.end());
-  auto& compute_stream = recipe_handle.device_.get_compute_stream();
+  auto& compute_stream = device.get_compute_stream();
 
   if (GET_ENV_FLAG(PT_HABANA_MEM_LOG_LEVEL) == MEM_LOG_GRAPH_LAUNCH) {
     std::string msg = absl::StrFormat(
@@ -346,7 +341,7 @@ synapse_error_o graph::launch(
       compute_stream,
       inputs_and_outputs_info.data(),
       inputs_and_outputs_info.size(),
-      recipe_handle.device_.get_workspace_buffer(handle.workspace_buffer_size_),
+      recipe_handle.device_.get_workspace_buffer(workspace_size),
       recipe_handle.syn_recipe_handle_);
 
   SYNAPSE_SUCCESS_CHECK("synLaunch failed.", status)
@@ -375,6 +370,17 @@ synapse_error_v<std::string> graph::name_suffix_from_type(
   return kernel_suffix;
 }
 
+uint64_t graph::recipe_handle::get_recipe_host_mem_size() {
+  if (recipe_size_ != 0)
+    return recipe_size_;
+  synRecipeAttribute recipe_attr(RECIPE_ATTRIBUTE_HOST_MEM_SIZE);
+  auto status = synRecipeGetAttribute(
+      (&recipe_size_), &recipe_attr, 1, syn_recipe_handle_);
+  if (status != synSuccess)
+    PT_SYNHELPER_WARN("Failed to retrieve recipe size");
+  return recipe_size_;
+}
+
 graph::recipe_handle::~recipe_handle() {
   if (syn_recipe_handle_ &&
       synRecipeDestroy(syn_recipe_handle_) != synStatus::synSuccess) {
@@ -385,11 +391,49 @@ graph::recipe_handle::~recipe_handle() {
 void graph::collect_dst_synapse_nodes(
     graph::Op2NodeContainer::mapped_type& dst_synapse_node_ids,
     const std::string& dst_node) {
+  absl::flat_hash_map<std::string, bool> visited_nodes;
+  collect_dst_synapse_nodes(dst_synapse_node_ids, dst_node, visited_nodes);
+}
+
+void graph::collect_dst_synapse_nodes(
+    graph::Op2NodeContainer::mapped_type& dst_synapse_node_ids,
+    const std::string& dst_node,
+    absl::flat_hash_map<std::string, bool>& visited_nodes) {
+  bool was_visited;
+  bool is_fully_processed;
+
+  {
+    auto it = visited_nodes.find(dst_node);
+    if (it == visited_nodes.end()) {
+      was_visited = false;
+      is_fully_processed = false;
+    } else {
+      was_visited = true;
+      is_fully_processed = it->second;
+    }
+  }
+
+  if (is_fully_processed) {
+    // Node is fully processed by DFS-based traversal, there is no cycle and we
+    // have nothing to do here.
+    return;
+  }
+
+  // Safety measure to prevent infinite loop.
+  if (was_visited) {
+    // Node was visited and is NOT fully processed. It means that DFS-based
+    // traversal found a path from node to the node itself. Cycle!
+    PT_SYNHELPER_FATAL("Cycle within Synapse graph detected!");
+  }
+  visited_nodes.emplace(dst_node, false);
+
   auto op_to_node_iter = op_to_node_container_.find(dst_node);
   if (op_to_node_iter != op_to_node_container_.end() &&
       !op_to_node_iter->second.empty()) {
     dst_synapse_node_ids.insert(
         begin(op_to_node_iter->second), end(op_to_node_iter->second));
+    // Marking node as fully processed
+    visited_nodes[dst_node] = true;
     return;
   }
 
@@ -397,15 +441,20 @@ void graph::collect_dst_synapse_nodes(
   auto data_edges_iter = data_edges_container_.find(dst_node);
   if (control_edges_iter != end(control_edges_container_)) {
     for (const auto& chained_node : control_edges_iter->second) {
-      collect_dst_synapse_nodes(dst_synapse_node_ids, chained_node);
+      collect_dst_synapse_nodes(
+          dst_synapse_node_ids, chained_node, visited_nodes);
     }
   }
 
   if (data_edges_iter != end(data_edges_container_)) {
     for (const auto& chained_node : data_edges_iter->second) {
-      collect_dst_synapse_nodes(dst_synapse_node_ids, chained_node);
+      collect_dst_synapse_nodes(
+          dst_synapse_node_ids, chained_node, visited_nodes);
     }
   }
+
+  // Marking node as fully processed
+  visited_nodes[dst_node] = true;
 }
 
 synStatus graph::set_synapse_control_edges() {
@@ -438,7 +487,7 @@ synStatus graph::set_synapse_control_edges() {
     PT_SYNHELPER_DEBUG(
         "Adding synapse control edges from node ", nodePair.first);
     status = synNodeDependencySet(
-        *graph_handle_,
+        graph_handle_,
         src_synapse_node_ids_vector.data(),
         dst_synapse_node_ids_vector.data(),
         src_synapse_node_ids_vector.size(),
@@ -465,7 +514,7 @@ synStatus graph::set_synapse_control_edges_pt(
   synStatus status = synStatus::synSuccess;
 
   status = synNodeDependencySet(
-      *graph_handle_,
+      graph_handle_,
       src_synapse_node_ids_vector.data(),
       dst_synapse_node_ids_vector.data(),
       src_synapse_node_ids_vector.size(),

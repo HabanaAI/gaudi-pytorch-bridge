@@ -661,7 +661,7 @@ std::vector<std::string> habana_helpers::names(
 
   std::transform(
       vec.begin(), vec.end(), std::back_inserter(names), [](auto& tensor) {
-        return tensor.tensor_name_;
+        return tensor.name();
       });
 
   return names;
@@ -676,9 +676,7 @@ std::vector<std::string> habana_helpers::names(
       vec.begin(),
       vec.end(),
       std::back_inserter(names),
-      [](const synapse_helpers::tensor& tensor) {
-        return tensor.tensor_name_;
-      });
+      [](const synapse_helpers::tensor& tensor) { return tensor.name(); });
 
   return names;
 }
@@ -692,9 +690,7 @@ std::vector<std::string> habana_helpers::names(
       vec.begin(),
       vec.end(),
       std::back_inserter(names),
-      [](const synapse_helpers::tensor& tensor) {
-        return tensor.tensor_name_;
-      });
+      [](const synapse_helpers::tensor& tensor) { return tensor.name(); });
 
   return names;
 }

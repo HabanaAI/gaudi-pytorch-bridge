@@ -18,8 +18,10 @@
 
 #include "absl/types/optional.h"
 #include "absl/types/variant.h"
+#include "habana_helpers/logging.h"
 #include "synapse_helpers/device.h"
 #include "synapse_helpers/habana_tensor.h"
+#include "synapse_helpers/synapse_error.h"
 
 // next step todo:
 // - mutual exclusion
@@ -31,7 +33,7 @@ namespace synapse_helpers {
 namespace detail {
 class tensor_name_generator {
  public:
-  static std::string generate_name();
+  static std::string generate();
 
   // to make unit testing possible
   static void reset();
@@ -45,8 +47,13 @@ uint64_t size_bytes_from_shape(
     synDataType dataType);
 } // namespace detail
 
+namespace graph_builder {
+class graph_build_context;
+}
 template <typename ConcreteBuilder>
 class tensor_builder_base {
+  friend class graph_builder::graph_build_context;
+
  public:
   explicit tensor_builder_base(const tensor& tensor) {
     with_shape(tensor.shape());
@@ -75,6 +82,10 @@ class tensor_builder_base {
   ConcreteBuilder& with_dynamic_shape(
       const tensor::dynamic_shape_t& dynamic_shape) {
     HABANA_ASSERT(dynamic_shape.max().rank() == dynamic_shape.min().rank());
+    if (is_const_) {
+      // Const tensors must always be created as static (with max size)
+      return static_cast<ConcreteBuilder&>(*this);
+    }
     shape_ = dynamic_shape;
     if ((tensor_type_ == DATA_TENSOR) && (shape_.min() != shape_.max())) {
       tensor_type_ = DATA_TENSOR_DYNAMIC;
@@ -94,10 +105,16 @@ class tensor_builder_base {
     return static_cast<ConcreteBuilder&>(*this);
   }
 
+  ConcreteBuilder& use_suffix(const std::string& suffix) {
+    suffix_ = suffix;
+    return static_cast<ConcreteBuilder&>(*this);
+  }
+
   // NOLINTNEXTLINE // we're move()'ing, so no const& is needed. TODO remove
   // this line when we switch to tidy-10.
-  ConcreteBuilder& with_name(std::string name) {
-    tensor_name_ = std::move(name);
+  ConcreteBuilder& override_name(std::string name) {
+    is_name_overridden_ = true;
+    append_name(name); // txx_name as final tensor name
     return static_cast<ConcreteBuilder&>(*this);
   }
 
@@ -147,8 +164,28 @@ class tensor_builder_base {
     return static_cast<ConcreteBuilder&>(*this);
   }
 
+  /*ConcreteBuilder& mark_variable(bool mark = true) {
+    if (mark) {
+      section_type_ = kSectionTypeTfVariables;
+      is_persistent_ = true;
+    };
+    return static_cast<ConcreteBuilder&>(*this);
+  }*/
+
+  tensor::dynamic_shape_t& shape() {
+    return shape_;
+  };
+
   synapse_error_v<tensor> build(device& syn_device, synGraphHandle graph)
       const {
+    if (error_invalid_shape_) {
+      return {
+          synapse_error{"Unsupported tensor shape", synStatus::synUnsupported}};
+    }
+    if (error_invalid_dtype_) {
+      return {
+          synapse_error{"Unsupported tensor dtype", synStatus::synUnsupported}};
+    }
     auto t = tensor(
         syn_device.id(),
         data_type_,
@@ -174,24 +211,39 @@ class tensor_builder_base {
 
  protected:
   tensor_builder_base() = default;
+  void set_error_invalid_shape() {
+    error_invalid_shape_ = true;
+  }
+  void set_error_invalid_dtype() {
+    error_invalid_dtype_ = true;
+  }
 
  private:
   tensor::dynamic_shape_t shape_{};
   synDataType data_type_{};
   std::string tensor_name_ = generate_name();
+  std::string suffix_ = "";
   bool is_persistent_{false};
   bool is_const_{false};
+  bool is_name_overridden_{false};
   shared_memory_section memory_section_{nullptr};
   void* host_ptr_{nullptr};
   uint64_t offset_{0};
   synTensorType tensor_type_{DATA_TENSOR};
+  bool error_invalid_shape_{false};
+  bool error_invalid_dtype_{false};
 
   uint64_t total_size_bytes() const {
     return detail::size_bytes_from_shape(shape_.max(), data_type_);
   }
 
   static std::string generate_name() {
-    return detail::tensor_name_generator::generate_name();
+    return detail::tensor_name_generator::generate();
+  }
+
+  ConcreteBuilder& append_name(const std::string& name) {
+    tensor_name_.append("_" + name);
+    return static_cast<ConcreteBuilder&>(*this);
   }
 };
 

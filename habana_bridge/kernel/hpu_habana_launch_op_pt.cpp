@@ -464,8 +464,7 @@ void HabanaLaunchOpPT::HandleUnmappedTensor(
     tensorList->emplace_back(tensor_or_ref(syn_tensor));
 
     std::string irn = "%" + value_in->debugName();
-    PtTensorInfo ti(
-        pt_tensor, syn_tensor.tensor_name_, irn, watch_tensor_flag_);
+    PtTensorInfo ti(pt_tensor, syn_tensor.name(), irn, watch_tensor_flag_);
     tiv.push_back(ti);
 
     if (enable_caching_) {
@@ -572,7 +571,7 @@ void HabanaLaunchOpPT::GetSynapseInputs(
       std::string irn{oss.str()};
       PtTensorInfo ti(
           seed_tensor,
-          syn_tensor.tensor_name_,
+          syn_tensor.name(),
           irn,
           watch_tensor_flag_,
           DATA_TENSOR,
@@ -635,8 +634,7 @@ void HabanaLaunchOpPT::ProcessPersistentNodeOutput(
   //       enable_tensor_release_
   //    D: It is a duplicate of an existing output
 
-  auto ti =
-      PtTensorInfo(ivpsh, out_syntensor.tensor_name_, vp, watch_tensor_flag_);
+  auto ti = PtTensorInfo(ivpsh, out_syntensor.name(), vp, watch_tensor_flag_);
   void* buffp = ti.is_view_tensor() ? ti.get_buffer_start() : ti.get_buffer();
 
   if (false == isInGraphOutputs(vp)) {
@@ -646,7 +644,7 @@ void HabanaLaunchOpPT::ProcessPersistentNodeOutput(
       duplicate_input_tivs.emplace_back(ti);
     } else {
       // Case 1.B: intermediate persistent tensor which an alias of an input
-      AddAtenIntermediate(ivpsh, out_syntensor.tensor_name_, vp);
+      AddAtenIntermediate(ivpsh, out_syntensor.name(), vp);
     }
   } else {
     if (!enable_tensor_release_) {
@@ -870,7 +868,7 @@ at::Tensor HabanaLaunchOpPT::permuteTensor(
       synapse_helpers::tensor& syn_tensor =
           permute_kernel->SetSynapseInput(tensor);
       is_permin_interim_persistant = syn_tensor.is_persistent();
-      permute_input_synname = std::string(syn_tensor.tensor_name_);
+      permute_input_synname = std::string(syn_tensor.name());
       tensorList->emplace_back(tensor_or_ref(syn_tensor));
     }
     pt_to_synapse_tensors.erase(value_to_ivalue[value_in]);
@@ -886,7 +884,7 @@ at::Tensor HabanaLaunchOpPT::permuteTensor(
 
     PtTensorInfo ti(
         value_to_ivalue[value_in],
-        syn_tensor.tensor_name_,
+        syn_tensor.name(),
         value_in,
         watch_tensor_flag_);
     if (enable_caching_) {
@@ -986,7 +984,7 @@ at::Tensor HabanaLaunchOpPT::permuteTensor(
     if (is_perminput_persistent) {
       auto ti = PtTensorInfo(
           value_to_ivalue[value_in],
-          out_tensor_syn.tensor_name_,
+          out_tensor_syn.name(),
           value_in,
           watch_tensor_flag_);
       if (!enable_tensor_release_) {
@@ -1041,7 +1039,7 @@ void HabanaLaunchOpPT::create_duplicate_syn_tensor(
 
     PtTensorInfo ti(
         value_to_ivalue[value_in],
-        meta_syn_tensors.back().tensor_name_,
+        meta_syn_tensors.back().name(),
         value_in,
         watch_tensor_flag_);
     if (!isInGraphOutputs(value_in)) {
@@ -1352,10 +1350,7 @@ void HabanaLaunchOpPT::handlePrimNodes(torch::jit::Node* node) {
         tensorList->emplace_back(tensor_or_ref(meta_syn_tensors.back()));
         pt_to_synapse_tensors.emplace(value_to_ivalue[value], tensorList);
         intermediate_tinfos.emplace_back(PtTensorInfo(
-            tensor,
-            meta_syn_tensors.back().tensor_name_,
-            irn,
-            watch_tensor_flag_));
+            tensor, meta_syn_tensors.back().name(), irn, watch_tensor_flag_));
         aten_intermediates.push_back(tensor);
       } else {
         value_to_ivalue[value] = ivptrsh;
@@ -1454,14 +1449,14 @@ void HabanaLaunchOpPT::handleMetaOps(torch::jit::Node* node) {
               value_to_ivalue[value_in],
               PtTensorInfo(
                   value_to_ivalue[value_in],
-                  meta_syn_tensors.back().tensor_name_,
+                  meta_syn_tensors.back().name(),
                   value_in,
                   watch_tensor_flag_));
           buff_to_input_ivpsh_map.emplace(in_data, value_to_ivalue[value_in]);
         } else {
           input_tivs.emplace_back(PtTensorInfo(
               value_to_ivalue[value_in],
-              meta_syn_tensors.back().tensor_name_,
+              meta_syn_tensors.back().name(),
               value_in,
               watch_tensor_flag_));
         }
@@ -2092,6 +2087,21 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
       std::make_shared<RecipeValueSpec>(cur_recipe);
 
   RecipeValueSpec& rv = *rvalpsh;
+  if (!syn_graph.is_empty()) {
+    // first time, we need to get workspace size of the recipe, that was
+    // compiled
+    auto&& ws_size_result{
+        synapse_helpers::graph::query_workspace_size(*cur_recipe)};
+    if (ABSL_PREDICT_FALSE(
+            absl::holds_alternative<synapse_helpers::synapse_error>(
+                ws_size_result))) {
+      auto& error = absl::get<synapse_helpers::synapse_error>(ws_size_result);
+      PT_BRIDGE_FATAL(
+          "workspace size query failed: ", error.error, " ", error.status);
+      TORCH_CHECK(false, "workspace size query failed");
+    }
+    rv.workspace_size = get_value(ws_size_result);
+  }
 
   // input_tivs need to be reordered for patching
   OrderInputs();
@@ -2237,7 +2247,6 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
     DumpTensors_pre(rv);
   }
 
-  rv.create_launch_info();
   rv.launch(input_refs);
 
   if (enable_tensor_dump_) {

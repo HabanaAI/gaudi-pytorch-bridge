@@ -13,8 +13,8 @@
 #include <atomic>
 #include <functional>
 #include <iostream>
-#include <string>
 #include <mutex>
+#include <string>
 
 #include <ATen/Tensor.h>
 #include <torch/csrc/jit/ir/ir.h>
@@ -164,7 +164,6 @@ struct RecipeValueSpec {
       at::ArrayRef<torch::jit::IValue>& input_refs,
       std::shared_ptr<std::vector<IValPtrShared>>& dma_inputs,
       bool enable_tensor_release = true);
-  void create_launch_info();
   void patch(std::vector<synLaunchTensorInfo>& syn_launch_info_vec);
   void launch(
       at::ArrayRef<torch::jit::IValue> input_refs,
@@ -188,7 +187,7 @@ struct RecipeValueSpec {
   // recipe.
   std::vector<at::Tensor> aten_dma_inputs;
   std::vector<at::Tensor> aten_intermediates;
-  absl::optional<synapse_helpers::graph::launch_info> launch_info;
+  uint64_t workspace_size;
 
   uint64_t htensor_wbuff = 0;
   unsigned htensor_wbuff_size = 0;

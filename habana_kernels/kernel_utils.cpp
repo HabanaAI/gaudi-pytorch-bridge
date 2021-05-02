@@ -259,19 +259,16 @@ void habana_helpers::compile_and_run(
     std::vector<at::Tensor>& pt_inputs,
     const uint32_t device_id,
     size_t key) {
-  TORCH_CHECK(!graph.is_empty(), "Trying to compile and run an empty graph");
-
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
   std::shared_ptr<synapse_helpers::recipe> recipe = nullptr;
   if (key > 0 && device.IsCachingEnabled()) {
     recipe = device.get_recipe_handle_cache().get_recipe(key, graph);
   } else {
-    recipe = std::make_shared<synapse_helpers::recipe>();
+    recipe = std::make_shared<synapse_helpers::recipe>(device);
     recipe->create(graph);
   }
   AT_ASSERT(recipe != nullptr);
   if (recipe != nullptr) {
-    recipe->create_launch_info();
     recipe->set_inputs_outputs_names(input_names, output_names);
     launchRecipe(
         input_buffers,

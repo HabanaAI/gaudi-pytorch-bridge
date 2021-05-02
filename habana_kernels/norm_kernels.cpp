@@ -186,7 +186,7 @@ at::Tensor BatchNormForwardOperator::create_or_return_tensor_bn(
     auto it = p_context_->syn_inputs_.begin() + syn_index;
     p_context_->syn_inputs_.insert(it, std::move(syn_tensor));
 
-    appended_tensor_infos.emplace_back((syn_tensor).tensor_name_, ret_tensor);
+    appended_tensor_infos.emplace_back((syn_tensor).name(), ret_tensor);
   } else if (input.defined() && input.device() != DeviceType::HABANA) {
     ret_tensor = input.to(DeviceType::HABANA);
     ;
@@ -367,8 +367,7 @@ void BatchNormForwardOperator::preProcessInputs(
 
     // This is to communicate to graph lowering that a new tensor was
     // added by the kernel and it can add to patching in lowering
-    appended_tensor_infos.emplace_back(
-        (syn_tensor_add).tensor_name_, residualAdd);
+    appended_tensor_infos.emplace_back((syn_tensor_add).name(), residualAdd);
     p_context_->syn_inputs_.insert(it, std::move(syn_tensor_add));
 
     pre_inputs = {
@@ -466,11 +465,11 @@ void BatchNormForwardOperator::AllocateAndAddSynapseNode(
           (mean_var_temp[1]));
 
       appended_tensor_infos.emplace_back(
-          (syn_tensor_mean).tensor_name_, pre_inputs[4]);
+          (syn_tensor_mean).name(), pre_inputs[4]);
       p_context_->syn_outputs_.emplace_back(std::move(syn_tensor_mean));
 
       appended_tensor_infos.emplace_back(
-          (syn_tensor_var).tensor_name_, pre_inputs[5]);
+          (syn_tensor_var).name(), pre_inputs[5]);
       p_context_->syn_outputs_.emplace_back(std::move(syn_tensor_var));
     } else {
       // As the tensors are used as IO and are persistent
@@ -481,11 +480,11 @@ void BatchNormForwardOperator::AllocateAndAddSynapseNode(
           p_context_->syn_inputs_[4]);
 
       appended_tensor_infos.emplace_back(
-          (syn_tensor_mean).tensor_name_, pre_inputs[4]);
+          (syn_tensor_mean).name(), pre_inputs[4]);
       p_context_->syn_outputs_.emplace_back(std::move(syn_tensor_mean));
 
       appended_tensor_infos.emplace_back(
-          (syn_tensor_var).tensor_name_, pre_inputs[5]);
+          (syn_tensor_var).name(), pre_inputs[5]);
       p_context_->syn_outputs_.emplace_back(std::move(syn_tensor_var));
     }
 
@@ -692,7 +691,7 @@ at::Tensor BatchNormForwardRmvOperator::create_or_return_tensor_bn(
     auto it = p_context_->syn_inputs_.begin() + syn_index;
     p_context_->syn_inputs_.insert(it, std::move(syn_tensor));
 
-    appended_tensor_infos.emplace_back((syn_tensor).tensor_name_, ret_tensor);
+    appended_tensor_infos.emplace_back((syn_tensor).name(), ret_tensor);
   } else if (input.defined() && input.device() != DeviceType::HABANA) {
     ret_tensor = input.to(DeviceType::HABANA);
     ;
@@ -774,8 +773,7 @@ void BatchNormForwardRmvOperator::preProcessInputs(
 
   // This is to communicate to graph lowering that a new tensor was
   // added by the kernel and it can add to patching in lowering
-  appended_tensor_infos.emplace_back(
-      (syn_tensor_add).tensor_name_, residualAdd);
+  appended_tensor_infos.emplace_back((syn_tensor_add).name(), residualAdd);
   p_context_->syn_inputs_.insert(it, std::move(syn_tensor_add));
 
   pre_inputs = {
@@ -892,7 +890,7 @@ Tensor BatchNormBackwardOperator::create_or_return_input_tensor_bn_bwd(
         ret_tensor, graph.get_graph_handle(), true, c10::nullopt);
     reordered_syn_inputs_.emplace_back(std::move(syn_tensor));
 
-    appended_tensor_infos.emplace_back((syn_tensor).tensor_name_, ret_tensor);
+    appended_tensor_infos.emplace_back((syn_tensor).name(), ret_tensor);
   } else if (input.defined() && input.device() != DeviceType::HABANA) {
     reordered_syn_inputs_.emplace_back(
         std::move(p_context_->syn_inputs_[syn_index]));

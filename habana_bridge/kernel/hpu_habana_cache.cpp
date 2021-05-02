@@ -162,8 +162,7 @@ std::ostream& operator<<(std::ostream& O, const RecipeValueSpec& v) {
     << " <use_count : " << v.recipe.use_count() << "> " << '\n';
   O << " ntensorbytes : " << synapse_helpers::get_mem_str(v.ntensorbytes)
     << '\n';
-  O << " workspace    : "
-    << synapse_helpers::get_mem_str(v.launch_info->workspace_buffer_size_)
+  O << " workspace    : " << synapse_helpers::get_mem_str(v.workspace_size)
     << '\n';
 
   O << " #inputs                        : " << v.num_inputs << '\n';
@@ -292,13 +291,6 @@ void RecipeValueSpec::d2h_dbuff(size_t buf_idx) {
   // wait for copy completion
   while (!copyDone) {
     std::this_thread::yield();
-  }
-}
-
-void RecipeValueSpec::create_launch_info() {
-  if (!launch_info) {
-    launch_info.emplace(recipe->device_);
-    synapse_helpers::graph::create_launch_info(*launch_info, *recipe);
   }
 }
 
@@ -683,8 +675,8 @@ void RecipeValueSpec::launch(
   if (device.IsStreamASyncEnabled()) {
     auto& recipe_counter = device.get_active_recipe_counter();
     recipe_counter.increase();
-    auto&& error_optional{
-        synapse_helpers::graph::launch(*launch_info, *recipe, syn_launch_info)};
+    auto&& error_optional{synapse_helpers::graph::launch(
+        device, *recipe, workspace_size, syn_launch_info)};
     if (ABSL_PREDICT_FALSE(error_optional.has_value())) {
       recipe_counter.decrease_and_notify();
       auto& error = error_optional.value();
@@ -705,8 +697,8 @@ void RecipeValueSpec::launch(
           return;
         });
   } else {
-    auto&& error_optional{
-        synapse_helpers::graph::launch(*launch_info, *recipe, syn_launch_info)};
+    auto&& error_optional{synapse_helpers::graph::launch(
+        device, *recipe, workspace_size, syn_launch_info)};
     if (ABSL_PREDICT_FALSE(error_optional.has_value())) {
       auto& error = error_optional.value();
       PT_BRIDGE_FATAL(

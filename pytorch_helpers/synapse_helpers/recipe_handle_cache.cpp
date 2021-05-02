@@ -57,7 +57,7 @@ std::shared_ptr<recipe> recipe_handle_cache::get_recipe(
     increaseHitCount_(key);
     return iter->second.first;
   } else {
-    std::shared_ptr<recipe> r = std::make_shared<recipe>();
+    std::shared_ptr<recipe> r = std::make_shared<recipe>(device_);
     if (r->create(graph)) {
       insert(r, key);
       increaseHitCount_(key);

@@ -37,12 +37,44 @@ std::ostream& operator<<(
   } else {
     out << ", batchPos=0x" << std::hex << syn_tensor.m_batchPos;
   }
+  out << ", tensorType=";
+  switch (syn_tensor.m_tensorType) {
+    case DATA_TENSOR:
+      out << "DATA_TENSOR";
+      break;
+    case DATA_TENSOR_DYNAMIC:
+      out << "DATA_TENSOR_DYNAMIC";
+      break;
+    case SHAPE_TENSOR:
+      out << "SHAPE_TENSOR";
+      break;
+    case INPUT_DESCRIBING_SHAPE_TENSOR:
+      out << "INPUT_DESCRIBING_SHAPE_TENSOR";
+      break;
+    case DEVICE_SHAPE_TENSOR:
+      out << "DEVICE_SHAPE_TENSOR";
+      break;
+    case TENSOR_TYPE_MAX:
+    default:
+      HABANA_ASSERT(false);
+  }
   return out;
 }
 
 void tensor::shape_t::set_rank(dimension_count_t rank) noexcept {
   HABANA_ASSERT(rank.value <= SYN_MAX_TENSOR_DIM);
   rank_ = rank;
+}
+
+std::string tensor::shape_t::debug_string() const {
+  std::string s = "[";
+  for (unsigned i = 0; i < rank_.value; i++) {
+    if (i > 0)
+      s.append(",");
+    s.append(std::to_string(dims_.at(i)));
+  }
+  s.append("]");
+  return s;
 }
 
 tensor::dynamic_shape_t::dynamic_shape_t(shape_t min, shape_t max)
@@ -54,7 +86,7 @@ tensor::tensor(
     synDeviceId device_id,
     synDataType data_type,
     uint64_t total_size_bytes,
-    shape_t shape,
+    const shape_t shape,
     std::string tensor_name,
     synGraphHandle graph,
     bool is_persistent,
@@ -105,7 +137,7 @@ tensor::tensor(
       tensor_type_(tensor_type) {}
 
 tensor::tensor(tensor&& other) noexcept
-    : tensor_name_{other.tensor_name_},
+    : tensor_name_{other.name()},
       device_id_{other.device_id_},
       data_type_{other.data_type_},
       total_size_bytes_{other.total_size_bytes_},
@@ -128,7 +160,7 @@ tensor& tensor::operator=(tensor&& other) noexcept {
   if (this == &other)
     return *this;
   cleanup();
-  tensor_name_ = other.tensor_name_;
+  tensor_name_ = other.name();
   device_id_ = other.device_id_;
   data_type_ = other.data_type_;
   total_size_bytes_ = other.total_size_bytes_;
@@ -153,12 +185,7 @@ synapse_error_o tensor::create() {
   synStatus status;
   synTensorDescriptor trdescriptor{};
 
-  PT_SYNHELPER_DEBUG("Allocate host memory handle.");
-  // descriptor_.m_ptr =
-  // reinterpret_cast<void*>(device_id_.get().get_next_index());
-  // TODO: define create inputs function
-
-  trdescriptor.m_name = tensor_name_.c_str();
+  trdescriptor.m_name = name().c_str();
   trdescriptor.m_dataType = data_type_;
   trdescriptor.m_dims = shape_.max().rank().value;
   trdescriptor.m_tensorType = tensor_type_;

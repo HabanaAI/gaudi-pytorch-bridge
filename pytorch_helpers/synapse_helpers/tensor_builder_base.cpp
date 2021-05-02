@@ -16,12 +16,14 @@
 namespace synapse_helpers {
 namespace detail {
 
-std::string tensor_name_generator::generate_name() {
+std::string tensor_name_generator::generate() {
   return "tensor_" + std::to_string(id++);
 }
+
 void tensor_name_generator::reset() {
   id = 0;
 }
+
 uint64_t tensor_name_generator::id = 0;
 
 uint64_t size_bytes_from_shape(

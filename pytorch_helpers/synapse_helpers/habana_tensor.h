@@ -9,12 +9,14 @@
  */
 #pragma once
 
+#include <absl/strings/str_format.h>
 #include <synapse_api.h>
 #include <synapse_api_types.h>
 #include <synapse_common_types.h>
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <ostream>
 #include <string>
@@ -138,6 +140,8 @@ class tensor final {
     }
     void set_rank(dimension_count_t rank) noexcept;
 
+    std::string debug_string() const;
+
    private:
     internal_storage dims_;
     dimension_count_t rank_;
@@ -195,6 +199,12 @@ class tensor final {
   synTensor& get() {
     return tensor_;
   }
+  const synTensor& get() const {
+    return tensor_;
+  }
+  const std::string& name() const {
+    return tensor_name_;
+  }
   uint64_t size_bytes() const {
     return total_size_bytes_;
   }
@@ -217,6 +227,9 @@ class tensor final {
   }
   bool is_persistent() const {
     return is_persistent_;
+  }
+  bool is_const() const {
+    return is_const_;
   }
   shared_memory_section memorysection() const {
     return memory_section_;
@@ -246,9 +259,18 @@ class tensor final {
     return tensor_type_;
   };
 
-  std::string tensor_name_;
-
   friend std::ostream& operator<<(std::ostream& out, const tensor& rhs);
+
+  std::string DebugString() const {
+    return absl::StrFormat(
+        "Tensor %s at %p, internal=%p%s%s, size=0x%x",
+        tensor_name_,
+        this,
+        tensor_,
+        (is_persistent() ? ", persistent" : ", non-persistent"),
+        (is_placeholder() ? ", placeholder" : ""),
+        total_size_bytes_);
+  }
 
  private:
   tensor(
@@ -283,16 +305,17 @@ class tensor final {
   }
   synapse_error_o create();
   void cleanup();
+
+  std::string tensor_name_;
   synDeviceId device_id_;
   synDataType data_type_;
   // TODO: total size can be counted basing on type and dimensions
   uint64_t total_size_bytes_;
-  // shape_t shape_;
   dynamic_shape_t shape_;
   synTensor tensor_{nullptr};
   bool placeholder_{false};
-
   bool is_persistent_{false};
+
   shared_memory_section memory_section_{nullptr};
   synGraphHandle graph_{nullptr};
   bool is_const_{false};
@@ -334,4 +357,5 @@ inline std::ostream& operator<<(
 }
 
 using tensor_or_ref = value_or_ref<tensor>;
+using synapse_tensor_ref = std::reference_wrapper<synapse_helpers::tensor>;
 } // namespace synapse_helpers

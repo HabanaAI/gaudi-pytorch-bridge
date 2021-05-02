@@ -15,16 +15,16 @@
 #include "synapse_helpers/graph.h"
 
 namespace synapse_helpers {
+class device;
 
 class recipe {
  public:
-  explicit recipe();
+  explicit recipe(device& device);
   recipe(const recipe&) = delete;
   recipe(recipe&&) = delete;
   recipe& operator=(const recipe&) = delete;
   recipe& operator=(recipe&&) = delete;
   bool create(synapse_helpers::graph& graph);
-  void create_launch_info();
   void set_inputs_outputs_names(
       const std::vector<std::string>& input_names,
       const std::vector<std::string>& output_names);
@@ -36,8 +36,9 @@ class recipe {
 
  private:
   std::shared_ptr<synapse_helpers::graph::recipe_handle> recipe_handle_;
-  absl::optional<synapse_helpers::graph::launch_info> launch_info_;
   std::vector<std::string> input_names_;
   std::vector<std::string> output_names_;
+  uint64_t workspace_size_{0};
+  device& device_;
 };
 } // namespace synapse_helpers
