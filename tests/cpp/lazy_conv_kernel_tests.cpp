@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include <tests/cpp/habana_lazy_test_infra.h>
 #include <torch/csrc/jit/testing/file_check.h>
 #include <torch/torch.h>
 #include <stdexcept>
@@ -12,16 +13,7 @@
 
 using namespace habana_lazy;
 
-class LazyConvKernelTest : public ::testing::Test {
- protected:
-  void SetUp() override {
-    setenv("PT_HPU_LAZY_MODE", "1", 0);
-  }
-
-  void TearDown() override {
-    unsetenv("PT_HPU_LAZY_MODE");
-  }
-};
+class LazyConvKernelTest : public habana_lazy_test::LazyTest {};
 
 TEST_F(LazyConvKernelTest, ConvReluTest) {
   auto input_tensor =
@@ -58,7 +50,13 @@ TEST_F(LazyConvKernelTest, MaxPool2DTest) {
   EXPECT_EQ(allclose(out, outcpu, 0.01, 0.01), true);
 }
 
-TEST_F(LazyConvKernelTest, ConvolutionBackward) {
+class LazyConvKernelGraphTest : public habana_lazy_test::LazyTest {
+  void SetUp() override {
+    ForceMode(1);
+  }
+};
+
+TEST_F(LazyConvKernelGraphTest, ConvolutionBackward) {
   auto grad_output = torch::randn({2, 6, 2, 3}, torch::requires_grad(false));
   auto input = torch::randn({2, 5, 3, 4}, torch::requires_grad(false));
   auto weight = torch::randn({2, 2, 5, 6}, torch::requires_grad(false));

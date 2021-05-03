@@ -1,9 +1,9 @@
 #include <gtest/gtest.h>
+#include <tests/cpp/habana_lazy_test_infra.h>
 #include <torch/csrc/jit/testing/file_check.h>
 #include <torch/torch.h>
 #include <stdexcept>
-#include "habana_kernels/lazy_kernels_declarations.h"
-#include "habana_kernels/wrap_kernels_declarations.h"
+#include "habana_kernels/eager_kernels_declarations.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/debug_utils.h"
 #include "habana_lazy/hlexec.h"
@@ -12,23 +12,17 @@
 
 using namespace habana_lazy;
 
-class LazyRandomGenKernelTest : public ::testing::Test {
- protected:
-  void SetUp() override {}
-
-  void TearDown() override {}
-};
+class LazyRandomGenKernelTest : public habana_lazy_test::LazyTest {};
 
 TEST_F(LazyRandomGenKernelTest, FusedDropoutTest) {
   auto in = torch::randn({2, 3, 4}, torch::dtype(torch::kFloat));
   constexpr double p = 0.3;
 
   auto h_in = in.to(torch::kHABANA);
-  auto eager_results = torch::_fused_dropout(h_in, p);
+  auto eager_results = fused_dropout_hpu(h_in, p);
   auto eager_result1 = std::get<0>(eager_results).to("cpu");
   auto eager_result2 = std::get<1>(eager_results).to("cpu");
 
-  setenv("PT_HPU_LAZY_MODE", "1", 0);
   auto lazy_h_in = in.to(torch::kHABANA);
   auto lazy_results = torch::_fused_dropout(lazy_h_in, p);
 
@@ -37,6 +31,4 @@ TEST_F(LazyRandomGenKernelTest, FusedDropoutTest) {
 
   // EXPECT_TRUE(allclose(eager_result1, lResut1, 0.01, 0.01));
   // EXPECT_TRUE(allclose(eager_result2, lResut2, 0.01, 0.01));
-
-  unsetenv("PT_HPU_LAZY_MODE");
 }

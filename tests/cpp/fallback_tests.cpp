@@ -1,16 +1,26 @@
+/******************************************************************************
+ * Copyright (C) 2021 HabanaLabs, Ltd.
+ * All Rights Reserved.
+ *
+ * Unauthorized copying of this file, via any medium is strictly prohibited.
+ * Proprietary and confidential.
+ *
+ ******************************************************************************
+ */
+
 #include <gtest/gtest.h>
+#include <tests/cpp/habana_lazy_test_infra.h>
 #include <torch/torch.h>
 
-class FallbackTest : public ::testing::TestWithParam<bool> {
+class FallbackTest : public ::testing::TestWithParam<bool>,
+                     public habana_lazy_test::EnvHelper {
   void SetUp() override {
     auto isLazy = GetParam();
     if (isLazy) {
-      setenv("PT_HPU_LAZY_MODE", "1", 0);
+      SetLazyMode(); // Lazy=1 mode
+    } else {
+      SetEagerMode(); // Eager mode
     }
-  }
-
-  void TearDown() override {
-    unsetenv("PT_HPU_LAZY_MODE");
   }
 };
 

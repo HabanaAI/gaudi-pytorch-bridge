@@ -9,22 +9,14 @@
 #include "habana_lazy/hlexec.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/ir_utils.h"
+#include "habana_lazy_test_infra.h"
 
 using namespace habana_lazy;
 
-class LazySoftmaxKernelTest : public ::testing::Test {
- protected:
-  void SetUp() override {
-    setenv("PT_HPU_LAZY_MODE", "1", 0);
-  }
-
-  void TearDown() override {
-    unsetenv("PT_HPU_LAZY_MODE");
-  }
-};
+class LazySoftmaxKernelTest : public habana_lazy_test::LazyTest {};
 
 TEST_F(LazySoftmaxKernelTest, LogSoftMaxTest) {
-  torch::Tensor input = torch::rand({64,10}, torch::requires_grad(false));
+  torch::Tensor input = torch::rand({64, 10}, torch::requires_grad(false));
   torch::Tensor hinput = input.to(torch::kHABANA);
   int dim = 0;
   torch::Tensor hout = torch::log_softmax(hinput, dim);

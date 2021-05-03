@@ -17,6 +17,69 @@
 
 namespace habana_lazy_test {
 
+class EnvHelper {
+  char* m_saved = nullptr;
+
+ protected:
+  void SetMode(const char* mode = "1", int force = 0) {
+    m_saved = std::getenv("PT_HPU_LAZY_MODE");
+
+    if (mode) {
+      setenv("PT_HPU_LAZY_MODE", mode, force);
+    } else {
+      unsetenv("PT_HPU_LAZY_MODE");
+    }
+  }
+
+  void RestoreMode() {
+    if (m_saved) {
+      setenv("PT_HPU_LAZY_MODE", m_saved, 1);
+    } else {
+      unsetenv("PT_HPU_LAZY_MODE");
+    }
+  }
+
+  // Wrappers with convenient names
+  void SetLazyMode(const char* mode = "1") {
+    // mode can be 1, 2 or 3
+    SetMode(mode);
+  }
+
+  void SetEagerMode() {
+    SetMode(nullptr);
+  }
+
+ public:
+  template <typename F>
+  void ExecuteEager(F&& fn) {
+    const char* old = std::getenv("PT_HPU_LAZY_MODE");
+    unsetenv("PT_HPU_LAZY_MODE");
+
+    std::forward<F>(fn)();
+
+    if (old) {
+      setenv("PT_HPU_LAZY_MODE", old, 1);
+    }
+  }
+};
+
+class LazyTest : public ::testing::Test, public EnvHelper {
+  void SetUp() override {
+    // Save the original value
+    SetLazyMode();
+  }
+
+  void TearDown() override {
+    // Restore the original value back
+    RestoreMode();
+  }
+
+ protected:
+  void ForceMode(int mode) {
+    SetMode(std::to_string(mode).c_str(), 1);
+  }
+};
+
 typedef struct {
   habana_lazy::ir::NodePtrList post_order_nodes;
   size_t post_order_nodes_hash;

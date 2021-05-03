@@ -13,20 +13,16 @@
 #include "habana_lazy/hlexec.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/ir_utils.h"
+#include "habana_lazy_test_infra.h"
 
 using json = nlohmannV340::json;
-using namespace habana_lazy;
 
 using namespace habana_lazy;
 
-class GraphOptimizeTest : public ::testing::Test {
+class GraphOptimizeTest : public habana_lazy_test::LazyTest {
  protected:
   void SetUp() override {
-    setenv("PT_HPU_LAZY_MODE", "1", 0);
-  }
-
-  void TearDown() override {
-    unsetenv("PT_HPU_LAZY_MODE");
+    ForceMode(1); // This test suite expects to run only with lazy=1
   }
 };
 
@@ -118,7 +114,6 @@ TEST_F(GraphOptimizeTest, SubGraphRewriteTest) {
 }
 
 TEST_F(GraphOptimizeTest, FuseMmTransposeTest) {
-  setenv("PT_HPU_LAZY_MODE", "1", 0);
   torch::Tensor tensor_in1 = torch::randn({4, 4});
   torch::Tensor tensor_in2 = torch::randn({4, 4});
   torch::Tensor out_t = torch::t(tensor_in1);
@@ -164,11 +159,9 @@ TEST_F(GraphOptimizeTest, FuseMmTransposeTest) {
   torch::Tensor out_hpu = result.to(torch::kCPU);
   EXPECT_EQ(allclose(out_cpu, out_hpu), true);
   exec::OptPassCfg::GetInstance()->enable_fuse_t_mm_optimization = false;
-  unsetenv("PT_HPU_LAZY_MODE");
 }
 
 TEST_F(GraphOptimizeTest, BnReluOptTest) {
-  setenv("PT_HPU_LAZY_MODE", "1", 0);
   torch::Tensor tensor_in1 = torch::randn({4, 4});
   torch::Tensor tensor_in2 = torch::randn({4, 4});
   torch::Tensor out_t = torch::t(tensor_in1);
@@ -214,11 +207,9 @@ TEST_F(GraphOptimizeTest, BnReluOptTest) {
   torch::Tensor out_hpu = result.to(torch::kCPU);
   EXPECT_EQ(allclose(out_cpu, out_hpu), true);
   exec::OptPassCfg::GetInstance()->enable_fuse_t_mm_optimization = false;
-  unsetenv("PT_HPU_LAZY_MODE");
 }
 
 TEST_F(GraphOptimizeTest, PermutePassTest_CL) {
-  setenv("PT_HPU_LAZY_MODE", "1", 0);
   auto in = torch::randn(
       {6, 4, 28, 28}, torch::dtype(torch::kFloat).requires_grad(false));
   auto wt = torch::randn(
@@ -239,11 +230,9 @@ TEST_F(GraphOptimizeTest, PermutePassTest_CL) {
   Tensor out = result.to(kCPU);
   EXPECT_EQ(allclose(out, exp, 0.01, 0.01), true);
   exec::OptPassCfg::GetInstance()->enable_permute_pass = false;
-  unsetenv("PT_HPU_LAZY_MODE");
 }
 
 TEST_F(GraphOptimizeTest, PermutePassTest_Contig) {
-  setenv("PT_HPU_LAZY_MODE", "1", 0);
   auto in = torch::randn(
       {6, 4, 28, 28}, torch::dtype(torch::kFloat).requires_grad(false));
   auto wt = torch::randn(
@@ -266,11 +255,9 @@ TEST_F(GraphOptimizeTest, PermutePassTest_Contig) {
   Tensor out = result.to(kCPU);
   EXPECT_EQ(allclose(out, exp, 0.01, 0.01), true);
   exec::OptPassCfg::GetInstance()->enable_permute_pass = false;
-  unsetenv("PT_HPU_LAZY_MODE");
 }
 
 TEST_F(GraphOptimizeTest, RemoveInplaceOps_pass1) {
-  setenv("PT_HPU_LAZY_MODE", "1", 0);
   torch::Tensor A = torch::randn({4, 4});
   torch::Tensor B = torch::randn({4, 4});
   auto hA = A.to(torch::kHABANA);
@@ -302,11 +289,9 @@ TEST_F(GraphOptimizeTest, RemoveInplaceOps_pass1) {
 
   Tensor Out = h_Out.to(kCPU);
   exec::OptPassCfg::GetInstance()->enable_replace_inplace_ops = false;
-  unsetenv("PT_HPU_LAZY_MODE");
 }
 
 TEST_F(GraphOptimizeTest, RemoveInplaceOps_pass2) {
-  setenv("PT_HPU_LAZY_MODE", "1", 0);
   torch::Tensor A = torch::randn({4, 4});
   torch::Tensor B = torch::randn({4, 4});
   auto hA = A.to(torch::kHABANA);
@@ -337,11 +322,9 @@ TEST_F(GraphOptimizeTest, RemoveInplaceOps_pass2) {
 
   Tensor Out = h_Out.to(kCPU);
   exec::OptPassCfg::GetInstance()->enable_replace_inplace_ops = false;
-  unsetenv("PT_HPU_LAZY_MODE");
 }
 
 TEST_F(GraphOptimizeTest, RemoveInplaceOps_pass3) {
-  setenv("PT_HPU_LAZY_MODE", "1", 0);
   torch::Tensor A = torch::randn({4, 4});
   torch::Tensor B = torch::randn({4, 4});
   auto hA = A.to(torch::kHABANA);
@@ -372,5 +355,4 @@ TEST_F(GraphOptimizeTest, RemoveInplaceOps_pass3) {
 
   Tensor Out = h_Out.to(kCPU);
   exec::OptPassCfg::GetInstance()->enable_replace_inplace_ops = false;
-  unsetenv("PT_HPU_LAZY_MODE");
 }

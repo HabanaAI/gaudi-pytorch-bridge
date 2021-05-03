@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include <tests/cpp/habana_lazy_test_infra.h>
 #include <torch/csrc/jit/testing/file_check.h>
 #include <torch/torch.h>
 #include <stdexcept>
@@ -14,16 +15,7 @@
 
 using namespace habana_lazy;
 
-class LazyBitwiseKernelTest : public ::testing::Test {
- protected:
-  void SetUp() override {
-    setenv("PT_HPU_LAZY_MODE", "1", 0);
-  }
-
-  void TearDown() override {
-    unsetenv("PT_HPU_LAZY_MODE");
-  }
-};
+class LazyBitwiseKernelTest : public habana_lazy_test::LazyTest {};
 
 TEST_F(LazyBitwiseKernelTest, BitwiseAddTest) {
   torch::Tensor A = torch::randint(-10, 10, {3, 2}) > 0;

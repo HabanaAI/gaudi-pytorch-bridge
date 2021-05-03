@@ -5,17 +5,13 @@
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/debug_utils.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
+#include "habana_lazy_test_infra.h"
 
 using namespace habana_lazy;
 
-class DebugUtilsTest : public ::testing::Test {
- protected:
+class DebugUtilsTest : public habana_lazy_test::LazyTest {
   void SetUp() override {
-    setenv("PT_HPU_LAZY_MODE", "1", 0);
-  }
-
-  void TearDown() override {
-    unsetenv("PT_HPU_LAZY_MODE");
+    ForceMode(1); // This test suite expects to run only with lazy=1
   }
 };
 

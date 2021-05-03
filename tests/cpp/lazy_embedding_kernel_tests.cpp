@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include <tests/cpp/habana_lazy_test_infra.h>
 #include <torch/csrc/jit/testing/file_check.h>
 #include <torch/torch.h>
 #include <stdexcept>
@@ -12,16 +13,9 @@
 
 using namespace habana_lazy;
 
-class LazyEmbeddingKernelTest : public ::testing::Test {
- protected:
-  void SetUp() override {}
-
-  void TearDown() override {}
-};
+class LazyEmbeddingKernelTest : public habana_lazy_test::LazyTest {};
 
 TEST_F(LazyEmbeddingKernelTest, EmbeddingTest) {
-  setenv("PT_HPU_LAZY_MODE", "1", 0);
-
   auto tindices = torch::randint(9, 10, at::IntArrayRef({10}), torch::kInt64);
   torch::Tensor htindices = tindices.to(torch::kHABANA);
 
@@ -39,6 +33,4 @@ TEST_F(LazyEmbeddingKernelTest, EmbeddingTest) {
   // -1, false); auto hout_bwd = hembed_bwd.to(torch::kCPU); auto cout_bwd =
   // torch::embedding_dense_backward(tgrad, tindices, 10, -1, false);
   // EXPECT_EQ(allclose(hout_bwd, cout_bwd), true);
-
-  unsetenv("PT_HPU_LAZY_MODE");
 }

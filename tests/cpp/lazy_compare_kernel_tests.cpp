@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include <tests/cpp/habana_lazy_test_infra.h>
 #include <torch/csrc/jit/testing/file_check.h>
 #include <torch/torch.h>
 #include <stdexcept>
@@ -12,20 +13,9 @@
 
 using namespace habana_lazy;
 
-class LazyCompareKernelTest : public ::testing::Test {
- protected:
-  void SetUp() override {
-    setenv("PT_HPU_LAZY_MODE", "1", 0);
-  }
-
-  void TearDown() override {
-    unsetenv("PT_HPU_LAZY_MODE");
-  }
-};
+class LazyCompareKernelTest : public habana_lazy_test::LazyTest {};
 
 TEST_F(LazyCompareKernelTest, EqScalarTest) {
-  setenv("PT_HPU_LAZY_MODE", "1", 0);
-
   torch::Tensor A = torch::rand({2, 2}, torch::requires_grad(false));
   float compVal = 1.1f;
   auto out_cpu = torch::eq(A, compVal);
@@ -36,13 +26,9 @@ TEST_F(LazyCompareKernelTest, EqScalarTest) {
 
   EXPECT_EQ(
       allclose(out_cpu.to(torch::kFloat), out_hpu.to(torch::kFloat)), true);
-
-  unsetenv("PT_HPU_LAZY_MODE");
 }
 
 TEST_F(LazyCompareKernelTest, EqTensorTest) {
-  setenv("PT_HPU_LAZY_MODE", "1", 0);
-
   const std::vector<int64_t> dimentions{5, 3, 4};
 
   torch::Tensor A = torch::randn(dimentions);
@@ -58,12 +44,9 @@ TEST_F(LazyCompareKernelTest, EqTensorTest) {
   EXPECT_EQ(
       allclose(expected.to(torch::kInt8), habanaGenerated.to(torch::kInt8)),
       true);
-  unsetenv("PT_HPU_LAZY_MODE");
 }
 
 TEST_F(LazyCompareKernelTest, LtScalarTest) {
-  setenv("PT_HPU_LAZY_MODE", "1", 0);
-
   torch::Tensor A = torch::rand({2, 2}, torch::requires_grad(false));
   float compVal = 1.1f;
   auto out_cpu = torch::lt(A, compVal);
@@ -74,13 +57,9 @@ TEST_F(LazyCompareKernelTest, LtScalarTest) {
 
   EXPECT_EQ(
       allclose(out_cpu.to(torch::kFloat), out_hpu.to(torch::kFloat)), true);
-
-  unsetenv("PT_HPU_LAZY_MODE");
 }
 
 TEST_F(LazyCompareKernelTest, LtTensorTest) {
-  setenv("PT_HPU_LAZY_MODE", "1", 0);
-
   const std::vector<int64_t> dimentions{5, 3, 4};
 
   torch::Tensor A = torch::randn(dimentions);
@@ -96,7 +75,6 @@ TEST_F(LazyCompareKernelTest, LtTensorTest) {
   EXPECT_EQ(
       allclose(expected.to(torch::kInt8), habanaGenerated.to(torch::kInt8)),
       true);
-  unsetenv("PT_HPU_LAZY_MODE");
 }
 
 TEST_F(LazyCompareKernelTest, GeScalarTest) {

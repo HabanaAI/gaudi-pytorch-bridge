@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include <tests/cpp/habana_lazy_test_infra.h>
 #include <torch/csrc/jit/testing/file_check.h>
 #include <torch/torch.h>
 #include <stdexcept>
@@ -28,16 +29,7 @@ using namespace habana_lazy;
         allclose(habanaOutput.to("cpu"), expectedOutput, 0.001, 0.001), true); \
   }
 
-class LazySpecialKernelTest : public ::testing::Test {
- protected:
-  void SetUp() override {
-    setenv("PT_HPU_LAZY_MODE", "1", 0);
-  }
-
-  void TearDown() override {
-    unsetenv("PT_HPU_LAZY_MODE");
-  }
-};
+class LazySpecialKernelTest : public habana_lazy_test::LazyTest {};
 
 TEST_F(LazySpecialKernelTest, AsinForward) {
   auto A = torch::randn(4, torch::dtype(torch::kFloat));
@@ -52,7 +44,6 @@ TEST_F(LazySpecialKernelTest, AsinForward) {
 }
 
 HPU_LAZY_KERNEL_TEST(acos, -1.0, 1.0)
-
 HPU_LAZY_KERNEL_TEST(acosh, 1.0, MAX_VALUE_TO_TEST)
 HPU_LAZY_KERNEL_TEST(asinh, MIN_VALUE_TO_TEST, MAX_VALUE_TO_TEST)
 HPU_LAZY_KERNEL_TEST(atan, MIN_VALUE_TO_TEST, MAX_VALUE_TO_TEST)

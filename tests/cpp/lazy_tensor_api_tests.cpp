@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include <tests/cpp/habana_lazy_test_infra.h>
 #include <torch/csrc/jit/testing/file_check.h>
 #include <torch/torch.h>
 #include <stdexcept>
@@ -12,42 +13,15 @@
 
 using namespace habana_lazy;
 
-class LazyTensorAPITest : public ::testing::Test {
- protected:
-  void SetUp() override {
-    setenv("PT_HPU_LAZY_MODE", "1", 0);
-  }
-
-  void TearDown() override {
-    unsetenv("PT_HPU_LAZY_MODE");
-  }
-};
+class LazyTensorAPITest : public habana_lazy_test::LazyTest {};
 
 TEST_F(LazyTensorAPITest, NumelDimSizeTest) {
-  torch::Tensor A = torch::tensor({
-                                    {
-                                      {2, 4, 1, 3, 3},
-                                      {0, 9, 8, 7, 6},
-                                      {7, 7, 7, 8, 8}
-                                    },
-                                    {
-                                      {2, 4, 1, 3, 3},
-                                      {9, 9, 1, 3, -2},
-                                      {8, 3, 2, 1, 0}
-                                    }
-                                  });
-  torch::Tensor B = torch::tensor({
-                                    {
-                                      {2, 6, 1, 1, 0},
-                                      {9, 2, 5, 6, -5},
-                                      {8, 5, 2, 1, 7}
-                                    },
-                                    {
-                                      {1, 5, 1, 5, 1},
-                                      {1, 4, 1, 3, -2},
-                                      {1, 6, 8, 9, 10}
-                                    }
-                                  });
+  torch::Tensor A = torch::tensor(
+      {{{2, 4, 1, 3, 3}, {0, 9, 8, 7, 6}, {7, 7, 7, 8, 8}},
+       {{2, 4, 1, 3, 3}, {9, 9, 1, 3, -2}, {8, 3, 2, 1, 0}}});
+  torch::Tensor B = torch::tensor(
+      {{{2, 6, 1, 1, 0}, {9, 2, 5, 6, -5}, {8, 5, 2, 1, 7}},
+       {{1, 5, 1, 5, 1}, {1, 4, 1, 3, -2}, {1, 6, 8, 9, 10}}});
   torch::Tensor hA = A.to(torch::kHABANA);
   torch::Tensor hB = B.to(torch::kHABANA);
   torch::Tensor out = torch::mul(hA, hB);

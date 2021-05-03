@@ -1,9 +1,10 @@
 #include <gtest/gtest.h>
+#include <tests/cpp/habana_lazy_test_infra.h>
 #include <torch/csrc/jit/testing/file_check.h>
 #include <torch/torch.h>
 #include <stdexcept>
+#include "habana_kernels/eager_kernels_declarations.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
-#include "habana_kernels/wrap_kernels_declarations.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/debug_utils.h"
 #include "habana_lazy/hlexec.h"
@@ -12,16 +13,7 @@
 
 using namespace habana_lazy;
 
-class LazyMaskScalarKernelTest : public ::testing::Test {
- protected:
-  void SetUp() override {
-    setenv("PT_HPU_LAZY_MODE", "1", 0);
-  }
-
-  void TearDown() override {
-    unsetenv("PT_HPU_LAZY_MODE");
-  }
-};
+class LazyMaskScalarKernelTest : public habana_lazy_test::LazyTest {};
 
 TEST_F(LazyMaskScalarKernelTest, MaskedScaleInplaceTest) {
   const std::vector<int64_t> dimentions{7, 3, 5};
@@ -34,14 +26,12 @@ TEST_F(LazyMaskScalarKernelTest, MaskedScaleInplaceTest) {
   double scale = rand() % 2 ? x : -1 * x;
 
   // Eager section:
-  unsetenv("PT_HPU_LAZY_MODE");
   auto hA = A.to(torch::kHABANA);
   auto hB = B.to(torch::kHABANA);
-  auto hExpected = _masked_scale(hA, hB, scale);
+  auto hExpected = masked_scale_hpu(hA, hB, scale);
   Tensor expected = hExpected.to(torch::kCPU);
 
   // Lazy Section
-  setenv("PT_HPU_LAZY_MODE", "1", 0);
   auto hAL = A.to(torch::kHABANA);
   auto hBL = B.to(torch::kHABANA);
   auto hOut = _masked_scale(hAL, hBL, scale);
