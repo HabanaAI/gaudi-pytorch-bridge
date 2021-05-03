@@ -38,11 +38,17 @@ class SynapseProfilerApi:
         self.profiler_stop_call.restype = c_int
         self.profiler_get_trace_call = return_c_func(self.full_path, 'synProfilerGetTrace')
         self.profiler_get_trace_call.restype = c_int
+        self.profiler_sync_call = return_c_func(self.full_path, 'synDeviceSynchronize')
+        self.profiler_sync_call.restype = c_int
 
     def profiler_start(self, trace_type: TraceType, device_id: int):
         int32_device_id = c_int32(device_id)
         int_trace_type = c_int(trace_type.value[0])
         return self.profiler_start_call(int_trace_type, int32_device_id)
+
+    def profiler_sync(self, device_id: int):
+        int32_device_id = c_int32(device_id)
+        return self.profiler_sync_call(int32_device_id)
 
     def profiler_stop(self, trace_type: TraceType, device_id: int):
         int32_device_id = c_int32(device_id)
