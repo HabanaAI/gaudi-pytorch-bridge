@@ -1269,6 +1269,15 @@ void HabanaLaunchOpPT::handleRestrideNode(torch::jit::Node* node) {
   }
   tensor.unsafeGetTensorImpl()->set_sizes_and_strides(
       swapped_sizes, swapped_strides);
+
+  if (isInGraphOutputs(value_out)) {
+    tensor.unsafeGetTensorImpl()->empty_tensor_restride(
+        c10::MemoryFormat::ChannelsLast);
+  } else {
+    tensor.unsafeGetTensorImpl()->empty_tensor_restride(
+        c10::MemoryFormat::Contiguous);
+  }
+
   auto ivptrsh_updated = std::make_shared<IVal>(tensor);
   if (isInGraphOutputs(value_out)) {
     HABANA_ASSERT(value_to_ivalue.count(value_in));
