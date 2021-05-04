@@ -86,13 +86,9 @@ void UpsampleOperator::AllocateAndAddSynapseNode(
       output_size,
       scales,
       c10::MemoryFormat::ChannelsLast);
-
+  c10::MemoryFormat memory_format = habana_helpers::get_memory_format({&input});
   auto output = habana_helpers::createPTTensor(
-      input,
-      shape_out,
-      input.options(),
-      c10::MemoryFormat::ChannelsLast,
-      is_output_persistent);
+      input, shape_out, input.options(), memory_format, is_output_persistent);
 
   // Setup pool params
   auto syn_upsample_params =
@@ -120,11 +116,13 @@ void UpsampleBackwardOperator::AllocateAndAddSynapseNode(
       grad_output.ndimension());
   // TPC kernel runs only ChannelLast format
   // TPC kernel supports only 4D Tensor
+  c10::MemoryFormat memory_format =
+      habana_helpers::get_memory_format({&grad_output});
   auto output = habana_helpers::createPTTensor(
       grad_output,
       grad_out_shape,
       grad_output.options(),
-      c10::MemoryFormat::ChannelsLast,
+      memory_format,
       is_output_persistent);
 
   // Setup upsample params
