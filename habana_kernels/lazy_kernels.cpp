@@ -3934,12 +3934,10 @@ Tensor upsample_nearest2d_backward_hpu_lazy(
   PT_LAZY_TRACE;
   auto memory_format = grad_output.suggest_memory_format();
   std::vector<int64_t> permuted_sizes = input_size.vec();
-  if (memory_format == c10::MemoryFormat::Contiguous) {
-    permuted_sizes[0] = input_size[0];
-    permuted_sizes[1] = input_size[2];
-    permuted_sizes[2] = input_size[3];
-    permuted_sizes[3] = input_size[1];
-  }
+  permuted_sizes[0] = input_size[0];
+  permuted_sizes[1] = input_size[2];
+  permuted_sizes[2] = input_size[3];
+  permuted_sizes[3] = input_size[1];
 
   habana_lazy::ir::NodePtr node =
       std::make_shared<habana_lazy::ir::UpsampleNearest2dBackward>(

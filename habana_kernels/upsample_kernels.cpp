@@ -106,7 +106,6 @@ void UpsampleBackwardOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     bool is_output_persistent) {
-  PT_KERNEL_BEGIN;
   auto grad_output = inputs[0].toTensor();
   auto grad_size = inputs[2].toIntList();
   std::vector<int64_t> grad_out_shape = grad_size.vec();
@@ -135,7 +134,6 @@ void UpsampleBackwardOperator::AllocateAndAddSynapseNode(
   AllocateSynapseOutput(graph, output, is_output_persistent);
   AddNodeToSynapseGraph(
       graph, &syn_upsample_params, sizeof(syn_upsample_params));
-  PT_KERNEL_END;
 }
 
 void UpsampleOperator::SetPTOutputs(torch::jit::Stack& inputs) {
@@ -169,7 +167,6 @@ Tensor upsample_op_hpu(
     torch::jit::Stack& stack,
     std::string& node_type,
     UpsampleOperator* Op) {
-  PT_KERNEL_BEGIN;
   at::Tensor input = stack[0].toTensor();
   Tensor input_nhwc = input;
   int64_t pos_in[] = {0, 2, 3, 1};
@@ -216,7 +213,6 @@ Tensor upsample_op_hpu(
   pt_new_pos = {&new_dim_pos_out};
   habana_helpers::change_tensors_to_memory_format(
       pt_out, pt_in, pt_new_pos, memory_format);
-  PT_KERNEL_END;
   return output;
 }
 
@@ -224,7 +220,6 @@ Tensor upsample_backward_op_hpu(
     torch::jit::Stack& stack,
     std::string& node_type,
     UpsampleBackwardOperator* Op) {
-  PT_KERNEL_BEGIN;
   auto grad_output = stack[0].toTensor();
   auto input_size = stack[2].toIntList();
 
@@ -239,12 +234,11 @@ Tensor upsample_backward_op_hpu(
   habana_helpers::change_tensors_to_memory_format(
       pt_out, pt_in, pt_new_pos, memory_format);
   std::vector<int64_t> permuted_sizes = input_size.vec();
-  if (memory_format == c10::MemoryFormat::Contiguous) {
-    permuted_sizes[0] = input_size[0];
-    permuted_sizes[1] = input_size[2];
-    permuted_sizes[2] = input_size[3];
-    permuted_sizes[3] = input_size[1];
-  }
+  permuted_sizes[0] = input_size[0];
+  permuted_sizes[1] = input_size[2];
+  permuted_sizes[2] = input_size[3];
+  permuted_sizes[3] = input_size[1];
+
   // Overwriting the grad_output with the permuted grad_ouput so that the inputs
   // is in channels last from this point
   stack[0] = IValue(grad_output_nhwc);
@@ -283,7 +277,6 @@ Tensor upsample_backward_op_hpu(
   habana_helpers::change_tensors_to_memory_format(
       pt_out, pt_in, pt_new_pos1, memory_format);
 
-  PT_KERNEL_END;
   return output;
 }
 
@@ -291,6 +284,7 @@ Tensor upsample_nearest2d_hpu(
     const Tensor& input,
     c10::optional<at::IntArrayRef> output_size,
     c10::optional<at::ArrayRef<double>> scale_factors) {
+  PT_KERNEL_BEGIN;
   // Create the operator
   at::ScalarType scalar_type = input.scalar_type();
   size_t device_id = input.device().index();
@@ -301,7 +295,9 @@ Tensor upsample_nearest2d_hpu(
   // Build Params for the graph
   std::vector<c10::IValue> stack = {
       IValue(input), IValue(output_size), IValue(scale_factors)};
-  return upsample_op_hpu(stack, node_type, &Op);
+  auto output = upsample_op_hpu(stack, node_type, &Op);
+  PT_KERNEL_END;
+  return output;
 }
 
 Tensor upsample_nearest2d_backward_hpu(
@@ -324,8 +320,9 @@ Tensor upsample_nearest2d_backward_hpu(
       IValue(output_size),
       IValue(input_size),
       IValue(scale_factors)};
+  auto grad_input = upsample_backward_op_hpu(stack, node_type, &Op);
   PT_KERNEL_END;
-  return upsample_backward_op_hpu(stack, node_type, &Op);
+  return grad_input;
 }
 
 static auto& KernelRegistry =
