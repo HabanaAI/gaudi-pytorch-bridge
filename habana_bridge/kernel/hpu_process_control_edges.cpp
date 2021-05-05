@@ -146,7 +146,7 @@ void HabanaLaunchOpPT::PrepareBlockingNodeList(
 }
 
 void HabanaLaunchOpPT::ProcessControlEdges() {
-  torch::jit::graph_node_list graph_nodes = fusion_op_graph->nodes();
+  torch::jit::graph_node_list graph_nodes = jit_ir_graph->nodes();
 
   for (auto node : graph_nodes) {
     auto c_edge = nodeRequiresControlEdge(node->kind().toQualString());

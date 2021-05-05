@@ -119,6 +119,43 @@ class PtTensorInfo {
     storage_data_ptr_ = ptr;
   }
 
+  void* get_buffer_start() const {
+    return (void*)storage_data_ptr_;
+  }
+  synapse_helpers::device_ptr get_offset() const {
+    return offset_;
+  }
+  void set_offset(synapse_helpers::device_ptr val) {
+    offset_ = val;
+  }
+
+  // The following patch functions need to be used for patching.
+  // Note :
+  //   For inputs both storage and data ptrs are updated.
+  //   For the rest of the tensors offset will be used to calculate the buffer.
+  void patch_exact(const at::Tensor& pt_tensor) {
+    buffer_ = pt_tensor.data_ptr();
+    storage_data_ptr_ = reinterpret_cast<synapse_helpers::device_ptr>(
+        pt_tensor.storage().data_ptr().get());
+    auto new_offset = reinterpret_cast<synapse_helpers::device_ptr>(buffer_) -
+        storage_data_ptr_;
+    TORCH_CHECK(
+        offset_ == new_offset,
+        "offset_ ",
+        offset_,
+        "is not matching with the offset of new tensor ",
+        new_offset);
+  }
+  void patch(const PtTensorInfo& t) {
+    storage_data_ptr_ = t.storage_data_ptr_;
+    buffer_ = (void*)(storage_data_ptr_ + offset_);
+  }
+  void patch(const at::Tensor& pt_tensor) {
+    storage_data_ptr_ = reinterpret_cast<synapse_helpers::device_ptr>(
+        pt_tensor.storage().data_ptr().get());
+    buffer_ = (void*)(storage_data_ptr_ + offset_);
+  }
+
   friend std::ostream& operator<<(std::ostream& O, const PtTensorInfo& t);
   const std::vector<int64_t>& get_shape() const {
     return shape_;
@@ -132,6 +169,9 @@ class PtTensorInfo {
   const c10::MemoryFormat& get_mf() {
     return mf_;
   }
+  bool is_view_tensor() const {
+    return is_view_tensor_;
+  }
   size_t get_dma_tensor_idx() const {
     return dma_tensor_idx_;
   }
@@ -142,14 +182,15 @@ class PtTensorInfo {
     return dma_cb_;
   }
 
-  static bool watch_tensor_flag;
-
  private:
   bool is_tensor_{true};
+  bool is_view_tensor_{false};
   IVal iv_{};
 
   void* buffer_{nullptr};
-  synapse_helpers::device_ptr storage_data_ptr_;
+  synapse_helpers::device_ptr storage_data_ptr_{0};
+  // offset is used for view tensor only
+  synapse_helpers::device_ptr offset_{0};
   std::string ir_name_;
   std::string syn_name_;
   std::string shape_str_;

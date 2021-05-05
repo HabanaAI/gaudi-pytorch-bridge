@@ -30,6 +30,11 @@ void PtTensorInfo::populate_tinfo(
   mf_ = pt_tensor.suggest_memory_format();
 
   watch_ = wflag;
+
+  synapse_helpers::device_ptr buffer_ptr =
+      reinterpret_cast<synapse_helpers::device_ptr>(pt_tensor.data_ptr());
+  is_view_tensor_ = (storage_data_ptr_ != buffer_ptr);
+  offset_ = (buffer_ptr - storage_data_ptr_);
 }
 
 PtTensorInfo::PtTensorInfo(const IValPtrShared& ivpsh)
@@ -74,6 +79,11 @@ std::ostream& operator<<(std::ostream& O, const PtTensorInfo& t) {
     if (ULONG_MAX != t.get_output_index()) {
       O << ", output_index " << t.get_output_index();
     }
+
+    O << ", <" << t.get_buffer_start() << ", +" << t.offset_ << ">";
+    if (t.offset_ != 0) {
+      O << " nz offset view tensor ";
+    }
   } else {
     O << "> non-tensor : ivalue :: " << t.iv_;
   }
@@ -84,7 +94,8 @@ void PrintATenTensor(const at::Tensor& a) {
   std::ostream& O = std::cout;
   O << " Tensor -> ";
   if (a.has_storage()) {
-    O << " @ " << a.data_ptr() << " : "
+    O << " @ " << (void*)a.storage().data_ptr().get() << " : " << a.data_ptr()
+      << " : "
       << " dim " << a.dim() << " : " << a.sizes();
   } else {
     O << " does not have storage";

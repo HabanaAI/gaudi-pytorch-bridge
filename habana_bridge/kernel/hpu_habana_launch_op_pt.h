@@ -74,7 +74,7 @@ class HabanaLaunchOpPT {
 
  private:
   std::string op_name;
-  std::shared_ptr<torch::jit::Graph> fusion_op_graph;
+  std::shared_ptr<torch::jit::Graph> jit_ir_graph;
   bool debug;
   std::string id_str;
   synapse_helpers::graph* syn_graph_ptr = nullptr;
@@ -113,7 +113,7 @@ class HabanaLaunchOpPT {
       absl::variant<PtTensorInfo, std::vector<PtTensorInfo>>>
       input_tiv_map;
   std::vector<absl::variant<PtTensorInfo, std::vector<PtTensorInfo>>>
-      duplicate_tivs;
+      duplicate_input_tivs;
   std::unordered_map<void*, IValPtrShared> buff_to_input_ivpsh_map;
   std::unordered_map<void*, IValPtrShared> buff_to_intermediate_ivpsh_map;
   std::unordered_map<void*, IValPtrShared> buff_to_output_ivpsh_map;

@@ -134,6 +134,13 @@ struct RecipeValueSpec {
     in_use.store(flag, std::memory_order_relaxed);
   }
 
+  void create_outdup(PtTensorInfo& ti, at::Tensor orig);
+  void create_outdup(size_t ti_idx, IValPtrShared& ivpsh_parent);
+  void create_outdup(
+      size_t ti_idx,
+      std::unordered_map<size_t, IValPtrShared>& parent_ivpsh_map,
+      std::string map_name);
+
   friend std::ostream& operator<<(std::ostream& O, const RecipeValueSpec& v);
 
   std::shared_ptr<synapse_helpers::graph::recipe_handle> recipe;
