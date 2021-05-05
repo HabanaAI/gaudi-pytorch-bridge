@@ -16,7 +16,7 @@ def test_hpu_linear():
     y_cpu = torch.tensor([[1., -1.], [2., -2.]], dtype=torch.float32)
 
     with torch.jit.optimized_execution(True):
-        hpu = torch.device("habana")
+        hpu = torch.device("hpu")
         cpu = torch.device("cpu")
 
         torch._C._jit_override_can_fuse_on_cpu(False)

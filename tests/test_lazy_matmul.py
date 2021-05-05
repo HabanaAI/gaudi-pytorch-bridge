@@ -14,7 +14,7 @@ def test_hpu_lazy_matmul_fwd_bwd(size1, size2):
     t1 = torch.randn(size1, requires_grad = True)
     t2 = torch.randn(size2, requires_grad = True)
 
-    hpu = torch.device("habana")
+    hpu = torch.device("hpu")
 
     t1_h = t1.to(hpu)
     t1_h.retain_grad()

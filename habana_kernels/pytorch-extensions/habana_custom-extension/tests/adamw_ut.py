@@ -7,7 +7,7 @@ from hb_custom import FusedAdamW
 from transformers import AdamW
 
 torch.ops.load_library(os.path.join(os.environ['BUILD_ROOT_LATEST'], "libhabana_pytorch_plugin.so"))
-habana = torch.device("habana")
+habana = torch.device("hpu")
 cpu = torch.device("cpu")
 
 sys.path.insert(0, os.path.join(os.environ['PYTORCH_MODULES_RELEASE_BUILD']))

@@ -14,7 +14,7 @@ def multiple_funcs(tensor_a, tensor_b, tensor_c):
 
 def test_jit_multiple_dbg():
     trace_file_name = 'test_jit_multiple_dbg_cpu_trace.pt'
-    hpu = torch.device("habana")
+    hpu = torch.device("hpu")
     cpu = torch.device("cpu")
 
     x_cpu = torch.tensor([[1., -2.], [3., -4.]], dtype=torch.float32)

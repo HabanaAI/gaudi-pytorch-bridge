@@ -17,7 +17,7 @@ test_case_list = [
 @pytest.mark.skip("Fails in docker tests")
 @pytest.mark.parametrize("D1, D2", test_case_list)
 def test_log_softmax(D1, D2):
-    hpu = torch.device("habana")
+    hpu = torch.device("hpu")
     cpu = torch.device("cpu")
     in_t = torch.randn(8, 10)
     in_t.requires_grad_(True)
@@ -46,7 +46,7 @@ def test_log_softmax(D1, D2):
         hb_torch.enable()
         torch._C._jit_set_profiling_mode(False)
         torch._C._jit_set_profiling_executor(False)
-        model_trace_hpu = torch.jit.load("cpu_trace.pt", map_location=torch.device("habana"))
+        model_trace_hpu = torch.jit.load("cpu_trace.pt", map_location=torch.device("hpu"))
         model_trace_hpu_graph = model_trace_hpu.graph_for(hpu_t)
         print("Fused graph on HPU: ")
         print(model_trace_hpu_graph)

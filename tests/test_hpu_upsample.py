@@ -36,7 +36,7 @@ test_case_list4 = [
     (1, 6, 8, 1, 18, 16),
     ]
 
-hpu = torch.device('habana')
+hpu = torch.device('hpu')
 cpu = torch.device('cpu')
 
 @pytest.mark.parametrize("N, H, W, C, scale_factor", test_case_list2)

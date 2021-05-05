@@ -39,7 +39,7 @@ INSTANTIATE_TEST_SUITE_P(
     PrintToStringParamName());
 
 TEST_P(FallbackTest, Simple) {
-  auto ones = torch::ones(10, "habana");
+  auto ones = torch::ones(10, "hpu");
   auto res = ones.digamma();
   res = res.add(ones);
 
@@ -49,7 +49,7 @@ TEST_P(FallbackTest, Simple) {
 }
 
 TEST_P(FallbackTest, Inplace) {
-  auto randt = torch::rand(10).to("habana");
+  auto randt = torch::rand(10).to("hpu");
   int p = 2; // Must be greater than 1
 
   // All element of t must be greater than (p-1)/2

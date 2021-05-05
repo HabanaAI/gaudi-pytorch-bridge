@@ -41,7 +41,7 @@ def setup_HCL(sim=True,size=2):
 
 def dummy_bcast():
     group, group_id, rank = _init_global_test()
-    IN = torch.tensor(10,dtype=torch.float).to("habana")
+    IN = torch.tensor(10,dtype=torch.float).to("hpu")
     dist.broadcast(IN,0,group_id)
 
 def send_recv(size,steps,stsize):
@@ -49,7 +49,7 @@ def send_recv(size,steps,stsize):
     for length in range (stsize,size+1,1):
         num_bytes = pow(2,length)
         IN = torch.tensor((),dtype=torch.uint8)
-        IN = IN.new_ones(num_bytes).to("habana")
+        IN = IN.new_ones(num_bytes).to("hpu")
         dummy_bcast()
         start = timeit.default_timer()
         for i in range(1,steps+1):
@@ -63,7 +63,7 @@ def recv_send(size,steps,stsize):
     for length in range (stsize,size+1,1):
         num_bytes = pow(2,length)
         IN = torch.tensor((),dtype=torch.uint8)
-        IN = IN.new_ones(num_bytes).to("habana")
+        IN = IN.new_ones(num_bytes).to("hpu")
         dummy_bcast()
         for i in range(1,steps+1):
             dist.recv(IN, 0)
@@ -81,7 +81,7 @@ def perf_all_reduce(args):
     for length in range (strts,size+1,1):
         num_bytes = pow(2,length)
         IN = torch.tensor((),dtype=torch.float)
-        IN = IN.new_ones(int(num_bytes/4)).to("habana")
+        IN = IN.new_ones(int(num_bytes/4)).to("hpu")
         start = timeit.default_timer()
         for i in range(1,steps+1):
             dist.all_reduce(IN,dist.ReduceOp.SUM, group_id)
@@ -113,7 +113,7 @@ def perf_broadcast(args):
     for length in range (strts,size+1,1):
         num_bytes = pow(2,length)
         IN = torch.tensor((),dtype=torch.float)
-        IN = IN.new_ones(int(num_bytes/4)).to("habana")
+        IN = IN.new_ones(int(num_bytes/4)).to("hpu")
         start = timeit.default_timer()
         for i in range(1,steps+1):
             dist.broadcast(IN,0,group_id)

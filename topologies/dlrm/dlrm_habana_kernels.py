@@ -144,7 +144,7 @@ class CustomPreProcessor(object):
             self.ln_emb = ln_emb
 
         self._preallocated_buffer = []
-        device = torch.device('habana')
+        device = torch.device('hpu')
         batch_size = self.batch_size
         if self.distributed:
             batch_size = self.per_rank_batch_size

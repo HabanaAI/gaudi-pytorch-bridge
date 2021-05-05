@@ -969,7 +969,7 @@ def main():
         print("Attempting to load library from path ", os.environ['PYTORCH_MODULES_RELEASE_BUILD'], flush=True)
         torch.ops.load_library(os.path.join(os.environ['PYTORCH_MODULES_RELEASE_BUILD'], "libhabana_pytorch_plugin.so"))
         sys.path.insert(0, os.path.join(os.environ['PYTORCH_MODULES_RELEASE_BUILD']))
-        device = torch.device("habana")
+        device = torch.device("hpu")
 
         try:
             global mpi_comm

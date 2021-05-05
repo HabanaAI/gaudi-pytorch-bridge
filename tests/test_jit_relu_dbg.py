@@ -19,7 +19,7 @@ def test_jit_relu_dbg():
   src = fi.filename
   base = os.path.splitext(src)[0]
   trace_file_name = base + '_trace.pt'
-  hpu = torch.device("habana")
+  hpu = torch.device("hpu")
   cpu = torch.device("cpu")
 
   u_cpu = torch.tensor([[ 5.,  5., -6.           ]], dtype=torch.float32)

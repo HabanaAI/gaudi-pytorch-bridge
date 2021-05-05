@@ -208,7 +208,7 @@ def pool_coalesce(device):
 def main():
 
     torch.ops.load_library(os.path.join(os.environ['PYTORCH_MODULES_RELEASE_BUILD'], "libhabana_pytorch_plugin.so"))
-    device = torch.device("habana")
+    device = torch.device("hpu")
 
     check_alignment(device)
     tensor_create(device)

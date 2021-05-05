@@ -24,7 +24,7 @@ def test_embedding(indices, weight):
         os.environ["MODEL_GARDEN_PYTORCH_PATH"],
         "nlp/bert/BERT_Fusion_Ops.txt",
     )
-    hpu = torch.device("habana")
+    hpu = torch.device("hpu")
     cpu = torch.device("cpu")
     x = torch.stack(
         (

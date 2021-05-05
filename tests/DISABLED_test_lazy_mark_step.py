@@ -18,7 +18,7 @@ class model(nn.Module):
 
 
 def test_lazy_mark_step_basic():
-    hpu = torch.device("habana")
+    hpu = torch.device("hpu")
     cpu = torch.device("cpu")
     m = model()
 

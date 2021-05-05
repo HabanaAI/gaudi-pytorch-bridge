@@ -26,7 +26,7 @@ mul_test_case_list = [
 ]
 
 
-hpu = torch.device("habana")
+hpu = torch.device("hpu")
 cpu = torch.device("cpu")
 
 @pytest.mark.skip(reason="Resnet tracing erroring out due to PT framework converting trace inputs to double")

@@ -17,11 +17,11 @@ class LazyBasicKernelTest : public habana_lazy_test::LazyTest {};
 
 TEST_F(LazyBasicKernelTest, BasicThreadSafety) {
   torch::Tensor A = torch::rand({20});
-  torch::Tensor hA = A.to("habana");
+  torch::Tensor hA = A.to("hpu");
 
   auto t = std::thread([&]() {
     torch::Tensor g = torch::ones({5});
-    torch::Tensor hg = g.to("habana");
+    torch::Tensor hg = g.to("hpu");
     Tensor Out = A.narrow(0, 2, 5);
     Tensor hOut = hA.narrow(0, 2, 5);
     Out.copy_(g.view({-1}), true);
@@ -31,7 +31,7 @@ TEST_F(LazyBasicKernelTest, BasicThreadSafety) {
 
   auto t2 = std::thread([&]() {
     torch::Tensor hg2, g2 = torch::zeros({5});
-    hg2 = g2.to("habana");
+    hg2 = g2.to("hpu");
     Tensor Out2 = A.narrow(0, 8, 5);
     Tensor hOut2 = hA.narrow(0, 8, 5);
     Out2.copy_(g2.view({-1}), true);
@@ -71,7 +71,7 @@ TEST_F(LazyBasicKernelTest, BasicCopyTest) {
 TEST_F(LazyBasicKernelTest, BasicNegCopyTest) {
   auto tensor = torch::tensor(1, torch::dtype(ScalarType::ComplexFloat));
   torch::Tensor hA;
-  EXPECT_THROW(hA = tensor.to("habana"), c10::Error);
+  EXPECT_THROW(hA = tensor.to("hpu"), c10::Error);
 }
 
 TEST_F(LazyBasicKernelTest, CloneTest) {

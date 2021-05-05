@@ -21,7 +21,7 @@ class MaxPool2dTestModule(nn.Module):
 @pytest.mark.skip("Fails in docker tests")
 @pytest.mark.parametrize("D1, D2, D3, D4", test_case_list)
 def test_maxpool_2d(D1, D2, D3, D4):
-    hpu = torch.device("habana")
+    hpu = torch.device("hpu")
     cpu = torch.device("cpu")
     in_t = torch.randn(D1, D2, D3, D4)
     hpu_t = in_t.to(hpu)

@@ -622,7 +622,7 @@ if __name__ == "__main__":
     elif use_hpu:
         print('Loading HPU Plugin',os.path.join(os.environ['PYTORCH_MODULES_RELEASE_BUILD'], "libhabana_pytorch_plugin.so"))
         torch.ops.load_library(os.path.join(os.environ['PYTORCH_MODULES_RELEASE_BUILD'], "libhabana_pytorch_plugin.so"))
-        device = torch.device('habana')
+        device = torch.device('hpu')
         print('Using HPU...')
     else:
         device = torch.device("cpu")

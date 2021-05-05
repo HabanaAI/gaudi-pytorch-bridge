@@ -148,8 +148,8 @@ TEST_F(LazyCompareKernelTest, TypePromotion) {
     auto b = torch::randn(size).to(dtype2);
     auto out = op(a, b);
 
-    auto ha = a.to("habana");
-    auto hb = b.to("habana");
+    auto ha = a.to("hpu");
+    auto hb = b.to("hpu");
     auto hout = op(ha, hb);
     EXPECT_TRUE(allclose(out.to(kFloat), hout.to("cpu").to(kFloat)));
   };

@@ -6,7 +6,7 @@ import hb_torch
 def transpose(x):
     return torch.t(x)
 
-hpu = torch.device("habana")
+hpu = torch.device("hpu")
 cpu = torch.device("cpu")
 in_t = torch.randn(8, 10)
 
@@ -25,7 +25,7 @@ def test_jit_transpose():
     torch._C._jit_set_profiling_mode(False)
     torch._C._jit_set_profiling_executor(False)
     hpu_t = in_t.to(hpu)
-    model_trace_hpu = torch.jit.load("cpu_trace.pt", map_location=torch.device("habana"))
+    model_trace_hpu = torch.jit.load("cpu_trace.pt", map_location=torch.device("hpu"))
     print(model_trace_hpu.graph_for(hpu_t))
     out = model_trace_hpu(hpu_t)
     hpu_result = out.to(cpu)

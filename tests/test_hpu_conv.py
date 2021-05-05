@@ -49,7 +49,7 @@ data_type_list = [
 
 @pytest.mark.parametrize("N, H, W, C, R, S, K, stride, padding, bias", conv_transpose_test_case_list)
 def test_hpu_conv_transpose(N, H, W, C, R, S, K, stride, padding, bias):
-    hpu = torch.device('habana')
+    hpu = torch.device('hpu')
     cpu = torch.device('cpu')
     input_nchw = torch.randn((N,C,H,W),dtype=torch.float, requires_grad=True)
 
@@ -69,7 +69,7 @@ def test_hpu_conv_transpose(N, H, W, C, R, S, K, stride, padding, bias):
 
 @pytest.mark.parametrize("N, H, W, C, R, S, K, stride, padding, bias", conv_transpose_test_case_list)
 def test_hpu_conv_transpose_chlast(N, H, W, C, R, S, K, stride, padding, bias):
-    hpu = torch.device('habana')
+    hpu = torch.device('hpu')
     cpu = torch.device('cpu')
     input_nchw = torch.randn((N,C,H,W),dtype=torch.float, requires_grad=True)
 
@@ -89,7 +89,7 @@ def test_hpu_conv_transpose_chlast(N, H, W, C, R, S, K, stride, padding, bias):
 
 @pytest.mark.parametrize("N, H, W, C, R, S, K, stride, padding, bias", conv_transpose_test_case_list)
 def test_hpu_conv_transpose_fwd_bwd(N, H, W, C, R, S, K, stride, padding, bias):
-    hpu = torch.device('habana')
+    hpu = torch.device('hpu')
     cpu = torch.device('cpu')
     input_nchw = torch.randn((N,C,H,W),dtype=torch.float, requires_grad=True)
 
@@ -118,7 +118,7 @@ def test_hpu_conv_transpose_fwd_bwd(N, H, W, C, R, S, K, stride, padding, bias):
 
 @pytest.mark.parametrize("N, H, W, C, R, S, K, stride, padding, bias", conv_transpose_test_case_list)
 def test_hpu_conv_transpose_chlast_fwd_bwd(N, H, W, C, R, S, K, stride, padding, bias):
-    hpu = torch.device('habana')
+    hpu = torch.device('hpu')
     cpu = torch.device('cpu')
     input_nchw = torch.randn((N,C,H,W),dtype=torch.float, requires_grad=True)
 
@@ -149,7 +149,7 @@ def test_hpu_conv_transpose_chlast_fwd_bwd(N, H, W, C, R, S, K, stride, padding,
 @pytest.mark.parametrize("N, H, W, C, R, S, K, stride, padding, bias", conv_test_case_list)
 @pytest.mark.parametrize("dtype, tol", data_type_list)
 def test_hpu_conv(N, H, W, C, R, S, K, stride, padding, bias, dtype, tol):
-    hpu = torch.device('habana')
+    hpu = torch.device('hpu')
     cpu = torch.device('cpu')
     input_nchw = torch.randn((N,C,H,W),dtype=torch.float, requires_grad=True)
 
@@ -174,7 +174,7 @@ def test_hpu_conv(N, H, W, C, R, S, K, stride, padding, bias, dtype, tol):
 @pytest.mark.parametrize("N, H, W, C, R, S, K, stride, padding, bias", conv_test_case_list)
 @pytest.mark.parametrize("dtype, tol", data_type_list)
 def test_hpu_conv_fwd_bwd(N, H, W, C, R, S, K, stride, padding, bias, dtype, tol):
-    hpu = torch.device('habana')
+    hpu = torch.device('hpu')
     cpu = torch.device('cpu')
     input_nchw = torch.randn((N,C,H,W),dtype=torch.float, requires_grad=True)
 
@@ -199,7 +199,7 @@ def test_hpu_conv_fwd_bwd(N, H, W, C, R, S, K, stride, padding, bias, dtype, tol
 
 @pytest.mark.parametrize("N, H, W, C, R, S, K, stride, padding, bias", conv_test_case_list)
 def test_hpu_conv_chlast(N, H, W, C, R, S, K, stride, padding, bias):
-    hpu = torch.device('habana')
+    hpu = torch.device('hpu')
     cpu = torch.device('cpu')
     input_nchw = torch.randn((N,C,H,W),dtype=torch.float, requires_grad=True)
 
@@ -222,7 +222,7 @@ def test_hpu_conv_chlast(N, H, W, C, R, S, K, stride, padding, bias):
 
 @pytest.mark.parametrize("N, H, W, C, R, S, K, stride, padding, bias", conv_test_case_list)
 def test_hpu_conv_chlast_fwd_bwd(N, H, W, C, R, S, K, stride, padding, bias):
-    hpu = torch.device('habana')
+    hpu = torch.device('hpu')
     cpu = torch.device('cpu')
     input_nchw = torch.randn((N,C,H,W),dtype=torch.float, requires_grad=True)
 
@@ -246,7 +246,7 @@ def test_hpu_conv_chlast_fwd_bwd(N, H, W, C, R, S, K, stride, padding, bias):
 
 @pytest.mark.parametrize("N, H, W, C, R, S, K, stride, padding, bias", conv_test_case_list)
 def test_hpu_chain_loop_conv_chlast_fwd_bwd(N, H, W, C, R, S, K, stride, padding, bias):
-    hpu = torch.device('habana')
+    hpu = torch.device('hpu')
     cpu = torch.device('cpu')
     input_nchw = torch.randn((N,C,H,W),dtype=torch.float, requires_grad=True)
 

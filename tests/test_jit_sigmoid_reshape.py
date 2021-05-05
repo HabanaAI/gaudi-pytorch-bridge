@@ -21,7 +21,7 @@ class SigmoidReshape(nn.Module):
 
 @pytest.mark.parametrize("D1, D2, D3, D4", test_case_list)
 def test_sigmoid_reshape(D1, D2, D3, D4):
-    hpu = torch.device("habana")
+    hpu = torch.device("hpu")
     cpu = torch.device("cpu")
     in_t = torch.randn(D1, D2, D3, D4)
     hpu_t = in_t.to(hpu)

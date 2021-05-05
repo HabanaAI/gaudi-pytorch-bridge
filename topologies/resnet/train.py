@@ -180,7 +180,7 @@ def enable_tracing(device):
         torch._C._jit_override_can_fuse_on_cpu(False)
         torch._C._jit_set_profiling_executor(False)
         torch._C._jit_set_profiling_mode(False)
-        if(device == torch.device('habana')):
+        if(device == torch.device('hpu')):
             hb_torch.enable()
         sample_trace_tensor = torch.zeros(args.batch_size, 3, 224, 224).to(device)
         return sample_trace_tensor
@@ -322,7 +322,7 @@ def main(args):
     utils.init_distributed_mode(args)
     print(args)
 
-    if args.device == 'habana':
+    if args.device == 'hpu':
         print("Attempting to load library from path ", os.environ['PYTORCH_MODULES_RELEASE_BUILD'], flush=True)
         torch.ops.load_library(os.path.join(os.environ['PYTORCH_MODULES_RELEASE_BUILD'], "libhabana_pytorch_plugin.so"))
         sys.path.insert(0, os.path.join(os.environ['PYTORCH_MODULES_RELEASE_BUILD']))
@@ -379,7 +379,7 @@ def main(args):
         if(device == torch.device('cuda')):
             print('Converting model to channels_last format on CUDA')
             model.to(memory_format=torch.channels_last)
-        elif(args.device == 'habana'):
+        elif(args.device == 'hpu'):
             print('Converting model params to channels_last format on Habana')
             # TODO:
             # model.to(device).to(memory_format=torch.channels_last)
@@ -408,7 +408,7 @@ def main(args):
     optimizer = sgd_optimizer(
         model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
 
-    if(args.device == 'habana'):
+    if(args.device == 'hpu'):
         permute_params(model, True, args.run_lazy_mode)
         permute_momentum(optimizer, True, args.run_lazy_mode)
 
@@ -443,7 +443,7 @@ def main(args):
     model_without_ddp = model
 
     if args.distributed:
-        if args.device == 'habana':
+        if args.device == 'hpu':
             model = torch.nn.parallel.DistributedDataParallel(model, bucket_cap_mb=100, broadcast_buffers=False,
                     first_bucket_cap_mb=100)
         else:
@@ -453,7 +453,7 @@ def main(args):
     model_for_train = model
 
     if args.resume:
-        if(args.device == 'habana'):
+        if(args.device == 'hpu'):
             permute_params(model_without_ddp, False, args.run_lazy_mode)
             permute_momentum(optimizer, False, args.run_lazy_mode)
 
@@ -464,11 +464,11 @@ def main(args):
             lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
 
         #Permute the weight momentum buffer before using for checkpoint
-        if(args.device == 'habana'):
+        if(args.device == 'hpu'):
             permute_momentum(optimizer, True, args.run_lazy_mode)
 
         args.start_epoch = checkpoint['epoch'] + 1
-        if(args.device == 'habana'):
+        if(args.device == 'hpu'):
             permute_params(model_without_ddp, True, args.run_lazy_mode)
 
     if args.test_only:
@@ -494,7 +494,7 @@ def main(args):
         evaluate(model_for_eval, criterion, data_loader_test, trainMetaData, device=device, print_freq=args.print_freq)
 
         if (args.output_dir and args.save_checkpoint):
-            if args.device == 'habana':
+            if args.device == 'hpu':
                 permute_params(model_without_ddp, False, args.run_lazy_mode)
                 # Use this model only to copy the state_dict of the actual model
                 copy_model = resnet_models.__dict__[args.model](pretrained=args.pretrained)
@@ -524,7 +524,7 @@ def main(args):
                 for state in optimizer.state.values():
                     for k, v in state.items():
                         if isinstance(v, torch.Tensor):
-                            state[k] = v.to('habana')
+                            state[k] = v.to('hpu')
                 permute_params(model_without_ddp, True, args.run_lazy_mode)
                 permute_momentum(optimizer, True, args.run_lazy_mode)
 

@@ -35,7 +35,7 @@ class SmoothedValue(object):
         if not is_dist_avail_and_initialized():
             return
         if device.type == 'habana':
-            t = torch.tensor([self.count, self.total], dtype=torch.float32).to('habana')
+            t = torch.tensor([self.count, self.total], dtype=torch.float32).to('hpu')
         else:
             t = torch.tensor([self.count, self.total], dtype=torch.float64, device='cuda')
             dist.barrier()
@@ -306,7 +306,7 @@ def init_distributed_mode(args):
     print('| distributed init (rank {}): {}'.format(
         args.rank, args.dist_url), flush=True)
 
-    if args.device == 'habana' and args.world_size  > 1:
+    if args.device == 'hpu' and args.world_size  > 1:
         if os.getenv('HCL_CONFIG_PATH') is None:
             print("HCL_CONFIG_PATH is not set")
             exit(0)

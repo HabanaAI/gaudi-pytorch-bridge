@@ -12,7 +12,7 @@ test_case_list = [
 # @pytest.mark.xfail(reason="SW-8819")
 @pytest.mark.parametrize("N, C, fill_val", test_case_list)
 def test_hpu_fill(N, C, fill_val):
-    hpu = torch.device('habana')
+    hpu = torch.device('hpu')
     cpu = torch.device('cpu')
 
     cpu_tensor = torch.randn(N, C)
@@ -24,7 +24,7 @@ def test_hpu_fill(N, C, fill_val):
 
 @pytest.mark.parametrize("N, C, fill_val", test_case_list)
 def test_hpu_masked_fill(N, C, fill_val):
-    hpu = torch.device('habana')
+    hpu = torch.device('hpu')
     cpu = torch.device('cpu')
 
     cpu_tensor = torch.randn(N, C)

@@ -217,8 +217,8 @@ TEST_F(LazyBinaryKernelTest, DivOut) {
   auto out = torch::empty_like(a);
   out = torch::div_out(out, a, b);
 
-  auto ha = a.to("habana");
-  auto hb = b.to("habana");
+  auto ha = a.to("hpu");
+  auto hb = b.to("hpu");
   auto hout = torch::empty_like(ha);
   hout = torch::div_out(hout, ha, hb);
 
@@ -234,8 +234,8 @@ TEST_F(LazyBinaryKernelTest, TypePromotion1) {
     auto b = torch::randn(size).to(dtype2);
     auto out = op(a, b);
 
-    auto ha = a.to("habana");
-    auto hb = b.to("habana");
+    auto ha = a.to("hpu");
+    auto hb = b.to("hpu");
     auto hout = op(ha, hb);
     EXPECT_TRUE(allclose(out, hout.to("cpu")));
   };
@@ -256,8 +256,8 @@ TEST_F(LazyBinaryKernelTest, TypePromotion2) {
         auto b = torch::randn(size).to(dtype2);
         auto out = op(a, b, 1);
 
-        auto ha = a.to("habana");
-        auto hb = b.to("habana");
+        auto ha = a.to("hpu");
+        auto hb = b.to("hpu");
         auto hout = op(ha, hb, 1);
         EXPECT_TRUE(allclose(out, hout.to("cpu")));
       };

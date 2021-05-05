@@ -13,8 +13,8 @@ def test_hpu_pin_memory():
     for input, target in loader:
         print("Is pinned memory", input.is_pinned())
         print("Is pinned memory", target.is_pinned())
-        input, target = input.to('habana'), target.to('habana')
-        x = torch.randn(10).to('habana')
+        input, target = input.to('hpu'), target.to('hpu')
+        x = torch.randn(10).to('hpu')
         y = torch.empty(10, pin_memory=True)
         y.copy_(x)
 

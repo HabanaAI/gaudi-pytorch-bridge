@@ -106,7 +106,7 @@ def main(rank, world_size):
 
     torch.manual_seed(args.seed)
 
-    device = torch.device("habana" if use_habana else "cpu")
+    device = torch.device("hpu" if use_habana else "cpu")
 
     #setup(rank, world_size)
     # kwargs = {'num_workers': 1, 'pin_memory': True} if use_habana else {}

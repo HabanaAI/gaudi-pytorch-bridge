@@ -32,7 +32,7 @@ def ParseHeader(args):
                     habana_key = 'use_habana'
                     gpu_key = 'no_cuda'
                     if log_info_dict[habana_key] == 'True':
-                        device = 'habana'
+                        device = 'hpu'
                     elif log_info_dict[gpu_key] == 'False':
                         device = 'gpu'
 

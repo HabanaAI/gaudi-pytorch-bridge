@@ -303,13 +303,13 @@ def main(args):
 
     torch.manual_seed(args.seed)
 
-    device = torch.device("habana" if use_habana else "cpu")
+    device = torch.device("hpu" if use_habana else "cpu")
 
     model = Net().to(device)
     # kwargs = {'num_workers': 1, 'pin_memory': True} if use_habana else {}
     kwargs = {'pin_memory': True}  if use_habana else {}
 
-    if(device==torch.device('habana')):
+    if(device==torch.device('hpu')):
         permute_params_on_device(args, model)
 
     if args.run_trace_mode:
@@ -317,7 +317,7 @@ def main(args):
             torch._C._jit_override_can_fuse_on_cpu(False)
             torch._C._jit_set_profiling_executor(False)
             torch._C._jit_set_profiling_mode(False)
-            if(device==torch.device('habana')):
+            if(device==torch.device('hpu')):
                 import hb_torch
                 hb_torch.enable()
             sample_trace_tensor = torch.FloatTensor(64, 1, 28, 28).to(device)

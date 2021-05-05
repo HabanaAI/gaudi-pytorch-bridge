@@ -4,7 +4,7 @@ from test_utils import reset_seed, compare_tensors
 from hmp import hmp
 import pytest
 
-hpu = torch.device("habana")
+hpu = torch.device("hpu")
 cpu = torch.device("cpu")
 
 

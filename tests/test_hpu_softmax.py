@@ -49,7 +49,7 @@ def test_hpu_log_softmax_fwd_bwd(N, C, kernel_op, dim):
 @pytest.mark.parametrize("dtype", [torch.int, torch.bool])
 def test_hpu_log_softmax_int(N, C, dim, dtype):
     input = torch.randint(low=0, high=1, size=(N, C), dtype=dtype)
-    hpu = torch.device("habana")
+    hpu = torch.device("hpu")
     hpu_tensor_in = input.to(hpu)
     output = F.softmax(input, dim, 3, torch.float)
     hpu_output = hpu_tensor_in.softmax(dim, dtype)

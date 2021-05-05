@@ -5,7 +5,7 @@ import hb_torch
 import pytest
 from torch.testing import FileCheck
 
-hpu = torch.device("habana")
+hpu = torch.device("hpu")
 cpu = torch.device("cpu")
 
 data_list = [
@@ -40,7 +40,7 @@ def test_jit_gt(in_tensors):
     torch._C._jit_set_profiling_executor(False)
     hpu_t1 = in_tensors[0].to(hpu)
     hpu_t2 = in_tensors[1].to(hpu)
-    model_trace_hpu = torch.jit.load("cpu_trace.pt", map_location=torch.device("habana"))
+    model_trace_hpu = torch.jit.load("cpu_trace.pt", map_location=torch.device("hpu"))
     model_trace_hpu_graph = model_trace_hpu.graph_for(hpu_t1)
     FileCheck().check_count("prim::HabanaFusedOp_0", 2, exactly=True).run(str(model_trace_hpu_graph))
     out = model_trace_hpu(hpu_t1, hpu_t2)

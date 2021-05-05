@@ -6,7 +6,7 @@ import torch
 import habanaOptimizerSparseAdagrad_cpp
 
 torch.ops.load_library(os.path.join(os.environ['BUILD_ROOT_LATEST'], "libhabana_pytorch_plugin.so"))
-device = torch.device("habana")
+device = torch.device("hpu")
 
 class HabanaOptimizerSparseAdagradFunction(torch.autograd.Function):
     @staticmethod

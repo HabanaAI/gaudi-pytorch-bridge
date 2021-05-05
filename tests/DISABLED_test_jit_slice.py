@@ -17,7 +17,7 @@ test_case_list = [(5, 5)]
 
 @pytest.mark.parametrize("D1, D2", test_case_list)
 def test_slice_backward(D1, D2):
-    hpu = torch.device("habana")
+    hpu = torch.device("hpu")
     cpu = torch.device("cpu")
     in_t = torch.randn(5, 5, requires_grad=True)
     hpu_t = in_t.detach().to(hpu)

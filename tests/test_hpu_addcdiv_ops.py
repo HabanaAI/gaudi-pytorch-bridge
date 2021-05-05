@@ -59,7 +59,7 @@ def test_hpu_addciv_inplace_op(N, H, W, C,value):
     tensor1 = torch.randn(N, C, H, W)
     tensor2 = torch.randn(N, C, H, W)
 
-    hpu = torch.device('habana')
+    hpu = torch.device('hpu')
 
     hpu_tensor_input = input.to(hpu)
     hpu_tensor1 = tensor1.to(hpu)

@@ -6,7 +6,7 @@ class FusedClipNorm():
         self,
         parameters: Iterable[torch.nn.parameter.Parameter],
         max_norm):
-        self.max_norm_t = (torch.ones((1))*max_norm).to(torch.device("habana"))
+        self.max_norm_t = (torch.ones((1))*max_norm).to(torch.device("hpu"))
         try:
             import hb_custom_C
         except ImportError:

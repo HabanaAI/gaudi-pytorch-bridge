@@ -17,7 +17,7 @@ def multiple_funcs(x1, x2, x3):
 
 def test_jit_index_put():
     #trace_file_name = "test_jit_index_put_cpu_trace.pt"
-    hpu = torch.device("habana")
+    hpu = torch.device("hpu")
     cpu = torch.device("cpu")
 
     x_cpu = torch.randn(4, 2, 2, 3)

@@ -4,7 +4,7 @@ from typing import Callable, Iterable
 import torch
 from torch.optim import Optimizer
 
-hpu = torch.device("habana")
+hpu = torch.device("hpu")
 cpu = torch.device("cpu")
 
 class FusedAdagrad(Optimizer):

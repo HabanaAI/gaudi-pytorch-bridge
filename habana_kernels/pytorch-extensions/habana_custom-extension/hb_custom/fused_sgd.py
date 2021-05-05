@@ -5,7 +5,7 @@ import torch
 from torch.optim import Optimizer
 from torch.optim.optimizer import required
 
-hpu = torch.device("habana")
+hpu = torch.device("hpu")
 cpu = torch.device("cpu")
 
 class FusedSGD(Optimizer):

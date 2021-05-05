@@ -17,7 +17,7 @@ test_cast_list_4d = [
     (4, 3, 2, 1, -1, 2, 3235),
 ]
 
-hpu = torch.device('habana')
+hpu = torch.device('hpu')
 cpu = torch.device('cpu')
 
 

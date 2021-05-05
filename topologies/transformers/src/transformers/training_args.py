@@ -303,7 +303,7 @@ class TrainingArguments:
             logger.info("Attempting to load library from path {}".format(os.environ['PYTORCH_MODULES_RELEASE_BUILD']))
             torch.ops.load_library(os.path.join(os.environ['PYTORCH_MODULES_RELEASE_BUILD'], "libhabana_pytorch_plugin.so"))
             sys.path.insert(0, os.path.join(os.environ['PYTORCH_MODULES_RELEASE_BUILD']))
-            device = torch.device("habana")
+            device = torch.device("hpu")
 
             if self.local_rank == -1:
                 n_gpu = 0

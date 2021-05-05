@@ -53,7 +53,7 @@ test_case_nonzero = [
 # @torch.jit.script
 @pytest.mark.parametrize("N, H, W, C", test_case_list)
 def test_hpu_view(N, H, W, C):
-    hpu = torch.device('habana')
+    hpu = torch.device('hpu')
     cpu = torch.device('cpu')
 
     in_tensor = torch.randn(N, C, H, W)
@@ -65,7 +65,7 @@ def test_hpu_view(N, H, W, C):
 
 @pytest.mark.parametrize("N, H, W, C", test_case_list)
 def test_hpu_slice_and_select(N, H, W, C):
-    hpu = torch.device('habana')
+    hpu = torch.device('hpu')
     cpu = torch.device('cpu')
 
     in_tensor = torch.randn(N, C, H, W)
@@ -78,7 +78,7 @@ def test_hpu_slice_and_select(N, H, W, C):
 # Mix of True and False
 @pytest.mark.parametrize("N, H, W, C, value, format", test_case_nonzero)
 def test_hpu_nonzero(N, H, W, C, value, format):
-    hpu = torch.device('habana')
+    hpu = torch.device('hpu')
     cpu = torch.device('cpu')
     dim_list = [N, C, H, W]
     in_tensor = torch.randn(tuple(dim_list))>value
@@ -89,7 +89,7 @@ def test_hpu_nonzero(N, H, W, C, value, format):
 # Empty Tensor case
 @pytest.mark.parametrize("N, H, W, C, value, format", test_case_nonzero)
 def test_hpu_nonzero_empty(N, H, W, C, value, format):
-    hpu = torch.device('habana')
+    hpu = torch.device('hpu')
     cpu = torch.device('cpu')
     dim_list = [0, 0, 0, 0]
     in_tensor = torch.empty(tuple(dim_list), dtype=torch.float)
@@ -101,7 +101,7 @@ def test_hpu_nonzero_empty(N, H, W, C, value, format):
 # 1D case all false
 @pytest.mark.parametrize("N, H, W, C, value, format", test_case_nonzero)
 def test_hpu_nonzero_1D(N, H, W, C, value, format):
-    hpu = torch.device('habana')
+    hpu = torch.device('hpu')
     cpu = torch.device('cpu')
     dim_list = [H]
     in_tensor = torch.randn(tuple(dim_list))>value
@@ -166,7 +166,7 @@ def test_hpu_index_add(N, H, W, C, dim):
 
 @pytest.mark.parametrize("N, H, I, S", test_case_scatter_add)
 def test_hpu_scatter_out(N, H, I, S):
-    hpu = torch.device('habana')
+    hpu = torch.device('hpu')
     indices_torch = torch.randint(0, I * S, (N, H), dtype=torch.long)
     src = torch.randn(N, H)
     self_t = torch.randn(N, H)
@@ -179,7 +179,7 @@ def test_hpu_scatter_out(N, H, I, S):
 
 @pytest.mark.parametrize("N, H, I, S", test_case_scatter_add)
 def test_hpu_scatter_inplace(N, H, I, S):
-    hpu = torch.device('habana')
+    hpu = torch.device('hpu')
     indices_torch = torch.randint(0, I * S, (N, H), dtype=torch.long)
     src = torch.randn(N, H)
     self_t = torch.randn(N, H)
@@ -191,7 +191,7 @@ def test_hpu_scatter_inplace(N, H, I, S):
 
 @pytest.mark.parametrize("N, H, I, S", test_case_scatter_add)
 def test_hpu_scatter_value_inplace(N, H, I, S):
-    hpu = torch.device('habana')
+    hpu = torch.device('hpu')
     indices_torch = torch.randint(0, I * S, (N, H), dtype=torch.long)
     value = 2
     self_t = torch.randn(N, H)
@@ -204,7 +204,7 @@ def test_hpu_scatter_value_inplace(N, H, I, S):
 @pytest.mark.skip(reason=f"https://jira.habana-labs.com/browse/SW-25327")
 @pytest.mark.parametrize("N, H, I, S", test_case_scatter_add)
 def test_hpu_scatter_add_out(N, H, I, S):
-    hpu = torch.device('habana')
+    hpu = torch.device('hpu')
     indices_torch = torch.randint(0, I * S, (N, H), dtype=torch.long)
     src = torch.randn(N, H)
     self_t = torch.randn(N, H)
@@ -218,7 +218,7 @@ def test_hpu_scatter_add_out(N, H, I, S):
 @pytest.mark.skip(reason=f"https://jira.habana-labs.com/browse/SW-25327")
 @pytest.mark.parametrize("N, H, I, S", test_case_scatter_add)
 def test_hpu_scatter_add_inplace(N, H, I, S):
-    hpu = torch.device('habana')
+    hpu = torch.device('hpu')
     indices_torch = torch.randint(0, I * S, (N, H), dtype=torch.long)
     src = torch.randn(N, H)
     self_t = torch.randn(N, H)
@@ -231,7 +231,7 @@ def test_hpu_scatter_add_inplace(N, H, I, S):
 
 @pytest.mark.parametrize("test_case_list", broadcast_test_case_list)
 def test_hpu_broadcast(test_case_list):
-    hpu = torch.device('habana')
+    hpu = torch.device('hpu')
     cpu = torch.device('cpu')
 
     t1 = test_case_list[0]
@@ -257,10 +257,10 @@ def test_hpu_arange_op_out(start, end, step, dtype, op):
 
 @pytest.mark.parametrize("test_dtype", [torch.float, torch.long])
 def test_hpu_expand(test_dtype):
-    hpu = torch.device('habana')
+    hpu = torch.device('hpu')
     cpu = torch.device('cpu')
 
-    hpu = torch.device('habana')
+    hpu = torch.device('hpu')
     cpu = torch.device('cpu')
     tin = torch.arange(0, 3, 1, dtype=test_dtype).view(3, 1)
     tcpu_out = tin.expand(3, 4)

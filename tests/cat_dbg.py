@@ -33,7 +33,7 @@ def test_jit_cat_dbg(in_tensors):
   base = os.path.splitext(src)[0]
   trace_file_name = base + '_trace.pt'
 
-  hpu = torch.device("habana")
+  hpu = torch.device("hpu")
   cpu = torch.device("cpu")
 
   with torch.jit.optimized_execution(True):
@@ -62,7 +62,7 @@ def test_jit_cat_dbg(in_tensors):
     hpu_t1 = in_tensors[0].to(hpu)
     hpu_t2 = in_tensors[1].to(hpu)
     hpu_t3 = in_tensors[2].to(hpu)
-    model_trace_hpu = torch.jit.load(trace_file_name, map_location=torch.device("habana"))
+    model_trace_hpu = torch.jit.load(trace_file_name, map_location=torch.device("hpu"))
     out = model_trace_hpu(hpu_t1, hpu_t2, hpu_t3)
     hpu_result = out.to(cpu)
 

@@ -6,7 +6,7 @@ import torch
 import gather2d_cpp
 
 torch.ops.load_library(os.path.join(os.environ['BUILD_ROOT_LATEST'], "libhabana_pytorch_plugin.so"))
-device = torch.device("habana")
+device = torch.device("hpu")
 
 class Gather2DFunction(torch.autograd.Function):
     @staticmethod

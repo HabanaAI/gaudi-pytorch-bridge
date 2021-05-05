@@ -8,7 +8,7 @@ try:
 except ImportError:
   assert False,"Could Not import hb_torch"
 
-hpu = torch.device('habana')
+hpu = torch.device('hpu')
 cpu = torch.device('cpu')
 
 @torch.jit.script
@@ -25,7 +25,7 @@ if __name__ == '__main__':
   src = fi.filename
   base = os.path.splitext(src)[0]
   trace_file_name = base + '_trace.pt'
-  hpu = torch.device("habana")
+  hpu = torch.device("hpu")
   cpu = torch.device("cpu")
 
   u_cpu = torch.tensor([[ 5.,  5., -6.,  7. ]], dtype=torch.float32, requires_grad=True)

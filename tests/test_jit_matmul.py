@@ -22,7 +22,7 @@ def test_matmul(D1, D2):
         os.environ["MODEL_GARDEN_PYTORCH_PATH"],
         "nlp/bert/BERT_Fusion_Ops.txt",
     )
-    hpu = torch.device("habana")
+    hpu = torch.device("hpu")
     cpu = torch.device("cpu")
     mat1 = torch.randn(D1, requires_grad=True)
     mat2 = torch.randn(D2, requires_grad=True)

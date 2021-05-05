@@ -362,7 +362,7 @@ def setup_training(args):
     if args.use_habana:
         torch.ops.load_library(os.path.join(os.environ['PYTORCH_MODULES_RELEASE_BUILD'], "libhabana_pytorch_plugin.so"))
         sys.path.insert(0, os.path.join(os.environ['PYTORCH_MODULES_RELEASE_BUILD']))
-        device = torch.device("habana")
+        device = torch.device("hpu")
 
         if args.hmp:
             print(args.hmp_bf16)

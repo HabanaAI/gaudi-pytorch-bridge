@@ -144,7 +144,7 @@ def test_hpu_batch_norm_1d_ncl_fwd_bwd(N, C, L):
 
 @pytest.mark.parametrize("N, H, W, C", batch_norm_test_case_list_2d)
 def test_hpu_batch_norm_2d_eval_fwd_bwd(N, H, W, C):
-    hpu = torch.device("habana")
+    hpu = torch.device("hpu")
     cpu = torch.device("cpu")
 
     class bn(torch.nn.Module):
@@ -214,7 +214,7 @@ def test_hpu_batch_norm_2d_chlast_withcache_fwd_bwd(N, H, W, C):
 
 @pytest.mark.parametrize("N, H, W, C", batch_norm_test_case_list_2d)
 def test_hpu_batch_norm_2d_eval_withcache_fwd_bwd(N, H, W, C):
-    hpu = torch.device("habana")
+    hpu = torch.device("hpu")
     cpu = torch.device("cpu")
 
     class bn(torch.nn.Module):

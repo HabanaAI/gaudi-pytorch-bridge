@@ -34,8 +34,8 @@ TEST_F(LazyTensorAPITest, NumelDimSizeTest) {
 }
 
 TEST_F(LazyTensorAPITest, EmptyStorage) {
-  auto dummy = torch::ones(1).to("habana");
-  auto a = torch::empty(4, "habana");
-  habana_lazy::HbLazyTensor::StepMarker("habana");
+  auto dummy = torch::ones(1).to("hpu");
+  auto a = torch::empty(4, "hpu");
+  habana_lazy::HbLazyTensor::StepMarker("hpu");
   ASSERT_TRUE(GetHbLazyTensor(a).CurrentTensorData() != nullopt);
 }
