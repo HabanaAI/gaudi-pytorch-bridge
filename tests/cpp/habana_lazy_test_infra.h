@@ -19,6 +19,14 @@ namespace habana_lazy_test {
 
 class EnvHelper {
   char* m_saved = nullptr;
+  int m_seed = InitSeed();
+
+ private:
+  int InitSeed() {
+    const char* s = std::getenv("PT_HPU_TEST_SEED");
+    srand(time(nullptr));
+    return s ? std::stoi(s) : rand();
+  }
 
  protected:
   void SetMode(const char* mode = "1", int force = 0) {
@@ -49,6 +57,14 @@ class EnvHelper {
     SetMode(nullptr);
   }
 
+  int GetSeed() const {
+    return m_seed;
+  }
+
+  void SetSeed() const {
+    torch::manual_seed(m_seed);
+  }
+
  public:
   template <typename F>
   void ExecuteEager(F&& fn) {
@@ -67,6 +83,8 @@ class LazyTest : public ::testing::Test, public EnvHelper {
   void SetUp() override {
     // Save the original value
     SetLazyMode();
+
+    SetSeed();
   }
 
   void TearDown() override {
