@@ -45,7 +45,7 @@ bool StaticCoalescedPooling::pool_create(synDeviceId deviceID, uint64_t size)
 
   // try to take max free memory when not set by user
   if ((size > free_mem) || (size == DEFAULT_POOL_SIZE)) {
-    // setting the pool size to 90% of available memory in case of failure
+    // setting the pool size to 99% of available memory in case of failure
     size = 0.99 * free_mem;
     PT_SYNHELPER_DEBUG(
         "POOL:: use 99% of freepool size, free mem :: ",
@@ -141,17 +141,17 @@ static uint64_t pool_available(simple_coalesced_pool_t* p) {
 }
 
 void StaticCoalescedPooling::print_pool_stats() const {
-  static const std::string occupancy_mask = "[+++]";
-  static const std::string free_mask = "[00000]";
-  static std::stringstream pool_status;
-  static int occupied_chunks = 0;
-  static int total_chunks = 0;
-  static uint64_t occupied_size = 0;
-  static uint64_t total_size = 0;
-  static int total_extra_spaced_chunks = 0;
-  static uint64_t total_exta_size = 0;
-  static uint64_t cntgs_free_chunks_size = 0;
-  static uint64_t max_cntgs_free_chunks_size = 0;
+  const std::string occupancy_mask = "[+++]";
+  const std::string free_mask = "[00000]";
+  std::stringstream pool_status;
+  int occupied_chunks = 0;
+  int total_chunks = 0;
+  uint64_t occupied_size = 0;
+  uint64_t total_size = 0;
+  int total_extra_spaced_chunks = 0;
+  uint64_t total_exta_size = 0;
+  uint64_t cntgs_free_chunks_size = 0;
+  uint64_t max_cntgs_free_chunks_size = 0;
   pool_status.str("");
   pool_status.clear();
 
@@ -254,16 +254,18 @@ Chunk* StaticCoalescedPooling::get_any_available_free_chunk(
 }
 
 Chunk* StaticCoalescedPooling::get_free_chunk(uint64_t size) const {
-  Chunk key = Chunk(size);
-  auto it = free_list.lower_bound(&key);
-
-  if (it != free_list.end()) {
-    auto chunk = *it;
-    if (!skip_chunk(chunk, size)) {
-      chunk->used = true;
-      free_list.erase(chunk);
-      return chunk;
+  Chunk* new_chunk = nullptr;
+  for (auto& chunk : free_list) {
+    if ((chunk->size == size) ||
+        (chunk->size > size && (size > DEFRAGMENT_TH(chunk->size)))) {
+      new_chunk = chunk;
+      break;
     }
+  }
+  if (new_chunk) {
+    new_chunk->used = true;
+    free_list.erase(new_chunk);
+    return new_chunk;
   }
   return nullptr;
 }
@@ -421,6 +423,11 @@ Chunk* StaticCoalescedPooling::try_block_splitting(uint64_t size) const {
   Chunk* big_chunk = nullptr;
   big_chunk = get_any_available_free_chunk(size);
   if (big_chunk) {
+    PT_SYNHELPER_DEBUG(
+        "Get any available free chunk:: ",
+        big_chunk,
+        " of Size:: ",
+        big_chunk->size);
     auto split_chunk = try_splitting_chunks(big_chunk, size);
     if (split_chunk) {
       PT_SYNHELPER_DEBUG(
@@ -564,6 +571,9 @@ bool StaticCoalescedPooling::canMergeNextChunk(Chunk* chunk, uint64_t size)
 }
 
 Chunk* StaticCoalescedPooling::mergeNextChunk(Chunk* chunk) const {
+  if (!chunk->next)
+    return nullptr;
+
   auto adj_chunk = chunk->next;
   // check if current chunk and next chunk addresses are contigous
   if (((chunk->memptr + chunk->size) != adj_chunk->memptr) ||
@@ -630,6 +640,8 @@ Chunk* StaticCoalescedPooling::mergeNextChunk(Chunk* chunk) const {
 
 bool StaticCoalescedPooling::canMergePreviousChunk(Chunk* chunk, uint64_t size)
     const {
+  PT_SYNHELPER_DEBUG("POOL:: Next chunk is not contigous or free ", size);
+
   return (
       !chunk->used && chunk->prev && !chunk->prev->used && chunk->prev->size &&
       ((chunk->size + chunk->prev->size) >= size));
@@ -676,16 +688,17 @@ Chunk* StaticCoalescedPooling::mergePreviousChunk(Chunk* chunk) const {
       " old size :: ",
       chunk->size);
 
-  adj_chunk->size = chunk->size + adj_chunk->size;
-
-  /* insert merged chunk to the pool */
-  free_list.insert(adj_chunk);
-
   /* remove old chuk from pool */
   it = free_list.find(chunk);
   if (it != free_list.end()) {
     free_list.erase(it);
   }
+
+  adj_chunk->size = chunk->size + adj_chunk->size;
+
+  /* insert merged chunk to the pool */
+  free_list.insert(adj_chunk);
+
   /* remove old chunk from chunks map*/
   auto it1 = chunks.find(chunk->memptr);
   if (it1 != chunks.end()) {
@@ -745,8 +758,17 @@ Chunk* StaticCoalescedPooling::create_chunk() const {
 
 Chunk* StaticCoalescedPooling::try_splitting_chunks(Chunk* chunk, uint64_t size)
     const {
-  auto new_size = chunk->size - size;
+  uint64_t new_size;
+  if (size > chunk->size)
+    new_size = size - chunk->size;
+  else
+    new_size = chunk->size - size;
+
   auto new_memptr = chunk->memptr + new_size;
+  PT_SYNHELPER_DEBUG(
+      "try_splitting_chunks chunk size:: ", chunk, " of Size:: ", chunk->size);
+  PT_SYNHELPER_DEBUG(
+      "try_splitting_chunks new size:: ", new_size, " req Size:: ", size);
   // TBD: ensure memory is contigous
   if ((chunk->memptr + new_size) != new_memptr) {
     PT_SYNHELPER_DEBUG("POOL:: split blocks not contigous");
@@ -774,48 +796,19 @@ Chunk* StaticCoalescedPooling::try_splitting_chunks(Chunk* chunk, uint64_t size)
   return new_chunk;
 }
 
-Chunk* StaticCoalescedPooling::get_nearest_chunk(uint64_t size) const {
-  auto chunk_start = free_list.begin();
-  auto chunk_end = free_list.end();
-  Chunk key = Chunk(size);
-  auto it = free_list.lower_bound(&key);
-
-  if (it == chunk_end) {
-    if (it != chunk_start)
-      --it;
-    auto chunk = *it;
-    return chunk;
-  }
-
-  auto nt = std::next(it);
-
-  if (nt == chunk_end)
-    return *it;
-  auto chunk = *it;
-  auto nxt_chunk = *nt;
-  return chunk->size - size < nxt_chunk->size - size ? nxt_chunk : chunk;
-}
-
-bool StaticCoalescedPooling::pool_defragment(uint64_t size) const {
+bool StaticCoalescedPooling::merge_chunks(
+    std::list<Chunk*>& chunks,
+    bool merge_nxt,
+    uint64_t size) const {
   bool isFreeBlockAvailble = false;
-  PT_SYNHELPER_DEBUG("POOL:: Try to coalesce and split if needed");
-  auto chunk = get_nearest_chunk(size);
-  if (size < DEFRAGMENT_TH(chunk->size)) {
-    isFreeBlockAvailble = true;
-    auto split_chunk = try_splitting_chunks(chunk, size);
-    if (split_chunk) {
-      PT_SYNHELPER_DEBUG(
-          "POOL:: chunk splitted successfully :: newchunk :: ",
-          split_chunk,
-          " new chunk size :: ",
-          split_chunk->size,
-          " old chunk :: ",
-          chunk,
-          " old chunk size :: ",
-          chunk->size);
+
+  for (auto& chunk : chunks) {
+    Chunk* new_chunk = nullptr;
+    if (merge_nxt) {
+      new_chunk = mergeNextChunk(chunk);
+    } else {
+      new_chunk = mergePreviousChunk(chunk);
     }
-  } else {
-    auto new_chunk = try_coalescing_chunks(chunk, size);
     if (new_chunk && new_chunk->size >= size) {
       isFreeBlockAvailble = true;
       PT_SYNHELPER_DEBUG(
@@ -842,7 +835,48 @@ bool StaticCoalescedPooling::pool_defragment(uint64_t size) const {
               new_chunk->size);
         }
       }
+      break;
     }
+  }
+  return isFreeBlockAvailble;
+}
+
+bool StaticCoalescedPooling::pool_defragment(uint64_t size) const {
+  bool isFreeBlockAvailble = false;
+  PT_SYNHELPER_DEBUG("POOL:: Try to coalesce and split if needed");
+  std::list<Chunk*> cntgs_chunks;
+  // check previous chunks
+  for (auto& chunk : free_list) {
+    if (chunk->prev && !chunk->prev->used) {
+      // coalesce adjacent free chunks
+      cntgs_chunks.push_front(chunk);
+    }
+  }
+  isFreeBlockAvailble = merge_chunks(cntgs_chunks, false, size);
+
+  // check next chunks
+  if (!isFreeBlockAvailble) {
+    cntgs_chunks.clear();
+    for (auto& chunk : free_list) {
+      if (chunk->next && !chunk->next->used) {
+        // coalesce adjacent free chunks
+        cntgs_chunks.push_front(chunk);
+      }
+    }
+    isFreeBlockAvailble = merge_chunks(cntgs_chunks, true, size);
+  }
+
+  // try merge the left out chunks
+  if (!isFreeBlockAvailble) {
+    cntgs_chunks.clear();
+    for (auto& chunk : free_list) {
+      if (chunk->prev && chunk->next) {
+        if (!chunk->prev->used && !chunk->next->used) {
+          cntgs_chunks.push_front(chunk);
+        }
+      }
+    }
+    isFreeBlockAvailble = merge_chunks(cntgs_chunks, true, size);
   }
 
   return isFreeBlockAvailble;
@@ -862,10 +896,6 @@ void StaticCoalescedPooling::pool_free_chunk(void* ptr) const {
   chunk->extra_space = 0;
   free_list.insert(chunk);
   --chunk_count;
-  if (chunk->prev && chunk->prev->used && isChunkContigous(chunk->prev, chunk))
-    mergePreviousChunk(chunk);
-  if (chunk->next && chunk->next->used && isChunkContigous(chunk, chunk->next))
-    mergeNextChunk(chunk);
 }
 
 } // namespace pool_allocator

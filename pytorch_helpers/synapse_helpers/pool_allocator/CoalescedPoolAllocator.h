@@ -92,6 +92,8 @@ class StaticCoalescedPooling : public PoolingStrategy {
   Chunk* try_coalescing_chunks(Chunk* chunk, uint64_t size) const;
   Chunk* try_splitting_chunks(Chunk* chunk, uint64_t size) const;
   bool pool_defragment(uint64_t size) const;
+  bool merge_chunks(std::list<Chunk*>& chunks, bool merge_nxt, uint64_t size)
+      const;
   Chunk* create_chunk() const;
   Chunk* try_block_splitting(uint64_t size) const;
   Chunk* try_defragmenting(void* ptr, uint64_t size) const;
