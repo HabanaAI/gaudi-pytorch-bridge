@@ -91,6 +91,13 @@ PYBIND11_MODULE(hb_torch, m) {
       },
       py::arg("flag"));
   m.def(
+      "enable_permute_pass",
+      [](const bool flag) {
+        habana_lazy::exec::OptPassCfg::GetInstance()->enable_permute_pass =
+            flag;
+      },
+      py::arg("flag"));
+  m.def(
       "enable_replace_inplace_ops",
       [](const bool flag) {
         habana_lazy::exec::OptPassCfg::GetInstance()
