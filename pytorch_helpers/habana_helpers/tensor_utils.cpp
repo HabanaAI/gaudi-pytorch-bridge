@@ -578,7 +578,8 @@ synapse_helpers::tensor habana_helpers::duplicate_tensor_in_memory_section(
 synapse_helpers::tensor habana_helpers::
     duplicate_tensor_in_memory_section_with_size(
         const synapse_helpers::tensor& tensor,
-        std::vector<int64_t>& sizes) {
+        std::vector<int64_t>& sizes,
+        const uint64_t offset) {
   if (!std::getenv("PT_HPU_LAZY_LOWERING") && std::getenv("PT_HPU_LAZY_MODE")) {
     // Lazy mode shape inference call, just create a placeholder tensor
     return synapse_helpers::tensor::create_placeholder(tensor.device_id());
@@ -591,6 +592,7 @@ synapse_helpers::tensor habana_helpers::
   auto maybe_tensor =
       synapse_helpers::tensor_builder(sizes, tensor.type())
           .with_memory_section(tensor.memorysection())
+          .set_offset(offset)
           .mark_persistence(tensor.is_persistent())
           .build(
               synapse_helpers::HPURegistrar::get_device(tensor.device_id()),

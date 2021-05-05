@@ -90,7 +90,8 @@ TEST_F(LazyBasicKernelTest, CloneTest) {
   bool equal = hC_cpu.allclose(hd_cpu, 0, 0);
   EXPECT_EQ(equal, true);
 }
-TEST_F(LazyBasicKernelTest, ViewCopy) {
+TEST_F(LazyBasicKernelTest, DISABLED_ViewCopy) {
+  setenv("PT_HPU_LOWER_AS_STRIDED", "1", 1);
   torch::Tensor A = torch::randn({20});
   torch::Tensor hA = A.to(torch::kHABANA);
   Tensor Out = A.narrow(0, 2, 5);
@@ -111,6 +112,7 @@ TEST_F(LazyBasicKernelTest, ViewCopy) {
   hA = hA.div_(2);
   HbLazyTensor::StepMarker({});
   EXPECT_EQ(allclose(hA.to(torch::kCPU), A), true);
+  unsetenv("PT_HPU_LOWER_AS_STRIDED");
 }
 TEST_F(LazyBasicKernelTest, ControlEdge) {
   // Inplace op as output node is not supported yet.

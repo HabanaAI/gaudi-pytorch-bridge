@@ -86,6 +86,11 @@ class tensor_builder_base {
     return static_cast<ConcreteBuilder&>(*this);
   }
 
+  ConcreteBuilder& set_offset(const uint64_t offset = 0) {
+    offset_ = offset;
+    return static_cast<ConcreteBuilder&>(*this);
+  }
+
   ConcreteBuilder& mark_const(
       const bool is_const = true,
       void* host_ptr = nullptr) {
@@ -113,7 +118,8 @@ class tensor_builder_base {
         is_persistent_,
         memory_section_,
         is_const_,
-        host_ptr_);
+        host_ptr_,
+        offset_);
 
     auto create_result{t.create()};
 
@@ -135,6 +141,7 @@ class tensor_builder_base {
   bool is_const_{false};
   shared_memory_section memory_section_{nullptr};
   void* host_ptr_{nullptr};
+  uint64_t offset_{0};
 
   uint64_t total_size_bytes() const {
     return detail::size_bytes_from_shape(shape_, data_type_);

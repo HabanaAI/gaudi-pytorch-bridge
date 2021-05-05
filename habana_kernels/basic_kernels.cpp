@@ -482,7 +482,7 @@ void AsStridedOperator::AllocateAndAddSynapseNode(
 
   p_context_->syn_outputs_.emplace_back(
       habana_helpers::duplicate_tensor_in_memory_section_with_size(
-          p_context_->syn_inputs_[0], size));
+          p_context_->syn_inputs_[0], size, offset * self.itemsize()));
   p_context_->pt_outputs_.emplace_back(output);
 }
 

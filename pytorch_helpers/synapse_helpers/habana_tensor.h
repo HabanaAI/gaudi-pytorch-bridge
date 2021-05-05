@@ -183,7 +183,8 @@ class tensor final {
       bool is_persistent = false,
       shared_memory_section memory_section = nullptr,
       bool is_const = false,
-      void* host_ptr = nullptr);
+      void* host_ptr = nullptr,
+      const uint64_t offset = 0);
   void set_placeholder() {
     placeholder_ = true;
   }
@@ -202,6 +203,7 @@ class tensor final {
   synGraphHandle graph_{nullptr};
   bool is_const_{false};
   void* host_ptr_{nullptr};
+  const uint64_t offset_{0};
 };
 
 /**

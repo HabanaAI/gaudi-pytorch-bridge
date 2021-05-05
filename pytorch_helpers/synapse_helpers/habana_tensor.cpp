@@ -55,7 +55,8 @@ tensor::tensor(
     bool is_persistent,
     shared_memory_section section,
     bool is_const,
-    void* host_ptr)
+    void* host_ptr,
+    const uint64_t offset)
     : tensor_name_{std::move(tensor_name)},
       device_id_{device_id},
       data_type_{data_type},
@@ -66,7 +67,8 @@ tensor::tensor(
       memory_section_{std::move(section)},
       graph_{graph},
       is_const_{is_const},
-      host_ptr_{host_ptr} {}
+      host_ptr_{host_ptr},
+      offset_(offset) {}
 
 tensor::tensor(tensor&& other) noexcept
     : tensor_name_(std::move(other.tensor_name_)),
@@ -80,7 +82,8 @@ tensor::tensor(tensor&& other) noexcept
       memory_section_{std::move(other.memory_section_)},
       graph_{other.graph_},
       is_const_{other.is_const_},
-      host_ptr_{other.host_ptr_} {
+      host_ptr_{other.host_ptr_},
+      offset_{other.offset_} {
   other.tensor_ = nullptr;
   other.memory_section_ = nullptr;
   other.graph_ = nullptr;
@@ -146,11 +149,17 @@ synapse_error_o tensor::create() {
       SYNAPSE_SUCCESS_CHECK_WITH_OP(
           "Memory section create failed.", status, cleanup());
       memory_section_ = std::make_shared<memory_section>(section);
-      status = synTensorCreate(&tensor_, &trdescriptor, *memory_section_, 0);
+      PT_SYNHELPER_DEBUG(
+          "synTensorCreate ", *this, " created with offset ", offset_);
+      status =
+          synTensorCreate(&tensor_, &trdescriptor, *memory_section_, offset_);
     } else if (memory_section_ && is_persistent_) {
       // the only valid use case for today with user-defined memory section is
       // to do in-place update, therefore offset parameter is 0
-      status = synTensorCreate(&tensor_, &trdescriptor, *memory_section_, 0);
+      PT_SYNHELPER_DEBUG(
+          "synTensorCreate ", *this, " created with offset ", offset_);
+      status =
+          synTensorCreate(&tensor_, &trdescriptor, *memory_section_, offset_);
     } else {
       status = synTensorCreate(&tensor_, &trdescriptor, nullptr, 0);
     }
