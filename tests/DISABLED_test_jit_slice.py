@@ -24,7 +24,7 @@ def test_slice_backward(D1, D2):
     hpu_t.requires_grad = True
 
     with torch.jit.optimized_execution(True):
-        os.environ["HABANA_GRAPH_FUSION_OPS_FILE"] = os.path.join(
+        os.environ["PT_HPU_GRAPH_FUSION_OPS_FILE"] = os.path.join(
             os.environ["MODEL_GARDEN_PYTORCH_PATH"],
             "nlp/bert/BERT_Fusion_Ops.txt",
         )
@@ -51,7 +51,7 @@ def test_slice_backward(D1, D2):
         compare_tensors(hpu_out, cpu_result, atol=0, rtol=0)
         compare_tensors(hpu_grad, cpu_grad, atol=0, rtol=0)
 
-    os.environ.pop("HABANA_GRAPH_FUSION_OPS_FILE")
+    os.environ.pop("PT_HPU_GRAPH_FUSION_OPS_FILE")
 
 
 if __name__ == "__main__":

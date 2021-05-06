@@ -20,7 +20,7 @@ test_case_list = [((0, 512), (30522, 768)),
 
 @pytest.mark.parametrize("indices, weight", test_case_list)
 def test_embedding(indices, weight):
-    os.environ["HABANA_GRAPH_FUSION_OPS_FILE"] = os.path.join(
+    os.environ["PT_HPU_GRAPH_FUSION_OPS_FILE"] = os.path.join(
         os.environ["MODEL_GARDEN_PYTORCH_PATH"],
         "nlp/bert/BERT_Fusion_Ops.txt",
     )
@@ -65,7 +65,7 @@ def test_embedding(indices, weight):
 
         compare_tensors(hpu_out, cpu_result, atol=0.001, rtol=1.0e-3)
         compare_tensors(hpu_grad, cpu_grad, atol=0.001, rtol=1.0e-3)
-    os.environ.pop("HABANA_GRAPH_FUSION_OPS_FILE")
+    os.environ.pop("PT_HPU_GRAPH_FUSION_OPS_FILE")
 
 if __name__ == "__main__":
     test_embedding(*test_case_list[0])

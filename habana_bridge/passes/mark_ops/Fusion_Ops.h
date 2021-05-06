@@ -61,7 +61,10 @@ bool HabanaFusionList::is_op_in_habana_fusion_list(torch::jit::Node* node) {
 
 void HabanaFusionList::load_fusion_ops() {
   if (std::getenv("HABANA_GRAPH_FUSION_OPS_FILE")) {
-    const char* fusion_filename = std::getenv("HABANA_GRAPH_FUSION_OPS_FILE");
+    char* fusion_filename = std::getenv("HABANA_GRAPH_FUSION_OPS_FILE");
+    if (fusion_filename == NULL) {
+      fusion_filename = std::getenv("PT_HPU_GRAPH_FUSION_OPS_FILE");
+    }
     std::string fusion_file = (fusion_filename == NULL)
         ? std::string()
         : std::string(fusion_filename);

@@ -17,10 +17,10 @@ test_case_list = [
 
 
 @pytest.mark.parametrize("D1, D2", test_case_list)
-def test_matmul(D1, D2):
-    os.environ["HABANA_GRAPH_FUSION_OPS_FILE"] = os.path.join(
+def test_matmul(D1, D2): 
+    os.environ["PT_HPU_GRAPH_FUSION_OPS_FILE"] = os.path.join(
         os.environ["MODEL_GARDEN_PYTORCH_PATH"],
-        "nlp/bert/BERT_Fusion_Ops.txt",
+       "nlp/bert/BERT_Fusion_Ops.txt",
     )
     hpu = torch.device("hpu")
     cpu = torch.device("cpu")
@@ -56,7 +56,7 @@ def test_matmul(D1, D2):
         compare_tensors(hpu_mat1_grad, cpu_mat1_grad, atol=0.01, rtol=1.0e-2)
         compare_tensors(hpu_mat2_grad, cpu_mat2_grad, atol=0.01, rtol=1.0e-2)
 
-    os.environ.pop("HABANA_GRAPH_FUSION_OPS_FILE")
+    os.environ.pop("PT_HPU_GRAPH_FUSION_OPS_FILE")
 
 
 if __name__ == "__main__":

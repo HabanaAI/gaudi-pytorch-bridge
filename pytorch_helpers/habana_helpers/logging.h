@@ -66,6 +66,27 @@ inline std::string str(const char* c_str) {
 }
 } // namespace Logger
 
+inline char* get2env(const char* a) {
+  std::string b; // new Option
+  // Get new options
+  if (0 == strcmp("PT_HABANA_LOG_MOD_MASK", a))
+    b = "PT_HPU_LOG_MOD_MASK";
+  else if (0 == strcmp("PT_HABANA_LOG_TYPE_MASK", a))
+    b = "PT_HPU_LOG_TYPE_MASK";
+  else if (0 == strcmp("PT_HABANA_ENABLE_GRAPHMODE_LAYERNORM_FUSION", a))
+    b = "PT_HPU_ENABLE_GRAPHMODE_LAYERNORM_FUSION";
+  else if (0 == strcmp("HABANA_PGM_ENABLE_CACHE", a))
+    b = "PT_HPU_PGM_ENABLE_CACHE";
+
+  // Search
+  char* mask = getenv(a);
+  if (mask != nullptr) {
+    return mask;
+  } else {
+    return getenv(b.c_str());
+  }
+}
+
 class PtLogger {
  private:
   static PtLogger* instance;
@@ -73,7 +94,7 @@ class PtLogger {
   unsigned long type_mask_;
 
   PtLogger() {
-    char* mask = getenv("PT_HABANA_LOG_MOD_MASK");
+    char* mask = get2env("PT_HABANA_LOG_MOD_MASK");
     if (mask != nullptr) {
       module_mask_ = std::stoul(mask, nullptr, 16); // expects hex
     } else {
@@ -81,7 +102,7 @@ class PtLogger {
       module_mask_ = INT64_MAX;
     }
 
-    mask = getenv("PT_HABANA_LOG_TYPE_MASK");
+    mask = get2env("PT_HABANA_LOG_TYPE_MASK");
     if (mask != nullptr) {
       type_mask_ = std::stoul(mask, nullptr, 16); // expects hex
     } else {

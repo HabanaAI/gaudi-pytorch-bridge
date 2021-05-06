@@ -159,7 +159,7 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
 
   // The caching as well as enable_tensor_release_ can be overridden
   // with HABANA_PGM_ENABLE_CACHE
-  if (const auto envp = getenv("HABANA_PGM_ENABLE_CACHE")) {
+  if (const auto envp = get2env("HABANA_PGM_ENABLE_CACHE")) {
     auto val = atoi(envp);
     if (val & 0x1) {
       enable_tensor_release_ = ((val & 0x3) == 0x3);

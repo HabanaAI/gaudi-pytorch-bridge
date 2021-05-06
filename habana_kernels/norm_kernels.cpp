@@ -1336,10 +1336,10 @@ void LayerNormOperator::AllocateAndAddSynapseNode(
   // only for BERT graph mode and it should not be enabled in other cases.
   static const std::string graphFusionEnvValue =
       "PT_HABANA_ENABLE_GRAPHMODE_LAYERNORM_FUSION";
-  const char* graphFusionValue = getenv(graphFusionEnvValue.c_str());
+  const char* graphFusionValue = get2env(graphFusionEnvValue.c_str());
   if (graphFusionValue) {
     int isFusionEnabled =
-        std::stoi(getenv("PT_HABANA_ENABLE_GRAPHMODE_LAYERNORM_FUSION"));
+        std::stoi(get2env("PT_HABANA_ENABLE_GRAPHMODE_LAYERNORM_FUSION"));
     if (isFusionEnabled && m == 1) {
       m = input.size(0) * input.size(1);
       if (n != input.size(2)) {
@@ -1448,10 +1448,10 @@ void LayerNormOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   // only for BERT graph mode and it should not be enabled in other cases.
   static const std::string graphFusionEnvValue =
       "PT_HABANA_ENABLE_GRAPHMODE_LAYERNORM_FUSION";
-  const char* graphFusionValue = getenv(graphFusionEnvValue.c_str());
+  const char* graphFusionValue = get2env(graphFusionEnvValue.c_str());
   if (graphFusionValue) {
     int isFusionEnabled =
-        std::stoi(getenv("PT_HABANA_ENABLE_GRAPHMODE_LAYERNORM_FUSION"));
+        std::stoi(get2env("PT_HABANA_ENABLE_GRAPHMODE_LAYERNORM_FUSION"));
     if (isFusionEnabled && m == 1) {
       m = input.size(0) * input.size(1);
     }
@@ -1597,10 +1597,10 @@ void LayerNormBackwardOperator::AllocateAndAddSynapseNode(
   // only for BERT graph mode and it should not be enabled in other cases.
   static const std::string graphFusionEnvValue =
       "PT_HABANA_ENABLE_GRAPHMODE_LAYERNORM_FUSION";
-  const char* graphFusionValue = getenv(graphFusionEnvValue.c_str());
+  const char* graphFusionValue = get2env(graphFusionEnvValue.c_str());
   if (graphFusionValue) {
     int isFusionEnabled =
-        std::stoi(getenv("PT_HABANA_ENABLE_GRAPHMODE_LAYERNORM_FUSION"));
+        std::stoi(get2env("PT_HABANA_ENABLE_GRAPHMODE_LAYERNORM_FUSION"));
     if (isFusionEnabled && m == 1) {
       m = X.size(0) * X.size(1);
       if (n != X.size(2)) {
