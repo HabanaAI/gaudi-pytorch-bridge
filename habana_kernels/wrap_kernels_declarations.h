@@ -706,6 +706,11 @@ struct hpu_wrap {
       at::Tensor& out,
       const at::Tensor& self,
       const at::Tensor& other);
+  static at::Tensor& bitwise_xor_out(
+      at::Tensor& out,
+      const at::Tensor& self,
+      const at::Tensor& other);
+  static at::Tensor& bitwise_not_out(at::Tensor& out, const at::Tensor& self);
   static at::Tensor upsample_nearest2d(
       const at::Tensor& input,
       c10::optional<at::IntArrayRef> output_size,

@@ -5155,6 +5155,45 @@ Tensor& bitwise_or_out_hpu_lazy(
   return out;
 };
 
+Tensor& bitwise_xor_out_hpu_lazy(
+    Tensor& out,
+    const Tensor& self,
+    const Tensor& other) {
+  PT_LAZY_TRACE;
+
+  auto hl_out = habana_lazy::GetOrCreateHbLazyTensor(out, c10::kHABANA);
+  auto out_shape = BitwiseOutOperator::compute_output_shape(self, other);
+  // Resize output tensor(s) to correct shape if required
+  if (out.sizes().vec() != out_shape) {
+    auto out_reshaped = hl_out.getAttachedTensorImpl();
+    THHTensor_resizeNd(
+        out_reshaped, out_shape.size(), out_shape.data(), nullptr);
+    out.unsafeGetTensorImpl()->set_sizes_contiguous(IntArrayRef(out_shape));
+  }
+
+  LazyOp<at::Tensor&> k{
+      "hpu::bitwise_xor_Tensor_out", {out, self, other}, {}, {out_shape}};
+  return k.call(out);
+};
+
+Tensor& bitwise_not_out_hpu_lazy(Tensor& out, const Tensor& self) {
+  PT_LAZY_TRACE;
+
+  auto hl_out = habana_lazy::GetOrCreateHbLazyTensor(out, c10::kHABANA);
+  auto out_shape = self.sizes().vec();
+  // Resize output tensor(s) to correct shape if required
+  if (out.sizes().vec() != out_shape) {
+    auto out_reshaped = hl_out.getAttachedTensorImpl();
+    THHTensor_resizeNd(
+        out_reshaped, out_shape.size(), out_shape.data(), nullptr);
+    out.unsafeGetTensorImpl()->set_sizes_contiguous(IntArrayRef(out_shape));
+  }
+
+  LazyOp<at::Tensor&> k{
+      "hpu::bitwise_not_Tensor_out", {out, self}, {}, {out_shape}};
+  return k.call(out);
+};
+
 std::tuple<at::Tensor, at::Tensor> max_dim_hpu_lazy(
     const at::Tensor& self,
     int64_t dim,

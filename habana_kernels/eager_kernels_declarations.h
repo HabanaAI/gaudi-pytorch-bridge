@@ -461,6 +461,11 @@ Tensor& bitwise_or_out_hpu(
     Tensor& out,
     const Tensor& self,
     const Tensor& other);
+Tensor& bitwise_xor_out_hpu(
+    Tensor& out,
+    const Tensor& self,
+    const Tensor& other);
+Tensor& bitwise_not_out_hpu(Tensor& out, const Tensor& self);
 namespace habana {
 Tensor log_softmax_hpu(
     const Tensor& self,

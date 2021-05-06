@@ -28,3 +28,27 @@ TEST_F(LazyBitwiseKernelTest, BitwiseAddTest) {
   torch::Tensor out_h = out.to(torch::kCPU);
   EXPECT_EQ(allclose(out_h.to(torch::kI8), out_cpu.to(torch::kI8)), true);
 }
+
+TEST_F(LazyBitwiseKernelTest, BitwiseXorTest) {
+  torch::Tensor A = torch::randint(-10, 10, {3, 2}) > 0;
+  torch::Tensor B = torch::randint(-10, 10, {3, 2}) > 0;
+  torch::Tensor hA = A.to(torch::kHABANA);
+  torch::Tensor hB = B.to(torch::kHABANA);
+  torch::Tensor out = torch::bitwise_xor(hA, hB);
+
+  torch::Tensor out_cpu = torch::bitwise_xor(A, B);
+  torch::Tensor out_h = out.to(torch::kCPU);
+
+  EXPECT_EQ(allclose(out_h.to(torch::kI8), out_cpu.to(torch::kI8)), true);
+}
+
+TEST_F(LazyBitwiseKernelTest, BitwiseNotTest) {
+  torch::Tensor A = torch::randint(-10, 10, {3, 2}) > 0;
+  torch::Tensor hA = A.to(torch::kHABANA);
+  torch::Tensor out = torch::bitwise_not(hA);
+
+  torch::Tensor out_cpu = torch::bitwise_not(A);
+  torch::Tensor out_h = out.to(torch::kCPU);
+
+  EXPECT_EQ(allclose(out_h.to(torch::kI8), out_cpu.to(torch::kI8)), true);
+}

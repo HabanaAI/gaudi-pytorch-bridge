@@ -54,3 +54,22 @@ class BitwiseOrOutOperator : public BitwiseOutWrapOperator {
             device_id,
             "or_" + habana_helpers::name_suffix_from_type(scalarType)) {}
 };
+class BitwiseXorOutOperator : public BitwiseOutWrapOperator {
+ public:
+  BitwiseXorOutOperator(int device_id, c10::ScalarType scalarType)
+      : BitwiseOutWrapOperator(
+            device_id,
+            "xor_" + habana_helpers::name_suffix_from_type(scalarType)) {}
+};
+class BitwiseNotOutOperator : public HabanaOperator {
+ public:
+  BitwiseNotOutOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator(
+            "not_" + habana_helpers::name_suffix_from_type(scalarType)) {
+    this->CreateSynContext(device_id);
+  }
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+};

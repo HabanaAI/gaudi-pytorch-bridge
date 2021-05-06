@@ -107,6 +107,50 @@ void BitwiseOutWrapOperator::AllocateAndAddSynapseNode(
       std::move(BitwiseOutOp.GetSynOutputs()[0]));
 }
 
+void BitwiseNotOutOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 2,
+      "Incorrect size of input expected for Bitwise not operator");
+  TORCH_CHECK(
+      inputs[0].isTensor(),
+      "Input arg0 type expected to be a tensor for Bitwise operator");
+  TORCH_CHECK(
+      inputs[1].isTensor() || inputs[1].isScalar(),
+      "Input arg1 type expected to be a tensor or scalar");
+
+  auto self = inputs[1].toTensor();
+  at::ScalarType scalar_type = self.scalar_type();
+  // Support for other integral types dependent on
+  // https://jira.habana-labs.com/browse/SW-36542
+  TORCH_CHECK(
+      scalar_type == c10::ScalarType::Bool,
+      "Bitwise operator supports only Boolean inputs for now");
+
+  // Create a constant operator to get a tensor of ones of size self
+  ConstantOperator constOp(this->p_context_->device_id_, scalar_type);
+  torch::jit::Stack constOp_stack = {inputs[1], 1};
+  constOp.AllocateAndAddSynapseNode(graph, constOp_stack, false);
+
+  // Create xor operator
+  BitwiseXorOutOperator xorOp(this->p_context_->device_id_, scalar_type);
+  auto& syn_arg0 = xorOp.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+  auto& syn_arg1 = xorOp.SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
+  UNUSED auto& syn_arg2 =
+      xorOp.SetSynapseInput(std::move(constOp.GetSynOutputs()[0]));
+
+  inputs.emplace_back(constOp.GetOutputs()[0]);
+  xorOp.AllocateAndAddSynapseNode(graph, inputs, is_output_persistent);
+
+  p_context_->syn_inputs_[0] = std::move(syn_arg0);
+  p_context_->syn_inputs_[1] = std::move(syn_arg1);
+
+  p_context_->pt_outputs_.emplace_back(inputs[0].toTensor());
+  p_context_->syn_outputs_.emplace_back(std::move(xorOp.GetSynOutputs()[0]));
+}
+
 template <class BitwiseOp>
 void process_generic_tensor_bitwise_out_op(
     const std::vector<at::Tensor>& pt_inputs,
@@ -222,6 +266,85 @@ Tensor& bitwise_or_out_hpu(
   return out;
 }
 
+Tensor& bitwise_xor_out_hpu(
+    Tensor& out,
+    const Tensor& self,
+    const Tensor& other) {
+  PT_KERNEL_BEGIN;
+  if (self.dim() == 0) {
+    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+  }
+  if (other.dim() == 0) {
+    other.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+  }
+
+  auto out_shape = BitwiseOutOperator::compute_output_shape(self, other);
+  auto out_reshaped = out.unsafeGetTensorImpl();
+  if (out.sizes().vec() != out_shape) {
+    THHTensor_resizeNd(
+        out_reshaped, out_shape.size(), out_shape.data(), nullptr);
+  }
+
+  std::vector<at::Tensor> pt_inputs{out, self, other};
+  torch::jit::Stack stack{IValue(out), IValue(self), IValue(other)};
+  process_generic_tensor_bitwise_out_op<BitwiseXorOutOperator>(
+      pt_inputs, stack, "xor");
+
+  PT_KERNEL_END;
+  return out;
+}
+
+Tensor& bitwise_not_out_hpu(Tensor& out, const Tensor& self) {
+  PT_KERNEL_BEGIN;
+  if (self.dim() == 0) {
+    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+  }
+
+  auto out_shape = self.sizes().vec();
+  auto out_reshaped = out.unsafeGetTensorImpl();
+  if (out.sizes().vec() != out_shape) {
+    THHTensor_resizeNd(
+        out_reshaped, out_shape.size(), out_shape.data(), nullptr);
+  }
+
+  std::vector<at::Tensor> pt_inputs{out, self};
+  torch::jit::Stack stack{IValue(out), IValue(self)};
+
+  size_t device_id = pt_inputs[1].device().index();
+  at::ScalarType scalar_type = pt_inputs[1].scalar_type();
+  std::string node_type =
+      "not_" + habana_helpers::name_suffix_from_type(scalar_type);
+
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  BitwiseNotOutOperator Op(device_id, scalar_type);
+
+  size_t key =
+      Op.GetRecipeKey(node_type, stack, /*inplace*/ false, /*out*/ true);
+
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    Op.SetPTInputs(pt_inputs);
+    Op.SetPTOutput(pt_inputs[0]);
+    Op.Execute(key);
+  } else {
+    PT_KERNEL_DEBUG("key:", key);
+    // Create Graph
+    auto graph = habana_helpers::create_graph(device_id, node_type);
+
+    // Assign Inputs to the Operator
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
+
+    // both inputs are not required, just to match graph mode stack
+    Op.AllocateAndAddSynapseNode(graph, stack, true);
+
+    // compile and execute the graph
+    Op.Compile(graph);
+  }
+
+  PT_KERNEL_END;
+  return out;
+}
+
 static auto& KernelRegistry =
     habana::KernelRegistry()
         .add(
@@ -234,5 +357,17 @@ static auto& KernelRegistry =
             "hpu::bitwise_or_Tensor_out",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<BitwiseOrOutOperator>(
+                  device_id, node_type);
+            })
+        .add(
+            "hpu::bitwise_xor_Tensor_out",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<BitwiseXorOutOperator>(
+                  device_id, node_type);
+            })
+        .add(
+            "hpu::bitwise_not_Tensor_out",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<BitwiseNotOutOperator>(
                   device_id, node_type);
             });
