@@ -452,4 +452,48 @@ class FusedDropout : public LazyOp<ReturnType> {
   }
 };
 
+template <
+    typename ReturnType = std::tuple<at::Tensor, at::Tensor, at::Tensor>,
+    typename NodeConstruct = void>
+class HabanaNMSLazy : public LazyOp<ReturnType> {
+ public:
+  explicit HabanaNMSLazy(
+      const std::vector<at::IValue>& inputs,
+      const std::vector<std::vector<int64_t>>& out_shapes = {})
+      : LazyOp<ReturnType>("hpu::habana_nms", inputs, {}, out_shapes, 0) {}
+
+  virtual ~HabanaNMSLazy() = default;
+
+  template <typename T = ReturnType>
+  typename std::enable_if<std::tuple_size<T>::value >= 3, T>::type call() {
+    return LazyOp<ReturnType>::call();
+  }
+
+ protected:
+  virtual ReturnType get_result_overrideable() {
+    ReturnType results;
+    auto inputs = LazyOp<ReturnType>::get_inputs();
+    auto scores = inputs[1].toTensor();
+    auto box_id_out_shape = LazyOp<ReturnType>::get_out_shapes()[0];
+    auto valid_box_id_out_shape = LazyOp<ReturnType>::get_out_shapes()[1];
+    auto shape_tensor_shape = LazyOp<ReturnType>::get_out_shapes()[2];
+    std::get<0>(results) = at::native::empty_hpu_lazy(
+        box_id_out_shape,
+        scores.options().dtype(c10::ScalarType::Int),
+        scores.suggest_memory_format(),
+        false);
+    std::get<1>(results) = at::native::empty_hpu_lazy(
+        valid_box_id_out_shape,
+        scores.options().dtype(c10::ScalarType::Int),
+        scores.suggest_memory_format(),
+        false);
+    std::get<2>(results) = at::native::empty_hpu_lazy(
+        shape_tensor_shape,
+        scores.options().dtype(c10::ScalarType::Int),
+        scores.suggest_memory_format(),
+        false);
+    return results;
+  }
+};
+
 } // namespace habana_lazy

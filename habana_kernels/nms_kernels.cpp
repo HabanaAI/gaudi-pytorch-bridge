@@ -96,7 +96,7 @@ void NMSOperator::AllocateAndAddSynapseNode(
 void PostNmsOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    std::vector<bool> is_output_persistent) {
   TORCH_CHECK(
       inputs.size() == 2,
       "Incorrect size of inputs expected for PostNms operator");
@@ -116,25 +116,41 @@ void PostNmsOperator::AllocateAndAddSynapseNode(
       box_ids,
       {params.max_output_size},
       box_ids.options(),
-      is_output_persistent);
+      is_output_persistent[0]);
   auto valid_box_id_out = habana_helpers::createPTTensor(
-      valid_box_ids, {1}, valid_box_ids.options(), is_output_persistent);
+      valid_box_ids, {1}, valid_box_ids.options(), is_output_persistent[1]);
   AllocateSynapseOutputs(
       graph,
       {box_id_out, valid_box_id_out},
-      {is_output_persistent, is_output_persistent});
+      {is_output_persistent[0], is_output_persistent[1]});
 
   auto shape_tensor = habana_helpers::createPTTensor(
-      valid_box_ids, {5}, valid_box_ids.options(), is_output_persistent);
+      valid_box_ids, {5}, valid_box_ids.options(), is_output_persistent[2]);
   synDataType synType = syn_type_uint32;
-  AllocateSynapseOutput(graph, shape_tensor, synType, is_output_persistent);
+  AllocateSynapseOutput(graph, shape_tensor, synType, is_output_persistent[2]);
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
+}
+
+void HabanaNMSOperator::SetPTOutputs(torch::jit::Stack& inputs) {
+  auto scores = inputs[1].toTensor();
+  auto box_id_out = habana_helpers::createPTTensor(
+      scores,
+      {scores.sizes()[0]},
+      scores.options().dtype(c10::ScalarType::Int),
+      true);
+  auto valid_box_id_out = habana_helpers::createPTTensor(
+      scores, {1}, scores.options().dtype(c10::ScalarType::Int), true);
+  auto shape_tensor = habana_helpers::createPTTensor(
+      scores, {5}, scores.options().dtype(c10::ScalarType::Int), true);
+
+  std::vector<at::Tensor> outputs{box_id_out, valid_box_id_out, shape_tensor};
+  HabanaOperator::SetPTOutputs(outputs);
 }
 
 void HabanaNMSOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    bool is_output_persistent) {
+    std::vector<bool> is_output_persistent) {
   TORCH_CHECK(
       inputs.size() == 4,
       "Incorrect size of inputs expected for HabanaNms operator");
@@ -273,7 +289,7 @@ void HabanaNMSOperator::AllocateAndAddSynapseNode(
   p_context_->pt_outputs_.emplace_back(std::move(postnms_op.GetOutputs()[2]));
 }
 
-at::Tensor HabanaNms(
+at::Tensor habana_nms_hpu(
     const at::Tensor& boxes,
     const at::Tensor& scores,
     float iou_threshold,
@@ -298,23 +314,13 @@ at::Tensor HabanaNms(
   if (device.get_recipe_handle_cache().isCached(key)) {
     PT_KERNEL_DEBUG("Cache hit key:", key);
     Op.SetPTInputs(pt_inputs);
-    auto box_id_out = habana_helpers::createPTTensor(
-        scores,
-        {scores.sizes()[0]},
-        scores.options().dtype(c10::ScalarType::Int),
-        true);
-    auto valid_box_id_out = habana_helpers::createPTTensor(
-        scores, {1}, scores.options().dtype(c10::ScalarType::Int), true);
-    auto shape_tensor = habana_helpers::createPTTensor(
-        scores, {5}, scores.options().dtype(c10::ScalarType::Int), true);
-    std::vector<at::Tensor> coutput{box_id_out, valid_box_id_out, shape_tensor};
-    Op.SetPTOutputs(coutput);
+    Op.SetPTOutputs(stack);
     Op.Execute(key);
   } else {
     PT_KERNEL_DEBUG("Key:", key);
     auto graph = habana_helpers::create_graph(device_id, node_type);
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
-    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    Op.AllocateAndAddSynapseNode(graph, stack, {true, true, true});
     Op.Compile(graph);
   }
 
@@ -326,3 +332,11 @@ at::Tensor HabanaNms(
   PT_KERNEL_END;
   return output;
 }
+
+static auto& KernelRegistry = habana::KernelRegistry().add(
+    "hpu::habana_nms",
+    [](int device_id, c10::ScalarType scalar_type) {
+      std::string node_type =
+          "habana_nms_" + habana_helpers::name_suffix_from_type(scalar_type);
+      return std::make_shared<HabanaNMSOperator>(device_id, node_type);
+    });

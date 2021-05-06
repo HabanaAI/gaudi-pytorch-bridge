@@ -772,3 +772,8 @@ std::tuple<Tensor, Tensor> matmul_backward_hpu_lazy(
     const Tensor& grad_output,
     const Tensor& self,
     const Tensor& other);
+Tensor habana_nms_hpu_lazy(
+    const Tensor& boxes,
+    const Tensor& scores,
+    float iou_threshold,
+    float score_threshold);

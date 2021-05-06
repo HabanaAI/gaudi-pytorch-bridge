@@ -3038,6 +3038,18 @@ void optimizer_lamb_phase2_hpu_wrap(
   }
 }
 
+Tensor habana_nms_hpu_wrap(
+    const at::Tensor& boxes,
+    const at::Tensor& scores,
+    float iou_threshold,
+    float score_threshold) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    return habana_nms_hpu_lazy(boxes, scores, iou_threshold, score_threshold);
+  } else {
+    return habana_nms_hpu(boxes, scores, iou_threshold, score_threshold);
+  }
+}
+
 Tensor hpu_wrap::_masked_scale(
     const Tensor& self,
     const Tensor& mask,
@@ -3222,6 +3234,8 @@ TORCH_LIBRARY(hpu, m) {
       "habanaOptimizerLambPhase1(Tensor[] grad, Tensor[] weights, Tensor[] exp_avg, Tensor[] exp_avg_sq, Tensor clip_global_grad_norm, float beta1, float beta2, float beta2, float epsilon, Tensor bias_corection1, Tensor bias_correction2, float weight_decay) -> (Tensor[], Tensor[], Tensor[])");
   m.def(
       "habanaOptimizerLambPhase2(Tensor[] weights, Tensor[] adam_norm, Tensor[] wt_norm, Tensor[] adam_step, Tensor[] trust_ratio, Tensor neg_step, float wd, int use_lamb) -> ()");
+  m.def(
+      "habana_nms(Tensor boxes, Tensor scores, float iou_threshold, float score_threshold) -> (Tensor, Tensor, Tensor)");
   m.def("permute_cl(Tensor(a) self, int[] dims) -> Tensor(a)");
   m.def("restride_cl(Tensor(a) self, int[] dims) -> Tensor(a)");
   m.def("control_edge_other_(Tensor self, Tensor other) -> Tensor(a!)");

@@ -19,7 +19,7 @@ TEST(NMSEagerTest, NmsSmall) {
   auto new_boxes = torch::cat({tlist[0], tlist[1]}, 1);
   torch::Tensor hboxes = new_boxes.to(torch::kHABANA);
 
-  auto nms_boxid = HabanaNms(hboxes, hscores, 0.2, 0.0);
+  auto nms_boxid = habana_nms_hpu(hboxes, hscores, 0.2, 0.0);
   auto ref = torch::tensor({7, 1, 5, 0, 6, 8, 4}).to(torch::kInt);
   bool equal = ref.allclose(nms_boxid.to(torch::kCPU), 0, 0);
   EXPECT_EQ(equal, true);

@@ -829,3 +829,8 @@ void optimizer_lamb_phase2_hpu_wrap(
     const float step,
     const float weight_decay,
     const int use_lamb);
+at::Tensor habana_nms_hpu_wrap(
+    const at::Tensor& boxes,
+    const at::Tensor& scores,
+    float iou_threshold,
+    float score_threshold);

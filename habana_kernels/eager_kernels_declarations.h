@@ -703,7 +703,7 @@ Tensor& optimizer_sgd_momentum_hpu(
     const float mom,
     const float damp,
     const bool nesterov);
-at::Tensor HabanaNms(
+Tensor habana_nms_hpu(
     const at::Tensor& scores,
     const at::Tensor& boxes,
     float iou_threshold,

@@ -253,7 +253,7 @@ void optimizer_fused_sgd_momentum(
       gradients, weights, momentum, epoch_num, lr, wd, mom, damp, nesterov);
 }
 
-extern at::Tensor HabanaNms(
+extern at::Tensor habana_nms_hpu_wrap(
     const at::Tensor& boxes,
     const at::Tensor& scores,
     float iou_threshold,
@@ -264,7 +264,7 @@ at::Tensor habana_custom_nms(
     const at::Tensor& scores,
     float iou_threshold,
     float score_threshold) {
-  return HabanaNms(boxes, scores, iou_threshold, score_threshold);
+  return habana_nms_hpu_wrap(boxes, scores, iou_threshold, score_threshold);
 }
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {

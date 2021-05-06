@@ -19,7 +19,7 @@ class FilterAndSqueezeOperator : public HabanaOperator {
     this->CreateSynContext(device_id);
   }
 
-  virtual void AllocateAndAddSynapseNode(
+  void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
@@ -31,7 +31,7 @@ class NMSOperator : public HabanaOperator {
     this->CreateSynContext(device_id);
   }
 
-  virtual void AllocateAndAddSynapseNode(
+  void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
@@ -44,10 +44,10 @@ class PostNmsOperator : public HabanaOperator {
     this->CreateSynContext(device_id);
   }
 
-  virtual void AllocateAndAddSynapseNode(
+  void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      std::vector<bool> is_output_persistent) override;
 };
 
 class HabanaNMSOperator : public HabanaOperator {
@@ -57,10 +57,12 @@ class HabanaNMSOperator : public HabanaOperator {
     this->CreateSynContext(device_id);
   }
 
-  virtual void AllocateAndAddSynapseNode(
+  void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
+      std::vector<bool> is_output_persistent) override;
+
+  void SetPTOutputs(torch::jit::Stack& inputs) override;
 };
 
 } // namespace pt_habana_ops

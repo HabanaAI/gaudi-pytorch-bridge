@@ -323,6 +323,7 @@ void InsertPermute_graph(
     if (node == graph->param_node() ||
         node->kind() == torch::jit::prim::Constant ||
         node->kind() == torch::jit::prim::ListConstruct ||
+        node->kind() == torch::jit::prim::dtype ||
         (strcmp(node->kind().toQualString(), "hpu::restride_cl") == 0))
       continue;
 
