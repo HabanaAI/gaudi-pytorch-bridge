@@ -533,11 +533,15 @@ void InsertPermute_graph(
         if (cur_layout == habana::LayoutFormat::NHWC) {
           std::string node_str = value_out->node()->kind().toQualString();
           if (node_str == "aten::select") {
-            at::IntArrayRef dims = {2, 0, 1};
+            at::IntArrayRef dims;
+            static const int64_t dimarr[] = {2, 0, 1};
+            dims = dimarr;
             anchor_restride_nodes_[node_return].push_back(
                 std::make_pair(ret_idx, dims));
           } else {
-            at::IntArrayRef dims = {0, 3, 1, 2};
+            at::IntArrayRef dims;
+            static const int64_t dimarr[] = {0, 3, 1, 2};
+            dims = dimarr;
             anchor_restride_nodes_[node_return].push_back(
                 std::make_pair(ret_idx, dims));
           }
