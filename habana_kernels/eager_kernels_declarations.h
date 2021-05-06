@@ -13,656 +13,739 @@
 #include <ATen/ExpandUtils.h>
 #include <torch/script.h>
 
-using namespace torch;
-using namespace at;
-
-Tensor habana_d2d_memcpy(const Tensor& self);
-Tensor habana_d2d_memcpy_other(const Tensor& self, Tensor& other);
-Tensor& copy_hpu_(Tensor& self, const Tensor& src, bool non_blocking);
-Tensor as_strided_hpu(
-    const Tensor& self,
-    IntArrayRef size,
-    IntArrayRef stride,
+at::Tensor habana_d2d_memcpy(const at::Tensor& self);
+at::Tensor habana_d2d_memcpy_other(const at::Tensor& self, at::Tensor& other);
+at::Tensor& copy_hpu_(
+    at::Tensor& self,
+    const at::Tensor& src,
+    bool non_blocking);
+at::Tensor as_strided_hpu(
+    const at::Tensor& self,
+    at::IntArrayRef size,
+    at::IntArrayRef stride,
     c10::optional<int64_t> storage_offset);
-Tensor& set_hpu_(
-    Tensor& self,
-    Storage source,
+at::Tensor& set_hpu_(
+    at::Tensor& self,
+    at::Storage source,
     int64_t storage_offset,
-    IntArrayRef size,
-    IntArrayRef stride);
-Tensor view_hpu(const Tensor& self, IntArrayRef size);
-Tensor addcmul_hpu(
-    const Tensor& self,
-    const Tensor& tensor1,
-    const Tensor& tensor2,
-    Scalar alpha);
-Tensor& addcmul_hpu_(
-    Tensor& self,
-    const Tensor& tensor1,
-    const Tensor& tensor2,
-    Scalar alpha);
-Tensor addcdiv_hpu(
-    const Tensor& self,
-    const Tensor& tensor1,
-    const Tensor& tensor2,
-    Scalar alpha);
-Tensor& addcdiv_hpu_(
-    Tensor& self,
-    const Tensor& tensor1,
-    const Tensor& tensor2,
-    Scalar alpha);
-Tensor add_tensor_hpu(const Tensor& self, const Tensor& other, Scalar alpha);
-Tensor add_scalar_hpu(const Tensor& self, Scalar other, Scalar alpha);
-Tensor& add_scalar_hpu_(Tensor& self, Scalar other, Scalar alpha);
-Tensor& add_tensor_hpu_(Tensor& self, const Tensor& other, Scalar alpha);
-Tensor sub_tensor_hpu(const Tensor& self, const Tensor& other, Scalar alpha);
-Tensor& sub_tensor_hpu_(Tensor& self, const Tensor& other, Scalar alpha);
-Tensor sub_scalar_hpu(const Tensor& self, Scalar other, Scalar alpha);
-Tensor& sub_scalar_hpu_(Tensor& self, Scalar other, Scalar alpha);
-Tensor rsub_scalar_hpu(const Tensor& self, Scalar other, Scalar alpha);
-Tensor& mul_tensor_hpu_(Tensor& self, const Tensor& other);
-Tensor mul_tensor_hpu(const Tensor& self, const Tensor& other);
-Tensor where_tensor_hpu(
-    const Tensor& condition,
-    const Tensor& self,
-    const Tensor& other);
-Tensor& mul_out_hpu(Tensor& out, const Tensor& self, const Tensor& other);
-Tensor mul_scalar_hpu(const Tensor& self, Scalar other);
-Tensor& mul_scalar_hpu_(Tensor& self, Scalar other);
-Tensor div_tensor_hpu(const Tensor& self, const Tensor& other);
-Tensor& div_tensor_hpu_out(
-    Tensor& result,
-    const Tensor& self,
-    const Tensor& other);
-Tensor& div_tensor_hpu_(Tensor& self, const Tensor& other);
-Tensor div_scalar_hpu(const Tensor& self, Scalar other);
-Tensor& div_scalar_hpu_(Tensor& self, Scalar other);
-Tensor pow_tensor_tensor_hpu(const Tensor& self, const Tensor& other);
-Tensor& pow_tensor_tensor_hpu_(Tensor& self, const Tensor& other);
-Tensor pow_tensor_scalar_hpu(const Tensor& self, Scalar other);
-Tensor random_shuffle_tensor_hpu(const Tensor& self, const Tensor& seed);
-Tensor& pow_tensor_scalar_hpu_(Tensor& self, Scalar other);
-Tensor pow_scalar_tensor_hpu(Scalar other, const Tensor& self);
-Tensor maximum_hpu(const Tensor& self, const Tensor& other);
-Tensor minimum_hpu(const Tensor& self, const Tensor& other);
-Tensor ge_scalar_hpu(const Tensor& self, Scalar other);
-Tensor ge_tensor_hpu(const Tensor& self, const Tensor& other);
-Tensor ne_scalar_hpu(const Tensor& self, Scalar other);
-Tensor ne_tensor_hpu(const Tensor& self, const Tensor& other);
-Tensor all_hpu(const Tensor& self);
-Tensor all_dim_hpu(const Tensor& self, int64_t dim, bool keepdim);
-Tensor gt_tensor_hpu(const Tensor& self, const Tensor& other);
-Tensor gt_scalar_hpu(const Tensor& self, Scalar other);
-Tensor& eq_tensor_out_hpu(
-    Tensor& output,
-    const Tensor& self,
-    const Tensor& other);
-Tensor eq_tensor_hpu(const Tensor& self, const Tensor& other);
-Tensor eq_tensor_scalar_hpu(const Tensor& self, Scalar other);
-Tensor lt_scalar_hpu(const Tensor& self, Scalar other);
-Tensor lt_tensor_hpu(const Tensor& self, const Tensor& other);
-Tensor upsample_nearest2d_hpu(
-    const Tensor& input,
+    at::IntArrayRef size,
+    at::IntArrayRef stride);
+at::Tensor view_hpu(const at::Tensor& self, at::IntArrayRef size);
+at::Tensor addcmul_hpu(
+    const at::Tensor& self,
+    const at::Tensor& tensor1,
+    const at::Tensor& tensor2,
+    at::Scalar alpha);
+at::Tensor& addcmul_hpu_(
+    at::Tensor& self,
+    const at::Tensor& tensor1,
+    const at::Tensor& tensor2,
+    at::Scalar alpha);
+at::Tensor addcdiv_hpu(
+    const at::Tensor& self,
+    const at::Tensor& tensor1,
+    const at::Tensor& tensor2,
+    at::Scalar alpha);
+at::Tensor& addcdiv_hpu_(
+    at::Tensor& self,
+    const at::Tensor& tensor1,
+    const at::Tensor& tensor2,
+    at::Scalar alpha);
+at::Tensor add_tensor_hpu(
+    const at::Tensor& self,
+    const at::Tensor& other,
+    at::Scalar alpha);
+at::Tensor add_scalar_hpu(
+    const at::Tensor& self,
+    at::Scalar other,
+    at::Scalar alpha);
+at::Tensor& add_scalar_hpu_(
+    at::Tensor& self,
+    at::Scalar other,
+    at::Scalar alpha);
+at::Tensor& add_tensor_hpu_(
+    at::Tensor& self,
+    const at::Tensor& other,
+    at::Scalar alpha);
+at::Tensor sub_tensor_hpu(
+    const at::Tensor& self,
+    const at::Tensor& other,
+    at::Scalar alpha);
+at::Tensor& sub_tensor_hpu_(
+    at::Tensor& self,
+    const at::Tensor& other,
+    at::Scalar alpha);
+at::Tensor sub_scalar_hpu(
+    const at::Tensor& self,
+    at::Scalar other,
+    at::Scalar alpha);
+at::Tensor& sub_scalar_hpu_(
+    at::Tensor& self,
+    at::Scalar other,
+    at::Scalar alpha);
+at::Tensor rsub_scalar_hpu(
+    const at::Tensor& self,
+    at::Scalar other,
+    at::Scalar alpha);
+at::Tensor& mul_tensor_hpu_(at::Tensor& self, const at::Tensor& other);
+at::Tensor mul_tensor_hpu(const at::Tensor& self, const at::Tensor& other);
+at::Tensor where_tensor_hpu(
+    const at::Tensor& condition,
+    const at::Tensor& self,
+    const at::Tensor& other);
+at::Tensor& mul_out_hpu(
+    at::Tensor& out,
+    const at::Tensor& self,
+    const at::Tensor& other);
+at::Tensor mul_scalar_hpu(const at::Tensor& self, at::Scalar other);
+at::Tensor& mul_scalar_hpu_(at::Tensor& self, at::Scalar other);
+at::Tensor div_tensor_hpu(const at::Tensor& self, const at::Tensor& other);
+at::Tensor& div_tensor_hpu_out(
+    at::Tensor& result,
+    const at::Tensor& self,
+    const at::Tensor& other);
+at::Tensor& div_tensor_hpu_(at::Tensor& self, const at::Tensor& other);
+at::Tensor div_scalar_hpu(const at::Tensor& self, at::Scalar other);
+at::Tensor& div_scalar_hpu_(at::Tensor& self, at::Scalar other);
+at::Tensor pow_tensor_tensor_hpu(
+    const at::Tensor& self,
+    const at::Tensor& other);
+at::Tensor& pow_tensor_tensor_hpu_(at::Tensor& self, const at::Tensor& other);
+at::Tensor pow_tensor_scalar_hpu(const at::Tensor& self, at::Scalar other);
+at::Tensor random_shuffle_tensor_hpu(
+    const at::Tensor& self,
+    const at::Tensor& seed);
+at::Tensor& pow_tensor_scalar_hpu_(at::Tensor& self, at::Scalar other);
+at::Tensor pow_scalar_tensor_hpu(at::Scalar other, const at::Tensor& self);
+at::Tensor maximum_hpu(const at::Tensor& self, const at::Tensor& other);
+at::Tensor minimum_hpu(const at::Tensor& self, const at::Tensor& other);
+at::Tensor ge_scalar_hpu(const at::Tensor& self, at::Scalar other);
+at::Tensor ge_tensor_hpu(const at::Tensor& self, const at::Tensor& other);
+at::Tensor ne_scalar_hpu(const at::Tensor& self, at::Scalar other);
+at::Tensor ne_tensor_hpu(const at::Tensor& self, const at::Tensor& other);
+at::Tensor all_hpu(const at::Tensor& self);
+at::Tensor all_dim_hpu(const at::Tensor& self, int64_t dim, bool keepdim);
+at::Tensor gt_tensor_hpu(const at::Tensor& self, const at::Tensor& other);
+at::Tensor gt_scalar_hpu(const at::Tensor& self, at::Scalar other);
+at::Tensor& eq_tensor_out_hpu(
+    at::Tensor& output,
+    const at::Tensor& self,
+    const at::Tensor& other);
+at::Tensor eq_tensor_hpu(const at::Tensor& self, const at::Tensor& other);
+at::Tensor eq_tensor_scalar_hpu(const at::Tensor& self, at::Scalar other);
+at::Tensor lt_scalar_hpu(const at::Tensor& self, at::Scalar other);
+at::Tensor lt_tensor_hpu(const at::Tensor& self, const at::Tensor& other);
+at::Tensor upsample_nearest2d_hpu(
+    const at::Tensor& input,
     c10::optional<at::IntArrayRef> output_size,
     c10::optional<at::ArrayRef<double>> scale_factors);
-Tensor upsample_nearest2d_backward_hpu(
-    const Tensor& grad_output,
+at::Tensor upsample_nearest2d_backward_hpu(
+    const at::Tensor& grad_output,
     c10::optional<at::IntArrayRef> output_size,
     at::IntArrayRef input_size,
     c10::optional<at::ArrayRef<double>> scale_factors);
-Tensor convolution_hpu(
-    const Tensor& input,
-    const Tensor& weight,
-    const Tensor& bias,
-    IntArrayRef stride,
-    IntArrayRef padding,
-    IntArrayRef dilation,
+at::Tensor convolution_hpu(
+    const at::Tensor& input,
+    const at::Tensor& weight,
+    const at::Tensor& bias,
+    at::IntArrayRef stride,
+    at::IntArrayRef padding,
+    at::IntArrayRef dilation,
     bool transposed,
-    IntArrayRef output_padding,
+    at::IntArrayRef output_padding,
     int64_t groups);
-std::tuple<Tensor, Tensor, Tensor> convolution_backward_hpu(
-    const Tensor& grad_output,
-    const Tensor& input,
-    const Tensor& weight,
-    IntArrayRef stride,
-    IntArrayRef padding,
-    IntArrayRef dilation,
+std::tuple<at::Tensor, at::Tensor, at::Tensor> convolution_backward_hpu(
+    const at::Tensor& grad_output,
+    const at::Tensor& input,
+    const at::Tensor& weight,
+    at::IntArrayRef stride,
+    at::IntArrayRef padding,
+    at::IntArrayRef dilation,
     bool transposed,
-    IntArrayRef output_padding,
+    at::IntArrayRef output_padding,
     int64_t groups,
     std::array<bool, 3> output_mask);
-Tensor constant_pad_hpu(const Tensor& self, IntArrayRef pad, Scalar value);
-Tensor embedding_hpu(
-    const Tensor& weight,
-    const Tensor& indices,
+at::Tensor constant_pad_hpu(
+    const at::Tensor& self,
+    at::IntArrayRef pad,
+    at::Scalar value);
+at::Tensor embedding_hpu(
+    const at::Tensor& weight,
+    const at::Tensor& indices,
     int64_t padding_idx,
     bool scale_grad_by_freq,
     bool sparse);
-Tensor embedding_dense_backward_hpu(
-    const Tensor& grad,
-    const Tensor& indices,
+at::Tensor embedding_dense_backward_hpu(
+    const at::Tensor& grad,
+    const at::Tensor& indices,
     int64_t num_weights,
     int64_t padding_idx,
     bool scale_grad_by_freq);
-Tensor embedding_bag_sum_hpu(
-    const Tensor& input,
-    const Tensor& indices,
-    const Tensor& offsets,
-    const Tensor& valid_count,
+at::Tensor embedding_bag_sum_hpu(
+    const at::Tensor& input,
+    const at::Tensor& indices,
+    const at::Tensor& offsets,
+    const at::Tensor& valid_count,
     int64_t kernel_mode);
-Tensor& embedding_bag_sum_bwd_out_kernel_mode_hpu(
-    Tensor& out,
-    const Tensor& input,
-    const Tensor& indices,
-    const Tensor& offsets,
-    const Tensor& valid_count,
+at::Tensor& embedding_bag_sum_bwd_out_kernel_mode_hpu(
+    at::Tensor& out,
+    const at::Tensor& input,
+    const at::Tensor& indices,
+    const at::Tensor& offsets,
+    const at::Tensor& valid_count,
     int64_t kernel_mode);
-Tensor embedding_bag_sum_fwd_hpu(
-    const Tensor& input,
-    const Tensor& indices_fwd,
-    const Tensor& offsets_fwd,
-    const Tensor& valid_count,
-    const Tensor& indices_bwd,
-    const Tensor& offsets_bwd,
-    const Tensor& valid_count_bwd,
-    const Tensor& grad_weight);
-Tensor& embedding_bag_sum_bwd_out_hpu(
-    Tensor& out,
-    const Tensor& input,
-    const Tensor& indices_bwd,
-    const Tensor& offsets_bwd,
-    const Tensor& valid_count_bwd);
-Tensor& fill_hpu_(Tensor& self, Scalar value);
-Tensor& masked_fill_hpu_(Tensor& self, const Tensor& mask, const Tensor& value);
-Tensor& masked_fill_scalar_hpu_(Tensor& self, const Tensor& mask, Scalar value);
-Tensor nonzero_hpu(const Tensor& self);
-Tensor gather_src_hpu(
-    const Tensor& self,
+at::Tensor embedding_bag_sum_fwd_hpu(
+    const at::Tensor& input,
+    const at::Tensor& indices_fwd,
+    const at::Tensor& offsets_fwd,
+    const at::Tensor& valid_count,
+    const at::Tensor& indices_bwd,
+    const at::Tensor& offsets_bwd,
+    const at::Tensor& valid_count_bwd,
+    const at::Tensor& grad_weight);
+at::Tensor& embedding_bag_sum_bwd_out_hpu(
+    at::Tensor& out,
+    const at::Tensor& input,
+    const at::Tensor& indices_bwd,
+    const at::Tensor& offsets_bwd,
+    const at::Tensor& valid_count_bwd);
+at::Tensor& fill_hpu_(at::Tensor& self, at::Scalar value);
+at::Tensor& masked_fill_hpu_(
+    at::Tensor& self,
+    const at::Tensor& mask,
+    const at::Tensor& value);
+at::Tensor& masked_fill_scalar_hpu_(
+    at::Tensor& self,
+    const at::Tensor& mask,
+    at::Scalar value);
+at::Tensor nonzero_hpu(const at::Tensor& self);
+at::Tensor gather_src_hpu(
+    const at::Tensor& self,
     int64_t dim_,
-    const Tensor& index,
+    const at::Tensor& index,
     bool sparse_grad);
-Tensor& scatter_inplace_src_hpu(
-    Tensor& self,
+at::Tensor& scatter_inplace_src_hpu(
+    at::Tensor& self,
     int64_t dim_,
-    const Tensor& index,
-    const Tensor& src);
-Tensor& scatter_inplace_value_hpu(
-    Tensor& self,
+    const at::Tensor& index,
+    const at::Tensor& src);
+at::Tensor& scatter_inplace_value_hpu(
+    at::Tensor& self,
     int64_t dim_,
-    const Tensor& index,
-    Scalar value);
-Tensor scatter_src_hpu(
-    const Tensor& self,
+    const at::Tensor& index,
+    at::Scalar value);
+at::Tensor scatter_src_hpu(
+    const at::Tensor& self,
     int64_t dim_,
-    const Tensor& index,
-    const Tensor& src);
-Tensor scatter_value_hpu(
-    const Tensor& self,
+    const at::Tensor& index,
+    const at::Tensor& src);
+at::Tensor scatter_value_hpu(
+    const at::Tensor& self,
     int64_t dim_,
-    const Tensor& index,
-    Scalar value);
-Tensor scatter_add_src_hpu(
-    const Tensor& self,
+    const at::Tensor& index,
+    at::Scalar value);
+at::Tensor scatter_add_src_hpu(
+    const at::Tensor& self,
     int64_t dim_,
-    const Tensor& index,
-    const Tensor& src);
-Tensor& scatter_add_inplace_src_hpu(
-    Tensor& self,
+    const at::Tensor& index,
+    const at::Tensor& src);
+at::Tensor& scatter_add_inplace_src_hpu(
+    at::Tensor& self,
     int64_t dim_,
-    const Tensor& index,
-    const Tensor& src);
-Tensor& index_add_hpu_(
-    Tensor& self,
+    const at::Tensor& index,
+    const at::Tensor& src);
+at::Tensor& index_add_hpu_(
+    at::Tensor& self,
     int64_t dim_,
-    const Tensor& indices,
-    const Tensor& source);
-Tensor index_put_hpu(
-    const Tensor& self,
-    TensorList indices,
-    const Tensor& value,
+    const at::Tensor& indices,
+    const at::Tensor& source);
+at::Tensor index_put_hpu(
+    const at::Tensor& self,
+    at::TensorList indices,
+    const at::Tensor& value,
     bool accumulate);
-Tensor& index_put_hpu_(
-    Tensor& self,
-    TensorList indices,
-    const Tensor& value,
+at::Tensor& index_put_hpu_(
+    at::Tensor& self,
+    at::TensorList indices,
+    const at::Tensor& value,
     bool accumulate);
-Tensor index_select_hpu(const Tensor& self, int64_t dim, const Tensor& index);
-Tensor index_hpu(const Tensor& self, TensorList indices);
-Tensor gather2d_hpu(
-    const Tensor& input,
-    const Tensor& indices,
+at::Tensor index_select_hpu(
+    const at::Tensor& self,
+    int64_t dim,
+    const at::Tensor& index);
+at::Tensor index_hpu(const at::Tensor& self, at::TensorList indices);
+at::Tensor gather2d_hpu(
+    const at::Tensor& input,
+    const at::Tensor& indices,
     int64_t validCount);
-Tensor slice_hpu(
-    const Tensor& self,
+at::Tensor slice_hpu(
+    const at::Tensor& self,
     int64_t dim,
     int64_t start,
     int64_t end,
     int64_t step);
-Tensor select_hpu(const Tensor& self, int64_t dim, int64_t index);
-Tensor& arange_hpu(Tensor& output, Scalar start, Scalar end, Scalar step);
+at::Tensor select_hpu(const at::Tensor& self, int64_t dim, int64_t index);
+at::Tensor& arange_hpu(
+    at::Tensor& output,
+    at::Scalar start,
+    at::Scalar end,
+    at::Scalar step);
 at::Tensor mm_hpu(const at::Tensor& mat1, const at::Tensor& mat2);
-Tensor addmm_hpu(
-    const Tensor& self,
-    const Tensor& mat1,
-    const Tensor& mat2,
-    Scalar beta,
-    Scalar alpha);
-Tensor& batch_gemm_out_hpu(Tensor& out, const Tensor& self, const Tensor& mat2);
-Tensor batch_gemm_hpu(const Tensor& self, const Tensor& mat2);
-Tensor dot_hpu(const Tensor& self, const Tensor& other);
-Tensor mv_hpu(const Tensor& self, const Tensor& other);
-std::tuple<Tensor, Tensor> nll_loss_forward_hpu(
-    const Tensor& self,
-    const Tensor& target,
-    const Tensor& weight,
+at::Tensor addmm_hpu(
+    const at::Tensor& self,
+    const at::Tensor& mat1,
+    const at::Tensor& mat2,
+    at::Scalar beta,
+    at::Scalar alpha);
+at::Tensor& batch_gemm_out_hpu(
+    at::Tensor& out,
+    const at::Tensor& self,
+    const at::Tensor& mat2);
+at::Tensor batch_gemm_hpu(const at::Tensor& self, const at::Tensor& mat2);
+at::Tensor dot_hpu(const at::Tensor& self, const at::Tensor& other);
+at::Tensor mv_hpu(const at::Tensor& self, const at::Tensor& other);
+std::tuple<at::Tensor, at::Tensor> nll_loss_forward_hpu(
+    const at::Tensor& self,
+    const at::Tensor& target,
+    const at::Tensor& weight,
     int64_t reduction,
     int64_t ignore_index);
-Tensor nll_loss_backward_hpu(
-    const Tensor& grad_output,
-    const Tensor& self,
-    const Tensor& target,
-    const Tensor& weight,
+at::Tensor nll_loss_backward_hpu(
+    const at::Tensor& grad_output,
+    const at::Tensor& self,
+    const at::Tensor& target,
+    const at::Tensor& weight,
     int64_t reduction,
     int64_t ignore_index,
-    UNUSED const Tensor& total_weight);
-Tensor mse_loss_forward_hpu(
-    const Tensor& self,
-    const Tensor& target,
+    UNUSED const at::Tensor& total_weight);
+at::Tensor mse_loss_forward_hpu(
+    const at::Tensor& self,
+    const at::Tensor& target,
     int64_t reduction);
-Tensor mse_loss_backward_hpu(
-    const Tensor& grad_output,
-    const Tensor& self,
-    const Tensor& target,
+at::Tensor mse_loss_backward_hpu(
+    const at::Tensor& grad_output,
+    const at::Tensor& self,
+    const at::Tensor& target,
     int64_t reduction);
-Tensor binary_cross_entropy_hpu(
-    const Tensor& self,
-    const Tensor& target,
-    const Tensor& weight,
+at::Tensor binary_cross_entropy_hpu(
+    const at::Tensor& self,
+    const at::Tensor& target,
+    const at::Tensor& weight,
     int64_t reduction);
-Tensor binary_cross_entropy_backward_hpu(
-    const Tensor& grad_output,
-    const Tensor& self,
-    const Tensor& target,
-    const Tensor& weight,
+at::Tensor binary_cross_entropy_backward_hpu(
+    const at::Tensor& grad_output,
+    const at::Tensor& self,
+    const at::Tensor& target,
+    const at::Tensor& weight,
     int64_t reduction);
-Tensor binary_cross_entropy_with_logits_hpu(
-    const Tensor& self,
-    const Tensor& target,
-    const c10::optional<Tensor>& weight,
-    const c10::optional<Tensor>& pos_weight,
+at::Tensor binary_cross_entropy_with_logits_hpu(
+    const at::Tensor& self,
+    const at::Tensor& target,
+    const c10::optional<at::Tensor>& weight,
+    const c10::optional<at::Tensor>& pos_weight,
     int64_t reduction);
-std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu(
-    const Tensor& input,
-    const Tensor& weight,
-    const Tensor& bias,
-    const Tensor& running_mean,
-    const Tensor& running_var,
+std::tuple<at::Tensor, at::Tensor, at::Tensor> batch_norm_hpu(
+    const at::Tensor& input,
+    const at::Tensor& weight,
+    const at::Tensor& bias,
+    const at::Tensor& running_mean,
+    const at::Tensor& running_var,
     bool training,
     double momentum,
     double eps);
-std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu(
-    const Tensor& grad_out,
-    const Tensor& input,
-    const Tensor& weight,
-    const Tensor& running_mean,
-    const Tensor& running_var,
-    const Tensor& save_mean,
-    const Tensor& save_invstd,
+std::tuple<at::Tensor, at::Tensor, at::Tensor> batch_norm_bwd_hpu(
+    const at::Tensor& grad_out,
+    const at::Tensor& input,
+    const at::Tensor& weight,
+    const at::Tensor& running_mean,
+    const at::Tensor& running_var,
+    const at::Tensor& save_mean,
+    const at::Tensor& save_invstd,
     bool train,
     double eps,
     std::array<bool, 3> output_mask);
-std::tuple<Tensor, Tensor, Tensor> layer_norm_hpu(
-    const Tensor& input,
-    const Tensor& weight,
-    const Tensor& bias,
+std::tuple<at::Tensor, at::Tensor, at::Tensor> layer_norm_hpu(
+    const at::Tensor& input,
+    const at::Tensor& weight,
+    const at::Tensor& bias,
     int64_t m,
     int64_t n,
     double eps);
-std::tuple<Tensor, Tensor, Tensor> layer_norm_backward_hpu(
-    const Tensor& dY,
-    const Tensor& X,
-    const Tensor& mean,
-    const Tensor& rstd,
-    const Tensor& gamma,
+std::tuple<at::Tensor, at::Tensor, at::Tensor> layer_norm_backward_hpu(
+    const at::Tensor& dY,
+    const at::Tensor& X,
+    const at::Tensor& mean,
+    const at::Tensor& rstd,
+    const at::Tensor& gamma,
     int64_t M,
     int64_t N,
     std::array<bool, 3> grad_input_mask);
-Tensor norm_scalar_hpu(const Tensor& self, Scalar p);
-std::tuple<Tensor, Tensor> max_pool2d_with_indices_hpu(
-    const Tensor& input,
-    IntArrayRef kernel_size,
-    IntArrayRef stride,
-    IntArrayRef padding,
-    IntArrayRef dilation,
+at::Tensor norm_scalar_hpu(const at::Tensor& self, at::Scalar p);
+std::tuple<at::Tensor, at::Tensor> max_pool2d_with_indices_hpu(
+    const at::Tensor& input,
+    at::IntArrayRef kernel_size,
+    at::IntArrayRef stride,
+    at::IntArrayRef padding,
+    at::IntArrayRef dilation,
     bool ceil_mode);
-Tensor& max_pool2d_with_indices_backward_out_hpu(
-    Tensor& grad_input,
-    const Tensor& grad_output,
-    const Tensor& input,
-    const Tensor& indices,
-    IntArrayRef kernel_size,
-    IntArrayRef stride,
-    IntArrayRef padding,
-    IntArrayRef dilation,
+at::Tensor& max_pool2d_with_indices_backward_out_hpu(
+    at::Tensor& grad_input,
+    const at::Tensor& grad_output,
+    const at::Tensor& input,
+    const at::Tensor& indices,
+    at::IntArrayRef kernel_size,
+    at::IntArrayRef stride,
+    at::IntArrayRef padding,
+    at::IntArrayRef dilation,
     bool ceil_mode);
-Tensor max_pool2d_with_indices_backward_hpu(
-    const Tensor& grad_output,
-    const Tensor& input,
-    IntArrayRef kernel_size,
-    IntArrayRef stride,
-    IntArrayRef padding,
-    IntArrayRef dilation,
+at::Tensor max_pool2d_with_indices_backward_hpu(
+    const at::Tensor& grad_output,
+    const at::Tensor& input,
+    at::IntArrayRef kernel_size,
+    at::IntArrayRef stride,
+    at::IntArrayRef padding,
+    at::IntArrayRef dilation,
     bool ceil_mode,
-    const Tensor& indices);
-Tensor avg_pool2d_hpu(
-    const Tensor& input,
-    IntArrayRef kernel_size,
-    IntArrayRef stride,
-    IntArrayRef padding,
-    bool ceil_mode,
-    bool count_include_pad,
-    c10::optional<int64_t> divisor_override);
-Tensor& avg_pool2d_backward_out_hpu(
-    Tensor& grad_input,
-    const Tensor& grad_output,
-    const Tensor& input,
-    IntArrayRef kernel_size,
-    IntArrayRef stride,
-    IntArrayRef padding,
+    const at::Tensor& indices);
+at::Tensor avg_pool2d_hpu(
+    const at::Tensor& input,
+    at::IntArrayRef kernel_size,
+    at::IntArrayRef stride,
+    at::IntArrayRef padding,
     bool ceil_mode,
     bool count_include_pad,
     c10::optional<int64_t> divisor_override);
-Tensor avg_pool2d_backward_hpu(
-    const Tensor& grad_output,
-    const Tensor& input,
-    IntArrayRef kernel_size,
-    IntArrayRef stride,
-    IntArrayRef padding,
+at::Tensor& avg_pool2d_backward_out_hpu(
+    at::Tensor& grad_input,
+    const at::Tensor& grad_output,
+    const at::Tensor& input,
+    at::IntArrayRef kernel_size,
+    at::IntArrayRef stride,
+    at::IntArrayRef padding,
     bool ceil_mode,
     bool count_include_pad,
     c10::optional<int64_t> divisor_override);
-Tensor adaptive_avg_pool2d_hpu(const Tensor& input, IntArrayRef output_size);
-Tensor adaptive_avg_pool2d_backward_hpu(
-    const Tensor& grad_output,
-    const Tensor& input);
-Tensor& uniform_hpu(
-    Tensor& self,
+at::Tensor avg_pool2d_backward_hpu(
+    const at::Tensor& grad_output,
+    const at::Tensor& input,
+    at::IntArrayRef kernel_size,
+    at::IntArrayRef stride,
+    at::IntArrayRef padding,
+    bool ceil_mode,
+    bool count_include_pad,
+    c10::optional<int64_t> divisor_override);
+at::Tensor adaptive_avg_pool2d_hpu(
+    const at::Tensor& input,
+    at::IntArrayRef output_size);
+at::Tensor adaptive_avg_pool2d_backward_hpu(
+    const at::Tensor& grad_output,
+    const at::Tensor& input);
+at::Tensor& uniform_hpu(
+    at::Tensor& self,
     double from = 0,
     double to = 1,
-    c10::optional<Generator> gen = c10::nullopt);
-Tensor& normal_hpu(
-    Tensor& self,
+    c10::optional<at::Generator> gen = c10::nullopt);
+at::Tensor& normal_hpu(
+    at::Tensor& self,
     double mean = 0,
     double std = 1,
-    c10::optional<Generator> gen = c10::nullopt);
-Tensor bernoulli_hpu(
-    const Tensor& self,
-    c10::optional<Generator> gen = c10::nullopt);
-Tensor& bernoulli_scalar_hpu(
-    Tensor& self,
+    c10::optional<at::Generator> gen = c10::nullopt);
+at::Tensor bernoulli_hpu(
+    const at::Tensor& self,
+    c10::optional<at::Generator> gen = c10::nullopt);
+at::Tensor& bernoulli_scalar_hpu(
+    at::Tensor& self,
     double p,
-    c10::optional<Generator> gen = c10::nullopt);
-Tensor& randperm_hpu(
-    Tensor& out,
+    c10::optional<at::Generator> gen = c10::nullopt);
+at::Tensor& randperm_hpu(
+    at::Tensor& out,
     int64_t n,
-    c10::optional<Generator> gen = c10::nullopt);
-std::tuple<Tensor, Tensor> fused_dropout_hpu(
-    const Tensor& self,
+    c10::optional<at::Generator> gen = c10::nullopt);
+std::tuple<at::Tensor, at::Tensor> fused_dropout_hpu(
+    const at::Tensor& self,
     double p,
-    c10::optional<Generator> gen = c10::nullopt);
-Tensor sum_dim_IntList_hpu(
-    const Tensor& self,
-    IntArrayRef dim,
+    c10::optional<at::Generator> gen = c10::nullopt);
+at::Tensor sum_dim_IntList_hpu(
+    const at::Tensor& self,
+    at::IntArrayRef dim,
     bool keepdim,
-    c10::optional<ScalarType> dtype);
-Tensor& sum_IntList_out_hpu(
-    Tensor& output,
-    const Tensor& self,
-    IntArrayRef dim,
+    c10::optional<at::ScalarType> dtype);
+at::Tensor& sum_IntList_out_hpu(
+    at::Tensor& output,
+    const at::Tensor& self,
+    at::IntArrayRef dim,
     bool keepdim,
-    c10::optional<ScalarType> dtype);
-Tensor mean_dim_hpu(
-    const Tensor& self,
-    IntArrayRef dim,
+    c10::optional<at::ScalarType> dtype);
+at::Tensor mean_dim_hpu(
+    const at::Tensor& self,
+    at::IntArrayRef dim,
     bool keepdim,
-    c10::optional<ScalarType> dtype);
-Tensor& mean_dim_out_hpu(
-    Tensor& output,
-    const Tensor& self,
-    IntArrayRef dim,
+    c10::optional<at::ScalarType> dtype);
+at::Tensor& mean_dim_out_hpu(
+    at::Tensor& output,
+    const at::Tensor& self,
+    at::IntArrayRef dim,
     bool keepdim,
-    c10::optional<ScalarType> dtype);
-Tensor sum_hpu(const Tensor& self, c10::optional<ScalarType> dtype);
-Tensor mean_hpu(const Tensor& self, c10::optional<ScalarType> dtype);
-Tensor prod_dim_hpu(
-    const Tensor& self,
+    c10::optional<at::ScalarType> dtype);
+at::Tensor sum_hpu(const at::Tensor& self, c10::optional<at::ScalarType> dtype);
+at::Tensor mean_hpu(
+    const at::Tensor& self,
+    c10::optional<at::ScalarType> dtype);
+at::Tensor prod_dim_hpu(
+    const at::Tensor& self,
     int64_t dim,
     bool keepdim,
-    c10::optional<ScalarType> dtype);
-Tensor prod_hpu(const Tensor& self, c10::optional<ScalarType> dtype);
-std::tuple<Tensor, Tensor, Tensor> unique2_hpu(
-    const Tensor& self,
+    c10::optional<at::ScalarType> dtype);
+at::Tensor prod_hpu(
+    const at::Tensor& self,
+    c10::optional<at::ScalarType> dtype);
+std::tuple<at::Tensor, at::Tensor, at::Tensor> unique2_hpu(
+    const at::Tensor& self,
     bool sorted,
     bool return_inverse,
     bool return_counts);
-std::tuple<Tensor, Tensor> max_dim_hpu(
+std::tuple<at::Tensor, at::Tensor> max_dim_hpu(
     const at::Tensor& self,
     int64_t dim,
     bool keepdim);
-Tensor max_hpu(const at::Tensor& self);
-Tensor& any_dim_out_hpu(
-    Tensor& output,
-    const Tensor& self,
+at::Tensor max_hpu(const at::Tensor& self);
+at::Tensor& any_dim_out_hpu(
+    at::Tensor& output,
+    const at::Tensor& self,
     int64_t dim,
     bool keepdim);
-Tensor any_dim_hpu(const Tensor& self, int64_t dim, bool keepdim);
-Tensor any_hpu(const Tensor& self);
-Tensor& bitwise_and_out_hpu(Tensor& out, const Tensor& self, Scalar other);
-Tensor& bitwise_and_out_hpu(
-    Tensor& out,
-    const Tensor& self,
-    const Tensor& other);
-Tensor& bitwise_or_out_hpu(
-    Tensor& out,
-    const Tensor& self,
-    const Tensor& other);
-Tensor& bitwise_xor_out_hpu(
-    Tensor& out,
-    const Tensor& self,
-    const Tensor& other);
-Tensor& bitwise_not_out_hpu(Tensor& out, const Tensor& self);
+at::Tensor any_dim_hpu(const at::Tensor& self, int64_t dim, bool keepdim);
+at::Tensor any_hpu(const at::Tensor& self);
+at::Tensor& bitwise_and_out_hpu(
+    at::Tensor& out,
+    const at::Tensor& self,
+    at::Scalar other);
+at::Tensor& bitwise_and_out_hpu(
+    at::Tensor& out,
+    const at::Tensor& self,
+    const at::Tensor& other);
+at::Tensor& bitwise_or_out_hpu(
+    at::Tensor& out,
+    const at::Tensor& self,
+    const at::Tensor& other);
+at::Tensor& bitwise_xor_out_hpu(
+    at::Tensor& out,
+    const at::Tensor& self,
+    const at::Tensor& other);
+at::Tensor& bitwise_not_out_hpu(at::Tensor& out, const at::Tensor& self);
 namespace habana {
-Tensor log_softmax_hpu(
-    const Tensor& self,
+at::Tensor log_softmax_hpu(
+    const at::Tensor& self,
     const int64_t dim,
     const bool half_to_float);
-Tensor log_softmax_backward_hpu(
-    const Tensor& grad,
-    const Tensor& output,
+at::Tensor log_softmax_backward_hpu(
+    const at::Tensor& grad,
+    const at::Tensor& output,
     int64_t dim,
-    const Tensor& input);
-Tensor softmax_hpu(const Tensor& self, int64_t dim, const bool half_to_float);
-Tensor softmax_backward_hpu(
-    const Tensor& grad,
-    const Tensor& output,
+    const at::Tensor& input);
+at::Tensor softmax_hpu(
+    const at::Tensor& self,
     int64_t dim,
-    const Tensor& input);
+    const bool half_to_float);
+at::Tensor softmax_backward_hpu(
+    const at::Tensor& grad,
+    const at::Tensor& output,
+    int64_t dim,
+    const at::Tensor& input);
 } // namespace habana
 
 namespace at {
 namespace native {
-Tensor empty_hpu(
-    IntArrayRef size,
-    const TensorOptions& options,
+at::Tensor empty_hpu(
+    at::IntArrayRef size,
+    const at::TensorOptions& options,
     c10::optional<MemoryFormat> optional_memory_format);
-Tensor empty_strided_hpu(
-    IntArrayRef size,
-    IntArrayRef stride,
-    const TensorOptions& options);
+at::Tensor empty_strided_hpu(
+    at::IntArrayRef size,
+    at::IntArrayRef stride,
+    const at::TensorOptions& options);
 } // namespace native
 } // namespace at
 
-Tensor clone_hpu(const Tensor& self, c10::optional<MemoryFormat> memory_format);
-Tensor& zero_hpu(Tensor& self);
-Tensor cat_hpu(const TensorList tensors, int64_t dim_ = 0);
-Tensor& cat_hpu_out(Tensor& result, const TensorList tensors, int64_t dim_ = 0);
-Tensor transpose_hpu(const Tensor& self, int64_t dim0_, int64_t dim1_);
-Tensor& transpose_hpu_(Tensor& self, int64_t dim0_, int64_t dim1_);
-Tensor t_hpu(const Tensor& self);
-Tensor& t_hpu_(Tensor& self);
-Tensor permute_hpu(const Tensor& self, IntArrayRef dims_);
-Tensor expand_hpu(const Tensor& self, IntArrayRef size, bool implicit);
-std::vector<Tensor> split_with_sizes_hpu(
-    const Tensor& self,
-    IntArrayRef split_sizes,
+at::Tensor clone_hpu(
+    const at::Tensor& self,
+    c10::optional<at::MemoryFormat> memory_format);
+at::Tensor& zero_hpu(at::Tensor& self);
+at::Tensor cat_hpu(const at::TensorList tensors, int64_t dim_ = 0);
+at::Tensor& cat_hpu_out(
+    at::Tensor& result,
+    const at::TensorList tensors,
+    int64_t dim_ = 0);
+at::Tensor transpose_hpu(const at::Tensor& self, int64_t dim0_, int64_t dim1_);
+at::Tensor& transpose_hpu_(at::Tensor& self, int64_t dim0_, int64_t dim1_);
+at::Tensor t_hpu(const at::Tensor& self);
+at::Tensor& t_hpu_(at::Tensor& self);
+at::Tensor permute_hpu(const at::Tensor& self, at::IntArrayRef dims_);
+at::Tensor expand_hpu(
+    const at::Tensor& self,
+    at::IntArrayRef size,
+    bool implicit);
+std::vector<at::Tensor> split_with_sizes_hpu(
+    const at::Tensor& self,
+    at::IntArrayRef split_sizes,
     int64_t dim);
-Tensor threshold_backward_hpu(
-    const Tensor& grad_output,
-    const Tensor& self,
-    Scalar threshold);
+at::Tensor threshold_backward_hpu(
+    const at::Tensor& grad_output,
+    const at::Tensor& self,
+    at::Scalar threshold);
 namespace habana {
-std::tuple<Tensor&, Tensor&> topk_out_hpu(
-    Tensor& values,
-    Tensor& indices,
-    const Tensor& self,
+std::tuple<at::Tensor&, at::Tensor&> topk_out_hpu(
+    at::Tensor& values,
+    at::Tensor& indices,
+    const at::Tensor& self,
     int64_t k,
     int64_t dim_,
     bool largest,
     bool sorted);
-std::tuple<Tensor, Tensor> topk_hpu(
-    const Tensor& self,
+std::tuple<at::Tensor, at::Tensor> topk_hpu(
+    const at::Tensor& self,
     int64_t k,
     int64_t dim,
     bool largest,
     bool sorted);
-std::tuple<Tensor, Tensor> sort_hpu(
-    const Tensor& self,
+std::tuple<at::Tensor, at::Tensor> sort_hpu(
+    const at::Tensor& self,
     int64_t dim,
     bool descending);
 } // namespace habana
-Tensor unary_op_hpu(
-    const Tensor& input,
+at::Tensor unary_op_hpu(
+    const at::Tensor& input,
     std::string& node_type,
     UnaryOperator* Op);
-Tensor unary_backward_op_hpu(
-    const Tensor& grad_in,
-    const Tensor& input,
+at::Tensor unary_backward_op_hpu(
+    const at::Tensor& grad_in,
+    const at::Tensor& input,
     std::string& node_type,
     UnaryBackwardOperator* Op);
-Tensor relu_hpu(const Tensor& input);
-Tensor& relu_hpu_(Tensor& self);
-Tensor sign_hpu(const Tensor& self);
-Tensor& sign_hpu_(Tensor& self);
-Tensor sgn_hpu(const Tensor& self);
-Tensor& sgn_hpu_(Tensor& self);
-Tensor sigmoid_hpu(const Tensor& input);
-Tensor sigmoid_backward_hpu(const Tensor& grad_in, const Tensor& input);
-Tensor sqrt_hpu(const Tensor& input);
-Tensor tanh_hpu(const Tensor& input);
-Tensor& tanh_hpu_(Tensor& self);
-Tensor& tanh_out_hpu(Tensor& out, const Tensor& self);
-Tensor tanh_backward_hpu(const Tensor& grad_in, const Tensor& input);
-Tensor gelu_hpu(const Tensor& self);
-Tensor gelu_backward_hpu(const Tensor& grad, const Tensor& self);
-std::tuple<at::Tensor, at::Tensor> gelu2_hpu(const Tensor& self);
-Tensor gelu2_backward_hpu(
-    const Tensor& grad,
-    const Tensor& self,
-    const Tensor& saved);
+at::Tensor relu_hpu(const at::Tensor& input);
+at::Tensor& relu_hpu_(at::Tensor& self);
+at::Tensor sign_hpu(const at::Tensor& self);
+at::Tensor& sign_hpu_(at::Tensor& self);
+at::Tensor sgn_hpu(const at::Tensor& self);
+at::Tensor& sgn_hpu_(at::Tensor& self);
+at::Tensor sigmoid_hpu(const at::Tensor& input);
+at::Tensor sigmoid_backward_hpu(
+    const at::Tensor& grad_in,
+    const at::Tensor& input);
+at::Tensor sqrt_hpu(const at::Tensor& input);
+at::Tensor tanh_hpu(const at::Tensor& input);
+at::Tensor& tanh_hpu_(at::Tensor& self);
+at::Tensor& tanh_out_hpu(at::Tensor& out, const at::Tensor& self);
+at::Tensor tanh_backward_hpu(
+    const at::Tensor& grad_in,
+    const at::Tensor& input);
+at::Tensor gelu_hpu(const at::Tensor& self);
+at::Tensor gelu_backward_hpu(const at::Tensor& grad, const at::Tensor& self);
+std::tuple<at::Tensor, at::Tensor> gelu2_hpu(const at::Tensor& self);
+at::Tensor gelu2_backward_hpu(
+    const at::Tensor& grad,
+    const at::Tensor& self,
+    const at::Tensor& saved);
 
-Tensor& idop_hpu_(Tensor& self);
-Tensor idop_hpu(const Tensor& self);
+at::Tensor& idop_hpu_(at::Tensor& self);
+at::Tensor idop_hpu(const at::Tensor& self);
 
-Tensor& erf_hpu_(Tensor& self);
-Tensor erf_hpu(const Tensor& self);
-Tensor& exp_hpu_(Tensor& self);
-Tensor exp_hpu(const Tensor& self);
-Tensor& neg_out_hpu(Tensor& result, const Tensor& input);
-Tensor& reciprocal_hpu_(Tensor& self);
-Tensor reciprocal_hpu(const Tensor& self);
-Tensor& reciprocal_out_hpu(Tensor& result, const Tensor& self);
-Tensor clamp_min_hpu(const Tensor& self, Scalar min);
-Tensor floor_hpu(const Tensor& input);
-Tensor& floor_hpu_(Tensor& self);
-Tensor log_hpu(const Tensor& input);
-Tensor& log_hpu_(Tensor& self);
-Tensor log2_hpu(const Tensor& input);
-Tensor& log2_hpu_(Tensor& self);
-Tensor& clamp_hpu_(
-    Tensor& self,
-    c10::optional<Scalar> min,
-    c10::optional<Scalar> max);
-Tensor clamp_hpu(
-    const Tensor& self,
-    c10::optional<Scalar> min,
-    c10::optional<Scalar> max);
-Tensor abs_hpu(const Tensor& self);
-Tensor& abs_hpu_(Tensor& self);
-Tensor round_hpu(const Tensor& self);
-Tensor& round_hpu_(Tensor& self);
-Tensor rsqrt_hpu(const Tensor& self);
-Tensor& rsqrt_hpu_(Tensor& self);
-Tensor isfinite_hpu(const Tensor& self);
-Tensor neg_hpu(const Tensor& self);
-Tensor argmax_hpu(
+at::Tensor& erf_hpu_(at::Tensor& self);
+at::Tensor erf_hpu(const at::Tensor& self);
+at::Tensor& exp_hpu_(at::Tensor& self);
+at::Tensor exp_hpu(const at::Tensor& self);
+at::Tensor& neg_out_hpu(at::Tensor& result, const at::Tensor& input);
+at::Tensor& reciprocal_hpu_(at::Tensor& self);
+at::Tensor reciprocal_hpu(const at::Tensor& self);
+at::Tensor& reciprocal_out_hpu(at::Tensor& result, const at::Tensor& self);
+at::Tensor clamp_min_hpu(const at::Tensor& self, at::Scalar min);
+at::Tensor floor_hpu(const at::Tensor& input);
+at::Tensor& floor_hpu_(at::Tensor& self);
+at::Tensor log_hpu(const at::Tensor& input);
+at::Tensor& log_hpu_(at::Tensor& self);
+at::Tensor log2_hpu(const at::Tensor& input);
+at::Tensor& log2_hpu_(at::Tensor& self);
+at::Tensor& clamp_hpu_(
+    at::Tensor& self,
+    c10::optional<at::Scalar> min,
+    c10::optional<at::Scalar> max);
+at::Tensor clamp_hpu(
+    const at::Tensor& self,
+    c10::optional<at::Scalar> min,
+    c10::optional<at::Scalar> max);
+at::Tensor abs_hpu(const at::Tensor& self);
+at::Tensor& abs_hpu_(at::Tensor& self);
+at::Tensor round_hpu(const at::Tensor& self);
+at::Tensor& round_hpu_(at::Tensor& self);
+at::Tensor rsqrt_hpu(const at::Tensor& self);
+at::Tensor& rsqrt_hpu_(at::Tensor& self);
+at::Tensor isfinite_hpu(const at::Tensor& self);
+at::Tensor neg_hpu(const at::Tensor& self);
+at::Tensor argmax_hpu(
     const at::Tensor& self,
     c10::optional<int64_t> dim,
     bool keepdim);
 namespace at {
 namespace native {
-Scalar _local_scalar_dense_hpu(const Tensor& self);
+Scalar _local_scalar_dense_hpu(const at::Tensor& self);
 }
 } // namespace at
 std::tuple<torch::Tensor&, torch::Tensor&>
 optimizer_sparse_sgd_with_valid_count_hpu(
-    const Tensor& gradients,
-    Tensor& weights_in,
-    Tensor& moments_in,
-    const Tensor& indices,
-    const Tensor& learning_rate,
-    const Tensor& valid_count_tensor,
+    const at::Tensor& gradients,
+    at::Tensor& weights_in,
+    at::Tensor& moments_in,
+    const at::Tensor& indices,
+    const at::Tensor& learning_rate,
+    const at::Tensor& valid_count_tensor,
     float mom,
     bool nesterov);
 std::tuple<torch::Tensor&, torch::Tensor&>
 optimizer_sparse_adagrad_with_valid_count_hpu(
-    const Tensor& gradients,
-    Tensor& weights_in,
-    Tensor& moments_in,
-    const Tensor& indices,
-    const Tensor& learning_rate,
-    const Tensor& valid_count_tensor);
-Tensor ones_like_hpu(
-    const Tensor& self,
-    const TensorOptions& options,
+    const at::Tensor& gradients,
+    at::Tensor& weights_in,
+    at::Tensor& moments_in,
+    const at::Tensor& indices,
+    const at::Tensor& learning_rate,
+    const at::Tensor& valid_count_tensor);
+at::Tensor ones_like_hpu(
+    const at::Tensor& self,
+    const at::TensorOptions& options,
     c10::optional<c10::MemoryFormat> optional_memory_format);
-Tensor matmul_hpu(const at::Tensor& tensor1, const at::Tensor& tensor2);
+at::Tensor matmul_hpu(const at::Tensor& tensor1, const at::Tensor& tensor2);
 std::tuple<at::Tensor, at::Tensor> matmul_backward_hpu(
     const at::Tensor& grad_output,
     const at::Tensor& self,
     const at::Tensor& other);
-Tensor masked_scale_hpu(const Tensor& self, const Tensor& mask, double scale);
+at::Tensor masked_scale_hpu(
+    const at::Tensor& self,
+    const at::Tensor& mask,
+    double scale);
 void optimizer_adamw_hpu(
-    const TensorList& gradient_vec,
-    TensorList& weight_vec,
-    TensorList& exp_avg_vec,
-    TensorList& exp_avg_sq_vec,
+    const at::TensorList& gradient_vec,
+    at::TensorList& weight_vec,
+    at::TensorList& exp_avg_vec,
+    at::TensorList& exp_avg_sq_vec,
     at::Tensor& lr_t,
     at::Tensor& neg_step_t,
     const float beta1,
     const float beta2,
     const float epsilon,
     const float weight_decay);
-Tensor fused_norm_hpu(
-    std::vector<Tensor>& grad,
-    const Tensor& max_norm,
+at::Tensor fused_norm_hpu(
+    std::vector<at::Tensor>& grad,
+    const at::Tensor& max_norm,
     float norm_type = 2.0);
-std::tuple<std::vector<Tensor>, std::vector<Tensor>, std::vector<Tensor>>
+std::tuple<
+    std::vector<at::Tensor>,
+    std::vector<at::Tensor>,
+    std::vector<at::Tensor>>
 optimizer_lamb_phase1_hpu(
     const std::vector<at::Tensor>& gradient_vec,
     std::vector<at::Tensor>& weight_vec,
     std::vector<at::Tensor>& exp_avg_vec,
     std::vector<at::Tensor>& exp_avg_sq_vec,
-    const Tensor& clip_global_grad_norm,
+    const at::Tensor& clip_global_grad_norm,
     const int grad_averaging,
     const float lr,
     const float beta1,
@@ -680,37 +763,37 @@ void optimizer_lamb_phase2_hpu(
     const float step,
     const float weight_decay,
     const int use_lamb);
-Tensor optimizer_lamb_fused_norm_hpu(
+at::Tensor optimizer_lamb_fused_norm_hpu(
     const std::vector<at::Tensor>& grad,
     float max_grad_norm);
-Tensor& optimizer_adagrad_hpu(
-    const TensorList& gradient_vec,
-    TensorList& weight_vec,
-    TensorList& variance_vec,
+at::Tensor& optimizer_adagrad_hpu(
+    const at::TensorList& gradient_vec,
+    at::TensorList& weight_vec,
+    at::TensorList& variance_vec,
     const at::Tensor& epoch_num,
     at::Tensor& lr,
     const float wd,
     const float lrd,
     const float epsilon);
-Tensor& optimizer_sgd_hpu(
-    const TensorList& gradient_vec,
-    TensorList& weight_vec,
+at::Tensor& optimizer_sgd_hpu(
+    const at::TensorList& gradient_vec,
+    at::TensorList& weight_vec,
     at::Tensor& lr,
     const float wd,
     const float mom,
     const float damp,
     const bool nesterov);
-Tensor& optimizer_sgd_momentum_hpu(
-    const TensorList& gradient_vec,
-    TensorList& weight_vec,
-    TensorList& momentum_vec,
+at::Tensor& optimizer_sgd_momentum_hpu(
+    const at::TensorList& gradient_vec,
+    at::TensorList& weight_vec,
+    at::TensorList& momentum_vec,
     const at::Tensor& epoch_num,
     at::Tensor& lr,
     const float wd,
     const float mom,
     const float damp,
     const bool nesterov);
-Tensor habana_nms_hpu(
+at::Tensor habana_nms_hpu(
     const at::Tensor& scores,
     const at::Tensor& boxes,
     float iou_threshold,
