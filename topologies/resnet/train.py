@@ -14,20 +14,16 @@ import random
 
 import utils
 
-try:
-        # Default 'fork' doesn't work with synapse. Use 'forkserver' or 'spawn'
-            torch.multiprocessing.set_start_method('forkserver')
-except RuntimeError:
-        pass
 sys.path.insert(0, os.path.join(os.environ['PYTORCH_MODULES_RELEASE_BUILD']))
-try:
-    import hb_torch
-except ImportError:
-    assert False, "Could Not import hb_torch"
 
 # Instead of importing resnet model from the standard torchvision package,
 # import from a local copy. A local copy of resnet model file is used so that
 # modifications can be done to the resnet model if necessary.
+
+try:
+    import hb_torch
+except ImportError:
+    assert False, "Could Not import hb_torch"
 
 sys.path.append(os.environ['PYTORCH_MODULES_ROOT_PATH'])
 from topologies import tools
@@ -293,14 +289,24 @@ def permute_momentum(optimizer, to_filters_last, lazy_mode):
         hb_torch.mark_step()
 
 # Data loader worker init function
-
-
 def dl_worker_init_fn(seed):
     if seed is not None:
         random.seed(seed)
 
 
 def main(args):
+
+    if args.dl_worker_type == "MP":
+        try:
+            # Default 'fork' doesn't work with synapse. Use 'forkserver' or 'spawn'
+            torch.multiprocessing.set_start_method('spawn')
+        except RuntimeError:
+            pass
+    else:
+        try:
+            import habana_torch_dataloader
+        except ImportError:
+            assert False, "Could Not import habana_torch_dataloader"
 
     if args.run_lazy_mode:
         os.environ["PT_HPU_LAZY_MODE"] = "1"
@@ -345,6 +351,9 @@ def main(args):
     if args.batch_size > 32:
         test_batch_size = 32
 
+    data_loader = None
+    data_loader_test = None
+
     if not args.synthetic_data:
         train_dir = os.path.join(args.data_path, 'train')
         val_dir = os.path.join(args.data_path, 'val')
@@ -353,13 +362,27 @@ def main(args):
         if args.workers > 0:
             torch.cuda.current_device = lambda: None
             torch.cuda.set_device = lambda x: None
-        data_loader = torch.utils.data.DataLoader(
-            dataset, batch_size=args.batch_size,
-            sampler=train_sampler, num_workers=args.workers, worker_init_fn=dl_worker_init_fn(seed), pin_memory=True, drop_last=True)
 
-        data_loader_test = torch.utils.data.DataLoader(
-            dataset_test, batch_size=test_batch_size,
-            sampler=test_sampler, num_workers=args.workers, worker_init_fn=dl_worker_init_fn(seed), pin_memory=True, drop_last=True)
+        if args.dl_worker_type == "MP":
+            data_loader = torch.utils.data.DataLoader(
+                dataset, batch_size=args.batch_size, sampler=train_sampler,
+                num_workers=args.workers, worker_init_fn=dl_worker_init_fn(seed),
+                pin_memory=True, drop_last=True)
+
+            data_loader_test = torch.utils.data.DataLoader(
+                dataset_test, batch_size=test_batch_size, sampler=test_sampler,
+                num_workers=args.workers, worker_init_fn=dl_worker_init_fn(seed),
+                pin_memory=True, drop_last=True)
+        else:
+            data_loader = habana_torch_dataloader.DataLoader(
+                dataset, batch_size=args.batch_size, sampler=train_sampler,
+                num_workers=args.workers, worker_init_fn=dl_worker_init_fn(seed),
+                pin_memory=True, drop_last=True)
+
+            data_loader_test = habana_torch_dataloader.DataLoader(
+                dataset_test, batch_size=test_batch_size, sampler=test_sampler,
+                num_workers=args.workers, worker_init_fn=dl_worker_init_fn(seed),
+                pin_memory=True, drop_last=True)
     else:
         data_loader = tools.ImageRandomDataLoader(batch_size=args.batch_size, train=True, drop_last=True)
         data_loader_test = tools.ImageRandomDataLoader(batch_size=test_batch_size, train=False, drop_last=True)
@@ -566,6 +589,8 @@ def parse_args():
     parser.add_argument('-b', '--batch-size', default=32, type=int)
     parser.add_argument('--epochs', default=90, type=int, metavar='N',
                         help='number of total epochs to run')
+    parser.add_argument('--dl-worker-type', default='MT', type=lambda x: x.upper(),
+                        choices = ["MT", "MP"], help='select multithreading or multiprocessing')
     parser.add_argument('-j', '--workers', default=16, type=int, metavar='N',
                         help='number of data loading workers (default: 16)')
     parser.add_argument('--lr', default=0.1, type=float, help='initial learning rate')
