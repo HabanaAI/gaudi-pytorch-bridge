@@ -433,28 +433,12 @@ void InsertPermute_graph(
           value_to_tensor_layout[value_out].layout = out_layout;
         }
       } else if (
-          // permutes should pass dims layout info to output
-          (strcmp(node->kind().toQualString(), "hpu::permute_cl") == 0) ||
-          (strcmp(node->kind().toQualString(), "aten::permute") == 0)) {
+          // permute_cl sets channelsLast output format
+          (strcmp(node->kind().toQualString(), "hpu::permute_cl") == 0)) {
         auto value_out = node->output(0);
-        if (strcmp(node->kind().toQualString(), "hpu::permute_cl") == 0) {
-          value_to_tensor_layout[value_out].layout = habana::LayoutFormat::NHWC;
-          value_to_tensor_layout[value_out].layout_at_graph_entry =
-              habana::LayoutFormat::NHWC;
-        } else {
-          auto out_layout =
-              getLayoutFromDims(toIValue(node->input(1))->toIntVector());
-          if (out_layout == habana::LayoutFormat::ANY)
-            out_layout = habana::LayoutFormat::NCHW;
-          value_to_tensor_layout[value_out].layout = out_layout;
-          if (out_layout == habana::LayoutFormat::HWCK) {
-            value_to_tensor_layout[value_out].layout_at_graph_entry =
-                out_layout;
-          } else {
-            value_to_tensor_layout[value_out].layout_at_graph_entry =
-                value_to_tensor_layout[node->input(0)].layout_at_graph_entry;
-          }
-        }
+        value_to_tensor_layout[value_out].layout = habana::LayoutFormat::NHWC;
+        value_to_tensor_layout[value_out].layout_at_graph_entry =
+            habana::LayoutFormat::NHWC;
       } else if (
           // special case format info passing
           (strcmp(node->kind().toQualString(), "hpu::cast") == 0) ||
