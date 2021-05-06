@@ -327,7 +327,7 @@ class LazyBinaryOp : public LazyOp<ReturnType> {
           tensor_promote.suggest_memory_format(),
           false);
       self = copy_hpu_lazy_(self, tensor_promote, true);
-      inputs[pos] = IValue(self);
+      inputs[pos] = self;
       LazyOp<T>::set_inputs(inputs);
     }
 
@@ -393,7 +393,7 @@ class LazyCompareOp : public LazyOp<ReturnType> {
           tensor_promote.suggest_memory_format(),
           false);
       self = copy_hpu_lazy_(self, tensor_promote, true);
-      inputs[pos] = IValue(self);
+      inputs[pos] = self;
       LazyOp<T>::set_inputs(inputs);
     }
 
@@ -525,8 +525,8 @@ class Unique : public LazyOp<ReturnType> {
     auto inputs = LazyOp<ReturnType>::get_inputs();
     auto self = inputs[0].toTensor();
     int elements = self.numel();
-    auto output_shape = DimVector{elements};
-    auto valid_shape = DimVector{1};
+    auto output_shape = at::DimVector{elements};
+    auto valid_shape = at::DimVector{1};
     std::get<0>(results) = at::native::empty_hpu_lazy(
         output_shape, self.options(), self.suggest_memory_format(), false);
     std::get<1>(results) = at::native::empty_hpu_lazy(

@@ -12,6 +12,7 @@
 #include "habana_lazy_test_infra.h"
 
 using namespace habana_lazy;
+using namespace at;
 
 class LazySoftmaxKernelTest : public habana_lazy_test::LazyTest {};
 

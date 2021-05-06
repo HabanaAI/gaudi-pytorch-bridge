@@ -14,6 +14,7 @@
 #include <cstdlib>
 
 using namespace habana_lazy;
+using namespace at;
 
 class LazyBinaryKernelTest : public habana_lazy_test::LazyTest {};
 

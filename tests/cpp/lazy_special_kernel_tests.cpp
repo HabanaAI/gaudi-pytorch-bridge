@@ -12,6 +12,7 @@
 #include "habana_lazy/ir_utils.h"
 
 using namespace habana_lazy;
+using namespace at;
 
 #define MAX_VALUE_TO_TEST 127
 #define MIN_VALUE_TO_TEST -127

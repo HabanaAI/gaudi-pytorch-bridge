@@ -18,6 +18,7 @@
 using json = nlohmannV340::json;
 
 using namespace habana_lazy;
+using namespace at;
 
 class GraphOptimizeTest : public habana_lazy_test::LazyTest {
  protected:

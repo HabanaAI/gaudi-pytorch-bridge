@@ -55,7 +55,7 @@ void HlExec::Launch(torch::jit::Stack& stack) {
   // save the graph for perf mode
   context->saveGraph(mp_g_);
 
-  HabanaLaunchOpPT launch{mp_g_, false};
+  habana::HabanaLaunchOpPT launch{mp_g_, false};
   launch.run(stack);
 
   context->setExecutionMode(kLAZY);

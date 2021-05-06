@@ -11,6 +11,7 @@
 #include "habana_lazy/ir_utils.h"
 
 using namespace habana_lazy;
+using namespace at;
 
 class LazyRandomGenKernelTest : public habana_lazy_test::LazyTest {};
 
