@@ -425,26 +425,15 @@ Tensor scatter_value_hpu(
  * @param value - Scalar with values to be updated (of same type as self)
  ************************************************************************/
 Tensor& scatter_inplace_value_hpu(
-    Tensor& self_in,
+    Tensor& self,
     int64_t dim_,
     const Tensor& index,
     Scalar value) {
   PT_KERNEL_BEGIN;
-  auto self = self_in;
-  // WA for https://jira.habana-labs.com/browse/SW-38110
-  if (self_in.scalar_type() == c10::ScalarType::Char) {
-    self = habana_helpers::hpu_cast_tensor(
-        self_in, at::scalarTypeToTypeMeta(c10::ScalarType::Int));
-  }
   auto out = scatter_value_hpu(self, dim_, index, value);
-  // WA for https://jira.habana-labs.com/browse/SW-38110
-  if (self_in.scalar_type() == c10::ScalarType::Char) {
-    out = habana_helpers::hpu_cast_tensor(
-        out, at::scalarTypeToTypeMeta(c10::ScalarType::Char));
-  }
-  self_in.copy_(out);
+  self.copy_(out);
   PT_KERNEL_END;
-  return self_in;
+  return self;
 }
 
 /*************************************************************************
