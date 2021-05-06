@@ -23,6 +23,7 @@
 
 using namespace torch;
 
+namespace habana {
 // ensure we get good values and indices for topk
 inline void _allocate_or_resize_output_with_indices(
     Tensor& values,
@@ -441,10 +442,11 @@ std::tuple<Tensor, Tensor> sort_hpu(
   PT_KERNEL_END;
   return std::forward_as_tuple(out.at(0), out.at(1));
 }
+} // namespace habana
 
 static auto& KernelRegistry = ::habana::KernelRegistry().add(
     "aten::topk",
     [](const int device_id, c10::ScalarType node_type) {
       static_cast<void>(node_type);
-      return std::make_shared<TopkOperator>(device_id, "topk");
+      return std::make_shared<::habana::TopkOperator>(device_id, "topk");
     });

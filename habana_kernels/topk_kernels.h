@@ -9,7 +9,7 @@
  */
 #pragma once
 #include "habana_kernels/habana_operator.h"
-using namespace habana;
+namespace habana {
 
 //
 // TopkOut Operator
@@ -69,3 +69,4 @@ class SortOperator : public TopkOutOperator {
 
   virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
 };
+} // namespace habana

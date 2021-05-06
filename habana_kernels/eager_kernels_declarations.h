@@ -520,6 +520,7 @@ Tensor threshold_backward_hpu(
     const Tensor& grad_output,
     const Tensor& self,
     Scalar threshold);
+namespace habana {
 std::tuple<Tensor&, Tensor&> topk_out_hpu(
     Tensor& values,
     Tensor& indices,
@@ -538,6 +539,7 @@ std::tuple<Tensor, Tensor> sort_hpu(
     const Tensor& self,
     int64_t dim,
     bool descending);
+} // namespace habana
 Tensor unary_op_hpu(
     const Tensor& input,
     std::string& node_type,
