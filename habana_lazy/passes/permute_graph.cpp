@@ -560,4 +560,4 @@ void InsertPermute_graph(
   RemoveRedundantPermutes(graph);
   RemoveRedundantRestrideNodes(graph);
 }
-}; // namespace habana_lazy
+} // namespace habana_lazy

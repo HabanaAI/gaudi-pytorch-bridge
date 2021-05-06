@@ -37,6 +37,8 @@
 #include "habana_kernels/kernel_utils.h"
 
 using namespace torch::jit;
+using namespace habana;
+
 void HabanaLaunchOpPT::markLayoutForOriginNodes(torch::jit::Value* val) {
   auto node = val->node();
   auto node_ins = node->inputs();

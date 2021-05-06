@@ -27,6 +27,7 @@
 #include "habana_lazy/passes/transform_graph.h"
 
 using namespace torch;
+using namespace habana;
 
 void CompareOutOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,

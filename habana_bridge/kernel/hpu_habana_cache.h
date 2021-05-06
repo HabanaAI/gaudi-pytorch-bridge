@@ -28,13 +28,10 @@
 #define PGM_LRU_MAX_NRECIPES 100
 #define PGM_LRU_MIN_NRECIPES 3
 
-enum class PGMCachingPolicy {
-  simple,
-  single,
-  lru
-};
+namespace habana {
+enum class PGMCachingPolicy { simple, single, lru };
 
-std::ostream & operator<<(std::ostream & O, PGMCachingPolicy P);
+std::ostream& operator<<(std::ostream& O, PGMCachingPolicy P);
 
 // Adding the op strings to the key for recipe
 // Later the drop the storage for the vector of strings
@@ -301,9 +298,11 @@ class RecipeCacheLRU {
 
   std::unordered_map<
       std::shared_ptr<RecipeArgumentSpec>,
-      std::list<
-          std::pair<std::shared_ptr<RecipeArgumentSpec>,
-              std::shared_ptr<RecipeValueSpec>>>::iterator,
+      std::list<std::pair<
+          std::shared_ptr<RecipeArgumentSpec>,
+          std::shared_ptr<RecipeValueSpec>>>::iterator,
       RecipeArgumentSpecHash,
-      RecipeArgumentSpecEqual> map_;
+      RecipeArgumentSpecEqual>
+      map_;
 };
+} // namespace habana

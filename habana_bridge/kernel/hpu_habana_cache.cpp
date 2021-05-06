@@ -21,6 +21,7 @@
 #include "habana_helpers/tensor_info.h"
 #include "habana_helpers/tensor_utils.h"
 
+namespace habana {
 size_t RecipeValueSpec::recipe_count = 0;
 size_t RecipeValueSpec::total_recipe_ntbytes = 0;
 
@@ -554,3 +555,4 @@ bool RecipeCacheLRU::drop_lru_impl(size_t& recipe_count, bool mem_exhausted) {
   recipe_count = map_.size() - use_count;
   return dropped;
 }
+} // namespace habana

@@ -1,6 +1,7 @@
 #include "habana_bridge/kernel/hpu_habana_launch_op_pt.h"
 
 using namespace torch::jit;
+using namespace habana;
 
 ControlEdgeType nodeRequiresControlEdge(const char* node_name) {
   if (strcmp(node_name, "hpu::control_edge_") == 0)

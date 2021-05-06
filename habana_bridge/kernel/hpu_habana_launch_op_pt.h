@@ -35,8 +35,7 @@
 #include "habana_bridge/kernel/hpu_habana_cache.h"
 #include "habana_kernels/habana_operator.h"
 
-using namespace habana;
-
+namespace habana {
 using CValPtr = const torch::jit::Value*;
 using tensor_or_ref = synapse_helpers::tensor_or_ref;
 using SynTensorOrRefList = std::vector<tensor_or_ref>;
@@ -46,8 +45,8 @@ using IValPtrSharedToTesorInfoMap =
     std::unordered_map<IValPtrShared, PtTensorInfo>;
 
 struct habanaTensorLayoutInfo {
-  habana::LayoutFormat layout;
-  habana::LayoutFormat layout_at_graph_entry;
+  LayoutFormat layout;
+  LayoutFormat layout_at_graph_entry;
 };
 
 enum ControlEdgeType {
@@ -57,7 +56,7 @@ enum ControlEdgeType {
   kCONTROL_EDGE_AS_STRIDED
 };
 
-habana::LayoutFormat getLayoutFromDims(const std::vector<int64_t> dims);
+LayoutFormat getLayoutFromDims(const std::vector<int64_t>& dims);
 
 class HabanaLaunchOpPT {
  public:
@@ -190,7 +189,7 @@ class HabanaLaunchOpPT {
       "hpu::habanaOptimizerLambPhase1",
       "hpu::habanaOptimizerLambPhase2"};
 
-  habana::LayoutFormat getTensorChannelOrder(torch::jit::Value* val);
+  LayoutFormat getTensorChannelOrder(torch::jit::Value* val);
   void runMetaDataAdjustmentPasses(torch::jit::graph_node_list graph_nodes);
   void weightLayoutMarkingPass(torch::jit::graph_node_list graph_nodes);
   void persistenceMarkingPass(torch::jit::graph_node_list graph_nodes);
@@ -203,7 +202,7 @@ class HabanaLaunchOpPT {
   at::Tensor permuteTensor(
       torch::jit::Value* value_in,
       const at::Tensor& input,
-      habana::LayoutFormat permute_order);
+      LayoutFormat permute_order);
   torch::jit::Stack getStackForNode(torch::jit::Node* node);
   void compile();
   void clear();
@@ -245,7 +244,7 @@ class HabanaLaunchOpPT {
       torch::jit::Node* node);
   bool isChannelOrderSupported(
       torch::jit::Value* val,
-      const habana::LayoutFormat& supported_channel_order);
+      const LayoutFormat& supported_channel_order);
   c10::ScalarType getNodeScalarType(torch::jit::Node* node);
   void handlePrimNodes(torch::jit::Node* node);
   void handleRestrideNode(torch::jit::Node* node);
@@ -277,3 +276,4 @@ class HabanaLaunchOpPT {
       bool persistence = true);
   bool IsCustomOptimizer(std::string node_str);
 };
+} // namespace habana

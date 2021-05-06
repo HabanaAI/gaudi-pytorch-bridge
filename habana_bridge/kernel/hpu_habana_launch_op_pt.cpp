@@ -45,6 +45,7 @@
 
 using namespace torch::jit;
 
+namespace habana {
 // static initializations
 size_t RecipeValueSpec::count = 0;
 
@@ -231,32 +232,31 @@ HabanaLaunchOpPT::~HabanaLaunchOpPT() {
   PT_BRIDGE_DEBUG("Destroying : ", id_str);
 }
 
-habana::LayoutFormat getLayoutFromDims(const std::vector<int64_t> dims) {
-  std::unordered_map<const habana::LayoutFormat, const std::vector<int64_t>>
+LayoutFormat getLayoutFromDims(const std::vector<int64_t>& dims) {
+  std::unordered_map<const LayoutFormat, const std::vector<int64_t>>
       toDevicePermuteOrder = {
-          {habana::LayoutFormat::NHWC, {0, 2, 3, 1}},
-          {habana::LayoutFormat::NCHW, {0, 1, 2, 3}},
-          {habana::LayoutFormat::HWCK, {2, 3, 1, 0}}};
+          {LayoutFormat::NHWC, {0, 2, 3, 1}},
+          {LayoutFormat::NCHW, {0, 1, 2, 3}},
+          {LayoutFormat::HWCK, {2, 3, 1, 0}}};
   //[ToDo] use find method instead, need to define vectorhasher
-  for (auto l : toDevicePermuteOrder) {
+  for (const auto& l : toDevicePermuteOrder) {
     if (l.second == dims)
       return l.first;
   }
-  return habana::LayoutFormat::ANY;
+  return LayoutFormat::ANY;
 }
 
-habana::LayoutFormat getPTTensorLayout(at::Tensor& tensor) {
+LayoutFormat getPTTensorLayout(at::Tensor& tensor) {
   auto mem_format = tensor.suggest_memory_format();
   if (mem_format == at::MemoryFormat::ChannelsLast ||
       mem_format == at::MemoryFormat::ChannelsLast3d) {
-    return habana::LayoutFormat::NHWC;
+    return LayoutFormat::NHWC;
   } else {
-    return habana::LayoutFormat::NCHW;
+    return LayoutFormat::NCHW;
   }
 }
 
-habana::LayoutFormat HabanaLaunchOpPT::getTensorChannelOrder(
-    torch::jit::Value* val) {
+LayoutFormat HabanaLaunchOpPT::getTensorChannelOrder(torch::jit::Value* val) {
   // The value of the node keeps the tensor physical layout memorized
   // We can update this later if we see any changes to the way layouts are
   // handled
@@ -269,8 +269,8 @@ habana::LayoutFormat HabanaLaunchOpPT::getTensorChannelOrder(
 // See if we are in any leagally accepted channel orders
 bool HabanaLaunchOpPT::isChannelOrderSupported(
     torch::jit::Value* val,
-    const habana::LayoutFormat& supported_channel_order) {
-  return (supported_channel_order == habana::LayoutFormat::ANY) ||
+    const LayoutFormat& supported_channel_order) {
+  return (supported_channel_order == LayoutFormat::ANY) ||
       (supported_channel_order == getTensorChannelOrder(val));
 }
 
@@ -687,7 +687,7 @@ void HabanaLaunchOpPT::ProcessSynapseOutputs(
     torch::jit::Node* node) {
   auto output_nodes = node->outputs();
   auto habana_kernel_meta_data = habana_op->GetKernelMetaData();
-  habana::LayoutFormat out_layout;
+  LayoutFormat out_layout;
 
   if (node->output(0)->type() == torch::ListType::ofTensors() &&
       node->outputs().size() == 1) {
@@ -702,8 +702,8 @@ void HabanaLaunchOpPT::ProcessSynapseOutputs(
 
   // Note the input layout information for the node to pass on to output edge
   auto node_ins = node->inputs();
-  habana::LayoutFormat assigned_input_layout = habana::LayoutFormat::NCHW;
-  habana::LayoutFormat origin_input_layout = habana::LayoutFormat::NCHW;
+  LayoutFormat assigned_input_layout = LayoutFormat::NCHW;
+  LayoutFormat origin_input_layout = LayoutFormat::NCHW;
 
   int node_idx = 0;
   for (auto value_in : node_ins) {
@@ -712,7 +712,7 @@ void HabanaLaunchOpPT::ProcessSynapseOutputs(
       /* Get the input tensor layout information */
       assigned_input_layout =
           ((node_idx == 0) ||
-           getTensorChannelOrder(value_in) == habana::LayoutFormat::HWCK)
+           getTensorChannelOrder(value_in) == LayoutFormat::HWCK)
           ? getTensorChannelOrder(value_in)
           : assigned_input_layout;
 
@@ -723,8 +723,8 @@ void HabanaLaunchOpPT::ProcessSynapseOutputs(
       // them and not permute to NHWC at exit.
       origin_input_layout =
           value_to_tensor_layout[value_in].layout_at_graph_entry ==
-              habana::LayoutFormat::NHWC
-          ? habana::LayoutFormat::NHWC
+              LayoutFormat::NHWC
+          ? LayoutFormat::NHWC
           : origin_input_layout;
       node_idx++;
     }
@@ -750,14 +750,13 @@ void HabanaLaunchOpPT::ProcessSynapseOutputs(
   size_t meta_size = habana_kernel_meta_data.output_layout.size();
   for (synapse_helpers::tensor& out_tensor_syn : habana_op->GetSynOutputs()) {
     out_layout = output_tensor_idx >= meta_size
-        ? habana::LayoutFormat::ANY
+        ? LayoutFormat::ANY
         : habana_kernel_meta_data.output_layout.at(output_tensor_idx);
 
     /* Pass down the layout information from input to output for layout
        agnostic output (only for single input ans single output op nodes) */
     value_to_tensor_layout[output_nodes[output_nodes_idx]].layout =
-        out_layout == habana::LayoutFormat::ANY ? assigned_input_layout
-                                                : out_layout;
+        out_layout == LayoutFormat::ANY ? assigned_input_layout : out_layout;
     value_to_tensor_layout[output_nodes[output_nodes_idx]]
         .layout_at_graph_entry = origin_input_layout;
     if (excluded_out_indices.find(output_tensor_idx) ==
@@ -793,37 +792,37 @@ void HabanaLaunchOpPT::ProcessSynapseOutputs(
 }
 
 at::IntArrayRef getDimsForLayout(
-    habana::LayoutFormat channel_order,
-    habana::LayoutFormat current_order) {
+    LayoutFormat channel_order,
+    LayoutFormat current_order) {
   at::IntArrayRef dims;
 
-  if (current_order == habana::LayoutFormat::NCHW) {
-    if (channel_order == habana::LayoutFormat::NHWC) {
+  if (current_order == LayoutFormat::NCHW) {
+    if (channel_order == LayoutFormat::NHWC) {
       static const int64_t dimarr[] = {0, 2, 3, 1};
       dims = dimarr;
-    } else if (channel_order == habana::LayoutFormat::HWCK) {
+    } else if (channel_order == LayoutFormat::HWCK) {
       static const int64_t dimarr[] = {2, 3, 1, 0};
       dims = dimarr;
     } else {
       TORCH_CHECK(
           0, " Habana Fusion op permute called for unsupported channel order");
     }
-  } else if (current_order == habana::LayoutFormat::NHWC) {
-    if (channel_order == habana::LayoutFormat::NCHW) {
+  } else if (current_order == LayoutFormat::NHWC) {
+    if (channel_order == LayoutFormat::NCHW) {
       static const int64_t dimarr[] = {0, 3, 1, 2};
       dims = dimarr;
-    } else if (channel_order == habana::LayoutFormat::HWCK) {
+    } else if (channel_order == LayoutFormat::HWCK) {
       static const int64_t dimarr[] = {1, 2, 3, 0};
       dims = dimarr;
     } else {
       TORCH_CHECK(
           0, " Habana Fusion op permute called for unsupported channel order");
     }
-  } else if (current_order == habana::LayoutFormat::HWCK) {
-    if (channel_order == habana::LayoutFormat::NCHW) {
+  } else if (current_order == LayoutFormat::HWCK) {
+    if (channel_order == LayoutFormat::NCHW) {
       static const int64_t dimarr[] = {3, 2, 0, 1};
       dims = dimarr;
-    } else if (channel_order == habana::LayoutFormat::NHWC) {
+    } else if (channel_order == LayoutFormat::NHWC) {
       static const int64_t dimarr[] = {3, 0, 1, 2};
       dims = dimarr;
     } else {
@@ -845,11 +844,11 @@ at::IntArrayRef getDimsForLayout(
 at::Tensor HabanaLaunchOpPT::permuteTensor(
     torch::jit::Value* value_in,
     const at::Tensor& input,
-    habana::LayoutFormat permute_order) {
+    LayoutFormat permute_order) {
   auto& device = synapse_helpers::HPURegistrar::get_device();
   synDeviceId device_id = device.id();
-  HabanaOperatorPtr permute_kernel = habana::KernelRegistry().get(
-      device_id, "aten::permute", input.scalar_type());
+  HabanaOperatorPtr permute_kernel =
+      KernelRegistry().get(device_id, "aten::permute", input.scalar_type());
   TORCH_CHECK(
       permute_kernel != nullptr,
       " \n Permute kernel isnt supported in graph mode ");
@@ -1090,13 +1089,13 @@ void HabanaLaunchOpPT::processInputs(
   auto node_ins = node->inputs();
 
   size_t tensor_idx = 0;
-  habana::LayoutFormat in_layout, prev_layout = habana::LayoutFormat::ANY;
+  LayoutFormat in_layout, prev_layout = LayoutFormat::ANY;
   size_t meta_size = habana_kernel_meta_data.input_layout.size();
   for (const auto value_in : node_ins) {
     if (value_to_ivalue[value_in] &&
         value_in->type()->kind() == c10::TypeKind::TensorType) {
       in_layout = tensor_idx >= meta_size
-          ? habana::LayoutFormat::ANY
+          ? LayoutFormat::ANY
           : habana_kernel_meta_data.input_layout.at(tensor_idx);
 
       if (std::getenv("PT_HPU_LAZY_MODE")) {
@@ -1104,15 +1103,14 @@ void HabanaLaunchOpPT::processInputs(
         // through a pass If its marked HWCK in the map, we can override with
         // it
         auto tensor_layout = getTensorChannelOrder(value_in);
-        if (tensor_layout == habana::LayoutFormat::HWCK) {
+        if (tensor_layout == LayoutFormat::HWCK) {
           TORCH_CHECK(
-              in_layout == habana::LayoutFormat::HWCK ||
-                  in_layout == habana::LayoutFormat::ANY,
+              in_layout == LayoutFormat::HWCK || in_layout == LayoutFormat::ANY,
               "HabanaOp, got contradicting layout info from meta data and opt pass");
-          in_layout = habana::LayoutFormat::HWCK;
+          in_layout = LayoutFormat::HWCK;
         }
       }
-      if (in_layout == habana::LayoutFormat::ANY && tensor_idx > 0) {
+      if (in_layout == LayoutFormat::ANY && tensor_idx > 0) {
         // ATTENTION : We will support only homogeneous layouts for kernels
         // which dont pass meta data requirements for inputs
         // We make inputs homogeneous layouts in case kernel doesnt specify
@@ -1123,13 +1121,13 @@ void HabanaLaunchOpPT::processInputs(
 
       auto tensor = value_to_ivalue[value_in]->toTensor();
 
-      if (in_layout == habana::LayoutFormat::HWCK) {
-        in_layout = habana::LayoutFormat::ANY;
-        value_to_tensor_layout[value_in].layout = habana::LayoutFormat::HWCK;
+      if (in_layout == LayoutFormat::HWCK) {
+        in_layout = LayoutFormat::ANY;
+        value_to_tensor_layout[value_in].layout = LayoutFormat::HWCK;
       }
 
       bool permute_required = !(isChannelOrderSupported(value_in, in_layout));
-      habana::LayoutFormat perm_layout = in_layout;
+      LayoutFormat perm_layout = in_layout;
       // If the kernel changes dims of tensor, get it to original PT format
       // This is done as we cannot pass layout info for 4D tensors and it will
       // get lost in translation.
@@ -1137,7 +1135,7 @@ void HabanaLaunchOpPT::processInputs(
           std::getenv("PT_HPU_LAZY_MODE")) {
         if (getTensorChannelOrder(value_in) !=
                 value_to_tensor_layout[value_in].layout_at_graph_entry &&
-            getTensorChannelOrder(value_in) != habana::LayoutFormat::HWCK) {
+            getTensorChannelOrder(value_in) != LayoutFormat::HWCK) {
           permute_required = true;
           perm_layout = value_to_tensor_layout[value_in].layout_at_graph_entry;
         }
@@ -1180,11 +1178,11 @@ void HabanaLaunchOpPT::postProcessOutputs() {
         if (tensor.dim() == 4) {
           auto pre_layout =
               value_to_tensor_layout[value_out].layout_at_graph_entry;
-          if (getTensorChannelOrder(value_out) == habana::LayoutFormat::HWCK) {
+          if (getTensorChannelOrder(value_out) == LayoutFormat::HWCK) {
             // Do Nothing
           } else if (getTensorChannelOrder(value_out) != pre_layout) {
             permuteTensor(value_out, tensor, pre_layout);
-            if (pre_layout == habana::LayoutFormat::NHWC) {
+            if (pre_layout == LayoutFormat::NHWC) {
               // Make the shape according to NCHW again as PT maintains that
               // even for NHWC tensors Whereas we process internally as NHWC
               // shape only
@@ -1208,8 +1206,7 @@ void HabanaLaunchOpPT::postProcessOutputs() {
               value_to_ivalue[value_out] = ivptrsh_updated;
             }
           } else {
-            if (getTensorChannelOrder(value_out) ==
-                habana::LayoutFormat::NHWC) {
+            if (getTensorChannelOrder(value_out) == LayoutFormat::NHWC) {
               // Make the shape according to NCHW again as PT maintains that
               // even for NHWC tensors Whereas we process internally as NHWC
               // shape only
@@ -1304,9 +1301,9 @@ void HabanaLaunchOpPT::handleRestrideNode(torch::jit::Node* node) {
     value_to_ivalue[value_out] = ivptrsh_updated;
   } else {
     value_to_ivalue[value_out] = ivptrsh_updated;
-    value_to_tensor_layout[value_out].layout = habana::LayoutFormat::NHWC;
+    value_to_tensor_layout[value_out].layout = LayoutFormat::NHWC;
     value_to_tensor_layout[value_out].layout_at_graph_entry =
-        habana::LayoutFormat::NHWC;
+        LayoutFormat::NHWC;
   }
 }
 
@@ -1321,9 +1318,9 @@ void HabanaLaunchOpPT::handlePrimNodes(torch::jit::Node* node) {
         // Marking NCHW for now, for non 4D tensors layour doesnt matter
         // Marking default...can update it after ""first use" to correct
         // format
-        value_to_tensor_layout[value].layout = habana::LayoutFormat::NCHW;
+        value_to_tensor_layout[value].layout = LayoutFormat::NCHW;
         value_to_tensor_layout[value].layout_at_graph_entry =
-            habana::LayoutFormat::NCHW;
+            LayoutFormat::NCHW;
         std::string irn{"%interim"};
         auto tensor = ivptrsh_updated->toTensor();
         //<std::string, at::Tensor> patch_info;
@@ -1404,7 +1401,7 @@ void HabanaLaunchOpPT::handleMetaOps(torch::jit::Node* node) {
   torch::jit::Stack stack;
   auto node_ins = node->inputs();
   IValPtrShared input_ptr{nullptr};
-  // habana::LayoutFormat out_layout{}, out_origin_layout{};
+  // LayoutFormat out_layout{}, out_origin_layout{};
   // void* in_data, *out_data;
 
   for (const auto value_in : node_ins) {
@@ -1927,7 +1924,7 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
     }
 
     // Get kernel context
-    habana::HabanaOperatorPtr HabanaKernel = habana::KernelRegistry().get(
+    HabanaOperatorPtr HabanaKernel = KernelRegistry().get(
         device_id, node->kind().toQualString(), getNodeScalarType(node));
 
     TORCH_CHECK(
@@ -2790,9 +2787,9 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
   {
     for (size_t j = 0; j < pt_stack_sh.size(); j++) {
       auto value_input = jit_ir_graphinputs[j];
-      value_to_tensor_layout[value_input].layout = habana::LayoutFormat::NCHW;
+      value_to_tensor_layout[value_input].layout = LayoutFormat::NCHW;
       value_to_tensor_layout[value_input].layout_at_graph_entry =
-          habana::LayoutFormat::NCHW;
+          LayoutFormat::NCHW;
 
       if (pt_stack_sh[j]->isTensor()) {
         // Taking alias as that allows us to detach it from PT and do metadata
@@ -2815,7 +2812,7 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
         value_to_tensor_layout[value_input].layout_at_graph_entry =
             getPTTensorLayout(tensor);
 
-        if (getPTTensorLayout(tensor) == habana::LayoutFormat::NHWC) {
+        if (getPTTensorLayout(tensor) == LayoutFormat::NHWC) {
           // Make the sizes according to NCHW as PT maintains
           // NCHW shapes even for NHWC tensors(It doesnt change shape)
           if (!habana_lazy::exec::OptPassCfg::GetInstance()
@@ -2847,3 +2844,4 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
 
   PT_BRIDGE_END;
 }
+} // namespace habana

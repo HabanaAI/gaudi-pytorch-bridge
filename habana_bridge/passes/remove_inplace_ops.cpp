@@ -1,5 +1,6 @@
 #include "remove_inplace_ops.h"
 #include <ATen/core/interned_strings.h>
+using namespace torch::jit;
 
 namespace habana {
 
