@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from test_utils import reset_seed, compare_tensors
-import hb_torch
+import habana_frameworks.torch.core as htcore
 from torch.testing import FileCheck
 import pytest
 
@@ -33,7 +33,7 @@ def test_jit_cat(in_tensors):
     torch.jit.save(model_trace, "cpu_trace.pt")
     cpu_result = model(in_tensors[0], in_tensors[1], in_tensors[2])
 
-    hb_torch.enable()
+    htcore.enable()
     torch._C._jit_set_profiling_mode(False)
     torch._C._jit_set_profiling_executor(False)
     hpu_t1 = in_tensors[0].to(hpu)

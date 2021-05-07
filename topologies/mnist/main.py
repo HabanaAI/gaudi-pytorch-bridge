@@ -69,8 +69,8 @@ class TrainMetaData():
 
     def log_live_mem_alloc(self, msg=""):
         if self.log_live_mem_alloc_enabled:
-            import hb_torch
-            hb_torch.memstat_livealloc(msg)
+            import habana_frameworks.torch.core as htcore
+            htcore.memstat_livealloc(msg)
 
     @staticmethod
     def accuracy(output, target, topk=(1,)):
@@ -156,7 +156,7 @@ def train(args, model, device, train_loader, optimizer, epoch, trainMetaData,ran
 
 
 def train_lazy(args, model, device, train_loader, optimizer, epoch, trainMetaData,rank):
-    import hb_torch
+    import habana_frameworks.torch.core as htcore
     model.train()
     if(trainMetaData.is_logging() and rank==0):
         with open('mnistpy.log', 'w') as file:  # reset file
@@ -170,7 +170,7 @@ def train_lazy(args, model, device, train_loader, optimizer, epoch, trainMetaDat
         loss = F.nll_loss(output, target)
         loss.backward()
         optimizer.step()
-        hb_torch.mark_step()
+        htcore.mark_step()
         iter_duration = time.time() - iter_timer_start
         # if batch_idx % args.log_interval == 0:
         acc1, acc5 = trainMetaData.accuracy(output.to('cpu'), target.to('cpu'), topk=(1, 5))
@@ -274,7 +274,7 @@ def parse_args():
 
 def permute_params_on_device(args, model):
     if args.run_lazy_mode:
-        import hb_torch
+        import habana_frameworks.torch.core as htcore
 
     with torch.no_grad():
         for name, param in model.named_parameters():
@@ -283,7 +283,7 @@ def permute_params_on_device(args, model):
 
     if args.run_lazy_mode:
         # Execute permutes to keep these disconnected from main graph
-        hb_torch.mark_step()
+        htcore.mark_step()
 
 def main(args):
 
@@ -318,8 +318,8 @@ def main(args):
             torch._C._jit_set_profiling_executor(False)
             torch._C._jit_set_profiling_mode(False)
             if(device==torch.device('hpu')):
-                import hb_torch
-                hb_torch.enable()
+                import habana_frameworks.torch.core as htcore
+                htcore.enable()
             sample_trace_tensor = torch.FloatTensor(64, 1, 28, 28).to(device)
             model = torch.jit.trace(model, sample_trace_tensor, check_trace=False)
 

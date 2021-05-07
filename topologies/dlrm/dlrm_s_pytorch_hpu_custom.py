@@ -36,7 +36,7 @@ import torch
 import torch.nn as nn
 
 sys.path.insert(0, os.path.join(os.environ['PYTORCH_MODULES_RELEASE_BUILD']))
-import hb_torch
+import habana_frameworks.torch.core as htcore
 
 from torch.nn.parallel import DistributedDataParallel as DDP
 
@@ -867,19 +867,19 @@ if __name__ == "__main__":
         else:
             lr_change = args.learning_rate
 
-        hb_torch.enable_fuse_t_mm_optimization(True)
+        htcore.enable_fuse_t_mm_optimization(True)
 
         # specify the optimizer algorithm
         if args.optimizer == "sgd":
             from hb_custom import FusedSGD
-            hb_torch.enable_eliminate_common_subexpression(False)
-            hb_torch.enable_constant_pooling(False)
+            htcore.enable_eliminate_common_subexpression(False)
+            htcore.enable_constant_pooling(False)
             optimizer = FusedSGD(list(dlrm_habana.top_l.parameters())
                                     + list(dlrm_habana.bot_l.parameters()), lr=lr_change)
         elif args.optimizer == "adagrad":
             from hb_custom import FusedAdagrad
-            hb_torch.enable_eliminate_common_subexpression(False)
-            hb_torch.enable_constant_pooling(False)
+            htcore.enable_eliminate_common_subexpression(False)
+            htcore.enable_constant_pooling(False)
 
             optimizer = FusedAdagrad(list(dlrm_habana.top_l.parameters())
                                     + list(dlrm_habana.bot_l.parameters()), lr=lr_change)
@@ -1114,7 +1114,7 @@ if __name__ == "__main__":
                     break
 
                 if (is_perf_mode()):
-                    hb_torch.run_saved_model()
+                    htcore.run_saved_model()
                 else:
                     Z_habana = dlrm_wrap(X, lS_o, lS_i, use_gpu, use_hpu, device)
 
@@ -1158,7 +1158,7 @@ if __name__ == "__main__":
                         tp_probe_tensors_iteration_end(dlrm_habana, device, Z_habana, E_habana,trainMetaData.ParamsDump, False)
 
                     if args.run_lazy_mode:
-                        hb_torch.mark_step()
+                        htcore.mark_step()
 
 
                 # # compute loss and accuracy
@@ -1265,7 +1265,7 @@ if __name__ == "__main__":
                             E_test = loss_fn_wrap(Z_test, T_test, use_gpu,use_hpu, device)
 
                             if args.run_lazy_mode:
-                                hb_torch.mark_step()
+                                htcore.mark_step()
 
                             # compute loss and accuracy
                             L_test = E_test.detach().cpu().numpy()  # numpy array
