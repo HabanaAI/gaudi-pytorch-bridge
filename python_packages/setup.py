@@ -63,6 +63,9 @@ setup(
     version=get_version(),
     zip_safe=False,
     packages=find_packages(exclude=["build"]),
+    package_data={
+        "": ["ops_bf16.txt", "ops_fp32.txt", "ops_multi_inputs.txt"],
+    },
     ext_modules=[
         cpp_extension.CppExtension(
             name="_core_C",
@@ -73,6 +76,62 @@ setup(
             library_dirs=[os.environ["BUILD_ROOT_LATEST"]],
             extra_compile_args=extra_compile_args,
         ),
+        cpp_extension.CppExtension(
+            name="_hpex_C",
+            sources=["habana_frameworks/torch/hpex/csrc/bindings.cpp"],
+            language="c++",
+            include_dirs=include_dirs,
+            libraries=libraries,
+            library_dirs=[os.environ["BUILD_ROOT_LATEST"]],
+            extra_compile_args=extra_compile_args,
+        ),
+        cpp_extension.CppExtension(
+            name="habanaOptimizerSparseSgd_cpp",
+            sources=[
+                "habana_frameworks/torch/hpex/optimizers/habanaOptimizerSparseSgd.cpp"
+            ],
+            language="c++",
+            include_dirs=include_dirs,
+            libraries=libraries,
+            library_dirs=[os.environ["BUILD_ROOT_LATEST"]],
+            extra_compile_args=extra_compile_args,
+        ),
+        cpp_extension.CppExtension(
+            name="habanaOptimizerSparseAdagrad_cpp",
+            sources=[
+                "habana_frameworks/torch/hpex/optimizers/habanaOptimizerSparseAdagrad.cpp"
+            ],
+            language="c++",
+            include_dirs=include_dirs,
+            libraries=libraries,
+            library_dirs=[os.environ["BUILD_ROOT_LATEST"]],
+            extra_compile_args=extra_compile_args,
+        ),
+        cpp_extension.CppExtension(
+            name="HabanaEmbeddingBag_cpp",
+            sources=["habana_frameworks/torch/hpex/kernels/EmbeddingBag.cpp"],
+            language="c++",
+            include_dirs=include_dirs,
+            libraries=libraries,
+            library_dirs=[os.environ["BUILD_ROOT_LATEST"]],
+            extra_compile_args=extra_compile_args,
+        ),
+        cpp_extension.CppExtension(
+            name="EmbeddingBagPreproc",
+            sources=[
+                "habana_frameworks/torch/hpex/kernels/embedding_bag_preproc.cpp",
+                "habana_frameworks/torch/hpex/kernels/embedding_bag_preproc_main.cpp",
+            ],
+            language="c++",
+            include_dirs=include_dirs,
+            libraries=libraries,
+            library_dirs=[os.environ["BUILD_ROOT_LATEST"]],
+            extra_compile_args=extra_compile_args,
+        ),
     ],
-    cmdclass={"build_ext": cpp_extension.BuildExtension},
+    cmdclass={
+        "build_ext": cpp_extension.BuildExtension.with_options(
+            no_python_abi_suffix=True
+        )
+    },
 )
