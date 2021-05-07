@@ -76,6 +76,19 @@ RecipeArgumentSpec::RecipeArgumentSpec(
   hash_code = at::hash_combine(hash_code, str_hash(opstrs));
   hash_code = at::hash_combine(hash_code, irgraph->outputs().size());
   hash_code = habana_helpers::hash_combine_scalars(hash_code, input_refs);
+
+  for (auto& input : input_refs) {
+    if (input.isTensor()) {
+      auto pt_tensor = input.toTensor();
+      synapse_helpers::device_ptr storage_data_ptr_ =
+          reinterpret_cast<synapse_helpers::device_ptr>(
+              pt_tensor.storage().data_ptr().get());
+      synapse_helpers::device_ptr buffer_ptr =
+          reinterpret_cast<synapse_helpers::device_ptr>(pt_tensor.data_ptr());
+      auto offset = (buffer_ptr - storage_data_ptr_);
+      hash_code = at::hash_combine(hash_code, offset);
+    }
+  }
 }
 
 std::ostream& operator<<(std::ostream& O, const RecipeArgumentSpec& v) {
