@@ -32,6 +32,12 @@ set_target_properties(pytorch_synapse_helpers PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES "$ENV{PYTORCH_MODULES_ROOT_PATH}/pytorch_helpers"
   )
 
+add_library(habana_pytorch_plugin SHARED IMPORTED)
+set_target_properties(habana_pytorch_plugin PROPERTIES
+  IMPORTED_LOCATION "$ENV{BUILD_ROOT_LATEST}/libhabana_pytorch_plugin.so"
+  INTERFACE_INCLUDE_DIRECTORIES "$ENV{PYTORCH_MODULES_ROOT_PATH}/pytorch_helpers"
+  )
+
 add_library(torch_python SHARED IMPORTED)
 set_target_properties(torch_python PROPERTIES
   IMPORTED_LOCATION "${PYTORCH_LIBRARY_DIRS}/libtorch_python.so"
@@ -40,7 +46,7 @@ set_target_properties(torch_python PROPERTIES
 
 target_link_libraries(habana_torch_hcl PUBLIC ${DEPENDS_LIB})
 target_link_libraries(habana_torch_hcl PUBLIC torch_python)
-target_link_libraries(habana_torch_hcl PUBLIC pytorch_synapse_helpers Synapse)
+target_link_libraries(habana_torch_hcl PUBLIC pytorch_synapse_helpers Synapse habana_pytorch_plugin)
 
 set_target_properties(habana_torch_hcl PROPERTIES LINK_FLAGS "-Wl,-rpath,${CMAKE_INSTALL_RPATH}")
 
