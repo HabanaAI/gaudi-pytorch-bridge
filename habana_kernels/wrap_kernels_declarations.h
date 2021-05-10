@@ -793,7 +793,7 @@ at::Tensor& optimizer_sgd_momentum_hpu_wrap(
     const float mom,
     const float damp,
     const bool nesterov);
-at::Tensor embedding_bag_sum(
+at::Tensor embedding_bag_sum_hpu_wrap(
     const at::Tensor& input,
     const at::Tensor& indices,
     const at::Tensor& offsets,

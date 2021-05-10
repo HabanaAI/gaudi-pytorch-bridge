@@ -1,14 +1,11 @@
 import torch
-from typing import Callable, Iterable, Tuple
+from typing import Iterable
+import _hpex_C
 
 
 class FusedClipNorm:
     def __init__(self, parameters: Iterable[torch.nn.parameter.Parameter], max_norm):
         self.max_norm_t = (torch.ones((1)) * max_norm).to(torch.device("hpu"))
-        try:
-            import _hpex_C
-        except ImportError:
-            raise ImportError("Could not import _hpex_C")
 
         self.fused_clip_norm = _hpex_C.fused_norm
 

@@ -1,13 +1,9 @@
-#include <torch/extension.h>
-
-#include <ATen/ATen.h>
-#include <ATen/NativeFunctions.h>
-
 #include <iostream>
 
 #include <algorithm>
 #include <functional>
 #include <vector>
+#include "bindings.h"
 
 using namespace std;
 typedef int T;
@@ -25,9 +21,10 @@ void gaudi_coalescing_preprocessing(
     /* in, modified */ std::pair<T, T>* scratch);
 
 // torch::Tensor
-std::tuple<torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor> preproc(
-    torch::Tensor indices,
-    torch::Tensor offsets,
+std::tuple<torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor>
+embedding_bag_preproc(
+    const torch::Tensor& indices,
+    const torch::Tensor& offsets,
     int64_t embeddingTableLen) {
   auto out = at::empty(indices.sizes(), indices.options());
   torch::Tensor indices_cpu =
@@ -63,9 +60,4 @@ std::tuple<torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor> preproc(
   auto countUniqueIndexesT = torch::tensor({countUniqueIndexes});
   return std::make_tuple(
       countUniqueIndexesT, uniqueIndexes, outputRows, outputRowOffsets);
-}
-
-PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
-  m.def("forward", &preproc, "DLRM Coalescing PreProc Utility");
-  m.def("backward", &preproc, "TO BE REMOVED");
 }

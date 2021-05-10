@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from test_utils import reset_seed, compare_tensors
-from hmp import hmp
+from habana_frameworks.torch.hpex import hmp
 import pytest
 
 hpu = torch.device("hpu")

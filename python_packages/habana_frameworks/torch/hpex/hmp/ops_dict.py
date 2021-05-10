@@ -24,7 +24,6 @@ ops_dict = {
     "matmul": [torch, torch.Tensor],
     "mm": [torch, torch.Tensor],
     "mv": [torch, torch.Tensor],
-    "matmul": [torch, torch.Tensor],
     # Misc modules
     "batch_norm": [torch.nn.functional],
     "dropout": [torch.nn.functional],

@@ -1,4 +1,3 @@
-import math
 from typing import Callable, Iterable
 
 import torch
