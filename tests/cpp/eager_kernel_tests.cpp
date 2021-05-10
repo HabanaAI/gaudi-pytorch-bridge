@@ -576,3 +576,20 @@ TEST(EagerKernelTest, BroadCastIndexTest) {
   bool equal = out_cpu.allclose(out_hpu.to(torch::kCPU), 0.001, 0.001);
   EXPECT_EQ(equal, true);
 };
+
+/*TEST(EagerKernelTest, IndexTest1) {
+  torch::Tensor input_cpu = torch::arange(12).reshape({3, 1, 2, 2});
+  torch::Tensor input_hpu = input_cpu.to(torch::kHABANA);
+
+  std::vector<torch::Tensor> vec_cpu{torch::tensor({0, 2})};
+  std::vector<torch::Tensor> vec_hpu;
+  for (auto t : vec_cpu) {
+    vec_hpu.push_back(t.to(torch::kHABANA));
+  }
+
+  auto out_cpu = at::index(input_cpu, vec_cpu);
+  auto out_hpu = at::index(input_hpu, vec_hpu);
+
+  bool equal = out_cpu.allclose(out_hpu.to(torch::kCPU), 0.001, 0.001);
+  EXPECT_EQ(equal, true);
+};*/

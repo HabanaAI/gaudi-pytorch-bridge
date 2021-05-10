@@ -890,7 +890,9 @@ Tensor& index_put_hpu_(
   // https://jira.habana-labs.com/browse/SW-37171, fallback to CPU
   if ((indices[0].scalar_type() == c10::ScalarType::Bool) ||
       (value.dim() == 0) || (self.scalar_type() == c10::ScalarType::Bool)) {
-    return AtenHpuTypeDefault::index_put_(self, indices, value, accumulate);
+    AtenHpuTypeDefault::index_put_(self, indices, value, accumulate);
+    PT_KERNEL_END;
+    return self;
   }
 
   auto temp = index_put_hpu(self, indices, value, accumulate);
@@ -1785,12 +1787,33 @@ void IndexOperator::AllocateAndAddSynapseNode(
 Tensor index_hpu(const Tensor& input, TensorList indices) {
   PT_KERNEL_BEGIN;
   if (indices[0].numel() == 0) {
+    PT_KERNEL_END;
     return input;
   }
 
   // fallback to cpu for boolean indexing
   if (indices[0].scalar_type() == c10::ScalarType::Bool) {
-    return AtenHpuTypeDefault::index(input, indices);
+    auto output = AtenHpuTypeDefault::index(input, indices);
+    PT_KERNEL_END;
+    return output;
+  }
+
+  // if there is only 1 indices tensor, then operation is equivalent to gather
+  // 1d. Since gather_nd_mxnet is throwing a TPC error for 4d input in such
+  // cases, therefore call "gather" TPC kernel instead
+  // Note that we can remove these work-arounds once TPC kernel for index
+  // operation is available https://jira.habana-labs.com/browse/SW-37171
+  if (indices.size() == 1 && indices[0].dim() == 1) {
+    Tensor output;
+    if (input.scalar_type() == c10::ScalarType::Long) {
+      auto input_i32 = habana_helpers::cast_tensor_to_integer(input);
+      output = gather_src_hpu(input_i32, 0, indices[0], false);
+      output = habana_helpers::cast_tensor_to_long(output);
+    } else {
+      output = gather_src_hpu(input, 0, indices[0], false);
+    }
+    PT_KERNEL_END;
+    return output;
   }
 
   // cast input to fp32 int32 not supported yet
