@@ -129,6 +129,10 @@ struct PT_USE_HCL_OPTS {
   static constexpr bool default_value = false;
 };
 
+struct PT_HPU_LOWER_AS_STRIDED {
+  static constexpr bool default_value = false;
+};
+
 // Overloads for different type of default value
 
 template <class T>

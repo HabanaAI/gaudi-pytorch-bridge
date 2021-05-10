@@ -62,6 +62,7 @@
 #include "habana_lazy/ops/upsample.h"
 #include "habana_lazy/view.h"
 #include "pytorch_helpers/habana_device/HPUAllocator.h"
+#include "pytorch_helpers/synapse_helpers/env_flags.h"
 #include "pytorch_helpers/synapse_helpers/util.h"
 
 using namespace habana_lazy;
@@ -83,15 +84,7 @@ using namespace habana_lazy;
   }
 
 bool to_lower_as_strided() {
-  if (const auto envp = getenv("PT_HPU_LOWER_AS_STRIDED")) {
-    auto val = atoi(envp);
-    if (val & 0x1) {
-      return true;
-    } else {
-      return false;
-    }
-  }
-  return false;
+  return GET_ENV_FLAG(PT_HPU_LOWER_AS_STRIDED);
 }
 
 void flushWithMarkStep() {
