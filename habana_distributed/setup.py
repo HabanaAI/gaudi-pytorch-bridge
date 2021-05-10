@@ -11,7 +11,7 @@ from setuptools import setup, Extension, distutils
 from setuptools.command.build_ext import build_ext
 from distutils.command.clean import clean
 from tools.setup.cmake import CMakeExtension
-
+import subprocess
 # Constant known variables used throughout this file
 CWD = os.path.dirname(os.path.abspath(__file__))
 TORCH_HCL_PATH = os.path.join(CWD, "habana_torch_hcl")
@@ -49,11 +49,16 @@ class BuildCMakeExt(build_ext):
         build_dir.mkdir(parents=True, exist_ok=True)
         install_dir = TORCH_HCL_PATH
 
+        pybind11_path = os.path.join(os.environ['PYTORCH_MODULES_ROOT_PATH'], 'habana_distributed/third_party/pybind11')
+        try:
+            subprocess.check_call(["git", "-C", pybind11_path, 'checkout', 'v2.4.3'])
+        except subprocess.CalledProcessError:
+            print('git checkout failed')
         # Now that the necessary directories are created, build
         my_env = os.environ.copy()
         include_path_values = include_paths()
         include_path_values = [path for path in include_path_values if not path.endswith("THC")]
-        include_path_values.append(os.environ['PYTORCH_MODULES_ROOT_PATH'] + "/third_party/pybind11/include")
+        include_path_values.append(os.environ['PYTORCH_MODULES_ROOT_PATH'] + "/habana_distributed/third_party/pybind11/include")
         build_options = {
             # The value cannot be easily obtained in CMakeLists.txt.
             'PYTHON_INCLUDE_DIRS': str(distutils.sysconfig.get_python_inc()),
@@ -88,7 +93,7 @@ def get_python_c_module():
     include_path = os.path.join(CWD, "src")
     include_dirs = include_paths()
     include_dirs.append(include_path)
-    include_dirs.append(os.environ['PYTORCH_MODULES_ROOT_PATH'] + "/third_party/pybind11/include")
+    include_dirs.append(os.environ['PYTORCH_MODULES_ROOT_PATH'] + "/habana_distributed/third_party/pybind11/include")
     extra_link_args = []
     extra_compile_args = [
         '-Wall',
