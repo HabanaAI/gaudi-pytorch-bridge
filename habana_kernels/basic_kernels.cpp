@@ -318,13 +318,11 @@ void ToDtypeOperator::AllocateAndAddSynapseNode(
     // call with same input & output data types. we add a identity node to
     // graph to handle this
     IdentityOperator memcopyOp(self.device().index(), self.scalar_type());
-    auto& syn_arg0 =
-        memcopyOp.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+    memcopyOp.SetSynapseInput(p_context_->syn_inputs_[0]);
 
     torch::jit::Stack stack = {IValue(self)};
     memcopyOp.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
 
-    p_context_->syn_inputs_[0] = std::move(syn_arg0);
     p_context_->syn_outputs_.emplace_back(
         std::move(memcopyOp.GetSynOutputs()[0]));
     p_context_->pt_outputs_.emplace_back(std::move(memcopyOp.GetOutputs()[0]));
@@ -337,9 +335,8 @@ void ToDtypeOperator::AllocateAndAddSynapseNode(
   inputs.pop_back();
 
   CastOperator Op(self.device().index(), node_type);
-  auto& syn_arg1 = Op.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+  Op.SetSynapseInput(p_context_->syn_inputs_[0]);
   Op.AllocateAndAddSynapseNode(graph, inputs, is_output_persistent);
-  p_context_->syn_inputs_[0] = std::move(syn_arg1);
   p_context_->syn_outputs_.emplace_back(std::move(Op.GetSynOutputs()[0]));
   p_context_->pt_outputs_.emplace_back(std::move(Op.GetOutputs()[0]));
 }
@@ -396,9 +393,8 @@ void CastLazyOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, &params, sizeof(params));*/
 
   CastOperator Op(self.device().index(), node_type);
-  auto& syn_arg1 = Op.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+  Op.SetSynapseInput(p_context_->syn_inputs_[0]);
   Op.AllocateAndAddSynapseNode(graph, inputs, is_output_persistent);
-  p_context_->syn_inputs_[0] = std::move(syn_arg1);
   p_context_->syn_outputs_.emplace_back(std::move(Op.GetSynOutputs()[0]));
   p_context_->pt_outputs_.emplace_back(std::move(Op.GetOutputs()[0]));
 }

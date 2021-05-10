@@ -71,12 +71,9 @@ void CompareOutOperator::AllocateAndAddSynapseNode(
         reshape_tensor_sizes.end());
 
     ReshapeOperator reshape(this->p_context_->device_id_, this->scalarType_);
-    auto& reshape_in_syn_tensor = reshape.SetSynapseInput(
-        std::move(p_context_->syn_inputs_[reshape_tensor_idx]));
+    reshape.SetSynapseInput(p_context_->syn_inputs_[reshape_tensor_idx]);
     torch::jit::Stack stack = {IValue(reshape_tensor), IValue(reshaped_sizes)};
     reshape.AllocateAndAddSynapseNode(graph, stack, false);
-    p_context_->syn_inputs_[reshape_tensor_idx] =
-        std::move(reshape_in_syn_tensor);
 
     AllocateSynapseOutput(graph, output, is_output_persistent);
     synapse_helpers::tensor& reshape_out_syn_tensor =
@@ -120,27 +117,19 @@ void CompareOutWrapperOperator::AllocateAndAddSynapseNode(
       this->p_context_->device_id_, this->scalarType_, guid_);
 
   if (inputs[1].isTensor()) { // Both inputs are tensors
-    auto& syn_arg1 =
-        compareOp.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
-    auto& syn_arg2 =
-        compareOp.SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
+    compareOp.SetSynapseInput(p_context_->syn_inputs_[0]);
+    compareOp.SetSynapseInput(p_context_->syn_inputs_[1]);
     compareOp.AllocateAndAddSynapseNode(graph, inputs, is_output_persistent);
-    p_context_->syn_inputs_[0] = std::move(syn_arg1);
-    p_context_->syn_inputs_[1] = std::move(syn_arg2);
-
   } else { // 2nd input is a scalar
     // add constant node to convert 2nd input to tensor
     ConstantOperator constOp(this->p_context_->device_id_, this->scalarType_);
-    auto& syn_arg1 =
-        compareOp.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+    compareOp.SetSynapseInput(p_context_->syn_inputs_[0]);
     constOp.AllocateAndAddSynapseNode(graph, inputs, false);
-    UNUSED auto& syn_arg2 =
-        compareOp.SetSynapseInput(std::move(constOp.GetSynOutputs()[0]));
+    compareOp.SetSynapseInput(constOp.GetSynOutputs()[0]);
     // replace 2nd scalar input with a tensor in stack
     inputs.erase(inputs.cbegin() + 1);
     inputs.emplace(inputs.cbegin() + 1, constOp.GetOutputs()[0]);
     compareOp.AllocateAndAddSynapseNode(graph, inputs, is_output_persistent);
-    p_context_->syn_inputs_[0] = std::move(syn_arg1);
   }
 
   p_context_->pt_outputs_.emplace_back(compareOp.GetOutputs()[0]);

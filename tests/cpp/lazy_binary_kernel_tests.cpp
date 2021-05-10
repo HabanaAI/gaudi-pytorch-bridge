@@ -295,3 +295,14 @@ TEST_F(LazyBinaryKernelTest, AddSame) {
   auto hc = torch::relu(hout);
   EXPECT_TRUE(allclose(out, hc.to("cpu")));
 }
+
+TEST_F(LazyBinaryKernelTest, PersistentAddSame) {
+  auto a = torch::randn({2, 3, 4});
+  auto b = torch::add(a, a, 1);
+  auto out = torch::relu(b);
+
+  auto ha = a.to("hpu");
+  auto hout = torch::add(ha, ha, 1);
+  auto hb = torch::relu(hout);
+  EXPECT_TRUE(allclose(out, hb.to("cpu")));
+}
