@@ -1274,8 +1274,8 @@ Tensor gt_tensor_hpu_lazy(const Tensor& self, const Tensor& other) {
 
 Tensor gt_scalar_hpu_lazy(const Tensor& self, Scalar other) {
   PT_LAZY_TRACE;
-
-  LazyOp<at::Tensor> k{"aten::gt", {self, other}};
+  LazyCompareOp<at::Tensor> k{
+      "aten::gt", {self, other}, {}, {self.sizes().vec()}};
   return k.call();
 }
 
@@ -1288,29 +1288,9 @@ Tensor& eq_tensor_out_hpu_lazy(
 }
 Tensor eq_tensor_scalar_hpu_lazy(const Tensor& self, Scalar other) {
   PT_LAZY_TRACE;
-  auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
-  auto hl_other = habana_lazy::GetIrValueForScalar(other);
-
-  auto node = habana_lazy::ir::Node::Create(
-      Symbol::fromQualString("aten::eq"), {hl_self.GetIrValue(), hl_other});
-
-  auto result = at::native::empty_hpu_lazy(
-      self.sizes(),
-      self.options().dtype(c10::ScalarType::Bool),
-      self.suggest_memory_format(),
-      false);
-
-  auto hl_result = habana_lazy::GetHbLazyTensor(result);
-  habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
-  out.m_index = 0;
-  out.SetNode(node);
-  // updatet the view if any
-  updateDstDependencies(hl_result, result);
-  std::vector<at::Tensor> input_pt_vec{self};
-  node->AddInputPtTensors(input_pt_vec);
-
-  flush_op(result);
-  return result;
+  LazyCompareOp<at::Tensor> k{
+      "aten::eq", {self, other}, {}, {self.sizes().vec()}};
+  return k.call();
 }
 
 Tensor eq_tensor_hpu_lazy(const Tensor& self, const Tensor& other) {
@@ -1325,29 +1305,9 @@ Tensor eq_tensor_hpu_lazy(const Tensor& self, const Tensor& other) {
 
 Tensor ne_scalar_hpu_lazy(const Tensor& self, Scalar other) {
   PT_LAZY_TRACE;
-  auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
-  auto hl_other = habana_lazy::GetIrValueForScalar(other);
-
-  auto node = habana_lazy::ir::Node::Create(
-      Symbol::fromQualString("aten::ne"), {hl_self.GetIrValue(), hl_other});
-
-  auto result = at::native::empty_hpu_lazy(
-      self.sizes(),
-      self.options().dtype(c10::ScalarType::Bool),
-      self.suggest_memory_format(),
-      false);
-
-  auto hl_result = habana_lazy::GetHbLazyTensor(result);
-  habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
-  out.m_index = 0;
-  out.SetNode(node);
-  // updatet the view if any
-  updateDstDependencies(hl_result, result);
-  std::vector<at::Tensor> input_pt_vec{self};
-  node->AddInputPtTensors(input_pt_vec);
-
-  flush_op(result);
-  return result;
+  LazyCompareOp<at::Tensor> k{
+      "aten::ne", {self, other}, {}, {self.sizes().vec()}};
+  return k.call();
 }
 
 Tensor ne_tensor_hpu_lazy(const Tensor& self, const Tensor& other) {
@@ -1413,29 +1373,9 @@ Tensor all_dim_hpu_lazy(const Tensor& self, int64_t dim, bool keepdim) {
 
 Tensor lt_scalar_hpu_lazy(const Tensor& self, Scalar other) {
   PT_LAZY_TRACE;
-  auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
-  auto hl_other = habana_lazy::GetIrValueForScalar(other);
-
-  auto node = habana_lazy::ir::Node::Create(
-      Symbol::fromQualString("aten::lt"), {hl_self.GetIrValue(), hl_other});
-
-  auto result = at::native::empty_hpu_lazy(
-      self.sizes(),
-      self.options().dtype(c10::ScalarType::Bool),
-      self.suggest_memory_format(),
-      false);
-
-  auto hl_result = habana_lazy::GetHbLazyTensor(result);
-  habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
-  out.m_index = 0;
-  out.SetNode(node);
-  // updatet the view if any
-  updateDstDependencies(hl_result, result);
-  std::vector<at::Tensor> input_pt_vec{self};
-  node->AddInputPtTensors(input_pt_vec);
-
-  flush_op(result);
-  return result;
+  LazyCompareOp<at::Tensor> k{
+      "aten::lt", {self, other}, {}, {self.sizes().vec()}};
+  return k.call();
 }
 
 Tensor lt_tensor_hpu_lazy(const Tensor& self, const Tensor& other) {
@@ -1450,29 +1390,9 @@ Tensor lt_tensor_hpu_lazy(const Tensor& self, const Tensor& other) {
 
 Tensor ge_scalar_hpu_lazy(const Tensor& self, Scalar other) {
   PT_LAZY_TRACE;
-  auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
-  auto hl_other = habana_lazy::GetIrValueForScalar(other);
-
-  auto node = habana_lazy::ir::Node::Create(
-      Symbol::fromQualString("aten::ge"), {hl_self.GetIrValue(), hl_other});
-
-  auto result = at::native::empty_hpu_lazy(
-      self.sizes(),
-      self.options().dtype(c10::ScalarType::Bool),
-      self.suggest_memory_format(),
-      false);
-
-  auto hl_result = habana_lazy::GetHbLazyTensor(result);
-  habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
-  out.m_index = 0;
-  out.SetNode(node);
-  // updatet the view if any
-  updateDstDependencies(hl_result, result);
-  std::vector<at::Tensor> input_pt_vec{self};
-  node->AddInputPtTensors(input_pt_vec);
-
-  flush_op(result);
-  return result;
+  LazyCompareOp<at::Tensor> k{
+      "aten::ge", {self, other}, {}, {self.sizes().vec()}};
+  return k.call();
 }
 
 Tensor ge_tensor_hpu_lazy(const Tensor& self, const Tensor& other) {
