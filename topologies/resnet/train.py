@@ -65,15 +65,14 @@ def train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, pri
 
     header = 'Epoch: [{}]'.format(epoch)
     last_print_time= time.time()
+
     for image, target in metric_logger.log_every(data_loader, print_freq, header):
+        trainMetaData.tracept.start(time.time(), 'train_iteration_' + str(trainMetaData.current_train_step))
 
         image, target = image.to(device, non_blocking=False), target.to(device, non_blocking=False)
 
         if args.distributed:
             utils.barrier()
-
-        start_time = time.time()
-        trainMetaData.tracept.start(start_time, 'train_iteration_' + str(trainMetaData.current_train_step))
 
         if args.channels_last:
             import habana_frameworks.torch.core as htcore
@@ -86,28 +85,32 @@ def train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, pri
                 htcore.mark_step()
 
 
-        tools.tp_probe_tensors_iteration_start(model, device, target, image, trainMetaData.ParamsDump, False)
+        # for tensor probing use print_freq as 1 or at desired iteration multiple
+        if trainMetaData.current_train_step % print_freq == 0:
+            tools.tp_probe_tensors_iteration_start(model, device, target, image, trainMetaData.ParamsDump, False)
 
         loss, output = train_model(model, criterion, optimizer, image, target,
                                            trainMetaData, apex, args.run_lazy_mode)
 
         if trainMetaData.current_train_step % print_freq == 0:
+            # Bring the loss tensor back to CPU before printing. Certainly needed if running on Habana.
             loss_cpu = loss.item()
             output_cpu = output.detach().to('cpu')
             tools.tp_probe_tensors_iteration_end(model, device, output_cpu, loss_cpu, trainMetaData.ParamsDump, False)
 
             acc1, acc5 = utils.accuracy(output_cpu, target, topk=(1, 5))
             batch_size = image.shape[0]
-        # Bring the loss tensor back to CPU before printing. Certainly needed if running on Habana.
             metric_logger.update(loss=loss_cpu, lr=optimizer.param_groups[0]["lr"])
             metric_logger.meters['acc1'].update(acc1.item(), n=batch_size*print_freq)
             metric_logger.meters['acc5'].update(acc5.item(), n=batch_size*print_freq)
             current_time = time.time()
             metric_logger.meters['img/s'].update(batch_size*print_freq / (current_time - last_print_time))
             last_print_time = time.time()
+
+        trainMetaData.tracept.end(time.time(), 'train_iteration_' + str(trainMetaData.current_train_step))
+        trainMetaData.log_live_mem_alloc("train Iteration " + str(trainMetaData.current_train_step))
         # If only the specified number of steps are to be executed, check if those many steps are
         # done and if yes, break the training loop
-        trainMetaData.log_live_mem_alloc("train Iteration " + str(trainMetaData.current_train_step))
         trainMetaData.increment_train_step()
         if trainMetaData.end_train() is True:
             break
@@ -581,17 +584,17 @@ def parse_args():
     import argparse
     parser = argparse.ArgumentParser(description='PyTorch Classification Training')
 
-    parser.add_argument('--data-path', default='/datasets01/imagenet_full_size/061417/', help='dataset')
+    parser.add_argument('--data-path', default='/software/data/pytorch/imagenet/ILSVRC2012/', help='dataset')
     parser.add_argument('--model', default='resnet18',
                         help='select Resnet models from resnet18, resnet34, resnet50, resnet101, resnet152, resnext50_32x4d, resnext101_32x4d, resnext101_32x8d, wide_resnet50_2, wide_resnet101_2')
-    parser.add_argument('--device', default='cuda', help='device')
+    parser.add_argument('--device', default='hpu', help='device')
     parser.add_argument('-b', '--batch-size', default=32, type=int)
     parser.add_argument('--epochs', default=90, type=int, metavar='N',
                         help='number of total epochs to run')
     parser.add_argument('--dl-worker-type', default='MT', type=lambda x: x.upper(),
                         choices = ["MT", "MP"], help='select multithreading or multiprocessing')
-    parser.add_argument('-j', '--workers', default=16, type=int, metavar='N',
-                        help='number of data loading workers (default: 16)')
+    parser.add_argument('-j', '--workers', default=8, type=int, metavar='N',
+                        help='number of data loading workers (default: 8)')
     parser.add_argument('--lr', default=0.1, type=float, help='initial learning rate')
     parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
                         help='momentum')
