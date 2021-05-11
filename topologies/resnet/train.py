@@ -413,7 +413,7 @@ def main(args):
     trainMetaData.set_num_train_steps(args.num_train_steps)
     trainMetaData.set_num_eval_steps(args.num_eval_steps)
     trainMetaData.set_save_checkpoint_enable(args.save_checkpoint)
-    trainMetaData.set_live_mem_alloc_logging(args.log_device_mem_alloc and args.device == 'habana')
+    trainMetaData.set_live_mem_alloc_logging(args.log_device_mem_alloc and args.device == 'hpu')
 
     if args.distributed and args.sync_bn:
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
@@ -675,6 +675,9 @@ def parse_args():
     parser.add_argument('--run-lazy-mode', action='store_true',
                         help='run model in lazy execution mode')
     args = parser.parse_args()
+
+    if args.device == 'habana':
+        args.device = 'hpu'
 
     return args
 
