@@ -9,7 +9,7 @@ faulthandler.enable(all_threads=True)
 torch.ops.load_library("/usr/lib/habanalabs/libhabana_pytorch_plugin.so")
 sys.path.insert(0, "/usr/lib/habanalabs")
 
-a = torch.tensor([1.0, 2.0]).to('habana')
+a = torch.tensor([1.0, 2.0]).to('hpu')
 
 try:
     import habana_torch_hcl
