@@ -20,7 +20,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Convergence Analysis Tensor Comparison')
 
     parser.add_argument('--device1', default='cpu', help='first device')
-    parser.add_argument('--device2', default='habana', help='second device')
+    parser.add_argument('--device2', default='hpu', help='second device')
     parser.add_argument('--data-path1', help=' Tensor data path for dev1')
     parser.add_argument('--data-path2', help=' Tensor data path for dev2 if its data is in a different path')
     parser.add_argument('--rtol', default=1e-3, type=float, help='relative tolerance for maxabsdiff check')
