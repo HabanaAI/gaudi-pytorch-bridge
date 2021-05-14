@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from test_utils import reset_seed, compare_tensors
-import hb_torch
+import habana_frameworks.torch.core as htcore
 import pytest
 
 hpu = torch.device("hpu")
@@ -23,7 +23,7 @@ class Net(nn.Module):
 @pytest.mark.parametrize("in_tensors", data_list)
 def test_jit_bmm(in_tensors):
     with torch.jit.optimized_execution(True):
-        hb_torch.disable()
+        htcore.disable()
         torch._C._jit_override_can_fuse_on_cpu(False)
         torch._C._jit_set_profiling_executor(False)
         torch._C._jit_set_profiling_mode(False)
@@ -32,7 +32,7 @@ def test_jit_bmm(in_tensors):
         torch.jit.save(model_trace, "cpu_trace.pt")
         cpu_result = model(in_tensors[0], in_tensors[1])
 
-    hb_torch.enable()
+    htcore.enable()
     torch._C._jit_set_profiling_mode(False)
     torch._C._jit_set_profiling_executor(False)
     hpu_t1 = in_tensors[0].to(hpu)

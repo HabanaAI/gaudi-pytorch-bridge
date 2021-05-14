@@ -2,7 +2,7 @@ import torch
 from test_utils import reset_seed, compare_tensors
 import torch.nn as nn
 import torch.nn.functional as F
-import hb_torch
+import habana_frameworks.torch.core as htcore
 import pytest
 from test_jit_topologies import MnistNet, ResNet, BasicBlock, mul_op, Policy, TransformerModel
 
@@ -94,9 +94,9 @@ def get_model_trace_from_device(model_name, input_tensor, weight_tensor=None, de
     torch._C._jit_set_profiling_mode(False)
 
     if enable_fusion == True:
-        hb_torch.enable()
+        htcore.enable()
     else:
-        hb_torch.disable()
+        htcore.disable()
 
     if load_trace == False:        
         if weight_tensor is not None:

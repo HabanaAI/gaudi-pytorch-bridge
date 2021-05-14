@@ -3,7 +3,7 @@ import pytest
 import torch.nn as nn
 import torch.nn.functional as F
 from test_utils import compare_tensors
-import hb_torch
+import habana_frameworks.torch.core as htcore
 import os
 
 
@@ -49,7 +49,7 @@ def test_embedding(indices, weight):
         # print("CPU grad value")
         # print(cpu_grad)
 
-        hb_torch.enable()
+        htcore.enable()
         torch._C._jit_set_profiling_mode(False)
         torch._C._jit_set_profiling_executor(False)
         model_trace_hpu = torch.jit.trace(

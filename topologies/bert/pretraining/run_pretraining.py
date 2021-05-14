@@ -644,11 +644,11 @@ def compute_position_ids(input_ids):
 def enable_tracing():
     torch._C._debug_set_autodiff_subgraph_inlining(False)
     try:
-        import hb_torch
+        import habana_frameworks.torch.core as htcore
     except ImportError:
-        assert False,"Could Not import hb_torch"
-    hb_torch.enable()
-    hb_torch.remove_inplace_ops()
+        assert False,"Could Not import habana_frameworks.torch.core"
+    htcore.enable()
+    htcore.remove_inplace_ops()
 
 def main():
     global timeout_sent
@@ -658,9 +658,9 @@ def main():
         os.environ["PT_HPU_LAZY_MODE"] = "1"
         sys.path.insert(0, os.path.join(os.environ['PYTORCH_MODULES_RELEASE_BUILD']))
         try:
-            import hb_torch
+            import habana_frameworks.torch.core as htcore
         except ImportError:
-            assert False, "Could Not import hb_torch"
+            assert False, "Could Not import habana_frameworks.torch.core"
     random.seed(args.seed + args.local_rank)
     np.random.seed(args.seed + args.local_rank)
     torch.manual_seed(args.seed + args.local_rank)
@@ -835,7 +835,7 @@ def main():
                         loss.backward()
 
                     if args.use_lazy_mode:
-                        hb_torch.mark_step()
+                        htcore.mark_step()
 
                     loss_list.append(loss)
                     tp_probe_tensors_iteration_end(model, device, loss, loss.item(), trainMetaData.ParamsDump, False, 0) #local rank
@@ -845,7 +845,7 @@ def main():
                         global_step = take_optimizer_step(args, optimizer, model, overflow_buf, global_step)
 
                         if args.use_lazy_mode:
-                            hb_torch.mark_step()
+                            htcore.mark_step()
 
                     if global_step >= args.steps_this_run or timeout_sent or training_steps % (args.log_freq * args.gradient_accumulation_steps) == 0:
                         for loss_t in loss_list:

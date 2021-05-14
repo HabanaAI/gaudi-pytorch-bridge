@@ -11,7 +11,7 @@ habana = torch.device("hpu")
 cpu = torch.device("cpu")
 
 sys.path.insert(0, os.path.join(os.environ['PYTORCH_MODULES_RELEASE_BUILD']))
-import hb_torch
+import habana_frameworks.torch.core as htcore
 
 if __name__ == "__main__":
     torch.manual_seed(0)
@@ -45,7 +45,7 @@ if __name__ == "__main__":
     y.requires_grad = True
 
     optim_y = FusedAdamW([y], lr=lr)
-    hb_torch.mark_step()
+    htcore.mark_step()
 
     # Compute loss
     loss_y = y.sum()
@@ -57,7 +57,7 @@ if __name__ == "__main__":
     # Modify the parameters by subtracting the gradient
     optim_y.step()
 
-    hb_torch.mark_step()
+    htcore.mark_step()
 
     y_cpu = y.to(cpu)
 

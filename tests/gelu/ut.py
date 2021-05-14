@@ -4,9 +4,9 @@ import torch
 
 sys.path.insert(0, os.path.join(os.environ['BUILD_ROOT_LATEST']))
 try:
-  import hb_torch
+  import habana_frameworks.torch.core as htcore
 except ImportError:
-  assert False,"Could Not import hb_torch"
+  assert False,"Could Not import habana_frameworks.torch.core"
 
 hpu = torch.device('hpu')
 cpu = torch.device('cpu')
@@ -33,7 +33,7 @@ if __name__ == '__main__':
   z_cpu = torch.tensor([[-5., -7.,  1., -4. ]], dtype=torch.float32, requires_grad=True)
 
   with torch.jit.optimized_execution(True):
-    hb_torch.disable()
+    htcore.disable()
     torch._C._jit_override_can_fuse_on_cpu(False)
     torch._C._jit_set_profiling_executor(False)
     torch._C._jit_set_profiling_mode(False)
@@ -50,7 +50,7 @@ if __name__ == '__main__':
     print(f"Result CPU:\n{rx_by_cpu}")
     print("--------------------")
 
-    hb_torch.enable()
+    htcore.enable()
     torch._C._jit_set_profiling_mode(False)
     torch._C._jit_set_profiling_executor(False)
 

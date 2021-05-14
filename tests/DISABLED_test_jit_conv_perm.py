@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from test_utils import reset_seed, compare_tensors
-import hb_torch
+import habana_frameworks.torch.core as htcore
 
 @torch.jit.script
 def conv_relu_func(in_t, ft_t):
@@ -25,7 +25,7 @@ def test_jit_conv_perm(in_t, ft_t):
     with torch.jit.optimized_execution(True):
         print("--------------------")
         print ("CPU IR Graph optimized")
-        hb_torch.disable()
+        htcore.disable()
         torch._C._jit_override_can_fuse_on_cpu(False)
         torch._C._jit_set_profiling_executor(False)
         torch._C._jit_set_profiling_mode(False)
@@ -37,7 +37,7 @@ def test_jit_conv_perm(in_t, ft_t):
         print("Result CPU: " + str(model))
         print("--------------------")
 
-    hb_torch.enable()
+    htcore.enable()
     print("--------------------")
     print("Moving Tensors to HPU")
     torch._C._jit_set_profiling_mode(False)

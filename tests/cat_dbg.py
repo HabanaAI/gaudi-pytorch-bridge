@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from test_utils import reset_seed, compare_tensors
-import hb_torch
+import habana_frameworks.torch.core as htcore
 import pytest
 
 data_list = [
@@ -56,7 +56,7 @@ def test_jit_cat_dbg(in_tensors):
     print(f"Result CPU:\n{cpu_result}")
     print("--------------------")
 
-    hb_torch.enable()
+    htcore.enable()
     torch._C._jit_set_profiling_mode(False)
     torch._C._jit_set_profiling_executor(False)
     hpu_t1 = in_tensors[0].to(hpu)

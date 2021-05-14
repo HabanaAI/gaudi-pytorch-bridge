@@ -54,10 +54,10 @@ if __name__ == "__main__":
     habana = torch.device("hpu")
 
     sys.path.insert(0, os.path.join(os.environ['PYTORCH_MODULES_RELEASE_BUILD']))
-    import hb_torch
+    import habana_frameworks.torch.core as htcore
     from hb_custom import FusedSGD
-    hb_torch.enable_eliminate_common_subexpression(False)
-    hb_torch.enable_constant_pooling(False)
+    htcore.enable_eliminate_common_subexpression(False)
+    htcore.enable_constant_pooling(False)
 
     y1 = v1.detach().to(habana)
     y1.requires_grad = True
@@ -79,7 +79,7 @@ if __name__ == "__main__":
         loss_y.backward()
 
         optim_y.step()
-        hb_torch.mark_step()
+        htcore.mark_step()
         # for group in optim_y.param_groups:
         #     for p in group["params"]:
         #         state = optim_y.state[p]

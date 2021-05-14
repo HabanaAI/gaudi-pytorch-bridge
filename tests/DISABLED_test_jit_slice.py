@@ -4,7 +4,7 @@ import pytest
 import torch.nn as nn
 import torch.nn.functional as F
 from test_utils import reset_seed, compare_tensors
-import hb_torch
+import habana_frameworks.torch.core as htcore
 import os
 
 
@@ -36,7 +36,7 @@ def test_slice_backward(D1, D2):
         #print("CPU grad value")
         #print(cpu_grad)
 
-        hb_torch.enable()
+        htcore.enable()
         torch._C._jit_set_profiling_mode(False)
         torch._C._jit_set_profiling_executor(False)
         model_trace_hpu = torch.jit.trace(slice_func, hpu_t, check_trace=False)

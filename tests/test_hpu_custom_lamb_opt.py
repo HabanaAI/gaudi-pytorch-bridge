@@ -3,7 +3,7 @@ import pytest
 import torch.nn as nn
 import torch.nn.functional as F
 from test_utils import compare_tensors
-import hb_torch
+import habana_frameworks.torch.core as htcore
 import os
 import sys
 import itertools

@@ -1,7 +1,7 @@
 import torch
 import pytest
 from test_utils import reset_seed, compare_tensors
-import hb_torch
+import habana_frameworks.torch.core as htcore
 
 
 @torch.jit.script
@@ -28,7 +28,7 @@ def test_jit_multiple_dbg():
     '''
 
     with torch.jit.optimized_execution(True):
-      hb_torch.disable()
+      htcore.disable()
       print("--------------------")
       print ("CPU IR Graph optimized")
       torch._C._jit_override_can_fuse_on_cpu(False)
@@ -44,7 +44,7 @@ def test_jit_multiple_dbg():
       print(f"Result CPU\n{o_cpu}")
       print("--------------------")
 
-    hb_torch.enable()
+    htcore.enable()
     print("--------------------")
     print("Moving Tensors to HPU")
     torch._C._jit_set_profiling_mode(False)

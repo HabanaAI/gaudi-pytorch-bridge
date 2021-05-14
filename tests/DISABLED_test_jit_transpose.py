@@ -1,6 +1,6 @@
 import torch
 from test_utils import reset_seed, compare_tensors
-import hb_torch
+import habana_frameworks.torch.core as htcore
 
 @torch.jit.script
 def transpose(x):
@@ -12,7 +12,7 @@ in_t = torch.randn(8, 10)
 
 def test_jit_transpose():
     with torch.jit.optimized_execution(True):
-        hb_torch.disable()
+        htcore.disable()
         torch._C._jit_override_can_fuse_on_cpu(False)
         torch._C._jit_set_profiling_executor(False)
         torch._C._jit_set_profiling_mode(False)
@@ -21,7 +21,7 @@ def test_jit_transpose():
         model = transpose(in_t)
         cpu_result = model
 
-    hb_torch.enable()
+    htcore.enable()
     torch._C._jit_set_profiling_mode(False)
     torch._C._jit_set_profiling_executor(False)
     hpu_t = in_t.to(hpu)

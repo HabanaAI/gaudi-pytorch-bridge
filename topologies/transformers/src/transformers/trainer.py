@@ -404,12 +404,12 @@ class Trainer:
         torch._C._jit_set_profiling_mode(False)
         sys.path.insert(0, os.path.join(os.environ['PYTORCH_MODULES_RELEASE_BUILD']))
         try:
-                import hb_torch
+                import habana_frameworks.torch.core as htcore
         except ImportError:
-                assert False,"Could Not import hb_torch"
+                assert False,"Could Not import habana_frameworks.torch.core"
 
-        hb_torch.enable()
-        hb_torch.remove_inplace_ops()
+        htcore.enable()
+        htcore.remove_inplace_ops()
 
     def compute_position_ids(self, input_ids):
         input_shape = input_ids.size()

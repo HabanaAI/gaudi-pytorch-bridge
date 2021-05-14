@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import pytest
 from test_utils import reset_seed, compare_tensors
-import hb_torch
+import habana_frameworks.torch.core as htcore
 
 # We are running this test in JIT script mode instead of JIT trace mode
 # because in JIT trace mode, 2nd argument is received as an 
@@ -30,9 +30,9 @@ def test_jit_index_put():
     # Cast indices to Long because CPU cannot handle Int
     cpu_op.index_put_([z_cpu.to(torch.int64)], y_cpu, True)
 
-    hb_torch.enable()
+    htcore.enable()
     # Run pass to convert in-place op to out-place version
-    hb_torch.remove_inplace_ops()
+    htcore.remove_inplace_ops()
     # "Moving Tensors to HPU"
     torch._C._jit_set_profiling_mode(False)
     torch._C._jit_set_profiling_executor(False)

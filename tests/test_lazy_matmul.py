@@ -6,9 +6,9 @@ from test_utils import compare_tensors, evaluate_fwd_bwd_kernel
 
 sys.path.insert(0, os.path.join(os.environ['BUILD_ROOT_LATEST']))
 try:
-    import hb_torch
+    import habana_frameworks.torch.core as htcore
 except ImportError:
-    assert False, "Could Not import hb_torch"
+    assert False, "Could Not import habana_frameworks.torch.core"
 
 def test_hpu_lazy_matmul_fwd_bwd(size1, size2):
     t1 = torch.randn(size1, requires_grad = True)
@@ -31,7 +31,7 @@ def test_hpu_lazy_matmul_fwd_bwd(size1, size2):
     loss_h = out_h.sum()
     loss_h.backward()
 
-    hb_torch.mark_step()
+    htcore.mark_step()
 
     grad_t1_h = t1_h.grad.cpu()
     grad_t2_h = t2_h.grad.cpu()

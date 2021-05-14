@@ -106,12 +106,12 @@ def enable_tracing():
     torch._C._jit_set_profiling_mode(False)
     sys.path.insert(0, os.path.join(os.environ['PYTORCH_MODULES_RELEASE_BUILD']))
     try:
-            import hb_torch
+            import habana_frameworks.torch.core as htcore
     except ImportError:
-            assert False,"Could Not import hb_torch"
+            assert False,"Could Not import habana_frameworks.torch.core"
 
-    hb_torch.enable()
-    hb_torch.remove_inplace_ops()
+    htcore.enable()
+    htcore.remove_inplace_ops()
 
 def train(args, train_dataset, model, tokenizer, trainMetaData):
     """ Train the model """
@@ -173,9 +173,9 @@ def train(args, train_dataset, model, tokenizer, trainMetaData):
     if args.use_lazy_mode:
         sys.path.insert(0, os.path.join(os.environ['PYTORCH_MODULES_RELEASE_BUILD']))
         try:
-           import hb_torch
+           import habana_frameworks.torch.core as htcore
         except ImportError:
-           assert False, "Could Not import hb_torch"
+           assert False, "Could Not import habana_frameworks.torch.core"
 
     # multi-gpu training (should be after apex fp16 initialization)
     if args.n_gpu > 1:
@@ -351,7 +351,7 @@ def train(args, train_dataset, model, tokenizer, trainMetaData):
                 loss.backward()
 
             if args.use_lazy_mode:
-                hb_torch.mark_step()
+                htcore.mark_step()
 
             loss_list.append(loss)
             if (step + 1) % args.gradient_accumulation_steps == 0:
@@ -394,7 +394,7 @@ def train(args, train_dataset, model, tokenizer, trainMetaData):
                         param.grad = None
 
                 if args.use_lazy_mode:
-                    hb_torch.mark_step()
+                    htcore.mark_step()
 
                 if args.local_rank != -1:
                     if mpi_comm is not None:
@@ -498,9 +498,9 @@ def evaluate(args, model, tokenizer, trainMetaData,  prefix=""):
     if args.use_lazy_mode:
         sys.path.insert(0, os.path.join(os.environ['PYTORCH_MODULES_RELEASE_BUILD']))
         try:
-           import hb_torch
+           import habana_frameworks.torch.core as htcore
         except ImportError:
-           assert False, "Could Not import hb_torch"
+           assert False, "Could Not import habana_frameworks.torch.core"
 
     args.eval_batch_size = args.per_gpu_eval_batch_size * max(1, args.n_gpu)
     is_eval_traced = False
@@ -568,7 +568,7 @@ def evaluate(args, model, tokenizer, trainMetaData,  prefix=""):
                 outputs = model(**inputs)
 
             if args.use_lazy_mode:
-                hb_torch.mark_step()
+                htcore.mark_step()
 
             feature_indices = feature_indices.to("cpu")
 

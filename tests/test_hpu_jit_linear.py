@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import pytest
 from test_utils import reset_seed, compare_tensors
-import hb_torch
+import habana_frameworks.torch.core as htcore
 
 @torch.jit.script
 def matmul_jit(mat1, mat2):
@@ -27,7 +27,7 @@ def test_hpu_linear():
         print(f"Result CPU\n{out_cpu}")
 
     try:
-        hb_torch.enable()
+        htcore.enable()
         print("Moving Tensors to HPU")
         torch._C._jit_set_profiling_mode(False)
         torch._C._jit_set_profiling_executor(False)

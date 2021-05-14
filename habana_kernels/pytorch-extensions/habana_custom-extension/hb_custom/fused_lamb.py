@@ -8,9 +8,9 @@ import sys
 import os
 
 try:
-    import hb_torch
+    import habana_frameworks.torch.core as htcore
 except ImportError:
-    assert False, "Could Not import hb_torch"
+    assert False, "Could Not import habana_frameworks.torch.core"
 
 class FusedLamb(Optimizer):
 
@@ -131,7 +131,7 @@ class FusedLamb(Optimizer):
 
             grad_list, wt_list, exp_avg_list, exp_avg_sq_list, wt_norm_list, adam_norm_list, adam_step_list, tr_ones_list = [], [], [], [], [], [], [], []
 
-            hb_torch.mark_step()
+            htcore.mark_step()
 
             for p in group['params']:
                 if p.grad is None:
@@ -161,9 +161,9 @@ class FusedLamb(Optimizer):
                     bias_correction,
                     group['weight_decay'])
 
-            hb_torch.mark_step()
+            htcore.mark_step()
 
             hb_custom_C.fused_lamb_phase2(wt_list, adam_norm_list, wt_norm_list, adam_step_list,
                                                 tr_ones_list, step_size, group['weight_decay'], self.use_lamb)
 
-            hb_torch.mark_step()
+            htcore.mark_step()

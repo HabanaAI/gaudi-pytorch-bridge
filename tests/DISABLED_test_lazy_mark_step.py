@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from test_utils import compare_tensors
-import hb_torch
+import habana_frameworks.torch.core as htcore
 import pytest
 import os
 import hblazy.core.hb_model as hm

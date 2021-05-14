@@ -1,7 +1,7 @@
 import torch
 import pytest
 from test_utils import reset_seed, compare_tensors
-import hb_torch
+import habana_frameworks.torch.core as htcore
 import os
 
 
@@ -39,7 +39,7 @@ def test_matmul(D1, D2):
         cpu_mat2_grad = mat2.grad.detach()
         # print(cpu_mat1_grad.dim(), cpu_mat2_grad.dim())
 
-        hb_torch.enable()
+        htcore.enable()
         torch._C._jit_set_profiling_mode(False)
         torch._C._jit_set_profiling_executor(False)
         model_trace_hpu = torch.jit.trace(

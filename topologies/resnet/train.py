@@ -21,9 +21,9 @@ sys.path.insert(0, os.path.join(os.environ['PYTORCH_MODULES_RELEASE_BUILD']))
 # modifications can be done to the resnet model if necessary.
 
 try:
-    import hb_torch
+    import habana_frameworks.torch.core as htcore
 except ImportError:
-    assert False, "Could Not import hb_torch"
+    assert False, "Could Not import habana_frameworks.torch.core"
 
 sys.path.append(os.environ['PYTORCH_MODULES_ROOT_PATH'])
 from topologies import tools
@@ -45,7 +45,7 @@ def train_model(model, criterion, optimizer, image, target, trainMetaData, apex,
     else:
         loss.backward()
     if lazy_mode:
-        hb_torch.mark_step()
+        htcore.mark_step()
 
     optimizer.step()
 
@@ -53,7 +53,7 @@ def train_model(model, criterion, optimizer, image, target, trainMetaData, apex,
         param.grad = None
 
     if lazy_mode:
-        hb_torch.mark_step()
+        htcore.mark_step()
 
     return loss, output
 
@@ -76,14 +76,14 @@ def train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, pri
         trainMetaData.tracept.start(start_time, 'train_iteration_' + str(trainMetaData.current_train_step))
 
         if args.channels_last:
-            import hb_torch
+            import habana_frameworks.torch.core as htcore
             image = image.contiguous(memory_format=torch.channels_last)
             #
             # This mark_step is added so that the the lazy kernel can
             # create and evaluate the graph to infer the resulting tensor
             # as channels_last
             if args.run_lazy_mode:
-                hb_torch.mark_step()
+                htcore.mark_step()
 
 
         tools.tp_probe_tensors_iteration_start(model, device, target, image, trainMetaData.ParamsDump, False)
@@ -123,10 +123,10 @@ def evaluate(model, criterion, data_loader, trainMetaData, device, print_freq=10
             image = image.to(device, non_blocking=True)
 
             if args.channels_last:
-                import hb_torch
+                import habana_frameworks.torch.core as htcore
                 image = image.contiguous(memory_format=torch.channels_last)
                 if args.run_lazy_mode:
-                    hb_torch.mark_step()
+                    htcore.mark_step()
 
             target = target.to(device, non_blocking=True)
             trainMetaData.tracept.start(time.time(), 'val_iteration_' + str(trainMetaData.current_eval_step))
@@ -176,7 +176,7 @@ def enable_tracing(device):
         torch._C._jit_set_profiling_executor(False)
         torch._C._jit_set_profiling_mode(False)
         if(device == torch.device('hpu')):
-            hb_torch.enable()
+            htcore.enable()
         sample_trace_tensor = torch.zeros(args.batch_size, 3, 224, 224).to(device)
         return sample_trace_tensor
 
@@ -263,7 +263,7 @@ def permute_params(model, to_filters_last, lazy_mode):
                     param.data = param.data.permute((3, 2, 0, 1))  # permute RSCK to KCRS
 
     if args.run_lazy_mode:
-        hb_torch.mark_step()
+        htcore.mark_step()
 
 # permute the momentum from filters first (KCRS) to filters last(RSCK) or vice versa.
 # and permute from RSCK to KCRS is used for checkpoint saving
@@ -285,7 +285,7 @@ def permute_momentum(optimizer, to_filters_last, lazy_mode):
                     param_state['momentum_buffer'] = buf
 
     if lazy_mode:
-        hb_torch.mark_step()
+        htcore.mark_step()
 
 # Data loader worker init function
 def dl_worker_init_fn(seed):
@@ -420,9 +420,9 @@ def main(args):
     criterion = nn.CrossEntropyLoss()
     if args.run_lazy_mode:
         from hb_custom import FusedSGD
-        import hb_torch
-        hb_torch.enable_eliminate_common_subexpression(False)
-        hb_torch.enable_constant_pooling(False)
+        import habana_frameworks.torch.core as htcore
+        htcore.enable_eliminate_common_subexpression(False)
+        htcore.enable_constant_pooling(False)
         sgd_optimizer = FusedSGD
     else:
         sgd_optimizer = torch.optim.SGD
@@ -449,7 +449,7 @@ def main(args):
         sample_trace_tensor = enable_tracing(device)
 
         if args.channels_last:
-            import hb_torch
+            import habana_frameworks.torch.core as htcore
             sample_trace_tensor = sample_trace_tensor.contiguous(memory_format=torch.channels_last)
         # Create traced model for eval
         model.eval()

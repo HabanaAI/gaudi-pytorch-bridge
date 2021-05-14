@@ -45,9 +45,9 @@ torch.ops.load_library(os.path.join(os.environ['PYTORCH_MODULES_RELEASE_BUILD'],
 sys.path.insert(0, os.path.join(os.environ['PYTORCH_MODULES_RELEASE_BUILD']))
 
 try:
-    import hb_torch
+    import habana_frameworks.torch.core as htcore
 except ImportError:
-    assert False,"Could Not import hb_torch"
+    assert False,"Could Not import habana_frameworks.torch.core"
 
 # onnx
 # The onnx import causes deprecation warnings every time workers
@@ -1308,7 +1308,7 @@ if __name__ == "__main__":
         torch._C._debug_set_autodiff_subgraph_inlining(False)
         torch._C._jit_set_profiling_executor(False)
         torch._C._jit_set_profiling_mode(False)
-        hb_torch.enable()
+        htcore.enable()
         dlrm_trace = torch.jit.trace(model, (X_device, lS_o, lS_i, lS_vc_fwd, lS_o_bwd,
                                              lS_i_bwd, lS_vc_bwd, lS_grad_wt), check_trace=False)
         # print("tracing completed")

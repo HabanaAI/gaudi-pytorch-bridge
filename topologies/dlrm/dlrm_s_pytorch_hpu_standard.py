@@ -787,10 +787,10 @@ if __name__ == "__main__":
         lS2_o = [S_o.to(device) for S_o in lS_o] if isinstance(lS_o, list) \
             else lS_o.to(device)
         X_device = X.to(device)
-        import hb_torch
+        import habana_frameworks.torch.core as htcore
         torch._C._jit_set_profiling_executor(False)
         torch._C._jit_set_profiling_mode(False)
-        hb_torch.enable()
+        htcore.enable()
         dlrm_trace = torch.jit.trace(dlrm, (X_device, lS2_o, lS2_i), check_trace=False)
         return dlrm_trace
 

@@ -5,7 +5,7 @@ import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 from test_utils import reset_seed, compare_tensors
-import hb_torch
+import habana_frameworks.torch.core as htcore
 
 test_case_list = [
   (384, 768)
@@ -27,7 +27,7 @@ def test_dropout(D1, D2):
     with torch.jit.optimized_execution(True):
         dp = 0.3
         dropoutmod = nn.Dropout(p=dp)
-        hb_torch.enable()
+        htcore.enable()
         torch._C._jit_set_profiling_mode(False)
         torch._C._jit_set_profiling_executor(False)
         hpu_t = in_t.to(hpu)

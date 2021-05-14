@@ -941,7 +941,7 @@ if __name__ == "__main__":
         torch._C._debug_set_autodiff_subgraph_inlining(False)
         torch._C._jit_set_profiling_executor(False)
         torch._C._jit_set_profiling_mode(False)
-        hb_torch.enable()
+        htcore.enable()
         dlrm_trace = torch.jit.trace(model, (X_device, lS_o, lS_i, preproc_data))
         return dlrm_trace
 

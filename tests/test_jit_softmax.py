@@ -4,7 +4,7 @@ import pytest
 import torch.nn as nn
 import torch.nn.functional as F
 from test_utils import reset_seed, compare_tensors
-import hb_torch
+import habana_frameworks.torch.core as htcore
 
 @torch.jit.script
 def log_softmax_func(x):
@@ -30,7 +30,7 @@ def test_log_softmax(D1, D2):
     compare_tensors(hpu_eager_result, cpu_eager_result, atol=0.001, rtol=1.e-3)
 
     with torch.jit.optimized_execution(True):
-        hb_torch.disable()
+        htcore.disable()
         torch._C._jit_override_can_fuse_on_cpu(False)
         torch._C._jit_set_profiling_executor(False)
         torch._C._jit_set_profiling_mode(False)
@@ -43,7 +43,7 @@ def test_log_softmax(D1, D2):
         print(cpu_grad)
         in_t.grad.zero_()
 
-        hb_torch.enable()
+        htcore.enable()
         torch._C._jit_set_profiling_mode(False)
         torch._C._jit_set_profiling_executor(False)
         model_trace_hpu = torch.jit.load("cpu_trace.pt", map_location=torch.device("hpu"))

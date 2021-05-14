@@ -1,7 +1,7 @@
 import torch
 import pytest
 from test_utils import reset_seed, compare_tensors
-import hb_torch
+import habana_frameworks.torch.core as htcore
 
 
 @torch.jit.script
@@ -30,7 +30,7 @@ def test_jit_relu_dbg():
   z_cpu = torch.tensor([[-5., -7.,  1., -4.,  4. ]], dtype=torch.float32)
 
   with torch.jit.optimized_execution(True):
-    hb_torch.disable()
+    htcore.disable()
     torch._C._jit_override_can_fuse_on_cpu(False)
     torch._C._jit_set_profiling_executor(False)
     torch._C._jit_set_profiling_mode(False)
@@ -50,7 +50,7 @@ def test_jit_relu_dbg():
     print(f"Result HPU:\n{rx_by_cpu}")
     print("--------------------")
 
-    hb_torch.enable()
+    htcore.enable()
     torch._C._jit_set_profiling_mode(False)
     torch._C._jit_set_profiling_executor(False)
 
