@@ -263,3 +263,20 @@ class IndexOperator : public HabanaOperator {
       const Tensor& input,
       at::TensorList indices);
 };
+
+// unique Operator
+class UniqueOperator : public HabanaOperator {
+ public:
+  UniqueOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator("unique_fwd_f32") {
+    static_cast<void>(scalarType);
+    this->CreateSynContext(device_id);
+  }
+
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      std::vector<bool> is_output_persistent) override;
+
+  void SetPTOutputs(torch::jit::Stack& inputs) override;
+};

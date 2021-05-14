@@ -5249,6 +5249,92 @@ Tensor& bitwise_not_out_hpu_lazy(Tensor& out, const Tensor& self) {
   return k.call(out);
 };
 
+std::tuple<Tensor, Tensor, Tensor> unique2_hpu_lazy(
+    const Tensor& self,
+    bool sorted,
+    bool return_inverse,
+    bool return_counts) {
+  PT_LAZY_TRACE;
+
+  at::Tensor self_cast = self;
+  // Remove this cast node once TPC kernel is available for int
+  // JIRA <https://jira.habana-labs.com/browse/SW-41973>
+  if (self.scalar_type() != c10::ScalarType::Float) {
+    auto node = std::make_shared<habana_lazy::ir::Cast>(
+        self, c10::ScalarType::Float, true);
+    at::TensorOptions hb_options = self.options().dtype(c10::ScalarType::Float);
+    self_cast = at::native::empty_hpu_lazy(
+        self.sizes(), hb_options, self.suggest_memory_format(), false);
+    auto hl_cast = habana_lazy::GetHbLazyTensor(self_cast);
+    habana_lazy::ir::Value& out = hl_cast.CurrentIrValue();
+    out.m_index = 0;
+    out.SetNode(node);
+  }
+  int elements = self.numel();
+  std::vector<int64_t> feature_map_shape{elements};
+  std::vector<int64_t> valid_count_shape{1};
+  // Add unique_2 node
+  using T = std::tuple<at::Tensor, at::Tensor>;
+  Unique<T> k(
+      {IValue(self_cast),
+       IValue(sorted),
+       IValue(return_inverse),
+       IValue(return_counts)},
+      {1, 2, 3},
+      {feature_map_shape, valid_count_shape});
+  // unique2 returns 2 output feature_map and valid tensor
+  auto output = k.call();
+  auto feature_map = std::get<0>(output);
+  auto valid_count = std::get<1>(output);
+  auto hl_feature_map = habana_lazy::GetHbLazyTensor(feature_map);
+  auto hl_valid = habana_lazy::GetHbLazyTensor(valid_count);
+
+  // Force an execution here because "unique" is a non shape inferable op.
+  std::vector<HbLazyTensor> hl_flush = {hl_feature_map, hl_valid};
+  HbLazyTensor::SyncTensorsGraph(&hl_flush);
+  auto end = valid_count.item<int64_t>();
+
+  // Add a slice node to capture relevent elements from feature_map
+  auto sliced_shape = DimVector{end};
+  auto node_slice =
+      std::make_shared<habana_lazy::ir::Slice>(feature_map, 0, 0, end, 1);
+  auto result = at::native::empty_hpu_lazy(
+      sliced_shape,
+      self.options().dtype(c10::ScalarType::Float),
+      self.suggest_memory_format(),
+      false);
+  auto hl_result = habana_lazy::GetOrCreateHbLazyTensor(result, c10::kHABANA);
+  habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node_slice);
+
+  // These are optional tensors which shall be populated only when we
+  // start supporting return_inverse and return_counts
+  Tensor inverse_indices;
+  Tensor counts;
+
+  if (self.scalar_type() != c10::ScalarType::Float) {
+    auto node_cast = std::make_shared<habana_lazy::ir::Cast>(
+        result, c10::ScalarType::Int, true);
+    auto result_cast = at::native::empty_hpu_lazy(
+        result.sizes(),
+        self.options().dtype(c10::ScalarType::Int),
+        self.suggest_memory_format(),
+        false);
+    auto hl_cast = habana_lazy::GetHbLazyTensor(result_cast);
+    habana_lazy::ir::Value& out = hl_cast.CurrentIrValue();
+    out.m_index = 0;
+    out.SetNode(node_cast);
+    updateDstDependencies(hl_cast, result_cast);
+    flush_op(result_cast);
+    return std::make_tuple(result_cast, inverse_indices, counts);
+  }
+
+  updateDstDependencies(hl_result, result);
+  flush_op(result);
+  return std::make_tuple(result, inverse_indices, counts);
+};
+
 std::tuple<at::Tensor, at::Tensor> max_dim_hpu_lazy(
     const at::Tensor& self,
     int64_t dim,

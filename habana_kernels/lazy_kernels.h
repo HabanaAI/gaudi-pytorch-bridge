@@ -460,7 +460,7 @@ class HabanaNMSLazy : public LazyOp<ReturnType> {
   explicit HabanaNMSLazy(
       const std::vector<at::IValue>& inputs,
       const std::vector<std::vector<int64_t>>& out_shapes = {})
-      : LazyOp<ReturnType>("hpu::habana_nms", inputs, {}, out_shapes, 0) {}
+      : LazyOp<ReturnType>("hpu::habana_nms", inputs, {}, out_shapes, -1) {}
 
   virtual ~HabanaNMSLazy() = default;
 
@@ -491,6 +491,48 @@ class HabanaNMSLazy : public LazyOp<ReturnType> {
         shape_tensor_shape,
         scores.options().dtype(c10::ScalarType::Int),
         scores.suggest_memory_format(),
+        false);
+    return results;
+  }
+};
+
+template <
+    typename ReturnType = std::tuple<at::Tensor, at::Tensor>,
+    typename NodeConstruct = void>
+class Unique : public LazyOp<ReturnType> {
+ public:
+  explicit Unique(
+      const std::vector<at::IValue>& inputs,
+      std::set<size_t> metadata_indices = {},
+      const std::vector<std::vector<int64_t>>& out_shapes = {})
+      : LazyOp<ReturnType>(
+            "hpu::_unique2",
+            inputs,
+            metadata_indices,
+            out_shapes,
+            -1) {}
+
+  virtual ~Unique() = default;
+
+  template <typename T = ReturnType>
+  typename std::enable_if<std::tuple_size<T>::value >= 2, T>::type call() {
+    return LazyOp<ReturnType>::call();
+  }
+
+ protected:
+  virtual ReturnType get_result_overrideable() {
+    ReturnType results;
+    auto inputs = LazyOp<ReturnType>::get_inputs();
+    auto self = inputs[0].toTensor();
+    int elements = self.numel();
+    auto output_shape = DimVector{elements};
+    auto valid_shape = DimVector{1};
+    std::get<0>(results) = at::native::empty_hpu_lazy(
+        output_shape, self.options(), self.suggest_memory_format(), false);
+    std::get<1>(results) = at::native::empty_hpu_lazy(
+        valid_shape,
+        self.options().dtype(c10::ScalarType::Int),
+        self.suggest_memory_format(),
         false);
     return results;
   }

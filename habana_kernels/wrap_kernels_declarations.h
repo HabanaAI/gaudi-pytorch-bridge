@@ -490,6 +490,11 @@ struct hpu_wrap {
       const at::Tensor& self,
       c10::optional<int64_t> dim,
       bool keepdim);
+  static std::tuple<at::Tensor, at::Tensor, at::Tensor> _unique2(
+      const at::Tensor& self,
+      bool sorted,
+      bool return_inverse,
+      bool return_counts);
   static std::tuple<at::Tensor, at::Tensor> max(
       const at::Tensor& self,
       int64_t dim,

@@ -110,6 +110,18 @@ def test_hpu_nonzero_1D(N, H, W, C, value, format):
     compare_tensors(hpu_result, cpu_result, atol=0, rtol=0)
 
 @pytest.mark.parametrize("N, H, W, C", test_case_list)
+def test_hpu_unique(N, H, W, C):
+    hpu = torch.device('hpu')
+    cpu = torch.device('cpu')
+    dim_list = [N, C, H, W]
+    in_tensor = torch.randint(0, 100, tuple(dim_list))
+    hpu_result = torch.unique(in_tensor.to(hpu), False, False, False, None)
+    cpu_result = torch.unique(in_tensor, False, False, False, None)
+    # Result coming in habana is reverse order than CPU reversing the CPU to match habana
+    cpu_flipped = torch.flip(cpu_result, [0])
+    compare_tensors(hpu_result, cpu_flipped, atol=0, rtol=0)
+
+@pytest.mark.parametrize("N, H, W, C", test_case_list)
 @pytest.mark.parametrize("dim", [0, 1, 2, 3])
 def test_hpu_index_select(N, H, W, C, dim):
     kernel = torch.index_select
@@ -279,3 +291,4 @@ if __name__ == '__main__':
     test_hpu_nonzero(*test_case_nonzero[0])
     test_hpu_nonzero_empty(*test_case_nonzero[0])
     test_hpu_nonzero_1D(*test_case_nonzero[0])
+    test_hpu_unique(*test_case_list[0])

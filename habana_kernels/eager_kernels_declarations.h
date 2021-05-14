@@ -440,6 +440,11 @@ Tensor prod_dim_hpu(
     bool keepdim,
     c10::optional<ScalarType> dtype);
 Tensor prod_hpu(const Tensor& self, c10::optional<ScalarType> dtype);
+std::tuple<Tensor, Tensor, Tensor> unique2_hpu(
+    const Tensor& self,
+    bool sorted,
+    bool return_inverse,
+    bool return_counts);
 std::tuple<Tensor, Tensor> max_dim_hpu(
     const at::Tensor& self,
     int64_t dim,

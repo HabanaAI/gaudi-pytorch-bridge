@@ -2541,6 +2541,18 @@ Tensor hpu_wrap::argmax(
   }
 }
 
+std::tuple<Tensor, Tensor, Tensor> hpu_wrap::_unique2(
+    const at::Tensor& self,
+    bool sorted,
+    bool return_inverse,
+    bool return_counts) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    return unique2_hpu_lazy(self, sorted, return_inverse, return_counts);
+  } else {
+    return unique2_hpu(self, sorted, return_inverse, return_counts);
+  }
+}
+
 std::vector<at::Tensor> hpu_wrap::unbind(const at::Tensor& self, int64_t dim) {
   hpu_check_inputs("unbind", {self});
 
@@ -3236,6 +3248,8 @@ TORCH_LIBRARY(hpu, m) {
       "habanaOptimizerLambPhase2(Tensor[] weights, Tensor[] adam_norm, Tensor[] wt_norm, Tensor[] adam_step, Tensor[] trust_ratio, Tensor neg_step, float wd, int use_lamb) -> ()");
   m.def(
       "habana_nms(Tensor boxes, Tensor scores, float iou_threshold, float score_threshold) -> (Tensor, Tensor, Tensor)");
+  m.def(
+      "_unique2(Tensor self, bool sorted, bool return_inverse, bool return_counts) -> (Tensor, Tensor)");
   m.def("permute_cl(Tensor(a) self, int[] dims) -> Tensor(a)");
   m.def("restride_cl(Tensor(a) self, int[] dims) -> Tensor(a)");
   m.def("control_edge_other_(Tensor self, Tensor other) -> Tensor(a!)");

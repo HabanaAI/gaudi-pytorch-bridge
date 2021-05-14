@@ -70,7 +70,13 @@ std::map<std::pair<c10::ScalarType, c10::ScalarType>, std::string>
         {{c10::ScalarType::Int, c10::ScalarType::Bool}, "cast_i32_to_i8"},
         {{c10::ScalarType::Int, c10::ScalarType::Char}, "cast_i32_to_i8"},
         {{c10::ScalarType::Int, c10::ScalarType::Float}, "cast_i32_to_f32"},
+        // c10::Long dtype is treated as Int for Synapse tensors,
+        // therefore we are casting from i32 to f32
+        {{c10::ScalarType::Long, c10::ScalarType::Float}, "cast_i32_to_f32"},
         {{c10::ScalarType::Float, c10::ScalarType::Int}, "cast_f32_to_i32"},
+        // c10::Long dtype is treated as Int for Synapse tensors,
+        // therefore we are casting to i32 from f32
+        {{c10::ScalarType::Float, c10::ScalarType::Long}, "cast_f32_to_i32"},
         {{c10::ScalarType::BFloat16, c10::ScalarType::Float},
          "cast_bf16_to_f32"},
         {{c10::ScalarType::Float, c10::ScalarType::BFloat16},

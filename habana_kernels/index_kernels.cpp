@@ -1895,6 +1895,171 @@ Tensor index_hpu(const Tensor& input, TensorList indices) {
   return out.at(0);
 }
 
+void UniqueOperator::SetPTOutputs(torch::jit::Stack& inputs) {
+  auto self = inputs[0].toTensor();
+  int elements = self.numel();
+  auto output_shape = DimVector{elements};
+  auto valid_shape = DimVector{1};
+
+  // create output and valid shape tensors which are compulsory
+  auto output_feature_map = habana_helpers::createPTTensor(
+      self,
+      output_shape,
+      self.options(),
+      self.suggest_memory_format(),
+      self.scalar_type(),
+      true);
+  auto valid_count = habana_helpers::createPTTensor(
+      self,
+      valid_shape,
+      self.options(),
+      self.suggest_memory_format(),
+      c10::ScalarType::Int,
+      true);
+  std::vector<at::Tensor> outputs{output_feature_map, valid_count};
+  HabanaOperator::SetPTOutputs(outputs);
+}
+
+void UniqueOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    std::vector<bool> is_output_persistent) {
+  HABANA_ASSERT(
+      inputs.size() == 4 && "Incorrect size of inputs in UniqueOperator");
+  HABANA_ASSERT(inputs[0].isTensor() && "Input 0 is expected to be tensor");
+  HABANA_ASSERT(inputs[1].isBool() && "Input 1 is expected to be bool");
+  HABANA_ASSERT(inputs[2].isBool() && "Input 2 is expected to be bool");
+  HABANA_ASSERT(inputs[3].isBool() && "Input 3 is expected to be bool");
+
+  bool sorted = inputs[1].toBool();
+  bool return_inverse = inputs[2].toBool();
+  bool return_counts = inputs[3].toBool();
+  if (sorted == true) {
+    PT_KERNEL_WARN(
+        "Recieved sorted=True, ignoring as TPC kernel does not support it");
+  }
+  // Assert for return_inverse, return_counts as function expects extra output
+  // if set
+  HABANA_ASSERT((!return_inverse) && "return_inverse not supported in unique2");
+  HABANA_ASSERT((!return_counts) && "return_counts not supported in unique2");
+
+  auto self = inputs[0].toTensor();
+  int elements = self.numel();
+  auto output_shape = DimVector{elements};
+  auto valid_shape = DimVector{1};
+
+  // The first output tensor contains unique elements.
+  // The second output tensor contains the number of unique elements.
+  // The two optional tensors(Inverse index(1D), Counts(1D)) can be enabled by
+  // setting the corresponding parameters in the structure(return_inverse,
+  // return_counts) Currently this implementation supports with both
+  // return_inverse and return_counts as false
+
+  // create output and valid shape tensors which are compulsory
+  auto output_feature_map = habana_helpers::createPTTensor(
+      self,
+      output_shape,
+      self.options(),
+      self.suggest_memory_format(),
+      self.scalar_type(),
+      is_output_persistent[0]);
+  auto valid_count = habana_helpers::createPTTensor(
+      self,
+      valid_shape,
+      self.options(),
+      self.suggest_memory_format(),
+      c10::ScalarType::Int,
+      is_output_persistent[1]);
+
+  ns_UniqueKernel::Params params;
+  params.returnInverse = 0;
+  params.returnCounts = 0;
+  // dim = -5 returns flattened result(unique elements over all dimesions)
+  params.dim = -5;
+
+  p_context_->params_.emplace<ns_UniqueKernel::Params>(params);
+  p_context_->params_size_ = sizeof(params);
+
+  AllocateSynapseOutputs(
+      graph, {output_feature_map, valid_count}, is_output_persistent);
+  AddNodeToSynapseGraph(graph, &params, sizeof(params));
+}
+
+/*************************************************************************
+ * @brief Kernel implementation for torch.unique operator
+ * @param self - Input tensor
+ * @param sorted - Whether to sort the unique elements
+ * @param return_inverse - To return the indices for where elements in the
+ *  original input end in result
+ * @param return_counts - To return counts for each unique element
+ ************************************************************************/
+std::tuple<Tensor, Tensor, Tensor> unique2_hpu(
+    const Tensor& self,
+    bool sorted,
+    bool return_inverse,
+    bool return_counts) {
+  PT_KERNEL_BEGIN;
+
+  // Remove this cast once TPC kernel supports Int input
+  // JIRA <https://jira.habana-labs.com/browse/SW-41973>
+  Tensor input_cast = self;
+  if (self.scalar_type() == c10::ScalarType::Long ||
+      self.scalar_type() == c10::ScalarType::Int) {
+    auto input_i32 = habana_helpers::cast_tensor_to_integer(self);
+    input_cast = habana_helpers::hpu_cast_tensor(
+        input_i32, at::scalarTypeToTypeMeta(c10::ScalarType::Float));
+  }
+
+  std::string node_type = "unique2";
+  size_t device_id = self.device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+
+  UniqueOperator Op(device_id, self.scalar_type());
+  std::vector<at::Tensor> pt_inputs{input_cast};
+  std::vector<c10::IValue> stack = {
+      IValue(input_cast),
+      IValue(sorted),
+      IValue(return_inverse),
+      IValue(return_counts)};
+
+  size_t key = Op.GetRecipeKey(node_type, stack);
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    Op.SetPTInputs(pt_inputs);
+    Op.SetPTOutputs(stack);
+    Op.Execute(key);
+  } else {
+    PT_KERNEL_DEBUG("key:", key);
+    auto graph = habana_helpers::create_graph(device_id, node_type);
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
+    Op.AllocateAndAddSynapseNode(graph, stack, {true, true});
+    Op.Compile(graph);
+  }
+
+  std::vector<at::Tensor> out = Op.GetOutputs();
+  TORCH_CHECK(out.size() == 2, "Incorrect Size of outputs returned for unique");
+  auto end = out.at(1).item<int64_t>();
+  auto result = out.at(0).slice(0, 0, end, 1);
+
+  Tensor cast_out = result;
+  if (self.scalar_type() == c10::ScalarType::Long ||
+      self.scalar_type() == c10::ScalarType::Int) {
+    auto output_i32 = habana_helpers::hpu_cast_tensor(
+        result, at::scalarTypeToTypeMeta(c10::ScalarType::Int));
+    if (self.scalar_type() == c10::ScalarType::Long)
+      cast_out = habana_helpers::cast_tensor_to_long(output_i32);
+    else
+      cast_out = output_i32;
+  }
+
+  // These are optional tensors which shall be populated only when we start
+  // supporting return_inverse and return_counts
+  Tensor inverse_indices;
+  Tensor counts;
+  PT_KERNEL_END;
+  return std::make_tuple(cast_out, inverse_indices, counts);
+}
+
 static auto& KernelRegistry =
     ::habana::KernelRegistry()
         .add(
@@ -1948,6 +2113,11 @@ static auto& KernelRegistry =
             "aten::index_add",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<IndexAddOperator>(device_id, node_type);
+            })
+        .add(
+            "hpu::_unique2",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<UniqueOperator>(device_id, node_type);
             })
         .add(
             "hpu::arange_out",
