@@ -152,7 +152,7 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
 
   enable_tensor_dump_ = (tensor_dump_numel_ >= -1) ? true : false;
   enable_caching_ = true;
-  enable_tensor_release_ = false;
+  enable_tensor_release_ = true;
   // Enable enable_tensor_release_ with lazy mode by default
   if (const auto envp = std::getenv("PT_HPU_LAZY_MODE")) {
     enable_tensor_release_ = atoi(envp) == 1;
