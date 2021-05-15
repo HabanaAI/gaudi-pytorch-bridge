@@ -676,9 +676,6 @@ def parse_args():
                         help='run model in lazy execution mode')
     args = parser.parse_args()
 
-    if args.device == 'habana':
-        args.device = 'hpu'
-
     return args
 
 
