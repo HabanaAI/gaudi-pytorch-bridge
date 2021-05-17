@@ -103,8 +103,7 @@ def train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, pri
             metric_logger.meters['acc1'].update(acc1.item(), n=batch_size*print_freq)
             metric_logger.meters['acc5'].update(acc5.item(), n=batch_size*print_freq)
             current_time = time.time()
-            iter_start_time = start_time if args.distributed else last_print_time
-            metric_logger.meters['img/s'].update(batch_size*print_freq / (current_time - iter_start_time))   
+            metric_logger.meters['img/s'].update(batch_size*print_freq / (current_time - last_print_time))
             last_print_time = time.time()
         # If only the specified number of steps are to be executed, check if those many steps are
         # done and if yes, break the training loop
