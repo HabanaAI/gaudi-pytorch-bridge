@@ -532,6 +532,13 @@ void HbLazyTensor::SyncTensorsGraphInternal(
   // Dump the JIT graph with PT_LAZY_DEBUG
   PT_LAZY_DEBUG(hlexec.DumpGraph());
 
+  // Remove any tensor_data held at output, this will reduce the memory
+  // pressure
+  for (size_t idx = 0; idx < indices.size();) {
+    auto out_tensor = (*tensors)[indices[idx++]];
+    out_tensor.SetTensorData(at::Tensor());
+  }
+
   // Launch the execution
   hlexec.Launch(stack);
   HABANA_ASSERT(stack.size() == indices.size());
