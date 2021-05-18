@@ -345,6 +345,7 @@ void InsertPermute_graph(
     synDeviceId device_id = device.id();
     habana::HabanaOperatorPtr habana_kernel = habana::KernelRegistry().get(
         device_id, node->kind().toQualString(), c10::ScalarType::Float);
+    HABANA_ASSERT(habana_kernel);
     auto& habana_kernel_meta_data = habana_kernel->GetKernelMetaData();
     bool isLayoutAgnostic = IsNodeLayoutAgnostic(node);
 

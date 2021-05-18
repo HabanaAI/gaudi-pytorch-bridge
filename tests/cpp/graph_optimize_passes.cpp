@@ -6,6 +6,7 @@
 #include <iostream>
 #include <stdexcept>
 #include <string>
+#include "habana_kernels/habana_operator.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_kernels/wrap_kernels_declarations.h"
 #include "habana_lazy/aten_lazy_bridge.h"
@@ -73,7 +74,7 @@ TEST_F(GraphOptimizeTest, SubGraphRewriteTest) {
       "                 ],\n"
       "   \"ReplacePattern\" : [\n"
       "                   \"graph(%a, %b):\",\n"
-      "                   \" %r = aten::mmrelu(%a, %b)\",\n"
+      "                   \" %r = hpu::mmrelu(%a, %b)\",\n"
       "                   \" return (%r)\"\n"
       "                 ]\n"
       " }\n"
@@ -82,6 +83,13 @@ TEST_F(GraphOptimizeTest, SubGraphRewriteTest) {
   std::ofstream out("pattern.json");
   out << patterns;
   out.close();
+
+  // Add the new kernel so that it does not assert while looking up in the pass
+  static auto& KernelRegistry = habana::KernelRegistry().add(
+      "hpu::mmrelu", [](const int device_id, c10::ScalarType node_type) {
+        static_cast<void>(node_type);
+        return std::make_shared<habana::HabanaOperator>("hpu::mmrelu");
+      });
 
   torch::Tensor A = torch::randn({2, 2}, torch::requires_grad(false));
   torch::Tensor B = torch::randn({2, 2}, torch::requires_grad(false));
@@ -96,7 +104,6 @@ TEST_F(GraphOptimizeTest, SubGraphRewriteTest) {
   auto po_data = HbLazyTensor::RunPostOrder(tensors, indices);
 
   exec::HlExec* hlexec = new exec::HlExec();
-  exec::OptPassCfg::GetInstance()->enable_permute_pass = false;
 
   std::vector<at::Tensor> input_list{hA, hB};
   auto stack = torch::jit::Stack(
@@ -108,10 +115,10 @@ TEST_F(GraphOptimizeTest, SubGraphRewriteTest) {
   torch::jit::testing::FileCheck()
       .check_not("aten::mm")
       ->check_not("aten::relu")
-      ->check_count("aten::mmrelu", 1)
+      ->check_count("hpu::mmrelu", 1)
       ->run(*hlexec->get_graph());
-
-  exec::OptPassCfg::GetInstance()->enable_permute_pass = true;
+  unsetenv("HABANA_TRANSFORM_GRAPH_FILE");
+  remove("pattern.json");
 }
 
 TEST_F(GraphOptimizeTest, FuseMmTransposeTest) {
@@ -227,10 +234,8 @@ TEST_F(GraphOptimizeTest, PermutePassTest_CL) {
   auto result1 = torch::conv2d(h_in_cl, h_wt, {}, 1, 0, 1, 1);
   auto result = torch::relu(result1);
 
-  exec::OptPassCfg::GetInstance()->enable_permute_pass = true;
   Tensor out = result.to(kCPU);
   EXPECT_EQ(allclose(out, exp, 0.01, 0.01), true);
-  exec::OptPassCfg::GetInstance()->enable_permute_pass = false;
 }
 
 TEST_F(GraphOptimizeTest, PermutePassTest_Contig) {
@@ -243,7 +248,6 @@ TEST_F(GraphOptimizeTest, PermutePassTest_Contig) {
 
   auto h_in = in.to(torch::kHABANA);
   auto h_in_cl = permute_cl_hpu_lazy(h_in, {0, 2, 3, 1});
-  exec::OptPassCfg::GetInstance()->enable_permute_pass = true;
   Tensor h_in_cl_out = h_in_cl.to(kCPU);
 
   auto h_in1 = h_in_cl_out.to(torch::kHABANA);
@@ -255,7 +259,6 @@ TEST_F(GraphOptimizeTest, PermutePassTest_Contig) {
 
   Tensor out = result.to(kCPU);
   EXPECT_EQ(allclose(out, exp, 0.01, 0.01), true);
-  exec::OptPassCfg::GetInstance()->enable_permute_pass = false;
 }
 
 TEST_F(GraphOptimizeTest, RemoveInplaceOps_pass1) {
