@@ -86,14 +86,12 @@ class StaticCoalescedPooling : public PoolingStrategy {
   Chunk* get_nearest_chunk(uint64_t size) const;
   bool skip_chunk(Chunk* chunk, uint64_t size_req) const;
   bool canMergePreviousChunk(Chunk* chunk, uint64_t size) const;
-  Chunk* mergePreviousChunk(Chunk* chunk) const;
   bool canMergeNextChunk(Chunk* chunk, uint64_t size) const;
-  Chunk* mergeNextChunk(Chunk* chunk) const;
-  Chunk* try_coalescing_chunks(Chunk* chunk, uint64_t size) const;
   Chunk* try_splitting_chunks(Chunk* chunk, uint64_t size) const;
   bool pool_defragment(uint64_t size) const;
-  bool merge_chunks(std::list<Chunk*>& chunks, bool merge_nxt, uint64_t size)
+  bool merge_chunks(std::list<uint64_t> ptrs, bool merge_nxt, uint64_t size)
       const;
+  Chunk* merge(Chunk* c1, Chunk* c2) const;
   Chunk* create_chunk() const;
   Chunk* try_block_splitting(uint64_t size) const;
   Chunk* try_defragmenting(void* ptr, uint64_t size) const;

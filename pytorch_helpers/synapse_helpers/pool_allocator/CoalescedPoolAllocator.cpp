@@ -263,8 +263,8 @@ Chunk* StaticCoalescedPooling::get_free_chunk(uint64_t size) const {
     }
   }
   if (new_chunk) {
-    new_chunk->used = true;
     free_list.erase(new_chunk);
+    new_chunk->used = true;
     return new_chunk;
   }
   return nullptr;
@@ -489,24 +489,24 @@ void* StaticCoalescedPooling::pool_alloc_chunk(uint64_t size) const {
     auto defrag_chunk = try_defragmenting(p, size);
     if (defrag_chunk) {
       ++chunk_count;
-      defrag_chunk->used = true;
       /* remove from pool */
       auto it = free_list.find(defrag_chunk);
       if (it != free_list.end()) {
         free_list.erase(it);
       }
+      defrag_chunk->used = true;
       chunks[defrag_chunk->memptr] = defrag_chunk;
       return (void*)defrag_chunk->memptr;
     }
     auto split_chunk = try_block_splitting(size);
     if (split_chunk) {
       ++chunk_count;
-      split_chunk->used = true;
       /* remove from pool */
       auto it = free_list.find(split_chunk);
       if (it != free_list.end()) {
         free_list.erase(it);
       }
+      split_chunk->used = true;
       chunks[split_chunk->memptr] = split_chunk;
       return (void*)split_chunk->memptr;
     }
@@ -570,74 +570,6 @@ bool StaticCoalescedPooling::canMergeNextChunk(Chunk* chunk, uint64_t size)
       ((chunk->size + chunk->next->size) >= size));
 }
 
-Chunk* StaticCoalescedPooling::mergeNextChunk(Chunk* chunk) const {
-  if (!chunk->next)
-    return nullptr;
-
-  auto adj_chunk = chunk->next;
-  // check if current chunk and next chunk addresses are contigous
-  if (((chunk->memptr + chunk->size) != adj_chunk->memptr) ||
-      (chunk->next->used)) {
-    PT_SYNHELPER_DEBUG("POOL:: Next chunk is not contigous or free ");
-    return nullptr;
-  }
-
-  /* remove from pool*/
-  auto it = free_list.find(chunk);
-  if (it != free_list.end()) {
-    free_list.erase(it);
-  }
-  chunk->next = adj_chunk->next;
-
-  auto prevptr = chunk->prev ? chunk->prev->memptr : 0;
-  auto nextptr = chunk->next ? chunk->next->memptr : 0;
-  PT_SYNHELPER_DEBUG(
-      "POOL:: ***Merged - next** chunk :: ",
-      chunk->memptr,
-      " prev :: ",
-      prevptr,
-      " next :: ",
-      nextptr,
-      " merged with :: ",
-      adj_chunk->memptr);
-  PT_SYNHELPER_DEBUG(
-      "POOL:: ***Merged - next** chunk size :: ",
-      chunk->size + adj_chunk->size,
-      " old size :: ",
-      chunk->size);
-
-  // assuming device memory is contingous
-  chunk->size = chunk->size + adj_chunk->size;
-
-  /* remove old chuk from pool */
-  it = free_list.find(adj_chunk);
-  if (it != free_list.end()) {
-    free_list.erase(it);
-  }
-
-  /* insert merged chunk to the pool */
-  free_list.insert(chunk);
-  if (prealloc_pool->top == adj_chunk) {
-    // update top
-    prealloc_pool->top = chunk;
-  }
-
-  /* remove old chunk from chunks map*/
-  auto it1 = chunks.find(adj_chunk->memptr);
-  if (it1 != chunks.end()) {
-    chunks.erase(it1);
-  }
-  adj_chunk->used = false;
-  adj_chunk->extra_space = 0;
-  adj_chunk->size = 0;
-  adj_chunk->memptr = 0;
-  adj_chunk->next = nullptr;
-  adj_chunk->prev = nullptr;
-
-  delete adj_chunk;
-  return chunk;
-}
-
 bool StaticCoalescedPooling::canMergePreviousChunk(Chunk* chunk, uint64_t size)
     const {
   PT_SYNHELPER_DEBUG("POOL:: Next chunk is not contigous or free ", size);
@@ -647,168 +579,197 @@ bool StaticCoalescedPooling::canMergePreviousChunk(Chunk* chunk, uint64_t size)
       ((chunk->size + chunk->prev->size) >= size));
 }
 
-Chunk* StaticCoalescedPooling::mergePreviousChunk(Chunk* chunk) const {
-  auto adj_chunk = chunk->prev;
-
-  // check if current chunk and previous chunk addresses are contigous
-  if (((adj_chunk->memptr + adj_chunk->size) != chunk->memptr) ||
-      (chunk->prev->used)) {
-    PT_SYNHELPER_DEBUG("POOL:: Previous chunk is not contigous ");
-    return nullptr;
-  }
-
-  /* remove from pool*/
-  auto it = free_list.find(adj_chunk);
-  if (it != free_list.end()) {
-    free_list.erase(it);
-  }
-
-  if (prealloc_pool->top == chunk) {
-    // update top
-    prealloc_pool->top = adj_chunk;
-  }
-
-  // assuming device memory is contingous
-  adj_chunk->next = chunk->next;
-
-  auto prevptr = chunk->prev ? chunk->prev->memptr : 0;
-  auto nextptr = chunk->next ? chunk->next->memptr : 0;
-  PT_SYNHELPER_DEBUG(
-      "POOL:: ***Merged - previous** chunk :: ",
-      chunk->memptr,
-      " prev :: ",
-      prevptr,
-      " next :: ",
-      nextptr,
-      " merged with :: ",
-      adj_chunk->memptr);
-  PT_SYNHELPER_DEBUG(
-      "POOL:: ***Merged - previous** chunk size :: ",
-      chunk->size + adj_chunk->size,
-      " old size :: ",
-      chunk->size);
-
-  /* remove old chuk from pool */
-  it = free_list.find(chunk);
-  if (it != free_list.end()) {
-    free_list.erase(it);
-  }
-
-  adj_chunk->size = chunk->size + adj_chunk->size;
-
-  /* insert merged chunk to the pool */
-  free_list.insert(adj_chunk);
-
-  /* remove old chunk from chunks map*/
-  auto it1 = chunks.find(chunk->memptr);
-  if (it1 != chunks.end()) {
-    chunks.erase(it1);
-  }
-  chunk->used = false;
-  chunk->extra_space = 0;
-  chunk->size = 0;
-  chunk->memptr = 0;
-  chunk->next = nullptr;
-  chunk->prev = nullptr;
-
-  delete chunk;
-  return adj_chunk;
-}
-
-Chunk* StaticCoalescedPooling::try_coalescing_chunks(
-    Chunk* chunk,
-    uint64_t size) const {
-  if (canMergePreviousChunk(chunk, size)) {
-    // coalesce adjacent free chunks
-    chunk = mergePreviousChunk(chunk);
-    return chunk;
-  }
-  if (canMergeNextChunk(chunk, size)) {
-    // coalesce adjacent free chunks
-    chunk = mergeNextChunk(chunk);
-    return chunk;
-  }
-  if (chunk->prev && chunk->next) {
-    if (!chunk->prev->used && !chunk->next->used) {
-      // try merging the missed out chunks
-      // chunk = mergePreviousChunk(chunk);
-      chunk = mergeNextChunk(chunk);
-      return chunk;
-    }
-  }
-  return nullptr;
-}
-
-Chunk* StaticCoalescedPooling::create_chunk() const {
-  // create a chunk
-  Chunk* chunk = new Chunk();
-  if (!chunk) {
-    PT_SYNHELPER_DEBUG("POOL:: Cannot create a chunk");
-    return nullptr;
-  }
-  chunk->memptr = 0;
-  chunk->extra_space = 0;
-  chunk->size = 0;
-  chunk->used = false;
-  chunk->next = nullptr;
-  chunk->prev = nullptr;
-
-  return chunk;
-}
-
 Chunk* StaticCoalescedPooling::try_splitting_chunks(Chunk* chunk, uint64_t size)
     const {
-  uint64_t new_size;
-  if (size > chunk->size)
-    new_size = size - chunk->size;
-  else
-    new_size = chunk->size - size;
-
-  auto new_memptr = chunk->memptr + new_size;
   PT_SYNHELPER_DEBUG(
-      "try_splitting_chunks chunk size:: ", chunk, " of Size:: ", chunk->size);
-  PT_SYNHELPER_DEBUG(
-      "try_splitting_chunks new size:: ", new_size, " req Size:: ", size);
-  // TBD: ensure memory is contigous
-  if ((chunk->memptr + new_size) != new_memptr) {
-    PT_SYNHELPER_DEBUG("POOL:: split blocks not contigous");
+      "split chunk::",
+      chunk,
+      " Prev:: ",
+      (chunk->prev ? chunk->prev->memptr : 0),
+      " memptr:: ",
+      chunk->memptr,
+      " next:: ",
+      (chunk->next ? chunk->next->memptr : 0));
+  if (chunk->size < size) {
+    PT_SYNHELPER_DEBUG(
+        "POOL:: chunk cant be split, chunk is smaller. chunk size:: ",
+        chunk->size,
+        " split size:: ",
+        size);
     return nullptr;
   }
-  /* remove from pool list and insert it back as size changes */
+
+  // Delete the old chunk before modifying the size
   auto it = free_list.find(chunk);
   if (it != free_list.end()) {
     free_list.erase(it);
   }
-  /* create a new chunk */
-  Chunk* new_chunk = new Chunk(size, 0, false, chunk, chunk->next, new_memptr);
+  Chunk* new_chunk = new Chunk();
+  new_chunk->memptr = chunk->memptr + size;
+  new_chunk->size = chunk->size - size;
+  chunk->size = size;
+
+  new_chunk->used = false;
+
+  // maintain the prev and next pointers
+  // c1<->c2 ==> c1<->new_chunk<->c2
+  Chunk* next = chunk->next;
+  new_chunk->prev = chunk;
+  new_chunk->next = next;
+  chunk->next = new_chunk;
+  if (next) {
+    next->prev = new_chunk;
+  }
 
   if (prealloc_pool->top == chunk) {
     // update top
     prealloc_pool->top = new_chunk;
   }
-  chunk->next = new_chunk;
-  chunk->size = new_size;
 
   free_list.insert(chunk);
   free_list.insert(new_chunk);
   // insert new chunk to chunks
   chunks[new_chunk->memptr] = new_chunk;
-  return new_chunk;
+
+  PT_SYNHELPER_DEBUG(
+      "new chunk::",
+      new_chunk,
+      " prev:: ",
+      (new_chunk->prev ? new_chunk->prev->memptr : 0),
+      " mmeptr:: ",
+      new_chunk->memptr,
+      " next:: ",
+      (new_chunk->next ? new_chunk->next->memptr : 0));
+  PT_SYNHELPER_DEBUG(
+      "modified chunk::",
+      chunk,
+      " prev:: ",
+      (chunk->prev ? chunk->prev->memptr : 0),
+      " memptr:: ",
+      chunk->memptr,
+      " next::",
+      (chunk->next ? chunk->next->memptr : 0));
+  return chunk;
+}
+
+Chunk* StaticCoalescedPooling::merge(Chunk* c1, Chunk* c2) const {
+  PT_SYNHELPER_DEBUG(
+      "Merge C1::",
+      c1,
+      " prev:: ",
+      (c1->prev ? c1->prev->memptr : 0),
+      " memptr:: ",
+      c1->memptr,
+      " next:: ",
+      (c1->next ? c1->next->memptr : 0));
+  PT_SYNHELPER_DEBUG(
+      "Merge C2::",
+      c2,
+      " prev:: ",
+      (c2->prev ? c2->prev->memptr : 0),
+      " memptr:: ",
+      c2->memptr,
+      " next:: ",
+      (c2->next ? c2->next->memptr : 0));
+  if (c1->used || c2->used) {
+    PT_SYNHELPER_DEBUG(" Chunk is in use, cannot merge ");
+    return nullptr;
+  }
+
+  if (c2->prev != c1) {
+    PT_SYNHELPER_FATAL(
+        "Invalid c2 prev pointer prev->",
+        c2->prev->memptr,
+        " not equal to c1::",
+        c1->memptr);
+    return nullptr;
+  }
+  // check if c1 and c2 address are contigous(addtional check)
+  if ((c1->memptr + c1->size) != c2->memptr) {
+    PT_SYNHELPER_FATAL(
+        "c1 & c2 are not contigous c1->memptr:: ",
+        c1->memptr,
+        " c2-?memptr:",
+        c2->memptr);
+    return nullptr;
+  }
+
+  if (prealloc_pool->top == c2) {
+    // update top
+    prealloc_pool->top = c1;
+  }
+
+  auto it = free_list.find(c1);
+  if (it != free_list.end()) {
+    free_list.erase(it);
+  }
+  it = free_list.find(c2);
+  if (it != free_list.end()) {
+    free_list.erase(it);
+  }
+
+  // maint the prev & next pointers
+  // c1 previous will remain the same, merge c1 ->c2
+  // and change the next pointers
+  // c1<->c2<->c3 <=merge=> c1<->c3
+  Chunk* c3 = c2->next;
+  c1->next = c3;
+
+  if (c3)
+    c3->prev = c1;
+
+  c1->size += c2->size;
+
+  // Delete the c2 chunks
+  /* remove c2 from chunks map*/
+  auto it1 = chunks.find(c2->memptr);
+  if (it1 != chunks.end()) {
+    chunks.erase(it1);
+  }
+
+  // Delete c2
+  c2->used = false;
+  c2->extra_space = 0;
+  c2->size = 0;
+  c2->memptr = 0;
+  c2->next = nullptr;
+  c2->prev = nullptr;
+
+  free_list.insert(c1);
+
+  PT_SYNHELPER_DEBUG(
+      "Merged Chunk C1::",
+      c1,
+      " prev:: ",
+      (c1->prev ? c1->prev->memptr : 0),
+      " memptr:: ",
+      c1->memptr,
+      " next:: ",
+      (c1->next ? c1->next->memptr : 0));
+  return c1;
 }
 
 bool StaticCoalescedPooling::merge_chunks(
-    std::list<Chunk*>& chunks,
+    std::list<uint64_t> ptrs,
     bool merge_nxt,
     uint64_t size) const {
   bool isFreeBlockAvailble = false;
 
-  for (auto& chunk : chunks) {
+  for (auto& ptr : ptrs) {
+    auto it = chunks.find(ptr);
+    if (it == chunks.end()) // in some cases chunk would have been merged, so it
+                            // wont be in the map
+      continue;
+    Chunk* chunk = it->second;
     Chunk* new_chunk = nullptr;
     if (merge_nxt) {
-      new_chunk = mergeNextChunk(chunk);
+      if (chunk->next && !chunk->next->used)
+        new_chunk = merge(chunk, chunk->next);
     } else {
-      new_chunk = mergePreviousChunk(chunk);
+      if (chunk->prev && !chunk->prev->used)
+        new_chunk = merge(chunk->prev, chunk);
     }
+
     if (new_chunk && new_chunk->size >= size) {
       isFreeBlockAvailble = true;
       PT_SYNHELPER_DEBUG(
@@ -844,39 +805,51 @@ bool StaticCoalescedPooling::merge_chunks(
 bool StaticCoalescedPooling::pool_defragment(uint64_t size) const {
   bool isFreeBlockAvailble = false;
   PT_SYNHELPER_DEBUG("POOL:: Try to coalesce and split if needed");
-  std::list<Chunk*> cntgs_chunks;
+  std::list<uint64_t> to_merge;
   // check previous chunks
   for (auto& chunk : free_list) {
-    if (chunk->prev && !chunk->prev->used) {
+    if (canMergeNextChunk(chunk, size)) {
       // coalesce adjacent free chunks
-      cntgs_chunks.push_front(chunk);
+      to_merge.push_front(chunk->memptr);
     }
   }
-  isFreeBlockAvailble = merge_chunks(cntgs_chunks, false, size);
+  if (!to_merge.empty())
+    isFreeBlockAvailble = merge_chunks(to_merge, true, size);
 
   // check next chunks
   if (!isFreeBlockAvailble) {
-    cntgs_chunks.clear();
+    to_merge.clear();
     for (auto& chunk : free_list) {
-      if (chunk->next && !chunk->next->used) {
+      if (canMergePreviousChunk(chunk, size)) {
         // coalesce adjacent free chunks
-        cntgs_chunks.push_front(chunk);
+        to_merge.push_front(chunk->memptr);
       }
     }
-    isFreeBlockAvailble = merge_chunks(cntgs_chunks, true, size);
+    if (!to_merge.empty())
+      isFreeBlockAvailble = merge_chunks(to_merge, false, size);
   }
 
-  // try merge the left out chunks
+  // try merge the left out chunks irrespective of size
   if (!isFreeBlockAvailble) {
-    cntgs_chunks.clear();
+    to_merge.clear();
     for (auto& chunk : free_list) {
-      if (chunk->prev && chunk->next) {
-        if (!chunk->prev->used && !chunk->next->used) {
-          cntgs_chunks.push_front(chunk);
-        }
+      if (chunk->next && !chunk->next->used) {
+        to_merge.push_front(chunk->memptr);
       }
     }
-    isFreeBlockAvailble = merge_chunks(cntgs_chunks, true, size);
+    if (!to_merge.empty())
+      isFreeBlockAvailble = merge_chunks(to_merge, true, size);
+  }
+
+  if (!isFreeBlockAvailble) {
+    to_merge.clear();
+    for (auto& chunk : free_list) {
+      if (chunk->prev && !chunk->prev->used) {
+        to_merge.push_front(chunk->memptr);
+      }
+    }
+    if (!to_merge.empty())
+      isFreeBlockAvailble = merge_chunks(to_merge, false, size);
   }
 
   return isFreeBlockAvailble;
