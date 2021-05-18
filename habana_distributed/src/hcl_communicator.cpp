@@ -818,7 +818,7 @@ void hcl_communicator::synchronize_output(
     synapse_helpers::device_ptr output_address) {
   // Added to pipeline the lazy host copy operations after
   // communication collective is called.
-  if (using_streams_ && GET_ENV_FLAG(PT_ENABLE_SYNC_OUTPUT_HOST)) {
+  if (using_streams_ && GET_ENV_FLAG(PT_HPU_ENABLE_SYNC_OUTPUT_HOST)) {
     my_device_->wait_until_address_ready(output_address);
   } else {
     return;
