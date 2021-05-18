@@ -72,7 +72,7 @@ class HabanaSparseOptimizer(torch.optim.Optimizer):
             lr = args.learning_rate/args.world_size
         else:
             lr = args.learning_rate
-        self._lr = torch.tensor([lr]).to('habana')
+        self._lr = torch.tensor([lr]).to('hpu')
         # Temporary hack.  Didn't find a proper way to pass the parameters to Sparse Optimizer.
         # Added Optimizer to be part of the backward gradient itself for now.
         # Passing None as gradient so step() will skip the update.

@@ -57,8 +57,8 @@ TEST_F(LazyIndexKernelTest, Onehot) {
     return result.to("cpu");
   };
 
-  EXPECT_TRUE(allclose(onehot("cpu", 4), onehot("habana", 4)));
-  EXPECT_TRUE(allclose(onehot("cpu", -1), onehot("habana", -1)));
+  EXPECT_TRUE(allclose(onehot("cpu", 4), onehot("hpu", 4)));
+  EXPECT_TRUE(allclose(onehot("cpu", -1), onehot("hpu", -1)));
 }
 
 TEST_F(LazyIndexKernelTest, ScatterValueInplaceTest) {

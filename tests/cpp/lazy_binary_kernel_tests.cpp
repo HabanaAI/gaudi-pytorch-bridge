@@ -289,7 +289,7 @@ TEST_F(LazyBinaryKernelTest, AddSame) {
   auto c = torch::add(a, a, 1);
   auto out = torch::relu(c);
 
-  auto hb = b.to("habana");
+  auto hb = b.to("hpu");
   auto ha = torch::relu(hb);
   auto hout = torch::add(ha, ha, 1);
   auto hc = torch::relu(hout);
