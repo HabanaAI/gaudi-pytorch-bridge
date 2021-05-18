@@ -1234,28 +1234,30 @@ void HabanaLaunchOpPT::handleRestrideNode(torch::jit::Node* node) {
   HABANA_ASSERT(value_to_ivalue.find(value_in) != std::end(value_to_ivalue));
   HABANA_ASSERT(value_to_ivalue[value_in]->isTensor());
   auto tensor = value_to_ivalue[value_in]->toTensor();
-  auto sizes = tensor.sizes().vec();
-  auto new_pos = toIValue(node->input(1))->toIntVector();
-  std::vector<int64_t> swapped_sizes;
-  for (auto& pos : new_pos) {
-    swapped_sizes.emplace_back(sizes[pos]);
-  }
-  auto strides = tensor.strides().vec();
-  std::vector<long int> swapped_strides;
-  for (auto& pos : new_pos) {
-    swapped_strides.emplace_back(strides[pos]);
-  }
-  tensor.unsafeGetTensorImpl()->set_sizes_and_strides(
-      swapped_sizes, swapped_strides);
+  // for 0D and 1D tensors adjust sizes skipped
+  if (tensor.dim() > 1) {
+    auto sizes = tensor.sizes().vec();
+    auto new_pos = toIValue(node->input(1))->toIntVector();
+    std::vector<int64_t> swapped_sizes;
+    for (auto& pos : new_pos) {
+      swapped_sizes.emplace_back(sizes[pos]);
+    }
+    auto strides = tensor.strides().vec();
+    std::vector<long int> swapped_strides;
+    for (auto& pos : new_pos) {
+      swapped_strides.emplace_back(strides[pos]);
+    }
+    tensor.unsafeGetTensorImpl()->set_sizes_and_strides(
+        swapped_sizes, swapped_strides);
 
-  if (isInGraphOutputs(value_out)) {
-    tensor.unsafeGetTensorImpl()->empty_tensor_restride(
-        c10::MemoryFormat::ChannelsLast);
-  } else {
-    tensor.unsafeGetTensorImpl()->empty_tensor_restride(
-        c10::MemoryFormat::Contiguous);
+    if (isInGraphOutputs(value_out)) {
+      tensor.unsafeGetTensorImpl()->empty_tensor_restride(
+          c10::MemoryFormat::ChannelsLast);
+    } else {
+      tensor.unsafeGetTensorImpl()->empty_tensor_restride(
+          c10::MemoryFormat::Contiguous);
+    }
   }
-
   auto ivptrsh_updated = std::make_shared<IVal>(tensor);
   if (isInGraphOutputs(value_out)) {
     HABANA_ASSERT(value_to_ivalue.count(value_in));

@@ -63,11 +63,13 @@ void WeightIdentificationPass::markInputs(const torch::jit::Value* in) {
   if (nullptr == node) {
     return;
   }
-
-  for (auto& i : node->inputs()) {
-    if (isTensor(i) && !weightTensors.count(i)) {
-      weightTensors.insert(i);
-      markInputs(i);
+  std::string node_str = node->kind().toQualString();
+  if (0 == kernelWeightIdx.count(node_str)) {
+    for (auto& i : node->inputs()) {
+      if (isTensor(i) && !weightTensors.count(i)) {
+        weightTensors.insert(i);
+        markInputs(i);
+      }
     }
   }
 }
