@@ -258,6 +258,7 @@ class IndexOperator : public HabanaOperator {
             "gather_nd_mxnet_fwd_" +
             habana_helpers::name_suffix_from_type(scalarType)) {
     this->CreateSynContext(device_id);
+    kernel_meta_data_.changes_dims = true;
   }
 
   virtual void AllocateAndAddSynapseNode(

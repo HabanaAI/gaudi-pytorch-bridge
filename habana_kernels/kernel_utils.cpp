@@ -100,6 +100,12 @@ void habana_helpers::type_promotion_for_two_tensor_inputs(
   if (inputs[0].isTensor() && inputs[1].isTensor()) {
     auto tensor1 = inputs[0].toTensor();
     auto tensor2 = inputs[1].toTensor();
+    if ((tensor1.device().type() != c10::DeviceType::HABANA) ||
+        (tensor2.device().type() != c10::DeviceType::HABANA)) {
+      // Early return if one of the tensors is not on Habana device
+      // in such cases we will not try type promotion.
+      return;
+    }
     auto type1 = (tensor1.scalar_type() == c10::ScalarType::Long)
         ? c10::ScalarType::Int
         : tensor1.scalar_type();
@@ -147,7 +153,11 @@ std::vector<int64_t> habana_helpers::compute_broadcast_shape(
       // sizes do not match and none of the input sizes is 1 => sizes
       // inconsistent for broadcast
       TORCH_CHECK(
-          0, "Incompatible input shapes, broadcast not possible", sz1, sz2);
+          0,
+          "Incompatible input shapes, broadcast not possible. Tensor1 Size: ",
+          sz1,
+          " Tensor2 Size: ",
+          sz2);
     }
   }
 
