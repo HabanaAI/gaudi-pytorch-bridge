@@ -119,6 +119,7 @@ class HabanaLaunchOpPT {
   std::vector<PtTensorInfo> duplicate_outtinfos;
 
   size_t dma_input_idx{0};
+  size_t appended_index{0};
   size_t intermediate_index{0};
 
   // The persistent intermediates are stored in the following two vectors.
@@ -232,13 +233,9 @@ class HabanaLaunchOpPT {
       const HabanaOperatorPtr& habana_op,
       torch::jit::Node* node);
   void ProcessPersistentNodeOutput(
-      const torch::jit::Node* node,
-      const at::ArrayRef<ValPtr>& node_outputs,
-      const size_t output_idx,
-      const std::vector<at::Tensor>& output_pttensors,
-      const size_t output_tensor_idx,
-      const synapse_helpers::tensor& out_syntensor,
-      const IValPtrShared& ivpsh);
+      const IValPtrShared& ivpsh,
+      const ValPtr& vp,
+      const synapse_helpers::tensor& out_syntensor);
   void ProcessSynapseOutputs(
       const HabanaOperatorPtr& habana_op,
       torch::jit::Node* node);
@@ -275,5 +272,42 @@ class HabanaLaunchOpPT {
       torch::jit::Value* value_in,
       bool persistence = true);
   bool IsCustomOptimizer(std::string node_str);
+
+  // Patching related
+  void AddAtenIntermediate(
+      const IValPtrShared& ivpsh,
+      const std::string& syntensor_name,
+      const std::string& ir_name) {
+    const auto& pttensor = ivpsh->toTensor();
+    auto ti =
+        PtTensorInfo(pttensor, syntensor_name, ir_name, watch_tensor_flag_);
+    void* buffp = ti.get_buffer();
+    intermediate_tinfos.emplace_back(ti);
+    aten_intermediates.push_back(ivpsh->toTensor());
+    // We might have outputs that are duplicate of
+    // persistent intermediate tensors
+    buff_to_intermediate_ivpsh_map.emplace(buffp, ivpsh);
+  }
+
+  void AddAtenIntermediate(
+      const IValPtrShared& ivpsh,
+      const std::string& syntensor_name,
+      const ValPtr& vp) {
+    std::string ir_name = "%" + vp->debugName();
+    AddAtenIntermediate(ivpsh, syntensor_name, ir_name);
+  }
+
+  void UpdateOutputPatching(
+      const IValPtrShared& ivpsh,
+      const IValPtrShared& ivpsh_updated,
+      const ValPtr& vp) {
+    if (enable_tensor_release_ && ivpsh && output_tensorinfo_map.count(ivpsh)) {
+      auto a = output_tensorinfo_map.find(ivpsh);
+      auto ti = PtTensorInfo(
+          ivpsh_updated, a->second.get_syn_name(), vp, watch_tensor_flag_);
+      output_tensorinfo_map.erase(ivpsh);
+      output_tensorinfo_map.emplace(ivpsh_updated, ti);
+    }
+  }
 };
 } // namespace habana
