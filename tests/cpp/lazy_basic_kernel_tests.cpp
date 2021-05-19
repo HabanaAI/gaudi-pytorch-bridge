@@ -164,3 +164,16 @@ TEST_F(LazyBasicKernelTest, ControlEdge) {
 
   EXPECT_EQ(allclose(out, B), true);
 }
+TEST_F(LazyBasicKernelTest, asStridedOnlyGraph) {
+  setenv("PT_HPU_LOWER_AS_STRIDED", "1", 1);
+  torch::Tensor A = torch::randn({16});
+  auto hA = A.to(torch::kHABANA);
+  std::vector<int64_t> sz{4};
+  std::vector<int64_t> str{1};
+  c10::IntArrayRef sizes(sz.data(), sz.size());
+  c10::IntArrayRef strides(str.data(), str.size());
+  int64_t offset = 0;
+  auto hB = as_strided_hpu_lazy(hA, sizes, strides, offset);
+  Tensor out = hB.to(kCPU);
+  unsetenv("PT_HPU_LOWER_AS_STRIDED");
+}
