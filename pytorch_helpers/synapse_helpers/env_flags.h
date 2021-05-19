@@ -122,7 +122,7 @@ struct PT_USE_HCL_SYNC {
 };
 
 struct PT_HPU_USE_HCL_SYNC {
-  static constexpr bool default_value = true;
+  static constexpr bool default_value = false;
 };
 
 struct PT_USE_HCL_OPTS {
