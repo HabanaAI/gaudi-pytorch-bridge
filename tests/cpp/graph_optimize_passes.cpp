@@ -360,3 +360,33 @@ TEST_F(GraphOptimizeTest, RemoveInplaceOps_pass3) {
   Tensor Out = h_Out.to(kCPU);
   exec::OptPassCfg::GetInstance()->enable_replace_inplace_ops = false;
 }
+
+TEST_F(GraphOptimizeTest, PermutePassReshapeHandling) {
+  auto A = torch::randn({16});
+  auto B = torch::randn({2, 3, 16, 8});
+  auto wt = torch::randn({4, 4, 3, 16});
+  auto hA = A.to(torch::kHABANA);
+  auto hB = B.to(torch::kHABANA);
+  auto hwt = wt.to(torch::kHABANA);
+  auto hC = hA.reshape({1, -1, 1, 1});
+  auto hConv = torch::conv2d(hB, hwt, {}, 1, 0, 1, 1);
+  auto hRelu = hConv.relu();
+  auto hOut = hC * hRelu;
+  auto out = hOut.to(torch::kCPU);
+}
+
+TEST_F(GraphOptimizeTest, PermutePassIndexHandling) {
+  auto A = torch::randn({2, 13, 5});
+  auto B = torch::randn({2, 3, 16, 8});
+  auto wt = torch::randn({4, 4, 3, 16});
+  auto indices1 = torch::arange(2).to(torch::kHABANA);
+  auto indices2 = torch::arange(2).to(torch::kHABANA);
+  auto hA = A.to(torch::kHABANA);
+  auto hB = B.to(torch::kHABANA);
+  auto hwt = wt.to(torch::kHABANA);
+  auto hConv = torch::conv2d(hB, hwt, {}, 1, 0, 1, 1);
+  auto hRelu = hConv.relu();
+  auto hIndex = torch::index(hRelu, {indices1, indices2});
+  auto hOut = hA + hIndex;
+  auto out = hOut.to(torch::kCPU);
+}
