@@ -307,3 +307,82 @@ TEST_F(LazyBinaryKernelTest, PersistentAddSame) {
   auto hb = torch::relu(hout);
   EXPECT_TRUE(allclose(out, hb.to("cpu")));
 }
+
+TEST_F(LazyBinaryKernelTest, Pow) {
+  const std::vector<int64_t> dimentions{4, 5, 3};
+
+  torch::Tensor A = torch::randn(dimentions);
+  torch::Tensor B = torch::randn(dimentions);
+
+  Tensor expected = torch::pow(A, B);
+
+  auto hA = A.to(torch::kHABANA);
+  auto hB = B.to(torch::kHABANA);
+
+  auto result = torch::pow(hA, hB);
+
+  Tensor generated = result.to(kCPU);
+
+  double rtol = 1e-05; // NOLINT
+  double atol = 1e-08; // NOLINT
+
+  EXPECT_TRUE(at::allclose(expected, generated, rtol, atol, true));
+}
+
+TEST_F(LazyBinaryKernelTest, PowInplace) {
+  const std::vector<int64_t> dimentions{4, 5, 3};
+
+  torch::Tensor A = torch::randn(dimentions);
+  torch::Tensor B = torch::randn(dimentions);
+
+  auto hA = A.to(torch::kHABANA);
+  auto hB = B.to(torch::kHABANA);
+
+  A.pow_(B);
+  hA.pow_(hB);
+  Tensor generated = hA.to(kCPU);
+
+  double rtol = 1e-05; // NOLINT
+  double atol = 1e-08; // NOLINT
+  EXPECT_TRUE(at::allclose(A, generated, rtol, atol, true));
+}
+
+TEST_F(LazyBinaryKernelTest, PowTensorScalar) {
+  const std::vector<int64_t> dimentions{4, 5, 3};
+
+  torch::Tensor A = torch::randn(dimentions);
+  Scalar s = 3.27;
+
+  Tensor expected = torch::pow(A, s);
+
+  auto hA = A.to(torch::kHABANA);
+
+  auto result = torch::pow(hA, s);
+
+  Tensor generated = result.to(kCPU);
+
+  double rtol = 1e-05; // NOLINT
+  double atol = 1e-08; // NOLINT
+
+  EXPECT_TRUE(at::allclose(expected, generated, rtol, atol, true));
+}
+
+TEST_F(LazyBinaryKernelTest, PowTensorScalarInplace) {
+  const std::vector<int64_t> dimentions{4, 5, 3};
+
+  torch::Tensor A = torch::randn(dimentions);
+  Scalar s = 3.27;
+
+  auto hA = A.to(torch::kHABANA);
+
+  A.pow_(s);
+
+  hA.pow_(s);
+
+  Tensor generated = hA.to(kCPU);
+
+  double rtol = 1e-05; // NOLINT
+  double atol = 1e-08; // NOLINT
+
+  EXPECT_TRUE(at::allclose(A, generated, rtol, atol, true));
+}

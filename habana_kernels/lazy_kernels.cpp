@@ -1186,40 +1186,31 @@ Tensor& div_scalar_hpu_lazy_(Tensor& self, Scalar other) {
 }
 
 Tensor pow_tensor_tensor_hpu_lazy(const Tensor& self, const Tensor& other) {
-  HABANA_ASSERT(0);
-  return pow_tensor_tensor_hpu(self, other);
+  PT_LAZY_TRACE;
+  LazyBinaryOp<at::Tensor> k{
+      "aten::pow",
+      {self, other},
+      {},
+      {BinaryOperator::compute_output_shape(self, other)}};
+  return k.call();
 }
 
 Tensor& pow_tensor_tensor_hpu_lazy_(Tensor& self, const Tensor& other) {
-  HABANA_ASSERT(0);
-  return pow_tensor_tensor_hpu_(self, other);
+  PT_LAZY_TRACE;
+  LazyBinaryOp<Tensor&> k("aten::pow_", {self, other});
+  return k.call(self);
 }
 
 Tensor pow_tensor_scalar_hpu_lazy(const Tensor& self, Scalar other) {
   PT_LAZY_TRACE;
-  auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
-  auto hl_other = habana_lazy::GetIrValueForScalar(other);
-
-  auto node = habana_lazy::ir::Node::Create(
-      Symbol::fromQualString("aten::pow"), {hl_self.GetIrValue(), hl_other});
-  auto result = at::native::empty_hpu_lazy(
-      self.sizes(), self.options(), self.suggest_memory_format(), false);
-  auto hl_result = habana_lazy::GetHbLazyTensor(result);
-  habana_lazy::ir::Value& out = hl_result.CurrentIrValue();
-  out.m_index = 0;
-  out.SetNode(node);
-  // updatet the view if any
-  updateDstDependencies(hl_result, result);
-  std::vector<at::Tensor> input_pt_vec{self};
-  node->AddInputPtTensors(input_pt_vec);
-
-  flush_op(result);
-  return result;
+  LazyOp<at::Tensor> k{"aten::pow", {self, other}};
+  return k.call();
 }
 
 Tensor& pow_tensor_scalar_hpu_lazy_(Tensor& self, Scalar other) {
-  HABANA_ASSERT(0);
-  return pow_tensor_scalar_hpu_(self, other);
+  PT_LAZY_TRACE;
+  LazyOp<at::Tensor&> k{"aten::pow_", {self, other}};
+  return k.call(self);
 }
 
 Tensor pow_scalar_tensor_hpu_lazy(Scalar other, const Tensor& self) {

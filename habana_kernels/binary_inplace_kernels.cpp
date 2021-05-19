@@ -868,6 +868,12 @@ static auto& KernelRegistry =
                   device_id, node_type);
             })
         .add(
+            "aten::pow_",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<habana::PowInplaceOperator>(
+                  device_id, node_type);
+            })
+        .add(
             "aten::add_",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<habana::AddInplaceOperator>(
