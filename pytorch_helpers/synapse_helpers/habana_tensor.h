@@ -168,6 +168,10 @@ class tensor final {
     return memory_section_;
   }
 
+  uint64_t get_offset() const {
+    return offset_;
+  }
+
   std::string tensor_name_;
 
   friend std::ostream& operator<<(std::ostream& out, const tensor& rhs);

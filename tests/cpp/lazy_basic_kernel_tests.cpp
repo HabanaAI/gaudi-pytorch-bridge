@@ -114,6 +114,32 @@ TEST_F(LazyBasicKernelTest, DISABLED_ViewCopy) {
   EXPECT_EQ(allclose(hA.to(torch::kCPU), A), true);
   unsetenv("PT_HPU_LOWER_AS_STRIDED");
 }
+
+TEST_F(LazyBasicKernelTest, NarrowInplaceOffsets) {
+  setenv("PT_HPU_LOWER_AS_STRIDED", "1", 1);
+  torch::Tensor A = torch::randn({20});
+  torch::Tensor hA = A.to(torch::kHABANA);
+
+  // cpu
+  auto temp1 = A.narrow(0, 2, 5);
+  auto temp2 = A.narrow(0, 7, 11);
+
+  auto out1 = temp1.fill_(1.0);
+  auto out2 = temp2.fill_(2.0);
+
+  // hpu
+  auto htemp1 = hA.narrow(0, 2, 5);
+  auto htemp2 = hA.narrow(0, 7, 11);
+
+  auto hout1 = htemp1.fill_(1.0);
+  auto hout2 = htemp2.fill_(2.0);
+
+  HbLazyTensor::StepMarker({});
+
+  EXPECT_EQ(allclose(hA.cpu(), A), true);
+  unsetenv("PT_HPU_LOWER_AS_STRIDED");
+}
+
 TEST_F(LazyBasicKernelTest, ControlEdge) {
   // Inplace op as output node is not supported yet.
   torch::Tensor A = torch::randn({2, 3});

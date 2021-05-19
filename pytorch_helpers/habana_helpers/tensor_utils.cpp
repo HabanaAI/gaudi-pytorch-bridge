@@ -569,6 +569,7 @@ synapse_helpers::tensor habana_helpers::duplicate_tensor_in_memory_section(
       synapse_helpers::tensor_builder(tensor.shape(), tensor.type())
           .with_memory_section(tensor.memorysection())
           .mark_persistence(tensor.is_persistent())
+          .set_offset(tensor.get_offset())
           .build(
               synapse_helpers::HPURegistrar::get_device(tensor.device_id()),
               tensor.graph());
