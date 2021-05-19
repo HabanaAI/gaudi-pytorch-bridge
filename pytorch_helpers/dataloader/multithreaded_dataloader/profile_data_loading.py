@@ -1,3 +1,5 @@
+# Copyright (c) 2021, Habana Labs Ltd.  All rights reserved.
+
 import torch
 import torch.utils.data as torch_data
 import torchvision.transforms as transforms
@@ -32,7 +34,7 @@ def profile_dataloader(s, dataloader, dl_type, workers, num_iterations):
 
         if i >= num_iterations:
             break
-     
+
     print(f"Total time taken for {s} dataloader({dl_type}) with {workers} \
            workers for {num_iterations} iterations is = {t_sum} sec")
 
@@ -51,12 +53,12 @@ def profile_dataloader_for_resnet(dataset_path, workers, num_iterations, batch_s
 
     train_dir = pathlib.Path(dataset_path)
     train = datasets.ImageFolder(train_dir, transform)
-    
+
     torch_dataloader = torch.utils.data.DataLoader(train, batch_size=batch_size,
                                                    shuffle=True, num_workers=workers)
     habana_dataloader = habana_torch_dataloader.DataLoader(train, batch_size=batch_size,
                                                            shuffle=True, num_workers=workers)
-    
+
     if dl_worker_type == "MP" or dl_worker_type == "ALL":
         print("Running torch dataloader")
         profile_dataloader("torch", torch_dataloader, "MP", workers, num_iterations)

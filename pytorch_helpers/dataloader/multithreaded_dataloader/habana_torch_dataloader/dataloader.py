@@ -1,3 +1,5 @@
+# Copyright (c) 2021, Habana Labs Ltd.  All rights reserved.
+
 r"""Definition of the DataLoader and associated iterators that subclass _BaseDataLoaderIter
 
 To support these two classes, in `./_utils` we define many utility methods and
@@ -115,7 +117,7 @@ class DataLoader(Generic[T_co]):
             in advance by each worker. ``2`` means there will be a total of
             2 * num_workers samples prefetched across all workers. (default: ``2``)
         persistent_workers (bool, optional): If ``True``, the data loader will not shutdown
-            the worker processes after a dataset has been consumed once. This allows to 
+            the worker processes after a dataset has been consumed once. This allows to
             maintain the workers `Dataset` instances alive. (default: ``False``)
 
 
@@ -845,7 +847,7 @@ class _MultiProcessingDataLoaderIter(_BaseDataLoaderIter):
         # contains all `True`s if not using an iterable-style dataset
         # (i.e., if kind != Iterable).
         # Not that this indicates that a worker still has work to do *for this epoch*.
-        # It does not mean that a worker is dead. In case of `_persistent_workers`, 
+        # It does not mean that a worker is dead. In case of `_persistent_workers`,
         # the worker will be reset to available in the next epoch.
         self._workers_status = [True for i in range(self._num_workers)]
         # We resume the prefetching in case it was enabled

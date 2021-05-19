@@ -1,3 +1,5 @@
+# Copyright (c) 2021, Habana Labs Ltd.  All rights reserved.
+
 r""""Contains definitions of the methods used by the _BaseDataLoaderIter workers.
 
 These **needs** to be in global scope since Py2 doesn't support serializing

@@ -1,3 +1,5 @@
+# Copyright (c) 2021, Habana Labs Ltd.  All rights reserved.
+
 import setuptools
 
 setuptools.setup(

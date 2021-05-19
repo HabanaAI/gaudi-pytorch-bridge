@@ -1,3 +1,5 @@
+# Copyright (c) 2021, Habana Labs Ltd.  All rights reserved.
+
 import torch
 import torch.utils.data as torch_data
 import torchvision.transforms as transforms
