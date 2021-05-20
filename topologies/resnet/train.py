@@ -469,8 +469,10 @@ def main(args):
 
     if args.distributed:
         if args.device == 'hpu':
-            model = torch.nn.parallel.DistributedDataParallel(model, bucket_cap_mb=100, broadcast_buffers=False,
-                    first_bucket_cap_mb=100)
+            # To improve resnext101 dist performance, decrease number of all_reduce calls to 1 by increasing bucket size to 200
+            bucket_size_mb = 200 if 'resnext101' in args.model else 100
+            model = torch.nn.parallel.DistributedDataParallel(model, bucket_cap_mb=bucket_size_mb, broadcast_buffers=False,
+                    first_bucket_cap_mb=bucket_size_mb)
         else:
             model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
         model_without_ddp = model.module
