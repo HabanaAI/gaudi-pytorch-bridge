@@ -597,6 +597,9 @@ def parse_args():
                         choices = ["MT", "MP"], help='select multithreading or multiprocessing')
     parser.add_argument('-j', '--workers', default=8, type=int, metavar='N',
                         help='number of data loading workers (default: 8)')
+    parser.add_argument('--process-per-node', default=8, type=int, metavar='N',
+                        help='Number of process per node')
+    parser.add_argument('--hls_type', default='HLS1', help='Node type')
     parser.add_argument('--lr', default=0.1, type=float, help='initial learning rate')
     parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
                         help='momentum')

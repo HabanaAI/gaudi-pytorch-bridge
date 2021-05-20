@@ -8,7 +8,6 @@ import errno
 import os
 
 mpi_comm = None
-NUM_GAUDI_PERNODE=8
 
 class SmoothedValue(object):
     """Track a series of values and provide access to smoothed values over a
@@ -284,13 +283,9 @@ def init_distributed_mode(args):
             if size > 1:
                 args.rank = rank
                 args.world_size = size
-                if size > NUM_GAUDI_PERNODE:
-                    if os.getenv('MASTER_ADDR') is None or os.getenv('MASTER_PORT') is None:
-                        #Preferably MASTER_ADDR needs to be set to the IP which will have rank 0
-                        print("MASTER_ADDR or MASTER_PORT is not set !")
-                        exit(-1)
-                else:
+                if os.getenv('MASTER_ADDR') is None:
                     os.environ['MASTER_ADDR'] = 'localhost'
+                if os.getenv('MASTER_PORT') is None:
                     os.environ['MASTER_PORT'] = '12355'
             else:
                 print(msg)
@@ -311,9 +306,9 @@ def init_distributed_mode(args):
             print("HCL_CONFIG_PATH is not set")
             exit(0)
         args.dist_backend = 'hcl'
-        os.environ["ID"] = str(args.rank % NUM_GAUDI_PERNODE )
+        os.environ["ID"] = str(args.rank % args.process_per_node )
         #not used currently
-        os.environ["LOCAL_RANK"] = str(args.rank % NUM_GAUDI_PERNODE )
+        os.environ["LOCAL_RANK"] = str(args.rank % args.process_per_node )
         import habana_torch_hcl
         dist.init_process_group(args.dist_backend, rank=args.rank, world_size=args.world_size)
     else:
