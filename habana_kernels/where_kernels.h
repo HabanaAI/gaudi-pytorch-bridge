@@ -9,9 +9,7 @@
  */
 #pragma once
 #include "habana_kernels/habana_operator.h"
-using namespace habana;
-
-namespace pt_habana_ops {
+namespace habana {
 
 class WhereOperator : public HabanaOperator {
  public:
@@ -32,4 +30,4 @@ class WhereOperator : public HabanaOperator {
   void SetPTOutputs(torch::jit::Stack& inputs) override;
 };
 
-} // namespace pt_habana_ops
+} // namespace habana

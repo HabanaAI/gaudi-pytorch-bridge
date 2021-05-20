@@ -20,6 +20,7 @@
 #include "habana_kernels/binary_kernels.h"
 
 using namespace torch;
+using namespace habana;
 
 /***************************************************************************
  * @brief Kernel implementation for out = self.addcmul(tensor1, tensor2,alpha)

@@ -9,7 +9,7 @@
  */
 #pragma once
 #include "habana_kernels/habana_operator.h"
-using namespace habana;
+namespace habana {
 
 // Uniform Operator
 class UniformOperator : public HabanaOperator {
@@ -152,3 +152,4 @@ class RandpermOperator : public HabanaOperator {
     return DropoutOperator::populateSeedTensor;
   }
 };
+} // namespace habana

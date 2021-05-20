@@ -31,6 +31,7 @@
 #include "habana_kernels/tensor_shape_kernels.h"
 #include "habana_kernels/unary_kernels.h"
 using namespace torch;
+using namespace habana;
 /**********************************************************************
 *@brief Changes dimensions of the input tensor as per specified dimension.
 *This is done by adding dummy x1 dimensions. Eg: NC -> NCHW is done by

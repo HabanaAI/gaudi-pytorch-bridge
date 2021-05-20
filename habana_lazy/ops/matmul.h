@@ -20,7 +20,10 @@ namespace ir {
 class MatmulBwd : public Node {
  public:
   MatmulBwd() = delete;
-  MatmulBwd(const Tensor& grad_output, const Tensor& self, const Tensor& other)
+  MatmulBwd(
+      const at::Tensor& grad_output,
+      const at::Tensor& self,
+      const at::Tensor& other)
       : Node(c10::Symbol::fromQualString("aten::matmul_backward")) {
     auto hl_grad_output = GetOrCreateHbLazyTensor(grad_output, c10::kHABANA);
     AddInput(hl_grad_output.GetIrValue());

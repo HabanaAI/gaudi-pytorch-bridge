@@ -28,9 +28,9 @@ class LayerNormForward : public ir::Node {
   };
   LayerNormForward() = delete;
   LayerNormForward(
-      const Tensor& input,
-      const Tensor& weight,
-      const Tensor& bias,
+      const at::Tensor& input,
+      const at::Tensor& weight,
+      const at::Tensor& bias,
       int64_t m,
       int64_t n,
       double eps)
@@ -84,11 +84,11 @@ class LayerNormBackward : public ir::Node {
   };
   LayerNormBackward() = delete;
   LayerNormBackward(
-      const Tensor& dY,
-      const Tensor& X,
-      const Tensor& mean,
-      const Tensor& rstd,
-      const Tensor& gamma,
+      const at::Tensor& dY,
+      const at::Tensor& X,
+      const at::Tensor& mean,
+      const at::Tensor& rstd,
+      const at::Tensor& gamma,
       int64_t M,
       int64_t N,
       std::array<bool, 3> grad_input_mask)
@@ -149,11 +149,11 @@ class BatchNormForward : public ir::Node {
   };
   BatchNormForward() = delete;
   BatchNormForward(
-      const Tensor& input,
-      const Tensor& weight,
-      const Tensor& bias,
-      const Tensor& running_mean,
-      const Tensor& running_var,
+      const at::Tensor& input,
+      const at::Tensor& weight,
+      const at::Tensor& bias,
+      const at::Tensor& running_mean,
+      const at::Tensor& running_var,
       bool training,
       double momentum,
       double eps)
@@ -234,11 +234,11 @@ class BatchNormInf : public ir::Node {
   };
   BatchNormInf() = delete;
   BatchNormInf(
-      const Tensor& input,
-      const Tensor& weight,
-      const Tensor& bias,
-      const Tensor& running_mean,
-      const Tensor& running_var,
+      const at::Tensor& input,
+      const at::Tensor& weight,
+      const at::Tensor& bias,
+      const at::Tensor& running_mean,
+      const at::Tensor& running_var,
       bool training,
       double momentum,
       double eps)
@@ -310,7 +310,10 @@ class FusedNorm : public ir::Node {
     NORM_TYPE_INDEX = 2,
   };
   FusedNorm() = delete;
-  FusedNorm(std::vector<Tensor>& grad, const Tensor& max_norm, float norm_type)
+  FusedNorm(
+      std::vector<at::Tensor>& grad,
+      const at::Tensor& max_norm,
+      float norm_type)
       : Node(c10::Symbol::fromQualString("hpu::fused_norm")) {
     AddInputVec(grad);
 
@@ -329,7 +332,7 @@ class FusedNorm : public ir::Node {
   }
 
  private:
-  void AddInputVec(std::vector<Tensor>& tensor_list) {
+  void AddInputVec(std::vector<at::Tensor>& tensor_list) {
     ValueList hl_tensors;
     std::vector<at::Tensor> input_pt_vec;
     for (auto& t : tensor_list) {
@@ -358,13 +361,13 @@ class BatchNormBackward : public ir::Node {
   };
   BatchNormBackward() = delete;
   BatchNormBackward(
-      const Tensor& grad_out,
-      const Tensor& input,
-      const Tensor& weight,
-      UNUSED const Tensor& running_mean,
-      UNUSED const Tensor& running_var,
-      const Tensor& save_mean,
-      const Tensor& save_invstd,
+      const at::Tensor& grad_out,
+      const at::Tensor& input,
+      const at::Tensor& weight,
+      UNUSED const at::Tensor& running_mean,
+      UNUSED const at::Tensor& running_var,
+      const at::Tensor& save_mean,
+      const at::Tensor& save_invstd,
       bool train,
       double eps,
       UNUSED std::array<bool, 3> output_mask)

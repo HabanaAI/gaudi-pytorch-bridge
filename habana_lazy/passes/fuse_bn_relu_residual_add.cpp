@@ -14,6 +14,8 @@
 
 #include "fuse_bn_relu_residual_add.h"
 
+using namespace torch::jit;
+
 namespace habana_lazy {
 
 using Graph = torch::jit::Graph;

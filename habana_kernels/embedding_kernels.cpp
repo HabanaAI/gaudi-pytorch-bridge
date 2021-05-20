@@ -27,6 +27,7 @@
 #include "kernel_utils.h"
 
 using namespace torch;
+using namespace habana;
 
 void PadOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,

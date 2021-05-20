@@ -9,7 +9,7 @@
  */
 #pragma once
 #include "habana_kernels/habana_operator.h"
-using namespace habana;
+namespace habana {
 
 // Pool Operator
 //
@@ -198,3 +198,4 @@ class PoolHelper {
       const at::IntArrayRef output_size,
       bool is_input_nhwc);
 };
+} // namespace habana

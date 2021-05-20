@@ -31,7 +31,7 @@ namespace ir {
 class Cast : public Node {
  public:
   Cast() = delete;
-  Cast(const Tensor& self, const Tensor& src, bool non_blocking)
+  Cast(const at::Tensor& self, const at::Tensor& src, bool non_blocking)
       : Node(c10::Symbol::fromQualString("hpu::cast")) {
     auto hl_src = GetOrCreateHbLazyTensor(src, c10::kHABANA);
     auto ir_value_src = hl_src.GetIrValue();
@@ -53,7 +53,7 @@ class Cast : public Node {
 class Cast : public Node {
  public:
   Cast() = delete;
-  Cast(const Tensor& src, c10::ScalarType type, bool non_blocking)
+  Cast(const at::Tensor& src, c10::ScalarType type, bool non_blocking)
       : Node(c10::Symbol::fromQualString("hpu::cast")) {
     static_cast<void>(non_blocking);
     auto hl_src = GetOrCreateHbLazyTensor(src, c10::kHABANA);

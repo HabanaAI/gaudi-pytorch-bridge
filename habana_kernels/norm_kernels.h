@@ -9,7 +9,7 @@
  */
 #pragma once
 #include "habana_kernels/habana_operator.h"
-using namespace habana;
+namespace habana {
 
 class BatchNormForwardOperator : public habana::HabanaOperator {
  public:
@@ -326,7 +326,7 @@ class NormOperator : public HabanaOperator {
   static std::vector<int64_t> compute_output_shape(const at::Tensor& self);
   static std::vector<int64_t> compute_output_shape(
       const at::Tensor& self,
-      Scalar p);
+      at::Scalar p);
 };
 
 // LpNorm Operator
@@ -379,3 +379,4 @@ class FusedNormOperator : public HabanaOperator {
       torch::jit::Stack& inputs,
       std::vector<bool> is_output_persistent) override;
 };
+} // namespace habana

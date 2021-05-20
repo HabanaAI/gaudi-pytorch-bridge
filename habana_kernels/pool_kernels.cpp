@@ -26,6 +26,7 @@
 #include "habana_kernels/tensor_shape_kernels.h"
 
 using namespace torch;
+using namespace habana;
 
 namespace { // Copy paste from ATen/native/Pool.h
 template <typename dest_t, typename src_t>

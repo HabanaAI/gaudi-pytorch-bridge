@@ -21,7 +21,10 @@ class Clamp : public Node {
  public:
   enum class ClampIndex { kMinIdx = 1, kMaxIdx = 2 };
   Clamp() = delete;
-  Clamp(Tensor& self, c10::optional<Scalar> min, c10::optional<Scalar> max)
+  Clamp(
+      at::Tensor& self,
+      c10::optional<at::Scalar> min,
+      c10::optional<at::Scalar> max)
       : Node(c10::Symbol::fromQualString("aten::clamp_")) {
     auto hl_input = GetOrCreateHbLazyTensor(self, c10::kHABANA);
     AddInput(hl_input.GetIrValue());

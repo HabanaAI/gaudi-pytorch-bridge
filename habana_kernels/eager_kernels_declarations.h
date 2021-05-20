@@ -8,7 +8,6 @@
  ******************************************************************************
  */
 #pragma once
-#include "habana_kernels/unary_kernels.h"
 
 #include <ATen/ExpandUtils.h>
 #include <torch/script.h>
@@ -317,7 +316,7 @@ at::Tensor nll_loss_backward_hpu(
     const at::Tensor& weight,
     int64_t reduction,
     int64_t ignore_index,
-    UNUSED const at::Tensor& total_weight);
+    const at::Tensor& total_weight);
 at::Tensor mse_loss_forward_hpu(
     const at::Tensor& self,
     const at::Tensor& target,
@@ -613,15 +612,6 @@ std::tuple<at::Tensor, at::Tensor> sort_hpu(
     int64_t dim,
     bool descending);
 } // namespace habana
-at::Tensor unary_op_hpu(
-    const at::Tensor& input,
-    std::string& node_type,
-    UnaryOperator* Op);
-at::Tensor unary_backward_op_hpu(
-    const at::Tensor& grad_in,
-    const at::Tensor& input,
-    std::string& node_type,
-    UnaryBackwardOperator* Op);
 at::Tensor relu_hpu(const at::Tensor& input);
 at::Tensor& relu_hpu_(at::Tensor& self);
 at::Tensor sign_hpu(const at::Tensor& self);

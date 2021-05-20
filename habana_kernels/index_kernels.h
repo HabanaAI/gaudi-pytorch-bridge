@@ -9,8 +9,7 @@
  */
 #pragma once
 #include "habana_kernels/habana_operator.h"
-using namespace habana;
-using namespace torch;
+namespace habana {
 
 //
 // Gather2d Operator
@@ -49,15 +48,15 @@ class SliceOperator : public HabanaOperator {
 
   void SetPTOutputs(torch::jit::Stack& inputs) override;
 
-  Tensor AllocateOutputTensor(
-      const Tensor& self,
+  at::Tensor AllocateOutputTensor(
+      const at::Tensor& self,
       int64_t& dim,
       int64_t& start,
       int64_t& end,
       int64_t& step,
       bool is_output_persistent);
   static std::vector<int64_t> compute_output_shape(
-      const Tensor& self,
+      const at::Tensor& self,
       int64_t& dim,
       int64_t& start,
       int64_t& end,
@@ -98,7 +97,9 @@ class GatherOperator : public HabanaOperator {
   virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
 
  private:
-  Tensor AllocateOutput(torch::jit::Stack& inputs, bool is_output_persistent);
+  at::Tensor AllocateOutput(
+      torch::jit::Stack& inputs,
+      bool is_output_persistent);
 };
 
 // ScatterWrapperOperator Operator
@@ -125,7 +126,9 @@ class ScatterWrapperOperator : public HabanaOperator {
   void SetPTOutput(torch::jit::Stack& inputs) override;
 
  private:
-  Tensor AllocateOutput(torch::jit::Stack& inputs, bool is_output_persistent);
+  at::Tensor AllocateOutput(
+      torch::jit::Stack& inputs,
+      bool is_output_persistent);
 };
 
 // ScatterValueOperator Operator
@@ -168,7 +171,10 @@ class IndexSelectOperator : public GatherOperator {
   void SetPTOutputs(torch::jit::Stack& inputs) override;
 
  private:
-  Tensor AllocateOutputTensor(const Tensor& self, int64_t& dim, int64_t& index);
+  at::Tensor AllocateOutputTensor(
+      const at::Tensor& self,
+      int64_t& dim,
+      int64_t& index);
 };
 
 //
@@ -246,7 +252,10 @@ class ArangeOperator : public HabanaOperator {
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
 
-  static int GetOutputSize(Scalar start_, Scalar end_, Scalar step_);
+  static int GetOutputSize(
+      at::Scalar start_,
+      at::Scalar end_,
+      at::Scalar step_);
 
   void SetPTOutputs(torch::jit::Stack& inputs) override;
 };
@@ -267,7 +276,7 @@ class IndexOperator : public HabanaOperator {
       bool is_output_persistent = false) override;
 
   static std::vector<int64_t> compute_output_shape(
-      const Tensor& input,
+      const at::Tensor& input,
       at::TensorList indices);
 };
 
@@ -287,3 +296,4 @@ class UniqueOperator : public HabanaOperator {
 
   void SetPTOutputs(torch::jit::Stack& inputs) override;
 };
+} // namespace habana

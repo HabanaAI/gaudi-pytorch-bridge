@@ -67,6 +67,9 @@
 #include "pytorch_helpers/synapse_helpers/util.h"
 
 using namespace habana_lazy;
+using namespace habana;
+using namespace at;
+
 #define STRINGIFY(op_code) #op_code
 
 #define HPU_LAZY_FUNC_NAME(op_code) op_code##_hpu_lazy
@@ -5351,8 +5354,7 @@ std::tuple<at::Tensor, at::Tensor> max_dim_hpu_lazy(
       std::make_shared<habana_lazy::ir::MaxDim>(self, dim, keepdim);
 
   // Infer Output shape
-  auto shape_out =
-      pt_habana_ops::MaxDimOperator::compute_output_shape(self, dim, keepdim);
+  auto shape_out = MaxDimOperator::compute_output_shape(self, dim, keepdim);
 
   auto result = at::native::empty_hpu_lazy(
       shape_out, self.options(), self.suggest_memory_format(), false);
@@ -5386,7 +5388,7 @@ at::Tensor max_hpu_lazy(const at::Tensor& self) {
   node->AddInputPtTensors(input_pt_vec);
 
   // Infer Output shape
-  auto shape_out = pt_habana_ops::MaxOperator::compute_output_shape();
+  auto shape_out = MaxOperator::compute_output_shape();
 
   auto result = at::native::empty_hpu_lazy(
       shape_out, self.options(), self.suggest_memory_format(), false);

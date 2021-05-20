@@ -10,8 +10,7 @@
 #pragma once
 #include <torch/script.h>
 #include "habana_kernels/habana_operator.h"
-using namespace torch;
-using namespace habana;
+namespace habana {
 
 class OptimizerLambPhase1Operator : public HabanaOperator {
  public:
@@ -66,3 +65,4 @@ class OptNormFusedNormOperator : public HabanaOperator {
       torch::jit::Stack& inputs,
       bool is_output_persistent) override;
 };
+} // namespace habana

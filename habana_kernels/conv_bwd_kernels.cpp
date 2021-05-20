@@ -25,6 +25,7 @@
 #include "kernel_utils.h"
 
 using namespace torch;
+using namespace habana;
 
 extern synConvolutionParams synapse_conv_params_builder(
     const IntArrayRef& weight, // HWCK

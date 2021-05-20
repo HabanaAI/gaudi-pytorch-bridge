@@ -10,8 +10,7 @@
 #pragma once
 #include <torch/script.h>
 #include "habana_kernels/habana_operator.h"
-using namespace torch;
-using namespace habana;
+namespace habana {
 
 // OptimizerSparseSgd Operator
 class OptimizerSparseSgdOperator : public HabanaOperator {
@@ -152,3 +151,4 @@ class OptimizerFusedSGDMomentumOperator : public HabanaOperator {
       torch::jit::Stack& inputs,
       std::vector<bool> is_output_persistent) override;
 };
+} // namespace habana

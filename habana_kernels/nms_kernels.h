@@ -9,9 +9,8 @@
  */
 #pragma once
 #include "habana_kernels/habana_operator.h"
-using namespace habana;
+namespace habana {
 
-namespace pt_habana_ops {
 class FilterAndSqueezeOperator : public HabanaOperator {
  public:
   FilterAndSqueezeOperator(int device_id, const std::string& guid)
@@ -65,4 +64,4 @@ class HabanaNMSOperator : public HabanaOperator {
   void SetPTOutputs(torch::jit::Stack& inputs) override;
 };
 
-} // namespace pt_habana_ops
+} // namespace habana

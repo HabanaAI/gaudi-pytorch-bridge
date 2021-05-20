@@ -22,9 +22,9 @@ class OptimizerFusedAdagrad : public Node {
   enum class OptFusedAdaIndex { kwdIdx = 5, klrdIdx, kepsIdx };
   OptimizerFusedAdagrad() = delete;
   OptimizerFusedAdagrad(
-      const TensorList& gradients,
-      TensorList& weights,
-      TensorList& variances,
+      const at::TensorList& gradients,
+      at::TensorList& weights,
+      at::TensorList& variances,
       const at::Tensor& epoch_num,
       const at::Tensor& lr,
       const float wd,
@@ -63,7 +63,7 @@ class OptimizerFusedAdagrad : public Node {
   }
 
  private:
-  void AddInputVec(const TensorList& tensor_list) {
+  void AddInputVec(const at::TensorList& tensor_list) {
     ValueList hl_tensors;
     std::vector<at::Tensor> input_pt_vec;
     for (auto& t : tensor_list) {
@@ -88,10 +88,10 @@ class OptimizerFusedAdamw : public Node {
   };
   OptimizerFusedAdamw() = delete;
   OptimizerFusedAdamw(
-      const TensorList& gradients,
-      TensorList& weights,
-      TensorList& exp_avg,
-      TensorList& exp_avg_sq,
+      const at::TensorList& gradients,
+      at::TensorList& weights,
+      at::TensorList& exp_avg,
+      at::TensorList& exp_avg_sq,
       at::Tensor& lr_t,
       at::Tensor& neg_step_t,
       const float beta1,
@@ -142,7 +142,7 @@ class OptimizerFusedAdamw : public Node {
   }
 
  private:
-  void AddInputVec(const TensorList& tensor_list) {
+  void AddInputVec(const at::TensorList& tensor_list) {
     ValueList hl_tensors;
     std::vector<at::Tensor> input_pt_vec;
     for (auto& t : tensor_list) {
@@ -162,8 +162,8 @@ class OptimizerFusedSGD : public Node {
   enum class OptFusedSGDIndex { kwdIdx = 3, kmomIdx, kdampIdx, knesterovIdx };
   OptimizerFusedSGD() = delete;
   OptimizerFusedSGD(
-      const TensorList& gradients,
-      TensorList& weights,
+      const at::TensorList& gradients,
+      at::TensorList& weights,
       const at::Tensor& lr,
       const float wd,
       const float mom,
@@ -202,7 +202,7 @@ class OptimizerFusedSGD : public Node {
   }
 
  private:
-  void AddInputVec(const TensorList& tensor_list) {
+  void AddInputVec(const at::TensorList& tensor_list) {
     ValueList hl_tensors;
     std::vector<at::Tensor> input_pt_vec;
     for (auto& t : tensor_list) {
@@ -227,9 +227,9 @@ class OptimizerFusedSGDMomentum : public Node {
   };
   OptimizerFusedSGDMomentum() = delete;
   OptimizerFusedSGDMomentum(
-      const TensorList& gradients,
-      TensorList& weights,
-      TensorList& momentum,
+      const at::TensorList& gradients,
+      at::TensorList& weights,
+      at::TensorList& momentum,
       const at::Tensor& epoch_num,
       const at::Tensor& lr,
       const float wd,
@@ -279,7 +279,7 @@ class OptimizerFusedSGDMomentum : public Node {
   }
 
  private:
-  void AddInputVec(const TensorList& tensor_list) {
+  void AddInputVec(const at::TensorList& tensor_list) {
     ValueList hl_tensors;
     std::vector<at::Tensor> input_pt_vec;
     for (auto& t : tensor_list) {
@@ -303,7 +303,7 @@ class LambFusedNorm : public ir::Node {
   LambFusedNorm(
       const std::vector<at::Tensor>& grad,
       float max_grad_norm,
-      Tensor& clip_norm)
+      at::Tensor& clip_norm)
       : Node(c10::Symbol::fromQualString("hpu::habanaOptimizerLambFusedNorm")) {
     AddInputVec(grad);
 
@@ -325,7 +325,7 @@ class LambFusedNorm : public ir::Node {
   }
 
  private:
-  void AddInputVec(const std::vector<Tensor>& tensor_list) {
+  void AddInputVec(const std::vector<at::Tensor>& tensor_list) {
     ValueList hl_tensors;
     std::vector<at::Tensor> input_pt_vec;
     for (auto& t : tensor_list) {
@@ -430,7 +430,7 @@ class OptimizerFusedLambPhase1 : public Node {
   }
 
  private:
-  void AddInputVec(const std::vector<Tensor>& tensor_list) {
+  void AddInputVec(const std::vector<at::Tensor>& tensor_list) {
     ValueList hl_tensors;
     std::vector<at::Tensor> input_pt_vec;
     for (auto& t : tensor_list) {
@@ -502,7 +502,7 @@ class OptimizerFusedLambPhase2 : public Node {
   }
 
  private:
-  void AddInputVec(const std::vector<Tensor>& tensor_list) {
+  void AddInputVec(const std::vector<at::Tensor>& tensor_list) {
     ValueList hl_tensors;
     std::vector<at::Tensor> input_pt_vec;
     for (auto& t : tensor_list) {

@@ -25,6 +25,7 @@
 #include "habana_lazy/hlexec.h"
 
 using namespace torch;
+using namespace habana;
 
 void CatOutOperator::validate_tensor_dim_sizes(
     c10::List<at::Tensor> tensors,

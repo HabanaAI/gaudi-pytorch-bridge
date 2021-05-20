@@ -23,17 +23,11 @@
 #include "habana_kernels/index_kernels.h"
 #include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/random_gen_kernels.h"
+#include "habana_kernels/resize.h"
 #include "habana_kernels/simple_generic_kernel.h"
-//#include "habana_kernels/resize.h"
-
-// TBD: Resolve "habana" namespace conflict and remove this extern
-extern void THHTensor_resizeNd(
-    THTensor* self,
-    int nDimension,
-    const int64_t* size,
-    const int64_t* stride);
 
 using namespace torch;
+using namespace habana;
 
 uint32_t get_seed_hpu(c10::optional<Generator> gen) {
   CPUGeneratorImpl* generator = get_generator_or_default<CPUGeneratorImpl>(

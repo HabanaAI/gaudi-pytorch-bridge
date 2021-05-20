@@ -21,7 +21,7 @@ class Permute : public ir::Node {
  public:
   enum class PermuteIdx { kDimIdx = 1 };
   Permute() = delete;
-  Permute(const Tensor& self, IntArrayRef dims)
+  Permute(const at::Tensor& self, at::IntArrayRef dims)
       : Node(c10::Symbol::fromQualString("aten::permute")) {
     auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHABANA);
     AddInput(hl_self.GetIrValue());
@@ -44,7 +44,7 @@ class Expand : public ir::Node {
  public:
   enum class ExpandIdx { kDimIdx = 1, kImplicitIdx = 2 };
   Expand() = delete;
-  Expand(const Tensor& self, IntArrayRef dims, bool implicit)
+  Expand(const at::Tensor& self, at::IntArrayRef dims, bool implicit)
       : Node(c10::Symbol::fromQualString("aten::expand")) {
     auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHABANA);
     AddInput(hl_self.GetIrValue());
@@ -70,7 +70,7 @@ class Transpose : public ir::Node {
  public:
   enum class TransposeIdx { kDim0Idx = 1, kDim1Idx = 2 };
   Transpose() = delete;
-  Transpose(const Tensor& self, int64_t dim0, int64_t dim1)
+  Transpose(const at::Tensor& self, int64_t dim0, int64_t dim1)
       : Node(c10::Symbol::fromQualString("aten::transpose")) {
     auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHABANA);
     AddInput(hl_self.GetIrValue());
@@ -96,7 +96,7 @@ class PermuteCL : public ir::Node {
  public:
   enum class PermuteIdx { kDimIdx = 1 };
   PermuteCL() = delete;
-  PermuteCL(const Tensor& self, IntArrayRef dims)
+  PermuteCL(const at::Tensor& self, at::IntArrayRef dims)
       : Node(c10::Symbol::fromQualString("hpu::permute_cl")) {
     auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHABANA);
     AddInput(hl_self.GetIrValue());

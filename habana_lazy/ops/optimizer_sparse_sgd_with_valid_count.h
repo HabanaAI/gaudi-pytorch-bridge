@@ -22,12 +22,12 @@ class OptimizerSparseSgdValidCount : public Node {
   enum class OptSgdIndex { kMomIdx = 6, kNesterov };
   OptimizerSparseSgdValidCount() = delete;
   OptimizerSparseSgdValidCount(
-      const Tensor& gradients,
-      const Tensor& weights_in,
-      const Tensor& moments_in,
-      const Tensor& indices,
-      const Tensor& learning_rate,
-      const Tensor& valid_count_tensor,
+      const at::Tensor& gradients,
+      const at::Tensor& weights_in,
+      const at::Tensor& moments_in,
+      const at::Tensor& indices,
+      const at::Tensor& learning_rate,
+      const at::Tensor& valid_count_tensor,
       float mom,
       bool nesterov)
       : ir::Node(c10::Symbol::fromQualString("hpu::habanaOptimizerSparseSgd")) {

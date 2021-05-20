@@ -22,7 +22,7 @@
 #include "habana_kernels/where_kernels.h"
 
 using namespace torch;
-using namespace pt_habana_ops;
+using namespace habana;
 
 /************************************************************************
  * @brief This function implements synapse node addition for where function
@@ -69,7 +69,7 @@ void WhereOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   HabanaOperator::SetPTOutputs(v);
 }
 
-std::vector<int64_t> pt_habana_ops::WhereOperator::compute_output_shape(
+std::vector<int64_t> WhereOperator::compute_output_shape(
     const Tensor& condition,
     const Tensor& self,
     const Tensor& other) {
@@ -121,7 +121,7 @@ Tensor process_where_op(
       node_guid + "_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
 
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-  pt_habana_ops::WhereOperator Op(device_id, scalar_type);
+  WhereOperator Op(device_id, scalar_type);
 
   size_t key = Op.GetRecipeKey(node_type, stack);
 
@@ -172,6 +172,5 @@ Tensor where_tensor_hpu(
 static auto& KernelRegistry = ::habana::KernelRegistry().add(
     "aten::_s_where",
     [](const int device_id, c10::ScalarType node_type) {
-      return std::make_shared<pt_habana_ops::WhereOperator>(
-          device_id, node_type);
+      return std::make_shared<WhereOperator>(device_id, node_type);
     });

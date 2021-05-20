@@ -14,6 +14,8 @@
 
 #include "fuse_mm_transpose.h"
 
+using namespace torch::jit;
+
 namespace habana_lazy {
 
 using Graph = torch::jit::Graph;

@@ -18,6 +18,7 @@
 
 using namespace torch;
 using namespace at;
+using namespace habana;
 
 #define HPU_WRAP_OP(opcode) hpu_wrap::opcode
 #define HPU_LAZY_FUNC_NAME(op_code) op_code##_hpu_lazy

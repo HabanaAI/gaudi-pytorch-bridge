@@ -26,8 +26,8 @@ class Embedding_forward : public ir::Node {
   };
   Embedding_forward() = delete;
   Embedding_forward(
-      const Tensor& weight,
-      const Tensor& indices,
+      const at::Tensor& weight,
+      const at::Tensor& indices,
       int64_t padding_idx,
       bool scale_grad_by_freq,
       bool sparse)
@@ -71,8 +71,8 @@ class Embedding_backward : public ir::Node {
   };
   Embedding_backward() = delete;
   Embedding_backward(
-      const Tensor& grad,
-      const Tensor& indices,
+      const at::Tensor& grad,
+      const at::Tensor& indices,
       int64_t num_weights,
       int64_t padding_idx,
       bool scale_grad_by_freq)

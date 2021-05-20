@@ -20,7 +20,7 @@ enum class SumIndex { kDtypIdx = 1 };
 class Sum : public Node {
  public:
   Sum() = delete;
-  Sum(const Tensor& self, c10::optional<ScalarType> dtype)
+  Sum(const at::Tensor& self, c10::optional<at::ScalarType> dtype)
       : Node(c10::Symbol::fromQualString("aten::sum")) {
     auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHABANA);
     auto ir_value = hl_self.GetIrValue();
@@ -44,7 +44,7 @@ enum class ProdIndex { kDtypIdx = 1 };
 class Prod : public Node {
  public:
   Prod() = delete;
-  Prod(const Tensor& self, c10::optional<ScalarType> dtype)
+  Prod(const at::Tensor& self, c10::optional<at::ScalarType> dtype)
       : Node(c10::Symbol::fromQualString("aten::prod")) {
     auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHABANA);
     auto ir_value = hl_self.GetIrValue();
@@ -69,10 +69,10 @@ class SumDimIntList : public Node {
  public:
   SumDimIntList() = delete;
   SumDimIntList(
-      const Tensor& self,
-      IntArrayRef dim,
+      const at::Tensor& self,
+      at::IntArrayRef dim,
       bool keepdim,
-      c10::optional<ScalarType> dtype)
+      c10::optional<at::ScalarType> dtype)
       : Node(c10::Symbol::fromQualString("hpu::sum_dim_IntList")) {
     auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHABANA);
     auto ir_value = hl_self.GetIrValue();
@@ -104,10 +104,10 @@ class ProdDimInt : public Node {
  public:
   ProdDimInt() = delete;
   ProdDimInt(
-      const Tensor& self,
+      const at::Tensor& self,
       int64_t dim,
       bool keepdim,
-      c10::optional<ScalarType> dtype)
+      c10::optional<at::ScalarType> dtype)
       : Node(c10::Symbol::fromQualString("hpu::prod_dim_Int")) {
     auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHABANA);
     auto ir_value = hl_self.GetIrValue();
@@ -137,7 +137,7 @@ enum class ArgMaxIndex { kDimIdx = 1, kKeepdimIdx = 2 };
 class ArgMax : public Node {
  public:
   ArgMax() = delete;
-  ArgMax(const Tensor& self, c10::optional<int64_t> dim, bool keepdim)
+  ArgMax(const at::Tensor& self, c10::optional<int64_t> dim, bool keepdim)
       : Node(c10::Symbol::fromQualString("aten::argmax")) {
     auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHABANA);
     auto ir_value = hl_self.GetIrValue();
@@ -164,7 +164,7 @@ enum class AllDimIndex { kDimIdx = 1, kKeepdimIdx = 2 };
 class AllDim : public Node {
  public:
   AllDim() = delete;
-  AllDim(const Tensor& self, int64_t dim, bool keepdim)
+  AllDim(const at::Tensor& self, int64_t dim, bool keepdim)
       : Node(c10::Symbol::fromQualString("hpu::all_dim")) {
     auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHABANA);
     auto ir_value = hl_self.GetIrValue();
@@ -191,7 +191,7 @@ enum class MaxDimIndex { kDimIdx = 1, kKeepdimIdx = 2 };
 class MaxDim : public Node {
  public:
   MaxDim() = delete;
-  MaxDim(const Tensor& self, int64_t dim, bool keepdim)
+  MaxDim(const at::Tensor& self, int64_t dim, bool keepdim)
       : Node(c10::Symbol::fromQualString("hpu::max_dim")) {
     auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHABANA);
     auto ir_value = hl_self.GetIrValue();

@@ -9,9 +9,8 @@
  */
 #pragma once
 #include "habana_kernels/habana_operator.h"
-using namespace habana;
+namespace habana {
 
-namespace pt_habana_ops {
 /**
  * Base class for reduce operators such as Max, Min etc.
  * Should never be instantiated directly.
@@ -85,4 +84,4 @@ class MaxOperator : public HabanaOperator {
 
   std::vector<Reduce2Operator> ReduceOpList;
 };
-} // namespace pt_habana_ops
+} // namespace habana

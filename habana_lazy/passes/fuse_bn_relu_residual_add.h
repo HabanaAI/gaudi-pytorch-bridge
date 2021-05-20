@@ -13,6 +13,5 @@
 #include <torch/csrc/jit/ir/ir.h>
 
 namespace habana_lazy {
-using namespace torch::jit;
 void fuse_bn_relu(std::shared_ptr<torch::jit::Graph>& graph);
 }; // namespace habana_lazy

@@ -9,7 +9,7 @@
  */
 #pragma once
 #include "habana_kernels/habana_operator.h"
-using namespace habana;
+namespace habana {
 
 // Unary Operator
 class UnaryOperator : public HabanaOperator {
@@ -550,3 +550,4 @@ class Log2InplaceOperator : public UnaryInplaceOperator {
             device_id,
             "log2_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {}
 };
+} // namespace habana

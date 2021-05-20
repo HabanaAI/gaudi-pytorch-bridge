@@ -9,7 +9,7 @@
  */
 #pragma once
 #include "habana_kernels/habana_operator.h"
-using namespace habana;
+namespace habana {
 /**
  * @brief Class implementing Pytorch "convolution_overrideable"
  * operator for Habana device
@@ -69,3 +69,4 @@ class SpatialConvOperator : public habana::HabanaOperator {
       torch::jit::Stack& inputs,
       bool is_output_persistent = false);
 };
+} // namespace habana

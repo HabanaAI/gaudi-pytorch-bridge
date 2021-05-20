@@ -16,15 +16,9 @@
 #include "habana_helpers/tensor_utils.h"
 #include "habana_kernels/bitwise_kernels.h"
 #include "habana_kernels/kernel_utils.h"
-//#include "habana_kernels/resize.h"
+#include "habana_kernels/resize.h"
 
-// TBD: Resolve "habana" namespace conflict and remove this extern
-extern void THHTensor_resizeNd(
-    THTensor* self,
-    int nDimension,
-    const int64_t* size,
-    const int64_t* stride);
-
+using namespace habana;
 using namespace torch;
 
 std::vector<int64_t> BitwiseOutOperator::compute_output_shape(

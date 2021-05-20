@@ -17,30 +17,27 @@
 namespace habana_lazy {
 namespace ir {
 
-enum class LogSoftMaxParams {DIM_INDEX_FWD=1, HALF_TO_FLOAT};
+enum class LogSoftMaxParams { DIM_INDEX_FWD = 1, HALF_TO_FLOAT };
 
-struct LogSoftMax: public ir::Node {
+struct LogSoftMax : public ir::Node {
   LogSoftMax() = delete;
   LogSoftMax(
-    const at::Tensor &self,
-    const int64_t dim,
-    const bool half_to_float,
-    const string &aten_op)
-    : Node(c10::Symbol::fromQualString(aten_op)) {
-      auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
+      const at::Tensor& self,
+      const int64_t dim,
+      const bool half_to_float,
+      const at::string& aten_op)
+      : Node(c10::Symbol::fromQualString(aten_op)) {
+    auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
 
-      AddInput(hl_self.GetIrValue());
+    AddInput(hl_self.GetIrValue());
 
-      std::vector<at::Tensor> input_pt_vec{self};
-      AddInputPtTensors(input_pt_vec);
+    std::vector<at::Tensor> input_pt_vec{self};
+    AddInputPtTensors(input_pt_vec);
 
-      m_meta_data.set(
-        dim,
-        static_cast<size_t>(LogSoftMaxParams::DIM_INDEX_FWD));
-      m_meta_data.set(
-        half_to_float,
-        static_cast<size_t>(LogSoftMaxParams::HALF_TO_FLOAT));
-    }
+    m_meta_data.set(dim, static_cast<size_t>(LogSoftMaxParams::DIM_INDEX_FWD));
+    m_meta_data.set(
+        half_to_float, static_cast<size_t>(LogSoftMaxParams::HALF_TO_FLOAT));
+  }
 
   std::string ToString() const override {
     std::stringstream ss;
@@ -53,40 +50,37 @@ struct LogSoftMax: public ir::Node {
   }
 };
 
-struct LogSoftMaxBackward: public ir::Node {
+struct LogSoftMaxBackward : public ir::Node {
   LogSoftMaxBackward() = delete;
   LogSoftMaxBackward(
-    const at::Tensor &grad,
-    const at::Tensor &output,
-    int64_t dim,
-    const at::Tensor &input,
-    const string &aten_op)
-    : Node(c10::Symbol::fromQualString(aten_op)),
-    m_dim_index_bwd{2} {
-      auto hl_grad = habana_lazy::GetOrCreateHbLazyTensor(grad, c10::kHABANA);
-      auto hl_output = habana_lazy::GetOrCreateHbLazyTensor(
-        output,
-        c10::kHABANA);
-      auto hl_input = habana_lazy::GetOrCreateHbLazyTensor(input, c10::kHABANA);
+      const at::Tensor& grad,
+      const at::Tensor& output,
+      int64_t dim,
+      const at::Tensor& input,
+      const at::string& aten_op)
+      : Node(c10::Symbol::fromQualString(aten_op)), m_dim_index_bwd{2} {
+    auto hl_grad = habana_lazy::GetOrCreateHbLazyTensor(grad, c10::kHABANA);
+    auto hl_output = habana_lazy::GetOrCreateHbLazyTensor(output, c10::kHABANA);
+    auto hl_input = habana_lazy::GetOrCreateHbLazyTensor(input, c10::kHABANA);
 
-      AddInput(hl_grad.GetIrValue());
-      AddInput(hl_output.GetIrValue());
-      AddInput(hl_input.GetIrValue());
+    AddInput(hl_grad.GetIrValue());
+    AddInput(hl_output.GetIrValue());
+    AddInput(hl_input.GetIrValue());
 
-      std::vector<at::Tensor> input_pt_vec{grad, output, input};
-      AddInputPtTensors(input_pt_vec);
+    std::vector<at::Tensor> input_pt_vec{grad, output, input};
+    AddInputPtTensors(input_pt_vec);
 
-      m_meta_data.set(dim, m_dim_index_bwd);
-    }
+    m_meta_data.set(dim, m_dim_index_bwd);
+  }
 
   std::string ToString() const override {
     std::stringstream ss;
-    ss << Node::ToString()
-      << ", dim= " << m_meta_data.get(m_dim_index_bwd);
+    ss << Node::ToString() << ", dim= " << m_meta_data.get(m_dim_index_bwd);
     return ss.str();
   }
-  private:
-    const int m_dim_index_bwd;
+
+ private:
+  const int m_dim_index_bwd;
 };
-}
+} // namespace ir
 } // namespace habana_lazy

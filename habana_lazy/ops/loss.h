@@ -22,9 +22,9 @@ class NllLoss_forward : public ir::Node {
   enum class NllLossParams { WEIGHT_INDEX = 2, REDUCTION_INDEX, IGNORE_INDEX };
   NllLoss_forward() = delete;
   NllLoss_forward(
-      const Tensor& self,
-      const Tensor& target,
-      const Tensor& weight,
+      const at::Tensor& self,
+      const at::Tensor& target,
+      const at::Tensor& weight,
       int64_t reduction,
       int64_t ignore_index)
       : Node(c10::Symbol::fromQualString("aten::nll_loss_forward")) {
@@ -73,13 +73,13 @@ class NllLoss_backward : public ir::Node {
   };
   NllLoss_backward() = delete;
   NllLoss_backward(
-      const Tensor& grad_output,
-      const Tensor& self,
-      const Tensor& target,
-      const Tensor& weight,
+      const at::Tensor& grad_output,
+      const at::Tensor& self,
+      const at::Tensor& target,
+      const at::Tensor& weight,
       int64_t reduction,
       int64_t ignore_index,
-      UNUSED const Tensor& total_weight)
+      const at::Tensor& total_weight)
       : Node(c10::Symbol::fromQualString("aten::nll_loss_backward")) {
     auto hl_grad_output = GetOrCreateHbLazyTensor(grad_output, c10::kHABANA);
     AddInput(hl_grad_output.GetIrValue());
@@ -133,9 +133,9 @@ class BceLoss_forward : public ir::Node {
   enum class BceLossParams { WEIGHT_INDEX = 2, REDUCTION_INDEX };
   BceLoss_forward() = delete;
   BceLoss_forward(
-      const Tensor& self,
-      const Tensor& target,
-      const Tensor& weight,
+      const at::Tensor& self,
+      const at::Tensor& target,
+      const at::Tensor& weight,
       int64_t reduction)
       : Node(c10::Symbol::fromQualString("aten::binary_cross_entropy")) {
     auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHABANA);
@@ -174,10 +174,10 @@ class BceLoss_backward : public ir::Node {
   enum class BceLossParams { WEIGHT_INDEX = 3, REDUCTION_INDEX };
   BceLoss_backward() = delete;
   BceLoss_backward(
-      const Tensor& grad_output,
-      const Tensor& self,
-      const Tensor& target,
-      const Tensor& weight,
+      const at::Tensor& grad_output,
+      const at::Tensor& self,
+      const at::Tensor& target,
+      const at::Tensor& weight,
       int64_t reduction)
       : Node(c10::Symbol::fromQualString(
             "aten::binary_cross_entropy_backward")) {
@@ -224,10 +224,10 @@ class BceLogitsLoss_forward : public ir::Node {
   };
   BceLogitsLoss_forward() = delete;
   BceLogitsLoss_forward(
-      const Tensor& self,
-      const Tensor& target,
-      const c10::optional<Tensor>& weight,
-      const c10::optional<Tensor>& pos_weight,
+      const at::Tensor& self,
+      const at::Tensor& target,
+      const c10::optional<at::Tensor>& weight,
+      const c10::optional<at::Tensor>& pos_weight,
       int64_t reduction)
       : Node(c10::Symbol::fromQualString(
             "aten::binary_cross_entropy_with_logits")) {

@@ -29,6 +29,7 @@
 #include "habana_kernels/tensor_shape_kernels.h"
 
 using namespace torch;
+using namespace habana;
 
 /*************************************************************************
  * @brief This helper function makes the size of index tensor to be same as

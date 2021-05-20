@@ -77,7 +77,7 @@ struct Slice : public ir::Node {
 struct IndexSelect : public ir::Node {
   enum class IndexSelectParams { DIM_INDEX = 1 };
   IndexSelect() = delete;
-  IndexSelect(const at::Tensor& self, int64_t dim, const Tensor& index)
+  IndexSelect(const at::Tensor& self, int64_t dim, const at::Tensor& index)
       : Node(c10::Symbol::fromQualString("aten::index_select")) {
     auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
     auto hl_index = habana_lazy::GetOrCreateHbLazyTensor(index, c10::kHABANA);
@@ -103,8 +103,8 @@ struct IndexAdd_ : public ir::Node {
   IndexAdd_(
       at::Tensor& self,
       int64_t dim,
-      const Tensor& index,
-      const Tensor& source)
+      const at::Tensor& index,
+      const at::Tensor& source)
       : Node(c10::Symbol::fromQualString("aten::index_add")) {
     auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
     auto hl_index = habana_lazy::GetOrCreateHbLazyTensor(index, c10::kHABANA);
@@ -129,7 +129,11 @@ struct IndexAdd_ : public ir::Node {
 struct ScatterValue : public ir::Node {
   enum class ScatterValue_Params { DIM_INDEX = 1 };
   ScatterValue() = delete;
-  ScatterValue(at::Tensor& self, int64_t dim, const Tensor& index, Scalar value)
+  ScatterValue(
+      at::Tensor& self,
+      int64_t dim,
+      const at::Tensor& index,
+      at::Scalar value)
       : Node(c10::Symbol::fromQualString("hpu::scatter_value")) {
     auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
     auto hl_index = habana_lazy::GetOrCreateHbLazyTensor(index, c10::kHABANA);

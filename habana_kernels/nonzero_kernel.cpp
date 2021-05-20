@@ -28,6 +28,9 @@
 #include "habana_kernels/nonzero_kernel.h"
 #include "habana_kernels/simple_generic_kernel.h"
 
+using namespace torch;
+using namespace habana;
+
 void NonZeroOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   TORCH_CHECK(
       inputs.size() == 1,

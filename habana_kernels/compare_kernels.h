@@ -10,8 +10,8 @@
 #pragma once
 #include "habana_helpers/tensor_utils.h"
 #include "habana_kernels/habana_operator.h"
-using namespace torch;
 
+namespace habana {
 class CompareOutOperator : public habana::HabanaOperator {
  public:
   CompareOutOperator(
@@ -69,8 +69,8 @@ class CompareWrapperOperator : public CompareOutWrapperOperator {
   void SetPTOutputs(torch::jit::Stack& inputs);
 
   static std::vector<int64_t> compute_output_shape(
-      const Tensor& arg1,
-      const Tensor& arg2);
+      const at::Tensor& arg1,
+      const at::Tensor& arg2);
 };
 
 class GtOperator : public CompareWrapperOperator {
@@ -119,3 +119,4 @@ class GeOperator : public CompareWrapperOperator {
             "greater_equal_fwd_" +
                 habana_helpers::name_suffix_from_type(scalarType)) {}
 };
+} // namespace habana

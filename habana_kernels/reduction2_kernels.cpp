@@ -25,7 +25,7 @@
 #include "habana_kernels/tensor_shape_kernels.h"
 
 using namespace torch;
-using namespace pt_habana_ops;
+using namespace habana;
 
 void Reduce2Operator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,

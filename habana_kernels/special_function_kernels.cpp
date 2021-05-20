@@ -25,6 +25,7 @@
 
 using namespace torch;
 using namespace torch::jit;
+using namespace habana;
 
 void SpecialFunctionFwdOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,

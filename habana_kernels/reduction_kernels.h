@@ -9,7 +9,7 @@
  */
 #pragma once
 #include "habana_kernels/habana_operator.h"
-using namespace habana;
+namespace habana {
 
 /**
  * Base class for reduce operators such as Mean, Sum etc.
@@ -288,3 +288,4 @@ class ArgMaxOperator : public ReduceOperator {
 
   virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
 };
+} // namespace habana

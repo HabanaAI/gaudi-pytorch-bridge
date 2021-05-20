@@ -22,7 +22,7 @@ class UpsampleNearest2d : public Node {
  public:
   UpsampleNearest2d() = delete;
   UpsampleNearest2d(
-      const Tensor& input,
+      const at::Tensor& input,
       c10::optional<at::IntArrayRef> output_size,
       c10::optional<at::ArrayRef<double>> scale_factors)
       : Node(c10::Symbol::fromQualString("aten::upsample_nearest2d")) {
@@ -63,7 +63,7 @@ class UpsampleNearest2dBackward : public Node {
  public:
   UpsampleNearest2dBackward() = delete;
   UpsampleNearest2dBackward(
-      const Tensor& grad_output,
+      const at::Tensor& grad_output,
       c10::optional<at::IntArrayRef> output_size,
       at::IntArrayRef input_size,
       c10::optional<at::ArrayRef<double>> scale_factors)

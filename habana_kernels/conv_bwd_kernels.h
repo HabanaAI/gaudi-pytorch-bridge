@@ -9,7 +9,7 @@
  */
 #pragma once
 #include "habana_kernels/habana_operator.h"
-using namespace habana;
+namespace habana {
 
 /**
  * @brief Class implementing Pytorch "convolution_backward_overrideable"
@@ -83,3 +83,4 @@ class ConvWeightDifferentiationOperator : public HabanaOperator {
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
 };
+} // namespace habana

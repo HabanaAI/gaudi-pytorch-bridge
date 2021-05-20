@@ -9,8 +9,7 @@
  */
 #pragma once
 #include "habana_kernels/habana_operator.h"
-using namespace habana;
-using namespace torch;
+namespace habana {
 
 // NonZero Operator
 class NonZeroOperator : public HabanaOperator {
@@ -29,3 +28,4 @@ class NonZeroOperator : public HabanaOperator {
 
   void SetPTOutputs(torch::jit::Stack& inputs) override;
 };
+} // namespace habana

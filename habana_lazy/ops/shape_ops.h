@@ -27,7 +27,7 @@ class View : public ir::Node {
     EPS_INDEX
   };
   View() = delete;
-  View(const Tensor& self, IntArrayRef size)
+  View(const at::Tensor& self, at::IntArrayRef size)
       : Node(c10::Symbol::fromQualString("aten::view")) {
     auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
     AddInput(hl_self.GetIrValue());
@@ -51,9 +51,9 @@ class AsStrided : public ir::Node {
   enum class AsStridedMeta { SIZE_INDEX = 1, STRIDE_INDEX = 2, STORAGE_OFFSET };
   AsStrided() = delete;
   AsStrided(
-      const Tensor& self,
-      IntArrayRef size,
-      IntArrayRef stride,
+      const at::Tensor& self,
+      at::IntArrayRef size,
+      at::IntArrayRef stride,
       int64_t storage_offset)
       : Node(c10::Symbol::fromQualString("hpu::as_strided_lazy_")) {
     auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);

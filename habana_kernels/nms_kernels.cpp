@@ -21,7 +21,7 @@
 #include "habana_kernels/topk_kernels.h"
 
 using namespace torch;
-using namespace pt_habana_ops;
+using namespace habana;
 
 void FilterAndSqueezeOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,

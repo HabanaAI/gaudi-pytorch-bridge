@@ -29,6 +29,7 @@
 #include "habana_lazy/passes/transform_graph.h"
 
 using namespace torch;
+using namespace habana;
 // TODO: DimMask = TensorIterator::DimMask
 using DimMask = std::bitset<64>;
 

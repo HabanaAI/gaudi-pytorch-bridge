@@ -10,7 +10,7 @@
 #pragma once
 #include "habana_kernels/habana_operator.h"
 
-using namespace habana;
+namespace habana {
 // Special Operator
 class SpecialFunctionOperator : public HabanaOperator {
  public:
@@ -64,3 +64,4 @@ class SpecialFunctionFwdOperator : public SpecialFunctionOperator {
  private:
   bool m_inplace;
 };
+} // namespace habana
