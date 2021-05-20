@@ -11,12 +11,10 @@
 #include <memory>
 #include <sstream>
 
-namespace at {
 namespace habana {
-namespace detail {
 
 static bool init() {
-  at::detail::HABANAGuardImpl device_guard;
+  HABANAGuardImpl device_guard;
   try {
     device_guard.getDevice();
     return true;
@@ -42,8 +40,8 @@ int64_t HabanaHooks::current_device() const {
   return id;
 }
 
-Allocator* HabanaHooks::getPinnedMemoryAllocator() const {
-  return at::habana::getPinnedMemoryAllocator();
+at::Allocator* HabanaHooks::getPinnedMemoryAllocator() const {
+  return habana::getPinnedMemoryAllocator();
 }
 
 int HabanaHooks::getNumGPUs() const {
@@ -62,6 +60,4 @@ using at::RegistererHabanaHooksRegistry;
 
 REGISTER_HABANA_HOOKS(HabanaHooks);
 
-} // namespace detail
 } // namespace habana
-} // namespace at

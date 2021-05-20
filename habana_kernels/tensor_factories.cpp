@@ -58,7 +58,7 @@ Tensor empty_hpu(
   if (options.pinned_memory()) {
     TORCH_CHECK(false, "habana allocator doesn't supported pinned memory");
   } else {
-    allocator = at::habana::getHABANADeviceAllocator();
+    allocator = habana::getHABANADeviceAllocator();
   }
 
   int64_t nelements = prod_intlist(size);

@@ -250,7 +250,7 @@ Tensor& set_hpu_(
         THStorage* storage = c10::make_intrusive<at::StorageImpl>(
                                  c10::StorageImpl::use_byte_size_t(),
                                  0,
-                                 at::habana::getHABANADeviceAllocator(),
+                                 habana::getHABANADeviceAllocator(),
                                  true)
                                  .release();
         return storage;

@@ -16,7 +16,6 @@
 
 typedef bool (*pgmDropCachedRecipe)(size_t& recipe_count);
 
-namespace at {
 namespace habana {
 
 at::Allocator* getHABANADeviceAllocator();
@@ -56,4 +55,3 @@ class HPUDeviceAllocator final : public at::Allocator {
 };
 
 } // namespace habana
-} // namespace at

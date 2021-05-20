@@ -11,7 +11,6 @@
 #include "HPUCheck.h"
 #include "hpu_cached_devices.h"
 
-namespace at {
 namespace habana {
 synDeviceId PinnedMemoryAllocator::allocator_active_device_id = -1;
 
@@ -44,7 +43,11 @@ at::DataPtr PinnedMemoryAllocator::allocate(size_t size) const {
     TORCH_HABANA_CHECK(
         status, "synHostMalloc failed to allocate ", size, " bytes");
   }
-  return {ptr, ptr, &PinnedMemoryAllocator::deleter, Device(DeviceType::CPU)};
+  return {
+      ptr,
+      ptr,
+      &PinnedMemoryAllocator::deleter,
+      at::Device(at::DeviceType::CPU)};
 }
 
 at::DeleterFnPtr PinnedMemoryAllocator::raw_deleter() const {
@@ -52,4 +55,3 @@ at::DeleterFnPtr PinnedMemoryAllocator::raw_deleter() const {
 }
 
 } // namespace habana
-} // namespace at

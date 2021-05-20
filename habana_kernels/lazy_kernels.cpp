@@ -455,7 +455,7 @@ Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src, bool non_blocking) {
     auto isStorageAttached = self_hb_tensor.isStorageAttached();
     if (!isStorageAttached) {
       c10 ::Allocator* allocator;
-      allocator = at::habana::getHABANADeviceAllocator();
+      allocator = habana::getHABANADeviceAllocator();
       int64_t nelements = prod_intlist(self.sizes());
       int elem_size = self.dtype().itemsize();
       auto storage_impl = c10::make_intrusive<StorageImpl>(

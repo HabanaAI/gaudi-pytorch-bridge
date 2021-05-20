@@ -391,7 +391,7 @@ void habana_helpers::copy_scalar_to_host(
     void* dst_ptr,
     uint32_t size) {
   std::atomic<bool> copyDone{false};
-  bool is_pinned = at::habana::PinnedMemoryAllocator_is_pinned(src.data_ptr());
+  bool is_pinned = habana::PinnedMemoryAllocator_is_pinned(src.data_ptr());
 
   auto syn_error =
       synapse_helpers::HPURegistrar::get_device(src.device().index())
@@ -728,7 +728,7 @@ void habana_helpers::copy_data_to_host(
     bool non_blocking) {
   size_t device_id = src.device().index();
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-  bool is_pinned = at::habana::PinnedMemoryAllocator_is_pinned(dst.data_ptr());
+  bool is_pinned = habana::PinnedMemoryAllocator_is_pinned(dst.data_ptr());
   if (src.nbytes() == 0) {
     return;
   }
@@ -777,7 +777,7 @@ void habana_helpers::copy_data_to_device(
     bool non_blocking) {
   auto device_id = dst.device().index();
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-  bool is_pinned = at::habana::PinnedMemoryAllocator_is_pinned(src.data_ptr());
+  bool is_pinned = habana::PinnedMemoryAllocator_is_pinned(src.data_ptr());
 
   if (src.nbytes() == 0) {
     return;

@@ -123,9 +123,8 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
   }
 
   if (caching_policy == PGMCachingPolicy::lru &&
-      !at::habana::HPUDeviceAllocator::drop_cached_recipe_cb) {
-    at::habana::HPUDeviceAllocator::drop_cached_recipe_cb =
-        dropCachedRecipe_LRU;
+      !HPUDeviceAllocator::drop_cached_recipe_cb) {
+    HPUDeviceAllocator::drop_cached_recipe_cb = dropCachedRecipe_LRU;
   }
 
   valptr_to_persistent_map = {};

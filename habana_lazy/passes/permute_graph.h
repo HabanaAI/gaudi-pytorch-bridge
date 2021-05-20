@@ -14,7 +14,6 @@
 #include "habana_kernels/habana_operator.h"
 
 namespace habana_lazy {
-using namespace torch::jit;
 void InsertPermute_graph(
     std::shared_ptr<torch::jit::Graph>& graph,
     torch::jit::Stack& stack);
@@ -28,7 +27,7 @@ class WeightIdentificationPass {
  public:
   WeightIdentificationPass() {}
 
-  void markWeightTensors(std::shared_ptr<Graph>& graph);
+  void markWeightTensors(std::shared_ptr<torch::jit::Graph>& graph);
 
   std::unordered_set<const torch::jit::Value*> getWeightTensors() const {
     return weightTensors;

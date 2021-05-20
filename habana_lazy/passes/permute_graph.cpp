@@ -11,7 +11,7 @@
 #include "habana_bridge/kernel/hpu_habana_launch_op_pt.h"
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
-
+using namespace torch::jit;
 namespace habana_lazy {
 
 bool IsNodeLayoutAgnostic(const Node* node) {

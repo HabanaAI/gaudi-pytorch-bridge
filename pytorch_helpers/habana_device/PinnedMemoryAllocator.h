@@ -13,7 +13,6 @@
 #include <synapse_api_types.h>
 #include <synapse_helpers/device.h>
 
-namespace at {
 namespace habana {
 
 at::Allocator* getPinnedMemoryAllocator();
@@ -32,4 +31,3 @@ class PinnedMemoryAllocator final : public at::Allocator {
 };
 
 } // namespace habana
-} // namespace at

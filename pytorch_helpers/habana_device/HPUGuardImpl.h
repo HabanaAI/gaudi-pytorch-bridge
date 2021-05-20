@@ -20,19 +20,17 @@
 #include "habana_helpers/unused_macro.h"
 #include "hpu_cached_devices.h"
 
-namespace at {
-namespace detail {
-
+namespace habana {
 struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
   HABANAGuardImpl() = default;
-  DeviceType type() const override {
-    return DeviceType::HABANA;
+  at::DeviceType type() const override {
+    return at::DeviceType::HABANA;
   }
-  Device exchangeDevice(Device d) const override {
+  at::Device exchangeDevice(at::Device d) const override {
     TORCH_INTERNAL_ASSERT(d.type() == type());
-    Device old_device = getDevice();
+    at::Device old_device = getDevice();
     if (old_device.index() != d.index()) {
-      habana::HPUDeviceAllocator::allocator_active_device_id = d.index();
+      HPUDeviceAllocator::allocator_active_device_id = d.index();
       TORCH_CHECK(
           habana::HPUDeviceAllocator::allocator_active_device_id == 0,
           "habana active device: ",
@@ -42,7 +40,7 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
     return old_device;
   }
 
-  Device getDevice() const override {
+  at::Device getDevice() const override {
     /**
        NOTE: From https://en.cppreference.com/w/cpp/utility/program/atexit
          The functions may be called concurrently with the destruction of the
@@ -85,7 +83,7 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
     if (!synapse_helpers::HPURegistrar::isInitialized()) {
       auto allocatorVar = [](synDeviceId id)
           -> std::unique_ptr<synapse_helpers::device_allocator> {
-        return std::make_unique<at::habana::HPUAllocator>(id);
+        return std::make_unique<habana::HPUAllocator>(id);
       };
       // Create the synapse_helpers::device, which will create the OSAL object.
       auto device_ptr_or_error = synapse_helpers::device::get_or_create(
@@ -120,11 +118,11 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
         "habana active device: ",
         habana::HPUDeviceAllocator::allocator_active_device_id,
         " != 0");
-    return Device(
-        DeviceType::HABANA,
+    return at::Device(
+        at::DeviceType::HABANA,
         habana::HPUDeviceAllocator::allocator_active_device_id);
   }
-  void setDevice(Device d) const override {
+  void setDevice(at::Device d) const override {
     TORCH_INTERNAL_ASSERT(d.type() == type());
     habana::HPUDeviceAllocator::allocator_active_device_id =
         synapse_helpers::HPURegistrar::get_device(d.index()).id();
@@ -134,7 +132,7 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
         habana::HPUDeviceAllocator::allocator_active_device_id,
         " != 0");
   }
-  void uncheckedSetDevice(Device d) const noexcept override {
+  void uncheckedSetDevice(at::Device d) const noexcept override {
     habana::HPUDeviceAllocator::allocator_active_device_id = d.index();
     if (habana::HPUDeviceAllocator::allocator_active_device_id != 0)
       TORCH_WARN(
@@ -142,36 +140,38 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
           habana::HPUDeviceAllocator::allocator_active_device_id,
           " != 0");
   }
-  Stream getStream(UNUSED Device d) const noexcept override {
+  at::Stream getStream(UNUSED at::Device d) const noexcept override {
     // no-op
-    return Stream(Stream::DEFAULT, Device(DeviceType::HABANA, -1));
+    return at::Stream(
+        at::Stream::DEFAULT, at::Device(at::DeviceType::HABANA, -1));
   }
   // NB: These do NOT set the current device
-  Stream exchangeStream(UNUSED Stream s) const noexcept override {
+  at::Stream exchangeStream(UNUSED at::Stream s) const noexcept override {
     // no-op
-    return Stream(Stream::DEFAULT, Device(DeviceType::HABANA, -1));
+    return at::Stream(
+        at::Stream::DEFAULT, at::Device(at::DeviceType::HABANA, -1));
   }
-  DeviceIndex deviceCount() const noexcept override {
+  at::DeviceIndex deviceCount() const noexcept override {
     return 1;
   }
 
   // Event-related functions
   void record(
       UNUSED void** event,
-      UNUSED const Stream& stream,
-      UNUSED const DeviceIndex device_index,
-      UNUSED const EventFlag flag) const override {
+      UNUSED const at::Stream& stream,
+      UNUSED const at::DeviceIndex device_index,
+      UNUSED const at::EventFlag flag) const override {
     TORCH_CHECK(false, "HABANA backend doesn't support events.");
   }
-  void block(UNUSED void* event, UNUSED const Stream& stream) const override {
+  void block(UNUSED void* event, UNUSED const at::Stream& stream)
+      const override {
     TORCH_CHECK(false, "HABANA backend doesn't support events.")
   }
   bool queryEvent(UNUSED void* event) const override {
     TORCH_CHECK(false, "HABANA backend doesn't support events.")
   }
-  void destroyEvent(UNUSED void* event, UNUSED const DeviceIndex device_index)
-      const noexcept override {}
-}; // namespace detail
-
-} // namespace detail
-} // namespace at
+  void destroyEvent(
+      UNUSED void* event,
+      UNUSED const at::DeviceIndex device_index) const noexcept override {}
+};
+} // namespace habana

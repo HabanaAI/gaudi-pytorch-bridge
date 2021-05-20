@@ -444,9 +444,9 @@ std::tuple<Tensor, Tensor> sort_hpu(
 }
 } // namespace habana
 
-static auto& KernelRegistry = ::habana::KernelRegistry().add(
+static auto& KernelRegistry = habana::KernelRegistry().add(
     "aten::topk",
     [](const int device_id, c10::ScalarType node_type) {
       static_cast<void>(node_type);
-      return std::make_shared<::habana::TopkOperator>(device_id, "topk");
+      return std::make_shared<habana::TopkOperator>(device_id, "topk");
     });

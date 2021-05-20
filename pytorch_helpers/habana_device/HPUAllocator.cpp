@@ -20,7 +20,6 @@ bool synapse_helpers::HPURegistrar::initialized_ = false;
 const std::thread::id synapse_helpers::HPURegistrar::main_thread_id_ =
     std::this_thread::get_id();
 
-namespace at {
 namespace habana {
 
 synDeviceId HPUDeviceAllocator::allocator_active_device_id = -1;
@@ -29,20 +28,21 @@ pgmDropCachedRecipe HPUDeviceAllocator::drop_cached_recipe_cb = nullptr;
 static HPUDeviceAllocator hpu_device_allocator;
 
 at::Allocator* getHABANADeviceAllocator() {
-  at::detail::HABANAGuardImpl h;
+  HABANAGuardImpl h;
   h.getDevice();
   return &hpu_device_allocator;
 }
+} // namespace habana
 
 // TODO: it might be not the best place to put this macro. I am confused how
 // allocators are registered.
-REGISTER_ALLOCATOR(DeviceType::HABANA, &at::habana::hpu_device_allocator);
-} // namespace habana
+
+namespace at {
+REGISTER_ALLOCATOR(DeviceType::HABANA, &habana::hpu_device_allocator);
+} // namespace at
 
 namespace detail {
-
-C10_REGISTER_GUARD_IMPL(HABANA, HABANAGuardImpl);
-
+C10_REGISTER_GUARD_IMPL(HABANA, habana::HABANAGuardImpl);
 } // namespace detail
 
 namespace habana {
@@ -220,7 +220,7 @@ at::DataPtr HPUDeviceAllocator::allocate(size_t num_bytes) const {
       v_ptr,
       v_ptr,
       &HPUDeviceAllocator::deleter,
-      Device(DeviceType::HABANA, allocator_active_device_id)};
+      at::Device(at::DeviceType::HABANA, allocator_active_device_id)};
 }
 
 at::DeleterFnPtr HPUDeviceAllocator::raw_deleter() const {
@@ -244,7 +244,6 @@ void HPUDeviceAllocator::flush_stream_events() const {
 }
 
 } // namespace habana
-} // namespace at
 
 namespace synapse_helpers {
 
@@ -292,7 +291,7 @@ HPURegistrarPerThreadTracker::~HPURegistrarPerThreadTracker() {
   // objects (Ex: KernelDB) are gone.
   if (HPURegistrar::getMainThreadId() == std::this_thread::get_id()) {
     HPURegistrar::deleteDevices();
-    at::habana::HPUDeviceAllocator::allocator_active_device_id = -1;
+    habana::HPUDeviceAllocator::allocator_active_device_id = -1;
   }
 }
 
