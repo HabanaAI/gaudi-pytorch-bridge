@@ -93,7 +93,7 @@ struct PT_HABANA_POOL_SIZE : public std::numeric_limits<unsigned long> {
   static constexpr unsigned long default_value = 24;
 };
 
-struct PT_HABANA_POOL_STRATEGY : public std::numeric_limits<unsigned> {
+struct PT_HPU_POOL_STRATEGY : public std::numeric_limits<unsigned> {
   static constexpr unsigned default_value = 3;
 };
 

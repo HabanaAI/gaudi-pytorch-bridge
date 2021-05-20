@@ -23,7 +23,7 @@ namespace synapse_helpers {
 device_memory::device_memory(device& device) : device_{device} {
   pool_size_ = GET_ENV_FLAG(PT_HABANA_POOL_SIZE) * 1024 * 1024 * 1024;
   pool_strategy_ =
-      (pool_allocator::PoolStrategyType)GET_ENV_FLAG(PT_HABANA_POOL_STRATEGY);
+      (pool_allocator::PoolStrategyType)GET_ENV_FLAG(PT_HPU_POOL_STRATEGY);
   switch (pool_strategy_) {
     case pool_allocator::strategy_bump:
       try {
