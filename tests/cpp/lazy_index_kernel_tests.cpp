@@ -199,11 +199,18 @@ TEST_F(LazyIndexKernelTest, NonZeroTestAllFalse) {
 }
 
 TEST_F(LazyIndexKernelTest, UniqueTest) {
-  torch::Tensor input_cpu = torch::randint(0, 10, {8, 28, 28, 3});
-  torch::Tensor input_hpu = input_cpu.to(torch::kHABANA);
-  auto out_hpu = std::get<0>(torch::_unique2(input_hpu, false, false, false));
-  auto out_cpu = std::get<0>(torch::_unique2(input_cpu, false, false, false));
-  auto h_cout = out_hpu.to(torch::kCPU);
-  auto flip_cpu = torch::flip(out_cpu, {0});
-  EXPECT_EQ(allclose(h_cout, flip_cpu), true);
+  auto typetest = [](c10::ScalarType dtype) {
+    torch::Tensor input_cpu = torch::randint(0, 10, {1, 2, 2, 3}).to(dtype);
+    torch::Tensor input_hpu = input_cpu.to(torch::kHABANA);
+    auto out_hpu = std::get<0>(torch::_unique2(input_hpu, false, false, false));
+    auto out_cpu = std::get<0>(torch::_unique2(input_cpu, false, false, false));
+    auto h_cout = out_hpu.to(torch::kCPU);
+    EXPECT_EQ(
+        allclose(
+            std::get<0>(h_cout.view(-1).sort()),
+            std::get<0>(out_cpu.view(-1).sort())),
+        true);
+  };
+  typetest(torch::kInt32);
+  typetest(torch::kLong);
 }

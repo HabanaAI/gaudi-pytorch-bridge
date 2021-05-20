@@ -2010,14 +2010,9 @@ std::tuple<Tensor, Tensor, Tensor> unique2_hpu(
     bool return_counts) {
   PT_KERNEL_BEGIN;
 
-  // Remove this cast once TPC kernel supports Int input
-  // JIRA <https://jira.habana-labs.com/browse/SW-41973>
   Tensor input_cast = self;
-  if (self.scalar_type() == c10::ScalarType::Long ||
-      self.scalar_type() == c10::ScalarType::Int) {
-    auto input_i32 = habana_helpers::cast_tensor_to_integer(self);
-    input_cast = habana_helpers::hpu_cast_tensor(
-        input_i32, at::scalarTypeToTypeMeta(c10::ScalarType::Float));
+  if (self.scalar_type() == c10::ScalarType::Long) {
+    input_cast = habana_helpers::cast_tensor_to_integer(self);
   }
 
   std::string node_type = "unique2";
@@ -2052,14 +2047,8 @@ std::tuple<Tensor, Tensor, Tensor> unique2_hpu(
   auto result = out.at(0).slice(0, 0, end, 1);
 
   Tensor cast_out = result;
-  if (self.scalar_type() == c10::ScalarType::Long ||
-      self.scalar_type() == c10::ScalarType::Int) {
-    auto output_i32 = habana_helpers::hpu_cast_tensor(
-        result, at::scalarTypeToTypeMeta(c10::ScalarType::Int));
-    if (self.scalar_type() == c10::ScalarType::Long)
-      cast_out = habana_helpers::cast_tensor_to_long(output_i32);
-    else
-      cast_out = output_i32;
+  if (self.scalar_type() == c10::ScalarType::Long) {
+    cast_out = habana_helpers::cast_tensor_to_long(result);
   }
 
   // These are optional tensors which shall be populated only when we start

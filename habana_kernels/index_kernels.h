@@ -284,8 +284,8 @@ class IndexOperator : public HabanaOperator {
 class UniqueOperator : public HabanaOperator {
  public:
   UniqueOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator("unique_fwd_f32") {
-    static_cast<void>(scalarType);
+      : HabanaOperator(
+            "unique_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
     this->CreateSynContext(device_id);
   }
 
