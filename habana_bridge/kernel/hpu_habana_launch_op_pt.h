@@ -253,6 +253,7 @@ class HabanaLaunchOpPT {
   torch::jit::Node* GetUnpackNodeFromTensorList(torch::jit::Value* val);
 
   void PrintRecipeInputs();
+  void UpdateOutputs();
   void UpdateOutputs(RecipeValueSpec& rv);
   template <class T>
   void clearMember(T& m_container);

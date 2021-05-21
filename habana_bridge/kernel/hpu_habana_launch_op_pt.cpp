@@ -1993,7 +1993,10 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
   if (!habana_lazy::exec::OptPassCfg::GetInstance()->enable_permute_pass)
     postProcessOutputs();
 
-  TORCH_CHECK(false == syn_graph.is_empty(), "empty graph encountered");
+  if (syn_graph.is_empty()) {
+    UpdateOutputs();
+    return;
+  }
 
   auto&& error_variant{syn_graph.compile()};
   if (ABSL_PREDICT_FALSE(
@@ -2265,6 +2268,19 @@ void HabanaLaunchOpPT::PrintRecipeInputs() {
        i++) {
     O << idx++ << " : ";
     PrintATenTensor(pt_stack_sh.at(i));
+  }
+}
+
+void HabanaLaunchOpPT::UpdateOutputs() {
+  drop(*pt_stack, num_inputs);
+  for (auto output : jit_ir_graph->outputs()) {
+    auto oit = value_to_ivalue.find(output);
+    TORCH_CHECK(
+        oit != value_to_ivalue.end(),
+        "value_to_ivalue does not have an entry for %",
+        output->debugName());
+    IValPtrShared ivpsh = oit->second;
+    pt_stack->insert(pt_stack->end(), *ivpsh);
   }
 }
 
