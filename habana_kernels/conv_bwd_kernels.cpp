@@ -162,7 +162,8 @@ void ConvWeightDifferentiationOperator::AllocateAndAddSynapseNode(
 void ConvBackwardOperator::ComputeBiasGrad(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
-    std::vector<bool> is_output_persistent) {
+    std::vector<bool> is_output_persistent,
+    bool mask_grad_in) {
   auto grad_out_nhwc = inputs[0].toTensor();
   auto grad_bias = habana_helpers::createPTTensor(
       grad_out_nhwc,
@@ -171,7 +172,7 @@ void ConvBackwardOperator::ComputeBiasGrad(
       c10::nullopt,
       is_output_persistent[2]);
 
-  if (is_output_persistent[2]) {
+  if (mask_grad_in) {
     std::vector<int64_t> dim_to_reduce;
     for (int64_t i = 0; i < grad_out_nhwc.ndimension(); ++i) {
       if (i != 3) // skip C dimension
@@ -473,7 +474,7 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
   }
 
   // Bias grad computation same for conv2d bwd and conv2d_transpose bwd
-  ComputeBiasGrad(graph, inputs, is_output_persistent);
+  ComputeBiasGrad(graph, inputs, is_output_persistent, output_mask_in[2]);
 }
 
 void ConvBackwardOperator::SetPTOutputs(torch::jit::Stack& inputs) {

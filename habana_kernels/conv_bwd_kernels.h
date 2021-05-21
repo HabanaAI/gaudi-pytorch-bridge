@@ -44,7 +44,8 @@ class ConvBackwardOperator : public HabanaOperator {
   void ComputeBiasGrad(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      std::vector<bool> is_output_persistent);
+      std::vector<bool> is_output_persistent,
+      bool mask_grad_in);
 };
 
 /**
