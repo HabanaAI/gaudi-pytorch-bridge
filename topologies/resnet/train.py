@@ -290,12 +290,6 @@ def permute_momentum(optimizer, to_filters_last, lazy_mode):
     if lazy_mode:
         htcore.mark_step()
 
-# Data loader worker init function
-def dl_worker_init_fn(seed):
-    if seed is not None:
-        random.seed(seed)
-
-
 def main(args):
 
     if args.dl_worker_type == "MP":
@@ -339,6 +333,7 @@ def main(args):
 
     if args.deterministic:
         seed = args.seed
+        random.seed(seed)
         if args.device == 'cuda':
             torch.cuda.manual_seed(seed)
     else:
@@ -353,9 +348,6 @@ def main(args):
     if args.batch_size > 32:
         test_batch_size = 32
 
-    data_loader = None
-    data_loader_test = None
-
     if not args.synthetic_data:
         train_dir = os.path.join(args.data_path, 'train')
         val_dir = os.path.join(args.data_path, 'val')
@@ -366,25 +358,17 @@ def main(args):
             torch.cuda.set_device = lambda x: None
 
         if args.dl_worker_type == "MP":
-            data_loader = torch.utils.data.DataLoader(
-                dataset, batch_size=args.batch_size, sampler=train_sampler,
-                num_workers=args.workers, worker_init_fn=dl_worker_init_fn(seed),
-                pin_memory=True, drop_last=True)
-
-            data_loader_test = torch.utils.data.DataLoader(
-                dataset_test, batch_size=test_batch_size, sampler=test_sampler,
-                num_workers=args.workers, worker_init_fn=dl_worker_init_fn(seed),
-                pin_memory=True, drop_last=True)
+            data_loader_type = torch.utils.data.DataLoader
         else:
-            data_loader = habana_torch_dataloader.DataLoader(
-                dataset, batch_size=args.batch_size, sampler=train_sampler,
-                num_workers=args.workers, worker_init_fn=dl_worker_init_fn(seed),
-                pin_memory=True, drop_last=True)
+            data_loader_type = habana_torch_dataloader.DataLoader
 
-            data_loader_test = habana_torch_dataloader.DataLoader(
-                dataset_test, batch_size=test_batch_size, sampler=test_sampler,
-                num_workers=args.workers, worker_init_fn=dl_worker_init_fn(seed),
-                pin_memory=True, drop_last=True)
+        data_loader = data_loader_type(
+            dataset, batch_size=args.batch_size, sampler=train_sampler,
+            num_workers=args.workers, pin_memory=True, drop_last=True)
+
+        data_loader_test = data_loader_type(
+            dataset_test, batch_size=test_batch_size, sampler=test_sampler,
+            num_workers=args.workers, pin_memory=True, drop_last=True)
     else:
         data_loader = tools.ImageRandomDataLoader(batch_size=args.batch_size, train=True, drop_last=True)
         data_loader_test = tools.ImageRandomDataLoader(batch_size=test_batch_size, train=False, drop_last=True)
