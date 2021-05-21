@@ -19,6 +19,7 @@
 using namespace torch;
 using namespace at;
 using namespace habana;
+using namespace habana_lazy;
 
 #define HPU_WRAP_OP(opcode) hpu_wrap::opcode
 #define HPU_LAZY_FUNC_NAME(op_code) op_code##_hpu_lazy
@@ -1868,9 +1869,9 @@ Tensor hpu_wrap::empty(
     const TensorOptions& options,
     c10::optional<MemoryFormat> optional_memory_format) {
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    return at::native::empty_hpu_lazy(size, options, optional_memory_format);
+    return empty_hpu_lazy(size, options, optional_memory_format);
   }
-  return at::native::empty_hpu(size, options, optional_memory_format);
+  return empty_hpu(size, options, optional_memory_format);
 };
 
 Tensor hpu_wrap::empty_strided(
@@ -1888,9 +1889,9 @@ Tensor hpu_wrap::empty_strided(
                                   .pinned_memory(std::move(pin_memory))
                                   .device(std::move(device));
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    return at::native::empty_strided_hpu_lazy(size, stride, options);
+    return empty_strided_hpu_lazy(size, stride, options);
   }
-  return at::native::empty_strided_hpu(size, stride, options);
+  return empty_strided_hpu(size, stride, options);
 }
 
 Tensor hpu_wrap::clone(
@@ -2714,9 +2715,9 @@ Scalar hpu_wrap::_local_scalar_dense(const Tensor& self) {
   hpu_check_inputs("_local_scalar_dense", {self});
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
-    return at::native::_local_scalar_dense_hpu_lazy(self);
+    return _local_scalar_dense_hpu_lazy(self);
   } else {
-    return at::native::_local_scalar_dense_hpu(self);
+    return _local_scalar_dense_hpu(self);
   }
 }
 

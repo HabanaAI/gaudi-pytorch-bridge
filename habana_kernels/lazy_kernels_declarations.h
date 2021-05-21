@@ -17,6 +17,7 @@
 #define HPU_LAZY_FUNC_DECL_INPLACE(op_code) \
   at::Tensor& op_code##hpu_lazy_(at::Tensor& self);
 
+namespace habana_lazy {
 at::Tensor& copy_hpu_lazy_(
     at::Tensor& self,
     const at::Tensor& src,
@@ -561,7 +562,6 @@ at::Tensor& bitwise_xor_out_hpu_lazy(
     const at::Tensor& self,
     const at::Tensor& other);
 at::Tensor& bitwise_not_out_hpu_lazy(at::Tensor& out, const at::Tensor& self);
-namespace habana {
 at::Tensor log_softmax_hpu_lazy(
     const at::Tensor& self,
     const int64_t dim,
@@ -580,22 +580,17 @@ at::Tensor softmax_backward_hpu_lazy(
     const at::Tensor& output,
     int64_t dim,
     const at::Tensor& input);
-} // namespace habana
 
-namespace at {
-namespace native {
 at::Tensor empty_hpu_lazy(
     at::IntArrayRef size,
     const at::TensorOptions& options,
-    c10::optional<MemoryFormat> optional_memory_format,
+    c10::optional<at::MemoryFormat> optional_memory_format,
     bool create_storage = true);
 at::Tensor empty_strided_hpu_lazy(
     at::IntArrayRef size,
     at::IntArrayRef stride,
     const at::TensorOptions& options,
     bool create_storage = true);
-} // namespace native
-} // namespace at
 
 at::Tensor clone_hpu_lazy(
     const at::Tensor& self,
@@ -728,11 +723,7 @@ at::Tensor rsqrt_hpu_lazy(const at::Tensor& self);
 at::Tensor& rsqrt_hpu_lazy_(at::Tensor& self);
 at::Tensor isfinite_hpu_lazy(const at::Tensor& self);
 at::Tensor neg_hpu_lazy(const at::Tensor& self);
-namespace at {
-namespace native {
-Scalar _local_scalar_dense_hpu_lazy(const at::Tensor& self);
-}
-} // namespace at
+at::Scalar _local_scalar_dense_hpu_lazy(const at::Tensor& self);
 std::tuple<torch::Tensor&, torch::Tensor&>
 optimizer_sparse_sgd_with_valid_count_hpu_lazy(
     const at::Tensor& gradients,
@@ -844,3 +835,4 @@ at::Tensor habana_nms_hpu_lazy(
     const at::Tensor& scores,
     float iou_threshold,
     float score_threshold);
+} // namespace habana_lazy

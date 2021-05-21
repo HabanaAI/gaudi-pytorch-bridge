@@ -36,8 +36,6 @@ static inline void check_size_nonnegative(IntArrayRef size) {
   }
 }
 
-namespace at {
-namespace native {
 Tensor empty_hpu(
     IntArrayRef size,
     const TensorOptions& options,
@@ -95,13 +93,11 @@ Tensor empty_strided_hpu(
     const TensorOptions& options) {
   PT_KERNEL_BEGIN;
   check_size_nonnegative(size);
-  auto t = at::native::empty_hpu({0}, options, c10::nullopt);
+  auto t = empty_hpu({0}, options, c10::nullopt);
   at::native::resize_impl_hpu_(t.unsafeGetTensorImpl(), size, stride);
   PT_KERNEL_END;
   return t;
 }
-} // namespace native
-} // namespace at
 
 Tensor clone_hpu(
     const Tensor& self,

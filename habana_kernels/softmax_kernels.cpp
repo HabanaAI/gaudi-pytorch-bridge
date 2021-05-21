@@ -23,8 +23,7 @@
 #include <algorithm>
 
 using namespace torch;
-
-namespace habana {
+using namespace habana;
 
 void LogSoftmaxOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
@@ -563,7 +562,6 @@ Tensor softmax_backward_hpu(
 
   return out.at(0);
 }
-} // end namespace habana
 
 static auto& KernelRegistry =
     habana::KernelRegistry()

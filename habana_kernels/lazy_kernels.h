@@ -16,14 +16,13 @@
 #include "habana_lazy/lazy_executor.h"
 #include "lazy_kernels_declarations.h"
 
+namespace habana_lazy {
 void updateDstDependencies(
     habana_lazy::HbLazyTensor& hl_dst,
     const at::Tensor& dst,
     bool in_place = false);
 
 void flushWithMarkStep();
-
-namespace habana_lazy {
 
 template <class F, class... Ts, std::size_t... Is>
 void for_each_in_tuple(
@@ -169,7 +168,7 @@ class LazyOp {
 
     for_each_in_tuple(results, [&](auto& result) {
       auto t = get_inputs().at(m_out_index).toTensor();
-      result = at::native::empty_hpu_lazy(
+      result = empty_hpu_lazy(
           m_out_shapes[i++], t.options(), t.suggest_memory_format(), false);
     });
     return results;
@@ -184,7 +183,7 @@ class LazyOp {
     }
     auto t = get_inputs().at(m_out_index).toTensor();
     const auto& out_shape = m_out_shapes.empty() ? t.sizes() : m_out_shapes[0];
-    return at::native::empty_hpu_lazy(
+    return empty_hpu_lazy(
         out_shape, t.options(), t.suggest_memory_format(), false);
   }
 
@@ -335,7 +334,7 @@ class LazyBinaryOp : public LazyOp<ReturnType> {
         inputs, pos, dst_dtype);
     if (pos != -1) {
       auto tensor_promote = inputs[pos].toTensor();
-      auto self = at::native::empty_hpu_lazy(
+      auto self = empty_hpu_lazy(
           tensor_promote.sizes(),
           tensor_promote.options().dtype(dst_dtype),
           tensor_promote.suggest_memory_format(),
@@ -359,7 +358,7 @@ class LazyBinaryOp : public LazyOp<ReturnType> {
     at::Tensor other = inputs.at(1).toTensor();
 
     if (self.scalar_type() != other.scalar_type()) {
-      at::Tensor casted_other = at::native::empty_hpu_lazy(
+      at::Tensor casted_other = empty_hpu_lazy(
           other.sizes(),
           other.options().dtype(dst_dtype),
           other.suggest_memory_format(),
@@ -401,7 +400,7 @@ class LazyCompareOp : public LazyOp<ReturnType> {
         inputs, pos, dst_dtype);
     if (pos != -1) {
       auto tensor_promote = inputs[pos].toTensor();
-      auto self = at::native::empty_hpu_lazy(
+      auto self = empty_hpu_lazy(
           tensor_promote.sizes(),
           tensor_promote.options().dtype(dst_dtype),
           tensor_promote.suggest_memory_format(),
@@ -420,7 +419,7 @@ class LazyCompareOp : public LazyOp<ReturnType> {
     auto inputs = LazyOp<ReturnType>::get_inputs();
     auto self = inputs[0].toTensor();
     auto out_shapes = LazyOp<ReturnType>::get_out_shapes()[0];
-    auto result = at::native::empty_hpu_lazy(
+    auto result = empty_hpu_lazy(
         out_shapes,
         self.options().dtype(c10::ScalarType::Bool),
         self.suggest_memory_format(),
@@ -454,17 +453,17 @@ class HabanaNMSLazy : public LazyOp<ReturnType> {
     auto box_id_out_shape = LazyOp<ReturnType>::get_out_shapes()[0];
     auto valid_box_id_out_shape = LazyOp<ReturnType>::get_out_shapes()[1];
     auto shape_tensor_shape = LazyOp<ReturnType>::get_out_shapes()[2];
-    std::get<0>(results) = at::native::empty_hpu_lazy(
+    std::get<0>(results) = empty_hpu_lazy(
         box_id_out_shape,
         scores.options().dtype(c10::ScalarType::Int),
         scores.suggest_memory_format(),
         false);
-    std::get<1>(results) = at::native::empty_hpu_lazy(
+    std::get<1>(results) = empty_hpu_lazy(
         valid_box_id_out_shape,
         scores.options().dtype(c10::ScalarType::Int),
         scores.suggest_memory_format(),
         false);
-    std::get<2>(results) = at::native::empty_hpu_lazy(
+    std::get<2>(results) = empty_hpu_lazy(
         shape_tensor_shape,
         scores.options().dtype(c10::ScalarType::Int),
         scores.suggest_memory_format(),
@@ -504,9 +503,9 @@ class Unique : public LazyOp<ReturnType> {
     int elements = self.numel();
     auto output_shape = at::DimVector{elements};
     auto valid_shape = at::DimVector{1};
-    std::get<0>(results) = at::native::empty_hpu_lazy(
+    std::get<0>(results) = empty_hpu_lazy(
         output_shape, self.options(), self.suggest_memory_format(), false);
-    std::get<1>(results) = at::native::empty_hpu_lazy(
+    std::get<1>(results) = empty_hpu_lazy(
         valid_shape,
         self.options().dtype(c10::ScalarType::Int),
         self.suggest_memory_format(),

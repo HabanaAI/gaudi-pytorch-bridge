@@ -12,8 +12,6 @@
 #include <ATen/ExpandUtils.h>
 #include <torch/script.h>
 
-at::Tensor habana_d2d_memcpy(const at::Tensor& self);
-at::Tensor habana_d2d_memcpy_other(const at::Tensor& self, at::Tensor& other);
 at::Tensor& copy_hpu_(
     at::Tensor& self,
     const at::Tensor& src,
@@ -532,7 +530,6 @@ at::Tensor& bitwise_xor_out_hpu(
     const at::Tensor& self,
     const at::Tensor& other);
 at::Tensor& bitwise_not_out_hpu(at::Tensor& out, const at::Tensor& self);
-namespace habana {
 at::Tensor log_softmax_hpu(
     const at::Tensor& self,
     const int64_t dim,
@@ -551,20 +548,14 @@ at::Tensor softmax_backward_hpu(
     const at::Tensor& output,
     int64_t dim,
     const at::Tensor& input);
-} // namespace habana
-
-namespace at {
-namespace native {
 at::Tensor empty_hpu(
     at::IntArrayRef size,
     const at::TensorOptions& options,
-    c10::optional<MemoryFormat> optional_memory_format);
+    c10::optional<at::MemoryFormat> optional_memory_format);
 at::Tensor empty_strided_hpu(
     at::IntArrayRef size,
     at::IntArrayRef stride,
     const at::TensorOptions& options);
-} // namespace native
-} // namespace at
 
 at::Tensor clone_hpu(
     const at::Tensor& self,
@@ -592,7 +583,6 @@ at::Tensor threshold_backward_hpu(
     const at::Tensor& grad_output,
     const at::Tensor& self,
     at::Scalar threshold);
-namespace habana {
 std::tuple<at::Tensor&, at::Tensor&> topk_out_hpu(
     at::Tensor& values,
     at::Tensor& indices,
@@ -611,7 +601,6 @@ std::tuple<at::Tensor, at::Tensor> sort_hpu(
     const at::Tensor& self,
     int64_t dim,
     bool descending);
-} // namespace habana
 at::Tensor relu_hpu(const at::Tensor& input);
 at::Tensor& relu_hpu_(at::Tensor& self);
 at::Tensor sign_hpu(const at::Tensor& self);
@@ -675,11 +664,7 @@ at::Tensor argmax_hpu(
     const at::Tensor& self,
     c10::optional<int64_t> dim,
     bool keepdim);
-namespace at {
-namespace native {
-Scalar _local_scalar_dense_hpu(const at::Tensor& self);
-}
-} // namespace at
+at::Scalar _local_scalar_dense_hpu(const at::Tensor& self);
 std::tuple<torch::Tensor&, torch::Tensor&>
 optimizer_sparse_sgd_with_valid_count_hpu(
     const at::Tensor& gradients,

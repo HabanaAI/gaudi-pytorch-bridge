@@ -15,9 +15,6 @@
 
 using namespace torch;
 
-namespace at {
-namespace native {
-
 Scalar _local_scalar_dense_hpu(const Tensor& self) {
   PT_KERNEL_BEGIN;
   Scalar r;
@@ -49,6 +46,3 @@ Scalar _local_scalar_dense_hpu(const Tensor& self) {
 
   return r;
 }
-
-} // namespace native
-} // namespace at
