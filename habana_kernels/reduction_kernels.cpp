@@ -1680,7 +1680,7 @@ Tensor argmax_hpu(
 }
 
 static auto& KernelRegistry =
-    ::habana::KernelRegistry()
+    habana::KernelRegistry()
         .add(
             "aten::_grad_sum_to_size",
             [](const int device_id, c10::ScalarType node_type) {

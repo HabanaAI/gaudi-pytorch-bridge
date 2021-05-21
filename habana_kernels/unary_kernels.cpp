@@ -1893,7 +1893,7 @@ void HardsigmoidBackwardOperator::AllocateAndAddSynapseNode(
 }
 
 static auto& KernelRegistry =
-    ::habana::KernelRegistry()
+    habana::KernelRegistry()
         .add(
             "aten::elu",
             [](const int device_id, c10::ScalarType node_type) {

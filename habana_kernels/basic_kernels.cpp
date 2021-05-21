@@ -502,7 +502,7 @@ Tensor view_hpu(const Tensor& self, IntArrayRef size) {
 }
 
 static auto& KernelRegistry =
-    ::habana::KernelRegistry()
+    habana::KernelRegistry()
         .add(
             "hpu::habana_d2d_memcpy",
             [](const int device_id, c10::ScalarType node_type) {

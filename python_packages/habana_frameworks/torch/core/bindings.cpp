@@ -56,7 +56,7 @@ void torch_habana_register_pre_diff_pass(
     auto opts = getOptions();
     if (opts.remove_inplace_ops) {
       PT_BRIDGE_BEGIN;
-      ::habana::RemoveInplaceOps(g);
+      habana::RemoveInplaceOps(g);
       PT_BRIDGE_END;
       PT_BRIDGE_DEBUG("Habana Post Remove Inplace Pass Graph: ");
       PT_BRIDGE_DEBUG(g->toString());

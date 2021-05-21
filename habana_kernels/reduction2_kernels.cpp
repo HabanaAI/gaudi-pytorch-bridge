@@ -262,7 +262,7 @@ Tensor max_hpu(const at::Tensor& self) {
 }
 
 static auto& KernelRegistry =
-    ::habana::KernelRegistry()
+    habana::KernelRegistry()
         .add(
             "hpu::max_dim",
             [](const int device_id, c10::ScalarType node_type) {

@@ -49,7 +49,7 @@ void SpecialFunctionFwdOperator::AllocateAndAddSynapseNode(
 }
 
 static auto& KernelRegistry =
-    ::habana::KernelRegistry()
+    habana::KernelRegistry()
         .add(
             "aten::asin",
             [](const int device_id, c10::ScalarType node_type) {

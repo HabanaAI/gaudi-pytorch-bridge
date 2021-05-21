@@ -326,7 +326,7 @@ Tensor upsample_nearest2d_backward_hpu(
 }
 
 static auto& KernelRegistry =
-    ::habana::KernelRegistry()
+    habana::KernelRegistry()
         .add(
             "aten::upsample_nearest2d",
             [](const int device_id, c10::ScalarType node_type) {

@@ -2060,7 +2060,7 @@ std::tuple<Tensor, Tensor, Tensor> unique2_hpu(
 }
 
 static auto& KernelRegistry =
-    ::habana::KernelRegistry()
+    habana::KernelRegistry()
         .add(
             "aten::index_select",
             [](const int device_id, c10::ScalarType node_type) {

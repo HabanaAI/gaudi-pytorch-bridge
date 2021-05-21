@@ -2330,7 +2330,7 @@ Tensor fused_norm_hpu(
 }
 
 static auto& KernelRegistry =
-    ::habana::KernelRegistry()
+    habana::KernelRegistry()
         .add(
             "aten::native_batch_norm",
             [](const int device_id, c10::ScalarType node_type) {

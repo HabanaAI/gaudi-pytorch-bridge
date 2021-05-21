@@ -1113,7 +1113,7 @@ std::vector<Tensor> split_with_sizes_hpu(
 }
 
 static auto& KernelRegistry =
-    ::habana::KernelRegistry()
+    habana::KernelRegistry()
         .add(
             "aten::cat",
             [](const int device_id, c10::ScalarType node_type) {
