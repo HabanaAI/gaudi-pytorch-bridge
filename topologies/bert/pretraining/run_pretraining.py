@@ -356,6 +356,22 @@ def parse_arguments():
 
     return args
 
+def unflatten_tensor(flat, tensor_list):
+    outputs = []
+    offset = 0
+    for tensor in tensor_list:
+        numel = tensor.numel()
+        outputs.append(flat.narrow(0, offset, numel).view_as(tensor))
+        offset += numel
+    return outputs
+
+def update_tensors(grad_tensors, outputs):
+    idx=0
+    for grad in grad_tensors:
+        grad.copy_(outputs[idx])
+        idx+=1
+    return outputs
+
 def setup_training(args):
 
     #assert (torch.cuda.is_available())
@@ -375,19 +391,44 @@ def setup_training(args):
 
 
         args.n_pu = 1
-        args.allreduce_post_accumulation = False
-        args.allreduce_post_accumulation_fp16 = False
+        try:
+            global mpi_comm
+            from mpi4py import MPI
+            mpi_comm = MPI.COMM_WORLD
+            args.world_size = mpi_comm.Get_size()
+            if args.world_size > 1:
+                args.rank = mpi_comm.Get_rank()
+                if args.local_rank == -1:
+                    args.local_rank = args.rank
+            else:
+                mpi_comm = None
+                raise('Not an MPI run')
+        except Exception as e:
+            mpi_comm = None
+            if 'WORLD_SIZE' in os.environ and 'RANK' in os.environ and 'LOCAL_RANK' in os.environ:
+                args.world_size = int(os.environ["WORLD_SIZE"])
+                args.rank       = int(os.environ["RANK"])
+                args.local_rank = int(os.environ["LOCAL_RANK"])
+            elif 'OMPI_COMM_WORLD_LOCAL_RANK' in os.environ and 'OMPI_COMM_WORLD_SIZE' in os.environ:
+                args.world_size = int(os.environ["OMPI_COMM_WORLD_SIZE"])
+                args.local_rank = int(os.environ["OMPI_COMM_WORLD_LOCAL_RANK"])
+                args.rank       = args.local_rank
+            else:
+                print("Single node run")
         if args.local_rank != -1:
             if os.getenv('HCL_CONFIG_PATH') is None:
                 print("HCL_CONFIG_PATH is not set")
                 exit(0)
             os.environ["ID"] = str(args.local_rank)
-            args.world_size = int(os.environ["WORLD_SIZE"])
-            args.rank = int(os.environ["RANK"])
             import habana_torch_hcl
             torch.distributed.init_process_group('hcl',
                     rank=args.rank, world_size=args.world_size)
-
+        if args.use_lazy_mode and args.local_rank != -1:
+            args.allreduce_post_accumulation = True
+            args.allreduce_post_accumulation_fp16 = True
+        else:
+            args.allreduce_post_accumulation = False
+            args.allreduce_post_accumulation_fp16 = False
 
     elif args.local_rank == -1 or args.no_cuda:
         device = torch.device(
@@ -405,11 +446,11 @@ def setup_training(args):
         # Initializes the distributed backend which will take care of sychronizing nodes/GPUs
         torch.distributed.init_process_group(backend='nccl', init_method='env://')
         args.n_pu = 1
-        
+
     if args.gradient_accumulation_steps == 1:
         args.allreduce_post_accumulation = False
         args.allreduce_post_accumulation_fp16 = False
-        
+
     if is_main_process():
         dllogger.init(backends=[dllogger.JSONStreamBackend(verbosity=dllogger.Verbosity.VERBOSE,
                                                            filename=args.json_summary),
@@ -472,7 +513,7 @@ def prepare_model_and_optimizer(args, device):
             checkpoint = torch.load(args.init_checkpoint, map_location="cpu")
 
         model.load_state_dict(checkpoint['model'], strict=False)
-        
+
         if args.phase2 and not args.init_checkpoint:
             global_step -= args.phase1_end_step
         if is_main_process():
@@ -486,7 +527,7 @@ def prepare_model_and_optimizer(args, device):
 
     param_optimizer = list(model.named_parameters())
     no_decay = ['bias', 'gamma', 'beta', 'LayerNorm']
-    
+
     optimizer_grouped_parameters = [
         {'params': [p for n, p in param_optimizer if not any(nd in n for nd in no_decay)], 'weight_decay': 0.01},
         {'params': [p for n, p in param_optimizer if any(nd in n for nd in no_decay)], 'weight_decay': 0.0}]
@@ -554,7 +595,11 @@ def prepare_model_and_optimizer(args, device):
                 else:
                     model = DDP(model, message_size=250000000, gradient_predivide_factor=get_world_size())
         else:
-            flat_dist_call([param.data for param in model.parameters()], torch.distributed.broadcast, (0,) )
+            if args.use_habana:
+                for param in model.parameters():
+                    torch.distributed.broadcast(param.data, 0)
+            else:
+                flat_dist_call([param.data for param in model.parameters()], torch.distributed.broadcast, (0,) )
     elif args.n_pu > 1:
         model = torch.nn.DataParallel(model)
 
@@ -565,7 +610,7 @@ def prepare_model_and_optimizer(args, device):
 def take_optimizer_step(args, optimizer, model, overflow_buf, global_step):
 
     global skipped_steps
-    if args.allreduce_post_accumulation:
+    if args.allreduce_post_accumulation and not args.use_habana:
         # manually allreduce gradients after all accumulation steps
         # check for Inf/NaN
         # 1. allocate an uninitialized buffer for flattened gradient
@@ -619,6 +664,16 @@ def take_optimizer_step(args, optimizer, model, overflow_buf, global_step):
         for param in model.parameters():
             param.grad = None
     else:
+        #In case of parameter tying allreduce was called twice for the parameters.
+        #Manually adding allreduce for the parameters.
+        if args.allreduce_post_accumulation and args.use_habana:
+            grad_tensors = [param.grad for param in model.parameters() if param.grad is not None]
+            flat_tensor = torch.cat([t.contiguous().view(-1) for t in grad_tensors], dim=0)
+            flat_tensor.div_(float(torch.distributed.get_world_size() * args.gradient_accumulation_steps))
+            torch.distributed.all_reduce(flat_tensor)
+            outputs = unflatten_tensor(flat_tensor, grad_tensors)
+            updated_outputs = update_tensors(grad_tensors, outputs)
+
         if args.use_habana and args.hmp and not(args.use_fused_lamb):
             from hmp import hmp
             with hmp.disable_casts():
@@ -742,12 +797,12 @@ def main():
                 restored_data_loader = None
 
             overflow_buf = None
-            if args.allreduce_post_accumulation:
+            if args.allreduce_post_accumulation and not args.use_habana:
                 overflow_buf = torch.cuda.IntTensor([0])
 
             for f_id in range(f_start_id + 1 , len(files)):
-                
-   
+
+
                 if get_world_size() > num_files:
                     data_file = files[(f_id*get_world_size()+get_rank() + remainder*f_id)%num_files]
                 else:
@@ -818,6 +873,11 @@ def main():
                             with model.no_sync():
                                 loss = model(input_ids=input_ids, token_type_ids=segment_ids, attention_mask=input_mask, position_ids=position_ids, masked_lm_labels=masked_lm_labels, next_sentence_labels=next_sentence_labels)
                         else:
+                            if args.local_rank != -1:
+                                if mpi_comm is not None:
+                                    mpi_comm.barrier()
+                                else:
+                                    torch.distributed.barrier()
                             loss = model(input_ids=input_ids, token_type_ids=segment_ids, attention_mask=input_mask, position_ids=position_ids, masked_lm_labels=masked_lm_labels, next_sentence_labels=next_sentence_labels)
                     if args.n_pu > 1:
                         loss = loss.mean()  # mean() to average on multi-pu.
@@ -860,6 +920,10 @@ def main():
                         average_loss = torch.tensor(average_loss, dtype=torch.float32).to(device)
                         if (torch.distributed.is_initialized()):
                             average_loss /= world_size
+                            if mpi_comm is not None:
+                                mpi_comm.barrier()
+                            else:
+                                torch.distributed.barrier()
                             torch.distributed.all_reduce(average_loss)
                         final_loss = average_loss.item()
                         if is_main_process():
