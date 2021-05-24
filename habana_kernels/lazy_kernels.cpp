@@ -2685,25 +2685,12 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_backward_hpu_lazy(
 
 Tensor norm_scalar_hpu_lazy(const Tensor& self, Scalar p) {
   PT_LAZY_TRACE;
-  auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
-  auto hl_p_ir_value = habana_lazy::GetIrValueForScalar(p);
-  auto node = habana_lazy::ir::Node::Create(
-      Symbol::fromQualString("aten::norm"),
-      {hl_self.GetIrValue(), hl_p_ir_value});
-  Tensor result;
-  auto shape = NormOperator::compute_output_shape(self, p);
-  result = at::native::empty_hpu_lazy(
-      shape, self.options(), self.suggest_memory_format(), false);
-
-  auto hlresult = habana_lazy::GetHbLazyTensor(result);
-  habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
-  out.m_index = 0;
-  out.SetNode(node);
-  updateDstDependencies(hlresult, result);
-  std::vector<at::Tensor> input_pt_vec{self};
-  node->AddInputPtTensors(input_pt_vec);
-  flush_op(result);
-  return result;
+  LazyOp<at::Tensor> k{
+      "aten::norm",
+      {self, p},
+      {},
+      {NormOperator::compute_output_shape(self, p)}};
+  return k.call();
 }
 
 std::tuple<Tensor, Tensor> max_pool2d_with_indices_hpu_lazy(
