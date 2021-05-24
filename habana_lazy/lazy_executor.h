@@ -36,12 +36,12 @@ class HbExecutionContext {
       }
     }
   }
-  void MarkTensorExecuting(int tensor_id);
-  void MarkTensorExecuted(int tensor_id);
-  void MarkTensorRegistered(int tensor_id);
-  void MarkTensorStatus(int tensor_id, LazyTensorExecutionStatus status);
+  void MarkTensorExecuting(int64_t tensor_id);
+  void MarkTensorExecuted(int64_t tensor_id);
+  void MarkTensorRegistered(int64_t tensor_id);
+  void MarkTensorStatus(int64_t tensor_id, LazyTensorExecutionStatus status);
 
-  LazyTensorExecutionStatus getTensorExecutionStatus(int index);
+  LazyTensorExecutionStatus getTensorExecutionStatus(int64_t index);
 
   std::unordered_map<int64_t, LazyTensorExecutionStatus>&
   getTensorExecutionStatus() {

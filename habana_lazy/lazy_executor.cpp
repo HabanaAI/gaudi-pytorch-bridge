@@ -55,45 +55,45 @@ void HbExecutionContext::UnregisterTensor(Data* data) {
   this->getTensorExecutionStatus().erase(data->unique_id);
 }
 
-void HbExecutionContext::MarkTensorRegistered(int tensor_id) {
+void HbExecutionContext::MarkTensorRegistered(int64_t tensor_id) {
   std::lock_guard<std::recursive_mutex> lock(HbContextArena::Get()->GetMutex());
   TORCH_CHECK(
       m_tensor_execution_status.find(tensor_id) !=
           std::end(m_tensor_execution_status),
-      "Habana Lazy execution : trying to set execution stage of unregistered tensor");
+      "Habana Lazy execution : trying to set registered stage to unregistered tensor");
   m_tensor_execution_status[tensor_id] = kREGISTERED;
 }
 void HbExecutionContext::MarkTensorStatus(
-    int tensor_id,
+    int64_t tensor_id,
     LazyTensorExecutionStatus status) {
   std::lock_guard<std::recursive_mutex> lock(HbContextArena::Get()->GetMutex());
   TORCH_CHECK(
       m_tensor_execution_status.find(tensor_id) !=
           std::end(m_tensor_execution_status),
-      "Habana Lazy execution : trying to set execution stage of unregistered tensor");
+      "Habana Lazy execution : trying to set execution stage to unregistered tensor");
   m_tensor_execution_status[tensor_id] = status;
 }
-void HbExecutionContext::MarkTensorExecuting(int tensor_id) {
+void HbExecutionContext::MarkTensorExecuting(int64_t tensor_id) {
   std::lock_guard<std::recursive_mutex> lock(HbContextArena::Get()->GetMutex());
   TORCH_CHECK(
       m_tensor_execution_status.find(tensor_id) !=
           std::end(m_tensor_execution_status),
-      "Habana Lazy execution : trying to set execution stage of unregistered tensor");
+      "Habana Lazy execution : trying to set Executing stage to unregistered tensor");
   if (m_tensor_execution_status[tensor_id] != kEXECUTION_COMPLETE &&
       m_tensor_execution_status[tensor_id] != kINPUT) {
     m_tensor_execution_status[tensor_id] = kEXECUTING;
   }
 }
-void HbExecutionContext::MarkTensorExecuted(int tensor_id) {
+void HbExecutionContext::MarkTensorExecuted(int64_t tensor_id) {
   std::lock_guard<std::recursive_mutex> lock(HbContextArena::Get()->GetMutex());
   TORCH_CHECK(
       m_tensor_execution_status.find(tensor_id) !=
           std::end(m_tensor_execution_status),
-      "Habana Lazy execution : trying to set execution stage of unregistered tensor");
+      "Habana Lazy execution : trying to set executed stage to unregistered tensor");
   m_tensor_execution_status[tensor_id] = kEXECUTION_COMPLETE;
 }
 LazyTensorExecutionStatus HbExecutionContext::getTensorExecutionStatus(
-    int index) {
+    int64_t index) {
   std::lock_guard<std::recursive_mutex> lock(HbContextArena::Get()->GetMutex());
   auto exec_status = m_tensor_execution_status.find(index);
   if (exec_status != std::end(m_tensor_execution_status)) {
