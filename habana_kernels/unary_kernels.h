@@ -383,6 +383,17 @@ class ReciprocalOperator : public ReciprocalOutOperator {
 };
 
 //
+// reciprocal Inplace Operator
+class ReciprocalInplaceOperator : public UnaryInplaceOperator {
+ public:
+  ReciprocalInplaceOperator(int device_id, c10::ScalarType scalarType)
+      : UnaryInplaceOperator(
+            device_id,
+            "reciprocal_fwd_" +
+                habana_helpers::name_suffix_from_type(scalarType)) {}
+};
+
+//
 // Gelu Operator
 class GeluOperator : public HabanaOperator {
  public:

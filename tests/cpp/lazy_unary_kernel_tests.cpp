@@ -230,6 +230,15 @@ TEST_F(LazyUnaryKernelTest, ReciprocalTest) {
   EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out), true);
 }
 
+TEST_F(LazyUnaryKernelTest, ReciprocalInplaceTest) {
+  torch::Tensor A = torch::randn({2, 3}, torch::requires_grad(false));
+  torch::Tensor hA = A.to(torch::kHABANA);
+  torch::reciprocal_(hA);
+  torch::reciprocal_(A);
+
+  EXPECT_EQ(allclose(hA.to(torch::kCPU), A), true);
+}
+
 TEST_F(LazyUnaryKernelTest, HardsigmoidTest) {
   torch::Tensor A = torch::randn({2, 3}, torch::requires_grad(false));
   torch::Tensor hA = A.to(torch::kHABANA);

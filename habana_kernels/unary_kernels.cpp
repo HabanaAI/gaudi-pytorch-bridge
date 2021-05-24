@@ -2041,6 +2041,12 @@ static auto& KernelRegistry =
               return std::make_shared<ReciprocalOperator>(device_id, node_type);
             })
         .add(
+            "aten::reciprocal_",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<ReciprocalInplaceOperator>(
+                  device_id, node_type);
+            })
+        .add(
             "aten::gelu",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<GeluOperator>(device_id, node_type);

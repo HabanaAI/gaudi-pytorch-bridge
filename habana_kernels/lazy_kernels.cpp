@@ -4388,26 +4388,15 @@ Tensor& neg_out_hpu_lazy(Tensor& result, const Tensor& input) {
 }
 
 Tensor& reciprocal_hpu_lazy_(Tensor& self) {
-  HABANA_ASSERT(0);
-  return reciprocal_hpu_(self);
+  PT_LAZY_TRACE;
+  LazyOp<at::Tensor&> k{"aten::reciprocal_", {self}};
+  return k.call(self);
 }
 
 Tensor reciprocal_hpu_lazy(const Tensor& self) {
   PT_LAZY_TRACE;
-  auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
-  auto node = habana_lazy::ir::Node::Create(
-      Symbol::fromQualString("aten::reciprocal"), {hl_self.GetIrValue()});
-  auto result = at::native::empty_hpu_lazy(
-      self.sizes(), self.options(), self.suggest_memory_format(), false);
-  auto hlresult = habana_lazy::GetHbLazyTensor(result);
-  habana_lazy::ir::Value& out = hlresult.CurrentIrValue();
-  out.m_index = 0;
-  out.SetNode(node);
-  updateDstDependencies(hlresult, result);
-  std::vector<at::Tensor> input_pt_vec{self};
-  node->AddInputPtTensors(input_pt_vec);
-  flush_op(result);
-  return result;
+  LazyOp<at::Tensor> k{"aten::reciprocal", {self}};
+  return k.call();
 }
 
 Tensor& reciprocal_out_hpu_lazy(Tensor& result, const Tensor& self) {
@@ -4578,8 +4567,9 @@ Tensor& abs_hpu_lazy_(Tensor& self) {
 }
 
 Tensor neg_hpu_lazy(const Tensor& self) {
-  HABANA_ASSERT(0);
-  return neg_hpu(self);
+  PT_LAZY_TRACE;
+  LazyOp<at::Tensor> k{"aten::neg", {self}};
+  return k.call();
 }
 namespace at {
 namespace native {
