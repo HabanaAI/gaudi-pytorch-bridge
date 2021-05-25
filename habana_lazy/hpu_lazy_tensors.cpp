@@ -638,7 +638,23 @@ c10::ScalarType HbLazyTensor::getTensorOriginalType() const {
 
 void HbLazyTensor::ShallowCopyTo(HbLazyTensor* dest) const {
   // We can add stuff related to view tensors later
-  dest->AssignIrValue(GetIrValue());
+  // SW-43241: The shallow copy copies the ir_value etc from one tensor
+  // to another. If the same ir_value is used in both the tensors, then
+  // they will have a weak pointer to the same Data pointer from the
+  // first lazy tensor.
+  // If the first lazy tensor is destroyed, the associated Data will
+  // also get removed, making the weak pointer to the Data in the
+  // second lazy tensor ir_value to be expired.
+  // To avoid this, create a new ir_value with data pointer from the dest
+  // tensor. This ensures that the ir_value within each tensor points to
+  // its own Data pointer. Additionally, copy the ir node from the source
+  // ir_value so that the dest ir_value also has the same ir node parent.
+  // However, prevent adding this ir_value as another output to the ir node.
+  // Since we do the post order traversal from output values backward to its
+  // ir nodes, both the ir_value will reach the same ir node.
+  habana_lazy::ir::Value val{dest->GetIrValue().m_data_ptr.lock()};
+  val.SetNodeForShallowCopy(GetIrValue().mp_node);
+  dest->AssignIrValue(val);
 }
 
 void HbLazyTensor::StepMarker(const std::string& device_str) {
