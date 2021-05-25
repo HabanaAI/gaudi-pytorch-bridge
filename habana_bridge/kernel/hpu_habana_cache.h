@@ -39,6 +39,16 @@ std::ostream& operator<<(std::ostream& O, PGMCachingPolicy P);
 //   compute the hash directly from the subgraph within the constructor
 struct RecipeArgumentSpec {
   RecipeArgumentSpec(
+      const std::shared_ptr<torch::jit::Graph>& irgraph,
+      const std::string id = std::string());
+
+  RecipeArgumentSpec(
+      at::ArrayRef<torch::jit::IValue> input_refs,
+      const std::shared_ptr<torch::jit::Graph>& irgraph,
+      const uint64_t token = 0,
+      const std::string id = std::string());
+
+  RecipeArgumentSpec(
       bool with_grad,
       at::ArrayRef<torch::jit::IValue> input_refs,
       const std::shared_ptr<torch::jit::Graph>& irgraph,
@@ -53,12 +63,28 @@ struct RecipeArgumentSpec {
     return hash_code;
   }
 
+  size_t graphHashCode() const {
+    return graph_hash_code;
+  }
+
+  size_t offsetHashCode() const {
+    return offset_hash_code;
+  }
+
   friend std::ostream& operator<<(std::ostream& O, const RecipeArgumentSpec& v);
 
  private:
+  void ComputeGraphHashCode(
+      const std::shared_ptr<torch::jit::Graph>& irgraph,
+      const std::string& id);
+  void ComputeOffsetHashCode(at::ArrayRef<torch::jit::IValue> input_refs);
+
   torch::jit::CompleteArgumentSpec cas;
-  size_t hash_code;
   std::string opstrs;
+  size_t hash_code{0};
+  size_t graph_hash_code{0};
+  size_t offset_hash_code{0};
+  std::vector<torch::jit::IValue> dummy_inputs;
 };
 
 // Hash functor for RecipeArgumentSpec
@@ -257,7 +283,6 @@ class RecipeCacheLRU {
       if (smaxsize != nullptr) {
         max_size_ = std::max(PGM_LRU_MIN_NRECIPES, atoi(smaxsize));
       }
-      PT_BRIDGE_DEBUG("Creating : cache with lru replacement policy, max size ", max_size_);
     }
     return *instance_;
   }
@@ -305,4 +330,32 @@ class RecipeCacheLRU {
       RecipeArgumentSpecEqual>
       map_;
 };
+
+class UniqueTokenGenerator {
+ public:
+  static UniqueTokenGenerator& get_gen() {
+    std::lock_guard<std::mutex> lg(mutex_);
+    if (!instance_) {
+      instance_ = new UniqueTokenGenerator();
+    }
+    return *instance_;
+  }
+
+  uint64_t token() {
+    std::lock_guard<std::mutex> lg(mutex_);
+    current_token_ += 1;
+    return current_token_;
+  }
+
+ private:
+  UniqueTokenGenerator() = default;
+  ~UniqueTokenGenerator() = default;
+  UniqueTokenGenerator(const UniqueTokenGenerator&) = delete;
+  UniqueTokenGenerator& operator=(const UniqueTokenGenerator&) = delete;
+
+  static std::mutex mutex_;
+  static UniqueTokenGenerator* instance_;
+  static uint64_t current_token_;
+};
+
 } // namespace habana

@@ -25,6 +25,10 @@ namespace habana {
 size_t RecipeValueSpec::recipe_count = 0;
 size_t RecipeValueSpec::total_recipe_ntbytes = 0;
 
+std::mutex UniqueTokenGenerator::mutex_;
+UniqueTokenGenerator* UniqueTokenGenerator::instance_ = nullptr;
+uint64_t UniqueTokenGenerator::current_token_ = 1000000006;
+
 std::ostream& operator<<(std::ostream& O, PGMCachingPolicy P) {
   switch (P) {
     case PGMCachingPolicy::simple:
@@ -43,15 +47,49 @@ std::ostream& operator<<(std::ostream& O, PGMCachingPolicy P) {
 }
 
 RecipeArgumentSpec::RecipeArgumentSpec(
+    const std::shared_ptr<torch::jit::Graph>& irgraph,
+    const std::string id)
+    : cas(false, dummy_inputs) {
+  ComputeGraphHashCode(irgraph, id);
+  hash_code = graph_hash_code;
+}
+
+RecipeArgumentSpec::RecipeArgumentSpec(
+    at::ArrayRef<torch::jit::IValue> input_refs,
+    const std::shared_ptr<torch::jit::Graph>& irgraph,
+    const uint64_t token,
+    const std::string id)
+    : cas(false, input_refs) {
+  ComputeGraphHashCode(irgraph, id);
+  hash_code = at::hash_combine(hash_code, graph_hash_code);
+  hash_code = at::hash_combine(hash_code, token);
+
+  ComputeOffsetHashCode(input_refs);
+  hash_code = at::hash_combine(hash_code, offset_hash_code);
+}
+
+RecipeArgumentSpec::RecipeArgumentSpec(
     bool with_grad,
     at::ArrayRef<torch::jit::IValue> input_refs,
     const std::shared_ptr<torch::jit::Graph>& irgraph,
     const std::string& id)
     : cas(with_grad, input_refs),
-      hash_code(cas.hashCode()),
-      opstrs(std::string()) {
+      opstrs(std::string()),
+      hash_code(cas.hashCode()) {
+  ComputeGraphHashCode(irgraph, id);
+  hash_code = at::hash_combine(hash_code, graph_hash_code);
+  hash_code = at::hash_combine(hash_code, irgraph->outputs().size());
+  hash_code = habana_helpers::hash_combine_scalars(hash_code, input_refs);
+
+  ComputeOffsetHashCode(input_refs);
+  hash_code = at::hash_combine(hash_code, offset_hash_code);
+}
+
+void RecipeArgumentSpec::ComputeGraphHashCode(
+    const std::shared_ptr<torch::jit::Graph>& irgraph,
+    const std::string& id) {
   std::hash<std::string> str_hash;
-  opstrs.append(id + "::\n");
+  opstrs.append((id.empty() ? std::string("UNNAMED") : id) + "::\n");
   for (auto node : irgraph->nodes()) {
     if (node->kind() != torch::jit::prim::Constant) {
       std::string s(node->kind().toQualString());
@@ -73,11 +111,12 @@ RecipeArgumentSpec::RecipeArgumentSpec(
       opstrs.append(oss.str());
     }
   }
+  graph_hash_code = str_hash(opstrs);
+}
 
-  hash_code = at::hash_combine(hash_code, str_hash(opstrs));
-  hash_code = at::hash_combine(hash_code, irgraph->outputs().size());
-  hash_code = habana_helpers::hash_combine_scalars(hash_code, input_refs);
-
+void RecipeArgumentSpec::ComputeOffsetHashCode(
+    at::ArrayRef<torch::jit::IValue> input_refs) {
+  offset_hash_code = 0;
   for (auto& input : input_refs) {
     if (input.isTensor()) {
       auto pt_tensor = input.toTensor();
@@ -87,7 +126,7 @@ RecipeArgumentSpec::RecipeArgumentSpec(
       synapse_helpers::device_ptr buffer_ptr =
           reinterpret_cast<synapse_helpers::device_ptr>(pt_tensor.data_ptr());
       auto offset = (buffer_ptr - storage_data_ptr_);
-      hash_code = at::hash_combine(hash_code, offset);
+      offset_hash_code = at::hash_combine(offset_hash_code, offset);
     }
   }
 }
