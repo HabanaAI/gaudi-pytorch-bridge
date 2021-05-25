@@ -213,7 +213,7 @@ class LazyOp {
             if (m_dma_non_first_cpu_tensor ||
                 t.numel() != 1) { // numel because .item() uses that check
               auto tinput = t.to(c10::kHABANA);
-              auto val = GetOrCreateHbLazyTensor(tinput).GetIrValue();
+              auto val = GetHbLazyTensor(tinput).GetIrValue();
               values.emplace_back(val);
               input_pt_vec.emplace_back(tinput);
             } else {
@@ -221,7 +221,7 @@ class LazyOp {
               values.emplace_back(val);
             }
           } else {
-            auto val = GetOrCreateHbLazyTensor(t).GetIrValue();
+            auto val = GetHbLazyTensor(t).GetIrValue();
             values.emplace_back(val);
             input_pt_vec.emplace_back(t);
           }
@@ -233,7 +233,7 @@ class LazyOp {
         ir::ValueList hl_tensors;
         std::vector<at::Tensor> list_input_pt_vec;
         for (const auto& t : tensors) {
-          auto val = GetOrCreateHbLazyTensor(t).GetIrValue();
+          auto val = GetHbLazyTensor(t).GetIrValue();
           hl_tensors.emplace_back(val);
           list_input_pt_vec.emplace_back(t);
         }
