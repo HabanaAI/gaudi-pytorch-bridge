@@ -74,6 +74,8 @@ def train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, pri
         if args.distributed:
             utils.barrier()
 
+        dl_ex_start_time=time.time()
+
         if args.channels_last:
             import habana_frameworks.torch.core as htcore
             image = image.contiguous(memory_format=torch.channels_last)
@@ -104,6 +106,7 @@ def train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, pri
             metric_logger.meters['acc1'].update(acc1.item(), n=batch_size*print_freq)
             metric_logger.meters['acc5'].update(acc5.item(), n=batch_size*print_freq)
             current_time = time.time()
+            last_print_time = dl_ex_start_time if args.dl_time_exclude else last_print_time
             metric_logger.meters['img/s'].update(batch_size*print_freq / (current_time - last_print_time))
             last_print_time = time.time()
 
@@ -571,6 +574,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description='PyTorch Classification Training')
 
     parser.add_argument('--data-path', default='/software/data/pytorch/imagenet/ILSVRC2012/', help='dataset')
+    parser.add_argument('--dl-time-exclude', default='True', type=lambda x: x.lower() == 'true', help='Set to False to include data load time')
     parser.add_argument('--model', default='resnet18',
                         help='select Resnet models from resnet18, resnet34, resnet50, resnet101, resnet152, resnext50_32x4d, resnext101_32x4d, resnext101_32x8d, wide_resnet50_2, wide_resnet101_2')
     parser.add_argument('--device', default='hpu', help='device')
