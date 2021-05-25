@@ -41,7 +41,7 @@ class FusedSGD(Optimizer):
                     state = self.state[p]
                     state['momentum_buffer'] = torch.zeros_like(p).to(hpu, non_blocking=True)
 
-        self.lr_t = None
+        self.lr_list = []
         self.step_t = torch.tensor([0], dtype=torch.int32, requires_grad=False).to(hpu, non_blocking=True)
 
     def step(self, closure: Callable = None):
@@ -56,8 +56,10 @@ class FusedSGD(Optimizer):
         if closure is not None:
             loss = closure()
 
+        self.lr_list.clear()
         for group in self.param_groups:
-            self.lr_t = torch.tensor([group['lr']], dtype=torch.float, requires_grad=False).to(hpu, non_blocking=True)
+            lr_t = torch.tensor([group['lr']], dtype=torch.float, requires_grad=False).to(hpu, non_blocking=True)
+            self.lr_list.append(lr_t)
             if (group['momentum'] == 0):
                 grad_list, d_p_list = [], []
                 for p in group["params"]:
@@ -75,7 +77,7 @@ class FusedSGD(Optimizer):
                 hb_custom_C.fused_sgd(
                         grad_list,
                         d_p_list,
-                        self.lr_t,
+                        lr_t,
                         group['weight_decay'],
                         group['momentum'],
                         group['dampening'],
@@ -101,7 +103,7 @@ class FusedSGD(Optimizer):
                             d_p_list,
                             momentum_buffer_list,
                             self.step_t,
-                            self.lr_t,
+                            lr_t,
                             group['weight_decay'],
                             group['momentum'],
                             group['dampening'],
