@@ -444,6 +444,17 @@ TEST_F(LazyUnaryKernelTest, ExpTest) {
   EXPECT_EQ(allclose(hout_lazy, cpu_out, 0.001, 0.001, true), true);
 }
 
+TEST_F(LazyUnaryKernelTest, ErfTest) {
+  auto input_tensor = torch::randn({4, 5});
+  torch::Tensor cpu_out = torch::erf(input_tensor);
+
+  torch::Tensor tHabanaX = input_tensor.to(torch::kHABANA);
+  torch::Tensor outHabana = torch::erf(tHabanaX);
+  torch::Tensor hout_lazy = outHabana.to(torch::kCPU);
+
+  EXPECT_EQ(allclose(hout_lazy, cpu_out, 0.001, 0.001, true), true);
+}
+
 TEST_F(LazyUnaryKernelTest, ErfInplaceTest) {
   torch::Tensor A = torch::randn({2, 2}, torch::dtype(torch::kFloat));
 

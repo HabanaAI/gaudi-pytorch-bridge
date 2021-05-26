@@ -495,6 +495,16 @@ class ExpOperator : public UnaryOperator {
             "exp_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {}
 };
 
+//
+// Erf Inplace Operator
+class ErfInplaceOperator : public UnaryInplaceOperator {
+ public:
+  ErfInplaceOperator(int device_id, c10::ScalarType scalarType)
+      : UnaryInplaceOperator(
+            device_id,
+            "erf_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {}
+};
+
 // Exp Inplace Operator
 class ExpInplaceOperator : public UnaryInplaceOperator {
  public:
