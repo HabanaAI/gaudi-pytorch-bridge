@@ -174,14 +174,15 @@ void HabanaNMSOperator::AllocateAndAddSynapseNode(
 
   // Reshape from [Scores] -> [N, Classes, Scores] where N = Classes = 1.
   // Needed because Filter & Squeeze works only on this 3D input tensor.
-  ReshapeOperator reshape_op1(scores.device().index(), scores.scalar_type());
+  auto reshape_op1 = make_operator<ReshapeOperator>(
+      scores.device().index(), scores.scalar_type());
   auto& syn00 =
-      reshape_op1.SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
+      reshape_op1->SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
   auto shape1 = scores.sizes().vec();
   shape1.insert(shape1.cbegin(), 1);
   shape1.insert(shape1.cbegin(), 1);
   torch::jit::Stack stack = {IValue(scores), IValue(shape1)};
-  reshape_op1.AllocateAndAddSynapseNode(graph, stack, false);
+  reshape_op1->AllocateAndAddSynapseNode(graph, stack, false);
   p_context_->syn_inputs_[1] = std::move(syn00);
   stack.clear();
 
@@ -189,104 +190,113 @@ void HabanaNMSOperator::AllocateAndAddSynapseNode(
   // Output (Filtered Scores) : [N, Classes, kBox]
   // Output (Filtered BoxIds) : [N, Classes, kBox]
   // Output (Valid Box Count) : [N, Classes]
-  FilterAndSqueezeOperator filter_op(
+  auto filter_op = make_operator<FilterAndSqueezeOperator>(
       scores.device().index(), "filter_and_squeeze_fwd_f32");
-  filter_op.SetSynapseInput(std::move(reshape_op1.GetSynOutputs()[0]));
-  stack = {IValue(reshape_op1.GetOutputs()[0]), IValue(threshold)};
-  filter_op.AllocateAndAddSynapseNode(graph, stack, false);
+  filter_op->SetSynapseInput(std::move(reshape_op1->GetSynOutputs()[0]));
+  stack = {IValue(reshape_op1->GetOutputs()[0]), IValue(threshold)};
+  filter_op->AllocateAndAddSynapseNode(graph, stack, false);
   stack.clear();
 
   // Input (Scores): [kBox]
   // Output (Sorted Scores): [kBox]
   // Output (Sorted BoxIds): [kBox]
-  TopkOperator sort_op(scores.device().index(), "topk");
-  auto& syn01 = sort_op.SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
+  auto sort_op = make_operator<TopkOperator>(scores.device().index(), "topk");
+  auto& syn01 = sort_op->SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
   stack = {
       IValue(scores),
       IValue(scores.sizes()[0]),
       IValue(scores.dim() - 1),
       IValue(true),
       IValue(true)};
-  sort_op.AllocateAndAddSynapseNode(graph, stack, {false, false});
+  sort_op->AllocateAndAddSynapseNode(graph, stack, {false, false});
   p_context_->syn_inputs_[1] = std::move(syn01);
   stack.clear();
 
   // Input (Boxes): [kBox, 4]
   // Input (Sorted Scores): [kBox]
   // Output (Gathered Boxes): [kBox, 4]
-  GatherOperator gather_op(scores.device().index(), scores.scalar_type());
+  auto gather_op = make_operator<GatherOperator>(
+      scores.device().index(), scores.scalar_type());
   auto& syn10 =
-      gather_op.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+      gather_op->SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
   auto& syn11 =
-      gather_op.SetSynapseInput(std::move(sort_op.GetSynOutputs()[1]));
+      gather_op->SetSynapseInput(std::move(sort_op->GetSynOutputs()[1]));
   stack = {
-      IValue(boxes), IValue(0), IValue(sort_op.GetOutputs()[1]), IValue(false)};
-  gather_op.AllocateAndAddSynapseNode(graph, stack, false);
+      IValue(boxes),
+      IValue(0),
+      IValue(sort_op->GetOutputs()[1]),
+      IValue(false)};
+  gather_op->AllocateAndAddSynapseNode(graph, stack, false);
   p_context_->syn_inputs_[0] = std::move(syn10);
   stack.clear();
 
   // Reshape sorted scores from [kBox] -> [N, Classes, kBox], where N = Classes
   // = 1
-  ReshapeOperator reshape_op3(scores.device().index(), scores.scalar_type());
-  reshape_op3.SetSynapseInput(std::move(syn11));
-  auto shape3 = sort_op.GetOutputs()[1].sizes().vec();
+  auto reshape_op3 = make_operator<ReshapeOperator>(
+      scores.device().index(), scores.scalar_type());
+  reshape_op3->SetSynapseInput(std::move(syn11));
+  auto shape3 = sort_op->GetOutputs()[1].sizes().vec();
   shape3.insert(shape3.cbegin(), 1);
   shape3.insert(shape3.cbegin(), 1);
-  stack = {IValue(sort_op.GetOutputs()[1]), IValue(shape3)};
-  reshape_op3.AllocateAndAddSynapseNode(graph, stack, false);
+  stack = {IValue(sort_op->GetOutputs()[1]), IValue(shape3)};
+  reshape_op3->AllocateAndAddSynapseNode(graph, stack, false);
   stack.clear();
 
   // Reshape gathered boxes from [kBox, 4] -> [4, kBox]
-  TransposeOperator t2_op(scores.device().index(), scores.scalar_type());
-  stack = {IValue(gather_op.GetOutputs()[0]), IValue(0), IValue(1)};
-  t2_op.SetSynapseInput(std::move(gather_op.GetSynOutputs()[0]));
-  t2_op.AllocateAndAddSynapseNode(graph, stack, false);
+  auto t2_op = make_operator<TransposeOperator>(
+      scores.device().index(), scores.scalar_type());
+  stack = {IValue(gather_op->GetOutputs()[0]), IValue(0), IValue(1)};
+  t2_op->SetSynapseInput(std::move(gather_op->GetSynOutputs()[0]));
+  t2_op->AllocateAndAddSynapseNode(graph, stack, false);
   stack.clear();
 
   // Reshape gathered boxes from [4, kBox] -> [N, 4, Classes, kBox], where N =
   // Classes = 1
-  ReshapeOperator reshape_op4(scores.device().index(), scores.scalar_type());
-  reshape_op4.SetSynapseInput(std::move(t2_op.GetSynOutputs()[0]));
-  auto shape4 = t2_op.GetOutputs()[0].sizes().vec();
+  auto reshape_op4 = make_operator<ReshapeOperator>(
+      scores.device().index(), scores.scalar_type());
+  reshape_op4->SetSynapseInput(std::move(t2_op->GetSynOutputs()[0]));
+  auto shape4 = t2_op->GetOutputs()[0].sizes().vec();
   shape4.insert(shape4.cbegin() + 1, 1);
   shape4.insert(shape4.cbegin(), 1);
-  stack = {IValue(t2_op.GetOutputs()[0]), IValue(shape4)};
-  reshape_op4.AllocateAndAddSynapseNode(graph, stack, false);
+  stack = {IValue(t2_op->GetOutputs()[0]), IValue(shape4)};
+  reshape_op4->AllocateAndAddSynapseNode(graph, stack, false);
   stack.clear();
 
   // Input (Gathered boxes): [N, 4, Classes, KBox]
   // Input (Sorted box-id): [N, Classes, kBox]
   // Input (valid box count): [N, Classes]
   // Output (Box-id out): [N, Classes, kBox]
-  NMSOperator nms_op(scores.device().index(), "nms_fwd_f32");
-  nms_op.SetSynapseInput(std::move(reshape_op4.GetSynOutputs()[0]));
-  nms_op.SetSynapseInput(std::move(reshape_op3.GetSynOutputs()[0]));
+  auto nms_op =
+      make_operator<NMSOperator>(scores.device().index(), "nms_fwd_f32");
+  nms_op->SetSynapseInput(std::move(reshape_op4->GetSynOutputs()[0]));
+  nms_op->SetSynapseInput(std::move(reshape_op3->GetSynOutputs()[0]));
   auto& syn_nms2 =
-      nms_op.SetSynapseInput(std::move(filter_op.GetSynOutputs()[2]));
+      nms_op->SetSynapseInput(std::move(filter_op->GetSynOutputs()[2]));
   stack = {
-      IValue(reshape_op4.GetOutputs()[0]),
-      IValue(reshape_op3.GetOutputs()[0]),
-      IValue(filter_op.GetOutputs()[2]),
+      IValue(reshape_op4->GetOutputs()[0]),
+      IValue(reshape_op3->GetOutputs()[0]),
+      IValue(filter_op->GetOutputs()[2]),
       IValue(iou)};
-  nms_op.AllocateAndAddSynapseNode(graph, stack, false);
+  nms_op->AllocateAndAddSynapseNode(graph, stack, false);
   stack.clear();
 
-  PostNmsOperator postnms_op(scores.device().index(), "post_nms_fwd_i32");
-  postnms_op.SetSynapseInput(std::move(nms_op.GetSynOutputs()[0]));
-  postnms_op.SetSynapseInput(std::move(syn_nms2));
-  stack = {IValue(nms_op.GetOutputs()[0]), IValue(filter_op.GetOutputs()[2])};
-  postnms_op.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+  auto postnms_op = make_operator<PostNmsOperator>(
+      scores.device().index(), "post_nms_fwd_i32");
+  postnms_op->SetSynapseInput(std::move(nms_op->GetSynOutputs()[0]));
+  postnms_op->SetSynapseInput(std::move(syn_nms2));
+  stack = {IValue(nms_op->GetOutputs()[0]), IValue(filter_op->GetOutputs()[2])};
+  postnms_op->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
   stack.clear();
 
   p_context_->syn_outputs_.emplace_back(
-      std::move(postnms_op.GetSynOutputs()[0]));
-  p_context_->pt_outputs_.emplace_back(std::move(postnms_op.GetOutputs()[0]));
+      std::move(postnms_op->GetSynOutputs()[0]));
+  p_context_->pt_outputs_.emplace_back(std::move(postnms_op->GetOutputs()[0]));
   p_context_->syn_outputs_.emplace_back(
-      std::move(postnms_op.GetSynOutputs()[1]));
-  p_context_->pt_outputs_.emplace_back(std::move(postnms_op.GetOutputs()[1]));
+      std::move(postnms_op->GetSynOutputs()[1]));
+  p_context_->pt_outputs_.emplace_back(std::move(postnms_op->GetOutputs()[1]));
   p_context_->syn_outputs_.emplace_back(
-      std::move(postnms_op.GetSynOutputs()[2]));
-  p_context_->pt_outputs_.emplace_back(std::move(postnms_op.GetOutputs()[2]));
+      std::move(postnms_op->GetSynOutputs()[2]));
+  p_context_->pt_outputs_.emplace_back(std::move(postnms_op->GetOutputs()[2]));
 }
 
 at::Tensor habana_nms_hpu(

@@ -134,11 +134,12 @@ void RandpermOperator::AllocateAndAddSynapseNode(
 
   auto arangeOutput = habana_helpers::createPTTensor(output, false);
 
-  ArangeOperator arangeOp(this->p_context_->device_id_, scalar_type);
-  arangeOp.AllocateSynapseInput(graph, arangeOutput, false);
+  auto arangeOp =
+      make_operator<ArangeOperator>(this->p_context_->device_id_, scalar_type);
+  arangeOp->AllocateSynapseInput(graph, arangeOutput, false);
   torch::jit::Stack stack{
       IValue(arangeOutput), IValue(start), IValue(end), IValue(step)};
-  arangeOp.AllocateAndAddSynapseNode(graph, stack, false);
+  arangeOp->AllocateAndAddSynapseNode(graph, stack, false);
   stack.clear();
 
   // Move inputs[0] as output tensor
@@ -148,16 +149,16 @@ void RandpermOperator::AllocateAndAddSynapseNode(
   p_context_->pt_inputs_.erase(p_context_->pt_inputs_.begin());
 
   // create RandomShuffle operator
-  RandomShuffleOperator randShuffleOp(
+  auto randShuffleOp = make_operator<RandomShuffleOperator>(
       this->p_context_->device_id_, scalar_type);
   stack.emplace_back(IValue(arangeOutput));
-  randShuffleOp.SetSynapseInput(std::move(arangeOp.GetSynOutputs()[0]));
+  randShuffleOp->SetSynapseInput(std::move(arangeOp->GetSynOutputs()[0]));
   auto& seed_syn =
-      randShuffleOp.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
-  randShuffleOp.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+      randShuffleOp->SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+  randShuffleOp->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
   p_context_->syn_inputs_[0] = std::move(seed_syn);
-  p_context_->syn_outputs_[0] = std::move(randShuffleOp.GetSynOutputs()[0]);
-  p_context_->pt_outputs_[0] = std::move(randShuffleOp.GetOutputs()[0]);
+  p_context_->syn_outputs_[0] = std::move(randShuffleOp->GetSynOutputs()[0]);
+  p_context_->pt_outputs_[0] = std::move(randShuffleOp->GetOutputs()[0]);
 }
 
 /*******************************************************************
@@ -405,19 +406,19 @@ void BernoulliScalarOperator::AllocateAndAddSynapseNode(
       false);
 
   // Create Constant Operator to convert scalar to tensor
-  ConstantOperator constOp(
+  auto constOp = make_operator<ConstantOperator>(
       this->p_context_->device_id_, self_float.scalar_type());
   std::vector<c10::IValue> stack = {IValue(self_float), IValue(p_converted)};
-  constOp.AllocateAndAddSynapseNode(graph, stack, false);
+  constOp->AllocateAndAddSynapseNode(graph, stack, false);
   stack.clear();
 
   // Create Bernoulli operator
-  BernoulliOperator brnliOp(
-      this->p_context_->device_id_, constOp.GetOutputs()[0].scalar_type());
-  brnliOp.SetSynapseInput(std::move(constOp.GetSynOutputs()[0]));
-  stack.emplace_back(IValue(constOp.GetOutputs()[0]));
+  auto brnliOp = make_operator<BernoulliOperator>(
+      this->p_context_->device_id_, constOp->GetOutputs()[0].scalar_type());
+  brnliOp->SetSynapseInput(std::move(constOp->GetSynOutputs()[0]));
+  stack.emplace_back(IValue(constOp->GetOutputs()[0]));
   stack.emplace_back(IValue(inputs[2]));
-  brnliOp.AllocateAndAddSynapseNode(graph, stack, false);
+  brnliOp->AllocateAndAddSynapseNode(graph, stack, false);
   stack.clear();
 
   if (scalar_type == c10::ScalarType::Float) {
@@ -425,37 +426,38 @@ void BernoulliScalarOperator::AllocateAndAddSynapseNode(
     std::string node_type = "cast_i32_to_f32";
 
     // Create Cast operator
-    CastOperator castOp(this->p_context_->device_id_, node_type);
-    castOp.SetSynapseInput(std::move(brnliOp.GetSynOutputs()[0]));
+    auto castOp =
+        make_operator<CastOperator>(this->p_context_->device_id_, node_type);
+    castOp->SetSynapseInput(std::move(brnliOp->GetSynOutputs()[0]));
 
-    stack.emplace_back(IValue(brnliOp.GetOutputs()[0]));
+    stack.emplace_back(IValue(brnliOp->GetOutputs()[0]));
     stack.emplace_back(IValue(c10::ScalarType::Float));
-    castOp.AllocateAndAddSynapseNode(graph, stack, false);
+    castOp->AllocateAndAddSynapseNode(graph, stack, false);
     stack.clear();
 
     // Create MemCopy operator
-    MemCopyOperator memcopyOp(
-        this->p_context_->device_id_, castOp.GetOutputs()[0].scalar_type());
-    memcopyOp.SetSynapseInput(std::move(castOp.GetSynOutputs()[0]));
-    stack.emplace_back(IValue(castOp.GetOutputs()[0]));
+    auto memcopyOp = make_operator<MemCopyOperator>(
+        this->p_context_->device_id_, castOp->GetOutputs()[0].scalar_type());
+    memcopyOp->SetSynapseInput(std::move(castOp->GetSynOutputs()[0]));
+    stack.emplace_back(IValue(castOp->GetOutputs()[0]));
     stack.emplace_back(IValue(self));
-    memcopyOp.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+    memcopyOp->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
 
     p_context_->syn_outputs_.emplace_back(
-        std::move(memcopyOp.GetSynOutputs()[0]));
-    p_context_->pt_outputs_.emplace_back(std::move(memcopyOp.GetOutputs()[0]));
+        std::move(memcopyOp->GetSynOutputs()[0]));
+    p_context_->pt_outputs_.emplace_back(std::move(memcopyOp->GetOutputs()[0]));
   } else {
     // Create MemCopy operator
-    MemCopyOperator memcopyOp(
-        this->p_context_->device_id_, brnliOp.GetOutputs()[0].scalar_type());
-    memcopyOp.SetSynapseInput(std::move(brnliOp.GetSynOutputs()[0]));
-    stack.emplace_back(IValue(brnliOp.GetOutputs()[0]));
+    auto memcopyOp = make_operator<MemCopyOperator>(
+        this->p_context_->device_id_, brnliOp->GetOutputs()[0].scalar_type());
+    memcopyOp->SetSynapseInput(std::move(brnliOp->GetSynOutputs()[0]));
+    stack.emplace_back(IValue(brnliOp->GetOutputs()[0]));
     stack.emplace_back(IValue(self));
-    memcopyOp.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+    memcopyOp->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
 
     p_context_->syn_outputs_.emplace_back(
-        std::move(memcopyOp.GetSynOutputs()[0]));
-    p_context_->pt_outputs_.emplace_back(std::move(memcopyOp.GetOutputs()[0]));
+        std::move(memcopyOp->GetSynOutputs()[0]));
+    p_context_->pt_outputs_.emplace_back(std::move(memcopyOp->GetOutputs()[0]));
   }
 }
 

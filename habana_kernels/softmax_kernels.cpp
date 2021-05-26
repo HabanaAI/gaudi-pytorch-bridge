@@ -237,17 +237,19 @@ void SoftmaxOperator::AllocateAndAddSynapseNode(
     }
 
     // Create the operator
-    CastOperator intToFloatOp(this->p_context_->device_id_, node_type);
+    auto intToFloatOp =
+        make_operator<CastOperator>(this->p_context_->device_id_, node_type);
     auto& float_syn =
-        intToFloatOp.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+        intToFloatOp->SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
 
     // Build Params for the graph
-    std::vector<c10::IValue> stack{IValue(self),
-                                   IValue(c10::ScalarType::Float)};
-    intToFloatOp.AllocateAndAddSynapseNode(graph, stack, false);
+    std::vector<c10::IValue> stack{
+        IValue(self), IValue(c10::ScalarType::Float)};
+    intToFloatOp->AllocateAndAddSynapseNode(graph, stack, false);
 
-    synapse_helpers::tensor& float_syn_tensor = intToFloatOp.GetSynOutputs()[0];
-    auto output_float = intToFloatOp.GetOutputs()[0];
+    synapse_helpers::tensor& float_syn_tensor =
+        intToFloatOp->GetSynOutputs()[0];
+    auto output_float = intToFloatOp->GetOutputs()[0];
     p_context_->syn_inputs_[0] = std::move(float_syn);
 
     auto output =
@@ -391,17 +393,19 @@ void SoftmaxIntOperator::AllocateAndAddSynapseNode(
     }
 
     // Create the operator
-    CastOperator intToFloatOp(this->p_context_->device_id_, node_type);
+    auto intToFloatOp =
+        make_operator<CastOperator>(this->p_context_->device_id_, node_type);
     auto& float_syn =
-        intToFloatOp.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+        intToFloatOp->SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
 
     // Build Params for the graph
-    std::vector<c10::IValue> stack{IValue(self),
-                                   IValue(c10::ScalarType::Float)};
-    intToFloatOp.AllocateAndAddSynapseNode(graph, stack, false);
+    std::vector<c10::IValue> stack{
+        IValue(self), IValue(c10::ScalarType::Float)};
+    intToFloatOp->AllocateAndAddSynapseNode(graph, stack, false);
 
-    synapse_helpers::tensor& float_syn_tensor = intToFloatOp.GetSynOutputs()[0];
-    auto output_float = intToFloatOp.GetOutputs()[0];
+    synapse_helpers::tensor& float_syn_tensor =
+        intToFloatOp->GetSynOutputs()[0];
+    auto output_float = intToFloatOp->GetOutputs()[0];
     p_context_->syn_inputs_[0] = std::move(float_syn);
 
     auto output =

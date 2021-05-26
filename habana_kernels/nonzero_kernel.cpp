@@ -82,7 +82,7 @@ void NonZeroOperator::AllocateAndAddSynapseNode(
   auto self = inputs[0].toTensor();
   size_t device_id = self.device().index();
   Tensor input_bool;
-  BitwiseOrOutOperator Op(device_id, ScalarType::Bool);
+  auto Op = make_operator<BitwiseOrOutOperator>(device_id, ScalarType::Bool);
 
   // tf_where_stage1 TPC requires bool input for now
   // support for Int, float, bf16 input without using gt, lt,
@@ -94,20 +94,20 @@ void NonZeroOperator::AllocateAndAddSynapseNode(
     torch::jit::Stack stack{IValue(self), IValue(other)};
 
     // Check for values greater than 0
-    GtOperator op_gt(device_id, scalar_type);
+    auto op_gt = make_operator<GtOperator>(device_id, scalar_type);
     auto& syn_arg1 =
-        op_gt.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
-    op_gt.AllocateAndAddSynapseNode(graph, stack, false);
+        op_gt->SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+    op_gt->AllocateAndAddSynapseNode(graph, stack, false);
     p_context_->syn_inputs_[0] = std::move(syn_arg1);
     stack.clear();
 
     // Check for values less than 0
     stack.emplace_back(IValue(self));
     stack.emplace_back(IValue(other));
-    LtOperator op_lt(device_id, scalar_type);
+    auto op_lt = make_operator<LtOperator>(device_id, scalar_type);
     auto& syn_arg2 =
-        op_lt.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
-    op_lt.AllocateAndAddSynapseNode(graph, stack, false);
+        op_lt->SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+    op_lt->AllocateAndAddSynapseNode(graph, stack, false);
     p_context_->syn_inputs_[0] = std::move(syn_arg2);
     stack.clear();
 
@@ -121,13 +121,13 @@ void NonZeroOperator::AllocateAndAddSynapseNode(
         false);
 
     stack.emplace_back(IValue(input_bool));
-    stack.emplace_back(IValue(op_gt.GetOutputs()[0]));
-    stack.emplace_back(IValue(op_lt.GetOutputs()[0]));
+    stack.emplace_back(IValue(op_gt->GetOutputs()[0]));
+    stack.emplace_back(IValue(op_lt->GetOutputs()[0]));
     // Assign Inputs to the Operator
-    Op.AllocateSynapseInput(graph, input_bool, false);
-    Op.SetSynapseInput(std::move(op_gt.GetSynOutputs()[0]));
-    Op.SetSynapseInput(std::move(op_lt.GetSynOutputs()[0]));
-    Op.AllocateAndAddSynapseNode(graph, stack, false);
+    Op->AllocateSynapseInput(graph, input_bool, false);
+    Op->SetSynapseInput(std::move(op_gt->GetSynOutputs()[0]));
+    Op->SetSynapseInput(std::move(op_lt->GetSynOutputs()[0]));
+    Op->AllocateAndAddSynapseNode(graph, stack, false);
   }
 
   // Settings copied from tensorFlow file
@@ -172,7 +172,7 @@ void NonZeroOperator::AllocateAndAddSynapseNode(
   std::vector<synTensor> syn_out{
       synStage1Output1.get(), synStage1Output2.get()};
   if (self.scalar_type() != ScalarType::Bool) {
-    synapse_helpers::tensor& synInput1 = std::move(Op.GetSynOutputs()[0]);
+    synapse_helpers::tensor& synInput1 = std::move(Op->GetSynOutputs()[0]);
     syn_in.push_back(synInput1.get());
   } else {
     synapse_helpers::tensor& synInput1 = p_context_->syn_inputs_[0];

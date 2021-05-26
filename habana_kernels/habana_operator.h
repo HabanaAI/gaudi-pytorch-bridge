@@ -27,8 +27,15 @@
 #include <memory>
 
 namespace habana {
-enum class LayoutFormat { NHWC = 0, NCHW = 1, HWCK = 2, ANY = 3, INVALID = 4 };
 
+class HabanaOperator;
+class PytorchKernelContext;
+using PytorchKernelContextPtr = std::shared_ptr<PytorchKernelContext>;
+using HabanaOperatorPtr = std::shared_ptr<HabanaOperator>;
+using RegisterFunc =
+    std::function<HabanaOperatorPtr(const int, c10::ScalarType)>;
+
+enum class LayoutFormat { NHWC = 0, NCHW = 1, HWCK = 2, ANY = 3, INVALID = 4 };
 const size_t NO_INPUTS = 0xFFFFFFFF;
 
 //
@@ -58,8 +65,6 @@ typedef struct KernelMetaData {
     changes_dims = false;
   }
 } KernelMetaData;
-
-using PytorchKernelContextPtr = std::shared_ptr<PytorchKernelContext>;
 
 //
 // Generic Operator implementation class, holds the operator context
@@ -216,6 +221,13 @@ class HabanaOperator {
     return {};
   }
 
+  template <typename T, typename... Args>
+  HabanaOperatorPtr make_operator(Args... args) {
+    auto op = std::make_shared<T>(args...);
+    kernels_.emplace_back(op);
+    return op;
+  }
+
  protected:
   virtual void AddNodeToSynapseGraph(
       synapse_helpers::graph& graph,
@@ -229,12 +241,10 @@ class HabanaOperator {
   // THis needs to be communicated to lowering kernel as these additions
   // are invisible there(only graph mappings are queried)
   std::vector<std::pair<std::string, at::Tensor>> appended_tensor_infos;
+
+  //
+  std::vector<HabanaOperatorPtr> kernels_;
 };
-
-using HabanaOperatorPtr = std::shared_ptr<HabanaOperator>;
-using RegisterFunc =
-    std::function<HabanaOperatorPtr(const int, c10::ScalarType)>;
-
 class RegisterKernel {
  public:
   RegisterKernel& add(const std::string& node_name, RegisterFunc func) {

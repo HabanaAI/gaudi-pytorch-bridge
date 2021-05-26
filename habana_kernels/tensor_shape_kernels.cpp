@@ -906,17 +906,18 @@ void BroadcastOperator::AllocateAndAddSynapseNode(
     }
 
     // Add Reshape node to graph
-    ReshapeOperator reshape_op(self.device().index(), self.scalar_type());
+    auto reshape_op = make_operator<ReshapeOperator>(
+        self.device().index(), self.scalar_type());
     auto& syn_in =
-        reshape_op.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+        reshape_op->SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
     torch::jit::Stack stack = {
         c10::IValue(self), c10::IValue(expanded_self_view_sizes)};
-    reshape_op.AllocateAndAddSynapseNode(graph, stack, false);
+    reshape_op->AllocateAndAddSynapseNode(graph, stack, false);
     p_context_->syn_inputs_[0] = std::move(syn_in);
 
     // Add broadcast node to graph
     AllocateSynapseOutput(graph, result, is_output_persistent);
-    synapse_helpers::tensor& syn_in_broadcast = reshape_op.GetSynOutputs()[0];
+    synapse_helpers::tensor& syn_in_broadcast = reshape_op->GetSynOutputs()[0];
     std::vector<synTensor> syn_inputs{syn_in_broadcast.get()};
     synapse_helpers::tensor& syn_out_broadcast = p_context_->syn_outputs_[0];
     std::vector<synTensor> syn_outputs{syn_out_broadcast.get()};
@@ -1020,16 +1021,17 @@ void SplitWithSizeOperator::AllocateAndAddSynapseNode(
         "entries, but got split_sizes=",
         split_sizes.vec());
 
-    NarrowOperator narrowOp(self.device().index(), self.scalar_type());
+    auto narrowOp = make_operator<NarrowOperator>(
+        self.device().index(), self.scalar_type());
     auto& syn_in =
-        narrowOp.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+        narrowOp->SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
     torch::jit::Stack stack = {
         IValue(self), IValue(dim), IValue(start_idx), IValue(length)};
-    narrowOp.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+    narrowOp->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
     p_context_->syn_inputs_[0] = std::move(syn_in);
     p_context_->syn_outputs_.emplace_back(
-        std::move(narrowOp.GetSynOutputs()[0]));
-    p_context_->pt_outputs_.emplace_back(std::move(narrowOp.GetOutputs()[0]));
+        std::move(narrowOp->GetSynOutputs()[0]));
+    p_context_->pt_outputs_.emplace_back(std::move(narrowOp->GetOutputs()[0]));
 
     start_idx += length;
   }

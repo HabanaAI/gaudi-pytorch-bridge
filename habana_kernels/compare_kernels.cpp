@@ -69,32 +69,33 @@ void CompareOutWrapperOperator::AllocateAndAddSynapseNode(
       "Input arg2 type expected to be a tensor or scalar");
   TORCH_CHECK(inputs[2].isTensor(), "Input arg3 type expected to be tensor");
 
-  CompareOutOperator compareOp(
+  auto compareOp = make_operator<CompareOutOperator>(
       this->p_context_->device_id_, this->scalarType_, guid_);
 
   if (inputs[1].isTensor()) { // Both inputs are tensors
-    compareOp.SetSynapseInput(p_context_->syn_inputs_[0]);
-    compareOp.SetSynapseInput(p_context_->syn_inputs_[1]);
-    compareOp.AllocateAndAddSynapseNode(graph, inputs, is_output_persistent);
+    compareOp->SetSynapseInput(p_context_->syn_inputs_[0]);
+    compareOp->SetSynapseInput(p_context_->syn_inputs_[1]);
+    compareOp->AllocateAndAddSynapseNode(graph, inputs, is_output_persistent);
   } else { // 2nd input is a scalar
     // add constant node to convert 2nd input to tensor
     auto arg1 = inputs[0].toTensor();
-    ConstantOperator constOp(this->p_context_->device_id_, this->scalarType_);
+    auto constOp = make_operator<ConstantOperator>(
+        this->p_context_->device_id_, this->scalarType_);
     auto const_shape_tensor = habana_helpers::createPTTensor(
         arg1, {1}, arg1.options(), arg1.suggest_memory_format(), false);
     torch::jit::Stack constOp_stack = {IValue(const_shape_tensor), inputs[1]};
-    constOp.AllocateAndAddSynapseNode(graph, constOp_stack, false);
-    compareOp.SetSynapseInput(p_context_->syn_inputs_[0]);
-    compareOp.SetSynapseInput(constOp.GetSynOutputs()[0]);
+    constOp->AllocateAndAddSynapseNode(graph, constOp_stack, false);
+    compareOp->SetSynapseInput(p_context_->syn_inputs_[0]);
+    compareOp->SetSynapseInput(constOp->GetSynOutputs()[0]);
     // replace 2nd scalar input with a tensor in stack
     inputs.erase(inputs.cbegin() + 1);
-    inputs.emplace(inputs.cbegin() + 1, constOp.GetOutputs()[0]);
-    compareOp.AllocateAndAddSynapseNode(graph, inputs, is_output_persistent);
+    inputs.emplace(inputs.cbegin() + 1, constOp->GetOutputs()[0]);
+    compareOp->AllocateAndAddSynapseNode(graph, inputs, is_output_persistent);
   }
 
-  p_context_->pt_outputs_.emplace_back(compareOp.GetOutputs()[0]);
+  p_context_->pt_outputs_.emplace_back(compareOp->GetOutputs()[0]);
   p_context_->syn_outputs_.emplace_back(
-      std::move(compareOp.GetSynOutputs()[0]));
+      std::move(compareOp->GetSynOutputs()[0]));
 }
 
 void CompareOutWrapperOperator::SetPTOutputs(torch::jit::Stack& inputs) {

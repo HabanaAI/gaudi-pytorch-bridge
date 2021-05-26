@@ -582,22 +582,24 @@ void BceFwdOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(self.sizes()[1] == 1, "BCE kernel supports only Nx1 inputs");
 
   // add reshape node to reverse input dims
-  ReshapeOperator reshape_self(self.device().index(), self.scalar_type());
+  auto reshape_self =
+      make_operator<ReshapeOperator>(self.device().index(), self.scalar_type());
   auto& syn_self =
-      reshape_self.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+      reshape_self->SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
   auto v = self.sizes().vec();
   std::reverse(std::begin(v), std::end(v));
   torch::jit::Stack stack = {IValue(self), IValue(v)};
-  reshape_self.AllocateAndAddSynapseNode(graph, stack, false);
+  reshape_self->AllocateAndAddSynapseNode(graph, stack, false);
   p_context_->syn_inputs_[0] = std::move(syn_self);
   stack.clear();
 
   // add reshape node to make target same shape as reshaped input
-  ReshapeOperator reshape_target(target.device().index(), target.scalar_type());
+  auto reshape_target = make_operator<ReshapeOperator>(
+      target.device().index(), target.scalar_type());
   auto& syn_target =
-      reshape_target.SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
+      reshape_target->SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
   stack = {IValue(target), IValue(v)};
-  reshape_target.AllocateAndAddSynapseNode(graph, stack, false);
+  reshape_target->AllocateAndAddSynapseNode(graph, stack, false);
   p_context_->syn_inputs_[1] = std::move(syn_target);
 
   // fill params for BCE node
@@ -611,8 +613,8 @@ void BceFwdOperator::AllocateAndAddSynapseNode(
   auto output = habana_helpers::createPTTensor(
       self, {self.sizes()[1]}, self.options(), is_output_persistent);
   AllocateSynapseOutput(graph, output, is_output_persistent);
-  synapse_helpers::tensor& syn_in_self = reshape_self.GetSynOutputs()[0];
-  synapse_helpers::tensor& syn_in_tensor = reshape_target.GetSynOutputs()[0];
+  synapse_helpers::tensor& syn_in_self = reshape_self->GetSynOutputs()[0];
+  synapse_helpers::tensor& syn_in_tensor = reshape_target->GetSynOutputs()[0];
   std::vector<synTensor> syn_inputs{syn_in_self.get(), syn_in_tensor.get()};
   synapse_helpers::tensor& syn_out = p_context_->syn_outputs_[0];
   std::vector<synTensor> syn_outputs{syn_out.get()};
@@ -717,30 +719,33 @@ void BceBwdOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(self.sizes()[1] == 1, "BCE kernel supports only Nx1 inputs");
 
   // add reshape node to reverse input dims
-  ReshapeOperator reshape_self(self.device().index(), self.scalar_type());
+  auto reshape_self =
+      make_operator<ReshapeOperator>(self.device().index(), self.scalar_type());
   auto& syn_self =
-      reshape_self.SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
+      reshape_self->SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
   auto v = self.sizes().vec();
   std::reverse(std::begin(v), std::end(v));
   torch::jit::Stack stack = {IValue(self), IValue(v)};
-  reshape_self.AllocateAndAddSynapseNode(graph, stack, false);
+  reshape_self->AllocateAndAddSynapseNode(graph, stack, false);
   p_context_->syn_inputs_[1] = std::move(syn_self);
   stack.clear();
 
   // add reshape node to make target same shape as reshaped input
-  ReshapeOperator reshape_target(target.device().index(), target.scalar_type());
+  auto reshape_target = make_operator<ReshapeOperator>(
+      target.device().index(), target.scalar_type());
   auto& syn_target =
-      reshape_target.SetSynapseInput(std::move(p_context_->syn_inputs_[2]));
+      reshape_target->SetSynapseInput(std::move(p_context_->syn_inputs_[2]));
   stack = {IValue(target), IValue(v)};
-  reshape_target.AllocateAndAddSynapseNode(graph, stack, false);
+  reshape_target->AllocateAndAddSynapseNode(graph, stack, false);
   p_context_->syn_inputs_[2] = std::move(syn_target);
   stack.clear();
 
-  NegOperator neg_grad(grad_output.device().index(), grad_output.scalar_type());
+  auto neg_grad = make_operator<NegOperator>(
+      grad_output.device().index(), grad_output.scalar_type());
   auto& syn_grad_output =
-      neg_grad.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+      neg_grad->SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
   stack = {IValue(grad_output)};
-  neg_grad.AllocateAndAddSynapseNode(graph, stack, false);
+  neg_grad->AllocateAndAddSynapseNode(graph, stack, false);
   p_context_->syn_inputs_[0] = std::move(syn_grad_output);
   stack.clear();
 
@@ -752,11 +757,11 @@ void BceBwdOperator::AllocateAndAddSynapseNode(
 
   AllocateSynapseOutput(
       graph,
-      habana_helpers::createPTTensor(reshape_self.GetOutputs()[0], false),
+      habana_helpers::createPTTensor(reshape_self->GetOutputs()[0], false),
       false);
-  synapse_helpers::tensor& syn_in_self = reshape_self.GetSynOutputs()[0];
-  synapse_helpers::tensor& syn_in_target = reshape_target.GetSynOutputs()[0];
-  synapse_helpers::tensor& syn_in_grad = neg_grad.GetSynOutputs()[0];
+  synapse_helpers::tensor& syn_in_self = reshape_self->GetSynOutputs()[0];
+  synapse_helpers::tensor& syn_in_target = reshape_target->GetSynOutputs()[0];
+  synapse_helpers::tensor& syn_in_grad = neg_grad->GetSynOutputs()[0];
   std::vector<synTensor> syn_inputs{
       syn_in_self.get(), syn_in_target.get(), syn_in_grad.get()};
   synapse_helpers::tensor& syn_out = p_context_->syn_outputs_[0];
@@ -771,17 +776,19 @@ void BceBwdOperator::AllocateAndAddSynapseNode(
       std::move(guid_));
 
   // add reshape node on output
-  ReshapeOperator reshape_grad_in(self.device().index(), self.scalar_type());
-  reshape_grad_in.SetSynapseInput(std::move(p_context_->syn_outputs_[0]));
+  auto reshape_grad_in =
+      make_operator<ReshapeOperator>(self.device().index(), self.scalar_type());
+  reshape_grad_in->SetSynapseInput(std::move(p_context_->syn_outputs_[0]));
   stack = {
       c10::IValue(p_context_->pt_outputs_[0]), c10::IValue(self.sizes().vec())};
-  reshape_grad_in.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+  reshape_grad_in->AllocateAndAddSynapseNode(
+      graph, stack, is_output_persistent);
   synapse_helpers::tensor& syn_reshape_grad_in =
-      reshape_grad_in.GetSynOutputs()[0];
+      reshape_grad_in->GetSynOutputs()[0];
   stack.clear();
 
   p_context_->syn_outputs_[0] = std::move(syn_reshape_grad_in);
-  p_context_->pt_outputs_[0] = reshape_grad_in.GetOutputs()[0];
+  p_context_->pt_outputs_[0] = reshape_grad_in->GetOutputs()[0];
 }
 
 Tensor binary_cross_entropy_backward_hpu(

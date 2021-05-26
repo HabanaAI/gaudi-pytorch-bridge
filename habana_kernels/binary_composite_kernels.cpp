@@ -57,31 +57,33 @@ void AddcmulOperator::AllocateAndAddSynapseNode(
   at::ScalarType scalar_type = self.scalar_type();
 
   // Create Mul operator
-  MulOperator mulOp(this->p_context_->device_id_, scalar_type);
+  auto mulOp =
+      make_operator<MulOperator>(this->p_context_->device_id_, scalar_type);
   auto& mul_syn_1 =
-      mulOp.SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
+      mulOp->SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
   auto& mul_syn_2 =
-      mulOp.SetSynapseInput(std::move(p_context_->syn_inputs_[2]));
+      mulOp->SetSynapseInput(std::move(p_context_->syn_inputs_[2]));
   stack.emplace_back(IValue(tensor1));
   stack.emplace_back(IValue(tensor2));
-  mulOp.AllocateAndAddSynapseNode(graph, stack, false);
+  mulOp->AllocateAndAddSynapseNode(graph, stack, false);
   p_context_->syn_inputs_[1] = std::move(mul_syn_1);
   p_context_->syn_inputs_[2] = std::move(mul_syn_2);
   stack.clear();
 
   // Create Add operator
-  AddOperator addOp(this->p_context_->device_id_, scalar_type);
-  auto& add_syn = addOp.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
-  addOp.SetSynapseInput(std::move(mulOp.GetSynOutputs()[0]));
+  auto addOp =
+      make_operator<AddOperator>(this->p_context_->device_id_, scalar_type);
+  auto& add_syn = addOp->SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+  addOp->SetSynapseInput(std::move(mulOp->GetSynOutputs()[0]));
   stack.emplace_back(IValue(self));
-  stack.emplace_back(IValue(mulOp.GetOutputs()[0]));
+  stack.emplace_back(IValue(mulOp->GetOutputs()[0]));
   stack.emplace_back(IValue(alphaValue));
-  addOp.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+  addOp->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
   p_context_->syn_inputs_[0] = std::move(add_syn);
   stack.clear();
 
-  p_context_->syn_outputs_.emplace_back(std::move(addOp.GetSynOutputs()[0]));
-  p_context_->pt_outputs_.emplace_back(std::move(addOp.GetOutputs()[0]));
+  p_context_->syn_outputs_.emplace_back(std::move(addOp->GetSynOutputs()[0]));
+  p_context_->pt_outputs_.emplace_back(std::move(addOp->GetOutputs()[0]));
 }
 
 Tensor addcmul_hpu(
@@ -169,31 +171,33 @@ void AddcdivOperator::AllocateAndAddSynapseNode(
   at::ScalarType scalar_type = self.scalar_type();
 
   // Create Div operator
-  DivOperator divOp(this->p_context_->device_id_, scalar_type);
+  auto divOp =
+      make_operator<DivOperator>(this->p_context_->device_id_, scalar_type);
   auto& div_syn_1 =
-      divOp.SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
+      divOp->SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
   auto& div_syn_2 =
-      divOp.SetSynapseInput(std::move(p_context_->syn_inputs_[2]));
+      divOp->SetSynapseInput(std::move(p_context_->syn_inputs_[2]));
   stack.emplace_back(IValue(tensor1));
   stack.emplace_back(IValue(tensor2));
-  divOp.AllocateAndAddSynapseNode(graph, stack, false);
+  divOp->AllocateAndAddSynapseNode(graph, stack, false);
   p_context_->syn_inputs_[1] = std::move(div_syn_1);
   p_context_->syn_inputs_[2] = std::move(div_syn_2);
   stack.clear();
 
   // Create Add operator
-  AddOperator addOp(this->p_context_->device_id_, scalar_type);
-  auto& add_syn = addOp.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
-  addOp.SetSynapseInput(std::move(divOp.GetSynOutputs()[0]));
+  auto addOp =
+      make_operator<AddOperator>(this->p_context_->device_id_, scalar_type);
+  auto& add_syn = addOp->SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+  addOp->SetSynapseInput(std::move(divOp->GetSynOutputs()[0]));
   stack.emplace_back(IValue(self));
-  stack.emplace_back(IValue(divOp.GetOutputs()[0]));
+  stack.emplace_back(IValue(divOp->GetOutputs()[0]));
   stack.emplace_back(IValue(alphaValue));
-  addOp.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+  addOp->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
   p_context_->syn_inputs_[0] = std::move(add_syn);
   stack.clear();
 
-  p_context_->syn_outputs_.emplace_back(std::move(addOp.GetSynOutputs()[0]));
-  p_context_->pt_outputs_.emplace_back(std::move(addOp.GetOutputs()[0]));
+  p_context_->syn_outputs_.emplace_back(std::move(addOp->GetSynOutputs()[0]));
+  p_context_->pt_outputs_.emplace_back(std::move(addOp->GetOutputs()[0]));
 }
 
 Tensor addcdiv_hpu(

@@ -186,11 +186,12 @@ void ConvBackwardOperator::ComputeBiasGrad(
         "reduce_sum_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
 
     // Create the operator
-    SumDimOutOperator SumOp(this->p_context_->device_id_, node_type);
+    auto SumOp = make_operator<SumDimOutOperator>(
+        this->p_context_->device_id_, node_type);
 
     // Assign Inputs to the Operator
     auto& grad_out_nhwc_syn =
-        SumOp.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+        SumOp->SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
 
     std::vector<c10::IValue> stack = {
         IValue(grad_bias),
@@ -198,14 +199,14 @@ void ConvBackwardOperator::ComputeBiasGrad(
         IValue(shape),
         IValue(false),
         IValue(scalar_type)};
-    SumOp.AllocateAndAddSynapseNode(graph, stack, is_output_persistent[2]);
+    SumOp->AllocateAndAddSynapseNode(graph, stack, is_output_persistent[2]);
 
-    synapse_helpers::tensor& bias_syn_tensor = SumOp.GetSynOutputs()[0];
+    synapse_helpers::tensor& bias_syn_tensor = SumOp->GetSynOutputs()[0];
 
     p_context_->syn_inputs_[0] = std::move(grad_out_nhwc_syn);
 
     p_context_->syn_outputs_.emplace_back(std::move(bias_syn_tensor));
-    p_context_->pt_outputs_.emplace_back(std::move(SumOp.GetOutputs()[0]));
+    p_context_->pt_outputs_.emplace_back(std::move(SumOp->GetOutputs()[0]));
 
   } else {
     p_context_->syn_outputs_.emplace_back(habana_helpers::create_tensor(
@@ -287,13 +288,13 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
 
   if (transposed) { // conv_transpose2d bwd
     // Create the "spatial_convolution" operator
-    ConvOperator ConvInputDiffOp(
+    auto ConvInputDiffOp = make_operator<ConvOperator>(
         this->p_context_->device_id_, grad_out_nhwc.scalar_type());
     if (output_mask_in[0]) {
       // Assign Inputs to the Operator
-      auto& grad_out_nhwc_syn = ConvInputDiffOp.SetSynapseInput(
+      auto& grad_out_nhwc_syn = ConvInputDiffOp->SetSynapseInput(
           std::move(p_context_->syn_inputs_[0]));
-      auto& weight_hwck_syn = ConvInputDiffOp.SetSynapseInput(
+      auto& weight_hwck_syn = ConvInputDiffOp->SetSynapseInput(
           std::move(p_context_->syn_inputs_[2]));
 
       // Build Params for the graph
@@ -310,17 +311,17 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
           IValue(false),
           IValue(output_padding),
           IValue(groups)};
-      ConvInputDiffOp.AllocateAndAddSynapseNode(
+      ConvInputDiffOp->AllocateAndAddSynapseNode(
           graph, stack, is_output_persistent[0]);
 
       p_context_->syn_inputs_[0] = std::move(grad_out_nhwc_syn);
       p_context_->syn_inputs_[2] = std::move(weight_hwck_syn);
 
       synapse_helpers::tensor& grad_in_nhwc_syn_tensor =
-          ConvInputDiffOp.GetSynOutputs()[0];
+          ConvInputDiffOp->GetSynOutputs()[0];
       p_context_->syn_outputs_.emplace_back(std::move(grad_in_nhwc_syn_tensor));
       p_context_->pt_outputs_.emplace_back(
-          std::move(ConvInputDiffOp.GetOutputs()[0]));
+          std::move(ConvInputDiffOp->GetOutputs()[0]));
     } else {
       p_context_->syn_outputs_.emplace_back(habana_helpers::create_tensor(
           grad_input_nhwc,
@@ -333,13 +334,13 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
     if (output_mask_in[1]) {
       // Create the operator
       std::string node_type = "dedw";
-      ConvWeightDifferentiationOperator ConvWeightDiffOp(
+      auto ConvWeightDiffOp = make_operator<ConvWeightDifferentiationOperator>(
           this->p_context_->device_id_, node_type);
 
       // Assign Inputs to the Operator
-      auto& input_nhwc_syn = ConvWeightDiffOp.SetSynapseInput(
+      auto& input_nhwc_syn = ConvWeightDiffOp->SetSynapseInput(
           std::move(p_context_->syn_inputs_[1]));
-      auto& grad_out_nhwc_syn = ConvWeightDiffOp.SetSynapseInput(
+      auto& grad_out_nhwc_syn = ConvWeightDiffOp->SetSynapseInput(
           std::move(p_context_->syn_inputs_[0]));
 
       // Build Params for the graph
@@ -356,17 +357,17 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
           IValue(output_mask_in),
           IValue(grad_weight),
           IValue(groups)};
-      ConvWeightDiffOp.AllocateAndAddSynapseNode(
+      ConvWeightDiffOp->AllocateAndAddSynapseNode(
           graph, stack, is_output_persistent[1]);
 
       p_context_->syn_inputs_[1] = std::move(input_nhwc_syn);
       p_context_->syn_inputs_[0] = std::move(grad_out_nhwc_syn);
       synapse_helpers::tensor& grad_weight_syn_tensor =
-          ConvWeightDiffOp.GetSynOutputs()[0];
+          ConvWeightDiffOp->GetSynOutputs()[0];
 
       p_context_->syn_outputs_.emplace_back(std::move(grad_weight_syn_tensor));
       p_context_->pt_outputs_.emplace_back(
-          std::move(ConvWeightDiffOp.GetOutputs()[0]));
+          std::move(ConvWeightDiffOp->GetOutputs()[0]));
     } else {
       p_context_->syn_outputs_.emplace_back(habana_helpers::create_tensor(
           grad_weight,
@@ -382,13 +383,13 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
 
     // Create the operator
     std::string node_type = "dedw";
-    ConvWeightDifferentiationOperator ConvWeightDiffOp(
+    auto ConvWeightDiffOp = make_operator<ConvWeightDifferentiationOperator>(
         this->p_context_->device_id_, node_type);
     if (output_mask_in[1]) {
       // Assign Inputs to the Operator
-      auto& grad_out_nhwc_syn = ConvWeightDiffOp.SetSynapseInput(
+      auto& grad_out_nhwc_syn = ConvWeightDiffOp->SetSynapseInput(
           std::move(p_context_->syn_inputs_[0]));
-      auto& input_nhwc_syn = ConvWeightDiffOp.SetSynapseInput(
+      auto& input_nhwc_syn = ConvWeightDiffOp->SetSynapseInput(
           std::move(p_context_->syn_inputs_[1]));
 
       // Build Params for the graph
@@ -403,7 +404,7 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
           IValue(output_mask_in),
           IValue(grad_weight),
           IValue(groups)};
-      ConvWeightDiffOp.AllocateAndAddSynapseNode(
+      ConvWeightDiffOp->AllocateAndAddSynapseNode(
           graph, stack, is_output_persistent[1]);
 
       p_context_->syn_inputs_[0] = std::move(grad_out_nhwc_syn);
@@ -412,13 +413,13 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
 
     // Create the operator
     node_type = "dedx";
-    ConvInputDifferentiationOperator ConvInputDiffOp(
+    auto ConvInputDiffOp = make_operator<ConvInputDifferentiationOperator>(
         this->p_context_->device_id_, node_type);
     if (output_mask_in[0]) {
       // Assign Inputs to the Operator
-      auto& grad_out_nhwc_syn = ConvInputDiffOp.SetSynapseInput(
+      auto& grad_out_nhwc_syn = ConvInputDiffOp->SetSynapseInput(
           std::move(p_context_->syn_inputs_[0]));
-      auto& weight_hwck_syn = ConvInputDiffOp.SetSynapseInput(
+      auto& weight_hwck_syn = ConvInputDiffOp->SetSynapseInput(
           std::move(p_context_->syn_inputs_[2]));
 
       // Build Params for the graph
@@ -433,7 +434,7 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
           IValue(output_mask_in),
           IValue(grad_input_nhwc),
           IValue(groups)};
-      ConvInputDiffOp.AllocateAndAddSynapseNode(
+      ConvInputDiffOp->AllocateAndAddSynapseNode(
           graph, stack, is_output_persistent[0]);
 
       p_context_->syn_inputs_[0] = std::move(grad_out_nhwc_syn);
@@ -444,10 +445,10 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
     // pushing outputs we want to maintain correct order
     if (output_mask_in[0]) {
       synapse_helpers::tensor& grad_in_nhwc_syn_tensor =
-          ConvInputDiffOp.GetSynOutputs()[0];
+          ConvInputDiffOp->GetSynOutputs()[0];
       p_context_->syn_outputs_.emplace_back(std::move(grad_in_nhwc_syn_tensor));
       p_context_->pt_outputs_.emplace_back(
-          std::move(ConvInputDiffOp.GetOutputs()[0]));
+          std::move(ConvInputDiffOp->GetOutputs()[0]));
     } else {
       p_context_->syn_outputs_.emplace_back(habana_helpers::create_tensor(
           grad_input_nhwc,
@@ -459,11 +460,11 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
 
     if (output_mask_in[1]) {
       synapse_helpers::tensor& grad_weight_syn_tensor =
-          ConvWeightDiffOp.GetSynOutputs()[0];
+          ConvWeightDiffOp->GetSynOutputs()[0];
 
       p_context_->syn_outputs_.emplace_back(std::move(grad_weight_syn_tensor));
       p_context_->pt_outputs_.emplace_back(
-          std::move(ConvWeightDiffOp.GetOutputs()[0]));
+          std::move(ConvWeightDiffOp->GetOutputs()[0]));
     } else {
       p_context_->syn_outputs_.emplace_back(habana_helpers::create_tensor(
           grad_weight,

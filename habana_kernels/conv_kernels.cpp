@@ -259,62 +259,65 @@ void ConvOperator::AllocateAndAddSynapseNode(
   }
 
   if (!bias.defined()) {
-    SpatialConvOperator scOp(this->p_context_->device_id_, input.scalar_type());
+    auto scOp = make_operator<SpatialConvOperator>(
+        this->p_context_->device_id_, input.scalar_type());
     auto& syn_arg0 =
-        scOp.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+        scOp->SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
     auto& syn_arg1 =
-        scOp.SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
-    scOp.AllocateAndAddSynapseNode(graph, inputs, is_output_persistent);
+        scOp->SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
+    scOp->AllocateAndAddSynapseNode(graph, inputs, is_output_persistent);
     p_context_->syn_inputs_[0] = std::move(syn_arg0);
     p_context_->syn_inputs_[1] = std::move(syn_arg1);
 
-    p_context_->syn_outputs_.emplace_back(std::move(scOp.GetSynOutputs()[0]));
-    p_context_->pt_outputs_.emplace_back(std::move(scOp.GetOutputs()[0]));
+    p_context_->syn_outputs_.emplace_back(std::move(scOp->GetSynOutputs()[0]));
+    p_context_->pt_outputs_.emplace_back(std::move(scOp->GetOutputs()[0]));
   } else {
     if (!transposed) {
-      SpatialConvOperator scOp(
+      auto scOp = make_operator<SpatialConvOperator>(
           this->p_context_->device_id_, input.scalar_type());
       auto& syn_arg0 =
-          scOp.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+          scOp->SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
       auto& syn_arg1 =
-          scOp.SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
+          scOp->SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
       auto& syn_arg2 =
-          scOp.SetSynapseInput(std::move(p_context_->syn_inputs_[2]));
-      scOp.AllocateAndAddSynapseNode(graph, inputs, is_output_persistent);
+          scOp->SetSynapseInput(std::move(p_context_->syn_inputs_[2]));
+      scOp->AllocateAndAddSynapseNode(graph, inputs, is_output_persistent);
       p_context_->syn_inputs_[0] = std::move(syn_arg0);
       p_context_->syn_inputs_[1] = std::move(syn_arg1);
       p_context_->syn_inputs_[2] = std::move(syn_arg2);
 
-      p_context_->syn_outputs_.emplace_back(std::move(scOp.GetSynOutputs()[0]));
-      p_context_->pt_outputs_.emplace_back(std::move(scOp.GetOutputs()[0]));
+      p_context_->syn_outputs_.emplace_back(
+          std::move(scOp->GetSynOutputs()[0]));
+      p_context_->pt_outputs_.emplace_back(std::move(scOp->GetOutputs()[0]));
     } else {
-      SpatialConvOperator scOp(
+      auto scOp = make_operator<SpatialConvOperator>(
           this->p_context_->device_id_, input.scalar_type());
       auto& syn_arg0 =
-          scOp.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+          scOp->SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
       auto& syn_arg1 =
-          scOp.SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
-      scOp.AllocateAndAddSynapseNode(graph, inputs, false);
+          scOp->SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
+      scOp->AllocateAndAddSynapseNode(graph, inputs, false);
       p_context_->syn_inputs_[0] = std::move(syn_arg0);
       p_context_->syn_inputs_[1] = std::move(syn_arg1);
 
-      AddOperator addOp(this->p_context_->device_id_, input.scalar_type());
-      addOp.SetSynapseInput(std::move(scOp.GetSynOutputs()[0]));
+      auto addOp = make_operator<AddOperator>(
+          this->p_context_->device_id_, input.scalar_type());
+      addOp->SetSynapseInput(std::move(scOp->GetSynOutputs()[0]));
       auto& add_syn =
-          addOp.SetSynapseInput(std::move(p_context_->syn_inputs_[2]));
+          addOp->SetSynapseInput(std::move(p_context_->syn_inputs_[2]));
       // Build Params for the graph
       Scalar alphaValue = 1.0;
       torch::jit::Stack stack;
-      stack.emplace_back(IValue(scOp.GetOutputs()[0]));
+      stack.emplace_back(IValue(scOp->GetOutputs()[0]));
       stack.emplace_back(IValue(bias));
       stack.emplace_back(IValue(alphaValue));
-      addOp.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+      addOp->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
       p_context_->syn_inputs_[2] = std::move(add_syn);
       stack.clear();
 
       p_context_->syn_outputs_.emplace_back(
-          std::move(addOp.GetSynOutputs()[0]));
-      p_context_->pt_outputs_.emplace_back(std::move(addOp.GetOutputs()[0]));
+          std::move(addOp->GetSynOutputs()[0]));
+      p_context_->pt_outputs_.emplace_back(std::move(addOp->GetOutputs()[0]));
     }
   }
 }

@@ -148,28 +148,25 @@ class MatmulBackwardOperator : public HabanaOperator {
       std::vector<bool> is_output_persistent) override;
 
  private:
-  template <typename T>
   synapse_helpers::tensor_or_ref MatBwTranspose(
       synapse_helpers::graph& graph,
-      T& Op,
+      HabanaOperatorPtr Op,
       at::Tensor& mat,
       synapse_helpers::tensor_or_ref syn_input);
 
-  template <typename T>
   std::tuple<synapse_helpers::tensor_or_ref, synapse_helpers::tensor_or_ref>
   MatBwSpecialFold(
       synapse_helpers::graph& graph,
-      T& Op,
+      HabanaOperatorPtr Op,
       at::Tensor& mat1,
       at::Tensor& mat2,
       synapse_helpers::tensor_or_ref syn_input1,
       synapse_helpers::tensor_or_ref syn_input2);
 
-  template <typename T>
   std::tuple<synapse_helpers::tensor_or_ref, synapse_helpers::tensor_or_ref>
   MatBwSize(
       synapse_helpers::graph& graph,
-      T& Op,
+      HabanaOperatorPtr Op,
       at::Tensor& mat1,
       at::Tensor& mat2,
       at::IntArrayRef sizes,
@@ -183,7 +180,7 @@ class MatmulBackwardOperator : public HabanaOperator {
       std::vector<int64_t> sizes,
       synapse_helpers::tensor_or_ref syn_input);
 
-  std::vector<ReshapeOperator> ReshapeOpList;
+  std::vector<HabanaOperatorPtr> ReshapeOpList;
 };
 
 } // namespace habana
