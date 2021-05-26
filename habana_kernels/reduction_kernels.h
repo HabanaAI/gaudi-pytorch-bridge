@@ -208,8 +208,9 @@ class SumOperator : public ReduceOperator {
 // AnyDimOut Operator
 class AnyDimOutOperator : public HabanaOperator {
  public:
-  AnyDimOutOperator(int device_id, const std::string& guid)
-      : HabanaOperator(guid) {
+  AnyDimOutOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator(
+            "reduce_any" + habana_helpers::name_suffix_from_type(scalarType)) {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign(
         {LayoutFormat::ANY, LayoutFormat::ANY});
@@ -224,11 +225,14 @@ class AnyDimOutOperator : public HabanaOperator {
 
 //
 // AnyDim Operator
-class AnyDimOperator : public AnyDimOutOperator {
+class AnyDimOperator : public HabanaOperator {
  public:
-  AnyDimOperator(int device_id, const std::string& guid)
-      : AnyDimOutOperator(device_id, guid) {
+  AnyDimOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator(
+            "reduce_any" + habana_helpers::name_suffix_from_type(scalarType)) {
+    this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
+    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
   }
 
   virtual void AllocateAndAddSynapseNode(
@@ -237,11 +241,12 @@ class AnyDimOperator : public AnyDimOutOperator {
       bool is_output_persistent = false) override;
 };
 
-//
 // Any Operator
 class AnyOperator : public HabanaOperator {
  public:
-  AnyOperator(int device_id, const std::string& guid) : HabanaOperator(guid) {
+  AnyOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator(
+            "reduce_any" + habana_helpers::name_suffix_from_type(scalarType)) {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
     kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});

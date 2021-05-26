@@ -119,4 +119,14 @@ class GeOperator : public CompareWrapperOperator {
             "greater_equal_fwd_" +
                 habana_helpers::name_suffix_from_type(scalarType)) {}
 };
+
+class GeOutOperator : public CompareOutWrapperOperator {
+ public:
+  GeOutOperator(int device_id, c10::ScalarType scalarType)
+      : CompareOutWrapperOperator(
+            device_id,
+            scalarType,
+            "greater_equal_fwd_" +
+                habana_helpers::name_suffix_from_type(scalarType)) {}
+};
 } // namespace habana

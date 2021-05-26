@@ -3295,12 +3295,54 @@ Tensor& any_dim_out_hpu_lazy(
   return any_dim_out_hpu(output, self, dim, keepdim);
 }
 Tensor any_dim_hpu_lazy(const Tensor& self, int64_t dim, bool keepdim) {
-  HABANA_ASSERT(0);
-  return any_dim_hpu(self, dim, keepdim);
+  PT_LAZY_TRACE;
+
+  struct Kernel : public LazyOp<at::Tensor> {
+    explicit Kernel(const Tensor& self, int64_t dim, bool keepdim)
+        : LazyOp<at::Tensor>("aten::any", {self, dim, keepdim}, {}, {}, -1),
+          self(self),
+          dim(dim),
+          keepdim(keepdim) {}
+    at::Tensor get_result_overrideable() override {
+      // Infer Output shape
+      std::vector<int64_t> shape_out = self.sizes().vec();
+      if (keepdim == true) {
+        shape_out[dim] = 1;
+      } else {
+        shape_out.erase(shape_out.begin() + dim);
+      }
+
+      return empty_hpu_lazy(
+          shape_out,
+          self.options().dtype(c10::ScalarType::Bool),
+          self.suggest_memory_format(),
+          false);
+    }
+    at::Tensor self;
+    int64_t dim;
+    bool keepdim;
+  };
+  Kernel kernel{self, dim, keepdim};
+  return kernel.call();
 }
 Tensor any_hpu_lazy(const Tensor& self) {
-  HABANA_ASSERT(0);
-  return any_hpu(self);
+  PT_LAZY_TRACE;
+  struct Kernel : public LazyOp<at::Tensor> {
+    explicit Kernel(const Tensor& self)
+        : LazyOp<at::Tensor>("aten::any", {self}, {}, {}, -1), self(self) {}
+    at::Tensor get_result_overrideable() override {
+      std::vector<int64_t> shape_out{1};
+
+      return empty_hpu_lazy(
+          shape_out,
+          self.options().dtype(c10::ScalarType::Bool),
+          self.suggest_memory_format(),
+          false);
+    }
+    at::Tensor self;
+  };
+  Kernel kernel{self};
+  return kernel.call();
 }
 Tensor argmax_hpu_lazy(
     const Tensor& self,

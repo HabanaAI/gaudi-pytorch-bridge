@@ -51,6 +51,28 @@ TEST_F(LazyReductionKernelTest, ProdTest) {
   EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out, 0.001, 0.001), true);
 }
 
+TEST_F(LazyReductionKernelTest, AnyTest) {
+  torch::Tensor A = torch::randint(-10, 10, {3, 2}) > 0;
+  torch::Tensor hA = A.to(torch::kHABANA);
+
+  torch::Tensor out = torch::any(hA);
+  torch::Tensor out_cpu = torch::any(A);
+  torch::Tensor out_h = out.to(torch::kCPU);
+
+  EXPECT_EQ(allclose(out_h.to(torch::kI8), out_cpu.to(torch::kI8)), true);
+}
+
+TEST_F(LazyReductionKernelTest, AnyDimTest) {
+  torch::Tensor A = torch::randint(-10, 10, {3, 2}) > 0;
+  torch::Tensor hA = A.to(torch::kHABANA);
+
+  torch::Tensor out = torch::any(hA, 1, true);
+  torch::Tensor out_cpu = torch::any(A, 1, true);
+  torch::Tensor out_h = out.to(torch::kCPU);
+
+  EXPECT_EQ(allclose(out_h.to(torch::kI8), out_cpu.to(torch::kI8)), true);
+}
+
 TEST_F(LazyReductionKernelTest, ProdDimIntTest) {
   torch::Tensor A = torch::randn({2, 2}, torch::requires_grad(false));
   torch::Tensor hA = A.to(torch::kHABANA);
