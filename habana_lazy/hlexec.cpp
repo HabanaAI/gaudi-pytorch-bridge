@@ -122,6 +122,10 @@ void HlExec::Create(
 
   for (auto inp : inputs) {
     auto t = mp_g_->addInput(inp.ToString());
+    HABANA_ASSERT(!inp.m_data_ptr.expired());
+    std::shared_ptr<Data> d = inp.m_data_ptr.lock();
+    t->setType(c10::TensorType::create(
+        d->logical_element_type, d->device, d->sizes.size(), false));
     ir_map[ir::Output(inp)] = t;
   }
 
@@ -188,8 +192,20 @@ void HlExec::Create(
       if (c10::Symbol::fromQualString("prim::ListConstruct") == node->op() ||
           node->is_output_tensor_list()) {
         jit_node->output()->setType(torch::jit::ListType::ofTensors());
+      } else {
+        for (size_t idx = 0; idx < jit_node->outputs().size(); idx++) {
+          if (jit_node->output(idx)->type()->kind() ==
+              c10::TypeKind::TensorType) {
+            auto irout_val = node->GetOutput(idx);
+            auto jit_value_out = jit_node->output(idx);
+            jit_value_out->setType(c10::TensorType::create(
+                irout_val.get_scalar_type(),
+                irout_val.get_device(),
+                irout_val.get_dims(),
+                false));
+          }
+        }
       }
-
       auto jit_outputs = jit_node->outputs();
       int i = 0;
       for (const auto jit_output : jit_outputs) {

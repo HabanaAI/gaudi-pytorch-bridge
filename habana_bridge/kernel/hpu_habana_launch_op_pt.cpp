@@ -294,6 +294,43 @@ torch::jit::Value* HabanaLaunchOpPT::GetRestridedOutvalue(
   return nullptr;
 }
 
+bool HabanaLaunchOpPT::IsOutputToPermute(torch::jit::Value* value) {
+  auto uses = value->uses();
+  for (auto u : uses) {
+    auto permute_node = u.user;
+    if (strcmp(permute_node->kind().toQualString(), "aten::permute") == 0) {
+      return true;
+    }
+  }
+  return false;
+}
+
+torch::jit::Value* HabanaLaunchOpPT::GetPermuteOutvalue(
+    torch::jit::Value* val) {
+  for (auto u : val->uses()) {
+    auto restride_node = u.user;
+    if (strcmp(restride_node->kind().toQualString(), "aten::permute") == 0) {
+      return restride_node->output(0);
+    }
+  }
+  return nullptr;
+}
+
+bool HabanaLaunchOpPT::isPermuteInGraphOutputs(torch::jit::Value* value) {
+  // return if graph output is restrided node output
+  if (IsOutputToPermute(value)) {
+    auto value_permuted = GetPermuteOutvalue(value);
+    TORCH_CHECK(nullptr != value_permuted, "Permuted value output is null");
+    auto graph_outs = jit_ir_graph->outputs();
+    for (auto value_out : graph_outs) {
+      if (value_permuted->unique() == value_out->unique()) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 torch::jit::Node* HabanaLaunchOpPT::GetUnpackNodeFromTensorList(
     torch::jit::Value* val) {
   for (auto u : val->uses()) {
@@ -354,7 +391,8 @@ std::vector<bool> HabanaLaunchOpPT::nodeOutputPersistence(
     }
   } else {
     for (auto value_out : node_outs) {
-      if (use_persistent_tensors || isInGraphOutputs(value_out)) {
+      if (use_persistent_tensors || isInGraphOutputs(value_out) ||
+          isPermuteInGraphOutputs(value_out)) {
         // Highest priority is given to the env variable, and if
         // part of the graph output
         auto in_graph_output = isInGraphOutputs(value_out);

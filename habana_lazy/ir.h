@@ -97,10 +97,26 @@ class Output {
     return m_name;
   }
 
+  const c10::optional<c10::Device> get_device() const {
+    return device;
+  }
+
+  const c10::optional<size_t> get_dims() const {
+    return dims;
+  }
+
+  const c10::optional<at::ScalarType> get_scalar_type() const {
+    return scalar_type;
+  }
+
  protected:
   Node* m_node = nullptr;
   size_t m_index;
   const std::string m_name;
+  // OutInfo
+  c10::optional<c10::Device> device;
+  c10::optional<size_t> dims;
+  c10::optional<at::ScalarType> scalar_type;
 };
 using OutputList = std::vector<Output>;
 

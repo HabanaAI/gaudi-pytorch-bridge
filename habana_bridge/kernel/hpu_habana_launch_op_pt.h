@@ -250,6 +250,10 @@ class HabanaLaunchOpPT {
   bool IsOutputToRestride(torch::jit::Value* val);
   torch::jit::Value* GetRestridedOutvalue(torch::jit::Value* val);
 
+  bool isPermuteInGraphOutputs(torch::jit::Value* value);
+  bool IsOutputToPermute(torch::jit::Value* value);
+  torch::jit::Value* GetPermuteOutvalue(torch::jit::Value* val);
+
   torch::jit::Node* GetUnpackNodeFromTensorList(torch::jit::Value* val);
 
   void PrintRecipeInputs();

@@ -31,7 +31,7 @@ TEST_F(LazyJITTest, CreateGraph) {
   torch::Tensor tensor_in1 = tensor_in1_cpu.to(torch::kHABANA);
   torch::Tensor tensor_in2 = tensor_in2_cpu.to(torch::kHABANA);
 
-  Scalar alpha = 4.0f, beta = 99.5f;
+  Scalar alpha = 1.0f, beta = 1.0f;
   auto result = hpu_wrap::add(tensor_in1, tensor_in2, alpha);
   // auto result = torch::add(tensor_in1, tensor_in2);
 

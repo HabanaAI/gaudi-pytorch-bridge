@@ -175,7 +175,7 @@ using ValuePtrTensorLayoutMap =
     std::unordered_map<const torch::jit::Value*, habanaTensorLayoutInfo>;
 using NodePtrVecIndxDimsMap = std::unordered_map<
     torch::jit::Node*,
-    std::vector<std::pair<size_t, at::IntArrayRef>>>;
+    std::vector<std::pair<torch::jit::Value*, at::IntArrayRef>>>;
 
 bool IsPermuteNode(const Node* node) {
   return (
@@ -191,10 +191,9 @@ void InsertNodes(
   for (auto node_map : node_indxmap) {
     auto anchor_node = node_map.first;
     for (auto offset_layout : node_map.second) {
-      auto offset = offset_layout.first;
+      auto value = offset_layout.first;
       auto dims = offset_layout.second;
       WithInsertPoint insert_point(anchor_node);
-      auto value = anchor_node->input(offset);
       auto op_permute = c10::Symbol::fromQualString(op);
       auto value_dims = graph->insertConstant(IValue(dims));
       auto permute_node = graph->create(op_permute, {value, value_dims}, 1);
@@ -313,11 +312,11 @@ void InsertPermute_graph(
 
   std::unordered_map<
       torch::jit::Node*,
-      std::vector<std::pair<size_t, at::IntArrayRef>>>
+      std::vector<std::pair<torch::jit::Value*, at::IntArrayRef>>>
       anchor_nodes_;
   std::unordered_map<
       torch::jit::Node*,
-      std::vector<std::pair<size_t, at::IntArrayRef>>>
+      std::vector<std::pair<torch::jit::Value*, at::IntArrayRef>>>
       anchor_restride_nodes_;
   torch::jit::graph_node_list graph_nodes = graph->nodes();
 
@@ -347,43 +346,70 @@ void InsertPermute_graph(
     habana::HabanaOperatorPtr habana_kernel = habana::KernelRegistry().get(
         device_id, node->kind().toQualString(), c10::ScalarType::Float);
     auto& habana_kernel_meta_data = habana_kernel->GetKernelMetaData();
-
     bool isLayoutAgnostic = IsNodeLayoutAgnostic(node);
 
     // permute Loop
     auto node_ins = node->inputs();
     size_t tensor_idx = 0;
-    habana::LayoutFormat config_layout = habana::LayoutFormat::ANY;
+    habana::LayoutFormat in_layout, prev_layout = habana::LayoutFormat::ANY;
     size_t meta_size = habana_kernel_meta_data.input_layout.size();
-    if (!isLayoutAgnostic) {
-      for (const auto value_in : node_ins) {
-        if (value_in->type()->kind() == c10::TypeKind::TensorType) {
-          config_layout = tensor_idx >= meta_size
-              ? habana::LayoutFormat::ANY
-              : habana_kernel_meta_data.input_layout.at(tensor_idx);
+    for (const auto value_in : node_ins) {
+      if (value_in->type()->kind() == c10::TypeKind::TensorType) {
+        in_layout = tensor_idx >= meta_size
+            ? habana::LayoutFormat::ANY
+            : habana_kernel_meta_data.input_layout.at(tensor_idx);
 
+        TORCH_CHECK(
+            value_to_tensor_layout.find(value_in) !=
+                std::end(value_to_tensor_layout),
+            "InsertPermtue_graph : Channel order not updated");
+        auto tensor_layout = value_to_tensor_layout[value_in].layout;
+
+        // For weight tensors we update the map before execution starts
+        // through weightmarking pass If its marked HWCK in the map,
+        // we can override with it
+        if (tensor_layout == habana::LayoutFormat::HWCK) {
           TORCH_CHECK(
-              value_to_tensor_layout.find(value_in) !=
-                  std::end(value_to_tensor_layout),
-              "InsertPermtue_graph : Channel order not updated");
-          auto in_layout = value_to_tensor_layout[value_in].layout;
-
-          // add permtues in the graph
-          if (in_layout != config_layout &&
-              config_layout != habana::LayoutFormat::ANY) {
-            auto dims = getDimsForLayout(config_layout, in_layout);
-            auto in_layout_entry =
-                value_to_tensor_layout[value_in].layout_at_graph_entry;
-            if (in_layout_entry == habana::LayoutFormat::NHWC) {
-              anchor_restride_nodes_[node].push_back(
-                  std::make_pair(tensor_idx, dims));
-            } else {
-              anchor_nodes_[node].push_back(std::make_pair(tensor_idx, dims));
-            }
-            in_layout = config_layout;
-          }
-          tensor_idx++;
+              in_layout == habana::LayoutFormat::HWCK ||
+                  in_layout == habana::LayoutFormat::ANY,
+              "InsertPermute_graph, got contradicting layout info from meta data and opt pass");
+          in_layout = habana::LayoutFormat::HWCK;
         }
+
+        if (in_layout == habana::LayoutFormat::ANY && tensor_idx > 0) {
+          in_layout = prev_layout;
+        }
+
+        if (in_layout == habana::LayoutFormat::HWCK) {
+          in_layout = habana::LayoutFormat::ANY;
+          value_to_tensor_layout[value_in].layout = habana::LayoutFormat::HWCK;
+        }
+
+        bool permute_required =
+            (in_layout != tensor_layout &&
+             in_layout != habana::LayoutFormat::ANY);
+        auto perm_layout = in_layout;
+        if ((strcmp(node->kind().toQualString(), "aten::view") == 0) ||
+            (strcmp(node->kind().toQualString(), "aten::index") == 0)) {
+          auto tensor_entry_layout =
+              value_to_tensor_layout[value_in].layout_at_graph_entry;
+          if ((tensor_layout != tensor_entry_layout) &&
+              tensor_layout != habana::LayoutFormat::HWCK) {
+            permute_required = true;
+            perm_layout = tensor_entry_layout;
+          }
+        }
+
+        // add permtues in the graph
+        if (permute_required) {
+          if (*value_in->type()->cast<TensorType>()->dim() == 4) {
+            auto dims = getDimsForLayout(perm_layout, tensor_layout);
+            anchor_nodes_[node].push_back(std::make_pair(value_in, dims));
+            tensor_layout = perm_layout;
+          }
+        }
+        prev_layout = tensor_idx == 0 ? tensor_layout : prev_layout;
+        tensor_idx++;
       }
     }
 
@@ -457,15 +483,18 @@ void InsertPermute_graph(
           value_to_tensor_layout[value_out].layout_at_graph_entry =
               in_layout_entry;
         }
-      } else if ((strcmp(node->kind().toQualString(), "aten::view") == 0)) {
+      } else if (
+          (strcmp(node->kind().toQualString(), "aten::view") == 0) ||
+          (strcmp(node->kind().toQualString(), "aten::index") == 0)) {
         // View() layout is always NCHW as per original PT format
         // [ToDo] consider case permute_cl followed by view()
         // %1 = aten::permute_cl(...)
         // %2 = aten::view(%1)
         auto value_out = node->output(0);
+        auto value_in = node->input(0);
         value_to_tensor_layout[value_out].layout = habana::LayoutFormat::NCHW;
         value_to_tensor_layout[value_out].layout_at_graph_entry =
-            habana::LayoutFormat::NCHW;
+            value_to_tensor_layout[value_in].layout_at_graph_entry;
       } else {
         // Multi input and single output pass layout info from input to output
         auto node_outs = node->outputs();
@@ -524,19 +553,22 @@ void InsertPermute_graph(
             static const int64_t dimarr[] = {2, 0, 1};
             dims = dimarr;
             anchor_restride_nodes_[node_return].push_back(
-                std::make_pair(ret_idx, dims));
+                std::make_pair(value_out, dims));
           } else {
             at::IntArrayRef dims;
             static const int64_t dimarr[] = {0, 3, 1, 2};
             dims = dimarr;
             anchor_restride_nodes_[node_return].push_back(
-                std::make_pair(ret_idx, dims));
+                std::make_pair(value_out, dims));
           }
         }
       } else {
         if (prev_layout != cur_layout) {
-          auto dims = getDimsForLayout(prev_layout, cur_layout);
-          anchor_nodes_[node_return].push_back(std::make_pair(ret_idx, dims));
+          if (*value_out->type()->cast<TensorType>()->dim() == 4) {
+            auto dims = getDimsForLayout(prev_layout, cur_layout);
+            anchor_nodes_[node_return].push_back(
+                std::make_pair(value_out, dims));
+          }
         }
       }
     }
