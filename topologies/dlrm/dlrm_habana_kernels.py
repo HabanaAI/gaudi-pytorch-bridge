@@ -1,9 +1,9 @@
 import torch
 import torch.nn as nn
-import HabanaEmbeddingBag_cpp
-import preproc_cpp
-import habanaOptimizerSparseSgd_cpp
-import habanaOptimizerSparseAdagrad_cpp
+from habana_frameworks.torch.hpex.kernels import EmbeddingBag
+from habana_frameworks.torch.hpex.kernels import EmbeddingBagPreproc
+from habana_frameworks.torch.hpex.optimizers import SparseSgd
+from habana_frameworks.torch.hpex.optimizers import SparseAdagrad
 import numpy as np
 import distributed_utils
 from operator import itemgetter
@@ -28,7 +28,7 @@ class EmbeddingBagSumFunction(torch.autograd.Function):
     def forward(ctx, weights, indices_fwd, offsets, valid_count_fwd, kernel_mode, indices_bwd, outputRowOffsets, valid_count_bwd, weight_grad, uniqueIndices, countUniqueIndices, moments):
         # print('HabanaEmbeddingBagSumFunction:FW')
         ctx.save_for_backward(weights, indices_bwd, outputRowOffsets, valid_count_bwd, weight_grad, uniqueIndices, countUniqueIndices, moments)
-        outputs = HabanaEmbeddingBag_cpp.forward(weights, indices_fwd, offsets, valid_count_fwd, kernel_mode)
+        outputs = EmbeddingBag.forward(weights, indices_fwd, offsets, valid_count_fwd, kernel_mode)
         return outputs
 
     @staticmethod
@@ -36,7 +36,7 @@ class EmbeddingBagSumFunction(torch.autograd.Function):
         # print('HabanaEmbeddingBagSumFunction:BW')
         weights, indices_bwd, outputRowOffsets, valid_count_bwd, weight_grad, uniqueIndices, countUniqueIndices, moments = ctx.saved_tensors
         kernel_mode = 1
-        HabanaEmbeddingBag_cpp.backward(weight_grad, grad_output, indices_bwd, outputRowOffsets, valid_count_bwd, kernel_mode)
+        EmbeddingBag.backward(weight_grad, grad_output, indices_bwd, outputRowOffsets, valid_count_bwd, kernel_mode)
         #lr = torch.tensor([args.learning_rate]).to(device)
         global optimizerValues
         if optimizerValues is None:
@@ -64,9 +64,9 @@ class HabanaEmbeddingBag(torch.nn.Module):
 class HabanaSparseOptimizer(torch.optim.Optimizer):
     def __init__(self, params, args):
         if args.optimizer == "sgd":
-            self._SparseOpt = habanaOptimizerSparseSgd_cpp.forward
+            self._SparseOpt = SparseSgd.forward
         elif args.optimizer == "adagrad":
-            self._SparseOpt = habanaOptimizerSparseAdagrad_cpp.forward
+            self._SparseOpt = SparseAdagrad.forward
         self._optimizer = args.optimizer
         if args.distributed:
             lr = args.learning_rate/args.world_size
@@ -184,7 +184,7 @@ class CustomPreProcessor(object):
             offset = offset.type(torch.IntTensor)
             lS_o_habana.append(offset)
 
-            countUniqueIndices, uniqueIndices, outputRows, outputRowOffsets = preproc_cpp.forward(idx, offset, 4)
+            countUniqueIndices, uniqueIndices, outputRows, outputRowOffsets = EmbeddingBagPreproc.forward(idx, offset, 4)
             valid_count_fwd = torch.tensor([offset.numel(), idx.numel()], dtype = torch.int32)
             numOffsets = countUniqueIndices.item() + 1
             valid_count_bwd = torch.tensor([numOffsets, outputRows.numel()], dtype = torch.int32)
