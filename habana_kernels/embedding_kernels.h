@@ -138,10 +138,13 @@ class PadOperator : public HabanaOperator {
     kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
   }
 
-  virtual void AllocateAndAddSynapseNode(
+  void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false);
+      bool is_output_persistent = false) override;
+  static std::vector<int64_t> compute_output_shape(
+      const at::Tensor& self,
+      c10::IntArrayRef pad);
 };
 
 //

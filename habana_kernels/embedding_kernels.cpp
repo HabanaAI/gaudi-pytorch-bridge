@@ -29,6 +29,48 @@
 using namespace torch;
 using namespace habana;
 
+std::vector<int64_t> PadOperator::compute_output_shape(
+    const at::Tensor& self,
+    c10::IntArrayRef pad) {
+  auto ndim = self.dim();
+  auto lpad = pad.size() / 2;
+
+  TORCH_CHECK(
+      pad.size() % 2 == 0,
+      "Length of pad must be even but instead it equals ",
+      pad.size());
+
+  TORCH_CHECK(
+      ndim >= (int64_t)lpad,
+      "Length of pad should be no more than twice the number of "
+      "dimensions of the input. Pad length is ",
+      pad.size(),
+      "while the input has ",
+      ndim,
+      "dimensions.");
+
+  auto shape = self.sizes().vec();
+
+  for (unsigned int i = 0; i < lpad; i++) {
+    auto pad_start = pad[2 * i];
+    auto pad_end = pad[2 * i + 1];
+    shape[ndim - i - 1] += (pad_start + pad_end);
+    TORCH_CHECK(
+        shape[ndim - i - 1] > 0,
+        "The input size ",
+        self.sizes()[i],
+        ", plus negative padding ",
+        pad_start,
+        " and ",
+        pad_end,
+        " resulted in a invalid output size, "
+        "Check dimension ",
+        i,
+        " of your input.");
+  }
+  return shape;
+}
+
 void PadOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
@@ -53,44 +95,15 @@ void PadOperator::AllocateAndAddSynapseNode(
   auto ndim = self.dim();
   auto lpad = pad.size() / 2;
 
-  TORCH_CHECK(
-      pad.size() % 2 == 0,
-      "Length of pad must be even but instead it equals ",
-      pad.size());
-
-  TORCH_CHECK(
-      ndim >= (int64_t)lpad,
-      "Length of pad should be no more than twice the number of "
-      "dimensions of the input. Pad length is ",
-      pad.size(),
-      "while the input has ",
-      ndim,
-      "dimensions.");
-
-  auto shape = self.sizes().vec();
+  auto shape = compute_output_shape(self, pad);
 
   ns_PadKernelEx::Params param;
   param.mode = PadMode_t::PAD_MODE_CONSTANT;
   param.value.f = value.to<float>();
   memset(param.pads, 0, sizeof(param.pads));
   for (unsigned int i = 0; i < lpad; i++) {
-    auto pad_start = pad[2 * i];
-    auto pad_end = pad[2 * i + 1];
-    param.pads[i] = pad_start;
-    param.pads[i + ndim] = pad_end;
-    shape[ndim - i - 1] += (pad_start + pad_end);
-    TORCH_CHECK(
-        shape[ndim - i - 1] > 0,
-        "The input size ",
-        self.sizes()[i],
-        ", plus negative padding ",
-        pad_start,
-        " and ",
-        pad_end,
-        " resulted in a invalid output size, "
-        "Check dimension ",
-        i,
-        " of your input.");
+    param.pads[i] = pad[2 * i];
+    param.pads[i + ndim] = pad[2 * i + 1];
   }
 
   auto output = at::empty(shape, self.options());
@@ -1080,7 +1093,7 @@ Tensor& embedding_bag_sum_bwd_out_kernel_mode_hpu(
 static auto& KernelRegistry =
     habana::KernelRegistry()
         .add(
-            "aten::pad",
+            "aten::constant_pad_nd",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<PadOperator>(device_id, node_type);
             })

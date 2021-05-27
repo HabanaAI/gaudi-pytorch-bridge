@@ -1512,8 +1512,13 @@ Tensor constant_pad_hpu_lazy(
     const Tensor& self,
     IntArrayRef pad,
     Scalar value) {
-  HABANA_ASSERT(0);
-  return constant_pad_hpu(self, pad, value);
+  PT_LAZY_TRACE;
+  LazyOp<at::Tensor> k{
+      "aten::constant_pad_nd",
+      {self, pad, value},
+      {1, 2},
+      {PadOperator::compute_output_shape(self, pad)}};
+  return k.call();
 }
 Tensor embedding_hpu_lazy(
     const Tensor& weight,
