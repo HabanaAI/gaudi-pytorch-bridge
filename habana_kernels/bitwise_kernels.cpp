@@ -77,10 +77,11 @@ void BitwiseOutWrapOperator::AllocateAndAddSynapseNode(
     p_context_->syn_inputs_[1] = std::move(syn_arg1);
     p_context_->syn_inputs_[2] = std::move(syn_arg2);
   } else if (inputs[1].isTensor() && inputs[2].isScalar()) {
-    ConstantOperator constOp(
-        this->p_context_->device_id_, inputs[1].toTensor().scalar_type());
-    torch::jit::Stack& constInputs = inputs;
-    constInputs.erase(constInputs.cbegin());
+    auto arg1 = inputs[1].toTensor();
+    ConstantOperator constOp(this->p_context_->device_id_, arg1.scalar_type());
+    auto const_shape_tensor = habana_helpers::createPTTensor(
+        arg1, {1}, arg1.options(), arg1.suggest_memory_format(), false);
+    torch::jit::Stack constInputs = {IValue(const_shape_tensor), inputs[2]};
     constOp.AllocateAndAddSynapseNode(graph, constInputs, false);
     auto& syn_arg0 =
         BitwiseOutOp.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
@@ -125,7 +126,10 @@ void BitwiseNotOutOperator::AllocateAndAddSynapseNode(
 
   // Create a constant operator to get a tensor of ones of size self
   ConstantOperator constOp(this->p_context_->device_id_, scalar_type);
-  torch::jit::Stack constOp_stack = {inputs[1], 1};
+  auto const_shape_tensor = habana_helpers::createPTTensor(
+      self, {1}, self.options(), self.suggest_memory_format(), false);
+  torch::jit::Stack constOp_stack = {
+      IValue(const_shape_tensor), IValue(Scalar(1))};
   constOp.AllocateAndAddSynapseNode(graph, constOp_stack, false);
 
   // Create xor operator

@@ -23,24 +23,11 @@
 
 using namespace torch;
 
-void habana::BinaryOutOperator::insert_reshape_op(
-    synapse_helpers::graph& graph,
-    ReshapeOperator& reshapeOp,
-    Tensor& arg,
-    int32_t position,
-    int64_t out_dims) {
-  auto arg_sizes = arg.sizes().vec();
-  // Create view_sizes initialized to part which has size=1 for upper dims
-  auto view_sizes = std::vector<int64_t>(out_dims - arg.ndimension(), 1);
-  // and append the smaller tensor dims
-  view_sizes.insert(view_sizes.end(), arg_sizes.begin(), arg_sizes.end());
-
-  auto& reshape_syn_input =
-      reshapeOp.SetSynapseInput(std::move(p_context_->syn_inputs_[position]));
-
-  torch::jit::Stack reshapeOp_stack = {IValue(arg), IValue(view_sizes)};
-  reshapeOp.AllocateAndAddSynapseNode(graph, reshapeOp_stack, false);
-  p_context_->syn_inputs_[position] = std::move(reshape_syn_input);
+std::vector<int64_t> habana::BinaryOutOperator::compute_output_shape(
+    const Tensor& arg1,
+    const Tensor& arg2) {
+  auto out_size = habana_helpers::compute_broadcast_shape(arg1, arg2);
+  return out_size;
 }
 
 /************************************************************************
@@ -65,27 +52,13 @@ void habana::BinaryOutOperator::AllocateAndAddSynapseNode(
   Tensor arg1 = inputs[1].toTensor();
   Tensor arg2 = inputs[2].toTensor();
 
-  bool isArg1modified = false, isArg2modified = false;
-  std::vector<synapse_helpers::tensor_or_ref> reshape_syn_output;
-  auto out_dims = arg1.ndimension() > arg2.ndimension() ? arg1.ndimension()
-                                                        : arg2.ndimension();
+  auto output_shape_computed = compute_output_shape(arg1, arg2);
+  TORCH_CHECK(
+      output_shape_computed == output.sizes().vec(),
+      "output tensor shape not compatible with input tensor shapes")
 
-  ReshapeOperator reshapeOp(this->p_context_->device_id_, this->scalarType_);
-  // Make sure that we give tensors that match dims to Synapse
-  if (arg1.ndimension() > arg2.ndimension()) {
-    isArg2modified = true;
-    insert_reshape_op(graph, reshapeOp, arg2, 2, out_dims);
-    reshape_syn_output.push_back(std::move(reshapeOp.GetSynOutputs()[0]));
-  } else if (arg1.ndimension() < arg2.ndimension()) {
-    isArg1modified = true;
-    insert_reshape_op(graph, reshapeOp, arg1, 1, out_dims);
-    reshape_syn_output.push_back(std::move(reshapeOp.GetSynOutputs()[0]));
-  }
-
-  synapse_helpers::tensor& arg1_syn_tensor =
-      isArg1modified ? reshape_syn_output[0] : p_context_->syn_inputs_[1];
-  synapse_helpers::tensor& arg2_syn_tensor =
-      isArg2modified ? reshape_syn_output[0] : p_context_->syn_inputs_[2];
+  synapse_helpers::tensor& arg1_syn_tensor = p_context_->syn_inputs_[1];
+  synapse_helpers::tensor& arg2_syn_tensor = p_context_->syn_inputs_[2];
 
   p_context_->syn_outputs_.emplace_back(std::move(p_context_->syn_inputs_[0]));
 

@@ -30,12 +30,6 @@ class BinaryOperator : public habana::HabanaOperator {
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
-  void insert_reshape_op(
-      synapse_helpers::graph& graph,
-      ReshapeOperator& reshapeOp,
-      at::Tensor& arg,
-      int32_t position,
-      int64_t out_dims);
 
   static std::vector<int64_t> compute_output_shape(
       const at::Tensor& arg1,

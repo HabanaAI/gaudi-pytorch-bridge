@@ -52,18 +52,6 @@ void habana::BinaryInplaceOperatorWithAlpha::AllocateAndAddSynapseNode(
     mulOp.AllocateAndAddSynapseNode(graph, mulOp_stack, false);
     synapse_helpers::tensor_or_ref& mulOp_out = mulOp.GetSynOutputs()[0];
 
-    bool isArg2modified = false;
-    std::vector<synapse_helpers::tensor_or_ref> reshape_syn_output;
-    auto out_dims = arg1.ndimension();
-    ReshapeOperator reshapeOp(this->p_context_->device_id_, this->scalarType_);
-    // Make sure that we give tensors that match dims to Synapse
-    if (arg1.ndimension() > arg2.ndimension()) {
-      isArg2modified = true;
-      // Moving the output of mulOp to syn_inputs_[1] prior to reshape
-      p_context_->syn_inputs_[1] = std::move(mulOp_out);
-      insert_reshape_op(graph, reshapeOp, arg2, 1, out_dims);
-      reshape_syn_output.push_back(std::move(reshapeOp.GetSynOutputs()[0]));
-    }
     // Restoring arg2_syn to syn_inputs[1] in case it was earlier assigned to
     // mulOp output
     p_context_->syn_inputs_[1] = std::move(arg2_syn);
@@ -75,8 +63,7 @@ void habana::BinaryInplaceOperatorWithAlpha::AllocateAndAddSynapseNode(
     p_context_->pt_outputs_.emplace_back(arg1);
 
     synapse_helpers::tensor& arg1_syn_tensor = p_context_->syn_inputs_[0];
-    synapse_helpers::tensor& arg2_syn_tensor =
-        isArg2modified ? reshape_syn_output[0] : mulOp_out;
+    synapse_helpers::tensor& arg2_syn_tensor = mulOp_out;
 
     std::vector<synTensor> syn_inputs{
         arg1_syn_tensor.get(), arg2_syn_tensor.get()};
@@ -91,25 +78,13 @@ void habana::BinaryInplaceOperatorWithAlpha::AllocateAndAddSynapseNode(
         0,
         std::move(guid_));
   } else {
-    bool isArg2modified = false;
-    std::vector<synapse_helpers::tensor_or_ref> reshape_syn_output;
-    auto out_dims = arg1.ndimension();
-    ReshapeOperator reshapeOp(this->p_context_->device_id_, this->scalarType_);
-    // Make sure that we give tensors that match dims to Synapse
-    if (arg1.ndimension() > arg2.ndimension()) {
-      isArg2modified = true;
-      insert_reshape_op(graph, reshapeOp, arg2, 1, out_dims);
-      reshape_syn_output.push_back(std::move(reshapeOp.GetSynOutputs()[0]));
-    }
-
     // Note here we are using input[0] to store output[0]
     p_context_->syn_outputs_.emplace_back(
         habana_helpers::duplicate_tensor_in_memory_section(
             p_context_->syn_inputs_[0]));
     p_context_->pt_outputs_.emplace_back(arg1);
     synapse_helpers::tensor& arg1_syn_tensor = p_context_->syn_inputs_[0];
-    synapse_helpers::tensor& arg2_syn_tensor =
-        isArg2modified ? reshape_syn_output[0] : p_context_->syn_inputs_[1];
+    synapse_helpers::tensor& arg2_syn_tensor = p_context_->syn_inputs_[1];
 
     std::vector<synTensor> syn_inputs{
         arg1_syn_tensor.get(), arg2_syn_tensor.get()};
@@ -163,9 +138,13 @@ void habana::BinaryInplaceWrapperOperatorWithAlpha::AllocateAndAddSynapseNode(
 
   } else if (inputs[0].isTensor() && inputs[1].isScalar()) { // 2nd input is a
                                                              // scalar
+    auto arg1 = inputs[0].toTensor();
     // add node to convert scalar to tensor
     ConstantOperator constOp(this->p_context_->device_id_, this->scalarType_);
-    constOp.AllocateAndAddSynapseNode(graph, inputs, false);
+    auto const_shape_tensor = habana_helpers::createPTTensor(
+        arg1, {1}, arg1.options(), arg1.suggest_memory_format(), false);
+    torch::jit::Stack constOp_stack = {IValue(const_shape_tensor), inputs[1]};
+    constOp.AllocateAndAddSynapseNode(graph, constOp_stack, false);
     auto& syn_arg1 =
         binaryOp.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
     UNUSED auto& syn_arg2 =
@@ -179,26 +158,6 @@ void habana::BinaryInplaceWrapperOperatorWithAlpha::AllocateAndAddSynapseNode(
 
   p_context_->pt_outputs_.emplace_back(binaryOp.GetOutputs()[0]);
   p_context_->syn_outputs_.emplace_back(std::move(binaryOp.GetSynOutputs()[0]));
-}
-
-void habana::BinaryInplaceOperator::insert_reshape_op(
-    synapse_helpers::graph& graph,
-    ReshapeOperator& reshapeOp,
-    Tensor& arg,
-    int32_t position,
-    int64_t out_dims) {
-  auto arg_sizes = arg.sizes().vec();
-  // Create view_sizes initialized to part which has size=1 for upper dims
-  auto view_sizes = std::vector<int64_t>(out_dims - arg.ndimension(), 1);
-  // and append the smaller tensor dims
-  view_sizes.insert(view_sizes.end(), arg_sizes.begin(), arg_sizes.end());
-
-  auto& reshape_syn_input =
-      reshapeOp.SetSynapseInput(std::move(p_context_->syn_inputs_[position]));
-
-  torch::jit::Stack reshapeOp_stack = {IValue(arg), IValue(view_sizes)};
-  reshapeOp.AllocateAndAddSynapseNode(graph, reshapeOp_stack, false);
-  p_context_->syn_inputs_[position] = std::move(reshape_syn_input);
 }
 
 /************************************************************************
@@ -220,18 +179,6 @@ void habana::BinaryInplaceOperator::AllocateAndAddSynapseNode(
   Tensor arg1 = inputs[0].toTensor();
   Tensor arg2 = inputs[1].toTensor();
 
-  bool isArg2modified = false;
-  std::vector<synapse_helpers::tensor_or_ref> reshape_syn_output;
-  auto out_dims = arg1.ndimension();
-
-  ReshapeOperator reshapeOp(this->p_context_->device_id_, this->scalarType_);
-  // Make sure that we give tensors that match dims to Synapse
-  if (arg1.ndimension() > arg2.ndimension()) {
-    isArg2modified = true;
-    insert_reshape_op(graph, reshapeOp, arg2, 1, out_dims);
-    reshape_syn_output.push_back(std::move(reshapeOp.GetSynOutputs()[0]));
-  }
-
   // Note here we are using input[0] to store output[0]
   p_context_->syn_outputs_.emplace_back(
       habana_helpers::duplicate_tensor_in_memory_section(
@@ -239,8 +186,7 @@ void habana::BinaryInplaceOperator::AllocateAndAddSynapseNode(
   p_context_->pt_outputs_.emplace_back(arg1);
 
   synapse_helpers::tensor& arg1_syn_tensor = p_context_->syn_inputs_[0];
-  synapse_helpers::tensor& arg2_syn_tensor =
-      isArg2modified ? reshape_syn_output[0] : p_context_->syn_inputs_[1];
+  synapse_helpers::tensor& arg2_syn_tensor = p_context_->syn_inputs_[1];
 
   std::vector<synTensor> syn_inputs{
       arg1_syn_tensor.get(), arg2_syn_tensor.get()};
@@ -296,9 +242,13 @@ void habana::BinaryInplaceWrapperOperator::AllocateAndAddSynapseNode(
 
   } else if (inputs[0].isTensor() && inputs[1].isScalar()) { // 2nd input is a
                                                              // scalar
+    auto arg1 = inputs[0].toTensor();
     // add constant node to convert 2nd input to tensor
     ConstantOperator constOp(this->p_context_->device_id_, this->scalarType_);
-    constOp.AllocateAndAddSynapseNode(graph, inputs, false);
+    auto const_shape_tensor = habana_helpers::createPTTensor(
+        arg1, {1}, arg1.options(), arg1.suggest_memory_format(), false);
+    torch::jit::Stack constOp_stack = {IValue(const_shape_tensor), inputs[1]};
+    constOp.AllocateAndAddSynapseNode(graph, constOp_stack, false);
     auto& syn_arg1 =
         binaryInplaceOp.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
     UNUSED auto& syn_arg2 =

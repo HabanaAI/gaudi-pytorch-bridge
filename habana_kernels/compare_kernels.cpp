@@ -45,56 +45,12 @@ void CompareOutOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(
       inputs[2].isTensor(),
       "Input arg 3 for compare op needs to be of tensor type");
-  Tensor self = inputs[0].toTensor();
-  Tensor other = inputs[1].toTensor();
+  // Tensor self = inputs[0].toTensor();
+  // Tensor other = inputs[1].toTensor();
   Tensor output = inputs[2].toTensor();
 
-  if (self.ndimension() != other.ndimension()) {
-    //
-    // we need to reshape tensor which has lesser dimesnions, reshape_tensor_idx
-    // points to the tensor for which we need to reshape & input_tensor_idx
-    // points to tensor which goes directly to compare kernel without reshape
-    int32_t reshape_tensor_idx =
-        (self.ndimension() > other.ndimension()) ? 1 : 0;
-    int32_t input_tensor_idx = (self.ndimension() > other.ndimension()) ? 0 : 1;
-    Tensor& reshape_tensor =
-        (self.ndimension() > other.ndimension()) ? other : self;
-    Tensor& input_tensor =
-        (self.ndimension() > other.ndimension()) ? self : other;
-    std::vector<int64_t> reshaped_sizes = std::vector<int64_t>(
-        input_tensor.ndimension() - reshape_tensor.ndimension(), 1);
-    auto reshape_tensor_sizes = reshape_tensor.sizes().vec();
-
-    reshaped_sizes.insert(
-        reshaped_sizes.end(),
-        reshape_tensor_sizes.begin(),
-        reshape_tensor_sizes.end());
-
-    ReshapeOperator reshape(this->p_context_->device_id_, this->scalarType_);
-    reshape.SetSynapseInput(p_context_->syn_inputs_[reshape_tensor_idx]);
-    torch::jit::Stack stack = {IValue(reshape_tensor), IValue(reshaped_sizes)};
-    reshape.AllocateAndAddSynapseNode(graph, stack, false);
-
-    AllocateSynapseOutput(graph, output, is_output_persistent);
-    synapse_helpers::tensor& reshape_out_syn_tensor =
-        reshape.GetSynOutputs()[0];
-    std::vector<synTensor> syn_inputs(2, nullptr);
-    synapse_helpers::tensor& output_syn_tensor = p_context_->syn_outputs_[0];
-    std::vector<synTensor> syn_outputs{output_syn_tensor.get()};
-    synapse_helpers::tensor& input_syn_tensor =
-        p_context_->syn_inputs_[input_tensor_idx];
-    syn_inputs[input_tensor_idx] = input_syn_tensor.get();
-    syn_inputs[reshape_tensor_idx] = reshape_out_syn_tensor.get();
-    graph.add_node(
-        std::move(syn_inputs),
-        std::move(syn_outputs),
-        nullptr,
-        0,
-        std::move(guid_));
-  } else {
-    AllocateSynapseOutput(graph, output, is_output_persistent);
-    AddNodeToSynapseGraph(graph, nullptr, 0);
-  }
+  AllocateSynapseOutput(graph, output, is_output_persistent);
+  AddNodeToSynapseGraph(graph, nullptr, 0);
 }
 
 void CompareOutWrapperOperator::AllocateAndAddSynapseNode(
@@ -122,9 +78,13 @@ void CompareOutWrapperOperator::AllocateAndAddSynapseNode(
     compareOp.AllocateAndAddSynapseNode(graph, inputs, is_output_persistent);
   } else { // 2nd input is a scalar
     // add constant node to convert 2nd input to tensor
+    auto arg1 = inputs[0].toTensor();
     ConstantOperator constOp(this->p_context_->device_id_, this->scalarType_);
+    auto const_shape_tensor = habana_helpers::createPTTensor(
+        arg1, {1}, arg1.options(), arg1.suggest_memory_format(), false);
+    torch::jit::Stack constOp_stack = {IValue(const_shape_tensor), inputs[1]};
+    constOp.AllocateAndAddSynapseNode(graph, constOp_stack, false);
     compareOp.SetSynapseInput(p_context_->syn_inputs_[0]);
-    constOp.AllocateAndAddSynapseNode(graph, inputs, false);
     compareOp.SetSynapseInput(constOp.GetSynOutputs()[0]);
     // replace 2nd scalar input with a tensor in stack
     inputs.erase(inputs.cbegin() + 1);
