@@ -29,7 +29,17 @@
 namespace synapse_helpers {
 
 namespace detail {
-std::string generate_name();
+class tensor_name_generator {
+ public:
+  static std::string generate_name();
+
+  // to make unit testing possible
+  static void reset();
+
+ private:
+  static uint64_t id;
+};
+
 uint64_t size_bytes_from_shape(
     const tensor::shape_t& shape,
     synDataType dataType);
@@ -58,7 +68,17 @@ class tensor_builder_base {
   }
 
   ConcreteBuilder& with_shape(const tensor::shape_t& shape) {
-    shape_ = shape;
+    shape_ = tensor::dynamic_shape_t{shape, shape};
+    return static_cast<ConcreteBuilder&>(*this);
+  }
+
+  ConcreteBuilder& with_dynamic_shape(
+      const tensor::dynamic_shape_t& dynamic_shape) {
+    HABANA_ASSERT(dynamic_shape.max().rank() == dynamic_shape.min().rank());
+    shape_ = dynamic_shape;
+    if ((tensor_type_ == DATA_TENSOR) && (shape_.min() != shape_.max())) {
+      tensor_type_ = DATA_TENSOR_DYNAMIC;
+    }
     return static_cast<ConcreteBuilder&>(*this);
   }
 
@@ -68,7 +88,7 @@ class tensor_builder_base {
         std::max(required_rank, previous_rank)});
 
     for (auto i = previous_rank; i < shape_.rank().value; i++) {
-      shape_[i] = 1;
+      shape_.set_dim(i, 1);
     }
 
     return static_cast<ConcreteBuilder&>(*this);
@@ -96,7 +116,28 @@ class tensor_builder_base {
       void* host_ptr = nullptr) {
     is_const_ = is_const;
     host_ptr_ = host_ptr;
+    HABANA_ASSERT(tensor_type_ == DATA_TENSOR);
     return static_cast<ConcreteBuilder&>(*this);
+  }
+
+  ConcreteBuilder& mark_shape_tensor() {
+    tensor_type_ = SHAPE_TENSOR;
+    is_persistent_ = true;
+    data_type_ = syn_type_uint32;
+    return static_cast<ConcreteBuilder&>(*this);
+  }
+
+  ConcreteBuilder& mark_input_describing_shape_tensor() {
+    tensor_type_ = INPUT_DESCRIBING_SHAPE_TENSOR;
+    is_persistent_ = true;
+    data_type_ = syn_type_uint32;
+    return static_cast<ConcreteBuilder&>(*this);
+  }
+
+  ConcreteBuilder& mark_device_shape_tensor() {
+    tensor_type_ = DEVICE_SHAPE_TENSOR;
+    data_type_ = syn_type_uint32;
+    return with_shape(tensor::shape_t(1_D, SYN_MAX_TENSOR_DIM));
   }
 
   // NOLINTNEXTLINE // we're move()'ing, so no const& is needed. TODO remove
@@ -119,7 +160,8 @@ class tensor_builder_base {
         memory_section_,
         is_const_,
         host_ptr_,
-        offset_);
+        offset_,
+        tensor_type_);
 
     auto create_result{t.create()};
 
@@ -134,7 +176,7 @@ class tensor_builder_base {
   tensor_builder_base() = default;
 
  private:
-  tensor::shape_t shape_{};
+  tensor::dynamic_shape_t shape_{};
   synDataType data_type_{};
   std::string tensor_name_ = generate_name();
   bool is_persistent_{false};
@@ -142,13 +184,14 @@ class tensor_builder_base {
   shared_memory_section memory_section_{nullptr};
   void* host_ptr_{nullptr};
   uint64_t offset_{0};
+  synTensorType tensor_type_{DATA_TENSOR};
 
   uint64_t total_size_bytes() const {
-    return detail::size_bytes_from_shape(shape_, data_type_);
+    return detail::size_bytes_from_shape(shape_.max(), data_type_);
   }
 
   static std::string generate_name() {
-    return detail::generate_name();
+    return detail::tensor_name_generator::generate_name();
   }
 };
 

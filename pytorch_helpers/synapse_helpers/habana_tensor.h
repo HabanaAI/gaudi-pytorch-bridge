@@ -100,6 +100,13 @@ class tensor final {
     internal_storage::const_reference operator[](size_t index) const {
       return dims_.at(index);
     }
+    bool operator==(const shape_t& rhs) const noexcept {
+      return dims_ == rhs.dims_ && rank_ == rhs.rank_;
+    }
+    bool operator!=(const shape_t& rhs) const noexcept {
+      return dims_ != rhs.dims_ || rank_ != rhs.rank_;
+    }
+
     internal_storage::pointer data() noexcept {
       return dims_.data();
     }
@@ -136,6 +143,53 @@ class tensor final {
     dimension_count_t rank_;
   };
 
+  class dynamic_shape_t {
+    friend class tensor;
+
+   public:
+    explicit dynamic_shape_t(shape_t min = shape_t{}, shape_t max = shape_t{});
+
+    bool operator==(const dynamic_shape_t& rhs) const noexcept {
+      return min_ == rhs.min_ && max_ == rhs.max_;
+    }
+    bool operator!=(const dynamic_shape_t& rhs) const noexcept {
+      return min_ != rhs.min_ || max_ != rhs.max_;
+    }
+
+    const shape_t& min() const noexcept {
+      return min_;
+    }
+    const shape_t& max() const noexcept {
+      return max_;
+    }
+
+    void set_dim(size_t index, shape_t::dimension_size_t size) {
+      min_[index] = size;
+      max_[index] = size;
+    }
+
+    void set_dim(
+        size_t index,
+        shape_t::dimension_size_t min,
+        shape_t::dimension_size_t max) {
+      min_[index] = min;
+      max_[index] = max;
+    }
+
+    shape_t::dimension_count_t rank() const noexcept {
+      return max_.rank();
+    }
+
+    void set_rank(shape_t::dimension_count_t rank) noexcept {
+      min_.set_rank(rank);
+      max_.set_rank(rank);
+    }
+
+   private:
+    shape_t min_;
+    shape_t max_;
+  };
+
   static tensor create_placeholder(synDeviceId device_id);
 
   synTensor& get() {
@@ -146,7 +200,7 @@ class tensor final {
   }
   uint64_t num_elements() const;
   const shape_t& shape() const {
-    return shape_;
+    return shape_.max();
   }
   synDataType type() const {
     return data_type_;
@@ -172,6 +226,26 @@ class tensor final {
     return offset_;
   }
 
+  bool has_dynamic_shape() const {
+    return shape_.min() != shape_.max();
+  }
+  const dynamic_shape_t& dynamic_shape() const {
+    return shape_;
+  }
+
+  bool is_shape_tensor() const {
+    return tensor_type_ == SHAPE_TENSOR;
+  }
+  bool is_input_shape_tensor() const {
+    return tensor_type_ == INPUT_DESCRIBING_SHAPE_TENSOR;
+  }
+  bool is_device_shape_tensor() const {
+    return tensor_type_ == DEVICE_SHAPE_TENSOR;
+  }
+  synTensorType tensor_type() const {
+    return tensor_type_;
+  };
+
   std::string tensor_name_;
 
   friend std::ostream& operator<<(std::ostream& out, const tensor& rhs);
@@ -188,7 +262,22 @@ class tensor final {
       shared_memory_section memory_section = nullptr,
       bool is_const = false,
       void* host_ptr = nullptr,
-      const uint64_t offset = 0);
+      const uint64_t offset = 0,
+      synTensorType tensor_type = DATA_TENSOR);
+  tensor(
+      synDeviceId device_id,
+      synDataType data_type,
+      uint64_t total_size_bytes,
+      const dynamic_shape_t& shape,
+      std::string tensor_name,
+      synGraphHandle graph,
+      bool is_persistent = false,
+      shared_memory_section memory_section = nullptr,
+      bool is_const = false,
+      void* host_ptr = nullptr,
+      const uint64_t offset = 0,
+      synTensorType tensor_type = DATA_TENSOR);
+
   void set_placeholder() {
     placeholder_ = true;
   }
@@ -198,7 +287,8 @@ class tensor final {
   synDataType data_type_;
   // TODO: total size can be counted basing on type and dimensions
   uint64_t total_size_bytes_;
-  shape_t shape_;
+  // shape_t shape_;
+  dynamic_shape_t shape_;
   synTensor tensor_{nullptr};
   bool placeholder_{false};
 
@@ -208,6 +298,7 @@ class tensor final {
   bool is_const_{false};
   void* host_ptr_{nullptr};
   const uint64_t offset_{0};
+  synTensorType tensor_type_{DATA_TENSOR};
 };
 
 /**

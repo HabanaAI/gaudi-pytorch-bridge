@@ -45,6 +45,11 @@ void tensor::shape_t::set_rank(dimension_count_t rank) noexcept {
   rank_ = rank;
 }
 
+tensor::dynamic_shape_t::dynamic_shape_t(shape_t min, shape_t max)
+    : min_{min}, max_{max} {
+  HABANA_ASSERT(min_.rank() == max_.rank());
+}
+
 tensor::tensor(
     synDeviceId device_id,
     synDataType data_type,
@@ -56,7 +61,8 @@ tensor::tensor(
     shared_memory_section section,
     bool is_const,
     void* host_ptr,
-    const uint64_t offset)
+    const uint64_t offset,
+    synTensorType tensor_type)
     : tensor_name_{std::move(tensor_name)},
       device_id_{device_id},
       data_type_{data_type},
@@ -68,7 +74,35 @@ tensor::tensor(
       graph_{graph},
       is_const_{is_const},
       host_ptr_{host_ptr},
-      offset_(offset) {}
+      offset_(offset),
+      tensor_type_(tensor_type) {}
+
+tensor::tensor(
+    synDeviceId device_id,
+    synDataType data_type,
+    uint64_t total_size_bytes,
+    const dynamic_shape_t& shape,
+    std::string tensor_name,
+    synGraphHandle graph,
+    bool is_persistent,
+    shared_memory_section section,
+    bool is_const,
+    void* host_ptr,
+    const uint64_t offset,
+    synTensorType tensor_type)
+    : tensor_name_{std::move(tensor_name)},
+      device_id_{device_id},
+      data_type_{data_type},
+      total_size_bytes_{total_size_bytes},
+      shape_{shape},
+      tensor_{},
+      is_persistent_{is_persistent},
+      memory_section_{std::move(section)},
+      graph_{graph},
+      is_const_{is_const},
+      host_ptr_{host_ptr},
+      offset_(offset),
+      tensor_type_(tensor_type) {}
 
 tensor::tensor(tensor&& other) noexcept
     : tensor_name_(std::move(other.tensor_name_)),
@@ -83,7 +117,8 @@ tensor::tensor(tensor&& other) noexcept
       graph_{other.graph_},
       is_const_{other.is_const_},
       host_ptr_{other.host_ptr_},
-      offset_{other.offset_} {
+      offset_{other.offset_},
+      tensor_type_{other.tensor_type_} {
   other.tensor_ = nullptr;
   other.memory_section_ = nullptr;
   other.graph_ = nullptr;
@@ -105,6 +140,7 @@ tensor& tensor::operator=(tensor&& other) noexcept {
   graph_ = other.graph_;
   is_const_ = other.is_const_;
   host_ptr_ = other.host_ptr_;
+  tensor_type_ = other.tensor_type_;
 
   other.tensor_ = nullptr;
   other.memory_section_ = nullptr;
@@ -124,21 +160,33 @@ synapse_error_o tensor::create() {
 
   trdescriptor.m_name = tensor_name_.c_str();
   trdescriptor.m_dataType = data_type_;
-  trdescriptor.m_dims = shape_.rank().value;
+  trdescriptor.m_dims = shape_.max().rank().value;
+  trdescriptor.m_tensorType = tensor_type_;
   if (is_const_) {
     HABANA_ASSERT(host_ptr_);
     trdescriptor.m_isQuantized = true;
     trdescriptor.m_ptr = host_ptr_;
   }
   std::copy_n(
-      shape_.data(), shape_.rank().value, std::begin(trdescriptor.m_sizes));
+      shape_.max_.data(),
+      shape_.max_.rank().value,
+      std::begin(trdescriptor.m_sizes));
 
   if (is_const_) {
     HABANA_ASSERT(!is_persistent_);
+    HABANA_ASSERT(tensor_type_ == DATA_TENSOR);
     status = synConstTensorCreate(&tensor_, &trdescriptor);
   } else {
     HABANA_ASSERT(!memory_section_ || (memory_section_ && is_persistent_));
-    if (!memory_section_ && is_persistent_) {
+    std::copy_n(
+        shape_.min_.data(),
+        shape_.min_.rank().value,
+        std::begin(trdescriptor.m_minSizes));
+    if (tensor_type_ == SHAPE_TENSOR ||
+        tensor_type_ == INPUT_DESCRIBING_SHAPE_TENSOR) {
+      HABANA_ASSERT(data_type_ == syn_type_uint32);
+      status = synTensorCreate(&tensor_, &trdescriptor, nullptr, 0);
+    } else if (!memory_section_ && is_persistent_) {
       auto memory_attributes{
           synMemoryAttribute::MEMORY_ATTRIBUTE_DEVICE |
           (is_persistent_ ? synMemoryAttribute::MEMORY_ATTRIBUTE_PERSISTENT
@@ -197,7 +245,7 @@ tensor tensor::create_placeholder(synDeviceId syn_device) {
 
 uint64_t tensor::num_elements() const {
   uint64_t ret = 1;
-  for (const auto& dim : shape_) {
+  for (const auto& dim : shape_.max()) {
     if (dim != 0) {
       ret *= dim;
     }

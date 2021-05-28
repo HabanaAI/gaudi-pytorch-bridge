@@ -32,6 +32,7 @@ target_link_libraries(
   "${TORCH_LIBRARIES}"
 # "${PTPY_LIB}"
   habana_pytorch_plugin
+  pytorch_synapse_helpers_abi11
   gtest
   gtest_main
   util
