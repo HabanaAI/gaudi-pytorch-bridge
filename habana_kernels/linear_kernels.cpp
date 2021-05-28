@@ -1636,6 +1636,13 @@ static auto& KernelRegistry =
                   device_id);
             })
         .add(
+            "hpu::matmul_backward",
+            [](const int device_id, c10::ScalarType node_type) {
+              static_cast<void>(node_type);
+              return std::make_shared<habana::MatmulBackwardOperator>(
+                  device_id);
+            })
+        .add(
             "aten::matmul",
             [](const int device_id, c10::ScalarType node_type) {
               static_cast<void>(node_type);

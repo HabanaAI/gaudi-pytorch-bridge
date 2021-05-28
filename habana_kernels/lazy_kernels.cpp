@@ -5372,7 +5372,7 @@ std::tuple<Tensor, Tensor> matmul_backward_hpu_lazy(
     const Tensor& other) {
   PT_LAZY_TRACE;
   LazyOp<std::tuple<Tensor, Tensor>> k(
-      "aten::matmul_backward",
+      "hpu::matmul_backward",
       {grad_output, self, other},
       {},
       {self.sizes().vec(), other.sizes().vec()});

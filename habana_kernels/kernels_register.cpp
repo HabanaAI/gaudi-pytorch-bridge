@@ -3277,6 +3277,8 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::native_batch_norm_inf(Tensor input, Tensor? weight, Tensor? bias, Tensor? running_mean, Tensor? running_var, bool training, float momentum, float eps) -> (Tensor)");
   m.def(
       "as_strided_lazy_(Tensor self, int[] size, int[] stride, int offset) -> (Tensor)");
+  m.def(
+      "matmul_backward(Tensor grad_out, Tensor self, Tensor other) -> (Tensor, Tensor)");
 }
 
 TORCH_LIBRARY_IMPL(hpu, HABANATensorId, m) {
@@ -3334,4 +3336,9 @@ TORCH_LIBRARY_IMPL(hpu, HABANATensorId, m) {
       "max_dim",
       static_cast<std::tuple<at::Tensor, at::Tensor> (*)(
           const at::Tensor&, int64_t, bool)>(&hpu_wrap::max));
+  m.impl(
+      "matmul_backward",
+      static_cast<std::tuple<at::Tensor, at::Tensor> (*)(
+          const at::Tensor&, const at::Tensor&, const at::Tensor&)>(
+          &matmul_backward_hpu));
 }
