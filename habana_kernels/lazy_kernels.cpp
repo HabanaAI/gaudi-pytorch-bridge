@@ -1779,8 +1779,40 @@ Tensor& scatter_inplace_src_hpu_lazy(
     int64_t dim_,
     const Tensor& index,
     const Tensor& src) {
-  HABANA_ASSERT(0);
-  return scatter_inplace_src_hpu(self, dim_, index, src);
+  PT_LAZY_TRACE;
+
+  auto hl_self = habana_lazy::GetHbLazyTensor(self);
+  auto node =
+      std::make_shared<habana_lazy::ir::Scatter>(self, dim_, index, src);
+
+  // Create result tensor to store output of scatter node
+  auto result = empty_hpu_lazy(
+      self.sizes(), self.options(), self.suggest_memory_format(), false);
+  auto hl_result = habana_lazy::GetOrCreateHbLazyTensor(result, c10::kHABANA);
+  habana_lazy::ir::Value& res = hl_result.CurrentIrValue();
+  res.m_index = 0;
+  res.SetNode(node);
+
+  // Add a control_edge node
+  updateDstDependencies(hl_self, self, true);
+
+  // Create MemCopy operator to copy value into self
+  std::vector<at::Tensor> input_pt_vec;
+  auto node2 = habana_lazy::ir::Node::Create(
+      Symbol::fromQualString("hpu::habana_d2d_memcpy_other"),
+      {hl_result.GetIrValue(), hl_self.GetIrValue()});
+  input_pt_vec.push_back(result);
+  input_pt_vec.push_back(self);
+  auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
+      self.device().index());
+  context->MarkTensorRegistered(hl_self.getTensorUniqueId());
+  habana_lazy::ir::Value& out = hl_self.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node2);
+  node2->AddInputPtTensors(input_pt_vec);
+
+  flush_op(self);
+  return self;
 }
 
 Tensor& scatter_inplace_value_hpu_lazy(
@@ -1822,29 +1854,74 @@ Tensor& scatter_inplace_value_hpu_lazy(
   flush_op(self);
   return self;
 }
+
+// Cpu implementation of scatter calls inplace scatter only
+// scatter_src_hpu_lazy will never be called
 Tensor scatter_src_hpu_lazy(
     const Tensor& self,
     int64_t dim_,
     const Tensor& index,
     const Tensor& src) {
-  HABANA_ASSERT(0);
-  return scatter_src_hpu(self, dim_, index, src);
+  PT_LAZY_TRACE;
+
+  LazyOp<at::Tensor> k{"aten::scatter", {self, dim_, index, src}, {1}};
+  return k.call();
 }
+
+// Cpu implementation of scatter_add calls inplace scatter only
+// scatter_add_src_hpu_lazy will never be called
 Tensor scatter_add_src_hpu_lazy(
     const Tensor& self,
     int64_t dim_,
     const Tensor& index,
     const Tensor& src) {
-  HABANA_ASSERT(0);
-  return scatter_add_src_hpu(self, dim_, index, src);
+  PT_LAZY_TRACE;
+
+  LazyOp<at::Tensor> k{"aten::scatter_add", {self, dim_, index, src}, {1}};
+  return k.call();
 }
+
+// scatter_add is producing wrong value randomly
+// https://jira.habana-labs.com/browse/SW-44742
 Tensor& scatter_add_inplace_src_hpu_lazy(
     Tensor& self,
     int64_t dim_,
     const Tensor& index,
     const Tensor& src) {
-  HABANA_ASSERT(0);
-  return scatter_add_inplace_src_hpu(self, dim_, index, src);
+  PT_LAZY_TRACE;
+
+  auto hl_self = habana_lazy::GetHbLazyTensor(self);
+  auto node =
+      std::make_shared<habana_lazy::ir::ScatterAdd>(self, dim_, index, src);
+
+  // Create result tensor to store output of scatter node
+  auto result = empty_hpu_lazy(
+      self.sizes(), self.options(), self.suggest_memory_format(), false);
+  auto hl_result = habana_lazy::GetOrCreateHbLazyTensor(result, c10::kHABANA);
+  habana_lazy::ir::Value& res = hl_result.CurrentIrValue();
+  res.m_index = 0;
+  res.SetNode(node);
+
+  // Add a control_edge node
+  updateDstDependencies(hl_self, self, true);
+
+  // Create MemCopy operator to copy value into self
+  std::vector<at::Tensor> input_pt_vec;
+  auto node2 = habana_lazy::ir::Node::Create(
+      Symbol::fromQualString("hpu::habana_d2d_memcpy_other"),
+      {hl_result.GetIrValue(), hl_self.GetIrValue()});
+  input_pt_vec.push_back(result);
+  input_pt_vec.push_back(self);
+  auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
+      self.device().index());
+  context->MarkTensorRegistered(hl_self.getTensorUniqueId());
+  habana_lazy::ir::Value& out = hl_self.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(node2);
+  node2->AddInputPtTensors(input_pt_vec);
+
+  flush_op(self);
+  return self;
 }
 
 Tensor index_hpu_lazy(const at::Tensor& self, at::TensorList indices) {

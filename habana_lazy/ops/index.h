@@ -157,5 +157,67 @@ struct ScatterValue : public ir::Node {
   }
 };
 
+struct Scatter : public ir::Node {
+  enum class Scatter_Params { DIM_INDEX = 1 };
+  Scatter() = delete;
+  Scatter(
+      at::Tensor& self,
+      int64_t dim,
+      const at::Tensor& index,
+      const at::Tensor& src)
+      : Node(c10::Symbol::fromQualString("aten::scatter")) {
+    auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
+    auto hl_index = habana_lazy::GetOrCreateHbLazyTensor(index, c10::kHABANA);
+    auto hl_src = habana_lazy::GetOrCreateHbLazyTensor(src, c10::kHABANA);
+
+    AddInput(hl_self.GetIrValue());
+    AddInput(hl_index.GetIrValue());
+    AddInput(hl_src.GetIrValue());
+    std::vector<at::Tensor> input_pt_vec{self, index, src};
+    AddInputPtTensors(input_pt_vec);
+
+    m_meta_data.set(dim, static_cast<size_t>(Scatter_Params::DIM_INDEX));
+  }
+
+  std::string ToString() const override {
+    std::stringstream ss;
+    ss << Node::ToString() << ", dim="
+       << m_meta_data.get(static_cast<size_t>(Scatter_Params::DIM_INDEX));
+
+    return ss.str();
+  }
+};
+
+struct ScatterAdd : public ir::Node {
+  enum class ScatterAdd_Params { DIM_INDEX = 1 };
+  ScatterAdd() = delete;
+  ScatterAdd(
+      at::Tensor& self,
+      int64_t dim,
+      const at::Tensor& index,
+      const at::Tensor& src)
+      : Node(c10::Symbol::fromQualString("aten::scatter_add")) {
+    auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
+    auto hl_index = habana_lazy::GetOrCreateHbLazyTensor(index, c10::kHABANA);
+    auto hl_src = habana_lazy::GetOrCreateHbLazyTensor(src, c10::kHABANA);
+
+    AddInput(hl_self.GetIrValue());
+    AddInput(hl_index.GetIrValue());
+    AddInput(hl_src.GetIrValue());
+    std::vector<at::Tensor> input_pt_vec{self, index, src};
+    AddInputPtTensors(input_pt_vec);
+
+    m_meta_data.set(dim, static_cast<size_t>(ScatterAdd_Params::DIM_INDEX));
+  }
+
+  std::string ToString() const override {
+    std::stringstream ss;
+    ss << Node::ToString() << ", dim="
+       << m_meta_data.get(static_cast<size_t>(ScatterAdd_Params::DIM_INDEX));
+
+    return ss.str();
+  }
+};
+
 } // namespace ir
 } // namespace habana_lazy

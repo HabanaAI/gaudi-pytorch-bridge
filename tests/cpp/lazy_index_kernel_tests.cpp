@@ -92,6 +92,41 @@ TEST_F(LazyIndexKernelTest, ScatterValueTest) {
   EXPECT_EQ(allclose(h_cout, out), true);
 }
 
+// This test is failing randomly.
+// https://jira.habana-labs.com/browse/SW-44742
+
+/*TEST_F(LazyIndexKernelTest, ScatterAddTest) {
+  torch::Tensor a = torch::randn({5, 7}, torch::requires_grad(false));
+  torch::Tensor h_a = a.to(torch::kHABANA);
+  int64_t dim = 1;
+  auto index = torch::randint(0, 5, {5, 7}, torch::dtype(torch::kInt64));
+  auto h_index = index.to(torch::kHABANA);
+  torch::Tensor src = torch::randn({5, 7}, torch::requires_grad(false));
+  torch::Tensor h_src = src.to(torch::kHABANA);
+
+  torch::Tensor hOut = torch::scatter_add(h_a, dim, h_index, h_src);
+  auto h_cout = hOut.to(torch::kCPU);
+  torch::Tensor out = torch::scatter_add(a, dim, index, src);
+
+  EXPECT_EQ(allclose(h_cout, out), true);
+}*/
+
+TEST_F(LazyIndexKernelTest, ScatterTest) {
+  torch::Tensor a = torch::randn({5, 7}, torch::requires_grad(false));
+  torch::Tensor h_a = a.to(torch::kHABANA);
+  int64_t dim = 0;
+  auto index = torch::randint(0, 5, {5, 7}, torch::dtype(torch::kInt64));
+  auto h_index = index.to(torch::kHABANA);
+  torch::Tensor src = torch::randn({5, 7}, torch::requires_grad(false));
+  torch::Tensor h_src = src.to(torch::kHABANA);
+
+  torch::Tensor hOut = torch::scatter(h_a, dim, h_index, h_src);
+  auto h_cout = hOut.to(torch::kCPU);
+  torch::Tensor out = torch::scatter(a, dim, index, src);
+
+  EXPECT_EQ(allclose(h_cout, out), true);
+}
+
 TEST_F(LazyIndexKernelTest, ArangeFloatOutTest) {
   torch::Tensor tStart = torch::tensor(0.0);
   torch::Tensor tEnd = torch::tensor(10.0);
