@@ -999,8 +999,9 @@ Tensor add_scalar_hpu_lazy(const Tensor& self, Scalar other, Scalar alpha) {
 }
 
 Tensor& add_scalar_hpu_lazy_(Tensor& self, Scalar other, Scalar alpha) {
-  HABANA_ASSERT(0);
-  return add_scalar_hpu_(self, other, alpha);
+  PT_LAZY_TRACE;
+  LazyOp<Tensor&> op("aten::add_", {self, other, alpha});
+  return op.call(self);
 }
 
 Tensor& add_tensor_hpu_lazy_(Tensor& self, const Tensor& other, Scalar alpha) {
@@ -1060,8 +1061,9 @@ Tensor sub_scalar_hpu_lazy(const Tensor& self, Scalar other, Scalar alpha) {
   return result;
 }
 Tensor& sub_scalar_hpu_lazy_(Tensor& self, Scalar other, Scalar alpha) {
-  HABANA_ASSERT(0);
-  return sub_scalar_hpu_(self, other, alpha);
+  PT_LAZY_TRACE;
+  LazyOp<Tensor&> op("aten::sub_", {self, other, alpha});
+  return op.call(self);
 }
 Tensor rsub_scalar_hpu_lazy(const Tensor& self, Scalar other, Scalar alpha) {
   PT_LAZY_TRACE;

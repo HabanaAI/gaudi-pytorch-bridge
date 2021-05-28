@@ -38,11 +38,25 @@ TEST_F(LazyBinaryKernelTest, LazyDoATest) {
 TEST_F(LazyBinaryKernelTest, AddScalarTest) {
   // test case for result = add(tensor, scalar, alpha)
   torch::Tensor A = torch::randn({2, 2}, torch::requires_grad(false));
-  Scalar B = 1.0;
+  Scalar B = 2.0;
+  Scalar alpha = 1.0;
 
   torch::Tensor hA = A.to(torch::kHABANA);
-  torch::Tensor out_h = torch::add(hA, B).to(torch::kCPU);
-  torch::Tensor out_cpu = torch::add(A, B);
+  torch::Tensor out_h = torch::add(hA, B, alpha).to(torch::kCPU);
+  torch::Tensor out_cpu = torch::add(A, B, alpha);
+
+  EXPECT_EQ(allclose(out_h, out_cpu), true);
+}
+
+TEST_F(LazyBinaryKernelTest, SubScalarTest) {
+  // test case for result = sub(tensor, scalar, alpha)
+  torch::Tensor A = torch::randn({2, 2}, torch::requires_grad(false));
+  Scalar B = 2.0;
+  Scalar alpha = 1.0;
+
+  torch::Tensor hA = A.to(torch::kHABANA);
+  torch::Tensor out_h = torch::sub(hA, B, alpha).to(torch::kCPU);
+  torch::Tensor out_cpu = torch::sub(A, B, alpha);
 
   EXPECT_EQ(allclose(out_h, out_cpu), true);
 }
