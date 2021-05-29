@@ -58,6 +58,20 @@ void HPUAllocator::release() {
   PT_DEVICE_WARN("HPUAllocator::release should not be invoked.");
 }
 
+static void waitTillRecipeExecutionDone(synDeviceId device_id) {
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  bool status = device.get_device_memory().is_mem_threshold_hit();
+  auto& recipe_counter = device.get_active_recipe_counter();
+  uint32_t counter_state = recipe_counter.get_count();
+
+  while (status && (counter_state > 1)) {
+    counter_state = recipe_counter.wait_for_next_decrease_call();
+    PT_DEVICE_DEBUG(
+        "waiting for recipe launch completion, recipe count ", counter_state);
+    status = device.get_device_memory().is_mem_threshold_hit();
+  }
+}
+
 static synStatus waitTillRecipeExecution(
     synDeviceId device_id,
     size_t num_bytes,
@@ -123,6 +137,7 @@ void* HPUAllocator::alloc(size_t num_bytes) {
   }
   synStatus status{synStatus::synSuccess};
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  waitTillRecipeExecutionDone(device_id);
   void* v_ptr{nullptr};
   status = device.get_device_memory().malloc(&v_ptr, num_bytes);
 
@@ -171,6 +186,8 @@ at::DataPtr HPUDeviceAllocator::allocate(size_t num_bytes) const {
 
   auto& device =
       synapse_helpers::HPURegistrar::get_device(allocator_active_device_id);
+
+  waitTillRecipeExecutionDone(allocator_active_device_id);
   if (num_bytes != 0) {
     status = device.get_device_memory().malloc(&v_ptr, num_bytes);
 

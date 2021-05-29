@@ -79,6 +79,7 @@ class StaticCoalescedPooling : public PoolingStrategy {
   mutable uint64_t allocted_chunk_size;
   mutable uint64_t free_chunks;
   mutable uint64_t free_chunks_size;
+  mutable uint64_t bytes_in_use;
   mutable simple_coalesced_pool_t* prealloc_pool;
   Chunk* reuse_chunks(uint64_t size) const;
   Chunk* get_free_chunk(uint64_t size) const;
@@ -108,6 +109,7 @@ class StaticCoalescedPooling : public PoolingStrategy {
   void pool_destroy() const override;
   void* pool_alloc_chunk(uint64_t size) const override;
   void pool_free_chunk(void* p) const override;
+  bool is_mem_threshold_hit() const override;
 };
 
 } // namespace pool_allocator

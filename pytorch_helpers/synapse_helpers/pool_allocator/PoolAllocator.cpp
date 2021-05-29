@@ -21,6 +21,7 @@ StaticPooling::StaticPooling() {
   pool_id = 0;
   block_count = 0;
   allocted_block_size = 0;
+  bytes_in_use = 0;
   free_chunks = 0;
   free_chunks_size = 0;
   max_pool_size = DEFAULT_POOL_SIZE;
@@ -179,6 +180,7 @@ void* StaticPooling::pool_alloc_chunk(uint64_t size) const {
   auto old_chunk = reuse_chunks((void*)p->_top->memptr, size);
   if (old_chunk) {
     ++block_count;
+    bytes_in_use += size;
     return old_chunk;
   }
 
@@ -213,6 +215,7 @@ void* StaticPooling::pool_alloc_chunk(uint64_t size) const {
   allocted_block_size += size;
   ++block_count;
   PT_SYNHELPER_DEBUG("POOL:: Allocated block_count :: ", block_count);
+  bytes_in_use += size;
   return (void*)chunk->memptr;
 }
 
@@ -228,6 +231,7 @@ void StaticPooling::pool_free_chunk(void* ptr) const {
     }
     chunk = chunk->next;
   }
+  bytes_in_use -= chunk->size;
   --block_count;
   if (block_count == 0) {
     print_pool_stats();
@@ -235,10 +239,18 @@ void StaticPooling::pool_free_chunk(void* ptr) const {
   }
 }
 
+bool StaticPooling::is_mem_threshold_hit() const {
+  const std::lock_guard<std::mutex> lock(sp_mutex);
+  if (bytes_in_use > (max_pool_size * 0.80))
+    return true;
+  return false;
+}
+
 DynamicPooling::DynamicPooling() {
   pool_id = 0;
   pool_start = nullptr;
   top = pool_start;
+  bytes_in_use = 0;
 }
 
 void DynamicPooling::freeBlocks(Block* block) const {
@@ -303,6 +315,7 @@ void DynamicPooling::freeBlock(void* data) const {
   auto block = retrieveBlock(data);
   if (block) {
     block->used = false;
+    bytes_in_use -= block->size;
   }
 }
 
@@ -361,6 +374,7 @@ Block* DynamicPooling::findBlock(uint64_t size) const {
 
 void* DynamicPooling::allocBlock(uint64_t size) const {
   if (auto block = findBlock(size)) {
+    bytes_in_use += block->size;
     return reinterpret_cast<void*>(block->memptr);
   }
 
@@ -382,6 +396,7 @@ void* DynamicPooling::allocBlock(uint64_t size) const {
   }
   top = block;
 
+  bytes_in_use += block->size;
   return reinterpret_cast<void*>(block->memptr);
 }
 
@@ -411,6 +426,20 @@ void* DynamicPooling::pool_alloc_chunk(uint64_t size) const {
 void DynamicPooling::pool_free_chunk(void* ptr) const {
   const std::lock_guard<std::mutex> lock(vp_mutex);
   freeBlock(ptr);
+}
+
+bool DynamicPooling::is_mem_threshold_hit() const {
+  const std::lock_guard<std::mutex> lock(vp_mutex);
+  uint64_t free_mem, total_mem;
+  auto status = synDeviceGetMemoryInfo(pool_id, &free_mem, &total_mem);
+  if (synStatus::synSuccess != status) {
+    PT_SYNHELPER_DEBUG(
+        "POOL:: Cannot obtain device memory info. Status: ", status);
+    return false;
+  }
+  if (bytes_in_use > (total_mem * 0.8))
+    return true;
+  return false;
 }
 
 } // namespace pool_allocator

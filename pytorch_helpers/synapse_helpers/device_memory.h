@@ -37,11 +37,13 @@ class device_memory {
   device_memory& operator=(device_memory&&) = delete;
   synStatus malloc(void** ptr, size_t size);
   synStatus free(void* ptr);
+  bool is_mem_threshold_hit();
 
  private:
   device& device_;
   pool_allocator::PoolStrategyType pool_strategy_;
   uint64_t pool_size_;
   pool_allocator::SubAllocator* suballoc_;
+  bool enable_mem_threshold_check;
 };
 } // namespace synapse_helpers

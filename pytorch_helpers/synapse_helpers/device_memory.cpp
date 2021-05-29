@@ -24,6 +24,7 @@ device_memory::device_memory(device& device) : device_{device} {
   pool_size_ = GET_ENV_FLAG(PT_HABANA_POOL_SIZE) * 1024 * 1024 * 1024;
   pool_strategy_ =
       (pool_allocator::PoolStrategyType)GET_ENV_FLAG(PT_HPU_POOL_STRATEGY);
+  enable_mem_threshold_check = false;
   switch (pool_strategy_) {
     case pool_allocator::strategy_bump:
       try {
@@ -49,6 +50,21 @@ device_memory::device_memory(device& device) : device_{device} {
         PT_SYNHELPER_FATAL("unknown pool error ");
       }
       break;
+    case pool_allocator::startegy_static_coalesce_with_memthreshold:
+      /* this is additional startegy will be workaround for now,
+       * we remove it later and enable for all startegy by default */
+      enable_mem_threshold_check = true;
+      try {
+        PT_SYNHELPER_DEBUG("startegy_static_coalesce :: ", pool_size_);
+        suballoc_ = new pool_allocator::SubAllocator(
+            new pool_allocator::StaticCoalescedPooling);
+        if (suballoc_ == nullptr) {
+          PT_SYNHELPER_FATAL("unable to create pool allocator");
+        }
+      } catch (...) {
+        PT_SYNHELPER_FATAL("unknown pool error ");
+      }
+      break;
     case pool_allocator::startegy_static_coalesce:
       try {
         PT_SYNHELPER_DEBUG("startegy_static_coalesce :: ", pool_size_);
@@ -62,8 +78,10 @@ device_memory::device_memory(device& device) : device_{device} {
       }
       break;
     case pool_allocator::strategy_none:
-    default:
       suballoc_ = nullptr;
+      break;
+    default:
+      PT_SYNHELPER_FATAL("unsupported pool strategy");
       break;
   }
   if (suballoc_ && !suballoc_->pool_create(device_.id(), pool_size_)) {
@@ -134,6 +152,15 @@ synStatus device_memory::free(void* ptr) {
   }
   log_synDeviceFree(reinterpret_cast<uint64_t>(ptr), status);
   return status;
+}
+
+bool device_memory::is_mem_threshold_hit() {
+  if (!enable_mem_threshold_check)
+    return false;
+  if (pool_strategy_ != pool_allocator::strategy_none) {
+    return suballoc_->is_mem_threshold_hit();
+  }
+  return false;
 }
 
 } // namespace synapse_helpers

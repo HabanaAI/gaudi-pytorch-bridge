@@ -24,6 +24,7 @@ StaticCoalescedPooling::StaticCoalescedPooling() {
   pool_id = 0;
   chunk_count = 0;
   allocted_chunk_size = 0;
+  bytes_in_use = 0;
   free_chunks = 0;
   free_chunks_size = 0;
   max_pool_size = DEFAULT_POOL_SIZE;
@@ -138,6 +139,13 @@ void StaticCoalescedPooling::pool_destroy() const {
 
 static uint64_t pool_available(simple_coalesced_pool_t* p) {
   return p->end - p->next;
+}
+
+bool StaticCoalescedPooling::is_mem_threshold_hit() const {
+  const std::lock_guard<std::mutex> lock(sp_mutex);
+  if (bytes_in_use > (max_pool_size * 0.8))
+    return true;
+  return false;
 }
 
 void StaticCoalescedPooling::print_pool_stats() const {
@@ -481,6 +489,7 @@ void* StaticCoalescedPooling::pool_alloc_chunk(uint64_t size) const {
         old_chunk->size,
         " extra space :: ",
         old_chunk->extra_space);
+    bytes_in_use += old_chunk->size;
     return (void*)old_chunk->memptr;
   }
 
@@ -496,6 +505,7 @@ void* StaticCoalescedPooling::pool_alloc_chunk(uint64_t size) const {
       }
       defrag_chunk->used = true;
       chunks[defrag_chunk->memptr] = defrag_chunk;
+      bytes_in_use += defrag_chunk->size;
       return (void*)defrag_chunk->memptr;
     }
     auto split_chunk = try_block_splitting(size);
@@ -508,6 +518,7 @@ void* StaticCoalescedPooling::pool_alloc_chunk(uint64_t size) const {
       }
       split_chunk->used = true;
       chunks[split_chunk->memptr] = split_chunk;
+      bytes_in_use += split_chunk->size;
       return (void*)split_chunk->memptr;
     }
     print_device_memory_stats(pool_id);
@@ -560,6 +571,7 @@ void* StaticCoalescedPooling::pool_alloc_chunk(uint64_t size) const {
   PT_SYNHELPER_DEBUG("POOL:: Allocated chunk_count :: ", chunk_count);
 
   chunks[chunk->memptr] = chunk;
+  bytes_in_use += chunk->size;
   return (void*)chunk->memptr;
 }
 
@@ -869,6 +881,7 @@ void StaticCoalescedPooling::pool_free_chunk(void* ptr) const {
   chunk->extra_space = 0;
   free_list.insert(chunk);
   --chunk_count;
+  bytes_in_use -= chunk->size;
 }
 
 } // namespace pool_allocator
