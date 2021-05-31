@@ -95,8 +95,42 @@ class PtLogger {
 
   PtLogger() {
     char* mask = get2env("PT_HABANA_LOG_MOD_MASK");
+    char* node_mask_ptr = std::getenv("PT_HPU_LOG_NODE_MASK");
+    char* gc_log_level_ptr = std::getenv("PT_HPU_SYN_LOG_LEVEL");
+
+    unsigned long node_id = 0;
+    unsigned long node_id_mask = 0;
+
+    if (node_mask_ptr != nullptr) {
+      node_id_mask = std::stoul(node_mask_ptr, nullptr, 16);
+
+      // multinode can be either rank or id
+      char* node_id_ptr = std::getenv("ID");
+      if (node_id_ptr != nullptr) {
+        node_id = std::stoul(node_id_ptr, nullptr, 16);
+      }
+    }
+
+    if (gc_log_level_ptr != nullptr) {
+      if (node_mask_ptr != nullptr) {
+        if ((node_id_mask & (1 << node_id)) == 1) {
+          setenv("LOG_LEVEL_ALL", gc_log_level_ptr, 1);
+        }
+      } else {
+        setenv("LOG_LEVEL_ALL", gc_log_level_ptr, 1);
+      }
+    }
+
     if (mask != nullptr) {
       module_mask_ = std::stoul(mask, nullptr, 16); // expects hex
+
+      // retain the default mask for other nodes
+      if (node_mask_ptr != nullptr) {
+        if ((node_id_mask & (1 << node_id)) == 0) {
+          module_mask_ = INT64_MAX;
+        }
+      }
+
     } else {
       // enable all modules by default
       module_mask_ = INT64_MAX;
@@ -105,6 +139,13 @@ class PtLogger {
     mask = get2env("PT_HABANA_LOG_TYPE_MASK");
     if (mask != nullptr) {
       type_mask_ = std::stoul(mask, nullptr, 16); // expects hex
+
+      // retain the default mask for other nodes
+      if (node_mask_ptr != nullptr) {
+        if ((node_id_mask & (1 << node_id)) == 0) {
+          type_mask_ = TypeMask::FATAL + TypeMask::WARNING;
+        }
+      }
     } else {
       // enable fatal errors and warnings by default
       type_mask_ = TypeMask::FATAL + TypeMask::WARNING;
