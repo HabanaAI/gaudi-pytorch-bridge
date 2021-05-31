@@ -2764,11 +2764,10 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_backward_hpu_lazy(
 Tensor norm_scalar_hpu_lazy(const Tensor& self, Scalar p) {
   PT_LAZY_TRACE;
   LazyOp<at::Tensor> k{
-      "aten::norm",
-      {self, p},
-      {},
-      {NormOperator::compute_output_shape(self, p)}};
-  return k.call();
+      "aten::norm", {self, p}, {}, {NormOperator::compute_output_shape()}};
+  Tensor out = k.call();
+  out.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+  return out;
 }
 
 std::tuple<Tensor, Tensor> max_pool2d_with_indices_hpu_lazy(

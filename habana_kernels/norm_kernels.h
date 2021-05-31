@@ -323,10 +323,7 @@ class NormOperator : public HabanaOperator {
       bool is_output_persistent = false) override;
 
   virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
-  static std::vector<int64_t> compute_output_shape(const at::Tensor& self);
-  static std::vector<int64_t> compute_output_shape(
-      const at::Tensor& self,
-      at::Scalar p);
+  static std::vector<int64_t> compute_output_shape();
 };
 
 // LpNorm Operator

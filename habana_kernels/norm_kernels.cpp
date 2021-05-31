@@ -1824,19 +1824,8 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_backward_hpu(
       std::move(ln_outputs[2]));
 }
 
-std::vector<int64_t> NormOperator::compute_output_shape(
-    const at::Tensor& self,
-    Scalar p) {
-  if (p.toFloat() == 2.0) {
-    return {1};
-  } else {
-    return {self.numel()};
-  }
-}
-
-std::vector<int64_t> NormOperator::compute_output_shape(
-    const at::Tensor& self) {
-  return {self.numel()};
+std::vector<int64_t> NormOperator::compute_output_shape() {
+  return {1};
 }
 
 void NormOperator::SetPTOutputs(torch::jit::Stack& inputs) {
@@ -1851,16 +1840,9 @@ void NormOperator::SetPTOutputs(torch::jit::Stack& inputs) {
       "Input arg2 expected to be Scalar for Norm Operator");
 
   auto self = inputs[0].toTensor();
-  auto p = inputs[1].toScalar();
-  if (p.toFloat() == 2.0) {
-    auto output = at::empty({1}, self.options(), c10::nullopt);
-    HabanaOperator::SetPTOutput(output);
-  } else {
-    auto shape = NormOperator::compute_output_shape(self);
-
-    auto output = at::empty(shape, self.options(), c10::nullopt);
-    HabanaOperator::SetPTOutput(output);
-  }
+  auto shape = NormOperator::compute_output_shape();
+  auto output = at::empty(shape, self.options(), c10::nullopt);
+  HabanaOperator::SetPTOutput(output);
 }
 void NormOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
@@ -1949,7 +1931,7 @@ void NormOperator::AllocateAndAddSynapseNode(
   } else {
     // ReShape Operator
     at::ScalarType scalar_type = self.scalar_type();
-    auto shape = NormOperator::compute_output_shape(self);
+    auto shape = {self.numel()};
 
     // Create the operator
     auto ReShapeOp = make_operator<ReshapeOperator>(
@@ -1990,12 +1972,28 @@ void NormOperator::AllocateAndAddSynapseNode(
 
     // Build Params for the graph
     stack.emplace_back(IValue(output_norm));
-    reciprocalOp->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+    reciprocalOp->AllocateAndAddSynapseNode(graph, stack, false);
+    stack.clear();
 
-    synapse_helpers::tensor& reciprocal_syn_tensor =
-        reciprocalOp->GetSynOutputs()[0];
-    p_context_->syn_outputs_.emplace_back(std::move(reciprocal_syn_tensor));
-    p_context_->pt_outputs_.emplace_back(reciprocalOp->GetOutputs()[0]);
+    // take just the first element of Reciprocal since all values would be
+    // repeated
+    auto slice_op =
+        make_operator<SliceOperator>(this->p_context_->device_id_, scalar_type);
+    slice_op->SetSynapseInput(std::move(reciprocalOp->GetSynOutputs()[0]));
+    stack.emplace_back(IValue(reciprocalOp->GetOutputs()[0]));
+    int dim = 0;
+    int start = 0;
+    int end = 1;
+    int step = 1;
+    stack.emplace_back(IValue(dim));
+    stack.emplace_back(IValue(start));
+    stack.emplace_back(IValue(end));
+    stack.emplace_back(IValue(step));
+    slice_op->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+
+    p_context_->syn_outputs_.emplace_back(
+        std::move(slice_op->GetSynOutputs()[0]));
+    p_context_->pt_outputs_.emplace_back(std::move(slice_op->GetOutputs()[0]));
   }
 }
 
