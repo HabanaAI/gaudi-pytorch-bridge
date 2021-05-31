@@ -40,6 +40,7 @@ at::Tensor& atan_hpu_lazy_(at::Tensor& self);
 at::Tensor& atanh_hpu_lazy_(at::Tensor& self);
 at::Tensor& cos_hpu_lazy_(at::Tensor& self);
 at::Tensor& cosh_hpu_lazy_(at::Tensor& self);
+at::Tensor& tanh_hpu_lazy_(at::Tensor& self);
 
 HPU_LAZY_FUNC_DECL(acos)
 HPU_LAZY_FUNC_DECL_INPLACE(acos_)

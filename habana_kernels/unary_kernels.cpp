@@ -1412,6 +1412,79 @@ void ClampOperator::AllocateAndAddSynapseNode(
     AddNodeToSynapseGraph(graph, &param, sizeof(param));
   }
 }
+
+void ClampMinOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 2,
+      "Incorrect size of inputs expected for Clamp operator");
+  TORCH_CHECK(inputs[0].isTensor(), "Input type expected to be tensor");
+
+  auto self = inputs[0].toTensor();
+  auto min = inputs[1].isScalar() ? inputs[1].toScalar()
+                                  : inputs[1].toOptional<Scalar>();
+
+  ns_ClampKernel::Params param;
+  param.upperBound.f = std::numeric_limits<float>::max();
+  param.lowerBound.f = min.has_value() ? min.value().to<float>()
+                                       : -std::numeric_limits<float>::max();
+
+  if (self.scalar_type() == c10::ScalarType::Int) {
+    // Guid needs to be updated since TPC only supports F32/BF16
+    SetGuid("clamp_fwd_f32");
+    // Cast Input tensor to Float tensor
+    std::string node_type = "cast_i32_to_f32";
+
+    // Create the operator
+    CastOperator intToFloatOp(this->p_context_->device_id_, node_type);
+    auto& float_syn =
+        intToFloatOp.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+
+    // Build Params for the graph
+    std::vector<c10::IValue> stack{
+        IValue(self), IValue(c10::ScalarType::Float)};
+    intToFloatOp.AllocateAndAddSynapseNode(graph, stack, false);
+
+    synapse_helpers::tensor& float_syn_tensor = intToFloatOp.GetSynOutputs()[0];
+    auto output_float = intToFloatOp.GetOutputs()[0];
+    p_context_->syn_inputs_[0] = std::move(float_syn);
+    stack.clear();
+
+    AllocateSynapseOutput(graph, output_float, false);
+    synapse_helpers::tensor& synOutput = p_context_->syn_outputs_[0];
+
+    std::vector<synTensor> syn_in{float_syn_tensor.get()};
+    std::vector<synTensor> syn_out{synOutput.get()};
+
+    node_type = "clamp_fwd_f32";
+    graph.add_node(
+        std::move(syn_in),
+        std::move(syn_out),
+        &param,
+        sizeof(param),
+        std::move(node_type));
+
+    node_type = "cast_f32_to_i32";
+    // Create cast operator
+    CastOperator floatToIntOp(this->p_context_->device_id_, node_type);
+    floatToIntOp.SetSynapseInput(std::move(p_context_->syn_outputs_[0]));
+
+    // Build Params for the graph
+    stack = {IValue(p_context_->pt_outputs_[0]), IValue(c10::ScalarType::Int)};
+
+    floatToIntOp.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+    p_context_->syn_outputs_[0] = std::move(floatToIntOp.GetSynOutputs()[0]);
+    p_context_->pt_outputs_[0] = std::move(floatToIntOp.GetOutputs()[0]);
+
+  } else {
+    auto output = habana_helpers::createPTTensor(self, is_output_persistent);
+    AllocateSynapseOutput(graph, output, is_output_persistent);
+    AddNodeToSynapseGraph(graph, &param, sizeof(param));
+  }
+}
+
 /** @brief This function implements torch.clamp_min()
  * @param self (bf16, fp32 tensor) Input tensor
  * @param min (int, float) Minimum value at which input will be clamped
@@ -2034,6 +2107,11 @@ static auto& KernelRegistry =
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<ClampInplaceOperator>(
                   device_id, node_type);
+            })
+        .add(
+            "aten::clamp_min",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<ClampMinOperator>(device_id, node_type);
             })
         .add(
             "aten::reciprocal",

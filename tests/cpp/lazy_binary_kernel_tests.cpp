@@ -83,6 +83,7 @@ TEST_F(LazyBinaryKernelTest, AddInplaceTest) {
 
   EXPECT_EQ(allclose(out, exp), true);
 }
+
 TEST_F(LazyBinaryKernelTest, LazyRsubscalarTest) {
   torch::Tensor input = torch::ones({10, 10});
 
@@ -309,6 +310,72 @@ TEST_F(LazyBinaryKernelTest, AddSame) {
   auto hout = torch::add(ha, ha, 1);
   auto hc = torch::relu(hout);
   EXPECT_TRUE(allclose(out, hc.to("cpu")));
+}
+
+TEST_F(LazyBinaryKernelTest, MvTest) {
+  torch::Tensor m = torch::randn({2, 3}, torch::requires_grad(false));
+  torch::Tensor v = torch::randn(3, torch::requires_grad(false));
+  torch::Tensor hm = m.to(torch::kHABANA);
+  torch::Tensor hv = v.to(torch::kHABANA);
+
+  auto out_exp = torch::mv(m, v);
+  auto hout_lazy = torch::mv(hm, hv).to(torch::kCPU);
+
+  EXPECT_TRUE(allclose(hout_lazy, out_exp));
+}
+
+TEST_F(LazyBinaryKernelTest, DotTest) {
+  constexpr int64_t size = 5; // Dot is defined only for 1D tensor
+  torch::Tensor A = torch::randn(size, torch::requires_grad(false));
+  torch::Tensor B = torch::randn(size, torch::requires_grad(false));
+  torch::Tensor hA = A.to(torch::kHABANA);
+  torch::Tensor hB = B.to(torch::kHABANA);
+  torch::Tensor hOut = torch::dot(hA, hB).to(torch::kCPU);
+  torch::Tensor cpuOut = torch::dot(A, B);
+
+  EXPECT_EQ(allclose(hOut, cpuOut), true);
+}
+
+TEST_F(LazyBinaryKernelTest, AddcdivTest) {
+  const std::vector<int64_t> dimentions{5, 3, 4};
+
+  torch::Tensor A = torch::randn(dimentions);
+  torch::Tensor B = torch::randn(dimentions);
+  torch::Tensor C = torch::randn(dimentions);
+
+  Scalar alpha = 3.5;
+
+  auto hA = A.to(torch::kHABANA);
+  auto hB = B.to(torch::kHABANA);
+  auto hC = C.to(torch::kHABANA);
+
+  auto result = at::addcdiv(hA, hB, hC, alpha);
+  Tensor hOut = result.to(kCPU);
+
+  auto cpuOut = at::addcdiv(A, B, C, alpha);
+
+  EXPECT_TRUE(allclose(hOut, cpuOut));
+}
+
+TEST_F(LazyBinaryKernelTest, AddcmulTest) {
+  const std::vector<int64_t> dimentions{5, 3, 4};
+
+  torch::Tensor A = torch::randn(dimentions);
+  torch::Tensor B = torch::randn(dimentions);
+  torch::Tensor C = torch::randn(dimentions);
+
+  Scalar alpha = 3.5;
+
+  auto hA = A.to(torch::kHABANA);
+  auto hB = B.to(torch::kHABANA);
+  auto hC = C.to(torch::kHABANA);
+
+  auto result = at::addcmul(hA, hB, hC, alpha);
+  Tensor hOut = result.to(kCPU);
+
+  auto cpuOut = at::addcmul(A, B, C, alpha);
+
+  EXPECT_EQ(allclose(hOut, cpuOut), true);
 }
 
 TEST_F(LazyBinaryKernelTest, PersistentAddSame) {

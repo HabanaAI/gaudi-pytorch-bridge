@@ -68,4 +68,5 @@ static auto& KernelRegistry =
         .add(SPECIAL_FUNCTION_INPLACE_KERNEL(atan_))
         .add(SPECIAL_FUNCTION_INPLACE_KERNEL(atanh_))
         .add(SPECIAL_FUNCTION_INPLACE_KERNEL(cos_))
-        .add(SPECIAL_FUNCTION_INPLACE_KERNEL(cosh_));
+        .add(SPECIAL_FUNCTION_INPLACE_KERNEL(cosh_))
+        .add(SPECIAL_FUNCTION_INPLACE_KERNEL(tanh_));

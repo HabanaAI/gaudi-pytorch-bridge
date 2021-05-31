@@ -593,3 +593,15 @@ TEST_F(LazyUnaryKernelTest, SortTest) {
 
   EXPECT_EQ(allclose(cout, hout, 0.001, 0.001), true);
 }
+
+TEST_F(LazyUnaryKernelTest, ClampMinTest) {
+  auto input_tensor = torch::randn({8, 24, 24, 3});
+  auto hinput = input_tensor.to(torch::kHABANA);
+  Scalar min_value(-0.25);
+  torch::Tensor cpu_out = torch::clamp_min(input_tensor, min_value);
+
+  torch::Tensor hresult = torch::clamp_min(hinput, min_value);
+  auto hout = hresult.to(torch::kCPU);
+
+  EXPECT_TRUE(allclose(hout, cpu_out, 0.001, 0.001, /*equal_nan*/ true));
+}

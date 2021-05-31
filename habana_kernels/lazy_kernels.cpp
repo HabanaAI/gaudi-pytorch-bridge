@@ -829,6 +829,11 @@ Tensor& cos_hpu_lazy_(Tensor& self) {
   LazyOp<at::Tensor&> k{"aten::cos_", {self}};
   return k.call(self);
 }
+Tensor& tanh_hpu_lazy_(Tensor& self) {
+  PT_LAZY_TRACE;
+  LazyOp<at::Tensor&> k{"aten::tanh_", {self}};
+  return k.call(self);
+}
 
 Tensor& set_hpu_lazy_(
     Tensor& self,
@@ -868,8 +873,9 @@ Tensor addcmul_hpu_lazy(
     const Tensor& tensor1,
     const Tensor& tensor2,
     Scalar alpha) {
-  HABANA_ASSERT(0);
-  return addcmul_hpu(self, tensor1, tensor2, alpha);
+  PT_LAZY_TRACE;
+  LazyOp<at::Tensor> k{"aten::addcmul", {self, tensor1, tensor2, alpha}};
+  return k.call();
 }
 Tensor& addcmul_hpu_lazy_(
     Tensor& self,
@@ -894,9 +900,11 @@ Tensor addcdiv_hpu_lazy(
     const Tensor& tensor1,
     const Tensor& tensor2,
     Scalar alpha) {
-  HABANA_ASSERT(0);
-  return addcdiv_hpu(self, tensor1, tensor2, alpha);
+  PT_LAZY_TRACE;
+  LazyOp<at::Tensor> k{"aten::addcdiv", {self, tensor1, tensor2, alpha}};
+  return k.call();
 }
+
 Tensor& addcdiv_hpu_lazy_(
     Tensor& self,
     const Tensor& tensor1,
@@ -2273,13 +2281,25 @@ Tensor batch_gemm_hpu_lazy(const Tensor& self, const Tensor& mat2) {
 }
 
 Tensor dot_hpu_lazy(const Tensor& self, const Tensor& other) {
-  HABANA_ASSERT(0);
-  return dot_hpu(self, other);
+  PT_LAZY_TRACE;
+  // TODO: Need to make 0-dim output.
+  // With ... shape_out = {0}; following error reported
+  // Assertion (dst.nbytes() >= src.nbytes()) is false!
+  // ... /pytorch-integration/habana_kernels/basic_kernels.cpp:147 copy_hpu_
+  // terminate called without an active exception
+  // Aborted (core dumped)
+  std::vector<int64_t> shape_out = {1};
+  LazyOp<at::Tensor> k{"aten::dot", {self, other}, {}, {shape_out}};
+  return k.call();
 }
+
 Tensor mv_hpu_lazy(const Tensor& self, const Tensor& other) {
-  HABANA_ASSERT(0);
-  return mv_hpu(self, other);
+  PT_LAZY_TRACE;
+  std::vector<int64_t> shape_out = {self.size(0)};
+  LazyOp<at::Tensor> k{"aten::mv", {self, other}, {}, {shape_out}};
+  return k.call();
 }
+
 std::tuple<Tensor, Tensor> nll_loss_forward_hpu_lazy(
     const Tensor& self,
     const Tensor& target,
@@ -4264,10 +4284,6 @@ Tensor tanh_hpu_lazy(const Tensor& input) {
   return result;
 }
 
-Tensor& tanh_hpu_lazy_(Tensor& self) {
-  HABANA_ASSERT(0);
-  return tanh_hpu_(self);
-}
 Tensor& tanh_out_hpu_lazy(Tensor& out, const Tensor& self) {
   HABANA_ASSERT(0);
   return tanh_out_hpu(out, self);
@@ -4381,8 +4397,9 @@ Tensor& reciprocal_out_hpu_lazy(Tensor& result, const Tensor& self) {
   return reciprocal_out_hpu(result, self);
 }
 Tensor clamp_min_hpu_lazy(const Tensor& self, Scalar min) {
-  HABANA_ASSERT(0);
-  return clamp_min_hpu(self, min);
+  PT_LAZY_TRACE;
+  LazyOp<at::Tensor> k{"aten::clamp_min", {self, min}};
+  return k.call();
 }
 Tensor& clamp_hpu_lazy_(
     Tensor& self,

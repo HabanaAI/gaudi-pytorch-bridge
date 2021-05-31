@@ -340,6 +340,23 @@ class ClampInplaceOperator : public UnaryOperator {
       bool is_output_persistent = false) override;
 };
 
+class ClampMinOperator : public UnaryOperator {
+ public:
+  ClampMinOperator(int device_id, c10::ScalarType scalarType)
+      : UnaryOperator(
+            device_id,
+            "clamp_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
+    this->CreateSynContext(device_id);
+    kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
+    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
+  }
+
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+};
+
 // Neg Operator
 class NegOperator : public UnaryOperator {
  public:
