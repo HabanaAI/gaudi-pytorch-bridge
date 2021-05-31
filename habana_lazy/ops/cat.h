@@ -45,5 +45,31 @@ class Cat : public Node {
   }
 };
 
+class SplitWithSize : public ir::Node {
+ public:
+  enum class SplitSizeIdx { kSplitSizesIdx = 1, kDimIdx };
+  SplitWithSize() = delete;
+  SplitWithSize(
+      const at::Tensor& self,
+      c10::IntArrayRef split_sizes,
+      int64_t dim)
+      : Node(c10::Symbol::fromQualString("aten::split_with_sizes")) {
+    auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHABANA);
+    AddInput(hl_self.GetIrValue());
+    m_meta_data.set(
+        split_sizes, static_cast<size_t>(SplitSizeIdx::kSplitSizesIdx));
+    m_meta_data.set(dim, static_cast<size_t>(SplitSizeIdx::kDimIdx));
+  }
+
+  std::string ToString() const override {
+    std::stringstream ss;
+    ss << Node::ToString() << ", split_sizes="
+       << m_meta_data.get(static_cast<size_t>(SplitSizeIdx::kSplitSizesIdx))
+       << ", dim="
+       << m_meta_data.get(static_cast<size_t>(SplitSizeIdx::kDimIdx));
+    return ss.str();
+  }
+};
+
 }; // namespace ir
 }; // namespace habana_lazy

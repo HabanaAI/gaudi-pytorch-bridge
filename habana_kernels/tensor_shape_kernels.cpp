@@ -1047,26 +1047,38 @@ void SplitWithSizeOperator::AllocateAndAddSynapseNode(
       split_sizes.vec());
 }
 
+std::vector<std::vector<int64_t>> SplitWithSizeOperator::compute_output_shape(
+    const Tensor& self,
+    IntArrayRef split_sizes,
+    int64_t dim) {
+  int64_t num_splits = split_sizes.size();
+  int64_t start_idx = 0;
+  int64_t i = 0;
+  std::vector<std::vector<int64_t>> shapes;
+  for (i = 0; i < num_splits; ++i) {
+    auto length = split_sizes[i];
+    auto end = start_idx + length;
+    int64_t step = 1;
+
+    auto size =
+        SliceOperator::compute_output_shape(self, dim, start_idx, end, step);
+    shapes.push_back(size);
+    start_idx += length;
+  }
+  return shapes;
+}
 void SplitWithSizeOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   auto self = inputs[0].toTensor();
   auto split_sizes = inputs[1].toIntList();
   auto dim = inputs[2].toInt();
 
-  int64_t num_splits = split_sizes.size();
-  std::vector<Tensor> splits(num_splits);
-  int64_t start_idx = 0;
+  std::vector<std::vector<int64_t>> shapes =
+      SplitWithSizeOperator::compute_output_shape(self, split_sizes.vec(), dim);
   int64_t i = 0;
-
-  for (i = 0; i < num_splits; ++i) {
-    auto length = split_sizes.get(i);
-    auto end = start_idx + length;
-    int64_t step = 1;
-
-    SliceOperator slice_op(self.device().index(), self.scalar_type());
-    splits[i] =
-        slice_op.AllocateOutputTensor(self, dim, start_idx, end, step, true);
-
-    start_idx += length;
+  std::vector<Tensor> splits(split_sizes.size());
+  for (const auto& shape : shapes) {
+    splits[i++] = habana_helpers::createPTTensor(
+        self, shape, self.options(), self.suggest_memory_format(), true);
   }
 
   HabanaOperator::SetPTOutputs(splits);

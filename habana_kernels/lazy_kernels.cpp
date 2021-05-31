@@ -1769,8 +1769,11 @@ Tensor gather_src_hpu_lazy(
     int64_t dim_,
     const Tensor& index,
     bool sparse_grad) {
-  HABANA_ASSERT(0);
-  return gather_src_hpu(self, dim_, index, sparse_grad);
+  PT_LAZY_TRACE;
+  auto shape = GatherOperator::compute_output_shape(self, dim_, index);
+  LazyOp<at::Tensor> k{
+      "aten::gather", {self, dim_, index, sparse_grad}, {1, 3}, {shape}};
+  return k.call();
 }
 Tensor& scatter_inplace_src_hpu_lazy(
     Tensor& self,
@@ -1844,6 +1847,7 @@ Tensor& scatter_add_inplace_src_hpu_lazy(
   HABANA_ASSERT(0);
   return scatter_add_inplace_src_hpu(self, dim_, index, src);
 }
+
 Tensor index_hpu_lazy(const at::Tensor& self, at::TensorList indices) {
   PT_LAZY_TRACE;
   // fallback to cpu for boolean indexing
@@ -1851,6 +1855,12 @@ Tensor index_hpu_lazy(const at::Tensor& self, at::TensorList indices) {
   if (indices[0].scalar_type() == c10::ScalarType::Bool) {
     return AtenHpuTypeDefault::index(self, indices);
   }
+  // https://jira.habana-labs.com/browse/SW-39448
+  if (indices.size() == 1 && indices[0].dim() == 1) {
+    Tensor output = gather_src_hpu_lazy(self, 0, indices[0], false);
+    return output;
+  }
+
   // cast input to fp32, int32 not supported yet
   HbLazyTensor hl_self = GetOrCreateHbLazyTensor(self, self.device());
   at::Tensor self_cast = self;
@@ -3695,13 +3705,41 @@ Tensor expand_hpu_lazy(const Tensor& self, IntArrayRef size, bool implicit) {
   flush_op(result);
   return result;
 }
+
 std::vector<Tensor> split_with_sizes_hpu_lazy(
     const Tensor& self,
     IntArrayRef split_sizes,
     int64_t dim) {
-  HABANA_ASSERT(0);
-  return split_with_sizes_hpu(self, split_sizes, dim);
-}
+  PT_LAZY_TRACE;
+  auto node =
+      std::make_shared<habana_lazy::ir::SplitWithSize>(self, split_sizes, dim);
+  auto shapes =
+      SplitWithSizeOperator::compute_output_shape(self, split_sizes, dim);
+
+  int64_t i = 0;
+  std::vector<at::Tensor> result;
+  for (const auto& shape : shapes) {
+    result[i++] = empty_hpu_lazy(
+        shape, self.options(), self.suggest_memory_format(), false);
+  }
+
+  std::vector<habana_lazy::HbLazyTensor> hlresult;
+  hlresult.reserve(result.size());
+
+  for (const auto& pt : result) {
+    hlresult.push_back(habana_lazy::GetHbLazyTensor(pt));
+  }
+
+  size_t m_index = 0;
+  for (auto ht : hlresult) {
+    auto& out = ht.CurrentIrValue();
+    out.m_index = m_index++;
+    out.SetNode(node);
+  }
+
+  return result;
+};
+
 Tensor threshold_backward_hpu_lazy(
     const Tensor& grad_output,
     const Tensor& self,

@@ -151,10 +151,15 @@ class SplitWithSizeOperator : public habana::HabanaOperator {
     static_cast<void>(scalarType);
     this->CreateSynContext(device_id);
   }
-  virtual void AllocateAndAddSynapseNode(
+  void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
+
+  static std::vector<std::vector<int64_t>> compute_output_shape(
+      const at::Tensor& self,
+      c10::IntArrayRef split_sizes,
+      int64_t dim);
 
   void SetPTOutputs(torch::jit::Stack& inputs) override;
 };

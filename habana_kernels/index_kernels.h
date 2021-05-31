@@ -96,6 +96,11 @@ class GatherOperator : public HabanaOperator {
 
   virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
 
+  static std::vector<int64_t> compute_output_shape(
+      const at::Tensor& self,
+      int64_t dim_,
+      const at::Tensor& index);
+
  private:
   at::Tensor AllocateOutput(
       torch::jit::Stack& inputs,

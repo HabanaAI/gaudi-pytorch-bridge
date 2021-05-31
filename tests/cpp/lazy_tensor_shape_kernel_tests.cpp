@@ -192,3 +192,29 @@ TEST_F(LazyTensorShapeKernelTest, Repeat) {
 
   EXPECT_TRUE(allclose(hOut.to(torch::kCPU), Out));
 }
+
+TEST_F(LazyTensorShapeKernelTest, SplitWithSizesTest) {
+  auto split_with_size = [](auto split_sizes, auto dim) {
+    auto input = torch::randn({8, 3, 24, 12});
+    auto h_input = input.to(torch::kHABANA);
+
+    auto result = at::native::split_with_sizes(h_input, split_sizes, dim);
+    auto cpu_out = at::native::split_with_sizes(input, split_sizes, dim);
+
+    std::vector<at::Tensor> hpu_out;
+    hpu_out.reserve(result.size());
+    for (const auto& ht : result) {
+      hpu_out.push_back(ht.to(torch::kCPU));
+    }
+    for (size_t i = 0; i < result.size(); i++) {
+      EXPECT_EQ(allclose(cpu_out[i], hpu_out[i]), true);
+    }
+  };
+  c10::IntArrayRef split_sizes = {2, 4, 2};
+  int64_t dim = 0;
+  split_with_size(split_sizes, dim);
+
+  split_sizes = c10::IntArrayRef({12, 6, 6});
+  dim = 2;
+  split_with_size(split_sizes, dim);
+}

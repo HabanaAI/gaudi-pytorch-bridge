@@ -54,6 +54,17 @@ int ArangeOperator::GetOutputSize(Scalar start_, Scalar end_, Scalar step_) {
   return depth;
 }
 
+std::vector<int64_t> GatherOperator::compute_output_shape(
+    const Tensor& self,
+    int64_t dim_,
+    const Tensor& index) {
+  auto dim = at::maybe_wrap_dim(dim_, self.dim(), /*wrap_scalar=*/true);
+  auto shape = self.sizes().vec();
+  shape.erase(shape.begin() + dim);
+  shape.insert(shape.begin() + dim, index.numel());
+  return shape;
+}
+
 Tensor GatherOperator::AllocateOutput(
     torch::jit::Stack& inputs,
     bool is_output_persistent) {
@@ -61,10 +72,8 @@ Tensor GatherOperator::AllocateOutput(
   auto dim_ = inputs[1].toInt();
   auto index = inputs[2].toTensor();
 
-  auto dim = at::maybe_wrap_dim(dim_, self.dim(), /*wrap_scalar=*/true);
-  auto shape = DimVector(self.sizes());
-  shape.erase(shape.begin() + dim);
-  shape.insert(shape.begin() + dim, index.numel());
+  auto shape = GatherOperator::compute_output_shape(self, dim_, index);
+
   auto output = habana_helpers::createPTTensor(
       self,
       shape,
