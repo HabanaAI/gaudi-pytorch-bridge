@@ -138,6 +138,7 @@ struct RecipeValueSpec {
 
   void create_launch_info();
 
+  void patch(std::vector<synLaunchTensorInfo>& syn_launch_info_vec);
   void launch(
       at::ArrayRef<torch::jit::IValue> input_refs,
       std::shared_ptr<std::vector<IValPtrShared>> dma_inputs = nullptr);

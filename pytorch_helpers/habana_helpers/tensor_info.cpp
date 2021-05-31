@@ -5,6 +5,7 @@ void PtTensorInfo::populate_tinfo(
     const std::string& sn,
     const std::string& irn,
     const bool wflag,
+    const synTensorType stt,
     const getDMAInputTensorCBType dma_cb) {
   ir_name_ = irn;
   syn_name_ = sn;
@@ -25,6 +26,31 @@ void PtTensorInfo::populate_tinfo(
   dma_cb_ = dma_cb;
 
   shape_ = pt_tensor.sizes().vec();
+  tensor_type_ = stt;
+
+  switch (tensor_type_) {
+    case DATA_TENSOR:
+    case DATA_TENSOR_DYNAMIC:
+      break;
+    case SHAPE_TENSOR:
+    case INPUT_DESCRIBING_SHAPE_TENSOR: {
+      shape_ndim_ = pt_tensor.numel();
+      at::Tensor pt_tensor_cpu =
+          (pt_tensor.device().type() == at::kHABANA ? pt_tensor.to(at::kCPU)
+                                                    : pt_tensor);
+      for (uint64_t i = 0; i < shape_ndim_; i++) {
+        auto val = pt_tensor_cpu[i].item<int>();
+        shape_values_[i] = val;
+      }
+    } break;
+    case DEVICE_SHAPE_TENSOR:
+      shape_values_ = {SYN_MAX_TENSOR_DIM, 0, 0, 0, 0};
+      break;
+    case TENSOR_TYPE_MAX:
+    default:
+      TORCH_CHECK(false, "Unreachable condition.");
+  }
+
   strides_ = pt_tensor.strides().vec();
   topts_ = pt_tensor.options();
   mf_ = pt_tensor.suggest_memory_format();
@@ -45,8 +71,9 @@ PtTensorInfo::PtTensorInfo(
     const std::string& sn,
     const std::string& irn,
     const bool wflag,
+    const synTensorType stt,
     const getDMAInputTensorCBType dma_cb) {
-  populate_tinfo(pt_tensor, sn, irn, wflag, dma_cb);
+  populate_tinfo(pt_tensor, sn, irn, wflag, stt, dma_cb);
 }
 
 PtTensorInfo::PtTensorInfo(
@@ -54,11 +81,12 @@ PtTensorInfo::PtTensorInfo(
     const std::string& sn,
     const ValPtr& vp,
     const bool wflag,
+    const synTensorType stt,
     const getDMAInputTensorCBType dma_cb) {
   TORCH_CHECK(ivpsh->isTensor(), "aten tensor is expected");
   std::string irn = "%" + vp->debugName();
   auto pt_tensor = ivpsh->toTensor();
-  populate_tinfo(pt_tensor, sn, irn, wflag, dma_cb);
+  populate_tinfo(pt_tensor, sn, irn, wflag, stt, dma_cb);
 }
 
 std::ostream& operator<<(std::ostream& O, const PtTensorInfo& t) {

@@ -574,6 +574,7 @@ void HabanaLaunchOpPT::GetSynapseInputs(
           syn_tensor.tensor_name_,
           irn,
           watch_tensor_flag_,
+          DATA_TENSOR,
           dma_cb);
       auto dma_tensor_idx = aten_dma_inputs.size();
       ti.set_dma_tensor_idx(dma_tensor_idx);
@@ -2655,7 +2656,7 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
           // should not change over iterations. That possibility will only
           // arise if we support freeing of aten_intermediates after the
           // recipe execution.
-          ti.set_buffer(rv_intermediate_tensor.data_ptr());
+          ti.patch(rv_intermediate_tensor);
 
           IValPtrShared ivpsh = std::make_shared<IVal>(rv_intermediate_tensor);
           intermediateIVpshMap.emplace(ridx, ivpsh);
@@ -2704,7 +2705,7 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
             outputIVpshMap.emplace(ridx, ivpsh);
 
             // Patch the buffer for the output
-            ti.set_buffer(pt_output.data_ptr());
+            ti.patch(pt_output);
           } else {
             IValPtrShared ivpsh = std::make_shared<IVal>(ti.get_ivalue());
             rv.aten_outputs->at(output_idx) = ivpsh;

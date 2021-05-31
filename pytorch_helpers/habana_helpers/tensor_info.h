@@ -40,17 +40,22 @@ class PtTensorInfo {
       const std::string& sn,
       const ValPtr& vp,
       const bool wflag,
+      const synTensorType stt = DATA_TENSOR,
       const getDMAInputTensorCBType dma_cb = nullptr);
   PtTensorInfo(
       const at::Tensor& pt_tensor,
       const std::string& sn,
       const std::string& irn,
       const bool wflag,
+      const synTensorType stt = DATA_TENSOR,
       const getDMAInputTensorCBType dma_cb = nullptr);
 
   // access functions for read write data members
   void* get_buffer() const {
     return buffer_;
+  }
+  uint64_t get_buffer_syn() const {
+    return reinterpret_cast<uint64_t>(buffer_);
   }
   void set_buffer(void* bp) {
     buffer_ = bp;
@@ -77,9 +82,41 @@ class PtTensorInfo {
     output_index_ = i;
   }
 
+  // The following patch functions need to be used for patching.
+  // Note :
+  //   For inputs both storage and data ptrs are updated.
+  //   For the rest of the tensors offset will be used to calculate the buffer.
+  void patch_exact(const at::Tensor& pt_tensor) {
+    buffer_ = pt_tensor.data_ptr();
+    storage_data_ptr_ = reinterpret_cast<synapse_helpers::device_ptr>(
+        pt_tensor.storage().data_ptr().get());
+    auto new_offset = reinterpret_cast<synapse_helpers::device_ptr>(buffer_) -
+        storage_data_ptr_;
+    TORCH_CHECK(
+        offset_ == new_offset,
+        "offset_ ",
+        offset_,
+        "is not matching with the offset of new tensor ",
+        new_offset);
+  }
+  void patch(const PtTensorInfo& t) {
+    storage_data_ptr_ = t.storage_data_ptr_;
+    buffer_ = (void*)(storage_data_ptr_ + offset_);
+  }
+  void patch(const at::Tensor& pt_tensor) {
+    storage_data_ptr_ = reinterpret_cast<synapse_helpers::device_ptr>(
+        pt_tensor.storage().data_ptr().get());
+    buffer_ = (void*)(storage_data_ptr_ + offset_);
+  }
+
+  friend std::ostream& operator<<(std::ostream& O, const PtTensorInfo& t);
+
   // access functions for read only data members
   bool is_tensor() const {
     return is_tensor_;
+  }
+  bool is_view_tensor() const {
+    return is_view_tensor_;
   }
   const IVal& get_ivalue() const {
     return iv_;
@@ -128,35 +165,6 @@ class PtTensorInfo {
   void set_offset(synapse_helpers::device_ptr val) {
     offset_ = val;
   }
-
-  // The following patch functions need to be used for patching.
-  // Note :
-  //   For inputs both storage and data ptrs are updated.
-  //   For the rest of the tensors offset will be used to calculate the buffer.
-  void patch_exact(const at::Tensor& pt_tensor) {
-    buffer_ = pt_tensor.data_ptr();
-    storage_data_ptr_ = reinterpret_cast<synapse_helpers::device_ptr>(
-        pt_tensor.storage().data_ptr().get());
-    auto new_offset = reinterpret_cast<synapse_helpers::device_ptr>(buffer_) -
-        storage_data_ptr_;
-    TORCH_CHECK(
-        offset_ == new_offset,
-        "offset_ ",
-        offset_,
-        "is not matching with the offset of new tensor ",
-        new_offset);
-  }
-  void patch(const PtTensorInfo& t) {
-    storage_data_ptr_ = t.storage_data_ptr_;
-    buffer_ = (void*)(storage_data_ptr_ + offset_);
-  }
-  void patch(const at::Tensor& pt_tensor) {
-    storage_data_ptr_ = reinterpret_cast<synapse_helpers::device_ptr>(
-        pt_tensor.storage().data_ptr().get());
-    buffer_ = (void*)(storage_data_ptr_ + offset_);
-  }
-
-  friend std::ostream& operator<<(std::ostream& O, const PtTensorInfo& t);
   const std::vector<int64_t>& get_shape() const {
     return shape_;
   };
@@ -169,9 +177,13 @@ class PtTensorInfo {
   const c10::MemoryFormat& get_mf() {
     return mf_;
   }
-  bool is_view_tensor() const {
-    return is_view_tensor_;
+  synTensorType tensor_type() {
+    return tensor_type_;
   }
+  const std::array<uint32_t, SYN_MAX_TENSOR_DIM>& shape_values() {
+    return shape_values_;
+  }
+
   size_t get_dma_tensor_idx() const {
     return dma_tensor_idx_;
   }
@@ -210,6 +222,10 @@ class PtTensorInfo {
   c10::TensorOptions topts_;
   c10::MemoryFormat mf_;
 
+  synTensorType tensor_type_{DATA_TENSOR};
+  std::array<uint32_t, SYN_MAX_TENSOR_DIM> shape_values_{0};
+  uint64_t shape_ndim_{0};
+
   size_t dma_tensor_idx_{ULONG_MAX};
   getDMAInputTensorCBType dma_cb_{nullptr};
 
@@ -218,5 +234,6 @@ class PtTensorInfo {
       const std::string& irn,
       const std::string& sn,
       const bool wflag,
+      const synTensorType stt,
       const getDMAInputTensorCBType dma_cb);
 };

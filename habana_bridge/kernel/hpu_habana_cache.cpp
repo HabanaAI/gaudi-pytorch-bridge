@@ -297,6 +297,63 @@ void RecipeValueSpec::create_launch_info() {
   }
 }
 
+void RecipeValueSpec::patch(
+    std::vector<synLaunchTensorInfo>& syn_launch_info_vec) {
+  // Populate the <name,buffer> pairs from PtTensorInfo for synLaunch
+  for (size_t i = 0; i < num_tinfos; ++i) {
+    PtTensorInfo& ti = dtensorinfos->at(i);
+    if (ti.is_tensor()) {
+      switch (ti.tensor_type()) {
+        case DATA_TENSOR: {
+          syn_launch_info_vec.emplace_back(synLaunchTensorInfo{
+              ti.get_syn_namec_str(),
+              ti.get_buffer_syn(),
+              ti.tensor_type(),
+              {0}});
+          break;
+        }
+        case SHAPE_TENSOR:
+        case INPUT_DESCRIBING_SHAPE_TENSOR: {
+          const auto& tsv = ti.shape_values();
+          syn_launch_info_vec.emplace_back(synLaunchTensorInfo{
+              ti.get_syn_namec_str(),
+              0,
+              ti.tensor_type(),
+              {tsv[0], tsv[1], tsv[2], tsv[3], tsv[4]}});
+          break;
+        }
+        case DATA_TENSOR_DYNAMIC: {
+          const auto& tsv = ti.shape_values();
+          syn_launch_info_vec.emplace_back(synLaunchTensorInfo{
+              ti.get_syn_namec_str(),
+              ti.get_buffer_syn(),
+              ti.tensor_type(),
+              {tsv[0], tsv[1], tsv[2], tsv[3], tsv[4]}});
+          break;
+        }
+        case DEVICE_SHAPE_TENSOR: {
+          const auto& tsv = ti.shape_values();
+          syn_launch_info_vec.emplace_back(synLaunchTensorInfo{
+              ti.get_syn_namec_str(),
+              ti.get_buffer_syn(),
+              ti.tensor_type(),
+              {tsv[0], tsv[1], tsv[2], tsv[3], tsv[4]}});
+          break;
+        }
+        case TENSOR_TYPE_MAX:
+          TORCH_CHECK(
+              false,
+              "Patching of ",
+              ti.tensor_type(),
+              " is not supported yet.");
+          break;
+        default:
+          TORCH_CHECK(false, "Unreachable condition.");
+      }
+    }
+  }
+}
+
 void RecipeValueSpec::launch(
     at::ArrayRef<torch::jit::IValue> input_refs,
     std::shared_ptr<std::vector<IValPtrShared>> dma_inputs) {
@@ -346,17 +403,7 @@ void RecipeValueSpec::launch(
   }
 
   std::vector<synLaunchTensorInfo> syn_launch_info;
-
-  // Populate the <name,buffer> pairs from PtTensorInfo for synLaunch
-  for (size_t i = 0; i < num_tinfos; ++i) {
-    if (dtensorinfos->at(i).is_tensor()) {
-      syn_launch_info.emplace_back(synLaunchTensorInfo{
-          dtensorinfos->at(i).get_syn_namec_str(),
-          reinterpret_cast<uint64_t>(dtensorinfos->at(i).get_buffer()),
-          DATA_TENSOR,
-          {0}});
-    }
-  }
+  patch(syn_launch_info);
 
   if (device.IsStreamASyncEnabled()) {
     auto& recipe_counter = device.get_active_recipe_counter();
