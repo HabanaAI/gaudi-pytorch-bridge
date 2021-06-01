@@ -409,7 +409,7 @@ def main(args):
 
     criterion = nn.CrossEntropyLoss()
     if args.run_lazy_mode:
-        from hb_custom import FusedSGD
+        from habana_frameworks.torch.hpex.optimizers import FusedSGD
         import habana_frameworks.torch.core as htcore
         htcore.enable_eliminate_common_subexpression(False)
         htcore.enable_constant_pooling(False)
