@@ -33,6 +33,7 @@
 #include <torch/csrc/jit/runtime/interpreter.h>
 
 #include "habana_bridge/kernel/hpu_habana_cache.h"
+#include "habana_bridge/kernel/hpu_shape_inference.h"
 #include "habana_kernels/habana_operator.h"
 
 namespace habana {
@@ -221,7 +222,7 @@ class HabanaLaunchOpPT {
       LayoutFormat permute_order);
   torch::jit::Stack getStackForNode(torch::jit::Node* node);
   void compile();
-  void clear();
+  void clear(bool is_shape_inference = false);
   int64_t isInGraphInputs(torch::jit::Value* value);
   bool isInGraphOutputs(torch::jit::Value* value);
   bool isInGraphOutputs(torch::jit::Node* node, size_t index);
@@ -231,8 +232,10 @@ class HabanaLaunchOpPT {
   std::vector<bool> nodeOutputPersistence(torch::jit::Node* node);
   void AdjustInputLayout();
   void ProcessHabanaFusedOpWithDS();
-  void CompileAndExecuteHabanaFusedOpKernel();
   bool IsValidNode(torch::jit::Node*);
+  void CompileAndExecuteHabanaFusedOpKernel(
+      synapse_helpers::graph& syn_graph,
+      bool is_shape_inference = false);
   void addSynNodes(std::vector<synNodeId>&, torch::jit::Node*);
   void ProcessControlEdges();
   void PrepareBlockingNodeList(torch::jit::Node*, ControlEdgeType control_type);
@@ -348,6 +351,12 @@ class HabanaLaunchOpPT {
       const HabanaOperatorPtr& habana_op,
       at::Tensor& pt_tensor,
       const int64_t input_idx);
+  habana::ShapeInference m_map_shape;
+  void run_shape_inference(const ShapeInference::InferencePass& pass);
+  void run_pass();
+  torch::jit::Stack CreateStack(
+      const torch::jit::Stack& stack,
+      habana_helpers::DynamicBucketInfo::InpTensorShapes& dynamic_shapes);
 };
 
 } // namespace habana

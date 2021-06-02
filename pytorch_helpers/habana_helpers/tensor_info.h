@@ -175,6 +175,22 @@ class PtTensorInfo {
   void set_offset(synapse_helpers::device_ptr val) {
     offset_ = val;
   }
+
+  void set_shape(const std::vector<int64_t>& shape) {
+    shape_ = shape;
+    auto itemsize = size_ / numel_;
+    numel_ = 1;
+    for (const auto& i : shape) {
+      numel_ *= i;
+    }
+    size_ = numel_ * itemsize;
+    update_shape_values();
+  }
+
+  void set_strides(const std::vector<int64_t>& strides) {
+    strides_ = strides;
+  }
+
   const std::vector<int64_t>& get_shape() const {
     return shape_;
   };
@@ -235,7 +251,7 @@ class PtTensorInfo {
 
   synTensorType tensor_type_{DATA_TENSOR};
   std::array<uint32_t, SYN_MAX_TENSOR_DIM> shape_values_{0};
-  uint64_t shape_ndim_{0};
+  // uint64_t shape_ndim_{0};
 
   size_t dma_tensor_idx_{ULONG_MAX};
   getDMAInputTensorCBType dma_cb_{nullptr};
@@ -247,4 +263,5 @@ class PtTensorInfo {
       const bool wflag,
       const synTensorType stt,
       const getDMAInputTensorCBType dma_cb);
+  void update_shape_values();
 };

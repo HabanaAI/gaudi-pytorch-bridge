@@ -21,6 +21,7 @@
 #include <torch/csrc/jit/runtime/argument_spec.h>
 #include <torch/csrc/jit/runtime/interpreter.h>
 
+#include "habana_bridge/kernel/hpu_shape_inference.h"
 #include "habana_helpers/dynamic_bucket_info.h"
 #include "habana_helpers/logging.h"
 #include "habana_helpers/tensor_info.h"
@@ -61,9 +62,16 @@ struct RecipeArgumentSpec {
 
   bool operator==(const RecipeArgumentSpec& arg) const {
     bool ret = (opstrs == arg.opstrs);
-    if (hash_code != graph_hash_code) {
-      ret &= (cas == arg.cas);
+
+    if (hash_code == graph_hash_code) {
+      return ret;
     }
+
+    if (hash_code == dynamic_hash_code) {
+      return ret;
+    }
+
+    ret &= (cas == arg.cas);
     return ret;
   }
 
@@ -83,6 +91,10 @@ struct RecipeArgumentSpec {
     return cargspec_hash_code;
   }
 
+  size_t dynamicHashCode() const {
+    return dynamic_hash_code;
+  }
+
   friend std::ostream& operator<<(std::ostream& O, const RecipeArgumentSpec& v);
 
  private:
@@ -97,6 +109,7 @@ struct RecipeArgumentSpec {
   size_t graph_hash_code{0};
   size_t offset_hash_code{0};
   size_t cargspec_hash_code{0};
+  size_t dynamic_hash_code{0};
 };
 
 // Hash functor for RecipeArgumentSpec
@@ -170,6 +183,7 @@ struct RecipeValueSpec {
   void update_patching_table(
       at::ArrayRef<torch::jit::IValue>& input_refs,
       std::shared_ptr<std::vector<IValPtrShared>>& dma_inputs,
+      const habana::NameShapeMap& m_actual_shapes,
       bool enable_tensor_release = true);
   void populate_syn_tensor_ids();
   void patch_launch_info(
@@ -223,6 +237,7 @@ struct RecipeValueSpec {
   size_t num_tensors{0};
   uint64_t* tensor_ids{nullptr};
   const char** tensor_names{nullptr};
+  bool dynamic_graph{false};
 
   static size_t count;
   static size_t recipe_count;

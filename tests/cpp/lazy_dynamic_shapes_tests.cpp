@@ -160,8 +160,8 @@ TEST_F(LazyDynamicShapesTest, DISABLED_DynamicShape3DTensorBasicGraphTest) {
 /*
  * TEST HAS BEEN DISABLED UNTILL WE HAVE SUPPORT FOR
  * SHAPE INFERENCE FROM GC IS ENABLED
- * /
-/*TEST_F(LazyDynamicShapesTest, DynamicShapeDebugSimple) {
+ */
+TEST_F(LazyDynamicShapesTest, DynamicShapeDebugSimple) {
   bool refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   if (!refine_enabled) {
     setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
@@ -227,13 +227,12 @@ TEST_F(LazyDynamicShapesTest, DISABLED_DynamicShape3DTensorBasicGraphTest) {
   if (!refine_enabled) {
     unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
   }
-}*/
+}
 
 TEST_F(LazyDynamicShapesTest, DynamicShapeDebugSimple2) {
   bool refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   if (!refine_enabled) {
     setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
-    setenv("PT_HPU_ENABLE_DEBUG_DYNAMIC_TEST", "1", 1);
   }
 
   int A = 4;
@@ -275,7 +274,6 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeDebugSimple2) {
 
   if (!refine_enabled) {
     unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
-    unsetenv("PT_HPU_ENABLE_DEBUG_DYNAMIC_TEST");
   }
 }
 

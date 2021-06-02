@@ -15,8 +15,11 @@
 #include <iterator>
 #include "habana_helpers/logging.h"
 #include "synapse_helpers/env_flags.h"
+#include "synapse_helpers/tensor_builder_base.h"
 
 namespace synapse_helpers {
+
+bool tensor::generate_placeholder_{false};
 
 std::ostream& operator<<(
     std::ostream& out,
@@ -392,6 +395,22 @@ void tensor::cleanup() {
 tensor tensor::create_placeholder(synDeviceId syn_device) {
   static uint64_t id = -1;
   std::string name = absl::StrFormat("placeholder_tensor_%d", ++id);
+
+  tensor tensor{
+      syn_device,
+      synDataType::syn_type_na,
+      0,
+      shape_t{0_D},
+      shape_t{0_D},
+      name,
+      nullptr};
+  tensor.set_placeholder();
+
+  return tensor;
+}
+
+tensor tensor::create_ds_placeholder(synDeviceId syn_device) {
+  auto name = detail::tensor_name_generator::generate();
 
   tensor tensor{
       syn_device,

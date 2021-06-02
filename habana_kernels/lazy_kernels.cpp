@@ -1046,7 +1046,6 @@ Tensor& add_scalar_hpu_lazy_(Tensor& self, Scalar other, Scalar alpha) {
 
 Tensor& add_tensor_hpu_lazy_(Tensor& self, const Tensor& other, Scalar alpha) {
   PT_LAZY_TRACE;
-
   LazyBinaryOp<Tensor&> op("aten::add_", {self, other, alpha});
   return op.call(self);
 }

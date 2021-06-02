@@ -43,13 +43,16 @@ tensor::shape_t to_stride_t(
 namespace detail {
 class tensor_name_generator {
  public:
+  static std::string get_next_tensor_name();
   static std::string generate();
+  static void set_tensor_id(uint64_t id);
+  static uint64_t get_tensor_id();
 
   // to make unit testing possible
   static void reset();
 
  private:
-  static uint64_t id;
+  static thread_local uint64_t syn_tensor_id;
 };
 
 uint64_t size_bytes_from_shape(

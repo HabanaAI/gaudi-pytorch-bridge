@@ -175,6 +175,14 @@ class graph {
     op_to_node_container_pt_["jit_node"].clear();
   }
 
+  bool is_dynamic_graph() const {
+    return dynamic_graph_;
+  }
+
+  void set_dynamic_graph(bool dynamic_graph = true) {
+    dynamic_graph_ = dynamic_graph;
+  }
+
  private:
   using Op2NodeContainer =
       absl::flat_hash_map<std::string, absl::flat_hash_set<synNodeId>>;
@@ -208,6 +216,7 @@ class graph {
   EdgeContainer data_edges_container_;
   absl::optional<std::string> current_op_name_;
   bool dry_run_{false};
+  bool dynamic_graph_{false};
 };
 
 } // namespace synapse_helpers

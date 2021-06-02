@@ -11,6 +11,7 @@
 #include <synapse_api_types.h>
 #include "habana_helpers/logging.h"
 #include "habana_helpers/tensor_info.h"
+#include "habana_helpers/tensor_shape.h"
 #include "habana_helpers/tensor_utils.h"
 #include "synapse_helpers/device_types.h"
 #include "synapse_helpers/graph.h"
@@ -260,15 +261,20 @@ class HabanaOperator {
     return op;
   }
 
-  void set_min_output_shape(const std::vector<int64_t>& shape) {
-    min_output_shape = shape;
-  }
+  static void Capture(void* map_shape);
+  static void Reset();
 
-  void set_max_output_shape(const std::vector<int64_t>& shape) {
-    max_output_shape = shape;
-  }
+  // counter to keep track of pytorch tensors created
+  static void* m_shape_inference;
 
  protected:
+  std::string update_shape_info(
+      synapse_helpers::graph& graph,
+      const at::Tensor& input);
+
+  std::tuple<std::vector<int64_t>, std::vector<int64_t>> GetMinMaxShape(
+      const std::string& syn_tensor_name);
+
   virtual void AddNodeToSynapseGraph(
       synapse_helpers::graph& graph,
       void* params,
@@ -284,12 +290,8 @@ class HabanaOperator {
 
   //
   std::vector<HabanaOperatorPtr> kernels_;
-
-  //
-  //
-  std::vector<int64_t> min_output_shape = {};
-  std::vector<int64_t> max_output_shape = {};
 };
+
 class RegisterKernel {
  public:
   RegisterKernel& add(const std::string& op, RegisterFunc func) {

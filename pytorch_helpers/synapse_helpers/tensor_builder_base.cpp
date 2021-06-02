@@ -122,15 +122,27 @@ tensor::shape_t to_stride_t(
 
 namespace detail {
 
+thread_local uint64_t tensor_name_generator::syn_tensor_id = 0;
+
+std::string tensor_name_generator::get_next_tensor_name() {
+  return "tensor_" + std::to_string(syn_tensor_id);
+}
+
 std::string tensor_name_generator::generate() {
-  return "tensor_" + std::to_string(id++);
+  return "tensor_" + std::to_string(syn_tensor_id++);
+}
+
+void tensor_name_generator::set_tensor_id(uint64_t id) {
+  syn_tensor_id = id;
+}
+
+uint64_t tensor_name_generator::get_tensor_id() {
+  return syn_tensor_id;
 }
 
 void tensor_name_generator::reset() {
-  id = 0;
+  syn_tensor_id = 0;
 }
-
-uint64_t tensor_name_generator::id = 0;
 
 uint64_t size_bytes_from_shape(
     const tensor::shape_t& shape,

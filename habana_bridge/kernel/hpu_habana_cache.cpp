@@ -71,6 +71,7 @@ RecipeArgumentSpec::RecipeArgumentSpec(
 
   ComputeOffsetHashCode(input_refs);
   hash_code = at::hash_combine(hash_code, offset_hash_code);
+  dynamic_hash_code = hash_code;
 }
 
 RecipeArgumentSpec::RecipeArgumentSpec(
@@ -173,6 +174,7 @@ std::ostream& operator<<(std::ostream& O, const RecipeArgumentSpec& v) {
   O << "graph    hash_code : " << v.graphHashCode() << '\n';
   O << "offset   hash_code : " << v.offsetHashCode() << '\n';
   O << "cArgSpec hash_code : " << v.cArgSpecHashCode() << '\n';
+  O << "Dynamic  hash_code : " << v.dynamicHashCode() << '\n';
 
   return O;
 }
@@ -374,10 +376,36 @@ int RecipeValueSpec::update_hit_count() {
 void RecipeValueSpec::update_patching_table(
     at::ArrayRef<torch::jit::IValue>& input_refs,
     std::shared_ptr<std::vector<IValPtrShared>>& dma_inputs,
+    const habana::NameShapeMap& m_actual_shapes,
     bool enable_tensor_release) {
   // Patch the input buffers
   // Running index on dtensorinfos
   size_t ridx = 0;
+
+  if (dynamic_graph) {
+    for (size_t i = 0; i < dtensorinfos->size(); ++i) {
+      auto& ti = dtensorinfos->at(i);
+      if (ti.is_tensor()) {
+        auto syn_name = ti.get_syn_name();
+        HABANA_ASSERT(m_actual_shapes.count(syn_name));
+        auto dims = m_actual_shapes.at(syn_name).get_dims();
+        auto syn_shape = ti.get_shape();
+
+        // If there is no change in the new shape values, then
+        // do not set the same shape, recalculate strides, etc
+        if (dims == syn_shape) {
+          continue;
+        }
+
+        std::vector<int64_t> strides(dims.size(), 1);
+        for (int64_t i = (int64_t)dims.size() - 1; i > 0; i--) {
+          strides[i - 1] *= dims[i] * strides[i];
+        }
+        ti.set_shape(dims);
+        ti.set_strides(strides);
+      }
+    }
+  }
 
   std::unordered_map<size_t, IValPtrShared> inputIVpshMap;
   for (auto const& input : input_refs) {
@@ -428,18 +456,22 @@ void RecipeValueSpec::update_patching_table(
       auto& ti = dtensorinfos->at(ridx);
 
       auto dma_cb = ti.get_dma_cb();
-      auto dma_tensor_idx = ti.get_dma_tensor_idx();
+      auto tshape{ti.get_shape()};
+      at::TensorOptions topts(ti.get_topts());
       TORCH_CHECK(
-          dma_tensor_idx < aten_dma_inputs.size(),
-          "out of range dma_tensor_idx ",
-          dma_tensor_idx,
-          " #aten_dma_inputs ",
-          aten_dma_inputs.size());
-      auto dma_tensor = aten_dma_inputs[dma_tensor_idx];
+          topts.dtype() == c10::ScalarType::Int,
+          " mismatch in seed tensor dtype, expected ",
+          c10::ScalarType::Int,
+          " got ",
+          topts.dtype());
+      auto seed_tensor = at::empty(tshape, topts, ti.get_mf());
 
-      dma_cb(ti, dma_tensor);
+      // TODO : The tensor creation should be part of the callback
+      dma_cb(ti, seed_tensor);
 
-      IValPtrShared dma_ivpsh = std::make_shared<IVal>(dma_tensor);
+      ti.patch_exact(seed_tensor);
+
+      IValPtrShared dma_ivpsh = std::make_shared<IVal>(seed_tensor);
       PT_BRIDGE_DEBUG("Persistent tensor for DMA\n");
       dma_inputs->push_back(dma_ivpsh);
 
@@ -455,8 +487,8 @@ void RecipeValueSpec::update_patching_table(
 
     // Patch persistent intermediates
     // The persistent intermediates are retained in the rv
-    size_t intermediates_end =
-        num_inputs + num_induplicates + num_dma_inputs + num_intermediates;
+    size_t intermediates_start = num_inputs + num_induplicates + num_dma_inputs;
+    size_t intermediates_end = intermediates_start + num_intermediates;
     auto intermediate_idx = 0;
     std::unordered_map<size_t, IValPtrShared> intermediateIVpshMap;
     for (; ridx < intermediates_end; ridx++) {
@@ -464,7 +496,43 @@ void RecipeValueSpec::update_patching_table(
       TORCH_CHECK(
           ti.is_tensor(),
           "non tensor tinfo found for persistent intermediates");
-      at::IntArrayRef tshape{ti.get_shape()};
+      auto tshape{ti.get_shape()};
+
+      if (GET_ENV_FLAG(PT_HPU_ENABLE_INTERMEDIATE_TENSOR_RELEASE)) {
+        if (ti.is_duplicate()) {
+          auto ti_parent_index = ti.get_parent_index();
+          auto pt_parent_index = ti_parent_index - intermediates_start;
+          TORCH_CHECK(
+              pt_parent_index < aten_intermediates.size(),
+              "out of range duplicate intermediate tensor index ",
+              pt_parent_index,
+              " #aten_intermediates ",
+              aten_intermediates.size());
+
+          auto pt_parent = aten_intermediates[pt_parent_index];
+
+          auto pt_sizes{ti.get_shape()};
+          auto pt_strides{ti.get_strides()};
+          long pt_offset = (long)ti.get_offset() / pt_parent.itemsize();
+          auto pt_opt_offset = c10::make_optional(pt_offset);
+
+          at::Tensor pt_intermediate =
+              at::as_strided(pt_parent, pt_sizes, pt_strides, pt_opt_offset);
+
+          PT_BRIDGE_DEBUG(
+              "HabanaOp recipe cache hit :: Intermediate : Duplicate with shape : ",
+              tshape);
+
+          aten_intermediates.push_back(pt_intermediate);
+        } else {
+          auto pt_intermediate = at::empty(tshape, ti.get_topts(), ti.get_mf());
+          PT_BRIDGE_DEBUG(
+              "HabanaOp recipe cache hit :: Intermediate : Creating new with shape : ",
+              tshape);
+
+          aten_intermediates.push_back(pt_intermediate);
+        }
+      }
       auto& rv_intermediate_tensor = aten_intermediates.at(intermediate_idx++);
 
       // Theoretically the data and storage pts of an interim tinfo
@@ -507,7 +575,7 @@ void RecipeValueSpec::update_patching_table(
           " is greater than #outputs ",
           aten_output_num);
       if (ti.is_tensor()) {
-        at::IntArrayRef tshape{ti.get_shape()};
+        auto tshape{ti.get_shape()};
         auto pt_output = at::empty(tshape, ti.get_topts(), ti.get_mf());
         PT_BRIDGE_DEBUG(
             "HabanaOp recipe cache hit :: Creating new output with shape : ",

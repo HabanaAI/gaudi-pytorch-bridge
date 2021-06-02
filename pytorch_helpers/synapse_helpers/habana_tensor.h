@@ -196,6 +196,7 @@ class tensor final {
   };
 
   static tensor create_placeholder(synDeviceId device_id);
+  static tensor create_ds_placeholder(synDeviceId device_id);
 
   synTensor& get() {
     return tensor_;
@@ -278,6 +279,14 @@ class tensor final {
         total_size_bytes_);
   }
 
+  static bool generate_placeholder() {
+    return generate_placeholder_;
+  }
+
+  static void set_generate_placeholder(bool f) {
+    generate_placeholder_ = f;
+  }
+
  private:
   tensor(
       synDeviceId device_id,
@@ -336,6 +345,7 @@ class tensor final {
   uint64_t host_ptr_size_{0};
   const uint64_t offset_{0};
   synTensorType tensor_type_{DATA_TENSOR};
+  static bool generate_placeholder_;
 };
 
 /**
