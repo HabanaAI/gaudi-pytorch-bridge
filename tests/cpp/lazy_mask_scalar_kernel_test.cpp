@@ -14,9 +14,9 @@
 using namespace habana_lazy;
 using namespace at;
 
-class LazyMaskScalarKernelTest : public habana_lazy_test::LazyTest {};
+class LazyMaskKernelTest : public habana_lazy_test::LazyTest {};
 
-TEST_F(LazyMaskScalarKernelTest, MaskedScaleInplaceTest) {
+TEST_F(LazyMaskKernelTest, MaskedScaleInplaceTest) {
   const std::vector<int64_t> dimentions{7, 3, 5};
   const int randomLimit = 300;
   torch::Tensor A = torch::randn(dimentions);
@@ -39,4 +39,38 @@ TEST_F(LazyMaskScalarKernelTest, MaskedScaleInplaceTest) {
   Tensor out = hOut.to(kCPU);
 
   EXPECT_EQ(allclose(out, expected), true);
+}
+
+TEST_F(LazyMaskKernelTest, MaskedFillInplaceTest) {
+  const std::vector<int64_t> dimentions{3, 3};
+  torch::Tensor A = torch::randn(dimentions);
+  int data[] = {1, 0, 0, 0, 1, 0, 0, 0, 1};
+  torch::Tensor mask = torch::from_blob(data, dimentions).to(torch::kInt);
+
+  torch::Tensor value = torch::randn({}); // Only 0-dim tensor accesped
+  auto hA = A.to(torch::kHABANA);
+  auto cpuOut = A.masked_fill_(mask, value);
+
+  auto hValue = value.to(torch::kHABANA);
+  auto hMask = mask.to(torch::kHABANA);
+
+  auto result = hA.masked_fill_(hMask, hValue);
+  Tensor hOut = result.to(kCPU);
+  EXPECT_TRUE(allclose(hOut, cpuOut));
+}
+
+TEST_F(LazyMaskKernelTest, MaskedFillScalarInplaceTest) {
+  const std::vector<int64_t> dimentions{3, 3};
+  torch::Tensor A = torch::randn(dimentions);
+  int data[] = {1, 0, 0, 0, 1, 0, 0, 0, 1};
+  torch::Tensor mask = torch::from_blob(data, dimentions).to(torch::kInt);
+  Scalar value = 35;
+
+  auto hA = A.to(torch::kHABANA);
+  auto cpuOut = A.masked_fill_(mask, value);
+
+  auto hMask = mask.to(torch::kHABANA);
+  auto result = hA.masked_fill_(hMask, value);
+  Tensor hOut = result.to(kCPU);
+  EXPECT_TRUE(allclose(hOut, cpuOut));
 }

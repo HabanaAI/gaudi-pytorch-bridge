@@ -1743,15 +1743,66 @@ Tensor& masked_fill_hpu_lazy_(
     Tensor& self,
     const Tensor& mask,
     const Tensor& value) {
-  HABANA_ASSERT(0);
-  return masked_fill_hpu_(self, mask, value);
+  TORCH_CHECK(
+      value.dim() == 0, "value supports only 0D tensor to match CPU behavior");
+  auto mask_expand = mask;
+  if (self.sizes() != mask.sizes()) {
+    // this explicit broadcast can be removed when
+    // binary kernels start supporting broadcase
+    mask_expand = mask.expand(self.sizes());
+  }
+
+  TORCH_CHECK(
+      self.sizes() == mask_expand.sizes(),
+      "input & mask tensor shapes not matching");
+  auto new_mask = mask_expand.to(self.dtype());
+  // create a inverted mask
+  auto zero_tensor = at::zeros_like(
+      new_mask, new_mask.options(), new_mask.suggest_memory_format());
+  auto inv_mask = at::eq(new_mask, zero_tensor).to(self.dtype());
+  auto value_expand = value.expand(self.sizes());
+
+  LazyBinaryOp<Tensor&> op("aten::mul_", {self, inv_mask});
+  op.call(self);
+
+  LazyBinaryOp<Tensor&> op1("aten::mul_", {new_mask, value_expand});
+  op1.call(new_mask);
+
+  Scalar alpha = 1.f;
+  LazyBinaryOp<at::Tensor&> k{"aten::add_", {self, new_mask, alpha}};
+  return k.call(self);
 }
 Tensor& masked_fill_scalar_hpu_lazy_(
     Tensor& self,
     const Tensor& mask,
     Scalar value) {
-  HABANA_ASSERT(0);
-  return masked_fill_scalar_hpu_(self, mask, value);
+  PT_LAZY_TRACE;
+  auto mask_expand = mask;
+  if (self.sizes() != mask.sizes()) {
+    // this explicit broadcast can be removed when
+    // binary kernels start supporting broadcase
+    mask_expand = mask.expand(self.sizes());
+  }
+
+  TORCH_CHECK(
+      self.sizes() == mask_expand.sizes(),
+      "input & mask tensor shapes not matching");
+  auto new_mask = mask_expand.to(self.dtype());
+  // create a inverted mask
+  auto zero_tensor = at::zeros_like(
+      new_mask, new_mask.options(), new_mask.suggest_memory_format());
+  auto inv_mask = at::eq(new_mask, zero_tensor).to(self.dtype());
+  auto value_expand = torch::full(self.sizes(), value.toFloat());
+
+  LazyBinaryOp<Tensor&> op("aten::mul_", {self, inv_mask});
+  op.call(self);
+
+  LazyBinaryOp<Tensor&> op1("aten::mul_", {new_mask, value_expand});
+  op1.call(new_mask);
+
+  Scalar alpha = 1.f;
+  LazyBinaryOp<at::Tensor&> k{"aten::add_", {self, new_mask, alpha}};
+  return k.call(self);
 }
 Tensor gather_src_hpu_lazy(
     const Tensor& self,
