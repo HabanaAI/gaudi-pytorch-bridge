@@ -108,3 +108,45 @@ TEST_F(LazyDynamicShapesTest, DISABLED_DynamicShapeTest) {
     EXPECT_EQ(allclose(out_hpu, out, 0.01, 0.01), true);
   }
 }
+
+TEST_F(LazyDynamicShapesTest, DISABLED_DynamicShape3DTensorBasicGraphTest) {
+  std::vector<int> dims;
+
+  int num_runs;
+  std::cout << "Enter number of runs" << std::endl;
+  std::cin >> num_runs;
+
+  for (int i = 0; i < num_runs; ++i) {
+    // Get the 3d tensor shapes
+    int dim_shape;
+    dims.clear();
+    std::cout << "Enter dim1\n";
+    std::cin >> dim_shape;
+    dims.push_back(dim_shape);
+    std::cout << "Enter dim2\n";
+    std::cin >> dim_shape;
+    dims.push_back(dim_shape);
+    std::cout << "Enter dim3\n";
+    std::cin >> dim_shape;
+    dims.push_back(dim_shape);
+
+    torch::Tensor in1 =
+        torch::randn({dims[0], dims[1], dims[2]}, torch::requires_grad(false));
+    torch::Tensor in2 =
+        torch::randn({dims[0], dims[1], dims[2]}, torch::requires_grad(false));
+    torch::Tensor h_in1 = in1.to(torch::kHABANA);
+    torch::Tensor h_in2 = in2.to(torch::kHABANA);
+
+    torch::Tensor add_out = torch::add(in1, in2);
+    torch::Tensor h_add_out = torch::add(h_in1, h_in2);
+    torch::Tensor relu_out = torch::relu(add_out);
+    torch::Tensor h_relu_out = torch::relu(h_add_out);
+    torch::Tensor mul_out = torch::mul(relu_out, in2);
+    torch::Tensor h_mul_out = torch::mul(h_relu_out, h_in2);
+    auto out = torch::abs(mul_out);
+    auto h_out = torch::abs(h_mul_out);
+
+    torch::Tensor out_hpu = h_out.to(torch::kCPU);
+    EXPECT_EQ(allclose(out_hpu, out, 0.01, 0.01), true);
+  }
+}
