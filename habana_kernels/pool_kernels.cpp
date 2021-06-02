@@ -24,6 +24,7 @@
 #include "habana_kernels/pool_kernels.h"
 #include "habana_kernels/simple_generic_kernel.h"
 #include "habana_kernels/tensor_shape_kernels.h"
+#include "habana_lazy/tensor_impl.h"
 
 using namespace torch;
 using namespace habana;
@@ -795,6 +796,18 @@ void AvgPool2dOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(inputs[3].isIntList(), "Input3 type expected to be IntList");
   TORCH_CHECK(inputs[4].isBool(), "Input4 type expected to be Bool");
   TORCH_CHECK(inputs[5].isBool(), "Input5 type expected to be Bool");
+
+  // extract the shape tensors of they are appended.
+  // Add them to graph nodes as per signature
+  if (inputs.size() > 7) {
+    auto tensor = inputs[6].toTensor();
+    auto impl = dynamic_cast<habana_lazy::HbLazyTensorImpl*>(
+        tensor.unsafeGetTensorImpl());
+    if (impl) {
+      TORCH_CHECK(
+          impl->isShapeTensor(), "Input6 type expected to be a shape tensor");
+    }
+  }
 
   at::Tensor input = inputs[0].toTensor();
   const auto kernel_size = inputs[1].toIntList().vec();

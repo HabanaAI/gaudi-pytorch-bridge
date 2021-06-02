@@ -52,6 +52,11 @@ size_t HabanaLaunchOpPT::instance_count_ = 0;
 std::unordered_set<std::string> HabanaLaunchOpPT::watchlist_ = {};
 //--------------------------------------
 
+habana_lazy::HbLazyTensorImpl* TryGetHbLazyImpl(const at::Tensor& tensor) {
+  return dynamic_cast<habana_lazy::HbLazyTensorImpl*>(
+      tensor.unsafeGetTensorImpl());
+}
+
 void adjustSizesforPT(at::Tensor* tensor, bool is_output) {
   auto sizes = tensor->sizes().vec();
   auto strides = tensor->strides().vec();
@@ -438,6 +443,21 @@ void HabanaLaunchOpPT::HandleMappedTensor(
   pt_to_synapse_tensors.emplace(value_to_ivalue[value_in], tensorList);
 }
 
+synapse_helpers::tensor& HabanaLaunchOpPT::AllocateSynapseTensor(
+    const HabanaOperatorPtr& habana_op,
+    at::Tensor& pt_tensor) {
+  auto impl = TryGetHbLazyImpl(pt_tensor);
+
+  if (impl && impl->isShapeTensor()) {
+    auto& syn_tensor = habana_op->AllocateSynapseInput(
+        *syn_graph_ptr, pt_tensor, true, ShapeTensorType::kShapeTensorStatic);
+    return syn_tensor;
+  } else {
+    auto& syn_tensor =
+        habana_op->AllocateSynapseInput(*syn_graph_ptr, pt_tensor, true);
+    return syn_tensor;
+  }
+}
 void HabanaLaunchOpPT::HandleUnmappedTensor(
     CValPtr value_in,
     const HabanaOperatorPtr& habana_op,
@@ -458,8 +478,7 @@ void HabanaLaunchOpPT::HandleUnmappedTensor(
       continue;
     }
 
-    auto& syn_tensor =
-        habana_op->AllocateSynapseInput(*syn_graph_ptr, pt_tensor, true);
+    auto& syn_tensor = AllocateSynapseTensor(habana_op, pt_tensor);
 
     tensorList->emplace_back(tensor_or_ref(syn_tensor));
 

@@ -735,7 +735,11 @@ void EmbeddingBagSumForwardOperator::AllocateSynapseInputs(
 synapse_helpers::tensor& EmbeddingBagSumForwardOperator::AllocateSynapseInput(
     synapse_helpers::graph& graph,
     const at::Tensor& input,
-    bool is_persistent) {
+    bool is_persistent,
+    ShapeTensorType is_shape_tensor) {
+  if (is_shape_tensor) {
+    // We have to add logic to create a shape tensor here
+  }
   if (valid_input_idx.count(input_idx)) {
     auto syn_tensor_input = habana_helpers::create_tensor(
         input, graph.get_graph_handle(), is_persistent, c10::nullopt);
@@ -875,7 +879,11 @@ void EmbeddingBagSumBackwardOperator::AllocateSynapseInputs(
 synapse_helpers::tensor& EmbeddingBagSumBackwardOperator::AllocateSynapseInput(
     synapse_helpers::graph& graph,
     const at::Tensor& input,
-    bool is_persistent) {
+    bool is_persistent,
+    ShapeTensorType is_shape_tensor) {
+  if (is_shape_tensor) {
+    // We have to add logic to create a shape tensor here
+  }
   if (valid_input_idx.count(input_idx)) {
     auto syn_tensor_input = habana_helpers::create_tensor(
         input, graph.get_graph_handle(), is_persistent, c10::nullopt);

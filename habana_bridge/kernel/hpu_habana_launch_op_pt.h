@@ -330,6 +330,9 @@ class HabanaLaunchOpPT {
   // Dynamic shape specific parts
   void CreateDynamicBucketInputShapes(
       habana_helpers::DynamicBucketInfo::InpTensorShapes& shape_map);
+  synapse_helpers::tensor& AllocateSynapseTensor(
+      const HabanaOperatorPtr& habana_op,
+      at::Tensor& pt_tensor);
 };
 
 } // namespace habana

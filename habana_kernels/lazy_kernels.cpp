@@ -3006,6 +3006,24 @@ Tensor avg_pool2d_hpu_lazy(
       opsize_nhwc.at(1),
       opsize_nhwc.at(2)};
 
+  // Add a reshape tensor to the JIT stack.
+  // At JIT level we can append to the end, at synapse level we might need to
+  // follow GC signature. If that signature is accessible here we can honor it,
+  // but appending at the end should be good for consistency in JIT schemas
+
+  bool dynamic_shapes_enabled =
+      GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  if (dynamic_shapes_enabled) {
+    auto result_shape = empty_hpu_lazy(
+        shape_out,
+        input.options(),
+        input.suggest_memory_format(),
+        false,
+        ShapeTensorType::kShapeTensorStatic);
+    std::vector<at::Tensor> input_pt_vec{result_shape};
+    avgpool_node->AddInputPtTensors(input_pt_vec);
+  }
+
   // allocate Output storage
   auto result = empty_hpu_lazy(
       shape_out, input.options(), input.suggest_memory_format(), false);
@@ -3539,7 +3557,8 @@ Tensor empty_hpu_lazy(
     IntArrayRef size,
     const TensorOptions& options,
     c10::optional<MemoryFormat> optional_memory_format,
-    bool create_storage) {
+    bool create_storage,
+    habana::ShapeTensorType is_shape_tensor) {
   PT_LAZY_TRACE;
   c10::optional<MemoryFormat> mem_format = optional_memory_format.has_value()
       ? optional_memory_format
@@ -3552,7 +3571,7 @@ Tensor empty_hpu_lazy(
   type = type == c10::ScalarType::Double ? c10::ScalarType::Float : type;
   auto new_dtype = scalarTypeToTypeMeta(type);
 
-  if (create_storage) {
+  if (create_storage || is_shape_tensor) {
     c10 ::Allocator* allocator;
     if (options.pinned_memory()) {
       TORCH_CHECK(false, "habana allocator doesn't supported pinned memory");
@@ -3560,6 +3579,14 @@ Tensor empty_hpu_lazy(
       allocator = habana::getHABANADeviceAllocator();
     }
     int64_t nelements = prod_intlist(size);
+    // we dont create a full storage for shape tensors but we need a backend
+    // impl to get meta data
+    if (is_shape_tensor != habana::ShapeTensorType::kShapeTensorNone) {
+      nelements =
+          is_shape_tensor == habana::ShapeTensorType::kShapeTensorDynamic
+          ? SYN_MAX_TENSOR_DIM
+          : 0;
+    }
     int elem_size = new_dtype.itemsize();
     auto storage_impl = c10::make_intrusive<StorageImpl>(
         c10::StorageImpl::use_byte_size_t(),
@@ -3576,6 +3603,14 @@ Tensor empty_hpu_lazy(
           size, CalculateStrides(size, mem_format.value()));
     } else {
       at_internal_tensor.unsafeGetTensorImpl()->set_sizes_contiguous(size);
+    }
+
+    // set metadata that its a shape tensor
+    if (is_shape_tensor) {
+      habana_lazy::HbLazyTensorImpl* impl =
+          habana_lazy::GetHbLazyTensorImpl(at_internal_tensor);
+      if (impl)
+        impl->setAsShapeTensor();
     }
 
     Tensor at_tensor;

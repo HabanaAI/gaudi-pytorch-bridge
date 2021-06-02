@@ -38,6 +38,11 @@ using RegisterFunc =
 enum class LayoutFormat { NHWC = 0, NCHW = 1, HWCK = 2, ANY = 3, INVALID = 4 };
 const size_t NO_INPUTS = 0xFFFFFFFF;
 
+enum ShapeTensorType {
+  kShapeTensorStatic = 0,
+  kShapeTensorDynamic,
+  kShapeTensorNone
+};
 //
 // The Pytorch kernel context holds the operator context
 // whcih includes the pytorch tensors, synapse tensor and
@@ -48,6 +53,8 @@ class PytorchKernelContext {
   std::vector<at::Tensor> pt_inputs_;
   std::vector<at::Tensor> pt_outputs_;
   std::deque<synapse_helpers::tensor_or_ref> syn_inputs_;
+  std::deque<synapse_helpers::tensor_or_ref> syn_shape_tensors_;
+  std::deque<synapse_helpers::tensor_or_ref> syn_shape_device_tensors_;
   std::deque<synapse_helpers::tensor_or_ref> syn_outputs_;
   std::set<unsigned int> excluded_output_indices_;
   size_t recipe_key_;
@@ -129,7 +136,8 @@ class HabanaOperator {
   virtual synapse_helpers::tensor& AllocateSynapseInput(
       synapse_helpers::graph& graph,
       const at::Tensor& input,
-      bool is_persistent = false);
+      bool is_persistent = false,
+      ShapeTensorType is_shape_tensor = ShapeTensorType::kShapeTensorNone);
 
   //
   // If Synapse tensor is already exists for the py torch tensor, we just add
@@ -154,7 +162,8 @@ class HabanaOperator {
   virtual void AllocateSynapseOutput(
       synapse_helpers::graph& graph,
       const at::Tensor& output,
-      bool is_persistent = false);
+      bool is_persistent = false,
+      ShapeTensorType is_shape_tensor = ShapeTensorType::kShapeTensorNone);
 
   //
   // Method to add output tensors to graph builder context
@@ -163,7 +172,8 @@ class HabanaOperator {
       synapse_helpers::graph& graph,
       const at::Tensor& output,
       const synDataType synType,
-      bool is_persistent = false);
+      bool is_persistent = false,
+      ShapeTensorType is_shape_tensor = ShapeTensorType::kShapeTensorNone);
 
   // Method to add output tensors to graph builder context
   virtual void AllocateSynapseInplaceOutput(synapse_helpers::graph& graph);

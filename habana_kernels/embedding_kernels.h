@@ -71,7 +71,9 @@ class EmbeddingBagSumForwardOperator : public HabanaOperator {
   synapse_helpers::tensor& AllocateSynapseInput(
       synapse_helpers::graph& graph,
       const at::Tensor& input,
-      bool is_persistent = false) override;
+      bool is_persistent = false,
+      ShapeTensorType is_shape_tensor =
+          ShapeTensorType::kShapeTensorNone) override;
 
   synapse_helpers::tensor_or_ref& SetSynapseInput(
       synapse_helpers::tensor_or_ref&& tensor) override;
@@ -117,7 +119,9 @@ class EmbeddingBagSumBackwardOperator : public HabanaOperator {
   synapse_helpers::tensor& AllocateSynapseInput(
       synapse_helpers::graph& graph,
       const at::Tensor& input,
-      bool is_persistent = false) override;
+      bool is_persistent = false,
+      ShapeTensorType is_shape_tensor =
+          ShapeTensorType::kShapeTensorNone) override;
 
   synapse_helpers::tensor_or_ref& SetSynapseInput(
       synapse_helpers::tensor_or_ref&& tensor) override;

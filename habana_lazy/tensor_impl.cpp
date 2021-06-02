@@ -31,6 +31,7 @@ HbLazyTensorImpl::HbLazyTensorImpl(HbLazyTensor hb_tensor)
       m_size_initialized(false),
       m_tensor(std::move(hb_tensor)) {
   const_cast<HbLazyTensorImpl*>(this)->SetupSizeProperties();
+  m_is_shape_tensor = false;
 }
 
 HbLazyTensorImpl::HbLazyTensorImpl(
@@ -45,6 +46,7 @@ HbLazyTensorImpl::HbLazyTensorImpl(
       m_size_initialized(false),
       m_tensor(std::move(hb_tensor)) {
   const_cast<HbLazyTensorImpl*>(this)->SetupSizeProperties();
+  m_is_shape_tensor = false;
 }
 
 void HbLazyTensorImpl::set_tensor(HbLazyTensor hb_tensor) {

@@ -128,16 +128,29 @@ size_t habana::HabanaOperator::GetRecipeKey(
 synapse_helpers::tensor& habana::HabanaOperator::AllocateSynapseInput(
     synapse_helpers::graph& graph,
     const at::Tensor& input,
-    bool is_persistent) {
+    bool is_persistent,
+    ShapeTensorType is_shape_tensor) {
   // TORCH_CHECK(input != nullptr, "Input cannot be null");
 
-  auto syn_tensor_input = habana_helpers::create_tensor(
-      input, graph.get_graph_handle(), is_persistent, c10::nullopt);
+  if (is_shape_tensor == ShapeTensorType::kShapeTensorNone) {
+    auto syn_tensor_input = habana_helpers::create_tensor(
+        input, graph.get_graph_handle(), is_persistent, c10::nullopt);
 
-  p_context_->syn_inputs_.emplace_back(std::move(syn_tensor_input));
+    p_context_->syn_inputs_.emplace_back(std::move(syn_tensor_input));
 
-  p_context_->pt_inputs_.emplace_back(input);
-  return p_context_->syn_inputs_.back();
+    p_context_->pt_inputs_.emplace_back(input);
+    return p_context_->syn_inputs_.back();
+  } else {
+    // Create shape tensor here, add logic to either make it dynamic or static
+    // shape tensor
+    auto syn_tensor_input = habana_helpers::create_shape_tensor(
+        input, graph.get_graph_handle(), is_persistent, false);
+
+    p_context_->syn_shape_tensors_.emplace_back(std::move(syn_tensor_input));
+
+    p_context_->pt_inputs_.emplace_back(input);
+    return p_context_->syn_shape_tensors_.back();
+  }
 }
 
 void habana::HabanaOperator::AllocateSynapseInputs(
@@ -154,22 +167,35 @@ void habana::HabanaOperator::AllocateSynapseInputs(
 void habana::HabanaOperator::AllocateSynapseOutput(
     synapse_helpers::graph& graph,
     const at::Tensor& output,
-    bool is_persistent) {
-  p_context_->syn_outputs_.emplace_back(habana_helpers::create_tensor(
-      output, graph.get_graph_handle(), is_persistent, c10::nullopt));
-
-  p_context_->pt_outputs_.emplace_back(output);
+    bool is_persistent,
+    ShapeTensorType is_shape_tensor) {
+  if (is_shape_tensor == ShapeTensorType::kShapeTensorNone) {
+    p_context_->syn_outputs_.emplace_back(habana_helpers::create_tensor(
+        output, graph.get_graph_handle(), is_persistent, c10::nullopt));
+    p_context_->pt_outputs_.emplace_back(output);
+  } else {
+    p_context_->syn_outputs_.emplace_back(habana_helpers::create_shape_tensor(
+        output, graph.get_graph_handle(), is_persistent, true));
+    p_context_->pt_outputs_.emplace_back(output);
+  }
 }
 
 void habana::HabanaOperator::AllocateSynapseOutput(
     synapse_helpers::graph& graph,
     const at::Tensor& output,
     const synDataType synType,
-    bool is_persistent) {
-  p_context_->syn_outputs_.emplace_back(habana_helpers::create_tensor(
-      output, graph.get_graph_handle(), is_persistent, synType));
+    bool is_persistent,
+    ShapeTensorType is_shape_tensor) {
+  if (is_shape_tensor == ShapeTensorType::kShapeTensorNone) {
+    p_context_->syn_outputs_.emplace_back(habana_helpers::create_tensor(
+        output, graph.get_graph_handle(), is_persistent, synType));
 
-  p_context_->pt_outputs_.emplace_back(output);
+    p_context_->pt_outputs_.emplace_back(output);
+  } else {
+    p_context_->syn_outputs_.emplace_back(habana_helpers::create_shape_tensor(
+        output, graph.get_graph_handle(), is_persistent, true));
+    p_context_->pt_outputs_.emplace_back(output);
+  }
 }
 
 getDMAInputTensorCBType habana::HabanaOperator::getDMAInputTensorCB() {

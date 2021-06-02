@@ -11,6 +11,7 @@
 #include <ATen/ExpandUtils.h>
 #include <pthread.h>
 #include <torch/script.h>
+#include "habana_kernels/habana_operator.h"
 
 #define HPU_LAZY_FUNC_DECL(op_code) \
   at::Tensor op_code##_hpu_lazy(const at::Tensor& self);
@@ -580,7 +581,9 @@ at::Tensor empty_hpu_lazy(
     at::IntArrayRef size,
     const at::TensorOptions& options,
     c10::optional<at::MemoryFormat> optional_memory_format,
-    bool create_storage = true);
+    bool create_storage = true,
+    habana::ShapeTensorType is_shape_tensor =
+        habana::ShapeTensorType::kShapeTensorNone);
 at::Tensor empty_strided_hpu_lazy(
     at::IntArrayRef size,
     at::IntArrayRef stride,
