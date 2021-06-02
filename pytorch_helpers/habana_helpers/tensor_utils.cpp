@@ -541,6 +541,29 @@ synapse_helpers::tensor habana_helpers::create_tensor(
   return absl::get<synapse_helpers::tensor>(std::move(variant));
 }
 
+synapse_helpers::tensor habana_helpers::create_shape_tensor(
+    const at::Tensor& tensor,
+    const synGraphHandle graph,
+    bool persistent,
+    bool is_device_shape_tensor) {
+  if (!std::getenv("PT_HPU_LAZY_LOWERING") && std::getenv("PT_HPU_LAZY_MODE")) {
+    // Lazy mode shape inference call, just create a placeholder tensor
+    return synapse_helpers::tensor::create_placeholder(tensor.device().index());
+  }
+  auto builder = synapse_helpers::tensor_builder(
+                     tensor.sizes(), synDataType::syn_type_uint32)
+                     .mark_persistence(persistent);
+  if (!is_device_shape_tensor) {
+    builder.mark_shape_tensor();
+  } else {
+    builder.mark_device_shape_tensor();
+  }
+  auto variant = builder.build(
+      synapse_helpers::HPURegistrar::get_device(tensor.device().index()),
+      graph);
+  return absl::get<synapse_helpers::tensor>(std::move(variant));
+}
+
 std::tuple<std::vector<synapse_helpers::tensor>, std::vector<synTensor>>
 habana_helpers::create_tensors(
     const std::vector<at::Tensor>& tensors,

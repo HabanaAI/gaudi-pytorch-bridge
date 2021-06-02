@@ -124,6 +124,12 @@ synapse_helpers::tensor create_tensor(
     bool persistent,
     const c10::optional<c10::ScalarType> dtype = c10::nullopt);
 
+synapse_helpers::tensor create_shape_tensor(
+    const at::Tensor& tensor,
+    const synGraphHandle graph,
+    bool persistent,
+    bool is_device_shape_tensor);
+
 /**
 @brief This function can be used to create an intermediate
        synapse_helper tensor of required shape and synDataType
