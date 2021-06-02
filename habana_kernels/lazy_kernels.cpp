@@ -1224,8 +1224,9 @@ Tensor& pow_tensor_scalar_hpu_lazy_(Tensor& self, Scalar other) {
 }
 
 Tensor pow_scalar_tensor_hpu_lazy(Scalar other, const Tensor& self) {
-  HABANA_ASSERT(0);
-  return pow_scalar_tensor_hpu(other, self);
+  PT_LAZY_TRACE;
+  LazyOp<at::Tensor> k{"aten::pow", {other, self}, {}, {self.sizes().vec()}, 1};
+  return k.call();
 }
 
 Tensor maximum_hpu_lazy(const Tensor& self, const Tensor& other) {

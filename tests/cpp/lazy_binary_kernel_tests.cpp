@@ -467,3 +467,22 @@ TEST_F(LazyBinaryKernelTest, PowTensorScalarInplace) {
 
   EXPECT_TRUE(at::allclose(A, generated, rtol, atol, true));
 }
+
+TEST_F(LazyBinaryKernelTest, PowScalarTensor) {
+  const std::vector<int64_t> dimentions{4, 5, 3};
+
+  torch::Tensor A = torch::randn(dimentions);
+  Scalar s = 3;
+
+  Tensor expected = torch::pow(s, A);
+
+  auto hA = A.to(torch::kHABANA);
+  auto result = torch::pow(s, hA);
+
+  Tensor generated = result.to(kCPU);
+
+  double rtol = 1e-05; // NOLINT
+  double atol = 1e-08; // NOLINT
+
+  EXPECT_TRUE(at::allclose(expected, generated, rtol, atol, true));
+}
