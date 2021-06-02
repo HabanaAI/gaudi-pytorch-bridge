@@ -80,113 +80,12 @@ void NonZeroOperator::AllocateAndAddSynapseNode(
       "is_output_persistent expected to be vector of size 2");
 
   auto self = inputs[0].toTensor();
-  size_t device_id = self.device().index();
-  Tensor input_bool;
-  auto Op = make_operator<BitwiseOrOutOperator>(device_id, ScalarType::Bool);
 
-  // tf_where_stage1 TPC requires bool input for now
-  // support for Int, float, bf16 input without using gt, lt,
-  // or operators dependent on JIRA
-  // https://jira.habana-labs.com/browse/SW-36577
-  if (self.scalar_type() != ScalarType::Bool) {
-    at::ScalarType scalar_type = self.scalar_type();
-    auto other = static_cast<ScalarType>(0);
-    torch::jit::Stack stack{IValue(self), IValue(other)};
-
-    // Check for values greater than 0
-    auto op_gt = make_operator<GtOperator>(device_id, scalar_type);
-    auto& syn_arg1 =
-        op_gt->SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
-    op_gt->AllocateAndAddSynapseNode(graph, stack, false);
-    p_context_->syn_inputs_[0] = std::move(syn_arg1);
-    stack.clear();
-
-    // Check for values less than 0
-    stack.emplace_back(IValue(self));
-    stack.emplace_back(IValue(other));
-    auto op_lt = make_operator<LtOperator>(device_id, scalar_type);
-    auto& syn_arg2 =
-        op_lt->SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
-    op_lt->AllocateAndAddSynapseNode(graph, stack, false);
-    p_context_->syn_inputs_[0] = std::move(syn_arg2);
-    stack.clear();
-
-    // create bool input tensor
-    input_bool = habana_helpers::createPTTensor(
-        self,
-        self.sizes(),
-        self.options(),
-        self.suggest_memory_format(),
-        c10::ScalarType::Bool,
-        false);
-
-    stack.emplace_back(IValue(input_bool));
-    stack.emplace_back(IValue(op_gt->GetOutputs()[0]));
-    stack.emplace_back(IValue(op_lt->GetOutputs()[0]));
-    // Assign Inputs to the Operator
-    Op->AllocateSynapseInput(graph, input_bool, false);
-    Op->SetSynapseInput(std::move(op_gt->GetSynOutputs()[0]));
-    Op->SetSynapseInput(std::move(op_lt->GetSynOutputs()[0]));
-    Op->AllocateAndAddSynapseNode(graph, stack, false);
-  }
-
-  // Settings copied from tensorFlow file
-  // tensorflow-training/habana_device/kernels/hpu_habana_where_op.h
-  const uint tpc_count = 8;
   auto input_shape = self.sizes();
   int dimensions = input_shape.size();
   int elements = self.numel();
-  auto intermediate_shape = DimVector{dimensions, elements};
-  auto valid_shape = DimVector{2, tpc_count};
   auto output_shape = DimVector{elements, dimensions};
   auto shape_tensor_shape = DimVector{5};
-
-  // create cordinates_unsqueezed and cordinates_valid Stage 1
-  auto cordinates_unsqueezed = habana_helpers::createPTTensor(
-      self,
-      intermediate_shape,
-      self.options(),
-      self.suggest_memory_format(),
-      c10::ScalarType::Int,
-      false);
-  auto cordinates_valid = habana_helpers::createPTTensor(
-      self,
-      valid_shape,
-      self.options(),
-      self.suggest_memory_format(),
-      c10::ScalarType::Int,
-      false);
-  std::vector<synapse_helpers::tensor_or_ref> intermediateOutputs;
-  intermediateOutputs.emplace_back(habana_helpers::create_tensor(
-      cordinates_unsqueezed, graph.get_graph_handle(), false, c10::nullopt));
-  intermediateOutputs.emplace_back(habana_helpers::create_tensor(
-      cordinates_valid, graph.get_graph_handle(), false, c10::nullopt));
-
-  ns_TfWhere::Params param;
-  param.tpcCount = tpc_count;
-  SetGuid("tf_where_stage1_fwd_i8");
-
-  synapse_helpers::tensor& synStage1Output1 = intermediateOutputs[0];
-  synapse_helpers::tensor& synStage1Output2 = intermediateOutputs[1];
-  std::vector<synTensor> syn_in;
-  std::vector<synTensor> syn_out{
-      synStage1Output1.get(), synStage1Output2.get()};
-  if (self.scalar_type() != ScalarType::Bool) {
-    synapse_helpers::tensor& synInput1 = std::move(Op->GetSynOutputs()[0]);
-    syn_in.push_back(synInput1.get());
-  } else {
-    synapse_helpers::tensor& synInput1 = p_context_->syn_inputs_[0];
-    syn_in.push_back(synInput1.get());
-  }
-  // Where stage 1 node
-  graph.add_node(
-      std::move(syn_in),
-      std::move(syn_out),
-      &param,
-      sizeof(param),
-      std::move(guid_));
-
-  // Create PT output stage 2
   auto cordinates_of_true = habana_helpers::createPTTensor(
       self,
       output_shape,
@@ -205,22 +104,7 @@ void NonZeroOperator::AllocateAndAddSynapseNode(
   synDataType synType = syn_type_uint32;
   AllocateSynapseOutput(graph, cordinates_of_true, is_output_persistent[0]);
   AllocateSynapseOutput(graph, shape_tensor, synType, is_output_persistent[1]);
-  SetGuid("tf_where_stage2_fwd_i32");
-  synapse_helpers::tensor& synStage2Output1 = p_context_->syn_outputs_[0];
-  synapse_helpers::tensor& synStage2Output2 = p_context_->syn_outputs_[1];
-
-  std::vector<synTensor> syn_in_stage2{
-      synStage1Output1.get(), synStage1Output2.get()};
-  std::vector<synTensor> syn_out_stage2{
-      synStage2Output1.get(), synStage2Output2.get()};
-
-  // Where stage 2 node
-  graph.add_node(
-      std::move(syn_in_stage2),
-      std::move(syn_out_stage2),
-      &param,
-      sizeof(param),
-      std::move(guid_));
+  AddNodeToSynapseGraph(graph, nullptr, 0);
 }
 
 /*************************************************************************
@@ -254,7 +138,7 @@ Tensor nonzero_hpu(const Tensor& self) {
     self_in = habana_helpers::cast_tensor_to_integer(self);
   }
   std::string node_type =
-      "nonzero_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+      "non_zero_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
   size_t device_id = self.device().index();
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
 

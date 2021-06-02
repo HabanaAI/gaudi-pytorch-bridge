@@ -16,7 +16,7 @@ class NonZeroOperator : public HabanaOperator {
  public:
   NonZeroOperator(int device_id, c10::ScalarType scalarType)
       : HabanaOperator(
-            "nonzero_fwd_" +
+            "non_zero_fwd_" +
             habana_helpers::name_suffix_from_type(scalarType)) {
     this->CreateSynContext(device_id);
   }
