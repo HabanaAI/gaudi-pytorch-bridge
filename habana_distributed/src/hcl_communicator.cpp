@@ -64,20 +64,21 @@ hcl_communicator::hcl_communicator(
   if (config_path.empty()) {
     char* config_json_path = std::getenv("HCL_CONFIG_PATH");
     if (!config_json_path) {
-      PT_SYNHELPER_FATAL("Please export HCL_CONFIG_PATH...");
+      PT_DISTRIBUTED_FATAL("Please export HCL_CONFIG_PATH...");
     }
     config_path = config_json_path;
   }
 
   using_streams_ = GET_ENV_FLAG(PT_ENABLE_HCL_STREAM);
 
-  PT_SYNHELPER_DEBUG("Opening communication. device_id:", device_id, ".");
+  PT_DISTRIBUTED_DEBUG(
+      "[PYT-DIST] Opening communication. device_id:", device_id, ".");
 
   auto device_get_result{synapse_helpers::device::get_by_id(device_id)};
   if (absl::holds_alternative<synapse_helpers::synapse_error>(
           device_get_result)) {
     auto error = absl::get<synapse_helpers::synapse_error>(device_get_result);
-    PT_SYNHELPER_FATAL(error.error, " Err: ", error.status, "\n");
+    PT_DISTRIBUTED_FATAL(error.error, " Err: ", error.status, "\n");
   }
   my_device_ = synapse_helpers::get_value(device_get_result);
   HABANA_ASSERT(my_device_ != nullptr);
@@ -93,15 +94,16 @@ hcl_communicator::hcl_communicator(
   HABANA_ASSERT(hcl_status == eHCLSuccess);
   HABANA_ASSERT(my_hcl_rank_ != HCL_RANK_UNASSIGNED);
 
-  PT_SYNHELPER_DEBUG("Init done. Rank: ", my_hcl_rank_, " Size: ", size_, ".");
+  PT_DISTRIBUTED_DEBUG(
+      "[PYT-DIST] Init done. Rank: ", my_hcl_rank_, " Size: ", size_, ".");
 } // namespace synapse_helpers
 
 hcl_communicator::~hcl_communicator() {
-  PT_SYNHELPER_DEBUG("~hcl_communicator() entry.");
+  PT_DISTRIBUTED_DEBUG("[PYT-DIST] ~hcl_communicator() entry.");
   HCLStatus hcl_status{eHCLSuccess};
   get_collective_stream()->synchronize();
   HCL_Sync(hcl_comm(), get_sync_tag());
-  PT_SYNHELPER_DEBUG("Destroying HCL..");
+  PT_DISTRIBUTED_DEBUG("[PYT-DIST] Destroying HCL..");
   hcl_status = HCL_Destroy();
   HABANA_ASSERT(hcl_status == eHCLSuccess);
 }
@@ -143,6 +145,21 @@ synapse_error_o hcl_communicator::allreduce(
     return status;
   };
   PT_DISTRIBUTED_BEGIN;
+  PT_DISTRIBUTED_DEBUG(
+      "[PYT-DIST] allreduce with input_address :: ",
+      input_address,
+      " output_address :: ",
+      output_address,
+      " in_event_addr :: ",
+      in_event_addr,
+      " out_event_addr :: ",
+      out_event_addr,
+      " elem_cnt :: ",
+      elem_cnt,
+      " data_type :: ",
+      data_type,
+      " hclop ::",
+      hclop);
   auto status = execute_collective_with_fusion_buffer(
       allreduce_function,
       eHCLAllReduce,
@@ -165,6 +182,19 @@ synapse_error_o hcl_communicator::allreduce(
     size_t elem_cnt,
     synDataType data_type,
     const event_done_callback& done_callback) {
+  PT_DISTRIBUTED_DEBUG(
+      "[PYT-DIST] allreduce with input_address :: ",
+      input_address,
+      " output_address :: ",
+      output_address,
+      " in_event_addr :: ",
+      in_event_addr,
+      " out_event_addr :: ",
+      out_event_addr,
+      " elem_cnt :: ",
+      elem_cnt,
+      " data_type :: ",
+      data_type);
   return allreduce(
       input_address,
       output_address,
@@ -210,6 +240,21 @@ synapse_error_o hcl_communicator::reduce(
   };
 
   PT_DISTRIBUTED_BEGIN;
+  PT_DISTRIBUTED_DEBUG(
+      "[PYT-DIST] reduce with input_address :: ",
+      input_address,
+      " output_address :: ",
+      output_address,
+      " in_event_addr :: ",
+      in_event_addr,
+      " out_event_addr :: ",
+      out_event_addr,
+      " elem_cnt :: ",
+      elem_cnt,
+      " data_type :: ",
+      data_type,
+      " hclop ::",
+      hclop);
   auto status = execute_collective_with_fusion_buffer(
       reduce_function,
       eHCLReduce,
@@ -256,6 +301,21 @@ synapse_error_o hcl_communicator::reduce_scatter(
   };
 
   PT_DISTRIBUTED_BEGIN;
+  PT_DISTRIBUTED_DEBUG(
+      "[PYT-DIST] reduce_scatter with input_address :: ",
+      input_address,
+      " output_address :: ",
+      output_address,
+      " in_event_addr :: ",
+      in_event_addr,
+      " out_event_addr :: ",
+      out_event_addr,
+      " elem_cnt :: ",
+      elem_cnt,
+      " data_type :: ",
+      data_type,
+      " hclop ::",
+      hclop);
   auto status = execute_collective_with_fusion_buffer(
       reduce_scatter_function,
       eHCLReduceScatter,
@@ -301,6 +361,19 @@ synapse_error_o hcl_communicator::alltoall(
   };
 
   PT_DISTRIBUTED_BEGIN;
+  PT_DISTRIBUTED_DEBUG(
+      "[PYT-DIST] alltoall with input_address :: ",
+      input_address,
+      " output_address :: ",
+      output_address,
+      " in_event_addr :: ",
+      in_event_addr,
+      " out_event_addr :: ",
+      out_event_addr,
+      " elem_cnt :: ",
+      elem_cnt,
+      " data_type :: ",
+      data_type);
   auto status = execute_collective_with_fusion_buffer(
       alltoall_function,
       eHCLAll2All,
@@ -324,7 +397,17 @@ synapse_error_o hcl_communicator::broadcast(
     const std::function<void()>& done_callback) {
   HCLStatus status{eHCLSuccess};
   PT_DISTRIBUTED_BEGIN;
-
+  PT_DISTRIBUTED_DEBUG(
+      "[PYT-DIST] broadcast with root_rank :: ",
+      root_rank,
+      " address :: ",
+      address,
+      " event_addr :: ",
+      event_addr,
+      " elem_cnt :: ",
+      elem_cnt,
+      " data_type :: ",
+      data_type);
   stream* collective_stream = get_collective_stream();
   synStreamHandle stream_handle = get_synapse_stream_handle(collective_stream);
   // For root (sending) rank address is input - root does not produce output
@@ -355,6 +438,19 @@ synapse_error_o hcl_communicator::allgather(
     const event_done_callback& done_callback) {
   HCLStatus status{eHCLSuccess};
   PT_DISTRIBUTED_BEGIN;
+  PT_DISTRIBUTED_DEBUG(
+      "[PYT-DIST] allgather with input_address :: ",
+      input_address,
+      " output_address :: ",
+      output_address,
+      " in_event_addr :: ",
+      in_event_addr,
+      " out_event_addr :: ",
+      out_event_addr,
+      " elem_cnt :: ",
+      elem_cnt,
+      " data_type :: ",
+      data_type);
   stream* collective_stream = get_collective_stream();
   synStreamHandle stream_handle = get_synapse_stream_handle(collective_stream);
 
@@ -423,6 +519,17 @@ synapse_error_o hcl_communicator::send(
     const event_done_callback& done_callback) {
   HCLStatus status{eHCLSuccess};
   PT_DISTRIBUTED_BEGIN;
+  PT_DISTRIBUTED_DEBUG(
+      "[PYT-DIST] send with send_buffer :: ",
+      send_buffer,
+      " event_addr :: ",
+      event_addr,
+      " size_in_bytes :: ",
+      size_in_bytes,
+      " remote_rank :: ",
+      remote_rank,
+      " tag :: ",
+      tag);
   stream* collective_stream = get_collective_stream();
   synStreamHandle stream_handle = get_synapse_stream_handle(collective_stream);
 
@@ -447,6 +554,17 @@ synapse_error_o hcl_communicator::receive(
     const event_done_callback& done_callback) {
   HCLStatus status{eHCLSuccess};
   PT_DISTRIBUTED_BEGIN;
+  PT_DISTRIBUTED_DEBUG(
+      "[PYT-DIST] receive with receive_buffer :: ",
+      receive_buffer,
+      " event_addr :: ",
+      event_addr,
+      " size_in_bytes :: ",
+      size_in_bytes,
+      " remote_rank :: ",
+      remote_rank,
+      " tag :: ",
+      tag);
   stream* collective_stream = get_collective_stream();
   synStreamHandle stream_handle = get_synapse_stream_handle(collective_stream);
 
@@ -464,6 +582,7 @@ synapse_error_o hcl_communicator::receive(
 
 synapse_error_o hcl_communicator::barrier() {
   PT_DISTRIBUTED_BEGIN;
+  PT_DISTRIBUTED_DEBUG("[PYT-DIST] barrier");
 
   if (using_streams_) {
     stream* collective_stream = get_collective_stream();
@@ -488,6 +607,7 @@ synapse_error_o hcl_communicator::barrier() {
 // Communicator creation.
 //
 void hcl_communicator::negotiate_root_rank(int order) {
+  PT_DISTRIBUTED_DEBUG("[PYT-DIST] negotiate_root_rank");
   HABANA_ASSERT(
       root_hcl_rank_ == HCL_RANK_UNASSIGNED &&
       "The function is meant to be called just once.")
@@ -544,6 +664,7 @@ void hcl_communicator::negotiate_root_rank(int order) {
   std::vector<Entry> output(num_workers);
 
   {
+    PT_DISTRIBUTED_DEBUG("[PYT-DIST] allgather");
     std::atomic<bool> done{false};
 
     my_device_->copy_data_to_host(
@@ -756,6 +877,24 @@ synapse_error_o hcl_communicator::execute_collective_with_fusion_buffer(
     output = reinterpret_cast<synapse_helpers::device_ptr>(fused_output_data);
     flags = (1 << 0); // eHCLSameAddress;
   }
+
+  PT_DISTRIBUTED_DEBUG(
+      "[PYT-DIST] execute_collective_with_fusion_buffer with collective_stream :: ",
+      get_synapse_stream_handle(collective_stream),
+      " input :: ",
+      input,
+      " output :: ",
+      output,
+      " elem_cnt :: ",
+      elem_cnt,
+      " data_type :: ",
+      data_type,
+      " intermediate_buffer_address ::",
+      intermediate_buffer_address,
+      " intermediate_buffer_size ::",
+      intermediate_buffer_size,
+      " flags ::",
+      flags);
   status = collective(
       get_synapse_stream_handle(collective_stream),
       input,
