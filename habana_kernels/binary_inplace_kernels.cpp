@@ -46,16 +46,11 @@ void habana::BinaryInplaceOperatorWithAlpha::AllocateAndAddSynapseNode(
     // Multiplication between arg2 and alpha is required
     auto mulOp = make_operator<habana::MulOperator>(
         this->p_context_->device_id_, this->scalarType_);
-    auto& arg2_syn =
-        mulOp->SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
+    mulOp->SetSynapseInput(p_context_->syn_inputs_[1]);
     torch::jit::Stack mulOp_stack{inputs[1], inputs[2]};
 
     mulOp->AllocateAndAddSynapseNode(graph, mulOp_stack, false);
     synapse_helpers::tensor_or_ref& mulOp_out = mulOp->GetSynOutputs()[0];
-
-    // Restoring arg2_syn to syn_inputs[1] in case it was earlier assigned to
-    // mulOp output
-    p_context_->syn_inputs_[1] = std::move(arg2_syn);
 
     // Note here we are using input[0] to store output[0]
     p_context_->syn_outputs_.emplace_back(
@@ -129,13 +124,9 @@ void habana::BinaryInplaceWrapperOperatorWithAlpha::AllocateAndAddSynapseNode(
 
   if (inputs[0].isTensor() &&
       inputs[1].isTensor()) { // First 2 inputs are both tensors
-    auto& syn_arg1 =
-        binaryOp->SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
-    auto& syn_arg2 =
-        binaryOp->SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
+    binaryOp->SetSynapseInput(p_context_->syn_inputs_[0]);
+    binaryOp->SetSynapseInput(p_context_->syn_inputs_[1]);
     binaryOp->AllocateAndAddSynapseNode(graph, inputs, is_output_persistent);
-    p_context_->syn_inputs_[0] = std::move(syn_arg1);
-    p_context_->syn_inputs_[1] = std::move(syn_arg2);
 
   } else if (inputs[0].isTensor() && inputs[1].isScalar()) { // 2nd input is a
                                                              // scalar
@@ -147,15 +138,12 @@ void habana::BinaryInplaceWrapperOperatorWithAlpha::AllocateAndAddSynapseNode(
         arg1, {1}, arg1.options(), at::MemoryFormat::Contiguous, false);
     torch::jit::Stack constOp_stack = {IValue(const_shape_tensor), inputs[1]};
     constOp->AllocateAndAddSynapseNode(graph, constOp_stack, false);
-    auto& syn_arg1 =
-        binaryOp->SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
-    UNUSED auto& syn_arg2 =
-        binaryOp->SetSynapseInput(std::move(constOp->GetSynOutputs()[0]));
+    binaryOp->SetSynapseInput(p_context_->syn_inputs_[0]);
+    binaryOp->SetSynapseInput(constOp->GetSynOutputs()[0]);
     // replace 2nd scalar input with a tensor in stack
     inputs.erase(inputs.cbegin() + 1);
     inputs.emplace(inputs.cbegin() + 1, constOp->GetOutputs()[0]);
     binaryOp->AllocateAndAddSynapseNode(graph, inputs, is_output_persistent);
-    p_context_->syn_inputs_[0] = std::move(syn_arg1);
   }
 
   p_context_->pt_outputs_.emplace_back(binaryOp->GetOutputs()[0]);
@@ -234,15 +222,10 @@ void habana::BinaryInplaceWrapperOperator::AllocateAndAddSynapseNode(
       this->p_context_->device_id_, guid_, this->scalarType_);
 
   if (inputs[0].isTensor() && inputs[1].isTensor()) { // Both inputs are tensors
-    auto& syn_arg1 =
-        binaryInplaceOp->SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
-    auto& syn_arg2 =
-        binaryInplaceOp->SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
+    binaryInplaceOp->SetSynapseInput(p_context_->syn_inputs_[0]);
+    binaryInplaceOp->SetSynapseInput(p_context_->syn_inputs_[1]);
     binaryInplaceOp->AllocateAndAddSynapseNode(
         graph, inputs, is_output_persistent);
-    p_context_->syn_inputs_[0] = std::move(syn_arg1);
-    p_context_->syn_inputs_[1] = std::move(syn_arg2);
-
   } else if (inputs[0].isTensor() && inputs[1].isScalar()) { // 2nd input is a
                                                              // scalar
     auto arg1 = inputs[0].toTensor();
@@ -253,16 +236,13 @@ void habana::BinaryInplaceWrapperOperator::AllocateAndAddSynapseNode(
         arg1, {1}, arg1.options(), at::MemoryFormat::Contiguous, false);
     torch::jit::Stack constOp_stack = {IValue(const_shape_tensor), inputs[1]};
     constOp->AllocateAndAddSynapseNode(graph, constOp_stack, false);
-    auto& syn_arg1 =
-        binaryInplaceOp->SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
-    UNUSED auto& syn_arg2 = binaryInplaceOp->SetSynapseInput(
-        std::move(constOp->GetSynOutputs()[0]));
+    binaryInplaceOp->SetSynapseInput(p_context_->syn_inputs_[0]);
+    binaryInplaceOp->SetSynapseInput(constOp->GetSynOutputs()[0]);
     // replace input scalar with input tensor in the stack
     inputs.pop_back();
     inputs.emplace_back(constOp->GetOutputs()[0]);
     binaryInplaceOp->AllocateAndAddSynapseNode(
         graph, inputs, is_output_persistent);
-    p_context_->syn_inputs_[0] = std::move(syn_arg1);
   }
 
   p_context_->pt_outputs_.emplace_back(binaryInplaceOp->GetOutputs()[0]);
@@ -578,36 +558,29 @@ void habana::AddcmulInplaceOperator::AllocateAndAddSynapseNode(
     // binary op
     auto identityOp = make_operator<IdentityOperator>(
         this->p_context_->device_id_, scalar_type);
-    auto& syn_arg0 =
-        identityOp->SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
+    identityOp->SetSynapseInput(p_context_->syn_inputs_[1]);
     torch::jit::Stack stack = {IValue(tensor1)};
     identityOp->AllocateAndAddSynapseNode(graph, stack, false);
-    p_context_->syn_inputs_[1] = std::move(syn_arg0);
     stack.clear();
 
     auto mulOp = make_operator<habana::MulOperator>(
         this->p_context_->device_id_, scalar_type);
-    auto& mul_syn_1 =
-        mulOp->SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
-    UNUSED auto& mul_syn_2 =
-        mulOp->SetSynapseInput(std::move(identityOp->GetSynOutputs()[0]));
+    mulOp->SetSynapseInput(p_context_->syn_inputs_[1]);
+    mulOp->SetSynapseInput(identityOp->GetSynOutputs()[0]);
     stack.emplace_back(IValue(tensor1));
     stack.emplace_back(IValue(identityOp->GetOutputs()[0]));
     mulOp->AllocateAndAddSynapseNode(graph, stack, false);
-    p_context_->syn_inputs_[1] = std::move(mul_syn_1);
     stack.clear();
 
     // Create Add operator
     auto addOp = make_operator<habana::AddInplaceOperator>(
         this->p_context_->device_id_, scalar_type);
-    auto& add_syn =
-        addOp->SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
-    addOp->SetSynapseInput(std::move(mulOp->GetSynOutputs()[0]));
+    addOp->SetSynapseInput(p_context_->syn_inputs_[0]);
+    addOp->SetSynapseInput(mulOp->GetSynOutputs()[0]);
     stack.emplace_back(IValue(self));
     stack.emplace_back(IValue(mulOp->GetOutputs()[0]));
     stack.emplace_back(IValue(alphaValue));
     addOp->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
-    p_context_->syn_inputs_[0] = std::move(add_syn);
     stack.clear();
 
     p_context_->syn_outputs_.emplace_back(std::move(addOp->GetSynOutputs()[0]));
@@ -616,28 +589,22 @@ void habana::AddcmulInplaceOperator::AllocateAndAddSynapseNode(
     // Create Mul operator
     auto mulOp = make_operator<habana::MulOperator>(
         this->p_context_->device_id_, scalar_type);
-    auto& mul_syn_1 =
-        mulOp->SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
-    auto& mul_syn_2 =
-        mulOp->SetSynapseInput(std::move(p_context_->syn_inputs_[2]));
+    mulOp->SetSynapseInput(p_context_->syn_inputs_[1]);
+    mulOp->SetSynapseInput(p_context_->syn_inputs_[2]);
     stack.emplace_back(IValue(tensor1));
     stack.emplace_back(IValue(tensor2));
     mulOp->AllocateAndAddSynapseNode(graph, stack, false);
-    p_context_->syn_inputs_[1] = std::move(mul_syn_1);
-    p_context_->syn_inputs_[2] = std::move(mul_syn_2);
     stack.clear();
 
     // Create Add operator
     auto addOp = make_operator<habana::AddInplaceOperator>(
         this->p_context_->device_id_, scalar_type);
-    auto& add_syn =
-        addOp->SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
-    addOp->SetSynapseInput(std::move(mulOp->GetSynOutputs()[0]));
+    addOp->SetSynapseInput(p_context_->syn_inputs_[0]);
+    addOp->SetSynapseInput(mulOp->GetSynOutputs()[0]);
     stack.emplace_back(IValue(self));
     stack.emplace_back(IValue(mulOp->GetOutputs()[0]));
     stack.emplace_back(IValue(alphaValue));
     addOp->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
-    p_context_->syn_inputs_[0] = std::move(add_syn);
     stack.clear();
 
     p_context_->syn_outputs_.emplace_back(std::move(addOp->GetSynOutputs()[0]));
@@ -729,27 +696,22 @@ void habana::AddcdivInplaceOperator::AllocateAndAddSynapseNode(
   // Create Div operator
   auto divOp = make_operator<habana::DivOperator>(
       this->p_context_->device_id_, scalar_type);
-  auto& div_syn_1 =
-      divOp->SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
-  auto& div_syn_2 =
-      divOp->SetSynapseInput(std::move(p_context_->syn_inputs_[2]));
+  divOp->SetSynapseInput(p_context_->syn_inputs_[1]);
+  divOp->SetSynapseInput(p_context_->syn_inputs_[2]);
   stack.emplace_back(IValue(tensor1));
   stack.emplace_back(IValue(tensor2));
   divOp->AllocateAndAddSynapseNode(graph, stack, false);
-  p_context_->syn_inputs_[1] = std::move(div_syn_1);
-  p_context_->syn_inputs_[2] = std::move(div_syn_2);
   stack.clear();
 
   // Create Add operator
   auto addOp = make_operator<habana::AddInplaceOperator>(
       this->p_context_->device_id_, scalar_type);
-  auto& add_syn = addOp->SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
-  addOp->SetSynapseInput(std::move(divOp->GetSynOutputs()[0]));
+  addOp->SetSynapseInput(p_context_->syn_inputs_[0]);
+  addOp->SetSynapseInput(divOp->GetSynOutputs()[0]);
   stack.emplace_back(IValue(self));
   stack.emplace_back(IValue(divOp->GetOutputs()[0]));
   stack.emplace_back(IValue(alphaValue));
   addOp->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
-  p_context_->syn_inputs_[0] = std::move(add_syn);
   stack.clear();
 
   p_context_->syn_outputs_.emplace_back(std::move(addOp->GetSynOutputs()[0]));

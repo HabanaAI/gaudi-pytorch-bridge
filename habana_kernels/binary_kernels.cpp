@@ -168,8 +168,7 @@ void habana::BinaryWrapperOperator::AllocateAndAddSynapseNode(
     torch::jit::Stack constOp_stack = {IValue(const_shape_tensor), inputs[1]};
     constOp->AllocateAndAddSynapseNode(graph, constOp_stack, false);
     binaryOp->SetSynapseInput(p_context_->syn_inputs_[0]);
-    UNUSED auto& syn_arg2 =
-        binaryOp->SetSynapseInput(std::move(constOp->GetSynOutputs()[0]));
+    binaryOp->SetSynapseInput(constOp->GetSynOutputs()[0]);
     // replace input scalar with input tensor in the stack
     inputs.pop_back();
     inputs.emplace_back(constOp->GetOutputs()[0]);
@@ -183,8 +182,7 @@ void habana::BinaryWrapperOperator::AllocateAndAddSynapseNode(
         arg2, {1}, arg2.options(), at::MemoryFormat::Contiguous, false);
     torch::jit::Stack constOp_stack = {IValue(const_shape_tensor), inputs[0]};
     constOp->AllocateAndAddSynapseNode(graph, constOp_stack, false);
-    UNUSED auto& syn_arg1 =
-        binaryOp->SetSynapseInput(std::move(constOp->GetSynOutputs()[0]));
+    binaryOp->SetSynapseInput(constOp->GetSynOutputs()[0]);
     binaryOp->SetSynapseInput(p_context_->syn_inputs_[0]);
     // replace input scalar with input tensor in the stack
     inputs.erase(inputs.cbegin());
@@ -346,8 +344,7 @@ void habana::BinaryWrapperOperatorWithAlpha::AllocateAndAddSynapseNode(
     torch::jit::Stack constOp_stack = {IValue(const_shape_tensor), inputs[1]};
     constOp->AllocateAndAddSynapseNode(graph, constOp_stack, false);
     binaryOp->SetSynapseInput(p_context_->syn_inputs_[0]);
-    UNUSED auto& syn_arg2 =
-        binaryOp->SetSynapseInput(std::move(constOp->GetSynOutputs()[0]));
+    binaryOp->SetSynapseInput(constOp->GetSynOutputs()[0]);
     // replace 2nd scalar input with a tensor in stack
     inputs.erase(inputs.cbegin() + 1);
     inputs.emplace(inputs.cbegin() + 1, constOp->GetOutputs()[0]);

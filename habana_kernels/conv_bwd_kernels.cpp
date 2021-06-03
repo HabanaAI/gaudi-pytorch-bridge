@@ -189,9 +189,7 @@ void ConvBackwardOperator::ComputeBiasGrad(
     auto SumOp = make_operator<SumDimOutOperator>(
         this->p_context_->device_id_, node_type);
 
-    // Assign Inputs to the Operator
-    auto& grad_out_nhwc_syn =
-        SumOp->SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+    SumOp->SetSynapseInput(p_context_->syn_inputs_[0]);
 
     std::vector<c10::IValue> stack = {
         IValue(grad_bias),
@@ -202,8 +200,6 @@ void ConvBackwardOperator::ComputeBiasGrad(
     SumOp->AllocateAndAddSynapseNode(graph, stack, is_output_persistent[2]);
 
     synapse_helpers::tensor& bias_syn_tensor = SumOp->GetSynOutputs()[0];
-
-    p_context_->syn_inputs_[0] = std::move(grad_out_nhwc_syn);
 
     p_context_->syn_outputs_.emplace_back(std::move(bias_syn_tensor));
     p_context_->pt_outputs_.emplace_back(std::move(SumOp->GetOutputs()[0]));
@@ -292,10 +288,8 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
         this->p_context_->device_id_, grad_out_nhwc.scalar_type());
     if (output_mask_in[0]) {
       // Assign Inputs to the Operator
-      auto& grad_out_nhwc_syn = ConvInputDiffOp->SetSynapseInput(
-          std::move(p_context_->syn_inputs_[0]));
-      auto& weight_hwck_syn = ConvInputDiffOp->SetSynapseInput(
-          std::move(p_context_->syn_inputs_[2]));
+      ConvInputDiffOp->SetSynapseInput(p_context_->syn_inputs_[0]);
+      ConvInputDiffOp->SetSynapseInput(p_context_->syn_inputs_[2]);
 
       // Build Params for the graph
       // use spatial_convolution with bias = None and
@@ -313,9 +307,6 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
           IValue(groups)};
       ConvInputDiffOp->AllocateAndAddSynapseNode(
           graph, stack, is_output_persistent[0]);
-
-      p_context_->syn_inputs_[0] = std::move(grad_out_nhwc_syn);
-      p_context_->syn_inputs_[2] = std::move(weight_hwck_syn);
 
       synapse_helpers::tensor& grad_in_nhwc_syn_tensor =
           ConvInputDiffOp->GetSynOutputs()[0];
@@ -338,10 +329,8 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
           this->p_context_->device_id_, node_type);
 
       // Assign Inputs to the Operator
-      auto& input_nhwc_syn = ConvWeightDiffOp->SetSynapseInput(
-          std::move(p_context_->syn_inputs_[1]));
-      auto& grad_out_nhwc_syn = ConvWeightDiffOp->SetSynapseInput(
-          std::move(p_context_->syn_inputs_[0]));
+      ConvWeightDiffOp->SetSynapseInput(p_context_->syn_inputs_[1]);
+      ConvWeightDiffOp->SetSynapseInput(p_context_->syn_inputs_[0]);
 
       // Build Params for the graph
       // order of input_nhwc & grad_out_nhwc swapped (w.r.t. regular
@@ -360,8 +349,6 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
       ConvWeightDiffOp->AllocateAndAddSynapseNode(
           graph, stack, is_output_persistent[1]);
 
-      p_context_->syn_inputs_[1] = std::move(input_nhwc_syn);
-      p_context_->syn_inputs_[0] = std::move(grad_out_nhwc_syn);
       synapse_helpers::tensor& grad_weight_syn_tensor =
           ConvWeightDiffOp->GetSynOutputs()[0];
 
@@ -387,10 +374,8 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
         this->p_context_->device_id_, node_type);
     if (output_mask_in[1]) {
       // Assign Inputs to the Operator
-      auto& grad_out_nhwc_syn = ConvWeightDiffOp->SetSynapseInput(
-          std::move(p_context_->syn_inputs_[0]));
-      auto& input_nhwc_syn = ConvWeightDiffOp->SetSynapseInput(
-          std::move(p_context_->syn_inputs_[1]));
+      ConvWeightDiffOp->SetSynapseInput(p_context_->syn_inputs_[0]);
+      ConvWeightDiffOp->SetSynapseInput(p_context_->syn_inputs_[1]);
 
       // Build Params for the graph
       std::vector<c10::IValue> stack = {
@@ -406,9 +391,6 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
           IValue(groups)};
       ConvWeightDiffOp->AllocateAndAddSynapseNode(
           graph, stack, is_output_persistent[1]);
-
-      p_context_->syn_inputs_[0] = std::move(grad_out_nhwc_syn);
-      p_context_->syn_inputs_[1] = std::move(input_nhwc_syn);
     }
 
     // Create the operator
@@ -417,10 +399,8 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
         this->p_context_->device_id_, node_type);
     if (output_mask_in[0]) {
       // Assign Inputs to the Operator
-      auto& grad_out_nhwc_syn = ConvInputDiffOp->SetSynapseInput(
-          std::move(p_context_->syn_inputs_[0]));
-      auto& weight_hwck_syn = ConvInputDiffOp->SetSynapseInput(
-          std::move(p_context_->syn_inputs_[2]));
+      ConvInputDiffOp->SetSynapseInput(p_context_->syn_inputs_[0]);
+      ConvInputDiffOp->SetSynapseInput(p_context_->syn_inputs_[2]);
 
       // Build Params for the graph
       std::vector<c10::IValue> stack = {
@@ -436,9 +416,6 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
           IValue(groups)};
       ConvInputDiffOp->AllocateAndAddSynapseNode(
           graph, stack, is_output_persistent[0]);
-
-      p_context_->syn_inputs_[0] = std::move(grad_out_nhwc_syn);
-      p_context_->syn_inputs_[2] = std::move(weight_hwck_syn);
     }
 
     // Although we have "dedw" node first in the graph followed by "dedx", when
