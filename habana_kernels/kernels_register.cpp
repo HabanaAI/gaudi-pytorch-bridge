@@ -35,11 +35,8 @@ using namespace habana;
   }
 
 Tensor& hpu_wrap::copy_(Tensor& self, const Tensor& src, bool non_blocking) {
-  hpu_check_inputs("copy_", {self, src});
-
   if (std::getenv("PT_HPU_LAZY_MODE")) {
     return copy_hpu_lazy_(self, src, non_blocking);
-
   } else {
     return copy_hpu_(self, src, non_blocking);
   }

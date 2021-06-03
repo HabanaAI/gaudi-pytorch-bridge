@@ -13,18 +13,10 @@
 
 #pragma once
 
-static std::unordered_map<std::string, std::vector<std::set<at::ScalarType>>>
+static const std::unordered_map<
+    std::string,
+    std::vector<std::set<at::ScalarType>>>
     op_info = {
-        {"copy_",
-         {{at::ScalarType::Float,
-           at::ScalarType::Double,
-           at::ScalarType::BFloat16,
-           at::ScalarType::Char,
-           at::ScalarType::Byte,
-           at::ScalarType::Bool,
-           at::ScalarType::Int,
-           at::ScalarType::Short,
-           at::ScalarType::Long}}},
         {"as_strided",
          {{at::ScalarType::Float,
            at::ScalarType::Double,

@@ -48,6 +48,15 @@ TEST_P(FallbackTest, Simple) {
   EXPECT_TRUE(allclose(exp, res.to("cpu")));
 }
 
+TEST_P(FallbackTest, UnsupportedOpHalf) {
+  auto in =
+      torch::tensor({{1, 2}, {3, 4}}, at::device(at::kHABANA).dtype(at::kHalf));
+  auto res = torch::tril(in);
+
+  auto exp = torch::tensor({{1, 0}, {3, 4}}, dtype(at::kHalf));
+  EXPECT_TRUE(allclose(exp, res.to("cpu")));
+}
+
 TEST_P(FallbackTest, Inplace) {
   auto t = torch::rand(10).to("hpu");
   auto res = t.lgamma_();
