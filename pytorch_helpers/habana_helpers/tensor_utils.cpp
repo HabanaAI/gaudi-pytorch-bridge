@@ -91,13 +91,29 @@ at::Tensor habana_helpers::cast_tensor_to_integer(
     const at::Tensor& long_tensor) {
   // TODO Remove this cast on CPU when int64_t->int32 cast available on
   // HPU
+
   auto int_tensor = std::make_unique<at::Tensor>();
-  if (long_tensor.scalar_type() == c10::ScalarType::Long) {
-    *int_tensor = long_tensor.to("cpu")
-                      .to(c10::ScalarType::Int)
-                      .to(long_tensor.device(), c10::attr::non_blocking);
+
+  if (!(std::getenv("PT_HPU_LAZY_LOWERING")) &&
+      std::getenv("PT_HPU_LAZY_MODE")) {
+    // if not in lowering mode just return a tensor storageless wrapper as a
+    // placeholder to avoid dma in case we need backend end tensor in future we
+    // can replace createpttensor with empty_hpu_lazy
+    *int_tensor = habana_helpers::createPTTensor(
+        long_tensor,
+        long_tensor.sizes(),
+        long_tensor.options().dtype(c10::ScalarType::Int),
+        long_tensor.suggest_memory_format(),
+        long_tensor.scalar_type(),
+        false);
   } else {
-    *int_tensor = long_tensor;
+    if (long_tensor.scalar_type() == c10::ScalarType::Long) {
+      *int_tensor = long_tensor.to("cpu")
+                        .to(c10::ScalarType::Int)
+                        .to(long_tensor.device(), c10::attr::non_blocking);
+    } else {
+      *int_tensor = long_tensor;
+    }
   }
 
   return *int_tensor;
@@ -107,12 +123,26 @@ at::Tensor habana_helpers::cast_tensor_to_long(const at::Tensor& int_tensor) {
   // TODO Remove this cast on CPU when int32->int64_t cast available on
   // HPU
   auto long_tensor = std::make_unique<at::Tensor>();
-  if (int_tensor.scalar_type() == c10::ScalarType::Int) {
-    *long_tensor = int_tensor.to("cpu")
-                       .to(c10::ScalarType::Long)
-                       .to(int_tensor.device(), c10::attr::non_blocking);
+
+  if (!(std::getenv("PT_HPU_LAZY_LOWERING")) &&
+      std::getenv("PT_HPU_LAZY_MODE")) {
+    // if not in lowering mode just return a tensor storageless wrapper as a
+    // placeholder to avoid dma
+    *long_tensor = habana_helpers::createPTTensor(
+        int_tensor,
+        int_tensor.sizes(),
+        int_tensor.options().dtype(c10::ScalarType::Long),
+        int_tensor.suggest_memory_format(),
+        int_tensor.scalar_type(),
+        false);
   } else {
-    *long_tensor = int_tensor;
+    if (int_tensor.scalar_type() == c10::ScalarType::Int) {
+      *long_tensor = int_tensor.to("cpu")
+                         .to(c10::ScalarType::Long)
+                         .to(int_tensor.device(), c10::attr::non_blocking);
+    } else {
+      *long_tensor = int_tensor;
+    }
   }
 
   return *long_tensor;
