@@ -145,7 +145,7 @@ TEST_F(LazyTensorShapeKernelTest, SliceTest) {
   EXPECT_EQ(allclose(h_cout, cout), true);
 }
 
-TEST_F(LazyTensorShapeKernelTest, ViewExecute) {
+TEST_F(LazyTensorShapeKernelTest, DISABLED_ViewExecute) {
   auto input_tensor =
       torch::arange(480, torch::dtype(torch::kFloat).requires_grad(false))
           .reshape({10, 3, 4, 4}); // nchw

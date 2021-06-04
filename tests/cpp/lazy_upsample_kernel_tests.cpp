@@ -16,7 +16,7 @@ using namespace at;
 
 class LazyUpsampleKernelTest : public habana_lazy_test::LazyTest {};
 
-TEST_F(LazyUpsampleKernelTest, UpsampleNearestTest) {
+TEST_F(LazyUpsampleKernelTest, DISABLED_UpsampleNearestTest) {
   torch::Tensor tensor = torch::randn({3, 1, 5, 5});
   torch::Tensor tHabana = tensor.to(torch::kHABANA);
   c10::ArrayRef<double> scale_factors = {2.0, 2.0};
