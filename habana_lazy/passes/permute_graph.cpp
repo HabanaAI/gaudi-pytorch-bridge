@@ -293,6 +293,12 @@ void InsertPermute_graph(
             habana::LayoutFormat::NHWC;
         value_to_tensor_layout[restride_node->output(0)].layout_at_graph_entry =
             habana::LayoutFormat::NHWC;
+        auto value_in_tt = value_input->type()->cast<TensorType>();
+        restride_node->output(0)->setType(c10::TensorType::create(
+            value_in_tt->scalarType(),
+            value_in_tt->device(),
+            value_in_tt->dim(),
+            false));
       } else {
         value_to_tensor_layout[value_input].layout = habana::LayoutFormat::NCHW;
         value_to_tensor_layout[value_input].layout_at_graph_entry =
@@ -390,6 +396,8 @@ void InsertPermute_graph(
             (in_layout != tensor_layout &&
              in_layout != habana::LayoutFormat::ANY);
         auto perm_layout = in_layout;
+
+        // View and Index as per original PT layout
         if ((strcmp(node->kind().toQualString(), "aten::view") == 0) ||
             (strcmp(node->kind().toQualString(), "aten::index") == 0)) {
           auto tensor_entry_layout =
@@ -398,6 +406,15 @@ void InsertPermute_graph(
               tensor_layout != habana::LayoutFormat::HWCK) {
             permute_required = true;
             perm_layout = tensor_entry_layout;
+          }
+        }
+
+        // Slice dims as per original PT layout
+        if (strcmp(node->kind().toQualString(), "aten::slice") == 0) {
+          if ((tensor_layout != habana::LayoutFormat::NCHW) &&
+              (tensor_layout != habana::LayoutFormat::HWCK)) {
+            permute_required = true;
+            perm_layout = habana::LayoutFormat::NCHW;
           }
         }
 
@@ -486,7 +503,8 @@ void InsertPermute_graph(
         }
       } else if (
           (strcmp(node->kind().toQualString(), "aten::view") == 0) ||
-          (strcmp(node->kind().toQualString(), "aten::index") == 0)) {
+          (strcmp(node->kind().toQualString(), "aten::index") == 0) ||
+          (strcmp(node->kind().toQualString(), "aten::slice") == 0)) {
         // View() layout is always NCHW as per original PT format
         // [ToDo] consider case permute_cl followed by view()
         // %1 = aten::permute_cl(...)
@@ -496,6 +514,25 @@ void InsertPermute_graph(
         value_to_tensor_layout[value_out].layout = habana::LayoutFormat::NCHW;
         value_to_tensor_layout[value_out].layout_at_graph_entry =
             value_to_tensor_layout[value_in].layout_at_graph_entry;
+      } else if ((strcmp(node->kind().toQualString(), "aten::cat") == 0)) {
+        auto tListNode = node->input(0)->node();
+        auto value_in0 = tListNode->input(0);
+        auto value_out = node->output(0);
+        value_to_tensor_layout[value_out].layout = habana::LayoutFormat::NCHW;
+        value_to_tensor_layout[value_out].layout_at_graph_entry =
+            value_to_tensor_layout[value_in0].layout_at_graph_entry;
+        for (auto value_in : tListNode->inputs()) {
+          if (value_to_tensor_layout[value_in].layout !=
+              habana::LayoutFormat::NCHW) {
+            if (*value_in->type()->cast<TensorType>()->dim() == 4) {
+              auto dims = getDimsForLayout(
+                  habana::LayoutFormat::NCHW,
+                  value_to_tensor_layout[value_in].layout);
+              anchor_nodes_[tListNode].push_back(
+                  std::make_pair(value_in, dims));
+            }
+          }
+        }
       } else {
         // Multi input and single output pass layout info from input to output
         auto node_outs = node->outputs();

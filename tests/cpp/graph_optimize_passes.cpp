@@ -384,3 +384,57 @@ TEST_F(GraphOptimizeTest, PermutePassIndexHandling) {
   auto hOut = hA + hIndex;
   auto out = hOut.to(torch::kCPU);
 }
+
+TEST_F(GraphOptimizeTest, ConvCatConv) {
+  auto input_tensor =
+      torch::arange(90, torch::dtype(torch::kFloat).requires_grad(false))
+          .reshape({1, 3, 6, 5}); // nchw
+  torch::Tensor tHabanaX = input_tensor.to(torch::kHABANA);
+
+  auto weight_tensor =
+      torch::arange(36, torch::dtype(torch::kFloat).requires_grad(false))
+          .reshape({3, 3, 2, 2}); // hwck
+  auto wt_hwck = weight_tensor.permute({2, 3, 1, 0}).contiguous();
+  torch::Tensor tHabanaW = wt_hwck.to(torch::kHABANA);
+
+  auto input_tensor2 =
+      torch::arange(90, torch::dtype(torch::kFloat).requires_grad(false))
+          .reshape({1, 3, 6, 5}); // nchw
+  torch::Tensor tHabanaX2 = input_tensor2.to(torch::kHABANA);
+
+  torch::Tensor outConv = torch::conv2d(tHabanaX, tHabanaW, {}, 1, 0, 1, 1);
+  torch::Tensor outConv2 = torch::conv2d(tHabanaX2, tHabanaW, {}, 1, 0, 1, 1);
+  torch::Tensor catOut = torch::cat({outConv, outConv2}, 1);
+
+  auto weight_tensor2 =
+      torch::arange(192, torch::dtype(torch::kFloat).requires_grad(false))
+          .reshape({8, 6, 2, 2}); // hwck
+  auto wt_hwck2 = weight_tensor2.permute({2, 3, 1, 0}).contiguous();
+  torch::Tensor tHabanaW2 = wt_hwck2.to(torch::kHABANA);
+
+  torch::Tensor outConv3 = torch::conv2d(catOut, tHabanaW2, {}, 1, 0, 1, 1);
+  auto out = outConv3.to(torch::kCPU);
+}
+
+TEST_F(GraphOptimizeTest, CatTest) {
+  auto input_tensor0 = torch::randn(
+      {6, 4, 28, 28}, torch::dtype(torch::kFloat).requires_grad(false)); // nchw
+  torch::Tensor tHabanaX0 = input_tensor0.to(
+      torch::kHABANA,
+      c10::ScalarType::Float,
+      false,
+      false,
+      c10::MemoryFormat::ChannelsLast);
+
+  auto input_tensor1 = torch::randn(
+      {6, 4, 28, 28}, torch::dtype(torch::kFloat).requires_grad(false)); // nchw
+  torch::Tensor tHabanaX1 = input_tensor1.to(
+      torch::kHABANA,
+      c10::ScalarType::Float,
+      false,
+      false,
+      c10::MemoryFormat::ChannelsLast);
+
+  torch::Tensor catOut = torch::cat({tHabanaX0, tHabanaX1}, 1);
+  auto out = catOut.to(torch::kCPU);
+}
