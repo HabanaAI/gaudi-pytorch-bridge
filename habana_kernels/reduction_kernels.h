@@ -100,8 +100,11 @@ class MeanDimOperator : public ReduceOperator {
 // Mean Operator
 class MeanOperator : public ReduceOperator {
  public:
-  MeanOperator(int device_id, const std::string& guid)
-      : ReduceOperator(device_id, guid) {
+  MeanOperator(int device_id, c10::ScalarType scalar_type)
+      : ReduceOperator(
+            device_id,
+            "reduce_mean_fwd_" +
+                habana_helpers::name_suffix_from_type(scalar_type)) {
     kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
   }
 

@@ -963,14 +963,16 @@ void MeanOperator::AllocateAndAddSynapseNode(
       self.options(),
       at::MemoryFormat::Contiguous,
       is_output_persistent);
-  auto ndim = self.dim();
-  int64_t data[4];
-  for (int i = 0; i < ndim; i++) {
-    data[i] = i;
-  }
-  IntArrayRef dim(data, ndim);
-  bool keepdim = false;
 
+  std::vector<int64_t> data;
+  auto ndim = self.dim();
+  for (int i = 0; i < ndim; i++) {
+    data.push_back(i);
+  }
+
+  IntArrayRef dim(data);
+
+  bool keepdim = false;
   inputs.insert(inputs.begin(), IValue(output));
   inputs.insert(inputs.begin() + 2, IValue(dim));
   inputs.insert(inputs.begin() + 3, IValue(keepdim));
@@ -1012,7 +1014,7 @@ Tensor mean_hpu(const Tensor& self, c10::optional<ScalarType> dtype) {
   // Build Params for the graph
   std::vector<c10::IValue> stack = {IValue(self), IValue(dtype)};
   // Create the operator
-  MeanOperator Op(device_id, node_type);
+  MeanOperator Op(device_id, scalar_type);
   size_t key = Op.GetRecipeKey(node_type, stack);
 
   if (device.get_recipe_handle_cache().isCached(key)) {
@@ -1799,6 +1801,11 @@ static auto& KernelRegistry =
             })
         .add(
             "aten::mean",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<MeanOperator>(device_id, node_type);
+            })
+        .add(
+            "aten::mean.dim",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<MeanDimOperator>(device_id, node_type);
             })

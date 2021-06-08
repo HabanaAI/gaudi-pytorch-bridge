@@ -3332,8 +3332,9 @@ Tensor sum_hpu_lazy(const Tensor& self_in, c10::optional<ScalarType> dtype) {
 }
 
 Tensor mean_hpu_lazy(const Tensor& self, c10::optional<ScalarType> dtype) {
-  HABANA_ASSERT(0);
-  return mean_hpu(self, dtype);
+  PT_LAZY_TRACE;
+  LazyOp<at::Tensor> k{"aten::mean", {self, dtype}, {}, {{1}}};
+  return k.call();
 }
 
 Tensor prod_dim_hpu_lazy(
