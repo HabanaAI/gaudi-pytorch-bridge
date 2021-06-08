@@ -1318,22 +1318,41 @@ void LayerNormOperator::AllocateAndAddSynapseNode(
     torch::jit::Stack& inputs,
     std::vector<bool> is_output_persistent) {
   TORCH_CHECK(
-      inputs.size() == 6,
-      "LayerNormOperator::AllocateAndAddSynapseNode expected 6 args but got ",
+      inputs.size() == 5,
+      "LayerNormOperator::AllocateAndAddSynapseNode expected 5 args but got ",
       inputs.size())
-  TORCH_CHECK(inputs[0].isTensor(), "Input type expected to be tensor");
-  TORCH_CHECK(inputs[1].isTensor(), "Input type expected to be tensor");
-  TORCH_CHECK(inputs[2].isTensor(), "Input type expected to be tensor");
-  TORCH_CHECK(inputs[3].isInt(), "Input type expected to be int64");
-  TORCH_CHECK(inputs[4].isInt(), "Input type expected to be int64");
-  TORCH_CHECK(inputs[5].isDouble(), "Input type expected to be double");
-  const auto input = inputs[0].toTensor();
-  const auto weight = inputs[1].toTensor();
-  const auto bias = inputs[2].toTensor();
-  auto m = inputs[3].toInt();
-  auto n = inputs[4].toInt();
-  const auto eps = inputs[5].toDouble();
 
+  TORCH_CHECK(inputs[0].isTensor(), "Input type expected to be tensor");
+  TORCH_CHECK(inputs[1].isIntList(), "Input type expected to be int list");
+  TORCH_CHECK(inputs[2].isTensor(), "Input type expected to be tensor");
+  TORCH_CHECK(inputs[3].isTensor(), "Input type expected to be tensor");
+  TORCH_CHECK(inputs[4].isDouble(), "Input type expected to be doube");
+
+  const auto input = inputs[0].toTensor();
+  const auto normalized_shape = inputs[1].toIntList().vec();
+  const auto weight = inputs[2].toTensor();
+  const auto bias = inputs[3].toTensor();
+  const auto eps = inputs[4].toDouble();
+
+  const auto input_shape = input.sizes();
+  const auto input_ndim = input.dim();
+
+  const int normalized_ndim = normalized_shape.size();
+  if (input_ndim < normalized_ndim ||
+      !input_shape.slice(input_ndim - normalized_ndim)
+           .equals(normalized_shape)) {
+    std::stringstream ss;
+    ss << "Given normalized_shape=" << normalized_shape
+       << ", expected input with shape [*";
+    for (auto size : normalized_shape) {
+      ss << ", " << size;
+    }
+    ss << "], but got input of size" << input_shape;
+    AT_ERROR(ss.str());
+  }
+  const int axis = input_ndim - normalized_ndim;
+  int64_t m = prod_intlist(input_shape.cbegin(), input_shape.cbegin() + axis);
+  int64_t n = prod_intlist(input_shape.cbegin() + axis, input_shape.cend());
   // PT_HABANA_ENABLE_GRAPHMODE_LAYERNORM_FUSION Env variable is added as WA
   // only for BERT graph mode and it should not be enabled in other cases.
   static const std::string graphFusionEnvValue =
@@ -1442,14 +1461,19 @@ void LayerNormOperator::AllocateAndAddSynapseNode(
 
 void LayerNormOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   TORCH_CHECK(
-      inputs.size() == 6,
-      "LayerNormOperator::AllocateAndAddSynapseNode expected 6 args but got ",
+      inputs.size() == 5,
+      "LayerNormOperator::AllocateAndAddSynapseNode expected 5 args but got ",
       inputs.size())
   const auto input = inputs[0].toTensor();
-  const auto weight = inputs[1].toTensor();
-  const auto bias = inputs[2].toTensor();
-  auto m = inputs[3].toInt();
+  const auto normalized_shape = inputs[1].toIntList().vec();
+  const auto weight = inputs[2].toTensor();
+  const auto bias = inputs[3].toTensor();
 
+  const auto input_shape = input.sizes();
+  const auto input_ndim = input.dim();
+  const int normalized_ndim = normalized_shape.size();
+  const int axis = input_ndim - normalized_ndim;
+  int64_t m = prod_intlist(input_shape.cbegin(), input_shape.cbegin() + axis);
   // PT_HABANA_ENABLE_GRAPHMODE_LAYERNORM_FUSION Env variable is added as WA
   // only for BERT graph mode and it should not be enabled in other cases.
   static const std::string graphFusionEnvValue =
@@ -1479,20 +1503,20 @@ void LayerNormOperator::SetPTOutputs(torch::jit::Stack& inputs) {
  * stability. Default: 1e-5
  */
 std::tuple<Tensor, Tensor, Tensor> layer_norm_hpu(
-    const Tensor& input,
-    const Tensor& weight,
-    const Tensor& bias,
-    int64_t m,
-    int64_t n,
+    const at::Tensor& input,
+    at::IntArrayRef normalized_shape,
+    const c10::optional<at::Tensor>& weight_opt,
+    const c10::optional<at::Tensor>& bias_opt,
     double eps) {
   PT_KERNEL_BEGIN;
   // Build Params for the graph
+  auto weight = weight_opt.value();
+  auto bias = bias_opt.value();
   Stack input_stack = {
       IValue(input),
+      IValue(normalized_shape),
       IValue(weight),
       IValue(bias),
-      IValue(m),
-      IValue(n),
       IValue(eps)};
   size_t device_id = input.device().index();
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
@@ -1580,24 +1604,31 @@ void LayerNormBackwardOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(
       inputs.size() == 8,
       "LayerNormBackwardOperator::AllocateAndAddSynapseNode expected 8 args but got ",
-      inputs.size())
+      inputs.size());
   TORCH_CHECK(inputs[0].isTensor(), "Input type expected to be tensor");
   TORCH_CHECK(inputs[1].isTensor(), "Input type expected to be tensor");
-  TORCH_CHECK(inputs[2].isTensor(), "Input type expected to be tensor");
+  TORCH_CHECK(inputs[2].isIntList(), "Input type expected to be int list");
   TORCH_CHECK(inputs[3].isTensor(), "Input type expected to be tensor");
   TORCH_CHECK(inputs[4].isTensor(), "Input type expected to be tensor");
-  TORCH_CHECK(inputs[5].isInt(), "Input type expected to be int64");
-  TORCH_CHECK(inputs[6].isInt(), "Input type expected to be int64");
+  TORCH_CHECK(inputs[5].isTensor(), "Input type expected to be tensor");
+  TORCH_CHECK(inputs[6].isTensor(), "Input type expected to be tensor");
   TORCH_CHECK(inputs[7].isBoolList(), "Input type expected to be bool array");
 
   const auto dY = inputs[0].toTensor();
   const auto X = inputs[1].toTensor();
-  const auto mean = inputs[2].toTensor();
-  const auto rstd = inputs[3].toTensor();
-  const auto gamma = inputs[4].toTensor();
-  auto m = inputs[5].toInt();
-  auto n = inputs[6].toInt();
+  const auto normalized_shape = inputs[2].toIntList().vec();
+  const auto mean = inputs[3].toTensor();
+  const auto rstd = inputs[4].toTensor();
+  const auto gamma = inputs[5].toTensor();
+
   const auto grad_input_mask = inputs[7].toBoolList();
+
+  const auto input_shape = X.sizes();
+  const auto input_ndim = X.dim();
+  const int normalized_ndim = normalized_shape.size();
+  const int axis = input_ndim - normalized_ndim;
+  int64_t m = prod_intlist(input_shape.cbegin(), input_shape.cbegin() + axis);
+  int64_t n = prod_intlist(input_shape.cbegin() + axis, input_shape.cend());
 
   // PT_HABANA_ENABLE_GRAPHMODE_LAYERNORM_FUSION Env variable is added as WA
   // only for BERT graph mode and it should not be enabled in other cases.
@@ -1731,7 +1762,7 @@ void LayerNormBackwardOperator::AllocateAndAddSynapseNode(
 
 void LayerNormBackwardOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   const auto dY = inputs[0].toTensor();
-  const auto gamma = inputs[4].toTensor();
+  const auto gamma = inputs[5].toTensor();
 
   auto outputs = AllocatePTOutputs(dY, gamma, true);
   std::vector<at::Tensor> v{
@@ -1760,13 +1791,13 @@ LayerNormBackwardOperator::getOutputSizes(
  * enabled
  */
 std::tuple<Tensor, Tensor, Tensor> layer_norm_backward_hpu(
-    const Tensor& dY,
-    const Tensor& X,
-    const Tensor& mean,
-    const Tensor& rstd,
-    const Tensor& gamma,
-    int64_t M,
-    int64_t N,
+    const at::Tensor& dY,
+    const at::Tensor& X,
+    at::IntArrayRef normalized_shape,
+    const at::Tensor& mean,
+    const at::Tensor& rstd,
+    const c10::optional<at::Tensor>& weight_opt,
+    const c10::optional<at::Tensor>& bias_opt,
     std::array<bool, 3> grad_input_mask) {
   PT_KERNEL_BEGIN;
   std::vector<bool> grad_mask_in;
@@ -1778,18 +1809,19 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_backward_hpu(
   Stack input_stack = {
       IValue(dY),
       IValue(X),
+      IValue(normalized_shape),
       IValue(mean),
       IValue(rstd),
-      IValue(gamma),
-      IValue(M),
-      IValue(N),
+      IValue(weight_opt),
+      IValue(bias_opt),
       IValue(grad_mask_in)};
   size_t device_id = X.device().index();
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
   at::ScalarType scalar_type = X.scalar_type();
   std::string node_type = "layer_norm";
   std::vector<at::Tensor> out;
-
+  auto gamma = weight_opt.value();
+  auto bias = bias_opt.value();
   auto layer_norm = [&] {
     // Create the operator
     LayerNormBackwardOperator Op(device_id, scalar_type);
@@ -1799,7 +1831,7 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_backward_hpu(
     if (device.get_recipe_handle_cache().isCached(key)) {
       PT_KERNEL_DEBUG("Cache hit key:", key);
       // Assign Inputs to the Operator
-      const std::vector<at::Tensor> pt_inputs{dY, X, mean, rstd, gamma};
+      const std::vector<at::Tensor> pt_inputs{dY, X, mean, rstd, gamma, bias};
       Op.SetPTInputs(pt_inputs);
       Op.SetPTOutputs(input_stack);
       Op.Execute(key);
@@ -1807,7 +1839,7 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_backward_hpu(
     } else {
       // Create Graph
       auto graph = habana_helpers::create_graph(device_id, node_type);
-      const std::vector<at::Tensor> pt_inputs{dY, X, mean, rstd, gamma};
+      const std::vector<at::Tensor> pt_inputs{dY, X, mean, rstd, gamma, bias};
       Op.AllocateSynapseInputs(graph, pt_inputs, true);
       Op.AllocateAndAddSynapseNode(graph, input_stack, true);
       Op.Compile(graph);

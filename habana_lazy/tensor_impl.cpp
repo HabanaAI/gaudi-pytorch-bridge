@@ -65,6 +65,19 @@ c10::intrusive_ptr<c10::TensorImpl> HbLazyTensorImpl::shallow_copy_and_detach(
   return impl;
 }
 
+c10::intrusive_ptr<c10::TensorImpl> HbLazyTensorImpl::shallow_copy_and_detach(
+    c10::VariableVersion&& version_counter,
+    bool allow_tensor_metadata_change) const {
+  auto impl = c10::make_intrusive<HbLazyTensorImpl>(m_tensor);
+  copy_tensor_metadata(
+      /*src_impl=*/this,
+      /*dest_impl=*/impl.get(),
+      /*version_counter=*/std::move(version_counter),
+      /*allow_tensor_metadata_change=*/allow_tensor_metadata_change);
+  impl.get()->SetupSizeProperties();
+  return impl;
+}
+
 void HbLazyTensorImpl::shallow_copy_from(
     const c10::intrusive_ptr<TensorImpl>& impl) {
   // HABANA_ASSERT(0);
@@ -90,6 +103,12 @@ int64_t HbLazyTensorImpl::dim() const {
 
 int64_t HbLazyTensorImpl::numel() const {
   HABANA_ASSERT(m_size_initialized);
+  // HACK
+  int64_t n = 1;
+  for (const auto& i : sizes()) {
+    n *= i;
+  }
+  return n;
   return c10::TensorImpl::numel();
 }
 
@@ -117,16 +136,31 @@ void HbLazyTensorImpl::SetupSizeProperties() {
   if (!m_size_initialized) {
     // Fill up the basic dimension data members which the base class
     // implementation uses in its APIs.
-    auto sizes = m_tensor.GetSizes();
-    sizes_.clear();
-    numel_ = 1;
-    for (auto dim : sizes) {
-      sizes_.push_back(dim);
-      numel_ *= dim;
-    }
-    strides_.clear();
-    for (auto stride : ComputeArrayStrides(sizes)) {
-      strides_.push_back(stride);
+    auto sizes_l = m_tensor.GetSizes();
+    sizes_and_strides_.set_sizes(sizes_l);
+    at::IntArrayRef new_stride = ComputeArrayStrides(sizes_l);
+    const auto new_dim = sizes_l.size();
+    if (new_dim > 0) {
+      for (size_t dim = new_dim - 1;; dim--) {
+        if (new_stride[dim] >= 0) {
+          sizes_and_strides_.stride_at_unchecked(dim) = new_stride[dim];
+        } else {
+          // XXX: This behavior is surprising and may need to be removed to
+          // support negative strides. Some pytorch functions rely on it:
+          // for example, torch.cat (run TestTorch.test_cat_empty).
+          if (dim == new_dim - 1) {
+            sizes_and_strides_.stride_at_unchecked(dim) = 1;
+          } else {
+            // Keep stride monotonically increasing to match NumPy.
+            sizes_and_strides_.stride_at_unchecked(dim) =
+                std::max<int64_t>(
+                    sizes_and_strides_.size_at_unchecked(dim + 1), 1) *
+                sizes_and_strides_.stride_at_unchecked(dim + 1);
+          }
+        }
+        if (dim == 0)
+          break;
+      }
     }
     m_size_initialized = true;
   }

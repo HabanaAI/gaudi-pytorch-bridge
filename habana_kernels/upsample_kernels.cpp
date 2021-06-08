@@ -72,8 +72,26 @@ void UpsampleOperator::AllocateAndAddSynapseNode(
     torch::jit::Stack& inputs,
     bool is_output_persistent) {
   auto input = inputs[0].toTensor();
-  auto output_size = inputs[1].toOptionalIntArray();
-  auto scales = inputs[2].toOptionalDoubleArray();
+  c10::optional<IntArrayRef> output_size;
+  c10::optional<at::ArrayRef<double>> scales;
+
+  auto output_size1 = inputs[1].to<c10::optional<std::vector<int64_t>>>();
+  if (output_size1.has_value()) {
+    output_size = c10::make_optional(ArrayRef<int64_t>(output_size1.value()));
+  } else {
+    PT_KERNEL_WARN("output_size in Upsample are empty");
+    output_size = {};
+  }
+  // toOptionalIntArray and toOptionalDoubleArray are deprecated
+
+  auto scales1 = inputs[2].to<c10::optional<std::vector<double>>>();
+  if (scales1.has_value()) {
+    scales = c10::make_optional(ArrayRef<double>(scales1.value()));
+  } else {
+    PT_KERNEL_WARN("Scales in Upsample are empty");
+    scales = {};
+  }
+
   TORCH_CHECK(
       input.ndimension() == 4,
       "It is expected input tensor dimension equals to 4, but got size ",
@@ -138,10 +156,13 @@ void UpsampleBackwardOperator::AllocateAndAddSynapseNode(
 
 void UpsampleOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   at::Tensor input = inputs[0].toTensor();
-  auto output_size = inputs[1].toOptionalIntArray();
-  auto scales = inputs[2].toOptionalDoubleArray();
+  auto output_size1 = inputs[1].to<c10::optional<std::vector<int64_t>>>();
+  auto output_size = c10::make_optional(
+      ArrayRef<int64_t>(output_size1.value_or<std::vector<int64_t>>({})));
+  auto scales1 = inputs[2].to<c10::optional<std::vector<double>>>();
+  auto scales = c10::make_optional(
+      ArrayRef<double>(scales1.value_or<std::vector<double>>({})));
   c10::MemoryFormat memory_format = habana_helpers::get_memory_format({&input});
-
   std::vector<int64_t> shape_out = compute_output_shape(
       input.sizes().vec(),
       output_size,

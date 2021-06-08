@@ -594,6 +594,19 @@ TEST_F(LazyUnaryKernelTest, SortTest) {
   EXPECT_EQ(allclose(cout, hout, 0.001, 0.001), true);
 }
 
+TEST_F(LazyUnaryKernelTest, LeakyReluAutogradZeroSlope) {
+  auto device = "hpu:0";
+  auto options = torch::TensorOptions().device(device).requires_grad(true);
+  auto a = torch::tensor({-2., 0., 2.}, options);
+  auto a_clone = a.clone();
+
+  auto b = torch::leaky_relu_(a_clone, 0.0); // check inplace
+  b.backward(torch::ones(3, device));
+
+  auto expected = torch::tensor({0., 0., 1.}, device);
+  EXPECT_TRUE(allclose(a.grad().to("cpu"), expected.to("cpu")));
+}
+
 TEST_F(LazyUnaryKernelTest, ClampMinTest) {
   auto input_tensor = torch::randn({8, 24, 24, 3});
   auto hinput = input_tensor.to(torch::kHABANA);

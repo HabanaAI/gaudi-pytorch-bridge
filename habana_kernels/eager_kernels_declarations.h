@@ -278,8 +278,8 @@ at::Tensor gather2d_hpu(
 at::Tensor slice_hpu(
     const at::Tensor& self,
     int64_t dim,
-    int64_t start,
-    int64_t end,
+    c10::optional<int64_t> start,
+    c10::optional<int64_t> end,
     int64_t step);
 at::Tensor select_hpu(const at::Tensor& self, int64_t dim, int64_t index);
 at::Tensor& arange_hpu(
@@ -363,19 +363,18 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> batch_norm_bwd_hpu(
     std::array<bool, 3> output_mask);
 std::tuple<at::Tensor, at::Tensor, at::Tensor> layer_norm_hpu(
     const at::Tensor& input,
-    const at::Tensor& weight,
-    const at::Tensor& bias,
-    int64_t m,
-    int64_t n,
+    at::IntArrayRef normalized_shape,
+    const c10::optional<at::Tensor>& weight_opt,
+    const c10::optional<at::Tensor>& bias_opt,
     double eps);
 std::tuple<at::Tensor, at::Tensor, at::Tensor> layer_norm_backward_hpu(
     const at::Tensor& dY,
     const at::Tensor& X,
+    at::IntArrayRef normalized_shape,
     const at::Tensor& mean,
     const at::Tensor& rstd,
-    const at::Tensor& gamma,
-    int64_t M,
-    int64_t N,
+    const c10::optional<at::Tensor>& weight_opt,
+    const c10::optional<at::Tensor>& bias_opt,
     std::array<bool, 3> grad_input_mask);
 at::Tensor norm_scalar_hpu(const at::Tensor& self, at::Scalar p);
 std::tuple<at::Tensor, at::Tensor> max_pool2d_with_indices_hpu(

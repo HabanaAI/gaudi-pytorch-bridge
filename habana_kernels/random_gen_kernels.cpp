@@ -116,17 +116,17 @@ void RandpermOperator::AllocateAndAddSynapseNode(
       inputs.size(),
       " of inputs expected for Randperm Operator");
   TORCH_CHECK(
-      inputs[0].isTensor(),
+      inputs[2].isTensor(),
       "Input arg1 expected to be Tensor for RandpermOperator Operator");
   TORCH_CHECK(
-      inputs[1].isScalar(),
+      inputs[0].isScalar(),
       "Input arg2 expected to be Scalar for RandpermOperator operator");
   TORCH_CHECK(
-      inputs[2].isGenerator() || inputs[2].isNone(),
+      inputs[1].isGenerator() || inputs[1].isNone(),
       "Input arg3 expected to be Generator for RandpermOperator Operator");
 
-  auto output = inputs[0].toTensor();
-  auto n = inputs[1].toInt();
+  auto output = inputs[2].toTensor();
+  auto n = inputs[0].toInt();
   auto start = 0;
   auto end = n;
   auto step = 1;
@@ -138,7 +138,7 @@ void RandpermOperator::AllocateAndAddSynapseNode(
       make_operator<ArangeOperator>(this->p_context_->device_id_, scalar_type);
   arangeOp->AllocateSynapseInput(graph, arangeOutput, false);
   torch::jit::Stack stack{
-      IValue(arangeOutput), IValue(start), IValue(end), IValue(step)};
+      IValue(start), IValue(end), IValue(step), IValue(arangeOutput)};
   arangeOp->AllocateAndAddSynapseNode(graph, stack, false);
   stack.clear();
 
@@ -758,7 +758,7 @@ Tensor& randperm_hpu(Tensor& output, int64_t n, c10::optional<Generator> gen) {
   std::vector<at::Tensor> pt_inputs{output};
   std::vector<at::Tensor> pt_outputs{output};
   std::vector<c10::IValue> stack = {
-      IValue(output), IValue(n_scalar), IValue(gen)};
+      IValue(n_scalar), IValue(gen), IValue(output)};
 
   // create seed tensor
   auto seed_tensor = DropoutOperator::GenerateAndCopySeedToHPU(stack, true);

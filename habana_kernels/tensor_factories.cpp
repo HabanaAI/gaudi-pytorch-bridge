@@ -25,16 +25,16 @@ using namespace torch;
 #define PT_KERNEL_END (void)(0)
 #endif
 
-static inline void check_size_nonnegative(IntArrayRef size) {
-  for (auto x : size) {
-    TORCH_CHECK(
-        x >= 0,
-        "Trying to create tensor with negative dimension ",
-        x,
-        ": ",
-        size);
-  }
-}
+// static inline void check_size_nonnegative(IntArrayRef size) {
+//   for (auto x : size) {
+//     TORCH_CHECK(
+//         x >= 0,
+//         "Trying to create tensor with negative dimension ",
+//         x,
+//         ": ",
+//         size);
+//   }
+// }
 
 Tensor empty_hpu(
     IntArrayRef size,
@@ -50,7 +50,7 @@ Tensor empty_hpu(
   // and Tensor are merged
   // AT_ASSERT(!options.is_variable());
   TORCH_CHECK(!options.pinned_memory(), "Only dense CPU tensors can be pinned");
-  check_size_nonnegative(size);
+  at::check_size_nonnegative(size);
 
   c10::Allocator* allocator;
   if (options.pinned_memory()) {
@@ -92,7 +92,7 @@ Tensor empty_strided_hpu(
     IntArrayRef stride,
     const TensorOptions& options) {
   PT_KERNEL_BEGIN;
-  check_size_nonnegative(size);
+  at::check_size_nonnegative(size);
   auto t = empty_hpu({0}, options, c10::nullopt);
   at::native::resize_impl_hpu_(t.unsafeGetTensorImpl(), size, stride);
   PT_KERNEL_END;

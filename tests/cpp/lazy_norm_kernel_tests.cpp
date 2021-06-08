@@ -19,7 +19,7 @@ class LazyNormKernelTest : public habana_lazy_test::LazyTest {};
 TEST_F(LazyNormKernelTest, LayerNormForwardExecute) {
   auto input_tensor =
       torch::arange(480, torch::dtype(torch::kFloat).requires_grad(false))
-          .reshape({10, 3, 4, 4}); // nchw
+          .reshape({10, 1, 3, 4, 4}); // nchw
   torch::Tensor tHabanaX = input_tensor.to(torch::kHABANA);
   at::Tensor weight =
       torch::arange(48, torch::dtype(torch::kFloat).requires_grad(false))
@@ -30,11 +30,11 @@ TEST_F(LazyNormKernelTest, LayerNormForwardExecute) {
           .reshape({1, 3, 4, 4}); // nchw;
   torch::Tensor tBias = bias.to(torch::kHABANA);
   auto results =
-      torch::native_layer_norm(tHabanaX, tWeight, tBias, 10, 48, 0.01);
+      torch::native_layer_norm(tHabanaX, {1, 3, 4, 4}, tWeight, tBias, 0.01);
 
   at::Tensor result_lazy = (std::get<0>(results)).to(torch::kCPU);
   auto results_cpu =
-      torch::native_layer_norm(input_tensor, weight, bias, 10, 48, 0.01);
+      torch::native_layer_norm(input_tensor, {1, 3, 4, 4}, weight, bias, 0.01);
   at::Tensor result_cpu = std::get<0>(results_cpu);
   EXPECT_EQ(allclose(result_lazy, result_cpu, 0.01, 0.01), true);
 }
@@ -42,11 +42,11 @@ TEST_F(LazyNormKernelTest, LayerNormForwardExecute) {
 TEST_F(LazyNormKernelTest, LayerNormBackwardExecute) {
   auto input_grad =
       torch::arange(480, torch::dtype(torch::kFloat).requires_grad(false))
-          .reshape({10, 3, 4, 4}); // nchw
+          .reshape({10, 1, 3, 4, 4}); // nchw
   torch::Tensor tHabanaGrad = input_grad.to(torch::kHABANA);
   auto input =
       torch::arange(480, torch::dtype(torch::kFloat).requires_grad(false))
-          .reshape({10, 3, 4, 4}); // nchw
+          .reshape({10, 1, 3, 4, 4}); // nchw
   torch::Tensor tHabanaIn = input.to(torch::kHABANA);
   auto mean =
       torch::arange(10, torch::dtype(torch::kFloat).requires_grad(false))
@@ -59,20 +59,32 @@ TEST_F(LazyNormKernelTest, LayerNormBackwardExecute) {
       torch::arange(48, torch::dtype(torch::kFloat).requires_grad(false))
           .reshape({1, 3, 4, 4}); // nchw
   torch::Tensor tGamma = gamma.to(torch::kHABANA);
+  auto bias =
+      torch::arange(48, torch::dtype(torch::kFloat).requires_grad(false))
+          .reshape({1, 3, 4, 4}); // nchw
+  torch::Tensor tBias = bias.to(torch::kHABANA);
+
   auto results = torch::native_layer_norm_backward(
       tHabanaGrad,
       tHabanaIn,
+      {3, 4, 4},
       tHabanaMean,
       tHabanaVar,
       tGamma,
-      10,
-      48,
+      tBias,
       {true, true, true});
 
+  auto results_cpu = torch::native_layer_norm_backward(
+      input_grad,
+      input,
+      {1, 3, 4, 4},
+      mean,
+      var,
+      gamma,
+      bias,
+      {true, true, true});
   at::Tensor result_lazy = (std::get<0>(results)).to(torch::kCPU);
 
-  auto results_cpu = torch::native_layer_norm_backward(
-      input_grad, input, mean, var, gamma, 10, 48, {true, true, true});
   at::Tensor result_cpu = std::get<0>(results_cpu);
   EXPECT_EQ(allclose(result_lazy, result_cpu, 0.01, 0.01), true);
 }

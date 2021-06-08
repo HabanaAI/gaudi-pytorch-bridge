@@ -144,13 +144,24 @@ TEST_F(LazyIndexKernelTest, IndexTest) {
 
   std::vector<torch::Tensor> vec_cpu{
       torch::tensor({0, 1}), torch::tensor({0, 1})};
-  std::vector<torch::Tensor> vec_hpu;
+
+  c10::List<c10::optional<at::Tensor>> indices_cpu{};
+  // auto tensorlist = indices.vec();
+  indices_cpu.reserve(vec_cpu.size());
   for (auto t : vec_cpu) {
-    vec_hpu.push_back(t.to(torch::kInt32).to(torch::kHABANA));
+    indices_cpu.push_back(c10::make_optional(t));
   }
 
-  auto out_cpu = at::index(input_cpu, vec_cpu).to(torch::kInt32);
-  auto out_hpu = at::index(input_hpu, vec_hpu);
+  // auto out_cpu = at::index(input_cpu, vec_cpu).to(torch::kInt32);
+  // auto out_hpu = at::index(input_hpu, vec_hpu);
+  c10::List<c10::optional<at::Tensor>> indices_list{};
+  // auto tensorlist = indices.vec();
+  indices_list.reserve(vec_cpu.size());
+  for (auto t : vec_cpu) {
+    indices_list.push_back(c10::make_optional(t.to(torch::kHABANA)));
+  }
+  auto out_cpu = at::index(input_cpu, indices_cpu).to(torch::kInt32);
+  auto out_hpu = at::index(input_hpu, indices_list);
 
   bool equal = out_cpu.allclose(out_hpu.to(torch::kCPU), 0.001, 0.001);
   EXPECT_EQ(equal, true);

@@ -896,9 +896,9 @@ Tensor index_put_hpu(
  * @param accumulate - Flag to indicate whether to accumulate into self
  ************************************************************************/
 Tensor& index_put_hpu_(
-    Tensor& self,
+    at::Tensor& self,
     TensorList indices,
-    const Tensor& value,
+    const at::Tensor& value,
     bool accumulate) {
   PT_KERNEL_BEGIN;
 
@@ -906,9 +906,15 @@ Tensor& index_put_hpu_(
   // possible for this operator. Also Boolean indexing needs "nonzero"
   // operation. Until TPC supports all these
   // https://jira.habana-labs.com/browse/SW-37171, fallback to CPU
+  c10::List<c10::optional<at::Tensor>> indices_list{};
+  auto tensorlist = indices.vec();
+  indices_list.reserve(tensorlist.size());
+  for (size_t i = 0; i < tensorlist.size(); i++) {
+    indices_list.push_back(c10::make_optional(tensorlist[i]));
+  }
   if ((indices[0].scalar_type() == c10::ScalarType::Bool) ||
       (value.dim() == 0) || (self.scalar_type() == c10::ScalarType::Bool)) {
-    AtenHpuTypeDefault::index_put_(self, indices, value, accumulate);
+    AtenHpuTypeDefault::index_put_(self, indices_list, value, accumulate);
     PT_KERNEL_END;
     return self;
   }
@@ -1251,8 +1257,8 @@ void SliceOperator::AllocateAndAddSynapseNode(
 Tensor slice_hpu(
     const Tensor& in_self,
     int64_t dim,
-    int64_t start,
-    int64_t end,
+    c10::optional<int64_t> start,
+    c10::optional<int64_t> end,
     int64_t step) {
   PT_KERNEL_BEGIN;
 
@@ -1260,8 +1266,8 @@ Tensor slice_hpu(
   // Although tensor is NULL, still output is expected of correct size
   if (in_self.numel() == 0) {
     SliceOperator slice_op(in_self.device().index(), in_self.scalar_type());
-    auto slice_output =
-        slice_op.AllocateOutputTensor(in_self, dim, start, end, step, true);
+    auto slice_output = slice_op.AllocateOutputTensor(
+        in_self, dim, start.value(), end.value(), step, true);
     PT_KERNEL_END;
     return slice_output;
   }
@@ -1504,22 +1510,22 @@ void ArangeOperator::AllocateAndAddSynapseNode(
       inputs.size() == 4,
       "Incorrect size of inputs expected for Arange operator");
   TORCH_CHECK(
-      inputs[0].isTensor(),
+      inputs[3].isTensor(),
       "Input arg0 expected to be tensor for Arange operator");
   TORCH_CHECK(
-      inputs[1].isScalar(),
+      inputs[0].isScalar(),
       "Input arg1 expected to be Scalar for Arange operator");
   TORCH_CHECK(
-      inputs[2].isScalar(),
+      inputs[1].isScalar(),
       "Input arg2 expected to be Scalar for Arange operator");
   TORCH_CHECK(
-      inputs[3].isScalar(),
+      inputs[2].isScalar(),
       "Input arg3 expected to be Scalar for Arange operator");
 
-  auto result = inputs[0].toTensor();
-  auto start = inputs[1].toScalar();
-  auto end = inputs[2].toScalar();
-  auto step = inputs[3].toScalar();
+  auto result = inputs[3].toTensor();
+  auto start = inputs[0].toScalar();
+  auto end = inputs[1].toScalar();
+  auto step = inputs[2].toScalar();
 
   p_context_->syn_outputs_.emplace_back(std::move(p_context_->syn_inputs_[0]));
   p_context_->pt_outputs_.emplace_back(result);
@@ -1646,10 +1652,10 @@ Tensor& arange_hpu(Tensor& output, Scalar start, Scalar end, Scalar step) {
   std::vector<c10::IValue> stack = {IValue(start), IValue(end), IValue(step)};
 
   if (output.scalar_type() == ScalarType::Long) {
-    stack.insert(stack.begin(), IValue(output_int));
+    stack.push_back(IValue(output_int));
     pt_inputs.emplace_back(output_int);
   } else {
-    stack.insert(stack.begin(), IValue(output));
+    stack.push_back(IValue(output));
     pt_inputs.emplace_back(output);
   }
 
@@ -1815,7 +1821,7 @@ void IndexOperator::AllocateAndAddSynapseNode(
  * @param input - Input tensor 2D fp32
  * @param indices - TensorList for indices
  ************************************************************************/
-Tensor index_hpu(const Tensor& input, TensorList indices) {
+Tensor index_hpu(const at::Tensor& input, TensorList indices) {
   PT_KERNEL_BEGIN;
   if (indices[0].numel() == 0) {
     PT_KERNEL_END;
@@ -1824,9 +1830,13 @@ Tensor index_hpu(const Tensor& input, TensorList indices) {
 
   // fallback to cpu for boolean indexing
   if (indices[0].scalar_type() == c10::ScalarType::Bool) {
-    auto output = AtenHpuTypeDefault::index(input, indices);
-    PT_KERNEL_END;
-    return output;
+    c10::List<c10::optional<at::Tensor>> indices_list{};
+    auto tensorlist = indices.vec();
+    indices_list.reserve(tensorlist.size());
+    for (size_t i = 0; i < tensorlist.size(); i++) {
+      indices_list.push_back(c10::make_optional(tensorlist[i]));
+    }
+    return AtenHpuTypeDefault::index(input, indices_list);
   }
 
   // if there is only 1 indices tensor, then operation is equivalent to gather

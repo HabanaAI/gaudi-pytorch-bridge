@@ -630,7 +630,7 @@ Tensor empty_from_storage_lazy(
   // context. In such case, create the lazt tensor.
   if (!is_in_lowering_mode) {
     HbLazyTensor hb_tensor = HbLazyTensor::CreateHbLazyTensor(
-        size, 0, self.device(), c10::typeMetaToScalarType(self.dtype()));
+        size, 0, self.device(), at::typeMetaToScalarType(self.dtype()));
 
     at_tensor = AtenFromHbLazyTensor(hb_tensor);
 
@@ -1406,7 +1406,6 @@ Tensor convolution_hpu_lazy(
     IntArrayRef output_padding,
     int64_t groups) {
   PT_LAZY_TRACE;
-
   LazyOp<at::Tensor> k(
       "aten::convolution_overrideable",
       {input,
@@ -1853,7 +1852,13 @@ Tensor index_hpu_lazy(const at::Tensor& self, at::TensorList indices) {
   // fallback to cpu for boolean indexing
   // https://jira.habana-labs.com/browse/SW-37171
   if (indices[0].scalar_type() == c10::ScalarType::Bool) {
-    return AtenHpuTypeDefault::index(self, indices);
+    c10::List<c10::optional<at::Tensor>> indices_list{};
+    auto tensorlist = indices.vec();
+    indices_list.reserve(tensorlist.size());
+    for (size_t i = 0; i < tensorlist.size(); i++) {
+      indices_list.push_back(c10::make_optional(tensorlist[i]));
+    }
+    return AtenHpuTypeDefault::index(self, indices_list);
   }
   // https://jira.habana-labs.com/browse/SW-39448
   if (indices.size() == 1 && indices[0].dim() == 1) {
@@ -1908,7 +1913,7 @@ Tensor index_hpu_lazy(const at::Tensor& self, at::TensorList indices) {
 
 Tensor& _index_put_impl_hpu_lazy_(
     Tensor& self,
-    TensorList indices,
+    at::TensorList indices,
     const Tensor& value,
     bool accumulate,
     const bool unsafe) {
@@ -1916,17 +1921,25 @@ Tensor& _index_put_impl_hpu_lazy_(
   // index backward is not supported on hpu, indices needs to be
   // bool, byte or long type for cpu fallback
   if (indices[0].scalar_type() == c10::ScalarType::Int) {
+    c10::List<c10::optional<at::Tensor>> indices_long{};
     auto tensorlist = indices.vec();
-    std::vector<Tensor> indices_long;
+    indices_long.reserve(tensorlist.size());
+
     for (size_t i = 0; i < tensorlist.size(); i++) {
-      auto long_tensor = habana_helpers::cast_tensor_to_long(tensorlist[i]);
-      indices_long.push_back(long_tensor);
+      indices_long.push_back(c10::make_optional(
+          habana_helpers::cast_tensor_to_long(tensorlist[i])));
     }
     return AtenHpuTypeDefault::_index_put_impl_(
         self, indices_long, value, accumulate, unsafe);
   }
+  c10::List<c10::optional<at::Tensor>> indices_list{};
+  auto tensorlist = indices.vec();
+  indices_list.reserve(tensorlist.size());
+  for (size_t i = 0; i < tensorlist.size(); i++) {
+    indices_list.push_back(c10::make_optional(tensorlist[i]));
+  }
   return AtenHpuTypeDefault::_index_put_impl_(
-      self, indices, value, accumulate, unsafe);
+      self, indices_list, value, accumulate, unsafe);
 }
 
 Tensor nonzero_hpu_lazy(const Tensor& self) {
@@ -2028,36 +2041,53 @@ Tensor index_put_hpu_lazy(
   PT_LAZY_TRACE;
   // Remove CPU fallback once TPC kernel for index_backward is available
   // JIRA <https://jira.habana-labs.com/browse/SW-37171>
+
   if (indices[0].scalar_type() == c10::ScalarType::Int) {
+    c10::List<c10::optional<at::Tensor>> indices_long{};
     auto tensorlist = indices.vec();
-    std::vector<Tensor> indices_long;
+    indices_long.reserve(tensorlist.size());
+
     for (size_t i = 0; i < tensorlist.size(); i++) {
-      indices_long.push_back(
-          habana_helpers::cast_tensor_to_long(tensorlist[i]));
+      indices_long.push_back(c10::make_optional(
+          habana_helpers::cast_tensor_to_long(tensorlist[i])));
     }
     return AtenHpuTypeDefault::index_put(self, indices_long, value, accumulate);
   }
-  return AtenHpuTypeDefault::index_put(self, indices, value, accumulate);
+  c10::List<c10::optional<at::Tensor>> indices_list{};
+  auto tensorlist = indices.vec();
+  indices_list.reserve(tensorlist.size());
+  for (size_t i = 0; i < tensorlist.size(); i++) {
+    indices_list.push_back(c10::make_optional(tensorlist[i]));
+  }
+  return AtenHpuTypeDefault::index_put(self, indices_list, value, accumulate);
 }
 Tensor& index_put_hpu_lazy_(
-    Tensor& self,
+    at::Tensor& self,
     TensorList indices,
-    const Tensor& value,
+    const at::Tensor& value,
     bool accumulate) {
   PT_LAZY_TRACE;
   // Remove CPU fallback once TPC kernel for index_backward is available
   // JIRA <https://jira.habana-labs.com/browse/SW-37171>
   if (indices[0].scalar_type() == c10::ScalarType::Int) {
+    c10::List<c10::optional<at::Tensor>> indices_long{};
     auto tensorlist = indices.vec();
-    std::vector<Tensor> indices_long;
+    indices_long.reserve(tensorlist.size());
+
     for (size_t i = 0; i < tensorlist.size(); i++) {
-      indices_long.push_back(
-          habana_helpers::cast_tensor_to_long(tensorlist[i]));
+      indices_long.push_back(c10::make_optional(
+          habana_helpers::cast_tensor_to_long(tensorlist[i])));
     }
     return AtenHpuTypeDefault::index_put_(
         self, indices_long, value, accumulate);
   }
-  return AtenHpuTypeDefault::index_put_(self, indices, value, accumulate);
+  c10::List<c10::optional<at::Tensor>> indices_list{};
+  auto tensorlist = indices.vec();
+  indices_list.reserve(tensorlist.size());
+  for (size_t i = 0; i < tensorlist.size(); i++) {
+    indices_list.push_back(c10::make_optional(tensorlist[i]));
+  }
+  return AtenHpuTypeDefault::index_put_(self, indices_list, value, accumulate);
 }
 Tensor index_select_hpu_lazy(
     const Tensor& self,
@@ -2090,8 +2120,8 @@ Tensor gather2d_hpu_lazy(
 Tensor slice_hpu_lazy(
     const Tensor& self_in,
     int64_t dim,
-    int64_t start,
-    int64_t end,
+    c10::optional<int64_t> start,
+    c10::optional<int64_t> end,
     int64_t step) {
   PT_LAZY_TRACE;
   if (self_in.dim() <= 1 && step == 1) {
@@ -2104,9 +2134,11 @@ Tensor slice_hpu_lazy(
     self = transpose_hpu_lazy(self_in, self_in.dim() - 1, self_in.dim() - 2);
     dim = self.dim() - 2;
   }
-  auto node = std::make_shared<ir::Slice>(self, dim, start, end, step);
+  auto node =
+      std::make_shared<ir::Slice>(self, dim, start.value(), end.value(), step);
 
-  auto shape = SliceOperator::compute_output_shape(self, dim, start, end, step);
+  auto shape = SliceOperator::compute_output_shape(
+      self, dim, start.value(), end.value(), step);
   auto result = empty_hpu_lazy(
       shape, self.options(), self.suggest_memory_format(), false);
   auto hl_result = GetHbLazyTensor(result);
@@ -2172,7 +2204,7 @@ Tensor& arange_hpu_lazy(Tensor& output, Scalar start, Scalar end, Scalar step) {
 
   auto node = ir::Node::Create(
       Symbol::fromQualString("hpu::arange_out"),
-      {hl_result.GetIrValue(), hl_start, hl_end, hl_step});
+      {hl_start, hl_end, hl_step, hl_result.GetIrValue()});
 
   ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
@@ -2624,14 +2656,23 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu_lazy(
 
 std::tuple<Tensor, Tensor, Tensor> layer_norm_hpu_lazy(
     const Tensor& input,
-    const Tensor& weight,
-    const Tensor& bias,
-    int64_t m,
-    int64_t n,
+    IntArrayRef normalized_shape,
+    const c10::optional<Tensor>& weight_opt,
+    const c10::optional<Tensor>& bias_opt,
     double eps) {
   PT_LAZY_TRACE;
-  ir::NodePtr node =
-      std::make_shared<ir::LayerNormForward>(input, weight, bias, m, n, eps);
+  auto weight = weight_opt.value_or(Tensor());
+  auto bias = bias_opt.value_or(Tensor());
+  const auto input_shape = input.sizes();
+  const auto input_ndim = input.dim();
+  const int normalized_ndim = normalized_shape.size();
+  const int axis = input_ndim - normalized_ndim;
+  const int64_t m =
+      prod_intlist(input_shape.cbegin(), input_shape.cbegin() + axis);
+  // const int64_t n =
+  //     prod_intlist(input_shape.cbegin() + axis, input_shape.cend());
+  ir::NodePtr node = std::make_shared<ir::LayerNormForward>(
+      input, normalized_shape, weight_opt, bias_opt, eps);
 
   auto sizes = LayerNormOperator::getOutputSizes(input, m);
   // Get Output Image
@@ -2670,17 +2711,26 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_hpu_lazy(
   return std::make_tuple(result_img, result_mean, result_var);
 }
 std::tuple<Tensor, Tensor, Tensor> layer_norm_backward_hpu_lazy(
-    const Tensor& dY,
-    const Tensor& X,
-    const Tensor& mean,
-    const Tensor& rstd,
-    const Tensor& gamma,
-    int64_t M,
-    int64_t N,
+    const at::Tensor& dY,
+    const at::Tensor& X,
+    IntArrayRef normalized_shape,
+    const at::Tensor& mean,
+    const at::Tensor& rstd,
+    const c10::optional<Tensor>& weight_opt,
+    UNUSED const c10::optional<Tensor>& bias_opt,
     std::array<bool, 3> grad_input_mask) {
   PT_LAZY_TRACE;
+  auto gamma = weight_opt.value_or(Tensor());
+
   ir::NodePtr node = std::make_shared<ir::LayerNormBackward>(
-      dY, X, mean, rstd, gamma, M, N, grad_input_mask);
+      dY,
+      X,
+      normalized_shape,
+      mean,
+      rstd,
+      weight_opt,
+      bias_opt,
+      grad_input_mask);
   auto sizes = LayerNormBackwardOperator::getOutputSizes(dY, gamma);
   // Get Output Image
   auto result_dY = empty_hpu_lazy(
@@ -3025,8 +3075,8 @@ Tensor& randperm_hpu_lazy(
 
   LazyOp<Tensor&> op{
       "hpu::randperm_out",
-      {output, Scalar((int32_t)n), std::move(gen)},
-      {2},
+      {Scalar((int32_t)n), std::move(gen), output},
+      {1},
       {{n}}};
 
   return op.call(output);
@@ -3422,7 +3472,7 @@ Tensor empty_hpu_lazy(
     // context. In such case, create the lazt tensor.
     if (!is_in_lowering_mode) {
       HbLazyTensor hb_tensor = HbLazyTensor::CreateHbLazyTensor(
-          size, 0, options.device(), c10::typeMetaToScalarType(original_dtype));
+          size, 0, options.device(), typeMetaToScalarType(original_dtype));
       at_tensor = AtenFromHbLazyTensor(hb_tensor);
 
       // The lazy tensor will have a reference to the internal tensor
@@ -3461,7 +3511,7 @@ Tensor empty_hpu_lazy(
     }
   } else {
     HbLazyTensor hb_tensor = HbLazyTensor::CreateHbLazyTensor(
-        size, 0, options.device(), c10::typeMetaToScalarType(original_dtype));
+        size, 0, options.device(), typeMetaToScalarType(original_dtype));
     Tensor at_tensor = AtenFromHbLazyTensor(hb_tensor);
     // Setup the tensor sizes & strides for tensor with dim = 4, else for now
     // assuming contiguous

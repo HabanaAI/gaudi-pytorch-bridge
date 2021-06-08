@@ -347,6 +347,29 @@ TEST(EagerKernelCacheTest, AdamwOptTest) {
   }
 }
 
+TEST(EagerKernelTest, LayerNormForwardExecute) {
+  auto input_tensor =
+      torch::arange(480, torch::dtype(torch::kFloat).requires_grad(false))
+          .reshape({10, 1, 3, 4, 4}); // nchw
+  torch::Tensor tHabanaX = input_tensor.to(torch::kHABANA);
+  at::Tensor weight =
+      torch::arange(48, torch::dtype(torch::kFloat).requires_grad(false))
+          .reshape({1, 3, 4, 4}); // nchw;
+  torch::Tensor tWeight = weight.to(torch::kHABANA);
+  at::Tensor bias =
+      torch::arange(48, torch::dtype(torch::kFloat).requires_grad(false))
+          .reshape({1, 3, 4, 4}); // nchw;
+  torch::Tensor tBias = bias.to(torch::kHABANA);
+  auto results =
+      torch::native_layer_norm(tHabanaX, {1, 3, 4, 4}, tWeight, tBias, 0.01);
+
+  at::Tensor result_lazy = (std::get<0>(results)).to(torch::kCPU);
+  auto results_cpu =
+      torch::native_layer_norm(input_tensor, {1, 3, 4, 4}, weight, bias, 0.01);
+  at::Tensor result_cpu = std::get<0>(results_cpu);
+  EXPECT_EQ(allclose(result_lazy, result_cpu, 0.01, 0.01), true);
+}
+
 TEST(EagerKernelTest, FusedNormTest) {
   // torch::manual_seed(0);
   std::vector<torch::Tensor> grad_vec;
@@ -548,13 +571,24 @@ TEST(EagerKernelTest, IndexTest) {
   torch::Tensor input_hpu = input_cpu.to(torch::kHABANA);
 
   std::vector<torch::Tensor> vec_cpu{torch::tensor({{0, 1}, {0, 1}})};
-  std::vector<torch::Tensor> vec_hpu;
+  // std::vector<torch::Tensor> vec_hpu;
+  // for (auto t : vec_cpu) {
+  //   vec_hpu.push_back(t.to(torch::kHABANA));
+  // }
+  c10::List<c10::optional<at::Tensor>> indices_cpu{};
+  // auto tensorlist = indices.vec();
+  indices_cpu.reserve(vec_cpu.size());
   for (auto t : vec_cpu) {
-    vec_hpu.push_back(t.to(torch::kHABANA));
+    indices_cpu.push_back(c10::make_optional(t));
   }
-
-  auto out_cpu = at::index(input_cpu, vec_cpu);
-  auto out_hpu = at::index(input_hpu, vec_hpu);
+  c10::List<c10::optional<at::Tensor>> indices_list{};
+  // auto tensorlist = indices.vec();
+  indices_list.reserve(vec_cpu.size());
+  for (auto t : vec_cpu) {
+    indices_list.push_back(c10::make_optional(t.to(torch::kHABANA)));
+  }
+  auto out_cpu = at::index(input_cpu, indices_cpu);
+  auto out_hpu = at::index(input_hpu, indices_list);
 
   bool equal = out_cpu.allclose(out_hpu.to(torch::kCPU), 0.001, 0.001);
   EXPECT_EQ(equal, true);
@@ -565,13 +599,24 @@ TEST(EagerKernelTest, BroadCastIndexTest) {
   torch::Tensor input_hpu = input_cpu.to(torch::kHABANA);
 
   std::vector<torch::Tensor> vec_cpu{torch::tensor({1}), torch::tensor({0, 1})};
-  std::vector<torch::Tensor> vec_hpu;
+  // std::vector<torch::Tensor> vec_hpu;
+  // for (auto t : vec_cpu) {
+  //   vec_hpu.push_back(t.to(torch::kHABANA));
+  // }
+  c10::List<c10::optional<at::Tensor>> indices_cpu{};
+  // auto tensorlist = indices.vec();
+  indices_cpu.reserve(vec_cpu.size());
   for (auto t : vec_cpu) {
-    vec_hpu.push_back(t.to(torch::kHABANA));
+    indices_cpu.push_back(c10::make_optional(t));
   }
-
-  auto out_cpu = at::index(input_cpu, vec_cpu);
-  auto out_hpu = at::index(input_hpu, vec_hpu);
+  c10::List<c10::optional<at::Tensor>> indices_list{};
+  // auto tensorlist = indices.vec();
+  indices_list.reserve(vec_cpu.size());
+  for (auto t : vec_cpu) {
+    indices_list.push_back(c10::make_optional(t.to(torch::kHABANA)));
+  }
+  auto out_cpu = at::index(input_cpu, indices_cpu);
+  auto out_hpu = at::index(input_hpu, indices_list);
 
   bool equal = out_cpu.allclose(out_hpu.to(torch::kCPU), 0.001, 0.001);
   EXPECT_EQ(equal, true);

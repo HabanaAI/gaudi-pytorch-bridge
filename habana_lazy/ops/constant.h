@@ -81,7 +81,7 @@ class OnesLike : public Node {
 
     if (options.has_dtype()) {
       m_meta_data.set(
-          c10::tryTypeMetaToScalarType(options.dtype()),
+          at::typeMetaToScalarType(options.dtype()),
           static_cast<size_t>(OnesLikeParam::kDtypeIdx));
     } else {
       m_meta_data.set(

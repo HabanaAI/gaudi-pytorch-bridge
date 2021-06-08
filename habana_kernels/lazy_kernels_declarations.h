@@ -301,8 +301,8 @@ at::Tensor gather2d_hpu_lazy(
 at::Tensor slice_hpu_lazy(
     const at::Tensor& self,
     int64_t dim,
-    int64_t start,
-    int64_t end,
+    c10::optional<int64_t> start,
+    c10::optional<int64_t> end,
     int64_t step);
 at::Tensor select_hpu_lazy(const at::Tensor& self, int64_t dim, int64_t index);
 at::Tensor& arange_hpu_lazy(
@@ -388,19 +388,18 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> batch_norm_bwd_hpu_lazy(
     std::array<bool, 3> output_mask);
 std::tuple<at::Tensor, at::Tensor, at::Tensor> layer_norm_hpu_lazy(
     const at::Tensor& input,
-    const at::Tensor& weight,
-    const at::Tensor& bias,
-    int64_t m,
-    int64_t n,
+    at::IntArrayRef normalized_shape,
+    const c10::optional<at::Tensor>& weight_opt,
+    const c10::optional<at::Tensor>& bias_opt,
     double eps);
 std::tuple<at::Tensor, at::Tensor, at::Tensor> layer_norm_backward_hpu_lazy(
     const at::Tensor& dY,
     const at::Tensor& X,
+    at::IntArrayRef normalized_shape,
     const at::Tensor& mean,
     const at::Tensor& rstd,
-    const at::Tensor& gamma,
-    int64_t M,
-    int64_t N,
+    const c10::optional<at::Tensor>& weight_opt,
+    const c10::optional<at::Tensor>& bias_opt,
     std::array<bool, 3> grad_input_mask);
 at::Tensor norm_scalar_hpu_lazy(const at::Tensor& self, at::Scalar p);
 std::tuple<at::Tensor, at::Tensor> max_pool2d_with_indices_hpu_lazy(
@@ -475,7 +474,7 @@ at::Tensor& normal_hpu_lazy(
 at::Tensor& randperm_hpu_lazy(
     at::Tensor& output,
     int64_t n,
-    c10::optional<at::Generator> gen = c10::nullopt);
+    c10::optional<at::Generator> gen);
 at::Tensor bernoulli_hpu_lazy(
     const at::Tensor& self,
     c10::optional<at::Generator> gen = c10::nullopt);
@@ -549,10 +548,6 @@ at::Tensor& bitwise_and_out_hpu_lazy(
     at::Tensor& out,
     const at::Tensor& self,
     const at::Tensor& other);
-at::Tensor& bitwise_and_out_hpu_lazy(
-    at::Tensor& out,
-    const at::Tensor& self,
-    at::Scalar other);
 at::Tensor& bitwise_or_out_hpu_lazy(
     at::Tensor& out,
     const at::Tensor& self,
@@ -600,7 +595,7 @@ at::Tensor cat_hpu_lazy(const at::TensorList tensors, int64_t dim_ = 0);
 at::Tensor& cat_hpu_lazy_out(
     at::Tensor& result,
     const at::TensorList tensors,
-    int64_t dim_ = 0);
+    int64_t dim_);
 at::Tensor transpose_hpu_lazy(
     const at::Tensor& self,
     int64_t dim0_,

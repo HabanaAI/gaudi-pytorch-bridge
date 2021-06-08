@@ -1053,7 +1053,7 @@ if __name__ == "__main__":
             for a,b in enumerate(train_ld):
                 yield (a,b)
 
-    with torch.autograd.profiler.profile(args.enable_profiling, use_gpu) as prof:
+    with torch.autograd.profiler.profile(enabled = args.enable_profiling, use_cuda=use_gpu) as prof:
         while k < args.nepochs:
             trainMetaData.set_current_epoch_no(k)
             print('k={} skip_upto_epoch={}'.format(k,skip_upto_epoch))

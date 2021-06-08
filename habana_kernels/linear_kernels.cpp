@@ -210,7 +210,6 @@ void habana::MMOperator::AllocateAndAddSynapseNode(
  *****************************************************************************************************/
 at::Tensor mm_hpu(const at::Tensor& mat1, const at::Tensor& mat2) {
   PT_KERNEL_BEGIN;
-
   const auto device_id = mat1.device().index();
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
   std::string node_type = "gemm";

@@ -20,54 +20,44 @@ namespace ir {
 class LayerNormForward : public ir::Node {
  public:
   enum class LayerNormForwardMeta {
-    WEIGHT_INDEX = 1,
+    NORMALIZED_INDEX = 1,
+    WEIGHT_INDEX,
     BIAS_INDEX,
-    M_INDEX,
-    N_INDEX,
     EPS_INDEX
   };
   LayerNormForward() = delete;
   LayerNormForward(
       const at::Tensor& input,
-      const at::Tensor& weight,
-      const at::Tensor& bias,
-      int64_t m,
-      int64_t n,
+      at::IntArrayRef normalized_shape,
+      const c10::optional<at::Tensor>& weight_opt,
+      const c10::optional<at::Tensor>& bias_opt,
       double eps)
       : Node(c10::Symbol::fromQualString("aten::native_layer_norm")) {
+    auto weight = weight_opt.value();
+    auto bias = bias_opt.value();
     auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHABANA);
     AddInput(hl_input.GetIrValue());
     std::vector<at::Tensor> input_pt_vec{input};
-    if (weight.defined()) {
-      auto hl_weight = GetOrCreateHbLazyTensor(weight, c10::kHABANA);
-      AddInput(hl_weight.GetIrValue());
-      input_pt_vec.emplace_back(weight);
-    } else {
-      m_meta_data.set(
-          torch::jit::IValue(),
-          static_cast<size_t>(LayerNormForwardMeta::WEIGHT_INDEX));
-    }
-    if (bias.defined()) {
-      auto hl_bias = GetOrCreateHbLazyTensor(bias, c10::kHABANA);
-      AddInput(hl_bias.GetIrValue());
-      input_pt_vec.emplace_back(bias);
-    } else {
-      m_meta_data.set(
-          torch::jit::IValue(),
-          static_cast<size_t>(LayerNormForwardMeta::BIAS_INDEX));
-    }
+    auto hl_weight = GetOrCreateHbLazyTensor(weight, c10::kHABANA);
+    AddInput(hl_weight.GetIrValue());
+    input_pt_vec.emplace_back(weight);
+
+    auto hl_bias = GetOrCreateHbLazyTensor(bias, c10::kHABANA);
+    AddInput(hl_bias.GetIrValue());
+    input_pt_vec.emplace_back(bias);
+
     AddInputPtTensors(input_pt_vec);
-    m_meta_data.set(m, static_cast<size_t>(LayerNormForwardMeta::M_INDEX));
-    m_meta_data.set(n, static_cast<size_t>(LayerNormForwardMeta::N_INDEX));
+    m_meta_data.set(
+        normalized_shape,
+        static_cast<size_t>(LayerNormForwardMeta::NORMALIZED_INDEX));
     m_meta_data.set(eps, static_cast<size_t>(LayerNormForwardMeta::EPS_INDEX));
   }
 
   std::string ToString() const override {
     std::stringstream ss;
-    ss << Node::ToString() << ", M="
-       << m_meta_data.get(static_cast<size_t>(LayerNormForwardMeta::M_INDEX))
-       << ", N="
-       << m_meta_data.get(static_cast<size_t>(LayerNormForwardMeta::N_INDEX))
+    ss << Node::ToString() << ", normalized_shape="
+       << m_meta_data.get(
+              static_cast<size_t>(LayerNormForwardMeta::NORMALIZED_INDEX))
        << ", EPS="
        << m_meta_data.get(static_cast<size_t>(LayerNormForwardMeta::EPS_INDEX));
     return ss.str();
@@ -77,20 +67,22 @@ class LayerNormForward : public ir::Node {
 class LayerNormBackward : public ir::Node {
  public:
   enum class LayerNormBackwardMeta {
-    GAMMA_INDEX = 4,
-    M_INDEX,
-    N_INDEX,
+    NORMALIZED_INDEX = 2,
+    MEAN_INDEX,
+    RSTD_INDEX,
+    WEIGHT_INDEX,
+    BIAS_INDEX,
     MASK_INDEX
   };
   LayerNormBackward() = delete;
   LayerNormBackward(
       const at::Tensor& dY,
       const at::Tensor& X,
+      at::IntArrayRef normalized_shape,
       const at::Tensor& mean,
       const at::Tensor& rstd,
-      const at::Tensor& gamma,
-      int64_t M,
-      int64_t N,
+      const c10::optional<at::Tensor>& weight_opt,
+      const c10::optional<at::Tensor>& bias_opt,
       std::array<bool, 3> grad_input_mask)
       : Node(c10::Symbol::fromQualString("aten::native_layer_norm_backward")) {
     auto hl_dY = GetOrCreateHbLazyTensor(dY, c10::kHABANA);
@@ -103,20 +95,20 @@ class LayerNormBackward : public ir::Node {
     AddInput(hl_rstd.GetIrValue());
 
     std::vector<at::Tensor> input_pt_vec{dY, X, mean, rstd};
+    auto gamma = weight_opt.value();
 
-    if (gamma.defined()) {
-      auto hl_gamma = GetOrCreateHbLazyTensor(gamma, c10::kHABANA);
-      AddInput(hl_gamma.GetIrValue());
-      input_pt_vec.emplace_back(gamma);
-    } else {
-      m_meta_data.set(
-          torch::jit::IValue(),
-          static_cast<size_t>(LayerNormBackwardMeta::GAMMA_INDEX));
-    }
+    auto hl_gamma = GetOrCreateHbLazyTensor(gamma, c10::kHABANA);
+    AddInput(hl_gamma.GetIrValue());
+    input_pt_vec.emplace_back(gamma);
+    auto bias = bias_opt.value();
 
+    auto hl_bias = GetOrCreateHbLazyTensor(bias, c10::kHABANA);
+    AddInput(hl_bias.GetIrValue());
+    input_pt_vec.emplace_back(bias);
     AddInputPtTensors(input_pt_vec);
-    m_meta_data.set(M, static_cast<size_t>(LayerNormBackwardMeta::M_INDEX));
-    m_meta_data.set(N, static_cast<size_t>(LayerNormBackwardMeta::N_INDEX));
+    m_meta_data.set(
+        normalized_shape,
+        static_cast<size_t>(LayerNormBackwardMeta::NORMALIZED_INDEX));
     c10::List<bool> boolList{
         grad_input_mask[0], grad_input_mask[1], grad_input_mask[2]};
     m_meta_data.set(
@@ -125,10 +117,10 @@ class LayerNormBackward : public ir::Node {
 
   std::string ToString() const override {
     std::stringstream ss;
-    ss << Node::ToString() << ", M="
-       << m_meta_data.get(static_cast<size_t>(LayerNormBackwardMeta::M_INDEX))
-       << ", N="
-       << m_meta_data.get(static_cast<size_t>(LayerNormBackwardMeta::N_INDEX))
+    ss << Node::ToString() << ", normalized_shape="
+       << m_meta_data.get(
+              static_cast<size_t>(LayerNormBackwardMeta::NORMALIZED_INDEX))
+
        << ", Output Mask="
        << m_meta_data.get(
               static_cast<size_t>(LayerNormBackwardMeta::MASK_INDEX));

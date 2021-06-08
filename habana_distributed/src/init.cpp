@@ -14,8 +14,7 @@
 namespace py = pybind11;
 
 template <typename T>
-using shared_ptr_class_ = py::class_<T, std::shared_ptr<T>>;
-
+using intrusive_ptr_class_ = py::class_<T, c10::intrusive_ptr<T>>;
 TORCH_HCL_CPP_API void torch_hcl_python_init(pybind11::module& m) {
   py::object module = py::module::import("torch.distributed");
   py::object register_backend = module.attr("Backend").attr("register_backend");
@@ -30,15 +29,15 @@ TORCH_HCL_CPP_API void torch_hcl_python_init(pybind11::module& m) {
           py::arg("timeout") = std::chrono::milliseconds(40 * 1000)));
 
   auto processGroup = module.attr("ProcessGroup");
-  auto processGroupHCL = shared_ptr_class_<::c10d::ProcessGroupHCL>(
+  auto processGroupHCL = intrusive_ptr_class_<::c10d::ProcessGroupHCL>(
       module, "ProcessGroupHCL", processGroup);
 
   processGroupHCL.def(
-      py::init([](const std::shared_ptr<::c10d::Store>& store,
+      py::init([](const c10::intrusive_ptr<::c10d::Store>& store,
                   int rank,
                   int size,
                   std::chrono::milliseconds timeout) {
-        return std::make_shared<::c10d::ProcessGroupHCL>(
+        return c10::make_intrusive<::c10d::ProcessGroupHCL>(
             store, rank, size, timeout);
       }),
       py::arg("store"),

@@ -118,7 +118,7 @@ std::shared_ptr<hcl_communicator> ProcessGroupHCL::getComm(int deviceId) {
 // Initial support added for multiple devices on a single node
 // So using rank as the device id.  This will be enhanced further.
 ProcessGroupHCL::ProcessGroupHCL(
-    const std::shared_ptr<Store>& store,
+    const c10::intrusive_ptr<Store>& store,
     int rank,
     int size,
     const std::chrono::milliseconds& opTimeout)
@@ -187,11 +187,11 @@ void ProcessGroupHCL::WorkHCL::abort() {
   TORCH_CHECK(false, "ProcessGroupHCL::WorkHCL::abort not implemented.");
 }
 
-std::shared_ptr<ProcessGroupHCL::WorkHCL> ProcessGroupHCL::initWork(
+c10::intrusive_ptr<ProcessGroupHCL::WorkHCL> ProcessGroupHCL::initWork(
     std::vector<at::Tensor>& outputs,
     std::vector<int> devices,
     std::vector<std::shared_ptr<hcl_communicator>>& hcl_comms) {
-  return std::make_shared<ProcessGroupHCL::WorkHCL>(
+  return c10::make_intrusive<ProcessGroupHCL::WorkHCL>(
       outputs, devices, hcl_comms);
 }
 
@@ -215,7 +215,7 @@ std::vector<std::shared_ptr<hcl_communicator>> ProcessGroupHCL::getCommList(
 }
 
 template <typename Fn, typename PreProcess, typename PostProcess>
-std::shared_ptr<ProcessGroup::Work> ProcessGroupHCL::hclcollective(
+c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCL::hclcollective(
     std::vector<at::Tensor>& inputs,
     std::vector<at::Tensor>& outputs,
     Fn fn,
@@ -242,7 +242,7 @@ std::shared_ptr<ProcessGroup::Work> ProcessGroupHCL::hclcollective(
 }
 
 template <typename Fn>
-std::shared_ptr<ProcessGroup::Work> ProcessGroupHCL::hclcollective(
+c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCL::hclcollective(
     std::vector<at::Tensor>& inputs,
     std::vector<at::Tensor>& outputs,
     Fn fn) {
@@ -251,7 +251,7 @@ std::shared_ptr<ProcessGroup::Work> ProcessGroupHCL::hclcollective(
       inputs, outputs, fn, [](std::vector<int>&) {}, [](std::vector<int>&) {});
 }
 
-std::shared_ptr<ProcessGroup::Work> ProcessGroupHCL::broadcast(
+c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCL::broadcast(
     std::vector<at::Tensor>& tensors,
     const BroadcastOptions& opts) {
   return hclcollective(
@@ -267,7 +267,7 @@ std::shared_ptr<ProcessGroup::Work> ProcessGroupHCL::broadcast(
       });
 }
 
-std::shared_ptr<ProcessGroup::Work> ProcessGroupHCL::allreduce(
+c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCL::allreduce(
     std::vector<at::Tensor>& tensors,
     const AllreduceOptions& opts) {
   return hclcollective(
@@ -285,14 +285,14 @@ std::shared_ptr<ProcessGroup::Work> ProcessGroupHCL::allreduce(
       });
 }
 
-std::shared_ptr<ProcessGroup::Work> ProcessGroupHCL::allreduce_coalesced(
+c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCL::allreduce_coalesced(
     std::vector<at::Tensor>& tensors,
     const AllreduceCoalescedOptions& opts) {
   throw std::runtime_error(
       "allreduce_coalesced is currently not supported with HCL");
 }
 
-std::shared_ptr<ProcessGroup::Work> ProcessGroupHCL::reduce(
+c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCL::reduce(
     std::vector<at::Tensor>& tensors,
     const ReduceOptions& opts) {
   return hclcollective(
@@ -311,7 +311,7 @@ std::shared_ptr<ProcessGroup::Work> ProcessGroupHCL::reduce(
       });
 }
 
-std::shared_ptr<ProcessGroup::Work> ProcessGroupHCL::alltoall_base(
+c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCL::alltoall_base(
     at::Tensor& outputTensor,
     at::Tensor& inputTensor,
     std::vector<int64_t>& outputSplitSizes,
@@ -335,7 +335,7 @@ std::shared_ptr<ProcessGroup::Work> ProcessGroupHCL::alltoall_base(
       });
 }
 
-std::shared_ptr<ProcessGroup::Work> ProcessGroupHCL::allgather(
+c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCL::allgather(
     std::vector<std::vector<at::Tensor>>& outputTensors,
     std::vector<at::Tensor>& inputTensors,
     const AllgatherOptions& opts) {
@@ -363,7 +363,7 @@ std::shared_ptr<ProcessGroup::Work> ProcessGroupHCL::allgather(
       });
 }
 
-std::shared_ptr<ProcessGroup::Work> ProcessGroupHCL::allgather_base(
+c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCL::allgather_base(
     at::Tensor& outputBuffer,
     at::Tensor& inputBuffer,
     const AllgatherOptions& opts) {
@@ -371,7 +371,7 @@ std::shared_ptr<ProcessGroup::Work> ProcessGroupHCL::allgather_base(
       "allgather_base is currently not supported with HCL");
 }
 
-std::shared_ptr<ProcessGroup::Work> ProcessGroupHCL::allgather_coalesced(
+c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCL::allgather_coalesced(
     std::vector<std::vector<at::Tensor>>& /* unused */,
     std::vector<at::Tensor>& /* unused */,
     const AllgatherOptions& /* unused */) {
@@ -379,28 +379,28 @@ std::shared_ptr<ProcessGroup::Work> ProcessGroupHCL::allgather_coalesced(
       "ProcessGroupHCL does not support allgather_coalesced");
 }
 
-std::shared_ptr<ProcessGroup::Work> ProcessGroupHCL::gather(
+c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCL::gather(
     std::vector<std::vector<at::Tensor>>& outputTensors,
     std::vector<at::Tensor>& inputTensors,
     const GatherOptions& opts) {
   throw std::runtime_error("ProcessGroupHCL does not support gather");
 }
 
-std::shared_ptr<ProcessGroup::Work> ProcessGroupHCL::scatter(
+c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCL::scatter(
     std::vector<at::Tensor>& outputTensors,
     std::vector<std::vector<at::Tensor>>& inputTensors,
     const ScatterOptions& opts) {
   throw std::runtime_error("ProcessGroupHCL does not support scatter");
 }
 
-std::shared_ptr<ProcessGroup::Work> ProcessGroupHCL::reduce_scatter(
+c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCL::reduce_scatter(
     std::vector<at::Tensor>& outputTensors,
     std::vector<std::vector<at::Tensor>>& inputTensors,
     const ReduceScatterOptions& opts) {
   throw std::runtime_error("ProcessGroupHCL does not support reduce_scatter");
 }
 
-std::shared_ptr<ProcessGroup::Work> ProcessGroupHCL::send(
+c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCL::send(
     std::vector<at::Tensor>& tensors,
     int dstRank,
     int tag) {
@@ -417,7 +417,7 @@ std::shared_ptr<ProcessGroup::Work> ProcessGroupHCL::send(
       });
 }
 
-std::shared_ptr<ProcessGroup::Work> ProcessGroupHCL::recv(
+c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCL::recv(
     std::vector<at::Tensor>& tensors,
     int srcRank,
     int tag) {
@@ -434,13 +434,13 @@ std::shared_ptr<ProcessGroup::Work> ProcessGroupHCL::recv(
       });
 }
 
-std::shared_ptr<ProcessGroup::Work> ProcessGroupHCL::recvAnysource(
+c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCL::recvAnysource(
     std::vector<at::Tensor>& tensors,
     int tag) {
   throw std::runtime_error("ProcessGroupHCL does not support recv");
 }
 
-std::shared_ptr<ProcessGroup::Work> ProcessGroupHCL::barrier(
+c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCL::barrier(
     const BarrierOptions& opts) {
   std::vector<std::shared_ptr<hcl_communicator>> comms;
   std::vector<int> res;

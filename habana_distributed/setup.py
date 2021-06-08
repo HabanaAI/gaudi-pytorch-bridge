@@ -51,7 +51,7 @@ class BuildCMakeExt(build_ext):
 
         pybind11_path = os.path.join(os.environ['PYTORCH_MODULES_ROOT_PATH'], 'habana_distributed/third_party/pybind11')
         try:
-            subprocess.check_call(["git", "-C", pybind11_path, 'checkout', 'v2.4.3'])
+            subprocess.check_call(["git", "-C", pybind11_path, 'checkout', 'v2.6.2'])
         except subprocess.CalledProcessError:
             print('git checkout failed')
         # Now that the necessary directories are created, build
