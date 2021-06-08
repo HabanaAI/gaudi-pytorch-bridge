@@ -9,6 +9,7 @@
  */
 
 #pragma once
+#include "habana_lazy/hlexec.h"
 #include "habana_lazy/hpu_lazy_cache.h"
 
 #include <gtest/gtest.h>
@@ -85,9 +86,13 @@ class LazyTest : public ::testing::Test, public EnvHelper {
     SetLazyMode();
 
     SetSeed();
+
+    habana_lazy::exec::OptPassCfg::GetInstance()->SetDefaultOptFlags();
   }
 
   void TearDown() override {
+    habana_lazy::exec::OptPassCfg::GetInstance()->SetDefaultOptFlags();
+
     // Restore the original value back
     RestoreMode();
   }

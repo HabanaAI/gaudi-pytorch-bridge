@@ -1971,7 +1971,7 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
       continue;
     }
 
-    if (habana_lazy::exec::OptPassCfg::GetInstance()->enable_permute_pass) {
+    if (habana_lazy::exec::OptPassCfg::GetInstance()->IsEnabledPermutePass()) {
       if (strcmp(node->kind().toQualString(), "hpu::restride_cl") == 0) {
         handleRestrideNode(node);
         continue;
@@ -1988,7 +1988,7 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
             std::string(" isnt supported in graph mode "));
 
     // See if we need to modify/permute tesnors
-    if (!habana_lazy::exec::OptPassCfg::GetInstance()->enable_permute_pass)
+    if (!habana_lazy::exec::OptPassCfg::GetInstance()->IsEnabledPermutePass())
       processInputs(node, HabanaKernel);
 
     // clear the accumulated synapse node indices corresponding to permute.
@@ -2071,7 +2071,7 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
   // Process control edges
   HabanaLaunchOpPT::ProcessControlEdges();
 
-  if (!habana_lazy::exec::OptPassCfg::GetInstance()->enable_permute_pass)
+  if (!habana_lazy::exec::OptPassCfg::GetInstance()->IsEnabledPermutePass())
     postProcessOutputs();
 
   if (syn_graph.is_empty()) {
@@ -2887,7 +2887,7 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
           // Make the sizes according to NCHW as PT maintains
           // NCHW shapes even for NHWC tensors(It doesnt change shape)
           if (!habana_lazy::exec::OptPassCfg::GetInstance()
-                   ->enable_permute_pass)
+                   ->IsEnabledPermutePass())
             adjustSizesforPT(&tensor, false);
           IValPtrShared ivptrsh = std::make_shared<IVal>(tensor);
           value_to_ivalue[value_input] = ivptrsh;

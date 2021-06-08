@@ -635,7 +635,7 @@ void PermuteCLOperator::AllocateAndAddSynapseNode(
   PermuteOperator::AllocateAndAddSynapseNode(
       graph, inputs, is_output_persistent);
 
-  if (!habana_lazy::exec::OptPassCfg::GetInstance()->enable_permute_pass) {
+  if (!habana_lazy::exec::OptPassCfg::GetInstance()->IsEnabledPermutePass()) {
     auto& output = p_context_->pt_outputs_[0];
     auto sizes = output.sizes().vec();
     auto strides = output.strides().vec();

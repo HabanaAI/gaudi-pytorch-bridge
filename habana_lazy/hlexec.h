@@ -44,15 +44,7 @@ class OptPassCfg {
   static OptPassCfg* p_instance_;
 
   OptPassCfg() {
-    enable_eliminate_dead_code = true;
-    enable_eliminate_common_subexpression = true;
-    enable_constant_pooling = true;
-    enable_peephole_optimization = true;
-    enable_subgraph_rewrite = true;
-    enable_fuse_t_mm_optimization = true;
-    enable_fuse_bn_relu_optimization = true;
-    enable_permute_pass = true;
-    enable_replace_inplace_ops = true;
+    SetDefaultOptFlags();
   }
 
  public:
@@ -68,6 +60,75 @@ class OptPassCfg {
     return p_instance_;
   }
 
+  void SetDeadCodeElimination(const bool flag) {
+    enable_eliminate_dead_code = flag;
+  }
+  void SetCSEElimination(const bool flag) {
+    enable_eliminate_common_subexpression = flag;
+  }
+  void SetConstPooling(const bool flag) {
+    enable_constant_pooling = flag;
+  }
+  void SetPeepholeOpt(const bool flag) {
+    enable_peephole_optimization = flag;
+  }
+  void SetSubgraphRewrite(const bool flag) {
+    enable_subgraph_rewrite = flag;
+  }
+  void SetFuseTMM(const bool flag) {
+    enable_fuse_t_mm_optimization = flag;
+  }
+  void SetFuseBnRelu(const bool flag) {
+    enable_fuse_bn_relu_optimization = flag;
+  }
+  void SetPermutePass(const bool flag) {
+    enable_permute_pass = flag;
+  }
+  void SetReplaceInplaceOps(const bool flag) {
+    enable_replace_inplace_ops = flag;
+  }
+
+  bool IsEnabledDeadCodeElimination() const {
+    return enable_eliminate_dead_code;
+  }
+  bool IsEnabledCSEElimination() const {
+    return enable_eliminate_common_subexpression;
+  }
+  bool IsEnabledConstPooling() const {
+    return enable_constant_pooling;
+  }
+  bool IsEnabledPeepholeOpt() const {
+    return enable_peephole_optimization;
+  }
+  bool IsEnabledSubgraphRewrite() const {
+    return enable_subgraph_rewrite;
+  }
+  bool IsEnabledFuseTMM() const {
+    return enable_fuse_t_mm_optimization;
+  }
+  bool IsEnabledFuseBnRelu() const {
+    return enable_fuse_bn_relu_optimization;
+  }
+  bool IsEnabledPermutePass() const {
+    return enable_permute_pass;
+  }
+  bool IsEnabledReplaceInplaceOps() const {
+    return enable_replace_inplace_ops;
+  }
+
+  void SetDefaultOptFlags() {
+    enable_eliminate_dead_code = true;
+    enable_eliminate_common_subexpression = true;
+    enable_constant_pooling = true;
+    enable_peephole_optimization = true;
+    enable_subgraph_rewrite = true;
+    enable_fuse_t_mm_optimization = true;
+    enable_fuse_bn_relu_optimization = true;
+    enable_permute_pass = true;
+    enable_replace_inplace_ops = true;
+  }
+
+ private:
   bool enable_eliminate_dead_code;
   bool enable_eliminate_common_subexpression;
   bool enable_constant_pooling;

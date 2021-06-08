@@ -43,7 +43,7 @@ TEST_F(GraphOptimizeTest, PeepholeOptimTest) {
   auto po_data = HbLazyTensor::RunPostOrder(tensors, indices);
 
   exec::HlExec* hlexec = new exec::HlExec();
-  exec::OptPassCfg::GetInstance()->enable_peephole_optimization = true;
+  exec::OptPassCfg::GetInstance()->SetPeepholeOpt(true);
 
   std::vector<at::Tensor> input_list{hl_tensor_in};
 
@@ -55,7 +55,6 @@ TEST_F(GraphOptimizeTest, PeepholeOptimTest) {
 
   torch::jit::testing::FileCheck().check_not("aten::t")->run(
       *hlexec->get_graph());
-  exec::OptPassCfg::GetInstance()->enable_peephole_optimization = false;
 }
 
 TEST_F(GraphOptimizeTest, SubGraphRewriteTest) {
@@ -148,7 +147,7 @@ TEST_F(GraphOptimizeTest, FuseMmTransposeTest) {
   auto po_data = HbLazyTensor::RunPostOrder(tensors, indices);
 
   exec::HlExec* hlexec = new exec::HlExec();
-  exec::OptPassCfg::GetInstance()->enable_fuse_t_mm_optimization = true;
+  exec::OptPassCfg::GetInstance()->SetFuseTMM(true);
 
   std::vector<at::Tensor> input_list{hl_tensor_in1, hl_tensor_in2};
 
@@ -166,7 +165,6 @@ TEST_F(GraphOptimizeTest, FuseMmTransposeTest) {
 
   torch::Tensor out_hpu = result.to(torch::kCPU);
   EXPECT_EQ(allclose(out_cpu, out_hpu), true);
-  exec::OptPassCfg::GetInstance()->enable_fuse_t_mm_optimization = false;
 }
 
 TEST_F(GraphOptimizeTest, BnReluOptTest) {
@@ -196,7 +194,7 @@ TEST_F(GraphOptimizeTest, BnReluOptTest) {
   auto po_data = HbLazyTensor::RunPostOrder(tensors, indices);
 
   exec::HlExec* hlexec = new exec::HlExec();
-  exec::OptPassCfg::GetInstance()->enable_fuse_t_mm_optimization = true;
+  exec::OptPassCfg::GetInstance()->SetFuseTMM(true);
 
   std::vector<at::Tensor> input_list{hl_tensor_in1, hl_tensor_in2};
 
@@ -214,7 +212,6 @@ TEST_F(GraphOptimizeTest, BnReluOptTest) {
 
   torch::Tensor out_hpu = result.to(torch::kCPU);
   EXPECT_EQ(allclose(out_cpu, out_hpu), true);
-  exec::OptPassCfg::GetInstance()->enable_fuse_t_mm_optimization = false;
 }
 
 TEST_F(GraphOptimizeTest, PermutePassTest_CL) {
@@ -278,7 +275,7 @@ TEST_F(GraphOptimizeTest, RemoveInplaceOps_pass1) {
   auto po_data = HbLazyTensor::RunPostOrder(tensors, indices);
 
   exec::HlExec* hlexec = new exec::HlExec();
-  exec::OptPassCfg::GetInstance()->enable_replace_inplace_ops = true;
+  exec::OptPassCfg::GetInstance()->SetReplaceInplaceOps(true);
 
   std::vector<at::Tensor> input_list{hA, hB};
   auto stack = torch::jit::Stack(
@@ -292,7 +289,6 @@ TEST_F(GraphOptimizeTest, RemoveInplaceOps_pass1) {
       ->run(*hlexec->get_graph());
 
   Tensor Out = h_Out.to(kCPU);
-  exec::OptPassCfg::GetInstance()->enable_replace_inplace_ops = false;
 }
 
 TEST_F(GraphOptimizeTest, RemoveInplaceOps_pass2) {
@@ -311,7 +307,7 @@ TEST_F(GraphOptimizeTest, RemoveInplaceOps_pass2) {
   auto po_data = HbLazyTensor::RunPostOrder(tensors, indices);
 
   exec::HlExec* hlexec = new exec::HlExec();
-  exec::OptPassCfg::GetInstance()->enable_replace_inplace_ops = true;
+  exec::OptPassCfg::GetInstance()->SetReplaceInplaceOps(true);
 
   std::vector<at::Tensor> input_list{hA, hB};
   auto stack = torch::jit::Stack(
@@ -325,7 +321,6 @@ TEST_F(GraphOptimizeTest, RemoveInplaceOps_pass2) {
       ->run(*hlexec->get_graph());
 
   Tensor Out = h_Out.to(kCPU);
-  exec::OptPassCfg::GetInstance()->enable_replace_inplace_ops = false;
 }
 
 TEST_F(GraphOptimizeTest, RemoveInplaceOps_pass3) {
@@ -344,7 +339,7 @@ TEST_F(GraphOptimizeTest, RemoveInplaceOps_pass3) {
   auto po_data = HbLazyTensor::RunPostOrder(tensors, indices);
 
   exec::HlExec* hlexec = new exec::HlExec();
-  exec::OptPassCfg::GetInstance()->enable_replace_inplace_ops = true;
+  exec::OptPassCfg::GetInstance()->SetReplaceInplaceOps(true);
 
   std::vector<at::Tensor> input_list{hA, hB};
   auto stack = torch::jit::Stack(
@@ -358,7 +353,6 @@ TEST_F(GraphOptimizeTest, RemoveInplaceOps_pass3) {
       ->run(*hlexec->get_graph());
 
   Tensor Out = h_Out.to(kCPU);
-  exec::OptPassCfg::GetInstance()->enable_replace_inplace_ops = false;
 }
 
 TEST_F(GraphOptimizeTest, PermutePassReshapeHandling) {

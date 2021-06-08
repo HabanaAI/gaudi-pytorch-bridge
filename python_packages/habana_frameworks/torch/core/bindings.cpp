@@ -118,57 +118,51 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def(
       "enable_eliminate_common_subexpression",
       [](const bool flag) {
-        habana_lazy::exec::OptPassCfg::GetInstance()
-            ->enable_eliminate_common_subexpression = flag;
+        habana_lazy::exec::OptPassCfg::GetInstance()->SetCSEElimination(flag);
       },
       py::arg("flag"));
   m.def(
       "enable_eliminate_dead_code",
       [](const bool flag) {
-        habana_lazy::exec::OptPassCfg::GetInstance()
-            ->enable_eliminate_dead_code = flag;
+        habana_lazy::exec::OptPassCfg::GetInstance()->SetDeadCodeElimination(
+            flag);
       },
       py::arg("flag"));
   m.def(
       "enable_constant_pooling",
       [](const bool flag) {
-        habana_lazy::exec::OptPassCfg::GetInstance()->enable_constant_pooling =
-            flag;
+        habana_lazy::exec::OptPassCfg::GetInstance()->SetConstPooling(flag);
       },
       py::arg("flag"));
   m.def(
       "enable_peephole_optimization",
       [](const bool flag) {
-        habana_lazy::exec::OptPassCfg::GetInstance()
-            ->enable_peephole_optimization = flag;
+        habana_lazy::exec::OptPassCfg::GetInstance()->SetPeepholeOpt(flag);
       },
       py::arg("flag"));
   m.def(
       "enable_fuse_t_mm_optimization",
       [](const bool flag) {
-        habana_lazy::exec::OptPassCfg::GetInstance()
-            ->enable_fuse_t_mm_optimization = flag;
+        habana_lazy::exec::OptPassCfg::GetInstance()->SetFuseTMM(flag);
       },
       py::arg("flag"));
   m.def(
       "enable_fuse_bn_relu_optimization",
       [](const bool flag) {
-        habana_lazy::exec::OptPassCfg::GetInstance()
-            ->enable_fuse_bn_relu_optimization = flag;
+        habana_lazy::exec::OptPassCfg::GetInstance()->SetFuseBnRelu(flag);
       },
       py::arg("flag"));
   m.def(
       "enable_permute_pass",
       [](const bool flag) {
-        habana_lazy::exec::OptPassCfg::GetInstance()->enable_permute_pass =
-            flag;
+        habana_lazy::exec::OptPassCfg::GetInstance()->SetPermutePass(flag);
       },
       py::arg("flag"));
   m.def(
       "enable_replace_inplace_ops",
       [](const bool flag) {
-        habana_lazy::exec::OptPassCfg::GetInstance()
-            ->enable_replace_inplace_ops = flag;
+        habana_lazy::exec::OptPassCfg::GetInstance()->SetReplaceInplaceOps(
+            flag);
       },
       py::arg("flag"));
   m.doc() = "This module registers habana backend.";

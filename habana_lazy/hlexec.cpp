@@ -225,42 +225,42 @@ void HlExec::Create(
 
 void HlExec::Optimize(torch::jit::Stack& stack) {
   PT_LAZY_TRACE;
-  if (OptPassCfg::GetInstance()->enable_fuse_t_mm_optimization) {
+  if (OptPassCfg::GetInstance()->IsEnabledFuseTMM()) {
     fuse_mm_transpose(mp_g_);
   }
 
-  if (OptPassCfg::GetInstance()->enable_fuse_bn_relu_optimization) {
+  if (OptPassCfg::GetInstance()->IsEnabledFuseBnRelu()) {
     fuse_bn_relu(mp_g_);
   }
 
-  if (OptPassCfg::GetInstance()->enable_replace_inplace_ops) {
+  if (OptPassCfg::GetInstance()->IsEnabledReplaceInplaceOps()) {
     replace_inplace_ops(mp_g_);
-    OptPassCfg::GetInstance()->enable_eliminate_dead_code = true;
+    OptPassCfg::GetInstance()->SetDeadCodeElimination(true);
   }
 
-  if (OptPassCfg::GetInstance()->enable_fuse_t_mm_optimization ||
-      OptPassCfg::GetInstance()->enable_eliminate_dead_code ||
-      OptPassCfg::GetInstance()->enable_fuse_bn_relu_optimization) {
+  if (OptPassCfg::GetInstance()->IsEnabledFuseTMM() ||
+      OptPassCfg::GetInstance()->IsEnabledDeadCodeElimination() ||
+      OptPassCfg::GetInstance()->IsEnabledFuseBnRelu()) {
     torch::jit::EliminateDeadCode(mp_g_);
   }
 
-  if (OptPassCfg::GetInstance()->enable_eliminate_common_subexpression) {
+  if (OptPassCfg::GetInstance()->IsEnabledCSEElimination()) {
     torch::jit::EliminateCommonSubexpression(mp_g_);
   }
 
-  if (OptPassCfg::GetInstance()->enable_constant_pooling) {
+  if (OptPassCfg::GetInstance()->IsEnabledConstPooling()) {
     torch::jit::ConstantPooling(mp_g_);
   }
 
-  if (OptPassCfg::GetInstance()->enable_peephole_optimization) {
+  if (OptPassCfg::GetInstance()->IsEnabledPeepholeOpt()) {
     torch::jit::PeepholeOptimize(mp_g_);
   }
 
-  if (OptPassCfg::GetInstance()->enable_subgraph_rewrite) {
+  if (OptPassCfg::GetInstance()->IsEnabledSubgraphRewrite()) {
     transform_graph(mp_g_);
   }
 
-  if (OptPassCfg::GetInstance()->enable_permute_pass) {
+  if (OptPassCfg::GetInstance()->IsEnabledPermutePass()) {
     InsertPermute_graph(mp_g_, stack);
   }
 }
