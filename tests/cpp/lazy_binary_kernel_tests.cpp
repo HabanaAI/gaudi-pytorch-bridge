@@ -354,7 +354,7 @@ TEST_F(LazyBinaryKernelTest, AddcdivTest) {
 
   auto cpuOut = at::addcdiv(A, B, C, alpha);
 
-  EXPECT_TRUE(allclose(hOut, cpuOut));
+  EXPECT_EQ(allclose(hOut, cpuOut, 0.001, 0.001), true);
 }
 
 TEST_F(LazyBinaryKernelTest, AddcmulTest) {
