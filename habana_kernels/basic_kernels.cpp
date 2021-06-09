@@ -311,7 +311,10 @@ void ToDtypeOperator::AllocateAndAddSynapseNode(
     } else {
       HABANA_ASSERT(
           0 &&
-          "Unsupported Cast operation requested in ToDtypeOperator::AllocateAndAddSynapseNode");
+              "Unsupported Cast operation requested in ToDtypeOperator::AllocateAndAddSynapseNode",
+          self.scalar_type(),
+          " -> ",
+          type);
     }
   } else {
     // Cases where a simple copy is being done (input_new = input) come as .to
@@ -358,15 +361,22 @@ void CastLazyOperator::AllocateAndAddSynapseNode(
   auto type = inputs[1].toScalarType();
 
   std::string node_type;
-  std::pair<c10::ScalarType, c10::ScalarType> type_key{
-      self.scalar_type(), type};
-  auto iter = habana_helpers::cast_map.find(type_key);
-  if (iter != habana_helpers::cast_map.end()) {
-    node_type = iter->second;
+  if (self.scalar_type() != type) {
+    std::pair<c10::ScalarType, c10::ScalarType> type_key{
+        self.scalar_type(), type};
+    auto iter = habana_helpers::cast_map.find(type_key);
+    if (iter != habana_helpers::cast_map.end()) {
+      node_type = iter->second;
+    } else {
+      HABANA_ASSERT(
+          0 &&
+              "Unsupported Cast operation requested in CastLazyOperator::AllocateAndAddSynapseNode: ",
+          self.scalar_type(),
+          " -> ",
+          type);
+    }
   } else {
-    HABANA_ASSERT(
-        0 &&
-        "Unsupported Cast operation requested in CastLazyOperator::AllocateAndAddSynapseNode");
+    node_type = "cast_identity";
   }
 
   /*
@@ -393,11 +403,29 @@ void CastLazyOperator::AllocateAndAddSynapseNode(
   p_context_->pt_outputs_.emplace_back(output);
   AddNodeToSynapseGraph(graph, &params, sizeof(params));*/
 
-  auto Op = make_operator<CastOperator>(self.device().index(), node_type);
-  Op->SetSynapseInput(p_context_->syn_inputs_[0]);
-  Op->AllocateAndAddSynapseNode(graph, inputs, is_output_persistent);
-  p_context_->syn_outputs_.emplace_back(std::move(Op->GetSynOutputs()[0]));
-  p_context_->pt_outputs_.emplace_back(std::move(Op->GetOutputs()[0]));
+  // Insert the cast node - in case cast is to same type alias, insert an
+  // identity op
+  if (node_type.compare("cast_identity")) {
+    auto Op = make_operator<CastOperator>(self.device().index(), node_type);
+    Op->SetSynapseInput(p_context_->syn_inputs_[0]);
+    Op->AllocateAndAddSynapseNode(graph, inputs, is_output_persistent);
+    p_context_->syn_outputs_.emplace_back(std::move(Op->GetSynOutputs()[0]));
+    p_context_->pt_outputs_.emplace_back(std::move(Op->GetOutputs()[0]));
+  } else {
+    auto identityOp = make_operator<IdentityOperator>(
+        self.device().index(), self.scalar_type());
+    auto& syn_arg0 =
+        identityOp->SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+
+    torch::jit::Stack stack = {IValue(self)};
+    identityOp->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+
+    p_context_->syn_inputs_[0] = std::move(syn_arg0);
+    p_context_->syn_outputs_.emplace_back(
+        std::move(identityOp->GetSynOutputs()[0]));
+    p_context_->pt_outputs_.emplace_back(
+        std::move(identityOp->GetOutputs()[0]));
+  }
 }
 
 /*************************************************************************

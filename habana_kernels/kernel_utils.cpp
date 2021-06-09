@@ -57,6 +57,10 @@ std::map<std::pair<c10::ScalarType, c10::ScalarType>, c10::ScalarType>
  **/
 std::map<std::pair<c10::ScalarType, c10::ScalarType>, std::string>
     habana_helpers::cast_map{
+        {{c10::ScalarType::Char, c10::ScalarType::Bool}, "cast_identity"},
+        {{c10::ScalarType::Bool, c10::ScalarType::Char}, "cast_identity"},
+        {{c10::ScalarType::Float, c10::ScalarType::Float}, "cast_identity"},
+        {{c10::ScalarType::Int, c10::ScalarType::Int}, "cast_identity"},
         {{c10::ScalarType::Bool, c10::ScalarType::Float}, "cast_i8_to_f32"},
         {{c10::ScalarType::Char, c10::ScalarType::Float}, "cast_i8_to_f32"},
         {{c10::ScalarType::Float, c10::ScalarType::Bool}, "cast_f32_to_i8"},
@@ -68,6 +72,8 @@ std::map<std::pair<c10::ScalarType, c10::ScalarType>, std::string>
         {{c10::ScalarType::Bool, c10::ScalarType::Int}, "cast_i8_to_i32"},
         {{c10::ScalarType::Char, c10::ScalarType::Int}, "cast_i8_to_i32"},
         {{c10::ScalarType::Int, c10::ScalarType::Bool}, "cast_i32_to_i8"},
+        {{c10::ScalarType::Short, c10::ScalarType::Bool}, "cast_i16_to_i8"},
+        {{c10::ScalarType::Short, c10::ScalarType::Char}, "cast_i16_to_i8"},
         {{c10::ScalarType::Int, c10::ScalarType::Char}, "cast_i32_to_i8"},
         {{c10::ScalarType::Int, c10::ScalarType::Float}, "cast_i32_to_f32"},
         // c10::Long dtype is treated as Int for Synapse tensors,
@@ -84,6 +90,7 @@ std::map<std::pair<c10::ScalarType, c10::ScalarType>, std::string>
         {{c10::ScalarType::Byte, c10::ScalarType::Int}, "cast_u8_to_i32"},
         {{c10::ScalarType::Int, c10::ScalarType::Byte}, "cast_i32_to_u8"},
         {{c10::ScalarType::Byte, c10::ScalarType::Float}, "cast_u8_to_f32"},
+        {{c10::ScalarType::Int, c10::ScalarType::Short}, "cast_i32_to_i16"},
     };
 
 /** @brief For OPs with two input arguments (e.g. binary, compare), we may get

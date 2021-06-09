@@ -251,10 +251,11 @@ class PTFuncLog {
 #define PT_HABANAHOOKS_FATAL(...) \
   PT_MOD_FATAL(PtLogger::ModuleMask::HABANAHOOKS, __VA_ARGS__)
 
-#define HABANA_ASSERT(condition)                                             \
+#define HABANA_ASSERT(condition, ...)                                        \
   {                                                                          \
     if (!(condition)) {                                                      \
-      std::cerr << "Assertion (" << #condition << ") is false! " << __FILE__ \
+      std::cerr << Logger::str(__VA_ARGS__) << " : "                         \
+                << "Assertion (" << #condition << ") is false! " << __FILE__ \
                 << ":" << __LINE__ << "\t" << __func__ << "\n";              \
       std::terminate();                                                      \
     }                                                                        \
