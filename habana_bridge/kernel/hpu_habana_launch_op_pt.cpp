@@ -1892,6 +1892,41 @@ void HabanaLaunchOpPT::OrderOutputTinfos(RecipeValueSpec& rv) {
   rv.num_tinfos = rv.dtensorinfos->size();
 }
 
+std::string HabanaLaunchOpPT::DumpNode(torch::jit::Node* node) {
+  std::ostringstream o;
+  node->print(o, 0, nullptr);
+  auto str = o.str();
+  if (node->input(0)->type() != torch::ListType::ofTensors()) {
+    for (auto value_in : node->inputs()) {
+      if (value_to_ivalue[value_in]->isTensor()) {
+        auto tensor = value_to_ivalue[value_in]->toTensor();
+        std::ostringstream o;
+        o << "input Tensor ";
+        o << value_in->debugName();
+        o << "  size: ";
+        o << tensor.sizes();
+        str.append(o.str());
+        str.append("\n");
+      }
+    }
+  }
+  if (node->output(0)->type() != torch::ListType::ofTensors()) {
+    for (auto value_out : node->outputs()) {
+      if (value_to_ivalue[value_out]->isTensor()) {
+        auto tensor = value_to_ivalue[value_out]->toTensor();
+        std::ostringstream o;
+        o << "outout Tensor ";
+        o << value_out->debugName();
+        o << "  size: ";
+        o << tensor.sizes();
+        str.append(o.str());
+        str.append("\n");
+      }
+    }
+  }
+  return str;
+}
+
 void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
   // figure out the right device id
   auto& device = synapse_helpers::HPURegistrar::get_device();
@@ -1981,6 +2016,7 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
     // We set type so that the created tensor is propagated throughout graph
     ProcessSynapseOutputs(HabanaKernel, node);
 
+    PT_BRIDGE_DEBUG(DumpNode(node));
     // The kernel corresponding to current IR node, HabanaKernel, might create
     // one or more appended tensors. These are tensors which do not have a
     // corresponding ValPtr in the IR graph. These are either duplicate of

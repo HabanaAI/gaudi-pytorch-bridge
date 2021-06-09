@@ -78,6 +78,7 @@ class HabanaLaunchOpPT {
   std::string id_str;
   synapse_helpers::graph* syn_graph_ptr = nullptr;
 
+  std::string DumpNode(torch::jit::Node* node);
   // We keep a vector of kernels so that the context memory
   //   for each kernel is retained till graph execution
   // This is done to enable reuse of PT and synapse tensors and their processing
