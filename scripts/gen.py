@@ -81,6 +81,8 @@ _XPARSER = lark.Lark(
     _GRAMMAR, parser="lalr", propagate_positions=True, keep_all_tokens=True
 )
 
+_FN_AUTOGEN = set([])
+
 # _FN_AUTOGRAD_HPU/_FN_BLACKLIST takes either name or mapsig.
 _FN_BLACKLIST = set([])
 
@@ -288,12 +290,16 @@ def list_get(l, n):
 
 
 def is_blacklisted_fn(fname, mapsig):
-    if fname in _FN_BLACKLIST or mapsig in _FN_BLACKLIST:
+    if fname in _FN_BLACKLIST or get_mapsig_key(mapsig) in _FN_BLACKLIST:
         return True
     for frx in _FN_BLACKLIST_REGEX:
         if re.match(frx, fname) or re.match(frx, mapsig):
             return True
     return False
+
+
+def is_autogen_fn(mapsig):
+    return get_mapsig_key(mapsig) in _FN_AUTOGEN
 
 
 def get_outfn_options(fname, mapsig):
@@ -1003,7 +1009,7 @@ def generate_registrations(fgens, overrides):
     autogradhpu_code = "TORCH_LIBRARY_IMPL(aten, AutogradHABANA, m) {\n"
     overridden = set()
     for fgen in fgens:
-        if not requires_registration(fgen, overrides):
+        if is_autogen_fn(fgen.mapsig) or not requires_registration(fgen, overrides):
             continue
         mapsig_key = get_mapsig_key(fgen.mapsig)
         if mapsig_key in overrides:
@@ -1023,7 +1029,7 @@ def generate_registrations(fgens, overrides):
 
 
 def requires_registration(fgen, overrides):
-    requires_lowering = fgen.dispatch and not fgen.default
+    requires_lowering = fgen.dispatch
     has_hpu_lowering = get_mapsig_key(fgen.mapsig) in overrides
     has_autograd = fgen.mapsig in _FN_AUTOGRAD_HPU or fgen.func in _FN_AUTOGRAD_HPU
     return requires_lowering or has_hpu_lowering or has_autograd
@@ -1083,6 +1089,13 @@ def generate(args):
     assert len(errors) == 0
 
     overrides = parse_local_overrides(args.hputype)
+    autogen_overrides = parse_local_overrides(args.autogentype)
+
+    for mapsig in autogen_overrides.keys():
+        _FN_AUTOGEN.add(mapsig)
+        if overrides.get(mapsig):
+            del overrides[mapsig]
+
     print(
         "{} function overrides in {}".format(len(overrides), args.hputype),
         file=sys.stderr,
@@ -1123,6 +1136,12 @@ def generate(args):
 if __name__ == "__main__":
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument("--output_folder", type=str)
+    arg_parser.add_argument(
+        "autogentype",
+        type=str,
+        metavar="AUTOGEN_TYPE",
+        help="The path to the autogen overrides file",
+    )
     arg_parser.add_argument(
         "hputype",
         type=str,

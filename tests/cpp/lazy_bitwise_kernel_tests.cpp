@@ -18,7 +18,7 @@ using namespace at;
 
 class LazyBitwiseKernelTest : public habana_lazy_test::LazyTest {};
 
-TEST_F(LazyBitwiseKernelTest, BitwiseAddTest) {
+TEST_F(LazyBitwiseKernelTest, BitwiseAndTest) {
   torch::Tensor A = torch::randint(-10, 10, {3, 2}) > 0;
   torch::Tensor B = torch::randint(-10, 10, {3, 2}) > 0;
   torch::Tensor hA = A.to(torch::kHABANA);

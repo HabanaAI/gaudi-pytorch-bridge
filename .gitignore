@@ -13,3 +13,5 @@ data/
 dist
 habana_kernels/aten_hpu_type_default.cpp
 habana_kernels/aten_hpu_type_default.h
+habana_kernels/hpu_op.cpp
+habana_kernels/hpu_op.h

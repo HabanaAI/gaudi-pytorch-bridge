@@ -239,6 +239,19 @@ TEST_F(LazyUnaryKernelTest, ReciprocalInplaceTest) {
   EXPECT_EQ(allclose(hA.to(torch::kCPU), A), true);
 }
 
+TEST_F(LazyUnaryKernelTest, ReciprocalOut) {
+  torch::Tensor A = torch::randn({2, 3}, torch::requires_grad(false));
+  torch::Tensor hA = A.to(torch::kHABANA);
+
+  torch::Tensor hOut = at::empty_like(hA);
+  torch::Tensor Out = at::empty_like(A);
+
+  torch::reciprocal_outf(hA, hOut);
+  torch::reciprocal_outf(A, Out);
+
+  EXPECT_TRUE(allclose(hOut.to(torch::kCPU), Out));
+}
+
 TEST_F(LazyUnaryKernelTest, HardsigmoidTest) {
   torch::Tensor A = torch::randn({2, 3}, torch::requires_grad(false));
   torch::Tensor hA = A.to(torch::kHABANA);
@@ -521,6 +534,18 @@ TEST_F(LazyUnaryKernelTest, TanhFwdTest) {
   EXPECT_EQ(allclose(hout_lazy, out_exp), true);
 }
 
+TEST_F(LazyUnaryKernelTest, TanhOut) {
+  torch::Tensor A =
+      torch::arange(6, torch::dtype(torch::kFloat)).reshape({1, 1, 3, 2});
+  torch::Tensor hA = A.to(torch::kHABANA);
+
+  torch::Tensor out_exp = torch::tanh_outf(A, A);
+  torch::Tensor hout = torch::tanh_outf(hA, hA);
+  torch::Tensor hout_lazy = hout.to(torch::kCPU);
+
+  EXPECT_TRUE(allclose(hout_lazy, out_exp));
+}
+
 TEST_F(LazyUnaryKernelTest, TanhBwdTest) {
   torch::Tensor A =
       torch::arange(6, torch::dtype(torch::kFloat).requires_grad(true))
@@ -605,6 +630,18 @@ TEST_F(LazyUnaryKernelTest, LeakyReluAutogradZeroSlope) {
 
   auto expected = torch::tensor({0., 0., 1.}, device);
   EXPECT_TRUE(allclose(a.grad().to("cpu"), expected.to("cpu")));
+}
+
+TEST_F(LazyUnaryKernelTest, NegOut) {
+  torch::Tensor A = torch::randn({2, 5});
+  torch::Tensor hA = A.to(torch::kHABANA);
+
+  torch::Tensor out_exp = at::empty_like(A);
+  torch::Tensor hout = at::empty_like(hA);
+  torch::neg_outf(A, out_exp);
+  torch::neg_outf(hA, hout);
+
+  EXPECT_TRUE(allclose(hout.cpu(), out_exp));
 }
 
 TEST_F(LazyUnaryKernelTest, ClampMinTest) {

@@ -15,6 +15,7 @@
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/lazy_executor.h"
 #include "lazy_kernels_declarations.h"
+#include "resize.h"
 
 namespace habana_lazy {
 void updateDstDependencies(
@@ -70,6 +71,20 @@ class LazyOp {
         std::is_class<NodeConstruct>::value,
         "This constructor is valid only when NodeConstruct is a class.");
     set_inputs(inputs);
+  }
+
+  explicit LazyOp(
+      const std::string& qualstring,
+      const std::vector<at::IValue>& inputs,
+      const at::TensorList& output_meta_tensors) noexcept
+      : m_symbol{at::Symbol::fromQualString(qualstring)},
+        m_out_index{},
+        m_out_meta_tensors{output_meta_tensors} {
+    set_inputs(inputs);
+
+    for (const auto& out : m_out_meta_tensors) {
+      m_out_shapes.emplace_back(out.sizes().vec());
+    }
   }
 
   virtual ~LazyOp() = default;
@@ -128,6 +143,13 @@ class LazyOp {
     ir::Value& out = hl_self.CurrentIrValue();
     out.SetNode(node);
 
+    if (self.numel() == 0) {
+      auto out_shape = get_inputs().at(m_out_index).toTensor().sizes().vec();
+      auto impl = hl_self.getAttachedTensorImpl();
+      THHTensor_resizeNd(impl, out_shape.size(), out_shape.data(), nullptr);
+      self.unsafeGetTensorImpl()->set_sizes_contiguous(out_shape);
+    }
+
     auto context = habana_lazy_executor.getDeviceExecutionContext();
     context->MarkTensorStatus(
         hl_self.getTensorUniqueId(), LazyTensorExecutionStatus::kREGISTERED);
@@ -181,10 +203,18 @@ class LazyOp {
     if (m_out_index < 0) {
       return get_result_overrideable();
     }
-    auto t = get_inputs().at(m_out_index).toTensor();
-    const auto& out_shape = m_out_shapes.empty() ? t.sizes() : m_out_shapes[0];
+
+    if (m_out_meta_tensors.empty()) {
+      auto t = get_inputs().at(m_out_index).toTensor();
+      const auto& out_shape =
+          m_out_shapes.empty() ? t.sizes() : m_out_shapes[0];
+      return empty_hpu_lazy(
+          out_shape, t.options(), t.suggest_memory_format(), false);
+    }
+
+    const auto& t = m_out_meta_tensors[0];
     return empty_hpu_lazy(
-        out_shape, t.options(), t.suggest_memory_format(), false);
+        t.sizes(), t.options(), t.suggest_memory_format(), false);
   }
 
   template <typename N = NodeConstruct>
@@ -299,8 +329,9 @@ class LazyOp {
   ir::NodePtr m_node = nullptr;
   const at::Symbol m_symbol;
   const std::set<size_t> m_metadata_indices;
-  const std::vector<std::vector<int64_t>> m_out_shapes;
+  std::vector<std::vector<int64_t>> m_out_shapes;
   const int m_out_index;
+  at::TensorList m_out_meta_tensors = {};
   std::vector<at::IValue> m_inputs = {};
   // PT_HPU_LAZY_MODE=2 will flush the node as soon as it is created, more like
   // a eager way of executing using lazy infrastructure.
