@@ -63,7 +63,7 @@ tensor::tensor(
     void* host_ptr,
     const uint64_t offset,
     synTensorType tensor_type)
-    : tensor_name_{std::move(tensor_name)},
+    : tensor_name_{tensor_name},
       device_id_{device_id},
       data_type_{data_type},
       total_size_bytes_{total_size_bytes},
@@ -90,7 +90,7 @@ tensor::tensor(
     void* host_ptr,
     const uint64_t offset,
     synTensorType tensor_type)
-    : tensor_name_{std::move(tensor_name)},
+    : tensor_name_{tensor_name},
       device_id_{device_id},
       data_type_{data_type},
       total_size_bytes_{total_size_bytes},
@@ -105,7 +105,7 @@ tensor::tensor(
       tensor_type_(tensor_type) {}
 
 tensor::tensor(tensor&& other) noexcept
-    : tensor_name_(std::move(other.tensor_name_)),
+    : tensor_name_{other.tensor_name_},
       device_id_{other.device_id_},
       data_type_{other.data_type_},
       total_size_bytes_{other.total_size_bytes_},
@@ -128,7 +128,7 @@ tensor& tensor::operator=(tensor&& other) noexcept {
   if (this == &other)
     return *this;
   cleanup();
-  tensor_name_ = std::move(other.tensor_name_);
+  tensor_name_ = other.tensor_name_;
   device_id_ = other.device_id_;
   data_type_ = other.data_type_;
   total_size_bytes_ = other.total_size_bytes_;
