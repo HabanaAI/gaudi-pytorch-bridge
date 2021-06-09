@@ -48,16 +48,22 @@ static void torch_hcl_init() {
       py::arg("timeout") = std::chrono::milliseconds(10 * 1000));
 }
 
+int GetCurrentThreadDevice() {
+  auto& d = synapse_helpers::HPURegistrar::get_device();
+  return d.id();
+}
+
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   torch_hcl_init();
   // python API to report device memory live allocation details
   m.def("memstat_livealloc", [](const char* msg = "") {
     synapse_helpers::print_live_allocations(msg);
   });
+  m.def("_hb_get_default_device", []() { return GetCurrentThreadDevice(); });
 
   // Lazy apis
   m.def(
-      "mark_step",
+      "_mark_step",
       [](const std::string& device_str, bool is_blocking) {
         if (is_blocking) {
           habana_lazy::HbLazyTensor::StepMarkerBlocking(device_str);
