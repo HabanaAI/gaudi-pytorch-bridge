@@ -6536,6 +6536,36 @@ Tensor habana_nms_hpu_lazy(
   return result;
 }
 
+at::Tensor roi_align_fwd_hpu_lazy(
+    const at::Tensor& images,
+    const at::Tensor& rois,
+    const at::Tensor& num_rois,
+    int output_h,
+    int output_w,
+    int mode,
+    int sampling_ratio,
+    float spatial_scale,
+    bool aligned) {
+  PT_LAZY_TRACE;
+  // TBD: add out_shape computation for NHWC inputs also.
+  std::vector<int64_t> out_shape{
+      num_rois.sizes()[0], images.sizes()[1], output_h, output_w};
+  LazyOp<at::Tensor> k(
+      "hpu::roi_align_fwd",
+      {images,
+       rois,
+       num_rois,
+       output_h,
+       output_w,
+       mode,
+       sampling_ratio,
+       spatial_scale,
+       aligned},
+      {},
+      {out_shape});
+  return k.call();
+}
+
 Tensor isnan_hpu_lazy(const Tensor& self) {
   PT_LAZY_TRACE;
   struct Kernel : public LazyOp<at::Tensor> {

@@ -839,6 +839,16 @@ at::Tensor habana_nms_hpu_lazy(
     const at::Tensor& scores,
     float iou_threshold,
     float score_threshold);
+at::Tensor roi_align_fwd_hpu_lazy(
+    const at::Tensor& images,
+    const at::Tensor& rois,
+    const at::Tensor& num_rois,
+    int output_h,
+    int output_w,
+    int mode,
+    int sampling_ratio,
+    float spatial_scale,
+    bool aligned);
 at::Tensor isnan_hpu_lazy(const at::Tensor& self);
 at::Tensor silu_backward_hpu_lazy(
     const at::Tensor& grad,

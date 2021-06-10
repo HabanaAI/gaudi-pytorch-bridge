@@ -160,4 +160,8 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       "embedding bag sum bwd");
   m.def(
       "embedding_bag_preproc", &embedding_bag_preproc, "embedding bag preproc");
+  m.def(
+      "roi_align_forward",
+      &vision::ops::roi_align_fwd_wrap,
+      "ROI Align forward");
 }

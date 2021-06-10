@@ -402,6 +402,8 @@ void InsertPermute_graph(
         // View and Index as per original PT layout
         if ((strcmp(node->kind().toQualString(), "aten::view") == 0) ||
             (strcmp(node->kind().toQualString(), "hpu::view") == 0) ||
+            (strcmp(node->kind().toQualString(), "aten::expand") == 0) ||
+            (strcmp(node->kind().toQualString(), "hpu::expand") == 0) ||
             (strcmp(node->kind().toQualString(), "aten::index") == 0)) {
           if ((tensor_layout != habana::LayoutFormat::NCHW) &&
               tensor_layout != habana::LayoutFormat::HWCK) {
@@ -548,6 +550,8 @@ void InsertPermute_graph(
           (strcmp(node->kind().toQualString(), "aten::view") == 0) ||
           (strcmp(node->kind().toQualString(), "aten::expand") == 0) ||
           (strcmp(node->kind().toQualString(), "hpu::view") == 0) ||
+          (strcmp(node->kind().toQualString(), "aten::expand") == 0) ||
+          (strcmp(node->kind().toQualString(), "hpu::expand") == 0) ||
           (strcmp(node->kind().toQualString(), "aten::argmax") == 0) ||
           (strcmp(node->kind().toQualString(), "aten::split_with_sizes") ==
            0) ||

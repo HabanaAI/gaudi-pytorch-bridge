@@ -1719,3 +1719,29 @@ TEST_F(LazyDynamicShapesTest, TopKTest1) {
     unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
   }
 }
+
+TEST_F(LazyDynamicShapesTest, DS_RoiAlignFwdTest) {
+  bool refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  if (!refine_enabled) {
+    setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
+  }
+  auto roi_align_test = [](int num_boxes, std::vector<int64_t> input_shape) {
+    auto images = torch::randn(input_shape).to(torch::kHPU);
+    auto boxes = torch::randn({num_boxes, 4}) * 64;
+    // ensure x2 > x1 and y2 > y1
+    auto tlist = boxes.split(2, 1);
+    tlist[1] = tlist[1] + tlist[0];
+    auto new_boxes = torch::cat({tlist[0], tlist[1]}, 1).to(torch::kHPU);
+    auto num_rois =
+        torch::randint(0, 2, {num_boxes}, torch::kInt).to(torch::kHPU);
+    auto output = roi_align_fwd_hpu_lazy(
+        images, new_boxes, num_rois, 7, 7, 0, 2, 0.25, true);
+    output.to(torch::kCPU);
+  };
+  roi_align_test({6}, {2, 3, 25, 25});
+  roi_align_test({10}, {2, 3, 35, 35});
+  roi_align_test({12}, {2, 3, 50, 50});
+  if (!refine_enabled) {
+    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
+  }
+}

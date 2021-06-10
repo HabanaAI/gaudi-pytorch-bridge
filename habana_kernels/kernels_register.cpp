@@ -4343,6 +4343,43 @@ Tensor hpu_wrap::diag(const Tensor& self, int64_t diagonal) {
   }
 }
 
+namespace vision {
+namespace ops {
+at::Tensor roi_align_fwd_wrap(
+    const at::Tensor& images,
+    const at::Tensor& rois,
+    double spatial_scale,
+    int64_t output_h,
+    int64_t output_w,
+    int64_t sampling_ratio,
+    bool aligned) {
+  int mode = 0;
+  auto out = rois.split_with_sizes({1, 4}, 1);
+  auto num_rois = out[0].view(-1).to(torch::kInt);
+  auto roi = out[1];
+  return roi_align_fwd_hpu_lazy(
+      images,
+      roi,
+      num_rois,
+      static_cast<int>(output_h),
+      static_cast<int>(output_w),
+      mode,
+      static_cast<int>(sampling_ratio),
+      static_cast<float>(spatial_scale),
+      aligned);
+};
+
+// Enable this once roi_align_bwd is also implemented. Its difficult to link
+// torchvision::_roi_align_backward and CPU implementation will not work with
+// HPU tensors.
+/*TORCH_LIBRARY_IMPL(torchvision, HPU, m) {
+  m.impl(
+      TORCH_SELECTIVE_NAME("torchvision::roi_align"),
+      TORCH_FN(roi_align_fwd_wrap));
+}*/
+} // namespace ops
+} // namespace vision
+
 // Registration for all non-custom/aten ops are auto-generated and can be
 // found in habana_kernels/aten_hpu_type_default.cpp.
 
@@ -4426,6 +4463,8 @@ TORCH_LIBRARY(hpu, m) {
       "habanaOptimizerLambPhase2(Tensor[] weights, Tensor[] adam_norm, Tensor[] wt_norm, Tensor[] adam_step, Tensor[] trust_ratio, Tensor neg_step, float wd, int use_lamb) -> ()");
   m.def(
       "habana_nms(Tensor boxes, Tensor scores, float iou_threshold, float score_threshold) -> (Tensor, Tensor, Tensor)");
+  m.def(
+      "roi_align_fwd(Tensor inputs, Tensor rois, Tensor n_rois, int out_h, int out_w, int mode, int sr, float ss, bool aligned) -> (Tensor)");
   m.def(
       "_unique2(Tensor self, bool sorted, bool return_inverse, bool return_counts) -> (Tensor, Tensor)");
   m.def(

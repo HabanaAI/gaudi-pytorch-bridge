@@ -975,3 +975,15 @@ at::Tensor habana_nms_hpu_wrap(
     const at::Tensor& scores,
     float iou_threshold,
     float score_threshold);
+namespace vision {
+namespace ops {
+at::Tensor roi_align_fwd_wrap(
+    const at::Tensor& images,
+    const at::Tensor& rois,
+    double spatial_scale,
+    int64_t output_h,
+    int64_t output_w,
+    int64_t sampling_ratio,
+    bool aligned);
+}
+} // namespace vision
