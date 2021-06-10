@@ -21,8 +21,10 @@
 #include <torch/csrc/jit/runtime/argument_spec.h>
 #include <torch/csrc/jit/runtime/interpreter.h>
 
+#include "habana_helpers/dynamic_bucket_info.h"
 #include "habana_helpers/logging.h"
 #include "habana_helpers/tensor_info.h"
+
 #include "synapse_helpers/graph.h"
 
 #define PGM_LRU_MAX_NRECIPES 100
@@ -330,33 +332,6 @@ class RecipeCacheLRU {
       RecipeArgumentSpecHash,
       RecipeArgumentSpecEqual>
       map_;
-};
-
-class UniqueTokenGenerator {
- public:
-  static UniqueTokenGenerator& get_gen() {
-    std::lock_guard<std::mutex> lg(mutex_);
-    if (!instance_) {
-      instance_ = new UniqueTokenGenerator();
-    }
-    return *instance_;
-  }
-
-  uint64_t token() {
-    std::lock_guard<std::mutex> lg(mutex_);
-    current_token_ += 1;
-    return current_token_;
-  }
-
- private:
-  UniqueTokenGenerator() = default;
-  ~UniqueTokenGenerator() = default;
-  UniqueTokenGenerator(const UniqueTokenGenerator&) = delete;
-  UniqueTokenGenerator& operator=(const UniqueTokenGenerator&) = delete;
-
-  static std::mutex mutex_;
-  static UniqueTokenGenerator* instance_;
-  static uint64_t current_token_;
 };
 
 } // namespace habana

@@ -91,4 +91,10 @@ std::shared_ptr<torch::jit::Graph> CreateJITGraph() {
   return g;
 }
 
+torch::jit::Stack createStack(std::vector<at::Tensor>&& list) {
+  return torch::jit::Stack(
+      std::make_move_iterator(list.begin()),
+      std::make_move_iterator(list.end()));
+}
+
 } // namespace habana_lazy_test

@@ -133,8 +133,8 @@ struct PT_HPU_LOWER_AS_STRIDED {
   static constexpr bool default_value = false;
 };
 
-struct PT_ENABLE_REFINE_DYNAMIC_SHAPES {
-  static constexpr bool default_value = true;
+struct PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES {
+  static constexpr bool default_value = false;
 };
 // Overloads for different type of default value
 

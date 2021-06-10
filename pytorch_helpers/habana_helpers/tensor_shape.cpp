@@ -1,12 +1,24 @@
+/******************************************************************************
+ * Copyright (C) 2020 Habana Labs, Ltd. an Intel Company
+ * All Rights Reserved.
+ *
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
+ *
+ *******************************************************************************
+ */
+
 #include "tensor_shape.h"
-#include <c10/util/Exception.h>
+
 #include <cassert>
 #include <cstring>
 
-namespace habana_helpers {
+#include <c10/util/Exception.h>
 
-TensorShape::TensorShape()
-    : m_sizes{}, m_dim(0), n_elements(0), is_scalar_initialized(false) {}
+namespace habana_helpers {
 
 TensorShape::TensorShape(
     const at::IntArrayRef& sizes,

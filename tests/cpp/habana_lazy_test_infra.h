@@ -120,5 +120,6 @@ std::vector<torch::jit::IValue> CreateInputs(
     std::vector<float> scalars);
 
 std::shared_ptr<torch::jit::Graph> CreateJITGraph();
+torch::jit::Stack createStack(std::vector<at::Tensor>&& list);
 
 } // namespace habana_lazy_test

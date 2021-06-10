@@ -1,12 +1,27 @@
+/******************************************************************************
+ * Copyright (C) 2020 Habana Labs, Ltd. an Intel Company
+ * All Rights Reserved.
+ *
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
+ *
+ *******************************************************************************
+ */
+
+#include <iostream>
+#include <vector>
+
 #include <c10/core/ScalarType.h>
 #include <c10/util/ArrayRef.h>
-#include <vector>
 
 namespace habana_helpers {
 
 class TensorShape {
  public:
-  TensorShape();
+  TensorShape() {}
   TensorShape(const at::IntArrayRef& sizes, at::ScalarType scalar_type);
   void add_dim(int64_t size);
   int dims() const {
@@ -46,12 +61,24 @@ class TensorShape {
     return !operator==(shape);
   }
 
+  friend inline std::ostream& operator<<(
+      std::ostream& O,
+      const TensorShape& t) {
+    O << '[';
+    for (size_t i = 0; i < t.m_sizes.size(); i++) {
+      O << (i > 0 ? ", " : "") << t.m_sizes[i];
+    }
+    O << ']' << ' ' << t.scalar_type_;
+
+    return O;
+  }
+
  private:
-  std::vector<int64_t> m_sizes;
-  int m_dim;
-  int64_t n_elements;
+  int m_dim{0};
+  int64_t n_elements{0};
+  bool is_scalar_initialized{false};
   at::ScalarType scalar_type_;
-  bool is_scalar_initialized;
+  std::vector<int64_t> m_sizes;
 };
 
 } // namespace habana_helpers

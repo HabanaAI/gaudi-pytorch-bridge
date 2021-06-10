@@ -25,10 +25,6 @@ namespace habana {
 size_t RecipeValueSpec::recipe_count = 0;
 size_t RecipeValueSpec::total_recipe_ntbytes = 0;
 
-std::mutex UniqueTokenGenerator::mutex_;
-UniqueTokenGenerator* UniqueTokenGenerator::instance_ = nullptr;
-uint64_t UniqueTokenGenerator::current_token_ = 1000000006;
-
 std::ostream& operator<<(std::ostream& O, PGMCachingPolicy P) {
   switch (P) {
     case PGMCachingPolicy::simple:
