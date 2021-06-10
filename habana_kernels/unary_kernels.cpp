@@ -1979,6 +1979,79 @@ void HardsigmoidBackwardOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, &param, sizeof(param));
 }
 
+void SiluOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  const int64_t correctInputSize = 1;
+  TORCH_CHECK(
+      inputs.size() == correctInputSize,
+      "Incorrect size " + std::to_string(inputs.size()) +
+          " provided as input, while expected size is " +
+          std::to_string(correctInputSize) + " for SiluOperator");
+  TORCH_CHECK(
+      inputs[0].isTensor(),
+      "Input arg1 expected to be tensor for SiluOperator");
+
+  auto self = inputs[0].toTensor();
+  at::ScalarType scalar_type = self.scalar_type();
+  size_t device_id = self.device().index();
+
+  SigmoidOperator Op(device_id, scalar_type);
+
+  auto& sigmoid_input_syn =
+      Op.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+
+  std::vector<c10::IValue> stack{IValue(self)};
+  Op.AllocateAndAddSynapseNode(graph, stack, false);
+
+  auto output_sigmoid = Op.GetOutputs()[0];
+
+  p_context_->syn_inputs_[0] = std::move(sigmoid_input_syn);
+  stack.clear();
+
+  // Create Mul operator
+  MulOperator mulOp(this->p_context_->device_id_, scalar_type);
+  mulOp.SetSynapseInput(p_context_->syn_inputs_[0]);
+  mulOp.SetSynapseInput(std::move(Op.GetSynOutputs()[0]));
+
+  stack.emplace_back(IValue(self));
+  stack.emplace_back(IValue(Op.GetOutputs()[0]));
+
+  mulOp.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+  stack.clear();
+
+  p_context_->syn_outputs_.emplace_back(std::move(mulOp.GetSynOutputs()[0]));
+  p_context_->pt_outputs_.emplace_back(std::move(mulOp.GetOutputs()[0]));
+}
+
+void IsnanOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  const int64_t correctInputSize = 1;
+  TORCH_CHECK(
+      inputs.size() == correctInputSize,
+      "Incorrect size " + std::to_string(inputs.size()) +
+          " provided as input, while expected size is " +
+          std::to_string(correctInputSize) + " for IsnanOperator");
+  TORCH_CHECK(
+      inputs[0].isTensor(),
+      "Input arg1 expected to be Tensor for IsnanOperator");
+
+  auto self = inputs[0].toTensor();
+
+  Tensor output = habana_helpers::createPTTensor(
+      self,
+      self.sizes(),
+      self.options(),
+      self.suggest_memory_format(),
+      c10::ScalarType::Bool,
+      is_output_persistent);
+  std::vector<at::Tensor> pt_outputs{output};
+  AllocateSynapseOutputs(graph, pt_outputs, {is_output_persistent});
+}
+
 static auto& KernelRegistry =
     habana::KernelRegistry()
         .add(
@@ -2190,6 +2263,16 @@ static auto& KernelRegistry =
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<LogOperator>(device_id, node_type);
             })
-        .add("aten::log2", [](const int device_id, c10::ScalarType node_type) {
-          return std::make_shared<Log2Operator>(device_id, node_type);
+        .add(
+            "aten::log2",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<Log2Operator>(device_id, node_type);
+            })
+        .add(
+            "aten::isnan",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<IsnanOperator>(device_id, node_type);
+            })
+        .add("aten::silu", [](const int device_id, c10::ScalarType node_type) {
+          return std::make_shared<SiluOperator>(device_id, node_type);
         });

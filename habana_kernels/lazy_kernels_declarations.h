@@ -830,4 +830,6 @@ at::Tensor habana_nms_hpu_lazy(
     const at::Tensor& scores,
     float iou_threshold,
     float score_threshold);
+at::Tensor isnan_hpu_lazy(const at::Tensor& self);
+at::Tensor silu_hpu_lazy(const at::Tensor& self);
 } // namespace habana_lazy

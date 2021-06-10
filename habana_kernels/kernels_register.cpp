@@ -2371,6 +2371,29 @@ Tensor hpu_wrap::clamp(
     return clamp_hpu(self, min, max);
   }
 };
+
+Tensor hpu_wrap::isnan(const Tensor& self) {
+  hpu_check_inputs("isnan", {self});
+
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    return isnan_hpu_lazy(self);
+  } else {
+    HABANA_ASSERT(0 && "isnan not implemented for eager mode");
+    return isnan_hpu_lazy(self);
+  }
+};
+
+Tensor hpu_wrap::silu(const Tensor& self) {
+  hpu_check_inputs("silu", {self});
+
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    return silu_hpu_lazy(self);
+  } else {
+    HABANA_ASSERT(0 && "silu not implemented for eager mode");
+    return silu_hpu_lazy(self);
+  }
+};
+
 Tensor hpu_wrap::abs(const Tensor& self) {
   hpu_check_inputs("abs", {self});
 

@@ -588,4 +588,34 @@ class Log2InplaceOperator : public UnaryInplaceOperator {
             device_id,
             "log2_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {}
 };
+
+// isnan Operator
+class IsnanOperator : public UnaryOperator {
+ public:
+  IsnanOperator(int device_id, c10::ScalarType scalarType)
+      : UnaryOperator(
+            device_id,
+            "isnan_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {}
+
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+};
+
+// Silu Operator
+class SiluOperator : public UnaryOperator {
+ public:
+  SiluOperator(int device_id, c10::ScalarType scalarType)
+      : UnaryOperator(
+            device_id,
+            "sigmoid_fwd_" +
+                habana_helpers::name_suffix_from_type(scalarType)) {}
+
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+};
+
 } // namespace habana

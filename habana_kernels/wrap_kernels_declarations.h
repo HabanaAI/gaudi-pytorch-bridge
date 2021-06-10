@@ -16,6 +16,8 @@
 // scripts/gen.py for all the static member functions of this class.
 
 struct hpu_wrap {
+  static at::Tensor silu(const at::Tensor& self);
+  static at::Tensor isnan(const at::Tensor& self);
   static at::Tensor empty(
       at::IntArrayRef size,
       c10::optional<at::ScalarType> dtype,

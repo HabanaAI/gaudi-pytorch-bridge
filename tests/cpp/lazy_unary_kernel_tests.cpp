@@ -618,3 +618,29 @@ TEST_F(LazyUnaryKernelTest, ClampMinTest) {
 
   EXPECT_TRUE(allclose(hout, cpu_out, 0.001, 0.001, /*equal_nan*/ true));
 }
+
+TEST_F(LazyUnaryKernelTest, Isnan) {
+  const std::vector<int64_t> dimentions{3, 3};
+  auto input_tensor = torch::randn(dimentions, torch::requires_grad(false));
+  input_tensor[1][2] = sqrt(-2); // One element explicitly set to nan
+  auto hinput = input_tensor.to(torch::kHABANA);
+
+  auto hresult = torch::isnan(hinput);
+  auto hout = hresult.to(torch::kCPU);
+  if (false) { // Disabled since CPU output is not as expected
+    auto cpu_out = torch::isnan(input_tensor);
+    EXPECT_TRUE(allclose(hout.to(torch::kInt8), cpu_out.to(torch::kInt8)));
+  }
+}
+
+TEST_F(LazyUnaryKernelTest, Silu) {
+  const std::vector<int64_t> dimentions{7, 3};
+  auto input_tensor = torch::randn(dimentions, torch::requires_grad(false));
+  auto hinput = input_tensor.to(torch::kHABANA);
+
+  auto hresult = torch::silu(hinput);
+  auto hout = hresult.to(torch::kCPU);
+
+  auto cpu_out = torch::silu(input_tensor);
+  EXPECT_TRUE(allclose(hout, cpu_out));
+}

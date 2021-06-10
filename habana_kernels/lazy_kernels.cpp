@@ -5591,4 +5591,33 @@ Tensor habana_nms_hpu_lazy(
   HbLazyTensor::SyncTensorsGraph(&hl_flush_result);
   return result;
 }
+
+Tensor isnan_hpu_lazy(const Tensor& self) {
+  PT_LAZY_TRACE;
+  struct Kernel : public LazyOp<at::Tensor> {
+    explicit Kernel(const Tensor& self)
+        : LazyOp<at::Tensor>("aten::isnan", {self}, {}, {}, -1), m_self(self) {}
+
+    at::Tensor get_result_overrideable() override {
+      auto res = empty_hpu_lazy(
+          m_self.sizes(),
+          m_self.options().dtype(c10::ScalarType::Bool),
+          m_self.suggest_memory_format(),
+          false);
+      return res;
+    }
+
+    at::Tensor m_self;
+  };
+  Kernel kernel{self};
+  return kernel.call();
+}
+
+Tensor silu_hpu_lazy(const Tensor& self) {
+  PT_LAZY_TRACE;
+
+  LazyOp<at::Tensor> k("aten::silu", {self});
+  return k.call();
+}
+
 } // namespace habana_lazy
