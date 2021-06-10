@@ -309,6 +309,20 @@ struct hpu_wrap {
       int64_t reduction,
       int64_t ignore_index,
       const at::Tensor& total_weight);
+  static std::tuple<at::Tensor, at::Tensor> nll_loss2d_forward(
+      const at::Tensor& self,
+      const at::Tensor& target,
+      const c10::optional<at::Tensor>& weight_opt,
+      int64_t reduction,
+      int64_t ignore_index);
+  static at::Tensor nll_loss2d_backward(
+      const at::Tensor& grad_output,
+      const at::Tensor& self,
+      const at::Tensor& target,
+      const c10::optional<at::Tensor>& weight_opt,
+      int64_t reduction,
+      int64_t ignore_index,
+      const at::Tensor& total_weight);
   static at::Tensor mse_loss(
       const at::Tensor& self,
       const at::Tensor& target,

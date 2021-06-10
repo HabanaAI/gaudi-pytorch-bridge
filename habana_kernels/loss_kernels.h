@@ -29,6 +29,24 @@ class NLLLossFwdOperator : public HabanaOperator {
       std::vector<bool> is_output_persistent) override;
 };
 
+// NLLLoss2dFWD Operator
+class NLLLoss2dFwdOperator : public HabanaOperator {
+ public:
+  NLLLoss2dFwdOperator(const int device_id, c10::ScalarType scalarType)
+      : HabanaOperator(
+            "nll_loss_fwd_" +
+            habana_helpers::name_suffix_from_type(scalarType)) {
+    this->CreateSynContext(device_id);
+    kernel_meta_data_.input_layout.assign({LayoutFormat::NHWC});
+    kernel_meta_data_.output_layout.assign(
+        {LayoutFormat::NHWC, LayoutFormat::NHWC});
+  }
+
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      std::vector<bool> is_output_persistent) override;
+};
 // NLLLossBWD Operator
 class NLLLossBwdOperator : public HabanaOperator {
  public:
@@ -39,6 +57,29 @@ class NLLLossBwdOperator : public HabanaOperator {
     this->CreateSynContext(device_id);
     kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
     kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
+    kernel_meta_data_.tpc_input_order = {0, 2};
+  }
+
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false);
+};
+
+class NLLLoss2dBwdOperator : public HabanaOperator {
+ public:
+  NLLLoss2dBwdOperator(const int device_id, c10::ScalarType scalarType)
+      : HabanaOperator(
+            "nll_loss_bwd_" +
+            habana_helpers::name_suffix_from_type(scalarType)) {
+    this->CreateSynContext(device_id);
+    kernel_meta_data_.input_layout.assign(
+        {LayoutFormat::NHWC,
+         LayoutFormat::NHWC,
+         LayoutFormat::NHWC,
+         LayoutFormat::NHWC,
+         LayoutFormat::NHWC});
+    kernel_meta_data_.output_layout.assign({LayoutFormat::NHWC});
     kernel_meta_data_.tpc_input_order = {0, 2};
   }
 

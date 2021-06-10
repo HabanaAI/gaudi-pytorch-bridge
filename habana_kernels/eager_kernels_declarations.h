@@ -309,7 +309,21 @@ std::tuple<at::Tensor, at::Tensor> nll_loss_forward_hpu(
     const at::Tensor& weight,
     int64_t reduction,
     int64_t ignore_index);
+std::tuple<at::Tensor, at::Tensor> nll_loss2d_forward_hpu(
+    const at::Tensor& self,
+    const at::Tensor& target,
+    const at::Tensor& weight,
+    int64_t reduction,
+    int64_t ignore_index);
 at::Tensor nll_loss_backward_hpu(
+    const at::Tensor& grad_output,
+    const at::Tensor& self,
+    const at::Tensor& target,
+    const at::Tensor& weight,
+    int64_t reduction,
+    int64_t ignore_index,
+    const at::Tensor& total_weight);
+at::Tensor nll_loss2d_backward_hpu(
     const at::Tensor& grad_output,
     const at::Tensor& self,
     const at::Tensor& target,

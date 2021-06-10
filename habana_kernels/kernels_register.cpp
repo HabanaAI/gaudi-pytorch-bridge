@@ -1238,6 +1238,71 @@ Tensor hpu_wrap::nll_loss_backward(
         total_weight);
   }
 };
+
+Tensor hpu_wrap::nll_loss2d_backward(
+    const Tensor& grad_output,
+    const Tensor& self,
+    const Tensor& target,
+    const c10::optional<Tensor>& weight_opt,
+    int64_t reduction,
+    int64_t ignore_index,
+    UNUSED const Tensor& total_weight) {
+  auto weight = weight_opt.value_or(Tensor());
+  if (!hpu_check_inputs_impl(
+          "nll_loss2d_backward",
+          {grad_output, self, target, weight, total_weight}))
+    return AtenHpuTypeDefault::nll_loss2d_backward(
+        grad_output,
+        self,
+        target,
+        weight,
+        reduction,
+        ignore_index,
+        total_weight);
+
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    return nll_loss2d_backward_hpu_lazy(
+        grad_output,
+        self,
+        target,
+        weight,
+        reduction,
+        ignore_index,
+        total_weight);
+
+  } else {
+    return nll_loss2d_backward_hpu(
+        grad_output,
+        self,
+        target,
+        weight,
+        reduction,
+        ignore_index,
+        total_weight);
+  }
+};
+
+std::tuple<Tensor, Tensor> hpu_wrap::nll_loss2d_forward(
+    const Tensor& self,
+    const Tensor& target,
+    const c10::optional<Tensor>& weight_opt,
+    int64_t reduction,
+    int64_t ignore_index) {
+  auto weight = weight_opt.value_or(Tensor());
+  if (!hpu_check_inputs_impl("nll_loss2d_forward", {self, target, weight}))
+    return AtenHpuTypeDefault::nll_loss2d_forward(
+        self, target, weight, reduction, ignore_index);
+
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    return nll_loss2d_forward_hpu_lazy(
+        self, target, weight, reduction, ignore_index);
+
+  } else {
+    return nll_loss2d_forward_hpu(
+        self, target, weight, reduction, ignore_index);
+  }
+};
+
 Tensor hpu_wrap::mse_loss(
     const Tensor& self,
     const Tensor& target,

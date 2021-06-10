@@ -120,7 +120,6 @@ void NLLLossFwdOperator::AllocateAndAddSynapseNode(
   auto target = inputs[1].toTensor();
   int64_t reduction = inputs[3].toInt();
   int64_t ignore_index = inputs[4].toInt();
-
   TORCH_CHECK(
       target.scalar_type() == c10::ScalarType::Int,
       "Input arg 2 expected to be of Int Tensor for nll_loss operator");
@@ -138,6 +137,82 @@ void NLLLossFwdOperator::AllocateAndAddSynapseNode(
   AllocateSynapseOutput(graph, output1, is_output_persistent[0]);
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 
+  // create a dummy output, we do not support weights therefore there is no
+  // sum_weights tensor, but we still need to return an empty tensor to keep
+  // Pytorch happy
+  auto output2 = habana_helpers::createPTTensor(
+      self,
+      {1},
+      self.options(),
+      at::MemoryFormat::Contiguous,
+      is_output_persistent[1]);
+  p_context_->syn_outputs_.emplace_back(habana_helpers::create_tensor(
+      output2,
+      graph.get_graph_handle(),
+      is_output_persistent[1],
+      c10::nullopt));
+  p_context_->pt_outputs_.emplace_back(output2);
+}
+
+void NLLLoss2dFwdOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    std::vector<bool> is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 5,
+      "Incorrect size of inputs expected for nll_loss operator");
+  TORCH_CHECK(inputs[0].isTensor(), "Input arg1 expected to be tensor");
+  TORCH_CHECK(inputs[1].isTensor(), "Input arg2 expected to be tensor");
+  TORCH_CHECK(
+      inputs[2].isTensor() || inputs[2].isNone(),
+      "Input arg3 expected to be tensor or None for nll_loss operator");
+  TORCH_CHECK(
+      inputs[3].isInt(),
+      "Input arg 3 expected to be of type Int for nll_loss operator");
+  TORCH_CHECK(
+      inputs[4].isInt(),
+      "Input arg 3 expected to be of type Int for nll_loss operator");
+
+  // Should assert right here if we are asked to handle weights
+  if (inputs[2].isTensor()) {
+    TORCH_CHECK(
+        !inputs[2].toTensor().defined(),
+        "NLL loss kernel does not support weights for now");
+  } else {
+    TORCH_CHECK(
+        inputs[2].isNone(), "NLL kernel does not support weights for now");
+  }
+
+  auto self = inputs[0].toTensor();
+  auto target = inputs[1].toTensor();
+  int64_t reduction = inputs[3].toInt();
+  int64_t ignore_index = inputs[4].toInt();
+
+  TORCH_CHECK(
+      target.scalar_type() == c10::ScalarType::Int,
+      "Input arg 2 expected to be of Int Tensor for nll_loss operator");
+  ns_NLLLossKernel::ParamsOptionalIgnoreIndex params =
+      synapse_nll_loss_params_builder(reduction, ignore_index);
+  p_context_->params_.emplace<ns_NLLLossKernel::ParamsOptionalIgnoreIndex>(
+      params);
+  p_context_->params_size_ = sizeof(params);
+
+  std::vector<int64_t> reshaped_self_sizes;
+  if (reduction == 2) {
+    reshaped_self_sizes.emplace_back(self.sizes()[0]);
+    reshaped_self_sizes.emplace_back(self.sizes()[1]);
+    reshaped_self_sizes.emplace_back(self.sizes()[2]);
+  } else {
+    reshaped_self_sizes.emplace_back(1);
+  }
+  auto output1 = habana_helpers::createPTTensor(
+      self,
+      reshaped_self_sizes,
+      self.options(),
+      c10::MemoryFormat::Contiguous,
+      is_output_persistent[0]);
+  AllocateSynapseOutput(graph, output1, is_output_persistent[0]);
+  AddNodeToSynapseGraph(graph, &params, sizeof(params));
   // create a dummy output, we do not support weights therefore there is no
   // sum_weights tensor, but we still need to return an empty tensor to keep
   // Pytorch happy
@@ -229,6 +304,83 @@ std::tuple<Tensor, Tensor> nll_loss_forward_hpu(
   return std::make_tuple(out.at(0), out.at(1));
 }
 
+std::tuple<Tensor, Tensor> nll_loss2d_forward_hpu(
+    const Tensor& self,
+    const Tensor& target,
+    const Tensor& weight,
+    int64_t reduction,
+    int64_t ignore_index) {
+  PT_KERNEL_BEGIN;
+
+  TORCH_CHECK(!weight.defined(), "weighted nll_loss is not yet supported")
+
+  Tensor self_nhwc = self;
+  if (self.ndimension() == 4) {
+    // convert tensors to synapse memory format
+    int64_t pos_in[] = {0, 2, 3, 1};
+    std::vector<const at::Tensor*> pt_in{&self};
+    std::vector<at::Tensor*> pt_out{&self_nhwc};
+    IntArrayRef new_dim_pos_in = pos_in;
+    std::vector<const IntArrayRef*> pt_new_pos{&new_dim_pos_in};
+    c10::MemoryFormat memory_format =
+        habana_helpers::get_memory_format({&self});
+    habana_helpers::change_tensors_to_memory_format(
+        pt_out, pt_in, pt_new_pos, memory_format);
+  }
+
+  auto modified_target = habana_helpers::cast_tensor_to_integer(target);
+  at::ScalarType scalar_type = self_nhwc.scalar_type();
+  std::string node_type =
+      "nll_loss_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+
+  size_t device_id = self_nhwc.device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  // Build Params for the graph
+  std::vector<c10::IValue> stack = {
+      IValue(self_nhwc),
+      IValue(modified_target),
+      IValue(weight),
+      IValue(reduction),
+      IValue(ignore_index)};
+  NLLLoss2dFwdOperator Op(device_id, scalar_type);
+  size_t key = Op.GetRecipeKey(node_type, stack);
+
+  std::vector<at::Tensor> pt_inputs{self_nhwc, modified_target};
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    auto output0 =
+        at::empty({1}, self_nhwc.options(), self_nhwc.suggest_memory_format());
+    auto output1 =
+        at::empty({1}, self_nhwc.options(), self_nhwc.suggest_memory_format());
+    Op.SetPTInputs(pt_inputs);
+    std::vector<at::Tensor> v{output0, output1};
+    Op.SetPTOutputs(v);
+    Op.Execute(key);
+  } else {
+    PT_KERNEL_DEBUG("Key:", key);
+    // Create Graph
+    auto graph = habana_helpers::create_graph(device_id, node_type);
+
+    // Assign Inputs to the Operator
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
+
+    // Build Params for the graph
+    Op.AllocateAndAddSynapseNode(graph, stack, {true, true});
+
+    // compile and execute the graph
+    Op.Compile(graph);
+  }
+
+  std::vector<at::Tensor> out = Op.GetOutputs();
+  TORCH_CHECK(out.size() == 2, "Incorrect size of outputs");
+
+  // Note: pytorch expects 0d tensor (scalar)
+  out.at(0).unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+
+  PT_KERNEL_END;
+  return std::make_tuple(out.at(0), out.at(1));
+}
+
 void NLLLossBwdOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
@@ -269,6 +421,55 @@ void NLLLossBwdOperator::AllocateAndAddSynapseNode(
   p_context_->params_size_ = sizeof(params);
 
   auto output = habana_helpers::createPTTensor(self, is_output_persistent);
+  AllocateSynapseOutput(graph, output, is_output_persistent);
+  AddNodeToSynapseGraph(graph, &params, sizeof(params));
+}
+
+void NLLLoss2dBwdOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 7,
+      "Incorrect size of inputs expected for nll_loss2d operator");
+  TORCH_CHECK(inputs[0].isTensor(), "Input type expected to be tensor");
+  TORCH_CHECK(inputs[1].isTensor(), "Input type expected to be tensor");
+  TORCH_CHECK(inputs[2].isTensor(), "Input type expected to be tensor");
+  TORCH_CHECK(
+      inputs[3].isTensor() || inputs[3].isNone(),
+      "Input type expected to be tensor or None");
+  TORCH_CHECK(inputs[4].isInt(), "Input type expected to be Int");
+  TORCH_CHECK(inputs[5].isInt(), "Input type expected to be Int");
+  TORCH_CHECK(
+      inputs[6].isTensor() || inputs[6].isNone(),
+      "Input type expected to be tensor or None");
+
+  // Should assert right here if we are asked to handle weights
+  if (inputs[3].isTensor()) {
+    TORCH_CHECK(
+        !inputs[3].toTensor().defined(),
+        "NLL Loss kernel does not support weights for now");
+  } else {
+    TORCH_CHECK(
+        inputs[3].isNone(), "NLL Loss kernel does not support weights for now");
+  }
+
+  auto self = inputs[1].toTensor();
+  int64_t reduction = inputs[4].toInt();
+  int64_t ignore_index = inputs[5].toInt();
+
+  ns_NLLLossKernel::ParamsOptionalIgnoreIndex params =
+      synapse_nll_loss_params_builder(reduction, ignore_index);
+  p_context_->params_.emplace<ns_NLLLossKernel::ParamsOptionalIgnoreIndex>(
+      params);
+  p_context_->params_size_ = sizeof(params);
+
+  auto output = habana_helpers::createPTTensor(
+      self,
+      self.sizes(),
+      self.options(),
+      c10::MemoryFormat::Contiguous,
+      is_output_persistent);
   AllocateSynapseOutput(graph, output, is_output_persistent);
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
@@ -353,6 +554,105 @@ Tensor nll_loss_backward_hpu(
   std::vector<at::Tensor> out = Op.GetOutputs();
   TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
 
+  PT_KERNEL_END;
+  return out.at(0);
+}
+
+Tensor nll_loss2d_backward_hpu(
+    const Tensor& grad_output,
+    const Tensor& self,
+    const Tensor& target,
+    const Tensor& weight,
+    int64_t reduction,
+    int64_t ignore_index,
+    const Tensor& total_weight) {
+  PT_KERNEL_BEGIN;
+  TORCH_CHECK(!weight.defined(), "weighted nll_loss is not yet supported")
+
+  Tensor self_nhwc = self;
+  if (self.ndimension() == 4) {
+    // convert tensors to synapse memory format
+    int64_t pos_in[] = {0, 2, 3, 1};
+    std::vector<const at::Tensor*> pt_in{&self};
+    std::vector<at::Tensor*> pt_out{&self_nhwc};
+    IntArrayRef new_dim_pos_in = pos_in;
+    std::vector<const IntArrayRef*> pt_new_pos{&new_dim_pos_in};
+    c10::MemoryFormat memory_format =
+        habana_helpers::get_memory_format({&self});
+    habana_helpers::change_tensors_to_memory_format(
+        pt_out, pt_in, pt_new_pos, memory_format);
+  }
+
+  // Convert 0D tensor to 1D tensor before passing to Synapse
+  if (grad_output.dim() == 0) {
+    grad_output.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+  }
+  // Convert 0D tensor to 1D tensor before passing to Synapse
+  if (total_weight.dim() == 0) {
+    total_weight.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+  }
+  auto modified_target = habana_helpers::cast_tensor_to_integer(target);
+
+  at::ScalarType scalar_type = grad_output.scalar_type();
+  std::string node_type =
+      "nll_loss_bwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+
+  size_t device_id = grad_output.device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  std::vector<c10::IValue> stack = {
+      IValue(grad_output),
+      IValue(self_nhwc),
+      IValue(target),
+      IValue(weight),
+      IValue(reduction),
+      IValue(ignore_index),
+      IValue(total_weight)};
+  NLLLoss2dBwdOperator Op(device_id, scalar_type);
+  size_t key = Op.GetRecipeKey(node_type, stack);
+
+  std::vector<at::Tensor> pt_inputs{
+      grad_output, self_nhwc, modified_target, total_weight};
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    auto output = at::empty(
+        self_nhwc.sizes(), self_nhwc.options(), c10::MemoryFormat::Contiguous);
+    Op.SetPTInputs(pt_inputs);
+    Op.SetPTOutput(output);
+    Op.Execute(key);
+  } else {
+    // Create Graph
+    auto graph = habana_helpers::create_graph(device_id, node_type);
+
+    // Assign Inputs to the Operator
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
+
+    // Build Params for the graph
+    Op.AllocateAndAddSynapseNode(graph, stack, true);
+
+    // compile and execute the graph
+    Op.Compile(graph);
+  }
+
+  std::vector<at::Tensor> out = Op.GetOutputs();
+  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
+
+  if (self.ndimension() == 4) {
+    // convert tensors to synapse memory format
+    Tensor result = out.at(0);
+    Tensor result_nchw = out.at(0);
+    int64_t pos_in[] = {0, 3, 1, 2};
+    std::vector<const at::Tensor*> pt_in{&result};
+    std::vector<at::Tensor*> pt_out{&result_nchw};
+    IntArrayRef new_dim_pos_in = pos_in;
+    std::vector<const IntArrayRef*> pt_new_pos{&new_dim_pos_in};
+    c10::MemoryFormat memory_format =
+        habana_helpers::get_memory_format({&result});
+    habana_helpers::change_tensors_to_memory_format(
+        pt_out, pt_in, pt_new_pos, memory_format);
+
+    PT_KERNEL_END;
+    return result_nchw;
+  }
   PT_KERNEL_END;
   return out.at(0);
 }
@@ -1008,4 +1308,16 @@ static auto& KernelRegistry =
             "aten::nll_loss_backward",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<NLLLossBwdOperator>(device_id, node_type);
+            })
+        .add(
+            "aten::nll_loss2d_forward",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<NLLLoss2dFwdOperator>(
+                  device_id, node_type);
+            })
+        .add(
+            "aten::nll_loss2d_backward",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<NLLLoss2dBwdOperator>(
+                  device_id, node_type);
             });
