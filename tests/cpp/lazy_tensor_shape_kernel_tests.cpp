@@ -193,7 +193,7 @@ TEST_F(LazyTensorShapeKernelTest, Repeat) {
   EXPECT_TRUE(allclose(hOut.to(torch::kCPU), Out));
 }
 
-TEST_F(LazyTensorShapeKernelTest, SplitWithSizesTest) {
+TEST_F(LazyTensorShapeKernelTest, DISABLED_SplitWithSizesTest) {
   auto split_with_size = [](auto split_sizes, auto dim) {
     auto input = torch::randn({8, 3, 24, 12});
     auto h_input = input.to(torch::kHABANA);
