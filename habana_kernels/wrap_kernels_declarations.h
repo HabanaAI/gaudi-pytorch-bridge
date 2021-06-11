@@ -443,7 +443,7 @@ struct hpu_wrap {
       const at::Tensor& self,
       double p,
       c10::optional<at::Generator> gen);
-  inline static at::Tensor& randperm_out(
+  static at::Tensor& randperm_out(
       int64_t n,
       c10::optional<at::Generator> generator,
       at::Tensor& out);

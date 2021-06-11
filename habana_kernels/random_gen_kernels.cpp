@@ -106,6 +106,32 @@ void RandomShuffleOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, nullptr, 0);
 }
 
+at::Tensor RandpermOperator::GenerateAndCopySeedToHPU(
+    torch::jit::Stack& inputs,
+    bool is_persistent) {
+  TORCH_CHECK(
+      inputs[2].isTensor(),
+      "Input arg1 expected to be Tensor for DropoutOperator Operator");
+  // Using below approach of filling a buffer on HOST and then copying
+  // to Device memory instead of doing a synMemSetD[]Async due to SW-11757
+  // TODO revert to synMemSet once SW-11757 is resolved
+  auto ref_tensor = inputs[2].toTensor();
+  int64_t seed = inputs[1].isNone() ? get_seed_hpu(c10::nullopt)
+                                    : get_seed_hpu(inputs[1].toGenerator());
+  Tensor seed_tensor = habana_helpers::createPTTensor(
+      ref_tensor,
+      {1},
+      ref_tensor.options(),
+      ref_tensor.suggest_memory_format(),
+      c10::ScalarType::Int,
+      is_persistent);
+  auto size = seed_tensor.numel() * seed_tensor.element_size();
+  std::vector<int> buffer(size, (int)seed);
+
+  habana_helpers::copy_scalar_to_device(buffer.data(), seed_tensor, size);
+  return seed_tensor;
+}
+
 void RandpermOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
@@ -761,7 +787,7 @@ Tensor& randperm_hpu(Tensor& output, int64_t n, c10::optional<Generator> gen) {
       IValue(n_scalar), IValue(gen), IValue(output)};
 
   // create seed tensor
-  auto seed_tensor = DropoutOperator::GenerateAndCopySeedToHPU(stack, true);
+  auto seed_tensor = RandpermOperator::GenerateAndCopySeedToHPU(stack, true);
   pt_inputs.emplace_back(seed_tensor);
 
   size_t key = Op.GetRecipeKey(node_type, stack);

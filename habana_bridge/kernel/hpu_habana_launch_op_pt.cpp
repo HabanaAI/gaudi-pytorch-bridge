@@ -554,12 +554,16 @@ void HabanaLaunchOpPT::GetSynapseInputs(
         (!strcmp("aten::_fused_dropout", node->kind().toQualString()) &&
          1 == input_idx) ||
         (!strcmp("hpu::randperm_out", node->kind().toQualString()) &&
-         1 == input_idx)) {
+         0 == input_idx)) {
       auto stack = getStackForNode(node);
       // Create the seed tensor
       // TODO : check for the generator when the generator could be passed
+      at::Tensor seed_tensor;
       // as an IValues
-      auto seed_tensor = DropoutOperator::GenerateAndCopySeedToHPU(stack, true);
+      if (!strcmp("hpu::randperm_out", node->kind().toQualString()))
+        seed_tensor = RandpermOperator::GenerateAndCopySeedToHPU(stack, true);
+      else
+        seed_tensor = DropoutOperator::GenerateAndCopySeedToHPU(stack, true);
 
       auto& syn_tensor =
           habana_op->AllocateSynapseInput(*syn_graph_ptr, seed_tensor, true);

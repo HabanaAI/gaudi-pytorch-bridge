@@ -147,7 +147,9 @@ class RandpermOperator : public HabanaOperator {
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
-
+  static at::Tensor GenerateAndCopySeedToHPU(
+      torch::jit::Stack& inputs,
+      bool is_persistent);
   getDMAInputTensorCBType getDMAInputTensorCB() override {
     return DropoutOperator::populateSeedTensor;
   }
