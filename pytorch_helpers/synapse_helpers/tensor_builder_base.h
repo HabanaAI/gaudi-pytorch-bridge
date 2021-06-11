@@ -130,9 +130,11 @@ class tensor_builder_base {
 
   ConcreteBuilder& mark_const(
       const bool is_const = true,
-      void* host_ptr = nullptr) {
+      void* host_ptr = nullptr,
+      const uint64_t host_ptr_size = 0) {
     is_const_ = is_const;
     host_ptr_ = host_ptr;
+    host_ptr_size_ = host_ptr_size;
     HABANA_ASSERT(tensor_type_ == DATA_TENSOR);
     return static_cast<ConcreteBuilder&>(*this);
   }
@@ -197,6 +199,7 @@ class tensor_builder_base {
         memory_section_,
         is_const_,
         host_ptr_,
+        host_ptr_size_,
         offset_,
         tensor_type_);
 
@@ -228,6 +231,7 @@ class tensor_builder_base {
   bool is_name_overridden_{false};
   shared_memory_section memory_section_{nullptr};
   void* host_ptr_{nullptr};
+  uint64_t host_ptr_size_{0};
   uint64_t offset_{0};
   synTensorType tensor_type_{DATA_TENSOR};
   bool error_invalid_shape_{false};

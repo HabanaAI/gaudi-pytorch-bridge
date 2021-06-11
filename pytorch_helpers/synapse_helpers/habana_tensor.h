@@ -284,6 +284,7 @@ class tensor final {
       shared_memory_section memory_section = nullptr,
       bool is_const = false,
       void* host_ptr = nullptr,
+      const uint64_t host_ptr_size = 0,
       const uint64_t offset = 0,
       synTensorType tensor_type = DATA_TENSOR);
   tensor(
@@ -297,12 +298,14 @@ class tensor final {
       shared_memory_section memory_section = nullptr,
       bool is_const = false,
       void* host_ptr = nullptr,
+      const uint64_t host_ptr_size = 0,
       const uint64_t offset = 0,
       synTensorType tensor_type = DATA_TENSOR);
 
   void set_placeholder() {
     placeholder_ = true;
   }
+  synapse_error_o create_old_synapi();
   synapse_error_o create();
   void cleanup();
 
@@ -320,6 +323,7 @@ class tensor final {
   synGraphHandle graph_{nullptr};
   bool is_const_{false};
   void* host_ptr_{nullptr};
+  uint64_t host_ptr_size_{0};
   const uint64_t offset_{0};
   synTensorType tensor_type_{DATA_TENSOR};
 };

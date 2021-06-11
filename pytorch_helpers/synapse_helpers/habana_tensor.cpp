@@ -93,6 +93,7 @@ tensor::tensor(
     shared_memory_section section,
     bool is_const,
     void* host_ptr,
+    const uint64_t host_ptr_size,
     const uint64_t offset,
     synTensorType tensor_type)
     : tensor_name_{tensor_name},
@@ -106,6 +107,7 @@ tensor::tensor(
       graph_{graph},
       is_const_{is_const},
       host_ptr_{host_ptr},
+      host_ptr_size_{host_ptr_size},
       offset_(offset),
       tensor_type_(tensor_type) {}
 
@@ -120,6 +122,7 @@ tensor::tensor(
     shared_memory_section section,
     bool is_const,
     void* host_ptr,
+    const uint64_t host_ptr_size,
     const uint64_t offset,
     synTensorType tensor_type)
     : tensor_name_{tensor_name},
@@ -133,6 +136,7 @@ tensor::tensor(
       graph_{graph},
       is_const_{is_const},
       host_ptr_{host_ptr},
+      host_ptr_size_{host_ptr_size},
       offset_(offset),
       tensor_type_(tensor_type) {}
 
@@ -149,6 +153,7 @@ tensor::tensor(tensor&& other) noexcept
       graph_{other.graph_},
       is_const_{other.is_const_},
       host_ptr_{other.host_ptr_},
+      host_ptr_size_{other.host_ptr_size_},
       offset_{other.offset_},
       tensor_type_{other.tensor_type_} {
   other.tensor_ = nullptr;
@@ -172,6 +177,7 @@ tensor& tensor::operator=(tensor&& other) noexcept {
   graph_ = other.graph_;
   is_const_ = other.is_const_;
   host_ptr_ = other.host_ptr_;
+  host_ptr_size_ = other.host_ptr_size_;
   tensor_type_ = other.tensor_type_;
 
   other.tensor_ = nullptr;
@@ -181,7 +187,8 @@ tensor& tensor::operator=(tensor&& other) noexcept {
   return *this;
 }
 
-synapse_error_o tensor::create() {
+// [[deprecated("Use new Synapse APIs")]]
+synapse_error_o tensor::create_old_synapi() {
   synStatus status;
   synTensorDescriptor trdescriptor{};
 
@@ -237,6 +244,116 @@ synapse_error_o tensor::create() {
           synTensorCreate(&tensor_, &trdescriptor, *memory_section_, offset_);
     } else {
       status = synTensorCreate(&tensor_, &trdescriptor, nullptr, 0);
+    }
+  }
+
+  SYNAPSE_SUCCESS_CHECK_WITH_OP("Tensor create failed.", status, cleanup());
+
+  PT_SYNHELPER_DEBUG("created ", *this);
+  return {};
+}
+
+synapse_error_o tensor::create() {
+  if (const auto envp = std::getenv("PT_HPU_INTERNAL_OLD_SYNAPI")) {
+    if (atoi(envp) == 1) {
+      return create_old_synapi();
+    }
+  }
+  synStatus status;
+  // Create the synTensor handle, with the given tensor type and name
+  status = synTensorHandleCreate(
+      &tensor_, graph_, tensor_type_, tensor_name_.c_str());
+  SYNAPSE_SUCCESS_CHECK_WITH_OP(
+      "synTensorHandleCreate failed.", status, cleanup());
+
+  // Add tensor dimension via synTensorGeometry
+  // Max geometry is also used as the actual geometry. In synapse side,
+  // synGeometryMaxSizes is aliased to synGeometrySizes
+  uint32_t maxSizes[SYN_MAX_TENSOR_DIM] = {0};
+  size_t sizesSize = SYN_MAX_TENSOR_DIM * sizeof(uint32_t);
+
+  // TBD: Once GC min-max shape inferencing is available, the non_persistent
+  // synapse tensors shapes need to be zero-filled.
+  std::copy_n(
+      shape_.max_.data(), shape_.max_.rank().value, std::begin(maxSizes));
+
+  synTensorGeometry maxGeometry;
+  maxGeometry.dims = shape_.max().rank().value;
+  ;
+  memcpy(maxGeometry.sizes, maxSizes, sizesSize);
+  status = synTensorSetGeometry(tensor_, &maxGeometry, synGeometrySizes);
+  SYNAPSE_SUCCESS_CHECK_WITH_OP(
+      "synTensorSetGeometry failed.", status, cleanup());
+
+  // Add strides and datatype.
+  // As of now synapse supports only default strides -
+  // Set the desired data type of the tensor in the device.
+  // In the future, this API can also be used to set the strides of a tensors,
+  // but currently only default strides are allowed.
+  // If the given strides are empty (zeros) then they will be calculated
+  // inside the tensor according to its geometry.
+  uint32_t strides[SYN_MAX_TENSOR_DIM - 1] = {0};
+  synTensorDeviceLayout deviceLayout;
+  memcpy(deviceLayout.strides, strides, sizesSize - 1);
+  deviceLayout.deviceDataType = data_type_;
+  if (tensor_type_ == SHAPE_TENSOR ||
+      tensor_type_ == INPUT_DESCRIBING_SHAPE_TENSOR ||
+      tensor_type_ == DEVICE_SHAPE_TENSOR) {
+    HABANA_ASSERT(data_type_ == syn_type_uint32);
+  }
+  status = synTensorSetDeviceLayout(tensor_, &deviceLayout);
+  SYNAPSE_SUCCESS_CHECK_WITH_OP(
+      "synTensorSetDeviceLayout failed.", status, cleanup());
+
+  if (has_dynamic_shape()) {
+    uint32_t minSizes[SYN_MAX_TENSOR_DIM] = {0};
+
+    // TBD: Once GC min-max shape inferencing is available, the non_persistent
+    // synapse tensors shapes need to be zero-filled.
+    std::copy_n(
+        shape_.min_.data(), shape_.min_.rank().value, std::begin(minSizes));
+
+    synTensorGeometry minGeometry;
+    minGeometry.dims = shape_.min().rank().value;
+    memcpy(minGeometry.sizes, minSizes, sizesSize);
+    status = synTensorSetGeometry(tensor_, &minGeometry, synGeometryMinSizes);
+    SYNAPSE_SUCCESS_CHECK_WITH_OP(
+        "synTensorSetGeometry min sizes failed.", status, cleanup());
+  }
+
+  if (is_const_) {
+    HABANA_ASSERT(!is_persistent_);
+    HABANA_ASSERT(tensor_type_ == DATA_TENSOR);
+    status = synTensorSetHostPtr(
+        tensor_, host_ptr_, host_ptr_size_, data_type_, true);
+    SYNAPSE_SUCCESS_CHECK_WITH_OP(
+        "synTensorSetHostPtr failed.", status, cleanup());
+  } else {
+    HABANA_ASSERT(!memory_section_ || (memory_section_ && is_persistent_));
+    if (!memory_section_ && is_persistent_) {
+      auto memory_attributes{
+          synMemoryAttribute::MEMORY_ATTRIBUTE_DEVICE |
+          (is_persistent_ ? synMemoryAttribute::MEMORY_ATTRIBUTE_PERSISTENT
+                          : 0)};
+      synSectionHandle section;
+      HABANA_ASSERT(graph_ != nullptr);
+      status = synSectionCreate(&section, memory_attributes, graph_);
+      SYNAPSE_SUCCESS_CHECK_WITH_OP(
+          "Memory section create failed.", status, cleanup());
+      memory_section_ = std::make_shared<memory_section>(section);
+      PT_SYNHELPER_DEBUG(
+          "synTensorCreate ", *this, " created with offset ", offset_);
+      status = synTensorAssignToSection(tensor_, *memory_section_, offset_);
+      SYNAPSE_SUCCESS_CHECK_WITH_OP(
+          "synTensorAssignToSection failed.", status, cleanup());
+    } else if (memory_section_ && is_persistent_) {
+      // the only valid use case for today with user-defined memory section is
+      // to do in-place update, therefore offset parameter is 0
+      PT_SYNHELPER_DEBUG(
+          "synTensorCreate ", *this, " created with offset ", offset_);
+      status = synTensorAssignToSection(tensor_, *memory_section_, offset_);
+      SYNAPSE_SUCCESS_CHECK_WITH_OP(
+          "synTensorAssignToSection failed.", status, cleanup());
     }
   }
 

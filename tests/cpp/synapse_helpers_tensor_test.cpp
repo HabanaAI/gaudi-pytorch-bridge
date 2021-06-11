@@ -17,6 +17,7 @@ TEST(SynapseHelpersTest, NonDynamicTensorBuilding) {
   torch::Tensor hA = A.to(torch::kHABANA);
   auto& synapse_device_ = synapse_helpers::HPURegistrar::get_device();
   synGraphHandle h;
+  ASSERT_EQ(synSuccess, synGraphCreate(&h, synDeviceGaudi));
   auto input_shape = tensor::shape_t{5_D, 5, 4, 3, 2, 1};
   auto type = habana_helpers::pytorch_to_synapse_type(c10::ScalarType::Float);
   auto build_result =
@@ -29,6 +30,7 @@ TEST(SynapseHelpersTest, NonDynamicTensorBuilding) {
   ASSERT_NE(tensor.shape(), tensor::shape_t(4_D, 5, 4, 3, 2, 1));
   ASSERT_NE(tensor.shape(), tensor::shape_t(5_D, 5, 4, 3, 2, 0));
   ASSERT_FALSE(tensor.has_dynamic_shape());
+  ASSERT_EQ(synSuccess, synGraphDestroy(h));
 }
 
 TEST(SynapseHelpersTest, NonDynamicTensorWithShape) {
@@ -37,6 +39,7 @@ TEST(SynapseHelpersTest, NonDynamicTensorWithShape) {
   torch::Tensor hA = A.to(torch::kHABANA);
 
   synGraphHandle h;
+  ASSERT_EQ(synSuccess, synGraphCreate(&h, synDeviceGaudi));
   auto& synapse_device_ = synapse_helpers::HPURegistrar::get_device();
   auto input_shape = tensor::shape_t{5_D, 5, 4, 3, 2, 1};
   auto build_result = tensor_builder(synDataType::syn_type_float)
@@ -48,6 +51,7 @@ TEST(SynapseHelpersTest, NonDynamicTensorWithShape) {
   ASSERT_EQ(tensor.type(), synDataType::syn_type_float);
   ASSERT_EQ(tensor.shape(), input_shape);
   ASSERT_FALSE(tensor.has_dynamic_shape());
+  ASSERT_EQ(synSuccess, synGraphDestroy(h));
 }
 
 TEST(SynapseHelpersTest, NonDynamicTensorWithRank) {
@@ -56,6 +60,7 @@ TEST(SynapseHelpersTest, NonDynamicTensorWithRank) {
   torch::Tensor hA = A.to(torch::kHABANA);
 
   synGraphHandle h;
+  ASSERT_EQ(synSuccess, synGraphCreate(&h, synDeviceGaudi));
   auto& synapse_device_ = synapse_helpers::HPURegistrar::get_device();
   auto input_shape = tensor::shape_t{3_D, 1, 2, 3};
   auto build_result = tensor_builder(input_shape)
@@ -69,6 +74,7 @@ TEST(SynapseHelpersTest, NonDynamicTensorWithRank) {
   ASSERT_EQ(tensor.shape(), tensor::shape_t(5_D, 1, 2, 3, 1, 1));
   ASSERT_EQ(tensor.shape().rank(), 5_D);
   ASSERT_FALSE(tensor.has_dynamic_shape());
+  ASSERT_EQ(synSuccess, synGraphDestroy(h));
 }
 
 TEST(SynapseHelpersTest, DynamicTensorBuilding) {
@@ -77,6 +83,7 @@ TEST(SynapseHelpersTest, DynamicTensorBuilding) {
   torch::Tensor hA = A.to(torch::kHABANA);
 
   synGraphHandle h;
+  ASSERT_EQ(synSuccess, synGraphCreate(&h, synDeviceGaudi));
   auto& synapse_device_ = synapse_helpers::HPURegistrar::get_device();
   auto min = tensor::shape_t{5_D, 5, 4, 3, 2, 1};
   auto max = tensor::shape_t{5_D, 10, 4, 6, 2, 1};
@@ -101,6 +108,7 @@ TEST(SynapseHelpersTest, DynamicTensorBuilding) {
   ASSERT_EQ(tensor.dynamic_shape().min().rank(), 5_D);
   ASSERT_EQ(tensor.dynamic_shape().max().rank(), 5_D);
   ASSERT_TRUE(tensor.has_dynamic_shape());
+  ASSERT_EQ(synSuccess, synGraphDestroy(h));
 }
 
 TEST(SynapseHelpersTest, DynamicTensorWithRank) {
@@ -109,6 +117,7 @@ TEST(SynapseHelpersTest, DynamicTensorWithRank) {
   torch::Tensor hA = A.to(torch::kHABANA);
 
   synGraphHandle h;
+  ASSERT_EQ(synSuccess, synGraphCreate(&h, synDeviceGaudi));
   auto& synapse_device_ = synapse_helpers::HPURegistrar::get_device();
   auto min = tensor::shape_t{5_D, 5, 4, 3, 2, 1};
   auto max = tensor::shape_t{5_D, 10, 4, 6, 2, 1};
@@ -124,12 +133,14 @@ TEST(SynapseHelpersTest, DynamicTensorWithRank) {
   ASSERT_EQ(tensor.shape(), max);
   ASSERT_EQ(tensor.shape().rank(), 5_D);
   ASSERT_TRUE(tensor.has_dynamic_shape());
+  ASSERT_EQ(synSuccess, synGraphDestroy(h));
 }
 
 TEST(SynapseHelpersTest, DynamicShape) {
   using namespace synapse_helpers;
 
   synGraphHandle h;
+  ASSERT_EQ(synSuccess, synGraphCreate(&h, synDeviceGaudi));
   auto min = tensor::shape_t{2_D, 5, 4};
   auto max = tensor::shape_t{2_D, 10, 4};
   auto dynamic_shape = tensor::dynamic_shape_t{min, max};
@@ -142,4 +153,5 @@ TEST(SynapseHelpersTest, DynamicShape) {
   dynamic_shape.set_dim(2, 4, 10);
   ASSERT_EQ(dynamic_shape.min(), tensor::shape_t(5_D, 5, 5, 4, 1, 1));
   ASSERT_EQ(dynamic_shape.max(), tensor::shape_t(5_D, 10, 5, 10, 1, 1));
+  ASSERT_EQ(synSuccess, synGraphDestroy(h));
 }
