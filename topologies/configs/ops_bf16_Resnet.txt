@@ -8,3 +8,4 @@ mm
 mv
 relu
 t
+linear
