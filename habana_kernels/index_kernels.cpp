@@ -1498,7 +1498,7 @@ Tensor select_hpu(const Tensor& in_self, int64_t dim, int64_t index) {
 }
 
 void ArangeOperator::SetPTOutputs(torch::jit::Stack& inputs) {
-  auto result = inputs[0].toTensor();
+  auto result = inputs[3].toTensor();
   HabanaOperator::SetPTOutput(result);
 }
 
