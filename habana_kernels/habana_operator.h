@@ -247,13 +247,27 @@ class HabanaOperator {
 };
 class RegisterKernel {
  public:
-  RegisterKernel& add(const std::string& node_name, RegisterFunc func) {
+  RegisterKernel& add(const std::string& opname, RegisterFunc func) {
     TORCH_CHECK(
-        !kernels_.count(node_name),
-        "Kernel ",
-        node_name,
-        " is already registered");
-    kernels_.emplace(node_name, func);
+        !kernels_.count(opname), "Kernel ", opname, " is already registered");
+    kernels_.emplace(opname, func);
+
+    // Construct OperatorName from opname
+    std::istringstream iss{opname};
+    std::string name, overload_name;
+    std::getline(iss, name, '.');
+    std::getline(iss, overload_name, '.');
+
+    return add(name, overload_name, func);
+  }
+
+  RegisterKernel& add(
+      const std::string& name,
+      const std::string& overload_name = {},
+      RegisterFunc func = {}) {
+    c10::OperatorName opname{name, overload_name};
+    TORCH_CHECK(!kernels_v2_.count(opname), opname, " is already registered!");
+    kernels_v2_.emplace(opname, func);
     return *this;
   }
 
@@ -265,12 +279,21 @@ class RegisterKernel {
                                      : nullptr;
   }
 
+  HabanaOperatorPtr get(
+      const int device_id,
+      const at::OperatorName& opname,
+      c10::ScalarType node_type) {
+    return kernels_v2_.count(opname) ? kernels_v2_[opname](device_id, node_type)
+                                     : nullptr;
+  }
+
   RegisterKernel() = default;
   RegisterKernel(const RegisterKernel&) = delete;
   RegisterKernel& operator=(const RegisterKernel&) = delete;
 
  private:
-  std::map<const std::string, RegisterFunc> kernels_;
+  std::map<const std::string, RegisterFunc> kernels_; // deprecate this
+  std::unordered_map<c10::OperatorName, RegisterFunc> kernels_v2_;
 };
 
 RegisterKernel& KernelRegistry();

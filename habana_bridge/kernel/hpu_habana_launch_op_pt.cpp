@@ -1971,9 +1971,17 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
     }
 
     // Get kernel context
-    HabanaOperatorPtr HabanaKernel = KernelRegistry().get(
-        device_id, node->kind().toQualString(), getNodeScalarType(node));
+    const auto& op = node->getOperator().schema().operator_name();
+    HabanaOperatorPtr HabanaKernel =
+        KernelRegistry().get(device_id, op, getNodeScalarType(node));
 
+    TORCH_WARN_ONCE(HabanaKernel, op, " isn't registered in KernelRegistry!");
+
+    if (!HabanaKernel) {
+      // Deprecate this when we completely move to new KernelRegistry
+      HabanaKernel = KernelRegistry().get(
+          device_id, node->kind().toQualString(), getNodeScalarType(node));
+    }
     TORCH_CHECK(
         HabanaKernel != nullptr,
         std::string(" \n  kernel ") + std::string(node->kind().toQualString()) +

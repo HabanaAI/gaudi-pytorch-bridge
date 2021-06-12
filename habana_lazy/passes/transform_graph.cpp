@@ -30,7 +30,7 @@ Patterns internal_patts = {
       %4 : int = prim::Constant[value=0.0]()\n\
       %c : Tensor = aten::eq(%a, %b)\n\
       %1 : int = prim::dtype(%a)\n\
-      %d : Tensor = aten::to(%c, %1, %2, %2, %3)\n\
+      %d : Tensor = aten::to(%c, %1, %3, %3, %2)\n\
       %e : Tensor = aten::eq(%d, %4)\n\
       return (%e)"},
     // torch.all(tensor) pattern
