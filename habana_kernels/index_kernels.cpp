@@ -2136,7 +2136,7 @@ static auto& KernelRegistry =
               return std::make_shared<GatherOperator>(device_id, node_type);
             })
         .add(
-            "aten::scatter",
+            "aten::scatter.src",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<ScatterOperator>(device_id, node_type);
             })
@@ -2152,7 +2152,7 @@ static auto& KernelRegistry =
                   device_id, node_type);
             })
         .add(
-            "aten::select",
+            "aten::select.int",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<SelectOperator>(device_id, node_type);
             })
@@ -2167,7 +2167,7 @@ static auto& KernelRegistry =
               return std::make_shared<ArangeOperator>(device_id, node_type);
             })
         .add(
-            "aten::slice",
+            "aten::slice.Tensor",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<SliceOperator>(device_id, node_type);
             })
@@ -2187,7 +2187,7 @@ static auto& KernelRegistry =
               return std::make_shared<ArangeOperator>(device_id, node_type);
             })
         .add(
-            "aten::index",
+            "aten::index.Tensor_hacked_twin",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<IndexOperator>(device_id, node_type);
             })

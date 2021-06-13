@@ -41,13 +41,20 @@ using namespace habana;
 
 void HabanaLaunchOpPT::markLayoutForOriginNodes(torch::jit::Value* val) {
   auto node = val->node();
+  if (node->kind().is_prim()) {
+    return;
+  }
+
   auto node_ins = node->inputs();
+
+  // Get kernel context
   habana::HabanaOperatorPtr HabanaKernel = habana::KernelRegistry().get(
-      0, node->kind().toQualString(), getNodeScalarType(node));
+      0, node->schema().operator_name(), getNodeScalarType(node));
   // If we dont get a valid kernel, it means the node may be pointing to a
   // subgraph or something we dont need to propagate in such cases, return
-  if (HabanaKernel == nullptr)
+  if (HabanaKernel == nullptr) {
     return;
+  }
   // Get the metadata for all inputs, used for preprocessing inputs
   auto& habana_kernel_meta_data = HabanaKernel->GetKernelMetaData();
   // We only need to mark for cases where the output layout is derived from
@@ -82,9 +89,13 @@ void HabanaLaunchOpPT::markLayoutForOriginNodes(torch::jit::Value* val) {
 void HabanaLaunchOpPT::weightLayoutMarkingPass(
     torch::jit::graph_node_list graph_nodes) {
   for (auto* node : graph_nodes) {
+    if (node->kind().is_prim()) {
+      continue;
+    }
+
     // Get kernel context
     habana::HabanaOperatorPtr HabanaKernel = habana::KernelRegistry().get(
-        0, node->kind().toQualString(), getNodeScalarType(node));
+        0, node->schema().operator_name(), getNodeScalarType(node));
 
     if (HabanaKernel == nullptr)
       continue;
@@ -111,10 +122,13 @@ void HabanaLaunchOpPT::weightLayoutMarkingPass(
 void HabanaLaunchOpPT::persistenceMarkingPass(
     torch::jit::graph_node_list graph_nodes) {
   for (auto* node : graph_nodes) {
+    if (node->kind().is_prim()) {
+      continue;
+    }
+
     // Get kernel context
     habana::HabanaOperatorPtr HabanaKernel = habana::KernelRegistry().get(
-        0, node->kind().toQualString(), getNodeScalarType(node));
-
+        0, node->schema().operator_name(), getNodeScalarType(node));
     if (HabanaKernel == nullptr)
       continue;
     size_t len = strlen(node->kind().toQualString());

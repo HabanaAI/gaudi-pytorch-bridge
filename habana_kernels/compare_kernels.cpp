@@ -461,20 +461,42 @@ Tensor ne_scalar_hpu(const Tensor& self_in, Scalar other) {
 static auto& KernelRegistry =
     habana::KernelRegistry()
         .add(
-            "aten::gt",
+            "aten::gt.Tensor",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<GtOperator>(device_id, node_type);
             })
         .add(
-            "aten::eq",
+            "aten::gt.Scalar",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<GtOperator>(device_id, node_type);
+            })
+        .add(
+            "aten::eq.Tensor",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<EqOperator>(device_id, node_type);
             })
         .add(
-            "aten::lt",
+            "aten::eq.Scalar",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<EqOperator>(device_id, node_type);
+            })
+        .add(
+            "aten::lt.Tensor",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<LtOperator>(device_id, node_type);
             })
-        .add("aten::ge", [](const int device_id, c10::ScalarType node_type) {
-          return std::make_shared<GeOperator>(device_id, node_type);
-        });
+        .add(
+            "aten::lt.Scalar",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<LtOperator>(device_id, node_type);
+            })
+        .add(
+            "aten::ge.Tensor",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<GeOperator>(device_id, node_type);
+            })
+        .add(
+            "aten::ge.Scalar",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<GeOperator>(device_id, node_type);
+            });

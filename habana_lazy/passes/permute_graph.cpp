@@ -18,7 +18,7 @@ bool IsNodeLayoutAgnostic(const Node* node) {
   auto& device = synapse_helpers::HPURegistrar::get_device();
   synDeviceId device_id = device.id();
   habana::HabanaOperatorPtr habana_kernel = habana::KernelRegistry().get(
-      device_id, node->kind().toQualString(), c10::ScalarType::Float);
+      device_id, node->schema().operator_name(), c10::ScalarType::Float);
   auto& habana_kernel_meta_data = habana_kernel->GetKernelMetaData();
   auto node_ins = node->inputs();
 
@@ -372,8 +372,9 @@ void InsertPermute_graph(
     auto& device = synapse_helpers::HPURegistrar::get_device();
     synDeviceId device_id = device.id();
     habana::HabanaOperatorPtr habana_kernel = habana::KernelRegistry().get(
-        device_id, node->kind().toQualString(), c10::ScalarType::Float);
-    HABANA_ASSERT(habana_kernel);
+        device_id, node->schema().operator_name(), c10::ScalarType::Float);
+    TORCH_CHECK(
+        habana_kernel, node->schema().operator_name(), " is not registered!");
     auto& habana_kernel_meta_data = habana_kernel->GetKernelMetaData();
     bool isLayoutAgnostic = IsNodeLayoutAgnostic(node);
 

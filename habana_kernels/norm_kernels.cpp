@@ -2419,6 +2419,8 @@ static auto& KernelRegistry =
               return std::make_shared<LayerNormBackwardOperator>(
                   device_id, node_type);
             })
-        .add("aten::norm", [](const int device_id, c10::ScalarType node_type) {
-          return std::make_shared<NormOperator>(device_id, node_type);
-        });
+        .add(
+            "aten::norm.Scalar",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<NormOperator>(device_id, node_type);
+            });

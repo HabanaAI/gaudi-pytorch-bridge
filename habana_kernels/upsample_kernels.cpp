@@ -349,13 +349,13 @@ Tensor upsample_nearest2d_backward_hpu(
 static auto& KernelRegistry =
     habana::KernelRegistry()
         .add(
-            "aten::upsample_nearest2d",
+            "aten::upsample_nearest2d.vec",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<UpsampleNearest2dOperator>(
                   device_id, node_type);
             })
         .add(
-            "aten::upsample_nearest2d_backward",
+            "aten::upsample_nearest2d_backward.vec",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<UpsampleNearest2dBackwardOperator>(
                   device_id, node_type);

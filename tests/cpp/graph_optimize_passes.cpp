@@ -73,7 +73,7 @@ TEST_F(GraphOptimizeTest, SubGraphRewriteTest) {
       "                 ],\n"
       "   \"ReplacePattern\" : [\n"
       "                   \"graph(%a, %b):\",\n"
-      "                   \" %r = hpu::mmrelu(%a, %b)\",\n"
+      "                   \" %r = aten::matmul(%a, %b)\",\n"
       "                   \" return (%r)\"\n"
       "                 ]\n"
       " }\n"
@@ -82,13 +82,6 @@ TEST_F(GraphOptimizeTest, SubGraphRewriteTest) {
   std::ofstream out("pattern.json");
   out << patterns;
   out.close();
-
-  // Add the new kernel so that it does not assert while looking up in the pass
-  static auto& KernelRegistry = habana::KernelRegistry().add(
-      "hpu::mmrelu", [](const int device_id, c10::ScalarType node_type) {
-        static_cast<void>(node_type);
-        return std::make_shared<habana::HabanaOperator>("hpu::mmrelu");
-      });
 
   torch::Tensor A = torch::randn({2, 2}, torch::requires_grad(false));
   torch::Tensor B = torch::randn({2, 2}, torch::requires_grad(false));
@@ -114,7 +107,7 @@ TEST_F(GraphOptimizeTest, SubGraphRewriteTest) {
   torch::jit::testing::FileCheck()
       .check_not("aten::mm")
       ->check_not("aten::relu")
-      ->check_count("hpu::mmrelu", 1)
+      ->check_count("aten::matmul", 1)
       ->run(*hlexec->get_graph());
   unsetenv("HABANA_TRANSFORM_GRAPH_FILE");
   remove("pattern.json");

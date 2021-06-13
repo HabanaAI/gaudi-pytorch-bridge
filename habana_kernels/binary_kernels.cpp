@@ -857,37 +857,79 @@ Tensor minimum_hpu(const Tensor& self, const Tensor& other) {
 static auto& KernelRegistry =
     habana::KernelRegistry()
         .add(
-            "aten::add",
+            "aten::add.Tensor",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<habana::AddOperator>(
                   device_id, node_type);
             })
         .add(
-            "aten::sub",
+            "aten::add.Scalar",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<habana::AddOperator>(
+                  device_id, node_type);
+            })
+        .add(
+            "aten::sub.Tensor",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<habana::SubOperator>(
                   device_id, node_type);
             })
         .add(
-            "aten::rsub",
+            "aten::sub.Scalar",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<habana::SubOperator>(
+                  device_id, node_type);
+            })
+        .add(
+            "aten::rsub.Tensor",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<habana::RsubOperator>(
                   device_id, node_type);
             })
         .add(
-            "aten::mul",
+            "aten::rsub.Scalar",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<habana::RsubOperator>(
+                  device_id, node_type);
+            })
+        .add(
+            "aten::mul.Tensor",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<habana::MulOperator>(
                   device_id, node_type);
             })
         .add(
-            "aten::div",
+            "aten::mul.Scalar",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<habana::MulOperator>(
+                  device_id, node_type);
+            })
+        .add(
+            "aten::div.Tensor",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<habana::DivOperator>(
                   device_id, node_type);
             })
         .add(
-            "aten::pow",
+            "aten::div.Scalar",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<habana::DivOperator>(
+                  device_id, node_type);
+            })
+        .add(
+            "aten::pow.Tensor_Scalar",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<habana::PowOperator>(
+                  device_id, node_type);
+            })
+        .add(
+            "aten::pow.Tensor_Tensor",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<habana::PowOperator>(
+                  device_id, node_type);
+            })
+        .add(
+            "aten::pow.Scalar",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<habana::PowOperator>(
                   device_id, node_type);

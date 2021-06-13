@@ -859,8 +859,8 @@ at::Tensor HabanaLaunchOpPT::permuteTensor(
     LayoutFormat permute_order) {
   auto& device = synapse_helpers::HPURegistrar::get_device();
   synDeviceId device_id = device.id();
-  HabanaOperatorPtr permute_kernel =
-      KernelRegistry().get(device_id, "aten::permute", input.scalar_type());
+  HabanaOperatorPtr permute_kernel = KernelRegistry().get(
+      device_id, {"aten::permute", ""}, input.scalar_type());
   TORCH_CHECK(
       permute_kernel != nullptr,
       " \n Permute kernel isnt supported in graph mode ");
@@ -1990,21 +1990,11 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
     }
 
     // Get kernel context
-    const auto& op = node->getOperator().schema().operator_name();
+    const auto& op = node->schema().operator_name();
     HabanaOperatorPtr HabanaKernel =
         KernelRegistry().get(device_id, op, getNodeScalarType(node));
 
-    TORCH_WARN_ONCE(HabanaKernel, op, " isn't registered in KernelRegistry!");
-
-    if (!HabanaKernel) {
-      // Deprecate this when we completely move to new KernelRegistry
-      HabanaKernel = KernelRegistry().get(
-          device_id, node->kind().toQualString(), getNodeScalarType(node));
-    }
-    TORCH_CHECK(
-        HabanaKernel != nullptr,
-        std::string(" \n  kernel ") + std::string(node->kind().toQualString()) +
-            std::string(" isnt supported in graph mode "));
+    TORCH_CHECK(HabanaKernel, op, " isn't registered in KernelRegistry!");
 
     // See if we need to modify/permute tesnors
     if (!habana_lazy::exec::OptPassCfg::GetInstance()->IsEnabledPermutePass())

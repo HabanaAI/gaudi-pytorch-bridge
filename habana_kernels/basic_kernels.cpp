@@ -548,7 +548,7 @@ static auto& KernelRegistry =
               return std::make_shared<CastLazyOperator>(device_id, node_type);
             })
         .add(
-            "aten::to",
+            "aten::to.dtype",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<ToDtypeOperator>(device_id, node_type);
             })
