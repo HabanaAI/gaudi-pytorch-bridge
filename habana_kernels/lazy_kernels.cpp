@@ -5620,4 +5620,38 @@ Tensor silu_hpu_lazy(const Tensor& self) {
   return k.call();
 }
 
+Tensor linspace_hpu_lazy(
+    Scalar start,
+    Scalar end,
+    c10::optional<int64_t> steps,
+    UNUSED c10::optional<ScalarType> dtype,
+    UNUSED c10::optional<Layout> layout,
+    UNUSED c10::optional<Device> device,
+    UNUSED c10::optional<bool> pin_memory) {
+  PT_LAZY_TRACE;
+
+  // TODO: handle last 4 args
+  struct Kernel : public LazyOp<at::Tensor> {
+    explicit Kernel(Scalar start, Scalar end, c10::optional<int64_t> steps)
+        : LazyOp<at::Tensor>("aten::linspace", {start, end, steps}, {}, {}, -1),
+          m_start(start),
+          m_steps(steps) {}
+
+    at::Tensor get_result_overrideable() override {
+      Tensor outputSample;
+      auto res = empty_hpu_lazy(
+          {m_steps.value_or(100)},
+          // if dtype is not-present/ignored, type is float
+          TensorOptions().dtype(c10::ScalarType::Float),
+          outputSample.suggest_memory_format(),
+          false);
+      return res;
+    }
+
+    at::Scalar m_start;
+    c10::optional<int64_t> m_steps;
+  };
+  Kernel kernel{start, end, steps};
+  return kernel.call();
+}
 } // namespace habana_lazy

@@ -16,6 +16,14 @@
 // scripts/gen.py for all the static member functions of this class.
 
 struct hpu_wrap {
+  static at::Tensor linspace(
+      at::Scalar start,
+      at::Scalar end,
+      c10::optional<int64_t> steps,
+      c10::optional<at::ScalarType> dtype,
+      c10::optional<at::Layout> layout,
+      c10::optional<at::Device> device,
+      c10::optional<bool> pin_memory);
   static at::Tensor silu(const at::Tensor& self);
   static at::Tensor isnan(const at::Tensor& self);
   static at::Tensor empty(

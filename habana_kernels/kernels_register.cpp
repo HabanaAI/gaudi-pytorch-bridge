@@ -3179,6 +3179,24 @@ Tensor hpu_wrap::adaptive_avg_pool2d(
   return AdaptiveAvgPool2DFunction::apply(input, output_size);
 };
 
+Tensor hpu_wrap::linspace(
+    at::Scalar start,
+    at::Scalar end,
+    c10::optional<int64_t> steps,
+    c10::optional<at::ScalarType> dtype,
+    c10::optional<at::Layout> layout,
+    c10::optional<at::Device> device,
+    c10::optional<bool> pin_memory) {
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    return linspace_hpu_lazy(
+        start, end, steps, dtype, layout, device, pin_memory);
+  } else {
+    HABANA_ASSERT(0 && "linspace not implemented for eager mode");
+    return linspace_hpu_lazy(
+        start, end, steps, dtype, layout, device, pin_memory);
+  }
+};
+
 // Registration for all non-custom/aten ops are auto-generated and can be
 // found in habana_kernels/aten_hpu_type_default.cpp.
 

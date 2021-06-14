@@ -832,4 +832,12 @@ at::Tensor habana_nms_hpu_lazy(
     float score_threshold);
 at::Tensor isnan_hpu_lazy(const at::Tensor& self);
 at::Tensor silu_hpu_lazy(const at::Tensor& self);
+at::Tensor linspace_hpu_lazy(
+    at::Scalar start,
+    at::Scalar end,
+    c10::optional<int64_t> steps,
+    c10::optional<at::ScalarType> dtype,
+    c10::optional<at::Layout> layout,
+    c10::optional<at::Device> device,
+    c10::optional<bool> pin_memory);
 } // namespace habana_lazy
