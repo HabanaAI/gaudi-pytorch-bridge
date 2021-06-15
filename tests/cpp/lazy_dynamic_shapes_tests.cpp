@@ -1,15 +1,21 @@
+/******************************************************************************
+ * Copyright (C) 2020 HabanaLabs, Ltd.
+ * All Rights Reserved.
+ *
+ * Unauthorized copying of this file, via any medium is strictly prohibited.
+ * Proprietary and confidential.
+ *
+ ******************************************************************************
+ */
+
+#include <stdexcept>
+
 #include <gtest/gtest.h>
-#include <tests/cpp/habana_lazy_test_infra.h>
 #include <torch/csrc/jit/testing/file_check.h>
 #include <torch/torch.h>
-#include <stdexcept>
-#include "habana_kernels/lazy_kernels_declarations.h"
-#include "habana_kernels/wrap_kernels_declarations.h"
-#include "habana_lazy/aten_lazy_bridge.h"
-#include "habana_lazy/debug_utils.h"
-#include "habana_lazy/hlexec.h"
-#include "habana_lazy/hpu_lazy_tensors.h"
-#include "habana_lazy/ir_utils.h"
+
+#include "habana_lazy_test_infra.h"
+#include "pytorch_helpers/synapse_helpers/env_flags.h"
 
 using namespace habana_lazy;
 
@@ -148,5 +154,73 @@ TEST_F(LazyDynamicShapesTest, DISABLED_DynamicShape3DTensorBasicGraphTest) {
 
     torch::Tensor out_hpu = h_out.to(torch::kCPU);
     EXPECT_EQ(allclose(out_hpu, out, 0.01, 0.01), true);
+  }
+}
+
+TEST_F(LazyDynamicShapesTest, DynamicShapeDebugSimple) {
+  bool refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  if (!refine_enabled) {
+    setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
+  }
+
+  int A = 4;
+  const int C = 3;
+  std::vector<int> in_sizes{6, 8, 10};
+  int num;
+
+  for (int i = 0; i < in_sizes.size(); i++) {
+    int B = in_sizes[i];
+    std::cout << '\n';
+    std::cout << "PTI_DBG :: TEST " << i << "  --------" << '\n';
+    torch::Tensor c0 = torch::randn({C, B, A}, torch::requires_grad(false));
+    torch::Tensor c1 = torch::randn({C, B, A}, torch::requires_grad(false));
+
+    torch::Tensor c4 = torch::add(c0, c1);
+    torch::Tensor c5 = torch::mul(c0, c1);
+    torch::Tensor c6 = torch::mul(c4, c5);
+    torch::Tensor c7 = torch::relu(c6);
+
+    std::cout << "PTI_DBG ::"
+              << " c0.shape : " << c0.sizes()
+              << " c0.strides : " << c0.strides() << '\n';
+    std::cout << "PTI_DBG ::"
+              << " c1.shape : " << c1.sizes()
+              << " c1.strides : " << c1.strides() << '\n';
+
+    // std::cout << "PTI_DBG ::" << " c4.shape : " << c4.sizes() << " c4.strides
+    // : " << c4.strides() << '\n'; std::cout << "PTI_DBG ::" << " c5.shape : "
+    // << c5.sizes() << " c5.strides : " << c5.strides() << '\n'; std::cout <<
+    // "PTI_DBG ::" << " c6.shape : " << c6.sizes() << " c6.strides : " <<
+    // c6.strides() << '\n';
+    //
+    std::cout << "PTI_DBG ::"
+              << " c7.shape : " << c7.sizes()
+              << " c7.strides : " << c7.strides() << '\n';
+
+    torch::Tensor h0 = c0.to(torch::kHABANA);
+    torch::Tensor h1 = c1.to(torch::kHABANA);
+    torch::Tensor h4 = torch::add(h0, h1);
+    torch::Tensor h5 = torch::mul(h0, h1);
+    torch::Tensor h6 = torch::mul(h4, h5);
+    torch::Tensor h7 = torch::relu(h6);
+    torch::Tensor h7_c = h7.to(torch::kCPU);
+
+    std::cout << "PTI_DBG ::"
+              << " h0.shape : " << h0.sizes()
+              << " h0.strides : " << h0.strides() << '\n';
+    std::cout << "PTI_DBG ::"
+              << " h1.shape : " << h1.sizes()
+              << " h1.strides : " << h1.strides() << '\n';
+
+    std::cout << "PTI_DBG ::"
+              << " h7.shape : " << h7.sizes()
+              << " h7.strides : " << h7.strides() << '\n';
+
+    EXPECT_EQ(allclose(c7, h7_c, 0.01, 0.01), true);
+    std::cout << "PTI_DBG :: TEST " << i << "  ========" << '\n';
+  }
+
+  if (!refine_enabled) {
+    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
   }
 }

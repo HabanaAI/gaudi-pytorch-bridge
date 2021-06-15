@@ -147,6 +147,12 @@ class HabanaLaunchOpPT {
   size_t num_tensor_inputs{0};
 
   bool use_persistent_tensors{false};
+
+  std::vector<size_t> input_tensor_indices;
+  habana_helpers::DynamicBucketInfo::InpTensorShapes act_input_tshapes;
+  habana_helpers::DynamicBucketInfo::InpTensorShapes min_input_tshapes;
+  habana_helpers::DynamicBucketInfo::InpTensorShapes max_input_tshapes;
+
   at::ArrayRef<torch::jit::IValue> input_refs;
   torch::jit::Stack* pt_stack = nullptr;
 
@@ -167,7 +173,10 @@ class HabanaLaunchOpPT {
   bool enable_tensor_release_{false};
   bool watch_tensor_flag_{false};
   bool enable_tensor_dump_{false};
+  bool refine_ds_enabled_{false};
   int tensor_dump_numel_{0};
+
+  uint64_t cur_ds_token_{0};
 
   std::string tdmp_dir_name_;
   std::string tdmp_file_name_pre_;
@@ -212,6 +221,8 @@ class HabanaLaunchOpPT {
   bool isInGraphOutputs(torch::jit::Value* value);
   bool isInGraphOutputs(torch::jit::Node* node, size_t index);
   std::vector<bool> nodeOutputPersistence(torch::jit::Node* node);
+  void AdjustInputLayout();
+  void ProcessHabanaFusedOpWithDS();
   void CompileAndExecuteHabanaFusedOpKernel();
   bool isBlockingNode(torch::jit::Node*, torch::jit::Node*);
   void addSynNodes(std::vector<synNodeId>&, torch::jit::Node*);
@@ -315,5 +326,10 @@ class HabanaLaunchOpPT {
       output_tensorinfo_map.emplace(ivpsh_updated, ti);
     }
   }
+
+  // Dynamic shape specific parts
+  void CreateDynamicBucketInputShapes(
+      habana_helpers::DynamicBucketInfo::InpTensorShapes& shape_map);
 };
+
 } // namespace habana

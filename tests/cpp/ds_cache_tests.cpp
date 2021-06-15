@@ -69,7 +69,8 @@ TEST(DS_CacheTest, JIT_IR_GraphKeyTest) {
 
   std::string id_str{"HabanaLaunchOp"};
   std::shared_ptr<habana::RecipeArgumentSpec> rargpsh1 =
-      std::make_shared<habana::RecipeArgumentSpec>(jit_ir_graph, id_str);
+      std::make_shared<habana::RecipeArgumentSpec>(
+          jit_ir_graph, inputs, id_str);
 
   // std::cout << "PTI_DBG :: jit_ir_graph graph_hash_code : "
   //<< rargpsh1->graphHashCode() << '\n';

@@ -48,10 +48,6 @@ namespace habana {
 // static initializations
 size_t RecipeValueSpec::count = 0;
 
-std::mutex RecipeCacheLRU::mutex_;
-RecipeCacheLRU* RecipeCacheLRU::instance_ = nullptr;
-size_t RecipeCacheLRU::max_size_ = PGM_LRU_MAX_NRECIPES;
-
 size_t HabanaLaunchOpPT::instance_count_ = 0;
 std::unordered_set<std::string> HabanaLaunchOpPT::watchlist_ = {};
 //--------------------------------------
@@ -101,7 +97,8 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
     bool dbg,
     const char* name)
     : jit_ir_graph{std::move(graph)}, debug(dbg) {
-  op_name = (name ? std::string(name) : std::string(""));
+  refine_ds_enabled_ = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  op_name = (name ? std::string(name) : std::string("HabanaLaunchOp"));
   std::replace(op_name.begin(), op_name.end(), ':', '_');
   std::ostringstream oss;
   oss << op_name << '_' << instance_count_;
@@ -2251,64 +2248,250 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
     // Add the <key,value> pair to the map
     // If we enable_tensor_release_, then the we don't match to a specific
     // graph instance, hence id_str matching is not required.
-    std::shared_ptr<RecipeArgumentSpec> rargpsh =
-        std::make_shared<RecipeArgumentSpec>(
-            false,
-            input_refs,
-            jit_ir_graph,
-            enable_tensor_release_ ? "" : id_str);
-    rv.key = rargpsh->hashCode();
+    if (false == refine_ds_enabled_) {
+      std::shared_ptr<RecipeArgumentSpec> rargpsh =
+          std::make_shared<RecipeArgumentSpec>(
+              false,
+              input_refs,
+              jit_ir_graph,
+              enable_tensor_release_ ? "" : id_str);
 
-    switch (caching_policy) {
-      case PGMCachingPolicy::simple:
-        recipe_cache_simple.add(rargpsh, rvalpsh);
-        break;
-      case PGMCachingPolicy::single:
-        recipe_cache_single.add(rargpsh, rvalpsh);
-        break;
-      case PGMCachingPolicy::lru:
-        RecipeCacheLRU::get_cache().add(rargpsh, rvalpsh);
-        break;
-      default:
-        TORCH_CHECK(false, "should not be reachable");
+      rv.key = rargpsh->hashCode();
+
+      switch (caching_policy) {
+        case PGMCachingPolicy::simple:
+          recipe_cache_simple.add(rargpsh, rvalpsh);
+          break;
+        case PGMCachingPolicy::single:
+          recipe_cache_single.add(rargpsh, rvalpsh);
+          break;
+        case PGMCachingPolicy::lru:
+          RecipeCacheLRU::get_cache().add(rargpsh, rvalpsh);
+          break;
+        default:
+          TORCH_CHECK(false, "should not be reachable");
+      }
+    } else {
+      std::shared_ptr<RecipeArgumentSpec> rargpsh =
+          std::make_shared<RecipeArgumentSpec>(
+              false,
+              input_refs,
+              jit_ir_graph,
+              enable_tensor_release_ ? "" : id_str);
+      // Replace the above key computation with the following key computation
+      // for enabling the dynamic shape based flow
+      // std::shared_ptr<RecipeArgumentSpec> rargpsh =
+      // std::make_shared<RecipeArgumentSpec>(
+      // input_refs,
+      // jit_ir_graph,
+      // cur_ds_token_);
+      rv.key = rargpsh->hashCode();
+      RecipeCacheLRU::get_cache().add(rargpsh, rvalpsh);
     }
+
     device.get_recipe_handle_cache().increaseHitCount(rv.key);
 
     PT_BRIDGE_DEBUG(
         "HabanaOp recipe cache :: adding new recipe",
-        "\n key ",
-        rv.key,
-        "\n num_inputs ",
-        rv.num_inputs,
-        "\n num_induplicates ",
-        rv.num_induplicates,
-        "\n num_dma_inputs ",
-        rv.num_dma_inputs,
-        "\n num_intermediates ",
-        rv.num_intermediates,
-        "\n num_outputs ",
-        rv.num_outputs,
-        "\n num_outduplicates ",
-        rv.num_outduplicates,
-        "\n num_input_to_outduplicates ",
-        rv.num_input_to_outduplicates,
-        "\n num_intermediate_to_outduplicates ",
-        rv.num_intermediate_to_outduplicates,
-        "\n num_output_to_outduplicates ",
-        rv.num_output_to_outduplicates,
+        rv.get_header_str(),
+        "\n total size of graph recipes ",
+        synapse_helpers::get_mem_str(RecipeValueSpec::total_recipe_ntbytes),
         "\n #hits ",
         device.get_recipe_handle_cache().getHitCount(rv.key),
         "\n #graph_recipes ",
         RecipeValueSpec::recipe_count,
         "\n #eager_recipes ",
-        device.get_recipe_handle_cache().getCount(),
-        "\n size ",
-        synapse_helpers::get_mem_str(rv.ntensorbytes),
-        "\n total size of graph recipes ",
-        synapse_helpers::get_mem_str(RecipeValueSpec::total_recipe_ntbytes));
+        device.get_recipe_handle_cache().getCount());
   }
 
   UpdateOutputs(rv);
+}
+
+void HabanaLaunchOpPT::CreateDynamicBucketInputShapes(
+    habana_helpers::DynamicBucketInfo::InpTensorShapes& shape_map) {
+  for (size_t i = 0; i < input_refs.size(); i++) {
+    auto input = input_refs[i];
+    if (input.isTensor()) {
+      input_tensor_indices.push_back(i);
+      at::Tensor pt_tensor = input.toTensor();
+      habana_helpers::TensorShape shape(
+          pt_tensor.sizes(), pt_tensor.scalar_type());
+      shape_map[i] = shape;
+    }
+  }
+}
+
+void HabanaLaunchOpPT::AdjustInputLayout() {
+  for (size_t j = 0; j < pt_stack_sh.size(); j++) {
+    auto value_input = jit_ir_graph->inputs().at(j);
+    value_to_tensor_layout[value_input].layout = LayoutFormat::NCHW;
+    value_to_tensor_layout[value_input].layout_at_graph_entry =
+        LayoutFormat::NCHW;
+
+    if (pt_stack_sh[j]->isTensor()) {
+      // Taking alias as that allows us to detach it from PT and do metadata
+      // changes It gives us more control over tensor changes, but caution
+      // is needed. Its might be a bit dangerous, but only way to
+      // communicate layour changes PT doesnt allow any stride changes we
+      // want, we can review it with PT folks
+
+      auto tensor = at::alias(pt_stack_sh[j]->toTensor());
+      // WE dont support 0D tensors internally, so convert to 1D internally
+      if (tensor.dim() == 0) {
+        tensor.unsafeGetTensorImpl()->set_sizes_contiguous({1});
+      }
+
+      // Get  the logical layout from PT tensor
+      // We dont touch this, even while doing permutes, the PT logical
+      // tensor is retained For us all tensors are contiguous PT doesnt let
+      // us mark logical layout directly so we dont change them
+      value_to_tensor_layout[value_input].layout = getPTTensorLayout(tensor);
+      value_to_tensor_layout[value_input].layout_at_graph_entry =
+          getPTTensorLayout(tensor);
+
+      if (getPTTensorLayout(tensor) == LayoutFormat::NHWC) {
+        // Make the sizes according to NCHW as PT maintains
+        // NCHW shapes even for NHWC tensors(It doesnt change shape)
+        if (!habana_lazy::exec::OptPassCfg::GetInstance()
+                 ->IsEnabledPermutePass())
+          adjustSizesforPT(&tensor, false);
+        IValPtrShared ivptrsh = std::make_shared<IVal>(tensor);
+        value_to_ivalue[value_input] = ivptrsh;
+        pt_stack_sh[j] = ivptrsh;
+      } else {
+        IValPtrShared ivptrsh = std::make_shared<IVal>(tensor);
+        value_to_ivalue[value_input] = ivptrsh;
+        pt_stack_sh[j] = ivptrsh;
+      }
+    } else {
+      value_to_ivalue[value_input] = pt_stack_sh[j];
+    }
+  }
+}
+
+void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
+  PT_BRIDGE_BEGIN;
+  auto& device = synapse_helpers::HPURegistrar::get_device();
+
+  std::cout << "PTI_DBG :: DYNAMIC SHAPE FLOW ENABLED" << '\n';
+  std::cout << "PTI_DBG :: JIT IR Graph"
+            << "----" << '\n'
+            << jit_ir_graph->toString() << "PTI_DBG :: JIT IT Graph"
+            << "----" << '\n';
+  std::shared_ptr<RecipeArgumentSpec> rargpsh =
+      std::make_shared<RecipeArgumentSpec>(jit_ir_graph, input_refs);
+  std::cout << "PTI_DBG :: " << __FUNCTION__ << ':' << __LINE__ << " :: "
+            << "graph_hash_code : " << rargpsh->graphHashCode() << ", "
+            << "hash_code : " << rargpsh->hashCode() << '\n';
+
+  std::shared_ptr<habana_helpers::DynamicBucketInfo> dbipsh =
+      DynamicBucketInfoMap::get_instance().get(rargpsh);
+  if (nullptr == dbipsh) {
+    std::cout << "PTI_DBG :: " << __FUNCTION__ << ':' << __LINE__ << " :: "
+              << "Creating new DynamicBucketInfo" << '\n';
+    auto dbi = habana_helpers::DynamicBucketInfo();
+    dbipsh = std::make_shared<habana_helpers::DynamicBucketInfo>(dbi);
+    DynamicBucketInfoMap::get_instance().add(rargpsh, dbipsh);
+  }
+
+  CreateDynamicBucketInputShapes(act_input_tshapes);
+
+  dbipsh->CollectDynamicDims(act_input_tshapes);
+  auto bucket_id = dbipsh->GetBucketId(act_input_tshapes);
+  auto ranges = dbipsh->CalculateShapes(bucket_id);
+
+  cur_ds_token_ = dbipsh->GetTokenForBucketId(bucket_id);
+  if (ranges.empty()) {
+    std::cout << "PTI_DBG :: " << __FUNCTION__ << ':' << __LINE__ << " :: "
+              << "working on exact graph with cur_ds_token : " << cur_ds_token_
+              << '\n'
+              << "Returned bucket id : " << bucket_id << '\n'
+              << (*dbipsh);
+  } else {
+    std::cout << "PTI_DBG :: " << __FUNCTION__ << ':' << __LINE__ << " :: "
+              << "working on dynamic graph with cur_ds_token : "
+              << cur_ds_token_ << '\n'
+              << "Returned bucket id : " << bucket_id << '\n'
+              << (*dbipsh);
+    std::cout << "Received ranges ::" << '\n' << ranges;
+
+    min_input_tshapes.insert(
+        ranges.min_shapes.begin(), ranges.min_shapes.end());
+    max_input_tshapes.insert(
+        ranges.max_shapes.begin(), ranges.max_shapes.end());
+  }
+
+  // Check for cached recipe
+  if (enable_caching_) {
+    // Check for cache hit
+    std::shared_ptr<RecipeArgumentSpec> spec_key =
+        std::make_shared<RecipeArgumentSpec>(
+            false,
+            input_refs,
+            jit_ir_graph,
+            enable_tensor_release_ ? "" : id_str);
+
+    // Replace the above key computation with the following key computation
+    // for enabling the dynamic shape based flow
+    // std::shared_ptr<RecipeArgumentSpec> spec_key =
+    // std::make_shared<RecipeArgumentSpec>(
+    // input_refs,
+    // jit_ir_graph,
+    // cur_ds_token_);
+
+    std::shared_ptr<RecipeValueSpec> rvpsh = GetCachedRecipe(spec_key);
+    if (ABSL_PREDICT_TRUE(rvpsh)) {
+      // Cache hit for a dynamic bucket
+      // Steps:
+      // 1. Infer shapes of all persistent tensors which are not input
+      // 2. Patch using the exact shape
+      // 3. Launch
+      // 4. Update outputs
+
+      RecipeValueSpec& rv = *rvpsh;
+      auto rv_hit_count = rv.update_hit_count();
+
+      PT_BRIDGE_DEBUG(
+          "HabanaOp recipe cache :: adding new recipe",
+          rv.get_header_str(),
+          "\n total size of graph recipes ",
+          synapse_helpers::get_mem_str(RecipeValueSpec::total_recipe_ntbytes),
+          "\n #hits ",
+          rv_hit_count,
+          "\n #graph_recipes ",
+          RecipeValueSpec::recipe_count,
+          "\n #eager_recipes ",
+          device.get_recipe_handle_cache().getCount());
+
+      std::shared_ptr<std::vector<IValPtrShared>> dma_inputs =
+          std::make_shared<std::vector<IValPtrShared>>(
+              std::vector<IValPtrShared>());
+
+      rv.update_patching_table(input_refs, dma_inputs);
+
+      if (enable_tensor_dump_) {
+        DumpTensors_pre(rv);
+      }
+      rv.launch(input_refs, dma_inputs);
+
+      if (enable_tensor_dump_) {
+        DumpTensors(rv);
+      }
+
+      // Update the stack from the recipe itself
+      UpdateOutputs(rv);
+      ReturnCachedRecipe(rv);
+
+      clear();
+      PT_BRIDGE_END;
+      return;
+    }
+  }
+
+  AdjustInputLayout();
+  CompileAndExecuteHabanaFusedOpKernel();
+  clear();
+  PT_BRIDGE_END;
 }
 
 void HabanaLaunchOpPT::DumpTensors_pre(RecipeValueSpec& rv) {
@@ -2504,7 +2687,6 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
   PT_BRIDGE_BEGIN;
   num_inputs = jit_ir_graph->inputs().size();
   num_tensor_inputs = 0;
-  auto jit_ir_graphinputs = jit_ir_graph->inputs();
   input_refs = last(stack, num_inputs);
   iteration_count_++;
   auto& device = synapse_helpers::HPURegistrar::get_device();
@@ -2537,6 +2719,11 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
   TORCH_CHECK(
       is_all_hpu == true, " Habana Fusion needs all tensors to be in HPU ");
 
+  if (refine_ds_enabled_) {
+    ProcessHabanaFusedOpWithDS();
+    return;
+  }
+
   // caching :: begin
   if (enable_caching_) {
     // If we enable_tensor_release_, then the we don't match to a specific
@@ -2551,8 +2738,19 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
     std::shared_ptr<RecipeValueSpec> rvpsh = GetCachedRecipe(spec_key);
     if (ABSL_PREDICT_TRUE(rvpsh)) {
       RecipeValueSpec& rv = *rvpsh;
+
+      // Update hit count
       device.get_recipe_handle_cache().increaseHitCount(rv.key);
       auto rv_hit_count = device.get_recipe_handle_cache().getHitCount(rv.key);
+      auto max_hit_count = GET_ENV_FLAG(PT_HABANA_MAX_RECIPE_HIT_COUNT);
+      if (max_hit_count && rv_hit_count >= int(max_hit_count)) {
+        device.get_recipe_handle_cache().printHitCount();
+        PT_BRIDGE_DEBUG(
+            "Max hit count ",
+            max_hit_count,
+            " reached. Resetting the hit counter.");
+        device.get_recipe_handle_cache().clearHitCount();
+      }
 
       PT_BRIDGE_DEBUG(
           "HabanaOp recipe cache hit ::",
@@ -2585,15 +2783,6 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
           "\n total size of graph recipes ",
           synapse_helpers::get_mem_str(RecipeValueSpec::total_recipe_ntbytes));
 
-      auto max_hit_count = GET_ENV_FLAG(PT_HABANA_MAX_RECIPE_HIT_COUNT);
-      if (max_hit_count && rv_hit_count >= int(max_hit_count)) {
-        device.get_recipe_handle_cache().printHitCount();
-        PT_BRIDGE_DEBUG(
-            "Max hit count ",
-            max_hit_count,
-            " reached. Resetting the hit counter.");
-        device.get_recipe_handle_cache().clearHitCount();
-      }
 
       // Patch the input buffers
       // Running index on rv.dtensorinfos
@@ -2855,53 +3044,8 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
     }
   }
   // caching :: end
-  {
-    for (size_t j = 0; j < pt_stack_sh.size(); j++) {
-      auto value_input = jit_ir_graphinputs[j];
-      value_to_tensor_layout[value_input].layout = LayoutFormat::NCHW;
-      value_to_tensor_layout[value_input].layout_at_graph_entry =
-          LayoutFormat::NCHW;
 
-      if (pt_stack_sh[j]->isTensor()) {
-        // Taking alias as that allows us to detach it from PT and do metadata
-        // changes It gives us more control over tensor changes, but caution
-        // is needed. Its might be a bit dangerous, but only way to
-        // communicate layour changes PT doesnt allow any stride changes we
-        // want, we can review it with PT folks
-
-        auto tensor = at::alias(pt_stack_sh[j]->toTensor());
-        // WE dont support 0D tensors internally, so convert to 1D internally
-        if (tensor.dim() == 0) {
-          tensor.unsafeGetTensorImpl()->set_sizes_contiguous({1});
-        }
-
-        // Get  the logical layout from PT tensor
-        // We dont touch this, even while doing permutes, the PT logical
-        // tensor is retained For us all tensors are contiguous PT doesnt let
-        // us mark logical layout directly so we dont change them
-        value_to_tensor_layout[value_input].layout = getPTTensorLayout(tensor);
-        value_to_tensor_layout[value_input].layout_at_graph_entry =
-            getPTTensorLayout(tensor);
-
-        if (getPTTensorLayout(tensor) == LayoutFormat::NHWC) {
-          // Make the sizes according to NCHW as PT maintains
-          // NCHW shapes even for NHWC tensors(It doesnt change shape)
-          if (!habana_lazy::exec::OptPassCfg::GetInstance()
-                   ->IsEnabledPermutePass())
-            adjustSizesforPT(&tensor, false);
-          IValPtrShared ivptrsh = std::make_shared<IVal>(tensor);
-          value_to_ivalue[value_input] = ivptrsh;
-          pt_stack_sh[j] = ivptrsh;
-        } else {
-          IValPtrShared ivptrsh = std::make_shared<IVal>(tensor);
-          value_to_ivalue[value_input] = ivptrsh;
-          pt_stack_sh[j] = ivptrsh;
-        }
-      } else {
-        value_to_ivalue[value_input] = pt_stack_sh[j];
-      }
-    }
-  }
+  AdjustInputLayout();
 
   //<Decription> This is the main function that
   //  a. creates the HabanaLaunchOp

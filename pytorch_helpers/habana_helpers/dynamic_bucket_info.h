@@ -65,6 +65,7 @@ inline std::ostream& operator<<(std::ostream& O, const DynamicDimsPolicy& d) {
     case DynamicDimsPolicy::CURRENT:
       return O << "CURRENT";
   }
+  return O;
 }
 
 inline std::ostream& operator<<(std::ostream& O, const DynamicDims& d) {

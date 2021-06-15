@@ -42,7 +42,8 @@ std::ostream& operator<<(std::ostream& O, PGMCachingPolicy P);
 struct RecipeArgumentSpec {
   RecipeArgumentSpec(
       const std::shared_ptr<torch::jit::Graph>& irgraph,
-      const std::string id = std::string());
+      at::ArrayRef<torch::jit::IValue> input_refs,
+      std::string id = std::string());
 
   RecipeArgumentSpec(
       at::ArrayRef<torch::jit::IValue> input_refs,
@@ -57,7 +58,10 @@ struct RecipeArgumentSpec {
       const std::string &id);
 
   bool operator==(const RecipeArgumentSpec& arg) const {
-    bool ret = (cas == arg.cas && opstrs == arg.opstrs);
+    bool ret = (opstrs == arg.opstrs);
+    if (hash_code != graph_hash_code) {
+      ret &= (cas == arg.cas);
+    }
     return ret;
   }
 
@@ -86,7 +90,6 @@ struct RecipeArgumentSpec {
   size_t hash_code{0};
   size_t graph_hash_code{0};
   size_t offset_hash_code{0};
-  std::vector<torch::jit::IValue> dummy_inputs;
 };
 
 // Hash functor for RecipeArgumentSpec
@@ -131,26 +134,14 @@ struct RecipeValueSpec {
 
   ~RecipeValueSpec();
 
+  friend std::ostream& operator<<(std::ostream& O, const RecipeValueSpec& v);
+
   void SelfCheck() {
     TORCH_CHECK(recipe != nullptr)
     TORCH_CHECK(dtensorinfos != nullptr);
     TORCH_CHECK(dtensorinfos->size() == num_tinfos);
     TORCH_CHECK(!aten_outputs->empty());
   }
-
-  void create_launch_info();
-
-  void patch(std::vector<synLaunchTensorInfo>& syn_launch_info_vec);
-  void launch(
-      at::ArrayRef<torch::jit::IValue> input_refs,
-      std::shared_ptr<std::vector<IValPtrShared>> dma_inputs = nullptr);
-
-  void print_hbuff(
-      size_t buf_idx,
-      std::ofstream& out,
-      size_t iteration_count,
-      int numel = -1);
-  void d2h_dbuff(size_t buf_idx);
 
   bool get_use_flag() {
     return in_use.load(std::memory_order_relaxed);
@@ -160,6 +151,25 @@ struct RecipeValueSpec {
     in_use.store(flag, std::memory_order_relaxed);
   }
 
+  void print_hbuff(
+      size_t buf_idx,
+      std::ofstream& out,
+      size_t iteration_count,
+      int numel = -1);
+  void d2h_dbuff(size_t buf_idx);
+
+  std::string get_header_str();
+  int update_hit_count();
+  void update_patching_table(
+      at::ArrayRef<torch::jit::IValue>& input_refs,
+      std::shared_ptr<std::vector<IValPtrShared>>& dma_inputs,
+      bool enable_tensor_release = true);
+  void create_launch_info();
+  void patch(std::vector<synLaunchTensorInfo>& syn_launch_info_vec);
+  void launch(
+      at::ArrayRef<torch::jit::IValue> input_refs,
+      std::shared_ptr<std::vector<IValPtrShared>> dma_inputs = nullptr);
+
   void create_outdup(PtTensorInfo& ti, at::Tensor orig);
   void create_outdup(size_t ti_idx, IValPtrShared& ivpsh_parent);
   void create_outdup(
@@ -167,7 +177,6 @@ struct RecipeValueSpec {
       std::unordered_map<size_t, IValPtrShared>& parent_ivpsh_map,
       std::string map_name);
 
-  friend std::ostream& operator<<(std::ostream& O, const RecipeValueSpec& v);
 
   std::shared_ptr<synapse_helpers::graph::recipe_handle> recipe;
   std::shared_ptr<std::vector<PtTensorInfo>> dtensorinfos;
@@ -201,6 +210,8 @@ struct RecipeValueSpec {
   size_t ntensorbytes{0};
 
   size_t key{0};
+
+  std::string header_str;
 
   static size_t count;
   static size_t recipe_count;
@@ -302,11 +313,10 @@ class RecipeCacheLRU {
     return ret_flag;
   }
 
-  void remove_oldest();
-  bool drop_lru(size_t &recipe_count);
   void add(std::shared_ptr<RecipeArgumentSpec>& key, std::shared_ptr<RecipeValueSpec>& val);
-
   std::shared_ptr<RecipeValueSpec> get(std::shared_ptr<RecipeArgumentSpec>& key);
+  bool drop_lru(size_t& recipe_count);
+  void remove_oldest();
 
   //friend std::ostream& operator<<(std::ostream& O, const RecipeCacheLRU& v);
 
@@ -332,6 +342,56 @@ class RecipeCacheLRU {
       RecipeArgumentSpecHash,
       RecipeArgumentSpecEqual>
       map_;
+};
+
+class DynamicBucketInfoMap {
+ public:
+  static DynamicBucketInfoMap& get_instance() {
+    std::lock_guard<std::mutex> lg(mutex_);
+    if (!instance_) {
+      instance_ = new DynamicBucketInfoMap();
+    }
+    return *instance_;
+  }
+
+  bool empty() {
+    return (map_.size() == 0);
+  }
+
+  void add(
+      std::shared_ptr<RecipeArgumentSpec>& key,
+      std::shared_ptr<habana_helpers::DynamicBucketInfo>& val);
+  std::shared_ptr<habana_helpers::DynamicBucketInfo> get(
+      std::shared_ptr<RecipeArgumentSpec>& key);
+
+  // Add print function for DynamicBucket
+  // friend std::ostream& operator<<(std::ostream& O, const
+  // DynamicBucketInfoMap& v);
+
+ private:
+  DynamicBucketInfoMap() = default;
+  ~DynamicBucketInfoMap() = default;
+  DynamicBucketInfoMap(const DynamicBucketInfoMap&) = delete;
+  DynamicBucketInfoMap& operator=(const DynamicBucketInfoMap&) = delete;
+
+  static std::mutex mutex_;
+  static DynamicBucketInfoMap* instance_;
+
+  std::unordered_map<
+      std::shared_ptr<RecipeArgumentSpec>,
+      std::shared_ptr<habana_helpers::DynamicBucketInfo>,
+      RecipeArgumentSpecHash,
+      RecipeArgumentSpecEqual>
+      map_;
+
+  bool exists(std::shared_ptr<RecipeArgumentSpec>& key) {
+    bool ret_flag{false};
+    if (!empty() && map_.end() != map_.find(key)) {
+      ret_flag = true;
+    }
+
+    return ret_flag;
+  }
 };
 
 } // namespace habana
