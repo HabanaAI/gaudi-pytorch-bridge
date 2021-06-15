@@ -122,7 +122,9 @@ synapse_helpers::tensor create_tensor(
     const at::Tensor& tensor,
     const synGraphHandle graph,
     bool persistent,
-    const c10::optional<c10::ScalarType> dtype = c10::nullopt);
+    const c10::optional<c10::ScalarType> dtype = c10::nullopt,
+    const std::vector<int64_t> min = {},
+    const std::vector<int64_t> max = {});
 
 synapse_helpers::tensor create_shape_tensor(
     const at::Tensor& tensor,

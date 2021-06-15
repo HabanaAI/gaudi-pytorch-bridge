@@ -30,6 +30,10 @@
 
 namespace synapse_helpers {
 
+tensor::shape_t to_shape_t(
+    const std::vector<int64_t>& shape,
+    bool reverse = true);
+
 namespace detail {
 class tensor_name_generator {
  public:

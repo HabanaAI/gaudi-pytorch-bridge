@@ -30,8 +30,15 @@ void PtTensorInfo::populate_tinfo(
 
   switch (tensor_type_) {
     case DATA_TENSOR:
-    case DATA_TENSOR_DYNAMIC:
       break;
+    case DATA_TENSOR_DYNAMIC: {
+      HABANA_ASSERT(SYN_MAX_TENSOR_DIM >= shape_.size());
+      for (size_t i = 0; i < shape_.size(); ++i) {
+        if (i < shape_.size()) {
+          shape_values_[i] = shape_[i];
+        }
+      }
+    } break;
     case SHAPE_TENSOR:
     case INPUT_DESCRIBING_SHAPE_TENSOR: {
       shape_ndim_ = pt_tensor.numel();

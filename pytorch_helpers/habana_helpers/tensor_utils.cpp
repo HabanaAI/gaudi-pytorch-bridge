@@ -506,10 +506,29 @@ synapse_helpers::tensor habana_helpers::create_tensor(
     const at::Tensor& tensor,
     const synGraphHandle graph,
     bool persistent,
-    const c10::optional<c10::ScalarType> dtype) {
+    const c10::optional<c10::ScalarType> dtype,
+    const std::vector<int64_t> min,
+    const std::vector<int64_t> max) {
   if (!std::getenv("PT_HPU_LAZY_LOWERING") && std::getenv("PT_HPU_LAZY_MODE")) {
     // Lazy mode shape inference call, just create a placeholder tensor
     return synapse_helpers::tensor::create_placeholder(tensor.device().index());
+  }
+
+  if (min.size() && max.size()) {
+    auto dynamic_shape = synapse_helpers::tensor::dynamic_shape_t{
+        synapse_helpers::to_shape_t(min, false),
+        synapse_helpers::to_shape_t(max, false)};
+    auto variant =
+        synapse_helpers::tensor_builder(
+            tensor.sizes(),
+            pytorch_to_synapse_type(dtype.value_or(tensor.scalar_type())))
+            .mark_persistence(persistent)
+            .with_dynamic_shape(dynamic_shape)
+            .build(
+                synapse_helpers::HPURegistrar::get_device(
+                    tensor.device().index()),
+                graph);
+    return absl::get<synapse_helpers::tensor>(std::move(variant));
   }
   auto variant =
       synapse_helpers::tensor_builder(

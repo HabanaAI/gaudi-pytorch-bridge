@@ -14,6 +14,18 @@
 #include <string>
 
 namespace synapse_helpers {
+
+tensor::shape_t to_shape_t(const std::vector<int64_t>& shape, bool reverse) {
+  tensor::shape_t dimensions{tensor::shape_t::dimension_count_t{
+      static_cast<unsigned>(shape.size())}}; // TODO make it more readable
+  // write dimension backwards, e.g. NHWC as CWHN
+  for (size_t i = 0; i < shape.size(); ++i) {
+    dimensions[i] = reverse ? shape[shape.size() - i - 1] : shape[i];
+  }
+
+  return dimensions;
+}
+
 namespace detail {
 
 std::string tensor_name_generator::generate() {

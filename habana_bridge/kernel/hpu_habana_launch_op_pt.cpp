@@ -455,7 +455,8 @@ void HabanaLaunchOpPT::HandleMappedTensor(
 
 synapse_helpers::tensor& HabanaLaunchOpPT::AllocateSynapseTensor(
     const HabanaOperatorPtr& habana_op,
-    at::Tensor& pt_tensor) {
+    at::Tensor& pt_tensor,
+    const int64_t input_idx) {
   auto impl = TryGetHbLazyImpl(pt_tensor);
 
   if (impl && impl->isShapeTensor()) {
@@ -463,15 +464,28 @@ synapse_helpers::tensor& HabanaLaunchOpPT::AllocateSynapseTensor(
         *syn_graph_ptr, pt_tensor, true, ShapeTensorType::kShapeTensorStatic);
     return syn_tensor;
   } else {
-    auto& syn_tensor =
-        habana_op->AllocateSynapseInput(*syn_graph_ptr, pt_tensor, true);
+    habana_helpers::TensorShape min_shape, max_shape;
+
+    if (min_input_tshapes.count(input_idx)) {
+      HABANA_ASSERT(max_input_tshapes.count(input_idx));
+      min_shape = min_input_tshapes[input_idx];
+      max_shape = max_input_tshapes[input_idx];
+    }
+    auto& syn_tensor = habana_op->AllocateSynapseInput(
+        *syn_graph_ptr,
+        pt_tensor,
+        true,
+        ShapeTensorType::kShapeTensorNone,
+        min_shape.get_dims(),
+        max_shape.get_dims());
     return syn_tensor;
   }
 }
 void HabanaLaunchOpPT::HandleUnmappedTensor(
     CValPtr value_in,
     const HabanaOperatorPtr& habana_op,
-    SharedSynTensorOrRefListPtr& tensorList) {
+    SharedSynTensorOrRefListPtr& tensorList,
+    const int64_t input_idx) {
   std::vector<at::Tensor> pyTensorList;
   if (value_to_ivalue[value_in]->isTensor()) {
     pyTensorList.emplace_back(value_to_ivalue[value_in]->toTensor());
@@ -488,12 +502,17 @@ void HabanaLaunchOpPT::HandleUnmappedTensor(
       continue;
     }
 
-    auto& syn_tensor = AllocateSynapseTensor(habana_op, pt_tensor);
+    auto& syn_tensor = AllocateSynapseTensor(habana_op, pt_tensor, input_idx);
 
     tensorList->emplace_back(tensor_or_ref(syn_tensor));
 
     std::string irn = "%" + value_in->debugName();
-    PtTensorInfo ti(pt_tensor, syn_tensor.name(), irn, watch_tensor_flag_);
+    PtTensorInfo ti(
+        pt_tensor,
+        syn_tensor.name(),
+        irn,
+        watch_tensor_flag_,
+        syn_tensor.tensor_type());
     tiv.push_back(ti);
 
     if (enable_caching_) {
@@ -516,7 +535,7 @@ void HabanaLaunchOpPT::HandleUnmappedTensor(
           0) {
         auto restride_node = value_in->node();
         auto restride_value_in = restride_node->input(0);
-        if (isInGraphInputs(restride_value_in)) {
+        if (isInGraphInputs(restride_value_in) != -1) {
           input_tiv_map.emplace(value_to_ivalue[restride_value_in], tiv);
         }
       }
@@ -529,14 +548,15 @@ void HabanaLaunchOpPT::HandleUnmappedTensor(
 void HabanaLaunchOpPT::HandleMappedandUnmappedTensor(
     CValPtr value_in,
     const HabanaOperatorPtr& habana_op,
-    SharedSynTensorOrRefListPtr& tensorList) {
+    SharedSynTensorOrRefListPtr& tensorList,
+    const int64_t input_idx) {
   auto is_already_mapped =
       pt_to_synapse_tensors.find(value_to_ivalue[value_in]) !=
       std::end(pt_to_synapse_tensors);
   if (is_already_mapped) {
     HandleMappedTensor(value_in, habana_op, tensorList);
   } else {
-    HandleUnmappedTensor(value_in, habana_op, tensorList);
+    HandleUnmappedTensor(value_in, habana_op, tensorList, input_idx);
   }
 }
 
@@ -559,7 +579,10 @@ void HabanaLaunchOpPT::GetSynapseInputs(
         SharedSynTensorOrRefListPtr tensor_ref_list_ptr_sh =
             std::make_shared<SynTensorOrRefList>();
         HandleMappedandUnmappedTensor(
-            value_in, habana_op, tensor_ref_list_ptr_sh);
+            value_in,
+            habana_op,
+            tensor_ref_list_ptr_sh,
+            isInGraphInputs(value_in));
       } else {
         // tensorlist
         auto prev_node = value_in->node();
@@ -663,7 +686,12 @@ void HabanaLaunchOpPT::ProcessPersistentNodeOutput(
   //       enable_tensor_release_
   //    D: It is a duplicate of an existing output
 
-  auto ti = PtTensorInfo(ivpsh, out_syntensor.name(), vp, watch_tensor_flag_);
+  auto ti = PtTensorInfo(
+      ivpsh,
+      out_syntensor.name(),
+      vp,
+      watch_tensor_flag_,
+      out_syntensor.tensor_type());
   void* buffp = ti.is_view_tensor() ? ti.get_buffer_start() : ti.get_buffer();
 
   if (false == isInGraphOutputs(vp)) {
@@ -922,7 +950,8 @@ at::Tensor HabanaLaunchOpPT::permuteTensor(
         value_to_ivalue[value_in],
         syn_tensor.name(),
         value_in,
-        watch_tensor_flag_);
+        watch_tensor_flag_,
+        syn_tensor.tensor_type());
     if (enable_caching_) {
       input_tiv_map.emplace(value_to_ivalue[value_in], ti);
       buff_to_input_ivpsh_map.emplace(
@@ -1022,7 +1051,8 @@ at::Tensor HabanaLaunchOpPT::permuteTensor(
           value_to_ivalue[value_in],
           out_tensor_syn.name(),
           value_in,
-          watch_tensor_flag_);
+          watch_tensor_flag_,
+          out_tensor_syn.tensor_type());
       if (!enable_tensor_release_) {
         output_tensorinfos.emplace_back(ti);
       } else {
@@ -1033,14 +1063,20 @@ at::Tensor HabanaLaunchOpPT::permuteTensor(
   return outputs_permute[0];
 }
 
-bool HabanaLaunchOpPT::isInGraphInputs(torch::jit::Value* value) {
+int64_t HabanaLaunchOpPT::isInGraphInputs(torch::jit::Value* value) {
   auto graph_ins = jit_ir_graph->inputs();
-  for (auto value_in : graph_ins) {
-    if (value->unique() == value_in->unique()) {
-      return true;
-    }
+  auto it = std::find_if(
+      graph_ins.cbegin(),
+      graph_ins.cend(),
+      [&](const torch::jit::Value* value_in) {
+        return (value->unique() == value_in->unique());
+      });
+
+  if (it != graph_ins.cend()) {
+    return (it - graph_ins.begin());
   }
-  return false;
+
+  return -1;
 }
 
 void HabanaLaunchOpPT::create_duplicate_syn_tensor(
@@ -1077,7 +1113,8 @@ void HabanaLaunchOpPT::create_duplicate_syn_tensor(
         value_to_ivalue[value_in],
         meta_syn_tensors.back().name(),
         value_in,
-        watch_tensor_flag_);
+        watch_tensor_flag_,
+        meta_syn_tensors.back().tensor_type());
     if (!isInGraphOutputs(value_in)) {
       duplicate_input_tivs.emplace_back(ti);
     } else {
@@ -1247,7 +1284,8 @@ void HabanaLaunchOpPT::postProcessOutputs() {
                     ivptrsh_updated,
                     a->second.get_syn_name(),
                     value_out,
-                    watch_tensor_flag_);
+                    watch_tensor_flag_,
+                    a->second.tensor_type());
                 output_tensorinfo_map.erase(ivpsh);
                 output_tensorinfo_map.emplace(ivptrsh_updated, ti);
               }
@@ -1271,7 +1309,8 @@ void HabanaLaunchOpPT::postProcessOutputs() {
                     ivptrsh_updated,
                     a->second.get_syn_name(),
                     value_out,
-                    watch_tensor_flag_);
+                    watch_tensor_flag_,
+                    a->second.tensor_type());
                 output_tensorinfo_map.erase(ivpsh);
                 output_tensorinfo_map.emplace(ivptrsh_updated, ti);
               }
@@ -1488,7 +1527,11 @@ void HabanaLaunchOpPT::handlePrimNodes(torch::jit::Node* node) {
         tensorList->emplace_back(tensor_or_ref(meta_syn_tensors.back()));
         pt_to_synapse_tensors.emplace(value_to_ivalue[value], tensorList);
         intermediate_tinfos.emplace_back(PtTensorInfo(
-            tensor, meta_syn_tensors.back().name(), irn, watch_tensor_flag_));
+            tensor,
+            meta_syn_tensors.back().name(),
+            irn,
+            watch_tensor_flag_,
+            meta_syn_tensors.back().tensor_type()));
         aten_intermediates.push_back(tensor);
       } else {
         value_to_ivalue[value] = ivptrsh;
@@ -2146,6 +2189,25 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
     auto outputPersistent = nodeOutputPersistence(node);
 
     if (outputPersistent.size() == 1) {
+      const char* debug_dynamic_test =
+          std::getenv("PT_HPU_ENABLE_DEBUG_DYNAMIC_TEST");
+      bool is_debug_dynamic_shape_test =
+          debug_dynamic_test ? (atoi(debug_dynamic_test) == 1) : false;
+
+      if (is_debug_dynamic_shape_test) {
+        for (auto& v : node->inputs()) {
+          auto idx = isInGraphInputs(v);
+          if ((idx >= 0) && min_input_tshapes.count(idx)) {
+            HABANA_ASSERT(max_input_tshapes.count(idx));
+            HabanaKernel->set_min_output_shape(
+                min_input_tshapes[idx].get_dims());
+            HabanaKernel->set_max_output_shape(
+                max_input_tshapes[idx].get_dims());
+            break;
+          }
+        }
+      }
+
       HabanaKernel->AllocateAndAddSynapseNode(
           syn_graph, input_stack, outputPersistent[0]);
     } else {

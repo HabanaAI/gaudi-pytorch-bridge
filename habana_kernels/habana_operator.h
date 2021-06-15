@@ -157,7 +157,9 @@ class HabanaOperator {
       synapse_helpers::graph& graph,
       const at::Tensor& input,
       bool is_persistent = false,
-      ShapeTensorType is_shape_tensor = ShapeTensorType::kShapeTensorNone);
+      ShapeTensorType is_shape_tensor = ShapeTensorType::kShapeTensorNone,
+      const std::vector<int64_t> min = {},
+      const std::vector<int64_t> max = {});
 
   //
   // If Synapse tensor is already exists for the py torch tensor, we just add
@@ -258,6 +260,14 @@ class HabanaOperator {
     return op;
   }
 
+  void set_min_output_shape(const std::vector<int64_t>& shape) {
+    min_output_shape = shape;
+  }
+
+  void set_max_output_shape(const std::vector<int64_t>& shape) {
+    max_output_shape = shape;
+  }
+
  protected:
   virtual void AddNodeToSynapseGraph(
       synapse_helpers::graph& graph,
@@ -274,6 +284,11 @@ class HabanaOperator {
 
   //
   std::vector<HabanaOperatorPtr> kernels_;
+
+  //
+  //
+  std::vector<int64_t> min_output_shape = {};
+  std::vector<int64_t> max_output_shape = {};
 };
 class RegisterKernel {
  public:

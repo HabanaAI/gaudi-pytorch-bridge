@@ -129,12 +129,14 @@ synapse_helpers::tensor& habana::HabanaOperator::AllocateSynapseInput(
     synapse_helpers::graph& graph,
     const at::Tensor& input,
     bool is_persistent,
-    ShapeTensorType is_shape_tensor) {
+    ShapeTensorType is_shape_tensor,
+    const std::vector<int64_t> min,
+    const std::vector<int64_t> max) {
   // TORCH_CHECK(input != nullptr, "Input cannot be null");
 
   if (is_shape_tensor == ShapeTensorType::kShapeTensorNone) {
     auto syn_tensor_input = habana_helpers::create_tensor(
-        input, graph.get_graph_handle(), is_persistent, c10::nullopt);
+        input, graph.get_graph_handle(), is_persistent, c10::nullopt, min, max);
 
     p_context_->syn_inputs_.emplace_back(std::move(syn_tensor_input));
 
@@ -171,7 +173,12 @@ void habana::HabanaOperator::AllocateSynapseOutput(
     ShapeTensorType is_shape_tensor) {
   if (is_shape_tensor == ShapeTensorType::kShapeTensorNone) {
     p_context_->syn_outputs_.emplace_back(habana_helpers::create_tensor(
-        output, graph.get_graph_handle(), is_persistent, c10::nullopt));
+        output,
+        graph.get_graph_handle(),
+        is_persistent,
+        c10::nullopt,
+        min_output_shape,
+        max_output_shape));
     p_context_->pt_outputs_.emplace_back(output);
   } else {
     p_context_->syn_outputs_.emplace_back(habana_helpers::create_shape_tensor(

@@ -217,7 +217,7 @@ class HabanaLaunchOpPT {
   torch::jit::Stack getStackForNode(torch::jit::Node* node);
   void compile();
   void clear();
-  bool isInGraphInputs(torch::jit::Value* value);
+  int64_t isInGraphInputs(torch::jit::Value* value);
   bool isInGraphOutputs(torch::jit::Value* value);
   bool isInGraphOutputs(torch::jit::Node* node, size_t index);
   bool nodeOutputPersistencePerValue(
@@ -239,11 +239,13 @@ class HabanaLaunchOpPT {
   void HandleUnmappedTensor(
       CValPtr value_in,
       const HabanaOperatorPtr& habana_op,
-      SharedSynTensorOrRefListPtr& tensorList);
+      SharedSynTensorOrRefListPtr& tensorList,
+      const int64_t input_idx = -1);
   void HandleMappedandUnmappedTensor(
       CValPtr value_in,
       const HabanaOperatorPtr& habana_op,
-      SharedSynTensorOrRefListPtr& tensorList);
+      SharedSynTensorOrRefListPtr& tensorList,
+      const int64_t input_idx = -1);
   void GetSynapseInputs(
       const HabanaOperatorPtr& habana_op,
       torch::jit::Node* node);
@@ -333,9 +335,11 @@ class HabanaLaunchOpPT {
   // Dynamic shape specific parts
   void CreateDynamicBucketInputShapes(
       habana_helpers::DynamicBucketInfo::InpTensorShapes& shape_map);
+
   synapse_helpers::tensor& AllocateSynapseTensor(
       const HabanaOperatorPtr& habana_op,
-      at::Tensor& pt_tensor);
+      at::Tensor& pt_tensor,
+      const int64_t input_idx);
 };
 
 } // namespace habana

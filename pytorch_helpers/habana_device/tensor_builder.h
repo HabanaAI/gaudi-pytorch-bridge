@@ -16,16 +16,6 @@
 
 namespace synapse_helpers {
 class tensor_builder : public tensor_builder_base<tensor_builder> {
-  tensor::shape_t to_shape_t(const std::vector<int64_t>& shape) {
-    tensor::shape_t dimensions{tensor::shape_t::dimension_count_t{
-        static_cast<unsigned>(shape.size())}}; // TODO make it more readable
-    // write dimension backwards, e.g. NHWC as CWHN
-    for (size_t i = 0; i < shape.size(); ++i)
-      dimensions[i] = shape[shape.size() - i - 1];
-
-    return dimensions;
-  }
-
  public:
   using tensor_builder_base::tensor_builder_base;
 
@@ -35,7 +25,7 @@ class tensor_builder : public tensor_builder_base<tensor_builder> {
   explicit tensor_builder(
       const std::vector<int64_t>& shape,
       synDataType data_type)
-      : tensor_builder(to_shape_t(shape), data_type) {}
+      : tensor_builder(synapse_helpers::to_shape_t(shape), data_type) {}
 
   explicit tensor_builder(const tensor::shape_t& shape, synDataType data_type)
       : tensor_builder_base(shape, data_type) {}

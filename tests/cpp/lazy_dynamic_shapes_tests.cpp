@@ -157,7 +157,11 @@ TEST_F(LazyDynamicShapesTest, DISABLED_DynamicShape3DTensorBasicGraphTest) {
   }
 }
 
-TEST_F(LazyDynamicShapesTest, DynamicShapeDebugSimple) {
+/*
+ * TEST HAS BEEN DISABLED UNTILL WE HAVE SUPPORT FOR
+ * SHAPE INFERENCE FROM GC IS ENABLED
+ * /
+/*TEST_F(LazyDynamicShapesTest, DynamicShapeDebugSimple) {
   bool refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   if (!refine_enabled) {
     setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
@@ -222,6 +226,56 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeDebugSimple) {
 
   if (!refine_enabled) {
     unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
+  }
+}*/
+
+TEST_F(LazyDynamicShapesTest, DynamicShapeDebugSimple2) {
+  bool refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  if (!refine_enabled) {
+    setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
+    setenv("PT_HPU_ENABLE_DEBUG_DYNAMIC_TEST", "1", 1);
+  }
+
+  int A = 4;
+  const int C = 3;
+  std::vector<int> in_sizes{6, 8, 10};
+  int num;
+
+  for (int i = 0; i < in_sizes.size(); i++) {
+    int B = in_sizes[i];
+    std::cout << '\n';
+    std::cout << "PTI_DBG :: TEST " << i << "  --------" << '\n';
+    torch::Tensor c0 = torch::randn({C, B, A}, torch::requires_grad(false));
+
+    torch::Tensor c4 = torch::relu(c0);
+
+    std::cout << "PTI_DBG ::"
+              << " c0.shape : " << c0.sizes()
+              << " c0.strides : " << c0.strides() << '\n';
+
+    std::cout << "PTI_DBG ::"
+              << " c4.shape : " << c4.sizes()
+              << " c4.strides : " << c4.strides() << '\n';
+
+    torch::Tensor h0 = c0.to(torch::kHABANA);
+    torch::Tensor h4 = torch::relu(h0);
+    torch::Tensor h4_c = h4.to(torch::kCPU);
+
+    std::cout << "PTI_DBG ::"
+              << " h0.shape : " << h0.sizes()
+              << " h0.strides : " << h0.strides() << '\n';
+
+    std::cout << "PTI_DBG ::"
+              << " h4.shape : " << h4.sizes()
+              << " h4.strides : " << h4.strides() << '\n';
+
+    EXPECT_EQ(allclose(c4, h4_c, 0.01, 0.01), true);
+    std::cout << "PTI_DBG :: TEST " << i << "  ========" << '\n';
+  }
+
+  if (!refine_enabled) {
+    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
+    unsetenv("PT_HPU_ENABLE_DEBUG_DYNAMIC_TEST");
   }
 }
 
