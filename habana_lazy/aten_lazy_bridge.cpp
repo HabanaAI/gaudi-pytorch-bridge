@@ -163,7 +163,7 @@ const std::vector<c10::optional<at::Tensor>> HpuGetFallbackOptTensorList(
   std::vector<c10::optional<at::Tensor>> fbtensors;
   fbtensors.reserve(tensors.size());
   for (const auto& tensor : tensors) {
-    if (tensor.has_value()) {
+    if (tensor.has_value() && tensor.value().defined()) {
       fbtensors.emplace_back(tensor.value().to(c10::kCPU));
     } else {
       fbtensors.emplace_back(tensor);
