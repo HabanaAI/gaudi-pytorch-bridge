@@ -2307,7 +2307,6 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
     rv.num_tinfos = rv.dtensorinfos->size();
 
     rv.aten_intermediates = std::move(aten_intermediates);
-    rv.aten_dma_inputs = std::move(aten_dma_inputs);
     for (auto output : jit_ir_graph->outputs()) {
       auto oit = value_to_ivalue.find(output);
       TORCH_CHECK(
@@ -2319,7 +2318,6 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
     }
   } else {
     rv.aten_intermediates = std::move(aten_intermediates);
-    rv.aten_dma_inputs = std::move(aten_dma_inputs);
 
     // TODO :
     //   preclude any interim tinfo from adding to output_tensorinfo_map
@@ -3000,18 +2998,21 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
           auto& ti = rv.dtensorinfos->at(ridx);
 
           auto dma_cb = ti.get_dma_cb();
-          auto dma_tensor_idx = ti.get_dma_tensor_idx();
+          at::IntArrayRef tshape{ti.get_shape()};
+          at::TensorOptions topts(ti.get_topts());
           TORCH_CHECK(
-              dma_tensor_idx < rv.aten_dma_inputs.size(),
-              "out of range dma_tensor_idx ",
-              dma_tensor_idx,
-              " #aten_dma_inputs ",
-              rv.aten_dma_inputs.size());
-          auto dma_tensor = rv.aten_dma_inputs[dma_tensor_idx];
+              topts.dtype() == c10::ScalarType::Int,
+              " mismatch in seed tensor dtype, expected ",
+              c10::ScalarType::Int,
+              " got ",
+              topts.dtype());
+          auto seed_tensor = at::empty(tshape, topts, ti.get_mf());
 
-          dma_cb(ti, dma_tensor);
+          // TODO : The tensor creation should be part of the callback
+          dma_cb(ti, seed_tensor);
 
-          IValPtrShared dma_ivpsh = std::make_shared<IVal>(dma_tensor);
+          ti.patch_exact(seed_tensor);
+          IValPtrShared dma_ivpsh = std::make_shared<IVal>(seed_tensor);
           PT_BRIDGE_DEBUG("Persistent tensor for DMA\n");
           dma_inputs->push_back(dma_ivpsh);
 
