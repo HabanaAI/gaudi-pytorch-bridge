@@ -767,7 +767,7 @@ void BatchNormForwardRmvOperator::preProcessInputs(
   Tensor residualAdd;
   // create a new syn tensor for bias and add it
   // This residual add is dummy tensor to match the API requirements
-  residualAdd = at::empty(input.sizes(), input.options());
+  residualAdd = at::empty({1}, input.options());
   auto syn_tensor_add = habana_helpers::create_tensor(
       residualAdd, graph.get_graph_handle(), true, c10::nullopt);
   auto it = p_context_->syn_inputs_.begin() + 3;
