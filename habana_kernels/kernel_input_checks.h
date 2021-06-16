@@ -825,6 +825,7 @@ static const std::unordered_map<
             "select",
             {{
                 at::ScalarType::Float,
+                at::ScalarType::Double,
                 at::ScalarType::BFloat16,
                 at::ScalarType::Int,
                 at::ScalarType::Long,
