@@ -94,6 +94,7 @@ def init_data_loader():
     #torch.multiprocessing.set_start_method('forkserver')
     #torch.multiprocessing.set_start_method('spawn')
     train_dir = pathlib.Path('/root/data/pytorch/imagenet/ILSVRC2012/')
+    #train_dir = pathlib.Path('/tmp/ramdisk/imagenet/ILSVRC2012/')
     dataset = datasets.ImageFolder(train_dir, transform)
     bs = 256
     total_images = 1280000
@@ -116,7 +117,8 @@ def init_data_loader():
         dataloader = habana_torch_dataloader.DataLoader(dataset, batch_size=bs, num_workers=workers, shuffle=True)
     else:
         print("Multi-process DL with imagenet dataset selected")
-        dataloader = torch.utils.data.DataLoader(dataset, batch_size=bs, num_workers=workers, shuffle=True)
+        #dataloader = torch.utils.data.DataLoader(dataset, batch_size=bs, num_workers=workers, shuffle=True)
+        dataloader = torch.utils.data.DataLoader(dataset, batch_size=bs, num_workers=workers, shuffle=True, prefetch_factor=4)
 
     return dataloader, num_steps, bs, rank
 
@@ -124,24 +126,43 @@ def init_data_loader():
 def test_pytorch_data_loader_for_resnet(dataloader, num_steps, bs, rank):
     t_sum = 0
     t_ips = 0
-    start_time = time.time()
+    t_imgs = 0
+    epoch = 0
+    total_epoch = 1
 
-    for i, data in enumerate(dataloader):
-        dl_time = time.time()
-        t_diff = dl_time - start_time
-        t_sum += t_diff
-        start_time = dl_time
-        ips =  bs/t_diff
-        t_ips += ips
+    for epoch in range(total_epoch):
+        start_time = time.time()
+        temp_time = start_time
+        for i, data in enumerate(dataloader):
+            images, lables = data
+            image_temp = images.to('cpu', non_blocking=False)
+            #if rank == 0:
+               #print(image_temp[0][1])
+            #   print("Image dimensions :: ",images[0].size())
+            #   print("current processed images :: ", len(images))
+            t_imgs += len(images)
+            dl_time = time.time()
+            t_diff = dl_time - start_time
+            t_sum += t_diff
+            start_time = dl_time
+            ips =  bs/t_diff
+            t_ips += ips
 
-        if rank == 0:
-            print("iteration : ",i, " ips : ",ips)
+            if rank == 0:
+               print("iteration : ",i, " ips : ",ips)
 
-        if i >= num_steps:
-            break
+            if i >= num_steps:
+               break
 
-    print("Avg ips per card = ", t_ips/num_steps)
-    print("Total time take = ", t_sum)
+        end_time = time.time()
+        diff = end_time - temp_time
+        print(" Epoch :: ", epoch)
+        print("Relative ips per card  = ", t_imgs/diff)
+        print("Avg iteration ips per card = ", t_ips/num_steps)
+        print("Total time take = ", t_sum)
+        t_sum = 0
+        t_ips = 0
+        t_imgs = 0
 
 def handle_args():
     parser = argparse.ArgumentParser(description="""Run DataLoader test""")
