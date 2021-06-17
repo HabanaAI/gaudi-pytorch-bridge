@@ -72,6 +72,11 @@ Tensor CatOperator::CheckAllocateOutput(
   TORCH_CHECK(
       dim < first_tensor.ndimension(),
       "Cat dimension specified exceeds tensors dimensions");
+  CatOutOperator::validate_tensor_dim_sizes(tensors, dim);
+  if (dim != dim_) {
+    inputs.pop_back();
+    inputs.emplace_back(IValue(dim));
+  }
 
   // out tensor size should match along all dimensions for input tensors except
   // along the dim in which to cat
@@ -97,10 +102,14 @@ void CatOperator::AllocateAndAddSynapseNode(
     Stack& inputs,
     bool is_output_persistent) {
   auto out = CheckAllocateOutput(inputs, is_output_persistent);
-  inputs.insert(inputs.begin(), IValue(out));
-  // inputs pos : 0 = out, 1,2,3,... = cat inputs, "tensor_count"th elem = dim
-  CatOutOperator::AllocateAndAddSynapseNode(
-      graph, inputs, is_output_persistent);
+  inputs.emplace_back(out);
+  auto dim = inputs[1].toInt();
+  auto kernel_dim = (out.ndimension() - dim) - 1;
+
+  p_context_->params_.emplace<int64_t>(kernel_dim);
+  p_context_->params_size_ = sizeof(kernel_dim);
+  AllocateSynapseOutput(graph, out, is_output_persistent);
+  AddNodeToSynapseGraph(graph, &kernel_dim, sizeof(kernel_dim));
 }
 
 /*************************************************************************
@@ -193,64 +202,78 @@ Tensor cat_hpu(const TensorList in_tensors, int64_t dim_ = 0) {
 int64_t CatOutOperator::CheckAllocateOutput(Stack& inputs) {
   TORCH_CHECK(
       inputs.size() == 3,
-      "Incorrect size of inputs expected for matmul operator");
-
-  TORCH_CHECK(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
+      "Incorrect size of inputs expected for catout operator");
   TORCH_CHECK(
-      inputs[1].isTensorList(), "Input arg2 type expected to be tensor list");
-  TORCH_CHECK(inputs[2].isInt(), "Input arg3 type expected to be int");
+      inputs[0].isTensorList(), "Input arg1 type expected to be tensor list");
+  TORCH_CHECK(inputs[1].isInt(), "Input arg2 type expected to be int");
+  TORCH_CHECK(inputs[2].isTensor(), "Input arg3 type expected to be tensor");
 
-  auto out = inputs[0].toTensor();
-  auto tensors = inputs[1].toTensorList();
-  auto dim_ = inputs[2].toInt();
+  auto tensors = inputs[0].toTensorList();
+  auto dim_ = inputs[1].toInt();
 
   int64_t dim = at::maybe_wrap_dim(
       dim_,
       tensors.get(0).dim(),
       /*wrap_scalar=*/true);
 
-  auto in_tensor_count = tensors.size(); // num input tensors
+  validate_tensor_dim_sizes(tensors, dim);
 
-  auto first_tensor = tensors.get(0);
+  return dim;
+}
+
+std::vector<int64_t> CatOutOperator::compute_output_shape(
+    const at::TensorList tensors,
+    int64_t dim_) {
+  int64_t dim = at::maybe_wrap_dim(
+      dim_,
+      tensors[0].dim(),
+      /*wrap_scalar=*/true);
+
+  auto in_tensor_count = tensors.size();
+  auto first_tensor = tensors[0];
   auto out_size = first_tensor.sizes().vec();
   out_size[dim] = 0;
   for (unsigned i = 0; i < in_tensor_count; i++) {
-    out_size[dim] += tensors.get(i).sizes()[dim];
+    out_size[dim] += tensors[i].sizes()[dim];
   }
-
-  validate_tensor_dim_sizes(tensors, dim);
-
-  if (out.defined()) {
-    TORCH_CHECK(
-        first_tensor.options().type_equal(out.options()),
-        "output values must be of same type as input");
-    auto tht_result = out.unsafeGetTensorImpl();
-    THHTensor_resizeNd(
-        tht_result, first_tensor.dim(), out_size.data(), nullptr);
-  } else {
-    out = at::empty(
-        out_size, first_tensor.options(), first_tensor.suggest_memory_format());
-  }
-
-  // insert allocated output tensor back
-  inputs.erase(inputs.cbegin());
-  inputs.emplace(inputs.cbegin(), out);
-
-  return dim;
+  return out_size;
 }
 
 void CatOutOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
     bool is_output_persistent) {
+  static_cast<void>(is_output_persistent);
   auto dim = CheckAllocateOutput(inputs);
-  auto out = inputs[0].toTensor();
+  auto out = inputs[2].toTensor();
   auto kernel_dim = (out.ndimension() - dim) - 1;
 
   p_context_->params_.emplace<int64_t>(kernel_dim);
   p_context_->params_size_ = sizeof(kernel_dim);
-  AllocateSynapseOutput(graph, out, is_output_persistent);
-  AddNodeToSynapseGraph(graph, &kernel_dim, sizeof(kernel_dim));
+
+  int64_t numTensors = p_context_->syn_inputs_.size();
+  std::vector<synTensor> syn_inputs;
+
+  for (int i = 0; i < (numTensors - 1); i++) {
+    synapse_helpers::tensor& arg_syn_tensor = p_context_->syn_inputs_[i];
+    syn_inputs.push_back(arg_syn_tensor.get());
+  }
+
+  p_context_->syn_outputs_.emplace_back(
+      std::move(p_context_->syn_inputs_[numTensors - 1]));
+  p_context_->pt_outputs_.emplace_back(out);
+  p_context_->syn_inputs_.erase(p_context_->syn_inputs_.cend());
+  p_context_->pt_inputs_.erase(p_context_->pt_inputs_.cend());
+
+  synapse_helpers::tensor& output_syn_tensor = p_context_->syn_outputs_[0];
+  std::vector<synTensor> syn_outputs{output_syn_tensor.get()};
+
+  graph.add_node(
+      std::move(syn_inputs),
+      std::move(syn_outputs),
+      &kernel_dim,
+      sizeof(kernel_dim),
+      std::move(guid_));
 }
 
 void CatOutOperator::SetPTOutput(const Tensor& out) {
@@ -259,7 +282,7 @@ void CatOutOperator::SetPTOutput(const Tensor& out) {
 
 void CatOutOperator::SetPTOutput(torch::jit::Stack& inputs) {
   CheckAllocateOutput(inputs);
-  auto out = inputs[0].toTensor();
+  auto out = inputs[2].toTensor();
   HabanaOperator::SetPTOutput(out);
 }
 
@@ -284,13 +307,23 @@ Tensor& cat_hpu_out(
 
   std::vector<at::Tensor> pt_inputs;
   std::vector<c10::IValue> stack;
-  stack.push_back(IValue(result));
   for (unsigned i = 0; i < tensors.size(); i++) {
     pt_inputs.push_back(tensors[i]);
   }
   // Tensorlist should be pushed as it is
   stack.push_back(IValue(tensors));
   stack.push_back(IValue(dim_));
+
+  auto out_size = CatOutOperator::compute_output_shape(tensors, dim_);
+  if (result.numel() == 0 && result.sizes().vec() != out_size) {
+    auto tht_result = result.unsafeGetTensorImpl();
+    THHTensor_resizeNd(tht_result, out_size.size(), out_size.data(), nullptr);
+  } else if (result.sizes().vec() != out_size) {
+    HABANA_ASSERT(
+        false && "result size is not matching with expected output size");
+  }
+  pt_inputs.push_back(result);
+  stack.push_back(IValue(result));
 
   /*Cache generation requires unique parameter distinctions which are not
    * guaranteed by tensors alone for ops like cat/cat.out because their guids
@@ -1273,6 +1306,11 @@ static auto& KernelRegistry =
             "aten::cat",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<CatOperator>(device_id, node_type);
+            })
+        .add(
+            "aten::cat.out",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<CatOutOperator>(device_id, node_type);
             })
         .add(
             "aten::permute",

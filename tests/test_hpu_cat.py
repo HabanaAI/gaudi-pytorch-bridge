@@ -21,7 +21,7 @@ cat_op_list = [
                 torch.randn(8, 3, 24, 12),
                 torch.randn(8, 3, 24, 4),
             ),
-            "out": torch.randn(8, 3, 24, 24),
+            "out": torch.empty(0),
             "dim": 3,
         },
     ),
@@ -29,7 +29,7 @@ cat_op_list = [
         torch.cat,
         {
             "tensors": (torch.randn(8, 3, 24, 24), torch.randn(8, 3, 24, 24)),
-            "out": torch.randn(8, 3),
+            "out": torch.empty(0),
             "dim": 3,
         },
     ),

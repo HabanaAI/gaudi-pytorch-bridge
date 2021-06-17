@@ -4189,8 +4189,11 @@ Tensor& cat_hpu_lazy_out(
     Tensor& result,
     const TensorList tensors,
     int64_t dim_) {
-  HABANA_ASSERT(0);
-  return cat_hpu_out(result, tensors, dim_);
+  PT_LAZY_TRACE;
+
+  auto out_size = CatOutOperator::compute_output_shape(tensors, dim_);
+  LazyOp<at::Tensor&> k{"aten::cat", {tensors, dim_, result}, {out_size}};
+  return k.call(result);
 }
 
 Tensor transpose_hpu_lazy(const Tensor& self, int64_t dim0_, int64_t dim1_) {

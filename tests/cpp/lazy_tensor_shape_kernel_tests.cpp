@@ -49,6 +49,22 @@ TEST_F(LazyTensorShapeKernelTest, CatExecTest2) {
   EXPECT_EQ(allclose(result, exp), true);
 }
 
+TEST_F(LazyTensorShapeKernelTest, CatExecOutTest) {
+  torch::Tensor A = torch::randn({2, 2}, torch::requires_grad(false));
+  torch::Tensor B = torch::randn({2, 2}, torch::requires_grad(false));
+
+  torch::Tensor output = torch::empty({0});
+
+  torch::Tensor hA = A.to(torch::kHABANA);
+  torch::Tensor hB = B.to(torch::kHABANA);
+  torch::Tensor hout = output.to(torch::kHABANA);
+
+  torch::cat_outf({A, B}, 0, output);
+  torch::cat_outf({hA, hB}, 0, hout);
+  auto result = hout.to(torch::kCPU);
+  EXPECT_EQ(allclose(result, output), true);
+}
+
 TEST_F(LazyTensorShapeKernelTest, CatExecTest3) {
   torch::Tensor A = torch::randn({2, 2}, torch::requires_grad(false));
   torch::Tensor B = torch::randn({2, 4}, torch::requires_grad(false));
