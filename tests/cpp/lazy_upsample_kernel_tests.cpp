@@ -16,10 +16,11 @@ using namespace at;
 
 class LazyUpsampleKernelTest : public habana_lazy_test::LazyTest {};
 
-TEST_F(LazyUpsampleKernelTest, DISABLED_UpsampleNearestTest) {
+TEST_F(LazyUpsampleKernelTest, UpsampleNearestTest) {
   torch::Tensor tensor = torch::randn({3, 1, 5, 5});
   torch::Tensor tHabana = tensor.to(torch::kHABANA);
-  c10::ArrayRef<double> scale_factors = {2.0, 2.0};
+  std::array<double, 2> scale_array = {2.0, 2.0};
+  c10::ArrayRef<double> scale_factors = scale_array;
   auto outHabana = torch::upsample_nearest2d(tHabana, {}, scale_factors);
   auto out = torch::upsample_nearest2d(tensor, {}, scale_factors);
   bool equal = out.allclose(outHabana.to(torch::kCPU), 0, 0);
@@ -29,7 +30,8 @@ TEST_F(LazyUpsampleKernelTest, DISABLED_UpsampleNearestTest) {
 TEST_F(LazyUpsampleKernelTest, UpsampleNearest2Test) {
   torch::Tensor tensor = torch::randn({3, 1, 5, 5});
   torch::Tensor tHabana = tensor.to(torch::kHABANA);
-  c10::ArrayRef<int64_t> sizes = {10, 15};
+  std::array<int64_t, 2> sizes_array = {10, 15};
+  c10::ArrayRef<int64_t> sizes = sizes_array;
   auto outHabana = torch::upsample_nearest2d(tHabana, sizes, {});
   auto out = torch::upsample_nearest2d(tensor, sizes, {});
   bool equal = out.allclose(outHabana.to(torch::kCPU), 0, 0);

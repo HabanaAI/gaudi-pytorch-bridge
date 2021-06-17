@@ -145,12 +145,13 @@ TEST_F(LazyTensorShapeKernelTest, SliceTest) {
   EXPECT_EQ(allclose(h_cout, cout), true);
 }
 
-TEST_F(LazyTensorShapeKernelTest, DISABLED_ViewExecute) {
+TEST_F(LazyTensorShapeKernelTest, ViewExecute) {
   auto input_tensor =
       torch::arange(480, torch::dtype(torch::kFloat).requires_grad(false))
           .reshape({10, 3, 4, 4}); // nchw
   torch::Tensor tHabanain = input_tensor.to(torch::kHABANA);
-  c10::IntArrayRef new_size = {-1, 48};
+  std::array<int64_t, 2> size_array = {-1, 48};
+  c10::IntArrayRef new_size = size_array;
   auto result = torch::_unsafe_view(tHabanain, new_size);
   auto hl_result = std::make_shared<HbLazyTensor>(GetHbLazyTensor(result));
   auto ir_value = hl_result->CurrentIrValue();
@@ -193,7 +194,7 @@ TEST_F(LazyTensorShapeKernelTest, Repeat) {
   EXPECT_TRUE(allclose(hOut.to(torch::kCPU), Out));
 }
 
-TEST_F(LazyTensorShapeKernelTest, DISABLED_SplitWithSizesTest) {
+TEST_F(LazyTensorShapeKernelTest, SplitWithSizesTest) {
   auto split_with_size = [](auto split_sizes, auto dim) {
     auto input = torch::randn({8, 3, 24, 12});
     auto h_input = input.to(torch::kHABANA);
@@ -210,11 +211,13 @@ TEST_F(LazyTensorShapeKernelTest, DISABLED_SplitWithSizesTest) {
       EXPECT_EQ(allclose(cpu_out[i], hpu_out[i]), true);
     }
   };
-  c10::IntArrayRef split_sizes = {2, 4, 2};
+  std::array<int64_t, 3> size1 = {2, 4, 2};
+  c10::IntArrayRef split_sizes = size1;
   int64_t dim = 0;
   split_with_size(split_sizes, dim);
 
-  split_sizes = c10::IntArrayRef({12, 6, 6});
+  std::array<int64_t, 3> size2 = {12, 6, 6};
+  split_sizes = c10::IntArrayRef(size2);
   dim = 2;
   split_with_size(split_sizes, dim);
 }
