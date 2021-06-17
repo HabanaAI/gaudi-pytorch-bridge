@@ -16,12 +16,38 @@
 
 #pragma once
 namespace habana {
-class HpuFallbackStatistics {
+class HpuFallbackHelper {
   std::unordered_map<c10::Symbol, size_t> m_op_count;
   std::mutex m_mutex;
+  std::set<std::string> fallback_list_ops;
+  bool enable_fallback = true;
+  std::mutex m_fbmutex;
+
+  void enumerate_fallback() {
+    char* fallback_list_ptr = std::getenv("PT_HPU_PLACE_ON_CPU");
+    if (fallback_list_ptr != NULL &&
+        std::strcmp(fallback_list_ptr, "none") == 0) {
+      enable_fallback = false;
+      return;
+    }
+
+    if (fallback_list_ptr != nullptr) {
+      enable_fallback = true;
+      std::stringstream ss(fallback_list_ptr);
+      while (ss.good()) {
+        std::string substr;
+        std::getline(ss, substr, ',');
+        fallback_list_ops.insert(substr);
+      }
+    }
+  }
 
  public:
-  ~HpuFallbackStatistics() {
+  HpuFallbackHelper() {
+    enumerate_fallback();
+  }
+
+  ~HpuFallbackHelper() {
     print();
   }
 
@@ -59,6 +85,21 @@ class HpuFallbackStatistics {
     std::lock_guard<std::mutex> lock(m_mutex);
     m_op_count[at::Symbol::fromQualString(op)]++;
   }
+
+  void is_fallback_allowed(const char* str) {
+    if (!enable_fallback)
+      TORCH_CHECK(
+          fallback_list_ops.count(str) > 0, "Op is not yet supported on HPU")
+  }
+  bool is_placed_on_cpu(std::string str) {
+    static_cast<void>(str);
+
+    if (fallback_list_ops.count(str) > 0)
+      return true;
+    return false;
+  }
 };
+extern HpuFallbackHelper stat;
 } // namespace habana
 #define HPU_FALLBACK_COUNTER(op) stat.increment_count(op)
+#define PT_FALLBACK_CHECK stat.is_fallback_allowed(__func__);

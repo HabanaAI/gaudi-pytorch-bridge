@@ -10,6 +10,7 @@
 
 #include <ATen/core/TensorBody.h>
 #include <c10/core/ScalarType.h>
+#include "habana_kernels/fallback_helper.h"
 
 #pragma once
 
@@ -2434,4 +2435,39 @@ void hpu_check_inputs(
         ".");
     i++;
   }
+}
+habana::HpuFallbackHelper stat;
+bool hpu_check_inputs_impl(
+    const std::string& op,
+    const std::vector<at::Tensor>& tensors) {
+  const auto& supported_types = op_info.at(op);
+  size_t i = 0;
+  if (stat.is_placed_on_cpu(op))
+    return false;
+  for (const auto& tensor : tensors) {
+    if (!tensor.defined()) {
+      continue;
+    }
+
+    const auto& dtype = tensor.scalar_type();
+    if (at::isComplexType(dtype)) {
+      return false;
+    }
+    // When same types are applicable to all input tensors, use the only one
+    // defined
+    size_t j = (supported_types.size() == 1) ? 0 : i;
+    TORCH_CHECK(
+        supported_types.at(j).count(dtype),
+        "Tensor input ",
+        i + 1,
+        " passed to ",
+        op,
+        " is expected to be of type(s): ",
+        supported_types,
+        ", but got ",
+        dtype,
+        ".");
+    i++;
+  }
+  return true;
 }

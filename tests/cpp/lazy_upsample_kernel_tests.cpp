@@ -34,6 +34,7 @@ TEST_F(LazyUpsampleKernelTest, UpsampleNearest2Test) {
   c10::ArrayRef<int64_t> sizes = sizes_array;
   auto outHabana = torch::upsample_nearest2d(tHabana, sizes, {});
   auto out = torch::upsample_nearest2d(tensor, sizes, {});
+  // EXPECT_DEATH(outHabana.to(torch::kCPU), "*");
   bool equal = out.allclose(outHabana.to(torch::kCPU), 0, 0);
   EXPECT_EQ(equal, true);
 }
