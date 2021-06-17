@@ -271,6 +271,44 @@ TEST_F(LazyNormKernelTest, InstanceNorm) {
   EXPECT_EQ(allclose(result_lazy.to("cpu"), result_cpu, 0.01, 0.01), true);
 }
 
+TEST_F(LazyNormKernelTest, InstanceNormNormv) {
+  auto input_tensor = torch::randn(
+      {10, 3, 4, 2}, torch::dtype(torch::kFloat).requires_grad(false));
+  torch::Tensor tHabanaX = input_tensor.to(torch::kHABANA);
+  at::Tensor weight =
+      torch::randn(3, torch::dtype(torch::kFloat).requires_grad(false));
+  torch::Tensor tWeight = weight.to(torch::kHABANA);
+  at::Tensor bias =
+      torch::randn(3, torch::dtype(torch::kFloat).requires_grad(false));
+  torch::Tensor tBias = bias.to(torch::kHABANA);
+
+  constexpr float mom = 0.1;
+  constexpr float eps = 1e-5;
+  auto result_cpu = torch::instance_norm(
+      input_tensor,
+      weight,
+      bias,
+      torch::Tensor(),
+      torch::Tensor(),
+      true,
+      mom,
+      eps,
+      false);
+
+  auto result_lazy = torch::instance_norm(
+      tHabanaX,
+      tWeight,
+      tBias,
+      torch::Tensor(),
+      torch::Tensor(),
+      true,
+      mom,
+      eps,
+      false);
+
+  EXPECT_EQ(allclose(result_lazy.to("cpu"), result_cpu, 0.01, 0.01), true);
+}
+
 TEST_F(LazyNormKernelTest, NormScalarTest) {
   torch::Tensor A = torch::randn({2, 2}, torch::requires_grad(false));
   torch::Tensor hA = A.to(torch::kHABANA);

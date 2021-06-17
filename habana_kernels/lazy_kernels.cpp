@@ -2576,13 +2576,45 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu_lazy(
     const Tensor& input,
     const Tensor& weight,
     const Tensor& bias,
-    const Tensor& running_mean,
-    const Tensor& running_var,
+    const Tensor& running_mean_,
+    const Tensor& running_var_,
     bool training,
     double momentum,
     double eps) {
   PT_LAZY_TRACE;
   ir::NodePtr node;
+
+  Tensor running_mean, running_var;
+  // if RMV are undefined, create zero mean and unit variance tensors for
+  // numerical stability of BN
+  if (!running_mean_.defined()) {
+    IntArrayRef rm_size;
+    if (input.suggest_memory_format() == c10::MemoryFormat::ChannelsLast) {
+      rm_size = input.sizes()[3];
+    } else {
+      rm_size = input.sizes()[1];
+    }
+
+    running_mean = empty_hpu_lazy(
+        rm_size, input.options(), input.suggest_memory_format(), true);
+    fill_hpu_lazy_(running_mean, 0);
+  } else {
+    running_mean = running_mean_;
+  }
+
+  if (!running_var_.defined()) {
+    IntArrayRef rv_size;
+    if (input.suggest_memory_format() == c10::MemoryFormat::ChannelsLast) {
+      rv_size = input.sizes()[3];
+    } else {
+      rv_size = input.sizes()[1];
+    }
+    running_var = empty_hpu_lazy(
+        rv_size, input.options(), input.suggest_memory_format(), true);
+    fill_hpu_lazy_(running_var, 1);
+  } else {
+    running_var = running_var_;
+  }
 
   if (training) {
     node = std::make_shared<ir::BatchNormForward>(
@@ -2620,11 +2652,8 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu_lazy(
   out0.m_index = 0;
   out0.SetNode(node);
 
-  // TODO add support for track_running_stats = false
-  HABANA_ASSERT(running_mean.defined());
-
   // set the running mean and variance as output nodes
-  if (running_mean.defined() && training) {
+  if (training) {
     const auto hlresult1 = GetHbLazyTensor(running_mean);
     ir::Value& out1 = hlresult1.CurrentIrValue();
     out1.m_index = 1;
@@ -2667,14 +2696,45 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu_lazy(
     const Tensor& grad_out,
     const Tensor& input,
     const Tensor& weight,
-    const Tensor& running_mean,
-    const Tensor& running_var,
+    const Tensor& running_mean_,
+    const Tensor& running_var_,
     const Tensor& save_mean,
     const Tensor& save_invstd,
     bool train,
     double eps,
     UNUSED std::array<bool, 3> output_mask) {
   PT_LAZY_TRACE;
+
+  Tensor running_mean, running_var;
+  // create tensors if RMV are undefined
+
+  if (!running_mean_.defined()) {
+    IntArrayRef rm_size;
+    if (input.suggest_memory_format() == c10::MemoryFormat::ChannelsLast) {
+      rm_size = input.sizes()[3];
+    } else {
+      rm_size = input.sizes()[1];
+    }
+
+    running_mean = empty_hpu_lazy(
+        rm_size, input.options(), input.suggest_memory_format(), true);
+  } else {
+    running_mean = running_mean_;
+  }
+
+  if (!running_var_.defined()) {
+    IntArrayRef rv_size;
+    if (input.suggest_memory_format() == c10::MemoryFormat::ChannelsLast) {
+      rv_size = input.sizes()[3];
+    } else {
+      rv_size = input.sizes()[1];
+    }
+    running_var = empty_hpu_lazy(
+        rv_size, input.options(), input.suggest_memory_format(), true);
+  } else {
+    running_var = running_var_;
+  }
+
   ir::NodePtr node = std::make_shared<ir::BatchNormBackward>(
       grad_out,
       input,

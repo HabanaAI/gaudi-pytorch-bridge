@@ -171,25 +171,15 @@ class BatchNormForward : public ir::Node {
           torch::jit::IValue(),
           static_cast<size_t>(BatchNormForwardMeta::BIAS_INDEX));
     }
-    if (running_mean.defined()) {
-      auto hl_running_mean =
-          GetOrCreateHbLazyTensor(running_mean, c10::kHABANA);
-      AddInput(hl_running_mean.GetIrValue());
-      input_pt_vec.emplace_back(running_mean);
-    } else {
-      m_meta_data.set(
-          torch::jit::IValue(),
-          static_cast<size_t>(BatchNormForwardMeta::RUNNING_MEAN_INDEX));
-    }
-    if (running_var.defined()) {
-      auto hl_running_var = GetOrCreateHbLazyTensor(running_var, c10::kHABANA);
-      AddInput(hl_running_var.GetIrValue());
-      input_pt_vec.emplace_back(running_var);
-    } else {
-      m_meta_data.set(
-          torch::jit::IValue(),
-          static_cast<size_t>(BatchNormForwardMeta::RUNNING_VAR_INDEX));
-    }
+
+    auto hl_running_mean = GetOrCreateHbLazyTensor(running_mean, c10::kHABANA);
+    AddInput(hl_running_mean.GetIrValue());
+    input_pt_vec.emplace_back(running_mean);
+
+    auto hl_running_var = GetOrCreateHbLazyTensor(running_var, c10::kHABANA);
+    AddInput(hl_running_var.GetIrValue());
+    input_pt_vec.emplace_back(running_var);
+
     AddInputPtTensors(input_pt_vec);
 
     m_meta_data.set(
@@ -379,25 +369,13 @@ class BatchNormBackward : public ir::Node {
           static_cast<size_t>(BatchNormBackwardMeta::WEIGHT_INDEX));
     }
 
-    if (running_mean.defined()) {
-      auto hl_running_mean =
-          GetOrCreateHbLazyTensor(running_mean, c10::kHABANA);
-      AddInput(hl_running_mean.GetIrValue());
-      input_pt_vec.emplace_back(running_mean);
-    } else {
-      m_meta_data.set(
-          torch::jit::IValue(),
-          static_cast<size_t>(BatchNormBackwardMeta::RUNNING_MEAN_INDEX));
-    }
-    if (running_var.defined()) {
-      auto hl_running_var = GetOrCreateHbLazyTensor(running_var, c10::kHABANA);
-      AddInput(hl_running_var.GetIrValue());
-      input_pt_vec.emplace_back(running_var);
-    } else {
-      m_meta_data.set(
-          torch::jit::IValue(),
-          static_cast<size_t>(BatchNormBackwardMeta::RUNNING_VAR_INDEX));
-    }
+    auto hl_running_mean = GetOrCreateHbLazyTensor(running_mean, c10::kHABANA);
+    AddInput(hl_running_mean.GetIrValue());
+    input_pt_vec.emplace_back(running_mean);
+
+    auto hl_running_var = GetOrCreateHbLazyTensor(running_var, c10::kHABANA);
+    AddInput(hl_running_var.GetIrValue());
+    input_pt_vec.emplace_back(running_var);
 
     if (save_mean.defined()) {
       auto hl_save_mean = GetOrCreateHbLazyTensor(save_mean, c10::kHABANA);

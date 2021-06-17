@@ -32,7 +32,7 @@ TEST_F(LazyBinaryInplaceKernelTest, MulInplaceTest) {
   auto result = torch::add(hA, hC);
   Tensor out = result.to(kCPU);
 
-  EXPECT_EQ(allclose(out, exp), true);
+  EXPECT_EQ(allclose(out, exp, 0.001, 0.001), true);
 }
 
 TEST_F(LazyBinaryInplaceKernelTest, SqrtAddInplaceTest) {
@@ -78,7 +78,7 @@ TEST_F(LazyBinaryInplaceKernelTest, AddcmulInplaceTest) {
   auto result = torch::add(hA, hD);
   Tensor out = result.to(kCPU);
 
-  EXPECT_EQ(allclose(out, exp), true);
+  EXPECT_EQ(allclose(out, exp, 0.001, 0.001), true);
 }
 
 TEST_F(LazyBinaryInplaceKernelTest, AddcmulInplaceTest2) {
@@ -99,7 +99,7 @@ TEST_F(LazyBinaryInplaceKernelTest, AddcmulInplaceTest2) {
   auto result = torch::add(hA, hC);
   Tensor out = result.to(kCPU);
 
-  EXPECT_EQ(allclose(out, exp), true);
+  EXPECT_EQ(allclose(out, exp, 0.001, 0.001), true);
 }
 
 TEST_F(LazyBinaryInplaceKernelTest, AddcdivInplaceTest) {
@@ -122,7 +122,7 @@ TEST_F(LazyBinaryInplaceKernelTest, AddcdivInplaceTest) {
   auto result = torch::add(hA, hD);
   Tensor out = result.to(kCPU);
 
-  EXPECT_EQ(allclose(out, exp), true);
+  EXPECT_EQ(allclose(out, exp, 0.001, 0.001), true);
 }
 
 TEST_F(LazyBinaryInplaceKernelTest, AddcdivInplaceTest2) {
@@ -145,7 +145,7 @@ TEST_F(LazyBinaryInplaceKernelTest, AddcdivInplaceTest2) {
   auto result = torch::add(hA, hD);
   Tensor out = result.to(kCPU);
 
-  EXPECT_EQ(allclose(out, exp), true);
+  EXPECT_EQ(allclose(out, exp, 0.001, 0.001), true);
 }
 
 TEST_F(LazyBinaryInplaceKernelTest, DivInplaceTest) {
@@ -162,5 +162,5 @@ TEST_F(LazyBinaryInplaceKernelTest, DivInplaceTest) {
   hA.div_(hB);
   Tensor out = hA.to(kCPU);
 
-  EXPECT_EQ(allclose(out, exp), true);
+  EXPECT_EQ(allclose(out, exp, 0.001, 0.001), true);
 }
