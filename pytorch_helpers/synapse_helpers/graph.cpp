@@ -313,9 +313,7 @@ synapse_error_o graph::launch(
 
   auto table_checker{
       [&recipe_handle](const synLaunchTensorInfoExt& info) -> bool {
-        if ((info.tensorType != SHAPE_TENSOR &&
-             info.tensorType != INPUT_DESCRIBING_SHAPE_TENSOR &&
-             info.pTensorAddress == 0) ||
+        if ((info.tensorType != DATA_TENSOR && info.pTensorAddress == 0) ||
             info.tensorName == nullptr || info.tensorName[0] == '\0') {
           PT_SYNHELPER_WARN(
               recipe_handle.recipe_name_,

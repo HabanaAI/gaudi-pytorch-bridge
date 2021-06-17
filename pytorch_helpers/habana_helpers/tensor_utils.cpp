@@ -552,13 +552,6 @@ synapse_helpers::tensor habana_helpers::create_tensor(
                   tensor.device().index()),
               graph);
   if (absl::holds_alternative<synapse_helpers::synapse_error>(variant)) {
-    auto sizes = tensor.sizes();
-    for (unsigned i = 0; i < sizes.size(); i++) {
-      TORCH_CHECK(
-          sizes[i] != 0,
-          "Received an input tensor with size 0 at dimension ",
-          i);
-    }
     auto error = absl::get<synapse_helpers::synapse_error>(variant);
     TORCH_HABANA_CHECK(error.status, error.error);
   }

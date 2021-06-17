@@ -144,6 +144,7 @@ std::vector<int64_t> habana_helpers::compute_broadcast_shape(
   std::vector<int64_t> out_size;
   auto sz1 = arg1.sizes().vec();
   auto sz2 = arg2.sizes().vec();
+
   // reverse sizes to start from FCD
   std::reverse(sz1.begin(), sz1.end());
   std::reverse(sz2.begin(), sz2.end());
@@ -152,6 +153,10 @@ std::vector<int64_t> habana_helpers::compute_broadcast_shape(
     if (sz1[i] == sz2[i]) {
       // sizes match, add either input size to output size
       out_size.push_back(sz1[i]);
+    } else if (sz1[i] == 0 || sz2[i] == 0) {
+      // sizes do not match, but one of the input sizes is 0 => output size on
+      // this dim will also be 0
+      out_size.push_back(0);
     } else if (sz1[i] == 1 || sz2[i] == 1) {
       // sizes do not match, but one of the input sizes is 1 => push other input
       // size to output size
