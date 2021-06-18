@@ -745,6 +745,8 @@ def main():
         average_loss = 0.0  # averaged loss every args.log_freq steps
         epoch = 0
         training_steps = 0
+        average_training_time_per_step = 0
+        average_perf_per_step = 0
         model_traced = False
         loss_list = []
 
@@ -752,6 +754,7 @@ def main():
             pool = ProcessPoolExecutor(1)
 
         trainMetaData.set_live_mem_alloc_logging(args.log_device_mem_alloc and args.use_habana)
+        starting_time = time.time()
         # Note: We loop infinitely over epochs, termination is handled via iteration count
         while True:
             thread = None
@@ -911,6 +914,10 @@ def main():
                         for loss_t in loss_list:
                             average_loss += loss_t.item()
                         loss_list.clear()
+                        train_time = time.time() - starting_time
+                        starting_time = time.time()
+                        average_training_time_per_step = train_time/(args.gradient_accumulation_steps * args.log_freq)
+                        average_perf_per_step = args.train_batch_size/average_training_time_per_step
 
                     if global_step >= args.steps_this_run or timeout_sent:
                         train_time_raw = time.time() - raw_train_start
@@ -927,12 +934,16 @@ def main():
                             torch.distributed.all_reduce(average_loss)
                         final_loss = average_loss.item()
                         if is_main_process():
-                            dllogger.log(step=(epoch, global_step, ), data={"final_loss": final_loss})
+                            dllogger.log(step=(epoch, global_step, ), data={"final_loss": final_loss,
+                                                                            "average_training_time_step": average_training_time_per_step,
+                                                                            "average_perf_per_step": average_perf_per_step})
                     elif training_steps % (args.log_freq * args.gradient_accumulation_steps) == 0:
                         if is_main_process():
                             dllogger.log(step=(epoch, global_step, ), data={"average_loss": average_loss / (args.log_freq * divisor),
                                                                             "step_loss": loss.item() * args.gradient_accumulation_steps / divisor,
-                                                                            "learning_rate": optimizer.param_groups[0]['lr']})
+                                                                            "learning_rate": optimizer.param_groups[0]['lr'],
+                                                                            "average_training_time_step": average_training_time_per_step,
+                                                                            "average_perf_per_step": average_perf_per_step})
                         average_loss = 0
 
 
