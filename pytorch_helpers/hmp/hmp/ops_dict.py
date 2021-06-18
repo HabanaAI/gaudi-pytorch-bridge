@@ -8,6 +8,7 @@ ops_dict = {
     "conv1d": [torch.nn.functional, torch],
     "conv2d": [torch.nn.functional, torch],
     "conv3d": [torch.nn.functional, torch],
+    "conv_transpose2d": [torch.nn.functional, torch],
     # pool
     "avg_pool2d": [torch.nn.functional],
     "max_pool2d": [torch.nn.functional],
@@ -32,6 +33,7 @@ ops_dict = {
     "embedding_bag_sum_bwd": [torch],
     "embedding": [torch],
     "layer_norm": [torch.nn.functional],
+    "instance_norm": [torch.nn.functional],
     # Classifiers and loss metrics
     "binary_cross_entropy": [torch.nn.functional],
     "cross_entropy": [torch.nn.functional],
@@ -62,6 +64,7 @@ ops_dict = {
     # Activations
     "gelu": [torch.nn.functional],
     "relu": [torch.nn.functional],
+    "leaky_relu": [torch.nn.functional],
     # Shapes
     "t": [torch, torch.Tensor],
     "flatten": [torch, torch.Tensor],
