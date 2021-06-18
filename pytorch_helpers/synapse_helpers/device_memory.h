@@ -21,6 +21,7 @@
 #include <vector>
 
 #include "pool_allocator/CoalescedPoolAllocator.h"
+#include "pool_allocator/CoalescedStringentPoolAllocator.h"
 #include "pool_allocator/PoolAllocator.h"
 #include "synapse_helpers/synapse_error.h"
 

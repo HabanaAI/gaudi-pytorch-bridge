@@ -20,6 +20,7 @@ enum PoolStrategyType {
   strategy_dynamic,
   startegy_static_coalesce,
   startegy_static_coalesce_with_memthreshold,
+  startegy_coalesce_stringent,
 };
 
 // [Fix Me:] need to have the pool size to accomodate one

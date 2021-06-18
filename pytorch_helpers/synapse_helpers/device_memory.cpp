@@ -77,6 +77,18 @@ device_memory::device_memory(device& device) : device_{device} {
         PT_SYNHELPER_FATAL("unknown pool error ");
       }
       break;
+    case pool_allocator::startegy_coalesce_stringent:
+      try {
+        PT_SYNHELPER_DEBUG("startegy_coalesce_stringent:: ", pool_size_);
+        suballoc_ = new pool_allocator::SubAllocator(
+            new pool_allocator::CoalescedStringentPooling);
+        if (suballoc_ == nullptr) {
+          PT_SYNHELPER_FATAL("unable to create pool allocator");
+        }
+      } catch (...) {
+        PT_SYNHELPER_FATAL("unknown pool error ");
+      }
+      break;
     case pool_allocator::strategy_none:
       suballoc_ = nullptr;
       break;

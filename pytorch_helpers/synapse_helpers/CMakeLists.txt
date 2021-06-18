@@ -26,6 +26,7 @@ foreach (FLAVOR abi11)
     pool_allocator/utils.cpp
     pool_allocator/PoolAllocator.cpp
     pool_allocator/CoalescedPoolAllocator.cpp
+    pool_allocator/CoalescedStringentPoolAllocator.cpp
     recipe.cpp
     recipe_handle_cache.cpp
     stream_event_manager.cpp

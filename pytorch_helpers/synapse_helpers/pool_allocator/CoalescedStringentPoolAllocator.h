@@ -18,7 +18,7 @@
 namespace synapse_helpers {
 namespace pool_allocator {
 
-class StaticCoalescedPooling : public PoolingStrategy {
+class CoalescedStringentPooling : public PoolingStrategy {
  private:
   struct chunkcompare {
     bool operator()(const Chunk* a, const Chunk* b) {
@@ -42,7 +42,6 @@ class StaticCoalescedPooling : public PoolingStrategy {
   Chunk* reuse_chunks(uint64_t size) const;
   Chunk* get_free_chunk(uint64_t size) const;
   Chunk* get_any_available_free_chunk(uint64_t size) const;
-  Chunk* get_nearest_chunk(uint64_t size) const;
   bool skip_chunk(Chunk* chunk, uint64_t size_req) const;
   bool canMergePreviousChunk(Chunk* chunk, uint64_t size) const;
   bool canMergeNextChunk(Chunk* chunk, uint64_t size) const;
@@ -57,12 +56,11 @@ class StaticCoalescedPooling : public PoolingStrategy {
   bool isContigousBlockAvailable(uint64_t size) const;
   bool isChunkContigous(Chunk* chunk1, Chunk* chunk2) const;
   uint64_t getContigousChunkSize(Chunk* chunk) const;
-  Chunk* defragment_on_reuse(void* ptr, uint64_t size) const;
   void print_pool_stats() const;
   mutable std::mutex sp_mutex;
 
  public:
-  StaticCoalescedPooling();
+  CoalescedStringentPooling();
   bool pool_create(synDeviceId deviceID, uint64_t size) const override;
   void pool_destroy() const override;
   void* pool_alloc_chunk(uint64_t size) const override;
