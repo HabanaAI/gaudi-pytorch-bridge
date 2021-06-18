@@ -12,13 +12,63 @@
 #include <habana_helpers/logging.h>
 #include "CoalescedStringentPoolAllocator.h"
 #include "synapse_helpers/devmem_logger.h"
-#include "utils.h"
 
 #define DEFRAGMENT_TH(arg) std::ceil(0.9 * (arg))
 
 namespace synapse_helpers {
 namespace pool_allocator {
 
+Bin* BinUtils::BinFromIndex(uint64_t index) const {
+  Bin* bin = const_cast<Bin*>(
+      reinterpret_cast<const Bin*>(&(bins_space[index * sizeof(Bin)])));
+  return bin;
+}
+
+uint64_t BinUtils::BinIndexForSize(size_t bytes) const {
+  uint64_t v =
+      std::max<size_t>(bytes, kMinAllocationSize) >> kMinAllocationBits;
+  uint64_t index = std::min(kNumBins - 1, Log2FloorNonZero(v));
+  return index;
+}
+
+Bin* BinUtils::BinForSize(size_t bytes) const {
+  return BinFromIndex(BinIndexForSize(bytes));
+}
+
+void BinUtils::InsertFreeChunkIntoBin(Chunk* c) const {
+  if (!c->used && (c->bin_index == kInvalidBinNum)) {
+    uint64_t bin_index = BinIndexForSize(c->size);
+    Bin* new_bin = BinFromIndex(bin_index);
+    c->bin_index = bin_index;
+    new_bin->free_chunks.insert(c);
+  } else {
+    PT_SYNHELPER_DEBUG(
+        "incorrect chunk in use", c->used, "with bin index", c->bin_index);
+  }
+}
+
+void BinUtils::RemoveFreeChunkFromBin(Chunk* c) const {
+  if (!c->used && (c->bin_index != kInvalidBinNum)) {
+    uint64_t bin_index = BinFromIndex(c->bin_index)->free_chunks.erase(c);
+    if (bin_index > 0) {
+      PT_SYNHELPER_DEBUG("could not find chunk in bin");
+    } else {
+      c->bin_index = kInvalidBinNum;
+    }
+  } else {
+    PT_SYNHELPER_DEBUG(
+        "incorrect chunk in use", c->used, "with bin index", c->bin_index);
+  }
+}
+
+void BinUtils::RemoveFreeChunkIterFromBin(
+    Bin::FreeChunkSet* free_chunks,
+    const Bin::FreeChunkSet::iterator& citer) const {
+  Chunk* c = *citer;
+  HABANA_ASSERT(!c->used && (c->bin_index != kInvalidBinNum));
+  free_chunks->erase(citer);
+  c->bin_index = kInvalidBinNum;
+}
 CoalescedStringentPooling::CoalescedStringentPooling() {
   pool_id = 0;
   chunk_count = 0;
@@ -28,6 +78,7 @@ CoalescedStringentPooling::CoalescedStringentPooling() {
   free_chunks_size = 0;
   max_pool_size = DEFAULT_POOL_SIZE;
   prealloc_pool = nullptr;
+  bin_utils = new BinUtils();
 }
 
 bool CoalescedStringentPooling::pool_create(synDeviceId deviceID, uint64_t size)
@@ -97,6 +148,24 @@ bool CoalescedStringentPooling::pool_create(synDeviceId deviceID, uint64_t size)
 
   log_DRAM_start(p->memptr);
   log_DRAM_size(max_pool_size);
+  // We create bins to fit all possible ranges that cover the
+  // max_pool_size starting from allocations up to 256 bytes to
+  // allocations up to (and including) the memory limit.
+  for (uint64_t b = 0; b < kNumBins; b++) {
+    size_t bin_size = bin_utils->BinNumToSize(b);
+    PT_SYNHELPER_DEBUG("Creating bin of max chunk size ", bin_size);
+    new (bin_utils->BinFromIndex(b)) Bin(bin_size);
+    HABANA_ASSERT(
+        bin_utils->BinForSize(bin_size) == bin_utils->BinFromIndex(b));
+    HABANA_ASSERT(
+        bin_utils->BinForSize(bin_size + 255) == bin_utils->BinFromIndex(b));
+    HABANA_ASSERT(
+        bin_utils->BinForSize(bin_size * 2 - 1) == bin_utils->BinFromIndex(b));
+    if (b + 1 < kNumBins) {
+      HABANA_ASSERT(
+          bin_utils->BinForSize(bin_size * 2) != bin_utils->BinFromIndex(b));
+    }
+  }
   return true;
 }
 
@@ -124,14 +193,21 @@ void CoalescedStringentPooling::pool_destroy() const {
     }
     set_device_deallocation(false);
 
+    for (uint64_t b = 0; b < kNumBins; b++) {
+      Bin* bin = bin_utils->BinFromIndex(b);
+      if (bin)
+        bin->~Bin();
+    }
+
     s_pool->basememptr = 0;
     for (auto& m : chunks) {
       delete (m.second);
     }
     chunks.clear();
-    free_list.clear();
     delete (s_pool);
     s_pool = nullptr;
+    delete bin_utils;
+    bin_utils = nullptr;
     PT_SYNHELPER_DEBUG("POOL:: static coalesced pool destroyed");
   }
 }
@@ -145,6 +221,47 @@ bool CoalescedStringentPooling::is_mem_threshold_hit() const {
   if (bytes_in_use > (max_pool_size * 0.8))
     return true;
   return false;
+}
+
+// Returns a pointer to an underlying allocated chunk of size 'num_bytes'.
+void* CoalescedStringentPooling::FindChunkPtr(
+    uint64_t bin_index,
+    size_t num_bytes) const {
+  // First identify the first bin that could satisfy num_bytes.
+  for (; bin_index < kNumBins; bin_index++) {
+    // Start searching from the first bin for the smallest chunk that fits
+    // num_bytes.
+    Bin* b = bin_utils->BinFromIndex(bin_index);
+    for (auto citer = b->free_chunks.begin(); citer != b->free_chunks.end();
+         ++citer) {
+      Chunk* chunk = *citer;
+      HABANA_ASSERT(!chunk->used);
+
+      if ((chunk->size == num_bytes) ||
+          ((chunk->size > num_bytes) &&
+           (num_bytes > DEFRAGMENT_TH(chunk->size)))) {
+        // We found an existing chunk that fits us that wasn't in use, so remove
+        // it from the free bin structure prior to using.
+        bin_utils->RemoveFreeChunkIterFromBin(&b->free_chunks, citer);
+
+        // If we can break the size of the chunk into two reasonably large
+        // pieces, do so.  In any case don't waste more than
+        // kMaxInternalFragmentation bytes on padding this alloc.
+        const int64_t kMaxInternalFragmentation = 128 << 20; // 128mb
+        if (chunk->size >= num_bytes * 2 ||
+            static_cast<int64_t>(chunk->size) - num_bytes >=
+                kMaxInternalFragmentation) {
+          try_splitting_chunks(chunk, num_bytes);
+        }
+
+        PT_SYNHELPER_DEBUG("Returning: ", chunk->memptr);
+
+        return (void*)(chunk);
+      }
+    }
+  }
+
+  return nullptr;
 }
 
 void CoalescedStringentPooling::print_pool_stats() const {
@@ -230,38 +347,32 @@ void CoalescedStringentPooling::print_pool_stats() const {
 
 Chunk* CoalescedStringentPooling::get_any_available_free_chunk(
     uint64_t size) const {
-  Chunk key = Chunk(size);
-  auto it = free_list.lower_bound(&key);
-  if (it != free_list.end()) {
-    auto chunk = *it;
-    PT_SYNHELPER_DEBUG(
-        "POOL:: Return bigger chunk :: ",
-        chunk,
-        " chunk size :: ",
-        chunk->size,
-        " requested size :: ",
-        size);
-    return chunk;
+  Bin* bin = bin_utils->BinForSize(size);
+  for (auto citer = bin->free_chunks.begin(); citer != bin->free_chunks.end();
+       ++citer) {
+    Chunk* chunk = *citer;
+    HABANA_ASSERT(!chunk->used);
+
+    if (chunk->size >= size) {
+      PT_SYNHELPER_DEBUG(
+          "POOL:: Return bigger chunk :: ",
+          chunk,
+          " chunk size :: ",
+          chunk->size,
+          " requested size :: ",
+          size);
+
+      return chunk;
+    }
   }
   PT_SYNHELPER_DEBUG("POOL:: no bigger chunks !!");
   return nullptr;
 }
 
 Chunk* CoalescedStringentPooling::get_free_chunk(uint64_t size) const {
-  Chunk* new_chunk = nullptr;
-  for (auto& chunk : free_list) {
-    if ((chunk->size == size) ||
-        (chunk->size > size && (size > DEFRAGMENT_TH(chunk->size)))) {
-      new_chunk = chunk;
-      break;
-    }
-  }
-  if (new_chunk) {
-    free_list.erase(new_chunk);
-    new_chunk->used = true;
-    return new_chunk;
-  }
-  return nullptr;
+  int bin_index = bin_utils->BinIndexForSize(size);
+  Chunk* new_chunk = (Chunk*)FindChunkPtr(bin_index, size);
+  return new_chunk;
 }
 
 bool CoalescedStringentPooling::isChunkContigous(Chunk* chunk1, Chunk* chunk2)
@@ -303,7 +414,8 @@ uint64_t CoalescedStringentPooling::getContigousChunkSize(Chunk* chunk) const {
 
 bool CoalescedStringentPooling::isContigousBlockAvailable(uint64_t size) const {
   uint64_t ctgs_chunks_size = 0;
-  for (auto& chunk : free_list) {
+  Bin* bin = bin_utils->BinForSize(size);
+  for (auto& chunk : bin->free_chunks) {
     if (!chunk->used && (chunk->size != 0)) {
       ctgs_chunks_size = getContigousChunkSize(chunk);
       if (ctgs_chunks_size >= size) {
@@ -320,12 +432,10 @@ Chunk* CoalescedStringentPooling::try_defragmenting(void* ptr, uint64_t size)
     const {
   simple_coalesced_pool_t* p = (simple_coalesced_pool_t*)ptr;
 
-  // try defragmenting the pool
-  // we defragment only for the requested size as there is no
-  // pre-allocated bin for different block sizes
   bool isFreeBlockAvailble = false;
   uint16_t counter = 0;
-  if (free_list.empty()) {
+  Bin* bin = bin_utils->BinForSize(size);
+  if (bin->free_chunks.empty()) {
     PT_SYNHELPER_DEBUG("POOL:: no free blocks availabe: ");
     return nullptr;
   }
@@ -339,7 +449,7 @@ Chunk* CoalescedStringentPooling::try_defragmenting(void* ptr, uint64_t size)
     }
     // worse case :parse the entire list once for every chunk to find free
     // blocks
-    if (counter > free_list.size()) {
+    if (counter > bin->free_chunks.size()) {
       PT_SYNHELPER_DEBUG(
           "POOL:: no more contigous chunks to accomodate request in the pool !");
       break;
@@ -387,6 +497,7 @@ Chunk* CoalescedStringentPooling::reuse_chunks(uint64_t size) const {
       size,
       " chunk size :: ",
       free_chunk->size);
+  bin_utils->RemoveFreeChunkFromBin(free_chunk);
   free_chunk->used = true;
   return free_chunk;
 }
@@ -463,9 +574,10 @@ void* CoalescedStringentPooling::pool_alloc_chunk(uint64_t size) const {
     if (defrag_chunk) {
       ++chunk_count;
       /* remove from pool */
-      auto it = free_list.find(defrag_chunk);
-      if (it != free_list.end()) {
-        free_list.erase(it);
+      Bin* bin = bin_utils->BinForSize(size);
+      auto it = bin->free_chunks.find(defrag_chunk);
+      if (it != bin->free_chunks.end()) {
+        bin->free_chunks.erase(it);
       }
       defrag_chunk->used = true;
       chunks[defrag_chunk->memptr] = defrag_chunk;
@@ -476,9 +588,10 @@ void* CoalescedStringentPooling::pool_alloc_chunk(uint64_t size) const {
     if (split_chunk) {
       ++chunk_count;
       /* remove from pool */
-      auto it = free_list.find(split_chunk);
-      if (it != free_list.end()) {
-        free_list.erase(it);
+      Bin* bin = bin_utils->BinForSize(size);
+      auto it = bin->free_chunks.find(split_chunk);
+      if (it != bin->free_chunks.end()) {
+        bin->free_chunks.erase(it);
       }
       split_chunk->used = true;
       chunks[split_chunk->memptr] = split_chunk;
@@ -578,12 +691,18 @@ Chunk* CoalescedStringentPooling::try_splitting_chunks(
   }
 
   // Delete the old chunk before modifying the size
-  auto it = free_list.find(chunk);
-  if (it != free_list.end()) {
-    free_list.erase(it);
-  }
+  bin_utils->RemoveFreeChunkFromBin(chunk);
+
+  // Allocate the new chunk
   Chunk* new_chunk = new Chunk();
-  new_chunk->memptr = chunk->memptr + size;
+  //  SplitChunk extracts requested size from the beginning of the given chunk
+
+  HABANA_ASSERT(!chunk->used && (chunk->bin_index != kInvalidBinNum));
+
+  // new chunk starts size after chunk
+  new_chunk->memptr = (chunk->memptr) + size;
+
+  // Set the new sizes of the chunks.
   new_chunk->size = chunk->size - size;
   chunk->size = size;
 
@@ -603,10 +722,9 @@ Chunk* CoalescedStringentPooling::try_splitting_chunks(
     // update top
     prealloc_pool->top = new_chunk;
   }
-
-  free_list.insert(chunk);
-  free_list.insert(new_chunk);
-  // insert new chunk to chunks
+  // Add the newly free chunk to the free bin.
+  bin_utils->InsertFreeChunkIntoBin(new_chunk);
+  bin_utils->InsertFreeChunkIntoBin(chunk);
   chunks[new_chunk->memptr] = new_chunk;
 
   PT_SYNHELPER_DEBUG(
@@ -676,15 +794,8 @@ Chunk* CoalescedStringentPooling::merge(Chunk* c1, Chunk* c2) const {
     // update top
     prealloc_pool->top = c1;
   }
-
-  auto it = free_list.find(c1);
-  if (it != free_list.end()) {
-    free_list.erase(it);
-  }
-  it = free_list.find(c2);
-  if (it != free_list.end()) {
-    free_list.erase(it);
-  }
+  bin_utils->RemoveFreeChunkFromBin(c1);
+  bin_utils->RemoveFreeChunkFromBin(c2);
 
   // maint the prev & next pointers
   // c1 previous will remain the same, merge c1 ->c2
@@ -712,8 +823,7 @@ Chunk* CoalescedStringentPooling::merge(Chunk* c1, Chunk* c2) const {
   c2->memptr = 0;
   c2->next = nullptr;
   c2->prev = nullptr;
-
-  free_list.insert(c1);
+  bin_utils->InsertFreeChunkIntoBin(c1);
 
   PT_SYNHELPER_DEBUG(
       "Merged Chunk C1::",
@@ -784,52 +894,55 @@ bool CoalescedStringentPooling::pool_defragment(uint64_t size) const {
   bool isFreeBlockAvailble = false;
   PT_SYNHELPER_DEBUG("POOL:: Try to coalesce and split if needed");
   std::list<uint64_t> to_merge;
-  // check previous chunks
-  for (auto& chunk : free_list) {
-    if (canMergeNextChunk(chunk, size)) {
-      // coalesce adjacent free chunks
-      to_merge.push_front(chunk->memptr);
-    }
-  }
-  if (!to_merge.empty())
-    isFreeBlockAvailble = merge_chunks(to_merge, true, size);
 
-  // check next chunks
-  if (!isFreeBlockAvailble) {
-    to_merge.clear();
-    for (auto& chunk : free_list) {
-      if (canMergePreviousChunk(chunk, size)) {
+  for (uint64_t bin_index = 0; bin_index < kNumBins; bin_index++) {
+    Bin* b = bin_utils->BinFromIndex(bin_index);
+    // check previous chunks
+    for (auto& chunk : b->free_chunks) {
+      if (canMergeNextChunk(chunk, size)) {
         // coalesce adjacent free chunks
         to_merge.push_front(chunk->memptr);
       }
     }
     if (!to_merge.empty())
-      isFreeBlockAvailble = merge_chunks(to_merge, false, size);
-  }
-
-  // try merge the left out chunks irrespective of size
-  if (!isFreeBlockAvailble) {
-    to_merge.clear();
-    for (auto& chunk : free_list) {
-      if (chunk->next && !chunk->next->used) {
-        to_merge.push_front(chunk->memptr);
-      }
-    }
-    if (!to_merge.empty())
       isFreeBlockAvailble = merge_chunks(to_merge, true, size);
-  }
 
-  if (!isFreeBlockAvailble) {
-    to_merge.clear();
-    for (auto& chunk : free_list) {
-      if (chunk->prev && !chunk->prev->used) {
-        to_merge.push_front(chunk->memptr);
+    // check next chunks
+    if (!isFreeBlockAvailble) {
+      to_merge.clear();
+      for (auto& chunk : b->free_chunks) {
+        if (canMergePreviousChunk(chunk, size)) {
+          // coalesce adjacent free chunks
+          to_merge.push_front(chunk->memptr);
+        }
       }
+      if (!to_merge.empty())
+        isFreeBlockAvailble = merge_chunks(to_merge, false, size);
     }
-    if (!to_merge.empty())
-      isFreeBlockAvailble = merge_chunks(to_merge, false, size);
-  }
 
+    // try merge the left out chunks irrespective of size
+    if (!isFreeBlockAvailble) {
+      to_merge.clear();
+      for (auto& chunk : b->free_chunks) {
+        if (chunk->next && !chunk->next->used) {
+          to_merge.push_front(chunk->memptr);
+        }
+      }
+      if (!to_merge.empty())
+        isFreeBlockAvailble = merge_chunks(to_merge, true, size);
+    }
+
+    if (!isFreeBlockAvailble) {
+      to_merge.clear();
+      for (auto& chunk : b->free_chunks) {
+        if (chunk->prev && !chunk->prev->used) {
+          to_merge.push_front(chunk->memptr);
+        }
+      }
+      if (!to_merge.empty())
+        isFreeBlockAvailble = merge_chunks(to_merge, false, size);
+    }
+  }
   return isFreeBlockAvailble;
 }
 
@@ -845,9 +958,10 @@ void CoalescedStringentPooling::pool_free_chunk(void* ptr) const {
   Chunk* chunk = it->second;
   chunk->used = false;
   chunk->extra_space = 0;
-  free_list.insert(chunk);
   --chunk_count;
   bytes_in_use -= chunk->size;
+
+  bin_utils->InsertFreeChunkIntoBin(chunk);
 }
 
 } // namespace pool_allocator

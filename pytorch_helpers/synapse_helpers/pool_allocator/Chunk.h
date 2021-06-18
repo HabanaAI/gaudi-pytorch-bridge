@@ -18,16 +18,23 @@ struct Chunk {
   Chunk* prev;
   Chunk* next;
   uint64_t memptr;
+  uint64_t bin_index;
 
   Chunk(size_t sz)
-      : size(sz), used(false), prev(nullptr), next(nullptr), memptr(0) {}
+      : size(sz),
+        used(false),
+        prev(nullptr),
+        next(nullptr),
+        memptr(0),
+        bin_index(-1) {}
   Chunk()
       : size(0),
         extra_space(0),
         used(false),
         prev(nullptr),
         next(nullptr),
-        memptr(0) {}
+        memptr(0),
+        bin_index(-1) {}
 };
 
 struct simple_coalesced_pool_t {
