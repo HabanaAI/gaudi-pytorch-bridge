@@ -932,8 +932,21 @@ def main():
     parser.add_argument("--log_device_mem_alloc", action='store_true', default=False, help="Log live memory allocations on device at the given point")
 
     args = parser.parse_args()
+
+    os.environ["MAX_WAIT_ATTEMPTS"] = "50"
+    os.environ["RUN_TPC_FUSER"] = "1"
+    os.environ["HCL_CPU_AFFINITY"] = "1"
+    os.environ["PT_HPU_PGM_ENABLE_CACHE"] = "15"
+
+    if args.use_jit_trace:
+        os.environ["PT_HPU_ENABLE_GRAPHMODE_LAYERNORM_FUSION"] = "1"
+        real_path = os.path.realpath(__file__)
+        demo_config_path = os.path.dirname(real_path)
+        os.environ["PT_HPU_GRAPH_FUSION_OPS_FILE"] = demo_config_path + "/../../../configs/BERT_Fusion_Ops.txt"
+
     if args.use_lazy_mode:
         os.environ["PT_HPU_LAZY_MODE"] = "1"
+        os.environ["PT_HPU_LOWER_AS_STRIDED"] = "1"
 
     if args.doc_stride >= args.max_seq_length - args.max_query_length:
         logger.warning(

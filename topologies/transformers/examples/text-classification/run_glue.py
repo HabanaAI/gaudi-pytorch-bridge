@@ -79,6 +79,15 @@ def main():
 
     parser = HfArgumentParser((ModelArguments, DataTrainingArguments, TrainingArguments))
 
+    os.environ["MAX_WAIT_ATTEMPTS"] = "50"
+    os.environ["RUN_TPC_FUSER"] = "1"
+    os.environ["HCL_CPU_AFFINITY"] = "1"
+    os.environ["PT_HPU_PGM_ENABLE_CACHE"] = "15"
+    os.environ["PT_HPU_ENABLE_GRAPHMODE_LAYERNORM_FUSION"] = "1"
+    real_path = os.path.realpath(__file__)
+    demo_config_path = os.path.dirname(real_path)
+    os.environ["PT_HPU_GRAPH_FUSION_OPS_FILE"] = demo_config_path + "/../../../configs/BERT_Fusion_Ops.txt"
+
     if len(sys.argv) == 2 and sys.argv[1].endswith(".json"):
         # If we pass only one argument to the script and it's the path to a json file,
         # let's parse it to get our arguments.
