@@ -662,7 +662,14 @@ void HabanaLaunchOpPT::ProcessPersistentNodeOutput(
       PT_BRIDGE_DEBUG("Adding to duplicate_input_tivs ", buffp);
       duplicate_input_tivs.emplace_back(ti);
     } else {
-      // Case 1.B: intermediate persistent tensor which an alias of an input
+      // Case 1.B: intermediate persistent tensor
+      if (enable_tensor_release_) {
+        TORCH_CHECK(
+            false == ti.is_view_tensor(),
+            "Starting persistent intermediate can not be a view tensor ",
+            "with non zero offset ",
+            ti.get_offset());
+      }
       AddAtenIntermediate(ivpsh, out_syntensor.name(), vp);
     }
   } else {
@@ -680,7 +687,7 @@ void HabanaLaunchOpPT::ProcessPersistentNodeOutput(
         duplicate_input_to_outtinfo_map.emplace(ivpsh, ti);
       } else if (buff_to_intermediate_ivpsh_map.count(buffp)) {
         // Case 2.C: Graph output that is duplicate of a persistent
-        // interim
+        // intermediate
         PT_BRIDGE_DEBUG(
             "Adding to duplicate_intermediate_to_outtinfo_map ",
             ti.get_buffer());
@@ -1315,25 +1322,127 @@ void HabanaLaunchOpPT::handleRestrideNode(torch::jit::Node* node) {
           c10::MemoryFormat::Contiguous);
     }
   }
-  auto ivptrsh_updated = std::make_shared<IVal>(tensor);
+  auto ivpsh = value_to_ivalue[value_in];
+  auto ivpsh_restrided = std::make_shared<IVal>(tensor);
+  PT_BRIDGE_DEBUG(
+      "processing restride node, input %",
+      value_in->debugName(),
+      " output",
+      value_out->debugName());
+
   if (isInGraphOutputs(value_out)) {
-    HABANA_ASSERT(value_to_ivalue.count(value_in));
-    auto ivpsh = value_to_ivalue[value_in];
+    TORCH_CHECK(
+        pt_to_synapse_tensors.count(ivpsh),
+        " Could not find the syn tensor corresponding to %",
+        value_in->debugName());
+
+    auto& syn_tensor_vec = pt_to_synapse_tensors[ivpsh];
+    synapse_helpers::tensor& syn_tensor = syn_tensor_vec->at(0);
+    auto ti = PtTensorInfo(
+        ivpsh_restrided, syn_tensor.name(), value_in, watch_tensor_flag_);
+
     value_to_ivalue.erase(value_in);
-    if (enable_tensor_release_ && ivpsh && output_tensorinfo_map.count(ivpsh)) {
-      auto a = output_tensorinfo_map.find(ivpsh);
-      auto ti = PtTensorInfo(
-          ivptrsh_updated,
-          a->second.get_syn_name(),
-          value_in,
-          watch_tensor_flag_);
-      output_tensorinfo_map.erase(ivpsh);
-      output_tensorinfo_map.emplace(ivptrsh_updated, ti);
+
+    if (enable_tensor_release_) {
+      void* buffp =
+          ti.is_view_tensor() ? ti.get_buffer_start() : ti.get_buffer();
+      if (output_tensorinfo_map.count(ivpsh)) {
+        // Case 2.A: graph output tensor
+        PT_BRIDGE_DEBUG(
+            "removing ivalue for restride input %",
+            value_in->debugName(),
+            " from output_tensorinfo_map");
+        output_tensorinfo_map.erase(ivpsh);
+
+        PT_BRIDGE_DEBUG(
+            "adding ivalue for restride output %",
+            value_out->debugName(),
+            " to output_tensorinfo_map");
+        output_tensorinfo_map.emplace(ivpsh_restrided, ti);
+      } else if (buff_to_intermediate_ivpsh_map.count(buffp)) {
+        // Case 2.C: Graph output that is duplicate of a persistent
+        // intermediate
+        PT_BRIDGE_DEBUG(
+            "updating buff_to_intermediate_ivpsh_map entry for ",
+            buffp,
+            " with ivalue for restride output %",
+            value_out->debugName());
+        buff_to_intermediate_ivpsh_map.erase(buffp);
+        buff_to_intermediate_ivpsh_map.emplace(buffp, ivpsh_restrided);
+        TORCH_CHECK(
+            duplicate_intermediate_to_outtinfo_map.count(ivpsh),
+            " entry for restride input %",
+            value_in->debugName(),
+            " not found in duplicate_intermediate_to_outtinfo_map");
+
+        PT_BRIDGE_DEBUG(
+            "updating duplicate_intermediate_to_outtinfo_map entry for ",
+            buffp,
+            " with ivalue for restride output %",
+            value_out->debugName());
+        duplicate_intermediate_to_outtinfo_map.erase(ivpsh);
+        duplicate_intermediate_to_outtinfo_map.emplace(ivpsh_restrided, ti);
+      } else if (buff_to_input_ivpsh_map.count(buffp)) {
+        // Case 2.B: Graph output that is duplicate of input
+        PT_BRIDGE_DEBUG(
+            "updating buff_to_input_ivpsh_map entry for ",
+            buffp,
+            " with ivalue for restride output %",
+            value_out->debugName());
+        buff_to_input_ivpsh_map.erase(buffp);
+        buff_to_input_ivpsh_map.emplace(buffp, ivpsh_restrided);
+
+        TORCH_CHECK(
+            duplicate_input_to_outtinfo_map.count(ivpsh),
+            " entry for restride input %",
+            value_in->debugName(),
+            " not found in duplicate_input_to_outtinfo_map");
+
+        PT_BRIDGE_DEBUG(
+            "updating duplicate_input_to_outtinfo_map entry for ",
+            buffp,
+            " with ivalue for restride output %",
+            value_out->debugName());
+        duplicate_input_to_outtinfo_map.erase(ivpsh);
+        duplicate_input_to_outtinfo_map.emplace(ivpsh_restrided, ti);
+      } else if (buff_to_output_ivpsh_map.count(buffp)) {
+        // Case 2.D: Graph output that is duplicate of a previous output
+        PT_BRIDGE_DEBUG(
+            "updating buff_to_output_ivpsh_map entry for ",
+            buffp,
+            " with ivalue for restride output %",
+            value_out->debugName());
+        buff_to_output_ivpsh_map.erase(buffp);
+        buff_to_output_ivpsh_map.emplace(buffp, ivpsh_restrided);
+
+        TORCH_CHECK(
+            duplicate_output_to_outtinfo_map.count(ivpsh),
+            " entry for restride input %",
+            value_in->debugName(),
+            " not found in duplicate_output_to_outtinfo_map");
+
+        PT_BRIDGE_DEBUG(
+            "updating duplicate_output_to_outtinfo_map entry for ",
+            buffp,
+            " with ivalue for restride output %",
+            value_out->debugName());
+        duplicate_output_to_outtinfo_map.erase(ivpsh);
+        duplicate_output_to_outtinfo_map.emplace(ivpsh_restrided, ti);
+      } else {
+        TORCH_CHECK(
+            false,
+            " unhandled scenario for restride input %",
+            value_in->debugName(),
+            " not found in duplicate_intermediate_to_outtinfo_map");
+      }
     }
-    value_to_ivalue[value_in] = ivptrsh_updated;
-    value_to_ivalue[value_out] = ivptrsh_updated;
+
+    value_to_ivalue[value_in] = ivpsh_restrided;
+    value_to_ivalue[value_out] = ivpsh_restrided;
   } else {
-    value_to_ivalue[value_out] = ivptrsh_updated;
+    PT_BRIDGE_DEBUG(
+        "restride node output %", value_out->debugName(), " is non persistent");
+    value_to_ivalue[value_out] = ivpsh_restrided;
     value_to_tensor_layout[value_out].layout = LayoutFormat::NHWC;
     value_to_tensor_layout[value_out].layout_at_graph_entry =
         LayoutFormat::NHWC;
@@ -1674,7 +1783,9 @@ void HabanaLaunchOpPT::OrderOutputTinfos(RecipeValueSpec& rv) {
         it_dup->second.set_output_index(output_idx);
       } else {
         PT_BRIDGE_FATAL(
-            "Unaccounted output at index ",
+            "Unaccounted output %",
+            output->debugName(),
+            " at index ",
             output_idx,
             ". Cached recipe execution might break");
       }

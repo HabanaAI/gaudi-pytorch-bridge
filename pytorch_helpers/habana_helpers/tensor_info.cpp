@@ -105,8 +105,12 @@ std::ostream& operator<<(std::ostream& O, const PtTensorInfo& t) {
     }
 
     if (ULONG_MAX != t.get_output_index()) {
-      O << ", output_index " << t.get_output_index();
+      O << ", output index " << t.get_output_index();
+    } else {
+      O << ", non output";
     }
+
+    O << ", is_restrided " << std::boolalpha << t.is_restrided();
 
     O << ", <" << t.get_buffer_start() << ", +" << t.offset_ << ">";
     if (t.offset_ != 0) {

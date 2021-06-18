@@ -207,6 +207,7 @@ TEST_F(GraphOptimizeTest, BnReluOptTest) {
   EXPECT_EQ(allclose(out_cpu, out_hpu), true);
 }
 
+// input(NCHW) -> permute_cl -> conv2d -> relu
 TEST_F(GraphOptimizeTest, PermutePassTest_CL) {
   auto in = torch::randn(
       {6, 4, 28, 28}, torch::dtype(torch::kFloat).requires_grad(false));
@@ -228,6 +229,7 @@ TEST_F(GraphOptimizeTest, PermutePassTest_CL) {
   EXPECT_EQ(allclose(out, exp, 0.01, 0.01), true);
 }
 
+// input(CL) -> conv2d -> relu
 TEST_F(GraphOptimizeTest, PermutePassTest_Contig) {
   auto in = torch::randn(
       {6, 4, 28, 28}, torch::dtype(torch::kFloat).requires_grad(false));
@@ -249,6 +251,444 @@ TEST_F(GraphOptimizeTest, PermutePassTest_Contig) {
 
   Tensor out = result.to(kCPU);
   EXPECT_EQ(allclose(out, exp, 0.01, 0.01), true);
+}
+
+// input(NCHW) -> conv2d -> relu
+TEST_F(GraphOptimizeTest, DISABLED_PermutePassTest_NCHW) {
+  auto in = torch::randn(
+      {6, 4, 28, 28}, torch::dtype(torch::kFloat).requires_grad(false));
+  auto wt = torch::randn(
+      {5, 4, 3, 3}, torch::dtype(torch::kFloat).requires_grad(false));
+  // HPU graph input in nchw format, permut gets added, weights need permute
+  auto h_in = in.to(torch::kHABANA);
+  auto wt_hwck = wt.permute({2, 3, 1, 0}).contiguous();
+  auto h_wt = wt_hwck.to(torch::kHABANA);
+  auto result1 = torch::conv2d(h_in, h_wt, {}, 1, 0, 1, 1);
+  auto result = torch::relu(result1);
+  Tensor out = result.to(kCPU);
+  // CPU graph
+  auto exp1 = torch::conv2d(in, wt, {}, 1, 0, 1, 1);
+  auto exp = torch::relu(exp1);
+
+  EXPECT_EQ(allclose(out, exp, 0.01, 0.01), true);
+}
+
+// input(NCHW) -> conv2d -> leaky_relu_
+TEST_F(GraphOptimizeTest, PermutePassTest_NCHW_InplaceLeaky) {
+  auto in = torch::randn(
+      {6, 4, 28, 28}, torch::dtype(torch::kFloat).requires_grad(false));
+  auto wt = torch::randn(
+      {5, 4, 3, 3}, torch::dtype(torch::kFloat).requires_grad(false));
+  // HPU graph input in nchw format, permut gets added, weights need permute
+  auto h_in = in.to(torch::kHABANA);
+  auto wt_hwck = wt.permute({2, 3, 1, 0}).contiguous();
+  auto h_wt = wt_hwck.to(torch::kHABANA);
+  auto result = torch::conv2d(h_in, h_wt, {}, 1, 0, 1, 1);
+  torch::leaky_relu_(result);
+  Tensor out = result.to(kCPU);
+  // CPU graph
+  auto exp = torch::conv2d(in, wt, {}, 1, 0, 1, 1);
+  torch::leaky_relu_(exp);
+
+  EXPECT_EQ(allclose(out, exp, 0.01, 0.01), true);
+}
+
+// input(CL) -> conv2d -> leaky_relu_
+TEST_F(GraphOptimizeTest, DISABLED_PermutePassTest_InplaceCL) {
+  auto in = torch::randn(
+      {6, 4, 28, 28}, torch::dtype(torch::kFloat).requires_grad(false));
+  auto wt = torch::randn(
+      {5, 4, 3, 3}, torch::dtype(torch::kFloat).requires_grad(false));
+
+  // HPU graph for restride_cl
+  auto h_in = in.to(torch::kHABANA);
+  auto h_in_cl = permute_cl_hpu_lazy(h_in, {0, 2, 3, 1});
+  Tensor h_in_cl_out = h_in_cl.to(kCPU);
+  auto h_in1 = h_in_cl_out.to(torch::kHABANA);
+  auto wt_hwck = wt.permute({2, 3, 1, 0}).contiguous();
+  auto h_wt = wt_hwck.to(torch::kHABANA);
+
+  auto result = torch::conv2d(h_in1, h_wt, {}, 1, 0, 1, 1);
+  torch::leaky_relu_(result);
+  Tensor out = result.to(kCPU);
+  // CPU graph
+  auto exp = torch::conv2d(in, wt, {}, 1, 0, 1, 1);
+  torch::leaky_relu_(exp);
+
+  EXPECT_EQ(allclose(out, exp, 0.01, 0.01), true);
+}
+
+// input(NCHW) -> permute_cl_hpu -> conv2d -> leaky_relu_
+TEST_F(GraphOptimizeTest, PermutePassTest_Permute_Inplace) {
+  auto in = torch::randn(
+      {1, 2, 3, 3}, torch::dtype(torch::kFloat).requires_grad(false)); // nchw
+
+  auto wt = torch::randn(
+      {1, 2, 3, 3}, torch::dtype(torch::kFloat).requires_grad(false)); // nchw
+  auto wt_hwck = wt.permute({2, 3, 1, 0}).contiguous(); // hwck
+  auto h_wt = wt_hwck.to(torch::kHABANA);
+  auto h_in = in.to(torch::kHABANA);
+  // HPU graph with permute_cl(explicit input permute) (FAIL scenerio)
+  auto h_in_cl = permute_cl_hpu_lazy(h_in, {0, 2, 3, 1}); // nhwc
+  auto result = torch::conv2d(h_in_cl, h_wt, {}, 1, 0, 1, 1);
+  torch::leaky_relu_(result);
+  Tensor out = result.to(kCPU);
+
+  auto exp = torch::conv2d(in, wt, {}, 1, 0, 1, 1);
+  torch::leaky_relu_(exp);
+
+  EXPECT_EQ(allclose(out, exp, 0.01, 0.01), true);
+}
+
+// input0(NCHW) -> conv2d -> leaky_relu_ -> abs_
+TEST_F(GraphOptimizeTest, PermutePassTest_DoubleInplace) {
+  auto in = torch::randn(
+      {1, 2, 3, 3}, torch::dtype(torch::kFloat).requires_grad(false)); // nchw
+  auto wt = torch::randn(
+      {1, 2, 3, 3}, torch::dtype(torch::kFloat).requires_grad(false)); // nchw
+  auto wt_hwck = wt.permute({2, 3, 1, 0}).contiguous(); // hwck
+  auto h_wt = wt_hwck.to(torch::kHABANA);
+  auto h_in = in.to(torch::kHABANA);
+  // HPU graph
+  auto result = torch::conv2d(h_in, h_wt, {}, 1, 0, 1, 1);
+  torch::leaky_relu_(result);
+  torch::abs_(result);
+  Tensor out = result.to(kCPU);
+  // CPU graph
+  auto exp = torch::conv2d(in, wt, {}, 1, 0, 1, 1);
+  torch::leaky_relu_(exp);
+  torch::abs_(exp);
+
+  EXPECT_EQ(allclose(out, exp, 0.01, 0.01), true);
+}
+
+// Input(NCHW) -> Add_(input1(CL)) -> conv2D -> leakyRelu_
+TEST_F(GraphOptimizeTest, DISABLED_PermutePassTest_Add_Inplace) {
+  auto in = torch::randn(
+      {1, 2, 3, 3}, torch::dtype(torch::kFloat).requires_grad(false)); // nchw
+  auto in1 = torch::randn(
+      {1, 2, 3, 3}, torch::dtype(torch::kFloat).requires_grad(false)); // nchw
+  auto wt = torch::randn(
+      {1, 2, 3, 3}, torch::dtype(torch::kFloat).requires_grad(false)); // nchw
+  auto wt_hwck = wt.permute({2, 3, 1, 0}).contiguous(); // hwck
+  auto h_wt = wt_hwck.to(torch::kHABANA);
+  auto h_in = in.to(torch::kHABANA);
+  auto h_in1 = in1.to(torch::kHABANA);
+  // HPU graph
+  h_in = torch::add(h_in, h_in1, 1.0);
+  auto result = torch::conv2d(h_in, h_wt, {}, 1, 0, 1, 1);
+  torch::leaky_relu_(result);
+  Tensor out = result.to(kCPU);
+  // CPU graph
+  in = torch::add(in, in1, 1.0);
+  auto exp = torch::conv2d(in, wt, {}, 1, 0, 1, 1);
+  torch::leaky_relu_(exp);
+  torch::abs_(exp);
+
+  EXPECT_EQ(allclose(out, exp, 0.01, 0.01), true);
+}
+
+// Input(NCHW) -> Add_(input1(CL)) -> conv2D -> leakyRelu_
+TEST_F(GraphOptimizeTest, DISABLED_PermutePassTest_Add_Inplace_MF) {
+  auto in1 = torch::randn(
+      {1, 2, 3, 3}, torch::dtype(torch::kFloat).requires_grad(false)); // nchw
+  auto in2 = torch::zeros({1, 2, 3, 3}); // nchw
+  auto wt = torch::randn(
+      {1, 2, 3, 3}, torch::dtype(torch::kFloat).requires_grad(false)); // nchw
+  auto wt_hwck = wt.permute({2, 3, 1, 0}).contiguous(); // hwck
+  auto h_wt = wt_hwck.to(torch::kHABANA);
+  auto h_in1 = in1.to(torch::kHABANA);
+  auto h_in1_cl = permute_cl_hpu_lazy(h_in1, {0, 2, 3, 1});
+  Tensor h_in_cl_out = h_in1_cl.to(kCPU);
+
+  auto h_in = h_in_cl_out.to(torch::kHABANA);
+  auto h_in2 = in2.to(torch::kHABANA);
+  // HPU graph
+  // h_in = torch::add(h_in, h_in2, 1.0);
+  auto result = torch::conv2d(h_in, h_wt, {}, 1, 0, 1, 1);
+  torch::leaky_relu_(result);
+  Tensor out = result.to(kCPU);
+  // CPU graph
+  torch::Tensor in = in1.to(
+      torch::kCPU,
+      c10::ScalarType::Float,
+      false,
+      false,
+      c10::MemoryFormat::ChannelsLast);
+  in = torch::add(in, in2, 1.0);
+  auto exp = torch::conv2d(in, wt, {}, 1, 0, 1, 1);
+  torch::leaky_relu_(exp);
+  torch::abs_(exp);
+
+  EXPECT_EQ(allclose(out, exp, 0.01, 0.01), true);
+}
+
+TEST_F(GraphOptimizeTest, PermutePassTestInplace_Debug) {
+  auto in = torch::randn(
+      {1, 2, 3, 3}, torch::dtype(torch::kFloat).requires_grad(false)); // nchw
+
+  auto wt = torch::randn(
+      {1, 2, 3, 3}, torch::dtype(torch::kFloat).requires_grad(false)); // nchw
+  auto wt_hwck = wt.permute({2, 3, 1, 0}).contiguous(); // hwck
+  auto h_wt = wt_hwck.to(torch::kHABANA);
+  auto h_in = in.to(torch::kHABANA);
+#if 0
+  // HPU graph with permute_cl(explicit input permute) (FAIL scenerio)
+  auto h_in_cl = permute_cl_hpu_lazy(h_in, {0, 2, 3, 1}); // nhwc
+  torch::leaky_relu_(h_in_cl);
+  auto result1 = torch::conv2d(h_in_cl, h_wt, {}, 1, 0, 1, 1);
+  auto result = torch::relu(result1);
+  Tensor out = result.to(kCPU);
+#else
+  // Input permute taken care by permute pass (PASS scenerio)
+  torch::leaky_relu_(h_in);
+  auto result1 = torch::conv2d(h_in, h_wt, {}, 1, 0, 1, 1);
+  auto result = torch::relu(result1);
+  Tensor out = result.to(kCPU);
+#endif
+
+  // CPU graph
+  torch::leaky_relu_(in);
+  auto exp1 = torch::conv2d(in, wt, {}, 1, 0, 1, 1);
+  auto exp = torch::relu(exp1);
+
+  EXPECT_EQ(allclose(out, exp, 0.01, 0.01), true);
+}
+
+// Above test but runs in loop for caching behaviour
+
+// input(NCHW) -> permute_cl -> conv2d -> relu
+TEST_F(GraphOptimizeTest, PermutePassTest_CL_cache) {
+  for (int i = 0; i < 2; i++) {
+    auto in = torch::randn(
+        {6, 4, 28, 28}, torch::dtype(torch::kFloat).requires_grad(false));
+    auto wt = torch::randn(
+        {5, 4, 3, 3}, torch::dtype(torch::kFloat).requires_grad(false));
+    auto exp1 = torch::conv2d(in, wt, {}, 1, 0, 1, 1);
+    auto exp = torch::relu(exp1);
+
+    auto h_in = in.to(torch::kHABANA);
+    // add permute-cl
+    auto h_in_cl = permute_cl_hpu_lazy(h_in, {0, 2, 3, 1});
+    auto wt_hwck = wt.permute({2, 3, 1, 0}).contiguous();
+    auto h_wt = wt_hwck.to(torch::kHABANA);
+
+    auto result1 = torch::conv2d(h_in_cl, h_wt, {}, 1, 0, 1, 1);
+    auto result = torch::relu(result1);
+
+    Tensor out = result.to(kCPU);
+    EXPECT_EQ(allclose(out, exp, 0.01, 0.01), true);
+  }
+}
+
+// input(CL) -> conv2d -> relu
+TEST_F(GraphOptimizeTest, PermutePassTest_Contig_cache) {
+  for (int i = 0; i < 2; i++) {
+    auto in = torch::randn(
+        {6, 4, 28, 28}, torch::dtype(torch::kFloat).requires_grad(false));
+    auto wt = torch::randn(
+        {5, 4, 3, 3}, torch::dtype(torch::kFloat).requires_grad(false));
+    auto exp1 = torch::conv2d(in, wt, {}, 1, 0, 1, 1);
+    auto exp = torch::relu(exp1);
+
+    auto h_in = in.to(torch::kHABANA);
+    auto h_in_cl = permute_cl_hpu_lazy(h_in, {0, 2, 3, 1});
+    Tensor h_in_cl_out = h_in_cl.to(kCPU);
+
+    auto h_in1 = h_in_cl_out.to(torch::kHABANA);
+    auto wt_hwck = wt.permute({2, 3, 1, 0}).contiguous();
+    auto h_wt = wt_hwck.to(torch::kHABANA);
+
+    auto result1 = torch::conv2d(h_in1, h_wt, {}, 1, 0, 1, 1);
+    auto result = torch::relu(result1);
+
+    Tensor out = result.to(kCPU);
+    EXPECT_EQ(allclose(out, exp, 0.01, 0.01), true);
+  }
+}
+
+// input(NCHW) -> conv2d -> relu
+TEST_F(GraphOptimizeTest, DISABLED_PermutePassTest_NCHW_cache) {
+  for (int i = 0; i < 2; i++) {
+    auto in = torch::randn(
+        {6, 4, 28, 28}, torch::dtype(torch::kFloat).requires_grad(false));
+    auto wt = torch::randn(
+        {5, 4, 3, 3}, torch::dtype(torch::kFloat).requires_grad(false));
+    // HPU graph input in nchw format, permut gets added, weights need permute
+    auto h_in = in.to(torch::kHABANA);
+    auto wt_hwck = wt.permute({2, 3, 1, 0}).contiguous();
+    auto h_wt = wt_hwck.to(torch::kHABANA);
+    auto result1 = torch::conv2d(h_in, h_wt, {}, 1, 0, 1, 1);
+    auto result = torch::relu(result1);
+    Tensor out = result.to(kCPU);
+    // CPU graph
+    auto exp1 = torch::conv2d(in, wt, {}, 1, 0, 1, 1);
+    auto exp = torch::relu(exp1);
+
+    EXPECT_EQ(allclose(out, exp, 0.01, 0.01), true);
+  }
+}
+
+// input(NCHW) -> conv2d -> leaky_relu_
+TEST_F(GraphOptimizeTest, PermutePassTest_NCHW_InplaceLeaky_cache) {
+  for (int i = 0; i < 2; i++) {
+    auto in = torch::randn(
+        {6, 4, 28, 28}, torch::dtype(torch::kFloat).requires_grad(false));
+    auto wt = torch::randn(
+        {5, 4, 3, 3}, torch::dtype(torch::kFloat).requires_grad(false));
+    // HPU graph input in nchw format, permut gets added, weights need permute
+    auto h_in = in.to(torch::kHABANA);
+    auto wt_hwck = wt.permute({2, 3, 1, 0}).contiguous();
+    auto h_wt = wt_hwck.to(torch::kHABANA);
+    auto result = torch::conv2d(h_in, h_wt, {}, 1, 0, 1, 1);
+    torch::leaky_relu_(result);
+    Tensor out = result.to(kCPU);
+    // CPU graph
+    auto exp = torch::conv2d(in, wt, {}, 1, 0, 1, 1);
+    torch::leaky_relu_(exp);
+
+    EXPECT_EQ(allclose(out, exp, 0.01, 0.01), true);
+  }
+}
+
+// input(CL) -> conv2d -> leaky_relu_
+TEST_F(GraphOptimizeTest, DISABLED_PermutePassTest_InplaceCL_cache) {
+  for (int i = 0; i < 2; i++) {
+    auto in = torch::randn(
+        {6, 4, 28, 28}, torch::dtype(torch::kFloat).requires_grad(false));
+    auto wt = torch::randn(
+        {5, 4, 3, 3}, torch::dtype(torch::kFloat).requires_grad(false));
+
+    // HPU graph for restride_cl
+    auto h_in = in.to(torch::kHABANA);
+    auto h_in_cl = permute_cl_hpu_lazy(h_in, {0, 2, 3, 1});
+    Tensor h_in_cl_out = h_in_cl.to(kCPU);
+    auto h_in1 = h_in_cl_out.to(torch::kHABANA);
+    auto wt_hwck = wt.permute({2, 3, 1, 0}).contiguous();
+    auto h_wt = wt_hwck.to(torch::kHABANA);
+
+    auto result = torch::conv2d(h_in1, h_wt, {}, 1, 0, 1, 1);
+    torch::leaky_relu_(result);
+    Tensor out = result.to(kCPU);
+    // CPU graph
+    auto exp = torch::conv2d(in, wt, {}, 1, 0, 1, 1);
+    torch::leaky_relu_(exp);
+
+    EXPECT_EQ(allclose(out, exp, 0.01, 0.01), true);
+  }
+}
+
+// input(NCHW) -> permute_cl_hpu -> conv2d -> leaky_relu_
+TEST_F(GraphOptimizeTest, PermutePassTest_Permute_Inplace_cache) {
+  for (int i = 0; i < 2; i++) {
+    auto in = torch::randn(
+        {1, 2, 3, 3}, torch::dtype(torch::kFloat).requires_grad(false)); // nchw
+
+    auto wt = torch::randn(
+        {1, 2, 3, 3}, torch::dtype(torch::kFloat).requires_grad(false)); // nchw
+    auto wt_hwck = wt.permute({2, 3, 1, 0}).contiguous(); // hwck
+    auto h_wt = wt_hwck.to(torch::kHABANA);
+    auto h_in = in.to(torch::kHABANA);
+    // HPU graph with permute_cl(explicit input permute) (FAIL scenerio)
+    auto h_in_cl = permute_cl_hpu_lazy(h_in, {0, 2, 3, 1}); // nhwc
+    auto result = torch::conv2d(h_in_cl, h_wt, {}, 1, 0, 1, 1);
+    torch::leaky_relu_(result);
+    Tensor out = result.to(kCPU);
+
+    auto exp = torch::conv2d(in, wt, {}, 1, 0, 1, 1);
+    torch::leaky_relu_(exp);
+
+    EXPECT_EQ(allclose(out, exp, 0.01, 0.01), true);
+  }
+}
+
+// input0(NCHW) -> conv2d -> leaky_relu_ -> abs_
+TEST_F(GraphOptimizeTest, PermutePassTest_DoubleInplace_cache) {
+  for (int i = 0; i < 2; i++) {
+    auto in = torch::randn(
+        {1, 2, 3, 3}, torch::dtype(torch::kFloat).requires_grad(false)); // nchw
+    auto wt = torch::randn(
+        {1, 2, 3, 3}, torch::dtype(torch::kFloat).requires_grad(false)); // nchw
+    auto wt_hwck = wt.permute({2, 3, 1, 0}).contiguous(); // hwck
+    auto h_wt = wt_hwck.to(torch::kHABANA);
+    auto h_in = in.to(torch::kHABANA);
+    // HPU graph
+    auto result = torch::conv2d(h_in, h_wt, {}, 1, 0, 1, 1);
+    torch::leaky_relu_(result);
+    torch::abs_(result);
+    Tensor out = result.to(kCPU);
+    // CPU graph
+    auto exp = torch::conv2d(in, wt, {}, 1, 0, 1, 1);
+    torch::leaky_relu_(exp);
+    torch::abs_(exp);
+
+    EXPECT_EQ(allclose(out, exp, 0.01, 0.01), true);
+  }
+}
+
+// Input(NCHW) -> Add_(input1(CL)) -> conv2D -> leakyRelu_
+TEST_F(GraphOptimizeTest, DISABLED_PermutePassTest_Add_Inplace_cache) {
+  for (int i = 0; i < 2; i++) {
+    auto in = torch::randn(
+        {1, 2, 3, 3}, torch::dtype(torch::kFloat).requires_grad(false)); // nchw
+    auto in1 = torch::randn(
+        {1, 2, 3, 3}, torch::dtype(torch::kFloat).requires_grad(false)); // nchw
+    auto wt = torch::randn(
+        {1, 2, 3, 3}, torch::dtype(torch::kFloat).requires_grad(false)); // nchw
+    auto wt_hwck = wt.permute({2, 3, 1, 0}).contiguous(); // hwck
+    auto h_wt = wt_hwck.to(torch::kHABANA);
+    auto h_in = in.to(torch::kHABANA);
+    auto h_in1 = in1.to(torch::kHABANA);
+    // HPU graph
+    h_in = torch::add(h_in, h_in1, 1.0);
+    auto result = torch::conv2d(h_in, h_wt, {}, 1, 0, 1, 1);
+    torch::leaky_relu_(result);
+    Tensor out = result.to(kCPU);
+    // CPU graph
+    in = torch::add(in, in1, 1.0);
+    auto exp = torch::conv2d(in, wt, {}, 1, 0, 1, 1);
+    torch::leaky_relu_(exp);
+    torch::abs_(exp);
+
+    EXPECT_EQ(allclose(out, exp, 0.01, 0.01), true);
+  }
+}
+
+// Input(NCHW) -> Add_(input1(CL)) -> conv2D -> leakyRelu_
+TEST_F(GraphOptimizeTest, DISABLED_PermutePassTest_Add_Inplace_MF_cache) {
+  for (int i = 0; i < 2; i++) {
+    auto in1 = torch::randn(
+        {1, 2, 3, 3}, torch::dtype(torch::kFloat).requires_grad(false)); // nchw
+    auto in2 = torch::zeros({1, 2, 3, 3}); // nchw
+    auto wt = torch::randn(
+        {1, 2, 3, 3}, torch::dtype(torch::kFloat).requires_grad(false)); // nchw
+    auto wt_hwck = wt.permute({2, 3, 1, 0}).contiguous(); // hwck
+    auto h_wt = wt_hwck.to(torch::kHABANA);
+    auto h_in1 = in1.to(torch::kHABANA);
+    auto h_in1_cl = permute_cl_hpu_lazy(h_in1, {0, 2, 3, 1});
+    Tensor h_in_cl_out = h_in1_cl.to(kCPU);
+
+    auto h_in = h_in_cl_out.to(torch::kHABANA);
+    auto h_in2 = in2.to(torch::kHABANA);
+    // HPU graph
+    // h_in = torch::add(h_in, h_in2, 1.0);
+    auto result = torch::conv2d(h_in, h_wt, {}, 1, 0, 1, 1);
+    torch::leaky_relu_(result);
+    Tensor out = result.to(kCPU);
+    // CPU graph
+    torch::Tensor in = in1.to(
+        torch::kCPU,
+        c10::ScalarType::Float,
+        false,
+        false,
+        c10::MemoryFormat::ChannelsLast);
+    in = torch::add(in, in2, 1.0);
+    auto exp = torch::conv2d(in, wt, {}, 1, 0, 1, 1);
+    torch::leaky_relu_(exp);
+    torch::abs_(exp);
+
+    EXPECT_EQ(allclose(out, exp, 0.01, 0.01), true);
+  }
 }
 
 TEST_F(GraphOptimizeTest, RemoveInplaceOps_pass1) {

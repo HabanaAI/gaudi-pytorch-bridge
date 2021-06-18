@@ -75,11 +75,20 @@ class PtTensorInfo {
     parent_index_ = i;
   }
 
+  bool is_output() const {
+    return (output_index_ != ULONG_MAX);
+  }
   size_t get_output_index() const {
     return output_index_;
   }
   void set_output_index(size_t i) {
     output_index_ = i;
+  }
+  bool is_restrided() const {
+    return is_restrided_;
+  }
+  void set_restrided(bool flag = true) {
+    is_restrided_ = flag;
   }
 
   // The following patch functions need to be used for patching.
@@ -197,6 +206,7 @@ class PtTensorInfo {
  private:
   bool is_tensor_{true};
   bool is_view_tensor_{false};
+  bool is_restrided_{false};
   IVal iv_{};
 
   void* buffer_{nullptr};
