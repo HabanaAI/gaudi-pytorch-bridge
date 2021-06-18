@@ -627,10 +627,9 @@ TEST_F(LazyUnaryKernelTest, Isnan) {
 
   auto hresult = torch::isnan(hinput);
   auto hout = hresult.to(torch::kCPU);
-  if (false) { // Disabled since CPU output is not as expected
-    auto cpu_out = torch::isnan(input_tensor);
-    EXPECT_TRUE(allclose(hout.to(torch::kInt8), cpu_out.to(torch::kInt8)));
-  }
+
+  auto cpu_out = torch::isnan(input_tensor);
+  EXPECT_TRUE(allclose(hout.to(torch::kInt8), cpu_out.to(torch::kInt8)));
 }
 
 TEST_F(LazyUnaryKernelTest, Silu) {

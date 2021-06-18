@@ -2048,8 +2048,8 @@ void IsnanOperator::AllocateAndAddSynapseNode(
       self.suggest_memory_format(),
       c10::ScalarType::Bool,
       is_output_persistent);
-  std::vector<at::Tensor> pt_outputs{output};
-  AllocateSynapseOutputs(graph, pt_outputs, {is_output_persistent});
+  AllocateSynapseOutput(graph, output, is_output_persistent);
+  AddNodeToSynapseGraph(graph, nullptr, 0);
 }
 
 static auto& KernelRegistry =
