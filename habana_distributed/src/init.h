@@ -14,4 +14,4 @@
 
 #define TORCH_HCL_CPP_API __attribute__((visibility("default")))
 
-void torch_hcl_python_init(pybind11::module& m);
+void torch_hcl_python_init();

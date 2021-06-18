@@ -11,5 +11,5 @@
 #include <init.h>
 
 PYBIND11_MODULE(_C, m) {
-  torch_hcl_python_init(m);
+  torch_hcl_python_init();
 }

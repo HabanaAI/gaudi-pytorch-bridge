@@ -15,7 +15,7 @@ namespace py = pybind11;
 
 template <typename T>
 using intrusive_ptr_class_ = py::class_<T, c10::intrusive_ptr<T>>;
-TORCH_HCL_CPP_API void torch_hcl_python_init(pybind11::module& m) {
+TORCH_HCL_CPP_API void torch_hcl_python_init() {
   py::object module = py::module::import("torch.distributed");
   py::object register_backend = module.attr("Backend").attr("register_backend");
 
