@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2020 HabanaLabs, Ltd.
+ * Copyright (C) 2021 HabanaLabs, Ltd.
  * All Rights Reserved.
  *
  * Unauthorized copying of this file, via any medium is strictly prohibited.
@@ -69,6 +69,15 @@ class BinUtils {
 };
 
 class CoalescedStringentPooling : public PoolingStrategy {
+ public:
+  CoalescedStringentPooling();
+  ~CoalescedStringentPooling();
+  bool pool_create(synDeviceId deviceID, uint64_t size) const override;
+  void pool_destroy() const override;
+  void* pool_alloc_chunk(uint64_t size) const override;
+  void pool_free_chunk(void* p) const override;
+  bool is_mem_threshold_hit() const override;
+
  private:
   struct chunkcompare {
     bool operator()(const Chunk* a, const Chunk* b) {
@@ -90,10 +99,11 @@ class CoalescedStringentPooling : public PoolingStrategy {
   mutable simple_coalesced_pool_t* prealloc_pool;
   mutable BinUtils* bin_utils;
 
+  void* alloc_chunk(uint64_t size) const;
+  void delete_chunk(void* p) const;
   Chunk* reuse_chunks(uint64_t size) const;
   Chunk* get_free_chunk(uint64_t size) const;
   Chunk* get_any_available_free_chunk(uint64_t size) const;
-  bool skip_chunk(Chunk* chunk, uint64_t size_req) const;
   bool canMergePreviousChunk(Chunk* chunk, uint64_t size) const;
   bool canMergeNextChunk(Chunk* chunk, uint64_t size) const;
   Chunk* try_splitting_chunks(Chunk* chunk, uint64_t size) const;
@@ -112,13 +122,39 @@ class CoalescedStringentPooling : public PoolingStrategy {
 
   void* FindChunkPtr(uint64_t bin_index, size_t num_bytes) const;
 
- public:
-  CoalescedStringentPooling();
-  bool pool_create(synDeviceId deviceID, uint64_t size) const override;
-  void pool_destroy() const override;
-  void* pool_alloc_chunk(uint64_t size) const override;
-  void pool_free_chunk(void* p) const override;
-  bool is_mem_threshold_hit() const override;
+  class SmallAllocs {
+   public:
+    static const std::size_t kAlignment = DEFAULT_ALIGNMENT;
+    static const std::size_t kSize = 16 * 1024 * kAlignment;
+    static const std::size_t kThreshold = 2 * kAlignment;
+    static_assert(kAlignment <= kThreshold, "");
+    static_assert(kSize % kAlignment == 0, "kAlignment must divide kSize");
+    static const std::size_t kUnits = kSize / kAlignment;
+
+    SmallAllocs() = delete;
+    SmallAllocs(std::unique_ptr<int8_t, std::function<void(int8_t*)>>);
+    ~SmallAllocs();
+    SmallAllocs(SmallAllocs&& rhs) noexcept;
+    SmallAllocs& operator=(SmallAllocs&& rhs) noexcept;
+    bool IsAllocated(const void* ptr) const;
+    size_t Size(const void* ptr) const;
+    void* Allocate(size_t num_bytes);
+    void Deallocate(const void* ptr);
+    void Reset();
+    size_t UnitsOccupied() const;
+
+   private:
+    void ValidateEmpty() const;
+    size_t Offset(const void* ptr) const;
+    static size_t ToUnits(size_t offset_in_bytes);
+    static size_t ToBytes(size_t offset_in_units);
+
+    std::unique_ptr<int8_t, std::function<void(int8_t*)>> chunk_ptr_;
+    std::vector<bool> map_;
+    std::array<size_t, kUnits> size_;
+  };
+
+  mutable std::unique_ptr<SmallAllocs> small_allocs_;
 };
 
 } // namespace pool_allocator

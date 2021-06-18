@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2020 HabanaLabs, Ltd.
+ * Copyright (C) 2021 HabanaLabs, Ltd.
  * All Rights Reserved.
  *
  * Unauthorized copying of this file, via any medium is strictly prohibited.
@@ -69,6 +69,7 @@ void BinUtils::RemoveFreeChunkIterFromBin(
   free_chunks->erase(citer);
   c->bin_index = kInvalidBinNum;
 }
+
 CoalescedStringentPooling::CoalescedStringentPooling() {
   pool_id = 0;
   chunk_count = 0;
@@ -79,6 +80,14 @@ CoalescedStringentPooling::CoalescedStringentPooling() {
   max_pool_size = DEFAULT_POOL_SIZE;
   prealloc_pool = nullptr;
   bin_utils = new BinUtils();
+  small_allocs_ = nullptr;
+}
+
+CoalescedStringentPooling::~CoalescedStringentPooling() {
+  if (small_allocs_) {
+    small_allocs_->Reset();
+    small_allocs_ = nullptr;
+  }
 }
 
 bool CoalescedStringentPooling::pool_create(synDeviceId deviceID, uint64_t size)
@@ -166,6 +175,11 @@ bool CoalescedStringentPooling::pool_create(synDeviceId deviceID, uint64_t size)
           bin_utils->BinForSize(bin_size * 2) != bin_utils->BinFromIndex(b));
     }
   }
+  const auto chunk_ptr = static_cast<int8_t*>(alloc_chunk(SmallAllocs::kSize));
+  const auto free_chunk = [this](int8_t* ptr) { delete_chunk(ptr); };
+  small_allocs_ = absl::make_unique<SmallAllocs>(
+      std::unique_ptr<int8_t, std::function<void(int8_t*)>>(
+          chunk_ptr, free_chunk));
   return true;
 }
 
@@ -181,6 +195,11 @@ void CoalescedStringentPooling::pool_destroy() const {
   }
 
   if (s_pool) {
+    if (small_allocs_) {
+      small_allocs_->Reset();
+      small_allocs_ = nullptr;
+    }
+
     if (!get_device_deallocation()) {
       if (nullptr != (void*)s_pool->basememptr) {
         uint64_t ptr_address{reinterpret_cast<uint64_t>(s_pool->basememptr)};
@@ -200,6 +219,7 @@ void CoalescedStringentPooling::pool_destroy() const {
     }
 
     s_pool->basememptr = 0;
+
     for (auto& m : chunks) {
       delete (m.second);
     }
@@ -530,8 +550,18 @@ Chunk* CoalescedStringentPooling::try_block_splitting(uint64_t size) const {
 
 void* CoalescedStringentPooling::pool_alloc_chunk(uint64_t size) const {
   const std::lock_guard<std::mutex> lock(sp_mutex);
+  return alloc_chunk(size);
+}
+
+void* CoalescedStringentPooling::alloc_chunk(uint64_t size) const {
   size = block_align(size);
 
+  void* ptr = nullptr;
+  if (small_allocs_)
+    ptr = small_allocs_->Allocate(size);
+  if (ptr != nullptr) {
+    return ptr;
+  }
   if (size > max_pool_size) {
     PT_SYNHELPER_DEBUG("POOL:: alloc size exceeds max size !!");
     return nullptr;
@@ -948,8 +978,17 @@ bool CoalescedStringentPooling::pool_defragment(uint64_t size) const {
 
 void CoalescedStringentPooling::pool_free_chunk(void* ptr) const {
   const std::lock_guard<std::mutex> lock(sp_mutex);
+  delete_chunk(ptr);
+}
+
+void CoalescedStringentPooling::delete_chunk(void* ptr) const {
   if ((uint64_t)ptr == 0) {
     PT_SYNHELPER_DEBUG("POOL:: null ptr");
+    return;
+  }
+
+  if (small_allocs_ && small_allocs_->IsAllocated(ptr)) {
+    small_allocs_->Deallocate(ptr);
     return;
   }
 
@@ -964,5 +1003,129 @@ void CoalescedStringentPooling::pool_free_chunk(void* ptr) const {
   bin_utils->InsertFreeChunkIntoBin(chunk);
 }
 
+CoalescedStringentPooling::SmallAllocs::SmallAllocs(
+    std::unique_ptr<int8_t, std::function<void(int8_t*)>> chunk_ptr)
+    : chunk_ptr_(std::move(chunk_ptr)), map_(kUnits, false), size_{0} {
+  static_assert(
+      kThreshold <= BinUtils::BinNumToSize(0),
+      "Threshold smaller then smallest bin size");
+  ValidateEmpty();
+}
+
+void CoalescedStringentPooling::SmallAllocs::ValidateEmpty() const {
+  const auto free_cnt = std::count(map_.cbegin(), map_.cend(), false);
+
+  if (size_t(free_cnt) != map_.size()) {
+    PT_SYNHELPER_DEBUG("Some small allocations were not freed.");
+  } else {
+    // If empty then size_ should contain all zeros
+    HABANA_ASSERT(free_cnt == std::count(size_.cbegin(), size_.cend(), 0));
+  }
+}
+
+size_t CoalescedStringentPooling::SmallAllocs::UnitsOccupied() const {
+  return std::count(map_.begin(), map_.end(), true);
+}
+
+void CoalescedStringentPooling::SmallAllocs::Reset() {
+  if (chunk_ptr_ != nullptr) {
+    ValidateEmpty();
+    map_.assign(kUnits, false);
+    size_.fill(0);
+    chunk_ptr_.reset();
+  }
+}
+
+CoalescedStringentPooling::SmallAllocs::~SmallAllocs() {
+  Reset();
+}
+
+bool CoalescedStringentPooling::SmallAllocs::IsAllocated(
+    const void* aPtr) const {
+  const int8_t* const ptr = static_cast<const int8_t*>(aPtr);
+  const int8_t* const chunk_ptr = chunk_ptr_.get();
+
+  if (chunk_ptr == nullptr) {
+    return false;
+  }
+
+  if (ptr < chunk_ptr) {
+    return false;
+  }
+
+  if (ptr >= chunk_ptr + kSize) {
+    return false;
+  }
+
+  return map_.at(ToUnits(Offset(ptr)));
+}
+
+size_t CoalescedStringentPooling::SmallAllocs::Offset(const void* ptr) const {
+  return static_cast<const int8_t*>(ptr) - chunk_ptr_.get();
+}
+
+size_t CoalescedStringentPooling::SmallAllocs::ToUnits(size_t offset_in_bytes) {
+  HABANA_ASSERT(offset_in_bytes % kAlignment == 0);
+  return offset_in_bytes / kAlignment;
+}
+
+size_t CoalescedStringentPooling::SmallAllocs::ToBytes(size_t offset_in_units) {
+  return offset_in_units * kAlignment;
+}
+
+size_t CoalescedStringentPooling::SmallAllocs::Size(const void* ptr) const {
+  const auto offset = ToUnits(Offset(ptr));
+  HABANA_ASSERT(map_.at(offset) == true);
+  return size_.at(offset);
+}
+
+void* CoalescedStringentPooling::SmallAllocs::Allocate(size_t size) {
+  if (size >= kThreshold) {
+    return nullptr;
+  }
+
+  HABANA_ASSERT(chunk_ptr_.get() != nullptr);
+  HABANA_ASSERT(size < kSize);
+
+  const auto size_in_units = ToUnits(size);
+  HABANA_ASSERT(size_in_units > 0);
+
+  const auto start =
+      std::search_n(map_.begin(), map_.end(), size_in_units, false);
+
+  if (start != map_.end()) {
+    std::fill_n(start, size_in_units, true);
+    const auto offset = std::distance(map_.begin(), start);
+
+    size_[offset] = size;
+    return chunk_ptr_.get() + ToBytes(offset);
+  }
+
+  return nullptr;
+}
+
+void CoalescedStringentPooling::SmallAllocs::Deallocate(const void* ptr) {
+  HABANA_ASSERT(chunk_ptr_.get() != nullptr);
+  const auto offset = ToUnits(Offset(ptr));
+
+  const auto num_bytes = size_.at(offset);
+  HABANA_ASSERT(num_bytes > 0);
+
+  const auto size_in_units = ToUnits(num_bytes);
+  HABANA_ASSERT(size_in_units > 0);
+
+  auto start = map_.begin();
+  std::advance(start, offset);
+
+  {
+    auto end = start;
+    std::advance(end, size_in_units);
+    HABANA_ASSERT(std::find(start, end, false) == end)
+  }
+
+  std::fill_n(start, size_in_units, false);
+
+  size_[offset] = 0;
+}
 } // namespace pool_allocator
 } // namespace synapse_helpers
