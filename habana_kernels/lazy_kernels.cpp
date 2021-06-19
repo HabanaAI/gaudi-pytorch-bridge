@@ -867,8 +867,7 @@ Tensor& set_hpu_lazy_(
     int64_t storage_offset,
     IntArrayRef size,
     IntArrayRef stride) {
-  HABANA_ASSERT(0);
-  return set_hpu_(self, source, storage_offset, size, stride);
+  return AtenHpuTypeDefault::set_(self, source, storage_offset, size, stride);
 }
 Tensor view_hpu_lazy(const Tensor& self, IntArrayRef size) {
   PT_LAZY_TRACE;
@@ -2371,8 +2370,7 @@ Tensor gather2d_hpu_lazy(
     int64_t validCount) {
   HABANA_ASSERT(0);
   return gather2d_hpu(input, indices, validCount);
-};
-
+}
 Tensor slice_hpu_lazy(
     const Tensor& self_in,
     int64_t dim,
@@ -3361,17 +3359,16 @@ Tensor& max_pool2d_with_indices_backward_out_hpu_lazy(
     IntArrayRef padding,
     IntArrayRef dilation,
     bool ceil_mode) {
-  HABANA_ASSERT(0);
-  return max_pool2d_with_indices_backward_out_hpu(
-      grad_input,
+  return AtenHpuTypeDefault::max_pool2d_with_indices_backward_out(
       grad_output,
       input,
-      indices,
       kernel_size,
       stride,
       padding,
       dilation,
-      ceil_mode);
+      ceil_mode,
+      indices,
+      grad_input);
 }
 Tensor max_pool2d_with_indices_backward_hpu_lazy(
     const Tensor& grad_output,
@@ -3501,9 +3498,7 @@ Tensor& avg_pool2d_backward_out_hpu_lazy(
     bool ceil_mode,
     bool count_include_pad,
     c10::optional<int64_t> divisor_override) {
-  HABANA_ASSERT(0);
-  return avg_pool2d_backward_out_hpu(
-      grad_input,
+  return AtenHpuTypeDefault::avg_pool2d_backward_out(
       grad_output,
       input,
       kernel_size,
@@ -3511,7 +3506,8 @@ Tensor& avg_pool2d_backward_out_hpu_lazy(
       padding,
       ceil_mode,
       count_include_pad,
-      divisor_override);
+      divisor_override,
+      grad_input);
 }
 Tensor avg_pool2d_backward_hpu_lazy(
     const Tensor& grad_output,
@@ -3718,8 +3714,7 @@ Tensor& sum_IntList_out_hpu_lazy(
     IntArrayRef dim,
     bool keepdim,
     c10::optional<ScalarType> dtype) {
-  HABANA_ASSERT(0);
-  return sum_IntList_out_hpu(output, self, dim, keepdim, dtype);
+  return AtenHpuTypeDefault::sum_out(self, dim, keepdim, dtype, output);
 }
 Tensor mean_dim_hpu_lazy(
     const Tensor& self,
@@ -3741,8 +3736,7 @@ Tensor& mean_dim_out_hpu_lazy(
     IntArrayRef dim,
     bool keepdim,
     c10::optional<ScalarType> dtype) {
-  HABANA_ASSERT(0);
-  return mean_dim_out_hpu(output, self, dim, keepdim, dtype);
+  return AtenHpuTypeDefault::mean_out(self, dim, keepdim, dtype, output);
 }
 
 Tensor sum_hpu_lazy(const Tensor& self_in, c10::optional<ScalarType> dtype) {
@@ -3837,8 +3831,7 @@ Tensor& any_dim_out_hpu_lazy(
     const Tensor& self,
     int64_t dim,
     bool keepdim) {
-  HABANA_ASSERT(0);
-  return any_dim_out_hpu(output, self, dim, keepdim);
+  return AtenHpuTypeDefault::any_out(self, dim, keepdim, output);
 }
 Tensor any_dim_hpu_lazy(const Tensor& self, int64_t dim, bool keepdim) {
   PT_LAZY_TRACE;
@@ -4300,8 +4293,8 @@ Tensor t_hpu_lazy(const Tensor& self) {
 }
 
 Tensor& t_hpu_lazy_(Tensor& self) {
-  HABANA_ASSERT(0);
-  return t_hpu_(self);
+  // return t_hpu_(self);
+  return AtenHpuTypeDefault::t_(self);
 }
 
 void adjustPTSizesLazy(Tensor& t) {
@@ -4329,7 +4322,6 @@ void adjustPTSizesLazy(Tensor& t) {
     }
   }
 }
-
 Tensor permute_cl_hpu_lazy(const Tensor& self, IntArrayRef dims_) {
   PT_LAZY_TRACE;
   ir::NodePtr node = std::make_shared<ir::PermuteCL>(self, dims_);
@@ -4485,8 +4477,13 @@ std::tuple<Tensor&, Tensor&> topk_out_hpu_lazy(
     int64_t dim_,
     bool largest,
     bool sorted) {
-  HABANA_ASSERT(0);
-  return topk_out_hpu(values, indices, self, k, dim_, largest, sorted);
+  if (indices[0].scalar_type() == c10::ScalarType::Int) {
+    auto indices_long = habana_helpers::cast_tensor_to_long(indices);
+    return AtenHpuTypeDefault::topk_out(
+        self, k, dim_, largest, sorted, values, indices_long);
+  }
+  return AtenHpuTypeDefault::topk_out(
+      self, k, dim_, largest, sorted, values, indices);
 }
 std::tuple<Tensor, Tensor> topk_hpu_lazy(
     const Tensor& self,
