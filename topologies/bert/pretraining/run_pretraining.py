@@ -767,7 +767,6 @@ def main():
         average_training_time_per_step = 0
         average_perf_per_step = 0
         model_traced = False
-        loss_list = []
 
         if device.type == 'cuda':
             pool = ProcessPoolExecutor(1)
@@ -919,7 +918,7 @@ def main():
                     if args.use_lazy_mode:
                         htcore.mark_step()
 
-                    loss_list.append(loss)
+                    average_loss += loss.item()
                     tp_probe_tensors_iteration_end(model, device, loss, loss.item(), trainMetaData.ParamsDump, False, 0) #local rank
 
                     if training_steps % args.gradient_accumulation_steps == 0:
@@ -930,9 +929,6 @@ def main():
                         htcore.mark_step()
 
                     if global_step >= args.steps_this_run or timeout_sent or training_steps % (args.log_freq * args.gradient_accumulation_steps) == 0:
-                        for loss_t in loss_list:
-                            average_loss += loss_t.item()
-                        loss_list.clear()
                         train_time = time.time() - starting_time
                         starting_time = time.time()
                         average_training_time_per_step = train_time/(args.gradient_accumulation_steps * args.log_freq)
