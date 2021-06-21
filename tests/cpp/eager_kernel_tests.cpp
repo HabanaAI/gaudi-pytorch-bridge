@@ -3,7 +3,10 @@
 #include <torch/torch.h>
 #include <stdexcept>
 #include "habana_kernels/eager_kernels_declarations.h"
+#include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_kernels/linear_kernels.h"
+
+using namespace habana_lazy;
 
 TEST(EagerKernelTest, ReluTest) {
   torch::Tensor tensor = torch::randn({2, 3});
@@ -30,7 +33,7 @@ TEST(EagerKernelTest, MatMulTest) {
         torch::randn(size2); // torch::randn({2, 2}); d2 =1,2 tested and passing
     torch::Tensor ht1 = tensor1.to(torch::kHABANA);
     torch::Tensor ht2 = tensor2.to(torch::kHABANA);
-    auto outHabana = matmul_hpu(ht1, ht2);
+    auto outHabana = torch::matmul(ht1, ht2);
     auto out = torch::matmul(tensor1, tensor2);
     bool equal = out.allclose(outHabana.to(torch::kCPU), 0.001, 0.001);
     EXPECT_EQ(equal, true);
@@ -105,8 +108,9 @@ TEST(EagerKernelTest, MatmulBackwardTest) {
     auto grad_mat2 = mat2.grad();
 
     torch::Tensor grad_mat1_h, grad_mat2_h;
-    std::tie(grad_mat1_h, grad_mat2_h) =
-        matmul_backward_hpu(grad_out_h, mat1_h, mat2_h);
+    std::tie(grad_mat1_h, grad_mat2_h) = std::getenv("PT_HPU_LAZY_MODE")
+        ? matmul_backward_hpu_lazy(grad_out_h, mat1_h, mat2_h)
+        : matmul_backward_hpu(grad_out_h, mat1_h, mat2_h);
     bool equal1 = grad_mat1.allclose(grad_mat1_h.to(torch::kCPU), 0.01, 0.01);
     EXPECT_EQ(equal1, true);
     bool equal2 = grad_mat2.allclose(grad_mat2_h.to(torch::kCPU), 0.01, 0.01);
@@ -185,17 +189,32 @@ TEST(EagerKernelTest, AdamwOptTest) {
   auto step = 0;
   auto bias_correction = false;
   auto weight_decay = 0.0;
-  optimizer_adamw_hpu(
-      gradients,
-      weights,
-      exp_avg,
-      exp_avg_sq,
-      lr_t,
-      neg_step_t,
-      beta1,
-      beta2,
-      epsilon,
-      weight_decay);
+
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    optimizer_adamw_hpu_lazy(
+        gradients,
+        weights,
+        exp_avg,
+        exp_avg_sq,
+        lr_t,
+        neg_step_t,
+        beta1,
+        beta2,
+        epsilon,
+        weight_decay);
+  } else {
+    optimizer_adamw_hpu(
+        gradients,
+        weights,
+        exp_avg,
+        exp_avg_sq,
+        lr_t,
+        neg_step_t,
+        beta1,
+        beta2,
+        epsilon,
+        weight_decay);
+  }
 
   // CPU calculations
   auto step_size = lr;
@@ -282,17 +301,31 @@ TEST(EagerKernelCacheTest, AdamwOptTest) {
     auto lr_t = torch::tensor({lr}).to(torch::kHABANA);
     auto neg_step_t = torch::tensor({-lr}).to(torch::kHABANA);
 
-    optimizer_adamw_hpu(
-        gradients,
-        weights,
-        exp_avg,
-        exp_avg_sq,
-        lr_t,
-        neg_step_t,
-        beta1,
-        beta2,
-        epsilon,
-        weight_decay);
+    if (std::getenv("PT_HPU_LAZY_MODE")) {
+      optimizer_adamw_hpu_lazy(
+          gradients,
+          weights,
+          exp_avg,
+          exp_avg_sq,
+          lr_t,
+          neg_step_t,
+          beta1,
+          beta2,
+          epsilon,
+          weight_decay);
+    } else {
+      optimizer_adamw_hpu(
+          gradients,
+          weights,
+          exp_avg,
+          exp_avg_sq,
+          lr_t,
+          neg_step_t,
+          beta1,
+          beta2,
+          epsilon,
+          weight_decay);
+    }
     lr -= delta_lr; // to check for cache hit with changing lr
   }
 
@@ -389,7 +422,9 @@ TEST(EagerKernelTest, FusedNormTest) {
       torch::ones({1}, torch::TensorOptions().dtype(torch::kFloat32)) * 1.0;
   auto max_norm_hpu = max_norm.to(torch::kHABANA);
   // do hpu and cpu fused_norm calcs
-  auto total_norm = fused_norm_hpu(grad_vec_h, max_norm_hpu, 2.0);
+  auto total_norm = std::getenv("PT_HPU_LAZY_MODE")
+      ? fused_norm_hpu_lazy(grad_vec_h, max_norm_hpu, 2.0)
+      : fused_norm_hpu(grad_vec_h, max_norm_hpu, 2.0);
   auto total_norm_cpu = torch::norm(torch::stack(grad_vec_norms));
   // compare total_norm returned
   EXPECT_LT(
@@ -412,7 +447,9 @@ TEST(EagerKernelTest, FusedNormTest) {
   }
 
   // call fused norm kernels again to test caching in hpu
-  total_norm = fused_norm_hpu(grad_vec_h, max_norm_hpu, 2.0);
+  total_norm = std::getenv("PT_HPU_LAZY_MODE")
+      ? fused_norm_hpu_lazy(grad_vec_h, max_norm_hpu, 2.0)
+      : fused_norm_hpu(grad_vec_h, max_norm_hpu, 2.0);
   total_norm_cpu = torch::norm(torch::stack(grad_vec_norms));
   clip_coeff_cpu = max_norm / (total_norm_cpu + 1e-6);
   grad_vec_norms.clear();
@@ -487,35 +524,65 @@ TEST(EagerKernelTest, LambOptPh1Test) {
   auto grad_averaging = 1;
   std::vector<torch::Tensor> weight_norm, adam_norm, adam_step;
   if (cache) {
-    std::tie(weight_norm, adam_norm, adam_step) = optimizer_lamb_phase1_hpu(
-        grad_vec_1,
-        wt_vec_1,
-        exp_avg_vec_1,
-        exp_avg_sq_vec_1,
-        clip_grad_norm.to(torch::kHABANA),
-        grad_averaging,
-        lr,
-        beta1,
-        beta2,
-        epsilon,
-        step,
-        bias_correction,
-        weight_decay);
+    std::tie(weight_norm, adam_norm, adam_step) =
+        std::getenv("PT_HPU_LAZY_MODE") ? optimizer_lamb_phase1_hpu_lazy(
+                                              grad_vec_1,
+                                              wt_vec_1,
+                                              exp_avg_vec_1,
+                                              exp_avg_sq_vec_1,
+                                              clip_grad_norm.to(torch::kHABANA),
+                                              grad_averaging,
+                                              lr,
+                                              beta1,
+                                              beta2,
+                                              epsilon,
+                                              step,
+                                              bias_correction,
+                                              weight_decay)
+                                        : optimizer_lamb_phase1_hpu(
+                                              grad_vec_1,
+                                              wt_vec_1,
+                                              exp_avg_vec_1,
+                                              exp_avg_sq_vec_1,
+                                              clip_grad_norm.to(torch::kHABANA),
+                                              grad_averaging,
+                                              lr,
+                                              beta1,
+                                              beta2,
+                                              epsilon,
+                                              step,
+                                              bias_correction,
+                                              weight_decay);
   }
-  std::tie(weight_norm, adam_norm, adam_step) = optimizer_lamb_phase1_hpu(
-      grad_vec,
-      wt_vec,
-      exp_avg_vec,
-      exp_avg_sq_vec,
-      clip_grad_norm.to(torch::kHABANA),
-      grad_averaging,
-      lr,
-      beta1,
-      beta2,
-      epsilon,
-      step,
-      bias_correction,
-      weight_decay);
+  std::tie(weight_norm, adam_norm, adam_step) = std::getenv("PT_HPU_LAZY_MODE")
+      ? optimizer_lamb_phase1_hpu_lazy(
+            grad_vec,
+            wt_vec,
+            exp_avg_vec,
+            exp_avg_sq_vec,
+            clip_grad_norm.to(torch::kHABANA),
+            grad_averaging,
+            lr,
+            beta1,
+            beta2,
+            epsilon,
+            step,
+            bias_correction,
+            weight_decay)
+      : optimizer_lamb_phase1_hpu(
+            grad_vec,
+            wt_vec,
+            exp_avg_vec,
+            exp_avg_sq_vec,
+            clip_grad_norm.to(torch::kHABANA),
+            grad_averaging,
+            lr,
+            beta1,
+            beta2,
+            epsilon,
+            step,
+            bias_correction,
+            weight_decay);
   float bias_correction1 = 1.0, bias_correction2 = 1.0;
   if (bias_correction) {
     bias_correction1 = 1.0 - std::pow(beta1, step);
@@ -590,7 +657,9 @@ TEST(EagerKernelTest, IndexTest) {
   auto out_cpu = at::index(input_cpu, indices_cpu);
   auto out_hpu = at::index(input_hpu, indices_list);
 
-  bool equal = out_cpu.allclose(out_hpu.to(torch::kCPU), 0.001, 0.001);
+  // TODO: Check index_hpu_lazy why this long cast is required
+  bool equal =
+      out_cpu.allclose(out_hpu.to(torch::kCPU).to(at::kLong), 0.001, 0.001);
   EXPECT_EQ(equal, true);
 };
 
@@ -618,7 +687,9 @@ TEST(EagerKernelTest, BroadCastIndexTest) {
   auto out_cpu = at::index(input_cpu, indices_cpu);
   auto out_hpu = at::index(input_hpu, indices_list);
 
-  bool equal = out_cpu.allclose(out_hpu.to(torch::kCPU), 0.001, 0.001);
+  // TODO: Check index_hpu_lazy why this long cast is required
+  bool equal =
+      out_cpu.allclose(out_hpu.to(torch::kCPU).to(at::kLong), 0.001, 0.001);
   EXPECT_EQ(equal, true);
 };
 

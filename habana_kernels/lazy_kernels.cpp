@@ -4949,7 +4949,10 @@ void optimizer_adamw_hpu_lazy(
     out5.SetNode(node);
   }
 
-  return;
+  if (std::getenv("PT_HPU_LAZY_MODE") &&
+      *std::getenv("PT_HPU_LAZY_MODE") == '2') {
+    HbLazyTensor::StepMarker({});
+  }
 }
 
 Tensor fused_norm_hpu_lazy(
@@ -5144,6 +5147,11 @@ optimizer_lamb_phase1_hpu_lazy(
     out7.m_index = out_index++;
     out7.SetNode(node);
     context->m_retained_tensor_list.emplace_back(exp_avg_sq[i]);
+  }
+
+  if (std::getenv("PT_HPU_LAZY_MODE") &&
+      *std::getenv("PT_HPU_LAZY_MODE") == '2') {
+    HbLazyTensor::StepMarker({});
   }
 
   return std::tie(weight_norm_vec, adam_norm_vec, adam_step_vec);
