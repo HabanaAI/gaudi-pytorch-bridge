@@ -3247,7 +3247,8 @@ Tensor hpu_wrap::stack(TensorList tensors, int64_t dim) {
 }
 
 Tensor hpu_wrap::alias(const at::Tensor& self) {
-  return at::native::alias(self);
+  return hpu_wrap::as_strided(
+      self, self.sizes(), self.strides(), self.storage_offset());
 }
 
 Tensor hpu_wrap::_unsafe_view(const at::Tensor& self, at::IntArrayRef size) {
