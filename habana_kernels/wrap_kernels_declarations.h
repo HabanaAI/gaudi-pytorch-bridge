@@ -376,14 +376,14 @@ struct hpu_wrap {
       c10::optional<at::Scalar> p,
       at::IntArrayRef dim,
       bool keepdim);
-   static std::tuple<at::Tensor, at::Tensor> max_pool2d_with_indices(
+  static std::tuple<at::Tensor, at::Tensor> max_pool2d_with_indices(
       const at::Tensor& input,
       at::IntArrayRef kernel_size,
       at::IntArrayRef stride,
       at::IntArrayRef padding,
       at::IntArrayRef dilation,
       bool ceil_mode);
-   at::Tensor& max_pool2d_with_indices_backward_out(
+  at::Tensor& max_pool2d_with_indices_backward_out(
       const at::Tensor& grad_output,
       const at::Tensor& self,
       at::IntArrayRef kernel_size,
@@ -393,7 +393,7 @@ struct hpu_wrap {
       bool ceil_mode,
       const at::Tensor& indices,
       at::Tensor& grad_input);
-   static at::Tensor max_pool2d_with_indices_backward(
+  static at::Tensor max_pool2d_with_indices_backward(
       const at::Tensor& grad_output,
       const at::Tensor& input,
       at::IntArrayRef kernel_size,
@@ -402,7 +402,7 @@ struct hpu_wrap {
       at::IntArrayRef dilation,
       bool ceil_mode,
       const at::Tensor& indices);
-   static at::Tensor avg_pool2d(
+  static at::Tensor avg_pool2d(
       const at::Tensor& input,
       at::IntArrayRef kernel_size,
       at::IntArrayRef stride,
@@ -410,7 +410,7 @@ struct hpu_wrap {
       bool ceil_mode,
       bool count_include_pad,
       c10::optional<int64_t> divisor_override);
-   static at::Tensor& avg_pool2d_backward_out(
+  static at::Tensor& avg_pool2d_backward_out(
       const at::Tensor& grad_output,
       const at::Tensor& self,
       at::IntArrayRef kernel_size,
@@ -420,7 +420,7 @@ struct hpu_wrap {
       bool count_include_pad,
       c10::optional<int64_t> divisor_override,
       at::Tensor& grad_input);
-   static at::Tensor avg_pool2d_backward(
+  static at::Tensor avg_pool2d_backward(
       const at::Tensor& grad_output,
       const at::Tensor& input,
       at::IntArrayRef kernel_size,
@@ -539,7 +539,7 @@ struct hpu_wrap {
       const at::Tensor& self,
       at::IntArrayRef split_sizes,
       int64_t dim);
-   static at::Tensor threshold_backward(
+  static at::Tensor threshold_backward(
       const at::Tensor& grad_output,
       const at::Tensor& self,
       at::Scalar threshold);
@@ -626,7 +626,7 @@ struct hpu_wrap {
       c10::optional<at::Device> device,
       c10::optional<bool> pin_memory,
       c10::optional<at::MemoryFormat> memory_format);
-    static at::Tensor one_hot(const at::Tensor& self, int64_t num_classes);
+  static at::Tensor one_hot(const at::Tensor& self, int64_t num_classes);
   static at::Tensor _log_softmax(
       const at::Tensor& self,
       const int64_t dim,
@@ -636,6 +636,10 @@ struct hpu_wrap {
       const at::Tensor& output,
       int64_t dim,
       const at::Tensor& input);
+  static at::Tensor softmax(
+      const at::Tensor& self,
+      int64_t dim,
+      c10::optional<at::ScalarType> dtype);
   static at::Tensor _softmax(
       const at::Tensor& self,
       int64_t dim,
@@ -712,12 +716,12 @@ struct hpu_wrap {
       const at::Tensor& self,
       const at::Tensor& other,
       at::Tensor& out);
-   static at::Tensor& bitwise_xor_out(
+  static at::Tensor& bitwise_xor_out(
 
       const at::Tensor& self,
       const at::Tensor& other,
       at::Tensor& out);
-    static at::Tensor& bitwise_not_out(const at::Tensor& self, at::Tensor& out);
+  static at::Tensor& bitwise_not_out(const at::Tensor& self, at::Tensor& out);
   static at::Tensor upsample_nearest2d(
       const at::Tensor& input,
       c10::optional<at::IntArrayRef> output_size,

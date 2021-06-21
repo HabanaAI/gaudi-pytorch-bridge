@@ -92,6 +92,7 @@ _FN_AUTOGRAD_HPU = set(
         "one_hot(Tensor, int64_t) -> Tensor",
         "matmul(Tensor, Tensor) -> Tensor",
         "adaptive_avg_pool2d(Tensor, IntArrayRef) -> Tensor",
+        "softmax.int(Tensor self, int dim, ScalarType? dtype=None) -> Tensor"
     ]
 )
 

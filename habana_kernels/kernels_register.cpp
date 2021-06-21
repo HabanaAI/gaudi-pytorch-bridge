@@ -1838,6 +1838,45 @@ Tensor hpu_wrap::_softmax_backward_data(
     return softmax_backward_hpu(grad, output, dim, input);
   }
 };
+struct SoftmaxFunction : public torch::autograd::Function<SoftmaxFunction> {
+  static at::Tensor forward(
+      torch::autograd::AutogradContext* ctx,
+      at::Tensor input,
+      int64_t dim,
+      c10::optional<at::ScalarType> dtype) {
+    at::Tensor result;
+    if ((input.scalar_type() != c10::ScalarType::BFloat16) &&
+        (input.scalar_type() != c10::ScalarType::Float)) {
+      Tensor converted =
+          dtype.has_value() ? input.toType(dtype.value()) : input;
+      result = hpu_wrap::_softmax(converted, dim, false);
+    } else {
+      result = hpu_wrap::_softmax(input, dim, false);
+    }
+    ctx->save_for_backward({result, input});
+    ctx->saved_data["dim"] = dim;
+    return result;
+  }
+
+  static torch::autograd::variable_list backward(
+      torch::autograd::AutogradContext* ctx,
+      torch::autograd::variable_list grad_output) {
+    torch::autograd::variable_list saved_vars = ctx->get_saved_variables();
+    auto output = saved_vars[0];
+    auto input = saved_vars[1];
+    auto dim = ctx->saved_data["dim"].toInt();
+    auto result =
+        hpu_wrap::_softmax_backward_data(grad_output[0], output, dim, input);
+    return {result, torch::Tensor(), torch::Tensor()};
+  }
+};
+
+Tensor hpu_wrap::softmax(
+    const Tensor& self,
+    int64_t dim,
+    c10::optional<at::ScalarType> dtype) {
+  return SoftmaxFunction::apply(self, dim, dtype);
+}
 
 Tensor hpu_wrap::empty(
     IntArrayRef size,
