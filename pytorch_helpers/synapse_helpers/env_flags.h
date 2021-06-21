@@ -130,7 +130,7 @@ struct PT_USE_HCL_OPTS {
 };
 
 struct PT_HPU_LOWER_AS_STRIDED {
-  static constexpr bool default_value = false;
+  static constexpr bool default_value = true;
 };
 
 struct PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES {
