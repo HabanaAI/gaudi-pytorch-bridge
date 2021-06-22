@@ -170,8 +170,8 @@ ns_SpatialReduction::Params synapse_pool_params_builder(
     const IntArrayRef& kernel_size, // HW
     const IntArrayRef& stride, // HW
     const IntArrayRef& padding, // HW
-    const IntArrayRef& dilation // HW
-) {
+    const IntArrayRef& dilation, // HW
+    bool ceil_mode) {
   const int64_t filter_H = kernel_size[0];
   const int64_t filter_W = kernel_size[1];
   const int64_t stride_H = stride[0];
@@ -190,7 +190,8 @@ ns_SpatialReduction::Params synapse_pool_params_builder(
   pool_params.pad_h_end = padding[0];
   pool_params.dilation_w = dilation_W;
   pool_params.dilation_h = dilation_H;
-  pool_params.pooling_convention = POOLING_CONVENTION_VALID;
+  pool_params.pooling_convention =
+      ceil_mode ? POOLING_CONVENTION_FULL : POOLING_CONVENTION_VALID;
 
   return pool_params;
 }
@@ -207,8 +208,8 @@ ns_AveragePooling::Params synapse_avg_pool_params_builder(
   ns_SpatialReduction::Params* pt_pool_params;
   ns_AveragePooling::Params avg_pool_params{};
   pt_pool_params = &avg_pool_params;
-  *pt_pool_params =
-      synapse_pool_params_builder(kernel_size, stride, padding, dilation);
+  *pt_pool_params = synapse_pool_params_builder(
+      kernel_size, stride, padding, dilation, false);
   avg_pool_params.includePadding = include_padding;
 
   return avg_pool_params;
@@ -253,8 +254,8 @@ void MaxPool2dWithIndicesOperator::AllocateAndAddSynapseNode(
   bool ceil_mode = inputs[5].toBool();
 
   // Setup pool params
-  auto syn_pool_params =
-      synapse_pool_params_builder(kernel_size, stride, padding, dilation);
+  auto syn_pool_params = synapse_pool_params_builder(
+      kernel_size, stride, padding, dilation, ceil_mode);
 
   p_context_->params_.emplace<ns_SpatialReduction::Params>(syn_pool_params);
   p_context_->params_size_ = sizeof(syn_pool_params);
@@ -326,8 +327,8 @@ void MaxPool2dWithIndicesBackwardOutOperator::AllocateAndAddSynapseNode(
   bool ceil_mode = inputs[8].toBool();
 
   // Setup pool params
-  auto syn_pool_params =
-      synapse_pool_params_builder(kernel_size, stride, padding, dilation);
+  auto syn_pool_params = synapse_pool_params_builder(
+      kernel_size, stride, padding, dilation, ceil_mode);
 
   p_context_->params_.emplace<ns_SpatialReduction::Params>(syn_pool_params);
   p_context_->params_size_ = sizeof(syn_pool_params);
@@ -452,12 +453,13 @@ std::tuple<Tensor, Tensor> max_pool2d_with_indices_hpu(
       pt_out, pt_in, pt_new_pos, memory_format);
 
   auto maxpool_2d = [&] {
-    std::vector<c10::IValue> stack = {IValue(input_nhwc),
-                                      IValue(kernel_size),
-                                      IValue(stride),
-                                      IValue(padding),
-                                      IValue(dilation),
-                                      IValue(ceil_mode)};
+    std::vector<c10::IValue> stack = {
+        IValue(input_nhwc),
+        IValue(kernel_size),
+        IValue(stride),
+        IValue(padding),
+        IValue(dilation),
+        IValue(ceil_mode)};
     std::vector<at::Tensor> pt_inputs{input_nhwc};
     MaxPool2dWithIndicesOperator Op(device_id, scalar_type);
     size_t key = Op.GetRecipeKey(node_type, stack);
@@ -570,15 +572,16 @@ Tensor& max_pool2d_with_indices_backward_out_hpu(
 
   auto maxpool_2d_bwd = [&] {
     std::vector<at::Tensor> pt_inputs{grad_out_nhwc, input_nhwc, indices_nhwc};
-    std::vector<c10::IValue> stack = {IValue(grad_input_nhwc),
-                                      IValue(grad_out_nhwc),
-                                      IValue(input_nhwc),
-                                      IValue(indices_nhwc),
-                                      IValue(kernel_size),
-                                      IValue(stride),
-                                      IValue(padding),
-                                      IValue(dilation),
-                                      IValue(ceil_mode)};
+    std::vector<c10::IValue> stack = {
+        IValue(grad_input_nhwc),
+        IValue(grad_out_nhwc),
+        IValue(input_nhwc),
+        IValue(indices_nhwc),
+        IValue(kernel_size),
+        IValue(stride),
+        IValue(padding),
+        IValue(dilation),
+        IValue(ceil_mode)};
     // Create the operator
     MaxPool2dWithIndicesBackwardOutOperator Op(device_id, scalar_type);
     size_t key = Op.GetRecipeKey(node_type, stack);
@@ -724,14 +727,15 @@ Tensor max_pool2d_with_indices_backward_hpu(
 
   auto maxpool_2d_bwd = [&] {
     std::vector<at::Tensor> pt_inputs{grad_out_nhwc, input_nhwc, indices_nhwc};
-    std::vector<c10::IValue> stack = {IValue(grad_out_nhwc),
-                                      IValue(input_nhwc),
-                                      IValue(kernel_size),
-                                      IValue(stride),
-                                      IValue(padding),
-                                      IValue(dilation),
-                                      IValue(ceil_mode),
-                                      IValue(indices_nhwc)};
+    std::vector<c10::IValue> stack = {
+        IValue(grad_out_nhwc),
+        IValue(input_nhwc),
+        IValue(kernel_size),
+        IValue(stride),
+        IValue(padding),
+        IValue(dilation),
+        IValue(ceil_mode),
+        IValue(indices_nhwc)};
     // Create the operator
     MaxPool2dWithIndicesBackwardOperator Op(device_id, scalar_type);
     size_t key = Op.GetRecipeKey(node_type, stack);
@@ -905,13 +909,14 @@ Tensor avg_pool2d_hpu(
   auto avgpool_2d = [&] {
     std::vector<at::Tensor> pt_inputs{input_nhwc};
     // Build Params for the graph
-    std::vector<c10::IValue> stack = {IValue(input_nhwc),
-                                      IValue(kernel_size),
-                                      IValue(stride),
-                                      IValue(padding),
-                                      IValue(ceil_mode),
-                                      IValue(count_include_pad),
-                                      IValue(divisor_override)};
+    std::vector<c10::IValue> stack = {
+        IValue(input_nhwc),
+        IValue(kernel_size),
+        IValue(stride),
+        IValue(padding),
+        IValue(ceil_mode),
+        IValue(count_include_pad),
+        IValue(divisor_override)};
     // Create the operator
     AvgPool2dOperator Op(device_id, scalar_type);
     size_t key = Op.GetRecipeKey(node_type, stack);
@@ -1098,15 +1103,16 @@ Tensor& avg_pool2d_backward_out_hpu(
   auto avgpool_bwd_out_2d = [&] {
     std::vector<at::Tensor> pt_inputs{grad_out_nhwc};
     // Build Params for the graph
-    std::vector<c10::IValue> stack = {IValue(grad_input_nhwc),
-                                      IValue(grad_out_nhwc),
-                                      IValue(input_nhwc),
-                                      IValue(kernel_size),
-                                      IValue(stride),
-                                      IValue(padding),
-                                      IValue(ceil_mode),
-                                      IValue(count_include_pad),
-                                      IValue(divisor_override)};
+    std::vector<c10::IValue> stack = {
+        IValue(grad_input_nhwc),
+        IValue(grad_out_nhwc),
+        IValue(input_nhwc),
+        IValue(kernel_size),
+        IValue(stride),
+        IValue(padding),
+        IValue(ceil_mode),
+        IValue(count_include_pad),
+        IValue(divisor_override)};
     // Create the operator
     AvgPool2dBackwardOutOperator Op(device_id, scalar_type);
     size_t key = Op.GetRecipeKey(node_type, stack);
@@ -1231,14 +1237,15 @@ Tensor avg_pool2d_backward_hpu(
   auto avgpool_bwd_2d = [&] {
     std::vector<at::Tensor> pt_inputs{grad_out_nhwc};
     // Build Params for the graph
-    std::vector<c10::IValue> stack = {IValue(grad_out_nhwc),
-                                      IValue(input_nhwc),
-                                      IValue(kernel_size),
-                                      IValue(stride),
-                                      IValue(padding),
-                                      IValue(ceil_mode),
-                                      IValue(count_include_pad),
-                                      IValue(divisor_override)};
+    std::vector<c10::IValue> stack = {
+        IValue(grad_out_nhwc),
+        IValue(input_nhwc),
+        IValue(kernel_size),
+        IValue(stride),
+        IValue(padding),
+        IValue(ceil_mode),
+        IValue(count_include_pad),
+        IValue(divisor_override)};
     // Create the operator
     AvgPool2dBackwardOperator Op(device_id, scalar_type);
     size_t key = Op.GetRecipeKey(node_type, stack);

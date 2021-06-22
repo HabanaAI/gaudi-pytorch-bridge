@@ -47,7 +47,7 @@ void check_pool_params(
       (input.ndimension() == 4),
       "pool2d: non-empty 4D tensor expected for input");
 
-  TORCH_CHECK(ceil_mode == false, "pool2d: ceil_mode is not yet implemented");
+  static_cast<void>(ceil_mode);
 
   TORCH_CHECK(
       kernel.size() == 1 || kernel.size() == 2,
