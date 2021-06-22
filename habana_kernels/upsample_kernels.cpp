@@ -55,16 +55,32 @@ std::vector<int64_t> UpsampleOperator::compute_output_shape(
 }
 
 /**
- * @brief Fill generic upsample params structure
+ * @brief Fill generic resize params structure
  */
-ns_UpsampleKernel::Params synapse_upsample_params_builder(
-    EUpsampleType_t mode,
-    int scale) {
-  ns_UpsampleKernel::Params upsample_params{};
-  upsample_params.mode = mode;
-  upsample_params.scale = scale;
+ns_ResizeKernel::Params synapse_resize_params_builder(
+    ResizeInterpolationMode_t interp_mode,
+    ResizeNearestMode_t nearest_modetype,
+    ResizeCoordinateTransformationMode_t coord_mode,
+    c10::optional<at::IntArrayRef> output_size,
+    c10::optional<at::ArrayRef<double>> scale_factors) {
+  ns_ResizeKernel::Params resize_params{};
+  resize_params.mode = interp_mode;
+  resize_params.coordTransMode = coord_mode;
+  resize_params.nearestMode = nearest_modetype;
+  resize_params.useScales = scale_factors.has_value();
+  resize_params.excludeOutside = false;
+  // resize_params.cubicCoeffA = NA;
+  if (resize_params.useScales) {
+    resize_params.scaleDim1 = scale_factors.value()[1];
+    resize_params.scaleDim2 = scale_factors.value()[0];
+    resize_params.scaleDim3 = 1.0;
+  } else {
+    resize_params.size1 = output_size.value()[1];
+    resize_params.size2 = output_size.value()[0];
+    resize_params.size3 = 1;
+  }
 
-  return upsample_params;
+  return resize_params;
 }
 
 void UpsampleOperator::AllocateAndAddSynapseNode(
@@ -72,30 +88,30 @@ void UpsampleOperator::AllocateAndAddSynapseNode(
     torch::jit::Stack& inputs,
     bool is_output_persistent) {
   auto input = inputs[0].toTensor();
+
+  TORCH_CHECK(
+      input.ndimension() == 4,
+      "It is expected input tensor dimension equals to 4, but got dim ",
+      input.ndimension());
+
   c10::optional<IntArrayRef> output_size;
   c10::optional<at::ArrayRef<double>> scales;
-
   auto output_size1 = inputs[1].to<c10::optional<std::vector<int64_t>>>();
   if (output_size1.has_value()) {
     output_size = c10::make_optional(ArrayRef<int64_t>(output_size1.value()));
-  } else {
-    PT_KERNEL_WARN("output_size in Upsample are empty");
-    output_size = {};
+    scales = {};
   }
   // toOptionalIntArray and toOptionalDoubleArray are deprecated
 
   auto scales1 = inputs[2].to<c10::optional<std::vector<double>>>();
   if (scales1.has_value()) {
     scales = c10::make_optional(ArrayRef<double>(scales1.value()));
-  } else {
-    PT_KERNEL_WARN("Scales in Upsample are empty");
-    scales = {};
+    output_size = {};
   }
 
   TORCH_CHECK(
-      input.ndimension() == 4,
-      "It is expected input tensor dimension equals to 4, but got size ",
-      input.ndimension());
+      output_size1.has_value() || scales1.has_value(),
+      "output_size and scales in Upsample are empty");
 
   // TPC kernel runs only ChannelLast format
   // TPC kernel supports only 4D Tensor
@@ -108,16 +124,15 @@ void UpsampleOperator::AllocateAndAddSynapseNode(
   auto output = habana_helpers::createPTTensor(
       input, shape_out, input.options(), memory_format, is_output_persistent);
 
-  // Setup pool params
-  auto syn_upsample_params =
-      synapse_upsample_params_builder(UPSAMPLE_TYPE_NEAREST_NEIGHBOR, 1);
+  // Setup resize params, TF uses same
+  auto syn_resize_params = synapse_resize_params_builder(
+      RESIZE_INTER_NEAREST, FLOOR, ASYMMETRIC_MODE, output_size, scales);
 
-  p_context_->params_.emplace<ns_UpsampleKernel::Params>(syn_upsample_params);
-  p_context_->params_size_ = sizeof(syn_upsample_params);
+  p_context_->params_.emplace<ns_ResizeKernel::Params>(syn_resize_params);
+  p_context_->params_size_ = sizeof(syn_resize_params);
 
   AllocateSynapseOutput(graph, output, is_output_persistent);
-  AddNodeToSynapseGraph(
-      graph, &syn_upsample_params, sizeof(syn_upsample_params));
+  AddNodeToSynapseGraph(graph, &syn_resize_params, sizeof(syn_resize_params));
 }
 
 void UpsampleBackwardOperator::AllocateAndAddSynapseNode(
@@ -126,11 +141,33 @@ void UpsampleBackwardOperator::AllocateAndAddSynapseNode(
     bool is_output_persistent) {
   auto grad_output = inputs[0].toTensor();
   auto grad_size = inputs[2].toIntList();
-  std::vector<int64_t> grad_out_shape = grad_size.vec();
+
   TORCH_CHECK(
       grad_output.ndimension() == 4,
       "It is expected grad input tensor dimension equals to 4, but got size ",
       grad_output.ndimension());
+
+  c10::optional<IntArrayRef> output_size;
+  c10::optional<at::ArrayRef<double>> scales;
+  std::vector<int64_t> grad_out_shape = grad_size.vec();
+
+  auto output_size1 = inputs[1].to<c10::optional<std::vector<int64_t>>>();
+  if (output_size1.has_value()) {
+    output_size =
+        c10::make_optional(at::ArrayRef<int64_t>(output_size1.value()));
+    scales = {};
+  }
+
+  auto scales1 = inputs[3].to<c10::optional<std::vector<double>>>();
+  if (scales1.has_value()) {
+    scales = c10::make_optional(at::ArrayRef<double>(scales1.value()));
+    output_size = {};
+  }
+
+  TORCH_CHECK(
+      output_size1.has_value() || scales1.has_value(),
+      "output_size and scales in UpsampleBackward are empty");
+
   // TPC kernel runs only ChannelLast format
   // TPC kernel supports only 4D Tensor
   c10::MemoryFormat memory_format =
@@ -142,16 +179,15 @@ void UpsampleBackwardOperator::AllocateAndAddSynapseNode(
       memory_format,
       is_output_persistent);
 
-  // Setup upsample params
-  auto syn_upsample_params =
-      synapse_upsample_params_builder(UPSAMPLE_TYPE_NEAREST_NEIGHBOR, 1);
+  // Setup resize params, TF uses same
+  auto syn_resize_params = synapse_resize_params_builder(
+      RESIZE_INTER_NEAREST, FLOOR, ASYMMETRIC_MODE, output_size, scales);
 
-  p_context_->params_.emplace<ns_UpsampleKernel::Params>(syn_upsample_params);
-  p_context_->params_size_ = sizeof(syn_upsample_params);
+  p_context_->params_.emplace<ns_ResizeKernel::Params>(syn_resize_params);
+  p_context_->params_size_ = sizeof(syn_resize_params);
 
   AllocateSynapseOutput(graph, output, is_output_persistent);
-  AddNodeToSynapseGraph(
-      graph, &syn_upsample_params, sizeof(syn_upsample_params));
+  AddNodeToSynapseGraph(graph, &syn_resize_params, sizeof(syn_resize_params));
 }
 
 void UpsampleOperator::SetPTOutputs(torch::jit::Stack& inputs) {
@@ -311,7 +347,7 @@ Tensor upsample_nearest2d_hpu(
   size_t device_id = input.device().index();
   habana::UpsampleNearest2dOperator Op(device_id, scalar_type);
   std::string node_type =
-      "upsample_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+      "resize_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
 
   // Build Params for the graph
   std::vector<c10::IValue> stack = {
@@ -332,7 +368,7 @@ Tensor upsample_nearest2d_backward_hpu(
   size_t device_id = grad_output.device().index();
   habana::UpsampleNearest2dBackwardOperator Op(device_id, scalar_type);
   std::string node_type =
-      "upsample_bwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+      "resize_bwd_" + habana_helpers::name_suffix_from_type(scalar_type);
   // Build Params for the graph
   // output_size and scale_factor are not necessary.
   // However added to the stack to avoid compiler unsed variable warnings

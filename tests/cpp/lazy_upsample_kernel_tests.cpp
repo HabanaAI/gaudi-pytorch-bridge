@@ -53,8 +53,10 @@ TEST_F(LazyUpsampleKernelTest, UpsampleBackwardTest) {
     auto grad_mat1 = mat1.grad();
 
     torch::Tensor grad_mat1_h;
-    c10::ArrayRef<double> scale_factors = {2.0, 2.0};
-    c10::IntArrayRef out_size = {8, 21};
+    std::array<double, 2> scales = {2.0, 3.0};
+    c10::ArrayRef<double> scale_factors = scales;
+    std::array<int64_t, 2> out_sizes = {8, 21};
+    c10::IntArrayRef out_size = out_sizes;
     grad_mat1_h = upsample_nearest2d_backward_hpu_lazy(
         grad_out_h, out_size, size1, scale_factors);
     bool equal1 = grad_mat1.allclose(grad_mat1_h.to(torch::kCPU), 0.01, 0.01);

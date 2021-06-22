@@ -55,8 +55,8 @@ class UpsampleNearest2dOperator : public UpsampleOperator {
   UpsampleNearest2dOperator(int device_id, c10::ScalarType scalarType)
       : UpsampleOperator(
             device_id,
-            "upsample_fwd_" +
-                habana_helpers::name_suffix_from_type(scalarType)) {}
+            "resize_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
+  }
 };
 
 class UpsampleNearest2dBackwardOperator : public UpsampleBackwardOperator {
@@ -64,8 +64,8 @@ class UpsampleNearest2dBackwardOperator : public UpsampleBackwardOperator {
   UpsampleNearest2dBackwardOperator(int device_id, c10::ScalarType scalarType)
       : UpsampleBackwardOperator(
             device_id,
-            "upsample_bwd_" +
-                habana_helpers::name_suffix_from_type(scalarType)) {}
+            "resize_bwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
+  }
 };
 
 } // namespace habana
