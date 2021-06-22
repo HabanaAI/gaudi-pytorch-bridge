@@ -39,6 +39,37 @@ TEST_F(LazyNormKernelTest, LayerNormForwardExecute) {
   EXPECT_EQ(allclose(result_lazy, result_cpu, 0.01, 0.01), true);
 }
 
+TEST_F(LazyNormKernelTest, InstanceNormChLast) {
+  auto input_tensor =
+      torch::arange(240, torch::dtype(torch::kFloat).requires_grad(false))
+          .resize_({10, 3, 4, 2}, c10::MemoryFormat::ChannelsLast);
+  torch::Tensor tHabanaX = input_tensor.to(torch::kHABANA);
+
+  at::Tensor weight =
+      torch::randn(3, torch::dtype(torch::kFloat).requires_grad(false));
+  torch::Tensor tWeight = weight.to(torch::kHABANA);
+
+  at::Tensor bias =
+      torch::randn(3, torch::dtype(torch::kFloat).requires_grad(false));
+  torch::Tensor tBias = bias.to(torch::kHABANA);
+
+  auto mean = torch::randn(3, torch::dtype(torch::kFloat).requires_grad(false));
+  torch::Tensor tHabanaMean = mean.to(torch::kHABANA);
+
+  auto var = torch::ones(3, torch::dtype(torch::kFloat).requires_grad(false));
+  torch::Tensor tHabanaVar = var.to(torch::kHABANA);
+
+  constexpr float mom = 0.1;
+  constexpr float eps = 1e-5;
+  auto result_cpu = torch::instance_norm(
+      input_tensor, weight, bias, mean, var, true, mom, eps, false);
+
+  auto result_lazy = torch::instance_norm(
+      tHabanaX, tWeight, tBias, tHabanaMean, tHabanaVar, true, mom, eps, false);
+
+  EXPECT_EQ(allclose(result_lazy.to("cpu"), result_cpu, 0.01, 0.01), true);
+}
+
 TEST_F(LazyNormKernelTest, LayerNormBackwardExecute) {
   auto input_grad =
       torch::arange(480, torch::dtype(torch::kFloat).requires_grad(false))

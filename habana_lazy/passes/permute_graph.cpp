@@ -89,6 +89,18 @@ void WeightIdentificationPass::markOutputs(const torch::jit::Value* in) {
         }
       }
     }
+
+    // markOutput of Outvariant kernels
+    auto it = kernelOutVariantIdx.find(node_str);
+    if (kernelOutWeightIdx.end() != it) {
+      auto outIdx = it->second;
+      HABANA_ASSERT(outIdx < node->inputs().size());
+      auto weightOut = node->inputs()[outIdx];
+      if (!weightTensors.count(weightOut)) {
+        weightTensors.insert(weightOut);
+        markOutputs(weightOut);
+      }
+    }
   }
 }
 
@@ -102,12 +114,22 @@ void WeightIdentificationPass::markWeightTensors(
   for (auto node : graph->nodes()) {
     std::string kernel = node->kind().toQualString();
     auto it = kernelWeightIdx.find(kernel);
+    // mark kernel weight-inputs
     if (kernelWeightIdx.end() != it) {
       auto weightIdx = it->second;
       HABANA_ASSERT(weightIdx < node->inputs().size());
       auto weightIn = node->inputs()[weightIdx];
       weightTensors.insert(weightIn);
       markWeights(weightIn);
+    }
+    // mark kernel weight-outputs
+    it = kernelOutWeightIdx.find(kernel);
+    if (kernelOutWeightIdx.end() != it) {
+      auto weightIdx = it->second;
+      HABANA_ASSERT(weightIdx < node->outputs().size());
+      auto weightOut = node->outputs()[weightIdx];
+      weightTensors.insert(weightOut);
+      markOutputs(weightOut);
     }
   }
 }
@@ -400,12 +422,10 @@ void InsertPermute_graph(
         // View and Index as per original PT layout
         if ((strcmp(node->kind().toQualString(), "aten::view") == 0) ||
             (strcmp(node->kind().toQualString(), "aten::index") == 0)) {
-          auto tensor_entry_layout =
-              value_to_tensor_layout[value_in].layout_at_graph_entry;
-          if ((tensor_layout != tensor_entry_layout) &&
+          if ((tensor_layout != habana::LayoutFormat::NCHW) &&
               tensor_layout != habana::LayoutFormat::HWCK) {
             permute_required = true;
-            perm_layout = tensor_entry_layout;
+            perm_layout = habana::LayoutFormat::NCHW;
           }
         }
 
@@ -415,6 +435,19 @@ void InsertPermute_graph(
               (tensor_layout != habana::LayoutFormat::HWCK)) {
             permute_required = true;
             perm_layout = habana::LayoutFormat::NCHW;
+          }
+        }
+
+        // add permutes to memcpy if src and dst formats don't match
+        if ((strcmp(
+                 node->kind().toQualString(), "hpu::habana_d2d_memcpy_other") ==
+             0)) {
+          auto value_out = node->input(1);
+          auto dst_layout = value_to_tensor_layout[value_out].layout;
+          if ((tensor_layout != dst_layout) &&
+              tensor_layout != habana::LayoutFormat::HWCK) {
+            permute_required = true;
+            perm_layout = dst_layout;
           }
         }
 
@@ -486,13 +519,22 @@ void InsertPermute_graph(
         value_to_tensor_layout[value_out].layout = habana::LayoutFormat::NHWC;
         value_to_tensor_layout[value_out].layout_at_graph_entry =
             habana::LayoutFormat::NHWC;
-      } else if (
-          // special case format info passing
-          (strcmp(node->kind().toQualString(), "hpu::cast") == 0) ||
-          (strcmp(
-               node->kind().toQualString(), "hpu::habana_d2d_memcpy_other") ==
-           0)) {
+      } else if ((strcmp(node->kind().toQualString(), "hpu::cast") == 0)) {
+        // special case format info passing cast node
         auto value_in = node->input(0);
+        auto in_layout = value_to_tensor_layout[value_in].layout;
+        auto in_layout_entry =
+            value_to_tensor_layout[value_in].layout_at_graph_entry;
+        for (auto value_out : node->outputs()) {
+          value_to_tensor_layout[value_out].layout = in_layout;
+          value_to_tensor_layout[value_out].layout_at_graph_entry =
+              in_layout_entry;
+        }
+      } else if ((strcmp(
+                      node->kind().toQualString(),
+                      "hpu::habana_d2d_memcpy_other") == 0)) {
+        // special case format info passing mem cpy node
+        auto value_in = node->input(1);
         auto in_layout = value_to_tensor_layout[value_in].layout;
         auto in_layout_entry =
             value_to_tensor_layout[value_in].layout_at_graph_entry;

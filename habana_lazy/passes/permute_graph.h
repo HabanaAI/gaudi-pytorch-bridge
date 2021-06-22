@@ -38,6 +38,10 @@ class WeightIdentificationPass {
   const std::unordered_map<std::string, size_t> kernelWeightIdx = {
       {"aten::convolution_overrideable", 1},
       {"aten::convolution_backward_overrideable", 2}};
+  const std::unordered_map<std::string, size_t> kernelOutWeightIdx = {
+      {"aten::convolution_backward_overrideable", 1}};
+  const std::unordered_map<std::string, size_t> kernelOutVariantIdx = {
+      {"hpu::habana_d2d_memcpy_other", 1}};
 
   void markWeights(const torch::jit::Value* value);
   bool isTensor(const torch::jit::Value* value);
