@@ -382,7 +382,7 @@ def setup_training(args):
 
         if args.hmp:
             print(args.hmp_bf16)
-            from hmp import hmp
+            from habana_frameworks.torch.hpex import hmp
             hmp.convert(opt_level=args.hmp_opt_level, bf16_file_path=args.hmp_bf16,
                     fp32_file_path=args.hmp_fp32, isVerbose=args.hmp_verbose)
 
@@ -646,7 +646,7 @@ def take_optimizer_step(args, optimizer, model, overflow_buf, global_step):
         # 6. call optimizer step function
         if had_overflow == 0:
             if args.use_habana and args.hmp and not(args.use_fused_lamb):
-                from hmp import hmp
+                from habana_frameworks.torch.hpex import hmp
                 with hmp.disable_casts():
                     optimizer.step()
             else:
@@ -675,7 +675,7 @@ def take_optimizer_step(args, optimizer, model, overflow_buf, global_step):
             updated_outputs = update_tensors(grad_tensors, outputs)
 
         if args.use_habana and args.hmp and not(args.use_fused_lamb):
-            from hmp import hmp
+            from habana_frameworks.torch.hpex import hmp
             with hmp.disable_casts():
                 optimizer.step()
         else:

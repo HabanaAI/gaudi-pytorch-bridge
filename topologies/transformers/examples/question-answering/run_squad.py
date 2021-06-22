@@ -369,7 +369,7 @@ def train(args, train_dataset, model, tokenizer, trainMetaData):
                                 FusedNorm.clip_norm(model.parameters())
                         else:
                             if args.hmp:
-                                from hmp import hmp
+                                from habana_frameworks.torch.hpex import hmp
                                 with hmp.disable_casts():
                                     torch.nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
                             else:
@@ -380,7 +380,7 @@ def train(args, train_dataset, model, tokenizer, trainMetaData):
                     tp_probe_tensors_iteration_end(model, device, outputs[1].detach().to('cpu'), loss.item(), trainMetaData.ParamsDump, False)
 
                 if args.use_habana and args.hmp and not(args.use_fused_adam):
-                    from hmp import hmp
+                    from habana_frameworks.torch.hpex import hmp
                     with hmp.disable_casts():
                         optimizer.step()
                 else:
@@ -1011,7 +1011,7 @@ def main():
 
         if args.hmp:
             print(args.hmp_bf16)
-            from hmp import hmp
+            from habana_frameworks.torch.hpex import hmp
             hmp.convert(opt_level=args.hmp_opt_level, bf16_file_path=args.hmp_bf16,
                     fp32_file_path=args.hmp_fp32, isVerbose=args.hmp_verbose)
 

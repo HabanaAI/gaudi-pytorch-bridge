@@ -581,7 +581,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.is_hmp:
-        from hmp import hmp
+        from habana_frameworks.torch.hpex import hmp
         hmp.convert(opt_level=args.hmp_opt_level, bf16_file_path=args.hmp_bf16,
                     fp32_file_path=args.hmp_fp32, isVerbose=args.hmp_verbose)
 

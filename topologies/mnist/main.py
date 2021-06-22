@@ -293,7 +293,7 @@ def main(args):
        os.environ["PT_HPU_LAZY_MODE"] = "1"
 
     if args.is_hmp:
-        from hmp import hmp
+        from habana_frameworks.torch.hpex import hmp
         hmp.convert()
 
     use_habana = not args.no_habana

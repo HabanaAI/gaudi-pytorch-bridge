@@ -459,7 +459,7 @@ class Trainer:
         
         if self.args.hmp:
             print(self.args.hmp_bf16)
-            from hmp import hmp
+            from habana_frameworks.torch.hpex import hmp
             hmp.convert(opt_level=self.args.hmp_opt_level, bf16_file_path=self.args.hmp_bf16,
                      fp32_file_path=self.args.hmp_fp32, isVerbose=self.args.hmp_verbose)
 
@@ -633,7 +633,7 @@ class Trainer:
                                     FusedNorm.clip_norm(model.parameters())
                             else:
                                 if self.args.hmp:
-                                    from hmp import hmp
+                                    from habana_frameworks.torch.hpex import hmp
                                     with hmp.disable_casts():
                                         torch.nn.utils.clip_grad_norm_(model.parameters(), self.args.max_grad_norm)
                                 else:
@@ -645,7 +645,7 @@ class Trainer:
                         xm.optimizer_step(optimizer)
                     else:
                         if self.args.use_habana and self.args.hmp and not(self.args.use_fused_adam):
-                            from hmp import hmp
+                            from habana_frameworks.torch.hpex import hmp
                             with hmp.disable_casts():
                                 optimizer.step()
                         else:
