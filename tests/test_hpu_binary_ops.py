@@ -1,7 +1,7 @@
 import torch
 import pytest
 import random
-from test_utils import evaluate_fwd_inplace_kernel, reset_seed, evaluate_fwd_kernel
+from test_utils import evaluate_fwd_inplace_kernel, reset_seed, evaluate_fwd_kernel, compare_tensors
 
 N = 8
 C = 3
@@ -164,6 +164,95 @@ def test_hpu_binary_op_pow_scalar_tensor(N, H, W, C):
     kernel_params_fwd["exponent"] = torch.randn(N, C, H, W)
     evaluate_fwd_kernel(kernel=torch.pow, kernel_params=kernel_params_fwd)
 
+def test_hpu_binary_op_remainder_tensor_tensor():
+    kernel_params_fwd = {}
+    kernel_params_fwd["input"] = torch.tensor([4, 2]).to(torch.int)
+    kernel_params_fwd["other"] =  torch.tensor([3, 5]).to(torch.int)
+    evaluate_fwd_kernel(kernel=torch.remainder, kernel_params=kernel_params_fwd)
+
+def test_hpu_binary_op_remainder_tensor_scalar():
+    kernel_params_fwd = {}
+    kernel_params_fwd["input"] = torch.tensor([4, 2]).to(torch.int)
+    kernel_params_fwd["other"] = 3
+    evaluate_fwd_kernel(kernel=torch.remainder, kernel_params=kernel_params_fwd)
+
+def test_hpu_binary_op_remainder_tensor_tensor_0d():
+    kernel_params_fwd = {}
+    kernel_params_fwd["input"] = torch.tensor(4).to(torch.int)
+    kernel_params_fwd["other"] =  torch.tensor(3).to(torch.int)
+    evaluate_fwd_kernel(kernel=torch.remainder, kernel_params=kernel_params_fwd)
+
+def test_hpu_binary_op_remainder_tensor_tensor_inplace():
+    input = torch.tensor([4,8,2]).to(torch.int)
+    other = torch.tensor([3,5,7]).to(torch.int)
+
+    input_hpu = input.to("hpu")
+    other_hpu = other.to("hpu")
+
+    input.remainder_(other)
+    input_hpu.remainder_(other_hpu)
+
+    compare_tensors(input_hpu, input, atol=0.001, rtol=0.001)
+
+def test_hpu_binary_op_remainder_tensor_scalar_inplace():
+    input = torch.tensor([4,8,2]).to(torch.int)
+    other = int(3)
+
+    input_hpu = input.to("hpu")
+
+    input.remainder_(other)
+    input_hpu.remainder_(other)
+    cpu_out = input_hpu.to("cpu")
+
+    compare_tensors(cpu_out, input, atol=0.001, rtol=0.001)
+
+def test_hpu_binary_op_remainder_tensor_tensor_inplace_0d():
+    input = torch.tensor([4,8,2]).to(torch.int)
+    other = torch.tensor(3).to(torch.int)
+
+    input_hpu = input.to("hpu")
+    other_hpu = other.to("hpu")
+
+    input.remainder_(other)
+    input_hpu.remainder_(other_hpu)
+    cpu_out = input_hpu.to("cpu")
+
+    compare_tensors(cpu_out, input, atol=0.001, rtol=0.001)
+
+def test_hpu_remainder_tensor_op_out_intype():
+    kernel_params_fwd = {}
+    kernel_params_fwd["input"] = torch.tensor([4, 2]).to(torch.int)
+    kernel_params_fwd["other"] = torch.tensor([3, 5]).to(torch.int)
+    kernel_params_fwd["out"] = torch.tensor([0, 0]).to(torch.int)
+    evaluate_fwd_kernel(kernel=torch.remainder, kernel_params=kernel_params_fwd)
+
+def test_hpu_remainder_scalar_op_out_intype():
+    kernel_params_fwd = {}
+    kernel_params_fwd["input"] = torch.tensor([4, 2]).to(torch.int)
+    kernel_params_fwd["other"] = 3
+    kernel_params_fwd["out"] = torch.tensor([0, 0]).to(torch.int)
+    evaluate_fwd_kernel(kernel=torch.remainder, kernel_params=kernel_params_fwd)
+
+def test_hpu_remainder_tensor_op_out_intype_0d():
+    kernel_params_fwd = {}
+    kernel_params_fwd["input"] = torch.tensor(4).to(torch.int)
+    kernel_params_fwd["other"] = 3
+    kernel_params_fwd["out"] = torch.tensor(0)
+    evaluate_fwd_kernel(kernel=torch.remainder, kernel_params=kernel_params_fwd)
+
+def test_hpu_remainder_tensor_op_resizeoutput():
+    kernel_params_fwd = {}
+    kernel_params_fwd["input"] = torch.tensor([4, 2, 7]).to(torch.int)
+    kernel_params_fwd["other"] = torch.tensor([3, 5, 11]).to(torch.int)
+    kernel_params_fwd["out"] = torch.empty(1).to(torch.int)
+    evaluate_fwd_kernel(kernel=torch.remainder, kernel_params=kernel_params_fwd)
+
+def test_hpu_remainder_scalar_op_resizeoutput():
+    kernel_params_fwd = {}
+    kernel_params_fwd["input"] = torch.tensor([4, 2, 7]).to(torch.int)
+    kernel_params_fwd["other"] = 3
+    kernel_params_fwd["out"] = torch.empty(1).to(torch.int)
+    evaluate_fwd_kernel(kernel=torch.remainder, kernel_params=kernel_params_fwd)
 
 if __name__ == "__main__":
     test_hpu_binary_op_broadcast_case2(

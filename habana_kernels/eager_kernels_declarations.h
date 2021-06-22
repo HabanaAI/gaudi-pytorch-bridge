@@ -134,6 +134,20 @@ at::Tensor eq_tensor_hpu(const at::Tensor& self, const at::Tensor& other);
 at::Tensor eq_tensor_scalar_hpu(const at::Tensor& self, at::Scalar other);
 at::Tensor lt_scalar_hpu(const at::Tensor& self, at::Scalar other);
 at::Tensor lt_tensor_hpu(const at::Tensor& self, const at::Tensor& other);
+at::Tensor remainder_tensor_hpu(
+    const at::Tensor& self,
+    const at::Tensor& other);
+at::Tensor& remainder_tensor_hpu_(at::Tensor& self, const at::Tensor& other);
+at::Tensor remainder_scalar_hpu(const at::Tensor& self, at::Scalar other);
+at::Tensor& remainder_scalar_hpu_(at::Tensor& self, at::Scalar other);
+at::Tensor& remainder_tensor_hpu_out(
+    const at::Tensor& self,
+    const at::Tensor& other,
+    at::Tensor& result);
+at::Tensor& remainder_scalar_hpu_out(
+    const at::Tensor& self,
+    at::Scalar other,
+    at::Tensor& result);
 at::Tensor upsample_nearest2d_hpu(
     const at::Tensor& input,
     c10::optional<at::IntArrayRef> output_size,

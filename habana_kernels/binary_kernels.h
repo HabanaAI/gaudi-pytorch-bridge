@@ -166,4 +166,121 @@ class MinimumOperator : public BinaryWrapperOperator {
     scalarType_ = scalarType;
   }
 };
+
+class RemainderOperator : public HabanaOperator {
+ public:
+  RemainderOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator(
+            "div_mod_fwd_" +
+            habana_helpers::name_suffix_from_type(scalarType)) {
+    this->CreateSynContext(device_id);
+    kernel_meta_data_.input_layout.assign(
+        {LayoutFormat::ANY, LayoutFormat::ANY});
+    kernel_meta_data_.output_layout.assign(
+        {LayoutFormat::ANY, LayoutFormat::ANY});
+  }
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+};
+
+class RemainderWrapperOperator : public HabanaOperator {
+ public:
+  RemainderWrapperOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator(
+            "div_mod_fwd_" +
+            habana_helpers::name_suffix_from_type(scalarType)) {
+    this->CreateSynContext(device_id);
+    this->scalarType_ = scalarType;
+    kernel_meta_data_.input_layout.assign(
+        {LayoutFormat::ANY, LayoutFormat::ANY});
+    kernel_meta_data_.output_layout.assign(
+        {LayoutFormat::ANY, LayoutFormat::ANY});
+  }
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+  virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
+
+ protected:
+  c10::ScalarType scalarType_;
+};
+
+class RemainderInplaceOperator : public habana::HabanaOperator {
+ public:
+  RemainderInplaceOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator(
+            "div_mod_fwd_" +
+            habana_helpers::name_suffix_from_type(scalarType)) {
+    this->CreateSynContext(device_id);
+    scalarType_ = scalarType;
+  }
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      std::vector<bool> is_output_persistent) override;
+
+ protected:
+  c10::ScalarType scalarType_;
+};
+
+class RemainderInplaceWrapperOperator : public habana::HabanaOperator {
+ public:
+  RemainderInplaceWrapperOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator(
+            "div_mod_fwd_" +
+            habana_helpers::name_suffix_from_type(scalarType)) {
+    this->CreateSynContext(device_id);
+    scalarType_ = scalarType;
+  }
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) final;
+
+ protected:
+  c10::ScalarType scalarType_;
+};
+
+class RemainderOutOperator : public HabanaOperator {
+ public:
+  RemainderOutOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator(
+            "div_mod_fwd_" +
+            habana_helpers::name_suffix_from_type(scalarType)) {
+    this->CreateSynContext(device_id);
+    kernel_meta_data_.input_layout.assign(
+        {LayoutFormat::ANY, LayoutFormat::ANY, LayoutFormat::ANY});
+    kernel_meta_data_.output_layout.assign(
+        {LayoutFormat::ANY, LayoutFormat::ANY});
+  }
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+};
+
+class RemainderOutWrapperOperator : public HabanaOperator {
+ public:
+  RemainderOutWrapperOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator(
+            "div_mod_fwd_" +
+            habana_helpers::name_suffix_from_type(scalarType)) {
+    this->CreateSynContext(device_id);
+    this->scalarType_ = scalarType;
+    kernel_meta_data_.input_layout.assign(
+        {LayoutFormat::ANY, LayoutFormat::ANY, LayoutFormat::ANY});
+    kernel_meta_data_.output_layout.assign(
+        {LayoutFormat::ANY, LayoutFormat::ANY});
+  }
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+
+ protected:
+  c10::ScalarType scalarType_;
+};
 } // namespace habana

@@ -379,6 +379,73 @@ Tensor& hpu_wrap::div_(Tensor& self, Scalar other) {
     return div_scalar_hpu_(self, other);
   }
 };
+
+Tensor hpu_wrap::remainder(const Tensor& self, const Tensor& other) {
+  if (!hpu_check_inputs_impl("remainder", {self, other}))
+    return AtenHpuTypeDefault::remainder(self, other);
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    return remainder_tensor_hpu_lazy(self, other);
+  } else {
+    return remainder_tensor_hpu(self, other);
+  }
+};
+
+Tensor& hpu_wrap::remainder_(Tensor& self, const Tensor& other) {
+  if (!hpu_check_inputs_impl("remainder_", {self, other}))
+    return AtenHpuTypeDefault::remainder_(self, other);
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    return remainder_tensor_hpu_lazy_(self, other);
+  } else {
+    return remainder_tensor_hpu_(self, other);
+  }
+};
+
+Tensor hpu_wrap::remainder(const Tensor& self, at::Scalar other) {
+  if (!hpu_check_inputs_impl("remainder", {self}))
+    return AtenHpuTypeDefault::remainder(self, other);
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    return remainder_scalar_hpu_lazy(self, other);
+  } else {
+    return remainder_scalar_hpu(self, other);
+  }
+};
+
+Tensor& hpu_wrap::remainder_(Tensor& self, at::Scalar other) {
+  if (!hpu_check_inputs_impl("remainder_", {self}))
+    return AtenHpuTypeDefault::remainder_(self, other);
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    return remainder_scalar_hpu_lazy_(self, other);
+  } else {
+    return remainder_scalar_hpu_(self, other);
+  }
+};
+
+Tensor& hpu_wrap::remainder_out(
+    const Tensor& self,
+    const Tensor& other,
+    Tensor& result) {
+  if (!hpu_check_inputs_impl("remainder_out", {self, other, result}))
+    return AtenHpuTypeDefault::remainder_out(self, other, result);
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    return remainder_tensor_hpu_lazy_out(self, other, result);
+  } else {
+    return remainder_tensor_hpu_out(self, other, result);
+  }
+};
+
+Tensor& hpu_wrap::remainder_out(
+    const Tensor& self,
+    at::Scalar other,
+    Tensor& result) {
+  if (!hpu_check_inputs_impl("remainder_out", {self, result}))
+    return AtenHpuTypeDefault::remainder_out(self, other, result);
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    return remainder_scalar_hpu_lazy_out(self, other, result);
+  } else {
+    return remainder_scalar_hpu_out(self, other, result);
+  }
+};
+
 Tensor hpu_wrap::pow(const Tensor& self, const Tensor& other) {
   if (!hpu_check_inputs_impl("pow", {self, other}))
     return AtenHpuTypeDefault::pow(self, other);

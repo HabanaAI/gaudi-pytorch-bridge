@@ -18,6 +18,7 @@
 #include "habana_helpers/tensor_utils.h"
 #include "habana_kernels/binary_kernels.h"
 #include "habana_kernels/kernel_utils.h"
+#include "habana_kernels/resize.h"
 #include "habana_kernels/simple_generic_kernel.h"
 #include "habana_kernels/tensor_shape_kernels.h"
 
@@ -854,6 +855,669 @@ Tensor minimum_hpu(const Tensor& self, const Tensor& other) {
   return output;
 }
 
+void habana::RemainderWrapperOperator::SetPTOutputs(torch::jit::Stack& inputs) {
+  Tensor quotient, remainder;
+  if (inputs[0].isTensor() && inputs[1].isTensor()) {
+    auto self = inputs[0].toTensor();
+    auto other = inputs[1].toTensor();
+    auto out_shape = BinaryOperator::compute_output_shape(self, other);
+    quotient = habana_helpers::createPTTensor(
+        self,
+        IntArrayRef(out_shape.data(), out_shape.size()),
+        self.options(),
+        self.suggest_memory_format(),
+        false);
+    remainder = habana_helpers::createPTTensor(
+        self,
+        IntArrayRef(out_shape.data(), out_shape.size()),
+        self.options(),
+        self.suggest_memory_format(),
+        true);
+  } else {
+    auto self = inputs[0].toTensor();
+    quotient = habana_helpers::createPTTensor(self, false);
+    remainder = habana_helpers::createPTTensor(self, true);
+  }
+  std::vector<at::Tensor> v{quotient, remainder};
+  HabanaOperator::SetPTOutputs(v);
+}
+
+void habana::RemainderWrapperOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 2,
+      "Incorrect size of input expected for Remainder operator");
+  // Note that there is no (Scalar, Tensor) version for remainder ops
+  // in native_functions.yaml
+  TORCH_CHECK(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
+  TORCH_CHECK(
+      inputs[1].isTensor() || inputs[1].isScalar(),
+      "Input arg2 type expected to be a tensor or scalar");
+
+  auto remainderOp = make_operator<RemainderOperator>(
+      this->p_context_->device_id_, this->scalarType_);
+
+  if (inputs[1].isTensor()) { // Both inputs are tensors
+    remainderOp->SetSynapseInput(p_context_->syn_inputs_[0]);
+    remainderOp->SetSynapseInput(p_context_->syn_inputs_[1]);
+    remainderOp->AllocateAndAddSynapseNode(graph, inputs, is_output_persistent);
+  } else { // 2nd input is a scalar
+    // add constant node to convert 2nd input to tensor
+    auto arg1 = inputs[0].toTensor();
+    auto constOp = make_operator<ConstantOperator>(
+        this->p_context_->device_id_, this->scalarType_);
+    auto const_shape_tensor = habana_helpers::createPTTensor(
+        arg1, {1}, arg1.options(), at::MemoryFormat::Contiguous, false);
+    torch::jit::Stack constOp_stack = {IValue(const_shape_tensor), inputs[1]};
+    constOp->AllocateAndAddSynapseNode(graph, constOp_stack, false);
+    remainderOp->SetSynapseInput(p_context_->syn_inputs_[0]);
+    remainderOp->SetSynapseInput(constOp->GetSynOutputs()[0]);
+    // replace 2nd scalar input with a tensor in stack
+    inputs.erase(inputs.cbegin() + 1);
+    inputs.emplace(inputs.cbegin() + 1, constOp->GetOutputs()[0]);
+    remainderOp->AllocateAndAddSynapseNode(graph, inputs, is_output_persistent);
+  }
+
+  p_context_->pt_outputs_.emplace_back(remainderOp->GetOutputs()[1]);
+  p_context_->syn_outputs_.emplace_back(
+      std::move(remainderOp->GetSynOutputs()[1]));
+}
+
+void habana::RemainderOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 2,
+      "Incorrect size of input expected for remainder operator");
+  TORCH_CHECK(inputs[0].isTensor(), "Input type expected to be tensor");
+  TORCH_CHECK(inputs[1].isTensor(), "Input type expected to be tensor");
+
+  at::Tensor self = inputs[0].toTensor();
+  at::Tensor other = inputs[1].toTensor();
+
+  // Python div_mod is enabled where remainder returns the same sign of the
+  // divisor, except for the zero remainder
+  ns_DivModKernel::Params params{true};
+
+  p_context_->params_.emplace<ns_DivModKernel::Params>(params);
+  p_context_->params_size_ = sizeof(params);
+
+  // tpc kernel returns quotient and remainder as tuple
+  auto out_shape = BinaryOperator::compute_output_shape(self, other);
+  auto quotient = habana_helpers::createPTTensor(
+      self,
+      IntArrayRef(out_shape.data(), out_shape.size()),
+      self.options(),
+      self.suggest_memory_format(),
+      false);
+  auto remainder = habana_helpers::createPTTensor(
+      self,
+      IntArrayRef(out_shape.data(), out_shape.size()),
+      self.options(),
+      self.suggest_memory_format(),
+      is_output_persistent);
+  AllocateSynapseOutputs(
+      graph, {quotient, remainder}, {false, is_output_persistent});
+  AddNodeToSynapseGraph(graph, &params, sizeof(params));
+}
+
+Tensor remainder_tensor_hpu(const Tensor& self, const Tensor& other) {
+  PT_KERNEL_BEGIN;
+
+  bool isSelf_0d = false;
+  bool isOther_0d = false;
+  if (self.dim() == 0) {
+    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    isSelf_0d = true;
+  }
+  if (other.dim() == 0) {
+    other.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    isOther_0d = true;
+  }
+
+  size_t device_id = self.device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  at::ScalarType scalar_type = self.scalar_type();
+  std::string node_type =
+      "div_mod_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+
+  // create the operator
+  habana::RemainderWrapperOperator Op(device_id, scalar_type);
+  std::vector<c10::IValue> stack = {IValue(self), IValue(other)};
+  size_t key = Op.GetRecipeKey(node_type, stack);
+
+  std::vector<at::Tensor> pt_inputs{self, other};
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+
+    Op.SetPTInputs(pt_inputs);
+    Op.SetPTOutputs(stack);
+    Op.Execute(key);
+  } else {
+    PT_KERNEL_DEBUG("Key:", key);
+    // create graph
+    auto graph = habana_helpers::create_graph(device_id, node_type);
+
+    // Assign Inputs to the Operator
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
+
+    // Build Params for the graph
+    Op.AllocateAndAddSynapseNode(graph, stack, true);
+
+    // compile and execute the graph
+    Op.Compile(graph);
+  }
+  std::vector<at::Tensor> out = Op.GetOutputs();
+  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
+
+  auto output = out.at(0);
+  if (isSelf_0d && isOther_0d) {
+    output.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+  }
+  if (isSelf_0d) {
+    self.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+  }
+  if (isOther_0d) {
+    other.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+  }
+
+  PT_KERNEL_END;
+  return output;
+}
+
+void habana::RemainderInplaceOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    std::vector<bool> is_output_persistent) {
+  // this check is for stack during graph execution
+  TORCH_CHECK(
+      inputs.size() == 2,
+      "Incorrect size of input expected for Binary operator");
+  TORCH_CHECK(inputs[0].isTensor(), "Input type expected to be tensor");
+  TORCH_CHECK(inputs[1].isTensor(), "Input type expected to be tensor");
+  Tensor self = inputs[0].toTensor();
+  Tensor other = inputs[1].toTensor();
+
+  auto out_shape = BinaryOperator::compute_output_shape(self, other);
+  auto quotient = habana_helpers::createPTTensor(
+      self,
+      IntArrayRef(out_shape.data(), out_shape.size()),
+      self.options(),
+      self.suggest_memory_format(),
+      is_output_persistent[0]);
+  AllocateSynapseOutput(graph, quotient, is_output_persistent[0]);
+
+  // Note here we are using input[0] to store output[1]
+  p_context_->syn_outputs_.emplace_back(
+      habana_helpers::duplicate_tensor_in_memory_section(
+          p_context_->syn_inputs_[0]));
+  p_context_->pt_outputs_.emplace_back(self);
+
+  synapse_helpers::tensor& arg1_syn_tensor = p_context_->syn_inputs_[0];
+  synapse_helpers::tensor& arg2_syn_tensor = p_context_->syn_inputs_[1];
+
+  std::vector<synTensor> syn_inputs{
+      arg1_syn_tensor.get(), arg2_syn_tensor.get()};
+
+  synapse_helpers::tensor& output1_syn_tensor = p_context_->syn_outputs_[0];
+  synapse_helpers::tensor& output2_syn_tensor = p_context_->syn_outputs_[1];
+  std::vector<synTensor> syn_outputs{
+      output1_syn_tensor.get(), output2_syn_tensor.get()};
+
+  // Python div_mod is enabled where remainder returns the same sign of the
+  // divisor, except for the zero remainder
+  ns_DivModKernel::Params params{true};
+
+  p_context_->params_.emplace<ns_DivModKernel::Params>(params);
+  p_context_->params_size_ = sizeof(params);
+  graph.add_node(
+      std::move(syn_inputs),
+      std::move(syn_outputs),
+      &params,
+      sizeof(params),
+      std::move(this->guid_));
+}
+
+void habana::RemainderInplaceWrapperOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 2,
+      "Incorrect size of input expected for Remainder operator");
+  // Note that there is no (Scalar, Tensor) version for remainder ops
+  // in native_functions.yaml
+  TORCH_CHECK(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
+  TORCH_CHECK(
+      inputs[1].isTensor() || inputs[1].isScalar(),
+      "Input arg2 type expected to be a tensor or scalar");
+
+  auto remainderOp = make_operator<RemainderInplaceOperator>(
+      this->p_context_->device_id_, this->scalarType_);
+
+  if (inputs[1].isTensor()) { // Both inputs are tensors
+    remainderOp->SetSynapseInput(p_context_->syn_inputs_[0]);
+    remainderOp->SetSynapseInput(p_context_->syn_inputs_[1]);
+    remainderOp->AllocateAndAddSynapseNode(
+        graph, inputs, {false, is_output_persistent});
+  } else { // 2nd input is a scalar
+    // add constant node to convert 2nd input to tensor
+    auto arg1 = inputs[0].toTensor();
+    auto constOp = make_operator<ConstantOperator>(
+        this->p_context_->device_id_, this->scalarType_);
+    auto const_shape_tensor = habana_helpers::createPTTensor(
+        arg1, {1}, arg1.options(), at::MemoryFormat::Contiguous, false);
+    torch::jit::Stack constOp_stack = {IValue(const_shape_tensor), inputs[1]};
+    constOp->AllocateAndAddSynapseNode(graph, constOp_stack, false);
+    remainderOp->SetSynapseInput(p_context_->syn_inputs_[0]);
+    remainderOp->SetSynapseInput(constOp->GetSynOutputs()[0]);
+    // replace 2nd scalar input with a tensor in stack
+    inputs.erase(inputs.cbegin() + 1);
+    inputs.emplace(inputs.cbegin() + 1, constOp->GetOutputs()[0]);
+    remainderOp->AllocateAndAddSynapseNode(
+        graph, inputs, {false, is_output_persistent});
+  }
+
+  p_context_->pt_outputs_.emplace_back(remainderOp->GetOutputs()[1]);
+  p_context_->syn_outputs_.emplace_back(
+      std::move(remainderOp->GetSynOutputs()[1]));
+}
+Tensor& remainder_tensor_hpu_(Tensor& self, const Tensor& other) {
+  PT_KERNEL_BEGIN;
+
+  bool isSelf_0d = false;
+  bool isOther_0d = false;
+  if (self.dim() == 0) {
+    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    isSelf_0d = true;
+  }
+  if (other.dim() == 0) {
+    other.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    isOther_0d = true;
+  }
+  size_t device_id = self.device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  at::ScalarType scalar_type = self.scalar_type();
+  std::string node_type =
+      "div_mod_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+
+  // create the operator
+  habana::RemainderInplaceWrapperOperator Op(device_id, scalar_type);
+  std::vector<c10::IValue> stack = {IValue(self), IValue(other)};
+  size_t key = Op.GetRecipeKey(node_type, stack);
+
+  std::vector<at::Tensor> pt_inputs{self, other};
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    Op.SetPTInputs(pt_inputs);
+    Op.SetPTOutput(self);
+    Op.Execute(key);
+  } else {
+    PT_KERNEL_DEBUG("Key:", key);
+    // create graph
+    auto graph = habana_helpers::create_graph(device_id, node_type);
+
+    // Assign Inputs to the Operator
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
+
+    // Build Params for the graph
+    Op.AllocateAndAddSynapseNode(graph, stack, true);
+
+    // compile and execute the graph
+    Op.Compile(graph);
+  }
+  std::vector<at::Tensor> out = Op.GetOutputs();
+  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
+
+  if (isSelf_0d && isOther_0d) {
+    self.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+  }
+  if (isOther_0d) {
+    other.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+  }
+  PT_KERNEL_END;
+
+  return self;
+}
+
+Tensor remainder_scalar_hpu(const Tensor& self, at::Scalar other) {
+  PT_KERNEL_BEGIN;
+  bool isSelf_0d = false;
+  if (self.dim() == 0) {
+    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    isSelf_0d = true;
+  }
+  size_t device_id = self.device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  at::ScalarType scalar_type = self.scalar_type();
+  std::string node_type =
+      "div_mod_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+
+  // create the operator
+  habana::RemainderWrapperOperator Op(device_id, scalar_type);
+  std::vector<c10::IValue> stack = {IValue(self), IValue(other)};
+  size_t key = Op.GetRecipeKey(node_type, stack);
+
+  std::vector<at::Tensor> pt_inputs{self};
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+
+    Op.SetPTInputs(pt_inputs);
+    Op.SetPTOutputs(stack);
+    Op.Execute(key);
+  } else {
+    PT_KERNEL_DEBUG("Key:", key);
+    // create graph
+    auto graph = habana_helpers::create_graph(device_id, node_type);
+
+    // Assign Inputs to the Operator
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
+
+    // Build Params for the graph
+    Op.AllocateAndAddSynapseNode(graph, stack, true);
+
+    // compile and execute the graph
+    Op.Compile(graph);
+  }
+  std::vector<at::Tensor> out = Op.GetOutputs();
+  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
+
+  auto output = out.at(0);
+  if (isSelf_0d) {
+    self.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+    output.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+  }
+  PT_KERNEL_END;
+  return output;
+}
+
+Tensor& remainder_scalar_hpu_(Tensor& self, at::Scalar other) {
+  PT_KERNEL_BEGIN;
+
+  bool isSelf_0d = false;
+  if (self.dim() == 0) {
+    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    isSelf_0d = true;
+  }
+  size_t device_id = self.device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  at::ScalarType scalar_type = self.scalar_type();
+  std::string node_type =
+      "div_mod_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+
+  // create the operator
+  habana::RemainderInplaceWrapperOperator Op(device_id, scalar_type);
+  std::vector<c10::IValue> stack = {IValue(self), IValue(other)};
+  size_t key = Op.GetRecipeKey(node_type, stack);
+
+  std::vector<at::Tensor> pt_inputs{self};
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    Op.SetPTInputs(pt_inputs);
+    Op.SetPTOutput(self);
+    Op.Execute(key);
+  } else {
+    PT_KERNEL_DEBUG("Key:", key);
+    // create graph
+    auto graph = habana_helpers::create_graph(device_id, node_type);
+
+    // Assign Inputs to the Operator
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
+
+    // Build Params for the graph
+    Op.AllocateAndAddSynapseNode(graph, stack, true);
+
+    // compile and execute the graph
+    Op.Compile(graph);
+  }
+  std::vector<at::Tensor> out = Op.GetOutputs();
+  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
+
+  if (isSelf_0d) {
+    self.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+  }
+  PT_KERNEL_END;
+
+  return self;
+}
+
+void habana::RemainderOutOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  static_cast<void>(is_output_persistent);
+  TORCH_CHECK(
+      inputs.size() == 3,
+      "Incorrect size of inputs expected for topk operator");
+  TORCH_CHECK(
+      inputs[0].isTensor(),
+      "Input arg1 expected to be tensor for topk operator");
+  Tensor self = inputs[0].toTensor();
+  auto other = inputs[1].toTensor();
+  auto remainder = inputs[2].toTensor();
+  auto out_shape = BinaryOperator::compute_output_shape(self, other);
+  auto quotient = habana_helpers::createPTTensor(
+      self,
+      IntArrayRef(out_shape.data(), out_shape.size()),
+      self.options(),
+      self.suggest_memory_format(),
+      false);
+
+  AllocateSynapseOutput(graph, quotient, false);
+  synapse_helpers::tensor& arg1_syn_tensor = p_context_->syn_inputs_[0];
+  synapse_helpers::tensor& arg2_syn_tensor = p_context_->syn_inputs_[1];
+
+  p_context_->syn_outputs_.emplace_back(std::move(p_context_->syn_inputs_[2]));
+  p_context_->pt_outputs_.emplace_back(remainder);
+
+  std::vector<synTensor> syn_inputs;
+  syn_inputs.push_back(arg1_syn_tensor.get());
+  syn_inputs.push_back(arg2_syn_tensor.get());
+
+  synapse_helpers::tensor& output1_syn_tensor = p_context_->syn_outputs_[0];
+  synapse_helpers::tensor& output2_syn_tensor = p_context_->syn_outputs_[1];
+  std::vector<synTensor> syn_outputs{
+      output1_syn_tensor.get(), output2_syn_tensor.get()};
+
+  graph.add_node(
+      std::move(syn_inputs),
+      std::move(syn_outputs),
+      nullptr,
+      0,
+      std::move(guid_));
+}
+
+void habana::RemainderOutWrapperOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 3,
+      "Incorrect size of input expected for Remainder operator");
+  // Note that there is no (Scalar, Tensor) version for remainder ops
+  // in native_functions.yaml
+  TORCH_CHECK(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
+  TORCH_CHECK(
+      inputs[1].isTensor() || inputs[1].isScalar(),
+      "Input arg2 type expected to be a tensor or scalar");
+  TORCH_CHECK(inputs[2].isTensor(), "Input arg3 type expected to be tensor");
+
+  auto remainderOp = make_operator<RemainderOutOperator>(
+      this->p_context_->device_id_, this->scalarType_);
+
+  if (inputs[1].isTensor()) { // Both inputs are tensors
+    remainderOp->SetSynapseInput(p_context_->syn_inputs_[0]);
+    remainderOp->SetSynapseInput(p_context_->syn_inputs_[1]);
+    remainderOp->SetSynapseInput(p_context_->syn_inputs_[2]);
+    remainderOp->AllocateAndAddSynapseNode(graph, inputs, is_output_persistent);
+  } else { // 2nd input is a scalar
+    // add constant node to convert 2nd input to tensor
+    auto arg1 = inputs[0].toTensor();
+    auto constOp = make_operator<ConstantOperator>(
+        this->p_context_->device_id_, this->scalarType_);
+    auto const_shape_tensor = habana_helpers::createPTTensor(
+        arg1, {1}, arg1.options(), at::MemoryFormat::Contiguous, false);
+    torch::jit::Stack constOp_stack = {IValue(const_shape_tensor), inputs[1]};
+    constOp->AllocateAndAddSynapseNode(graph, constOp_stack, false);
+    remainderOp->SetSynapseInput(p_context_->syn_inputs_[0]);
+    remainderOp->SetSynapseInput(constOp->GetSynOutputs()[0]);
+    remainderOp->SetSynapseInput(p_context_->syn_inputs_[1]);
+    // replace 2nd scalar input with a tensor in stack
+    inputs.erase(inputs.cbegin() + 1);
+    inputs.emplace(inputs.cbegin() + 1, constOp->GetOutputs()[0]);
+    remainderOp->AllocateAndAddSynapseNode(graph, inputs, is_output_persistent);
+  }
+
+  p_context_->pt_outputs_.emplace_back(remainderOp->GetOutputs()[1]);
+  p_context_->syn_outputs_.emplace_back(
+      std::move(remainderOp->GetSynOutputs()[1]));
+}
+
+Tensor& remainder_tensor_hpu_out(
+    const Tensor& self,
+    const Tensor& other,
+    Tensor& result) {
+  PT_KERNEL_BEGIN;
+
+  bool isSelf_0d = false;
+  bool isOther_0d = false;
+  if (self.dim() == 0) {
+    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    isSelf_0d = true;
+  }
+  if (other.dim() == 0) {
+    other.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    isOther_0d = true;
+  }
+  if (result.dim() == 0) {
+    result.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+  }
+
+  auto out_shape = habana::BinaryOperator::compute_output_shape(self, other);
+  auto out_reshaped = result.unsafeGetTensorImpl();
+  if (result.sizes().vec() != out_shape) {
+    THHTensor_resizeNd(
+        out_reshaped, out_shape.size(), out_shape.data(), nullptr);
+  }
+
+  at::ScalarType scalar_type = self.scalar_type();
+  std::string node_type =
+      "div_mod_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+
+  // Create the operator
+  size_t device_id = self.device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  std::vector<c10::IValue> stack = {
+      IValue(self), IValue(other), IValue(result)};
+  habana::RemainderOutWrapperOperator Op(device_id, scalar_type);
+  size_t key = Op.GetRecipeKey(node_type, stack);
+
+  std::vector<at::Tensor> pt_inputs{self, other, result};
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    Op.SetPTInputs(pt_inputs);
+    Op.SetPTOutput(result);
+    Op.Execute(key);
+  } else {
+    PT_KERNEL_DEBUG("Key:", key);
+    // Create Graph
+    auto graph = habana_helpers::create_graph(device_id, node_type);
+
+    // Assign Inputs to the Operator
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
+
+    // Build Params for the graph
+    Op.AllocateAndAddSynapseNode(graph, stack, true);
+
+    // compile and execute the graph
+    Op.Compile(graph);
+  }
+
+  std::vector<at::Tensor> out = Op.GetOutputs();
+  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
+
+  if (isSelf_0d && isOther_0d) {
+    result.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+  }
+  if (isSelf_0d) {
+    self.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+  }
+  if (isOther_0d) {
+    other.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+  }
+  PT_KERNEL_END;
+  return result;
+}
+
+Tensor& remainder_scalar_hpu_out(
+    const Tensor& self,
+    at::Scalar other,
+    Tensor& result) {
+  PT_KERNEL_BEGIN;
+
+  bool isSelf_0d = false;
+  if (self.dim() == 0) {
+    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    isSelf_0d = true;
+  }
+  if (result.dim() == 0) {
+    result.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+  }
+
+  auto out_shape = self.sizes().vec();
+  auto out_reshaped = result.unsafeGetTensorImpl();
+  if (result.sizes().vec() != out_shape) {
+    THHTensor_resizeNd(
+        out_reshaped, out_shape.size(), out_shape.data(), nullptr);
+  }
+
+  at::ScalarType scalar_type = self.scalar_type();
+  std::string node_type =
+      "div_mod_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+
+  // Create the operator
+  size_t device_id = self.device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  std::vector<c10::IValue> stack = {
+      IValue(self), IValue(other), IValue(result)};
+  habana::RemainderOutWrapperOperator Op(device_id, scalar_type);
+  size_t key = Op.GetRecipeKey(node_type, stack);
+
+  std::vector<at::Tensor> pt_inputs{self, result};
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    Op.SetPTInputs(pt_inputs);
+    Op.SetPTOutput(result);
+    Op.Execute(key);
+  } else {
+    PT_KERNEL_DEBUG("Key:", key);
+    // Create Graph
+    auto graph = habana_helpers::create_graph(device_id, node_type);
+
+    // Assign Inputs to the Operator
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
+
+    // Build Params for the graph
+    Op.AllocateAndAddSynapseNode(graph, stack, true);
+
+    // compile and execute the graph
+    Op.Compile(graph);
+  }
+
+  std::vector<at::Tensor> out = Op.GetOutputs();
+  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
+
+  if (isSelf_0d) {
+    self.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+    result.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+  }
+  PT_KERNEL_END;
+  return result;
+}
+
 static auto& KernelRegistry =
     habana::KernelRegistry()
         .add(
@@ -944,5 +1608,41 @@ static auto& KernelRegistry =
             "aten::minimum",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<habana::MinimumOperator>(
+                  device_id, node_type);
+            })
+        .add(
+            "aten::remainder.Tensor",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<habana::RemainderWrapperOperator>(
+                  device_id, node_type);
+            })
+        .add(
+            "aten::remainder_.Tensor",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<habana::RemainderInplaceWrapperOperator>(
+                  device_id, node_type);
+            })
+        .add(
+            "aten::remainder.Scalar",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<habana::RemainderWrapperOperator>(
+                  device_id, node_type);
+            })
+        .add(
+            "aten::remainder_.Scalar",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<habana::RemainderInplaceWrapperOperator>(
+                  device_id, node_type);
+            })
+        .add(
+            "aten::remainder.Tensor_out",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<habana::RemainderOutWrapperOperator>(
+                  device_id, node_type);
+            })
+        .add(
+            "aten::remainder.Scalar_out",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<habana::RemainderOutWrapperOperator>(
                   device_id, node_type);
             });

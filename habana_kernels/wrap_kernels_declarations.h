@@ -753,6 +753,18 @@ struct hpu_wrap {
       c10::optional<at::IntArrayRef> output_size,
       at::IntArrayRef input_size,
       c10::optional<at::ArrayRef<double>> scale_factors);
+  static at::Tensor remainder(const at::Tensor& self, const at::Tensor& other);
+  static at::Tensor remainder(const at::Tensor& self, at::Scalar other);
+  static at::Tensor& remainder_(at::Tensor& self, const at::Tensor& other);
+  static at::Tensor& remainder_(at::Tensor& self, at::Scalar other);
+  static at::Tensor& remainder_out(
+      const at::Tensor& self,
+      const at::Tensor& other,
+      at::Tensor& result);
+  static at::Tensor& remainder_out(
+      const at::Tensor& self,
+      at::Scalar other,
+      at::Tensor& result);
 };
 
 std::tuple<at::Tensor&, at::Tensor&>

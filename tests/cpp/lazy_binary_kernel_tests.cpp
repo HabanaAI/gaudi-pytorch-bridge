@@ -486,3 +486,212 @@ TEST_F(LazyBinaryKernelTest, PowScalarTensor) {
 
   EXPECT_TRUE(at::allclose(expected, generated, rtol, atol, true));
 }
+
+TEST_F(LazyBinaryKernelTest, RemainderTensorTest) {
+  torch::Tensor A = torch::tensor({4, 2}, torch::dtype(torch::kInt16));
+  torch::Tensor B = torch::tensor({4, 2}, torch::dtype(torch::kInt16));
+
+  auto hA = A.to(torch::kHABANA);
+  auto hB = B.to(torch::kHABANA);
+
+  Tensor expected = torch::remainder(A, B);
+  auto result = torch::remainder(hA, hB);
+  Tensor generated = result.to(kCPU);
+
+  double rtol = 1e-05; // NOLINT
+  double atol = 1e-08; // NOLINT
+
+  EXPECT_TRUE(at::allclose(expected, generated, rtol, atol, true));
+}
+
+TEST_F(LazyBinaryKernelTest, RemainderScalarTest) {
+  torch::Tensor A = torch::tensor({4, 2}, torch::dtype(torch::kInt32));
+
+  auto hA = A.to(torch::kHABANA);
+  Scalar B = 2;
+
+  Tensor expected = torch::remainder(A, B);
+  auto result = torch::remainder(hA, B);
+  Tensor generated = result.to(kCPU);
+
+  double rtol = 1e-05; // NOLINT
+  double atol = 1e-08; // NOLINT
+
+  EXPECT_TRUE(at::allclose(expected, generated, rtol, atol, true));
+}
+
+TEST_F(LazyBinaryKernelTest, RemainderTensor0DTest) {
+  torch::Tensor A = torch::tensor({4, 2}, torch::dtype(torch::kInt32));
+  torch::Tensor B = torch::tensor(2);
+
+  auto hA = A.to(torch::kHABANA);
+  auto hB = B.to(torch::kHABANA);
+
+  Tensor expected = torch::remainder(A, B);
+  auto result = torch::remainder(hA, hB);
+  Tensor generated = result.to(kCPU);
+
+  double rtol = 1e-05; // NOLINT
+  double atol = 1e-08; // NOLINT
+
+  EXPECT_TRUE(at::allclose(expected, generated, rtol, atol, true));
+}
+
+TEST_F(LazyBinaryKernelTest, RemainderScalar0DTest) {
+  torch::Tensor A = torch::tensor(3);
+
+  auto hA = A.to(torch::kHABANA);
+  Scalar B = 2;
+
+  Tensor expected = torch::remainder(A, B);
+  auto result = torch::remainder(hA, B);
+  Tensor generated = result.to(kCPU);
+
+  double rtol = 1e-05; // NOLINT
+  double atol = 1e-08; // NOLINT
+
+  EXPECT_TRUE(at::allclose(expected, generated, rtol, atol, true));
+}
+
+TEST_F(LazyBinaryKernelTest, RemainderTensorOutTest) {
+  torch::Tensor A = torch::tensor({4, 2}, torch::dtype(torch::kInt32));
+  torch::Tensor B = torch::tensor({4, 2}, torch::dtype(torch::kInt32));
+  torch::Tensor out = torch::tensor({4, 2}, torch::dtype(torch::kInt32));
+
+  auto hA = A.to(torch::kHABANA);
+  auto hB = B.to(torch::kHABANA);
+  auto hOut = out.to(torch::kHABANA);
+
+  torch::remainder_outf(A, B, out);
+  torch::remainder_outf(hA, hB, hOut);
+  Tensor generated = hOut.to(kCPU);
+
+  double rtol = 1e-05; // NOLINT
+  double atol = 1e-08; // NOLINT
+
+  EXPECT_TRUE(at::allclose(out, generated, rtol, atol, true));
+}
+
+TEST_F(LazyBinaryKernelTest, RemainderScalarOutTest) {
+  torch::Tensor A = torch::tensor({4, 2}, torch::dtype(torch::kInt32));
+  Scalar B = 2;
+  torch::Tensor out = torch::tensor({4, 2}, torch::dtype(torch::kInt32));
+
+  auto hA = A.to(torch::kHABANA);
+  auto hOut = out.to(torch::kHABANA);
+
+  torch::remainder_outf(A, B, out);
+  torch::remainder_outf(hA, B, hOut);
+  Tensor generated = hOut.to(kCPU);
+
+  double rtol = 1e-05; // NOLINT
+  double atol = 1e-08; // NOLINT
+
+  EXPECT_TRUE(at::allclose(out, generated, rtol, atol, true));
+}
+
+TEST_F(LazyBinaryKernelTest, RemainderTensorOut0dTest) {
+  torch::Tensor A = torch::tensor({4, 2}, torch::dtype(torch::kInt32));
+  torch::Tensor B = torch::tensor(3);
+  torch::Tensor out = torch::tensor({4, 2}, torch::dtype(torch::kInt32));
+
+  auto hA = A.to(torch::kHABANA);
+  auto hB = B.to(torch::kHABANA);
+  auto hOut = out.to(torch::kHABANA);
+
+  torch::remainder_outf(A, B, out);
+  torch::remainder_outf(hA, hB, hOut);
+  Tensor generated = hOut.to(kCPU);
+
+  double rtol = 1e-05; // NOLINT
+  double atol = 1e-08; // NOLINT
+
+  EXPECT_TRUE(at::allclose(out, generated, rtol, atol, true));
+}
+
+TEST_F(LazyBinaryKernelTest, RemainderTensorResizeOutTest) {
+  torch::Tensor A = torch::tensor({4, 2}, torch::dtype(torch::kInt32));
+  torch::Tensor B = torch::tensor(3);
+  torch::Tensor out = torch::empty({1}, torch::dtype(torch::kInt32));
+
+  auto hA = A.to(torch::kHABANA);
+  auto hB = B.to(torch::kHABANA);
+  auto hOut = out.to(torch::kHABANA);
+
+  torch::remainder_outf(A, B, out);
+  torch::remainder_outf(hA, hB, hOut);
+  Tensor generated = hOut.to(kCPU);
+
+  double rtol = 1e-05; // NOLINT
+  double atol = 1e-08; // NOLINT
+
+  EXPECT_TRUE(at::allclose(out, generated, rtol, atol, true));
+}
+
+TEST_F(LazyBinaryKernelTest, RemainderScalarResizeOutTest) {
+  torch::Tensor A = torch::tensor({4, 2, 6}, torch::dtype(torch::kInt32));
+  Scalar B = 3;
+  torch::Tensor out = torch::empty({1}, torch::dtype(torch::kInt32));
+
+  auto hA = A.to(torch::kHABANA);
+  auto hOut = out.to(torch::kHABANA);
+
+  torch::remainder_outf(A, B, out);
+  torch::remainder_outf(hA, B, hOut);
+  Tensor generated = hOut.to(kCPU);
+
+  double rtol = 1e-05; // NOLINT
+  double atol = 1e-08; // NOLINT
+
+  EXPECT_TRUE(at::allclose(out, generated, rtol, atol, true));
+}
+
+TEST_F(LazyBinaryKernelTest, RemainderTensorInplaceTest) {
+  // Inplace op as output node is not supported yet.
+  torch::Tensor A = torch::tensor({4, 2}, torch::dtype(torch::kInt32));
+  torch::Tensor B = torch::tensor({4, 2}, torch::dtype(torch::kInt32));
+
+  auto hA = A.to(torch::kHABANA);
+  auto hB = B.to(torch::kHABANA);
+
+  A.remainder_(B);
+  auto exp = A;
+
+  hA.remainder_(hB);
+  Tensor out = hA.to(kCPU);
+
+  EXPECT_EQ(allclose(out, exp, 0.001, 0.001), true);
+}
+
+TEST_F(LazyBinaryKernelTest, RemainderScalarInplaceTest) {
+  // Inplace op as output node is not supported yet.
+  torch::Tensor A = torch::tensor({4, 2}, torch::dtype(torch::kInt32));
+  Scalar B = 2;
+
+  auto hA = A.to(torch::kHABANA);
+
+  A.remainder_(B);
+  auto exp = A;
+
+  hA.remainder_(B);
+  Tensor out = hA.to(kCPU);
+
+  EXPECT_EQ(allclose(out, exp, 0.001, 0.001), true);
+}
+
+TEST_F(LazyBinaryKernelTest, RemainderTensorInplace0DTest) {
+  // Inplace op as output node is not supported yet.
+  torch::Tensor A = torch::tensor({4, 2}, torch::dtype(torch::kInt32));
+  torch::Tensor B = torch::tensor(3);
+
+  auto hA = A.to(torch::kHABANA);
+  auto hB = B.to(torch::kHABANA);
+
+  A.remainder_(B);
+  auto exp = A;
+
+  hA.remainder_(hB);
+  Tensor out = hA.to(kCPU);
+
+  EXPECT_EQ(allclose(out, exp, 0.001, 0.001), true);
+}
