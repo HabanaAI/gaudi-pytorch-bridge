@@ -278,6 +278,167 @@ Tensor& relu_hpu_(Tensor& self) {
 }
 
 /*************************************************************************
+ * @brief Kernel implementation for self = torch.leakyrelu_(self)
+ * @param [out] self - output tensor, 1-4D, BF16/FP32
+ * @param [in] self - input tensor, 1-4D, BF16/FP32
+ * @param [in] negative_slope - scalar of type double
+ ************************************************************************/
+Tensor& leaky_relu_hpu_(Tensor& self, at::Scalar negative_slope) {
+  PT_KERNEL_BEGIN;
+  bool isSelf_0d = false;
+  if (self.dim() == 0) {
+    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    isSelf_0d = true;
+  }
+  at::ScalarType scalar_type = self.scalar_type();
+  size_t device_id = self.device().index();
+  // Create the operator
+  // inplace = true
+  LeakyReluOperator Op(device_id, scalar_type, true);
+  std::string node_type =
+      "leakyrelu_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+  // Assign Inputs to the Operator
+  std::vector<at::Tensor> pt_inputs{self};
+  std::vector<c10::IValue> stack = {IValue(self), IValue(negative_slope)};
+
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  size_t key = Op.GetRecipeKey(node_type, stack);
+
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    Op.SetPTInputs(pt_inputs);
+    Op.SetPTOutput(pt_inputs[0]);
+    Op.Execute(key);
+  } else {
+    PT_KERNEL_DEBUG("key:", key);
+    // Create Graph
+    auto graph = habana_helpers::create_graph(device_id, node_type);
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
+    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    Op.Compile(graph);
+  }
+  if (isSelf_0d) {
+    self.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+  }
+  PT_KERNEL_END;
+  return self;
+}
+
+/*************************************************************************
+ * @brief Kernel implementation for self = torch.leakyrelu(self)
+ * @param [out] output - output tensor, 1-4D, BF16/FP32
+ * @param [in] self - input tensor, 1-4D, BF16/FP32
+ * @param [in] negative_slope - scalar of type double
+ ************************************************************************/
+Tensor leaky_relu_hpu(const Tensor& self, at::Scalar negative_slope) {
+  PT_KERNEL_BEGIN;
+  bool isSelf_0d = false;
+  if (self.dim() == 0) {
+    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    isSelf_0d = true;
+  }
+  at::ScalarType scalar_type = self.scalar_type();
+  size_t device_id = self.device().index();
+  // Create the operator
+  LeakyReluOperator Op(device_id, scalar_type);
+  std::string node_type =
+      "leakyrelu_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+  // Assign Inputs to the Operator
+  std::vector<at::Tensor> pt_inputs{self};
+  std::vector<c10::IValue> stack = {IValue(self), IValue(negative_slope)};
+
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  size_t key = Op.GetRecipeKey(node_type, stack);
+
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    auto output =
+        at::empty(self.sizes(), self.options(), self.suggest_memory_format());
+    Op.SetPTInputs(pt_inputs);
+    Op.SetPTOutput(output);
+    Op.Execute(key);
+  } else {
+    PT_KERNEL_DEBUG("key:", key);
+    // Create Graph
+    auto graph = habana_helpers::create_graph(device_id, node_type);
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
+    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    Op.Compile(graph);
+  }
+  std::vector<at::Tensor> out = Op.GetOutputs();
+  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
+  auto output = out.at(0);
+  if (isSelf_0d) {
+    self.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+    output.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+  }
+  PT_KERNEL_END;
+  return output;
+}
+
+at::Tensor leaky_relu_backward_hpu(
+    const at::Tensor& grad_output,
+    const at::Tensor& self,
+    at::Scalar negative_slope,
+    bool self_is_result) {
+  PT_KERNEL_BEGIN;
+  bool isSelf_0d = false;
+  bool isGradOutput_0d = false;
+  if (self.dim() == 0) {
+    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    isSelf_0d = true;
+  }
+  if (grad_output.dim() == 0) {
+    grad_output.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    isGradOutput_0d = true;
+  }
+  at::ScalarType scalar_type = self.scalar_type();
+  size_t device_id = self.device().index();
+  // Create the operator
+  LeakyReluBackwardOperator Op(device_id, scalar_type);
+  std::string node_type =
+      "leakyrelu_bwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+  // Assign Inputs to the Operator
+  std::vector<at::Tensor> pt_inputs{grad_output, self};
+  std::vector<c10::IValue> stack = {
+      IValue(grad_output),
+      IValue(self),
+      IValue(negative_slope),
+      IValue(self_is_result)};
+
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  size_t key = Op.GetRecipeKey(node_type, stack);
+
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    auto output =
+        at::empty(self.sizes(), self.options(), self.suggest_memory_format());
+    Op.SetPTInputs(pt_inputs);
+    Op.SetPTOutput(output);
+    Op.Execute(key);
+  } else {
+    PT_KERNEL_DEBUG("key:", key);
+    // Create Graph
+    auto graph = habana_helpers::create_graph(device_id, node_type);
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
+    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    Op.Compile(graph);
+  }
+  std::vector<at::Tensor> out = Op.GetOutputs();
+  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
+  auto output = out.at(0);
+  if (isSelf_0d) {
+    self.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+    output.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+  }
+  if (isGradOutput_0d) {
+    grad_output.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+  }
+  PT_KERNEL_END;
+  return output;
+}
+
+/*************************************************************************
  * @brief Kernel implementation for output = torch.sigmoid(input)
  * @param [out] output - output tensor, 1-4D, BF16/FP32
  * @param [in] input - input tensor, 1-4D, BF16/FP32
@@ -2077,6 +2238,57 @@ void IsnanOperator::AllocateAndAddSynapseNode(
       is_output_persistent);
   AllocateSynapseOutput(graph, output, is_output_persistent);
   AddNodeToSynapseGraph(graph, nullptr, 0);
+}
+
+/*************************************************************************
+ * @brief Kernel implementation for output = torch.isnan(self)
+ * @param [out] output - output tensor, 1-4D, Bool
+ * @param [in] self - input tensor, 1-4D, BF16/FP32
+ ************************************************************************/
+Tensor isnan_hpu(const Tensor& self) {
+  PT_KERNEL_BEGIN;
+  bool isSelf_0d = false;
+  if (self.dim() == 0) {
+    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    isSelf_0d = true;
+  }
+  at::ScalarType scalar_type = self.scalar_type();
+  std::string node_type =
+      "isnan_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+  // Create the operator
+  size_t device_id = self.device().index();
+  IsnanOperator Op(device_id, scalar_type);
+
+  std::vector<c10::IValue> stack = {IValue(self)};
+  std::vector<at::Tensor> pt_inputs{self};
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  size_t key = Op.GetRecipeKey(node_type, stack);
+
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    auto output = at::empty(
+        self.sizes(),
+        self.options().dtype(c10::ScalarType::Bool),
+        self.suggest_memory_format());
+    Op.SetPTInputs(pt_inputs);
+    Op.SetPTOutput(output);
+    Op.Execute(key);
+  } else {
+    PT_KERNEL_DEBUG("Key:", key);
+    auto graph = habana_helpers::create_graph(device_id, node_type);
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
+    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    Op.Compile(graph);
+  }
+  std::vector<at::Tensor> out = Op.GetOutputs();
+  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
+  auto output = out[0];
+  if (isSelf_0d) {
+    self.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+    output.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+  }
+  PT_KERNEL_END;
+  return output;
 }
 
 static auto& KernelRegistry =

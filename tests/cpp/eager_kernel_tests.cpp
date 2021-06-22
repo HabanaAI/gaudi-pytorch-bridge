@@ -1,5 +1,6 @@
 #include <ATen/ExpandUtils.h>
 #include <gtest/gtest.h>
+#include <math.h>
 #include <torch/torch.h>
 #include <stdexcept>
 #include "habana_kernels/eager_kernels_declarations.h"
@@ -15,6 +16,67 @@ TEST(EagerKernelTest, ReluTest) {
   auto out = torch::relu(tensor);
   bool equal = out.allclose(outHabana.to(torch::kCPU), 0, 0);
   EXPECT_EQ(equal, true);
+}
+
+TEST(EagerKernelTest, LeakyReluTest) {
+  auto A = torch::tensor({-1.0, 5.0, -1.0});
+  auto ha = A.to(torch::kHABANA);
+
+  auto hA = ha.clone();
+  auto cpu_out = torch::leaky_relu(A);
+  auto hpu_out = torch::leaky_relu(hA);
+
+  EXPECT_TRUE(allclose(cpu_out, hpu_out.to("cpu")));
+}
+
+TEST(EagerKernelTest, LeakyRelu0DTest) {
+  auto A = torch::tensor(-1.0);
+  auto ha = A.to(torch::kHABANA);
+
+  auto hA = ha.clone();
+  auto cpu_out = torch::leaky_relu(A);
+  auto hpu_out = torch::leaky_relu(hA);
+
+  EXPECT_TRUE(allclose(cpu_out, hpu_out.to("cpu")));
+}
+
+TEST(EagerKernelTest, LeakyReluInplaceTest) {
+  auto A = torch::tensor({-1.0, 5.0});
+  auto ha = A.to(torch::kHABANA);
+
+  auto hA = ha.clone();
+  torch::leaky_relu_(A);
+  torch::leaky_relu_(hA);
+
+  EXPECT_TRUE(allclose(A, hA.to("cpu")));
+}
+
+TEST(EagerKernelTest, LeakyReluBackwardTest) {
+  const std::vector<int64_t> dimentions{2, 3};
+
+  auto grad = torch::randn(dimentions, torch::requires_grad(false));
+  auto A = torch::randn(dimentions, torch::requires_grad(false));
+
+  auto hgrad = grad.to(torch::kHABANA);
+  auto hA = A.to(torch::kHABANA);
+
+  auto expectedOutput = torch::leaky_relu_backward(grad, A, 0.1, false);
+  auto habanaOutput = torch::leaky_relu_backward(hgrad, hA, 0.1, false);
+
+  EXPECT_TRUE(allclose(expectedOutput, habanaOutput.to("cpu")));
+}
+
+TEST(EagerKernelTest, LeakyReluBackward0DTest) {
+  auto grad = torch::tensor(6.0);
+  auto A = torch::tensor(-1.0);
+
+  auto hgrad = grad.to(torch::kHABANA);
+  auto hA = A.to(torch::kHABANA);
+
+  auto expectedOutput = torch::leaky_relu_backward(grad, A, 0.1, false);
+  auto habanaOutput = torch::leaky_relu_backward(hgrad, hA, 0.1, false);
+
+  EXPECT_TRUE(allclose(expectedOutput, habanaOutput.to("cpu")));
 }
 
 TEST(EagerKernelTest, AddTest) {
@@ -134,6 +196,28 @@ TEST(EagerKernelTest, IsfiniteTest) {
   torch::Tensor outHabana = torch::isfinite(tHabanaX);
   torch::Tensor hout = outHabana.to(torch::kCPU);
 
+  bool equal = cpu_out.equal(hout);
+  EXPECT_EQ(equal, true);
+}
+
+TEST(EagerKernelTest, IsnanTest) {
+  auto input_tensor = torch::tensor({2.0, sqrt(-1.0), 1.0});
+
+  torch::Tensor cpu_out = torch::isnan(input_tensor);
+  torch::Tensor tHabanaX = input_tensor.to(torch::kHABANA);
+  torch::Tensor outHabana = torch::isnan(tHabanaX);
+  torch::Tensor hout = outHabana.to(torch::kCPU);
+  bool equal = cpu_out.equal(hout);
+  EXPECT_EQ(equal, true);
+}
+
+TEST(EagerKernelTest, Isnan0DTest) {
+  auto input_tensor = torch::tensor(sqrt(-1.0));
+
+  torch::Tensor cpu_out = torch::isnan(input_tensor);
+  torch::Tensor tHabanaX = input_tensor.to(torch::kHABANA);
+  torch::Tensor outHabana = torch::isnan(tHabanaX);
+  torch::Tensor hout = outHabana.to(torch::kCPU);
   bool equal = cpu_out.equal(hout);
   EXPECT_EQ(equal, true);
 }

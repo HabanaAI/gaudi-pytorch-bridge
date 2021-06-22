@@ -2386,10 +2386,15 @@ Tensor& hpu_wrap::relu_(Tensor& self) {
   }
 }
 
-at::Tensor& hpu_wrap::leaky_relu_(at::Tensor& self, at::Scalar negative_slope) {
-  if (!hpu_check_inputs_impl(__func__, {self}))
+Tensor& hpu_wrap::leaky_relu_(Tensor& self, Scalar negative_slope) {
+  if (!hpu_check_inputs_impl("leaky_relu_", {self}))
     return AtenHpuTypeDefault::leaky_relu_(self, negative_slope);
-  return leaky_relu_lazy_(self, negative_slope);
+
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    return leaky_relu_lazy_(self, negative_slope);
+  } else {
+    return leaky_relu_hpu_(self, negative_slope);
+  }
 }
 
 at::Tensor hpu_wrap::leaky_relu_backward(
@@ -2397,20 +2402,29 @@ at::Tensor hpu_wrap::leaky_relu_backward(
     const at::Tensor& self,
     at::Scalar negative_slope,
     bool self_is_result) {
-  if (!hpu_check_inputs_impl(__func__, {grad_output, self}))
+  if (!hpu_check_inputs_impl("leaky_relu_backward", {grad_output, self}))
     return AtenHpuTypeDefault::leaky_relu_backward(
         grad_output, self, negative_slope, self_is_result);
-  return leaky_relu_backward_lazy(
-      grad_output, self, negative_slope, self_is_result);
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    return leaky_relu_backward_lazy(
+        grad_output, self, negative_slope, self_is_result);
+  } else {
+    return leaky_relu_backward_hpu(
+        grad_output, self, negative_slope, self_is_result);
+  }
 }
 
 at::Tensor hpu_wrap::leaky_relu(
     const at::Tensor& self,
     at::Scalar negative_slope) {
-  if (!hpu_check_inputs_impl(__func__, {self}))
+  if (!hpu_check_inputs_impl("leaky_relu", {self}))
     return AtenHpuTypeDefault::leaky_relu(self, negative_slope);
 
-  return leaky_relu_lazy(self, negative_slope);
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    return leaky_relu_lazy(self, negative_slope);
+  } else {
+    return leaky_relu_hpu(self, negative_slope);
+  }
 }
 
 Tensor hpu_wrap::sigmoid(const Tensor& input) {
@@ -2696,13 +2710,13 @@ Tensor hpu_wrap::clamp(
 };
 
 Tensor hpu_wrap::isnan(const Tensor& self) {
-  hpu_check_inputs("isnan", {self});
+  if (!hpu_check_inputs_impl("isnan", {self}))
+    return AtenHpuTypeDefault::isnan(self);
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
     return isnan_hpu_lazy(self);
   } else {
-    HABANA_ASSERT(0 && "isnan not implemented for eager mode");
-    return isnan_hpu_lazy(self);
+    return isnan_hpu(self);
   }
 };
 
