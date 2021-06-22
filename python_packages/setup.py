@@ -55,8 +55,10 @@ def get_version():
         version = re.search(r"\d+(\.\d+)*", describe).group(0)
         sha = re.search(r"g([a-z0-9\-]+)", describe).group(1)
         return version + "+" + sha
-    except:
+    except Exception as e:
+        print("Error getting version: {}".format(e), file=sys.stderr)
         return "0.0.0+unknown"
+
 
 hpex_csrc = glob.glob("habana_frameworks/torch/hpex/csrc/*.cpp")
 
