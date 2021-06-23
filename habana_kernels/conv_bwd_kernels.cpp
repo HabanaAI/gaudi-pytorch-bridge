@@ -547,6 +547,8 @@ std::tuple<Tensor, Tensor, Tensor> convolution_backward_hpu(
   const int64_t stride_W = stride[1];
   const int64_t pad_H = padding[0];
   const int64_t pad_W = padding[1];
+  const int64_t dil_H = dilation[0];
+  const int64_t dil_W = dilation[1];
   const int64_t output_H = grad_output.size(2);
   const int64_t output_W = grad_output.size(3);
 
@@ -555,11 +557,11 @@ std::tuple<Tensor, Tensor, Tensor> convolution_backward_hpu(
     TORCH_CHECK(
         output_H ==
         habana_helpers::compute_output_size(
-            input_H, pad_H, filter_H, stride_H, false, false));
+            input_H, pad_H, dil_H, filter_H, stride_H, false, false));
     TORCH_CHECK(
         output_W ==
         habana_helpers::compute_output_size(
-            input_W, pad_W, filter_W, stride_W, false, false));
+            input_W, pad_W, dil_W, filter_W, stride_W, false, false));
   } else {
     // this is checking size computation for conv_tranpose2d bwd
     // which uses conv_fwd, where grad_output is input and grad_in
@@ -567,11 +569,11 @@ std::tuple<Tensor, Tensor, Tensor> convolution_backward_hpu(
     TORCH_CHECK(
         input_H ==
         habana_helpers::compute_output_size(
-            output_H, pad_H, filter_H, stride_H, false, false));
+            output_H, pad_H, dil_H, filter_H, stride_H, false, false));
     TORCH_CHECK(
         input_W ==
         habana_helpers::compute_output_size(
-            output_W, pad_W, filter_W, stride_W, false, false));
+            output_W, pad_W, dil_W, filter_W, stride_W, false, false));
   }
 
   // convert tensors to synapse memory format

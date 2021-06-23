@@ -29,6 +29,17 @@ resnet50_test_case_list = [
     (64, 56, 56, 128, 3, 3, 128, 2, 1, False)
 ]
 
+dilation_test_case_list = [
+    # N, H, W, C, R, S, K, str, pad, dilation, bias
+    #(64, 224, 224, 3, 7, 7, 64, 2, 3, 1, False),
+    #(64, 224, 224, 3, 7, 7, 64, 2, 3, 2, False),
+    #(64, 56, 56, 64, 3, 3, 64, 1, 1, 2, False),
+    #(64, 56, 56, 128, 3, 3, 128, 2, 1, 2, False)
+    (8, 28, 28, 3, 2, 2, 16, 1, 0, 2, True),
+    (2, 3, 4, 5, 2, 2, 6, 1, 0, 2, True),
+    (8, 28, 28, 3, 2, 2, 16, 1, 1, 2, False)
+]
+
 conv_test_case_list = [
     # N, H, W, C, R, S, K, str, pad, bias
     (2, 3, 4, 5, 2, 2, 6, 1, 0, True),
@@ -196,6 +207,30 @@ def test_hpu_conv_fwd_bwd(N, H, W, C, R, S, K, stride, padding, bias, dtype, tol
     np.testing.assert_allclose(out_hpu_bwd[0].view(out_cpu_bwd[0].shape).to(cpu).detach().numpy(),
                 out_cpu_bwd[0].detach().numpy(), atol=0.01, rtol=0.01, equal_nan=True)
 
+@pytest.mark.parametrize("N, H, W, C, R, S, K, stride, padding, dilation, bias", dilation_test_case_list)
+@pytest.mark.parametrize("dtype, tol", data_type_list)
+def test_hpu_conv_fwd_bwd_dilation(N, H, W, C, R, S, K, stride, padding, dilation, bias, dtype, tol):
+    hpu = torch.device('hpu')
+    cpu = torch.device('cpu')
+    input_nchw = torch.randn((N,C,H,W),dtype=torch.float, requires_grad=True)
+
+    kernel_nchw = nn.Conv2d(C,K,R,stride,padding, dilation, 1, bias)
+    kernel_copy = deepcopy(kernel_nchw)
+    #cpu forward
+    out_cpu_nchw = kernel_nchw(input_nchw)
+
+    input_nchw_hpu = input_nchw.to(hpu)
+    kernel_nhwc_hpu = kernel_copy.to(hpu)
+    #Keep HPU weights metadata like sizes and strides same as in CPU, but data permuted for HWCK
+    kernel_nhwc_hpu.weight.data = kernel_nhwc_hpu.weight.data.permute((2, 3, 1, 0))
+    #hpu forward
+    out_cpu_nchw_hpu = kernel_nhwc_hpu(input_nchw_hpu)
+    #create bwd input tensor
+    bwd_in = torch.randn(out_cpu_nchw.shape)
+    out_cpu_bwd = out_cpu_nchw.grad_fn(bwd_in)
+    out_hpu_bwd = out_cpu_nchw_hpu.grad_fn(bwd_in.to(hpu))
+    np.testing.assert_allclose(out_hpu_bwd[0].view(out_cpu_bwd[0].shape).to(cpu).detach().numpy(),
+                out_cpu_bwd[0].detach().numpy(), atol=0.01, rtol=0.01, equal_nan=True)
 
 @pytest.mark.parametrize("N, H, W, C, R, S, K, stride, padding, bias", conv_test_case_list)
 def test_hpu_conv_chlast(N, H, W, C, R, S, K, stride, padding, bias):

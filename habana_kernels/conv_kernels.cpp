@@ -74,6 +74,7 @@ std::vector<int64_t> ConvOperator::compute_output_shape(
     std::vector<int64_t> shape_wt,
     std::vector<int64_t> pad,
     std::vector<int64_t> stride,
+    std::vector<int64_t> dilation,
     const bool ceil_mode,
     const bool transposed,
     c10::MemoryFormat memory_format) {
@@ -98,18 +99,20 @@ std::vector<int64_t> ConvOperator::compute_output_shape(
 
   const auto input_H = shape_in[p_dim_pos_in[1]];
   const auto pad_H = pad[0];
+  const auto dil_H = dilation[0];
   const auto filter_H = shape_wt[p_dim_pos_wt[0]];
   const auto stride_H = stride[0];
 
   const auto output_H = habana_helpers::compute_output_size(
-      input_H, pad_H, filter_H, stride_H, false, transposed);
+      input_H, pad_H, dil_H, filter_H, stride_H, false, transposed);
 
   const auto input_W = shape_in[p_dim_pos_in[2]];
   const auto pad_W = pad[1];
+  const auto dil_W = dilation[1];
   const auto filter_W = shape_wt[p_dim_pos_wt[1]];
   const auto stride_W = stride[1];
   const auto output_W = habana_helpers::compute_output_size(
-      input_W, pad_W, filter_W, stride_W, false, transposed);
+      input_W, pad_W, dil_W, filter_W, stride_W, false, transposed);
 
   auto K = shape_wt[p_dim_pos_wt[3]];
   if (transposed) {
@@ -204,6 +207,7 @@ void SpatialConvOperator::AllocateAndAddSynapseNode(
       weight.sizes().vec(),
       padding,
       stride,
+      dilation,
       false,
       transposed,
       c10::MemoryFormat::ChannelsLast);
@@ -327,6 +331,7 @@ void ConvOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   at::Tensor weight = inputs[1].toTensor();
   const auto stride = inputs[3].toIntList().vec();
   const auto padding = inputs[4].toIntList().vec();
+  const auto dilation = inputs[5].toIntList().vec();
   const bool transposed = inputs[6].toBool();
 
   c10::MemoryFormat memory_format =
@@ -337,6 +342,7 @@ void ConvOperator::SetPTOutputs(torch::jit::Stack& inputs) {
       weight.sizes().vec(),
       padding,
       stride,
+      dilation,
       false,
       transposed,
       c10::MemoryFormat::ChannelsLast);

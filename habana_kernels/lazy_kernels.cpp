@@ -1423,6 +1423,7 @@ Tensor convolution_hpu_lazy(
           weight.sizes().vec(),
           padding.vec(),
           stride.vec(),
+          dilation.vec(),
           false,
           transposed,
           c10::MemoryFormat::Contiguous)});

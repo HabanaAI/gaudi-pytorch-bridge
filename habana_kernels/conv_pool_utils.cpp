@@ -18,17 +18,18 @@ namespace habana_helpers {
 int64_t compute_output_size(
     const int64_t input,
     const int64_t pad,
+    const int64_t dilation,
     const int64_t filter,
     const int64_t stride,
     const bool ceil_mode,
     const bool transposed) {
   TORCH_CHECK(!ceil_mode, "ceil_mode is not yet supported");
   if (!transposed) {
-    return (input + 2 * pad - filter) / stride + 1;
+    return (input + 2 * pad - dilation * (filter - 1) - 1) / stride + 1;
   } else {
     // conv2d fwd output shape computation done as per formula provided below
     // https://pytorch.org/docs/stable/generated/torch.nn.ConvTranspose2d.html#torch.nn.ConvTranspose2d
-    return ((input - 1) * stride - 2 * pad + (filter - 1) + 1);
+    return ((input - 1) * stride - 2 * pad + dilation * (filter - 1) + 1);
   }
 }
 
@@ -113,8 +114,8 @@ void check_convolution_params(
 
   TORCH_CHECK(
       std::all_of(
-          dilation.cbegin(), dilation.cend(), [](int64_t x) { return x == 1; }),
-      "convolution_hpu doesn't support dilation");
+          dilation.cbegin(), dilation.cend(), [](int64_t x) { return x >= 1; }),
+      "convolution_hpu doesn't support dilation with given dilation factor");
   TORCH_CHECK(
       input.device().type() == c10::DeviceType::HABANA,
       "input is not habana at::Tensor");

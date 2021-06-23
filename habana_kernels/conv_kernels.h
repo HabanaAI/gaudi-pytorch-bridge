@@ -46,6 +46,7 @@ class ConvOperator : public habana::HabanaOperator {
       std::vector<int64_t> shape_wt,
       std::vector<int64_t> pad,
       std::vector<int64_t> stride,
+      std::vector<int64_t> dilation,
       const bool ceil_mode,
       const bool transposed,
       c10::MemoryFormat memory_format);

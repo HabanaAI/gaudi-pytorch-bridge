@@ -19,6 +19,7 @@ namespace habana_helpers {
 int64_t compute_output_size(
     const int64_t input,
     const int64_t pad,
+    const int64_t dilation,
     const int64_t filter,
     const int64_t stride,
     const bool ceil_mode,
