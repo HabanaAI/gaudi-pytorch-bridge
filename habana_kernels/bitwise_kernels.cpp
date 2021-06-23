@@ -83,7 +83,7 @@ void BitwiseOutWrapOperator::AllocateAndAddSynapseNode(
     auto constOp = make_operator<ConstantOperator>(
         this->p_context_->device_id_, arg1.scalar_type());
     auto const_shape_tensor = habana_helpers::createPTTensor(
-        arg1, {1}, arg1.options(), arg1.suggest_memory_format(), false);
+        arg1, {1}, arg1.options(), at::MemoryFormat::Contiguous, false);
     torch::jit::Stack constInputs = {IValue(const_shape_tensor), inputs[2]};
     constOp->AllocateAndAddSynapseNode(graph, constInputs, false);
     auto& syn_arg0 =
@@ -132,7 +132,7 @@ void BitwiseNotOutOperator::AllocateAndAddSynapseNode(
   auto constOp = make_operator<ConstantOperator>(
       this->p_context_->device_id_, scalar_type);
   auto const_shape_tensor = habana_helpers::createPTTensor(
-      self, {1}, self.options(), self.suggest_memory_format(), false);
+      self, {1}, self.options(), at::MemoryFormat::Contiguous, false);
   torch::jit::Stack constOp_stack = {
       IValue(const_shape_tensor), IValue(Scalar(1))};
   constOp->AllocateAndAddSynapseNode(graph, constOp_stack, false);

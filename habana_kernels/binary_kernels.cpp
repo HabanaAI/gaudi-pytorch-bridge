@@ -72,6 +72,12 @@ void habana::BinaryOperator::AllocateAndAddSynapseNode(
   std::vector<synTensor> syn_inputs;
   syn_inputs.push_back(arg1_syn_tensor.get());
 
+  auto memory_format = at::MemoryFormat::Contiguous;
+  if ((arg1.suggest_memory_format() == at::MemoryFormat::ChannelsLast) ||
+      (arg2.suggest_memory_format() == at::MemoryFormat::ChannelsLast)) {
+    memory_format = at::MemoryFormat::ChannelsLast;
+  }
+
   // For cases where 2nd argument to a binary op is a scalar (e.g. a = b + 5),
   // but gets converted to a tensor (by dispatcher or bridge) before reaching
   // kernel we need to cast 2nd argument to same type as 1st argument.
@@ -90,7 +96,7 @@ void habana::BinaryOperator::AllocateAndAddSynapseNode(
         arg1,
         IntArrayRef(out_shape.data(), out_shape.size()),
         arg1.options(),
-        arg1.suggest_memory_format(),
+        memory_format,
         c10::ScalarType::BFloat16,
         is_output_persistent);
     AllocateSynapseOutput(graph, output, is_output_persistent);
@@ -101,7 +107,7 @@ void habana::BinaryOperator::AllocateAndAddSynapseNode(
         arg1,
         IntArrayRef(out_shape.data(), out_shape.size()),
         arg1.options(),
-        arg1.suggest_memory_format(),
+        memory_format,
         is_output_persistent);
     AllocateSynapseOutput(graph, output, is_output_persistent);
   }
@@ -157,7 +163,7 @@ void habana::BinaryWrapperOperator::AllocateAndAddSynapseNode(
     auto constOp = make_operator<ConstantOperator>(
         this->p_context_->device_id_, this->scalarType_);
     auto const_shape_tensor = habana_helpers::createPTTensor(
-        arg1, {1}, arg1.options(), arg1.suggest_memory_format(), false);
+        arg1, {1}, arg1.options(), at::MemoryFormat::Contiguous, false);
     torch::jit::Stack constOp_stack = {IValue(const_shape_tensor), inputs[1]};
     constOp->AllocateAndAddSynapseNode(graph, constOp_stack, false);
     binaryOp->SetSynapseInput(p_context_->syn_inputs_[0]);
@@ -173,7 +179,7 @@ void habana::BinaryWrapperOperator::AllocateAndAddSynapseNode(
     auto constOp = make_operator<ConstantOperator>(
         this->p_context_->device_id_, this->scalarType_);
     auto const_shape_tensor = habana_helpers::createPTTensor(
-        arg2, {1}, arg2.options(), arg2.suggest_memory_format(), false);
+        arg2, {1}, arg2.options(), at::MemoryFormat::Contiguous, false);
     torch::jit::Stack constOp_stack = {IValue(const_shape_tensor), inputs[0]};
     constOp->AllocateAndAddSynapseNode(graph, constOp_stack, false);
     UNUSED auto& syn_arg1 =
@@ -229,6 +235,12 @@ void habana::BinaryOperatorWithAlpha::AllocateAndAddSynapseNode(
   Tensor arg1 = inputs[0].toTensor();
   Tensor arg2 = inputs[1].toTensor();
 
+  auto memory_format = at::MemoryFormat::Contiguous;
+  if ((arg1.suggest_memory_format() == at::MemoryFormat::ChannelsLast) ||
+      (arg2.suggest_memory_format() == at::MemoryFormat::ChannelsLast)) {
+    memory_format = at::MemoryFormat::ChannelsLast;
+  }
+
   if (inputs[2].toScalar().toFloat() != 1.0) {
     // Multiplication between arg2 and alpha is required
     auto mulOp = make_operator<habana::MulOperator>(
@@ -244,7 +256,7 @@ void habana::BinaryOperatorWithAlpha::AllocateAndAddSynapseNode(
         arg1,
         IntArrayRef(out_shape.data(), out_shape.size()),
         arg1.options(),
-        arg1.suggest_memory_format(),
+        memory_format,
         is_output_persistent);
 
     AllocateSynapseOutput(graph, output, is_output_persistent);
@@ -270,7 +282,7 @@ void habana::BinaryOperatorWithAlpha::AllocateAndAddSynapseNode(
         arg1,
         IntArrayRef(out_shape.data(), out_shape.size()),
         arg1.options(),
-        arg1.suggest_memory_format(),
+        memory_format,
         is_output_persistent);
     AllocateSynapseOutput(graph, output, is_output_persistent);
 
@@ -329,7 +341,7 @@ void habana::BinaryWrapperOperatorWithAlpha::AllocateAndAddSynapseNode(
     auto constOp = make_operator<ConstantOperator>(
         this->p_context_->device_id_, this->scalarType_);
     auto const_shape_tensor = habana_helpers::createPTTensor(
-        arg1, {1}, arg1.options(), arg1.suggest_memory_format(), false);
+        arg1, {1}, arg1.options(), at::MemoryFormat::Contiguous, false);
     torch::jit::Stack constOp_stack = {IValue(const_shape_tensor), inputs[1]};
     constOp->AllocateAndAddSynapseNode(graph, constOp_stack, false);
     binaryOp->SetSynapseInput(p_context_->syn_inputs_[0]);
@@ -345,7 +357,7 @@ void habana::BinaryWrapperOperatorWithAlpha::AllocateAndAddSynapseNode(
     auto constOp = make_operator<ConstantOperator>(
         this->p_context_->device_id_, this->scalarType_);
     auto const_shape_tensor = habana_helpers::createPTTensor(
-        arg2, {1}, arg2.options(), arg2.suggest_memory_format(), false);
+        arg2, {1}, arg2.options(), at::MemoryFormat::Contiguous, false);
     torch::jit::Stack constOp_stack = {IValue(const_shape_tensor), inputs[0]};
     constOp->AllocateAndAddSynapseNode(graph, constOp_stack, false);
     binaryOp->SetSynapseInput(constOp->GetSynOutputs()[0]);

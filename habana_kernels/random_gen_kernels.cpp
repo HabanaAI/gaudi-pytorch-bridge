@@ -122,7 +122,7 @@ at::Tensor RandpermOperator::GenerateAndCopySeedToHPU(
       ref_tensor,
       {1},
       ref_tensor.options(),
-      ref_tensor.suggest_memory_format(),
+      at::MemoryFormat::Contiguous,
       c10::ScalarType::Int,
       is_persistent);
   auto size = seed_tensor.numel() * seed_tensor.element_size();
@@ -549,7 +549,7 @@ at::Tensor DropoutOperator::GenerateAndCopySeedToHPU(
       ref_tensor,
       {1},
       ref_tensor.options(),
-      ref_tensor.suggest_memory_format(),
+      at::MemoryFormat::Contiguous,
       c10::ScalarType::Int,
       is_persistent);
   auto size = seed_tensor.numel() * seed_tensor.element_size();

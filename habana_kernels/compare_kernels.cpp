@@ -82,7 +82,7 @@ void CompareOutWrapperOperator::AllocateAndAddSynapseNode(
     auto constOp = make_operator<ConstantOperator>(
         this->p_context_->device_id_, this->scalarType_);
     auto const_shape_tensor = habana_helpers::createPTTensor(
-        arg1, {1}, arg1.options(), arg1.suggest_memory_format(), false);
+        arg1, {1}, arg1.options(), at::MemoryFormat::Contiguous, false);
     torch::jit::Stack constOp_stack = {IValue(const_shape_tensor), inputs[1]};
     constOp->AllocateAndAddSynapseNode(graph, constOp_stack, false);
     compareOp->SetSynapseInput(p_context_->syn_inputs_[0]);
