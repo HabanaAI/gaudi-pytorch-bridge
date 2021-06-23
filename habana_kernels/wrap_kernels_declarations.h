@@ -703,7 +703,6 @@ struct hpu_wrap {
       int64_t split_size,
       int64_t dim);
   static at::Tensor& bitwise_and_out(
-
       const at::Tensor& self,
       const at::Tensor& other,
       at::Tensor& out);
@@ -712,12 +711,10 @@ struct hpu_wrap {
       const at::Tensor& self,
       at::Scalar other);*/
   static at::Tensor& bitwise_or_out(
-
       const at::Tensor& self,
       const at::Tensor& other,
       at::Tensor& out);
   static at::Tensor& bitwise_xor_out(
-
       const at::Tensor& self,
       const at::Tensor& other,
       at::Tensor& out);
