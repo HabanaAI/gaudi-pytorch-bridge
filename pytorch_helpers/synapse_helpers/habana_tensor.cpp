@@ -266,21 +266,19 @@ synapse_error_o tensor::create() {
   SYNAPSE_SUCCESS_CHECK_WITH_OP(
       "synTensorHandleCreate failed.", status, cleanup());
 
+  synTensorGeometry maxGeometry;
   // Add tensor dimension via synTensorGeometry
   // Max geometry is also used as the actual geometry. In synapse side,
   // synGeometryMaxSizes is aliased to synGeometrySizes
-  uint32_t maxSizes[SYN_MAX_TENSOR_DIM] = {0};
-  size_t sizesSize = SYN_MAX_TENSOR_DIM * sizeof(uint32_t);
+  uint32_t maxSizes[sizeof(maxGeometry.sizes) / sizeof(uint32_t)] = {0};
 
   // TBD: Once GC min-max shape inferencing is available, the non_persistent
   // synapse tensors shapes need to be zero-filled.
   std::copy_n(
       shape_.max_.data(), shape_.max_.rank().value, std::begin(maxSizes));
 
-  synTensorGeometry maxGeometry;
   maxGeometry.dims = shape_.max().rank().value;
-  ;
-  memcpy(maxGeometry.sizes, maxSizes, sizesSize);
+  memcpy(maxGeometry.sizes, maxSizes, sizeof(maxGeometry.sizes));
   status = synTensorSetGeometry(tensor_, &maxGeometry, synGeometrySizes);
   SYNAPSE_SUCCESS_CHECK_WITH_OP(
       "synTensorSetGeometry failed.", status, cleanup());
@@ -292,9 +290,9 @@ synapse_error_o tensor::create() {
   // but currently only default strides are allowed.
   // If the given strides are empty (zeros) then they will be calculated
   // inside the tensor according to its geometry.
-  uint32_t strides[SYN_MAX_TENSOR_DIM - 1] = {0};
   synTensorDeviceLayout deviceLayout;
-  memcpy(deviceLayout.strides, strides, sizesSize - 1);
+  uint32_t strides[sizeof(deviceLayout.strides) / sizeof(uint32_t)] = {0};
+  memcpy(deviceLayout.strides, strides, sizeof(deviceLayout.strides));
   deviceLayout.deviceDataType = data_type_;
   if (tensor_type_ == SHAPE_TENSOR ||
       tensor_type_ == INPUT_DESCRIBING_SHAPE_TENSOR ||
@@ -306,16 +304,16 @@ synapse_error_o tensor::create() {
       "synTensorSetDeviceLayout failed.", status, cleanup());
 
   if (has_dynamic_shape()) {
-    uint32_t minSizes[SYN_MAX_TENSOR_DIM] = {0};
+    synTensorGeometry minGeometry;
+    uint32_t minSizes[sizeof(minGeometry.sizes) / sizeof(uint32_t)] = {0};
 
     // TBD: Once GC min-max shape inferencing is available, the non_persistent
     // synapse tensors shapes need to be zero-filled.
     std::copy_n(
         shape_.min_.data(), shape_.min_.rank().value, std::begin(minSizes));
 
-    synTensorGeometry minGeometry;
     minGeometry.dims = shape_.min().rank().value;
-    memcpy(minGeometry.sizes, minSizes, sizesSize);
+    memcpy(minGeometry.sizes, minSizes, sizeof(minGeometry.sizes));
     status = synTensorSetGeometry(tensor_, &minGeometry, synGeometryMinSizes);
     SYNAPSE_SUCCESS_CHECK_WITH_OP(
         "synTensorSetGeometry min sizes failed.", status, cleanup());
