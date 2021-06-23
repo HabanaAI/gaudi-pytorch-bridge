@@ -10,6 +10,8 @@
 #pragma once
 #include <synapse_api_types.h>
 #include <synapse_helpers/device.h>
+#include <atomic>
+#include <deque>
 #include <list>
 #include <unordered_map>
 #include "Chunk.h"
@@ -70,7 +72,7 @@ class BinUtils {
 
 class CoalescedStringentPooling : public PoolingStrategy {
  public:
-  CoalescedStringentPooling();
+  CoalescedStringentPooling(uint64_t max_count, bool enable_merge);
   ~CoalescedStringentPooling();
   bool pool_create(synDeviceId deviceID, uint64_t size) const override;
   void pool_destroy() const override;
@@ -81,10 +83,7 @@ class CoalescedStringentPooling : public PoolingStrategy {
  private:
   struct chunkcompare {
     bool operator()(const Chunk* a, const Chunk* b) {
-      // sort by size, break ties with pointer
-      if (a->size != b->size) {
-        return a->size < b->size;
-      }
+      // sort by memptr
       return a->memptr < b->memptr;
     };
   };
@@ -98,23 +97,22 @@ class CoalescedStringentPooling : public PoolingStrategy {
   mutable uint64_t bytes_in_use;
   mutable simple_coalesced_pool_t* prealloc_pool;
   mutable BinUtils* bin_utils;
+  mutable bool enable_lfu_merging;
+  mutable std::deque<Chunk*> chunks_to_merge;
+  uint64_t max_merge_count;
 
   void* alloc_chunk(uint64_t size) const;
   void delete_chunk(void* p) const;
   Chunk* reuse_chunks(uint64_t size) const;
   Chunk* get_free_chunk(uint64_t size) const;
   Chunk* get_any_available_free_chunk(uint64_t size) const;
-  bool canMergePreviousChunk(Chunk* chunk, uint64_t size) const;
-  bool canMergeNextChunk(Chunk* chunk, uint64_t size) const;
-  Chunk* try_splitting_chunks(Chunk* chunk, uint64_t size) const;
-  bool pool_defragment(uint64_t size) const;
-  bool merge_chunks(std::list<uint64_t> ptrs, bool merge_nxt, uint64_t size)
-      const;
-  Chunk* merge(Chunk* c1, Chunk* c2) const;
+  void try_splitting_chunks(Chunk* chunk, uint64_t size) const;
+  Chunk* try_to_merge(Chunk* c, bool freed_count) const;
+  bool defragment_chunks(uint64_t size) const;
+  void merge(Chunk* c1, Chunk* c2) const;
   Chunk* create_chunk() const;
   Chunk* try_block_splitting(uint64_t size) const;
-  Chunk* try_defragmenting(void* ptr, uint64_t size) const;
-  bool isContigousBlockAvailable(uint64_t size) const;
+  Chunk* try_defragmenting(uint64_t size) const;
   bool isChunkContigous(Chunk* chunk1, Chunk* chunk2) const;
   uint64_t getContigousChunkSize(Chunk* chunk) const;
   void print_pool_stats() const;

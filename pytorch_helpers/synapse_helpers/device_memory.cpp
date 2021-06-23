@@ -80,8 +80,11 @@ device_memory::device_memory(device& device) : device_{device} {
     case pool_allocator::startegy_coalesce_stringent:
       try {
         PT_SYNHELPER_DEBUG("startegy_coalesce_stringent:: ", pool_size_);
+        uint64_t max_merge_count = GET_ENV_FLAG(PT_HPU_POOL_MAX_MERGE_COUNT);
+        bool enable_lfu_merging = GET_ENV_FLAG(PT_HPU_POOL_ENABLE_LFU_MERGE);
         suballoc_ = new pool_allocator::SubAllocator(
-            new pool_allocator::CoalescedStringentPooling);
+            new pool_allocator::CoalescedStringentPooling(
+                max_merge_count, enable_lfu_merging));
         if (suballoc_ == nullptr) {
           PT_SYNHELPER_FATAL("unable to create pool allocator");
         }

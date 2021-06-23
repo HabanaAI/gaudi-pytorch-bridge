@@ -36,6 +36,11 @@ Bin* BinUtils::BinForSize(size_t bytes) const {
 }
 
 void BinUtils::InsertFreeChunkIntoBin(Chunk* c) const {
+  PT_SYNHELPER_DEBUG(
+      "POOL:: InsertFreeChunkIntoBin - memptr = ",
+      c->memptr,
+      ", bin_index = ",
+      c->bin_index);
   if (!c->used && (c->bin_index == kInvalidBinNum)) {
     uint64_t bin_index = BinIndexForSize(c->size);
     Bin* new_bin = BinFromIndex(bin_index);
@@ -48,9 +53,14 @@ void BinUtils::InsertFreeChunkIntoBin(Chunk* c) const {
 }
 
 void BinUtils::RemoveFreeChunkFromBin(Chunk* c) const {
+  PT_SYNHELPER_DEBUG(
+      "POOL:: RemoveFreeChunkFromBin - memptr = ",
+      c->memptr,
+      ", bin_index = ",
+      c->bin_index);
   if (!c->used && (c->bin_index != kInvalidBinNum)) {
-    uint64_t bin_index = BinFromIndex(c->bin_index)->free_chunks.erase(c);
-    if (bin_index > 0) {
+    int count = BinFromIndex(c->bin_index)->free_chunks.erase(c);
+    if (count < 0) {
       PT_SYNHELPER_DEBUG("could not find chunk in bin");
     } else {
       c->bin_index = kInvalidBinNum;
@@ -65,12 +75,19 @@ void BinUtils::RemoveFreeChunkIterFromBin(
     Bin::FreeChunkSet* free_chunks,
     const Bin::FreeChunkSet::iterator& citer) const {
   Chunk* c = *citer;
+  PT_SYNHELPER_DEBUG(
+      "POOL:: RemoveFreeChunkIterFromBin - memptr = ",
+      c->memptr,
+      ", bin_index = ",
+      c->bin_index);
   HABANA_ASSERT(!c->used && (c->bin_index != kInvalidBinNum));
   free_chunks->erase(citer);
   c->bin_index = kInvalidBinNum;
 }
 
-CoalescedStringentPooling::CoalescedStringentPooling() {
+CoalescedStringentPooling::CoalescedStringentPooling(
+    uint64_t max_count,
+    bool enable_merge) {
   pool_id = 0;
   chunk_count = 0;
   allocted_chunk_size = 0;
@@ -81,6 +98,8 @@ CoalescedStringentPooling::CoalescedStringentPooling() {
   prealloc_pool = nullptr;
   bin_utils = new BinUtils();
   small_allocs_ = nullptr;
+  max_merge_count = max_count;
+  enable_lfu_merging = enable_merge;
 }
 
 CoalescedStringentPooling::~CoalescedStringentPooling() {
@@ -256,10 +275,7 @@ void* CoalescedStringentPooling::FindChunkPtr(
          ++citer) {
       Chunk* chunk = *citer;
       HABANA_ASSERT(!chunk->used);
-
-      if ((chunk->size == num_bytes) ||
-          ((chunk->size > num_bytes) &&
-           (num_bytes > DEFRAGMENT_TH(chunk->size)))) {
+      if (chunk->size >= num_bytes) {
         // We found an existing chunk that fits us that wasn't in use, so remove
         // it from the free bin structure prior to using.
         bin_utils->RemoveFreeChunkIterFromBin(&b->free_chunks, citer);
@@ -273,6 +289,7 @@ void* CoalescedStringentPooling::FindChunkPtr(
                 kMaxInternalFragmentation) {
           try_splitting_chunks(chunk, num_bytes);
         }
+        bin_utils->InsertFreeChunkIntoBin(chunk);
 
         PT_SYNHELPER_DEBUG("Returning: ", chunk->memptr);
 
@@ -432,63 +449,15 @@ uint64_t CoalescedStringentPooling::getContigousChunkSize(Chunk* chunk) const {
   return ctgs_chunks_size;
 }
 
-bool CoalescedStringentPooling::isContigousBlockAvailable(uint64_t size) const {
-  uint64_t ctgs_chunks_size = 0;
-  Bin* bin = bin_utils->BinForSize(size);
-  for (auto& chunk : bin->free_chunks) {
-    if (!chunk->used && (chunk->size != 0)) {
-      ctgs_chunks_size = getContigousChunkSize(chunk);
-      if (ctgs_chunks_size >= size) {
-        PT_SYNHELPER_DEBUG(
-            "POOL:: ctgs_chunks_size available for defragmentation");
-        return true;
-      }
+Chunk* CoalescedStringentPooling::try_defragmenting(uint64_t size) const {
+  if (!chunks_to_merge.empty()) {
+    if (!defragment_chunks(size)) {
+      PT_SYNHELPER_DEBUG("no chunks found for requested size after merge");
+      return nullptr;
     }
   }
-  return false;
-}
-
-Chunk* CoalescedStringentPooling::try_defragmenting(void* ptr, uint64_t size)
-    const {
-  simple_coalesced_pool_t* p = (simple_coalesced_pool_t*)ptr;
-
-  bool isFreeBlockAvailble = false;
-  uint16_t counter = 0;
-  Bin* bin = bin_utils->BinForSize(size);
-  if (bin->free_chunks.empty()) {
-    PT_SYNHELPER_DEBUG("POOL:: no free blocks availabe: ");
-    return nullptr;
-  }
-  do {
-    isFreeBlockAvailble = pool_defragment(size);
-    counter++;
-    if (isFreeBlockAvailble) {
-      PT_SYNHELPER_DEBUG(
-          "POOL:: free block available for use for size : ", size);
-      break;
-    }
-    // worse case :parse the entire list once for every chunk to find free
-    // blocks
-    if (counter > bin->free_chunks.size()) {
-      PT_SYNHELPER_DEBUG(
-          "POOL:: no more contigous chunks to accomodate request in the pool !");
-      break;
-    }
-
-  } while ((!isFreeBlockAvailble) && (isContigousBlockAvailable(size)));
-
   auto free_chunk = get_free_chunk(size);
   if (free_chunk == nullptr) {
-    if (isFreeBlockAvailble) {
-      PT_SYNHELPER_DEBUG(
-          "POOL:: Free blocks available -- block split, p->end :: ",
-          p->end,
-          " p->next :: ",
-          p->next,
-          " max_pool_size :: ",
-          max_pool_size);
-      isFreeBlockAvailble = false;
-    }
     PT_SYNHELPER_DEBUG(
         "POOL:: no more reusable chunk after defragment: extend pool !!");
     return nullptr;
@@ -523,27 +492,17 @@ Chunk* CoalescedStringentPooling::reuse_chunks(uint64_t size) const {
 }
 
 Chunk* CoalescedStringentPooling::try_block_splitting(uint64_t size) const {
-  Chunk* big_chunk = nullptr;
-  big_chunk = get_any_available_free_chunk(size);
-  if (big_chunk) {
+  Chunk* chunk = nullptr;
+  chunk = get_any_available_free_chunk(size);
+  if (chunk) {
     PT_SYNHELPER_DEBUG(
-        "Get any available free chunk:: ",
-        big_chunk,
-        " of Size:: ",
-        big_chunk->size);
-    auto split_chunk = try_splitting_chunks(big_chunk, size);
-    if (split_chunk) {
-      PT_SYNHELPER_DEBUG(
-          "POOL:: bigger chunk split :: big_chunk :: ",
-          big_chunk,
-          " big_chunk size :: ",
-          big_chunk->size,
-          " split chunk :: ",
-          split_chunk,
-          " split chunk size :: ",
-          split_chunk->size);
-      return split_chunk;
-    }
+        "Get any available free chunk:: ", chunk, " of Size:: ", chunk->size);
+    bin_utils->RemoveFreeChunkFromBin(chunk);
+    try_splitting_chunks(chunk, size);
+    bin_utils->InsertFreeChunkIntoBin(chunk);
+    PT_SYNHELPER_DEBUG(
+        "After split chunk:: ", chunk, " of Size:: ", chunk->size);
+    return chunk;
   }
   return nullptr;
 }
@@ -570,6 +529,7 @@ void* CoalescedStringentPooling::alloc_chunk(uint64_t size) const {
   if (prealloc_pool != p) {
     PT_SYNHELPER_FATAL("POOL:: alloc unknown pool !!");
   }
+
   PT_SYNHELPER_DEBUG(
       "POOL:: pool_alloc_chunk request in pool :: ", p, " for size :: ", size);
   auto old_chunk = reuse_chunks(size);
@@ -598,9 +558,14 @@ void* CoalescedStringentPooling::alloc_chunk(uint64_t size) const {
     return (void*)old_chunk->memptr;
   }
 
+  if (!chunks_to_merge.empty()) {
+    // Merge chunks whose counts have become safe for general use.
+    defragment_chunks(0);
+  }
+
   if (pool_available(p) < size) {
     // TBD: implement better algorithms
-    auto defrag_chunk = try_defragmenting(p, size);
+    auto defrag_chunk = try_defragmenting(size);
     if (defrag_chunk) {
       ++chunk_count;
       /* remove from pool */
@@ -682,24 +647,7 @@ void* CoalescedStringentPooling::alloc_chunk(uint64_t size) const {
   return (void*)chunk->memptr;
 }
 
-bool CoalescedStringentPooling::canMergeNextChunk(Chunk* chunk, uint64_t size)
-    const {
-  return (
-      !chunk->used && chunk->next && !chunk->next->used && chunk->next->size &&
-      ((chunk->size + chunk->next->size) >= size));
-}
-
-bool CoalescedStringentPooling::canMergePreviousChunk(
-    Chunk* chunk,
-    uint64_t size) const {
-  PT_SYNHELPER_DEBUG("POOL:: Next chunk is not contigous or free ", size);
-
-  return (
-      !chunk->used && chunk->prev && !chunk->prev->used && chunk->prev->size &&
-      ((chunk->size + chunk->prev->size) >= size));
-}
-
-Chunk* CoalescedStringentPooling::try_splitting_chunks(
+void CoalescedStringentPooling::try_splitting_chunks(
     Chunk* chunk,
     uint64_t size) const {
   PT_SYNHELPER_DEBUG(
@@ -711,23 +659,12 @@ Chunk* CoalescedStringentPooling::try_splitting_chunks(
       chunk->memptr,
       " next:: ",
       (chunk->next ? chunk->next->memptr : 0));
-  if (chunk->size < size) {
-    PT_SYNHELPER_DEBUG(
-        "POOL:: chunk cant be split, chunk is smaller. chunk size:: ",
-        chunk->size,
-        " split size:: ",
-        size);
-    return nullptr;
-  }
-
-  // Delete the old chunk before modifying the size
-  bin_utils->RemoveFreeChunkFromBin(chunk);
 
   // Allocate the new chunk
   Chunk* new_chunk = new Chunk();
   //  SplitChunk extracts requested size from the beginning of the given chunk
 
-  HABANA_ASSERT(!chunk->used && (chunk->bin_index != kInvalidBinNum));
+  HABANA_ASSERT(!chunk->used && (chunk->bin_index == kInvalidBinNum));
 
   // new chunk starts size after chunk
   new_chunk->memptr = (chunk->memptr) + size;
@@ -737,6 +674,7 @@ Chunk* CoalescedStringentPooling::try_splitting_chunks(
   chunk->size = size;
 
   new_chunk->used = false;
+  new_chunk->freed_counter = 0;
 
   // maintain the prev and next pointers
   // c1<->c2 ==> c1<->new_chunk<->c2
@@ -752,9 +690,10 @@ Chunk* CoalescedStringentPooling::try_splitting_chunks(
     // update top
     prealloc_pool->top = new_chunk;
   }
+
+  chunks[new_chunk->memptr] = new_chunk;
   // Add the newly free chunk to the free bin.
   bin_utils->InsertFreeChunkIntoBin(new_chunk);
-  bin_utils->InsertFreeChunkIntoBin(chunk);
   chunks[new_chunk->memptr] = new_chunk;
 
   PT_SYNHELPER_DEBUG(
@@ -775,10 +714,9 @@ Chunk* CoalescedStringentPooling::try_splitting_chunks(
       chunk->memptr,
       " next::",
       (chunk->next ? chunk->next->memptr : 0));
-  return chunk;
 }
 
-Chunk* CoalescedStringentPooling::merge(Chunk* c1, Chunk* c2) const {
+void CoalescedStringentPooling::merge(Chunk* c1, Chunk* c2) const {
   PT_SYNHELPER_DEBUG(
       "Merge C1::",
       c1,
@@ -798,8 +736,7 @@ Chunk* CoalescedStringentPooling::merge(Chunk* c1, Chunk* c2) const {
       " next:: ",
       (c2->next ? c2->next->memptr : 0));
   if (c1->used || c2->used) {
-    PT_SYNHELPER_DEBUG(" Chunk is in use, cannot merge ");
-    return nullptr;
+    PT_SYNHELPER_FATAL(" Chunk is in use, cannot merge ");
   }
 
   if (c2->prev != c1) {
@@ -808,7 +745,6 @@ Chunk* CoalescedStringentPooling::merge(Chunk* c1, Chunk* c2) const {
         c2->prev->memptr,
         " not equal to c1::",
         c1->memptr);
-    return nullptr;
   }
   // check if c1 and c2 address are contigous(addtional check)
   if ((c1->memptr + c1->size) != c2->memptr) {
@@ -817,15 +753,12 @@ Chunk* CoalescedStringentPooling::merge(Chunk* c1, Chunk* c2) const {
         c1->memptr,
         " c2-?memptr:",
         c2->memptr);
-    return nullptr;
   }
 
   if (prealloc_pool->top == c2) {
     // update top
     prealloc_pool->top = c1;
   }
-  bin_utils->RemoveFreeChunkFromBin(c1);
-  bin_utils->RemoveFreeChunkFromBin(c2);
 
   // maint the prev & next pointers
   // c1 previous will remain the same, merge c1 ->c2
@@ -838,6 +771,7 @@ Chunk* CoalescedStringentPooling::merge(Chunk* c1, Chunk* c2) const {
     c3->prev = c1;
 
   c1->size += c2->size;
+  c1->freed_counter = std::max(c1->freed_counter, c2->freed_counter);
 
   // Delete the c2 chunks
   /* remove c2 from chunks map*/
@@ -853,7 +787,6 @@ Chunk* CoalescedStringentPooling::merge(Chunk* c1, Chunk* c2) const {
   c2->memptr = 0;
   c2->next = nullptr;
   c2->prev = nullptr;
-  bin_utils->InsertFreeChunkIntoBin(c1);
 
   PT_SYNHELPER_DEBUG(
       "Merged Chunk C1::",
@@ -864,113 +797,92 @@ Chunk* CoalescedStringentPooling::merge(Chunk* c1, Chunk* c2) const {
       c1->memptr,
       " next:: ",
       (c1->next ? c1->next->memptr : 0));
-  return c1;
 }
 
-bool CoalescedStringentPooling::merge_chunks(
-    std::list<uint64_t> ptrs,
-    bool merge_nxt,
-    uint64_t size) const {
-  bool isFreeBlockAvailble = false;
+Chunk* CoalescedStringentPooling::try_to_merge(Chunk* c, bool ignore_freed)
+    const {
+  if ((!ignore_freed) && c->freed_counter > 0)
+    return c;
+  Chunk* coalesced_chunk = c;
 
-  for (auto& ptr : ptrs) {
-    auto it = chunks.find(ptr);
-    if (it == chunks.end()) // in some cases chunk would have been merged, so it
-                            // wont be in the map
-      continue;
-    Chunk* chunk = it->second;
-    Chunk* new_chunk = nullptr;
-    if (merge_nxt) {
-      if (chunk->next && !chunk->next->used)
-        new_chunk = merge(chunk, chunk->next);
-    } else {
-      if (chunk->prev && !chunk->prev->used)
-        new_chunk = merge(chunk->prev, chunk);
-    }
-
-    if (new_chunk && new_chunk->size >= size) {
-      isFreeBlockAvailble = true;
-      PT_SYNHELPER_DEBUG(
-          "POOL:: pool defragmentation succeeded for requested size :: ",
-          size,
-          " chunk->size :: ",
-          new_chunk->size);
-      if (size < DEFRAGMENT_TH(new_chunk->size)) {
-        PT_SYNHELPER_DEBUG(
-            "POOL:: try block splitting for size :: ",
-            size,
-            " in chunk of chunk->size :: ",
-            new_chunk->size);
-        auto split_chunk = try_splitting_chunks(new_chunk, size);
-        if (split_chunk) {
-          PT_SYNHELPER_DEBUG(
-              "POOL:: chunk splitted successfully :: newchunk :: ",
-              split_chunk,
-              " new chunk size :: ",
-              split_chunk->size,
-              " old chunk :: ",
-              new_chunk,
-              " old chunk size :: ",
-              new_chunk->size);
-        }
-      }
-      break;
+  // If the next chunk is free, merge it into c and delete it.
+  if (c->next != nullptr && !(c->next)->used) {
+    Chunk* new_chunk = c->next;
+    if ((new_chunk->freed_counter == 0) || ignore_freed) {
+      bin_utils->RemoveFreeChunkFromBin(c->next);
+      merge(c, c->next);
     }
   }
-  return isFreeBlockAvailble;
+
+  // If the previous chunk is free, merge c into it and delete c.
+  if (c->prev != nullptr && !(c->prev)->used) {
+    Chunk* new_chunk = c->prev;
+    if ((new_chunk->freed_counter == 0) || ignore_freed) {
+      coalesced_chunk = c->prev;
+      bin_utils->RemoveFreeChunkFromBin(c->prev);
+      merge(c->prev, c);
+    }
+  }
+
+  return coalesced_chunk;
 }
 
-bool CoalescedStringentPooling::pool_defragment(uint64_t size) const {
-  bool isFreeBlockAvailble = false;
-  PT_SYNHELPER_DEBUG("POOL:: Try to coalesce and split if needed");
+bool CoalescedStringentPooling::defragment_chunks(uint64_t size) const {
+  bool isFreeBlockAvailble = (size == 0);
   std::list<uint64_t> to_merge;
-
-  for (uint64_t bin_index = 0; bin_index < kNumBins; bin_index++) {
-    Bin* b = bin_utils->BinFromIndex(bin_index);
-    // check previous chunks
-    for (auto& chunk : b->free_chunks) {
-      if (canMergeNextChunk(chunk, size)) {
-        // coalesce adjacent free chunks
-        to_merge.push_front(chunk->memptr);
-      }
+  std::deque<Chunk*> new_chunks_to_merge;
+  while (!chunks_to_merge.empty()) {
+    Chunk* c = chunks_to_merge.front();
+    chunks_to_merge.pop_front();
+    // Make sure chunk has not already been merged
+    if (c->used || (c->bin_index == kInvalidBinNum)) {
+      continue;
     }
-    if (!to_merge.empty())
-      isFreeBlockAvailble = merge_chunks(to_merge, true, size);
-
-    // check next chunks
-    if (!isFreeBlockAvailble) {
-      to_merge.clear();
-      for (auto& chunk : b->free_chunks) {
-        if (canMergePreviousChunk(chunk, size)) {
-          // coalesce adjacent free chunks
-          to_merge.push_front(chunk->memptr);
-        }
-      }
-      if (!to_merge.empty())
-        isFreeBlockAvailble = merge_chunks(to_merge, false, size);
+    if (c->freed_counter == 0) {
+      to_merge.push_back(c->memptr);
+      continue;
     }
 
-    // try merge the left out chunks irrespective of size
-    if (!isFreeBlockAvailble) {
-      to_merge.clear();
-      for (auto& chunk : b->free_chunks) {
-        if (chunk->next && !chunk->next->used) {
-          to_merge.push_front(chunk->memptr);
-        }
-      }
-      if (!to_merge.empty())
-        isFreeBlockAvailble = merge_chunks(to_merge, true, size);
+    HABANA_ASSERT(c->bin_index != kInvalidBinNum);
+    if (c->freed_counter < max_merge_count) {
+      c->freed_counter = 0;
+      to_merge.push_back(c->memptr);
+    } else if (size > 0) {
+      to_merge.push_back(c->memptr);
+    } else {
+      new_chunks_to_merge.push_back(c);
     }
+  }
+  HABANA_ASSERT(chunks_to_merge.empty());
+  std::swap(chunks_to_merge, new_chunks_to_merge);
 
-    if (!isFreeBlockAvailble) {
-      to_merge.clear();
-      for (auto& chunk : b->free_chunks) {
-        if (chunk->prev && !chunk->prev->used) {
-          to_merge.push_front(chunk->memptr);
+  // All candidate chunks have been moved from chunks_to_merge to to_merge.
+  // size == 0  : standard merge, merge them all,
+  // otherwise  : merge just until a Chunk of the required size is produced.
+  for (auto& ptr : to_merge) {
+    auto it = chunks.find(ptr);
+    if (it == chunks.end())
+      continue;
+    Chunk* c = it->second;
+
+    if (size == 0 || !isFreeBlockAvailble) {
+      HABANA_ASSERT(c->bin_index != kInvalidBinNum);
+      HABANA_ASSERT(!c->used);
+      bin_utils->RemoveFreeChunkFromBin(c);
+      Chunk* new_chunk = try_to_merge(c, (size > 0));
+      bin_utils->InsertFreeChunkIntoBin(new_chunk);
+      if (size > 0) {
+        if (new_chunk->memptr != c->memptr && new_chunk->freed_counter > 0) {
+          chunks_to_merge.push_back(new_chunk);
+        }
+        if (new_chunk->size >= size) {
+          isFreeBlockAvailble = true;
         }
       }
-      if (!to_merge.empty())
-        isFreeBlockAvailble = merge_chunks(to_merge, false, size);
+    } else {
+      // We were force merging Chunks, but managed
+      // to create a satisfying Chunk so just requeue the rest.
+      chunks_to_merge.push_back(c);
     }
   }
   return isFreeBlockAvailble;
@@ -996,11 +908,18 @@ void CoalescedStringentPooling::delete_chunk(void* ptr) const {
   HABANA_ASSERT(it != chunks.end());
   Chunk* chunk = it->second;
   chunk->used = false;
+  chunk->bin_index = kInvalidBinNum;
   chunk->extra_space = 0;
   --chunk_count;
   bytes_in_use -= chunk->size;
 
-  bin_utils->InsertFreeChunkIntoBin(chunk);
+  if (enable_lfu_merging) {
+    chunk->freed_counter += 1;
+    bin_utils->InsertFreeChunkIntoBin(chunk);
+    chunks_to_merge.push_back(chunk);
+  } else {
+    bin_utils->InsertFreeChunkIntoBin(chunk);
+  }
 }
 
 CoalescedStringentPooling::SmallAllocs::SmallAllocs(
