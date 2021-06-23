@@ -365,6 +365,25 @@ class NegOperator : public UnaryOperator {
             device_id,
             "neg_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {}
 };
+
+// Sin Operator
+class SinOperator : public UnaryOperator {
+ public:
+  SinOperator(int device_id, c10::ScalarType scalarType)
+      : UnaryOperator(
+            device_id,
+            "sin_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {}
+};
+
+// Cos Operator
+class CosOperator : public UnaryOperator {
+ public:
+  CosOperator(int device_id, c10::ScalarType scalarType)
+      : UnaryOperator(
+            device_id,
+            "cos_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {}
+};
+
 //
 // ReciprocalOut Operator
 class ReciprocalOutOperator : public HabanaOperator {

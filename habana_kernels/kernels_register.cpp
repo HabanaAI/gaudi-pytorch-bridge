@@ -2804,6 +2804,26 @@ Tensor hpu_wrap::neg(const Tensor& self) {
     return neg_hpu(self);
   }
 };
+Tensor hpu_wrap::sin(const Tensor& self) {
+  if (!hpu_check_inputs_impl("sin", {self}))
+    return AtenHpuTypeDefault::sin(self);
+
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    return sin_hpu_lazy(self);
+  } else {
+    return sin_hpu(self);
+  }
+};
+Tensor hpu_wrap::cos(const Tensor& self) {
+  if (!hpu_check_inputs_impl("cos", {self}))
+    return AtenHpuTypeDefault::cos(self);
+
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    return cos_hpu_lazy(self);
+  } else {
+    return cos_hpu(self);
+  }
+};
 Tensor hpu_wrap::floor(const Tensor& input) {
   if (!hpu_check_inputs_impl("floor", {input}))
     return AtenHpuTypeDefault::floor(input);

@@ -35,6 +35,8 @@ at::Tensor asinh_hpu_lazy(const at::Tensor& self);
 at::Tensor atan_hpu_lazy(const at::Tensor& self);
 at::Tensor atanh_hpu_lazy(const at::Tensor& self);
 at::Tensor cosh_hpu_lazy(const at::Tensor& self);
+at::Tensor sin_hpu_lazy(const at::Tensor& self);
+at::Tensor cos_hpu_lazy(const at::Tensor& self);
 
 at::Tensor& acosh_hpu_lazy_(at::Tensor& self);
 at::Tensor& asinh_hpu_lazy_(at::Tensor& self);

@@ -34,6 +34,13 @@ unary_op_list = [
     torch.log2,
     torch.sign,
     torch.sgn,
+    torch.sin,
+    torch.cos,
+]
+
+unary_op_0d_list = [
+    torch.sin,
+    torch.cos,
 ]
 
 unary_inplace_op_list = [
@@ -133,6 +140,11 @@ def test_hpu_binary_op_out_intype(N, H, W, C, unary_op, kernel_params_fwd):
     kernel_params_fwd['out'] = torch.empty((N, C, H, W))
     evaluate_fwd_kernel(kernel=unary_op, kernel_params=kernel_params_fwd)
 
+@pytest.mark.parametrize("unary_op", unary_op_0d_list)
+def test_hpu_binary_op_0D(unary_op):
+    kernel_params_fwd = {}
+    kernel_params_fwd['input'] = torch.tensor(1.0)
+    evaluate_fwd_kernel(kernel=unary_op, kernel_params=kernel_params_fwd)
 
 @pytest.mark.parametrize("N, H, W, C", test_case_list)
 @pytest.mark.parametrize("lp_norm_op", [torch.norm])

@@ -1978,6 +1978,22 @@ static const std::unordered_map<
               at::ScalarType::Long}},
         },
         {
+            "sin",
+            {{
+                at::ScalarType::Float,
+                at::ScalarType::BFloat16,
+                at::ScalarType::Double,
+            }},
+        },
+        {
+            "cos",
+            {{
+                at::ScalarType::Float,
+                at::ScalarType::BFloat16,
+                at::ScalarType::Double,
+            }},
+        },
+        {
             "floor",
             {{
                 at::ScalarType::Float,

@@ -667,6 +667,8 @@ at::Tensor& rsqrt_hpu_(at::Tensor& self);
 at::Tensor isfinite_hpu(const at::Tensor& self);
 at::Tensor isnan_hpu(const at::Tensor& self);
 at::Tensor neg_hpu(const at::Tensor& self);
+at::Tensor sin_hpu(const at::Tensor& self);
+at::Tensor cos_hpu(const at::Tensor& self);
 at::Tensor argmax_hpu(
     const at::Tensor& self,
     c10::optional<int64_t> dim,

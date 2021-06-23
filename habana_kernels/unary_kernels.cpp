@@ -2095,6 +2095,68 @@ Tensor neg_hpu(const Tensor& self) {
   return out;
 }
 
+/*************************************************************************
+ * @brief Kernel implementation for output = torch.sin(self)
+ * @param [out] output - output tensor, 1-5D, BF16/FP32
+ * @param [in] self - input tensor, 1-5D, BF16/FP32
+ ************************************************************************/
+Tensor sin_hpu(const Tensor& self) {
+  PT_KERNEL_BEGIN;
+
+  bool isSelf_0d = false;
+  if (self.dim() == 0) {
+    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    isSelf_0d = true;
+  }
+
+  at::ScalarType scalar_type = self.scalar_type();
+  std::string node_type =
+      "sin_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+
+  // Create the operator
+  size_t device_id = self.device().index();
+  SinOperator Op(device_id, scalar_type);
+
+  auto out = unary_op_hpu(self, node_type, &Op);
+  if (isSelf_0d) {
+    self.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+    out.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+  }
+  PT_KERNEL_END;
+  return out;
+}
+
+/*************************************************************************
+ * @brief Kernel implementation for output = torch.cos(self)
+ * @param [out] output - output tensor, 1-5D, BF16/FP32
+ * @param [in] self - input tensor, 1-5D, BF16/FP32
+ ************************************************************************/
+Tensor cos_hpu(const Tensor& self) {
+  PT_KERNEL_BEGIN;
+
+  bool isSelf_0d = false;
+  if (self.dim() == 0) {
+    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    isSelf_0d = true;
+  }
+  at::ScalarType scalar_type = self.scalar_type();
+  std::string node_type =
+      "cos_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+
+  // Create the operator
+  size_t device_id = self.device().index();
+  CosOperator Op(device_id, scalar_type);
+
+  auto out = unary_op_hpu(self, node_type, &Op);
+
+  if (isSelf_0d) {
+    self.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+    out.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+  }
+  PT_KERNEL_END;
+  return out;
+}
+
 void HardsigmoidOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
@@ -2417,6 +2479,16 @@ static auto& KernelRegistry =
             "aten::neg",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<NegOperator>(device_id, node_type);
+            })
+        .add(
+            "aten::sin",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<SinOperator>(device_id, node_type);
+            })
+        .add(
+            "aten::cos",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<CosOperator>(device_id, node_type);
             })
         .add(
             "aten::sign",

@@ -643,3 +643,25 @@ TEST_F(LazyUnaryKernelTest, Silu) {
   auto cpu_out = torch::silu(input_tensor);
   EXPECT_TRUE(allclose(hout, cpu_out));
 }
+
+TEST_F(LazyUnaryKernelTest, SinTest) {
+  auto A = torch::randn({4, 5});
+  auto hA = A.to(torch::kHABANA);
+
+  A = torch::sin(A);
+  hA = torch::sin(hA);
+  auto hout = hA.to("cpu");
+
+  EXPECT_TRUE(allclose(hout, A));
+}
+
+TEST_F(LazyUnaryKernelTest, CosTest) {
+  auto A = torch::tensor(1.0);
+  auto hA = A.to(torch::kHABANA);
+
+  A = torch::cos(A);
+  hA = torch::cos(hA);
+  auto hout = hA.to("cpu");
+
+  EXPECT_TRUE(allclose(hout, A));
+}

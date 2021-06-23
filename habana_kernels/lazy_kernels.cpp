@@ -807,6 +807,16 @@ Tensor& cos_hpu_lazy_(Tensor& self) {
   LazyOp<at::Tensor&> k{"aten::cos_", {self}};
   return k.call(self);
 }
+Tensor sin_hpu_lazy(const Tensor& self) {
+  PT_LAZY_TRACE;
+  LazyOp<at::Tensor> k{"aten::sin", {self}};
+  return k.call();
+}
+Tensor cos_hpu_lazy(const Tensor& self) {
+  PT_LAZY_TRACE;
+  LazyOp<at::Tensor> k{"aten::cos", {self}};
+  return k.call();
+}
 Tensor& tanh_hpu_lazy_(Tensor& self) {
   PT_LAZY_TRACE;
   LazyOp<at::Tensor&> k{"aten::tanh_", {self}};
