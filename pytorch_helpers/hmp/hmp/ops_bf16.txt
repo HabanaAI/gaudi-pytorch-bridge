@@ -1,8 +1,0 @@
-addmm
-bmm
-conv1d
-conv2d
-conv3d
-dot
-mm
-mv

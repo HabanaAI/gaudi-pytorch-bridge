@@ -172,7 +172,6 @@ if (BUILD_PKGS)
     ${CMAKE_SOURCE_DIR}/habana_kernels/pytorch-extensions/optimizer_adagrad-extension
     ${CMAKE_SOURCE_DIR}/habana_kernels/pytorch-extensions/optimizer_sgd-extension
     ${CMAKE_SOURCE_DIR}/habana_kernels/pytorch-extensions/preproc-extension
-    ${CMAKE_SOURCE_DIR}/pytorch_helpers/hmp
     ${CMAKE_SOURCE_DIR}/pytorch_helpers/dataloader/multithreaded_dataloader
     ${CMAKE_SOURCE_DIR}/habana_distributed
     ${CMAKE_SOURCE_DIR}/python_packages
