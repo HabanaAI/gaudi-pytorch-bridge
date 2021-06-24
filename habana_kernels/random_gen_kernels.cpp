@@ -465,6 +465,7 @@ void BernoulliScalarOperator::AllocateAndAddSynapseNode(
     auto memcopyOp = make_operator<MemCopyOperator>(
         this->p_context_->device_id_, castOp->GetOutputs()[0].scalar_type());
     memcopyOp->SetSynapseInput(std::move(castOp->GetSynOutputs()[0]));
+    memcopyOp->SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
     stack.emplace_back(IValue(castOp->GetOutputs()[0]));
     stack.emplace_back(IValue(self));
     memcopyOp->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
@@ -477,6 +478,7 @@ void BernoulliScalarOperator::AllocateAndAddSynapseNode(
     auto memcopyOp = make_operator<MemCopyOperator>(
         this->p_context_->device_id_, brnliOp->GetOutputs()[0].scalar_type());
     memcopyOp->SetSynapseInput(std::move(brnliOp->GetSynOutputs()[0]));
+    memcopyOp->SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
     stack.emplace_back(IValue(brnliOp->GetOutputs()[0]));
     stack.emplace_back(IValue(self));
     memcopyOp->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);

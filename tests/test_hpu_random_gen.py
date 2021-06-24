@@ -165,5 +165,4 @@ def test_hpu_rand_gen_bernoulli_fwd(N, H, W, C, min, max, seed):
 
 
 if __name__ == '__main__':
-    test_hpu_rand_gen_uniform_fwd(*test_cast_list_4d[0])
-    test_hpu_rand_gen_normal_fwd(*test_cast_list_4d[0])
+    test_hpu_rand_gen_bernoulli_fwd_scalar(*test_cast_list_4d[0])
