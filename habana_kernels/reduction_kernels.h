@@ -32,7 +32,6 @@ class ReduceOperator : public HabanaOperator {
 
   virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
 
- private:
   /**
    * @brief This function wraps any negative dims in the input dims List
    * to a positive value within valid range. Also sorts inputs dims in
@@ -43,6 +42,7 @@ class ReduceOperator : public HabanaOperator {
       int64_t dim,
       int64_t dims_to_reduce);
 
+ private:
   /**
    * @brief This function creates a graph with 1 or more reduction nodes
    * (according to dims provided in "in_dim"). This is done because TPC

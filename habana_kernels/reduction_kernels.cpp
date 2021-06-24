@@ -89,8 +89,11 @@ void allocate_reduction_result(
           tht_result, shape.size(), shape.data(), nullptr);
     }
   } else {
-    result = at::empty(
-        shape, self.options().dtype(dtype), self.suggest_memory_format());
+    auto memory_format = self.suggest_memory_format();
+    if (shape.size() < 4) {
+      memory_format = at::MemoryFormat::Contiguous;
+    }
+    result = at::empty(shape, self.options().dtype(dtype), memory_format);
   }
 }
 
@@ -342,8 +345,8 @@ ReduceOperator::CreateReductionGraph(
   syn_intermediate.emplace_back(synOutput.get());
 
   // add reduction nodes corresponding to intermediate stages
-  std::string node_type = this->guid_;
   for (unsigned i = 0; i < in_dim.size(); i++) {
+    std::string node_type = this->guid_;
     ns_Reduction::Params params{};
     params.reductionDimension = pyt_tensor.dim() - in_dim[i] - 1;
 
@@ -390,12 +393,21 @@ void SumDimOperator::AllocateAndAddSynapseNode(
       inputs[2].isBool(), "Input arg4 expected to be Bool for SumDim operator");
 
   auto self = inputs[0].toTensor();
+  auto dim = inputs[1].toIntList();
+  bool keepdim = inputs[2].toBool();
+
+  // Remove duplicates in dim list
+  ReduceOperator::sort_dims(dim, self.dim(), dim.size());
+  // compute number of output dims
+  auto output_dims = self.dim() - (!(keepdim)*dim.size());
+  // output follows input memory_format for all cases
+  // except when output has less than 4 dims
+  auto memory_format = self.suggest_memory_format();
+  if (output_dims < 4) {
+    memory_format = at::MemoryFormat::Contiguous;
+  }
   Tensor output = habana_helpers::createPTTensor(
-      self,
-      {0},
-      self.options(),
-      self.suggest_memory_format(),
-      is_output_persistent);
+      self, {0}, self.options(), memory_format, is_output_persistent);
   inputs.insert(inputs.begin(), IValue(output));
 
   ReduceOperator::AllocateAndAddSynapseNode(
@@ -575,12 +587,18 @@ void MeanDimOperator::AllocateAndAddSynapseNode(
       keepdim || static_cast<int64_t>(dim.size()) != ndim,
       "Reduction to 0d tensor not supported yet");
 
+  // Remove duplicates in dim list
+  ReduceOperator::sort_dims(dim, ndim, dim.size());
+  // compute number of output dims
+  auto output_dims = ndim - (!(keepdim)*dim.size());
+  // output follows input memory_format for all cases
+  // except when output has less than 4 dims
+  auto memory_format = self.suggest_memory_format();
+  if (output_dims < 4) {
+    memory_format = at::MemoryFormat::Contiguous;
+  }
   Tensor output = habana_helpers::createPTTensor(
-      self,
-      {0},
-      self.options(),
-      self.suggest_memory_format(),
-      is_output_persistent);
+      self, {0}, self.options(), memory_format, is_output_persistent);
   inputs.insert(inputs.begin(), IValue(output));
 
   ReduceOperator::AllocateAndAddSynapseNode(
@@ -610,7 +628,6 @@ Tensor mean_dim_hpu(
 
   if (device.get_recipe_handle_cache().isCached(key)) {
     PT_KERNEL_DEBUG("Cache hit key:", key);
-    Tensor output;
     Op.SetPTInputs(pt_inputs);
     Op.SetPTOutputs(stack);
     Op.Execute(key);
@@ -766,7 +783,8 @@ void ProdDimOperator::AllocateAndAddSynapseNode(
       self,
       {0},
       self.options(),
-      self.suggest_memory_format(),
+      // keepdim = false => output dim < 4
+      keepdim ? self.suggest_memory_format() : at::MemoryFormat::Contiguous,
       is_output_persistent);
   inputs.insert(inputs.begin(), IValue(output));
 
@@ -838,7 +856,7 @@ void SumOperator::AllocateAndAddSynapseNode(
       self,
       {0},
       self.options(),
-      self.suggest_memory_format(),
+      at::MemoryFormat::Contiguous,
       is_output_persistent);
 
   auto ndim = self.dim();
@@ -943,7 +961,7 @@ void MeanOperator::AllocateAndAddSynapseNode(
       self,
       {0},
       self.options(),
-      self.suggest_memory_format(),
+      at::MemoryFormat::Contiguous,
       is_output_persistent);
   auto ndim = self.dim();
   int64_t data[4];
@@ -1042,7 +1060,7 @@ void ProdOperator::AllocateAndAddSynapseNode(
       self,
       {0},
       self.options(),
-      self.suggest_memory_format(),
+      at::MemoryFormat::Contiguous,
       is_output_persistent);
   auto ndim = self.dim();
   int64_t data[4];
@@ -1693,6 +1711,7 @@ void ArgMaxOperator::AllocateAndAddSynapseNode(
 
   Tensor self = inputs[0].toTensor();
   auto dim = inputs[1].toOptional<int64_t>();
+  auto keepdim = inputs[2].toBool();
   std::vector<int64_t> dimArr;
 
   if (dim.has_value()) {
@@ -1709,7 +1728,8 @@ void ArgMaxOperator::AllocateAndAddSynapseNode(
       self,
       {0},
       self.options(),
-      self.suggest_memory_format(),
+      // keepdim = false => output dim < 4
+      keepdim ? self.suggest_memory_format() : at::MemoryFormat::Contiguous,
       c10::ScalarType::Int,
       is_output_persistent);
   inputs.insert(inputs.begin(), IValue(output));
