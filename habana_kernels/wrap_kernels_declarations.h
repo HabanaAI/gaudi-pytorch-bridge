@@ -158,6 +158,8 @@ struct hpu_wrap {
   static at::Tensor lt(const at::Tensor& self, const at::Tensor& other);
   static at::Tensor ge(const at::Tensor& self, at::Scalar other);
   static at::Tensor ge(const at::Tensor& self, const at::Tensor& other);
+  static at::Tensor le(const at::Tensor& self, at::Scalar other);
+  static at::Tensor le(const at::Tensor& self, const at::Tensor& other);
   static at::Tensor convolution_overrideable(
       const at::Tensor& input,
       const at::Tensor& weight,

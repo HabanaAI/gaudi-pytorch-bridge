@@ -23,6 +23,7 @@ compare_op_list = [
     (torch.eq, {}),
     (torch.lt, {}),
     (torch.ge, {}),
+    (torch.le, {}),
     (torch.ne, {})
 ]
 
@@ -70,6 +71,13 @@ def test_hpu_compare_op_scalar(N, H, W, C, compare_op, kernel_params_fwd):
     kernel_params_fwd = {}
     kernel_params_fwd["input"] = torch.randn(N, C, H, W)
     kernel_params_fwd["other"] = 0.5
+    evaluate_fwd_kernel(kernel=compare_op, kernel_params=kernel_params_fwd)
+
+@pytest.mark.parametrize("compare_op", [torch.le])
+def test_hpu_compare_op_0D_tensor(compare_op):
+    kernel_params_fwd = {}
+    kernel_params_fwd["input"] = torch.tensor(1.0)
+    kernel_params_fwd["other"] = torch.tensor(1.0)
     evaluate_fwd_kernel(kernel=compare_op, kernel_params=kernel_params_fwd)
 
 

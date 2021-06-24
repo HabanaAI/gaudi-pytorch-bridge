@@ -1405,6 +1405,23 @@ Tensor ge_tensor_hpu_lazy(const Tensor& self, const Tensor& other) {
   return k.call();
 }
 
+Tensor le_scalar_hpu_lazy(const Tensor& self, Scalar other) {
+  PT_LAZY_TRACE;
+  LazyCompareOp<at::Tensor> k{
+      "aten::le", {self, other}, {}, {self.sizes().vec()}};
+  return k.call();
+}
+
+Tensor le_tensor_hpu_lazy(const Tensor& self, const Tensor& other) {
+  PT_LAZY_TRACE;
+  LazyCompareOp<at::Tensor> k{
+      "aten::le",
+      {self, other},
+      {},
+      {CompareWrapperOperator::compute_output_shape(self, other)}};
+  return k.call();
+}
+
 Tensor convolution_hpu_lazy(
     const Tensor& input,
     const Tensor& weight,

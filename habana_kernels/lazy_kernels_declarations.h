@@ -154,6 +154,8 @@ at::Tensor all_hpu_lazy(const at::Tensor& self);
 at::Tensor all_dim_hpu_lazy(const at::Tensor& self, int64_t dim, bool keepdim);
 at::Tensor ge_scalar_hpu_lazy(const at::Tensor& self, at::Scalar other);
 at::Tensor ge_tensor_hpu_lazy(const at::Tensor& self, const at::Tensor& other);
+at::Tensor le_scalar_hpu_lazy(const at::Tensor& self, at::Scalar other);
+at::Tensor le_tensor_hpu_lazy(const at::Tensor& self, const at::Tensor& other);
 at::Tensor eq_tensor_hpu_lazy(const at::Tensor& self, const at::Tensor& other);
 at::Tensor eq_tensor_scalar_hpu_lazy(const at::Tensor& self, at::Scalar other);
 at::Tensor lt_scalar_hpu_lazy(const at::Tensor& self, at::Scalar other);

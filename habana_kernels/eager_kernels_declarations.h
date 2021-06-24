@@ -118,6 +118,8 @@ at::Tensor maximum_hpu(const at::Tensor& self, const at::Tensor& other);
 at::Tensor minimum_hpu(const at::Tensor& self, const at::Tensor& other);
 at::Tensor ge_scalar_hpu(const at::Tensor& self, at::Scalar other);
 at::Tensor ge_tensor_hpu(const at::Tensor& self, const at::Tensor& other);
+at::Tensor le_scalar_hpu(const at::Tensor& self, at::Scalar other);
+at::Tensor le_tensor_hpu(const at::Tensor& self, const at::Tensor& other);
 at::Tensor ne_scalar_hpu(const at::Tensor& self, at::Scalar other);
 at::Tensor ne_tensor_hpu(const at::Tensor& self, const at::Tensor& other);
 at::Tensor all_hpu(const at::Tensor& self);

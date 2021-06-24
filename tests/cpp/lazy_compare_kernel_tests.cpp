@@ -109,6 +109,34 @@ TEST_F(LazyCompareKernelTest, GeTensorTest) {
       true);
 }
 
+TEST_F(LazyCompareKernelTest, LeScalarTest) {
+  torch::Tensor A = torch::rand({2, 2}, torch::requires_grad(false));
+  float compVal = 1.1f;
+  auto out_cpu = torch::le(A, compVal);
+
+  auto hA = A.to(torch::kHABANA);
+  auto result = torch::le(hA, compVal);
+  torch::Tensor out_hpu = result.to(torch::kCPU);
+
+  EXPECT_TRUE(out_cpu.equal(out_hpu));
+}
+
+TEST_F(LazyCompareKernelTest, LeTensorTest) {
+  const std::vector<int64_t> dimentions{5, 3, 4};
+
+  torch::Tensor A = torch::randn(dimentions);
+  torch::Tensor B = torch::tensor(1.0);
+
+  auto expected = torch::le(A, B);
+  auto hA = A.to(torch::kHABANA);
+  auto hB = B.to(torch::kHABANA);
+
+  auto result = torch::le(hA, hB);
+  torch::Tensor habanaGenerated = result.to(torch::kCPU);
+
+  EXPECT_TRUE(expected.equal(habanaGenerated));
+}
+
 TEST_F(LazyCompareKernelTest, NeScalarTest) {
   torch::Tensor A = torch::rand({2, 2}, torch::requires_grad(false));
   float compVal = 1.1f;

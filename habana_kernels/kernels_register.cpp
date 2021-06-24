@@ -543,6 +543,28 @@ Tensor hpu_wrap::ge(const Tensor& self, const Tensor& other) {
     return ge_tensor_hpu(self, other);
   }
 };
+Tensor hpu_wrap::le(const Tensor& self, Scalar other) {
+  if (!hpu_check_inputs_impl("le", {self}))
+    return AtenHpuTypeDefault::le(self, other);
+
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    return le_scalar_hpu_lazy(self, other);
+
+  } else {
+    return le_scalar_hpu(self, other);
+  }
+};
+Tensor hpu_wrap::le(const Tensor& self, const Tensor& other) {
+  if (!hpu_check_inputs_impl("le", {self, other}))
+    return AtenHpuTypeDefault::le(self, other);
+
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    return le_tensor_hpu_lazy(self, other);
+
+  } else {
+    return le_tensor_hpu(self, other);
+  }
+};
 Tensor hpu_wrap::ne(const Tensor& self, Scalar other) {
   if (!hpu_check_inputs_impl("ne", {self}))
     return AtenHpuTypeDefault::ne(self, other);

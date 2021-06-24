@@ -376,6 +376,65 @@ Tensor ge_tensor_hpu(const Tensor& self, const Tensor& other) {
 }
 
 /*************************************************************************
+ * @brief Kernel implementation for out = torch.le(self,other)
+ * @param self [in] - input tensor, 1-5D, FP32/BF16/I8/U8/I32
+ * @param other [in] - Scalar
+ ************************************************************************/
+Tensor le_scalar_hpu(const Tensor& self, Scalar other) {
+  PT_KERNEL_BEGIN;
+  bool isSelf_0d = false;
+  if (self.dim() == 0) {
+    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    isSelf_0d = true;
+  }
+  std::vector<at::Tensor> pt_inputs{self};
+  torch::jit::Stack stack{IValue(self), IValue(other)};
+  auto output = compare_op_hpu<LeOperator>(pt_inputs, stack, "less_equal");
+  if (isSelf_0d) {
+    self.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+    output.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+  }
+  PT_KERNEL_END;
+  return output;
+}
+
+/*************************************************************************
+ * @brief Kernel implementation for out = torch.le(self,other)
+ * @param self [in] - input tensor, 1-5D, FP32/BF16/I8/U8/I32
+ * @param other [in] - input tensor, 1-5D, FP32/BF16/I8/U8/I32
+ ************************************************************************/
+Tensor le_tensor_hpu(const Tensor& self, const Tensor& other) {
+  PT_KERNEL_BEGIN;
+  bool isSelf_0d = false;
+  bool isOther_0d = false;
+  if (self.dim() == 0) {
+    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    isSelf_0d = true;
+  }
+  if (other.dim() == 0) {
+    other.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    isOther_0d = true;
+  }
+
+  std::vector<at::Tensor> pt_inputs{self, other};
+  torch::jit::Stack stack{IValue(self), IValue(other)};
+  auto output = compare_op_hpu<LeOperator>(pt_inputs, stack, "less_equal");
+
+  if (isSelf_0d && isOther_0d) {
+    output.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+  }
+  if (isSelf_0d) {
+    self.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+  }
+  if (isOther_0d) {
+    other.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+  }
+
+  PT_KERNEL_END;
+  return output;
+}
+
+/*************************************************************************
  * @brief Kernel implementation for aten.ne(self, other)
  * @param self - tensor_0
  * @param other - tensor_1
@@ -499,4 +558,14 @@ static auto& KernelRegistry =
             "aten::ge.Scalar",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<GeOperator>(device_id, node_type);
+            })
+        .add(
+            "aten::le.Tensor",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<LeOperator>(device_id, node_type);
+            })
+        .add(
+            "aten::le.Scalar",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<LeOperator>(device_id, node_type);
             });

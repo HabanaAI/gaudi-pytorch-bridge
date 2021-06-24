@@ -129,4 +129,14 @@ class GeOutOperator : public CompareOutWrapperOperator {
             "greater_equal_fwd_" +
                 habana_helpers::name_suffix_from_type(scalarType)) {}
 };
+
+class LeOperator : public CompareWrapperOperator {
+ public:
+  LeOperator(int device_id, c10::ScalarType scalarType)
+      : CompareWrapperOperator(
+            device_id,
+            scalarType,
+            "less_equal_fwd_" +
+                habana_helpers::name_suffix_from_type(scalarType)) {}
+};
 } // namespace habana
