@@ -64,7 +64,6 @@ TEST(DS_DynamicBucketInfoTest, Simple) {
   // std::cout << "Collect info with input tensor shapes:" << '\n' << s0;
   // std::cout << "Returned bucket id : " << bidx << '\n';
   // std::cout << '\n' << bucket_info;
-
   habana_helpers::DynamicBucketInfo::InpTensorShapes s1(get_shape(5, 30));
   bucket_info.CollectDynamicDims(s1);
   bidx = bucket_info.GetBucketId(s1);
@@ -101,18 +100,17 @@ TEST(DS_DynamicBucketInfoTest, Simple) {
   // std::cout << '\n' << bucket_info;
 
   habana_helpers::DynamicBucketInfo::InpTensorShapes s4(get_shape(60, 150));
-  for (int i = 0;
-       i < habana_helpers::DynamicBucketInfo::min_iterations_to_split() * 1.5;
-       ++i) {
+  uint64_t iter_cnt{0};
+  uint64_t max_iter_cnt{
+      habana_helpers::DynamicBucketInfo::min_iterations_to_split() * 2};
+  while (iter_cnt++ < max_iter_cnt) {
     bucket_info.CollectDynamicDims(s4);
     bidx = bucket_info.GetBucketId(s4);
   }
   ASSERT_EQ(bidx, 2);
 
-  // std::cout << "Collected info with the following for "
-  //<< habana_helpers::DynamicBucketInfo::min_iterations_to_split()
-  //<< " times with input tensor shapes ::" << '\n'
-  //<< s4;
+  // std::cout << "Collected info with the following for " << max_iter_cnt
+  // std::cout << " times with input tensor shapes ::" << '\n' << s4;
   // std::cout << "Last returned bucket id : " << bidx << '\n';
   // std::cout << '\n' << bucket_info;
 
@@ -140,6 +138,134 @@ TEST(DS_DynamicBucketInfoTest, Simple) {
   // std::cout << "Collect info with input tensor shapes:" << '\n' << s6;
   // std::cout << "Returned bucket id : " << bidx << '\n';
   // std::cout << '\n' << bucket_info;
+
+  if (!refine_enabled) {
+    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
+  }
+}
+
+TEST(DS_DynamicBucketInfoTest, SplitStatImpl) {
+  bool refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  if (!refine_enabled) {
+    setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
+  }
+  size_t bidx_default{}, bidx_dynamic;
+  habana_helpers::DynamicBucketInfo::InpTensorShapes s0(get_shape(2, 2));
+
+  habana_helpers::DynamicBucketInfo binfo_default(
+      habana_helpers::SplitPolicy::DEFAULT);
+  binfo_default.CollectDynamicDims(s0);
+  bidx_default = binfo_default.GetBucketId(s0);
+  ASSERT_EQ(bidx_default, 0);
+
+  habana_helpers::DynamicBucketInfo binfo_dynamic(
+      habana_helpers::SplitPolicy::DYNAMIC);
+  binfo_dynamic.CollectDynamicDims(s0);
+  bidx_dynamic = binfo_dynamic.GetBucketId(s0);
+  ASSERT_EQ(bidx_dynamic, bidx_default);
+
+  // std::cout << "Collect info with input tensor shapes:" << '\n' << s0;
+  // std::cout << "Returned default bucket id : " << bidx_default << '\n';
+  // std::cout << '\n' << binfo_default;
+  // std::cout << "Returned dynamic bucket id : " << bidx_dynamic << '\n';
+  // std::cout << '\n' << binfo_dynamic;
+
+  habana_helpers::DynamicBucketInfo::InpTensorShapes s1(get_shape(5, 30));
+
+  binfo_default.CollectDynamicDims(s1);
+  bidx_default = binfo_default.GetBucketId(s1);
+  ASSERT_EQ(bidx_default, 1);
+
+  binfo_dynamic.CollectDynamicDims(s1);
+  bidx_dynamic = binfo_dynamic.GetBucketId(s1);
+  ASSERT_EQ(bidx_dynamic, bidx_default);
+
+  // std::cout << "Collect info with input tensor shapes:" << '\n' << s1;
+  // std::cout << "Returned default bucket id : " << bidx_default << '\n';
+  // std::cout << '\n' << binfo_default;
+  // std::cout << "Returned dynamic bucket id : " << bidx_dynamic << '\n';
+  // std::cout << '\n' << binfo_dynamic;
+
+  habana_helpers::DynamicBucketInfo::InpTensorShapes s2(get_shape(2, 10));
+
+  binfo_default.CollectDynamicDims(s2);
+  bidx_default = binfo_default.GetBucketId(s2);
+  ASSERT_EQ(bidx_default, 1);
+
+  binfo_dynamic.CollectDynamicDims(s2);
+  bidx_dynamic = binfo_dynamic.GetBucketId(s2);
+  ASSERT_EQ(bidx_dynamic, bidx_default);
+
+  // std::cout << "Collect info with input tensor shapes:" << '\n' << s2;
+  // std::cout << "Returned default bucket id : " << bidx_default << '\n';
+  // std::cout << '\n' << binfo_default;
+  // std::cout << "Returned dynamic bucket id : " << bidx_dynamic << '\n';
+  // std::cout << '\n' << binfo_dynamic;
+
+  habana_helpers::DynamicBucketInfo::InpTensorShapes s3(get_shape(50, 100));
+
+  binfo_default.CollectDynamicDims(s3);
+  bidx_default = binfo_default.GetBucketId(s3);
+  ASSERT_EQ(bidx_default, 2);
+
+  binfo_dynamic.CollectDynamicDims(s3);
+  bidx_dynamic = binfo_dynamic.GetBucketId(s3);
+  ASSERT_EQ(bidx_dynamic, bidx_default);
+
+  // std::cout << "Collect info with input tensor shapes:" << '\n' << s3;
+  // std::cout << "Returned default bucket id : " << bidx_default << '\n';
+  // std::cout << '\n' << binfo_default;
+  // std::cout << "Returned dynamic bucket id : " << bidx_dynamic << '\n';
+  // std::cout << '\n' << binfo_dynamic;
+
+  habana_helpers::DynamicBucketInfo::InpTensorShapes s4(get_shape(60, 150));
+  uint64_t iter_cnt{0};
+  uint64_t max_iter_cnt{
+      habana_helpers::DynamicBucketInfo::min_iterations_to_split() * 2};
+  while (iter_cnt++ < max_iter_cnt) {
+    binfo_default.CollectDynamicDims(s4);
+    bidx_default = binfo_default.GetBucketId(s4);
+    binfo_dynamic.CollectDynamicDims(s4);
+    bidx_dynamic = binfo_dynamic.GetBucketId(s4);
+    ASSERT_EQ(bidx_default, 2);
+    ASSERT_EQ(bidx_dynamic, bidx_default);
+  }
+
+  // std::cout << "Collected info with the following for " << max_iter_cnt
+  // std::cout << " times with input tensor shapes ::" << '\n' << s4;
+  // std::cout << "Returned default bucket id : " << bidx_default << '\n';
+  // std::cout << '\n' << binfo_default;
+  // std::cout << "Returned dynamic bucket id : " << bidx_dynamic << '\n';
+  // std::cout << '\n' << binfo_dynamic;
+
+  auto new_bucket_default = binfo_default.CheckForSplitBucket();
+  ASSERT_TRUE(new_bucket_default.has_value());
+  ASSERT_EQ(new_bucket_default.value(), 3);
+
+  auto new_bucket_dynamic = binfo_dynamic.CheckForSplitBucket();
+  ASSERT_TRUE(new_bucket_dynamic.has_value());
+  ASSERT_EQ(new_bucket_dynamic.value(), new_bucket_default.value());
+
+  // std::cout << "New default bucket id : " << new_bucket_default.value();
+  // std::cout << '\n' << binfo_default;
+  // std::cout << "New dynamic bucket id : " << new_bucket_dynamic.value();
+  // std::cout << '\n' << binfo_dynamic;
+
+  habana_helpers::DynamicBucketInfo::InpTensorShapes s5(get_shape(70, 130));
+
+  binfo_default.CollectDynamicDims(s5);
+  bidx_default = binfo_default.GetBucketId(s5);
+  ASSERT_EQ(bidx_default, 3);
+
+  binfo_dynamic.CollectDynamicDims(s5);
+  bidx_dynamic = binfo_dynamic.GetBucketId(s5);
+  ASSERT_EQ(bidx_dynamic, bidx_default);
+
+  std::cout << "Collect info with input tensor shapes:" << '\n' << s5;
+  std::cout << "Returned default bucket id : " << bidx_default;
+  std::cout << '\n' << binfo_default;
+  std::cout << "Returned dynamic bucket id : " << bidx_dynamic;
+  std::cout << '\n' << binfo_dynamic;
 
   if (!refine_enabled) {
     unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");

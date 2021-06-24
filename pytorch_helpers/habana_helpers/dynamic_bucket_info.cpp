@@ -31,20 +31,136 @@ UniqueTokenGenerator* UniqueTokenGenerator::instance_{nullptr};
 std::atomic_uint64_t UniqueTokenGenerator::current_token_{
     Bucket::uninitialized_token};
 
+SplitStatImplBase::~SplitStatImplBase() {}
+
+void Bucket::CreateSplitStatImpl(SplitPolicy sp) {
+  switch (sp) {
+    case SplitPolicy::UNSPECIFIED:
+      TORCH_CHECK(false, "Can not create Bucket with policy : ", sp);
+      break;
+    case SplitPolicy::DEFAULT:
+      split_stat_impl_ = std::make_shared<SplitStatImplDefault>(ranges_.size());
+      break;
+    case SplitPolicy::DYNAMIC:
+      split_stat_impl_ = std::make_shared<SplitStatImplDynamic>(ranges_.size());
+      break;
+  }
+}
+
+void SplitStatImplDefault::Increment(
+    const DynamicRanges& ranges,
+    const std::vector<int64_t>& dims) {
+  if (split_count_.empty())
+    return;
+
+  TORCH_CHECK(
+      ranges.size() == dims.size(),
+      "wrong dynamic dims size ",
+      dims.size(),
+      ", expected ",
+      ranges.size());
+
+  uint64_t pos = 0;
+  for (size_t i = 0; i < ranges.size(); ++i) {
+    int n = (dims[i] < (ranges[i].second - ranges[i].first) / 2) ? 0 : 1;
+    pos = pos | (n << i);
+  }
+
+  TORCH_CHECK(
+      pos < split_count_.size(),
+      "out of range value for pos ",
+      pos,
+      " with dims size ",
+      dims.size(),
+      ", split count size ",
+      split_count_.size());
+
+  split_count_.at(pos)++;
+}
+
+void SplitStatImplDefault::CalculateNewRanges(
+    const DynamicRanges& ranges,
+    DynamicRanges& new_ranges) {
+  uint64_t max_idx = 1;
+  for (size_t i = 1; i < split_count_.size(); i++) {
+    if (split_count_[i] > split_count_[max_idx])
+      max_idx = i;
+  }
+  uint64_t pos = max_idx;
+  for (auto& el : ranges) {
+    int64_t mid = (el.second - el.first) / 2;
+    if ((pos & 1) == 0)
+      new_ranges.emplace_back(el.first, mid);
+    else
+      new_ranges.emplace_back(mid, el.second);
+    pos >>= 1;
+  }
+}
+
+void SplitStatImplDynamic::Increment(
+    const DynamicRanges& ranges,
+    const std::vector<int64_t>& dims) {
+  if (0 == num_dyn_ranges_)
+    return;
+
+  TORCH_CHECK(
+      ranges.size() == dims.size(),
+      "wrong dynamic dims size ",
+      dims.size(),
+      ", expected ",
+      ranges.size());
+
+  std::vector<bool> pos(num_dyn_ranges_, 0);
+  for (size_t i = 0; i < ranges.size(); ++i) {
+    pos[i] = (dims[i] < (ranges[i].second - ranges[i].first) / 2) ? 0 : 1;
+  }
+
+  if (split_stat_impl_.count(pos) == 0) {
+    split_stat_impl_.emplace(pos, 0);
+  }
+  split_stat_impl_.at(pos) += 1;
+  if (max_count_ < split_stat_impl_.at(pos)) {
+    max_count_ = split_stat_impl_.at(pos);
+    max_pos_ = pos;
+  }
+}
+
+void SplitStatImplDynamic::CalculateNewRanges(
+    const DynamicRanges& ranges,
+    DynamicRanges& new_ranges) {
+  TORCH_CHECK(
+      ranges.size() == num_dyn_ranges_,
+      "wrong dynamic dims size ",
+      ranges.size(),
+      ", expected ",
+      num_dyn_ranges_);
+
+  for (size_t i = 0; i < ranges.size(); i++) {
+    auto& el = ranges[i];
+    int64_t mid = (el.second - el.first) / 2;
+    if (max_pos_[i] == 0)
+      new_ranges.emplace_back(el.first, mid);
+    else
+      new_ranges.emplace_back(mid, el.second);
+  }
+}
+
 Bucket::Bucket(
     DynamicRanges&& ranges,
     DynamicDims dynamic_dims,
-    bool is_refine_allowed)
+    bool is_refine_allowed,
+    SplitPolicy sp)
     : ranges_(std::move(ranges)), dynamic_dims_(std::move(dynamic_dims)) {
   if (is_refine_allowed) {
-    const auto m = max_number_of_dimensions;
+    const auto m = max_number_of_dims;
     TORCH_CHECK(
         ranges_.size() <= m,
         "We don't support this much dimension ",
         ranges_.size(),
         ", max ",
         m);
-    split_count_.resize(1 << ranges_.size());
+    // split_count_.resize(1 << ranges_.size());
+    CreateSplitStatImpl(sp);
   }
   for (auto& el : ranges_)
     score_ += el.second - el.first;
@@ -56,15 +172,14 @@ bool Bucket::IsInRange(
     const std::set<int64_t>& skipped_ranges) const {
   TORCH_CHECK(
       ranges_.size() <= dims.size(),
-      "wrong dynamic dims size",
+      "wrong dynamic dims size ",
       dims.size(),
-      " expected less or equal to ",
+      ", expected greater or equal to ",
       ranges_.size());
   for (size_t i = 0; i < ranges_.size(); ++i) {
     if (skipped_ranges.find(i) != skipped_ranges.end()) {
       continue;
     }
-
     if (dims[i] < ranges_[i].first || ranges_[i].second < dims[i]) {
       return false;
     }
@@ -73,51 +188,25 @@ bool Bucket::IsInRange(
 }
 
 void Bucket::IncStats(const std::vector<int64_t>& dims) {
-  if (split_count_.empty())
+  if (nullptr == split_stat_impl_)
     return;
 
-  TORCH_CHECK(
-      ranges_.size() <= dims.size(),
-      "wrong dynamic dims size",
-      dims.size(),
-      " expected less or equal to ",
-      ranges_.size());
-
-  uint64_t pos = 0;
-  for (size_t i = 0; i < ranges_.size(); ++i) {
-    int n = (dims[i] < (ranges_[i].second - ranges_[i].first) / 2) ? 0 : 1;
-    pos = pos | (n << i);
-  }
-  split_count_.at(pos)++;
+  split_stat_impl_->Increment(ranges_, dims);
   count_++;
 }
 
-Bucket Bucket::CreateNewBucket() {
+Bucket Bucket::CreateNewBucket(SplitPolicy sp) {
   TORCH_CHECK(
-      false == split_count_.empty(),
-      "Dynamic bucket: Refine stage is disabled");
-
-  uint64_t max_bucket = 1;
-  for (size_t i = 1; i < split_count_.size(); i++) {
-    if (split_count_[i] > split_count_[max_bucket])
-      max_bucket = i;
-  }
+      nullptr != split_stat_impl_, "Dynamic bucket : Refine stage is disabled");
 
   DynamicRanges new_ranges;
-  uint64_t pos = max_bucket;
-  for (auto& el : ranges_) {
-    int64_t mid = (el.second - el.first) / 2;
-    if ((pos & 1) == 0)
-      new_ranges.emplace_back(el.first, mid);
-    else
-      new_ranges.emplace_back(mid, el.second);
-    pos >>= 1;
-  }
-  return Bucket(std::move(new_ranges), dynamic_dims_, true);
+  split_stat_impl_->CalculateNewRanges(ranges_, new_ranges);
+  return Bucket(std::move(new_ranges), dynamic_dims_, true, sp);
 }
 
-DynamicBucketInfo::DynamicBucketInfo() {
+DynamicBucketInfo::DynamicBucketInfo(SplitPolicy sp) {
   refine_enabled_ = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  split_policy_ = sp;
 }
 
 DynamicBucketInfo::ResultShapes DynamicBucketInfo::CalculateShapes(
@@ -191,7 +280,7 @@ void DynamicBucketInfo::CollectDynamicDims(const InpTensorShapes& shapes) {
        it1 != shapes_.cend();
        ++it1, ++it2) {
     dynamic_dims_.rem_size_[it1->first] = 1;
-    for (auto i = 0; i < it1->second.dims(); ++i) {
+    for (size_t i = 0; i < it1->second.dims(); ++i) {
       if (it1->second.dim_size(i) != it2->second.dim_size(i)) {
         dynamic_dims_.FindOrAdd(
             it1->first, i, shapes_.at(it1->first).dim_size(i));
@@ -206,7 +295,9 @@ uint64_t DynamicBucketInfo::GetBucketId(
     const PadShapes& pad_shapes) {
   TORCH_CHECK(shapes_.size() == shapes.size(), "Shapes dont match");
   if (buckets_.empty()) {
-    buckets_.emplace_back(DynamicRanges{}, DynamicDims{}, false);
+    buckets_.emplace_back(DynamicRanges{}, DynamicDims{}, false, split_policy_);
+    auto& new_bucket = buckets_.back();
+    new_bucket.SetIndex(buckets_.size() - 1);
     return 0;
   }
   global_count++;
@@ -247,9 +338,11 @@ uint64_t DynamicBucketInfo::GetBucketId(
   prev_dynamic_dims_ = dynamic_dims_.flat_dd_.size();
 
   auto ranges = CalculateRanges(shapes, pad_shapes);
-  buckets_.emplace_back(std::move(ranges), dynamic_dims_.dd_, refine_enabled_);
+  buckets_.emplace_back(
+      std::move(ranges), dynamic_dims_.dd_, refine_enabled_, split_policy_);
   auto& new_bucket = buckets_.back();
   new_bucket.IncStats(dims);
+  new_bucket.SetIndex(buckets_.size() - 1);
 
   return buckets_.size() - 1;
 }
@@ -268,7 +361,10 @@ absl::optional<uint64_t> DynamicBucketInfo::CheckForSplitBucket() {
     return {};
 
   if (density_coefficient_ * global_count < freq_used_bucket->getCount()) {
-    buckets_.push_back(freq_used_bucket->CreateNewBucket());
+    buckets_.push_back(freq_used_bucket->CreateNewBucket(split_policy_));
+    auto& new_bucket = buckets_.back();
+    new_bucket.SetIndex(buckets_.size() - 1);
+
     for (auto& el : buckets_)
       el.ResetCount();
     global_count = 0;
@@ -323,11 +419,11 @@ std::string DynamicBucketInfo::ResultShapes::DebugString() {
         imin->second.dims() == imax->second.dims(),
         "max and min have different number of input dimensions");
     result += std::to_string(imin->first) + ":[";
-    for (auto dim = 0; dim < imin->second.dims(); dim++) {
+    for (size_t dim = 0; dim < imin->second.dims(); dim++) {
       result += std::to_string(imin->second.dim_size(dim)) + ",";
     }
     result += "]-[";
-    for (auto dim = 0; dim < imax->second.dims(); dim++) {
+    for (size_t dim = 0; dim < imax->second.dims(); dim++) {
       result += std::to_string(imax->second.dim_size(dim)) + ",";
     }
     result += "] ";

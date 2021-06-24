@@ -21,13 +21,13 @@ namespace habana_helpers {
 
 class TensorShape {
  public:
-  TensorShape() {}
+  TensorShape() = default;
   TensorShape(const at::IntArrayRef& sizes, at::ScalarType scalar_type);
   void add_dim(int64_t size);
-  int dims() const {
+  size_t dims() const {
     return m_dim;
   }
-  int64_t dim_size(int dim) const {
+  int64_t dim_size(size_t dim) const {
     TORCH_CHECK(dim < m_dim, "dim idx is out of range");
     return m_sizes[dim];
   }
@@ -40,7 +40,7 @@ class TensorShape {
   bool empty() const {
     return (m_dim == 0);
   }
-  void set_dim(int dim, int64_t size) {
+  void set_dim(size_t dim, int64_t size) {
     TORCH_CHECK(dim < m_dim, "dim idx is out of range");
     m_sizes[dim] = size;
   }
@@ -74,7 +74,7 @@ class TensorShape {
   }
 
  private:
-  int m_dim{0};
+  size_t m_dim{0};
   int64_t n_elements{0};
   bool is_scalar_initialized{false};
   at::ScalarType scalar_type_;
