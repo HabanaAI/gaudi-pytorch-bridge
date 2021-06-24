@@ -24,3 +24,14 @@ std::vector<at::Tensor> GetMetaTensorList(
 std::vector<c10::optional<at::Tensor>> GetMetaOptTensorList(
     const std::vector<c10::optional<at::Tensor>>& tensors);
 } // namespace habana
+
+#define HPU_SUPPORTED_DTYPES(fn, supported_dtypes)                       \
+  const static std::unordered_set<c10::ScalarType> fn##_supported_dtypes \
+      supported_dtypes;
+
+#define FALLBACK_IF_UNSUPPORTED_DTYPE(tensor, fn, args...)       \
+  if (ABSL_PREDICT_FALSE(                                        \
+          tensor.defined() &&                                    \
+          !fn##_supported_dtypes.count(tensor.scalar_type()))) { \
+    return AtenHpuTypeDefault::fn(args);                         \
+  }

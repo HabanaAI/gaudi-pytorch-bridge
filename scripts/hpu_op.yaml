@@ -1,20 +1,164 @@
-leaky_relu.out:
-  guid: leakyrelu_fwd
-  tpc_param:
-    name: ns_LeakyReluKernel
-    params:
-    - [1, double]
+#abs.out:
+#  dtypes: [BFloat16, Float]
+#  guid: abs_fwd
+#
+#acos.out:
+#  dtypes: [Float]
+#  guid: acos_fwd
+#
+#acosh.out:
+#  dtypes: [Float]
+#  guid: acosh_fwd
+#
+#asin.out:
+#  dtypes: [Float]
+#  guid: asin_fwd
+#
+#asin_:
+#  dtypes: [Float]
+#  guid: asin_fwd
+#  inplace_ids: [0]
+#
+#asinh.out:
+#  dtypes: [Float]
+#  guid: asinh_fwd
+#
+#atan.out:
+#  dtypes: [Float]
+#  guid: atan_fwd
+#
+#atanh.out:
+#  dtypes: [Float]
+#  guid: atanh_fwd
+#
+bitwise_and.Tensor_out:
+  dtypes: [Int, Short, Byte, Char, Bool]
+  guid: bitwise_and_fwd
+  legacy_eager: true
 
+#bitwise_not.out:
+#  dtypes: [Int, Short, Byte, Char, Bool]
+#  guid: bitwise_not_fwd
+#  legacy_eager: true
+#
+bitwise_or.Tensor_out:
+  dtypes: [Int, Short, Byte, Char, Bool]
+  guid: bitwise_or_fwd
+  legacy_eager: true
+
+#bitwise_xor.Tensor_out:
+#  dtypes: [Int, Short, Byte, Char, Bool]
+#  guid: bitwise_xor_fwd
+#  legacy_eager: true
+#
+#cos.out:
+#  dtypes: [BFloat16, Float]
+#  guid: cos_fwd
+#
+#cosh.out:
+#  dtypes: [Float]
+#  guid: cosh_fwd
+#
+#elu.out:
+#  dtypes: [BFloat16, Float]
+#  guid: elu_fwd
+#  tpc_param:
+#    name: ns_EluKernel
+#    params:
+#    - [1, float]
+#
+#eq.Tensor_out:
+#  dtypes: [BFloat16, Float, Int]
+#  guid: equal_fwd
+#  legacy_eager: true
+#
+#erf.out:
+#  dtypes: [BFloat16, Float]
+#  guid: erf_fwd
+#
+#exp.out:
+#  dtypes: [BFloat16, Float]
+#  guid: exp_fwd
+#
+#floor.out:
+#  dtypes: [BFloat16, Float]
+#  guid: floor_fwd
+#
+#leaky_relu.out:
+#  dtypes: [BFloat16, Float]
+#  guid: leakyrelu_fwd
+#  tpc_param:
+#    name: ns_LeakyReluKernel
+#    params:
+#    - [1, double]
+#
+#log.out:
+#  dtypes: [BFloat16, Float]
+#  guid: log_fwd
+#
+#log2.out:
+#  dtypes: [BFloat16, Float]
+#  guid: log2_fwd
+#
+#maximum.out:
+#  dtypes: [BFloat16, Float, Int]
+#  guid: max_fwd
+#
+#minimum.out:
+#  dtypes: [BFloat16, Float, Int]
+#  guid: min_fwd
+#
 neg.out:
+  dtypes: [BFloat16, Float, Int]
   guid: neg_fwd
+  legacy_eager: true
 
 reciprocal.out:
+  dtypes: [BFloat16, Float]
   guid: reciprocal_fwd
 
-sin_:
-  guid: sin_fwd
-  inplace_ids: [0]
-
+#round.out:
+#  dtypes: [BFloat16, Float]
+#  guid: round_fwd
+#
+#rsqrt.out:
+#  dtypes: [BFloat16, Float]
+#  guid: rsqrt_fwd
+#
+#sigmoid.out:
+#  dtypes: [BFloat16, Float]
+#  guid: sigmoid_fwd
+#
+#sign.out:
+#  dtypes: [BFloat16, Float]
+#  guid: sign_fwd
+#
+#sin.out:
+#  dtypes: [BFloat16, Float]
+#  guid: sin_fwd
+#
+#sin_:
+#  dtypes: [BFloat16, Float]
+#  guid: sin_fwd
+#  inplace_ids: [0]
+#
+#sinh.out:
+#  dtypes: [Float]
+#  guid: sinh_fwd
+#
+#sqrt.out:
+#  dtypes: [BFloat16, Float]
+#  guid: sqrt_fwd
+#
+#tan.out:
+#  dtypes: [Float]
+#  guid: tan_fwd
+#
 tanh.out:
+  dtypes: [BFloat16, Float]
   guid: tanh_fwd
+  legacy_eager: true
 
+#tanh_backward.grad_input:
+#  dtypes: [BFloat16, Float]
+#  guid: tanh_bwd

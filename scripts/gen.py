@@ -1119,6 +1119,7 @@ def generate(args):
     for mapsig in autogen_overrides.keys():
         _FN_AUTOGEN.add(mapsig)
         if overrides.get(mapsig):
+            print("Using autogen for", mapsig)
             del overrides[mapsig]
 
     print(
