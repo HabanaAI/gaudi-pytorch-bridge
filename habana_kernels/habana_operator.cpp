@@ -199,7 +199,8 @@ void habana::HabanaOperator::AllocateSynapseOutput(
 }
 
 getDMAInputTensorCBType habana::HabanaOperator::getDMAInputTensorCB() {
-  HABANA_ASSERT(false && "This call needs to be supported by the derived op");
+  HABANA_ASSERT(false, "This call needs to be supported by the derived op");
+  return {};
 }
 
 std::vector<std::pair<std::string, at::Tensor>> habana::HabanaOperator::

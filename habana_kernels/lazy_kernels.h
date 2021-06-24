@@ -286,8 +286,12 @@ class LazyOp {
 
   virtual ReturnType get_result_overrideable() {
     HABANA_ASSERT(
-        0 &&
+        0,
         "out_index is negative, implement get_result_overrideable() in your kernel.");
+    // Call std::terminate here to avoid compilation error due to no return
+    // statement. return cannot be here because sometimes the type is Tensor& or
+    // a tuple of tensors. This terminate is never reachable though.
+    std::terminate();
   }
 
  private:

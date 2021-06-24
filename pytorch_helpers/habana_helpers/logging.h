@@ -64,6 +64,13 @@ inline std::string str(const std::string& str) {
 inline std::string str(const char* c_str) {
   return c_str;
 }
+
+void habana_assert(
+    const char* func,
+    const char* file,
+    uint32_t line,
+    const std::string& msg);
+
 } // namespace Logger
 
 inline char* get2env(const char* a) {
@@ -221,6 +228,15 @@ class PTFuncLog {
   }
 };
 
+#define HABANA_ASSERT(condition, ...)                         \
+  if (__builtin_expect(static_cast<bool>(!(condition)), 0)) { \
+    Logger::habana_assert(                                    \
+        __func__,                                             \
+        __FILE__,                                             \
+        static_cast<uint32_t>(__LINE__),                      \
+        Logger::str(__VA_ARGS__));                            \
+  }
+
 /************************CRITICAL MACROS************************/
 #define PT_MOD_FATAL(MOD, ...)                                      \
   if (((PtLogger::getLogger()->getModuleMask() & (MOD)) &&          \
@@ -250,16 +266,6 @@ class PTFuncLog {
 
 #define PT_HABANAHOOKS_FATAL(...) \
   PT_MOD_FATAL(PtLogger::ModuleMask::HABANAHOOKS, __VA_ARGS__)
-
-#define HABANA_ASSERT(condition, ...)                                        \
-  {                                                                          \
-    if (!(condition)) {                                                      \
-      std::cerr << Logger::str(__VA_ARGS__) << " : "                         \
-                << "Assertion (" << #condition << ") is false! " << __FILE__ \
-                << ":" << __LINE__ << "\t" << __func__ << "\n";              \
-      std::terminate();                                                      \
-    }                                                                        \
-  }
 
 /************************WARNING MACROS************************/
 #define PT_MOD_WARN(MOD, ...)                                       \

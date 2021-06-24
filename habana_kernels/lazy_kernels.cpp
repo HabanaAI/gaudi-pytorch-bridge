@@ -5440,6 +5440,8 @@ Tensor& bitwise_and_out_hpu_lazy(
   static_cast<void>(out);
   static_cast<void>(self);
   static_cast<void>(other);
+
+  return out;
 }
 
 Tensor& bitwise_or_out_hpu_lazy(

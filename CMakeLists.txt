@@ -59,6 +59,7 @@ add_library(habana_pytorch_plugin SHARED
   habana_bridge/passes/remove_inplace_ops.cpp
   pytorch_helpers/habana_device/HPUAllocator.cpp
   pytorch_helpers/habana_device/PinnedMemoryAllocator.cpp
+  pytorch_helpers/habana_helpers/logging.cpp
   pytorch_helpers/habana_helpers/tensor_info.cpp
   pytorch_helpers/habana_helpers/tensor_utils.cpp
   pytorch_helpers/habana_helpers/tensor_shape.cpp
