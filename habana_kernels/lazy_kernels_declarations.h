@@ -863,4 +863,8 @@ at::Tensor linspace_hpu_lazy(
     c10::optional<at::Layout> layout,
     c10::optional<at::Device> device,
     c10::optional<bool> pin_memory);
+at::Tensor cumsum_hpu_lazy(
+    const at::Tensor& self,
+    int64_t dim,
+    c10::optional<at::ScalarType> dtype);
 } // namespace habana_lazy

@@ -801,3 +801,7 @@ at::Tensor habana_nms_hpu(
     float score_threshold);
 at::Tensor silu_hpu(const at::Tensor& self);
 at::Tensor repeat_hpu(const at::Tensor& self, at::IntArrayRef repeats);
+at::Tensor cumsum_hpu(
+    const at::Tensor& self,
+    int64_t dim,
+    c10::optional<at::ScalarType> dtype);

@@ -5889,4 +5889,15 @@ Tensor linspace_hpu_lazy(
   Kernel kernel{start, end, steps};
   return kernel.call();
 }
+
+Tensor cumsum_hpu_lazy(
+    const at::Tensor& self,
+    int64_t dim,
+    c10::optional<at::ScalarType> dtype) {
+  PT_LAZY_TRACE;
+
+  LazyOp<at::Tensor> k{"aten::cumsum", {self, dim, dtype}};
+  return k.call();
+}
+
 } // namespace habana_lazy

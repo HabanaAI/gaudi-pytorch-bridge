@@ -29,6 +29,54 @@ TEST(EagerKernelTest, MinTest) {
   EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out), true);
 }
 
+TEST(EagerKernelTest, Cumsum0D) {
+  torch::Tensor A = torch::tensor(9.03);
+  auto hinput = A.to(torch::kHABANA);
+
+  auto hresult = torch::cumsum(hinput, 0, torch::kFloat32);
+  auto hout = hresult.to(torch::kCPU);
+
+  auto cpu_out = torch::cumsum(A, 0, torch::kFloat32);
+  EXPECT_TRUE(allclose(hout, cpu_out));
+}
+
+TEST(EagerKernelTest, CumsumDim3AxisNe1) {
+  auto A = torch::randn({2, 3, 2}, torch::requires_grad(false));
+
+  auto hA = A.to(torch::kHABANA);
+  int64_t axis = -1;
+  torch::Tensor cpu_out = torch::cumsum(A, axis);
+
+  torch::Tensor hresult = torch::cumsum(hA, axis);
+  auto hout = hresult.to(torch::kCPU);
+  EXPECT_TRUE(allclose(hout, cpu_out));
+}
+
+TEST(EagerKernelTest, CumsumDim3Axis2) {
+  torch::Tensor A = torch::randn({2, 3, 2});
+
+  auto hA = A.to(torch::kHABANA);
+  int64_t axis = 2;
+  torch::Tensor cpu_out = torch::cumsum(A, axis);
+
+  torch::Tensor hresult = torch::cumsum(hA, axis);
+  auto hout = hresult.to(torch::kCPU);
+  EXPECT_TRUE(allclose(hout, cpu_out));
+}
+
+TEST(EagerKernelTest, CumsumDim2Axis1Int) {
+  auto options = torch::TensorOptions().dtype(torch::kFloat32);
+  torch::Tensor A = torch::randint(-330, 330, {2, 3}, options);
+
+  auto hA = A.to(torch::kHABANA);
+  int64_t axis = 1;
+  torch::Tensor cpu_out = torch::cumsum(A, axis, torch::kInt);
+
+  torch::Tensor hresult = torch::cumsum(hA, axis, torch::kInt);
+  auto hout = hresult.to(torch::kCPU);
+  EXPECT_TRUE(allclose(hout, cpu_out));
+}
+
 TEST(EagerKernelTest, ReluTest) {
   torch::Tensor tensor = torch::randn({2, 3});
   torch::Tensor tHabana = tensor.to(torch::kHABANA);

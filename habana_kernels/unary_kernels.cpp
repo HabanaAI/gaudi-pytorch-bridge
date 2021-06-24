@@ -2407,6 +2407,100 @@ Tensor isnan_hpu(const Tensor& self) {
   return output;
 }
 
+void CumsumOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  const int64_t correctInputSize = 3;
+  TORCH_CHECK(
+      inputs.size() == correctInputSize,
+      "Incorrect size ",
+      inputs.size(),
+      " provided as input, while expected size is ",
+      correctInputSize,
+      " for IsnanOperator");
+  TORCH_CHECK(
+      inputs[0].isTensor(),
+      "Input arg1 expected to be Tensor for CumsumOperator");
+  TORCH_CHECK(
+      inputs[1].isInt(), "Input arg2 expected to be Int for CumsumOperator");
+
+  auto self = inputs[0].toTensor();
+  auto dim = inputs[1].toInt();
+  // TODO::Handle 3rd arument dtype, in lazy mode
+  dim = at::maybe_wrap_dim(dim, self.dim(), /*wrap_scalar=*/true);
+
+  int tpcAxis = (self.sizes().vec().size() - 1) - dim;
+
+  ns_CumSumKernel::Params param{
+      tpcAxis, // cumsum along this
+      0, // 0 =>inclusive
+      0 // 0=> no reverse
+  };
+
+  UnaryLikeOperator::AllocateAndAddSynapseNode(
+      graph, inputs, is_output_persistent);
+  AddNodeToSynapseGraph(graph, &param, sizeof(param));
+}
+
+/*************************************************************************
+ * @brief Kernel implementation for output = torch.cumsum(input, axis, dtype)
+ * @param [in] input - input tensor, 1-4D, BF16/FP32
+ * @param [in] dim -   reduction axis , int64_t
+ * @param [in] dtype - optional target datatype, ScalarType
+ ************************************************************************/
+Tensor cumsum_hpu(
+    const Tensor& self,
+    int64_t dim,
+    c10::optional<ScalarType> dtype) {
+  PT_KERNEL_BEGIN;
+  CONVERT_0D_TO_1D(self)
+  at::ScalarType scalar_type = self.scalar_type();
+  at::Tensor self_updated_dtype = self;
+  if (dtype.has_value() && (dtype.value() != self.scalar_type())) {
+    self_updated_dtype = self.to(dtype.value());
+  }
+  scalar_type = self_updated_dtype.scalar_type();
+
+  std::string node_type =
+      "cumsum_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+
+  // Create the operator
+  size_t device_id = self_updated_dtype.device().index();
+  CumsumOperator Op(device_id, scalar_type);
+
+  // Assign Inputs to the Operator
+  std::vector<c10::IValue> stack = {
+      IValue(self_updated_dtype), IValue(dim), IValue(dtype)};
+  std::vector<at::Tensor> pt_inputs{self_updated_dtype};
+
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  size_t key = Op.GetRecipeKey(node_type, stack);
+
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    auto output = at::empty(
+        self_updated_dtype.sizes(),
+        self_updated_dtype.options(),
+        self_updated_dtype.suggest_memory_format());
+    Op.SetPTInputs(pt_inputs);
+    Op.SetPTOutput(output);
+    Op.Execute(key);
+  } else {
+    PT_KERNEL_DEBUG("key:", key);
+    // Create Graph
+    auto graph = habana_helpers::create_graph(device_id, node_type);
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
+    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    Op.Compile(graph);
+  }
+  std::vector<at::Tensor> out = Op.GetOutputs();
+  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
+  CONVERT_1D_TO_0D(self, out.at(0))
+  PT_KERNEL_END;
+  return out.at(0);
+}
+
 static auto& KernelRegistry =
     habana::KernelRegistry()
         .add(
@@ -2647,4 +2741,9 @@ static auto& KernelRegistry =
             "aten::silu.out",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<SiluOutOperator>(device_id, node_type);
+            })
+        .add(
+            "aten::cumsum",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<CumsumOperator>(device_id, node_type);
             });

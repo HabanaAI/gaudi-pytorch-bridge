@@ -2004,6 +2004,21 @@ Tensor& hpu_wrap::sum_out(
     return sum_IntList_out_hpu(output, self, dim, keepdim, dtype);
   }
 };
+
+Tensor hpu_wrap::cumsum(
+    const Tensor& self,
+    int64_t dim,
+    c10::optional<ScalarType> dtype) {
+  if (!hpu_check_inputs_impl("cumsum", {self}))
+    return AtenHpuTypeDefault::cumsum(self, dim, dtype);
+
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    return cumsum_hpu_lazy(self, dim, dtype);
+  } else {
+    return cumsum_hpu(self, dim, dtype);
+  }
+};
+
 Tensor hpu_wrap::mean(
     const Tensor& self,
     IntArrayRef dim,

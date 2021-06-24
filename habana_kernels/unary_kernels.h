@@ -656,4 +656,19 @@ class SiluOperator : public UnaryOperator {
       bool is_output_persistent = false) override;
 };
 
+// Cumsum Operator
+class CumsumOperator : public UnaryLikeOperator {
+ public:
+  CumsumOperator(int device_id, c10::ScalarType scalarType)
+      : UnaryLikeOperator(
+            device_id,
+            "cumsum_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
+  }
+
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+};
+
 } // namespace habana
