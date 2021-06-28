@@ -19,9 +19,67 @@ import cProfile, pstats
 import json
 import argparse
 
+#DATA_LOADER_AEON_LIB_PATH='/home/janand/trees/npu-stack/tf_aeon/lib_python/aeon.so'
+DATA_LOADER_AEON_LIB_PATH='/home/janand/trees/npu-stack/dev/data_loader/build/lib/aeon.so'
+sys.path.append(os.path.dirname(os.environ['DATA_LOADER_AEON_LIB_PATH']))
+#from aeon_config import *
+from aeon import DataLoader
+
 from mpi4py import MPI
 global mpi_comm
 mpi_comm = MPI.COMM_WORLD
+
+BATCH_SIZE = 1
+IMG_HEIGHT = 224
+IMG_WIDTH = 224
+AEON_DATA_DIR = '/software/data/pytorch/imagenet/ILSVRC2012/'
+#AEON_MANIFEST = '/home/janand/trees/npu-stack/tf_aeon/manifest.txt'
+AEON_MANIFEST = '/home/janand/trees/npu-stack/data_loader/python/manifest.txt'
+
+def getAeonConfig(instance_id, num_instances):
+  return {
+      "augmentation": [
+          {
+          "caffe_mode": False,
+          "center": False,
+          "crop_enable": True,
+          "do_area_scale": True,
+          "flip_enable": True,
+          "horizontal_distortion": [
+              0.75,
+              1.33333337306976
+          ],
+          "scale": [
+              0.08,
+              1.0
+          ],
+          "type": "image"
+          }
+      ],
+      "batch_size": BATCH_SIZE,
+      "decode_thread_count": 8,
+      "fread_thread_count": 4,
+      "instance_id": instance_id,
+      "num_instances": num_instances,
+      "file_shuffle_seed": 5,
+      "shuffle_manifest": True,
+      "etl": [
+          {
+          "type": "image",
+          "channel_major": False,
+          "height": IMG_HEIGHT,
+          "width": IMG_WIDTH,
+          "output_type": "float"
+          },
+          {
+          "binary": False,
+          "type": "label"
+          }
+      ],
+      "iteration_mode": "ONCE",
+      "manifest_filename": AEON_MANIFEST,
+      "manifest_root": AEON_DATA_DIR
+      }
 
 dl_args = {}
 
@@ -93,10 +151,11 @@ def init_data_loader():
 
     #torch.multiprocessing.set_start_method('forkserver')
     #torch.multiprocessing.set_start_method('spawn')
-    train_dir = pathlib.Path('/root/data/pytorch/imagenet/ILSVRC2012/')
+    #train_dir = pathlib.Path('/root/data/pytorch/imagenet/ILSVRC2012/')
+    train_dir = pathlib.Path('/software/data/pytorch/imagenet/ILSVRC2012/')
     #train_dir = pathlib.Path('/tmp/ramdisk/imagenet/ILSVRC2012/')
     dataset = datasets.ImageFolder(train_dir, transform)
-    bs = 256
+    bs = BATCH_SIZE
     total_images = 1280000
     num_steps = total_images/bs/wsize
     workers = dl_args['dl-workers']
@@ -115,10 +174,15 @@ def init_data_loader():
             assert False, "Could Not import habana_torch_dataloader"
         print("Multi-Threading DL with imagenet dataset selected")
         dataloader = habana_torch_dataloader.DataLoader(dataset, batch_size=bs, num_workers=workers, shuffle=True)
+    elif dl_type == 'AEON':
+        print("AEON dataloader selected")
+        INST_ID = rank
+        NUM_INSTANCES = wsize
+        dataloader = DataLoader(getAeonConfig(INST_ID, NUM_INSTANCES))
     else:
         print("Multi-process DL with imagenet dataset selected")
-        #dataloader = torch.utils.data.DataLoader(dataset, batch_size=bs, num_workers=workers, shuffle=True)
-        dataloader = torch.utils.data.DataLoader(dataset, batch_size=bs, num_workers=workers, shuffle=True, prefetch_factor=4)
+        dataloader = torch.utils.data.DataLoader(dataset, batch_size=bs, num_workers=workers, shuffle=True)
+        #dataloader = torch.utils.data.DataLoader(dataset, batch_size=bs, num_workers=workers, shuffle=True, prefetch_factor=4)
 
     return dataloader, num_steps, bs, rank
 
@@ -135,7 +199,7 @@ def test_pytorch_data_loader_for_resnet(dataloader, num_steps, bs, rank):
         temp_time = start_time
         for i, data in enumerate(dataloader):
             images, lables = data
-            image_temp = images.to('cpu', non_blocking=False)
+            #image_temp = images.to('cpu', non_blocking=False)
             #if rank == 0:
                #print(image_temp[0][1])
             #   print("Image dimensions :: ",images[0].size())
@@ -169,14 +233,14 @@ def handle_args():
 
     parser.add_argument("--dl-type", type=str, default='MP',
                         help="supported types ::, 'MT','MP' (default),'SYN'")
-    parser.add_argument("--dl-workers", type=int, default='5',
+    parser.add_argument("--dl-workers", type=int, default='0',
                         help="number of DL read workers, default:5")
     parser.add_argument("--profile", action="store_true",
                         help="enable cprofile for the parent function")
     args = parser.parse_args()
     if args.dl_type:
         dl_args['dl-type'] = args.dl_type
-    if args.dl_workers:
+    if args.dl_workers is not None:
         dl_args['dl-workers'] = args.dl_workers
     if args.profile:
         dl_args['profile'] = True
