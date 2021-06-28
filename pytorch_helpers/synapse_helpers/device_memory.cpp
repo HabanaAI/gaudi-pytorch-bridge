@@ -178,4 +178,40 @@ bool device_memory::is_mem_threshold_hit() {
   return false;
 }
 
+void* device_memory::workspace_alloc(
+    void* ptr,
+    size_t& ws_size,
+    size_t req_size) {
+  if (pool_strategy_ != pool_allocator::startegy_coalesce_stringent) {
+    size_t chunk_size = 128 * 1024 * 1024;
+    size_t num_chunks = (req_size / chunk_size) + 1;
+    size_t actual_size = num_chunks * chunk_size;
+    if (ws_size >= actual_size) {
+      return ptr;
+    } else if (ws_size < actual_size) {
+      auto& recipe_counter = device_.get_active_recipe_counter();
+      while (recipe_counter.get_count() > 1) {
+        recipe_counter.wait_for_next_decrease_call();
+      }
+      PT_SYNHELPER_DEBUG(
+          "requested size > size, free the buffer and reallocte current size::",
+          ws_size,
+          " requested size::",
+          req_size);
+
+      free(ptr);
+    }
+    void* v_ptr{nullptr};
+    malloc(&v_ptr, actual_size);
+    ws_size = actual_size;
+    return v_ptr;
+  } else {
+    if (ws_size < req_size) {
+      ws_size = req_size;
+      return suballoc_->extend_high_memory_allocation(req_size);
+    }
+    return ptr;
+  }
+}
+
 } // namespace synapse_helpers

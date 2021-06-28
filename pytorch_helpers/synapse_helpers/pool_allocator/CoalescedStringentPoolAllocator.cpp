@@ -194,6 +194,30 @@ bool CoalescedStringentPooling::pool_create(synDeviceId deviceID, uint64_t size)
           bin_utils->BinForSize(bin_size * 2) != bin_utils->BinFromIndex(b));
     }
   }
+  // Create one large chunk for the whole memory space that will be chunked
+  // and use later
+  Chunk* chunk = new Chunk();
+  chunk->memptr = (uint64_t)p->next;
+  chunk->extra_space = 0;
+  chunk->size = max_pool_size - 0x80;
+  chunk->used = false;
+  chunk->next = nullptr;
+  chunk->prev = nullptr;
+
+  if (p->start == nullptr) {
+    p->start = chunk;
+  }
+  // Chain the chunks.
+  if (p->top != nullptr) {
+    chunk->prev = p->top;
+    p->top->next = chunk;
+  }
+  p->top = chunk;
+  p->next += size;
+
+  chunks[chunk->memptr] = chunk;
+  bin_utils->InsertFreeChunkIntoBin(chunk);
+
   const auto chunk_ptr = static_cast<int8_t*>(alloc_chunk(SmallAllocs::kSize));
   const auto free_chunk = [this](int8_t* ptr) { delete_chunk(ptr); };
   small_allocs_ = absl::make_unique<SmallAllocs>(
@@ -251,10 +275,6 @@ void CoalescedStringentPooling::pool_destroy() const {
   }
 }
 
-static uint64_t pool_available(simple_coalesced_pool_t* p) {
-  return p->end - p->next;
-}
-
 bool CoalescedStringentPooling::is_mem_threshold_hit() const {
   const std::lock_guard<std::mutex> lock(sp_mutex);
   if (bytes_in_use > (max_pool_size * 0.8))
@@ -284,9 +304,11 @@ void* CoalescedStringentPooling::FindChunkPtr(
         // pieces, do so.  In any case don't waste more than
         // kMaxInternalFragmentation bytes on padding this alloc.
         const int64_t kMaxInternalFragmentation = 128 << 20; // 128mb
-        if (chunk->size >= num_bytes * 2 ||
-            static_cast<int64_t>(chunk->size) - num_bytes >=
-                kMaxInternalFragmentation) {
+        if ((chunk->size > num_bytes) &&
+            (chunk->size >= num_bytes * 2 ||
+             static_cast<int64_t>(chunk->size) - num_bytes >=
+                 kMaxInternalFragmentation ||
+             (num_bytes < DEFRAGMENT_TH(chunk->size)))) {
           try_splitting_chunks(chunk, num_bytes);
         }
         bin_utils->InsertFreeChunkIntoBin(chunk);
@@ -507,6 +529,90 @@ Chunk* CoalescedStringentPooling::try_block_splitting(uint64_t size) const {
   return nullptr;
 }
 
+void* CoalescedStringentPooling::extend_high_memory_allocation(
+    uint64_t size) const {
+  const std::lock_guard<std::mutex> lock(sp_mutex);
+  size = block_align(size);
+  if (size > max_pool_size) {
+    PT_SYNHELPER_DEBUG("POOL:: alloc size exceeds max size !!");
+    return nullptr;
+  }
+
+  // get tail chunk
+  if (prealloc_pool == nullptr) {
+    PT_SYNHELPER_FATAL("POOL:: alloc invalid pool !!");
+  }
+  Chunk* tail_chunk = prealloc_pool->top;
+
+  if (tail_chunk == nullptr) {
+    PT_SYNHELPER_FATAL("POOL:: extend_high_memory_alloc tail chunk invalid!!");
+  }
+
+  // high memory is not allocated and tail chunk used
+  if (!high_memory_allocated_ && tail_chunk->used) {
+    PT_SYNHELPER_DEBUG(
+        "POOL:: no space for high memory allocation, already allocated!!");
+    return nullptr;
+  }
+
+  // if high_memory is already allocated, check the size with the requested size
+  if (high_memory_allocated_ && (size <= tail_chunk->size)) {
+    PT_SYNHELPER_DEBUG(
+        "POOL:: no need to extend high memory allocation current size::",
+        tail_chunk->size,
+        " Requested Size::",
+        size);
+    return (void*)tail_chunk->memptr;
+  }
+
+  // merge lfu chunks if any
+  if (!chunks_to_merge.empty()) {
+    // Merge timestamped chunks whose counts have become safe for general use.
+    defragment_chunks(0);
+    tail_chunk = prealloc_pool->top;
+  }
+
+  // if high memory is already allocated, extend the remaining memory for the
+  // requested size
+  if (high_memory_allocated_) {
+    tail_chunk->used = false;
+    bin_utils->InsertFreeChunkIntoBin(try_to_merge(tail_chunk, false));
+    tail_chunk = prealloc_pool->top;
+  }
+
+  if (tail_chunk->size < size) {
+    PT_SYNHELPER_DEBUG(
+        "POOL:: out of memory, when trying to extend high meory for size::",
+        size);
+    return nullptr;
+  }
+
+  // mark high_memory allocated to true and check if we need to split
+  high_memory_allocated_ = true;
+  auto size_left = tail_chunk->size - size;
+
+  if (tail_chunk->bin_index == kInvalidBinNum) {
+    PT_SYNHELPER_FATAL("POOL:: extend_high_memory_alloc tail chunk invalid!!");
+  }
+
+  if (size_left > 0) {
+    Bin* bin = bin_utils->BinFromIndex(tail_chunk->bin_index);
+    auto tail_chunk_itr = bin->free_chunks.find(tail_chunk);
+    bin_utils->RemoveFreeChunkIterFromBin(&bin->free_chunks, tail_chunk_itr);
+
+    try_splitting_chunks(tail_chunk, size_left);
+    bin_utils->InsertFreeChunkIntoBin(tail_chunk);
+    // split will return the size_left chunk, the actual requested chunk wil be
+    // split_chunk->next.
+    tail_chunk = tail_chunk->next;
+  }
+  bin_utils->RemoveFreeChunkFromBin(tail_chunk);
+  tail_chunk->used = true;
+  tail_chunk->size = size;
+
+  return (void*)tail_chunk->memptr;
+}
+
 void* CoalescedStringentPooling::pool_alloc_chunk(uint64_t size) const {
   const std::lock_guard<std::mutex> lock(sp_mutex);
   return alloc_chunk(size);
@@ -521,6 +627,7 @@ void* CoalescedStringentPooling::alloc_chunk(uint64_t size) const {
   if (ptr != nullptr) {
     return ptr;
   }
+
   if (size > max_pool_size) {
     PT_SYNHELPER_DEBUG("POOL:: alloc size exceeds max size !!");
     return nullptr;
@@ -563,88 +670,38 @@ void* CoalescedStringentPooling::alloc_chunk(uint64_t size) const {
     defragment_chunks(0);
   }
 
-  if (pool_available(p) < size) {
-    // TBD: implement better algorithms
-    auto defrag_chunk = try_defragmenting(size);
-    if (defrag_chunk) {
-      ++chunk_count;
-      /* remove from pool */
-      Bin* bin = bin_utils->BinForSize(size);
-      auto it = bin->free_chunks.find(defrag_chunk);
-      if (it != bin->free_chunks.end()) {
-        bin->free_chunks.erase(it);
-      }
-      defrag_chunk->used = true;
-      chunks[defrag_chunk->memptr] = defrag_chunk;
-      bytes_in_use += defrag_chunk->size;
-      return (void*)defrag_chunk->memptr;
+  auto defrag_chunk = try_defragmenting(size);
+  if (defrag_chunk) {
+    ++chunk_count;
+    /* remove from pool */
+    Bin* bin = bin_utils->BinForSize(size);
+    auto it = bin->free_chunks.find(defrag_chunk);
+    if (it != bin->free_chunks.end()) {
+      bin->free_chunks.erase(it);
     }
-    auto split_chunk = try_block_splitting(size);
-    if (split_chunk) {
-      ++chunk_count;
-      /* remove from pool */
-      Bin* bin = bin_utils->BinForSize(size);
-      auto it = bin->free_chunks.find(split_chunk);
-      if (it != bin->free_chunks.end()) {
-        bin->free_chunks.erase(it);
-      }
-      split_chunk->used = true;
-      chunks[split_chunk->memptr] = split_chunk;
-      bytes_in_use += split_chunk->size;
-      return (void*)split_chunk->memptr;
+    defrag_chunk->used = true;
+    chunks[defrag_chunk->memptr] = defrag_chunk;
+    bytes_in_use += defrag_chunk->size;
+    return (void*)defrag_chunk->memptr;
+  }
+  auto split_chunk = try_block_splitting(size);
+  if (split_chunk) {
+    ++chunk_count;
+    /* remove from pool */
+    Bin* bin = bin_utils->BinForSize(size);
+    auto it = bin->free_chunks.find(split_chunk);
+    if (it != bin->free_chunks.end()) {
+      bin->free_chunks.erase(it);
     }
-    print_device_memory_stats(pool_id);
-    print_pool_stats();
-    PT_SYNHELPER_DEBUG("POOL:: pool exhausted !! for size :: ", size);
-    return nullptr;
+    split_chunk->used = true;
+    chunks[split_chunk->memptr] = split_chunk;
+    bytes_in_use += split_chunk->size;
+    return (void*)split_chunk->memptr;
   }
-
-  // create a chunk
-  Chunk* chunk = new Chunk();
-  if (!chunk) {
-    PT_SYNHELPER_DEBUG("POOL:: Cannot create a chunk");
-    return nullptr;
-  }
-  chunk->memptr = (uint64_t)p->next;
-  chunk->extra_space = 0;
-  chunk->size = size;
-  chunk->used = true;
-  chunk->next = nullptr;
-  chunk->prev = nullptr;
-
-  if (p->start == nullptr) {
-    p->start = chunk;
-  }
-  // Chain the chunks.
-  if (p->top != nullptr) {
-    chunk->prev = p->top;
-    p->top->next = chunk;
-  }
-  p->top = chunk;
-  p->next += size;
-  allocted_chunk_size += size;
-  ++chunk_count;
-
-  auto prevptr = chunk->prev ? chunk->prev->memptr : 0;
-  auto nextptr = chunk->next ? chunk->next->memptr : 0;
-  PT_SYNHELPER_DEBUG(
-      "POOL:: pool_alloc_chunk allocated :: base:: ",
-      chunk,
-      " chunk memptr ::",
-      chunk->memptr,
-      " prev :: ",
-      prevptr,
-      " next :: ",
-      nextptr,
-      " requested size :: ",
-      size,
-      " chunk size :: ",
-      chunk->size);
-  PT_SYNHELPER_DEBUG("POOL:: Allocated chunk_count :: ", chunk_count);
-
-  chunks[chunk->memptr] = chunk;
-  bytes_in_use += chunk->size;
-  return (void*)chunk->memptr;
+  print_device_memory_stats(pool_id);
+  print_pool_stats();
+  PT_SYNHELPER_DEBUG("POOL:: pool exhausted !! for size :: ", size);
+  return nullptr;
 }
 
 void CoalescedStringentPooling::try_splitting_chunks(
@@ -658,11 +715,13 @@ void CoalescedStringentPooling::try_splitting_chunks(
       " memptr:: ",
       chunk->memptr,
       " next:: ",
-      (chunk->next ? chunk->next->memptr : 0));
+      (chunk->next ? chunk->next->memptr : 0),
+      " size:: ",
+      chunk->size);
 
   // Allocate the new chunk
   Chunk* new_chunk = new Chunk();
-  //  SplitChunk extracts requested size from the beginning of the given chunk
+  // split extracts requested size from the beginning of the given chunk
 
   HABANA_ASSERT(!chunk->used && (chunk->bin_index == kInvalidBinNum));
 
@@ -918,7 +977,7 @@ void CoalescedStringentPooling::delete_chunk(void* ptr) const {
     bin_utils->InsertFreeChunkIntoBin(chunk);
     chunks_to_merge.push_back(chunk);
   } else {
-    bin_utils->InsertFreeChunkIntoBin(chunk);
+    bin_utils->InsertFreeChunkIntoBin(try_to_merge(chunk, false));
   }
 }
 

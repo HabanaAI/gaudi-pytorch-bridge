@@ -246,6 +246,13 @@ bool StaticPooling::is_mem_threshold_hit() const {
   return false;
 }
 
+void* StaticPooling::extend_high_memory_allocation(uint64_t size) const {
+  PT_SYNHELPER_DEBUG(
+      "POOL:: Dynamic Pool - extending high memory allocation not supported size::",
+      size);
+  return nullptr;
+}
+
 DynamicPooling::DynamicPooling() {
   pool_id = 0;
   pool_start = nullptr;
@@ -440,6 +447,13 @@ bool DynamicPooling::is_mem_threshold_hit() const {
   if (bytes_in_use > (total_mem * 0.8))
     return true;
   return false;
+}
+
+void* DynamicPooling::extend_high_memory_allocation(uint64_t size) const {
+  PT_SYNHELPER_DEBUG(
+      "POOL:: Dynamic Pool - extending high memory allocation not supported size::",
+      size);
+  return nullptr;
 }
 
 } // namespace pool_allocator

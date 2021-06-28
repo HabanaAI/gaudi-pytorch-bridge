@@ -138,9 +138,7 @@ device::device(
         prealloc_addr, prealloc_size, *this);
   }
 
-  enable_dynamic_workspace_ = GET_ENV_FLAG(PT_ENABLE_DYNAMIC_WB);
-
-  if (!enable_dynamic_workspace_) {
+  if (GET_ENV_FLAG(PT_HPU_INITIAL_WORKSPACE_SIZE) > 0) {
     uint64_t total_memory, free_memory;
     auto status = synDeviceGetMemoryInfo(id_, &free_memory, &total_memory);
     if (synStatus::synSuccess != status) {
@@ -152,12 +150,9 @@ device::device(
     // fallback solution workspace_buffer_ will be allocated to 70% of free
     // memory on the given device
     size_t global_workspace_size = get_workspace_size();
-    workspace_size_ = free_memory > global_workspace_size
-        ? global_workspace_size
-        : 0.7 * free_memory;
-    void* v_ptr{nullptr};
-    device_memory_.malloc(&v_ptr, workspace_size_);
-    workspace_buffer_ = reinterpret_cast<device_ptr>(v_ptr);
+    auto req_size = free_memory > global_workspace_size ? global_workspace_size
+                                                        : 0.7 * free_memory;
+    workspace_buffer_ = get_workspace_buffer(req_size);
 
     PT_SYNHELPER_DEBUG(
         "Allocating static workspace at ",
@@ -181,8 +176,9 @@ synapse_error_v<std::shared_ptr<device>> device::get_or_create(
   std::shared_ptr<device> device_ptr = device_in_use.lock();
   if (device_ptr != nullptr) {
     if (!allowed_device_types.count(device_ptr->type())) {
-      return synapse_error{"Process already acquired device of different type.",
-                           synDeviceTypeMismatch};
+      return synapse_error{
+          "Process already acquired device of different type.",
+          synDeviceTypeMismatch};
     }
     return device_ptr;
   }
@@ -199,8 +195,8 @@ synapse_error_v<std::shared_ptr<device>> device::get_by_id(
       return device_ptr;
     }
   }
-  return synapse_error{"Device with given id is not open by anyone!",
-                       synObjectNotInitialized};
+  return synapse_error{
+      "Device with given id is not open by anyone!", synObjectNotInitialized};
 }
 
 synapse_error_v<std::shared_ptr<device>> device::create(
@@ -292,11 +288,9 @@ int device::get_count() {
 // GLOBAL_WORKSPACE_SIZE is set based on PT_HPU_WORKSPACE_SIZE in GB
 uint64_t device::get_workspace_size() {
   uint64_t workspaceSize = GLOBAL_WORKSPACE_SIZE;
-  static const std::string wsEnvValue = "PT_HPU_WORKSPACE_SIZE";
-  const char* wsValue = getenv(wsEnvValue.c_str());
-  if (wsValue) {
-    workspaceSize = std::stoi(getenv("PT_HPU_WORKSPACE_SIZE"));
-    workspaceSize = workspaceSize * 1024 * 1024 * 1024;
+  auto init_size = GET_ENV_FLAG(PT_HPU_INITIAL_WORKSPACE_SIZE);
+  if (init_size > 0) {
+    workspaceSize = init_size * 1024 * 1024 * 1024;
     if (workspaceSize == 0) {
       PT_DEVICE_DEBUG("WorkSpace size not specified, setting default");
       workspaceSize = GLOBAL_WORKSPACE_SIZE;
@@ -619,70 +613,19 @@ synapse_error device::copy_data_within_device(
   return {};
 }
 
-device_ptr device::get_workspace_buffer(std::size_t size) {
+device_ptr device::get_workspace_buffer(size_t size) {
   std::unique_lock<std::mutex> lock(ws_mutex_);
-  if (enable_dynamic_workspace_) {
-    size_t chunk_size = 128 * 1024 * 1024;
-    size_t num_chunks = (size / chunk_size) + 1;
-
-    if (workspace_size_ == num_chunks * chunk_size) {
-      return workspace_buffer_;
-    }
-
-    if (workspace_size_ == 0) {
-      workspace_size_ = num_chunks * chunk_size;
-      workspace_buffer_ =
-          reinterpret_cast<device_ptr>(allocator_->alloc(workspace_size_));
-      if (0 == workspace_buffer_) {
-        PT_SYNHELPER_FATAL("Allocation of workspace(", size, ") failed!");
-      }
-
-      PT_SYNHELPER_DEBUG(
-          "Allocating dynamic workspace at ",
-          (void*)workspace_buffer_,
-          " size ",
-          synapse_helpers::get_mem_str(workspace_size_));
-    }
-
-    if (size > workspace_size_) {
-      PT_SYNHELPER_DEBUG(
-          "Will free dynamic workspace at ",
-          (void*)workspace_buffer_,
-          " size ",
-          synapse_helpers::get_mem_str(workspace_size_),
-          " for allocating ",
-          synapse_helpers::get_mem_str(size));
-
-      auto& recipe_counter = get_active_recipe_counter();
-      while (recipe_counter.get_count() > 1) {
-        recipe_counter.wait_for_next_decrease_call();
-      }
-
-      allocator_->free(reinterpret_cast<void*>(workspace_buffer_));
-
-      // Increase the size of the buffer to the next multiple of 100MB of size
-      workspace_size_ = num_chunks * chunk_size;
-      workspace_buffer_ =
-          reinterpret_cast<device_ptr>(allocator_->alloc(workspace_size_));
-
-      if (0 == workspace_buffer_) {
-        PT_SYNHELPER_FATAL("Reallocation of workspace(", size, ") failed!");
-      }
-
-      PT_SYNHELPER_DEBUG(
-          "Reallocating dynamic workspace at ",
-          (void*)workspace_buffer_,
-          " size ",
-          synapse_helpers::get_mem_str(workspace_size_));
-    }
-  } else if (size > workspace_size_) {
-    PT_SYNHELPER_FATAL(
-        "Requested buffer size for workspace(",
-        size,
-        ") is bigger than the available workspace size(",
-        workspace_size_,
-        ")!");
+  void* buffer = device_memory_.workspace_alloc(
+      (void*)workspace_buffer_, workspace_size_, size);
+  if (buffer == nullptr) {
+    PT_SYNHELPER_FATAL("workspace Allocation of size ::", size, " failed!");
   }
+  workspace_buffer_ = reinterpret_cast<device_ptr>(buffer);
+  PT_SYNHELPER_DEBUG(
+      "Allocated workspace buffer at",
+      (void*)workspace_buffer_,
+      " size ",
+      synapse_helpers::get_mem_str(workspace_size_));
 
   return workspace_buffer_;
 }

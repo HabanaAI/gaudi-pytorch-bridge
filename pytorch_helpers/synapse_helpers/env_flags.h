@@ -76,8 +76,9 @@ struct PT_ENABLE_HCL_STREAM {
   static constexpr bool default_value = true;
 };
 
-struct PT_ENABLE_DYNAMIC_WB {
-  static constexpr bool default_value = true;
+struct PT_HPU_INITIAL_WORKSPACE_SIZE
+    : public std::numeric_limits<unsigned long> {
+  static constexpr unsigned long default_value = 0;
 };
 
 struct PT_HABANA_MAX_DMA_COPY_RETRY_COUNT

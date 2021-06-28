@@ -68,6 +68,7 @@ class StaticCoalescedPooling : public PoolingStrategy {
   void* pool_alloc_chunk(uint64_t size) const override;
   void pool_free_chunk(void* p) const override;
   bool is_mem_threshold_hit() const override;
+  void* extend_high_memory_allocation(uint64_t size) const override;
 };
 
 } // namespace pool_allocator

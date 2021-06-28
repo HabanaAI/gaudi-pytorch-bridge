@@ -79,6 +79,7 @@ class CoalescedStringentPooling : public PoolingStrategy {
   void* pool_alloc_chunk(uint64_t size) const override;
   void pool_free_chunk(void* p) const override;
   bool is_mem_threshold_hit() const override;
+  void* extend_high_memory_allocation(uint64_t size) const override;
 
  private:
   struct chunkcompare {
@@ -100,6 +101,7 @@ class CoalescedStringentPooling : public PoolingStrategy {
   mutable bool enable_lfu_merging;
   mutable std::deque<Chunk*> chunks_to_merge;
   uint64_t max_merge_count;
+  mutable bool high_memory_allocated_ = false;
 
   void* alloc_chunk(uint64_t size) const;
   void delete_chunk(void* p) const;

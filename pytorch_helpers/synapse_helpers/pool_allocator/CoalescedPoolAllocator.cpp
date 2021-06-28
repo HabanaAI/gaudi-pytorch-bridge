@@ -148,6 +148,13 @@ bool StaticCoalescedPooling::is_mem_threshold_hit() const {
   return false;
 }
 
+void* StaticCoalescedPooling::extend_high_memory_allocation(
+    uint64_t size) const {
+  PT_SYNHELPER_DEBUG(
+      "POOL:: extending high memory allocation not supported size::", size);
+  return nullptr;
+}
+
 void StaticCoalescedPooling::print_pool_stats() const {
   const std::string occupancy_mask = "[+++]";
   const std::string free_mask = "[00000]";

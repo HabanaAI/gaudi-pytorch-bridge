@@ -38,6 +38,7 @@ class device_memory {
   device_memory& operator=(device_memory&&) = delete;
   synStatus malloc(void** ptr, size_t size);
   synStatus free(void* ptr);
+  void* workspace_alloc(void* ptr, size_t& size, size_t req_size);
   bool is_mem_threshold_hit();
 
  private:
