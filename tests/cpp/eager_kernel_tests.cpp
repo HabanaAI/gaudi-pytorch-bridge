@@ -709,3 +709,26 @@ TEST(EagerKernelTest, BroadCastIndexTest) {
   bool equal = out_cpu.allclose(out_hpu.to(torch::kCPU), 0.001, 0.001);
   EXPECT_EQ(equal, true);
 };*/
+
+TEST(EagerKernelTest, Silu) {
+  const std::vector<int64_t> dimentions{7, 3};
+  auto input_tensor = torch::randn(dimentions, torch::requires_grad(false));
+  auto hinput = input_tensor.to(torch::kHABANA);
+
+  auto hresult = torch::silu(hinput);
+  auto hout = hresult.to(torch::kCPU);
+
+  auto cpu_out = torch::silu(input_tensor);
+  EXPECT_TRUE(allclose(hout, cpu_out));
+}
+
+TEST(EagerKernelTest, Silu0Dim) {
+  torch::Tensor A = torch::tensor(2.03);
+  auto hinput = A.to(torch::kHABANA);
+
+  auto hresult = torch::silu(hinput);
+  auto hout = hresult.to(torch::kCPU);
+
+  auto cpu_out = torch::silu(A);
+  EXPECT_TRUE(allclose(hout, cpu_out));
+}

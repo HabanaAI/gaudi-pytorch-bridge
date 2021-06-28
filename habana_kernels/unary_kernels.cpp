@@ -2025,6 +2025,33 @@ void SiluOperator::AllocateAndAddSynapseNode(
   p_context_->pt_outputs_.emplace_back(std::move(mulOp.GetOutputs()[0]));
 }
 
+/*************************************************************************
+ * @brief Kernel implementation for output = torch.silu(input)
+ * @param [in] input - input tensor, 1-5D, BF16/FP32
+ ************************************************************************/
+Tensor silu_hpu(const Tensor& self) {
+  PT_KERNEL_BEGIN;
+  bool isSelf_0d = false;
+  if (self.dim() == 0) {
+    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+    isSelf_0d = true;
+  }
+  at::ScalarType scalar_type = self.scalar_type();
+  std::string node_type =
+      "silu_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+
+  // Create the operator
+  size_t device_id = self.device().index();
+  SiluOperator Op(device_id, scalar_type);
+
+  auto out = unary_op_hpu(self, node_type, &Op);
+  if (isSelf_0d) {
+    self.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+    out.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+  }
+  PT_KERNEL_END;
+  return out;
+}
 void IsnanOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,

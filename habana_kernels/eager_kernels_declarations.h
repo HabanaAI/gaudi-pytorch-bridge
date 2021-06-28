@@ -772,3 +772,4 @@ at::Tensor habana_nms_hpu(
     const at::Tensor& boxes,
     float iou_threshold,
     float score_threshold);
+at::Tensor silu_hpu(const at::Tensor& self);

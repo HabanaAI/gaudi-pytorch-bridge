@@ -2712,8 +2712,7 @@ Tensor hpu_wrap::silu(const Tensor& self) {
   if (std::getenv("PT_HPU_LAZY_MODE")) {
     return silu_hpu_lazy(self);
   } else {
-    HABANA_ASSERT(0 && "silu not implemented for eager mode");
-    return silu_hpu_lazy(self);
+    return silu_hpu(self);
   }
 };
 
