@@ -97,6 +97,7 @@ HbLazyTensor GetOrCreateHbLazyTensor(
 
 HbLazyTensor GetHbLazyTensor(const at::Tensor& tensor) {
   auto hb_tensor = TryGetHbLazyTensor(tensor);
+  HABANA_ASSERT(hb_tensor, "GetHbLazyTensor for a non lazy tensor");
   return *hb_tensor;
 }
 
@@ -222,7 +223,8 @@ void HpuUpdateTensors(
     //   operation and "safe" copying its results to the (possibly resized if
     //   empty) out tensors
 
-    if (dst.numel() == 0) {
+    // if (dst.numel() == 0) {
+    if (dst.sizes() != src.sizes()) {
       auto shape = at::DimVector(src.sizes());
       THHTensor_resizeNd(
           dst.unsafeGetTensorImpl(), shape.size(), shape.data(), nullptr);

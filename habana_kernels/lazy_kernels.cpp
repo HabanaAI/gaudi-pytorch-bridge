@@ -129,7 +129,7 @@ static void flush_op(at::TensorList tensors) {
     std::vector<HbLazyTensor> hl_tensors;
     hl_tensors.reserve(tensors.size());
     for (const auto& t : tensors) {
-      hl_tensors.push_back(GetOrCreateHbLazyTensor(t));
+      hl_tensors.push_back(GetHbLazyTensor(t));
     }
     HbLazyTensor::SyncTensorsGraph(&hl_tensors);
   } else if (m_random_flush) {
@@ -261,8 +261,16 @@ at::Tensor get_tensor_for_scalar(float alpha) {
 }
 
 Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
+  PT_LAZY_TRACE;
+  bool unsupported_src_type = at::isComplexType(src.scalar_type());
+  bool unsupported_dst_type = at::isComplexType(self.scalar_type());
+  if (unsupported_src_type or unsupported_dst_type) {
+    auto fb_self = self.cpu();
+    auto fb_src = src.cpu();
+    fb_self.copy_(fb_src);
+    return self.copy_(fb_self);
+  }
   if (to_lower_as_strided()) {
-    PT_LAZY_TRACE;
     ir::NodePtr node;
     std::vector<at::Tensor> input_pt_vec;
     HbLazyTensor hb_tensor = GetOrCreateHbLazyTensor(src, src.device());
@@ -319,7 +327,6 @@ Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
     flush_op(self);
     return self;
   } else {
-    PT_LAZY_TRACE;
     ir::NodePtr node;
     std::vector<at::Tensor> input_pt_vec;
     HbLazyTensor hb_tensor = GetOrCreateHbLazyTensor(src, src.device());
@@ -394,41 +401,39 @@ Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
 
 Tensor& copy_hpu_lazy_D2H(Tensor& self, const Tensor& src, bool non_blocking) {
   PT_LAZY_TRACE;
+  // This situation should not occur
+  // Throwing an exception here for now to catch any cases that arise
+  TORCH_CHECK(
+      IsHbLazyTensor(src),
+      "Habana Lazy : trying to copy back a tensor which does not have a lazy tensor");
+
   // If src is a lazy tensor make sure the execution till the point of src
   // getting flled has finished before we start copying
-  if (IsHbLazyTensor(src)) {
-    HbLazyTensor hb_tensor = GetOrCreateHbLazyTensor(src, src.device());
-    auto tensor_data = hb_tensor.GetHbLazyTensorData();
+  HbLazyTensor hb_tensor = GetHbLazyTensor(src);
+  auto tensor_data = hb_tensor.GetHbLazyTensorData();
 
-    TORCH_CHECK(
-        tensor_data, "Trying to copy from lazy tensor with no backend memory");
-    auto type = hb_tensor.getTensorOriginalType();
-    // This path is disabled for now, when we return back from Habana to
-    // CPU we can check if the original tensor was long/double , if soe we
-    // can upscale it and send it back. For now we just send the 32bit
-    // tensor that Habana holds
+  TORCH_CHECK(
+      tensor_data, "Trying to copy from lazy tensor with no backend memory");
+  auto type = hb_tensor.getTensorOriginalType();
+  // This path is disabled for now, when we return back from Habana to
+  // CPU we can check if the original tensor was long/double , if soe we
+  // can upscale it and send it back. For now we just send the 32bit
+  // tensor that Habana holds
 
-    if (type != typeMetaToScalarType(src.dtype())) {
-      // If we need to upscale the CPU tensor using the .to for now
-      // It rebinds the self reference to the new tensor
-      // We need to check the memory deletion of the original tensor created
-      // by PT
-      PT_LAZY_DEBUG(
-          "WARNING: We are hitting a case in H2D where the PyTorch tensor original data types mismatch.");
-      self = self.to(src.dtype());
-      self = copy_hpu_(self, tensor_data.value(), non_blocking);
-      self = self.to(type);
-    } else {
-      self = copy_hpu_(self, tensor_data.value(), non_blocking);
-    }
-    self = CreateHbLazyTensor(self, GetHblazyDevice(self));
+  if (type != typeMetaToScalarType(src.dtype())) {
+    // If we need to upscale the CPU tensor using the .to for now
+    // It rebinds the self reference to the new tensor
+    // We need to check the memory deletion of the original tensor created
+    // by PT
+    PT_LAZY_DEBUG(
+        "WARNING: We are hitting a case in H2D where the PyTorch tensor original data types mismatch.");
+    self = self.to(src.dtype());
+    self = copy_hpu_(self, tensor_data.value(), non_blocking);
+    self = self.to(type);
   } else {
-    // This situation should not occur
-    // Throwing an exception here for now to catch any cases that arise
-    TORCH_CHECK(
-        false,
-        "Habana Lazy : trying to copy back a tensor which does not have a lazy tensor");
+    self = copy_hpu_(self, tensor_data.value(), non_blocking);
   }
+  self = CreateHbLazyTensor(self, GetHblazyDevice(self));
   return self;
 }
 

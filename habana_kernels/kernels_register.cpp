@@ -3185,9 +3185,6 @@ Tensor hpu_wrap::stack(TensorList tensors, int64_t dim) {
 }
 
 Tensor hpu_wrap::alias(const at::Tensor& self) {
-  if (!hpu_check_inputs_impl("alias", {self}))
-    return AtenHpuTypeDefault::alias(self);
-
   return at::native::alias(self);
 }
 

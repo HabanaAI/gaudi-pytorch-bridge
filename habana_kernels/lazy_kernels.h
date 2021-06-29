@@ -143,8 +143,13 @@ class LazyOp {
     ir::Value& out = hl_self.CurrentIrValue();
     out.SetNode(node);
 
-    if (self.numel() == 0) {
-      auto out_shape = get_inputs().at(m_out_index).toTensor().sizes().vec();
+    // numel == 0 is the correct check, need the size check until pytorch fixes
+    // it properly
+    // https://github.com/pytorch/pytorch/wiki/Developer-FAQ#how-does-out-work-in-pytorch
+    auto out_shape = m_out_shapes.empty()
+        ? get_inputs().at(m_out_index).toTensor().sizes().vec()
+        : m_out_shapes[0];
+    if (self.sizes() != out_shape) {
       auto impl = hl_self.getAttachedTensorImpl();
       THHTensor_resizeNd(impl, out_shape.size(), out_shape.data(), nullptr);
       self.unsafeGetTensorImpl()->set_sizes_contiguous(out_shape);
@@ -371,7 +376,7 @@ class LazyBinaryOp : public LazyOp<ReturnType> {
       auto tensor_promote = inputs[pos].toTensor();
       auto self = empty_hpu_lazy(
           tensor_promote.sizes(),
-          tensor_promote.options().dtype(dst_dtype),
+          tensor_promote.options().dtype(dst_dtype).device(at::kHABANA),
           tensor_promote.suggest_memory_format(),
           false);
       self = copy_hpu_lazy_(self, tensor_promote, true);
@@ -395,7 +400,7 @@ class LazyBinaryOp : public LazyOp<ReturnType> {
     if (self.scalar_type() != other.scalar_type()) {
       at::Tensor casted_other = empty_hpu_lazy(
           other.sizes(),
-          other.options().dtype(dst_dtype),
+          other.options().dtype(dst_dtype).device(at::kHABANA),
           other.suggest_memory_format(),
           false);
       copy_hpu_lazy_(casted_other, other, true);
@@ -437,7 +442,7 @@ class LazyCompareOp : public LazyOp<ReturnType> {
       auto tensor_promote = inputs[pos].toTensor();
       auto self = empty_hpu_lazy(
           tensor_promote.sizes(),
-          tensor_promote.options().dtype(dst_dtype),
+          tensor_promote.options().dtype(dst_dtype).device(at::kHABANA),
           tensor_promote.suggest_memory_format(),
           false);
       self = copy_hpu_lazy_(self, tensor_promote, true);
