@@ -3571,7 +3571,8 @@ Tensor empty_hpu_lazy(
   type = type == c10::ScalarType::Double ? c10::ScalarType::Float : type;
   auto new_dtype = scalarTypeToTypeMeta(type);
 
-  if (create_storage || is_shape_tensor) {
+  if (create_storage ||
+      is_shape_tensor != habana::ShapeTensorType::kShapeTensorNone) {
     c10 ::Allocator* allocator;
     if (options.pinned_memory()) {
       TORCH_CHECK(false, "habana allocator doesn't supported pinned memory");
@@ -3606,7 +3607,7 @@ Tensor empty_hpu_lazy(
     }
 
     // set metadata that its a shape tensor
-    if (is_shape_tensor) {
+    if (is_shape_tensor != habana::ShapeTensorType::kShapeTensorNone) {
       habana_lazy::HbLazyTensorImpl* impl =
           habana_lazy::GetHbLazyTensorImpl(at_internal_tensor);
       if (impl)

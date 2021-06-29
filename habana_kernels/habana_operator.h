@@ -39,9 +39,9 @@ enum class LayoutFormat { NHWC = 0, NCHW = 1, HWCK = 2, ANY = 3, INVALID = 4 };
 const size_t NO_INPUTS = 0xFFFFFFFF;
 
 enum ShapeTensorType {
-  kShapeTensorStatic = 0,
-  kShapeTensorDynamic,
-  kShapeTensorNone
+  kShapeTensorNone = 0,
+  kShapeTensorStatic,
+  kShapeTensorDynamic
 };
 //
 // The Pytorch kernel context holds the operator context
