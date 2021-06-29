@@ -133,7 +133,7 @@ void NLLLossFwdOperator::AllocateAndAddSynapseNode(
       self,
       {1},
       self.options(),
-      self.suggest_memory_format(),
+      at::MemoryFormat::Contiguous,
       is_output_persistent[0]);
   AllocateSynapseOutput(graph, output1, is_output_persistent[0]);
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
@@ -145,7 +145,7 @@ void NLLLossFwdOperator::AllocateAndAddSynapseNode(
       self,
       {1},
       self.options(),
-      self.suggest_memory_format(),
+      at::MemoryFormat::Contiguous,
       is_output_persistent[1]);
   p_context_->syn_outputs_.emplace_back(habana_helpers::create_tensor(
       output2,
@@ -198,8 +198,8 @@ std::tuple<Tensor, Tensor> nll_loss_forward_hpu(
   std::vector<at::Tensor> pt_inputs{self, modified_target};
   if (device.get_recipe_handle_cache().isCached(key)) {
     PT_KERNEL_DEBUG("Cache hit key:", key);
-    auto output1 = at::empty({1}, self.options(), self.suggest_memory_format());
-    auto output2 = at::empty({1}, self.options(), self.suggest_memory_format());
+    auto output1 = at::empty({1}, self.options(), at::MemoryFormat::Contiguous);
+    auto output2 = at::empty({1}, self.options(), at::MemoryFormat::Contiguous);
     Op.SetPTInputs(pt_inputs);
     std::vector<at::Tensor> v{output1, output2};
     Op.SetPTOutputs(v);

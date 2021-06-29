@@ -743,7 +743,7 @@ void ReshapeOperator::AllocateAndAddSynapseNode(
   auto input_shape = IntArrayRef(shape_vector.data(), shape_vector.size());
   auto inferred_size = at::infer_size(input_shape, self.numel());
   auto memory_format = self.suggest_memory_format();
-  if (self.dim() < 4) {
+  if (inferred_size.size() < 4) {
     memory_format = at::MemoryFormat::Contiguous;
   }
   auto output = habana_helpers::createPTTensor(
