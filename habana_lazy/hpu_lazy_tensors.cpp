@@ -476,7 +476,7 @@ void HbLazyTensor::SyncTensorsGraphInternal(
 
   for (const auto& in : po_data.inputs) {
     PT_LAZY_DEBUG(std::string("Lowering - ") + in.ToString());
-    if (in.m_data_ptr.expired()) {
+    if (!in.DataPtrValidAndNotExpired()) {
       std::vector<ir::NodePtr> p_roots;
       p_roots.reserve(indices.size());
       for (auto index : indices) {
@@ -489,7 +489,7 @@ void HbLazyTensor::SyncTensorsGraphInternal(
           std::string("\n Failing IR graph = ") +
           IrGraphDumpUtil::PostOrderToText(po_data.post_order, p_roots);
       std::clog << error_message;
-      HABANA_ASSERT(!in.m_data_ptr.expired());
+      HABANA_ASSERT(in.DataPtrValidAndNotExpired());
     }
     if (in.mp_node) {
       PT_LAZY_DEBUG(std::string("    Node ") + in.mp_node->ToString());
@@ -605,7 +605,7 @@ void HbLazyTensor::ExecuteCachedGraph() {
 
   for (const auto& in : input_vals) {
     PT_LAZY_DEBUG(std::string("Lowering - ") + in.ToString());
-    HABANA_ASSERT(!in.m_data_ptr.expired());
+    HABANA_ASSERT(in.DataPtrValidAndNotExpired());
     if (in.mp_node) {
       PT_LAZY_DEBUG(std::string("    Node ") + in.mp_node->ToString());
     }

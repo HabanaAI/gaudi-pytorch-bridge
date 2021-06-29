@@ -111,11 +111,29 @@ bool Value::IsHpuInputNode() const {
   return mp_node && mp_node->is_input();
 }
 
+bool Value::DataPtrValid() const {
+  // Check the owner_before for an empty weak pointer.
+  // As per https://en.cppreference.com/w/cpp/memory/weak_ptr/owner_before,
+  // "The order is such that two smart pointers compare equivalent only if
+  // they are both empty or if they both own the same object"
+  // If the weak_ptr is uninitialized, expired() call still returns true as
+  // the use_count() is 0 and we can't differentiate an uninitialized tensor
+  // against an initialized and expired tensor.
+  // The owner_before with an empty weak_ptr is going to return false if the
+  // m_data_ptr is uninitialized.
+  return m_data_ptr.owner_before(std::weak_ptr<Data>{}) ||
+      std::weak_ptr<Data>{}.owner_before(m_data_ptr);
+}
+
+bool Value::DataPtrValidAndNotExpired() const {
+  return DataPtrValid() && !m_data_ptr.expired();
+}
+
 Value::~Value() {}
 
 Output::Output(const Value& v)
     : m_node(v.mp_node.get()), m_index(v.m_index), m_name(v.ToString()) {
-  if (!v.m_data_ptr.expired()) {
+  if (v.DataPtrValidAndNotExpired()) {
     std::shared_ptr<Data> d = v.m_data_ptr.lock();
     device = d->device;
     dims = d->sizes.size();

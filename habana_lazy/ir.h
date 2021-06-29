@@ -383,6 +383,10 @@ struct Value {
 
   bool IsHpuInputNode() const;
 
+  bool DataPtrValid() const;
+
+  bool DataPtrValidAndNotExpired() const;
+
   virtual ~Value();
 
   /* Unique id for Value */
