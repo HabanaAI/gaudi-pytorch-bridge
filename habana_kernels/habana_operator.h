@@ -26,6 +26,17 @@
 #include <iostream>
 #include <memory>
 
+// Utility Macros to handle 0d tensors input
+#define CONVERT_0D_TO_1D(self)                                   \
+  if (0 == self.dim()) {                                         \
+    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1}); \
+  }
+#define CONVERT_1D_TO_0D(self, out)                            \
+  if (0 == self.dim()) {                                       \
+    self.unsafeGetTensorImpl()->set_sizes_and_strides({}, {}); \
+    out.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});  \
+  }
+
 namespace habana {
 
 class HabanaOperator;

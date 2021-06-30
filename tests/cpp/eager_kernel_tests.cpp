@@ -9,6 +9,26 @@
 
 using namespace habana_lazy;
 
+TEST(EagerKernelTest, MinTest0D) {
+  torch::Tensor A = torch::tensor(2.03);
+  auto hinput = A.to(torch::kHABANA);
+
+  auto hresult = torch::min(hinput);
+  auto hout = hresult.to(torch::kCPU);
+
+  auto cpu_out = torch::min(A);
+  EXPECT_TRUE(allclose(hout, cpu_out));
+}
+
+// TODO: Add test dim from actual model's data
+TEST(EagerKernelTest, MinTest) {
+  torch::Tensor A = torch::randn({2, 3, 4, 2}, torch::requires_grad(false));
+  torch::Tensor hA = A.to(torch::kHABANA);
+  auto hOut = torch::min(hA);
+  auto Out = torch::min(A);
+  EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out), true);
+}
+
 TEST(EagerKernelTest, ReluTest) {
   torch::Tensor tensor = torch::randn({2, 3});
   torch::Tensor tHabana = tensor.to(torch::kHABANA);

@@ -538,6 +538,7 @@ std::tuple<at::Tensor, at::Tensor> max_dim_hpu_lazy(
     int64_t dim,
     bool keepdim);
 at::Tensor max_hpu_lazy(const at::Tensor& self);
+at::Tensor min_hpu_lazy(const at::Tensor& self);
 at::Tensor& any_dim_out_hpu_lazy(
     at::Tensor& output,
     const at::Tensor& self,

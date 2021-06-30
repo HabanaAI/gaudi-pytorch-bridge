@@ -142,6 +142,15 @@ TEST_F(LazyReductionKernelTest, MaxTest) {
   EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out), true);
 }
 
+TEST_F(LazyReductionKernelTest, MinTest) {
+  torch::Tensor A = torch::randn(
+      {2, 3, 4, 2}, torch::requires_grad(false).dtype(torch::kDouble));
+  torch::Tensor hA = A.to(torch::kHABANA);
+  auto hOut = torch::min(hA);
+  auto Out = torch::min(A);
+  EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out), true);
+}
+
 TEST_F(LazyReductionKernelTest, DISABLED_Mean) {
   torch::Tensor A = torch::randn({53, 13}, torch::requires_grad(false));
   torch::Tensor hA = A.to(torch::kHABANA);

@@ -510,6 +510,7 @@ struct hpu_wrap {
       int64_t dim,
       bool keepdim);
   static at::Tensor max(const at::Tensor& self);
+  static at::Tensor min(const at::Tensor& self);
   static at::Tensor& any_out(
       const at::Tensor& self,
       int64_t dim,

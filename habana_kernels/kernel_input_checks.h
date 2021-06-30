@@ -1340,6 +1340,14 @@ static const std::unordered_map<
               at::ScalarType::Long}},
         },
         {
+            "min",
+            {{at::ScalarType::Float,
+              at::ScalarType::Double,
+              at::ScalarType::BFloat16,
+              at::ScalarType::Int,
+              at::ScalarType::Long}},
+        },
+        {
             "any_out",
             {{at::ScalarType::Float,
               at::ScalarType::Double,

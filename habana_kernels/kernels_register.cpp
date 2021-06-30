@@ -1973,6 +1973,18 @@ at::Tensor hpu_wrap::max(const at::Tensor& self) {
     return max_hpu(self);
   }
 };
+
+at::Tensor hpu_wrap::min(const at::Tensor& self) {
+  if (!hpu_check_inputs_impl("min", {self}))
+    return AtenHpuTypeDefault::min(self);
+
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    return min_hpu_lazy(self);
+  } else {
+    return min_hpu(self);
+  }
+};
+
 Tensor& hpu_wrap::any_out(
     const Tensor& self,
     int64_t dim,

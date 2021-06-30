@@ -267,6 +267,104 @@ Tensor max_hpu(const at::Tensor& self) {
   return out.at(0);
 }
 
+synapse_helpers::tensor_or_ref MinOperator::ReduceSingle(
+    synapse_helpers::graph& graph,
+    Tensor& input,
+    int64_t i,
+    synapse_helpers::tensor_or_ref syn_input) {
+  Reduce2Operator reduce(input.device().index(), this->guid_);
+  auto& reduce_syn_input = reduce.SetSynapseInput(std::move(syn_input));
+  torch::jit::Stack stack = {IValue(input), IValue(i), IValue(true)};
+  reduce.AllocateAndAddSynapseNode(graph, stack, {false, false});
+  ReduceOpList.push_back(reduce);
+  syn_input = std::move(reduce_syn_input);
+  return syn_input;
+}
+
+void MinOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 1,
+      "Incorrect size of inputs expected for aten::min operator");
+  TORCH_CHECK(
+      inputs[0].isTensor(),
+      "Input arg1 expected to be tensor for aten::min operator");
+
+  Tensor self = inputs[0].toTensor();
+  p_context_->syn_inputs_[0] =
+      ReduceSingle(graph, self, 0, std::move(p_context_->syn_inputs_[0]));
+  for (auto i = 1; i < self.dim(); i++) {
+    ReduceSingle(
+        graph,
+        ReduceOpList[i - 1].GetOutputs()[0],
+        i,
+        std::move(ReduceOpList[i - 1].GetSynOutputs()[0]));
+  }
+
+  // Convert to 1D tensor for output
+  auto reshape_op =
+      make_operator<ReshapeOperator>(self.device().index(), self.scalar_type());
+  std::vector<int64_t> out_shape{1};
+  reshape_op->SetSynapseInput(
+      std::move(ReduceOpList[self.dim() - 1].GetSynOutputs()[0]));
+  torch::jit::Stack stack = {
+      IValue(ReduceOpList[self.dim() - 1].GetOutputs()[0]), IValue(out_shape)};
+  reshape_op->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+  stack.clear();
+
+  p_context_->syn_outputs_.emplace_back(
+      std::move(reshape_op->GetSynOutputs()[0]));
+  p_context_->pt_outputs_.emplace_back(std::move(reshape_op->GetOutputs()[0]));
+}
+
+Tensor min_hpu(const at::Tensor& self) {
+  PT_KERNEL_BEGIN;
+  CONVERT_0D_TO_1D(self)
+  at::ScalarType scalar_type = self.scalar_type();
+
+  std::string node_type =
+      "reduce_min_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+
+  // Create the operator
+  size_t device_id = self.device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  std::vector<at::Tensor> pt_inputs{self};
+  std::vector<c10::IValue> stack = {IValue(self)};
+  // Create the operator
+  MinOperator Op(device_id, scalar_type);
+  size_t key = Op.GetRecipeKey(node_type, stack);
+
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    auto out_shape = MinOperator::compute_output_shape();
+    auto output =
+        at::empty(out_shape, self.options(), self.suggest_memory_format());
+    Op.SetPTInputs(pt_inputs);
+    std::vector<at::Tensor> v{output};
+    Op.SetPTOutputs(v);
+    Op.Execute(key);
+  } else {
+    PT_KERNEL_DEBUG("key:", key);
+    // Create Graph
+    auto graph = habana_helpers::create_graph(device_id, node_type);
+
+    // Assign Inputs to the Operator
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
+
+    Op.AllocateAndAddSynapseNode(graph, stack, true);
+
+    // compile and execute the graph
+    Op.Compile(graph);
+  }
+  std::vector<at::Tensor> out = Op.GetOutputs();
+  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
+  CONVERT_1D_TO_0D(self, out.at(0))
+  PT_KERNEL_END;
+  return out.at(0);
+}
+
 static auto& KernelRegistry =
     habana::KernelRegistry()
         .add(
@@ -274,6 +372,11 @@ static auto& KernelRegistry =
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<MaxDimOperator>(device_id, node_type);
             })
-        .add("aten::max", [](const int device_id, c10::ScalarType node_type) {
-          return std::make_shared<MaxOperator>(device_id, node_type);
+        .add(
+            "aten::max",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<MaxOperator>(device_id, node_type);
+            })
+        .add("aten::min", [](const int device_id, c10::ScalarType node_type) {
+          return std::make_shared<MinOperator>(device_id, node_type);
         });
