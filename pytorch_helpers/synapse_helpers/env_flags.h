@@ -140,6 +140,11 @@ struct PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES {
 struct PT_HPU_ENABLE_INTERMEDIATE_TENSOR_RELEASE {
   static constexpr bool default_value = false;
 };
+
+struct PT_HPU_PRINT_BACKTRACE_ON_SIGNAL {
+  static constexpr bool default_value = true;
+};
+
 // Overloads for different type of default value
 
 template <class T>

@@ -9,8 +9,10 @@
  */
 #pragma once
 
+#include <c10/util/Exception.h>
 #include <synapse_api_types.h>
 #include <synapse_helpers/device.h>
+
 #include <array>
 #include <memory>
 #include <thread>
