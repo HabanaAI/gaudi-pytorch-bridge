@@ -658,6 +658,16 @@ void RecipeValueSpec::launch(
     }
     // wait for input DMA to complete before launching the compute.
     device.add_wait_events_on_stream(inDevPtr, stream_handle);
+
+    if (GET_ENV_FLAG(PT_HPU_ENABLE_INTERMEDIATE_TENSOR_RELEASE)) {
+      // Hold on to the pytorch tensors for the intermediates untill the recipe
+      // execution completes
+      for (auto& tensor : aten_intermediates) {
+        ptRefs.push_back(std::move(tensor));
+      }
+      aten_intermediates.clear();
+    }
+
     outDevPtr.reserve(
         num_outputs + num_input_to_outduplicates +
         num_intermediate_to_outduplicates);

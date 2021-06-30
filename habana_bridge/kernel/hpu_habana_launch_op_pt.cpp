@@ -1708,15 +1708,27 @@ void HabanaLaunchOpPT::OrderOutputTinfos(RecipeValueSpec& rv) {
   size_t interim_tinfo_idx{intermediates_start};
   if (!intermediate_tinfos.empty()) {
     rv.num_intermediates = intermediate_tinfos.size();
+    for (auto& ti : intermediate_tinfos) {
+      void* buffp =
+          ti.is_view_tensor() ? ti.get_buffer_start() : ti.get_buffer();
+      if (false == GET_ENV_FLAG(PT_HPU_ENABLE_INTERMEDIATE_TENSOR_RELEASE)) {
+        buff_to_interim_tividx_map.emplace(buffp, interim_tinfo_idx++);
+      } else {
+        // Duplicate analysis for the persistent intermediates
+        if (buff_to_interim_tividx_map.count(buffp)) {
+          ti.set_duplicate_flag(true);
+          ti.set_parent_index(buff_to_interim_tividx_map[buffp]);
+        } else {
+          buff_to_interim_tividx_map.emplace(buffp, interim_tinfo_idx);
+        }
+        interim_tinfo_idx++;
+      }
+    }
+
     rv.dtensorinfos->insert(
         rv.dtensorinfos->end(),
         intermediate_tinfos.begin(),
         intermediate_tinfos.end());
-    for (auto& ti : intermediate_tinfos) {
-      void* buffp =
-          ti.is_view_tensor() ? ti.get_buffer_start() : ti.get_buffer();
-      buff_to_interim_tividx_map.emplace(buffp, interim_tinfo_idx++);
-    }
   }
 
   // At this point, within dtensorinfos, tinfos for inputs,
@@ -2556,7 +2568,8 @@ void HabanaLaunchOpPT::PrintRecipeInputs() {
   size_t idx{0};
   for (size_t i = pt_stack_sh.size() - num_inputs; i < pt_stack_sh.size();
        i++) {
-    O << idx++ << " : ";
+    auto vp = jit_ir_graph->inputs().at(i);
+    O << idx++ << " : %" << vp->debugName() << " : ";
     PrintATenTensor(pt_stack_sh.at(i));
   }
 }
@@ -2894,8 +2907,9 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
 
         // Patch persistent intermediates
         // The persistent intermediates are retained in the rv
-        size_t intermediates_end = rv.num_inputs + rv.num_induplicates +
-            rv.num_dma_inputs + rv.num_intermediates;
+        size_t intermediates_start =
+            rv.num_inputs + rv.num_induplicates + rv.num_dma_inputs;
+        size_t intermediates_end = intermediates_start + rv.num_intermediates;
         auto intermediate_idx = 0;
         std::unordered_map<size_t, IValPtrShared> intermediateIVpshMap;
         for (; ridx < intermediates_end; ridx++) {
@@ -2904,6 +2918,44 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
               ti.is_tensor(),
               "non tensor tinfo found for persistent intermediates");
           at::IntArrayRef tshape{ti.get_shape()};
+
+          if (GET_ENV_FLAG(PT_HPU_ENABLE_INTERMEDIATE_TENSOR_RELEASE)) {
+            if (ti.is_duplicate()) {
+              auto ti_parent_index = ti.get_parent_index();
+              auto pt_parent_index = ti_parent_index - intermediates_start;
+              TORCH_CHECK(
+                  pt_parent_index < rv.aten_intermediates.size(),
+                  "out of range duplicate intermediate tensor index ",
+                  pt_parent_index,
+                  " #aten_intermediates ",
+                  rv.aten_intermediates.size());
+
+              auto pt_parent = rv.aten_intermediates[pt_parent_index];
+
+              auto& pt_sizes{ti.get_shape()};
+              auto& pt_strides{ti.get_strides()};
+              long pt_offset = (long)ti.get_offset() / pt_parent.itemsize();
+              auto pt_opt_offset = c10::make_optional(pt_offset);
+
+              at::Tensor pt_intermediate = at::as_strided(
+                  pt_parent, pt_sizes, pt_strides, pt_opt_offset);
+
+              PT_BRIDGE_DEBUG(
+                  "HabanaOp recipe cache hit :: Intermediate : Duplicate with shape : ",
+                  tshape);
+
+              rv.aten_intermediates.push_back(pt_intermediate);
+            } else {
+              auto pt_intermediate =
+                  at::empty(tshape, ti.get_topts(), ti.get_mf());
+              PT_BRIDGE_DEBUG(
+                  "HabanaOp recipe cache hit :: Intermediate : Creating new with shape : ",
+                  tshape);
+
+              rv.aten_intermediates.push_back(pt_intermediate);
+            }
+          }
+
           auto& rv_intermediate_tensor =
               rv.aten_intermediates.at(intermediate_idx++);
 
