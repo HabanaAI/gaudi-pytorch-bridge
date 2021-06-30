@@ -1377,6 +1377,16 @@ Tensor slice_hpu(
   return cast_out;
 }
 
+std::vector<int64_t> SelectOperator::compute_output_shape(
+    const Tensor& self,
+    int64_t& dim) {
+  // convert dim to positive value if required
+  dim = at::maybe_wrap_dim(dim, self.dim(), /*wrap_scalar=*/true);
+  auto shape = self.sizes().vec();
+  shape.erase(shape.begin() + dim);
+  return shape;
+}
+
 void SelectOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   auto self = inputs[0].toTensor();
   auto dim = inputs[1].toInt();
@@ -1393,8 +1403,7 @@ void SelectOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   at::MemoryFormat memory_format = at::MemoryFormat::Contiguous;
 
   // allocate output tensor
-  auto shape = slice_output.sizes().vec();
-  shape.erase(shape.begin() + dim);
+  auto shape = compute_output_shape(self, dim);
   auto output = habana_helpers::createPTTensor(
       self, shape, self.options(), memory_format, true);
   std::vector<at::Tensor> v{output};

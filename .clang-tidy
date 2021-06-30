@@ -28,7 +28,9 @@ modernize-*,
 performance-*,
 -performance-noexcept-move-constructor,
   '
-HeaderFilterRegex: 'habana_bridge/.*|pytorch_helpers/.*|habana_hooks/.*|habana_kernels/.*|habana_lazy/.*|tests/.*|distributed/.*'
+HeaderFilterRegex: 'habana_bridge/.*|pytorch_helpers/.*|habana_hooks/.*|
+                    habana_kernels/.*|habana_lazy/.*|tests/.*|distributed/.*|
+                    habana_distributed/.*|python_packages/.*'
 AnalyzeTemporaryDtors: false
 CheckOptions:
 ...

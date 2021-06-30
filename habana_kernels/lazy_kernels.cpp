@@ -2247,7 +2247,9 @@ Tensor select_hpu_lazy(const Tensor& self, int64_t dim, int64_t index) {
   auto node = std::make_shared<ir::Slice>(self, dim, index);
 
   // infer shape
-  auto result = select_hpu(self, dim, index);
+  auto shape = SelectOperator::compute_output_shape(self, dim);
+  auto result = empty_hpu_lazy(
+      shape, self.options(), self.suggest_memory_format(), false);
   auto hl_result = GetHbLazyTensor(result);
 
   // Handling the case for empty self tensor
