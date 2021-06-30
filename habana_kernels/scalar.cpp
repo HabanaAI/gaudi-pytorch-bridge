@@ -28,7 +28,7 @@ Scalar _local_scalar_dense_hpu(const Tensor& self) {
   // 3. A TORCH_CHECK is added to ensure that the size at source
   //   matches with the destination.
 
-  AT_DISPATCH_ALL_TYPES_AND2(
+  AT_DISPATCH_ALL_TYPES_AND_COMPLEX_AND2(
       at::ScalarType::Bool,
       at::ScalarType::BFloat16,
       self.scalar_type(),

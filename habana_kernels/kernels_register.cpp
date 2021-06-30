@@ -3220,9 +3220,6 @@ Tensor hpu_wrap::upsample_nearest2d_backward(
 };
 
 Scalar hpu_wrap::_local_scalar_dense(const Tensor& self) {
-  if (!hpu_check_inputs_impl("_local_scalar_dense", {self}))
-    return AtenHpuTypeDefault::_local_scalar_dense(self);
-
   if (std::getenv("PT_HPU_LAZY_MODE")) {
     return _local_scalar_dense_hpu_lazy(self);
   } else {

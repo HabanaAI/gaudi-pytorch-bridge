@@ -2442,18 +2442,6 @@ static const std::unordered_map<
               at::ScalarType::Long}},
         },
         {
-            "_local_scalar_dense",
-            {{at::ScalarType::Float,
-              at::ScalarType::Double,
-              at::ScalarType::BFloat16,
-              at::ScalarType::Char,
-              at::ScalarType::Byte,
-              at::ScalarType::Bool,
-              at::ScalarType::Int,
-              at::ScalarType::Short,
-              at::ScalarType::Long}},
-        },
-        {
             "bitwise_or_out",
             {{at::ScalarType::Float,
               at::ScalarType::Double,
