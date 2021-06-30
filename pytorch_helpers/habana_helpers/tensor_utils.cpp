@@ -486,6 +486,7 @@ void habana_helpers::copy_scalar_to_device(
 
 synapse_helpers::tensor habana_helpers::create_tensor(
     const c10::IntArrayRef& shape,
+    const c10::IntArrayRef& stride,
     synGraphHandle graph,
     bool persistent,
     int devid,
@@ -496,7 +497,8 @@ synapse_helpers::tensor habana_helpers::create_tensor(
   }
 
   auto variant =
-      synapse_helpers::tensor_builder(shape, pytorch_to_synapse_type(dtype))
+      synapse_helpers::tensor_builder(
+          shape, stride, pytorch_to_synapse_type(dtype))
           .mark_persistence(persistent)
           .build(synapse_helpers::HPURegistrar::get_device(devid), graph);
   return absl::get<synapse_helpers::tensor>(std::move(variant));
@@ -517,9 +519,17 @@ synapse_helpers::tensor habana_helpers::create_tensor(
   if (min.size() && max.size()) {
     auto dynamic_shape = synapse_helpers::tensor::dynamic_shape_t{
         synapse_helpers::to_shape_t(min), synapse_helpers::to_shape_t(max)};
+    // Create the max stride
+    std::vector<int64_t> max_stride(max.size());
+    max_stride[max.size() - 1] = 1;
+    for (size_t d = max.size() - 1; d > 0; --d) {
+      max_stride[d - 1] = max_stride[d] * max[d];
+    }
     auto variant =
         synapse_helpers::tensor_builder(
-            max, pytorch_to_synapse_type(dtype.value_or(tensor.scalar_type())))
+            max,
+            max_stride,
+            pytorch_to_synapse_type(dtype.value_or(tensor.scalar_type())))
             .mark_persistence(persistent)
             .with_dynamic_shape(dynamic_shape)
             .build(
@@ -531,6 +541,7 @@ synapse_helpers::tensor habana_helpers::create_tensor(
   auto variant =
       synapse_helpers::tensor_builder(
           tensor.sizes(),
+          tensor.strides(),
           pytorch_to_synapse_type(dtype.value_or(tensor.scalar_type())))
           .mark_persistence(persistent)
           .build(
@@ -560,12 +571,13 @@ synapse_helpers::tensor habana_helpers::create_tensor(
     // Lazy mode shape inference call, just create a placeholder tensor
     return synapse_helpers::tensor::create_placeholder(tensor.device().index());
   }
-  auto variant = synapse_helpers::tensor_builder(tensor.sizes(), synType)
-                     .mark_persistence(persistent)
-                     .build(
-                         synapse_helpers::HPURegistrar::get_device(
-                             tensor.device().index()),
-                         graph);
+  auto variant =
+      synapse_helpers::tensor_builder(tensor.sizes(), tensor.strides(), synType)
+          .mark_persistence(persistent)
+          .build(
+              synapse_helpers::HPURegistrar::get_device(
+                  tensor.device().index()),
+              graph);
   return absl::get<synapse_helpers::tensor>(std::move(variant));
 }
 
@@ -578,9 +590,10 @@ synapse_helpers::tensor habana_helpers::create_shape_tensor(
     // Lazy mode shape inference call, just create a placeholder tensor
     return synapse_helpers::tensor::create_placeholder(tensor.device().index());
   }
-  auto builder = synapse_helpers::tensor_builder(
-                     tensor.sizes(), synDataType::syn_type_uint32)
-                     .mark_persistence(persistent);
+  auto builder =
+      synapse_helpers::tensor_builder(
+          tensor.sizes(), tensor.strides(), synDataType::syn_type_uint32)
+          .mark_persistence(persistent);
   if (!is_device_shape_tensor) {
     builder.mark_shape_tensor();
   } else {
@@ -647,7 +660,8 @@ synapse_helpers::tensor habana_helpers::duplicate_tensor_in_memory_section(
       "Why would you like to create another tensor in the same memory section for non persistent tensor?");
 
   auto maybe_tensor =
-      synapse_helpers::tensor_builder(tensor.shape(), tensor.type())
+      synapse_helpers::tensor_builder(
+          tensor.shape(), tensor.stride(), tensor.type())
           .with_memory_section(tensor.memorysection())
           .mark_persistence(tensor.is_persistent())
           .set_offset(tensor.get_offset())
@@ -661,6 +675,7 @@ synapse_helpers::tensor habana_helpers::
     duplicate_tensor_in_memory_section_with_size(
         const synapse_helpers::tensor& tensor,
         std::vector<int64_t>& sizes,
+        std::vector<int64_t>& strides,
         const uint64_t offset) {
   if (!std::getenv("PT_HPU_LAZY_LOWERING") && std::getenv("PT_HPU_LAZY_MODE")) {
     // Lazy mode shape inference call, just create a placeholder tensor
@@ -672,7 +687,7 @@ synapse_helpers::tensor habana_helpers::
       "Why would you like to create another tensor in the same memory section for non persistent tensor?");
 
   auto maybe_tensor =
-      synapse_helpers::tensor_builder(sizes, tensor.type())
+      synapse_helpers::tensor_builder(sizes, strides, tensor.type())
           .with_memory_section(tensor.memorysection())
           .set_offset(offset)
           .mark_persistence(tensor.is_persistent())

@@ -323,6 +323,7 @@ ReduceOperator::CreateReductionGraph(
   std::vector<synapse_helpers::tensor> syn_helper_intermediate;
   std::vector<synTensor> syn_intermediate;
   std::vector<int64_t> pyt_shape = pyt_tensor.sizes().vec();
+  auto pyt_stride = pyt_tensor.strides().vec();
   // add syn_input tensor
   synapse_helpers::tensor& synInput = syn_tensor_in;
   syn_intermediate.emplace_back(synInput.get());
@@ -330,9 +331,17 @@ ReduceOperator::CreateReductionGraph(
   unsigned loopend = keepdim ? in_dim.size() - 1 : in_dim.size();
   for (unsigned i = 0; i < loopend; i++) {
     pyt_shape[in_dim[i]] = 1;
+
+    // Modify the stride accordingly after the shape change above
+    pyt_stride[pyt_shape.size() - 1] = 1;
+    for (size_t d = pyt_shape.size() - 1; d > 0; --d) {
+      pyt_stride[d - 1] = pyt_stride[d] * pyt_shape[d];
+    }
+
     c10::IntArrayRef shape(pyt_shape.data(), pyt_shape.size());
     syn_helper_intermediate.emplace_back(habana_helpers::create_tensor(
         shape,
+        pyt_stride,
         graph.get_graph_handle(),
         false,
         pyt_tensor.device().index(),

@@ -113,6 +113,7 @@ at::Tensor createPTTensor(
 **/
 synapse_helpers::tensor create_tensor(
     const c10::IntArrayRef& shape,
+    const c10::IntArrayRef& stride,
     synGraphHandle graph,
     bool persistent,
     int devid,
@@ -162,6 +163,7 @@ synapse_helpers::tensor duplicate_tensor_in_memory_section(
 synapse_helpers::tensor duplicate_tensor_in_memory_section_with_size(
     const synapse_helpers::tensor& tensor,
     std::vector<int64_t>& sizes,
+    std::vector<int64_t>& strides,
     const uint64_t offset);
 
 std::vector<void*> extract_data_ptrs(const std::vector<const at::Tensor*>& vec);

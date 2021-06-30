@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <iterator>
 #include "habana_helpers/logging.h"
+#include "synapse_helpers/env_flags.h"
 
 namespace synapse_helpers {
 
@@ -87,6 +88,7 @@ tensor::tensor(
     synDataType data_type,
     uint64_t total_size_bytes,
     const shape_t shape,
+    const shape_t stride,
     std::string tensor_name,
     synGraphHandle graph,
     bool is_persistent,
@@ -101,6 +103,7 @@ tensor::tensor(
       data_type_{data_type},
       total_size_bytes_{total_size_bytes},
       shape_{shape},
+      stride_{stride},
       tensor_{},
       is_persistent_{is_persistent},
       memory_section_{std::move(section)},
@@ -116,6 +119,7 @@ tensor::tensor(
     synDataType data_type,
     uint64_t total_size_bytes,
     const dynamic_shape_t& shape,
+    const dynamic_shape_t& stride,
     std::string tensor_name,
     synGraphHandle graph,
     bool is_persistent,
@@ -130,6 +134,7 @@ tensor::tensor(
       data_type_{data_type},
       total_size_bytes_{total_size_bytes},
       shape_{shape},
+      stride_{stride},
       tensor_{},
       is_persistent_{is_persistent},
       memory_section_{std::move(section)},
@@ -146,6 +151,7 @@ tensor::tensor(tensor&& other) noexcept
       data_type_{other.data_type_},
       total_size_bytes_{other.total_size_bytes_},
       shape_{other.shape_},
+      stride_{other.stride_},
       tensor_{other.tensor_},
       placeholder_{other.placeholder_},
       is_persistent_{other.is_persistent_},
@@ -170,6 +176,7 @@ tensor& tensor::operator=(tensor&& other) noexcept {
   data_type_ = other.data_type_;
   total_size_bytes_ = other.total_size_bytes_;
   shape_ = other.shape_;
+  stride_ = other.stride_;
   tensor_ = other.tensor_;
   placeholder_ = other.placeholder_;
   is_persistent_ = other.is_persistent_;
@@ -292,6 +299,14 @@ synapse_error_o tensor::create() {
   // inside the tensor according to its geometry.
   synTensorDeviceLayout deviceLayout;
   uint32_t strides[sizeof(deviceLayout.strides) / sizeof(uint32_t)] = {0};
+
+  if (GET_ENV_FLAG(PT_HPU_ZERO_STRIDE_SYNTENSOR)) {
+    PT_SYNHELPER_DEBUG("Not passing strides to synapse, all strides will be 0");
+  } else {
+    std::copy_n(
+        stride_.max_.data(), stride_.max_.rank().value, std::begin(strides));
+  }
+
   memcpy(deviceLayout.strides, strides, sizeof(deviceLayout.strides));
   deviceLayout.deviceDataType = data_type_;
   if (tensor_type_ == SHAPE_TENSOR ||
@@ -379,7 +394,13 @@ tensor tensor::create_placeholder(synDeviceId syn_device) {
   std::string name = absl::StrFormat("placeholder_tensor_%d", ++id);
 
   tensor tensor{
-      syn_device, synDataType::syn_type_na, 0, shape_t{0_D}, name, nullptr};
+      syn_device,
+      synDataType::syn_type_na,
+      0,
+      shape_t{0_D},
+      shape_t{0_D},
+      name,
+      nullptr};
   tensor.set_placeholder();
 
   return tensor;

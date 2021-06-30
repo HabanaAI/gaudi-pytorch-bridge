@@ -34,6 +34,12 @@ tensor::shape_t to_shape_t(
     const std::vector<int64_t>& shape,
     bool reverse = true);
 
+tensor::shape_t to_stride_t(
+    const std::vector<int64_t>& stride,
+    const std::vector<int64_t>& shape,
+    synDataType data_type,
+    bool reverse = true);
+
 namespace detail {
 class tensor_name_generator {
  public:
@@ -61,6 +67,7 @@ class tensor_builder_base {
  public:
   explicit tensor_builder_base(const tensor& tensor) {
     with_shape(tensor.shape());
+    with_stride(tensor.stride());
     with_data_type(tensor.type());
   }
 
@@ -69,6 +76,15 @@ class tensor_builder_base {
       synDataType data_type = synDataType::syn_type_float)
       : data_type_{data_type} {
     with_shape(shape);
+  };
+
+  explicit tensor_builder_base(
+      const tensor::shape_t& shape,
+      const tensor::shape_t& stride,
+      synDataType data_type = synDataType::syn_type_float)
+      : data_type_{data_type} {
+    with_shape(shape);
+    with_stride(stride);
   };
 
   explicit tensor_builder_base(synDataType data_type) : data_type_{data_type} {}
@@ -83,6 +99,11 @@ class tensor_builder_base {
     return static_cast<ConcreteBuilder&>(*this);
   }
 
+  ConcreteBuilder& with_stride(const tensor::shape_t& stride) {
+    stride_ = tensor::dynamic_shape_t{stride, stride};
+    return static_cast<ConcreteBuilder&>(*this);
+  }
+
   ConcreteBuilder& with_dynamic_shape(
       const tensor::dynamic_shape_t& dynamic_shape) {
     HABANA_ASSERT(dynamic_shape.max().rank() == dynamic_shape.min().rank());
@@ -91,6 +112,43 @@ class tensor_builder_base {
       return static_cast<ConcreteBuilder&>(*this);
     }
     shape_ = dynamic_shape;
+    if ((tensor_type_ == DATA_TENSOR) && (shape_.min() != shape_.max())) {
+      tensor_type_ = DATA_TENSOR_DYNAMIC;
+    }
+    return static_cast<ConcreteBuilder&>(*this);
+  }
+
+  ConcreteBuilder& with_dynamic_stride(
+      const tensor::dynamic_shape_t& dynamic_stride) {
+    HABANA_ASSERT(dynamic_stride.max().rank() == dynamic_stride.min().rank());
+    if (is_const_) {
+      // Const tensors must always be created as static (with max size)
+      return static_cast<ConcreteBuilder&>(*this);
+    }
+    stride_ = dynamic_stride;
+    if ((tensor_type_ == DATA_TENSOR) && (shape_.min() != shape_.max())) {
+      tensor_type_ = DATA_TENSOR_DYNAMIC;
+    }
+    return static_cast<ConcreteBuilder&>(*this);
+  }
+
+  ConcreteBuilder& with_shape_and_stride(
+      const tensor::shape_t& shape,
+      const tensor::shape_t& stride) {
+    // With C++17, this can move to std::variant
+    shape_ = tensor::dynamic_shape_t{shape, shape};
+    stride_ = tensor::dynamic_shape_t{stride, stride};
+    return static_cast<ConcreteBuilder&>(*this);
+  }
+
+  ConcreteBuilder& with_dynamic_shape_and_stride(
+      const tensor::dynamic_shape_t& dynamic_shape,
+      const tensor::dynamic_shape_t& dynamic_stride) {
+    HABANA_ASSERT(dynamic_shape.max().rank() == dynamic_shape.min().rank());
+    HABANA_ASSERT(dynamic_stride.max().rank() == dynamic_stride.min().rank());
+    HABANA_ASSERT(dynamic_shape.max().rank() == dynamic_stride.max().rank());
+    shape_ = dynamic_shape;
+    stride_ = dynamic_stride;
     if ((tensor_type_ == DATA_TENSOR) && (shape_.min() != shape_.max())) {
       tensor_type_ = DATA_TENSOR_DYNAMIC;
     }
@@ -182,6 +240,10 @@ class tensor_builder_base {
     return shape_;
   };
 
+  tensor::dynamic_shape_t& stride() {
+    return stride_;
+  };
+
   synapse_error_v<tensor> build(device& syn_device, synGraphHandle graph)
       const {
     if (error_invalid_shape_) {
@@ -197,6 +259,7 @@ class tensor_builder_base {
         data_type_,
         total_size_bytes(),
         shape_,
+        stride_,
         tensor_name_,
         graph,
         is_persistent_,
@@ -227,6 +290,7 @@ class tensor_builder_base {
 
  private:
   tensor::dynamic_shape_t shape_{};
+  tensor::dynamic_shape_t stride_{};
   synDataType data_type_{};
   std::string tensor_name_ = generate_name();
   std::string suffix_ = "";

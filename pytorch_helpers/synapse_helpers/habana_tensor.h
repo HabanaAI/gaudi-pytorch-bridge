@@ -21,6 +21,7 @@
 #include <ostream>
 #include <string>
 
+#include "habana_helpers/logging.h"
 #include "synapse_helpers/synapse_error.h"
 #include "synapse_helpers/value_or_ref.h"
 
@@ -212,6 +213,10 @@ class tensor final {
   const shape_t& shape() const {
     return shape_.max();
   }
+  const shape_t& stride() const {
+    return stride_.max();
+  }
+
   synDataType type() const {
     return data_type_;
   }
@@ -242,6 +247,7 @@ class tensor final {
   bool has_dynamic_shape() const {
     return shape_.min() != shape_.max();
   }
+
   const dynamic_shape_t& dynamic_shape() const {
     return shape_;
   }
@@ -278,6 +284,7 @@ class tensor final {
       synDataType data_type,
       uint64_t total_size_bytes,
       shape_t shape,
+      shape_t stride,
       std::string tensor_name,
       synGraphHandle graph,
       bool is_persistent = false,
@@ -287,11 +294,13 @@ class tensor final {
       const uint64_t host_ptr_size = 0,
       const uint64_t offset = 0,
       synTensorType tensor_type = DATA_TENSOR);
+
   tensor(
       synDeviceId device_id,
       synDataType data_type,
       uint64_t total_size_bytes,
       const dynamic_shape_t& shape,
+      const dynamic_shape_t& stride,
       std::string tensor_name,
       synGraphHandle graph,
       bool is_persistent = false,
@@ -315,6 +324,7 @@ class tensor final {
   // TODO: total size can be counted basing on type and dimensions
   uint64_t total_size_bytes_;
   dynamic_shape_t shape_;
+  dynamic_shape_t stride_;
   synTensor tensor_{nullptr};
   bool placeholder_{false};
   bool is_persistent_{false};
