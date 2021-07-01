@@ -372,10 +372,48 @@ bool HabanaLaunchOpPT::isInGraphOutputs(torch::jit::Node* node, size_t index) {
   return isInGraphOutputs(node_outs[index]);
 }
 
+bool HabanaLaunchOpPT::nodeOutputPersistencePerValue(
+    torch::jit::Node* node,
+    torch::jit::Value* value_out) {
+  bool is_persistent = false;
+  if (use_persistent_tensors || isInGraphOutputs(value_out) ||
+      isPermuteInGraphOutputs(value_out)) {
+    // Highest priority is given to the env variable, and if
+    // part of the graph output
+    auto in_graph_output = isInGraphOutputs(value_out);
+    if (in_graph_output) {
+      PT_BRIDGE_DEBUG(
+          "Persistent tensor for ",
+          node->kind().toQualString(),
+          " for value %",
+          value_out->debugName(),
+          " appears in graph output");
+    }
+    is_persistent = true;
+  } else if (
+      valptr_to_persistent_map.find(value_out) !=
+      valptr_to_persistent_map.end()) {
+    if (valptr_to_persistent_map[value_out]) {
+      PT_BRIDGE_DEBUG(
+          "Persistent tensor for ",
+          node->kind().toQualString(),
+          " for value %",
+          value_out->debugName(),
+          " created for an in-place op");
+    }
+    is_persistent = valptr_to_persistent_map[value_out];
+  } else {
+    // If no specific flag is set, the mark as false
+    is_persistent = false;
+  }
+
+  return is_persistent;
+}
+
 std::vector<bool> HabanaLaunchOpPT::nodeOutputPersistence(
     torch::jit::Node* node) {
   auto node_outs = node->outputs();
-  std::vector<bool> is_persistent{};
+  std::vector<bool> is_persistent_vec{};
   // If node output is tensor list
   // tensorList and Unpack pair is supported
   if (node->output(0)->type() == torch::ListType::ofTensors() &&
@@ -383,9 +421,9 @@ std::vector<bool> HabanaLaunchOpPT::nodeOutputPersistence(
     auto unpack_node = GetUnpackNodeFromTensorList(node->output(0));
     if (unpack_node != nullptr) {
       for (auto value_out : unpack_node->outputs()) {
-        if (use_persistent_tensors || isInGraphOutputs(value_out)) {
-          is_persistent.emplace_back(true);
-        }
+        auto is_persistent =
+            nodeOutputPersistencePerValue(unpack_node, value_out);
+        is_persistent_vec.emplace_back(is_persistent);
       }
     } else {
       PT_BRIDGE_DEBUG("TensorList is not input to ListUnpack Node");
@@ -393,39 +431,11 @@ std::vector<bool> HabanaLaunchOpPT::nodeOutputPersistence(
     }
   } else {
     for (auto value_out : node_outs) {
-      if (use_persistent_tensors || isInGraphOutputs(value_out) ||
-          isPermuteInGraphOutputs(value_out)) {
-        // Highest priority is given to the env variable, and if
-        // part of the graph output
-        auto in_graph_output = isInGraphOutputs(value_out);
-        if (in_graph_output) {
-          PT_BRIDGE_DEBUG(
-              "Persistent tensor for ",
-              node->kind().toQualString(),
-              " for value %",
-              value_out->debugName(),
-              " appears in graph output");
-        }
-        is_persistent.emplace_back(true);
-      } else if (
-          valptr_to_persistent_map.find(value_out) !=
-          valptr_to_persistent_map.end()) {
-        if (valptr_to_persistent_map[value_out]) {
-          PT_BRIDGE_DEBUG(
-              "Persistent tensor for ",
-              node->kind().toQualString(),
-              " for value %",
-              value_out->debugName(),
-              " created for an in-place op");
-        }
-        is_persistent.emplace_back(valptr_to_persistent_map[value_out]);
-      } else {
-        // If no specific flag is set, the mark as false
-        is_persistent.emplace_back(false);
-      }
+      auto is_persistent = nodeOutputPersistencePerValue(node, value_out);
+      is_persistent_vec.emplace_back(is_persistent);
     }
   }
-  return is_persistent;
+  return is_persistent_vec;
 }
 
 void HabanaLaunchOpPT::HandleMappedTensor(
@@ -2271,8 +2281,8 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
           intermediate_tinfos.end());
     }
 
-    // At this point, tinfos for inputs, input duplicates and intermediates are
-    // populated
+    // At this point, tinfos for inputs, input duplicates and intermediates
+    // are populated
     TORCH_CHECK(
         (rv.num_inputs + rv.num_induplicates + rv.num_dma_inputs +
              rv.num_intermediates ==
@@ -2932,7 +2942,6 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
           synapse_helpers::get_mem_str(rv.ntensorbytes),
           "\n total size of graph recipes ",
           synapse_helpers::get_mem_str(RecipeValueSpec::total_recipe_ntbytes));
-
 
       // Patch the input buffers
       // Running index on rv.dtensorinfos

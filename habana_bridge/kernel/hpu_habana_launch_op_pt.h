@@ -220,6 +220,9 @@ class HabanaLaunchOpPT {
   bool isInGraphInputs(torch::jit::Value* value);
   bool isInGraphOutputs(torch::jit::Value* value);
   bool isInGraphOutputs(torch::jit::Node* node, size_t index);
+  bool nodeOutputPersistencePerValue(
+      torch::jit::Node* node,
+      torch::jit::Value* value_out);
   std::vector<bool> nodeOutputPersistence(torch::jit::Node* node);
   void AdjustInputLayout();
   void ProcessHabanaFusedOpWithDS();
