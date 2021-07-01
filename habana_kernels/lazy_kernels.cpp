@@ -2229,7 +2229,7 @@ Tensor slice_hpu_lazy(
     c10::optional<int64_t> end,
     int64_t step) {
   PT_LAZY_TRACE;
-  if (self_in.dim() <= 1 && step == 1) {
+  if (self_in.dim() <= 1) {
     return at::native::slice(self_in, dim, start, end, step);
   }
   // WA for https://jira.habana-labs.com/browse/SW-37197

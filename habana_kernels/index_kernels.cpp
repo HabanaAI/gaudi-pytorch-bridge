@@ -1322,7 +1322,7 @@ Tensor slice_hpu(
   // manipulation done in CPU implementation. This was added because
   // distributed MNIST stops working if run synapse version of slice
   // which creates new storage for output storage
-  if ((self.dim() <= 1) && (step == 1)) {
+  if (self.dim() <= 1) {
     PT_KERNEL_END;
     return at::native::slice(in_self, dim, start, end, step);
   }
