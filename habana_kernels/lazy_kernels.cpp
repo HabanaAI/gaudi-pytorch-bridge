@@ -2715,7 +2715,7 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu_lazy(
   }
 
   if (training) {
-    flush_op({result_img, result_mean, result_var});
+    flush_op({result_img, result_mean, result_var, running_mean, running_var});
     return std::make_tuple(result_img, result_mean, result_var);
   } else {
     flush_op({result_img, running_mean, running_var});
