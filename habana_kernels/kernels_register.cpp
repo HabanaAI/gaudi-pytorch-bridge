@@ -26,12 +26,14 @@ using namespace habana_lazy;
 #define HPU_LAZY_FUNC_NAME_INPLACE(op_code) op_code##hpu_lazy_
 #define HPU_LAZY_WRAP_FUNCTION(op_code)                 \
   at::Tensor HPU_WRAP_OP(op_code)(const Tensor& self) { \
-    hpu_check_inputs(#op_code, {self});                 \
+    if (!hpu_check_inputs_impl(#op_code, {self}))       \
+      return AtenHpuTypeDefault::op_code(self);         \
     return HPU_LAZY_FUNC_NAME(op_code)(self);           \
   }
 #define HPU_LAZY_WRAP_FUNCTION_INPLACE(op_code)       \
   at::Tensor& HPU_WRAP_OP(op_code)(Tensor & self) {   \
-    hpu_check_inputs(#op_code, {self});               \
+    if (!hpu_check_inputs_impl(#op_code, {self}))     \
+      return AtenHpuTypeDefault::op_code(self);       \
     return HPU_LAZY_FUNC_NAME_INPLACE(op_code)(self); \
   }
 
