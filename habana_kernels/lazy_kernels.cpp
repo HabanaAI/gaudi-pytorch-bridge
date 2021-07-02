@@ -2588,7 +2588,9 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu_lazy(
 
   Tensor running_mean, running_var;
   // if RMV are undefined, create zero mean and unit variance tensors for
-  // numerical stability of BN
+  // numerical stability of BN. Note that they should have same
+  // dtype as weight
+
   if (!running_mean_.defined()) {
     IntArrayRef rm_size;
     if (input.suggest_memory_format() == c10::MemoryFormat::ChannelsLast) {
@@ -2598,7 +2600,7 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu_lazy(
     }
 
     running_mean = empty_hpu_lazy(
-        rm_size, input.options(), input.suggest_memory_format(), true);
+        rm_size, weight.options(), input.suggest_memory_format(), true);
     fill_hpu_lazy_(running_mean, 0);
   } else {
     running_mean = running_mean_;
@@ -2612,7 +2614,7 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu_lazy(
       rv_size = input.sizes()[1];
     }
     running_var = empty_hpu_lazy(
-        rv_size, input.options(), input.suggest_memory_format(), true);
+        rv_size, weight.options(), input.suggest_memory_format(), true);
     fill_hpu_lazy_(running_var, 1);
   } else {
     running_var = running_var_;
@@ -2708,7 +2710,8 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu_lazy(
   PT_LAZY_TRACE;
 
   Tensor running_mean, running_var;
-  // create tensors if RMV are undefined
+  // create tensors if RMV are undefined. Note that they should have same
+  // dtype as weight
 
   if (!running_mean_.defined()) {
     IntArrayRef rm_size;
@@ -2719,7 +2722,7 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu_lazy(
     }
 
     running_mean = empty_hpu_lazy(
-        rm_size, input.options(), input.suggest_memory_format(), true);
+        rm_size, weight.options(), input.suggest_memory_format(), true);
   } else {
     running_mean = running_mean_;
   }
@@ -2732,7 +2735,7 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu_lazy(
       rv_size = input.sizes()[1];
     }
     running_var = empty_hpu_lazy(
-        rv_size, input.options(), input.suggest_memory_format(), true);
+        rv_size, weight.options(), input.suggest_memory_format(), true);
   } else {
     running_var = running_var_;
   }
