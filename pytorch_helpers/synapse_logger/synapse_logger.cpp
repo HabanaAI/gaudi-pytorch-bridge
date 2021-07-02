@@ -190,6 +190,15 @@ void SynapseLogger::restart() {
     source_cat_mask_ =
         static_cast<uint64_t>(data_dump_category::SYNAPSE_API_CALL);
   }
+  if (use_null_backend_) {
+    // Disable api call and tensor data logging for null backend.
+    source_cat_mask_ &=
+        ~(static_cast<uint64_t>(data_dump_category::SYNAPSE_API_CALL) |
+          static_cast<uint64_t>(
+              data_dump_category::CUSTOM_RUNTIME_TRACE_PROVIDER) |
+          static_cast<uint64_t>(data_dump_category::VAR_TENSOR_DATA) |
+          static_cast<uint64_t>(data_dump_category::CONST_TENSOR_DATA));
+  }
   if (fout_.is_open()) {
     fout_.close();
   }
@@ -279,6 +288,17 @@ void SynapseLogger::command(absl::string_view cmd) {
   } else if (cmd_name == "lazy_open") {
     disable();
     lazy_open_ = true;
+  } else if (cmd_name == "use_null_backend") {
+    // Disable api call and tensor data logging for null backend.
+    use_null_backend_ = true;
+    source_cat_mask_ &=
+        ~(static_cast<uint64_t>(data_dump_category::SYNAPSE_API_CALL) |
+          static_cast<uint64_t>(
+              data_dump_category::CUSTOM_RUNTIME_TRACE_PROVIDER) |
+          static_cast<uint64_t>(data_dump_category::VAR_TENSOR_DATA) |
+          static_cast<uint64_t>(data_dump_category::CONST_TENSOR_DATA));
+    std::lock_guard<std::mutex> tlock(transfer_lock_);
+    transfers_.clear();
   } else {
     SLOG(S_ERROR) << "Unknown command " << cmd_name << ".\n";
     return;

@@ -231,6 +231,9 @@ class SynapseLogger {
   bool is_enabled(data_dump_category cat) {
     return (0 != (source_cat_mask_ & static_cast<uint64_t>(cat)));
   }
+  bool should_use_null_backend() {
+    return use_null_backend_;
+  }
 
  private:
   // std::chrono::time_point<std::chrono::high_resolution_clock>
@@ -250,6 +253,7 @@ class SynapseLogger {
   synDeviceId last_acquired_id_{SYN_DEVICE_ID_UNASSIGNED};
   std::atomic_bool eager_flush_{true};
   std::atomic_bool lazy_open_{false};
+  std::atomic_bool use_null_backend_{false};
   static void command_signal_handler(int);
   bool dev_attr_recorded;
 };

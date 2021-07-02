@@ -23,6 +23,20 @@
 #include "synapse_common_types.h"
 #include "synapse_logger.h"
 
+#define CALL_SYN_FUNC(func, ...)                          \
+  if (synapse_logger::logger.should_use_null_backend()) { \
+    status = synSuccess;                                  \
+  } else {                                                \
+    status = func(__VA_ARGS__);                           \
+  }
+
+#define CALL_SYN_FUNC_SET_VAL(func, val, ...)             \
+  if (synapse_logger::logger.should_use_null_backend()) { \
+    val = 1;                                              \
+    status = synSuccess;                                  \
+  } else {                                                \
+    status = func(__VA_ARGS__);                           \
+  }
 #define LOG_TRACE(x, y, z)
 #define SYN_API_PTR(func) decltype(::func)* func
 #define SYN_API_INIT_PTR(func) \
@@ -83,6 +97,7 @@ SYN_API_PTR(synConfigurationSet);
 SYN_API_PTR(synConfigurationGet);
 SYN_API_PTR(synSectionCreate);
 SYN_API_PTR(synSectionDestroy);
+SYN_API_PTR(synTensorAssignToSection);
 
 void LoadSymbols(void* lib_handle) {
   SYN_API_INIT_PTR(synDestroyTensor);
@@ -140,6 +155,7 @@ void LoadSymbols(void* lib_handle) {
   SYN_API_INIT_PTR(synConfigurationGet);
   SYN_API_INIT_PTR(synSectionCreate);
   SYN_API_INIT_PTR(synSectionDestroy);
+  SYN_API_INIT_PTR(synTensorAssignToSection);
 }
 
 } // namespace lib_synapse
@@ -153,14 +169,16 @@ synStatus synDestroyTensor(synTensor tensor) {
 
 synStatus synInitialize() {
   API_LOG_CALL();
-  synStatus status = lib_synapse::synInitialize();
+  synStatus status;
+  CALL_SYN_FUNC(lib_synapse::synInitialize)
   API_LOG_RESULT();
   return status;
 }
 
 synStatus synSetCfg(const char* cfgName, const char* cfgValue) {
   API_LOG_CALL(ARG_Q(cfgName), ARG_Q(cfgValue));
-  synStatus status = lib_synapse::synSetCfg(cfgName, cfgValue);
+  synStatus status;
+  CALL_SYN_FUNC(lib_synapse::synSetCfg, cfgName, cfgValue)
   API_LOG_RESULT();
   return status;
 }
@@ -179,8 +197,9 @@ synStatus SYN_API_CALL synStreamCreate(
     const uint32_t flags) {
   LOG_TRACE("SYN_API", "{}", __FUNCTION__);
   API_LOG_CALL(ARG(pStreamHandle), ARG(deviceId), ARG(streamType), ARG(flags));
-  synStatus status =
-      lib_synapse::synStreamCreate(pStreamHandle, deviceId, streamType, flags);
+  synStatus status;
+  CALL_SYN_FUNC(
+      lib_synapse::synStreamCreate, pStreamHandle, deviceId, streamType, flags)
   API_LOG_RESULT(S_ARG(pStreamHandle));
 
   return status;
@@ -189,7 +208,8 @@ synStatus SYN_API_CALL synStreamCreate(
 synStatus SYN_API_CALL synStreamDestroy(const synStreamHandle streamHandle) {
   LOG_TRACE("SYN_API", "{}", __FUNCTION__);
   API_LOG_CALL(ARG(streamHandle));
-  synStatus status = lib_synapse::synStreamDestroy(streamHandle);
+  synStatus status;
+  CALL_SYN_FUNC(lib_synapse::synStreamDestroy, streamHandle)
   API_LOG_RESULT();
   return status;
 }
@@ -200,8 +220,9 @@ synStatus SYN_API_CALL synStreamWaitEvent(
     const uint32_t flags) {
   LOG_TRACE("SYN_API", "{}", __FUNCTION__);
   API_LOG_CALL(ARG(streamHandle), ARG(eventHandle), ARG(flags));
-  synStatus status =
-      lib_synapse::synStreamWaitEvent(streamHandle, eventHandle, flags);
+  synStatus status;
+  CALL_SYN_FUNC(
+      lib_synapse::synStreamWaitEvent, streamHandle, eventHandle, flags)
   API_LOG_RESULT();
   return status;
 }
@@ -210,7 +231,8 @@ synStatus SYN_API_CALL
 synStreamSynchronize(const synStreamHandle streamHandle) {
   LOG_TRACE("SYN_API", "{}", __FUNCTION__);
   API_LOG_CALL(ARG(streamHandle));
-  synStatus status = lib_synapse::synStreamSynchronize(streamHandle);
+  synStatus status;
+  CALL_SYN_FUNC(lib_synapse::synStreamSynchronize, streamHandle)
   API_LOG_RESULT();
   synapse_logger::logger.stream_synchronized(streamHandle);
   return status;
@@ -219,7 +241,8 @@ synStreamSynchronize(const synStreamHandle streamHandle) {
 synStatus SYN_API_CALL synStreamQuery(const synStreamHandle streamHandle) {
   LOG_TRACE("SYN_API", "{}", __FUNCTION__);
   API_LOG_CALL(ARG(streamHandle));
-  synStatus status = lib_synapse::synStreamQuery(streamHandle);
+  synStatus status;
+  CALL_SYN_FUNC(lib_synapse::synStreamQuery, streamHandle)
   API_LOG_RESULT();
   return status;
 }
@@ -230,7 +253,8 @@ synStatus SYN_API_CALL synEventCreate(
     const uint32_t flags) {
   LOG_TRACE("SYN_API", "{}", __FUNCTION__);
   API_LOG_CALL(ARG(pEventHandle), ARG(deviceId), ARG_Q(flags));
-  synStatus status = lib_synapse::synEventCreate(pEventHandle, deviceId, flags);
+  synStatus status;
+  CALL_SYN_FUNC(lib_synapse::synEventCreate, pEventHandle, deviceId, flags)
   API_LOG_RESULT(S_ARG(pEventHandle));
   return status;
 }
@@ -238,7 +262,8 @@ synStatus SYN_API_CALL synEventCreate(
 synStatus SYN_API_CALL synEventDestroy(synEventHandle eventHandle) {
   LOG_TRACE("SYN_API", "{}", __FUNCTION__);
   API_LOG_CALL(ARG(eventHandle));
-  synStatus status = lib_synapse::synEventDestroy(eventHandle);
+  synStatus status;
+  CALL_SYN_FUNC(lib_synapse::synEventDestroy, eventHandle)
   API_LOG_RESULT();
   return status;
 }
@@ -247,7 +272,8 @@ synStatus SYN_API_CALL
 synEventRecord(synEventHandle eventHandle, const synStreamHandle streamHandle) {
   LOG_TRACE("SYN_API", "{}", __FUNCTION__);
   API_LOG_CALL(ARG(eventHandle), ARG(streamHandle));
-  synStatus status = lib_synapse::synEventRecord(eventHandle, streamHandle);
+  synStatus status;
+  CALL_SYN_FUNC(lib_synapse::synEventRecord, eventHandle, streamHandle)
   API_LOG_RESULT();
   synapse_logger::logger.event_recorded(streamHandle, eventHandle);
   return status;
@@ -256,7 +282,8 @@ synEventRecord(synEventHandle eventHandle, const synStreamHandle streamHandle) {
 synStatus SYN_API_CALL synEventQuery(const synEventHandle eventHandle) {
   LOG_TRACE("SYN_API", "{}", __FUNCTION__);
   API_LOG_CALL(ARG(eventHandle));
-  synStatus status = lib_synapse::synEventQuery(eventHandle);
+  synStatus status;
+  CALL_SYN_FUNC(lib_synapse::synEventQuery, eventHandle)
   API_LOG_RESULT();
   return status;
 }
@@ -264,7 +291,8 @@ synStatus SYN_API_CALL synEventQuery(const synEventHandle eventHandle) {
 synStatus SYN_API_CALL synEventSynchronize(const synEventHandle eventHandle) {
   LOG_TRACE("SYN_API", "{}", __FUNCTION__);
   API_LOG_CALL(ARG(eventHandle));
-  synStatus status = lib_synapse::synEventSynchronize(eventHandle);
+  synStatus status;
+  CALL_SYN_FUNC(lib_synapse::synEventSynchronize, eventHandle)
   API_LOG_RESULT();
   synapse_logger::logger.event_synchronized(eventHandle);
   return status;
@@ -276,8 +304,12 @@ synStatus SYN_API_CALL synEventElapsedTime(
     const synEventHandle eventHandleEnd) {
   LOG_TRACE("SYN_API", "{}", __FUNCTION__);
   API_LOG_CALL(ARG_Q(pNanoSeconds), ARG(eventHandleStart), ARG(eventHandleEnd));
-  synStatus status = lib_synapse::synEventElapsedTime(
-      pNanoSeconds, eventHandleStart, eventHandleEnd);
+  synStatus status;
+  CALL_SYN_FUNC(
+      lib_synapse::synEventElapsedTime,
+      pNanoSeconds,
+      eventHandleStart,
+      eventHandleEnd)
   API_LOG_RESULT();
   return status;
 }
@@ -302,12 +334,14 @@ synStatus SYN_API_CALL synLaunch(
       ARG(numberTensors),
       ARG_X(pWorkspace),
       ARG(pRecipehandle));
-  synStatus status = lib_synapse::synLaunch(
+  synStatus status;
+  CALL_SYN_FUNC(
+      lib_synapse::synLaunch,
       streamHandle,
       launchTensorsInfo,
       numberTensors,
       pWorkspace,
-      pRecipehandle);
+      pRecipehandle)
   API_LOG_RESULT();
   return status;
 }
@@ -317,8 +351,12 @@ synStatus SYN_API_CALL synWorkspaceGetSize(
     const synRecipeHandle recipeHandle) {
   LOG_TRACE("SYN_API", "{}", __FUNCTION__);
   API_LOG_CALL(ARG(pWorkspaceSize), ARG(recipeHandle));
-  synStatus status =
-      lib_synapse::synWorkspaceGetSize(pWorkspaceSize, recipeHandle);
+  synStatus status;
+  CALL_SYN_FUNC_SET_VAL(
+      lib_synapse::synWorkspaceGetSize,
+      *pWorkspaceSize,
+      pWorkspaceSize,
+      recipeHandle)
   API_LOG_RESULT(S_ARG_X(pWorkspaceSize));
   return status;
 }
@@ -344,8 +382,9 @@ synStatus SYN_API_CALL synMemCopyAsync(
 
   API_LOG_CALL(
       ARG(streamHandle), ARG_X(src), ARG_X(size), ARG_X(dst), ARG(direction));
-  synStatus status =
-      lib_synapse::synMemCopyAsync(streamHandle, src, size, dst, direction);
+  synStatus status;
+  CALL_SYN_FUNC(
+      lib_synapse::synMemCopyAsync, streamHandle, src, size, dst, direction)
   API_LOG_RESULT();
   return status;
 }
@@ -383,8 +422,15 @@ synStatus SYN_API_CALL synMemCopyAsyncMultiple(
       M_ARG_X(dst, numCopies),
       ARG(direction),
       ARG(numCopies));
-  synStatus status = lib_synapse::synMemCopyAsyncMultiple(
-      streamHandle, src, size, dst, direction, numCopies);
+  synStatus status;
+  CALL_SYN_FUNC(
+      lib_synapse::synMemCopyAsyncMultiple,
+      streamHandle,
+      src,
+      size,
+      dst,
+      direction,
+      numCopies)
   API_LOG_RESULT();
   return status;
 }
@@ -495,8 +541,13 @@ synStatus SYN_API_CALL synTensorCreate(
   log_synTensorDescriptor(descriptor);
   API_LOG_CALL(
       ARG(pTensor), ARG(descriptor), ARG(pSectionHandle), ARG(sectionOffset));
-  synStatus status = lib_synapse::synTensorCreate(
-      pTensor, descriptor, pSectionHandle, sectionOffset);
+  synStatus status;
+  CALL_SYN_FUNC(
+      lib_synapse::synTensorCreate,
+      pTensor,
+      descriptor,
+      pSectionHandle,
+      sectionOffset)
   API_LOG_RESULT(S_ARG(pTensor));
   return status;
 }
@@ -507,7 +558,8 @@ synStatus SYN_API_CALL synConstTensorCreate(
   LOG_TRACE("SYN_API", "{}", __FUNCTION__);
   log_synConstTensorDescriptor(descriptor);
   API_LOG_CALL(ARG(pTensor), ARG(descriptor));
-  synStatus status = lib_synapse::synConstTensorCreate(pTensor, descriptor);
+  synStatus status;
+  CALL_SYN_FUNC(lib_synapse::synConstTensorCreate, pTensor, descriptor)
   API_LOG_RESULT(S_ARG(pTensor));
   return status;
 }
@@ -515,7 +567,8 @@ synStatus SYN_API_CALL synConstTensorCreate(
 synStatus SYN_API_CALL synTensorDestroy(const synTensor tensor) {
   LOG_TRACE("SYN_API", "{}", __FUNCTION__);
   API_LOG_CALL(ARG(tensor));
-  synStatus status = lib_synapse::synTensorDestroy(tensor);
+  synStatus status;
+  CALL_SYN_FUNC(lib_synapse::synTensorDestroy, tensor)
   API_LOG_RESULT();
   return status;
 }
@@ -526,8 +579,9 @@ synStatus SYN_API_CALL synSectionCreate(
     const synGraphHandle graph) {
   LOG_TRACE("SYN_API", "{}", __FUNCTION__);
   API_LOG_CALL(ARG(sectionHandle), ARG_Q(memoryAttributes), ARG(graph));
-  synStatus status =
-      lib_synapse::synSectionCreate(sectionHandle, memoryAttributes, graph);
+  synStatus status;
+  CALL_SYN_FUNC(
+      lib_synapse::synSectionCreate, sectionHandle, memoryAttributes, graph)
   API_LOG_RESULT(S_ARG(sectionHandle));
   return status;
 }
@@ -535,7 +589,21 @@ synStatus SYN_API_CALL synSectionCreate(
 synStatus SYN_API_CALL synSectionDestroy(synSectionHandle sectionHandle) {
   LOG_TRACE("SYN_API", "{}", __FUNCTION__);
   API_LOG_CALL(ARG(sectionHandle));
-  synStatus status = lib_synapse::synSectionDestroy(sectionHandle);
+  synStatus status;
+  CALL_SYN_FUNC(lib_synapse::synSectionDestroy, sectionHandle)
+  API_LOG_RESULT();
+  return status;
+}
+
+synStatus SYN_API_CALL synTensorAssignToSection(
+    synTensor tensor,
+    synSectionHandle section,
+    uint64_t byteOffset) {
+  LOG_TRACE("SYN_API", "{}", __FUNCTION__);
+  API_LOG_CALL(ARG(tensor), ARG(section), ARG(byteOffset));
+  synStatus status;
+  CALL_SYN_FUNC(
+      lib_synapse::synTensorAssignToSection, tensor, section, byteOffset)
   API_LOG_RESULT();
   return status;
 }
@@ -598,7 +666,9 @@ synStatus SYN_API_CALL synNodeCreate(
       ARG_Q(pName),
       M_ARG(inputLayouts, numberInputs),
       M_ARG(outputLayouts, numberOutputs));
-  synStatus status = lib_synapse::synNodeCreate(
+  synStatus status;
+  CALL_SYN_FUNC(
+      lib_synapse::synNodeCreate,
       graphHandle,
       pInputsTensorList,
       pOutputsTensorList,
@@ -609,7 +679,7 @@ synStatus SYN_API_CALL synNodeCreate(
       pGuid,
       pName,
       inputLayouts,
-      outputLayouts);
+      outputLayouts)
   API_LOG_RESULT();
   return status;
 }
@@ -643,7 +713,9 @@ synStatus SYN_API_CALL synNodeCreateWithId(
       ARG(nodeUniqueId),
       M_ARG(inputLayouts, numberInputs),
       M_ARG(outputLayouts, numberOutputs));
-  synStatus status = lib_synapse::synNodeCreateWithId(
+  synStatus status;
+  CALL_SYN_FUNC(
+      lib_synapse::synNodeCreateWithId,
       graphHandle,
       pInputsTensorList,
       pOutputsTensorList,
@@ -655,7 +727,7 @@ synStatus SYN_API_CALL synNodeCreateWithId(
       pName,
       nodeUniqueId,
       inputLayouts,
-      outputLayouts);
+      outputLayouts)
   API_LOG_RESULT(S_ARG_Q(nodeUniqueId));
   return status;
 }
@@ -675,12 +747,14 @@ synStatus synNodeDependencySet(
       ARG(numberblocking),
       ARG(numberblocked));
 #if 1
-  synStatus status = lib_synapse::synNodeDependencySet(
+  synStatus status;
+  CALL_SYN_FUNC(
+      lib_synapse::synNodeDependencySet,
       graphHandle,
       pBlockingNodesIdList,
       pBlockedNodesIdList,
       numberblocking,
-      numberblocked);
+      numberblocked)
 #else
   synStatus status = synSuccess;
 #endif
@@ -699,8 +773,13 @@ synStatus SYN_API_CALL synGraphCompile(
       ARG(graphHandle),
       ARG_Q(pRecipeName),
       ARG_Q(pBuildLog));
-  synStatus status = lib_synapse::synGraphCompile(
-      pRecipeHandle, graphHandle, pRecipeName, pBuildLog);
+  synStatus status;
+  CALL_SYN_FUNC(
+      lib_synapse::synGraphCompile,
+      pRecipeHandle,
+      graphHandle,
+      pRecipeName,
+      pBuildLog)
 
   API_LOG_RESULT(S_ARG(pRecipeHandle));
   return status;
@@ -795,7 +874,8 @@ synStatus SYN_API_CALL synHostMap(
   LOG_TRACE("SYN_API", "{}", __FUNCTION__);
 
   API_LOG_CALL(ARG(deviceId), ARG_X(size), ARG_Q(buffer));
-  synStatus status = lib_synapse::synHostMap(deviceId, size, buffer);
+  synStatus status;
+  CALL_SYN_FUNC(lib_synapse::synHostMap, deviceId, size, buffer)
   API_LOG_RESULT();
   return status;
 }
@@ -804,7 +884,8 @@ synStatus SYN_API_CALL
 synHostUnmap(const synDeviceId deviceId, const void* buffer) {
   LOG_TRACE("SYN_API", "{}", __FUNCTION__);
   API_LOG_CALL(ARG(deviceId), ARG_Q(buffer));
-  synStatus status = lib_synapse::synHostUnmap(deviceId, buffer);
+  synStatus status;
+  CALL_SYN_FUNC(lib_synapse::synHostUnmap, deviceId, buffer)
   API_LOG_RESULT();
   return status;
 }
