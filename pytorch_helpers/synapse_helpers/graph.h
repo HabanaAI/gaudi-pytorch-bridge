@@ -161,6 +161,16 @@ class graph {
     return op_to_node_container_pt_["jit_node"];
   }
 
+  synNodeId get_node_index(size_t idx) {
+    return op_to_node_container_pt_["jit_node"].at(idx);
+  }
+
+  void set_node_indices(std::vector<synNodeId> syn_node_ids) {
+    for (auto syn_node : syn_node_ids) {
+      op_to_node_container_pt_["jit_node"].emplace_back(syn_node);
+    }
+  }
+
   void clear_node_indices() {
     op_to_node_container_pt_["jit_node"].clear();
   }
