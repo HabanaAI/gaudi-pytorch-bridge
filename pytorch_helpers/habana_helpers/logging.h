@@ -238,13 +238,15 @@ class PTFuncLog {
   }
 
 /************************CRITICAL MACROS************************/
-#define PT_MOD_FATAL(MOD, ...)                                      \
-  if (((PtLogger::getLogger()->getModuleMask() & (MOD)) &&          \
-       (PtLogger::getLogger()->getTypeMask() &                      \
-        (PtLogger::TypeMask::FATAL)))) {                            \
-    std::cerr << Logger::str(__VA_ARGS__) << " " << __FILE__ << ":" \
-              << __LINE__ << "\t" << __func__ << "\n";              \
-    std::terminate();                                               \
+#define PT_MOD_FATAL(MOD, ...)                             \
+  if (((PtLogger::getLogger()->getModuleMask() & (MOD)) && \
+       (PtLogger::getLogger()->getTypeMask() &             \
+        (PtLogger::TypeMask::FATAL)))) {                   \
+    Logger::habana_assert(                                 \
+        __func__,                                          \
+        __FILE__,                                          \
+        static_cast<uint32_t>(__LINE__),                   \
+        Logger::str(__VA_ARGS__));                         \
   }
 
 #define PT_DEVICE_FATAL(...) \
