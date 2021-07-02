@@ -10,9 +10,199 @@
 
 #include <ATen/core/TensorBody.h>
 #include <c10/core/ScalarType.h>
+#include <cxxabi.h>
+#include <torch/csrc/jit/tensorexpr/kernel.h>
+#include <torch/library.h>
 #include "habana_kernels/fallback_helper.h"
-
 #pragma once
+
+class OpAttributeCheck {
+ private:
+  static OpAttributeCheck* instance;
+  int arg_position;
+  bool is_valid;
+  OpAttributeCheck() {
+    arg_position = 1;
+    is_valid = true;
+    populate_attribute_checks();
+  }
+
+ public:
+#if 0
+  static std::
+      unordered_map<std::string, std::unordered_map<int, std::set<std::string>>>
+          attr_op_info;
+#endif
+  static std::unordered_map<
+      std::string,
+      std::unordered_map<int, std::vector<c10::IValue>>>
+      ivalue_op_info;
+  std::string op_name;
+  std::string var_type;
+
+  ~OpAttributeCheck() {}
+
+  static OpAttributeCheck* get_instance() {
+    if (instance == NULL) {
+      instance = new OpAttributeCheck();
+    }
+    return instance;
+  }
+
+  void populate_attribute_checks() {
+#if 0
+    // attr_op_info is an  unordered map that holds information in the following
+    // format: op_name, {{attribute_position1, {attribute_value1_for_pos1,
+    /// attribute_value2_for_pos1...}
+    // {attribute_position2,
+    // {attribute_value1_for_pos2, attribute_value2_for_pos2...}...}
+    // op_name: type string
+    // attribute position: type integer
+    // attribute value: set of strings
+    // Since it is a set, one position can have multiple
+    // strings against which it can be checked
+    OpAttributeCheck::attr_op_info = {
+        // Checking for addmm op for argument 4 and 5 which is beta and alpha
+        {"addmm", {{4, {"1"}}, {5, {"1"}}}},
+        // Checking for BCE fwd operator for argument 3 for weights
+        {"binary_cross_entropy", {{3, {"0"}}}},
+        // Checking for BCE bwd operator for argument 4 for weights
+        {"binary_cross_entropy_backward", {{4, {"0"}}}},
+        // Checking for embedding fwd operator for argument 4 which is
+        // scale_grad_by_freq
+        // and for argument 5 which checks if its a sparse embedding
+        {"embedding", {{4, {"false"}}, {5, {"false"}}}},
+    };
+#endif
+
+    OpAttributeCheck::ivalue_op_info = {
+        // Checking for addmm op for argument 4 and 5 which is beta and alpha
+        {"addmm", {{4, {c10::IValue(1)}}, {5, {c10::IValue(1)}}}},
+        // Checking for BCE with logits fwd operator for argument 5 for
+        // reduction
+        {"binary_cross_entropy_with_logits",
+         {{5, {c10::IValue(1), c10::IValue(2)}}}},
+        // Checking for BCE fwd operator for argument 3 for weights
+        {"binary_cross_entropy", {{3, {c10::IValue(0)}}}},
+        // Checking for BCE bwd operator for argument 4 for weights
+        {"binary_cross_entropy_backward", {{4, {c10::IValue(0)}}}},
+        // Checking for embedding fwd operator for argument 4 which is
+        // scale_grad_by_freq
+        // and for argument 5 which checks if its a sparse embedding
+        {"embedding", {{4, {c10::IValue(false)}}, {5, {c10::IValue(false)}}}},
+    };
+  }
+
+#if 0
+  template <typename T>
+  void check_input_attributes(const T& val) {
+    // If input is a Tensor
+    // we don't have to check attributes
+    // since tensor attributes are checked inside the kernel
+    if (var_type == "at::Tensor") {
+      return;
+    }
+    std::stringstream ss;
+    ss << val;
+    if (arg_position == 0) {
+      op_name = ss.str();
+    } else {
+      if ((is_valid) && (attr_op_info.find(op_name) != attr_op_info.end())) {
+        auto result = attr_op_info.find(op_name);
+        if ((result->second.find(arg_position) != result->second.end())) {
+          auto result_set = result->second[arg_position];
+          if (result_set.count(ss.str()) != 0) {
+            is_valid &= true;
+          } else {
+            PT_KERNEL_DEBUG(
+                "Attribute check failed for: ",
+                op_name,
+                " at argument position: ",
+                arg_position,
+                " Expected value: ",
+                result->second[arg_position],
+                " Input value given for attribute: ",
+                ss.str(),
+                " This op will fallback to CPU");
+            is_valid &= false;
+          }
+        }
+      }
+    }
+  }
+
+  template <typename... ARGS>
+  void hpu_check_input_variables(ARGS&&... args) {
+    static_cast<void>(std::initializer_list<int>{
+        (get_arg_type(args),
+         check_input_attributes(args),
+         arg_position++,
+         0)...});
+  }
+
+  template <typename T>
+  void get_arg_type(T& var) {
+    int status;
+    auto arg_type = abi::__cxa_demangle(typeid(var).name(), 0, 0, &status);
+    std::string input_arg_type = arg_type;
+    free(arg_type);
+    var_type = input_arg_type;
+  }
+#endif
+  void hpu_check_ivalues(std::string oper_name, torch::jit::Stack& inputs) {
+    op_name = oper_name;
+    for (auto input : inputs) {
+      if (input.isTensor()) {
+        arg_position++;
+        continue;
+      } else {
+        if ((is_valid) &&
+            (ivalue_op_info.find(op_name) != ivalue_op_info.end())) {
+          auto result = ivalue_op_info.find(op_name);
+          if ((result->second.find(arg_position) != result->second.end())) {
+            auto result_set = std::find(
+                result->second[arg_position].begin(),
+                result->second[arg_position].end(),
+                input);
+            if (result_set != result->second[arg_position].end()) {
+              is_valid &= true;
+            } else {
+              PT_KERNEL_DEBUG(
+                  "Attribute check failed for: ",
+                  op_name,
+                  " at argument position: ",
+                  arg_position,
+                  " Expected value: ",
+                  result->second[arg_position],
+                  " Input value given for attribute: ",
+                  input,
+                  " This op will fallback to CPU");
+              is_valid &= false;
+            }
+          }
+        }
+        arg_position++;
+      }
+    }
+  }
+
+  bool get_status() {
+    bool attr_check_status = is_valid;
+    arg_position = 1;
+    is_valid = true;
+    return attr_check_status;
+  }
+};
+
+OpAttributeCheck* OpAttributeCheck::instance = NULL;
+#if 0
+std::unordered_map<std::string, std::unordered_map<int, std::set<std::string>>>
+    OpAttributeCheck::attr_op_info = {};
+#endif
+std::unordered_map<
+    std::string,
+    std::unordered_map<int, std::vector<c10::IValue>>>
+    OpAttributeCheck::ivalue_op_info = {};
 
 static const std::unordered_map<
     std::string,

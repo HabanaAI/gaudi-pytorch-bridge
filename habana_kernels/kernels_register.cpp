@@ -725,10 +725,19 @@ Tensor hpu_wrap::embedding(
     int64_t padding_idx,
     bool scale_grad_by_freq,
     bool sparse) {
-  if (!hpu_check_inputs_impl("embedding", {weight, indices}))
+  OpAttributeCheck* check_handle = OpAttributeCheck::get_instance();
+  std::vector<c10::IValue> op_stack = {
+      IValue(weight),
+      IValue(indices),
+      IValue(padding_idx),
+      IValue(scale_grad_by_freq),
+      IValue(sparse)};
+  check_handle->hpu_check_ivalues("embedding", op_stack);
+  if (!(hpu_check_inputs_impl("embedding", {weight, indices}) &&
+        (check_handle->get_status()))) {
     return AtenHpuTypeDefault::embedding(
         weight, indices, padding_idx, scale_grad_by_freq, sparse);
-
+  }
   if (std::getenv("PT_HPU_LAZY_MODE")) {
     return embedding_hpu_lazy(
         weight, indices, padding_idx, scale_grad_by_freq, sparse);
@@ -744,10 +753,19 @@ Tensor hpu_wrap::embedding_dense_backward(
     int64_t num_weights,
     int64_t padding_idx,
     bool scale_grad_by_freq) {
-  if (!hpu_check_inputs_impl("embedding_dense_backward", {grad, indices}))
+  OpAttributeCheck* check_handle = OpAttributeCheck::get_instance();
+  std::vector<c10::IValue> op_stack = {
+      IValue(grad),
+      IValue(indices),
+      IValue(num_weights),
+      IValue(padding_idx),
+      IValue(scale_grad_by_freq)};
+  check_handle->hpu_check_ivalues("embedding_dense_backward", op_stack);
+  if (!(hpu_check_inputs_impl("embedding_dense_backward", {grad, indices}) &&
+        (check_handle->get_status()))) {
     return AtenHpuTypeDefault::embedding_dense_backward(
         grad, indices, num_weights, padding_idx, scale_grad_by_freq);
-
+  }
   if (std::getenv("PT_HPU_LAZY_MODE")) {
     return embedding_dense_backward_hpu_lazy(
         grad, indices, num_weights, padding_idx, scale_grad_by_freq);
@@ -1101,9 +1119,14 @@ Tensor hpu_wrap::addmm(
     const Tensor& mat2,
     Scalar beta,
     Scalar alpha) {
-  if (!hpu_check_inputs_impl("addmm", {self, mat1, mat2}))
+  OpAttributeCheck* check_handle = OpAttributeCheck::get_instance();
+  std::vector<c10::IValue> op_stack = {
+      IValue(self), IValue(mat1), IValue(mat2), IValue(beta), IValue(alpha)};
+  check_handle->hpu_check_ivalues("addmm", op_stack);
+  if (!(hpu_check_inputs_impl("addmm", {self, mat1, mat2}) &&
+        check_handle->get_status())) {
     return AtenHpuTypeDefault::addmm(self, mat1, mat2, beta, alpha);
-
+  }
   if (std::getenv("PT_HPU_LAZY_MODE")) {
     return addmm_hpu_lazy(self, mat1, mat2, beta, alpha);
   } else {
@@ -1221,10 +1244,8 @@ Tensor hpu_wrap::mse_loss(
     int64_t reduction) {
   if (!hpu_check_inputs_impl("mse_loss", {self, target}))
     return AtenHpuTypeDefault::mse_loss(self, target, reduction);
-
   if (std::getenv("PT_HPU_LAZY_MODE")) {
     return mse_loss_forward_hpu_lazy(self, target, reduction);
-
   } else {
     return mse_loss_forward_hpu(self, target, reduction);
   }
@@ -1237,7 +1258,6 @@ Tensor hpu_wrap::mse_loss_backward(
   if (!hpu_check_inputs_impl("mse_loss_backward", {grad_output, self, target}))
     return AtenHpuTypeDefault::mse_loss_backward(
         grad_output, self, target, reduction);
-
   if (std::getenv("PT_HPU_LAZY_MODE")) {
     return mse_loss_backward_hpu_lazy(grad_output, self, target, reduction);
 
@@ -1251,10 +1271,15 @@ Tensor hpu_wrap::binary_cross_entropy(
     const c10::optional<Tensor>& weight_opt,
     int64_t reduction) {
   auto weight = weight_opt.value_or(Tensor());
-  if (!hpu_check_inputs_impl("binary_cross_entropy", {self, target, weight}))
+  OpAttributeCheck* check_handle = OpAttributeCheck::get_instance();
+  std::vector<c10::IValue> op_stack = {
+      IValue(self), IValue(target), IValue(weight), IValue(reduction)};
+  check_handle->hpu_check_ivalues("binary_cross_entropy", op_stack);
+  if (!(hpu_check_inputs_impl("binary_cross_entropy", {self, target, weight}) &&
+        check_handle->get_status())) {
     return AtenHpuTypeDefault::binary_cross_entropy(
         self, target, weight, reduction);
-
+  }
   if (std::getenv("PT_HPU_LAZY_MODE")) {
     return binary_cross_entropy_hpu_lazy(self, target, weight, reduction);
 
@@ -1269,11 +1294,21 @@ Tensor hpu_wrap::binary_cross_entropy_backward(
     const c10::optional<Tensor>& weight_opt,
     int64_t reduction) {
   auto weight = weight_opt.value_or(Tensor());
-  if (!hpu_check_inputs_impl(
-          "binary_cross_entropy_backward", {grad_output, self, target, weight}))
+  OpAttributeCheck* check_handle = OpAttributeCheck::get_instance();
+  std::vector<c10::IValue> op_stack = {
+      IValue(grad_output),
+      IValue(self),
+      IValue(target),
+      IValue(weight),
+      IValue(reduction)};
+  check_handle->hpu_check_ivalues("binary_cross_entropy_backward", op_stack);
+  if (!(hpu_check_inputs_impl(
+            "binary_cross_entropy_backward",
+            {grad_output, self, target, weight}) &&
+        (check_handle->get_status()))) {
     return AtenHpuTypeDefault::binary_cross_entropy_backward(
         grad_output, self, target, weight, reduction);
-
+  }
   if (std::getenv("PT_HPU_LAZY_MODE")) {
     return binary_cross_entropy_backward_hpu_lazy(
         grad_output, self, target, weight, reduction);
@@ -1289,15 +1324,24 @@ Tensor hpu_wrap::binary_cross_entropy_with_logits(
     const c10::optional<Tensor>& weight,
     const c10::optional<Tensor>& pos_weight,
     int64_t reduction) {
-  if (!hpu_check_inputs_impl(
-          "binary_cross_entropy_with_logits",
-          {self,
-           target,
-           weight.value_or(Tensor()),
-           pos_weight.value_or(Tensor())}))
+  OpAttributeCheck* check_handle = OpAttributeCheck::get_instance();
+  std::vector<c10::IValue> op_stack = {
+      IValue(self),
+      IValue(target),
+      IValue(weight),
+      IValue(pos_weight),
+      IValue(reduction)};
+  check_handle->hpu_check_ivalues("binary_cross_entropy_with_logits", op_stack);
+  if (!(hpu_check_inputs_impl(
+            "binary_cross_entropy_with_logits",
+            {self,
+             target,
+             weight.value_or(Tensor()),
+             pos_weight.value_or(Tensor())}) &&
+        (check_handle->get_status()))) {
     return AtenHpuTypeDefault::binary_cross_entropy_with_logits(
         self, target, weight, pos_weight, reduction);
-
+  }
   if (std::getenv("PT_HPU_LAZY_MODE")) {
     return binary_cross_entropy_with_logits_hpu_lazy(
         self, target, weight, pos_weight, reduction);
