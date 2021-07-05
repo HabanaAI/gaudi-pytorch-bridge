@@ -3978,7 +3978,7 @@ TORCH_LIBRARY(hpu, m) {
       "matmul_backward(Tensor grad_out, Tensor self, Tensor other) -> (Tensor, Tensor)");
 }
 
-TORCH_LIBRARY_IMPL(hpu, HABANATensorId, m) {
+TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("habana_d2d_memcpy", habana_d2d_memcpy);
   m.impl("embedding_bag_sum", embedding_bag_sum_hpu_wrap);
   m.impl(

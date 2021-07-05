@@ -28,7 +28,7 @@ struct StorageLessWrapperTensorImpl : public c10::TensorImpl {
       const at::Tensor& rep,
       at::optional<caffe2::TypeMeta> data_type = c10::nullopt)
       : TensorImpl(
-            c10::DispatchKeySet(c10::DispatchKey::HABANATensorId),
+            c10::DispatchKeySet(c10::DispatchKey::HPU),
             data_type.has_value() ? data_type.value() : rep.dtype(),
             rep.device()) {}
 

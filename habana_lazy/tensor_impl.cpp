@@ -24,7 +24,7 @@ caffe2::TypeMeta HbLazyTensorImpl::GetTypeMeta(const HbLazyTensor& hb_tensor) {
 HbLazyTensorImpl::HbLazyTensorImpl(HbLazyTensor hb_tensor)
     : c10::TensorImpl(
           c10::DispatchKeySet{
-              at::DispatchKey::HABANATensorId,
+              at::DispatchKey::HPU,
               at::DispatchKey::AutogradHABANA},
           c10::scalarTypeToTypeMeta(hb_tensor.dtype()),
           c10::make_optional(hb_tensor.GetDevice())),
@@ -40,7 +40,7 @@ HbLazyTensorImpl::HbLazyTensorImpl(
     : c10::TensorImpl(
           std::move(tensor_storage),
           c10::DispatchKeySet{
-              at::DispatchKey::HABANATensorId,
+              at::DispatchKey::HPU,
               at::DispatchKey::AutogradHABANA},
           c10::scalarTypeToTypeMeta(hb_tensor.dtype())),
       m_size_initialized(false),
@@ -199,7 +199,7 @@ HbInternalTensorImpl::HbInternalTensorImpl(
     : c10::TensorImpl(
           std::move(tensor_storage),
           c10::DispatchKeySet{
-              at::DispatchKey::HABANATensorId,
+              at::DispatchKey::HPU,
               at::DispatchKey::AutogradHABANA},
           data_type) {}
 } // namespace habana_lazy

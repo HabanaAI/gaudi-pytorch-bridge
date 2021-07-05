@@ -72,7 +72,7 @@ Tensor empty_hpu(
   auto tensor = at::detail::make_tensor<TensorImpl>(
       std::move(storage_impl),
       c10::DispatchKeySet{
-          at::DispatchKey::HABANATensorId, at::DispatchKey::AutogradHABANA},
+          at::DispatchKey::HPU, at::DispatchKey::AutogradHABANA},
       dtype);
   // Default TensorImpl has size [0]
   if (size.size() != 1 || size[0] != 0) {
