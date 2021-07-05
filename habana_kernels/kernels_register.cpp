@@ -3678,6 +3678,46 @@ Tensor hpu_wrap::linspace(
   }
 };
 
+struct DropoutFunction : public Function<DropoutFunction> {
+  static at::Tensor forward(
+      AutogradContext* ctx,
+      at::Tensor input,
+      double p,
+      bool train) {
+    ctx->saved_data["p"] = p;
+    if ((p == 0) || !train || (input.numel() == 0)) {
+      return input;
+    } else if (p == 1) {
+      return input * 0.0;
+    }
+    c10::optional<at::Generator> gen = c10::nullopt;
+    at::Tensor result1, result2;
+    std::tie(result1, result2) = _fused_dropout(input, p, gen);
+    ctx->save_for_backward({result2});
+    return result1;
+  }
+
+  static variable_list backward(
+      AutogradContext* ctx,
+      variable_list grad_output) {
+    auto p = ctx->saved_data["p"].toDouble();
+    if (p == 0) {
+      return {grad_output[0], torch::Tensor(), torch::Tensor()};
+    } else if (p == 1) {
+      return {grad_output[0] * 0.0, torch::Tensor(), torch::Tensor()};
+    }
+    variable_list saved_vars = ctx->get_saved_variables();
+    auto mask = saved_vars[0];
+    at::Tensor result;
+    result = hpu_wrap::_masked_scale(grad_output[0], mask, 1.0 / p);
+    return {result, torch::Tensor(), torch::Tensor()};
+  }
+};
+
+Tensor hpu_wrap::dropout(const Tensor& input, double p, bool train) {
+  return DropoutFunction::apply(input, p, train);
+}
+
 // Registration for all non-custom/aten ops are auto-generated and can be
 // found in habana_kernels/aten_hpu_type_default.cpp.
 

@@ -455,6 +455,7 @@ struct hpu_wrap {
       const at::Tensor& self,
       double p,
       c10::optional<at::Generator> gen);
+  static at::Tensor dropout(const at::Tensor& input, double p, bool train);
   static at::Tensor& randperm_out(
       int64_t n,
       c10::optional<at::Generator> generator,
