@@ -138,7 +138,7 @@ struct PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES {
 };
 
 struct PT_HPU_ENABLE_INTERMEDIATE_TENSOR_RELEASE {
-  static constexpr bool default_value = false;
+  static constexpr bool default_value = true;
 };
 
 struct PT_HPU_PRINT_BACKTRACE_ON_SIGNAL {
