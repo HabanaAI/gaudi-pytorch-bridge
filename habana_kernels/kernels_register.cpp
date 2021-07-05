@@ -1881,7 +1881,11 @@ std::tuple<Tensor, Tensor> hpu_wrap::_fused_dropout(
 at::Tensor hpu_wrap::repeat(const at::Tensor& self, at::IntArrayRef repeats) {
   if (!hpu_check_inputs_impl("repeat", {self}))
     return AtenHpuTypeDefault::repeat(self, repeats);
-  return repeat_hpu_lazy(self, repeats);
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    return repeat_hpu_lazy(self, repeats);
+  } else {
+    return repeat_hpu(self, repeats);
+  }
 }
 
 Tensor hpu_wrap::sum(

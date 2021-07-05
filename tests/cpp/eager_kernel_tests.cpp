@@ -836,3 +836,13 @@ TEST(EagerKernelTest, Silu0Dim) {
   auto cpu_out = torch::silu(A);
   EXPECT_TRUE(allclose(hout, cpu_out));
 }
+
+TEST(EagerKernelTest, RepeatTest) {
+  torch::Tensor A = torch::randn({4, 5});
+
+  torch::Tensor hA = A.to(torch::kHABANA);
+  torch::Tensor hOut = hA.repeat({2, 3});
+  torch::Tensor Out = A.repeat({2, 3});
+
+  EXPECT_TRUE(allclose(hOut.to(torch::kCPU), Out));
+}

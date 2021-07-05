@@ -9,8 +9,17 @@
  */
 #include "repeat.h"
 #include <perf_lib_layer_params.h>
+#include <torch/script.h>
+#include "habana_device/HPUCheck.h"
+#include "habana_device/hpu_cached_devices.h"
+#include "habana_helpers/graph.h"
+#include "habana_helpers/tensor_utils.h"
+#include "habana_kernels/kernel_utils.h"
+#include "habana_kernels/simple_generic_kernel.h"
 
-namespace habana {
+using namespace torch;
+using namespace habana;
+
 std::vector<int64_t> RepeatOperator::compute_output_shape(
     const at::Tensor& self,
     at::IntArrayRef repeats) {
@@ -53,7 +62,44 @@ void RepeatOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
-} // namespace habana
+at::Tensor repeat_hpu(const at::Tensor& self, at::IntArrayRef repeats) {
+  PT_KERNEL_BEGIN;
+  at::ScalarType scalar_type = self.scalar_type();
+  size_t device_id = self.device().index();
+  // Create the operator
+  RepeatOperator Op(device_id, scalar_type);
+  std::string node_type =
+      "tile_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+  // Assign Inputs to the Operator
+  std::vector<at::Tensor> pt_inputs{self};
+  std::vector<c10::IValue> stack = {c10::IValue(self), c10::IValue(repeats)};
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  size_t key = Op.GetRecipeKey(node_type, stack);
+
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    auto output = at::empty(
+        RepeatOperator::compute_output_shape(self, repeats),
+        self.options(),
+        self.suggest_memory_format());
+    Op.SetPTInputs(pt_inputs);
+    Op.SetPTOutput(output);
+    Op.Execute(key);
+  } else {
+    PT_KERNEL_DEBUG("key:", key);
+    // Create Graph
+    auto graph = habana_helpers::create_graph(device_id, node_type);
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
+    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    Op.Compile(graph);
+  }
+  std::vector<at::Tensor> out = Op.GetOutputs();
+  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
+  auto output = out.at(0);
+  PT_KERNEL_END;
+  return output;
+}
+
 static auto& KernelRegistry = habana::KernelRegistry().add(
     "aten::repeat",
     [](const int device_id, c10::ScalarType scalar_type) {
