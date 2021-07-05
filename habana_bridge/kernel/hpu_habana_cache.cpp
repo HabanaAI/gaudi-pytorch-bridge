@@ -81,6 +81,7 @@ RecipeArgumentSpec::RecipeArgumentSpec(
     : cas(with_grad, input_refs),
       opstrs(std::string()),
       hash_code(cas.hashCode()) {
+  cargspec_hash_code = cas.hashCode();
   ComputeGraphHashCode(irgraph, id);
   hash_code = at::hash_combine(hash_code, graph_hash_code);
   hash_code = at::hash_combine(hash_code, irgraph->outputs().size());
@@ -137,7 +138,13 @@ void RecipeArgumentSpec::ComputeOffsetHashCode(
 }
 
 std::ostream& operator<<(std::ostream& O, const RecipeArgumentSpec& v) {
-  O << v.hash_code << '\n';
+  O << "RecipeArgumentSpec :: is graph key : " << std::boolalpha
+    << (v.hashCode() == v.graphHashCode()) << std::noboolalpha << '\n';
+  O << "combined hash_code : " << v.hashCode() << '\n';
+  O << "graph    hash_code : " << v.graphHashCode() << '\n';
+  O << "offset   hash_code : " << v.offsetHashCode() << '\n';
+  O << "cArgSpec hash_code : " << v.cArgSpecHashCode() << '\n';
+
   return O;
 }
 

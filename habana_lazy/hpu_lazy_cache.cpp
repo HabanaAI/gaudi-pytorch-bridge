@@ -8,6 +8,9 @@
  ******************************************************************************
  */
 #include "hpu_lazy_cache.h"
+
+#include <sstream>
+
 #include <torch/csrc/api/include/torch/jit.h>
 
 namespace habana_lazy {
@@ -93,6 +96,7 @@ void LazyArgumentSpec::GetArgSpecKey(
   std::shared_ptr<torch::jit::Graph> graph;
   size_t hash_val = at::hash_combine(
       at::get_hash(jit_graph_str), GetInputHash(inputs, value_input_nodes_map));
+
   if (0 == LazyArgumentSpec::m_compiled_graph.count(hash_val)) {
     graph = torch::jit::compile(jit_graph_str)->get_function("fn").graph();
     LazyArgumentSpec::m_compiled_graph.insert({hash_val, graph});
@@ -105,6 +109,22 @@ void LazyArgumentSpec::GetArgSpecKey(
   torch::jit::ArgumentSpec as =
       arg_spec_creator_.create(with_grad, CreateStack(input_refs));
   m_hash_code = at::hash_combine(as.hashCode(), m_hash_code);
+
+  // Incorporate the memory format of the inputs within hash
+  i = 0;
+  std::ostringstream oss;
+  oss << '(';
+  for (auto const& input_ival : input_refs) {
+    if (input_ival.isTensor()) {
+      oss << (i ? "," : "") << i << '_'
+          << input_ival.toTensor().suggest_memory_format();
+    }
+    i++;
+  }
+  oss << ')';
+  std::string mf_str{oss.str()};
+  std::hash<std::string> str_hash;
+  m_hash_code = at::hash_combine(m_hash_code, str_hash(mf_str));
 }
 
 // LazyGraphCache Functions

@@ -77,6 +77,10 @@ struct RecipeArgumentSpec {
     return offset_hash_code;
   }
 
+  size_t cArgSpecHashCode() const {
+    return cargspec_hash_code;
+  }
+
   friend std::ostream& operator<<(std::ostream& O, const RecipeArgumentSpec& v);
 
  private:
@@ -90,6 +94,7 @@ struct RecipeArgumentSpec {
   size_t hash_code{0};
   size_t graph_hash_code{0};
   size_t offset_hash_code{0};
+  size_t cargspec_hash_code{0};
 };
 
 // Hash functor for RecipeArgumentSpec
