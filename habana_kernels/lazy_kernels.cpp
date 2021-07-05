@@ -4291,6 +4291,12 @@ at::Tensor leaky_relu_lazy(const at::Tensor& self, at::Scalar negative_slope) {
   return k.call();
 }
 
+at::Tensor flip_hpu_lazy(const at::Tensor& self, at::IntArrayRef dims) {
+  PT_LAZY_TRACE;
+  LazyOp<at::Tensor> k("aten::flip", {self, dims});
+  return k.call();
+}
+
 Tensor sign_hpu_lazy(const Tensor& input) {
   PT_LAZY_TRACE;
   LazyOp<at::Tensor> k{"aten::sign", {input}};

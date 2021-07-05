@@ -765,6 +765,7 @@ struct hpu_wrap {
       const at::Tensor& self,
       at::Scalar other,
       at::Tensor& result);
+  static at::Tensor flip(const at::Tensor& self, at::IntArrayRef dims);
 };
 
 std::tuple<at::Tensor&, at::Tensor&>

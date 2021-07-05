@@ -3894,6 +3894,16 @@ Tensor hpu_wrap::dropout(const Tensor& input, double p, bool train) {
   return DropoutFunction::apply(input, p, train);
 }
 
+Tensor hpu_wrap::flip(const Tensor& self, IntArrayRef dims) {
+  hpu_check_inputs("flip", {self});
+  // Lazy mode is not implemented
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    return flip_hpu_lazy(self, dims);
+  } else {
+    return flip_hpu(self, dims);
+  }
+}
+
 // Registration for all non-custom/aten ops are auto-generated and can be
 // found in habana_kernels/aten_hpu_type_default.cpp.
 

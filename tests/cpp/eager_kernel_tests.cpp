@@ -894,3 +894,21 @@ TEST(EagerKernelTest, RepeatTest) {
 
   EXPECT_TRUE(allclose(hOut.to(torch::kCPU), Out));
 }
+
+TEST(EagerKernelTest, FlipTest) {
+  torch::Tensor tensor = torch::rand({2, 3, 4});
+  torch::Tensor tHabana = tensor.to(torch::kHABANA);
+  auto outHabana = torch::flip(tHabana, {2, 1});
+  auto out = torch::flip(tensor, {2, 1});
+  bool equal = out.allclose(outHabana.to(torch::kCPU), 0, 0);
+  EXPECT_EQ(equal, true);
+}
+
+TEST(EagerKernelTest, FlipNegativeTest) {
+  torch::Tensor tensor = torch::rand({2, 2, 2});
+  torch::Tensor tHabana = tensor.to(torch::kHABANA);
+  auto outHabana = torch::flip(tHabana, {-1, 1});
+  auto out = torch::flip(tensor, {-1, 1});
+  bool equal = out.allclose(outHabana.to(torch::kCPU), 0, 0);
+  EXPECT_EQ(equal, true);
+}

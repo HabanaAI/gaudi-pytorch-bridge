@@ -2680,6 +2680,16 @@ static const std::unordered_map<
               at::ScalarType::Short,
               at::ScalarType::Long}},
         },
+        {
+            "flip",
+            {{at::ScalarType::Double,
+              at::ScalarType::Float,
+              at::ScalarType::BFloat16,
+              at::ScalarType::Char,
+              at::ScalarType::Int,
+              at::ScalarType::Short,
+              at::ScalarType::Long}},
+        },
 };
 
 void hpu_check_inputs(

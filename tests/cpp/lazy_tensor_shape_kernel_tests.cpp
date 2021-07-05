@@ -221,3 +221,21 @@ TEST_F(LazyTensorShapeKernelTest, SplitWithSizesTest) {
   dim = 2;
   split_with_size(split_sizes, dim);
 }
+
+TEST_F(LazyTensorShapeKernelTest, FlipTest) {
+  torch::Tensor tensor = torch::randn({2, 3, 2});
+  torch::Tensor tHabana = tensor.to(torch::kHABANA);
+  auto outHabana = torch::flip(tHabana, {0, 1, 2});
+  auto out = torch::flip(tensor, {0, 1, 2});
+  bool equal = out.allclose(outHabana.to(torch::kCPU), 0, 0);
+  EXPECT_EQ(equal, true);
+}
+
+TEST_F(LazyTensorShapeKernelTest, FlipNegativeTest) {
+  torch::Tensor tensor = torch::rand({4, 2, 2});
+  torch::Tensor tHabana = tensor.to(torch::kHABANA);
+  auto outHabana = torch::flip(tHabana, {-1, 1});
+  auto out = torch::flip(tensor, {-1, 1});
+  bool equal = out.allclose(outHabana.to(torch::kCPU), 0, 0);
+  EXPECT_EQ(equal, true);
+}

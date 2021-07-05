@@ -1127,6 +1127,145 @@ std::vector<Tensor> split_with_sizes_hpu(
   return out;
 }
 
+void FlipOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 2,
+      "Incorrect size of input arguments for Flip Operator");
+  TORCH_CHECK(
+      inputs[0].isTensor(), "Input arg 1 for Flip op needs to be tensor type");
+  TORCH_CHECK(
+      inputs[1].isIntList(), "Input arg 2 for Flip op needs to be Int List");
+
+  auto self = inputs[0].toTensor();
+  auto in_dim_arr = inputs[1].to<std::vector<int64_t>>();
+
+  auto output = habana_helpers::createPTTensor(self, is_output_persistent);
+  AllocateSynapseOutput(graph, output, is_output_persistent);
+
+  p_context_->syn_outputs_[0] = CreateFlipGraph(
+      graph,
+      self,
+      std::move(p_context_->syn_inputs_[0]),
+      std::move(p_context_->syn_outputs_[0]),
+      in_dim_arr,
+      output.scalar_type());
+}
+
+synapse_helpers::tensor_or_ref FlipOperator::CreateFlipGraph(
+    synapse_helpers::graph& graph,
+    const Tensor& pyt_tensor,
+    synapse_helpers::tensor_or_ref syn_tensor_in,
+    synapse_helpers::tensor_or_ref syn_tensor_out,
+    IntArrayRef in_dim,
+    ScalarType dtype) {
+  // We need to call reverse multiple times - one for each flip
+  // In the code below syn_helper_intermediate[0] holds the original
+  // input, syn_helper_intermediate[<last_index>] holds the final output and
+  // all others in between holds intermediate output/net-stage-input in the
+  std::vector<synapse_helpers::tensor> syn_helper_intermediate;
+  std::vector<synTensor> syn_intermediate;
+  std::vector<int64_t> pyt_shape = pyt_tensor.sizes().vec();
+
+  // add syn_input tensor
+  synapse_helpers::tensor& synInput = syn_tensor_in;
+  syn_intermediate.emplace_back(synInput.get());
+  // create syn_intermediate tensors of required shape
+  for (unsigned i = 0; i < in_dim.size() - 1; i++) {
+    c10::IntArrayRef shape(pyt_shape.data(), pyt_shape.size());
+    syn_helper_intermediate.emplace_back(habana_helpers::create_tensor(
+        shape,
+        graph.get_graph_handle(),
+        false,
+        pyt_tensor.device().index(),
+        dtype));
+    syn_intermediate.emplace_back(syn_helper_intermediate[i].get());
+  }
+  // add syn_output tensor
+  synapse_helpers::tensor& synOutput = syn_tensor_out;
+  syn_intermediate.emplace_back(synOutput.get());
+
+  // add reverse nodes corresponding to intermediate stages
+  for (unsigned i = 0; i < in_dim.size(); i++) {
+    // create tensor out of axix in which flip to be done
+    // TPC kernel expects a tensor with one value
+    auto constOp = make_operator<ConstantOperator>(
+        this->p_context_->device_id_, c10::ScalarType::Int);
+    auto const_shape_tensor = habana_helpers::createPTTensor(
+        pyt_tensor,
+        {1},
+        pyt_tensor.options(),
+        pyt_tensor.suggest_memory_format(),
+        c10::ScalarType::Int,
+        false);
+    // pytorch flip axis i is TPC flip axis (n - i - 1)
+    int flip_axis =
+        at::maybe_wrap_dim(in_dim[i], pyt_tensor.dim(), /*wrap_scalar=*/true);
+    flip_axis = pyt_tensor.dim() - flip_axis - 1;
+    torch::jit::Stack constOp_stack = {
+        IValue(const_shape_tensor), IValue(flip_axis)};
+    constOp->AllocateAndAddSynapseNode(graph, constOp_stack, false);
+    synapse_helpers::tensor& axis_tensor = constOp->GetSynOutputs()[0];
+
+    std::string node_type = this->guid_;
+    std::vector<synTensor> syn_in{syn_intermediate[i], axis_tensor.get()};
+    std::vector<synTensor> syn_out{syn_intermediate[i + 1]};
+    graph.add_node(
+        std::move(syn_in),
+        std::move(syn_out),
+        nullptr,
+        0,
+        std::move(node_type));
+  }
+  return syn_tensor_out;
+}
+
+/**
+ * @brief This function implements torch.flip
+ * @param self - [fp32/bf16/f16/i8/u8/i16/u16/i32/u32] Input tensor
+ * @param dims - [Int Array] dims along which tensor to be flipped
+ */
+
+at::Tensor flip_hpu(const at::Tensor& self, at::IntArrayRef dims) {
+  PT_KERNEL_BEGIN;
+  // static_cast<void> (dims);
+  at::ScalarType scalar_type = self.scalar_type();
+  size_t device_id = self.device().index();
+  // Create the operator
+  FlipOperator Op(device_id, scalar_type);
+  std::string node_type =
+      "reverse_" + habana_helpers::name_suffix_from_type(scalar_type);
+  // Assign Inputs to the Operator
+  std::vector<at::Tensor> pt_inputs{
+      self /*, torch::tensor(dims).to(torch::kHABANA)*/};
+  std::vector<c10::IValue> stack = {c10::IValue(self), c10::IValue(dims)};
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+  size_t key = Op.GetRecipeKey(node_type, stack);
+
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    auto output =
+        at::empty(self.sizes(), self.options(), self.suggest_memory_format());
+    Op.SetPTInputs(pt_inputs);
+    Op.SetPTOutput(output);
+    Op.Execute(key);
+  } else {
+    PT_KERNEL_DEBUG("key:", key);
+    // Create Graph
+    auto graph = habana_helpers::create_graph(device_id, node_type);
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
+    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    Op.Compile(graph);
+  }
+  std::vector<at::Tensor> out = Op.GetOutputs();
+  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
+  auto output = out.at(0);
+  PT_KERNEL_END;
+  return output;
+}
+
 static auto& KernelRegistry =
     habana::KernelRegistry()
         .add(
@@ -1169,6 +1308,11 @@ static auto& KernelRegistry =
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<BroadcastOperator>(device_id, node_type);
             })
-        .add("aten::view", [](const int device_id, c10::ScalarType node_type) {
-          return std::make_shared<ViewOperator>(device_id, node_type);
+        .add(
+            "aten::view",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<ViewOperator>(device_id, node_type);
+            })
+        .add("aten::flip", [](const int device_id, c10::ScalarType node_type) {
+          return std::make_shared<FlipOperator>(device_id, node_type);
         });
