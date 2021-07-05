@@ -348,3 +348,22 @@ TEST_F(LazyIndexKernelTest, LinspaceTestDivisableByStepFractionalRange) {
   auto a = torch::linspace(start, end, step);
   EXPECT_EQ(allclose(hOut, a), true);
 }
+
+TEST_F(LazyIndexKernelTest, AdvanceIndexTest) {
+  torch::Tensor input_cpu = torch::arange(48).reshape({8, 6});
+  torch::Tensor input_hpu = input_cpu.to(torch::kHABANA);
+
+  auto i1 = torch::Tensor();
+  auto i2 = torch::tensor({4, 5});
+  c10::List<c10::optional<at::Tensor>> indices_cpu{
+      c10::make_optional(i1), c10::make_optional(i2)};
+
+  c10::List<c10::optional<at::Tensor>> indices_hpu{
+      c10::make_optional(i1), c10::make_optional(i2.to(torch::kHABANA))};
+
+  auto out_cpu = at::index(input_cpu, indices_cpu);
+  auto out_hpu = at::index(input_hpu, indices_hpu);
+
+  bool equal = out_cpu.allclose(out_hpu.to(torch::kCPU), 0.001, 0.001);
+  EXPECT_EQ(equal, true);
+}

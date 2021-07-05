@@ -36,9 +36,23 @@ using namespace habana_lazy;
   }
 
 Tensor& hpu_wrap::copy_(Tensor& self, const Tensor& src, bool non_blocking) {
+  if (src.device().type() == c10::DeviceType::HABANA &&
+      self.device().type() == c10::DeviceType::HABANA) {
+    if (src.scalar_type() == c10::ScalarType::Float &&
+        self.scalar_type() == c10::ScalarType::Byte) {
+      return habana::AtenHpuTypeDefault::copy_(self, src, non_blocking);
+    }
+  }
   if (std::getenv("PT_HPU_LAZY_MODE")) {
     return copy_hpu_lazy_(self, src, non_blocking);
   } else {
+    if (src.device().type() == c10::DeviceType::HABANA &&
+        self.device().type() == c10::DeviceType::HABANA) {
+      if (src.scalar_type() == c10::ScalarType::Float &&
+          self.scalar_type() == c10::ScalarType::Long) {
+        return habana::AtenHpuTypeDefault::copy_(self, src, non_blocking);
+      }
+    }
     return copy_hpu_(self, src, non_blocking);
   }
 };
@@ -991,9 +1005,15 @@ Tensor hpu_wrap::index(
   if (!hpu_check_inputs_impl("index", {self, indices[0].value_or(Tensor())}))
     return AtenHpuTypeDefault::index(self, indices);
 
+  // we dont support AdvanceIndexing where index tensor is empty
+  // for now fallback to cpu, will add once we get tpc index kernel
   std::vector<at::Tensor> indices_list;
   for (const c10::optional<Tensor>& input : indices) {
-    indices_list.push_back(input.value_or(Tensor()));
+    if (input.has_value() && !input->defined()) {
+      return AtenHpuTypeDefault::index(self, indices);
+    } else {
+      indices_list.push_back(input.value());
+    }
   }
   if (std::getenv("PT_HPU_LAZY_MODE")) {
     return index_hpu_lazy(self, indices_list);
