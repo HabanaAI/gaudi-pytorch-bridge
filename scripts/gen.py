@@ -92,8 +92,8 @@ _FN_AUTOGRAD_HPU = set(
         "one_hot(Tensor, int64_t) -> Tensor",
         "matmul(Tensor, Tensor) -> Tensor",
         "adaptive_avg_pool2d(Tensor, IntArrayRef) -> Tensor",
-        "softmax.int(Tensor self, int dim, ScalarType? dtype=None) -> Tensor",
-        "dropout(Tensor input, float p, bool train) -> Tensor"
+        "softmax(Tensor, int64_t, c10::optional<ScalarType>) -> Tensor",
+        "dropout(Tensor, double, bool) -> Tensor",
     ]
 )
 
