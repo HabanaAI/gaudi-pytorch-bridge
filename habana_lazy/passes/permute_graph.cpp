@@ -347,7 +347,6 @@ void InsertPermute_graph(
       std::vector<std::pair<torch::jit::Value*, at::IntArrayRef>>>
       anchor_restride_nodes_;
   torch::jit::graph_node_list graph_nodes = graph->nodes();
-
   for (auto* node : graph_nodes) {
     if (node == graph->param_node() ||
         node->kind() == torch::jit::prim::Constant ||
@@ -431,7 +430,8 @@ void InsertPermute_graph(
         }
 
         // Slice dims as per original PT layout
-        if (strcmp(node->kind().toQualString(), "aten::slice") == 0) {
+        if ((strcmp(node->kind().toQualString(), "aten::slice") == 0) ||
+            (strcmp(node->kind().toQualString(), "aten::_log_softmax") == 0)) {
           if ((tensor_layout != habana::LayoutFormat::NCHW) &&
               (tensor_layout != habana::LayoutFormat::HWCK)) {
             permute_required = true;
@@ -547,6 +547,7 @@ void InsertPermute_graph(
       } else if (
           (strcmp(node->kind().toQualString(), "aten::view") == 0) ||
           (strcmp(node->kind().toQualString(), "aten::index") == 0) ||
+          (strcmp(node->kind().toQualString(), "aten::_log_softmax") == 0) ||
           (strcmp(node->kind().toQualString(), "aten::slice") == 0)) {
         // View() layout is always NCHW as per original PT format
         // [ToDo] consider case permute_cl followed by view()

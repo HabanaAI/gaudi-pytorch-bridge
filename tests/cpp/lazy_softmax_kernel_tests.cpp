@@ -32,6 +32,45 @@ TEST_F(LazySoftmaxKernelTest, LogSoftMaxTest) {
   EXPECT_EQ(allclose(hout1, cout), true);
 }
 
+TEST_F(LazySoftmaxKernelTest, LogSoftMaxTest4D) {
+  torch::Tensor input =
+      torch::rand({14, 4, 192, 160}, torch::requires_grad(false));
+  torch::Tensor hinput = input.to(torch::kHABANA);
+  int dim = 1;
+  torch::Tensor hout = torch::log_softmax(hinput, dim);
+
+  auto hout1 = hout.to(torch::kCPU);
+
+  auto cout = torch::log_softmax(input, dim);
+
+  EXPECT_EQ(allclose(hout1, cout), true);
+}
+
+TEST_F(LazySoftmaxKernelTest, CrossEntropyTest) {
+  torch::Tensor input_tensor =
+      torch::rand({64, 128, 48, 40}, torch::requires_grad(false));
+  torch::Tensor tHabanaX = input_tensor.to(torch::kHABANA);
+
+  torch::Tensor weight_tensor =
+      torch::rand({4, 128, 1, 1}, torch::requires_grad(false));
+  auto wt_hwck = weight_tensor.permute({2, 3, 1, 0}).contiguous();
+  torch::Tensor tHabanaW = wt_hwck.to(torch::kHABANA);
+
+  auto target = torch::randint(0, 3, {64, 48, 40}, torch::kLong);
+  torch::Tensor htarget = target.to(torch::kHABANA);
+
+  torch::Tensor houtConv = torch::conv2d(tHabanaX, tHabanaW, {}, 1, 0, 1, 1);
+  torch::nn::CrossEntropyLoss loss;
+  auto outhpu = loss->forward(houtConv, htarget);
+  torch::Tensor out = outhpu.to(torch::kCPU);
+
+  torch::Tensor outConv =
+      torch::conv2d(input_tensor, weight_tensor, {}, 1, 0, 1, 1);
+  auto outcpu = loss->forward(outConv, target);
+
+  EXPECT_EQ(allclose(out, outcpu, 0.01, 0.01), true);
+}
+
 TEST_F(LazySoftmaxKernelTest, LogSoftMaxTestBackward) {
   torch::Tensor input = torch::rand({64,10}, torch::requires_grad(false));
   torch::Tensor grad = torch::rand({64,10}, torch::requires_grad(false));
