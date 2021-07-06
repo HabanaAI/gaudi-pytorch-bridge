@@ -584,16 +584,6 @@ synapse_error_o hcl_communicator::barrier() {
   PT_DISTRIBUTED_BEGIN;
   PT_DISTRIBUTED_DEBUG("[PYT-DIST] barrier");
 
-  if (using_streams_) {
-    stream* collective_stream = get_collective_stream();
-    synStreamHandle stream_handle =
-        get_synapse_stream_handle(collective_stream);
-    HCL_Request phRequest;
-
-    HCL_NetworkFlush(&phRequest, stream_handle);
-    HCL_Wait(phRequest);
-  }
-
   HCL_Sync(hcl_comm(), get_sync_tag());
 
   PT_DISTRIBUTED_END;
