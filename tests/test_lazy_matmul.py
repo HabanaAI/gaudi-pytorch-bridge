@@ -1,15 +1,27 @@
+
 import torch
 import sys
 import os
 import numpy as np
 from test_utils import compare_tensors, evaluate_fwd_bwd_kernel
-
-sys.path.insert(0, os.path.join(os.environ['BUILD_ROOT_LATEST']))
+import pytest
+sys.path.insert(0, os.path.join(os.environ['PYTORCH_MODULES_RELEASE_BUILD']))
 try:
     import habana_frameworks.torch.core as htcore
 except ImportError:
     assert False, "Could Not import habana_frameworks.torch.core"
 
+matmul_lazy_list = [
+    # size1, size2
+    ((2, 3), (3, 4)),
+    ((2, 3, 4), (4, 5)),
+    ((2, 3, 4), (2, 4, 5)),
+    ((2, 3, 4), (4)),
+    ((2, 2, 3, 4), (2, 4, 3))
+
+]
+
+@pytest.mark.parametrize("size1, size2", matmul_lazy_list)
 def test_hpu_lazy_matmul_fwd_bwd(size1, size2):
     t1 = torch.randn(size1, requires_grad = True)
     t2 = torch.randn(size2, requires_grad = True)
@@ -45,8 +57,4 @@ if __name__ == '__main__':
     if not run_lazy_mode:
         assert False, "Set PT_HPU_LAZY_MODE=1 to run in Lazy mode"
     
-    test_hpu_lazy_matmul_fwd_bwd((2, 3), (3, 4))
-    test_hpu_lazy_matmul_fwd_bwd((2, 3, 4), (4, 5))
-    test_hpu_lazy_matmul_fwd_bwd((2, 3, 4), (2, 4, 5))
-    test_hpu_lazy_matmul_fwd_bwd((2, 3, 4), (4))
-    test_hpu_lazy_matmul_fwd_bwd((2, 2, 3, 4), (2, 4, 3))
+    test_hpu_lazy_matmul_fwd_bwd(*matmul_lazy_list[0])
