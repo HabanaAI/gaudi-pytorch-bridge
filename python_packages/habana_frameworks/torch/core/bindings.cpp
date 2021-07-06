@@ -32,10 +32,15 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   // Lazy apis
   m.def(
       "mark_step",
-      [](const std::string& device_str) {
-        habana_lazy::HbLazyTensor::StepMarker(device_str);
+      [](const std::string& device_str, bool is_blocking) {
+        if (is_blocking) {
+          habana_lazy::HbLazyTensor::StepMarkerBlocking(device_str);
+        } else {
+          habana_lazy::HbLazyTensor::StepMarker(device_str);
+        }
       },
-      py::arg("device_str") = "");
+      py::arg("device_str") = "",
+      py::arg("is_blocking") = false);
   m.def(
       "run_saved_model",
       [](const std::string& device_str) {

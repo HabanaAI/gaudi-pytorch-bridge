@@ -192,4 +192,4 @@ class FusedLamb(Optimizer):
                 self.use_lamb,
             )
 
-            htcore.mark_step()
+            htcore.mark_step("", True)

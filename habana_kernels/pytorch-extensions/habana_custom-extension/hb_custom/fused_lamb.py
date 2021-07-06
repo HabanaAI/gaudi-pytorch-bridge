@@ -166,4 +166,4 @@ class FusedLamb(Optimizer):
             hb_custom_C.fused_lamb_phase2(wt_list, adam_norm_list, wt_norm_list, adam_step_list,
                                                 tr_ones_list, step_size, group['weight_decay'], self.use_lamb)
 
-            htcore.mark_step()
+            htcore.mark_step("", True)
