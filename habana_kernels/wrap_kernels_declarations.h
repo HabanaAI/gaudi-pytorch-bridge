@@ -16,6 +16,7 @@
 // scripts/gen.py for all the static member functions of this class.
 
 struct hpu_wrap {
+  static at::Tensor& silu_out(const at::Tensor& self, at::Tensor& out);
   static at::Tensor linspace(
       at::Scalar start,
       at::Scalar end,

@@ -2110,6 +2110,12 @@ static const std::unordered_map<
               at::ScalarType::Long}},
         },
         {
+            "silu_out",
+            {{at::ScalarType::Float,
+              at::ScalarType::Double,
+              at::ScalarType::BFloat16}},
+        },
+        {
             "clamp_",
             {{at::ScalarType::Float,
               at::ScalarType::Double,

@@ -5830,6 +5830,15 @@ Tensor silu_hpu_lazy(const Tensor& self) {
   return k.call();
 }
 
+Tensor& silu_out_hpu_lazy(const Tensor& self, Tensor& out) {
+  PT_LAZY_TRACE;
+  CONVERT_0D_TO_1D(self)
+  LazyOp<at::Tensor&> k("aten::silu", {out, self});
+  auto& result = k.call(out);
+  CONVERT_1D_TO_0D(self, result)
+  return result;
+}
+
 Tensor linspace_hpu_lazy(
     Scalar start,
     Scalar end,
