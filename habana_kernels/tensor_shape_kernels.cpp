@@ -538,6 +538,7 @@ inline bool is_hpu_supported_transpose_type(const c10::ScalarType pt_type) {
     case c10::ScalarType::BFloat16:
     case c10::ScalarType::Int:
     case c10::ScalarType::Byte:
+    case c10::ScalarType::Char:
     case c10::ScalarType::Short:
       return true;
     default:
