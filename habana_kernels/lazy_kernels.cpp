@@ -4950,6 +4950,7 @@ Scalar _local_scalar_dense_hpu_lazy(const Tensor& self) {
   if (IsHbLazyTensor(self)) {
     HbLazyTensor hb_tensor = GetOrCreateHbLazyTensor(self, self.device());
     // Trigger point execution
+    HbLazyTensor::StepMarker({});
     auto tensor_data = hb_tensor.GetHbLazyTensorData();
     out = _local_scalar_dense_hpu(tensor_data.value());
   } else {

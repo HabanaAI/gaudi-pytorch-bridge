@@ -32,7 +32,7 @@ TEST_F(LazyBinaryKernelTest, LazyDoATest) {
   torch::Tensor out_cpu = torch::add(C, I_cpu, 2.3);
   torch::Tensor out_h = out.to(torch::kCPU);
 
-  EXPECT_EQ(allclose(out_h, out_cpu), true);
+  EXPECT_EQ(allclose(out_h, out_cpu, 0.001, 0.001), true);
 }
 
 TEST_F(LazyBinaryKernelTest, AddScalarTest) {
@@ -45,7 +45,7 @@ TEST_F(LazyBinaryKernelTest, AddScalarTest) {
   torch::Tensor out_h = torch::add(hA, B, alpha).to(torch::kCPU);
   torch::Tensor out_cpu = torch::add(A, B, alpha);
 
-  EXPECT_EQ(allclose(out_h, out_cpu), true);
+  EXPECT_EQ(allclose(out_h, out_cpu, 0.001, 0.001), true);
 }
 
 TEST_F(LazyBinaryKernelTest, SubScalarTest) {
@@ -58,7 +58,7 @@ TEST_F(LazyBinaryKernelTest, SubScalarTest) {
   torch::Tensor out_h = torch::sub(hA, B, alpha).to(torch::kCPU);
   torch::Tensor out_cpu = torch::sub(A, B, alpha);
 
-  EXPECT_EQ(allclose(out_h, out_cpu), true);
+  EXPECT_EQ(allclose(out_h, out_cpu, 0.001, 0.001), true);
 }
 
 TEST_F(LazyBinaryKernelTest, AddInplaceTest) {
@@ -81,7 +81,7 @@ TEST_F(LazyBinaryKernelTest, AddInplaceTest) {
 
   Tensor out = result.to(kCPU);
 
-  EXPECT_EQ(allclose(out, exp), true);
+  EXPECT_EQ(allclose(out, exp, 0.001, 0.001), true);
 }
 
 TEST_F(LazyBinaryKernelTest, LazyRsubscalarTest) {
@@ -92,7 +92,7 @@ TEST_F(LazyBinaryKernelTest, LazyRsubscalarTest) {
   Tensor hout = hrsub.to(kCPU);
 
   auto cout = torch::rsub(input, 8, 2);
-  EXPECT_EQ(allclose(hout, cout), true);
+  EXPECT_EQ(allclose(hout, cout, 0.001, 0.001), true);
 }
 
 TEST_F(LazyBinaryKernelTest, DivTensorTestWithDivByZero) {
@@ -128,7 +128,7 @@ TEST_F(LazyBinaryKernelTest, DivTensorTestWithDivByZero) {
   Tensor generated = result.to(kCPU);
 
   // Compare
-  EXPECT_EQ(allclose(generated, expected), true);
+  EXPECT_EQ(allclose(generated, expected, 0.001, 0.001), true);
 }
 
 TEST_F(LazyBinaryKernelTest, DivTensorTestByNonZero) {
@@ -159,7 +159,7 @@ TEST_F(LazyBinaryKernelTest, DivTensorTestByNonZero) {
   HbLazyTensor::SyncTensorsGraph(&tensors);
   Tensor generated = result.to(kCPU);
 
-  EXPECT_EQ(allclose(generated, expected), true);
+  EXPECT_EQ(allclose(generated, expected, 0.001, 0.001), true);
 }
 
 TEST_F(LazyBinaryKernelTest, MulOutScalar) {
@@ -171,7 +171,7 @@ TEST_F(LazyBinaryKernelTest, MulOutScalar) {
   torch::Tensor out_hpu = torch::zeros_like(input1).to(torch::kHABANA);
   at::mul_out(out_cpu, input1, wrapped);
   at::mul_out(out_hpu, input1.to(torch::kHABANA), wrapped);
-  bool equal = out_cpu.allclose(out_hpu.to(torch::kCPU), 0, 0);
+  bool equal = out_cpu.allclose(out_hpu.to(torch::kCPU), 0.001, 0.001);
   EXPECT_EQ(equal, true);
 }
 
@@ -182,7 +182,7 @@ TEST_F(LazyBinaryKernelTest, MulOut) {
   torch::Tensor out_hpu = torch::zeros_like(input1).to(torch::kHABANA);
   at::mul_out(out_cpu, input1, input2);
   at::mul_out(out_hpu, input1.to(torch::kHABANA), input2.to(torch::kHABANA));
-  bool equal = out_cpu.allclose(out_hpu.to(torch::kCPU), 0, 0);
+  bool equal = out_cpu.allclose(out_hpu.to(torch::kCPU), 0.001, 0.001);
   EXPECT_EQ(equal, true);
 }
 
@@ -201,7 +201,7 @@ TEST_F(LazyBinaryKernelTest, MulOutNarrow) {
   at::mul_out(out_cpu, input1, input2);
   at::mul_out(out_hpu, input1.to(torch::kHABANA), input2.to(torch::kHABANA));
   HbLazyTensor::StepMarker({});
-  bool equal = A.allclose(hA.to(torch::kCPU), 0, 0);
+  bool equal = A.allclose(hA.to(torch::kCPU), 0.001, 0.001);
   EXPECT_EQ(equal, true);
 }
 
@@ -238,7 +238,7 @@ TEST_F(LazyBinaryKernelTest, DivOut) {
   auto hout = torch::empty_like(ha);
   hout = torch::div_out(hout, ha, hb);
 
-  EXPECT_TRUE(allclose(out, hout.to("cpu")));
+  EXPECT_TRUE(allclose(out, hout.to("cpu"), 0.001, 0.001));
 }
 
 TEST_F(LazyBinaryKernelTest, TypePromotion1) {
@@ -296,7 +296,7 @@ TEST_F(LazyBinaryKernelTest, MulScalarTest) {
   HbLazyTensor::SyncTensorsGraph(&tensors);
   Tensor generated = result.to(kCPU);
 
-  EXPECT_EQ(allclose(generated, expected), true);
+  EXPECT_EQ(allclose(generated, expected, 0.001, 0.001), true);
 }
 
 TEST_F(LazyBinaryKernelTest, AddSame) {
@@ -321,7 +321,7 @@ TEST_F(LazyBinaryKernelTest, MvTest) {
   auto out_exp = torch::mv(m, v);
   auto hout_lazy = torch::mv(hm, hv).to(torch::kCPU);
 
-  EXPECT_TRUE(allclose(hout_lazy, out_exp));
+  EXPECT_TRUE(allclose(hout_lazy, out_exp, 0.001, 0.001));
 }
 
 TEST_F(LazyBinaryKernelTest, DotTest) {
@@ -375,7 +375,7 @@ TEST_F(LazyBinaryKernelTest, AddcmulTest) {
 
   auto cpuOut = at::addcmul(A, B, C, alpha);
 
-  EXPECT_EQ(allclose(hOut, cpuOut), true);
+  EXPECT_EQ(allclose(hOut, cpuOut, 0.001, 0.001), true);
 }
 
 TEST_F(LazyBinaryKernelTest, PersistentAddSame) {
@@ -404,8 +404,8 @@ TEST_F(LazyBinaryKernelTest, Pow) {
 
   Tensor generated = result.to(kCPU);
 
-  double rtol = 1e-05; // NOLINT
-  double atol = 1e-08; // NOLINT
+  double rtol = 1e-03; // NOLINT
+  double atol = 1e-03; // NOLINT
 
   EXPECT_TRUE(at::allclose(expected, generated, rtol, atol, true));
 }
@@ -423,8 +423,8 @@ TEST_F(LazyBinaryKernelTest, PowInplace) {
   hA.pow_(hB);
   Tensor generated = hA.to(kCPU);
 
-  double rtol = 1e-05; // NOLINT
-  double atol = 1e-08; // NOLINT
+  double rtol = 1e-03; // NOLINT
+  double atol = 1e-03; // NOLINT
   EXPECT_TRUE(at::allclose(A, generated, rtol, atol, true));
 }
 
@@ -442,8 +442,8 @@ TEST_F(LazyBinaryKernelTest, PowTensorScalar) {
 
   Tensor generated = result.to(kCPU);
 
-  double rtol = 1e-05; // NOLINT
-  double atol = 1e-08; // NOLINT
+  double rtol = 1e-03; // NOLINT
+  double atol = 1e-03; // NOLINT
 
   EXPECT_TRUE(at::allclose(expected, generated, rtol, atol, true));
 }
@@ -462,8 +462,8 @@ TEST_F(LazyBinaryKernelTest, PowTensorScalarInplace) {
 
   Tensor generated = hA.to(kCPU);
 
-  double rtol = 1e-05; // NOLINT
-  double atol = 1e-08; // NOLINT
+  double rtol = 1e-03; // NOLINT
+  double atol = 1e-03; // NOLINT
 
   EXPECT_TRUE(at::allclose(A, generated, rtol, atol, true));
 }
@@ -481,8 +481,8 @@ TEST_F(LazyBinaryKernelTest, PowScalarTensor) {
 
   Tensor generated = result.to(kCPU);
 
-  double rtol = 1e-05; // NOLINT
-  double atol = 1e-08; // NOLINT
+  double rtol = 1e-03; // NOLINT
+  double atol = 1e-03; // NOLINT
 
   EXPECT_TRUE(at::allclose(expected, generated, rtol, atol, true));
 }
