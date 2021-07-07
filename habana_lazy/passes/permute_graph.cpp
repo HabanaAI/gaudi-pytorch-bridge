@@ -429,8 +429,15 @@ void InsertPermute_graph(
           }
         }
 
-        // Slice dims as per original PT layout
+        // dim based Ops as per original PT layout NCHW
         if ((strcmp(node->kind().toQualString(), "aten::slice") == 0) ||
+            (strcmp(node->kind().toQualString(), "aten::_softmax") == 0) ||
+            (strcmp(
+                 node->kind().toQualString(), "aten::_softmax_backward_data") ==
+             0) ||
+            (strcmp(
+                 node->kind().toQualString(),
+                 "aten::_log_softmax_backward_data") == 0) ||
             (strcmp(node->kind().toQualString(), "aten::_log_softmax") == 0)) {
           if ((tensor_layout != habana::LayoutFormat::NCHW) &&
               (tensor_layout != habana::LayoutFormat::HWCK)) {
@@ -547,6 +554,13 @@ void InsertPermute_graph(
       } else if (
           (strcmp(node->kind().toQualString(), "aten::view") == 0) ||
           (strcmp(node->kind().toQualString(), "aten::index") == 0) ||
+          (strcmp(node->kind().toQualString(), "aten::_softmax") == 0) ||
+          (strcmp(
+               node->kind().toQualString(), "aten::_softmax_backward_data") ==
+           0) ||
+          (strcmp(
+               node->kind().toQualString(),
+               "aten::_log_softmax_backward_data") == 0) ||
           (strcmp(node->kind().toQualString(), "aten::_log_softmax") == 0) ||
           (strcmp(node->kind().toQualString(), "aten::slice") == 0)) {
         // View() layout is always NCHW as per original PT format

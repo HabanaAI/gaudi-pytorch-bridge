@@ -131,3 +131,33 @@ TEST_F(LazySoftmaxKernelTest, SoftMaxTestBackward) {
 
   EXPECT_EQ(allclose(hout2_back, cout_back), true);
 }
+
+TEST_F(LazySoftmaxKernelTest, SoftMaxTestBackward1) {
+  torch::Tensor input0 =
+      torch::rand({64, 128, 48, 40}, torch::requires_grad(false));
+  torch::Tensor hinput0 = input0.to(torch::kHABANA);
+
+  torch::Tensor weight_tensor =
+      torch::rand({4, 128, 1, 1}, torch::requires_grad(false));
+  auto wt_hwck = weight_tensor.permute({2, 3, 1, 0}).contiguous();
+  torch::Tensor tHabanaW = wt_hwck.to(torch::kHABANA);
+
+  torch::Tensor output =
+      torch::rand({64, 4, 48, 40}, torch::requires_grad(false));
+  torch::Tensor houtput = output.to(torch::kHABANA);
+
+  torch::Tensor input =
+      torch::rand({64, 4, 48, 40}, torch::requires_grad(false));
+  torch::Tensor hinput = input.to(torch::kHABANA);
+
+  int dim = 1;
+  torch::Tensor houtConv = torch::conv2d(hinput0, tHabanaW, {}, 1, 0, 1, 1);
+  auto hout_backward =
+      torch::_softmax_backward_data(houtConv, houtput, dim, hinput);
+  auto hout2_back = hout_backward.to(torch::kCPU);
+
+  torch::Tensor outConv = torch::conv2d(input0, weight_tensor, {}, 1, 0, 1, 1);
+  auto cout_back = torch::_softmax_backward_data(outConv, output, dim, input);
+
+  EXPECT_EQ(allclose(hout2_back, cout_back, 0.01, 0.01), true);
+}
