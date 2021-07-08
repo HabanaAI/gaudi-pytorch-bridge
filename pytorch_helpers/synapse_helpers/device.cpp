@@ -133,6 +133,7 @@ device::device(
     void* v_ptr{nullptr};
     device_memory_.malloc(&v_ptr, prealloc_size);
     device_ptr prealloc_addr = reinterpret_cast<device_ptr>(v_ptr);
+    device_memory_.fix_address(reinterpret_cast<void*>(prealloc_addr));
     HABANA_ASSERT(prealloc_addr != device_nullptr);
     preallocated_reduction_buffer_ = absl::make_optional<owned_device_ptr>(
         prealloc_addr, prealloc_size, *this);
@@ -430,11 +431,12 @@ synapse_error device::copy_data_to_device(
 
   unsigned attempt = 0;
   do {
+    auto locked = lock_addresses(destination);
     status = synMemCopyAsync(
         stream_h2d_,
         reinterpret_cast<uint64_t>(mapped_cpu_data),
         total_bytes,
-        destination,
+        locked.at(0),
         synDmaDir::HOST_TO_DRAM);
 
     if (status == synStatus::synSuccess) {
@@ -503,9 +505,10 @@ synapse_error device::copy_data_to_host(
 
   unsigned attempt = 0;
   do {
+    auto locked = lock_addresses(device_data);
     status = synMemCopyAsync(
         stream_d2h_,
-        device_data,
+        locked.at(0),
         total_bytes,
         reinterpret_cast<uint64_t>(mapped_destination),
         synDmaDir::DRAM_TO_HOST);
@@ -560,10 +563,17 @@ synapse_error device::copy_data_within_device(
   synStatus status;
 
   sem_.enqueue_wait_event(src_event_addr, stream_d2d_);
-  status = synMemCopyAsync(
-      stream_d2d_, source, total_bytes, destination, synDmaDir::DRAM_TO_DRAM);
-  if (synStatus::synSuccess != status) {
-    return synapse_error{"DMA inside HPU start failed.", status};
+  {
+    auto locked = lock_addresses(source, destination);
+    status = synMemCopyAsync(
+        stream_d2d_,
+        locked.at(0),
+        total_bytes,
+        locked.at(1),
+        synDmaDir::DRAM_TO_DRAM);
+    if (synStatus::synSuccess != status) {
+      return synapse_error{"DMA inside HPU start failed.", status};
+    }
   }
 
   sem_.add_producer({dst_event_addr}, stream_d2d_, std::move(unref_cb));
@@ -577,28 +587,35 @@ synapse_error device::copy_data_within_device(
     stream* const next_operation_stream) {
   synStatus status;
 
-  std::vector<std::uint64_t> srcs(transfers.size());
+  std::vector<std::uint64_t> all_addresses(2 * transfers.size());
   std::vector<std::uint64_t> dsts(transfers.size());
   std::vector<std::uint64_t> lens(transfers.size());
   std::vector<std::uint64_t> dsts_event_addr(transfers.size());
 
   for (std::size_t i = 0; i < transfers.size(); ++i) {
     sem_.enqueue_wait_event(transfers[i].src_event_addr, stream_d2d_);
-    srcs[i] = transfers[i].src;
-    dsts[i] = transfers[i].dst;
+    all_addresses[i] = transfers[i].src;
+    dsts[i] = all_addresses[i + transfers.size()] = transfers[i].dst;
     lens[i] = transfers[i].bytes_to_transfer;
     dsts_event_addr[i] = transfers[i].dst_event_addr;
   }
 
-  status = synMemCopyAsyncMultiple(
-      stream_d2d_,
-      srcs.data(),
-      lens.data(),
-      dsts.data(),
-      synDmaDir::DRAM_TO_DRAM,
-      transfers.size());
-  if (synStatus::synSuccess != status) {
-    return synapse_error{"dma inside hpu start failed.", status};
+  {
+    auto locked = lock_addresses(all_addresses);
+    absl::Span<device_ptr> locked_srcs{locked.data(), transfers.size()};
+    absl::Span<device_ptr> locked_dsts{
+        locked.data() + transfers.size(), transfers.size()};
+
+    status = synMemCopyAsyncMultiple(
+        stream_d2d_,
+        locked_srcs.data(),
+        lens.data(),
+        locked_dsts.data(),
+        synDmaDir::DRAM_TO_DRAM,
+        transfers.size());
+    if (synStatus::synSuccess != status) {
+      return synapse_error{"dma inside hpu start failed.", status};
+    }
   }
 
   if (nullptr == next_operation_stream) {

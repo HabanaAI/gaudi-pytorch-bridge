@@ -332,17 +332,33 @@ synapse_error_o graph::launch(
           table_checker) == inputs_and_outputs_info.end());
   auto& compute_stream = device.get_compute_stream();
 
-  if (GET_ENV_FLAG(PT_HABANA_MEM_LOG_LEVEL) == MEM_LOG_GRAPH_LAUNCH) {
-    std::string msg = absl::StrFormat(
-        "%s%s", "Before launch of graph", recipe_handle.recipe_name_.c_str());
-    synapse_helpers::print_live_allocations(msg.c_str());
+  std::vector<device_ptr> addresses(
+      inputs_and_outputs_info.size(), device_nullptr);
+  std::transform(
+      inputs_and_outputs_info.begin(),
+      inputs_and_outputs_info.end(),
+      addresses.begin(),
+      [](const synLaunchTensorInfo& info) { return info.pTensorAddress; });
+  {
+    auto locked = device.lock_addresses(addresses);
+    auto iter = inputs_and_outputs_info.begin();
+    for (auto address : locked) {
+      iter->pTensorAddress = address;
+      ++iter;
+    }
+
+    if (GET_ENV_FLAG(PT_HABANA_MEM_LOG_LEVEL) == MEM_LOG_GRAPH_LAUNCH) {
+      std::string msg = absl::StrFormat(
+          "%s%s", "Before launch of graph", recipe_handle.recipe_name_.c_str());
+      synapse_helpers::print_live_allocations(msg.c_str());
+    }
+    status = synLaunch(
+        compute_stream,
+        inputs_and_outputs_info.data(),
+        inputs_and_outputs_info.size(),
+        recipe_handle.device_.get_workspace_buffer(workspace_size),
+        recipe_handle.syn_recipe_handle_);
   }
-  status = synLaunch(
-      compute_stream,
-      inputs_and_outputs_info.data(),
-      inputs_and_outputs_info.size(),
-      recipe_handle.device_.get_workspace_buffer(workspace_size),
-      recipe_handle.syn_recipe_handle_);
 
   SYNAPSE_SUCCESS_CHECK("synLaunch failed.", status)
 

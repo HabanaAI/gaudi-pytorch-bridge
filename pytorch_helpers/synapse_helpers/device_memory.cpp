@@ -119,6 +119,10 @@ device_memory::device_memory(device& device) : device_{device} {
 }
 
 device_memory::~device_memory() {
+  if (pool_strategy_ == pool_allocator::startegy_coalesce_stringent) {
+    handle2pointer_.clear();
+    handle_id_generator_.reset();
+  }
   if (suballoc_) {
     suballoc_->pool_destroy();
     delete suballoc_;
@@ -126,7 +130,8 @@ device_memory::~device_memory() {
   suballoc_ = nullptr;
 }
 
-synStatus device_memory::malloc(void** v_ptr, uint64_t size) {
+// warapper for malloc/free for pool startegy not equal to 5
+synStatus device_memory::alloc(void** v_ptr, uint64_t size) {
   uint64_t ptr{0};
   synStatus status{synStatus::synSuccess};
   if (pool_strategy_ != pool_allocator::strategy_none) {
@@ -152,7 +157,7 @@ synStatus device_memory::malloc(void** v_ptr, uint64_t size) {
   return status;
 }
 
-synStatus device_memory::free(void* ptr) {
+synStatus device_memory::deallocate(void* ptr) {
   synStatus status{synStatus::synSuccess};
   if (nullptr == ptr) {
     return status;
@@ -166,6 +171,74 @@ synStatus device_memory::free(void* ptr) {
     PT_SYNHELPER_DEBUG("SynDeviceFree Failed.", status);
   }
   log_synDeviceFree(reinterpret_cast<uint64_t>(ptr), status);
+  return status;
+}
+
+synStatus device_memory::malloc(void** v_ptr, uint64_t size) {
+  synStatus status{synStatus::synSuccess};
+  uint64_t ptr{0};
+  if (pool_strategy_ == pool_allocator::startegy_coalesce_stringent) {
+    std::unique_lock<std::mutex> lock(mutex_);
+    bool inserted;
+    decltype(handle2pointer_)::iterator iter;
+
+    std::tie(iter, inserted) = handle2pointer_.emplace(
+        handle_id_generator_.get(), ptr_with_size{nullptr, size});
+
+    if (!inserted) {
+      PT_SYNHELPER_FATAL("Handle ", mem_handle(iter->first), " already exists");
+    }
+
+    ptr = mem_handle::reinterpret_to_pointer(mem_handle(iter->first));
+
+    *v_ptr = reinterpret_cast<void*>(ptr);
+    return status;
+  } else {
+    status = alloc((void**)&ptr, size);
+    *v_ptr = reinterpret_cast<void*>(ptr);
+    return status;
+  }
+}
+
+synStatus device_memory::free(void* free_ptr) {
+  synStatus status{synStatus::synSuccess};
+  if (nullptr == free_ptr) {
+    return status;
+  }
+
+  if (pool_strategy_ == pool_allocator::startegy_coalesce_stringent) {
+    if (reinterpret_cast<uint64_t>(free_ptr) == workspace_allocation_) {
+      status = deallocate(free_ptr);
+      return status;
+    }
+
+    auto h = mem_handle::reinterpret_from_pointer(
+        reinterpret_cast<uint64_t>(free_ptr));
+
+    if (h.offset() != 0) {
+      PT_SYNHELPER_FATAL("Cannot free offseted handle ", h);
+    }
+
+    std::unique_lock<std::mutex> lock(mutex_);
+    const auto id = h.id();
+    auto iter = handle2pointer_.find(id);
+    if (iter == handle2pointer_.end()) {
+      PT_SYNHELPER_FATAL("Handle ", h, " does not exist");
+    }
+
+    void* ptr;
+    size_t size;
+
+    std::tie(ptr, size) = iter->second;
+    if (ptr != nullptr) {
+      status = deallocate(ptr);
+    }
+
+    handle2pointer_.erase(iter);
+    handle_id_generator_.put(id);
+  } else {
+    status = deallocate(free_ptr);
+  }
   return status;
 }
 
@@ -206,12 +279,82 @@ void* device_memory::workspace_alloc(
     ws_size = actual_size;
     return v_ptr;
   } else {
+    std::unique_lock<std::mutex> lock(mutex_);
     if (ws_size < req_size) {
+      void* v_ptr{nullptr};
+      v_ptr = suballoc_->extend_high_memory_allocation(req_size);
+      workspace_allocation_ = reinterpret_cast<uint64_t>(v_ptr);
       ws_size = req_size;
-      return suballoc_->extend_high_memory_allocation(req_size);
+      return v_ptr;
     }
     return ptr;
   }
+}
+
+// special case handling for preallocated buffer
+void device_memory::fix_address(void* ptr) {
+  if (ptr == nullptr) {
+    PT_SYNHELPER_FATAL("fix_address ptr is null");
+  }
+
+  auto h =
+      mem_handle::reinterpret_from_pointer(reinterpret_cast<uint64_t>(ptr));
+
+  if (h.offset() != 0) {
+    PT_SYNHELPER_FATAL("Cannot fix offseted handle ", h);
+  }
+
+  std::unique_lock<std::mutex> lock(mutex_);
+  get_pointer(h);
+}
+
+device_ptr_lock device_memory::lock_addresses(
+    const std::vector<device_ptr>& addresses) {
+  std::unique_lock<std::mutex> lock(mutex_);
+  std::vector<device_ptr> out;
+  out.reserve(addresses.size());
+
+  for (const auto address : addresses) {
+    if (pool_strategy_ == pool_allocator::startegy_coalesce_stringent) {
+      const auto h = mem_handle::reinterpret_from_pointer(address);
+      const auto translated_address = get_pointer(h);
+      out.emplace_back(translated_address);
+    } else {
+      out.emplace_back(address);
+    }
+  }
+  return device_ptr_lock(std::move(out));
+}
+
+device_ptr device_memory::get_pointer(mem_handle h) {
+  if (!h.is_valid()) {
+    return device_nullptr;
+  }
+
+  auto iter = handle2pointer_.find(h.id());
+  if (iter == handle2pointer_.end()) {
+    PT_SYNHELPER_FATAL("Handle ", h.unoffseted(), " does not exist");
+  }
+
+  void* ptr = nullptr;
+  size_t size;
+  std::tie(ptr, size) = iter->second;
+
+  if (ptr == nullptr) {
+    alloc(&ptr, size);
+    if (ptr == nullptr) {
+      PT_SYNHELPER_FATAL("Allocation failed for size", size);
+    }
+    iter->second = ptr_with_size{ptr, size};
+  }
+
+  const auto offset = h.offset();
+
+  if (offset >= size) {
+    PT_SYNHELPER_FATAL("Trying to access out of bounds of resource");
+  }
+
+  return reinterpret_cast<device_ptr>(ptr) + offset;
 }
 
 } // namespace synapse_helpers

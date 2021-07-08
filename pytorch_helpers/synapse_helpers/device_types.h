@@ -68,6 +68,8 @@ class owned_device_ptr {
   size_t size_;
 };
 
+using device_ptr_lock = std::vector<device_ptr>;
+
 class device_allocator {
  public:
   virtual ~device_allocator() = default;

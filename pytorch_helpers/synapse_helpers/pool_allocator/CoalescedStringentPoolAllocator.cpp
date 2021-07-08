@@ -155,7 +155,7 @@ bool CoalescedStringentPooling::pool_create(synDeviceId deviceID, uint64_t size)
   p->end = p->basememptr + size;
   p->start = nullptr;
   p->top = p->start;
-  PT_SYNHELPER_DEBUG("POOL:: static coalesced pool created");
+  PT_SYNHELPER_DEBUG("POOL:: static coalesced stringent pool created");
   print_device_memory_stats(pool_id);
   prealloc_pool = p;
 

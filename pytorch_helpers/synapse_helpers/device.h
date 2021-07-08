@@ -130,6 +130,16 @@ class device {
 
   device_ptr malloc(size_t size);
   void free(device_ptr ptr);
+
+  template <typename... DevicePtrT>
+  device_ptr_lock lock_addresses(DevicePtrT&&... ptrs) {
+    return device_memory_.lock_addresses({std::forward<DevicePtrT>(ptrs)...});
+  }
+
+  device_ptr_lock lock_addresses(const std::vector<device_ptr>& ptrs) {
+    return device_memory_.lock_addresses(ptrs);
+  }
+
   synapse_error copy_data_to_device(
       void* cpu_data,
       device_ptr destination,
