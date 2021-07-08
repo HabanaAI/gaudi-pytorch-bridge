@@ -39,7 +39,7 @@ if __name__ == "__main__":
     # print('after  adam.step x ::\n{}'.format(x_cpu))
 
     # Enable this env to validate lazy path
-    # os.environ['PT_HPU_LAZY_MODE'] = "1"
+    os.environ['PT_HPU_LAZY_MODE'] = "1"
 
     y = v.detach().to(habana)
     y.requires_grad = True

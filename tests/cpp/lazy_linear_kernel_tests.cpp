@@ -29,7 +29,7 @@ TEST_F(LazyLinearKernelTest, MmMulTest) {
 
   auto y_cpu = torch::mm(x, y);
   auto z_cout = torch::mul(y_cpu, z);
-  EXPECT_EQ(allclose(hz_exp, z_cout), true);
+  EXPECT_EQ(allclose(hz_exp, z_cout, 0.001, 0.001), true);
 }
 
 TEST_F(LazyLinearKernelTest, AddMmTest) {
@@ -45,7 +45,7 @@ TEST_F(LazyLinearKernelTest, AddMmTest) {
   auto computed = O.to(torch::kCPU);
   auto expected = torch::addmm(A, B, C, 1, 1);
 
-  EXPECT_EQ(allclose(expected, computed), true);
+  EXPECT_EQ(allclose(expected, computed, 0.001, 0.001), true);
 }
 
 TEST_F(LazyLinearKernelTest, BmmTest) {
@@ -58,7 +58,7 @@ TEST_F(LazyLinearKernelTest, BmmTest) {
 
   Tensor out = result.to(kCPU);
 
-  EXPECT_EQ(allclose(out, exp), true);
+  EXPECT_EQ(allclose(out, exp, 0.001, 0.001), true);
 }
 
 TEST_F(LazyLinearKernelTest, BmmOutTest) {

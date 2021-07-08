@@ -5052,10 +5052,6 @@ void optimizer_adamw_hpu_lazy(
   for (size_t i = 0; i < weights.size(); i++) {
     auto hlweight = GetHbLazyTensor(weights[i]);
     updateDstDependencies(hlweight, weights[i], true);
-    auto hlexpavg = GetHbLazyTensor(exp_avg[i]);
-    updateDstDependencies(hlexpavg, exp_avg[i], true);
-    auto hlexpavgsq = GetHbLazyTensor(exp_avg_sq[i]);
-    updateDstDependencies(hlexpavgsq, exp_avg_sq[i], true);
   }
 
   auto hl_lr_t = GetOrCreateHbLazyTensor(lr_t, c10::kHABANA);
@@ -5075,31 +5071,40 @@ void optimizer_adamw_hpu_lazy(
 
   int64_t out_index = 0;
 
+  auto hlweight = habana_lazy::GetHbLazyTensor(weights[0]);
+  habana_lazy::ir::Value& out = hlweight.CurrentIrValue();
+  node->set_as_output_tensor_list();
+  out.m_index = 0;
+  out.SetNode(node);
+
+  habana_lazy::ir::NodePtr node_unpack =
+      std::make_shared<habana_lazy::ir::ListUnpack>(out);
+
   for (size_t i = 0; i < weights.size(); i++) {
     auto hl_exp_avg = GetHbLazyTensor(exp_avg[i]);
     ir::Value& out1 = hl_exp_avg.CurrentIrValue();
     out1.m_index = out_index++;
-    out1.SetNode(node);
+    out1.SetNode(node_unpack);
 
     auto hl_exp_avg_1 = GetHbLazyTensor(exp_avg[i]);
     ir::Value& out2 = hl_exp_avg_1.CurrentIrValue();
     out2.m_index = out_index++;
-    out2.SetNode(node);
+    out2.SetNode(node_unpack);
 
     auto hl_exp_avg_sq = GetHbLazyTensor(exp_avg_sq[i]);
     ir::Value& out3 = hl_exp_avg_sq.CurrentIrValue();
     out3.m_index = out_index++;
-    out3.SetNode(node);
+    out3.SetNode(node_unpack);
 
     auto hl_exp_avg_sq_1 = GetHbLazyTensor(exp_avg_sq[i]);
     ir::Value& out4 = hl_exp_avg_sq_1.CurrentIrValue();
     out4.m_index = out_index++;
-    out4.SetNode(node);
+    out4.SetNode(node_unpack);
 
     auto hl_weight = GetHbLazyTensor(weights[i]);
     ir::Value& out5 = hl_weight.CurrentIrValue();
     out5.m_index = out_index++;
-    out5.SetNode(node);
+    out5.SetNode(node_unpack);
   }
 
   if (std::getenv("PT_HPU_LAZY_MODE") &&
@@ -5119,19 +5124,29 @@ Tensor fused_norm_hpu_lazy(
   }
   ir::NodePtr node = std::make_shared<ir::FusedNorm>(grad, max_norm, norm_type);
   int64_t out_index = 0;
+
+  auto hlgrad = habana_lazy::GetHbLazyTensor(grad[0]);
+  habana_lazy::ir::Value& out1 = hlgrad.CurrentIrValue();
+  node->set_as_output_tensor_list();
+  out1.m_index = 0;
+  out1.SetNode(node);
+
+  habana_lazy::ir::NodePtr node_unpack =
+      std::make_shared<habana_lazy::ir::ListUnpack>(out1);
+
   auto result = empty_hpu_lazy(
       {1}, grad[0].options(), grad[0].suggest_memory_format(), false);
 
   auto hlresult = GetHbLazyTensor(result);
-  ir::Value& out = hlresult.CurrentIrValue();
-  out.m_index = out_index++;
-  out.SetNode(node);
+  ir::Value& out2 = hlresult.CurrentIrValue();
+  out2.m_index = out_index++;
+  out2.SetNode(node_unpack);
 
   for (size_t i = 0; i < grad.size(); i++) {
-    auto hlweight = GetHbLazyTensor(grad[i]);
-    ir::Value& out1 = hlweight.CurrentIrValue();
+    auto hlgrad = GetHbLazyTensor(grad[i]);
+    ir::Value& out1 = hlgrad.CurrentIrValue();
     out1.m_index = out_index++;
-    out1.SetNode(node);
+    out1.SetNode(node_unpack);
   }
 
   flush_op(result);

@@ -1,6 +1,11 @@
 import torch
 from typing import Callable, Iterable, Tuple
 
+try:
+    import habana_frameworks.torch.core as htcore
+except ImportError:
+    assert False, "Could Not import habana_frameworks.torch.core"
+
 class FusedClipNorm():
     def __init__(
         self,
@@ -34,5 +39,7 @@ class FusedClipNorm():
 
         with torch.no_grad():
             total_norm = self.fused_clip_norm(self.norm_list, self.max_norm_t, self.norm_type)
+
+        htcore.mark_step()
 
         return total_norm

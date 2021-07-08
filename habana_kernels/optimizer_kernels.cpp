@@ -279,6 +279,8 @@ void OptimizerAdamwOperator::AllocateAndAddSynapseNode(
   auto scalar_type = gradients.get(0).scalar_type();
   auto num_params = static_cast<int>(weights.size());
   torch::jit::Stack stack;
+  std::vector<synNodeId> syn_node_ids;
+
   for (auto i = 0; i < num_params; i++) {
     // Synapse Graph for single parameter update to be created here
     // All synapse input tensor references are there in a single std::vector
@@ -398,6 +400,10 @@ void OptimizerAdamwOperator::AllocateAndAddSynapseNode(
     p_context_->syn_inputs_[1 * num_params + i] = std::move(syn_in_19);
     stack.clear();
 
+    // collect the nodes that need control edges
+    auto syn_node_id = graph.get_node_index(i * 18 + 17);
+    syn_node_ids.emplace_back(syn_node_id);
+
     // if group["weight_decay"] > 0.0:
     //  p.data.add_(p.data, alpha=-group["lr"] *
     //  group["weight_decay"])
@@ -419,6 +425,10 @@ void OptimizerAdamwOperator::AllocateAndAddSynapseNode(
         std::move(add_wt->GetSynOutputs()[0]));
     p_context_->pt_outputs_.emplace_back(add_wt->GetOutputs()[0]);
   }
+
+  // add nodes that need control edges
+  graph.clear_node_indices();
+  graph.set_node_indices(syn_node_ids);
 }
 
 void optimizer_adamw_hpu(

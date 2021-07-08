@@ -4,6 +4,8 @@ from typing import Callable, Iterable, Tuple
 import torch
 from torch.optim import Optimizer
 
+from habana_frameworks.torch import core as htcore
+
 
 class FusedAdamW(Optimizer):
     def __init__(
@@ -50,6 +52,7 @@ class FusedAdamW(Optimizer):
                     state["exp_avg"] = torch.zeros(p.data.shape).to(self.device)
                     # Exponential moving average of squared gradient values
                     state["exp_avg_sq"] = torch.zeros(p.data.shape).to(self.device)
+        htcore.mark_step()
 
     def step(self, closure: Callable = None):
         """
