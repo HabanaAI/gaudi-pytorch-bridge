@@ -58,6 +58,8 @@ std::vector<at::Tensor> HpuGetFallbackTensorList(
     const std::vector<at::Tensor>& tensors);
 const std::vector<c10::optional<at::Tensor>> HpuGetFallbackOptTensorList(
     const std::vector<c10::optional<at::Tensor>>& tensors);
+c10::List<c10::optional<at::Tensor>> HpuGetFallbackOptTensorList(
+    const c10::List<c10::optional<at::Tensor>>& tensors);
 
 at::Tensor CreateHpuTensor(
     const at::Tensor& tensor,

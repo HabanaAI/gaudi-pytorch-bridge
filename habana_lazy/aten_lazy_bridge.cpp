@@ -172,6 +172,20 @@ const std::vector<c10::optional<at::Tensor>> HpuGetFallbackOptTensorList(
   return fbtensors;
 }
 
+c10::List<c10::optional<at::Tensor>> HpuGetFallbackOptTensorList(
+    const c10::List<c10::optional<at::Tensor>>& tensors) {
+  c10::List<c10::optional<at::Tensor>> fbtensors;
+  fbtensors.reserve(tensors.size());
+  for (c10::optional<at::Tensor> tensor : tensors) {
+    if (tensor.has_value() && tensor.value().defined()) {
+      fbtensors.emplace_back(tensor.value().to(c10::kCPU));
+    } else {
+      fbtensors.emplace_back(tensor);
+    }
+  }
+  return fbtensors;
+}
+
 at::Tensor CreateHpuTensor(
     const at::Tensor& tensor,
     const c10::optional<c10::Device>& device) {

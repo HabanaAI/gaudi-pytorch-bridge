@@ -802,6 +802,16 @@ def generate_aten_out(ctx, tree, rwxtree, fname, sig, rwsig, params, fnopts):
     return code
 
 
+def type_opt_core(t):
+    for c in t.children:
+        if isinstance(c, lark.tree.Tree) and c.data == "core_type":
+            c = c.children[0]
+            assert isinstance(c, lark.tree.Tree) and c.data == "template"
+            c = c.children[1]
+            assert isinstance(c, lark.tree.Tree) and c.data == "typelist"
+            return type_core(c.children[0])
+
+
 def generate_aten_to_hpu(ctx, tree, rwxtree, fname, sig, rwsig, params, fnopts):
     ref_param = get_reference_param(params, fnopts=fnopts)
 
@@ -820,6 +830,21 @@ def generate_aten_to_hpu(ctx, tree, rwxtree, fname, sig, rwsig, params, fnopts):
                 "  auto {} = habana_lazy::HpuGetFallbackTensorList({}.vec());\n"
             ).format(xname, pname)
             param_vars.append(xname)
+        elif cptype == "c10::List":
+            xname = "l_{}".format(pname)
+            wrapped_maybe_optional = type_core(get_template_type_list(ptype)[0])
+            if wrapped_maybe_optional == "c10::optional":
+                assert type_opt_core(get_template_type_list(ptype)[0]) == "Tensor"
+                code += (
+                    "  auto {} = habana_lazy::HpuGetFallbackOptTensorList({});\n"
+                ).format(xname, pname)
+            else:
+                assert type_core(get_template_type_list(ptype)[0]) == "Tensor"
+                code += (
+                    "  auto {} = habana_lazy::HpuGetFallbackTensorList({});\n"
+                ).format(xname, pname)
+            param_vars.append(xname)
+
         elif cptype == "TensorOptions":
             gcode, xname = rewrite_tensor_options(fname, pname)
             code += gcode
