@@ -2395,6 +2395,7 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
     DumpTensors_pre(rv);
   }
 
+  rv.populate_syn_tensor_ids();
   rv.launch(input_refs);
 
   if (enable_tensor_dump_) {

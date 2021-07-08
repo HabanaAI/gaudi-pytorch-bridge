@@ -169,7 +169,9 @@ struct RecipeValueSpec {
       at::ArrayRef<torch::jit::IValue>& input_refs,
       std::shared_ptr<std::vector<IValPtrShared>>& dma_inputs,
       bool enable_tensor_release = true);
-  void patch(std::vector<synLaunchTensorInfo>& syn_launch_info_vec);
+  void populate_syn_tensor_ids();
+  void patch_launch_info(
+      std::vector<synLaunchTensorInfoExt>& syn_launch_info_vec);
   void launch(
       at::ArrayRef<torch::jit::IValue> input_refs,
       std::shared_ptr<std::vector<IValPtrShared>> dma_inputs = nullptr);
@@ -216,6 +218,9 @@ struct RecipeValueSpec {
   size_t key{0};
 
   std::string header_str;
+  size_t num_tensors{0};
+  uint64_t* tensor_ids{nullptr};
+  const char** tensor_names{nullptr};
 
   static size_t count;
   static size_t recipe_count;

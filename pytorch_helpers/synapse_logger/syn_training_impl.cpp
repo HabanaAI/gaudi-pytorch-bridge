@@ -57,6 +57,7 @@ SYN_API_PTR(synEventQuery);
 SYN_API_PTR(synEventSynchronize);
 SYN_API_PTR(synEventElapsedTime);
 SYN_API_PTR(synLaunch);
+SYN_API_PTR(synLaunchByTensorIds);
 SYN_API_PTR(synWorkspaceGetSize);
 SYN_API_PTR(synMemCopyAsync);
 SYN_API_PTR(synMemCopyAsyncMultiple);
@@ -317,7 +318,7 @@ synStatus SYN_API_CALL synEventElapsedTime(
 inline std::ostream& operator<<(
     std::ostream& out,
     const synLaunchTensorInfo& v) {
-  return out << '"' << (v.tensorName ? v.tensorName : "nullprt") << "\", \""
+  return out << '"' << (v.tensorName ? v.tensorName : "nullptr") << "\", \""
              << (void*)v.pTensorAddress << '"';
 }
 
@@ -342,6 +343,39 @@ synStatus SYN_API_CALL synLaunch(
       numberTensors,
       pWorkspace,
       pRecipehandle)
+  API_LOG_RESULT();
+  return status;
+}
+
+inline std::ostream& operator<<(
+    std::ostream& out,
+    const synLaunchTensorInfoExt& v) {
+  return out << '"' << (v.tensorName ? v.tensorName : "nullptr") << "\", \""
+             << v.tensorId << "\", \"" << (void*)v.pTensorAddress << '"';
+}
+
+synStatus SYN_API_CALL synLaunchByTensorIds(
+    const synStreamHandle streamHandle,
+    const synLaunchTensorInfoExt* launchTensorsInfo,
+    uint32_t numberTensors,
+    uint64_t pWorkspace,
+    const synRecipeHandle pRecipehandle,
+    uint32_t flags) {
+  LOG_TRACE("SYN_API", "{}", __FUNCTION__);
+  API_LOG_CALL(
+      ARG(streamHandle),
+      M_ARG(launchTensorsInfo, numberTensors),
+      ARG(numberTensors),
+      ARG_X(pWorkspace),
+      ARG(pRecipehandle),
+      ARG(flags));
+  synStatus status = lib_synapse::synLaunchByTensorIds(
+      streamHandle,
+      launchTensorsInfo,
+      numberTensors,
+      pWorkspace,
+      pRecipehandle,
+      flags);
   API_LOG_RESULT();
   return status;
 }

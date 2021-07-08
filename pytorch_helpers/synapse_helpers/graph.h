@@ -138,13 +138,13 @@ class graph {
       device& device,
       const graph::recipe_handle& recipe_handle,
       uint64_t workspace_size,
-      std::vector<synLaunchTensorInfo>&& inputs_and_outputs_info);
+      std::vector<synLaunchTensorInfoExt>&& inputs_and_outputs_info);
 
   static synapse_error_o launch(
       device& device,
       const graph::recipe_handle& recipe_handle,
       uint64_t workspace_size,
-      std::vector<synLaunchTensorInfo>& inputs_and_outputs_info);
+      std::vector<synLaunchTensorInfoExt>& inputs_and_outputs_info);
 
   const std::string& name() const {
     return name_;

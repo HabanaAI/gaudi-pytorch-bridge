@@ -159,6 +159,11 @@ RecipeValueSpec::~RecipeValueSpec() {
     if (status != synSuccess)
       PT_BRIDGE_DEBUG("host-free failed");
   }
+
+  if (nullptr != tensor_names) {
+    delete[] tensor_ids;
+    delete[] tensor_names;
+  }
 }
 
 std::ostream& operator<<(std::ostream& O, const RecipeValueSpec& v) {
@@ -173,6 +178,7 @@ std::ostream& operator<<(std::ostream& O, const RecipeValueSpec& v) {
     << '\n';
 
   O << " #inputs                        : " << v.num_inputs << '\n';
+  O << " #num_tensors                   : " << v.num_tensors << '\n';
 
   O << " #aten_outputs                  : ";
   if (v.aten_outputs) {
@@ -571,47 +577,86 @@ void RecipeValueSpec::update_patching_table(
   }
 }
 
-void RecipeValueSpec::patch(
-    std::vector<synLaunchTensorInfo>& syn_launch_info_vec) {
-  // Populate the <name,buffer> pairs from PtTensorInfo for synLaunch
+void RecipeValueSpec::populate_syn_tensor_ids() {
+  for (size_t i = 0; i < num_tinfos; ++i) {
+    PtTensorInfo& ti = dtensorinfos->at(i);
+    if (ti.is_tensor()) {
+      num_tensors++;
+    }
+  }
+
+  if (GET_ENV_FLAG(PT_HPU_USE_SYN_TENSOR_IDS)) {
+    if (nullptr == tensor_names) {
+      tensor_ids = new uint64_t[num_tensors];
+      tensor_names = new const char*[num_tensors];
+    }
+
+    size_t tensor_idx{0};
+    for (size_t i = 0; i < num_tinfos; ++i) {
+      PtTensorInfo& ti = dtensorinfos->at(i);
+      if (ti.is_tensor()) {
+        tensor_names[tensor_idx++] = ti.get_syn_namec_str();
+      }
+    }
+
+    synStatus status = synTensorRetrieveIds(
+        recipe->syn_recipe_handle_, tensor_names, tensor_ids, num_tensors);
+    if (ABSL_PREDICT_FALSE(status != synStatus::synSuccess)) {
+      PT_BRIDGE_FATAL(
+          "synTensorRetrieveIds launch failed ", std::to_string(status));
+    }
+  }
+}
+
+void RecipeValueSpec::patch_launch_info(
+    std::vector<synLaunchTensorInfoExt>& syn_launch_info_vec) {
+  TORCH_CHECK(
+      (num_tensors != 0 && tensor_ids != nullptr && tensor_names != nullptr),
+      "syn tensor ids are not populated");
+
+  size_t tensor_idx{0};
   for (size_t i = 0; i < num_tinfos; ++i) {
     PtTensorInfo& ti = dtensorinfos->at(i);
     if (ti.is_tensor()) {
       switch (ti.tensor_type()) {
         case DATA_TENSOR: {
-          syn_launch_info_vec.emplace_back(synLaunchTensorInfo{
+          syn_launch_info_vec.emplace_back(synLaunchTensorInfoExt{
               ti.get_syn_namec_str(),
               ti.get_buffer_syn(),
               ti.tensor_type(),
-              {0}});
+              {0},
+              tensor_ids[tensor_idx++]});
           break;
         }
         case SHAPE_TENSOR:
         case INPUT_DESCRIBING_SHAPE_TENSOR: {
           const auto& tsv = ti.shape_values();
-          syn_launch_info_vec.emplace_back(synLaunchTensorInfo{
+          syn_launch_info_vec.emplace_back(synLaunchTensorInfoExt{
               ti.get_syn_namec_str(),
               0,
               ti.tensor_type(),
-              {tsv[0], tsv[1], tsv[2], tsv[3], tsv[4]}});
+              {tsv[0], tsv[1], tsv[2], tsv[3], tsv[4]},
+              tensor_ids[tensor_idx++]});
           break;
         }
         case DATA_TENSOR_DYNAMIC: {
           const auto& tsv = ti.shape_values();
-          syn_launch_info_vec.emplace_back(synLaunchTensorInfo{
+          syn_launch_info_vec.emplace_back(synLaunchTensorInfoExt{
               ti.get_syn_namec_str(),
               ti.get_buffer_syn(),
               ti.tensor_type(),
-              {tsv[0], tsv[1], tsv[2], tsv[3], tsv[4]}});
+              {tsv[0], tsv[1], tsv[2], tsv[3], tsv[4]},
+              tensor_ids[tensor_idx++]});
           break;
         }
         case DEVICE_SHAPE_TENSOR: {
           const auto& tsv = ti.shape_values();
-          syn_launch_info_vec.emplace_back(synLaunchTensorInfo{
+          syn_launch_info_vec.emplace_back(synLaunchTensorInfoExt{
               ti.get_syn_namec_str(),
               ti.get_buffer_syn(),
               ti.tensor_type(),
-              {tsv[0], tsv[1], tsv[2], tsv[3], tsv[4]}});
+              {tsv[0], tsv[1], tsv[2], tsv[3], tsv[4]},
+              tensor_ids[tensor_idx++]});
           break;
         }
         case TENSOR_TYPE_MAX:
@@ -686,9 +731,8 @@ void RecipeValueSpec::launch(
     }
   }
 
-  std::vector<synLaunchTensorInfo> syn_launch_info;
-  patch(syn_launch_info);
-
+  std::vector<synLaunchTensorInfoExt> syn_launch_info;
+  patch_launch_info(syn_launch_info);
   if (device.IsStreamASyncEnabled()) {
     auto& recipe_counter = device.get_active_recipe_counter();
     recipe_counter.increase();

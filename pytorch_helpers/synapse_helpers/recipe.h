@@ -28,6 +28,7 @@ class recipe {
   void set_inputs_outputs_names(
       const std::vector<std::string>& input_names,
       const std::vector<std::string>& output_names);
+  void populate_syn_tensor_ids();
   bool launch(
       const std::vector<void*>& in_buffers,
       const std::vector<void*>& out_buffers);
@@ -40,5 +41,8 @@ class recipe {
   std::vector<std::string> output_names_;
   uint64_t workspace_size_{0};
   device& device_;
+
+  uint64_t* tensor_ids{nullptr};
+  const char** tensor_names{nullptr};
 };
 } // namespace synapse_helpers

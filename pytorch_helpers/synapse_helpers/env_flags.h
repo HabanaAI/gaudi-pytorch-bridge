@@ -158,6 +158,10 @@ struct PT_HPU_PRINT_BACKTRACE_ON_SIGNAL {
   static constexpr bool default_value = true;
 };
 
+struct PT_HPU_USE_SYN_TENSOR_IDS {
+  static constexpr bool default_value = true;
+};
+
 // Overloads for different type of default value
 
 template <class T>

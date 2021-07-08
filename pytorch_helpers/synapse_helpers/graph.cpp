@@ -250,13 +250,17 @@ synapse_error_v<std::shared_ptr<graph::recipe_handle>> graph::compile() {
   return {std::move(recipe_handle)};
 }
 
-std::string to_string(const std::vector<synLaunchTensorInfo>& patching_info) {
+std::string to_string(
+    const std::vector<synLaunchTensorInfoExt>& patching_info) {
   return absl::StrJoin(
-      patching_info, ",", [](std::string* out, const synLaunchTensorInfo& in) {
+      patching_info,
+      ",",
+      [](std::string* out, const synLaunchTensorInfoExt& in) {
         absl::StrAppendFormat(
             out,
-            "%s:0x%X [%d,%d,%d,%d,%d]",
+            "%s:%u:0x%X [%d,%d,%d,%d,%d]",
             in.tensorName,
+            in.tensorId,
             in.pTensorAddress,
             in.tensorSize[0],
             in.tensorSize[1],
@@ -279,7 +283,7 @@ synapse_error_o graph::launch(
     device& device,
     const graph::recipe_handle& recipe_handle,
     uint64_t workspace_size,
-    std::vector<synLaunchTensorInfo>&& inputs_and_outputs_info) {
+    std::vector<synLaunchTensorInfoExt>&& inputs_and_outputs_info) {
   return launch(device, recipe_handle, workspace_size, inputs_and_outputs_info);
 }
 
@@ -287,7 +291,7 @@ synapse_error_o graph::launch(
     device& device,
     const graph::recipe_handle& recipe_handle,
     uint64_t workspace_size,
-    std::vector<synLaunchTensorInfo>& inputs_and_outputs_info) {
+    std::vector<synLaunchTensorInfoExt>& inputs_and_outputs_info) {
   synStatus status;
 
   if (recipe_handle.graph_is_empty_) {
@@ -307,23 +311,24 @@ synapse_error_o graph::launch(
           recipe_handle.recipe_name_,
           to_string(inputs_and_outputs_info)));
 
-  auto table_checker{[&recipe_handle](const synLaunchTensorInfo& info) -> bool {
-    if ((info.tensorType != SHAPE_TENSOR &&
-         info.tensorType != INPUT_DESCRIBING_SHAPE_TENSOR &&
-         info.pTensorAddress == 0) ||
-        info.tensorName == nullptr || info.tensorName[0] == '\0') {
-      PT_SYNHELPER_WARN(
-          recipe_handle.recipe_name_,
-          " null address:",
-          (info.pTensorAddress == 0),
-          " null name:",
-          (info.tensorName == nullptr),
-          " ",
-          ((info.tensorName == nullptr) ? "" : info.tensorName));
-      return true;
-    }
-    return false;
-  }};
+  auto table_checker{
+      [&recipe_handle](const synLaunchTensorInfoExt& info) -> bool {
+        if ((info.tensorType != SHAPE_TENSOR &&
+             info.tensorType != INPUT_DESCRIBING_SHAPE_TENSOR &&
+             info.pTensorAddress == 0) ||
+            info.tensorName == nullptr || info.tensorName[0] == '\0') {
+          PT_SYNHELPER_WARN(
+              recipe_handle.recipe_name_,
+              " null address:",
+              (info.pTensorAddress == 0),
+              " null name:",
+              (info.tensorName == nullptr),
+              " ",
+              ((info.tensorName == nullptr) ? "" : info.tensorName));
+          return true;
+        }
+        return false;
+      }};
   PT_SYNHELPER_DEBUG("checking input_output patching table");
   SYNAPSE_RETURN_IF_ERROR(
       std::find_if(
@@ -338,7 +343,7 @@ synapse_error_o graph::launch(
       inputs_and_outputs_info.begin(),
       inputs_and_outputs_info.end(),
       addresses.begin(),
-      [](const synLaunchTensorInfo& info) { return info.pTensorAddress; });
+      [](const synLaunchTensorInfoExt& info) { return info.pTensorAddress; });
   {
     auto locked = device.lock_addresses(addresses);
     auto iter = inputs_and_outputs_info.begin();
@@ -352,12 +357,41 @@ synapse_error_o graph::launch(
           "%s%s", "Before launch of graph", recipe_handle.recipe_name_.c_str());
       synapse_helpers::print_live_allocations(msg.c_str());
     }
-    status = synLaunch(
-        compute_stream,
-        inputs_and_outputs_info.data(),
-        inputs_and_outputs_info.size(),
-        recipe_handle.device_.get_workspace_buffer(workspace_size),
-        recipe_handle.syn_recipe_handle_);
+
+    if (false == GET_ENV_FLAG(PT_HPU_USE_SYN_TENSOR_IDS)) {
+      PT_SYNHELPER_DEBUG("Launching recipe with tensor names");
+      std::vector<synLaunchTensorInfo> old_launch_info;
+      old_launch_info.reserve(inputs_and_outputs_info.size());
+      std::transform(
+          inputs_and_outputs_info.begin(),
+          inputs_and_outputs_info.end(),
+          std::back_inserter(old_launch_info),
+          [](const synLaunchTensorInfoExt& input) {
+            synLaunchTensorInfo info;
+            info.tensorName = input.tensorName;
+            info.pTensorAddress = input.pTensorAddress;
+            info.tensorType = input.tensorType;
+            for (int i = 0; i < SYN_MAX_TENSOR_DIM; ++i)
+              info.tensorSize[i] = input.tensorSize[i];
+            return info;
+          });
+      status = synLaunch(
+          compute_stream,
+          old_launch_info.data(),
+          old_launch_info.size(),
+          recipe_handle.device_.get_workspace_buffer(workspace_size),
+          recipe_handle.syn_recipe_handle_);
+    } else {
+      PT_SYNHELPER_DEBUG("Launching recipe with tensor ids");
+      uint32_t flags{0};
+      status = synLaunchByTensorIds(
+          compute_stream,
+          inputs_and_outputs_info.data(),
+          inputs_and_outputs_info.size(),
+          recipe_handle.device_.get_workspace_buffer(workspace_size),
+          recipe_handle.syn_recipe_handle_,
+          flags);
+    }
   }
 
   SYNAPSE_SUCCESS_CHECK("synLaunch failed.", status)

@@ -54,12 +54,6 @@ void compile_and_run(
     const uint32_t device_id,
     size_t key = 0);
 
-std::vector<synLaunchTensorInfo> generate_syn_launch_tensor_info(
-    const std::vector<std::string>& in_names,
-    const std::vector<void*>& in_buffers,
-    const std::vector<std::string>& out_names,
-    const std::vector<void*>& out_buffers);
-
 void execute_recipe(
     const std::vector<void*>& input_buffers,
     const std::vector<void*>& output_buffers,
