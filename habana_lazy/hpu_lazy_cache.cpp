@@ -61,7 +61,7 @@ size_t LazyArgumentSpec::GetInputHash(
     for (auto& node : nodes) {
       HABANA_ASSERT(node);
       input_connection_hash =
-          at::hash_combine(node->get_hash(), input_connection_hash);
+          at::hash_combine(input_connection_hash, node->get_hash());
     }
     hash_val = at::hash_combine(input_connection_hash, hash_val);
   }
@@ -94,21 +94,22 @@ void LazyArgumentSpec::GetArgSpecKey(
   // Create a JIT graph with dummy inputs for
   // ArgumentSpecCreator.
   std::shared_ptr<torch::jit::Graph> graph;
-  size_t hash_val = at::hash_combine(
-      at::get_hash(jit_graph_str), GetInputHash(inputs, value_input_nodes_map));
+  m_hash_code = at::hash_combine(m_hash_code, at::get_hash(jit_graph_str));
+  m_hash_code = at::hash_combine(
+      m_hash_code, GetInputHash(inputs, value_input_nodes_map));
 
-  if (0 == LazyArgumentSpec::m_compiled_graph.count(hash_val)) {
+  if (0 == LazyArgumentSpec::m_compiled_graph.count(m_hash_code)) {
     graph = torch::jit::compile(jit_graph_str)->get_function("fn").graph();
-    LazyArgumentSpec::m_compiled_graph.insert({hash_val, graph});
+    LazyArgumentSpec::m_compiled_graph.insert({m_hash_code, graph});
   } else {
-    graph = LazyArgumentSpec::m_compiled_graph.at(hash_val);
+    graph = LazyArgumentSpec::m_compiled_graph.at(m_hash_code);
   }
   torch::jit::ArgumentSpecCreator arg_spec_creator_(*graph);
 
   // arg_spec_creator_.create takes into account the input tensors.
   torch::jit::ArgumentSpec as =
       arg_spec_creator_.create(with_grad, CreateStack(input_refs));
-  m_hash_code = at::hash_combine(as.hashCode(), m_hash_code);
+  m_hash_code = at::hash_combine(m_hash_code, as.hashCode());
 
   // Incorporate the memory format of the inputs within hash
   i = 0;
