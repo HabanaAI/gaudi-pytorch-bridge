@@ -171,7 +171,7 @@ def run_kernel_on_device(device, kernel, tensor_list=None, kernel_params=None, c
         for k, v in kernel_params.items():
             if isinstance(v, torch.Tensor):
                 kernel_params_local[k] = v.to(device)
-            elif isinstance(v, tuple) and isinstance(v[0], torch.Tensor):
+            elif isinstance(v, tuple) and (len(v) > 0) and isinstance(v[0], torch.Tensor):
                 if device == cpu:
                     # HPU does not support dtype=long, therefore use dtype=int
                     # in test-cases and convert it to dtype=long for CPU (CPU
@@ -180,7 +180,7 @@ def run_kernel_on_device(device, kernel, tensor_list=None, kernel_params=None, c
                         [i.to(device, dtype=torch.long) if i.type() == 'torch.IntTensor' else i.to(device) for i in v])
                 else:
                     kernel_params_local[k] = tuple([i.to(device) for i in v])
-            elif isinstance(v, list) and isinstance(v[0], torch.Tensor):
+            elif isinstance(v, list) and (len(v) > 0) and isinstance(v[0], torch.Tensor):
                 kernel_params_local[k] = [i.to(device) for i in v]
             else:
                 kernel_params_local[k] = kernel_params[k]

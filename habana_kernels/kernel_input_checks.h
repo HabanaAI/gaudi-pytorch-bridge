@@ -81,7 +81,9 @@ class OpAttributeCheck {
         // Checking for BCE with logits fwd operator for argument 5 for
         // reduction
         {"binary_cross_entropy_with_logits",
-         {{5, {c10::IValue(1), c10::IValue(2)}}}},
+         {{5,
+           {c10::IValue(at::Reduction::Reduction::Mean),
+            c10::IValue(at::Reduction::Reduction::Sum)}}}},
         // Checking for BCE fwd operator for argument 3 for weights
         {"binary_cross_entropy", {{3, {c10::IValue(0)}}}},
         // Checking for BCE bwd operator for argument 4 for weights

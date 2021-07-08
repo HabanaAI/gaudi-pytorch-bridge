@@ -176,7 +176,6 @@ void ReduceOperator::AllocateAndAddSynapseNode(
   bool keepdim = inputs[3].toBool();
   auto dtype = inputs[4].toOptional<ScalarType>();
   auto num_dims_to_reduce = in_dim.size();
-
   // wrap dims to positive values, sort dim list and remove any duplicates
   sort_dims(in_dim, self.dim(), num_dims_to_reduce);
 
@@ -487,14 +486,23 @@ void SumDimOutOperator::AllocateAndAddSynapseNode(
       inputs[3].isBool(),
       "Input arg4 expected to be Bool for SumDimOut operator");
 
-  Tensor self = inputs[1].toTensor();
+  auto self = inputs[1].toTensor();
   auto dim = inputs[2].toIntList();
-  bool keepdim = inputs[3].toBool();
 
+  // Create a new container with all dims of input tensor, followed by creation
+  // of a new reference to it. This is used in case "dim" provided is {}, which
+  // implies that all dims need to be reduced.
+  std::vector<int64_t> data;
   auto ndim = self.dim();
-  TORCH_CHECK(
-      keepdim || static_cast<int64_t>(dim.size()) != ndim,
-      "Reduction to 0d tensor not supported yet");
+  for (int i = 0; i < ndim; i++) {
+    data.push_back(i);
+  }
+  IntArrayRef dim_new(data);
+
+  // Check if dim = {}, if yes, reduce input along all dims
+  if (dim.vec().size() == 0) {
+    inputs[2] = dim_new;
+  }
 
   ReduceOperator::AllocateAndAddSynapseNode(
       graph, inputs, is_output_persistent);
@@ -511,7 +519,6 @@ Tensor& sum_IntList_out_hpu(
     bool keepdim,
     c10::optional<ScalarType> dtype) {
   PT_KERNEL_BEGIN;
-
   at::ScalarType scalar_type = self.scalar_type();
   std::string node_type =
       "reduce_sum_fwd_" + habana_helpers::name_suffix_from_type(scalar_type);
@@ -677,14 +684,23 @@ void MeanDimOutOperator::AllocateAndAddSynapseNode(
       inputs[3].isBool(),
       "Input arg4 expected to be Bool for MeanDimOut operator");
 
-  Tensor self = inputs[1].toTensor();
+  auto self = inputs[1].toTensor();
   auto dim = inputs[2].toIntList();
-  bool keepdim = inputs[3].toBool();
 
+  // Create a new container with all dims of input tensor, followed by creation
+  // of a new reference to it. This is used in case "dim" provided is {}, which
+  // implies that all dims need to be reduced.
+  std::vector<int64_t> data;
   auto ndim = self.dim();
-  TORCH_CHECK(
-      keepdim || static_cast<int64_t>(dim.size()) != ndim,
-      "Reduction to 0d tensor not supported yet");
+  for (int i = 0; i < ndim; i++) {
+    data.push_back(i);
+  }
+  IntArrayRef dim_new(data);
+
+  // Check if dim = {}, if yes, reduce input along all dims
+  if (dim.vec().size() == 0) {
+    inputs[2] = dim_new;
+  }
 
   ReduceOperator::AllocateAndAddSynapseNode(
       graph, inputs, is_output_persistent);

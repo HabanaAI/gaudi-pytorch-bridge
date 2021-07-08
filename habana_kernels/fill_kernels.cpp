@@ -69,6 +69,10 @@ void fill_constant_hpu(Tensor& self, Scalar value) {
 
 Tensor& fill_hpu_(Tensor& self, Scalar value) {
   PT_KERNEL_BEGIN;
+  auto self_dims = self.dim();
+  if (self_dims == 0) {
+    self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+  }
   auto dtype = habana_helpers::scalar_type(value);
 
   TORCH_CHECK(dtype != c10::ScalarType::Bool);
@@ -104,6 +108,9 @@ Tensor& fill_hpu_(Tensor& self, Scalar value) {
     } break;
     default:
       PT_KERNEL_WARN("Unsupported data type used in fill");
+  }
+  if (self_dims == 0) {
+    self.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
   }
   PT_KERNEL_END;
   return self;

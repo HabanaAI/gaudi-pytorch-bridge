@@ -40,6 +40,12 @@ reduction_dim_list = [
     ([1, 0, 3], False)
 ]
 
+reduction_dim_list_out = [
+    ([], False),
+    ([1, 0, 3], True),
+    ([1, 0, 3], False)
+]
+
 reduction_dim_int_list = [
     (torch.max, 1, False),
     (torch.max, 1, True),
@@ -91,10 +97,10 @@ def test_hpu_reduction_op_dim_int(N, C, H, W, reduction_op, dims, keepdims, dtyp
     evaluate_fwd_kernel(kernel=reduction_op, kernel_params=kernel_params, atol=tol, rtol=tol)
 
 @pytest.mark.parametrize("N, C, H, W", test_case_list)
-@pytest.mark.parametrize("dims, keepdims", reduction_dim_list)
+@pytest.mark.parametrize("dims, keepdims", reduction_dim_list_out)
 @pytest.mark.parametrize("reduction_op", reduction_op_list)
 def test_hpu_reduction_out_op(N, C, H, W, reduction_op, dims, keepdims):
-    out_list = [N, C, H, W]
+    out_list = []
     kernel_params = {'out': torch.randn(tuple(out_list)),
                      'input': torch.randn(N, C, H, W),
                      'dim': dims,

@@ -28,10 +28,14 @@ std::vector<int64_t> UpsampleOperator::compute_output_shape(
       (memory_format == c10::MemoryFormat::ChannelsLast) ||
       (memory_format == c10::MemoryFormat::Contiguous));
   HABANA_ASSERT(scales.has_value() || output_size.has_value());
-
   std::vector<int64_t> out_shape;
   if (scales.has_value()) {
-    auto scale_factor = scales.value().vec();
+    auto scale_factor_in_double = scales.value().vec();
+    // Cast scale_factor from double -> float. This is required so that output
+    // shape computed matches OFM computation in TPC Glue code for resize
+    // kernel.
+    std::vector<float> scale_factor(
+        scale_factor_in_double.begin(), scale_factor_in_double.end());
     if (memory_format == c10::MemoryFormat::ChannelsLast)
       out_shape = {
           shape_in[0],
@@ -44,12 +48,14 @@ std::vector<int64_t> UpsampleOperator::compute_output_shape(
           shape_in[1],
           static_cast<int64_t>(shape_in[2] * scale_factor[0]),
           static_cast<int64_t>(shape_in[3] * scale_factor[1])};
-  } else {
+  } else if (output_size.has_value()) {
     auto out_size = output_size.value().vec();
     if (memory_format == c10::MemoryFormat::ChannelsLast)
       out_shape = {shape_in[0], out_size[0], out_size[1], shape_in[3]};
     else
       out_shape = {shape_in[0], shape_in[1], out_size[0], out_size[1]};
+  } else {
+    TORCH_CHECK(0, "Upsample_nearest2d called without scales or out_size");
   }
   return out_shape;
 }
@@ -97,17 +103,15 @@ void UpsampleOperator::AllocateAndAddSynapseNode(
   c10::optional<IntArrayRef> output_size;
   c10::optional<at::ArrayRef<double>> scales;
   auto output_size1 = inputs[1].to<c10::optional<std::vector<int64_t>>>();
-  if (output_size1.has_value()) {
-    output_size = c10::make_optional(ArrayRef<int64_t>(output_size1.value()));
-    scales = {};
-  }
+  output_size = output_size1.has_value()
+      ? c10::make_optional(ArrayRef<int64_t>(output_size1.value()))
+      : c10::nullopt;
   // toOptionalIntArray and toOptionalDoubleArray are deprecated
 
   auto scales1 = inputs[2].to<c10::optional<std::vector<double>>>();
-  if (scales1.has_value()) {
-    scales = c10::make_optional(ArrayRef<double>(scales1.value()));
-    output_size = {};
-  }
+  scales = scales1.has_value()
+      ? c10::make_optional(ArrayRef<double>(scales1.value()))
+      : c10::nullopt;
 
   TORCH_CHECK(
       output_size1.has_value() || scales1.has_value(),
@@ -193,11 +197,13 @@ void UpsampleBackwardOperator::AllocateAndAddSynapseNode(
 void UpsampleOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   at::Tensor input = inputs[0].toTensor();
   auto output_size1 = inputs[1].to<c10::optional<std::vector<int64_t>>>();
-  auto output_size = c10::make_optional(
-      ArrayRef<int64_t>(output_size1.value_or<std::vector<int64_t>>({})));
+  auto output_size = output_size1.has_value()
+      ? c10::make_optional(ArrayRef<int64_t>(output_size1.value()))
+      : c10::nullopt;
   auto scales1 = inputs[2].to<c10::optional<std::vector<double>>>();
-  auto scales = c10::make_optional(
-      ArrayRef<double>(scales1.value_or<std::vector<double>>({})));
+  auto scales = scales1.has_value()
+      ? c10::make_optional(ArrayRef<double>(scales1.value()))
+      : c10::nullopt;
   c10::MemoryFormat memory_format = habana_helpers::get_memory_format({&input});
   std::vector<int64_t> shape_out = compute_output_shape(
       input.sizes().vec(),

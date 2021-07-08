@@ -2031,8 +2031,12 @@ Tensor& _index_put_impl_hpu_lazy_(
     indices_long.reserve(tensorlist.size());
 
     for (size_t i = 0; i < tensorlist.size(); i++) {
-      indices_long.push_back(c10::make_optional(
-          habana_helpers::cast_tensor_to_long(tensorlist[i])));
+      auto long_tensor =
+          tensorlist[i]
+              .to("cpu")
+              .to(c10::ScalarType::Long)
+              .to(tensorlist[i].device(), c10::attr::non_blocking);
+      indices_long.push_back(c10::make_optional(long_tensor));
     }
     return AtenHpuTypeDefault::_index_put_impl_(
         self, indices_long, value, accumulate, unsafe);
@@ -2153,8 +2157,12 @@ Tensor index_put_hpu_lazy(
     indices_long.reserve(tensorlist.size());
 
     for (size_t i = 0; i < tensorlist.size(); i++) {
-      indices_long.push_back(c10::make_optional(
-          habana_helpers::cast_tensor_to_long(tensorlist[i])));
+      auto long_tensor =
+          tensorlist[i]
+              .to("cpu")
+              .to(c10::ScalarType::Long)
+              .to(tensorlist[i].device(), c10::attr::non_blocking);
+      indices_long.push_back(c10::make_optional(long_tensor));
     }
     return AtenHpuTypeDefault::index_put(self, indices_long, value, accumulate);
   }
@@ -2180,8 +2188,12 @@ Tensor& index_put_hpu_lazy_(
     indices_long.reserve(tensorlist.size());
 
     for (size_t i = 0; i < tensorlist.size(); i++) {
-      indices_long.push_back(c10::make_optional(
-          habana_helpers::cast_tensor_to_long(tensorlist[i])));
+      auto long_tensor =
+          tensorlist[i]
+              .to("cpu")
+              .to(c10::ScalarType::Long)
+              .to(tensorlist[i].device(), c10::attr::non_blocking);
+      indices_long.push_back(c10::make_optional(long_tensor));
     }
     return AtenHpuTypeDefault::index_put_(
         self, indices_long, value, accumulate);
