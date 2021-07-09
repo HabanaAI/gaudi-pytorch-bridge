@@ -1330,7 +1330,7 @@ Tensor slice_hpu(
   // WA for https://jira.habana-labs.com/browse/SW-37197
   auto dim_orig = dim;
   if ((dim == self.dim() - 1) && (step > 1)) {
-    self.transpose_(self.dim() - 1, self.dim() - 2);
+    self = self.transpose(self.dim() - 1, self.dim() - 2);
     dim = self.dim() - 2;
   }
 
@@ -1370,7 +1370,7 @@ Tensor slice_hpu(
 
   // WA for https://jira.habana-labs.com/browse/SW-37197
   if ((dim_orig == self.dim() - 1) && (step > 1)) {
-    cast_out.transpose_(self.dim() - 1, self.dim() - 2);
+    cast_out = cast_out.transpose(self.dim() - 1, self.dim() - 2);
   }
 
   PT_KERNEL_END;
