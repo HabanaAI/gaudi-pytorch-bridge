@@ -560,6 +560,47 @@ void AsStridedOperator::AllocateAndAddSynapseNode(
   p_context_->pt_outputs_.emplace_back(output);
 }
 
+/*************************************************************************
+ * @brief Kernel implementation for As strided, used for tensor views
+ * @param self - input which needs to be viewed
+ ************************************************************************/
+void AsStridedLayoutOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    Stack& inputs,
+    bool is_output_persistent) {
+  auto self = inputs[0].toTensor();
+  static_cast<void>(graph);
+  static_cast<void>(is_output_persistent);
+  TORCH_CHECK(
+      inputs[1].isIntList(), "Input arg 1 needs to be of Int List type");
+
+  at::Tensor output;
+  int64_t offset = 0;
+  c10::optional<int64_t> opt_offset = c10::make_optional((int64_t)0);
+  auto sizes = self.sizes().vec();
+  auto dims = inputs[1].toIntVector();
+  std::vector<int64_t> swapped_sizes = {
+      sizes[dims[0]], sizes[dims[1]], sizes[dims[2]], sizes[dims[3]]};
+
+  std::vector<int64_t> new_strides = {
+      swapped_sizes[1] * swapped_sizes[2] * swapped_sizes[3],
+      swapped_sizes[3] * swapped_sizes[2],
+      swapped_sizes[3],
+      1};
+
+  output = at::as_strided(self, swapped_sizes, new_strides, opt_offset);
+  output.unsafeGetTensorImpl()->set_sizes_contiguous(swapped_sizes);
+
+  p_context_->syn_outputs_.emplace_back(
+      habana_helpers::duplicate_tensor_in_memory_section_with_size(
+          p_context_->syn_inputs_[0],
+          graph,
+          swapped_sizes,
+          new_strides,
+          offset * self.itemsize()));
+  p_context_->pt_outputs_.emplace_back(output);
+}
+
 Tensor as_strided_hpu(
     const Tensor& self,
     IntArrayRef size,
@@ -610,4 +651,10 @@ static auto& KernelRegistry =
             "hpu::as_strided_lazy_",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<AsStridedOperator>(device_id, node_type);
+            })
+        .add(
+            "hpu::as_strided_layout_",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<AsStridedLayoutOperator>(
+                  device_id, node_type);
             });

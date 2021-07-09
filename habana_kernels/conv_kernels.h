@@ -50,7 +50,8 @@ class ConvOperator : public habana::HabanaOperator {
       const bool ceil_mode,
       const bool transposed,
       c10::MemoryFormat memory_format,
-      const bool is_conv_3d = false);
+      const bool is_conv_3d = false,
+      const bool is_weight_hwck = true);
 };
 
 /**

@@ -21,8 +21,11 @@ class Permute : public ir::Node {
  public:
   enum class PermuteIdx { kDimIdx = 1 };
   Permute() = delete;
-  Permute(const at::Tensor& self, at::IntArrayRef dims)
-      : Node(c10::Symbol::fromQualString("aten::permute")) {
+  Permute(
+      const at::Tensor& self,
+      at::IntArrayRef dims,
+      std::string op = "aten::permute")
+      : Node(c10::Symbol::fromQualString(op)) {
     auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
     AddInput(hl_self.GetIrValue());
 

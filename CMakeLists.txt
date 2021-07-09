@@ -119,11 +119,13 @@ add_library(habana_pytorch_plugin SHARED
   habana_lazy/tensor_impl.cpp
   habana_lazy/hlexec.cpp
 
+  habana_lazy/passes/pass_utils.cpp
   habana_lazy/passes/fuse_mm_transpose.cpp
   habana_lazy/passes/fuse_bn_relu_residual_add.cpp
   habana_lazy/passes/permute_graph.cpp
   habana_lazy/passes/transform_graph.cpp
   habana_lazy/passes/replace_inplace_ops.cpp
+  habana_lazy/passes/weight_permute_graph.cpp
   habana_lazy/hpu_lazy_cache.cpp
   habana_lazy/lazy_executor.cpp
 )

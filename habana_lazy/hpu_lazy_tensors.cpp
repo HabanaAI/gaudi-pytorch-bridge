@@ -400,7 +400,6 @@ habana_lazy::ir::PostOrderData HbLazyTensor::RunPostOrder(
   }
 
   ir::Utils::ComputePostOrder(p_roots, po_data);
-
   if (!GET_ENV_FLAG(PT_HPU_DUMP_IR_DOT_GRAPH)) {
     PT_LAZY_DEBUG(
         IrGraphDumpUtil::PostOrderToText(po_data.post_order, p_roots));

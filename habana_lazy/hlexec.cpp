@@ -24,6 +24,7 @@
 #include "passes/permute_graph.h"
 #include "passes/replace_inplace_ops.h"
 #include "passes/transform_graph.h"
+#include "passes/weight_permute_graph.h"
 #include "pytorch_helpers/habana_device/hpu_cached_devices.h"
 #include "synapse_helpers/device.h"
 
@@ -369,6 +370,10 @@ void HlExec::Optimize(torch::jit::Stack& stack) {
   // will not have required extra information for permute pass to work properly.
   if (OptPassCfg::GetInstance()->IsEnabledPermutePass()) {
     InsertPermute_graph(mp_g_, stack);
+  }
+
+  if (OptPassCfg::GetInstance()->IsEnabledWeightPermutePass()) {
+    InsertWeightPermute_graph(mp_g_, stack);
   }
 
   if (OptPassCfg::GetInstance()->IsEnabledFuseTMM()) {

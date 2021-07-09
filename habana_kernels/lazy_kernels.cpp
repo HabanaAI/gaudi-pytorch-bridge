@@ -38,6 +38,7 @@
 #include "habana_kernels/triangular_kernels.h"
 #include "habana_kernels/upsample_kernels.h"
 #include "habana_lazy/aten_lazy_bridge.h"
+#include "habana_lazy/hlexec.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/lazy_executor.h"
 #include "habana_lazy/ops/cast_ops.h"
@@ -473,7 +474,26 @@ Tensor& copy_hpu_lazy_D2H(Tensor& self, const Tensor& src, bool non_blocking) {
   // getting flled has finished before we start copying
   HbLazyTensor hb_tensor = GetHbLazyTensor(src);
   auto tensor_data = hb_tensor.GetHbLazyTensorData();
-
+  auto hl_tensor_data = habana_lazy::GetHbInternalTensorImpl(*tensor_data);
+  // weights HWCK -> NCHW
+  if ((hl_tensor_data->GetTensorLayout() == habana_lazy::LayoutFormat::kHWCK) &&
+      (habana_lazy::exec::OptPassCfg::GetInstance()
+           ->IsEnabledWeightPermutePass())) {
+    auto sizes = src.sizes().vec();
+    std::vector<int> out_pos = {2, 3, 1, 0};
+    std::vector<long int> swapped_sizes = {
+        sizes[out_pos[0]],
+        sizes[out_pos[1]],
+        sizes[out_pos[2]],
+        sizes[out_pos[3]]};
+    auto new_strides =
+        CalculateStrides(swapped_sizes, c10::MemoryFormat::Contiguous);
+    auto strided_tensor =
+        as_strided_hpu_lazy(src, swapped_sizes, new_strides, 0);
+    auto permute_tensor = permute_cl_hpu_lazy(strided_tensor, {3, 2, 0, 1});
+    HbLazyTensor hb_tensor = GetHbLazyTensor(permute_tensor);
+    tensor_data = hb_tensor.GetHbLazyTensorData();
+  }
   TORCH_CHECK(
       tensor_data, "Trying to copy from lazy tensor with no backend memory");
   auto type = hb_tensor.getTensorOriginalType();
@@ -662,6 +682,12 @@ Tensor empty_as_strided_lazy(
     at_internal_tensor.unsafeGetTensorImpl()->set_storage_offset(
         storage_offset.value());
   }
+
+  auto hb_at_internal_self = habana_lazy::GetHbInternalTensorImpl(self);
+  auto hb_at_internal_tensor =
+      habana_lazy::GetHbInternalTensorImpl(at_internal_tensor);
+  auto layout_format = hb_at_internal_self->GetTensorLayout();
+  hb_at_internal_tensor->SetTensorLayout(layout_format);
 
   return at_internal_tensor;
 }
@@ -1572,6 +1598,36 @@ Tensor le_tensor_hpu_lazy(const Tensor& self, const Tensor& other) {
   return k.call();
 }
 
+Tensor permute_wt_hpu(const Tensor& self) {
+  Tensor result = self;
+  if (habana_lazy::exec::OptPassCfg::GetInstance()
+          ->IsEnabledWeightPermutePass() &&
+      (GET_ENV_FLAG(PT_HPU_LAZY_MODE) == 1)) {
+    auto hb_tensor = GetOrCreateHbLazyTensor(self, self.device());
+    auto layout_format = hb_tensor.GetTensorLayout();
+    ir::NodePtr node;
+    IntArrayRef dims_ = {2, 3, 1, 0};
+    if (layout_format != habana_lazy::LayoutFormat::kHWCK) {
+      node = std::make_shared<ir::Permute>(self, dims_, "hpu::permute_weight");
+    } else {
+      node = std::make_shared<ir::Permute>(
+          self, dims_, "hpu::permuted_weight_restride");
+    }
+    result = empty_strided_hpu_lazy(
+        self.sizes(), self.strides(), self.options(), false);
+    auto hl_result = GetHbLazyTensor(result);
+    ir::Value& out = hl_result.CurrentIrValue();
+    out.m_index = 0;
+    out.SetNode(
+        node,
+        hl_result.GetDevice(),
+        hl_result.GetSizes(),
+        hl_result.dtype_optional());
+    hb_tensor.SetTensorLayout(habana_lazy::LayoutFormat::kHWCK);
+  }
+  return result;
+}
+
 Tensor convolution_hpu_lazy(
     const Tensor& input,
     const Tensor& weight,
@@ -1583,10 +1639,15 @@ Tensor convolution_hpu_lazy(
     IntArrayRef output_padding,
     int64_t groups) {
   PT_LAZY_TRACE;
+  auto weight_hwck = permute_wt_hpu(weight);
+  bool is_weight_hwck = (habana_lazy::exec::OptPassCfg::GetInstance()
+                             ->IsEnabledWeightPermutePass())
+      ? false
+      : true;
   LazyOp<at::Tensor> k(
       "aten::convolution_overrideable",
       {input,
-       weight,
+       weight_hwck,
        bias,
        stride,
        padding,
@@ -1597,13 +1658,15 @@ Tensor convolution_hpu_lazy(
       {3, 4, 5, 6, 7, 8},
       {ConvOperator::compute_output_shape(
           input.sizes().vec(),
-          weight.sizes().vec(),
+          weight_hwck.sizes().vec(),
           padding.vec(),
           stride.vec(),
           dilation.vec(),
           false,
           transposed,
-          c10::MemoryFormat::Contiguous)});
+          c10::MemoryFormat::Contiguous,
+          false,
+          is_weight_hwck)});
   return k.call();
 }
 
@@ -1619,13 +1682,13 @@ std::tuple<Tensor, Tensor, Tensor> convolution_backward_hpu_lazy(
     int64_t groups,
     std::array<bool, 3> output_mask) {
   PT_LAZY_TRACE;
-
+  auto weight_hwck = permute_wt_hpu(weight);
   // Construct using LazyOp templated with class ir::Convolution
   std::vector<bool> output_mask_vec(output_mask.begin(), output_mask.end());
   ir::NodePtr node = std::make_shared<ir::Convolution>(
       grad_output,
       input,
-      weight,
+      weight_hwck,
       stride,
       padding,
       dilation,
@@ -6310,22 +6373,36 @@ Tensor& optimizer_sgd_momentum_hpu_lazy(
     const float damp,
     const bool nesterov) {
   PT_LAZY_TRACE;
+  std::vector<at::Tensor> pweights;
+  for (size_t i = 0; i < weights.size(); i++) {
+    auto weight_hwck = permute_wt_hpu(weights[i]);
+    pweights.push_back(weight_hwck);
+  }
+  TensorList weights_hwck(pweights);
 
   for (size_t i = 0; i < weights.size(); i++) {
-    auto hlweight = GetHbLazyTensor(weights[i]);
-    updateDstDependencies(hlweight, weights[i], true);
+    auto hlweight = GetHbLazyTensor(weights_hwck[i]);
+    updateDstDependencies(hlweight, weights_hwck[i], true);
 
     auto hlmomentum = GetHbLazyTensor(momentum[i]);
     updateDstDependencies(hlmomentum, momentum[i], true);
   }
 
   ir::NodePtr node = std::make_shared<ir::OptimizerFusedSGDMomentum>(
-      gradients, weights, momentum, epoch_num, lr, wd, mom, damp, nesterov);
+      gradients,
+      weights_hwck,
+      momentum,
+      epoch_num,
+      lr,
+      wd,
+      mom,
+      damp,
+      nesterov);
 
   int64_t out_index = 0;
-  HABANA_ASSERT(weights.size() == momentum.size());
+  HABANA_ASSERT(weights_hwck.size() == momentum.size());
 
-  auto hlweight = GetHbLazyTensor(weights[0]);
+  auto hlweight = GetHbLazyTensor(weights_hwck[0]);
   ir::Value& out = hlweight.CurrentIrValue();
   node->set_as_output_tensor_list();
   out.m_index = 0;
@@ -6337,8 +6414,8 @@ Tensor& optimizer_sgd_momentum_hpu_lazy(
 
   ir::NodePtr node_unpack = std::make_shared<ir::ListUnpack>(out);
 
-  for (size_t i = 0; i < weights.size(); i++) {
-    auto hlweight = GetHbLazyTensor(weights[i]);
+  for (size_t i = 0; i < weights_hwck.size(); i++) {
+    auto hlweight = GetHbLazyTensor(weights_hwck[i]);
     ir::Value& out1 = hlweight.CurrentIrValue();
     out1.m_index = out_index++;
     out1.SetNode(

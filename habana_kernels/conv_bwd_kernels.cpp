@@ -22,6 +22,8 @@
 #include "habana_kernels/conv_kernels.h"
 #include "habana_kernels/reduction_kernels.h"
 #include "habana_kernels/simple_generic_kernel.h"
+#include "habana_lazy/aten_lazy_bridge.h"
+#include "habana_lazy/hpu_lazy_tensors.h"
 #include "kernel_utils.h"
 
 using namespace torch;
@@ -462,6 +464,11 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
       grad_out_nhwc.options(),
       memory_format,
       is_output_persistent[1]);
+  if (is_output_persistent[1]) {
+    // set Weights layout HWCK
+    auto hb_grad_weight = habana_lazy::GetHbInternalTensorImpl(grad_weight);
+    hb_grad_weight->SetTensorLayout(habana_lazy::LayoutFormat::kHWCK);
+  }
   auto grad_input_nhwc = habana_helpers::createPTTensor(
       input_nhwc,
       input_nhwc.sizes(),

@@ -84,10 +84,12 @@ class OptPassCfg {
   void SetPermutePass(const bool flag) {
     enable_permute_pass = flag;
   }
+  void SetWeightPermutePass(const bool flag) {
+    enable_weight_permute_pass = flag;
+  }
   void SetReplaceInplaceOps(const bool flag) {
     enable_replace_inplace_ops = flag;
   }
-
   bool IsEnabledDeadCodeElimination() const {
     return enable_eliminate_dead_code;
   }
@@ -112,6 +114,9 @@ class OptPassCfg {
   bool IsEnabledPermutePass() const {
     return enable_permute_pass;
   }
+  bool IsEnabledWeightPermutePass() const {
+    return enable_weight_permute_pass;
+  }
   bool IsEnabledReplaceInplaceOps() const {
     return enable_replace_inplace_ops;
   }
@@ -126,6 +131,7 @@ class OptPassCfg {
     enable_fuse_bn_relu_optimization = true;
     enable_permute_pass = true;
     enable_replace_inplace_ops = true;
+    enable_weight_permute_pass = false;
   }
 
  private:
@@ -137,6 +143,7 @@ class OptPassCfg {
   bool enable_fuse_t_mm_optimization;
   bool enable_fuse_bn_relu_optimization;
   bool enable_permute_pass;
+  bool enable_weight_permute_pass;
   bool enable_replace_inplace_ops;
 };
 

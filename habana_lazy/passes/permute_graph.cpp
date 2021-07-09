@@ -11,6 +11,7 @@
 #include "habana_bridge/kernel/hpu_habana_launch_op_pt.h"
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
+#include "pass_utils.h"
 using namespace torch::jit;
 namespace habana_lazy {
 
@@ -51,87 +52,6 @@ bool IsNodeLayoutAgnostic(const Node* node) {
     output_tensor_idx++;
   }
   return true;
-}
-
-bool WeightIdentificationPass::isTensor(const torch::jit::Value* value) {
-  HABANA_ASSERT(value->node());
-  return !(value->node()->kind() == c10::prim::Constant);
-}
-
-void WeightIdentificationPass::markInputs(const torch::jit::Value* in) {
-  auto node = in->node();
-  if (nullptr == node) {
-    return;
-  }
-  std::string node_str = node->kind().toQualString();
-  if (0 == kernelWeightIdx.count(node_str)) {
-    for (auto& i : node->inputs()) {
-      if (isTensor(i) && !weightTensors.count(i)) {
-        weightTensors.insert(i);
-        markInputs(i);
-      }
-    }
-  }
-}
-
-void WeightIdentificationPass::markOutputs(const torch::jit::Value* in) {
-  for (auto& use : in->uses()) {
-    auto node = use.user;
-    HABANA_ASSERT(node);
-
-    // TODO: check if its binary/unary ops & then mark
-    std::string node_str = node->kind().toQualString();
-    if (0 == kernelWeightIdx.count(node_str)) {
-      for (auto& out : node->outputs()) {
-        if (!weightTensors.count(out)) {
-          weightTensors.insert(out);
-          markOutputs(out);
-        }
-      }
-    }
-
-    // markOutput of Outvariant kernels
-    auto it = kernelOutVariantIdx.find(node_str);
-    if (kernelOutWeightIdx.end() != it) {
-      auto outIdx = it->second;
-      HABANA_ASSERT(outIdx < node->inputs().size());
-      auto weightOut = node->inputs()[outIdx];
-      if (!weightTensors.count(weightOut)) {
-        weightTensors.insert(weightOut);
-        markOutputs(weightOut);
-      }
-    }
-  }
-}
-
-void WeightIdentificationPass::markWeights(const torch::jit::Value* in) {
-  markInputs(in);
-  markOutputs(in);
-}
-
-void WeightIdentificationPass::markWeightTensors(
-    std::shared_ptr<Graph>& graph) {
-  for (auto node : graph->nodes()) {
-    std::string kernel = node->kind().toQualString();
-    auto it = kernelWeightIdx.find(kernel);
-    // mark kernel weight-inputs
-    if (kernelWeightIdx.end() != it) {
-      auto weightIdx = it->second;
-      HABANA_ASSERT(weightIdx < node->inputs().size());
-      auto weightIn = node->inputs()[weightIdx];
-      weightTensors.insert(weightIn);
-      markWeights(weightIn);
-    }
-    // mark kernel weight-outputs
-    it = kernelOutWeightIdx.find(kernel);
-    if (kernelOutWeightIdx.end() != it) {
-      auto weightIdx = it->second;
-      HABANA_ASSERT(weightIdx < node->outputs().size());
-      auto weightOut = node->outputs()[weightIdx];
-      weightTensors.insert(weightOut);
-      markOutputs(weightOut);
-    }
-  }
 }
 
 at::IntArrayRef getDimsForLayout5d(
@@ -182,56 +102,6 @@ at::IntArrayRef getDimsForLayout5d(
     TORCH_CHECK(
         0,
         " InsertPermute_graph: permute called for unsupported channel order");
-  }
-
-  return dims;
-}
-
-at::IntArrayRef getDimsForLayout(
-    habana::LayoutFormat channel_order,
-    habana::LayoutFormat current_order) {
-  at::IntArrayRef dims;
-
-  if (current_order == habana::LayoutFormat::NCHW) {
-    if (channel_order == habana::LayoutFormat::NHWC) {
-      static const int64_t dimarr[] = {0, 2, 3, 1};
-      dims = dimarr;
-    } else if (channel_order == habana::LayoutFormat::HWCK) {
-      static const int64_t dimarr[] = {2, 3, 1, 0};
-      dims = dimarr;
-    } else {
-      TORCH_CHECK(
-          0,
-          " InsertPermtue_graph: permute called for unsupported channel order");
-    }
-  } else if (current_order == habana::LayoutFormat::NHWC) {
-    if (channel_order == habana::LayoutFormat::NCHW) {
-      static const int64_t dimarr[] = {0, 3, 1, 2};
-      dims = dimarr;
-    } else if (channel_order == habana::LayoutFormat::HWCK) {
-      static const int64_t dimarr[] = {1, 2, 3, 0};
-      dims = dimarr;
-    } else {
-      TORCH_CHECK(
-          0,
-          " InsertPermtue_graph: permute called for unsupported channel order");
-    }
-  } else if (current_order == habana::LayoutFormat::HWCK) {
-    if (channel_order == habana::LayoutFormat::NCHW) {
-      static const int64_t dimarr[] = {3, 2, 0, 1};
-      dims = dimarr;
-    } else if (channel_order == habana::LayoutFormat::NHWC) {
-      static const int64_t dimarr[] = {3, 0, 1, 2};
-      dims = dimarr;
-    } else {
-      TORCH_CHECK(
-          0,
-          " InsertPermtue_graph: permute called for unsupported channel order");
-    }
-  } else {
-    TORCH_CHECK(
-        0,
-        " InsertPermtue_graph: permute called for unsupported channel order");
   }
 
   return dims;

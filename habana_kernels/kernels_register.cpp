@@ -4395,6 +4395,8 @@ TORCH_LIBRARY(hpu, m) {
       "_unique2(Tensor self, bool sorted, bool return_inverse, bool return_counts) -> (Tensor, Tensor)");
   m.def("permute_cl(Tensor(a) self, int[] dims) -> Tensor(a)");
   m.def("restride_cl(Tensor(a) self, int[] dims) -> Tensor(a)");
+  m.def("permute_weight(Tensor self, int[] size) -> (Tensor)");
+  m.def("permuted_weight_restride(Tensor self, int[] size) -> (Tensor)");
   m.def("control_edge_other_(Tensor self, Tensor other) -> Tensor(a!)");
   m.def("control_edge_(Tensor self)-> Tensor(a!)");
   m.def(
@@ -4403,6 +4405,7 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::native_batch_norm_inf(Tensor input, Tensor? weight, Tensor? bias, Tensor? running_mean, Tensor? running_var, bool training, float momentum, float eps) -> (Tensor)");
   m.def(
       "as_strided_lazy_(Tensor self, int[] size, int[] stride, int offset) -> (Tensor)");
+  m.def("as_strided_layout_(Tensor self, int[] size) -> (Tensor)");
   m.def(
       "matmul_backward(Tensor grad_out, Tensor self, Tensor other) -> (Tensor, Tensor)");
   m.def(

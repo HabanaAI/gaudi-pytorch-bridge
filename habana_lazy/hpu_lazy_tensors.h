@@ -69,7 +69,7 @@ struct Data {
 
   void* data_ptr;
   ir::Value ir_value;
-  LayoutFormat tensor_layout;
+  LayoutFormat tensor_layout = kNCHW;
   c10::Device device;
   c10::optional<at::ScalarType> logical_element_type;
   c10::optional<at::Tensor> tensor_data;
@@ -215,6 +215,12 @@ class HbLazyTensor {
   }
   int getVersion() const {
     return data()->version;
+  }
+  void SetTensorLayout(LayoutFormat layout) {
+    data()->tensor_layout = layout;
+  }
+  LayoutFormat GetTensorLayout() const {
+    return data()->tensor_layout;
   }
 
  private:

@@ -1340,6 +1340,16 @@ static auto& KernelRegistry =
               return std::make_shared<PermuteCLOperator>(device_id, node_type);
             })
         .add(
+            "hpu::permute_weight",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<PermuteOperator>(device_id, node_type);
+            })
+        .add(
+            "hpu::permuted_weight_restride",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<PermuteOperator>(device_id, node_type);
+            })
+        .add(
             "aten::t",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<TOperator>(device_id, node_type);

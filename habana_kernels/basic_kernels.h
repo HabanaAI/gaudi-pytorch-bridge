@@ -38,6 +38,20 @@ class ToDtypeOperator : public habana::HabanaOperator {
   // virtual void SetPTOutput(torch::jit::Stack& inputs) override;
 };
 
+// As Strided Layout
+class AsStridedLayoutOperator : public habana::HabanaOperator {
+ public:
+  AsStridedLayoutOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator("dummy") {
+    static_cast<void>(scalarType);
+    this->CreateSynContext(device_id);
+  }
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+};
+
 //
 // Cast Operator (Lazy mode only)
 class CastLazyOperator : public habana::HabanaOperator {

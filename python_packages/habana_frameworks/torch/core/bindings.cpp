@@ -142,5 +142,12 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
             flag);
       },
       py::arg("flag"));
+  m.def(
+      "enable_weight_permute_pass",
+      [](const bool flag) {
+        habana_lazy::exec::OptPassCfg::GetInstance()->SetWeightPermutePass(
+            flag);
+      },
+      py::arg("flag"));
   m.doc() = "This module registers hpu backend.";
 }

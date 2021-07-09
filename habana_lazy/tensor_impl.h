@@ -95,5 +95,15 @@ class HbInternalTensorImpl : public c10::TensorImpl {
 
   static void AtenInitialize();
   caffe2::TypeMeta GetTypeMeta(const at::Tensor& t);
+
+  LayoutFormat GetTensorLayout() const {
+    return tensor_layout;
+  }
+  void SetTensorLayout(LayoutFormat layout) {
+    tensor_layout = layout;
+  }
+
+ private:
+  LayoutFormat tensor_layout = LayoutFormat::kNCHW;
 };
 } // namespace habana_lazy

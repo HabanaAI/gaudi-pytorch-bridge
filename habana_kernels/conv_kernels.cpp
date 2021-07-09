@@ -137,7 +137,8 @@ std::vector<int64_t> ConvOperator::compute_output_shape(
     const bool ceil_mode,
     const bool transposed,
     c10::MemoryFormat memory_format,
-    const bool is_conv_3d) {
+    const bool is_conv_3d,
+    const bool is_weight_hwck) {
   TORCH_CHECK(ceil_mode == false, "No support for ceil_mode");
   TORCH_CHECK(
       (memory_format == c10::MemoryFormat::ChannelsLast3d) ||
@@ -221,7 +222,7 @@ std::vector<int64_t> ConvOperator::compute_output_shape(
     const int64_t dim_pos_in[4] = {0, 2, 3, 1};
     const int64_t dim_pos_wt[4] = {0, 1, 2, 3};
     const int64_t dim_pos_in_chlast[4] = {0, 1, 2, 3};
-
+    const int64_t wt_hwck_dims[4] = {2, 3, 1, 0};
     const int64_t* p_dim_pos_in;
     const int64_t* p_dim_pos_wt;
 
@@ -235,6 +236,9 @@ std::vector<int64_t> ConvOperator::compute_output_shape(
     }
 
     p_dim_pos_wt = dim_pos_wt;
+    if (!is_weight_hwck) {
+      p_dim_pos_wt = wt_hwck_dims;
+    }
 
     const auto input_H = shape_in[p_dim_pos_in[1]];
     const auto pad_H = pad[0];
