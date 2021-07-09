@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from habana_frameworks.torch.hpex.kernels import EmbeddingBag
 from habana_frameworks.torch.hpex.kernels import EmbeddingBagPreproc
-from habana_frameworks.torch.hpex.optimizers import SparseSgd
+from habana_frameworks.torch.hpex.optimizers import SparseSGD
 from habana_frameworks.torch.hpex.optimizers import SparseAdagrad
 import numpy as np
 import distributed_utils
@@ -64,7 +64,7 @@ class HabanaEmbeddingBag(torch.nn.Module):
 class HabanaSparseOptimizer(torch.optim.Optimizer):
     def __init__(self, params, args):
         if args.optimizer == "sgd":
-            self._SparseOpt = SparseSgd.forward
+            self._SparseOpt = SparseSGD.forward
         elif args.optimizer == "adagrad":
             self._SparseOpt = SparseAdagrad.forward
         self._optimizer = args.optimizer

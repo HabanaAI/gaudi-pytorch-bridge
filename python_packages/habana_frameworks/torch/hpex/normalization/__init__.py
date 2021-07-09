@@ -1,1 +1,1 @@
-from .FusedNorm import FusedClipNorm
+from .FusedClipNorm import FusedClipNorm

@@ -1,7 +1,7 @@
 from .FusedAdagrad import FusedAdagrad
-from .FusedAdam import FusedAdamW
+from .FusedAdamW import FusedAdamW
 from .FusedLamb import FusedLamb
-from .FusedSgd import FusedSGD
+from .FusedSGD import FusedSGD
 
 # from .SparseAdagrad import HabanaOptimizerSparseAdagrad as SparseAdagrad
-# from .SparseSgd import HabanaOptimizerSparseSgd as SparseSgd
+# from .SparseSgd import HabanaOptimizerSparseSgd as SparseSGD
