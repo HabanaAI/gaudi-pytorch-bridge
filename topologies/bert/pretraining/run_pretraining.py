@@ -535,7 +535,7 @@ def prepare_model_and_optimizer(args, device):
     if args.use_habana:
         if args.use_fused_lamb:
             try:
-                from hb_custom import FusedLamb
+                from habana_frameworks.torch.hpex.optimizers import FusedLamb
             except ImportError:
                 raise ImportError("Please install hbopt.")
             optimizer = FusedLamb(optimizer_grouped_parameters,

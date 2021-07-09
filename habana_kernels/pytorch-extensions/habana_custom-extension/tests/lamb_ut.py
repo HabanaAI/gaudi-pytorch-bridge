@@ -3,7 +3,7 @@ import os
 import sys
 import torch
 
-from hb_custom import FusedLamb
+from habana_frameworks.torch.hpex.optimizers import FusedLamb
 
 torch.ops.load_library(os.path.join(os.environ['BUILD_ROOT_LATEST'], "libhabana_pytorch_plugin.so"))
 habana = torch.device("hpu")

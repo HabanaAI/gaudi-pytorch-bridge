@@ -70,9 +70,9 @@ if __name__ == "__main__":
             if(param.ndim == 4):
                 param.data = param.data.permute((2,3,1,0))
     try:
-        from hb_custom import FusedClipNorm
+        from habana_frameworks.torch.hpex.normalization import FusedClipNorm
     except ImportError:
-        raise ImportError("Please install hb_custom.")
+        raise ImportError("Please install habana_torch.")
 
     for i in range(count) :
         i_hpu, t_hpu = i_clone_list[i].to(habana), t_clone_list[i].to(habana)

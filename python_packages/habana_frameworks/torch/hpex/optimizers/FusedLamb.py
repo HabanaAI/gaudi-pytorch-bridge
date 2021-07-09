@@ -7,9 +7,9 @@ from habana_frameworks.torch import core as htcore
 class FusedLamb(Optimizer):
 
     """Implements a version of LAMB optimizer customized for HABANA devices.
-    :class:`hb_custom.FusedLamb`'s usage is identical to any ordinary Pytorch optimizer::
+    :class:`FusedLamb`'s usage is identical to any ordinary Pytorch optimizer::
 
-        opt = hb_custom.FusedLamb(model.parameters(), lr = ....)
+        opt = FusedLamb(model.parameters(), lr = ....)
         ...
         opt.step()
 

@@ -140,9 +140,9 @@ def train(args, train_dataset, model, tokenizer, trainMetaData):
 
     if args.use_habana and args.use_fused_adam:
         try:
-            from hb_custom import FusedAdamW
+            from habana_frameworks.torch.hpex.optimizers import FusedAdamW
         except ImportError:
-            raise ImportError("Please install hb_custom.")
+            raise ImportError("Please install habana_torch.")
         optimizer = FusedAdamW(optimizer_grouped_parameters, lr=args.learning_rate, eps=args.adam_epsilon)
     else:
         optimizer = AdamW(optimizer_grouped_parameters, lr=args.learning_rate, eps=args.adam_epsilon)
@@ -239,9 +239,9 @@ def train(args, train_dataset, model, tokenizer, trainMetaData):
     if args.use_habana and not args.use_jit_trace:
         if args.use_fused_clip_norm:
             try:
-                from hb_custom import FusedClipNorm
+                from habana_frameworks.torch.hpex.normalization import FusedClipNorm
             except ImportError:
-                raise ImportError("Please install hb_custom.")
+                raise ImportError("Please install habana_torch.")
             FusedNorm = FusedClipNorm(model.parameters(), args.max_grad_norm)
     # log the pre-epoch-loop memory usage
     trainMetaData.tracept.end(time.time(), 'train_iteration_' + str(trainMetaData.current_train_step))
@@ -316,9 +316,9 @@ def train(args, train_dataset, model, tokenizer, trainMetaData):
                 if args.use_habana:
                     if args.use_fused_clip_norm:
                         try:
-                            from hb_custom import FusedClipNorm
+                            from habana_frameworks.torch.hpex.normalization import FusedClipNorm
                         except ImportError:
-                            raise ImportError("Please install hb_custom.")
+                            raise ImportError("Please install habana_torch.")
                         FusedNorm = FusedClipNorm(model_trace.parameters(), args.max_grad_norm)
                 if args.local_rank != -1:
                     if args.use_habana:

@@ -13,6 +13,7 @@ from test_utils import *
 
 sys.path.append( os.environ["MODEL_GARDEN_PYTORCH_PATH"] + "/nlp/bert/pretraining/")
 from lamb import NVLAMB as TorchNVLAMB
+from habana_frameworks.torch.hpex.optimizers import FusedLamb
 
 class MNISTNet(nn.Module):
     def __init__(self):
@@ -65,10 +66,6 @@ def test_lamb(count, lr):
         l_hpu_nv.backward()
         opt_hpu_nv.step()
 
-    try:
-        from hb_custom import FusedLamb
-    except ImportError:
-        raise ImportError("Please install hb_custom.")
 
     # same model for training with FusedLamb
     m_hpu_fl = m_clone

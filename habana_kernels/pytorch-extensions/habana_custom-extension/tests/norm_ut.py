@@ -5,7 +5,7 @@ import torch
 
 # Our module!
 #from hb_custom_C import fused_norm
-from hb_custom import FusedClipNorm
+from habana_frameworks.torch.hpex.normalization import FusedClipNorm
 
 torch.ops.load_library(os.path.join(os.environ['BUILD_ROOT_LATEST'], "libhabana_pytorch_plugin.so"))
 habana = torch.device("hpu")
