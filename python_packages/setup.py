@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 from setuptools import setup, find_namespace_packages
+from distutils.file_util import copy_file
 from torch.utils import cpp_extension
 
 import os
@@ -11,7 +12,7 @@ def _check_env_flag(name, default=""):
     return os.getenv(name, default).upper() in ["ON", "1", "YES", "TRUE", "Y"]
 
 
-root = os.path.join(os.environ["PYTORCH_MODULES_ROOT_PATH"])
+root = os.environ["PYTORCH_MODULES_ROOT_PATH"]
 
 DEBUG = _check_env_flag("DEBUG")
 
@@ -65,6 +66,26 @@ def get_version():
 core_csrc = glob.glob("habana_frameworks/torch/core/*.cpp")
 hpex_csrc = glob.glob("habana_frameworks/torch/hpex/csrc/*.cpp")
 
+
+class BuildExt(cpp_extension.BuildExtension.with_options(no_python_abi_suffix=True)):
+    def run(self):
+        super(BuildExt, self).run()
+        build_root = os.environ["BUILD_ROOT_LATEST"]
+        libs = [
+            os.path.join(build_root, l)
+            for l in os.listdir(build_root)
+            if "pytorch" in l
+        ]
+
+        # CI has dangling symlinks
+        libs = [l for l in libs if os.path.exists(l)]
+
+        libs_path = os.path.join(self.build_lib, "habana_frameworks", "torch", "lib")
+        os.makedirs(libs_path, exist_ok=True)
+        for lib in libs:
+            copy_file(lib, libs_path)
+
+
 setup(
     name="habana-torch",
     version=get_version(),
@@ -94,9 +115,5 @@ setup(
             extra_compile_args=extra_compile_args,
         ),
     ],
-    cmdclass={
-        "build_ext": cpp_extension.BuildExtension.with_options(
-            no_python_abi_suffix=True
-        )
-    },
+    cmdclass={"build_ext": BuildExt},
 )
