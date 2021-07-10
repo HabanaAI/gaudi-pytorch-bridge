@@ -60,6 +60,7 @@ def get_version():
         return "0.0.0+unknown"
 
 
+core_csrc = glob.glob("habana_frameworks/torch/core/*.cpp")
 hpex_csrc = glob.glob("habana_frameworks/torch/hpex/csrc/*.cpp")
 
 setup(
@@ -73,7 +74,7 @@ setup(
     ext_modules=[
         cpp_extension.CppExtension(
             name="_core_C",
-            sources=["habana_frameworks/torch/core/bindings.cpp"],
+            sources=core_csrc,
             language="c++",
             include_dirs=include_dirs,
             libraries=libraries,

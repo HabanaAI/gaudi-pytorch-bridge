@@ -7,23 +7,49 @@
  *
  ******************************************************************************
  */
-#include <ATen/record_function.h>
-#include <habana_lazy/hlexec.h>
-#include <pybind11/pybind11.h>
-#include <torch/csrc/jit/ir/ir.h>
-#include <torch/csrc/jit/passes/pass_manager.h>
-#include <torch/csrc/jit/python/pybind_utils.h>
-#include <torch/csrc/jit/runtime/custom_operator.h>
-#include <torch/csrc/jit/runtime/operator_options.h>
-#include <functional>
-#include "habana_bridge/kernel/hpu_habana_launch_op_pt.h"
-#include "habana_bridge/passes/habana_fuser.h"
-#include "habana_bridge/passes/remove_inplace_ops.h"
-#include "habana_helpers/logging.h"
+#include "process_group_hcl.h" // "UNUSED" conflict in synapse_helpers/util.h & torch/include/c10d/Types.hpp
+
+#include <pybind11/chrono.h>
+#include <torch/extension.h>
+#include "habana_lazy/hlexec.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "synapse_helpers/devmem_logger.h"
 
+template <typename T>
+using intrusive_ptr_class_ = py::class_<T, c10::intrusive_ptr<T>>;
+static void torch_hcl_init() {
+  py::object module = py::module::import("torch.distributed");
+  py::object register_backend = module.attr("Backend").attr("register_backend");
+
+  register_backend(
+      "hcl",
+      py::cpp_function(
+          &c10d::ProcessGroupHCL::createProcessGroupHCL,
+          py::arg("store"),
+          py::arg("rank"),
+          py::arg("size"),
+          py::arg("timeout") = std::chrono::milliseconds(40 * 1000)));
+
+  auto processGroup = module.attr("ProcessGroup");
+  auto processGroupHCL = intrusive_ptr_class_<::c10d::ProcessGroupHCL>(
+      module, "ProcessGroupHCL", processGroup);
+
+  processGroupHCL.def(
+      py::init([](const c10::intrusive_ptr<::c10d::Store>& store,
+                  int rank,
+                  int size,
+                  std::chrono::milliseconds timeout) {
+        return c10::make_intrusive<::c10d::ProcessGroupHCL>(
+            store, rank, size, timeout);
+      }),
+      py::arg("store"),
+      py::arg("rank"),
+      py::arg("size"),
+      py::arg("timeout") = std::chrono::milliseconds(10 * 1000));
+}
+
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
+  torch_hcl_init();
   // python API to report device memory live allocation details
   m.def("memstat_livealloc", [](const char* msg = "") {
     synapse_helpers::print_live_allocations(msg);
