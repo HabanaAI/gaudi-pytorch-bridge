@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from setuptools import setup, find_packages
+from setuptools import setup, find_namespace_packages
 from torch.utils import cpp_extension
 
 import os
@@ -30,6 +30,8 @@ libraries = [
 extra_compile_args = [
     "-std=c++14",
     "-DMAX_DEVICES_PER_BOX=8",
+    "-fopenmp",
+    "-fpermissive",
 ]
 extra_link_args = []
 
@@ -67,13 +69,14 @@ setup(
     name="habana-torch",
     version=get_version(),
     zip_safe=False,
-    packages=find_packages(exclude=["build"]),
+    packages=find_namespace_packages(include=["habana_frameworks.*"]),
     package_data={
-        "": ["ops_bf16.txt", "ops_fp32.txt", "ops_multi_inputs.txt"],
+        "habana_frameworks.torch.hpex.hmp": ["*.txt"],
+        "habana_frameworks.torch": ["lib/*.so"],
     },
     ext_modules=[
         cpp_extension.CppExtension(
-            name="_core_C",
+            name="habana_frameworks.torch._core_C",
             sources=core_csrc,
             language="c++",
             include_dirs=include_dirs,
@@ -82,13 +85,12 @@ setup(
             extra_compile_args=extra_compile_args,
         ),
         cpp_extension.CppExtension(
-            name="_hpex_C",
+            name="habana_frameworks.torch._hpex_C",
             sources=hpex_csrc,
             language="c++",
             include_dirs=include_dirs,
             libraries=libraries,
             library_dirs=[os.environ["BUILD_ROOT_LATEST"]],
-            extra_cflags=["-fopenmp -fpermissive"],
             extra_compile_args=extra_compile_args,
         ),
     ],

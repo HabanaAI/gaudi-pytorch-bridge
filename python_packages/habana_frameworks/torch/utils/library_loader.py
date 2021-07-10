@@ -43,7 +43,7 @@ def _get_modules_directory():
     if "PYTORCH_MODULES_DEBUG_BUILD" in os.environ:
         locations.append(os.path.abspath(os.environ["PYTORCH_MODULES_DEBUG_BUILD"]))
 
-    locations.append('/usr/lib/habanalabs')
+    locations.append("/usr/lib/habanalabs")
 
     for directory in locations:
         if _check_modules_directory(directory):
@@ -62,6 +62,7 @@ def load_habana_module():
 
     print("Loading Habana modules from {}".format(habana_modules_directory))
     for module in _mandatory_libs:
-        torch.ops.load_library(os.path.abspath(os.path.join(
-            habana_modules_directory, module)))
+        torch.ops.load_library(
+            os.path.abspath(os.path.join(habana_modules_directory, module))
+        )
         sys.path.insert(0, habana_modules_directory)

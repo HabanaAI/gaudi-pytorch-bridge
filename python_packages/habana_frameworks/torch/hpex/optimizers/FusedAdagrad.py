@@ -61,7 +61,7 @@ class FusedAdagrad(Optimizer):
         Arguments:
             closure (:obj:`Callable`, `optional`): A closure that reevaluates the model and returns the loss.
         """
-        import _hpex_C
+        from habana_frameworks.torch import _hpex_C
 
         loss = None
         if closure is not None:

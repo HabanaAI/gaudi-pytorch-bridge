@@ -1,6 +1,6 @@
 import torch
 from typing import List
-import _hpex_C
+from habana_frameworks.torch import _hpex_C
 
 
 class CustomNms:

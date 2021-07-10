@@ -1,8 +1,9 @@
 import torch
 from typing import Iterable
-import _hpex_C
+from habana_frameworks.torch import _hpex_C
 
 import habana_frameworks.torch.core as htcore
+
 
 class FusedClipNorm:
     def __init__(self, parameters: Iterable[torch.nn.parameter.Parameter], max_norm):

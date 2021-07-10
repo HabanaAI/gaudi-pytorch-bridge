@@ -102,7 +102,7 @@ class FusedLamb(Optimizer):
             closure (callable, optional): A closure that re-evaluates the model
                 and returns the loss.
         """
-        import _hpex_C
+        from habana_frameworks.torch import _hpex_C
 
         loss = None
         if closure is not None:
