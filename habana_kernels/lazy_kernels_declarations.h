@@ -854,6 +854,9 @@ at::Tensor habana_nms_hpu_lazy(
     float score_threshold);
 at::Tensor isnan_hpu_lazy(const at::Tensor& self);
 at::Tensor silu_hpu_lazy(const at::Tensor& self);
+at::Tensor silu_backward_hpu_lazy(
+    const at::Tensor& grad,
+    const at::Tensor& self);
 at::Tensor& silu_out_hpu_lazy(const at::Tensor& self, at::Tensor& out);
 at::Tensor linspace_hpu_lazy(
     at::Scalar start,

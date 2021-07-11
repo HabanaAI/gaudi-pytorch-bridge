@@ -2982,6 +2982,17 @@ Tensor hpu_wrap::silu(const Tensor& self) {
   }
 };
 
+Tensor hpu_wrap::silu_backward(const Tensor& grad, const Tensor& self) {
+  if (!hpu_check_inputs_impl("silu_backward", {grad, self}))
+    return AtenHpuTypeDefault::silu_backward(grad, self);
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    return silu_backward_hpu_lazy(grad, self);
+  } else {
+    HABANA_ASSERT(0 && "silu_backward not implemented for eager mode");
+    return silu_backward_hpu_lazy(grad, self);
+  }
+};
+
 Tensor& hpu_wrap::silu_out(const Tensor& self, Tensor& out) {
   if (!hpu_check_inputs_impl("silu_out", {out, self}))
     return AtenHpuTypeDefault::silu_out(self, out);

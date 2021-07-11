@@ -30,6 +30,9 @@ struct hpu_wrap {
       c10::optional<at::Device> device,
       c10::optional<bool> pin_memory);
   static at::Tensor silu(const at::Tensor& self);
+  static at::Tensor silu_backward(
+      const at::Tensor& grad,
+      const at::Tensor& self);
   static at::Tensor isnan(const at::Tensor& self);
   static at::Tensor empty(
       at::IntArrayRef size,

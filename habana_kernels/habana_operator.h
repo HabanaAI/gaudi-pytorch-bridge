@@ -26,6 +26,9 @@
 #include <iostream>
 #include <memory>
 
+// For compound Ops, there is not GUID, so null string used
+const std::string NULL_GUID("");
+
 // Utility Macros to handle 0d tensors input
 #define CONVERT_0D_TO_1D(self)                                   \
   if (0 == self.dim()) {                                         \

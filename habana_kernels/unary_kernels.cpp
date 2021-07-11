@@ -2329,6 +2329,130 @@ Tensor silu_hpu(const Tensor& self) {
   PT_KERNEL_END;
   return out;
 }
+
+void SiluBackwardOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    Stack& inputs,
+    bool is_output_persistent) {
+  const unsigned short constExpectedNoOfInput = 2;
+
+  TORCH_CHECK(
+      inputs.size() == constExpectedNoOfInput,
+      "Expected ",
+      constExpectedNoOfInput,
+      " inputs for SiluBackwardOperator but received ",
+      inputs.size(),
+      " inputs.");
+  TORCH_CHECK(
+      inputs[0].isTensor(),
+      "Input arg1 expected to be Tensor for SiluBackwardOperator");
+  TORCH_CHECK(
+      inputs[1].isTensor(),
+      "Input arg2 expected to be Tensor for SiluBackwardOperator");
+
+  auto grad = inputs[0].toTensor();
+  auto self = inputs[1].toTensor();
+
+  auto scalar_type = self.scalar_type();
+
+  // Sigmoid
+  SigmoidOperator sigmoidOp(this->p_context_->device_id_, scalar_type);
+  auto& syn_arg0 =
+      sigmoidOp.SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
+  torch::jit::Stack stack = {IValue(self)};
+  sigmoidOp.AllocateAndAddSynapseNode(graph, stack, false);
+  p_context_->syn_inputs_[1] = std::move(syn_arg0);
+  stack.clear();
+
+  // Do G*S
+  habana::MulOperator mulOp(this->p_context_->device_id_, scalar_type);
+
+  auto& mul_syn_1 =
+      mulOp.SetSynapseInput(std::move(p_context_->syn_inputs_[0])); // grad
+  auto& mul_syn_2 =
+      mulOp.SetSynapseInput(std::move(sigmoidOp.GetSynOutputs()[0])); // sigmoid
+
+  stack.emplace_back(IValue(grad));
+  stack.emplace_back(IValue(sigmoidOp.GetOutputs()[0]));
+  mulOp.AllocateAndAddSynapseNode(graph, stack, false);
+
+  p_context_->syn_inputs_[0] = std::move(mul_syn_1);
+  sigmoidOp.GetSynOutputs()[0] = std::move(mul_syn_2);
+  stack.clear();
+
+  // Do G*S*Self
+  habana::MulOperator mulOp1(this->p_context_->device_id_, scalar_type);
+
+  auto& mul1_syn_1 =
+      mulOp1.SetSynapseInput(std::move(p_context_->syn_inputs_[1])); // self
+
+  auto& mul1_syn_2 =
+      mulOp1.SetSynapseInput(std::move(mulOp.GetSynOutputs()[0])); // sigmoid
+
+  stack.emplace_back(IValue(self));
+  stack.emplace_back(IValue(mulOp.GetOutputs()[0]));
+  mulOp1.AllocateAndAddSynapseNode(graph, stack, false);
+
+  p_context_->syn_inputs_[1] = std::move(mul1_syn_1);
+  mulOp.GetSynOutputs()[0] = std::move(mul1_syn_2);
+  stack.clear();
+
+  // Do G*S*Self*S
+  habana::MulOperator mulOp2(this->p_context_->device_id_, scalar_type);
+
+  auto& mul2_syn_1 = mulOp2.SetSynapseInput(
+      std::move(sigmoidOp.GetSynOutputs()[0])); // sigmoid
+
+  auto& mul2_syn_2 =
+      mulOp2.SetSynapseInput(std::move(mulOp1.GetSynOutputs()[0])); // G*S*Self
+
+  stack.emplace_back(IValue(sigmoidOp.GetOutputs()[0]));
+  stack.emplace_back(IValue(mulOp1.GetOutputs()[0]));
+  mulOp2.AllocateAndAddSynapseNode(graph, stack, false);
+
+  sigmoidOp.GetSynOutputs()[0] = std::move(mul2_syn_1);
+  mulOp1.GetSynOutputs()[0] = std::move(mul2_syn_2);
+  stack.clear();
+
+  // Do G*S + G*self*S
+  habana::AddOperator addOp(this->p_context_->device_id_, scalar_type);
+
+  auto& add_syn_1 =
+      addOp.SetSynapseInput(std::move(mulOp.GetSynOutputs()[0])); // G*S
+  auto& add_syn_2 =
+      addOp.SetSynapseInput(std::move(mulOp1.GetSynOutputs()[0])); // G*self*S
+
+  stack.emplace_back(IValue(mulOp.GetOutputs()[0]));
+  stack.emplace_back(IValue(mulOp1.GetOutputs()[0]));
+  stack.emplace_back(IValue(1.0));
+  addOp.AllocateAndAddSynapseNode(graph, stack, false);
+
+  mulOp.GetSynOutputs()[0] = std::move(add_syn_1);
+  mulOp1.GetSynOutputs()[0] = std::move(add_syn_2);
+  stack.clear();
+
+  // Do G*S + G*self*S - G*self*S*S
+  habana::SubOperator subOp(this->p_context_->device_id_, scalar_type);
+
+  auto& sub_syn_1 = subOp.SetSynapseInput(
+      std::move(addOp.GetSynOutputs()[0])); // G*S + G*self*S
+  auto& sub_syn_2 =
+      subOp.SetSynapseInput(std::move(mulOp2.GetSynOutputs()[0])); // G*self*S*S
+
+  stack.emplace_back(IValue(addOp.GetOutputs()[0]));
+  stack.emplace_back(IValue(mulOp2.GetOutputs()[0]));
+  stack.emplace_back(IValue(1.0));
+  subOp.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+
+  addOp.GetSynOutputs()[0] = std::move(sub_syn_1);
+  mulOp2.GetSynOutputs()[0] = std::move(sub_syn_2);
+  stack.clear();
+
+  // Output
+  p_context_->syn_outputs_.emplace_back(std::move(subOp.GetSynOutputs()[0]));
+  p_context_->pt_outputs_.emplace_back(subOp.GetOutputs()[0]);
+}
+
 void IsnanOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
@@ -2730,6 +2854,12 @@ static auto& KernelRegistry =
             "aten::silu.out",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<SiluOutOperator>(device_id, node_type);
+            })
+        .add(
+            "aten::silu_backward",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<SiluBackwardOperator>(
+                  device_id, node_type);
             })
         .add(
             "aten::cumsum",

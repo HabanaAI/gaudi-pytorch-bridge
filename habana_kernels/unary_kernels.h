@@ -209,6 +209,18 @@ class TanhBackwardOperator : public UnaryBackwardOperator {
             "tanh_bwd_" + habana_helpers::name_suffix_from_type(scalarType)) {}
 };
 
+class SiluBackwardOperator : public UnaryBackwardOperator {
+ public:
+  SiluBackwardOperator(int device_id, c10::ScalarType scalarType)
+      : UnaryBackwardOperator(device_id, NULL_GUID) {
+    static_cast<void>(scalarType);
+  }
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+};
+
 // Abs Operator
 class AbsOperator : public UnaryOperator {
  public:

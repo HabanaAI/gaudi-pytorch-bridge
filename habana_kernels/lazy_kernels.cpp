@@ -6427,6 +6427,15 @@ Tensor silu_hpu_lazy(const Tensor& self) {
   return k.call();
 }
 
+Tensor silu_backward_hpu_lazy(const Tensor& grad, const Tensor& self) {
+  PT_LAZY_TRACE;
+  CONVERT_0D_TO_1D(self)
+  CONVERT_0D_TO_1D(grad)
+  LazyOp<at::Tensor> k("aten::silu_backward", {grad, self});
+  CONVERT_1D_TO_0D(self, grad)
+  return k.call();
+}
+
 Tensor& silu_out_hpu_lazy(const Tensor& self, Tensor& out) {
   PT_LAZY_TRACE;
   CONVERT_0D_TO_1D(self)

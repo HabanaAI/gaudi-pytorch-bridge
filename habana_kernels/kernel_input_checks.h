@@ -1220,6 +1220,12 @@ static const std::
                   at::ScalarType::BFloat16}},
             },
             {
+                "silu_backward",
+                {{at::ScalarType::Float,
+                  at::ScalarType::Double,
+                  at::ScalarType::BFloat16}},
+            },
+            {
                 "sgn",
                 {{at::ScalarType::Double,
                   at::ScalarType::Float,

@@ -681,6 +681,21 @@ TEST_F(LazyUnaryKernelTest, Silu) {
   EXPECT_TRUE(allclose(hout, cpu_out));
 }
 
+TEST_F(LazyUnaryKernelTest, SiluBwd) {
+  const std::vector<int64_t> dimentions{7, 3};
+  auto input_tensor = torch::randn(dimentions, torch::requires_grad(false));
+  auto grad = torch::randn(dimentions, torch::requires_grad(false));
+
+  auto hinput = input_tensor.to(torch::kHABANA);
+  auto hgrad = grad.to(torch::kHABANA);
+
+  auto hresult = torch::silu_backward(hgrad, hinput);
+  auto hout = hresult.to(torch::kCPU);
+
+  auto cpu_out = torch::silu_backward(grad, input_tensor);
+  EXPECT_TRUE(allclose(hout, cpu_out));
+}
+
 TEST_F(LazyUnaryKernelTest, SiluOut) {
   const std::vector<int64_t> dimentions{7, 3};
   auto A = torch::randn(dimentions, torch::requires_grad(false));
