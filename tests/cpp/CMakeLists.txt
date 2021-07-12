@@ -1,5 +1,7 @@
 include(ExternalProject)
 
+set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+
 file(GLOB_RECURSE PT_INTEGRATION_TEST_SOURCES *.cpp)
 #list(FILTER PT_INTEGRATION_TEST_SOURCES EXCLUDE REGEX
 #   ".*testfile.cpp" example to exclude file from compilation
