@@ -28,9 +28,12 @@ def _get_modules_directory():
     the needed libraries:
         $LD_LIBRARY_PATH
         $BUILD_ROOT_LATEST
-        $PYTORCH_MODULES_RELEASE_BUILD
-        $PYTORCH_MODULES_DEBUG_BUILD
     """
+
+    def get_packaged_libs():
+        return os.path.abspath(
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "lib")
+        )
 
     locations = []
     if "LD_LIBRARY_PATH" in os.environ:
@@ -38,11 +41,7 @@ def _get_modules_directory():
     if "BUILD_ROOT_LATEST" in os.environ:
         locations.append(os.path.abspath(os.environ["BUILD_ROOT_LATEST"]))
 
-    if "PYTORCH_MODULES_RELEASE_BUILD" in os.environ:
-        locations.append(os.path.abspath(os.environ["PYTORCH_MODULES_RELEASE_BUILD"]))
-    if "PYTORCH_MODULES_DEBUG_BUILD" in os.environ:
-        locations.append(os.path.abspath(os.environ["PYTORCH_MODULES_DEBUG_BUILD"]))
-
+    locations.append(get_packaged_libs())
     locations.append("/usr/lib/habanalabs")
 
     for directory in locations:
@@ -52,11 +51,9 @@ def _get_modules_directory():
     return None
 
 
-habana_modules_directory = _get_modules_directory()
-
-
 def load_habana_module():
     """Load habana libs"""
+    habana_modules_directory = _get_modules_directory()
     if habana_modules_directory is None:
         raise Exception("Cannot find Habana modules")
 
