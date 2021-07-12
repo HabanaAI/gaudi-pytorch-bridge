@@ -81,7 +81,7 @@ TEST_F(LazyLossKernelTest, NllLoss2dNHWCFwdTest) {
   auto output = loss->forward(hinput, htarget);
 
   auto output_hpu = output.to(torch::kCPU);
-  EXPECT_EQ(allclose(output_cpu, output_hpu), true);
+  EXPECT_EQ(allclose(output_cpu, output_hpu, 0.001, 0.001), true);
 }
 
 TEST_F(LazyLossKernelTest, NllLoss2dFwdTest) {
@@ -97,7 +97,7 @@ TEST_F(LazyLossKernelTest, NllLoss2dFwdTest) {
   auto output = loss->forward(hinput, htarget);
 
   auto output_hpu = output.to(torch::kCPU);
-  EXPECT_EQ(allclose(output_cpu, output_hpu), true);
+  EXPECT_EQ(allclose(output_cpu, output_hpu, 0.001, 0.001), true);
 }
 
 TEST_F(LazyLossKernelTest, NllLossBwdTest) {
@@ -164,7 +164,7 @@ TEST_F(LazyLossKernelTest, NllLoss2dBwdTest) {
       hgrad_out, hinput, htarget, {}, 1, -100, hsum_weights);
 
   Tensor grad_in_hpu = grad_in.to(torch::kCPU);
-  EXPECT_EQ(allclose(grad_in_cpu, grad_in_hpu), true);
+  EXPECT_EQ(allclose(grad_in_cpu, grad_in_hpu, 0.001, 0.001), true);
 }
 
 TEST_F(LazyLossKernelTest, BCELossTest) {

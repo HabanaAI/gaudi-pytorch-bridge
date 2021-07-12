@@ -68,7 +68,7 @@ TEST_F(LazySoftmaxKernelTest, CrossEntropyTest) {
       torch::conv2d(input_tensor, weight_tensor, {}, 1, 0, 1, 1);
   auto outcpu = loss->forward(outConv, target);
 
-  EXPECT_EQ(allclose(out, outcpu, 0.01, 0.01), true);
+  EXPECT_EQ(allclose(out, outcpu, 0.001, 0.001), true);
 }
 
 TEST_F(LazySoftmaxKernelTest, LogSoftMaxTestBackward) {
