@@ -70,6 +70,137 @@ void LinspaceOperator::AllocateAndAddSynapseNode(
   p_context_->pt_outputs_.emplace_back(std::move(Op.GetOutputs()[0]));
 }
 
+void LinspaceOutOperator::SetPTOutputs(torch::jit::Stack& inputs) {
+  auto result = inputs[3].toTensor();
+  HabanaOperator::SetPTOutput(result);
+}
+
+void LinspaceOutOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    Stack& inputs,
+    bool is_output_persistent) {
+  const unsigned short constExpectedNoOfInput = 4;
+  TORCH_CHECK(
+      inputs.size() == constExpectedNoOfInput,
+      "Expected ",
+      constExpectedNoOfInput,
+      " inputs for LinspaceOutOperator operator but received ",
+      inputs.size(),
+      " inputs.");
+
+  // Upper bound extended to include upper bound with
+  // range TPC kernel which support [start, limit)
+  float upperBoundExtension = 0.000001;
+
+  TORCH_CHECK(inputs[0].isScalar(), "Input 1 type expected to be a scalar");
+  TORCH_CHECK(inputs[1].isScalar(), "Input 2 type expected to be a scalar");
+
+  TORCH_CHECK(inputs[3].isTensor(), "Input 4 type expected to be a tensor");
+
+  auto start = inputs[0].toScalar().toFloat();
+  auto end = inputs[1].toScalar().toFloat();
+  auto stepCount = inputs[2].toOptional<int64_t>();
+  auto out = inputs[3].toTensor();
+
+  int64_t arange_step = stepCount.value();
+
+  float delta = (end - start);
+  if (1.0 != arange_step) {
+    delta /= (arange_step - 1.0);
+  }
+  if ((end - start) < 0.f) {
+    upperBoundExtension *= -1.0;
+  }
+  end += upperBoundExtension;
+
+  auto device_id = this->p_context_->device_id_;
+
+  ArangeOperator Op(device_id, ScalarType::Float);
+
+  auto& arange_input_syn =
+      Op.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+
+  std::vector<c10::IValue> stack{
+      IValue(start), IValue(end), IValue(delta), IValue(out)};
+  Op.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+
+  p_context_->syn_inputs_[0] = std::move(arange_input_syn);
+
+  p_context_->syn_outputs_.emplace_back(std::move(Op.GetSynOutputs()[0]));
+  p_context_->pt_outputs_.emplace_back(std::move(Op.GetOutputs()[0]));
+}
+
+Tensor& linspace_out_hpu(
+    Scalar start,
+    Scalar end,
+    c10::optional<int64_t> step,
+    Tensor& output) {
+  PT_KERNEL_BEGIN;
+  // If step value is not provided, set it 100, following
+  // the CPU implementtaion....
+  // pytorch-fork/aten/src/ATen/native/RangeFactories.cpp
+  // Tensor& linspace_cpu_out(...
+  // ...
+  // const auto steps = optional_steps.value_or(100);
+  int64_t step_corrected = step.value_or(100);
+
+  auto shape = DimVector({step_corrected});
+  auto tht_result = output.unsafeGetTensorImpl();
+  THHTensor_resizeNd(tht_result, shape.size(), shape.data(), nullptr);
+  output.unsafeGetTensorImpl()->set_sizes_contiguous(IntArrayRef(shape));
+
+  Tensor output_int;
+  if (output.scalar_type() == ScalarType::Long) {
+    output_int = habana_helpers::createPTTensor(
+        output,
+        output.sizes(),
+        output.options(),
+        output.suggest_memory_format(),
+        c10::ScalarType::Int,
+        true);
+  }
+
+  at::ScalarType scalar_type = output.scalar_type();
+
+  std::string node_type = "linspce_out_" + NO_TPC +
+      habana_helpers::name_suffix_from_type(scalar_type);
+
+  size_t device_id = output.device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+
+  LinspaceOutOperator Op(device_id, scalar_type);
+
+  // Build Params for the graph
+  std::vector<at::Tensor> pt_inputs;
+  std::vector<c10::IValue> stack = {
+      IValue(start), IValue(end), IValue(step_corrected)};
+
+  stack.push_back(IValue(output));
+  pt_inputs.emplace_back(output);
+
+  size_t key = Op.GetRecipeKey(node_type, stack);
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    Op.SetPTInputs(pt_inputs);
+    Op.SetPTOutputs(stack);
+    Op.Execute(key);
+  } else {
+    PT_KERNEL_DEBUG("Key:", key);
+    // Create Graph
+    auto graph = habana_helpers::create_graph(device_id, node_type);
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
+    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    // compile and execute the graph
+    Op.Compile(graph);
+  }
+
+  std::vector<at::Tensor> out = Op.GetOutputs();
+  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
+
+  PT_KERNEL_END;
+  return output;
+}
+
 /*************************************************************************
  * @brief This helper function makes the size of index tensor to be same as
  * value tensor, with broadcast of indices (within index tensor)
@@ -2204,4 +2335,10 @@ static auto& KernelRegistry =
             "aten::linspace",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<LinspaceOperator>(device_id, node_type);
+            })
+        .add(
+            "aten::linspace.out",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<LinspaceOutOperator>(
+                  device_id, node_type);
             });

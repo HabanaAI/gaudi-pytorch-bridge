@@ -6480,6 +6480,36 @@ Tensor linspace_hpu_lazy(
   return kernel.call();
 }
 
+Tensor& linspace_out_hpu_lazy(
+    Scalar start,
+    Scalar end,
+    c10::optional<int64_t> steps,
+    Tensor& out) {
+  PT_LAZY_TRACE;
+
+  // If step value is not provided, set it 100, following
+  // the CPU implementtaion....
+  // pytorch-fork/aten/src/ATen/native/RangeFactories.cpp
+  // Tensor& linspace_cpu_out(...
+  // ...
+  // const auto steps = optional_steps.value_or(100);
+  int64_t step_corrected = steps.value_or(100);
+
+  // Handle start==end case, change the end value and
+  // hence convert to start != end, by changing end variable.
+  if (start.toFloat() == end.toFloat()) {
+    step_corrected = 1;
+    auto tmp = end.toFloat();
+    tmp++;
+    end = Scalar(tmp);
+  }
+
+  std::vector<int64_t> out_shape = {step_corrected};
+  LazyOp<at::Tensor&> k(
+      "aten::linspace", {start, end, step_corrected, out}, {}, {out_shape});
+  return k.call(out);
+}
+
 Tensor cumsum_hpu_lazy(
     const at::Tensor& self,
     int64_t dim,

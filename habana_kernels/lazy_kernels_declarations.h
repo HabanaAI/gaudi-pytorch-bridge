@@ -866,6 +866,11 @@ at::Tensor linspace_hpu_lazy(
     c10::optional<at::Layout> layout,
     c10::optional<at::Device> device,
     c10::optional<bool> pin_memory);
+at::Tensor& linspace_out_hpu_lazy(
+    at::Scalar start,
+    at::Scalar end,
+    c10::optional<int64_t> steps,
+    at::Tensor& out);
 at::Tensor cumsum_hpu_lazy(
     const at::Tensor& self,
     int64_t dim,

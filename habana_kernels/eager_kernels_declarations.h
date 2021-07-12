@@ -820,3 +820,8 @@ at::Tensor cumsum_hpu(
     int64_t dim,
     c10::optional<at::ScalarType> dtype);
 at::Tensor flip_hpu(const at::Tensor& self, at::IntArrayRef dims);
+at::Tensor& linspace_out_hpu(
+    at::Scalar start,
+    at::Scalar end,
+    c10::optional<int64_t> steps,
+    at::Tensor& out);

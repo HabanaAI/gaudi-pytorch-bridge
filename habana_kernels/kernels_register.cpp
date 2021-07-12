@@ -3865,6 +3865,21 @@ Tensor hpu_wrap::linspace(
   }
 };
 
+Tensor& hpu_wrap::linspace_out(
+    Scalar start,
+    Scalar end,
+    c10::optional<int64_t> steps,
+    Tensor& out) {
+  if (!hpu_check_inputs_impl("linspace_out", {out}))
+    return AtenHpuTypeDefault::linspace_out(start, end, steps, out);
+
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    return linspace_out_hpu_lazy(start, end, steps, out);
+  } else {
+    return linspace_out_hpu(start, end, steps, out);
+  }
+}
+
 struct DropoutFunction : public Function<DropoutFunction> {
   static at::Tensor forward(
       AutogradContext* ctx,

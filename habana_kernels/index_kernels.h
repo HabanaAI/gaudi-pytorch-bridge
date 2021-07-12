@@ -320,4 +320,21 @@ class UniqueOperator : public HabanaOperator {
 
   void SetPTOutputs(torch::jit::Stack& inputs) override;
 };
+
+// Linspace Operator
+class LinspaceOutOperator : public HabanaOperator {
+ public:
+  LinspaceOutOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator(NULL_GUID) {
+    static_cast<void>(scalarType);
+    this->CreateSynContext(device_id);
+  }
+
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+  void SetPTOutputs(torch::jit::Stack& inputs) override;
+};
+
 } // namespace habana

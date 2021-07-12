@@ -1226,6 +1226,18 @@ static const std::
                   at::ScalarType::BFloat16}},
             },
             {
+                "linspace",
+                {{at::ScalarType::Float,
+                  at::ScalarType::Double,
+                  at::ScalarType::BFloat16}},
+            },
+            {
+                "linspace_out",
+                {{at::ScalarType::Float,
+                  at::ScalarType::Double,
+                  at::ScalarType::BFloat16}},
+            },
+            {
                 "sgn",
                 {{at::ScalarType::Double,
                   at::ScalarType::Float,

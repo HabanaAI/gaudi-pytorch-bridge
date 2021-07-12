@@ -367,3 +367,49 @@ TEST_F(LazyIndexKernelTest, AdvanceIndexTest) {
   bool equal = out_cpu.allclose(out_hpu.to(torch::kCPU), 0.001, 0.001);
   EXPECT_EQ(equal, true);
 }
+
+TEST_F(LazyIndexKernelTest, LinspaceOutNullStep) {
+  const int64_t constStepsValue = 36; // set incorrect size
+  torch::Scalar start = 100.0f;
+  torch::Scalar end = .30f;
+  c10::optional<int64_t> step = c10::nullopt;
+  torch::Tensor out =
+      torch::randn({constStepsValue}, torch::requires_grad(false));
+  auto hOut = out.to(torch::kHABANA);
+
+  auto h_a = torch::linspace_outf(start, end, step, hOut);
+  auto hOut_cpu = h_a.to(torch::kCPU);
+
+  auto a = torch::linspace_outf(start, end, step, out);
+  EXPECT_EQ(allclose(hOut_cpu, out, 0.0001), true);
+}
+
+TEST_F(LazyIndexKernelTest, LinspaceOutPosToNeFraction) {
+  const int64_t constStepsValue = 45;
+  torch::Scalar start = 0.70f;
+  torch::Scalar end = -0.03f;
+  c10::optional<int64_t> step = constStepsValue;
+  torch::Tensor out =
+      torch::randn({constStepsValue}, torch::requires_grad(false));
+  auto hOut = out.to(torch::kHABANA);
+
+  auto h_a = torch::linspace_outf(start, end, step, hOut);
+  auto hOut_cpu = h_a.to(torch::kCPU);
+
+  auto a = torch::linspace_outf(start, end, step, out);
+  EXPECT_EQ(allclose(hOut_cpu, out, 0.0001), true);
+}
+
+TEST_F(LazyIndexKernelTest, LinspaceOutSameStartEnd) {
+  torch::Scalar start = -100.0f;
+  torch::Scalar end = -100.0f;
+  c10::optional<int64_t> step = 100; // wrong value
+  torch::Tensor out = torch::randn({10}, torch::requires_grad(false));
+  auto hOut = out.to(torch::kHABANA);
+
+  auto h_a = torch::linspace_outf(start, end, step, hOut);
+  auto hOut_cpu = h_a.to(torch::kCPU);
+
+  auto a = torch::linspace_outf(start, end, step, out);
+  EXPECT_EQ(allclose(hOut_cpu, out), true);
+}

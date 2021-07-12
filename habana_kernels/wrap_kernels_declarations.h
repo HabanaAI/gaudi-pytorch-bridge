@@ -29,6 +29,11 @@ struct hpu_wrap {
       c10::optional<at::Layout> layout,
       c10::optional<at::Device> device,
       c10::optional<bool> pin_memory);
+  static at::Tensor& linspace_out(
+      at::Scalar start,
+      at::Scalar end,
+      c10::optional<int64_t> steps,
+      at::Tensor& out);
   static at::Tensor silu(const at::Tensor& self);
   static at::Tensor silu_backward(
       const at::Tensor& grad,

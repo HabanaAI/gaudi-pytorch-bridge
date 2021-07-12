@@ -9,6 +9,43 @@
 
 using namespace habana_lazy;
 
+TEST(EagerKernelTest, LinspaceOutCache) {
+  const int64_t constStepsValue = 11;
+  torch::Scalar start = 0.0f;
+  torch::Scalar end = 10.0f;
+  c10::optional<int64_t> step = constStepsValue;
+  torch::Tensor out =
+      torch::randn({constStepsValue}, torch::requires_grad(false));
+  auto hOut = out.to(torch::kHABANA);
+
+  torch::Tensor out2 =
+      torch::randn({constStepsValue}, torch::requires_grad(false));
+  auto hOut2 = out2.to(torch::kHABANA);
+
+  auto h_a = torch::linspace_outf(start, end, step, hOut);
+  auto h_b = torch::linspace_outf(start, end, step, hOut2);
+  auto hOut_cpu = h_b.to(torch::kCPU);
+
+  auto a = torch::linspace_outf(start, end, step, out);
+  EXPECT_EQ(allclose(hOut_cpu, out), true);
+}
+
+TEST(EagerKernelTest, LinspaceOutNeToPosStep1) {
+  const int64_t constStepsValue = 12; // set incorrect size
+  torch::Scalar start = -100.0f;
+  torch::Scalar end = 200.0f;
+  c10::optional<int64_t> step = 1;
+  torch::Tensor out =
+      torch::randn({constStepsValue}, torch::requires_grad(false));
+  auto hOut = out.to(torch::kHABANA);
+
+  auto h_a = torch::linspace_outf(start, end, step, hOut);
+  auto hOut_cpu = h_a.to(torch::kCPU);
+
+  auto a = torch::linspace_outf(start, end, step, out);
+  EXPECT_EQ(allclose(hOut_cpu, out), true);
+}
+
 TEST(EagerKernelTest, MinTest0D) {
   torch::Tensor A = torch::tensor(2.03);
   auto hinput = A.to(torch::kHABANA);

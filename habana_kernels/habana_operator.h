@@ -26,6 +26,12 @@
 #include <iostream>
 #include <memory>
 
+// This prefix indicates no TPC kernel exists, but op name with
+// this prefix is used in eager. Null string avoided, since this
+// value is used in eager caching and so per op, unique string
+// is required.
+const std::string NO_TPC = "[NoTPCKernel]";
+
 // For compound Ops, there is not GUID, so null string used
 const std::string NULL_GUID("");
 
