@@ -110,8 +110,10 @@ void InstallSignalHandlers(signalHandlerFnPtr handlerFn) {
 class HPUSigHandler {
  public:
   HPUSigHandler() {
-    habana_helpers::signalHandler::InstallSignalHandlers(fatalSignalHandler);
-    done = false;
+    if (GET_ENV_FLAG(PT_HPU_ERROR_HANDLER)) {
+      habana_helpers::signalHandler::InstallSignalHandlers(fatalSignalHandler);
+      done = false;
+    }
   }
   bool CmpExcgDone() {
     bool expected = false;
