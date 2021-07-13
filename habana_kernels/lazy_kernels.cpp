@@ -172,7 +172,7 @@ std::vector<int64_t> CalculateStrides(
   if (c10::MemoryFormat::ChannelsLast == format) {
     return {sizes[1] * sizes[2] * sizes[3], 1, sizes[1] * sizes[3], sizes[1]};
   }
-  return {sizes[1] * sizes[2] * sizes[3], sizes[1] * sizes[2], sizes[1], 1};
+  return {sizes[1] * sizes[2] * sizes[3], sizes[3] * sizes[2], sizes[3], 1};
 }
 
 ir::Value AddControlEdge(const at::Tensor& src, const at::Tensor& dst) {
