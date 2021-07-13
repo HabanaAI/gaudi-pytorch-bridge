@@ -825,3 +825,4 @@ at::Tensor& linspace_out_hpu(
     at::Scalar end,
     c10::optional<int64_t> steps,
     at::Tensor& out);
+at::Tensor diag_hpu(const at::Tensor& self, int64_t diagonal);

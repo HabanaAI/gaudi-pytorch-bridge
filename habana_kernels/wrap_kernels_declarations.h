@@ -793,6 +793,7 @@ struct hpu_wrap {
       at::Scalar other,
       at::Tensor& result);
   static at::Tensor flip(const at::Tensor& self, at::IntArrayRef dims);
+  static at::Tensor diag(const at::Tensor& self, int64_t diagonal);
 };
 
 std::tuple<at::Tensor&, at::Tensor&>

@@ -892,4 +892,9 @@ at::Tensor& remainder_scalar_hpu_lazy_out(
     at::Scalar other,
     at::Tensor& result);
 at::Tensor flip_hpu_lazy(const at::Tensor& self, at::IntArrayRef dims);
+at::Tensor diag_hpu_lazy(const at::Tensor& self, int64_t diagonal);
+at::Tensor& diag_hpu_lazy_out(
+    const at::Tensor& self,
+    int64_t diagonal,
+    at::Tensor& out);
 } // namespace habana_lazy

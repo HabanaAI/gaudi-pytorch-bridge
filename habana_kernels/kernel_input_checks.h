@@ -2557,6 +2557,12 @@ static const std::
                   at::ScalarType::BFloat16}},
             },
             {
+                "diag",
+                {{at::ScalarType::Double,
+                  at::ScalarType::Float,
+                  at::ScalarType::BFloat16}},
+            },
+            {
                 "div_mod",
                 {{at::ScalarType::Char,
                   at::ScalarType::Short,

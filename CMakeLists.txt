@@ -108,6 +108,7 @@ add_library(habana_pytorch_plugin SHARED
   habana_kernels/tensor_factories.cpp
   habana_kernels/tensor_shape_kernels.cpp
   habana_kernels/threshold_kernels.cpp
+  habana_kernels/triangular_kernels.cpp
   habana_kernels/topk_kernels.cpp
   habana_kernels/unary_kernels.cpp
   habana_kernels/upsample_kernels.cpp

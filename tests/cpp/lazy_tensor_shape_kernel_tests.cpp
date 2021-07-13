@@ -223,7 +223,7 @@ TEST_F(LazyTensorShapeKernelTest, SplitWithSizesTest) {
 }
 
 TEST_F(LazyTensorShapeKernelTest, FlipTest) {
-  torch::Tensor tensor = torch::randn({2, 3, 2});
+  torch::Tensor tensor = torch::rand({2, 3, 2});
   torch::Tensor tHabana = tensor.to(torch::kHABANA);
   auto outHabana = torch::flip(tHabana, {0, 1, 2});
   auto out = torch::flip(tensor, {0, 1, 2});
@@ -236,6 +236,24 @@ TEST_F(LazyTensorShapeKernelTest, FlipNegativeTest) {
   torch::Tensor tHabana = tensor.to(torch::kHABANA);
   auto outHabana = torch::flip(tHabana, {-1, 1});
   auto out = torch::flip(tensor, {-1, 1});
+  bool equal = out.allclose(outHabana.to(torch::kCPU), 0, 0);
+  EXPECT_EQ(equal, true);
+}
+
+TEST_F(LazyTensorShapeKernelTest, Diag2DTest) {
+  torch::Tensor tensor = torch::randn({3, 3});
+  torch::Tensor tHabana = tensor.to(torch::kHABANA);
+  auto outHabana = torch::diag(tHabana, -1);
+  auto out = torch::diag(tensor, -1);
+  bool equal = out.allclose(outHabana.to(torch::kCPU), 0, 0);
+  EXPECT_EQ(equal, true);
+}
+
+TEST_F(LazyTensorShapeKernelTest, Diag1DTest) {
+  torch::Tensor tensor = torch::randn({3});
+  torch::Tensor tHabana = tensor.to(torch::kHABANA);
+  auto outHabana = torch::diag(tHabana, -1);
+  auto out = torch::diag(tensor, -1);
   bool equal = out.allclose(outHabana.to(torch::kCPU), 0, 0);
   EXPECT_EQ(equal, true);
 }

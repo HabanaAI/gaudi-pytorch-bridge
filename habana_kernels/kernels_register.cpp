@@ -3974,11 +3974,20 @@ Tensor hpu_wrap::flip(const Tensor& self, IntArrayRef dims) {
   if (!hpu_check_inputs_impl("flip", {self}))
     return AtenHpuTypeDefault::flip(self, dims);
 
-  // Lazy mode is not implemented
   if (std::getenv("PT_HPU_LAZY_MODE")) {
     return flip_hpu_lazy(self, dims);
   } else {
     return flip_hpu(self, dims);
+  }
+}
+
+Tensor hpu_wrap::diag(const Tensor& self, int64_t diagonal) {
+  if (!hpu_check_inputs_impl("diag", {self}))
+    return AtenHpuTypeDefault::diag(self, diagonal);
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    return diag_hpu_lazy(self, diagonal);
+  } else {
+    return diag_hpu(self, diagonal);
   }
 }
 

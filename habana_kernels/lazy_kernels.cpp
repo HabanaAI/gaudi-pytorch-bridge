@@ -34,6 +34,7 @@
 #include "habana_kernels/repeat.h"
 #include "habana_kernels/resize.h"
 #include "habana_kernels/tensor_shape_kernels.h"
+#include "habana_kernels/triangular_kernels.h"
 #include "habana_kernels/upsample_kernels.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
@@ -4635,6 +4636,16 @@ at::Tensor leaky_relu_lazy(const at::Tensor& self, at::Scalar negative_slope) {
 at::Tensor flip_hpu_lazy(const at::Tensor& self, at::IntArrayRef dims) {
   PT_LAZY_TRACE;
   LazyOp<at::Tensor> k("aten::flip", {self, dims});
+  return k.call();
+}
+
+at::Tensor diag_hpu_lazy(const at::Tensor& self, int64_t diagonal) {
+  PT_LAZY_TRACE;
+  LazyOp<at::Tensor> k(
+      "aten::diag",
+      {self, diagonal},
+      {},
+      {DiagOperator::compute_output_shape(self, diagonal)});
   return k.call();
 }
 
