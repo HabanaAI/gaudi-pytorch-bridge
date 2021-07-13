@@ -32,8 +32,7 @@ def device_tensor_create(device):
     hpu_tensor_2 = torch.randn((3, 3), device = device)
     print(hpu_tensor_2)
 
-def tensor_create(device):
-
+def tensor_create(device, pool_id):
     hpu_tensor_1 = torch.randn(8, 8).to(device)
     dp1 = hpu_tensor_1.data_ptr()
     print(hpu_tensor_1.to("cpu"))
@@ -44,14 +43,16 @@ def tensor_create(device):
     print(hpu_tensor_2.to("cpu"))
 
     #memory should not be reused due to bigger dp5 size
-    assert(check_data_pointers(dp1, dp2) == False)
+    if (pool_id != '5' and pool_id != '0'):
+        assert(check_data_pointers(dp1, dp2) == False)
 
     hpu_tensor_3 = torch.randn(8, 8).to(device)
     dp3 = hpu_tensor_3.data_ptr()
     print(hpu_tensor_3.to("cpu"))
 
     #dp1 memory must be reused
-    assert(check_data_pointers(dp1, dp3) == True)
+    if (pool_id != '5' and pool_id != '0'):
+        assert(check_data_pointers(dp1, dp3) == True)
 
     hpu_tensor_4 = torch.randn(3, 3).to(device)
     dp4 = hpu_tensor_4.data_ptr()
@@ -63,29 +64,29 @@ def tensor_create(device):
     print(hpu_tensor_5.to("cpu"))
 
     #dp4 memory must be reused
-    assert(check_data_pointers(dp5, dp4) == True)
+    if (pool_id != '5' and pool_id != '0'):
+        assert(check_data_pointers(dp5, dp4) == True)
 
     hpu_tensor_6 = torch.randn(3, 3).to(device)
     dp6 = hpu_tensor_6.data_ptr()
     print(hpu_tensor_6.to("cpu"))
 
     #dp6 memory must be a new block
-    assert(check_data_pointers(dp6, dp4) == False)
+    if (pool_id != '5' and pool_id != '0'):
+        assert(check_data_pointers(dp6, dp4) == False)
 
-def pool_exhaust(device):
+def pool_exhaust(device, pool_id):
     gigabyte = 1000*1000*1000
-    pool_used = os.environ.get('PT_HPU_POOL_STRATEGY')
-    print("pool_used :: ", pool_used)
     pool_size = os.environ.get('PT_HPU_POOL_SIZE')
     print("pool_size :: ", pool_size)
 
-    if (pool_used == '1'):
+    if (pool_id == '1'):
         allocated_size = 1
         index = 0
         hpu_tensor_list = []
         pool_sz = 0
         pool_used = "static"
-        if (pool_size == "0"):
+        if (pool_size ==0 or pool_size == None):
             pool_sz = 1 * gigabyte
         else:
             pool_sz = pool_sz * gigabyte
@@ -108,7 +109,7 @@ def pool_exhaust(device):
         #dp0 memory must be reused
         assert(check_data_pointers(dp0, dp1) == True)
 
-    elif (pool_used == '2'):
+    elif (pool_id == '2'):
         pool_used = "dynamic"
         print("test dynamic pooling")
         hpu_tensor_B = torch.randn(10000, 10000).to(device)
@@ -137,7 +138,7 @@ def is_contiguous(dp1, size, dp2):
     else:
         return False
 
-def check_alignment(device):
+def check_alignment(device, pool_id):
     hpu_tensor_1 = torch.randn(3, 3).to(device)
     tensor_size_1 = hpu_tensor_1.element_size() * hpu_tensor_1.nelement()
     dp_1 = hpu_tensor_1.data_ptr()
@@ -151,28 +152,24 @@ def check_alignment(device):
     print("t2 size :: ",tensor_size_2)
     print("t2 :: ",dp_2)
     assert(is_aligned(dp_2) == True)
-    pool_used = os.environ.get('PT_HPU_POOL_STRATEGY')
-    if pool_used != '5':
+    if pool_id != '5':
         assert(is_contiguous(dp_1, tensor_size_1, dp_2) == True)
     else:
         small_chunk_size = 2097152
         assert(is_contiguous(dp_1, small_chunk_size, dp_2) == True)
 
-def pool_coalesce(device):
+def pool_coalesce(device, pool_id):
 
     gigabyte = 1000*1000*1000
-    pool_used = os.environ.get('PT_HPU_POOL_STRATEGY')
-    print("pool_used :: ", pool_used)
     pool_size = os.environ.get('PT_HPU_POOL_SIZE')
     print("pool_size :: ", pool_size)
 
-    if (pool_used == '3'):
+    if (pool_id == '3'):
         allocated_size = 1
         index = 0
         hpu_tensor_list = []
-        pool_sz = int(pool_size)
         pool_used = "static-coalesced"
-        if (pool_size == '0'):
+        if (pool_size == None):
             pool_sz = 1 * gigabyte
         else:
             pool_sz = pool_sz * gigabyte
@@ -210,15 +207,13 @@ def pool_coalesce(device):
         #dp0 memory must be reused
         #assert(check_data_pointers(dp0, dp1) == True)
 
-def pool_coalesce_stringent(device):
+def pool_coalesce_stringent(device, pool_id):
 
     gigabyte = 1024*1024*1024
-    pool_used = os.environ.get('PT_HPU_POOL_STRATEGY')
-    print("pool_used :: ", pool_used)
     pool_size = os.environ.get('PT_HPU_POOL_SIZE')
     print("pool_size :: ", pool_size)
 
-    if (pool_used == '5'):
+    if (pool_id == '5'):
         allocated_size = 1
         index = 0
         hpu_tensor_list = []
@@ -269,11 +264,13 @@ def main():
     torch.ops.load_library(os.path.join(os.environ['PYTORCH_MODULES_RELEASE_BUILD'], "libhabana_pytorch_plugin.so"))
     device = torch.device("hpu")
 
-    check_alignment(device)
-    tensor_create(device)
-    pool_exhaust(device)
-    pool_coalesce(device)
-    pool_coalesce_stringent(device)
+    pool_used = os.environ.get('PT_HPU_POOL_STRATEGY')
+    if (pool_used != '5'):
+        check_alignment(device, pool_used)
+    tensor_create(device, pool_used)
+    pool_exhaust(device, pool_used)
+    pool_coalesce(device, pool_used)
+    pool_coalesce_stringent(device, pool_used)
 
 if __name__ == '__main__':
     main()

@@ -157,8 +157,8 @@ void* StaticPooling::get_free_chunk(void* ptr, uint64_t size) const {
   return nullptr;
 }
 
-void* StaticPooling::reuse_chunks(void* ptr, uint64_t size) const {
-  simple_pool_t* p = (simple_pool_t*)ptr;
+void* StaticPooling::reuse_chunks(uint64_t size) const {
+  simple_pool_t* p = prealloc_pool;
   auto chunk = p->_start;
   auto free_chunk = (Poolchunk*)get_free_chunk(chunk, size);
   if (free_chunk == nullptr) {
@@ -180,7 +180,7 @@ void* StaticPooling::pool_alloc_chunk(uint64_t size, bool is_workspace) const {
     PT_SYNHELPER_FATAL("POOL:: alloc unknown pool !!");
   }
 
-  auto old_chunk = reuse_chunks((void*)p->_top->memptr, size);
+  auto old_chunk = reuse_chunks(size);
   if (old_chunk) {
     ++block_count;
     bytes_in_use += size;
@@ -188,7 +188,6 @@ void* StaticPooling::pool_alloc_chunk(uint64_t size, bool is_workspace) const {
       stats.scratch_mem_in_use = size;
     return old_chunk;
   }
-
   if (pool_available(p) < size) {
     // TBD: implement better algorithms
     pool_allocator::print_device_memory_stats(pool_id);

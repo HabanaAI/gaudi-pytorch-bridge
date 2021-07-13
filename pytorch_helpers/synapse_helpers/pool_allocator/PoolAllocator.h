@@ -124,7 +124,7 @@ class StaticPooling : public PoolingStrategy {
   mutable uint64_t bytes_in_use;
   mutable MemoryStats stats;
   mutable simple_pool_t* prealloc_pool;
-  void* reuse_chunks(void* p, uint64_t size) const;
+  void* reuse_chunks(uint64_t size) const;
   void* get_free_chunk(void* p, uint64_t size) const;
   void print_pool_stats() const;
   mutable std::mutex sp_mutex;
