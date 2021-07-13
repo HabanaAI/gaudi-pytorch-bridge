@@ -432,6 +432,10 @@ void InsertPermute_graph(
         // dim based Ops as per original PT layout NCHW
         if ((strcmp(node->kind().toQualString(), "aten::slice") == 0) ||
             (strcmp(node->kind().toQualString(), "aten::_softmax") == 0) ||
+            (strcmp(node->kind().toQualString(), "hpu::sum_dim_IntList") ==
+             0) ||
+            (strcmp(node->kind().toQualString(), "aten::constant_pad_nd") ==
+             0) ||
             (strcmp(
                  node->kind().toQualString(), "aten::_softmax_backward_data") ==
              0) ||
@@ -555,6 +559,8 @@ void InsertPermute_graph(
       } else if (
           (strcmp(node->kind().toQualString(), "aten::view") == 0) ||
           (strcmp(node->kind().toQualString(), "aten::index") == 0) ||
+          (strcmp(node->kind().toQualString(), "hpu::sum_dim_IntList") == 0) ||
+          (strcmp(node->kind().toQualString(), "aten::constant_pad_nd") == 0) ||
           (strcmp(node->kind().toQualString(), "aten::_softmax") == 0) ||
           (strcmp(
                node->kind().toQualString(), "aten::_softmax_backward_data") ==

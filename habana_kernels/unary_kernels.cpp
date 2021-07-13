@@ -174,7 +174,7 @@ void UnaryBackwardOperator::AllocateAndAddSynapseNode(
       "Sizes in elementwise kernel don't match. grad_in sizes: ",
       grad_in.sizes(),
       ", input sizes: ",
-      grad_in.sizes());
+      input.sizes());
 
   auto grad_output =
       habana_helpers::createPTTensor(input, is_output_persistent);
