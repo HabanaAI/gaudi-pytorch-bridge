@@ -49,4 +49,63 @@ class DiagOperator : public habana::HabanaOperator {
       int64_t& diagonal);
 };
 
+// MatrixBandPart Operator
+class MatrixBandPartOperator : public HabanaOperator {
+ public:
+  MatrixBandPartOperator(
+      int device_id,
+      c10::ScalarType scalarType,
+      const std::string callerOp)
+      : HabanaOperator(
+            "matrix_band_part_fwd_" +
+            habana_helpers::name_suffix_from_type(scalarType)) {
+    this->CreateSynContext(device_id);
+    this->callerOp_ = callerOp;
+    kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
+    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
+  }
+
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+
+ private:
+  std::string callerOp_;
+};
+
+// Triu Operator
+class TriuOperator : public HabanaOperator {
+ public:
+  TriuOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator(NULL_GUID) {
+    static_cast<void>(scalarType);
+    this->CreateSynContext(device_id);
+    kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
+    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
+  }
+
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+};
+
+// Tril Operator
+class TrilOperator : public HabanaOperator {
+ public:
+  TrilOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator(NULL_GUID) {
+    static_cast<void>(scalarType);
+    this->CreateSynContext(device_id);
+    kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
+    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
+  }
+
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+};
+
 } // namespace habana

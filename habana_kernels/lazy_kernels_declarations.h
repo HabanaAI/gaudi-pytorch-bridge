@@ -897,4 +897,6 @@ at::Tensor& diag_hpu_lazy_out(
     const at::Tensor& self,
     int64_t diagonal,
     at::Tensor& out);
+at::Tensor triu_hpu_lazy(const at::Tensor& self, int64_t diagonal);
+at::Tensor tril_hpu_lazy(const at::Tensor& self, int64_t diagonal);
 } // namespace habana_lazy

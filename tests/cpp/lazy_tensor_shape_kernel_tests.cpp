@@ -257,3 +257,31 @@ TEST_F(LazyTensorShapeKernelTest, Diag1DTest) {
   bool equal = out.allclose(outHabana.to(torch::kCPU), 0, 0);
   EXPECT_EQ(equal, true);
 }
+
+TEST_F(LazyTensorShapeKernelTest, TriuTrilTest) {
+  auto typetest = [](at::Tensor (*op)(const at::Tensor&, int64_t),
+                     int64_t diagonal,
+                     c10::ScalarType dtype,
+                     c10::IntArrayRef size) {
+    auto a = torch::randn(size).to(dtype);
+    int64_t diag = diagonal;
+    auto out = op(a, diag);
+
+    auto ha = a.to("hpu");
+    auto hout = op(ha, diag);
+    EXPECT_TRUE(
+        allclose(out, hout.to("cpu"), 0.001, 0.001, /*equal_nan*/ true));
+  };
+  typetest(&torch::triu, 1, torch::kFloat, {3, 3});
+  typetest(&torch::triu, 0, torch::kFloat, {4, 4});
+  typetest(&torch::triu, -1, torch::kFloat, {2, 2});
+  typetest(&torch::triu, 1, torch::kFloat, {5, 8});
+  typetest(&torch::triu, 0, torch::kFloat, {5, 7});
+  typetest(&torch::triu, -1, torch::kFloat, {7, 8});
+  typetest(&torch::tril, 1, torch::kFloat, {4, 4});
+  typetest(&torch::tril, 0, torch::kFloat, {5, 5});
+  typetest(&torch::tril, -1, torch::kFloat, {6, 6});
+  typetest(&torch::tril, 1, torch::kFloat, {8, 5});
+  typetest(&torch::tril, 0, torch::kFloat, {7, 5});
+  typetest(&torch::tril, -1, torch::kFloat, {8, 7});
+}

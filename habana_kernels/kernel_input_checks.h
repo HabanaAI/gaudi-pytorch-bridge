@@ -1955,6 +1955,19 @@ static const std::
                   at::ScalarType::Double}},
             },
             {
+                "triu",
+                {{at::ScalarType::Float,
+                  at::ScalarType::BFloat16,
+                  at::ScalarType::Double}},
+            },
+            {
+                "tril",
+                {{at::ScalarType::Float,
+                  at::ScalarType::BFloat16,
+                  at::ScalarType::Double}},
+            },
+            {
+
                 "clamp_",
                 {{at::ScalarType::Int,
                   at::ScalarType::Long,

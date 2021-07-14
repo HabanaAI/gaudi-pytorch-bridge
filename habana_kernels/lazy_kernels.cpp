@@ -6610,4 +6610,18 @@ Tensor& remainder_scalar_hpu_lazy_out(
   return k.call(result);
 }
 
+at::Tensor triu_hpu_lazy(const at::Tensor& self, int64_t diagonal) {
+  PT_LAZY_TRACE;
+
+  LazyOp<at::Tensor> k{"aten::triu", {self, diagonal}};
+  return k.call();
+}
+
+at::Tensor tril_hpu_lazy(const at::Tensor& self, int64_t diagonal) {
+  PT_LAZY_TRACE;
+
+  LazyOp<at::Tensor> k{"aten::tril", {self, diagonal}};
+  return k.call();
+}
+
 } // namespace habana_lazy

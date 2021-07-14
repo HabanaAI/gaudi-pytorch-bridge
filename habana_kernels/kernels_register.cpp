@@ -448,6 +448,28 @@ Tensor& hpu_wrap::remainder_out(
   }
 };
 
+Tensor hpu_wrap::triu(const Tensor& self, int64_t diagonal) {
+  if (!hpu_check_inputs_impl("triu", {self}))
+    return AtenHpuTypeDefault::triu(self, diagonal);
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    return triu_hpu_lazy(self, diagonal);
+  } else {
+    HABANA_ASSERT(0 && "triu is not implemented for eager mode");
+    return triu_hpu_lazy(self, diagonal);
+  }
+};
+
+Tensor hpu_wrap::tril(const Tensor& self, int64_t diagonal) {
+  if (!hpu_check_inputs_impl("tril", {self}))
+    return AtenHpuTypeDefault::tril(self, diagonal);
+  if (std::getenv("PT_HPU_LAZY_MODE")) {
+    return tril_hpu_lazy(self, diagonal);
+  } else {
+    HABANA_ASSERT(0 && "tril is not implemented for eager mode");
+    return tril_hpu_lazy(self, diagonal);
+  }
+};
+
 Tensor hpu_wrap::pow(const Tensor& self, const Tensor& other) {
   if (!hpu_check_inputs_impl("pow", {self, other}))
     return AtenHpuTypeDefault::pow(self, other);
