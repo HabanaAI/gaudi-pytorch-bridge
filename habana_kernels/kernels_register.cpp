@@ -1202,6 +1202,56 @@ Tensor hpu_wrap::mm(const at::Tensor& mat1, const at::Tensor& mat2) {
     return mm_hpu(mat1, mat2);
   }
 };
+
+Tensor hpu_wrap::baddbmm(
+    const Tensor& self,
+    const Tensor& mat1,
+    const Tensor& mat2,
+    Scalar beta,
+    Scalar alpha) {
+  Tensor out = hpu_wrap::mul(hpu_wrap::bmm(mat1, mat2), alpha);
+  if (beta.toFloat() != 0) {
+    hpu_wrap::add_(out, self, beta);
+  }
+  return out;
+}
+
+Tensor& hpu_wrap::baddbmm_out(
+    const Tensor& self,
+    const Tensor& mat1,
+    const Tensor& mat2,
+    Scalar beta,
+    Scalar alpha,
+    Tensor& out) {
+  if (beta.toFloat() == 0) {
+    hpu_wrap::bmm_out(mat1, mat2, out);
+    hpu_wrap::mul_(out, alpha);
+  } else {
+    Tensor r_bmul = hpu_wrap::mul(self, beta);
+    hpu_wrap::bmm_out(mat1, mat2, out);
+    hpu_wrap::mul_(out, alpha);
+    hpu_wrap::add_(out, r_bmul, 1);
+  }
+  return out;
+}
+
+Tensor& hpu_wrap::baddbmm_(
+    Tensor& self,
+    const Tensor& mat1,
+    const Tensor& mat2,
+    Scalar beta,
+    Scalar alpha) {
+  if (beta.toFloat() == 0) {
+    hpu_wrap::bmm_out(mat1, mat2, self);
+    hpu_wrap::mul_(self, alpha);
+  } else {
+    Tensor r_bmm = hpu_wrap::bmm(mat1, mat2);
+    hpu_wrap::mul_(self, beta);
+    hpu_wrap::add_(self, r_bmm, alpha);
+  }
+  return self;
+}
+
 Tensor hpu_wrap::addmm(
     const Tensor& self,
     const Tensor& mat1,

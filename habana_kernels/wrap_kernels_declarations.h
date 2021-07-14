@@ -291,6 +291,25 @@ struct hpu_wrap {
       at::Tensor& output);
   static at::Tensor nonzero(const at::Tensor& self);
   static at::Tensor mm(const at::Tensor& mat1, const at::Tensor& mat2);
+  static at::Tensor baddbmm(
+      const at::Tensor& self,
+      const at::Tensor& mat1,
+      const at::Tensor& mat2,
+      at::Scalar beta,
+      at::Scalar alpha);
+  static at::Tensor& baddbmm_out(
+      const at::Tensor& self,
+      const at::Tensor& mat1,
+      const at::Tensor& mat2,
+      at::Scalar beta,
+      at::Scalar alpha,
+      at::Tensor& out);
+  static at::Tensor& baddbmm_(
+      at::Tensor& self,
+      const at::Tensor& mat1,
+      const at::Tensor& mat2,
+      at::Scalar beta,
+      at::Scalar alpha);
   static at::Tensor addmm(
       const at::Tensor& self,
       const at::Tensor& mat1,

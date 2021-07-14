@@ -151,3 +151,151 @@ TEST_F(LazyLinearKernelTest, MatmulBwdTest) {
   matmulbwd_test({2, 3}, {3, 4});
 }
 */
+
+TEST_F(LazyLinearKernelTest, BaddBmmTest1) {
+  torch::Tensor A = torch::randn({10, 3, 5});
+  torch::Tensor B = torch::randn({10, 3, 4});
+  torch::Tensor C = torch::randn({10, 4, 5});
+  float beta = 1.0, alpha = 1.0;
+
+  torch::Tensor hA = A.to(kHABANA);
+  torch::Tensor hB = B.to(kHABANA);
+  torch::Tensor hC = C.to(kHABANA);
+  torch::Tensor hComputed = torch::baddbmm(hA, hB, hC, beta, alpha);
+  auto expected = torch::baddbmm(A, B, C, beta, alpha);
+
+  auto computed = hComputed.to(torch::kCPU);
+  EXPECT_EQ(allclose(expected, computed, 0.001, 0.001), true);
+}
+
+TEST_F(LazyLinearKernelTest, BaddBmmTest2) {
+  torch::Tensor A = torch::randn({10, 3, 5});
+  torch::Tensor B = torch::randn({10, 3, 4});
+  torch::Tensor C = torch::randn({10, 4, 5});
+  float beta = 1.0, alpha = 0.0;
+
+  torch::Tensor hA = A.to(kHABANA);
+  torch::Tensor hB = B.to(kHABANA);
+  torch::Tensor hC = C.to(kHABANA);
+  torch::Tensor hComputed = torch::baddbmm(hA, hB, hC, beta, alpha);
+  auto expected = torch::baddbmm(A, B, C, beta, alpha);
+
+  auto computed = hComputed.to(torch::kCPU);
+  EXPECT_EQ(allclose(expected, computed, 0.001, 0.001), true);
+}
+
+TEST_F(LazyLinearKernelTest, BaddBmmTest3) {
+  torch::Tensor A = torch::randn({1, 3, 5});
+  torch::Tensor B = torch::randn({10, 3, 4});
+  torch::Tensor C = torch::randn({10, 4, 5});
+  float beta = 0.8, alpha = 0.0;
+
+  torch::Tensor hA = A.to(kHABANA);
+  torch::Tensor hB = B.to(kHABANA);
+  torch::Tensor hC = C.to(kHABANA);
+  torch::Tensor hComputed = torch::baddbmm(hA, hB, hC, beta, alpha);
+  auto expected = torch::baddbmm(A, B, C, beta, alpha);
+
+  auto computed = hComputed.to(torch::kCPU);
+  EXPECT_EQ(allclose(expected, computed, 0.001, 0.001), true);
+}
+
+TEST_F(LazyLinearKernelTest, BaddBmmTest4) {
+  torch::Tensor A = torch::randn({3, 5});
+  torch::Tensor B = torch::randn({10, 3, 4});
+  torch::Tensor C = torch::randn({10, 4, 5});
+  float beta = 0.8, alpha = 0.2;
+
+  torch::Tensor hA = A.to(kHABANA);
+  torch::Tensor hB = B.to(kHABANA);
+  torch::Tensor hC = C.to(kHABANA);
+  torch::Tensor hComputed = torch::baddbmm(hA, hB, hC, beta, alpha);
+  auto expected = torch::baddbmm(A, B, C, beta, alpha);
+
+  auto computed = hComputed.to(torch::kCPU);
+  EXPECT_EQ(allclose(expected, computed, 0.001, 0.001), true);
+}
+
+TEST_F(LazyLinearKernelTest, BaddBmmOutTest1) {
+  torch::Tensor A = torch::randn({3, 5});
+  torch::Tensor B = torch::randn({10, 3, 4});
+  torch::Tensor C = torch::randn({10, 4, 5});
+  torch::Tensor out_cpu = torch::randn({10, 3, 5});
+  float beta = 1.0, alpha = 1.0;
+
+  torch::Tensor hA = A.to(kHABANA);
+  torch::Tensor hB = B.to(kHABANA);
+  torch::Tensor hC = C.to(kHABANA);
+  torch::Tensor hOut = out_cpu.to(kHABANA);
+  torch::Tensor hComputed = torch::baddbmm_out(hOut, hA, hB, hC, beta, alpha);
+  auto expected = torch::baddbmm_out(out_cpu, A, B, C, beta, alpha);
+
+  auto computed = hComputed.to(torch::kCPU);
+  EXPECT_EQ(allclose(expected, computed, 0.001, 0.001), true);
+}
+
+TEST_F(LazyLinearKernelTest, BaddBmmOutTest2) {
+  torch::Tensor A = torch::randn({10, 3, 5});
+  torch::Tensor B = torch::randn({10, 3, 4});
+  torch::Tensor C = torch::randn({10, 4, 5});
+  torch::Tensor out_cpu = torch::randn({10, 3, 5});
+  float beta = 1.2, alpha = 0.0;
+
+  torch::Tensor hA = A.to(kHABANA);
+  torch::Tensor hB = B.to(kHABANA);
+  torch::Tensor hC = C.to(kHABANA);
+  torch::Tensor hOut = out_cpu.to(kHABANA);
+  torch::baddbmm_out(hOut, hA, hB, hC, beta, alpha);
+  torch::baddbmm_out(out_cpu, A, B, C, beta, alpha);
+
+  auto computed = hOut.to(torch::kCPU);
+  EXPECT_EQ(allclose(out_cpu, computed, 0.001, 0.001), true);
+}
+
+TEST_F(LazyLinearKernelTest, BaddBmmInplaceTest1) {
+  torch::Tensor A = torch::randn({10, 3, 5});
+  torch::Tensor B = torch::randn({10, 3, 4});
+  torch::Tensor C = torch::randn({10, 4, 5});
+  float beta = 0.6, alpha = 0.3;
+
+  torch::Tensor hA = A.to(kHABANA);
+  torch::Tensor hB = B.to(kHABANA);
+  torch::Tensor hC = C.to(kHABANA);
+  hA.baddbmm_(hB, hC, beta, alpha);
+  A.baddbmm_(B, C, beta, alpha);
+
+  auto computed = hA.to(torch::kCPU);
+  EXPECT_EQ(allclose(A, computed, 0.001, 0.001), true);
+}
+
+TEST_F(LazyLinearKernelTest, BaddBmmInplaceTest2) {
+  torch::Tensor A = torch::randn({10, 3, 5});
+  torch::Tensor B = torch::randn({10, 3, 4});
+  torch::Tensor C = torch::randn({10, 4, 5});
+  float beta = 0.6, alpha = 0.0;
+
+  torch::Tensor hA = A.to(kHABANA);
+  torch::Tensor hB = B.to(kHABANA);
+  torch::Tensor hC = C.to(kHABANA);
+  hA.baddbmm_(hB, hC, beta, alpha);
+  A.baddbmm_(B, C, beta, alpha);
+
+  auto computed = hA.to(torch::kCPU);
+  EXPECT_EQ(allclose(A, computed, 0.001, 0.001), true);
+}
+
+TEST_F(LazyLinearKernelTest, BaddBmmInplaceTest3) {
+  torch::Tensor A = torch::randn({10, 3, 5});
+  torch::Tensor B = torch::randn({10, 3, 4});
+  torch::Tensor C = torch::randn({10, 4, 5});
+  float beta = 0.0, alpha = 0.8;
+
+  torch::Tensor hA = A.to(kHABANA);
+  torch::Tensor hB = B.to(kHABANA);
+  torch::Tensor hC = C.to(kHABANA);
+  hA.baddbmm_(hB, hC, beta, alpha);
+  A.baddbmm_(B, C, beta, alpha);
+
+  auto computed = hA.to(torch::kCPU);
+  EXPECT_EQ(allclose(A, computed, 0.001, 0.001), true);
+}
