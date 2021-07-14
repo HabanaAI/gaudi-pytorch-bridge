@@ -4972,8 +4972,10 @@ Scalar _local_scalar_dense_hpu_lazy(const Tensor& self) {
   // getting flled has finished before we start copying
   if (IsHbLazyTensor(self)) {
     HbLazyTensor hb_tensor = GetOrCreateHbLazyTensor(self, self.device());
-    // Trigger point execution
-    HbLazyTensor::StepMarker({});
+    if (self.device().type() == c10::DeviceType::HABANA) {
+      // Trigger point execution
+      HbLazyTensor::StepMarker({});
+    }
     auto tensor_data = hb_tensor.GetHbLazyTensorData();
     out = _local_scalar_dense_hpu(tensor_data.value());
   } else {

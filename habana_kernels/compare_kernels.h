@@ -139,4 +139,16 @@ class LeOperator : public CompareWrapperOperator {
             "less_equal_fwd_" +
                 habana_helpers::name_suffix_from_type(scalarType)) {}
 };
+
+// Dummy class added to capture only meta-data information about this operator
+// for JIT passes. Do not instantiate objects of this class.
+class NeOperator : public habana::HabanaOperator {
+ public:
+  NeOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator(
+            "ne_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
+    this->CreateSynContext(device_id);
+  }
+};
+
 } // namespace habana

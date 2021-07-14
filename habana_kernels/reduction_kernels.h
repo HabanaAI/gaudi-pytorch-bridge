@@ -296,4 +296,16 @@ class ArgMaxOperator : public ReduceOperator {
 
   virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
 };
+
+// Dummy class added to capture only meta-data information about this operator
+// for JIT passes. Do not instantiate objects of this class.
+class AllOperator : public habana::HabanaOperator {
+ public:
+  AllOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator(
+            "all_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
+    this->CreateSynContext(device_id);
+  }
+};
+
 } // namespace habana

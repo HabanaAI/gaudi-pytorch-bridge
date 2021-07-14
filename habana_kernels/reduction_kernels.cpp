@@ -1861,6 +1861,16 @@ static auto& KernelRegistry =
               return std::make_shared<AnyDimOperator>(device_id, node_type);
             })
         .add(
+            "aten::all",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<AllOperator>(device_id, node_type);
+            })
+        .add(
+            "hpu::all_dim",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<AllOperator>(device_id, node_type);
+            })
+        .add(
             "aten::argmax",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<ArgMaxOperator>(device_id, node_type);

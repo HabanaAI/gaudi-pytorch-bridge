@@ -568,4 +568,14 @@ static auto& KernelRegistry =
             "aten::le.Scalar",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<LeOperator>(device_id, node_type);
+            })
+        .add(
+            "aten::ne.Tensor",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<NeOperator>(device_id, node_type);
+            })
+        .add(
+            "aten::ne.Scalar",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<NeOperator>(device_id, node_type);
             });

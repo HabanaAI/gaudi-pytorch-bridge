@@ -225,6 +225,17 @@ void HlExec::Create(
 
 void HlExec::Optimize(torch::jit::Stack& stack) {
   PT_LAZY_TRACE;
+  // Permute Pass to insert permute nodes should be run before any other JIT
+  // optimization pass. Reason for this is because Permute pass relies on extra
+  // information (e.g. dims) for each tensor added at JIT graph graph creation
+  // time to decide on permute node insertion. If any other pass runs before
+  // permute pass and inserts a new node (e.g. inplace replacement pass removes
+  // inplace node and adds corresponding out-of-place node), then this new node
+  // will not have required extra information for permute pass to work properly.
+  if (OptPassCfg::GetInstance()->IsEnabledPermutePass()) {
+    InsertPermute_graph(mp_g_, stack);
+  }
+
   if (OptPassCfg::GetInstance()->IsEnabledFuseTMM()) {
     fuse_mm_transpose(mp_g_);
   }
@@ -258,10 +269,6 @@ void HlExec::Optimize(torch::jit::Stack& stack) {
 
   if (OptPassCfg::GetInstance()->IsEnabledSubgraphRewrite()) {
     transform_graph(mp_g_);
-  }
-
-  if (OptPassCfg::GetInstance()->IsEnabledPermutePass()) {
-    InsertPermute_graph(mp_g_, stack);
   }
 }
 
