@@ -145,7 +145,7 @@ void fatalSignalHandler(int signum, siginfo_t* info, void* ctx) {
     }
 
     if (GET_ENV_FLAG(PT_HPU_PRINT_BACKTRACE_ON_SIGNAL)) {
-      ss << c10::get_backtrace() << "\n";
+      ss << c10::get_backtrace(2) << "\n";
     }
 
     std::cerr << ss.str();
