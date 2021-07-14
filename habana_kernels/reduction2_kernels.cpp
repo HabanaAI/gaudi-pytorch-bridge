@@ -140,12 +140,22 @@ std::tuple<at::Tensor, at::Tensor> max_dim_hpu(
     PT_KERNEL_DEBUG("Cache hit key:", key);
     auto out_shape = MaxDimOperator::compute_output_shape(
         self, c10::maybe_wrap_dim(dim, self.dim()), keepdim);
-    auto output1 =
-        at::empty(out_shape, self.options(), self.suggest_memory_format());
-    auto output2 = at::empty(
-        out_shape,
-        self.options().dtype(c10::ScalarType::Int),
-        self.suggest_memory_format());
+    Tensor output1, output2;
+    if (out_shape.size() < 4) {
+      output1 =
+          at::empty(out_shape, self.options(), at::MemoryFormat::Contiguous);
+      output2 = at::empty(
+          out_shape,
+          self.options().dtype(c10::ScalarType::Int),
+          at::MemoryFormat::Contiguous);
+    } else {
+      output1 =
+          at::empty(out_shape, self.options(), self.suggest_memory_format());
+      output2 = at::empty(
+          out_shape,
+          self.options().dtype(c10::ScalarType::Int),
+          self.suggest_memory_format());
+    }
     Op.SetPTInputs(pt_inputs);
     std::vector<at::Tensor> v{output1, output2};
     Op.SetPTOutputs(v);
