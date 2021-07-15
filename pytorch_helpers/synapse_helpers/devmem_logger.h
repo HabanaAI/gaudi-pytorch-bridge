@@ -36,7 +36,7 @@ class deviceMallocData final {
   size_t running_memory, iteration_high_watermark, overall_high_watermark;
   unsigned int iteration_number;
 
-  const char* filename = "habana_log.livealloc.log";
+  std::string filename;
   const char* fragment_csv_file = "habana_log.fragment.csv";
   bool take_bt, print_free_bt, print_alloc_bt;
   size_t bt_depth;

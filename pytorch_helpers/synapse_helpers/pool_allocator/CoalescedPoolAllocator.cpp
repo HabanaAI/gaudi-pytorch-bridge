@@ -98,6 +98,9 @@ bool StaticCoalescedPooling::pool_create(synDeviceId deviceID, uint64_t size)
 
   log_DRAM_start(p->memptr);
   log_DRAM_size(max_pool_size);
+  stats.pool_id = pool_id;
+  stats.memory_limit = max_pool_size;
+  stats.bytes_in_use += 0x80;
   return true;
 }
 
@@ -460,7 +463,8 @@ Chunk* StaticCoalescedPooling::try_block_splitting(uint64_t size) const {
   return nullptr;
 }
 
-void* StaticCoalescedPooling::pool_alloc_chunk(uint64_t size) const {
+void* StaticCoalescedPooling::pool_alloc_chunk(uint64_t size, bool is_workspace)
+    const {
   const std::lock_guard<std::mutex> lock(sp_mutex);
   size = block_align(size);
 
@@ -497,6 +501,7 @@ void* StaticCoalescedPooling::pool_alloc_chunk(uint64_t size) const {
         " extra space :: ",
         old_chunk->extra_space);
     bytes_in_use += old_chunk->size;
+    stats.UpdateStats(old_chunk->size, true, is_workspace);
     return (void*)old_chunk->memptr;
   }
 
@@ -513,6 +518,7 @@ void* StaticCoalescedPooling::pool_alloc_chunk(uint64_t size) const {
       defrag_chunk->used = true;
       chunks[defrag_chunk->memptr] = defrag_chunk;
       bytes_in_use += defrag_chunk->size;
+      stats.UpdateStats(defrag_chunk->size, true, is_workspace);
       return (void*)defrag_chunk->memptr;
     }
     auto split_chunk = try_block_splitting(size);
@@ -526,6 +532,7 @@ void* StaticCoalescedPooling::pool_alloc_chunk(uint64_t size) const {
       split_chunk->used = true;
       chunks[split_chunk->memptr] = split_chunk;
       bytes_in_use += split_chunk->size;
+      stats.UpdateStats(split_chunk->size, true, is_workspace);
       return (void*)split_chunk->memptr;
     }
     print_device_memory_stats(pool_id);
@@ -579,6 +586,7 @@ void* StaticCoalescedPooling::pool_alloc_chunk(uint64_t size) const {
 
   chunks[chunk->memptr] = chunk;
   bytes_in_use += chunk->size;
+  stats.UpdateStats(chunk->size, true, is_workspace);
   return (void*)chunk->memptr;
 }
 
@@ -889,6 +897,20 @@ void StaticCoalescedPooling::pool_free_chunk(void* ptr) const {
   free_list.insert(chunk);
   --chunk_count;
   bytes_in_use -= chunk->size;
+  stats.UpdateStats(chunk->size, false);
+}
+
+void StaticCoalescedPooling::get_stats(MemoryStats* mem_stats) const {
+  const std::lock_guard<std::mutex> lock(sp_mutex);
+  *mem_stats = stats;
+}
+
+void StaticCoalescedPooling::clear_stats() const {
+  const std::lock_guard<std::mutex> lock(sp_mutex);
+  stats.num_allocs = 0;
+  stats.num_frees = 0;
+  stats.peak_bytes_in_use = stats.bytes_in_use;
+  stats.largest_alloc_size = 0;
 }
 
 } // namespace pool_allocator

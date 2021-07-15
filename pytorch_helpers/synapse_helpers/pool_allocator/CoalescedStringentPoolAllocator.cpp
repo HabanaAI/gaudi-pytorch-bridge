@@ -218,11 +218,15 @@ bool CoalescedStringentPooling::pool_create(synDeviceId deviceID, uint64_t size)
   chunks[chunk->memptr] = chunk;
   bin_utils->InsertFreeChunkIntoBin(chunk);
 
+  stats.pool_id = pool_id;
+  stats.memory_limit = max_pool_size;
+  stats.bytes_in_use += 0x80;
   const auto chunk_ptr = static_cast<int8_t*>(alloc_chunk(SmallAllocs::kSize));
   const auto free_chunk = [this](int8_t* ptr) { delete_chunk(ptr); };
   small_allocs_ = absl::make_unique<SmallAllocs>(
       std::unique_ptr<int8_t, std::function<void(int8_t*)>>(
           chunk_ptr, free_chunk));
+  stats.num_allocs = 0;
   return true;
 }
 
@@ -533,6 +537,7 @@ void* CoalescedStringentPooling::extend_high_memory_allocation(
     uint64_t size) const {
   const std::lock_guard<std::mutex> lock(sp_mutex);
   size = block_align(size);
+  size_t current_ws_size = 0;
   if (size > max_pool_size) {
     PT_SYNHELPER_DEBUG("POOL:: alloc size exceeds max size !!");
     return nullptr;
@@ -575,6 +580,7 @@ void* CoalescedStringentPooling::extend_high_memory_allocation(
   // if high memory is already allocated, extend the remaining memory for the
   // requested size
   if (high_memory_allocated_) {
+    current_ws_size = tail_chunk->size;
     tail_chunk->used = false;
     bin_utils->InsertFreeChunkIntoBin(try_to_merge(tail_chunk, false));
     tail_chunk = prealloc_pool->top;
@@ -608,12 +614,15 @@ void* CoalescedStringentPooling::extend_high_memory_allocation(
   }
   bin_utils->RemoveFreeChunkFromBin(tail_chunk);
   tail_chunk->used = true;
-  tail_chunk->size = size;
 
+  stats.UpdateStats((tail_chunk->size - current_ws_size), true);
+  stats.scratch_mem_in_use = tail_chunk->size;
   return (void*)tail_chunk->memptr;
 }
 
-void* CoalescedStringentPooling::pool_alloc_chunk(uint64_t size) const {
+void* CoalescedStringentPooling::pool_alloc_chunk(
+    uint64_t size,
+    UNUSED bool is_workspace) const {
   const std::lock_guard<std::mutex> lock(sp_mutex);
   return alloc_chunk(size);
 }
@@ -625,6 +634,7 @@ void* CoalescedStringentPooling::alloc_chunk(uint64_t size) const {
   if (small_allocs_)
     ptr = small_allocs_->Allocate(size);
   if (ptr != nullptr) {
+    ++stats.num_allocs;
     return ptr;
   }
 
@@ -662,6 +672,7 @@ void* CoalescedStringentPooling::alloc_chunk(uint64_t size) const {
         " extra space :: ",
         old_chunk->extra_space);
     bytes_in_use += old_chunk->size;
+    stats.UpdateStats(old_chunk->size, true);
     return (void*)old_chunk->memptr;
   }
 
@@ -682,6 +693,7 @@ void* CoalescedStringentPooling::alloc_chunk(uint64_t size) const {
     defrag_chunk->used = true;
     chunks[defrag_chunk->memptr] = defrag_chunk;
     bytes_in_use += defrag_chunk->size;
+    stats.UpdateStats(defrag_chunk->size, true);
     return (void*)defrag_chunk->memptr;
   }
   auto split_chunk = try_block_splitting(size);
@@ -696,6 +708,7 @@ void* CoalescedStringentPooling::alloc_chunk(uint64_t size) const {
     split_chunk->used = true;
     chunks[split_chunk->memptr] = split_chunk;
     bytes_in_use += split_chunk->size;
+    stats.UpdateStats(split_chunk->size, true);
     return (void*)split_chunk->memptr;
   }
   print_device_memory_stats(pool_id);
@@ -960,6 +973,7 @@ void CoalescedStringentPooling::delete_chunk(void* ptr) const {
 
   if (small_allocs_ && small_allocs_->IsAllocated(ptr)) {
     small_allocs_->Deallocate(ptr);
+    ++stats.num_frees;
     return;
   }
 
@@ -971,6 +985,7 @@ void CoalescedStringentPooling::delete_chunk(void* ptr) const {
   chunk->extra_space = 0;
   --chunk_count;
   bytes_in_use -= chunk->size;
+  stats.UpdateStats(chunk->size, false);
 
   if (enable_lfu_merging) {
     chunk->freed_counter += 1;
@@ -1105,5 +1120,19 @@ void CoalescedStringentPooling::SmallAllocs::Deallocate(const void* ptr) {
 
   size_[offset] = 0;
 }
+
+void CoalescedStringentPooling::get_stats(MemoryStats* mem_stats) const {
+  const std::lock_guard<std::mutex> lock(sp_mutex);
+  *mem_stats = stats;
+}
+
+void CoalescedStringentPooling::clear_stats() const {
+  const std::lock_guard<std::mutex> lock(sp_mutex);
+  stats.num_allocs = 0;
+  stats.num_frees = 0;
+  stats.peak_bytes_in_use = stats.bytes_in_use;
+  stats.largest_alloc_size = 0;
+}
+
 } // namespace pool_allocator
 } // namespace synapse_helpers

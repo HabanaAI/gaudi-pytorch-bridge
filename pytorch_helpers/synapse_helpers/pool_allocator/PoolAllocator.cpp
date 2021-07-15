@@ -66,6 +66,8 @@ bool StaticPooling::pool_create(synDeviceId deviceID, uint64_t size) const {
   PT_SYNHELPER_DEBUG("POOL:: simple static pool created");
   pool_allocator::print_device_memory_stats(pool_id);
   prealloc_pool = p;
+  stats.pool_id = pool_id;
+  stats.memory_limit = max_pool_size;
 
   print_pool_stats();
 
@@ -166,10 +168,11 @@ void* StaticPooling::reuse_chunks(void* ptr, uint64_t size) const {
   }
   PT_SYNHELPER_DEBUG("POOL:: reusing preallocated chunk");
   free_chunk->used = true;
+  stats.UpdateStats(free_chunk->size, true);
   return (void*)free_chunk->memptr;
 }
 
-void* StaticPooling::pool_alloc_chunk(uint64_t size) const {
+void* StaticPooling::pool_alloc_chunk(uint64_t size, bool is_workspace) const {
   const std::lock_guard<std::mutex> lock(sp_mutex);
   size = pool_allocator::block_align(size);
   simple_pool_t* p = prealloc_pool;
@@ -181,6 +184,8 @@ void* StaticPooling::pool_alloc_chunk(uint64_t size) const {
   if (old_chunk) {
     ++block_count;
     bytes_in_use += size;
+    if (is_workspace)
+      stats.scratch_mem_in_use = size;
     return old_chunk;
   }
 
@@ -216,6 +221,7 @@ void* StaticPooling::pool_alloc_chunk(uint64_t size) const {
   ++block_count;
   PT_SYNHELPER_DEBUG("POOL:: Allocated block_count :: ", block_count);
   bytes_in_use += size;
+  stats.UpdateStats(chunk->size, true, is_workspace);
   return (void*)chunk->memptr;
 }
 
@@ -233,6 +239,7 @@ void StaticPooling::pool_free_chunk(void* ptr) const {
   }
   bytes_in_use -= chunk->size;
   --block_count;
+  stats.UpdateStats(chunk->size, false);
   if (block_count == 0) {
     print_pool_stats();
     PT_SYNHELPER_DEBUG("POOL:: All blocks freed before pool deletion !");
@@ -251,6 +258,19 @@ void* StaticPooling::extend_high_memory_allocation(uint64_t size) const {
       "POOL:: Dynamic Pool - extending high memory allocation not supported size::",
       size);
   return nullptr;
+}
+
+void StaticPooling::get_stats(MemoryStats* mem_stats) const {
+  const std::lock_guard<std::mutex> lock(sp_mutex);
+  *mem_stats = stats;
+}
+
+void StaticPooling::clear_stats() const {
+  const std::lock_guard<std::mutex> lock(sp_mutex);
+  stats.num_allocs = 0;
+  stats.num_frees = 0;
+  stats.peak_bytes_in_use = stats.bytes_in_use;
+  stats.largest_alloc_size = 0;
 }
 
 DynamicPooling::DynamicPooling() {
@@ -323,6 +343,7 @@ void DynamicPooling::freeBlock(void* data) const {
   if (block) {
     block->used = false;
     bytes_in_use -= block->size;
+    stats.UpdateStats(block->size, false);
   }
 }
 
@@ -382,6 +403,7 @@ Block* DynamicPooling::findBlock(uint64_t size) const {
 void* DynamicPooling::allocBlock(uint64_t size) const {
   if (auto block = findBlock(size)) {
     bytes_in_use += block->size;
+    stats.UpdateStats(block->size, true);
     return reinterpret_cast<void*>(block->memptr);
   }
 
@@ -404,6 +426,7 @@ void* DynamicPooling::allocBlock(uint64_t size) const {
   top = block;
 
   bytes_in_use += block->size;
+  stats.UpdateStats(block->size, true);
   return reinterpret_cast<void*>(block->memptr);
 }
 
@@ -412,6 +435,7 @@ bool DynamicPooling::pool_create(synDeviceId deviceID, uint64_t size) const {
   PT_SYNHELPER_DEBUG("POOL:: Dynamic Pool Initiated");
   size = pool_allocator::block_align(size);
   pool_id = deviceID;
+  stats.pool_id = pool_id;
   pool_allocator::print_device_memory_stats(pool_id);
   return true;
 }
@@ -424,10 +448,13 @@ void DynamicPooling::pool_destroy() const {
   return;
 }
 
-void* DynamicPooling::pool_alloc_chunk(uint64_t size) const {
+void* DynamicPooling::pool_alloc_chunk(uint64_t size, bool is_workspace) const {
   const std::lock_guard<std::mutex> lock(vp_mutex);
   size = pool_allocator::block_align(size);
-  return allocBlock(size);
+  auto ptr = allocBlock(size);
+  if (ptr && is_workspace)
+    stats.scratch_mem_in_use = size;
+  return ptr;
 }
 
 void DynamicPooling::pool_free_chunk(void* ptr) const {
@@ -454,6 +481,19 @@ void* DynamicPooling::extend_high_memory_allocation(uint64_t size) const {
       "POOL:: Dynamic Pool - extending high memory allocation not supported size::",
       size);
   return nullptr;
+}
+
+void DynamicPooling::get_stats(MemoryStats* mem_stats) const {
+  const std::lock_guard<std::mutex> lock(vp_mutex);
+  *mem_stats = stats;
+}
+
+void DynamicPooling::clear_stats() const {
+  const std::lock_guard<std::mutex> lock(vp_mutex);
+  stats.num_allocs = 0;
+  stats.num_frees = 0;
+  stats.peak_bytes_in_use = stats.bytes_in_use;
+  stats.largest_alloc_size = 0;
 }
 
 } // namespace pool_allocator

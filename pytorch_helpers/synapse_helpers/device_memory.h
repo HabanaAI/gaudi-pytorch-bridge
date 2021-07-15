@@ -47,10 +47,15 @@ class device_memory {
   void* workspace_alloc(void* ptr, size_t& ws_size, size_t req_size);
   void fix_address(void* ptr);
   bool is_mem_threshold_hit();
+  void get_memory_stats(MemoryStats* stats);
+  void clear_memory_stats();
   device_ptr_lock lock_addresses(const std::vector<device_ptr>&);
   using ptr_with_size = std::pair<void*, size_t>;
   using handle2pointer_map =
       absl::flat_hash_map<mem_handle::id_t, ptr_with_size>;
+  pool_allocator::PoolStrategyType get_pool_strategy() {
+    return pool_strategy_;
+  }
 
  private:
   device& device_;
@@ -64,7 +69,7 @@ class device_memory {
   handle2pointer_map handle2pointer_;
   device_ptr workspace_allocation_;
   device_ptr get_pointer(mem_handle);
-  synStatus alloc(void** v_ptr, uint64_t size);
+  synStatus alloc(void** v_ptr, uint64_t size, bool is_workspace = false);
   synStatus deallocate(void* ptr);
 };
 } // namespace synapse_helpers

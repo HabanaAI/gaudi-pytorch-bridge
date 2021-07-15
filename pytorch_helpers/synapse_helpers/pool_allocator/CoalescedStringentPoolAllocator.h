@@ -16,6 +16,7 @@
 #include <unordered_map>
 #include "Chunk.h"
 #include "PoolAllocator.h"
+#include "synapse_helpers/util.h"
 #include "utils.h"
 
 namespace synapse_helpers {
@@ -76,10 +77,13 @@ class CoalescedStringentPooling : public PoolingStrategy {
   ~CoalescedStringentPooling();
   bool pool_create(synDeviceId deviceID, uint64_t size) const override;
   void pool_destroy() const override;
-  void* pool_alloc_chunk(uint64_t size) const override;
+  void* pool_alloc_chunk(uint64_t size, UNUSED bool is_workspace)
+      const override;
   void pool_free_chunk(void* p) const override;
   bool is_mem_threshold_hit() const override;
   void* extend_high_memory_allocation(uint64_t size) const override;
+  void get_stats(MemoryStats* stats) const override;
+  void clear_stats() const override;
 
  private:
   struct chunkcompare {
@@ -102,6 +106,7 @@ class CoalescedStringentPooling : public PoolingStrategy {
   mutable std::deque<Chunk*> chunks_to_merge;
   uint64_t max_merge_count;
   mutable bool high_memory_allocated_ = false;
+  mutable MemoryStats stats;
 
   void* alloc_chunk(uint64_t size) const;
   void delete_chunk(void* p) const;

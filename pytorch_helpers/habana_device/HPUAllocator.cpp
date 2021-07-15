@@ -9,6 +9,8 @@
  */
 #include <synapse_api.h>
 
+#include <synapse_helpers/devmem_logger.h>
+#include <synapse_helpers/env_flags.h>
 #include "HPUAllocator.h"
 #include "HPUCheck.h"
 #include "HPUGuardImpl.h"
@@ -246,6 +248,9 @@ at::DeleterFnPtr HPUDeviceAllocator::raw_deleter() const {
 
 void HPUDeviceAllocator::flush_stream_events() const {
   if (unsigned(-1) == habana::HPUDeviceAllocator::allocator_active_device_id) {
+    PT_DEVICE_DEBUG(
+        "Invalid Device::",
+        habana::HPUDeviceAllocator::allocator_active_device_id);
     return;
   }
 
@@ -260,6 +265,27 @@ void HPUDeviceAllocator::flush_stream_events() const {
   device.flush_stream_events();
 }
 
+void HPUDeviceAllocator::print_memory_stats(const char* msg) {
+  if (!GET_ENV_FLAG(PT_HABANA_MEM_LOG_LEVEL)) {
+    if (unsigned(-1) ==
+        habana::HPUDeviceAllocator::allocator_active_device_id) {
+      return;
+    }
+    auto& device =
+        synapse_helpers::HPURegistrar::get_device(allocator_active_device_id);
+    if (device.get_device_memory().get_pool_strategy() !=
+        synapse_helpers::pool_allocator::strategy_none) {
+      synapse_helpers::MemoryStats stats;
+      device.get_device_memory().get_memory_stats(&stats);
+      std::string updated_msg = msg;
+      updated_msg = updated_msg + "\n" + stats.DebugString();
+      synapse_helpers::print_live_allocations(updated_msg.c_str());
+      device.get_device_memory().clear_memory_stats();
+    }
+  } else {
+    synapse_helpers::print_live_allocations(msg);
+  }
+}
 } // namespace habana
 
 namespace synapse_helpers {

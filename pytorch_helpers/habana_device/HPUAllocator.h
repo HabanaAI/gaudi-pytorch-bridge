@@ -52,6 +52,7 @@ class HPUDeviceAllocator final : public at::Allocator {
   // At the time of destruction, enture that the stream manager is not in
   // the middle of releasing tensors
   void flush_stream_events() const;
+  static void print_memory_stats(const char* msg);
 };
 
 } // namespace habana

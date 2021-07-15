@@ -13,7 +13,7 @@
 #include <torch/extension.h>
 #include "habana_lazy/hlexec.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
-#include "synapse_helpers/devmem_logger.h"
+#include "pytorch_helpers/habana_device/HPUAllocator.h"
 
 template <typename T>
 using intrusive_ptr_class_ = py::class_<T, c10::intrusive_ptr<T>>;
@@ -57,7 +57,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   torch_hcl_init();
   // python API to report device memory live allocation details
   m.def("memstat_livealloc", [](const char* msg = "") {
-    synapse_helpers::print_live_allocations(msg);
+    habana::HPUDeviceAllocator::print_memory_stats(msg);
   });
   m.def("_hb_get_default_device", []() { return GetCurrentThreadDevice(); });
 

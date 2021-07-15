@@ -10,6 +10,7 @@
 #include <dlfcn.h>
 #include <cinttypes>
 #include <cstdlib>
+#include <cstring>
 
 #include <execinfo.h>
 #include <unistd.h>
@@ -20,6 +21,7 @@
 #include <memory>
 #include <sstream>
 
+#include <absl/strings/str_format.h>
 #include "devmem_logger.h"
 #include "synapse_helpers/env_flags.h"
 
@@ -29,7 +31,9 @@ deviceMallocData::deviceMallocData() {
   iteration_number = 0;
   running_memory = iteration_high_watermark = overall_high_watermark = 0;
   bt_depth = 40;
-  filename = GET_ENV_FLAG(PT_HABANA_MEM_LOG_FILENAME);
+  std::string node_id = std::getenv("ID") ? std::getenv("ID") : "0";
+  filename = absl::StrFormat(
+      "%s_%s", GET_ENV_FLAG(PT_HABANA_MEM_LOG_FILENAME), node_id);
   auto log_level = (mem_log_level)GET_ENV_FLAG(PT_HABANA_MEM_LOG_LEVEL);
   switch (log_level) {
     case MEM_LOG_ALL:
@@ -65,7 +69,7 @@ deviceMallocData::deviceMallocData() {
   logging_enabled_ = (take_bt || print_free_bt || print_alloc_bt);
 
   if (logging_enabled_)
-    out.open(filename, std::ofstream::out | std::ofstream::trunc);
+    out.open(filename.c_str(), std::ofstream::out | std::ofstream::trunc);
 }
 
 deviceMallocData::~deviceMallocData() {
@@ -489,8 +493,15 @@ void deviceMallocData::report_fragmentation(bool from_free) {
  * Print live allocation details at the given point.
  */
 void deviceMallocData::print_live_allocations(const char* msg) {
-  if (!logging_enabled_)
+  if (!logging_enabled_) {
+    if (!out.is_open())
+      out.open(filename.c_str(), std::ofstream::out | std::ofstream::trunc);
+    std::streambuf* coutbuf = std::cout.rdbuf(); // save old buf
+    std::cout.rdbuf(out.rdbuf());
+    std::cout << msg << "\n" << std::flush;
+    std::cout.rdbuf(coutbuf); // reset to standard output again
     return;
+  }
   // Redirect output to logfile
   std::streambuf* coutbuf = std::cout.rdbuf(); // save old buf
   std::cout.rdbuf(out.rdbuf());

@@ -131,11 +131,11 @@ device_memory::~device_memory() {
 }
 
 // warapper for malloc/free for pool startegy not equal to 5
-synStatus device_memory::alloc(void** v_ptr, uint64_t size) {
+synStatus device_memory::alloc(void** v_ptr, uint64_t size, bool is_workspace) {
   uint64_t ptr{0};
   synStatus status{synStatus::synSuccess};
   if (pool_strategy_ != pool_allocator::strategy_none) {
-    ptr = (uint64_t)suballoc_->pool_alloc_chunk(size);
+    ptr = (uint64_t)suballoc_->pool_alloc_chunk(size, is_workspace);
 
     if ((void*)ptr == nullptr) {
       PT_SYNHELPER_DEBUG("pooling allocator failed, requested size ", size);
@@ -152,7 +152,6 @@ synStatus device_memory::alloc(void** v_ptr, uint64_t size) {
       *v_ptr = reinterpret_cast<void*>(ptr);
     }
   }
-  log_synDeviceMalloc(ptr, size, status);
 
   return status;
 }
@@ -170,7 +169,6 @@ synStatus device_memory::deallocate(void* ptr) {
     auto status{synDeviceFree(device_.id(), ptr_address, 0)};
     PT_SYNHELPER_DEBUG("SynDeviceFree Failed.", status);
   }
-  log_synDeviceFree(reinterpret_cast<uint64_t>(ptr), status);
   return status;
 }
 
@@ -192,12 +190,13 @@ synStatus device_memory::malloc(void** v_ptr, uint64_t size) {
     ptr = mem_handle::reinterpret_to_pointer(mem_handle(iter->first));
 
     *v_ptr = reinterpret_cast<void*>(ptr);
-    return status;
   } else {
     status = alloc((void**)&ptr, size);
     *v_ptr = reinterpret_cast<void*>(ptr);
-    return status;
   }
+
+  log_synDeviceMalloc(ptr, size, status);
+  return status;
 }
 
 synStatus device_memory::free(void* free_ptr) {
@@ -209,6 +208,7 @@ synStatus device_memory::free(void* free_ptr) {
   if (pool_strategy_ == pool_allocator::startegy_coalesce_stringent) {
     if (reinterpret_cast<uint64_t>(free_ptr) == workspace_allocation_) {
       status = deallocate(free_ptr);
+      log_synDeviceFree(reinterpret_cast<uint64_t>(free_ptr), status);
       return status;
     }
 
@@ -239,6 +239,7 @@ synStatus device_memory::free(void* free_ptr) {
   } else {
     status = deallocate(free_ptr);
   }
+  log_synDeviceFree(reinterpret_cast<uint64_t>(free_ptr), status);
   return status;
 }
 
@@ -272,10 +273,10 @@ void* device_memory::workspace_alloc(
           " requested size::",
           req_size);
 
-      free(ptr);
+      deallocate(ptr);
     }
     void* v_ptr{nullptr};
-    malloc(&v_ptr, actual_size);
+    alloc(&v_ptr, actual_size, true);
     ws_size = actual_size;
     return v_ptr;
   } else {
@@ -355,6 +356,18 @@ device_ptr device_memory::get_pointer(mem_handle h) {
   }
 
   return reinterpret_cast<device_ptr>(ptr) + offset;
+}
+
+void device_memory::get_memory_stats(MemoryStats* stats) {
+  if (pool_strategy_ != pool_allocator::strategy_none) {
+    suballoc_->get_stats(stats);
+  }
+}
+
+void device_memory::clear_memory_stats() {
+  if (pool_strategy_ != pool_allocator::strategy_none) {
+    suballoc_->clear_stats();
+  }
 }
 
 } // namespace synapse_helpers
