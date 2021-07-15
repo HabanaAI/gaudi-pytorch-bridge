@@ -712,7 +712,7 @@ Tensor as_strided_hpu_lazy(
     // We only support contiguous chunks of data to be taken as strided
     // As Device doesnt support strided tensors we dont support that case
     // We can add a better check here to check contigous on all sub dims
-    if (size.vec().size() <= 4 && stride.vec()[stride.size() - 1] == 1) {
+    if (stride.vec()[stride.size() - 1] == 1) {
       int64_t offset = storage_offset ? storage_offset.value() : 0;
       ir::NodePtr node =
           std::make_shared<ir::AsStrided>(self, size, stride, offset);
