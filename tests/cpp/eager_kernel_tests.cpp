@@ -340,7 +340,7 @@ TEST(EagerKernelTest, AdamwOptTest) {
   auto epsilon = 1e-3;
   auto step = 0;
   auto bias_correction = false;
-  auto weight_decay = 0.0;
+  auto modified_weight_decay = 1.0;
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
     optimizer_adamw_hpu_lazy(
@@ -353,7 +353,7 @@ TEST(EagerKernelTest, AdamwOptTest) {
         beta1,
         beta2,
         epsilon,
-        weight_decay);
+        modified_weight_decay);
   } else {
     optimizer_adamw_hpu(
         gradients,
@@ -365,7 +365,7 @@ TEST(EagerKernelTest, AdamwOptTest) {
         beta1,
         beta2,
         epsilon,
-        weight_decay);
+        modified_weight_decay);
   }
 
   // CPU calculations
@@ -448,7 +448,7 @@ TEST(EagerKernelCacheTest, AdamwOptTest) {
   auto epsilon = 1e-3;
   auto step = 0;
   auto bias_correction = false;
-  auto weight_decay = 0.0;
+  auto modified_weight_decay = 1.0;
   for (int i = 0; i < 2; i++) {
     auto lr_t = torch::tensor({lr}).to(torch::kHABANA);
     auto neg_step_t = torch::tensor({-lr}).to(torch::kHABANA);
@@ -464,7 +464,7 @@ TEST(EagerKernelCacheTest, AdamwOptTest) {
           beta1,
           beta2,
           epsilon,
-          weight_decay);
+          modified_weight_decay);
     } else {
       optimizer_adamw_hpu(
           gradients,
@@ -476,7 +476,7 @@ TEST(EagerKernelCacheTest, AdamwOptTest) {
           beta1,
           beta2,
           epsilon,
-          weight_decay);
+          modified_weight_decay);
     }
     lr -= delta_lr; // to check for cache hit with changing lr
   }

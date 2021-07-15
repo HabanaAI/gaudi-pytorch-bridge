@@ -116,6 +116,11 @@ class FusedAdamW(Optimizer):
             ).to(self.device, non_blocking=True)
             self.neg_step_list.append(neg_step_t)
 
+            # since lr is fed into the kernel as tensor, perform the scalar multiplication of wd here
+            # NOTE: TODO if lr is updated every step, then we need to convert it as tensor and
+            # perform weight decay unconditonally.
+            modified_wd = 1.0 -group["weight_decay"]*group["lr"]
+
             _hpex_C.fused_adamw(
                 grad_list,
                 wt_list,
@@ -126,7 +131,7 @@ class FusedAdamW(Optimizer):
                 beta1,
                 beta2,
                 group["eps"],
-                group["weight_decay"],
+                modified_wd,
             )
 
         return loss

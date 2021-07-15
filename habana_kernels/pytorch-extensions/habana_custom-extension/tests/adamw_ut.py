@@ -15,28 +15,30 @@ import habana_frameworks.torch.core as htcore
 
 if __name__ == "__main__":
     torch.manual_seed(0)
-    d1, d2, lr = 2, 1024, 0.1
+    d1, d2, lr, wd = 2, 1024, 0.1, 0.1
 
     u = torch.rand(d1, d2)
     v = u.clone()
     # print('input ::\n{}'.format(u))
 
-    x = u.detach().to(habana)
+    x = u.detach().to(cpu)
     x.requires_grad = True
 
     # Compute loss
     loss_x = x.sum()
 
+    print("loss x ", loss_x.cpu())
+
     # Compute gradients of the parameters w.r.t. the loss
     loss_x.backward()
 
     # Modify the parameters by subtracting the gradient
-    optim_x = AdamW([x], lr=lr)
+    optim_x = AdamW([x], lr=lr, weight_decay = wd)
 
-    # print('before adam.step x ::\n{}'.format(x.to(cpu)))
+    print('before adam.step x ::\n{}'.format(x.to(cpu)))
     optim_x.step()
     x_cpu = x.to(cpu)
-    # print('after  adam.step x ::\n{}'.format(x_cpu))
+    print('after  adam.step x ::\n{}'.format(x_cpu))
 
     # Enable this env to validate lazy path
     os.environ['PT_HPU_LAZY_MODE'] = "1"
@@ -44,7 +46,7 @@ if __name__ == "__main__":
     y = v.detach().to(habana)
     y.requires_grad = True
 
-    optim_y = FusedAdamW([y], lr=lr)
+    optim_y = FusedAdamW([y], lr=lr, weight_decay = wd)
     htcore.mark_step()
 
     # Compute loss
@@ -52,6 +54,8 @@ if __name__ == "__main__":
 
     # Compute gradients of the parameters w.r.t. the loss
     loss_y.backward()
+
+    # htcore.mark_step()
 
     # print('before adam_habana.step y ::\n{}'.format(y.to(cpu)))
     # Modify the parameters by subtracting the gradient
@@ -61,7 +65,9 @@ if __name__ == "__main__":
 
     y_cpu = y.to(cpu)
 
-    # print('after  adam_habana.step y ::\n{}'.format(y_cpu))
+    print("loss y ", loss_y.cpu())
+
+    print('after  adam_habana.step y ::\n{}'.format(y_cpu))
 
     comp = np.allclose(x_cpu.detach().numpy(), y_cpu.detach().numpy(), atol=0.001, rtol=1.e-3, equal_nan=True)
 

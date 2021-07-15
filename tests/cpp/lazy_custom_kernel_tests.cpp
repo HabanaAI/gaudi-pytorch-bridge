@@ -150,7 +150,7 @@ TEST_F(LazyCustomKernelTest, AdamwOptTest) {
   auto epsilon = 1e-3;
   auto step = 0;
   auto bias_correction = false;
-  auto weight_decay = 0.0;
+  auto modified_weight_decay = 0.99; // 1-lr*wd
   optimizer_adamw_hpu_wrap(
       gradients,
       weights,
@@ -161,7 +161,7 @@ TEST_F(LazyCustomKernelTest, AdamwOptTest) {
       beta1,
       beta2,
       epsilon,
-      weight_decay);
+      modified_weight_decay);
 
   HbLazyTensor::StepMarker({});
 
@@ -184,6 +184,7 @@ TEST_F(LazyCustomKernelTest, AdamwOptTest) {
   */
 
   for (auto i = 0; i < num_params; i++) {
+    wt_vec_cpu[i].mul_(modified_weight_decay);
     exp_avg_vec_cpu[i].mul_(beta1);
     exp_avg_vec_cpu[i].add_(grad_vec_cpu[i], (1.0 - beta1));
     exp_avg_sq_vec_cpu[i].mul_(beta2);

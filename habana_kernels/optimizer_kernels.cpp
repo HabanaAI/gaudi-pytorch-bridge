@@ -263,7 +263,7 @@ void OptimizerAdamwOperator::AllocateAndAddSynapseNode(
   auto beta1 = inputs[6].toScalar();
   auto beta2 = inputs[7].toScalar();
   auto epsilon = inputs[8].toScalar();
-  UNUSED auto weight_decay = inputs[9].toScalar();
+  auto modified_wd = inputs[9].toScalar();
 
   /*  This are the operations we need to perform per parameter
       exp_avg.mul_(beta1).add_(grad, alpha=1.0 - beta1)
@@ -286,47 +286,63 @@ void OptimizerAdamwOperator::AllocateAndAddSynapseNode(
     // All synapse input tensor references are there in a single std::vector
     // gradients ; weights ; exp_avg ; exp_avg_sq ; lr ; neg_step_size
 
+    // if group["weight_decay"] > 0.0:
+    //  p.data.add_(p.data, alpha=-group["lr"] *
+    //  group["weight_decay"])
+    // Since kernel receives modified_wd = 1-group["weight_decay"]*group["lr"]
+    // therefore  p.data.mul_(modified_wd)
+
+    auto mul_wt_wd =
+        make_operator<habana::MulInplaceOperator>(device_id, scalar_type);
+
+    if (modified_wd.toFloat() != 1.0) {
+      mul_wt_wd->SetSynapseInput(p_context_->syn_inputs_[1 * num_params + i]);
+
+      stack.emplace_back(IValue(weights.get(i)));
+      stack.emplace_back(IValue(modified_wd));
+      mul_wt_wd->AllocateAndAddSynapseNode(graph, stack, false);
+      stack.clear();
+
+      // collect the nodes that need control edges
+      auto syn_node_id = graph.get_node_index(i * 18 + 1);
+      syn_node_ids.emplace_back(syn_node_id);
+    }
+
     // exp_avg.mul_(beta1).add_(grad, alpha=1.0 - beta1)
     auto mul_exp_avg =
         make_operator<habana::MulInplaceOperator>(device_id, scalar_type);
-    auto& syn_in_10 = mul_exp_avg->SetSynapseInput(
-        std::move(p_context_->syn_inputs_[2 * num_params + i]));
+    mul_exp_avg->SetSynapseInput(p_context_->syn_inputs_[2 * num_params + i]);
     stack.emplace_back(IValue(exp_avg.get(i)));
     stack.emplace_back(IValue(beta1));
     mul_exp_avg->AllocateAndAddSynapseNode(graph, stack, false);
-    p_context_->syn_inputs_[2 * num_params + i] = std::move(syn_in_10);
     stack.clear();
 
     auto add_exp_avg =
         make_operator<habana::AddInplaceOperator>(device_id, scalar_type);
-    auto& syn_in_11 = add_exp_avg->SetSynapseInput(
-        std::move(mul_exp_avg->GetSynOutputs()[0]));
-    auto& syn_in_21 =
-        add_exp_avg->SetSynapseInput(std::move(p_context_->syn_inputs_[i]));
+    synapse_helpers::tensor& syn_in_11 =
+        add_exp_avg->SetSynapseInput(mul_exp_avg->GetSynOutputs()[0]);
+    add_exp_avg->SetSynapseInput(p_context_->syn_inputs_[i]);
     stack.emplace_back(IValue(mul_exp_avg->GetOutputs()[0]));
     stack.emplace_back(IValue(gradients.get(i)));
     stack.emplace_back(IValue(Scalar(1.0 - beta1.toDouble())));
     add_exp_avg->AllocateAndAddSynapseNode(graph, stack, false);
-    p_context_->syn_inputs_[i] = std::move(syn_in_21);
     stack.clear();
 
     // exp_avg_sq.mul_(beta2).addcmul_(grad, grad, value=1.0 - beta2)
     auto mul_exp_avg_sq =
         make_operator<habana::MulInplaceOperator>(device_id, scalar_type);
-    auto& syn_in_13 = mul_exp_avg_sq->SetSynapseInput(
-        std::move(p_context_->syn_inputs_[3 * num_params + i]));
+    mul_exp_avg_sq->SetSynapseInput(
+        p_context_->syn_inputs_[3 * num_params + i]);
     stack.emplace_back(IValue(exp_avg_sq.get(i)));
     stack.emplace_back(IValue(beta2));
     mul_exp_avg_sq->AllocateAndAddSynapseNode(graph, stack, false);
-    p_context_->syn_inputs_[3 * num_params + i] = std::move(syn_in_13);
     stack.clear();
 
     auto addcmul_exp_avg_sq =
         make_operator<habana::AddcmulInplaceOperator>(device_id, scalar_type);
-    auto& syn_in_14 = addcmul_exp_avg_sq->SetSynapseInput(
-        std::move(mul_exp_avg_sq->GetSynOutputs()[0]));
-    auto& syn_in_24 = addcmul_exp_avg_sq->SetSynapseInput(
-        std::move(p_context_->syn_inputs_[i]));
+    synapse_helpers::tensor& syn_in_14 =
+        addcmul_exp_avg_sq->SetSynapseInput(mul_exp_avg_sq->GetSynOutputs()[0]);
+    addcmul_exp_avg_sq->SetSynapseInput(p_context_->syn_inputs_[i]);
     // Internally we are going to use "pow" instead of "mul",
     // therefore 3rd synapse tensor will be unused. We can give
     // a dummy tensor
@@ -338,23 +354,21 @@ void OptimizerAdamwOperator::AllocateAndAddSynapseNode(
     stack.emplace_back(IValue(gradients.get(i)));
     stack.emplace_back(IValue(Scalar(1.0 - beta2.toDouble())));
     addcmul_exp_avg_sq->AllocateAndAddSynapseNode(graph, stack, false);
-    p_context_->syn_inputs_[i] = std::move(syn_in_24);
     stack.clear();
 
     // denom = exp_avg_sq.sqrt().add_(group["eps"])
     // we will actually do "add" instead of "add_". Inplace not strictly
     // required here
     auto sqrt_exp_avg_sq = make_operator<SqrtOperator>(device_id, scalar_type);
-    auto& syn_in_15 = sqrt_exp_avg_sq->SetSynapseInput(
-        std::move(addcmul_exp_avg_sq->GetSynOutputs()[0]));
+    synapse_helpers::tensor& syn_in_15 = sqrt_exp_avg_sq->SetSynapseInput(
+        addcmul_exp_avg_sq->GetSynOutputs()[0]);
     stack.emplace_back(IValue(addcmul_exp_avg_sq->GetOutputs()[0]));
     sqrt_exp_avg_sq->AllocateAndAddSynapseNode(graph, stack, false);
     stack.clear();
 
     auto add_exp_avg_sq =
         make_operator<habana::AddOperator>(device_id, scalar_type);
-    UNUSED auto& syn_in_16 = add_exp_avg_sq->SetSynapseInput(
-        std::move(sqrt_exp_avg_sq->GetSynOutputs()[0]));
+    add_exp_avg_sq->SetSynapseInput(sqrt_exp_avg_sq->GetSynOutputs()[0]);
     stack.emplace_back(IValue(sqrt_exp_avg_sq->GetOutputs()[0]));
     stack.emplace_back(IValue(epsilon));
     stack.emplace_back(IValue(1.0));
@@ -367,59 +381,73 @@ void OptimizerAdamwOperator::AllocateAndAddSynapseNode(
     // scaled_ratio = torch.mul(ratio, -step_size)
     // p.data.add_(scaled_ratio)
     auto div_wt = make_operator<habana::DivOperator>(device_id, scalar_type);
-    auto& syn_in_17 =
-        div_wt->SetSynapseInput(std::move(add_exp_avg->GetSynOutputs()[0]));
-    UNUSED auto& syn_in_27 =
-        div_wt->SetSynapseInput(std::move(add_exp_avg_sq->GetSynOutputs()[0]));
+    synapse_helpers::tensor& syn_in_17 =
+        div_wt->SetSynapseInput(add_exp_avg->GetSynOutputs()[0]);
+    div_wt->SetSynapseInput(add_exp_avg_sq->GetSynOutputs()[0]);
     stack.emplace_back(IValue(add_exp_avg->GetOutputs()[0]));
     stack.emplace_back(IValue(add_exp_avg_sq->GetOutputs()[0]));
     div_wt->AllocateAndAddSynapseNode(graph, stack, false);
     stack.clear();
 
     auto mul_wt = make_operator<habana::MulOperator>(device_id, scalar_type);
-    UNUSED auto& syn_in_18 =
-        mul_wt->SetSynapseInput(std::move(div_wt->GetSynOutputs()[0]));
-    auto& syn_in_28 = mul_wt->SetSynapseInput(
-        std::move(p_context_->syn_inputs_[4 * num_params + 1]));
+    mul_wt->SetSynapseInput(div_wt->GetSynOutputs()[0]);
+    mul_wt->SetSynapseInput(p_context_->syn_inputs_[4 * num_params + 1]);
     stack.emplace_back(IValue(div_wt->GetOutputs()[0]));
     stack.emplace_back(IValue(neg_step_size));
     mul_wt->AllocateAndAddSynapseNode(graph, stack, false);
-    p_context_->syn_inputs_[4 * num_params + 1] = std::move(syn_in_28);
     stack.clear();
 
     auto add_wt =
         make_operator<habana::AddInplaceOperator>(device_id, scalar_type);
-    auto& syn_in_19 = add_wt->SetSynapseInput(
-        std::move(p_context_->syn_inputs_[1 * num_params + i]));
-    UNUSED auto& syn_in_29 =
-        add_wt->SetSynapseInput(std::move(mul_wt->GetSynOutputs()[0]));
-    stack.emplace_back(IValue(weights.get(i)));
-    stack.emplace_back(IValue(mul_wt->GetOutputs()[0]));
-    stack.emplace_back(IValue(1.0));
-    add_wt->AllocateAndAddSynapseNode(graph, stack, false);
-    p_context_->syn_inputs_[1 * num_params + i] = std::move(syn_in_19);
-    stack.clear();
 
-    // collect the nodes that need control edges
-    auto syn_node_id = graph.get_node_index(i * 18 + 17);
-    syn_node_ids.emplace_back(syn_node_id);
+    if (modified_wd.toFloat() == 1.0) {
+      // in this case weight directly comes as input to the fused kernel
+      add_wt->SetSynapseInput(p_context_->syn_inputs_[1 * num_params + i]);
+      add_wt->SetSynapseInput(mul_wt->GetSynOutputs()[0]);
 
-    // if group["weight_decay"] > 0.0:
-    //  p.data.add_(p.data, alpha=-group["lr"] *
-    //  group["weight_decay"])
-    // Not going to implement this in 1st pass. Its not being used in
-    // BERT-L Hugging-face scripts
+      stack.emplace_back(IValue(weights.get(i)));
+      stack.emplace_back(IValue(mul_wt->GetOutputs()[0]));
+      stack.emplace_back(IValue(1.0));
+      add_wt->AllocateAndAddSynapseNode(graph, stack, false);
+      stack.clear();
+
+      // collect the nodes that need control edges
+      auto syn_node_id = graph.get_node_index(i * 18 + 17);
+      syn_node_ids.emplace_back(syn_node_id);
+
+    } else {
+      // use the updated weight tensor after  weight decay operation
+      add_wt->SetSynapseInput(mul_wt_wd->GetSynOutputs()[0]);
+      stack.emplace_back(IValue(mul_wt_wd->GetOutputs()[0]));
+
+      add_wt->SetSynapseInput(mul_wt->GetSynOutputs()[0]);
+
+      stack.emplace_back(IValue(mul_wt->GetOutputs()[0]));
+      stack.emplace_back(IValue(1.0));
+      add_wt->AllocateAndAddSynapseNode(graph, stack, false);
+      stack.clear();
+
+      // collect the nodes that need control edges
+      auto syn_node_id = graph.get_node_index(i * 18 + 17);
+      syn_node_ids.emplace_back(syn_node_id);
+    }
 
     // Note that these outputs are being filled just to keep GC
     // runtime happy No need to return these since updates on
     // weights, exp_avg, exp_avg_sq are all inplace
-    p_context_->syn_outputs_.emplace_back(std::move(syn_in_11));
+    if (modified_wd.toFloat() != 1.0) {
+      p_context_->syn_outputs_.emplace_back(
+          std::move(mul_wt_wd->GetSynOutputs()[0]));
+      p_context_->pt_outputs_.emplace_back(mul_wt_wd->GetOutputs()[0]);
+    }
+
+    p_context_->syn_outputs_.emplace_back(syn_in_11);
     p_context_->pt_outputs_.emplace_back(mul_exp_avg->GetOutputs()[0]);
-    p_context_->syn_outputs_.emplace_back(std::move(syn_in_17));
+    p_context_->syn_outputs_.emplace_back(syn_in_17);
     p_context_->pt_outputs_.emplace_back(add_exp_avg->GetOutputs()[0]);
-    p_context_->syn_outputs_.emplace_back(std::move(syn_in_14));
+    p_context_->syn_outputs_.emplace_back(syn_in_14);
     p_context_->pt_outputs_.emplace_back(mul_exp_avg_sq->GetOutputs()[0]);
-    p_context_->syn_outputs_.emplace_back(std::move(syn_in_15));
+    p_context_->syn_outputs_.emplace_back(syn_in_15);
     p_context_->pt_outputs_.emplace_back(addcmul_exp_avg_sq->GetOutputs()[0]);
     p_context_->syn_outputs_.emplace_back(
         std::move(add_wt->GetSynOutputs()[0]));

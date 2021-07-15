@@ -5065,7 +5065,7 @@ void optimizer_adamw_hpu_lazy(
     const float beta1,
     const float beta2,
     const float epsilon,
-    const float weight_decay) {
+    const float modified_wd) {
   PT_LAZY_TRACE;
   for (size_t i = 0; i < weights.size(); i++) {
     auto hlweight = GetHbLazyTensor(weights[i]);
@@ -5085,7 +5085,7 @@ void optimizer_adamw_hpu_lazy(
       beta1,
       beta2,
       epsilon,
-      weight_decay);
+      modified_wd);
 
   int64_t out_index = 0;
 
@@ -5099,6 +5099,13 @@ void optimizer_adamw_hpu_lazy(
       std::make_shared<habana_lazy::ir::ListUnpack>(out);
 
   for (size_t i = 0; i < weights.size(); i++) {
+    if (modified_wd != 1.0) {
+      auto hl_wd = GetHbLazyTensor(weights[i]);
+      ir::Value& out0 = hl_wd.CurrentIrValue();
+      out0.m_index = out_index++;
+      out0.SetNode(node_unpack);
+    }
+
     auto hl_exp_avg = GetHbLazyTensor(exp_avg[i]);
     ir::Value& out1 = hl_exp_avg.CurrentIrValue();
     out1.m_index = out_index++;
