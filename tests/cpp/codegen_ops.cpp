@@ -75,7 +75,8 @@ class CodeGenOps : public habana_lazy_test::LazyTest {
  public:
   void TestOut(
       const std::function<torch::Tensor(torch::Tensor, torch::Tensor&)>& fn,
-      torch::ScalarType dtype = torch::kFloat) {
+      torch::ScalarType dtype = torch::kFloat,
+      torch::ScalarType out_dtype = torch::kFloat) {
     GenerateInputs(1, dtype);
 
     auto out = torch::empty({0}, dtype);
@@ -90,11 +91,13 @@ class CodeGenOps : public habana_lazy_test::LazyTest {
   void TestOut(
       const std::function<
           torch::Tensor(torch::Tensor, torch::Tensor, torch::Tensor&)>& fn,
-      torch::ScalarType dtype = torch::kFloat) {
+      torch::ScalarType dtype = torch::kFloat,
+      torch::ScalarType out_dtype = torch::kFloat) {
     GenerateInputs(2, dtype);
 
-    auto out = torch::empty({0}, dtype);
-    auto hout = torch::empty({0}, torch::TensorOptions(dtype).device("hpu"));
+    auto out = torch::empty({0}, out_dtype);
+    auto hout =
+        torch::empty({0}, torch::TensorOptions(out_dtype).device("hpu"));
 
     fn(m_inputs[0], m_inputs[1], out);
     fn(m_hinputs[0], m_hinputs[1], hout);
@@ -171,42 +174,42 @@ class CodeGenOps : public habana_lazy_test::LazyTest {
 
 TEST_F(CodeGenOps, Fns) {
   // clang-format off
-  // TestInplace(torch::asin_);
-  // TestInplace(torch::sin_);
-  TestOut(static_cast<torch::Tensor& (*)(const torch::Tensor&, const torch::Tensor&, torch::Tensor&)>(torch::bitwise_and_outf), torch::kByte);
-  TestOut(static_cast<torch::Tensor& (*)(const torch::Tensor&, const torch::Tensor&, torch::Tensor&)>(torch::bitwise_or_outf), torch::kShort);
-  // TestOut(static_cast<torch::Tensor& (*)(const torch::Tensor&, const torch::Tensor&, torch::Tensor&)>(torch::bitwise_xor_outf), torch::kBool);
-  // TestOut(static_cast<torch::Tensor& (*)(const torch::Tensor&, const torch::Tensor&, torch::Tensor&)>(torch::eq_outf));
-  // TestOut(torch::abs_outf);
-  // TestOut(torch::acosh_outf);
-  // TestOut(torch::acos_outf);
-  // TestOut(torch::asinh_outf);
-  // TestOut(torch::asin_outf);
-  // TestOut(torch::atanh_outf);
-  // TestOut(torch::atan_outf);
-  // TestOut(torch::bitwise_not_outf, torch::kChar);
-  // TestOut(torch::cosh_outf);
-  // TestOut(torch::cos_outf);
-  // TestOut(torch::elu_outf, /*alpha*/0.001, /*scale*/1, /*input_scale*/1);
-  // TestOut(torch::erf_outf);
-  // TestOut(torch::exp_outf);
-  // TestOut(torch::floor_outf);
-  // TestOut(torch::leaky_relu_outf);
-  // TestOut(torch::log2_outf);
-  // TestOut(torch::log_outf);
-  // TestOut(torch::maximum_outf);
-  // TestOut(torch::minimum_outf);
-  // TestOut(torch::neg_outf);
-  // TestOut(torch::reciprocal_outf);
-  // TestOut(torch::round_outf);
-  // TestOut(torch::rsqrt_outf);
-  // TestOut(torch::sigmoid_outf);
-  // TestOut(torch::sign_outf);
-  // TestOut(torch::sinh_outf);
-  // TestOut(torch::sin_outf);
-  // TestOut(torch::sqrt_outf);
-  // TestOut(torch::tanh_backward_outf);
-  // TestOut(torch::tanh_outf);
-  // TestOut(torch::tan_outf);
+  TestInplace(torch::asin_);
+  TestInplace(torch::sin_);
+  TestOut(static_cast<torch::Tensor& (*)(const torch::Tensor&, const torch::Tensor&, torch::Tensor&)>(torch::bitwise_and_outf), torch::kByte, torch::kByte);
+  TestOut(static_cast<torch::Tensor& (*)(const torch::Tensor&, const torch::Tensor&, torch::Tensor&)>(torch::bitwise_or_outf), torch::kShort, torch::kShort);
+  TestOut(static_cast<torch::Tensor& (*)(const torch::Tensor&, const torch::Tensor&, torch::Tensor&)>(torch::bitwise_xor_outf), torch::kBool, torch::kBool);
+  TestOut(static_cast<torch::Tensor& (*)(const torch::Tensor&, const torch::Tensor&, torch::Tensor&)>(torch::eq_outf), torch::kI32, torch::kBool);
+  TestOut(torch::abs_outf);
+  TestOut(torch::acosh_outf);
+  TestOut(torch::acos_outf);
+  TestOut(torch::asinh_outf);
+  TestOut(torch::asin_outf);
+  TestOut(torch::atanh_outf);
+  TestOut(torch::atan_outf);
+  TestOut(torch::bitwise_not_outf, torch::kChar);
+  TestOut(torch::cosh_outf);
+  TestOut(torch::cos_outf);
+  TestOut(torch::elu_outf, /*alpha*/0.001, /*scale*/1, /*input_scale*/1);
+  TestOut(torch::erf_outf);
+  TestOut(torch::exp_outf);
+  TestOut(torch::floor_outf);
+  TestOut(torch::leaky_relu_outf);
+  TestOut(torch::log2_outf);
+  TestOut(torch::log_outf);
+  TestOut(torch::maximum_outf);
+  TestOut(torch::minimum_outf);
+  TestOut(torch::neg_outf);
+  TestOut(torch::reciprocal_outf);
+  TestOut(torch::round_outf);
+  TestOut(torch::rsqrt_outf);
+  TestOut(torch::sigmoid_outf);
+  TestOut(torch::sign_outf);
+  TestOut(torch::sinh_outf);
+  TestOut(torch::sin_outf);
+  TestOut(torch::sqrt_outf);
+  TestOut(torch::tanh_backward_outf);
+  TestOut(torch::tanh_outf);
+  TestOut(torch::tan_outf);
   // clang-format on
 }
