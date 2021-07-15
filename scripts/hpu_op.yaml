@@ -116,6 +116,7 @@ neg.out:
 reciprocal.out:
   dtypes: [BFloat16, Float]
   guid: reciprocal_fwd
+  legacy_eager: true
 
 #round.out:
 #  dtypes: [BFloat16, Float]
