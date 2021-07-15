@@ -190,9 +190,9 @@ class ViewOperator : public ReshapeOperator {
 class FlipOperator : public habana::HabanaOperator {
  public:
   FlipOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator("reverse") {
+      : HabanaOperator(
+            "reverse_" + habana_helpers::name_suffix_from_type(scalarType)) {
     this->CreateSynContext(device_id);
-    static_cast<void>(scalarType);
   }
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
