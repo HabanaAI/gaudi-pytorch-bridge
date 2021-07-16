@@ -231,7 +231,7 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCL::hclcollective(
     if (getHCLDataType(inputs[i].scalar_type()) != syn_type_na) {
       fn(inputs[i], outputs[i], *(comms[i]));
     } else {
-      std::cout << "HCL called on unsupported data type\n";
+      LOG(INFO) << "HCL called on unsupported data type\n";
     }
   }
 
