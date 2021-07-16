@@ -133,12 +133,9 @@ Value::~Value() {}
 
 Output::Output(const Value& v)
     : m_node(v.mp_node.get()), m_index(v.m_index), m_name(v.ToString()) {
-  if (v.DataPtrValidAndNotExpired()) {
-    std::shared_ptr<Data> d = v.m_data_ptr.lock();
-    device = d->device;
-    dims = d->sizes.size();
-    scalar_type = d->logical_element_type;
-  }
+  device = v.get_device();
+  dims = v.get_dims();
+  scalar_type = v.get_scalar_type();
 }
 } // namespace ir
 } // namespace habana_lazy

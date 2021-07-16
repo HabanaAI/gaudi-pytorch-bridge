@@ -340,16 +340,24 @@ struct Value {
       : unique_id(unique_id_count++), m_data_ptr(data_ptr) {}
 
   Value(NodePtr node, size_t index = 0) : unique_id(unique_id_count++) {
-    SetNode(node);
+    SetNode(node, c10::DeviceType::HABANA, {}, {});
     m_index = index;
   }
 
-  void SetNode(NodePtr node, size_t index = 0) {
+  void SetNode(
+      NodePtr node,
+      const c10::Device& device,
+      const std::vector<int64_t>& dims,
+      const c10::optional<at::ScalarType> scalar_type,
+      size_t index = 0) {
     if (m_index == 0) {
       // m_index has been set directly, don't reset to 0
       // TODO: make m_index private.
       m_index = index;
     }
+    this->device = c10::make_optional(device);
+    this->dims = c10::make_optional(dims.size());
+    this->scalar_type = scalar_type;
     mp_node = std::move(node);
     mp_node->m_outputs.emplace_back(Output(*this));
   }
@@ -387,6 +395,18 @@ struct Value {
 
   bool DataPtrValidAndNotExpired() const;
 
+  const c10::optional<c10::Device> get_device() const {
+    return device;
+  }
+
+  const c10::optional<size_t> get_dims() const {
+    return dims;
+  }
+
+  const c10::optional<at::ScalarType> get_scalar_type() const {
+    return scalar_type;
+  }
+
   virtual ~Value();
 
   /* Unique id for Value */
@@ -406,6 +426,12 @@ struct Value {
   // helps us track view scenarios where we have RAW or WAR kind of ops on
   // different sections of the same tensor
   uint64_t version_;
+
+ protected:
+  // OutInfo
+  c10::optional<c10::Device> device;
+  c10::optional<size_t> dims;
+  c10::optional<at::ScalarType> scalar_type;
 };
 
 inline std::ostream& operator<<(std::ostream& stream, const Value& value) {

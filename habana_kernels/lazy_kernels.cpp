@@ -191,7 +191,11 @@ ir::Value AddControlEdge(const at::Tensor& src, const at::Tensor& dst) {
   input_pt_vec.push_back(dst);
   ir::Value& out = hb_result.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(node);
+  out.SetNode(
+      node,
+      hb_result.GetDevice(),
+      hb_result.GetSizes(),
+      hb_result.dtype_optional());
   node->AddInputPtTensors(input_pt_vec);
   return out;
 }
@@ -238,7 +242,11 @@ void updateDstDependencies(
     input_pt_vec.push_back(dst);
     ir::Value& out = val;
     out.m_index = 0;
-    out.SetNode(node);
+    out.SetNode(
+        node,
+        hb_result.GetDevice(),
+        hb_result.GetSizes(),
+        hb_result.dtype_optional());
     hb_result.AssignIrValue(val);
     node->AddInputPtTensors(input_pt_vec);
   }
@@ -309,7 +317,11 @@ Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
         context->MarkTensorRegistered(hlresult.getTensorUniqueId());
         ir::Value& out = hlresult.CurrentIrValue();
         out.m_index = 0;
-        out.SetNode(node);
+        out.SetNode(
+            node,
+            hlresult.GetDevice(),
+            hlresult.GetSizes(),
+            hlresult.dtype_optional());
         node->AddInputPtTensors(input_pt_vec);
         // updatet the view if any
         updateDstDependencies(hlresult, self);
@@ -319,7 +331,11 @@ Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
       auto hlresult = GetHbLazyTensor(self);
       ir::Value& out = hlresult.CurrentIrValue();
       out.m_index = 0;
-      out.SetNode(node);
+      out.SetNode(
+          node,
+          hlresult.GetDevice(),
+          hlresult.GetSizes(),
+          hlresult.dtype_optional());
       // updatet the view if any
       updateDstDependencies(hlresult, self);
     }
@@ -367,7 +383,11 @@ Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
           context->MarkTensorRegistered(hlresult.getTensorUniqueId());
           ir::Value& out = hlresult.CurrentIrValue();
           out.m_index = 0;
-          out.SetNode(node);
+          out.SetNode(
+              node,
+              hlresult.GetDevice(),
+              hlresult.GetSizes(),
+              hlresult.dtype_optional());
           node->AddInputPtTensors(input_pt_vec);
           // updatet the view if any
           updateDstDependencies(hlresult, self);
@@ -378,7 +398,11 @@ Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
           input_pt_vec.push_back(src);
           ir::Value& out = hlresult.CurrentIrValue();
           out.m_index = 0;
-          out.SetNode(node);
+          out.SetNode(
+              node,
+              hlresult.GetDevice(),
+              hlresult.GetSizes(),
+              hlresult.dtype_optional());
           node->AddInputPtTensors(input_pt_vec);
           // updatet the view if any
           updateDstDependencies(hlresult, self);
@@ -389,7 +413,11 @@ Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
       auto hlresult = GetHbLazyTensor(self);
       ir::Value& out = hlresult.CurrentIrValue();
       out.m_index = 0;
-      out.SetNode(node);
+      out.SetNode(
+          node,
+          hlresult.GetDevice(),
+          hlresult.GetSizes(),
+          hlresult.dtype_optional());
       // updatet the view if any
       updateDstDependencies(hlresult, self);
     }
@@ -727,7 +755,11 @@ Tensor as_strided_hpu_lazy(
       auto hb_tensor = GetOrCreateHbLazyTensor(self, self.device());
       ir::Value& out = hb_result.CurrentIrValue();
       out.m_index = 0;
-      out.SetNode(node);
+      out.SetNode(
+          node,
+          hb_result.GetDevice(),
+          hb_result.GetSizes(),
+          hb_result.dtype_optional());
       // update the view if any
       updateDstDependencies(hb_result, result);
       // std::vector<at::Tensor> input_pt_vec{self};
@@ -855,7 +887,11 @@ Tensor view_hpu_lazy(const Tensor& self, IntArrayRef size) {
   out.m_index = 0;
   // updatet the view if any
   updateDstDependencies(hl_result, result);
-  out.SetNode(node);
+  out.SetNode(
+      node,
+      hl_result.GetDevice(),
+      hl_result.GetSizes(),
+      hl_result.dtype_optional());
   flush_op(result);
   return result;
 }
@@ -921,7 +957,11 @@ Tensor& addcdiv_hpu_lazy_(
 
     ir::Value& out = hl_self.CurrentIrValue();
     out.m_index = 0;
-    out.SetNode(node);
+    out.SetNode(
+        node,
+        hl_self.GetDevice(),
+        hl_self.GetSizes(),
+        hl_self.dtype_optional());
     std::vector<at::Tensor> input_pt_vec{self, tensor1, tensor2};
     node->AddInputPtTensors(input_pt_vec);
     // As its an inplace op and we want this op to execute
@@ -986,7 +1026,11 @@ Tensor add_scalar_hpu_lazy(const Tensor& self, Scalar other, Scalar alpha) {
   auto hl_result = GetHbLazyTensor(result);
   ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(node);
+  out.SetNode(
+      node,
+      hl_result.GetDevice(),
+      hl_result.GetSizes(),
+      hl_result.dtype_optional());
   updateDstDependencies(hl_result, self);
 
   std::vector<at::Tensor> input_pt_vec{self};
@@ -1049,7 +1093,11 @@ Tensor sub_scalar_hpu_lazy(const Tensor& self, Scalar other, Scalar alpha) {
   auto hl_result = GetHbLazyTensor(result);
   ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(node);
+  out.SetNode(
+      node,
+      hl_result.GetDevice(),
+      hl_result.GetSizes(),
+      hl_result.dtype_optional());
   updateDstDependencies(hl_result, self);
 
   std::vector<at::Tensor> input_pt_vec{self};
@@ -1078,7 +1126,11 @@ Tensor rsub_scalar_hpu_lazy(const Tensor& self, Scalar other, Scalar alpha) {
   auto hlresult = GetHbLazyTensor(result);
   ir::Value& out = hlresult.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(node);
+  out.SetNode(
+      node,
+      hlresult.GetDevice(),
+      hlresult.GetSizes(),
+      hlresult.dtype_optional());
   updateDstDependencies(hlresult, self);
 
   std::vector<at::Tensor> input_pt_vec{self};
@@ -1233,7 +1285,11 @@ Tensor maximum_hpu_lazy(const Tensor& self, const Tensor& other) {
   auto hlresult = GetHbLazyTensor(result);
   ir::Value& out = hlresult.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(node);
+  out.SetNode(
+      node,
+      hlresult.GetDevice(),
+      hlresult.GetSizes(),
+      hlresult.dtype_optional());
   // updatet the view if any
   updateDstDependencies(hlresult, result);
 
@@ -1258,7 +1314,11 @@ Tensor minimum_hpu_lazy(const Tensor& self, const Tensor& other) {
   auto hlresult = GetHbLazyTensor(result);
   ir::Value& out = hlresult.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(node);
+  out.SetNode(
+      node,
+      hlresult.GetDevice(),
+      hlresult.GetSizes(),
+      hlresult.dtype_optional());
   // updatet the view if any
   updateDstDependencies(hlresult, result);
 
@@ -1342,7 +1402,11 @@ Tensor all_hpu_lazy(const Tensor& self) {
   auto hl_result = GetHbLazyTensor(result);
   ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(node);
+  out.SetNode(
+      node,
+      hl_result.GetDevice(),
+      hl_result.GetSizes(),
+      hl_result.dtype_optional());
   std::vector<at::Tensor> input_pt_vec{self};
   node->AddInputPtTensors(input_pt_vec);
   flush_op(result);
@@ -1369,7 +1433,11 @@ Tensor all_dim_hpu_lazy(const Tensor& self, int64_t dim, bool keepdim) {
   auto hl_result = GetHbLazyTensor(result);
   ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(node);
+  out.SetNode(
+      node,
+      hl_result.GetDevice(),
+      hl_result.GetSizes(),
+      hl_result.dtype_optional());
   std::vector<at::Tensor> input_pt_vec{self};
   node->AddInputPtTensors(input_pt_vec);
   flush_op(result);
@@ -1565,7 +1633,11 @@ Tensor embedding_hpu_lazy(
   auto hlresult = GetHbLazyTensor(result);
   ir::Value& out = hlresult.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(embedding_node);
+  out.SetNode(
+      embedding_node,
+      hlresult.GetDevice(),
+      hlresult.GetSizes(),
+      hlresult.dtype_optional());
 
   flush_op(result);
   return result;
@@ -1588,7 +1660,11 @@ Tensor embedding_dense_backward_hpu_lazy(
   auto hlresult = GetHbLazyTensor(result);
   ir::Value& out = hlresult.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(embedding_bwd_node);
+  out.SetNode(
+      embedding_bwd_node,
+      hlresult.GetDevice(),
+      hlresult.GetSizes(),
+      hlresult.dtype_optional());
 
   flush_op(result);
   return result;
@@ -1612,7 +1688,11 @@ Tensor embedding_bag_sum_hpu_lazy(
   auto hlresult = GetHbLazyTensor(result);
   ir::Value& out = hlresult.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(node);
+  out.SetNode(
+      node,
+      hlresult.GetDevice(),
+      hlresult.GetSizes(),
+      hlresult.dtype_optional());
   updateDstDependencies(hlresult, result);
   flush_op(result);
   return result;
@@ -1653,7 +1733,11 @@ Tensor embedding_bag_sum_fwd_hpu_lazy(
   auto hlresult = GetHbLazyTensor(result);
   ir::Value& out = hlresult.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(node);
+  out.SetNode(
+      node,
+      hlresult.GetDevice(),
+      hlresult.GetSizes(),
+      hlresult.dtype_optional());
   updateDstDependencies(hlresult, result);
   std::vector<at::Tensor> input_pt_vec{
       input,
@@ -1691,7 +1775,11 @@ Tensor& embedding_bag_sum_bwd_out_hpu_lazy(
   auto hlresult = GetHbLazyTensor(out);
   ir::Value& out_value = hlresult.CurrentIrValue();
   out_value.m_index = 0;
-  out_value.SetNode(node);
+  out_value.SetNode(
+      node,
+      hlresult.GetDevice(),
+      hlresult.GetSizes(),
+      hlresult.dtype_optional());
 
   std::vector<at::Tensor> input_pt_vec{
       input, indices_bwd, offsets_bwd, valid_count_bwd};
@@ -1714,7 +1802,11 @@ Tensor& embedding_bag_sum_bwd_out_kernel_mode_hpu_lazy(
   auto hlresult = GetHbLazyTensor(out);
   ir::Value& out_value = hlresult.CurrentIrValue();
   out_value.m_index = 0;
-  out_value.SetNode(node);
+  out_value.SetNode(
+      node,
+      hlresult.GetDevice(),
+      hlresult.GetSizes(),
+      hlresult.dtype_optional());
   // As its an inplace op and we want this op to execute
   // we want to wind back status of this tensor to registered
   // so that when post order is created, we actually execute it
@@ -1824,7 +1916,11 @@ Tensor& scatter_inplace_src_hpu_lazy(
   auto hl_result = habana_lazy::GetOrCreateHbLazyTensor(result, c10::kHABANA);
   habana_lazy::ir::Value& res = hl_result.CurrentIrValue();
   res.m_index = 0;
-  res.SetNode(node);
+  res.SetNode(
+      node,
+      hl_result.GetDevice(),
+      hl_result.GetSizes(),
+      hl_result.dtype_optional());
 
   // Add a control_edge node
   updateDstDependencies(hl_self, self, true);
@@ -1841,7 +1937,8 @@ Tensor& scatter_inplace_src_hpu_lazy(
   context->MarkTensorRegistered(hl_self.getTensorUniqueId());
   habana_lazy::ir::Value& out = hl_self.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(node2);
+  out.SetNode(
+      node2, hl_self.GetDevice(), hl_self.GetSizes(), hl_self.dtype_optional());
   node2->AddInputPtTensors(input_pt_vec);
 
   flush_op(self);
@@ -1864,7 +1961,11 @@ Tensor& scatter_inplace_value_hpu_lazy(
   auto hl_result = GetOrCreateHbLazyTensor(result, c10::kHABANA);
   ir::Value& res = hl_result.CurrentIrValue();
   res.m_index = 0;
-  res.SetNode(node);
+  res.SetNode(
+      node,
+      hl_result.GetDevice(),
+      hl_result.GetSizes(),
+      hl_result.dtype_optional());
 
   // Add a control_edge node
   updateDstDependencies(hl_self, self, true);
@@ -1881,7 +1982,8 @@ Tensor& scatter_inplace_value_hpu_lazy(
   context->MarkTensorRegistered(hl_self.getTensorUniqueId());
   ir::Value& out = hl_self.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(node2);
+  out.SetNode(
+      node2, hl_self.GetDevice(), hl_self.GetSizes(), hl_self.dtype_optional());
   node2->AddInputPtTensors(input_pt_vec);
 
   flush_op(self);
@@ -1933,7 +2035,11 @@ Tensor& scatter_add_inplace_src_hpu_lazy(
   auto hl_result = habana_lazy::GetOrCreateHbLazyTensor(result, c10::kHABANA);
   habana_lazy::ir::Value& res = hl_result.CurrentIrValue();
   res.m_index = 0;
-  res.SetNode(node);
+  res.SetNode(
+      node,
+      hl_result.GetDevice(),
+      hl_result.GetSizes(),
+      hl_result.dtype_optional());
 
   // Add a control_edge node
   updateDstDependencies(hl_self, self, true);
@@ -1950,7 +2056,8 @@ Tensor& scatter_add_inplace_src_hpu_lazy(
   context->MarkTensorRegistered(hl_self.getTensorUniqueId());
   habana_lazy::ir::Value& out = hl_self.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(node2);
+  out.SetNode(
+      node2, hl_self.GetDevice(), hl_self.GetSizes(), hl_self.dtype_optional());
   node2->AddInputPtTensors(input_pt_vec);
 
   flush_op(self);
@@ -1989,7 +2096,11 @@ Tensor index_hpu_lazy(const at::Tensor& self, at::TensorList indices) {
     auto hl_cast = GetHbLazyTensor(self_cast);
     ir::Value& out = hl_cast.CurrentIrValue();
     out.m_index = 0;
-    out.SetNode(node);
+    out.SetNode(
+        node,
+        hl_cast.GetDevice(),
+        hl_cast.GetSizes(),
+        hl_cast.dtype_optional());
   }
   LazyOp<at::Tensor> k{
       "aten::index",
@@ -2013,7 +2124,11 @@ Tensor index_hpu_lazy(const at::Tensor& self, at::TensorList indices) {
     auto hl_cast = GetHbLazyTensor(result_cast);
     ir::Value& out = hl_cast.CurrentIrValue();
     out.m_index = 0;
-    out.SetNode(node);
+    out.SetNode(
+        node,
+        hl_cast.GetDevice(),
+        hl_cast.GetSizes(),
+        hl_cast.dtype_optional());
     updateDstDependencies(hl_cast, result_cast);
     flush_op(result_cast);
     return result_cast;
@@ -2093,7 +2208,11 @@ Tensor nonzero_hpu_lazy(const Tensor& self) {
   auto hl_end = GetHbLazyTensor(end_tensor);
   ir::Value& end_out = hl_end.CurrentIrValue();
   end_out.m_index = 0;
-  end_out.SetNode(node_slice);
+  end_out.SetNode(
+      node_slice,
+      hl_end.GetDevice(),
+      hl_end.GetSizes(),
+      hl_end.dtype_optional());
   // Force an exections here to capture second element of shape tensor.
   // This element is required to determine shape of next node's output
   std::vector<HbLazyTensor> hl_flush_end = {hl_end};
@@ -2120,7 +2239,11 @@ Tensor nonzero_hpu_lazy(const Tensor& self) {
   auto hl_result = GetOrCreateHbLazyTensor(result, c10::kHABANA);
   ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(node);
+  out.SetNode(
+      node,
+      hl_result.GetDevice(),
+      hl_result.GetSizes(),
+      hl_result.dtype_optional());
   updateDstDependencies(hl_result, result);
   // Flushing to match eager mode execution
   std::vector<HbLazyTensor> hl_flush_result = {hl_result};
@@ -2139,7 +2262,11 @@ Tensor& index_add_hpu_lazy_(
 
   ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(node);
+  out.SetNode(
+      node,
+      hl_result.GetDevice(),
+      hl_result.GetSizes(),
+      hl_result.dtype_optional());
 
   std::vector<at::Tensor> input_pt_vec{self, indices, source};
   node->AddInputPtTensors(input_pt_vec);
@@ -2224,7 +2351,11 @@ Tensor index_select_hpu_lazy(
 
   ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(node);
+  out.SetNode(
+      node,
+      hl_result.GetDevice(),
+      hl_result.GetSizes(),
+      hl_result.dtype_optional());
   updateDstDependencies(hl_result, result);
   std::vector<at::Tensor> input_pt_vec{self, index};
   node->AddInputPtTensors(input_pt_vec);
@@ -2275,7 +2406,11 @@ Tensor slice_hpu_lazy(
   }
   ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(node);
+  out.SetNode(
+      node,
+      hl_result.GetDevice(),
+      hl_result.GetSizes(),
+      hl_result.dtype_optional());
   updateDstDependencies(hl_result, result);
   auto output = result;
   // WA for https://jira.habana-labs.com/browse/SW-37197
@@ -2306,7 +2441,11 @@ Tensor select_hpu_lazy(const Tensor& self, int64_t dim, int64_t index) {
   }
   ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(node);
+  out.SetNode(
+      node,
+      hl_result.GetDevice(),
+      hl_result.GetSizes(),
+      hl_result.dtype_optional());
   updateDstDependencies(hl_result, result);
   flush_op(result);
   return result;
@@ -2332,7 +2471,11 @@ Tensor& arange_hpu_lazy(Tensor& output, Scalar start, Scalar end, Scalar step) {
 
   ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(node);
+  out.SetNode(
+      node,
+      hl_result.GetDevice(),
+      hl_result.GetSizes(),
+      hl_result.dtype_optional());
   // updatet the view if any
   updateDstDependencies(hl_result, output);
   std::vector<at::Tensor> input_pt_vec{output};
@@ -2357,7 +2500,11 @@ Tensor mm_hpu_lazy(const at::Tensor& mat1, const at::Tensor& mat2) {
   auto hlresult = GetHbLazyTensor(result);
   ir::Value& out = hlresult.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(node);
+  out.SetNode(
+      node,
+      hlresult.GetDevice(),
+      hlresult.GetSizes(),
+      hlresult.dtype_optional());
   updateDstDependencies(hlresult, result);
   std::vector<at::Tensor> input_pt_vec{mat1, mat2};
   node->AddInputPtTensors(input_pt_vec);
@@ -2392,7 +2539,11 @@ Tensor addmm_hpu_lazy(
   const auto hlresult = GetHbLazyTensor(result);
   ir::Value& out = hlresult.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(node);
+  out.SetNode(
+      node,
+      hlresult.GetDevice(),
+      hlresult.GetSizes(),
+      hlresult.dtype_optional());
   updateDstDependencies((HbLazyTensor&)hlresult, (Tensor&)result);
   std::vector<at::Tensor> input_pt_vec{self, mat1, mat2};
   node->AddInputPtTensors(input_pt_vec);
@@ -2416,7 +2567,11 @@ Tensor& batch_gemm_out_hpu_lazy(
   auto hlresult = GetHbLazyTensor(out);
   ir::Value& out_val = hlresult.CurrentIrValue();
   out_val.m_index = 0;
-  out_val.SetNode(node);
+  out_val.SetNode(
+      node,
+      hlresult.GetDevice(),
+      hlresult.GetSizes(),
+      hlresult.dtype_optional());
   // updatet the view if any
   updateDstDependencies(hlresult, out);
   std::vector<at::Tensor> input_pt_vec{self, mat2};
@@ -2441,7 +2596,11 @@ Tensor batch_gemm_hpu_lazy(const Tensor& self, const Tensor& mat2) {
   const auto hlresult = GetHbLazyTensor(result);
   ir::Value& out = hlresult.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(node);
+  out.SetNode(
+      node,
+      hlresult.GetDevice(),
+      hlresult.GetSizes(),
+      hlresult.dtype_optional());
   updateDstDependencies((HbLazyTensor&)hlresult, (Tensor&)result);
   std::vector<at::Tensor> input_pt_vec{self, mat2};
   node->AddInputPtTensors(input_pt_vec);
@@ -2617,7 +2776,11 @@ Tensor binary_cross_entropy_hpu_lazy(
   auto hlresult = GetHbLazyTensor(result);
   ir::Value& out = hlresult.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(bce_loss_node);
+  out.SetNode(
+      bce_loss_node,
+      hlresult.GetDevice(),
+      hlresult.GetSizes(),
+      hlresult.dtype_optional());
   updateDstDependencies(hlresult, result);
   flush_op(result);
   return result;
@@ -2640,7 +2803,11 @@ Tensor binary_cross_entropy_backward_hpu_lazy(
   auto hlresult = GetHbLazyTensor(result);
   ir::Value& out = hlresult.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(bce_bwd_loss_node);
+  out.SetNode(
+      bce_bwd_loss_node,
+      hlresult.GetDevice(),
+      hlresult.GetSizes(),
+      hlresult.dtype_optional());
   updateDstDependencies(hlresult, result);
   flush_op(result);
   return result;
@@ -2669,7 +2836,11 @@ Tensor binary_cross_entropy_with_logits_hpu_lazy(
   auto hlresult = GetHbLazyTensor(result);
   ir::Value& out = hlresult.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(bce_loss_node);
+  out.SetNode(
+      bce_loss_node,
+      hlresult.GetDevice(),
+      hlresult.GetSizes(),
+      hlresult.dtype_optional());
   updateDstDependencies(hlresult, result);
   flush_op(result);
   return result;
@@ -2755,19 +2926,31 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu_lazy(
   const auto hlresult0 = GetHbLazyTensor(result_img);
   ir::Value& out0 = hlresult0.CurrentIrValue();
   out0.m_index = 0;
-  out0.SetNode(node);
+  out0.SetNode(
+      node,
+      hlresult0.GetDevice(),
+      hlresult0.GetSizes(),
+      hlresult0.dtype_optional());
 
   // set the running mean and variance as output nodes
   if (training) {
     const auto hlresult1 = GetHbLazyTensor(running_mean);
     ir::Value& out1 = hlresult1.CurrentIrValue();
     out1.m_index = 1;
-    out1.SetNode(node);
+    out1.SetNode(
+        node,
+        hlresult1.GetDevice(),
+        hlresult1.GetSizes(),
+        hlresult1.dtype_optional());
 
     const auto hlresult2 = GetHbLazyTensor(running_var);
     ir::Value& out2 = hlresult2.CurrentIrValue();
     out2.m_index = 2;
-    out2.SetNode(node);
+    out2.SetNode(
+        node,
+        hlresult2.GetDevice(),
+        hlresult2.GetSizes(),
+        hlresult2.dtype_optional());
   }
 
   Tensor result_mean, result_var;
@@ -2778,14 +2961,22 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu_lazy(
     const auto hlresult3 = GetHbLazyTensor(result_mean);
     ir::Value& out3 = hlresult3.CurrentIrValue();
     out3.m_index = 3;
-    out3.SetNode(node);
+    out3.SetNode(
+        node,
+        hlresult3.GetDevice(),
+        hlresult3.GetSizes(),
+        hlresult3.dtype_optional());
 
     result_var =
         empty_hpu_lazy(std::get<2>(sizes), running_var.options(), mf, false);
     const auto hlresult4 = GetHbLazyTensor(result_var);
     ir::Value& out4 = hlresult4.CurrentIrValue();
     out4.m_index = 4;
-    out4.SetNode(node);
+    out4.SetNode(
+        node,
+        hlresult4.GetDevice(),
+        hlresult4.GetSizes(),
+        hlresult4.dtype_optional());
   }
 
   if (training) {
@@ -2867,7 +3058,11 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu_lazy(
     const auto hlresult_1 = GetHbLazyTensor(result_1);
     ir::Value& out_1 = hlresult_1.CurrentIrValue();
     out_1.m_index = 0;
-    out_1.SetNode(node);
+    out_1.SetNode(
+        node,
+        hlresult_1.GetDevice(),
+        hlresult_1.GetSizes(),
+        hlresult_1.dtype_optional());
   }
 
   if (output_mask[1]) {
@@ -2879,7 +3074,11 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu_lazy(
     const auto hlresult_2 = GetHbLazyTensor(result_2);
     ir::Value& out_2 = hlresult_2.CurrentIrValue();
     out_2.m_index = 1;
-    out_2.SetNode(node);
+    out_2.SetNode(
+        node,
+        hlresult_2.GetDevice(),
+        hlresult_2.GetSizes(),
+        hlresult_2.dtype_optional());
   }
 
   if (output_mask[2]) {
@@ -2891,7 +3090,11 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu_lazy(
     const auto hlresult_3 = GetHbLazyTensor(result_3);
     ir::Value& out_3 = hlresult_3.CurrentIrValue();
     out_3.m_index = 2;
-    out_3.SetNode(node);
+    out_3.SetNode(
+        node,
+        hlresult_3.GetDevice(),
+        hlresult_3.GetSizes(),
+        hlresult_3.dtype_optional());
   }
 
   flush_op({result_1, result_2, result_3});
@@ -2928,7 +3131,11 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_hpu_lazy(
   const auto hlresult = GetHbLazyTensor(result_img);
   ir::Value& out = hlresult.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(node);
+  out.SetNode(
+      node,
+      hlresult.GetDevice(),
+      hlresult.GetSizes(),
+      hlresult.dtype_optional());
   updateDstDependencies((HbLazyTensor&)hlresult, result_img);
   // Get output mean and var
   auto result_mean = empty_hpu_lazy(
@@ -2939,7 +3146,11 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_hpu_lazy(
   const auto hlresult2 = GetHbLazyTensor(result_mean);
   ir::Value& out2 = hlresult2.CurrentIrValue();
   out2.m_index = 1;
-  out2.SetNode(node);
+  out2.SetNode(
+      node,
+      hlresult2.GetDevice(),
+      hlresult2.GetSizes(),
+      hlresult2.dtype_optional());
   updateDstDependencies((HbLazyTensor&)hlresult2, result_mean);
   auto result_var = empty_hpu_lazy(
       std::get<2>(sizes),
@@ -2949,7 +3160,11 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_hpu_lazy(
   const auto hlresult3 = GetHbLazyTensor(result_var);
   ir::Value& out3 = hlresult3.CurrentIrValue();
   out3.m_index = 2;
-  out3.SetNode(node);
+  out3.SetNode(
+      node,
+      hlresult3.GetDevice(),
+      hlresult3.GetSizes(),
+      hlresult3.dtype_optional());
   updateDstDependencies((HbLazyTensor&)hlresult3, result_var);
   flush_op({result_img, result_mean, result_var});
   return std::make_tuple(result_img, result_mean, result_var);
@@ -2982,7 +3197,11 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_backward_hpu_lazy(
   const auto hlresult = GetHbLazyTensor(result_dY);
   ir::Value& out = hlresult.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(node);
+  out.SetNode(
+      node,
+      hlresult.GetDevice(),
+      hlresult.GetSizes(),
+      hlresult.dtype_optional());
   updateDstDependencies((HbLazyTensor&)hlresult, result_dY);
   at::Tensor result2, result3;
   // Check if to return optional results
@@ -2995,7 +3214,11 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_backward_hpu_lazy(
     const auto hlresult2 = GetHbLazyTensor(result2);
     ir::Value& out2 = hlresult2.CurrentIrValue();
     out2.m_index = 1;
-    out2.SetNode(node);
+    out2.SetNode(
+        node,
+        hlresult2.GetDevice(),
+        hlresult2.GetSizes(),
+        hlresult2.dtype_optional());
   }
   if (grad_input_mask[2]) {
     result3 = empty_hpu_lazy(
@@ -3006,7 +3229,11 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_backward_hpu_lazy(
     const auto hlresult3 = GetHbLazyTensor(result3);
     ir::Value& out2 = hlresult3.CurrentIrValue();
     out2.m_index = 2;
-    out2.SetNode(node);
+    out2.SetNode(
+        node,
+        hlresult3.GetDevice(),
+        hlresult3.GetSizes(),
+        hlresult3.dtype_optional());
   }
   flush_op({result_dY, result2, result3});
   return std::make_tuple(result_dY, result2, result3);
@@ -3049,7 +3276,11 @@ std::tuple<Tensor, Tensor> max_pool2d_with_indices_hpu_lazy(
   auto hlresult_0 = GetHbLazyTensor(result_0);
   ir::Value& out_0 = hlresult_0.CurrentIrValue();
   out_0.m_index = 0;
-  out_0.SetNode(maxpool_node);
+  out_0.SetNode(
+      maxpool_node,
+      hlresult_0.GetDevice(),
+      hlresult_0.GetSizes(),
+      hlresult_0.dtype_optional());
   updateDstDependencies(hlresult_0, result_0);
 
   // allocate Output_1 storage
@@ -3065,7 +3296,11 @@ std::tuple<Tensor, Tensor> max_pool2d_with_indices_hpu_lazy(
   auto hlresult_1 = GetHbLazyTensor(result_1);
   ir::Value& out_1 = hlresult_1.CurrentIrValue();
   out_1.m_index = 1;
-  out_1.SetNode(maxpool_node);
+  out_1.SetNode(
+      maxpool_node,
+      hlresult_1.GetDevice(),
+      hlresult_1.GetSizes(),
+      hlresult_1.dtype_optional());
   updateDstDependencies(hlresult_1, result_1);
 
   flush_op({result_0, result_1});
@@ -3136,7 +3371,11 @@ Tensor max_pool2d_with_indices_backward_hpu_lazy(
   auto hlresult = GetHbLazyTensor(result);
   ir::Value& out = hlresult.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(maxpool_bwd_node);
+  out.SetNode(
+      maxpool_bwd_node,
+      hlresult.GetDevice(),
+      hlresult.GetSizes(),
+      hlresult.dtype_optional());
   updateDstDependencies(hlresult, result);
   flush_op(result);
   return result;
@@ -3197,7 +3436,11 @@ Tensor avg_pool2d_hpu_lazy(
   auto hlresult = GetHbLazyTensor(result);
   ir::Value& out = hlresult.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(avgpool_node);
+  out.SetNode(
+      avgpool_node,
+      hlresult.GetDevice(),
+      hlresult.GetSizes(),
+      hlresult.dtype_optional());
   updateDstDependencies(hlresult, result);
   flush_op(result);
   return result;
@@ -3266,7 +3509,11 @@ Tensor avg_pool2d_backward_hpu_lazy(
   auto hlresult = GetHbLazyTensor(result);
   ir::Value& out = hlresult.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(avgpool_bwd_node);
+  out.SetNode(
+      avgpool_bwd_node,
+      hlresult.GetDevice(),
+      hlresult.GetSizes(),
+      hlresult.dtype_optional());
   updateDstDependencies(hlresult, result);
   flush_op(result);
   return result;
@@ -3409,7 +3656,11 @@ Tensor sum_dim_IntList_hpu_lazy(
   auto hl_result = GetHbLazyTensor(result);
   ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(node);
+  out.SetNode(
+      node,
+      hl_result.GetDevice(),
+      hl_result.GetSizes(),
+      hl_result.dtype_optional());
   updateDstDependencies(hl_result, result);
   flush_op(result);
   return result;
@@ -3490,7 +3741,11 @@ Tensor sum_hpu_lazy(const Tensor& self_in, c10::optional<ScalarType> dtype) {
   auto hl_result = GetHbLazyTensor(result);
   ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(node);
+  out.SetNode(
+      node,
+      hl_result.GetDevice(),
+      hl_result.GetSizes(),
+      hl_result.dtype_optional());
   updateDstDependencies(hl_result, result);
   flush_op(result);
   result.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
@@ -3526,7 +3781,11 @@ Tensor prod_dim_hpu_lazy(
   auto hl_result = GetHbLazyTensor(result);
   ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(node);
+  out.SetNode(
+      node,
+      hl_result.GetDevice(),
+      hl_result.GetSizes(),
+      hl_result.dtype_optional());
   updateDstDependencies(hl_result, result);
   flush_op(result);
   return result;
@@ -3543,7 +3802,11 @@ Tensor prod_hpu_lazy(const Tensor& self, c10::optional<ScalarType> dtype) {
   auto hl_result = GetHbLazyTensor(result);
   ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(node);
+  out.SetNode(
+      node,
+      hl_result.GetDevice(),
+      hl_result.GetSizes(),
+      hl_result.dtype_optional());
   updateDstDependencies(hl_result, result);
   flush_op(result);
   return result;
@@ -3635,7 +3898,11 @@ Tensor argmax_hpu_lazy(
   auto hl_result = GetHbLazyTensor(result);
   ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(node);
+  out.SetNode(
+      node,
+      hl_result.GetDevice(),
+      hl_result.GetSizes(),
+      hl_result.dtype_optional());
   updateDstDependencies(hl_result, result);
   flush_op(result);
   return result;
@@ -3654,7 +3921,11 @@ Tensor log_softmax_hpu_lazy(
 
   ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(node);
+  out.SetNode(
+      node,
+      hl_result.GetDevice(),
+      hl_result.GetSizes(),
+      hl_result.dtype_optional());
   updateDstDependencies(hl_result, result);
   flush_op(result);
   return result;
@@ -3674,7 +3945,11 @@ Tensor log_softmax_backward_hpu_lazy(
 
   ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(node);
+  out.SetNode(
+      node,
+      hl_result.GetDevice(),
+      hl_result.GetSizes(),
+      hl_result.dtype_optional());
   updateDstDependencies(hl_result, result);
   flush_op(result);
   return result;
@@ -3694,7 +3969,11 @@ Tensor softmax_hpu_lazy(
 
   ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(node);
+  out.SetNode(
+      node,
+      hl_result.GetDevice(),
+      hl_result.GetSizes(),
+      hl_result.dtype_optional());
   updateDstDependencies(hl_result, result);
   flush_op(result);
   return result;
@@ -3715,7 +3994,11 @@ Tensor softmax_backward_hpu_lazy(
 
   ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(node);
+  out.SetNode(
+      node,
+      hl_result.GetDevice(),
+      hl_result.GetSizes(),
+      hl_result.dtype_optional());
   updateDstDependencies(hl_result, result);
   flush_op(result);
   return result;
@@ -3897,7 +4180,11 @@ Tensor clone_hpu_lazy(
   auto hlresult = GetHbLazyTensor(result);
   ir::Value& out = hlresult.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(node);
+  out.SetNode(
+      node,
+      hlresult.GetDevice(),
+      hlresult.GetSizes(),
+      hlresult.dtype_optional());
   updateDstDependencies(hlresult, result);
   std::vector<at::Tensor> input_pt_vec{self};
   node->AddInputPtTensors(input_pt_vec);
@@ -3956,7 +4243,11 @@ Tensor transpose_hpu_lazy(const Tensor& self, int64_t dim0_, int64_t dim1_) {
   auto hl_result = GetHbLazyTensor(result);
   ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(node);
+  out.SetNode(
+      node,
+      hl_result.GetDevice(),
+      hl_result.GetSizes(),
+      hl_result.dtype_optional());
   updateDstDependencies(hl_result, result);
   flush_op(result);
   return result;
@@ -3980,7 +4271,11 @@ Tensor t_hpu_lazy(const Tensor& self) {
   auto hl_result = GetHbLazyTensor(result);
   ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(node);
+  out.SetNode(
+      node,
+      hl_result.GetDevice(),
+      hl_result.GetSizes(),
+      hl_result.dtype_optional());
   updateDstDependencies(hl_result, result);
   std::vector<at::Tensor> input_pt_vec{self};
   node->AddInputPtTensors(input_pt_vec);
@@ -4032,7 +4327,11 @@ Tensor permute_cl_hpu_lazy(const Tensor& self, IntArrayRef dims_) {
   auto hl_result = GetHbLazyTensor(result);
   ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(node);
+  out.SetNode(
+      node,
+      hl_result.GetDevice(),
+      hl_result.GetSizes(),
+      hl_result.dtype_optional());
   flush_op(result);
   return result;
 }
@@ -4048,7 +4347,11 @@ Tensor permute_hpu_lazy(const Tensor& self, IntArrayRef dims_) {
   auto hl_result = GetHbLazyTensor(result);
   ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(node);
+  out.SetNode(
+      node,
+      hl_result.GetDevice(),
+      hl_result.GetSizes(),
+      hl_result.dtype_optional());
   updateDstDependencies(hl_result, result);
   flush_op(result);
   return result;
@@ -4073,7 +4376,11 @@ Tensor expand_hpu_lazy(const Tensor& self, IntArrayRef size, bool implicit) {
   auto hl_result = GetHbLazyTensor(result);
   ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(node);
+  out.SetNode(
+      node,
+      hl_result.GetDevice(),
+      hl_result.GetSizes(),
+      hl_result.dtype_optional());
 
   flush_op(result);
   return result;
@@ -4107,7 +4414,7 @@ std::vector<Tensor> split_with_sizes_hpu_lazy(
   for (auto ht : hlresult) {
     auto& out = ht.CurrentIrValue();
     out.m_index = m_index++;
-    out.SetNode(node);
+    out.SetNode(node, ht.GetDevice(), ht.GetSizes(), ht.dtype_optional());
   }
 
   return result;
@@ -4130,7 +4437,11 @@ Tensor threshold_backward_hpu_lazy(
   auto hlresult = GetHbLazyTensor(result);
   ir::Value& out = hlresult.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(node);
+  out.SetNode(
+      node,
+      hlresult.GetDevice(),
+      hlresult.GetSizes(),
+      hlresult.dtype_optional());
   updateDstDependencies(hlresult, result);
   std::vector<at::Tensor> input_pt_vec{grad_output, self};
   node->AddInputPtTensors(input_pt_vec);
@@ -4221,7 +4532,11 @@ std::tuple<Tensor, Tensor> sort_hpu_lazy(
   auto hlresult_0 = GetHbLazyTensor(result_0);
   ir::Value& out_0 = hlresult_0.CurrentIrValue();
   out_0.m_index = 0;
-  out_0.SetNode(node);
+  out_0.SetNode(
+      node,
+      hlresult_0.GetDevice(),
+      hlresult_0.GetSizes(),
+      hlresult_0.dtype_optional());
 
   // out 1
   auto result_1 = empty_hpu_lazy(
@@ -4232,7 +4547,11 @@ std::tuple<Tensor, Tensor> sort_hpu_lazy(
   auto hlresult_1 = GetHbLazyTensor(result_1);
   ir::Value& out_1 = hlresult_1.CurrentIrValue();
   out_1.m_index = 1;
-  out_1.SetNode(node);
+  out_1.SetNode(
+      node,
+      hlresult_1.GetDevice(),
+      hlresult_1.GetSizes(),
+      hlresult_1.dtype_optional());
 
   flush_op({result_0, result_1});
   return std::make_tuple(result_0, result_1);
@@ -4269,7 +4588,11 @@ Tensor relu_hpu_lazy(const Tensor& input) {
   auto hl_result = GetHbLazyTensor(result);
   ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(node);
+  out.SetNode(
+      node,
+      hl_result.GetDevice(),
+      hl_result.GetSizes(),
+      hl_result.dtype_optional());
   updateDstDependencies(hl_result, result);
   std::vector<at::Tensor> input_pt_vec{input};
   node->AddInputPtTensors(input_pt_vec);
@@ -4374,7 +4697,11 @@ Tensor floor_hpu_lazy(const Tensor& input) {
   auto hl_result = GetHbLazyTensor(result);
   ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(node);
+  out.SetNode(
+      node,
+      hl_result.GetDevice(),
+      hl_result.GetSizes(),
+      hl_result.dtype_optional());
   updateDstDependencies(hl_result, result);
   std::vector<at::Tensor> input_pt_vec{input};
   node->AddInputPtTensors(input_pt_vec);
@@ -4394,7 +4721,11 @@ Tensor& floor_hpu_lazy_(Tensor& input) {
 
   ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(node);
+  out.SetNode(
+      node,
+      hl_result.GetDevice(),
+      hl_result.GetSizes(),
+      hl_result.dtype_optional());
 
   std::vector<at::Tensor> input_pt_vec{input};
   node->AddInputPtTensors(input_pt_vec);
@@ -4421,7 +4752,11 @@ Tensor log_hpu_lazy(const Tensor& input) {
   auto hl_result = GetHbLazyTensor(result);
   ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(node);
+  out.SetNode(
+      node,
+      hl_result.GetDevice(),
+      hl_result.GetSizes(),
+      hl_result.dtype_optional());
   updateDstDependencies(hl_result, result);
   std::vector<at::Tensor> input_pt_vec{input};
   node->AddInputPtTensors(input_pt_vec);
@@ -4440,7 +4775,11 @@ Tensor& log_hpu_lazy_(Tensor& input) {
 
   ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(node);
+  out.SetNode(
+      node,
+      hl_result.GetDevice(),
+      hl_result.GetSizes(),
+      hl_result.dtype_optional());
 
   std::vector<at::Tensor> input_pt_vec{input};
   node->AddInputPtTensors(input_pt_vec);
@@ -4467,7 +4806,11 @@ Tensor log2_hpu_lazy(const Tensor& input) {
   auto hl_result = GetHbLazyTensor(result);
   ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(node);
+  out.SetNode(
+      node,
+      hl_result.GetDevice(),
+      hl_result.GetSizes(),
+      hl_result.dtype_optional());
   updateDstDependencies(hl_result, result);
   std::vector<at::Tensor> input_pt_vec{input};
   node->AddInputPtTensors(input_pt_vec);
@@ -4486,7 +4829,11 @@ Tensor& log2_hpu_lazy_(Tensor& input) {
 
   ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(node);
+  out.SetNode(
+      node,
+      hl_result.GetDevice(),
+      hl_result.GetSizes(),
+      hl_result.dtype_optional());
 
   std::vector<at::Tensor> input_pt_vec{input};
   node->AddInputPtTensors(input_pt_vec);
@@ -4518,7 +4865,11 @@ Tensor upsample_nearest2d_hpu_lazy(
   auto hlresult = GetHbLazyTensor(result);
   ir::Value& out = hlresult.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(node);
+  out.SetNode(
+      node,
+      hlresult.GetDevice(),
+      hlresult.GetSizes(),
+      hlresult.dtype_optional());
   // updatet the view if any
   updateDstDependencies(hlresult, result);
   flush_op(result);
@@ -4546,7 +4897,11 @@ Tensor upsample_nearest2d_backward_hpu_lazy(
   auto hlresult = GetHbLazyTensor(result);
   ir::Value& out = hlresult.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(node);
+  out.SetNode(
+      node,
+      hlresult.GetDevice(),
+      hlresult.GetSizes(),
+      hlresult.dtype_optional());
   // updatet the view if any
   updateDstDependencies(hlresult, result);
   flush_op(result);
@@ -4565,7 +4920,11 @@ Tensor sigmoid_hpu_lazy(const Tensor& input) {
   auto hl_result = GetHbLazyTensor(result);
   ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(node);
+  out.SetNode(
+      node,
+      hl_result.GetDevice(),
+      hl_result.GetSizes(),
+      hl_result.dtype_optional());
   updateDstDependencies(hl_result, result);
   std::vector<at::Tensor> input_pt_vec{input};
   node->AddInputPtTensors(input_pt_vec);
@@ -4588,7 +4947,11 @@ Tensor sigmoid_backward_hpu_lazy(const Tensor& grad_in, const Tensor& input) {
   auto hl_result = GetHbLazyTensor(result);
   ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(node);
+  out.SetNode(
+      node,
+      hl_result.GetDevice(),
+      hl_result.GetSizes(),
+      hl_result.dtype_optional());
   updateDstDependencies(hl_result, result);
   std::vector<at::Tensor> input_pt_vec{grad_in, input};
   node->AddInputPtTensors(input_pt_vec);
@@ -4627,7 +4990,11 @@ Tensor sqrt_hpu_lazy_(Tensor& input) {
 
   ir::Value& out = hl_input.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(node);
+  out.SetNode(
+      node,
+      hl_input.GetDevice(),
+      hl_input.GetSizes(),
+      hl_input.dtype_optional());
 
   std::vector<at::Tensor> input_pt_vec{input};
   node->AddInputPtTensors(input_pt_vec);
@@ -4655,7 +5022,11 @@ Tensor sqrt_hpu_lazy(const Tensor& input) {
   auto hl_result = GetHbLazyTensor(result);
   ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(node);
+  out.SetNode(
+      node,
+      hl_result.GetDevice(),
+      hl_result.GetSizes(),
+      hl_result.dtype_optional());
   updateDstDependencies(hl_result, result);
   std::vector<at::Tensor> input_pt_vec{input};
   node->AddInputPtTensors(input_pt_vec);
@@ -4676,7 +5047,11 @@ Tensor tanh_hpu_lazy(const Tensor& input) {
   auto hl_result = GetHbLazyTensor(result);
   ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(node);
+  out.SetNode(
+      node,
+      hl_result.GetDevice(),
+      hl_result.GetSizes(),
+      hl_result.dtype_optional());
   updateDstDependencies(hl_result, result);
   std::vector<at::Tensor> input_pt_vec{input};
   node->AddInputPtTensors(input_pt_vec);
@@ -4704,7 +5079,11 @@ Tensor tanh_backward_hpu_lazy(const Tensor& grad_in, const Tensor& input) {
   auto hl_result = GetHbLazyTensor(result);
   ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(node);
+  out.SetNode(
+      node,
+      hl_result.GetDevice(),
+      hl_result.GetSizes(),
+      hl_result.dtype_optional());
   updateDstDependencies(hl_result, result);
   std::vector<at::Tensor> input_pt_vec{grad_in, input};
   node->AddInputPtTensors(input_pt_vec);
@@ -4724,7 +5103,11 @@ Tensor gelu_hpu_lazy(const Tensor& self) {
   auto hl_result = GetHbLazyTensor(result);
   ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(node);
+  out.SetNode(
+      node,
+      hl_result.GetDevice(),
+      hl_result.GetSizes(),
+      hl_result.dtype_optional());
   updateDstDependencies(hl_result, result);
   std::vector<at::Tensor> input_pt_vec{self};
   node->AddInputPtTensors(input_pt_vec);
@@ -4746,7 +5129,11 @@ Tensor gelu_backward_hpu_lazy(const Tensor& grad, const Tensor& self) {
   auto hl_result = GetHbLazyTensor(result);
   ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(node);
+  out.SetNode(
+      node,
+      hl_result.GetDevice(),
+      hl_result.GetSizes(),
+      hl_result.dtype_optional());
   updateDstDependencies(hl_result, result);
   std::vector<at::Tensor> input_pt_vec{grad, self};
   node->AddInputPtTensors(input_pt_vec);
@@ -4812,7 +5199,11 @@ Tensor& clamp_hpu_lazy_(
 
   ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(node);
+  out.SetNode(
+      node,
+      hl_result.GetDevice(),
+      hl_result.GetSizes(),
+      hl_result.dtype_optional());
 
   std::vector<at::Tensor> input_pt_vec{self};
   node->AddInputPtTensors(input_pt_vec);
@@ -4839,7 +5230,11 @@ Tensor round_hpu_lazy(const Tensor& input) {
   auto hl_result = GetHbLazyTensor(result);
   ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(node);
+  out.SetNode(
+      node,
+      hl_result.GetDevice(),
+      hl_result.GetSizes(),
+      hl_result.dtype_optional());
   updateDstDependencies(hl_result, result);
   std::vector<at::Tensor> input_pt_vec{input};
   node->AddInputPtTensors(input_pt_vec);
@@ -4858,7 +5253,11 @@ Tensor& round_hpu_lazy_(Tensor& input) {
 
   ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(node);
+  out.SetNode(
+      node,
+      hl_result.GetDevice(),
+      hl_result.GetSizes(),
+      hl_result.dtype_optional());
 
   std::vector<at::Tensor> input_pt_vec{input};
   node->AddInputPtTensors(input_pt_vec);
@@ -4883,7 +5282,11 @@ Tensor rsqrt_hpu_lazy(const Tensor& input) {
   auto hl_result = GetHbLazyTensor(result);
   ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(node);
+  out.SetNode(
+      node,
+      hl_result.GetDevice(),
+      hl_result.GetSizes(),
+      hl_result.dtype_optional());
   updateDstDependencies(hl_result, result);
   std::vector<at::Tensor> input_pt_vec{input};
   node->AddInputPtTensors(input_pt_vec);
@@ -4902,7 +5305,11 @@ Tensor& rsqrt_hpu_lazy_(Tensor& input) {
 
   ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(node);
+  out.SetNode(
+      node,
+      hl_result.GetDevice(),
+      hl_result.GetSizes(),
+      hl_result.dtype_optional());
 
   std::vector<at::Tensor> input_pt_vec{input};
   node->AddInputPtTensors(input_pt_vec);
@@ -4930,7 +5337,11 @@ Tensor isfinite_hpu_lazy(const Tensor& input) {
   auto hl_result = GetHbLazyTensor(result);
   ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(node);
+  out.SetNode(
+      node,
+      hl_result.GetDevice(),
+      hl_result.GetSizes(),
+      hl_result.dtype_optional());
 
   std::vector<at::Tensor> input_pt_vec{input};
   node->AddInputPtTensors(input_pt_vec);
@@ -5007,11 +5418,19 @@ optimizer_sparse_sgd_with_valid_count_hpu_lazy(
   auto hlweights = GetHbLazyTensor(weights_in);
   ir::Value& out1 = hlweights.CurrentIrValue();
   out1.m_index = 0;
-  out1.SetNode(node);
+  out1.SetNode(
+      node,
+      hlweights.GetDevice(),
+      hlweights.GetSizes(),
+      hlweights.dtype_optional());
   auto hlmoments = GetHbLazyTensor(moments_in);
   ir::Value& out2 = hlmoments.CurrentIrValue();
   out2.m_index = 1;
-  out2.SetNode(node);
+  out2.SetNode(
+      node,
+      hlmoments.GetDevice(),
+      hlmoments.GetSizes(),
+      hlmoments.dtype_optional());
   flush_op({weights_in, moments_in});
   return std::tie(weights_in, moments_in);
 }
@@ -5043,11 +5462,19 @@ optimizer_sparse_adagrad_with_valid_count_hpu_lazy(
   auto hlweights = GetHbLazyTensor(weights_in);
   ir::Value& out1 = hlweights.CurrentIrValue();
   out1.m_index = 0;
-  out1.SetNode(node);
+  out1.SetNode(
+      node,
+      hlweights.GetDevice(),
+      hlweights.GetSizes(),
+      hlweights.dtype_optional());
   auto hlmoments = GetHbLazyTensor(moments_in);
   ir::Value& out2 = hlmoments.CurrentIrValue();
   out2.m_index = 1;
-  out2.SetNode(node);
+  out2.SetNode(
+      node,
+      hlmoments.GetDevice(),
+      hlmoments.GetSizes(),
+      hlmoments.dtype_optional());
 
   std::vector<at::Tensor> input_pt_vec{
       gradients,
@@ -5100,7 +5527,11 @@ void optimizer_adamw_hpu_lazy(
   habana_lazy::ir::Value& out = hlweight.CurrentIrValue();
   node->set_as_output_tensor_list();
   out.m_index = 0;
-  out.SetNode(node);
+  out.SetNode(
+      node,
+      hlweight.GetDevice(),
+      hlweight.GetSizes(),
+      hlweight.dtype_optional());
 
   habana_lazy::ir::NodePtr node_unpack =
       std::make_shared<habana_lazy::ir::ListUnpack>(out);
@@ -5110,33 +5541,57 @@ void optimizer_adamw_hpu_lazy(
       auto hl_wd = GetHbLazyTensor(weights[i]);
       ir::Value& out0 = hl_wd.CurrentIrValue();
       out0.m_index = out_index++;
-      out0.SetNode(node_unpack);
+      out0.SetNode(
+          node_unpack,
+          hl_wd.GetDevice(),
+          hl_wd.GetSizes(),
+          hl_wd.dtype_optional());
     }
 
     auto hl_exp_avg = GetHbLazyTensor(exp_avg[i]);
     ir::Value& out1 = hl_exp_avg.CurrentIrValue();
     out1.m_index = out_index++;
-    out1.SetNode(node_unpack);
+    out1.SetNode(
+        node_unpack,
+        hl_exp_avg.GetDevice(),
+        hl_exp_avg.GetSizes(),
+        hl_exp_avg.dtype_optional());
 
     auto hl_exp_avg_1 = GetHbLazyTensor(exp_avg[i]);
     ir::Value& out2 = hl_exp_avg_1.CurrentIrValue();
     out2.m_index = out_index++;
-    out2.SetNode(node_unpack);
+    out2.SetNode(
+        node_unpack,
+        hl_exp_avg_1.GetDevice(),
+        hl_exp_avg_1.GetSizes(),
+        hl_exp_avg_1.dtype_optional());
 
     auto hl_exp_avg_sq = GetHbLazyTensor(exp_avg_sq[i]);
     ir::Value& out3 = hl_exp_avg_sq.CurrentIrValue();
     out3.m_index = out_index++;
-    out3.SetNode(node_unpack);
+    out3.SetNode(
+        node_unpack,
+        hl_exp_avg_sq.GetDevice(),
+        hl_exp_avg_sq.GetSizes(),
+        hl_exp_avg_sq.dtype_optional());
 
     auto hl_exp_avg_sq_1 = GetHbLazyTensor(exp_avg_sq[i]);
     ir::Value& out4 = hl_exp_avg_sq_1.CurrentIrValue();
     out4.m_index = out_index++;
-    out4.SetNode(node_unpack);
+    out4.SetNode(
+        node_unpack,
+        hl_exp_avg_sq_1.GetDevice(),
+        hl_exp_avg_sq_1.GetSizes(),
+        hl_exp_avg_sq_1.dtype_optional());
 
     auto hl_weight = GetHbLazyTensor(weights[i]);
     ir::Value& out5 = hl_weight.CurrentIrValue();
     out5.m_index = out_index++;
-    out5.SetNode(node_unpack);
+    out5.SetNode(
+        node_unpack,
+        hl_weight.GetDevice(),
+        hl_weight.GetSizes(),
+        hl_weight.dtype_optional());
   }
 
   if (std::getenv("PT_HPU_LAZY_MODE") &&
@@ -5161,7 +5616,8 @@ Tensor fused_norm_hpu_lazy(
   habana_lazy::ir::Value& out1 = hlgrad.CurrentIrValue();
   node->set_as_output_tensor_list();
   out1.m_index = 0;
-  out1.SetNode(node);
+  out1.SetNode(
+      node, hlgrad.GetDevice(), hlgrad.GetSizes(), hlgrad.dtype_optional());
 
   habana_lazy::ir::NodePtr node_unpack =
       std::make_shared<habana_lazy::ir::ListUnpack>(out1);
@@ -5172,13 +5628,21 @@ Tensor fused_norm_hpu_lazy(
   auto hlresult = GetHbLazyTensor(result);
   ir::Value& out2 = hlresult.CurrentIrValue();
   out2.m_index = out_index++;
-  out2.SetNode(node_unpack);
+  out2.SetNode(
+      node_unpack,
+      hlresult.GetDevice(),
+      hlresult.GetSizes(),
+      hlresult.dtype_optional());
 
   for (size_t i = 0; i < grad.size(); i++) {
     auto hlgrad = GetHbLazyTensor(grad[i]);
     ir::Value& out1 = hlgrad.CurrentIrValue();
     out1.m_index = out_index++;
-    out1.SetNode(node_unpack);
+    out1.SetNode(
+        node_unpack,
+        hlgrad.GetDevice(),
+        hlgrad.GetSizes(),
+        hlgrad.dtype_optional());
   }
 
   flush_op(result);
@@ -5198,7 +5662,11 @@ Tensor optimizer_lamb_fused_norm_hpu_lazy(
   auto hlresult = GetHbLazyTensor(result);
   ir::Value& out = hlresult.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(node);
+  out.SetNode(
+      node,
+      hlresult.GetDevice(),
+      hlresult.GetSizes(),
+      hlresult.dtype_optional());
 
   updateDstDependencies(hlresult, result);
 
@@ -5288,7 +5756,11 @@ optimizer_lamb_phase1_hpu_lazy(
     auto hl_adam_step = GetHbLazyTensor(adam_step);
     ir::Value& out1 = hl_adam_step.CurrentIrValue();
     out1.m_index = out_index++;
-    out1.SetNode(node);
+    out1.SetNode(
+        node,
+        hl_adam_step.GetDevice(),
+        hl_adam_step.GetSizes(),
+        hl_adam_step.dtype_optional());
 
     context->m_retained_tensor_list.emplace_back(adam_step);
     adam_step_vec.push_back(adam_step);
@@ -5298,7 +5770,11 @@ optimizer_lamb_phase1_hpu_lazy(
     auto hl_adam_norm = GetHbLazyTensor(adam_norm);
     ir::Value& out2 = hl_adam_norm.CurrentIrValue();
     out2.m_index = out_index++;
-    out2.SetNode(node);
+    out2.SetNode(
+        node,
+        hl_adam_norm.GetDevice(),
+        hl_adam_norm.GetSizes(),
+        hl_adam_norm.dtype_optional());
 
     context->m_retained_tensor_list.emplace_back(adam_norm);
     adam_norm_vec.push_back(adam_norm);
@@ -5308,7 +5784,11 @@ optimizer_lamb_phase1_hpu_lazy(
     auto hl_weight_norm = GetHbLazyTensor(weight_norm);
     ir::Value& out3 = hl_weight_norm.CurrentIrValue();
     out3.m_index = out_index++;
-    out3.SetNode(node);
+    out3.SetNode(
+        node,
+        hl_weight_norm.GetDevice(),
+        hl_weight_norm.GetSizes(),
+        hl_weight_norm.dtype_optional());
 
     context->m_retained_tensor_list.emplace_back(weight_norm);
     weight_norm_vec.push_back(weight_norm);
@@ -5322,13 +5802,21 @@ optimizer_lamb_phase1_hpu_lazy(
     auto hl_exp_avg_temp = GetHbLazyTensor(exp_avg_temp);
     ir::Value& out4 = hl_exp_avg_temp.CurrentIrValue();
     out4.m_index = out_index++;
-    out4.SetNode(node);
+    out4.SetNode(
+        node,
+        hl_exp_avg_temp.GetDevice(),
+        hl_exp_avg_temp.GetSizes(),
+        hl_exp_avg_temp.dtype_optional());
     context->m_retained_tensor_list.emplace_back(exp_avg_temp);
 
     auto hl_exp_avg = GetHbLazyTensor(exp_avg[i]);
     ir::Value& out5 = hl_exp_avg.CurrentIrValue();
     out5.m_index = out_index++;
-    out5.SetNode(node);
+    out5.SetNode(
+        node,
+        hl_exp_avg.GetDevice(),
+        hl_exp_avg.GetSizes(),
+        hl_exp_avg.dtype_optional());
     context->m_retained_tensor_list.emplace_back(exp_avg[i]);
 
     auto exp_avg_sq_temp = empty_hpu_lazy(
@@ -5339,13 +5827,21 @@ optimizer_lamb_phase1_hpu_lazy(
     auto hl_exp_avg_sq_temp = GetHbLazyTensor(exp_avg_sq_temp);
     ir::Value& out6 = hl_exp_avg_sq_temp.CurrentIrValue();
     out6.m_index = out_index++;
-    out6.SetNode(node);
+    out6.SetNode(
+        node,
+        hl_exp_avg_sq_temp.GetDevice(),
+        hl_exp_avg_sq_temp.GetSizes(),
+        hl_exp_avg_sq_temp.dtype_optional());
     context->m_retained_tensor_list.emplace_back(exp_avg_sq_temp);
 
     auto hl_exp_avg_sq = GetHbLazyTensor(exp_avg_sq[i]);
     ir::Value& out7 = hl_exp_avg_sq.CurrentIrValue();
     out7.m_index = out_index++;
-    out7.SetNode(node);
+    out7.SetNode(
+        node,
+        hl_exp_avg_sq.GetDevice(),
+        hl_exp_avg_sq.GetSizes(),
+        hl_exp_avg_sq.dtype_optional());
     context->m_retained_tensor_list.emplace_back(exp_avg_sq[i]);
   }
 
@@ -5391,7 +5887,11 @@ void optimizer_lamb_phase2_hpu_lazy(
     auto hl_weight = GetHbLazyTensor(weights[i]);
     ir::Value& out1 = hl_weight.CurrentIrValue();
     out1.m_index = out_index++;
-    out1.SetNode(node);
+    out1.SetNode(
+        node,
+        hl_weight.GetDevice(),
+        hl_weight.GetSizes(),
+        hl_weight.dtype_optional());
   }
 }
 
@@ -5424,12 +5924,20 @@ Tensor& optimizer_adagrad_hpu_lazy(
     auto hlweight = GetHbLazyTensor(weights[i]);
     ir::Value& out1 = hlweight.CurrentIrValue();
     out1.m_index = out_index++;
-    out1.SetNode(node);
+    out1.SetNode(
+        node,
+        hlweight.GetDevice(),
+        hlweight.GetSizes(),
+        hlweight.dtype_optional());
 
     auto hlvariance = GetHbLazyTensor(variances[i]);
     ir::Value& out2 = hlvariance.CurrentIrValue();
     out2.m_index = out_index++;
-    out2.SetNode(node);
+    out2.SetNode(
+        node,
+        hlvariance.GetDevice(),
+        hlvariance.GetSizes(),
+        hlvariance.dtype_optional());
   }
 
   flush_op(lr);
@@ -5460,7 +5968,11 @@ Tensor& optimizer_sgd_hpu_lazy(
     auto hlweight = GetHbLazyTensor(weights[i]);
     ir::Value& out1 = hlweight.CurrentIrValue();
     out1.m_index = out_index++;
-    out1.SetNode(node);
+    out1.SetNode(
+        node,
+        hlweight.GetDevice(),
+        hlweight.GetSizes(),
+        hlweight.dtype_optional());
   }
 
   flush_op(lr);
@@ -5497,7 +6009,11 @@ Tensor& optimizer_sgd_momentum_hpu_lazy(
   ir::Value& out = hlweight.CurrentIrValue();
   node->set_as_output_tensor_list();
   out.m_index = 0;
-  out.SetNode(node);
+  out.SetNode(
+      node,
+      hlweight.GetDevice(),
+      hlweight.GetSizes(),
+      hlweight.dtype_optional());
 
   ir::NodePtr node_unpack = std::make_shared<ir::ListUnpack>(out);
 
@@ -5505,12 +6021,20 @@ Tensor& optimizer_sgd_momentum_hpu_lazy(
     auto hlweight = GetHbLazyTensor(weights[i]);
     ir::Value& out1 = hlweight.CurrentIrValue();
     out1.m_index = out_index++;
-    out1.SetNode(node_unpack);
+    out1.SetNode(
+        node_unpack,
+        hlweight.GetDevice(),
+        hlweight.GetSizes(),
+        hlweight.dtype_optional());
 
     auto hlmomentum = GetHbLazyTensor(momentum[i]);
     ir::Value& out2 = hlmomentum.CurrentIrValue();
     out2.m_index = out_index++;
-    out2.SetNode(node_unpack);
+    out2.SetNode(
+        node_unpack,
+        hlmomentum.GetDevice(),
+        hlmomentum.GetSizes(),
+        hlmomentum.dtype_optional());
   }
 
   flush_op(lr);
@@ -5558,7 +6082,8 @@ Tensor& bitwise_and_out_hpu_lazy(
       {hl_out.GetIrValue(), hl_self.GetIrValue(), hl_other.GetIrValue()});
   ir::Value& output = hl_out.CurrentIrValue();
   output.m_index = 0;
-  output.SetNode(node);
+  output.SetNode(
+      node, hl_out.GetDevice(), hl_out.GetSizes(), hl_out.dtype_optional());
   // updatet the view if any
   updateDstDependencies(hl_out, out);
   std::vector<at::Tensor> input_pt_vec{out, self, other};
@@ -5601,7 +6126,11 @@ Tensor& bitwise_or_out_hpu_lazy(
   auto hl_result = GetHbLazyTensor(out);
   ir::Value& output = hl_result.CurrentIrValue();
   output.m_index = 0;
-  output.SetNode(node);
+  output.SetNode(
+      node,
+      hl_result.GetDevice(),
+      hl_result.GetSizes(),
+      hl_result.dtype_optional());
   // updatet the view if any
   updateDstDependencies(hl_result, out);
   std::vector<at::Tensor> input_pt_vec{out, self, other};
@@ -5690,7 +6219,11 @@ std::tuple<Tensor, Tensor, Tensor> unique2_hpu_lazy(
   auto hl_result = GetOrCreateHbLazyTensor(result, c10::kHABANA);
   ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(node_slice);
+  out.SetNode(
+      node_slice,
+      hl_result.GetDevice(),
+      hl_result.GetSizes(),
+      hl_result.dtype_optional());
 
   // These are optional tensors which shall be populated only when we
   // start supporting return_inverse and return_counts
@@ -5724,9 +6257,17 @@ std::tuple<at::Tensor, at::Tensor> max_dim_hpu_lazy(
   ir::Value& out1 = hl_result1.CurrentIrValue();
   ir::Value& out2 = hl_result2.CurrentIrValue();
   out1.m_index = 0;
-  out1.SetNode(node);
+  out1.SetNode(
+      node,
+      hl_result1.GetDevice(),
+      hl_result1.GetSizes(),
+      hl_result1.dtype_optional());
   out2.m_index = 1;
-  out2.SetNode(node);
+  out2.SetNode(
+      node,
+      hl_result2.GetDevice(),
+      hl_result2.GetSizes(),
+      hl_result2.dtype_optional());
   updateDstDependencies(hl_result1, result);
   updateDstDependencies(hl_result2, index);
   flush_op({result, index});
@@ -5751,7 +6292,11 @@ at::Tensor max_hpu_lazy(const at::Tensor& self) {
   auto hl_result = GetHbLazyTensor(result);
   ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(node);
+  out.SetNode(
+      node,
+      hl_result.GetDevice(),
+      hl_result.GetSizes(),
+      hl_result.dtype_optional());
   updateDstDependencies(hl_result, result);
   flush_op(result);
   return result;
@@ -5843,7 +6388,11 @@ Tensor habana_nms_hpu_lazy(
   auto hl_result = GetOrCreateHbLazyTensor(result, c10::kHABANA);
   ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
-  out.SetNode(node);
+  out.SetNode(
+      node,
+      hl_result.GetDevice(),
+      hl_result.GetSizes(),
+      hl_result.dtype_optional());
   updateDstDependencies(hl_result, result);
   std::vector<HbLazyTensor> hl_flush_result = {hl_result};
   HbLazyTensor::SyncTensorsGraph(&hl_flush_result);

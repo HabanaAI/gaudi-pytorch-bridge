@@ -100,7 +100,12 @@ class LazyOp {
     for_each_in_tuple(results, [&node, &i, &hl_tensors](const auto& result) {
       auto hl_result = GetHbLazyTensor(result);
       ir::Value& out = hl_result.CurrentIrValue();
-      out.SetNode(node, i++);
+      out.SetNode(
+          node,
+          hl_result.GetDevice(),
+          hl_result.GetSizes(),
+          hl_result.dtype_optional(),
+          i++);
       updateDstDependencies(hl_result, result, false);
       hl_tensors.push_back(hl_result);
     });
@@ -120,7 +125,11 @@ class LazyOp {
     const auto& result = get_result();
     auto hl_result = GetHbLazyTensor(result);
     ir::Value& out = hl_result.CurrentIrValue();
-    out.SetNode(node);
+    out.SetNode(
+        node,
+        hl_result.GetDevice(),
+        hl_result.GetSizes(),
+        hl_result.dtype_optional());
     updateDstDependencies(hl_result, result, false);
 
     if (m_flush_op) {
@@ -141,7 +150,11 @@ class LazyOp {
     updateDstDependencies(hl_self, self, true);
     const auto& node = create_node();
     ir::Value& out = hl_self.CurrentIrValue();
-    out.SetNode(node);
+    out.SetNode(
+        node,
+        hl_self.GetDevice(),
+        hl_self.GetSizes(),
+        hl_self.dtype_optional());
 
     // numel == 0 is the correct check, need the size check until pytorch fixes
     // it properly

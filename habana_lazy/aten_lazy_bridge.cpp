@@ -68,7 +68,11 @@ void setTensorAsInputNode(HbLazyTensor hl_tensor) {
   if (!hl_tensor.CurrentIrValue()) {
     ir::Value val = hl_tensor.createIrValueFromData();
     ir::NodePtr node = std::make_shared<ir::Input>(hl_tensor);
-    val.SetNode(node);
+    val.SetNode(
+        node,
+        hl_tensor.GetDevice(),
+        hl_tensor.GetSizes(),
+        hl_tensor.dtype_optional());
     hl_tensor.AssignIrValue(val);
   } else {
     // TORCH_CHECK(
