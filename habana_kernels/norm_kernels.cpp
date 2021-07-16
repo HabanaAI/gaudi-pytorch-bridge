@@ -1043,9 +1043,9 @@ void BatchNormBackwardOperator::AllocateAndAddSynapseNode(
   auto grad_in_nhwc =
       habana_helpers::createPTTensor(input, is_output_persistent[0]);
   auto grad_beta =
-      habana_helpers::createPTTensor(weight, is_output_persistent[1]);
-  auto grad_gamma =
       habana_helpers::createPTTensor(weight, is_output_persistent[2]);
+  auto grad_gamma =
+      habana_helpers::createPTTensor(weight, is_output_persistent[1]);
 
   struct synCudBnExParams params = {
       synBnOps::BN_OPS_BN, 0, static_cast<float>(eps)};
