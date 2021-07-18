@@ -24,7 +24,7 @@ def test_nms(num_boxes, iou_threshold):
         from habana_frameworks.torch.hpex.kernels import CustomNms
     except ImportError:
         raise ImportError("Please install habana_torch.")
-    nms = HabanaNms()
+    nms = CustomNms()
     hpu_box = boxes.to(hpu)
     hpu_scores = scores.to(hpu)
     keep_hpu = nms.habana_nms(
@@ -49,7 +49,7 @@ def test_batched_nms(num_boxes, iou_threshold):
         from habana_frameworks.torch.hpex.kernels import CustomNms
     except ImportError:
         raise ImportError("Please install habana_torch.")
-    nms = HabanaNms()
+    nms = CustomNms()
     hpu_box = boxes.to(hpu)
     hpu_scores = scores.to(hpu)
     hpu_idx = idx.to(hpu)
@@ -72,7 +72,7 @@ def test_nms_lazy(num_boxes, iou_threshold):
         from habana_frameworks.torch.hpex.kernels import CustomNms
     except ImportError:
         raise ImportError("Please install habana_torch.")
-    nms = HabanaNms()
+    nms = CustomNms()
     hpu_box = boxes.to(hpu)
     hpu_scores = scores.to(hpu)
     keep_hpu = nms.habana_nms(
@@ -96,7 +96,7 @@ def test_batched_nms_lazy(num_boxes, iou_threshold):
         from habana_frameworks.torch.hpex.kernels import CustomNms
     except ImportError:
         raise ImportError("Please install habana_torch.")
-    nms = HabanaNms()
+    nms = CustomNms()
     hpu_box = boxes.to(hpu)
     hpu_scores = scores.to(hpu)
     hpu_idx = idx.to(hpu)

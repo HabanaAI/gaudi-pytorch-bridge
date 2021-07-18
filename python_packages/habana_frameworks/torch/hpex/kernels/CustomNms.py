@@ -7,7 +7,7 @@ class CustomNms:
     def __init__(self):
 
         self.nms = _hpex_C.custom_nms
-        super(HabanaNms, self).__init__()
+        super(CustomNms, self).__init__()
 
     def nms(
         self,
