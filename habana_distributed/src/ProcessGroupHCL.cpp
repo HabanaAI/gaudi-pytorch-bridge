@@ -105,12 +105,9 @@ std::vector<at::Tensor> flatten_for_scatter_gather(
 std::shared_ptr<hcl_communicator> ProcessGroupHCL::getComm(int deviceId) {
   if (hcl_communicator_.find(deviceId) == hcl_communicator_.end()) {
     char* config_json_path = std::getenv("HCL_CONFIG_PATH");
-    if (!config_json_path) {
-      LOG(FATAL) << "Please export HCL_CONFIG_PATH...";
-    }
     HCL_Comm pgComm_ = HCL_COMM_WORLD;
-    hcl_communicator_[deviceId] =
-        std::make_shared<hcl_communicator>(deviceId, pgComm_, config_json_path);
+    hcl_communicator_[deviceId] = std::make_shared<hcl_communicator>(
+        deviceId, pgComm_, config_json_path ?: "");
   }
   return hcl_communicator_.find(deviceId)->second;
 }

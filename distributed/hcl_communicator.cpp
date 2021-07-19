@@ -63,10 +63,11 @@ hcl_communicator::hcl_communicator(
   // if config path were not passed by parameter try obtain one from environment
   if (config_path.empty()) {
     char* config_json_path = std::getenv("HCL_CONFIG_PATH");
-    if (!config_json_path) {
-      PT_SYNHELPER_FATAL("Please export HCL_CONFIG_PATH...");
+    if (config_json_path) {
+      config_path = config_json_path;
+    } else {
+      PT_SYNHELPER_DEBUG("HCL_CONFIG_PATH is not set");
     }
-    config_path = config_json_path;
   }
 
   using_streams_ = GET_ENV_FLAG(PT_ENABLE_HCL_STREAM);
@@ -82,7 +83,8 @@ hcl_communicator::hcl_communicator(
   my_device_ = synapse_helpers::get_value(device_get_result);
   HABANA_ASSERT(my_device_ != nullptr);
 
-  HCLStatus hcl_status{HCL_Init(device_id, config_path.c_str())};
+  HCLStatus hcl_status{
+      HCL_Init(device_id, config_path.empty() ? nullptr : config_path.c_str())};
   HABANA_ASSERT(hcl_status == eHCLSuccess);
 
   hcl_status = HCL_Comm_Size(hcl_comm, &size_);
