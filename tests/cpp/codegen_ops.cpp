@@ -57,17 +57,21 @@ class CodeGenOps : public habana_lazy_test::LazyTest {
   // Generate inputs with different dtypes/sizes per input
   void GenerateInputs(
       int num_inputs,
-      torch::IntArrayRef sizes,
-      const std::vector<torch::ScalarType>& dtypes) {
+      torch::ArrayRef<torch::IntArrayRef> sizes,
+      std::vector<torch::ScalarType> dtypes = {}) {
     SetSeed();
-    ASSERT_EQ(num_inputs, dtypes.size());
+    ASSERT_EQ(num_inputs, sizes.size());
+    if (dtypes.empty()) {
+      dtypes.resize(num_inputs, torch::kFloat);
+    }
+
     m_inputs.resize(num_inputs);
     m_hinputs.resize(num_inputs);
 
     for (int i = 0; i < num_inputs; ++i) {
       m_inputs[i] = dtypes[i] == torch::kBool
-          ? torch::randn(sizes) > 0
-          : torch::randn(sizes).to(dtypes[i]);
+          ? torch::randn(sizes.at(i)) > 0
+          : torch::randn(sizes.at(i)).to(dtypes[i]);
       m_hinputs[i] = m_inputs[i].to("hpu");
     }
   }
@@ -91,8 +95,8 @@ class CodeGenOps : public habana_lazy_test::LazyTest {
   void TestOut(
       const std::function<
           torch::Tensor(torch::Tensor, torch::Tensor, torch::Tensor&)>& fn,
-      torch::ScalarType dtype = torch::kFloat,
-      torch::ScalarType out_dtype = torch::kFloat) {
+      torch::ScalarType dtype,
+      torch::ScalarType out_dtype) {
     GenerateInputs(2, dtype);
 
     auto out = torch::empty({0}, out_dtype);
@@ -107,13 +111,23 @@ class CodeGenOps : public habana_lazy_test::LazyTest {
 
   void TestOut(
       const std::function<
-          torch::Tensor(torch::Tensor&, torch::Scalar, torch::Tensor&)>& fn) {
-    GenerateInputs(1);
+          torch::Tensor(torch::Tensor, torch::Tensor, torch::Tensor&)>& fn,
+      torch::ScalarType dtype = torch::kFloat) {
+    TestOut(fn, dtype, dtype);
+  }
 
-    auto out = torch::empty({0});
-    auto hout = torch::empty({0}, "hpu");
+  void TestOut(
+      const std::function<
+          torch::Tensor(torch::Tensor, torch::Scalar, torch::Tensor&)>& fn,
+      torch::ScalarType dtype,
+      torch::ScalarType out_dtype) {
+    GenerateInputs(1, dtype);
 
-    torch::Scalar s = 0.01;
+    auto out = torch::empty({0}, out_dtype);
+    auto hout =
+        torch::empty({0}, torch::TensorOptions(out_dtype).device("hpu"));
+
+    torch::Scalar s = 1;
 
     fn(m_inputs[0], s, out);
     fn(m_hinputs[0], s, hout);
@@ -122,8 +136,48 @@ class CodeGenOps : public habana_lazy_test::LazyTest {
   }
 
   void TestOut(
+      const std::function<
+          torch::Tensor(torch::Tensor, torch::Scalar, torch::Tensor&)>& fn,
+      torch::ScalarType dtype = torch::kFloat) {
+    TestOut(fn, dtype, dtype);
+  }
+
+  void TestOut(
       const std::function<torch::Tensor(
-          torch::Tensor&,
+          torch::Tensor,
+          torch::Scalar,
+          torch::Scalar,
+          torch::Tensor&)>& fn,
+      torch::ScalarType dtype,
+      torch::ScalarType out_dtype) {
+    GenerateInputs(1, dtype);
+
+    auto out = torch::empty({0}, out_dtype);
+    auto hout =
+        torch::empty({0}, torch::TensorOptions(out_dtype).device("hpu"));
+
+    torch::Scalar s1 = -0.05;
+    torch::Scalar s2 = 0.05;
+
+    fn(m_inputs[0], s1, s2, out);
+    fn(m_hinputs[0], s1, s2, hout);
+
+    Compare(out, hout);
+  }
+
+  void TestOut(
+      const std::function<torch::Tensor(
+          torch::Tensor,
+          torch::Scalar,
+          torch::Scalar,
+          torch::Tensor&)>& fn,
+      torch::ScalarType dtype = torch::kFloat) {
+    TestOut(fn, dtype, dtype);
+  }
+
+  void TestOut(
+      const std::function<torch::Tensor(
+          torch::Tensor,
           torch::Scalar,
           torch::Scalar,
           torch::Scalar,
@@ -152,6 +206,18 @@ class CodeGenOps : public habana_lazy_test::LazyTest {
     Compare(res, hres);
   }
 
+  void TestInplace(
+      const std::function<torch::Tensor&(torch::Tensor&, torch::Scalar)>& fn) {
+    GenerateInputs(1);
+    torch::Scalar s = 0.001;
+
+    auto res = fn(m_inputs[0], s);
+    auto hres = fn(m_hinputs[0], s);
+
+    EXPECT_EQ(hres.storage().data_ptr(), m_hinputs[0].storage().data_ptr());
+    Compare(res, hres);
+  }
+
   void TestFn(const std::function<torch::Tensor(torch::Tensor)>& fn) {
     GenerateInputs(1);
 
@@ -170,16 +236,35 @@ class CodeGenOps : public habana_lazy_test::LazyTest {
 
     Compare(res, hres);
   }
+
+  void TestFnCustomSizes(
+      const std::function<torch::Tensor(torch::Tensor, torch::Tensor)>& fn,
+      torch::ArrayRef<torch::IntArrayRef> sizes) {
+    GenerateInputs(2, sizes);
+    auto res = fn(m_inputs[0], m_inputs[1]);
+    auto hres = fn(m_hinputs[0], m_hinputs[1]);
+
+    Compare(res, hres);
+  }
 };
 
 TEST_F(CodeGenOps, Fns) {
+  std::cout << "PyTorch version: " << TORCH_VERSION_MAJOR << "."
+            << TORCH_VERSION_MINOR << "." << TORCH_VERSION_PATCH << std::endl;
   // clang-format off
+  TestFnCustomSizes(torch::prelu, {{3, 4, 4, 1}, {1, 4, 1, 1}});
+  TestFn(torch::cos);
   TestInplace(torch::asin_);
+  TestInplace(torch::clamp_min_);
+  TestInplace(torch::neg_);
   TestInplace(torch::sin_);
-  TestOut(static_cast<torch::Tensor& (*)(const torch::Tensor&, const torch::Tensor&, torch::Tensor&)>(torch::bitwise_and_outf), torch::kByte, torch::kByte);
-  TestOut(static_cast<torch::Tensor& (*)(const torch::Tensor&, const torch::Tensor&, torch::Tensor&)>(torch::bitwise_or_outf), torch::kShort, torch::kShort);
-  TestOut(static_cast<torch::Tensor& (*)(const torch::Tensor&, const torch::Tensor&, torch::Tensor&)>(torch::bitwise_xor_outf), torch::kBool, torch::kBool);
+  TestInplace(torch::sqrt_);
+  TestOut(static_cast<torch::Tensor& (*)(const torch::Tensor&, const torch::Tensor&, torch::Tensor&)>(torch::bitwise_and_outf), torch::kByte);
+  TestOut(static_cast<torch::Tensor& (*)(const torch::Tensor&, const torch::Tensor&, torch::Tensor&)>(torch::bitwise_or_outf), torch::kShort);
+  TestOut(static_cast<torch::Tensor& (*)(const torch::Tensor&, const torch::Tensor&, torch::Tensor&)>(torch::bitwise_xor_outf), torch::kBool);
   TestOut(static_cast<torch::Tensor& (*)(const torch::Tensor&, const torch::Tensor&, torch::Tensor&)>(torch::eq_outf), torch::kI32, torch::kBool);
+  TestOut(static_cast<torch::Tensor& (*)(const torch::Tensor&, torch::Scalar, torch::Tensor&)>(torch::bitwise_and_outf), torch::kInt64);
+  TestOut(static_cast<torch::Tensor& (*)(const torch::Tensor&, torch::Scalar, torch::Tensor&)>(torch::bitwise_xor_outf), torch::kInt);
   TestOut(torch::abs_outf);
   TestOut(torch::acosh_outf);
   TestOut(torch::acos_outf);
@@ -188,6 +273,9 @@ TEST_F(CodeGenOps, Fns) {
   TestOut(torch::atanh_outf);
   TestOut(torch::atan_outf);
   TestOut(torch::bitwise_not_outf, torch::kChar);
+  TestOut(torch::clamp_max_outf);
+  TestOut(torch::clamp_min_outf);
+  TestOut(torch::clamp_outf, torch::kInt);
   TestOut(torch::cosh_outf);
   TestOut(torch::cos_outf);
   TestOut(torch::elu_outf, /*alpha*/0.001, /*scale*/1, /*input_scale*/1);
@@ -203,6 +291,7 @@ TEST_F(CodeGenOps, Fns) {
   TestOut(torch::reciprocal_outf);
   TestOut(torch::round_outf);
   TestOut(torch::rsqrt_outf);
+  TestOut(torch::sgn_outf);
   TestOut(torch::sigmoid_outf);
   TestOut(torch::sign_outf);
   TestOut(torch::sinh_outf);

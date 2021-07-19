@@ -31,6 +31,11 @@ atanh.out:
   dtypes: [Float]
   guid: atanh_fwd
 
+bitwise_and.Scalar_out:
+  dtypes: [Int, Short, Byte, Char, Bool]
+  guid: bitwise_and_fwd
+  scalar_ids: [1]
+
 bitwise_and.Tensor_out:
   dtypes: [Int, Short, Byte, Char, Bool]
   guid: bitwise_and_fwd
@@ -41,15 +46,64 @@ bitwise_not.out:
   guid: bitwise_not_fwd
   legacy_eager: true
 
+bitwise_or.Scalar_out:
+  dtypes: [Int, Short, Byte, Char, Bool]
+  guid: bitwise_or_fwd
+  scalar_ids: [1]
+
 bitwise_or.Tensor_out:
   dtypes: [Int, Short, Byte, Char, Bool]
   guid: bitwise_or_fwd
   legacy_eager: true
 
+bitwise_xor.Scalar_out:
+  dtypes: [Int, Short, Byte, Char, Bool]
+  guid: bitwise_xor_fwd
+  scalar_ids: [1]
+
 bitwise_xor.Tensor_out:
   dtypes: [Int, Short, Byte, Char, Bool]
   guid: bitwise_xor_fwd
   legacy_eager: true
+
+clamp.out:
+  custom_fill_params: FillClampParams
+  dtypes: [BFloat16, Float, Int]
+  guid: clamp_fwd
+
+clamp_max:
+  custom_fill_params: FillClampMaxParams
+  dtypes: [BFloat16, Float]
+  guid: clamp_fwd
+  out_ids: [0]
+
+clamp_max.out:
+  custom_fill_params: FillClampMaxParams
+  dtypes: [BFloat16, Float]
+  guid: clamp_fwd
+
+clamp_max_:
+  custom_fill_params: FillClampMaxParams
+  dtypes: [BFloat16, Float]
+  guid: clamp_fwd
+  inplace_ids: [0]
+
+clamp_min.out:
+  custom_fill_params: FillClampMinParams
+  dtypes: [BFloat16, Float]
+  guid: clamp_fwd
+
+clamp_min_:
+  custom_fill_params: FillClampMinParams
+  dtypes: [BFloat16, Float]
+  guid: clamp_fwd
+  inplace_ids: [0]
+
+cos:
+  dtypes: [BFloat16, Float]
+  guid: cos_fwd
+  legacy_eager: true
+  out_ids: [0]
 
 cos.out:
   dtypes: [BFloat16, Float]
@@ -113,6 +167,16 @@ neg.out:
   guid: neg_fwd
   legacy_eager: true
 
+neg_:
+  dtypes: [BFloat16, Float, Int]
+  guid: neg_fwd
+  inplace_ids: [0]
+
+prelu:
+  dtypes: [BFloat16, Float, Int]
+  guid: prelu_fwd
+  out_ids: [0]
+
 reciprocal.out:
   dtypes: [BFloat16, Float]
   guid: reciprocal_fwd
@@ -125,6 +189,10 @@ round.out:
 rsqrt.out:
   dtypes: [BFloat16, Float]
   guid: rsqrt_fwd
+
+sgn.out:
+  dtypes: [BFloat16, Float]
+  guid: sign_fwd
 
 sigmoid.out:
   dtypes: [BFloat16, Float]
@@ -150,6 +218,11 @@ sinh.out:
 sqrt.out:
   dtypes: [BFloat16, Float]
   guid: sqrt_fwd
+
+sqrt_:
+  dtypes: [BFloat16, Float]
+  guid: sqrt_fwd
+  inplace_ids: [0]
 
 tan.out:
   dtypes: [Float]

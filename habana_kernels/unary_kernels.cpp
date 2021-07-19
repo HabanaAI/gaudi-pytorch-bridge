@@ -2602,12 +2602,6 @@ static auto& KernelRegistry =
               return std::make_shared<SqrtOperator>(device_id, node_type);
             })
         .add(
-            "aten::sqrt_",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<SqrtInplaceOperator>(
-                  device_id, node_type);
-            })
-        .add(
             "aten::rsqrt",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<RsqrtOperator>(device_id, node_type);
@@ -2632,11 +2626,6 @@ static auto& KernelRegistry =
             "aten::sin",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<SinOperator>(device_id, node_type);
-            })
-        .add(
-            "aten::cos",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<CosOperator>(device_id, node_type);
             })
         .add(
             "aten::sign",
