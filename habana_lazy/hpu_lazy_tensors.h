@@ -170,6 +170,7 @@ class HbLazyTensor {
 
   static void StepMarker(const std::string& device_str);
   static void StepMarkerBlocking(const std::string& device_str);
+  static void SetDynamicMode();
   static void RunSavedGraph(const std::string& device_str);
   static void ExecuteCachedGraph();
 
@@ -226,6 +227,7 @@ class HbLazyTensor {
   static void SyncTensorsGraphInternal(
       std::vector<HbLazyTensor>* tensors,
       bool is_blocking);
+  static bool switch_dynamic_mode;
 };
 
 // The HbContextArena holds per device live information and statistics,

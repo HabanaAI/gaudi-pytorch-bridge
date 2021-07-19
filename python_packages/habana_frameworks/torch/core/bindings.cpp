@@ -41,6 +41,9 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       },
       py::arg("device_str") = "",
       py::arg("is_blocking") = false);
+  m.def("set_dynamic_mode", []() {
+    habana_lazy::HbLazyTensor::SetDynamicMode();
+  });
   m.def(
       "run_saved_model",
       [](const std::string& device_str) {

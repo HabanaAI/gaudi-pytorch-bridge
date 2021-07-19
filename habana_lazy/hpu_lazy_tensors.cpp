@@ -24,6 +24,8 @@ using namespace habana_lazy;
 
 using ValueList = std::vector<ir::Value>;
 
+bool HbLazyTensor::switch_dynamic_mode = false;
+
 HbContextArena* HbContextArena::Get() {
   static HbContextArena* arena = new HbContextArena();
   return arena;
@@ -681,6 +683,10 @@ void HbLazyTensor::StepMarker(const std::string& device_str) {
   HbLazyTensor::SyncLiveTensorsGraph(
       &device, /* is_cached*/ false, /*is_blocking*/ false);
   HbLazyTensor::MarkStep(device);
+  if (switch_dynamic_mode) {
+    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
+    switch_dynamic_mode = false;
+  }
 }
 
 void HbLazyTensor::StepMarkerBlocking(const std::string& device_str) {
@@ -690,6 +696,22 @@ void HbLazyTensor::StepMarkerBlocking(const std::string& device_str) {
   HbLazyTensor::SyncLiveTensorsGraph(
       &device, /* is_cached*/ false, /*is_blocking*/ true);
   HbLazyTensor::MarkStep(device);
+  if (switch_dynamic_mode) {
+    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
+    switch_dynamic_mode = false;
+  }
+}
+
+void HbLazyTensor::SetDynamicMode() {
+  char* read_env = getenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
+  bool dynamic_env = false;
+  if (read_env != nullptr) {
+    dynamic_env = atoi(read_env);
+  }
+  switch_dynamic_mode = dynamic_env ? false : true;
+  if (switch_dynamic_mode) {
+    setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
+  }
 }
 
 void HbLazyTensor::RunSavedGraph(const std::string& device_str) {
@@ -701,6 +723,10 @@ void HbLazyTensor::RunSavedGraph(const std::string& device_str) {
 
 extern "C" void mark_step() {
   HbLazyTensor::StepMarker({});
+}
+
+extern "C" void set_dynamic_mode() {
+  HbLazyTensor::SetDynamicMode();
 }
 
 extern "C" void run_saved_model() {
