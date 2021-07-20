@@ -48,14 +48,22 @@ class LazyOp {
       const std::vector<at::IValue>& inputs,
       std::set<size_t> metadata_indices = {},
       std::vector<std::vector<int64_t>> out_shapes = {},
-      int out_index = 0)
+      int out_index = 0) noexcept
       : m_symbol{at::Symbol::fromQualString(qualstring)},
         m_metadata_indices{std::move(metadata_indices)},
         m_out_shapes{std::move(out_shapes)},
         m_out_index{out_index} {
-    TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
-        !std::is_class<NodeConstruct>::value,
-        "This constructor is valid only when NodeConstruct is not a class.");
+    set_inputs(inputs);
+  }
+
+  explicit LazyOp(
+      const std::string& qualstring,
+      const std::vector<at::IValue>& inputs,
+      std::vector<std::vector<int64_t>> out_shapes) noexcept
+      : m_symbol{at::Symbol::fromQualString(qualstring)},
+        m_metadata_indices{},
+        m_out_shapes{std::move(out_shapes)},
+        m_out_index{} {
     set_inputs(inputs);
   }
 

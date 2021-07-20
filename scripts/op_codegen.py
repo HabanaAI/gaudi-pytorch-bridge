@@ -190,6 +190,9 @@ class Op(object):
     def get_custom_fill_params(self):
         return self.op.get("custom_fill_params", None)
 
+    def get_custom_output_shape(self):
+        return self.op.get("custom_output_shape", None)
+
     def get_inplace_ids(self):
         return self.op.get("inplace_ids", None)
 
@@ -512,9 +515,15 @@ def lazyop(
             rtype, symbol, ", ".join(param_vars)
         )
     else:
-        code += '  LazyOp<{}> hpu_op{{"{}", {{{}}}}};\n'.format(
+        code += '  LazyOp<{}> hpu_op{{"{}", {{{}}}'.format(
             rtype, symbol, ", ".join(param_vars)
         )
+        output_shape_fn = ctxop.get_custom_output_shape()
+        if output_shape_fn:
+            code += ", HabanaOperatorHelper::{}".format(output_shape_fn)
+
+        code += "};\n"
+
     if len(ce_param_vars):
         code += "  return hpu_op.call({})".format(", ".join(ce_param_vars))
     else:
@@ -686,6 +695,8 @@ def generate_code(ctx, tree, rwxtree, fname, aten_sig, sig, rwsig, params):
             dtypes.append("Double")
         if "Int" in dtypes:
             dtypes.append("Long")
+        if "Char" in dtypes:
+            dtypes.append("Bool")
     dtype_def = (
         "HPU_SUPPORTED_DTYPES({}, ({{{}}}))".format(
             fname, ", ".join(["c10::ScalarType::" + d for d in dtypes])

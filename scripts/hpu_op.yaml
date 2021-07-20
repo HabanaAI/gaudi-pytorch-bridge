@@ -1,3 +1,25 @@
+_cumprod:
+  custom_fill_params: FillCumsumParams
+  dtypes: [BFloat16, Float, Int]
+  guid: cumprod_fwd
+  out_ids: [0]
+
+_cumprod.out:
+  custom_fill_params: FillCumsumParams
+  dtypes: [BFloat16, Float, Int]
+  guid: cumprod_fwd
+
+_cumsum:
+  custom_fill_params: FillCumsumParams
+  dtypes: [BFloat16, Float, Int]
+  guid: cumsum_fwd
+  out_ids: [0]
+
+_cumsum.out:
+  custom_fill_params: FillCumsumParams
+  dtypes: [BFloat16, Float, Int]
+  guid: cumsum_fwd
+
 abs.out:
   dtypes: [BFloat16, Float]
   guid: abs_fwd
@@ -32,39 +54,53 @@ atanh.out:
   guid: atanh_fwd
 
 bitwise_and.Scalar_out:
-  dtypes: [Int, Short, Byte, Char, Bool]
+  dtypes: [Int, Short, Byte, Char]
   guid: bitwise_and_fwd
   scalar_ids: [1]
 
 bitwise_and.Tensor_out:
-  dtypes: [Int, Short, Byte, Char, Bool]
+  dtypes: [Int, Short, Byte, Char]
   guid: bitwise_and_fwd
   legacy_eager: true
 
 bitwise_not.out:
-  dtypes: [Int, Short, Byte, Char, Bool]
+  dtypes: [Int, Short, Byte, Char]
   guid: bitwise_not_fwd
   legacy_eager: true
 
 bitwise_or.Scalar_out:
-  dtypes: [Int, Short, Byte, Char, Bool]
+  dtypes: [Int, Short, Byte, Char]
   guid: bitwise_or_fwd
   scalar_ids: [1]
 
 bitwise_or.Tensor_out:
-  dtypes: [Int, Short, Byte, Char, Bool]
+  dtypes: [Int, Short, Byte, Char]
   guid: bitwise_or_fwd
   legacy_eager: true
 
 bitwise_xor.Scalar_out:
-  dtypes: [Int, Short, Byte, Char, Bool]
+  dtypes: [Int, Short, Byte, Char]
   guid: bitwise_xor_fwd
   scalar_ids: [1]
 
 bitwise_xor.Tensor_out:
-  dtypes: [Int, Short, Byte, Char, Bool]
+  dtypes: [Int, Short, Byte, Char]
   guid: bitwise_xor_fwd
   legacy_eager: true
+
+ceil:
+  dtypes: [BFloat16, Float]
+  guid: ceil_fwd
+  out_ids: [0]
+
+ceil.out:
+  dtypes: [BFloat16, Float]
+  guid: ceil_fwd
+
+ceil_:
+  dtypes: [BFloat16, Float]
+  guid: ceil_fwd
+  inplace_ids: [0]
 
 clamp.out:
   custom_fill_params: FillClampParams
@@ -113,6 +149,34 @@ cosh.out:
   dtypes: [Float]
   guid: cosh_fwd
 
+cumprod:
+  custom_fill_params: FillCumsumParams
+  dtypes: [BFloat16, Float, Int]
+  guid: cumprod_fwd
+  out_ids: [0]
+
+cumprod.out:
+  custom_fill_params: FillCumsumParams
+  dtypes: [BFloat16, Float, Int]
+  guid: cumprod_fwd
+
+cumprod_:
+  custom_fill_params: FillCumsumParams
+  dtypes: [BFloat16, Float, Int]
+  guid: cumprod_fwd
+  inplace_ids: [0]
+
+cumsum.out:
+  custom_fill_params: FillCumsumParams
+  dtypes: [BFloat16, Float, Int]
+  guid: cumsum_fwd
+
+cumsum_:
+  custom_fill_params: FillCumsumParams
+  dtypes: [BFloat16, Float, Int]
+  guid: cumsum_fwd
+  inplace_ids: [0]
+
 elu.out:
   dtypes: [BFloat16, Float]
   guid: elu_fwd
@@ -121,8 +185,13 @@ elu.out:
     params:
     - [1, float]
 
+eq.Scalar_out:
+  dtypes: [BFloat16, Float, Int, Char, Byte]
+  guid: equal_fwd
+  scalar_ids: [1]
+
 eq.Tensor_out:
-  dtypes: [BFloat16, Float, Int]
+  dtypes: [BFloat16, Float, Int, Char, Byte]
   guid: equal_fwd
   legacy_eager: true
 
@@ -134,9 +203,55 @@ exp.out:
   dtypes: [BFloat16, Float]
   guid: exp_fwd
 
+exp2:
+  dtypes: [BFloat16, Float]
+  guid: pow2_fwd
+  out_ids: [0]
+
+exp2.out:
+  dtypes: [BFloat16, Float]
+  guid: pow2_fwd
+
+exp2_:
+  dtypes: [BFloat16, Float]
+  guid: pow2_fwd
+  inplace_ids: [0]
+
 floor.out:
   dtypes: [BFloat16, Float]
   guid: floor_fwd
+
+ge.Scalar_out:
+  dtypes: [BFloat16, Float, Int, Char, Byte]
+  guid: greater_equal_fwd
+  scalar_ids: [1]
+
+ge.Tensor_out:
+  dtypes: [BFloat16, Float, Int, Char, Byte]
+  guid: greater_equal_fwd
+
+gt.Scalar_out:
+  dtypes: [BFloat16, Float, Int, Char, Byte]
+  guid: greater_fwd
+  scalar_ids: [1]
+
+gt.Tensor_out:
+  dtypes: [BFloat16, Float, Int, Char, Byte]
+  guid: greater_fwd
+
+hardsigmoid.out:
+  custom_fill_params: FillHardSigmoidParams
+  dtypes: [BFloat16, Float]
+  guid: hard_sigmoid_fwd
+
+le.Scalar_out:
+  dtypes: [BFloat16, Float, Int, Char, Byte]
+  guid: less_equal_fwd
+  scalar_ids: [1]
+
+le.Tensor_out:
+  dtypes: [BFloat16, Float, Int, Char, Byte]
+  guid: less_equal_fwd
 
 leaky_relu.out:
   dtypes: [BFloat16, Float]
@@ -154,6 +269,15 @@ log2.out:
   dtypes: [BFloat16, Float]
   guid: log2_fwd
 
+lt.Scalar_out:
+  dtypes: [BFloat16, Float, Int, Char, Byte]
+  guid: less_fwd
+  scalar_ids: [1]
+
+lt.Tensor_out:
+  dtypes: [BFloat16, Float, Int, Char, Byte]
+  guid: less_fwd
+
 maximum.out:
   dtypes: [BFloat16, Float, Int]
   guid: max_fwd
@@ -161,6 +285,18 @@ maximum.out:
 minimum.out:
   dtypes: [BFloat16, Float, Int]
   guid: min_fwd
+
+mse_loss.out:
+  custom_fill_params: FillMseLossParams
+  custom_output_shape: MseLossOutputShape(self, reduction)
+  dtypes: [BFloat16, Float]
+  guid: mse_loss_fwd
+
+mse_loss_backward.grad_input:
+  custom_fill_params: FillMseLossParams
+  custom_output_shape: MseLossOutputShape(self, reduction)
+  dtypes: [BFloat16, Float]
+  guid: mse_loss_bwd
 
 neg.out:
   dtypes: [BFloat16, Float, Int]
@@ -171,6 +307,17 @@ neg_:
   dtypes: [BFloat16, Float, Int]
   guid: neg_fwd
   inplace_ids: [0]
+
+pow.Scalar_out:
+  custom_output_shape: PowOutputShape(exponent)
+  dtypes: [BFloat16, Float]
+  guid: pow_fwd
+  scalar_ids: [0]
+
+pow.Tensor_Scalar_out:
+  dtypes: [BFloat16, Float]
+  guid: pow_fwd
+  scalar_ids: [1]
 
 prelu:
   dtypes: [BFloat16, Float, Int]
@@ -197,6 +344,15 @@ sgn.out:
 sigmoid.out:
   dtypes: [BFloat16, Float]
   guid: sigmoid_fwd
+
+sigmoid_:
+  dtypes: [BFloat16, Float]
+  guid: sigmoid_fwd
+  inplace_ids: [0]
+
+sigmoid_backward.grad_input:
+  dtypes: [BFloat16, Float]
+  guid: sigmoid_bwd
 
 sign.out:
   dtypes: [BFloat16, Float]

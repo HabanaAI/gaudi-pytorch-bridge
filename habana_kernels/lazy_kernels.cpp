@@ -1999,7 +1999,7 @@ Tensor scatter_src_hpu_lazy(
     const Tensor& src) {
   PT_LAZY_TRACE;
 
-  LazyOp<at::Tensor> k{"aten::scatter", {self, dim_, index, src}, {1}};
+  LazyOp<at::Tensor> k{"aten::scatter", {self, dim_, index, src}};
   return k.call();
 }
 
@@ -2012,7 +2012,7 @@ Tensor scatter_add_src_hpu_lazy(
     const Tensor& src) {
   PT_LAZY_TRACE;
 
-  LazyOp<at::Tensor> k{"aten::scatter_add", {self, dim_, index, src}, {1}};
+  LazyOp<at::Tensor> k{"aten::scatter_add", {self, dim_, index, src}};
   return k.call();
 }
 

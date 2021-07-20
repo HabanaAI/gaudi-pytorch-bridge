@@ -11,6 +11,8 @@
 #include "habana_kernels/habana_operator.h"
 #include "habana_kernels/kernel_utils.h"
 namespace habana {
+using sizes_vec = std::vector<std::vector<int64_t>>;
+
 class HabanaOperatorHelper : public HabanaOperator {
  public:
   HabanaOperatorHelper(
@@ -129,9 +131,15 @@ class HabanaOperatorHelper : public HabanaOperator {
   const bool m_is_outfn;
 
  public:
-  static std::shared_ptr<void> FillClampParams(const at::Stack&, size_t&);
-  static std::shared_ptr<void> FillClampMinParams(const at::Stack&, size_t&);
   static std::shared_ptr<void> FillClampMaxParams(const at::Stack&, size_t&);
+  static std::shared_ptr<void> FillClampMinParams(const at::Stack&, size_t&);
+  static std::shared_ptr<void> FillClampParams(const at::Stack&, size_t&);
+  static std::shared_ptr<void> FillCumsumParams(const at::Stack&, size_t&);
+  static std::shared_ptr<void> FillHardSigmoidParams(const at::Stack&, size_t&);
+  static std::shared_ptr<void> FillMseLossParams(const at::Stack&, size_t&);
+
+  static sizes_vec MseLossOutputShape(const torch::Tensor&, int64_t);
+  static sizes_vec PowOutputShape(const torch::Tensor&);
 };
 
 std::vector<at::Tensor> GetMetaTensorList(
