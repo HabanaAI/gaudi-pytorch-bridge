@@ -377,16 +377,6 @@ void ConstantOutOperator::AllocateAndAddSynapseNode(
   auto output = inputs[0].toTensor();
   auto value = inputs[1].toScalar();
 
-  TORCH_CHECK(
-      (output.scalar_type() == c10::ScalarType::BFloat16) ||
-          (output.scalar_type() == c10::ScalarType::Int) ||
-          (output.scalar_type() == c10::ScalarType::Char) ||
-          (output.scalar_type() == c10::ScalarType::Bool) ||
-          (output.scalar_type() == c10::ScalarType::Byte) ||
-          (output.scalar_type() == c10::ScalarType::Float),
-      "Unsupported dtype provided for ConstantOut kernel Input.scalar_type() = ",
-      output.scalar_type());
-
   ns_ConstantKernel::Params params;
   if (output.scalar_type() == c10::ScalarType::Int) {
     params.constant.i = value.to<int32_t>();
@@ -432,16 +422,6 @@ void ConstantOperator::AllocateAndAddSynapseNode(
 
   auto input = inputs[0].toTensor();
   auto value = inputs[1].toScalar();
-
-  TORCH_CHECK(
-      (input.scalar_type() == c10::ScalarType::BFloat16) ||
-          (input.scalar_type() == c10::ScalarType::Int) ||
-          (input.scalar_type() == c10::ScalarType::Char) ||
-          (input.scalar_type() == c10::ScalarType::Bool) ||
-          (input.scalar_type() == c10::ScalarType::Byte) ||
-          (input.scalar_type() == c10::ScalarType::Float),
-      "Unsupported dtype provided for Constant kernel Input.scalar_type() = ",
-      input.scalar_type());
 
   ns_ConstantKernel::Params params;
   if (input.scalar_type() == c10::ScalarType::Int) {

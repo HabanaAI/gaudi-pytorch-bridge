@@ -2972,7 +2972,8 @@ Tensor hpu_wrap::isnan(const Tensor& self) {
 };
 
 Tensor hpu_wrap::silu(const Tensor& self) {
-  hpu_check_inputs("silu", {self});
+  if (!hpu_check_inputs_impl("silu", {self}))
+    return AtenHpuTypeDefault::silu(self);
 
   if (std::getenv("PT_HPU_LAZY_MODE")) {
     return silu_hpu_lazy(self);
@@ -3894,7 +3895,9 @@ Tensor hpu_wrap::dropout(const Tensor& input, double p, bool train) {
 }
 
 Tensor hpu_wrap::flip(const Tensor& self, IntArrayRef dims) {
-  hpu_check_inputs("flip", {self});
+  if (!hpu_check_inputs_impl("flip", {self}))
+    return AtenHpuTypeDefault::flip(self, dims);
+
   // Lazy mode is not implemented
   if (std::getenv("PT_HPU_LAZY_MODE")) {
     return flip_hpu_lazy(self, dims);
