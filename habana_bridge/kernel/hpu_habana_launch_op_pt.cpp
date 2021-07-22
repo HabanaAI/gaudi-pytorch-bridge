@@ -156,7 +156,7 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
   enable_tensor_release_ = true;
   // Enable enable_tensor_release_ with lazy mode by default
   if (const auto envp = std::getenv("PT_HPU_LAZY_MODE")) {
-    enable_tensor_release_ = atoi(envp) == 1;
+    enable_tensor_release_ = (atoi(envp) != 0);
   }
 
   // The caching as well as enable_tensor_release_ can be overridden
