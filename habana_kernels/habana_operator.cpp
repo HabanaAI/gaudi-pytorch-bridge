@@ -58,7 +58,6 @@ void habana::HabanaOperator::Compile(synapse_helpers::graph& graph) {
     }
   }
 
-  //
   // compile the graph
   habana_helpers::compile_and_run(
       std::move(graph),

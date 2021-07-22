@@ -162,12 +162,10 @@ at::Tensor BatchNormForwardOperator::create_or_return_pt_tensor_bn(
   Tensor ret_tensor;
   if (!input.defined()) {
     ret_tensor = at::empty({size}, device);
-  } else if (input.defined() && input.device() != DeviceType::HABANA) {
-    ret_tensor = input.to(DeviceType::HABANA);
+    return ret_tensor;
   } else {
     return input;
   }
-  return ret_tensor;
 }
 at::Tensor BatchNormForwardOperator::create_or_return_tensor_bn(
     synapse_helpers::graph& graph,
@@ -187,14 +185,10 @@ at::Tensor BatchNormForwardOperator::create_or_return_tensor_bn(
     p_context_->syn_inputs_.insert(it, std::move(syn_tensor));
 
     appended_tensor_infos.emplace_back((syn_tensor).name(), ret_tensor);
-  } else if (input.defined() && input.device() != DeviceType::HABANA) {
-    ret_tensor = input.to(DeviceType::HABANA);
-    ;
+    return ret_tensor;
   } else {
     return input;
   }
-
-  return ret_tensor;
 }
 
 void BatchNormForwardOperator::generateCacheInputs(Stack& inputs) {
@@ -877,44 +871,29 @@ void BatchNormInfOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
-Tensor BatchNormBackwardOperator::create_or_return_input_tensor_bn_bwd(
+void BatchNormBackwardOperator::create_opt_input_tensor_bn_bwd(
     synapse_helpers::graph& graph,
     const Tensor& input,
     uint size,
     Device device,
-    int syn_index) {
+    int pos) {
   Tensor ret_tensor;
   if (!input.defined()) {
     ret_tensor = at::empty({size}, device);
     auto syn_tensor = habana_helpers::create_tensor(
         ret_tensor, graph.get_graph_handle(), true, c10::nullopt);
-    reordered_syn_inputs_.emplace_back(std::move(syn_tensor));
-
     appended_tensor_infos.emplace_back((syn_tensor).name(), ret_tensor);
-  } else if (input.defined() && input.device() != DeviceType::HABANA) {
-    reordered_syn_inputs_.emplace_back(
-        std::move(p_context_->syn_inputs_[syn_index]));
-    ret_tensor = input.to(DeviceType::HABANA);
-  } else {
-    return input;
+    // if input is not defined, we get dummy tensor from wrapper
+    // create new one and place it to the original position
+    p_context_->syn_inputs_.emplace_back(std::move(syn_tensor));
+    if ((uint)pos < p_context_->pt_inputs_.size()) {
+      p_context_->pt_inputs_[pos] = ret_tensor;
+    } else {
+      // this is for bias which is not present in input list
+      // pushed to the end
+      p_context_->pt_inputs_.push_back(ret_tensor);
+    }
   }
-
-  return ret_tensor;
-}
-
-at::Tensor BatchNormBackwardOperator::create_or_return_pt_tensor_bn(
-    const Tensor& input,
-    uint size,
-    Device device) {
-  Tensor ret_tensor;
-  if (!input.defined()) {
-    ret_tensor = at::empty({size}, device);
-  } else if (input.defined() && input.device() != DeviceType::HABANA) {
-    ret_tensor = input.to(DeviceType::HABANA);
-  } else {
-    return input;
-  }
-  return ret_tensor;
 }
 
 void BatchNormBackwardOperator::preProcessInputs(
@@ -929,91 +908,31 @@ void BatchNormBackwardOperator::preProcessInputs(
   TORCH_CHECK(inputs[2].isTensor(), "Input type expected to be tensor");
   TORCH_CHECK(inputs[3].isTensor(), "Input type expected to be tensor");
   TORCH_CHECK(inputs[4].isTensor(), "Input type expected to be tensor");
-  const auto grad_out = inputs[0].toTensor();
+
   const auto input = inputs[1].toTensor();
   const auto weight = inputs[2].toTensor();
   const auto running_mean = inputs[3].toTensor();
   const auto running_var = inputs[4].toTensor();
   const auto save_mean = inputs[5].toTensor();
   const auto save_invstd = inputs[6].toTensor();
-  bool running_mean_def = running_mean.defined();
-  bool running_var_def = running_var.defined();
-  unsigned int running_mean_pos;
-  unsigned int running_var_pos;
-  std::vector<synapse_helpers::tensor_or_ref> mean_var_temp;
-  if (running_mean_def) {
-    running_mean_pos = weight.defined() ? 3 : 2;
-    mean_var_temp.emplace_back(
-        std::move(p_context_->syn_inputs_[running_mean_pos]));
-  } else {
-    running_mean_pos = 0; // not defined - not used
-  }
-  if (running_var_def) {
-    if (running_mean_def) {
-      running_var_pos = weight.defined() ? 4 : 3;
-      mean_var_temp.emplace_back(
-          std::move(p_context_->syn_inputs_[running_var_pos]));
-    } else {
-      running_var_pos = weight.defined() ? 3 : 2;
-      mean_var_temp.emplace_back(
-          std::move(p_context_->syn_inputs_[running_var_pos]));
-    }
-  } else {
-    running_var_pos = 0; // not defined - not used
-  }
 
-  reordered_syn_inputs_.clear();
-  Tensor wt_hpu, bias_hpu, save_mean_hpu, save_invstd_hpu;
+  Tensor bias_hpu;
+
   auto device = input.device();
 
-  reordered_syn_inputs_.emplace_back(
-      std::move(p_context_->syn_inputs_[1])); // input
-  reordered_syn_inputs_.emplace_back(
-      std::move(p_context_->syn_inputs_[0])); // grad_out
-  wt_hpu = create_or_return_input_tensor_bn_bwd(
-      graph, weight, input.sizes()[3], device, (int)2);
-  // After 2nd input tensor, we add bias which is new
-  bias_hpu = create_or_return_input_tensor_bn_bwd(
-      graph, bias_hpu, input.sizes()[3], device, (int)3);
-  save_mean_hpu = create_or_return_input_tensor_bn_bwd(
-      graph,
-      save_mean,
-      input.sizes()[3],
-      device,
-      (int)5); // original save_mean pos is 5
-  save_invstd_hpu = create_or_return_input_tensor_bn_bwd(
-      graph,
-      save_invstd,
-      input.sizes()[3],
-      device,
-      (int)6); // original save_var pos is 6
+  create_opt_input_tensor_bn_bwd(graph, weight, input.sizes()[3], device, 2);
+  create_opt_input_tensor_bn_bwd(
+      graph, running_mean, input.sizes()[3], device, 3);
+  create_opt_input_tensor_bn_bwd(
+      graph, running_var, input.sizes()[3], device, 4);
+  create_opt_input_tensor_bn_bwd(graph, save_mean, input.sizes()[3], device, 5);
+  create_opt_input_tensor_bn_bwd(
+      graph, save_invstd, input.sizes()[3], device, 6);
+  create_opt_input_tensor_bn_bwd(graph, bias_hpu, input.sizes()[3], device, 7);
 
-  pre_inputs = {
-      input, grad_out, wt_hpu, bias_hpu, save_mean_hpu, save_invstd_hpu};
-
-  pt_inputs = {
-      pre_inputs[0],
-      pre_inputs[1],
-      pre_inputs[2],
-      pre_inputs[3],
-      pre_inputs[4],
-      pre_inputs[5]};
-  p_context_->syn_inputs_.clear();
-  for (auto& st : reordered_syn_inputs_) {
-    // p_context_->syn_inputs_.emplace_back(std::move(st));
-    SetSynapseInput(std::move(st));
-  }
-  p_context_->pt_inputs_.clear();
-  SetPTInputs(pt_inputs);
-  input_stack = {
-      IValue(pre_inputs[0]),
-      IValue(pre_inputs[2])}; // for creating output tensors
   SetProprocessingDone();
 }
 
-void BatchNormBackwardOperator::swapGradInput() {
-  std::swap(p_context_->syn_inputs_[0], p_context_->syn_inputs_[1]);
-}
 void BatchNormBackwardOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
@@ -1035,8 +954,8 @@ void BatchNormBackwardOperator::AllocateAndAddSynapseNode(
     }
     preProcessInputs(graph, preprocess_in);
   }
-  const auto input = pt_inputs[0];
-  const auto weight = pt_inputs[2];
+  const auto input = inputs[1].toTensor();
+  const auto weight = inputs[2].toTensor();
   const auto eps = inputs[8].toDouble();
 
   // Prepare output tensor vector
@@ -1054,8 +973,6 @@ void BatchNormBackwardOperator::AllocateAndAddSynapseNode(
   AllocateSynapseOutputs(
       graph, {grad_in_nhwc, grad_gamma, grad_beta}, is_output_persistent);
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
-  // swap input and grad for graph mode return
-  swapGradInput();
 }
 
 void BatchNormBackwardOperator::generateCacheInputs(Stack& inputs) {
@@ -1076,37 +993,26 @@ void BatchNormBackwardOperator::generateCacheInputs(Stack& inputs) {
   const auto save_mean = inputs[5].toTensor();
   const auto save_invstd = inputs[6].toTensor();
 
-  Tensor wt_hpu, bias_hpu, save_mean_hpu, save_invstd_hpu;
   auto device = input.device();
 
-  wt_hpu = create_or_return_pt_tensor_bn(weight, input.sizes()[3], device);
-  // After 2nd input tensor, we add bias which is new
-  bias_hpu = create_or_return_pt_tensor_bn(bias_hpu, input.sizes()[3], device);
-  save_mean_hpu = create_or_return_pt_tensor_bn(
-      save_mean,
-      input.sizes()[3],
-      device); // original save_mean pos is 5
-  save_invstd_hpu = create_or_return_pt_tensor_bn(
-      save_invstd,
-      input.sizes()[3],
-      device); // original save_var pos is 6
+  auto opt_tensor = at::empty({input.sizes()[3]}, device);
 
-  pre_inputs = {
-      input, grad_out, wt_hpu, bias_hpu, save_mean_hpu, save_invstd_hpu};
-
-  pt_inputs = {
-      pre_inputs[0],
-      pre_inputs[1],
-      pre_inputs[2],
-      pre_inputs[3],
-      pre_inputs[4],
-      pre_inputs[5]};
+  std::vector<at::Tensor> pt_inputs{
+      grad_out,
+      input,
+      weight.defined() ? weight : opt_tensor,
+      running_mean.defined() ? running_mean : opt_tensor,
+      running_var.defined() ? running_var : opt_tensor,
+      save_mean.defined() ? save_mean : opt_tensor,
+      save_invstd.defined() ? save_invstd : opt_tensor,
+      opt_tensor /* bias */
+  };
 
   p_context_->pt_inputs_.clear();
   SetPTInputs(pt_inputs);
   input_stack = {
-      IValue(pre_inputs[0]),
-      IValue(pre_inputs[2])}; // for creating output tensors
+      IValue(pt_inputs[1]),
+      IValue(pt_inputs[2])}; // for creating output tensors
   SetProprocessingDone();
 }
 
@@ -1229,8 +1135,6 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu(
       }
       // Build Params for the graph
       Op.AllocateAndAddSynapseNode(graph, preprocess_stack, {true, true, true});
-      // swap the grad and input again as patching table needs reversed ones
-      Op.swapGradInput();
       Op.Compile(graph);
     }
 

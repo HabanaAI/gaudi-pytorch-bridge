@@ -351,3 +351,54 @@ TEST_F(LazyNormKernelTest, FrobNormTest) {
 
   EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out, 0.0001), true);
 }
+
+TEST_F(LazyNormKernelTest, BatchNormBackwardAdd) {
+  auto grad_tensor = torch::randn({10, 3, 4, 4}, torch::requires_grad(false));
+  auto tHabanaGrad = grad_tensor.to(torch::kHABANA);
+
+  auto input_tensor = torch::randn({10, 3, 4, 4}, torch::requires_grad(false));
+  auto tHabanaX = input_tensor.to(torch::kHABANA);
+
+  auto weight = torch::randn({3}, torch::requires_grad(false));
+  auto tWeight = weight.to(torch::kHABANA);
+
+  auto mean = torch::randn({3}, torch::requires_grad(false));
+  auto tHabanaMean = mean.to(torch::kHABANA);
+
+  auto var = torch::randn({3}, torch::requires_grad(false));
+  auto tHabanaVar = var.to(torch::kHABANA);
+
+  auto save_mean = torch::randn({3}, torch::requires_grad(false));
+  auto tHabanaSaveMean = save_mean.to(torch::kHABANA);
+
+  auto save_ivar = torch::randn({3}, torch::requires_grad(false));
+  auto tHabanaSaveIVar = save_ivar.to(torch::kHABANA);
+
+  auto results = torch::native_batch_norm_backward(
+      tHabanaGrad,
+      tHabanaX,
+      tWeight,
+      tHabanaMean,
+      tHabanaVar,
+      tHabanaSaveMean,
+      tHabanaSaveIVar,
+      true,
+      0.1,
+      {true, true, true});
+
+  auto cpu_results = torch::native_batch_norm_backward(
+      grad_tensor,
+      input_tensor,
+      weight,
+      mean,
+      var,
+      save_mean,
+      save_ivar,
+      true,
+      0.1,
+      {true, true, true});
+  tWeight = tWeight.add_(std::get<1>(results));
+  weight = weight.add_(std::get<1>(cpu_results));
+
+  EXPECT_EQ(allclose(tWeight.to(torch::kCPU), weight, 0.0001), true);
+}

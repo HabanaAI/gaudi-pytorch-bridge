@@ -187,6 +187,8 @@ class BatchNormBackwardOperator : public habana::HabanaOperator {
         {habana::LayoutFormat::NHWC,
          habana::LayoutFormat::ANY,
          habana::LayoutFormat::ANY});
+    // {input, grad, wt, bias, save_mean, save_ivarstd}
+    kernel_meta_data_.tpc_input_order = {1, 0, 2, 7, 5, 6};
     resize_done = false;
     preprocessing_done = false;
   }
@@ -199,15 +201,10 @@ class BatchNormBackwardOperator : public habana::HabanaOperator {
   void preProcessInputs(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs);
-  void swapGradInput();
 
   void generateCacheInputs(torch::jit::Stack& inputs);
 
   void SetPTOutputs(torch::jit::Stack& inputs);
-
-  std::vector<at::Tensor>& GetBNInputs() {
-    return pt_inputs;
-  };
 
   torch::jit::Stack& GetInputstack() {
     return input_stack;
@@ -230,19 +227,14 @@ class BatchNormBackwardOperator : public habana::HabanaOperator {
   };
 
  private:
-  at::Tensor create_or_return_input_tensor_bn_bwd(
+  void create_opt_input_tensor_bn_bwd(
       synapse_helpers::graph& graph,
       const at::Tensor& input,
       uint size,
       at::Device device,
       int syn_index);
-  at::Tensor create_or_return_pt_tensor_bn(
-      const at::Tensor& input,
-      uint size,
-      at::Device device);
 
   c10::ScalarType scalarType_;
-  std::vector<synapse_helpers::tensor_or_ref> reordered_syn_inputs_;
   std::vector<at::Tensor> pt_inputs;
   torch::jit::Stack input_stack;
   std::vector<at::Tensor> pre_inputs;
