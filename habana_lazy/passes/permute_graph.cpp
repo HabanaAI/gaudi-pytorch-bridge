@@ -435,6 +435,7 @@ void InsertPermute_graph(
             (strcmp(
                  node->kind().toQualString(), "aten::_softmax_backward_data") ==
              0) ||
+            (strcmp(node->kind().toQualString(), "hpu::max_dim") == 0) ||
             (strcmp(
                  node->kind().toQualString(),
                  "aten::_log_softmax_backward_data") == 0) ||
@@ -558,6 +559,7 @@ void InsertPermute_graph(
           (strcmp(
                node->kind().toQualString(), "aten::_softmax_backward_data") ==
            0) ||
+          (strcmp(node->kind().toQualString(), "hpu::max_dim") == 0) ||
           (strcmp(
                node->kind().toQualString(),
                "aten::_log_softmax_backward_data") == 0) ||
@@ -567,11 +569,12 @@ void InsertPermute_graph(
         // [ToDo] consider case permute_cl followed by view()
         // %1 = aten::permute_cl(...)
         // %2 = aten::view(%1)
-        auto value_out = node->output(0);
         auto value_in = node->input(0);
-        value_to_tensor_layout[value_out].layout = habana::LayoutFormat::NCHW;
-        value_to_tensor_layout[value_out].layout_at_graph_entry =
-            value_to_tensor_layout[value_in].layout_at_graph_entry;
+        for (auto value_out : node->outputs()) {
+          value_to_tensor_layout[value_out].layout = habana::LayoutFormat::NCHW;
+          value_to_tensor_layout[value_out].layout_at_graph_entry =
+              value_to_tensor_layout[value_in].layout_at_graph_entry;
+        }
       } else if ((strcmp(node->kind().toQualString(), "aten::cat") == 0)) {
         auto tListNode = node->input(0)->node();
         auto value_in0 = tListNode->input(0);
