@@ -6624,4 +6624,12 @@ at::Tensor tril_hpu_lazy(const at::Tensor& self, int64_t diagonal) {
   return k.call();
 }
 
+at::Tensor frobenius_norm_hpu_lazy(const Tensor& self) {
+  PT_LAZY_TRACE;
+  Scalar p(2.0); // p = 2.0 for Frobenius Norm
+  std::vector<int64_t> shape = {};
+  LazyOp<at::Tensor> k{"aten::norm", {self, p}, {}, {shape}};
+  return k.call();
+}
+
 } // namespace habana_lazy

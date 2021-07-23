@@ -732,6 +732,12 @@ static const std::
                   at::ScalarType::Long}},
             },
             {
+                "frobenius_norm",
+                {{at::ScalarType::Double,
+                  at::ScalarType::BFloat16,
+                  at::ScalarType::Float}},
+            },
+            {
                 "max_pool2d_with_indices",
                 {{at::ScalarType::Double,
                   at::ScalarType::BFloat16,

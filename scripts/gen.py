@@ -96,6 +96,7 @@ _FN_AUTOGRAD_HPU = set(
         "adaptive_avg_pool2d(Tensor, IntArrayRef) -> Tensor",
         "softmax(Tensor, int64_t, c10::optional<ScalarType>) -> Tensor",
         "dropout(Tensor, double, bool) -> Tensor",
+        "frobenius_norm(Tensor) -> Tensor",
     ]
 )
 

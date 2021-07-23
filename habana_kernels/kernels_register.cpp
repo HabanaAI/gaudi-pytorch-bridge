@@ -1783,6 +1783,31 @@ Tensor hpu_wrap::norm(const Tensor& self, c10::Scalar p) {
   }
 }
 
+Tensor hpu_wrap::frobenius_norm(const Tensor& self) {
+  if (!hpu_check_inputs_impl("frobenius_norm", {self}))
+    return AtenHpuTypeDefault::frobenius_norm(self);
+
+  struct FrobeniusNorm : public torch::autograd::Function<FrobeniusNorm> {
+    static at::Tensor forward(
+        torch::autograd::AutogradContext*,
+        const at::Tensor& self) {
+      return frobenius_norm_hpu_lazy(self);
+    }
+
+    // Implemented for convention, not to be invoked
+    static torch::autograd::variable_list backward(
+        torch::autograd::AutogradContext*,
+        const torch::autograd::variable_list&) {
+      HABANA_ASSERT(
+          0 &&
+          "autograd::Function<FrobeniusNorm>::backward - should not be reached.");
+      return {};
+    }
+  };
+
+  return FrobeniusNorm::apply(self);
+}
+
 std::tuple<Tensor, Tensor> hpu_wrap::max_pool2d_with_indices(
     const Tensor& input,
     IntArrayRef kernel_size,

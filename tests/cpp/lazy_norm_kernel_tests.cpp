@@ -342,3 +342,12 @@ TEST_F(LazyNormKernelTest, FusedNormTest) {
   EXPECT_EQ(
       allclose(total_norm_hpu.to(torch::kCPU), total_norm_cpu, 0.0001), true);
 }
+
+TEST_F(LazyNormKernelTest, FrobNormTest) {
+  torch::Tensor A = torch::randn({2, 2}, torch::requires_grad(false));
+  torch::Tensor hA = A.to(torch::kHABANA);
+  torch::Tensor hOut = torch::frobenius_norm(hA);
+  torch::Tensor Out = torch::frobenius_norm(A);
+
+  EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out, 0.0001), true);
+}
