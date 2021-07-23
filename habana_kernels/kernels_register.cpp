@@ -3959,6 +3959,8 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "randperm_out(int n, Generator? generator, Tensor output) -> Tensor(a!)");
   m.def(
+      "bernoulli_float(Tensor(a!) self, float p=0.5, *, Generator? generator=None) -> Tensor(a!)");
+  m.def(
       "max_dim(Tensor self, int dim, bool keepdim=False) -> (Tensor values, Tensor indices)");
   m.def("habana_d2d_memcpy(Tensor self) -> (Tensor)");
   m.def(
@@ -4036,6 +4038,11 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
       static_cast<
           at::Tensor& (*)(int64_t, c10::optional<at::Generator>, at::Tensor&)>(
           &hpu_wrap::randperm_out));
+  m.impl(
+      "bernoulli_float",
+      static_cast<
+          at::Tensor& (*)(at::Tensor&, double p, c10::optional<at::Generator>)>(
+          &hpu_wrap::bernoulli_));
   m.impl(
       "bitwise_and_Tensor_out",
       static_cast<

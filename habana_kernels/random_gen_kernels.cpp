@@ -836,13 +836,7 @@ static auto& KernelRegistry =
               return std::make_shared<BernoulliOperator>(device_id, node_type);
             })
         .add(
-            "aten::bernoulli_",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<BernoulliScalarOperator>(
-                  device_id, node_type);
-            })
-        .add(
-            "aten::bernoulli_.float",
+            "hpu::bernoulli_float",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<BernoulliScalarOperator>(
                   device_id, node_type);

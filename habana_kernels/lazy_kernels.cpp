@@ -3591,15 +3591,16 @@ Tensor& randperm_hpu_lazy(
   return op.call(output);
 }
 Tensor bernoulli_hpu_lazy(const Tensor& self, c10::optional<Generator> gen) {
-  HABANA_ASSERT(0);
-  return bernoulli_hpu(self, gen);
+  LazyOp<Tensor> op{
+      "aten::bernoulli", {self, std::move(gen)}, {1}, {self.sizes().vec()}};
+  return op.call();
 }
 Tensor& bernoulli_scalar_hpu_lazy(
     Tensor& self,
     double p,
     c10::optional<Generator> gen) {
-  HABANA_ASSERT(0);
-  return bernoulli_scalar_hpu(self, p, gen);
+  LazyOp<Tensor&> op{"hpu::bernoulli_float", {self, p, std::move(gen)}, {1, 2}};
+  return op.call(self);
 }
 
 std::tuple<Tensor, Tensor> fused_dropout_hpu_lazy(
