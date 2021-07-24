@@ -32,6 +32,12 @@ acosh.out:
   dtypes: [Float]
   guid: acosh_fwd
 
+add.out:
+  dtypes: [BFloat16, Float, Short, Int]
+  guid: add_fwd
+  op_base_class: BinaryWithAlphaOutOp
+  scalar_ids: [2]
+
 asin.out:
   dtypes: [Float]
   guid: asin_fwd
@@ -337,6 +343,13 @@ rsqrt.out:
   dtypes: [BFloat16, Float]
   guid: rsqrt_fwd
 
+rsub.Tensor:
+  dtypes: [BFloat16, Float, Short, Int]
+  guid: sub_fwd
+  op_base_class: RsubOp
+  out_ids: [0]
+  scalar_ids: [2]
+
 sgn.out:
   dtypes: [BFloat16, Float]
   guid: sign_fwd
@@ -379,6 +392,12 @@ sqrt_:
   dtypes: [BFloat16, Float]
   guid: sqrt_fwd
   inplace_ids: [0]
+
+sub.out:
+  dtypes: [BFloat16, Float, Short, Int]
+  guid: sub_fwd
+  op_base_class: BinaryWithAlphaOutOp
+  scalar_ids: [2]
 
 tan.out:
   dtypes: [Float]

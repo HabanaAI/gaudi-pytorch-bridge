@@ -225,7 +225,7 @@ class CodeGenOps : public habana_lazy_test::LazyTest {
       const std::function<
           torch::Tensor(torch::Tensor, torch::Tensor, int64_t, torch::Tensor&)>&
           fn,
-      int int_val = 1) {
+      int int_val = 0.01) {
     GenerateInputs(2);
 
     auto out = torch::empty({0});
@@ -361,6 +361,16 @@ class CodeGenOps : public habana_lazy_test::LazyTest {
     Compare(res, hres);
   }
 
+  void TestFn(const std::function<
+              torch::Tensor(torch::Tensor, torch::Tensor, torch::Scalar)>& fn) {
+    GenerateInputs(2);
+    torch::Scalar s1 = -1.042;
+    auto res = fn(m_inputs[0], m_inputs[1], s1);
+    auto hres = fn(m_hinputs[0], m_hinputs[1], s1);
+
+    Compare(res, hres);
+  }
+
   void TestFnCustomSizes(
       const std::function<torch::Tensor(torch::Tensor, torch::Tensor)>& fn,
       torch::ArrayRef<torch::IntArrayRef> sizes) {
@@ -375,6 +385,7 @@ class CodeGenOps : public habana_lazy_test::LazyTest {
 TEST_F(CodeGenOps, Fns) {
   // clang-format off
   TestFnCustomSizes(torch::prelu, {{3, 4, 4, 1}, {1, 4, 1, 1}});
+  TestFn(static_cast<torch::Tensor (*)(const torch::Tensor&, const torch::Tensor&, torch::Scalar)>(torch::rsub));
   TestFn(static_cast<torch::Tensor (*)(const torch::Tensor&, int64_t, torch::optional<torch::ScalarType>)>(torch::cumprod));
   TestFn(torch::ceil);
   TestFn(torch::cos);
@@ -410,6 +421,7 @@ TEST_F(CodeGenOps, Fns) {
   TestOut(torch::abs_outf);
   TestOut(torch::acosh_outf);
   TestOut(torch::acos_outf);
+  TestOut(torch::add_outf);
   TestOut(torch::asinh_outf);
   TestOut(torch::asin_outf);
   TestOut(torch::atanh_outf);
@@ -447,6 +459,7 @@ TEST_F(CodeGenOps, Fns) {
   TestOut(torch::sinh_outf);
   TestOut(torch::sin_outf);
   TestOut(torch::sqrt_outf);
+  TestOut(torch::sub_outf);
   TestOut(torch::tanh_backward_outf);
   TestOut(torch::tanh_outf);
   TestOut(torch::tan_outf);

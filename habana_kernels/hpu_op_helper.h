@@ -13,6 +13,11 @@
 namespace habana {
 using sizes_vec = std::vector<std::vector<int64_t>>;
 
+std::vector<at::Tensor> GetMetaTensorList(
+    const std::vector<at::Tensor>& tensors);
+std::vector<c10::optional<at::Tensor>> GetMetaOptTensorList(
+    const std::vector<c10::optional<at::Tensor>>& tensors);
+
 class HabanaOperatorHelper : public HabanaOperator {
  public:
   HabanaOperatorHelper(
@@ -40,6 +45,14 @@ class HabanaOperatorHelper : public HabanaOperator {
     return m_scalar_type;
   }
 
+  const std::unordered_map<int, at::Scalar>& ScalarInputs() const {
+    return m_scalar_inputs;
+  }
+
+  int ScalarId() const {
+    return m_scalar_id;
+  }
+
  private:
   virtual void CustomHandler(synapse_helpers::graph&, at::Stack&) {}
 
@@ -50,78 +63,48 @@ class HabanaOperatorHelper : public HabanaOperator {
 
   void HandleScalarToTensor(
       synapse_helpers::graph& graph,
-      const at::Stack& stack) {
-    if (m_scalar_id < 0) {
-      return;
-    }
-
-    // Get rid of this kludge
-    const auto& const_op =
-        make_operator<ConstantOperator>(p_context_->device_id_, m_scalar_type);
-    const auto& t = at::detail::make_tensor<c10::TensorImpl>(
-        c10::DispatchKeySet{
-            at::DispatchKey::HABANATensorId, at::DispatchKey::AutogradHABANA},
-        c10::scalarTypeToTypeMeta(m_scalar_type),
-        c10::Device(c10::kHABANA, 0));
-    t.unsafeGetTensorImpl()->set_sizes_contiguous(1);
-    at::Stack s = {t, stack.at(m_scalar_id)};
-    const_op->AllocateAndAddSynapseNode(graph, s, false);
-    HABANA_ASSERT(
-        m_scalar_id <= static_cast<int>(p_context_->syn_inputs_.size()));
-    p_context_->syn_inputs_.emplace(
-        p_context_->syn_inputs_.cbegin() + m_scalar_id,
-        std::move(const_op->GetSynOutputs()[0]));
-  }
-
+      const at::Stack& stack);
   void HandleFn(
       synapse_helpers::graph& graph,
       const at::Stack& stack,
-      bool is_output_persistent) {
-    if (m_out_id < 0) {
-      return;
-    }
-    const auto& output = habana_helpers::createPTTensor(
-        stack.at(m_out_id).toTensor(), is_output_persistent);
-    AllocateSynapseOutput(graph, output, is_output_persistent);
-  }
-
-  void HandleOutFn(const at::Stack& stack) {
-    if (!m_is_outfn) {
-      return;
-    }
-
-    p_context_->pt_outputs_.emplace_back(stack.back().toTensor());
-    p_context_->syn_outputs_.emplace_back(
-        habana_helpers::duplicate_tensor_in_memory_section(
-            p_context_->syn_inputs_.back()));
-    p_context_->syn_inputs_.pop_back();
-  }
-
-  void HandleInplaceFn(const at::Stack& stack) {
-    if (m_inplace_id < 0) {
-      return;
-    }
-    // Index can vary in syn_inputs_ and in stack
-    p_context_->syn_outputs_.emplace_back(
-        habana_helpers::duplicate_tensor_in_memory_section(
-            p_context_->syn_inputs_[m_inplace_id]));
-    p_context_->pt_outputs_.emplace_back(stack[m_inplace_id].toTensor());
-  }
+      bool is_output_persistent);
+  void HandleInplaceFn(const at::Stack& stack);
+  void HandleOutFn(const at::Stack& stack);
 
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       at::Stack& stack,
-      bool is_output_persistent) override {
-    CustomHandler(graph, stack);
-    HandleFn(graph, stack, is_output_persistent);
-    HandleInplaceFn(stack);
-    HandleOutFn(stack);
-    HandleScalarToTensor(graph, stack);
+      bool is_output_persistent) override;
 
-    size_t size = 0;
-    const auto& params = FillParams(stack, size);
-    AddNodeToSynapseGraph(graph, params.get(), size);
+  // Compound node helpers
+  struct _intermediate_attr {
+    at::IntArrayRef sizes{};
+    at::ScalarType dtype{at::kFloat};
+    bool persistent{false};
+  };
+
+ protected:
+  std::vector<synapse_helpers::tensor> BuildOp(
+      std::string guid,
+      synapse_helpers::graph& graph,
+      std::vector<synTensor> syn_in,
+      const std::vector<_intermediate_attr>& out_props,
+      void* params = nullptr,
+      size_t param_size = 0);
+
+  synTensor& syn_in(int index) {
+    return p_context_->syn_inputs_.at(index).ref().get();
   }
+
+  synapse_helpers::tensor& syn_out(int index) {
+    return p_context_->syn_outputs_.at(index);
+  }
+
+  at::Tensor& stack_tensor(at::Stack& stack, int index) {
+    return stack.at(index).toTensor();
+  }
+
+  virtual void AddNode(synapse_helpers::graph&, at::Stack&, bool);
 
  private:
   const c10::ScalarType m_scalar_type;
@@ -129,6 +112,8 @@ class HabanaOperatorHelper : public HabanaOperator {
   const int m_inplace_id;
   const int m_scalar_id;
   const bool m_is_outfn;
+
+  std::unordered_map<int, at::Scalar> m_scalar_inputs;
 
  public:
   static std::shared_ptr<void> FillClampMaxParams(const at::Stack&, size_t&);
@@ -142,10 +127,34 @@ class HabanaOperatorHelper : public HabanaOperator {
   static sizes_vec PowOutputShape(const torch::Tensor&);
 };
 
-std::vector<at::Tensor> GetMetaTensorList(
-    const std::vector<at::Tensor>& tensors);
-std::vector<c10::optional<at::Tensor>> GetMetaOptTensorList(
-    const std::vector<c10::optional<at::Tensor>>& tensors);
+#define COMPOUND_OP(class)                   \
+  struct class : HabanaOperatorHelper {      \
+    class(                                   \
+        int device_id,                       \
+        const std::string& guid,             \
+        c10::ScalarType scalar_type,         \
+        int out_id,                          \
+        int inplace_id,                      \
+        int scalar_id,                       \
+        bool is_outfn)                       \
+        : HabanaOperatorHelper(              \
+              device_id,                     \
+              guid,                          \
+              scalar_type,                   \
+              out_id,                        \
+              inplace_id,                    \
+              scalar_id,                     \
+              is_outfn){};                   \
+    void AddNode(                            \
+        synapse_helpers::graph& graph,       \
+        at::Stack& stack,                    \
+        bool is_output_persistent) override; \
+  };
+
+COMPOUND_OP(BinaryWithAlphaOutOp)
+COMPOUND_OP(RsubOp)
+
+#undef COMPOUND_OP
 } // namespace habana
 
 #define HPU_SUPPORTED_DTYPES(fn, supported_dtypes)                       \

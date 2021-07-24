@@ -1545,7 +1545,7 @@ static auto& KernelRegistry =
                   device_id, node_type);
             })
         .add(
-            "aten::rsub.Tensor",
+            "hpu::rsub.Tensor",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<habana::RsubOperator>(
                   device_id, node_type);

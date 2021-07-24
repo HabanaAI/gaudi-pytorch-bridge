@@ -146,9 +146,9 @@ namespace habana {{
 }}  // namespace habana
 """
 
-_OPCLASS_HEADER = """struct {cname} : HabanaOperatorHelper {{
+_OPCLASS_HEADER = """struct {cname} : {op_base_class} {{
   {cname}(int device_id, c10::ScalarType scalar_type) :
-        HabanaOperatorHelper(device_id, \"{guid}_\", scalar_type, {out_id}, {inplace_id}, {scalar_id}, {is_out_fn}) {{}}{custom_handler}{fill_params}
+        {op_base_class}(device_id, \"{guid}_\", scalar_type, {out_id}, {inplace_id}, {scalar_id}, {is_out_fn}) {{}}{custom_handler}{fill_params}
 }};
 """
 
@@ -180,13 +180,16 @@ class Op(object):
         self.op = op
 
     def get_guid(self):
-        return self.op["guid"]
+        return self.op.get("guid", None)
 
     def get_dtypes(self):
         return self.op.get("dtypes", None)
 
     def get_tpc_param(self):
         return self.op.get("tpc_param", None)
+
+    def get_op_base_class(self):
+        return self.op.get("op_base_class", "HabanaOperatorHelper")
 
     def get_custom_fill_params(self):
         return self.op.get("custom_fill_params", None)
@@ -548,10 +551,13 @@ def get_hpuop_class_impl(ctxop, fname, cname):
     out_ids = ctxop.get_out_ids()
     inplace_ids = ctxop.get_inplace_ids()
     scalar_ids = ctxop.get_scalar_ids()
+    custom_fill_params = ctxop.get_custom_fill_params()
+    tpc_param = ctxop.get_tpc_param()
+    op_base_class = ctxop.get_op_base_class()
 
     assert (
         (out_ids is None) ^ (inplace_ids is None) ^ is_out_fn(fname)
-    ), "Either out_ids or inplace_ids should be defined for {}".format(fname)
+    ), "Either `out_ids` or `inplace_ids` should be defined for {}".format(fname)
 
     out_id = out_ids[0] if out_ids else -1
     inplace_id = inplace_ids[0] if inplace_ids else -1
@@ -562,8 +568,6 @@ def get_hpuop_class_impl(ctxop, fname, cname):
     else:
         custom_handler = ""
 
-    custom_fill_params = ctxop.get_custom_fill_params()
-    tpc_param = ctxop.get_tpc_param()
     if custom_fill_params:
         assert (
             tpc_param is None
@@ -585,6 +589,7 @@ def get_hpuop_class_impl(ctxop, fname, cname):
         fill_params = ""
 
     class_impl = _OPCLASS_HEADER.format(
+        op_base_class=op_base_class,
         cname=cname,
         guid=guid,
         out_id=out_id,

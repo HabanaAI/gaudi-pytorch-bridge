@@ -126,5 +126,5 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
             flag);
       },
       py::arg("flag"));
-  m.doc() = "This module registers habana backend.";
+  m.doc() = "This module registers hpu backend.";
 }
