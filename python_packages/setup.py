@@ -88,6 +88,13 @@ class BuildExt(cpp_extension.BuildExtension.with_options(no_python_abi_suffix=Tr
 
 setup(
     name="habana-torch",
+    description="This package provides PyTorch bridge interfaces and DL training support modules like optimizers,mixed precision configuration, fused kernels etc on Habana® Gaudi®",
+    url="https://habana.ai/",
+    license="See LICENSE.txt",
+    license_files = ('LICENSE.txt',),
+    platform="Gaudi",
+    author="Habana Labs, Ltd. an Intel Company",
+    author_email="support@habana.ai",
     version=get_version(),
     zip_safe=False,
     packages=find_namespace_packages(include=["habana_frameworks.*"]),

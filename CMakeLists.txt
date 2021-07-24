@@ -189,12 +189,6 @@ option(INSTALL_PKGS "Install python packages" OFF)
 if (BUILD_PKGS)
   find_program(PIP "pip" REQUIRED)
   set(PKGS
-    ${CMAKE_SOURCE_DIR}/habana_kernels/pytorch-extensions/embedding_bag_extension
-    ${CMAKE_SOURCE_DIR}/habana_kernels/pytorch-extensions/habana_custom-extension
-    ${CMAKE_SOURCE_DIR}/habana_kernels/pytorch-extensions/gather2d-extension
-    ${CMAKE_SOURCE_DIR}/habana_kernels/pytorch-extensions/optimizer_adagrad-extension
-    ${CMAKE_SOURCE_DIR}/habana_kernels/pytorch-extensions/optimizer_sgd-extension
-    ${CMAKE_SOURCE_DIR}/habana_kernels/pytorch-extensions/preproc-extension
     ${CMAKE_SOURCE_DIR}/pytorch_helpers/dataloader/multithreaded_dataloader
     ${CMAKE_SOURCE_DIR}/habana_distributed
     ${CMAKE_SOURCE_DIR}/python_packages

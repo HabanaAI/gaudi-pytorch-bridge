@@ -15,6 +15,7 @@ from tools.setup.cmake import CMakeExtension
 # Constant known variables used throughout this file
 CWD = os.path.dirname(os.path.abspath(__file__))
 TORCH_HCL_PATH = os.path.join(CWD, "habana_torch_hcl")
+root = os.path.join(os.environ["PYTORCH_MODULES_ROOT_PATH"])
 
 def check_file(f):
     if not os.path.exists(f):
@@ -125,18 +126,47 @@ def get_python_c_module():
     return _c_module
 
 
+
+def get_version():
+    try:
+        import subprocess
+        import re
+
+        describe = (
+            subprocess.check_output(
+                ["git", "-C", root, "describe", "--abbrev=7", "--tags", "--dirty"]
+            )
+            .decode("ascii")
+            .strip()
+        )
+        version = re.search(r"\d+(\.\d+)*", describe).group(0)
+        sha = re.search(r"g([a-z0-9\-]+)", describe).group(1)
+        return version + "+" + sha
+    except Exception as e:
+        print("Error getting version: {}".format(e), file=sys.stderr)
+        return "0.0.0+unknown"
+
+
 if __name__ == '__main__':
-    #version = create_version()
+    version = get_version()
     c_module = get_python_c_module()
     cmake_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "CMakeLists.txt")
     modules = [CMakeExtension("libhabana_torch_hcl", cmake_file), c_module]
     setup(
         name='habana_torch_hcl',
-        #version=version,
+        description="This package adds support for distributed training for PyTorch on Habana® Gaudi®",
+        url="https://habana.ai/",
+        license="See LICENSE.txt",
+        platform="Gaudi",
+        author="Habana Labs, Ltd. an Intel Company",
+        author_email="support@habana.ai",
+        version=version,
         ext_modules=modules,
         packages=['habana_torch_hcl'],
         #install_requires=['torch'],
+        license_files = ('LICENSE.txt'),
         package_data={
+
             'habana_torch_hcl': [
                 '*.py',
                 '*/*.h',
