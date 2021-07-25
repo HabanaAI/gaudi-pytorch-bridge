@@ -60,15 +60,25 @@ std::shared_ptr<void> HabanaOperatorHelper::FillClampParams(
 std::shared_ptr<void> HabanaOperatorHelper::FillClampMinParams(
     const at::Stack& stack,
     size_t& size) {
+  if (c10::isFloatingType(stack[0].toTensor().scalar_type())) {
+    return ClampParams(
+        stack[1].toScalar().toFloat(), std::numeric_limits<float>::max(), size);
+  }
   return ClampParams(
-      stack[1].toScalar().toFloat(), std::numeric_limits<float>::max(), size);
+      stack[1].toScalar().toInt(), std::numeric_limits<int>::max(), size);
 }
 
 std::shared_ptr<void> HabanaOperatorHelper::FillClampMaxParams(
     const at::Stack& stack,
     size_t& size) {
+  if (c10::isFloatingType(stack[0].toTensor().scalar_type())) {
+    return ClampParams(
+        -std::numeric_limits<float>::max(),
+        stack[1].toScalar().toFloat(),
+        size);
+  }
   return ClampParams(
-      -std::numeric_limits<float>::max(), stack[1].toScalar().toFloat(), size);
+      -std::numeric_limits<int>::max(), stack[1].toScalar().toInt(), size);
 }
 
 std::shared_ptr<void> HabanaOperatorHelper::FillHardSigmoidParams(

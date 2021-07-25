@@ -416,7 +416,7 @@ TEST_F(CodeGenOps, Fns) {
   TestOut(torch::atan_outf);
   TestOut(torch::bitwise_not_outf, torch::kChar);
   TestOut(torch::ceil_outf);
-  TestOut(torch::clamp_max_outf);
+  TestOut(torch::clamp_max_outf, torch::kLong);
   TestOut(torch::clamp_min_outf);
   TestOut(torch::clamp_outf, torch::kInt);
   TestOut(torch::cosh_outf);
