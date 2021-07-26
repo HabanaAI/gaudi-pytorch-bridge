@@ -1886,6 +1886,80 @@ Tensor hpu_wrap::frobenius_norm(const Tensor& self) {
   return FrobeniusNorm::apply(self);
 }
 
+Tensor hpu_wrap::instance_norm(
+    const Tensor& input,
+    const c10::optional<Tensor>& weight_opt,
+    const c10::optional<Tensor>& bias_opt,
+    const c10::optional<Tensor>& running_mean_opt,
+    const c10::optional<Tensor>& running_var_opt,
+    UNUSED bool use_input_stats,
+    UNUSED double momentum,
+    double eps,
+    UNUSED bool cudnn_enabled) {
+  // Note: Legacy eager mode is not supported
+  auto weight = weight_opt.value_or(Tensor());
+  auto bias = bias_opt.value_or(Tensor());
+
+  TORCH_CHECK(weight.defined(), "undefined weight is not supported");
+  TORCH_CHECK(bias.defined(), "undefined bias is not supported");
+
+  auto running_mean = running_mean_opt.value_or(Tensor());
+  auto running_var = running_var_opt.value_or(Tensor());
+
+  if (GET_ENV_FLAG(PT_HPU_DISABLE_INSTANCE_NORM)) {
+    return at::native::instance_norm(
+        input,
+        weight,
+        bias,
+        running_mean,
+        running_var,
+        use_input_stats,
+        momentum,
+        eps,
+        cudnn_enabled);
+  }
+
+  struct InstanceNorm : public torch::autograd::Function<InstanceNorm> {
+    static at::Tensor forward(
+        torch::autograd::AutogradContext* ctx,
+        const Tensor& input,
+        const Tensor& weight, // gamma
+        const Tensor& bias, // beta
+        double eps) {
+      Tensor output, mean, istd;
+      std::tie(output, mean, istd) =
+          instance_norm_hpu_lazy(input, weight, bias, eps);
+
+      ctx->save_for_backward({input, mean, istd, weight});
+
+      return output;
+    }
+
+    static torch::autograd::variable_list backward(
+        torch::autograd::AutogradContext* ctx,
+        const torch::autograd::variable_list& grad_in) {
+      auto saved = ctx->get_saved_variables();
+      auto input = saved[0];
+      auto mean = saved[1];
+      auto istd = saved[2];
+      auto gamma = saved[3];
+
+      Tensor grad_out, grad_beta, grad_gamma;
+
+      std::tie(grad_out, grad_beta, grad_gamma) =
+          instance_norm_backward_hpu_lazy(input, grad_in[0], mean, istd, gamma);
+
+      // Autograds same number of gradients as the number of forward inputs and
+      // in the same order
+      //  grad_eps
+      auto grad_eps = Tensor();
+      return {grad_out, grad_gamma, grad_beta, grad_eps};
+    }
+  };
+
+  return InstanceNorm::apply(input, weight, bias, eps);
+}
+
 std::tuple<Tensor, Tensor> hpu_wrap::max_pool2d_with_indices(
     const Tensor& input,
     IntArrayRef kernel_size,
@@ -4331,6 +4405,10 @@ TORCH_LIBRARY(hpu, m) {
       "as_strided_lazy_(Tensor self, int[] size, int[] stride, int offset) -> (Tensor)");
   m.def(
       "matmul_backward(Tensor grad_out, Tensor self, Tensor other) -> (Tensor, Tensor)");
+  m.def(
+      "instance_norm(Tensor input, Tensor? weight, Tensor? bias, float eps) -> (Tensor, Tensor, Tensor)");
+  m.def(
+      "instance_norm_backward(Tensor input, Tensor grad_in, Tensor? mean, Tensor? istd, Tensor gamma) -> (Tensor, Tensor, Tensor)");
 }
 
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {

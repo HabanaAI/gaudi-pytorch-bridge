@@ -428,6 +428,17 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> layer_norm_backward_hpu_lazy(
     const c10::optional<at::Tensor>& bias_opt,
     std::array<bool, 3> grad_input_mask);
 at::Tensor norm_scalar_hpu_lazy(const at::Tensor& self, at::Scalar p);
+std::tuple<at::Tensor, at::Tensor, at::Tensor> instance_norm_hpu_lazy(
+    const at::Tensor& input,
+    const at::Tensor& weight_opt,
+    const at::Tensor& bias_opt,
+    double eps);
+std::tuple<at::Tensor, at::Tensor, at::Tensor> instance_norm_backward_hpu_lazy(
+    const at::Tensor& input,
+    const at::Tensor& grad_in,
+    const at::Tensor& mean,
+    const at::Tensor& istd,
+    const at::Tensor& gamma);
 std::tuple<at::Tensor, at::Tensor> max_pool2d_with_indices_hpu_lazy(
     const at::Tensor& input,
     at::IntArrayRef kernel_size,

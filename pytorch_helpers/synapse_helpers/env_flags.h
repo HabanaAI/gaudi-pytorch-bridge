@@ -174,6 +174,10 @@ struct PT_HPU_DUMP_IR_DOT_GRAPH {
   static constexpr bool default_value = false;
 };
 
+struct PT_HPU_DISABLE_INSTANCE_NORM {
+  static constexpr bool default_value = false;
+};
+
 // Overloads for different type of default value
 
 template <class T>

@@ -368,4 +368,71 @@ class FusedNormOperator : public HabanaOperator {
       torch::jit::Stack& inputs,
       std::vector<bool> is_output_persistent) override;
 };
+
+class InstanceNormOperator : public habana::HabanaOperator {
+ public:
+  // Used in training mode
+  InstanceNormOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator(
+            "instance_norm_fwd_" +
+            habana_helpers::name_suffix_from_type(scalarType)) {
+    this->CreateSynContext(device_id);
+
+    // assign layouts for input and output tensors
+    kernel_meta_data_.input_layout.assign(
+        {habana::LayoutFormat::NHWC,
+         habana::LayoutFormat::ANY,
+         habana::LayoutFormat::ANY});
+    kernel_meta_data_.output_layout.assign(
+        {habana::LayoutFormat::NHWC,
+         habana::LayoutFormat::ANY,
+         habana::LayoutFormat::ANY});
+    kernel_meta_data_.tpc_input_order = {0, 2, 1};
+  }
+
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      std::vector<bool> is_output_persistent) override;
+
+  // used to compute output shapes of current mean and var
+  static std::vector<int64_t> compute_output_shape(
+      at::Tensor input,
+      c10::MemoryFormat mf);
+};
+
+class InstanceNormBackwardOperator : public habana::HabanaOperator {
+ public:
+  // Used in training mode
+  InstanceNormBackwardOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator(
+            "instance_norm_bwd_" +
+            habana_helpers::name_suffix_from_type(scalarType)) {
+    this->CreateSynContext(device_id);
+
+    // assign layouts for input and output tensors
+    kernel_meta_data_.input_layout.assign({
+        habana::LayoutFormat::NHWC,
+        habana::LayoutFormat::NHWC,
+        habana::LayoutFormat::ANY,
+        habana::LayoutFormat::ANY,
+        habana::LayoutFormat::ANY,
+    });
+    kernel_meta_data_.output_layout.assign(
+        {habana::LayoutFormat::NHWC,
+         habana::LayoutFormat::ANY,
+         habana::LayoutFormat::ANY});
+  }
+
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      std::vector<bool> is_output_persistent) override;
+
+  // used to compute output shapes of current mean and var
+  static std::vector<int64_t> compute_output_shape(
+      at::Tensor input,
+      c10::MemoryFormat mf);
+};
+
 } // namespace habana

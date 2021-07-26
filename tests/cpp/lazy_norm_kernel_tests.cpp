@@ -268,7 +268,9 @@ TEST_F(LazyNormKernelTest, InstanceNorm) {
   auto result_lazy = torch::instance_norm(
       tHabanaX, tWeight, tBias, tHabanaMean, tHabanaVar, true, mom, eps, false);
 
-  EXPECT_EQ(allclose(result_lazy.to("cpu"), result_cpu, 0.01, 0.01), true);
+  HbLazyTensor::StepMarker({});
+
+  EXPECT_EQ(allclose(result_lazy.to("cpu"), result_cpu, 0.001, 0.001), true);
 }
 
 TEST_F(LazyNormKernelTest, InstanceNormNormv) {

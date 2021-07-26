@@ -417,6 +417,16 @@ struct hpu_wrap {
       c10::optional<at::Scalar> p,
       at::IntArrayRef dim,
       bool keepdim);
+  static at::Tensor instance_norm(
+      const at::Tensor& input,
+      const c10::optional<at::Tensor>& weight,
+      const c10::optional<at::Tensor>& bias,
+      const c10::optional<at::Tensor>& running_mean,
+      const c10::optional<at::Tensor>& running_var,
+      bool use_input_stats,
+      double momentum,
+      double eps,
+      bool cudnn_enabled);
   static std::tuple<at::Tensor, at::Tensor> max_pool2d_with_indices(
       const at::Tensor& input,
       at::IntArrayRef kernel_size,

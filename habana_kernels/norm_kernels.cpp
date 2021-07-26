@@ -2281,6 +2281,137 @@ Tensor fused_norm_hpu(
   return out[0];
 }
 
+std::vector<int64_t> InstanceNormOperator::compute_output_shape(
+    at::Tensor input,
+    c10::MemoryFormat mf) {
+  // fetch channel dimension based on memory format
+  constexpr int nhwc_idx = 3;
+  constexpr int nchw_idx = 1;
+
+  auto channels_idx =
+      (mf == c10::MemoryFormat::ChannelsLast) ? nhwc_idx : nchw_idx;
+
+  return {input.sizes().vec()[0], input.sizes().vec()[channels_idx]};
+}
+
+void InstanceNormOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    Stack& in_stack,
+    std::vector<bool> is_output_persistent) {
+  TORCH_CHECK(in_stack[3].isDouble(), "Input type expected to be double");
+  TORCH_CHECK(
+      is_output_persistent.size() == 3,
+      "InstanceNormOperator: is_output_persistent should be 3 in training mode");
+
+  auto input = in_stack[0].toTensor();
+  std::string guid = "instance_norm_fwd_" +
+      habana_helpers::name_suffix_from_type(input.scalar_type());
+  SetGuid(guid);
+
+  auto beta = in_stack[1].toTensor();
+
+  const auto eps = in_stack[3].toDouble();
+
+  auto output = habana_helpers::createPTTensor(input, is_output_persistent[0]);
+  AllocateSynapseOutput(graph, output, is_output_persistent[0]);
+
+  auto mean_var_shape = InstanceNormOperator::compute_output_shape(
+      input, c10::MemoryFormat::ChannelsLast);
+
+  auto current_mean = habana_helpers::createPTTensor(
+      beta,
+      mean_var_shape,
+      beta.options(),
+      c10::MemoryFormat::Contiguous,
+      is_output_persistent[1]);
+
+  auto current_istd = habana_helpers::createPTTensor(
+      beta,
+      mean_var_shape,
+      beta.options(),
+      c10::MemoryFormat::Contiguous,
+      is_output_persistent[2]);
+
+  std::vector<bool> persistent_output_flags{
+      is_output_persistent[1], is_output_persistent[2]};
+  AllocateSynapseOutputs(
+      graph, {current_mean, current_istd}, persistent_output_flags);
+
+  // Note: TPC kernel doesnt support running mean and variance computation. we
+  // just pass random momentum value as a place holder
+  struct ns_InstanceNormTrainingKernel::Params params {
+    0.9, static_cast<float>(eps)
+  };
+
+  p_context_->params_.emplace<ns_InstanceNormTrainingKernel::Params>(params);
+  p_context_->params_size_ = sizeof(params);
+  AddNodeToSynapseGraph(graph, &params, sizeof(params));
+}
+
+std::vector<int64_t> InstanceNormBackwardOperator::compute_output_shape(
+    at::Tensor input,
+    c10::MemoryFormat mf) {
+  // fetch channel dimension based on memory format
+  constexpr int nhwc_idx = 3;
+  constexpr int nchw_idx = 1;
+
+  auto channels_idx =
+      (mf == c10::MemoryFormat::ChannelsLast) ? nhwc_idx : nchw_idx;
+
+  return {input.sizes().vec()[channels_idx]};
+}
+
+void InstanceNormBackwardOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    Stack& in_stack,
+    std::vector<bool> is_output_persistent) {
+  TORCH_CHECK(
+      is_output_persistent.size() == 3,
+      "InstanceNormOperator: is_output_persistent should be 3 in training mode");
+  auto input = in_stack[0].toTensor();
+  auto mean = in_stack[2].toTensor();
+
+  std::string guid = "instance_norm_bwd_" +
+      habana_helpers::name_suffix_from_type(input.scalar_type());
+  SetGuid(guid);
+
+  auto output = habana_helpers::createPTTensor(input, is_output_persistent[0]);
+  AllocateSynapseOutput(graph, output, is_output_persistent[0]);
+
+  auto grad_beta_gamma_shape =
+      InstanceNormBackwardOperator::compute_output_shape(
+          input, c10::MemoryFormat::ChannelsLast);
+
+  auto grad_beta = habana_helpers::createPTTensor(
+      mean,
+      grad_beta_gamma_shape,
+      mean.options(),
+      c10::MemoryFormat::Contiguous,
+      is_output_persistent[1]);
+
+  auto grad_gamma = habana_helpers::createPTTensor(
+      mean,
+      grad_beta_gamma_shape,
+      mean.options(),
+      c10::MemoryFormat::Contiguous,
+      is_output_persistent[2]);
+
+  std::vector<bool> persistent_output_flags{
+      is_output_persistent[1], is_output_persistent[2]};
+  AllocateSynapseOutputs(
+      graph, {grad_beta, grad_gamma}, persistent_output_flags);
+
+  // Note: TPC kernel doesnt support running mean and variance computation. we
+  // just pass random momentum value as a place holder
+  struct ns_InstanceNormTrainingKernel::Params params {
+    0.9, 1e-5
+  };
+
+  p_context_->params_.emplace<ns_InstanceNormTrainingKernel::Params>(params);
+  p_context_->params_size_ = sizeof(params);
+  AddNodeToSynapseGraph(graph, &params, sizeof(params));
+}
+
 static auto& KernelRegistry =
     habana::KernelRegistry()
         .add(
@@ -2327,4 +2458,16 @@ static auto& KernelRegistry =
             "aten::norm.Scalar",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<NormOperator>(device_id, node_type);
+            })
+        .add(
+            "hpu::instance_norm",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<InstanceNormOperator>(
+                  device_id, node_type);
+            })
+        .add(
+            "hpu::instance_norm_backward",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<InstanceNormBackwardOperator>(
+                  device_id, node_type);
             });

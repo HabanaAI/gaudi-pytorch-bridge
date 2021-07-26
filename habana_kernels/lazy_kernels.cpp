@@ -3345,6 +3345,52 @@ Tensor norm_scalar_hpu_lazy(const Tensor& self, Scalar p) {
   return out;
 }
 
+std::tuple<Tensor, Tensor, Tensor> instance_norm_hpu_lazy(
+    const Tensor& input,
+    const Tensor& weight,
+    const Tensor& bias,
+    double eps) {
+  PT_LAZY_TRACE;
+
+  auto mean_var_shape = InstanceNormOperator::compute_output_shape(
+      input, c10::MemoryFormat::Contiguous);
+
+  using T = std::tuple<Tensor, Tensor, Tensor>;
+  LazyOp<T> k(
+      "hpu::instance_norm",
+      {input, weight, bias, eps},
+      {3}, // metadata_indices
+      {input.sizes().vec(), mean_var_shape, mean_var_shape} // out_shapes
+  );
+
+  T results = k.call();
+  return results;
+}
+
+std::tuple<Tensor, Tensor, Tensor> instance_norm_backward_hpu_lazy(
+    const Tensor& input,
+    const Tensor& grad_in,
+    const Tensor& mean,
+    const Tensor& istd,
+    const Tensor& gamma) {
+  PT_LAZY_TRACE;
+
+  auto grad_beta_gamma_shape =
+      InstanceNormBackwardOperator::compute_output_shape(
+          input, c10::MemoryFormat::Contiguous);
+  using T = std::tuple<Tensor, Tensor, Tensor>;
+  LazyOp<T> k(
+      "hpu::instance_norm_backward",
+      {input, grad_in, mean, istd, gamma},
+      {}, // metadata_indices
+      {input.sizes().vec(), grad_beta_gamma_shape, grad_beta_gamma_shape}
+      // out_shapes
+  );
+
+  T results = k.call();
+  return results;
+}
+
 std::tuple<Tensor, Tensor> max_pool2d_with_indices_hpu_lazy(
     const Tensor& input,
     IntArrayRef kernel_size,
