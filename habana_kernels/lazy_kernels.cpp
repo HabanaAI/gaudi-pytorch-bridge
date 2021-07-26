@@ -1899,7 +1899,7 @@ Tensor& scatter_inplace_src_hpu_lazy(
 
   auto hl_self = habana_lazy::GetHbLazyTensor(self);
   auto node =
-      std::make_shared<habana_lazy::ir::Scatter>(self, dim_, index, src);
+      std::make_shared<habana_lazy::ir::ScatterSrc>(self, dim_, index, src);
 
   // Create result tensor to store output of scatter node
   auto result = empty_hpu_lazy(
@@ -1981,21 +1981,32 @@ Tensor& scatter_inplace_value_hpu_lazy(
   return self;
 }
 
-// Cpu implementation of scatter calls inplace scatter only
-// scatter_src_hpu_lazy will never be called
 Tensor scatter_src_hpu_lazy(
     const Tensor& self,
-    int64_t dim_,
+    int64_t dim,
     const Tensor& index,
     const Tensor& src) {
   PT_LAZY_TRACE;
+  auto node =
+      std::make_shared<habana_lazy::ir::ScatterSrc>(self, dim, index, src);
 
-  LazyOp<at::Tensor> k{"aten::scatter", {self, dim_, index, src}};
-  return k.call();
-}
+  auto result = scatter_src_hpu(self, dim, index, src);
+  auto hl_result = habana_lazy::GetOrCreateHbLazyTensor(result);
+  habana_lazy::ir::Value& res = hl_result.CurrentIrValue();
+  res.m_index = 0;
+  res.SetNode(
+      node,
+      hl_result.GetDevice(),
+      hl_result.GetSizes(),
+      hl_result.dtype_optional());
+  updateDstDependencies(hl_result, result);
 
-// Cpu implementation of scatter_add calls inplace scatter only
-// scatter_add_src_hpu_lazy will never be called
+  std::vector<at::Tensor> input_pt_vec{self, index, src};
+  node->AddInputPtTensors(input_pt_vec);
+
+  return result;
+};
+
 Tensor scatter_add_src_hpu_lazy(
     const Tensor& self,
     int64_t dim_,
@@ -2360,7 +2371,8 @@ Tensor gather2d_hpu_lazy(
     int64_t validCount) {
   HABANA_ASSERT(0);
   return gather2d_hpu(input, indices, validCount);
-}
+};
+
 Tensor slice_hpu_lazy(
     const Tensor& self_in,
     int64_t dim,
@@ -2411,6 +2423,48 @@ Tensor slice_hpu_lazy(
   flush_op(output);
   return output;
 }
+
+Tensor slice_backward_hpu_lazy(
+    const Tensor& self,
+    const Tensor& grad_output,
+    int64_t dim,
+    int64_t start,
+    int64_t end,
+    int64_t step) {
+  PT_LAZY_TRACE;
+  dim = at::maybe_wrap_dim(dim, self.dim(), /*wrap_scalar=*/true);
+  auto sizes = self.sizes().vec();
+  if (start < 0) {
+    start += sizes[dim];
+  }
+  if (end < 0) {
+    end += sizes[dim];
+  }
+  if (start < 0) {
+    start = 0;
+  } else if (start >= sizes[dim]) {
+    start = sizes[dim];
+  }
+  if (end < start) {
+    end = start;
+  } else if (end >= sizes[dim]) {
+    end = sizes[dim];
+  }
+  auto index_size = grad_output.sizes().vec();
+  std::vector<int64_t> shape(grad_output.dim(), 1);
+  shape[dim] = index_size[dim];
+  auto index = empty_hpu_lazy(
+      index_size[dim],
+      grad_output.options().dtype(c10::ScalarType::Int),
+      grad_output.suggest_memory_format(),
+      false);
+  auto grad_input = at::native::zeros_like(
+      self, self.options(), self.suggest_memory_format());
+  index = at::native::arange(start, end, step, index.options());
+  auto expand_idx = index.reshape(IntArrayRef(shape)).expand(index_size);
+  auto result = scatter_src_hpu_lazy(grad_input, dim, expand_idx, grad_output);
+  return result;
+};
 
 Tensor select_hpu_lazy(const Tensor& self, int64_t dim, int64_t index) {
   PT_LAZY_TRACE;

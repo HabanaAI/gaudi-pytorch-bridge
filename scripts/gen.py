@@ -97,6 +97,7 @@ _FN_AUTOGRAD_HPU = set(
         "softmax(Tensor, int64_t, c10::optional<ScalarType>) -> Tensor",
         "dropout(Tensor, double, bool) -> Tensor",
         "frobenius_norm(Tensor) -> Tensor",
+        "slice(Tensor, int64_t, c10::optional<int64_t>, c10::optional<int64_t>, int64_t) -> Tensor",
     ]
 )
 
@@ -617,7 +618,7 @@ def get_return_type_str(t, orig_sig):
     assert fname.data == "fnname"
     token = fname.children[0]
     assert isinstance(token, lark.lexer.Token)
-    return orig_sig[0 : token.column - 2]
+    return orig_sig[0: token.column - 2]
 
 
 def generate_entry_debug_code(t, fname, params, fname_ns=None):

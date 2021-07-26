@@ -74,6 +74,34 @@ struct Slice : public ir::Node {
   }
 };
 
+class SliceBwd : public Node {
+ public:
+  enum class SliceParms { DIM_INDEX = 1, START_INDEX, END_INDEX, STEP_INDEX };
+  SliceBwd() = delete;
+  SliceBwd(
+      const at::Tensor& self,
+      const at::Tensor& grad_output,
+      int64_t dim,
+      int64_t start,
+      int64_t end,
+      int64_t step)
+      : Node(c10::Symbol::fromQualString("hpu::slice_backward")) {
+    auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHABANA);
+    AddInput(hl_self.GetIrValue());
+
+    auto hl_grad_output = GetOrCreateHbLazyTensor(grad_output, c10::kHABANA);
+    AddInput(hl_grad_output.GetIrValue());
+
+    std::vector<at::Tensor> input_pt_vec{self, grad_output};
+    AddInputPtTensors(input_pt_vec);
+
+    m_meta_data.set(dim, static_cast<size_t>(SliceParms::DIM_INDEX));
+    m_meta_data.set(start, static_cast<size_t>(SliceParms::START_INDEX));
+    m_meta_data.set(end, static_cast<size_t>(SliceParms::END_INDEX));
+    m_meta_data.set(step, static_cast<size_t>(SliceParms::STEP_INDEX));
+  }
+};
+
 struct IndexSelect : public ir::Node {
   enum class IndexSelectParams { DIM_INDEX = 1 };
   IndexSelect() = delete;
@@ -157,11 +185,11 @@ struct ScatterValue : public ir::Node {
   }
 };
 
-struct Scatter : public ir::Node {
-  enum class Scatter_Params { DIM_INDEX = 1 };
-  Scatter() = delete;
-  Scatter(
-      at::Tensor& self,
+struct ScatterSrc : public ir::Node {
+  enum class ScatterSrc_Params { DIM_INDEX = 1 };
+  ScatterSrc() = delete;
+  ScatterSrc(
+      const at::Tensor& self,
       int64_t dim,
       const at::Tensor& index,
       const at::Tensor& src)
@@ -176,13 +204,13 @@ struct Scatter : public ir::Node {
     std::vector<at::Tensor> input_pt_vec{self, index, src};
     AddInputPtTensors(input_pt_vec);
 
-    m_meta_data.set(dim, static_cast<size_t>(Scatter_Params::DIM_INDEX));
+    m_meta_data.set(dim, static_cast<size_t>(ScatterSrc_Params::DIM_INDEX));
   }
 
   std::string ToString() const override {
     std::stringstream ss;
     ss << Node::ToString() << ", dim="
-       << m_meta_data.get(static_cast<size_t>(Scatter_Params::DIM_INDEX));
+       << m_meta_data.get(static_cast<size_t>(ScatterSrc_Params::DIM_INDEX));
 
     return ss.str();
   }
