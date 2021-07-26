@@ -34,8 +34,9 @@ void PtTensorInfo::populate_tinfo(
     case DATA_TENSOR_DYNAMIC: {
       HABANA_ASSERT(SYN_MAX_TENSOR_DIM >= shape_.size());
       for (size_t i = 0; i < shape_.size(); ++i) {
+        // Reverse PyTorch shapes for synapse tensor shape patching
         if (i < shape_.size()) {
-          shape_values_[i] = shape_[i];
+          shape_values_[i] = shape_[shape_.size() - 1 - i];
         }
       }
     } break;
@@ -46,7 +47,8 @@ void PtTensorInfo::populate_tinfo(
           (pt_tensor.device().type() == at::kHABANA ? pt_tensor.to(at::kCPU)
                                                     : pt_tensor);
       for (uint64_t i = 0; i < shape_ndim_; i++) {
-        auto val = pt_tensor_cpu[i].item<int>();
+        // Reverse PyTorch shapes for synapse tensor shape patching
+        auto val = pt_tensor_cpu[shape_ndim_ - 1 - i].item<int>();
         shape_values_[i] = val;
       }
     } break;

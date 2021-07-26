@@ -516,12 +516,10 @@ synapse_helpers::tensor habana_helpers::create_tensor(
 
   if (min.size() && max.size()) {
     auto dynamic_shape = synapse_helpers::tensor::dynamic_shape_t{
-        synapse_helpers::to_shape_t(min, false),
-        synapse_helpers::to_shape_t(max, false)};
+        synapse_helpers::to_shape_t(min), synapse_helpers::to_shape_t(max)};
     auto variant =
         synapse_helpers::tensor_builder(
-            tensor.sizes(),
-            pytorch_to_synapse_type(dtype.value_or(tensor.scalar_type())))
+            max, pytorch_to_synapse_type(dtype.value_or(tensor.scalar_type())))
             .mark_persistence(persistent)
             .with_dynamic_shape(dynamic_shape)
             .build(
