@@ -67,6 +67,7 @@ SYN_API_PTR(synDeviceAcquireByDeviceType);
 SYN_API_PTR(synDeviceAcquire);
 SYN_API_PTR(synDriverGetVersion);
 SYN_API_PTR(synDeviceGetName);
+SYN_API_PTR(synTensorRetrieveIds);
 SYN_API_PTR(synTensorCreate);
 SYN_API_PTR(synTensorDestroy);
 SYN_API_PTR(synConstTensorCreate);
@@ -116,6 +117,7 @@ void LoadSymbols(void* lib_handle) {
   SYN_API_INIT_PTR(synEventSynchronize);
   SYN_API_INIT_PTR(synEventElapsedTime);
   SYN_API_INIT_PTR(synLaunch);
+  SYN_API_INIT_PTR(synLaunchByTensorIds);
   SYN_API_INIT_PTR(synWorkspaceGetSize);
   SYN_API_INIT_PTR(synMemCopyAsync);
   SYN_API_INIT_PTR(synMemCopyAsyncMultiple);
@@ -125,6 +127,7 @@ void LoadSymbols(void* lib_handle) {
   SYN_API_INIT_PTR(synDeviceAcquire);
   SYN_API_INIT_PTR(synDriverGetVersion);
   SYN_API_INIT_PTR(synDeviceGetName);
+  SYN_API_INIT_PTR(synTensorRetrieveIds);
   SYN_API_INIT_PTR(synTensorCreate);
   SYN_API_INIT_PTR(synTensorDestroy);
   SYN_API_INIT_PTR(synConstTensorCreate);
@@ -359,7 +362,7 @@ synStatus SYN_API_CALL synLaunchByTensorIds(
     const synLaunchTensorInfoExt* launchTensorsInfo,
     uint32_t numberTensors,
     uint64_t pWorkspace,
-    const synRecipeHandle pRecipehandle,
+    const synRecipeHandle pRecipeHandle,
     uint32_t flags) {
   LOG_TRACE("SYN_API", "{}", __FUNCTION__);
   API_LOG_CALL(
@@ -367,15 +370,17 @@ synStatus SYN_API_CALL synLaunchByTensorIds(
       M_ARG(launchTensorsInfo, numberTensors),
       ARG(numberTensors),
       ARG_X(pWorkspace),
-      ARG(pRecipehandle),
+      ARG(pRecipeHandle),
       ARG(flags));
-  synStatus status = lib_synapse::synLaunchByTensorIds(
+  synStatus status;
+  CALL_SYN_FUNC(
+      lib_synapse::synLaunchByTensorIds,
       streamHandle,
       launchTensorsInfo,
       numberTensors,
       pWorkspace,
-      pRecipehandle,
-      flags);
+      pRecipeHandle,
+      flags)
   API_LOG_RESULT();
   return status;
 }
@@ -595,6 +600,28 @@ synStatus SYN_API_CALL synConstTensorCreate(
   synStatus status;
   CALL_SYN_FUNC(lib_synapse::synConstTensorCreate, pTensor, descriptor)
   API_LOG_RESULT(S_ARG(pTensor));
+  return status;
+}
+
+synStatus SYN_API_CALL synTensorRetrieveIds(
+    const synRecipeHandle recipeHandle,
+    const char** tensorNames,
+    uint64_t* tensorIds,
+    const uint32_t numOfTensors) {
+  LOG_TRACE("SYN_API", "{}", __FUNCTION__);
+  API_LOG_CALL(
+      ARG(recipeHandle),
+      M_ARG(tensorNames, numOfTensors),
+      ARG(tensorIds),
+      ARG(numOfTensors));
+  synStatus status;
+  CALL_SYN_FUNC(
+      lib_synapse::synTensorRetrieveIds,
+      recipeHandle,
+      tensorNames,
+      tensorIds,
+      numOfTensors);
+  API_LOG_RESULT(M_ARG(tensorIds, numOfTensors));
   return status;
 }
 
