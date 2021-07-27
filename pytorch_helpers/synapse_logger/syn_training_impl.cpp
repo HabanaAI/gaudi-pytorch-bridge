@@ -367,7 +367,8 @@ synStatus SYN_API_CALL synLaunchByTensorIds(
   LOG_TRACE("SYN_API", "{}", __FUNCTION__);
   API_LOG_CALL(
       ARG(streamHandle),
-      M_ARG(launchTensorsInfo, numberTensors),
+      ARG(launchTensorsInfo),
+      ARG(numberTensors),
       ARG(numberTensors),
       ARG_X(pWorkspace),
       ARG(pRecipeHandle),
@@ -611,7 +612,8 @@ synStatus SYN_API_CALL synTensorRetrieveIds(
   LOG_TRACE("SYN_API", "{}", __FUNCTION__);
   API_LOG_CALL(
       ARG(recipeHandle),
-      M_ARG(tensorNames, numOfTensors),
+      ARG(tensorNames),
+      ARG(numOfTensors),
       ARG(tensorIds),
       ARG(numOfTensors));
   synStatus status;
@@ -621,7 +623,7 @@ synStatus SYN_API_CALL synTensorRetrieveIds(
       tensorNames,
       tensorIds,
       numOfTensors);
-  API_LOG_RESULT(M_ARG(tensorIds, numOfTensors));
+  API_LOG_RESULT();
   return status;
 }
 
