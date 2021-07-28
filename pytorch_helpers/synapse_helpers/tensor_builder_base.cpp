@@ -16,13 +16,18 @@
 namespace synapse_helpers {
 
 tensor::shape_t to_shape_t(const std::vector<int64_t>& shape, bool reverse) {
+  auto shape_size = shape.size() > 0 ? shape.size() : 1;
   tensor::shape_t dimensions{tensor::shape_t::dimension_count_t{
-      static_cast<unsigned>(shape.size())}}; // TODO make it more readable
-  // write dimension backwards, e.g. NHWC as CWHN
-  for (size_t i = 0; i < shape.size(); ++i) {
-    dimensions[i] = reverse ? shape[shape.size() - i - 1] : shape[i];
+      static_cast<unsigned>(shape_size)}}; // TODO make it more readable
+  if (shape.size() == 0) {
+    PT_SYNHELPER_DEBUG("to_shape_t: Converting 0D to 1D with {1} shape");
+    dimensions[0] = 1;
+  } else {
+    // write dimension backwards, e.g. NHWC as CWHN
+    for (size_t i = 0; i < shape.size(); ++i) {
+      dimensions[i] = reverse ? shape[shape.size() - i - 1] : shape[i];
+    }
   }
-
   return dimensions;
 }
 
@@ -32,8 +37,9 @@ tensor::shape_t to_stride_t(
     synDataType data_type,
     bool reverse) {
   HABANA_ASSERT(reverse);
+  auto stride_size = stride.size() > 0 ? stride.size() : 1;
   tensor::shape_t dimensions{tensor::shape_t::dimension_count_t{
-      static_cast<unsigned>(stride.size())}}; // TODO make it more readable
+      static_cast<unsigned>(stride_size)}}; // TODO make it more readable
   auto size = size_of_syn_data_type(data_type);
 
   PT_SYNHELPER_DEBUG("to_stride_t : tensor element size = ", size);
@@ -52,7 +58,9 @@ tensor::shape_t to_stride_t(
   PT_SYNHELPER_DEBUG(str);
   // write strides backwards
   // Synapse supports strides on FCD to be element size only
-  if (stride[stride.size() - 1] != 1) {
+  if (stride.size() == 0) {
+    dimensions[0] = size;
+  } else if (stride[stride.size() - 1] != 1) {
     PT_SYNHELPER_WARN(
         "FCD stride for tensor is ",
         stride[stride.size() - 1],
@@ -128,6 +136,7 @@ uint64_t size_bytes_from_shape(
     const tensor::shape_t& shape,
     synDataType dataType) {
   HABANA_ASSERT(shape.rank().value <= 5U);
+  HABANA_ASSERT(shape.rank().value > 0);
   uint64_t size = size_of_syn_data_type(dataType);
   for (auto i{0U}; i < shape.rank().value; ++i) {
     size *= shape[i];
