@@ -187,7 +187,7 @@ Tensor nonzero_hpu(const Tensor& self) {
 }
 
 static auto& KernelRegistry = habana::KernelRegistry().add(
-    "aten::nonzero",
+    "hpu::nonzero",
     [](const int device_id, c10::ScalarType node_type) {
       return std::make_shared<NonZeroOperator>(device_id, node_type);
     });

@@ -4295,6 +4295,7 @@ Tensor hpu_wrap::diag(const Tensor& self, int64_t diagonal) {
 // found in habana_kernels/aten_hpu_type_default.cpp.
 
 TORCH_LIBRARY(hpu, m) {
+  m.def("nonzero(Tensor self) -> (Tensor Tensor)");
   m.def("mul_out(Tensor out, Tensor self, Tensor other) -> Tensor");
   m.def("div_out(Tensor out, Tensor self, Tensor other) -> Tensor");
   m.def(

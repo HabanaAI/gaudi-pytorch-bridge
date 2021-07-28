@@ -2192,7 +2192,7 @@ Tensor nonzero_hpu_lazy(const Tensor& self) {
   std::vector<int64_t> output_shape{elements, dimensions};
   std::vector<int64_t> shape_tensor_shape{5};
   using T = std::tuple<at::Tensor, at::Tensor>;
-  LazyOp<T> k("aten::nonzero", {self}, {}, {output_shape, shape_tensor_shape});
+  LazyOp<T> k("hpu::nonzero", {self}, {}, {output_shape, shape_tensor_shape});
   // nonzero returns 2 output where and shape tensor
   auto result_nonzero = k.call();
   auto where_tensor = std::get<0>(result_nonzero);
@@ -2213,7 +2213,9 @@ Tensor nonzero_hpu_lazy(const Tensor& self) {
       hl_end.dtype_optional());
   // Force an exections here to capture second element of shape tensor.
   // This element is required to determine shape of next node's output
-  std::vector<HbLazyTensor> hl_flush_end = {hl_end};
+  updateDstDependencies(hl_end, end_tensor);
+  std::vector<HbLazyTensor> hl_flush_end = {
+      hl_end, GetHbLazyTensor(where_tensor), GetHbLazyTensor(shape_tensor)};
   HbLazyTensor::SyncTensorsGraph(&hl_flush_end);
   auto end = end_tensor.item<int64_t>();
 
