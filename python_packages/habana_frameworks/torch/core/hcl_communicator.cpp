@@ -63,10 +63,11 @@ hcl_communicator::hcl_communicator(
   // if config path were not passed by parameter try obtain one from environment
   if (config_path.empty()) {
     char* config_json_path = std::getenv("HCL_CONFIG_PATH");
-    if (!config_json_path) {
-      PT_DISTRIBUTED_FATAL("Please export HCL_CONFIG_PATH...");
+    if (config_json_path) {
+      config_path = config_json_path;
+    } else {
+      PT_DISTRIBUTED_DEBUG("HCL_CONFIG_PATH is not set");
     }
-    config_path = config_json_path;
   }
 
   using_streams_ = GET_ENV_FLAG(PT_ENABLE_HCL_STREAM);
@@ -83,7 +84,8 @@ hcl_communicator::hcl_communicator(
   my_device_ = synapse_helpers::get_value(device_get_result);
   HABANA_ASSERT(my_device_ != nullptr);
 
-  HCLStatus hcl_status{HCL_Init(device_id, config_path.c_str())};
+  HCLStatus hcl_status{
+      HCL_Init(device_id, config_path.empty() ? nullptr : config_path.c_str())};
   HABANA_ASSERT(hcl_status == eHCLSuccess);
 
   hcl_status = HCL_Comm_Size(hcl_comm, &size_);
@@ -412,16 +414,18 @@ synapse_error_o hcl_communicator::broadcast(
   synStreamHandle stream_handle = get_synapse_stream_handle(collective_stream);
   // For root (sending) rank address is input - root does not produce output
   prepare_stream(collective_stream, event_addr);
-  HCL_SYNC()
-  status = HCL_Bcast(
-      stream_handle,
-      address,
-      address,
-      elem_cnt,
-      data_type,
-      root_rank,
-      hcl_comm(),
-      0 /*flags*/);
+  HCL_SYNC() {
+    auto locked = my_device_->lock_addresses(address);
+    status = HCL_Bcast(
+        stream_handle,
+        locked.at(0),
+        locked.at(0),
+        elem_cnt,
+        data_type,
+        root_rank,
+        hcl_comm(),
+        0 /*flags*/);
+  }
   VERIFY_HCL_STATUS("HCL_Bcast(...) failed.", status);
   submit_events(collective_stream, event_addr, done_callback);
   PT_DISTRIBUTED_END;
@@ -455,15 +459,17 @@ synapse_error_o hcl_communicator::allgather(
   synStreamHandle stream_handle = get_synapse_stream_handle(collective_stream);
 
   prepare_stream(collective_stream, in_event_addr);
-  HCL_SYNC()
-  status = HCL_AllGather(
-      stream_handle,
-      input_address,
-      output_address,
-      elem_cnt,
-      data_type,
-      hcl_comm(),
-      0 /*flags*/);
+  HCL_SYNC() {
+    auto locked = my_device_->lock_addresses(input_address, output_address);
+    status = HCL_AllGather(
+        stream_handle,
+        locked.at(0),
+        locked.at(1),
+        elem_cnt,
+        data_type,
+        hcl_comm(),
+        0 /*flags*/);
+  }
   VERIFY_HCL_STATUS("HCL_AllGather(...) failed", status);
   submit_events(collective_stream, out_event_addr, done_callback);
   PT_DISTRIBUTED_END;
@@ -885,15 +891,19 @@ synapse_error_o hcl_communicator::execute_collective_with_fusion_buffer(
       intermediate_buffer_size,
       " flags ::",
       flags);
-  status = collective(
-      get_synapse_stream_handle(collective_stream),
-      input,
-      output,
-      elem_cnt,
-      data_type,
-      intermediate_buffer_address,
-      intermediate_buffer_size,
-      flags);
+  {
+    auto locked =
+        my_device_->lock_addresses(input, output, intermediate_buffer_address);
+    status = collective(
+        get_synapse_stream_handle(collective_stream),
+        locked.at(0),
+        locked.at(1),
+        elem_cnt,
+        data_type,
+        locked.at(2),
+        intermediate_buffer_size,
+        flags);
+  }
   VERIFY_HCL_STATUS("Collective operation failed", status);
   submit_events(collective_stream, out_event_addr, new_done_callback);
   if (same_address) {
