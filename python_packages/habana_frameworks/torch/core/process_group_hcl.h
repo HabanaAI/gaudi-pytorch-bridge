@@ -163,8 +163,6 @@ class ProcessGroupHCL : public ProcessGroup {
       PreProcess pre,
       PostProcess post);
 
-  void (*mark_step)();
-
  protected:
   virtual c10::intrusive_ptr<ProcessGroupHCL::WorkHCL> initWork(
       std::vector<at::Tensor>& outputs,

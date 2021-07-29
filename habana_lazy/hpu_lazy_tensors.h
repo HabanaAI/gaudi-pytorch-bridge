@@ -170,8 +170,8 @@ class HbLazyTensor {
       bool use_cached_graph,
       bool is_blocking);
 
-  static void StepMarker(const std::string& device_str);
-  static void StepMarkerBlocking(const std::string& device_str);
+  static void StepMarker(const std::string& device_str = {});
+  static void StepMarkerBlocking(const std::string& device_str = {});
   static void SetDynamicMode();
   static void RunSavedGraph(const std::string& device_str);
   static void ExecuteCachedGraph();

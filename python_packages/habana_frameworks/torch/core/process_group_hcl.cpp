@@ -9,13 +9,9 @@
  */
 
 #include "process_group_hcl.h"
-#include <dlfcn.h>
 #include <map>
+#include "habana_lazy/hpu_lazy_tensors.h"
 
-#include <pybind11/chrono.h>
-#include <torch/csrc/jit/python/pybind_utils.h>
-#include <torch/csrc/utils/object_ptr.h>
-#include <torch/csrc/utils/pybind.h>
 using namespace synapse_helpers;
 namespace c10d {
 
@@ -119,18 +115,7 @@ ProcessGroupHCL::ProcessGroupHCL(
     int rank,
     int size,
     const std::chrono::milliseconds& opTimeout)
-    : ProcessGroup(rank, size), stop_(false) {
-  void* handle = dlopen("libhabana_pytorch_plugin.so", RTLD_LAZY);
-  if (handle == nullptr) {
-    LOG(FATAL) << "Cannot open library: " << dlerror();
-  }
-  mark_step = (void (*)())dlsym(handle, "mark_step");
-  const char* dlsym_error = dlerror();
-  if (dlsym_error) {
-    LOG(FATAL) << "Cannot load symbol: " << dlsym_error;
-    dlclose(handle);
-  }
-}
+    : ProcessGroup(rank, size), stop_(false) {}
 
 ProcessGroupHCL::~ProcessGroupHCL() {
   destroy();
@@ -218,7 +203,7 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCL::hclcollective(
     Fn fn,
     PreProcess pre,
     PostProcess post) {
-  mark_step();
+  habana_lazy::HbLazyTensor::StepMarker();
 
   const auto devices = getDeviceList(inputs);
   auto comms = getCommList(devices);

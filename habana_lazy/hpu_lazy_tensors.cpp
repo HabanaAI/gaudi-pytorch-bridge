@@ -726,15 +726,3 @@ void HbLazyTensor::RunSavedGraph(const std::string& device_str) {
       &device, /* is_cached*/ true, /* is_blocking*/ false);
   HbLazyTensor::MarkStep(device);
 }
-
-extern "C" void mark_step() {
-  HbLazyTensor::StepMarker({});
-}
-
-extern "C" void set_dynamic_mode() {
-  HbLazyTensor::SetDynamicMode();
-}
-
-extern "C" void run_saved_model() {
-  HbLazyTensor::RunSavedGraph({});
-}
