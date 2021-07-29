@@ -26,7 +26,7 @@ namespace habana {
 
 std::mutex RecipeCacheLRU::mutex_;
 RecipeCacheLRU* RecipeCacheLRU::instance_ = nullptr;
-size_t RecipeCacheLRU::max_size_ = PGM_LRU_MAX_NRECIPES;
+size_t RecipeCacheLRU::max_size_ = PGM_LRU_MAX_LAZY_NRECIPES;
 size_t RecipeValueSpec::recipe_count = 0;
 size_t RecipeValueSpec::total_recipe_ntbytes = 0;
 

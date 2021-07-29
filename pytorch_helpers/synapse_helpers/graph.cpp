@@ -102,7 +102,7 @@ synapse_error_v<graph> graph::create(
   graph syn_graph(device, std::move(name));
 
   if (!(std::getenv("PT_HPU_LAZY_LOWERING")) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+      GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 0) {
     syn_graph.dry_run_ = true;
     // Lazy mode shape inference call, early return without execution
     return {std::move(syn_graph)};

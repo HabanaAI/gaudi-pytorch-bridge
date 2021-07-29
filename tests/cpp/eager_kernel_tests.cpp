@@ -6,6 +6,7 @@
 #include "habana_kernels/eager_kernels_declarations.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_kernels/linear_kernels.h"
+#include "synapse_helpers/env_flags.h"
 
 using namespace habana_lazy;
 
@@ -275,7 +276,7 @@ TEST(EagerKernelTest, MatmulBackwardTest) {
     auto grad_mat2 = mat2.grad();
 
     torch::Tensor grad_mat1_h, grad_mat2_h;
-    std::tie(grad_mat1_h, grad_mat2_h) = std::getenv("PT_HPU_LAZY_MODE")
+    std::tie(grad_mat1_h, grad_mat2_h) = (GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 0)
         ? matmul_backward_hpu_lazy(grad_out_h, mat1_h, mat2_h)
         : matmul_backward_hpu(grad_out_h, mat1_h, mat2_h);
     bool equal1 = grad_mat1.allclose(grad_mat1_h.to(torch::kCPU), 0.01, 0.01);
@@ -379,7 +380,7 @@ TEST(EagerKernelTest, AdamwOptTest) {
   auto bias_correction = false;
   auto modified_weight_decay = 1.0;
 
-  if (std::getenv("PT_HPU_LAZY_MODE")) {
+  if ((GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 0)) {
     optimizer_adamw_hpu_lazy(
         gradients,
         weights,
@@ -490,7 +491,7 @@ TEST(EagerKernelCacheTest, AdamwOptTest) {
     auto lr_t = torch::tensor({lr}).to(torch::kHABANA);
     auto neg_step_t = torch::tensor({-lr}).to(torch::kHABANA);
 
-    if (std::getenv("PT_HPU_LAZY_MODE")) {
+    if ((GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 0)) {
       optimizer_adamw_hpu_lazy(
           gradients,
           weights,
@@ -611,7 +612,7 @@ TEST(EagerKernelTest, FusedNormTest) {
       torch::ones({1}, torch::TensorOptions().dtype(torch::kFloat32)) * 1.0;
   auto max_norm_hpu = max_norm.to(torch::kHABANA);
   // do hpu and cpu fused_norm calcs
-  auto total_norm = std::getenv("PT_HPU_LAZY_MODE")
+  auto total_norm = (GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 0)
       ? fused_norm_hpu_lazy(grad_vec_h, max_norm_hpu, 2.0)
       : fused_norm_hpu(grad_vec_h, max_norm_hpu, 2.0);
   auto total_norm_cpu = torch::norm(torch::stack(grad_vec_norms));
@@ -636,7 +637,7 @@ TEST(EagerKernelTest, FusedNormTest) {
   }
 
   // call fused norm kernels again to test caching in hpu
-  total_norm = std::getenv("PT_HPU_LAZY_MODE")
+  total_norm = (GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 0)
       ? fused_norm_hpu_lazy(grad_vec_h, max_norm_hpu, 2.0)
       : fused_norm_hpu(grad_vec_h, max_norm_hpu, 2.0);
   total_norm_cpu = torch::norm(torch::stack(grad_vec_norms));
@@ -714,36 +715,38 @@ TEST(EagerKernelTest, LambOptPh1Test) {
   std::vector<torch::Tensor> weight_norm, adam_norm, adam_step;
   if (cache) {
     std::tie(weight_norm, adam_norm, adam_step) =
-        std::getenv("PT_HPU_LAZY_MODE") ? optimizer_lamb_phase1_hpu_lazy(
-                                              grad_vec_1,
-                                              wt_vec_1,
-                                              exp_avg_vec_1,
-                                              exp_avg_sq_vec_1,
-                                              clip_grad_norm.to(torch::kHABANA),
-                                              grad_averaging,
-                                              lr,
-                                              beta1,
-                                              beta2,
-                                              epsilon,
-                                              step,
-                                              bias_correction,
-                                              weight_decay)
-                                        : optimizer_lamb_phase1_hpu(
-                                              grad_vec_1,
-                                              wt_vec_1,
-                                              exp_avg_vec_1,
-                                              exp_avg_sq_vec_1,
-                                              clip_grad_norm.to(torch::kHABANA),
-                                              grad_averaging,
-                                              lr,
-                                              beta1,
-                                              beta2,
-                                              epsilon,
-                                              step,
-                                              bias_correction,
-                                              weight_decay);
+        (GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 0)
+        ? optimizer_lamb_phase1_hpu_lazy(
+              grad_vec_1,
+              wt_vec_1,
+              exp_avg_vec_1,
+              exp_avg_sq_vec_1,
+              clip_grad_norm.to(torch::kHABANA),
+              grad_averaging,
+              lr,
+              beta1,
+              beta2,
+              epsilon,
+              step,
+              bias_correction,
+              weight_decay)
+        : optimizer_lamb_phase1_hpu(
+              grad_vec_1,
+              wt_vec_1,
+              exp_avg_vec_1,
+              exp_avg_sq_vec_1,
+              clip_grad_norm.to(torch::kHABANA),
+              grad_averaging,
+              lr,
+              beta1,
+              beta2,
+              epsilon,
+              step,
+              bias_correction,
+              weight_decay);
   }
-  std::tie(weight_norm, adam_norm, adam_step) = std::getenv("PT_HPU_LAZY_MODE")
+  std::tie(weight_norm, adam_norm, adam_step) =
+      (GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 0)
       ? optimizer_lamb_phase1_hpu_lazy(
             grad_vec,
             wt_vec,

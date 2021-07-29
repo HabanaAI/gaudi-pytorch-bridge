@@ -1184,7 +1184,7 @@ void HabanaLaunchOpPT::processInputs(
           ? LayoutFormat::ANY
           : habana_kernel_meta_data.input_layout.at(tensor_idx);
 
-      if (std::getenv("PT_HPU_LAZY_MODE")) {
+      if (GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 0) {
         // For weight tensors we update the map before execution starts
         // through a pass If its marked HWCK in the map, we can override with
         // it
@@ -1218,7 +1218,7 @@ void HabanaLaunchOpPT::processInputs(
       // This is done as we cannot pass layout info for 4D tensors and it will
       // get lost in translation.
       if (habana_kernel_meta_data.changes_dims &&
-          std::getenv("PT_HPU_LAZY_MODE")) {
+          GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 0) {
         if (getTensorChannelOrder(value_in) !=
                 value_to_tensor_layout[value_in].layout_at_graph_entry &&
             getTensorChannelOrder(value_in) != LayoutFormat::HWCK) {
@@ -2135,7 +2135,7 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel() {
   torch::jit::graph_node_list graph_nodes = jit_ir_graph->nodes();
   // This is an optimization pass to mark all the nodes with sepcial layout
   // like weights which have HWCK Only activated in lazy mode for now
-  if (std::getenv("PT_HPU_LAZY_MODE")) {
+  if (GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 0) {
     runMetaDataAdjustmentPasses(jit_ir_graph->nodes());
   }
   for (auto* node : graph_nodes) {

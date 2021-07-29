@@ -24,10 +24,12 @@
 #include "habana_helpers/dynamic_bucket_info.h"
 #include "habana_helpers/logging.h"
 #include "habana_helpers/tensor_info.h"
+#include "synapse_helpers/env_flags.h"
 
 #include "synapse_helpers/graph.h"
 
-#define PGM_LRU_MAX_NRECIPES 100
+#define PGM_LRU_MAX_EAGER_NRECIPES 9000
+#define PGM_LRU_MAX_LAZY_NRECIPES 100
 #define PGM_LRU_MIN_NRECIPES 3
 
 namespace habana {
@@ -297,11 +299,15 @@ struct RecipeCacheSingle {
 
 class RecipeCacheLRU {
  public:
-  static RecipeCacheLRU& get_cache(){
+  static RecipeCacheLRU& get_cache() {
     std::lock_guard<std::mutex> lg(mutex_);
-    if ( !instance_ ) {
+    if (!instance_) {
       instance_ = new RecipeCacheLRU();
-
+      // PT_HPU_LAZY_MODE = 0 is Pure Eager and 2 is Eager through Lazy
+      if (GET_ENV_FLAG(PT_HPU_LAZY_MODE) == 1)
+        max_size_ = PGM_LRU_MAX_LAZY_NRECIPES;
+      else
+        max_size_ = PGM_LRU_MAX_EAGER_NRECIPES;
       char* smaxsize = getenv("HABANA_PGM_LRU_MAX");
       if (smaxsize != nullptr) {
         max_size_ = std::max(PGM_LRU_MIN_NRECIPES, atoi(smaxsize));

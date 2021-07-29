@@ -21,6 +21,7 @@
 #include "habana_helpers/tensor_utils.h"
 #include "habana_kernels/kernel_utils.h"
 #include "habana_lazy/lazy_executor.h"
+#include "synapse_helpers/env_flags.h"
 #include "synapse_helpers/util.h"
 
 using namespace torch;
@@ -95,7 +96,7 @@ at::Tensor habana_helpers::cast_tensor_to_integer(
   auto int_tensor = std::make_unique<at::Tensor>();
 
   if (!(std::getenv("PT_HPU_LAZY_LOWERING")) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+      GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 0) {
     // if not in lowering mode just return a tensor storageless wrapper as a
     // placeholder to avoid dma in case we need backend end tensor in future we
     // can replace createpttensor with empty_hpu_lazy
@@ -125,7 +126,7 @@ at::Tensor habana_helpers::cast_tensor_to_long(const at::Tensor& int_tensor) {
   auto long_tensor = std::make_unique<at::Tensor>();
 
   if (!(std::getenv("PT_HPU_LAZY_LOWERING")) &&
-      std::getenv("PT_HPU_LAZY_MODE")) {
+      GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 0) {
     // if not in lowering mode just return a tensor storageless wrapper as a
     // placeholder to avoid dma
     *long_tensor = habana_helpers::createPTTensor(
@@ -491,7 +492,8 @@ synapse_helpers::tensor habana_helpers::create_tensor(
     bool persistent,
     int devid,
     const c10::ScalarType dtype) {
-  if (!std::getenv("PT_HPU_LAZY_LOWERING") && std::getenv("PT_HPU_LAZY_MODE")) {
+  if (!std::getenv("PT_HPU_LAZY_LOWERING") &&
+      GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 0) {
     // Lazy mode shape inference call, just create a placeholder tensor
     return synapse_helpers::tensor::create_placeholder(devid);
   }
@@ -511,7 +513,8 @@ synapse_helpers::tensor habana_helpers::create_tensor(
     const c10::optional<c10::ScalarType> dtype,
     const std::vector<int64_t> min,
     const std::vector<int64_t> max) {
-  if (!std::getenv("PT_HPU_LAZY_LOWERING") && std::getenv("PT_HPU_LAZY_MODE")) {
+  if (!std::getenv("PT_HPU_LAZY_LOWERING") &&
+      GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 0) {
     // Lazy mode shape inference call, just create a placeholder tensor
     return synapse_helpers::tensor::create_placeholder(tensor.device().index());
   }
@@ -567,7 +570,8 @@ synapse_helpers::tensor habana_helpers::create_tensor(
     const synGraphHandle graph,
     bool persistent,
     const synDataType synType) {
-  if (!std::getenv("PT_HPU_LAZY_LOWERING") && std::getenv("PT_HPU_LAZY_MODE")) {
+  if (!std::getenv("PT_HPU_LAZY_LOWERING") &&
+      GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 0) {
     // Lazy mode shape inference call, just create a placeholder tensor
     return synapse_helpers::tensor::create_placeholder(tensor.device().index());
   }
@@ -586,7 +590,8 @@ synapse_helpers::tensor habana_helpers::create_shape_tensor(
     const synGraphHandle graph,
     bool persistent,
     bool is_device_shape_tensor) {
-  if (!std::getenv("PT_HPU_LAZY_LOWERING") && std::getenv("PT_HPU_LAZY_MODE")) {
+  if (!std::getenv("PT_HPU_LAZY_LOWERING") &&
+      GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 0) {
     // Lazy mode shape inference call, just create a placeholder tensor
     return synapse_helpers::tensor::create_placeholder(tensor.device().index());
   }
@@ -650,7 +655,8 @@ habana_helpers::create_tensors(
 
 synapse_helpers::tensor habana_helpers::duplicate_tensor_in_memory_section(
     const synapse_helpers::tensor& tensor) {
-  if (!std::getenv("PT_HPU_LAZY_LOWERING") && std::getenv("PT_HPU_LAZY_MODE")) {
+  if (!std::getenv("PT_HPU_LAZY_LOWERING") &&
+      GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 0) {
     // Lazy mode shape inference call, just create a placeholder tensor
     return synapse_helpers::tensor::create_placeholder(tensor.device_id());
   }
@@ -677,7 +683,8 @@ synapse_helpers::tensor habana_helpers::
         std::vector<int64_t>& sizes,
         std::vector<int64_t>& strides,
         const uint64_t offset) {
-  if (!std::getenv("PT_HPU_LAZY_LOWERING") && std::getenv("PT_HPU_LAZY_MODE")) {
+  if (!std::getenv("PT_HPU_LAZY_LOWERING") &&
+      GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 0) {
     // Lazy mode shape inference call, just create a placeholder tensor
     return synapse_helpers::tensor::create_placeholder(tensor.device_id());
   }
