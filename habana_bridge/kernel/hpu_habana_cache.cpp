@@ -683,6 +683,7 @@ void RecipeValueSpec::launch(
   auto& device = synapse_helpers::HPURegistrar::get_device();
   auto& stream_handle = device.get_compute_stream();
   std::vector<at::Tensor> ptRefs;
+  std::vector<at::Tensor> outPtRefs;
   std::vector<synapse_helpers::device_ptr> outDevPtr;
 
   if (device.IsStreamASyncEnabled()) {
@@ -725,8 +726,10 @@ void RecipeValueSpec::launch(
         num_intermediate_to_outduplicates);
     for (auto& output : *aten_outputs) {
       if (output && output->isTensor()) {
+        at::Tensor tensor = output->toTensor();
         outDevPtr.push_back(reinterpret_cast<synapse_helpers::device_ptr>(
-            output->toTensor().storage().data_ptr().get()));
+            tensor.storage().data_ptr().get()));
+        outPtRefs.push_back(std::move(tensor));
       }
     }
   }
@@ -753,7 +756,7 @@ void RecipeValueSpec::launch(
     device.register_producer_on_stream(
         std::move(outDevPtr),
         stream_handle,
-        [ptRefs, recipe_ptr, &recipe_counter]() {
+        [ptRefs, outPtRefs, recipe_ptr, &recipe_counter]() {
           recipe_counter.decrease_and_notify();
           return;
         });
