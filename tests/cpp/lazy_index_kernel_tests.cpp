@@ -18,10 +18,10 @@ class LazyIndexKernelTest : public habana_lazy_test::LazyTest {};
 
 TEST_F(LazyIndexKernelTest, IndexSelectTest) {
   torch::Tensor a = torch::randn({8, 3, 28, 28}, torch::requires_grad(false));
-  torch::Tensor h_a = a.to(torch::kHABANA);
+  torch::Tensor h_a = a.to(torch::kHPU);
   int64_t dim = 1;
   auto index = torch::tensor({0, 1}, torch::dtype(torch::kInt64));
-  auto h_index = index.to(torch::kHABANA);
+  auto h_index = index.to(torch::kHPU);
 
   Tensor h_out = torch::index_select(h_a, dim, h_index);
 
@@ -33,15 +33,15 @@ TEST_F(LazyIndexKernelTest, IndexSelectTest) {
 
 TEST_F(LazyIndexKernelTest, IndexAddInplaceTest) {
   torch::Tensor a = torch::randn({8, 3, 28, 28}, torch::requires_grad(false));
-  torch::Tensor h_a = a.to(torch::kHABANA);
+  torch::Tensor h_a = a.to(torch::kHPU);
   int64_t dim = 1;
   auto index = torch::tensor({0, 1}, torch::dtype(torch::kInt64));
-  auto h_index = index.to(torch::kHABANA);
+  auto h_index = index.to(torch::kHPU);
   auto source = torch::randn({8, 2, 28, 28}, torch::requires_grad(false));
-  auto h_source = source.to(torch::kHABANA);
+  auto h_source = source.to(torch::kHPU);
 
   h_a.index_add_(dim, h_index, h_source);
-  auto h_temp = torch::zeros({8, 3, 28, 28}).to(torch::kHABANA);
+  auto h_temp = torch::zeros({8, 3, 28, 28}).to(torch::kHPU);
   auto out = torch::add(h_a, h_temp);
 
   auto h_cout = out.to(torch::kCPU);
@@ -64,10 +64,10 @@ TEST_F(LazyIndexKernelTest, Onehot) {
 
 TEST_F(LazyIndexKernelTest, ScatterValueInplaceTest) {
   torch::Tensor a = torch::randn({5, 7}, torch::requires_grad(false));
-  torch::Tensor h_a = a.to(torch::kHABANA);
+  torch::Tensor h_a = a.to(torch::kHPU);
   int64_t dim = 0;
   auto index = torch::randint(0, 5, {5, 7}, torch::dtype(torch::kInt64));
-  auto h_index = index.to(torch::kHABANA);
+  auto h_index = index.to(torch::kHPU);
   auto value = 2;
 
   h_a.scatter_(dim, h_index, value);
@@ -79,10 +79,10 @@ TEST_F(LazyIndexKernelTest, ScatterValueInplaceTest) {
 
 TEST_F(LazyIndexKernelTest, ScatterValueTest) {
   torch::Tensor a = torch::randn({5, 7}, torch::requires_grad(false));
-  torch::Tensor h_a = a.to(torch::kHABANA);
+  torch::Tensor h_a = a.to(torch::kHPU);
   int64_t dim = 0;
   auto index = torch::randint(0, 5, {5, 7}, torch::dtype(torch::kInt64));
-  auto h_index = index.to(torch::kHABANA);
+  auto h_index = index.to(torch::kHPU);
   auto value = 2;
 
   torch::Tensor hOut = torch::scatter(h_a, dim, h_index, value);
@@ -97,12 +97,12 @@ TEST_F(LazyIndexKernelTest, ScatterValueTest) {
 
 /*TEST_F(LazyIndexKernelTest, ScatterAddTest) {
   torch::Tensor a = torch::randn({5, 7}, torch::requires_grad(false));
-  torch::Tensor h_a = a.to(torch::kHABANA);
+  torch::Tensor h_a = a.to(torch::kHPU);
   int64_t dim = 1;
   auto index = torch::randint(0, 5, {5, 7}, torch::dtype(torch::kInt64));
-  auto h_index = index.to(torch::kHABANA);
+  auto h_index = index.to(torch::kHPU);
   torch::Tensor src = torch::randn({5, 7}, torch::requires_grad(false));
-  torch::Tensor h_src = src.to(torch::kHABANA);
+  torch::Tensor h_src = src.to(torch::kHPU);
 
   torch::Tensor hOut = torch::scatter_add(h_a, dim, h_index, h_src);
   auto h_cout = hOut.to(torch::kCPU);
@@ -113,12 +113,12 @@ TEST_F(LazyIndexKernelTest, ScatterValueTest) {
 
 TEST_F(LazyIndexKernelTest, ScatterTest) {
   torch::Tensor a = torch::randn({5, 7}, torch::requires_grad(false));
-  torch::Tensor h_a = a.to(torch::kHABANA);
+  torch::Tensor h_a = a.to(torch::kHPU);
   int64_t dim = 0;
   auto index = torch::randint(0, 5, {5, 7}, torch::dtype(torch::kInt64));
-  auto h_index = index.to(torch::kHABANA);
+  auto h_index = index.to(torch::kHPU);
   torch::Tensor src = torch::randn({5, 7}, torch::requires_grad(false));
-  torch::Tensor h_src = src.to(torch::kHABANA);
+  torch::Tensor h_src = src.to(torch::kHPU);
 
   torch::Tensor hOut = torch::scatter(h_a, dim, h_index, h_src);
   auto h_cout = hOut.to(torch::kCPU);
@@ -137,7 +137,7 @@ TEST_F(LazyIndexKernelTest, ArangeFloatOutTest) {
 
   c10::optional<at::ScalarType> dtype = c10::ScalarType::Float;
 
-  c10::optional<at::Device> hb_device = at::DeviceType::HABANA;
+  c10::optional<at::Device> hb_device = at::DeviceType::HPU;
   at::TensorOptions hb_options =
       at::TensorOptions().dtype(dtype).device(hb_device);
   c10::optional<at::Device> cpu_device = at::DeviceType::CPU;
@@ -160,7 +160,7 @@ TEST_F(LazyIndexKernelTest, ArangeIntOutTest) {
 
   c10::optional<at::ScalarType> dtype = c10::ScalarType::Int;
 
-  c10::optional<at::Device> hb_device = at::DeviceType::HABANA;
+  c10::optional<at::Device> hb_device = at::DeviceType::HPU;
   at::TensorOptions hb_options =
       at::TensorOptions().dtype(dtype).device(hb_device);
   c10::optional<at::Device> cpu_device = at::DeviceType::CPU;
@@ -175,7 +175,7 @@ TEST_F(LazyIndexKernelTest, ArangeIntOutTest) {
 
 TEST_F(LazyIndexKernelTest, IndexTest) {
   torch::Tensor input_cpu = torch::arange(9).reshape({3, 3});
-  torch::Tensor input_hpu = input_cpu.to(torch::kHABANA);
+  torch::Tensor input_hpu = input_cpu.to(torch::kHPU);
 
   std::vector<torch::Tensor> vec_cpu{
       torch::tensor({0, 1}), torch::tensor({0, 1})};
@@ -193,7 +193,7 @@ TEST_F(LazyIndexKernelTest, IndexTest) {
   // auto tensorlist = indices.vec();
   indices_list.reserve(vec_cpu.size());
   for (auto t : vec_cpu) {
-    indices_list.push_back(c10::make_optional(t.to(torch::kHABANA)));
+    indices_list.push_back(c10::make_optional(t.to(torch::kHPU)));
   }
   auto out_cpu = at::index(input_cpu, indices_cpu).to(torch::kInt32);
   auto out_hpu = at::index(input_hpu, indices_list);
@@ -212,7 +212,7 @@ TEST_F(LazyIndexKernelTest, ArangeLongOutTest) {
 
   c10::optional<at::ScalarType> dtype = c10::ScalarType::Long;
 
-  c10::optional<at::Device> hb_device = at::DeviceType::HABANA;
+  c10::optional<at::Device> hb_device = at::DeviceType::HPU;
   at::TensorOptions hb_options =
       at::TensorOptions().dtype(dtype).device(hb_device);
   c10::optional<at::Device> cpu_device = at::DeviceType::CPU;
@@ -227,7 +227,7 @@ TEST_F(LazyIndexKernelTest, ArangeLongOutTest) {
 TEST_F(LazyIndexKernelTest, NonZeroTestMixValues) {
   torch::Tensor input_cpu =
       torch::randint(0, 7, {5, 7}, torch::dtype(torch::kInt64));
-  torch::Tensor input_hpu = input_cpu.to(torch::kHABANA);
+  torch::Tensor input_hpu = input_cpu.to(torch::kHPU);
   auto out_hpu = torch::nonzero(input_hpu);
   auto out_cpu = torch::nonzero(input_cpu).to(torch::kInt32);
   auto h_cout = out_hpu.to(torch::kCPU);
@@ -237,7 +237,7 @@ TEST_F(LazyIndexKernelTest, NonZeroTestMixValues) {
 TEST_F(LazyIndexKernelTest, NonZeroTestAllFalse) {
   torch::Tensor input_cpu =
       torch::randint(0, 1, {5, 7}, torch::dtype(torch::kInt64));
-  torch::Tensor input_hpu = input_cpu.to(torch::kHABANA);
+  torch::Tensor input_hpu = input_cpu.to(torch::kHPU);
   auto out_hpu = torch::nonzero(input_hpu);
   auto out_cpu = torch::nonzero(input_cpu).to(torch::kInt32);
   auto h_cout = out_hpu.to(torch::kCPU);
@@ -247,7 +247,7 @@ TEST_F(LazyIndexKernelTest, NonZeroTestAllFalse) {
 TEST_F(LazyIndexKernelTest, UniqueTest) {
   auto typetest = [](c10::ScalarType dtype) {
     torch::Tensor input_cpu = torch::randint(0, 10, {1, 2, 2, 3}).to(dtype);
-    torch::Tensor input_hpu = input_cpu.to(torch::kHABANA);
+    torch::Tensor input_hpu = input_cpu.to(torch::kHPU);
     auto out_hpu = std::get<0>(torch::_unique2(input_hpu, false, false, false));
     auto out_cpu = std::get<0>(torch::_unique2(input_cpu, false, false, false));
     auto h_cout = out_hpu.to(torch::kCPU);
@@ -269,7 +269,7 @@ TEST_F(LazyIndexKernelTest, LinspaceTestStep1) {
 
   c10::optional<at::ScalarType> dtype = c10::ScalarType::Int;
 
-  c10::optional<at::Device> hb_device = at::DeviceType::HABANA;
+  c10::optional<at::Device> hb_device = at::DeviceType::HPU;
   at::TensorOptions hb_options =
       at::TensorOptions().dtype(dtype).device(hb_device);
   c10::optional<at::Device> cpu_device = at::DeviceType::CPU;
@@ -291,7 +291,7 @@ TEST_F(LazyIndexKernelTest, LinspaceTestDivisableByStep) {
 
   c10::optional<at::ScalarType> dtype = c10::ScalarType::Int;
 
-  c10::optional<at::Device> hb_device = at::DeviceType::HABANA;
+  c10::optional<at::Device> hb_device = at::DeviceType::HPU;
   at::TensorOptions hb_options =
       at::TensorOptions().dtype(dtype).device(hb_device);
   c10::optional<at::Device> cpu_device = at::DeviceType::CPU;
@@ -313,7 +313,7 @@ TEST_F(LazyIndexKernelTest, LinspaceTestDivisableByStepFractionalRange) {
 
   c10::optional<at::ScalarType> dtype = c10::ScalarType::Int;
 
-  c10::optional<at::Device> hb_device = at::DeviceType::HABANA;
+  c10::optional<at::Device> hb_device = at::DeviceType::HPU;
   at::TensorOptions hb_options =
       at::TensorOptions().dtype(dtype).device(hb_device);
   c10::optional<at::Device> cpu_device = at::DeviceType::CPU;
@@ -329,7 +329,7 @@ TEST_F(LazyIndexKernelTest, LinspaceTestDivisableByStepFractionalRange) {
 
 TEST_F(LazyIndexKernelTest, AdvanceIndexTest) {
   torch::Tensor input_cpu = torch::arange(48).reshape({8, 6});
-  torch::Tensor input_hpu = input_cpu.to(torch::kHABANA);
+  torch::Tensor input_hpu = input_cpu.to(torch::kHPU);
 
   auto i1 = torch::Tensor();
   auto i2 = torch::tensor({4, 5});
@@ -337,7 +337,7 @@ TEST_F(LazyIndexKernelTest, AdvanceIndexTest) {
       c10::make_optional(i1), c10::make_optional(i2)};
 
   c10::List<c10::optional<at::Tensor>> indices_hpu{
-      c10::make_optional(i1), c10::make_optional(i2.to(torch::kHABANA))};
+      c10::make_optional(i1), c10::make_optional(i2.to(torch::kHPU))};
 
   auto out_cpu = at::index(input_cpu, indices_cpu);
   auto out_hpu = at::index(input_hpu, indices_hpu);
@@ -353,7 +353,7 @@ TEST_F(LazyIndexKernelTest, LinspaceOutPosToNeFraction) {
   c10::optional<int64_t> step = constStepsValue;
   torch::Tensor out =
       torch::randn({constStepsValue}, torch::requires_grad(false));
-  auto hOut = out.to(torch::kHABANA);
+  auto hOut = out.to(torch::kHPU);
 
   auto h_a = torch::linspace_outf(start, end, step, hOut);
   auto hOut_cpu = h_a.to(torch::kCPU);
@@ -367,7 +367,7 @@ TEST_F(LazyIndexKernelTest, LinspaceOutSameStartEnd) {
   torch::Scalar end = -100.0f;
   c10::optional<int64_t> step = 100; // wrong value
   torch::Tensor out = torch::randn({10}, torch::requires_grad(false));
-  auto hOut = out.to(torch::kHABANA);
+  auto hOut = out.to(torch::kHPU);
 
   auto h_a = torch::linspace_outf(start, end, step, hOut);
   auto hOut_cpu = h_a.to(torch::kCPU);

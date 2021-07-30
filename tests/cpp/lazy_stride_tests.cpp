@@ -35,8 +35,8 @@ TEST_F(LazyStridesTest, NCHWInputTensorsStrides) {
       torch::randn({C, C, kW, kH}, torch::requires_grad(false));
   torch::Tensor bias2 =
       torch::randn({C, C, kW, kH}, torch::requires_grad(false));
-  torch::Tensor h_bias1 = bias1.to(torch::kHABANA);
-  torch::Tensor h_bias2 = bias2.to(torch::kHABANA);
+  torch::Tensor h_bias1 = bias1.to(torch::kHPU);
+  torch::Tensor h_bias2 = bias2.to(torch::kHPU);
 
   torch::Tensor weight_tensor = torch::add(bias1, bias2);
   torch::Tensor h_weight_tensor = torch::add(h_bias1, h_bias2);
@@ -52,7 +52,7 @@ TEST_F(LazyStridesTest, NCHWInputTensorsStrides) {
   // out_conv = Conv3x3(Data, weight)
   torch::Tensor in_tensor =
       torch::randn({BATCH, C, H, W}, torch::requires_grad(false));
-  torch::Tensor h_in_tensor = in_tensor.to(torch::kHABANA);
+  torch::Tensor h_in_tensor = in_tensor.to(torch::kHPU);
   torch::Tensor h_weight_tensor_hwck =
       h_weight_tensor.permute({2, 3, 1, 0}).contiguous();
   torch::Tensor h_out_conv =
@@ -98,8 +98,8 @@ TEST_F(LazyStridesTest, SimpleStrideTest) {
             << " c7.shape : " << c7.sizes() << " c7.strides : " << c7.strides()
             << '\n';
 
-  torch::Tensor h0 = c0.to(torch::kHABANA);
-  torch::Tensor h1 = c1.to(torch::kHABANA);
+  torch::Tensor h0 = c0.to(torch::kHPU);
+  torch::Tensor h1 = c1.to(torch::kHPU);
   torch::Tensor h4 = torch::add(h0, h1);
   torch::Tensor h5 = torch::mul(h0, h1);
   torch::Tensor h6 = torch::mul(h4, h5);
@@ -139,7 +139,7 @@ TEST_F(LazyStridesTest, DISABLED_NonContigiousStrides) {
             << " c1.shape : " << c1.sizes() << " c1.strides : " << c1.strides()
             << '\n';
 
-  torch::Tensor h0 = c0.to(torch::kHABANA);
+  torch::Tensor h0 = c0.to(torch::kHPU);
   torch::Tensor h1 = h0.transpose(1, 0);
   torch::Tensor h1_c = h1.to(torch::kCPU);
 
@@ -176,7 +176,7 @@ TEST_F(LazyStridesTest, DISABLED_ZeroElementStrides) {
             << " c1.shape : " << c1.sizes() << " c1.strides : " << c1.strides()
             << '\n';
 
-  torch::Tensor h0 = c0.to(torch::kHABANA);
+  torch::Tensor h0 = c0.to(torch::kHPU);
   torch::Tensor h1 = h0.abs();
   torch::Tensor h1_c = h1.to(torch::kCPU);
 

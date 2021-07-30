@@ -20,9 +20,9 @@ TEST_F(LazyLossKernelTest, MseLossTest) {
   torch::Tensor target = torch::randn({3, 5});
   torch::Tensor grad_input = torch::randn({3, 5});
 
-  auto hinput = input.to(torch::kHABANA);
-  auto htarget = target.to(torch::kHABANA);
-  auto hgrad_input = grad_input.to(torch::kHABANA);
+  auto hinput = input.to(torch::kHPU);
+  auto htarget = target.to(torch::kHPU);
+  auto hgrad_input = grad_input.to(torch::kHPU);
   torch::Tensor hout1 = torch::mse_loss(hinput, htarget, at::Reduction::None);
   torch::Tensor hout2 = torch::mse_loss_backward(
       hgrad_input, hinput, htarget, at::Reduction::None);
@@ -43,7 +43,7 @@ TEST_F(LazyLossKernelTest, MseLossTest) {
 
 TEST_F(LazyLossKernelTest, NllLossFwdTest) {
   torch::Tensor input = torch::randn({10, 4}, torch::requires_grad(true));
-  torch::Tensor hinput = input.to(torch::kHABANA);
+  torch::Tensor hinput = input.to(torch::kHPU);
 
   auto target = torch::randint(
       0,
@@ -52,7 +52,7 @@ TEST_F(LazyLossKernelTest, NllLossFwdTest) {
           10,
       },
       torch::kLong);
-  torch::Tensor htarget = target.to(torch::kHABANA);
+  torch::Tensor htarget = target.to(torch::kHPU);
 
   torch::nn::NLLLoss loss;
   auto output_cpu = loss->forward(input, target);
@@ -66,7 +66,7 @@ TEST_F(LazyLossKernelTest, NllLoss2dNHWCFwdTest) {
   torch::Tensor input =
       torch::randn({12, 5, 190, 162}, torch::requires_grad(true)); // nchw
   torch::Tensor hinput = input.to(
-      torch::kHABANA,
+      torch::kHPU,
       c10::ScalarType::Float,
       false,
       false,
@@ -74,7 +74,7 @@ TEST_F(LazyLossKernelTest, NllLoss2dNHWCFwdTest) {
   torch::Tensor cinput = hinput.to(torch::kCPU); // nhwc
 
   auto target = torch::randint(0, 4, {12, 190, 162}, torch::kLong);
-  torch::Tensor htarget = target.to(torch::kHABANA);
+  torch::Tensor htarget = target.to(torch::kHPU);
 
   torch::nn::NLLLoss loss;
   auto output_cpu = loss->forward(cinput, target);
@@ -87,10 +87,10 @@ TEST_F(LazyLossKernelTest, NllLoss2dNHWCFwdTest) {
 TEST_F(LazyLossKernelTest, NllLoss2dFwdTest) {
   torch::Tensor input =
       torch::randn({14, 4, 192, 160}, torch::requires_grad(true));
-  torch::Tensor hinput = input.to(torch::kHABANA);
+  torch::Tensor hinput = input.to(torch::kHPU);
 
   auto target = torch::randint(0, 3, {14, 192, 160}, torch::kLong);
-  torch::Tensor htarget = target.to(torch::kHABANA);
+  torch::Tensor htarget = target.to(torch::kHPU);
 
   torch::nn::NLLLoss loss;
   auto output_cpu = loss->forward(input, target);
@@ -102,7 +102,7 @@ TEST_F(LazyLossKernelTest, NllLoss2dFwdTest) {
 
 TEST_F(LazyLossKernelTest, NllLossBwdTest) {
   torch::Tensor input = torch::randn({10, 4}, torch::requires_grad(true));
-  torch::Tensor hinput = input.to(torch::kHABANA);
+  torch::Tensor hinput = input.to(torch::kHPU);
 
   auto target = torch::randint(
       0,
@@ -111,16 +111,16 @@ TEST_F(LazyLossKernelTest, NllLossBwdTest) {
           10,
       },
       torch::kLong);
-  torch::Tensor htarget = target.to(torch::kHABANA);
+  torch::Tensor htarget = target.to(torch::kHPU);
 
   auto grad_out = torch::tensor({1}, torch::kFloat);
-  torch::Tensor hgrad_out = grad_out.to(torch::kHABANA);
+  torch::Tensor hgrad_out = grad_out.to(torch::kHPU);
 
   // HPU kernel does not use this tensor, but we need to create it because
   // "nll_loss_backward" does not compile without this argument. Note that dim &
   // values in this tensor may need to be changed for other "reduction" modes.
   auto sum_weights = torch::tensor({10}, torch::kFloat);
-  torch::Tensor hsum_weights = sum_weights.to(torch::kHABANA);
+  torch::Tensor hsum_weights = sum_weights.to(torch::kHPU);
 
   auto grad_in_cpu = torch::nll_loss_backward(
       grad_out, input, target, {}, 1, -100, sum_weights);
@@ -134,7 +134,7 @@ TEST_F(LazyLossKernelTest, NllLossBwdTest) {
 TEST_F(LazyLossKernelTest, NllLoss2dBwdTest) {
   torch::Tensor input =
       torch::randn({14, 4, 192, 160}, torch::requires_grad(true));
-  torch::Tensor hinput = input.to(torch::kHABANA);
+  torch::Tensor hinput = input.to(torch::kHPU);
 
   auto target = torch::randint(
       0,
@@ -145,10 +145,10 @@ TEST_F(LazyLossKernelTest, NllLoss2dBwdTest) {
           160,
       },
       torch::kLong);
-  torch::Tensor htarget = target.to(torch::kHABANA);
+  torch::Tensor htarget = target.to(torch::kHPU);
 
   auto grad_out = torch::tensor({1}, torch::kFloat);
-  torch::Tensor hgrad_out = grad_out.to(torch::kHABANA);
+  torch::Tensor hgrad_out = grad_out.to(torch::kHPU);
 
   // HPU kernel does not use this tensor, but we need to create it because
   // "nll_loss_backward" does not compile without this argument. Note that dim &
@@ -156,7 +156,7 @@ TEST_F(LazyLossKernelTest, NllLoss2dBwdTest) {
   // (N,C,H,W) -> (N,H,W,C)
   // 14*192*160 = 430080
   auto sum_weights = torch::tensor({430080}, torch::kFloat);
-  torch::Tensor hsum_weights = sum_weights.to(torch::kHABANA);
+  torch::Tensor hsum_weights = sum_weights.to(torch::kHPU);
 
   auto grad_in_cpu = torch::nll_loss2d_backward(
       grad_out, input, target, {}, 1, -100, sum_weights);
@@ -172,9 +172,9 @@ TEST_F(LazyLossKernelTest, BCELossTest) {
   auto target = torch::randn({6, 1}); // Nx1
   auto grad_output = torch::randn({1});
 
-  torch::Tensor hinput = input.to(torch::kHABANA);
-  torch::Tensor htarget = target.to(torch::kHABANA);
-  torch::Tensor hgrad_out = grad_output.to(torch::kHABANA);
+  torch::Tensor hinput = input.to(torch::kHPU);
+  torch::Tensor htarget = target.to(torch::kHPU);
+  torch::Tensor hgrad_out = grad_output.to(torch::kHPU);
 
   auto hsigmout = torch::sigmoid(hinput);
   auto houtput =
@@ -200,9 +200,9 @@ TEST_F(LazyLossKernelTest, BCELogitsLossTest) {
   auto target = torch::randn({5, 2, 4, 3});
   auto grad_output = torch::randn({1});
 
-  torch::Tensor hinput = input.to(torch::kHABANA);
-  torch::Tensor htarget = target.to(torch::kHABANA);
-  torch::Tensor hgrad_out = grad_output.to(torch::kHABANA);
+  torch::Tensor hinput = input.to(torch::kHPU);
+  torch::Tensor htarget = target.to(torch::kHPU);
+  torch::Tensor hgrad_out = grad_output.to(torch::kHPU);
 
   auto houtput = torch::binary_cross_entropy_with_logits(
       hinput, htarget, {}, {}, at::Reduction::Sum);

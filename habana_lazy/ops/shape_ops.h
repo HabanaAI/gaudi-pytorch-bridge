@@ -29,7 +29,7 @@ class View : public ir::Node {
   View() = delete;
   View(const at::Tensor& self, at::IntArrayRef size)
       : Node(c10::Symbol::fromQualString("aten::view")) {
-    auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
+    auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHPU);
     AddInput(hl_self.GetIrValue());
 
     std::vector<at::Tensor> input_pt_vec{self};
@@ -56,7 +56,7 @@ class AsStrided : public ir::Node {
       at::IntArrayRef stride,
       int64_t storage_offset)
       : Node(c10::Symbol::fromQualString("hpu::as_strided_lazy_")) {
-    auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
+    auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHPU);
     AddInput(hl_self.GetIrValue());
 
     std::vector<at::Tensor> input_pt_vec{self};

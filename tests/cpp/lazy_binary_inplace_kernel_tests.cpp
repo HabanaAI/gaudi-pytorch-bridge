@@ -21,9 +21,9 @@ TEST_F(LazyBinaryInplaceKernelTest, MulInplaceTest) {
   torch::Tensor A = torch::randn({2, 3});
   torch::Tensor B = torch::randn({2, 3});
   torch::Tensor C = torch::randn({2, 3});
-  auto hA = A.to(torch::kHABANA);
-  auto hB = B.to(torch::kHABANA);
-  auto hC = C.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
+  auto hB = B.to(torch::kHPU);
+  auto hC = C.to(torch::kHPU);
 
   A = A.mul_(B);
   auto exp = torch::add(A, C);
@@ -115,10 +115,10 @@ TEST_F(LazyBinaryInplaceKernelTest, SqrtAddInplaceTest) {
   torch::Tensor B = torch::ones({2, 3});
   torch::Tensor C = torch::ones({2, 3});
   torch::Tensor D = torch::ones({2, 3});
-  auto hA = A.to(torch::kHABANA);
-  auto hB = B.to(torch::kHABANA);
-  auto hC = C.to(torch::kHABANA);
-  auto hD = D.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
+  auto hB = B.to(torch::kHPU);
+  auto hC = C.to(torch::kHPU);
+  auto hD = D.to(torch::kHPU);
 
   auto tempc1 = torch::sqrt(A + D);
   tempc1.add_(B);
@@ -139,10 +139,10 @@ TEST_F(LazyBinaryInplaceKernelTest, AddcmulInplaceTest) {
   torch::Tensor C = torch::randn({2, 3});
   torch::Tensor D = torch::zeros({2, 3});
 
-  auto hA = A.to(torch::kHABANA);
-  auto hB = B.to(torch::kHABANA);
-  auto hC = C.to(torch::kHABANA);
-  auto hD = D.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
+  auto hB = B.to(torch::kHPU);
+  auto hC = C.to(torch::kHPU);
+  auto hD = D.to(torch::kHPU);
 
   A = A.addcmul_(B, C);
   auto exp = A;
@@ -161,9 +161,9 @@ TEST_F(LazyBinaryInplaceKernelTest, AddcmulInplaceTest2) {
   torch::Tensor B = torch::randn({2, 3});
   torch::Tensor C = torch::zeros({2, 3});
 
-  auto hA = A.to(torch::kHABANA);
-  auto hB = B.to(torch::kHABANA);
-  auto hC = C.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
+  auto hB = B.to(torch::kHPU);
+  auto hC = C.to(torch::kHPU);
 
   A = A.addcmul_(B, B);
   auto exp = A;
@@ -183,10 +183,10 @@ TEST_F(LazyBinaryInplaceKernelTest, AddcdivInplaceTest) {
   torch::Tensor C = torch::randn({2, 3});
   torch::Tensor D = torch::zeros({2, 3});
 
-  auto hA = A.to(torch::kHABANA);
-  auto hB = B.to(torch::kHABANA);
-  auto hC = C.to(torch::kHABANA);
-  auto hD = D.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
+  auto hB = B.to(torch::kHPU);
+  auto hC = C.to(torch::kHPU);
+  auto hD = D.to(torch::kHPU);
 
   A = A.addcdiv_(B, C);
   auto exp = A;
@@ -206,10 +206,10 @@ TEST_F(LazyBinaryInplaceKernelTest, AddcdivInplaceTest2) {
   torch::Tensor C = torch::randn({2, 3});
   torch::Tensor D = torch::zeros({2, 3});
 
-  auto hA = A.to(torch::kHABANA);
-  auto hB = B.to(torch::kHABANA);
-  auto hC = C.to(torch::kHABANA);
-  auto hD = D.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
+  auto hB = B.to(torch::kHPU);
+  auto hC = C.to(torch::kHPU);
+  auto hD = D.to(torch::kHPU);
 
   A = A.addcdiv_(B, C, 3.5);
   auto exp = A;
@@ -227,8 +227,8 @@ TEST_F(LazyBinaryInplaceKernelTest, DivInplaceTest) {
   torch::Tensor A = torch::randn({2, 3});
   torch::Tensor B = torch::randn({2, 3});
 
-  auto hA = A.to(torch::kHABANA);
-  auto hB = B.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
+  auto hB = B.to(torch::kHPU);
 
   A.div_(B);
   auto exp = A;

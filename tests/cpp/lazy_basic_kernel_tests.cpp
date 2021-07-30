@@ -53,7 +53,7 @@ TEST_F(LazyBasicKernelTest, DoubleCopyTest) {
   at::TensorOptions opts =
       at::TensorOptions().dtype(c10::ScalarType::Double).requires_grad(false);
   torch::Tensor A = torch::randn({50, 50}, opts);
-  torch::Tensor hA = A.to(torch::kHABANA);
+  torch::Tensor hA = A.to(torch::kHPU);
   torch::Tensor hA_cpu = hA.to(torch::kCPU);
   // This should be double
   bool equal = hA_cpu.allclose(A, 0.1, 0.1);
@@ -63,7 +63,7 @@ TEST_F(LazyBasicKernelTest, DoubleCopyTest) {
 TEST_F(LazyBasicKernelTest, BasicCopyTest) {
   at::TensorOptions opts = at::TensorOptions().requires_grad(false);
   torch::Tensor A = torch::randn({50, 50}, opts);
-  torch::Tensor hA = A.to(torch::kHABANA);
+  torch::Tensor hA = A.to(torch::kHPU);
   torch::Tensor hA_cpu = hA.to(torch::kCPU);
   bool equal = hA_cpu.allclose(A, 0, 0);
   EXPECT_EQ(equal, true);
@@ -73,8 +73,8 @@ TEST_F(LazyBasicKernelTest, CloneTest) {
   at::TensorOptions opts = at::TensorOptions().requires_grad(false);
   torch::Tensor A = torch::randn({50, 50}, opts);
   torch::Tensor B = torch::randn({50, 50}, opts);
-  torch::Tensor hA = A.to(torch::kHABANA);
-  torch::Tensor hB = B.to(torch::kHABANA);
+  torch::Tensor hA = A.to(torch::kHPU);
+  torch::Tensor hB = B.to(torch::kHPU);
   torch::Tensor hC = hA + hB;
   torch::Tensor hD = torch::clone(hC);
   auto hl_result = std::make_shared<HbLazyTensor>(GetHbLazyTensor(hD));
@@ -88,18 +88,18 @@ TEST_F(LazyBasicKernelTest, CloneTest) {
 TEST_F(LazyBasicKernelTest, DISABLED_ViewCopy) {
   setenv("PT_HPU_LOWER_AS_STRIDED", "1", 1);
   torch::Tensor A = torch::randn({20});
-  torch::Tensor hA = A.to(torch::kHABANA);
+  torch::Tensor hA = A.to(torch::kHPU);
   Tensor Out = A.narrow(0, 2, 5);
   Tensor hOut = hA.narrow(0, 2, 5);
   torch::Tensor g = torch::ones({5});
-  torch::Tensor hg = g.to(torch::kHABANA);
+  torch::Tensor hg = g.to(torch::kHPU);
   Out.copy_(g.view({-1}), true);
   hOut.copy_(hg.view({-1}), true);
 
   Tensor Out2 = A.narrow(0, 8, 5);
   Tensor hOut2 = hA.narrow(0, 8, 5);
   torch::Tensor g2 = torch::zeros({5});
-  torch::Tensor hg2 = g2.to(torch::kHABANA);
+  torch::Tensor hg2 = g2.to(torch::kHPU);
   Out2.copy_(g2.view({-1}), true);
   hOut2.copy_(hg2.view({-1}), true);
   HbLazyTensor::StepMarker({});
@@ -113,7 +113,7 @@ TEST_F(LazyBasicKernelTest, DISABLED_ViewCopy) {
 TEST_F(LazyBasicKernelTest, NarrowInplaceOffsets) {
   setenv("PT_HPU_LOWER_AS_STRIDED", "1", 1);
   torch::Tensor A = torch::randn({20});
-  torch::Tensor hA = A.to(torch::kHABANA);
+  torch::Tensor hA = A.to(torch::kHPU);
 
   // cpu
   auto temp1 = A.narrow(0, 2, 5);
@@ -141,10 +141,10 @@ TEST_F(LazyBasicKernelTest, ControlEdge) {
   torch::Tensor B = torch::randn({2, 3});
   torch::Tensor C = torch::randn({2, 3});
   torch::Tensor F = torch::randn({2, 3});
-  auto hA = A.to(torch::kHABANA);
-  auto hB = B.to(torch::kHABANA);
-  auto hC = C.to(torch::kHABANA);
-  auto hF = F.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
+  auto hB = B.to(torch::kHPU);
+  auto hC = C.to(torch::kHPU);
+  auto hF = F.to(torch::kHPU);
 
   auto D = A.mul(B);
   auto E = C.mul(B);
@@ -161,7 +161,7 @@ TEST_F(LazyBasicKernelTest, ControlEdge) {
 TEST_F(LazyBasicKernelTest, asStridedOnlyGraph) {
   setenv("PT_HPU_LOWER_AS_STRIDED", "1", 1);
   torch::Tensor A = torch::randn({16});
-  auto hA = A.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
   std::vector<int64_t> sz{4};
   std::vector<int64_t> str{1};
   c10::IntArrayRef sizes(sz.data(), sz.size());

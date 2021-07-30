@@ -27,7 +27,7 @@ struct LogSoftMax : public ir::Node {
       const bool half_to_float,
       const at::string& aten_op)
       : Node(c10::Symbol::fromQualString(aten_op)) {
-    auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
+    auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHPU);
 
     AddInput(hl_self.GetIrValue());
 
@@ -59,9 +59,9 @@ struct LogSoftMaxBackward : public ir::Node {
       const at::Tensor& input,
       const at::string& aten_op)
       : Node(c10::Symbol::fromQualString(aten_op)), m_dim_index_bwd{2} {
-    auto hl_grad = habana_lazy::GetOrCreateHbLazyTensor(grad, c10::kHABANA);
-    auto hl_output = habana_lazy::GetOrCreateHbLazyTensor(output, c10::kHABANA);
-    auto hl_input = habana_lazy::GetOrCreateHbLazyTensor(input, c10::kHABANA);
+    auto hl_grad = habana_lazy::GetOrCreateHbLazyTensor(grad, c10::kHPU);
+    auto hl_output = habana_lazy::GetOrCreateHbLazyTensor(output, c10::kHPU);
+    auto hl_input = habana_lazy::GetOrCreateHbLazyTensor(input, c10::kHPU);
 
     AddInput(hl_grad.GetIrValue());
     AddInput(hl_output.GetIrValue());

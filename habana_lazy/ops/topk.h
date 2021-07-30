@@ -28,7 +28,7 @@ class TopK : public ir::Node {
       bool largest,
       bool sorted)
       : Node(c10::Symbol::fromQualString("aten::topk")) {
-    auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHABANA);
+    auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
     AddInput(hl_self.GetIrValue());
 
     std::vector<at::Tensor> input_pt_vec{self};

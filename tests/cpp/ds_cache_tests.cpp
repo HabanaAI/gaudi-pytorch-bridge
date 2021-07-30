@@ -60,8 +60,8 @@ TEST(DS_CacheTest, JIT_IR_GraphKeyTest) {
   torch::Tensor x = torch::randn({5, 5}, torch::requires_grad());
   torch::Tensor y = torch::randn({5, 5}, torch::requires_grad());
 
-  torch::Tensor hx = x.to(torch::kHABANA);
-  torch::Tensor hy = x.to(torch::kHABANA);
+  torch::Tensor hx = x.to(torch::kHPU);
+  torch::Tensor hy = x.to(torch::kHPU);
   auto inputs = habana_lazy_test::createStack({x, y});
 
   // std::cout << "PTI_DBG :: x : \n" << hx.to("cpu") << '\n';

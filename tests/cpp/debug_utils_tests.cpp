@@ -19,8 +19,8 @@ class DebugUtilsTest : public habana_lazy_test::LazyTest {
 TEST_F(DebugUtilsTest, GraphTextDump1) {
   auto A = torch::randn({2, 2}, torch::requires_grad(false));
   auto B = torch::randn({2, 2}, torch::requires_grad(false));
-  auto hA = A.to(torch::kHABANA);
-  auto hB = B.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
+  auto hB = B.to(torch::kHPU);
   auto I = torch::add(hA, hB, 1.0);
   I = torch::relu(I);
   auto out = torch::relu(I);
@@ -45,8 +45,8 @@ TEST_F(DebugUtilsTest, GraphTextDump1) {
 TEST_F(DebugUtilsTest, GraphDotDump1) {
   auto A = torch::randn({2, 2}, torch::requires_grad(false));
   auto B = torch::randn({2, 2}, torch::requires_grad(false));
-  auto hA = A.to(torch::kHABANA);
-  auto hB = B.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
+  auto hB = B.to(torch::kHPU);
   auto I = torch::add(hA, hB, 1.0);
   I = torch::relu(I);
   auto out = torch::relu(I);

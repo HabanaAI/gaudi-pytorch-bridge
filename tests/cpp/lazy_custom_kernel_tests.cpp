@@ -23,12 +23,12 @@ TEST_F(LazyCustomKernelTest, OptSgdCustomOp) {
   auto indices = torch::tensor({0, 1});
   auto lr = torch::tensor({0.01});
   auto valid_cnt = torch::tensor({2});
-  auto hgrad = grad.to(torch::kHABANA);
-  auto hwts = wts.to(torch::kHABANA);
-  auto hmoments = moments.to(torch::kHABANA);
-  auto hindices = indices.to(torch::kHABANA);
-  auto hlr = lr.to(torch::kHABANA);
-  auto hvalid_cnt = valid_cnt.to(torch::kHABANA);
+  auto hgrad = grad.to(torch::kHPU);
+  auto hwts = wts.to(torch::kHPU);
+  auto hmoments = moments.to(torch::kHPU);
+  auto hindices = indices.to(torch::kHPU);
+  auto hlr = lr.to(torch::kHPU);
+  auto hvalid_cnt = valid_cnt.to(torch::kHPU);
   torch::Tensor out1, out2;
   std::tie(out1, out2) = optimizer_sparse_sgd_with_valid_count_hpu_wrap(
       hgrad, hwts, hmoments, hindices, hlr, hvalid_cnt, 0.1, false);
@@ -71,12 +71,12 @@ TEST_F(LazyCustomKernelTest, OptAdagradCustomOp) {
   auto indices = torch::tensor({0, 1});
   auto lr = torch::tensor({0.01});
   auto valid_cnt = torch::tensor({2});
-  auto hgrad = grad.to(torch::kHABANA);
-  auto hwts = wts.to(torch::kHABANA);
-  auto hmoments = moments.to(torch::kHABANA);
-  auto hindices = indices.to(torch::kHABANA);
-  auto hlr = lr.to(torch::kHABANA);
-  auto hvalid_cnt = valid_cnt.to(torch::kHABANA);
+  auto hgrad = grad.to(torch::kHPU);
+  auto hwts = wts.to(torch::kHPU);
+  auto hmoments = moments.to(torch::kHPU);
+  auto hindices = indices.to(torch::kHPU);
+  auto hlr = lr.to(torch::kHPU);
+  auto hvalid_cnt = valid_cnt.to(torch::kHPU);
   torch::Tensor out1, out2;
   std::tie(out1, out2) = optimizer_sparse_adagrad_with_valid_count_hpu_wrap(
       hgrad, hwts, hmoments, hindices, hlr, hvalid_cnt);
@@ -122,18 +122,18 @@ TEST_F(LazyCustomKernelTest, AdamwOptTest) {
 
   auto t_in = torch::randn({M, N});
   for (auto i = 0; i < num_params; i++) {
-    auto t = t_in.to(torch::kHABANA);
+    auto t = t_in.to(torch::kHPU);
     grad_vec_cpu.push_back(t_in);
-    auto tH = t.to(torch::kHABANA);
+    auto tH = t.to(torch::kHPU);
     grad_vec.push_back(tH);
     wt_vec_cpu.push_back(torch::ones_like(t_in));
-    auto tH_w = torch::ones_like(t_in).to(torch::kHABANA);
+    auto tH_w = torch::ones_like(t_in).to(torch::kHPU);
     wt_vec.push_back(tH_w);
     exp_avg_vec_cpu.push_back(torch::zeros_like(t_in));
-    auto tH_ea = torch::zeros_like(t_in).to(torch::kHABANA);
+    auto tH_ea = torch::zeros_like(t_in).to(torch::kHPU);
     exp_avg_vec.push_back(tH_ea);
     exp_avg_sq_vec_cpu.push_back(torch::zeros_like(t_in));
-    auto tH_ea_sq = torch::zeros_like(t_in).to(torch::kHABANA);
+    auto tH_ea_sq = torch::zeros_like(t_in).to(torch::kHPU);
     exp_avg_sq_vec.push_back(tH_ea_sq);
   }
 
@@ -143,8 +143,8 @@ TEST_F(LazyCustomKernelTest, AdamwOptTest) {
   TensorList exp_avg_sq(exp_avg_sq_vec);
 
   auto lr = 0.1;
-  auto lr_t = torch::tensor({lr}).to(torch::kHABANA);
-  auto neg_step_t = torch::tensor({-lr}).to(torch::kHABANA);
+  auto lr_t = torch::tensor({lr}).to(torch::kHPU);
+  auto neg_step_t = torch::tensor({-lr}).to(torch::kHPU);
   auto beta1 = 0.5;
   auto beta2 = 0.5;
   auto epsilon = 1e-3;

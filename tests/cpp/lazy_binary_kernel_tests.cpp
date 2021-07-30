@@ -22,9 +22,9 @@ TEST_F(LazyBinaryKernelTest, LazyDoATest) {
   torch::Tensor A = torch::randn({2, 2}, torch::requires_grad(false));
   torch::Tensor B = torch::randn({2, 2}, torch::requires_grad(false));
   torch::Tensor C = torch::randn({2, 2}, torch::requires_grad(false));
-  torch::Tensor hA = A.to(torch::kHABANA);
-  torch::Tensor hB = B.to(torch::kHABANA);
-  torch::Tensor hC = C.to(torch::kHABANA);
+  torch::Tensor hA = A.to(torch::kHPU);
+  torch::Tensor hB = B.to(torch::kHPU);
+  torch::Tensor hC = C.to(torch::kHPU);
   torch::Tensor I = torch::add(hA, hB, 2.3);
   torch::Tensor out = torch::add(hC, I, 2.3);
 
@@ -41,7 +41,7 @@ TEST_F(LazyBinaryKernelTest, AddScalarTest) {
   Scalar B = 2.0;
   Scalar alpha = 1.0;
 
-  torch::Tensor hA = A.to(torch::kHABANA);
+  torch::Tensor hA = A.to(torch::kHPU);
   torch::Tensor out_h = torch::add(hA, B, alpha).to(torch::kCPU);
   torch::Tensor out_cpu = torch::add(A, B, alpha);
 
@@ -54,7 +54,7 @@ TEST_F(LazyBinaryKernelTest, SubScalarTest) {
   Scalar B = 2.0;
   Scalar alpha = 1.0;
 
-  torch::Tensor hA = A.to(torch::kHABANA);
+  torch::Tensor hA = A.to(torch::kHPU);
   torch::Tensor out_h = torch::sub(hA, B, alpha).to(torch::kCPU);
   torch::Tensor out_cpu = torch::sub(A, B, alpha);
 
@@ -67,12 +67,12 @@ TEST_F(LazyBinaryKernelTest, AddInplaceTest) {
   torch::Tensor B = torch::randn({2, 3});
   torch::Tensor C = torch::randn({2, 3});
 
-  auto hA = A.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
   A = A.add_(B);
   auto exp = torch::mul(A, C);
 
-  auto hB = B.to(torch::kHABANA);
-  auto hC = C.to(torch::kHABANA);
+  auto hB = B.to(torch::kHPU);
+  auto hC = C.to(torch::kHPU);
   hA = hA.add_(hB);
   auto result = torch::mul(hA, hC);
 
@@ -87,7 +87,7 @@ TEST_F(LazyBinaryKernelTest, AddInplaceTest) {
 TEST_F(LazyBinaryKernelTest, LazyRsubscalarTest) {
   torch::Tensor input = torch::ones({10, 10});
 
-  auto hinput = input.to(torch::kHABANA);
+  auto hinput = input.to(torch::kHPU);
   auto hrsub = torch::rsub(hinput, 8, 2);
   Tensor hout = hrsub.to(kCPU);
 
@@ -120,8 +120,8 @@ TEST_F(LazyBinaryKernelTest, DivTensorTestWithDivByZero) {
   auto expected = torch::div(A, B);
 
   // Compute actual output
-  auto hA = A.to(torch::kHABANA);
-  auto hB = B.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
+  auto hB = B.to(torch::kHPU);
   auto result = torch::div(hA, hB);
   std::vector<HbLazyTensor> tensors = {GetHbLazyTensor(result)};
   HbLazyTensor::SyncTensorsGraph(&tensors);
@@ -152,8 +152,8 @@ TEST_F(LazyBinaryKernelTest, DivTensorTestByNonZero) {
 
   auto expected = torch::div(A, B);
 
-  auto hA = A.to(torch::kHABANA);
-  auto hB = B.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
+  auto hB = B.to(torch::kHPU);
   auto result = torch::div(hA, hB);
   std::vector<HbLazyTensor> tensors = {GetHbLazyTensor(result)};
   HbLazyTensor::SyncTensorsGraph(&tensors);
@@ -168,9 +168,9 @@ TEST_F(LazyBinaryKernelTest, MulOutScalar) {
   auto wrapped = c10::scalar_to_tensor(double(1.) / divFactor_);
   wrapped.unsafeGetTensorImpl()->set_wrapped_number(true);
   torch::Tensor out_cpu = torch::zeros_like(input1);
-  torch::Tensor out_hpu = torch::zeros_like(input1).to(torch::kHABANA);
+  torch::Tensor out_hpu = torch::zeros_like(input1).to(torch::kHPU);
   at::mul_out(out_cpu, input1, wrapped);
-  at::mul_out(out_hpu, input1.to(torch::kHABANA), wrapped);
+  at::mul_out(out_hpu, input1.to(torch::kHPU), wrapped);
   bool equal = out_cpu.allclose(out_hpu.to(torch::kCPU), 0.001, 0.001);
   EXPECT_EQ(equal, true);
 }
@@ -179,9 +179,9 @@ TEST_F(LazyBinaryKernelTest, MulOut) {
   torch::Tensor input1 = torch::randn({2, 2});
   torch::Tensor input2 = torch::randn({2, 2});
   torch::Tensor out_cpu = torch::zeros_like(input1);
-  torch::Tensor out_hpu = torch::zeros_like(input1).to(torch::kHABANA);
+  torch::Tensor out_hpu = torch::zeros_like(input1).to(torch::kHPU);
   at::mul_out(out_cpu, input1, input2);
-  at::mul_out(out_hpu, input1.to(torch::kHABANA), input2.to(torch::kHABANA));
+  at::mul_out(out_hpu, input1.to(torch::kHPU), input2.to(torch::kHPU));
   bool equal = out_cpu.allclose(out_hpu.to(torch::kCPU), 0.001, 0.001);
   EXPECT_EQ(equal, true);
 }
@@ -194,12 +194,12 @@ TEST_F(LazyBinaryKernelTest, MulOutNarrow) {
 
   torch::Tensor A =
       torch::arange(6, torch::dtype(torch::kFloat)).reshape({2, 3});
-  torch::Tensor hA = A.to(torch::kHABANA);
+  torch::Tensor hA = A.to(torch::kHPU);
   Tensor out_cpu = A.as_strided({2, 3}, input2.strides(), 0);
   Tensor out_hpu = hA.as_strided({2, 3}, input2.strides(), 0);
 
   at::mul_out(out_cpu, input1, input2);
-  at::mul_out(out_hpu, input1.to(torch::kHABANA), input2.to(torch::kHABANA));
+  at::mul_out(out_hpu, input1.to(torch::kHPU), input2.to(torch::kHPU));
   HbLazyTensor::StepMarker({});
   bool equal = A.allclose(hA.to(torch::kCPU), 0.001, 0.001);
   EXPECT_EQ(equal, true);
@@ -211,7 +211,7 @@ TEST_F(LazyBinaryKernelTest, Maximum) {
 
   torch::Tensor out_cpu = at::max(input1, input2);
   torch::Tensor out_hpu =
-      at::max(input1.to(torch::kHABANA), input2.to(torch::kHABANA));
+      at::max(input1.to(torch::kHPU), input2.to(torch::kHPU));
   bool equal = out_cpu.allclose(out_hpu.to(torch::kCPU), 0, 0);
   EXPECT_EQ(equal, true);
 }
@@ -222,7 +222,7 @@ TEST_F(LazyBinaryKernelTest, Minimum) {
 
   torch::Tensor out_cpu = at::min(input1, input2);
   torch::Tensor out_hpu =
-      at::min(input1.to(torch::kHABANA), input2.to(torch::kHABANA));
+      at::min(input1.to(torch::kHPU), input2.to(torch::kHPU));
   bool equal = out_cpu.allclose(out_hpu.to(torch::kCPU), 0, 0);
   EXPECT_EQ(equal, true);
 }
@@ -289,7 +289,7 @@ TEST_F(LazyBinaryKernelTest, MulScalarTest) {
 
   auto expected = torch::mul(A, s);
 
-  auto hA = A.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
 
   auto result = torch::mul(hA, s);
   std::vector<HbLazyTensor> tensors = {GetHbLazyTensor(result)};
@@ -315,8 +315,8 @@ TEST_F(LazyBinaryKernelTest, AddSame) {
 TEST_F(LazyBinaryKernelTest, MvTest) {
   torch::Tensor m = torch::randn({2, 3}, torch::requires_grad(false));
   torch::Tensor v = torch::randn(3, torch::requires_grad(false));
-  torch::Tensor hm = m.to(torch::kHABANA);
-  torch::Tensor hv = v.to(torch::kHABANA);
+  torch::Tensor hm = m.to(torch::kHPU);
+  torch::Tensor hv = v.to(torch::kHPU);
 
   auto out_exp = torch::mv(m, v);
   auto hout_lazy = torch::mv(hm, hv).to(torch::kCPU);
@@ -328,8 +328,8 @@ TEST_F(LazyBinaryKernelTest, DotTest) {
   constexpr int64_t size = 5; // Dot is defined only for 1D tensor
   torch::Tensor A = torch::randn(size, torch::requires_grad(false));
   torch::Tensor B = torch::randn(size, torch::requires_grad(false));
-  torch::Tensor hA = A.to(torch::kHABANA);
-  torch::Tensor hB = B.to(torch::kHABANA);
+  torch::Tensor hA = A.to(torch::kHPU);
+  torch::Tensor hB = B.to(torch::kHPU);
   torch::Tensor hOut = torch::dot(hA, hB).to(torch::kCPU);
   torch::Tensor cpuOut = torch::dot(A, B);
 
@@ -345,9 +345,9 @@ TEST_F(LazyBinaryKernelTest, AddcdivTest) {
 
   Scalar alpha = 3.5;
 
-  auto hA = A.to(torch::kHABANA);
-  auto hB = B.to(torch::kHABANA);
-  auto hC = C.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
+  auto hB = B.to(torch::kHPU);
+  auto hC = C.to(torch::kHPU);
 
   auto result = at::addcdiv(hA, hB, hC, alpha);
   Tensor hOut = result.to(kCPU);
@@ -366,9 +366,9 @@ TEST_F(LazyBinaryKernelTest, AddcmulTest) {
 
   Scalar alpha = 3.5;
 
-  auto hA = A.to(torch::kHABANA);
-  auto hB = B.to(torch::kHABANA);
-  auto hC = C.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
+  auto hB = B.to(torch::kHPU);
+  auto hC = C.to(torch::kHPU);
 
   auto result = at::addcmul(hA, hB, hC, alpha);
   Tensor hOut = result.to(kCPU);
@@ -397,8 +397,8 @@ TEST_F(LazyBinaryKernelTest, Pow) {
 
   Tensor expected = torch::pow(A, B);
 
-  auto hA = A.to(torch::kHABANA);
-  auto hB = B.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
+  auto hB = B.to(torch::kHPU);
 
   auto result = torch::pow(hA, hB);
 
@@ -416,8 +416,8 @@ TEST_F(LazyBinaryKernelTest, PowInplace) {
   torch::Tensor A = torch::randn(dimentions);
   torch::Tensor B = torch::randn(dimentions);
 
-  auto hA = A.to(torch::kHABANA);
-  auto hB = B.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
+  auto hB = B.to(torch::kHPU);
 
   A.pow_(B);
   hA.pow_(hB);
@@ -436,7 +436,7 @@ TEST_F(LazyBinaryKernelTest, PowTensorScalar) {
 
   Tensor expected = torch::pow(A, s);
 
-  auto hA = A.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
 
   auto result = torch::pow(hA, s);
 
@@ -454,7 +454,7 @@ TEST_F(LazyBinaryKernelTest, PowTensorScalarInplace) {
   torch::Tensor A = torch::randn(dimentions);
   Scalar s = 3.27;
 
-  auto hA = A.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
 
   A.pow_(s);
 
@@ -476,7 +476,7 @@ TEST_F(LazyBinaryKernelTest, PowScalarTensor) {
 
   Tensor expected = torch::pow(s, A);
 
-  auto hA = A.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
   auto result = torch::pow(s, hA);
 
   Tensor generated = result.to(kCPU);
@@ -491,8 +491,8 @@ TEST_F(LazyBinaryKernelTest, RemainderTensorTest) {
   torch::Tensor A = torch::tensor({4, 2}, torch::dtype(torch::kInt16));
   torch::Tensor B = torch::tensor({4, 2}, torch::dtype(torch::kInt16));
 
-  auto hA = A.to(torch::kHABANA);
-  auto hB = B.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
+  auto hB = B.to(torch::kHPU);
 
   Tensor expected = torch::remainder(A, B);
   auto result = torch::remainder(hA, hB);
@@ -507,7 +507,7 @@ TEST_F(LazyBinaryKernelTest, RemainderTensorTest) {
 TEST_F(LazyBinaryKernelTest, RemainderScalarTest) {
   torch::Tensor A = torch::tensor({4, 2}, torch::dtype(torch::kInt32));
 
-  auto hA = A.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
   Scalar B = 2;
 
   Tensor expected = torch::remainder(A, B);
@@ -524,8 +524,8 @@ TEST_F(LazyBinaryKernelTest, RemainderTensor0DTest) {
   torch::Tensor A = torch::tensor({4, 2}, torch::dtype(torch::kInt32));
   torch::Tensor B = torch::tensor(2);
 
-  auto hA = A.to(torch::kHABANA);
-  auto hB = B.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
+  auto hB = B.to(torch::kHPU);
 
   Tensor expected = torch::remainder(A, B);
   auto result = torch::remainder(hA, hB);
@@ -540,7 +540,7 @@ TEST_F(LazyBinaryKernelTest, RemainderTensor0DTest) {
 TEST_F(LazyBinaryKernelTest, RemainderScalar0DTest) {
   torch::Tensor A = torch::tensor(3);
 
-  auto hA = A.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
   Scalar B = 2;
 
   Tensor expected = torch::remainder(A, B);
@@ -558,9 +558,9 @@ TEST_F(LazyBinaryKernelTest, RemainderTensorOutTest) {
   torch::Tensor B = torch::tensor({4, 2}, torch::dtype(torch::kInt32));
   torch::Tensor out = torch::tensor({4, 2}, torch::dtype(torch::kInt32));
 
-  auto hA = A.to(torch::kHABANA);
-  auto hB = B.to(torch::kHABANA);
-  auto hOut = out.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
+  auto hB = B.to(torch::kHPU);
+  auto hOut = out.to(torch::kHPU);
 
   torch::remainder_outf(A, B, out);
   torch::remainder_outf(hA, hB, hOut);
@@ -577,8 +577,8 @@ TEST_F(LazyBinaryKernelTest, RemainderTensorOutTest) {
   Scalar B = 2;
   torch::Tensor out = torch::tensor({4, 2}, torch::dtype(torch::kInt32));
 
-  auto hA = A.to(torch::kHABANA);
-  auto hOut = out.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
+  auto hOut = out.to(torch::kHPU);
 
   torch::remainder_outf(A, B, out);
   torch::remainder_outf(hA, B, hOut);
@@ -595,9 +595,9 @@ TEST_F(LazyBinaryKernelTest, RemainderTensorOut0dTest) {
   torch::Tensor B = torch::tensor(3);
   torch::Tensor out = torch::tensor({4, 2}, torch::dtype(torch::kInt32));
 
-  auto hA = A.to(torch::kHABANA);
-  auto hB = B.to(torch::kHABANA);
-  auto hOut = out.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
+  auto hB = B.to(torch::kHPU);
+  auto hOut = out.to(torch::kHPU);
 
   torch::remainder_outf(A, B, out);
   torch::remainder_outf(hA, hB, hOut);
@@ -614,9 +614,9 @@ TEST_F(LazyBinaryKernelTest, RemainderTensorResizeOutTest) {
   torch::Tensor B = torch::tensor(3);
   torch::Tensor out = torch::empty({1}, torch::dtype(torch::kInt32));
 
-  auto hA = A.to(torch::kHABANA);
-  auto hB = B.to(torch::kHABANA);
-  auto hOut = out.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
+  auto hB = B.to(torch::kHPU);
+  auto hOut = out.to(torch::kHPU);
 
   torch::remainder_outf(A, B, out);
   torch::remainder_outf(hA, hB, hOut);
@@ -633,8 +633,8 @@ TEST_F(LazyBinaryKernelTest, RemainderScalarResizeOutTest) {
   Scalar B = 3;
   torch::Tensor out = torch::empty({1}, torch::dtype(torch::kInt32));
 
-  auto hA = A.to(torch::kHABANA);
-  auto hOut = out.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
+  auto hOut = out.to(torch::kHPU);
 
   torch::remainder_outf(A, B, out);
   torch::remainder_outf(hA, B, hOut);
@@ -651,8 +651,8 @@ TEST_F(LazyBinaryKernelTest, RemainderTensorInplaceTest) {
   torch::Tensor A = torch::tensor({4, 2}, torch::dtype(torch::kInt32));
   torch::Tensor B = torch::tensor({4, 2}, torch::dtype(torch::kInt32));
 
-  auto hA = A.to(torch::kHABANA);
-  auto hB = B.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
+  auto hB = B.to(torch::kHPU);
 
   A.remainder_(B);
   auto exp = A;
@@ -668,7 +668,7 @@ TEST_F(LazyBinaryKernelTest, RemainderScalarInplaceTest) {
   torch::Tensor A = torch::tensor({4, 2}, torch::dtype(torch::kInt32));
   Scalar B = 2;
 
-  auto hA = A.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
 
   A.remainder_(B);
   auto exp = A;
@@ -684,8 +684,8 @@ TEST_F(LazyBinaryKernelTest, RemainderTensorInplace0DTest) {
   torch::Tensor A = torch::tensor({4, 2}, torch::dtype(torch::kInt32));
   torch::Tensor B = torch::tensor(3);
 
-  auto hA = A.to(torch::kHABANA);
-  auto hB = B.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
+  auto hB = B.to(torch::kHPU);
 
   A.remainder_(B);
   auto exp = A;

@@ -22,14 +22,14 @@ TEST_F(LazyRandomGenKernelTest, FusedDropoutTest) {
   at::Tensor eager_result1, eager_result2;
   ExecuteEager([&]() {
     SetSeed();
-    auto h_in = in.to(torch::kHABANA);
+    auto h_in = in.to(torch::kHPU);
     auto eager_results = torch::_fused_dropout(h_in, p);
     eager_result1 = std::get<0>(eager_results).to("cpu");
     eager_result2 = std::get<1>(eager_results).to("cpu");
   });
 
   SetSeed();
-  auto lazy_h_in = in.to(torch::kHABANA);
+  auto lazy_h_in = in.to(torch::kHPU);
   auto lazy_results = torch::_fused_dropout(lazy_h_in, p);
 
   auto lResult1 = std::get<0>(lazy_results).to("cpu");
@@ -44,7 +44,7 @@ TEST_F(LazyRandomGenKernelTest, RandpermOutTest) {
 
   c10::optional<at::ScalarType> dtype = c10::ScalarType::Int;
 
-  c10::optional<at::Device> hb_device = at::DeviceType::HABANA;
+  c10::optional<at::Device> hb_device = at::DeviceType::HPU;
   at::TensorOptions hb_options =
       at::TensorOptions().dtype(dtype).device(hb_device);
 

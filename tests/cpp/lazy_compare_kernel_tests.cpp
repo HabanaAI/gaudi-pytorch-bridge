@@ -21,7 +21,7 @@ TEST_F(LazyCompareKernelTest, EqScalarTest) {
   float compVal = 1.1f;
   auto out_cpu = torch::eq(A, compVal);
 
-  auto hA = A.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
   auto result = torch::eq(hA, compVal);
   torch::Tensor out_hpu = result.to(torch::kCPU);
 
@@ -36,8 +36,8 @@ TEST_F(LazyCompareKernelTest, EqTensorTest) {
   torch::Tensor B = torch::randn(dimentions);
 
   auto expected = torch::eq(A, B);
-  auto hA = A.to(torch::kHABANA);
-  auto hB = B.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
+  auto hB = B.to(torch::kHPU);
 
   auto result = torch::eq(hA, hB);
   torch::Tensor habanaGenerated = result.to(torch::kCPU);
@@ -52,7 +52,7 @@ TEST_F(LazyCompareKernelTest, LtScalarTest) {
   float compVal = 1.1f;
   auto out_cpu = torch::lt(A, compVal);
 
-  auto hA = A.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
   auto result = torch::lt(hA, compVal);
   torch::Tensor out_hpu = result.to(torch::kCPU);
 
@@ -67,8 +67,8 @@ TEST_F(LazyCompareKernelTest, LtTensorTest) {
   torch::Tensor B = torch::randn(dimentions);
 
   auto expected = torch::lt(A, B);
-  auto hA = A.to(torch::kHABANA);
-  auto hB = B.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
+  auto hB = B.to(torch::kHPU);
 
   auto result = torch::lt(hA, hB);
   torch::Tensor habanaGenerated = result.to(torch::kCPU);
@@ -83,7 +83,7 @@ TEST_F(LazyCompareKernelTest, GeScalarTest) {
   float compVal = 1.1f;
   auto out_cpu = torch::ge(A, compVal);
 
-  auto hA = A.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
   auto result = torch::ge(hA, compVal);
   torch::Tensor out_hpu = result.to(torch::kCPU);
 
@@ -98,8 +98,8 @@ TEST_F(LazyCompareKernelTest, GeTensorTest) {
   torch::Tensor B = torch::randn(dimentions);
 
   auto expected = torch::ge(A, B);
-  auto hA = A.to(torch::kHABANA);
-  auto hB = B.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
+  auto hB = B.to(torch::kHPU);
 
   auto result = torch::ge(hA, hB);
   torch::Tensor habanaGenerated = result.to(torch::kCPU);
@@ -114,7 +114,7 @@ TEST_F(LazyCompareKernelTest, LeScalarTest) {
   float compVal = 1.1f;
   auto out_cpu = torch::le(A, compVal);
 
-  auto hA = A.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
   auto result = torch::le(hA, compVal);
   torch::Tensor out_hpu = result.to(torch::kCPU);
 
@@ -128,8 +128,8 @@ TEST_F(LazyCompareKernelTest, LeTensorTest) {
   torch::Tensor B = torch::tensor(1.0);
 
   auto expected = torch::le(A, B);
-  auto hA = A.to(torch::kHABANA);
-  auto hB = B.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
+  auto hB = B.to(torch::kHPU);
 
   auto result = torch::le(hA, hB);
   torch::Tensor habanaGenerated = result.to(torch::kCPU);
@@ -142,7 +142,7 @@ TEST_F(LazyCompareKernelTest, NeScalarTest) {
   float compVal = 1.1f;
   auto out_cpu = torch::ne(A, compVal);
 
-  auto hA = A.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
   auto result = torch::ne(hA, compVal);
   torch::Tensor out_hpu = result.to(torch::kCPU);
 
@@ -157,8 +157,8 @@ TEST_F(LazyCompareKernelTest, NeTensorTest) {
   torch::Tensor B = torch::randn(dimensions);
 
   auto expected = torch::ne(A, B);
-  auto hA = A.to(torch::kHABANA);
-  auto hB = B.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
+  auto hB = B.to(torch::kHPU);
 
   auto result = torch::ne(hA, hB);
   torch::Tensor habanaGenerated = result.to(torch::kCPU);

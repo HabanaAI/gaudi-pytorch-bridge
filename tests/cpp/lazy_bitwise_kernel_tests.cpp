@@ -21,8 +21,8 @@ class LazyBitwiseKernelTest : public habana_lazy_test::LazyTest {};
 TEST_F(LazyBitwiseKernelTest, BitwiseAndTest) {
   torch::Tensor A = torch::randint(-10, 10, {3, 2}) > 0;
   torch::Tensor B = torch::randint(-10, 10, {3, 2}) > 0;
-  torch::Tensor hA = A.to(torch::kHABANA);
-  torch::Tensor hB = B.to(torch::kHABANA);
+  torch::Tensor hA = A.to(torch::kHPU);
+  torch::Tensor hB = B.to(torch::kHPU);
   torch::Tensor out = torch::bitwise_and(hA, hB);
 
   torch::Tensor out_cpu = torch::bitwise_and(A, B);
@@ -33,8 +33,8 @@ TEST_F(LazyBitwiseKernelTest, BitwiseAndTest) {
 TEST_F(LazyBitwiseKernelTest, BitwiseXorTest) {
   torch::Tensor A = torch::randint(-10, 10, {3, 2}) > 0;
   torch::Tensor B = torch::randint(-10, 10, {3, 2}) > 0;
-  torch::Tensor hA = A.to(torch::kHABANA);
-  torch::Tensor hB = B.to(torch::kHABANA);
+  torch::Tensor hA = A.to(torch::kHPU);
+  torch::Tensor hB = B.to(torch::kHPU);
   torch::Tensor out = torch::bitwise_xor(hA, hB);
 
   torch::Tensor out_cpu = torch::bitwise_xor(A, B);
@@ -45,7 +45,7 @@ TEST_F(LazyBitwiseKernelTest, BitwiseXorTest) {
 
 TEST_F(LazyBitwiseKernelTest, BitwiseNotTest) {
   torch::Tensor A = torch::randint(-10, 10, {3, 2}) > 0;
-  torch::Tensor hA = A.to(torch::kHABANA);
+  torch::Tensor hA = A.to(torch::kHPU);
   torch::Tensor out = torch::bitwise_not(hA);
 
   torch::Tensor out_cpu = torch::bitwise_not(A);

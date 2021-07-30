@@ -24,7 +24,7 @@ namespace habana {
 struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
   HABANAGuardImpl() = default;
   at::DeviceType type() const override {
-    return at::DeviceType::HABANA;
+    return at::DeviceType::HPU;
   }
   at::Device exchangeDevice(at::Device d) const override {
     TORCH_INTERNAL_ASSERT(d.type() == type());
@@ -119,7 +119,7 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
         habana::HPUDeviceAllocator::allocator_active_device_id,
         " != 0");
     return at::Device(
-        at::DeviceType::HABANA,
+        at::DeviceType::HPU,
         habana::HPUDeviceAllocator::allocator_active_device_id);
   }
   void setDevice(at::Device d) const override {
@@ -143,13 +143,13 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
   at::Stream getStream(UNUSED at::Device d) const noexcept override {
     // no-op
     return at::Stream(
-        at::Stream::DEFAULT, at::Device(at::DeviceType::HABANA, -1));
+        at::Stream::DEFAULT, at::Device(at::DeviceType::HPU, -1));
   }
   // NB: These do NOT set the current device
   at::Stream exchangeStream(UNUSED at::Stream s) const noexcept override {
     // no-op
     return at::Stream(
-        at::Stream::DEFAULT, at::Device(at::DeviceType::HABANA, -1));
+        at::Stream::DEFAULT, at::Device(at::DeviceType::HPU, -1));
   }
   at::DeviceIndex deviceCount() const noexcept override {
     return 1;

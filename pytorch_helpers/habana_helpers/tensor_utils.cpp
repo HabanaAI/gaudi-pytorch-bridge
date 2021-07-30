@@ -206,7 +206,7 @@ at::Tensor habana_helpers::scalar_to_device_tensor(
     const unsigned num_dimensions) {
   auto options = self.options();
   TORCH_CHECK(
-      options.device().type() == c10::DeviceType::HABANA,
+      options.device().type() == c10::DeviceType::HPU,
       "Wrong device: ",
       options.device().type());
   auto output = at::empty(std::vector<int64_t>(num_dimensions, 1), options);

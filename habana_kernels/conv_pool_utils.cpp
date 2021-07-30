@@ -41,7 +41,7 @@ void check_pool_params(
     const at::IntArrayRef dilation,
     bool ceil_mode) {
   TORCH_CHECK(
-      input.device().type() == c10::DeviceType::HABANA,
+      input.device().type() == c10::DeviceType::HPU,
       "input is not habana at::Tensor");
 
   TORCH_CHECK(
@@ -87,7 +87,7 @@ void check_convolution_params(
           [](int64_t x) { return x == 0; }),
       "convolution_hpu doesn't support output padding");
   TORCH_CHECK(
-      weight.device().type() == c10::DeviceType::HABANA,
+      weight.device().type() == c10::DeviceType::HPU,
       "weight is not habana at::Tensor");
   TORCH_CHECK(weight.ndimension() == 4, "weight tensordimension count  != 4");
 
@@ -107,7 +107,7 @@ void check_convolution_params(
   if (inputs.size() > 2) {
     at::Tensor bias = inputs[2];
     TORCH_CHECK(
-        bias.device().type() == c10::DeviceType::HABANA,
+        bias.device().type() == c10::DeviceType::HPU,
         "bias is not habana at::Tensor");
     TORCH_CHECK(bias.dim() == 1, "bias at::Tensor idimension count  != 1");
   }
@@ -117,7 +117,7 @@ void check_convolution_params(
           dilation.cbegin(), dilation.cend(), [](int64_t x) { return x >= 1; }),
       "convolution_hpu doesn't support dilation with given dilation factor");
   TORCH_CHECK(
-      input.device().type() == c10::DeviceType::HABANA,
+      input.device().type() == c10::DeviceType::HPU,
       "input is not habana at::Tensor");
   TORCH_CHECK(
       stride.size() == 2, "stride size != 2 unsupported by convolution_hpu");

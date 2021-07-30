@@ -1389,7 +1389,7 @@ IValPtrShared castConstantTensor(IValPtrShared ival) {
                                               : c10::ScalarType::Float;
     tensor = tensor.to(dst_type);
   }
-  auto new_tensor = tensor.to(c10::kHABANA);
+  auto new_tensor = tensor.to(c10::kHPU);
   IValPtrShared ivptrsh = std::make_shared<IVal>(IValue(new_tensor));
   return ivptrsh;
 }
@@ -3017,7 +3017,7 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
   bool is_all_hpu = true;
   for (auto& input : input_refs) {
     if (input.isTensor()) {
-      is_all_hpu = input.toTensor().device().type() != c10::DeviceType::HABANA
+      is_all_hpu = input.toTensor().device().type() != c10::DeviceType::HPU
           ? false
           : is_all_hpu;
     }

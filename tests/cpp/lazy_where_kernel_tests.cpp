@@ -22,8 +22,8 @@ TEST_F(LazyWhereKernelTest, WhereTest) {
   torch::Tensor y = torch::randn({2, 3});
   auto out = torch::_s_where(x > 0, x, y);
 
-  auto hx = x.to(torch::kHABANA);
-  auto hy = y.to(torch::kHABANA);
+  auto hx = x.to(torch::kHPU);
+  auto hy = y.to(torch::kHPU);
   auto outHabana = torch::_s_where(hx > 0, hx, hy);
 
   auto result = outHabana.to(torch::kCPU);
@@ -40,9 +40,9 @@ TEST_F(LazyWhereKernelTest, WhereBroadcastTest) {
 
   auto out = torch::_s_where(condBool, x, y);
 
-  auto hcond = condBool.to(torch::kHABANA);
-  auto hx = x.to(torch::kHABANA);
-  auto hy = y.to(torch::kHABANA);
+  auto hcond = condBool.to(torch::kHPU);
+  auto hx = x.to(torch::kHPU);
+  auto hy = y.to(torch::kHPU);
   auto outHabana = torch::_s_where(hcond, hx, hy);
 
   auto result = outHabana.to(torch::kCPU);

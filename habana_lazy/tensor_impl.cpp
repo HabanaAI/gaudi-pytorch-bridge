@@ -25,7 +25,7 @@ HbLazyTensorImpl::HbLazyTensorImpl(HbLazyTensor hb_tensor)
     : c10::TensorImpl(
           c10::DispatchKeySet{
               at::DispatchKey::HPU,
-              at::DispatchKey::AutogradHABANA},
+              at::DispatchKey::AutogradHPU},
           c10::scalarTypeToTypeMeta(hb_tensor.dtype()),
           c10::make_optional(hb_tensor.GetDevice())),
       m_size_initialized(false),
@@ -41,7 +41,7 @@ HbLazyTensorImpl::HbLazyTensorImpl(
           std::move(tensor_storage),
           c10::DispatchKeySet{
               at::DispatchKey::HPU,
-              at::DispatchKey::AutogradHABANA},
+              at::DispatchKey::AutogradHPU},
           c10::scalarTypeToTypeMeta(hb_tensor.dtype())),
       m_size_initialized(false),
       m_tensor(std::move(hb_tensor)) {
@@ -200,6 +200,6 @@ HbInternalTensorImpl::HbInternalTensorImpl(
           std::move(tensor_storage),
           c10::DispatchKeySet{
               at::DispatchKey::HPU,
-              at::DispatchKey::AutogradHABANA},
+              at::DispatchKey::AutogradHPU},
           data_type) {}
 } // namespace habana_lazy

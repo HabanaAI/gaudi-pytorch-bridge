@@ -262,9 +262,9 @@ at::Tensor get_tensor_for_scalar(
   if (map_it == context->scalar_to_tensor_map.end()) {
     if (options.has_dtype()) {
       alpha_tensor =
-          at::tensor(alpha).to(options.dtype()).to(c10::kHABANA, true);
+          at::tensor(alpha).to(options.dtype()).to(c10::kHPU, true);
     } else {
-      alpha_tensor = at::tensor(alpha).to(c10::kHABANA, true);
+      alpha_tensor = at::tensor(alpha).to(c10::kHPU, true);
     }
     context->scalar_to_tensor_map[alpha] = alpha_tensor;
   } else {
@@ -503,7 +503,7 @@ Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src, bool non_blocking) {
       }
       c10 ::Allocator* allocator;
       allocator = habana::getHABANADeviceAllocator();
-      int64_t nelements = prod_intlist(self.sizes());
+      int64_t nelements = multiply_integers(self.sizes());
       int elem_size = self.dtype().itemsize();
       int64_t size_bytes = nelements * elem_size;
       auto storage_impl = c10::make_intrusive<StorageImpl>(
@@ -577,8 +577,8 @@ Tensor& copy_hpu_lazy_(Tensor& self, const Tensor& src, bool non_blocking) {
   const auto dst_device = self.device().type();
 
   bool is_d2d_copy = false;
-  if (src_device == c10::DeviceType::HABANA &&
-      dst_device == c10::DeviceType::HABANA) {
+  if (src_device == c10::DeviceType::HPU &&
+      dst_device == c10::DeviceType::HPU) {
     is_d2d_copy = true;
   }
   if (IsHbLazyTensor(src) && !is_d2d_copy) {
@@ -609,7 +609,7 @@ Tensor& copy_hpu_lazy_(Tensor& self, const Tensor& src, bool non_blocking) {
   if (!is_d2d_copy) {
     if (src_device == c10::DeviceType::CPU) {
       self = copy_hpu_lazy_H2D(self, src, non_blocking);
-    } else if (src_device == c10::DeviceType::HABANA) {
+    } else if (src_device == c10::DeviceType::HPU) {
       self = copy_hpu_lazy_D2H(self, src, non_blocking);
     }
   } else {
@@ -827,9 +827,9 @@ void AddMemcpy(Tensor& src, Tensor& dst) {
 Tensor CreateDeviceTensorFromScalar(Scalar value, c10::ScalarType scalar_type) {
   Tensor value_tensor;
   if (scalar_type == c10::ScalarType::Float)
-    value_tensor = at::tensor(value.toFloat()).to(c10::kHABANA, true);
+    value_tensor = at::tensor(value.toFloat()).to(c10::kHPU, true);
   else if (scalar_type == c10::ScalarType::Int)
-    value_tensor = at::tensor(value.toInt()).to(c10::kHABANA, true);
+    value_tensor = at::tensor(value.toInt()).to(c10::kHPU, true);
   return value_tensor;
 }
 
@@ -992,9 +992,9 @@ Tensor& addcdiv_hpu_lazy_(
     const Tensor& tensor2,
     Scalar alpha) {
   PT_LAZY_TRACE;
-  auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHABANA);
-  auto hl_tensor1 = GetOrCreateHbLazyTensor(tensor1, c10::kHABANA);
-  auto hl_tensor2 = GetOrCreateHbLazyTensor(tensor2, c10::kHABANA);
+  auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
+  auto hl_tensor1 = GetOrCreateHbLazyTensor(tensor1, c10::kHPU);
+  auto hl_tensor2 = GetOrCreateHbLazyTensor(tensor2, c10::kHPU);
 
   auto alpha_float = alpha.toFloat();
   if (alpha_float == 1.0) {
@@ -1048,7 +1048,7 @@ Tensor add_tensor_hpu_lazy(
     at::Tensor alpha_tensor =
         get_tensor_for_scalar(alpha_float, other.options());
 
-    auto hl_alpha = GetOrCreateHbLazyTensor(alpha_tensor, c10::kHABANA);
+    auto hl_alpha = GetOrCreateHbLazyTensor(alpha_tensor, c10::kHPU);
     auto mul_out = mul_tensor_hpu_lazy(other, alpha_tensor);
     return add_tensor_hpu_lazy(self, mul_out, 1.0);
   } else {
@@ -1063,7 +1063,7 @@ Tensor add_tensor_hpu_lazy(
 }
 
 Tensor add_scalar_hpu_lazy(const Tensor& self, Scalar other, Scalar alpha) {
-  auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHABANA);
+  auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
   auto hl_other = GetIrValueForScalar(other);
   auto hl_alpha = GetIrValueForScalar(alpha);
 
@@ -1130,7 +1130,7 @@ Tensor& sub_tensor_hpu_lazy_(Tensor& self, const Tensor& other, Scalar alpha) {
 }
 
 Tensor sub_scalar_hpu_lazy(const Tensor& self, Scalar other, Scalar alpha) {
-  auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHABANA);
+  auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
   auto hl_other = GetIrValueForScalar(other);
   auto hl_alpha = GetIrValueForScalar(alpha);
 
@@ -1169,7 +1169,7 @@ Tensor& sub_scalar_hpu_lazy_(Tensor& self, Scalar other, Scalar alpha) {
 }
 Tensor rsub_scalar_hpu_lazy(const Tensor& self, Scalar other, Scalar alpha) {
   PT_LAZY_TRACE;
-  auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHABANA);
+  auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
   auto hl_other = GetIrValueForScalar(other);
   auto hl_alpha = GetIrValueForScalar(alpha);
 
@@ -1331,8 +1331,8 @@ Tensor pow_scalar_tensor_hpu_lazy(Scalar other, const Tensor& self) {
 
 Tensor maximum_hpu_lazy(const Tensor& self, const Tensor& other) {
   PT_LAZY_TRACE;
-  auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHABANA);
-  auto hl_other = GetOrCreateHbLazyTensor(other, c10::kHABANA);
+  auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
+  auto hl_other = GetOrCreateHbLazyTensor(other, c10::kHPU);
 
   auto node = ir::Node::Create(
       Symbol::fromQualString("aten::maximum"),
@@ -1360,8 +1360,8 @@ Tensor maximum_hpu_lazy(const Tensor& self, const Tensor& other) {
 
 Tensor minimum_hpu_lazy(const Tensor& self, const Tensor& other) {
   PT_LAZY_TRACE;
-  auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHABANA);
-  auto hl_other = GetOrCreateHbLazyTensor(other, c10::kHABANA);
+  auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
+  auto hl_other = GetOrCreateHbLazyTensor(other, c10::kHPU);
 
   auto node = ir::Node::Create(
       Symbol::fromQualString("aten::minimum"),
@@ -1446,7 +1446,7 @@ Tensor ne_tensor_hpu_lazy(const Tensor& self, const Tensor& other) {
 
 Tensor all_hpu_lazy(const Tensor& self) {
   PT_LAZY_TRACE;
-  auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHABANA);
+  auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
   auto node = ir::Node::Create(
       Symbol::fromQualString("aten::all"), {hl_self.GetIrValue()});
 
@@ -1473,7 +1473,7 @@ Tensor all_hpu_lazy(const Tensor& self) {
 
 Tensor all_dim_hpu_lazy(const Tensor& self, int64_t dim, bool keepdim) {
   PT_LAZY_TRACE;
-  auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHABANA);
+  auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
   ir::NodePtr node = std::make_shared<ir::AllDim>(self, dim, keepdim);
 
   auto result = empty_hpu_lazy(
@@ -1760,13 +1760,13 @@ Tensor embedding_bag_sum_fwd_hpu_lazy(
       Symbol::fromQualString("aten::embedding_bag_sum_fwd"), {});
 
   std::vector<HbLazyTensor> hl_tensors;
-  hl_tensors.push_back(GetOrCreateHbLazyTensor(input, c10::kHABANA));
-  hl_tensors.push_back(GetOrCreateHbLazyTensor(indices_fwd, c10::kHABANA));
-  hl_tensors.push_back(GetOrCreateHbLazyTensor(offsets_fwd, c10::kHABANA));
-  hl_tensors.push_back(GetOrCreateHbLazyTensor(valid_count, c10::kHABANA));
-  hl_tensors.push_back(GetOrCreateHbLazyTensor(indices_bwd, c10::kHABANA));
-  hl_tensors.push_back(GetOrCreateHbLazyTensor(offsets_bwd, c10::kHABANA));
-  hl_tensors.push_back(GetOrCreateHbLazyTensor(grad_weight, c10::kHABANA));
+  hl_tensors.push_back(GetOrCreateHbLazyTensor(input, c10::kHPU));
+  hl_tensors.push_back(GetOrCreateHbLazyTensor(indices_fwd, c10::kHPU));
+  hl_tensors.push_back(GetOrCreateHbLazyTensor(offsets_fwd, c10::kHPU));
+  hl_tensors.push_back(GetOrCreateHbLazyTensor(valid_count, c10::kHPU));
+  hl_tensors.push_back(GetOrCreateHbLazyTensor(indices_bwd, c10::kHPU));
+  hl_tensors.push_back(GetOrCreateHbLazyTensor(offsets_bwd, c10::kHPU));
+  hl_tensors.push_back(GetOrCreateHbLazyTensor(grad_weight, c10::kHPU));
 
   for (auto& i : hl_tensors) {
     node->AddInput(i.GetIrValue());
@@ -1811,10 +1811,10 @@ Tensor& embedding_bag_sum_bwd_out_hpu_lazy(
       Symbol::fromQualString("aten::embedding_bag_sum_bwd.out"), {});
 
   std::vector<HbLazyTensor> hl_tensors;
-  hl_tensors.push_back(GetOrCreateHbLazyTensor(input, c10::kHABANA));
-  hl_tensors.push_back(GetOrCreateHbLazyTensor(indices_bwd, c10::kHABANA));
-  hl_tensors.push_back(GetOrCreateHbLazyTensor(offsets_bwd, c10::kHABANA));
-  hl_tensors.push_back(GetOrCreateHbLazyTensor(valid_count_bwd, c10::kHABANA));
+  hl_tensors.push_back(GetOrCreateHbLazyTensor(input, c10::kHPU));
+  hl_tensors.push_back(GetOrCreateHbLazyTensor(indices_bwd, c10::kHPU));
+  hl_tensors.push_back(GetOrCreateHbLazyTensor(offsets_bwd, c10::kHPU));
+  hl_tensors.push_back(GetOrCreateHbLazyTensor(valid_count_bwd, c10::kHPU));
 
   for (auto& i : hl_tensors) {
     node->AddInput(i.GetIrValue());
@@ -1929,7 +1929,7 @@ Tensor& scatter_inplace_src_hpu_lazy(
   // Create result tensor to store output of scatter node
   auto result = empty_hpu_lazy(
       self.sizes(), self.options(), self.suggest_memory_format(), false);
-  auto hl_result = habana_lazy::GetOrCreateHbLazyTensor(result, c10::kHABANA);
+  auto hl_result = habana_lazy::GetOrCreateHbLazyTensor(result, c10::kHPU);
   habana_lazy::ir::Value& res = hl_result.CurrentIrValue();
   res.m_index = 0;
   res.SetNode(
@@ -1974,7 +1974,7 @@ Tensor& scatter_inplace_value_hpu_lazy(
   // Create result tensor to store output of scatter node
   auto result = empty_hpu_lazy(
       self.sizes(), self.options(), self.suggest_memory_format(), false);
-  auto hl_result = GetOrCreateHbLazyTensor(result, c10::kHABANA);
+  auto hl_result = GetOrCreateHbLazyTensor(result, c10::kHPU);
   ir::Value& res = hl_result.CurrentIrValue();
   res.m_index = 0;
   res.SetNode(
@@ -2063,7 +2063,7 @@ Tensor& scatter_add_inplace_src_hpu_lazy(
   // Create result tensor to store output of scatter node
   auto result = empty_hpu_lazy(
       self.sizes(), self.options(), self.suggest_memory_format(), false);
-  auto hl_result = habana_lazy::GetOrCreateHbLazyTensor(result, c10::kHABANA);
+  auto hl_result = habana_lazy::GetOrCreateHbLazyTensor(result, c10::kHPU);
   habana_lazy::ir::Value& res = hl_result.CurrentIrValue();
   res.m_index = 0;
   res.SetNode(
@@ -2272,7 +2272,7 @@ Tensor nonzero_hpu_lazy(const Tensor& self) {
   auto node = std::make_shared<ir::Slice>(where_tensor, 0, 0, end, 1);
   auto result = empty_hpu_lazy(
       sliced_shape, hb_options, self.suggest_memory_format(), true);
-  auto hl_result = GetOrCreateHbLazyTensor(result, c10::kHABANA);
+  auto hl_result = GetOrCreateHbLazyTensor(result, c10::kHPU);
   ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
   out.SetNode(
@@ -2410,7 +2410,7 @@ Tensor index_select_hpu_lazy(
   auto result = empty_hpu_lazy(
       shape, self.options(), self.suggest_memory_format(), false);
 
-  auto hl_result = GetOrCreateHbLazyTensor(result, c10::kHABANA);
+  auto hl_result = GetOrCreateHbLazyTensor(result, c10::kHPU);
 
   ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
@@ -2558,7 +2558,7 @@ Tensor select_hpu_lazy(const Tensor& self, int64_t dim, int64_t index) {
 
 Tensor& arange_hpu_lazy(Tensor& output, Scalar start, Scalar end, Scalar step) {
   PT_LAZY_TRACE;
-  auto hl_result = GetOrCreateHbLazyTensor(output, c10::kHABANA);
+  auto hl_result = GetOrCreateHbLazyTensor(output, c10::kHPU);
   auto hl_start = GetIrValueForScalar(start);
   auto hl_end = GetIrValueForScalar(end);
   auto hl_step = GetIrValueForScalar(step);
@@ -2591,8 +2591,8 @@ Tensor& arange_hpu_lazy(Tensor& output, Scalar start, Scalar end, Scalar step) {
 
 Tensor mm_hpu_lazy(const at::Tensor& mat1, const at::Tensor& mat2) {
   PT_LAZY_TRACE;
-  auto hl_self = GetOrCreateHbLazyTensor(mat1, c10::kHABANA);
-  auto hl_other = GetOrCreateHbLazyTensor(mat2, c10::kHABANA);
+  auto hl_self = GetOrCreateHbLazyTensor(mat1, c10::kHPU);
+  auto hl_other = GetOrCreateHbLazyTensor(mat2, c10::kHPU);
 
   auto node = ir::Node::Create(
       Symbol::fromQualString("aten::mm"),
@@ -2625,9 +2625,9 @@ Tensor addmm_hpu_lazy(
     Scalar beta,
     Scalar alpha) {
   PT_LAZY_TRACE;
-  const auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHABANA);
-  const auto hl_mat1 = GetOrCreateHbLazyTensor(mat1, c10::kHABANA);
-  const auto hl_mat2 = GetOrCreateHbLazyTensor(mat2, c10::kHABANA);
+  const auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
+  const auto hl_mat1 = GetOrCreateHbLazyTensor(mat1, c10::kHPU);
+  const auto hl_mat2 = GetOrCreateHbLazyTensor(mat2, c10::kHPU);
   const auto hl_beta = GetIrValueForScalar(beta);
   const auto hl_alpha = GetIrValueForScalar(alpha);
 
@@ -2662,8 +2662,8 @@ Tensor& batch_gemm_out_hpu_lazy(
     const Tensor& self,
     const Tensor& mat2) {
   PT_LAZY_TRACE;
-  const auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHABANA);
-  const auto hl_mat2 = GetOrCreateHbLazyTensor(mat2, c10::kHABANA);
+  const auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
+  const auto hl_mat2 = GetOrCreateHbLazyTensor(mat2, c10::kHPU);
 
   const auto node = ir::Node::Create(
       Symbol::fromQualString("aten::bmm"),
@@ -2688,8 +2688,8 @@ Tensor& batch_gemm_out_hpu_lazy(
 
 Tensor batch_gemm_hpu_lazy(const Tensor& self, const Tensor& mat2) {
   PT_LAZY_TRACE;
-  const auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHABANA);
-  const auto hl_mat2 = GetOrCreateHbLazyTensor(mat2, c10::kHABANA);
+  const auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
+  const auto hl_mat2 = GetOrCreateHbLazyTensor(mat2, c10::kHPU);
 
   const auto node = ir::Node::Create(
       Symbol::fromQualString("aten::bmm"),
@@ -3218,9 +3218,9 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_hpu_lazy(
   const int normalized_ndim = normalized_shape.size();
   const int axis = input_ndim - normalized_ndim;
   const int64_t m =
-      prod_intlist(input_shape.cbegin(), input_shape.cbegin() + axis);
+      multiply_integers(input_shape.cbegin(), input_shape.cbegin() + axis);
   // const int64_t n =
-  //     prod_intlist(input_shape.cbegin() + axis, input_shape.cend());
+  //     multiply_integers(input_shape.cbegin() + axis, input_shape.cend());
   ir::NodePtr node = std::make_shared<ir::LayerNormForward>(
       input, normalized_shape, weight_opt, bias_opt, eps);
 
@@ -3705,7 +3705,7 @@ Tensor& randperm_hpu_lazy(
   PT_LAZY_TRACE;
 
   // resizing the output as it is coming as empty from model
-  auto hl_result = GetOrCreateHbLazyTensor(output, c10::kHABANA);
+  auto hl_result = GetOrCreateHbLazyTensor(output, c10::kHPU);
   auto out_shape = DimVector({n});
   auto out_reshaped = hl_result.getAttachedTensorImpl();
   THHTensor_resizeNd(out_reshaped, out_shape.size(), out_shape.data(), nullptr);
@@ -3796,7 +3796,7 @@ Tensor sum_dim_IntList_hpu_lazy(
         hl_cast.GetSizes(),
         hl_cast.dtype_optional());
   }
-  auto hl_self = GetOrCreateHbLazyTensor(self_cast, c10::kHABANA);
+  auto hl_self = GetOrCreateHbLazyTensor(self_cast, c10::kHPU);
   ir::NodePtr node =
       std::make_shared<ir::SumDimIntList>(self_cast, dim, keepdim, dtype);
   auto result = empty_hpu_lazy(
@@ -3905,7 +3905,7 @@ Tensor prod_dim_hpu_lazy(
     bool keepdim,
     c10::optional<ScalarType> dtype) {
   PT_LAZY_TRACE;
-  auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHABANA);
+  auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
   ir::NodePtr node =
       std::make_shared<ir::ProdDimInt>(self, dim, keepdim, dtype);
 
@@ -4012,7 +4012,7 @@ Tensor argmax_hpu_lazy(
     c10::optional<int64_t> dim,
     bool keepdim) {
   PT_LAZY_TRACE;
-  auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHABANA);
+  auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
   ir::NodePtr node = std::make_shared<ir::ArgMax>(self, dim, keepdim);
   std::vector<int64_t> shape_out;
 
@@ -4194,7 +4194,7 @@ Tensor empty_hpu_lazy(
     } else {
       allocator = habana::getHABANADeviceAllocator();
     }
-    int64_t nelements = prod_intlist(size);
+    int64_t nelements = multiply_integers(size);
     // we dont create a full storage for shape tensors but we need a backend
     // impl to get meta data
     if (is_shape_tensor != habana::ShapeTensorType::kShapeTensorNone) {
@@ -4326,7 +4326,7 @@ Tensor clone_hpu_lazy(
   static_cast<void>(memory_format);
   TORCH_CHECK(self.defined(), "src is undefined");
   TORCH_CHECK(
-      self.device().type() == c10::DeviceType::HABANA,
+      self.device().type() == c10::DeviceType::HPU,
       "Lazy kernel only supports clone on Habana Device");
   TORCH_CHECK(
       IsHbLazyTensor(self),
@@ -4424,7 +4424,7 @@ Tensor& transpose_hpu_lazy_(Tensor& self, int64_t dim0_, int64_t dim1_) {
 
 Tensor t_hpu_lazy(const Tensor& self) {
   PT_LAZY_TRACE;
-  auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHABANA);
+  auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
   auto node = ir::Node::Create(
       Symbol::fromQualString("aten::t"), {hl_self.GetIrValue()});
 
@@ -4603,8 +4603,8 @@ Tensor threshold_backward_hpu_lazy(
     const Tensor& self,
     Scalar threshold) {
   PT_LAZY_TRACE;
-  auto hl_grad = GetOrCreateHbLazyTensor(grad_output, c10::kHABANA);
-  auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHABANA);
+  auto hl_grad = GetOrCreateHbLazyTensor(grad_output, c10::kHPU);
+  auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
   auto hl_threshold = GetIrValueForScalar(threshold);
 
   auto node = ir::Node::Create(
@@ -4761,7 +4761,7 @@ at::Tensor& elu_hpu_lazy_(
 
 Tensor relu_hpu_lazy(const Tensor& input) {
   PT_LAZY_TRACE;
-  auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHABANA);
+  auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHPU);
 
   auto node = ir::Node::Create(
       Symbol::fromQualString("aten::relu"), {hl_input.GetIrValue()});
@@ -4893,7 +4893,7 @@ at::Tensor one_hot_hpu_lazy(const Tensor& self, int64_t num_classes) {
 
 Tensor floor_hpu_lazy(const Tensor& input) {
   PT_LAZY_TRACE;
-  auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHABANA);
+  auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHPU);
 
   auto node = ir::Node::Create(
       Symbol::fromQualString("aten::floor"), {hl_input.GetIrValue()});
@@ -4917,7 +4917,7 @@ Tensor floor_hpu_lazy(const Tensor& input) {
 
 Tensor& floor_hpu_lazy_(Tensor& input) {
   PT_LAZY_TRACE;
-  auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHABANA);
+  auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHPU);
   auto hl_result = GetHbLazyTensor(input);
   updateDstDependencies(hl_result, input, true);
 
@@ -4948,7 +4948,7 @@ Tensor& floor_hpu_lazy_(Tensor& input) {
 
 Tensor log_hpu_lazy(const Tensor& input) {
   PT_LAZY_TRACE;
-  auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHABANA);
+  auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHPU);
 
   auto node = ir::Node::Create(
       Symbol::fromQualString("aten::log"), {hl_input.GetIrValue()});
@@ -4972,7 +4972,7 @@ Tensor log_hpu_lazy(const Tensor& input) {
 
 Tensor& log_hpu_lazy_(Tensor& input) {
   PT_LAZY_TRACE;
-  auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHABANA);
+  auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHPU);
   auto hl_result = GetHbLazyTensor(input);
   updateDstDependencies(hl_result, input, true);
   auto node = ir::Node::Create(
@@ -5002,7 +5002,7 @@ Tensor& log_hpu_lazy_(Tensor& input) {
 
 Tensor log2_hpu_lazy(const Tensor& input) {
   PT_LAZY_TRACE;
-  auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHABANA);
+  auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHPU);
 
   auto node = ir::Node::Create(
       Symbol::fromQualString("aten::log2"), {hl_input.GetIrValue()});
@@ -5026,7 +5026,7 @@ Tensor log2_hpu_lazy(const Tensor& input) {
 
 Tensor& log2_hpu_lazy_(Tensor& input) {
   PT_LAZY_TRACE;
-  auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHABANA);
+  auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHPU);
   auto hl_result = GetHbLazyTensor(input);
   updateDstDependencies(hl_result, input, true);
   auto node = ir::Node::Create(
@@ -5115,7 +5115,7 @@ Tensor upsample_nearest2d_backward_hpu_lazy(
 
 Tensor sigmoid_hpu_lazy(const Tensor& input) {
   PT_LAZY_TRACE;
-  auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHABANA);
+  auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHPU);
 
   auto node = ir::Node::Create(
       Symbol::fromQualString("aten::sigmoid"), {hl_input.GetIrValue()});
@@ -5140,8 +5140,8 @@ Tensor sigmoid_hpu_lazy(const Tensor& input) {
 
 Tensor sigmoid_backward_hpu_lazy(const Tensor& grad_in, const Tensor& input) {
   PT_LAZY_TRACE;
-  auto hl_grad_in = GetOrCreateHbLazyTensor(grad_in, c10::kHABANA);
-  auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHABANA);
+  auto hl_grad_in = GetOrCreateHbLazyTensor(grad_in, c10::kHPU);
+  auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHPU);
 
   auto node = ir::Node::Create(
       Symbol::fromQualString("aten::sigmoid_backward"),
@@ -5188,7 +5188,7 @@ Tensor hardsigmoid_backward_hpu_lazy(
 // make sqrt as inplace op for workaround in SW-26172
 Tensor sqrt_hpu_lazy_(Tensor& input) {
   PT_LAZY_TRACE;
-  auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHABANA);
+  auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHPU);
   updateDstDependencies(hl_input, input, true);
   auto node = ir::Node::Create(
       Symbol::fromQualString("aten::sqrt_"), {hl_input.GetIrValue()});
@@ -5217,7 +5217,7 @@ Tensor sqrt_hpu_lazy_(Tensor& input) {
 }
 Tensor sqrt_hpu_lazy(const Tensor& input) {
   PT_LAZY_TRACE;
-  auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHABANA);
+  auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHPU);
 
   auto node = ir::Node::Create(
       Symbol::fromQualString("aten::sqrt"), {hl_input.GetIrValue()});
@@ -5242,7 +5242,7 @@ Tensor sqrt_hpu_lazy(const Tensor& input) {
 
 Tensor tanh_hpu_lazy(const Tensor& input) {
   PT_LAZY_TRACE;
-  auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHABANA);
+  auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHPU);
 
   auto node = ir::Node::Create(
       Symbol::fromQualString("aten::tanh"), {hl_input.GetIrValue()});
@@ -5272,8 +5272,8 @@ Tensor& tanh_out_hpu_lazy(Tensor& out, const Tensor& self) {
 
 Tensor tanh_backward_hpu_lazy(const Tensor& grad_in, const Tensor& input) {
   PT_LAZY_TRACE;
-  auto hl_grad_in = GetOrCreateHbLazyTensor(grad_in, c10::kHABANA);
-  auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHABANA);
+  auto hl_grad_in = GetOrCreateHbLazyTensor(grad_in, c10::kHPU);
+  auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHPU);
 
   auto node = ir::Node::Create(
       Symbol::fromQualString("aten::tanh_backward"),
@@ -5298,7 +5298,7 @@ Tensor tanh_backward_hpu_lazy(const Tensor& grad_in, const Tensor& input) {
 }
 
 Tensor gelu_hpu_lazy(const Tensor& self) {
-  auto hl_input = GetOrCreateHbLazyTensor(self, c10::kHABANA);
+  auto hl_input = GetOrCreateHbLazyTensor(self, c10::kHPU);
 
   auto node = ir::Node::Create(
       Symbol::fromQualString("aten::gelu"), {hl_input.GetIrValue()});
@@ -5322,8 +5322,8 @@ Tensor gelu_hpu_lazy(const Tensor& self) {
 }
 
 Tensor gelu_backward_hpu_lazy(const Tensor& grad, const Tensor& self) {
-  auto hl_grad = GetOrCreateHbLazyTensor(grad, c10::kHABANA);
-  auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHABANA);
+  auto hl_grad = GetOrCreateHbLazyTensor(grad, c10::kHPU);
+  auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
 
   auto node = ir::Node::Create(
       Symbol::fromQualString("aten::gelu_backward"),
@@ -5426,7 +5426,7 @@ Tensor& clamp_hpu_lazy_(
 
 Tensor round_hpu_lazy(const Tensor& input) {
   PT_LAZY_TRACE;
-  auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHABANA);
+  auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHPU);
 
   auto node = ir::Node::Create(
       Symbol::fromQualString("aten::round"), {hl_input.GetIrValue()});
@@ -5450,7 +5450,7 @@ Tensor round_hpu_lazy(const Tensor& input) {
 
 Tensor& round_hpu_lazy_(Tensor& input) {
   PT_LAZY_TRACE;
-  auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHABANA);
+  auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHPU);
   auto hl_result = GetHbLazyTensor(input);
   updateDstDependencies(hl_result, input, true);
   auto node = ir::Node::Create(
@@ -5478,7 +5478,7 @@ Tensor& round_hpu_lazy_(Tensor& input) {
 
 Tensor rsqrt_hpu_lazy(const Tensor& input) {
   PT_LAZY_TRACE;
-  auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHABANA);
+  auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHPU);
 
   auto node = ir::Node::Create(
       Symbol::fromQualString("aten::rsqrt"), {hl_input.GetIrValue()});
@@ -5502,7 +5502,7 @@ Tensor rsqrt_hpu_lazy(const Tensor& input) {
 
 Tensor& rsqrt_hpu_lazy_(Tensor& input) {
   PT_LAZY_TRACE;
-  auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHABANA);
+  auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHPU);
   auto hl_result = GetHbLazyTensor(input);
   updateDstDependencies(hl_result, input, true);
   auto node = ir::Node::Create(
@@ -5530,7 +5530,7 @@ Tensor& rsqrt_hpu_lazy_(Tensor& input) {
 
 Tensor isfinite_hpu_lazy(const Tensor& input) {
   PT_LAZY_TRACE;
-  auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHABANA);
+  auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHPU);
 
   auto node = ir::Node::Create(
       Symbol::fromQualString("aten::isfinite"), {hl_input.GetIrValue()});
@@ -5588,7 +5588,7 @@ Scalar _local_scalar_dense_hpu_lazy(const Tensor& self) {
   // getting flled has finished before we start copying
   if (IsHbLazyTensor(self)) {
     HbLazyTensor hb_tensor = GetOrCreateHbLazyTensor(self, self.device());
-    if (self.device().type() == c10::DeviceType::HABANA) {
+    if (self.device().type() == c10::DeviceType::HPU) {
       // Trigger point execution
       HbLazyTensor::StepMarker({});
     }
@@ -5652,13 +5652,13 @@ optimizer_sparse_adagrad_with_valid_count_hpu_lazy(
       Symbol::fromQualString("hpu::habanaOptimizerSparseAdagrad"), {});
 
   std::vector<HbLazyTensor> hl_tensors;
-  hl_tensors.push_back(GetOrCreateHbLazyTensor(gradients, c10::kHABANA));
-  hl_tensors.push_back(GetOrCreateHbLazyTensor(weights_in, c10::kHABANA));
-  hl_tensors.push_back(GetOrCreateHbLazyTensor(moments_in, c10::kHABANA));
-  hl_tensors.push_back(GetOrCreateHbLazyTensor(indices, c10::kHABANA));
-  hl_tensors.push_back(GetOrCreateHbLazyTensor(learning_rate, c10::kHABANA));
+  hl_tensors.push_back(GetOrCreateHbLazyTensor(gradients, c10::kHPU));
+  hl_tensors.push_back(GetOrCreateHbLazyTensor(weights_in, c10::kHPU));
+  hl_tensors.push_back(GetOrCreateHbLazyTensor(moments_in, c10::kHPU));
+  hl_tensors.push_back(GetOrCreateHbLazyTensor(indices, c10::kHPU));
+  hl_tensors.push_back(GetOrCreateHbLazyTensor(learning_rate, c10::kHPU));
   hl_tensors.push_back(
-      GetOrCreateHbLazyTensor(valid_count_tensor, c10::kHABANA));
+      GetOrCreateHbLazyTensor(valid_count_tensor, c10::kHPU));
 
   for (auto& i : hl_tensors) {
     node->AddInput(i.GetIrValue());
@@ -5711,8 +5711,8 @@ void optimizer_adamw_hpu_lazy(
     updateDstDependencies(hlweight, weights[i], true);
   }
 
-  auto hl_lr_t = GetOrCreateHbLazyTensor(lr_t, c10::kHABANA);
-  auto hl_neg_step_t = GetOrCreateHbLazyTensor(neg_step_t, c10::kHABANA);
+  auto hl_lr_t = GetOrCreateHbLazyTensor(lr_t, c10::kHPU);
+  auto hl_neg_step_t = GetOrCreateHbLazyTensor(neg_step_t, c10::kHPU);
 
   ir::NodePtr node = std::make_shared<ir::OptimizerFusedAdamw>(
       gradients,
@@ -6072,7 +6072,7 @@ void optimizer_lamb_phase2_hpu_lazy(
     updateDstDependencies(hl_weights, weights[i], true);
   }
 
-  auto nstep_t = at::tensor(-step).to(c10::kHABANA, true);
+  auto nstep_t = at::tensor(-step).to(c10::kHPU, true);
 
   // Build Params for the graph
   ir::NodePtr node = std::make_shared<ir::OptimizerFusedLambPhase2>(
@@ -6269,9 +6269,9 @@ Tensor& bitwise_and_out_hpu_lazy(
     const Tensor& self,
     const Tensor& other) {
   PT_LAZY_TRACE;
-  auto hl_out = GetOrCreateHbLazyTensor(out, c10::kHABANA);
-  auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHABANA);
-  auto hl_other = GetOrCreateHbLazyTensor(other, c10::kHABANA);
+  auto hl_out = GetOrCreateHbLazyTensor(out, c10::kHPU);
+  auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
+  auto hl_other = GetOrCreateHbLazyTensor(other, c10::kHPU);
   auto out_shape = BitwiseOutOperator::compute_output_shape(self, other);
   // Resize output tensor(s) to correct shape if required
   if (out.sizes().vec() != out_shape) {
@@ -6312,9 +6312,9 @@ Tensor& bitwise_or_out_hpu_lazy(
     const Tensor& self,
     const Tensor& other) {
   PT_LAZY_TRACE;
-  auto hl_out = GetOrCreateHbLazyTensor(out, c10::kHABANA);
-  auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHABANA);
-  auto hl_other = GetOrCreateHbLazyTensor(other, c10::kHABANA);
+  auto hl_out = GetOrCreateHbLazyTensor(out, c10::kHPU);
+  auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
+  auto hl_other = GetOrCreateHbLazyTensor(other, c10::kHPU);
   auto out_shape = BitwiseOutOperator::compute_output_shape(self, other);
   // Resize output tensor(s) to correct shape if required
   if (out.sizes().vec() != out_shape) {
@@ -6347,7 +6347,7 @@ Tensor& bitwise_xor_out_hpu_lazy(
     const Tensor& other) {
   PT_LAZY_TRACE;
 
-  auto hl_out = GetOrCreateHbLazyTensor(out, c10::kHABANA);
+  auto hl_out = GetOrCreateHbLazyTensor(out, c10::kHPU);
   auto out_shape = BitwiseOutOperator::compute_output_shape(self, other);
   // Resize output tensor(s) to correct shape if required
   if (out.sizes().vec() != out_shape) {
@@ -6365,7 +6365,7 @@ Tensor& bitwise_xor_out_hpu_lazy(
 Tensor& bitwise_not_out_hpu_lazy(Tensor& out, const Tensor& self) {
   PT_LAZY_TRACE;
 
-  auto hl_out = GetOrCreateHbLazyTensor(out, c10::kHABANA);
+  auto hl_out = GetOrCreateHbLazyTensor(out, c10::kHPU);
   auto out_shape = self.sizes().vec();
   // Resize output tensor(s) to correct shape if required
   if (out.sizes().vec() != out_shape) {
@@ -6419,7 +6419,7 @@ std::tuple<Tensor, Tensor, Tensor> unique2_hpu_lazy(
       self.options().dtype(self.scalar_type()),
       self.suggest_memory_format(),
       false);
-  auto hl_result = GetOrCreateHbLazyTensor(result, c10::kHABANA);
+  auto hl_result = GetOrCreateHbLazyTensor(result, c10::kHPU);
   ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
   out.SetNode(
@@ -6479,7 +6479,7 @@ std::tuple<at::Tensor, at::Tensor> max_dim_hpu_lazy(
 
 at::Tensor max_hpu_lazy(const at::Tensor& self) {
   PT_LAZY_TRACE;
-  auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHABANA);
+  auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
 
   auto node = ir::Node::Create(
       Symbol::fromQualString("aten::max"), {hl_self.GetIrValue()});
@@ -6588,7 +6588,7 @@ Tensor habana_nms_hpu_lazy(
       scores.options().dtype(c10::ScalarType::Int),
       scores.suggest_memory_format(),
       false);
-  auto hl_result = GetOrCreateHbLazyTensor(result, c10::kHABANA);
+  auto hl_result = GetOrCreateHbLazyTensor(result, c10::kHPU);
   ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
   out.SetNode(
@@ -6735,7 +6735,7 @@ Tensor& remainder_tensor_hpu_lazy_out(
     Tensor& result) {
   PT_LAZY_TRACE;
 
-  auto hl_out = GetOrCreateHbLazyTensor(result, c10::kHABANA);
+  auto hl_out = GetOrCreateHbLazyTensor(result, c10::kHPU);
   auto out_shape = BinaryOperator::compute_output_shape(self, other);
   // Resize output tensor(s) to correct shape if required
   if (result.numel() != 0 && result.sizes().vec() != out_shape) {
@@ -6755,7 +6755,7 @@ Tensor& remainder_scalar_hpu_lazy_out(
     Tensor& result) {
   PT_LAZY_TRACE;
 
-  auto hl_out = GetOrCreateHbLazyTensor(result, c10::kHABANA);
+  auto hl_out = GetOrCreateHbLazyTensor(result, c10::kHPU);
   auto out_shape = self.sizes().vec();
   // Resize output tensor(s) to correct shape if required
   if (result.numel() != 0 && result.sizes().vec() != out_shape) {

@@ -27,14 +27,14 @@ TEST_F(LazyMaskKernelTest, MaskedScaleInplaceTest) {
   double scale = rand() % 2 ? x : -1 * x;
 
   // Eager section:
-  auto hA = A.to(torch::kHABANA);
-  auto hB = B.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
+  auto hB = B.to(torch::kHPU);
   auto hExpected = masked_scale_hpu(hA, hB, scale);
   Tensor expected = hExpected.to(torch::kCPU);
 
   // Lazy Section
-  auto hAL = A.to(torch::kHABANA);
-  auto hBL = B.to(torch::kHABANA);
+  auto hAL = A.to(torch::kHPU);
+  auto hBL = B.to(torch::kHPU);
   auto hOut = _masked_scale(hAL, hBL, scale);
   Tensor out = hOut.to(kCPU);
 
@@ -48,11 +48,11 @@ TEST_F(LazyMaskKernelTest, MaskedFillInplaceTest) {
   torch::Tensor mask = torch::from_blob(data, dimentions).to(torch::kInt);
 
   torch::Tensor value = torch::randn({}); // Only 0-dim tensor accesped
-  auto hA = A.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
   auto cpuOut = A.masked_fill_(mask, value);
 
-  auto hValue = value.to(torch::kHABANA);
-  auto hMask = mask.to(torch::kHABANA);
+  auto hValue = value.to(torch::kHPU);
+  auto hMask = mask.to(torch::kHPU);
 
   auto result = hA.masked_fill_(hMask, hValue);
   Tensor hOut = result.to(kCPU);
@@ -66,10 +66,10 @@ TEST_F(LazyMaskKernelTest, MaskedFillScalarInplaceTest) {
   torch::Tensor mask = torch::from_blob(data, dimentions).to(torch::kInt);
   Scalar value = 35;
 
-  auto hA = A.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
   auto cpuOut = A.masked_fill_(mask, value);
 
-  auto hMask = mask.to(torch::kHABANA);
+  auto hMask = mask.to(torch::kHPU);
   auto result = hA.masked_fill_(hMask, value);
   Tensor hOut = result.to(kCPU);
   EXPECT_TRUE(allclose(hOut, cpuOut));

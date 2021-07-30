@@ -25,11 +25,11 @@ class MatmulBwd : public Node {
       const at::Tensor& self,
       const at::Tensor& other)
       : Node(c10::Symbol::fromQualString("aten::matmul_backward")) {
-    auto hl_grad_output = GetOrCreateHbLazyTensor(grad_output, c10::kHABANA);
+    auto hl_grad_output = GetOrCreateHbLazyTensor(grad_output, c10::kHPU);
     AddInput(hl_grad_output.GetIrValue());
-    auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHABANA);
+    auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
     AddInput(hl_self.GetIrValue());
-    auto hl_other = GetOrCreateHbLazyTensor(other, c10::kHABANA);
+    auto hl_other = GetOrCreateHbLazyTensor(other, c10::kHPU);
     AddInput(hl_other.GetIrValue());
 
     std::vector<at::Tensor> input_pt_vec{grad_output, self, other};

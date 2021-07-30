@@ -752,8 +752,8 @@ Tensor process_random_shuffle_op(
 Tensor random_shuffle_tensor_hpu(const Tensor& self, const Tensor& seed) {
   PT_KERNEL_BEGIN;
 
-  auto self_hpu = self.to(c10::DeviceType::HABANA);
-  auto seed_hpu = seed.to(c10::DeviceType::HABANA);
+  auto self_hpu = self.to(c10::DeviceType::HPU);
+  auto seed_hpu = seed.to(c10::DeviceType::HPU);
 
   std::vector<at::Tensor> pt_inputs{self_hpu, seed_hpu};
   torch::jit::Stack stack{IValue(self_hpu)};

@@ -32,7 +32,7 @@ inline void THStorage_resizeBytes(THStorage* self, ptrdiff_t size_bytes) {
 
   if (size_bytes == 0) {
     self->set_data_ptr(
-        at::DataPtr(nullptr, at::Device(at::DeviceType::HABANA, device)));
+        at::DataPtr(nullptr, at::Device(at::DeviceType::HPU, device)));
     self->set_nbytes(0);
   } else {
     at::DataPtr data = self->allocator()->allocate(size_bytes);

@@ -60,14 +60,14 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeTest) {
         torch::randn({C, C, kW, kH}, torch::requires_grad(false));
     torch::Tensor bias2 =
         torch::randn({C, C, kW, kH}, torch::requires_grad(false));
-    torch::Tensor h_bias1 = bias1.to(torch::kHABANA);
-    torch::Tensor h_bias2 = bias2.to(torch::kHABANA);
+    torch::Tensor h_bias1 = bias1.to(torch::kHPU);
+    torch::Tensor h_bias2 = bias2.to(torch::kHPU);
     torch::Tensor weight_tensor = torch::add(bias1, bias2);
     torch::Tensor h_weight_tensor = torch::add(h_bias1, h_bias2);
     // out_conv = Conv3x3(Data, weight)
     torch::Tensor in_tensor =
         torch::randn({N, C, H, W}, torch::requires_grad(false));
-    torch::Tensor h_in_tensor = in_tensor.to(torch::kHABANA);
+    torch::Tensor h_in_tensor = in_tensor.to(torch::kHPU);
     torch::Tensor h_weight_tensor_hwck =
         h_weight_tensor.permute({2, 3, 1, 0}).contiguous();
     torch::Tensor h_out_conv =
@@ -83,10 +83,10 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeTest) {
         torch::randn(C, torch::dtype(torch::kFloat).requires_grad(false));
     torch::Tensor var =
         torch::ones(C, torch::dtype(torch::kFloat).requires_grad(false));
-    torch::Tensor h_gamma = gamma.to(torch::kHABANA);
-    torch::Tensor h_beta = beta.to(torch::kHABANA);
-    torch::Tensor h_mean = mean.to(torch::kHABANA);
-    torch::Tensor h_var = var.to(torch::kHABANA);
+    torch::Tensor h_gamma = gamma.to(torch::kHPU);
+    torch::Tensor h_beta = beta.to(torch::kHPU);
+    torch::Tensor h_mean = mean.to(torch::kHPU);
+    torch::Tensor h_var = var.to(torch::kHPU);
     float mom = 0.1;
     float eps = 1e-5;
     auto h_bn_outs = torch::native_batch_norm(
@@ -111,7 +111,7 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeTest) {
     // out = add(relu_out, x)
     torch::Tensor bias3 =
         torch::randn(1, torch::dtype(torch::kFloat).requires_grad(false));
-    torch::Tensor h_bias3 = bias3.to(torch::kHABANA);
+    torch::Tensor h_bias3 = bias3.to(torch::kHPU);
     auto h_out = torch::add(h_relu_out, h_bias3);
     auto out = torch::add(relu_out, bias3);
 
@@ -162,14 +162,14 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeTest2) {
         torch::randn({C, C, kW, kH}, torch::requires_grad(false));
     torch::Tensor bias2 =
         torch::randn({C, C, kW, kH}, torch::requires_grad(false));
-    torch::Tensor h_bias1 = bias1.to(torch::kHABANA);
-    torch::Tensor h_bias2 = bias2.to(torch::kHABANA);
+    torch::Tensor h_bias1 = bias1.to(torch::kHPU);
+    torch::Tensor h_bias2 = bias2.to(torch::kHPU);
     torch::Tensor weight_tensor = torch::add(bias1, bias2);
     torch::Tensor h_weight_tensor = torch::add(h_bias1, h_bias2);
     // out_conv = Conv3x3(Data, weight)
     torch::Tensor in_tensor =
         torch::randn({N, C, H, W}, torch::requires_grad(false));
-    torch::Tensor h_in_tensor = in_tensor.to(torch::kHABANA);
+    torch::Tensor h_in_tensor = in_tensor.to(torch::kHPU);
     torch::Tensor h_weight_tensor_hwck =
         h_weight_tensor.permute({2, 3, 1, 0}).contiguous();
     torch::Tensor h_out_conv =
@@ -185,10 +185,10 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeTest2) {
         torch::randn(C, torch::dtype(torch::kFloat).requires_grad(false));
     torch::Tensor var =
         torch::ones(C, torch::dtype(torch::kFloat).requires_grad(false));
-    torch::Tensor h_gamma = gamma.to(torch::kHABANA);
-    torch::Tensor h_beta = beta.to(torch::kHABANA);
-    torch::Tensor h_mean = mean.to(torch::kHABANA);
-    torch::Tensor h_var = var.to(torch::kHABANA);
+    torch::Tensor h_gamma = gamma.to(torch::kHPU);
+    torch::Tensor h_beta = beta.to(torch::kHPU);
+    torch::Tensor h_mean = mean.to(torch::kHPU);
+    torch::Tensor h_var = var.to(torch::kHPU);
     float mom = 0.1;
     float eps = 1e-5;
     auto h_bn_outs = torch::native_batch_norm(
@@ -203,7 +203,7 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeTest2) {
     // out = add(relu_out, x)
     torch::Tensor bias3 =
         torch::randn(1, torch::dtype(torch::kFloat).requires_grad(false));
-    torch::Tensor h_bias3 = bias3.to(torch::kHABANA);
+    torch::Tensor h_bias3 = bias3.to(torch::kHPU);
     auto h_out = torch::add(h_relu_out, h_bias3);
     auto out = torch::add(relu_out, bias3);
 
@@ -260,8 +260,8 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeDebugSimple) {
               << " c7.shape : " << c7.sizes()
               << " c7.strides : " << c7.strides() << '\n';
 
-    torch::Tensor h0 = c0.to(torch::kHABANA);
-    torch::Tensor h1 = c1.to(torch::kHABANA);
+    torch::Tensor h0 = c0.to(torch::kHPU);
+    torch::Tensor h1 = c1.to(torch::kHPU);
     torch::Tensor h4 = torch::add(h0, h1);
     torch::Tensor h5 = torch::mul(h0, h1);
     torch::Tensor h6 = torch::mul(h4, h5);
@@ -315,7 +315,7 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeDebugSimple2) {
               << " c4.shape : " << c4.sizes()
               << " c4.strides : " << c4.strides() << '\n';
 
-    torch::Tensor h0 = c0.to(torch::kHABANA);
+    torch::Tensor h0 = c0.to(torch::kHPU);
     torch::Tensor h4 = torch::relu(h0);
     torch::Tensor h4_c = h4.to(torch::kCPU);
 
@@ -357,8 +357,8 @@ TEST_F(LazyDynamicShapesTest, SetDynamicModeTest1) {
       torch::randn({C, C, kW, kH}, torch::requires_grad(false));
   torch::Tensor num2 =
       torch::randn({C, C, kW, kH}, torch::requires_grad(false));
-  torch::Tensor h_num1 = num1.to(torch::kHABANA);
-  torch::Tensor h_num2 = num2.to(torch::kHABANA);
+  torch::Tensor h_num1 = num1.to(torch::kHPU);
+  torch::Tensor h_num2 = num2.to(torch::kHPU);
   torch::Tensor sum_tensor = torch::add(h_num1, h_num2);
   torch::Tensor sum_cpu = torch::add(num1, num2);
   HbLazyTensor::StepMarker({});
@@ -393,8 +393,8 @@ TEST_F(LazyDynamicShapesTest, SetDynamicModeTest2) {
       torch::randn({C, C, kW, kH}, torch::requires_grad(false));
   torch::Tensor num2 =
       torch::randn({C, C, kW, kH}, torch::requires_grad(false));
-  torch::Tensor h_num1 = num1.to(torch::kHABANA);
-  torch::Tensor h_num2 = num2.to(torch::kHABANA);
+  torch::Tensor h_num1 = num1.to(torch::kHPU);
+  torch::Tensor h_num2 = num2.to(torch::kHPU);
   torch::Tensor sum_tensor = torch::add(h_num1, h_num2);
   torch::Tensor sum_cpu = torch::add(num1, num2);
   HbLazyTensor::StepMarker({});
@@ -428,8 +428,8 @@ TEST_F(LazyDynamicShapesTest, SetDynamicModeTest3) {
       torch::randn({C, C, kW, kH}, torch::requires_grad(false));
   torch::Tensor num2 =
       torch::randn({C, C, kW, kH}, torch::requires_grad(false));
-  torch::Tensor h_num1 = num1.to(torch::kHABANA);
-  torch::Tensor h_num2 = num2.to(torch::kHABANA);
+  torch::Tensor h_num1 = num1.to(torch::kHPU);
+  torch::Tensor h_num2 = num2.to(torch::kHPU);
   torch::Tensor sum_tensor = torch::add(h_num1, h_num2);
   torch::Tensor sum_cpu = torch::add(num1, num2);
   HbLazyTensor::StepMarker({});
@@ -463,7 +463,7 @@ TEST_F(LazyDynamicShapesTest, DynamicAvgPoolBkwdTest) {
     auto cpu_out = torch::relu(cpu_pool);
 
     // fwd propagation
-    torch::Tensor tHabanaX = input_tensor.to(torch::kHABANA);
+    torch::Tensor tHabanaX = input_tensor.to(torch::kHPU);
     auto outHabana1 =
         torch::avg_pool2d(tHabanaX, {3, 3}, {1, 1}, {0, 0}, false, true);
     torch::Tensor outHabana = torch::relu(outHabana1);
@@ -471,7 +471,7 @@ TEST_F(LazyDynamicShapesTest, DynamicAvgPoolBkwdTest) {
     // bwd propagation with dummy grad tensor
     auto grad_tensor =
         torch::randn({N, C, H - 2, W - 2}, torch::requires_grad(true));
-    torch::Tensor tHabanaG = grad_tensor.to(torch::kHABANA);
+    torch::Tensor tHabanaG = grad_tensor.to(torch::kHPU);
     outHabana.backward({tHabanaG}, false, true);
 
     auto out_cpu_lazy = outHabana.to(torch::kCPU);
@@ -501,7 +501,7 @@ TEST_F(LazyDynamicShapesTest, DynamicMaxPoolBkwdTest) {
     auto cpu_out = torch::relu(cpu_pool);
 
     // fwd propgation
-    torch::Tensor tHabanaX = input_tensor.to(torch::kHABANA);
+    torch::Tensor tHabanaX = input_tensor.to(torch::kHPU);
     auto outHabana1 = torch::max_pool2d_with_indices(
         tHabanaX, {3, 3}, {1, 1}, {0, 0}, {1, 1}, true);
     torch::Tensor outHabana = torch::relu(std::get<0>(outHabana1));
@@ -509,7 +509,7 @@ TEST_F(LazyDynamicShapesTest, DynamicMaxPoolBkwdTest) {
     // bwd propgation with dummy grad tensor
     auto grad_tensor =
         torch::randn({N, C, H - 2, W - 2}, torch::requires_grad(true));
-    torch::Tensor tHabanaG = grad_tensor.to(torch::kHABANA);
+    torch::Tensor tHabanaG = grad_tensor.to(torch::kHPU);
     outHabana.backward({tHabanaG}, false, true);
 
     auto out_cpu_lazy = outHabana.to(torch::kCPU);
@@ -533,7 +533,7 @@ TEST_F(LazyDynamicShapesTest, DISABLED_ProdTest) {
     std::cout << '\n';
     std::cout << "PTI_DBG :: TEST " << i << "  --------" << '\n';
     torch::Tensor A = torch::randn({H, W}, torch::requires_grad(false));
-    torch::Tensor hA = A.to(torch::kHABANA);
+    torch::Tensor hA = A.to(torch::kHPU);
     torch::Tensor hOut = torch::prod(hA);
     torch::Tensor Out = torch::prod(A);
     EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out, 0.001, 0.001), true);
@@ -557,7 +557,7 @@ TEST_F(LazyDynamicShapesTest, SliceTest) {
     std::cout << '\n';
     std::cout << "PTI_DBG :: TEST " << i << "  --------" << '\n';
     torch::Tensor A = torch::randn({N, C, H, W}, torch::requires_grad(false));
-    torch::Tensor hA = A.to(torch::kHABANA);
+    torch::Tensor hA = A.to(torch::kHPU);
     int64_t dim = 2;
     int64_t start_index = 0;
     int64_t end = 3;
@@ -594,9 +594,9 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeInplaceTest) {
     torch::Tensor c1 = torch::randn({A, B});
     torch::Tensor c2 = torch::randn({A, B});
 
-    torch::Tensor h0 = c0.to(torch::kHABANA);
-    torch::Tensor h1 = c1.to(torch::kHABANA);
-    torch::Tensor h2 = c2.to(torch::kHABANA);
+    torch::Tensor h0 = c0.to(torch::kHPU);
+    torch::Tensor h1 = c1.to(torch::kHPU);
+    torch::Tensor h2 = c2.to(torch::kHPU);
 
     c0 = c0.add_(c1);
     auto c3 = torch::mul(c0, c2);
@@ -631,9 +631,9 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeInplaceTest2) {
     torch::Tensor c1 = torch::randn({A, B});
     torch::Tensor c2 = torch::randn({A, B});
 
-    torch::Tensor h0 = c0.to(torch::kHABANA);
-    torch::Tensor h1 = c1.to(torch::kHABANA);
-    torch::Tensor h2 = c2.to(torch::kHABANA);
+    torch::Tensor h0 = c0.to(torch::kHPU);
+    torch::Tensor h1 = c1.to(torch::kHPU);
+    torch::Tensor h2 = c2.to(torch::kHPU);
 
     auto c3 = torch::relu(c0);
     c3 = c3.add_(c1);
@@ -671,7 +671,7 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeInplaceReluTest) {
 
     c0 = torch::relu_(c0);
 
-    torch::Tensor h0 = c0.to(torch::kHABANA);
+    torch::Tensor h0 = c0.to(torch::kHPU);
 
     h0 = torch::relu_(h0);
     torch::Tensor h0_c = h0.to(torch::kCPU);

@@ -268,7 +268,7 @@ c10::optional<c10::Device> GetHpuDevice(
 }
 
 c10::optional<c10::Device> GetHpuDevice(const c10::Device& device) {
-  if (device.type() != at::kHABANA) {
+  if (device.type() != at::kHPU) {
     return c10::nullopt;
   }
   return device;

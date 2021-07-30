@@ -26,7 +26,7 @@ class Cat : public Node {
     ValueList hl_tensors;
     std::vector<at::Tensor> input_pt_vec;
     for (auto& i : tensors) {
-      auto hl_tensor = GetOrCreateHbLazyTensor(i, c10::kHABANA);
+      auto hl_tensor = GetOrCreateHbLazyTensor(i, c10::kHPU);
       hl_tensors.push_back(hl_tensor.GetIrValue());
       input_pt_vec.emplace_back(i);
     }
@@ -54,7 +54,7 @@ class SplitWithSize : public ir::Node {
       c10::IntArrayRef split_sizes,
       int64_t dim)
       : Node(c10::Symbol::fromQualString("aten::split_with_sizes")) {
-    auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHABANA);
+    auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
     AddInput(hl_self.GetIrValue());
     m_meta_data.set(
         split_sizes, static_cast<size_t>(SplitSizeIdx::kSplitSizesIdx));

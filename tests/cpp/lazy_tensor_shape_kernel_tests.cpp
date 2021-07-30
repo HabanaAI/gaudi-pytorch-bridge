@@ -24,8 +24,8 @@ TEST_F(LazyTensorShapeKernelTest, CatExecTest1) {
   auto D = torch::relu(B);
   auto exp = torch::cat({C, D});
 
-  torch::Tensor hA = A.to(torch::kHABANA);
-  torch::Tensor hB = B.to(torch::kHABANA);
+  torch::Tensor hA = A.to(torch::kHPU);
+  torch::Tensor hB = B.to(torch::kHPU);
 
   auto hC = torch::relu(hA);
   auto hD = torch::relu(hB);
@@ -41,8 +41,8 @@ TEST_F(LazyTensorShapeKernelTest, CatExecTest2) {
 
   auto exp = torch::cat({A, B});
 
-  torch::Tensor hA = A.to(torch::kHABANA);
-  torch::Tensor hB = B.to(torch::kHABANA);
+  torch::Tensor hA = A.to(torch::kHPU);
+  torch::Tensor hB = B.to(torch::kHPU);
 
   torch::Tensor out = torch::cat({hA, hB});
   auto result = out.to(torch::kCPU);
@@ -73,9 +73,9 @@ TEST_F(LazyTensorShapeKernelTest, CatExecTest3) {
   auto tempc1 = torch::cat({A, B}, 1);
   auto exp = torch::cat({A, tempc1}, 1);
 
-  torch::Tensor hA = A.to(torch::kHABANA);
-  torch::Tensor hB = B.to(torch::kHABANA);
-  torch::Tensor hC = B.to(torch::kHABANA);
+  torch::Tensor hA = A.to(torch::kHPU);
+  torch::Tensor hB = B.to(torch::kHPU);
+  torch::Tensor hC = B.to(torch::kHPU);
 
   torch::Tensor temp1 = torch::cat({hA, hB}, 1);
   auto out = torch::cat({hA, temp1}, 1);
@@ -92,7 +92,7 @@ TEST_F(LazyTensorShapeKernelTest, CatExecTest4) {
   auto C = torch::cat({B, B});
   auto exp = torch::relu(C);
 
-  torch::Tensor hA = A.to(torch::kHABANA);
+  torch::Tensor hA = A.to(torch::kHPU);
   auto hB = torch::relu(hA);
   auto hC = torch::cat({hB, hB});
   auto out = torch::relu(hC);
@@ -102,7 +102,7 @@ TEST_F(LazyTensorShapeKernelTest, CatExecTest4) {
 
 TEST_F(LazyTensorShapeKernelTest, PermuteTest) {
   torch::Tensor A = torch::randn({2, 3}, torch::requires_grad(false));
-  torch::Tensor hA = A.to(torch::kHABANA);
+  torch::Tensor hA = A.to(torch::kHPU);
   torch::Tensor hOut = hA.permute({1, 0});
   torch::Tensor Out = A.permute({1, 0});
 
@@ -114,7 +114,7 @@ TEST_F(LazyTensorShapeKernelTest, PermuteTest) {
 
 TEST_F(LazyTensorShapeKernelTest, TTest) {
   torch::Tensor A = torch::randn({2, 3}, torch::requires_grad(false));
-  torch::Tensor hA = A.to(torch::kHABANA);
+  torch::Tensor hA = A.to(torch::kHPU);
   torch::Tensor hOut = torch::t(hA);
   torch::Tensor Out = torch::t(A);
 
@@ -126,7 +126,7 @@ TEST_F(LazyTensorShapeKernelTest, TTest) {
 
 TEST_F(LazyTensorShapeKernelTest, SelectTest) {
   torch::Tensor a = torch::randn({8, 3, 28, 28}, torch::requires_grad(false));
-  torch::Tensor h_a = a.to(torch::kHABANA);
+  torch::Tensor h_a = a.to(torch::kHPU);
 
   int64_t dim = 1;
   int64_t index = 0;
@@ -144,7 +144,7 @@ TEST_F(LazyTensorShapeKernelTest, SelectTest) {
 
 TEST_F(LazyTensorShapeKernelTest, SliceTest) {
   torch::Tensor a = torch::randn({8, 3, 28, 28}, torch::requires_grad(false));
-  torch::Tensor h_a = a.to(torch::kHABANA);
+  torch::Tensor h_a = a.to(torch::kHPU);
   int64_t dim = 1;
   int64_t start_index = 0;
   int64_t end = 8;
@@ -165,7 +165,7 @@ TEST_F(LazyTensorShapeKernelTest, ViewExecute) {
   auto input_tensor =
       torch::arange(480, torch::dtype(torch::kFloat).requires_grad(false))
           .reshape({10, 3, 4, 4}); // nchw
-  torch::Tensor tHabanain = input_tensor.to(torch::kHABANA);
+  torch::Tensor tHabanain = input_tensor.to(torch::kHPU);
   std::array<int64_t, 2> size_array = {-1, 48};
   c10::IntArrayRef new_size = size_array;
   auto result = torch::_unsafe_view(tHabanain, new_size);
@@ -180,7 +180,7 @@ TEST_F(LazyTensorShapeKernelTest, ViewExecute) {
 
 TEST_F(LazyTensorShapeKernelTest, TransposeTest) {
   torch::Tensor A = torch::randn({2, 3}, torch::requires_grad(false));
-  torch::Tensor hA = A.to(torch::kHABANA);
+  torch::Tensor hA = A.to(torch::kHPU);
   torch::Tensor hOut = torch::transpose(hA, 1, 0);
   torch::Tensor Out = torch::transpose(A, 1, 0);
 
@@ -190,7 +190,7 @@ TEST_F(LazyTensorShapeKernelTest, TransposeTest) {
 TEST_F(LazyTensorShapeKernelTest, ExpandTest) {
   torch::Tensor A = torch::randn({3, 1}, torch::requires_grad(false));
 
-  torch::Tensor hA = A.to(torch::kHABANA);
+  torch::Tensor hA = A.to(torch::kHPU);
   torch::Tensor hOut = hA.expand({3, 4}, false);
   torch::Tensor Out = A.expand({3, 4}, false);
 
@@ -203,7 +203,7 @@ TEST_F(LazyTensorShapeKernelTest, ExpandTest) {
 TEST_F(LazyTensorShapeKernelTest, Repeat) {
   torch::Tensor A = torch::randn({4, 5});
 
-  torch::Tensor hA = A.to(torch::kHABANA);
+  torch::Tensor hA = A.to(torch::kHPU);
   torch::Tensor hOut = hA.repeat({2, 3});
   torch::Tensor Out = A.repeat({2, 3});
 
@@ -213,7 +213,7 @@ TEST_F(LazyTensorShapeKernelTest, Repeat) {
 TEST_F(LazyTensorShapeKernelTest, SplitWithSizesTest) {
   auto split_with_size = [](auto split_sizes, auto dim) {
     auto input = torch::randn({8, 3, 24, 12});
-    auto h_input = input.to(torch::kHABANA);
+    auto h_input = input.to(torch::kHPU);
 
     auto result = at::native::split_with_sizes(h_input, split_sizes, dim);
     auto cpu_out = at::native::split_with_sizes(input, split_sizes, dim);
@@ -258,7 +258,7 @@ TEST_F(LazyTensorShapeKernelTest, SplitTest) {
 
 TEST_F(LazyTensorShapeKernelTest, FlipTest) {
   torch::Tensor tensor = torch::rand({2, 3, 2});
-  torch::Tensor tHabana = tensor.to(torch::kHABANA);
+  torch::Tensor tHabana = tensor.to(torch::kHPU);
   auto outHabana = torch::flip(tHabana, {0, 1, 2});
   auto out = torch::flip(tensor, {0, 1, 2});
   bool equal = out.allclose(outHabana.to(torch::kCPU), 0, 0);
@@ -267,7 +267,7 @@ TEST_F(LazyTensorShapeKernelTest, FlipTest) {
 
 TEST_F(LazyTensorShapeKernelTest, FlipNegativeTest) {
   torch::Tensor tensor = torch::rand({4, 2, 2});
-  torch::Tensor tHabana = tensor.to(torch::kHABANA);
+  torch::Tensor tHabana = tensor.to(torch::kHPU);
   auto outHabana = torch::flip(tHabana, {-1, 1});
   auto out = torch::flip(tensor, {-1, 1});
   bool equal = out.allclose(outHabana.to(torch::kCPU), 0, 0);
@@ -276,7 +276,7 @@ TEST_F(LazyTensorShapeKernelTest, FlipNegativeTest) {
 
 TEST_F(LazyTensorShapeKernelTest, Diag2DTest) {
   torch::Tensor tensor = torch::randn({3, 3});
-  torch::Tensor tHabana = tensor.to(torch::kHABANA);
+  torch::Tensor tHabana = tensor.to(torch::kHPU);
   auto outHabana = torch::diag(tHabana, -1);
   auto out = torch::diag(tensor, -1);
   bool equal = out.allclose(outHabana.to(torch::kCPU), 0, 0);
@@ -285,7 +285,7 @@ TEST_F(LazyTensorShapeKernelTest, Diag2DTest) {
 
 TEST_F(LazyTensorShapeKernelTest, Diag1DTest) {
   torch::Tensor tensor = torch::randn({3});
-  torch::Tensor tHabana = tensor.to(torch::kHABANA);
+  torch::Tensor tHabana = tensor.to(torch::kHPU);
   auto outHabana = torch::diag(tHabana, -1);
   auto out = torch::diag(tensor, -1);
   bool equal = out.allclose(outHabana.to(torch::kCPU), 0, 0);

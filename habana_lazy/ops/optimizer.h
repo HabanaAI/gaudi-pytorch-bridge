@@ -36,10 +36,10 @@ class OptimizerFusedAdagrad : public Node {
     AddInputVec(weights);
     AddInputVec(variances);
 
-    auto hl_epoch_num = GetOrCreateHbLazyTensor(epoch_num, c10::kHABANA);
+    auto hl_epoch_num = GetOrCreateHbLazyTensor(epoch_num, c10::kHPU);
     AddInput(hl_epoch_num.GetIrValue());
 
-    auto hl_lr = GetOrCreateHbLazyTensor(lr, c10::kHABANA);
+    auto hl_lr = GetOrCreateHbLazyTensor(lr, c10::kHPU);
     AddInput(hl_lr.GetIrValue());
 
     m_meta_data.set(wd, static_cast<size_t>(OptFusedAdaIndex::kwdIdx));
@@ -67,7 +67,7 @@ class OptimizerFusedAdagrad : public Node {
     ValueList hl_tensors;
     std::vector<at::Tensor> input_pt_vec;
     for (auto& t : tensor_list) {
-      auto hl_tensor = GetOrCreateHbLazyTensor(t, c10::kHABANA);
+      auto hl_tensor = GetOrCreateHbLazyTensor(t, c10::kHPU);
       hl_tensors.push_back(hl_tensor.GetIrValue());
       input_pt_vec.emplace_back(t);
     }
@@ -104,10 +104,10 @@ class OptimizerFusedAdamw : public Node {
     AddInputVec(exp_avg);
     AddInputVec(exp_avg_sq);
 
-    auto hl_lr_t = GetOrCreateHbLazyTensor(lr_t, c10::kHABANA);
+    auto hl_lr_t = GetOrCreateHbLazyTensor(lr_t, c10::kHPU);
     AddInput(hl_lr_t.GetIrValue());
 
-    auto hl_neg_step_t = GetOrCreateHbLazyTensor(neg_step_t, c10::kHABANA);
+    auto hl_neg_step_t = GetOrCreateHbLazyTensor(neg_step_t, c10::kHPU);
     AddInput(hl_neg_step_t.GetIrValue());
 
     m_meta_data.set(
@@ -146,7 +146,7 @@ class OptimizerFusedAdamw : public Node {
     ValueList hl_tensors;
     std::vector<at::Tensor> input_pt_vec;
     for (auto& t : tensor_list) {
-      auto hl_tensor = GetOrCreateHbLazyTensor(t, c10::kHABANA);
+      auto hl_tensor = GetOrCreateHbLazyTensor(t, c10::kHPU);
       hl_tensors.push_back(hl_tensor.GetIrValue());
       input_pt_vec.emplace_back(t);
     }
@@ -173,7 +173,7 @@ class OptimizerFusedSGD : public Node {
     AddInputVec(gradients);
     AddInputVec(weights);
 
-    auto hl_lr = GetOrCreateHbLazyTensor(lr, c10::kHABANA);
+    auto hl_lr = GetOrCreateHbLazyTensor(lr, c10::kHPU);
     AddInput(hl_lr.GetIrValue());
 
     m_meta_data.set(wd, static_cast<size_t>(OptFusedSGDIndex::kwdIdx));
@@ -206,7 +206,7 @@ class OptimizerFusedSGD : public Node {
     ValueList hl_tensors;
     std::vector<at::Tensor> input_pt_vec;
     for (auto& t : tensor_list) {
-      auto hl_tensor = GetOrCreateHbLazyTensor(t, c10::kHABANA);
+      auto hl_tensor = GetOrCreateHbLazyTensor(t, c10::kHPU);
       hl_tensors.push_back(hl_tensor.GetIrValue());
       input_pt_vec.emplace_back(t);
     }
@@ -242,10 +242,10 @@ class OptimizerFusedSGDMomentum : public Node {
     AddInputVec(weights);
     AddInputVec(momentum);
 
-    auto hl_epoch_num = GetOrCreateHbLazyTensor(epoch_num, c10::kHABANA);
+    auto hl_epoch_num = GetOrCreateHbLazyTensor(epoch_num, c10::kHPU);
     AddInput(hl_epoch_num.GetIrValue());
 
-    auto hl_lr = GetOrCreateHbLazyTensor(lr, c10::kHABANA);
+    auto hl_lr = GetOrCreateHbLazyTensor(lr, c10::kHPU);
     AddInput(hl_lr.GetIrValue());
 
     m_meta_data.set(wd, static_cast<size_t>(OptFusedSGDMomentumIndex::kwdIdx));
@@ -283,7 +283,7 @@ class OptimizerFusedSGDMomentum : public Node {
     ValueList hl_tensors;
     std::vector<at::Tensor> input_pt_vec;
     for (auto& t : tensor_list) {
-      auto hl_tensor = GetOrCreateHbLazyTensor(t, c10::kHABANA);
+      auto hl_tensor = GetOrCreateHbLazyTensor(t, c10::kHPU);
       hl_tensors.push_back(hl_tensor.GetIrValue());
       input_pt_vec.emplace_back(t);
     }
@@ -307,7 +307,7 @@ class LambFusedNorm : public ir::Node {
       : Node(c10::Symbol::fromQualString("hpu::habanaOptimizerLambFusedNorm")) {
     AddInputVec(grad);
 
-    auto hl_clip_norm = GetOrCreateHbLazyTensor(clip_norm, c10::kHABANA);
+    auto hl_clip_norm = GetOrCreateHbLazyTensor(clip_norm, c10::kHPU);
     auto clip_ir = hl_clip_norm.GetIrValue();
     AddInput(clip_ir);
 
@@ -329,7 +329,7 @@ class LambFusedNorm : public ir::Node {
     ValueList hl_tensors;
     std::vector<at::Tensor> input_pt_vec;
     for (auto& t : tensor_list) {
-      auto hl_tensor = GetOrCreateHbLazyTensor(t, c10::kHABANA);
+      auto hl_tensor = GetOrCreateHbLazyTensor(t, c10::kHPU);
       hl_tensors.push_back(hl_tensor.GetIrValue());
       input_pt_vec.emplace_back(t);
     }
@@ -371,15 +371,15 @@ class OptimizerFusedLambPhase1 : public Node {
     AddInputVec(exp_avg_sq);
 
     auto hl_clip_global_grad_norm =
-        GetOrCreateHbLazyTensor(clip_global_grad_norm, c10::kHABANA);
+        GetOrCreateHbLazyTensor(clip_global_grad_norm, c10::kHPU);
     AddInput(hl_clip_global_grad_norm.GetIrValue());
 
     auto hl_bias_correction1_t =
-        GetOrCreateHbLazyTensor(bias_correction1_t, c10::kHABANA);
+        GetOrCreateHbLazyTensor(bias_correction1_t, c10::kHPU);
     AddInput(hl_bias_correction1_t.GetIrValue());
 
     auto hl_bias_correction2_t =
-        GetOrCreateHbLazyTensor(bias_correction2_t, c10::kHABANA);
+        GetOrCreateHbLazyTensor(bias_correction2_t, c10::kHPU);
     AddInput(hl_bias_correction2_t.GetIrValue());
 
     // Added tensors corresponding to tensorlist just as placeholder inorder to
@@ -434,7 +434,7 @@ class OptimizerFusedLambPhase1 : public Node {
     ValueList hl_tensors;
     std::vector<at::Tensor> input_pt_vec;
     for (auto& t : tensor_list) {
-      auto hl_tensor = GetOrCreateHbLazyTensor(t, c10::kHABANA);
+      auto hl_tensor = GetOrCreateHbLazyTensor(t, c10::kHPU);
       hl_tensors.push_back(hl_tensor.GetIrValue());
       input_pt_vec.emplace_back(t);
     }
@@ -466,7 +466,7 @@ class OptimizerFusedLambPhase2 : public Node {
     AddInputVec(adam_step_vec);
     AddInputVec(trust_ratio_vec);
 
-    auto hl_neg_step_t = GetOrCreateHbLazyTensor(neg_step_t, c10::kHABANA);
+    auto hl_neg_step_t = GetOrCreateHbLazyTensor(neg_step_t, c10::kHPU);
     AddInput(hl_neg_step_t.GetIrValue());
 
     std::vector<at::Tensor> input_pt_vec{
@@ -506,7 +506,7 @@ class OptimizerFusedLambPhase2 : public Node {
     ValueList hl_tensors;
     std::vector<at::Tensor> input_pt_vec;
     for (auto& t : tensor_list) {
-      auto hl_tensor = GetOrCreateHbLazyTensor(t, c10::kHABANA);
+      auto hl_tensor = GetOrCreateHbLazyTensor(t, c10::kHPU);
       hl_tensors.push_back(hl_tensor.GetIrValue());
       input_pt_vec.emplace_back(t);
     }

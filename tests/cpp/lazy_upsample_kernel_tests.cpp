@@ -18,7 +18,7 @@ class LazyUpsampleKernelTest : public habana_lazy_test::LazyTest {};
 
 TEST_F(LazyUpsampleKernelTest, UpsampleNearestTest) {
   torch::Tensor tensor = torch::randn({3, 1, 5, 5});
-  torch::Tensor tHabana = tensor.to(torch::kHABANA);
+  torch::Tensor tHabana = tensor.to(torch::kHPU);
   std::array<double, 2> scale_array = {2.0, 2.0};
   c10::ArrayRef<double> scale_factors = scale_array;
   auto outHabana = torch::upsample_nearest2d(tHabana, {}, scale_factors);
@@ -29,7 +29,7 @@ TEST_F(LazyUpsampleKernelTest, UpsampleNearestTest) {
 
 TEST_F(LazyUpsampleKernelTest, UpsampleNearest2Test) {
   torch::Tensor tensor = torch::randn({3, 1, 5, 5});
-  torch::Tensor tHabana = tensor.to(torch::kHABANA);
+  torch::Tensor tHabana = tensor.to(torch::kHPU);
   std::array<int64_t, 2> sizes_array = {10, 15};
   c10::ArrayRef<int64_t> sizes = sizes_array;
   auto outHabana = torch::upsample_nearest2d(tHabana, sizes, {});
@@ -43,12 +43,12 @@ TEST_F(LazyUpsampleKernelTest, UpsampleBackwardTest) {
   torch::manual_seed(0);
   auto upsample_test = [](c10::IntArrayRef size1) {
     auto mat1 = torch::randn(size1);
-    auto mat1_h = mat1.to(torch::kHABANA);
+    auto mat1_h = mat1.to(torch::kHPU);
     mat1.set_requires_grad(true);
 
     auto out = torch::upsample_nearest2d(mat1, {8, 21});
     auto grad_out = torch::ones_like(out);
-    auto grad_out_h = grad_out.to(torch::kHABANA);
+    auto grad_out_h = grad_out.to(torch::kHPU);
     out.backward(grad_out);
     auto grad_mat1 = mat1.grad();
 

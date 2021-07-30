@@ -23,8 +23,8 @@ TEST_F(LazyTensorAPITest, NumelDimSizeTest) {
   torch::Tensor B = torch::tensor(
       {{{2, 6, 1, 1, 0}, {9, 2, 5, 6, -5}, {8, 5, 2, 1, 7}},
        {{1, 5, 1, 5, 1}, {1, 4, 1, 3, -2}, {1, 6, 8, 9, 10}}});
-  torch::Tensor hA = A.to(torch::kHABANA);
-  torch::Tensor hB = B.to(torch::kHABANA);
+  torch::Tensor hA = A.to(torch::kHPU);
+  torch::Tensor hB = B.to(torch::kHPU);
   torch::Tensor out = torch::mul(hA, hB);
 
   ASSERT_TRUE(out.numel() == 30);

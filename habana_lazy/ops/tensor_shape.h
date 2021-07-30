@@ -23,7 +23,7 @@ class Permute : public ir::Node {
   Permute() = delete;
   Permute(const at::Tensor& self, at::IntArrayRef dims)
       : Node(c10::Symbol::fromQualString("aten::permute")) {
-    auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHABANA);
+    auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
     AddInput(hl_self.GetIrValue());
 
     std::vector<at::Tensor> input_pt_vec{self};
@@ -46,7 +46,7 @@ class Expand : public ir::Node {
   Expand() = delete;
   Expand(const at::Tensor& self, at::IntArrayRef dims, bool implicit)
       : Node(c10::Symbol::fromQualString("aten::expand")) {
-    auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHABANA);
+    auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
     AddInput(hl_self.GetIrValue());
 
     std::vector<at::Tensor> input_pt_vec{self};
@@ -72,7 +72,7 @@ class Transpose : public ir::Node {
   Transpose() = delete;
   Transpose(const at::Tensor& self, int64_t dim0, int64_t dim1)
       : Node(c10::Symbol::fromQualString("aten::transpose")) {
-    auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHABANA);
+    auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
     AddInput(hl_self.GetIrValue());
 
     std::vector<at::Tensor> input_pt_vec{self};
@@ -98,7 +98,7 @@ class PermuteCL : public ir::Node {
   PermuteCL() = delete;
   PermuteCL(const at::Tensor& self, at::IntArrayRef dims)
       : Node(c10::Symbol::fromQualString("hpu::permute_cl")) {
-    auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHABANA);
+    auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
     AddInput(hl_self.GetIrValue());
 
     std::vector<at::Tensor> input_pt_vec{self};

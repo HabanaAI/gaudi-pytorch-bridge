@@ -20,15 +20,15 @@ TEST_F(LazyNormKernelTest, LayerNormForwardExecute) {
   auto input_tensor =
       torch::arange(480, torch::dtype(torch::kFloat).requires_grad(false))
           .reshape({10, 1, 3, 4, 4}); // nchw
-  torch::Tensor tHabanaX = input_tensor.to(torch::kHABANA);
+  torch::Tensor tHabanaX = input_tensor.to(torch::kHPU);
   at::Tensor weight =
       torch::arange(48, torch::dtype(torch::kFloat).requires_grad(false))
           .reshape({1, 3, 4, 4}); // nchw;
-  torch::Tensor tWeight = weight.to(torch::kHABANA);
+  torch::Tensor tWeight = weight.to(torch::kHPU);
   at::Tensor bias =
       torch::arange(48, torch::dtype(torch::kFloat).requires_grad(false))
           .reshape({1, 3, 4, 4}); // nchw;
-  torch::Tensor tBias = bias.to(torch::kHABANA);
+  torch::Tensor tBias = bias.to(torch::kHPU);
   auto results =
       torch::native_layer_norm(tHabanaX, {1, 3, 4, 4}, tWeight, tBias, 0.01);
 
@@ -43,21 +43,21 @@ TEST_F(LazyNormKernelTest, InstanceNormChLast) {
   auto input_tensor =
       torch::arange(240, torch::dtype(torch::kFloat).requires_grad(false))
           .resize_({10, 3, 4, 2}, c10::MemoryFormat::ChannelsLast);
-  torch::Tensor tHabanaX = input_tensor.to(torch::kHABANA);
+  torch::Tensor tHabanaX = input_tensor.to(torch::kHPU);
 
   at::Tensor weight =
       torch::randn(3, torch::dtype(torch::kFloat).requires_grad(false));
-  torch::Tensor tWeight = weight.to(torch::kHABANA);
+  torch::Tensor tWeight = weight.to(torch::kHPU);
 
   at::Tensor bias =
       torch::randn(3, torch::dtype(torch::kFloat).requires_grad(false));
-  torch::Tensor tBias = bias.to(torch::kHABANA);
+  torch::Tensor tBias = bias.to(torch::kHPU);
 
   auto mean = torch::randn(3, torch::dtype(torch::kFloat).requires_grad(false));
-  torch::Tensor tHabanaMean = mean.to(torch::kHABANA);
+  torch::Tensor tHabanaMean = mean.to(torch::kHPU);
 
   auto var = torch::ones(3, torch::dtype(torch::kFloat).requires_grad(false));
-  torch::Tensor tHabanaVar = var.to(torch::kHABANA);
+  torch::Tensor tHabanaVar = var.to(torch::kHPU);
 
   constexpr float mom = 0.1;
   constexpr float eps = 1e-5;
@@ -74,26 +74,26 @@ TEST_F(LazyNormKernelTest, LayerNormBackwardExecute) {
   auto input_grad =
       torch::arange(480, torch::dtype(torch::kFloat).requires_grad(false))
           .reshape({10, 1, 3, 4, 4}); // nchw
-  torch::Tensor tHabanaGrad = input_grad.to(torch::kHABANA);
+  torch::Tensor tHabanaGrad = input_grad.to(torch::kHPU);
   auto input =
       torch::arange(480, torch::dtype(torch::kFloat).requires_grad(false))
           .reshape({10, 1, 3, 4, 4}); // nchw
-  torch::Tensor tHabanaIn = input.to(torch::kHABANA);
+  torch::Tensor tHabanaIn = input.to(torch::kHPU);
   auto mean =
       torch::arange(10, torch::dtype(torch::kFloat).requires_grad(false))
           .reshape({10, 1});
   auto var = torch::arange(10, torch::dtype(torch::kFloat).requires_grad(false))
                  .reshape({10, 1});
-  torch::Tensor tHabanaMean = mean.to(torch::kHABANA);
-  torch::Tensor tHabanaVar = var.to(torch::kHABANA);
+  torch::Tensor tHabanaMean = mean.to(torch::kHPU);
+  torch::Tensor tHabanaVar = var.to(torch::kHPU);
   auto gamma =
       torch::arange(48, torch::dtype(torch::kFloat).requires_grad(false))
           .reshape({1, 3, 4, 4}); // nchw
-  torch::Tensor tGamma = gamma.to(torch::kHABANA);
+  torch::Tensor tGamma = gamma.to(torch::kHPU);
   auto bias =
       torch::arange(48, torch::dtype(torch::kFloat).requires_grad(false))
           .reshape({1, 3, 4, 4}); // nchw
-  torch::Tensor tBias = bias.to(torch::kHABANA);
+  torch::Tensor tBias = bias.to(torch::kHPU);
 
   auto results = torch::native_layer_norm_backward(
       tHabanaGrad,
@@ -123,17 +123,17 @@ TEST_F(LazyNormKernelTest, LayerNormBackwardExecute) {
 TEST_F(LazyNormKernelTest, BatchNormForwardExecute) {
   auto input_tensor = torch::randn(
       {10, 3, 4, 2}, torch::dtype(torch::kFloat).requires_grad(false));
-  torch::Tensor tHabanaX = input_tensor.to(torch::kHABANA);
+  torch::Tensor tHabanaX = input_tensor.to(torch::kHPU);
   at::Tensor weight =
       torch::randn(3, torch::dtype(torch::kFloat).requires_grad(false));
-  torch::Tensor tWeight = weight.to(torch::kHABANA);
+  torch::Tensor tWeight = weight.to(torch::kHPU);
   at::Tensor bias =
       torch::randn(3, torch::dtype(torch::kFloat).requires_grad(false));
-  torch::Tensor tBias = bias.to(torch::kHABANA);
+  torch::Tensor tBias = bias.to(torch::kHPU);
   auto mean = torch::randn(3, torch::dtype(torch::kFloat).requires_grad(false));
-  torch::Tensor tHabanaMean = mean.to(torch::kHABANA);
+  torch::Tensor tHabanaMean = mean.to(torch::kHPU);
   auto var = torch::ones(3, torch::dtype(torch::kFloat).requires_grad(false));
-  torch::Tensor tHabanaVar = var.to(torch::kHABANA);
+  torch::Tensor tHabanaVar = var.to(torch::kHPU);
 
   float mom = 0.1;
   float eps = 1e-5;
@@ -162,17 +162,17 @@ TEST_F(LazyNormKernelTest, BatchNormForwardExecute) {
 TEST_F(LazyNormKernelTest, BatchNormInferenceExecute) {
   auto input_tensor = torch::randn(
       {5, 3, 7, 2}, torch::dtype(torch::kFloat).requires_grad(false));
-  torch::Tensor tHabanaX = input_tensor.to(torch::kHABANA);
+  torch::Tensor tHabanaX = input_tensor.to(torch::kHPU);
   at::Tensor weight =
       torch::randn(3, torch::dtype(torch::kFloat).requires_grad(false));
-  torch::Tensor tWeight = weight.to(torch::kHABANA);
+  torch::Tensor tWeight = weight.to(torch::kHPU);
   at::Tensor bias =
       torch::randn(3, torch::dtype(torch::kFloat).requires_grad(false));
-  torch::Tensor tBias = bias.to(torch::kHABANA);
+  torch::Tensor tBias = bias.to(torch::kHPU);
   auto mean = torch::randn(3, torch::dtype(torch::kFloat).requires_grad(false));
-  torch::Tensor tHabanaMean = mean.to(torch::kHABANA);
+  torch::Tensor tHabanaMean = mean.to(torch::kHPU);
   auto var = torch::ones(3, torch::dtype(torch::kFloat).requires_grad(false));
-  torch::Tensor tHabanaVar = var.to(torch::kHABANA);
+  torch::Tensor tHabanaVar = var.to(torch::kHPU);
 
   float mom = 0.1;
   float eps = 1e-5;
@@ -195,26 +195,26 @@ TEST_F(LazyNormKernelTest, BatchNormBackwardExecute) {
   auto grad_tensor =
       torch::arange(480, torch::dtype(torch::kFloat).requires_grad(false))
           .resize_({10, 3, 4, 4}, c10::MemoryFormat::Contiguous); // nchw
-  torch::Tensor tHabanaGrad = grad_tensor.to(torch::kHABANA);
+  torch::Tensor tHabanaGrad = grad_tensor.to(torch::kHPU);
   auto input_tensor =
       torch::arange(480, torch::dtype(torch::kFloat).requires_grad(false))
           .resize_({10, 3, 4, 4}, c10::MemoryFormat::Contiguous); // nchw
-  torch::Tensor tHabanaX = input_tensor.to(torch::kHABANA);
+  torch::Tensor tHabanaX = input_tensor.to(torch::kHPU);
   at::Tensor weight =
       torch::arange(3, torch::dtype(torch::kFloat).requires_grad(false));
-  torch::Tensor tWeight = weight.to(torch::kHABANA);
+  torch::Tensor tWeight = weight.to(torch::kHPU);
   auto mean =
       torch::arange(3, torch::dtype(torch::kFloat).requires_grad(false));
-  torch::Tensor tHabanaMean = mean.to(torch::kHABANA);
+  torch::Tensor tHabanaMean = mean.to(torch::kHPU);
   auto var = torch::arange(3, torch::dtype(torch::kFloat).requires_grad(false));
-  torch::Tensor tHabanaVar = var.to(torch::kHABANA);
+  torch::Tensor tHabanaVar = var.to(torch::kHPU);
 
   auto save_mean =
       torch::arange(3, torch::dtype(torch::kFloat).requires_grad(false));
-  torch::Tensor tHabanaSaveMean = save_mean.to(torch::kHABANA);
+  torch::Tensor tHabanaSaveMean = save_mean.to(torch::kHPU);
   auto save_ivar =
       torch::arange(3, torch::dtype(torch::kFloat).requires_grad(false));
-  torch::Tensor tHabanaSaveIVar = save_ivar.to(torch::kHABANA);
+  torch::Tensor tHabanaSaveIVar = save_ivar.to(torch::kHPU);
 
   auto results_cpu = torch::native_batch_norm_backward(
       grad_tensor,
@@ -248,17 +248,17 @@ TEST_F(LazyNormKernelTest, BatchNormBackwardExecute) {
 TEST_F(LazyNormKernelTest, InstanceNorm) {
   auto input_tensor = torch::randn(
       {10, 3, 4, 2}, torch::dtype(torch::kFloat).requires_grad(false));
-  torch::Tensor tHabanaX = input_tensor.to(torch::kHABANA);
+  torch::Tensor tHabanaX = input_tensor.to(torch::kHPU);
   at::Tensor weight =
       torch::randn(3, torch::dtype(torch::kFloat).requires_grad(false));
-  torch::Tensor tWeight = weight.to(torch::kHABANA);
+  torch::Tensor tWeight = weight.to(torch::kHPU);
   at::Tensor bias =
       torch::randn(3, torch::dtype(torch::kFloat).requires_grad(false));
-  torch::Tensor tBias = bias.to(torch::kHABANA);
+  torch::Tensor tBias = bias.to(torch::kHPU);
   auto mean = torch::randn(3, torch::dtype(torch::kFloat).requires_grad(false));
-  torch::Tensor tHabanaMean = mean.to(torch::kHABANA);
+  torch::Tensor tHabanaMean = mean.to(torch::kHPU);
   auto var = torch::ones(3, torch::dtype(torch::kFloat).requires_grad(false));
-  torch::Tensor tHabanaVar = var.to(torch::kHABANA);
+  torch::Tensor tHabanaVar = var.to(torch::kHPU);
 
   constexpr float mom = 0.1;
   constexpr float eps = 1e-5;
@@ -276,13 +276,13 @@ TEST_F(LazyNormKernelTest, InstanceNorm) {
 TEST_F(LazyNormKernelTest, InstanceNormNormv) {
   auto input_tensor = torch::randn(
       {10, 3, 4, 2}, torch::dtype(torch::kFloat).requires_grad(false));
-  torch::Tensor tHabanaX = input_tensor.to(torch::kHABANA);
+  torch::Tensor tHabanaX = input_tensor.to(torch::kHPU);
   at::Tensor weight =
       torch::randn(3, torch::dtype(torch::kFloat).requires_grad(false));
-  torch::Tensor tWeight = weight.to(torch::kHABANA);
+  torch::Tensor tWeight = weight.to(torch::kHPU);
   at::Tensor bias =
       torch::randn(3, torch::dtype(torch::kFloat).requires_grad(false));
-  torch::Tensor tBias = bias.to(torch::kHABANA);
+  torch::Tensor tBias = bias.to(torch::kHPU);
 
   constexpr float mom = 0.1;
   constexpr float eps = 1e-5;
@@ -313,7 +313,7 @@ TEST_F(LazyNormKernelTest, InstanceNormNormv) {
 
 TEST_F(LazyNormKernelTest, NormScalarTest) {
   torch::Tensor A = torch::randn({2, 2}, torch::requires_grad(false));
-  torch::Tensor hA = A.to(torch::kHABANA);
+  torch::Tensor hA = A.to(torch::kHPU);
   torch::Tensor hOut = torch::norm(hA, 1);
   torch::Tensor Out = torch::norm(A, 1);
 
@@ -330,13 +330,13 @@ TEST_F(LazyNormKernelTest, FusedNormTest) {
     auto t = torch::randn({2, 2});
     grad_vec.push_back(t);
     grad_vec_norms.push_back(torch::norm(t));
-    auto tH = t.to(torch::kHABANA);
+    auto tH = t.to(torch::kHPU);
     grad_vec_h.push_back(tH);
   }
   // init max_norm
   torch::Tensor max_norm =
       torch::ones({1}, torch::TensorOptions().dtype(torch::kFloat32)) * 1.0;
-  auto max_norm_hpu = max_norm.to(torch::kHABANA);
+  auto max_norm_hpu = max_norm.to(torch::kHPU);
   // do hpu and cpu fused_norm calcs
   auto total_norm_hpu = fused_norm_hpu_wrap(grad_vec_h, max_norm_hpu, 2.0);
   auto total_norm_cpu = torch::norm(torch::stack(grad_vec_norms));

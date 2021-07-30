@@ -43,7 +43,7 @@ Tensor empty_hpu(
   PT_OTHER_OPS_BEGIN; // this macro is used because this kernel is used
                       // within Lazy kernels
   // AT_ASSERT(options.backend() == at::Backend::HABANA);
-  AT_ASSERT(options.device().type() == DeviceType::HABANA);
+  AT_ASSERT(options.device().type() == DeviceType::HPU);
 
   // TODO: how does 'is_variable' affecting us?
   // original comment:
@@ -60,7 +60,7 @@ Tensor empty_hpu(
     allocator = habana::getHABANADeviceAllocator();
   }
 
-  int64_t nelements = prod_intlist(size);
+  int64_t nelements = multiply_integers(size);
   auto dtype = options.dtype();
   int64_t size_bytes = nelements * dtype.itemsize();
   auto storage_impl = c10::make_intrusive<StorageImpl>(
@@ -73,7 +73,7 @@ Tensor empty_hpu(
   auto tensor = at::detail::make_tensor<TensorImpl>(
       std::move(storage_impl),
       c10::DispatchKeySet{
-          at::DispatchKey::HPU, at::DispatchKey::AutogradHABANA},
+          at::DispatchKey::HPU, at::DispatchKey::AutogradHPU},
       dtype);
   // Default TensorImpl has size [0]
   if (size.size() != 1 || size[0] != 0) {

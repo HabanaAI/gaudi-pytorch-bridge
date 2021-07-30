@@ -350,7 +350,7 @@ struct Value {
       : unique_id(unique_id_count++), m_data_ptr(data_ptr) {}
 
   Value(NodePtr node, size_t index = 0) : unique_id(unique_id_count++) {
-    SetNode(node, c10::DeviceType::HABANA, {}, {});
+    SetNode(node, c10::DeviceType::HPU, {}, {});
     m_index = index;
   }
 

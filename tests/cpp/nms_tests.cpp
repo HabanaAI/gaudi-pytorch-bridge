@@ -13,7 +13,7 @@ TEST(NMSEagerTest, NmsSmall) {
   // Generate random scores for each box
   auto num_boxes = 10;
   torch::Tensor scores = torch::rand({num_boxes});
-  torch::Tensor hscores = scores.to(torch::kHABANA);
+  torch::Tensor hscores = scores.to(torch::kHPU);
 
   // Generate boxes of random sizes
   torch::Tensor boxes = torch::rand({num_boxes, 4}) * 256;
@@ -21,7 +21,7 @@ TEST(NMSEagerTest, NmsSmall) {
   auto tlist = boxes.split(2, 1);
   tlist[1] = tlist[1] + tlist[0];
   auto new_boxes = torch::cat({tlist[0], tlist[1]}, 1);
-  torch::Tensor hboxes = new_boxes.to(torch::kHABANA);
+  torch::Tensor hboxes = new_boxes.to(torch::kHPU);
 
   auto nms_boxid = (GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 0)
       ? habana_nms_hpu_lazy(hboxes, hscores, 0.2, 0.0)

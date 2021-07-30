@@ -61,7 +61,7 @@ Tensor batch_norm_resize(
     uint num_out_dim,
     c10::MemoryFormat memory_format) {
   auto num_in_dim = input.dim();
-  Tensor input_resize = at::alias(input.to(DeviceType::HABANA));
+  Tensor input_resize = at::alias(input.to(DeviceType::HPU));
 
   auto shape = DimVector(input_resize.sizes());
   auto strides = DimVector(input_resize.strides());
@@ -131,7 +131,7 @@ inline Tensor get_batch_norm_optional_tensors(
     Device device) {
   Tensor output;
   if (input.defined() == true) {
-    return input.to(DeviceType::HABANA);
+    return input.to(DeviceType::HPU);
   } else {
     output = at::empty(
         {size}, TensorOptions().dtype(c10::ScalarType::Float).device(device));
@@ -219,7 +219,7 @@ void BatchNormForwardOperator::generateCacheInputs(Stack& inputs) {
   SetGuid(guid);
 
   Tensor wt_hpu, bias_hpu;
-  auto device = DeviceType::HABANA;
+  auto device = DeviceType::HPU;
 
   if (training) {
     wt_hpu = create_or_return_pt_tensor_bn(weight, input.sizes()[3], device);
@@ -320,7 +320,7 @@ void BatchNormForwardOperator::preProcessInputs(
   SetGuid(guid);
 
   Tensor wt_hpu, bias_hpu;
-  auto device = DeviceType::HABANA;
+  auto device = DeviceType::HPU;
 
   if (training) {
     wt_hpu = create_or_return_tensor_bn(
@@ -633,7 +633,7 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu(
       auto graph = habana_helpers::create_graph(device_id, node_type);
       for (auto ival : in_stack) {
         if (ival.isTensor() && ival.toTensor().defined()) {
-          at::Tensor in = ival.toTensor().to(DeviceType::HABANA);
+          at::Tensor in = ival.toTensor().to(DeviceType::HPU);
           Op.AllocateSynapseInput(graph, in, true);
         }
       }
@@ -686,8 +686,8 @@ at::Tensor BatchNormForwardRmvOperator::create_or_return_tensor_bn(
     p_context_->syn_inputs_.insert(it, std::move(syn_tensor));
 
     appended_tensor_infos.emplace_back((syn_tensor).name(), ret_tensor);
-  } else if (input.defined() && input.device() != DeviceType::HABANA) {
-    ret_tensor = input.to(DeviceType::HABANA);
+  } else if (input.defined() && input.device() != DeviceType::HPU) {
+    ret_tensor = input.to(DeviceType::HPU);
     ;
   } else {
     return input;
@@ -702,8 +702,8 @@ at::Tensor BatchNormForwardRmvOperator::create_or_return_pt_tensor_bn(
   Tensor ret_tensor;
   if (!input.defined()) {
     ret_tensor = at::empty({size}, device);
-  } else if (input.defined() && input.device() != DeviceType::HABANA) {
-    ret_tensor = input.to(DeviceType::HABANA);
+  } else if (input.defined() && input.device() != DeviceType::HPU) {
+    ret_tensor = input.to(DeviceType::HPU);
   } else {
     return input;
   }
@@ -738,7 +738,7 @@ void BatchNormForwardRmvOperator::preProcessInputs(
   SetGuid(guid);
 
   Tensor wt_hpu, bias_hpu;
-  auto device = DeviceType::HABANA;
+  auto device = DeviceType::HPU;
 
   if (training) {
     wt_hpu = create_or_return_tensor_bn(
@@ -1129,7 +1129,7 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu(
       auto graph = habana_helpers::create_graph(device_id, node_type);
       for (auto ival : preprocess_stack) {
         if (ival.isTensor() && ival.toTensor().defined()) {
-          at::Tensor in = ival.toTensor().to(DeviceType::HABANA);
+          at::Tensor in = ival.toTensor().to(DeviceType::HPU);
           Op.AllocateSynapseInput(graph, in, true);
         }
       }
@@ -1253,8 +1253,8 @@ void LayerNormOperator::AllocateAndAddSynapseNode(
     AT_ERROR(ss.str());
   }
   const int axis = input_ndim - normalized_ndim;
-  int64_t m = prod_intlist(input_shape.cbegin(), input_shape.cbegin() + axis);
-  int64_t n = prod_intlist(input_shape.cbegin() + axis, input_shape.cend());
+  int64_t m = multiply_integers(input_shape.cbegin(), input_shape.cbegin() + axis);
+  int64_t n = multiply_integers(input_shape.cbegin() + axis, input_shape.cend());
   // PT_HABANA_ENABLE_GRAPHMODE_LAYERNORM_FUSION Env variable is added as WA
   // only for BERT graph mode and it should not be enabled in other cases.
   static const std::string graphFusionEnvValue =
@@ -1375,7 +1375,7 @@ void LayerNormOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   const auto input_ndim = input.dim();
   const int normalized_ndim = normalized_shape.size();
   const int axis = input_ndim - normalized_ndim;
-  int64_t m = prod_intlist(input_shape.cbegin(), input_shape.cbegin() + axis);
+  int64_t m = multiply_integers(input_shape.cbegin(), input_shape.cbegin() + axis);
   // PT_HABANA_ENABLE_GRAPHMODE_LAYERNORM_FUSION Env variable is added as WA
   // only for BERT graph mode and it should not be enabled in other cases.
   static const std::string graphFusionEnvValue =
@@ -1529,8 +1529,8 @@ void LayerNormBackwardOperator::AllocateAndAddSynapseNode(
   const auto input_ndim = X.dim();
   const int normalized_ndim = normalized_shape.size();
   const int axis = input_ndim - normalized_ndim;
-  int64_t m = prod_intlist(input_shape.cbegin(), input_shape.cbegin() + axis);
-  int64_t n = prod_intlist(input_shape.cbegin() + axis, input_shape.cend());
+  int64_t m = multiply_integers(input_shape.cbegin(), input_shape.cbegin() + axis);
+  int64_t n = multiply_integers(input_shape.cbegin() + axis, input_shape.cend());
 
   // PT_HABANA_ENABLE_GRAPHMODE_LAYERNORM_FUSION Env variable is added as WA
   // only for BERT graph mode and it should not be enabled in other cases.

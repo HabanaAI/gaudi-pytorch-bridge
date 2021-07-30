@@ -33,10 +33,10 @@ class Cast : public Node {
   Cast() = delete;
   Cast(const at::Tensor& self, const at::Tensor& src, bool non_blocking)
       : Node(c10::Symbol::fromQualString("hpu::cast")) {
-    auto hl_src = GetOrCreateHbLazyTensor(src, c10::kHABANA);
+    auto hl_src = GetOrCreateHbLazyTensor(src, c10::kHPU);
     auto ir_value_src = hl_src.GetIrValue();
     AddInput(ir_value_src);
-    auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHABANA);
+    auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
     auto ir_value_self = hl_self.GetIrValue();
     AddInput(ir_value_self);
     std::vector<at::Tensor> input_pt_vec{src, self};
@@ -56,7 +56,7 @@ class Cast : public Node {
   Cast(const at::Tensor& src, c10::ScalarType type, bool non_blocking)
       : Node(c10::Symbol::fromQualString("hpu::cast")) {
     static_cast<void>(non_blocking);
-    auto hl_src = GetOrCreateHbLazyTensor(src, c10::kHABANA);
+    auto hl_src = GetOrCreateHbLazyTensor(src, c10::kHPU);
     auto ir_value_src = hl_src.GetIrValue();
     AddInput(ir_value_src);
     std::vector<at::Tensor> input_pt_vec{src};

@@ -35,7 +35,7 @@ enum LayoutFormat { kNHWC = 0, kNCHW = 1, kHWCK = 2, kANY = 3, kINVALID = 4 };
 struct Data {
   Data(at::Tensor tensor_data, const c10::Device& device)
       : data_ptr(nullptr),
-        device(c10::Device(c10::DeviceType::HABANA, 0)),
+        device(c10::Device(c10::DeviceType::HPU, 0)),
         logical_element_type(tensor_data.scalar_type()),
         tensor_data(std::move(tensor_data)),
         original_element_type(tensor_data.scalar_type()),
@@ -45,7 +45,7 @@ struct Data {
 
   Data(const c10::Device& device)
       : data_ptr(nullptr),
-        device(c10::Device(c10::DeviceType::HABANA, 0)),
+        device(c10::Device(c10::DeviceType::HPU, 0)),
         unique_id(GetNextTensorId()) {
     static_cast<void>(device);
   }
@@ -261,7 +261,7 @@ class HbContextArena {
 
 inline c10::Device SynapseDeviceToAtenDevice(
     const synapse_helpers::device& device) {
-  return c10::Device(at::kHABANA, device.id());
+  return c10::Device(at::kHPU, device.id());
 }
 
 inline c10::Device GetDeviceOrCurrent(const std::string& device_str) {

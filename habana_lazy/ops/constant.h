@@ -73,7 +73,7 @@ class OnesLike : public Node {
       const at::TensorOptions& options,
       c10::optional<c10::MemoryFormat> optional_memory_format)
       : Node(c10::Symbol::fromQualString("aten::ones_like")) {
-    auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHABANA);
+    auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
     AddInput(hl_self.GetIrValue());
 
     std::vector<at::Tensor> input_pt_vec{self};

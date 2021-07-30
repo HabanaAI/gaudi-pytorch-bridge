@@ -31,9 +31,9 @@ inline Tensor get_hpu_tensor(Tensor input) {
   Tensor output;
   if (input.device().type() == c10::DeviceType::CPU) {
     if (input.scalar_type() == c10::ScalarType::Double) {
-      output = input.to(c10::ScalarType::Float).to(c10::DeviceType::HABANA);
+      output = input.to(c10::ScalarType::Float).to(c10::DeviceType::HPU);
     } else {
-      output = input.to(c10::DeviceType::HABANA);
+      output = input.to(c10::DeviceType::HPU);
     }
   } else {
     output = input;

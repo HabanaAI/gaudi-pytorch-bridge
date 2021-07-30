@@ -18,7 +18,7 @@ class LazyReductionKernelTest : public habana_lazy_test::LazyTest {};
 
 TEST_F(LazyReductionKernelTest, SumTest) {
   torch::Tensor A = torch::randn({2, 2}, torch::requires_grad(false));
-  torch::Tensor hA = A.to(torch::kHABANA);
+  torch::Tensor hA = A.to(torch::kHPU);
   torch::Tensor hOut = torch::sum(hA);
   torch::Tensor Out = torch::sum(A);
 
@@ -27,7 +27,7 @@ TEST_F(LazyReductionKernelTest, SumTest) {
 
 TEST_F(LazyReductionKernelTest, MeanDim) {
   torch::Tensor A = torch::randn({53, 13}, torch::requires_grad(false));
-  torch::Tensor hA = A.to(torch::kHABANA);
+  torch::Tensor hA = A.to(torch::kHPU);
   torch::Tensor hOut = at::mean(hA, {0});
   torch::Tensor Out = at::mean(A, {0});
 
@@ -35,7 +35,7 @@ TEST_F(LazyReductionKernelTest, MeanDim) {
 }
 TEST_F(LazyReductionKernelTest, SumDimIntTest) {
   torch::Tensor A = torch::randn({2, 2}, torch::requires_grad(false));
-  torch::Tensor hA = A.to(torch::kHABANA);
+  torch::Tensor hA = A.to(torch::kHPU);
   torch::Tensor hOut = torch::sum(hA, 1);
   torch::Tensor Out = torch::sum(A, 1);
 
@@ -58,7 +58,7 @@ TEST_F(LazyReductionKernelTest, SumDimIntOut) {
 
 TEST_F(LazyReductionKernelTest, ProdTest) {
   torch::Tensor A = torch::randn({2, 2}, torch::requires_grad(false));
-  torch::Tensor hA = A.to(torch::kHABANA);
+  torch::Tensor hA = A.to(torch::kHPU);
   torch::Tensor hOut = torch::prod(hA);
   torch::Tensor Out = torch::prod(A);
 
@@ -67,7 +67,7 @@ TEST_F(LazyReductionKernelTest, ProdTest) {
 
 TEST_F(LazyReductionKernelTest, AnyTest) {
   torch::Tensor A = torch::randint(-10, 10, {3, 2}) > 0;
-  torch::Tensor hA = A.to(torch::kHABANA);
+  torch::Tensor hA = A.to(torch::kHPU);
 
   torch::Tensor out = torch::any(hA);
   torch::Tensor out_cpu = torch::any(A);
@@ -78,7 +78,7 @@ TEST_F(LazyReductionKernelTest, AnyTest) {
 
 TEST_F(LazyReductionKernelTest, AnyDimTest) {
   torch::Tensor A = torch::randint(-10, 10, {3, 2}) > 0;
-  torch::Tensor hA = A.to(torch::kHABANA);
+  torch::Tensor hA = A.to(torch::kHPU);
 
   torch::Tensor out = torch::any(hA, 1, true);
   torch::Tensor out_cpu = torch::any(A, 1, true);
@@ -102,7 +102,7 @@ TEST_F(LazyReductionKernelTest, AnyDimOutTest) {
 
 TEST_F(LazyReductionKernelTest, ProdDimIntTest) {
   torch::Tensor A = torch::randn({2, 2}, torch::requires_grad(false));
-  torch::Tensor hA = A.to(torch::kHABANA);
+  torch::Tensor hA = A.to(torch::kHPU);
   torch::Tensor hOut = torch::prod(hA, 1);
   torch::Tensor Out = torch::prod(A, 1);
 
@@ -111,7 +111,7 @@ TEST_F(LazyReductionKernelTest, ProdDimIntTest) {
 
 TEST_F(LazyReductionKernelTest, ArgMaxTest) {
   torch::Tensor A = torch::randn({2, 2, 3, 4}, torch::requires_grad(false));
-  torch::Tensor hA = A.to(torch::kHABANA);
+  torch::Tensor hA = A.to(torch::kHPU);
   torch::Tensor hOut = torch::argmax(hA, 2, true);
   torch::Tensor Out = torch::argmax(A, 2, true);
   auto cOut = Out.to(torch::dtype(torch::kInt));
@@ -124,7 +124,7 @@ TEST_F(LazyReductionKernelTest, AllTensorTest) {
   torch::Tensor A = (torch::randn(dimensions) > 0.5);
 
   auto expected = torch::all(A);
-  auto hA = A.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
   auto result = torch::all(hA);
   torch::Tensor habanaGenerated = result.to(torch::kCPU);
 
@@ -140,7 +140,7 @@ TEST_F(LazyReductionKernelTest, AllDimTensorTest) {
   int64_t dim = 1;
   bool keepdim = false;
   auto expected = torch::all(A, dim, keepdim);
-  auto hA = A.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
   auto result = torch::all(hA, dim, keepdim);
   torch::Tensor habanaGenerated = result.to(torch::kCPU);
 
@@ -151,7 +151,7 @@ TEST_F(LazyReductionKernelTest, AllDimTensorTest) {
 
 TEST_F(LazyReductionKernelTest, MaxDimTest) {
   torch::Tensor A = torch::randn({2, 2}, torch::requires_grad(false));
-  torch::Tensor hA = A.to(torch::kHABANA);
+  torch::Tensor hA = A.to(torch::kHPU);
   torch::Tensor hOut, hIndex, Out, Index;
   std::tie(hOut, hIndex) = torch::max(hA, 1);
   std::tie(Out, Index) = torch::max(A, 1);
@@ -162,7 +162,7 @@ TEST_F(LazyReductionKernelTest, MaxDimTest) {
 
 TEST_F(LazyReductionKernelTest, MaxTest) {
   torch::Tensor A = torch::randn({2, 3, 4}, torch::requires_grad(false));
-  torch::Tensor hA = A.to(torch::kHABANA);
+  torch::Tensor hA = A.to(torch::kHPU);
   auto hOut = torch::max(hA);
   auto Out = torch::max(A);
 
@@ -172,7 +172,7 @@ TEST_F(LazyReductionKernelTest, MaxTest) {
 TEST_F(LazyReductionKernelTest, MinTest) {
   torch::Tensor A = torch::randn(
       {2, 3, 4, 2}, torch::requires_grad(false).dtype(torch::kDouble));
-  torch::Tensor hA = A.to(torch::kHABANA);
+  torch::Tensor hA = A.to(torch::kHPU);
   auto hOut = torch::min(hA);
   auto Out = torch::min(A);
   EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out), true);
@@ -180,7 +180,7 @@ TEST_F(LazyReductionKernelTest, MinTest) {
 
 TEST_F(LazyReductionKernelTest, DISABLED_Mean) {
   torch::Tensor A = torch::randn({53, 13}, torch::requires_grad(false));
-  torch::Tensor hA = A.to(torch::kHABANA);
+  torch::Tensor hA = A.to(torch::kHPU);
   torch::Tensor hOut = torch::mean(hA);
   torch::Tensor Out = torch::mean(A);
 

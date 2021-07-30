@@ -40,11 +40,11 @@ at::Allocator* getHABANADeviceAllocator() {
 // allocators are registered.
 
 namespace at {
-REGISTER_ALLOCATOR(DeviceType::HABANA, &habana::hpu_device_allocator);
+REGISTER_ALLOCATOR(DeviceType::HPU, &habana::hpu_device_allocator);
 } // namespace at
 
 namespace detail {
-C10_REGISTER_GUARD_IMPL(HABANA, habana::HABANAGuardImpl);
+C10_REGISTER_GUARD_IMPL(HPU, habana::HABANAGuardImpl);
 } // namespace detail
 
 namespace habana {
@@ -239,7 +239,7 @@ at::DataPtr HPUDeviceAllocator::allocate(size_t num_bytes) const {
       v_ptr,
       v_ptr,
       &HPUDeviceAllocator::deleter,
-      at::Device(at::DeviceType::HABANA, allocator_active_device_id)};
+      at::Device(at::DeviceType::HPU, allocator_active_device_id)};
 }
 
 at::DeleterFnPtr HPUDeviceAllocator::raw_deleter() const {

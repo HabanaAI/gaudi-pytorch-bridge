@@ -833,7 +833,7 @@ void FlattenOperator::AllocateAndAddSynapseNode(
     // [0, 3, 0] but passing [0, -1, 0] to infer_size means the -1 can take on
     // any value and satisfy the constraints.
     auto slice_numel =
-        prod_intlist(self.sizes().slice(start_dim, end_dim - start_dim + 1));
+        multiply_integers(self.sizes().slice(start_dim, end_dim - start_dim + 1));
     shape.reserve(self.dim() - end_dim + start_dim);
     for (int64_t i = 0; i < start_dim; i++) {
       shape.push_back(self.size(i));
@@ -1290,7 +1290,7 @@ at::Tensor flip_hpu(const at::Tensor& self, at::IntArrayRef dims) {
       "reverse_" + habana_helpers::name_suffix_from_type(scalar_type);
   // Assign Inputs to the Operator
   std::vector<at::Tensor> pt_inputs{
-      self /*, torch::tensor(dims).to(torch::kHABANA)*/};
+      self /*, torch::tensor(dims).to(torch::kHPU)*/};
   std::vector<c10::IValue> stack = {c10::IValue(self), c10::IValue(dims)};
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
   size_t key = Op.GetRecipeKey(node_type, stack);

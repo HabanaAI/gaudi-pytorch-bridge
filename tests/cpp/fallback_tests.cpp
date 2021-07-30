@@ -50,7 +50,7 @@ TEST_P(FallbackTest, Simple) {
 
 TEST_P(FallbackTest, UnsupportedOpHalf) {
   auto in =
-      torch::tensor({{1, 2}, {3, 4}}, at::device(at::kHABANA).dtype(at::kHalf));
+      torch::tensor({{1, 2}, {3, 4}}, at::device(at::kHPU).dtype(at::kHalf));
   auto res = torch::tril(in);
 
   auto exp = torch::tensor({{1, 0}, {3, 4}}, dtype(at::kHalf));
@@ -66,7 +66,7 @@ TEST_P(FallbackTest, Inplace) {
 
 TEST_P(FallbackTest, NonSupportedAsStrided) {
   torch::Tensor A = torch::rand({3, 3, 3, 3, 3});
-  torch::Tensor hA = A.to(torch::kHABANA);
+  torch::Tensor hA = A.to(torch::kHPU);
   at::Tensor Out = A.as_strided({2, 2}, {1, 2});
   at::Tensor hOut = hA.as_strided({2, 2}, {1, 2});
 

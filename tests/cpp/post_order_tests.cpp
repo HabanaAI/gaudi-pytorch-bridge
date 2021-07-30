@@ -22,8 +22,8 @@ class PostOrderTest : public habana_lazy_test::LazyTest {
 
 TEST_F(PostOrderTest, poTestAdd) {
   // test case for result = add(tensor1, tensor2, alpha)
-  torch::Tensor tensor_in1 = torch::randn({2, 3}).to(torch::kHABANA);
-  torch::Tensor tensor_in2 = torch::randn({2, 3}).to(torch::kHABANA);
+  torch::Tensor tensor_in1 = torch::randn({2, 3}).to(torch::kHPU);
+  torch::Tensor tensor_in2 = torch::randn({2, 3}).to(torch::kHPU);
   Scalar alpha = 1.0;
   auto result = add_tensor_hpu_lazy(tensor_in1, tensor_in2, alpha);
   auto hl_result = GetHbLazyTensor(result);
@@ -50,7 +50,7 @@ TEST_F(PostOrderTest, poTestAdd) {
 
 TEST_F(PostOrderTest, poTestFill) {
   // test case for result.fill_(val)
-  torch::Tensor tensor_in1 = torch::randn({2, 3}).to(torch::kHABANA);
+  torch::Tensor tensor_in1 = torch::randn({2, 3}).to(torch::kHPU);
   Scalar alpha = 1.0;
 
   tensor_in1.fill_(alpha);
@@ -91,8 +91,8 @@ TEST_F(PostOrderTest, poTestCommonInput) {
   // test case for
   // t = add(tensor1, tensor2, alpha)
   // result = add(t, tensor2, beta)
-  torch::Tensor tensor_in1 = torch::randn({2, 3}).to(torch::kHABANA);
-  torch::Tensor tensor_in2 = torch::randn({2, 3}).to(torch::kHABANA);
+  torch::Tensor tensor_in1 = torch::randn({2, 3}).to(torch::kHPU);
+  torch::Tensor tensor_in2 = torch::randn({2, 3}).to(torch::kHPU);
   Scalar alpha = 1.0f, beta = 2.0f;
   auto result = add_tensor_hpu_lazy(tensor_in1, tensor_in2, alpha);
 
@@ -133,8 +133,8 @@ TEST_F(PostOrderTest, poTestCommonInput) {
 
 TEST_F(PostOrderTest, poTestAddInplace) {
   // test case for tensor1 = add(tensor1, tensor2, alpha)
-  torch::Tensor tensor_in1 = torch::randn({2, 3}).to(torch::kHABANA);
-  torch::Tensor tensor_in2 = torch::randn({2, 3}).to(torch::kHABANA);
+  torch::Tensor tensor_in1 = torch::randn({2, 3}).to(torch::kHPU);
+  torch::Tensor tensor_in2 = torch::randn({2, 3}).to(torch::kHPU);
   tensor_in1 = tensor_in1.add_(tensor_in2);
   auto hl_result = GetHbLazyTensor(tensor_in1);
 
@@ -160,7 +160,7 @@ TEST_F(PostOrderTest, poTestAddInplace) {
 
 TEST_F(PostOrderTest, poTestReluInplace) {
   // test case for tensor1 = relu(tensor1)
-  torch::Tensor tensor_in1 = torch::randn({2, 3}).to(torch::kHABANA);
+  torch::Tensor tensor_in1 = torch::randn({2, 3}).to(torch::kHPU);
   tensor_in1 = tensor_in1.relu_();
   auto hl_result = GetHbLazyTensor(tensor_in1);
 

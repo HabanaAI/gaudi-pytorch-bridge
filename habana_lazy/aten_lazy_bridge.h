@@ -30,7 +30,7 @@ HbInternalTensorImpl* GetHbInternalTensorImpl(const at::Tensor& tensor);
 // it, otherwise creates a new HbLazy tensor type with tensor as data.
 HbLazyTensor GetOrCreateHbLazyTensor(
     const at::Tensor& tensor,
-    const c10::Device& device = c10::kHABANA);
+    const c10::Device& device = c10::kHPU);
 
 void setTensorAsInputNode(HbLazyTensor hl_tensor);
 

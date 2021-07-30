@@ -26,7 +26,7 @@ class Clamp : public Node {
       c10::optional<at::Scalar> min,
       c10::optional<at::Scalar> max)
       : Node(c10::Symbol::fromQualString("aten::clamp_")) {
-    auto hl_input = GetOrCreateHbLazyTensor(self, c10::kHABANA);
+    auto hl_input = GetOrCreateHbLazyTensor(self, c10::kHPU);
     AddInput(hl_input.GetIrValue());
     std::vector<at::Tensor> input_pt_vec{self};
     AddInputPtTensors(input_pt_vec);

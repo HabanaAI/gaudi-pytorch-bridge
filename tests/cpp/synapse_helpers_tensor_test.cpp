@@ -14,7 +14,7 @@
 TEST(SynapseHelpersTest, NonDynamicTensorBuilding) {
   using namespace synapse_helpers;
   torch::Tensor A = torch::randn({2, 2}, torch::requires_grad(false));
-  torch::Tensor hA = A.to(torch::kHABANA);
+  torch::Tensor hA = A.to(torch::kHPU);
   auto& synapse_device_ = synapse_helpers::HPURegistrar::get_device();
   synGraphHandle h;
   ASSERT_EQ(synSuccess, synGraphCreate(&h, synDeviceGaudi));
@@ -36,7 +36,7 @@ TEST(SynapseHelpersTest, NonDynamicTensorBuilding) {
 TEST(SynapseHelpersTest, NonDynamicTensorWithShape) {
   using namespace synapse_helpers;
   torch::Tensor A = torch::randn({2, 2}, torch::requires_grad(false));
-  torch::Tensor hA = A.to(torch::kHABANA);
+  torch::Tensor hA = A.to(torch::kHPU);
 
   synGraphHandle h;
   ASSERT_EQ(synSuccess, synGraphCreate(&h, synDeviceGaudi));
@@ -57,7 +57,7 @@ TEST(SynapseHelpersTest, NonDynamicTensorWithShape) {
 TEST(SynapseHelpersTest, NonDynamicTensorWithRank) {
   using namespace synapse_helpers;
   torch::Tensor A = torch::randn({2, 2}, torch::requires_grad(false));
-  torch::Tensor hA = A.to(torch::kHABANA);
+  torch::Tensor hA = A.to(torch::kHPU);
 
   synGraphHandle h;
   ASSERT_EQ(synSuccess, synGraphCreate(&h, synDeviceGaudi));
@@ -80,7 +80,7 @@ TEST(SynapseHelpersTest, NonDynamicTensorWithRank) {
 TEST(SynapseHelpersTest, DynamicTensorBuilding) {
   using namespace synapse_helpers;
   torch::Tensor A = torch::randn({2, 2}, torch::requires_grad(false));
-  torch::Tensor hA = A.to(torch::kHABANA);
+  torch::Tensor hA = A.to(torch::kHPU);
 
   synGraphHandle h;
   ASSERT_EQ(synSuccess, synGraphCreate(&h, synDeviceGaudi));
@@ -114,7 +114,7 @@ TEST(SynapseHelpersTest, DynamicTensorBuilding) {
 TEST(SynapseHelpersTest, DynamicTensorWithRank) {
   using namespace synapse_helpers;
   torch::Tensor A = torch::randn({2, 2}, torch::requires_grad(false));
-  torch::Tensor hA = A.to(torch::kHABANA);
+  torch::Tensor hA = A.to(torch::kHPU);
 
   synGraphHandle h;
   ASSERT_EQ(synSuccess, synGraphCreate(&h, synDeviceGaudi));

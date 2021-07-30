@@ -141,7 +141,7 @@ Tensor& copy_hpu_(Tensor& self, const Tensor& src, bool non_blocking) {
   const auto dst_device = dst.device().type();
 
   if (src_device == c10::DeviceType::CPU &&
-      dst_device == c10::DeviceType::HABANA) {
+      dst_device == c10::DeviceType::HPU) {
     // check if strides along any dim of CPU src tensor is 0. Since HPU does not
     // understand stride = 0, therefore force tensor to contiguous before
     // triggering DMA to HPU
@@ -159,7 +159,7 @@ Tensor& copy_hpu_(Tensor& self, const Tensor& src, bool non_blocking) {
     HABANA_ASSERT(dst.nbytes() >= _src.nbytes());
     habana_helpers::copy_data_to_device(_src, dst, non_blocking);
   } else if (
-      src_device == c10::DeviceType::HABANA &&
+      src_device == c10::DeviceType::HPU &&
       dst_device == c10::DeviceType::CPU) {
     HABANA_ASSERT(dst.nbytes() >= src.nbytes());
     if (dst.nbytes() > src.nbytes()) {
@@ -199,8 +199,8 @@ Tensor& copy_hpu_(Tensor& self, const Tensor& src, bool non_blocking) {
       habana_helpers::copy_data_to_host(src, dst, non_blocking);
     }
   } else if (
-      src_device == c10::DeviceType::HABANA &&
-      dst_device == c10::DeviceType::HABANA) {
+      src_device == c10::DeviceType::HPU &&
+      dst_device == c10::DeviceType::HPU) {
     do_d2d_copy(dst, src, non_blocking);
   } else {
     PT_KERNEL_FATAL(
@@ -236,7 +236,7 @@ Tensor& set_hpu_(
 
   auto scalar_type = self.scalar_type();
   auto self_ = checked_dense_tensor_unwrap(
-      self, "self", 1, "_th_set_", false, DeviceType::HABANA, scalar_type);
+      self, "self", 1, "_th_set_", false, DeviceType::HPU, scalar_type);
 // TODO: remove this commented section
 // part of 1.5 migration related change - revert once not needed
 #if 0
@@ -244,7 +244,7 @@ Tensor& set_hpu_(
       source,
       "source",
       2,
-      DeviceType::HABANA,
+      DeviceType::HPU,
       at::scalarTypeToTypeMeta(scalar_type));
 #else
   auto source_ = source;

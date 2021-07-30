@@ -107,8 +107,8 @@ void habana_helpers::type_promotion_for_two_tensor_inputs(
   if (inputs[0].isTensor() && inputs[1].isTensor()) {
     auto tensor1 = inputs[0].toTensor();
     auto tensor2 = inputs[1].toTensor();
-    if ((tensor1.device().type() != c10::DeviceType::HABANA) ||
-        (tensor2.device().type() != c10::DeviceType::HABANA)) {
+    if ((tensor1.device().type() != c10::DeviceType::HPU) ||
+        (tensor2.device().type() != c10::DeviceType::HPU)) {
       // Early return if one of the tensors is not on Habana device
       // in such cases we will not try type promotion.
       return;

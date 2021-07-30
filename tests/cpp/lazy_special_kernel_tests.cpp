@@ -23,7 +23,7 @@ using namespace at;
     auto min = min_val;                                                        \
     auto max = max_val;                                                        \
     A = at::clamp(A, min, max);                                                \
-    auto hA = A.to(torch::kHABANA);                                            \
+    auto hA = A.to(torch::kHPU);                                            \
     auto expectedOutput = torch::op_code(A);                                   \
     auto habanaOutput = torch::op_code(hA);                                    \
     EXPECT_EQ(                                                                 \
@@ -37,7 +37,7 @@ TEST_F(LazySpecialKernelTest, AsinForward) {
   auto min = -1.0;
   auto max = 1.0;
   A = at::clamp(A, min, max);
-  auto hA = A.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
   auto expectedOutput = torch::asin(A);
   auto habanaOutput = torch::asin(hA);
   EXPECT_EQ(

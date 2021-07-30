@@ -79,7 +79,7 @@ void PtTensorInfo::update_shape_values() {
     // case INPUT_DESCRIBING_SHAPE_TENSOR: {
     //  shape_ndim_ = pt_tensor.numel();
     //  at::Tensor pt_tensor_cpu =
-    //      (pt_tensor.device().type() == at::kHABANA ? pt_tensor.to(at::kCPU)
+    //      (pt_tensor.device().type() == at::kHPU ? pt_tensor.to(at::kCPU)
     //                                                : pt_tensor);
     //  for (uint64_t i = 0; i < shape_ndim_; i++) {
     //    // Reverse PyTorch shapes for synapse tensor shape patching

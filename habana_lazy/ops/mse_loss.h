@@ -21,8 +21,8 @@ struct MseLoss : public habana_lazy::ir::Node {
   MseLoss(const at::Tensor& self, const at::Tensor& target, int64_t reduction)
       : Node(c10::Symbol::fromQualString("aten::mse_loss")),
         m_reduction_index{2} {
-    auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
-    auto hl_target = habana_lazy::GetOrCreateHbLazyTensor(target, c10::kHABANA);
+    auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHPU);
+    auto hl_target = habana_lazy::GetOrCreateHbLazyTensor(target, c10::kHPU);
 
     AddInput(hl_self.GetIrValue());
     AddInput(hl_target.GetIrValue());
@@ -41,9 +41,9 @@ struct MseLoss : public habana_lazy::ir::Node {
       : Node(c10::Symbol::fromQualString("aten::mse_loss_backward")),
         m_reduction_index{3} {
     auto hl_grad_output =
-        habana_lazy::GetOrCreateHbLazyTensor(grad_output, c10::kHABANA);
-    auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHABANA);
-    auto hl_target = habana_lazy::GetOrCreateHbLazyTensor(target, c10::kHABANA);
+        habana_lazy::GetOrCreateHbLazyTensor(grad_output, c10::kHPU);
+    auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHPU);
+    auto hl_target = habana_lazy::GetOrCreateHbLazyTensor(target, c10::kHPU);
 
     AddInput(hl_grad_output.GetIrValue());
     AddInput(hl_self.GetIrValue());

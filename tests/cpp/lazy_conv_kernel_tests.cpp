@@ -20,14 +20,14 @@ TEST_F(LazyConvKernelTest, ConvReluTest) {
   auto input_tensor =
       torch::arange(27, torch::dtype(torch::kFloat).requires_grad(false))
           .reshape({1, 3, 3, 3}); // nchw
-  torch::Tensor tHabanaX = input_tensor.to(torch::kHABANA);
+  torch::Tensor tHabanaX = input_tensor.to(torch::kHPU);
 
   auto weight_tensor =
       torch::arange(27, torch::dtype(torch::kFloat).requires_grad(false))
           .reshape({3, 3, 3, 1}); // hwck
 
   auto wt_hwck = weight_tensor.permute({2, 3, 1, 0}).contiguous();
-  torch::Tensor tHabanaW = wt_hwck.to(torch::kHABANA);
+  torch::Tensor tHabanaW = wt_hwck.to(torch::kHPU);
 
   torch::Tensor outConv = torch::conv2d(tHabanaX, tHabanaW, {}, 1, 0, 1, 1);
   torch::Tensor outhpu = torch::relu(outConv);
@@ -62,9 +62,9 @@ TEST_F(LazyConvKernelGraphTest, ConvolutionBackward) {
   auto input = torch::randn({2, 5, 3, 4}, torch::requires_grad(false));
   auto weight = torch::randn({2, 2, 5, 6}, torch::requires_grad(false));
 
-  auto h_grad_output = grad_output.to(torch::kHABANA);
-  auto hinput = input.to(torch::kHABANA);
-  auto hweight = weight.to(torch::kHABANA);
+  auto h_grad_output = grad_output.to(torch::kHPU);
+  auto hinput = input.to(torch::kHPU);
+  auto hweight = weight.to(torch::kHPU);
 
   torch::Tensor out1, out2, out3;
   std::tie(out1, out2, out3) = convolution_backward_overrideable(
@@ -125,9 +125,9 @@ TEST_F(LazyConvKernelTest, ConvExecTest) {
   auto wt = torch::randn({5, 4, 3, 3}, torch::dtype(torch::kFloat)); // kchw
   auto exp = torch::conv2d(in, wt, {}, 1, 0, 1, 1);
 
-  auto h_in = in.to(torch::kHABANA);
+  auto h_in = in.to(torch::kHPU);
   auto wt_hwck = wt.permute({2, 3, 1, 0}).contiguous();
-  auto h_wt = wt_hwck.to(torch::kHABANA);
+  auto h_wt = wt_hwck.to(torch::kHPU);
 
   torch::Tensor result = torch::conv2d(h_in, h_wt, {}, 1, 0, 1, 1);
 
@@ -142,9 +142,9 @@ TEST_F(LazyConvKernelTest, ConvTranspose2dTest) {
   auto bias = torch::randn({5}, torch::dtype(torch::kFloat)); // k
   auto exp = torch::conv_transpose2d(in, wt, {}, 1, 0, 0, 1, 1);
 
-  auto h_in = in.to(torch::kHABANA);
+  auto h_in = in.to(torch::kHPU);
   auto wt_hwck = wt.permute({2, 3, 1, 0}).contiguous();
-  auto h_wt = wt_hwck.to(torch::kHABANA);
+  auto h_wt = wt_hwck.to(torch::kHPU);
 
   torch::Tensor result = torch::conv_transpose2d(h_in, h_wt, {}, 1, 0, 0, 1, 1);
   Tensor out = result.to(kCPU);
@@ -153,15 +153,15 @@ TEST_F(LazyConvKernelTest, ConvTranspose2dTest) {
 
 TEST_F(LazyConvKernelTest, ConvTranspose2dBwdTest) {
   auto in = torch::randn({64, 4, 28, 28}, torch::requires_grad()); // nchw
-  auto hin = in.to(torch::kHABANA);
+  auto hin = in.to(torch::kHPU);
   auto wt = torch::randn({4, 5, 3, 3}, torch::requires_grad()); // ckhw
   auto wt_hwck = wt.detach().permute({2, 3, 1, 0}).contiguous();
-  auto hwt = wt_hwck.to(torch::kHABANA);
+  auto hwt = wt_hwck.to(torch::kHPU);
   auto bias = torch::randn({5}, torch::requires_grad()); // k
   auto exp = torch::conv_transpose2d(in, wt, {}, 1, 0, 0, 1, 1);
 
   auto grad_out = torch::ones_like(exp.detach());
-  auto hgrad_out = grad_out.detach().to(torch::kHABANA);
+  auto hgrad_out = grad_out.detach().to(torch::kHPU);
   exp.backward(grad_out);
   auto grad_in = in.grad();
   auto grad_wt = wt.grad();

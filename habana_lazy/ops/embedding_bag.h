@@ -25,10 +25,10 @@ class EmbeddingBagSum : public ir::Node {
       const at::Tensor& valid_count,
       int64_t kernel_mode)
       : Node(c10::Symbol::fromQualString("hpu::embedding_bag_sum")) {
-    auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHABANA);
-    auto hl_indices = GetOrCreateHbLazyTensor(indices, c10::kHABANA);
-    auto hl_offsets = GetOrCreateHbLazyTensor(offsets, c10::kHABANA);
-    auto hl_valid_count = GetOrCreateHbLazyTensor(valid_count, c10::kHABANA);
+    auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHPU);
+    auto hl_indices = GetOrCreateHbLazyTensor(indices, c10::kHPU);
+    auto hl_offsets = GetOrCreateHbLazyTensor(offsets, c10::kHPU);
+    auto hl_valid_count = GetOrCreateHbLazyTensor(valid_count, c10::kHPU);
 
     AddInput(hl_input.GetIrValue());
     AddInput(hl_indices.GetIrValue());
@@ -65,11 +65,11 @@ class EmbeddingBagSumBwd : public ir::Node {
       const at::Tensor& valid_count,
       int64_t kernel_mode)
       : Node(c10::Symbol::fromQualString("hpu::embedding_bag_sum_bwd_out")) {
-    auto hl_out = GetOrCreateHbLazyTensor(out, c10::kHABANA);
-    auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHABANA);
-    auto hl_indices = GetOrCreateHbLazyTensor(indices, c10::kHABANA);
-    auto hl_offsets = GetOrCreateHbLazyTensor(offsets, c10::kHABANA);
-    auto hl_valid_count = GetOrCreateHbLazyTensor(valid_count, c10::kHABANA);
+    auto hl_out = GetOrCreateHbLazyTensor(out, c10::kHPU);
+    auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHPU);
+    auto hl_indices = GetOrCreateHbLazyTensor(indices, c10::kHPU);
+    auto hl_offsets = GetOrCreateHbLazyTensor(offsets, c10::kHPU);
+    auto hl_valid_count = GetOrCreateHbLazyTensor(valid_count, c10::kHPU);
 
     AddInput(hl_out.GetIrValue());
     AddInput(hl_input.GetIrValue());

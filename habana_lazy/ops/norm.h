@@ -35,14 +35,14 @@ class LayerNormForward : public ir::Node {
       : Node(c10::Symbol::fromQualString("aten::native_layer_norm")) {
     auto weight = weight_opt.value();
     auto bias = bias_opt.value();
-    auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHABANA);
+    auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHPU);
     AddInput(hl_input.GetIrValue());
     std::vector<at::Tensor> input_pt_vec{input};
-    auto hl_weight = GetOrCreateHbLazyTensor(weight, c10::kHABANA);
+    auto hl_weight = GetOrCreateHbLazyTensor(weight, c10::kHPU);
     AddInput(hl_weight.GetIrValue());
     input_pt_vec.emplace_back(weight);
 
-    auto hl_bias = GetOrCreateHbLazyTensor(bias, c10::kHABANA);
+    auto hl_bias = GetOrCreateHbLazyTensor(bias, c10::kHPU);
     AddInput(hl_bias.GetIrValue());
     input_pt_vec.emplace_back(bias);
 
@@ -85,24 +85,24 @@ class LayerNormBackward : public ir::Node {
       const c10::optional<at::Tensor>& bias_opt,
       std::array<bool, 3> grad_input_mask)
       : Node(c10::Symbol::fromQualString("aten::native_layer_norm_backward")) {
-    auto hl_dY = GetOrCreateHbLazyTensor(dY, c10::kHABANA);
+    auto hl_dY = GetOrCreateHbLazyTensor(dY, c10::kHPU);
     AddInput(hl_dY.GetIrValue());
-    auto hl_X = GetOrCreateHbLazyTensor(X, c10::kHABANA);
+    auto hl_X = GetOrCreateHbLazyTensor(X, c10::kHPU);
     AddInput(hl_X.GetIrValue());
-    auto hl_mean = GetOrCreateHbLazyTensor(mean, c10::kHABANA);
+    auto hl_mean = GetOrCreateHbLazyTensor(mean, c10::kHPU);
     AddInput(hl_mean.GetIrValue());
-    auto hl_rstd = GetOrCreateHbLazyTensor(rstd, c10::kHABANA);
+    auto hl_rstd = GetOrCreateHbLazyTensor(rstd, c10::kHPU);
     AddInput(hl_rstd.GetIrValue());
 
     std::vector<at::Tensor> input_pt_vec{dY, X, mean, rstd};
     auto gamma = weight_opt.value();
 
-    auto hl_gamma = GetOrCreateHbLazyTensor(gamma, c10::kHABANA);
+    auto hl_gamma = GetOrCreateHbLazyTensor(gamma, c10::kHPU);
     AddInput(hl_gamma.GetIrValue());
     input_pt_vec.emplace_back(gamma);
     auto bias = bias_opt.value();
 
-    auto hl_bias = GetOrCreateHbLazyTensor(bias, c10::kHABANA);
+    auto hl_bias = GetOrCreateHbLazyTensor(bias, c10::kHPU);
     AddInput(hl_bias.GetIrValue());
     input_pt_vec.emplace_back(bias);
     AddInputPtTensors(input_pt_vec);
@@ -150,11 +150,11 @@ class BatchNormForward : public ir::Node {
       double momentum,
       double eps)
       : Node(c10::Symbol::fromQualString("hpu::native_batch_norm_rmv")) {
-    auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHABANA);
+    auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHPU);
     AddInput(hl_input.GetIrValue());
     std::vector<at::Tensor> input_pt_vec{input};
     if (weight.defined()) {
-      auto hl_weight = GetOrCreateHbLazyTensor(weight, c10::kHABANA);
+      auto hl_weight = GetOrCreateHbLazyTensor(weight, c10::kHPU);
       AddInput(hl_weight.GetIrValue());
       input_pt_vec.emplace_back(weight);
     } else {
@@ -163,7 +163,7 @@ class BatchNormForward : public ir::Node {
           static_cast<size_t>(BatchNormForwardMeta::WEIGHT_INDEX));
     }
     if (bias.defined()) {
-      auto hl_bias = GetOrCreateHbLazyTensor(bias, c10::kHABANA);
+      auto hl_bias = GetOrCreateHbLazyTensor(bias, c10::kHPU);
       AddInput(hl_bias.GetIrValue());
       input_pt_vec.emplace_back(bias);
     } else {
@@ -172,11 +172,11 @@ class BatchNormForward : public ir::Node {
           static_cast<size_t>(BatchNormForwardMeta::BIAS_INDEX));
     }
 
-    auto hl_running_mean = GetOrCreateHbLazyTensor(running_mean, c10::kHABANA);
+    auto hl_running_mean = GetOrCreateHbLazyTensor(running_mean, c10::kHPU);
     AddInput(hl_running_mean.GetIrValue());
     input_pt_vec.emplace_back(running_mean);
 
-    auto hl_running_var = GetOrCreateHbLazyTensor(running_var, c10::kHABANA);
+    auto hl_running_var = GetOrCreateHbLazyTensor(running_var, c10::kHPU);
     AddInput(hl_running_var.GetIrValue());
     input_pt_vec.emplace_back(running_var);
 
@@ -225,11 +225,11 @@ class BatchNormInf : public ir::Node {
       double momentum,
       double eps)
       : Node(c10::Symbol::fromQualString("hpu::native_batch_norm_inf")) {
-    auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHABANA);
+    auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHPU);
     AddInput(hl_input.GetIrValue());
     std::vector<at::Tensor> input_pt_vec{input};
     if (bias.defined()) {
-      auto hl_bias = GetOrCreateHbLazyTensor(bias, c10::kHABANA);
+      auto hl_bias = GetOrCreateHbLazyTensor(bias, c10::kHPU);
       AddInput(hl_bias.GetIrValue());
       input_pt_vec.emplace_back(bias);
     } else {
@@ -238,7 +238,7 @@ class BatchNormInf : public ir::Node {
           static_cast<size_t>(BatchNormInfMeta::BIAS_INDEX));
     }
     if (weight.defined()) {
-      auto hl_weight = GetOrCreateHbLazyTensor(weight, c10::kHABANA);
+      auto hl_weight = GetOrCreateHbLazyTensor(weight, c10::kHPU);
       AddInput(hl_weight.GetIrValue());
       input_pt_vec.emplace_back(weight);
     } else {
@@ -248,7 +248,7 @@ class BatchNormInf : public ir::Node {
     }
     if (running_mean.defined()) {
       auto hl_running_mean =
-          GetOrCreateHbLazyTensor(running_mean, c10::kHABANA);
+          GetOrCreateHbLazyTensor(running_mean, c10::kHPU);
       AddInput(hl_running_mean.GetIrValue());
       input_pt_vec.emplace_back(running_mean);
     } else {
@@ -257,7 +257,7 @@ class BatchNormInf : public ir::Node {
           static_cast<size_t>(BatchNormInfMeta::RUNNING_MEAN_INDEX));
     }
     if (running_var.defined()) {
-      auto hl_running_var = GetOrCreateHbLazyTensor(running_var, c10::kHABANA);
+      auto hl_running_var = GetOrCreateHbLazyTensor(running_var, c10::kHPU);
       AddInput(hl_running_var.GetIrValue());
       input_pt_vec.emplace_back(running_var);
     } else {
@@ -299,7 +299,7 @@ class FusedNorm : public ir::Node {
       : Node(c10::Symbol::fromQualString("hpu::fused_norm")) {
     AddInputVec(grad);
 
-    auto hl_max_norm = GetOrCreateHbLazyTensor(max_norm, c10::kHABANA);
+    auto hl_max_norm = GetOrCreateHbLazyTensor(max_norm, c10::kHPU);
     AddInput(hl_max_norm.GetIrValue());
 
     m_meta_data.set(
@@ -318,7 +318,7 @@ class FusedNorm : public ir::Node {
     ValueList hl_tensors;
     std::vector<at::Tensor> input_pt_vec;
     for (auto& t : tensor_list) {
-      auto hl_tensor = GetOrCreateHbLazyTensor(t, c10::kHABANA);
+      auto hl_tensor = GetOrCreateHbLazyTensor(t, c10::kHPU);
       hl_tensors.push_back(hl_tensor.GetIrValue());
       input_pt_vec.emplace_back(t);
     }
@@ -354,13 +354,13 @@ class BatchNormBackward : public ir::Node {
       double eps,
       UNUSED std::array<bool, 3> output_mask)
       : Node(c10::Symbol::fromQualString("aten::native_batch_norm_backward")) {
-    auto hl_grad_out = GetOrCreateHbLazyTensor(grad_out, c10::kHABANA);
+    auto hl_grad_out = GetOrCreateHbLazyTensor(grad_out, c10::kHPU);
     AddInput(hl_grad_out.GetIrValue());
-    auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHABANA);
+    auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHPU);
     AddInput(hl_input.GetIrValue());
     std::vector<at::Tensor> input_pt_vec{grad_out, input};
     if (weight.defined()) {
-      auto hl_weight = GetOrCreateHbLazyTensor(weight, c10::kHABANA);
+      auto hl_weight = GetOrCreateHbLazyTensor(weight, c10::kHPU);
       AddInput(hl_weight.GetIrValue());
       input_pt_vec.emplace_back(weight);
     } else {
@@ -369,16 +369,16 @@ class BatchNormBackward : public ir::Node {
           static_cast<size_t>(BatchNormBackwardMeta::WEIGHT_INDEX));
     }
 
-    auto hl_running_mean = GetOrCreateHbLazyTensor(running_mean, c10::kHABANA);
+    auto hl_running_mean = GetOrCreateHbLazyTensor(running_mean, c10::kHPU);
     AddInput(hl_running_mean.GetIrValue());
     input_pt_vec.emplace_back(running_mean);
 
-    auto hl_running_var = GetOrCreateHbLazyTensor(running_var, c10::kHABANA);
+    auto hl_running_var = GetOrCreateHbLazyTensor(running_var, c10::kHPU);
     AddInput(hl_running_var.GetIrValue());
     input_pt_vec.emplace_back(running_var);
 
     if (save_mean.defined()) {
-      auto hl_save_mean = GetOrCreateHbLazyTensor(save_mean, c10::kHABANA);
+      auto hl_save_mean = GetOrCreateHbLazyTensor(save_mean, c10::kHPU);
       AddInput(hl_save_mean.GetIrValue());
       input_pt_vec.emplace_back(save_mean);
     } else {
@@ -387,7 +387,7 @@ class BatchNormBackward : public ir::Node {
           static_cast<size_t>(BatchNormBackwardMeta::SAVE_MEAN_INDEX));
     }
     if (save_invstd.defined()) {
-      auto hl_save_invstd = GetOrCreateHbLazyTensor(save_invstd, c10::kHABANA);
+      auto hl_save_invstd = GetOrCreateHbLazyTensor(save_invstd, c10::kHPU);
       AddInput(hl_save_invstd.GetIrValue());
       input_pt_vec.emplace_back(save_invstd);
     } else {

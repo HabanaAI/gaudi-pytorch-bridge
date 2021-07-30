@@ -32,13 +32,13 @@ class OptimizerSparseSgdValidCount : public Node {
       bool nesterov)
       : ir::Node(c10::Symbol::fromQualString("hpu::habanaOptimizerSparseSgd")) {
     std::vector<HbLazyTensor> hl_tensors;
-    hl_tensors.push_back(GetOrCreateHbLazyTensor(gradients, c10::kHABANA));
-    hl_tensors.push_back(GetOrCreateHbLazyTensor(weights_in, c10::kHABANA));
-    hl_tensors.push_back(GetOrCreateHbLazyTensor(moments_in, c10::kHABANA));
-    hl_tensors.push_back(GetOrCreateHbLazyTensor(indices, c10::kHABANA));
-    hl_tensors.push_back(GetOrCreateHbLazyTensor(learning_rate, c10::kHABANA));
+    hl_tensors.push_back(GetOrCreateHbLazyTensor(gradients, c10::kHPU));
+    hl_tensors.push_back(GetOrCreateHbLazyTensor(weights_in, c10::kHPU));
+    hl_tensors.push_back(GetOrCreateHbLazyTensor(moments_in, c10::kHPU));
+    hl_tensors.push_back(GetOrCreateHbLazyTensor(indices, c10::kHPU));
+    hl_tensors.push_back(GetOrCreateHbLazyTensor(learning_rate, c10::kHPU));
     hl_tensors.push_back(
-        GetOrCreateHbLazyTensor(valid_count_tensor, c10::kHABANA));
+        GetOrCreateHbLazyTensor(valid_count_tensor, c10::kHPU));
 
     for (auto& i : hl_tensors) {
       AddInput(i.GetIrValue());

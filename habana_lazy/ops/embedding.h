@@ -32,10 +32,10 @@ class Embedding_forward : public ir::Node {
       bool scale_grad_by_freq,
       bool sparse)
       : Node(c10::Symbol::fromQualString("aten::embedding")) {
-    auto hl_weight = GetOrCreateHbLazyTensor(weight, c10::kHABANA);
+    auto hl_weight = GetOrCreateHbLazyTensor(weight, c10::kHPU);
     AddInput(hl_weight.GetIrValue());
 
-    auto hl_indices = GetOrCreateHbLazyTensor(indices, c10::kHABANA);
+    auto hl_indices = GetOrCreateHbLazyTensor(indices, c10::kHPU);
     AddInput(hl_indices.GetIrValue());
 
     std::vector<at::Tensor> input_pt_vec{weight, indices};
@@ -77,10 +77,10 @@ class Embedding_backward : public ir::Node {
       int64_t padding_idx,
       bool scale_grad_by_freq)
       : Node(c10::Symbol::fromQualString("aten::embedding_dense_backward")) {
-    auto hl_grad = GetOrCreateHbLazyTensor(grad, c10::kHABANA);
+    auto hl_grad = GetOrCreateHbLazyTensor(grad, c10::kHPU);
     AddInput(hl_grad.GetIrValue());
 
-    auto hl_indices = GetOrCreateHbLazyTensor(indices, c10::kHABANA);
+    auto hl_indices = GetOrCreateHbLazyTensor(indices, c10::kHPU);
     AddInput(hl_indices.GetIrValue());
 
     std::vector<at::Tensor> input_pt_vec{grad, indices};

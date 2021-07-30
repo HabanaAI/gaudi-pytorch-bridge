@@ -24,7 +24,7 @@ TEST_F(LazyPoolKernelTest, MaxPoolBWDTest) {
   auto cpu_out = torch::relu(cpu_pool);
 
   // fwd propga
-  torch::Tensor tHabanaX = input_tensor.to(torch::kHABANA);
+  torch::Tensor tHabanaX = input_tensor.to(torch::kHPU);
   auto outHabana1 = torch::max_pool2d_with_indices(tHabanaX, {3, 3}, {1,1}, {0, 0}, {1, 1}, true);
   torch::Tensor outHabana = torch::relu(std::get<0>(outHabana1));
 
@@ -32,7 +32,7 @@ TEST_F(LazyPoolKernelTest, MaxPoolBWDTest) {
   auto grad_tensor =
       torch::arange(6, torch::dtype(torch::kFloat).requires_grad(true))
           .reshape({1, 1, 2, 3});
-  torch::Tensor tHabanaG = grad_tensor.to(torch::kHABANA);
+  torch::Tensor tHabanaG = grad_tensor.to(torch::kHPU);
   outHabana.backward({tHabanaG}, false, true);
 
   auto out_cpu_lazy = outHabana.to(torch::kCPU);
@@ -46,7 +46,7 @@ TEST_F(LazyPoolKernelTest, AvgPoolTest) {
   auto cpu_out = torch::avg_pool2d(input_tensor, 3, 1);
 
   // fwd propagation
-  torch::Tensor tHabanaX = input_tensor.to(torch::kHABANA);
+  torch::Tensor tHabanaX = input_tensor.to(torch::kHPU);
   auto outHabana =
       torch::avg_pool2d(tHabanaX, {3, 3}, {1, 1}, {0, 0}, false, true);
 
@@ -56,7 +56,7 @@ TEST_F(LazyPoolKernelTest, AvgPoolTest) {
   auto grad_tensor =
       torch::arange(6, torch::dtype(torch::kFloat).requires_grad(true))
           .reshape({1, 1, 2, 3});
-  torch::Tensor tHabanaG = grad_tensor.to(torch::kHABANA);
+  torch::Tensor tHabanaG = grad_tensor.to(torch::kHPU);
   outHabana.backward({tHabanaG}, false, true);
 
   auto out_cpu_lazy = outHabana.to(torch::kCPU);

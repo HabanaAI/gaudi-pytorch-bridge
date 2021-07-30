@@ -18,7 +18,7 @@ class LazyFillKernelTest : public habana_lazy_test::LazyTest {};
 
 TEST_F(LazyFillKernelTest, LocalScalarDenseTest) {
   torch::Tensor A = torch::randn({1}, torch::requires_grad(false));
-  torch::Tensor hA = A.to(torch::kHABANA);
+  torch::Tensor hA = A.to(torch::kHPU);
 
   // .item() invokes local scalar dense
   auto s = hA.item();
@@ -29,7 +29,7 @@ TEST_F(LazyFillKernelTest, LocalScalarDenseTest) {
 
 TEST_F(LazyFillKernelTest, ExecuteFillGraph) {
   Tensor tensor_in1 = torch::randn({2});
-  torch::Tensor htensor_in1 = tensor_in1.to(torch::kHABANA);
+  torch::Tensor htensor_in1 = tensor_in1.to(torch::kHPU);
   auto out = htensor_in1.fill_(1.0);
 
   std::vector<HbLazyTensor> tensors = {GetHbLazyTensor(out)};
@@ -42,7 +42,7 @@ TEST_F(LazyFillKernelTest, ExecuteFillGraph) {
 
 TEST_F(LazyFillKernelTest, ExecuteZerosGraph) {
   Tensor tensor_in1 = torch::randn({2});
-  torch::Tensor htensor_in1 = tensor_in1.to(torch::kHABANA);
+  torch::Tensor htensor_in1 = tensor_in1.to(torch::kHPU);
 
   auto out = htensor_in1.zero_();
 

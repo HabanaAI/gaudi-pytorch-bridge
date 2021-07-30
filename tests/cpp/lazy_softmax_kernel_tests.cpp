@@ -18,7 +18,7 @@ class LazySoftmaxKernelTest : public habana_lazy_test::LazyTest {};
 
 TEST_F(LazySoftmaxKernelTest, LogSoftMaxTest) {
   torch::Tensor input = torch::rand({64, 10}, torch::requires_grad(false));
-  torch::Tensor hinput = input.to(torch::kHABANA);
+  torch::Tensor hinput = input.to(torch::kHPU);
   int dim = 0;
   torch::Tensor hout = torch::log_softmax(hinput, dim);
 
@@ -35,7 +35,7 @@ TEST_F(LazySoftmaxKernelTest, LogSoftMaxTest) {
 TEST_F(LazySoftmaxKernelTest, LogSoftMaxTest4D) {
   torch::Tensor input =
       torch::rand({14, 4, 192, 160}, torch::requires_grad(false));
-  torch::Tensor hinput = input.to(torch::kHABANA);
+  torch::Tensor hinput = input.to(torch::kHPU);
   int dim = 1;
   torch::Tensor hout = torch::log_softmax(hinput, dim);
 
@@ -49,15 +49,15 @@ TEST_F(LazySoftmaxKernelTest, LogSoftMaxTest4D) {
 TEST_F(LazySoftmaxKernelTest, CrossEntropyTest) {
   torch::Tensor input_tensor =
       torch::rand({64, 128, 48, 40}, torch::requires_grad(false));
-  torch::Tensor tHabanaX = input_tensor.to(torch::kHABANA);
+  torch::Tensor tHabanaX = input_tensor.to(torch::kHPU);
 
   torch::Tensor weight_tensor =
       torch::rand({4, 128, 1, 1}, torch::requires_grad(false));
   auto wt_hwck = weight_tensor.permute({2, 3, 1, 0}).contiguous();
-  torch::Tensor tHabanaW = wt_hwck.to(torch::kHABANA);
+  torch::Tensor tHabanaW = wt_hwck.to(torch::kHPU);
 
   auto target = torch::randint(0, 3, {64, 48, 40}, torch::kLong);
-  torch::Tensor htarget = target.to(torch::kHABANA);
+  torch::Tensor htarget = target.to(torch::kHPU);
 
   torch::Tensor houtConv = torch::conv2d(tHabanaX, tHabanaW, {}, 1, 0, 1, 1);
   torch::nn::CrossEntropyLoss loss;
@@ -76,9 +76,9 @@ TEST_F(LazySoftmaxKernelTest, LogSoftMaxTestBackward) {
   torch::Tensor grad = torch::rand({64,10}, torch::requires_grad(false));
   torch::Tensor output = torch::rand({64,10}, torch::requires_grad(false));
 
-  torch::Tensor hinput = input.to(torch::kHABANA);
-  torch::Tensor hgrad = grad.to(torch::kHABANA);
-  torch::Tensor houtput = output.to(torch::kHABANA);
+  torch::Tensor hinput = input.to(torch::kHPU);
+  torch::Tensor hgrad = grad.to(torch::kHPU);
+  torch::Tensor houtput = output.to(torch::kHPU);
 
   int dim = 0;
   auto hout_backward = torch::_log_softmax_backward_data(hgrad, houtput, dim, hinput);
@@ -96,7 +96,7 @@ TEST_F(LazySoftmaxKernelTest, LogSoftMaxTestBackward) {
 
 TEST_F(LazySoftmaxKernelTest, SoftMaxTest) {
   torch::Tensor input = torch::rand({64,10}, torch::requires_grad(false));
-  torch::Tensor hinput = input.to(torch::kHABANA);
+  torch::Tensor hinput = input.to(torch::kHPU);
   int dim = 0;
   torch::Tensor hout = torch::_softmax(hinput, dim, false);
 
@@ -115,9 +115,9 @@ TEST_F(LazySoftmaxKernelTest, SoftMaxTestBackward) {
   torch::Tensor grad = torch::rand({64,10}, torch::requires_grad(false));
   torch::Tensor output = torch::rand({64,10}, torch::requires_grad(false));
 
-  torch::Tensor hinput = input.to(torch::kHABANA);
-  torch::Tensor hgrad = grad.to(torch::kHABANA);
-  torch::Tensor houtput = output.to(torch::kHABANA);
+  torch::Tensor hinput = input.to(torch::kHPU);
+  torch::Tensor hgrad = grad.to(torch::kHPU);
+  torch::Tensor houtput = output.to(torch::kHPU);
 
   int dim = 0;
   auto hout_backward = torch::_softmax_backward_data(hgrad, houtput, dim, hinput);
@@ -135,20 +135,20 @@ TEST_F(LazySoftmaxKernelTest, SoftMaxTestBackward) {
 TEST_F(LazySoftmaxKernelTest, SoftMaxTestBackward1) {
   torch::Tensor input0 =
       torch::rand({64, 128, 48, 40}, torch::requires_grad(false));
-  torch::Tensor hinput0 = input0.to(torch::kHABANA);
+  torch::Tensor hinput0 = input0.to(torch::kHPU);
 
   torch::Tensor weight_tensor =
       torch::rand({4, 128, 1, 1}, torch::requires_grad(false));
   auto wt_hwck = weight_tensor.permute({2, 3, 1, 0}).contiguous();
-  torch::Tensor tHabanaW = wt_hwck.to(torch::kHABANA);
+  torch::Tensor tHabanaW = wt_hwck.to(torch::kHPU);
 
   torch::Tensor output =
       torch::rand({64, 4, 48, 40}, torch::requires_grad(false));
-  torch::Tensor houtput = output.to(torch::kHABANA);
+  torch::Tensor houtput = output.to(torch::kHPU);
 
   torch::Tensor input =
       torch::rand({64, 4, 48, 40}, torch::requires_grad(false));
-  torch::Tensor hinput = input.to(torch::kHABANA);
+  torch::Tensor hinput = input.to(torch::kHPU);
 
   int dim = 1;
   torch::Tensor houtConv = torch::conv2d(hinput0, tHabanaW, {}, 1, 0, 1, 1);

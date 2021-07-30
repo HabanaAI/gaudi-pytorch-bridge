@@ -835,7 +835,7 @@ Tensor optimizer_lamb_fused_norm_hpu(
     float max_grad_norm) {
   PT_OTHER_OPS_BEGIN;
 
-  auto clip_norm = torch::ones(1).to(torch::kHABANA);
+  auto clip_norm = torch::ones(1).to(torch::kHPU);
   size_t device_id = grad[0].device().index();
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
   auto scalar_type = grad[0].scalar_type();

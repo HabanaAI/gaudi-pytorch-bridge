@@ -28,14 +28,14 @@ TEST_F(LazyJITTest, CreateGraph) {
   torch::Tensor tensor_in1_cpu = torch::randn({2, 3});
   torch::Tensor tensor_in2_cpu = torch::randn({2, 3});
 
-  torch::Tensor tensor_in1 = tensor_in1_cpu.to(torch::kHABANA);
-  torch::Tensor tensor_in2 = tensor_in2_cpu.to(torch::kHABANA);
+  torch::Tensor tensor_in1 = tensor_in1_cpu.to(torch::kHPU);
+  torch::Tensor tensor_in2 = tensor_in2_cpu.to(torch::kHPU);
 
   Scalar alpha = 1.0f, beta = 1.0f;
   auto result = hpu_wrap::add(tensor_in1, tensor_in2, alpha);
   // auto result = torch::add(tensor_in1, tensor_in2);
 
-  // torch::Tensor tensor_in3 = torch::randn({2, 3}).to(torch::kHABANA);
+  // torch::Tensor tensor_in3 = torch::randn({2, 3}).to(torch::kHPU);
   auto result2 = hpu_wrap::add(result, tensor_in2, beta);
   // auto result2 = torch::add(result, tensor_in2);
   auto hl_result = GetHbLazyTensor(result2);
@@ -68,8 +68,8 @@ TEST_F(LazyJITTest, ExecuteGraph) {
   Tensor exp1 = add(tensor_in1, tensor_in2, alpha);
   Tensor exp2 = add(exp1, tensor_in1, alpha);
 
-  torch::Tensor htensor_in1 = tensor_in1.to(torch::kHABANA);
-  torch::Tensor htensor_in2 = tensor_in2.to(torch::kHABANA);
+  torch::Tensor htensor_in1 = tensor_in1.to(torch::kHPU);
+  torch::Tensor htensor_in2 = tensor_in2.to(torch::kHPU);
   auto result1 = hpu_wrap::add(htensor_in1, htensor_in2, alpha);
   auto result2 = hpu_wrap::add(result1, htensor_in1, alpha);
 
@@ -89,18 +89,18 @@ TEST_F(LazyJITTest, DISABLED_ExecuteGraphCustomSgd) {
   auto valid_cnt = torch::tensor({2}, torch::dtype(torch::kInt32));
   torch::Tensor out1_eager, out2_eager;
   torch::Tensor result1_eager, result2_eager;
-  auto hwt_eager = wts.to(torch::kHABANA);
-  auto hmoment_eager = moments.to(torch::kHABANA);
+  auto hwt_eager = wts.to(torch::kHPU);
+  auto hmoment_eager = moments.to(torch::kHPU);
 
   auto eagerFn = [&]() {
     std::tie(out1_eager, out2_eager) =
         optimizer_sparse_sgd_with_valid_count_hpu_wrap(
-            grad.to(torch::kHABANA),
+            grad.to(torch::kHPU),
             hwt_eager,
             hmoment_eager,
-            indices.to(torch::kHABANA),
-            lr.to(torch::kHABANA),
-            valid_cnt.to(torch::kHABANA),
+            indices.to(torch::kHPU),
+            lr.to(torch::kHPU),
+            valid_cnt.to(torch::kHPU),
             0.1,
             false);
     result1_eager = out1_eager.to(kCPU);
@@ -108,12 +108,12 @@ TEST_F(LazyJITTest, DISABLED_ExecuteGraphCustomSgd) {
   };
   ExecuteEager(eagerFn);
 
-  auto hgrad = grad.to(torch::kHABANA);
-  auto hwts = wts.to(torch::kHABANA);
-  auto hmoments = moments.to(torch::kHABANA);
-  auto hindices = indices.to(torch::kHABANA);
-  auto hlr = lr.to(torch::kHABANA);
-  auto hvalid_cnt = valid_cnt.to(torch::kHABANA);
+  auto hgrad = grad.to(torch::kHPU);
+  auto hwts = wts.to(torch::kHPU);
+  auto hmoments = moments.to(torch::kHPU);
+  auto hindices = indices.to(torch::kHPU);
+  auto hlr = lr.to(torch::kHPU);
+  auto hvalid_cnt = valid_cnt.to(torch::kHPU);
   torch::Tensor out1, out2;
   std::tie(out1, out2) = optimizer_sparse_sgd_with_valid_count_hpu_wrap(
       hgrad, hwts, hmoments, hindices, hlr, hvalid_cnt, 0.1, false);
@@ -137,31 +137,31 @@ TEST_F(LazyJITTest, ExecuteGraphCustomAdagrad) {
   auto indices = torch::tensor({0, 1}, torch::dtype(torch::kInt32));
   auto lr = torch::tensor({0.01}, torch::dtype(torch::kFloat));
   auto valid_cnt = torch::tensor({2}, torch::dtype(torch::kInt32));
-  auto hwt_eager = wts.to(torch::kHABANA);
-  auto hmoment_eager = moments.to(torch::kHABANA);
+  auto hwt_eager = wts.to(torch::kHPU);
+  auto hmoment_eager = moments.to(torch::kHPU);
 
   torch::Tensor out1_eager, out2_eager;
   torch::Tensor result1_eager, result2_eager;
   auto eagerFn = [&]() {
     std::tie(out1_eager, out2_eager) =
         optimizer_sparse_adagrad_with_valid_count_hpu(
-            grad.to(torch::kHABANA),
+            grad.to(torch::kHPU),
             hwt_eager,
             hmoment_eager,
-            indices.to(torch::kHABANA),
-            lr.to(torch::kHABANA),
-            valid_cnt.to(torch::kHABANA));
+            indices.to(torch::kHPU),
+            lr.to(torch::kHPU),
+            valid_cnt.to(torch::kHPU));
     result1_eager = out1_eager.to(kCPU);
     result2_eager = out2_eager.to(kCPU);
   };
   ExecuteEager(eagerFn);
 
-  auto hgrad = grad.to(torch::kHABANA);
-  auto hwts = wts.to(torch::kHABANA);
-  auto hmoments = moments.to(torch::kHABANA);
-  auto hindices = indices.to(torch::kHABANA);
-  auto hlr = lr.to(torch::kHABANA);
-  auto hvalid_cnt = valid_cnt.to(torch::kHABANA);
+  auto hgrad = grad.to(torch::kHPU);
+  auto hwts = wts.to(torch::kHPU);
+  auto hmoments = moments.to(torch::kHPU);
+  auto hindices = indices.to(torch::kHPU);
+  auto hlr = lr.to(torch::kHPU);
+  auto hvalid_cnt = valid_cnt.to(torch::kHPU);
   torch::Tensor out1, out2;
   std::tie(out1, out2) = optimizer_sparse_adagrad_with_valid_count_hpu_lazy(
       hgrad, hwts, hmoments, hindices, hlr, hvalid_cnt);

@@ -26,7 +26,7 @@ class UpsampleNearest2d : public Node {
       c10::optional<at::IntArrayRef> output_size,
       c10::optional<at::ArrayRef<double>> scale_factors)
       : Node(c10::Symbol::fromQualString("aten::upsample_nearest2d")) {
-    auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHABANA);
+    auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHPU);
     auto ir_value = hl_input.GetIrValue();
     AddInput(ir_value);
 
@@ -68,7 +68,7 @@ class UpsampleNearest2dBackward : public Node {
       at::IntArrayRef input_size,
       c10::optional<at::ArrayRef<double>> scale_factors)
       : Node(c10::Symbol::fromQualString("aten::upsample_nearest2d_backward")) {
-    auto hl_input = GetOrCreateHbLazyTensor(grad_output, c10::kHABANA);
+    auto hl_input = GetOrCreateHbLazyTensor(grad_output, c10::kHPU);
     auto ir_value = hl_input.GetIrValue();
     AddInput(ir_value);
 

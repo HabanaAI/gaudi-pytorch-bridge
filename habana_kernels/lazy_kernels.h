@@ -288,13 +288,13 @@ class LazyOp {
       } else if (input.isTensor()) {
         const at::Tensor& t = input.toTensor();
         if (t.defined()) {
-          if (t.device().type() != c10::DeviceType::HABANA) {
+          if (t.device().type() != c10::DeviceType::HPU) {
             // DMA is default because aten schema may not be happy for most ops
             if (m_convert_wrapped_tensor_to_scalar) {
               auto val = GetIrValueForScalar(t.item());
               values.emplace_back(val);
             } else {
-              auto tinput = t.to(c10::kHABANA);
+              auto tinput = t.to(c10::kHPU);
               auto val = GetHbLazyTensor(tinput).GetIrValue();
               values.emplace_back(val);
               input_pt_vec.emplace_back(tinput);
@@ -423,7 +423,7 @@ class LazyBinaryOp : public LazyOp<ReturnType> {
       auto tensor_promote = inputs[pos].toTensor();
       auto self = empty_hpu_lazy(
           tensor_promote.sizes(),
-          tensor_promote.options().dtype(dst_dtype).device(at::kHABANA),
+          tensor_promote.options().dtype(dst_dtype).device(at::kHPU),
           tensor_promote.suggest_memory_format(),
           false);
       self = copy_hpu_lazy_(self, tensor_promote, true);
@@ -447,7 +447,7 @@ class LazyBinaryOp : public LazyOp<ReturnType> {
     if (self.scalar_type() != other.scalar_type()) {
       at::Tensor casted_other = empty_hpu_lazy(
           other.sizes(),
-          other.options().dtype(dst_dtype).device(at::kHABANA),
+          other.options().dtype(dst_dtype).device(at::kHPU),
           other.suggest_memory_format(),
           false);
       copy_hpu_lazy_(casted_other, other, true);
@@ -489,7 +489,7 @@ class LazyCompareOp : public LazyOp<ReturnType> {
       auto tensor_promote = inputs[pos].toTensor();
       auto self = empty_hpu_lazy(
           tensor_promote.sizes(),
-          tensor_promote.options().dtype(dst_dtype).device(at::kHABANA),
+          tensor_promote.options().dtype(dst_dtype).device(at::kHPU),
           tensor_promote.suggest_memory_format(),
           false);
       self = copy_hpu_lazy_(self, tensor_promote, true);

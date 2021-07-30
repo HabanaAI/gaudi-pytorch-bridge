@@ -22,8 +22,8 @@ TEST_F(LazyUnaryKernelTest, ThresholdBackward) {
 
   Scalar scal_value(0);
 
-  auto hgrad = grad.to(torch::kHABANA);
-  auto hself = self.to(torch::kHABANA);
+  auto hgrad = grad.to(torch::kHPU);
+  auto hself = self.to(torch::kHPU);
 
   auto hresult = at::threshold_backward(hgrad, hself, scal_value);
 
@@ -38,7 +38,7 @@ TEST_F(LazyUnaryKernelTest, ThresholdBackward) {
 
 TEST_F(LazyUnaryKernelTest, ReluInplaceTest) {
   torch::Tensor a = torch::randn({4, 5});
-  auto ha = a.to(torch::kHABANA);
+  auto ha = a.to(torch::kHPU);
 
   auto A = a.clone();
   auto hA = ha.clone();
@@ -51,7 +51,7 @@ TEST_F(LazyUnaryKernelTest, ReluInplaceTest) {
 
 TEST_F(LazyUnaryKernelTest, Elu) {
   auto A = torch::randn({4, 5});
-  auto hA = A.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
 
   constexpr double alpha = 0.43;
 
@@ -63,7 +63,7 @@ TEST_F(LazyUnaryKernelTest, Elu) {
 
 TEST_F(LazyUnaryKernelTest, LeakyReluInplaceTest) {
   auto A = torch::randn({4, 5});
-  auto ha = A.to(torch::kHABANA);
+  auto ha = A.to(torch::kHPU);
 
   auto hA = ha.clone();
   torch::leaky_relu_(A);
@@ -74,7 +74,7 @@ TEST_F(LazyUnaryKernelTest, LeakyReluInplaceTest) {
 
 TEST_F(LazyUnaryKernelTest, LeakyReluTest) {
   auto A = torch::randn({5, 7, 4});
-  auto hA = A.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
 
   auto expectedOutput = torch::leaky_relu(A);
   auto habanaOutput = torch::leaky_relu(hA);
@@ -90,8 +90,8 @@ TEST_F(LazyUnaryKernelTest, LeakyReluBackwardTest) {
 
   Scalar scal_value(0.1);
 
-  auto hgrad = grad.to(torch::kHABANA);
-  auto hA = A.to(torch::kHABANA);
+  auto hgrad = grad.to(torch::kHPU);
+  auto hA = A.to(torch::kHPU);
 
   auto expectedOutput = torch::leaky_relu_backward(grad, A, scal_value, false);
   auto habanaOutput = torch::leaky_relu_backward(hgrad, hA, scal_value, false);
@@ -103,7 +103,7 @@ TEST_F(LazyUnaryKernelTest, FloorInplaceTest) {
   // Inplace op as output node is not supported yet.
   torch::Tensor A = torch::randn({4, 5});
 
-  auto hA = A.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
   A = A.floor_();
   auto exp = torch::floor(A);
 
@@ -122,7 +122,7 @@ TEST_F(LazyUnaryKernelTest, FloorTest) {
   auto input_tensor = torch::randn({4, 5});
   torch::Tensor cpu_out = torch::floor(input_tensor);
 
-  torch::Tensor tHabanaX = input_tensor.to(torch::kHABANA);
+  torch::Tensor tHabanaX = input_tensor.to(torch::kHPU);
   torch::Tensor outHabana = torch::floor(tHabanaX);
   torch::Tensor hout_lazy = outHabana.to(torch::kCPU);
 
@@ -133,7 +133,7 @@ TEST_F(LazyUnaryKernelTest, LogInplaceTest) {
   // Inplace op as output node is not supported yet.
   torch::Tensor A = torch::range(1, 100, 0.1);
 
-  auto hA = A.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
   A = A.log_();
   auto exp = torch::log_(A);
 
@@ -152,7 +152,7 @@ TEST_F(LazyUnaryKernelTest, LogTest) {
   auto input_tensor = torch::range(1, 100, 0.1);
   torch::Tensor cpu_out = torch::log(input_tensor);
 
-  torch::Tensor tHabanaX = input_tensor.to(torch::kHABANA);
+  torch::Tensor tHabanaX = input_tensor.to(torch::kHPU);
   torch::Tensor outHabana = torch::log(tHabanaX);
   torch::Tensor hout_lazy = outHabana.to(torch::kCPU);
 
@@ -163,7 +163,7 @@ TEST_F(LazyUnaryKernelTest, Log2InplaceTest) {
   // Inplace op as output node is not supported yet.
   torch::Tensor A = torch::range(1, 100, 0.1);
 
-  auto hA = A.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
   A = A.log2_();
   auto exp = torch::log2_(A);
 
@@ -182,7 +182,7 @@ TEST_F(LazyUnaryKernelTest, Log2Test) {
   auto input_tensor = torch::range(1, 100, 0.1);
   torch::Tensor cpu_out = torch::log2(input_tensor);
 
-  torch::Tensor tHabanaX = input_tensor.to(torch::kHABANA);
+  torch::Tensor tHabanaX = input_tensor.to(torch::kHPU);
   torch::Tensor outHabana = torch::log2(tHabanaX);
   torch::Tensor hout_lazy = outHabana.to(torch::kCPU);
 
@@ -195,7 +195,7 @@ TEST_F(LazyUnaryKernelTest, SigmoidFwdTest) {
           .reshape({1, 1, 2, 2});
   torch::Tensor cpu_out = torch::sigmoid(input_tensor);
 
-  torch::Tensor tHabanaX = input_tensor.to(torch::kHABANA);
+  torch::Tensor tHabanaX = input_tensor.to(torch::kHPU);
   torch::Tensor outHabana = torch::sigmoid(tHabanaX);
   torch::Tensor hout_lazy = outHabana.to(torch::kCPU);
 
@@ -211,8 +211,8 @@ TEST_F(LazyUnaryKernelTest, SigmoidBwdTest) {
           .reshape({1, 1, 2, 2});
   torch::Tensor cpu_out = torch::sigmoid_backward(grad_tensor, input_tensor);
 
-  torch::Tensor tHabanaI = input_tensor.to(torch::kHABANA);
-  torch::Tensor tHabanaG = grad_tensor.to(torch::kHABANA);
+  torch::Tensor tHabanaI = input_tensor.to(torch::kHPU);
+  torch::Tensor tHabanaG = grad_tensor.to(torch::kHPU);
   torch::Tensor hout_backward = torch::sigmoid_backward(tHabanaG, tHabanaI);
   std::vector<HbLazyTensor> tensors = {GetHbLazyTensor(hout_backward)};
   HbLazyTensor::SyncTensorsGraph(&tensors);
@@ -223,7 +223,7 @@ TEST_F(LazyUnaryKernelTest, SigmoidBwdTest) {
 
 TEST_F(LazyUnaryKernelTest, ReciprocalTest) {
   torch::Tensor A = torch::randn({2, 3}, torch::requires_grad(false));
-  torch::Tensor hA = A.to(torch::kHABANA);
+  torch::Tensor hA = A.to(torch::kHPU);
   torch::Tensor hOut = torch::reciprocal(hA);
   torch::Tensor Out = torch::reciprocal(A);
 
@@ -232,7 +232,7 @@ TEST_F(LazyUnaryKernelTest, ReciprocalTest) {
 
 TEST_F(LazyUnaryKernelTest, ReciprocalInplaceTest) {
   torch::Tensor A = torch::randn({2, 3}, torch::requires_grad(false));
-  torch::Tensor hA = A.to(torch::kHABANA);
+  torch::Tensor hA = A.to(torch::kHPU);
   torch::reciprocal_(hA);
   torch::reciprocal_(A);
 
@@ -241,7 +241,7 @@ TEST_F(LazyUnaryKernelTest, ReciprocalInplaceTest) {
 
 TEST_F(LazyUnaryKernelTest, ReciprocalOut) {
   torch::Tensor A = torch::randn({2, 3}, torch::requires_grad(false));
-  torch::Tensor hA = A.to(torch::kHABANA);
+  torch::Tensor hA = A.to(torch::kHPU);
 
   torch::Tensor hOut = at::empty_like(hA);
   torch::Tensor Out = at::empty_like(A);
@@ -254,7 +254,7 @@ TEST_F(LazyUnaryKernelTest, ReciprocalOut) {
 
 TEST_F(LazyUnaryKernelTest, HardsigmoidTest) {
   torch::Tensor A = torch::randn({2, 3}, torch::requires_grad(false));
-  torch::Tensor hA = A.to(torch::kHABANA);
+  torch::Tensor hA = A.to(torch::kHPU);
 
   torch::Tensor hOut = torch::hardsigmoid(hA);
   torch::Tensor Out = torch::hardsigmoid(A);
@@ -265,8 +265,8 @@ TEST_F(LazyUnaryKernelTest, HardsigmoidBwdTest) {
   auto grad = torch::randn({2, 2}, torch::requires_grad(false));
   auto self = torch::randn({2, 2}, torch::requires_grad(false));
 
-  auto hgrad = grad.to(torch::kHABANA);
-  auto hself = self.to(torch::kHABANA);
+  auto hgrad = grad.to(torch::kHPU);
+  auto hself = self.to(torch::kHPU);
 
   torch::Tensor hOut = torch::hardsigmoid_backward(hgrad, hself);
   torch::Tensor Out = torch::hardsigmoid_backward(grad, self);
@@ -276,7 +276,7 @@ TEST_F(LazyUnaryKernelTest, HardsigmoidBwdTest) {
 
 TEST_F(LazyUnaryKernelTest, HardsigmoidInplaceTest) {
   auto A = torch::randn({4, 5});
-  auto hA = A.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
 
   torch::hardsigmoid_(A);
   torch::hardsigmoid_(hA);
@@ -288,9 +288,9 @@ TEST_F(LazyUnaryKernelTest, SqrtTest) {
   auto input_tensor = torch::randn({4, 5});
   torch::Tensor cpu_out = torch::sqrt(input_tensor);
 
-  torch::Tensor tHabanaX = input_tensor.to(torch::kHABANA);
+  torch::Tensor tHabanaX = input_tensor.to(torch::kHPU);
   torch::Tensor temp1 = torch::sqrt(tHabanaX);
-  auto temp2 = torch::zeros({4, 5}).to(torch::kHABANA);
+  auto temp2 = torch::zeros({4, 5}).to(torch::kHPU);
   auto outHabana = torch::add(temp1, temp2);
   torch::Tensor hout_lazy = outHabana.to(torch::kCPU);
 
@@ -301,7 +301,7 @@ TEST_F(LazyUnaryKernelTest, SqrtTest) {
 TEST_F(LazyUnaryKernelTest, RoundInplaceTest) {
   torch::Tensor A = torch::randn({4, 5});
 
-  auto hA = A.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
   auto round = torch::round_(A);
   auto result = torch::round_(hA);
 
@@ -314,7 +314,7 @@ TEST_F(LazyUnaryKernelTest, RoundTest) {
   auto input_tensor = torch::randn({4, 5});
   torch::Tensor cpu_out = torch::round(input_tensor);
 
-  torch::Tensor tHabanaX = input_tensor.to(torch::kHABANA);
+  torch::Tensor tHabanaX = input_tensor.to(torch::kHPU);
   torch::Tensor outHabana = torch::round(tHabanaX);
   torch::Tensor hout_lazy = outHabana.to(torch::kCPU);
 
@@ -325,7 +325,7 @@ TEST_F(LazyUnaryKernelTest, AbsTest) {
   auto input_tensor = torch::randn({4, 5});
   torch::Tensor cpu_out = torch::abs(input_tensor);
 
-  torch::Tensor tHabanaX = input_tensor.to(torch::kHABANA);
+  torch::Tensor tHabanaX = input_tensor.to(torch::kHPU);
   torch::Tensor outHabana = torch::abs(tHabanaX);
   torch::Tensor hout_lazy = outHabana.to(torch::kCPU);
 
@@ -335,7 +335,7 @@ TEST_F(LazyUnaryKernelTest, AbsTest) {
 TEST_F(LazyUnaryKernelTest, AbsInplaceTest) {
   torch::Tensor A = torch::randn({4, 5});
 
-  auto hA = A.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
   auto abs = torch::abs_(A);
   auto result = torch::abs_(hA);
 
@@ -347,7 +347,7 @@ TEST_F(LazyUnaryKernelTest, AbsInplaceTest) {
 TEST_F(LazyUnaryKernelTest, RsqrtInplaceTest) {
   torch::Tensor A = torch::add(torch::rand({4, 5}), 1);
 
-  auto hA = A.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
   auto rsqrt = torch::rsqrt_(A);
   auto result = torch::rsqrt_(hA);
   auto out = result.to(kCPU);
@@ -360,7 +360,7 @@ TEST_F(LazyUnaryKernelTest, SignTest) {
 
   torch::Tensor cpu_out = torch::sign(input_tensor);
 
-  torch::Tensor tHabanaX = input_tensor.to(torch::kHABANA);
+  torch::Tensor tHabanaX = input_tensor.to(torch::kHPU);
   torch::Tensor outHabana = torch::sign(tHabanaX);
   torch::Tensor hout_lazy = outHabana.to(torch::kCPU);
 
@@ -372,7 +372,7 @@ TEST_F(LazyUnaryKernelTest, SignInplaceTest) {
   // Inplace op as output node is not supported yet.
   torch::Tensor A = torch::randn({4, 5});
 
-  auto hA = A.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
   A = A.sign_();
   auto sign = torch::sign(A);
 
@@ -392,7 +392,7 @@ TEST_F(LazyUnaryKernelTest, SgnTest) {
 
   torch::Tensor cpu_out = torch::sgn(input_tensor);
 
-  torch::Tensor tHabanaX = input_tensor.to(torch::kHABANA);
+  torch::Tensor tHabanaX = input_tensor.to(torch::kHPU);
   torch::Tensor outHabana = torch::sgn(tHabanaX);
   torch::Tensor hout_lazy = outHabana.to(torch::kCPU);
 
@@ -404,7 +404,7 @@ TEST_F(LazyUnaryKernelTest, SgnInplaceTest) {
   // Inplace op as output node is not supported yet.
   torch::Tensor A = torch::randn({4, 5});
 
-  auto hA = A.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
   A = A.sgn_();
   auto sgn = torch::sgn(A);
 
@@ -423,7 +423,7 @@ TEST_F(LazyUnaryKernelTest, RsqrtTest) {
   auto input_tensor = torch::add(torch::rand({4, 5}), 1);
   torch::Tensor cpu_out = torch::rsqrt(input_tensor);
 
-  torch::Tensor tHabanaX = input_tensor.to(torch::kHABANA);
+  torch::Tensor tHabanaX = input_tensor.to(torch::kHPU);
   torch::Tensor outHabana = torch::rsqrt(tHabanaX);
   torch::Tensor hout_lazy = outHabana.to(torch::kCPU);
 
@@ -438,7 +438,7 @@ TEST_F(LazyUnaryKernelTest, IsfiniteTest) {
 
   torch::Tensor cpu_out = torch::isfinite(input_tensor);
 
-  torch::Tensor tHabanaX = input_tensor.to(torch::kHABANA);
+  torch::Tensor tHabanaX = input_tensor.to(torch::kHPU);
   torch::Tensor outHabana = torch::isfinite(tHabanaX);
   torch::Tensor hout_lazy = outHabana.to(torch::kCPU);
 
@@ -450,7 +450,7 @@ TEST_F(LazyUnaryKernelTest, ExpTest) {
   auto input_tensor = torch::randn({4, 5});
   torch::Tensor cpu_out = torch::exp(input_tensor);
 
-  torch::Tensor tHabanaX = input_tensor.to(torch::kHABANA);
+  torch::Tensor tHabanaX = input_tensor.to(torch::kHPU);
   torch::Tensor outHabana = torch::exp(tHabanaX);
   torch::Tensor hout_lazy = outHabana.to(torch::kCPU);
 
@@ -461,7 +461,7 @@ TEST_F(LazyUnaryKernelTest, ErfTest) {
   auto input_tensor = torch::randn({4, 5});
   torch::Tensor cpu_out = torch::erf(input_tensor);
 
-  torch::Tensor tHabanaX = input_tensor.to(torch::kHABANA);
+  torch::Tensor tHabanaX = input_tensor.to(torch::kHPU);
   torch::Tensor outHabana = torch::erf(tHabanaX);
   torch::Tensor hout_lazy = outHabana.to(torch::kCPU);
 
@@ -471,7 +471,7 @@ TEST_F(LazyUnaryKernelTest, ErfTest) {
 TEST_F(LazyUnaryKernelTest, ErfInplaceTest) {
   torch::Tensor A = torch::randn({2, 2}, torch::dtype(torch::kFloat));
 
-  auto hA = A.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
 
   auto exp = torch::erf_(A);
   auto result = torch::erf_(hA);
@@ -484,7 +484,7 @@ TEST_F(LazyUnaryKernelTest, ErfInplaceTest) {
 TEST_F(LazyUnaryKernelTest, ExpInplaceTest) {
   torch::Tensor A = torch::randn({2, 2}, torch::dtype(torch::kFloat));
 
-  auto hA = A.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
 
   auto exp = torch::exp_(A);
   auto result = torch::exp_(hA);
@@ -496,7 +496,7 @@ TEST_F(LazyUnaryKernelTest, ExpInplaceTest) {
 
 TEST_F(LazyUnaryKernelTest, ClampTest) {
   auto input_tensor = torch::randn({8, 24, 24, 3});
-  auto hinput = input_tensor.to(torch::kHABANA);
+  auto hinput = input_tensor.to(torch::kHPU);
   Scalar min_value(-0.25);
   Scalar max_value(0.25);
   torch::Tensor cpu_out = torch::clamp(input_tensor, min_value, max_value);
@@ -509,7 +509,7 @@ TEST_F(LazyUnaryKernelTest, ClampTest) {
 
 TEST_F(LazyUnaryKernelTest, ClampInPlaceTest) {
   auto input_tensor = torch::randn({8, 24, 24, 3});
-  auto hinput = input_tensor.to(torch::kHABANA);
+  auto hinput = input_tensor.to(torch::kHPU);
   Scalar min_value(-0.25);
   Scalar max_value(0.25);
   torch::Tensor cpu_out = torch::clamp_(input_tensor, min_value, max_value);
@@ -527,7 +527,7 @@ TEST_F(LazyUnaryKernelTest, TanhFwdTest) {
           .reshape({1, 1, 3, 2});
   torch::Tensor out_exp = torch::tanh(A);
 
-  torch::Tensor hA = A.to(torch::kHABANA);
+  torch::Tensor hA = A.to(torch::kHPU);
   torch::Tensor hout = torch::tanh(hA);
   torch::Tensor hout_lazy = hout.to(torch::kCPU);
 
@@ -537,7 +537,7 @@ TEST_F(LazyUnaryKernelTest, TanhFwdTest) {
 TEST_F(LazyUnaryKernelTest, TanhOut) {
   torch::Tensor A =
       torch::arange(6, torch::dtype(torch::kFloat)).reshape({1, 1, 3, 2});
-  torch::Tensor hA = A.to(torch::kHABANA);
+  torch::Tensor hA = A.to(torch::kHPU);
 
   torch::Tensor out_exp = torch::tanh_outf(A, A);
   torch::Tensor hout = torch::tanh_outf(hA, hA);
@@ -554,8 +554,8 @@ TEST_F(LazyUnaryKernelTest, TanhBwdTest) {
                   .reshape({1, 1, 3, 2});
   torch::Tensor out_exp = torch::tanh_backward(grad, A);
 
-  torch::Tensor hA = A.to(torch::kHABANA);
-  torch::Tensor hGrad = grad.to(torch::kHABANA);
+  torch::Tensor hA = A.to(torch::kHPU);
+  torch::Tensor hGrad = grad.to(torch::kHPU);
   torch::Tensor hout = torch::tanh_backward(hGrad, hA);
   std::vector<HbLazyTensor> tensors = {GetHbLazyTensor(hout)};
   HbLazyTensor::SyncTensorsGraph(&tensors);
@@ -566,7 +566,7 @@ TEST_F(LazyUnaryKernelTest, TanhBwdTest) {
 
 TEST_F(LazyUnaryKernelTest, DISABLED_GeluTest) {
   torch::Tensor A = torch::randn({2, 2}, torch::dtype(torch::kFloat));
-  auto hA = A.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
 
   auto exp = torch::nn::functional::gelu(A);
   auto result = torch::nn::functional::gelu(hA);
@@ -580,8 +580,8 @@ TEST_F(LazyUnaryKernelTest, DISABLED_GeluBackward) {
   auto grad = torch::randn({2, 2});
   auto self = torch::randn({2, 2});
 
-  auto hgrad = grad.to(torch::kHABANA);
-  auto hself = self.to(torch::kHABANA);
+  auto hgrad = grad.to(torch::kHPU);
+  auto hself = self.to(torch::kHPU);
 
   auto hresult = at::gelu_backward(hgrad, hself);
 
@@ -593,7 +593,7 @@ TEST_F(LazyUnaryKernelTest, DISABLED_GeluBackward) {
 
 TEST_F(LazyUnaryKernelTest, TopkTest) {
   auto self = torch::randn({3, 5});
-  auto hself = self.to(torch::kHABANA);
+  auto hself = self.to(torch::kHPU);
 
   auto out_cpu = at::topk(self, 2, 1, true, true);
   at::Tensor cout = std::get<0>(out_cpu);
@@ -607,7 +607,7 @@ TEST_F(LazyUnaryKernelTest, TopkTest) {
 
 TEST_F(LazyUnaryKernelTest, SortTest) {
   auto self = torch::randn({3, 5});
-  auto hself = self.to(torch::kHABANA);
+  auto hself = self.to(torch::kHPU);
 
   auto out_cpu = at::sort(self, 1, true);
   at::Tensor cout = std::get<0>(out_cpu);
@@ -634,7 +634,7 @@ TEST_F(LazyUnaryKernelTest, LeakyReluAutogradZeroSlope) {
 
 TEST_F(LazyUnaryKernelTest, NegOut) {
   torch::Tensor A = torch::randn({2, 5});
-  torch::Tensor hA = A.to(torch::kHABANA);
+  torch::Tensor hA = A.to(torch::kHPU);
 
   torch::Tensor out_exp = at::empty_like(A);
   torch::Tensor hout = at::empty_like(hA);
@@ -646,7 +646,7 @@ TEST_F(LazyUnaryKernelTest, NegOut) {
 
 TEST_F(LazyUnaryKernelTest, ClampMinTest) {
   auto input_tensor = torch::randn({8, 24, 24, 3});
-  auto hinput = input_tensor.to(torch::kHABANA);
+  auto hinput = input_tensor.to(torch::kHPU);
   Scalar min_value(-0.25);
   torch::Tensor cpu_out = torch::clamp_min(input_tensor, min_value);
 
@@ -660,7 +660,7 @@ TEST_F(LazyUnaryKernelTest, Isnan) {
   const std::vector<int64_t> dimentions{3, 3};
   auto input_tensor = torch::randn(dimentions, torch::requires_grad(false));
   input_tensor[1][2] = sqrt(-2); // One element explicitly set to nan
-  auto hinput = input_tensor.to(torch::kHABANA);
+  auto hinput = input_tensor.to(torch::kHPU);
 
   auto hresult = torch::isnan(hinput);
   auto hout = hresult.to(torch::kCPU);
@@ -672,7 +672,7 @@ TEST_F(LazyUnaryKernelTest, Isnan) {
 TEST_F(LazyUnaryKernelTest, Silu) {
   const std::vector<int64_t> dimentions{7, 3};
   auto input_tensor = torch::randn(dimentions, torch::requires_grad(false));
-  auto hinput = input_tensor.to(torch::kHABANA);
+  auto hinput = input_tensor.to(torch::kHPU);
 
   auto hresult = torch::silu(hinput);
   auto hout = hresult.to(torch::kCPU);
@@ -686,8 +686,8 @@ TEST_F(LazyUnaryKernelTest, SiluBwd) {
   auto input_tensor = torch::randn(dimentions, torch::requires_grad(false));
   auto grad = torch::randn(dimentions, torch::requires_grad(false));
 
-  auto hinput = input_tensor.to(torch::kHABANA);
-  auto hgrad = grad.to(torch::kHABANA);
+  auto hinput = input_tensor.to(torch::kHPU);
+  auto hgrad = grad.to(torch::kHPU);
 
   auto hresult = torch::silu_backward(hgrad, hinput);
   auto hout = hresult.to(torch::kCPU);
@@ -699,10 +699,10 @@ TEST_F(LazyUnaryKernelTest, SiluBwd) {
 TEST_F(LazyUnaryKernelTest, SiluOut) {
   const std::vector<int64_t> dimentions{7, 3};
   auto A = torch::randn(dimentions, torch::requires_grad(false));
-  auto hA = A.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
 
   torch::Tensor out_cpu = torch::zeros_like(A);
-  torch::Tensor out_hpu = torch::zeros_like(A).to(torch::kHABANA);
+  torch::Tensor out_hpu = torch::zeros_like(A).to(torch::kHPU);
 
   auto hresult = torch::silu_out(hA, out_hpu);
   auto hout = hresult.to(torch::kCPU);
@@ -713,10 +713,10 @@ TEST_F(LazyUnaryKernelTest, SiluOut) {
 
 TEST_F(LazyUnaryKernelTest, SiluOut0Dim) {
   torch::Tensor A = torch::tensor(9.03);
-  auto hA = A.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
 
   torch::Tensor out_cpu = torch::zeros_like(A);
-  torch::Tensor out_hpu = torch::zeros_like(A).to(torch::kHABANA);
+  torch::Tensor out_hpu = torch::zeros_like(A).to(torch::kHPU);
 
   auto hresult = torch::silu_out(hA, out_hpu);
   auto hout = hresult.to(torch::kCPU);
@@ -728,7 +728,7 @@ TEST_F(LazyUnaryKernelTest, SiluOut0Dim) {
 
 TEST_F(LazyUnaryKernelTest, SinTest) {
   auto A = torch::randn({4, 5});
-  auto hA = A.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
 
   A = torch::sin(A);
   hA = torch::sin(hA);
@@ -739,7 +739,7 @@ TEST_F(LazyUnaryKernelTest, SinTest) {
 
 TEST_F(LazyUnaryKernelTest, CosTest) {
   auto A = torch::tensor(1.0);
-  auto hA = A.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
 
   A = torch::cos(A);
   hA = torch::cos(hA);
@@ -751,7 +751,7 @@ TEST_F(LazyUnaryKernelTest, CosTest) {
 TEST_F(LazyUnaryKernelTest, CumsumDim3Axis2) {
   auto A = torch::randn({2, 3, 2}, torch::requires_grad(false));
 
-  auto hA = A.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
   int64_t axis = 2;
   torch::Tensor cpu_out = torch::cumsum(A, axis);
 
@@ -775,7 +775,7 @@ TEST_F(LazyUnaryKernelTest, CumsumDim2Axis1Int) {
 TEST_F(LazyUnaryKernelTest, CumsumDim3AxisNe1) {
   auto A = torch::randn({2, 3, 2}, torch::requires_grad(false));
 
-  auto hA = A.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
   int64_t axis = -1;
   torch::Tensor cpu_out = torch::cumsum(A, axis);
 
@@ -786,7 +786,7 @@ TEST_F(LazyUnaryKernelTest, CumsumDim3AxisNe1) {
 
 TEST_F(LazyUnaryKernelTest, Cumsum0D) {
   torch::Tensor A = torch::tensor(9.03);
-  auto hinput = A.to(torch::kHABANA);
+  auto hinput = A.to(torch::kHPU);
 
   auto hresult = torch::cumsum(hinput, 0, torch::kFloat32);
   auto hout = hresult.to(torch::kCPU);
