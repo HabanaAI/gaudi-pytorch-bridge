@@ -224,7 +224,7 @@ def setup_dist(rank, world_size,backend):
     os.environ['MASTER_PORT'] = '12355'
     os.environ["ID"] = str(rank)
     if backend == "hcl":
-        import habana_torch_hcl
+        import habana_frameworks.torch.core
     dist.init_process_group(backend, rank=rank, world_size=world_size)
 
 

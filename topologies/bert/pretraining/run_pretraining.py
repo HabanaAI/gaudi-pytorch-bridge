@@ -420,7 +420,7 @@ def setup_training(args):
                 print("HCL_CONFIG_PATH is not set")
                 exit(0)
             os.environ["ID"] = str(args.local_rank)
-            import habana_torch_hcl
+            import habana_frameworks.torch.core
             torch.distributed.init_process_group('hcl',
                     rank=args.rank, world_size=args.world_size)
         if args.use_lazy_mode and args.local_rank != -1:

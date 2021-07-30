@@ -309,7 +309,7 @@ def init_distributed_mode(args):
         os.environ["ID"] = str(args.rank % args.process_per_node )
         #not used currently
         os.environ["LOCAL_RANK"] = str(args.rank % args.process_per_node )
-        import habana_torch_hcl
+        import habana_frameworks.torch.core
         dist.init_process_group(args.dist_backend, rank=args.rank, world_size=args.world_size)
     else:
         torch.cuda.set_device(args.gpu)
