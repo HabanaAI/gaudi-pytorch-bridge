@@ -23,7 +23,8 @@ class IrGraphDumpUtil {
 
   static std::string PostOrderToDot(
       const std::vector<ir::NodePtr>& post_order,
-      const std::vector<ir::NodePtr>& roots);
+      const std::vector<ir::NodePtr>& roots,
+      const bool use_ir_names = true);
 
   static std::string ToText(std::vector<ir::NodePtr> nodes);
 

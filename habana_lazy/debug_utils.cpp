@@ -126,9 +126,16 @@ std::vector<AttrTag> GetNodeTags(const ir::NodePtr& node) {
 
 std::string GenerateDotNodeLabel(
     const ir::NodePtr& node,
-    const std::unordered_map<ir::NodePtr, size_t>& roots_ids) {
+    const std::unordered_map<ir::NodePtr, size_t>& roots_ids,
+    const bool use_ir_names) {
   static const size_t kMaxValueSize = 64;
   std::stringstream ss;
+  if (use_ir_names) {
+    auto num_outputs = node->GetNumOutputs();
+    for (auto id = 0u; id < num_outputs; ++id) {
+      ss << node->GetOutput(id).ToString() << "\\n";
+    }
+  }
   ss << node->op().toQualString() << "\\n" /*<< node->shape()*/;
   for (auto& tag : GetNodeTags(node)) {
     ss << "\\n" << tag.name << "=";
@@ -147,9 +154,11 @@ std::string GenerateDotNodeLabel(
 
 std::string GenerateDotNodeSpec(
     const ir::NodePtr& node,
-    const std::unordered_map<ir::NodePtr, size_t>& roots_ids) {
+    const std::unordered_map<ir::NodePtr, size_t>& roots_ids,
+    const bool use_ir_names) {
   std::stringstream ss;
-  ss << "label=\"" << GenerateDotNodeLabel(node, roots_ids) << "\"";
+  ss << "label=\"" << GenerateDotNodeLabel(node, roots_ids, use_ir_names)
+     << "\"";
   return ss.str();
 }
 
@@ -179,19 +188,20 @@ std::string GenerateTextNodeSpec(
 std::string IrGraphDumpUtil::ToDot(std::vector<ir::NodePtr> nodes) {
   habana_lazy::ir::PostOrderData po_data;
   ir::Utils::ComputePostOrder(nodes, po_data);
-  return PostOrderToDot(po_data.post_order, nodes);
+  return PostOrderToDot(po_data.post_order, nodes, false);
 }
 
 std::string IrGraphDumpUtil::PostOrderToDot(
     const std::vector<ir::NodePtr>& post_order,
-    const std::vector<ir::NodePtr>& roots) {
+    const std::vector<ir::NodePtr>& roots,
+    const bool use_ir_names) {
   std::unordered_map<ir::NodePtr, size_t> roots_ids = GetRootsIds(roots);
   NodeIdMap id_map = GenerateIdMap(post_order);
   std::stringstream ss;
   ss << "digraph G {\n";
   for (auto& node : post_order) {
     ss << "  node" << id_map.at(node) << " ["
-       << GenerateDotNodeSpec(node, roots_ids) << "]\n";
+       << GenerateDotNodeSpec(node, roots_ids, use_ir_names) << "]\n";
   }
   for (auto it = post_order.rbegin(); it != post_order.rend(); ++it) {
     ir::NodePtr node = *it;

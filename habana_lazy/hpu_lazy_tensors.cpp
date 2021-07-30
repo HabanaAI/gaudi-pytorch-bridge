@@ -19,6 +19,7 @@
 #include "habana_lazy/hlexec.h"
 #include "habana_lazy/ir.h"
 #include "hlexec.h"
+#include "synapse_helpers/env_flags.h"
 
 using namespace habana_lazy;
 
@@ -400,7 +401,12 @@ habana_lazy::ir::PostOrderData HbLazyTensor::RunPostOrder(
 
   ir::Utils::ComputePostOrder(p_roots, po_data);
 
-  PT_LAZY_DEBUG(IrGraphDumpUtil::PostOrderToText(po_data.post_order, p_roots));
+  if (!GET_ENV_FLAG(PT_HPU_DUMP_IR_DOT_GRAPH)) {
+    PT_LAZY_DEBUG(
+        IrGraphDumpUtil::PostOrderToText(po_data.post_order, p_roots));
+  } else {
+    PT_LAZY_DEBUG(IrGraphDumpUtil::PostOrderToDot(po_data.post_order, p_roots));
+  }
 
   return po_data;
 }
