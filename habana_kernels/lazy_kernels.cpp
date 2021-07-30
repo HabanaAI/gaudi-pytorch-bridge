@@ -213,18 +213,18 @@ void updateDstDependencies(
           "WARNING: We are hitting a case where the dst tensor has a view. Not all cases are covered so functionality might be impacted ");
       return;
     }
-    // Now we have to update the IR of the input as it got modified
-    // We need to link it as output of this node as we need to generate the
-    // correct order
-    // Create a dummy node from the output back to input thats creating a
-    // view on  input
-    auto view_val = view.value();
-    at::Tensor view_tensor = view_val.getAtTensor();
-    ir::Value val{view_val.getIR().m_data_ptr.lock()};
-
-    auto view_lazy_tensor = GetHbLazyTensor(view_tensor);
-    view_lazy_tensor.AssignIrValue(val);
-    AddControlEdge(dst, view_tensor);
+    // This is how we create the control edge -
+    // There is a view on the dst, which means this is a view of
+    // another tensor src, that was created the following way -
+    //    dst = as_strided(src)
+    //
+    // We now have an op that is writing to dst. Since dst
+    // is a view on src, we add a control edge here so that -
+    //    src = control_edge_(dst, src)
+    //
+    // This will ensure all future ops on view_tensor will be scheduled
+    // after this op updating dst
+    AddControlEdge(dst, view->getAtTensor());
   }
   if (in_place) {
     // We are using this lazy tensor as output on some op
@@ -714,7 +714,6 @@ Tensor as_strided_hpu_lazy(
       AddControlEdge(self, result);
       // Add a view of the parent to the result so that its remembered
       // If this tensor is used as a dst in any op, we need to update the parent
-      auto hb_tensor = GetOrCreateHbLazyTensor(self, self.device());
       ir::LazyView view(self, hb_tensor.GetIrValue());
       hb_result.addView(view);
       flush_op(result);
