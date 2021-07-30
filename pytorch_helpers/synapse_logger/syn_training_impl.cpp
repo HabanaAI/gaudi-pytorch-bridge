@@ -100,6 +100,10 @@ SYN_API_PTR(synConfigurationGet);
 SYN_API_PTR(synSectionCreate);
 SYN_API_PTR(synSectionDestroy);
 SYN_API_PTR(synTensorAssignToSection);
+SYN_API_PTR(synTensorHandleCreate);
+SYN_API_PTR(synTensorSetGeometry);
+SYN_API_PTR(synTensorSetDeviceLayout);
+SYN_API_PTR(synTensorSetHostPtr);
 
 void LoadSymbols(void* lib_handle) {
   SYN_API_INIT_PTR(synDestroyTensor);
@@ -160,6 +164,10 @@ void LoadSymbols(void* lib_handle) {
   SYN_API_INIT_PTR(synSectionCreate);
   SYN_API_INIT_PTR(synSectionDestroy);
   SYN_API_INIT_PTR(synTensorAssignToSection);
+  SYN_API_INIT_PTR(synTensorHandleCreate);
+  SYN_API_INIT_PTR(synTensorSetGeometry);
+  SYN_API_INIT_PTR(synTensorSetDeviceLayout);
+  SYN_API_INIT_PTR(synTensorSetHostPtr);
 }
 
 } // namespace lib_synapse
@@ -1086,6 +1094,69 @@ synStatus SYN_API_CALL synConfigurationGet(
   API_LOG_CALL(ARG_Q(configurationName), ARG_Q(configurationValue), ARG(size));
   synStatus status = lib_synapse::synConfigurationGet(
       configurationName, configurationValue, size);
+  API_LOG_RESULT();
+  return status;
+}
+
+synStatus SYN_API_CALL synTensorHandleCreate(
+    synTensor* tensor,
+    synGraphHandle graph,
+    synTensorType type,
+    const char* tensorName) {
+  LOG_TRACE("SYN_API", "{}", __FUNCTION__);
+
+  API_LOG_CALL(ARG(tensor), ARG(graph), ARG(type), ARG_Q(tensorName));
+  synStatus status;
+  CALL_SYN_FUNC(
+      lib_synapse::synTensorHandleCreate, tensor, graph, type, tensorName);
+  API_LOG_RESULT();
+  return status;
+}
+
+synStatus SYN_API_CALL synTensorSetDeviceLayout(
+    synTensor tensor,
+    const synTensorDeviceLayout* layout) {
+  LOG_TRACE("SYN_API", "{}", __FUNCTION__);
+
+  API_LOG_CALL(ARG(tensor), ARG(layout));
+  synStatus status;
+  CALL_SYN_FUNC(lib_synapse::synTensorSetDeviceLayout, tensor, layout);
+  API_LOG_RESULT();
+  return status;
+}
+
+synStatus SYN_API_CALL synTensorSetGeometry(
+    synTensor tensor,
+    const synTensorGeometry* geometry,
+    synGeometryType geometryType) {
+  LOG_TRACE("SYN_API", "{}", __FUNCTION__);
+
+  API_LOG_CALL(ARG(tensor), ARG(geometry), ARG(geometryType));
+  synStatus status;
+  CALL_SYN_FUNC(
+      lib_synapse::synTensorSetGeometry, tensor, geometry, geometryType);
+  API_LOG_RESULT();
+  return status;
+}
+
+synStatus SYN_API_CALL synTensorSetHostPtr(
+    synTensor tensor,
+    void* hostPtr,
+    uint64_t size,
+    synDataType dataType,
+    bool copyBuffer) {
+  LOG_TRACE("SYN_API", "{}", __FUNCTION__);
+
+  API_LOG_CALL(
+      ARG(tensor), ARG(hostPtr), ARG(size), ARG(dataType), ARG(copyBuffer));
+  synStatus status;
+  CALL_SYN_FUNC(
+      lib_synapse::synTensorSetHostPtr,
+      tensor,
+      hostPtr,
+      size,
+      dataType,
+      copyBuffer);
   API_LOG_RESULT();
   return status;
 }

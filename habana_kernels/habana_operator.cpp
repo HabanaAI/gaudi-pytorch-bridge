@@ -310,13 +310,11 @@ void habana::HabanaOperator::AddNodeToSynapseGraph(
       for (auto index : kernel_meta_data_.tpc_input_order) {
         HABANA_ASSERT(index < p_context_->syn_inputs_.size());
         synapse_helpers::tensor& tensor = p_context_->syn_inputs_[index];
-        HABANA_ASSERT(tensor.get());
         syn_inputs.emplace_back(tensor.get());
       }
     }
   } else {
     for (synapse_helpers::tensor& tensor : p_context_->syn_inputs_) {
-      HABANA_ASSERT(tensor.get());
       syn_inputs.emplace_back(tensor.get());
     }
   }
