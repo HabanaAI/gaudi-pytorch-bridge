@@ -115,6 +115,16 @@ void HabanaLaunchOpPT::ProcessCustomOptControlEdges(
   } // for (auto node : graph_nodes)
 }
 
+bool isListNode(torch::jit::Node* node) {
+  auto node_str = node->kind().toQualString();
+  bool is_list_node = false;
+  if ((strcmp(node_str, "prim::ListUnpack") == 0) ||
+      (strcmp(node_str, "prim::ListConstruct") == 0)) {
+    is_list_node = true;
+  }
+  return is_list_node;
+}
+
 void HabanaLaunchOpPT::PrepareBlockingNodeList(
     Node* node,
     ControlEdgeType control_type) {
@@ -137,6 +147,13 @@ void HabanaLaunchOpPT::PrepareBlockingNodeList(
 
   // Add the parent node as well
   auto parent_node = node->input(0)->node();
+
+  // if the parent node is a list node, traverse one level up
+  if (isListNode(parent_node)) {
+    parent_node = parent_node->input(0)->node();
+  }
+
+  // traverse up until a non control edge node is reached
   auto c_edge = nodeRequiresControlEdge(parent_node->kind().toQualString());
   while (c_edge != ControlEdgeType::kCONTROL_EDGE_NONE) {
     parent_node = parent_node->input(0)->node();

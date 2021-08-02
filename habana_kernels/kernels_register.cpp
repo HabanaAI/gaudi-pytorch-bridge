@@ -3407,7 +3407,33 @@ std::vector<at::Tensor> hpu_wrap::split(
   if (!hpu_check_inputs_impl("split", {self}))
     return AtenHpuTypeDefault::split(self, split_size, dim);
 
-  return at::native::split(self, split_size, dim);
+  // lower aten::split as split_with_sizes using the logic used in Fork
+  int64_t dim_size = self.size(dim);
+  TORCH_CHECK(
+      split_size > 0 || self.size(dim) == 0,
+      "split_size can only be 0 if dimension size is 0, "
+      "but got dimension size of ",
+      dim_size);
+
+  // if split_size is 0 and dimension size is 0, there is 1 split.
+  int64_t num_splits = 1;
+  if (split_size != 0) {
+    // ensuring num_splits is at least 1 makes consistent the case where
+    // split_size > dim_size (returns a single split).  We might want to error
+    // here, but keep it for BC.
+    num_splits = std::max<int64_t>((dim_size + split_size - 1) / split_size, 1);
+  }
+
+  std::vector<int64_t> splits(num_splits);
+  int64_t last_split_size = split_size - (split_size * num_splits - dim_size);
+
+  for (int64_t i = 0; i < num_splits; ++i) {
+    auto length = i < num_splits - 1 ? split_size : last_split_size;
+    splits[i] = length;
+  }
+
+  IntArrayRef split_sizes(splits);
+  return hpu_wrap::split_with_sizes(self, split_sizes, dim);
 }
 
 Tensor hpu_wrap::upsample_nearest2d(

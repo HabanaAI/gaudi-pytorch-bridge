@@ -1032,12 +1032,13 @@ Tensor expand_hpu(const Tensor& in_self, IntArrayRef size, bool implicit) {
 void SplitWithSizeOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
-    bool is_output_persistent) {
+    std::vector<bool> is_output_persistent) {
   TORCH_CHECK(
       inputs.size() == 3,
       "Incorrect size of input arguments for SplitWithSizes Operator");
   auto self = inputs[0].toTensor();
   auto split_sizes = inputs[1].toIntList();
+  HABANA_ASSERT(is_output_persistent.size() == split_sizes.size());
   auto dim = inputs[2].toInt();
 
   TORCH_CHECK(self.dim() != 0, "split expects at least a 1-dimensional tensor");
@@ -1061,7 +1062,7 @@ void SplitWithSizeOperator::AllocateAndAddSynapseNode(
         narrowOp->SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
     torch::jit::Stack stack = {
         IValue(self), IValue(dim), IValue(start_idx), IValue(length)};
-    narrowOp->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+    narrowOp->AllocateAndAddSynapseNode(graph, stack, is_output_persistent[i]);
     p_context_->syn_inputs_[0] = std::move(syn_in);
     p_context_->syn_outputs_.emplace_back(
         std::move(narrowOp->GetSynOutputs()[0]));
@@ -1151,7 +1152,8 @@ std::vector<Tensor> split_with_sizes_hpu(
     PT_KERNEL_DEBUG("key:", key);
     auto graph = habana_helpers::create_graph(device_id, node_type);
     Op.AllocateSynapseInputs(graph, pt_inputs, true);
-    Op.AllocateAndAddSynapseNode(graph, stack, true);
+    std::vector<bool> is_output_persistent(split_sizes.size(), true);
+    Op.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
     Op.Compile(graph);
   }
   std::vector<Tensor> out = Op.GetOutputs();
@@ -1352,6 +1354,15 @@ static auto& KernelRegistry =
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<ViewOperator>(device_id, node_type);
             })
-        .add("aten::flip", [](const int device_id, c10::ScalarType node_type) {
-          return std::make_shared<FlipOperator>(device_id, node_type);
-        });
+        .add(
+            "aten::flip",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<FlipOperator>(device_id, node_type);
+            })
+        .add(
+            "aten::split_with_sizes",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<SplitWithSizeOperator>(
+                  device_id, node_type);
+            });
+;

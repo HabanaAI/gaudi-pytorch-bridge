@@ -4356,7 +4356,7 @@ std::vector<Tensor> split_with_sizes_hpu_lazy(
       SplitWithSizeOperator::compute_output_shape(self, split_sizes, dim);
 
   int64_t i = 0;
-  std::vector<at::Tensor> result;
+  std::vector<at::Tensor> result(shapes.size());
   for (const auto& shape : shapes) {
     result[i++] = empty_hpu_lazy(
         shape, self.options(), self.suggest_memory_format(), false);
@@ -4369,11 +4369,25 @@ std::vector<Tensor> split_with_sizes_hpu_lazy(
     hlresult.push_back(habana_lazy::GetHbLazyTensor(pt));
   }
 
+  habana_lazy::ir::Value& out = hlresult[0].CurrentIrValue();
+  node->set_as_output_tensor_list();
+  out.m_index = 0;
+  out.SetNode(
+      node,
+      hlresult[0].GetDevice(),
+      hlresult[0].GetSizes(),
+      hlresult[0].dtype_optional());
+
+  habana_lazy::ir::NodePtr node_unpack =
+      std::make_shared<habana_lazy::ir::ListUnpack>(out);
+
   size_t m_index = 0;
+
   for (auto ht : hlresult) {
     auto& out = ht.CurrentIrValue();
     out.m_index = m_index++;
-    out.SetNode(node, ht.GetDevice(), ht.GetSizes(), ht.dtype_optional());
+    out.SetNode(
+        node_unpack, ht.GetDevice(), ht.GetSizes(), ht.dtype_optional());
   }
 
   return result;
