@@ -190,8 +190,9 @@ class LazyOp {
     return self;
   }
 
-  void do_dma_non_first_cpu_tensor() {
-    m_dma_non_first_cpu_tensor = true;
+  // wrapped_scalar_tensor in ATen/native/BinaryOps.cpp
+  void ConvertWrappedTensorToScalar() {
+    m_convert_wrapped_tensor_to_scalar = true;
   }
 
  private:
@@ -267,19 +268,16 @@ class LazyOp {
       } else if (input.isTensor()) {
         const at::Tensor& t = input.toTensor();
         if (t.defined()) {
-          if (i != 0 && t.device().type() != c10::DeviceType::HABANA) {
-            // Non first arg can be a non habana tensor.
-            // Convert to scalar/DMA such tensor to device and add as node
-            // input. For a non 0-dim tensor, DMA is the only option.
-            if (m_dma_non_first_cpu_tensor ||
-                t.numel() != 1) { // numel because .item() uses that check
+          if (t.device().type() != c10::DeviceType::HABANA) {
+            // DMA is default because aten schema may not be happy for most ops
+            if (m_convert_wrapped_tensor_to_scalar) {
+              auto val = GetIrValueForScalar(t.item());
+              values.emplace_back(val);
+            } else {
               auto tinput = t.to(c10::kHABANA);
               auto val = GetHbLazyTensor(tinput).GetIrValue();
               values.emplace_back(val);
               input_pt_vec.emplace_back(tinput);
-            } else {
-              auto val = GetIrValueForScalar(t.item());
-              values.emplace_back(val);
             }
           } else {
             auto val = GetHbLazyTensor(t).GetIrValue();
@@ -351,7 +349,7 @@ class LazyOp {
   }
 
  private:
-  bool m_dma_non_first_cpu_tensor = false;
+  bool m_convert_wrapped_tensor_to_scalar = false;
   ir::NodePtr m_node = nullptr;
   const at::Symbol m_symbol;
   const std::set<size_t> m_metadata_indices;

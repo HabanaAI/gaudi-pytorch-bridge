@@ -1002,6 +1002,7 @@ Tensor add_tensor_hpu_lazy(
         {self, other, alpha},
         {},
         {BinaryOperator::compute_output_shape(self, other)}};
+    k.ConvertWrappedTensorToScalar();
     return k.call();
   }
 }
@@ -1177,7 +1178,6 @@ Tensor& mul_out_hpu_lazy(Tensor& out, const Tensor& self, const Tensor& other) {
       {out, self, other},
       {},
       {BinaryOperator::compute_output_shape(self, other)});
-  k.do_dma_non_first_cpu_tensor(); // find a better way to do this
   return k.call(out);
 }
 
