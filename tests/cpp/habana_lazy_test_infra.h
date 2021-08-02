@@ -24,9 +24,9 @@ class EnvHelper {
 
  private:
   int InitSeed() {
+    // Fix seed as 0
     const char* s = std::getenv("PT_HPU_TEST_SEED");
-    srand(time(nullptr));
-    return s ? std::stoi(s) : rand();
+    return s ? std::stoi(s) : 0;
   }
 
  protected:
