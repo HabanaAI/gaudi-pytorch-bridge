@@ -70,13 +70,13 @@ class EnvHelper {
   template <typename F>
   void ExecuteEager(F&& fn) {
     const char* old = std::getenv("PT_HPU_LAZY_MODE");
-    unsetenv("PT_HPU_LAZY_MODE");
+    setenv("PT_HPU_LAZY_MODE", "0", 1);
 
     std::forward<F>(fn)();
-
-    if (old) {
+    if (old)
       setenv("PT_HPU_LAZY_MODE", old, 1);
-    }
+    else
+      unsetenv("PT_HPU_LAZY_MODE");
   }
 };
 

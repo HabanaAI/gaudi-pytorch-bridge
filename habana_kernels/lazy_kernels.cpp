@@ -64,7 +64,6 @@
 #include "habana_lazy/ops/upsample.h"
 #include "habana_lazy/view.h"
 #include "pytorch_helpers/habana_device/HPUAllocator.h"
-#include "pytorch_helpers/synapse_helpers/env_flags.h"
 #include "pytorch_helpers/synapse_helpers/util.h"
 
 using namespace habana;
@@ -121,10 +120,8 @@ void flushWithMarkStep() {
 // For the ops that don't use LazyOp to construct nodes.
 // Remove when all ops move to LazyOp style.
 static void flush_op(at::TensorList tensors) {
-  static const bool m_flush_op = std::getenv("PT_HPU_LAZY_MODE") &&
-      *std::getenv("PT_HPU_LAZY_MODE") == '2';
-  static const bool m_random_flush = std::getenv("PT_HPU_LAZY_MODE") &&
-      *std::getenv("PT_HPU_LAZY_MODE") == '3';
+  static const bool m_flush_op = GET_ENV_FLAG(PT_HPU_LAZY_MODE) == 2;
+  static const bool m_random_flush = GET_ENV_FLAG(PT_HPU_LAZY_MODE) == 3;
 
   if (m_flush_op) {
     std::vector<HbLazyTensor> hl_tensors;
@@ -5661,8 +5658,7 @@ void optimizer_adamw_hpu_lazy(
         hl_weight.dtype_optional());
   }
 
-  if (std::getenv("PT_HPU_LAZY_MODE") &&
-      *std::getenv("PT_HPU_LAZY_MODE") == '2') {
+  if (GET_ENV_FLAG(PT_HPU_LAZY_MODE) == 2) {
     HbLazyTensor::StepMarker({});
   }
 }
@@ -5912,8 +5908,7 @@ optimizer_lamb_phase1_hpu_lazy(
     context->m_retained_tensor_list.emplace_back(exp_avg_sq[i]);
   }
 
-  if (std::getenv("PT_HPU_LAZY_MODE") &&
-      *std::getenv("PT_HPU_LAZY_MODE") == '2') {
+  if (GET_ENV_FLAG(PT_HPU_LAZY_MODE) == 2) {
     HbLazyTensor::StepMarker({});
   }
 

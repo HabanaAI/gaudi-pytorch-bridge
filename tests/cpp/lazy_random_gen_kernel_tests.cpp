@@ -23,7 +23,7 @@ TEST_F(LazyRandomGenKernelTest, FusedDropoutTest) {
   ExecuteEager([&]() {
     SetSeed();
     auto h_in = in.to(torch::kHABANA);
-    auto eager_results = fused_dropout_hpu(h_in, p);
+    auto eager_results = torch::_fused_dropout(h_in, p);
     eager_result1 = std::get<0>(eager_results).to("cpu");
     eager_result2 = std::get<1>(eager_results).to("cpu");
   });

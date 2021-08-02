@@ -4007,7 +4007,7 @@ Tensor hpu_wrap::slice(
     c10::optional<int64_t> start,
     c10::optional<int64_t> end,
     int64_t step) {
-  if (std::getenv("PT_HPU_LAZY_MODE")) {
+  if (GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 0) {
     return SliceFunction::apply(self, dim, start, end, step);
   } else {
     return slice_hpu(self, dim, start, end, step);

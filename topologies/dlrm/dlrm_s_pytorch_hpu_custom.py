@@ -871,10 +871,12 @@ if __name__ == "__main__":
 
         # specify the optimizer algorithm
         if args.optimizer == "sgd":
-            from habana_frameworks.torch.hpex.optimizers import FusedSGD
-            htcore.enable_eliminate_common_subexpression(False)
-            htcore.enable_constant_pooling(False)
-            optimizer = FusedSGD(list(dlrm_habana.top_l.parameters())
+            # Temporarily disabling to allow Lazy Mode 2.Have to enable back.
+            # from habana_frameworks.torch.hpex.optimizers import FusedSGD
+            # htcore.enable_eliminate_common_subexpression(False)
+            # htcore.enable_constant_pooling(False)
+            # optimizer = FusedSGD(list(dlrm_habana.top_l.parameters())
+            optimizer = torch.optim.SGD(list(dlrm_habana.top_l.parameters())
                                     + list(dlrm_habana.bot_l.parameters()), lr=lr_change)
         elif args.optimizer == "adagrad":
             from habana_frameworks.torch.hpex.optimizers import FusedAdagrad

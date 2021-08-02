@@ -15,6 +15,7 @@
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/lazy_executor.h"
 #include "lazy_kernels_declarations.h"
+#include "pytorch_helpers/synapse_helpers/env_flags.h"
 #include "resize.h"
 
 namespace habana_lazy {
@@ -359,10 +360,8 @@ class LazyOp {
   std::vector<at::IValue> m_inputs = {};
   // PT_HPU_LAZY_MODE=2 will flush the node as soon as it is created, more like
   // a eager way of executing using lazy infrastructure.
-  const bool m_flush_op = std::getenv("PT_HPU_LAZY_MODE") &&
-      *std::getenv("PT_HPU_LAZY_MODE") == '2';
-  const bool m_random_flush = std::getenv("PT_HPU_LAZY_MODE") &&
-      *std::getenv("PT_HPU_LAZY_MODE") == '3';
+  const bool m_flush_op = GET_ENV_FLAG(PT_HPU_LAZY_MODE) == 2;
+  const bool m_random_flush = GET_ENV_FLAG(PT_HPU_LAZY_MODE) == 3;
 };
 
 template <typename ReturnType>

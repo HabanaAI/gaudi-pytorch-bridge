@@ -143,7 +143,7 @@ struct PT_HPU_LOWER_AS_STRIDED {
 };
 
 struct PT_HPU_LAZY_MODE : public std::numeric_limits<unsigned long> {
-  static constexpr unsigned long default_value = 0;
+  static constexpr unsigned long default_value = 2;
 };
 
 struct PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES {
