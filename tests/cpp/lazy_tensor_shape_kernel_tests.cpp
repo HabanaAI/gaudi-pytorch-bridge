@@ -292,6 +292,32 @@ TEST_F(LazyTensorShapeKernelTest, Diag1DTest) {
   EXPECT_EQ(equal, true);
 }
 
+TEST_F(LazyTensorShapeKernelTest, DiagOut2DTest) {
+  torch::Tensor tensor = torch::randn({3, 4});
+  torch::Tensor tHabana = tensor.to(torch::kHABANA);
+  torch::Tensor out_tensor = torch::randn({1});
+  auto out_habana_tensor = out_tensor.to(torch::kHABANA);
+
+  auto outHabana = torch::diag_out(out_habana_tensor, tHabana, 3);
+  auto out = torch::diag_out(out_tensor, tensor, 3);
+
+  bool equal = out.allclose(outHabana.to(torch::kCPU), 0, 0);
+  EXPECT_EQ(equal, true);
+}
+
+TEST_F(LazyTensorShapeKernelTest, DiagOut1DTest) {
+  torch::Tensor tensor = torch::randn({3});
+  torch::Tensor tHabana = tensor.to(torch::kHABANA);
+
+  torch::Tensor out_tensor = torch::randn({4, 4});
+  auto out_habana_tensor = out_tensor.to(torch::kHABANA);
+
+  auto outHabana = torch::diag_out(out_habana_tensor, tHabana, 1);
+  auto out = torch::diag_out(out_tensor, tensor, 1);
+  bool equal = out.allclose(outHabana.to(torch::kCPU), 0, 0);
+  EXPECT_EQ(equal, true);
+}
+
 TEST_F(LazyTensorShapeKernelTest, TriuTrilTest) {
   auto typetest = [](at::Tensor (*op)(const at::Tensor&, int64_t),
                      int64_t diagonal,

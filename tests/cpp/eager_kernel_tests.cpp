@@ -971,6 +971,32 @@ TEST(EagerKernelTest, Diag1DTest) {
   EXPECT_EQ(equal, true);
 }
 
+TEST(EagerKernelTest, DiagOut2DTest) {
+  torch::Tensor tensor = torch::randn({4, 4});
+  torch::Tensor tHabana = tensor.to(torch::kHABANA);
+
+  torch::Tensor out_tensor = torch::randn({1});
+  auto out_habana_tensor = out_tensor.to(torch::kHABANA);
+
+  auto outHabana = torch::diag_out(out_habana_tensor, tHabana, 3);
+  auto out = torch::diag_out(out_tensor, tensor, 3);
+  bool equal = out.allclose(outHabana.to(torch::kCPU), 0, 0);
+  EXPECT_EQ(equal, true);
+}
+
+TEST(EagerKernelTest, DiagOut1DTest) {
+  torch::Tensor tensor = torch::randn({3});
+  torch::Tensor tHabana = tensor.to(torch::kHABANA);
+
+  torch::Tensor out_tensor = torch::randn({4, 4});
+  auto out_habana_tensor = out_tensor.to(torch::kHABANA);
+
+  auto outHabana = torch::diag_out(out_habana_tensor, tHabana, 1);
+  auto out = torch::diag_out(out_tensor, tensor, 1);
+  bool equal = out.allclose(outHabana.to(torch::kCPU), 0, 0);
+  EXPECT_EQ(equal, true);
+}
+
 TEST(EagerKernelTest, BatchNormBackwardAdd) {
   auto grad_tensor = torch::randn({10, 3, 4, 4}, torch::requires_grad(false));
   auto tHabanaGrad = grad_tensor.to(torch::kHABANA);

@@ -4620,6 +4620,19 @@ at::Tensor diag_hpu_lazy(const at::Tensor& self, int64_t diagonal) {
   return k.call();
 }
 
+at::Tensor& diag_hpu_lazy_out(
+    const at::Tensor& self,
+    int64_t diagonal,
+    at::Tensor& out) {
+  PT_LAZY_TRACE;
+  LazyOp<Tensor&> k(
+      "hpu::diag_out",
+      {self, diagonal, out},
+      {},
+      {DiagOutOperator::compute_output_shape(self, diagonal)});
+  return k.call(out);
+}
+
 Tensor sign_hpu_lazy(const Tensor& input) {
   PT_LAZY_TRACE;
   LazyOp<at::Tensor> k{"aten::sign", {input}};

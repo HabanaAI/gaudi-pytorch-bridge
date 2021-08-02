@@ -795,6 +795,10 @@ struct hpu_wrap {
       at::Tensor& result);
   static at::Tensor flip(const at::Tensor& self, at::IntArrayRef dims);
   static at::Tensor diag(const at::Tensor& self, int64_t diagonal);
+  static at::Tensor& diag_out(
+      const at::Tensor& self,
+      int64_t diagonal,
+      at::Tensor& out);
   static at::Tensor triu(const at::Tensor& self, int64_t diagonal);
   static at::Tensor tril(const at::Tensor& self, int64_t diagonal);
 };

@@ -460,6 +460,16 @@ Tensor hpu_wrap::triu(const Tensor& self, int64_t diagonal) {
   }
 };
 
+Tensor& hpu_wrap::diag_out(const Tensor& self, int64_t diagonal, Tensor& out) {
+  if (!hpu_check_inputs_impl("diag_out", {self, out}))
+    return AtenHpuTypeDefault::diag_out(self, diagonal, out);
+  if (GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 0) {
+    return diag_hpu_lazy_out(self, diagonal, out);
+  } else {
+    return diag_hpu_out(self, diagonal, out);
+  }
+}
+
 Tensor hpu_wrap::tril(const Tensor& self, int64_t diagonal) {
   if (!hpu_check_inputs_impl("tril", {self}))
     return AtenHpuTypeDefault::tril(self, diagonal);
@@ -4091,6 +4101,7 @@ TORCH_LIBRARY(hpu, m) {
       "scatter_value(Tensor self, int dim, Tensor index, Scalar value) -> Tensor(a!)");
   m.def(
       "arange_out(Scalar start, Scalar end, Scalar step, Tensor result) -> Tensor(a!)");
+  m.def("diag_out(Tensor self, int diagonal, Tensor output) -> Tensor");
   m.def(
       "randperm_out(int n, Generator? generator, Tensor output) -> Tensor(a!)");
   m.def(
