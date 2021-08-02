@@ -92,8 +92,8 @@ void LinspaceOutOperator::AllocateAndAddSynapseNode(
 }
 
 Tensor& linspace_out_hpu(
-    Scalar start,
-    Scalar end,
+    const Scalar& start,
+    const Scalar& end,
     c10::optional<int64_t> step,
     Tensor& output) {
   PT_KERNEL_BEGIN;
@@ -584,7 +584,7 @@ Tensor& scatter_inplace_value_hpu(
     Tensor& self,
     int64_t dim_,
     const Tensor& index,
-    Scalar value) {
+    const Scalar& value) {
   PT_KERNEL_BEGIN;
   auto out = scatter_value_hpu(self, dim_, index, value);
   self.copy_(out);
@@ -1766,7 +1766,7 @@ void ArangeOperator::AllocateAndAddSynapseNode(
  * @param step - step value of the sequence
  ************************************************************************/
 
-Tensor& arange_hpu(Tensor& output, Scalar start, Scalar end, Scalar step) {
+Tensor& arange_hpu(Tensor& output, const Scalar& start, const Scalar& end, const Scalar& step) {
   PT_KERNEL_BEGIN;
 
   // resizing the output as it is coming as empty from model

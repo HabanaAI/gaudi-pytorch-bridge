@@ -59,66 +59,66 @@ at::Tensor addcmul_hpu_lazy(
     const at::Tensor& self,
     const at::Tensor& tensor1,
     const at::Tensor& tensor2,
-    at::Scalar alpha);
+    const at::Scalar& alpha);
 at::Tensor& addcmul_hpu_lazy_(
     at::Tensor& self,
     const at::Tensor& tensor1,
     const at::Tensor& tensor2,
-    at::Scalar alpha);
+    const at::Scalar& alpha);
 at::Tensor addcdiv_hpu_lazy(
     const at::Tensor& self,
     const at::Tensor& tensor1,
     const at::Tensor& tensor2,
-    at::Scalar alpha);
+    const at::Scalar& alpha);
 at::Tensor& addcdiv_hpu_lazy_(
     at::Tensor& self,
     const at::Tensor& tensor1,
     const at::Tensor& tensor2,
-    at::Scalar alpha);
+    const at::Scalar& alpha);
 at::Tensor add_tensor_hpu_lazy(
     const at::Tensor& self,
     const at::Tensor& other,
-    at::Scalar alpha);
+    const at::Scalar& alpha);
 at::Tensor add_scalar_hpu_lazy(
     const at::Tensor& self,
-    at::Scalar other,
-    at::Scalar alpha);
+    const at::Scalar& other,
+    const at::Scalar& alpha);
 at::Tensor& add_scalar_hpu_lazy_(
     at::Tensor& self,
-    at::Scalar other,
-    at::Scalar alpha);
+    const at::Scalar& other,
+    const at::Scalar& alpha);
 at::Tensor& add_tensor_hpu_lazy_(
     at::Tensor& self,
     const at::Tensor& other,
-    at::Scalar alpha);
+    const at::Scalar& alpha);
 at::Tensor sub_tensor_hpu_lazy(
     const at::Tensor& self,
     const at::Tensor& other,
-    at::Scalar alpha);
+    const at::Scalar& alpha);
 at::Tensor& sub_tensor_hpu_lazy_(
     at::Tensor& self,
     const at::Tensor& other,
-    at::Scalar alpha);
+    const at::Scalar& alpha);
 at::Tensor sub_scalar_hpu_lazy(
     const at::Tensor& self,
-    at::Scalar other,
-    at::Scalar alpha);
+    const at::Scalar& other,
+    const at::Scalar& alpha);
 at::Tensor& sub_scalar_hpu_lazy_(
     at::Tensor& self,
-    at::Scalar other,
-    at::Scalar alpha);
+    const at::Scalar& other,
+    const at::Scalar& alpha);
 at::Tensor rsub_scalar_hpu_lazy(
     const at::Tensor& self,
-    at::Scalar other,
-    at::Scalar alpha);
+    const at::Scalar& other,
+    const at::Scalar& alpha);
 at::Tensor& mul_tensor_hpu_lazy_(at::Tensor& self, const at::Tensor& other);
 at::Tensor& mul_out_hpu_lazy(
     at::Tensor& out,
     const at::Tensor& self,
     const at::Tensor& other);
 at::Tensor mul_tensor_hpu_lazy(const at::Tensor& self, const at::Tensor& other);
-at::Tensor mul_scalar_hpu_lazy(const at::Tensor& self, at::Scalar other);
-at::Tensor& mul_scalar_hpu_lazy_(at::Tensor& self, at::Scalar other);
+at::Tensor mul_scalar_hpu_lazy(const at::Tensor& self, const at::Scalar& other);
+at::Tensor& mul_scalar_hpu_lazy_(at::Tensor& self, const at::Scalar& other);
 at::Tensor where_tensor_hpu_lazy(
     const at::Tensor& condition,
     const at::Tensor& self,
@@ -129,36 +129,36 @@ at::Tensor& div_tensor_hpu_lazy_out(
     const at::Tensor& self,
     const at::Tensor& other);
 at::Tensor& div_tensor_hpu_lazy_(at::Tensor& self, const at::Tensor& other);
-at::Tensor div_scalar_hpu_lazy(const at::Tensor& self, at::Scalar other);
-at::Tensor& div_scalar_hpu_lazy_(at::Tensor& self, at::Scalar other);
+at::Tensor div_scalar_hpu_lazy(const at::Tensor& self, const at::Scalar& other);
+at::Tensor& div_scalar_hpu_lazy_(at::Tensor& self, const at::Scalar& other);
 at::Tensor pow_tensor_tensor_hpu_lazy(
     const at::Tensor& self,
     const at::Tensor& other);
 at::Tensor& pow_tensor_tensor_hpu_lazy_(
     at::Tensor& self,
     const at::Tensor& other);
-at::Tensor pow_tensor_scalar_hpu_lazy(const at::Tensor& self, at::Scalar other);
-at::Tensor& pow_tensor_scalar_hpu_lazy_(at::Tensor& self, at::Scalar other);
-at::Tensor pow_scalar_tensor_hpu_lazy(at::Scalar other, const at::Tensor& self);
+at::Tensor pow_tensor_scalar_hpu_lazy(const at::Tensor& self, const at::Scalar& other);
+at::Tensor& pow_tensor_scalar_hpu_lazy_(at::Tensor& self, const at::Scalar& other);
+at::Tensor pow_scalar_tensor_hpu_lazy(const at::Scalar& other, const at::Tensor& self);
 at::Tensor maximum_hpu_lazy(const at::Tensor& self, const at::Tensor& other);
 at::Tensor minimum_hpu_lazy(const at::Tensor& self, const at::Tensor& other);
 at::Tensor gt_tensor_hpu_lazy(const at::Tensor& self, const at::Tensor& other);
-at::Tensor gt_scalar_hpu_lazy(const at::Tensor& self, at::Scalar other);
+at::Tensor gt_scalar_hpu_lazy(const at::Tensor& self, const at::Scalar& other);
 at::Tensor& eq_tensor_out_hpu_lazy(
     at::Tensor& output,
     const at::Tensor& self,
     const at::Tensor& other);
-at::Tensor ne_scalar_hpu_lazy(const at::Tensor& self, at::Scalar other);
+at::Tensor ne_scalar_hpu_lazy(const at::Tensor& self, const at::Scalar& other);
 at::Tensor ne_tensor_hpu_lazy(const at::Tensor& self, const at::Tensor& other);
 at::Tensor all_hpu_lazy(const at::Tensor& self);
 at::Tensor all_dim_hpu_lazy(const at::Tensor& self, int64_t dim, bool keepdim);
-at::Tensor ge_scalar_hpu_lazy(const at::Tensor& self, at::Scalar other);
+at::Tensor ge_scalar_hpu_lazy(const at::Tensor& self, const at::Scalar& other);
 at::Tensor ge_tensor_hpu_lazy(const at::Tensor& self, const at::Tensor& other);
-at::Tensor le_scalar_hpu_lazy(const at::Tensor& self, at::Scalar other);
+at::Tensor le_scalar_hpu_lazy(const at::Tensor& self, const at::Scalar& other);
 at::Tensor le_tensor_hpu_lazy(const at::Tensor& self, const at::Tensor& other);
 at::Tensor eq_tensor_hpu_lazy(const at::Tensor& self, const at::Tensor& other);
-at::Tensor eq_tensor_scalar_hpu_lazy(const at::Tensor& self, at::Scalar other);
-at::Tensor lt_scalar_hpu_lazy(const at::Tensor& self, at::Scalar other);
+at::Tensor eq_tensor_scalar_hpu_lazy(const at::Tensor& self, const at::Scalar& other);
+at::Tensor lt_scalar_hpu_lazy(const at::Tensor& self, const at::Scalar& other);
 at::Tensor lt_tensor_hpu_lazy(const at::Tensor& self, const at::Tensor& other);
 at::Tensor upsample_nearest2d_hpu_lazy(
     const at::Tensor& input,
@@ -193,7 +193,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> convolution_backward_hpu_lazy(
 at::Tensor constant_pad_hpu_lazy(
     const at::Tensor& self,
     at::IntArrayRef pad,
-    at::Scalar value);
+    const at::Scalar& value);
 at::Tensor embedding_hpu_lazy(
     const at::Tensor& weight,
     const at::Tensor& indices,
@@ -234,7 +234,7 @@ at::Tensor& embedding_bag_sum_bwd_out_hpu_lazy(
     const at::Tensor& indices_bwd,
     const at::Tensor& offsets_bwd,
     const at::Tensor& valid_count_bwd);
-at::Tensor& fill_hpu_lazy_(at::Tensor& self, at::Scalar value);
+at::Tensor& fill_hpu_lazy_(at::Tensor& self, const at::Scalar& value);
 at::Tensor& masked_fill_hpu_lazy_(
     at::Tensor& self,
     const at::Tensor& mask,
@@ -242,7 +242,7 @@ at::Tensor& masked_fill_hpu_lazy_(
 at::Tensor& masked_fill_scalar_hpu_lazy_(
     at::Tensor& self,
     const at::Tensor& mask,
-    at::Scalar value);
+    const at::Scalar& value);
 at::Tensor gather_src_hpu_lazy(
     const at::Tensor& self,
     int64_t dim_,
@@ -262,7 +262,7 @@ at::Tensor& scatter_inplace_value_hpu_lazy(
     at::Tensor& self,
     int64_t dim_,
     const at::Tensor& index,
-    at::Scalar value);
+    const at::Scalar& value);
 at::Tensor scatter_add_src_hpu_lazy(
     const at::Tensor& self,
     int64_t dim_,
@@ -312,9 +312,9 @@ at::Tensor slice_hpu_lazy(
 at::Tensor select_hpu_lazy(const at::Tensor& self, int64_t dim, int64_t index);
 at::Tensor& arange_hpu_lazy(
     at::Tensor& output,
-    at::Scalar start,
-    at::Scalar end,
-    at::Scalar step);
+    const at::Scalar& start,
+    const at::Scalar& end,
+    const at::Scalar& step);
 at::Tensor nonzero_hpu_lazy(const at::Tensor& self);
 at::Tensor slice_backward_hpu_lazy(
     const at::Tensor& self,
@@ -328,8 +328,8 @@ at::Tensor addmm_hpu_lazy(
     const at::Tensor& self,
     const at::Tensor& mat1,
     const at::Tensor& mat2,
-    at::Scalar beta,
-    at::Scalar alpha);
+    const at::Scalar& beta,
+    const at::Scalar& alpha);
 at::Tensor& batch_gemm_out_hpu_lazy(
     at::Tensor& out,
     const at::Tensor& self,
@@ -427,7 +427,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> layer_norm_backward_hpu_lazy(
     const c10::optional<at::Tensor>& weight_opt,
     const c10::optional<at::Tensor>& bias_opt,
     std::array<bool, 3> grad_input_mask);
-at::Tensor norm_scalar_hpu_lazy(const at::Tensor& self, at::Scalar p);
+at::Tensor norm_scalar_hpu_lazy(const at::Tensor& self, const at::Scalar& p);
 std::tuple<at::Tensor, at::Tensor, at::Tensor> instance_norm_hpu_lazy(
     const at::Tensor& input,
     const at::Tensor& weight_opt,
@@ -656,7 +656,7 @@ std::vector<at::Tensor> split_with_sizes_hpu_lazy(
 at::Tensor threshold_backward_hpu_lazy(
     const at::Tensor& grad_output,
     const at::Tensor& self,
-    at::Scalar threshold);
+    const at::Scalar& threshold);
 std::tuple<at::Tensor&, at::Tensor&> topk_out_hpu_lazy(
     at::Tensor& values,
     at::Tensor& indices,
@@ -677,23 +677,23 @@ std::tuple<at::Tensor, at::Tensor> sort_hpu_lazy(
     bool descending);
 at::Tensor elu_hpu_lazy(
     const at::Tensor& self,
-    at::Scalar alpha,
-    at::Scalar scale,
-    at::Scalar input_scale);
+    const at::Scalar& alpha,
+    const at::Scalar& scale,
+    const at::Scalar& input_scale);
 at::Tensor& elu_hpu_lazy_(
     at::Tensor& self,
-    at::Scalar alpha,
-    at::Scalar scale,
-    at::Scalar input_scale);
+    const at::Scalar& alpha,
+    const at::Scalar& scale,
+    const at::Scalar& input_scale);
 at::Tensor relu_hpu_lazy(const at::Tensor& input);
 at::Tensor& relu_hpu_lazy_(at::Tensor& self);
-at::Tensor& leaky_relu_lazy_(at::Tensor& self, at::Scalar negative_slope);
+at::Tensor& leaky_relu_lazy_(at::Tensor& self, const at::Scalar& negative_slope);
 at::Tensor leaky_relu_backward_lazy(
     const at::Tensor& grad_output,
     const at::Tensor& self,
-    at::Scalar negative_slope,
+    const at::Scalar& negative_slope,
     bool self_is_result);
-at::Tensor leaky_relu_lazy(const at::Tensor& self, at::Scalar negative_slope);
+at::Tensor leaky_relu_lazy(const at::Tensor& self, const at::Scalar& negative_slope);
 at::Tensor leaky_relu_backward(
     const at::Tensor& grad_output,
     const at::Tensor& self,
@@ -731,7 +731,7 @@ at::Tensor& neg_out_hpu_lazy(at::Tensor& result, const at::Tensor& input);
 at::Tensor& reciprocal_hpu_lazy_(at::Tensor& self);
 at::Tensor reciprocal_hpu_lazy(const at::Tensor& self);
 at::Tensor& reciprocal_out_hpu_lazy(at::Tensor& result, const at::Tensor& self);
-at::Tensor clamp_min_hpu_lazy(const at::Tensor& self, at::Scalar min);
+at::Tensor clamp_min_hpu_lazy(const at::Tensor& self, const at::Scalar& min);
 at::Tensor sign_hpu_lazy(const at::Tensor& input);
 at::Tensor& sign_hpu_lazy_(at::Tensor& self);
 at::Tensor sgn_hpu_lazy(const at::Tensor& input);
@@ -744,12 +744,12 @@ at::Tensor log2_hpu_lazy(const at::Tensor& input);
 at::Tensor& log2_hpu_lazy_(at::Tensor& self);
 at::Tensor& clamp_hpu_lazy_(
     at::Tensor& self,
-    c10::optional<at::Scalar> min,
-    c10::optional<at::Scalar> max);
+    const c10::optional<at::Scalar>& min,
+    const c10::optional<at::Scalar>& max);
 at::Tensor clamp_hpu_lazy(
     const at::Tensor& self,
-    c10::optional<at::Scalar> min,
-    c10::optional<at::Scalar> max);
+    const c10::optional<at::Scalar>& min,
+    const c10::optional<at::Scalar>& max);
 at::Tensor abs_hpu_lazy(const at::Tensor& input);
 at::Tensor& abs_hpu_lazy_(at::Tensor& self);
 at::Tensor round_hpu_lazy(const at::Tensor& self);
@@ -877,8 +877,8 @@ at::Tensor silu_backward_hpu_lazy(
     const at::Tensor& self);
 at::Tensor& silu_out_hpu_lazy(const at::Tensor& self, at::Tensor& out);
 at::Tensor& linspace_out_hpu_lazy(
-    at::Scalar start,
-    at::Scalar end,
+    const at::Scalar& start,
+    const at::Scalar& end,
     c10::optional<int64_t> steps,
     at::Tensor& out);
 at::Tensor cumsum_hpu_lazy(
@@ -891,15 +891,15 @@ at::Tensor remainder_tensor_hpu_lazy(
 at::Tensor& remainder_tensor_hpu_lazy_(
     at::Tensor& self,
     const at::Tensor& other);
-at::Tensor remainder_scalar_hpu_lazy(const at::Tensor& self, at::Scalar other);
-at::Tensor& remainder_scalar_hpu_lazy_(at::Tensor& self, at::Scalar other);
+at::Tensor remainder_scalar_hpu_lazy(const at::Tensor& self, const at::Scalar& other);
+at::Tensor& remainder_scalar_hpu_lazy_(at::Tensor& self, const at::Scalar& other);
 at::Tensor& remainder_tensor_hpu_lazy_out(
     const at::Tensor& self,
     const at::Tensor& other,
     at::Tensor& result);
 at::Tensor& remainder_scalar_hpu_lazy_out(
     const at::Tensor& self,
-    at::Scalar other,
+    const at::Scalar& other,
     at::Tensor& result);
 at::Tensor flip_hpu_lazy(const at::Tensor& self, at::IntArrayRef dims);
 at::Tensor diag_hpu_lazy(const at::Tensor& self, int64_t diagonal);

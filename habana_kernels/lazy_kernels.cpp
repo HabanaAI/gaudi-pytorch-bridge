@@ -953,7 +953,7 @@ Tensor addcmul_hpu_lazy(
     const Tensor& self,
     const Tensor& tensor1,
     const Tensor& tensor2,
-    Scalar alpha) {
+    const Scalar& alpha) {
   PT_LAZY_TRACE;
   LazyOp<at::Tensor> k{"aten::addcmul", {self, tensor1, tensor2, alpha}};
   return k.call();
@@ -962,7 +962,7 @@ Tensor& addcmul_hpu_lazy_(
     Tensor& self,
     const Tensor& tensor1,
     const Tensor& tensor2,
-    Scalar alpha) {
+    const Scalar& alpha) {
   PT_LAZY_TRACE;
   if (!tensor1.is_same(tensor2)) {
     auto mul_out = mul_tensor_hpu_lazy(tensor1, tensor2);
@@ -980,7 +980,7 @@ Tensor addcdiv_hpu_lazy(
     const Tensor& self,
     const Tensor& tensor1,
     const Tensor& tensor2,
-    Scalar alpha) {
+    const Scalar& alpha) {
   PT_LAZY_TRACE;
   LazyOp<at::Tensor> k{"aten::addcdiv", {self, tensor1, tensor2, alpha}};
   return k.call();
@@ -990,7 +990,7 @@ Tensor& addcdiv_hpu_lazy_(
     Tensor& self,
     const Tensor& tensor1,
     const Tensor& tensor2,
-    Scalar alpha) {
+    const Scalar& alpha) {
   PT_LAZY_TRACE;
   auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
   auto hl_tensor1 = GetOrCreateHbLazyTensor(tensor1, c10::kHPU);
@@ -1040,7 +1040,7 @@ Tensor& addcdiv_hpu_lazy_(
 Tensor add_tensor_hpu_lazy(
     const Tensor& self,
     const Tensor& other,
-    Scalar alpha) {
+    const Scalar& alpha) {
   PT_LAZY_TRACE;
   auto alpha_float = alpha.toFloat();
 
@@ -1062,7 +1062,7 @@ Tensor add_tensor_hpu_lazy(
   }
 }
 
-Tensor add_scalar_hpu_lazy(const Tensor& self, Scalar other, Scalar alpha) {
+Tensor add_scalar_hpu_lazy(const Tensor& self, const Scalar& other, const Scalar& alpha) {
   auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
   auto hl_other = GetIrValueForScalar(other);
   auto hl_alpha = GetIrValueForScalar(alpha);
@@ -1096,14 +1096,14 @@ Tensor add_scalar_hpu_lazy(const Tensor& self, Scalar other, Scalar alpha) {
   return result;
 }
 
-Tensor& add_scalar_hpu_lazy_(Tensor& self, Scalar other, Scalar alpha) {
+Tensor& add_scalar_hpu_lazy_(Tensor& self, const Scalar& other, const Scalar& alpha) {
   PT_LAZY_TRACE;
   auto other_tensor = get_tensor_for_scalar(other.toFloat(), self.options());
 
   return add_tensor_hpu_lazy_(self, other_tensor, alpha);
 }
 
-Tensor& add_tensor_hpu_lazy_(Tensor& self, const Tensor& other, Scalar alpha) {
+Tensor& add_tensor_hpu_lazy_(Tensor& self, const Tensor& other, const Scalar& alpha) {
   PT_LAZY_TRACE;
   LazyBinaryOp<Tensor&> op("aten::add_", {self, other, alpha});
   return op.call(self);
@@ -1112,7 +1112,7 @@ Tensor& add_tensor_hpu_lazy_(Tensor& self, const Tensor& other, Scalar alpha) {
 Tensor sub_tensor_hpu_lazy(
     const Tensor& self,
     const Tensor& other,
-    Scalar alpha) {
+    const Scalar& alpha) {
   PT_LAZY_TRACE;
   LazyBinaryOp<at::Tensor> k{
       "aten::sub",
@@ -1122,14 +1122,14 @@ Tensor sub_tensor_hpu_lazy(
   return k.call();
 }
 
-Tensor& sub_tensor_hpu_lazy_(Tensor& self, const Tensor& other, Scalar alpha) {
+Tensor& sub_tensor_hpu_lazy_(Tensor& self, const Tensor& other, const Scalar& alpha) {
   PT_LAZY_TRACE;
 
   LazyBinaryOp<Tensor&> op("aten::sub_", {self, other, alpha});
   return op.call(self);
 }
 
-Tensor sub_scalar_hpu_lazy(const Tensor& self, Scalar other, Scalar alpha) {
+Tensor sub_scalar_hpu_lazy(const Tensor& self, const Scalar& other, const Scalar& alpha) {
   auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
   auto hl_other = GetIrValueForScalar(other);
   auto hl_alpha = GetIrValueForScalar(alpha);
@@ -1162,12 +1162,12 @@ Tensor sub_scalar_hpu_lazy(const Tensor& self, Scalar other, Scalar alpha) {
   flush_op(result);
   return result;
 }
-Tensor& sub_scalar_hpu_lazy_(Tensor& self, Scalar other, Scalar alpha) {
+Tensor& sub_scalar_hpu_lazy_(Tensor& self, const Scalar& other, const Scalar& alpha) {
   PT_LAZY_TRACE;
   auto other_tensor = get_tensor_for_scalar(other.toFloat(), self.options());
   return sub_tensor_hpu_lazy_(self, other_tensor, alpha);
 }
-Tensor rsub_scalar_hpu_lazy(const Tensor& self, Scalar other, Scalar alpha) {
+Tensor rsub_scalar_hpu_lazy(const Tensor& self, const Scalar& other, const Scalar& alpha) {
   PT_LAZY_TRACE;
   auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
   auto hl_other = GetIrValueForScalar(other);
@@ -1236,13 +1236,13 @@ Tensor& mul_out_hpu_lazy(Tensor& out, const Tensor& self, const Tensor& other) {
   return k.call(out);
 }
 
-Tensor mul_scalar_hpu_lazy(const Tensor& self, Scalar other) {
+Tensor mul_scalar_hpu_lazy(const Tensor& self, const Scalar& other) {
   PT_LAZY_TRACE;
   LazyOp<at::Tensor> k("aten::mul", {self, other});
   return k.call();
 }
 
-Tensor& mul_scalar_hpu_lazy_(Tensor& self, Scalar other) {
+Tensor& mul_scalar_hpu_lazy_(Tensor& self, const Scalar& other) {
   PT_LAZY_TRACE;
 
   auto other_tensor = get_tensor_for_scalar(other.toFloat(), self.options());
@@ -1280,7 +1280,7 @@ Tensor& div_tensor_hpu_lazy_(Tensor& self, const Tensor& other) {
   return k.call(self);
 }
 
-Tensor div_scalar_hpu_lazy(const Tensor& self, Scalar other) {
+Tensor div_scalar_hpu_lazy(const Tensor& self, const Scalar& other) {
   PT_LAZY_TRACE;
 
   auto other_tensor = get_tensor_for_scalar(other.toFloat(), self.options());
@@ -1288,7 +1288,7 @@ Tensor div_scalar_hpu_lazy(const Tensor& self, Scalar other) {
   return k.call();
 }
 
-Tensor& div_scalar_hpu_lazy_(Tensor& self, Scalar other) {
+Tensor& div_scalar_hpu_lazy_(Tensor& self, const Scalar& other) {
   PT_LAZY_TRACE;
 
   LazyOp<at::Tensor&> k{"aten::div_", {self, other}};
@@ -1311,19 +1311,19 @@ Tensor& pow_tensor_tensor_hpu_lazy_(Tensor& self, const Tensor& other) {
   return k.call(self);
 }
 
-Tensor pow_tensor_scalar_hpu_lazy(const Tensor& self, Scalar other) {
+Tensor pow_tensor_scalar_hpu_lazy(const Tensor& self, const Scalar& other) {
   PT_LAZY_TRACE;
   LazyOp<at::Tensor> k{"aten::pow", {self, other}};
   return k.call();
 }
 
-Tensor& pow_tensor_scalar_hpu_lazy_(Tensor& self, Scalar other) {
+Tensor& pow_tensor_scalar_hpu_lazy_(Tensor& self, const Scalar& other) {
   PT_LAZY_TRACE;
   LazyOp<at::Tensor&> k{"aten::pow_", {self, other}};
   return k.call(self);
 }
 
-Tensor pow_scalar_tensor_hpu_lazy(Scalar other, const Tensor& self) {
+Tensor pow_scalar_tensor_hpu_lazy(const Scalar& other, const Tensor& self) {
   PT_LAZY_TRACE;
   LazyOp<at::Tensor> k{"aten::pow", {other, self}, {}, {self.sizes().vec()}, 1};
   return k.call();
@@ -1396,7 +1396,7 @@ Tensor gt_tensor_hpu_lazy(const Tensor& self, const Tensor& other) {
   return k.call();
 }
 
-Tensor gt_scalar_hpu_lazy(const Tensor& self, Scalar other) {
+Tensor gt_scalar_hpu_lazy(const Tensor& self, const Scalar& other) {
   PT_LAZY_TRACE;
   LazyCompareOp<at::Tensor> k{
       "aten::gt", {self, other}, {}, {self.sizes().vec()}};
@@ -1410,7 +1410,7 @@ Tensor& eq_tensor_out_hpu_lazy(
   HABANA_ASSERT(0);
   return eq_tensor_out_hpu(output, self, other);
 }
-Tensor eq_tensor_scalar_hpu_lazy(const Tensor& self, Scalar other) {
+Tensor eq_tensor_scalar_hpu_lazy(const Tensor& self, const Scalar& other) {
   PT_LAZY_TRACE;
   LazyCompareOp<at::Tensor> k{
       "aten::eq", {self, other}, {}, {self.sizes().vec()}};
@@ -1427,7 +1427,7 @@ Tensor eq_tensor_hpu_lazy(const Tensor& self, const Tensor& other) {
   return k.call();
 }
 
-Tensor ne_scalar_hpu_lazy(const Tensor& self, Scalar other) {
+Tensor ne_scalar_hpu_lazy(const Tensor& self, const Scalar& other) {
   PT_LAZY_TRACE;
   LazyCompareOp<at::Tensor> k{
       "aten::ne", {self, other}, {}, {self.sizes().vec()}};
@@ -1495,7 +1495,7 @@ Tensor all_dim_hpu_lazy(const Tensor& self, int64_t dim, bool keepdim) {
   return result;
 }
 
-Tensor lt_scalar_hpu_lazy(const Tensor& self, Scalar other) {
+Tensor lt_scalar_hpu_lazy(const Tensor& self, const Scalar& other) {
   PT_LAZY_TRACE;
   LazyCompareOp<at::Tensor> k{
       "aten::lt", {self, other}, {}, {self.sizes().vec()}};
@@ -1512,7 +1512,7 @@ Tensor lt_tensor_hpu_lazy(const Tensor& self, const Tensor& other) {
   return k.call();
 }
 
-Tensor ge_scalar_hpu_lazy(const Tensor& self, Scalar other) {
+Tensor ge_scalar_hpu_lazy(const Tensor& self, const Scalar& other) {
   PT_LAZY_TRACE;
   LazyCompareOp<at::Tensor> k{
       "aten::ge", {self, other}, {}, {self.sizes().vec()}};
@@ -1529,7 +1529,7 @@ Tensor ge_tensor_hpu_lazy(const Tensor& self, const Tensor& other) {
   return k.call();
 }
 
-Tensor le_scalar_hpu_lazy(const Tensor& self, Scalar other) {
+Tensor le_scalar_hpu_lazy(const Tensor& self, const Scalar& other) {
   PT_LAZY_TRACE;
   LazyCompareOp<at::Tensor> k{
       "aten::le", {self, other}, {}, {self.sizes().vec()}};
@@ -1647,7 +1647,7 @@ std::tuple<Tensor, Tensor, Tensor> convolution_backward_hpu_lazy(
 Tensor constant_pad_hpu_lazy(
     const Tensor& self,
     IntArrayRef pad,
-    Scalar value) {
+    const Scalar& value) {
   PT_LAZY_TRACE;
   LazyOp<at::Tensor> k{
       "aten::constant_pad_nd",
@@ -1865,7 +1865,7 @@ Tensor& embedding_bag_sum_bwd_out_kernel_mode_hpu_lazy(
   return out;
 }
 
-Tensor& fill_hpu_lazy_(Tensor& self, Scalar value) {
+Tensor& fill_hpu_lazy_(Tensor& self, const Scalar& value) {
   PT_LAZY_TRACE;
   LazyOp<at::Tensor&> k{"aten::fill_", {self, value}};
   return k.call(self);
@@ -1899,7 +1899,7 @@ Tensor& masked_fill_hpu_lazy_(
 Tensor& masked_fill_scalar_hpu_lazy_(
     Tensor& self,
     const Tensor& mask,
-    Scalar value) {
+    const Scalar& value) {
   PT_LAZY_TRACE;
   Tensor value_tensor = CreateDeviceTensorFromScalar(value, self.scalar_type());
   return masked_fill_hpu_lazy_(self, mask, value_tensor);
@@ -1965,7 +1965,7 @@ Tensor& scatter_inplace_value_hpu_lazy(
     Tensor& self,
     int64_t dim_,
     const Tensor& index,
-    Scalar value) {
+    const Scalar& value) {
   PT_LAZY_TRACE;
 
   auto hl_self = GetHbLazyTensor(self);
@@ -2519,8 +2519,14 @@ Tensor slice_backward_hpu_lazy(
       grad_output.suggest_memory_format(),
       false);
   auto grad_input = at::native::zeros_like(
-      self, self.options(), self.suggest_memory_format());
-  index = at::native::arange(start, end, step, index.options());
+      self, c10::optTypeMetaToScalarType(self.options().dtype_opt()),
+      self.options().layout_opt(), self.options().device_opt(),
+      self.options().pinned_memory_opt(), self.suggest_memory_format());
+  index = at::native::arange(
+      start, end, step,
+      c10::optTypeMetaToScalarType(index.options().dtype_opt()),
+      index.options().layout_opt(), index.options().device_opt(),
+      index.options().pinned_memory_opt());
   auto expand_idx = index.reshape(IntArrayRef(shape)).expand(index_size);
   auto result = scatter_src_hpu_lazy(grad_input, dim, expand_idx, grad_output);
   return result;
@@ -2556,7 +2562,7 @@ Tensor select_hpu_lazy(const Tensor& self, int64_t dim, int64_t index) {
   return result;
 }
 
-Tensor& arange_hpu_lazy(Tensor& output, Scalar start, Scalar end, Scalar step) {
+Tensor& arange_hpu_lazy(Tensor& output, const Scalar& start, const Scalar& end, const Scalar& step) {
   PT_LAZY_TRACE;
   auto hl_result = GetOrCreateHbLazyTensor(output, c10::kHPU);
   auto hl_start = GetIrValueForScalar(start);
@@ -2622,8 +2628,8 @@ Tensor addmm_hpu_lazy(
     const Tensor& self,
     const Tensor& mat1,
     const Tensor& mat2,
-    Scalar beta,
-    Scalar alpha) {
+    const Scalar& beta,
+    const Scalar& alpha) {
   PT_LAZY_TRACE;
   const auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
   const auto hl_mat1 = GetOrCreateHbLazyTensor(mat1, c10::kHPU);
@@ -3342,7 +3348,7 @@ std::tuple<Tensor, Tensor, Tensor> layer_norm_backward_hpu_lazy(
   return std::make_tuple(result_dY, result2, result3);
 }
 
-Tensor norm_scalar_hpu_lazy(const Tensor& self, Scalar p) {
+Tensor norm_scalar_hpu_lazy(const Tensor& self, const Scalar& p) {
   PT_LAZY_TRACE;
   LazyOp<at::Tensor> k{
       "aten::norm", {self, p}, {}, {NormOperator::compute_output_shape()}};
@@ -4304,7 +4310,7 @@ Tensor empty_strided_hpu_lazy(
       empty_hpu_lazy(size, options, c10::nullopt, create_storage);
   empty_tensor.unsafeGetTensorImpl()->set_sizes_and_strides(size, stride);
   // empty_hpu_lazy call might move the tensor to cpu for unsupported dtypes
-  if (empty_tensor.device().type() != c10::DeviceType::HABANA)
+  if (empty_tensor.device().type() != c10::DeviceType::HPU)
     return empty_tensor;
   // If we have created a tensor with storage, set the strides and sizes to
   // backend tensor as well
@@ -4601,7 +4607,7 @@ std::vector<Tensor> split_with_sizes_hpu_lazy(
 Tensor threshold_backward_hpu_lazy(
     const Tensor& grad_output,
     const Tensor& self,
-    Scalar threshold) {
+    const Scalar& threshold) {
   PT_LAZY_TRACE;
   auto hl_grad = GetOrCreateHbLazyTensor(grad_output, c10::kHPU);
   auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
@@ -4741,9 +4747,9 @@ std::tuple<Tensor, Tensor> sort_hpu_lazy(
 
 at::Tensor elu_hpu_lazy(
     const at::Tensor& self,
-    at::Scalar alpha,
-    at::Scalar scale,
-    at::Scalar input_scale) {
+    const at::Scalar& alpha,
+    const at::Scalar& scale,
+    const at::Scalar& input_scale) {
   PT_LAZY_TRACE;
   LazyOp<at::Tensor> k{"aten::elu", {self, alpha, scale, input_scale}};
   return k.call();
@@ -4751,9 +4757,9 @@ at::Tensor elu_hpu_lazy(
 
 at::Tensor& elu_hpu_lazy_(
     at::Tensor& self,
-    at::Scalar alpha,
-    at::Scalar scale,
-    at::Scalar input_scale) {
+    const at::Scalar& alpha,
+    const at::Scalar& scale,
+    const at::Scalar& input_scale) {
   PT_LAZY_TRACE;
   LazyOp<at::Tensor&> k{"aten::elu_", {self, alpha, scale, input_scale}};
   return k.call(self);
@@ -4788,7 +4794,7 @@ Tensor& relu_hpu_lazy_(Tensor& self) {
   return k.call(self);
 }
 
-at::Tensor& leaky_relu_lazy_(at::Tensor& self, at::Scalar negative_slope) {
+at::Tensor& leaky_relu_lazy_(at::Tensor& self, const at::Scalar& negative_slope) {
   PT_LAZY_TRACE;
   LazyOp<at::Tensor&> k{"aten::leaky_relu_", {self, negative_slope}};
   return k.call(self);
@@ -4797,7 +4803,7 @@ at::Tensor& leaky_relu_lazy_(at::Tensor& self, at::Scalar negative_slope) {
 at::Tensor leaky_relu_backward_lazy(
     const at::Tensor& grad_output,
     const at::Tensor& self,
-    at::Scalar negative_slope,
+    const at::Scalar& negative_slope,
     bool self_is_result) {
   PT_LAZY_TRACE;
   LazyOp<at::Tensor> k{
@@ -4807,7 +4813,7 @@ at::Tensor leaky_relu_backward_lazy(
   return k.call();
 }
 
-at::Tensor leaky_relu_lazy(const at::Tensor& self, at::Scalar negative_slope) {
+at::Tensor leaky_relu_lazy(const at::Tensor& self, const at::Scalar& negative_slope) {
   PT_LAZY_TRACE;
   LazyOp<at::Tensor> k{"aten::leaky_relu", {self, negative_slope}};
   return k.call();
@@ -5389,15 +5395,15 @@ Tensor& reciprocal_out_hpu_lazy(Tensor& result, const Tensor& self) {
   HABANA_ASSERT(0);
   return reciprocal_out_hpu(result, self);
 }
-Tensor clamp_min_hpu_lazy(const Tensor& self, Scalar min) {
+Tensor clamp_min_hpu_lazy(const Tensor& self, const Scalar& min) {
   PT_LAZY_TRACE;
   LazyOp<at::Tensor> k{"aten::clamp_min", {self, min}};
   return k.call();
 }
 Tensor& clamp_hpu_lazy_(
     Tensor& self,
-    c10::optional<Scalar> min,
-    c10::optional<Scalar> max) {
+    const c10::optional<Scalar>& min,
+    const c10::optional<Scalar>& max) {
   auto hl_result = GetHbLazyTensor(self);
   updateDstDependencies(hl_result, self, true);
   ir::NodePtr node = std::make_shared<ir::Clamp>(self, min, max);
@@ -5557,8 +5563,8 @@ Tensor isfinite_hpu_lazy(const Tensor& input) {
 
 Tensor clamp_hpu_lazy(
     const Tensor& self,
-    c10::optional<Scalar> min,
-    c10::optional<Scalar> max) {
+    const c10::optional<Scalar>& min,
+    const c10::optional<Scalar>& max) {
   PT_LAZY_TRACE;
   LazyOp<at::Tensor> k{"aten::clamp", {self, min, max}, {1, 2}};
   return k.call();
@@ -6649,8 +6655,8 @@ Tensor& silu_out_hpu_lazy(const Tensor& self, Tensor& out) {
 }
 
 Tensor& linspace_out_hpu_lazy(
-    Scalar start,
-    Scalar end,
+    const Scalar& start,
+    const Scalar& end,
     c10::optional<int64_t> steps,
     Tensor& out) {
   PT_LAZY_TRACE;
@@ -6662,19 +6668,20 @@ Tensor& linspace_out_hpu_lazy(
   // ...
   // const auto steps = optional_steps.value_or(100);
   int64_t step_corrected = steps.value_or(100);
+  Scalar temp_end = end;
 
   // Handle start==end case, change the end value and
   // hence convert to start != end, by changing end variable.
-  if (start.toFloat() == end.toFloat()) {
+  if (start.toFloat() == temp_end.toFloat()) {
     step_corrected = 1;
     auto tmp = end.toFloat();
     tmp++;
-    end = Scalar(tmp);
+    temp_end = Scalar(tmp);
   }
 
   std::vector<int64_t> out_shape = {step_corrected};
   LazyOp<at::Tensor&> k(
-      "aten::linspace", {start, end, step_corrected, out}, {}, {out_shape});
+      "aten::linspace", {start, temp_end, step_corrected, out}, {}, {out_shape});
   return k.call(out);
 }
 
@@ -6714,14 +6721,14 @@ Tensor& remainder_tensor_hpu_lazy_(Tensor& self, const Tensor& other) {
   return k.call(self);
 }
 
-Tensor remainder_scalar_hpu_lazy(const Tensor& self, at::Scalar other) {
+Tensor remainder_scalar_hpu_lazy(const Tensor& self, const at::Scalar& other) {
   PT_LAZY_TRACE;
 
   LazyOp<Tensor> k{"aten::remainder", {self, other}, {}, {self.sizes().vec()}};
   return k.call();
 }
 
-Tensor& remainder_scalar_hpu_lazy_(Tensor& self, at::Scalar other) {
+Tensor& remainder_scalar_hpu_lazy_(Tensor& self, const at::Scalar& other) {
   PT_LAZY_TRACE;
 
   LazyOp<Tensor&> k{
@@ -6751,7 +6758,7 @@ Tensor& remainder_tensor_hpu_lazy_out(
 
 Tensor& remainder_scalar_hpu_lazy_out(
     const Tensor& self,
-    at::Scalar other,
+    const at::Scalar& other,
     Tensor& result) {
   PT_LAZY_TRACE;
 

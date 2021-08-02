@@ -55,7 +55,7 @@ struct Data {
       c10::optional<at::ScalarType> logical_element_type)
       : data_ptr(nullptr),
         ir_value(std::move(ir_value)),
-        device(c10::Device(c10::DeviceType::HABANA, 0)),
+        device(c10::Device(c10::DeviceType::HPU, 0)),
         logical_element_type(logical_element_type),
         original_element_type(logical_element_type.value()),
         unique_id(GetNextTensorId()) {

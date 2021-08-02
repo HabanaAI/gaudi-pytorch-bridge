@@ -351,7 +351,7 @@ Tensor eq_tensor_hpu(const Tensor& self, const Tensor& other) {
  * @param self [in] - input tensor, 1-4D, FP32/BF16
  * @param other [in] - Scalar
  ************************************************************************/
-Tensor eq_tensor_scalar_hpu(const Tensor& self, Scalar other) {
+Tensor eq_tensor_scalar_hpu(const Tensor& self, const Scalar& other) {
   PT_KERNEL_BEGIN;
   if (self.dim() == 0) {
     self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
@@ -399,7 +399,7 @@ Tensor lt_tensor_hpu(const Tensor& self, const Tensor& other) {
  * @param self [in] - input tensor, 1-4D, FP32/BF16
  * @param other [in] - Scalar
  ************************************************************************/
-Tensor ge_scalar_hpu(const Tensor& self, Scalar other) {
+Tensor ge_scalar_hpu(const Tensor& self, const Scalar& other) {
   PT_KERNEL_BEGIN;
   if (self.dim() == 0) {
     self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
@@ -430,7 +430,7 @@ Tensor ge_tensor_hpu(const Tensor& self, const Tensor& other) {
  * @param self [in] - input tensor, 1-5D, FP32/BF16/I8/U8/I32
  * @param other [in] - Scalar
  ************************************************************************/
-Tensor le_scalar_hpu(const Tensor& self, Scalar other) {
+Tensor le_scalar_hpu(const Tensor& self, const Scalar& other) {
   PT_KERNEL_BEGIN;
   bool isSelf_0d = false;
   if (self.dim() == 0) {

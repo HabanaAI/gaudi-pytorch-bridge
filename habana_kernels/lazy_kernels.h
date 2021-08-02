@@ -409,8 +409,8 @@ class LazyBinaryOp : public LazyOp<ReturnType> {
       for (auto& t : inputs) { // Any tensor on CPU needs to be moved to HPU for
                                // type promotion to work
         if (t.isTensor() &&
-            t.toTensor().device().type() != c10::DeviceType::HABANA) {
-          auto h_tensor = t.toTensor().to(c10::kHABANA);
+            t.toTensor().device().type() != c10::DeviceType::HPU) {
+          auto h_tensor = t.toTensor().to(c10::kHPU);
           t = c10::IValue(h_tensor);
         }
       }

@@ -329,7 +329,7 @@ Tensor& mul_tensor_hpu_(Tensor& self, const Tensor& other) {
  * @param other - second input
  * self = self * other
  ************************************************************************/
-Tensor& mul_scalar_hpu_(Tensor& self, Scalar other) {
+Tensor& mul_scalar_hpu_(Tensor& self, const Scalar& other) {
   PT_KERNEL_BEGIN;
   if (self.dim() == 0) {
     self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
@@ -374,7 +374,7 @@ Tensor& div_tensor_hpu_(Tensor& self, const Tensor& other) {
  ************************************************************************/
 Tensor& div_scalar_hpu_(
     Tensor& self,
-    Scalar other) { // TODO: Add test by using an extension module for new op
+    const Scalar& other) { // TODO: Add test by using an extension module for new op
                     // at python level
   PT_KERNEL_BEGIN;
   if (self.dim() == 0) {
@@ -479,7 +479,7 @@ Tensor& add_scalar_hpu_(
  * @param alpha - optional input
  * self -= alpha * other
  ************************************************************************/
-Tensor& sub_tensor_hpu_(Tensor& self, const Tensor& other, Scalar alpha) {
+Tensor& sub_tensor_hpu_(Tensor& self, const Tensor& other, const Scalar& alpha) {
   PT_KERNEL_BEGIN;
   if (self.dim() == 0) {
     self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
@@ -507,8 +507,8 @@ Tensor& sub_tensor_hpu_(Tensor& self, const Tensor& other, Scalar alpha) {
  ************************************************************************/
 Tensor& sub_scalar_hpu_(
     Tensor& self,
-    Scalar other,
-    Scalar alpha) { // TODO: No way to test this yet from python
+    const Scalar& other,
+    const Scalar& alpha) { // TODO: No way to test this yet from python
   PT_KERNEL_BEGIN;
   if (self.dim() == 0) {
     self.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
@@ -730,7 +730,7 @@ Tensor& addcdiv_hpu_(
     Tensor& self,
     const Tensor& tensor1,
     const Tensor& tensor2,
-    Scalar alpha) {
+    const Scalar& alpha) {
   PT_KERNEL_BEGIN;
 
   at::ScalarType scalar_type = self.scalar_type();

@@ -544,7 +544,7 @@ Tensor process_generic_tensor_binary_op(
  * @param alpha - optional input
  * out = self + alpha * other
  ************************************************************************/
-Tensor add_tensor_hpu(const Tensor& self, const Tensor& other, Scalar alpha) {
+Tensor add_tensor_hpu(const Tensor& self, const Tensor& other, const Scalar& alpha) {
   PT_KERNEL_BEGIN;
   Tensor output;
   if (self.dim() == 0) {
@@ -570,7 +570,7 @@ Tensor add_tensor_hpu(const Tensor& self, const Tensor& other, Scalar alpha) {
  * @param alpha - optional input
  * out = self + alpha * other
  ************************************************************************/
-Tensor add_scalar_hpu(const Tensor& self, Scalar other, Scalar alpha) {
+Tensor add_scalar_hpu(const Tensor& self, const Scalar& other, const Scalar& alpha) {
   PT_KERNEL_BEGIN;
 
   if (self.dim() == 0) {
@@ -593,7 +593,7 @@ Tensor add_scalar_hpu(const Tensor& self, Scalar other, Scalar alpha) {
  * @param alpha - optional input
  * out = self - alpha * other
  ************************************************************************/
-Tensor sub_tensor_hpu(const Tensor& self, const Tensor& other, Scalar alpha) {
+Tensor sub_tensor_hpu(const Tensor& self, const Tensor& other, const Scalar& alpha) {
   PT_KERNEL_BEGIN;
 
   if (self.dim() == 0) {
@@ -623,8 +623,8 @@ Tensor sub_tensor_hpu(const Tensor& self, const Tensor& other, Scalar alpha) {
  ************************************************************************/
 Tensor sub_scalar_hpu(
     const Tensor& self,
-    Scalar other,
-    Scalar alpha) { // TODO: No way to test this yet from python
+    const Scalar& other,
+    const Scalar& alpha) { // TODO: No way to test this yet from python
   PT_KERNEL_BEGIN;
 
   if (self.dim() == 0) {
@@ -666,7 +666,7 @@ void habana::RsubOperator::AllocateAndAddSynapseNode(
  * @param alpha - optional input Scalar, default = 1
  * output = other - self * alpha
  ************************************************************************/
-Tensor rsub_scalar_hpu(const Tensor& self, Scalar other, Scalar alpha) {
+Tensor rsub_scalar_hpu(const Tensor& self, const Scalar& other, const Scalar& alpha) {
   PT_KERNEL_BEGIN;
 
   if (self.dim() == 0) {
@@ -722,7 +722,7 @@ Tensor mul_tensor_hpu(const Tensor& self, const Tensor& other) {
  * @param other - second input
  * output = self * other
  ************************************************************************/
-Tensor mul_scalar_hpu(const Tensor& self, Scalar other) {
+Tensor mul_scalar_hpu(const Tensor& self, const Scalar& other) {
   PT_KERNEL_BEGIN;
 
   if (self.dim() == 0) {
@@ -770,7 +770,7 @@ Tensor div_tensor_hpu(const Tensor& self, const Tensor& other) {
  ************************************************************************/
 Tensor div_scalar_hpu(
     const Tensor& self,
-    Scalar other) { // TODO: Add test by using an extension module for new op
+    const Scalar& other) { // TODO: Add test by using an extension module for new op
                     // at python level
   PT_KERNEL_BEGIN;
 
@@ -817,7 +817,7 @@ Tensor pow_tensor_tensor_hpu(const Tensor& self, const Tensor& other) {
  * @param self [in,out]- Tensor 1D bf16/FP32
  * @param other [in] - Scalar
  ************************************************************************/
-Tensor pow_tensor_scalar_hpu(const Tensor& self, Scalar other) {
+Tensor pow_tensor_scalar_hpu(const Tensor& self, const Scalar& other) {
   PT_KERNEL_BEGIN;
 
   if (self.dim() == 0) {
@@ -1250,7 +1250,7 @@ Tensor& remainder_tensor_hpu_(Tensor& self, const Tensor& other) {
   return self;
 }
 
-Tensor remainder_scalar_hpu(const Tensor& self, at::Scalar other) {
+Tensor remainder_scalar_hpu(const Tensor& self, const at::Scalar& other) {
   PT_KERNEL_BEGIN;
   bool isSelf_0d = false;
   if (self.dim() == 0) {
@@ -1301,7 +1301,7 @@ Tensor remainder_scalar_hpu(const Tensor& self, at::Scalar other) {
   return output;
 }
 
-Tensor& remainder_scalar_hpu_(Tensor& self, at::Scalar other) {
+Tensor& remainder_scalar_hpu_(Tensor& self, const at::Scalar& other) {
   PT_KERNEL_BEGIN;
 
   bool isSelf_0d = false;

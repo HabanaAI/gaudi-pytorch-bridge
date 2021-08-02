@@ -896,7 +896,7 @@ def generate_impl(aten_sig, overload, override_fn):
 
 
 def generate_registrations(fgens):
-    aten_code = "TORCH_LIBRARY_IMPL(aten, HABANATensorId, m) {\n"
+    aten_code = "TORCH_LIBRARY_IMPL(aten, HPU, m) {\n"
     autogradhpu_code = None
     overridden = set()
     for fgen in fgens:
@@ -915,7 +915,7 @@ def generate_registrations(fgens):
 
     if autogradhpu_code:
         code += (
-            "TORCH_LIBRARY_IMPL(aten, AutogradHABANA, m) {\n"
+            "TORCH_LIBRARY_IMPL(aten, AutogradHPU, m) {\n"
             + autogradhpu_code
             + "\n}\n"
         )

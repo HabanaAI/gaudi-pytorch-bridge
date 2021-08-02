@@ -67,7 +67,7 @@ void fill_constant_hpu(Tensor& self, Scalar value) {
   }
 }
 
-Tensor& fill_hpu_(Tensor& self, Scalar value) {
+Tensor& fill_hpu_(Tensor& self, const Scalar& value) {
   PT_KERNEL_BEGIN;
   auto self_dims = self.dim();
   if (self_dims == 0) {
@@ -171,7 +171,7 @@ Tensor& masked_fill_hpu_(
 Tensor& masked_fill_scalar_hpu_(
     Tensor& self,
     const Tensor& mask,
-    Scalar value) {
+    const Scalar& value) {
   // convert scalar fill value to device tensor
   auto value_tensor = habana_helpers::scalar_to_device_tensor(value, self, 0);
 

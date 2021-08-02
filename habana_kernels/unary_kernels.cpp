@@ -284,7 +284,7 @@ Tensor& relu_hpu_(Tensor& self) {
  * @param [in] self - input tensor, 1-4D, BF16/FP32
  * @param [in] negative_slope - scalar of type double
  ************************************************************************/
-Tensor& leaky_relu_hpu_(Tensor& self, at::Scalar negative_slope) {
+Tensor& leaky_relu_hpu_(Tensor& self, const at::Scalar& negative_slope) {
   PT_KERNEL_BEGIN;
   bool isSelf_0d = false;
   if (self.dim() == 0) {
@@ -380,7 +380,7 @@ Tensor leaky_relu_hpu(const Tensor& self, at::Scalar negative_slope) {
 at::Tensor leaky_relu_backward_hpu(
     const at::Tensor& grad_output,
     const at::Tensor& self,
-    at::Scalar negative_slope,
+    const at::Scalar& negative_slope,
     bool self_is_result) {
   PT_KERNEL_BEGIN;
   bool isSelf_0d = false;
@@ -1688,8 +1688,8 @@ Tensor clamp_min_hpu(const Tensor& self, Scalar min) {
 
 Tensor clamp_hpu(
     const Tensor& self,
-    c10::optional<Scalar> min,
-    c10::optional<Scalar> max) {
+    const c10::optional<Scalar>& min,
+    const c10::optional<Scalar>& max) {
   PT_KERNEL_BEGIN;
   at::ScalarType scalar_type = self.scalar_type();
   std::string node_type =
@@ -1777,8 +1777,8 @@ void ClampInplaceOperator::AllocateAndAddSynapseNode(
 
 Tensor& clamp_hpu_(
     Tensor& self,
-    c10::optional<Scalar> min,
-    c10::optional<Scalar> max) {
+    const c10::optional<Scalar>& min,
+    const c10::optional<Scalar>& max) {
   PT_KERNEL_BEGIN;
 
   if ((self.scalar_type() == ScalarType::Long) ||

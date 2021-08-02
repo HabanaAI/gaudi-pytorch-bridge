@@ -39,8 +39,8 @@ using namespace habana_lazy;
   }
 
 Tensor& hpu_wrap::copy_(Tensor& self, const Tensor& src, bool non_blocking) {
-  if (src.device().type() == c10::DeviceType::HABANA &&
-      self.device().type() == c10::DeviceType::HABANA) {
+  if (src.device().type() == c10::DeviceType::HPU &&
+      self.device().type() == c10::DeviceType::HPU) {
     if (src.scalar_type() == c10::ScalarType::Float &&
         self.scalar_type() == c10::ScalarType::Byte) {
       return habana::AtenHpuTypeDefault::copy_(self, src, non_blocking);
@@ -49,8 +49,8 @@ Tensor& hpu_wrap::copy_(Tensor& self, const Tensor& src, bool non_blocking) {
   if (GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 0) {
     return copy_hpu_lazy_(self, src, non_blocking);
   } else {
-    if (src.device().type() == c10::DeviceType::HABANA &&
-        self.device().type() == c10::DeviceType::HABANA) {
+    if (src.device().type() == c10::DeviceType::HPU &&
+        self.device().type() == c10::DeviceType::HPU) {
       if (src.scalar_type() == c10::ScalarType::Float &&
           self.scalar_type() == c10::ScalarType::Long) {
         return habana::AtenHpuTypeDefault::copy_(self, src, non_blocking);
@@ -105,7 +105,7 @@ Tensor hpu_wrap::addcmul(
     const Tensor& self,
     const Tensor& tensor1,
     const Tensor& tensor2,
-    Scalar alpha) {
+    const Scalar& alpha) {
   if (!hpu_check_inputs_impl("addcmul", {self, tensor1, tensor2}))
     return AtenHpuTypeDefault::addcmul(self, tensor1, tensor2, alpha);
   if (GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 0) {
@@ -119,7 +119,7 @@ Tensor& hpu_wrap::addcmul_(
     Tensor& self,
     const Tensor& tensor1,
     const Tensor& tensor2,
-    Scalar alpha) {
+    const Scalar& alpha) {
   if (!hpu_check_inputs_impl("addcmul_", {self, tensor1, tensor2}))
     return AtenHpuTypeDefault::addcmul_(self, tensor1, tensor2, alpha);
 
@@ -134,7 +134,7 @@ Tensor hpu_wrap::addcdiv(
     const Tensor& self,
     const Tensor& tensor1,
     const Tensor& tensor2,
-    Scalar alpha) {
+    const Scalar& alpha) {
   if (!hpu_check_inputs_impl("addcdiv", {self, tensor1, tensor2}))
     return AtenHpuTypeDefault::addcdiv(self, tensor1, tensor2, alpha);
 
@@ -149,7 +149,7 @@ Tensor& hpu_wrap::addcdiv_(
     Tensor& self,
     const Tensor& tensor1,
     const Tensor& tensor2,
-    Scalar alpha) {
+    const Scalar& alpha) {
   if (!hpu_check_inputs_impl("addcdiv_", {self, tensor1, tensor2}))
     return AtenHpuTypeDefault::addcdiv_(self, tensor1, tensor2, alpha);
 
@@ -160,7 +160,7 @@ Tensor& hpu_wrap::addcdiv_(
     return addcdiv_hpu_(self, tensor1, tensor2, alpha);
   }
 };
-Tensor hpu_wrap::add(const Tensor& self, const Tensor& other, Scalar alpha) {
+Tensor hpu_wrap::add(const Tensor& self, const Tensor& other, const Scalar& alpha) {
   if (!hpu_check_inputs_impl("add", {self, other}))
     return AtenHpuTypeDefault::add(self, other, alpha);
 
@@ -170,7 +170,7 @@ Tensor hpu_wrap::add(const Tensor& self, const Tensor& other, Scalar alpha) {
     return add_tensor_hpu(self, other, alpha);
   }
 };
-Tensor hpu_wrap::add(const Tensor& self, Scalar other, Scalar alpha) {
+Tensor hpu_wrap::add(const Tensor& self, const Scalar& other, const Scalar& alpha) {
   if (!hpu_check_inputs_impl("add", {self}))
     return AtenHpuTypeDefault::add(self, other, alpha);
 
@@ -181,7 +181,7 @@ Tensor hpu_wrap::add(const Tensor& self, Scalar other, Scalar alpha) {
     return add_scalar_hpu(self, other, alpha);
   }
 };
-Tensor& hpu_wrap::add_(Tensor& self, Scalar other, Scalar alpha) {
+Tensor& hpu_wrap::add_(Tensor& self, const Scalar& other, const Scalar& alpha) {
   if (!hpu_check_inputs_impl("add_", {self}))
     return AtenHpuTypeDefault::add_(self, other, alpha);
 
@@ -192,7 +192,7 @@ Tensor& hpu_wrap::add_(Tensor& self, Scalar other, Scalar alpha) {
     return add_scalar_hpu_(self, other, alpha);
   }
 };
-Tensor& hpu_wrap::add_(Tensor& self, const Tensor& other, Scalar alpha) {
+Tensor& hpu_wrap::add_(Tensor& self, const Tensor& other, const Scalar& alpha) {
   if (!hpu_check_inputs_impl("add_", {self, other}))
     return AtenHpuTypeDefault::add_(self, other, alpha);
 
@@ -202,7 +202,7 @@ Tensor& hpu_wrap::add_(Tensor& self, const Tensor& other, Scalar alpha) {
     return add_tensor_hpu_(self, other, alpha);
   }
 };
-Tensor hpu_wrap::sub(const Tensor& self, const Tensor& other, Scalar alpha) {
+Tensor hpu_wrap::sub(const Tensor& self, const Tensor& other, const Scalar& alpha) {
   if (!hpu_check_inputs_impl("sub", {self, other}))
     return AtenHpuTypeDefault::sub(self, other, alpha);
 
@@ -213,7 +213,7 @@ Tensor hpu_wrap::sub(const Tensor& self, const Tensor& other, Scalar alpha) {
     return sub_tensor_hpu(self, other, alpha);
   }
 };
-Tensor& hpu_wrap::sub_(Tensor& self, const Tensor& other, Scalar alpha) {
+Tensor& hpu_wrap::sub_(Tensor& self, const Tensor& other, const Scalar& alpha) {
   if (!hpu_check_inputs_impl("sub_", {self, other}))
     return AtenHpuTypeDefault::sub_(self, other, alpha);
 
@@ -224,7 +224,7 @@ Tensor& hpu_wrap::sub_(Tensor& self, const Tensor& other, Scalar alpha) {
     return sub_tensor_hpu_(self, other, alpha);
   }
 };
-Tensor hpu_wrap::sub(const Tensor& self, Scalar other, Scalar alpha) {
+Tensor hpu_wrap::sub(const Tensor& self, const Scalar& other, const Scalar& alpha) {
   if (!hpu_check_inputs_impl("sub", {self}))
     return AtenHpuTypeDefault::sub(self, other, alpha);
 
@@ -235,7 +235,7 @@ Tensor hpu_wrap::sub(const Tensor& self, Scalar other, Scalar alpha) {
     return sub_scalar_hpu(self, other, alpha);
   }
 };
-Tensor& hpu_wrap::sub_(Tensor& self, Scalar other, Scalar alpha) {
+Tensor& hpu_wrap::sub_(Tensor& self, const Scalar& other, const Scalar& alpha) {
   if (!hpu_check_inputs_impl("sub_", {self}))
     return AtenHpuTypeDefault::sub_(self, other, alpha);
 
@@ -246,7 +246,7 @@ Tensor& hpu_wrap::sub_(Tensor& self, Scalar other, Scalar alpha) {
     return sub_scalar_hpu_(self, other, alpha);
   }
 };
-Tensor hpu_wrap::rsub(const Tensor& self, Scalar other, Scalar alpha) {
+Tensor hpu_wrap::rsub(const Tensor& self, const Scalar& other, const Scalar& alpha) {
   if (!hpu_check_inputs_impl("rsub", {self}))
     return AtenHpuTypeDefault::rsub(self, other, alpha);
 
@@ -302,7 +302,7 @@ Tensor& hpu_wrap::mul_out(
   }
 };
 
-Tensor hpu_wrap::mul(const Tensor& self, Scalar other) {
+Tensor hpu_wrap::mul(const Tensor& self, const Scalar& other) {
   if (!hpu_check_inputs_impl("mul", {self}))
     return AtenHpuTypeDefault::mul(self, other);
 
@@ -313,7 +313,7 @@ Tensor hpu_wrap::mul(const Tensor& self, Scalar other) {
     return mul_scalar_hpu(self, other);
   }
 };
-Tensor& hpu_wrap::mul_(Tensor& self, Scalar other) {
+Tensor& hpu_wrap::mul_(Tensor& self, const Scalar& other) {
   if (!hpu_check_inputs_impl("mul_", {self}))
     return AtenHpuTypeDefault::mul_(self, other);
 
@@ -360,7 +360,7 @@ Tensor& hpu_wrap::div_(Tensor& self, const Tensor& other) {
     return div_tensor_hpu_(self, other);
   }
 };
-Tensor hpu_wrap::div(const Tensor& self, Scalar other) {
+Tensor hpu_wrap::div(const Tensor& self, const Scalar& other) {
   if (!hpu_check_inputs_impl("div", {self}))
     return AtenHpuTypeDefault::div(self, other);
 
@@ -371,7 +371,7 @@ Tensor hpu_wrap::div(const Tensor& self, Scalar other) {
     return div_scalar_hpu(self, other);
   }
 };
-Tensor& hpu_wrap::div_(Tensor& self, Scalar other) {
+Tensor& hpu_wrap::div_(Tensor& self, const Scalar& other) {
   if (!hpu_check_inputs_impl("div_", {self}))
     return AtenHpuTypeDefault::div_(self, other);
 
@@ -403,7 +403,7 @@ Tensor& hpu_wrap::remainder_(Tensor& self, const Tensor& other) {
   }
 };
 
-Tensor hpu_wrap::remainder(const Tensor& self, at::Scalar other) {
+Tensor hpu_wrap::remainder(const Tensor& self, const at::Scalar& other) {
   if (!hpu_check_inputs_impl("remainder", {self}))
     return AtenHpuTypeDefault::remainder(self, other);
   if (GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 0) {
@@ -413,7 +413,7 @@ Tensor hpu_wrap::remainder(const Tensor& self, at::Scalar other) {
   }
 };
 
-Tensor& hpu_wrap::remainder_(Tensor& self, at::Scalar other) {
+Tensor& hpu_wrap::remainder_(Tensor& self, const at::Scalar& other) {
   if (!hpu_check_inputs_impl("remainder_", {self}))
     return AtenHpuTypeDefault::remainder_(self, other);
   if (GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 0) {
@@ -438,7 +438,7 @@ Tensor& hpu_wrap::remainder_out(
 
 Tensor& hpu_wrap::remainder_out(
     const Tensor& self,
-    at::Scalar other,
+    const at::Scalar& other,
     Tensor& result) {
   if (!hpu_check_inputs_impl("remainder_out", {self, result}))
     return AtenHpuTypeDefault::remainder_out(self, other, result);
@@ -481,7 +481,7 @@ Tensor& hpu_wrap::pow_(Tensor& self, const Tensor& other) {
     return pow_tensor_tensor_hpu_(self, other);
   }
 };
-Tensor hpu_wrap::pow(const Tensor& self, Scalar other) {
+Tensor hpu_wrap::pow(const Tensor& self, const Scalar& other) {
   if (!hpu_check_inputs_impl("pow", {self}))
     return AtenHpuTypeDefault::pow(self, other);
 
@@ -492,7 +492,7 @@ Tensor hpu_wrap::pow(const Tensor& self, Scalar other) {
     return pow_tensor_scalar_hpu(self, other);
   }
 };
-Tensor& hpu_wrap::pow_(Tensor& self, Scalar other) {
+Tensor& hpu_wrap::pow_(Tensor& self, const Scalar& other) {
   if (!hpu_check_inputs_impl("pow_", {self}))
     return AtenHpuTypeDefault::pow_(self, other);
 
@@ -503,7 +503,7 @@ Tensor& hpu_wrap::pow_(Tensor& self, Scalar other) {
     return pow_tensor_scalar_hpu_(self, other);
   }
 };
-Tensor hpu_wrap::pow(Scalar other, const Tensor& self) {
+Tensor hpu_wrap::pow(const Scalar& other, const Tensor& self) {
   if (!hpu_check_inputs_impl("pow", {self}))
     return AtenHpuTypeDefault::pow(other, self);
 
@@ -549,7 +549,7 @@ Tensor hpu_wrap::gt(const Tensor& self, const Tensor& other) {
   }
 };
 
-Tensor hpu_wrap::gt(const Tensor& self, Scalar other) {
+Tensor hpu_wrap::gt(const Tensor& self, const Scalar& other) {
   if (!hpu_check_inputs_impl("gt", {self}))
     return AtenHpuTypeDefault::gt(self, other);
 
@@ -582,7 +582,7 @@ Tensor hpu_wrap::eq(const Tensor& self, const Tensor& other) {
     return eq_tensor_hpu(self, other);
   }
 };
-Tensor hpu_wrap::eq(const Tensor& self, Scalar other) {
+Tensor hpu_wrap::eq(const Tensor& self, const Scalar& other) {
   if (!hpu_check_inputs_impl("eq", {self}))
     return AtenHpuTypeDefault::eq(self, other);
 
@@ -593,7 +593,7 @@ Tensor hpu_wrap::eq(const Tensor& self, Scalar other) {
     return eq_tensor_scalar_hpu(self, other);
   }
 };
-Tensor hpu_wrap::lt(const Tensor& self, Scalar other) {
+Tensor hpu_wrap::lt(const Tensor& self, const Scalar& other) {
   if (!hpu_check_inputs_impl("lt", {self}))
     return AtenHpuTypeDefault::lt(self, other);
 
@@ -615,7 +615,7 @@ Tensor hpu_wrap::lt(const Tensor& self, const Tensor& other) {
     return lt_tensor_hpu(self, other);
   }
 };
-Tensor hpu_wrap::ge(const Tensor& self, Scalar other) {
+Tensor hpu_wrap::ge(const Tensor& self, const Scalar& other) {
   if (!hpu_check_inputs_impl("ge", {self}))
     return AtenHpuTypeDefault::ge(self, other);
 
@@ -637,7 +637,7 @@ Tensor hpu_wrap::ge(const Tensor& self, const Tensor& other) {
     return ge_tensor_hpu(self, other);
   }
 };
-Tensor hpu_wrap::le(const Tensor& self, Scalar other) {
+Tensor hpu_wrap::le(const Tensor& self, const Scalar& other) {
   if (!hpu_check_inputs_impl("le", {self}))
     return AtenHpuTypeDefault::le(self, other);
 
@@ -659,7 +659,7 @@ Tensor hpu_wrap::le(const Tensor& self, const Tensor& other) {
     return le_tensor_hpu(self, other);
   }
 };
-Tensor hpu_wrap::ne(const Tensor& self, Scalar other) {
+Tensor hpu_wrap::ne(const Tensor& self, const Scalar& other) {
   if (!hpu_check_inputs_impl("ne", {self}))
     return AtenHpuTypeDefault::ne(self, other);
 
@@ -802,7 +802,7 @@ std::tuple<Tensor, Tensor, Tensor> hpu_wrap::convolution_backward_overrideable(
 Tensor hpu_wrap::constant_pad_nd(
     const Tensor& self,
     IntArrayRef pad,
-    Scalar value) {
+    const Scalar& value) {
   if (!hpu_check_inputs_impl("constant_pad_nd", {self}))
     return AtenHpuTypeDefault::constant_pad_nd(self, pad, value);
 
@@ -900,7 +900,7 @@ Tensor& embedding_bag_sum_bwd_out_kernel_mode_hpu_wrap(
         out, input, indices, offsets, valid_count, kernel_mode);
   }
 };
-Tensor& hpu_wrap::fill_(Tensor& self, Scalar value) {
+Tensor& hpu_wrap::fill_(Tensor& self, const Scalar& value) {
   if (!hpu_check_inputs_impl("fill_", {self}))
     return AtenHpuTypeDefault::fill_(self, value);
 
@@ -924,7 +924,7 @@ Tensor& hpu_wrap::masked_fill_(
     return masked_fill_hpu_(self, mask, value);
   }
 };
-Tensor& hpu_wrap::masked_fill_(Tensor& self, const Tensor& mask, Scalar value) {
+Tensor& hpu_wrap::masked_fill_(Tensor& self, const Tensor& mask, const Scalar& value) {
   if (!hpu_check_inputs_impl("masked_fill_", {self, mask}))
     return AtenHpuTypeDefault::masked_fill_(self, mask, value);
 
@@ -989,7 +989,7 @@ Tensor& hpu_wrap::scatter_(
     Tensor& self,
     int64_t dim_,
     const Tensor& index,
-    Scalar value) {
+    const Scalar& value) {
   if (GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 0) {
     return scatter_inplace_value_hpu_lazy(self, dim_, index, value);
 
@@ -1168,9 +1168,9 @@ Tensor hpu_wrap::select(const Tensor& self, int64_t dim, int64_t index) {
   }
 };
 Tensor& hpu_wrap::arange_out(
-    Scalar start,
-    Scalar end,
-    Scalar step,
+    const Scalar& start,
+    const Scalar& end,
+    const Scalar& step,
     Tensor& output) {
   if (!hpu_check_inputs_impl("arange_out", {output}))
     return AtenHpuTypeDefault::arange_out(start, end, step, output);
@@ -1207,8 +1207,8 @@ Tensor hpu_wrap::baddbmm(
     const Tensor& self,
     const Tensor& mat1,
     const Tensor& mat2,
-    Scalar beta,
-    Scalar alpha) {
+    const Scalar& beta,
+    const Scalar& alpha) {
   Tensor out = hpu_wrap::mul(hpu_wrap::bmm(mat1, mat2), alpha);
   if (beta.toFloat() != 0) {
     hpu_wrap::add_(out, self, beta);
@@ -1220,8 +1220,8 @@ Tensor& hpu_wrap::baddbmm_out(
     const Tensor& self,
     const Tensor& mat1,
     const Tensor& mat2,
-    Scalar beta,
-    Scalar alpha,
+    const Scalar& beta,
+    const Scalar& alpha,
     Tensor& out) {
   if (beta.toFloat() == 0) {
     hpu_wrap::bmm_out(mat1, mat2, out);
@@ -1239,8 +1239,8 @@ Tensor& hpu_wrap::baddbmm_(
     Tensor& self,
     const Tensor& mat1,
     const Tensor& mat2,
-    Scalar beta,
-    Scalar alpha) {
+    const Scalar& beta,
+    const Scalar& alpha) {
   if (beta.toFloat() == 0) {
     hpu_wrap::bmm_out(mat1, mat2, self);
     hpu_wrap::mul_(self, alpha);
@@ -1256,8 +1256,8 @@ Tensor hpu_wrap::addmm(
     const Tensor& self,
     const Tensor& mat1,
     const Tensor& mat2,
-    Scalar beta,
-    Scalar alpha) {
+    const Scalar& beta,
+    const Scalar& alpha) {
   OpAttributeCheck* check_handle = OpAttributeCheck::get_instance();
   std::vector<c10::IValue> op_stack = {
       IValue(self), IValue(mat1), IValue(mat2), IValue(beta), IValue(alpha)};
@@ -1837,7 +1837,7 @@ std::tuple<Tensor, Tensor, Tensor> hpu_wrap::native_layer_norm_backward(
 
 Tensor hpu_wrap::norm(
     const at::Tensor& self,
-    c10::optional<at::Scalar> p,
+    const c10::optional<at::Scalar>& p,
     at::IntArrayRef dim,
     bool keepdim) {
   if (!hpu_check_inputs_impl("norm", {self}))
@@ -1849,7 +1849,7 @@ Tensor hpu_wrap::norm(
   return hpu_wrap::norm(self, p.value_or(2));
 }
 
-Tensor hpu_wrap::norm(const Tensor& self, c10::Scalar p) {
+Tensor hpu_wrap::norm(const Tensor& self, const c10::Scalar& p) {
   if (!hpu_check_inputs_impl("norm", {self}))
     return AtenHpuTypeDefault::norm(self, p);
 
@@ -2828,7 +2828,7 @@ std::vector<Tensor> hpu_wrap::split_with_sizes(
 Tensor hpu_wrap::threshold_backward(
     const Tensor& grad_output,
     const Tensor& self,
-    Scalar threshold) {
+    const Scalar& threshold) {
   OpAttributeCheck* check_handle = OpAttributeCheck::get_instance();
   std::vector<c10::IValue> op_stack = {
       IValue(grad_output), IValue(self), IValue(threshold)};
@@ -2915,9 +2915,9 @@ std::tuple<Tensor, Tensor> hpu_wrap::sort(
 
 at::Tensor hpu_wrap::elu(
     const at::Tensor& self,
-    at::Scalar alpha,
-    at::Scalar scale,
-    at::Scalar input_scale) {
+    const at::Scalar& alpha,
+    const at::Scalar& scale,
+    const at::Scalar& input_scale) {
   OpAttributeCheck* check_handle = OpAttributeCheck::get_instance();
   std::vector<c10::IValue> op_stack = {
       IValue(self), IValue(alpha), IValue(scale), IValue(input_scale)};
@@ -2929,9 +2929,9 @@ at::Tensor hpu_wrap::elu(
 
 at::Tensor& hpu_wrap::elu_(
     at::Tensor& self,
-    at::Scalar alpha,
-    at::Scalar scale,
-    at::Scalar input_scale) {
+    const at::Scalar& alpha,
+    const at::Scalar& scale,
+    const at::Scalar& input_scale) {
   OpAttributeCheck* check_handle = OpAttributeCheck::get_instance();
   std::vector<c10::IValue> op_stack = {
       IValue(self), IValue(alpha), IValue(scale), IValue(input_scale)};
@@ -2962,7 +2962,7 @@ Tensor& hpu_wrap::relu_(Tensor& self) {
   }
 }
 
-Tensor& hpu_wrap::leaky_relu_(Tensor& self, Scalar negative_slope) {
+Tensor& hpu_wrap::leaky_relu_(Tensor& self, const Scalar& negative_slope) {
   if (!hpu_check_inputs_impl("leaky_relu_", {self}))
     return AtenHpuTypeDefault::leaky_relu_(self, negative_slope);
 
@@ -2976,7 +2976,7 @@ Tensor& hpu_wrap::leaky_relu_(Tensor& self, Scalar negative_slope) {
 at::Tensor hpu_wrap::leaky_relu_backward(
     const at::Tensor& grad_output,
     const at::Tensor& self,
-    at::Scalar negative_slope,
+    const at::Scalar& negative_slope,
     bool self_is_result) {
   if (!hpu_check_inputs_impl("leaky_relu_backward", {grad_output, self}))
     return AtenHpuTypeDefault::leaky_relu_backward(
@@ -2992,7 +2992,7 @@ at::Tensor hpu_wrap::leaky_relu_backward(
 
 at::Tensor hpu_wrap::leaky_relu(
     const at::Tensor& self,
-    at::Scalar negative_slope) {
+    const at::Scalar& negative_slope) {
   if (!hpu_check_inputs_impl("leaky_relu", {self}))
     return AtenHpuTypeDefault::leaky_relu(self, negative_slope);
 
@@ -3245,7 +3245,7 @@ Tensor& hpu_wrap::reciprocal_out(const Tensor& self, Tensor& result) {
     return reciprocal_out_hpu(result, self);
   }
 };
-Tensor hpu_wrap::clamp_min(const Tensor& self, Scalar min) {
+Tensor hpu_wrap::clamp_min(const Tensor& self, const Scalar& min) {
   if (!hpu_check_inputs_impl("clamp_min", {self}))
     return AtenHpuTypeDefault::clamp_min(self, min);
 
@@ -3258,8 +3258,8 @@ Tensor hpu_wrap::clamp_min(const Tensor& self, Scalar min) {
 };
 Tensor& hpu_wrap::clamp_(
     Tensor& self,
-    c10::optional<Scalar> min,
-    c10::optional<Scalar> max) {
+    const c10::optional<Scalar>& min,
+    const c10::optional<Scalar>& max) {
   if (!hpu_check_inputs_impl("clamp_", {self}))
     return AtenHpuTypeDefault::clamp_(self, min, max);
 
@@ -3272,8 +3272,8 @@ Tensor& hpu_wrap::clamp_(
 };
 Tensor hpu_wrap::clamp(
     const Tensor& self,
-    c10::optional<Scalar> min,
-    c10::optional<Scalar> max) {
+    const c10::optional<Scalar>& min,
+    const c10::optional<Scalar>& max) {
   if (!hpu_check_inputs_impl("clamp", {self}))
     return AtenHpuTypeDefault::clamp(self, min, max);
 
@@ -3575,8 +3575,8 @@ at::Tensor& hpu_wrap::unsqueeze_(at::Tensor& self, int64_t dim) {
   return at::native::unsqueeze_(self, dim);
 }
 
-at::Tensor& hpu_wrap::as_strided_(
-    at::Tensor& self,
+const at::Tensor& hpu_wrap::as_strided_(
+    const at::Tensor& self,
     at::IntArrayRef size,
     at::IntArrayRef stride,
     c10::optional<int64_t> storage_offset) {
@@ -4248,8 +4248,8 @@ Tensor hpu_wrap::slice(
 };
 
 Tensor& hpu_wrap::linspace_out(
-    Scalar start,
-    Scalar end,
+    const Scalar& start,
+    const Scalar& end,
     c10::optional<int64_t> steps,
     Tensor& out) {
   if (!steps.has_value()) {
@@ -4432,11 +4432,11 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl(
       "scatter_value",
       static_cast<
-          at::Tensor& (*)(at::Tensor&, int64_t, const at::Tensor&, Scalar)>(
+          at::Tensor& (*)(at::Tensor&, int64_t, const at::Tensor&, const Scalar&)>(
           &hpu_wrap::scatter_));
   m.impl(
       "arange_out",
-      static_cast<at::Tensor& (*)(Scalar, Scalar, Scalar, at::Tensor&)>(
+      static_cast<at::Tensor& (*)(const Scalar&, const Scalar&, const Scalar&, at::Tensor&)>(
           &hpu_wrap::arange_out));
   m.impl(
       "randperm_out",

@@ -194,7 +194,7 @@ Tensor addcdiv_hpu(
     const Tensor& self,
     const Tensor& tensor1,
     const Tensor& tensor2,
-    Scalar alpha) {
+    const Scalar& alpha) {
   PT_KERNEL_BEGIN;
 
   at::ScalarType scalar_type = self.scalar_type();

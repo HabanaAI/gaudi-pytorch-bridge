@@ -17,7 +17,7 @@ std::vector<at::Tensor> GetMetaTensorList(
   std::vector<at::Tensor> metatensors;
   metatensors.reserve(tensors.size());
   for (const auto& tensor : tensors) {
-    metatensors.emplace_back(at::empty_meta(
+    metatensors.emplace_back(at::empty(
         tensor.sizes(), tensor.options(), tensor.suggest_memory_format()));
   }
   return metatensors;
@@ -31,7 +31,7 @@ std::vector<c10::optional<at::Tensor>> GetMetaOptTensorList(
     if (tensor.has_value()) {
       const auto& tv = tensor.value();
       metatensors.emplace_back(
-          at::empty_meta(tv.sizes(), tv.options(), tv.suggest_memory_format()));
+          at::empty(tv.sizes(), tv.options(), tv.suggest_memory_format()));
     } else {
       metatensors.emplace_back(tensor);
     }
@@ -167,9 +167,9 @@ std::vector<synapse_helpers::tensor> HabanaOperatorHelper::BuildOp(
     } else {
       const auto& t = at::detail::make_tensor<c10::TensorImpl>(
           c10::DispatchKeySet{
-              at::DispatchKey::HPU, at::DispatchKey::AutogradHABANA},
+              at::DispatchKey::HPU, at::DispatchKey::AutogradHPU},
           c10::scalarTypeToTypeMeta(attr.dtype),
-          c10::Device(c10::kHABANA, 0));
+          c10::Device(c10::kHPU, 0));
       t.unsafeGetTensorImpl()->set_sizes_contiguous(attr.sizes);
       outputs.emplace_back(
           habana_helpers::create_tensor(t, graph, attr.persistent, attr.dtype));
