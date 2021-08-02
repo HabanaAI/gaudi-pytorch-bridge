@@ -116,6 +116,25 @@ ScalarType get_dtype(
 }
 } // namespace
 
+std::vector<int64_t> ReduceOperator::compute_output_shape(
+    const at::Tensor& self,
+    const IntArrayRef dim,
+    const bool keepdim) {
+  DimMask dim_mask = make_dim_mask(dim, self.dim());
+
+  std::vector<int64_t> shape = self.sizes().vec();
+  for (int64_t dimIndex = shape.size() - 1; dimIndex >= 0; dimIndex--) {
+    if (dim_mask[dimIndex]) {
+      if (keepdim) {
+        shape[dimIndex] = 1;
+      } else {
+        shape.erase(shape.begin() + dimIndex);
+      } // if (keepdim)
+    }
+  } // for (int64_t
+  return shape;
+}
+
 void ReduceOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   Tensor output = inputs[0].toTensor();
   Tensor self = inputs[1].toTensor();

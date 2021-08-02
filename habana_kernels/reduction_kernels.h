@@ -9,6 +9,7 @@
  */
 #pragma once
 #include "habana_kernels/habana_operator.h"
+
 namespace habana {
 
 /**
@@ -41,6 +42,10 @@ class ReduceOperator : public HabanaOperator {
       c10::List<int64_t>& in_dim,
       int64_t dim,
       int64_t dims_to_reduce);
+  static std::vector<int64_t> compute_output_shape(
+      const at::Tensor& self,
+      const at::IntArrayRef dim,
+      const bool keepdim);
 
  private:
   /**

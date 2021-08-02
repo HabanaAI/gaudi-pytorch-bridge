@@ -10,7 +10,6 @@
 
 #include "habana_kernels/lazy_kernels.h"
 #include <ATen/InferSize.h>
-#include <bitset>
 #include <cstdlib>
 #include <ctime>
 #include "habana_helpers/logging.h"
@@ -31,6 +30,7 @@
 #include "habana_kernels/norm_kernels.h"
 #include "habana_kernels/pool_kernels.h"
 #include "habana_kernels/reduction2_kernels.h"
+#include "habana_kernels/reduction_kernels.h"
 #include "habana_kernels/repeat.h"
 #include "habana_kernels/resize.h"
 #include "habana_kernels/tensor_shape_kernels.h"
@@ -1419,15 +1419,8 @@ Tensor all_dim_hpu_lazy(const Tensor& self, int64_t dim, bool keepdim) {
   auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHABANA);
   ir::NodePtr node = std::make_shared<ir::AllDim>(self, dim, keepdim);
 
-  // Infer Output shape
-  auto shape_out = self.sizes().vec();
-  if (keepdim == true) {
-    shape_out[dim] = 1;
-  } else {
-    shape_out.erase(shape_out.begin() + dim);
-  }
   auto result = empty_hpu_lazy(
-      shape_out,
+      ReduceOperator::compute_output_shape(self, dim, keepdim),
       self.options().dtype(c10::ScalarType::Bool),
       self.suggest_memory_format(),
       false);
@@ -3684,32 +3677,11 @@ Tensor mean_dim_hpu_lazy(
     c10::optional<ScalarType> dtype) {
   PT_LAZY_TRACE;
 
-  std::bitset<64> dim_mask;
-  if (dim.empty()) {
-    dim_mask = std::bitset<64>().flip();
-  } else {
-    size_t ndims = self.dim();
-    for (int64_t k : dim) {
-      size_t dim = c10::maybe_wrap_dim(k, ndims);
-      dim_mask[dim] = true;
-    }
-  }
-  std::vector<int64_t> shape = self.sizes().vec();
-  for (int64_t dim = shape.size() - 1; dim >= 0; dim--) {
-    if (dim_mask[dim]) {
-      if (keepdim) {
-        shape[dim] = 1;
-      } else {
-        shape.erase(shape.begin() + dim);
-      }
-    }
-  }
-
   LazyOp<at::Tensor> k(
       "aten::mean",
       {self, dim, keepdim, std::move(dtype)},
       {1, 2, 3}, // metadata_indices
-      {shape});
+      {ReduceOperator::compute_output_shape(self, dim, keepdim)});
   return k.call();
 }
 Tensor& mean_dim_out_hpu_lazy(
@@ -3770,16 +3742,11 @@ Tensor prod_dim_hpu_lazy(
   ir::NodePtr node =
       std::make_shared<ir::ProdDimInt>(self, dim, keepdim, dtype);
 
-  // Infer Output shape
-  auto shape_out = self.sizes().vec();
-  if (keepdim == true) {
-    shape_out[dim] = 1;
-  } else {
-    shape_out.erase(shape_out.begin() + dim);
-  }
-
   auto result = empty_hpu_lazy(
-      shape_out, self.options(), self.suggest_memory_format(), false);
+      ReduceOperator::compute_output_shape(self, dim, keepdim),
+      self.options(),
+      self.suggest_memory_format(),
+      false);
   auto hl_result = GetHbLazyTensor(result);
   ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
@@ -3832,16 +3799,8 @@ Tensor any_dim_hpu_lazy(const Tensor& self, int64_t dim, bool keepdim) {
           dim(dim),
           keepdim(keepdim) {}
     at::Tensor get_result_overrideable() override {
-      // Infer Output shape
-      std::vector<int64_t> shape_out = self.sizes().vec();
-      if (keepdim == true) {
-        shape_out[dim] = 1;
-      } else {
-        shape_out.erase(shape_out.begin() + dim);
-      }
-
       return empty_hpu_lazy(
-          shape_out,
+          ReduceOperator::compute_output_shape(self, dim, keepdim),
           self.options().dtype(c10::ScalarType::Bool),
           self.suggest_memory_format(),
           false);
