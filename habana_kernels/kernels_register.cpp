@@ -962,7 +962,12 @@ Tensor hpu_wrap::gather(
     int64_t dim_,
     const Tensor& index,
     bool sparse_grad) {
-  if (!hpu_check_inputs_impl("gather", {self, index}))
+  OpAttributeCheck* check_handle = OpAttributeCheck::get_instance();
+  std::vector<c10::IValue> op_stack = {
+      IValue(self), IValue(dim_), IValue(index), IValue(sparse_grad)};
+  check_handle->hpu_check_ivalues("gather", op_stack);
+  if (!(hpu_check_inputs_impl("gather", {self, index}) &&
+        check_handle->get_status()))
     return AtenHpuTypeDefault::gather(self, dim_, index, sparse_grad);
 
   if (GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 0) {
@@ -1340,9 +1345,26 @@ std::tuple<Tensor, Tensor> hpu_wrap::nll_loss_forward(
     int64_t reduction,
     int64_t ignore_index) {
   auto weight = weight_opt.value_or(Tensor());
-  if (!hpu_check_inputs_impl("nll_loss_forward", {self, target, weight}))
+  OpAttributeCheck* check_handle = OpAttributeCheck::get_instance();
+  std::vector<c10::IValue> op_stack = {
+      IValue(self),
+      IValue(target),
+      IValue(weight_opt),
+      IValue(reduction),
+      IValue(ignore_index)};
+  // PyTorch or user may send a "undefined" tensor, since there is no way of
+  // comparing "undefined" tensors for equality, therefore evaluate for defined
+  // and send bool to attribute based cpu fallback logic.
+  if (weight_opt.has_value()) {
+    op_stack.erase(op_stack.cbegin() + 2);
+    op_stack.insert(
+        op_stack.cbegin() + 2, IValue(weight_opt.value().defined()));
+  }
+  check_handle->hpu_check_ivalues("nll_loss_forward", op_stack);
+  if (!(hpu_check_inputs_impl("nll_loss_forward", {self, target, weight}) &&
+        check_handle->get_status()))
     return AtenHpuTypeDefault::nll_loss_forward(
-        self, target, weight, reduction, ignore_index);
+        self, target, weight_opt, reduction, ignore_index);
 
   if (GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 0) {
     return nll_loss_forward_hpu_lazy(
@@ -1361,9 +1383,28 @@ Tensor hpu_wrap::nll_loss_backward(
     int64_t ignore_index,
     UNUSED const Tensor& total_weight) {
   auto weight = weight_opt.value_or(Tensor());
-  if (!hpu_check_inputs_impl(
-          "nll_loss_backward",
-          {grad_output, self, target, weight, total_weight}))
+  OpAttributeCheck* check_handle = OpAttributeCheck::get_instance();
+  std::vector<c10::IValue> op_stack = {
+      IValue(grad_output),
+      IValue(self),
+      IValue(target),
+      IValue(weight_opt),
+      IValue(reduction),
+      IValue(ignore_index),
+      IValue(total_weight)};
+  // PyTorch or user may send a "undefined" tensor, since there is no way of
+  // comparing "undefined" tensors for equality, therefore evaluate for defined
+  // and send bool to attribute based cpu fallback logic.
+  if (weight_opt.has_value()) {
+    op_stack.erase(op_stack.cbegin() + 3);
+    op_stack.insert(
+        op_stack.cbegin() + 3, IValue(weight_opt.value().defined()));
+  }
+  check_handle->hpu_check_ivalues("nll_loss_backward", op_stack);
+  if (!(hpu_check_inputs_impl(
+            "nll_loss_backward",
+            {grad_output, self, target, weight, total_weight}) &&
+        check_handle->get_status()))
     return AtenHpuTypeDefault::nll_loss_backward(
         grad_output,
         self,
@@ -1404,9 +1445,28 @@ Tensor hpu_wrap::nll_loss2d_backward(
     int64_t ignore_index,
     UNUSED const Tensor& total_weight) {
   auto weight = weight_opt.value_or(Tensor());
-  if (!hpu_check_inputs_impl(
-          "nll_loss2d_backward",
-          {grad_output, self, target, weight, total_weight}))
+  OpAttributeCheck* check_handle = OpAttributeCheck::get_instance();
+  std::vector<c10::IValue> op_stack = {
+      IValue(grad_output),
+      IValue(self),
+      IValue(target),
+      IValue(weight_opt),
+      IValue(reduction),
+      IValue(ignore_index),
+      IValue(total_weight)};
+  // PyTorch or user may send a "undefined" tensor, since there is no way of
+  // comparing "undefined" tensors for equality, therefore evaluate for defined
+  // and send bool to attribute based cpu fallback logic.
+  if (weight_opt.has_value()) {
+    op_stack.erase(op_stack.cbegin() + 3);
+    op_stack.insert(
+        op_stack.cbegin() + 3, IValue(weight_opt.value().defined()));
+  }
+  check_handle->hpu_check_ivalues("nll_loss2d_backward", op_stack);
+  if (!(hpu_check_inputs_impl(
+            "nll_loss2d_backward",
+            {grad_output, self, target, weight, total_weight}) &&
+        check_handle->get_status()))
     return AtenHpuTypeDefault::nll_loss2d_backward(
         grad_output,
         self,
@@ -1445,7 +1505,24 @@ std::tuple<Tensor, Tensor> hpu_wrap::nll_loss2d_forward(
     int64_t reduction,
     int64_t ignore_index) {
   auto weight = weight_opt.value_or(Tensor());
-  if (!hpu_check_inputs_impl("nll_loss2d_forward", {self, target, weight}))
+  OpAttributeCheck* check_handle = OpAttributeCheck::get_instance();
+  std::vector<c10::IValue> op_stack = {
+      IValue(self),
+      IValue(target),
+      IValue(weight_opt),
+      IValue(reduction),
+      IValue(ignore_index)};
+  // PyTorch or user may send a "undefined" tensor, since there is no way of
+  // comparing "undefined" tensors for equality, therefore evaluate for defined
+  // and send bool to attribute based cpu fallback logic.
+  if (weight_opt.has_value()) {
+    op_stack.erase(op_stack.cbegin() + 2);
+    op_stack.insert(
+        op_stack.cbegin() + 2, IValue(weight_opt.value().defined()));
+  }
+  check_handle->hpu_check_ivalues("nll_loss2d_forward", op_stack);
+  if (!(hpu_check_inputs_impl("nll_loss2d_forward", {self, target, weight}) &&
+        check_handle->get_status()))
     return AtenHpuTypeDefault::nll_loss2d_forward(
         self, target, weight, reduction, ignore_index);
 
@@ -1494,7 +1571,15 @@ Tensor hpu_wrap::binary_cross_entropy(
   auto weight = weight_opt.value_or(Tensor());
   OpAttributeCheck* check_handle = OpAttributeCheck::get_instance();
   std::vector<c10::IValue> op_stack = {
-      IValue(self), IValue(target), IValue(weight), IValue(reduction)};
+      IValue(self), IValue(target), IValue(weight_opt), IValue(reduction)};
+  // PyTorch or user may send a "undefined" tensor, since there is no way of
+  // comparing "undefined" tensors for equality, therefore evaluate for defined
+  // and send bool to attribute based cpu fallback logic.
+  if (weight_opt.has_value()) {
+    op_stack.erase(op_stack.cbegin() + 2);
+    op_stack.insert(
+        op_stack.cbegin() + 2, IValue(weight_opt.value().defined()));
+  }
   check_handle->hpu_check_ivalues("binary_cross_entropy", op_stack);
   if (!(hpu_check_inputs_impl("binary_cross_entropy", {self, target, weight}) &&
         check_handle->get_status())) {
@@ -1520,8 +1605,16 @@ Tensor hpu_wrap::binary_cross_entropy_backward(
       IValue(grad_output),
       IValue(self),
       IValue(target),
-      IValue(weight),
+      IValue(weight_opt),
       IValue(reduction)};
+  // PyTorch or user may send a "undefined" tensor, since there is no way of
+  // comparing "undefined" tensors for equality, therefore evaluate for defined
+  // and send bool to attribute based cpu fallback logic.
+  if (weight_opt.has_value()) {
+    op_stack.erase(op_stack.cbegin() + 3);
+    op_stack.insert(
+        op_stack.cbegin() + 3, IValue(weight_opt.value().defined()));
+  }
   check_handle->hpu_check_ivalues("binary_cross_entropy_backward", op_stack);
   if (!(hpu_check_inputs_impl(
             "binary_cross_entropy_backward",
@@ -1552,6 +1645,18 @@ Tensor hpu_wrap::binary_cross_entropy_with_logits(
       IValue(weight),
       IValue(pos_weight),
       IValue(reduction)};
+  // PyTorch or user may send a "undefined" tensor, since there is no way of
+  // comparing "undefined" tensors for equality, therefore evaluate for defined
+  // and send bool to attribute based cpu fallback logic.
+  if (weight.has_value()) {
+    op_stack.erase(op_stack.cbegin() + 2);
+    op_stack.insert(op_stack.cbegin() + 2, IValue(weight.value().defined()));
+  }
+  if (pos_weight.has_value()) {
+    op_stack.erase(op_stack.cbegin() + 3);
+    op_stack.insert(
+        op_stack.cbegin() + 3, IValue(pos_weight.value().defined()));
+  }
   check_handle->hpu_check_ivalues("binary_cross_entropy_with_logits", op_stack);
   if (!(hpu_check_inputs_impl(
             "binary_cross_entropy_with_logits",
@@ -1923,7 +2028,18 @@ Tensor hpu_wrap::avg_pool2d(
     bool ceil_mode,
     bool count_include_pad,
     c10::optional<int64_t> divisor_override) {
-  if (!hpu_check_inputs_impl("avg_pool2d", {input}))
+  OpAttributeCheck* check_handle = OpAttributeCheck::get_instance();
+  std::vector<c10::IValue> op_stack = {
+      IValue(input),
+      IValue(kernel_size),
+      IValue(stride),
+      IValue(padding),
+      IValue(ceil_mode),
+      IValue(count_include_pad),
+      IValue(divisor_override)};
+  check_handle->hpu_check_ivalues("avg_pool2d", op_stack);
+  if (!(hpu_check_inputs_impl("avg_pool2d", {input}) &&
+        check_handle->get_status()))
     return AtenHpuTypeDefault::avg_pool2d(
         input,
         kernel_size,
@@ -1964,8 +2080,21 @@ Tensor& hpu_wrap::avg_pool2d_backward_out(
     bool count_include_pad,
     c10::optional<int64_t> divisor_override,
     Tensor& grad_input) {
-  if (!hpu_check_inputs_impl(
-          "avg_pool2d_backward_out", {grad_input, grad_output, input}))
+  OpAttributeCheck* check_handle = OpAttributeCheck::get_instance();
+  std::vector<c10::IValue> op_stack = {
+      IValue(grad_output),
+      IValue(input),
+      IValue(kernel_size),
+      IValue(stride),
+      IValue(padding),
+      IValue(ceil_mode),
+      IValue(count_include_pad),
+      IValue(divisor_override),
+      IValue(grad_input)};
+  check_handle->hpu_check_ivalues("avg_pool2d_backward_out", op_stack);
+  if (!(hpu_check_inputs_impl(
+            "avg_pool2d_backward_out", {grad_input, grad_output, input}) &&
+        check_handle->get_status()))
     return AtenHpuTypeDefault::avg_pool2d_backward_out(
         grad_output,
         input,
@@ -2011,7 +2140,19 @@ Tensor hpu_wrap::avg_pool2d_backward(
     bool ceil_mode,
     bool count_include_pad,
     c10::optional<int64_t> divisor_override) {
-  if (!hpu_check_inputs_impl("avg_pool2d_backward", {grad_output, input}))
+  OpAttributeCheck* check_handle = OpAttributeCheck::get_instance();
+  std::vector<c10::IValue> op_stack = {
+      IValue(grad_output),
+      IValue(input),
+      IValue(kernel_size),
+      IValue(stride),
+      IValue(padding),
+      IValue(ceil_mode),
+      IValue(count_include_pad),
+      IValue(divisor_override)};
+  check_handle->hpu_check_ivalues("avg_pool2d_backward", op_stack);
+  if (!(hpu_check_inputs_impl("avg_pool2d_backward", {grad_output, input}) &&
+        check_handle->get_status()))
     return AtenHpuTypeDefault::avg_pool2d_backward(
         grad_output,
         input,
@@ -2356,7 +2497,12 @@ Tensor hpu_wrap::_log_softmax(
     const Tensor& self,
     const int64_t dim,
     const bool half_to_float) {
-  if (!hpu_check_inputs_impl("_log_softmax", {self}))
+  OpAttributeCheck* check_handle = OpAttributeCheck::get_instance();
+  std::vector<c10::IValue> op_stack = {
+      IValue(self), IValue(dim), IValue(half_to_float)};
+  check_handle->hpu_check_ivalues("_log_softmax", op_stack);
+  if (!(hpu_check_inputs_impl("_log_softmax", {self}) &&
+        check_handle->get_status()))
     return AtenHpuTypeDefault::_log_softmax(self, dim, half_to_float);
 
   if (GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 0) {
@@ -2388,7 +2534,12 @@ Tensor hpu_wrap::_softmax(
     const Tensor& self,
     int64_t dim,
     const bool half_to_float) {
-  if (!hpu_check_inputs_impl("_softmax", {self}))
+  OpAttributeCheck* check_handle = OpAttributeCheck::get_instance();
+  std::vector<c10::IValue> op_stack = {
+      IValue(self), IValue(dim), IValue(half_to_float)};
+  check_handle->hpu_check_ivalues("_softmax", op_stack);
+  if (!(hpu_check_inputs_impl("_softmax", {self}) &&
+        check_handle->get_status()))
     return AtenHpuTypeDefault::_softmax(self, dim, half_to_float);
 
   if (GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 0) {
@@ -2627,7 +2778,12 @@ Tensor hpu_wrap::threshold_backward(
     const Tensor& grad_output,
     const Tensor& self,
     Scalar threshold) {
-  if (!hpu_check_inputs_impl("threshold_backward", {grad_output, self}))
+  OpAttributeCheck* check_handle = OpAttributeCheck::get_instance();
+  std::vector<c10::IValue> op_stack = {
+      IValue(grad_output), IValue(self), IValue(threshold)};
+  check_handle->hpu_check_ivalues("threshold_backward", op_stack);
+  if (!(hpu_check_inputs_impl("threshold_backward", {grad_output, self}) &&
+        check_handle->get_status()))
     return AtenHpuTypeDefault::threshold_backward(grad_output, self, threshold);
 
   if (GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 0) {
@@ -2645,7 +2801,18 @@ std::tuple<Tensor&, Tensor&> hpu_wrap::topk_out(
     bool sorted,
     Tensor& values,
     Tensor& indices) {
-  if (!hpu_check_inputs_impl("topk_out", {values, indices, self}))
+  OpAttributeCheck* check_handle = OpAttributeCheck::get_instance();
+  std::vector<c10::IValue> op_stack = {
+      IValue(self),
+      IValue(k),
+      IValue(dim_),
+      IValue(largest),
+      IValue(sorted),
+      IValue(values),
+      IValue(indices)};
+  check_handle->hpu_check_ivalues("topk", op_stack);
+  if (!(hpu_check_inputs_impl("topk_out", {values, indices, self}) &&
+        check_handle->get_status()))
     return AtenHpuTypeDefault::topk_out(
         self, k, dim_, largest, sorted, values, indices);
 
@@ -2662,7 +2829,11 @@ std::tuple<Tensor, Tensor> hpu_wrap::topk(
     int64_t dim,
     bool largest,
     bool sorted) {
-  if (!hpu_check_inputs_impl("topk", {self}))
+  OpAttributeCheck* check_handle = OpAttributeCheck::get_instance();
+  std::vector<c10::IValue> op_stack = {
+      IValue(self), IValue(k), IValue(dim), IValue(largest), IValue(sorted)};
+  check_handle->hpu_check_ivalues("topk", op_stack);
+  if (!(hpu_check_inputs_impl("topk", {self}) && check_handle->get_status()))
     return AtenHpuTypeDefault::topk(self, k, dim, largest, sorted);
 
   if (GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 0) {
@@ -2676,7 +2847,11 @@ std::tuple<Tensor, Tensor> hpu_wrap::sort(
     const Tensor& self,
     int64_t dim,
     bool descending) {
-  if (!hpu_check_inputs_impl("sort", {self}))
+  OpAttributeCheck* check_handle = OpAttributeCheck::get_instance();
+  std::vector<c10::IValue> op_stack = {
+      IValue(self), IValue(dim), IValue(descending)};
+  check_handle->hpu_check_ivalues("sort", op_stack);
+  if (!(hpu_check_inputs_impl("sort", {self}) && check_handle->get_status()))
     return AtenHpuTypeDefault::sort(self, dim, descending);
 
   if (GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 0) {
@@ -2692,7 +2867,11 @@ at::Tensor hpu_wrap::elu(
     at::Scalar alpha,
     at::Scalar scale,
     at::Scalar input_scale) {
-  if (!hpu_check_inputs_impl(__func__, {self}))
+  OpAttributeCheck* check_handle = OpAttributeCheck::get_instance();
+  std::vector<c10::IValue> op_stack = {
+      IValue(self), IValue(alpha), IValue(scale), IValue(input_scale)};
+  check_handle->hpu_check_ivalues("elu", op_stack);
+  if (!(hpu_check_inputs_impl(__func__, {self}) && check_handle->get_status()))
     return AtenHpuTypeDefault::elu(self, alpha, scale, input_scale);
   return elu_hpu_lazy(self, alpha, scale, input_scale);
 }
@@ -2702,7 +2881,11 @@ at::Tensor& hpu_wrap::elu_(
     at::Scalar alpha,
     at::Scalar scale,
     at::Scalar input_scale) {
-  if (!hpu_check_inputs_impl(__func__, {self}))
+  OpAttributeCheck* check_handle = OpAttributeCheck::get_instance();
+  std::vector<c10::IValue> op_stack = {
+      IValue(self), IValue(alpha), IValue(scale), IValue(input_scale)};
+  check_handle->hpu_check_ivalues("elu", op_stack);
+  if (!(hpu_check_inputs_impl(__func__, {self}) && check_handle->get_status()))
     return AtenHpuTypeDefault::elu_(self, alpha, scale, input_scale);
   return elu_hpu_lazy_(self, alpha, scale, input_scale);
 }
