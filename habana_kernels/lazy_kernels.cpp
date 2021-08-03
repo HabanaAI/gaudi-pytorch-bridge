@@ -1612,11 +1612,8 @@ Tensor embedding_hpu_lazy(
   auto size = indices.sizes().vec();
 
   if (indices.dim() == 1) {
-    // TORCH_CHECK(false, "Lazy Emedding: indices of dim 1 not expected");
-    size = weight.sizes().vec();
-  }
-
-  else {
+    size = GatherOperator::compute_output_shape(weight, 0, indices);
+  } else {
     // append size of last N-1 dimensions of weight (assuming its a Nd tensor)
     for (auto d : weight.sizes().slice(1)) {
       size.push_back(d);
