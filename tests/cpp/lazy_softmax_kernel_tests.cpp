@@ -59,13 +59,13 @@ TEST_F(LazySoftmaxKernelTest, CrossEntropyTest) {
   auto target = torch::randint(0, 3, {64, 48, 40}, torch::kLong);
   torch::Tensor htarget = target.to(torch::kHPU);
 
-  torch::Tensor houtConv = torch::conv2d(tHabanaX, tHabanaW, {}, 1, 0, 1, 1);
+  torch::Tensor houtConv = torch::conv2d(tHabanaX, tHabanaW, {}, {1}, {0}, {1}, 1);
   torch::nn::CrossEntropyLoss loss;
   auto outhpu = loss->forward(houtConv, htarget);
   torch::Tensor out = outhpu.to(torch::kCPU);
 
   torch::Tensor outConv =
-      torch::conv2d(input_tensor, weight_tensor, {}, 1, 0, 1, 1);
+      torch::conv2d(input_tensor, weight_tensor, {}, {1}, {0}, {1}, 1);
   auto outcpu = loss->forward(outConv, target);
 
   EXPECT_EQ(allclose(out, outcpu, 0.001, 0.001), true);
@@ -151,12 +151,12 @@ TEST_F(LazySoftmaxKernelTest, SoftMaxTestBackward1) {
   torch::Tensor hinput = input.to(torch::kHPU);
 
   int dim = 1;
-  torch::Tensor houtConv = torch::conv2d(hinput0, tHabanaW, {}, 1, 0, 1, 1);
+  torch::Tensor houtConv = torch::conv2d(hinput0, tHabanaW, {}, {1}, {0}, {1}, 1);
   auto hout_backward =
       torch::_softmax_backward_data(houtConv, houtput, dim, hinput);
   auto hout2_back = hout_backward.to(torch::kCPU);
 
-  torch::Tensor outConv = torch::conv2d(input0, weight_tensor, {}, 1, 0, 1, 1);
+  torch::Tensor outConv = torch::conv2d(input0, weight_tensor, {}, {1}, {0}, {1}, 1);
   auto cout_back = torch::_softmax_backward_data(outConv, output, dim, input);
 
   EXPECT_EQ(allclose(hout2_back, cout_back, 0.01, 0.01), true);

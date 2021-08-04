@@ -763,7 +763,7 @@ TEST_F(LazyUnaryKernelTest, CumsumDim3Axis2) {
 TEST_F(LazyUnaryKernelTest, CumsumDim2Axis1Int) {
   torch::Tensor A = torch::randint(-330, 330, {2, 3});
 
-  auto hA = A.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
   int64_t axis = 1;
   torch::Tensor cpu_out = torch::cumsum(A, axis, torch::kFloat32);
 

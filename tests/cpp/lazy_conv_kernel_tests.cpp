@@ -29,12 +29,12 @@ TEST_F(LazyConvKernelTest, ConvReluTest) {
   auto wt_hwck = weight_tensor.permute({2, 3, 1, 0}).contiguous();
   torch::Tensor tHabanaW = wt_hwck.to(torch::kHPU);
 
-  torch::Tensor outConv = torch::conv2d(tHabanaX, tHabanaW, {}, 1, 0, 1, 1);
+  torch::Tensor outConv = torch::conv2d(tHabanaX, tHabanaW, {}, {1}, {0}, {1}, 1);
   torch::Tensor outhpu = torch::relu(outConv);
   torch::Tensor out = outhpu.to(torch::kCPU);
 
   torch::Tensor outConv1 =
-      torch::conv2d(input_tensor, weight_tensor, {}, 1, 0, 1, 1);
+      torch::conv2d(input_tensor, weight_tensor, {}, {1}, {0}, {1}, 1);
   torch::Tensor outcpu = torch::relu(outConv1);
 
   EXPECT_EQ(allclose(out, outcpu, 0.01, 0.01), true);
@@ -123,13 +123,13 @@ TEST_F(LazyConvKernelGraphTest, ConvolutionBackward) {
 TEST_F(LazyConvKernelTest, ConvExecTest) {
   auto in = torch::randn({64, 4, 28, 28}, torch::dtype(torch::kFloat)); // nchw
   auto wt = torch::randn({5, 4, 3, 3}, torch::dtype(torch::kFloat)); // kchw
-  auto exp = torch::conv2d(in, wt, {}, 1, 0, 1, 1);
+  auto exp = torch::conv2d(in, wt, {}, {1}, {0}, {1}, 1);
 
   auto h_in = in.to(torch::kHPU);
   auto wt_hwck = wt.permute({2, 3, 1, 0}).contiguous();
   auto h_wt = wt_hwck.to(torch::kHPU);
 
-  torch::Tensor result = torch::conv2d(h_in, h_wt, {}, 1, 0, 1, 1);
+  torch::Tensor result = torch::conv2d(h_in, h_wt, {}, {1}, {0}, {1}, 1);
 
   Tensor out = result.to(kCPU);
 

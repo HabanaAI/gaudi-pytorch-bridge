@@ -31,9 +31,9 @@ TEST_F(LazyControlEdgeTest, AsStridedWithinOps) {
   c4.copy_(c1);
   torch::Tensor c5 = c3.relu();
 
-  torch::Tensor h0 = c0.to(torch::kHABANA);
+  torch::Tensor h0 = c0.to(torch::kHPU);
   torch::Tensor h1 = torch::as_strided(h0, {20, 5}, {5, 1});
-  torch::Tensor h2 = c2.to(torch::kHABANA);
+  torch::Tensor h2 = c2.to(torch::kHPU);
   torch::Tensor h3 = h2.abs();
   torch::Tensor h4 = torch::as_strided(h3, {20, 5}, {5, 1});
   h4.copy_(h1);
@@ -50,7 +50,7 @@ TEST_F(LazyControlEdgeTest, ControlEdgeCycle) {
   auto c2 = c1.mul(0.1);
   auto c3 = torch::mul(c0, c2);
 
-  auto h0 = c0.to(torch::kHABANA);
+  auto h0 = c0.to(torch::kHPU);
   auto h1 = h0.squeeze(-1);
   auto h2 = h1.mul(0.1);
   auto h3 = torch::mul(h0, h2);

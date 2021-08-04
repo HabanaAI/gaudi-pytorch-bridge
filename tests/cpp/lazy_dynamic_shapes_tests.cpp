@@ -71,9 +71,9 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeTest) {
     torch::Tensor h_weight_tensor_hwck =
         h_weight_tensor.permute({2, 3, 1, 0}).contiguous();
     torch::Tensor h_out_conv =
-        torch::conv2d(h_in_tensor, h_weight_tensor_hwck, {}, 1, 0, 1, 1);
+        torch::conv2d(h_in_tensor, h_weight_tensor_hwck, {}, {1}, {0}, {1}, 1);
     torch::Tensor out_conv =
-        torch::conv2d(in_tensor, weight_tensor, {}, 1, 0, 1, 1);
+        torch::conv2d(in_tensor, weight_tensor, {}, {1}, {0}, {1}, 1);
     // bn_out = BatchNorm(out_conv)
     torch::Tensor gamma =
         torch::randn(C, torch::dtype(torch::kFloat).requires_grad(false));
@@ -173,9 +173,9 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeTest2) {
     torch::Tensor h_weight_tensor_hwck =
         h_weight_tensor.permute({2, 3, 1, 0}).contiguous();
     torch::Tensor h_out_conv =
-        torch::conv2d(h_in_tensor, h_weight_tensor_hwck, {}, 1, 0, 1, 1);
+        torch::conv2d(h_in_tensor, h_weight_tensor_hwck, {}, {1}, {0}, {1}, {1});
     torch::Tensor out_conv =
-        torch::conv2d(in_tensor, weight_tensor, {}, 1, 0, 1, 1);
+        torch::conv2d(in_tensor, weight_tensor, {}, {1}, {0}, {1}, {1});
     // bn_out = BatchNorm(out_conv)
     torch::Tensor gamma =
         torch::randn(C, torch::dtype(torch::kFloat).requires_grad(false));

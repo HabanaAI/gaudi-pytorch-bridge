@@ -55,9 +55,9 @@ TEST_F(LazyTensorShapeKernelTest, CatExecOutTest) {
 
   torch::Tensor output = torch::empty({0});
 
-  torch::Tensor hA = A.to(torch::kHABANA);
-  torch::Tensor hB = B.to(torch::kHABANA);
-  torch::Tensor hout = output.to(torch::kHABANA);
+  torch::Tensor hA = A.to(torch::kHPU);
+  torch::Tensor hB = B.to(torch::kHPU);
+  torch::Tensor hout = output.to(torch::kHPU);
 
   torch::cat_outf({A, B}, 0, output);
   torch::cat_outf({hA, hB}, 0, hout);
@@ -240,7 +240,7 @@ TEST_F(LazyTensorShapeKernelTest, SplitWithSizesTest) {
 
 TEST_F(LazyTensorShapeKernelTest, SplitTest) {
   auto input = torch::randn({2, 3, 4, 5});
-  auto h_input = input.to(torch::kHABANA);
+  auto h_input = input.to(torch::kHPU);
 
   auto result = torch::split(h_input, 2, 1);
   auto cpu_out = torch::split(input, 2, 1);
@@ -294,9 +294,9 @@ TEST_F(LazyTensorShapeKernelTest, Diag1DTest) {
 
 TEST_F(LazyTensorShapeKernelTest, DiagOut2DTest) {
   torch::Tensor tensor = torch::randn({3, 4});
-  torch::Tensor tHabana = tensor.to(torch::kHABANA);
+  torch::Tensor tHabana = tensor.to(torch::kHPU);
   torch::Tensor out_tensor = torch::randn({1});
-  auto out_habana_tensor = out_tensor.to(torch::kHABANA);
+  auto out_habana_tensor = out_tensor.to(torch::kHPU);
 
   auto outHabana = torch::diag_out(out_habana_tensor, tHabana, 3);
   auto out = torch::diag_out(out_tensor, tensor, 3);
@@ -307,10 +307,10 @@ TEST_F(LazyTensorShapeKernelTest, DiagOut2DTest) {
 
 TEST_F(LazyTensorShapeKernelTest, DiagOut1DTest) {
   torch::Tensor tensor = torch::randn({3});
-  torch::Tensor tHabana = tensor.to(torch::kHABANA);
+  torch::Tensor tHabana = tensor.to(torch::kHPU);
 
   torch::Tensor out_tensor = torch::randn({4, 4});
-  auto out_habana_tensor = out_tensor.to(torch::kHABANA);
+  auto out_habana_tensor = out_tensor.to(torch::kHPU);
 
   auto outHabana = torch::diag_out(out_habana_tensor, tHabana, 1);
   auto out = torch::diag_out(out_tensor, tensor, 1);
@@ -380,7 +380,7 @@ TEST_F(LazyTensorShapeKernelTest, TrilInplaceTest) {
   torch::Tensor A = torch::randn({3, 3});
   int64_t diagonal = 0;
 
-  auto hA = A.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
 
   A.tril_(diagonal);
   auto exp = A;
@@ -395,7 +395,7 @@ TEST_F(LazyTensorShapeKernelTest, TriuInplaceTest) {
   torch::Tensor A = torch::randn({3, 3});
   int64_t diagonal = 0;
 
-  auto hA = A.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
 
   A.triu_(diagonal);
   auto exp = A;

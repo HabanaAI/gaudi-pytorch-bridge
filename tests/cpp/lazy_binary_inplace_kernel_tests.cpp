@@ -38,8 +38,8 @@ TEST_F(LazyBinaryInplaceKernelTest, MulInplaceTest) {
 TEST_F(LazyBinaryInplaceKernelTest, MulInplaceScalarTest) {
   torch::Tensor A = torch::randn({2, 3});
   torch::Tensor B = torch::randn({2, 3});
-  auto hA = A.to(torch::kHABANA);
-  auto hB = B.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
+  auto hB = B.to(torch::kHPU);
 
   torch::Scalar s = 0.3;
 
@@ -58,8 +58,8 @@ TEST_F(LazyBinaryInplaceKernelTest, MulInplaceScalarBfloat16Test) {
   auto A_bf16 = A.to(torch::kBFloat16);
   torch::Tensor B = torch::randn({2, 3});
   auto B_bf16 = B.to(torch::kBFloat16);
-  auto hA = A_bf16.to(torch::kHABANA);
-  auto hB = B_bf16.to(torch::kHABANA);
+  auto hA = A_bf16.to(torch::kHPU);
+  auto hB = B_bf16.to(torch::kHPU);
 
   torch::Scalar s = 0.3;
 
@@ -76,8 +76,8 @@ TEST_F(LazyBinaryInplaceKernelTest, MulInplaceScalarBfloat16Test) {
 TEST_F(LazyBinaryInplaceKernelTest, AddInplaceScalarTest) {
   torch::Tensor A = torch::randn({2, 3});
   torch::Tensor B = torch::randn({2, 3});
-  auto hA = A.to(torch::kHABANA);
-  auto hB = B.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
+  auto hB = B.to(torch::kHPU);
 
   torch::Scalar s = 0.3;
 
@@ -94,8 +94,8 @@ TEST_F(LazyBinaryInplaceKernelTest, AddInplaceScalarTest) {
 TEST_F(LazyBinaryInplaceKernelTest, SubInplaceScalarTest) {
   torch::Tensor A = torch::randn({2, 3});
   torch::Tensor B = torch::randn({2, 3});
-  auto hA = A.to(torch::kHABANA);
-  auto hB = B.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
+  auto hB = B.to(torch::kHPU);
 
   torch::Scalar s = 0.3;
 

@@ -264,7 +264,7 @@ TEST_F(LazyBinaryKernelTest, TypePromotion1) {
 
 TEST_F(LazyBinaryKernelTest, TypePromotion2) {
   auto typetest =
-      [](at::Tensor (*op)(const at::Tensor&, const at::Tensor&, Scalar),
+      [](at::Tensor (*op)(const at::Tensor&, const at::Tensor&, const Scalar&),
          c10::ScalarType dtype1,
          c10::ScalarType dtype2,
          c10::IntArrayRef size) {

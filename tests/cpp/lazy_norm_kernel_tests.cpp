@@ -347,7 +347,7 @@ TEST_F(LazyNormKernelTest, FusedNormTest) {
 
 TEST_F(LazyNormKernelTest, FrobNormTest) {
   torch::Tensor A = torch::randn({2, 2}, torch::requires_grad(false));
-  torch::Tensor hA = A.to(torch::kHABANA);
+  torch::Tensor hA = A.to(torch::kHPU);
   torch::Tensor hOut = torch::frobenius_norm(hA);
   torch::Tensor Out = torch::frobenius_norm(A);
 
@@ -356,25 +356,25 @@ TEST_F(LazyNormKernelTest, FrobNormTest) {
 
 TEST_F(LazyNormKernelTest, BatchNormBackwardAdd) {
   auto grad_tensor = torch::randn({10, 3, 4, 4}, torch::requires_grad(false));
-  auto tHabanaGrad = grad_tensor.to(torch::kHABANA);
+  auto tHabanaGrad = grad_tensor.to(torch::kHPU);
 
   auto input_tensor = torch::randn({10, 3, 4, 4}, torch::requires_grad(false));
-  auto tHabanaX = input_tensor.to(torch::kHABANA);
+  auto tHabanaX = input_tensor.to(torch::kHPU);
 
   auto weight = torch::randn({3}, torch::requires_grad(false));
-  auto tWeight = weight.to(torch::kHABANA);
+  auto tWeight = weight.to(torch::kHPU);
 
   auto mean = torch::randn({3}, torch::requires_grad(false));
-  auto tHabanaMean = mean.to(torch::kHABANA);
+  auto tHabanaMean = mean.to(torch::kHPU);
 
   auto var = torch::randn({3}, torch::requires_grad(false));
-  auto tHabanaVar = var.to(torch::kHABANA);
+  auto tHabanaVar = var.to(torch::kHPU);
 
   auto save_mean = torch::randn({3}, torch::requires_grad(false));
-  auto tHabanaSaveMean = save_mean.to(torch::kHABANA);
+  auto tHabanaSaveMean = save_mean.to(torch::kHPU);
 
   auto save_ivar = torch::randn({3}, torch::requires_grad(false));
-  auto tHabanaSaveIVar = save_ivar.to(torch::kHABANA);
+  auto tHabanaSaveIVar = save_ivar.to(torch::kHPU);
 
   auto results = torch::native_batch_norm_backward(
       tHabanaGrad,

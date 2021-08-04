@@ -25,9 +25,9 @@ TEST_F(LazyTensorAddKernelTest, AddcmulOut) {
   torch::Tensor C = torch::randn(dimentions);
   torch::Tensor out_cpu = at::empty_like(A);
 
-  auto hA = A.to(torch::kHABANA);
-  auto hB = B.to(torch::kHABANA);
-  auto hC = C.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
+  auto hB = B.to(torch::kHPU);
+  auto hC = C.to(torch::kHPU);
   torch::Tensor out_hpu = at::empty_like(hA);
 
   auto result = at::addcmul_outf(hA, hB, hC, alpha, out_hpu);
@@ -47,9 +47,9 @@ TEST_F(LazyTensorAddKernelTest, AddcdivOut) {
   torch::Tensor C = torch::randn(dimentions);
   torch::Tensor out_cpu = at::empty_like(A);
 
-  auto hA = A.to(torch::kHABANA);
-  auto hB = B.to(torch::kHABANA);
-  auto hC = C.to(torch::kHABANA);
+  auto hA = A.to(torch::kHPU);
+  auto hB = B.to(torch::kHPU);
+  auto hC = C.to(torch::kHPU);
   torch::Tensor out_hpu = at::empty_like(hA);
 
   auto result = at::addcdiv_outf(hA, hB, hC, alpha, out_hpu);

@@ -25,9 +25,9 @@ TEST_F(LazyExecutionTest, testmultipleLaunch) {
     auto bias = torch::randn({5}, torch::dtype(torch::kFloat)); // k
     auto exp = torch::conv_transpose2d(in, wt, {}, 1, 0, 0, 1, 1);
 
-    auto h_in = in.to(torch::kHABANA);
+    auto h_in = in.to(torch::kHPU);
     auto wt_hwck = wt.permute({2, 3, 1, 0}).contiguous();
-    auto h_wt = wt_hwck.to(torch::kHABANA);
+    auto h_wt = wt_hwck.to(torch::kHPU);
 
     torch::Tensor result =
         torch::conv_transpose2d(h_in, h_wt, {}, 1, 0, 0, 1, 1);
