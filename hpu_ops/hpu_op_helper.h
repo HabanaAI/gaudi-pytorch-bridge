@@ -18,6 +18,18 @@ std::vector<at::Tensor> GetMetaTensorList(
 std::vector<c10::optional<at::Tensor>> GetMetaOptTensorList(
     const std::vector<c10::optional<at::Tensor>>& tensors);
 
+template <typename T>
+T& get(fint_t&);
+
+template <>
+inline int& get<int>(fint_t& u) {
+  return u.i;
+}
+template <>
+inline float& get<float>(fint_t& u) {
+  return u.f;
+}
+
 class HabanaOperatorHelper : public HabanaOperator {
  public:
   HabanaOperatorHelper(
@@ -127,7 +139,11 @@ class HabanaOperatorHelper : public HabanaOperator {
   static sizes_vec PowOutputShape(const torch::Tensor&);
 };
 
-#define COMPOUND_OP(class)                   \
+#define PARAMS_STUB(structname) \
+  size = sizeof(structname);    \
+  auto params = std::make_shared<structname>()
+
+#define HPU_COMPOUND_OP(class)               \
   struct class : HabanaOperatorHelper {      \
     class(                                   \
         int device_id,                       \
@@ -151,10 +167,6 @@ class HabanaOperatorHelper : public HabanaOperator {
         bool is_output_persistent) override; \
   };
 
-COMPOUND_OP(BinaryWithAlphaOutOp)
-COMPOUND_OP(RsubOp)
-
-#undef COMPOUND_OP
 } // namespace habana
 
 #define HPU_SUPPORTED_DTYPES(fn, supported_dtypes)                       \

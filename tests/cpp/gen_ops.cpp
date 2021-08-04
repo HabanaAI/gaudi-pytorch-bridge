@@ -12,7 +12,7 @@
 #include <tests/cpp/habana_lazy_test_infra.h>
 #include <torch/torch.h>
 
-class CodeGenOps : public habana_lazy_test::LazyTest {
+class GenOps : public habana_lazy_test::LazyTest {
   const torch::IntArrayRef m_dims = torch::IntArrayRef({2, 3, 2, 3});
   std::vector<torch::Tensor> m_inputs;
   std::vector<torch::Tensor> m_hinputs;
@@ -382,7 +382,7 @@ class CodeGenOps : public habana_lazy_test::LazyTest {
   }
 };
 
-TEST_F(CodeGenOps, Fns) {
+TEST_F(GenOps, Fns) {
   // clang-format off
   TestFnCustomSizes(torch::prelu, {{3, 4, 4, 1}, {1, 4, 1, 1}});
   TestFn(static_cast<torch::Tensor (*)(const torch::Tensor&, const torch::Tensor&, torch::Scalar)>(torch::rsub));

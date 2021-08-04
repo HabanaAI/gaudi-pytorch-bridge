@@ -83,8 +83,6 @@ add_library(habana_pytorch_plugin SHARED
   habana_kernels/embedding_kernels.cpp
   habana_kernels/fill_kernels.cpp
   habana_kernels/habana_operator.cpp
-  habana_kernels/hpu_op.cpp
-  habana_kernels/hpu_op_helper.cpp
   habana_kernels/index_kernels.cpp
   habana_kernels/nonzero_kernel.cpp
   habana_kernels/kernels_register.cpp
@@ -129,6 +127,7 @@ add_library(habana_pytorch_plugin SHARED
   habana_lazy/hpu_lazy_cache.cpp
   habana_lazy/lazy_executor.cpp
 )
+add_subdirectory(hpu_ops)
 target_compile_features(habana_pytorch_plugin PRIVATE cxx_std_14)
 target_compile_definitions(habana_pytorch_plugin PRIVATE "GENERIC_HELPERS" MAX_DEVICES_PER_BOX=8)
 #TODO: remove -Wno-error=deprecated-declarations after removing functions marked [[deprecated]]
@@ -141,26 +140,26 @@ add_custom_command(OUTPUT ${CMAKE_SOURCE_DIR}/habana_kernels/aten_hpu_type_defau
                      ${CMAKE_SOURCE_DIR}/habana_kernels/aten_hpu_type_default.h
                    COMMAND python ${CMAKE_SOURCE_DIR}/scripts/gen.py
                      --output_folder=${CMAKE_SOURCE_DIR}/habana_kernels
-                     ${CMAKE_SOURCE_DIR}/habana_kernels/hpu_op.h
+                     ${CMAKE_SOURCE_DIR}/hpu_ops/generated/hpu_op.h
                      ${CMAKE_SOURCE_DIR}/habana_kernels/wrap_kernels_declarations.h
                      ${TORCH_INSTALL_PREFIX}/include/ATen/RegistrationDeclarations.h
                      ${TORCH_INSTALL_PREFIX}/include/ATen/Functions.h
                    MAIN_DEPENDENCY scripts/gen.py
                    DEPENDS
-                     ${CMAKE_SOURCE_DIR}/habana_kernels/hpu_op.h
+                     ${CMAKE_SOURCE_DIR}/hpu_ops/generated/hpu_op.h
                      ${CMAKE_SOURCE_DIR}/habana_kernels/wrap_kernels_declarations.h
                      ${TORCH_INSTALL_PREFIX}/include/ATen/RegistrationDeclarations.h
                      ${TORCH_INSTALL_PREFIX}/include/ATen/Functions.h
 )
 
-add_custom_command(OUTPUT ${CMAKE_SOURCE_DIR}/habana_kernels/hpu_op.cpp
-                     ${CMAKE_SOURCE_DIR}/habana_kernels/hpu_op.h
-                   COMMAND python ${CMAKE_SOURCE_DIR}/scripts/op_codegen.py
-                     --output_folder=${CMAKE_SOURCE_DIR}/habana_kernels/
+add_custom_command(OUTPUT ${CMAKE_SOURCE_DIR}/hpu_ops/generated/hpu_op.cpp
+                     ${CMAKE_SOURCE_DIR}/hpu_ops/generated/hpu_op.h
+                   COMMAND python ${CMAKE_SOURCE_DIR}/scripts/gen_op.py
+                     --output_folder=${CMAKE_SOURCE_DIR}/hpu_ops/generated
                      --yaml=${CMAKE_SOURCE_DIR}/scripts/hpu_op.yaml
                      ${TORCH_INSTALL_PREFIX}/include/ATen/RegistrationDeclarations.h
                      ${TORCH_INSTALL_PREFIX}/include/ATen/Functions.h
-                   MAIN_DEPENDENCY scripts/op_codegen.py
+                   MAIN_DEPENDENCY scripts/gen_op.py
                    DEPENDS
                      ${CMAKE_SOURCE_DIR}/scripts/hpu_op.yaml
                      ${TORCH_INSTALL_PREFIX}/include/ATen/RegistrationDeclarations.h
