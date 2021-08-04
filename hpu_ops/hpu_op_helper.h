@@ -132,6 +132,8 @@ class HabanaOperatorHelper : public HabanaOperator {
   static std::shared_ptr<void> FillClampMinParams(const at::Stack&, size_t&);
   static std::shared_ptr<void> FillClampParams(const at::Stack&, size_t&);
   static std::shared_ptr<void> FillCumsumParams(const at::Stack&, size_t&);
+  static std::shared_ptr<void> FillTriuParams(const at::Stack&, size_t&);
+  static std::shared_ptr<void> FillTrilParams(const at::Stack&, size_t&);
   static std::shared_ptr<void> FillHardSigmoidParams(const at::Stack&, size_t&);
   static std::shared_ptr<void> FillMseLossParams(const at::Stack&, size_t&);
 

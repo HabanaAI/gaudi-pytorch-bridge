@@ -416,3 +416,37 @@ tanh.out:
 tanh_backward.grad_input:
   dtypes: [BFloat16, Float]
   guid: tanh_bwd
+
+triu:
+  custom_fill_params: FillTriuParams
+  dtypes: [BFloat16, Float]
+  guid: matrix_band_part_fwd
+  out_ids: [0]
+
+triu_:
+  custom_fill_params: FillTriuParams
+  dtypes: [BFloat16, Float]
+  guid: matrix_band_part_fwd
+  inplace_ids: [0]
+
+triu.out:
+  custom_fill_params: FillTriuParams
+  dtypes: [BFloat16, Float]
+  guid: matrix_band_part_fwd
+
+tril:
+  custom_fill_params: FillTrilParams
+  dtypes: [BFloat16, Float]
+  guid: matrix_band_part_fwd
+  out_ids: [0]
+
+tril_:
+  custom_fill_params: FillTrilParams
+  dtypes: [BFloat16, Float]
+  guid: matrix_band_part_fwd
+  inplace_ids: [0]
+
+tril.out:
+  custom_fill_params: FillTrilParams
+  dtypes: [BFloat16, Float]
+  guid: matrix_band_part_fwd

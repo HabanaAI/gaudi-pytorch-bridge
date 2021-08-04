@@ -345,3 +345,63 @@ TEST_F(LazyTensorShapeKernelTest, TriuTrilTest) {
   typetest(&torch::tril, 0, torch::kFloat, {7, 5});
   typetest(&torch::tril, -1, torch::kFloat, {8, 7});
 }
+
+TEST_F(LazyTensorShapeKernelTest, TriuTrilOutTest) {
+  auto typetest = [](at::Tensor& (*op)(const at::Tensor&, int64_t, at::Tensor&),
+                     int64_t diagonal,
+                     c10::ScalarType dtype,
+                     c10::IntArrayRef size) {
+    auto a = torch::randn(size).to(dtype);
+    auto out = torch::randn(size).to(dtype);
+    auto ha = a.to("hpu");
+    auto hout = out.to("hpu");
+    int64_t diag = diagonal;
+
+    op(a, diag, out);
+    op(ha, diag, hout);
+    EXPECT_TRUE(
+        allclose(out, hout.to("cpu"), 0.001, 0.001, /*equal_nan*/ true));
+  };
+  typetest(&torch::triu_outf, 1, torch::kFloat, {3, 3});
+  typetest(&torch::triu_outf, 0, torch::kFloat, {4, 4});
+  typetest(&torch::triu_outf, -1, torch::kFloat, {2, 2});
+  typetest(&torch::triu_outf, 1, torch::kFloat, {5, 8});
+  typetest(&torch::triu_outf, 0, torch::kFloat, {5, 7});
+  typetest(&torch::triu_outf, -1, torch::kFloat, {7, 8});
+  typetest(&torch::tril_outf, 1, torch::kFloat, {4, 4});
+  typetest(&torch::tril_outf, 0, torch::kFloat, {5, 5});
+  typetest(&torch::tril_outf, -1, torch::kFloat, {6, 6});
+  typetest(&torch::tril_outf, 1, torch::kFloat, {8, 5});
+  typetest(&torch::tril_outf, 0, torch::kFloat, {7, 5});
+  typetest(&torch::tril_outf, -1, torch::kFloat, {8, 7});
+}
+
+TEST_F(LazyTensorShapeKernelTest, TrilInplaceTest) {
+  torch::Tensor A = torch::randn({3, 3});
+  int64_t diagonal = 0;
+
+  auto hA = A.to(torch::kHABANA);
+
+  A.tril_(diagonal);
+  auto exp = A;
+
+  hA.tril_(diagonal);
+  Tensor out = hA.to(kCPU);
+
+  EXPECT_EQ(allclose(out, exp, 0.001, 0.001), true);
+}
+
+TEST_F(LazyTensorShapeKernelTest, TriuInplaceTest) {
+  torch::Tensor A = torch::randn({3, 3});
+  int64_t diagonal = 0;
+
+  auto hA = A.to(torch::kHABANA);
+
+  A.triu_(diagonal);
+  auto exp = A;
+
+  hA.triu_(diagonal);
+  Tensor out = hA.to(kCPU);
+
+  EXPECT_EQ(allclose(out, exp, 0.001, 0.001), true);
+}
