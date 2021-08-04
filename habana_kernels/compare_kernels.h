@@ -120,14 +120,23 @@ class GeOperator : public CompareWrapperOperator {
                 habana_helpers::name_suffix_from_type(scalarType)) {}
 };
 
-class GeOutOperator : public CompareOutWrapperOperator {
+// Ge Operator
+class GeOutOperator : public habana::HabanaOperator {
  public:
   GeOutOperator(int device_id, c10::ScalarType scalarType)
-      : CompareOutWrapperOperator(
-            device_id,
-            scalarType,
+      : HabanaOperator(
             "greater_equal_fwd_" +
-                habana_helpers::name_suffix_from_type(scalarType)) {}
+            habana_helpers::name_suffix_from_type(scalarType)) {
+    this->CreateSynContext(device_id);
+    scalarType_ = scalarType;
+  }
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+
+ protected:
+  c10::ScalarType scalarType_;
 };
 
 class LeOperator : public CompareWrapperOperator {

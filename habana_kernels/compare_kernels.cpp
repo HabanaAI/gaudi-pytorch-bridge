@@ -172,6 +172,56 @@ std::vector<int64_t> CompareWrapperOperator::compute_output_shape(
   return out_size;
 }
 
+void GeOutOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    UNUSED bool is_output_persistent) {
+  // this check is for stack during graph execution
+  TORCH_CHECK(
+      inputs.size() == 3,
+      "Incorrect size of input expected for Compare operator");
+  // Note that there is no (Scalar, Tensor) version for comparison ops
+  // in native_functions.yaml
+  TORCH_CHECK(inputs[0].isTensor(), "Input arg1 type expected to be tensor");
+  TORCH_CHECK(
+      inputs[1].isTensor() || inputs[1].isScalar(),
+      "Input arg2 type expected to be a tensor or scalar");
+  TORCH_CHECK(inputs[2].isTensor(), "Input arg3 type expected to be tensor");
+
+  Tensor output = inputs[2].toTensor();
+
+  p_context_->syn_outputs_.emplace_back(std::move(p_context_->syn_inputs_[2]));
+  p_context_->pt_outputs_.emplace_back(output);
+
+  std::vector<synTensor> syn_in;
+  syn_in.emplace_back(
+      static_cast<synapse_helpers::tensor&>(p_context_->syn_inputs_[0]).get());
+
+  if (!inputs[1].isTensor()) { // 2nd input is a scalar
+    // add constant node to convert 2nd input to tensor
+    auto self = inputs[0].toTensor();
+    auto constOp = make_operator<ConstantOperator>(
+        this->p_context_->device_id_, this->scalarType_);
+    auto const_shape_tensor = habana_helpers::createPTTensor(
+        self, {1}, self.options(), at::MemoryFormat::Contiguous, false);
+    torch::jit::Stack constOp_stack = {IValue(const_shape_tensor), inputs[1]};
+    constOp->AllocateAndAddSynapseNode(graph, constOp_stack, false);
+    syn_in.emplace_back(
+        static_cast<synapse_helpers::tensor&>(constOp->GetSynOutputs()[0])
+            .get());
+  } else {
+    syn_in.emplace_back(
+        static_cast<synapse_helpers::tensor&>(p_context_->syn_inputs_[1])
+            .get());
+  }
+
+  std::vector<synTensor> syn_out;
+  syn_out.emplace_back(
+      static_cast<synapse_helpers::tensor&>(p_context_->syn_outputs_[0]).get());
+
+  graph.add_node(std::move(syn_in), std::move(syn_out), nullptr, 0, guid_);
+}
+
 template <class CompareOp>
 Tensor compare_op_hpu(
     std::vector<at::Tensor>& pt_inputs,

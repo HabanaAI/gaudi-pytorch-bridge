@@ -3849,12 +3849,20 @@ Tensor prod_hpu_lazy(const Tensor& self, c10::optional<ScalarType> dtype) {
 }
 
 Tensor& any_dim_out_hpu_lazy(
-    Tensor& output,
     const Tensor& self,
     int64_t dim,
-    bool keepdim) {
-  return AtenHpuTypeDefault::any_out(self, dim, keepdim, output);
+    bool keepdim,
+    Tensor& output) {
+  PT_LAZY_TRACE;
+
+  std::vector<int64_t> shape_out =
+      ReduceOperator::compute_output_shape(self, dim, keepdim);
+
+  LazyOp<Tensor&> k{"aten::any", {self, dim, keepdim, output}, {}, {shape_out}};
+
+  return k.call(output);
 }
+
 Tensor any_dim_hpu_lazy(const Tensor& self, int64_t dim, bool keepdim) {
   PT_LAZY_TRACE;
 
@@ -3878,6 +3886,7 @@ Tensor any_dim_hpu_lazy(const Tensor& self, int64_t dim, bool keepdim) {
   Kernel kernel{self, dim, keepdim};
   return kernel.call();
 }
+
 Tensor any_hpu_lazy(const Tensor& self) {
   PT_LAZY_TRACE;
   struct Kernel : public LazyOp<at::Tensor> {
@@ -3897,6 +3906,7 @@ Tensor any_hpu_lazy(const Tensor& self) {
   Kernel kernel{self};
   return kernel.call();
 }
+
 Tensor argmax_hpu_lazy(
     const Tensor& self,
     c10::optional<int64_t> dim,

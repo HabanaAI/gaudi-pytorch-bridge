@@ -537,10 +537,10 @@ std::tuple<at::Tensor, at::Tensor> max_dim_hpu(
 at::Tensor max_hpu(const at::Tensor& self);
 at::Tensor min_hpu(const at::Tensor& self);
 at::Tensor& any_dim_out_hpu(
-    at::Tensor& output,
     const at::Tensor& self,
     int64_t dim,
-    bool keepdim);
+    bool keepdim,
+    at::Tensor& output);
 at::Tensor any_dim_hpu(const at::Tensor& self, int64_t dim, bool keepdim);
 at::Tensor any_hpu(const at::Tensor& self);
 at::Tensor& bitwise_and_out_hpu(

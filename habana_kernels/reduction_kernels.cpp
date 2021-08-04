@@ -1200,20 +1200,19 @@ void AnyDimOutOperator::AllocateAndAddSynapseNode(
       inputs[0].isTensor(),
       "Input arg1 expected to be tensor for AnyDimOut operator");
   TORCH_CHECK(
-      inputs[1].isTensor(),
-      "Input arg2 expected to be tensor for AnyDimOut operator");
+      inputs[1].isInt(),
+      "Input arg2 expected to be Int for AnyDimOut operator");
   TORCH_CHECK(
-      inputs[2].isInt(),
-      "Input arg3 expected to be Int for AnyDimOut operator");
+      inputs[2].isBool(),
+      "Input arg3 expected to be Bool for AnyDimOut operator");
   TORCH_CHECK(
-      inputs[3].isBool(),
-      "Input arg4 expected to be Bool for AnyDimOut operator");
+      inputs[3].isTensor(),
+      "Input arg4 expected to be tensor for AnyDimOut operator");
 
-  auto output = inputs[0].toTensor();
-  auto self = inputs[1].toTensor();
-  auto dim = inputs[2].toInt();
-  auto keepdim = inputs[3].toBool();
-
+  auto self = inputs[0].toTensor();
+  auto dim = inputs[1].toInt();
+  auto keepdim = inputs[2].toBool();
+  auto output = inputs[3].toTensor();
   // Converting dim to dim array
   // SumDimOperator accepts dim array only
   // dim array has been used to resize output tensor along the input dim
@@ -1259,41 +1258,24 @@ void AnyDimOutOperator::AllocateAndAddSynapseNode(
   auto output_reduce = sumOp->GetOutputs()[0];
   stack.clear();
 
-  // Resize output tensor based on reduction dimension
-  auto ndim = self.dim();
-  auto mask = make_dim_mask(dim_arr, ndim);
-  allocate_reduction_result(
-      output, self, mask, keepdim, c10::ScalarType::Char, is_output_persistent);
-
-  // Create the constant operator
-  auto constOp = make_operator<ConstantOperator>(
-      this->p_context_->device_id_, output_reduce.scalar_type());
-  auto const_shape_tensor = habana_helpers::createPTTensor(
-      output_reduce,
-      {1},
-      output_reduce.options(),
-      output_reduce.suggest_memory_format(),
-      false);
+  // Compare with 1
   Scalar compareOne = 1.0;
-  torch::jit::Stack constOp_stack = {IValue(const_shape_tensor), compareOne};
-  constOp->AllocateAndAddSynapseNode(graph, constOp_stack, false);
 
-  // Create the greaterthan operator
+  // Create the greater than out operator
   auto grtOp = make_operator<GeOutOperator>(
       this->p_context_->device_id_, output_reduce.scalar_type());
-  grtOp->SetSynapseInput(std::move(reduce_syn_tensor));
-  grtOp->SetSynapseInput(std::move(constOp->GetSynOutputs()[0]));
-  AllocateSynapseOutput(graph, output, is_output_persistent);
-  grtOp->SetSynapseInput(std::move(p_context_->syn_outputs_.back()));
+  grtOp->SetSynapseInput(reduce_syn_tensor); // 0
+  grtOp->SetSynapseInput(p_context_->syn_inputs_[0]); // 1 - dummy
+  grtOp->SetSynapseInput(p_context_->syn_inputs_[1]); // 2
+
   // Build Params for the graph
   stack.emplace_back(IValue(output_reduce));
-  stack.emplace_back(IValue(constOp->GetOutputs()[0]));
+  stack.emplace_back(IValue(compareOne));
   stack.emplace_back(IValue(output));
 
   grtOp->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
   synapse_helpers::tensor& int_syn_tensor = grtOp->GetSynOutputs()[0];
-  p_context_->syn_outputs_.pop_back();
-  p_context_->pt_outputs_.pop_back();
+
   p_context_->syn_outputs_.emplace_back(std::move(int_syn_tensor));
   p_context_->pt_outputs_.emplace_back(std::move(output));
 }
@@ -1308,10 +1290,10 @@ void AnyDimOutOperator::AllocateAndAddSynapseNode(
  *default = false
  ************************************************************************/
 Tensor& any_dim_out_hpu(
-    Tensor& output,
     const Tensor& self,
     int64_t dim,
-    bool keepdim) {
+    bool keepdim,
+    Tensor& output) {
   PT_KERNEL_BEGIN;
 
   self.to(c10::ScalarType::Char);
@@ -1326,12 +1308,12 @@ Tensor& any_dim_out_hpu(
   auto graph = habana_helpers::create_graph(device_id, node_type);
 
   // Assign Inputs to the Operator
-  std::vector<at::Tensor> pt_inputs{self};
+  std::vector<at::Tensor> pt_inputs{self, output};
   Op.AllocateSynapseInputs(graph, pt_inputs, true);
 
   // Build Params for the graph
   std::vector<c10::IValue> stack = {
-      IValue(output), IValue(self), IValue(dim), IValue(keepdim)};
+      IValue(self), IValue(dim), IValue(keepdim), IValue(output)};
   Op.AllocateAndAddSynapseNode(graph, stack, true);
 
   // compile and execute the graph
@@ -1887,6 +1869,11 @@ static auto& KernelRegistry =
             "aten::any.dim",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<AnyDimOperator>(device_id, node_type);
+            })
+        .add(
+            "aten::any.out",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<AnyDimOutOperator>(device_id, node_type);
             })
         .add(
             "aten::all",

@@ -2299,14 +2299,13 @@ Tensor& hpu_wrap::any_out(
     int64_t dim,
     bool keepdim,
     Tensor& output) {
-  if (!hpu_check_inputs_impl("any_out", {output, self}))
+  if (!hpu_check_inputs_impl("any", {self, output}))
     return AtenHpuTypeDefault::any_out(self, dim, keepdim, output);
 
   if (GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 0) {
-    return any_dim_out_hpu_lazy(output, self, dim, keepdim);
-
+    return any_dim_out_hpu_lazy(self, dim, keepdim, output);
   } else {
-    return any_dim_out_hpu(output, self, dim, keepdim);
+    return any_dim_out_hpu(self, dim, keepdim, output);
   }
 }
 Tensor hpu_wrap::any(const Tensor& self, int64_t dim, bool keepdim) {
