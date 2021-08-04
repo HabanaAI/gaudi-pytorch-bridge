@@ -858,12 +858,6 @@ void habana::RemainderWrapperOperator::SetPTOutputs(torch::jit::Stack& inputs) {
     auto self = inputs[0].toTensor();
     auto other = inputs[1].toTensor();
     auto out_shape = BinaryOperator::compute_output_shape(self, other);
-    quotient = habana_helpers::createPTTensor(
-        self,
-        IntArrayRef(out_shape.data(), out_shape.size()),
-        self.options(),
-        self.suggest_memory_format(),
-        false);
     remainder = habana_helpers::createPTTensor(
         self,
         IntArrayRef(out_shape.data(), out_shape.size()),
@@ -872,10 +866,9 @@ void habana::RemainderWrapperOperator::SetPTOutputs(torch::jit::Stack& inputs) {
         true);
   } else {
     auto self = inputs[0].toTensor();
-    quotient = habana_helpers::createPTTensor(self, false);
     remainder = habana_helpers::createPTTensor(self, true);
   }
-  std::vector<at::Tensor> v{quotient, remainder};
+  std::vector<at::Tensor> v{remainder};
   HabanaOperator::SetPTOutputs(v);
 }
 

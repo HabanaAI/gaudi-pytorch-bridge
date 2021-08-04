@@ -1995,11 +1995,6 @@ void IndexOperator::AllocateAndAddSynapseNode(
  ************************************************************************/
 Tensor index_hpu(const at::Tensor& input, TensorList indices) {
   PT_KERNEL_BEGIN;
-  if (indices[0].numel() == 0) {
-    PT_KERNEL_END;
-    return input;
-  }
-
   // fallback to cpu for boolean indexing
   if (indices[0].scalar_type() == c10::ScalarType::Bool) {
     c10::List<c10::optional<at::Tensor>> indices_list{};
