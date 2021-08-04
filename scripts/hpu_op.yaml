@@ -275,6 +275,11 @@ log2.out:
   dtypes: [BFloat16, Float]
   guid: log2_fwd
 
+logcumsumexp:
+  dtypes: [BFloat16, Float]
+  op_base_class: LogCumsumExp
+  out_ids: [0]
+
 lt.Scalar_out:
   dtypes: [BFloat16, Float, Int, Char, Byte]
   guid: less_fwd

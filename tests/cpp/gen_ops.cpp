@@ -386,6 +386,7 @@ TEST_F(GenOps, Fns) {
   // clang-format off
   TestFnCustomSizes(torch::prelu, {{3, 4, 4, 1}, {1, 4, 1, 1}});
   TestFn(static_cast<torch::Tensor (*)(const torch::Tensor&, const torch::Tensor&, torch::Scalar)>(torch::rsub));
+  TestFn(static_cast<torch::Tensor (*)(const torch::Tensor&, int64_t)>(torch::logcumsumexp));
   TestFn(static_cast<torch::Tensor (*)(const torch::Tensor&, int64_t, torch::optional<torch::ScalarType>)>(torch::cumprod));
   TestFn(torch::ceil);
   TestFn(torch::cos);
