@@ -11,6 +11,7 @@
 
 #include <habana_helpers/logging.h>
 #include "CoalescedStringentPoolAllocator.h"
+#include "pytorch_helpers/synapse_helpers/env_flags.h"
 #include "synapse_helpers/devmem_logger.h"
 
 #define DEFRAGMENT_TH(arg) std::ceil(0.9 * (arg))
@@ -397,6 +398,9 @@ void CoalescedStringentPooling::print_pool_stats() const {
   PT_SYNHELPER_DEBUG(
       "POOL:: total_extra_size in the pool chunks :: ", total_exta_size);
   PT_SYNHELPER_DEBUG("POOL::{}", pool_status.str());
+  PT_SYNHELPER_DEBUG(
+      "POOL::Fragmentation = ",
+      1 - ((double)max_cntgs_free_chunks_size / free_chunks_size));
   total_chunks = 0;
   total_size = 0;
   occupied_chunks = 0;
@@ -1123,6 +1127,44 @@ void CoalescedStringentPooling::SmallAllocs::Deallocate(const void* ptr) {
 
 void CoalescedStringentPooling::get_stats(MemoryStats* mem_stats) const {
   const std::lock_guard<std::mutex> lock(sp_mutex);
+  // Fragmentation info
+  bool log_fragmentation_info =
+      GET_ENV_FLAG(PT_HPU_POOL_LOG_FRAGMENTATION_INFO);
+
+  if (log_fragmentation_info) {
+    const std::string occupancy_mask = "[+++]";
+    const std::string free_mask = "[00000]";
+    std::stringstream pool_status;
+    pool_status.str("");
+    pool_status.clear();
+    std::map<uint64_t, Chunk*> chunks_ordered;
+    for (auto& m : chunks) {
+      chunks_ordered.insert(m);
+    }
+    uint64_t cntgs_free_chunks_size = 0;
+    uint64_t available_chunks_size = 0;
+    uint64_t max_cntgs_free_chunks_size = 0;
+    for (auto& m : chunks_ordered) {
+      auto chunk = m.second;
+      if (!chunk->used && (chunk->size != 0)) {
+        pool_status << free_mask;
+        available_chunks_size += chunk->size;
+        cntgs_free_chunks_size = getContigousChunkSize(chunk);
+        if (max_cntgs_free_chunks_size < cntgs_free_chunks_size) {
+          max_cntgs_free_chunks_size = cntgs_free_chunks_size;
+        }
+        cntgs_free_chunks_size = 0;
+      } else {
+        pool_status << occupancy_mask;
+      }
+    }
+    stats.fragmentation_percent = 100 *
+        (1 - ((double)max_cntgs_free_chunks_size / available_chunks_size));
+    stats.fragmentation_mask = pool_status.str();
+    pool_status.str("");
+    pool_status.clear();
+  }
+
   *mem_stats = stats;
 }
 
@@ -1132,6 +1174,8 @@ void CoalescedStringentPooling::clear_stats() const {
   stats.num_frees = 0;
   stats.peak_bytes_in_use = stats.bytes_in_use;
   stats.largest_alloc_size = 0;
+  stats.fragmentation_percent = 0;
+  stats.fragmentation_mask = "";
 }
 
 } // namespace pool_allocator

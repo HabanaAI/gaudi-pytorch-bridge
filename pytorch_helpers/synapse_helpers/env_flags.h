@@ -118,6 +118,10 @@ struct PT_HABANA_MEM_LOG_FILENAME {
   static constexpr const char* default_value = "habana_log.livealloc.log";
 };
 
+struct PT_HPU_POOL_LOG_FRAGMENTATION_INFO {
+  static constexpr bool default_value = false;
+};
+
 struct PT_ENABLE_SYNC_OUTPUT_HOST {
   static constexpr bool default_value = true;
 };
