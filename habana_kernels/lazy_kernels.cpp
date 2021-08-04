@@ -2257,24 +2257,49 @@ Tensor& index_add_hpu_lazy_(
     const Tensor& indices,
     const Tensor& source) {
   PT_LAZY_TRACE;
-  auto hl_result = GetHbLazyTensor(self);
-  updateDstDependencies(hl_result, self, true);
-  auto node = std::make_shared<ir::IndexAdd_>(self, dim_, indices, source);
 
-  ir::Value& out = hl_result.CurrentIrValue();
+  // TPC doesn't support inplace index add natively
+  // Implement using out of place index add followed by D2D copy
+  // TODO revisit once strided mem copy feature is mature
+
+  auto hl_self = GetOrCreateHbLazyTensor(self);
+
+  LazyOp<Tensor> index_add_op(
+      "aten::index_add",
+      {self, dim_, indices, source},
+      {1}, // metadata_indices
+      {self.sizes().vec()} // out_shapes
+  );
+
+  Tensor index_add_out = index_add_op.call();
+
+  // add a control edge as we add a loop using d2d copy back to self
+  updateDstDependencies(hl_self, self, true);
+
+  auto hl_index_add_out = GetHbLazyTensor(index_add_out);
+
+  auto copy_node = habana_lazy::ir::Node::Create(
+      Symbol::fromQualString("hpu::habana_d2d_memcpy_other"),
+      {hl_index_add_out.GetIrValue(), hl_self.GetIrValue()});
+
+  // As its an inplace op and we want this op to execute
+  // we want to wind back status of this tensor to registered
+  // so that when post order is created, we actually execute it
+  auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
+      self.device().index());
+  context->MarkTensorRegistered(hl_self.getTensorUniqueId());
+  habana_lazy::ir::Value& out = hl_self.CurrentIrValue();
   out.m_index = 0;
   out.SetNode(
-      node,
-      hl_result.GetDevice(),
-      hl_result.GetSizes(),
-      hl_result.dtype_optional());
-
-  std::vector<at::Tensor> input_pt_vec{self, indices, source};
-  node->AddInputPtTensors(input_pt_vec);
+      copy_node,
+      hl_self.GetDevice(),
+      hl_self.GetSizes(),
+      hl_self.dtype_optional());
 
   flush_op(self);
   return self;
 }
+
 Tensor index_put_hpu_lazy(
     const Tensor& self,
     TensorList indices,
