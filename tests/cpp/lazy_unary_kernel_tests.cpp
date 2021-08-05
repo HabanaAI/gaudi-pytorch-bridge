@@ -760,6 +760,18 @@ TEST_F(LazyUnaryKernelTest, CumsumDim3Axis2) {
   EXPECT_TRUE(allclose(hout, cpu_out));
 }
 
+TEST_F(LazyUnaryKernelTest, CumsumDim2Axis1Int) {
+  torch::Tensor A = torch::randint(-330, 330, {2, 3});
+
+  auto hA = A.to(torch::kHABANA);
+  int64_t axis = 1;
+  torch::Tensor cpu_out = torch::cumsum(A, axis, torch::kFloat32);
+
+  torch::Tensor hresult = torch::cumsum(hA, axis, torch::kFloat32);
+  auto hout = hresult.to(torch::kCPU);
+  EXPECT_TRUE(allclose(hout, cpu_out));
+}
+
 TEST_F(LazyUnaryKernelTest, CumsumDim3AxisNe1) {
   auto A = torch::randn({2, 3, 2}, torch::requires_grad(false));
 

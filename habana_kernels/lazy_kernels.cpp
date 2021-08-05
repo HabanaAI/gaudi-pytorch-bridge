@@ -6582,8 +6582,12 @@ Tensor cumsum_hpu_lazy(
     int64_t dim,
     c10::optional<at::ScalarType> dtype) {
   PT_LAZY_TRACE;
+  at::Tensor self_updated_dtype = self;
+  if (dtype.has_value() && (dtype.value() != self.scalar_type())) {
+    self_updated_dtype = self.to(dtype.value());
+  }
 
-  LazyOp<at::Tensor> k{"aten::cumsum", {self, dim, dtype}};
+  LazyOp<at::Tensor> k{"aten::cumsum", {self_updated_dtype, dim, dtype}};
   return k.call();
 }
 
