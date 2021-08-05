@@ -4210,12 +4210,7 @@ Tensor cat_hpu_lazy(const TensorList tensors, int64_t dim_) {
     at::Tensor get_result_overrideable() override {
       auto first_tensor = tensors[0];
 
-      auto shape_out = first_tensor.sizes().vec();
-      shape_out[dim] = 0;
-      auto tensor_count = tensors.size();
-      for (unsigned i = 0; i < tensor_count; i++) {
-        shape_out[dim] += tensors[i].sizes()[dim];
-      }
+      auto shape_out = CatOutOperator::compute_output_shape(tensors, dim);
       return empty_hpu_lazy(
           shape_out,
           first_tensor.options(),
