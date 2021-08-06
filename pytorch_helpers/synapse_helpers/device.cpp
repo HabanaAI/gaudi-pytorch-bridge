@@ -306,6 +306,7 @@ void device::cleanup() {
     return;
   }
   cleanup_done_ = true;
+  flush_stream_events();
 
   if (is_hcl_same_addr_enabled_ && (std::getenv("ID") != nullptr)) {
     device_ptr prealloc_addr = preallocated_reduction_buffer_->get();
