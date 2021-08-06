@@ -220,7 +220,7 @@ class MetaData {
       size_t bv = v.toBool();
       return at::hash_combine(h, bv);
     }
-    return 0;
+    return h;
   }
 
  private:
