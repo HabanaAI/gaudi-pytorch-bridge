@@ -176,14 +176,12 @@ void HabanaNMSOperator::AllocateAndAddSynapseNode(
   // Needed because Filter & Squeeze works only on this 3D input tensor.
   auto reshape_op1 = make_operator<ReshapeOperator>(
       scores.device().index(), scores.scalar_type());
-  auto& syn00 =
-      reshape_op1->SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
+  reshape_op1->SetSynapseInput(p_context_->syn_inputs_[1]);
   auto shape1 = scores.sizes().vec();
   shape1.insert(shape1.cbegin(), 1);
   shape1.insert(shape1.cbegin(), 1);
   torch::jit::Stack stack = {IValue(scores), IValue(shape1)};
   reshape_op1->AllocateAndAddSynapseNode(graph, stack, false);
-  p_context_->syn_inputs_[1] = std::move(syn00);
   stack.clear();
 
   // Input (Scores): [N, Classes, kBox]
@@ -192,7 +190,7 @@ void HabanaNMSOperator::AllocateAndAddSynapseNode(
   // Output (Valid Box Count) : [N, Classes]
   auto filter_op = make_operator<FilterAndSqueezeOperator>(
       scores.device().index(), "filter_and_squeeze_fwd_f32");
-  filter_op->SetSynapseInput(std::move(reshape_op1->GetSynOutputs()[0]));
+  filter_op->SetSynapseInput(reshape_op1->GetSynOutputs()[0]);
   stack = {IValue(reshape_op1->GetOutputs()[0]), IValue(threshold)};
   filter_op->AllocateAndAddSynapseNode(graph, stack, false);
   stack.clear();
@@ -201,7 +199,7 @@ void HabanaNMSOperator::AllocateAndAddSynapseNode(
   // Output (Sorted Scores): [kBox]
   // Output (Sorted BoxIds): [kBox]
   auto sort_op = make_operator<TopkOperator>(scores.device().index(), "topk");
-  auto& syn01 = sort_op->SetSynapseInput(std::move(p_context_->syn_inputs_[1]));
+  sort_op->SetSynapseInput(p_context_->syn_inputs_[1]);
   stack = {
       IValue(scores),
       IValue(scores.sizes()[0]),
@@ -209,7 +207,6 @@ void HabanaNMSOperator::AllocateAndAddSynapseNode(
       IValue(true),
       IValue(true)};
   sort_op->AllocateAndAddSynapseNode(graph, stack, {false, false});
-  p_context_->syn_inputs_[1] = std::move(syn01);
   stack.clear();
 
   // Input (Boxes): [kBox, 4]
@@ -217,24 +214,21 @@ void HabanaNMSOperator::AllocateAndAddSynapseNode(
   // Output (Gathered Boxes): [kBox, 4]
   auto gather_op = make_operator<GatherOperator>(
       scores.device().index(), scores.scalar_type());
-  auto& syn10 =
-      gather_op->SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
-  auto& syn11 =
-      gather_op->SetSynapseInput(std::move(sort_op->GetSynOutputs()[1]));
+  gather_op->SetSynapseInput(p_context_->syn_inputs_[0]);
+  auto& syn11 = gather_op->SetSynapseInput(sort_op->GetSynOutputs()[1]);
   stack = {
       IValue(boxes),
       IValue(0),
       IValue(sort_op->GetOutputs()[1]),
       IValue(false)};
   gather_op->AllocateAndAddSynapseNode(graph, stack, false);
-  p_context_->syn_inputs_[0] = std::move(syn10);
   stack.clear();
 
   // Reshape sorted scores from [kBox] -> [N, Classes, kBox], where N = Classes
   // = 1
   auto reshape_op3 = make_operator<ReshapeOperator>(
       scores.device().index(), scores.scalar_type());
-  reshape_op3->SetSynapseInput(std::move(syn11));
+  reshape_op3->SetSynapseInput(syn11);
   auto shape3 = sort_op->GetOutputs()[1].sizes().vec();
   shape3.insert(shape3.cbegin(), 1);
   shape3.insert(shape3.cbegin(), 1);
@@ -246,7 +240,7 @@ void HabanaNMSOperator::AllocateAndAddSynapseNode(
   auto t2_op = make_operator<TransposeOperator>(
       scores.device().index(), scores.scalar_type());
   stack = {IValue(gather_op->GetOutputs()[0]), IValue(0), IValue(1)};
-  t2_op->SetSynapseInput(std::move(gather_op->GetSynOutputs()[0]));
+  t2_op->SetSynapseInput(gather_op->GetSynOutputs()[0]);
   t2_op->AllocateAndAddSynapseNode(graph, stack, false);
   stack.clear();
 
@@ -254,7 +248,7 @@ void HabanaNMSOperator::AllocateAndAddSynapseNode(
   // Classes = 1
   auto reshape_op4 = make_operator<ReshapeOperator>(
       scores.device().index(), scores.scalar_type());
-  reshape_op4->SetSynapseInput(std::move(t2_op->GetSynOutputs()[0]));
+  reshape_op4->SetSynapseInput(t2_op->GetSynOutputs()[0]);
   auto shape4 = t2_op->GetOutputs()[0].sizes().vec();
   shape4.insert(shape4.cbegin() + 1, 1);
   shape4.insert(shape4.cbegin(), 1);
@@ -268,10 +262,9 @@ void HabanaNMSOperator::AllocateAndAddSynapseNode(
   // Output (Box-id out): [N, Classes, kBox]
   auto nms_op =
       make_operator<NMSOperator>(scores.device().index(), "nms_fwd_f32");
-  nms_op->SetSynapseInput(std::move(reshape_op4->GetSynOutputs()[0]));
-  nms_op->SetSynapseInput(std::move(reshape_op3->GetSynOutputs()[0]));
-  auto& syn_nms2 =
-      nms_op->SetSynapseInput(std::move(filter_op->GetSynOutputs()[2]));
+  nms_op->SetSynapseInput(reshape_op4->GetSynOutputs()[0]);
+  nms_op->SetSynapseInput(reshape_op3->GetSynOutputs()[0]);
+  auto& syn_nms2 = nms_op->SetSynapseInput(filter_op->GetSynOutputs()[2]);
   stack = {
       IValue(reshape_op4->GetOutputs()[0]),
       IValue(reshape_op3->GetOutputs()[0]),
@@ -282,8 +275,8 @@ void HabanaNMSOperator::AllocateAndAddSynapseNode(
 
   auto postnms_op = make_operator<PostNmsOperator>(
       scores.device().index(), "post_nms_fwd_i32");
-  postnms_op->SetSynapseInput(std::move(nms_op->GetSynOutputs()[0]));
-  postnms_op->SetSynapseInput(std::move(syn_nms2));
+  postnms_op->SetSynapseInput(nms_op->GetSynOutputs()[0]);
+  postnms_op->SetSynapseInput(syn_nms2);
   stack = {IValue(nms_op->GetOutputs()[0]), IValue(filter_op->GetOutputs()[2])};
   postnms_op->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
   stack.clear();

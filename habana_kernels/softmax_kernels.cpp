@@ -252,8 +252,7 @@ void SoftmaxOperator::AllocateAndAddSynapseNode(
     // Create the operator
     auto intToFloatOp =
         make_operator<CastOperator>(this->p_context_->device_id_, node_type);
-    auto& float_syn =
-        intToFloatOp->SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+    intToFloatOp->SetSynapseInput(p_context_->syn_inputs_[0]);
 
     // Build Params for the graph
     std::vector<c10::IValue> stack{
@@ -263,7 +262,6 @@ void SoftmaxOperator::AllocateAndAddSynapseNode(
     synapse_helpers::tensor& float_syn_tensor =
         intToFloatOp->GetSynOutputs()[0];
     auto output_float = intToFloatOp->GetOutputs()[0];
-    p_context_->syn_inputs_[0] = std::move(float_syn);
 
     auto output =
         habana_helpers::createPTTensor(output_float, is_output_persistent);
@@ -408,8 +406,7 @@ void SoftmaxIntOperator::AllocateAndAddSynapseNode(
     // Create the operator
     auto intToFloatOp =
         make_operator<CastOperator>(this->p_context_->device_id_, node_type);
-    auto& float_syn =
-        intToFloatOp->SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+    intToFloatOp->SetSynapseInput(p_context_->syn_inputs_[0]);
 
     // Build Params for the graph
     std::vector<c10::IValue> stack{
@@ -419,7 +416,6 @@ void SoftmaxIntOperator::AllocateAndAddSynapseNode(
     synapse_helpers::tensor& float_syn_tensor =
         intToFloatOp->GetSynOutputs()[0];
     auto output_float = intToFloatOp->GetOutputs()[0];
-    p_context_->syn_inputs_[0] = std::move(float_syn);
 
     auto output =
         habana_helpers::createPTTensor(output_float, is_output_persistent);
