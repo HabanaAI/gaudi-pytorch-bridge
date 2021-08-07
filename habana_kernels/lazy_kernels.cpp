@@ -481,9 +481,10 @@ Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src, bool non_blocking) {
       allocator = habana::getHABANADeviceAllocator();
       int64_t nelements = prod_intlist(self.sizes());
       int elem_size = self.dtype().itemsize();
+      int64_t size_bytes = nelements * elem_size;
       auto storage_impl = c10::make_intrusive<StorageImpl>(
           c10::StorageImpl::use_byte_size_t(),
-          nelements,
+          size_bytes,
           allocator->allocate(nelements * elem_size),
           allocator,
           /*resizeable=*/true);
@@ -4077,9 +4078,10 @@ Tensor empty_hpu_lazy(
           : 0;
     }
     int elem_size = new_dtype.itemsize();
+    int64_t size_bytes = nelements * elem_size;
     auto storage_impl = c10::make_intrusive<StorageImpl>(
         c10::StorageImpl::use_byte_size_t(),
-        nelements,
+        size_bytes,
         allocator->allocate(nelements * elem_size),
         allocator,
         /*resizeable=*/true);
