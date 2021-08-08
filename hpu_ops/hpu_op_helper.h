@@ -171,6 +171,13 @@ class HabanaOperatorHelper : public HabanaOperator {
 
 } // namespace habana
 
+#define HPU_FRONTEND_OP(op)                                                   \
+  template <typename T>                                                       \
+  struct op : habana_lazy::LazyOp<T> {                                        \
+    op(const std::string& qualstring, const std::vector<at::IValue>& inputs); \
+    T get_result_overrideable() override;                                     \
+  };
+
 #define HPU_SUPPORTED_DTYPES(fn, supported_dtypes)                       \
   const static std::unordered_set<c10::ScalarType> fn##_supported_dtypes \
       supported_dtypes;

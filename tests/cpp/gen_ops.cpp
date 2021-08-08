@@ -225,7 +225,7 @@ class GenOps : public habana_lazy_test::LazyTest {
       const std::function<
           torch::Tensor(torch::Tensor, torch::Tensor, int64_t, torch::Tensor&)>&
           fn,
-      int int_val = 0.01) {
+      int int_val = 2) {
     GenerateInputs(2);
 
     auto out = torch::empty({0});
@@ -263,13 +263,13 @@ class GenOps : public habana_lazy_test::LazyTest {
           torch::optional<torch::ScalarType>,
           torch::Tensor&)>& fn,
       int int_val = -1) {
-    GenerateInputs(1);
+    GenerateInputs(1, torch::kInt);
 
     auto out = torch::empty({0});
     auto hout = torch::empty({0}, "hpu");
 
-    fn(m_inputs[0], int_val, torch::nullopt, out);
-    fn(m_hinputs[0], int_val, torch::nullopt, hout);
+    fn(m_inputs[0], int_val, torch::kFloat, out);
+    fn(m_hinputs[0], int_val, torch::kFloat, hout);
 
     Compare(out, hout);
   }
@@ -332,11 +332,11 @@ class GenOps : public habana_lazy_test::LazyTest {
                   torch::Tensor,
                   int64_t,
                   torch::optional<torch::ScalarType>)>& fn) {
-    GenerateInputs(1);
+    GenerateInputs(1, torch::kInt);
     int64_t int_val = 2;
 
-    auto res = fn(m_inputs[0], int_val, torch::nullopt);
-    auto hres = fn(m_hinputs[0], int_val, torch::nullopt);
+    auto res = fn(m_inputs[0], int_val, torch::kFloat);
+    auto hres = fn(m_hinputs[0], int_val, torch::kFloat);
 
     Compare(res, hres);
   }

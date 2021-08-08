@@ -159,12 +159,15 @@ cumprod:
   custom_fill_params: FillCumsumParams
   dtypes: [BFloat16, Float, Int]
   guid: cumprod_fwd
+  lazy_class: LazyCumsum
+  op_base_class: CumsumHabanaOperator
   out_ids: [0]
 
 cumprod.out:
   custom_fill_params: FillCumsumParams
   dtypes: [BFloat16, Float, Int]
   guid: cumprod_fwd
+  op_base_class: CumsumHabanaOperator
 
 cumprod_:
   custom_fill_params: FillCumsumParams
@@ -176,6 +179,7 @@ cumsum.out:
   custom_fill_params: FillCumsumParams
   dtypes: [BFloat16, Float, Int]
   guid: cumsum_fwd
+  op_base_class: CumsumHabanaOperator
 
 cumsum_:
   custom_fill_params: FillCumsumParams
