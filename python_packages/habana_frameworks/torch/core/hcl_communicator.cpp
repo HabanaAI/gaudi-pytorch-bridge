@@ -540,10 +540,14 @@ synapse_error_o hcl_communicator::send(
   synStreamHandle stream_handle = get_synapse_stream_handle(collective_stream);
 
   prepare_stream(collective_stream, event_addr);
-  if (using_streams_) {
-    status = HCL_Send(stream_handle, send_buffer, size_in_bytes, remote_rank);
-  } else {
-    status = HCL_Send_Tag(send_buffer, size_in_bytes, remote_rank, tag);
+  {
+    auto locked = my_device_->lock_addresses(send_buffer);
+    if (using_streams_) {
+      status =
+          HCL_Send(stream_handle, locked.at(0), size_in_bytes, remote_rank);
+    } else {
+      status = HCL_Send_Tag(locked.at(0), size_in_bytes, remote_rank, tag);
+    }
   }
   VERIFY_HCL_STATUS("HCL_Send(...) failed", status);
   submit_events(collective_stream, event_addr, done_callback);
@@ -573,12 +577,14 @@ synapse_error_o hcl_communicator::receive(
       tag);
   stream* collective_stream = get_collective_stream();
   synStreamHandle stream_handle = get_synapse_stream_handle(collective_stream);
-
-  if (using_streams_) {
-    status =
-        HCL_Receive(stream_handle, receive_buffer, size_in_bytes, remote_rank);
-  } else {
-    status = HCL_Receive_Tag(receive_buffer, size_in_bytes, remote_rank, tag);
+  {
+    auto locked = my_device_->lock_addresses(receive_buffer);
+    if (using_streams_) {
+      status =
+          HCL_Receive(stream_handle, locked.at(0), size_in_bytes, remote_rank);
+    } else {
+      status = HCL_Receive_Tag(locked.at(0), size_in_bytes, remote_rank, tag);
+    }
   }
   VERIFY_HCL_STATUS("HCL_Receive(...) failed", status);
   submit_events(collective_stream, event_addr, done_callback);
