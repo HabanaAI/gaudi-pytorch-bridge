@@ -16,6 +16,9 @@
 #include <torch/csrc/jit/ir/irparser.h>
 #include <torch/torch.h>
 
+#define COMMON_ATOL_FLOAT 0.001
+#define COMMON_RTOL_FLOAT 0.001
+
 namespace habana_lazy_test {
 
 class EnvHelper {

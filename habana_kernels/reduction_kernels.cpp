@@ -505,17 +505,18 @@ void SumDimOutOperator::AllocateAndAddSynapseNode(
       inputs[0].isTensor(),
       "Input arg1 expected to be tensor for SumDimOut operator");
   TORCH_CHECK(
-      inputs[1].isTensor(),
-      "Input arg2 expected to be tensor for SumDimOut operator");
+      inputs[1].isIntList(),
+      "Input arg2 expected to be IntList for SumDimOut operator");
   TORCH_CHECK(
-      inputs[2].isIntList(),
-      "Input arg3 expected to be IntList for SumDimOut operator");
+      inputs[2].isBool(),
+      "Input arg3 expected to be Bool for SumDimOut operator");
   TORCH_CHECK(
-      inputs[3].isBool(),
-      "Input arg4 expected to be Bool for SumDimOut operator");
+      inputs[4].isTensor(),
+      "Input arg5 expected to be tensor for SumDimOut operator");
 
-  auto self = inputs[1].toTensor();
-  auto dim = inputs[2].toIntList();
+  auto self = inputs[0].toTensor();
+  auto dim = inputs[1].toIntList();
+  auto output = inputs[4].toTensor();
 
   // Create a new container with all dims of input tensor, followed by creation
   // of a new reference to it. This is used in case "dim" provided is {}, which
@@ -532,6 +533,9 @@ void SumDimOutOperator::AllocateAndAddSynapseNode(
     inputs[2] = dim_new;
   }
 
+  // Move the output at begining
+  inputs.insert(inputs.begin(), IValue(output));
+  inputs.erase(inputs.end());
   ReduceOperator::AllocateAndAddSynapseNode(
       graph, inputs, is_output_persistent);
 }
@@ -541,11 +545,11 @@ void SumDimOutOperator::SetPTOutputs(torch::jit::Stack& inputs) {
 }
 
 Tensor& sum_IntList_out_hpu(
-    Tensor& output,
     const Tensor& self,
     IntArrayRef dim,
     bool keepdim,
-    c10::optional<ScalarType> dtype) {
+    c10::optional<ScalarType> dtype,
+    Tensor& output) {
   PT_KERNEL_BEGIN;
   at::ScalarType scalar_type = self.scalar_type();
   std::string node_type =
@@ -556,13 +560,13 @@ Tensor& sum_IntList_out_hpu(
   std::vector<at::Tensor> pt_inputs{self};
   // Build Params for the graph
   std::vector<c10::IValue> stack = {
-      IValue(output),
       IValue(self),
       IValue(dim),
       IValue(keepdim),
-      IValue(dtype)};
+      IValue(dtype),
+      IValue(output)};
   // Create the operator
-  SumDimOutOperator Op(device_id, node_type);
+  SumDimOutOperator Op(device_id, scalar_type);
   size_t key = Op.GetRecipeKey(node_type, stack);
 
   if (device.get_recipe_handle_cache().isCached(key)) {
@@ -1836,14 +1840,19 @@ static auto& KernelRegistry =
               return std::make_shared<MeanDimOperator>(device_id, node_type);
             })
         .add(
+            "hpu::sum_dim_IntList",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<SumDimOperator>(device_id, node_type);
+            })
+        .add(
             "aten::sum.dim_IntList",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<SumDimOperator>(device_id, node_type);
             })
         .add(
-            "hpu::sum_dim_IntList",
+            "aten::sum.IntList_out",
             [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<SumDimOperator>(device_id, node_type);
+              return std::make_shared<SumDimOutOperator>(device_id, node_type);
             })
         .add(
             "aten::prod",

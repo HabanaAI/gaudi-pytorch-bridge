@@ -1079,3 +1079,16 @@ TEST(EagerKernelTest, LogSoftMaxTestBackward) {
 
   EXPECT_EQ(allclose(hout2_back, cout_back), true);
 }
+
+TEST(EagerKernelTest, SumDimIntOut) {
+  torch::Tensor A = torch::randn({2, 2}, torch::requires_grad(false));
+  torch::Tensor hA = A.to(torch::kHABANA);
+
+  torch::Tensor hOut = at::empty_like(hA);
+  torch::Tensor Out = at::empty_like(A);
+
+  torch::Tensor out_cpu = torch::sum_outf(A, {0}, false, c10::nullopt, Out);
+  torch::Tensor out_hpu = torch::sum_outf(hA, {0}, false, c10::nullopt, hOut);
+
+  EXPECT_EQ(allclose(out_hpu.to(torch::kCPU), out_cpu), true);
+}

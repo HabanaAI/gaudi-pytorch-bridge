@@ -161,10 +161,13 @@ class ProdOperator : public ReduceOperator {
 // SumDimOutOperator Operator
 class SumDimOutOperator : public ReduceOperator {
  public:
-  SumDimOutOperator(int device_id, const std::string& guid)
-      : ReduceOperator(device_id, guid) {}
+  SumDimOutOperator(int device_id, c10::ScalarType scalarType)
+      : ReduceOperator(
+            device_id,
+            "reduce_sum_fwd_" +
+                habana_helpers::name_suffix_from_type(scalarType)) {}
 
-  virtual void AllocateAndAddSynapseNode(
+  void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;

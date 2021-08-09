@@ -2300,10 +2300,9 @@ Tensor& hpu_wrap::sum_out(
     return AtenHpuTypeDefault::sum_out(self, dim, keepdim, dtype, output);
 
   if (GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 0) {
-    return sum_IntList_out_hpu_lazy(output, self, dim, keepdim, dtype);
-
+    return sum_out_hpu_lazy(self, dim, keepdim, dtype, output);
   } else {
-    return sum_IntList_out_hpu(output, self, dim, keepdim, dtype);
+    return sum_IntList_out_hpu(self, dim, keepdim, dtype, output);
   }
 };
 

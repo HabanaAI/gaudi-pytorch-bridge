@@ -187,16 +187,16 @@ void ConvBackwardOperator::ComputeBiasGrad(
 
     // Create the operator
     auto SumOp = make_operator<SumDimOutOperator>(
-        this->p_context_->device_id_, node_type);
+        this->p_context_->device_id_, scalar_type);
 
     SumOp->SetSynapseInput(p_context_->syn_inputs_[0]);
 
     std::vector<c10::IValue> stack = {
-        IValue(grad_bias),
         IValue(grad_out_nhwc),
         IValue(shape),
         IValue(false),
-        IValue(scalar_type)};
+        IValue(scalar_type),
+        IValue(grad_bias)};
     SumOp->AllocateAndAddSynapseNode(graph, stack, is_output_persistent[2]);
 
     synapse_helpers::tensor& bias_syn_tensor = SumOp->GetSynOutputs()[0];

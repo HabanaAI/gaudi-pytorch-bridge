@@ -3732,14 +3732,27 @@ Tensor sum_dim_IntList_hpu_lazy(
   return result;
 }
 
-Tensor& sum_IntList_out_hpu_lazy(
-    Tensor& output,
+Tensor& sum_out_hpu_lazy(
     const Tensor& self,
     IntArrayRef dim,
     bool keepdim,
-    c10::optional<ScalarType> dtype) {
-  return AtenHpuTypeDefault::sum_out(self, dim, keepdim, dtype, output);
+    c10::optional<ScalarType> dtype,
+    Tensor& out) {
+  PT_LAZY_TRACE;
+  at::Tensor self_updated_dtype = self;
+
+  if (dtype.has_value() && (dtype.value() != self.scalar_type())) {
+    self_updated_dtype = self.to(dtype.value());
+  }
+  LazyOp<at::Tensor&> k(
+      "aten::sum",
+      {self_updated_dtype, dim, keepdim, dtype, out},
+      {},
+      {ReduceOperator::compute_output_shape(self_updated_dtype, dim, keepdim)});
+
+  return k.call(out);
 }
+
 Tensor mean_dim_hpu_lazy(
     const Tensor& self,
     IntArrayRef dim,
