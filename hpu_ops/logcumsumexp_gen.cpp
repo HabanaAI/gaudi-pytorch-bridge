@@ -19,8 +19,8 @@ void LogCumsumExp::AddNode(
 
   // exp on input 0
   auto exp = BuildOp(
-      "exp_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
       graph,
+      "exp_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
       {syn_in(0)},
       {{outshape, ScalarType(), false}});
 
@@ -31,8 +31,8 @@ void LogCumsumExp::AddNode(
 
   // cumsum on output of exp
   auto cumsum = BuildOp(
-      "cumsum_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
       graph,
+      "cumsum_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
       {exp[0].get()},
       {{outshape, ScalarType(), false}},
       cumsum_params.get(),
@@ -40,10 +40,10 @@ void LogCumsumExp::AddNode(
 
   // log on output of cumsum
   auto log = BuildOp(
-      "log_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
       graph,
+      "log_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
       {cumsum[0].get()},
-      {{outshape, ScalarType(), is_output_persistent}});
+      {{outshape, ScalarType(), is_output_persistent, IsOutFn() ? 0 : -1}});
 
   // output of log is the output of this op
   syn_out(0) = std::move(log[0]);

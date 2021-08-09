@@ -22,16 +22,19 @@ void RsubOp::AddNode(
     return HabanaOperatorHelper::AddNode(graph, stack, is_output_persistent);
   }
   auto mul = BuildOp(
-      "mult_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
       graph,
+      "mult_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
       {syn_in(0), syn_in(2)},
       {{stack_tensor(stack, 1).sizes(), ScalarType(), false}});
 
   auto op = BuildOp(
-      guid_,
       graph,
+      guid_,
       {syn_in(1), mul[0].get()},
-      {{stack_tensor(stack, 0).sizes(), ScalarType(), is_output_persistent}});
+      {{stack_tensor(stack, 0).sizes(),
+        ScalarType(),
+        is_output_persistent,
+        IsOutFn() ? 0 : -1}});
 
   syn_out(0) = std::move(op[0]);
 }

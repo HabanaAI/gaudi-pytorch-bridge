@@ -58,10 +58,10 @@ void HabanaOperatorHelper::HandleScalarToTensor(
   }
 
   auto const_out = BuildOp(
-      "constant_" + habana_helpers::name_suffix_from_type(m_scalar_type),
       graph,
+      "constant_" + habana_helpers::name_suffix_from_type(m_scalar_type),
       {},
-      {{1, m_scalar_type, false}},
+      {{1, m_scalar_type}},
       params.get(),
       size);
 
@@ -130,29 +130,39 @@ void HabanaOperatorHelper::AllocateAndAddSynapseNode(
 }
 
 std::vector<synapse_helpers::tensor> HabanaOperatorHelper::BuildOp(
-    std::string guid,
     synapse_helpers::graph& graph,
-    std::vector<synTensor> syn_in,
-    const std::vector<_intermediate_attr>& out_props,
+    std::string guid,
+    std::vector<synTensor> node_inputs,
+    const std::vector<_node_output_attr>& node_output_attrs,
     void* params,
     size_t param_size) {
   std::vector<synapse_helpers::tensor> outputs;
-  std::vector<synTensor> syn_out;
+  std::vector<synTensor> node_outputs;
 
-  for (const auto& out_prop : out_props) {
-    const auto& t = at::detail::make_tensor<c10::TensorImpl>(
-        c10::DispatchKeySet{
-            at::DispatchKey::HPU, at::DispatchKey::AutogradHABANA},
-        c10::scalarTypeToTypeMeta(out_prop.dtype),
-        c10::Device(c10::kHABANA, 0));
-    t.unsafeGetTensorImpl()->set_sizes_contiguous(out_prop.sizes);
-    outputs.emplace_back(habana_helpers::create_tensor(
-        t, graph.get_graph_handle(), out_prop.persistent, out_prop.dtype));
-    syn_out.emplace_back(outputs.back().get());
+  for (const auto& attr : node_output_attrs) {
+    if (attr.synout_index < 0) {
+      const auto& t = at::detail::make_tensor<c10::TensorImpl>(
+          c10::DispatchKeySet{
+              at::DispatchKey::HPU, at::DispatchKey::AutogradHABANA},
+          c10::scalarTypeToTypeMeta(attr.dtype),
+          c10::Device(c10::kHABANA, 0));
+      t.unsafeGetTensorImpl()->set_sizes_contiguous(attr.sizes);
+      outputs.emplace_back(habana_helpers::create_tensor(
+          t, graph.get_graph_handle(), attr.persistent, attr.dtype));
+      node_outputs.emplace_back(outputs.back().get());
+    } else {
+      outputs.emplace_back(
+          std::move(p_context_->syn_outputs_.at(attr.synout_index).ref()));
+      node_outputs.emplace_back(outputs.back().get());
+    }
   }
 
   auto result = graph.add_node(
-      std::move(syn_in), std::move(syn_out), params, param_size, guid);
+      std::move(node_inputs),
+      std::move(node_outputs),
+      params,
+      param_size,
+      guid);
   HABANA_ASSERT(
       ok(result),
       "Adding ",

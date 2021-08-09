@@ -8,6 +8,8 @@
  ******************************************************************************
  */
 
+#include <utility>
+
 #include "generated/hpu_op.h"
 
 namespace habana {
@@ -15,8 +17,9 @@ namespace habana {
 template <>
 LazyCumsum<at::Tensor>::LazyCumsum(
     const std::string& qualstring,
-    const std::vector<at::IValue>& inputs)
-    : habana_lazy::LazyOp<at::Tensor>(qualstring, inputs, {}, {}, -1) {}
+    const std::vector<at::IValue>& inputs,
+    const std::vector<std::vector<int64_t>>& out_shapes)
+    : habana_lazy::LazyOp<at::Tensor>(qualstring, inputs, {}, out_shapes, -1) {}
 
 template <>
 at::Tensor LazyCumsum<at::Tensor>::get_result_overrideable() {
@@ -56,8 +59,8 @@ void CumsumHabanaOperator::AddNode(
       habana_helpers::name_suffix_from_type(ScalarType());
   const std::string& cast_to = habana_helpers::name_suffix_from_type(dtype);
   auto cast = BuildOp(
-      "cast_" + cast_from + "_to_" + cast_to,
       graph,
+      "cast_" + cast_from + "_to_" + cast_to,
       {syn_in(0)},
       {{outshape, dtype, false}});
 
@@ -65,13 +68,12 @@ void CumsumHabanaOperator::AddNode(
   const auto& params = FillCumsumParams(stack, size);
   const std::string& guid = guid_.substr(0, guid_.find_last_of('_') + 1);
   auto op = BuildOp(
-      guid + cast_to,
       graph,
+      guid + cast_to,
       {cast.at(0).get()},
-      {{outshape, dtype, is_output_persistent}},
+      {{outshape, dtype, is_output_persistent, IsOutFn() ? 0 : -1}},
       params.get(),
       size);
-
   syn_out(0) = std::move(op.at(0));
 }
 

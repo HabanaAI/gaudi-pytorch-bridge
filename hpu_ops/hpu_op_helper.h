@@ -65,6 +65,10 @@ class HabanaOperatorHelper : public HabanaOperator {
     return m_scalar_id;
   }
 
+  bool IsOutFn() const {
+    return m_is_outfn;
+  }
+
  private:
   virtual void CustomHandler(synapse_helpers::graph&, at::Stack&) {}
 
@@ -89,18 +93,19 @@ class HabanaOperatorHelper : public HabanaOperator {
       bool is_output_persistent) override;
 
   // Compound node helpers
-  struct _intermediate_attr {
+  struct _node_output_attr {
     at::IntArrayRef sizes{};
     at::ScalarType dtype{at::kFloat};
     bool persistent{false};
+    int synout_index{-1}; // out variants handling by HandleOutFn
   };
 
  protected:
   std::vector<synapse_helpers::tensor> BuildOp(
-      std::string guid,
       synapse_helpers::graph& graph,
-      std::vector<synTensor> syn_in,
-      const std::vector<_intermediate_attr>& out_props,
+      std::string guid,
+      std::vector<synTensor> node_inputs,
+      const std::vector<_node_output_attr>& node_output_attrs,
       void* params = nullptr,
       size_t param_size = 0);
 
@@ -137,6 +142,9 @@ class HabanaOperatorHelper : public HabanaOperator {
   static std::shared_ptr<void> FillHardSigmoidParams(const at::Stack&, size_t&);
   static std::shared_ptr<void> FillMseLossParams(const at::Stack&, size_t&);
 
+  static sizes_vec CompareOutputShape(
+      const torch::Tensor&,
+      const torch::Tensor&);
   static sizes_vec MseLossOutputShape(const torch::Tensor&, int64_t);
   static sizes_vec PowOutputShape(const torch::Tensor&);
 };
@@ -171,11 +179,13 @@ class HabanaOperatorHelper : public HabanaOperator {
 
 } // namespace habana
 
-#define HPU_FRONTEND_OP(op)                                                   \
-  template <typename T>                                                       \
-  struct op : habana_lazy::LazyOp<T> {                                        \
-    op(const std::string& qualstring, const std::vector<at::IValue>& inputs); \
-    T get_result_overrideable() override;                                     \
+#define HPU_FRONTEND_OP(op)                                       \
+  template <typename T>                                           \
+  struct op : habana_lazy::LazyOp<T> {                            \
+    op(const std::string& qualstring,                             \
+       const std::vector<at::IValue>& inputs,                     \
+       const std::vector<std::vector<int64_t>>& out_shapes = {}); \
+    T get_result_overrideable() override;                         \
   };
 
 #define HPU_SUPPORTED_DTYPES(fn, supported_dtypes)                       \

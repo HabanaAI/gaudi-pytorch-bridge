@@ -22,17 +22,19 @@ void BinaryWithAlphaOutOp::AddNode(
   }
 
   auto mul = BuildOp(
-      "mult_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
       graph,
+      "mult_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
       {syn_in(1), syn_in(2)},
-      {{stack_tensor(stack, 1).sizes(), ScalarType(), false}});
+      {{stack_tensor(stack, 1).sizes(), ScalarType()}});
 
   auto op = BuildOp(
-      guid_,
       graph,
+      guid_,
       {syn_in(0), mul[0].get()},
-      {{stack_tensor(stack, 0).sizes(), ScalarType(), is_output_persistent}});
-
+      {{stack_tensor(stack, 0).sizes(),
+        ScalarType(),
+        is_output_persistent,
+        0}});
   syn_out(0) = std::move(op[0]);
 }
 } // namespace habana

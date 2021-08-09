@@ -201,9 +201,11 @@ eq.Scalar_out:
   scalar_ids: [1]
 
 eq.Tensor_out:
+  custom_output_shape: CompareOutputShape(self, other)
   dtypes: [BFloat16, Float, Int, Char, Byte]
   guid: equal_fwd
   legacy_eager: true
+  op_base_class: CompareHabanaOperator
 
 erf.out:
   dtypes: [BFloat16, Float]
@@ -237,8 +239,10 @@ ge.Scalar_out:
   scalar_ids: [1]
 
 ge.Tensor_out:
+  custom_output_shape: CompareOutputShape(self, other)
   dtypes: [BFloat16, Float, Int, Char, Byte]
   guid: greater_equal_fwd
+  op_base_class: CompareHabanaOperator
 
 gt.Scalar_out:
   dtypes: [BFloat16, Float, Int, Char, Byte]
@@ -246,8 +250,10 @@ gt.Scalar_out:
   scalar_ids: [1]
 
 gt.Tensor_out:
+  custom_output_shape: CompareOutputShape(self, other)
   dtypes: [BFloat16, Float, Int, Char, Byte]
   guid: greater_fwd
+  op_base_class: CompareHabanaOperator
 
 hardsigmoid.out:
   custom_fill_params: FillHardSigmoidParams
@@ -290,8 +296,10 @@ lt.Scalar_out:
   scalar_ids: [1]
 
 lt.Tensor_out:
+  custom_output_shape: CompareOutputShape(self, other)
   dtypes: [BFloat16, Float, Int, Char, Byte]
   guid: less_fwd
+  op_base_class: CompareHabanaOperator
 
 maximum.out:
   dtypes: [BFloat16, Float, Int]
