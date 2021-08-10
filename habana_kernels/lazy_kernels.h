@@ -196,6 +196,10 @@ class LazyOp {
     m_convert_wrapped_tensor_to_scalar = true;
   }
 
+  bool IsConvertWrappedTensorToScalar() {
+    return m_convert_wrapped_tensor_to_scalar;
+  }
+
  private:
   bool isMetadataCandidate(const at::IValue& input) const {
     return input.isBool() || input.isGenerator() || input.isDevice() ||
@@ -386,6 +390,16 @@ class LazyBinaryOp : public LazyOp<ReturnType> {
   typename std::enable_if<std::is_same<T, at::Tensor>::value, T>::type call() {
     auto inputs = LazyOp<T>::get_inputs();
 
+    if (!LazyOp<T>::IsConvertWrappedTensorToScalar()) {
+      for (auto& t : inputs) { // Any tensor on CPU needs to be moved to HPU for
+                               // type promotion to work
+        if (t.isTensor() &&
+            t.toTensor().device().type() != c10::DeviceType::HABANA) {
+          auto h_tensor = t.toTensor().to(c10::kHABANA);
+          t = c10::IValue(h_tensor);
+        }
+      }
+    }
     int pos = -1;
     c10::ScalarType dst_dtype = c10::ScalarType::Float;
     habana_helpers::type_promotion_for_two_tensor_inputs(

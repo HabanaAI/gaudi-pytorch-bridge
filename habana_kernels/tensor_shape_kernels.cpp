@@ -1032,6 +1032,14 @@ Tensor expand_hpu(const Tensor& in_self, IntArrayRef size, bool implicit) {
 void SplitWithSizeOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
+    bool is_output_persistent) {
+  std::vector<bool> out_flags{is_output_persistent};
+  AllocateAndAddSynapseNode(graph, inputs, out_flags);
+}
+
+void SplitWithSizeOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    Stack& inputs,
     std::vector<bool> is_output_persistent) {
   TORCH_CHECK(
       inputs.size() == 3,

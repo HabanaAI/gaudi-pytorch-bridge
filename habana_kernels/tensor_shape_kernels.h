@@ -160,6 +160,10 @@ class SplitWithSizeOperator : public habana::HabanaOperator {
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       std::vector<bool> is_output_persistent) override;
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent) override;
 
   static std::vector<std::vector<int64_t>> compute_output_shape(
       const at::Tensor& self,
