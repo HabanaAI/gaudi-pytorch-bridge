@@ -1629,7 +1629,7 @@ void SelectOperator::AllocateAndAddSynapseNode(
     auto reshape_op = make_operator<ReshapeOperator>(
         self.device().index(), self.scalar_type());
     UNUSED auto& syn_in_reshape =
-        reshape_op->SetSynapseInput(std::move(slice_op->GetSynOutputs()[0]));
+        reshape_op->SetSynapseInput(slice_op->GetSynOutputs()[0]);
     auto slice_out_tensor = slice_op->GetOutputs()[0];
     auto shape = slice_out_tensor.sizes().vec();
     shape.erase(shape.begin() + dim);
@@ -1643,7 +1643,8 @@ void SelectOperator::AllocateAndAddSynapseNode(
   } else {
     p_context_->syn_outputs_.emplace_back(
         std::move(slice_op->GetSynOutputs()[0]));
-    p_context_->pt_outputs_.emplace_back(std::move(slice_op->GetOutputs()[0]));
+
+    p_context_->pt_outputs_.emplace_back(slice_op->GetOutputs()[0]);
   }
 }
 

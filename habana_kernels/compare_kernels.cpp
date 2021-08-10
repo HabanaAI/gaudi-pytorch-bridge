@@ -94,8 +94,8 @@ void CompareOutWrapperOperator::AllocateAndAddSynapseNode(
   }
 
   p_context_->pt_outputs_.emplace_back(compareOp->GetOutputs()[0]);
-  p_context_->syn_outputs_.emplace_back(
-      std::move(compareOp->GetSynOutputs()[0]));
+  synapse_helpers::tensor& out_syn_t = compareOp->GetSynOutputs()[0];
+  p_context_->syn_outputs_.emplace_back(out_syn_t);
 }
 
 void CompareOutWrapperOperator::SetPTOutputs(torch::jit::Stack& inputs) {

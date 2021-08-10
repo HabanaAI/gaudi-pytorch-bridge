@@ -78,8 +78,7 @@ void MaxDimOperator::AllocateAndAddSynapseNode(
 
   auto reduce_op =
       make_operator<Reduce2Operator>(self.device().index(), this->guid_);
-  auto& syn_self =
-      reduce_op->SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+  auto& syn_self = reduce_op->SetSynapseInput((p_context_->syn_inputs_[0]));
   std::vector<bool> reshapeadd{false, false};
   reduce_op->AllocateAndAddSynapseNode(
       graph, inputs, keepdim ? is_output_persistent : reshapeadd);
@@ -92,30 +91,36 @@ void MaxDimOperator::AllocateAndAddSynapseNode(
   if (!keepdim) {
     auto out_shape = reduce_op->GetOutputs()[0].sizes().vec();
     out_shape.erase(out_shape.cbegin() + dim);
-    reshape_op->SetSynapseInput(std::move(reduce_op->GetSynOutputs()[0]));
+    reshape_op->SetSynapseInput((reduce_op->GetSynOutputs()[0]));
     torch::jit::Stack stack = {
         IValue(reduce_op->GetOutputs()[0]), IValue(out_shape)};
     reshape_op->AllocateAndAddSynapseNode(
         graph, stack, is_output_persistent[0]);
     stack.clear();
 
-    reshape_index->SetSynapseInput(std::move(reduce_op->GetSynOutputs()[1]));
+    reshape_index->SetSynapseInput((reduce_op->GetSynOutputs()[1]));
     stack = {IValue(reduce_op->GetOutputs()[1]), IValue(out_shape)};
     reshape_index->AllocateAndAddSynapseNode(
         graph, stack, is_output_persistent[1]);
     stack.clear();
   }
 
-  p_context_->syn_outputs_.emplace_back(std::move(
-      keepdim ? reduce_op->GetSynOutputs()[0]
-              : reshape_op->GetSynOutputs()[0]));
-  p_context_->pt_outputs_.emplace_back(std::move(
-      keepdim ? reduce_op->GetOutputs()[0] : reshape_op->GetOutputs()[0]));
-  p_context_->syn_outputs_.emplace_back(std::move(
-      keepdim ? reduce_op->GetSynOutputs()[1]
-              : reshape_index->GetSynOutputs()[0]));
-  p_context_->pt_outputs_.emplace_back(std::move(
-      keepdim ? reduce_op->GetOutputs()[1] : reshape_index->GetOutputs()[0]));
+  synapse_helpers::tensor& reduce_op_syn_t =
+      keepdim ? reduce_op->GetSynOutputs()[0] : reshape_op->GetSynOutputs()[0];
+  p_context_->syn_outputs_.emplace_back(reduce_op_syn_t);
+
+  auto reduce_op_pt_t =
+      keepdim ? reduce_op->GetOutputs()[0] : reshape_op->GetOutputs()[0];
+  p_context_->pt_outputs_.emplace_back(reduce_op_pt_t);
+
+  synapse_helpers::tensor& out_syn_t = keepdim
+      ? reduce_op->GetSynOutputs()[1]
+      : reshape_index->GetSynOutputs()[0];
+  p_context_->syn_outputs_.emplace_back(out_syn_t);
+
+  auto out_pt_t =
+      keepdim ? reduce_op->GetOutputs()[1] : reshape_index->GetOutputs()[0];
+  p_context_->pt_outputs_.emplace_back(out_pt_t);
 }
 
 std::tuple<at::Tensor, at::Tensor> max_dim_hpu(
