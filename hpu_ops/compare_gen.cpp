@@ -20,7 +20,7 @@ sizes_vec HabanaOperatorHelper::CompareOutputShape(
 void CompareHabanaOperator::AddNode(
     synapse_helpers::graph& graph,
     at::Stack& stack,
-    bool is_output_persistent) {
+    const std::vector<bool>& is_output_persistent_list) {
   const at::Tensor self = stack_tensor(stack, 0);
   const at::Tensor other = stack_tensor(stack, 1);
 
@@ -28,7 +28,8 @@ void CompareHabanaOperator::AddNode(
   if (self.scalar_type() == result_dtype and
       other.scalar_type() == result_dtype) {
     // return without type promotion as both inputs are of the same dtype
-    return HabanaOperatorHelper::AddNode(graph, stack, is_output_persistent);
+    return HabanaOperatorHelper::AddNode(
+        graph, stack, is_output_persistent_list);
   }
 
   int cast_index =
@@ -62,7 +63,7 @@ void CompareHabanaOperator::AddNode(
       graph,
       guid + cast_to,
       syn_inputs,
-      {{outshape, result_dtype, is_output_persistent, 0}});
+      {{outshape, result_dtype, is_output_persistent_list[0], 0}});
 
   syn_out(0) = std::move(op.at(0));
 }

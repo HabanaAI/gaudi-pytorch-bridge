@@ -73,14 +73,16 @@ void HabanaOperatorHelper::HandleScalarToTensor(
 void HabanaOperatorHelper::HandleFn(
     synapse_helpers::graph& graph,
     const at::Stack& stack,
-    bool is_output_persistent) {
+    const std::vector<bool>& is_output_persistent_list) {
   if (m_out_id < 0) {
     return;
   }
 
-  const auto& output = habana_helpers::createPTTensor(
-      stack.at(m_out_id).toTensor(), is_output_persistent);
-  AllocateSynapseOutput(graph, output, is_output_persistent);
+  for (const auto& is_output_persistent : is_output_persistent_list) {
+    const auto& output = habana_helpers::createPTTensor(
+        stack.at(m_out_id).toTensor(), is_output_persistent);
+    AllocateSynapseOutput(graph, output, is_output_persistent);
+  }
 }
 
 void HabanaOperatorHelper::HandleOutFn(const at::Stack& stack) {
@@ -110,7 +112,7 @@ void HabanaOperatorHelper::HandleInplaceFn(const at::Stack& stack) {
 void HabanaOperatorHelper::AddNode(
     synapse_helpers::graph& graph,
     at::Stack& stack,
-    bool) {
+    const std::vector<bool>&) {
   size_t size = 0;
   const auto& params = FillParams(stack, size);
   AddNodeToSynapseGraph(graph, params.get(), size);
@@ -119,14 +121,14 @@ void HabanaOperatorHelper::AddNode(
 void HabanaOperatorHelper::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     at::Stack& stack,
-    bool is_output_persistent) {
+    std::vector<bool> is_output_persistent_list) {
   CustomHandler(graph, stack);
-  HandleFn(graph, stack, is_output_persistent);
+  HandleFn(graph, stack, is_output_persistent_list);
   HandleInplaceFn(stack);
   HandleOutFn(stack);
   HandleScalarToTensor(graph, stack);
 
-  AddNode(graph, stack, is_output_persistent);
+  AddNode(graph, stack, is_output_persistent_list);
 }
 
 std::vector<synapse_helpers::tensor> HabanaOperatorHelper::BuildOp(

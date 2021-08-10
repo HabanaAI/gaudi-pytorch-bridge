@@ -14,11 +14,12 @@ namespace habana {
 void BinaryWithAlphaOutOp::AddNode(
     synapse_helpers::graph& graph,
     at::Stack& stack,
-    bool is_output_persistent) {
+    const std::vector<bool>& is_output_persistent_list) {
   if (ScalarInputs().at(ScalarId()).toFloat() == 1.) {
     p_context_->syn_inputs_.erase(
         p_context_->syn_inputs_.cbegin() + ScalarId());
-    return HabanaOperatorHelper::AddNode(graph, stack, is_output_persistent);
+    return HabanaOperatorHelper::AddNode(
+        graph, stack, is_output_persistent_list);
   }
 
   auto mul = BuildOp(
@@ -33,7 +34,7 @@ void BinaryWithAlphaOutOp::AddNode(
       {syn_in(0), mul[0].get()},
       {{stack_tensor(stack, 0).sizes(),
         ScalarType(),
-        is_output_persistent,
+        is_output_persistent_list[0],
         0}});
   syn_out(0) = std::move(op[0]);
 }

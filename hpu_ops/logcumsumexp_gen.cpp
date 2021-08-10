@@ -14,7 +14,7 @@ namespace habana {
 void LogCumsumExp::AddNode(
     synapse_helpers::graph& graph,
     at::Stack& stack,
-    bool is_output_persistent) {
+    const std::vector<bool>& is_output_persistent_list) {
   const auto& outshape = stack_tensor(stack, 0).sizes();
 
   // exp on input 0
@@ -43,7 +43,10 @@ void LogCumsumExp::AddNode(
       graph,
       "log_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
       {cumsum[0].get()},
-      {{outshape, ScalarType(), is_output_persistent, IsOutFn() ? 0 : -1}});
+      {{outshape,
+        ScalarType(),
+        is_output_persistent_list[0],
+        IsOutFn() ? 0 : -1}});
 
   // output of log is the output of this op
   syn_out(0) = std::move(log[0]);

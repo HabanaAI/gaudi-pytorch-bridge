@@ -83,14 +83,22 @@ class HabanaOperatorHelper : public HabanaOperator {
   void HandleFn(
       synapse_helpers::graph& graph,
       const at::Stack& stack,
-      bool is_output_persistent);
+      const std::vector<bool>& is_output_persistent_list);
   void HandleInplaceFn(const at::Stack& stack);
   void HandleOutFn(const at::Stack& stack);
 
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       at::Stack& stack,
-      bool is_output_persistent) override;
+      bool is_output_persistent) override {
+    std::vector<bool> is_output_persistent_list{is_output_persistent};
+    AllocateAndAddSynapseNode(graph, stack, is_output_persistent_list);
+  }
+
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      at::Stack& stack,
+      std::vector<bool> is_output_persistent) override;
 
   // Compound node helpers
   struct _node_output_attr {
@@ -121,7 +129,10 @@ class HabanaOperatorHelper : public HabanaOperator {
     return stack.at(index).toTensor();
   }
 
-  virtual void AddNode(synapse_helpers::graph&, at::Stack&, bool);
+  virtual void AddNode(
+      synapse_helpers::graph&,
+      at::Stack&,
+      const std::vector<bool>&);
 
  private:
   const c10::ScalarType m_scalar_type;
@@ -153,28 +164,28 @@ class HabanaOperatorHelper : public HabanaOperator {
   size = sizeof(structname);    \
   auto params = std::make_shared<structname>()
 
-#define HPU_COMPOUND_OP(class)               \
-  struct class : HabanaOperatorHelper {      \
-    class(                                   \
-        int device_id,                       \
-        const std::string& guid,             \
-        c10::ScalarType scalar_type,         \
-        int out_id,                          \
-        int inplace_id,                      \
-        int scalar_id,                       \
-        bool is_outfn)                       \
-        : HabanaOperatorHelper(              \
-              device_id,                     \
-              guid,                          \
-              scalar_type,                   \
-              out_id,                        \
-              inplace_id,                    \
-              scalar_id,                     \
-              is_outfn){};                   \
-    void AddNode(                            \
-        synapse_helpers::graph& graph,       \
-        at::Stack& stack,                    \
-        bool is_output_persistent) override; \
+#define HPU_COMPOUND_OP(class)              \
+  struct class : HabanaOperatorHelper {     \
+    class(                                  \
+        int device_id,                      \
+        const std::string& guid,            \
+        c10::ScalarType scalar_type,        \
+        int out_id,                         \
+        int inplace_id,                     \
+        int scalar_id,                      \
+        bool is_outfn)                      \
+        : HabanaOperatorHelper(             \
+              device_id,                    \
+              guid,                         \
+              scalar_type,                  \
+              out_id,                       \
+              inplace_id,                   \
+              scalar_id,                    \
+              is_outfn){};                  \
+    void AddNode(                           \
+        synapse_helpers::graph&,            \
+        at::Stack&,                         \
+        const std::vector<bool>&) override; \
   };
 
 } // namespace habana

@@ -14,12 +14,13 @@ namespace habana {
 void RsubOp::AddNode(
     synapse_helpers::graph& graph,
     at::Stack& stack,
-    bool is_output_persistent) {
+    const std::vector<bool>& is_output_persistent_list) {
   if (ScalarInputs().at(ScalarId()).toFloat() == 1.) {
     p_context_->syn_inputs_.erase(
         p_context_->syn_inputs_.cbegin() + ScalarId());
     std::swap(syn_in(0), syn_in(1));
-    return HabanaOperatorHelper::AddNode(graph, stack, is_output_persistent);
+    return HabanaOperatorHelper::AddNode(
+        graph, stack, is_output_persistent_list);
   }
   auto mul = BuildOp(
       graph,
@@ -33,7 +34,7 @@ void RsubOp::AddNode(
       {syn_in(1), mul[0].get()},
       {{stack_tensor(stack, 0).sizes(),
         ScalarType(),
-        is_output_persistent,
+        is_output_persistent_list[0],
         IsOutFn() ? 0 : -1}});
 
   syn_out(0) = std::move(op[0]);

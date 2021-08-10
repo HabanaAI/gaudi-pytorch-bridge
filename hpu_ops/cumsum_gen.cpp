@@ -46,12 +46,13 @@ std::shared_ptr<void> HabanaOperatorHelper::FillCumsumParams(
 void CumsumHabanaOperator::AddNode(
     synapse_helpers::graph& graph,
     at::Stack& stack,
-    bool is_output_persistent) {
+    const std::vector<bool>& is_output_persistent_list) {
   const at::ScalarType& dtype =
       stack.at(2).isNone() ? ScalarType() : stack.at(2).toScalarType();
 
   if (dtype == ScalarType()) {
-    return HabanaOperatorHelper::AddNode(graph, stack, is_output_persistent);
+    return HabanaOperatorHelper::AddNode(
+        graph, stack, is_output_persistent_list);
   }
 
   const auto& outshape = stack_tensor(stack, 0).sizes();
@@ -71,7 +72,7 @@ void CumsumHabanaOperator::AddNode(
       graph,
       guid + cast_to,
       {cast.at(0).get()},
-      {{outshape, dtype, is_output_persistent, IsOutFn() ? 0 : -1}},
+      {{outshape, dtype, is_output_persistent_list[0], IsOutFn() ? 0 : -1}},
       params.get(),
       size);
   syn_out(0) = std::move(op.at(0));
