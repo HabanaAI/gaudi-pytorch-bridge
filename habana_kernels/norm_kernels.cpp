@@ -1796,7 +1796,7 @@ void NormOperator::AllocateAndAddSynapseNode(
   auto p = inputs[1].toScalar();
 
   if (p.toFloat() == 2.0) {
-    if (self.dim() <= 1) {
+    if (self.dim() <= 1 || self.sizes()[0] == 1) {
       auto device_id = self.device().index();
       auto scalar_type = self.scalar_type();
       // x^2 implemented as x*x. Identity node used to create aliased tensor
