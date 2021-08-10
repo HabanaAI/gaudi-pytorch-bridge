@@ -11,32 +11,31 @@
 #include "generated/hpu_op.h"
 
 namespace habana {
-void RsubOp::AddNode(
-    synapse_helpers::graph& graph,
-    at::Stack& stack,
-    const std::vector<bool>& is_output_persistent_list) {
-  if (ScalarInputs().at(ScalarId()).toFloat() == 1.) {
-    p_context_->syn_inputs_.erase(
-        p_context_->syn_inputs_.cbegin() + ScalarId());
-    std::swap(syn_in(0), syn_in(1));
-    return HabanaOperatorHelper::AddNode(
-        graph, stack, is_output_persistent_list);
+
+template <>
+LazyRsub<at::Tensor>::LazyRsub(
+    const std::string& qualstring,
+    const std::vector<at::IValue>& inputs,
+    const std::vector<std::vector<int64_t>>& out_shapes)
+    : habana_lazy::LazyOp<at::Tensor>("aten::sub", {}, {}, out_shapes) {
+  static_cast<void>(qualstring);
+  auto sub_inputs = inputs;
+  std::swap(sub_inputs.at(0), sub_inputs.at(1));
+  const auto& self = sub_inputs.at(0).toTensor();
+  const auto& other = sub_inputs.at(1).toTensor();
+  const auto& result_type = at::result_type(self, other);
+  if (self.scalar_type() != result_type) {
+    sub_inputs.at(0) = self.to(result_type);
   }
-  auto mul = BuildOp(
-      graph,
-      "mult_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
-      {syn_in(0), syn_in(2)},
-      {{stack_tensor(stack, 1).sizes(), ScalarType(), false}});
+  if (other.scalar_type() != result_type) {
+    sub_inputs.at(1) = other.to(result_type);
+  }
+  set_inputs(sub_inputs);
+}
 
-  auto op = BuildOp(
-      graph,
-      guid_,
-      {syn_in(1), mul[0].get()},
-      {{stack_tensor(stack, 0).sizes(),
-        ScalarType(),
-        is_output_persistent_list[0],
-        IsOutFn() ? 0 : -1}});
-
-  syn_out(0) = std::move(op[0]);
+template <>
+at::Tensor LazyRsub<at::Tensor>::get_result_overrideable() {
+  HABANA_ASSERT(false, "Shouldn't be reachable");
+  return {};
 }
 } // namespace habana

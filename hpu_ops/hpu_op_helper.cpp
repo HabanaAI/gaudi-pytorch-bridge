@@ -133,7 +133,7 @@ void HabanaOperatorHelper::AllocateAndAddSynapseNode(
 
 std::vector<synapse_helpers::tensor> HabanaOperatorHelper::BuildOp(
     synapse_helpers::graph& graph,
-    std::string guid,
+    const std::string& guid,
     std::vector<synTensor> node_inputs,
     const std::vector<_node_output_attr>& node_output_attrs,
     void* params,
@@ -142,7 +142,10 @@ std::vector<synapse_helpers::tensor> HabanaOperatorHelper::BuildOp(
   std::vector<synTensor> node_outputs;
 
   for (const auto& attr : node_output_attrs) {
-    if (attr.synout_index < 0) {
+    if (attr.final_node and IsOutFn()) {
+      // HandleOutFn() placed the output in p_context_->syn_outputs_
+      outputs.emplace_back(std::move(p_context_->syn_outputs_.at(0).ref()));
+    } else {
       const auto& t = at::detail::make_tensor<c10::TensorImpl>(
           c10::DispatchKeySet{
               at::DispatchKey::HPU, at::DispatchKey::AutogradHABANA},
@@ -151,12 +154,18 @@ std::vector<synapse_helpers::tensor> HabanaOperatorHelper::BuildOp(
       t.unsafeGetTensorImpl()->set_sizes_contiguous(attr.sizes);
       outputs.emplace_back(habana_helpers::create_tensor(
           t, graph.get_graph_handle(), attr.persistent, attr.dtype));
-      node_outputs.emplace_back(outputs.back().get());
-    } else {
-      outputs.emplace_back(
-          std::move(p_context_->syn_outputs_.at(attr.synout_index).ref()));
-      node_outputs.emplace_back(outputs.back().get());
+      if (attr.persistent) {
+        // TODO: Handle when a node produces multiple outputs
+        HABANA_ASSERT(
+            m_out_id >= 0, "Out id cannot be negative for persistent output");
+        const auto& impl =
+            p_context_->pt_outputs_.at(m_out_id).unsafeGetTensorImpl();
+        impl->set_sizes_contiguous(attr.sizes);
+        impl->set_storage_and_dtype(
+            impl->storage(), c10::scalarTypeToTypeMeta(attr.dtype));
+      }
     }
+    node_outputs.emplace_back(outputs.back().get());
   }
 
   auto result = graph.add_node(

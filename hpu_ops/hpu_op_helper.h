@@ -105,13 +105,13 @@ class HabanaOperatorHelper : public HabanaOperator {
     at::IntArrayRef sizes{};
     at::ScalarType dtype{at::kFloat};
     bool persistent{false};
-    int synout_index{-1}; // out variants handling by HandleOutFn
+    bool final_node{false};
   };
 
  protected:
   std::vector<synapse_helpers::tensor> BuildOp(
       synapse_helpers::graph& graph,
-      std::string guid,
+      const std::string& guid,
       std::vector<synTensor> node_inputs,
       const std::vector<_node_output_attr>& node_output_attrs,
       void* params = nullptr,
@@ -153,7 +153,7 @@ class HabanaOperatorHelper : public HabanaOperator {
   static std::shared_ptr<void> FillHardSigmoidParams(const at::Stack&, size_t&);
   static std::shared_ptr<void> FillMseLossParams(const at::Stack&, size_t&);
 
-  static sizes_vec CompareOutputShape(
+  static sizes_vec BinaryOutputShape(
       const torch::Tensor&,
       const torch::Tensor&);
   static sizes_vec MseLossOutputShape(const torch::Tensor&, int64_t);

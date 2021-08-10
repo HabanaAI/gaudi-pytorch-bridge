@@ -72,7 +72,7 @@ void CumsumHabanaOperator::AddNode(
       graph,
       guid + cast_to,
       {cast.at(0).get()},
-      {{outshape, dtype, is_output_persistent_list[0], IsOutFn() ? 0 : -1}},
+      {{outshape, dtype, is_output_persistent_list[0], true}},
       params.get(),
       size);
   syn_out(0) = std::move(op.at(0));

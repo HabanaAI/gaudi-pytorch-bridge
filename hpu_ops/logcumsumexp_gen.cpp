@@ -43,10 +43,7 @@ void LogCumsumExp::AddNode(
       graph,
       "log_fwd_" + habana_helpers::name_suffix_from_type(ScalarType()),
       {cumsum[0].get()},
-      {{outshape,
-        ScalarType(),
-        is_output_persistent_list[0],
-        IsOutFn() ? 0 : -1}});
+      {{outshape, ScalarType(), is_output_persistent_list[0], true}});
 
   // output of log is the output of this op
   syn_out(0) = std::move(log[0]);

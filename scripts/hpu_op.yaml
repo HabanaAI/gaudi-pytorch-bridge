@@ -33,9 +33,10 @@ acosh.out:
   guid: acosh_fwd
 
 add.out:
+  custom_output_shape: BinaryOutputShape(self, other)
   dtypes: [BFloat16, Float, Short, Int]
   guid: add_fwd
-  op_base_class: BinaryWithAlphaOutOp
+  op_base_class: BinaryOp
   scalar_ids: [2]
 
 asin.out:
@@ -65,6 +66,7 @@ bitwise_and.Scalar_out:
   scalar_ids: [1]
 
 bitwise_and.Tensor_out:
+  custom_output_shape: BinaryOutputShape(self, other)
   dtypes: [Int, Short, Byte, Char]
   guid: bitwise_and_fwd
   legacy_eager: true
@@ -80,6 +82,7 @@ bitwise_or.Scalar_out:
   scalar_ids: [1]
 
 bitwise_or.Tensor_out:
+  custom_output_shape: BinaryOutputShape(self, other)
   dtypes: [Int, Short, Byte, Char]
   guid: bitwise_or_fwd
   legacy_eager: true
@@ -90,6 +93,7 @@ bitwise_xor.Scalar_out:
   scalar_ids: [1]
 
 bitwise_xor.Tensor_out:
+  custom_output_shape: BinaryOutputShape(self, other)
   dtypes: [Int, Short, Byte, Char]
   guid: bitwise_xor_fwd
   legacy_eager: true
@@ -201,7 +205,7 @@ eq.Scalar_out:
   scalar_ids: [1]
 
 eq.Tensor_out:
-  custom_output_shape: CompareOutputShape(self, other)
+  custom_output_shape: BinaryOutputShape(self, other)
   dtypes: [BFloat16, Float, Int, Char, Byte]
   guid: equal_fwd
   legacy_eager: true
@@ -239,7 +243,7 @@ ge.Scalar_out:
   scalar_ids: [1]
 
 ge.Tensor_out:
-  custom_output_shape: CompareOutputShape(self, other)
+  custom_output_shape: BinaryOutputShape(self, other)
   dtypes: [BFloat16, Float, Int, Char, Byte]
   guid: greater_equal_fwd
   op_base_class: CompareHabanaOperator
@@ -250,7 +254,7 @@ gt.Scalar_out:
   scalar_ids: [1]
 
 gt.Tensor_out:
-  custom_output_shape: CompareOutputShape(self, other)
+  custom_output_shape: BinaryOutputShape(self, other)
   dtypes: [BFloat16, Float, Int, Char, Byte]
   guid: greater_fwd
   op_base_class: CompareHabanaOperator
@@ -266,8 +270,10 @@ le.Scalar_out:
   scalar_ids: [1]
 
 le.Tensor_out:
+  custom_output_shape: BinaryOutputShape(self, other)
   dtypes: [BFloat16, Float, Int, Char, Byte]
   guid: less_equal_fwd
+  op_base_class: CompareHabanaOperator
 
 leaky_relu.out:
   dtypes: [BFloat16, Float]
@@ -296,7 +302,7 @@ lt.Scalar_out:
   scalar_ids: [1]
 
 lt.Tensor_out:
-  custom_output_shape: CompareOutputShape(self, other)
+  custom_output_shape: BinaryOutputShape(self, other)
   dtypes: [BFloat16, Float, Int, Char, Byte]
   guid: less_fwd
   op_base_class: CompareHabanaOperator
@@ -361,9 +367,10 @@ rsqrt.out:
   guid: rsqrt_fwd
 
 rsub.Tensor:
+  custom_output_shape: BinaryOutputShape(self, other)
   dtypes: [BFloat16, Float, Short, Int]
   guid: sub_fwd
-  op_base_class: RsubOp
+  lazy_class: LazyRsub
   out_ids: [0]
   scalar_ids: [2]
 
@@ -411,9 +418,10 @@ sqrt_:
   inplace_ids: [0]
 
 sub.out:
+  custom_output_shape: BinaryOutputShape(self, other)
   dtypes: [BFloat16, Float, Short, Int]
   guid: sub_fwd
-  op_base_class: BinaryWithAlphaOutOp
+  op_base_class: BinaryOp
   scalar_ids: [2]
 
 tan.out:
