@@ -21,11 +21,26 @@ test_case_list = [
     (2, 3, -2),
 ] + mnist_test_cast_list
 
+test_case_5D = [
+    # N, C, D, H, W, dim
+    (1, 4, 10, 12, 16, 1),
+]
+
 op_list = [
     # op, op params dict
     (F.log_softmax),
     (F.softmax),
 ]
+
+
+@pytest.mark.parametrize("N, C, D, H, W, dim", test_case_5D)
+@pytest.mark.parametrize("kernel_op", op_list)
+def test_hpu_log_softmax_5D_fwd_bwd(N, C, D, H, W, kernel_op, dim):
+    kernel_params = {"input": torch.randn(N, C, D, H, W, requires_grad=True), "dim": dim}
+    bwd_tensors = [torch.randn(N, C, D, H, W)]
+    evaluate_fwd_bwd_kernel(
+        kernel=kernel_op, tensor_list_bwd=bwd_tensors, kernel_params_fwd=kernel_params
+    )
 
 
 @pytest.mark.parametrize("N, C, dim", test_case_list)
@@ -59,3 +74,4 @@ def test_hpu_log_softmax_int(N, C, dim, dtype):
 if __name__ == "__main__":
     test_hpu_log_softmax_fwd_bwd(*test_case_list[0])
     test_hpu_log_softmax_int(*test_case_list[0])
+    test_hpu_log_softmax_5D_fwd_bwd(*test_case_5D[0])
