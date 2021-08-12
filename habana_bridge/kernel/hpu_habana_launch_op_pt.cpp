@@ -700,15 +700,19 @@ void HabanaLaunchOpPT::ProcessPersistentNodeOutput(
       PT_BRIDGE_DEBUG("Adding to duplicate_input_tivs ", buffp);
       duplicate_input_tivs.emplace_back(ti);
     } else {
-      // Case 1.B: intermediate persistent tensor
-      if (enable_tensor_release_) {
-        TORCH_CHECK(
-            false == ti.is_view_tensor(),
-            "Starting persistent intermediate can not be a view tensor ",
-            "with non zero offset ",
-            ti.get_offset());
+      if (buff_to_output_ivpsh_map.count(buffp)) {
+        duplicate_outtinfos.emplace_back(ti);
+      } else {
+        // Case 1.B: intermediate persistent tensor
+        if (enable_tensor_release_) {
+          TORCH_CHECK(
+              false == ti.is_view_tensor(),
+              "Starting persistent intermediate can not be a view tensor ",
+              "with non zero offset ",
+              ti.get_offset());
+        }
+        AddAtenIntermediate(ivpsh, out_syntensor.name(), vp);
       }
-      AddAtenIntermediate(ivpsh, out_syntensor.name(), vp);
     }
   } else {
     if (!enable_tensor_release_) {
@@ -3204,9 +3208,7 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
           }
         }
 
-        // Patch the duplicates if there are any
-        // Dead code : currently num_outduplicates should always be 0
-        // TODO : Clean up this
+        // Patch the duplicates of output that are going back to graph
         size_t outduplicates_end = outputs_end + rv.num_outduplicates;
         if (rv.num_outduplicates) {
           for (; ridx < outduplicates_end; ridx++) {
@@ -3214,12 +3216,6 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
             rv.dtensorinfos->at(ridx).patch(rv.dtensorinfos->at(parent_idx));
           }
         }
-
-        TORCH_CHECK(
-            rv.num_outduplicates == 0,
-            "Encountering non zero value ",
-            rv.num_outduplicates,
-            " for num_outduplicates");
 
         TORCH_CHECK(
             ridx == outduplicates_end,
