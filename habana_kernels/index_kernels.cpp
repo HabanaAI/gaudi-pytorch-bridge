@@ -230,8 +230,10 @@ std::vector<int64_t> GatherOperator::compute_output_shape(
     const Tensor& index) {
   auto dim = at::maybe_wrap_dim(dim_, self.dim(), /*wrap_scalar=*/true);
   auto shape = self.sizes().vec();
-  shape.erase(shape.begin() + dim);
-  shape.insert(shape.begin() + dim, index.numel());
+  if (shape.size()) {
+    shape.erase(shape.begin() + dim);
+    shape.insert(shape.begin() + dim, index.numel());
+  }
   return shape;
 }
 

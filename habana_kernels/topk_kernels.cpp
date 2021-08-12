@@ -128,8 +128,12 @@ void TopkOutOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(
       k >= 0 && k <= (self.dim() > 0 ? self.size(dim) : 1),
       "selected index k out of range");
-  TORCH_CHECK(largest == true, "smallest k element not supported")
-  TORCH_CHECK(sorted == true, "unsorted output not supported")
+  // TPC doen't support unsorted or ascending order - but that applies only for
+  // tensors with more than 1 element
+  if (self.numel() > 1) {
+    TORCH_CHECK(largest == true, "smallest k element not supported")
+    TORCH_CHECK(sorted == true, "unsorted output not supported")
+  }
 
   _allocate_or_resize_output_with_indices(
       values,

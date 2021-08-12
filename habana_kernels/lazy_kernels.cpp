@@ -1999,7 +1999,7 @@ Tensor scatter_src_hpu_lazy(
 
   std::vector<at::Tensor> input_pt_vec{self, index, src};
   node->AddInputPtTensors(input_pt_vec);
-
+  flush_op(result);
   return result;
 };
 
@@ -2086,7 +2086,8 @@ Tensor index_hpu_lazy(const at::Tensor& self, at::TensorList indices) {
   at::Tensor self_cast = self;
   // Remove this cast node once TPC kernel is available
   // JIRA <https://jira.habana-labs.com/browse/SW-37171>
-  if (self.scalar_type() != c10::ScalarType::Float) {
+  if (self.scalar_type() != c10::ScalarType::Double &&
+      self.scalar_type() != c10::ScalarType::Float) {
     auto node = std::make_shared<ir::Cast>(self, c10::ScalarType::Float, true);
     at::TensorOptions hb_options = self.options().dtype(c10::ScalarType::Float);
     self_cast = empty_hpu_lazy(
@@ -2107,7 +2108,8 @@ Tensor index_hpu_lazy(const at::Tensor& self, at::TensorList indices) {
       {IndexOperator::compute_output_shape(self_cast, indices)}};
   auto result = k.call();
 
-  if (self.scalar_type() != c10::ScalarType::Float) {
+  if (self.scalar_type() != c10::ScalarType::Double &&
+      self.scalar_type() != c10::ScalarType::Float) {
     at::TensorOptions hb_options = self.options();
     auto type = self.scalar_type();
 
@@ -2131,6 +2133,7 @@ Tensor index_hpu_lazy(const at::Tensor& self, at::TensorList indices) {
     flush_op(result_cast);
     return result_cast;
   }
+  flush_op(result);
   return result;
 }
 
@@ -3718,7 +3721,11 @@ Tensor sum_dim_IntList_hpu_lazy(
   auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHABANA);
   ir::NodePtr node =
       std::make_shared<ir::SumDimIntList>(self, dim, keepdim, dtype);
-  auto result = sum_dim_IntList_hpu(self, dim, keepdim, dtype);
+  auto result = empty_hpu_lazy(
+      ReduceOperator::compute_output_shape(self, dim, keepdim),
+      self.options(),
+      self.suggest_memory_format(),
+      false);
   auto hl_result = GetHbLazyTensor(result);
   ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
@@ -4588,10 +4595,9 @@ std::tuple<Tensor, Tensor> sort_hpu_lazy(
     int64_t dim,
     bool descending) {
   PT_LAZY_TRACE;
-
+  int64_t size_dim = self.dim() ? self.size(dim) : 1;
   ir::NodePtr node =
-      std::make_shared<ir::TopK>(self, self.size(dim), dim, descending, true);
-
+      std::make_shared<ir::TopK>(self, size_dim, dim, descending, true);
   auto shape_out = self.sizes().vec();
 
   // out 0
