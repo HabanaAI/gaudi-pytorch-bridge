@@ -31,45 +31,6 @@
 using namespace torch;
 using namespace habana;
 
-void LinspaceOperator::AllocateAndAddSynapseNode(
-    synapse_helpers::graph& graph,
-    Stack& inputs,
-    bool is_output_persistent) {
-  const unsigned short constExpectedNoOfInput = 3;
-  TORCH_CHECK(
-      inputs.size() == constExpectedNoOfInput,
-      "Expected " + std::to_string(constExpectedNoOfInput) +
-          " inputs for LinspaceOperator operator but received " +
-          std::to_string(inputs.size()) + " inputs.");
-
-  // Upper bound extended to include upper bound with
-  // range TPC kernel which support [start, limit)
-  const float upperBoundExtension = 0.00001;
-
-  TORCH_CHECK(inputs[0].isTensor(), "Input 1 type expected to be a tensor");
-  TORCH_CHECK(inputs[1].isScalar(), "Input 2 type expected to be a scalar");
-  TORCH_CHECK(inputs[2].isScalar(), "Input 3 type expected to be a scalar");
-
-  auto start = inputs[0].toScalar().toFloat();
-  auto end = inputs[1].toScalar().toFloat();
-  auto stepCount = inputs[2].toScalar().toFloat();
-
-  auto delta = (end - start) / (stepCount - 1) + upperBoundExtension;
-
-  auto device_id = this->p_context_->device_id_;
-
-  ArangeOperator Op(device_id, ScalarType::Float);
-
-  // auto& arange_input_syn =
-  //     Op.SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
-
-  std::vector<c10::IValue> stack{IValue(start), IValue(end), IValue(delta)};
-  Op.AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
-
-  p_context_->syn_outputs_.emplace_back(std::move(Op.GetSynOutputs()[0]));
-  p_context_->pt_outputs_.emplace_back(std::move(Op.GetOutputs()[0]));
-}
-
 void LinspaceOutOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   auto result = inputs[3].toTensor();
   HabanaOperator::SetPTOutput(result);
@@ -2327,11 +2288,6 @@ static auto& KernelRegistry =
             "aten::index.Tensor_hacked_twin",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<IndexOperator>(device_id, node_type);
-            })
-        .add(
-            "aten::linspace",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<LinspaceOperator>(device_id, node_type);
             })
         .add(
             "aten::linspace.out",

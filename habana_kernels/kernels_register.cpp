@@ -449,17 +449,6 @@ Tensor& hpu_wrap::remainder_out(
   }
 };
 
-Tensor hpu_wrap::triu(const Tensor& self, int64_t diagonal) {
-  if (!hpu_check_inputs_impl("triu", {self}))
-    return AtenHpuTypeDefault::triu(self, diagonal);
-  if (GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 0) {
-    return triu_hpu_lazy(self, diagonal);
-  } else {
-    HABANA_ASSERT(0 && "triu is not implemented for eager mode");
-    return triu_hpu_lazy(self, diagonal);
-  }
-};
-
 Tensor& hpu_wrap::diag_out(const Tensor& self, int64_t diagonal, Tensor& out) {
   if (!hpu_check_inputs_impl("diag_out", {self, out}))
     return AtenHpuTypeDefault::diag_out(self, diagonal, out);
@@ -469,17 +458,6 @@ Tensor& hpu_wrap::diag_out(const Tensor& self, int64_t diagonal, Tensor& out) {
     return diag_hpu_out(self, diagonal, out);
   }
 }
-
-Tensor hpu_wrap::tril(const Tensor& self, int64_t diagonal) {
-  if (!hpu_check_inputs_impl("tril", {self}))
-    return AtenHpuTypeDefault::tril(self, diagonal);
-  if (GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 0) {
-    return tril_hpu_lazy(self, diagonal);
-  } else {
-    HABANA_ASSERT(0 && "tril is not implemented for eager mode");
-    return tril_hpu_lazy(self, diagonal);
-  }
-};
 
 Tensor hpu_wrap::pow(const Tensor& self, const Tensor& other) {
   if (!hpu_check_inputs_impl("pow", {self, other}))
@@ -4192,24 +4170,6 @@ Tensor hpu_wrap::slice(
     return SliceFunction::apply(self, dim, start, end, step);
   } else {
     return slice_hpu(self, dim, start, end, step);
-  }
-};
-
-Tensor hpu_wrap::linspace(
-    at::Scalar start,
-    at::Scalar end,
-    c10::optional<int64_t> steps,
-    c10::optional<at::ScalarType> dtype,
-    c10::optional<at::Layout> layout,
-    c10::optional<at::Device> device,
-    c10::optional<bool> pin_memory) {
-  if (GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 0) {
-    return linspace_hpu_lazy(
-        start, end, steps, dtype, layout, device, pin_memory);
-  } else {
-    HABANA_ASSERT(0 && "linspace not implemented for eager mode");
-    return linspace_hpu_lazy(
-        start, end, steps, dtype, layout, device, pin_memory);
   }
 };
 

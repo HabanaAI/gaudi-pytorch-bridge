@@ -269,21 +269,6 @@ class ArangeOperator : public HabanaOperator {
   void SetPTOutputs(torch::jit::Stack& inputs) override;
 };
 
-// Linspace Operator
-class LinspaceOperator : public HabanaOperator {
- public:
-  LinspaceOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(
-            "range_" + habana_helpers::name_suffix_from_type(scalarType)) {
-    this->CreateSynContext(device_id);
-  }
-
-  virtual void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      bool is_output_persistent = false) override;
-};
-
 class IndexOperator : public HabanaOperator {
  public:
   IndexOperator(int device_id, c10::ScalarType scalarType)

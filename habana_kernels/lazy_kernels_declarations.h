@@ -865,14 +865,6 @@ at::Tensor silu_backward_hpu_lazy(
     const at::Tensor& grad,
     const at::Tensor& self);
 at::Tensor& silu_out_hpu_lazy(const at::Tensor& self, at::Tensor& out);
-at::Tensor linspace_hpu_lazy(
-    at::Scalar start,
-    at::Scalar end,
-    c10::optional<int64_t> steps,
-    c10::optional<at::ScalarType> dtype,
-    c10::optional<at::Layout> layout,
-    c10::optional<at::Device> device,
-    c10::optional<bool> pin_memory);
 at::Tensor& linspace_out_hpu_lazy(
     at::Scalar start,
     at::Scalar end,

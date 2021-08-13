@@ -261,28 +261,6 @@ TEST_F(LazyIndexKernelTest, UniqueTest) {
   typetest(torch::kLong);
 }
 
-TEST_F(LazyIndexKernelTest, LinspaceTest) {
-  torch::Scalar start = 0.0;
-  torch::Scalar end = 10.0;
-
-  long int step = 7;
-
-  c10::optional<at::ScalarType> dtype = c10::ScalarType::Int;
-
-  c10::optional<at::Device> hb_device = at::DeviceType::HABANA;
-  at::TensorOptions hb_options =
-      at::TensorOptions().dtype(dtype).device(hb_device);
-  c10::optional<at::Device> cpu_device = at::DeviceType::CPU;
-  at::TensorOptions cpu_options =
-      at::TensorOptions().dtype(dtype).device(cpu_device);
-
-  auto h_a = torch::linspace(start, end, step);
-  auto hOut = h_a.to(torch::kCPU);
-
-  auto a = torch::linspace(start, end, step);
-  EXPECT_EQ(allclose(hOut, a), true);
-}
-
 TEST_F(LazyIndexKernelTest, LinspaceTestStep1) {
   torch::Scalar start = 0.0;
   torch::Scalar end = 10.0;

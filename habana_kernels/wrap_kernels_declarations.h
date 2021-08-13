@@ -22,14 +22,6 @@ struct hpu_wrap {
       const at::Tensor& self,
       int64_t dim,
       c10::optional<at::ScalarType> dtype);
-  static at::Tensor linspace(
-      at::Scalar start,
-      at::Scalar end,
-      c10::optional<int64_t> steps,
-      c10::optional<at::ScalarType> dtype,
-      c10::optional<at::Layout> layout,
-      c10::optional<at::Device> device,
-      c10::optional<bool> pin_memory);
   static at::Tensor& linspace_out(
       at::Scalar start,
       at::Scalar end,
@@ -799,8 +791,6 @@ struct hpu_wrap {
       const at::Tensor& self,
       int64_t diagonal,
       at::Tensor& out);
-  static at::Tensor triu(const at::Tensor& self, int64_t diagonal);
-  static at::Tensor tril(const at::Tensor& self, int64_t diagonal);
 };
 
 std::tuple<at::Tensor&, at::Tensor&>
