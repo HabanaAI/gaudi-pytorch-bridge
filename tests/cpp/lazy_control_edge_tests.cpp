@@ -43,3 +43,20 @@ TEST_F(LazyControlEdgeTest, AsStridedWithinOps) {
 
   EXPECT_TRUE(allclose(c5, h5_c));
 }
+
+TEST_F(LazyControlEdgeTest, ControlEdgeCycle) {
+  auto c0 = torch::tensor({2.0, 3.0});
+  auto c1 = c0.squeeze(-1);
+  auto c2 = c1.mul(0.1);
+  auto c3 = torch::mul(c0, c2);
+
+  auto h0 = c0.to(torch::kHABANA);
+  auto h1 = h0.squeeze(-1);
+  auto h2 = h1.mul(0.1);
+  auto h3 = torch::mul(h0, h2);
+
+  constexpr float rtol = 1e-3;
+  constexpr float atol = 1e-3;
+  auto h3_c = h3.to(torch::kCPU);
+  EXPECT_TRUE(allclose(c3, h3_c, rtol, atol));
+}

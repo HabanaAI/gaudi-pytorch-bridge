@@ -14,28 +14,20 @@ ControlEdgeType nodeRequiresControlEdge(const char* node_name) {
     return ControlEdgeType::kCONTROL_EDGE_NONE;
 }
 
-/*
-Currently we exclude parents nodes from blocking list as they can affect
-pipelining. Ideally we need to exclude all the ancestors. Revisit if current
-approach results in performance issues. Alternateively check if GC can handle
-do this exclusion
-*/
-bool HabanaLaunchOpPT::isBlockingNode(
-    torch::jit::Node* blocking_node,
-    torch::jit::Node* control_edge_node) {
-  bool is_blocking = true;
+// Checks if it is a valid blocking or blocked node
+// specifically eliminates control edges, prim:Param and prim::Return nodes
+bool HabanaLaunchOpPT::IsValidNode(torch::jit::Node* blocking_node) {
+  bool is_valid = true;
 
-  // exclude control edges or
-  // if it is a parent node of blocked node
-  // In JIT IR, the parent of blocked node would actually be parent of control
-  // edge node
+  // exclude control edges
   auto node_str = blocking_node->kind().toQualString();
   auto c_edge = nodeRequiresControlEdge(node_str);
   if (c_edge != ControlEdgeType::kCONTROL_EDGE_NONE ||
-      (control_edge_node->input(0)->node() == blocking_node)) {
-    is_blocking = false;
+      (strcmp(node_str, "prim::Param") == 0) ||
+      (strcmp(node_str, "prim::Return") == 0)) {
+    is_valid = false;
   }
-  return is_blocking;
+  return is_valid;
 }
 
 void HabanaLaunchOpPT::addSynNodes(
@@ -138,7 +130,8 @@ void HabanaLaunchOpPT::PrepareBlockingNodeList(
       auto blocking_node = u.user;
 
       // exclude current use in control_edge as well as parent node
-      if (HabanaLaunchOpPT::isBlockingNode(blocking_node, node)) {
+      if (IsValidNode(blocking_node)) {
+        blocking_nodes_vec.emplace_back(blocking_node);
         HabanaLaunchOpPT::addSynNodes(blocking_syn_nodes_vec, blocking_node);
       }
 
@@ -160,10 +153,80 @@ void HabanaLaunchOpPT::PrepareBlockingNodeList(
     c_edge = nodeRequiresControlEdge(parent_node->kind().toQualString());
   }
 
-  HabanaLaunchOpPT::addSynNodes(blocking_syn_nodes_vec, parent_node);
+  // exclude invalid nodes like prim:Param, prim Return
+  if (IsValidNode(parent_node)) {
+    blocking_nodes_vec.emplace_back(parent_node);
+    HabanaLaunchOpPT::addSynNodes(blocking_syn_nodes_vec, parent_node);
+  }
+}
+
+void HabanaLaunchOpPT::Dfs(torch::jit::Node* node) {
+  dfs_time_in_out_map[node].first = dfs_cnt++;
+
+  for (auto& out : node->outputs()) {
+    for (auto& u : out->uses()) {
+      auto child_node = u.user;
+      if (dfs_time_in_out_map.find(child_node) == dfs_time_in_out_map.end()) {
+        Dfs(child_node);
+      }
+    }
+  }
+
+  dfs_time_in_out_map[node].second = dfs_cnt++;
+}
+
+// Preprocessing is done to compute in and out time time when the graph is
+// traversed using DFS. These times will be used to determine
+// ancester-descendant relationship between any pair of nodes. This relationship
+// helps to avoid control edges induced graph cycles Specifically the blocked
+// node should NOT be an ancestor of blocking node
+
+void HabanaLaunchOpPT::PreprocessControlEdges() {
+  PT_LAZY_TRACE;
+
+  for (auto input_val : jit_ir_graph->inputs()) {
+    // initialize the first and second values for prim::param input nodes
+    dfs_time_in_out_map[input_val->node()].first = 0;
+    dfs_time_in_out_map[input_val->node()].second = INT_MAX;
+    for (auto& u : input_val->uses()) {
+      auto node = u.user;
+
+      if (dfs_time_in_out_map.find(node) == dfs_time_in_out_map.end()) {
+        Dfs(node);
+      }
+    }
+  }
+}
+
+// checks if any of the blocking nodes is an ancestor to the blocked node.
+// this would create a control edge induced graph cycle and subsequently graph
+// compile failure
+bool HabanaLaunchOpPT::IsControlEdgeCycle(torch::jit::Node* blocked_node) {
+  bool is_cycle = false;
+
+  for (auto& blocking_node : blocking_nodes_vec) {
+    // check if blocked node is an ancestor of blocking node
+    HABANA_ASSERT(
+        dfs_time_in_out_map.find(blocking_node) != dfs_time_in_out_map.end());
+    HABANA_ASSERT(
+        dfs_time_in_out_map.find(blocked_node) != dfs_time_in_out_map.end());
+
+    if ((dfs_time_in_out_map[blocking_node].first >
+         dfs_time_in_out_map[blocked_node].first) &&
+        (dfs_time_in_out_map[blocking_node].second <
+         dfs_time_in_out_map[blocked_node].second)) {
+      is_cycle = true;
+      PT_BRIDGE_DEBUG("control edge skipped as it introduces graph cycle")
+      break;
+    }
+  }
+
+  return is_cycle;
 }
 
 void HabanaLaunchOpPT::ProcessControlEdges() {
+  PreprocessControlEdges();
+
   torch::jit::graph_node_list graph_nodes = jit_ir_graph->nodes();
 
   for (auto node : graph_nodes) {
@@ -187,20 +250,29 @@ void HabanaLaunchOpPT::ProcessControlEdges() {
 
             for (auto& l_u : blocked_node_uses) {
               blocked_node = l_u.user;
-              blocked_node_str = blocked_node->kind().toQualString();
 
-              // skip the custom optimizer nodes as they are handled separately
-              if (strcmp(blocked_node_str, node->kind().toQualString()) &&
-                  (!IsCustomOptimizer(blocked_node_str))) {
-                HabanaLaunchOpPT::addSynNodes(
-                    blocked_syn_nodes_vec, blocked_node);
+              if (IsValidNode(blocked_node)) {
+                blocked_node_str = blocked_node->kind().toQualString();
+
+                // skip the custom optimizer nodes as they are handled
+                // separately
+                if (strcmp(blocked_node_str, node->kind().toQualString()) &&
+                    (!IsCustomOptimizer(blocked_node_str))) {
+                  if (!IsControlEdgeCycle(blocked_node)) {
+                    HabanaLaunchOpPT::addSynNodes(
+                        blocked_syn_nodes_vec, blocked_node);
+                  }
+                }
               }
             }
           } else {
             // exclude current use in control_edge
             if (strcmp(blocked_node_str, node->kind().toQualString())) {
-              HabanaLaunchOpPT::addSynNodes(
-                  blocked_syn_nodes_vec, blocked_node);
+              if (IsValidNode(blocked_node) &&
+                  (!IsControlEdgeCycle(blocked_node))) {
+                HabanaLaunchOpPT::addSynNodes(
+                    blocked_syn_nodes_vec, blocked_node);
+              }
             }
           }
         } // for (auto& u : dst_node_uses)
@@ -210,7 +282,8 @@ void HabanaLaunchOpPT::ProcessControlEdges() {
               blocking_syn_nodes_vec, blocked_syn_nodes_vec);
         }
       }
-    }
+      blocking_nodes_vec.clear();
+    } // if (c_edge != ControlEdgeType::kCONTROL_EDGE_NONE)
 
     blocking_syn_nodes_vec.clear();
     blocked_syn_nodes_vec.clear();

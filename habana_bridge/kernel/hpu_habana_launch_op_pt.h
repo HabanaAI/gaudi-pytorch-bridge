@@ -189,6 +189,7 @@ class HabanaLaunchOpPT {
 
   std::unordered_map<torch::jit::Node*, std::vector<synNodeId>>
       jit_to_synapse_node_idx_map;
+  std::vector<torch::jit::Node*> blocking_nodes_vec;
   std::vector<synNodeId> blocking_syn_nodes_vec;
   std::vector<synNodeId> blocked_syn_nodes_vec;
 
@@ -199,6 +200,10 @@ class HabanaLaunchOpPT {
       "hpu::habanaOptimizerAdamW",
       "hpu::habanaOptimizerLambPhase1",
       "hpu::habanaOptimizerLambPhase2"};
+
+  // TODO collect the control edge structures in a child class
+  std::map<torch::jit::Node*, std::pair<size_t, size_t>> dfs_time_in_out_map;
+  size_t dfs_cnt = 0;
 
   LayoutFormat getTensorChannelOrder(torch::jit::Value* val);
   void runMetaDataAdjustmentPasses(torch::jit::graph_node_list graph_nodes);
@@ -227,11 +232,14 @@ class HabanaLaunchOpPT {
   void AdjustInputLayout();
   void ProcessHabanaFusedOpWithDS();
   void CompileAndExecuteHabanaFusedOpKernel();
-  bool isBlockingNode(torch::jit::Node*, torch::jit::Node*);
+  bool IsValidNode(torch::jit::Node*);
   void addSynNodes(std::vector<synNodeId>&, torch::jit::Node*);
   void ProcessControlEdges();
   void PrepareBlockingNodeList(torch::jit::Node*, ControlEdgeType control_type);
   void ProcessCustomOptControlEdges(torch::jit::graph_node_list);
+  void Dfs(torch::jit::Node*);
+  void PreprocessControlEdges();
+  bool IsControlEdgeCycle(torch::jit::Node*);
   void HandleMappedTensor(
       CValPtr value_in,
       const HabanaOperatorPtr& habana_op,
