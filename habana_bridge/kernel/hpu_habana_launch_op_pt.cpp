@@ -722,10 +722,9 @@ void HabanaLaunchOpPT::ProcessPersistentNodeOutput(
         duplicate_outtinfos.emplace_back(ti);
       } else {
         // Case 1.B: intermediate persistent tensor
-        if (enable_tensor_release_) {
-          TORCH_CHECK(
-              false == ti.is_view_tensor(),
-              "Starting persistent intermediate can not be a view tensor ",
+        if (enable_tensor_release_ && ti.is_view_tensor()) {
+          PT_BRIDGE_DEBUG(
+              "Starting persistent intermediate is view tensor ",
               "with non zero offset ",
               ti.get_offset());
         }
