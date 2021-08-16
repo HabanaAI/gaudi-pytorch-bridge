@@ -4473,12 +4473,14 @@ std::vector<Tensor> split_with_sizes_hpu_lazy(
   size_t m_index = 0;
 
   for (auto ht : hlresult) {
+    updateDstDependencies(hlresult[m_index], result[m_index]);
     auto& out = ht.CurrentIrValue();
     out.m_index = m_index++;
     out.SetNode(
         node_unpack, ht.GetDevice(), ht.GetSizes(), ht.dtype_optional());
   }
 
+  flush_op(result);
   return result;
 };
 
