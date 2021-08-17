@@ -799,6 +799,39 @@ Tensor as_strided_hpu_lazy(
   }
 };
 
+void AddMemcpy(Tensor& src, Tensor& dst) {
+  auto hl_dst = GetOrCreateHbLazyTensor(dst);
+  auto hl_src = GetHbLazyTensor(src);
+
+  auto copy_node = habana_lazy::ir::Node::Create(
+      Symbol::fromQualString("hpu::habana_d2d_memcpy_other"),
+      {hl_src.GetIrValue(), hl_dst.GetIrValue()});
+
+  // As its an inplace op and we want this op to execute
+  // we want to wind back status of this tensor to registered
+  // so that when post order is created, we actually execute it
+  auto context = habana_lazy::habana_lazy_executor.getDeviceExecutionContext(
+      dst.device().index());
+  context->MarkTensorRegistered(hl_dst.getTensorUniqueId());
+  habana_lazy::ir::Value& out = hl_dst.CurrentIrValue();
+  out.m_index = 0;
+  out.SetNode(
+      copy_node,
+      hl_dst.GetDevice(),
+      hl_dst.GetSizes(),
+      hl_dst.dtype_optional());
+
+  flush_op(dst);
+}
+Tensor CreateDeviceTensorFromScalar(Scalar value, c10::ScalarType scalar_type) {
+  Tensor value_tensor;
+  if (scalar_type == c10::ScalarType::Float)
+    value_tensor = at::tensor(value.toFloat()).to(c10::kHABANA, true);
+  else if (scalar_type == c10::ScalarType::Int)
+    value_tensor = at::tensor(value.toInt()).to(c10::kHABANA, true);
+  return value_tensor;
+}
+
 Tensor asin_hpu_lazy(const Tensor& self) {
   PT_LAZY_TRACE;
   LazyOp<at::Tensor> k{"aten::asin", {self}};
@@ -1841,66 +1874,34 @@ Tensor& masked_fill_hpu_lazy_(
     Tensor& self,
     const Tensor& mask,
     const Tensor& value) {
-  TORCH_CHECK(
-      value.dim() == 0, "value supports only 0D tensor to match CPU behavior");
-  auto mask_expand = mask;
-  if (self.sizes() != mask.sizes()) {
-    // this explicit broadcast can be removed when
-    // binary kernels start supporting broadcase
-    mask_expand = mask.expand(self.sizes());
-  }
+  PT_LAZY_TRACE;
+  // TPC doesn't support inplace where natively
+  // Implement using out of place where followed by D2D copy
+  // TODO revisit once strided mem copy feature is mature
 
-  TORCH_CHECK(
-      self.sizes() == mask_expand.sizes(),
-      "input & mask tensor shapes not matching");
-  auto new_mask = mask_expand.to(self.dtype());
-  // create a inverted mask
-  auto zero_tensor = at::zeros_like(
-      new_mask, new_mask.options(), new_mask.suggest_memory_format());
-  auto inv_mask = at::eq(new_mask, zero_tensor).to(self.dtype());
-  auto value_expand = value.expand(self.sizes());
+  LazyOp<Tensor> where_op(
+      "aten::_s_where",
+      {mask, value, self},
+      {},
+      {},
+      2 /*output metadata is picked from self*/);
 
-  LazyBinaryOp<Tensor&> op("aten::mul_", {self, inv_mask});
-  op.call(self);
-
-  LazyBinaryOp<Tensor&> op1("aten::mul_", {new_mask, value_expand});
-  op1.call(new_mask);
-
-  Scalar alpha = 1.f;
-  LazyBinaryOp<at::Tensor&> k{"aten::add_", {self, new_mask, alpha}};
-  return k.call(self);
+  Tensor where_out = where_op.call();
+  // add a control edge as we add a loop using d2d copy back to self
+  auto hl_self = GetOrCreateHbLazyTensor(self);
+  updateDstDependencies(hl_self, self, true);
+  // Adding memcpy to copy the output back to self as this is an inplace op
+  AddMemcpy(where_out, self);
+  return self;
 }
+
 Tensor& masked_fill_scalar_hpu_lazy_(
     Tensor& self,
     const Tensor& mask,
     Scalar value) {
   PT_LAZY_TRACE;
-  auto mask_expand = mask;
-  if (self.sizes() != mask.sizes()) {
-    // this explicit broadcast can be removed when
-    // binary kernels start supporting broadcase
-    mask_expand = mask.expand(self.sizes());
-  }
-
-  TORCH_CHECK(
-      self.sizes() == mask_expand.sizes(),
-      "input & mask tensor shapes not matching");
-  auto new_mask = mask_expand.to(self.dtype());
-  // create a inverted mask
-  auto zero_tensor = at::zeros_like(
-      new_mask, new_mask.options(), new_mask.suggest_memory_format());
-  auto inv_mask = at::eq(new_mask, zero_tensor).to(self.dtype());
-  auto value_expand = torch::full(self.sizes(), value.toFloat());
-
-  LazyBinaryOp<Tensor&> op("aten::mul_", {self, inv_mask});
-  op.call(self);
-
-  LazyBinaryOp<Tensor&> op1("aten::mul_", {new_mask, value_expand});
-  op1.call(new_mask);
-
-  Scalar alpha = 1.f;
-  LazyBinaryOp<at::Tensor&> k{"aten::add_", {self, new_mask, alpha}};
-  return k.call(self);
+  Tensor value_tensor = CreateDeviceTensorFromScalar(value, self.scalar_type());
+  return masked_fill_hpu_lazy_(self, mask, value_tensor);
 }
 Tensor gather_src_hpu_lazy(
     const Tensor& self,
