@@ -27,7 +27,8 @@
 
 namespace synapse_helpers {
 class stream;
-
+class hcl_communicator;
+using hcl_communicator_handle = std::shared_ptr<hcl_communicator>;
 inline synapse_error make_synapse_error(HCLStatus hcl_status, std::string msg) {
   synStatus status{synFail};
   switch (hcl_status) {
@@ -50,17 +51,22 @@ inline synapse_error make_synapse_error(HCLStatus hcl_status, std::string msg) {
   return {std::move(msg), status};
 }
 
-class hcl_communicator {
+class hcl_communicator : public std::enable_shared_from_this<hcl_communicator> {
  public:
-  explicit hcl_communicator(
+  hcl_communicator(synDeviceId device_id, std::string config_path = "");
+  hcl_communicator(
+      hcl_communicator_handle parent,
+      const std::vector<int>& ranks);
+  static hcl_communicator_handle get_or_create_world(
       synDeviceId device_id,
-      HCL_Comm hcl_comm = HCL_COMM_WORLD,
-      std::string config_path = "");
+      const std::string& config_path = "");
   hcl_communicator(hcl_communicator&) = delete;
   hcl_communicator(hcl_communicator&&) = delete;
   hcl_communicator& operator=(hcl_communicator&) = delete;
   hcl_communicator&& operator=(hcl_communicator&&) = delete;
   ~hcl_communicator();
+
+  hcl_communicator_handle create_subcommunicator(const std::vector<int>& ranks);
 
   synapse_error_o allreduce(
       device_ptr input_address,
@@ -174,7 +180,7 @@ class hcl_communicator {
   HCL_Rank root_hcl_rank() const;
 
   HCL_Comm hcl_comm() const {
-    return comm_id_;
+    return hcl_comm_;
   };
 
   synDeviceId my_device_id() const {
@@ -191,7 +197,11 @@ class hcl_communicator {
     return using_streams_;
   };
 
+  bool is_world() const {
+    return (parent_ == nullptr) && (hcl_comm_ == HCL_COMM_WORLD);
+  }
   void negotiate_root_rank(int order);
+  void negotiate_rank_mappings(int rank);
 
   uint32_t get_sync_tag() const {
     sync_tag_++;
@@ -199,7 +209,11 @@ class hcl_communicator {
   }
 
  private:
-  static const HCL_Rank HCL_RANK_UNASSIGNED{0xFFFF};
+  static const HCL_Rank HCL_RANK_UNASSIGNED{HCL_INVALID_RANK};
+  static const HCL_Comm HCL_COMM_UNASSIGNED{(HCL_Comm)(-1)};
+  static std::unordered_map<synDeviceId, std::weak_ptr<hcl_communicator>>
+      hcl_world;
+  static std::mutex world_mtx;
 
   using hcl_collective_fnc = std::function<HCLStatus(
       synStreamHandle handle,
@@ -240,10 +254,15 @@ class hcl_communicator {
       device_ptr output_address,
       size_t& buffer_len);
 
+  void setup_rank_and_size();
+  hcl_communicator_handle parent_{nullptr};
+  std::unordered_map<int16_t, HCL_Rank> rank_mappings_{};
+  bool mappings_negotiated_{};
   std::shared_ptr<device> my_device_{nullptr};
   std::shared_ptr<owned_device_ptr> intermediate_buffer_{nullptr};
   std::mutex intermediate_buffer_allocation_mtx;
-  HCL_Comm comm_id_;
+  HCL_Comm hcl_comm_{HCL_COMM_UNASSIGNED};
+  std::mutex comm_mtx_;
   bool using_streams_;
   mutable uint32_t sync_tag_{2020};
   int size_{0};

@@ -181,6 +181,7 @@ class ProcessGroupHCL : public ProcessGroup {
   // Maintains the list of communicators associated with the devices.
   std::map<int, std::shared_ptr<synapse_helpers::hcl_communicator>>
       hcl_communicator_;
+  c10::intrusive_ptr<Store> store_;
 };
 
 } // namespace c10d

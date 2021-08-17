@@ -34,6 +34,10 @@
 
 namespace synapse_helpers {
 
+std::unordered_map<synDeviceId, std::weak_ptr<hcl_communicator>>
+    hcl_communicator::hcl_world;
+std::mutex hcl_communicator::world_mtx;
+
 #define VERIFY_HCL_STATUS(msg, status)          \
   {                                             \
     if ((status) != eHCLSuccess) {              \
@@ -55,16 +59,53 @@ namespace synapse_helpers {
     }                                       \
   }
 
+hcl_communicator_handle hcl_communicator::get_or_create_world(
+    synDeviceId device_id,
+    const std::string& config_path) {
+  std::lock_guard<std::mutex> lock(world_mtx);
+  hcl_communicator_handle world_handle{nullptr};
+
+  if (hcl_world.end() != hcl_world.find(device_id)) {
+    world_handle = hcl_world[device_id].lock();
+  }
+
+  if (world_handle != nullptr) {
+    return world_handle;
+  }
+
+  world_handle = std::shared_ptr<hcl_communicator>(
+      new hcl_communicator(device_id, config_path)); // NOLINT
+  hcl_world[device_id] = world_handle;
+  return world_handle;
+}
+
+hcl_communicator_handle hcl_communicator::create_subcommunicator(
+    const std::vector<int>& ranks) {
+  std::lock_guard<std::mutex> lock(comm_mtx_);
+  PT_DISTRIBUTED_DEBUG("Create subcommunicator with size: ", ranks.size());
+  HABANA_ASSERT(ranks.size() > 0);
+
+  hcl_communicator_handle sub_comm_handle{
+      new hcl_communicator(shared_from_this(), ranks)};
+
+  HABANA_ASSERT(sub_comm_handle != nullptr);
+
+  for (auto& hcl_rank : ranks) {
+    PT_DISTRIBUTED_DEBUG(
+        "Comm ", sub_comm_handle->hcl_comm(), " has rank ", hcl_rank, ".");
+  }
+  return sub_comm_handle;
+}
+
 hcl_communicator::hcl_communicator(
     synDeviceId device_id,
-    HCL_Comm hcl_comm,
     std::string config_path)
-    : comm_id_(hcl_comm), using_streams_(false) {
+    : hcl_comm_(HCL_COMM_WORLD), using_streams_(false) {
   // if config path were not passed by parameter try obtain one from environment
   if (config_path.empty()) {
-    char* config_json_path = std::getenv("HCL_CONFIG_PATH");
-    if (config_json_path) {
-      config_path = config_json_path;
+    char* config_path = std::getenv("HCL_CONFIG_PATH");
+    if (config_path) {
+      config_path = config_path;
     } else {
       PT_DISTRIBUTED_DEBUG("HCL_CONFIG_PATH is not set");
     }
@@ -87,27 +128,61 @@ hcl_communicator::hcl_communicator(
   HCLStatus hcl_status{
       HCL_Init(device_id, config_path.empty() ? nullptr : config_path.c_str())};
   HABANA_ASSERT(hcl_status == eHCLSuccess);
+  setup_rank_and_size();
+} // namespace synapse_helpers
 
-  hcl_status = HCL_Comm_Size(hcl_comm, &size_);
+hcl_communicator::hcl_communicator(
+    hcl_communicator_handle parent,
+    const std::vector<int>& ranks)
+    : parent_(std::move(parent)) {
+  // Copy some basic fields from parent communicator
+  HABANA_ASSERT(parent_ != nullptr);
+  using_streams_ = parent_->using_streams_;
+  my_device_ = parent_->my_device_;
+
+  // Initialize new sub communicator in HCL
+  HCLStatus status{eHCLSuccess};
+  status = HCL_Comm_Incl(
+      parent_->hcl_comm(), ranks.size(), ranks.data(), &hcl_comm_);
+  if (status != eHCLSuccess) {
+    PT_DISTRIBUTED_FATAL("HCL_Comm_Incl status: ", status);
+  }
+  HABANA_ASSERT(status == eHCLSuccess);
+  HABANA_ASSERT(
+      (HCL_COMM_UNASSIGNED != hcl_comm_) && (HCL_COMM_WORLD != hcl_comm_));
+  setup_rank_and_size();
+}
+
+void hcl_communicator::setup_rank_and_size() {
+  HCLStatus hcl_status{eHCLSuccess};
+
+  hcl_status = HCL_Comm_Size(hcl_comm_, &size_);
   HABANA_ASSERT(hcl_status == eHCLSuccess);
   HABANA_ASSERT(size_ != 0);
 
-  hcl_status = HCL_Comm_Rank(hcl_comm, &my_hcl_rank_);
+  hcl_status = HCL_Comm_Rank(hcl_comm_, &my_hcl_rank_);
   HABANA_ASSERT(hcl_status == eHCLSuccess);
-  HABANA_ASSERT(my_hcl_rank_ != HCL_RANK_UNASSIGNED);
 
   PT_DISTRIBUTED_DEBUG(
       "[PYT-DIST] Init done. Rank: ", my_hcl_rank_, " Size: ", size_, ".");
-} // namespace synapse_helpers
+}
 
 hcl_communicator::~hcl_communicator() {
   PT_DISTRIBUTED_DEBUG("[PYT-DIST] ~hcl_communicator() entry.");
   HCLStatus hcl_status{eHCLSuccess};
-  get_collective_stream()->synchronize();
-  HCL_Sync(hcl_comm(), get_sync_tag());
-  PT_DISTRIBUTED_DEBUG("[PYT-DIST] Destroying HCL..");
-  hcl_status = HCL_Destroy();
-  HABANA_ASSERT(hcl_status == eHCLSuccess);
+  if (is_world()) {
+    get_collective_stream()->synchronize();
+    HCL_Sync(hcl_comm_, get_sync_tag());
+    PT_DISTRIBUTED_DEBUG("[PYT-DIST] Destroying HCL..");
+    hcl_status = HCL_Destroy();
+    HABANA_ASSERT(hcl_status == eHCLSuccess);
+  } else {
+    PT_DISTRIBUTED_DEBUG("[PYT_DIST] Destroying comm group");
+    if (hcl_comm_ != HCL_COMM_UNASSIGNED) {
+      hcl_status = HCL_Comm_Free(hcl_comm_);
+      HABANA_ASSERT(hcl_status == eHCLSuccess);
+    }
+  }
 }
 
 synapse_error_o hcl_communicator::allreduce(

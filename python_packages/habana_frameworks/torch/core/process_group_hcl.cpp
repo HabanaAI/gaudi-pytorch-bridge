@@ -98,24 +98,101 @@ std::vector<at::Tensor> flatten_for_scatter_gather(
 
 } // namespace
 
+namespace {
+constexpr const char* const kRankExchangeStoreKey = "RANK_EXCHANGE_STORE_KEY";
+constexpr int kByteOffset = 8;
+} // namespace
+
+template <typename T>
+inline std::vector<T> toVec(int num, int numBytes) {
+  std::vector<T> values;
+  // Read off bytes from right to left, pushing them into
+  // char array.
+  for (int i = 0; i < numBytes; i++) {
+    uint8_t x = (num >> (kByteOffset * i)) & 0xff;
+    values.push_back(static_cast<T>(x));
+  }
+  return values;
+}
+
+// Converts from char vec (such as from store read) to int.
+template <typename T>
+inline int fromVec(const std::vector<T>& values) {
+  int num = 0;
+  // Set each byte at the correct location on num
+  for (auto i = 0; i < values.size(); i++) {
+    uint8_t x = static_cast<uint8_t>(values[i]);
+    num |= (static_cast<int>(x) << (kByteOffset * i));
+  }
+  return num;
+}
+
 std::shared_ptr<hcl_communicator> ProcessGroupHCL::getComm(int deviceId) {
   if (hcl_communicator_.find(deviceId) == hcl_communicator_.end()) {
     char* config_json_path = std::getenv("HCL_CONFIG_PATH");
-    HCL_Comm pgComm_ = HCL_COMM_WORLD;
-    hcl_communicator_[deviceId] = std::make_shared<hcl_communicator>(
-        deviceId, pgComm_, config_json_path ?: "");
+    auto global_comm =
+        hcl_communicator::get_or_create_world(deviceId, config_json_path ?: "");
+    auto world_size = global_comm->size();
+    auto size = getSize();
+    auto rank = getRank();
+    if (world_size == size) {
+      hcl_communicator_[deviceId] = global_comm;
+    } else {
+      auto hcl_rank = global_comm->my_hcl_rank();
+      std::vector<int> valid_ranks;
+      // HCL Subcomm requires the list of ranks participating in the
+      // communicator Pytorch interface provides support to a store interface
+      // with set get capabilities.  Temporarily using this till HCCL adds
+      // support for sub comm groups.  Pytorch provides supprt for PrefixStore
+      // which creates a separate store for each ProcessGroup call. Rank 0 waits
+      // for information from all the other ranks about the HCL rank which are
+      // participating in this communicator group. Once it receives all the
+      // ranks it broadcasts the list of all ranks participating in the
+      // communicator to all the other processes.
+      if (rank == 0) {
+        std::vector<uint8_t> rank_buff;
+        valid_ranks.push_back(hcl_rank);
+        for (auto i = 1; i < size; i++) {
+          auto dataKey = kRankExchangeStoreKey + std::to_string(i);
+          store_->wait({dataKey});
+          std::vector<uint8_t> values = store_->get(dataKey);
+          valid_ranks.push_back(fromVec(values));
+        }
+        sort(valid_ranks.begin(), valid_ranks.end());
+        for (auto valid_rank : valid_ranks) {
+          std::vector<uint8_t> values = toVec<uint8_t>(valid_rank, sizeof(int));
+          rank_buff.insert(rank_buff.end(), values.begin(), values.end());
+        }
+
+        store_->set(kRankExchangeStoreKey + std::to_string(rank), rank_buff);
+      } else {
+        std::vector<uint8_t> rank_value = toVec<uint8_t>(hcl_rank, sizeof(int));
+        store_->set(kRankExchangeStoreKey + std::to_string(rank), rank_value);
+        auto rootKey = kRankExchangeStoreKey + std::to_string(0);
+        store_->wait({rootKey});
+        std::vector<uint8_t> values = store_->get(rootKey);
+        for (auto i = 0; i < size; i++) {
+          valid_ranks.push_back(fromVec(std::vector<uint8_t>(
+              values.begin() + (i * sizeof(int)),
+              values.begin() + ((i + 1) * sizeof(int)))));
+        }
+      }
+      hcl_communicator_[deviceId] =
+          global_comm->create_subcommunicator(valid_ranks);
+    }
   }
   return hcl_communicator_.find(deviceId)->second;
 }
 // TBD: Store not used for now and config done from file
 // Initial support added for multiple devices on a single node
-// So using rank as the device id.  This will be enhanced further.
+// So using rank as the device id.  This will be enhanced further
+
 ProcessGroupHCL::ProcessGroupHCL(
     const c10::intrusive_ptr<Store>& store,
     int rank,
     int size,
     const std::chrono::milliseconds& opTimeout)
-    : ProcessGroup(rank, size), stop_(false) {}
+    : ProcessGroup(rank, size), stop_(false), store_(store) {}
 
 ProcessGroupHCL::~ProcessGroupHCL() {
   destroy();
