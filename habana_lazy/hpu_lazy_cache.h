@@ -77,11 +77,11 @@ class LazyArgumentSpec {
  public:
   LazyArgumentSpec(
       bool with_grad,
-      const at::ArrayRef<torch::jit::IValue> input_refs,
+      const at::ArrayRef<torch::jit::IValue>& input_refs,
       size_t post_order_nodes_hash,
       const ir::ValueList inputs,
       const ir::ValueNodeListMap value_input_nodes_map,
-      const size_t num_outputs,
+      const ir::ValueList& outputs,
       const std::vector<size_t>& parent_vec);
 
   bool operator==(const LazyArgumentSpec& rv) const {
@@ -104,11 +104,14 @@ class LazyArgumentSpec {
       bool with_grad,
       const at::ArrayRef<torch::jit::IValue>& input_refs,
       const ir::ValueList& inputs,
-      const ir::ValueNodeListMap& value_input_nodes_map);
+      const ir::ValueNodeListMap& value_input_nodes_map,
+      const ir::ValueList& outputs);
 
   size_t GetInputHash(
       const ir::ValueList& inputs,
       const ir::ValueNodeListMap& value_input_nodes_map);
+
+  size_t GetOutputHash(const ir::ValueList& outputs);
 
   size_t m_post_order_nodes_hash;
   size_t m_hash_code = 0;

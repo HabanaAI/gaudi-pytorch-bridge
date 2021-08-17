@@ -10,6 +10,7 @@
 
 #pragma once
 #include <torch/csrc/jit/ir/ir.h>
+#include <climits>
 #include <iostream>
 #include <memory>
 #include <string>
@@ -305,6 +306,14 @@ class Node {
     return m_is_output_tensor_list;
   }
 
+  size_t get_post_order_pos() {
+    return post_order_pos;
+  }
+
+  void set_post_order_pos(size_t pos) {
+    post_order_pos = pos;
+  }
+
  protected:
   c10::Symbol m_op;
   bool m_is_input = false;
@@ -315,6 +324,7 @@ class Node {
   std::set<Use> m_uses;
   MetaData m_meta_data;
   size_t m_node_hash = 0;
+  size_t post_order_pos = ULLONG_MAX;
   std::vector<at::Tensor> m_input_pt_tensors;
 };
 

@@ -221,7 +221,7 @@ void HlExec::GetOrCreate(
       po_data.post_order_nodes_hash,
       po_data.inputs,
       po_data.value_input_nodes_map,
-      po_data.outputs.size(),
+      po_data.outputs,
       parent_vec);
   mp_g_ = habana_lazy::LazyGraphCache::GetLazyCache().GetOptimizedJITGraph(
       las.hashCode());
@@ -236,18 +236,7 @@ void HlExec::GetOrCreate(
     // Create a JIT graph from the post order graph
     // Optimization is done during Create() itself
     Create(po_data.post_order, po_data.inputs, po_data.outputs, stack);
-
     PruneDuplicateGraphInputs(parent_vec, is_duplicate_vec);
-
-    // Create a lazyArgumentSpec
-    las = habana_lazy::LazyArgumentSpec(
-        true,
-        stack,
-        po_data.post_order_nodes_hash,
-        po_data.inputs,
-        po_data.value_input_nodes_map,
-        po_data.outputs.size(),
-        parent_vec);
     LazyGraphCache::GetLazyCache().Add(las.hashCode(), mp_g_);
   } else {
     PT_LAZY_DEBUG("JIT Cache hit");

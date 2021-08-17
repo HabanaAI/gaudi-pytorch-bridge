@@ -96,6 +96,8 @@ void RecipeArgumentSpec::ComputeGraphHashCode(
     const std::string& id) {
   std::hash<std::string> str_hash;
   opstrs.append((id.empty() ? std::string("UNNAMED") : id) + "::\n");
+  std::unordered_map<torch::jit::Node*, size_t> node_idx_map;
+  size_t idx{0};
   for (auto node : irgraph->nodes()) {
     if (node->kind() != torch::jit::prim::Constant) {
       std::string s(node->kind().toQualString());
@@ -116,8 +118,35 @@ void RecipeArgumentSpec::ComputeGraphHashCode(
       oss << *node;
       opstrs.append(oss.str());
     }
+    node_idx_map.emplace(node, idx);
+    idx++;
   }
   graph_hash_code = str_hash(opstrs);
+
+  size_t connection_hash{0};
+  // Adding input hash
+  for (size_t i = 0; i < irgraph->inputs().size(); ++i) {
+    auto value_in = irgraph->inputs().at(i);
+    size_t input_connection_hash = i;
+    for (auto& use : value_in->uses()) {
+      auto node = use.user;
+      HABANA_ASSERT(node);
+      input_connection_hash =
+          at::hash_combine(input_connection_hash, node_idx_map[node]);
+    }
+    connection_hash = at::hash_combine(connection_hash, input_connection_hash);
+  }
+  // Adding output hash
+  for (size_t i = 0; i < irgraph->outputs().size(); ++i) {
+    auto value_out = irgraph->outputs().at(i);
+    size_t output_connection_hash = i;
+    auto node = value_out->node();
+    HABANA_ASSERT(node);
+    output_connection_hash =
+        at::hash_combine(output_connection_hash, node_idx_map[node]);
+    connection_hash = at::hash_combine(connection_hash, output_connection_hash);
+  }
+  graph_hash_code = at::hash_combine(graph_hash_code, connection_hash);
 }
 
 void RecipeArgumentSpec::ComputeOffsetHashCode(

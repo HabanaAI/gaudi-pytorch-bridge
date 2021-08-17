@@ -37,7 +37,7 @@ TEST(LazyCacheTest, CacheMissEmptyCache) {
       post_order_nodes_hash,
       {},
       value_input_nodes_map,
-      0,
+      {},
       parent_vec);
 
   // Look for the lazyArgumentSpec in lazy cache
@@ -75,7 +75,7 @@ TEST(LazyCacheTest, CacheHitSameInput) {
       post_order_nodes_hash,
       {},
       value_input_nodes_map,
-      0,
+      {},
       parent_vec);
 
   // Look for the LazyArgumentSpec in lazy cache
@@ -125,7 +125,7 @@ TEST(LazyCacheTest, CacheHitSameDimTensors) {
       post_order_nodes_hash,
       {},
       value_input_nodes_map,
-      0,
+      {},
       parent_vec1);
 
   // Look for the LazyArgumentSpec in lazy cache
@@ -154,7 +154,7 @@ TEST(LazyCacheTest, CacheHitSameDimTensors) {
       post_order_nodes_hash,
       {},
       value_input_nodes_map,
-      0,
+      {},
       parent_vec2);
 
   // Look for the LazyArgumentSpec in lazy cache
@@ -192,7 +192,7 @@ TEST(LazyCacheTest, CacheMissDiffInputs) {
       post_order_nodes_hash,
       {},
       value_input_nodes_map,
-      0,
+      {},
       parent_vec1);
 
   // Look for the LazyArgumentSpec in lazy cache
@@ -222,7 +222,7 @@ TEST(LazyCacheTest, CacheMissDiffInputs) {
       post_order_nodes_hash,
       {},
       value_input_nodes_map,
-      0,
+      {},
       parent_vec2);
 
   // Look for the LazyArgumentSpec in lazy cache
@@ -259,7 +259,7 @@ TEST(LazyCacheTest, CacheMissDiffGraph) {
       post_order_nodes_hash,
       {},
       value_input_nodes_map,
-      0,
+      {},
       parent_vec);
 
   // Look for the LazyArgumentSpec in lazy cache
@@ -288,7 +288,7 @@ TEST(LazyCacheTest, CacheMissDiffGraph) {
       post_order_nodes_hash2,
       {},
       value_input_nodes_map,
-      0,
+      {},
       parent_vec2);
 
   // Look for the LazyArgumentSpec in lazy cache
@@ -330,7 +330,7 @@ TEST(LazyCacheTest, DISABLED_CacheMissDiffScalars) {
       post_order_nodes_hash,
       {},
       value_input_nodes_map,
-      0,
+      {},
       parent_vec1);
 
   // Look for the LazyArgumentSpec in lazy cache
@@ -360,7 +360,7 @@ TEST(LazyCacheTest, DISABLED_CacheMissDiffScalars) {
       post_order_nodes_hash,
       {},
       value_input_nodes_map,
-      0,
+      {},
       parent_vec2);
 
   // Look for the LazyArgumentSpec in lazy cache
