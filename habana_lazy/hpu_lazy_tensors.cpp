@@ -447,6 +447,7 @@ void HbLazyTensor::SyncTensorsGraph(
     std::vector<HbLazyTensor>* tensors,
     bool is_blocking) {
   PT_LAZY_TRACE;
+  std::lock_guard<std::recursive_mutex> lock(HbContextArena::Get()->GetMutex());
   SyncTensorsGraphInternal(tensors, is_blocking);
 }
 
