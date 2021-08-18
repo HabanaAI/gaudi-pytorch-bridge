@@ -192,8 +192,14 @@ std::vector<int64_t> GatherOperator::compute_output_shape(
   auto dim = at::maybe_wrap_dim(dim_, self.dim(), /*wrap_scalar=*/true);
   auto shape = self.sizes().vec();
   if (shape.size()) {
-    shape.erase(shape.begin() + dim);
-    shape.insert(shape.begin() + dim, index.numel());
+    // for gather op, output size is same as index
+    if (self.dim() == index.dim()) {
+      shape = index.sizes().vec();
+    } else {
+      // for index_select and other index ops
+      shape.erase(shape.begin() + dim);
+      shape.insert(shape.begin() + dim, index.numel());
+    }
   }
   return shape;
 }

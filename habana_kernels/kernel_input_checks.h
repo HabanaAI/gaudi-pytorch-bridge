@@ -1674,7 +1674,9 @@ static const std::
             },
             {
                 "scatter_add_",
-                {{at::ScalarType::Float,
+                {{at::ScalarType::Int,
+                  at::ScalarType::Long,
+                  at::ScalarType::Float,
                   at::ScalarType::BFloat16,
                   at::ScalarType::Double}},
             },
