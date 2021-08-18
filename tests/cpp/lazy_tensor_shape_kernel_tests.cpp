@@ -256,6 +256,28 @@ TEST_F(LazyTensorShapeKernelTest, SplitTest) {
   }
 }
 
+TEST_F(LazyTensorShapeKernelTest, Resize) {
+  auto h_input = torch::arange(10).to(torch::kHPU);
+
+  std::vector<int64_t> sizes({1, 2, 3, 2});
+  h_input.resize_(sizes);
+  EXPECT_EQ(
+      h_input.nbytes(), at::multiply_integers(sizes) * h_input.itemsize());
+  EXPECT_TRUE(equal(h_input.cpu().view(-1).slice(0, 0, 10), torch::arange(10)));
+
+  std::vector<int64_t> sizes2({2, 2});
+  h_input.resize_(sizes2);
+  EXPECT_EQ(
+      h_input.nbytes(), at::multiply_integers(sizes2) * h_input.itemsize());
+  EXPECT_TRUE(equal(h_input.cpu().view(-1).slice(0, 0, 4), torch::arange(4)));
+
+  std::vector<int64_t> sizes3({3, 2, 2});
+  h_input.resize_(sizes3);
+  EXPECT_EQ(
+      h_input.nbytes(), at::multiply_integers(sizes3) * h_input.itemsize());
+  EXPECT_TRUE(equal(h_input.cpu().view(-1).slice(0, 0, 4), torch::arange(4)));
+}
+
 TEST_F(LazyTensorShapeKernelTest, FlipTest) {
   torch::Tensor tensor = torch::rand({2, 3, 2});
   torch::Tensor tHabana = tensor.to(torch::kHPU);

@@ -207,6 +207,43 @@ class LazyOp {
     return self;
   }
 
+  template <typename T = ReturnType>
+  typename std::enable_if<std::is_same<T, const at::Tensor&>::value, T>::type
+  call() {
+    const at::Tensor& self = get_inputs().at(0).toTensor();
+    auto hl_self = GetHbLazyTensor(self);
+    const auto& node = create_node();
+    ir::Value& out = hl_self.CurrentIrValue();
+    out.SetNode(
+        node,
+        hl_self.GetDevice(),
+        hl_self.GetSizes(),
+        hl_self.dtype_optional());
+    updateDstDependencies(hl_self, self, false);
+
+    auto out_shape = m_out_shapes.empty()
+        ? get_inputs().at(m_out_index).toTensor().sizes().vec()
+        : m_out_shapes[0];
+    if (self.sizes() != out_shape) {
+      auto impl = hl_self.getAttachedTensorImpl();
+      THHTensor_resizeNd(impl, out_shape.size(), out_shape.data(), nullptr);
+      self.unsafeGetTensorImpl()->set_sizes_contiguous(out_shape);
+    }
+
+    auto context = habana_lazy_executor.getDeviceExecutionContext();
+    context->MarkTensorStatus(
+        hl_self.getTensorUniqueId(), LazyTensorExecutionStatus::kREGISTERED);
+
+    if (m_flush_op) {
+      std::vector<HbLazyTensor> hl_tensors = {hl_self};
+      HbLazyTensor::SyncTensorsGraph(&hl_tensors);
+    }
+    if (m_random_flush) {
+      flushWithMarkStep();
+    }
+    return self;
+  }
+
   // wrapped_scalar_tensor in ATen/native/BinaryOps.cpp
   void ConvertWrappedTensorToScalar() {
     m_convert_wrapped_tensor_to_scalar = true;
