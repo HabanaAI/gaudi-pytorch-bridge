@@ -265,6 +265,30 @@ void RemoveRedundantRestrideNodes(std::shared_ptr<Graph>& graph) {
   RemoveRedundantOp(graph, "hpu::restride_cl");
 }
 
+static const std::unordered_map<std::string, size_t> dimBasedOpsIdx = {
+    {"aten::slice", 1}};
+
+bool isDimBasedOp(const Node* node) {
+  return node ? dimBasedOpsIdx.count(node->kind().toQualString()) != 0 : false;
+}
+
+int64_t getLayoutDim(habana::LayoutFormat layout, int64_t dim) {
+  int layout_dim = dim;
+  if (layout == habana::LayoutFormat::NCHW) {
+    int64_t dimarr[] = {0, 1, 2, 3};
+    layout_dim = dimarr[dim];
+  } else if (layout == habana::LayoutFormat::NHWC) {
+    int64_t dimarr[] = {0, 3, 1, 2};
+    layout_dim = dimarr[dim];
+  } else if (layout == habana::LayoutFormat::HWCK) {
+    int64_t dimarr[] = {3, 2, 0, 1};
+    layout_dim = dimarr[dim];
+  } else {
+    HABANA_ASSERT(0);
+  }
+  return layout_dim;
+}
+
 /*Layout optimization pass
   1. Parse each node inputs and add permutes only for layout non-agnostic nodes
   2. ChannelsLast nodes should return restrided output since PT expects
@@ -430,8 +454,7 @@ void InsertPermute_graph(
         }
 
         // dim based Ops as per original PT layout NCHW
-        if ((strcmp(node->kind().toQualString(), "aten::slice") == 0) ||
-            (strcmp(node->kind().toQualString(), "aten::mean") == 0) ||
+        if ((strcmp(node->kind().toQualString(), "aten::mean") == 0) ||
             (strcmp(node->kind().toQualString(), "aten::_softmax") == 0) ||
             (strcmp(node->kind().toQualString(), "hpu::sum_dim_IntList") ==
              0) ||
@@ -571,8 +594,7 @@ void InsertPermute_graph(
           (strcmp(
                node->kind().toQualString(),
                "aten::_log_softmax_backward_data") == 0) ||
-          (strcmp(node->kind().toQualString(), "aten::_log_softmax") == 0) ||
-          (strcmp(node->kind().toQualString(), "aten::slice") == 0)) {
+          (strcmp(node->kind().toQualString(), "aten::_log_softmax") == 0)) {
         // View() layout is always NCHW as per original PT format
         // [ToDo] consider case permute_cl followed by view()
         // %1 = aten::permute_cl(...)
@@ -583,22 +605,71 @@ void InsertPermute_graph(
           value_to_tensor_layout[value_out].layout_at_graph_entry =
               value_to_tensor_layout[value_in].layout_at_graph_entry;
         }
+      } else if (isDimBasedOp(node)) {
+        auto value_in = node->input(0);
+        auto dimIdx = dimBasedOpsIdx.at(node->kind().toQualString());
+        auto dim = toIValue(node->input(dimIdx))->toInt();
+        auto value_layout_entry =
+            value_to_tensor_layout[value_in].layout_at_graph_entry;
+        auto tensor_layout = value_to_tensor_layout[value_in].layout;
+        for (auto value_out : node->outputs()) {
+          value_to_tensor_layout[value_out].layout_at_graph_entry =
+              value_layout_entry;
+          value_to_tensor_layout[value_out].layout = tensor_layout;
+          auto layout_dim = getLayoutDim(tensor_layout, dim);
+          if ((tensor_layout != habana::LayoutFormat::NCHW)) {
+            if (*value_out->type()->cast<TensorType>()->dim() == 4) {
+              WithInsertPoint insert_point(node);
+              auto value_dim = graph->insertConstant(IValue(layout_dim));
+              node->replaceInputWith(node->input(dimIdx), value_dim);
+            } else {
+              value_to_tensor_layout[value_out].layout =
+                  habana::LayoutFormat::NCHW;
+            }
+          }
+        }
       } else if ((strcmp(node->kind().toQualString(), "aten::cat") == 0)) {
         auto tListNode = node->input(0)->node();
         auto value_in0 = tListNode->input(0);
         auto value_out = node->output(0);
-        value_to_tensor_layout[value_out].layout = habana::LayoutFormat::NCHW;
-        value_to_tensor_layout[value_out].layout_at_graph_entry =
-            value_to_tensor_layout[value_in0].layout_at_graph_entry;
+        auto dimIdx = 1; // position of dim input
+        auto dim = toIValue(node->input(dimIdx))->toInt();
+        // check if all inputs are 4d and are in NHWC format
+        auto allNHWC = true;
         for (auto value_in : tListNode->inputs()) {
-          if (value_to_tensor_layout[value_in].layout !=
-              habana::LayoutFormat::NCHW) {
-            if (*value_in->type()->cast<TensorType>()->dim() == 4) {
-              auto dims = getDimsForLayout(
-                  habana::LayoutFormat::NCHW,
-                  value_to_tensor_layout[value_in].layout);
-              anchor_nodes_[tListNode].push_back(
-                  std::make_pair(value_in, dims));
+          if ((value_to_tensor_layout[value_in].layout ==
+               habana::LayoutFormat::NCHW) ||
+              (*value_in->type()->cast<TensorType>()->dim() != 4)) {
+            allNHWC = false;
+            break;
+          }
+        }
+        // if all inputs are 4d and NHWC then adding permutes at inputs not
+        // needed, instead change dim
+        if (allNHWC) {
+          value_to_tensor_layout[value_out].layout_at_graph_entry =
+              value_to_tensor_layout[value_in0].layout_at_graph_entry;
+          auto layout_dim =
+              getLayoutDim(value_to_tensor_layout[value_in0].layout, dim);
+          WithInsertPoint insert_point(node);
+          auto value_dim = graph->insertConstant(IValue(layout_dim));
+          node->replaceInputWith(node->input(dimIdx), value_dim);
+        }
+        // otherwise go through inputs and insert permutes to go to NCHW
+        else {
+          value_to_tensor_layout[value_out].layout = habana::LayoutFormat::NCHW;
+          value_to_tensor_layout[value_out].layout_at_graph_entry =
+              value_to_tensor_layout[value_in0].layout_at_graph_entry;
+          for (auto value_in : tListNode->inputs()) {
+            if (value_to_tensor_layout[value_in].layout !=
+                habana::LayoutFormat::NCHW) {
+              if (*value_in->type()->cast<TensorType>()->dim() == 4) {
+                auto dims = getDimsForLayout(
+                    habana::LayoutFormat::NCHW,
+                    value_to_tensor_layout[value_in].layout);
+                anchor_nodes_[tListNode].push_back(
+                    std::make_pair(value_in, dims));
+              }
             }
           }
         }
