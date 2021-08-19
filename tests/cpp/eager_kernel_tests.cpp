@@ -47,7 +47,7 @@ TEST(EagerKernelTest, LinspaceOutNeToPosStep1) {
   EXPECT_EQ(allclose(hOut_cpu, out), true);
 }
 
-TEST(EagerKernelTest, MinTest0D) {
+TEST(EagerKernelTest, DISABLED_MinTest0D) {
   torch::Tensor A = torch::tensor(2.03);
   auto hinput = A.to(torch::kHABANA);
 
