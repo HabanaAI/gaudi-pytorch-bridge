@@ -24,6 +24,7 @@
 #include "absl/container/flat_hash_set.h"
 #include "absl/memory/memory.h"
 #include "habana_helpers/logging.h"
+#include "habana_helpers/stat_collection.h"
 #include "synapse_helpers/device.h"
 #include "synapse_helpers/devmem_logger.h"
 #include "synapse_helpers/env_flags.h"
@@ -228,6 +229,7 @@ synapse_error_v<std::shared_ptr<graph::recipe_handle>> graph::compile() {
     // Valid case, in some special scenarios Op does not add to graph.
     return {};
   }
+  STAT_START(synapse_compilation);
 
   status = set_synapse_control_edges();
   SYNAPSE_SUCCESS_CHECK("Setting node dependencies failed.", status);
@@ -247,6 +249,11 @@ synapse_error_v<std::shared_ptr<graph::recipe_handle>> graph::compile() {
   recipe_handle->in_execution_phase_ = true;
   recipe_handle->recipe_name_ = std::move(name);
 
+  STAT_ADD_ATTRIBUTE(
+      globalStatPtsEnum::recipe_compile,
+      "Recipe Name",
+      recipe_handle->recipe_name_);
+  STAT_COLLECT_TIME(synapse_compilation, globalStatPtsEnum::recipe_compile);
   return {std::move(recipe_handle)};
 }
 

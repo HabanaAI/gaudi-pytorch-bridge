@@ -18,24 +18,22 @@
 #include <torch/csrc/jit/ir/constants.h>
 #include <torch/csrc/jit/runtime/interpreter.h>
 
-#include "habana_bridge/kernel/hpu_habana_launch_op_pt.h"
-#include "habana_device/HPUAllocator.h"
-#include "habana_device/HPUCheck.h"
-#include "habana_helpers/graph.h"
-#include "habana_helpers/logging.h"
-#include "habana_helpers/tensor_utils.h"
-#include "habana_helpers/unused_macro.h"
-#include "habana_kernels/kernel_utils.h"
-
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/container/inlined_vector.h"
 #include "absl/hash/hash.h"
 #include "absl/memory/memory.h"
 #include "absl/types/optional.h"
+
+#include "habana_bridge/kernel/hpu_habana_launch_op_pt.h"
 #include "habana_bridge/kernel/hpu_habana_meta_op_list.h"
+#include "habana_device/HPUAllocator.h"
+#include "habana_device/HPUCheck.h"
 #include "habana_device/tensor_builder.h"
+#include "habana_helpers/graph.h"
+#include "habana_helpers/logging.h"
 #include "habana_helpers/tensor_utils.h"
+#include "habana_helpers/unused_macro.h"
 #include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/random_gen_kernels.h"
 #include "habana_kernels/unary_kernels.h"
@@ -2343,7 +2341,6 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel(
     UpdateOutputs();
     return;
   }
-
   auto&& error_variant{syn_graph.compile()};
   if (ABSL_PREDICT_FALSE(
           absl::holds_alternative<synapse_helpers::synapse_error>(

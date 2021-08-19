@@ -38,6 +38,7 @@ foreach (FLAVOR abi11)
   target_include_directories(${TARGET_NAME}
      PUBLIC "${CMAKE_SOURCE_DIR}" $<TARGET_PROPERTY:tpc_kernels,INTERFACE_INCLUDE_DIRECTORIES>)
   target_include_directories(${TARGET_NAME} PUBLIC "$ENV{PYTORCH_MODULES_ROOT_PATH}/pytorch_helpers")
+  target_include_directories(${TARGET_NAME} PUBLIC "$ENV{SPDLOG_ROOT}")
   target_compile_options(${TARGET_NAME}
     PRIVATE -Wall -Wextra -Werror)
 

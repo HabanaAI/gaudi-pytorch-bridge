@@ -166,6 +166,18 @@ struct PT_HPU_PRINT_BACKTRACE_ON_SIGNAL {
   static constexpr bool default_value = true;
 };
 
+struct PT_HPU_PRINT_STATS {
+  static constexpr bool default_value = false;
+};
+
+struct PT_HPU_PRINT_STATS_DUMP_FREQ : public std::numeric_limits<unsigned> {
+  static constexpr unsigned default_value = 0;
+};
+
+struct PT_HPU_PRINT_STATS_TABLE {
+  static constexpr bool default_value = false;
+};
+
 struct PT_HPU_USE_SYN_TENSOR_IDS {
   static constexpr bool default_value = true;
 };

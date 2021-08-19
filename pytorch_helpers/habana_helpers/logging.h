@@ -15,6 +15,10 @@
 #include <string>
 #include <utility>
 #include "pytorch_helpers/synapse_helpers/env_flags.h"
+#define FMT_HEADER_ONLY
+#include "spdlog/common.h"
+#include "spdlog/fmt/bundled/format.h"
+
 // Redefining c10 StringUtils functions here as distributed and syn
 // helpers are independent of  torch libraries
 namespace Logger {
@@ -202,11 +206,22 @@ class PtLogger {
     return module_mask_;
   }
 
+  void moduleMaskOr(unsigned long toggle_on) {
+    module_mask_ |= toggle_on;
+    return;
+  }
+
+  void typeMaskOr(unsigned long toggle_on) {
+    type_mask_ |= toggle_on;
+    return;
+  }
+
   enum TypeMask {
     FATAL = 0x1,
     WARNING = 0x2,
     TRACE = 0x4,
     DEBUG = 0x8,
+    PROFILE = 0x10,
   };
 
   enum ModuleMask {
@@ -218,6 +233,7 @@ class PtLogger {
     LAZY = 0x20,
     HABANAHOOKS = 0x40,
     FALLBACK = 0x80,
+    STATS = 0x100,
   };
 };
 
@@ -397,6 +413,14 @@ class PTFuncLog {
        (PtLogger::getLogger()->getTypeMask() &             \
         (PtLogger::TypeMask::DEBUG)))) {                   \
     std::clog << Logger::str(__VA_ARGS__) << "\n";         \
+  };
+
+#define PT_PROFILE_DUMP(...)                            \
+  if ((PtLogger::getLogger()->getModuleMask() &         \
+           (PtLogger::ModuleMask::STATS) &&             \
+       (PtLogger::getLogger()->getTypeMask() &          \
+        (PtLogger::TypeMask::PROFILE)))) {              \
+    std::clog << fmt::format(__VA_ARGS__) << std::endl; \
   };
 
 #define PT_DEVICE_DEBUG(...) \
