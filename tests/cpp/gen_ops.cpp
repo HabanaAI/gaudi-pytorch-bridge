@@ -226,13 +226,13 @@ class GenOps : public HpuOpTestUtil {
       const torch::optional<torch::Tensor>&,
       const torch::optional<torch::Tensor>&,
       torch::Tensor&)>& fn) {
-    GenerateInputs(1);
+    GenerateInputs(2);
 
     auto out = torch::empty({0});
     auto hout = torch::empty({0}, "hpu");
 
-    fn(GetCpuInput(0), torch::nullopt, torch::nullopt, out);
-    fn(GetHpuInput(0), torch::nullopt, torch::nullopt, hout);
+    fn(GetCpuInput(0), GetCpuInput(1), torch::nullopt, out);
+    fn(GetHpuInput(0), GetHpuInput(1), torch::nullopt, hout);
 
     Compare(out, hout);
   }
