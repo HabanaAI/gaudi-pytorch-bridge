@@ -470,3 +470,17 @@ tril.out:
   custom_fill_params: FillTrilParams
   dtypes: [BFloat16, Float]
   guid: matrix_band_part_fwd
+
+addcmul.out:
+  custom_output_shape: AddCOpsOutputShape(self, tensor1, tensor2)
+  dtypes: [BFloat16, Float, Short, Int]
+  op_base_class: AddCOpOut
+  guid: mult
+  scalar_ids: [3]
+
+addcdiv.out:
+  custom_output_shape: AddCOpsOutputShape(self, tensor1, tensor2)
+  dtypes: [BFloat16, Float]
+  op_base_class: AddCOpOut
+  guid: div
+  scalar_ids: [3]

@@ -1,7 +1,12 @@
 import torch
 import torch.nn.functional as F
 import pytest
+from operator import add
 from test_utils import evaluate_fwd_kernel, evaluate_fwd_bwd_kernel, reset_seed, compare_tensors
+
+# used as limit for randint
+element_val_min = -630
+element_val_max = 630
 
 N = 8
 C = 3
@@ -28,6 +33,19 @@ values_list = [
     5.0,
     10.0,
 ]
+
+out_dim_variations_list = (
+    #  Nout, Hout, Wout, Cout,
+    (N , H, W, C,),
+    tuple(map(add, (N , H, W, C,), (2 , 3, 1, 1,))),
+    tuple(map(add, (N , H, W, C,), (-3 , -5, 2, 9,))),
+)
+
+dtype_list = (
+    #in_type, t1_type, t2_type, outtype
+    (torch.float, torch.float, torch.float, torch.float,),
+    (torch.int, torch.int, torch.int, torch.int,),
+)
 
 @pytest.mark.parametrize("N, H, W, C", test_case_list)
 @pytest.mark.parametrize("binary_op", op_list)
@@ -71,7 +89,56 @@ def test_hpu_addcmul_inplace_op(N, H, W, C,value):
     compare_tensors(hpu_tensor_input, input, atol=0.001, rtol=1.e-3)
 
 
+@pytest.mark.parametrize("N, H, W, C", test_case_list)
+@pytest.mark.parametrize("value", values_list)
+@pytest.mark.parametrize("Nout, Hout, Wout, Cout", out_dim_variations_list)
+def test_hpu_addcmul_out_op(N, H, W, C,value, Nout, Hout, Wout, Cout):
+    input     = torch.randn(N, C, H, W)
+    tensor1   = torch.randn(N, C, H, W)
+    tensor2   = torch.randn(N, C, H, W)
+    outtensor = torch.empty(Nout, Cout, Hout, Wout)
+    outtensorHPU = torch.empty(Nout, Cout, Hout, Wout)
+
+    hpu = torch.device('hpu')
+
+    hpu_tensor_input = input.to(hpu)
+    hpu_tensor1 = tensor1.to(hpu)
+    hpu_tensor2 = tensor2.to(hpu)
+    hpu_outtensor = outtensorHPU.to(hpu)
+
+    torch.addcmul(input, tensor1,tensor2,value=value, out=outtensor)
+    torch.addcmul(hpu_tensor_input, hpu_tensor1, hpu_tensor2, value=value, out=hpu_outtensor)
+
+    compare_tensors(hpu_tensor_input, input, atol=0.001, rtol=1.e-3)
+
+@pytest.mark.parametrize("N, H, W, C", test_case_list)
+@pytest.mark.parametrize("value", values_list)
+@pytest.mark.parametrize("Nout, Hout, Wout, Cout", [(N, C, H, W),])
+@pytest.mark.parametrize("in_type, t1_type, t2_type, out_type", dtype_list)
+def test_hpu_addcmul_out_op_dtype(N, H, W, C,value, Nout, Hout, Wout, \
+    Cout, in_type, t1_type, t2_type, out_type):
+    input     = torch.randint(element_val_min, element_val_max, (N, C, H, W), dtype=in_type)
+    tensor1   = torch.randint(element_val_min, element_val_max, (N, C, H, W), dtype=t1_type)
+    tensor2   = torch.randint(element_val_min, element_val_max, (N, C, H, W), dtype=t2_type)
+    outtensor = torch.empty((N, C, H, W), dtype=out_type)
+    outtensorHPU = torch.empty((N, C, H, W), dtype=out_type)
+
+    hpu = torch.device('hpu')
+
+    hpu_tensor_input = input.to(hpu)
+    hpu_tensor1 = tensor1.to(hpu)
+    hpu_tensor2 = tensor2.to(hpu)
+    hpu_outtensor = outtensorHPU.to(hpu)
+
+    torch.addcmul(input, tensor1,tensor2,value=value, out=outtensor)
+    torch.addcmul(hpu_tensor_input, hpu_tensor1, hpu_tensor2, value=value, out=hpu_outtensor)
+
+    compare_tensors(hpu_tensor_input, input, atol=0.001, rtol=1.e-3)
+
+
 if __name__ == '__main__':
     test_hpu_addcmul_op(*test_case_list[0], *op_list[0], *values_list[0])
     test_hpu_addcmul_op_fwd_bwd(*test_case_list[0], *op_list[0], *values_list[0])
     test_hpu_addcmul_inplace_op(*test_case_list[0], *values_list[0])
+    test_hpu_addcmul_out_op(*test_case_list[0], *values_list[0])
+    test_hpu_addcmul_out_op_dtype(*test_case_list[0], *values_list[0])

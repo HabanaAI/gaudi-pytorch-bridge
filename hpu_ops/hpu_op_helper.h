@@ -158,6 +158,11 @@ class HabanaOperatorHelper : public HabanaOperator {
       const torch::Tensor&);
   static sizes_vec MseLossOutputShape(const torch::Tensor&, int64_t);
   static sizes_vec PowOutputShape(const torch::Tensor&);
+
+  static sizes_vec AddCOpsOutputShape(
+      const torch::Tensor&,
+      const torch::Tensor&,
+      const torch::Tensor&);
 };
 
 #define PARAMS_STUB(structname) \
