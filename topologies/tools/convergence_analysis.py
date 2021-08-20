@@ -66,7 +66,7 @@ def ca_get_header_keys(dev1,dev2, b_key_list):
 #returns id(0, 1 or 2) of tensor to permute; 0 - no permute; 1 - dev1 tensor to permute; 2 - dev2 tensor to permute
 def tensor_to_permute(dev1, dev2, tensor_name, t_dev1_torch, t_dev2_torch, same_device, topology):
     tid = 0
-    if 'resnet' in topology and same_device is False and t_dev1_torch.ndim == 4:
+    if ('resnet' in topology or 'mobilenetv2' in topology) and same_device is False and t_dev1_torch.ndim == 4:
         if 'hpu' in dev1 or 'hpu' in dev2:
             head, tail = os.path.split(tensor_name)
             if not (tail == "input.pt"):
