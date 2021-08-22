@@ -38,6 +38,7 @@
 #include "habana_kernels/triangular_kernels.h"
 #include "habana_kernels/upsample_kernels.h"
 #include "habana_lazy/aten_lazy_bridge.h"
+#include "habana_lazy/debug_utils.h"
 #include "habana_lazy/hlexec.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/lazy_executor.h"
@@ -120,9 +121,10 @@ void flushWithMarkStep() {
 
 // For the ops that don't use LazyOp to construct nodes.
 // Remove when all ops move to LazyOp style.
-static void flush_op(at::TensorList tensors) {
-  static const bool m_flush_op = GET_ENV_FLAG(PT_HPU_LAZY_MODE) == 2;
-  static const bool m_random_flush = GET_ENV_FLAG(PT_HPU_LAZY_MODE) == 3;
+void flush_op(at::TensorList tensors) {
+  const bool m_flush_op = GET_ENV_FLAG(PT_HPU_LAZY_MODE) == 2;
+  const bool m_random_flush = GET_ENV_FLAG(PT_HPU_LAZY_MODE) == 3;
+  DebugHelper::getInstance().incrementAccumulatedOps();
 
   if (m_flush_op) {
     std::vector<HbLazyTensor> hl_tensors;
@@ -133,6 +135,9 @@ static void flush_op(at::TensorList tensors) {
     HbLazyTensor::SyncTensorsGraph(&hl_tensors);
   } else if (m_random_flush) {
     flushWithMarkStep();
+  } else if (DebugHelper::getInstance().isExceededMaxAccumlatedSize()) {
+    PT_LAZY_DEBUG("Reached max accumulated graph size, triggering a mark_step");
+    HbLazyTensor::StepMarker({});
   }
 }
 

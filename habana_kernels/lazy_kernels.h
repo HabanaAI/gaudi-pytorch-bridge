@@ -31,6 +31,8 @@ at::Tensor get_tensor_for_scalar(
     float alpha,
     const at::TensorOptions& options = {});
 
+void flush_op(at::TensorList tensors);
+
 template <class F, class... Ts, std::size_t... Is>
 void for_each_in_tuple(
     std::tuple<Ts...>& tuple,
@@ -154,11 +156,11 @@ class LazyOp {
     auto node = create_node();
     auto results = get_result();
     int i = 0;
-    std::vector<HbLazyTensor> hl_tensors;
-    hl_tensors.reserve(std::tuple_size<T>::value);
-
-    for_each_in_tuple(results, [&node, &i, &hl_tensors](const auto& result) {
+    std::vector<at::Tensor> tensors;
+    tensors.reserve(std::tuple_size<T>::value);
+    for_each_in_tuple(results, [&node, &i, &tensors](const auto& result) {
       auto hl_result = GetHbLazyTensor(result);
+      tensors.push_back(result);
       ir::Value& out = hl_result.CurrentIrValue();
       out.SetNode(
           node,
@@ -167,15 +169,8 @@ class LazyOp {
           hl_result.dtype_optional(),
           i++);
       updateDstDependencies(hl_result, result, false);
-      hl_tensors.push_back(hl_result);
     });
-    if (m_flush_op) {
-      HbLazyTensor::SyncTensorsGraph(&hl_tensors);
-    }
-    if (m_random_flush) {
-      flushWithMarkStep();
-    }
-
+    flush_op(tensors);
     return results;
   }
 
@@ -184,8 +179,8 @@ class LazyOp {
       T results) {
     const auto& node = create_node();
     int i = 0;
-    std::vector<HbLazyTensor> hl_tensors;
-    hl_tensors.reserve(std::tuple_size<T>::value);
+    std::vector<at::Tensor> tensors;
+    tensors.reserve(std::tuple_size<T>::value);
     const auto& out_shapes = m_out_shapes;
     auto context = habana_lazy_executor.getDeviceExecutionContext();
 
@@ -194,8 +189,9 @@ class LazyOp {
 
     for_each_in_tuple(
         results,
-        [&node, &i, &hl_tensors, out_shapes, context](const auto& result) {
+        [&node, &i, &tensors, out_shapes, context](const auto& result) {
           auto hl_result = GetHbLazyTensor(result);
+          tensors.push_back(result);
           updateDstDependencies(hl_result, result, true);
           ir::Value& out = hl_result.CurrentIrValue();
           out.SetNode(
@@ -211,20 +207,12 @@ class LazyOp {
                 impl, out_shape.size(), out_shape.data(), nullptr);
             result.unsafeGetTensorImpl()->set_sizes_contiguous(out_shape);
           }
-          hl_tensors.push_back(hl_result);
           context->MarkTensorStatus(
               hl_result.getTensorUniqueId(),
               LazyTensorExecutionStatus::kREGISTERED);
           ++i;
         });
-
-    if (m_flush_op) {
-      HbLazyTensor::SyncTensorsGraph(&hl_tensors);
-    }
-    if (m_random_flush) {
-      flushWithMarkStep();
-    }
-
+    flush_op(tensors);
     return results;
   }
 
@@ -240,14 +228,7 @@ class LazyOp {
         hl_result.GetSizes(),
         hl_result.dtype_optional());
     updateDstDependencies(hl_result, result, false);
-
-    if (m_flush_op) {
-      std::vector<HbLazyTensor> hl_tensors = {hl_result};
-      HbLazyTensor::SyncTensorsGraph(&hl_tensors);
-    }
-    if (m_random_flush) {
-      flushWithMarkStep();
-    }
+    flush_op(result);
     return result;
   }
 
@@ -280,14 +261,7 @@ class LazyOp {
     auto context = habana_lazy_executor.getDeviceExecutionContext();
     context->MarkTensorStatus(
         hl_self.getTensorUniqueId(), LazyTensorExecutionStatus::kREGISTERED);
-
-    if (m_flush_op) {
-      std::vector<HbLazyTensor> hl_tensors = {hl_self};
-      HbLazyTensor::SyncTensorsGraph(&hl_tensors);
-    }
-    if (m_random_flush) {
-      flushWithMarkStep();
-    }
+    flush_op(self);
     return self;
   }
 
@@ -317,14 +291,7 @@ class LazyOp {
     auto context = habana_lazy_executor.getDeviceExecutionContext();
     context->MarkTensorStatus(
         hl_self.getTensorUniqueId(), LazyTensorExecutionStatus::kREGISTERED);
-
-    if (m_flush_op) {
-      std::vector<HbLazyTensor> hl_tensors = {hl_self};
-      HbLazyTensor::SyncTensorsGraph(&hl_tensors);
-    }
-    if (m_random_flush) {
-      flushWithMarkStep();
-    }
+    flush_op(self);
     return self;
   }
 
@@ -545,10 +512,6 @@ class LazyOp {
   const int m_out_index;
   at::TensorList m_out_meta_tensors = {};
   std::vector<at::IValue> m_inputs = {};
-  // PT_HPU_LAZY_MODE=2 will flush the node as soon as it is created, more like
-  // eager way of executing using lazy infrastructure.
-  const bool m_flush_op = GET_ENV_FLAG(PT_HPU_LAZY_MODE) == 2;
-  const bool m_random_flush = GET_ENV_FLAG(PT_HPU_LAZY_MODE) == 3;
   c10::ScalarType m_scalar_type = c10::ScalarType::Undefined;
 };
 

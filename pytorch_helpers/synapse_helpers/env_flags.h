@@ -200,6 +200,11 @@ struct PT_HPU_MAX_RECIPE_SUBMISSION_LIMIT
   static constexpr unsigned long default_value = 0;
 };
 
+struct PT_HPU_MAX_ACCUM_SIZE : public std::numeric_limits<std::size_t> {
+  static constexpr std::size_t default_value =
+      std::numeric_limits<std::size_t>::max();
+};
+
 // Overloads for different type of default value
 
 template <class T>

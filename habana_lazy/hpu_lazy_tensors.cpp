@@ -452,6 +452,7 @@ void HbLazyTensor::SyncLiveTensorsGraph(
     const c10::Device* device,
     bool use_cached_graph = false) {
   PT_LAZY_TRACE;
+  DebugHelper::getInstance().resetCurrentAccumulatedOps();
   if (use_cached_graph) {
     ExecuteCachedGraph();
   } else {
