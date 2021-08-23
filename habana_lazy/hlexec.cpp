@@ -104,7 +104,7 @@ void HlExec::FindDuplicateInStack(
       auto input_tensor = input.toTensor();
       // Check for shape and stride match
       if (input_tensor.sizes() == parent_tensor.sizes() &&
-          input_tensor.strides() == parent_tensor.sizes()) {
+          input_tensor.strides() == parent_tensor.strides()) {
         is_duplicate_vec[i] = true;
         parent_vec[i] = pidx;
         num_duplicate_inputs++;
