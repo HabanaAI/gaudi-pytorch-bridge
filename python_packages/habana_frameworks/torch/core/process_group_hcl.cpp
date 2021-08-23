@@ -329,9 +329,20 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCL::broadcast(
 c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCL::allreduce(
     std::vector<at::Tensor>& tensors,
     const AllreduceOptions& opts) {
-  return hclcollective(
-      tensors,
-      tensors,
+  // Pre-processing
+  std::vector<at::Tensor> tmp_tensors;
+  for (size_t i = 0; i < tensors.size(); ++i) {
+    synDataType dtype = getHCLDataType(tensors[i].scalar_type());
+    if (!synapse_helpers::hcl_communicator::is_reduction_dtype_valid(dtype)) {
+      tmp_tensors.push_back(tensors[i].to(c10::ScalarType::Float));
+    } else {
+      tmp_tensors.push_back(tensors[i]);
+    }
+  }
+
+  auto work = hclcollective(
+      tmp_tensors,
+      tmp_tensors,
       [&](at::Tensor& input, at::Tensor& output, hcl_communicator& hcl_comm) {
         return hcl_comm.allreduce(
             (synapse_helpers::device_ptr)input.data_ptr(),
@@ -342,6 +353,16 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCL::allreduce(
             getHCLDataType(input.scalar_type()),
             getHCLOpType(opts.reduceOp));
       });
+
+  // Post-processing
+  for (size_t i = 0; i < tensors.size(); ++i) {
+    synDataType dtype = getHCLDataType(tensors[i].scalar_type());
+    if (!synapse_helpers::hcl_communicator::is_reduction_dtype_valid(dtype)) {
+      tensors[i].copy_(tmp_tensors[i].to(tensors[i].scalar_type()));
+    }
+  }
+
+  return work;
 }
 
 c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCL::allreduce_coalesced(

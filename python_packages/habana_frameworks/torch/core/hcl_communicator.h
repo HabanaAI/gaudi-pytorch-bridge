@@ -68,6 +68,14 @@ class hcl_communicator : public std::enable_shared_from_this<hcl_communicator> {
 
   hcl_communicator_handle create_subcommunicator(const std::vector<int>& ranks);
 
+  static bool is_reduction_dtype_valid(synDataType data_type) {
+    if (data_type == syn_type_float || data_type == syn_type_bf16) {
+      return true;
+    }
+
+    return false;
+  }
+
   synapse_error_o allreduce(
       device_ptr input_address,
       device_ptr output_address,
