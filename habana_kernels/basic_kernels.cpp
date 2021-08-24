@@ -141,10 +141,20 @@ Tensor& copy_hpu_(Tensor& self, const Tensor& src, bool non_blocking) {
 
   if (src_device == c10::DeviceType::CPU &&
       dst_device == c10::DeviceType::HABANA) {
-    auto _src = dst.scalar_type() != src.scalar_type()
-        ? src.to(dst.scalar_type())
-        : src;
-
+    // check if strides along any dim of CPU src tensor is 0. Since HPU does not
+    // understand stride = 0, therefore force tensor to contiguous before
+    // triggering DMA to HPU
+    auto cond = std::all_of(
+        src.strides().cbegin(), src.strides().cend(), [](int64_t x) {
+          return x >= 1;
+        });
+    auto src_contiguous = src;
+    if (!cond) {
+      src_contiguous = src.contiguous(src.suggest_memory_format());
+    }
+    auto _src = dst.scalar_type() != src_contiguous.scalar_type()
+        ? src_contiguous.to(dst.scalar_type())
+        : src_contiguous;
     HABANA_ASSERT(dst.nbytes() >= _src.nbytes());
     habana_helpers::copy_data_to_device(_src, dst, non_blocking);
   } else if (
