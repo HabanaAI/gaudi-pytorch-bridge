@@ -12,6 +12,7 @@
 #include <ATen/InferSize.h>
 #include <cstdlib>
 #include <ctime>
+#include <utility>
 #include "habana_helpers/logging.h"
 #include "habana_helpers/tensor_utils.h"
 #include "habana_kernels/aten_hpu_type_default.h"
@@ -1010,8 +1011,20 @@ Tensor& set_hpu_lazy_(
     int64_t storage_offset,
     IntArrayRef size,
     IntArrayRef stride) {
-  return AtenHpuTypeDefault::set_(self, source, storage_offset, size, stride);
+  PT_LAZY_TRACE
+  // TODO Handle stride
+  static_cast<void>(stride);
+
+  auto lazy_ten = GetHbLazyTensor(self);
+  auto impl = lazy_ten.getAttachedTensorImpl();
+  HABANA_ASSERT(impl, "impl is invalid");
+  impl->set_storage_keep_dtype(std::move(source));
+  impl->set_storage_offset(storage_offset);
+  self.resize_(size, self.suggest_memory_format());
+
+  return self;
 }
+
 Tensor view_hpu_lazy(const Tensor& self, IntArrayRef size) {
   PT_LAZY_TRACE;
 

@@ -300,6 +300,20 @@ TEST_F(LazyTensorShapeKernelTest, Resize) {
   EXPECT_TRUE(equal(h_input.cpu().view(-1).slice(0, 0, 4), torch::arange(4)));
 }
 
+TEST_F(LazyTensorShapeKernelTest, Set) {
+  int size = 20;
+  auto h_input = torch::arange(size, torch::kFloat).to(torch::kHPU);
+  auto h_zeros = torch::zeros(10).to(torch::kHPU);
+  h_zeros.set_(h_input.storage(), 0, size);
+  EXPECT_TRUE(equal(h_zeros.cpu(), h_input.cpu()));
+
+  size = 4;
+  auto h_ones = torch::ones(5).to(torch::kHPU);
+  h_zeros.set_(h_ones.storage(), 2, size);
+  EXPECT_TRUE(equal(h_zeros.cpu().view(-1).slice(0, 0, 2), torch::ones(2)));
+  EXPECT_EQ(h_zeros.nbytes(), size * h_zeros.itemsize());
+}
+
 TEST_F(LazyTensorShapeKernelTest, FlipTest) {
   torch::Tensor tensor = torch::rand({2, 3, 2});
   torch::Tensor tHabana = tensor.to(torch::kHPU);
