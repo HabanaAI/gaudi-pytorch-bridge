@@ -18,26 +18,28 @@ def process(args):
     for file in args.files:
         with open(file.name,'rb') as f:
             v1 = []
+            loss_val={}
             for bline  in f:
                 try:
                     line = bline.decode()
-                    #print(line)
                 except UnicodeDecodeError as e:
                     pass
                 v2=[]
-                if 'loss=' in line and 'mean' in line:
+                if 'loss=' in line:
+                    epoch_num = line[line.find('Epoch'):].split(':')[0].split(' ')[1]
                     strip_l= line[line.find('loss'):].split(']')
+                    v2.append(float(strip_l[0].split('=')[1]))
+                    loss_val[int(epoch_num)] = v2
 
-                    strip_l[1] = strip_l[1][strip_l[1].find('Epoch:'):]
-                    strip_l[1] = strip_l[1].replace("mean dice","mean_dice")
-                    strip_l[1] = strip_l[1].rstrip()
-                    strip_l[1] = strip_l[1].replace(' : ',':').replace(': ',':')
-                    strip_l[1] = strip_l[1].replace('  ',' ')
-                    split2 = strip_l[1].split(' ')
+                elif "mean dice :" in line:
+                    strip_2 = line[line.find('Epoch:'):]
+                    strip_2 = strip_2.replace("mean dice","mean_dice")
+                    strip_2 = strip_2.rstrip()
+                    strip_2 = strip_2.replace(' : ',':').replace(': ',':')
+                    strip_2 = strip_2.replace('  ',' ')
+                    split2 = strip_2.split(' ')
                     for i in split2:
                         v2.append(float(i.split(':')[1]))
-
-                    v2.append(float(strip_l[0].split('=')[1]))
                     v1.append(v2)
                 else:
                     if 'Namespace' in line:
@@ -49,6 +51,10 @@ def process(args):
                             except:
                                 pass
                     continue;
+
+
+            for i in range(0, len(loss_val)):
+                v1[i].append(loss_val[i][0])
 
             head_list = ['Epoch', 'mean_dice','TOP_mean','L1','L2','L3','TOP_L1','TOP_L2','TOP_L3','val_loss','loss']
             head_list2=[]
@@ -65,7 +71,7 @@ def process(args):
     fig, axs = plt.subplots(figsize=(10, 10))
     plt.legend(bbox_to_anchor=(1.0, 1.0))
 
-    if b1['is_hmp'] == 'True':
+    if b1.get('is_hmp') == 'True':
         data_type = ' BF16 '
 
     if b1['tta'] == 'True':
