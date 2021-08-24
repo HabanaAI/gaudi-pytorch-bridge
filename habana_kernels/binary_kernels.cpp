@@ -67,6 +67,81 @@ void habana::BinaryOperator::AllocateAndAddSynapseNode(
   Tensor arg1 = inputs[0].toTensor();
   Tensor arg2 = inputs[1].toTensor();
 
+  // This if block is introduced to support bool tensors for mult
+  // TPC does not support bool for mult operation
+  // cast node is added before and after the tpc call to support bool
+  // This change is done as an WA to avoid any script change
+  // as a part of <https://jira.habana-labs.com/browse/SW-48605>
+  if (guid_.substr(0, 4) == "mult" &&
+      arg1.scalar_type() == c10::ScalarType::Bool &&
+      arg2.scalar_type() == c10::ScalarType::Bool) {
+    // Cast Input tensor to Int tensor
+    std::string node_type = "cast_i8_to_i32";
+
+    // Create the operator
+    auto boolToIntOp1 =
+        make_operator<CastOperator>(this->p_context_->device_id_, node_type);
+    boolToIntOp1->SetSynapseInput(p_context_->syn_inputs_[0]);
+
+    // Build Params for the graph
+    std::vector<c10::IValue> stack{IValue(arg1), IValue(c10::ScalarType::Int)};
+    boolToIntOp1->AllocateAndAddSynapseNode(graph, stack, false);
+    stack.clear();
+
+    // Create the operator
+    auto boolToIntOp2 =
+        make_operator<CastOperator>(this->p_context_->device_id_, node_type);
+    boolToIntOp2->SetSynapseInput(p_context_->syn_inputs_[1]);
+
+    // Build Params for the graph
+    stack.emplace_back(IValue(arg2));
+    stack.emplace_back(IValue(c10::ScalarType::Int));
+    boolToIntOp2->AllocateAndAddSynapseNode(graph, stack, false);
+    stack.clear();
+
+    // Add the Mult node
+    auto output_mult = habana_helpers::createPTTensor(
+        arg1,
+        arg1.sizes(),
+        arg1.options(),
+        arg1.suggest_memory_format(),
+        c10::ScalarType::Int,
+        false);
+
+    AllocateSynapseOutput(graph, output_mult, false);
+    synapse_helpers::tensor& synOutput = p_context_->syn_outputs_[0];
+    synapse_helpers::tensor& synInput1 = boolToIntOp1->GetSynOutputs()[0];
+    synapse_helpers::tensor& synInput2 = boolToIntOp2->GetSynOutputs()[0];
+
+    std::vector<synTensor> syn_in{synInput1.get(), synInput2.get()};
+    std::vector<synTensor> syn_out{synOutput.get()};
+
+    guid_ = "mult_fwd_" +
+        habana_helpers::name_suffix_from_type(c10::ScalarType::Int);
+    graph.add_node(
+        std::move(syn_in), std::move(syn_out), nullptr, 0, std::move(guid_));
+
+    // Cast Int tensor to Bool tensor
+    node_type = "cast_i32_to_i8";
+
+    // Create the operator
+    auto intToBoolOp =
+        make_operator<CastOperator>(this->p_context_->device_id_, node_type);
+    intToBoolOp->SetSynapseInput(std::move(p_context_->syn_outputs_[0]));
+
+    // Build Params for the graph
+    stack.emplace_back(IValue(output_mult));
+    stack.emplace_back(IValue(c10::ScalarType::Bool));
+    intToBoolOp->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+    p_context_->syn_outputs_.pop_back();
+    p_context_->pt_outputs_.pop_back();
+
+    p_context_->syn_outputs_.emplace_back(
+        std::move(intToBoolOp->GetSynOutputs()[0]));
+    p_context_->pt_outputs_.emplace_back(intToBoolOp->GetOutputs()[0]);
+    return;
+  }
+
   synapse_helpers::tensor& arg1_syn_tensor = p_context_->syn_inputs_[0];
   synapse_helpers::tensor& arg2_syn_tensor = p_context_->syn_inputs_[1];
 
@@ -617,7 +692,8 @@ Tensor mul_tensor_hpu(const Tensor& self, const Tensor& other) {
   PT_KERNEL_BEGIN;
 
   // TODO: Add pow operator for graph mode
-  if (self.is_same(other)) {
+  if (self.is_same(other) && self.scalar_type() != c10::ScalarType::Bool &&
+      other.scalar_type() != c10::ScalarType::Bool) {
     auto tensor = at::pow(self, 2.0);
     PT_KERNEL_END;
     return tensor;

@@ -106,6 +106,12 @@ def test_hpu_binary_inplace_op_pow(N, H, W, C):
         in_out_tensor=in_out_tensor, kernel_name="pow_", kernel_params=kernel_params_fwd
     )
 
+@pytest.mark.parametrize("N, H, W, C", test_case_list)
+def test_hpu_mult_bool_op(N, H, W, C):
+    kernel_params_fwd = {}
+    kernel_params_fwd["input"] = torch.randn(N, C, H, W).to(torch.bool)
+    kernel_params_fwd["other"] = torch.randn(N, C, H, W).to(torch.bool)
+    evaluate_fwd_kernel(kernel=torch.mul, kernel_params=kernel_params_fwd)
 
 @pytest.mark.parametrize("N, H, W, C", test_case_list)
 @pytest.mark.parametrize("binary_op, kernel_params_fwd", binary_op_list)
@@ -114,7 +120,6 @@ def test_hpu_binary_op(N, H, W, C, binary_op, kernel_params_fwd, dtype, tol):
     kernel_params_fwd["input"] = torch.randn(N, C, H, W).to(dtype)
     kernel_params_fwd["other"] = torch.randn(N, C, H, W).to(dtype)
     evaluate_fwd_kernel(kernel=binary_op, kernel_params=kernel_params_fwd)
-
 
 @pytest.mark.parametrize("N, H, W, C", test_case_list)
 @pytest.mark.parametrize("binary_op, kernel_params_fwd", binary_op_list)

@@ -1522,7 +1522,8 @@ static const std::
                   at::ScalarType::Float,
                   at::ScalarType::BFloat16,
                   at::ScalarType::Byte,
-                  at::ScalarType::Char}},
+                  at::ScalarType::Char,
+                  at::ScalarType::Bool}},
             },
             {
                 "mul",
@@ -1533,7 +1534,8 @@ static const std::
                   at::ScalarType::Float,
                   at::ScalarType::BFloat16,
                   at::ScalarType::Byte,
-                  at::ScalarType::Char}},
+                  at::ScalarType::Char,
+                  at::ScalarType::Bool}},
             },
             {
                 "div",
