@@ -229,4 +229,6 @@ size_t hash_combine_scalars(
 void recalc_strides(
     std::vector<int64_t>& self_strides,
     const std::vector<int64_t>& self_sizes);
+
+bool is_unsupported_type(c10::ScalarType type);
 } // namespace habana_helpers

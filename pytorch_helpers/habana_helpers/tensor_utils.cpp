@@ -1146,3 +1146,10 @@ void habana_helpers::recalc_strides(
   }
   return;
 }
+
+bool habana_helpers::is_unsupported_type(c10::ScalarType type) {
+  if (at::isComplexType(type)) {
+    return true;
+  }
+  return false;
+}

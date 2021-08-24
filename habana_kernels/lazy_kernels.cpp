@@ -268,13 +268,19 @@ at::Tensor get_tensor_for_scalar(float alpha) {
 
 Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
   PT_LAZY_TRACE;
-  bool unsupported_src_type = at::isComplexType(src.scalar_type());
-  bool unsupported_dst_type = at::isComplexType(self.scalar_type());
-  if (unsupported_src_type or unsupported_dst_type) {
+  if (habana_helpers::is_unsupported_type(self.scalar_type())) {
+    // only dst can be unsupported dtype since copy_h2d and empty_hpu calls
+    // would fallback to cpu for unsupported dtypes
+    // also note that since the dst is an unsupported dtype, we will move
+    // the dst back to cpu with this copy
+    PT_LAZY_WARN(
+        "Falling back to CPU - Unsupported dst type in D2D copy: src : ",
+        src.scalar_type(),
+        ", dst: ",
+        self.scalar_type());
     auto fb_self = self.cpu();
     auto fb_src = src.cpu();
-    fb_self.copy_(fb_src);
-    return self.copy_(fb_self);
+    return fb_self.copy_(fb_src);
   }
   if (to_lower_as_strided()) {
     ir::NodePtr node;
@@ -459,7 +465,7 @@ Tensor& copy_hpu_lazy_D2H(Tensor& self, const Tensor& src, bool non_blocking) {
   } else {
     self = copy_hpu_(self, tensor_data.value(), non_blocking);
   }
-  self = CreateHbLazyTensor(self, GetHblazyDevice(self));
+  // No need to CreateHbLazyTensor for self as it is on CPU
   return self;
 }
 
@@ -477,6 +483,16 @@ Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src, bool non_blocking) {
     // executed
     auto isStorageAttached = self_hb_tensor.isStorageAttached();
     if (!isStorageAttached) {
+      if (habana_helpers::is_unsupported_type(src.scalar_type()) or
+          habana_helpers::is_unsupported_type(self.scalar_type())) {
+        PT_LAZY_WARN(
+            "Falling back to CPU - Unsupported src or dst types in H2D copy: src: ",
+            src.scalar_type(),
+            ", dst: ",
+            self.scalar_type());
+        auto fb_src = at::empty_like(src);
+        return fb_src.copy_(src);
+      }
       c10 ::Allocator* allocator;
       allocator = habana::getHABANADeviceAllocator();
       int64_t nelements = prod_intlist(self.sizes());
@@ -4091,6 +4107,13 @@ Tensor empty_hpu_lazy(
       : options.memory_format_opt();
   auto original_dtype = options.dtype();
   auto type = typeMetaToScalarType(original_dtype);
+  if (habana_helpers::is_unsupported_type(type)) {
+    auto layout = options.layout();
+    auto pinned_mem = options.pinned_memory();
+    auto dev = c10::DeviceType::CPU;
+    return at::empty(
+        size, type, layout, dev, pinned_mem, optional_memory_format);
+  }
   // Dont allocate 8 bytes for double/long as we are anyway going to cast at
   // CPU and then copy to device @ 4byts per element
   type = type == c10::ScalarType::Long ? c10::ScalarType::Int : type;
@@ -4215,6 +4238,9 @@ Tensor empty_strided_hpu_lazy(
   at::Tensor empty_tensor =
       empty_hpu_lazy(size, options, c10::nullopt, create_storage);
   empty_tensor.unsafeGetTensorImpl()->set_sizes_and_strides(size, stride);
+  // empty_hpu_lazy call might move the tensor to cpu for unsupported dtypes
+  if (empty_tensor.device().type() != c10::DeviceType::HABANA)
+    return empty_tensor;
   // If we have created a tensor with storage, set the strides and sizes to
   // backend tensor as well
   if (create_storage) {
