@@ -82,6 +82,8 @@ class PytorchKernelContext {
 
   absl::any params_;
   size_t params_size_;
+  bool is_duplicate_input_{false};
+  std::deque<synapse_helpers::tensor_or_ref> syn_input_orig_;
 };
 
 typedef struct KernelMetaData {
@@ -259,6 +261,18 @@ class HabanaOperator {
     auto op = std::make_shared<T>(args...);
     kernels_.emplace_back(op);
     return op;
+  }
+
+  void set_is_duplicate_input_flag(bool f) {
+    p_context_->is_duplicate_input_ = f;
+  }
+
+  void add_syn_input_tensor_orig(synapse_helpers::tensor& inp_orig) {
+    p_context_->syn_input_orig_.push_back(inp_orig);
+  }
+
+  void clear_syn_input_tensor_orig() {
+    p_context_->syn_input_orig_.clear();
   }
 
   static void Capture(void* map_shape);

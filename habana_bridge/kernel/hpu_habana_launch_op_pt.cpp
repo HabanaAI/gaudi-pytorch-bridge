@@ -472,6 +472,15 @@ synapse_helpers::tensor& HabanaLaunchOpPT::AllocateSynapseTensor(
       min_shape = min_input_tshapes[input_idx];
       max_shape = max_input_tshapes[input_idx];
     }
+
+    void* pt_tensor_buffer_start = pt_tensor.storage().data_ptr().get();
+    auto syn_tensor_it = buff_to_syn_tensor_map.find(pt_tensor_buffer_start);
+    if (syn_tensor_it != buff_to_syn_tensor_map.end()) {
+      synapse_helpers::tensor& st = syn_tensor_it->second;
+      habana_op->set_is_duplicate_input_flag(true);
+      habana_op->add_syn_input_tensor_orig(st);
+    }
+
     auto& syn_tensor = habana_op->AllocateSynapseInput(
         *syn_graph_ptr,
         pt_tensor,
@@ -479,6 +488,14 @@ synapse_helpers::tensor& HabanaLaunchOpPT::AllocateSynapseTensor(
         ShapeTensorType::kShapeTensorNone,
         min_shape.get_dims(),
         max_shape.get_dims());
+
+    if (syn_tensor_it != buff_to_syn_tensor_map.end()) {
+      habana_op->set_is_duplicate_input_flag(false);
+      habana_op->clear_syn_input_tensor_orig();
+    }
+
+    buff_to_syn_tensor_map.emplace(
+        pt_tensor_buffer_start, tensor_or_ref(syn_tensor));
     return syn_tensor;
   }
 }
@@ -2859,6 +2876,7 @@ void HabanaLaunchOpPT::clear(bool is_shape_inference) {
   buff_to_input_ivpsh_map.clear();
   buff_to_intermediate_ivpsh_map.clear();
   buff_to_output_ivpsh_map.clear();
+  buff_to_syn_tensor_map.clear();
 
   jit_to_synapse_node_idx_map.clear();
 }

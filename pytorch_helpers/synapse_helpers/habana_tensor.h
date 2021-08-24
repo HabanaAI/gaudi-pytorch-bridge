@@ -270,12 +270,13 @@ class tensor final {
 
   std::string DebugString() const {
     return absl::StrFormat(
-        "Tensor %s at %p, internal=%p%s%s, size=0x%x",
+        "Tensor %s at %p, internal=%p%s%s, offset=%d, size=0x%x",
         tensor_name_,
         this,
         tensor_,
         (is_persistent() ? ", persistent" : ", non-persistent"),
         (is_placeholder() ? ", placeholder" : ""),
+        offset_,
         total_size_bytes_);
   }
 
@@ -364,7 +365,8 @@ inline std::ostream& operator<<(std::ostream& out, const tensor& tensor) {
              << (tensor.is_persistent() ? ", persistent, "
                                         : ", non-persistent, ")
              << (tensor.is_placeholder() ? "placeholder, " : "")
-             << "size=" << tensor.total_size_bytes_;
+             << ", offset=" << tensor.offset_
+             << ", size=" << tensor.total_size_bytes_;
 }
 
 inline std::ostream& operator<<(

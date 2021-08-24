@@ -197,10 +197,26 @@ synapse_helpers::tensor& habana::HabanaOperator::AllocateSynapseInput(
       update_shape_info(graph, input);
     }
 
-    auto syn_tensor_input = habana_helpers::create_tensor(
-        input, graph.get_graph_handle(), is_persistent, c10::nullopt, min, max);
+    if (p_context_->is_duplicate_input_) {
+      uint64_t syn_offset = input.storage_offset() * input.itemsize();
+      auto sizes = input.sizes().vec();
+      auto strides = input.strides().vec();
+      auto syn_tensor_input =
+          habana_helpers::duplicate_tensor_in_memory_section_with_size(
+              p_context_->syn_input_orig_[0], sizes, strides, syn_offset);
 
-    p_context_->syn_inputs_.emplace_back(std::move(syn_tensor_input));
+      p_context_->syn_inputs_.emplace_back(std::move(syn_tensor_input));
+    } else {
+      auto syn_tensor_input = habana_helpers::create_tensor(
+          input,
+          graph.get_graph_handle(),
+          is_persistent,
+          c10::nullopt,
+          min,
+          max);
+
+      p_context_->syn_inputs_.emplace_back(std::move(syn_tensor_input));
+    }
 
     p_context_->pt_inputs_.emplace_back(input);
     return p_context_->syn_inputs_.back();

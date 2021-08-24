@@ -560,11 +560,14 @@ synapse_helpers::tensor habana_helpers::create_tensor(
                 graph);
     return absl::get<synapse_helpers::tensor>(std::move(variant));
   }
+
+  uint64_t syn_offset = tensor.storage_offset() * tensor.itemsize();
   auto variant =
       synapse_helpers::tensor_builder(
           tensor.sizes(),
           tensor.strides(),
           pytorch_to_synapse_type(dtype.value_or(tensor.scalar_type())))
+          .set_offset(syn_offset)
           .mark_persistence(persistent)
           .build(
               synapse_helpers::HPURegistrar::get_device(

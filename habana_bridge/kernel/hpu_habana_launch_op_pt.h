@@ -118,6 +118,7 @@ class HabanaLaunchOpPT {
   std::unordered_map<void*, IValPtrShared> buff_to_input_ivpsh_map;
   std::unordered_map<void*, IValPtrShared> buff_to_intermediate_ivpsh_map;
   std::unordered_map<void*, IValPtrShared> buff_to_output_ivpsh_map;
+  std::unordered_map<void*, tensor_or_ref> buff_to_syn_tensor_map;
   std::vector<PtTensorInfo> duplicate_outtinfos;
 
   size_t dma_input_idx{0};
