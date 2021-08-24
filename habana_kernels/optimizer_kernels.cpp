@@ -91,7 +91,7 @@ optimizer_sparse_sgd_with_valid_count_hpu(
     const Tensor& valid_count_tensor,
     float mom,
     bool nesterov) {
-  PT_KERNEL_BEGIN;
+  PT_OTHER_OPS_BEGIN;
 
   size_t device_id = gradients.device().index();
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
@@ -196,7 +196,7 @@ optimizer_sparse_adagrad_with_valid_count_hpu(
     const Tensor& indices,
     const Tensor& learning_rate,
     const Tensor& valid_count_tensor) {
-  PT_KERNEL_BEGIN;
+  PT_OTHER_OPS_BEGIN;
 
   size_t device_id = gradients.device().index();
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
@@ -470,7 +470,7 @@ void optimizer_adamw_hpu(
     const float beta2,
     const float epsilon,
     const float weight_decay) {
-  PT_KERNEL_BEGIN;
+  PT_OTHER_OPS_BEGIN;
 
   size_t device_id = gradients[0].device().index();
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
@@ -680,7 +680,7 @@ Tensor& optimizer_adagrad_hpu(
     const float wd,
     const float lrd,
     const float epsilon) {
-  PT_KERNEL_BEGIN;
+  PT_OTHER_OPS_BEGIN;
 
   size_t device_id = gradients[0].device().index();
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
@@ -751,7 +751,7 @@ void OptimizerSGDOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     std::vector<bool> is_output_persistent) {
-  PT_KERNEL_BEGIN;
+  PT_OTHER_OPS_BEGIN;
   static_cast<void>(is_output_persistent);
   TORCH_CHECK(
       inputs.size() == 7,
@@ -790,7 +790,7 @@ void OptimizerFusedSGDOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     std::vector<bool> is_output_persistent) {
-  PT_KERNEL_BEGIN;
+  PT_OTHER_OPS_BEGIN;
 
   TORCH_CHECK(
       inputs.size() == 7,
@@ -867,7 +867,7 @@ Tensor& optimizer_sgd_hpu(
     const float mom,
     const float damp,
     const bool nesterov) {
-  PT_KERNEL_BEGIN;
+  PT_OTHER_OPS_BEGIN;
 
   size_t device_id = gradients[0].device().index();
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
@@ -932,7 +932,7 @@ void OptimizerSGDMomentumOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     std::vector<bool> is_output_persistent) {
-  PT_KERNEL_BEGIN;
+  PT_OTHER_OPS_BEGIN;
   static_cast<void>(is_output_persistent);
   TORCH_CHECK(
       inputs.size() == 9,
@@ -982,7 +982,7 @@ void OptimizerFusedSGDMomentumOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     std::vector<bool> is_output_persistent) {
-  PT_KERNEL_BEGIN;
+  PT_OTHER_OPS_BEGIN;
   TORCH_CHECK(
       inputs.size() == 9,
       "Incorrect size of inputs for optimizer fused SGD operator");
@@ -1080,7 +1080,7 @@ Tensor& optimizer_sgd_momentum_hpu(
     const float mom,
     const float damp,
     const bool nesterov) {
-  PT_KERNEL_BEGIN;
+  PT_OTHER_OPS_BEGIN;
 
   size_t device_id = gradients[0].device().index();
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);

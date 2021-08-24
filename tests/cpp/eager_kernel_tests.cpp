@@ -327,7 +327,11 @@ TEST(EagerKernelTest, Isnan0DTest) {
   bool equal = cpu_out.equal(hout);
   EXPECT_EQ(equal, true);
 }
-
+/*
+//NOTE: random_shuffle_tensor_hpu() is not being used anywhere plus
+//the direct call of an eager kernel function instead of through
+//torch:: interface poses issue with the Lazy mode check being done
+//inside PT_KERNEL_BEGIN macro.
 TEST(EagerKernelTest, RandomShuffleTest) {
   torch::Tensor x = torch::randint(0, 10, {8}, torch::dtype(torch::kInt32));
   torch::Tensor seed =
@@ -344,7 +348,7 @@ TEST(EagerKernelTest, RandomShuffleTest) {
   bool equal = result.equal(x);
   EXPECT_EQ(equal, false);
 }
-
+*/
 TEST(EagerKernelTest, AdamwOptTest) {
   torch::manual_seed(0);
   int num_params = 2;

@@ -33,6 +33,7 @@
 #include "habana_kernels/reduction_kernels.h"
 #include "habana_kernels/repeat.h"
 #include "habana_kernels/resize.h"
+#include "habana_kernels/softmax_kernels.h"
 #include "habana_kernels/tensor_shape_kernels.h"
 #include "habana_kernels/triangular_kernels.h"
 #include "habana_kernels/upsample_kernels.h"
@@ -2014,7 +2015,11 @@ Tensor scatter_src_hpu_lazy(
   auto node =
       std::make_shared<habana_lazy::ir::ScatterSrc>(self, dim, index, src);
 
-  auto result = scatter_src_hpu(self, dim, index, src);
+  auto result = empty_hpu_lazy(
+      ScatterWrapperOperator::compute_output_shape(self),
+      self.options(),
+      self.suggest_memory_format(),
+      false);
   auto hl_result = habana_lazy::GetOrCreateHbLazyTensor(result);
   habana_lazy::ir::Value& res = hl_result.CurrentIrValue();
   res.m_index = 0;
@@ -2401,7 +2406,9 @@ Tensor index_select_hpu_lazy(
   PT_LAZY_TRACE;
   auto node = std::make_shared<ir::IndexSelect>(self, dim, index);
 
-  auto result = index_select_hpu(self, dim, index);
+  auto shape = GatherOperator::compute_output_shape(self, dim, index);
+  auto result = empty_hpu_lazy(
+      shape, self.options(), self.suggest_memory_format(), false);
 
   auto hl_result = GetOrCreateHbLazyTensor(result, c10::kHABANA);
 
@@ -2847,14 +2854,12 @@ Tensor mse_loss_backward_hpu_lazy(
     const Tensor& target,
     int64_t reduction) {
   PT_LAZY_TRACE;
-
+  auto shape = MSELossBwdOperator::compute_output_shape(self);
   LazyOp<at::Tensor> k(
       "aten::mse_loss_backward",
       {grad_output, self, target, reduction},
       {3}, // metadata_indices
-      {mse_loss_backward_hpu(grad_output, self, target, reduction)
-           .sizes()
-           .vec()});
+      {shape});
   return k.call();
 }
 
@@ -4047,7 +4052,9 @@ Tensor log_softmax_hpu_lazy(
   auto node = std::make_shared<ir::LogSoftMax>(
       self, dim, half_to_float, "aten::_log_softmax");
   // infer shape
-  auto result = log_softmax_hpu(self, dim, half_to_float);
+  auto shape_out = LogSoftmaxOperator::compute_output_shape(self);
+  auto result = empty_hpu_lazy(
+      shape_out, self.options(), self.suggest_memory_format(), false);
 
   auto hl_result = GetHbLazyTensor(result);
 
@@ -4071,7 +4078,9 @@ Tensor log_softmax_backward_hpu_lazy(
   auto node = std::make_shared<ir::LogSoftMaxBackward>(
       grad, output, dim, input, "aten::_log_softmax_backward_data");
   // infer output shape
-  auto result = log_softmax_backward_hpu(grad, output, dim, input);
+  auto shape_out = LogSoftmaxBackwardOperator::compute_output_shape(input);
+  auto result = empty_hpu_lazy(
+      shape_out, input.options(), input.suggest_memory_format(), false);
 
   auto hl_result = GetHbLazyTensor(result);
 
@@ -4095,7 +4104,21 @@ Tensor softmax_hpu_lazy(
   auto node = std::make_shared<ir::LogSoftMax>(
       self, dim, half_to_float, "aten::_softmax");
   // infer shape
-  auto result = softmax_hpu(self, dim, half_to_float);
+  auto shape_out = SoftmaxOperator::compute_output_shape(self);
+  at::Tensor result;
+  if (self.dtype() == c10::ScalarType::BFloat16) {
+    result = empty_hpu_lazy(
+        shape_out,
+        self.options().dtype(c10::ScalarType::BFloat16),
+        self.suggest_memory_format(),
+        false);
+  } else {
+    result = empty_hpu_lazy(
+        shape_out,
+        self.options().dtype(c10::ScalarType::Float),
+        self.suggest_memory_format(),
+        false);
+  }
 
   auto hl_result = GetHbLazyTensor(result);
 
@@ -4120,7 +4143,9 @@ Tensor softmax_backward_hpu_lazy(
   auto node = std::make_shared<ir::LogSoftMaxBackward>(
       grad, output, dim, input, "aten::_softmax_backward_data");
   // infer output shape
-  auto result = softmax_backward_hpu(grad, output, dim, input);
+  auto shape_out = SoftmaxBackwardOperator::compute_output_shape(input);
+  auto result = empty_hpu_lazy(
+      shape_out, input.options(), input.suggest_memory_format(), false);
 
   auto hl_result = GetHbLazyTensor(result);
 
@@ -5568,9 +5593,9 @@ Scalar _local_scalar_dense_hpu_lazy(const Tensor& self) {
       HbLazyTensor::StepMarker({});
     }
     auto tensor_data = hb_tensor.GetHbLazyTensorData();
-    out = _local_scalar_dense_hpu(tensor_data.value());
+    out = habana_helpers::_local_scalar_dense_internal(tensor_data.value());
   } else {
-    out = _local_scalar_dense_hpu(self);
+    out = habana_helpers::_local_scalar_dense_internal(self);
   }
   return out;
 }

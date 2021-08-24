@@ -75,7 +75,8 @@ void synapse_matmul(
     const Tensor& output,
     const Tensor& mat1,
     const Tensor& mat2) {
-  PT_KERNEL_BEGIN;
+  PT_OTHER_OPS_BEGIN; // this macro is used because this kernel is used
+                      // in other kernels
   const auto device_id = mat1.device().index();
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
   std::string node_type = "gemm";

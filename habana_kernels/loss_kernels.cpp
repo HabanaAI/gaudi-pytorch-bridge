@@ -754,6 +754,11 @@ Tensor mse_loss_forward_hpu(
   return out.at(0);
 }
 
+std::vector<int64_t> MSELossBwdOperator::compute_output_shape(
+    const Tensor& self) {
+  return self.sizes().vec();
+}
+
 void MSELossBwdOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,

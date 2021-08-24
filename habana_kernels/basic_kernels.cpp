@@ -132,7 +132,8 @@ static void do_d2d_copy(Tensor& dst, const Tensor& src_in, bool non_blocking) {
 
 // cpu->hpu and hpu->cpu copy implementation
 Tensor& copy_hpu_(Tensor& self, const Tensor& src, bool non_blocking) {
-  PT_KERNEL_BEGIN;
+  PT_OTHER_OPS_BEGIN; // this macro is used because this kernel is used from
+                      // other Lazy kernels
   Tensor& dst = self;
   TORCH_CHECK(dst.defined(), "dst is undefined");
   TORCH_CHECK(src.defined(), "src is undefined");

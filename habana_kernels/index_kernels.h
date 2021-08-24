@@ -130,20 +130,22 @@ class ScatterWrapperOperator : public HabanaOperator {
 
   void SetPTOutput(torch::jit::Stack& inputs) override;
 
+  static std::vector<int64_t> compute_output_shape(const at::Tensor& self);
+
  private:
   at::Tensor AllocateOutput(
       torch::jit::Stack& inputs,
       bool is_output_persistent);
 };
 
-// ScatterValueOperator Operator
-//
 class ScatterOperator : public ScatterWrapperOperator {
  public:
   ScatterOperator(int device_id, c10::ScalarType scalarType)
       : ScatterWrapperOperator(device_id, scalarType, "scatter_fwd_") {}
 };
 
+// ScatterValueOperator Operator
+//
 class ScatterValueOperator : public ScatterWrapperOperator {
  public:
   ScatterValueOperator(int device_id, c10::ScalarType scalarType)

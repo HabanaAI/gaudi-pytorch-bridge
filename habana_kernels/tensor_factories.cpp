@@ -40,7 +40,8 @@ Tensor empty_hpu(
     IntArrayRef size,
     const TensorOptions& options,
     c10::optional<MemoryFormat> optional_memory_format) {
-  PT_KERNEL_BEGIN;
+  PT_OTHER_OPS_BEGIN; // this macro is used because this kernel is used
+                      // within Lazy kernels
   // AT_ASSERT(options.backend() == at::Backend::HABANA);
   AT_ASSERT(options.device().type() == DeviceType::HABANA);
 
@@ -91,7 +92,8 @@ Tensor empty_strided_hpu(
     IntArrayRef size,
     IntArrayRef stride,
     const TensorOptions& options) {
-  PT_KERNEL_BEGIN;
+  PT_OTHER_OPS_BEGIN; // this macro is used because this kernel is used
+                      // in other kernels
   at::check_size_nonnegative(size);
   auto t = empty_hpu({0}, options, c10::nullopt);
   at::native::resize_impl_hpu_(t.unsafeGetTensorImpl(), size, stride);

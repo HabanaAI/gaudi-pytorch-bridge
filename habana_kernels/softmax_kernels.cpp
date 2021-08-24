@@ -25,6 +25,11 @@
 using namespace torch;
 using namespace habana;
 
+std::vector<int64_t> LogSoftmaxOperator::compute_output_shape(
+    const Tensor& self) {
+  return self.sizes().vec();
+}
+
 void LogSoftmaxOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
@@ -60,6 +65,11 @@ void LogSoftmaxOperator::AllocateAndAddSynapseNode(
   auto output = habana_helpers::createPTTensor(self, is_output_persistent);
   AllocateSynapseOutput(graph, output, is_output_persistent);
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
+}
+
+std::vector<int64_t> LogSoftmaxBackwardOperator::compute_output_shape(
+    const Tensor& input) {
+  return input.sizes().vec();
 }
 
 void LogSoftmaxBackwardOperator::AllocateAndAddSynapseNode(
@@ -196,6 +206,10 @@ Tensor log_softmax_backward_hpu(
   PT_KERNEL_END;
 
   return out.at(0);
+}
+
+std::vector<int64_t> SoftmaxOperator::compute_output_shape(const Tensor& self) {
+  return self.sizes().vec();
 }
 
 void SoftmaxOperator::AllocateAndAddSynapseNode(
@@ -473,6 +487,11 @@ Tensor softmax_int_hpu(
   auto result = softmax_hpu(self, dim, false);
   PT_KERNEL_END;
   return result;
+}
+
+std::vector<int64_t> SoftmaxBackwardOperator::compute_output_shape(
+    const Tensor& input) {
+  return input.sizes().vec();
 }
 
 void SoftmaxBackwardOperator::AllocateAndAddSynapseNode(

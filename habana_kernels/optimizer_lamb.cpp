@@ -285,7 +285,7 @@ optimizer_lamb_phase1_hpu(
     const int step,
     const int bias_correction,
     const float weight_decay) {
-  PT_KERNEL_BEGIN;
+  PT_OTHER_OPS_BEGIN;
 
   TensorList gradients(gradient_vec);
   TensorList weights(weight_vec);
@@ -599,7 +599,7 @@ void optimizer_lamb_phase2_hpu(
     const float step,
     const float weight_decay,
     const int use_lamb) {
-  PT_KERNEL_BEGIN;
+  PT_OTHER_OPS_BEGIN;
 
   TensorList weights(weight_vec);
   TensorList adam_norm(adam_norm_vec);
@@ -833,7 +833,7 @@ void OptNormFusedNormOperator::AllocateAndAddSynapseNode(
 Tensor optimizer_lamb_fused_norm_hpu(
     const std::vector<at::Tensor>& grad,
     float max_grad_norm) {
-  PT_KERNEL_BEGIN;
+  PT_OTHER_OPS_BEGIN;
 
   auto clip_norm = torch::ones(1).to(torch::kHABANA);
   size_t device_id = grad[0].device().index();

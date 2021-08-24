@@ -13,7 +13,7 @@
 #include <iostream>
 #include <sstream>
 #include <string>
-
+#include "pytorch_helpers/synapse_helpers/env_flags.h"
 // Redefining c10 StringUtils functions here as distributed and syn
 // helpers are independent of  torch libraries
 namespace Logger {
@@ -318,7 +318,21 @@ class PTFuncLog {
   synapse_helpers::trace_start(__FUNCTION__);
 
 #define PT_DEVICE_BEGIN PT_MOD_BEGIN(PtLogger::ModuleMask::DEVICE)
-#define PT_KERNEL_BEGIN PT_MOD_BEGIN(PtLogger::ModuleMask::KERNEL)
+#define PT_KERNEL_BEGIN                                           \
+  {                                                               \
+    bool lazy_mode = GET_ENV_FLAG(PT_HPU_LAZY_MODE);              \
+    HABANA_ASSERT(                                                \
+        !lazy_mode,                                               \
+        "Lazy Mode = ",                                           \
+        lazy_mode,                                                \
+        "  :  "                                                   \
+        "Please avoid Legacy eager calls in Lazy execution mode " \
+        "(for optimizers use PT_OPTIMIZER_KERNEL_BEGIN),"         \
+        " for other kernels use PT_OTHER_KERNEL_BEGIN");          \
+    PT_MOD_BEGIN(PtLogger::ModuleMask::KERNEL)                    \
+  }
+// following macro is a non-asserting version of PT_KERNEL_BEGIN
+#define PT_OTHER_OPS_BEGIN PT_MOD_BEGIN(PtLogger::ModuleMask::KERNEL)
 #define PT_BRIDGE_BEGIN PT_MOD_BEGIN(PtLogger::ModuleMask::BRIDGE)
 #define PT_SYNHELPER_BEGIN PT_MOD_BEGIN(PtLogger::ModuleMask::SYNHELPER)
 #define PT_DISTRIBUTED_BEGIN PT_MOD_BEGIN(PtLogger::ModuleMask::DISTRIBUTED)

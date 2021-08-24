@@ -863,7 +863,8 @@ Tensor pow_scalar_tensor_hpu(Scalar other, const Tensor& self) {
  * Implements: grad_input = grad_output * mask / p1m
  ****************************************************************************/
 Tensor masked_scale_hpu(const Tensor& self, const Tensor& mask, double scale) {
-  PT_KERNEL_BEGIN;
+  PT_OTHER_OPS_BEGIN; // this macro is used because this kernel is used
+                      // within Lazy kernel tests
   // scale changed to support dropout backward based on what we pass for dropout
   scale = 1.0 / (1.0 - 1.0 / scale);
   auto tt_mul_out = at::mul(

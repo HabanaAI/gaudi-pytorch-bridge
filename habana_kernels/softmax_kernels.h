@@ -29,6 +29,8 @@ class LogSoftmaxOperator : public HabanaOperator {
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
+
+  static std::vector<int64_t> compute_output_shape(const at::Tensor& self);
 };
 
 class LogSoftmaxBackwardOperator : public HabanaOperator {
@@ -51,7 +53,8 @@ class LogSoftmaxBackwardOperator : public HabanaOperator {
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
-  ;
+
+  static std::vector<int64_t> compute_output_shape(const at::Tensor& input);
 };
 
 // Sofmax Operator
@@ -71,6 +74,7 @@ class SoftmaxOperator : public HabanaOperator {
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
   virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
+  static std::vector<int64_t> compute_output_shape(const at::Tensor& self);
 };
 
 // Sofmax Operator
@@ -114,6 +118,8 @@ class SoftmaxBackwardOperator : public HabanaOperator {
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
+
+  static std::vector<int64_t> compute_output_shape(const at::Tensor& input);
 };
 
 } // end namespace habana

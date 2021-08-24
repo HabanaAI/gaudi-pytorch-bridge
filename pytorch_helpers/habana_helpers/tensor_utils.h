@@ -238,4 +238,5 @@ void recalc_strides(
     const std::vector<int64_t>& self_sizes);
 
 bool is_unsupported_type(c10::ScalarType type);
+c10::Scalar _local_scalar_dense_internal(const at::Tensor& self);
 } // namespace habana_helpers

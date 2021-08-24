@@ -1726,7 +1726,6 @@ void ArgMaxOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     bool is_output_persistent) {
-  PT_KERNEL_BEGIN;
   TORCH_CHECK(
       inputs.size() == 3,
       "Incorrect size of inputs expected for ArgMax operator");
@@ -1763,7 +1762,6 @@ void ArgMaxOperator::AllocateAndAddSynapseNode(
   inputs.emplace_back(IValue(output.scalar_type()));
   ReduceOperator::AllocateAndAddSynapseNode(
       graph, inputs, is_output_persistent);
-  PT_KERNEL_END;
 }
 
 Tensor argmax_hpu(

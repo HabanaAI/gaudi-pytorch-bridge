@@ -321,6 +321,11 @@ Tensor gather_src_hpu(
   return out.at(0);
 }
 
+std::vector<int64_t> ScatterWrapperOperator::compute_output_shape(
+    const Tensor& self) {
+  return self.sizes().vec();
+}
+
 Tensor ScatterWrapperOperator::AllocateOutput(
     torch::jit::Stack& inputs,
     bool is_output_persistent) {
