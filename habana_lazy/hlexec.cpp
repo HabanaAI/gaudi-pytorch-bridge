@@ -204,6 +204,7 @@ void HlExec::GetOrCreate(
 
   size_t num_inputs = po_data.inputs.size();
 
+  auto orig_stack = stack;
   std::vector<size_t> parent_vec(num_inputs, ULONG_MAX);
   std::vector<bool> is_duplicate_vec(num_inputs, false);
   FindDuplicateInStack(po_data, stack, parent_vec, is_duplicate_vec);
@@ -235,7 +236,7 @@ void HlExec::GetOrCreate(
     // ===================
     // Create a JIT graph from the post order graph
     // Optimization is done during Create() itself
-    Create(po_data.post_order, po_data.inputs, po_data.outputs, stack);
+    Create(po_data.post_order, po_data.inputs, po_data.outputs, orig_stack);
     PruneDuplicateGraphInputs(parent_vec, is_duplicate_vec);
     LazyGraphCache::GetLazyCache().Add(las.hashCode(), mp_g_);
   } else {
