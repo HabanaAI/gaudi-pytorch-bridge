@@ -161,18 +161,15 @@ class HbLazyTensor {
   // devices will be returned.
   static std::vector<HbLazyTensor> GetLiveTensors(const c10::Device* device);
 
-  static void SyncTensorsGraph(
-      std::vector<HbLazyTensor>* tensors,
-      bool is_blocking = false);
+  static void SyncTensorsGraph(std::vector<HbLazyTensor>* tensors);
 
   static void SyncLiveTensorsGraph(
       const c10::Device* device,
-      bool use_cached_graph,
-      bool is_blocking);
+      bool use_cached_graph);
 
   static void StepMarker(const std::string& device_str = {});
-  static void StepMarkerBlocking(const std::string& device_str = {});
   static void SetDynamicMode();
+
   static void RunSavedGraph(const std::string& device_str);
   static void ExecuteCachedGraph();
 
@@ -226,9 +223,8 @@ class HbLazyTensor {
   std::shared_ptr<Data> data_ptr() const {
     return mp_data;
   }
-  static void SyncTensorsGraphInternal(
-      std::vector<HbLazyTensor>* tensors,
-      bool is_blocking);
+
+  static void SyncTensorsGraphInternal(std::vector<HbLazyTensor>* tensors);
   static bool switch_dynamic_mode;
 };
 

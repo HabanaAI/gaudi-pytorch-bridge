@@ -35,6 +35,6 @@ def _run_step_closures():
         for closure in step_closures:
             closure()
 
-def mark_step(device_str="", is_blocking=False):
-    htcore._mark_step(device_str, is_blocking)
+def mark_step(device_str=""):
+    htcore._mark_step(device_str)
     _run_step_closures()

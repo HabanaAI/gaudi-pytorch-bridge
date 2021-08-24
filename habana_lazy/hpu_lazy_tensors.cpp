@@ -434,7 +434,7 @@ void HbLazyTensor::applyPendingGraph() {
         tensors.emplace_back(tensor);
       }
     }
-    SyncTensorsGraph(&tensors, /* is_blocking */ false);
+    SyncTensorsGraph(&tensors);
   }
 }
 
@@ -443,30 +443,26 @@ std::vector<HbLazyTensor> HbLazyTensor::GetLiveTensors(
   return HbContextArena::Get()->GetLiveTensors(device);
 }
 
-void HbLazyTensor::SyncTensorsGraph(
-    std::vector<HbLazyTensor>* tensors,
-    bool is_blocking) {
+void HbLazyTensor::SyncTensorsGraph(std::vector<HbLazyTensor>* tensors) {
   PT_LAZY_TRACE;
   std::lock_guard<std::recursive_mutex> lock(HbContextArena::Get()->GetMutex());
-  SyncTensorsGraphInternal(tensors, is_blocking);
+  SyncTensorsGraphInternal(tensors);
 }
 
 void HbLazyTensor::SyncLiveTensorsGraph(
     const c10::Device* device,
-    bool use_cached_graph = false,
-    bool is_blocking = false) {
+    bool use_cached_graph = false) {
   PT_LAZY_TRACE;
   if (use_cached_graph) {
     ExecuteCachedGraph();
   } else {
     auto tensors = GetLiveTensors(device);
-    SyncTensorsGraph(&tensors, is_blocking);
+    SyncTensorsGraph(&tensors);
   }
 }
 
 void HbLazyTensor::SyncTensorsGraphInternal(
-    std::vector<HbLazyTensor>* tensors,
-    bool is_blocking = false) {
+    std::vector<HbLazyTensor>* tensors) {
   PT_LAZY_TRACE;
   std::vector<int> indices = CollectSyncTensors(*tensors);
   if (indices.empty()) {
@@ -556,18 +552,6 @@ void HbLazyTensor::SyncTensorsGraphInternal(
   // Launch the execution
   hlexec.Launch(stack);
   HABANA_ASSERT(stack.size() == indices.size());
-
-  if (is_blocking) {
-    auto& device = synapse_helpers::HPURegistrar::get_device();
-    auto& stream_handle = device.get_compute_stream();
-    std::vector<synapse_helpers::device_ptr> outDevPtr;
-    outDevPtr.push_back(
-        reinterpret_cast<uint64_t>((stack[0].toTensor()).data_ptr()));
-
-    // add wait event on one of the output tensors to ensure that the output
-    // data is available before next recipe launch
-    device.add_wait_events_on_stream(outDevPtr, stream_handle);
-  }
 
   size_t i = 0;
   for (const torch::IValue& v : stack) {
@@ -684,24 +668,9 @@ void HbLazyTensor::ShallowCopyTo(HbLazyTensor* dest) const {
 }
 
 void HbLazyTensor::StepMarker(const std::string& device_str) {
-  PT_LAZY_TRACE;
   std::lock_guard<std::recursive_mutex> lock(HbContextArena::Get()->GetMutex());
   c10::Device device = GetDeviceOrCurrent(device_str);
-  HbLazyTensor::SyncLiveTensorsGraph(
-      &device, /* is_cached*/ false, /*is_blocking*/ false);
-  HbLazyTensor::MarkStep(device);
-  if (switch_dynamic_mode) {
-    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
-    switch_dynamic_mode = false;
-  }
-}
-
-void HbLazyTensor::StepMarkerBlocking(const std::string& device_str) {
-  PT_LAZY_TRACE;
-  std::lock_guard<std::recursive_mutex> lock(HbContextArena::Get()->GetMutex());
-  c10::Device device = GetDeviceOrCurrent(device_str);
-  HbLazyTensor::SyncLiveTensorsGraph(
-      &device, /* is_cached*/ false, /*is_blocking*/ true);
+  HbLazyTensor::SyncLiveTensorsGraph(&device, /* is_cached*/ false);
   HbLazyTensor::MarkStep(device);
   if (switch_dynamic_mode) {
     unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
@@ -723,7 +692,6 @@ void HbLazyTensor::SetDynamicMode() {
 
 void HbLazyTensor::RunSavedGraph(const std::string& device_str) {
   c10::Device device = GetDeviceOrCurrent(device_str);
-  HbLazyTensor::SyncLiveTensorsGraph(
-      &device, /* is_cached*/ true, /* is_blocking*/ false);
+  HbLazyTensor::SyncLiveTensorsGraph(&device, true);
   HbLazyTensor::MarkStep(device);
 }

@@ -64,15 +64,10 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   // Lazy apis
   m.def(
       "_mark_step",
-      [](const std::string& device_str, bool is_blocking) {
-        if (is_blocking) {
-          habana_lazy::HbLazyTensor::StepMarkerBlocking(device_str);
-        } else {
-          habana_lazy::HbLazyTensor::StepMarker(device_str);
-        }
+      [](const std::string& device_str) {
+        habana_lazy::HbLazyTensor::StepMarker(device_str);
       },
-      py::arg("device_str") = "",
-      py::arg("is_blocking") = false);
+      py::arg("device_str") = "");
   m.def("set_dynamic_mode", []() {
     habana_lazy::HbLazyTensor::SetDynamicMode();
   });
