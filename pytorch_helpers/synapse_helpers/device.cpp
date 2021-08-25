@@ -437,6 +437,8 @@ synapse_error device::copy_data_to_device(
         reinterpret_cast<uint8_t*>(cpu_data) + total_bytes,
         dst_ptr);
     mapped_cpu_data = dst_ptr;
+  } else {
+    PT_SYNHELPER_DEBUG("copy_data_to_device uses Pinned memory");
   }
 
   PT_SYNHELPER_DEBUG("Used stream handle: ", stream_h2d_);
@@ -513,6 +515,8 @@ synapse_error device::copy_data_to_host(
       return synapse_error{"Host Malloc failed with status.", status};
     }
     mapped_destination = dst_ptr;
+  } else {
+    PT_SYNHELPER_DEBUG("copy_data_to_host uses Pinned memory");
   }
 
   unsigned attempt = 0;

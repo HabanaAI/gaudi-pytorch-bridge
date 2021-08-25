@@ -309,7 +309,7 @@ def main(args):
 
     model = Net().to(device)
     # kwargs = {'num_workers': 1, 'pin_memory': True} if use_habana else {}
-    kwargs = {'pin_memory': True}  if use_habana else {}
+    kwargs = {'pin_memory': True, 'pin_memory_device': 'hpu'}  if use_habana else {}
 
     if(device==torch.device('hpu')):
         permute_params_on_device(args, model)

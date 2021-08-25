@@ -856,3 +856,7 @@ at::Tensor& diag_hpu_out(
     const at::Tensor& self,
     int64_t diagonal,
     at::Tensor& result);
+bool is_pinned_hpu(const at::Tensor& self, c10::optional<at::Device> device);
+at::Tensor pin_memory_hpu(
+    const at::Tensor& self,
+    c10::optional<at::Device> device);

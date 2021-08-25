@@ -67,11 +67,13 @@ class HPURegistrar {
 
   // Delete the acquired device and reset the acquired_devices
   static void deleteDevices() {
-    auto& device = get_hpu_registrar().get_device();
-    // Cleanup the device
-    device.cleanup();
-    // Reset acquired_devices
-    get_hpu_registrar().acquired_devices[0] = nullptr;
+    if (initialized_) {
+      auto& device = get_hpu_registrar().get_device();
+      // Cleanup the device
+      device.cleanup();
+      // Reset acquired_devices
+      get_hpu_registrar().acquired_devices[0] = nullptr;
+    }
   }
 
   static const std::thread::id& getMainThreadId() {

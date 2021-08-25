@@ -366,13 +366,19 @@ def main(args):
         elif args.dl_worker_type == "HABANA":
             data_loader_type = habana_dataloader.HabanaDataLoader
 
+        pin_memory_device = None
+        pin_memory = False
+        if args.device == 'hpu':
+            pin_memory_device = 'hpu'
+            pin_memory = True
+
         data_loader = data_loader_type(
             dataset, batch_size=args.batch_size, sampler=train_sampler,
-            num_workers=args.workers, pin_memory=True, drop_last=True)
+            num_workers=args.workers, pin_memory=pin_memory, pin_memory_device=pin_memory_device, drop_last=True)
 
         data_loader_test = data_loader_type(
             dataset_test, batch_size=test_batch_size, sampler=test_sampler,
-            num_workers=args.workers, pin_memory=True, drop_last=True)
+            num_workers=args.workers, pin_memory=pin_memory,pin_memory_device=pin_memory_device, drop_last=True)
     else:
         data_loader = tools.ImageRandomDataLoader(batch_size=args.batch_size, train=True, drop_last=True)
         data_loader_test = tools.ImageRandomDataLoader(batch_size=test_batch_size, train=False, drop_last=True)

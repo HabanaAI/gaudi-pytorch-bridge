@@ -7,11 +7,17 @@
  *
  ******************************************************************************
  */
+#include <ATen/ATen.h>
+#include <ATen/CPUFunctions.h>
 #include <ATen/ExpandUtils.h>
 #include <ATen/InferSize.h>
+#include <ATen/NativeFunctions.h>
+#include <ATen/TensorUtils.h>
+#include <c10/core/Storage.h>
 #include <synapse_api.h>
 #include <torch/script.h>
 
+#include <habana_device/PinnedMemoryAllocator.h>
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_helpers/logging.h"
@@ -657,6 +663,34 @@ Tensor as_strided_hpu(
 Tensor view_hpu(const Tensor& self, IntArrayRef size) {
   // DeviceGuard omitted
   return at::native::view(self, size);
+}
+
+static inline Device ensure_has_index(c10::optional<at::Device> device) {
+  const c10::impl::DeviceGuardImplInterface* impl =
+      c10::impl::getDeviceGuardImpl((*device).type());
+  return impl->getDevice();
+}
+
+bool is_pinned_hpu(const Tensor& self, c10::optional<at::Device> device) {
+  ensure_has_index(device);
+  return habana::PinnedMemoryAllocator_is_pinned(self.storage().data());
+}
+
+Tensor pin_memory_hpu(
+    const at::Tensor& self,
+    c10::optional<at::Device> device) {
+  ensure_has_index(device);
+  auto* allocator = habana::getPinnedMemoryAllocator();
+  auto storage = Storage(
+      Storage::use_byte_size_t(),
+      at::detail::computeStorageNbytes(
+          self.sizes(), self.strides(), self.dtype().itemsize()),
+      allocator,
+      /*resizable=*/false);
+  auto tensor = at::cpu::empty({0}, self.options())
+                    .set_(storage, 0, self.sizes(), self.strides());
+  tensor.copy_(self);
+  return tensor;
 }
 
 static auto& KernelRegistry =

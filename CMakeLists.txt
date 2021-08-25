@@ -70,7 +70,6 @@ add_library(habana_pytorch_plugin SHARED
   pytorch_helpers/habana_helpers/tensor_shape.cpp
   pytorch_helpers/habana_helpers/dynamic_bucket_info.cpp
   pytorch_helpers/serialize/export.cpp
-  habana_hooks/HabanaHooks.cpp
   habana_kernels/aten_hpu_type_default.cpp
   habana_kernels/basic_kernels.cpp
   habana_kernels/binary_kernels.cpp

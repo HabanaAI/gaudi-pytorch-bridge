@@ -335,6 +335,7 @@ HPURegistrarPerThreadTracker::~HPURegistrarPerThreadTracker() {
   if (HPURegistrar::getMainThreadId() == std::this_thread::get_id()) {
     HPURegistrar::deleteDevices();
     habana::HPUDeviceAllocator::allocator_active_device_id = -1;
+    habana::PinnedMemoryAllocator::allocator_active_device_id = -1;
   }
 }
 

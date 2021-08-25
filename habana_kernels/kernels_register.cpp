@@ -53,6 +53,24 @@ Tensor hpu_wrap::_to_copy(
   return r;
 }
 
+bool hpu_wrap::is_pinned(
+    const at::Tensor& self,
+    c10::optional<at::Device> device) {
+  return is_pinned_hpu(self, device);
+}
+
+Tensor hpu_wrap::pin_memory(
+    const at::Tensor& self,
+    c10::optional<at::Device> device) {
+  return pin_memory_hpu(self, device);
+};
+
+Tensor hpu_wrap::_pin_memory(
+    const at::Tensor& self,
+    c10::optional<at::Device> device) {
+  return pin_memory_hpu(self, device);
+};
+
 Tensor& hpu_wrap::copy_(Tensor& self, const Tensor& src, bool non_blocking) {
   if (src.device().type() == c10::DeviceType::HPU &&
       self.device().type() == c10::DeviceType::HPU) {
@@ -74,6 +92,7 @@ Tensor& hpu_wrap::copy_(Tensor& self, const Tensor& src, bool non_blocking) {
     return copy_hpu_(self, src, non_blocking);
   }
 };
+
 Tensor hpu_wrap::as_strided(
     const Tensor& self,
     IntArrayRef size,

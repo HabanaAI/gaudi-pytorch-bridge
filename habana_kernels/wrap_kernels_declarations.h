@@ -848,6 +848,15 @@ struct hpu_wrap {
       const at::Tensor& self,
       int64_t diagonal,
       at::Tensor& out);
+  static bool is_pinned(
+      const at::Tensor& self,
+      c10::optional<c10::Device> device);
+  static at::Tensor pin_memory(
+      const at::Tensor& self,
+      c10::optional<c10::Device> device);
+  static at::Tensor _pin_memory(
+      const at::Tensor& self,
+      c10::optional<c10::Device> device);
 };
 
 std::tuple<at::Tensor&, at::Tensor&>
