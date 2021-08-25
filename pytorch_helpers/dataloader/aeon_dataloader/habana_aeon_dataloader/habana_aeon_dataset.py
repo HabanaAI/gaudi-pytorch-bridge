@@ -2,15 +2,19 @@
 
 from torch.utils.data import IterableDataset
 import habana_torch_dataloader
+from torchvision import transforms
 import habana_aeon_dataloader.aeon_app
 from .aeon_config import get_aeon_config
+from .aeon_transformers import HabanaAeonTransforms
 from pathlib import Path
 import json
 
 
 class HabanaAeonIterableDataset(IterableDataset):
-    def __init__(self, aeon_data_dir, manifest_filename, batch_size, height, width, instance_id, num_instances, is_train=True):
-        aeon_config_json = get_aeon_config(aeon_data_dir, manifest_filename, batch_size, workers, height, width, is_train)
+    def __init__(self, aeon_data_dir, manifest_filename, torch_transforms, batch_size, workers, is_train=True):
+        ht = HabanaAeonTransforms(torch_transforms)
+        aeon_transform_config = ht.get_aeon_transforms()
+        aeon_config_json = get_aeon_config(aeon_data_dir, manifest_filename, aeon_transform_config, batch_size, workers, is_train)
         self.aeon = habana_aeon_dataloader.aeon_app.AeonPytorchDL(aeon_config_json, True, True)
 
     def __iter__(self):

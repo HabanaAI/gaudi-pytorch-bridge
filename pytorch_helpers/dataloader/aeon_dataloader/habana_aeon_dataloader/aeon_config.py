@@ -21,11 +21,11 @@ def _get_rank():
     else:
         return 0
 
-def _get_image_config(height, width):
+def _get_image_config(transforms):
     image_config = {
         "type": "image",
-        "height": height,
-        "width": width,
+        "height": transforms["height"],
+        "width": transforms["width"],
         "channel_major": False,
         "output_type": "float"
     }
@@ -38,29 +38,26 @@ def _get_label_config():
     }
     return label_config
 
-def _get_augmentation():
+def _get_augmentation(transforms, is_train):
     augmentation_config = {
-          "caffe_mode": True,
-          "center": False,
-          "crop_enable": True,
-          "do_area_scale": True,
-          "flip_enable": True,
-          "horizontal_distortion": [
-              0.75,
-              1.33333337306976
-          ],
-          "scale": [
-              0.08,
-              1.0
-          ],
-          "type": "image"
+        "type": "image"
     }
+    if is_train:
+        augmentation_config["caffe_mode"] = transforms.get("caffe_mode", False)
+        augmentation_config["center"] = False
+        augmentation_config["crop_enable"] = True
+        augmentation_config["do_area_scale"] = True
+        augmentation_config["flip_enable"] = transforms.get("flip_enable", False)
+        augmentation_config["horizontal_distortion"] = [0.75, 1.33333337306976]
+        augmentation_config["scale"] = [0.08, 1.0]
+    else:
+        augmentation_config["validation_mode"] = True
     return augmentation_config
 
-def get_aeon_config(aeon_data_dir, manifest_filename, batch_size, workers, height, width, is_train=True):
-    image_config = _get_image_config(height, width)
+def get_aeon_config(aeon_data_dir, manifest_filename, transforms, batch_size, workers, is_train=True):
+    image_config = _get_image_config(transforms)
     label_config = _get_label_config()
-    augmentation_config = _get_augmentation()
+    augmentation_config = _get_augmentation(transforms, is_train)
     instance_id = _get_rank()
     num_instances = _get_world_size()
     aeon_config = {
@@ -69,12 +66,17 @@ def get_aeon_config(aeon_data_dir, manifest_filename, batch_size, workers, heigh
         "etl": (image_config, label_config),
         "augmentation": [augmentation_config],
         "batch_size": batch_size,
-        "decode_thread_count": workers,
-        "fread_thread_count": 4,
         "instance_id": instance_id,
         "num_instances": num_instances,
         "file_shuffle_seed": 5,
-        "shuffle_manifest": True,
         "iteration_mode": "ONCE"
     }
+    if is_train:
+        aeon_config["decode_thread_count"] = workers
+        aeon_config["fread_thread_count"] = 4
+        aeon_config["shuffle_manifest"] = True
+    else:
+        aeon_config["decode_thread_count"] = 1
+        aeon_config["fread_thread_count"] = 1
+        aeon_config["shuffle_manifest"] = False
     return aeon_config
