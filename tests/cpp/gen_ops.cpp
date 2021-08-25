@@ -7,75 +7,9 @@
  *
  ******************************************************************************
  */
+#include "hpu_ops/util.h"
 
-#include <gtest/gtest.h>
-#include <tests/cpp/habana_lazy_test_infra.h>
-#include <torch/torch.h>
-
-class GenOps : public habana_lazy_test::LazyTest {
-  const torch::IntArrayRef m_dims = torch::IntArrayRef({2, 3, 2, 3});
-  std::vector<torch::Tensor> m_inputs;
-  std::vector<torch::Tensor> m_hinputs;
-
-  void Compare(
-      const torch::Tensor& cpu_result,
-      const torch::Tensor& habana_result,
-      double rtol = 1e-03,
-      double atol = 1e-03) const {
-    EXPECT_TRUE(habana_result.is_habana());
-    torch::Tensor habana_result_on_cpu = habana_result.cpu();
-
-    if (c10::isIntegralType(cpu_result.scalar_type(), /*includeBool=*/true)) {
-      EXPECT_TRUE(torch::equal(cpu_result, habana_result_on_cpu))
-          << "seed=" << GetSeed() << std::endl
-          << "exp=" << std::endl
-          << cpu_result << std::endl
-          << "actual=" << std::endl
-          << habana_result_on_cpu << std::endl;
-    } else {
-      EXPECT_TRUE(
-          torch::allclose(cpu_result, habana_result_on_cpu, rtol, atol, true))
-          << "seed=" << GetSeed() << std::endl
-          << "exp=" << std::endl
-          << cpu_result << std::endl
-          << "actual=" << std::endl
-          << habana_result_on_cpu << std::endl;
-    }
-  }
-
-  void GenerateInputs(int num_inputs, torch::ScalarType dtype = torch::kFloat) {
-    SetSeed();
-    m_inputs.resize(num_inputs);
-    m_hinputs.resize(num_inputs);
-    for (int i = 0; i < num_inputs; ++i) {
-      m_inputs[i] = dtype == torch::kBool ? torch::randn(m_dims) > 0
-                                          : torch::randn(m_dims).to(dtype);
-      m_hinputs[i] = m_inputs[i].to("hpu");
-    }
-  }
-
-  // Generate inputs with different dtypes/sizes per input
-  void GenerateInputs(
-      int num_inputs,
-      torch::ArrayRef<torch::IntArrayRef> sizes,
-      std::vector<torch::ScalarType> dtypes = {}) {
-    SetSeed();
-    ASSERT_EQ(num_inputs, sizes.size());
-    if (dtypes.empty()) {
-      dtypes.resize(num_inputs, torch::kFloat);
-    }
-
-    m_inputs.resize(num_inputs);
-    m_hinputs.resize(num_inputs);
-
-    for (int i = 0; i < num_inputs; ++i) {
-      m_inputs[i] = dtypes[i] == torch::kBool
-          ? torch::randn(sizes.at(i)) > 0
-          : torch::randn(sizes.at(i)).to(dtypes[i]);
-      m_hinputs[i] = m_inputs[i].to("hpu");
-    }
-  }
-
+class GenOps : public HpuOpTestUtil {
  public:
   void TestOut(
       const std::function<torch::Tensor(torch::Tensor, torch::Tensor&)>& fn,
@@ -86,8 +20,8 @@ class GenOps : public habana_lazy_test::LazyTest {
     auto out = torch::empty({0}, dtype);
     auto hout = torch::empty({0}, torch::TensorOptions(dtype).device("hpu"));
 
-    fn(m_inputs[0], out);
-    fn(m_hinputs[0], hout);
+    fn(GetCpuInput(0), out);
+    fn(GetHpuInput(0), hout);
 
     Compare(out, hout);
   }
@@ -103,8 +37,8 @@ class GenOps : public habana_lazy_test::LazyTest {
     auto hout =
         torch::empty({0}, torch::TensorOptions(out_dtype).device("hpu"));
 
-    fn(m_inputs[0], m_inputs[1], out);
-    fn(m_hinputs[0], m_hinputs[1], hout);
+    fn(GetCpuInput(0), GetCpuInput(1), out);
+    fn(GetHpuInput(0), GetHpuInput(1), hout);
 
     Compare(out, hout);
   }
@@ -129,8 +63,8 @@ class GenOps : public habana_lazy_test::LazyTest {
 
     torch::Scalar s = 1;
 
-    fn(m_inputs[0], s, out);
-    fn(m_hinputs[0], s, hout);
+    fn(GetCpuInput(0), s, out);
+    fn(GetHpuInput(0), s, hout);
 
     Compare(out, hout);
   }
@@ -149,13 +83,13 @@ class GenOps : public habana_lazy_test::LazyTest {
       torch::ScalarType out_dtype) {
     GenerateInputs(1, dtype);
 
-    auto out = torch::empty_like(m_inputs[0]);
-    auto hout = torch::empty_like(m_hinputs[0]);
+    auto out = torch::empty_like(GetCpuInput(0));
+    auto hout = torch::empty_like(GetHpuInput(0));
 
     torch::Scalar s = 1.1;
 
-    fn(s, m_inputs[0], out);
-    fn(s, m_hinputs[0], hout);
+    fn(s, GetCpuInput(0), out);
+    fn(s, GetHpuInput(0), hout);
 
     Compare(out, hout);
   }
@@ -184,8 +118,8 @@ class GenOps : public habana_lazy_test::LazyTest {
     torch::Scalar s1 = -0.05;
     torch::Scalar s2 = 0.05;
 
-    fn(m_inputs[0], s1, s2, out);
-    fn(m_hinputs[0], s1, s2, hout);
+    fn(GetCpuInput(0), s1, s2, out);
+    fn(GetHpuInput(0), s1, s2, hout);
 
     Compare(out, hout);
   }
@@ -215,8 +149,8 @@ class GenOps : public habana_lazy_test::LazyTest {
     auto out = torch::empty({0});
     auto hout = torch::empty({0}, "hpu");
 
-    fn(m_inputs[0], s1, s2, s3, out);
-    fn(m_hinputs[0], s1, s2, s3, hout);
+    fn(GetCpuInput(0), s1, s2, s3, out);
+    fn(GetHpuInput(0), s1, s2, s3, hout);
 
     Compare(out, hout);
   }
@@ -231,8 +165,8 @@ class GenOps : public habana_lazy_test::LazyTest {
     auto out = torch::empty({0});
     auto hout = torch::empty({0}, "hpu");
 
-    fn(m_inputs[0], m_inputs[1], int_val, out);
-    fn(m_hinputs[0], m_hinputs[1], int_val, hout);
+    fn(GetCpuInput(0), GetCpuInput(1), int_val, out);
+    fn(GetHpuInput(0), GetHpuInput(1), int_val, hout);
 
     Compare(out, hout);
   }
@@ -250,8 +184,8 @@ class GenOps : public habana_lazy_test::LazyTest {
     auto out = torch::empty({0});
     auto hout = torch::empty({0}, "hpu");
 
-    fn(m_inputs[0], m_inputs[1], m_inputs[2], int_val, out);
-    fn(m_hinputs[0], m_hinputs[1], m_hinputs[2], int_val, hout);
+    fn(GetCpuInput(0), GetCpuInput(1), GetCpuInput(2), int_val, out);
+    fn(GetHpuInput(0), GetHpuInput(1), GetHpuInput(2), int_val, hout);
 
     Compare(out, hout);
   }
@@ -268,8 +202,8 @@ class GenOps : public habana_lazy_test::LazyTest {
     auto out = torch::empty({0});
     auto hout = torch::empty({0}, "hpu");
 
-    fn(m_inputs[0], int_val, torch::kFloat, out);
-    fn(m_hinputs[0], int_val, torch::kFloat, hout);
+    fn(GetCpuInput(0), int_val, torch::kFloat, out);
+    fn(GetHpuInput(0), int_val, torch::kFloat, hout);
 
     Compare(out, hout);
   }
@@ -281,8 +215,8 @@ class GenOps : public habana_lazy_test::LazyTest {
     auto out = torch::empty({0});
     auto hout = torch::empty({0}, "hpu");
 
-    fn(m_inputs[0], int_val, out);
-    fn(m_hinputs[0], int_val, hout);
+    fn(GetCpuInput(0), int_val, out);
+    fn(GetHpuInput(0), int_val, hout);
 
     Compare(out, hout);
   }
@@ -290,10 +224,10 @@ class GenOps : public habana_lazy_test::LazyTest {
   void TestInplace(const std::function<torch::Tensor&(torch::Tensor&)>& fn) {
     GenerateInputs(1);
 
-    auto res = fn(m_inputs[0]);
-    auto hres = fn(m_hinputs[0]);
+    auto res = fn(GetCpuInput(0));
+    auto hres = fn(GetHpuInput(0));
 
-    EXPECT_EQ(hres.storage().data_ptr(), m_hinputs[0].storage().data_ptr());
+    EXPECT_EQ(hres.storage().data_ptr(), GetHpuInput(0).storage().data_ptr());
     Compare(res, hres);
   }
 
@@ -302,18 +236,18 @@ class GenOps : public habana_lazy_test::LazyTest {
     GenerateInputs(1);
     torch::Scalar s = 0.001;
 
-    auto res = fn(m_inputs[0], s);
-    auto hres = fn(m_hinputs[0], s);
+    auto res = fn(GetCpuInput(0), s);
+    auto hres = fn(GetHpuInput(0), s);
 
-    EXPECT_EQ(hres.storage().data_ptr(), m_hinputs[0].storage().data_ptr());
+    EXPECT_EQ(hres.storage().data_ptr(), GetHpuInput(0).storage().data_ptr());
     Compare(res, hres);
   }
 
   void TestFn(const std::function<torch::Tensor(torch::Tensor)>& fn) {
     GenerateInputs(1);
 
-    auto res = fn(m_inputs[0]);
-    auto hres = fn(m_hinputs[0]);
+    auto res = fn(GetCpuInput(0));
+    auto hres = fn(GetHpuInput(0));
 
     Compare(res, hres);
   }
@@ -322,8 +256,8 @@ class GenOps : public habana_lazy_test::LazyTest {
       const std::function<torch::Tensor(torch::Tensor, torch::Tensor)>& fn) {
     GenerateInputs(2);
 
-    auto res = fn(m_inputs[0], m_inputs[1]);
-    auto hres = fn(m_hinputs[0], m_hinputs[1]);
+    auto res = fn(GetCpuInput(0), GetCpuInput(1));
+    auto hres = fn(GetHpuInput(0), GetHpuInput(1));
 
     Compare(res, hres);
   }
@@ -335,8 +269,8 @@ class GenOps : public habana_lazy_test::LazyTest {
     GenerateInputs(1, torch::kInt);
     int64_t int_val = 2;
 
-    auto res = fn(m_inputs[0], int_val, torch::kFloat);
-    auto hres = fn(m_hinputs[0], int_val, torch::kFloat);
+    auto res = fn(GetCpuInput(0), int_val, torch::kFloat);
+    auto hres = fn(GetHpuInput(0), int_val, torch::kFloat);
 
     Compare(res, hres);
   }
@@ -344,8 +278,8 @@ class GenOps : public habana_lazy_test::LazyTest {
   void TestFn(const std::function<torch::Tensor(torch::Tensor, int64_t)>& fn) {
     GenerateInputs(1);
     int64_t int_val = -1;
-    auto res = fn(m_inputs[0], int_val);
-    auto hres = fn(m_hinputs[0], int_val);
+    auto res = fn(GetCpuInput(0), int_val);
+    auto hres = fn(GetHpuInput(0), int_val);
 
     Compare(res, hres);
   }
@@ -355,8 +289,8 @@ class GenOps : public habana_lazy_test::LazyTest {
     GenerateInputs(1);
     torch::Scalar s1 = -1;
     torch::Scalar s2 = 1;
-    auto res = fn(m_inputs[0], s1, s2);
-    auto hres = fn(m_hinputs[0], s1, s2);
+    auto res = fn(GetCpuInput(0), s1, s2);
+    auto hres = fn(GetHpuInput(0), s1, s2);
 
     Compare(res, hres);
   }
@@ -365,8 +299,8 @@ class GenOps : public habana_lazy_test::LazyTest {
               torch::Tensor(torch::Tensor, torch::Tensor, torch::Scalar)>& fn) {
     GenerateInputs(2);
     torch::Scalar s1 = -1.042;
-    auto res = fn(m_inputs[0], m_inputs[1], s1);
-    auto hres = fn(m_hinputs[0], m_hinputs[1], s1);
+    auto res = fn(GetCpuInput(0), GetCpuInput(1), s1);
+    auto hres = fn(GetHpuInput(0), GetHpuInput(1), s1);
 
     Compare(res, hres);
   }
@@ -375,8 +309,8 @@ class GenOps : public habana_lazy_test::LazyTest {
       const std::function<torch::Tensor(torch::Tensor, torch::Tensor)>& fn,
       torch::ArrayRef<torch::IntArrayRef> sizes) {
     GenerateInputs(2, sizes);
-    auto res = fn(m_inputs[0], m_inputs[1]);
-    auto hres = fn(m_hinputs[0], m_hinputs[1]);
+    auto res = fn(GetCpuInput(0), GetCpuInput(1));
+    auto hres = fn(GetHpuInput(0), GetHpuInput(1));
 
     Compare(res, hres);
   }
