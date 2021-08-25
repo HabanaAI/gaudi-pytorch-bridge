@@ -25,13 +25,8 @@ def process(args):
                 except UnicodeDecodeError as e:
                     pass
                 v2=[]
-                if 'loss=' in line:
-                    epoch_num = line[line.find('Epoch'):].split(':')[0].split(' ')[1]
-                    strip_l= line[line.find('loss'):].split(']')
-                    v2.append(float(strip_l[0].split('=')[1]))
-                    loss_val[int(epoch_num)] = v2
 
-                elif "mean dice :" in line:
+                if "mean dice :" in line:
                     strip_2 = line[line.find('Epoch:'):]
                     strip_2 = strip_2.replace("mean dice","mean_dice")
                     strip_2 = strip_2.rstrip()
@@ -41,6 +36,11 @@ def process(args):
                     for i in split2:
                         v2.append(float(i.split(':')[1]))
                     v1.append(v2)
+                elif 'loss=' in line:
+                    epoch_num = line[line.find('Epoch'):].split(':')[0].split(' ')[1]
+                    strip_l= line[line.find('loss'):].split(']')
+                    v2.append(float(strip_l[0].split('=')[1]))
+                    loss_val[int(epoch_num)] = v2
                 else:
                     if 'Namespace' in line:
                         m = line[line.find("(")+1:line.find(")")].split(', ')
@@ -51,7 +51,6 @@ def process(args):
                             except:
                                 pass
                     continue;
-
 
             for i in range(0, len(loss_val)):
                 v1[i].append(loss_val[i][0])
@@ -80,7 +79,8 @@ def process(args):
     if b1['deep_supervision'] == 'True':
         deep_s = " deep_supervision "
 
-    title = tta_type + data_type + deep_s + "BS_" + b1['batch_size']
+    fold = b1.get("fold")
+    title = tta_type + data_type + deep_s + "BS_" + b1['batch_size'] + " FOLD_" + fold
     y = None
     color_list=['red', 'green']
     j=0
@@ -92,10 +92,10 @@ def process(args):
         j = j + 1
         if j >= len(color_list):
             j = 0
-
-    fig.savefig("unet_plot.png")
-
-
+    import time
+    timestr = time.strftime("%Y%m%d-%H%M%S")
+    fn = timestr + "_unet_plot_f" + fold + ".png"
+    fig.savefig(fn)
 
 def main(args):
     process(args)
