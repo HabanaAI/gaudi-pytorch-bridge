@@ -794,3 +794,30 @@ TEST_F(LazyUnaryKernelTest, Cumsum0D) {
   auto cpu_out = torch::cumsum(A, 0, torch::kFloat32);
   EXPECT_TRUE(allclose(hout, cpu_out));
 }
+
+TEST_F(LazyUnaryKernelTest, EluBackwardTest) {
+  const std::vector<int64_t> dimentions{2, 3};
+
+  auto grad = torch::randn(dimentions, torch::requires_grad(false));
+  auto A = torch::randn(dimentions, torch::requires_grad(false));
+
+  Scalar alpha(2.0);
+  Scalar scale(1.0);
+  Scalar input_scale(1.0);
+  bool is_result = false;
+
+  auto hgrad = grad.to(torch::kHPU);
+  auto hA = A.to(torch::kHPU);
+
+  auto expectedOutput =
+      torch::elu_backward(grad, alpha, scale, input_scale, is_result, A);
+  auto habanaOutput =
+      torch::elu_backward(hgrad, alpha, scale, input_scale, is_result, hA);
+
+  EXPECT_TRUE(allclose(
+      expectedOutput,
+      habanaOutput.to("cpu"),
+      0.001,
+      0.001,
+      /*equal_nan*/ true));
+}

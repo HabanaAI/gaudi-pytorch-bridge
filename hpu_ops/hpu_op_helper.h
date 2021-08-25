@@ -169,6 +169,7 @@ class HabanaOperatorHelper : public HabanaOperator {
   static std::shared_ptr<void> FillTrilParams(const at::Stack&, size_t&);
   static std::shared_ptr<void> FillHardSigmoidParams(const at::Stack&, size_t&);
   static std::shared_ptr<void> FillMseLossParams(const at::Stack&, size_t&);
+  static std::shared_ptr<void> FillEluBackwardParams(const at::Stack&, size_t&);
 
   static sizes_vec AddCOpsOutputShape(const at::Stack&, bool = false);
   static sizes_vec BinaryOutputShape(const at::Stack&, bool = false);

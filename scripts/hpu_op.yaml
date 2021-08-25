@@ -484,3 +484,9 @@ addcdiv.out:
   op_base_class: AddCOpOut
   guid: div
   scalar_ids: [3]
+
+elu_backward:
+  custom_fill_params: FillEluBackwardParams
+  dtypes: [BFloat16, Float]
+  guid: elu_bwd
+  out_ids: [0]
