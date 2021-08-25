@@ -35,6 +35,80 @@ TEST_F(LazyBinaryInplaceKernelTest, MulInplaceTest) {
   EXPECT_EQ(allclose(out, exp, 0.001, 0.001), true);
 }
 
+TEST_F(LazyBinaryInplaceKernelTest, MulInplaceScalarTest) {
+  torch::Tensor A = torch::randn({2, 3});
+  torch::Tensor B = torch::randn({2, 3});
+  auto hA = A.to(torch::kHABANA);
+  auto hB = B.to(torch::kHABANA);
+
+  torch::Scalar s = 0.3;
+
+  A = A.mul_(s);
+  auto exp = torch::add(A, B);
+
+  hA = hA.mul_(s);
+  auto result = torch::add(hA, hB);
+  Tensor out = result.to(kCPU);
+
+  EXPECT_EQ(allclose(out, exp, 0.001, 0.001), true);
+}
+
+TEST_F(LazyBinaryInplaceKernelTest, MulInplaceScalarBfloat16Test) {
+  torch::Tensor A = torch::randn({2, 3});
+  auto A_bf16 = A.to(torch::kBFloat16);
+  torch::Tensor B = torch::randn({2, 3});
+  auto B_bf16 = B.to(torch::kBFloat16);
+  auto hA = A_bf16.to(torch::kHABANA);
+  auto hB = B_bf16.to(torch::kHABANA);
+
+  torch::Scalar s = 0.3;
+
+  A = A.mul_(s);
+  auto exp = torch::add(A, B);
+
+  hA = hA.mul_(s);
+  auto result = torch::add(hA, hB);
+  Tensor out = result.to(torch::kFloat).to(kCPU);
+
+  EXPECT_EQ(allclose(out, exp, 0.1, 0.1), true);
+}
+
+TEST_F(LazyBinaryInplaceKernelTest, AddInplaceScalarTest) {
+  torch::Tensor A = torch::randn({2, 3});
+  torch::Tensor B = torch::randn({2, 3});
+  auto hA = A.to(torch::kHABANA);
+  auto hB = B.to(torch::kHABANA);
+
+  torch::Scalar s = 0.3;
+
+  A = A.add_(s);
+  auto exp = torch::add(A, B);
+
+  hA = hA.add_(s);
+  auto result = torch::add(hA, hB);
+  Tensor out = result.to(kCPU);
+
+  EXPECT_EQ(allclose(out, exp, 0.001, 0.001), true);
+}
+
+TEST_F(LazyBinaryInplaceKernelTest, SubInplaceScalarTest) {
+  torch::Tensor A = torch::randn({2, 3});
+  torch::Tensor B = torch::randn({2, 3});
+  auto hA = A.to(torch::kHABANA);
+  auto hB = B.to(torch::kHABANA);
+
+  torch::Scalar s = 0.3;
+
+  A = A.sub_(s);
+  auto exp = torch::add(A, B);
+
+  hA = hA.sub_(s);
+  auto result = torch::add(hA, hB);
+  Tensor out = result.to(kCPU);
+
+  EXPECT_EQ(allclose(out, exp, 0.001, 0.001), true);
+}
+
 TEST_F(LazyBinaryInplaceKernelTest, SqrtAddInplaceTest) {
   // Inplace op as output node is not supported yet.
   torch::Tensor A = torch::ones({2, 3});

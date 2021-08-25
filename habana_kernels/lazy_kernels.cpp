@@ -250,14 +250,21 @@ void updateDstDependencies(
   }
 }
 
-at::Tensor get_tensor_for_scalar(float alpha) {
+at::Tensor get_tensor_for_scalar(
+    float alpha,
+    const at::TensorOptions& options = {}) {
   at::Tensor alpha_tensor;
 
   auto context = habana_lazy_executor.getDeviceExecutionContext(0);
 
   auto map_it = context->scalar_to_tensor_map.find(alpha);
   if (map_it == context->scalar_to_tensor_map.end()) {
-    alpha_tensor = at::tensor(alpha).to(c10::kHABANA, true);
+    if (options.has_dtype()) {
+      alpha_tensor =
+          at::tensor(alpha).to(options.dtype()).to(c10::kHABANA, true);
+    } else {
+      alpha_tensor = at::tensor(alpha).to(c10::kHABANA, true);
+    }
     context->scalar_to_tensor_map[alpha] = alpha_tensor;
   } else {
     alpha_tensor = map_it->second;
@@ -987,7 +994,7 @@ Tensor& addcdiv_hpu_lazy_(
     // context->MarkTensorRegistered(hl_self.getTensorUniqueId());
   } else {
     auto div_out = div_tensor_hpu_lazy(tensor1, tensor2);
-    auto alpha_tensor = get_tensor_for_scalar(alpha_float);
+    auto alpha_tensor = get_tensor_for_scalar(alpha_float, div_out.options());
     auto mul_out = mul_tensor_hpu_lazy(alpha_tensor, div_out);
     auto out = add_tensor_hpu_lazy_(self, mul_out, 1.0);
   }
@@ -1004,7 +1011,8 @@ Tensor add_tensor_hpu_lazy(
   auto alpha_float = alpha.toFloat();
 
   if (alpha_float != 1.0) {
-    at::Tensor alpha_tensor = get_tensor_for_scalar(alpha_float);
+    at::Tensor alpha_tensor =
+        get_tensor_for_scalar(alpha_float, other.options());
 
     auto hl_alpha = GetOrCreateHbLazyTensor(alpha_tensor, c10::kHABANA);
     auto mul_out = mul_tensor_hpu_lazy(other, alpha_tensor);
@@ -1056,8 +1064,9 @@ Tensor add_scalar_hpu_lazy(const Tensor& self, Scalar other, Scalar alpha) {
 
 Tensor& add_scalar_hpu_lazy_(Tensor& self, Scalar other, Scalar alpha) {
   PT_LAZY_TRACE;
-  LazyOp<Tensor&> op("aten::add_", {self, other, alpha});
-  return op.call(self);
+  auto other_tensor = get_tensor_for_scalar(other.toFloat(), self.options());
+
+  return add_tensor_hpu_lazy_(self, other_tensor, alpha);
 }
 
 Tensor& add_tensor_hpu_lazy_(Tensor& self, const Tensor& other, Scalar alpha) {
@@ -1121,8 +1130,8 @@ Tensor sub_scalar_hpu_lazy(const Tensor& self, Scalar other, Scalar alpha) {
 }
 Tensor& sub_scalar_hpu_lazy_(Tensor& self, Scalar other, Scalar alpha) {
   PT_LAZY_TRACE;
-  LazyOp<Tensor&> op("aten::sub_", {self, other, alpha});
-  return op.call(self);
+  auto other_tensor = get_tensor_for_scalar(other.toFloat(), self.options());
+  return sub_tensor_hpu_lazy_(self, other_tensor, alpha);
 }
 Tensor rsub_scalar_hpu_lazy(const Tensor& self, Scalar other, Scalar alpha) {
   PT_LAZY_TRACE;
@@ -1201,7 +1210,9 @@ Tensor mul_scalar_hpu_lazy(const Tensor& self, Scalar other) {
 
 Tensor& mul_scalar_hpu_lazy_(Tensor& self, Scalar other) {
   PT_LAZY_TRACE;
-  LazyOp<at::Tensor&> k("aten::mul_", {self, other});
+
+  auto other_tensor = get_tensor_for_scalar(other.toFloat(), self.options());
+  LazyOp<at::Tensor&> k("aten::mul_", {self, other_tensor});
   return k.call(self);
 }
 
@@ -1238,7 +1249,8 @@ Tensor& div_tensor_hpu_lazy_(Tensor& self, const Tensor& other) {
 Tensor div_scalar_hpu_lazy(const Tensor& self, Scalar other) {
   PT_LAZY_TRACE;
 
-  LazyOp<at::Tensor> k{"aten::div", {self, other}};
+  auto other_tensor = get_tensor_for_scalar(other.toFloat(), self.options());
+  LazyOp<at::Tensor> k{"aten::div", {self, other_tensor}};
   return k.call();
 }
 
