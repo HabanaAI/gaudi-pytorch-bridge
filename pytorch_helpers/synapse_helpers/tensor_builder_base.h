@@ -115,7 +115,7 @@ class tensor_builder_base {
       return static_cast<ConcreteBuilder&>(*this);
     }
     shape_ = dynamic_shape;
-    if ((tensor_type_ == DATA_TENSOR) && (shape_.min() != shape_.max())) {
+    if (tensor_type_ == DATA_TENSOR) {
       tensor_type_ = DATA_TENSOR_DYNAMIC;
     }
     return static_cast<ConcreteBuilder&>(*this);

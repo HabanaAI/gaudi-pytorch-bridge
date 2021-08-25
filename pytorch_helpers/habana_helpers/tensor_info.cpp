@@ -1,4 +1,5 @@
 #include "habana_helpers/tensor_info.h"
+#include "synapse_helpers/habana_tensor.h"
 
 void PtTensorInfo::populate_tinfo(
     const at::Tensor& pt_tensor,
@@ -107,7 +108,8 @@ std::ostream& operator<<(std::ostream& O, const PtTensorInfo& t) {
   if (t.is_tensor()) {
     O << ":[" << t.get_shape() << "]:[" << t.get_strides()
       << "]:" << t.get_numel() << ':' << '(' << t.get_size() << " b)"
-      << " :: " << t.get_syn_name() << ':' << t.get_buffer() << '>';
+      << " :: " << t.get_syn_name() << ':' << t.get_buffer() << '>'
+      << " tensor type:" << t.tensor_type_;
 
     if (t.get_dma_cb() != nullptr) {
       O << " dma_cb : " << (void*)t.get_dma_cb();

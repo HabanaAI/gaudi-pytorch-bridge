@@ -308,13 +308,7 @@ class HabanaLaunchOpPT {
   bool IsCustomOptimizer(std::string node_str);
 
   // Patching related
-  void AddAtenIntermediate(
-      const IValPtrShared& ivpsh,
-      const std::string& syntensor_name,
-      const std::string& ir_name) {
-    const auto& pttensor = ivpsh->toTensor();
-    auto ti =
-        PtTensorInfo(pttensor, syntensor_name, ir_name, watch_tensor_flag_);
+  void AddAtenIntermediate(const IValPtrShared& ivpsh, const PtTensorInfo& ti) {
     void* buffp = ti.get_buffer();
     intermediate_tinfos.emplace_back(ti);
     aten_intermediates.push_back(ivpsh->toTensor());
@@ -322,7 +316,15 @@ class HabanaLaunchOpPT {
     // persistent intermediate tensors
     buff_to_intermediate_ivpsh_map.emplace(buffp, ivpsh);
   }
-
+  void AddAtenIntermediate(
+      const IValPtrShared& ivpsh,
+      const std::string& syntensor_name,
+      const std::string& ir_name) {
+    const auto& pttensor = ivpsh->toTensor();
+    auto ti =
+        PtTensorInfo(pttensor, syntensor_name, ir_name, watch_tensor_flag_);
+    AddAtenIntermediate(ivpsh, ti);
+  }
   void AddAtenIntermediate(
       const IValPtrShared& ivpsh,
       const std::string& syntensor_name,
@@ -330,7 +332,6 @@ class HabanaLaunchOpPT {
     std::string ir_name = "%" + vp->debugName();
     AddAtenIntermediate(ivpsh, syntensor_name, ir_name);
   }
-
   void UpdateOutputPatching(
       const IValPtrShared& ivpsh,
       const IValPtrShared& ivpsh_updated,

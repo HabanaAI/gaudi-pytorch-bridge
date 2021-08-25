@@ -25,6 +25,30 @@
 #include "synapse_helpers/synapse_error.h"
 #include "synapse_helpers/value_or_ref.h"
 
+inline std::ostream& operator<<(std::ostream& out, const synTensorType& t) {
+  switch (t) {
+    case DATA_TENSOR:
+      out << "DATA_TENSOR";
+      break;
+    case DATA_TENSOR_DYNAMIC:
+      out << "DATA_TENSOR_DYNAMIC";
+      break;
+    case SHAPE_TENSOR:
+      out << "SHAPE_TENSOR";
+      break;
+    case INPUT_DESCRIBING_SHAPE_TENSOR:
+      out << "INPUT_DESCRIBING_SHAPE_TENSOR";
+      break;
+    case DEVICE_SHAPE_TENSOR:
+      out << "DEVICE_SHAPE_TENSOR";
+      break;
+    case TENSOR_TYPE_MAX:
+    default:
+      HABANA_ASSERT(false);
+  }
+  return out;
+}
+
 namespace synapse_helpers {
 
 class memory_section {
@@ -365,6 +389,7 @@ inline std::ostream& operator<<(std::ostream& out, const tensor& tensor) {
              << (tensor.is_persistent() ? ", persistent, "
                                         : ", non-persistent, ")
              << (tensor.is_placeholder() ? "placeholder, " : "")
+             << ", tensor type=" << tensor.tensor_type_
              << ", offset=" << tensor.offset_
              << ", size=" << tensor.total_size_bytes_;
 }

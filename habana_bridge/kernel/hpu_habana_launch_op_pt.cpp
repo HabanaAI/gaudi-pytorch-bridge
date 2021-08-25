@@ -728,7 +728,7 @@ void HabanaLaunchOpPT::ProcessPersistentNodeOutput(
               "with non zero offset ",
               ti.get_offset());
         }
-        AddAtenIntermediate(ivpsh, out_syntensor.name(), vp);
+        AddAtenIntermediate(ivpsh, ti);
       }
     }
   } else {
