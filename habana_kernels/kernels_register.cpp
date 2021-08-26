@@ -4178,6 +4178,13 @@ Tensor& hpu_wrap::linspace_out(
     Scalar end,
     c10::optional<int64_t> steps,
     Tensor& out) {
+  if (!steps.has_value()) {
+    TORCH_WARN_ONCE(
+        "Not providing a value for linspace's steps is deprecated and will "
+        "throw a runtime error in a future release. This warning will appear "
+        "only once per process.");
+  }
+
   if (!hpu_check_inputs_impl("linspace_out", {out}))
     return AtenHpuTypeDefault::linspace_out(start, end, steps, out);
 
