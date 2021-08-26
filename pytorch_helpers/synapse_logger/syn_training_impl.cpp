@@ -580,6 +580,30 @@ inline void log_synConstTensorDescriptor(const synTensorDescriptor* obj) {
   synapse_logger::log(out.str());
 }
 
+inline void log_synTensorSetGeometry(
+    const synTensorGeometry* obj,
+    synTensor& tensor) {
+  synapse_logger::ostr_t out{synapse_logger::get_ostr()};
+  out << R"("name":"object", "args":{"at":")" << (void*)obj << R"(", "tensor":)"
+      << tensor << R"(, "type":"synTensorGeometry", "fields":{)"
+      << R"( "m_sizes":[)"
+      << absl::Span<const unsigned>(obj->sizes, HABANA_DIM_MAX)
+      << R"(], "m_dims":)" << obj->dims << "}}";
+  synapse_logger::log(out.str());
+}
+
+inline void log_synTensorSetDeviceLayout(
+    const synTensorDeviceLayout* obj,
+    synTensor& tensor) {
+  synapse_logger::ostr_t out{synapse_logger::get_ostr()};
+  out << R"("name":"object", "args":{"at":")" << (void*)obj << R"(", "tensor":)"
+      << tensor << R"(, "type":"synTensorDeviceLayout", "fields":{)"
+      << R"( "strides":[)"
+      << absl::Span<const unsigned>(obj->strides, HABANA_DIM_MAX - 1)
+      << R"(], "deviceDataType":)" << obj->deviceDataType << "}}";
+  synapse_logger::log(out.str());
+}
+
 synStatus SYN_API_CALL synTensorCreate(
     synTensor* pTensor,
     const synTensorDescriptor* descriptor,
@@ -1099,17 +1123,17 @@ synStatus SYN_API_CALL synConfigurationGet(
 }
 
 synStatus SYN_API_CALL synTensorHandleCreate(
-    synTensor* tensor,
+    synTensor* pTensor,
     synGraphHandle graph,
     synTensorType type,
     const char* tensorName) {
   LOG_TRACE("SYN_API", "{}", __FUNCTION__);
 
-  API_LOG_CALL(ARG(tensor), ARG(graph), ARG(type), ARG_Q(tensorName));
+  API_LOG_CALL(ARG(pTensor), ARG(graph), ARG(type), ARG_Q(tensorName));
   synStatus status;
   CALL_SYN_FUNC(
-      lib_synapse::synTensorHandleCreate, tensor, graph, type, tensorName);
-  API_LOG_RESULT();
+      lib_synapse::synTensorHandleCreate, pTensor, graph, type, tensorName);
+  API_LOG_RESULT(S_ARG(pTensor));
   return status;
 }
 
@@ -1118,6 +1142,7 @@ synStatus SYN_API_CALL synTensorSetDeviceLayout(
     const synTensorDeviceLayout* layout) {
   LOG_TRACE("SYN_API", "{}", __FUNCTION__);
 
+  log_synTensorSetDeviceLayout(layout, tensor);
   API_LOG_CALL(ARG(tensor), ARG(layout));
   synStatus status;
   CALL_SYN_FUNC(lib_synapse::synTensorSetDeviceLayout, tensor, layout);
@@ -1131,6 +1156,7 @@ synStatus SYN_API_CALL synTensorSetGeometry(
     synGeometryType geometryType) {
   LOG_TRACE("SYN_API", "{}", __FUNCTION__);
 
+  log_synTensorSetGeometry(geometry, tensor);
   API_LOG_CALL(ARG(tensor), ARG(geometry), ARG(geometryType));
   synStatus status;
   CALL_SYN_FUNC(

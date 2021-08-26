@@ -81,72 +81,71 @@ class Utils:
             fd.write(content)
 
 class Tensor:
-    def __init__(self, descriptor, create_entry, memory_section, custom_name=""):
-        self.create_entry = create_entry
-        self.section = memory_section
-        self.descriptor = descriptor
-        # t['byte_size'] = descriptor_byte_size(tdesc['args'])
-        self.name = custom_name if custom_name else descriptor["args"]["fields"]["m_name"]
+    def __init__(self, creation_event=None, custom_name="",
+                 *,
+                 descriptor=None,
+                 memory_section=None,
+                 is_null=False, new_api=True, is_const=False, is_persistent=False):
+        self.events = [creation_event] if creation_event is not None else []
+        self.is_persistent = is_persistent
+        self.update_from_section(memory_section)
+        self.update_from_descriptor(descriptor)
+        if memory_section:
+            self.events.append(memory_section)
+        if descriptor:
+            self.events.append(descriptor)
+        self.is_null = is_null
+        self.is_const = is_const if not is_null else creation_event["func"].name == "synConstTensorCreate"
+        if custom_name:
+            self.name = custom_name
+        else:
+            self.name = creation_event["args"]["tensorName"] if new_api else descriptor["args"]["fields"]["m_name"]
         self.dst = dict()
         self.src = None
         self.is_output = False
-        if self.is_null:
-            self.is_const = False
-            log.info(f"new tensor {self.name}")
-            return
-
-        self.is_const = create_entry["func"].name == "synConstTensorCreate"
+        if is_null:
+           self.is_const = False
+           log.info(f"new tensor {self.name}")
+           return
         const = "const " if self.is_const else ""
-        log.info(f"{create_entry['ts']}: new {const}tensor {self.name} at {self.create_entry['result']['pTensor']}")
-
-    def events(self):
-        if self.is_null:
-            return
-        yield self.create_entry
-        yield self.descriptor
+        log.info(f"{creation_event['ts']}: new {const}tensor {self.name} at {creation_event['result']['pTensor']}")
 
     @classmethod
     def Null(cls, name):
-        return Tensor(descriptor=None, create_entry=None, memory_section=None, custom_name=name)
+        return Tensor(custom_name=name, is_null=True)
 
     def set_output(self):
         self.is_output = True
 
-    @property
-    def is_persistent(self):
-        return bool(
-            self.create_entry
-            and self.section
-            and (int(self.section["args"]["memoryAttributes"]) & synMemoryAttribute.MEMORY_ATTRIBUTE_PERSISTENT)
-        )
+    def update_geometry(self, geometry_entry, geometry_object):
+        self.events.append(geometry_object)
+        self.events.append(geometry_entry)
+
+    def update_layout(self, layout_entry, layout_object):
+        self.events.append(layout_object)
+        self.events.append(layout_entry)
+
+    def update_memory_section(self, entry, memory_section):
+        self.events.append(memory_section)
+        self.update_from_section(memory_section)
+        self.events.append(entry)
 
     @property
     def is_arg(self):
         return self.src and self.src[0]["id"][:3] == "ARG"
 
     @property
-    def is_null(self):
-        return self.name.startswith("null")
-
-    @property
     def is_ret(self):
         return bool(any(dst[:3] == "RET" for dst in self.dst))
 
-    @property
-    def dims(self):
-        return self.descriptor["args"]["fields"]["m_dims"] if self.descriptor else 0
+    def update_from_descriptor(self, desc):
+        self.dims = desc["args"]["fields"]["m_dims"] if desc else []
+        self.shape = tuple(desc["args"]["fields"]["m_sizes"][: self.dims]) if desc else tuple()
+        self.byte_size = descriptor_byte_size(desc["args"]) if desc else 0
+        self.syn_type = syn_types[desc["args"]["fields"]["m_dataType"] if desc else 0]
 
-    @property
-    def byte_size(self):
-        return descriptor_byte_size(self.descriptor["args"]) if self.descriptor else 0
-
-    @property
-    def syn_type(self):
-        return syn_types[self.descriptor["args"]["fields"]["m_dataType"] if self.descriptor else 0]
-
-    @property
-    def shape(self):
-        return tuple(self.descriptor["args"]["fields"]["m_sizes"][: self.dims]) if self.descriptor else tuple()
+    def update_from_section(self, section):
+        self.is_persistent = bool(section and (int(section["args"]["memoryAttributes"]) & synMemoryAttribute.MEMORY_ATTRIBUTE_PERSISTENT))
 
     def __repr__(self):
         if self.is_null:
@@ -191,7 +190,7 @@ class Graph:
             if n["args"]["pGuid"] not in ("RET", "ARG"):
                 yield n
         for t in self.tensors.values():
-            for te in t.events():
+            for te in t.events:
                 yield te
         for d in self.dependencies:
             yield d
@@ -686,16 +685,30 @@ class Log:
                     memory_sections[entry["result"]["sectionHandle"]] = entry
                     graph = self.graphs[args["graph"]]
                     graph.add_section(entry)
+                if is_call(entry, "synTensorAssignToSection") and entry["ph"] == "B":
+                    tensor = entry["args"]["tensor"]
+                    self.tensors[tensor].update_memory_section(entry, memory_sections[entry["args"]["section"]])
                 if is_call(entry, "synTensorCreate") or is_call(entry, "synConstTensorCreate"):
                     assert entry["args"]["descriptor"] == tdesc["args"]["at"]
                     section = None
                     if "pSectionHandle" in entry["args"] and entry["args"]["pSectionHandle"] != "0":
                         section = memory_sections[entry["args"]["pSectionHandle"]]
-                    t = Tensor(descriptor=tdesc, create_entry=entry, memory_section=section)
+                    t = Tensor(entry, custom_name="", descriptor=tdesc, memory_section=section, new_api=False)
                     tdesc = None
                     self.tensors[result["pTensor"]] = t
                     self.ntensors[t.name] = t
-
+                if is_call(entry, "synTensorHandleCreate"):
+                    t = Tensor(entry, "")
+                    self.tensors[result["pTensor"]] = t
+                    self.ntensors[t.name] = t
+                if is_call(entry, "synTensorSetGeometry"):
+                    geometry_object = objects[entry["args"]["geometry"]]
+                    tensor          = entry["args"]["tensor"]
+                    self.tensors[tensor].update_geometry(entry, geometry_object)
+                if is_call(entry, "synTensorSetDeviceLayout"):
+                    layout_object = objects[entry["args"]["layout"]]
+                    tensor          = entry["args"]["tensor"]
+                    self.tensors[tensor].update_layout(entry, layout_object)
                 if is_call(entry, "synGraphCreate"):
                     graph = Graph(entry)
                     self.graphs[result["pGraphHandle"]] = graph
@@ -811,7 +824,6 @@ class Log:
         ])
 
         selected_tss = collect_tss()
-
         def pred(elem):
             entry = elem[1]
             if entry["ts"] in selected_tss:
@@ -984,7 +996,6 @@ class Log:
                     f"dma_sources {len(dma_sources)}, compute_sources {len(compute_sources)}, dma_dests {len(dma_destinations)}, compute_dests {len(compute_destinations)}",
                 )
             if launch.ts in (235406391.0, 340392135.0):
-                print("bonanza")
                 for no, (t, tdef) in enumerate(launch.inputs.items()):
                     print(f"  {no:04} {t} {tdef[0]:08x}:{tdef[0]+tdef[1]:08x}")
                     for s in launch.sources:

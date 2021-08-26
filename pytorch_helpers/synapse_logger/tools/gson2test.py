@@ -18,6 +18,7 @@ from shutil import copy2
 import argparse
 from gson_parsing import func_def_from_pretty_function, gson_iterator, syn_types, hcl_collective_ops, hcl_ops
 from io import StringIO
+from browse_log import is_call
 
 log = logging.getLogger("synapse_logger.gson2test")
 
@@ -622,7 +623,6 @@ class Flow:
             RECIPE_SIZE = "recipe size"
 
         space = Flow.SpacesMap(self.objs, renderer)
-
         for no, entry in self.log:
             try:
                 renderer.set_tid(entry["tid"])
@@ -670,6 +670,29 @@ class Flow:
                             args["at"],
                             args["type"],
                             f"tensor_descriptor_{no}",
+                            initializer=f"={{{fields}}}",
+                            local=True,
+                        )
+                    elif args["type"] == "synTensorGeometry":
+                        fields = args["fields"]
+                        fields["m_sizes"] = "{" + ",".join((str(dim) for dim in fields["m_sizes"])) + "}"
+                        fields = ", ".join(f"/*.{k}*/{v}" for k, v in fields.items())
+                        v = space.memory.add(
+                            args["at"],
+                            args["type"],
+                            f"tensor_geometry_{no}",
+                            initializer=f"={{{fields}}}",
+                            local=True,
+                        )
+                    elif args["type"] == "synTensorDeviceLayout":
+                        fields = args["fields"]
+                        fields["strides"] = "{" + ",".join((str(dim) for dim in fields["strides"])) + "}"
+                        fields["deviceDataType"] = "(synDataType){}".format(fields["deviceDataType"])
+                        fields = ", ".join(f"/*.{k}*/{v}" for k, v in fields.items())
+                        v = space.memory.add(
+                            args["at"],
+                            args["type"],
+                            f"tensor_layout_{no}",
                             initializer=f"={{{fields}}}",
                             local=True,
                         )
@@ -810,6 +833,23 @@ class Flow:
                         v = space.add(entry["result"]["pGraphHandle"], "synGraphHandle", f"graph{no}", local=True)
                         args["pGraphHandle"] = entry["result"]["pGraphHandle"]
                         out(Flow.call(entry, space.get_args(entry, ("pGraphHandle",))))
+                    elif func_def.name == "synTensorHandleCreate":
+                        v = space.add(entry["result"]["pTensor"], "synTensor", f"tensor{no}", local=True)
+                        args["pTensor"] = entry["result"]["pTensor"]
+                        replacements = space.get_args(entry, ("pTensor", "graph",))
+                        tensorType = args["type"]
+                        replacements["type"] = f"(synTensorType) {tensorType}"
+                        out(Flow.call(entry, replacements))
+
+                    elif func_def.name == "synTensorSetGeometry":
+                        replacements = space.get_args(entry, ("tensor","geometry", ))
+                        geometryType = args["geometryType"]
+                        replacements["geometryType"] = f"(synGeometryType) {geometryType}"
+                        out(Flow.call(entry, replacements))
+
+                    elif func_def.name == "synTensorSetDeviceLayout":
+                        out(Flow.call(entry, space.get_args(entry, ("tensor", "layout", ))))
+
                     elif func_def.name == "synGraphCompile":
                         self._reference_match_graph(no, entry)
                         if entry["result"]["status"] == "incomplete":
@@ -839,6 +879,9 @@ class Flow:
                         )
                         args["sectionHandle"] = entry["result"]["sectionHandle"]
                         out(Flow.call(entry, space.get_args(entry, ("graph", "sectionHandle"))))
+                    elif func_def.name == "synTensorAssignToSection":
+                        replacements = space.get_args(entry, ("tensor", "section",))
+                        out(Flow.call(entry, replacements))
                     elif func_def.name == "synStreamCreate":
                         v = space.add(entry["result"]["pStreamHandle"], "synStreamHandle", f"stream{no}", local=True)
                         args["pStreamHandle"] = entry["result"]["pStreamHandle"]
