@@ -299,7 +299,12 @@ class Hook():
                     tensor_name = self.name + input_tag + str(i)
                     #print(" tensor_name: ", tensor_name, " path_modifier: ", path_modifier)
                     self.save_tensor(inputs[i], tensor_name, path_modifier=path_modifier)
-        for i in range(len(outputs)):
+
+        if isinstance(outputs, torch.Tensor):
+            tensor_name = self.name + output_tag + "0"
+            self.save_tensor(outputs, tensor_name, path_modifier=path_modifier)
+        else:
+            for i in range(len(outputs)):
                 if outputs[i] is not None:
                     tensor_name = self.name + output_tag + str(i)
                     #print(" tensor_name: ", tensor_name, " path_modifier: ", path_modifier)
