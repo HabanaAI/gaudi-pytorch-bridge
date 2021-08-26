@@ -100,32 +100,7 @@ std::vector<at::Tensor> flatten_for_scatter_gather(
 
 namespace {
 constexpr const char* const kRankExchangeStoreKey = "RANK_EXCHANGE_STORE_KEY";
-constexpr int kByteOffset = 8;
 } // namespace
-
-template <typename T>
-inline std::vector<T> toVec(int num, int numBytes) {
-  std::vector<T> values;
-  // Read off bytes from right to left, pushing them into
-  // char array.
-  for (int i = 0; i < numBytes; i++) {
-    uint8_t x = (num >> (kByteOffset * i)) & 0xff;
-    values.push_back(static_cast<T>(x));
-  }
-  return values;
-}
-
-// Converts from char vec (such as from store read) to int.
-template <typename T>
-inline int fromVec(const std::vector<T>& values) {
-  int num = 0;
-  // Set each byte at the correct location on num
-  for (auto i = 0; i < values.size(); i++) {
-    uint8_t x = static_cast<uint8_t>(values[i]);
-    num |= (static_cast<int>(x) << (kByteOffset * i));
-  }
-  return num;
-}
 
 std::shared_ptr<hcl_communicator> ProcessGroupHCL::getComm(int deviceId) {
   if (hcl_communicator_.find(deviceId) == hcl_communicator_.end()) {
