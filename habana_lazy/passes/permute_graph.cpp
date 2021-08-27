@@ -265,8 +265,7 @@ void RemoveRedundantRestrideNodes(std::shared_ptr<Graph>& graph) {
   RemoveRedundantOp(graph, "hpu::restride_cl");
 }
 
-static const std::unordered_map<std::string, size_t> dimBasedOpsIdx = {
-    {"aten::slice", 1}};
+static const std::unordered_map<std::string, size_t> dimBasedOpsIdx = {};
 
 bool isDimBasedOp(const Node* node) {
   return node ? dimBasedOpsIdx.count(node->kind().toQualString()) != 0 : false;
@@ -455,6 +454,7 @@ void InsertPermute_graph(
 
         // dim based Ops as per original PT layout NCHW
         if ((strcmp(node->kind().toQualString(), "aten::mean") == 0) ||
+            (strcmp(node->kind().toQualString(), "aten::slice") == 0) ||
             (strcmp(node->kind().toQualString(), "aten::_softmax") == 0) ||
             (strcmp(node->kind().toQualString(), "hpu::sum_dim_IntList") ==
              0) ||
@@ -594,6 +594,7 @@ void InsertPermute_graph(
           (strcmp(
                node->kind().toQualString(),
                "aten::_log_softmax_backward_data") == 0) ||
+          (strcmp(node->kind().toQualString(), "aten::slice") == 0) ||
           (strcmp(node->kind().toQualString(), "aten::_log_softmax") == 0)) {
         // View() layout is always NCHW as per original PT format
         // [ToDo] consider case permute_cl followed by view()
