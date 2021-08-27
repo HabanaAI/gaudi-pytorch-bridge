@@ -16,7 +16,7 @@ using namespace at;
 
 class LazyBasicKernelTest : public habana_lazy_test::LazyTest {};
 
-TEST_F(LazyBasicKernelTest, BasicThreadSafety) {
+TEST_F(LazyBasicKernelTest, DISABLED_BasicThreadSafety) {
   torch::Tensor A = torch::rand({20});
   torch::Tensor hA = A.to("hpu");
 
