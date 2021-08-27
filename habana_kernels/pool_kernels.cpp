@@ -175,8 +175,9 @@ ns_SpatialReduction::Params synapse_pool_params_builder(
     bool ceil_mode) {
   const int64_t filter_H = kernel_size[0];
   const int64_t filter_W = kernel_size[1];
-  const int64_t stride_H = stride[0];
-  const int64_t stride_W = stride[1];
+  // stride – the stride of the window. Default value is kernel_size
+  const int64_t stride_H = stride.vec().empty() ? kernel_size[0] : stride[0];
+  const int64_t stride_W = stride.vec().empty() ? kernel_size[1] : stride[1];
   const int64_t dilation_H = dilation[0];
   const int64_t dilation_W = dilation[1];
 
