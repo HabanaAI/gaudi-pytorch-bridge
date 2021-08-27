@@ -66,7 +66,7 @@ void PtTensorInfo::update_shape_values() {
       break;
     case SHAPE_TENSOR:
     case DATA_TENSOR_DYNAMIC: {
-      HABANA_ASSERT(SYN_MAX_TENSOR_DIM >= shape_.size());
+      HABANA_ASSERT(SYN_GAUDI_MAX_TENSOR_DIM >= shape_.size());
       for (size_t i = 0; i < shape_.size(); ++i) {
         // Reverse PyTorch shapes for synapse tensor shape patching
         if (i < shape_.size()) {
@@ -88,6 +88,7 @@ void PtTensorInfo::update_shape_values() {
     //  }
     //} break;
     // case DEVICE_SHAPE_TENSOR:
+    // device shape tensors are still 5-element (SYN_MAX_TENSOR_DIM)
     //  shape_values_ = {SYN_MAX_TENSOR_DIM, 0, 0, 0, 0};
     //  break;
     case TENSOR_TYPE_MAX:

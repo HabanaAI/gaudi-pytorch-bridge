@@ -221,7 +221,8 @@ class tensor_builder_base {
   ConcreteBuilder& mark_device_shape_tensor() {
     tensor_type_ = DEVICE_SHAPE_TENSOR;
     data_type_ = syn_type_uint32;
-    return with_shape(tensor::shape_t(1_D, SYN_MAX_TENSOR_DIM));
+    // device shape tensors are still 5-element (SYN_MAX_TENSOR_DIM)
+    return with_shape(tensor::shape_t(1_D, {SYN_MAX_TENSOR_DIM}));
   }
 
   // NOLINTNEXTLINE // we're move()'ing, so no const& is needed. TODO remove

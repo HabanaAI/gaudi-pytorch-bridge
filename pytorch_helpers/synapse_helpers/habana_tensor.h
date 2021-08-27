@@ -103,22 +103,32 @@ class tensor final {
         return value <= rhs.value;
       }
       bool operator>=(const dimension_count_t& rhs) const {
-        return value <= rhs.value;
+        return value >= rhs.value;
       }
 
       unsigned value{};
     };
 
-    using internal_storage = std::array<dimension_size_t, SYN_MAX_TENSOR_DIM>;
+    using internal_storage = std::array<dimension_size_t, HABANA_DIM_MAX>;
     explicit shape_t(
         dimension_count_t rank = dimension_count_t{0},
-        dimension_size_t a = 1,
-        dimension_size_t b = 1,
-        dimension_size_t c = 1,
-        dimension_size_t d = 1,
-        dimension_size_t e = 1)
-        : dims_{{a, b, c, d, e}} {
-      set_rank(rank);
+        std::initializer_list<dimension_size_t> dimensions = {})
+        : rank_(rank) {
+      HABANA_ASSERT(
+          dimensions.size() == 0 ||
+              (rank.value == dimensions.size() && rank.value <= HABANA_DIM_MAX),
+          "Wrong number of dimensions specified, dim size ",
+          dimensions.size(),
+          " rank size ",
+          rank.value);
+
+      unsigned index = 0;
+      for (const auto& dim : dimensions) {
+        dims_[index++] = dim;
+      }
+      for (; index < HABANA_DIM_MAX; index++) {
+        dims_[index] = 1;
+      }
     }
 
     internal_storage::reference operator[](size_t index) {

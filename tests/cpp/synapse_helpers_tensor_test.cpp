@@ -18,7 +18,7 @@ TEST(SynapseHelpersTest, NonDynamicTensorBuilding) {
   auto& synapse_device_ = synapse_helpers::HPURegistrar::get_device();
   synGraphHandle h;
   ASSERT_EQ(synSuccess, synGraphCreate(&h, synDeviceGaudi));
-  auto input_shape = tensor::shape_t{5_D, 5, 4, 3, 2, 1};
+  auto input_shape = tensor::shape_t{5_D, {5, 4, 3, 2, 1}};
   auto type = habana_helpers::pytorch_to_synapse_type(c10::ScalarType::Float);
   auto build_result =
       tensor_builder(input_shape, type).build(synapse_device_, h);
@@ -26,9 +26,9 @@ TEST(SynapseHelpersTest, NonDynamicTensorBuilding) {
   auto tensor = get_value(std::move(build_result));
   EXPECT_EQ(tensor.num_elements(), 120);
   ASSERT_EQ(tensor.shape(), input_shape);
-  ASSERT_NE(tensor.shape(), tensor::shape_t(5_D, 1, 2, 3, 4, 5));
-  ASSERT_NE(tensor.shape(), tensor::shape_t(4_D, 5, 4, 3, 2, 1));
-  ASSERT_NE(tensor.shape(), tensor::shape_t(5_D, 5, 4, 3, 2, 0));
+  ASSERT_NE(tensor.shape(), tensor::shape_t(5_D, {1, 2, 3, 4, 5}));
+  ASSERT_NE(tensor.shape(), tensor::shape_t(4_D, {4, 3, 2, 1}));
+  ASSERT_NE(tensor.shape(), tensor::shape_t(5_D, {5, 4, 3, 2, 0}));
   ASSERT_FALSE(tensor.has_dynamic_shape());
   ASSERT_EQ(synSuccess, synGraphDestroy(h));
 }
@@ -41,7 +41,7 @@ TEST(SynapseHelpersTest, NonDynamicTensorWithShape) {
   synGraphHandle h;
   ASSERT_EQ(synSuccess, synGraphCreate(&h, synDeviceGaudi));
   auto& synapse_device_ = synapse_helpers::HPURegistrar::get_device();
-  auto input_shape = tensor::shape_t{5_D, 5, 4, 3, 2, 1};
+  auto input_shape = tensor::shape_t{5_D, {5, 4, 3, 2, 1}};
   auto build_result = tensor_builder(synDataType::syn_type_float)
                           .with_shape(input_shape)
                           .build(synapse_device_, h);
@@ -62,7 +62,7 @@ TEST(SynapseHelpersTest, NonDynamicTensorWithRank) {
   synGraphHandle h;
   ASSERT_EQ(synSuccess, synGraphCreate(&h, synDeviceGaudi));
   auto& synapse_device_ = synapse_helpers::HPURegistrar::get_device();
-  auto input_shape = tensor::shape_t{3_D, 1, 2, 3};
+  auto input_shape = tensor::shape_t{3_D, {1, 2, 3}};
   auto build_result = tensor_builder(input_shape)
                           .with_rank_at_least(5)
                           .build(synapse_device_, h);
@@ -71,7 +71,7 @@ TEST(SynapseHelpersTest, NonDynamicTensorWithRank) {
   ASSERT_EQ(tensor.num_elements(), 6);
   ASSERT_EQ(tensor.type(), synDataType::syn_type_float);
   ASSERT_NE(tensor.shape(), input_shape);
-  ASSERT_EQ(tensor.shape(), tensor::shape_t(5_D, 1, 2, 3, 1, 1));
+  ASSERT_EQ(tensor.shape(), tensor::shape_t(5_D, {1, 2, 3, 1, 1}));
   ASSERT_EQ(tensor.shape().rank(), 5_D);
   ASSERT_FALSE(tensor.has_dynamic_shape());
   ASSERT_EQ(synSuccess, synGraphDestroy(h));
@@ -85,8 +85,8 @@ TEST(SynapseHelpersTest, DynamicTensorBuilding) {
   synGraphHandle h;
   ASSERT_EQ(synSuccess, synGraphCreate(&h, synDeviceGaudi));
   auto& synapse_device_ = synapse_helpers::HPURegistrar::get_device();
-  auto min = tensor::shape_t{5_D, 5, 4, 3, 2, 1};
-  auto max = tensor::shape_t{5_D, 10, 4, 6, 2, 1};
+  auto min = tensor::shape_t{5_D, {5, 4, 3, 2, 1}};
+  auto max = tensor::shape_t{5_D, {10, 4, 6, 2, 1}};
   auto dynamic_shape = tensor::dynamic_shape_t{min, max};
   auto build_result = tensor_builder(synDataType::syn_type_float)
                           .with_dynamic_shape(dynamic_shape)
@@ -100,8 +100,8 @@ TEST(SynapseHelpersTest, DynamicTensorBuilding) {
   ASSERT_NE(
       tensor.dynamic_shape(),
       tensor::dynamic_shape_t(
-          tensor::shape_t{5_D, 5, 4, 3, 2, 1},
-          tensor::shape_t{5_D, 9, 4, 6, 2, 1}));
+          tensor::shape_t{5_D, {5, 4, 3, 2, 1}},
+          tensor::shape_t{5_D, {9, 4, 6, 2, 1}}));
   ASSERT_EQ(tensor.dynamic_shape().min(), min);
   ASSERT_EQ(tensor.dynamic_shape().max(), max);
   ASSERT_EQ(tensor.dynamic_shape().rank(), 5_D);
@@ -119,8 +119,8 @@ TEST(SynapseHelpersTest, DynamicTensorWithRank) {
   synGraphHandle h;
   ASSERT_EQ(synSuccess, synGraphCreate(&h, synDeviceGaudi));
   auto& synapse_device_ = synapse_helpers::HPURegistrar::get_device();
-  auto min = tensor::shape_t{5_D, 5, 4, 3, 2, 1};
-  auto max = tensor::shape_t{5_D, 10, 4, 6, 2, 1};
+  auto min = tensor::shape_t{5_D, {5, 4, 3, 2, 1}};
+  auto max = tensor::shape_t{5_D, {10, 4, 6, 2, 1}};
   auto dynamic_shape = tensor::dynamic_shape_t{min, max};
   auto build_result = tensor_builder(synDataType::syn_type_float)
                           .with_dynamic_shape(dynamic_shape)
@@ -141,17 +141,17 @@ TEST(SynapseHelpersTest, DynamicShape) {
 
   synGraphHandle h;
   ASSERT_EQ(synSuccess, synGraphCreate(&h, synDeviceGaudi));
-  auto min = tensor::shape_t{2_D, 5, 4};
-  auto max = tensor::shape_t{2_D, 10, 4};
+  auto min = tensor::shape_t{2_D, {5, 4}};
+  auto max = tensor::shape_t{2_D, {10, 4}};
   auto dynamic_shape = tensor::dynamic_shape_t{min, max};
   dynamic_shape.set_rank(5_D);
-  ASSERT_EQ(dynamic_shape.min(), tensor::shape_t(5_D, 5, 4, 1, 1, 1));
-  ASSERT_EQ(dynamic_shape.max(), tensor::shape_t(5_D, 10, 4, 1, 1, 1));
+  ASSERT_EQ(dynamic_shape.min(), tensor::shape_t(5_D, {5, 4, 1, 1, 1}));
+  ASSERT_EQ(dynamic_shape.max(), tensor::shape_t(5_D, {10, 4, 1, 1, 1}));
   dynamic_shape.set_dim(1, 5);
-  ASSERT_EQ(dynamic_shape.min(), tensor::shape_t(5_D, 5, 5, 1, 1, 1));
-  ASSERT_EQ(dynamic_shape.max(), tensor::shape_t(5_D, 10, 5, 1, 1, 1));
+  ASSERT_EQ(dynamic_shape.min(), tensor::shape_t(5_D, {5, 5, 1, 1, 1}));
+  ASSERT_EQ(dynamic_shape.max(), tensor::shape_t(5_D, {10, 5, 1, 1, 1}));
   dynamic_shape.set_dim(2, 4, 10);
-  ASSERT_EQ(dynamic_shape.min(), tensor::shape_t(5_D, 5, 5, 4, 1, 1));
-  ASSERT_EQ(dynamic_shape.max(), tensor::shape_t(5_D, 10, 5, 10, 1, 1));
+  ASSERT_EQ(dynamic_shape.min(), tensor::shape_t(5_D, {5, 5, 4, 1, 1}));
+  ASSERT_EQ(dynamic_shape.max(), tensor::shape_t(5_D, {10, 5, 10, 1, 1}));
   ASSERT_EQ(synSuccess, synGraphDestroy(h));
 }

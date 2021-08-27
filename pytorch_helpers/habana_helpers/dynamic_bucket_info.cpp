@@ -248,8 +248,9 @@ DynamicBucketInfo::ResultShapes DynamicBucketInfo::CalculateShapes(
   //   }
   //   synapse_helpers::tensor::dynamic_shape_t
   //   dynamicity{synapse_helpers::tensor::dynamic_shape_t{}}; if
-  //   (result.min_shapes.at(input.first).dims() <= SYN_MAX_TENSOR_DIM &&
-  //       result.max_shapes.at(input.first).dims() <= SYN_MAX_TENSOR_DIM) {
+  //   (result.min_shapes.at(input.first).dims() <= SYN_GAUDI_MAX_TENSOR_DIM &&
+  //       result.max_shapes.at(input.first).dims() <= SYN_GAUDI_MAX_TENSOR_DIM)
+  //       {
   //     auto syn_shape_min = absl::get<graph_builder::TensorShape>(
   //         graph_builder::adjust_shape_tf_to_syn(result.min_shapes.at(input.first)));
   //     auto syn_shape_max = absl::get<graph_builder::TensorShape>(

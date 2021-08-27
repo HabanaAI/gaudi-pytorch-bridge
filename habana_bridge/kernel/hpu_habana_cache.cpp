@@ -757,7 +757,7 @@ void RecipeValueSpec::patch_launch_info(
               ti.get_syn_namec_str(),
               ti.get_buffer_syn(),
               ti.tensor_type(),
-              {tsv[0], tsv[1], tsv[2], tsv[3], tsv[4]},
+              {tsv[0], tsv[1], tsv[2], tsv[3], tsv[4], tsv[5], tsv[6], tsv[7]},
               tensor_ids[tensor_idx++]});
           break;
         }

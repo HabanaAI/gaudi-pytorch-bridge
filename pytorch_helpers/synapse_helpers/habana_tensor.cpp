@@ -66,7 +66,7 @@ std::ostream& operator<<(
 }
 
 void tensor::shape_t::set_rank(dimension_count_t rank) noexcept {
-  HABANA_ASSERT(rank.value <= SYN_MAX_TENSOR_DIM);
+  HABANA_ASSERT(rank.value <= HABANA_DIM_MAX);
   rank_ = rank;
 }
 

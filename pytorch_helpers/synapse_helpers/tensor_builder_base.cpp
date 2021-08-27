@@ -65,7 +65,7 @@ tensor::shape_t to_stride_t(
         "FCD stride for tensor is ",
         stride[stride.size() - 1],
         " Non 1 FCD is unsupported in Synapse, hence setting all strides to 0.");
-    for (size_t dim_to_fill = 0; dim_to_fill < SYN_MAX_TENSOR_DIM - 1;
+    for (size_t dim_to_fill = 0; dim_to_fill < SYN_GAUDI_MAX_TENSOR_DIM - 1;
          ++dim_to_fill) {
       dimensions[dim_to_fill] = 0;
     }
@@ -147,7 +147,7 @@ void tensor_name_generator::reset() {
 uint64_t size_bytes_from_shape(
     const tensor::shape_t& shape,
     synDataType dataType) {
-  HABANA_ASSERT(shape.rank().value <= 5U);
+  HABANA_ASSERT(shape.rank().value <= HABANA_DIM_MAX);
   HABANA_ASSERT(shape.rank().value > 0);
   uint64_t size = size_of_syn_data_type(dataType);
   for (auto i{0U}; i < shape.rank().value; ++i) {

@@ -200,7 +200,7 @@ class PtTensorInfo {
   synTensorType tensor_type() {
     return tensor_type_;
   }
-  const std::array<uint32_t, SYN_MAX_TENSOR_DIM>& shape_values() {
+  const std::array<uint32_t, SYN_GAUDI_MAX_TENSOR_DIM>& shape_values() {
     return shape_values_;
   }
 
@@ -242,7 +242,7 @@ class PtTensorInfo {
   c10::MemoryFormat mf_;
 
   synTensorType tensor_type_{DATA_TENSOR};
-  std::array<uint32_t, SYN_MAX_TENSOR_DIM> shape_values_{0};
+  std::array<uint32_t, SYN_GAUDI_MAX_TENSOR_DIM> shape_values_{0};
   // uint64_t shape_ndim_{0};
 
   size_t dma_tensor_idx_{ULONG_MAX};

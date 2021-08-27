@@ -258,15 +258,12 @@ std::string to_string(
       [](std::string* out, const synLaunchTensorInfoExt& in) {
         absl::StrAppendFormat(
             out,
-            "%s:%u:0x%X [%d,%d,%d,%d,%d]",
+            "%s:%u:0x%X [%s]",
             in.tensorName,
             in.tensorId,
             in.pTensorAddress,
-            in.tensorSize[0],
-            in.tensorSize[1],
-            in.tensorSize[2],
-            in.tensorSize[3],
-            in.tensorSize[4]);
+            absl::StrJoin(
+                std::begin(in.tensorSize), std::end(in.tensorSize), ","));
       });
 }
 
@@ -368,7 +365,7 @@ synapse_error_o graph::launch(
             info.tensorName = input.tensorName;
             info.pTensorAddress = input.pTensorAddress;
             info.tensorType = input.tensorType;
-            for (int i = 0; i < SYN_MAX_TENSOR_DIM; ++i)
+            for (int i = 0; i < SYN_MAX_TENSOR_DIM; ++i) // should be removed
               info.tensorSize[i] = input.tensorSize[i];
             return info;
           });
