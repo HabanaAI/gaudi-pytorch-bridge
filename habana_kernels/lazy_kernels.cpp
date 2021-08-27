@@ -3496,24 +3496,6 @@ Tensor avg_pool2d_hpu_lazy(
       opsize_nhwc.at(1),
       opsize_nhwc.at(2)};
 
-  // Add a reshape tensor to the JIT stack.
-  // At JIT level we can append to the end, at synapse level we might need to
-  // follow GC signature. If that signature is accessible here we can honor it,
-  // but appending at the end should be good for consistency in JIT schemas
-
-  bool dynamic_shapes_enabled =
-      GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
-  if (dynamic_shapes_enabled) {
-    auto result_shape = empty_hpu_lazy(
-        shape_out,
-        input.options(),
-        input.suggest_memory_format(),
-        false,
-        ShapeTensorType::kShapeTensorStatic);
-    std::vector<at::Tensor> input_pt_vec{result_shape};
-    avgpool_node->AddInputPtTensors(input_pt_vec);
-  }
-
   // allocate Output storage
   auto result = empty_hpu_lazy(
       shape_out, input.options(), input.suggest_memory_format(), false);
@@ -4132,8 +4114,7 @@ Tensor empty_hpu_lazy(
     // we dont create a full storage for shape tensors but we need a backend
     // impl to get meta data
     if (is_shape_tensor != habana::ShapeTensorType::kShapeTensorNone) {
-      nelements =
-          is_shape_tensor == habana::ShapeTensorType::kShapeTensorDynamic
+      nelements = is_shape_tensor == habana::ShapeTensorType::kDeviceShapeTensor
           ? SYN_MAX_TENSOR_DIM
           : 0;
     }

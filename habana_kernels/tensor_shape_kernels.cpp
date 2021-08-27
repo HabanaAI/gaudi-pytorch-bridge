@@ -780,6 +780,13 @@ void ReshapeOperator::AllocateAndAddSynapseNode(
   if (inferred_size.size() < 4) {
     memory_format = at::MemoryFormat::Contiguous;
   }
+
+  if (graph.is_dynamic_graph()) {
+    auto result_shape = habana_helpers::createPTTensor(
+        self, inferred_size, self.options(), memory_format, true);
+    AllocateSynapseInput(graph, result_shape, true, true);
+  }
+
   auto output = habana_helpers::createPTTensor(
       self, inferred_size, self.options(), memory_format, is_output_persistent);
   TORCH_CHECK(

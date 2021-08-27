@@ -124,6 +124,7 @@ class HabanaLaunchOpPT {
   size_t dma_input_idx{0};
   size_t appended_index{0};
   size_t intermediate_index{0};
+  size_t shape_index{0};
 
   // The persistent intermediates are stored in the following two vectors.
   // aten_intermediates is used for storing intermediates which are usually
@@ -139,6 +140,8 @@ class HabanaLaunchOpPT {
   std::vector<at::Tensor> aten_dma_inputs;
   // tinfos corresponding to aten_intermediates.
   std::deque<PtTensorInfo> dma_input_tensorinfos;
+  // tinfos corresponding to shape tensor.
+  std::vector<PtTensorInfo> shape_tensor_tinfos;
 
   // caching :: begin
 
@@ -266,6 +269,9 @@ class HabanaLaunchOpPT {
       const ValPtr& vp,
       const synapse_helpers::tensor& out_syntensor);
   void ProcessSynapseOutputs(
+      const HabanaOperatorPtr& habana_op,
+      torch::jit::Node* node);
+  void ProcessSynapseShapeTensors(
       const HabanaOperatorPtr& habana_op,
       torch::jit::Node* node);
   bool isChannelOrderSupported(

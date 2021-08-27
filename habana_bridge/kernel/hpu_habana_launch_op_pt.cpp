@@ -461,8 +461,8 @@ synapse_helpers::tensor& HabanaLaunchOpPT::AllocateSynapseTensor(
   auto impl = TryGetHbLazyImpl(pt_tensor);
 
   if (impl && impl->isShapeTensor()) {
-    auto& syn_tensor = habana_op->AllocateSynapseInput(
-        *syn_graph_ptr, pt_tensor, true, ShapeTensorType::kShapeTensorStatic);
+    auto& syn_tensor =
+        habana_op->AllocateSynapseInput(*syn_graph_ptr, pt_tensor, true, true);
     return syn_tensor;
   } else {
     habana_helpers::TensorShape min_shape, max_shape;
@@ -485,7 +485,7 @@ synapse_helpers::tensor& HabanaLaunchOpPT::AllocateSynapseTensor(
         *syn_graph_ptr,
         pt_tensor,
         true,
-        ShapeTensorType::kShapeTensorNone,
+        false,
         min_shape.get_dims(),
         max_shape.get_dims());
 
@@ -867,6 +867,36 @@ void HabanaLaunchOpPT::ProcessSynapseOutputs(
       output_nodes_idx++;
     }
     output_tensor_idx++;
+  }
+}
+
+void HabanaLaunchOpPT::ProcessSynapseShapeTensors(
+    const HabanaOperatorPtr& habana_op,
+    torch::jit::Node* node) {
+  static_cast<void>(node);
+  // TODO: Handle Multiple Shape tensors
+  auto num_pt = habana_op->GetInputs().size();
+  auto num_syn = habana_op->GetSynInputs().size();
+  if (num_pt != 0 && num_syn != 0) {
+    synapse_helpers::tensor& maybe_syn_shape_tensor =
+        habana_op->GetSynInputs().back();
+    if (maybe_syn_shape_tensor.is_shape_tensor()) {
+      auto pt_shape_tensor = habana_op->GetInputs().back();
+      std::cout << "[Dyn WARN] Adding shapeTensor{ "
+                << maybe_syn_shape_tensor.name()
+                << " } and PT Tensor with index ="
+                << habana_op->GetInputs().size() - 1 << " to PtTensorInfo\n";
+      std::string irn{"%shapeInput_"};
+      irn += std::to_string(shape_index);
+      shape_index++;
+      PtTensorInfo ti(
+          pt_shape_tensor,
+          maybe_syn_shape_tensor.name(),
+          irn,
+          watch_tensor_flag_,
+          maybe_syn_shape_tensor.tensor_type());
+      shape_tensor_tinfos.emplace_back(ti);
+    }
   }
 }
 
@@ -2211,7 +2241,7 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel(
 
     // setup the config params for the kernels
     auto outputPersistent = nodeOutputPersistence(node);
-
+    std::cout << "[Dyn Debug]--------------- Opname  " << opname << "\n";
     if (outputPersistent.size() == 1) {
       HabanaKernel->AllocateAndAddSynapseNode(
           syn_graph, input_stack, outputPersistent[0]);
@@ -2223,6 +2253,8 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel(
     jit_to_synapse_node_idx_map.emplace(
         node, syn_graph_ptr->get_node_indices());
     syn_graph_ptr->clear_node_indices();
+
+    ProcessSynapseShapeTensors(HabanaKernel, node);
 
     // Get the output tensors created back from the kernel and do the
     // subsequent processing.
@@ -2341,6 +2373,14 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel(
         dma_input_tensorinfos.end());
   }
 
+  if (!shape_tensor_tinfos.empty()) {
+    rv.num_shape_tensors = shape_tensor_tinfos.size();
+    rv.dtensorinfos->insert(
+        rv.dtensorinfos->end(),
+        shape_tensor_tinfos.begin(),
+        shape_tensor_tinfos.end());
+  }
+
   // tinfos for outputs are populated during compile
   // need to be reordered only when the tensor handles are released
   rv.aten_outputs = std::make_shared<std::vector<IValPtrShared>>(
@@ -2406,9 +2446,9 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel(
   // At this point, tinfos for inputs, input duplicates, dma_inputs,
   // intermediates, outputs and output duplicates are populated
   auto total_tinfos = rv.num_inputs + rv.num_induplicates + rv.num_dma_inputs +
-      rv.num_intermediates + rv.num_outputs + rv.num_outduplicates +
-      rv.num_input_to_outduplicates + rv.num_intermediate_to_outduplicates +
-      rv.num_output_to_outduplicates;
+      rv.num_shape_tensors + rv.num_intermediates + rv.num_outputs +
+      rv.num_outduplicates + rv.num_input_to_outduplicates +
+      rv.num_intermediate_to_outduplicates + rv.num_output_to_outduplicates;
 
   TORCH_CHECK(
       total_tinfos == rv.dtensorinfos->size(),
@@ -2683,7 +2723,8 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
       // 2. Patch using the exact shape
       // 3. Launch
       // 4. Update outputs
-
+      std::cout
+          << "[Dyn Debug] -----------------------Cache Hit Dynamic Shape --------------\n";
       RecipeValueSpec& rv = *rvpsh;
       auto rv_hit_count = rv.update_hit_count();
 
@@ -2739,8 +2780,11 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
   // the shape inference only for once for max shapes
   if (ranges.empty() == false) {
     // run min shape inference pass
+    std::cout
+        << "[Dyn Debug] -----------------------Run Shape Inference Min Pass -----------------\n";
     run_shape_inference(ShapeInference::InferencePass::MIN_SHAPE);
-
+    std::cout
+        << "[Dyn Debug] -----------------------Run Shape Inference Max Pass -----------------\n";
     // run max shape inference pass
     run_shape_inference(ShapeInference::InferencePass::MAX_SHAPE);
   }
@@ -2750,6 +2794,8 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
   auto syn_graph = habana_helpers::create_graph(device.id(), ss.str());
   syn_graph.set_dynamic_graph(!ranges.empty());
   AdjustInputLayout();
+  std::cout
+      << "[Dyn Debug] -----------------------Cache Miss Dynamic CompileAndExecuteHabanaFusedOpKernel -----------------\n";
   CompileAndExecuteHabanaFusedOpKernel(syn_graph);
   clear();
   PT_BRIDGE_END;
@@ -2858,6 +2904,7 @@ void HabanaLaunchOpPT::clear(bool is_shape_inference) {
 
   intermediate_tinfos.clear();
   dma_input_tensorinfos.clear();
+  shape_tensor_tinfos.clear();
   output_tensorinfos.clear();
   duplicate_outtinfos.clear();
   duplicate_input_to_outtinfo_map.clear();
@@ -3145,14 +3192,28 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
         }
       }
 
+      // Patch the shape tensor inputs if there are any
+      if (rv.num_shape_tensors) {
+        size_t shape_start =
+            rv.num_inputs + rv.num_induplicates + rv.num_dma_inputs;
+        size_t shape_end = shape_start + rv.num_shape_tensors;
+        for (; ridx < shape_end; ridx++) {
+          auto& ti = rv.dtensorinfos->at(ridx);
+          auto tshape{ti.get_shape()};
+          at::TensorOptions topts(ti.get_topts());
+          auto pt_shape = at::empty(tshape, topts, ti.get_mf());
+          ti.patch_exact(pt_shape);
+        }
+      }
+
       if (enable_tensor_release_) {
         // TODO : Creation of output tensors and associated patching should
         // be part of a member function of RecipeValueSpec
 
         // Patch persistent intermediates
         // The persistent intermediates are retained in the rv
-        size_t intermediates_start =
-            rv.num_inputs + rv.num_induplicates + rv.num_dma_inputs;
+        size_t intermediates_start = rv.num_inputs + rv.num_induplicates +
+            rv.num_dma_inputs + rv.num_shape_tensors;
         size_t intermediates_end = intermediates_start + rv.num_intermediates;
         auto intermediate_idx = 0;
         std::unordered_map<size_t, IValPtrShared> intermediateIVpshMap;
@@ -3424,6 +3485,7 @@ void HabanaLaunchOpPT::run_shape_inference(
     const ShapeInference::InferencePass& pass) {
   //
   // Enable capturing the min values
+  setenv("PT_HPU_LAZY_SHAPE_INFERENCE", "1", 1);
   torch::jit::Stack new_stack;
   torch::jit::Stack* old_stack = nullptr;
   std::vector<IValPtrShared> old_pt_stack_sh;
@@ -3453,5 +3515,6 @@ void HabanaLaunchOpPT::run_shape_inference(
     pt_stack = old_stack;
     pt_stack_sh = old_pt_stack_sh;
   }
+  unsetenv("PT_HPU_LAZY_SHAPE_INFERENCE");
 }
 } // namespace habana

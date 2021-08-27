@@ -736,7 +736,7 @@ synapse_helpers::tensor& EmbeddingBagSumForwardOperator::AllocateSynapseInput(
     synapse_helpers::graph& graph,
     const at::Tensor& input,
     bool is_persistent,
-    ShapeTensorType is_shape_tensor,
+    bool is_shape_tensor,
     const std::vector<int64_t> min,
     const std::vector<int64_t> max) {
   if (is_shape_tensor) {
@@ -882,7 +882,7 @@ synapse_helpers::tensor& EmbeddingBagSumBackwardOperator::AllocateSynapseInput(
     synapse_helpers::graph& graph,
     const at::Tensor& input,
     bool is_persistent,
-    ShapeTensorType is_shape_tensor,
+    bool is_shape_tensor,
     const std::vector<int64_t> min,
     const std::vector<int64_t> max) {
   if (is_shape_tensor) {

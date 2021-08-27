@@ -459,6 +459,10 @@ class DynamicBucketInfo {
     return min_iterations_to_split_;
   }
 
+  static int64_t default_min_value() {
+    return default_min_value_;
+  }
+
  private:
   std::vector<int64_t> ExtractDynamicDimsValue(
       const InpTensorShapes& shapes) const;
@@ -473,7 +477,8 @@ class DynamicBucketInfo {
       const PadShapes& pad_shapes);
 
   static constexpr int64_t default_max_multiplier_ = 2;
-  static constexpr int64_t default_min_value_ = 2;
+  // TODO: Check default_min_value_
+  static constexpr int64_t default_min_value_ = 6;
   static constexpr uint64_t max_buckets_number_ = 20;
   static constexpr uint64_t min_iterations_to_split_ = 100;
   static constexpr float density_coefficient_ = 0.75;

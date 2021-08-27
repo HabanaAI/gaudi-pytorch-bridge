@@ -797,18 +797,6 @@ void AvgPool2dOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(inputs[4].isBool(), "Input4 type expected to be Bool");
   TORCH_CHECK(inputs[5].isBool(), "Input5 type expected to be Bool");
 
-  // extract the shape tensors of they are appended.
-  // Add them to graph nodes as per signature
-  if (inputs.size() > 7) {
-    auto tensor = inputs[6].toTensor();
-    auto impl = dynamic_cast<habana_lazy::HbLazyTensorImpl*>(
-        tensor.unsafeGetTensorImpl());
-    if (impl) {
-      TORCH_CHECK(
-          impl->isShapeTensor(), "Input6 type expected to be a shape tensor");
-    }
-  }
-
   at::Tensor input = inputs[0].toTensor();
   const auto kernel_size = inputs[1].toIntList().vec();
   const auto stride = inputs[2].toIntList().vec();
@@ -843,6 +831,17 @@ void AvgPool2dOperator::AllocateAndAddSynapseNode(
       input.options(),
       input.suggest_memory_format(),
       is_output_persistent);
+
+  if (graph.is_dynamic_graph()) {
+    auto result_shape = habana_helpers::createPTTensor(
+        input,
+        {out_shape[0], out_shape[1], out_shape[2], out_shape[3]},
+        input.options(),
+        input.suggest_memory_format(),
+        true);
+    AllocateSynapseInput(graph, result_shape, true, true);
+  }
+
   AllocateSynapseOutput(graph, output_nhwc, is_output_persistent);
   AddNodeToSynapseGraph(graph, &syn_pool_params, sizeof(syn_pool_params));
 }

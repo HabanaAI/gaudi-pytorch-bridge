@@ -131,7 +131,9 @@ synapse_helpers::tensor create_shape_tensor(
     const at::Tensor& tensor,
     const synGraphHandle graph,
     bool persistent,
-    bool is_device_shape_tensor);
+    bool is_device_shape_tensor,
+    const std::vector<int64_t> min = {},
+    const std::vector<int64_t> max = {});
 
 /**
 @brief This function can be used to create an intermediate
@@ -142,7 +144,9 @@ synapse_helpers::tensor create_tensor(
     const at::Tensor& tensor,
     const synGraphHandle graph,
     bool persistent,
-    const synDataType dtype);
+    const synDataType dtype,
+    const std::vector<int64_t> min = {},
+    const std::vector<int64_t> max = {});
 
 std::tuple<std::vector<synapse_helpers::tensor>, std::vector<synTensor>>
 create_tensors(

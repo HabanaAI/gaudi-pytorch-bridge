@@ -59,11 +59,7 @@ using RegisterFunc =
 enum class LayoutFormat { NHWC = 0, NCHW = 1, HWCK = 2, ANY = 3, INVALID = 4 };
 const size_t NO_INPUTS = 0xFFFFFFFF;
 
-enum ShapeTensorType {
-  kShapeTensorNone = 0,
-  kShapeTensorStatic,
-  kShapeTensorDynamic
-};
+enum ShapeTensorType { kShapeTensorNone = 0, kShapeTensor, kDeviceShapeTensor };
 //
 // The Pytorch kernel context holds the operator context
 // whcih includes the pytorch tensors, synapse tensor and
@@ -74,8 +70,6 @@ class PytorchKernelContext {
   std::vector<at::Tensor> pt_inputs_;
   std::vector<at::Tensor> pt_outputs_;
   std::deque<synapse_helpers::tensor_or_ref> syn_inputs_;
-  std::deque<synapse_helpers::tensor_or_ref> syn_shape_tensors_;
-  std::deque<synapse_helpers::tensor_or_ref> syn_shape_device_tensors_;
   std::deque<synapse_helpers::tensor_or_ref> syn_outputs_;
   std::set<unsigned int> excluded_output_indices_;
   size_t recipe_key_;
@@ -160,7 +154,7 @@ class HabanaOperator {
       synapse_helpers::graph& graph,
       const at::Tensor& input,
       bool is_persistent = false,
-      ShapeTensorType is_shape_tensor = ShapeTensorType::kShapeTensorNone,
+      bool is_shape_tensor = false,
       const std::vector<int64_t> min = {},
       const std::vector<int64_t> max = {});
 
@@ -188,7 +182,7 @@ class HabanaOperator {
       synapse_helpers::graph& graph,
       const at::Tensor& output,
       bool is_persistent = false,
-      ShapeTensorType is_shape_tensor = ShapeTensorType::kShapeTensorNone);
+      bool is_shape_tensor = false);
 
   //
   // Method to add output tensors to graph builder context
@@ -198,7 +192,7 @@ class HabanaOperator {
       const at::Tensor& output,
       const synDataType synType,
       bool is_persistent = false,
-      ShapeTensorType is_shape_tensor = ShapeTensorType::kShapeTensorNone);
+      bool is_shape_tensor = false);
 
   // Method to add output tensors to graph builder context
   virtual void AllocateSynapseInplaceOutput(synapse_helpers::graph& graph);
@@ -230,6 +224,14 @@ class HabanaOperator {
 
   virtual std::deque<synapse_helpers::tensor_or_ref>& GetSynOutputs() const {
     return p_context_->syn_outputs_;
+  }
+
+  virtual std::vector<at::Tensor>& GetInputs() const {
+    return p_context_->pt_inputs_;
+  }
+
+  virtual std::deque<synapse_helpers::tensor_or_ref>& GetSynInputs() const {
+    return p_context_->syn_inputs_;
   }
 
   virtual std::set<unsigned int>& GetSynOutputIndicesExcludedInNode() const {

@@ -500,7 +500,11 @@ synapse_helpers::tensor habana_helpers::create_tensor(
     // correct name
     return synapse_helpers::tensor::create_ds_placeholder(devid);
   }
-
+  if (std::getenv("PT_HPU_LAZY_SHAPE_INFERENCE")) {
+    // Dynamic mode shape inference call, return a placeholder tensor with
+    // correct name
+    return synapse_helpers::tensor::create_ds_placeholder(devid);
+  }
   if (!std::getenv("PT_HPU_LAZY_LOWERING") &&
       GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 0) {
     // Lazy mode shape inference call, just create a placeholder tensor
@@ -531,7 +535,12 @@ synapse_helpers::tensor habana_helpers::create_tensor(
     return synapse_helpers::tensor::create_ds_placeholder(
         tensor.device().index());
   }
-
+  if (std::getenv("PT_HPU_LAZY_SHAPE_INFERENCE")) {
+    // Dynamic mode shape inference call, return a placeholder tensor with
+    // correct name
+    return synapse_helpers::tensor::create_ds_placeholder(
+        tensor.device().index());
+  }
   if (!std::getenv("PT_HPU_LAZY_LOWERING") &&
       GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 0) {
     // Lazy mode shape inference call, just create a placeholder tensor
@@ -584,11 +593,19 @@ synapse_helpers::tensor habana_helpers::create_tensor(
     const at::Tensor& tensor,
     const synGraphHandle graph,
     bool persistent,
-    const synDataType synType) {
+    const synDataType synType,
+    const std::vector<int64_t> min,
+    const std::vector<int64_t> max) {
   if (!std::getenv("PT_HPU_LAZY_LOWERING") &&
       GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 0 &&
       GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES) &&
       synapse_helpers::tensor::generate_placeholder()) {
+    // Dynamic mode shape inference call, return a placeholder tensor with
+    // correct name
+    return synapse_helpers::tensor::create_ds_placeholder(
+        tensor.device().index());
+  }
+  if (std::getenv("PT_HPU_LAZY_SHAPE_INFERENCE")) {
     // Dynamic mode shape inference call, return a placeholder tensor with
     // correct name
     return synapse_helpers::tensor::create_ds_placeholder(
@@ -600,6 +617,26 @@ synapse_helpers::tensor habana_helpers::create_tensor(
     // Lazy mode shape inference call, just create a placeholder tensor
     return synapse_helpers::tensor::create_placeholder(tensor.device().index());
   }
+
+  if (min.size() && max.size()) {
+    auto dynamic_shape = synapse_helpers::tensor::dynamic_shape_t{
+        synapse_helpers::to_shape_t(min), synapse_helpers::to_shape_t(max)};
+    // Create the max stride
+    std::vector<int64_t> max_stride(max.size());
+    max_stride[max.size() - 1] = 1;
+    for (size_t d = max.size() - 1; d > 0; --d) {
+      max_stride[d - 1] = max_stride[d] * max[d];
+    }
+    auto variant = synapse_helpers::tensor_builder(max, max_stride, synType)
+                       .mark_persistence(persistent)
+                       .with_dynamic_shape(dynamic_shape)
+                       .build(
+                           synapse_helpers::HPURegistrar::get_device(
+                               tensor.device().index()),
+                           graph);
+    return absl::get<synapse_helpers::tensor>(std::move(variant));
+  }
+
   auto variant =
       synapse_helpers::tensor_builder(tensor.sizes(), tensor.strides(), synType)
           .mark_persistence(persistent)
@@ -614,16 +651,65 @@ synapse_helpers::tensor habana_helpers::create_shape_tensor(
     const at::Tensor& tensor,
     const synGraphHandle graph,
     bool persistent,
-    bool is_device_shape_tensor) {
+    bool is_device_shape_tensor,
+    const std::vector<int64_t> min,
+    const std::vector<int64_t> max) {
+  if (!std::getenv("PT_HPU_LAZY_LOWERING") &&
+      GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 0 &&
+      GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES) &&
+      synapse_helpers::tensor::generate_placeholder()) {
+    // Dynamic mode shape inference call, return a placeholder tensor with
+    // correct name
+    return synapse_helpers::tensor::create_ds_placeholder(
+        tensor.device().index());
+  }
+  if (std::getenv("PT_HPU_LAZY_SHAPE_INFERENCE")) {
+    // Dynamic mode shape inference call, return a placeholder tensor with
+    // correct name
+    return synapse_helpers::tensor::create_ds_placeholder(
+        tensor.device().index());
+  }
+
   if (!std::getenv("PT_HPU_LAZY_LOWERING") &&
       GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 0) {
     // Lazy mode shape inference call, just create a placeholder tensor
     return synapse_helpers::tensor::create_placeholder(tensor.device().index());
   }
+  if (std::getenv("PT_HPU_LAZY_SHAPE_INFERENCE")) {
+    // Lazy mode shape inference call, just create a placeholder tensor
+    return synapse_helpers::tensor::create_placeholder(tensor.device().index());
+  }
+
+  if (min.size() && max.size()) {
+    auto dynamic_shape = synapse_helpers::tensor::dynamic_shape_t{
+        synapse_helpers::to_shape_t(min), synapse_helpers::to_shape_t(max)};
+    // Create the max stride
+    std::vector<int64_t> max_stride(max.size());
+    max_stride[max.size() - 1] = 1;
+    for (size_t d = max.size() - 1; d > 0; --d) {
+      max_stride[d - 1] = max_stride[d] * max[d];
+    }
+    auto builder =
+        synapse_helpers::tensor_builder(
+            tensor.sizes(), tensor.strides(), synDataType::syn_type_uint32)
+            .with_dynamic_shape(dynamic_shape);
+    if (!is_device_shape_tensor) {
+      builder.mark_shape_tensor();
+      builder.mark_persistence(false);
+    } else {
+      builder.mark_device_shape_tensor();
+      builder.mark_persistence(persistent);
+    }
+    auto variant = builder.build(
+        synapse_helpers::HPURegistrar::get_device(tensor.device().index()),
+        graph);
+    return absl::get<synapse_helpers::tensor>(std::move(variant));
+  }
+  uint64_t syn_offset = tensor.storage_offset() * tensor.itemsize();
   auto builder =
       synapse_helpers::tensor_builder(
           tensor.sizes(), tensor.strides(), synDataType::syn_type_uint32)
-          .mark_persistence(persistent);
+          .set_offset(syn_offset);
   if (!is_device_shape_tensor) {
     builder.mark_shape_tensor();
   } else {
@@ -682,6 +768,11 @@ synapse_helpers::tensor habana_helpers::duplicate_tensor_in_memory_section(
     const synapse_helpers::tensor& tensor) {
   if (GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES) &&
       synapse_helpers::tensor::generate_placeholder()) {
+    // Dynamic mode shape inference call, return a placeholder tensor with
+    // correct name
+    return synapse_helpers::tensor::create_ds_placeholder(tensor.device_id());
+  }
+  if (std::getenv("PT_HPU_LAZY_SHAPE_INFERENCE")) {
     // Dynamic mode shape inference call, return a placeholder tensor with
     // correct name
     return synapse_helpers::tensor::create_ds_placeholder(tensor.device_id());

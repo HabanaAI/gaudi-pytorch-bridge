@@ -222,6 +222,7 @@ struct RecipeValueSpec {
   size_t num_inputs{0};
   size_t num_induplicates{0};
   size_t num_dma_inputs{0};
+  size_t num_shape_tensors{0};
   size_t num_intermediates{0};
   size_t num_outputs{0};
   size_t num_outduplicates{0};
