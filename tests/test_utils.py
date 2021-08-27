@@ -117,23 +117,15 @@ def compare_tensors(hpu_tensors, cpu_tensors, atol, rtol, assert_enable=True):
         elif assert_enable:
             hpu_tensors[i] = hpu_tensors[i].float() if hpu_tensors[i].dtype == torch.bfloat16 else hpu_tensors[i]
             cpu_tensors[i] = cpu_tensors[i].float() if cpu_tensors[i].dtype == torch.bfloat16 else cpu_tensors[i]
-            if os.environ.get('PT_HPU_LAZY_MODE'):
-                np.testing.assert_allclose(hpu_tensors[i].detach().numpy().shape,
-                                          cpu_tensors[i].detach().numpy().shape, atol=atol, rtol=rtol)
-            else:
-                np.testing.assert_allclose(hpu_tensors[i].detach().numpy(),
-                                          cpu_tensors[i].detach().numpy(), atol=atol, rtol=rtol)
+            np.testing.assert_allclose(hpu_tensors[i].detach().numpy(),
+                                cpu_tensors[i].detach().numpy(), atol=atol, rtol=rtol)
         else:
             hpu_tensors[i] = hpu_tensors[i].float() if hpu_tensors[i].dtype == torch.bfloat16 else hpu_tensors[i]
             cpu_tensors[i] = cpu_tensors[i].float() if cpu_tensors[i].dtype == torch.bfloat16 else cpu_tensors[i]
             print('hpu_result[{}]'.format(i), hpu_tensors[i].detach().numpy())
             print('cpu_result[{}]'.format(i), cpu_tensors[i].detach().numpy())
-            if os.environ.get('PT_HPU_LAZY_MODE'):
-                return np.allclose(hpu_tensors[i].detach().numpy().shape,
-                                   cpu_tensors[i].detach().numpy().shape, atol=atol, rtol=rtol, equal_nan=True)
-            else:
-                return np.allclose(hpu_tensors[i].detach().numpy(),
-                                   cpu_tensors[i].detach().numpy(), atol=atol, rtol=rtol, equal_nan=True)
+            return np.allclose(hpu_tensors[i].detach().numpy(),
+                                cpu_tensors[i].detach().numpy(), atol=atol, rtol=rtol, equal_nan=True)
 
 
 @pytest.fixture(autouse=True)

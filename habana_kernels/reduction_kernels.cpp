@@ -525,7 +525,7 @@ void SumDimOutOperator::AllocateAndAddSynapseNode(
 
   // Check if dim = {}, if yes, reduce input along all dims
   if (dim.vec().size() == 0) {
-    inputs[2] = dim_new;
+    inputs[1] = IValue(dim_new);
   }
 
   // Move the output at begining
