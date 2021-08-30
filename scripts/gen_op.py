@@ -564,6 +564,13 @@ def get_hpuop_class_impl(ctxop, fname, cname):
         (out_ids is None) ^ (inplace_ids is None) ^ is_out_fn(fname)
     ), "Either `out_ids` or `inplace_ids` should be defined for {}".format(fname)
 
+    if out_ids:
+        assert len(out_ids) == 1, "Multiple `out_ids` is not yet supported"
+    if inplace_ids:
+        assert len(inplace_ids) == 1, "Multiple `inplace_ids` is not yet supported"
+    if scalar_ids:
+        assert len(scalar_ids) == 1, "Multiple `scalar_ids` is not yet supported"
+
     out_id = out_ids[0] if out_ids else -1
     inplace_id = inplace_ids[0] if inplace_ids else -1
     scalar_id = scalar_ids[0] if scalar_ids else -1
@@ -1009,6 +1016,7 @@ def generate(args):
         fgens
     ), "Ops in yaml must conform to definitions in RegistrationDeclarations.h"
 
+    # TODO use a single loop
     dtype_defs = generate_dtype_defs(fgens)
     functions = generate_lazy_fns(fgens)
     hpuops = generate_hpuop_class(fgens)
