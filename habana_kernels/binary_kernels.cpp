@@ -1119,7 +1119,7 @@ void habana::RemainderInplaceOperator::AllocateAndAddSynapseNode(
   // Note here we are using input[0] to store output[1]
   p_context_->syn_outputs_.emplace_back(
       habana_helpers::duplicate_tensor_in_memory_section(
-          p_context_->syn_inputs_[0]));
+          p_context_->syn_inputs_[0], graph));
   p_context_->pt_outputs_.emplace_back(self);
 
   synapse_helpers::tensor& arg1_syn_tensor = p_context_->syn_inputs_[0];

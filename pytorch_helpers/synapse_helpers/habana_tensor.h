@@ -220,7 +220,6 @@ class tensor final {
   };
 
   static tensor create_placeholder(synDeviceId device_id);
-  static tensor create_ds_placeholder(synDeviceId device_id);
 
   synTensor& get() {
     return tensor_;

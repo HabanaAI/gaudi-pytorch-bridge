@@ -1228,7 +1228,7 @@ synapse_helpers::tensor_or_ref FlipOperator::CreateFlipGraph(
     syn_helper_intermediate.emplace_back(habana_helpers::create_tensor(
         shape,
         pyt_tensor.strides(),
-        graph.get_graph_handle(),
+        graph,
         false,
         pyt_tensor.device().index(),
         dtype));

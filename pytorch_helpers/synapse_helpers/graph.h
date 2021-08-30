@@ -183,6 +183,10 @@ class graph {
     dynamic_graph_ = dynamic_graph;
   }
 
+  bool is_dry_run() const {
+    return dry_run_;
+  }
+
  private:
   using Op2NodeContainer =
       absl::flat_hash_map<std::string, absl::flat_hash_set<synNodeId>>;

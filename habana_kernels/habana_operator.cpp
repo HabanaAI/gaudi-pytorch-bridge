@@ -203,28 +203,22 @@ synapse_helpers::tensor& habana::HabanaOperator::AllocateSynapseInput(
       auto strides = input.strides().vec();
       auto syn_tensor_input =
           habana_helpers::duplicate_tensor_in_memory_section_with_size(
-              p_context_->syn_input_orig_[0], sizes, strides, syn_offset);
+              p_context_->syn_input_orig_[0],
+              graph,
+              sizes,
+              strides,
+              syn_offset);
       p_context_->syn_inputs_.emplace_back(std::move(syn_tensor_input));
     } else {
       auto syn_tensor_input = habana_helpers::create_tensor(
-          input,
-          graph.get_graph_handle(),
-          is_persistent,
-          c10::nullopt,
-          min,
-          max);
+          input, graph, is_persistent, c10::nullopt, min, max);
       p_context_->syn_inputs_.emplace_back(std::move(syn_tensor_input));
     }
   } else {
     std::vector<int64_t> min_shape, max_shape;
     std::tie(min_shape, max_shape) = GetMinMaxShape(syn_tensor_name);
     auto syn_shape_input = habana_helpers::create_shape_tensor(
-        input,
-        graph.get_graph_handle(),
-        is_persistent,
-        false,
-        min_shape,
-        max_shape);
+        input, graph, is_persistent, false, min_shape, max_shape);
     p_context_->syn_inputs_.emplace_back(std::move(syn_shape_input));
   }
 
@@ -256,20 +250,10 @@ void habana::HabanaOperator::AllocateSynapseOutput(
 
   if (is_shape_tensor == false) {
     p_context_->syn_outputs_.emplace_back(habana_helpers::create_tensor(
-        output,
-        graph.get_graph_handle(),
-        is_persistent,
-        c10::nullopt,
-        min_shape,
-        max_shape));
+        output, graph, is_persistent, c10::nullopt, min_shape, max_shape));
   } else {
     p_context_->syn_outputs_.emplace_back(habana_helpers::create_shape_tensor(
-        output,
-        graph.get_graph_handle(),
-        is_persistent,
-        true,
-        min_shape,
-        max_shape));
+        output, graph, is_persistent, true, min_shape, max_shape));
   }
   p_context_->pt_outputs_.emplace_back(output);
 }
@@ -287,20 +271,10 @@ void habana::HabanaOperator::AllocateSynapseOutput(
   }
   if (is_shape_tensor == false) {
     p_context_->syn_outputs_.emplace_back(habana_helpers::create_tensor(
-        output,
-        graph.get_graph_handle(),
-        is_persistent,
-        synType,
-        min_shape,
-        max_shape));
+        output, graph, is_persistent, synType, min_shape, max_shape));
   } else {
     p_context_->syn_outputs_.emplace_back(habana_helpers::create_shape_tensor(
-        output,
-        graph.get_graph_handle(),
-        is_persistent,
-        true,
-        min_shape,
-        max_shape));
+        output, graph, is_persistent, true, min_shape, max_shape));
   }
   p_context_->pt_outputs_.emplace_back(output);
 }
@@ -323,7 +297,7 @@ void habana::HabanaOperator::AllocateSynapseInplaceOutput(
 
   p_context_->syn_outputs_.emplace_back(
       habana_helpers::duplicate_tensor_in_memory_section(
-          p_context_->syn_inputs_[0]));
+          p_context_->syn_inputs_[0], graph));
 
   p_context_->pt_outputs_.emplace_back(p_context_->pt_inputs_[0]);
 }
@@ -395,12 +369,8 @@ void habana::HabanaOperator::AddNodeToSynapseGraph(
     synapse_helpers::graph& graph,
     void* params,
     size_t params_size) {
-  if (!(std::getenv("PT_HPU_LAZY_LOWERING")) &&
-      GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 0) {
+  if (graph.is_dry_run()) {
     // Lazy mode shape inference call, early return without execution
-    return;
-  }
-  if (std::getenv("PT_HPU_LAZY_SHAPE_INFERENCE")) {
     return;
   }
   std::vector<synTensor> syn_inputs;

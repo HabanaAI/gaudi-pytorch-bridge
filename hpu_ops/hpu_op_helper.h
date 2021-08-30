@@ -84,8 +84,8 @@ class HabanaOperatorHelper : public HabanaOperator {
       synapse_helpers::graph& graph,
       const at::Stack& stack,
       const std::vector<bool>& is_output_persistent_list);
-  void HandleInplaceFn(const at::Stack& stack);
-  void HandleOutFn(const at::Stack& stack);
+  void HandleInplaceFn(const at::Stack& stack, synapse_helpers::graph& graph);
+  void HandleOutFn(const at::Stack& stack, synapse_helpers::graph& graph);
 
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,

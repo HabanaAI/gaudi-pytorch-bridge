@@ -69,13 +69,13 @@ void OptimizerSparseSgdOperator::AllocateAndAddSynapseNode(
   // execute in-place for weights & moments
   p_context_->syn_outputs_.emplace_back(
       habana_helpers::duplicate_tensor_in_memory_section(
-          p_context_->syn_inputs_[1]));
+          p_context_->syn_inputs_[1], graph));
   p_context_->pt_outputs_.emplace_back(weights_in);
 
   // moments
   p_context_->syn_outputs_.emplace_back(
       habana_helpers::duplicate_tensor_in_memory_section(
-          p_context_->syn_inputs_[2]));
+          p_context_->syn_inputs_[2], graph));
   p_context_->pt_outputs_.emplace_back(moments_in);
 
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
@@ -173,14 +173,14 @@ void OptimizerSparseAdagradOperator::AllocateAndAddSynapseNode(
   // execute in-place for weights & moments
   p_context_->syn_outputs_.emplace_back(
       habana_helpers::duplicate_tensor_in_memory_section(
-          p_context_->syn_inputs_[1]));
+          p_context_->syn_inputs_[1], graph));
 
   auto weights_in = inputs[1].toTensor();
   p_context_->pt_outputs_.emplace_back(weights_in);
 
   p_context_->syn_outputs_.emplace_back(
       habana_helpers::duplicate_tensor_in_memory_section(
-          p_context_->syn_inputs_[2]));
+          p_context_->syn_inputs_[2], graph));
 
   auto moments_in = inputs[2].toTensor();
   p_context_->pt_outputs_.emplace_back(moments_in);
@@ -348,7 +348,7 @@ void OptimizerAdamwOperator::AllocateAndAddSynapseNode(
     // a dummy tensor
     UNUSED auto& syn_in_3 =
         addcmul_exp_avg_sq->SetSynapseInput(habana_helpers::create_tensor(
-            gradients.get(i), graph.get_graph_handle(), true, c10::nullopt));
+            gradients.get(i), graph, true, c10::nullopt));
     stack.emplace_back(IValue(mul_exp_avg_sq->GetOutputs()[0]));
     stack.emplace_back(IValue(gradients.get(i)));
     stack.emplace_back(IValue(gradients.get(i)));
@@ -571,14 +571,14 @@ void OptimizerAdagradOperator::AllocateAndAddSynapseNode(
   // execute in-place for weights & variance
   p_context_->syn_outputs_.emplace_back(
       habana_helpers::duplicate_tensor_in_memory_section(
-          p_context_->syn_inputs_[1]));
+          p_context_->syn_inputs_[1], graph));
 
   auto weights_in = inputs[1].toTensor();
   p_context_->pt_outputs_.emplace_back(weights_in);
 
   p_context_->syn_outputs_.emplace_back(
       habana_helpers::duplicate_tensor_in_memory_section(
-          p_context_->syn_inputs_[2]));
+          p_context_->syn_inputs_[2], graph));
 
   auto variance_in = inputs[2].toTensor();
   p_context_->pt_outputs_.emplace_back(variance_in);
@@ -777,7 +777,7 @@ void OptimizerSGDOperator::AllocateAndAddSynapseNode(
   // execute in-place for weights
   p_context_->syn_outputs_.emplace_back(
       habana_helpers::duplicate_tensor_in_memory_section(
-          p_context_->syn_inputs_[1]));
+          p_context_->syn_inputs_[1], graph));
 
   auto weights_in = inputs[1].toTensor();
   p_context_->pt_outputs_.emplace_back(weights_in);
@@ -962,14 +962,14 @@ void OptimizerSGDMomentumOperator::AllocateAndAddSynapseNode(
   // execute in-place for weights & momentum
   p_context_->syn_outputs_.emplace_back(
       habana_helpers::duplicate_tensor_in_memory_section(
-          p_context_->syn_inputs_[1]));
+          p_context_->syn_inputs_[1], graph));
 
   auto weights_in = inputs[1].toTensor();
   p_context_->pt_outputs_.emplace_back(weights_in);
 
   p_context_->syn_outputs_.emplace_back(
       habana_helpers::duplicate_tensor_in_memory_section(
-          p_context_->syn_inputs_[2]));
+          p_context_->syn_inputs_[2], graph));
 
   auto momentum_in = inputs[2].toTensor();
   p_context_->pt_outputs_.emplace_back(momentum_in);

@@ -14,9 +14,12 @@
 #include <synapse_helpers/graph.h>
 
 namespace habana_helpers {
-static synapse_helpers::graph create_graph(int device_id, std::string name) {
+static synapse_helpers::graph create_graph(
+    int device_id,
+    std::string name,
+    bool dry_run = false) {
   auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
-  auto graph_or_error = synapse_helpers::graph::create(device, name);
+  auto graph_or_error = synapse_helpers::graph::create(device, name, dry_run);
 
   if (absl::holds_alternative<synapse_helpers::synapse_error>(graph_or_error)) {
     auto error = absl::get<synapse_helpers::synapse_error>(graph_or_error);

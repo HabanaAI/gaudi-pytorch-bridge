@@ -206,10 +206,7 @@ void ConvBackwardOperator::ComputeBiasGrad(
 
   } else {
     p_context_->syn_outputs_.emplace_back(habana_helpers::create_tensor(
-        grad_bias,
-        graph.get_graph_handle(),
-        is_output_persistent[2],
-        c10::nullopt));
+        grad_bias, graph, is_output_persistent[2], c10::nullopt));
     p_context_->pt_outputs_.emplace_back(grad_bias);
   }
 }
@@ -315,10 +312,7 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
           std::move(ConvInputDiffOp->GetOutputs()[0]));
     } else {
       p_context_->syn_outputs_.emplace_back(habana_helpers::create_tensor(
-          grad_input_nhwc,
-          graph.get_graph_handle(),
-          is_output_persistent[0],
-          c10::nullopt));
+          grad_input_nhwc, graph, is_output_persistent[0], c10::nullopt));
       p_context_->pt_outputs_.emplace_back(grad_input_nhwc);
     }
 
@@ -357,10 +351,7 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
           std::move(ConvWeightDiffOp->GetOutputs()[0]));
     } else {
       p_context_->syn_outputs_.emplace_back(habana_helpers::create_tensor(
-          grad_weight,
-          graph.get_graph_handle(),
-          is_output_persistent[1],
-          c10::nullopt));
+          grad_weight, graph, is_output_persistent[1], c10::nullopt));
       p_context_->pt_outputs_.emplace_back(grad_weight);
     }
 
@@ -428,10 +419,7 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
           std::move(ConvInputDiffOp->GetOutputs()[0]));
     } else {
       p_context_->syn_outputs_.emplace_back(habana_helpers::create_tensor(
-          grad_input_nhwc,
-          graph.get_graph_handle(),
-          is_output_persistent[0],
-          c10::nullopt));
+          grad_input_nhwc, graph, is_output_persistent[0], c10::nullopt));
       p_context_->pt_outputs_.emplace_back(grad_input_nhwc);
     }
 
@@ -444,10 +432,7 @@ void ConvBackwardOperator::AllocateAndAddSynapseNode(
           std::move(ConvWeightDiffOp->GetOutputs()[0]));
     } else {
       p_context_->syn_outputs_.emplace_back(habana_helpers::create_tensor(
-          grad_weight,
-          graph.get_graph_handle(),
-          is_output_persistent[1],
-          c10::nullopt));
+          grad_weight, graph, is_output_persistent[1], c10::nullopt));
       p_context_->pt_outputs_.emplace_back(grad_weight);
     }
   }

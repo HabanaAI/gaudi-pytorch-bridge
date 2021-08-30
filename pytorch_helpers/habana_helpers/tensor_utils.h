@@ -15,6 +15,7 @@
 #include <c10/util/ArrayRef.h>
 
 #include <synapse_common_types.h>
+#include <synapse_helpers/graph.h>
 #include <synapse_helpers/habana_tensor.h>
 #include <torch/script.h>
 #include <tuple>
@@ -114,14 +115,14 @@ at::Tensor createPTTensor(
 synapse_helpers::tensor create_tensor(
     const c10::IntArrayRef& shape,
     const c10::IntArrayRef& stride,
-    synGraphHandle graph,
+    synapse_helpers::graph& graph,
     bool persistent,
     int devid,
     const c10::ScalarType dtype);
 
 synapse_helpers::tensor create_tensor(
     const at::Tensor& tensor,
-    const synGraphHandle graph,
+    synapse_helpers::graph& graph,
     bool persistent,
     const c10::optional<c10::ScalarType> dtype = c10::nullopt,
     const std::vector<int64_t> min = {},
@@ -129,7 +130,7 @@ synapse_helpers::tensor create_tensor(
 
 synapse_helpers::tensor create_shape_tensor(
     const at::Tensor& tensor,
-    const synGraphHandle graph,
+    synapse_helpers::graph& graph,
     bool persistent,
     bool is_device_shape_tensor,
     const std::vector<int64_t> min = {},
@@ -142,7 +143,7 @@ synapse_helpers::tensor create_shape_tensor(
 **/
 synapse_helpers::tensor create_tensor(
     const at::Tensor& tensor,
-    const synGraphHandle graph,
+    synapse_helpers::graph& graph,
     bool persistent,
     const synDataType dtype,
     const std::vector<int64_t> min = {},
@@ -151,21 +152,23 @@ synapse_helpers::tensor create_tensor(
 std::tuple<std::vector<synapse_helpers::tensor>, std::vector<synTensor>>
 create_tensors(
     const std::vector<at::Tensor>& tensors,
-    synGraphHandle graph,
+    synapse_helpers::graph& graph,
     const std::vector<bool> persistents,
     const std::vector<c10::optional<c10::ScalarType>> dtypes);
 
 std::tuple<std::vector<synapse_helpers::tensor>, std::vector<synTensor>>
 create_tensors(
     const std::vector<at::Tensor>& tensors,
-    synGraphHandle graph,
+    synapse_helpers::graph& graph,
     bool persistent);
 
 synapse_helpers::tensor duplicate_tensor_in_memory_section(
-    const synapse_helpers::tensor& tensor);
+    const synapse_helpers::tensor& tensor,
+    synapse_helpers::graph& graph);
 
 synapse_helpers::tensor duplicate_tensor_in_memory_section_with_size(
     const synapse_helpers::tensor& tensor,
+    synapse_helpers::graph& graph,
     std::vector<int64_t>& sizes,
     std::vector<int64_t>& strides,
     const uint64_t offset);

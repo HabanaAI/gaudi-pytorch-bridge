@@ -166,9 +166,6 @@ synapse_error_o graph::add_node(
     // Lazy mode shape inference call, early return without execution
     return {};
   }
-  if (std::getenv("PT_HPU_LAZY_SHAPE_INFERENCE")) {
-    return {};
-  }
   SYNAPSE_RETURN_IF_ERROR_V(node_type_or_err);
   const auto& node_type{get_value(node_type_or_err)};
   if (!in_build_phase_) {

@@ -85,7 +85,9 @@ void HabanaOperatorHelper::HandleFn(
   }
 }
 
-void HabanaOperatorHelper::HandleOutFn(const at::Stack& stack) {
+void HabanaOperatorHelper::HandleOutFn(
+    const at::Stack& stack,
+    synapse_helpers::graph& graph) {
   if (!m_is_outfn) {
     return;
   }
@@ -93,11 +95,13 @@ void HabanaOperatorHelper::HandleOutFn(const at::Stack& stack) {
   p_context_->pt_outputs_.emplace_back(stack.back().toTensor());
   p_context_->syn_outputs_.emplace_back(
       habana_helpers::duplicate_tensor_in_memory_section(
-          p_context_->syn_inputs_.back()));
+          p_context_->syn_inputs_.back(), graph));
   p_context_->syn_inputs_.pop_back();
 }
 
-void HabanaOperatorHelper::HandleInplaceFn(const at::Stack& stack) {
+void HabanaOperatorHelper::HandleInplaceFn(
+    const at::Stack& stack,
+    synapse_helpers::graph& graph) {
   if (m_inplace_id < 0) {
     return;
   }
@@ -105,7 +109,7 @@ void HabanaOperatorHelper::HandleInplaceFn(const at::Stack& stack) {
   // Index can vary in syn_inputs_ and in stack
   p_context_->syn_outputs_.emplace_back(
       habana_helpers::duplicate_tensor_in_memory_section(
-          p_context_->syn_inputs_[m_inplace_id]));
+          p_context_->syn_inputs_[m_inplace_id], graph));
   p_context_->pt_outputs_.emplace_back(stack[m_inplace_id].toTensor());
 }
 
@@ -124,8 +128,8 @@ void HabanaOperatorHelper::AllocateAndAddSynapseNode(
     std::vector<bool> is_output_persistent_list) {
   CustomHandler(graph, stack);
   HandleFn(graph, stack, is_output_persistent_list);
-  HandleInplaceFn(stack);
-  HandleOutFn(stack);
+  HandleInplaceFn(stack, graph);
+  HandleOutFn(stack, graph);
   HandleScalarToTensor(graph, stack);
 
   AddNode(graph, stack, is_output_persistent_list);
@@ -152,8 +156,8 @@ std::vector<synapse_helpers::tensor> HabanaOperatorHelper::BuildOp(
           c10::scalarTypeToTypeMeta(attr.dtype),
           c10::Device(c10::kHABANA, 0));
       t.unsafeGetTensorImpl()->set_sizes_contiguous(attr.sizes);
-      outputs.emplace_back(habana_helpers::create_tensor(
-          t, graph.get_graph_handle(), attr.persistent, attr.dtype));
+      outputs.emplace_back(
+          habana_helpers::create_tensor(t, graph, attr.persistent, attr.dtype));
       if (attr.persistent) {
         // TODO: Handle when a node produces multiple outputs
         HABANA_ASSERT(

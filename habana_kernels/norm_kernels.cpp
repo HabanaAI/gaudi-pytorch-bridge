@@ -179,8 +179,8 @@ at::Tensor BatchNormForwardOperator::create_or_return_tensor_bn(
     // appended info is patching info passed back to the kernel for this new
     // tensor which lowering kernel is unaware of
     ret_tensor = at::empty({size}, device);
-    auto syn_tensor = habana_helpers::create_tensor(
-        ret_tensor, graph.get_graph_handle(), true, c10::nullopt);
+    auto syn_tensor =
+        habana_helpers::create_tensor(ret_tensor, graph, true, c10::nullopt);
     auto it = p_context_->syn_inputs_.begin() + syn_index;
     p_context_->syn_inputs_.insert(it, std::move(syn_tensor));
 
@@ -355,8 +355,8 @@ void BatchNormForwardOperator::preProcessInputs(
     // create a new syn tensor for bias and add it
     // This residual add is dummy tensor to match the API requirements
     residualAdd = at::empty(input.sizes(), input.options());
-    auto syn_tensor_add = habana_helpers::create_tensor(
-        residualAdd, graph.get_graph_handle(), true, c10::nullopt);
+    auto syn_tensor_add =
+        habana_helpers::create_tensor(residualAdd, graph, true, c10::nullopt);
     auto it = p_context_->syn_inputs_.begin() + 3;
 
     // This is to communicate to graph lowering that a new tensor was
@@ -454,9 +454,9 @@ void BatchNormForwardOperator::AllocateAndAddSynapseNode(
       // As the tensors are used as IO and are persistent
       // WE need to use same mem section
       auto syn_tensor_mean = habana_helpers::duplicate_tensor_in_memory_section(
-          (mean_var_temp[0]));
+          mean_var_temp[0], graph);
       auto syn_tensor_var = habana_helpers::duplicate_tensor_in_memory_section(
-          (mean_var_temp[1]));
+          mean_var_temp[1], graph);
 
       appended_tensor_infos.emplace_back(
           (syn_tensor_mean).name(), pre_inputs[4]);
@@ -469,9 +469,9 @@ void BatchNormForwardOperator::AllocateAndAddSynapseNode(
       // As the tensors are used as IO and are persistent
       // WE need to use same mem section
       auto syn_tensor_mean = habana_helpers::duplicate_tensor_in_memory_section(
-          p_context_->syn_inputs_[3]);
+          p_context_->syn_inputs_[3], graph);
       auto syn_tensor_var = habana_helpers::duplicate_tensor_in_memory_section(
-          p_context_->syn_inputs_[4]);
+          p_context_->syn_inputs_[4], graph);
 
       appended_tensor_infos.emplace_back(
           (syn_tensor_mean).name(), pre_inputs[4]);
@@ -680,8 +680,8 @@ at::Tensor BatchNormForwardRmvOperator::create_or_return_tensor_bn(
     // appended info is patching info passed back to the kernel for this new
     // tensor which lowering kernel is unaware of
     ret_tensor = at::empty({size}, device);
-    auto syn_tensor = habana_helpers::create_tensor(
-        ret_tensor, graph.get_graph_handle(), true, c10::nullopt);
+    auto syn_tensor =
+        habana_helpers::create_tensor(ret_tensor, graph, true, c10::nullopt);
     auto it = p_context_->syn_inputs_.begin() + syn_index;
     p_context_->syn_inputs_.insert(it, std::move(syn_tensor));
 
@@ -761,8 +761,8 @@ void BatchNormForwardRmvOperator::preProcessInputs(
   // create a new syn tensor for bias and add it
   // This residual add is dummy tensor to match the API requirements
   residualAdd = at::empty({1}, input.options());
-  auto syn_tensor_add = habana_helpers::create_tensor(
-      residualAdd, graph.get_graph_handle(), true, c10::nullopt);
+  auto syn_tensor_add =
+      habana_helpers::create_tensor(residualAdd, graph, true, c10::nullopt);
   auto it = p_context_->syn_inputs_.begin() + 3;
 
   // This is to communicate to graph lowering that a new tensor was
@@ -880,8 +880,8 @@ void BatchNormBackwardOperator::create_opt_input_tensor_bn_bwd(
   Tensor ret_tensor;
   if (!input.defined()) {
     ret_tensor = at::empty({size}, device);
-    auto syn_tensor = habana_helpers::create_tensor(
-        ret_tensor, graph.get_graph_handle(), true, c10::nullopt);
+    auto syn_tensor =
+        habana_helpers::create_tensor(ret_tensor, graph, true, c10::nullopt);
     appended_tensor_infos.emplace_back((syn_tensor).name(), ret_tensor);
     // if input is not defined, we get dummy tensor from wrapper
     // create new one and place it to the original position

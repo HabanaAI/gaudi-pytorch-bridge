@@ -118,10 +118,7 @@ void OptimizerLambPhase1Operator::AllocateAndAddSynapseNode(
     // a dummy tensor
     UNUSED auto& syn_in_34 =
         addcmul_exp_avg_sq->SetSynapseInput(habana_helpers::create_tensor(
-            div_grad->GetOutputs()[0],
-            graph.get_graph_handle(),
-            true,
-            c10::nullopt));
+            div_grad->GetOutputs()[0], graph, true, c10::nullopt));
     stack.emplace_back(IValue(mul_exp_avg_sq->GetOutputs()[0]));
     stack.emplace_back(IValue(div_grad->GetOutputs()[0]));
     stack.emplace_back(IValue(div_grad->GetOutputs()[0]));

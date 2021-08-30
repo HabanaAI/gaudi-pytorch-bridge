@@ -359,12 +359,7 @@ ReduceOperator::CreateReductionGraph(
 
     c10::IntArrayRef shape(pyt_shape.data(), pyt_shape.size());
     syn_helper_intermediate.emplace_back(habana_helpers::create_tensor(
-        shape,
-        pyt_stride,
-        graph.get_graph_handle(),
-        false,
-        pyt_tensor.device().index(),
-        dtype));
+        shape, pyt_stride, graph, false, pyt_tensor.device().index(), dtype));
     syn_intermediate.emplace_back(syn_helper_intermediate[i].get());
   }
   // add syn_output tensor

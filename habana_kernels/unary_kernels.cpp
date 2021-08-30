@@ -54,7 +54,7 @@ void UnaryInplaceOperator::AllocateAndAddSynapseNode(
 
   p_context_->syn_outputs_.emplace_back(
       habana_helpers::duplicate_tensor_in_memory_section(
-          p_context_->syn_inputs_[0]));
+          p_context_->syn_inputs_[0], graph));
   p_context_->pt_outputs_.emplace_back(inputs[0].toTensor());
   AddNodeToSynapseGraph(graph, nullptr, 0);
 }
@@ -66,7 +66,7 @@ void UnaryLikeOperator::AllocateAndAddSynapseNode(
   if (m_inplace) {
     p_context_->syn_outputs_.emplace_back(
         habana_helpers::duplicate_tensor_in_memory_section(
-            p_context_->syn_inputs_[0]));
+            p_context_->syn_inputs_[0], graph));
     p_context_->pt_outputs_.emplace_back(inputs[0].toTensor());
   } else {
     auto output = habana_helpers::createPTTensor(

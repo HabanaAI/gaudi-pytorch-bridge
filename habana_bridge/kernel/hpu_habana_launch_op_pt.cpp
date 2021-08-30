@@ -1179,8 +1179,8 @@ void HabanaLaunchOpPT::create_duplicate_syn_tensor(
     }
   } else {
     pt_to_synapse_tensors.erase(value_to_ivalue[value_in]);
-    auto variant = habana_helpers::create_tensor(
-        *tensor, syn_tensor_input.graph(), persistence);
+    auto variant =
+        habana_helpers::create_tensor(*tensor, *syn_graph_ptr, persistence);
     meta_syn_tensors.push_back((std::move(variant)));
   }
 
@@ -1571,10 +1571,7 @@ void HabanaLaunchOpPT::handlePrimNodes(torch::jit::Node* node) {
 
         auto tensor = ivptrsh_updated->toTensor();
         meta_syn_tensors.push_back(habana_helpers::create_tensor(
-            tensor,
-            syn_graph_ptr->get_graph_handle(),
-            true,
-            tensor.scalar_type()));
+            tensor, *syn_graph_ptr, true, tensor.scalar_type()));
         SharedSynTensorOrRefListPtr tensorList =
             std::make_shared<SynTensorOrRefList>();
         tensorList->emplace_back(tensor_or_ref(meta_syn_tensors.back()));
@@ -1673,7 +1670,7 @@ void HabanaLaunchOpPT::handleMetaOps(torch::jit::Node* node) {
         input_ptr = value_to_ivalue[value_in];
         auto dtype = tensor.scalar_type();
         meta_syn_tensors.push_back(habana_helpers::create_tensor(
-            tensor, syn_graph_ptr->get_graph_handle(), true, dtype));
+            tensor, *syn_graph_ptr, true, dtype));
         SharedSynTensorOrRefListPtr tensorList =
             std::make_shared<SynTensorOrRefList>();
         tensorList->emplace_back(tensor_or_ref(meta_syn_tensors.back()));
@@ -3435,25 +3432,13 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
 }
 
 void HabanaLaunchOpPT::run_pass() {
-  char* lazy_env = getenv("PT_HPU_LAZY_MODE");
-  char* lowering_env = getenv("PT_HPU_LAZY_LOWERING");
-
-  //
-  // set the PT_HPU_LAZY_MODE env variable to 1 &
-  // unset the PT_HPU_LAZY_LOWERING so that when
-  // running the below compile method we dont allocate
-  // storage for tensors.
-  setenv("PT_HPU_LAZY_MODE", "1", 1);
-  if (lowering_env) {
-    unsetenv(lowering_env);
-  }
   auto& device = synapse_helpers::HPURegistrar::get_device();
 
   //
   // Run the compile and execute method to infer the shapes
   std::stringstream ss;
   ss << op_name << "_" << instance_count_;
-  auto syn_graph = habana_helpers::create_graph(device.id(), ss.str());
+  auto syn_graph = habana_helpers::create_graph(device.id(), ss.str(), true);
   syn_graph.set_dynamic_graph(true);
   AdjustInputLayout();
   CompileAndExecuteHabanaFusedOpKernel(syn_graph, true);
@@ -3461,22 +3446,10 @@ void HabanaLaunchOpPT::run_pass() {
   // clear the data that has been setup as part of the above
   // method
   clear(true);
-
-  //
-  // Reset the env back to the original values
-  if (lazy_env) {
-    setenv("PT_HPU_LAZY_MODE", lazy_env, 1);
-  }
-  if (lowering_env) {
-    setenv("PT_HPU_LAZY_LOWERING", lowering_env, 1);
-  }
 }
 
 void HabanaLaunchOpPT::run_shape_inference(
     const ShapeInference::InferencePass& pass) {
-  //
-  // Enable capturing the min values
-  setenv("PT_HPU_LAZY_SHAPE_INFERENCE", "1", 1);
   torch::jit::Stack new_stack;
   torch::jit::Stack* old_stack = nullptr;
   std::vector<IValPtrShared> old_pt_stack_sh;
@@ -3506,6 +3479,5 @@ void HabanaLaunchOpPT::run_shape_inference(
     pt_stack = old_stack;
     pt_stack_sh = old_pt_stack_sh;
   }
-  unsetenv("PT_HPU_LAZY_SHAPE_INFERENCE");
 }
 } // namespace habana

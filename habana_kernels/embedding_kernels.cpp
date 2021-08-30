@@ -744,7 +744,7 @@ synapse_helpers::tensor& EmbeddingBagSumForwardOperator::AllocateSynapseInput(
   }
   if (valid_input_idx.count(input_idx)) {
     auto syn_tensor_input = habana_helpers::create_tensor(
-        input, graph.get_graph_handle(), is_persistent, c10::nullopt, min, max);
+        input, graph, is_persistent, c10::nullopt, min, max);
 
     p_context_->syn_inputs_.emplace_back(std::move(syn_tensor_input));
 
@@ -891,7 +891,7 @@ synapse_helpers::tensor& EmbeddingBagSumBackwardOperator::AllocateSynapseInput(
 
   if (valid_input_idx.count(input_idx)) {
     auto syn_tensor_input = habana_helpers::create_tensor(
-        input, graph.get_graph_handle(), is_persistent, c10::nullopt, min, max);
+        input, graph, is_persistent, c10::nullopt, min, max);
 
     p_context_->syn_inputs_.emplace_back(std::move(syn_tensor_input));
 
