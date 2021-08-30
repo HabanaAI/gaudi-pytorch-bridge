@@ -178,6 +178,11 @@ struct PT_HPU_DISABLE_INSTANCE_NORM {
   static constexpr bool default_value = false;
 };
 
+// Experimental feature for media pipe. Do not document for end customers
+struct PT_HPU_ENABLE_DATAPTR_ACCESS {
+  static constexpr bool default_value = false;
+};
+
 // Overloads for different type of default value
 
 template <class T>

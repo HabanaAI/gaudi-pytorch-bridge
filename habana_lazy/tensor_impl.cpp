@@ -12,6 +12,7 @@
 #include <c10/core/ScalarType.h>
 #include <c10/core/impl/DeviceGuardImplInterface.h>
 #include "habana_helpers/logging.h"
+#include "synapse_helpers/env_flags.h"
 
 namespace habana_lazy {
 
@@ -52,6 +53,12 @@ HbLazyTensorImpl::HbLazyTensorImpl(
 void HbLazyTensorImpl::set_tensor(HbLazyTensor hb_tensor) {
   m_tensor = std::move(hb_tensor);
   const_cast<HbLazyTensorImpl*>(this)->SetupSizeProperties();
+}
+
+void HbLazyTensorImpl::set_storage_tensor(at::Tensor internal_tensor) {
+  HABANA_ASSERT(internal_tensor.defined());
+  m_storage_tensor = internal_tensor;
+  SetStorage(m_storage_tensor.storage());
 }
 
 c10::intrusive_ptr<c10::TensorImpl> HbLazyTensorImpl::shallow_copy_and_detach(
@@ -174,19 +181,44 @@ void HbLazyTensorImpl::SetStorage(at::Storage storage) {
 }
 
 const at::Storage& HbLazyTensorImpl::storage() const {
-  // FIXME Violates const correctness
-  c10::TensorImpl* impl = ((HbLazyTensor)m_tensor).getAttachedTensorImpl();
-  // return a dummy storage if it isnt allocated yet
-  // its a bit dangerous and we need to ensure storage calls are made only after
-  // backend memory allocation for output tensors
-  if (!impl)
+  if (GET_ENV_FLAG(PT_HPU_ENABLE_DATAPTR_ACCESS)) {
+    auto internal_tensor = ((HbLazyTensor)m_tensor).GetHbLazyTensorData();
+    const_cast<HbLazyTensorImpl*>(this)->set_storage_tensor(*internal_tensor);
     return storage_;
-  const_cast<HbLazyTensorImpl*>(this)->SetStorage(impl->storage());
-  return impl->storage();
+  } else {
+    // FIXME Violates const correctness
+    c10::TensorImpl* impl = ((HbLazyTensor)m_tensor).getAttachedTensorImpl();
+    // return a dummy storage if it isnt allocated yet
+    // its a bit dangerous and we need to ensure storage calls are made only
+    // after backend memory allocation for output tensors
+    if (!impl)
+      return storage_;
+    const_cast<HbLazyTensorImpl*>(this)->SetStorage(impl->storage());
+    return impl->storage();
+  }
 }
 
 bool HbLazyTensorImpl::has_storage() const {
-  return storage_;
+  // This is a experimental way to enable data_ptr() access for lazy tensors.
+  // The data_ptr() in at::Tensor accesses the TensorImpl->data() method.
+  // This isn't virtual and can not be overridden with HbLazyTensorImpl.
+  // TensorImpl->data() calls has_storage(), before accessing the storage_
+  // object - we use this has_storage() as the execution trigger point for
+  // the lazy tensor, so that the storage_ is created with the result and can
+  // be returned from data_ptr().
+  // Since this is based on the assumption that framework TensorImpl->data()
+  // will call has_storage() [currently called under a TORCH_CHECK], it isn't
+  // very robust as the framework code may change in future. Hence, this feature
+  // is experimental and only enabled via the internal
+  // PT_HPU_ENABLE_DATAPTR_ACCESS env variable. Eventually, we need a PT change
+  // to make TensorImpl->data() a virual method.
+  if (GET_ENV_FLAG(PT_HPU_ENABLE_DATAPTR_ACCESS)) {
+    auto internal_tensor = ((HbLazyTensor)m_tensor).GetHbLazyTensorData();
+    const_cast<HbLazyTensorImpl*>(this)->set_storage_tensor(*internal_tensor);
+    return true;
+  } else {
+    return storage_;
+  }
 }
 
 void HbLazyTensorImpl::AtenInitialize() {
