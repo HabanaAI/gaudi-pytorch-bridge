@@ -90,6 +90,10 @@ class OptPassCfg {
   void SetReplaceInplaceOps(const bool flag) {
     enable_replace_inplace_ops = flag;
   }
+  void SetReplaceViews(const bool flag) {
+    enable_replace_views = flag;
+  }
+
   bool IsEnabledDeadCodeElimination() const {
     return enable_eliminate_dead_code;
   }
@@ -120,6 +124,9 @@ class OptPassCfg {
   bool IsEnabledReplaceInplaceOps() const {
     return enable_replace_inplace_ops;
   }
+  bool IsEnabledReplaceViews() const {
+    return enable_replace_views;
+  }
 
   void SetDefaultOptFlags() {
     enable_eliminate_dead_code = true;
@@ -132,6 +139,7 @@ class OptPassCfg {
     enable_permute_pass = true;
     enable_replace_inplace_ops = true;
     enable_weight_permute_pass = false;
+    enable_replace_views = true;
   }
 
  private:
@@ -145,6 +153,7 @@ class OptPassCfg {
   bool enable_permute_pass;
   bool enable_weight_permute_pass;
   bool enable_replace_inplace_ops;
+  bool enable_replace_views;
 };
 
 /**

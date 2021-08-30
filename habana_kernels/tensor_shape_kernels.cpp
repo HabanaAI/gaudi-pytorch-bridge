@@ -1379,6 +1379,11 @@ static auto& KernelRegistry =
               return std::make_shared<ViewOperator>(device_id, node_type);
             })
         .add(
+            "hpu::reshape",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<ViewOperator>(device_id, node_type);
+            })
+        .add(
             "aten::flip",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<FlipOperator>(device_id, node_type);

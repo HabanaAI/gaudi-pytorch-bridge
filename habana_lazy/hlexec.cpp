@@ -23,6 +23,7 @@
 #include "passes/fuse_mm_transpose.h"
 #include "passes/permute_graph.h"
 #include "passes/replace_inplace_ops.h"
+#include "passes/replace_views_with_reshapes.h"
 #include "passes/transform_graph.h"
 #include "passes/weight_permute_graph.h"
 #include "pytorch_helpers/habana_device/hpu_cached_devices.h"
@@ -409,6 +410,10 @@ void HlExec::Optimize(torch::jit::Stack& stack) {
 
   if (OptPassCfg::GetInstance()->IsEnabledSubgraphRewrite()) {
     transform_graph(mp_g_);
+  }
+
+  if (OptPassCfg::GetInstance()->IsEnabledReplaceViews()) {
+    replace_views_with_reshapes(mp_g_);
   }
 }
 

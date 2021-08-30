@@ -4509,8 +4509,9 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::native_batch_norm_inf(Tensor input, Tensor? weight, Tensor? bias, Tensor? running_mean, Tensor? running_var, bool training, float momentum, float eps) -> (Tensor)");
   m.def(
-      "as_strided_lazy_(Tensor self, int[] size, int[] stride, int offset) -> (Tensor)");
+      "as_strided_lazy_(Tensor self, int[] size, int[] stride, int offset, bool can_replace) -> (Tensor)");
   m.def("as_strided_layout_(Tensor self, int[] size) -> (Tensor)");
+  m.def("reshape(Tensor self, int[] size) -> (Tensor)");
   m.def(
       "matmul_backward(Tensor grad_out, Tensor self, Tensor other) -> (Tensor, Tensor)");
   m.def(

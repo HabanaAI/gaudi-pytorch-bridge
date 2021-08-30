@@ -48,7 +48,12 @@ class View : public ir::Node {
 
 class AsStrided : public ir::Node {
  public:
-  enum class AsStridedMeta { SIZE_INDEX = 1, STRIDE_INDEX = 2, STORAGE_OFFSET };
+  enum class AsStridedMeta {
+    SIZE_INDEX = 1,
+    STRIDE_INDEX = 2,
+    STORAGE_OFFSET = 3,
+    CAN_REPLACE_OFFSET = 4
+  };
   AsStrided() = delete;
   AsStrided(
       const at::Tensor& self,
@@ -62,10 +67,30 @@ class AsStrided : public ir::Node {
     std::vector<at::Tensor> input_pt_vec{self};
     AddInputPtTensors(input_pt_vec);
 
+    // additional metadata to signal the replace as_strided pass whether
+    // this node can be replaced. Do not replace if there is non-zero storage
+    // offset or if self's size doesnt match output size (eg slice)
+    // TODO try relaxing these cases for slices by adding additional support in
+    // AsStrided PT kernel
+    bool can_replace = self.is_contiguous(self.suggest_memory_format());
+
+    auto self_sizes_vec = self.sizes().vec();
+    // handle 0-D
+    if (self_sizes_vec.size() == 0) {
+      self_sizes_vec.emplace_back(1);
+    }
+
+    if ((storage_offset) ||
+        (prod_sizes(self_sizes_vec) != prod_sizes(size.vec()))) {
+      can_replace = false;
+    }
+
     m_meta_data.set(size, static_cast<size_t>(AsStridedMeta::SIZE_INDEX));
     m_meta_data.set(stride, static_cast<size_t>(AsStridedMeta::STRIDE_INDEX));
     m_meta_data.set(
         storage_offset, static_cast<size_t>(AsStridedMeta::STORAGE_OFFSET));
+    m_meta_data.set(
+        can_replace, static_cast<size_t>(AsStridedMeta::CAN_REPLACE_OFFSET));
   }
 
   std::string ToString() const override {
@@ -75,8 +100,19 @@ class AsStrided : public ir::Node {
        << ", strides = "
        << m_meta_data.get(static_cast<size_t>(AsStridedMeta::STRIDE_INDEX))
        << ", storage offset = "
-       << m_meta_data.get(static_cast<size_t>(AsStridedMeta::STORAGE_OFFSET));
+       << m_meta_data.get(static_cast<size_t>(AsStridedMeta::STORAGE_OFFSET))
+       << ", can replace = "
+       << m_meta_data.get(
+              static_cast<size_t>(AsStridedMeta::CAN_REPLACE_OFFSET));
     return ss.str();
+  }
+
+  size_t prod_sizes(std::vector<int64_t> sizes) {
+    size_t prod_size = 1;
+    for (auto s : sizes) {
+      prod_size *= s;
+    }
+    return prod_size;
   }
 };
 
