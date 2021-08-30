@@ -164,6 +164,27 @@ at::Tensor preProcessIfLongorDouble(
   return processed_tensor_cpu;
 }
 
+std::vector<int64_t> CalculateStrides5d(
+    const IntArrayRef sizes,
+    c10::MemoryFormat format) {
+  HABANA_ASSERT(sizes.size() == 5);
+  if (c10::MemoryFormat::ChannelsLast3d == format) {
+    return {
+        sizes[1] * sizes[2] * sizes[3] * sizes[4],
+        1,
+        sizes[1] * sizes[3] * sizes[4],
+        sizes[1] * sizes[4],
+        sizes[1]};
+  }
+
+  return {
+      sizes[1] * sizes[2] * sizes[3] * sizes[4],
+      sizes[4] * sizes[3] * sizes[2],
+      sizes[4] * sizes[3],
+      sizes[4],
+      1};
+}
+
 std::vector<int64_t> CalculateStrides(
     const IntArrayRef sizes,
     c10::MemoryFormat format) {
@@ -171,6 +192,7 @@ std::vector<int64_t> CalculateStrides(
   if (c10::MemoryFormat::ChannelsLast == format) {
     return {sizes[1] * sizes[2] * sizes[3], 1, sizes[1] * sizes[3], sizes[1]};
   }
+
   return {sizes[1] * sizes[2] * sizes[3], sizes[3] * sizes[2], sizes[3], 1};
 }
 
@@ -520,6 +542,10 @@ Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src, bool non_blocking) {
         at_internal_tensor.unsafeGetTensorImpl()->set_sizes_and_strides(
             src.sizes(),
             CalculateStrides(src.sizes(), src.suggest_memory_format()));
+      } else if (5 == self.dim()) {
+        at_internal_tensor.unsafeGetTensorImpl()->set_sizes_and_strides(
+            src.sizes(),
+            CalculateStrides5d(src.sizes(), src.suggest_memory_format()));
       } else {
         at_internal_tensor.unsafeGetTensorImpl()->set_sizes_contiguous(
             src.sizes());
@@ -2984,6 +3010,9 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu_lazy(
     IntArrayRef rm_size;
     if (input.suggest_memory_format() == c10::MemoryFormat::ChannelsLast) {
       rm_size = input.sizes()[3];
+    } else if (
+        input.suggest_memory_format() == c10::MemoryFormat::ChannelsLast3d) {
+      rm_size = input.sizes()[4];
     } else {
       rm_size = input.sizes()[1];
     }
@@ -2999,6 +3028,9 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu_lazy(
     IntArrayRef rv_size;
     if (input.suggest_memory_format() == c10::MemoryFormat::ChannelsLast) {
       rv_size = input.sizes()[3];
+    } else if (
+        input.suggest_memory_format() == c10::MemoryFormat::ChannelsLast3d) {
+      rv_size = input.sizes()[4];
     } else {
       rv_size = input.sizes()[1];
     }
@@ -3126,6 +3158,9 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu_lazy(
     IntArrayRef rm_size;
     if (input.suggest_memory_format() == c10::MemoryFormat::ChannelsLast) {
       rm_size = input.sizes()[3];
+    } else if (
+        input.suggest_memory_format() == c10::MemoryFormat::ChannelsLast3d) {
+      rm_size = input.sizes()[4];
     } else {
       rm_size = input.sizes()[1];
     }
@@ -3140,6 +3175,9 @@ std::tuple<Tensor, Tensor, Tensor> batch_norm_bwd_hpu_lazy(
     IntArrayRef rv_size;
     if (input.suggest_memory_format() == c10::MemoryFormat::ChannelsLast) {
       rv_size = input.sizes()[3];
+    } else if (
+        input.suggest_memory_format() == c10::MemoryFormat::ChannelsLast3d) {
+      rv_size = input.sizes()[4];
     } else {
       rv_size = input.sizes()[1];
     }
@@ -4231,6 +4269,9 @@ Tensor empty_hpu_lazy(
     if ((4 == size.size()) && mem_format.has_value()) {
       at_internal_tensor.unsafeGetTensorImpl()->set_sizes_and_strides(
           size, CalculateStrides(size, mem_format.value()));
+    } else if ((5 == size.size()) && mem_format.has_value()) {
+      at_internal_tensor.unsafeGetTensorImpl()->set_sizes_and_strides(
+          size, CalculateStrides5d(size, mem_format.value()));
     } else {
       at_internal_tensor.unsafeGetTensorImpl()->set_sizes_contiguous(size);
     }
@@ -4267,6 +4308,9 @@ Tensor empty_hpu_lazy(
       if ((4 == size.size()) && mem_format.has_value()) {
         at_tensor.unsafeGetTensorImpl()->set_sizes_and_strides(
             size, CalculateStrides(size, mem_format.value()));
+      } else if ((5 == size.size()) && mem_format.has_value()) {
+        at_tensor.unsafeGetTensorImpl()->set_sizes_and_strides(
+            size, CalculateStrides5d(size, mem_format.value()));
       } else {
         at_tensor.unsafeGetTensorImpl()->set_sizes_contiguous(size);
       }
@@ -4302,6 +4346,9 @@ Tensor empty_hpu_lazy(
     if ((4 == size.size()) && mem_format.has_value()) {
       at_tensor.unsafeGetTensorImpl()->set_sizes_and_strides(
           size, CalculateStrides(size, mem_format.value()));
+    } else if ((5 == size.size()) && mem_format.has_value()) {
+      at_tensor.unsafeGetTensorImpl()->set_sizes_and_strides(
+          size, CalculateStrides5d(size, mem_format.value()));
     } else {
       at_tensor.unsafeGetTensorImpl()->set_sizes_contiguous(size);
     }
@@ -4490,6 +4537,15 @@ void adjustPTSizesLazy(Tensor& t) {
     if (hl_result.getAttachedTensorImpl()) {
       hl_result.getAttachedTensorImpl()->empty_tensor_restride(
           c10::MemoryFormat::ChannelsLast);
+    }
+  }
+  if (t.dim() == 5) {
+    t.unsafeGetTensorImpl()->empty_tensor_restride(
+        c10::MemoryFormat::ChannelsLast3d);
+    auto hl_result = GetHbLazyTensor(t);
+    if (hl_result.getAttachedTensorImpl()) {
+      hl_result.getAttachedTensorImpl()->empty_tensor_restride(
+          c10::MemoryFormat::ChannelsLast3d);
     }
   }
 }

@@ -1064,9 +1064,11 @@ void habana_helpers::change_tensors_to_memory_format(
   auto count = pt_inputs.size();
   for (unsigned i = 0; i < count; i++) {
     switch (memory_format) {
+      case c10::MemoryFormat::ChannelsLast3d:
       case c10::MemoryFormat::ChannelsLast: {
         auto sizes = pt_inputs[i]->sizes().vec();
         auto new_pos = *pt_new_pos[i];
+        auto is_3d_layout = memory_format == c10::MemoryFormat::ChannelsLast3d;
         std::vector<long int> swapped_sizes = {
             sizes[new_pos[0]],
             sizes[new_pos[1]],
@@ -1078,6 +1080,10 @@ void habana_helpers::change_tensors_to_memory_format(
             strides[new_pos[1]],
             strides[new_pos[2]],
             strides[new_pos[3]]};
+        if (is_3d_layout) {
+          swapped_sizes.push_back(sizes[new_pos[4]]);
+          swapped_strides.push_back(strides[new_pos[4]]);
+        }
         /* The following method of using 'alias' followed by
          * set_sizes_and_strides is necessary to "dereference" pt_outputs[i]
          * from pt_inputs[i] and create new copies of sizes and strides.
@@ -1100,7 +1106,7 @@ void habana_helpers::change_tensors_to_memory_format(
       default:
         TORCH_CHECK(
             false,
-            "Unsupported memory format. Supports only ChannelsLast, Contiguous");
+            "Unsupported memory format. Supports only ChannelsLast3d, ChannelsLast, Contiguous");
     }
   }
   return;
@@ -1112,6 +1118,12 @@ c10::MemoryFormat habana_helpers::get_memory_format(
   TORCH_CHECK(count > 0, "Empty input tensor list given to get_memory_format");
   c10::MemoryFormat memory_format = pt_inputs[0]->suggest_memory_format();
   for (unsigned i = 0; i < count; i++) {
+    if (pt_inputs[i]->suggest_memory_format() ==
+        c10::MemoryFormat::ChannelsLast3d) {
+      memory_format = c10::MemoryFormat::ChannelsLast3d;
+      break;
+    }
+
     if (pt_inputs[i]->suggest_memory_format() ==
         c10::MemoryFormat::ChannelsLast) {
       memory_format = c10::MemoryFormat::ChannelsLast;

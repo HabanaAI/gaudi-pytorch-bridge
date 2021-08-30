@@ -62,8 +62,18 @@ void adjustSizesforPT(at::Tensor* tensor, bool is_output) {
   auto strides = tensor->strides().vec();
   int64_t dim_out_pos[] = {0, 3, 1, 2};
   int64_t dim_in_pos[] = {0, 2, 3, 1};
-  at::IntArrayRef out_pos = dim_out_pos;
-  at::IntArrayRef in_pos = dim_in_pos;
+  int64_t dim_out_pos_3d[] = {0, 4, 1, 2, 3};
+  int64_t dim_in_pos_3d[] = {0, 2, 3, 4, 1};
+  auto is_5d_layout = sizes.size() == 5 ? true : false;
+  at::IntArrayRef out_pos;
+  at::IntArrayRef in_pos;
+  if (is_5d_layout) {
+    out_pos = dim_out_pos_3d;
+    in_pos = dim_in_pos_3d;
+  } else {
+    out_pos = dim_out_pos;
+    in_pos = dim_in_pos;
+  }
 
   at::IntArrayRef new_pos_arr = is_output ? out_pos : in_pos;
   auto new_pos = new_pos_arr.vec();
@@ -72,13 +82,17 @@ void adjustSizesforPT(at::Tensor* tensor, bool is_output) {
       sizes[new_pos[1]],
       sizes[new_pos[2]],
       sizes[new_pos[3]]};
+  if (is_5d_layout) {
+    swapped_sizes.push_back(sizes[new_pos[4]]);
+  }
 
   tensor->unsafeGetTensorImpl()->set_sizes_contiguous(swapped_sizes);
   // make the output layouts correct for PT
 
   if (is_output) {
-    tensor->unsafeGetTensorImpl()->empty_tensor_restride(
-        c10::MemoryFormat::ChannelsLast);
+    auto format = is_5d_layout ? c10::MemoryFormat::ChannelsLast3d
+                               : c10::MemoryFormat::ChannelsLast;
+    tensor->unsafeGetTensorImpl()->empty_tensor_restride(format);
   } else {
     tensor->unsafeGetTensorImpl()->empty_tensor_restride(
         c10::MemoryFormat::Contiguous);
@@ -1400,6 +1414,7 @@ void HabanaLaunchOpPT::handleRestrideNode(torch::jit::Node* node) {
   HABANA_ASSERT(value_to_ivalue.find(value_in) != std::end(value_to_ivalue));
   HABANA_ASSERT(value_to_ivalue[value_in]->isTensor());
   auto tensor = value_to_ivalue[value_in]->toTensor();
+  auto is_5d_layout = tensor.dim() == 5 ? true : false;
   // for 0D and 1D tensors adjust sizes skipped
   if (tensor.dim() > 1) {
     auto sizes = tensor.sizes().vec();
@@ -1417,8 +1432,9 @@ void HabanaLaunchOpPT::handleRestrideNode(torch::jit::Node* node) {
         swapped_sizes, swapped_strides);
 
     if (isInGraphOutputs(value_out)) {
-      tensor.unsafeGetTensorImpl()->empty_tensor_restride(
-          c10::MemoryFormat::ChannelsLast);
+      auto format = is_5d_layout ? c10::MemoryFormat::ChannelsLast3d
+                                 : c10::MemoryFormat::ChannelsLast;
+      tensor.unsafeGetTensorImpl()->empty_tensor_restride(format);
     } else {
       tensor.unsafeGetTensorImpl()->empty_tensor_restride(
           c10::MemoryFormat::Contiguous);

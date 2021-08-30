@@ -42,7 +42,8 @@ void check_convolution_params(
     const at::IntArrayRef output_padding,
     const int64_t groups,
     const int input_channel = 1,
-    const int weight_channel = 1);
+    const int weight_channel = 1,
+    const bool is_conv_3d = false);
 
 std::vector<int64_t> hack_pytorch_nhwc_shapes(
     const at::IntArrayRef& sizes,

@@ -134,6 +134,59 @@ void WeightIdentificationPass::markWeightTensors(
   }
 }
 
+at::IntArrayRef getDimsForLayout5d(
+    habana::LayoutFormat channel_order,
+    habana::LayoutFormat current_order) {
+  at::IntArrayRef dims;
+
+  // using NCHW/NHWC/HWCK since synapse 5d layout nomenclature
+  // is not clear. Note that for 5d layout channel dim is 1 for
+  // NCDHW and 4 for NDHWC
+  if (current_order == habana::LayoutFormat::NCHW) {
+    if (channel_order == habana::LayoutFormat::NHWC) {
+      static const int64_t dimarr[] = {0, 2, 3, 4, 1};
+      dims = dimarr;
+    } else if (channel_order == habana::LayoutFormat::HWCK) {
+      static const int64_t dimarr[] = {2, 3, 4, 1, 0};
+      dims = dimarr;
+    } else {
+      TORCH_CHECK(
+          0,
+          " InsertPermute_graph: permute called for unsupported channel order");
+    }
+  } else if (current_order == habana::LayoutFormat::NHWC) {
+    if (channel_order == habana::LayoutFormat::NCHW) {
+      static const int64_t dimarr[] = {0, 4, 1, 2, 3};
+      dims = dimarr;
+    } else if (channel_order == habana::LayoutFormat::HWCK) {
+      static const int64_t dimarr[] = {1, 2, 3, 4, 0};
+      dims = dimarr;
+    } else {
+      TORCH_CHECK(
+          0,
+          " InsertPermute_graph: permute called for unsupported channel order");
+    }
+  } else if (current_order == habana::LayoutFormat::HWCK) {
+    if (channel_order == habana::LayoutFormat::NCHW) {
+      static const int64_t dimarr[] = {4, 3, 0, 1, 2};
+      dims = dimarr;
+    } else if (channel_order == habana::LayoutFormat::NHWC) {
+      static const int64_t dimarr[] = {4, 0, 1, 2, 3};
+      dims = dimarr;
+    } else {
+      TORCH_CHECK(
+          0,
+          " InsertPermute_graph: permute called for unsupported channel order");
+    }
+  } else {
+    TORCH_CHECK(
+        0,
+        " InsertPermute_graph: permute called for unsupported channel order");
+  }
+
+  return dims;
+}
+
 at::IntArrayRef getDimsForLayout(
     habana::LayoutFormat channel_order,
     habana::LayoutFormat current_order) {
@@ -272,6 +325,26 @@ bool isDimBasedOp(const Node* node) {
   return node ? dimBasedOpsIdx.count(node->kind().toQualString()) != 0 : false;
 }
 
+int64_t getLayoutDim5d(habana::LayoutFormat layout, int64_t dim) {
+  // using NCHW/NHWC/HWCK since synapse 5d layout nomenclature
+  // is not clear. Note that for 5d layout channel dim is 1 for
+  // NCDHW and 4 for NDHWC
+  int layout_dim = dim;
+  if (layout == habana::LayoutFormat::NCHW) {
+    int64_t dimarr[] = {0, 1, 2, 3, 4};
+    layout_dim = dimarr[dim];
+  } else if (layout == habana::LayoutFormat::NHWC) {
+    int64_t dimarr[] = {0, 4, 1, 2, 3};
+    layout_dim = dimarr[dim];
+  } else if (layout == habana::LayoutFormat::HWCK) {
+    int64_t dimarr[] = {4, 3, 0, 1, 2};
+    layout_dim = dimarr[dim];
+  } else {
+    HABANA_ASSERT(0);
+  }
+  return layout_dim;
+}
+
 int64_t getLayoutDim(habana::LayoutFormat layout, int64_t dim) {
   int layout_dim = dim;
   if (layout == habana::LayoutFormat::NCHW) {
@@ -317,6 +390,8 @@ void InsertPermute_graph(
     auto value_input = graph_inputs[j];
     if (stack[idx + j].isTensor()) {
       auto tensor = stack[idx + j].toTensor();
+      auto is_5d_layout =
+          tensor.suggest_memory_format() == at::MemoryFormat::ChannelsLast3d;
       if (tensor.suggest_memory_format() == at::MemoryFormat::ChannelsLast ||
           tensor.suggest_memory_format() == at::MemoryFormat::ChannelsLast3d) {
         value_to_tensor_layout[value_input].layout = habana::LayoutFormat::NHWC;
@@ -326,8 +401,11 @@ void InsertPermute_graph(
         auto node_insert = value_input->uses().at(0).user;
         WithInsertPoint insert_point(node_insert);
         auto op_restride = c10::Symbol::fromQualString("hpu::restride_cl");
-        auto dims = getDimsForLayout(
-            habana::LayoutFormat::NHWC, habana::LayoutFormat::NCHW);
+        auto dims = is_5d_layout
+            ? getDimsForLayout5d(
+                  habana::LayoutFormat::NHWC, habana::LayoutFormat::NCHW)
+            : getDimsForLayout(
+                  habana::LayoutFormat::NHWC, habana::LayoutFormat::NCHW);
         auto value_dims = graph->insertConstant(IValue(dims));
         auto restride_node =
             graph->create(op_restride, {value_input, value_dims}, 1);
@@ -495,6 +573,12 @@ void InsertPermute_graph(
             anchor_nodes_[node].push_back(std::make_pair(value_in, dims));
             tensor_layout = perm_layout;
           }
+
+          if (*value_in->type()->cast<TensorType>()->dim() == 5) {
+            auto dims = getDimsForLayout5d(perm_layout, tensor_layout);
+            anchor_nodes_[node].push_back(std::make_pair(value_in, dims));
+            tensor_layout = perm_layout;
+          }
         }
         prev_layout = tensor_idx == 0 ? tensor_layout : prev_layout;
         tensor_idx++;
@@ -616,10 +700,14 @@ void InsertPermute_graph(
           value_to_tensor_layout[value_out].layout_at_graph_entry =
               value_layout_entry;
           value_to_tensor_layout[value_out].layout = tensor_layout;
-          auto layout_dim = getLayoutDim(tensor_layout, dim);
+          auto is_5d_layout =
+              *value_out->type()->cast<TensorType>()->dim() == 5;
+          auto layout_dim = is_5d_layout ? getLayoutDim5d(tensor_layout, dim)
+                                         : getLayoutDim(tensor_layout, dim);
           if ((tensor_layout != habana::LayoutFormat::NCHW) &&
               (tensor_layout != habana::LayoutFormat::HWCK)) {
-            if (*value_out->type()->cast<TensorType>()->dim() == 4) {
+            if (*value_out->type()->cast<TensorType>()->dim() == 4 ||
+                is_5d_layout) {
               // if dims can not be adjusted bring back to PT layout
               if (layout_dim != dim) {
                 WithInsertPoint insert_point(node);
@@ -627,9 +715,13 @@ void InsertPermute_graph(
                 node->replaceInputWith(node->input(dimIdx), value_dim);
               } else {
                 auto value_in = node->input(0);
-                auto dims = getDimsForLayout(
-                    habana::LayoutFormat::NCHW,
-                    value_to_tensor_layout[value_in].layout);
+                auto dims = is_5d_layout
+                    ? getDimsForLayout5d(
+                          habana::LayoutFormat::NCHW,
+                          value_to_tensor_layout[value_in].layout)
+                    : getDimsForLayout(
+                          habana::LayoutFormat::NCHW,
+                          value_to_tensor_layout[value_in].layout);
                 anchor_nodes_[node].push_back(std::make_pair(value_in, dims));
                 value_to_tensor_layout[value_out].layout =
                     habana::LayoutFormat::NCHW;
@@ -648,10 +740,12 @@ void InsertPermute_graph(
         auto dim = toIValue(node->input(dimIdx))->toInt();
         // check if all inputs are 4d and are in NHWC format
         auto allNHWC = true;
+        auto is_5d_layout = false;
         for (auto value_in : tListNode->inputs()) {
+          is_5d_layout = *value_in->type()->cast<TensorType>()->dim() == 5;
           if ((value_to_tensor_layout[value_in].layout ==
                habana::LayoutFormat::NCHW) ||
-              (*value_in->type()->cast<TensorType>()->dim() != 4)) {
+              (*value_in->type()->cast<TensorType>()->dim() < 4)) {
             allNHWC = false;
             break;
           }
@@ -661,8 +755,9 @@ void InsertPermute_graph(
         if (allNHWC) {
           value_to_tensor_layout[value_out].layout_at_graph_entry =
               value_to_tensor_layout[value_in0].layout_at_graph_entry;
-          auto layout_dim =
-              getLayoutDim(value_to_tensor_layout[value_in0].layout, dim);
+          auto layout_dim = is_5d_layout
+              ? getLayoutDim5d(value_to_tensor_layout[value_in0].layout, dim)
+              : getLayoutDim(value_to_tensor_layout[value_in0].layout, dim);
           WithInsertPoint insert_point(node);
           auto value_dim = graph->insertConstant(IValue(layout_dim));
           node->replaceInputWith(node->input(dimIdx), value_dim);
@@ -677,6 +772,14 @@ void InsertPermute_graph(
                 habana::LayoutFormat::NCHW) {
               if (*value_in->type()->cast<TensorType>()->dim() == 4) {
                 auto dims = getDimsForLayout(
+                    habana::LayoutFormat::NCHW,
+                    value_to_tensor_layout[value_in].layout);
+                anchor_nodes_[tListNode].push_back(
+                    std::make_pair(value_in, dims));
+              }
+
+              if (is_5d_layout) {
+                auto dims = getDimsForLayout5d(
                     habana::LayoutFormat::NCHW,
                     value_to_tensor_layout[value_in].layout);
                 anchor_nodes_[tListNode].push_back(
@@ -734,6 +837,7 @@ void InsertPermute_graph(
   for (auto value_out : node_return->inputs()) {
     auto prev_layout = value_to_tensor_layout[value_out].layout_at_graph_entry;
     auto cur_layout = value_to_tensor_layout[value_out].layout;
+    auto is_5d_layout = *value_out->type()->cast<TensorType>()->dim() == 5;
     if (value_out->type()->kind() == c10::TypeKind::TensorType) {
       if (prev_layout == habana::LayoutFormat::NHWC) {
         if (cur_layout == habana::LayoutFormat::NHWC) {
@@ -741,6 +845,12 @@ void InsertPermute_graph(
           if (node_str == "aten::select") {
             at::IntArrayRef dims;
             static const int64_t dimarr[] = {2, 0, 1};
+            dims = dimarr;
+            anchor_restride_nodes_[node_return].push_back(
+                std::make_pair(value_out, dims));
+          } else if (is_5d_layout) {
+            at::IntArrayRef dims;
+            static const int64_t dimarr[] = {0, 4, 1, 2, 3};
             dims = dimarr;
             anchor_restride_nodes_[node_return].push_back(
                 std::make_pair(value_out, dims));
@@ -756,6 +866,12 @@ void InsertPermute_graph(
         if (prev_layout != cur_layout) {
           if (*value_out->type()->cast<TensorType>()->dim() == 4) {
             auto dims = getDimsForLayout(prev_layout, cur_layout);
+            anchor_nodes_[node_return].push_back(
+                std::make_pair(value_out, dims));
+          }
+
+          if (is_5d_layout) {
+            auto dims = getDimsForLayout5d(prev_layout, cur_layout);
             anchor_nodes_[node_return].push_back(
                 std::make_pair(value_out, dims));
           }

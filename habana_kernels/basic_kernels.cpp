@@ -48,11 +48,19 @@ std::map<c10::ScalarType, std::vector<c10::ScalarType>> const
         {c10::ScalarType::Int, {c10::ScalarType::Float}}};
 
 bool copy_transpose_valid(const Tensor& self, const Tensor& src) {
-  return (
+  auto is_valid_4d =
       self.suggest_memory_format() == c10::MemoryFormat::ChannelsLast &&
       src.numel() != 0 && self.dim() == 4 &&
       self.scalar_type() == src.scalar_type() &&
-      src.is_contiguous(c10::MemoryFormat::Contiguous));
+      src.is_contiguous(c10::MemoryFormat::Contiguous);
+
+  auto is_valid_5d =
+      self.suggest_memory_format() == c10::MemoryFormat::ChannelsLast3d &&
+      src.numel() != 0 && self.dim() == 5 &&
+      self.scalar_type() == src.scalar_type() &&
+      src.is_contiguous(c10::MemoryFormat::Contiguous);
+
+  return is_valid_4d || is_valid_5d;
 }
 
 void adjustPTSizes(Tensor& t) {
@@ -61,17 +69,32 @@ void adjustPTSizes(Tensor& t) {
   // NCHW
   auto sizes = t.sizes().vec();
   std::vector<int> out_pos = {0, 3, 1, 2};
+  std::vector<int> out_pos_5d = {0, 4, 1, 2, 3};
   std::vector<long int> swapped_sizes = {
       sizes[out_pos[0]],
       sizes[out_pos[1]],
       sizes[out_pos[2]],
       sizes[out_pos[3]]};
-  t.unsafeGetTensorImpl()->set_sizes_contiguous(swapped_sizes);
+  std::vector<long int> swapped_sizes_5d = {
+      sizes[out_pos_5d[0]],
+      sizes[out_pos_5d[1]],
+      sizes[out_pos_5d[2]],
+      sizes[out_pos_5d[3]],
+      sizes[out_pos_5d[4]]};
+  if (t.dim() == 5) {
+    t.unsafeGetTensorImpl()->set_sizes_contiguous(swapped_sizes_5d);
+  } else {
+    t.unsafeGetTensorImpl()->set_sizes_contiguous(swapped_sizes);
+  }
   // For 4D tensors we need to make sure that we generate the PT channel last
   // strides
   if (t.dim() == 4) {
     t.unsafeGetTensorImpl()->empty_tensor_restride(
         c10::MemoryFormat::ChannelsLast);
+  }
+  if (t.dim() == 5) {
+    t.unsafeGetTensorImpl()->empty_tensor_restride(
+        c10::MemoryFormat::ChannelsLast3d);
   }
 }
 

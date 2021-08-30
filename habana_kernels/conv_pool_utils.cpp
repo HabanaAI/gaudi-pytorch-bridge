@@ -77,7 +77,8 @@ void check_convolution_params(
     const at::IntArrayRef output_padding,
     const int64_t groups,
     const int input_channel,
-    const int weight_channel) {
+    const int weight_channel,
+    const bool is_conv_3d) {
   at::Tensor input = inputs[0];
   at::Tensor weight = inputs[1];
   TORCH_CHECK(
@@ -89,7 +90,11 @@ void check_convolution_params(
   TORCH_CHECK(
       weight.device().type() == c10::DeviceType::HPU,
       "weight is not habana at::Tensor");
-  TORCH_CHECK(weight.ndimension() == 4, "weight tensordimension count  != 4");
+  int64_t weight_dims = is_conv_3d ? 5 : 4;
+  TORCH_CHECK(
+      weight.ndimension() == weight_dims,
+      "weight tensordimension count  != ",
+      weight_dims);
 
   if (transposed) {
     TORCH_CHECK(groups == 1, "transpose convolution doesn't support groups");
@@ -119,12 +124,23 @@ void check_convolution_params(
   TORCH_CHECK(
       input.device().type() == c10::DeviceType::HPU,
       "input is not habana at::Tensor");
+  size_t stride_size = is_conv_3d ? 3 : 2;
+  size_t padding_size = stride_size;
+  int64_t input_dims = weight_dims;
   TORCH_CHECK(
-      stride.size() == 2, "stride size != 2 unsupported by convolution_hpu");
+      stride.size() == stride_size,
+      "stride size != ",
+      stride_size,
+      " unsupported by convolution_hpu");
   TORCH_CHECK(
-      padding.size() == 2, "padding size != 2 unsupported by convolution_hpu");
+      padding.size() == padding_size,
+      "padding size != ",
+      padding_size,
+      " unsupported by convolution_hpu");
   TORCH_CHECK(
-      input.ndimension() == 4, "input at::Tensor dimension count !=  4");
+      input.ndimension() == input_dims,
+      "input at::Tensor dimension count !=  ",
+      input_dims);
 }
 
 std::vector<int64_t> hack_pytorch_nhwc_shapes(

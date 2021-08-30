@@ -37,9 +37,9 @@ class ConvOperator : public habana::HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false);
+      bool is_output_persistent = false) override;
 
-  virtual void SetPTOutputs(torch::jit::Stack& inputs);
+  virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
 
   static std::vector<int64_t> compute_output_shape(
       std::vector<int64_t> shape_in,
@@ -49,7 +49,8 @@ class ConvOperator : public habana::HabanaOperator {
       std::vector<int64_t> dilation,
       const bool ceil_mode,
       const bool transposed,
-      c10::MemoryFormat memory_format);
+      c10::MemoryFormat memory_format,
+      const bool is_conv_3d = false);
 };
 
 /**
@@ -68,6 +69,25 @@ class SpatialConvOperator : public habana::HabanaOperator {
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
-      bool is_output_persistent = false);
+      bool is_output_persistent = false) override;
+};
+
+/**
+ * @brief Internal class implementing Syanpse spatial_convolution3d
+ * operator. Class objects to this should be invoked only from
+ * other convolution related classes.
+ **/
+class SpatialConv3DOperator : public habana::HabanaOperator {
+ public:
+  SpatialConv3DOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator("spatial_convolution3d") {
+    static_cast<void>(scalarType);
+    this->CreateSynContext(device_id);
+  }
+
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
 };
 } // namespace habana
