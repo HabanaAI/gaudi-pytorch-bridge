@@ -2241,7 +2241,6 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel(
 
     // setup the config params for the kernels
     auto outputPersistent = nodeOutputPersistence(node);
-    std::cout << "[Dyn Debug]--------------- Opname  " << opname << "\n";
     if (outputPersistent.size() == 1) {
       HabanaKernel->AllocateAndAddSynapseNode(
           syn_graph, input_stack, outputPersistent[0]);
@@ -2723,8 +2722,6 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
       // 2. Patch using the exact shape
       // 3. Launch
       // 4. Update outputs
-      std::cout
-          << "[Dyn Debug] -----------------------Cache Hit Dynamic Shape --------------\n";
       RecipeValueSpec& rv = *rvpsh;
       auto rv_hit_count = rv.update_hit_count();
 
@@ -2780,11 +2777,7 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
   // the shape inference only for once for max shapes
   if (ranges.empty() == false) {
     // run min shape inference pass
-    std::cout
-        << "[Dyn Debug] -----------------------Run Shape Inference Min Pass -----------------\n";
     run_shape_inference(ShapeInference::InferencePass::MIN_SHAPE);
-    std::cout
-        << "[Dyn Debug] -----------------------Run Shape Inference Max Pass -----------------\n";
     // run max shape inference pass
     run_shape_inference(ShapeInference::InferencePass::MAX_SHAPE);
   }
@@ -2794,8 +2787,6 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
   auto syn_graph = habana_helpers::create_graph(device.id(), ss.str());
   syn_graph.set_dynamic_graph(!ranges.empty());
   AdjustInputLayout();
-  std::cout
-      << "[Dyn Debug] -----------------------Cache Miss Dynamic CompileAndExecuteHabanaFusedOpKernel -----------------\n";
   CompileAndExecuteHabanaFusedOpKernel(syn_graph);
   clear();
   PT_BRIDGE_END;

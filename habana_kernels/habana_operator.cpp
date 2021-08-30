@@ -204,7 +204,6 @@ synapse_helpers::tensor& habana::HabanaOperator::AllocateSynapseInput(
       auto syn_tensor_input =
           habana_helpers::duplicate_tensor_in_memory_section_with_size(
               p_context_->syn_input_orig_[0], sizes, strides, syn_offset);
-      std::cout << "[Dyn Debug] Duplicate Tensor: " << syn_tensor_input << "\n";
       p_context_->syn_inputs_.emplace_back(std::move(syn_tensor_input));
     } else {
       auto syn_tensor_input = habana_helpers::create_tensor(
@@ -214,8 +213,6 @@ synapse_helpers::tensor& habana::HabanaOperator::AllocateSynapseInput(
           c10::nullopt,
           min,
           max);
-      std::cout << "[Dyn Debug] Create Input Tensor: " << syn_tensor_input
-                << "\n";
       p_context_->syn_inputs_.emplace_back(std::move(syn_tensor_input));
     }
   } else {
@@ -228,7 +225,6 @@ synapse_helpers::tensor& habana::HabanaOperator::AllocateSynapseInput(
         false,
         min_shape,
         max_shape);
-    std::cout << "[Dyn Debug] Create ShapeTensor: " << syn_shape_input << "\n";
     p_context_->syn_inputs_.emplace_back(std::move(syn_shape_input));
   }
 
@@ -266,8 +262,6 @@ void habana::HabanaOperator::AllocateSynapseOutput(
         c10::nullopt,
         min_shape,
         max_shape));
-    std::cout << "[Dyn Debug] Create Output Tensor: "
-              << p_context_->syn_outputs_.back() << "\n";
   } else {
     p_context_->syn_outputs_.emplace_back(habana_helpers::create_shape_tensor(
         output,
@@ -409,7 +403,6 @@ void habana::HabanaOperator::AddNodeToSynapseGraph(
   if (std::getenv("PT_HPU_LAZY_SHAPE_INFERENCE")) {
     return;
   }
-  std::cout << "[Dyn Debug] AddNodeToSynapseGraph \n";
   std::vector<synTensor> syn_inputs;
   std::vector<synTensor> syn_outputs;
 
@@ -420,20 +413,17 @@ void habana::HabanaOperator::AddNodeToSynapseGraph(
       for (auto index : kernel_meta_data_.tpc_input_order) {
         HABANA_ASSERT(index < p_context_->syn_inputs_.size());
         synapse_helpers::tensor& tensor = p_context_->syn_inputs_[index];
-        std::cout << "[Dyn Debug] kernel_meta_data_ tensor " << tensor << "\n";
         syn_inputs.emplace_back(tensor.get());
       }
     }
   } else {
     for (synapse_helpers::tensor& tensor : p_context_->syn_inputs_) {
       syn_inputs.emplace_back(tensor.get());
-      std::cout << "[Dyn Debug] Input tensor " << tensor << "\n";
     }
   }
 
   for (synapse_helpers::tensor& tensor : p_context_->syn_outputs_) {
     syn_outputs.emplace_back(tensor.get());
-    std::cout << "[Dyn Debug] Output tensor " << tensor << "\n";
   }
 
   graph.add_node(
