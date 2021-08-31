@@ -14,6 +14,7 @@
 #include "habana_lazy/hlexec.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "pytorch_helpers/habana_device/HPUAllocator.h"
+#include "pytorch_helpers/habana_device/HPUGuardImpl.h"
 
 template <typename T>
 using intrusive_ptr_class_ = py::class_<T, c10::intrusive_ptr<T>>;
@@ -48,6 +49,19 @@ static void torch_hcl_init() {
       py::arg("timeout") = std::chrono::milliseconds(10 * 1000));
 }
 
+bool IsAvailable() {
+  try {
+    habana::HABANAGuardImpl device_guard;
+    device_guard.getDevice();
+    auto& device = synapse_helpers::HPURegistrar::get_device();
+    if (device.get_count() > 0)
+      return true;
+  } catch (...) {
+    return false;
+  }
+  return false;
+}
+
 int GetCurrentThreadDevice() {
   auto& d = synapse_helpers::HPURegistrar::get_device();
   return d.id();
@@ -60,6 +74,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     habana::HPUDeviceAllocator::print_memory_stats(msg);
   });
   m.def("_hb_get_default_device", []() { return GetCurrentThreadDevice(); });
+  m.def("is_available", []() { return IsAvailable(); });
 
   // Lazy apis
   m.def(
