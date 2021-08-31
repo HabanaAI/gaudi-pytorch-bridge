@@ -1369,6 +1369,7 @@ void SliceOperator::AllocateAndAddSynapseNode(
     // only if there is another dimension with size 1 in the tensor.
     TORCH_CHECK(step <= 1, "strided slice not supported on FCD");
   }
+  // Allocate Shape tensor
   if (graph.is_dynamic_graph()) {
     auto shape = compute_output_shape(self, dim, start, end, step);
     auto result_shape = habana_helpers::createPTTensor(

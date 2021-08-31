@@ -444,31 +444,76 @@ TEST_F(LazyDynamicShapesTest, SetDynamicModeTest3) {
   }
 }
 
-// Input -> AvgPool -> Output
-TEST_F(LazyDynamicShapesTest, DynamicShape3DTensorAvgPoolTest) {
+TEST_F(LazyDynamicShapesTest, DynamicAvgPoolBkwdTest) {
   bool refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   if (!refine_enabled) {
     setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
   }
-
-  int H = 4;
-  const int C = 3;
   int N = 1;
-  std::vector<int> in_sizes{6, 8, 10};
+  const int C = 16;
+  int H = 16;
+  std::vector<int> in_sizes{16, 32, 64};
 
   for (int i = 0; i < in_sizes.size(); i++) {
     int W = in_sizes[i];
     std::cout << '\n';
     std::cout << "PTI_DBG :: TEST " << i << "  --------" << '\n';
-    torch::Tensor c0 = torch::randn({N, C, H, W}, torch::requires_grad(false));
-    torch::Tensor h_in1 = c0.to(torch::kHABANA);
+    auto input_tensor = torch::randn({N, C, H, W}, torch::requires_grad(true));
+    auto cpu_pool = torch::avg_pool2d(input_tensor, 3, 1);
+    auto cpu_out = torch::relu(cpu_pool);
 
-    torch::Tensor pool_out = torch::avg_pool2d(c0, 3, 1);
-    torch::Tensor h_pool_out =
-        torch::avg_pool2d(h_in1, {3, 3}, {1, 1}, {0, 0}, false, true);
+    // fwd propagation
+    torch::Tensor tHabanaX = input_tensor.to(torch::kHABANA);
+    auto outHabana1 =
+        torch::avg_pool2d(tHabanaX, {3, 3}, {1, 1}, {0, 0}, false, true);
+    torch::Tensor outHabana = torch::relu(outHabana1);
 
-    torch::Tensor out_hpu = h_pool_out.to(torch::kCPU);
-    EXPECT_EQ(allclose(out_hpu, pool_out, 0.01, 0.01), true);
+    // bwd propagation with dummy grad tensor
+    auto grad_tensor =
+        torch::randn({N, C, H - 2, W - 2}, torch::requires_grad(true));
+    torch::Tensor tHabanaG = grad_tensor.to(torch::kHABANA);
+    outHabana.backward({tHabanaG}, false, true);
+
+    auto out_cpu_lazy = outHabana.to(torch::kCPU);
+    ASSERT_TRUE(torch::allclose(out_cpu_lazy, cpu_out));
+  }
+  if (!refine_enabled) {
+    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
+  }
+}
+
+TEST_F(LazyDynamicShapesTest, DynamicMaxPoolBkwdTest) {
+  bool refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  if (!refine_enabled) {
+    setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
+  }
+  int N = 1;
+  const int C = 16;
+  int H = 16;
+  std::vector<int> in_sizes{16, 32, 64};
+
+  for (int i = 0; i < in_sizes.size(); i++) {
+    int W = in_sizes[i];
+    std::cout << '\n';
+    std::cout << "PTI_DBG :: TEST " << i << "  --------" << '\n';
+    auto input_tensor = torch::randn({N, C, H, W}, torch::requires_grad(true));
+    auto cpu_pool = torch::max_pool2d(input_tensor, 3, 1);
+    auto cpu_out = torch::relu(cpu_pool);
+
+    // fwd propgation
+    torch::Tensor tHabanaX = input_tensor.to(torch::kHABANA);
+    auto outHabana1 = torch::max_pool2d_with_indices(
+        tHabanaX, {3, 3}, {1, 1}, {0, 0}, {1, 1}, true);
+    torch::Tensor outHabana = torch::relu(std::get<0>(outHabana1));
+
+    // bwd propgation with dummy grad tensor
+    auto grad_tensor =
+        torch::randn({N, C, H - 2, W - 2}, torch::requires_grad(true));
+    torch::Tensor tHabanaG = grad_tensor.to(torch::kHABANA);
+    outHabana.backward({tHabanaG}, false, true);
+
+    auto out_cpu_lazy = outHabana.to(torch::kCPU);
+    ASSERT_TRUE(torch::allclose(out_cpu_lazy, cpu_out));
   }
   if (!refine_enabled) {
     unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");

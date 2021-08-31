@@ -386,6 +386,11 @@ void habana::HabanaOperator::AddNodeToSynapseGraph(
         syn_inputs.emplace_back(tensor.get());
       }
     }
+    for (synapse_helpers::tensor& tensor : p_context_->syn_inputs_) {
+      if (tensor.is_shape_tensor()) {
+        syn_inputs.emplace_back(tensor.get());
+      }
+    }
   } else {
     for (synapse_helpers::tensor& tensor : p_context_->syn_inputs_) {
       syn_inputs.emplace_back(tensor.get());
