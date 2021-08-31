@@ -165,6 +165,7 @@ class HabanaOperatorHelper : public HabanaOperator {
   static std::shared_ptr<void> FillClampMinParams(const at::Stack&, size_t&);
   static std::shared_ptr<void> FillClampParams(const at::Stack&, size_t&);
   static std::shared_ptr<void> FillCumsumParams(const at::Stack&, size_t&);
+  static std::shared_ptr<void> FillGridSamplerParams(const at::Stack&, size_t&);
   static std::shared_ptr<void> FillTriuParams(const at::Stack&, size_t&);
   static std::shared_ptr<void> FillTrilParams(const at::Stack&, size_t&);
   static std::shared_ptr<void> FillHardSigmoidParams(const at::Stack&, size_t&);
@@ -176,6 +177,7 @@ class HabanaOperatorHelper : public HabanaOperator {
   static sizes_vec MseLossBwdOutputShape(const at::Stack&, bool = false);
   static sizes_vec MseLossOutputShape(const at::Stack&, bool = false);
   static sizes_vec PowOutputShape(const at::Stack&, bool = false);
+  static sizes_vec GridSampler2dOutputShape(const at::Stack&, bool = false);
 };
 
 #define PARAMS_STUB(structname) \

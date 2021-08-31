@@ -191,6 +191,14 @@ cumsum_:
   guid: cumsum_fwd
   inplace_ids: [0]
 
+grid_sampler_2d:
+  custom_fill_params: FillGridSamplerParams
+  custom_output_shape: GridSampler2dOutputShape
+  dtypes: [BFloat16, Float]
+  guid: grid_sampler_fwd
+  out_ids: [0]
+  layouts: [[NHWC, NCHW], [NHWC]]
+
 elu.out:
   dtypes: [BFloat16, Float]
   guid: elu_fwd

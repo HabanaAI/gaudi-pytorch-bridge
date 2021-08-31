@@ -221,11 +221,11 @@ class GenOps : public HpuOpTestUtil {
     Compare(out, hout);
   }
 
-  void TestOut(
-      const std::function<torch::Tensor&(const torch::Tensor&,
-      const torch::optional<torch::Tensor>&,
-      const torch::optional<torch::Tensor>&,
-      torch::Tensor&)>& fn) {
+  void TestOut(const std::function<torch::Tensor&(
+                   const torch::Tensor&,
+                   const torch::optional<torch::Tensor>&,
+                   const torch::optional<torch::Tensor>&,
+                   torch::Tensor&)>& fn) {
     GenerateInputs(2);
 
     auto out = torch::empty({0});
@@ -248,7 +248,8 @@ class GenOps : public HpuOpTestUtil {
   }
 
   void TestInplace(
-      const std::function<torch::Tensor&(torch::Tensor&, const torch::Scalar&)>& fn) {
+      const std::function<torch::Tensor&(torch::Tensor&, const torch::Scalar&)>&
+          fn) {
     GenerateInputs(1);
     torch::Scalar s = 0.001;
 
@@ -260,7 +261,8 @@ class GenOps : public HpuOpTestUtil {
   }
 
   void TestInplace(
-      const std::function<torch::Tensor&(torch::Tensor&, const torch::Tensor&)>& fn) {
+      const std::function<torch::Tensor&(torch::Tensor&, const torch::Tensor&)>&
+          fn) {
     GenerateInputs(2);
     torch::Scalar s = 0.001;
 
@@ -334,6 +336,21 @@ class GenOps : public HpuOpTestUtil {
   }
 
   void TestFnCustomSizes(
+      const std::function<
+          torch::Tensor(torch::Tensor, torch::Tensor, int64_t, int64_t, bool)>&
+          fn,
+      torch::ArrayRef<torch::IntArrayRef> sizes) {
+    GenerateInputs(2, sizes);
+    int64_t s1 = 0;
+    int64_t s2 = 0;
+    bool s3 = false;
+    auto res = fn(GetCpuInput(0), GetCpuInput(1), s1, s2, s3);
+    auto hres = fn(GetHpuInput(0), GetHpuInput(1), s1, s2, s3);
+
+    Compare(res, hres);
+  }
+
+  void TestFnCustomSizes(
       const std::function<torch::Tensor(torch::Tensor, torch::Tensor)>& fn,
       torch::ArrayRef<torch::IntArrayRef> sizes) {
     GenerateInputs(2, sizes);
@@ -347,6 +364,7 @@ class GenOps : public HpuOpTestUtil {
 TEST_F(GenOps, Fns) {
   // clang-format off
   TestFnCustomSizes(torch::prelu, {{3, 4, 4, 1}, {1, 4, 1, 1}});
+  TestFnCustomSizes(static_cast<torch::Tensor (*)(const torch::Tensor&, const torch::Tensor&, int64_t, int64_t, bool)>(torch::grid_sampler_2d), {{2, 3, 4, 4}, {2, 3, 3, 2}});
   TestFn(static_cast<torch::Tensor (*)(const torch::Tensor&, const torch::Tensor&, const torch::Scalar&)>(torch::rsub));
   TestFn(static_cast<torch::Tensor (*)(const torch::Tensor&, int64_t)>(torch::logcumsumexp));
   TestFn(static_cast<torch::Tensor (*)(const torch::Tensor&, int64_t, torch::optional<torch::ScalarType>)>(torch::cumprod));
