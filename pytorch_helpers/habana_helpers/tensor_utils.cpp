@@ -717,7 +717,7 @@ synapse_helpers::tensor habana_helpers::duplicate_tensor_in_memory_section(
           .set_offset(tensor.get_offset())
           .build(
               synapse_helpers::HPURegistrar::get_device(tensor.device_id()),
-              tensor.graph());
+              graph.get_graph_handle());
   return absl::get<synapse_helpers::tensor>(std::move(maybe_tensor));
 }
 
@@ -744,7 +744,7 @@ synapse_helpers::tensor habana_helpers::
           .mark_persistence(tensor.is_persistent())
           .build(
               synapse_helpers::HPURegistrar::get_device(tensor.device_id()),
-              tensor.graph());
+              graph.get_graph_handle());
   return absl::get<synapse_helpers::tensor>(std::move(maybe_tensor));
 }
 
