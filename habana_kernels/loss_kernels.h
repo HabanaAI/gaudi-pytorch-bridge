@@ -147,6 +147,10 @@ class BceFwdOperator : public HabanaOperator {
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
+
+  static std::vector<int64_t> compute_output_shape(
+      const at::Tensor& self,
+      int64_t reduction);
 };
 
 // BceBwd Operator

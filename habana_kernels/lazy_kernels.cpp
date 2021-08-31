@@ -2913,8 +2913,9 @@ Tensor binary_cross_entropy_hpu_lazy(
       std::make_shared<ir::BceLoss_forward>(self, target, weight, reduction);
 
   // allocate Output
-  auto result =
-      empty_hpu_lazy({1}, self.options(), self.suggest_memory_format(), false);
+  auto sizes = BceFwdOperator::compute_output_shape(self, reduction);
+  auto result = empty_hpu_lazy(
+      sizes, self.options(), self.suggest_memory_format(), false);
 
   auto hlresult = GetHbLazyTensor(result);
   ir::Value& out = hlresult.CurrentIrValue();

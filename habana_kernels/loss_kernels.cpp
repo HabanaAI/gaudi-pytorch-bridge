@@ -846,6 +846,16 @@ Tensor mse_loss_backward_hpu(
   return out.at(0);
 }
 
+std::vector<int64_t> BceFwdOperator::compute_output_shape(
+    const at::Tensor& self,
+    int64_t reduction) {
+  if (reduction == at::Reduction::Reduction::None) {
+    return self.sizes().vec();
+  } else {
+    return {1};
+  }
+}
+
 void BceFwdOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
@@ -878,8 +888,6 @@ void BceFwdOperator::AllocateAndAddSynapseNode(
   auto target = inputs[1].toTensor();
   int64_t reduction = inputs[3].toInt();
 
-  TORCH_CHECK(self.sizes()[1] == 1, "BCE kernel supports only Nx1 inputs");
-
   // add reshape node to reverse input dims
   auto reshape_self =
       make_operator<ReshapeOperator>(self.device().index(), self.scalar_type());
@@ -909,8 +917,9 @@ void BceFwdOperator::AllocateAndAddSynapseNode(
   p_context_->params_size_ = sizeof(params);
 
   // set-up input/output tensors for BCE
+  auto sizes = BceFwdOperator::compute_output_shape(self, reduction);
   auto output = habana_helpers::createPTTensor(
-      self, {self.sizes()[1]}, self.options(), is_output_persistent);
+      self, sizes, self.options(), is_output_persistent);
   AllocateSynapseOutput(graph, output, is_output_persistent);
   synapse_helpers::tensor& syn_in_self = reshape_self->GetSynOutputs()[0];
   synapse_helpers::tensor& syn_in_tensor = reshape_target->GetSynOutputs()[0];
@@ -1014,8 +1023,6 @@ void BceBwdOperator::AllocateAndAddSynapseNode(
   auto self = inputs[1].toTensor();
   auto target = inputs[2].toTensor();
   int64_t reduction = inputs[4].toInt();
-
-  TORCH_CHECK(self.sizes()[1] == 1, "BCE kernel supports only Nx1 inputs");
 
   // add reshape node to reverse input dims
   auto reshape_self =

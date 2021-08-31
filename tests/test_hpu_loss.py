@@ -117,6 +117,28 @@ def test_hpu_bceloss_fwd_bwd(N, C):
     )
 
 @pytest.mark.parametrize("N, C, H, W", test_case_list_4d)
+def test_hpu_bceloss(N, C, H, W):
+    kernel = torch.nn.functional.binary_cross_entropy
+    kernel_params = {
+        "input": torch.sigmoid(torch.randn(N, C, H, W)),
+        "target": torch.randn(N, C, H, W),
+    }
+    evaluate_fwd_kernel(kernel=kernel, kernel_params=kernel_params)
+
+
+@pytest.mark.parametrize("N, C, H, W", test_case_list_4d)
+def test_hpu_bceloss_fwd_bwd(N, C, H, W):
+    kernel = torch.nn.functional.binary_cross_entropy
+    kernel_params_fwd = {
+        "input": torch.sigmoid(torch.randn(N, C, H, W, requires_grad=True)),
+        "target": torch.randn(N, C, H, W),
+    }
+    bwd_tensors = [torch.randn(1)]
+    evaluate_fwd_bwd_kernel(
+        kernel=kernel, tensor_list_bwd=bwd_tensors, kernel_params_fwd=kernel_params_fwd
+    )
+
+@pytest.mark.parametrize("N, C, H, W", test_case_list_4d)
 @pytest.mark.parametrize("mode", ("sum", "mean"))
 def test_hpu_bcelogitsloss_fwd_bwd(N, C, H, W, mode):
     kernel = torch.nn.functional.binary_cross_entropy_with_logits
