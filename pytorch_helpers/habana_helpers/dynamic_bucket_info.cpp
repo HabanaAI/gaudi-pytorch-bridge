@@ -204,9 +204,12 @@ Bucket Bucket::CreateNewBucket(SplitPolicy sp) {
   return Bucket(std::move(new_ranges), dynamic_dims_, true, sp);
 }
 
-DynamicBucketInfo::DynamicBucketInfo(SplitPolicy sp) {
+DynamicBucketInfo::DynamicBucketInfo(
+    DynamicDimsPolicy min_policy,
+    SplitPolicy sp) {
   refine_enabled_ = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   split_policy_ = sp;
+  min_policy_ = min_policy;
 }
 
 DynamicBucketInfo::ResultShapes DynamicBucketInfo::CalculateShapes(
@@ -275,7 +278,12 @@ void DynamicBucketInfo::CollectDynamicDims(const InpTensorShapes& shapes) {
   if (shapes_.empty()) {
     shapes_ = shapes;
   }
-  TORCH_CHECK(shapes_.size() == shapes.size(), "shapes have different sizes");
+  TORCH_CHECK(
+      shapes_.size() == shapes.size(),
+      "input shapes size ",
+      shapes.size(),
+      " is not matching with existing shapes size ",
+      shapes_.size());
   for (auto it1 = shapes_.cbegin(), it2 = shapes.cbegin();
        it1 != shapes_.cend();
        ++it1, ++it2) {
@@ -332,7 +340,9 @@ uint64_t DynamicBucketInfo::GetBucketId(
   // Create new bucket
   if (dynamic_dims_.flat_dd_.size() != prev_dynamic_dims_) {
     // In case new dynamic dims detected reset default bucketing policy
-    min_policy_ = DynamicDimsPolicy::CALCULATED;
+    if (min_policy_ != DynamicDimsPolicy::HISTORIC) {
+      min_policy_ = DynamicDimsPolicy::CALCULATED;
+    }
     max_policy_ = DynamicDimsPolicy::CALCULATED;
   }
   prev_dynamic_dims_ = dynamic_dims_.flat_dd_.size();

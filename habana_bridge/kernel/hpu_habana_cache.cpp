@@ -285,7 +285,7 @@ void RecipeValueSpec::print_hbuff(
   out << "iteration " << iteration_count << " : <"
       << ((buf_idx >= num_inputs) ? "output" : "input") << "> :: < "
       << dtensorinfos->at(buf_idx).get_ir_name() << " : "
-      << "shape " << dtensorinfos->at(buf_idx).get_shape_str() << " : "
+      << "shape [" << dtensorinfos->at(buf_idx).get_shape() << "] : "
       << "numel " << dtensorinfos->at(buf_idx).get_numel() << " : "
       << "size (" << buf_size << " b) >";
   out << "<buffer" << '[' << buf_idx << ']' << "@"

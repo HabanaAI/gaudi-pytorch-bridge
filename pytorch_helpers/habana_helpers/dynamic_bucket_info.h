@@ -99,20 +99,24 @@ inline std::ostream& operator<<(std::ostream& O, const SplitPolicy& p) {
   return O;
 }
 
-inline std::ostream& operator<<(std::ostream& O, const DynamicDimsPolicy& d) {
+inline std::string DebugString(const DynamicDimsPolicy& d) {
   switch (d) {
     case DynamicDimsPolicy::DEFAULT:
-      return O << "DEFAULT";
+      return std::string("DEFAULT");
     case DynamicDimsPolicy::CALCULATED:
-      return O << "CALCULATED";
+      return std::string("CALCULATED");
     case DynamicDimsPolicy::HISTORIC:
-      return O << "HISTORIC";
+      return std::string("HISTORIC");
     case DynamicDimsPolicy::FLATTENED:
-      return O << "FLATTENED";
+      return std::string("FLATTENED");
     case DynamicDimsPolicy::CURRENT:
-      return O << "CURRENT";
+      return std::string("CURRENT");
   }
-  return O;
+  return std::string();
+}
+
+inline std::ostream& operator<<(std::ostream& O, const DynamicDimsPolicy& d) {
+  return O << DebugString(d);
 }
 
 using DynamicDims =
@@ -316,8 +320,8 @@ class Bucket {
       << " score " << b.score_ << ',' << " count " << b.count_ << ','
       << " token " << b.token_ << '\n';
     O << " split stat impl : " << b.split_stat_impl_;
-    O << " ranges : " << b.ranges_ << '\n';
     O << " " << b.dynamic_dims_;
+    O << " ranges : " << b.ranges_ << '\n';
     return O;
   }
 
@@ -342,7 +346,9 @@ class Bucket {
 
 class DynamicBucketInfo {
  public:
-  DynamicBucketInfo(SplitPolicy sp = SplitPolicy::DEFAULT);
+  DynamicBucketInfo(
+      DynamicDimsPolicy min_policy = DynamicDimsPolicy::HISTORIC,
+      SplitPolicy sp = SplitPolicy::DEFAULT);
 
   // using SynapseShapes = std::unordered_map<int64_t,
   // synapse_helpers::tensor::dynamic_shape_t>;
@@ -451,6 +457,7 @@ class DynamicBucketInfo {
       O << "  "
         << "..." << '\n';
     }
+    O << d.dynamic_dims_ << '\n';
     O << '\n';
     return O;
   }
@@ -478,7 +485,7 @@ class DynamicBucketInfo {
 
   static constexpr int64_t default_max_multiplier_ = 2;
   // TODO: Check default_min_value_
-  static constexpr int64_t default_min_value_ = 6;
+  static constexpr int64_t default_min_value_ = 2;
   static constexpr uint64_t max_buckets_number_ = 20;
   static constexpr uint64_t min_iterations_to_split_ = 100;
   static constexpr float density_coefficient_ = 0.75;
@@ -493,7 +500,7 @@ class DynamicBucketInfo {
   uint64_t global_count = 0;
   InpTensorShapes shapes_;
   size_t prev_dynamic_dims_{};
-  DynamicDimsPolicy min_policy_{DynamicDimsPolicy::CALCULATED};
+  DynamicDimsPolicy min_policy_{DynamicDimsPolicy::HISTORIC};
   DynamicDimsPolicy max_policy_{DynamicDimsPolicy::CALCULATED};
   std::vector<std::vector<int64_t>> dim_history_;
   bool refine_enabled_ = true;
@@ -522,14 +529,14 @@ class DynamicBucketInfo {
     friend inline std::ostream& operator<<(
         std::ostream& O,
         const DynamicDimsHelper& d) {
-      O << "dd :" << '\n' << d.dd_;
-      O << "rem_size :";
+      O << "dd : " << d.dd_;
+      O << "rem_size :" << '\n';
       for (const auto& a : d.rem_size_) {
-        O << ' ' << '(' << a.first << " -> " << a.second << ')';
+        O << "   " << '(' << a.first << " -> " << a.second << ')' << '\n';
       }
-      O << "flat dd :";
+      O << "flat dd :" << '\n';
       for (const auto& a : d.flat_dd_) {
-        O << ' ' << a;
+        O << "   " << a << '\n';
       }
 
       return O;

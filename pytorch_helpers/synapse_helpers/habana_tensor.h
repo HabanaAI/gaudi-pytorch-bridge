@@ -382,17 +382,6 @@ class tensor final {
  */
 tensor::shape_t::dimension_count_t operator"" _D(unsigned long long arg);
 
-inline std::ostream& operator<<(std::ostream& out, const tensor& tensor) {
-  return out << "Tensor " << tensor.tensor_name_ << " at " << &tensor
-             << ", internal=" << tensor.tensor_
-             << (tensor.is_persistent() ? ", persistent, "
-                                        : ", non-persistent, ")
-             << (tensor.is_placeholder() ? "placeholder, " : "")
-             << ", tensor type=" << tensor.tensor_type_
-             << ", offset=" << tensor.offset_
-             << ", size=" << tensor.total_size_bytes_;
-}
-
 inline std::ostream& operator<<(
     std::ostream& out,
     const tensor::shape_t& dimensions) {
@@ -404,6 +393,23 @@ inline std::ostream& operator<<(
   }
   out << ") rank=(" << dimensions.rank().value << ")";
   return out;
+}
+inline std::ostream& operator<<(
+    std::ostream& out,
+    const tensor::dynamic_shape_t& d) {
+  return out << "min : " << d.min() << ", max : " << d.max();
+}
+inline std::ostream& operator<<(std::ostream& out, const tensor& tensor) {
+  return out << "Tensor " << tensor.tensor_name_ << " at " << &tensor
+             << ", internal=" << tensor.tensor_
+             << (tensor.is_persistent() ? ", persistent, "
+                                        : ", non-persistent, ")
+             << (tensor.is_placeholder() ? "placeholder, " : "")
+             << ", tensor type=" << tensor.tensor_type_
+             << ", offset=" << tensor.offset_
+             << ", size=" << tensor.total_size_bytes_ << '\n'
+             << "    shape :: " << tensor.shape_ << '\n'
+             << "    stride :: " << tensor.stride_;
 }
 
 using tensor_or_ref = value_or_ref<tensor>;

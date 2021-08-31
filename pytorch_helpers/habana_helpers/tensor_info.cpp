@@ -11,14 +11,6 @@ void PtTensorInfo::populate_tinfo(
   ir_name_ = irn;
   syn_name_ = sn;
 
-  std::ostringstream oss;
-  oss << pt_tensor.sizes();
-  shape_str_ = oss.str();
-
-  oss.str(std::string());
-  oss << pt_tensor.strides();
-  strides_str_ = oss.str();
-
   buffer_ = pt_tensor.data_ptr();
   numel_ = pt_tensor.numel();
   size_ = pt_tensor.nbytes();

@@ -51,7 +51,27 @@ habana_helpers::DynamicBucketInfo::InpTensorShapes get_shape(
       {0, {{d1, 10, 8, 9}, t}}, {1, {{10, 20, 30, d2}, t}}};
 };
 
-TEST(DS_DynamicBucketInfoTest, Simple) {
+class DynamicBucketInfoTest
+    : public ::testing::TestWithParam<habana_helpers::DynamicDimsPolicy> {};
+
+struct PrintToStringParamName {
+  template <class ParamType>
+  std::string operator()(
+      const ::testing::TestParamInfo<ParamType>& info) const {
+    auto p = static_cast<habana_helpers::DynamicDimsPolicy>(info.param);
+    return habana_helpers::DebugString(p);
+  }
+};
+
+INSTANTIATE_TEST_SUITE_P(
+    DSBucket,
+    DynamicBucketInfoTest,
+    ::testing::Values(
+        habana_helpers::DynamicDimsPolicy::CALCULATED,
+        habana_helpers::DynamicDimsPolicy::HISTORIC),
+    PrintToStringParamName());
+
+TEST_P(DynamicBucketInfoTest, MinShape) {
   bool refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   if (!refine_enabled) {
     setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
@@ -62,128 +82,103 @@ TEST(DS_DynamicBucketInfoTest, Simple) {
   std::cout << "PTI_DBG :: "
             << "Using min_dim = " << min_dim << '\n';
   std::vector<std::vector<int64_t>> dyn_dims = {
-      {min_dim, min_dim},
-      {min_dim + 3, 30},
-      {min_dim, 10},
-      {50, 100},
-      {60, 150},
-      {70, 130},
-      {45, 90}};
+      {min_dim * 2, min_dim * 2},
+      {min_dim * 3, min_dim * 3},
+      {min_dim * 4, min_dim * 4},
+      {min_dim * 8, min_dim * 16},
+      {min_dim * 10, min_dim * 25},
+      {min_dim * 12, min_dim * 22},
+      {min_dim * 6, min_dim * 15},
+  };
   std::vector<habana_helpers::DynamicBucketInfo::InpTensorShapes> s;
   s.reserve(dyn_dims.size());
   for (auto dim : dyn_dims) {
     s.push_back(get_shape(dim[0], dim[1]));
   }
 
+  std::cout << "PTI_DBG :: "
+            << "Will use the following input tensor shapes:" << '\n';
+  size_t in_idx{0};
   for (auto a : s) {
     std::cout << "PTI_DBG :: "
-              << "Will use input tensor shapes:" << '\n'
+              << "input shape[" << in_idx++ << "]" << '\n'
               << a;
   }
 
-  size_t bidx{};
-  habana_helpers::DynamicBucketInfo bucket_info;
-  bucket_info.CollectDynamicDims(s[0]);
-  bidx = bucket_info.GetBucketId(s[0]);
-  ASSERT_EQ(bidx, 0);
+  std::cout << "PTI_DBG :: "
+            << "Running with min policy " << GetParam() << '\n';
+  habana_helpers::DynamicBucketInfo bucket_info(
+      habana_helpers::DynamicDimsPolicy::CALCULATED,
+      habana_helpers::SplitPolicy::DEFAULT);
 
-  std::cout << "PTI_DBG :: "
-            << "Collect info with input tensor shapes:" << '\n'
-            << s[0];
-  std::cout << "PTI_DBG :: "
-            << "Returned bucket id : " << bidx << '\n';
-  std::cout << '\n' << bucket_info;
+  auto get_and_check_bucket{
+      [&](size_t ddim_idx, uint64_t exp_bidx, bool dbg_print = true) {
+        bucket_info.CollectDynamicDims(s[ddim_idx]);
+        auto bidx = bucket_info.GetBucketId(s[ddim_idx]);
 
-  bucket_info.CollectDynamicDims(s[1]);
-  bidx = bucket_info.GetBucketId(s[1]);
-  ASSERT_EQ(bidx, 1);
+        if (dbg_print) {
+          std::cout << '\n' << "====================" << '\n';
+          std::cout << "PTI_DBG :: " << bucket_info;
+          std::cout << "PTI_DBG :: "
+                    << "Collect info with tensor shapes:" << '\n'
+                    << s[ddim_idx];
+          std::cout << "PTI_DBG :: "
+                    << "Returned bucket id : " << bidx << '\n';
+          auto ranges = bucket_info.CalculateShapes(bidx);
+          if (!ranges.empty()) {
+            habana_helpers::DynamicBucketInfo::InpTensorShapes min_intshapes;
+            habana_helpers::DynamicBucketInfo::InpTensorShapes max_intshapes;
+            min_intshapes.insert(
+                ranges.min_shapes.begin(), ranges.min_shapes.end());
+            max_intshapes.insert(
+                ranges.max_shapes.begin(), ranges.max_shapes.end());
+            std::cout << "PTI_DBG :: "
+                      << "Min shape\n"
+                      << min_intshapes;
+            std::cout << "PTI_DBG :: "
+                      << "Max shape\n"
+                      << max_intshapes;
+          } else {
+            std::cout << "PTI_DBG :: "
+                      << "Empty range returned\n";
+          }
+          std::cout << "--------------------" << '\n';
+        }
+        ASSERT_EQ(bidx, exp_bidx);
+      }};
 
-  std::cout << "PTI_DBG :: "
-            << "Collect info with input tensor shapes:" << '\n'
-            << s[1];
-  std::cout << "PTI_DBG :: "
-            << "Returned bucket id : " << bidx << '\n';
-  std::cout << '\n' << bucket_info;
-
-  bucket_info.CollectDynamicDims(s[0]);
-  bidx = bucket_info.GetBucketId(s[0]);
-  ASSERT_EQ(bidx, 0);
-
-  std::cout << "PTI_DBG :: "
-            << "Collect info with input tensor shapes:" << '\n'
-            << s[0];
-  std::cout << "PTI_DBG :: "
-            << "Returned bucket id : " << bidx << '\n';
-  std::cout << '\n' << bucket_info;
-
-  bucket_info.CollectDynamicDims(s[2]);
-  bidx = bucket_info.GetBucketId(s[2]);
-  ASSERT_EQ(bidx, 1);
-
-  std::cout << "PTI_DBG :: "
-            << "Collect info with input tensor shapes:" << '\n'
-            << s[2];
-  std::cout << "PTI_DBG :: "
-            << "Returned bucket id : " << bidx << '\n';
-  std::cout << '\n' << bucket_info;
-
-  bucket_info.CollectDynamicDims(s[3]);
-  bidx = bucket_info.GetBucketId(s[3]);
-  ASSERT_EQ(bidx, 2);
-
-  std::cout << "PTI_DBG :: "
-            << "Collect info with input tensor shapes:" << '\n'
-            << s[3];
-  std::cout << "PTI_DBG :: "
-            << "Returned bucket id : " << bidx << '\n';
-  std::cout << '\n' << bucket_info;
+  get_and_check_bucket(0, 0);
+  get_and_check_bucket(1, 1);
+  get_and_check_bucket(0, 0);
+  get_and_check_bucket(2, 1);
+  get_and_check_bucket(3, 2);
 
   uint64_t iter_cnt{0};
   uint64_t max_iter_cnt{
       habana_helpers::DynamicBucketInfo::min_iterations_to_split() * 2};
   while (iter_cnt++ < max_iter_cnt) {
-    bucket_info.CollectDynamicDims(s[4]);
-    bidx = bucket_info.GetBucketId(s[4]);
+    get_and_check_bucket(4, 2, false);
   }
-  ASSERT_EQ(bidx, 2);
 
   std::cout << "PTI_DBG :: "
             << "Collected info with the following for " << max_iter_cnt
             << " times with input tensor shapes ::" << '\n'
             << s[4];
-  std::cout << "PTI_DBG :: "
-            << "Last returned bucket id : " << bidx << '\n';
-  std::cout << '\n' << bucket_info;
+  get_and_check_bucket(4, 2, true);
 
   auto new_bucket = bucket_info.CheckForSplitBucket();
+
   ASSERT_TRUE(new_bucket.has_value());
   ASSERT_EQ(new_bucket.value(), 3);
 
   std::cout << "PTI_DBG :: "
             << "New bucket id : " << new_bucket.value();
-  std::cout << '\n' << bucket_info;
+  std::cout << '\n' << "====================" << '\n';
+  std::cout << "PTI_DBG :: " << bucket_info;
+  std::cout << "--------------------" << '\n';
 
-  bucket_info.CollectDynamicDims(s[5]);
-  bidx = bucket_info.GetBucketId(s[5]);
-  ASSERT_EQ(bidx, 3);
-
-  std::cout << "PTI_DBG :: "
-            << "Collect info with input tensor shapes:" << '\n'
-            << s[5];
-  std::cout << "PTI_DBG :: "
-            << "Returned bucket id : " << bidx << '\n';
-  std::cout << '\n' << bucket_info;
-
-  bucket_info.CollectDynamicDims(s[6]);
-  bidx = bucket_info.GetBucketId(s[6]);
-  ASSERT_EQ(bidx, 2);
-
-  std::cout << "PTI_DBG :: "
-            << "Collect info with input tensor shapes:" << '\n'
-            << s[6];
-  std::cout << "PTI_DBG :: "
-            << "Returned bucket id : " << bidx << '\n';
-  std::cout << '\n' << bucket_info;
+  get_and_check_bucket(5, 3);
+  get_and_check_bucket(6, 2);
 
   if (!refine_enabled) {
     unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
@@ -223,12 +218,14 @@ TEST(DS_DynamicBucketInfoTest, SplitStatImpl) {
   size_t bidx_default{}, bidx_dynamic;
 
   habana_helpers::DynamicBucketInfo binfo_default(
+      habana_helpers::DynamicDimsPolicy::CALCULATED,
       habana_helpers::SplitPolicy::DEFAULT);
   binfo_default.CollectDynamicDims(s[0]);
   bidx_default = binfo_default.GetBucketId(s[0]);
   ASSERT_EQ(bidx_default, 0);
 
   habana_helpers::DynamicBucketInfo binfo_dynamic(
+      habana_helpers::DynamicDimsPolicy::CALCULATED,
       habana_helpers::SplitPolicy::DYNAMIC);
   binfo_dynamic.CollectDynamicDims(s[0]);
   bidx_dynamic = binfo_dynamic.GetBucketId(s[0]);

@@ -143,12 +143,6 @@ class PtTensorInfo {
   const char* get_syn_namec_str() const {
     return syn_name_.c_str();
   }
-  const std::string& get_shape_str() const {
-    return shape_str_;
-  }
-  const std::string& get_strides_str() const {
-    return strides_str_;
-  }
   unsigned get_numel() const {
     return numel_;
   }
@@ -232,8 +226,6 @@ class PtTensorInfo {
   synapse_helpers::device_ptr offset_{0};
   std::string ir_name_;
   std::string syn_name_;
-  std::string shape_str_;
-  std::string strides_str_;
 
   unsigned numel_{0};
   unsigned size_{0};
