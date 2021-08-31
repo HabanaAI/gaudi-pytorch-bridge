@@ -1,0 +1,719 @@
+/******************************************************************************
+ * Copyright (C) 2021 HabanaLabs, Ltd.
+ * All Rights Reserved.
+ *
+ * Unauthorized copying of this file, via any medium is strictly prohibited.
+ * Proprietary and confidential.
+ *
+ ******************************************************************************
+ */
+
+#include "ProcessGroupHCCL.hpp"
+#include <map>
+#include "hccl.h"
+#include "hccl_types.h"
+
+#include <pybind11/chrono.h>
+#include "device_context.h"
+#include "habana_lazy/hpu_lazy_tensors.h"
+
+using namespace synapse_helpers;
+namespace c10d {
+
+namespace {
+
+std::map<at::ScalarType, hcclDataType_t> hcclDataType = {
+    {at::kByte, hcclUint8},
+    {at::kChar, hcclChar},
+    {at::kDouble, hcclDouble},
+    {at::kFloat, hcclFloat},
+    {at::kHalf, hcclHalf},
+    {at::kInt, hcclInt32},
+    {at::kLong, hcclInt64},
+    {at::kBFloat16, hcclBfloat16},
+};
+
+// HCCL op mapping
+std::map<ReduceOp, hcclRedOp_t> hcclOp = {
+    {ReduceOp::MIN, hcclMin},
+    {ReduceOp::MAX, hcclMax},
+    {ReduceOp::SUM, hcclSum},
+    {ReduceOp::PRODUCT, hcclProd},
+};
+
+hcclRedOp_t getHCCLReduceOp(const ReduceOp reduceOp) {
+  try {
+    return hcclOp.at(reduceOp);
+  } catch (std::out_of_range& e) {
+    TORCH_CHECK(false, "Unsupported ReduceOp for HCCL process group");
+  }
+}
+
+hcclDataType_t getHCCLDataType(at::ScalarType type) {
+  auto it = hcclDataType.find(type);
+  TORCH_CHECK(
+      it != hcclDataType.end(),
+      "Input tensor data type is not supported for HCCL process group: ",
+      type);
+  return it->second;
+}
+
+bool is_valid_reduction_dtype(hcclDataType_t data_type) {
+  if (data_type == hcclBfloat16 || data_type == hcclFloat) {
+    return true;
+  }
+  return false;
+}
+
+bool is_valid_broadcast_dtype(hcclDataType_t data_type) {
+  if (hcclBfloat16 == data_type || hcclFloat == data_type ||
+      hcclInt32 == data_type || hcclUint8 == data_type ||
+      hcclHalf == data_type) {
+    return true;
+  }
+  return false;
+}
+// Flatten each list in `tensor_lists' for a gather or scatter operation, and
+// ensure compatibility with the corresponding tensor in `other'.
+std::vector<at::Tensor> flatten_for_scatter_gather(
+    std::vector<std::vector<at::Tensor>>& tensor_lists,
+    std::vector<at::Tensor>& other,
+    size_t world_size) {
+  if (tensor_lists.size() != other.size()) {
+    throw std::runtime_error(
+        "Tensor list operands to scatter/gather must have the same length");
+  }
+  const auto num_devices = tensor_lists.size();
+
+  std::vector<at::Tensor> flattened;
+  flattened.resize(num_devices);
+
+  for (auto i = size_t{}; i < num_devices; ++i) {
+    if (tensor_lists[i].size() != world_size * num_devices) {
+      throw std::runtime_error(
+          "Tensor list input to scatter/gather must match number of collective"
+          " participants");
+    }
+
+    // Only check device match for the first tensor in the list; the call to
+    // newLikeFlat() below will check the rest.
+    if (tensor_lists[i].front().get_device() != other[i].get_device()) {
+      throw std::runtime_error(
+          "Corresponding input/output tensors to scatter/gather must all reside"
+          " on the same device");
+    }
+
+    for (const auto& t : tensor_lists[i]) {
+      if (t.numel() != other[i].numel()) {
+        throw std::runtime_error(
+            "All tensor operands to scatter/gather must have the same size");
+      }
+    }
+    // Flatten the tensors (from all ranks) into a single big tensor.
+    flattened[i] = newLikeFlat(tensor_lists, i);
+  }
+  return flattened;
+}
+
+} // namespace
+
+void ProcessGroupHCCL::broadcastUniqueHCCLID(hcclUniqueId* hcclID) {
+  auto hccl_rank = getRank();
+  std::string storeKey = std::to_string(hcclCommCounter_++);
+  if (hccl_rank == 0) {
+    auto vec = std::vector<uint8_t>(
+        reinterpret_cast<uint8_t*>(hcclID),
+        reinterpret_cast<uint8_t*>(hcclID) + sizeof(hcclUniqueId));
+    store_->set(storeKey, vec);
+  } else {
+    auto vec = store_->get(storeKey);
+    TORCH_CHECK(vec.size() == sizeof(hcclUniqueId));
+    std::memcpy(hcclID, vec.data(), vec.size());
+  }
+}
+std::shared_ptr<hcclComm_t> ProcessGroupHCCL::getComm(int deviceId) {
+  if (hccl_communicator_.find(deviceId) == hccl_communicator_.end()) {
+    hcclUniqueId hccl_id;
+    auto hccl_size = getSize();
+    auto hccl_rank = getRank();
+    if (hccl_rank == 0) {
+      hcclResult_t result{hcclGetUniqueId(&hccl_id)};
+      TORCH_CHECK(hcclSuccess == result, "Get HCCL UniqueId Error");
+    }
+    broadcastUniqueHCCLID(&hccl_id);
+    hcclComm_t new_comm;
+    hcclResult_t result{
+        hcclCommInitRank(&new_comm, hccl_size, hccl_id, hccl_rank)};
+    TORCH_CHECK(hcclSuccess == result, "Comm Init Rank Error");
+    std::lock_guard<std::mutex> lock(mutex_);
+    hccl_communicator_[deviceId] = std::make_shared<hcclComm_t>(new_comm);
+
+    auto deviceCtxt =
+        std::make_shared<hccl_integration::device_context>(deviceId);
+    device_contexts_[deviceId] = deviceCtxt;
+
+    hcclStream_t collective_stream;
+    deviceCtxt->acquire_collective_stream(&collective_stream);
+    comm_streams_[deviceId] = collective_stream;
+  }
+  return hccl_communicator_.find(deviceId)->second;
+}
+
+std::shared_ptr<hccl_integration::device_context> ProcessGroupHCCL::
+    getDeviceCtxt(int deviceId) {
+  return device_contexts_.find(deviceId)->second;
+}
+// TBD: Store not used for now and config done from file
+// Initial support added for multiple devices on a single node
+// So using rank as the device id.  This will be enhanced further.
+ProcessGroupHCCL::ProcessGroupHCCL(
+    const c10::intrusive_ptr<Store>& store,
+    int rank,
+    int size,
+    const std::chrono::milliseconds& opTimeout)
+    : ProcessGroup(rank, size),
+      store_(store),
+      hcclCommCounter_(0),
+      stop_(false) {}
+
+ProcessGroupHCCL::~ProcessGroupHCCL() {
+  destroy();
+}
+
+void ProcessGroupHCCL::destroy() {}
+
+void ProcessGroupHCCL::abort() {
+  destroy();
+}
+
+ProcessGroupHCCL::WorkHCCL::WorkHCCL(
+    const std::vector<at::Tensor>& outputs,
+    const std::vector<int>& devices,
+    std::vector<std::shared_ptr<hcclComm_t>>& hccl_comms,
+    std::vector<std::shared_ptr<hccl_integration::device_context>>& deviceCtxts)
+    : outputs_(outputs),
+      devices_(devices),
+      hccl_comms_(hccl_comms),
+      deviceCtxts_(deviceCtxts),
+      workStartTime_(std::chrono::steady_clock::now()) {}
+ProcessGroupHCCL::WorkHCCL::~WorkHCCL() {}
+
+bool ProcessGroupHCCL::WorkHCCL::isCompleted() {
+  return exception() || wait(); // check for the completion of work;
+}
+
+bool ProcessGroupHCCL::WorkHCCL::isSuccess() const {
+  if (exception()) {
+    // Already detected an exception.
+    return false;
+  }
+  // Add support for query from device
+  return true;
+}
+
+// Same as calling synchronize().
+bool ProcessGroupHCCL::WorkHCCL::wait(
+    std::chrono::milliseconds timeout /*=kNoTimeout*/) {
+  synchronize();
+  // Always return true, because abort API is not implemented.
+  return true;
+}
+
+void ProcessGroupHCCL::WorkHCCL::synchronize() {
+  for (size_t i = 0; i < outputs_.size(); ++i) {
+    deviceCtxts_[i]->synchronize_output(
+        (synapse_helpers::device_ptr)outputs_[i].storage().data_ptr().get());
+  }
+}
+
+void ProcessGroupHCCL::WorkHCCL::abort() {
+  TORCH_CHECK(false, "ProcessGroupHCCL::WorkHCCL::abort not implemented.");
+}
+
+c10::intrusive_ptr<ProcessGroupHCCL::WorkHCCL> ProcessGroupHCCL::initWork(
+    std::vector<at::Tensor>& outputs,
+    std::vector<int> devices,
+    std::vector<std::shared_ptr<hcclComm_t>>& hccl_comms,
+    std::vector<std::shared_ptr<hccl_integration::device_context>>&
+        deviceCtxts) {
+  return c10::make_intrusive<ProcessGroupHCCL::WorkHCCL>(
+      outputs, devices, hccl_comms, deviceCtxts);
+}
+
+// Get the list of devices from list of tensors
+std::vector<int> ProcessGroupHCCL::getDeviceList(
+    const std::vector<at::Tensor>& tensors) {
+  std::vector<int> res;
+  res.reserve(tensors.size());
+  for (auto& tensor : tensors) {
+    res.push_back(tensor.get_device());
+  }
+  return res;
+}
+
+std::vector<std::shared_ptr<hcclComm_t>> ProcessGroupHCCL::getCommList(
+    const std::vector<int>& devices) {
+  std::vector<std::shared_ptr<hcclComm_t>> comms(devices.size());
+  for (size_t i = 0; i < devices.size(); ++i) {
+    comms[i] = getComm(int(devices[i]));
+  }
+  return comms;
+}
+
+hcclStream_t ProcessGroupHCCL::getCommStream(int device) {
+  return comm_streams_.find(device)->second;
+}
+
+std::vector<hcclStream_t> ProcessGroupHCCL::getCommStreams(
+    const std::vector<int>& devices) {
+  std::vector<hcclStream_t> hcclStreams(devices.size());
+  for (size_t i = 0; i < devices.size(); ++i) {
+    hcclStreams[i] = getCommStream(devices[i]);
+  }
+  return hcclStreams;
+}
+
+std::vector<std::shared_ptr<hccl_integration::device_context>> ProcessGroupHCCL::
+    getDeviceCtxtList(const std::vector<int>& devices) {
+  std::vector<std::shared_ptr<hccl_integration::device_context>> deviceCtxts(
+      devices.size());
+  for (size_t i = 0; i < devices.size(); ++i) {
+    deviceCtxts[i] = getDeviceCtxt(devices[i]);
+  }
+  return deviceCtxts;
+}
+
+template <typename Fn, typename PreProcess, typename PostProcess>
+c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::pointToPoint(
+    std::vector<at::Tensor>& tensors,
+    Fn fn,
+    int peerRank,
+    PreProcess pre,
+    PostProcess post) {
+  hcclResult_t hccl_result{hcclSuccess};
+  const auto devices = getDeviceList(tensors);
+  auto comms = getCommList(devices);
+  auto deviceCtxts = getDeviceCtxtList(devices);
+  auto commStreams = getCommStreams(devices);
+  auto work = initWork(tensors, devices, comms, deviceCtxts);
+
+  for (size_t i = 0; i < tensors.size(); ++i) {
+    auto deviceCtxt = deviceCtxts[i];
+    void* tensor_address;
+    hcclStream_t collective_stream = commStreams[i];
+    synapse_helpers::device_ptr tensor_storage_ptr =
+        (synapse_helpers::device_ptr)tensors[i].storage().data_ptr().get();
+    deviceCtxt->prepare_stream(collective_stream, tensor_storage_ptr);
+    deviceCtxt->lock_address(tensors[i].data_ptr(), &tensor_address);
+    hccl_result = fn(
+        tensors[i], tensor_address, *(comms[i]), collective_stream, peerRank);
+    TORCH_CHECK(hcclSuccess == hccl_result, "Collective call returned error");
+    deviceCtxt->submit_events(collective_stream, tensor_storage_ptr);
+  }
+  return work;
+}
+
+template <typename Fn>
+c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::pointToPoint(
+    std::vector<at::Tensor>& tensors,
+    Fn fn,
+    int peerRank) {
+  // Need to replace int by device work streams
+  return pointToPoint(
+      tensors,
+      fn,
+      peerRank,
+      [](std::vector<int>&) {},
+      [](std::vector<int>&) {});
+}
+
+template <typename Fn, typename PreProcess, typename PostProcess>
+c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::collective(
+    std::vector<at::Tensor>& inputs,
+    std::vector<at::Tensor>& outputs,
+    Fn fn,
+    PreProcess pre,
+    PostProcess post) {
+  hcclResult_t hccl_result{hcclSuccess};
+  habana_lazy::HbLazyTensor::StepMarker();
+  const auto devices = getDeviceList(inputs);
+  auto comms = getCommList(devices);
+  auto deviceCtxts = getDeviceCtxtList(devices);
+  auto commStreams = getCommStreams(devices);
+  auto work = initWork(outputs, devices, comms, deviceCtxts);
+
+  for (size_t i = 0; i < inputs.size(); ++i) {
+    auto deviceCtxt = deviceCtxts[i];
+    void* input_address;
+    void* output_address;
+    hcclStream_t collective_stream = commStreams[i];
+    synapse_helpers::device_ptr input_storage_ptr =
+        (synapse_helpers::device_ptr)inputs[i].storage().data_ptr().get();
+    synapse_helpers::device_ptr output_storage_ptr =
+        (synapse_helpers::device_ptr)outputs[i].storage().data_ptr().get();
+    deviceCtxt->prepare_stream(collective_stream, input_storage_ptr);
+    deviceCtxt->lock_address(inputs[i].data_ptr(), &input_address);
+    deviceCtxt->lock_address(outputs[i].data_ptr(), &output_address);
+    hccl_result =
+        fn(inputs[i],
+           outputs[i],
+           input_address,
+           output_address,
+           *(comms[i]),
+           collective_stream);
+    TORCH_CHECK(hcclSuccess == hccl_result, "Collective call returned error");
+    deviceCtxt->submit_events(collective_stream, output_storage_ptr);
+  }
+
+  for (size_t i = 0; i < inputs.size(); ++i) {
+    // Update work
+  }
+  return work;
+}
+
+template <typename Fn>
+c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::collective(
+    std::vector<at::Tensor>& inputs,
+    std::vector<at::Tensor>& outputs,
+    Fn fn) {
+  // Need to replace int by device work streams
+  return collective(
+      inputs, outputs, fn, [](std::vector<int>&) {}, [](std::vector<int>&) {});
+}
+
+c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::broadcast(
+    std::vector<at::Tensor>& tensors,
+    const BroadcastOptions& opts) {
+  return collective(
+      tensors,
+      tensors,
+      [&](at::Tensor& input,
+          at::Tensor& output,
+          const void* send_buffer,
+          void* recv_buffer,
+          hcclComm_t& hccl_comm,
+          hcclStream_t stream) {
+        auto tensor_data_type = getHCCLDataType(input.scalar_type());
+        auto numel = input.numel();
+        if (!is_valid_broadcast_dtype(tensor_data_type)) {
+          tensor_data_type = getHCCLDataType(at::kByte);
+          numel = numel * sizeof(input.scalar_type()) / sizeof(at::kByte);
+        }
+        return hcclBroadcast(
+            send_buffer,
+            recv_buffer,
+            numel,
+            tensor_data_type,
+            opts.rootRank,
+            hccl_comm,
+            stream);
+      });
+}
+
+c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::allreduce(
+    std::vector<at::Tensor>& tensors,
+    const AllreduceOptions& opts) {
+  std::vector<at::Tensor> allreduce_tensors;
+  for (size_t i = 0; i < tensors.size(); ++i) {
+    auto data_type = getHCCLDataType(tensors[i].scalar_type());
+    if (is_valid_reduction_dtype(data_type)) {
+      allreduce_tensors.push_back(tensors[i]);
+    } else {
+      allreduce_tensors.push_back(tensors[i].to(c10::ScalarType::Float));
+    }
+  }
+  auto work = collective(
+      allreduce_tensors,
+      allreduce_tensors,
+      [&](at::Tensor& input,
+          at::Tensor& output,
+          const void* send_buffer,
+          void* recv_buffer,
+          hcclComm_t& hccl_comm,
+          hcclStream_t stream) {
+        return hcclAllReduce(
+            send_buffer,
+            recv_buffer,
+            input.numel(),
+            getHCCLDataType(input.scalar_type()),
+            getHCCLReduceOp(opts.reduceOp),
+            hccl_comm,
+            stream);
+      });
+
+  for (size_t i = 0; i < tensors.size(); i++) {
+    auto data_type = getHCCLDataType(tensors[i].scalar_type());
+    if (!is_valid_reduction_dtype(data_type)) {
+      tensors[i].copy_(allreduce_tensors[i].to(tensors[i].scalar_type()));
+    }
+  }
+  return work;
+}
+
+c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::allreduce_coalesced(
+    std::vector<at::Tensor>& tensors,
+    const AllreduceCoalescedOptions& opts) {
+  throw std::runtime_error(
+      "allreduce_coalesced is currently not supported with HCCL");
+}
+
+c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::reduce(
+    std::vector<at::Tensor>& tensors,
+    const ReduceOptions& opts) {
+  return collective(
+      tensors,
+      tensors,
+      [&](at::Tensor& input,
+          at::Tensor& output,
+          const void* send_buffer,
+          void* recv_buffer,
+          hcclComm_t& hccl_comm,
+          hcclStream_t stream) {
+        const auto root = opts.rootRank * tensors.size() + opts.rootTensor;
+        return hcclReduce(
+            send_buffer,
+            recv_buffer,
+            input.numel(),
+            getHCCLDataType(input.scalar_type()),
+            getHCCLReduceOp(opts.reduceOp),
+            root,
+            hccl_comm,
+            stream);
+      });
+}
+
+c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::alltoall_base(
+    at::Tensor& outputTensor,
+    at::Tensor& inputTensor,
+    std::vector<int64_t>& outputSplitSizes,
+    std::vector<int64_t>& inputSplitSizes,
+    const AllToAllOptions& opts) {
+  // Currently only support for alltoall of same size split supported
+  std::vector<at::Tensor> inputTensors;
+  std::vector<at::Tensor> outputTensors;
+  inputTensors.push_back(inputTensor);
+  outputTensors.push_back(outputTensor);
+  return collective(
+      inputTensors,
+      outputTensors,
+      [&](at::Tensor& input,
+          at::Tensor& output,
+          const void* send_buffer,
+          void* recv_buffer,
+          hcclComm_t& hccl_comm,
+          hcclStream_t stream) {
+        int numRanks = getSize();
+        int rank = getRank();
+        size_t count = input.numel() / numRanks;
+        size_t rank_offset = input.nbytes() / numRanks;
+        auto type = getHCCLDataType(input.scalar_type());
+
+        hcclGroupStart();
+        hcclResult_t hccl_result{hcclSuccess};
+        for (auto r = 0; r < numRanks; r++) {
+          if (r < rank) {
+            hcclSend(
+                reinterpret_cast<const unsigned char*>(send_buffer) +
+                    r * rank_offset,
+                count,
+                type,
+                r,
+                hccl_comm,
+                stream);
+            hcclRecv(
+                reinterpret_cast<unsigned char*>(recv_buffer) + r * rank_offset,
+                count,
+                type,
+                r,
+                hccl_comm,
+                stream);
+          } else if (r > rank) {
+            hcclRecv(
+                reinterpret_cast<unsigned char*>(recv_buffer) + r * rank_offset,
+                count,
+                type,
+                r,
+                hccl_comm,
+                stream);
+            hcclSend(
+                reinterpret_cast<const unsigned char*>(send_buffer) +
+                    r * rank_offset,
+                count,
+                type,
+                r,
+                hccl_comm,
+                stream);
+          }
+        }
+        hcclGroupEnd();
+
+        return hccl_result;
+      });
+}
+
+c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::allgather(
+    std::vector<std::vector<at::Tensor>>& outputTensors,
+    std::vector<at::Tensor>& inputTensors,
+    const AllgatherOptions& opts) {
+  auto outputFlattened =
+      flatten_for_scatter_gather(outputTensors, inputTensors, size_);
+
+  return collective(
+      inputTensors,
+      outputFlattened,
+      [&](at::Tensor& input,
+          at::Tensor& output,
+          const void* send_buffer,
+          void* recv_buffer,
+          hcclComm_t& hccl_comm,
+          hcclStream_t stream) {
+        auto work = hcclAllGather(
+            send_buffer,
+            recv_buffer,
+            input.numel(),
+            getHCCLDataType(input.scalar_type()),
+            hccl_comm,
+            stream);
+
+        // Record even for outputFlattened on ncclStream
+        for (size_t i = 0; i < outputTensors.size(); ++i) {
+          for (size_t j = 0; j < outputTensors[0].size(); ++j) {
+            outputTensors[i][j].copy_(outputFlattened[i][j], true);
+          }
+        }
+        return work;
+      });
+}
+
+c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::_allgather_base(
+    at::Tensor& outputBuffer,
+    at::Tensor& inputBuffer,
+    const AllgatherOptions& opts) {
+  throw std::runtime_error(
+      "allgather_base is currently not supported with HCCL");
+}
+
+c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::allgather_coalesced(
+    std::vector<std::vector<at::Tensor>>& /* unused */,
+    std::vector<at::Tensor>& /* unused */,
+    const AllgatherOptions& /* unused */) {
+  throw std::runtime_error(
+      "ProcessGroupHCCL does not support allgather_coalesced");
+}
+
+c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::gather(
+    std::vector<std::vector<at::Tensor>>& outputTensors,
+    std::vector<at::Tensor>& inputTensors,
+    const GatherOptions& opts) {
+  throw std::runtime_error("ProcessGroupHCCL does not support gather");
+}
+
+c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::scatter(
+    std::vector<at::Tensor>& outputTensors,
+    std::vector<std::vector<at::Tensor>>& inputTensors,
+    const ScatterOptions& opts) {
+  throw std::runtime_error("ProcessGroupHCCL does not support scatter");
+}
+
+c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::reduce_scatter(
+    std::vector<at::Tensor>& outputTensors,
+    std::vector<std::vector<at::Tensor>>& inputTensors,
+    const ReduceScatterOptions& opts) {
+  auto inputFlattened =
+      flatten_for_scatter_gather(inputTensors, outputTensors, size_);
+  for (size_t i = 0; i < inputTensors.size(); ++i) {
+    for (size_t j = 0; j < inputTensors[0].size(); ++j) {
+      inputFlattened[i][j].copy_(inputTensors[i][j], true);
+    }
+  }
+  return collective(
+      inputFlattened,
+      outputTensors,
+      [&](at::Tensor& input,
+          at::Tensor& output,
+          const void* send_buffer,
+          void* recv_buffer,
+          hcclComm_t& hccl_comm,
+          hcclStream_t stream) {
+        // Wait for event on input
+        auto work = hcclReduceScatter(
+            send_buffer,
+            recv_buffer,
+            output.numel(),
+            getHCCLDataType(input.scalar_type()),
+            getHCCLReduceOp(opts.reduceOp),
+            hccl_comm,
+            stream);
+
+        return work;
+      });
+}
+
+c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::send(
+    std::vector<at::Tensor>& tensors,
+    int dstRank,
+    int tag) {
+  return pointToPoint(
+      tensors,
+      [&](at::Tensor& input,
+          const void* send_buff,
+          hcclComm_t& hccl_comm,
+          hcclStream_t stream,
+          int peerRank) {
+        return hcclSend(
+            send_buff,
+            input.numel(),
+            getHCCLDataType(input.scalar_type()),
+            peerRank,
+            hccl_comm,
+            stream);
+      },
+      dstRank);
+}
+
+c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::recv(
+    std::vector<at::Tensor>& tensors,
+    int srcRank,
+    int tag) {
+  return pointToPoint(
+      tensors,
+      [&](at::Tensor& tensor,
+          void* recv_buff,
+          hcclComm_t& hccl_comm,
+          hcclStream_t stream,
+          int peerRank) {
+        return hcclRecv(
+            recv_buff,
+            tensor.numel(),
+            getHCCLDataType(tensor.scalar_type()),
+            peerRank,
+            hccl_comm,
+            stream);
+      },
+      srcRank);
+}
+
+c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::recvAnysource(
+    std::vector<at::Tensor>& tensors,
+    int tag) {
+  throw std::runtime_error("ProcessGroupHCCL does not support recv");
+}
+
+c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCCL::barrier(
+    const BarrierOptions& opts) {
+  std::vector<std::shared_ptr<hcclComm_t>> comms;
+  std::vector<int> res;
+  std::vector<at::Tensor> outputs;
+  std::vector<std::shared_ptr<hccl_integration::device_context>> deviceCtxts;
+
+  for (size_t i = 0; i < comms.size(); i++) {
+    deviceCtxts[i]->barrier();
+  }
+  auto work = initWork(outputs, res, comms, deviceCtxts);
+
+  return work;
+}
+
+} // namespace c10d
+
+PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {}

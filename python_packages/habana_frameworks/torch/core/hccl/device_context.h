@@ -1,0 +1,98 @@
+/******************************************************************************
+ * Copyright (C) 2020-2021 Habana Labs, Ltd. an Intel Company
+ * All Rights Reserved.
+ *
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
+ *
+ ******************************************************************************/
+
+#pragma once
+
+#include <synapse_api_types.h> // for HCL_Rank
+#include <atomic> // for atomic
+#include <cstddef> // for size_t
+#include <cstdint> // for uint8_t, uintptr_t
+#include <functional> // for function
+#include <map> // for vector
+#include <memory> // for shared_ptr, enable_share...
+#include <mutex> // for mutex
+#include <unordered_map> // for unordered_map
+#include <vector> // for vector
+#include "hccl_types.h"
+
+#include "synapse_helpers/device.h"
+#include "synapse_helpers/device_types.h"
+#include "synapse_helpers/event.h" // for synapse_error_o
+#include "synapse_helpers/stream.h" // for synapse_error_o
+#include "synapse_helpers/synapse_error.h" // for synapse_error_o
+
+namespace hccl_integration {
+
+using event_done_callback = std::function<void()>;
+
+class device_context : std::enable_shared_from_this<device_context> {
+  const size_t MAX_SUPPORTED_MODULE_ID = 1;
+
+ public:
+  // Device handle acquired using currently selected device ID.
+
+  device_context(int device_id);
+  ~device_context();
+
+  hcclResult_t open_device(int device_id);
+
+  hcclResult_t acquire_collective_stream(hcclStream_t* stream_handle_ptr);
+  hcclResult_t release_stream(synStreamHandle stream_handle);
+
+  hcclResult_t acquire_copy_stream(
+      synStreamHandle* stream_handle_ptr,
+      hcclMemcpyKind_t kind);
+
+  hcclResult_t copy_data_within_device(
+      synapse_helpers::device_ptr input_address,
+      synapse_helpers::device_ptr output_address,
+      synapse_helpers::device_ptr input_event_addr,
+      synapse_helpers::device_ptr output_event_addr,
+      size_t nbytes,
+      const event_done_callback& done_callback = [] {});
+
+  hcclResult_t malloc(void** address, size_t size);
+  hcclResult_t free(void* address);
+
+  hcclResult_t lock_address(void* const address, void** device_address_ptr);
+  hcclResult_t unlock_address(void* const address);
+
+  hcclResult_t prepare_stream(
+      hcclStream_t stream_handle,
+      synapse_helpers::device_ptr input_address);
+
+  hcclResult_t submit_events(
+      hcclStream_t stream_handle,
+      synapse_helpers::device_ptr output_address,
+      const synapse_helpers::event_done_callback& done_callback = [] {});
+
+  hcclResult_t stream_synchronize(hcclStream_t stream_handle);
+
+  hcclResult_t synchronize_output(synapse_helpers::device_ptr output_address);
+  hcclResult_t barrier();
+
+ private:
+  uint32_t get_sync_tag() const {
+    sync_tag_++;
+    return sync_tag_;
+  }
+  // API/state mutex.
+  std::mutex access_mutex_;
+  mutable uint32_t sync_tag_{2020};
+  // Device ID currently selected using set_device().
+  synapse_helpers::device_handle device_;
+  std::map<synStreamHandle, synapse_helpers::stream*> stream_objects_{};
+  std::map<const void*, std::unique_ptr<synapse_helpers::device_ptr_lock>>
+      addresses_locks_{};
+};
+
+} // namespace hccl_integration

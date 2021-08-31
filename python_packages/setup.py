@@ -20,6 +20,7 @@ include_dirs = [
     root,
     os.path.join(root, "pytorch_helpers"),
     os.path.join(os.environ["SYNAPSE_ROOT"], "include"),
+    os.path.join(os.environ["HCL_ROOT"], "include"),
     os.path.join(os.environ["THIRD_PARTIES_ROOT"], "abseil-cpp"),
     os.path.join(os.environ["THIRD_PARTIES_ROOT"], "pybind11", "include"),
 ]
@@ -64,6 +65,7 @@ def get_version():
 
 
 core_csrc = glob.glob("habana_frameworks/torch/core/*.cpp")
+hccl_csrc = glob.glob("habana_frameworks/torch/core/hccl/*.cpp")
 hpex_csrc = glob.glob("habana_frameworks/torch/hpex/csrc/*.cpp")
 
 
@@ -105,6 +107,16 @@ setup(
         cpp_extension.CppExtension(
             name="habana_frameworks.torch._core_C",
             sources=core_csrc,
+            language="c++",
+            include_dirs=include_dirs,
+            library_dirs=[os.environ["BUILD_ROOT_LATEST"]],
+            libraries=libraries,
+            runtime_library_dirs=["$ORIGIN/lib/"],
+            extra_compile_args=extra_compile_args,
+        ),
+        cpp_extension.CppExtension(
+            name="habana_frameworks.torch.core._hccl_C",
+            sources=hccl_csrc,
             language="c++",
             include_dirs=include_dirs,
             library_dirs=[os.environ["BUILD_ROOT_LATEST"]],
