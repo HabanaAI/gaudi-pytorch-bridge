@@ -138,7 +138,7 @@ target_include_directories(habana_pytorch_plugin PRIVATE ${CMAKE_SOURCE_DIR})
 
 add_custom_command(OUTPUT ${CMAKE_SOURCE_DIR}/habana_kernels/aten_hpu_type_default.cpp
                      ${CMAKE_SOURCE_DIR}/habana_kernels/aten_hpu_type_default.h
-                   COMMAND python ${CMAKE_SOURCE_DIR}/scripts/gen.py
+                   COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_SOURCE_DIR}/scripts/gen.py
                      --output_folder=${CMAKE_SOURCE_DIR}/habana_kernels
                      ${CMAKE_SOURCE_DIR}/hpu_ops/generated/hpu_op.h
                      ${CMAKE_SOURCE_DIR}/habana_kernels/wrap_kernels_declarations.h
@@ -154,7 +154,7 @@ add_custom_command(OUTPUT ${CMAKE_SOURCE_DIR}/habana_kernels/aten_hpu_type_defau
 
 add_custom_command(OUTPUT ${CMAKE_SOURCE_DIR}/hpu_ops/generated/hpu_op.cpp
                      ${CMAKE_SOURCE_DIR}/hpu_ops/generated/hpu_op.h
-                   COMMAND python ${CMAKE_SOURCE_DIR}/scripts/gen_op.py
+                   COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_SOURCE_DIR}/scripts/gen_op.py
                      --output_folder=${CMAKE_SOURCE_DIR}/hpu_ops/generated
                      --yaml=${CMAKE_SOURCE_DIR}/scripts/hpu_op.yaml
                      ${TORCH_INSTALL_PREFIX}/include/ATen/RegistrationDeclarations.h
