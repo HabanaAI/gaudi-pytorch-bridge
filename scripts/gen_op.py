@@ -152,7 +152,7 @@ namespace habana {{
 
 _OPCLASS_HEADER = """struct {cname} : {op_base_class} {{
   {cname}(int device_id, c10::ScalarType scalar_type) :
-        {op_base_class}(device_id, \"{guid}_\", scalar_type, {out_id}, {inplace_id}, {scalar_id}, {is_out_fn}) {{}}{custom_handler}{fill_params}
+        {op_base_class}(device_id, \"{guid}_\", scalar_type, {out_id}, {inplace_id}, {scalar_id}, {is_out_fn}) {{}}{compute_output_shape}{custom_handler}{fill_params}
 }};
 """
 
@@ -162,6 +162,12 @@ _CUSTOM_HANDLER = """
     static_cast<void>(g);
     static_cast<void>(stack);
     {body}
+  }}"""
+
+_COMPUTE_OUTPUT_SHAPE= """
+
+  sizes_vec ComputeOutputShapes(const Stack& stack) override {{
+    return {body}(stack);
   }}"""
 
 _FILL_PARAMS1 = """
@@ -559,6 +565,7 @@ def get_hpuop_class_impl(ctxop, fname, cname):
     custom_fill_params = ctxop.get_custom_fill_params()
     tpc_param = ctxop.get_tpc_param()
     op_base_class = ctxop.get_op_base_class()
+    output_shape_fn = ctxop.get_custom_output_shape()
 
     assert (
         (out_ids is None) ^ (inplace_ids is None) ^ is_out_fn(fname)
@@ -574,6 +581,10 @@ def get_hpuop_class_impl(ctxop, fname, cname):
     out_id = out_ids[0] if out_ids else -1
     inplace_id = inplace_ids[0] if inplace_ids else -1
     scalar_id = scalar_ids[0] if scalar_ids else -1
+
+    compute_output_shape = (
+        _COMPUTE_OUTPUT_SHAPE.format(body=output_shape_fn) if output_shape_fn else ""
+    )
 
     if fname.startswith("bitwise_"):
         custom_handler = _CUSTOM_HANDLER.format(body=bitwise_ops_alt_guid(guid))
@@ -608,6 +619,7 @@ def get_hpuop_class_impl(ctxop, fname, cname):
         inplace_id=inplace_id,
         scalar_id=scalar_id,
         is_out_fn=str(is_out_fn(fname)).lower(),
+        compute_output_shape=compute_output_shape,
         custom_handler=custom_handler,
         fill_params=fill_params,
     )
@@ -966,7 +978,7 @@ def generate_op_base_classes(fgens):
     for fgen in fgens:
         fclass = fgen.op_base_class
         if fclass != "HabanaOperatorHelper" and fclass not in classes:
-            code += "HPU_COMPOUND_OP({})\n".format(fclass)
+            code += "HPU_CUSTOM_HABANA_OP({})\n".format(fclass)
             classes.add(fclass)
     return code
 

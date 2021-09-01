@@ -18,8 +18,8 @@ template <>
 LazyCumsum<at::Tensor>::LazyCumsum(
     const std::string& qualstring,
     const std::vector<at::IValue>& inputs,
-    const std::vector<std::vector<int64_t>>& out_shapes)
-    : habana_lazy::LazyOp<at::Tensor>(qualstring, inputs, {}, out_shapes, -1) {}
+    const std::function<sizes_vec(const at::Stack&)>& out_shapes_fn)
+    : habana_lazy::LazyOp<at::Tensor>(qualstring, inputs, out_shapes_fn, -1) {}
 
 template <>
 at::Tensor LazyCumsum<at::Tensor>::get_result_overrideable() {

@@ -11,8 +11,8 @@
 #include "generated/hpu_op.h"
 
 namespace habana {
-sizes_vec HabanaOperatorHelper::PowOutputShape(const torch::Tensor& self) {
-  return {self.sizes().vec()};
+sizes_vec HabanaOperatorHelper::PowOutputShape(const at::Stack& stack) {
+  return {stack_tensor(stack, 1).sizes().vec()};
 }
 
 } // namespace habana

@@ -69,6 +69,21 @@ class LazyOp {
   }
 
   explicit LazyOp(
+      const std::string& qualstring,
+      const std::vector<at::IValue>& inputs,
+      const std::function<std::vector<std::vector<int64_t>>(const at::Stack&)>&
+          out_shapes_fn,
+      int out_index = 0) noexcept
+      : m_symbol{at::Symbol::fromQualString(qualstring)},
+        m_metadata_indices{},
+        m_out_index{out_index} {
+    if (out_shapes_fn) {
+      m_out_shapes = out_shapes_fn(inputs);
+    }
+    set_inputs(inputs);
+  }
+
+  explicit LazyOp(
       ir::NodePtr node,
       const std::vector<at::IValue>& inputs,
       std::vector<std::vector<int64_t>> out_shapes = {},
@@ -363,7 +378,7 @@ class LazyOp {
   at::TensorList m_out_meta_tensors = {};
   std::vector<at::IValue> m_inputs = {};
   // PT_HPU_LAZY_MODE=2 will flush the node as soon as it is created, more like
-  // a eager way of executing using lazy infrastructure.
+  // eager way of executing using lazy infrastructure.
   const bool m_flush_op = GET_ENV_FLAG(PT_HPU_LAZY_MODE) == 2;
   const bool m_random_flush = GET_ENV_FLAG(PT_HPU_LAZY_MODE) == 3;
 };

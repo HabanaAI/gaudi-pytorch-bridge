@@ -11,13 +11,26 @@
 #include "generated/hpu_op.h"
 
 namespace habana {
-sizes_vec HabanaOperatorHelper::MseLossOutputShape(
-    const torch::Tensor& self,
+
+static sizes_vec MseLossFwdBwdOutputShape(
+    const at::Tensor& self,
     int64_t reduction) {
   if (reduction == at::Reduction::Reduction::None) {
     return {self.sizes().vec()};
   }
   return {{}};
+}
+
+sizes_vec HabanaOperatorHelper::MseLossOutputShape(const at::Stack& stack) {
+  const torch::Tensor& self = stack_tensor(stack, 0);
+  int64_t reduction = stack.at(2).toInt();
+  return MseLossFwdBwdOutputShape(self, reduction);
+}
+
+sizes_vec HabanaOperatorHelper::MseLossBwdOutputShape(const at::Stack& stack) {
+  const torch::Tensor& self = stack_tensor(stack, 0);
+  int64_t reduction = stack.at(3).toInt();
+  return MseLossFwdBwdOutputShape(self, reduction);
 }
 
 std::shared_ptr<void> HabanaOperatorHelper::FillMseLossParams(

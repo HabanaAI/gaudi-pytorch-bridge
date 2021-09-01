@@ -74,20 +74,35 @@ void HabanaOperatorHelper::HandleFn(
     synapse_helpers::graph& graph,
     const at::Stack& stack,
     const std::vector<bool>& is_output_persistent_list) {
+  // TODO Handle multiple outputs
   if (m_out_id < 0) {
     return;
   }
 
-  for (const auto& is_output_persistent : is_output_persistent_list) {
+  const auto& outshapes = ComputeOutputShapes(stack);
+  const auto& t = stack.at(m_out_id).toTensor();
+
+  HABANA_ASSERT(
+      outshapes.empty() || outshapes.size() == is_output_persistent_list.size(),
+      "Num outputs and num outshapes does not match ",
+      is_output_persistent_list.size(),
+      " != ",
+      outshapes.size());
+
+  for (unsigned i = 0; i < is_output_persistent_list.size(); ++i) {
+    // Use sizes of tensor at m_out_id if ComputeOutputShapes() is not
+    // implemented
+    const auto& outshape = outshapes.empty() ? t.sizes() : outshapes[i];
+    bool is_output_persistent = is_output_persistent_list[i];
     const auto& output = habana_helpers::createPTTensor(
-        stack.at(m_out_id).toTensor(), is_output_persistent);
+        t, outshape, t.options(), is_output_persistent);
     AllocateSynapseOutput(graph, output, is_output_persistent);
   }
 }
 
 void HabanaOperatorHelper::HandleOutFn(
-    const at::Stack& stack,
-    synapse_helpers::graph& graph) {
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
   if (!m_is_outfn) {
     return;
   }
@@ -100,8 +115,8 @@ void HabanaOperatorHelper::HandleOutFn(
 }
 
 void HabanaOperatorHelper::HandleInplaceFn(
-    const at::Stack& stack,
-    synapse_helpers::graph& graph) {
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
   if (m_inplace_id < 0) {
     return;
   }
@@ -128,8 +143,8 @@ void HabanaOperatorHelper::AllocateAndAddSynapseNode(
     std::vector<bool> is_output_persistent_list) {
   CustomHandler(graph, stack);
   HandleFn(graph, stack, is_output_persistent_list);
-  HandleInplaceFn(stack, graph);
-  HandleOutFn(stack, graph);
+  HandleInplaceFn(graph, stack);
+  HandleOutFn(graph, stack);
   HandleScalarToTensor(graph, stack);
 
   AddNode(graph, stack, is_output_persistent_list);
