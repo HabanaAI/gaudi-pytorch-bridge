@@ -316,4 +316,21 @@ class AllOperator : public habana::HabanaOperator {
   }
 };
 
+class AllOutOperator : public HabanaOperator {
+ public:
+  AllOutOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator(
+            "reduce_all" + habana_helpers::name_suffix_from_type(scalarType)) {
+    this->CreateSynContext(device_id);
+    kernel_meta_data_.input_layout.assign(
+        {LayoutFormat::ANY, LayoutFormat::ANY});
+    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
+  }
+
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+};
+
 } // namespace habana

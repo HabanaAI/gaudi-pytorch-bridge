@@ -161,6 +161,11 @@ struct hpu_wrap {
   static at::Tensor all(const at::Tensor& self);
   static at::Tensor all(const at::Tensor& self, int64_t dim, bool keepdim);
   static at::Tensor lt(const at::Tensor& self, const at::Scalar& other);
+  static at::Tensor& all_out(
+      const at::Tensor& self,
+      int64_t dim,
+      bool keepdim,
+      at::Tensor& out);
   static at::Tensor lt(const at::Tensor& self, const at::Tensor& other);
   static at::Tensor ge(const at::Tensor& self, const at::Scalar& other);
   static at::Tensor ge(const at::Tensor& self, const at::Tensor& other);

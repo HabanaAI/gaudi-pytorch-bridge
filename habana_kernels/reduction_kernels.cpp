@@ -1696,6 +1696,75 @@ Tensor all_dim_hpu(const Tensor& self, int64_t dim, bool keepdim) {
   return stack.back().toTensor();
 }
 
+void AllOutOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 4,
+      "Incorrect size of inputs expected for AllOut operator");
+  TORCH_CHECK(
+      inputs[0].isTensor(),
+      "Input arg1 expected to be tensor for AllOut operator");
+  TORCH_CHECK(
+      inputs[1].isInt(), "Input arg3 expected to be Int for AllOut operator");
+  TORCH_CHECK(
+      inputs[2].isBool(), "Input arg4 expected to be Bool for AllOut operator");
+  static_cast<void>(is_output_persistent);
+  Tensor self = inputs[0].toTensor();
+  auto dim = inputs[1].toInt();
+  bool keepdim = inputs[2].toBool();
+  Tensor output = inputs[3].toTensor();
+
+  // Cast Input tensor to Float tensor
+  std::string node_type = "cast_i8_to_f32";
+
+  // Create the operator
+  auto intToFloatOp1 =
+      make_operator<CastOperator>(this->p_context_->device_id_, node_type);
+  intToFloatOp1->SetSynapseInput(p_context_->syn_inputs_[0]);
+
+  // Build Params for the graph
+  std::vector<c10::IValue> stack{IValue(self), IValue(c10::ScalarType::Float)};
+  intToFloatOp1->AllocateAndAddSynapseNode(graph, stack, false);
+  stack.clear();
+
+  // Create the PeodDim operator
+  auto prodDimOp = make_operator<ProdDimOperator>(
+      this->p_context_->device_id_, c10::ScalarType::Float);
+
+  prodDimOp->SetSynapseInput(intToFloatOp1->GetSynOutputs()[0]);
+
+  // Build Params for the graph
+  stack.emplace_back(IValue(intToFloatOp1->GetOutputs()[0]));
+  stack.emplace_back(IValue(dim));
+  stack.emplace_back(IValue(keepdim));
+  stack.emplace_back(IValue(c10::ScalarType::Float));
+  prodDimOp->AllocateAndAddSynapseNode(graph, stack, false);
+  stack.clear();
+
+  node_type = "cast_f32_to_i8";
+
+  synapse_helpers::tensor& arg1_syn_tensor = prodDimOp->GetSynOutputs()[0];
+  std::vector<synTensor> syn_inputs;
+  syn_inputs.push_back(arg1_syn_tensor.get());
+
+  p_context_->syn_outputs_.emplace_back(std::move(p_context_->syn_inputs_[1]));
+  p_context_->pt_outputs_.emplace_back(output);
+
+  synapse_helpers::tensor& output_syn_tensor = p_context_->syn_outputs_[0];
+  std::vector<synTensor> syn_outputs{output_syn_tensor.get()};
+
+  ns_CastKernel::Params cast_params{};
+  cast_params.round_mode = CAST_ROUND_HALF_NE;
+
+  graph.add_node(
+      std::move(syn_inputs),
+      std::move(syn_outputs),
+      &cast_params,
+      sizeof(cast_params),
+      std::move(node_type));
+}
 void ArgMaxOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   Tensor self = inputs[0].toTensor();
   auto dim = inputs[1].toOptional<int64_t>();
@@ -1886,6 +1955,11 @@ static auto& KernelRegistry =
             "hpu::all_dim",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<AllOperator>(device_id, node_type);
+            })
+        .add(
+            "aten::all.out",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<AllOutOperator>(device_id, node_type);
             })
         .add(
             "aten::argmax",
