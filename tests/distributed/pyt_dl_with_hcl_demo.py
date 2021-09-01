@@ -230,7 +230,8 @@ def run_process(p):
     w = start_dl_workers()
     ecode = os.system(p)
     print("Attempting to load library pytorch plugin",flush=True)
-    torch.ops.load_library(os.path.join("/usr/lib/habanalabs/", "libhabana_pytorch_plugin.so"))
+    from habana_frameworks.torch.utils.library_loader import load_habana_module
+    load_habana_module()
 
     hpu = torch.device('hpu')
     cpu = torch.device('cpu')

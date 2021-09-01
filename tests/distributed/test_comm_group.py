@@ -8,8 +8,8 @@ import os
 
 os.environ['ID'] = os.getenv('RANK')
 
-torch.ops.load_library("/usr/lib/habanalabs/libhabana_pytorch_plugin.so")
-sys.path.insert(0, "/usr/lib/habanalabs")
+from habana_frameworks.torch.utils.library_loader import load_habana_module
+load_habana_module()
 
 a = torch.tensor([1.0, 2.0]).to('hpu')
 
