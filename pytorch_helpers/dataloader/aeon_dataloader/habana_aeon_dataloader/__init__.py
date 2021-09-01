@@ -1,7 +1,6 @@
 # Copyright (c) 2021, Habana Labs Ltd.  All rights reserved.
 
 from .habana_aeon_dataset import HabanaAeonIterableDataset, AeonDataLoader
-from .aeon_config import get_aeon_config
+from .aeon_manifest import generate_aeon_manifest
 
-__all__ = ['HabanaAeonIterableDataset', 'AeonDataLoader', 'get_aeon_config']
-
+__all__ = ['HabanaAeonIterableDataset', 'AeonDataLoader', 'generate_aeon_manifest']
