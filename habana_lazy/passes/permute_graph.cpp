@@ -265,7 +265,8 @@ void RemoveRedundantRestrideNodes(std::shared_ptr<Graph>& graph) {
   RemoveRedundantOp(graph, "hpu::restride_cl");
 }
 
-static const std::unordered_map<std::string, size_t> dimBasedOpsIdx = {};
+static const std::unordered_map<std::string, size_t> dimBasedOpsIdx = {
+    {"aten::slice", 1}};
 
 bool isDimBasedOp(const Node* node) {
   return node ? dimBasedOpsIdx.count(node->kind().toQualString()) != 0 : false;
@@ -454,7 +455,6 @@ void InsertPermute_graph(
 
         // dim based Ops as per original PT layout NCHW
         if ((strcmp(node->kind().toQualString(), "aten::mean") == 0) ||
-            (strcmp(node->kind().toQualString(), "aten::slice") == 0) ||
             (strcmp(node->kind().toQualString(), "aten::_softmax") == 0) ||
             (strcmp(node->kind().toQualString(), "hpu::sum_dim_IntList") ==
              0) ||
@@ -594,7 +594,6 @@ void InsertPermute_graph(
           (strcmp(
                node->kind().toQualString(),
                "aten::_log_softmax_backward_data") == 0) ||
-          (strcmp(node->kind().toQualString(), "aten::slice") == 0) ||
           (strcmp(node->kind().toQualString(), "aten::_log_softmax") == 0)) {
         // View() layout is always NCHW as per original PT format
         // [ToDo] consider case permute_cl followed by view()
@@ -618,11 +617,23 @@ void InsertPermute_graph(
               value_layout_entry;
           value_to_tensor_layout[value_out].layout = tensor_layout;
           auto layout_dim = getLayoutDim(tensor_layout, dim);
-          if ((tensor_layout != habana::LayoutFormat::NCHW)) {
+          if ((tensor_layout != habana::LayoutFormat::NCHW) &&
+              (tensor_layout != habana::LayoutFormat::HWCK)) {
             if (*value_out->type()->cast<TensorType>()->dim() == 4) {
-              WithInsertPoint insert_point(node);
-              auto value_dim = graph->insertConstant(IValue(layout_dim));
-              node->replaceInputWith(node->input(dimIdx), value_dim);
+              // if dims can not be adjusted bring back to PT layout
+              if (layout_dim != dim) {
+                WithInsertPoint insert_point(node);
+                auto value_dim = graph->insertConstant(IValue(layout_dim));
+                node->replaceInputWith(node->input(dimIdx), value_dim);
+              } else {
+                auto value_in = node->input(0);
+                auto dims = getDimsForLayout(
+                    habana::LayoutFormat::NCHW,
+                    value_to_tensor_layout[value_in].layout);
+                anchor_nodes_[node].push_back(std::make_pair(value_in, dims));
+                value_to_tensor_layout[value_out].layout =
+                    habana::LayoutFormat::NCHW;
+              }
             } else {
               value_to_tensor_layout[value_out].layout =
                   habana::LayoutFormat::NCHW;
