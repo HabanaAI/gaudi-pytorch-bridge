@@ -55,7 +55,8 @@ if __name__ == "__main__":
         n_cpu = torch.nn.utils.clip_grad_norm_(m_cpu.parameters(), max_norm)
         n_cpu_list.append(n_cpu)
 
-    torch.ops.load_library(os.path.join(os.environ['BUILD_ROOT_LATEST'], "libhabana_pytorch_plugin.so"))
+    from habana_frameworks.torch.utils.library_loader import load_habana_module
+    load_habana_module()
     habana = torch.device("hpu")
     cpu = torch.device("cpu")
 

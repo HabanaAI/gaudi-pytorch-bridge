@@ -261,7 +261,8 @@ def pool_coalesce_stringent(device, pool_id):
 
 def main():
 
-    torch.ops.load_library(os.path.join(os.environ['PYTORCH_MODULES_RELEASE_BUILD'], "libhabana_pytorch_plugin.so"))
+    from habana_frameworks.torch.utils.library_loader import load_habana_module
+    load_habana_module()
     device = torch.device("hpu")
 
     pool_used = os.environ.get('PT_HPU_POOL_STRATEGY')

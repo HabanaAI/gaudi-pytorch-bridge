@@ -104,7 +104,6 @@ def enable_tracing():
     torch._C._debug_set_autodiff_subgraph_inlining(False)
     torch._C._jit_set_profiling_executor(False)
     torch._C._jit_set_profiling_mode(False)
-    sys.path.insert(0, os.path.join(os.environ['PYTORCH_MODULES_RELEASE_BUILD']))
     try:
             import habana_frameworks.torch.core as htcore
     except ImportError:
@@ -171,7 +170,6 @@ def train(args, train_dataset, model, tokenizer, trainMetaData):
         enable_tracing()
 
     if args.use_lazy_mode:
-        sys.path.insert(0, os.path.join(os.environ['PYTORCH_MODULES_RELEASE_BUILD']))
         try:
            import habana_frameworks.torch.core as htcore
         except ImportError:
@@ -496,7 +494,6 @@ def evaluate(args, model, tokenizer, trainMetaData,  prefix=""):
         enable_tracing()
 
     if args.use_lazy_mode:
-        sys.path.insert(0, os.path.join(os.environ['PYTORCH_MODULES_RELEASE_BUILD']))
         try:
            import habana_frameworks.torch.core as htcore
         except ImportError:
@@ -979,9 +976,9 @@ def main():
     # Setup CUDA, GPU & distributed training
 
     if args.use_habana:
-        print("Attempting to load library from path ", os.environ['PYTORCH_MODULES_RELEASE_BUILD'], flush=True)
-        torch.ops.load_library(os.path.join(os.environ['PYTORCH_MODULES_RELEASE_BUILD'], "libhabana_pytorch_plugin.so"))
-        sys.path.insert(0, os.path.join(os.environ['PYTORCH_MODULES_RELEASE_BUILD']))
+        print("Attempting to load library", flush=True)
+        from habana_frameworks.torch.utils.library_loader import load_habana_module
+        load_habana_module()
         device = torch.device("hpu")
 
         try:

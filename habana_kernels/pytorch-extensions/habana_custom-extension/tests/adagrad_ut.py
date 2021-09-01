@@ -5,7 +5,8 @@ import torch
 
 from hb_custom import FusedAdagrad
 
-torch.ops.load_library(os.path.join(os.environ['BUILD_ROOT_LATEST'], "libhabana_pytorch_plugin.so"))
+from habana_frameworks.torch.utils.library_loader import load_habana_module
+load_habana_module()
 habana = torch.device("hpu")
 cpu = torch.device("cpu")
 

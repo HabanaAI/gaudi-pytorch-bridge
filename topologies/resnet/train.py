@@ -14,7 +14,6 @@ import random
 
 import utils
 
-sys.path.insert(0, os.path.join(os.environ['PYTORCH_MODULES_RELEASE_BUILD']))
 
 # Instead of importing resnet model from the standard torchvision package,
 # import from a local copy. A local copy of resnet model file is used so that
@@ -328,9 +327,9 @@ def main(args):
     print(args)
 
     if args.device == 'hpu':
-        print("Attempting to load library from path ", os.environ['PYTORCH_MODULES_RELEASE_BUILD'], flush=True)
-        torch.ops.load_library(os.path.join(os.environ['PYTORCH_MODULES_RELEASE_BUILD'], "libhabana_pytorch_plugin.so"))
-        sys.path.insert(0, os.path.join(os.environ['PYTORCH_MODULES_RELEASE_BUILD']))
+        print("Attempting to load library", flush=True)
+        from habana_frameworks.torch.utils.library_loader import load_habana_module
+        load_habana_module()
 
     torch.manual_seed(args.seed)
 

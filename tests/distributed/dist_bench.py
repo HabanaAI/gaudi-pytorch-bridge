@@ -7,7 +7,8 @@ import timeit
 import numpy as np
 from torch._utils_internal import TEST_MASTER_ADDR as MASTER_ADDR
 from torch._utils_internal import TEST_MASTER_PORT as MASTER_PORT
-torch.ops.load_library(os.environ.get("PYTORCH_MODULES_RELEASE_BUILD") + "/libhabana_pytorch_plugin.so")
+from habana_frameworks.torch.utils.library_loader import load_habana_module
+load_habana_module()
 import habana_torch_hcl
 
 def _init_global_test():

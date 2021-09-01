@@ -6,11 +6,11 @@ import torch
 from habana_frameworks.torch.hpex.optimizers import FusedAdamW
 from transformers import AdamW
 
-torch.ops.load_library(os.path.join(os.environ['BUILD_ROOT_LATEST'], "libhabana_pytorch_plugin.so"))
+from habana_frameworks.torch.utils.library_loader import load_habana_module
+load_habana_module()
 habana = torch.device("hpu")
 cpu = torch.device("cpu")
 
-sys.path.insert(0, os.path.join(os.environ['PYTORCH_MODULES_RELEASE_BUILD']))
 import habana_frameworks.torch.core as htcore
 
 if __name__ == "__main__":
