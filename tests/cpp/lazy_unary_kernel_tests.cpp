@@ -579,6 +579,69 @@ TEST_F(LazyUnaryKernelTest, TanhBwdTest) {
   EXPECT_EQ(allclose(hout_lazy, out_exp), true);
 }
 
+TEST_F(LazyUnaryKernelTest, HardTanhTest) {
+  auto input_tensor = torch::randn({8, 24, 24, 3});
+  auto hinput = input_tensor.to(torch::kHPU);
+  Scalar min_value(-0.25);
+  Scalar max_value(0.25);
+  torch::Tensor cpu_out = torch::hardtanh(input_tensor, min_value, max_value);
+
+  torch::Tensor hresult = torch::hardtanh(hinput, min_value, max_value);
+  auto hout = hresult.to(torch::kCPU);
+
+  EXPECT_EQ(allclose(hout, cpu_out, 0.001, 0.001, /*equal_nan*/ true), true);
+}
+
+TEST_F(LazyUnaryKernelTest, HardTanhInPlaceTest) {
+  auto input_tensor = torch::randn({8, 24, 24, 3});
+  auto hinput = input_tensor.to(torch::kHPU);
+  Scalar min_value(-0.25);
+  Scalar max_value(0.25);
+  torch::Tensor cpu_out = torch::hardtanh_(input_tensor, min_value, max_value);
+
+  torch::Tensor hresult = torch::hardtanh_(hinput, min_value, max_value);
+  auto hout = hresult.to(torch::kCPU);
+
+  EXPECT_EQ(allclose(hout, cpu_out, 0.001, 0.001, /*equal_nan*/ true), true);
+  EXPECT_EQ(
+      allclose(input_tensor, cpu_out, 0.001, 0.001, /*equal_nan*/ true), true);
+}
+
+TEST_F(LazyUnaryKernelTest, HardTanhInPlaceTest1) {
+  auto options = torch::TensorOptions().dtype(torch::kInt32);
+  auto input_tensor = torch::randint(-100, 100, {9}, options);
+  auto hinput = input_tensor.to(torch::kHPU);
+  Scalar min_value(0);
+  Scalar max_value(19);
+  torch::Tensor cpu_out = torch::hardtanh_(input_tensor, min_value, max_value);
+
+  torch::Tensor hresult = torch::hardtanh_(hinput, min_value, max_value);
+  auto hout = hresult.to(torch::kCPU);
+  EXPECT_EQ(allclose(hout, cpu_out, 0.001, 0.001, /*equal_nan*/ true), true);
+  EXPECT_EQ(
+      allclose(input_tensor, cpu_out, 0.001, 0.001, /*equal_nan*/ true), true);
+}
+
+TEST_F(LazyUnaryKernelTest, HardTanhBwdTest) {
+  torch::Tensor A =
+      torch::arange(8, torch::dtype(torch::kFloat).requires_grad(true))
+          .reshape({1, 1, 4, 2});
+  auto grad = torch::arange(8, torch::dtype(torch::kFloat).requires_grad(true))
+                  .reshape({1, 1, 4, 2});
+  Scalar min_value(0.0);
+  Scalar max_value(6.0);
+  torch::Tensor out_exp =
+      torch::hardtanh_backward(grad, A, min_value, max_value);
+
+  torch::Tensor hA = A.to(torch::kHPU);
+  torch::Tensor hGrad = grad.to(torch::kHPU);
+  torch::Tensor hout =
+      torch::hardtanh_backward(hGrad, hA, min_value, max_value);
+  auto hout_lazy = hout.to(torch::kCPU);
+
+  EXPECT_EQ(allclose(hout_lazy, out_exp), true);
+}
+
 TEST_F(LazyUnaryKernelTest, DISABLED_GeluTest) {
   torch::Tensor A = torch::randn({2, 2}, torch::dtype(torch::kFloat));
   auto hA = A.to(torch::kHPU);

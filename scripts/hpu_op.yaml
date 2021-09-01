@@ -575,6 +575,24 @@ hardsigmoid.out:
   dtypes: [BFloat16, Float]
   guid: hard_sigmoid_fwd
 
+hardtanh:
+  custom_fill_params: FillClampParams
+  dtypes: [BFloat16, Float, Int]
+  guid: clamp_fwd
+  out_ids: [0]
+
+hardtanh_:
+  custom_fill_params: FillClampParams
+  dtypes: [BFloat16, Float, Int]
+  guid: clamp_fwd
+  inplace_ids: [0]
+
+hardtanh_backward:
+  custom_fill_params: FillHardTanhBwdParams
+  dtypes: [BFloat16, Float]
+  guid: hardtanh_bwd
+  out_ids: [0]
+
 heaviside:
   dtypes: [BFloat16, Float, Int]
   op_base_class: Heaviside
