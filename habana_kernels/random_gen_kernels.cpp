@@ -27,18 +27,19 @@
 #include "habana_kernels/simple_generic_kernel.h"
 
 using namespace torch;
-using namespace habana;
 
-uint32_t get_seed_hpu(c10::optional<Generator> gen) {
+namespace habana {
+uint32_t get_seed_hpu(const c10::optional<Generator>& gen) {
   CPUGeneratorImpl* generator = get_generator_or_default<CPUGeneratorImpl>(
       gen, at::detail::getDefaultCPUGenerator());
 
   // Acquire lock when using random generators
   std::lock_guard<std::mutex> lock(generator->mutex_);
-  auto seed = generator->random();
-
-  return seed;
+  return generator->random();
 }
+} // namespace habana
+
+using namespace habana;
 
 void UniformOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,

@@ -4376,6 +4376,8 @@ TORCH_LIBRARY(hpu, m) {
   m.def("diag_out(Tensor self, int diagonal, Tensor output) -> Tensor");
   m.def(
       "randperm_out(int n, Generator? generator, Tensor output) -> Tensor(a!)");
+  m.def("random_(Tensor(a!) self, int seed) -> Tensor(a!)");
+  m.def("random_.to(Tensor(a!) self, int to, int seed) -> Tensor(a!)");
   m.def(
       "bernoulli_float(Tensor(a!) self, float p=0.5, *, Generator? generator=None) -> Tensor(a!)");
   m.def(

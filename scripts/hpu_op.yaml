@@ -361,6 +361,15 @@ prelu:
   guid: prelu_fwd
   out_ids: [0]
 
+random_:
+  custom_fill_params: FillRandomParams
+  dtypes: [BFloat16, Float]
+  guid: random_uniform_fwd
+  inplace_ids: [0]
+  lazy_class: LazyRandom
+  op_base_class: RandomOp
+  func_ns_hpu: true
+
 reciprocal.out:
   dtypes: [BFloat16, Float]
   guid: reciprocal_fwd

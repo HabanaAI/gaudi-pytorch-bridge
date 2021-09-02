@@ -347,7 +347,7 @@ class LazyOp {
   }
 
  protected:
-  const std::vector<at::IValue>& get_inputs() const {
+  std::vector<at::IValue>& get_inputs() {
     return m_inputs;
   }
 
