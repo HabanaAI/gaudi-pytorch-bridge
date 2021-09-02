@@ -152,7 +152,15 @@ namespace habana {{
 
 _OPCLASS_HEADER = """struct {cname} : {op_base_class} {{
   {cname}(int device_id, c10::ScalarType scalar_type) :
-        {op_base_class}(device_id, \"{guid}_\", scalar_type, {out_id}, {inplace_id}, {scalar_id}, {is_out_fn}) {{}}{compute_output_shape}{custom_handler}{fill_params}
+      {op_base_class}(device_id, \"{guid}_\", scalar_type, {out_id}, {inplace_id}, {scalar_id}, {is_out_fn}) {{}}{compute_output_shape}{custom_handler}{fill_params}
+}};
+"""
+
+_OPCLASS_HEADER_WITH_LAYOUTS = """struct {cname} : {op_base_class} {{
+  {cname}(int device_id, c10::ScalarType scalar_type) :
+      {op_base_class}(device_id, \"{guid}_\", scalar_type, {out_id}, {inplace_id}, {scalar_id}, {is_out_fn}) {{
+        set_layouts({{{in_layouts}}}, {{{out_layouts}}});
+  }}{compute_output_shape}{custom_handler}{fill_params}
 }};
 """
 
@@ -197,6 +205,9 @@ class Op(object):
 
     def get_tpc_param(self):
         return self.op.get("tpc_param", None)
+
+    def get_layouts(self):
+        return self.op.get("layouts", [])
 
     def get_op_base_class(self):
         return self.op.get("op_base_class", "HabanaOperatorHelper")
@@ -614,20 +625,40 @@ def get_hpuop_class_impl(ctxop, fname, cname):
     else:
         fill_params = ""
 
-    class_impl = _OPCLASS_HEADER.format(
-        op_base_class=op_base_class,
-        cname=cname,
-        guid=guid,
-        out_id=out_id,
-        inplace_id=inplace_id,
-        scalar_id=scalar_id,
-        is_out_fn=str(is_out_fn(fname)).lower(),
-        compute_output_shape=compute_output_shape,
-        custom_handler=custom_handler,
-        fill_params=fill_params,
-    )
-
-    return class_impl
+    layouts = ctxop.get_layouts()
+    if len(layouts):
+        assert len(layouts) == 2, "Define both input and output layouts."
+        assert len(layouts[0]), "Input layouts size should be atleast 1."
+        assert len(layouts[1]), "Output layouts size should be atleast 1."
+        in_layouts = ", ".join(["LayoutFormat::" + l for l in layouts[0]])
+        out_layouts = ", ".join(["LayoutFormat::" + l for l in layouts[1]])
+        return _OPCLASS_HEADER_WITH_LAYOUTS.format(
+            op_base_class=op_base_class,
+            cname=cname,
+            guid=guid,
+            out_id=out_id,
+            inplace_id=inplace_id,
+            scalar_id=scalar_id,
+            is_out_fn=str(is_out_fn(fname)).lower(),
+            in_layouts=in_layouts,
+            out_layouts=out_layouts,
+            compute_output_shape=compute_output_shape,
+            custom_handler=custom_handler,
+            fill_params=fill_params,
+        )
+    else:
+        return _OPCLASS_HEADER.format(
+            op_base_class=op_base_class,
+            cname=cname,
+            guid=guid,
+            out_id=out_id,
+            inplace_id=inplace_id,
+            scalar_id=scalar_id,
+            is_out_fn=str(is_out_fn(fname)).lower(),
+            compute_output_shape=compute_output_shape,
+            custom_handler=custom_handler,
+            fill_params=fill_params,
+        )
 
 
 class TensorFetcher(object):

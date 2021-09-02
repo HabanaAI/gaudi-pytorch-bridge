@@ -8,6 +8,8 @@
  ******************************************************************************
  */
 #pragma once
+#include <utility>
+
 #include "habana_kernels/habana_operator.h"
 #include "habana_kernels/kernel_utils.h"
 namespace habana {
@@ -75,6 +77,13 @@ class HabanaOperatorHelper : public HabanaOperator {
 
   bool IsOutFn() const {
     return m_is_outfn;
+  }
+
+  void set_layouts(
+      std::vector<LayoutFormat> in_layouts,
+      std::vector<LayoutFormat> out_layouts) {
+    kernel_meta_data_.input_layout = std::move(in_layouts);
+    kernel_meta_data_.output_layout = std::move(out_layouts);
   }
 
  private:
