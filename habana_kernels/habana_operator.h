@@ -259,7 +259,7 @@ class HabanaOperator {
   }
 
   template <typename T, typename... Args>
-  HabanaOperatorPtr make_operator(Args... args) {
+  std::shared_ptr<T> make_operator(Args... args) {
     auto op = std::make_shared<T>(args...);
     kernels_.emplace_back(op);
     return op;
@@ -283,11 +283,11 @@ class HabanaOperator {
   // counter to keep track of pytorch tensors created
   static void* m_shape_inference;
 
- protected:
-  std::string update_shape_info(
+  static std::string update_shape_info(
       synapse_helpers::graph& graph,
-      const at::Tensor& input);
+      const std::vector<int64_t>& sizes);
 
+ protected:
   std::tuple<std::vector<int64_t>, std::vector<int64_t>> GetMinMaxShape(
       const std::string& syn_tensor_name);
 

@@ -575,3 +575,111 @@ TEST_F(LazyDynamicShapesTest, SliceTest) {
     unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
   }
 }
+
+TEST_F(LazyDynamicShapesTest, DynamicShapeInplaceTest) {
+  bool refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  if (!refine_enabled) {
+    setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
+  }
+
+  int A = 2;
+  std::vector<int> in_sizes{2, 3, 4};
+  int num;
+
+  for (int i = 0; i < in_sizes.size(); i++) {
+    int B = in_sizes[i];
+    std::cout << '\n';
+    std::cout << "PTI_DBG :: TEST " << i << "  --------" << '\n';
+    torch::Tensor c0 = torch::randn({A, B});
+    torch::Tensor c1 = torch::randn({A, B});
+    torch::Tensor c2 = torch::randn({A, B});
+
+    torch::Tensor h0 = c0.to(torch::kHABANA);
+    torch::Tensor h1 = c1.to(torch::kHABANA);
+    torch::Tensor h2 = c2.to(torch::kHABANA);
+
+    c0 = c0.add_(c1);
+    auto c3 = torch::mul(c0, c2);
+
+    h0 = h0.add_(h1);
+    torch::Tensor h3 = torch::mul(h0, h2);
+    torch::Tensor h3_c = h3.to(torch::kCPU);
+
+    EXPECT_EQ(allclose(c3, h3_c, 0.01, 0.01), true);
+  }
+
+  if (!refine_enabled) {
+    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
+  }
+}
+
+TEST_F(LazyDynamicShapesTest, DynamicShapeInplaceTest2) {
+  bool refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  if (!refine_enabled) {
+    setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
+  }
+
+  int A = 2;
+  std::vector<int> in_sizes{2, 3, 4};
+  int num;
+
+  for (int i = 0; i < in_sizes.size(); i++) {
+    int B = in_sizes[i];
+    std::cout << '\n';
+    std::cout << "PTI_DBG :: TEST " << i << "  --------" << '\n';
+    torch::Tensor c0 = torch::randn({A, B});
+    torch::Tensor c1 = torch::randn({A, B});
+    torch::Tensor c2 = torch::randn({A, B});
+
+    torch::Tensor h0 = c0.to(torch::kHABANA);
+    torch::Tensor h1 = c1.to(torch::kHABANA);
+    torch::Tensor h2 = c2.to(torch::kHABANA);
+
+    auto c3 = torch::relu(c0);
+    c3 = c3.add_(c1);
+    auto c4 = torch::mul(c3, c2);
+
+    auto h3 = torch::relu(h0);
+    h3 = h3.add_(h1);
+    torch::Tensor h4 = torch::mul(h3, h2);
+    torch::Tensor h4_c = h4.to(torch::kCPU);
+
+    EXPECT_EQ(allclose(c4, h4_c, 0.01, 0.01), true);
+  }
+
+  if (!refine_enabled) {
+    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
+  }
+}
+
+TEST_F(LazyDynamicShapesTest, DynamicShapeInplaceReluTest) {
+  bool refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  if (!refine_enabled) {
+    setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
+  }
+
+  int A = 1;
+  const int C = 1;
+  std::vector<int> in_sizes{2, 4, 8};
+  int num;
+
+  for (int i = 0; i < in_sizes.size(); i++) {
+    int B = in_sizes[i];
+    std::cout << '\n';
+    std::cout << "PTI_DBG :: TEST " << i << "  --------" << '\n';
+    torch::Tensor c0 = torch::randn({C, B, A}, torch::requires_grad(false));
+
+    c0 = torch::relu_(c0);
+
+    torch::Tensor h0 = c0.to(torch::kHABANA);
+
+    h0 = torch::relu_(h0);
+    torch::Tensor h0_c = h0.to(torch::kCPU);
+
+    EXPECT_EQ(allclose(c0, h0_c, 0.01, 0.01), true);
+  }
+
+  if (!refine_enabled) {
+    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
+  }
+}

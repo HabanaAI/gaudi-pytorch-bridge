@@ -19,6 +19,7 @@
 #include "habana_device/tensor_builder.h"
 #include "habana_helpers/graph.h"
 #include "habana_helpers/tensor_utils.h"
+#include "habana_kernels/habana_operator.h"
 #include "habana_kernels/kernel_utils.h"
 #include "habana_lazy/lazy_executor.h"
 #include "synapse_helpers/env_flags.h"
@@ -494,7 +495,7 @@ synapse_helpers::tensor habana_helpers::create_tensor(
     const c10::ScalarType dtype) {
   if (graph.is_dry_run()) {
     // For dry run mode, just create a placeholder tensor
-    return synapse_helpers::tensor::create_placeholder(devid);
+    return synapse_helpers::tensor::create_placeholder(devid, shape.vec());
   }
 
   auto variant = synapse_helpers::tensor_builder(
@@ -515,7 +516,8 @@ synapse_helpers::tensor habana_helpers::create_tensor(
     const std::vector<int64_t> max) {
   if (graph.is_dry_run()) {
     // For dry run mode, just create a placeholder tensor
-    return synapse_helpers::tensor::create_placeholder(tensor.device().index());
+    return synapse_helpers::tensor::create_placeholder(
+        tensor.device().index(), tensor.sizes().vec());
   }
 
   if (min.size() && max.size()) {
@@ -569,7 +571,8 @@ synapse_helpers::tensor habana_helpers::create_tensor(
     const std::vector<int64_t> max) {
   if (graph.is_dry_run()) {
     // For dry run mode, just create a placeholder tensor
-    return synapse_helpers::tensor::create_placeholder(tensor.device().index());
+    return synapse_helpers::tensor::create_placeholder(
+        tensor.device().index(), tensor.sizes().vec());
   }
 
   if (min.size() && max.size()) {
@@ -610,7 +613,8 @@ synapse_helpers::tensor habana_helpers::create_shape_tensor(
     const std::vector<int64_t> max) {
   if (graph.is_dry_run()) {
     // For dry run mode, just create a placeholder tensor
-    return synapse_helpers::tensor::create_placeholder(tensor.device().index());
+    return synapse_helpers::tensor::create_placeholder(
+        tensor.device().index(), tensor.sizes().vec());
   }
 
   if (min.size() && max.size()) {
@@ -700,24 +704,33 @@ habana_helpers::create_tensors(
 synapse_helpers::tensor habana_helpers::duplicate_tensor_in_memory_section(
     const synapse_helpers::tensor& tensor,
     synapse_helpers::graph& graph) {
+  if (graph.is_dynamic_graph()) {
+    habana::HabanaOperator::update_shape_info(graph, tensor.pt_shape());
+  }
+
   if (graph.is_dry_run()) {
     // In case of dry run mode, just create a place holder
-    return synapse_helpers::tensor::create_placeholder(tensor.device_id());
+    return synapse_helpers::tensor::create_placeholder(
+        tensor.device_id(), tensor.pt_shape());
   }
 
   TORCH_CHECK(
       tensor.is_persistent(),
       "Why would you like to create another tensor in the same memory section for non persistent tensor?");
 
-  auto maybe_tensor =
-      synapse_helpers::tensor_builder(
-          tensor.shape(), tensor.stride(), tensor.type())
-          .with_memory_section(tensor.memorysection())
-          .mark_persistence(tensor.is_persistent())
-          .set_offset(tensor.get_offset())
-          .build(
-              synapse_helpers::HPURegistrar::get_device(tensor.device_id()),
-              graph.get_graph_handle());
+  auto builder = synapse_helpers::tensor_builder(
+                     tensor.shape(), tensor.stride(), tensor.type())
+                     .with_memory_section(tensor.memorysection())
+                     .mark_persistence(tensor.is_persistent())
+                     .set_offset(tensor.get_offset());
+
+  if (tensor.has_dynamic_shape()) {
+    builder.with_dynamic_shape(tensor.dynamic_shape());
+  }
+
+  auto maybe_tensor = builder.build(
+      synapse_helpers::HPURegistrar::get_device(tensor.device_id()),
+      tensor.graph());
   return absl::get<synapse_helpers::tensor>(std::move(maybe_tensor));
 }
 
@@ -728,23 +741,32 @@ synapse_helpers::tensor habana_helpers::
         std::vector<int64_t>& sizes,
         std::vector<int64_t>& strides,
         const uint64_t offset) {
+  if (graph.is_dynamic_graph()) {
+    habana::HabanaOperator::update_shape_info(graph, sizes);
+  }
+
   if (graph.is_dry_run()) {
     // For dry run mode, just create a placeholder tensor
-    return synapse_helpers::tensor::create_placeholder(tensor.device_id());
+    return synapse_helpers::tensor::create_placeholder(
+        tensor.device_id(), sizes);
   }
 
   TORCH_CHECK(
       tensor.is_persistent(),
       "Why would you like to create another tensor in the same memory section for non persistent tensor?");
 
-  auto maybe_tensor =
-      synapse_helpers::tensor_builder(sizes, strides, tensor.type())
-          .with_memory_section(tensor.memorysection())
-          .set_offset(offset)
-          .mark_persistence(tensor.is_persistent())
-          .build(
-              synapse_helpers::HPURegistrar::get_device(tensor.device_id()),
-              graph.get_graph_handle());
+  auto builder = synapse_helpers::tensor_builder(sizes, strides, tensor.type())
+                     .with_memory_section(tensor.memorysection())
+                     .set_offset(offset)
+                     .mark_persistence(tensor.is_persistent());
+
+  if (tensor.has_dynamic_shape()) {
+    builder.with_dynamic_shape(tensor.dynamic_shape());
+  }
+
+  auto maybe_tensor = builder.build(
+      synapse_helpers::HPURegistrar::get_device(tensor.device_id()),
+      tensor.graph());
   return absl::get<synapse_helpers::tensor>(std::move(maybe_tensor));
 }
 

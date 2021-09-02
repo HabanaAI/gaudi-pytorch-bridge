@@ -164,7 +164,8 @@ tensor::tensor(tensor&& other) noexcept
       host_ptr_{other.host_ptr_},
       host_ptr_size_{other.host_ptr_size_},
       offset_{other.offset_},
-      tensor_type_{other.tensor_type_} {
+      tensor_type_{other.tensor_type_},
+      pt_shape_{other.pt_shape_} {
   other.tensor_ = nullptr;
   other.memory_section_ = nullptr;
   other.graph_ = nullptr;
@@ -189,6 +190,7 @@ tensor& tensor::operator=(tensor&& other) noexcept {
   host_ptr_ = other.host_ptr_;
   host_ptr_size_ = other.host_ptr_size_;
   tensor_type_ = other.tensor_type_;
+  pt_shape_ = other.pt_shape_;
 
   other.tensor_ = nullptr;
   other.memory_section_ = nullptr;
@@ -392,9 +394,10 @@ void tensor::cleanup() {
   }
 }
 
-tensor tensor::create_placeholder(synDeviceId syn_device) {
+tensor tensor::create_placeholder(
+    synDeviceId syn_device,
+    const std::vector<int64_t>& pt_shape) {
   auto name = detail::tensor_name_generator::generate();
-
   tensor tensor{
       syn_device,
       synDataType::syn_type_na,
@@ -404,6 +407,7 @@ tensor tensor::create_placeholder(synDeviceId syn_device) {
       name,
       nullptr};
   tensor.set_placeholder();
+  tensor.pt_shape_ = pt_shape;
 
   return tensor;
 }

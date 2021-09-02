@@ -219,7 +219,9 @@ class tensor final {
     shape_t max_;
   };
 
-  static tensor create_placeholder(synDeviceId device_id);
+  static tensor create_placeholder(
+      synDeviceId device_id,
+      const std::vector<int64_t>& pt_shape);
 
   synTensor& get() {
     return tensor_;
@@ -288,6 +290,10 @@ class tensor final {
   synTensorType tensor_type() const {
     return tensor_type_;
   };
+
+  std::vector<int64_t> pt_shape() const {
+    return pt_shape_;
+  }
 
   friend std::ostream& operator<<(std::ostream& out, const tensor& rhs);
 
@@ -369,6 +375,7 @@ class tensor final {
   uint64_t host_ptr_size_{0};
   const uint64_t offset_{0};
   synTensorType tensor_type_{DATA_TENSOR};
+  std::vector<int64_t> pt_shape_;
   static bool generate_placeholder_;
 };
 
