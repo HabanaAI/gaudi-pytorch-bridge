@@ -269,6 +269,79 @@ void GatherOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
+std::vector<int64_t> GatherElemOperator::compute_output_shape(
+    const Tensor& self,
+    int64_t dim_,
+    const Tensor& index) {
+  auto dim = at::maybe_wrap_dim(dim_, self.dim(), /*wrap_scalar=*/true);
+  auto shape = self.sizes().vec();
+  if (shape.size()) {
+    // for gather op, output size is same as index
+    if (self.dim() == index.dim()) {
+      shape = index.sizes().vec();
+    } else {
+      // for index_select and other index ops
+      shape.erase(shape.begin() + dim);
+      shape.insert(shape.begin() + dim, index.numel());
+    }
+  }
+  return shape;
+}
+
+Tensor GatherElemOperator::AllocateOutput(
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  auto self = inputs[0].toTensor();
+  auto dim_ = inputs[3].toInt();
+  auto index = inputs[1].toTensor();
+
+  auto shape = GatherElemOperator::compute_output_shape(self, dim_, index);
+
+  auto output = habana_helpers::createPTTensor(
+      self,
+      shape,
+      self.options(),
+      self.suggest_memory_format(),
+      is_output_persistent);
+  return output;
+}
+
+void GatherElemOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 5,
+      "Incorrect size of input expected for Gather operator");
+  TORCH_CHECK(
+      inputs[0].isTensor(),
+      "Input type expected to be Tensor for Gather operator");
+  TORCH_CHECK(
+      inputs[1].isTensor(),
+      "Input type expected to be Int for Gather operator");
+  TORCH_CHECK(
+      inputs[2].isTensor() or inputs[2].isNone(),
+      "Input type expected to be Tensor for Gather operator");
+  TORCH_CHECK(
+      inputs[4].isBool(), "Input type expected to be Bool for Gather operator");
+
+  auto self = inputs[0].toTensor();
+  auto dim_ = inputs[3].toInt();
+
+  auto dim = at::maybe_wrap_dim(dim_, self.dim(), /*wrap_scalar=*/true);
+
+  auto output = AllocateOutput(inputs, is_output_persistent);
+
+  ns_GatherElementsKernel::Params params;
+  params.axis = self.dim() - dim - 1;
+
+  p_context_->params_.emplace<ns_GatherElementsKernel::Params>(params);
+  p_context_->params_size_ = sizeof(params);
+
+  AllocateSynapseOutput(graph, output, is_output_persistent);
+  AddNodeToSynapseGraph(graph, &params, sizeof(params));
+}
+
 /*************************************************************************
  * @brief Kernel implementation for torch.gather
  * @param self - Input tensor 1-4D bf16/fp32
@@ -2244,6 +2317,11 @@ static auto& KernelRegistry =
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<IndexSelectOperator>(
                   device_id, node_type);
+            })
+        .add(
+            "hpu::gather_elements",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<GatherElemOperator>(device_id, node_type);
             })
         .add(
             "aten::gather",

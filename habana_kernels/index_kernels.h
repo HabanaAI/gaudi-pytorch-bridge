@@ -107,6 +107,34 @@ class GatherOperator : public HabanaOperator {
       bool is_output_persistent);
 };
 
+class GatherElemOperator : public HabanaOperator {
+ public:
+  GatherElemOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator(
+            "gather_elements_fwd_" +
+            habana_helpers::name_suffix_from_type(scalarType)) {
+    this->CreateSynContext(device_id);
+    kernel_meta_data_.input_layout.assign(
+        {LayoutFormat::ANY, LayoutFormat::ANY});
+    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
+  }
+
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+
+  static std::vector<int64_t> compute_output_shape(
+      const at::Tensor& self,
+      int64_t dim_,
+      const at::Tensor& index);
+
+ private:
+  at::Tensor AllocateOutput(
+      torch::jit::Stack& inputs,
+      bool is_output_persistent);
+};
+
 // ScatterWrapperOperator Operator
 //
 class ScatterWrapperOperator : public HabanaOperator {
