@@ -183,6 +183,11 @@ struct PT_HPU_ENABLE_DATAPTR_ACCESS {
   static constexpr bool default_value = false;
 };
 
+struct PT_HPU_MAX_RECIPE_SUBMISSION_LIMIT
+    : public std::numeric_limits<unsigned long> {
+  static constexpr unsigned long default_value = 0;
+};
+
 // Overloads for different type of default value
 
 template <class T>
@@ -225,7 +230,8 @@ getenv_by_E(const char* name) {
 }
 
 // Utility functions. It is more convenient to use them indirectly through
-// macros in the top of this file that do symbol stringification automatically.
+// macros in the top of this file that do symbol stringification
+// automatically.
 
 template <class E>
 decltype(E::default_value) get_env_flag(const char* name) {

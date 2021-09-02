@@ -168,6 +168,7 @@ device::device(
   max_dma_copy_retry_count_ = GET_ENV_FLAG(PT_HABANA_MAX_DMA_COPY_RETRY_COUNT);
   dma_copy_retry_delay_ =
       std::chrono::milliseconds(GET_ENV_FLAG(PT_HABANA_DMA_COPY_RETRY_DELAY));
+  max_recipe_limit_in_queue_ = GET_ENV_FLAG(PT_HPU_MAX_RECIPE_SUBMISSION_LIMIT);
 }
 
 synapse_error_v<std::shared_ptr<device>> device::get_or_create(

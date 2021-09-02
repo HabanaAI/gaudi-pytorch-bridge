@@ -71,5 +71,6 @@ class device_memory {
   device_ptr get_pointer(mem_handle);
   synStatus alloc(void** v_ptr, uint64_t size, bool is_workspace = false);
   synStatus deallocate(void* ptr);
+  void check_and_limit_recipe_execution(void);
 };
 } // namespace synapse_helpers

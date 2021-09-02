@@ -289,6 +289,10 @@ class device {
     return device_memory_;
   }
 
+  uint32_t GetMaxRecipeLimitInQueue() {
+    return max_recipe_limit_in_queue_;
+  }
+
  private:
   friend class stream;
   static synapse_error_v<std::shared_ptr<device>> create(
@@ -339,6 +343,7 @@ class device {
   unsigned max_dma_copy_retry_count_;
   std::chrono::milliseconds dma_copy_retry_delay_;
   device_memory device_memory_;
+  uint32_t max_recipe_limit_in_queue_;
 
   bool enable_dynamic_workspace_{false};
   bool cleanup_done_{false};

@@ -308,8 +308,25 @@ void device_memory::fix_address(void* ptr) {
   get_pointer(h);
 }
 
+void device_memory::check_and_limit_recipe_execution() {
+  auto& recipe_counter = device_.get_active_recipe_counter();
+  PT_SYNHELPER_DEBUG("Recipes in queue", recipe_counter.get_count());
+  uint32_t counter_state{0};
+  if (recipe_counter.get_count() > device_.GetMaxRecipeLimitInQueue()) {
+    do {
+      counter_state = recipe_counter.wait_for_next_decrease_call();
+    } while (counter_state < 1);
+  }
+}
+
 device_ptr_lock device_memory::lock_addresses(
     const std::vector<device_ptr>& addresses) {
+  // no of recipes in queue if it exceeds a limit
+  // there is unpredictable behaviour because of
+  // resource contraint. so limit the recipes in
+  // queue.
+  if (device_.GetMaxRecipeLimitInQueue() > 0)
+    check_and_limit_recipe_execution();
   std::vector<device_ptr> out;
   out.reserve(addresses.size());
 
@@ -367,11 +384,19 @@ device_ptr device_memory::get_pointer(mem_handle h) {
             " requested size ",
             size);
         std::tie(ptr, size) = get_and_alloc_mem();
+        if (ptr == nullptr) {
+          MemoryStats stats;
+          get_memory_stats(&stats);
+          PT_SYNHELPER_DEBUG("Retry Memory Stats", stats.DebugString());
+        }
       } while (counter_state > 1 && ptr == nullptr);
     }
   }
 
   if (ptr == nullptr) {
+    MemoryStats stats;
+    get_memory_stats(&stats);
+    PT_SYNHELPER_DEBUG("Memory Stats", stats.DebugString());
     PT_SYNHELPER_FATAL("Allocation failed for size::", size);
   }
 
