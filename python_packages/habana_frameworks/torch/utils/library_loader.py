@@ -21,32 +21,17 @@ def _check_modules_directory(directory):
 
 
 def _get_modules_directory():
-    """
-    Returns a directory containing Habana modules.
-    Directory containing modules is looked up as instructed by the following
-    environmental variables, in order, until a location is found with all
-    the needed libraries:
-        $LD_LIBRARY_PATH
-        $BUILD_ROOT_LATEST
-    """
+    #Returns a directory containing Habana modules.
 
     def get_packaged_libs():
         return os.path.abspath(
             os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "lib")
         )
 
-    locations = []
-    if "LD_LIBRARY_PATH" in os.environ:
-        locations += os.environ.get("LD_LIBRARY_PATH").split(":")
-    if "BUILD_ROOT_LATEST" in os.environ:
-        locations.append(os.path.abspath(os.environ["BUILD_ROOT_LATEST"]))
+    location = get_packaged_libs()
 
-    locations.append(get_packaged_libs())
-    locations.append("/usr/lib/habanalabs")
-
-    for directory in locations:
-        if _check_modules_directory(directory):
-            return directory
+    if _check_modules_directory(location):
+        return location
 
     return None
 
