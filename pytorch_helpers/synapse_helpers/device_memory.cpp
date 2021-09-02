@@ -305,13 +305,11 @@ void device_memory::fix_address(void* ptr) {
     PT_SYNHELPER_FATAL("Cannot fix offseted handle ", h);
   }
 
-  std::unique_lock<std::mutex> lock(mutex_);
   get_pointer(h);
 }
 
 device_ptr_lock device_memory::lock_addresses(
     const std::vector<device_ptr>& addresses) {
-  std::unique_lock<std::mutex> lock(mutex_);
   std::vector<device_ptr> out;
   out.reserve(addresses.size());
 
@@ -332,21 +330,49 @@ device_ptr device_memory::get_pointer(mem_handle h) {
     return device_nullptr;
   }
 
-  auto iter = handle2pointer_.find(h.id());
-  if (iter == handle2pointer_.end()) {
-    PT_SYNHELPER_FATAL("Handle ", h.unoffseted(), " does not exist");
-  }
+  auto get_and_alloc_mem = [&]() -> std::pair<void*, size_t> {
+    void* ptr = nullptr;
+    size_t size = 0;
+
+    std::unique_lock<std::mutex> lock(mutex_);
+    auto iter = handle2pointer_.find(h.id());
+    if (iter == handle2pointer_.end()) {
+      PT_SYNHELPER_FATAL("Handle ", h.unoffseted(), " does not exist");
+    }
+
+    std::tie(ptr, size) = iter->second;
+    if (ptr == nullptr) {
+      alloc(&ptr, size);
+      iter->second = ptr_with_size{ptr, size};
+    }
+
+    return {ptr, size};
+  };
 
   void* ptr = nullptr;
-  size_t size;
-  std::tie(ptr, size) = iter->second;
+  size_t size = 0;
+  std::tie(ptr, size) = get_and_alloc_mem();
 
   if (ptr == nullptr) {
-    alloc(&ptr, size);
-    if (ptr == nullptr) {
-      PT_SYNHELPER_FATAL("Allocation failed for size", size);
+    // check and wait for recipe execution to complete
+    auto& recipe_counter = device_.get_active_recipe_counter();
+    uint32_t counter_state{0};
+    if (!recipe_counter.is_zero()) {
+      do {
+        counter_state = recipe_counter.wait_for_next_decrease_call();
+        PT_SYNHELPER_DEBUG(
+            "retrying memory alloc, ",
+            "waiting for recipe launch completion, recipe count ",
+            counter_state,
+            " requested size ",
+            size);
+        std::tie(ptr, size) = get_and_alloc_mem();
+      } while (counter_state > 1 && ptr == nullptr);
     }
-    iter->second = ptr_with_size{ptr, size};
+  }
+
+  if (ptr == nullptr) {
+    PT_SYNHELPER_FATAL("Allocation failed for size::", size);
   }
 
   const auto offset = h.offset();
