@@ -170,6 +170,8 @@ class HabanaOperatorHelper : public HabanaOperator {
   static std::shared_ptr<void> FillHardSigmoidParams(const at::Stack&, size_t&);
   static std::shared_ptr<void> FillMseLossParams(const at::Stack&, size_t&);
   static std::shared_ptr<void> FillRandomParams(const at::Stack&, size_t&);
+  static std::shared_ptr<void> FillRandomFromParams(const at::Stack&, size_t&);
+  static std::shared_ptr<void> FillRandomToParams(const at::Stack&, size_t&);
   static std::shared_ptr<void> FillTrilParams(const at::Stack&, size_t&);
   static std::shared_ptr<void> FillTriuParams(const at::Stack&, size_t&);
 

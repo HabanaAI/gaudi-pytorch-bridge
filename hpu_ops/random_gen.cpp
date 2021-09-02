@@ -18,11 +18,12 @@ LazyRandom<at::Tensor&>::LazyRandom(
     const std::string& qualstring,
     const std::vector<at::IValue>& inputs,
     const std::function<sizes_vec(const at::Stack&, bool)>& out_shapes_fn)
-    : habana_lazy::LazyOp<at::Tensor&>(qualstring, {}, out_shapes_fn) {
+    : habana_lazy::LazyOp<at::Tensor&>(qualstring, inputs, out_shapes_fn) {
   // Generators can't be represented in JIT graph
   // https://github.com/pytorch/pytorch/issues/64005
-  int64_t seed = get_seed_hpu(inputs.at(1).toOptional<at::Generator>());
-  set_inputs({stack_tensor(inputs, 0), seed});
+  // Seed is always at the end for all variants
+  get_inputs().back() = static_cast<int64_t>(
+      get_seed_hpu(inputs.back().toOptional<at::Generator>()));
 }
 
 template <>
@@ -30,16 +31,67 @@ at::Tensor& LazyRandom<at::Tensor&>::get_result_overrideable() {
   return stack_tensor(get_inputs(), 0);
 }
 
+static std::shared_ptr<void> RandomUniformParams(
+    at::ScalarType type,
+    at::optional<float> from,
+    at::optional<float> to,
+    int seed,
+    size_t& size) {
+  PARAMS_STUB(ns_RandomUniform::Params);
+  params->seed = seed;
+
+  switch (type) {
+    case at::ScalarType::Float:
+    case at::ScalarType::BFloat16:
+      params->low = from.has_value() ? *from : 0;
+      params->high = to.has_value() ? *to : std::numeric_limits<float>::max();
+      break;
+    case at::ScalarType::Int:
+      params->low = from.has_value() ? *from : 0;
+      params->high = to.has_value()
+          ? *to
+          : static_cast<float>(std::numeric_limits<int>::max());
+      break;
+    default:
+      TORCH_CHECK(false, "Got unsupported type for random uniform: ", type);
+      break;
+  }
+
+  return params;
+}
+
 std::shared_ptr<void> HabanaOperatorHelper::FillRandomParams(
     const at::Stack& stack,
     size_t& size) {
-  static_cast<void>(stack);
-  PARAMS_STUB(ns_RandomUniform::Params);
-  params->low = 0;
-  params->high = std::numeric_limits<float>::max();
-  params->seed = stack.at(1).toInt();
+  return RandomUniformParams(
+      stack_tensor(stack, 0).scalar_type(),
+      c10::nullopt,
+      c10::nullopt,
+      stack.at(1).toInt(),
+      size);
+}
 
-  return params;
+std::shared_ptr<void> HabanaOperatorHelper::FillRandomFromParams(
+    const at::Stack& stack,
+    size_t& size) {
+  return RandomUniformParams(
+      stack_tensor(stack, 0).scalar_type(),
+      stack.at(1).isNone() ? c10::nullopt
+                           : c10::make_optional<float>(stack.at(1).toInt()),
+      c10::make_optional<float>(stack.at(2).toInt()),
+      stack.at(3).toInt(),
+      size);
+}
+
+std::shared_ptr<void> HabanaOperatorHelper::FillRandomToParams(
+    const at::Stack& stack,
+    size_t& size) {
+  return RandomUniformParams(
+      stack_tensor(stack, 0).scalar_type(),
+      c10::nullopt,
+      c10::make_optional<float>(stack.at(1).toInt()),
+      stack.at(2).toInt(),
+      size);
 }
 
 void RandomOp::AddNode(
