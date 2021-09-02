@@ -781,12 +781,6 @@ void ReshapeOperator::AllocateAndAddSynapseNode(
     memory_format = at::MemoryFormat::Contiguous;
   }
 
-  if (graph.is_dynamic_graph()) {
-    auto result_shape = habana_helpers::createPTTensor(
-        self, inferred_size, self.options(), memory_format, true);
-    AllocateSynapseInput(graph, result_shape, true, true);
-  }
-
   auto output = habana_helpers::createPTTensor(
       self, inferred_size, self.options(), memory_format, is_output_persistent);
   TORCH_CHECK(
@@ -796,6 +790,14 @@ void ReshapeOperator::AllocateAndAddSynapseNode(
       " Size of output: ",
       output.sizes());
   p_context_->params_size_ = 0;
+
+  // Allocate Shape tensor
+  if (graph.is_dynamic_graph()) {
+    auto result_shape = habana_helpers::createPTTensor(
+        self, inferred_size, self.options(), memory_format, true);
+    AllocateSynapseInput(graph, result_shape, true, true);
+  }
+
   AllocateSynapseOutput(graph, output, is_output_persistent);
   AddNodeToSynapseGraph(graph, NULL, 0);
 }

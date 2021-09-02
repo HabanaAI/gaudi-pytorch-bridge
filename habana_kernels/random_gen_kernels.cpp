@@ -79,6 +79,12 @@ void UniformOperator::AllocateAndAddSynapseNode(
   p_context_->params_.emplace<ns_RandomUniform::Params>(params);
   p_context_->params_size_ = sizeof(params);
 
+  // Allocate Shape Tensor
+  if (graph.is_dynamic_graph()) {
+    auto result_shape = habana_helpers::createPTTensor(self, true);
+    AllocateSynapseInput(graph, result_shape, true, true);
+  }
+
   AllocateSynapseOutput(graph, self, is_output_persistent);
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
@@ -269,6 +275,12 @@ void NormalOperator::AllocateAndAddSynapseNode(
 
   p_context_->params_.emplace<ns_RandomNormal::Params>(params);
   p_context_->params_size_ = sizeof(params);
+
+  // Allocate Shape Tensor
+  if (graph.is_dynamic_graph()) {
+    auto result_shape = habana_helpers::createPTTensor(self, true);
+    AllocateSynapseInput(graph, result_shape, true, true);
+  }
 
   AllocateSynapseOutput(graph, self, is_output_persistent);
   AddNodeToSynapseGraph(graph, &params, sizeof(params));

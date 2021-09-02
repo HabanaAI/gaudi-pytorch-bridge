@@ -21,9 +21,7 @@ using namespace habana_lazy;
 
 class LazyDynamicShapesTest : public habana_lazy_test::LazyTest {};
 
-// This test is testing dynamic shapes milestone 2 logic. Check out
-// [SW-20642] in the jira to find out the full test
-// layout. But simply its doing :
+// Graph :
 //
 //     Bias1  Bias2           Data
 //       \    /               |
@@ -31,14 +29,15 @@ class LazyDynamicShapesTest : public habana_lazy_test::LazyTest {};
 //          |-(weights)->  Convolution 3x3
 //                            |
 //                        Batch Norm
-//                        Avg Pool 2D           Bias3
+//                        Max Pool 2D           Bias3
 //                           Relu             Broadcast
 //                            |                  |
 //                           Add <----------------
 //                            |
+//                       UpSampleNearest2d
+//                            |
 //                           out
 
-const char cinTerminator = 'q';
 TEST_F(LazyDynamicShapesTest, DynamicShapeTest) {
   int kH = 3;
   int kW = 3;
@@ -95,16 +94,11 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeTest) {
         out_conv, gamma, beta, mean, var, false, mom, eps);
     auto h_bn_out = std::get<0>(h_bn_outs);
     auto bn_out = std::get<0>(bn_outs);
-    // TODO: Enable this after adding shape Tensor to MaxPool Kernel
     // pool_out = MaxPool2D(bn_out)
-    // auto h_pool_outs = torch::max_pool2d_with_indices(
-    //     h_bn_out, {2, 2}, {2, 2}, {0, 0}, {1, 1}, true);
-    // torch::Tensor h_pool_out = std::get<0>(h_pool_outs);
-    // torch::Tensor pool_out = torch::max_pool2d(bn_out, 2, 2);
-    // pool_out = avg_pool2d(bn_out)
-    torch::Tensor pool_out = torch::avg_pool2d(bn_out, 3, 1);
-    torch::Tensor h_pool_out =
-        torch::avg_pool2d(h_bn_out, {3, 3}, {1, 1}, {0, 0}, false, true);
+    auto h_pool_outs = torch::max_pool2d_with_indices(
+        h_bn_out, {2, 2}, {2, 2}, {0, 0}, {1, 1}, true);
+    torch::Tensor h_pool_out = std::get<0>(h_pool_outs);
+    torch::Tensor pool_out = torch::max_pool2d(bn_out, 2, 2);
     // relu_out = relu(pool_out)
     torch::Tensor h_relu_out = torch::relu(h_pool_out);
     torch::Tensor relu_out = torch::relu(pool_out);
@@ -112,9 +106,13 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeTest) {
     torch::Tensor bias3 =
         torch::randn(1, torch::dtype(torch::kFloat).requires_grad(false));
     torch::Tensor h_bias3 = bias3.to(torch::kHPU);
-    auto h_out = torch::add(h_relu_out, h_bias3);
-    auto out = torch::add(relu_out, bias3);
-
+    auto h_out_add = torch::add(h_relu_out, h_bias3);
+    auto out_add = torch::add(relu_out, bias3);
+    // out = upsample(out_add,2)
+    std::array<double, 2> scale_array = {2.0, 2.0};
+    c10::ArrayRef<double> scale_factors = scale_array;
+    auto h_out = torch::upsample_nearest2d(h_out_add, {}, scale_factors);
+    auto out = torch::upsample_nearest2d(out_add, {}, scale_factors);
     torch::Tensor out_hpu = h_out.to(torch::kCPU);
     EXPECT_EQ(allclose(out_hpu, out, 0.01, 0.01), true);
     std::cout << "PTI_DBG: Iteration End -- " << i << " ----\n";
@@ -124,9 +122,7 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeTest) {
   }
 }
 
-// This test is testing dynamic shapes milestone 2 logic. Check out
-// [SW-20642] in the jira to find out the full test
-// layout. But simply its doing :
+// Graph :
 //
 //     Bias1  Bias2           Data
 //       \    /               |
@@ -173,7 +169,7 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeTest2) {
     torch::Tensor h_weight_tensor_hwck =
         h_weight_tensor.permute({2, 3, 1, 0}).contiguous();
     torch::Tensor h_out_conv =
-        torch::conv2d(h_in_tensor, h_weight_tensor_hwck, {}, {1}, {0}, {1}, {1});
+        torch::conv2d(h_in_tensor, h_weight_tensor_hwck, {}, {1}, {0}, {1}, 1);
     torch::Tensor out_conv =
         torch::conv2d(in_tensor, weight_tensor, {}, {1}, {0}, {1}, {1});
     // bn_out = BatchNorm(out_conv)
@@ -216,10 +212,229 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeTest2) {
   }
 }
 
-/*
- * TEST HAS BEEN DISABLED UNTILL WE HAVE SUPPORT FOR
- * SHAPE INFERENCE FROM GC IS ENABLED
- */
+// Graph :
+//
+//     Bias1  Bias2           Data
+//       \    /               |
+//        \  /              Reshape
+//         Add                |
+//          |-(weights)->  Convolution 3x3
+//                            |
+//                        Batch Norm
+//                        Max Pool 2D           Bias3
+//                           Relu             Broadcast
+//                            |                  |
+//                           Add <----------------
+//                            |
+//                       UpSampleNearest2d
+//                            |
+//                           out
+
+TEST_F(LazyDynamicShapesTest, DynamicShapeTest3) {
+  int kH = 3;
+  int kW = 3;
+  const int C = 16;
+  const int N = 16;
+  int H = 16;
+  at::Scalar inScalar = 2.0;
+  bool refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  if (!refine_enabled) {
+    setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
+  }
+
+  std::vector<int> in_sizes{16, 32, 64};
+  for (int i = 0; i < in_sizes.size(); i++) {
+    std::cout << "PTI_DBG: Iteration Start -- " << i << " ----\n";
+    int W = in_sizes[i];
+    // weight_tensor = bias1 + bias2
+    torch::Tensor bias1 =
+        torch::randn({C, C, kW, kH}, torch::requires_grad(false));
+    torch::Tensor bias2 =
+        torch::randn({C, C, kW, kH}, torch::requires_grad(false));
+    torch::Tensor h_bias1 = bias1.to(torch::kHPU);
+    torch::Tensor h_bias2 = bias2.to(torch::kHPU);
+    torch::Tensor weight_tensor = torch::add(bias1, bias2);
+    torch::Tensor h_weight_tensor = torch::add(h_bias1, h_bias2);
+    // out_conv = Conv3x3(Data, weight)
+    torch::Tensor in_tensor =
+        torch::randn(N * C * H * W, torch::requires_grad(false));
+    torch::Tensor h_in_tensor = in_tensor.to(torch::kHPU);
+    torch::Tensor h_weight_tensor_hwck =
+        h_weight_tensor.permute({2, 3, 1, 0}).contiguous();
+    torch::Tensor h_out_conv = torch::conv2d(
+        h_in_tensor.reshape({N, C, H, W}),
+        h_weight_tensor_hwck,
+        {},
+        {1},
+        {0},
+        {1},
+        1);
+    torch::Tensor out_conv = torch::conv2d(
+        in_tensor.reshape({N, C, H, W}), weight_tensor, {}, {1}, {0}, {1}, 1);
+    // bn_out = BatchNorm(out_conv)
+    torch::Tensor gamma =
+        torch::randn(C, torch::dtype(torch::kFloat).requires_grad(false));
+    torch::Tensor beta =
+        torch::randn(C, torch::dtype(torch::kFloat).requires_grad(false));
+    torch::Tensor mean =
+        torch::randn(C, torch::dtype(torch::kFloat).requires_grad(false));
+    torch::Tensor var =
+        torch::ones(C, torch::dtype(torch::kFloat).requires_grad(false));
+    torch::Tensor h_gamma = gamma.to(torch::kHPU);
+    torch::Tensor h_beta = beta.to(torch::kHPU);
+    torch::Tensor h_mean = mean.to(torch::kHPU);
+    torch::Tensor h_var = var.to(torch::kHPU);
+    float mom = 0.1;
+    float eps = 1e-5;
+    auto h_bn_outs = torch::native_batch_norm(
+        h_out_conv, h_gamma, h_beta, h_mean, h_var, false, mom, eps);
+    auto bn_outs = torch::native_batch_norm(
+        out_conv, gamma, beta, mean, var, false, mom, eps);
+    auto h_bn_out = std::get<0>(h_bn_outs);
+    auto bn_out = std::get<0>(bn_outs);
+    // pool_out = MaxPool2D(bn_out)
+    auto h_pool_outs = torch::max_pool2d_with_indices(
+        h_bn_out, {2, 2}, {2, 2}, {0, 0}, {1, 1}, true);
+    torch::Tensor h_pool_out = std::get<0>(h_pool_outs);
+    torch::Tensor pool_out = torch::max_pool2d(bn_out, 2, 2);
+    // relu_out = relu(pool_out)
+    torch::Tensor h_relu_out = torch::relu(h_pool_out);
+    torch::Tensor relu_out = torch::relu(pool_out);
+    // out = add(relu_out, x)
+    torch::Tensor bias3 =
+        torch::randn(1, torch::dtype(torch::kFloat).requires_grad(false));
+    torch::Tensor h_bias3 = bias3.to(torch::kHPU);
+    auto h_out_add = torch::add(h_relu_out, h_bias3);
+    auto out_add = torch::add(relu_out, bias3);
+    // out = upsample(out_add,2)
+    std::array<double, 2> scale_array = {2.0, 2.0};
+    c10::ArrayRef<double> scale_factors = scale_array;
+    auto h_out = torch::upsample_nearest2d(h_out_add, {}, scale_factors);
+    auto out = torch::upsample_nearest2d(out_add, {}, scale_factors);
+
+    torch::Tensor out_hpu = h_out.to(torch::kCPU);
+    EXPECT_EQ(allclose(out_hpu, out, 0.01, 0.01), true);
+    std::cout << "PTI_DBG: Iteration End -- " << i << " ----\n";
+  }
+  if (!refine_enabled) {
+    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
+  }
+}
+
+// Graph :
+//
+//     Bias1  Bias2           Data
+//       \    /               |
+//        \  /                |
+//         Add                |
+//          |-(weights)->  Convolution 3x3
+//                            |
+//                        Batch Norm
+//                        Max Pool 2D           Bias3
+//                           Relu             Broadcast
+//                            |                  |
+//                           Add <----------------
+//                            |
+//                         view/Reshape
+//                            |
+//                       UpSampleNearest2d
+//                            |
+//                           Add.Scalar(Constant)
+//                            |
+//                           out
+
+TEST_F(LazyDynamicShapesTest, DynamicShapeTest4) {
+  int kH = 3;
+  int kW = 3;
+  const int C = 16;
+  const int N = 16;
+  int H = 16;
+  at::Scalar inScalar = 2.0;
+  bool refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  if (!refine_enabled) {
+    setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
+  }
+
+  std::vector<int> in_sizes{16, 32, 64};
+  for (int i = 0; i < in_sizes.size(); i++) {
+    std::cout << "PTI_DBG: Iteration Start -- " << i << " ----\n";
+    int W = in_sizes[i];
+    // weight_tensor = bias1 + bias2
+    torch::Tensor bias1 =
+        torch::randn({C, C, kW, kH}, torch::requires_grad(false));
+    torch::Tensor bias2 =
+        torch::randn({C, C, kW, kH}, torch::requires_grad(false));
+    torch::Tensor h_bias1 = bias1.to(torch::kHPU);
+    torch::Tensor h_bias2 = bias2.to(torch::kHPU);
+    torch::Tensor weight_tensor = torch::add(bias1, bias2);
+    torch::Tensor h_weight_tensor = torch::add(h_bias1, h_bias2);
+    // out_conv = Conv3x3(Data, weight)
+    torch::Tensor in_tensor =
+        torch::randn({N, C, H, W}, torch::requires_grad(false));
+    torch::Tensor h_in_tensor = in_tensor.to(torch::kHPU);
+    torch::Tensor h_weight_tensor_hwck =
+        h_weight_tensor.permute({2, 3, 1, 0}).contiguous();
+    torch::Tensor h_out_conv =
+        torch::conv2d(h_in_tensor, h_weight_tensor_hwck, {}, {1}, {0}, {1}, 1);
+    torch::Tensor out_conv =
+        torch::conv2d(in_tensor, weight_tensor, {}, {1}, {0}, {1}, 1);
+    // bn_out = BatchNorm(out_conv)
+    torch::Tensor gamma =
+        torch::randn(C, torch::dtype(torch::kFloat).requires_grad(false));
+    torch::Tensor beta =
+        torch::randn(C, torch::dtype(torch::kFloat).requires_grad(false));
+    torch::Tensor mean =
+        torch::randn(C, torch::dtype(torch::kFloat).requires_grad(false));
+    torch::Tensor var =
+        torch::ones(C, torch::dtype(torch::kFloat).requires_grad(false));
+    torch::Tensor h_gamma = gamma.to(torch::kHPU);
+    torch::Tensor h_beta = beta.to(torch::kHPU);
+    torch::Tensor h_mean = mean.to(torch::kHPU);
+    torch::Tensor h_var = var.to(torch::kHPU);
+    float mom = 0.1;
+    float eps = 1e-5;
+    auto h_bn_outs = torch::native_batch_norm(
+        h_out_conv, h_gamma, h_beta, h_mean, h_var, false, mom, eps);
+    auto bn_outs = torch::native_batch_norm(
+        out_conv, gamma, beta, mean, var, false, mom, eps);
+    auto h_bn_out = std::get<0>(h_bn_outs);
+    auto bn_out = std::get<0>(bn_outs);
+    // pool_out = MaxPool2D(bn_out)
+    auto h_pool_outs = torch::max_pool2d_with_indices(
+        h_bn_out, {2, 2}, {2, 2}, {0, 0}, {1, 1}, true);
+    torch::Tensor h_pool_out = std::get<0>(h_pool_outs);
+    torch::Tensor pool_out = torch::max_pool2d(bn_out, 2, 2);
+    // relu_out = relu(pool_out)
+    torch::Tensor h_relu_out = torch::relu(h_pool_out);
+    torch::Tensor relu_out = torch::relu(pool_out);
+    // out = add(relu_out, x)
+    torch::Tensor bias3 =
+        torch::randn(1, torch::dtype(torch::kFloat).requires_grad(false));
+    torch::Tensor h_bias3 = bias3.to(torch::kHPU);
+    auto h_out_add = torch::add(h_relu_out, h_bias3);
+    auto out_add = torch::add(relu_out, bias3);
+    // out = upsample(out_add,2)
+    std::array<double, 2> scale_array = {2.0, 2.0};
+    c10::ArrayRef<double> scale_factors = scale_array;
+    auto h_out_upsample =
+        torch::upsample_nearest2d(h_out_add, {}, scale_factors);
+    auto out_upsample = torch::upsample_nearest2d(out_add, {}, scale_factors);
+    // out = view(out_upsample)
+    auto h_out_view = h_out_upsample.view({-1});
+    auto out_view = out_upsample.view({-1});
+    // out = Add(out_view,2)
+    auto h_out = torch::add(h_out_view, inScalar);
+    auto out = torch::add(out_view, inScalar);
+
+    torch::Tensor out_hpu = h_out.to(torch::kCPU);
+    EXPECT_EQ(allclose(out_hpu, out, 0.01, 0.01), true);
+    std::cout << "PTI_DBG: Iteration End -- " << i << " ----\n";
+  }
+  if (!refine_enabled) {
+    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
+  }
+}
+
 TEST_F(LazyDynamicShapesTest, DynamicShapeDebugSimple) {
   bool refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
   if (!refine_enabled) {
@@ -581,7 +796,6 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeInplaceTest) {
   if (!refine_enabled) {
     setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
   }
-
   int A = 2;
   std::vector<int> in_sizes{2, 3, 4};
   int num;
@@ -677,6 +891,71 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeInplaceReluTest) {
     torch::Tensor h0_c = h0.to(torch::kCPU);
 
     EXPECT_EQ(allclose(c0, h0_c, 0.01, 0.01), true);
+  }
+
+  if (!refine_enabled) {
+    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
+  }
+}
+
+TEST_F(LazyDynamicShapesTest, AddConstantTest) {
+  bool refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  if (!refine_enabled) {
+    setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
+  }
+  // test case for result = add(tensor, scalar, alpha)
+  int N = 1;
+  int C = 4;
+  int H = 4;
+  at::Scalar B = 2.0;
+  at::Scalar alpha = 1.0;
+  std::vector<int> in_sizes{16, 18, 20};
+  for (int i = 0; i < in_sizes.size(); i++) {
+    int W = in_sizes[i];
+    std::cout << '\n';
+    std::cout << "PTI_DBG :: TEST " << i << "  --------" << '\n';
+    torch::Tensor A = torch::randn({N, C, H, W}, torch::requires_grad(false));
+    torch::Tensor hA = A.to(torch::kHPU);
+    torch::Tensor out_hpu = torch::add(hA, B, alpha);
+    torch::Tensor out_cpu = torch::add(A, B, alpha);
+    auto out = out_hpu.to(torch::kCPU);
+    EXPECT_EQ(allclose(out, out_cpu, 0.001, 0.001), true);
+  }
+
+  if (!refine_enabled) {
+    unsetenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES");
+  }
+}
+
+TEST_F(LazyDynamicShapesTest, AddViewTest) {
+  // test case for result = add(tensor, scalar, alpha)
+  bool refine_enabled = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
+  if (!refine_enabled) {
+    setenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "1", 1);
+  }
+  int N = 2;
+  int C = 4;
+  int H = 4;
+  at::Scalar alpha = 1.0;
+  at::Scalar Y = 2.0;
+  std::vector<int> in_sizes{16, 18, 20};
+  for (int i = 0; i < in_sizes.size(); i++) {
+    int W = in_sizes[i];
+    std::cout << '\n';
+    std::cout << "PTI_DBG :: TEST " << i << "  --------" << '\n';
+    torch::Tensor A = torch::randn({N, C, H, W}, torch::requires_grad(false));
+    torch::Tensor hA = A.to(torch::kHPU);
+    torch::Tensor B = torch::randn({C, H, N}, torch::requires_grad(false));
+    torch::Tensor hB = B.to(torch::kHPU);
+    std::vector<int64_t> shape{N, C, H, 1};
+    auto Z = torch::add(B, Y, alpha);
+    auto hZ = torch::add(hB, Y, alpha);
+    torch::Tensor C = Z.reshape(c10::IntArrayRef(shape));
+    torch::Tensor hC = hZ.reshape(c10::IntArrayRef(shape));
+    torch::Tensor out_hpu = torch::add(hA, hC, alpha);
+    torch::Tensor out_cpu = torch::add(A, C, alpha);
+    auto out = out_hpu.to(torch::kCPU);
+    EXPECT_EQ(allclose(out, out_cpu, 0.001, 0.001), true);
   }
 
   if (!refine_enabled) {

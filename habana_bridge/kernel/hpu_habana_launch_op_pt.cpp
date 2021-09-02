@@ -885,21 +885,20 @@ void HabanaLaunchOpPT::ProcessSynapseOutputs(
 }
 
 void HabanaLaunchOpPT::ProcessSynapseShapeTensors(
-    const HabanaOperatorPtr& habana_op,
+    const HabanaOperatorPtr& habanaOp,
     torch::jit::Node* node) {
-  static_cast<void>(node);
   // TODO: Handle Multiple Shape tensors
-  auto num_pt = habana_op->GetInputs().size();
-  auto num_syn = habana_op->GetSynInputs().size();
+  auto num_pt = habanaOp->GetInputs().size();
+  auto num_syn = habanaOp->GetSynInputs().size();
   if (num_pt != 0 && num_syn != 0) {
     synapse_helpers::tensor& maybe_syn_shape_tensor =
-        habana_op->GetSynInputs().back();
+        habanaOp->GetSynInputs().back();
     if (maybe_syn_shape_tensor.is_shape_tensor()) {
-      auto pt_shape_tensor = habana_op->GetInputs().back();
+      auto pt_shape_tensor = habanaOp->GetInputs().back();
       std::cout << "[Dyn WARN] Adding shapeTensor{ "
                 << maybe_syn_shape_tensor.name()
                 << " } and PT Tensor with index ="
-                << habana_op->GetInputs().size() - 1 << " to PtTensorInfo\n";
+                << habanaOp->GetInputs().size() - 1 << " to PtTensorInfo\n";
       std::string irn{"%shapeInput_"};
       irn += std::to_string(shape_index);
       shape_index++;
@@ -911,6 +910,11 @@ void HabanaLaunchOpPT::ProcessSynapseShapeTensors(
           maybe_syn_shape_tensor.tensor_type());
       shape_tensor_tinfos.emplace_back(ti);
     }
+  }
+  // Add shape tensor for all Operator created inside habanaOp
+  std::vector<HabanaOperatorPtr> habana_kernels = habanaOp->GetKernels();
+  for (auto& habana_op : habana_kernels) {
+    ProcessSynapseShapeTensors(habana_op, node);
   }
 }
 

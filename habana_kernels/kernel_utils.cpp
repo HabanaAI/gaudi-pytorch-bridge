@@ -408,6 +408,13 @@ void ConstantOutOperator::AllocateAndAddSynapseNode(
   // It was observed if we let that syn tensor remain, the kernel gives wrong
   // outputs
   p_context_->syn_inputs_.clear();
+
+  // Allocate Shape Tensor
+  if (graph.is_dynamic_graph()) {
+    auto result_shape = habana_helpers::createPTTensor(output, true);
+    AllocateSynapseInput(graph, result_shape, true, true);
+  }
+
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
@@ -449,6 +456,13 @@ void ConstantOperator::AllocateAndAddSynapseNode(
   // It was observed if we let that syn tensor remain, the kernel gives wrong
   // outputs
   p_context_->syn_inputs_.clear();
+
+  // Allocate Shape Tensor
+  if (graph.is_dynamic_graph()) {
+    auto result_shape = habana_helpers::createPTTensor(output, true);
+    AllocateSynapseInput(graph, result_shape, true, true);
+  }
+
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 

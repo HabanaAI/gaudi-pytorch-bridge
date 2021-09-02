@@ -242,6 +242,10 @@ class HabanaOperator {
     return kernel_meta_data_;
   }
 
+  virtual const std::vector<HabanaOperatorPtr> GetKernels() const {
+    return kernels_;
+  }
+
   // For populating the inputs that need to be created in host and DMA
   // transferred to the device before the execution of the graph.
   virtual getDMAInputTensorCBType getDMAInputTensorCB();

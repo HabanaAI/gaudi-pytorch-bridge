@@ -135,6 +135,13 @@ void UpsampleOperator::AllocateAndAddSynapseNode(
   p_context_->params_.emplace<ns_ResizeKernel::Params>(syn_resize_params);
   p_context_->params_size_ = sizeof(syn_resize_params);
 
+  // Allocate Shape tensor
+  if (graph.is_dynamic_graph()) {
+    auto result_shape = habana_helpers::createPTTensor(
+        input, shape_out, input.options(), memory_format, true);
+    AllocateSynapseInput(graph, result_shape, true, true);
+  }
+
   AllocateSynapseOutput(graph, output, is_output_persistent);
   AddNodeToSynapseGraph(graph, &syn_resize_params, sizeof(syn_resize_params));
 }
@@ -189,6 +196,17 @@ void UpsampleBackwardOperator::AllocateAndAddSynapseNode(
 
   p_context_->params_.emplace<ns_ResizeKernel::Params>(syn_resize_params);
   p_context_->params_size_ = sizeof(syn_resize_params);
+
+  // Allocate Shape tensor
+  if (graph.is_dynamic_graph()) {
+    auto result_shape = habana_helpers::createPTTensor(
+        grad_output,
+        grad_out_shape,
+        grad_output.options(),
+        memory_format,
+        true);
+    AllocateSynapseInput(graph, result_shape, true, true);
+  }
 
   AllocateSynapseOutput(graph, output, is_output_persistent);
   AddNodeToSynapseGraph(graph, &syn_resize_params, sizeof(syn_resize_params));
