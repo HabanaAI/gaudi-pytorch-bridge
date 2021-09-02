@@ -26,7 +26,7 @@ FuncDef = namedtuple_with_defaults("FuncDef", "cpp_sig, aten_sig, dispatch, defa
 
 OpGen = namedtuple_with_defaults(
     "OpGen",
-    "tree, xtree, rwxtree, func, xfunc, lazy_code, hpuop_code, dtype_def, cname, sig, rwsig, cppsig, funsig, mapsig, aten_sig, dispatch, default, op_base_class, lazy_class",
+    "tree, xtree, rwxtree, func, xfunc, lazy_code, kernel_code, cname, sig, rwsig, cppsig, funsig, mapsig, aten_sig, dispatch, default, ctxop",
 )
 
 _GRAMMAR = r"""
@@ -142,11 +142,11 @@ namespace habana {{
 
 {funcs}
 
-{hpuops}
+{kernel_code}
 
-{hpuop_regs}
+{kr_regs}
 
-{regs}
+{torch_regs}
 }}  // namespace habana
 """
 
@@ -164,7 +164,7 @@ _CUSTOM_HANDLER = """
     {body}
   }}"""
 
-_COMPUTE_OUTPUT_SHAPE= """
+_COMPUTE_OUTPUT_SHAPE = """
 
   sizes_vec ComputeOutputShapes(const Stack& stack) override {{
     return {body}(stack);
@@ -224,6 +224,9 @@ class Op(object):
 
     def use_meta(self):
         return self.op.get("use_meta", False)
+
+    def func_ns(self):
+        return "hpu" if self.op.get("func_ns_hpu", False) else "aten"
 
 
 class Context(object):
@@ -504,7 +507,7 @@ def generate_entry_debug_code(t, fname, params):
 def lazyop(
     ctxop, tfetcher, fn, fname, aten_sig, rtype, param_vars, meta_vars, ce_param_vars
 ):
-    symbol = re.split(r"\(|\.", aten_sig)[0]
+    fn = ctxop.func_ns() + "::" + get_aten_opname(aten_sig).split(".")[0]
     code = ""
 
     if ctxop.get_dtypes():
@@ -527,11 +530,11 @@ def lazyop(
         code += tfetcher.generate_meta_fetches()
         code += "  at::TensorList metavar = {}({});\n".format(fn, ", ".join(meta_vars))
         code += '  {}<{}> hpu_op{{"{}", {{{}}}, metavar}};\n'.format(
-            ctxop.get_lazy_class(), rtype, symbol, ", ".join(param_vars)
+            ctxop.get_lazy_class(), rtype, fn, ", ".join(param_vars)
         )
     else:
         code += '  {}<{}> hpu_op{{"{}", {{{}}}'.format(
-            ctxop.get_lazy_class(), rtype, symbol, ", ".join(param_vars)
+            ctxop.get_lazy_class(), rtype, fn, ", ".join(param_vars)
         )
         output_shape_fn = ctxop.get_custom_output_shape()
         if output_shape_fn:
@@ -719,22 +722,6 @@ def generate_code(ctx, tree, rwxtree, fname, aten_sig, sig, rwsig, params):
     ctxop = ctx.get_op(opname)
     fn = ctx.get_function(fname)
 
-    dtypes = ctxop.get_dtypes()
-    if dtypes:
-        if "Float" in dtypes:
-            dtypes.append("Double")
-        if "Int" in dtypes:
-            dtypes.append("Long")
-        if "Char" in dtypes:
-            dtypes.append("Bool")
-    dtype_def = (
-        "HPU_SUPPORTED_DTYPES({}, ({{{}}}))".format(
-            fname, ", ".join(["c10::ScalarType::" + d for d in dtypes])
-        )
-        if dtypes
-        else None
-    )
-
     lazy_code += lazyop(
         ctxop,
         tfetcher,
@@ -748,16 +735,9 @@ def generate_code(ctx, tree, rwxtree, fname, aten_sig, sig, rwsig, params):
     )
 
     hpuop_class = opname.replace(".", "_")
-    hpuop_code = get_hpuop_class_impl(ctxop, fname, hpuop_class)
+    kernel_code = get_hpuop_class_impl(ctxop, fname, hpuop_class)
 
-    return (
-        dtype_def,
-        lazy_code,
-        hpuop_code,
-        hpuop_class,
-        ctxop.get_op_base_class(),
-        ctxop.get_lazy_class(),
-    )
+    return lazy_code, kernel_code, hpuop_class, ctxop
 
 
 def requires_registration(fgen):
@@ -782,14 +762,9 @@ def get_hpu_wrapper(fndef, ctx):
 
     sig, fname, xfname = get_function_signature(rwxtree, rwsig, gen_fnname)
     if requires_registration(fndef) and get_aten_opname(aten_sig) in ctx.op_data:
-        (
-            dtype_def,
-            lazy_code,
-            hpuop_code,
-            cname,
-            op_base_class,
-            lazy_class,
-        ) = generate_code(ctx, tree, rwxtree, fname, aten_sig, sig, rwsig, params)
+        lazy_code, kernel_code, cname, ctxop = generate_code(
+            ctx, tree, rwxtree, fname, aten_sig, sig, rwsig, params
+        )
 
         return OpGen(
             tree=tree,
@@ -798,8 +773,7 @@ def get_hpu_wrapper(fndef, ctx):
             func=fname,
             xfunc=xfname,
             lazy_code=lazy_code,
-            hpuop_code=hpuop_code,
-            dtype_def=dtype_def,
+            kernel_code=kernel_code,
             cname=cname,
             sig=fndef.cpp_sig,
             rwsig=rwsig,
@@ -809,8 +783,7 @@ def get_hpu_wrapper(fndef, ctx):
             aten_sig=aten_sig,
             dispatch=fndef.dispatch,
             default=fndef.default,
-            op_base_class=op_base_class,
-            lazy_class=lazy_class,
+            ctxop=ctxop,
         )
 
 
@@ -895,11 +868,38 @@ def generate_impl(aten_sig, overload, override_fn):
     return code
 
 
-def generate_registrations(fgens):
+def generate_dtype_macro(ctxop, fname):
+    dtypes = ctxop.get_dtypes()
+    if dtypes:
+        if "Float" in dtypes:
+            dtypes.append("Double")
+        if "Int" in dtypes:
+            dtypes.append("Long")
+        if "Char" in dtypes:
+            dtypes.append("Bool")
+
+        return "HPU_SUPPORTED_DTYPES({}, ({{{}}}))".format(
+            fname, ", ".join(["c10::ScalarType::" + d for d in dtypes])
+        )
+
+
+def generate_all(fgens):
     aten_code = "TORCH_LIBRARY_IMPL(aten, HPU, m) {\n"
     autogradhpu_code = None
     overridden = set()
+
+    kr_code = "static const auto& kr = KernelRegistry()\n"
+    krlines = []
+
+    dtype_defs = ""
+    dtype_fnames = set()
+
+    lazy_hfunctions = ""
+    lazy_functions = ""
+    kernel_code = ""
+
     for fgen in fgens:
+        # torch registrations
         mapsig_key = get_mapsig_key(fgen.mapsig)
         override_fn = "HpuOp::{}".format(fgen.func)
         overridden.add(mapsig_key)
@@ -911,7 +911,32 @@ def generate_registrations(fgens):
         else:
             aten_code += impl
 
-    code = aten_code + "\n}\n"
+        # KernelRegistry registrations
+        op = fgen.aten_sig.split("(")[0].split("::")[1]
+        krlines.append(
+            '  .add("{}::{}", [](const int device_id, c10::ScalarType node_type) {{\n'
+            "      return std::make_shared<{}>(device_id, node_type);\n"
+            "  }})".format(fgen.ctxop.func_ns(), op, fgen.cname)
+        )
+
+        # Dtype definitions
+        if fgen.ctxop.get_dtypes() and fgen.func not in dtype_fnames:
+            dtype_defs += "{}\n".format(generate_dtype_macro(fgen.ctxop, fgen.func))
+            dtype_fnames.add(fgen.func)
+
+        # Lazy function declarations
+        if fgen.lazy_code:
+            lazy_hfunctions += "  static {};\n".format(fgen.rwsig)
+
+        # Lazy functions
+        if fgen.lazy_code:
+            lazy_functions += "{}\n\n".format(fgen.lazy_code)
+
+        # Lowering Kernel code
+        if fgen.kernel_code:
+            kernel_code += "{}\n".format(fgen.kernel_code)
+
+    torch_regs = aten_code + "\n}\n"
 
     if autogradhpu_code:
         code += (
@@ -920,74 +945,34 @@ def generate_registrations(fgens):
             + "\n}\n"
         )
 
-    return code, overridden
+    kr_regs = kr_code + "\n".join(krlines) + ";"
+    return (
+        dtype_defs,
+        lazy_hfunctions,
+        lazy_functions,
+        torch_regs,
+        overridden,
+        kernel_code,
+        kr_regs,
+    )
 
 
-def generate_hpuop_registrations(fgens):
-    code = "static const auto& kr = KernelRegistry()\n"
-
-    lines = []
-    for fgen in fgens:
-        op = fgen.aten_sig.split("(")[0].split("::")[1]
-        lines.append(
-            '  .add("aten::{}", [](const int device_id, c10::ScalarType node_type) {{\n'
-            "      return std::make_shared<{}>(device_id, node_type);\n"
-            "  }})".format(op, fgen.cname)
-        )
-
-    return code + "\n".join(lines) + ";"
-
-
-def generate_dtype_defs(fgens):
-    code = ""
-    fnames = set()
-    for fgen in fgens:
-        if fgen.dtype_def and fgen.func not in fnames:
-            code += "{}\n".format(fgen.dtype_def)
-            fnames.add(fgen.func)
-    return code
-
-
-def generate_lazy_fns(fgens):
-    code = ""
-    for fgen in fgens:
-        if fgen.lazy_code:
-            code += "{}\n\n".format(fgen.lazy_code)
-    return code
-
-
-def generate_hpuop_class(fgens):
-    code = ""
-    for fgen in fgens:
-        if fgen.hpuop_code:
-            code += "{}\n".format(fgen.hpuop_code)
-    return code
-
-
-def generate_class_functions(fgens):
-    code = ""
-    for fgen in fgens:
-        if fgen.lazy_code:
-            code += "  static {};\n".format(fgen.rwsig)
-    return code
-
-
-def generate_op_base_classes(fgens):
+def generate_op_base_hclasses(fgens):
     code = ""
     classes = set()
     for fgen in fgens:
-        fclass = fgen.op_base_class
+        fclass = fgen.ctxop.get_op_base_class()
         if fclass != "HabanaOperatorHelper" and fclass not in classes:
             code += "HPU_CUSTOM_HABANA_OP({})\n".format(fclass)
             classes.add(fclass)
     return code
 
 
-def generate_lazy_classes(fgens):
+def generate_lazy_hclasses(fgens):
     code = ""
     classes = set()
     for fgen in fgens:
-        fclass = fgen.lazy_class
+        fclass = fgen.ctxop.get_lazy_class()
         if fclass != "LazyOp" and fclass not in classes:
             code += "HPU_FRONTEND_OP({})\n".format(fclass)
             classes.add(fclass)
@@ -1028,15 +1013,18 @@ def generate(args):
         fgens
     ), "Ops in yaml must conform to definitions in RegistrationDeclarations.h"
 
-    # TODO use a single loop
-    dtype_defs = generate_dtype_defs(fgens)
-    functions = generate_lazy_fns(fgens)
-    hpuops = generate_hpuop_class(fgens)
-    hfunctions = generate_class_functions(fgens)
-    op_base_classes = generate_op_base_classes(fgens)
-    lazy_classes = generate_lazy_classes(fgens)
-    hpuop_regs = generate_hpuop_registrations(fgens)
-    regs, overridden = generate_registrations(fgens)
+    op_base_classes = generate_op_base_hclasses(fgens)
+    lazy_classes = generate_lazy_hclasses(fgens)
+
+    (
+        dtype_defs,
+        hfunctions,
+        functions,
+        torch_regs,
+        overridden,
+        kernel_code,
+        kr_regs,
+    ) = generate_all(fgens)
 
     # Create output files ...
     print(
@@ -1053,9 +1041,9 @@ def generate(args):
             gen=os.path.basename(sys.argv[0]),
             dtype_defs=dtype_defs,
             funcs=functions,
-            hpuops=hpuops,
-            hpuop_regs=hpuop_regs,
-            regs=regs,
+            kernel_code=kernel_code,
+            kr_regs=kr_regs,
+            torch_regs=torch_regs,
         ),
         file=gen_cpp_output_file(args),
     )
