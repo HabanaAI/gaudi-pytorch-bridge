@@ -1429,8 +1429,16 @@ Tensor eq_tensor_hpu_lazy(const Tensor& self, const Tensor& other) {
 
 Tensor ne_scalar_hpu_lazy(const Tensor& self, const Scalar& other) {
   PT_LAZY_TRACE;
+  Tensor self_cast = self;
+
+  if (self.scalar_type() == c10::ScalarType::Byte) {
+    LazyOp<at::Tensor> k_{
+        "hpu::cast", {self, c10::ScalarType::Int}, {}, {self.sizes().vec()}};
+    self_cast = k_.call();
+  }
+
   LazyCompareOp<at::Tensor> k{
-      "aten::ne", {self, other}, {}, {self.sizes().vec()}};
+      "aten::ne", {self_cast, other}, {}, {self.sizes().vec()}};
   return k.call();
 }
 
