@@ -782,9 +782,20 @@ Tensor empty_from_storage_lazy(
 // as source
 Tensor as_strided_hpu_lazy(
     const Tensor& self,
-    IntArrayRef size,
-    IntArrayRef stride,
+    IntArrayRef size_in,
+    IntArrayRef stride_in,
     c10::optional<int64_t> storage_offset) {
+  IntArrayRef size = size_in;
+  bool is_0d_tensor = false;
+  std::vector<int64_t> initvec{1};
+  if (size_in.size() == 0) {
+    size = initvec;
+    is_0d_tensor = true;
+  }
+  IntArrayRef stride = stride_in;
+  if (stride_in.size() == 0) {
+    stride = initvec;
+  }
   if (!to_lower_as_strided()) {
     auto hb_tensor = GetOrCreateHbLazyTensor(self, self.device());
     auto src_data = hb_tensor.CurrentTensorData();
@@ -814,6 +825,9 @@ Tensor as_strided_hpu_lazy(
       auto exec_mode = context->getExecutionMode();
       if (exec_mode == kLOWERING) {
         auto result = empty_as_strided_lazy(self, size, stride, storage_offset);
+        if (is_0d_tensor) {
+          result.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+        }
         return result;
       }
     }
@@ -848,6 +862,9 @@ Tensor as_strided_hpu_lazy(
       ir::LazyView view(self, hb_tensor.GetIrValue());
       hb_result.addView(view);
       flush_op(result);
+      if (is_0d_tensor) {
+        result.unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+      }
       return result;
     } else {
       return AtenHpuTypeDefault::as_strided(self, size, stride, storage_offset);
@@ -4771,8 +4788,11 @@ Tensor permute_hpu_lazy(const Tensor& self, IntArrayRef dims_) {
   return result;
 }
 
-Tensor expand_hpu_lazy(const Tensor& self, IntArrayRef size, bool implicit) {
+Tensor expand_hpu_lazy(const Tensor& self, IntArrayRef size_in, bool implicit) {
   PT_LAZY_TRACE;
+  auto size = size_in;
+  std::vector<int64_t> initvec{1};
+  size = (size_in.vec().size() == 0) ? initvec : size_in;
   ir::NodePtr node = std::make_shared<ir::Expand>(self, size, implicit);
 
   std::vector<int64_t> expandedSizes;
