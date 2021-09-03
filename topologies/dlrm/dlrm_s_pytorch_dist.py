@@ -680,8 +680,7 @@ if __name__ == "__main__":
     distributed_utils.init_distributed_mode(args)
     if use_gpu:
         if use_hpu:
-            from habana_frameworks.torch.utils.library_loader import load_habana_module
-            load_habana_module()
+            torch.ops.load_library(os.path.join(os.environ['PYTORCH_MODULES_RELEASE_BUILD'], "libhabana_pytorch_plugin.so"))
             device = torch.device("hpu")
             if args.use_custom_embedding:
                 import HabanaEmbeddingBag_cpp

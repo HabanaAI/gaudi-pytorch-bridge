@@ -102,8 +102,7 @@ def main(rank, world_size):
 
     use_habana = not args.no_habana
     if use_habana:
-        from habana_frameworks.torch.utils.library_loader import load_habana_module
-        load_habana_module()
+        torch.ops.load_library("libhabana_pytorch_plugin.so")
 
     torch.manual_seed(args.seed)
 

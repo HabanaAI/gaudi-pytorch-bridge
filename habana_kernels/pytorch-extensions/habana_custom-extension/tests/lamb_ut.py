@@ -5,9 +5,7 @@ import torch
 
 from habana_frameworks.torch.hpex.optimizers import FusedLamb
 
-from habana_frameworks.torch.utils.library_loader import load_habana_module
-load_habana_module()
-
+torch.ops.load_library(os.path.join(os.environ['BUILD_ROOT_LATEST'], "libhabana_pytorch_plugin.so"))
 habana = torch.device("hpu")
 cpu = torch.device("cpu")
 

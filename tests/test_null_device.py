@@ -4,8 +4,8 @@ from timeit import default_timer as timer
 import pytest
 
 os.environ["HBN_SYNAPSE_LOGGER_COMMANDS"] = "use_null_backend"
-from habana_frameworks.tensorflow import load_habana_module
-load_habana_module()
+torch.ops.load_library(os.path.join(os.environ['PYTORCH_MODULES_RELEASE_BUILD'], "pytorch_synapse_logger.so"))
+torch.ops.load_library(os.path.join(os.environ['PYTORCH_MODULES_RELEASE_BUILD'], "libhabana_pytorch_plugin.so"))
 
 def test_null_device():
     hpu = torch.device('hpu')

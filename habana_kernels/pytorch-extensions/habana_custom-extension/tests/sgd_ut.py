@@ -50,10 +50,10 @@ if __name__ == "__main__":
 
     #print('after  sgd.step x ::\n{}'.format(x.to(cpu)))
 
-    from habana_frameworks.torch.utils.library_loader import load_habana_module
-    load_habana_module()
+    torch.ops.load_library(os.path.join(os.environ['BUILD_ROOT_LATEST'], "libhabana_pytorch_plugin.so"))
     habana = torch.device("hpu")
 
+    sys.path.insert(0, os.path.join(os.environ['PYTORCH_MODULES_RELEASE_BUILD']))
     import habana_frameworks.torch.core as htcore
     from hb_custom import FusedSGD
     htcore.enable_eliminate_common_subexpression(False)

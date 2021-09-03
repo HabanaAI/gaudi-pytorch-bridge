@@ -5,6 +5,7 @@ import os
 import numpy as np
 from test_utils import compare_tensors, evaluate_fwd_bwd_kernel
 import pytest
+sys.path.insert(0, os.path.join(os.environ['PYTORCH_MODULES_RELEASE_BUILD']))
 try:
     import habana_frameworks.torch.core as htcore
 except ImportError:

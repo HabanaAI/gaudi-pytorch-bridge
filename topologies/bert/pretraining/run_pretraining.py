@@ -376,8 +376,8 @@ def setup_training(args):
 
     #assert (torch.cuda.is_available())
     if args.use_habana:
-        from habana_frameworks.torch.utils.library_loader import load_habana_module
-        load_habana_module()
+        torch.ops.load_library(os.path.join(os.environ['PYTORCH_MODULES_RELEASE_BUILD'], "libhabana_pytorch_plugin.so"))
+        sys.path.insert(0, os.path.join(os.environ['PYTORCH_MODULES_RELEASE_BUILD']))
         device = torch.device("hpu")
 
         if args.hmp:
