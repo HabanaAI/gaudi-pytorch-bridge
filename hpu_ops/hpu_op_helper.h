@@ -170,11 +170,11 @@ class HabanaOperatorHelper : public HabanaOperator {
   static std::shared_ptr<void> FillHardSigmoidParams(const at::Stack&, size_t&);
   static std::shared_ptr<void> FillMseLossParams(const at::Stack&, size_t&);
 
-  static sizes_vec AddCOpsOutputShape(const at::Stack&);
-  static sizes_vec BinaryOutputShape(const at::Stack&);
-  static sizes_vec MseLossBwdOutputShape(const at::Stack&);
-  static sizes_vec MseLossOutputShape(const at::Stack&);
-  static sizes_vec PowOutputShape(const at::Stack&);
+  static sizes_vec AddCOpsOutputShape(const at::Stack&, bool = false);
+  static sizes_vec BinaryOutputShape(const at::Stack&, bool = false);
+  static sizes_vec MseLossBwdOutputShape(const at::Stack&, bool = false);
+  static sizes_vec MseLossOutputShape(const at::Stack&, bool = false);
+  static sizes_vec PowOutputShape(const at::Stack&, bool = false);
 };
 
 #define PARAMS_STUB(structname) \
@@ -206,13 +206,14 @@ class HabanaOperatorHelper : public HabanaOperator {
 
 } // namespace habana
 
-#define HPU_FRONTEND_OP(op)                                                   \
-  template <typename T>                                                       \
-  struct op : habana_lazy::LazyOp<T> {                                        \
-    op(const std::string& qualstring,                                         \
-       const std::vector<at::IValue>& inputs,                                 \
-       const std::function<sizes_vec(const at::Stack&)>& out_shapes_fn = {}); \
-    T get_result_overrideable() override;                                     \
+#define HPU_FRONTEND_OP(op)                                                    \
+  template <typename T>                                                        \
+  struct op : habana_lazy::LazyOp<T> {                                         \
+    op(const std::string& qualstring,                                          \
+       const std::vector<at::IValue>& inputs,                                  \
+       const std::function<sizes_vec(const at::Stack&, bool)>& out_shapes_fn = \
+           {});                                                                \
+    T get_result_overrideable() override;                                      \
   };
 
 #define HPU_SUPPORTED_DTYPES(fn, supported_dtypes)                       \

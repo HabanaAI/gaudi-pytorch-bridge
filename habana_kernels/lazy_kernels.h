@@ -71,14 +71,15 @@ class LazyOp {
   explicit LazyOp(
       const std::string& qualstring,
       const std::vector<at::IValue>& inputs,
-      const std::function<std::vector<std::vector<int64_t>>(const at::Stack&)>&
+      const std::function<
+          std::vector<std::vector<int64_t>>(const at::Stack&, bool)>&
           out_shapes_fn,
       int out_index = 0) noexcept
       : m_symbol{at::Symbol::fromQualString(qualstring)},
         m_metadata_indices{},
         m_out_index{out_index} {
     if (out_shapes_fn) {
-      m_out_shapes = out_shapes_fn(inputs);
+      m_out_shapes = out_shapes_fn(inputs, false);
     }
     set_inputs(inputs);
   }

@@ -11,7 +11,9 @@
 #include "generated/hpu_op.h"
 
 namespace habana {
-sizes_vec HabanaOperatorHelper::BinaryOutputShape(const at::Stack& stack) {
+sizes_vec HabanaOperatorHelper::BinaryOutputShape(
+    const at::Stack& stack,
+    bool) {
   const torch::Tensor& self = stack_tensor(stack, 0);
   const torch::Tensor& other = stack_tensor(stack, 1);
   return {at::infer_size(self.sizes(), other.sizes())};

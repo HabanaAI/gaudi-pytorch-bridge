@@ -11,7 +11,7 @@
 #include "generated/hpu_op.h"
 
 namespace habana {
-sizes_vec HabanaOperatorHelper::PowOutputShape(const at::Stack& stack) {
+sizes_vec HabanaOperatorHelper::PowOutputShape(const at::Stack& stack, bool) {
   return {stack_tensor(stack, 1).sizes().vec()};
 }
 

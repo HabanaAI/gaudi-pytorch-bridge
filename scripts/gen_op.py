@@ -175,7 +175,7 @@ _CUSTOM_HANDLER = """
 _COMPUTE_OUTPUT_SHAPE = """
 
   sizes_vec ComputeOutputShapes(const Stack& stack) override {{
-    return {body}(stack);
+    return {body}(stack, true);
   }}"""
 
 _FILL_PARAMS1 = """

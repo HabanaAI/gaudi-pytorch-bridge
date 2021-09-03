@@ -12,7 +12,9 @@
 
 namespace habana {
 
-sizes_vec HabanaOperatorHelper::AddCOpsOutputShape(const at::Stack& stack) {
+sizes_vec HabanaOperatorHelper::AddCOpsOutputShape(
+    const at::Stack& stack,
+    bool) {
   const torch::Tensor& self = stack_tensor(stack, 0);
   const torch::Tensor& other1 = stack_tensor(stack, 1);
   const torch::Tensor& other2 = stack_tensor(stack, 2);
