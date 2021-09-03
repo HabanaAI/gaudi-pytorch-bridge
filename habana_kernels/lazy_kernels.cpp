@@ -2762,6 +2762,37 @@ Tensor slice_backward_hpu_lazy(
 
 Tensor select_hpu_lazy(const Tensor& self, int64_t dim, int64_t index) {
   PT_LAZY_TRACE;
+
+  int64_t ndim = self.dim();
+  if (ndim == 0) {
+    HABANA_ASSERT(false, "select() cannot be applied to a 0-dim tensor.")
+  }
+  dim = at::maybe_wrap_dim(dim, self.dim(), /*wrap_scalar=*/true);
+  auto size = self.size(dim);
+  if (index < -size || index >= size) {
+    if (self.has_names() && self.names()[dim] != Dimname::wildcard()) {
+      HABANA_ASSERT(
+          false,
+          "select(): index ",
+          index,
+          " out of range for tensor of size ",
+          self.sizes(),
+          " at dimension ",
+          self.names()[dim]);
+    }
+    HABANA_ASSERT(
+        false,
+        "select(): index ",
+        index,
+        " out of range for tensor of size ",
+        self.sizes(),
+        " at dimension ",
+        dim);
+  }
+  if (index < 0) {
+    index += size;
+  }
+
   auto node = std::make_shared<ir::Slice>(self, dim, index);
 
   // infer shape
