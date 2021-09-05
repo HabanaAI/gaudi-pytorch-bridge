@@ -850,14 +850,6 @@ void AddMemcpy(Tensor& src, Tensor& dst) {
 
   flush_op(dst);
 }
-Tensor CreateDeviceTensorFromScalar(Scalar value, c10::ScalarType scalar_type) {
-  Tensor value_tensor;
-  if (scalar_type == c10::ScalarType::Float)
-    value_tensor = at::tensor(value.toFloat()).to(c10::kHPU, true);
-  else if (scalar_type == c10::ScalarType::Int)
-    value_tensor = at::tensor(value.toInt()).to(c10::kHPU, true);
-  return value_tensor;
-}
 
 Tensor asin_hpu_lazy(const Tensor& self) {
   PT_LAZY_TRACE;
@@ -1935,7 +1927,7 @@ Tensor& masked_fill_scalar_hpu_lazy_(
     const Tensor& mask,
     const Scalar& value) {
   PT_LAZY_TRACE;
-  Tensor value_tensor = CreateDeviceTensorFromScalar(value, self.scalar_type());
+  Tensor value_tensor = habana_helpers::scalar_to_device_tensor(value, self, 0);
   return masked_fill_hpu_lazy_(self, mask, value_tensor);
 }
 Tensor gather_src_hpu_lazy(

@@ -17,10 +17,10 @@ using namespace at;
 class LazyMaskKernelTest : public habana_lazy_test::LazyTest {};
 
 TEST_F(LazyMaskKernelTest, MaskedScaleInplaceTest) {
-  const std::vector<int64_t> dimentions{7, 3, 5};
+  const std::vector<int64_t> dimensions{7, 3, 5};
   const int randomLimit = 300;
-  torch::Tensor A = torch::randn(dimentions);
-  torch::Tensor B = torch::randn(dimentions);
+  torch::Tensor A = torch::randn(dimensions);
+  torch::Tensor B = torch::randn(dimensions);
 
   // Generate random number for scalar
   float x = (float)rand() / (float)(RAND_MAX / randomLimit);
@@ -42,10 +42,10 @@ TEST_F(LazyMaskKernelTest, MaskedScaleInplaceTest) {
 }
 
 TEST_F(LazyMaskKernelTest, MaskedFillInplaceTest) {
-  const std::vector<int64_t> dimentions{3, 3};
-  torch::Tensor A = torch::randn(dimentions);
+  const std::vector<int64_t> dimensions{3, 3};
+  torch::Tensor A = torch::randn(dimensions);
   int data[] = {1, 0, 0, 0, 1, 0, 0, 0, 1};
-  torch::Tensor mask = torch::from_blob(data, dimentions).to(torch::kInt);
+  torch::Tensor mask = torch::from_blob(data, dimensions).to(torch::kInt);
 
   torch::Tensor value = torch::randn({}); // Only 0-dim tensor accesped
   auto hA = A.to(torch::kHPU);
@@ -60,11 +60,83 @@ TEST_F(LazyMaskKernelTest, MaskedFillInplaceTest) {
 }
 
 TEST_F(LazyMaskKernelTest, MaskedFillScalarInplaceTest) {
-  const std::vector<int64_t> dimentions{3, 3};
-  torch::Tensor A = torch::randn(dimentions);
+  const std::vector<int64_t> dimensions{3, 3};
+  torch::Tensor A = torch::randn(dimensions);
   int data[] = {1, 0, 0, 0, 1, 0, 0, 0, 1};
-  torch::Tensor mask = torch::from_blob(data, dimentions).to(torch::kInt);
+  torch::Tensor mask = torch::from_blob(data, dimensions).to(torch::kInt);
   Scalar value = 35;
+
+  auto hA = A.to(torch::kHPU);
+  auto cpuOut = A.masked_fill_(mask, value);
+
+  auto hMask = mask.to(torch::kHPU);
+  auto result = hA.masked_fill_(hMask, value);
+  Tensor hOut = result.to(kCPU);
+  EXPECT_TRUE(allclose(hOut, cpuOut));
+}
+
+TEST_F(LazyMaskKernelTest, MaskedFillScalarInplaceBf16Test) {
+  const std::vector<int64_t> dimensions{3, 3};
+  at::TensorOptions options(ScalarType::BFloat16);
+  torch::Tensor A = torch::randn(dimensions, options);
+  torch::Tensor B = torch::randn({1}, options);
+  bool data[] = {true, false, false, false, true, false, false, false, true};
+  torch::Tensor mask = torch::from_blob(data, dimensions).to(torch::kBool);
+  Scalar value = B.item();
+
+  auto hA = A.to(torch::kHPU);
+  auto cpuOut = A.masked_fill_(mask, value);
+
+  auto hMask = mask.to(torch::kHPU);
+  auto result = hA.masked_fill_(hMask, value);
+  Tensor hOut = result.to(kCPU);
+  EXPECT_TRUE(allclose(hOut, cpuOut));
+}
+
+TEST_F(LazyMaskKernelTest, MaskedFillScalarInplaceIntTest) {
+  const std::vector<int64_t> dimensions{3, 3};
+  at::TensorOptions options(ScalarType::Int);
+  torch::Tensor A = torch::randint(100, dimensions, options);
+  torch::Tensor B = torch::randint(100, {1}, options);
+  bool data[] = {true, false, false, false, true, false, false, false, true};
+  torch::Tensor mask = torch::from_blob(data, dimensions).to(torch::kBool);
+  Scalar value = B.item();
+
+  auto hA = A.to(torch::kHPU);
+  auto cpuOut = A.masked_fill_(mask, value);
+
+  auto hMask = mask.to(torch::kHPU);
+  auto result = hA.masked_fill_(hMask, value);
+  Tensor hOut = result.to(kCPU);
+  EXPECT_TRUE(allclose(hOut, cpuOut));
+}
+
+TEST_F(LazyMaskKernelTest, MaskedFillScalarInplaceDoubleTest) {
+  const std::vector<int64_t> dimensions{3, 3};
+  at::TensorOptions options(ScalarType::Double);
+  torch::Tensor A = torch::randn(dimensions, options);
+  torch::Tensor B = torch::randn({1}, options);
+  bool data[] = {true, false, false, false, true, false, false, false, true};
+  torch::Tensor mask = torch::from_blob(data, dimensions).to(torch::kBool);
+  Scalar value = B.item();
+
+  auto hA = A.to(torch::kHPU);
+  auto cpuOut = A.masked_fill_(mask, value);
+
+  auto hMask = mask.to(torch::kHPU);
+  auto result = hA.masked_fill_(hMask, value);
+  Tensor hOut = result.to(kCPU);
+  EXPECT_TRUE(allclose(hOut, cpuOut));
+}
+
+TEST_F(LazyMaskKernelTest, MaskedFillScalarInplaceLongTest) {
+  const std::vector<int64_t> dimensions{3, 3};
+  at::TensorOptions options(ScalarType::Long);
+  torch::Tensor A = torch::randint(100, dimensions, options);
+  torch::Tensor B = torch::randint(100, {1}, options);
+  bool data[] = {true, false, false, false, true, false, false, false, true};
+  torch::Tensor mask = torch::from_blob(data, dimensions).to(torch::kBool);
+  Scalar value = B.item();
 
   auto hA = A.to(torch::kHPU);
   auto cpuOut = A.masked_fill_(mask, value);

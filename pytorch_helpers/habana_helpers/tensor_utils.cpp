@@ -215,14 +215,19 @@ at::Tensor habana_helpers::scalar_to_device_tensor(
   if (self_scalar_type == c10::ScalarType::BFloat16) {
     auto val = scalar.to<at::BFloat16>();
     copy_scalar_to_device(&val, output, output.nbytes());
-  } else if (self_scalar_type == c10::ScalarType::Float) {
+  } else if (
+      self_scalar_type == c10::ScalarType::Float ||
+      self_scalar_type == c10::ScalarType::Double) {
     auto val = scalar.to<float>();
     copy_scalar_to_device(&val, output, output.nbytes());
-  } else if (self_scalar_type == c10::ScalarType::Int) {
+  } else if (
+      self_scalar_type == c10::ScalarType::Int ||
+      self_scalar_type == c10::ScalarType::Long) {
     auto val = scalar.to<int>();
     copy_scalar_to_device(&val, output, output.nbytes());
   } else {
-    PT_KERNEL_FATAL("Unsupported data type used in binary op");
+    PT_KERNEL_FATAL(
+        "Unsupported data type of scalar when attempting to convert it to a tensor");
   }
 
   return output;

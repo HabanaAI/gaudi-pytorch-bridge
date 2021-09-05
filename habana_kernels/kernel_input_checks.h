@@ -402,18 +402,21 @@ static const std::
                   at::ScalarType::Float,
                   at::ScalarType::Long}},
             },
-            {
-                "masked_fill_",
-                {{at::ScalarType::Double,
-                  at::ScalarType::BFloat16,
-                  at::ScalarType::Short,
-                  at::ScalarType::Byte,
-                  at::ScalarType::Int,
-                  at::ScalarType::Bool,
-                  at::ScalarType::Char,
-                  at::ScalarType::Float,
-                  at::ScalarType::Long}},
-            },
+            {"masked_fill_",
+             {{at::ScalarType::BFloat16,
+               at::ScalarType::Int,
+               at::ScalarType::Long,
+               at::ScalarType::Float,
+               at::ScalarType::Double},
+              {at::ScalarType::Bool,
+               at::ScalarType::Int,
+
+               at::ScalarType::Char},
+              {at::ScalarType::BFloat16,
+               at::ScalarType::Int,
+               at::ScalarType::Long,
+               at::ScalarType::Float,
+               at::ScalarType::Double}}},
             {
                 "index_add_",
                 {{at::ScalarType::Double,
@@ -4331,6 +4334,17 @@ void hpu_check_inputs(
     const std::string& op,
     const std::vector<at::Tensor>& tensors) {
   const auto& supported_types = op_info.at(op);
+  auto supported_types_size = supported_types.size();
+  bool global_constraint = supported_types.size() == 1;
+  TORCH_CHECK(
+      global_constraint || supported_types_size >= tensors.size(),
+      "input dtype check failed due to insufficient amount of tensors registered as constraints for op: ",
+      op,
+      ". op defined with: ",
+      supported_types_size,
+      " tensors, however it has ",
+      tensors.size(),
+      " tensors.");
   size_t i = 0;
   for (const auto& tensor : tensors) {
     if (!tensor.defined()) {
@@ -4340,7 +4354,7 @@ void hpu_check_inputs(
 
     // When same types are applicable to all input tensors, use the only one
     // defined
-    size_t j = (supported_types.size() == 1) ? 0 : i;
+    size_t j = (supported_types_size == 1) ? 0 : i;
     TORCH_CHECK(
         supported_types.at(j).count(dtype),
         "Tensor input ",
