@@ -49,8 +49,8 @@ conv_test_case_list = [
 
 conv3d_test_case_list = [
     # N, D, H, W, C, T, R, S, K, stride, padding, bias
-    (1, 8, 28, 28, 20, 3, 3, 3, 20, 1, 1, False),
-    (2, 4, 28, 28, 20, 1, 1, 1, 40, 2, 0, True),
+    (1, 8, 28, 28, 20, 3, 3, 3, 20, 1, 1, True),
+    (2, 4, 28, 28, 20, 1, 1, 1, 40, 2, 0, False),
     # UNet3D layer
     (1, 128, 128, 128, 32, 3, 3, 3, 64, 2, 1, True)
 ]
@@ -194,6 +194,40 @@ def test_hpu_conv_transpose_fwd_bwd(N, H, W, C, R, S, K, stride, padding, bias):
       np.testing.assert_allclose(out_hpu_bwd[2].to(cpu).detach().numpy(),
             out_cpu_bwd[2].detach().numpy(), atol=0.01, rtol=0.01, equal_nan=True)
 
+@pytest.mark.parametrize("N, D, H, W, C, T, R, S, K, stride, padding, bias", conv_transpose3d_test_case_list)
+def test_hpu_conv_transpose3d_fwd_bwd(N, D, H, W, C, T, R, S, K, stride, padding, bias):
+    hpu = torch.device('hpu')
+    cpu = torch.device('cpu')
+    input_nchw = torch.randn((N,C,D,H,W),dtype=torch.float, requires_grad=True)
+
+    kernel_nchw = nn.ConvTranspose3d(in_channels=C,
+        out_channels=K,
+        kernel_size=(T, R, S),
+        stride=stride,
+        padding=padding,
+        bias=bias)
+    kernel_copy = deepcopy(kernel_nchw)
+    #cpu forward
+    out_cpu_nchw = kernel_nchw(input_nchw)
+
+    input_nchw_hpu = input_nchw.to(hpu)
+    kernel_nhwc_hpu = kernel_copy.to(hpu)
+    #Keep HPU weights metadata like sizes and strides same as in CPU, but data permuted for DHWKC
+    kernel_nhwc_hpu.weight.data = kernel_nhwc_hpu.weight.data.permute((2, 3, 4, 1, 0))
+    #hpu forward
+    out_cpu_nchw_hpu = kernel_nhwc_hpu(input_nchw_hpu)
+    #create bwd input tensor
+    bwd_in = torch.randn(out_cpu_nchw.shape)
+    out_cpu_bwd = out_cpu_nchw.grad_fn(bwd_in)
+    out_hpu_bwd = out_cpu_nchw_hpu.grad_fn(bwd_in.to(hpu))
+    np.testing.assert_allclose(out_hpu_bwd[0].to(cpu).detach().numpy(),
+                out_cpu_bwd[0].detach().numpy(), atol=0.01, rtol=0.01, equal_nan=True)
+    np.testing.assert_allclose(out_hpu_bwd[1].permute(4,3,0,1,2).to(cpu).detach().numpy(),
+                out_cpu_bwd[1].detach().numpy(), atol=0.01, rtol=0.01, equal_nan=True)
+    if (out_cpu_bwd[2] != None):
+      np.testing.assert_allclose(out_hpu_bwd[2].to(cpu).detach().numpy(),
+            out_cpu_bwd[2].detach().numpy(), atol=0.01, rtol=0.01, equal_nan=True)
+
 @pytest.mark.parametrize("N, H, W, C, R, S, K, stride, padding, bias", conv_transpose_test_case_list)
 def test_hpu_conv_transpose_chlast_fwd_bwd(N, H, W, C, R, S, K, stride, padding, bias):
     hpu = torch.device('hpu')
@@ -223,6 +257,40 @@ def test_hpu_conv_transpose_chlast_fwd_bwd(N, H, W, C, R, S, K, stride, padding,
       np.testing.assert_allclose(out_hpu_bwd[2].to(cpu).detach().numpy(),
             out_cpu_bwd[2].detach().numpy(), atol=0.01, rtol=0.01, equal_nan=True)
 
+
+@pytest.mark.parametrize("N, D, H, W, C, T, R, S, K, stride, padding, bias", conv_transpose3d_test_case_list)
+def test_hpu_conv_transpose3d_chlast_fwd_bwd(N, D, H, W, C, T, R, S, K, stride, padding, bias):
+    hpu = torch.device('hpu')
+    cpu = torch.device('cpu')
+    input_nchw = torch.randn((N,C,D,H,W),dtype=torch.float, requires_grad=True)
+
+    kernel_nchw = nn.ConvTranspose3d(in_channels=C,
+        out_channels=K,
+        kernel_size=(T, R, S),
+        stride=stride,
+        padding=padding,
+        bias=bias)
+    kernel_copy = deepcopy(kernel_nchw)
+    #cpu forward
+    out_cpu_nchw = kernel_nchw(input_nchw)
+
+    input_c_last_hpu = input_nchw.contiguous(memory_format=torch.channels_last_3d).to(hpu)
+    kernel_nhwc_hpu = kernel_copy.to(hpu)
+    #Keep HPU weights metadata like sizes and strides same as in CPU, but data permuted for HWKC
+    kernel_nhwc_hpu.weight.data = kernel_nhwc_hpu.weight.data.permute((2, 3, 4, 1, 0))
+    #hpu forward
+    out_cpu_nhwc_hpu = kernel_nhwc_hpu(input_c_last_hpu)
+    #create bwd input tensor
+    bwd_in = torch.randn(out_cpu_nchw.shape)
+    out_cpu_bwd = out_cpu_nchw.grad_fn(bwd_in)
+    out_hpu_bwd = out_cpu_nhwc_hpu.grad_fn(bwd_in.contiguous(memory_format=torch.channels_last_3d).to(hpu))
+    np.testing.assert_allclose(out_hpu_bwd[0].to(cpu).detach().numpy(),
+                out_cpu_bwd[0].detach().numpy(), atol=0.01, rtol=0.01, equal_nan=True)
+    np.testing.assert_allclose(out_hpu_bwd[1].permute(4,3,0,1,2).to(cpu).detach().numpy(),
+                out_cpu_bwd[1].detach().numpy(), atol=0.01, rtol=0.01, equal_nan=True)
+    if (out_cpu_bwd[2] != None):
+      np.testing.assert_allclose(out_hpu_bwd[2].to(cpu).detach().numpy(),
+            out_cpu_bwd[2].detach().numpy(), atol=0.01, rtol=0.01, equal_nan=True)
 
 @pytest.mark.parametrize("N, H, W, C, R, S, K, stride, padding, bias", conv_test_case_list)
 @pytest.mark.parametrize("dtype, tol", data_type_list)
@@ -301,6 +369,36 @@ def test_hpu_conv_fwd_bwd(N, H, W, C, R, S, K, stride, padding, bias, dtype, tol
     out_cpu_bwd = out_cpu_nchw.grad_fn(bwd_in)
     out_hpu_bwd = out_cpu_nchw_hpu.grad_fn(bwd_in.to(hpu))
     np.testing.assert_allclose(out_hpu_bwd[0].view(out_cpu_bwd[0].shape).to(cpu).detach().numpy(),
+                out_cpu_bwd[0].detach().numpy(), atol=0.01, rtol=0.01, equal_nan=True)
+
+@pytest.mark.parametrize("N, D, H, W, C, T, R, S, K, stride, padding, bias", conv3d_test_case_list)
+@pytest.mark.parametrize("dtype, tol", data_type_list)
+def test_hpu_conv3d_fwd_bwd(N, D, H, W, C, T, R, S, K, stride, padding, bias, dtype, tol):
+    hpu = torch.device('hpu')
+    cpu = torch.device('cpu')
+    input_nchw = torch.randn((N,C,D,H,W),dtype=torch.float, requires_grad=True)
+
+    kernel_nchw = nn.Conv3d(in_channels=C,
+        out_channels=K,
+        kernel_size=(T,R,S),
+        stride=stride,
+        padding=padding,
+        bias=bias)
+    kernel_copy = deepcopy(kernel_nchw)
+    #cpu forward
+    out_cpu_nchw = kernel_nchw(input_nchw)
+
+    input_nchw_hpu = input_nchw.to(hpu)
+    kernel_nhwc_hpu = kernel_copy.to(hpu)
+    #Keep HPU weights metadata like sizes and strides same as in CPU, but data permuted for DHWCK
+    kernel_nhwc_hpu.weight.data = kernel_nhwc_hpu.weight.data.permute((2, 3, 4, 1, 0))
+    #hpu forward
+    out_cpu_nchw_hpu = kernel_nhwc_hpu(input_nchw_hpu)
+    #create bwd input tensor
+    bwd_in = torch.randn(out_cpu_nchw.shape)
+    out_cpu_bwd = out_cpu_nchw.grad_fn(bwd_in)
+    out_hpu_bwd = out_cpu_nchw_hpu.grad_fn(bwd_in.to(hpu))
+    np.testing.assert_allclose(out_hpu_bwd[0].to(cpu).detach().numpy(),
                 out_cpu_bwd[0].detach().numpy(), atol=0.01, rtol=0.01, equal_nan=True)
 
 @pytest.mark.parametrize("N, H, W, C, R, S, K, stride, padding, dilation, bias", dilation_test_case_list)
@@ -399,7 +497,36 @@ def test_hpu_conv_chlast_fwd_bwd(N, H, W, C, R, S, K, stride, padding, bias):
     bwd_in = torch.randn(out_cpu_nchw.shape)
     out_cpu_bwd = out_cpu_nchw.grad_fn(bwd_in)
     out_hpu_bwd = out_cpu_nhwc_hpu.grad_fn(bwd_in.contiguous(memory_format=torch.channels_last).to(hpu))
-    np.testing.assert_allclose(out_hpu_bwd[0].view(out_cpu_bwd[0].shape).to(cpu).detach().numpy(),
+    np.testing.assert_allclose(out_hpu_bwd[0].to(cpu).detach().numpy(),
+                out_cpu_bwd[0].detach().numpy(), atol=0.01, rtol=0.01, equal_nan=True)
+
+@pytest.mark.parametrize("N, D, H, W, C, T, R, S, K, stride, padding, bias", conv3d_test_case_list)
+def test_hpu_conv3d_chlast_fwd_bwd(N, D, H, W, C, T, R, S, K, stride, padding, bias):
+    hpu = torch.device('hpu')
+    cpu = torch.device('cpu')
+    input_nchw = torch.randn((N,C,D,H,W),dtype=torch.float, requires_grad=True)
+
+    kernel_nchw = nn.Conv3d(in_channels=C,
+        out_channels=K,
+        kernel_size=(T,R,S),
+        stride=stride,
+        padding=padding,
+        bias=bias)
+    kernel_copy = deepcopy(kernel_nchw)
+    #cpu forward
+    out_cpu_nchw = kernel_nchw(input_nchw)
+
+    input_c_last_hpu = input_nchw.contiguous(memory_format=torch.channels_last_3d).to(hpu)
+    kernel_nhwc_hpu = kernel_copy.to(hpu)
+    #Keep HPU weights metadata like sizes and strides same as in CPU, but data permuted for HWCK
+    kernel_nhwc_hpu.weight.data = kernel_nhwc_hpu.weight.data.permute((2, 3, 4, 1, 0))
+    #hpu forward
+    out_cpu_nhwc_hpu = kernel_nhwc_hpu(input_c_last_hpu)
+    #create bwd input tensor
+    bwd_in = torch.randn(out_cpu_nchw.shape)
+    out_cpu_bwd = out_cpu_nchw.grad_fn(bwd_in)
+    out_hpu_bwd = out_cpu_nhwc_hpu.grad_fn(bwd_in.contiguous(memory_format=torch.channels_last_3d).to(hpu))
+    np.testing.assert_allclose(out_hpu_bwd[0].to(cpu).detach().numpy(),
                 out_cpu_bwd[0].detach().numpy(), atol=0.01, rtol=0.01, equal_nan=True)
 
 @pytest.mark.parametrize("N, H, W, C, R, S, K, stride, padding, bias", conv_test_case_list)

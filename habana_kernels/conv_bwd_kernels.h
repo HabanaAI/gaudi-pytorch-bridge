@@ -46,6 +46,12 @@ class ConvBackwardOperator : public HabanaOperator {
       torch::jit::Stack& inputs,
       std::vector<bool> is_output_persistent,
       bool mask_grad_in);
+
+  void ComputeBiasGrad3d(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      std::vector<bool> is_output_persistent,
+      bool mask_grad_in);
 };
 
 /**
@@ -67,6 +73,24 @@ class ConvInputDifferentiationOperator : public HabanaOperator {
 };
 
 /**
+ * @brief Internal class implementing Syanpse "dedx3d"
+ * operator. Class objects to this should be invoked only from
+ * other convolution related classes.
+ **/
+class Conv3dInputDifferentiationOperator : public HabanaOperator {
+ public:
+  Conv3dInputDifferentiationOperator(int device_id, const std::string& guid)
+      : HabanaOperator(guid) {
+    this->CreateSynContext(device_id);
+  }
+
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+};
+
+/**
  * @brief Internal class implementing Syanpse "dedw"
  * operator. Class objects to this should be invoked only from
  * other convolution related classes.
@@ -74,6 +98,24 @@ class ConvInputDifferentiationOperator : public HabanaOperator {
 class ConvWeightDifferentiationOperator : public HabanaOperator {
  public:
   ConvWeightDifferentiationOperator(int device_id, const std::string& guid)
+      : HabanaOperator(guid) {
+    this->CreateSynContext(device_id);
+  }
+
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+};
+
+/**
+ * @brief Internal class implementing Syanpse "dedw3d"
+ * operator. Class objects to this should be invoked only from
+ * other convolution related classes.
+ **/
+class Conv3dWeightDifferentiationOperator : public HabanaOperator {
+ public:
+  Conv3dWeightDifferentiationOperator(int device_id, const std::string& guid)
       : HabanaOperator(guid) {
     this->CreateSynContext(device_id);
   }
