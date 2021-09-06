@@ -13,6 +13,7 @@
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <utility>
 #include "pytorch_helpers/synapse_helpers/env_flags.h"
 // Redefining c10 StringUtils functions here as distributed and syn
 // helpers are independent of  torch libraries
@@ -63,6 +64,20 @@ inline std::string str(const std::string& str) {
 
 inline std::string str(const char* c_str) {
   return c_str;
+}
+
+// Unpack msg
+template <typename... Args>
+decltype(auto) CheckMsgImpl(const char*, const Args&... args) {
+  return Logger::str(args...);
+}
+
+inline const char* CheckMsgImpl(const char* msg) {
+  return msg;
+}
+
+inline const char* CheckMsgImpl(const char*, const char* args) {
+  return args;
 }
 
 void habana_assert(
@@ -213,8 +228,8 @@ class PTFuncLog {
   bool isDebug;
 
  public:
-  PTFuncLog(const std::string& pn, const std::string& n, bool debug)
-      : pName(pn), name(n), isDebug(debug) {
+  PTFuncLog(std::string pn, std::string n, bool debug)
+      : pName(std::move(pn)), name(std::move(n)), isDebug(debug) {
     if (isDebug) {
       std::clog << "HABANA_LOG: begin of " << pName << "\n";
     }
@@ -228,13 +243,17 @@ class PTFuncLog {
   }
 };
 
+#define HABANA_CHECK_MSG(cond, ...) \
+  Logger::CheckMsgImpl(             \
+      "Expected " #cond " to be true, but got false.", ##__VA_ARGS__)
+
 #define HABANA_ASSERT(condition, ...)                         \
   if (__builtin_expect(static_cast<bool>(!(condition)), 0)) { \
     Logger::habana_assert(                                    \
         __func__,                                             \
         __FILE__,                                             \
         static_cast<uint32_t>(__LINE__),                      \
-        Logger::str(__VA_ARGS__));                            \
+        HABANA_CHECK_MSG(condition, ##__VA_ARGS__));          \
   }
 
 /************************CRITICAL MACROS************************/
