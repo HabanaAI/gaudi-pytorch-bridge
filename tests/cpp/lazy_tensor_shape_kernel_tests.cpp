@@ -161,6 +161,28 @@ TEST_F(LazyTensorShapeKernelTest, SliceTest) {
   EXPECT_EQ(allclose(h_cout, cout), true);
 }
 
+TEST_F(LazyTensorShapeKernelTest, DISABLED_SliceTestZeroDimSize) {
+  torch::Tensor a = torch::randn({8, 3, 28, 28}, torch::requires_grad(false));
+  torch::Tensor h_a = a.to(torch::kHPU);
+  int64_t dim = 1;
+  int64_t start_index = 0;
+  int64_t end = 0;
+  int64_t step = 1;
+
+  auto aa = torch::add(a, a);
+  auto cout = torch::slice(aa, dim, start_index, end, step);
+
+  Tensor h_aa = torch::add(h_a, h_a);
+  Tensor h_out = torch::slice(h_aa, dim, start_index, end, step);
+
+  std::vector<HbLazyTensor> tensors = {GetHbLazyTensor(h_out)};
+  HbLazyTensor::SyncTensorsGraph(&tensors);
+
+  auto h_cout = h_out.to(torch::kCPU);
+
+  EXPECT_EQ(allclose(h_cout, cout), true);
+}
+
 TEST_F(LazyTensorShapeKernelTest, ViewExecute) {
   auto input_tensor =
       torch::arange(480, torch::dtype(torch::kFloat).requires_grad(false))

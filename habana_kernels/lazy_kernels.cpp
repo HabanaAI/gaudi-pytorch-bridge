@@ -2678,6 +2678,18 @@ Tensor slice_hpu_lazy(
     flush_op(result);
     return result;
   }
+
+  if ((GET_ENV_FLAG(PT_HPU_LAZY_MODE) == 2) && (start.value() == end.value())) {
+    TORCH_WARN_ONCE(
+        "Slice workaround for zero sized output tensor issue SW-57116");
+    result = empty_hpu_lazy(
+        shape, self.options(), self.suggest_memory_format(), true);
+    hl_result = GetHbLazyTensor(result);
+    updateDstDependencies(hl_result, result);
+    flush_op(result);
+    return result;
+  }
+
   ir::Value& out = hl_result.CurrentIrValue();
   out.m_index = 0;
   out.SetNode(
