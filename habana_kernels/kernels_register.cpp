@@ -1224,6 +1224,17 @@ Tensor hpu_wrap::nonzero(const Tensor& self) {
     return nonzero_hpu(self);
   }
 };
+Tensor& hpu_wrap::nonzero_out(const Tensor& self, Tensor& out) {
+  if (!hpu_check_inputs_impl("nonzero_out", {self, out}))
+    return AtenHpuTypeDefault::nonzero_out(self, out);
+
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0) {
+    return nonzero_out_hpu_lazy(self, out);
+  } else {
+    HABANA_ASSERT(0 && "nonzero_out is not implemented for eager mode");
+    return nonzero_out_hpu_lazy(self, out);
+  }
+};
 Tensor hpu_wrap::mm(const at::Tensor& mat1, const at::Tensor& mat2) {
   if (!hpu_check_inputs_impl("mm", {mat1, mat2}))
     return AtenHpuTypeDefault::mm(mat1, mat2);

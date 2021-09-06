@@ -2136,6 +2136,16 @@ static const std::
                   at::ScalarType::Bool}},
             },
             {
+                "nonzero_out",
+                {{at::ScalarType::Int,
+                  at::ScalarType::Long,
+                  at::ScalarType::Double,
+                  at::ScalarType::Char,
+                  at::ScalarType::Float,
+                  at::ScalarType::BFloat16,
+                  at::ScalarType::Bool}},
+            },
+            {
                 "adaptive_avg_pool_2d",
                 {{at::ScalarType::Float,
                   at::ScalarType::BFloat16,

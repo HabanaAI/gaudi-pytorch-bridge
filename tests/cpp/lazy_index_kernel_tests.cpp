@@ -270,6 +270,28 @@ TEST_F(LazyIndexKernelTest, NonZeroTestAllFalse) {
   EXPECT_EQ(allclose(h_cout, out_cpu), true);
 }
 
+TEST_F(LazyIndexKernelTest, NonZeroTestAllFalse0D) {
+  torch::Tensor input_cpu = torch::tensor({});
+  torch::Tensor input_hpu = input_cpu.to(torch::kHPU);
+  auto out_hpu = torch::nonzero(input_hpu);
+  auto out_cpu = torch::nonzero(input_cpu).to(torch::kInt32);
+  auto h_cout = out_hpu.to(torch::kCPU);
+  EXPECT_EQ(allclose(h_cout, out_cpu), true);
+}
+
+TEST_F(LazyIndexKernelTest, NonZeroOutTestMixValues) {
+  torch::Tensor input_cpu =
+      torch::randint(0, 7, {5, 7}, torch::dtype(torch::kInt64));
+  torch::Tensor input_hpu = input_cpu.to(torch::kHPU);
+
+  torch::Tensor hOut = at::empty_like(input_hpu);
+  torch::Tensor out_cpu = at::empty_like(input_cpu);
+  torch::nonzero_outf(input_cpu, out_cpu);
+  torch::nonzero_outf(input_hpu, hOut);
+  auto out_hpu = hOut.to(torch::kCPU);
+  EXPECT_EQ(allclose(out_hpu, out_cpu), true);
+}
+
 TEST_F(LazyIndexKernelTest, UniqueTest) {
   auto typetest = [](c10::ScalarType dtype) {
     torch::Tensor input_cpu = torch::randint(0, 10, {1, 2, 2, 3}).to(dtype);

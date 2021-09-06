@@ -2544,6 +2544,95 @@ Tensor nonzero_hpu_lazy(const Tensor& self) {
   return result;
 }
 
+Tensor& nonzero_out_hpu_lazy(const Tensor& self, Tensor& output) {
+  PT_LAZY_TRACE;
+  auto input_shape = self.sizes();
+  int dimensions = input_shape.size();
+  int elements = self.numel();
+  at::TensorOptions hb_options = self.options();
+  hb_options = hb_options.dtype(c10::ScalarType::Int);
+
+  // Handle case for empty tensor where we return empty tensor with size
+  if (elements == 0) {
+    auto out_shape = DimVector{0, dimensions};
+    auto hl_result = GetOrCreateHbLazyTensor(output, c10::kHPU);
+    auto out_reshaped = hl_result.getAttachedTensorImpl();
+    THHTensor_resizeNd(
+        out_reshaped, out_shape.size(), out_shape.data(), nullptr);
+    output.unsafeGetTensorImpl()->set_sizes_contiguous(IntArrayRef(out_shape));
+    updateDstDependencies(hl_result, output);
+    flush_op(output);
+    return output;
+  }
+
+  // Add nonzero node
+  std::vector<int64_t> output_shape{elements, dimensions};
+  std::vector<int64_t> shape_tensor_shape{5};
+  using T = std::tuple<at::Tensor, at::Tensor>;
+  LazyOp<T> k("hpu::nonzero", {self}, {}, {output_shape, shape_tensor_shape});
+  // nonzero returns 2 output where and shape tensor
+  auto result_nonzero = k.call();
+  auto where_tensor = std::get<0>(result_nonzero);
+  auto shape_tensor = std::get<1>(result_nonzero);
+
+  // Select second element from shape tensor
+  auto node_slice = std::make_shared<ir::Slice>(shape_tensor, 0, 1);
+  auto end_shape = DimVector{1};
+  auto end_tensor = empty_hpu_lazy(
+      end_shape, hb_options, self.suggest_memory_format(), false);
+  auto hl_end = GetHbLazyTensor(end_tensor);
+  ir::Value& end_out = hl_end.CurrentIrValue();
+  end_out.SetNode(
+      node_slice,
+      hl_end.GetDevice(),
+      hl_end.GetSizes(),
+      hl_end.dtype_optional());
+  // Force an exections here to capture second element of shape tensor.
+  // This element is required to determine shape of next node's output
+  updateDstDependencies(hl_end, end_tensor);
+  std::vector<HbLazyTensor> hl_flush_end = {
+      hl_end, GetHbLazyTensor(where_tensor), GetHbLazyTensor(shape_tensor)};
+  PT_IRGRAPH_DEBUG("step marker due to non zero");
+  HbLazyTensor::SyncTensorsGraph(&hl_flush_end);
+  auto cpu_end_tensor = end_tensor.to(c10::kCPU);
+  auto end = cpu_end_tensor.item<int64_t>();
+
+  // Handle case for all False where we return empty tensor with size
+  if (end == 0) {
+    auto sliced_shape = DimVector{0, dimensions};
+    auto hl_result = GetOrCreateHbLazyTensor(output, c10::kHPU);
+    auto out_reshaped = hl_result.getAttachedTensorImpl();
+    THHTensor_resizeNd(
+        out_reshaped, sliced_shape.size(), sliced_shape.data(), nullptr);
+    output.unsafeGetTensorImpl()->set_sizes_contiguous(
+        IntArrayRef(sliced_shape));
+    updateDstDependencies(hl_result, output);
+    flush_op(output);
+    return output;
+  }
+
+  // Add a slice node to capture relevent elements from nonzero node
+  // in case we have relevant elements
+  auto out_shape = DimVector{end, dimensions};
+
+  auto hl_result = GetOrCreateHbLazyTensor(output, c10::kHPU);
+  auto out_reshaped = hl_result.getAttachedTensorImpl();
+  THHTensor_resizeNd(out_reshaped, out_shape.size(), out_shape.data(), nullptr);
+  output.unsafeGetTensorImpl()->set_sizes_contiguous(IntArrayRef(out_shape));
+
+  auto node = std::make_shared<ir::Slice>(where_tensor, 0, 0, end, 1);
+
+  ir::Value& out = hl_result.CurrentIrValue();
+  out.SetNode(
+      node,
+      hl_result.GetDevice(),
+      hl_result.GetSizes(),
+      hl_result.dtype_optional());
+  updateDstDependencies(hl_result, output);
+  flush_op(output);
+  return output;
+}
+
 Tensor masked_select_hpu_lazy(const Tensor& self, const Tensor& mask) {
   PT_LAZY_TRACE;
   Tensor unsqueeze_mask = mask;
