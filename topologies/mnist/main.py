@@ -221,7 +221,7 @@ def test(args, model, device, test_loader, trainMetaData):
 
 def setup_dist(rank, world_size,backend):
     os.environ['MASTER_ADDR'] = 'localhost'
-    os.environ['MASTER_PORT'] = '12355'
+    os.environ['MASTER_PORT'] = '29500'
     os.environ["ID"] = str(rank)
     if backend == "hcl":
         import habana_frameworks.torch.core
