@@ -159,8 +159,14 @@ at::Tensor preProcessIfLongorDouble(
   }
   if (processed) {
     auto hl_tensor = GetOrCreateHbLazyTensor(dst, dst.device());
-    hl_tensor.setTensorOriginalType(old_type);
-    hl_tensor.SetScalarType(c10::make_optional(new_type));
+    if (dst.scalar_type() == c10::ScalarType::Long ||
+        dst.scalar_type() == c10::ScalarType::Double) {
+      hl_tensor.setTensorOriginalType(old_type);
+      hl_tensor.SetScalarType(c10::make_optional(new_type));
+    } else {
+      hl_tensor.setTensorOriginalType(dst.scalar_type());
+      hl_tensor.SetScalarType(c10::make_optional(dst.scalar_type()));
+    }
   }
   return processed_tensor_cpu;
 }
