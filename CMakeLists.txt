@@ -39,7 +39,6 @@ endif ()
 
 find_package(Torch REQUIRED)
 add_subdirectory(cmake/json)
-add_subdirectory(third_party/pybind11)
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 include(AddNPUStackDependencies)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
