@@ -5130,14 +5130,24 @@ Tensor upsample_nearest2d_hpu_lazy(
     c10::optional<at::IntArrayRef> output_size,
     c10::optional<at::ArrayRef<double>> scale_factors) {
   PT_LAZY_TRACE;
+  Tensor input_cast = input;
+  if (input.scalar_type() == c10::ScalarType::Byte) {
+    // u8 -> f32
+    LazyOp<at::Tensor> k_{
+        "hpu::cast",
+        {input, c10::ScalarType::Float},
+        {},
+        {input.sizes().vec()}};
+    input_cast = k_.call();
+  }
   ir::NodePtr node = std::make_shared<ir::UpsampleNearest2d>(
-      input, output_size, scale_factors);
+      input_cast, output_size, scale_factors);
 
-  auto memory_format = input.suggest_memory_format();
+  auto memory_format = input_cast.suggest_memory_format();
   auto shape_out = UpsampleOperator::compute_output_shape(
-      input.sizes().vec(), output_size, scale_factors, memory_format);
+      input_cast.sizes().vec(), output_size, scale_factors, memory_format);
   auto result =
-      empty_hpu_lazy(shape_out, input.options(), memory_format, false);
+      empty_hpu_lazy(shape_out, input_cast.options(), memory_format, false);
   auto hlresult = GetHbLazyTensor(result);
   ir::Value& out = hlresult.CurrentIrValue();
   out.m_index = 0;
@@ -5149,6 +5159,23 @@ Tensor upsample_nearest2d_hpu_lazy(
   // updatet the view if any
   updateDstDependencies(hlresult, result);
   flush_op(result);
+  if (input.scalar_type() == c10::ScalarType::Byte) {
+    auto result_cast = result;
+    // f32 -> i32
+    LazyOp<at::Tensor> k_{
+        "hpu::cast",
+        {result_cast, c10::ScalarType::Int},
+        {},
+        {result_cast.sizes().vec()}};
+    result_cast = k_.call();
+    // i32 -> u8
+    LazyOp<at::Tensor> k{
+        "hpu::cast",
+        {result_cast, input.scalar_type()},
+        {},
+        {result_cast.sizes().vec()}};
+    result = k.call();
+  }
   return result;
 }
 
@@ -5158,7 +5185,17 @@ Tensor upsample_nearest2d_backward_hpu_lazy(
     at::IntArrayRef input_size,
     c10::optional<at::ArrayRef<double>> scale_factors) {
   PT_LAZY_TRACE;
-  auto memory_format = grad_output.suggest_memory_format();
+  Tensor grad_output_cast = grad_output;
+  if (grad_output.scalar_type() == c10::ScalarType::Byte) {
+    // u8 -> f32
+    LazyOp<at::Tensor> k_{
+        "hpu::cast",
+        {grad_output, c10::ScalarType::Float},
+        {},
+        {grad_output.sizes().vec()}};
+    grad_output_cast = k_.call();
+  }
+  auto memory_format = grad_output_cast.suggest_memory_format();
   std::vector<int64_t> permuted_sizes = input_size.vec();
   permuted_sizes[0] = input_size[0];
   permuted_sizes[1] = input_size[2];
@@ -5166,10 +5203,10 @@ Tensor upsample_nearest2d_backward_hpu_lazy(
   permuted_sizes[3] = input_size[1];
 
   ir::NodePtr node = std::make_shared<ir::UpsampleNearest2dBackward>(
-      grad_output, output_size, permuted_sizes, scale_factors);
+      grad_output_cast, output_size, permuted_sizes, scale_factors);
 
-  auto result =
-      empty_hpu_lazy(input_size, grad_output.options(), memory_format, false);
+  auto result = empty_hpu_lazy(
+      input_size, grad_output_cast.options(), memory_format, false);
   auto hlresult = GetHbLazyTensor(result);
   ir::Value& out = hlresult.CurrentIrValue();
   out.m_index = 0;
@@ -5181,6 +5218,23 @@ Tensor upsample_nearest2d_backward_hpu_lazy(
   // updatet the view if any
   updateDstDependencies(hlresult, result);
   flush_op(result);
+  if (grad_output.scalar_type() == c10::ScalarType::Byte) {
+    auto result_cast = result;
+    // f32 -> i32
+    LazyOp<at::Tensor> k_{
+        "hpu::cast",
+        {result_cast, c10::ScalarType::Int},
+        {},
+        {result_cast.sizes().vec()}};
+    result_cast = k_.call();
+    // i32 -> u8
+    LazyOp<at::Tensor> k{
+        "hpu::cast",
+        {result_cast, grad_output.scalar_type()},
+        {},
+        {result_cast.sizes().vec()}};
+    result = k.call();
+  }
   return result;
 }
 
