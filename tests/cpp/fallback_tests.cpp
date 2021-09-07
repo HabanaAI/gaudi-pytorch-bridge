@@ -12,33 +12,9 @@
 #include <tests/cpp/habana_lazy_test_infra.h>
 #include <torch/torch.h>
 
-class FallbackTest : public ::testing::TestWithParam<bool>,
-                     public habana_lazy_test::EnvHelper {
-  void SetUp() override {
-    auto isLazy = GetParam();
-    if (isLazy) {
-      SetLazyMode(); // Lazy=1 mode
-    } else {
-      SetEagerMode(); // Eager mode
-    }
-  }
-};
+class FallbackTest : public habana_lazy_test::LazyTest {};
 
-struct PrintToStringParamName {
-  template <class ParamType>
-  std::string operator()(
-      const ::testing::TestParamInfo<ParamType>& info) const {
-    auto isLazy = static_cast<bool>(info.param);
-    return isLazy ? "lazy" : "eager";
-  }
-};
-INSTANTIATE_TEST_SUITE_P(
-    sanity,
-    FallbackTest,
-    ::testing::Bool(),
-    PrintToStringParamName());
-
-TEST_P(FallbackTest, Simple) {
+TEST_F(FallbackTest, Simple) {
   auto ones = torch::ones(10, "hpu");
   auto res = ones.digamma();
   res = res.add(ones);
@@ -48,7 +24,7 @@ TEST_P(FallbackTest, Simple) {
   EXPECT_TRUE(allclose(exp, res.to("cpu")));
 }
 
-TEST_P(FallbackTest, UnsupportedOpHalf) {
+TEST_F(FallbackTest, UnsupportedOpHalf) {
   auto in =
       torch::tensor({{1, 2}, {3, 4}}, at::device(at::kHPU).dtype(at::kHalf));
   auto res = torch::tril(in);
@@ -57,7 +33,7 @@ TEST_P(FallbackTest, UnsupportedOpHalf) {
   EXPECT_TRUE(allclose(exp, res.to("cpu")));
 }
 
-TEST_P(FallbackTest, Inplace) {
+TEST_F(FallbackTest, Inplace) {
   auto t = torch::rand(10).to("hpu");
   auto res = t.lgamma_();
 
