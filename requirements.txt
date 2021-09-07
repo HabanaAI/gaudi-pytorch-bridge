@@ -1,3 +1,4 @@
-ninja
-lark
 flake8
+lark
+ninja
+pyyaml
