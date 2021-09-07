@@ -33,11 +33,25 @@ acosh.out:
   guid: acosh_fwd
 
 add.out:
-  custom_output_shape: BinaryOutputShape
   dtypes: [BFloat16, Float, Short, Int]
   guid: add_fwd
   op_base_class: BinaryOp
   scalar_ids: [2]
+  use_meta: true
+
+addcdiv.out:
+  custom_output_shape: AddCOpsOutputShape
+  dtypes: [BFloat16, Float]
+  guid: div
+  op_base_class: AddCOpOut
+  scalar_ids: [3]
+
+addcmul.out:
+  custom_output_shape: AddCOpsOutputShape
+  dtypes: [BFloat16, Float, Short, Int]
+  guid: mult
+  op_base_class: AddCOpOut
+  scalar_ids: [3]
 
 asin.out:
   dtypes: [Float]
@@ -207,6 +221,12 @@ elu.out:
     params:
     - [1, float]
 
+elu_backward:
+  custom_fill_params: FillEluBackwardParams
+  dtypes: [BFloat16, Float]
+  guid: elu_bwd
+  out_ids: [0]
+
 eq.Scalar_out:
   dtypes: [BFloat16, Float, Int, Char, Byte]
   guid: equal_fwd
@@ -370,29 +390,29 @@ prelu:
 random_:
   custom_fill_params: FillRandomParams
   dtypes: [BFloat16, Float]
+  func_ns_hpu: true
   guid: random_uniform_fwd
   inplace_ids: [0]
   lazy_class: LazyRandom
   op_base_class: RandomOp
-  func_ns_hpu: true
 
 random_.from:
   custom_fill_params: FillRandomFromParams
   dtypes: [BFloat16, Float]
+  func_ns_hpu: true
   guid: random_uniform_fwd
   inplace_ids: [0]
   lazy_class: LazyRandom
   op_base_class: RandomOp
-  func_ns_hpu: true
 
 random_.to:
   custom_fill_params: FillRandomToParams
   dtypes: [BFloat16, Float]
+  func_ns_hpu: true
   guid: random_uniform_fwd
   inplace_ids: [0]
   lazy_class: LazyRandom
   op_base_class: RandomOp
-  func_ns_hpu: true
 
 reciprocal.out:
   dtypes: [BFloat16, Float]
@@ -483,28 +503,16 @@ tanh_backward.grad_input:
   dtypes: [BFloat16, Float]
   guid: tanh_bwd
 
-triu:
-  custom_fill_params: FillTriuParams
-  dtypes: [BFloat16, Float]
-  guid: matrix_band_part_fwd
-  out_ids: [0]
-
-triu_:
-  custom_fill_params: FillTriuParams
-  dtypes: [BFloat16, Float]
-  guid: matrix_band_part_fwd
-  inplace_ids: [0]
-
-triu.out:
-  custom_fill_params: FillTriuParams
-  dtypes: [BFloat16, Float]
-  guid: matrix_band_part_fwd
-
 tril:
   custom_fill_params: FillTrilParams
   dtypes: [BFloat16, Float]
   guid: matrix_band_part_fwd
   out_ids: [0]
+
+tril.out:
+  custom_fill_params: FillTrilParams
+  dtypes: [BFloat16, Float]
+  guid: matrix_band_part_fwd
 
 tril_:
   custom_fill_params: FillTrilParams
@@ -512,27 +520,19 @@ tril_:
   guid: matrix_band_part_fwd
   inplace_ids: [0]
 
-tril.out:
-  custom_fill_params: FillTrilParams
+triu:
+  custom_fill_params: FillTriuParams
+  dtypes: [BFloat16, Float]
+  guid: matrix_band_part_fwd
+  out_ids: [0]
+
+triu.out:
+  custom_fill_params: FillTriuParams
   dtypes: [BFloat16, Float]
   guid: matrix_band_part_fwd
 
-addcmul.out:
-  custom_output_shape: AddCOpsOutputShape
-  dtypes: [BFloat16, Float, Short, Int]
-  op_base_class: AddCOpOut
-  guid: mult
-  scalar_ids: [3]
-
-addcdiv.out:
-  custom_output_shape: AddCOpsOutputShape
+triu_:
+  custom_fill_params: FillTriuParams
   dtypes: [BFloat16, Float]
-  op_base_class: AddCOpOut
-  guid: div
-  scalar_ids: [3]
-
-elu_backward:
-  custom_fill_params: FillEluBackwardParams
-  dtypes: [BFloat16, Float]
-  guid: elu_bwd
-  out_ids: [0] 
+  guid: matrix_band_part_fwd
+  inplace_ids: [0]

@@ -18,7 +18,9 @@ std::vector<at::Tensor> GetMetaTensorList(
   metatensors.reserve(tensors.size());
   for (const auto& tensor : tensors) {
     metatensors.emplace_back(at::empty(
-        tensor.sizes(), tensor.options(), tensor.suggest_memory_format()));
+        tensor.sizes(),
+        tensor.options().device(at::kMeta),
+        tensor.suggest_memory_format()));
   }
   return metatensors;
 }
@@ -30,8 +32,10 @@ std::vector<c10::optional<at::Tensor>> GetMetaOptTensorList(
   for (const auto& tensor : tensors) {
     if (tensor.has_value()) {
       const auto& tv = tensor.value();
-      metatensors.emplace_back(
-          at::empty(tv.sizes(), tv.options(), tv.suggest_memory_format()));
+      metatensors.emplace_back(at::empty(
+          tv.sizes(),
+          tv.options().device(at::kMeta),
+          tv.suggest_memory_format()));
     } else {
       metatensors.emplace_back(tensor);
     }

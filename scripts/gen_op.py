@@ -518,7 +518,7 @@ def generate_entry_debug_code(t, fname, params):
 def lazyop(
     ctxop, tfetcher, fn, fname, aten_sig, rtype, param_vars, meta_vars, ce_param_vars
 ):
-    fn = ctxop.func_ns() + "::" + get_aten_opname(aten_sig).split(".")[0]
+    schema_fn = ctxop.func_ns() + "::" + get_aten_opname(aten_sig).split(".")[0]
     code = ""
 
     if ctxop.get_dtypes():
@@ -538,14 +538,20 @@ def lazyop(
         code += "\n"
 
     if ctxop.use_meta():
+        assert (
+            ctxop.get_custom_output_shape() is None
+        ), "Both use_meta and custom_output_shape are defined for {}".format(fname)
+
+        assert fn, "{} does not exists in aten"
+
         code += tfetcher.generate_meta_fetches()
         code += "  at::TensorList metavar = {}({});\n".format(fn, ", ".join(meta_vars))
         code += '  {}<{}> hpu_op{{"{}", {{{}}}, metavar}};\n'.format(
-            ctxop.get_lazy_class(), rtype, fn, ", ".join(param_vars)
+            ctxop.get_lazy_class(), rtype, schema_fn, ", ".join(param_vars)
         )
     else:
         code += '  {}<{}> hpu_op{{"{}", {{{}}}'.format(
-            ctxop.get_lazy_class(), rtype, fn, ", ".join(param_vars)
+            ctxop.get_lazy_class(), rtype, schema_fn, ", ".join(param_vars)
         )
         output_shape_fn = ctxop.get_custom_output_shape()
         if output_shape_fn:
@@ -971,9 +977,7 @@ def generate_all(fgens):
 
     if autogradhpu_code:
         code += (
-            "TORCH_LIBRARY_IMPL(aten, AutogradHPU, m) {\n"
-            + autogradhpu_code
-            + "\n}\n"
+            "TORCH_LIBRARY_IMPL(aten, AutogradHPU, m) {\n" + autogradhpu_code + "\n}\n"
         )
 
     kr_regs = kr_code + "\n".join(krlines) + ";"
