@@ -284,8 +284,7 @@ at::Tensor get_tensor_for_scalar(
   auto map_it = context->scalar_to_tensor_map.find(alpha);
   if (map_it == context->scalar_to_tensor_map.end()) {
     if (options.has_dtype()) {
-      alpha_tensor =
-          at::tensor(alpha).to(options.dtype()).to(c10::kHPU, true);
+      alpha_tensor = at::tensor(alpha).to(options.dtype()).to(c10::kHPU, true);
     } else {
       alpha_tensor = at::tensor(alpha).to(c10::kHPU, true);
     }
@@ -819,7 +818,7 @@ Tensor as_strided_hpu_lazy(
     // We only support contiguous chunks of data to be taken as strided
     // As Device doesnt support strided tensors we dont support that case
     // We can add a better check here to check contigous on all sub dims
-    if (stride.vec()[stride.size() - 1] == 1) {
+    if ((stride.size() == 0) || (stride.vec()[stride.size() - 1] == 1)) {
       int64_t offset = storage_offset ? storage_offset.value() : 0;
       ir::NodePtr node =
           std::make_shared<ir::AsStrided>(self, size, stride, offset);
@@ -1106,7 +1105,10 @@ Tensor add_tensor_hpu_lazy(
   }
 }
 
-Tensor add_scalar_hpu_lazy(const Tensor& self, const Scalar& other, const Scalar& alpha) {
+Tensor add_scalar_hpu_lazy(
+    const Tensor& self,
+    const Scalar& other,
+    const Scalar& alpha) {
   auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
   auto hl_other = GetIrValueForScalar(other);
   auto hl_alpha = GetIrValueForScalar(alpha);
@@ -1140,14 +1142,20 @@ Tensor add_scalar_hpu_lazy(const Tensor& self, const Scalar& other, const Scalar
   return result;
 }
 
-Tensor& add_scalar_hpu_lazy_(Tensor& self, const Scalar& other, const Scalar& alpha) {
+Tensor& add_scalar_hpu_lazy_(
+    Tensor& self,
+    const Scalar& other,
+    const Scalar& alpha) {
   PT_LAZY_TRACE;
   auto other_tensor = get_tensor_for_scalar(other.toFloat(), self.options());
 
   return add_tensor_hpu_lazy_(self, other_tensor, alpha);
 }
 
-Tensor& add_tensor_hpu_lazy_(Tensor& self, const Tensor& other, const Scalar& alpha) {
+Tensor& add_tensor_hpu_lazy_(
+    Tensor& self,
+    const Tensor& other,
+    const Scalar& alpha) {
   PT_LAZY_TRACE;
   LazyBinaryOp<Tensor&> op("aten::add_", {self, other, alpha});
   return op.call(self);
@@ -1166,14 +1174,20 @@ Tensor sub_tensor_hpu_lazy(
   return k.call();
 }
 
-Tensor& sub_tensor_hpu_lazy_(Tensor& self, const Tensor& other, const Scalar& alpha) {
+Tensor& sub_tensor_hpu_lazy_(
+    Tensor& self,
+    const Tensor& other,
+    const Scalar& alpha) {
   PT_LAZY_TRACE;
 
   LazyBinaryOp<Tensor&> op("aten::sub_", {self, other, alpha});
   return op.call(self);
 }
 
-Tensor sub_scalar_hpu_lazy(const Tensor& self, const Scalar& other, const Scalar& alpha) {
+Tensor sub_scalar_hpu_lazy(
+    const Tensor& self,
+    const Scalar& other,
+    const Scalar& alpha) {
   auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
   auto hl_other = GetIrValueForScalar(other);
   auto hl_alpha = GetIrValueForScalar(alpha);
@@ -1206,12 +1220,18 @@ Tensor sub_scalar_hpu_lazy(const Tensor& self, const Scalar& other, const Scalar
   flush_op(result);
   return result;
 }
-Tensor& sub_scalar_hpu_lazy_(Tensor& self, const Scalar& other, const Scalar& alpha) {
+Tensor& sub_scalar_hpu_lazy_(
+    Tensor& self,
+    const Scalar& other,
+    const Scalar& alpha) {
   PT_LAZY_TRACE;
   auto other_tensor = get_tensor_for_scalar(other.toFloat(), self.options());
   return sub_tensor_hpu_lazy_(self, other_tensor, alpha);
 }
-Tensor rsub_scalar_hpu_lazy(const Tensor& self, const Scalar& other, const Scalar& alpha) {
+Tensor rsub_scalar_hpu_lazy(
+    const Tensor& self,
+    const Scalar& other,
+    const Scalar& alpha) {
   PT_LAZY_TRACE;
   auto hl_self = GetOrCreateHbLazyTensor(self, c10::kHPU);
   auto hl_other = GetIrValueForScalar(other);
@@ -2621,13 +2641,19 @@ Tensor slice_backward_hpu_lazy(
       grad_output.suggest_memory_format(),
       false);
   auto grad_input = at::native::zeros_like(
-      self, c10::optTypeMetaToScalarType(self.options().dtype_opt()),
-      self.options().layout_opt(), self.options().device_opt(),
-      self.options().pinned_memory_opt(), self.suggest_memory_format());
+      self,
+      c10::optTypeMetaToScalarType(self.options().dtype_opt()),
+      self.options().layout_opt(),
+      self.options().device_opt(),
+      self.options().pinned_memory_opt(),
+      self.suggest_memory_format());
   index = at::native::arange(
-      start, end, step,
+      start,
+      end,
+      step,
       c10::optTypeMetaToScalarType(index.options().dtype_opt()),
-      index.options().layout_opt(), index.options().device_opt(),
+      index.options().layout_opt(),
+      index.options().device_opt(),
       index.options().pinned_memory_opt());
   auto expand_idx = index.reshape(IntArrayRef(shape)).expand(index_size);
   auto result = scatter_src_hpu_lazy(grad_input, dim, expand_idx, grad_output);
@@ -2664,7 +2690,11 @@ Tensor select_hpu_lazy(const Tensor& self, int64_t dim, int64_t index) {
   return result;
 }
 
-Tensor& arange_hpu_lazy(Tensor& output, const Scalar& start, const Scalar& end, const Scalar& step) {
+Tensor& arange_hpu_lazy(
+    Tensor& output,
+    const Scalar& start,
+    const Scalar& end,
+    const Scalar& step) {
   PT_LAZY_TRACE;
   auto hl_result = GetOrCreateHbLazyTensor(output, c10::kHPU);
   auto hl_start = GetIrValueForScalar(start);
@@ -4927,7 +4957,9 @@ Tensor& relu_hpu_lazy_(Tensor& self) {
   return k.call(self);
 }
 
-at::Tensor& leaky_relu_lazy_(at::Tensor& self, const at::Scalar& negative_slope) {
+at::Tensor& leaky_relu_lazy_(
+    at::Tensor& self,
+    const at::Scalar& negative_slope) {
   PT_LAZY_TRACE;
   LazyOp<at::Tensor&> k{"aten::leaky_relu_", {self, negative_slope}};
   return k.call(self);
@@ -4946,7 +4978,9 @@ at::Tensor leaky_relu_backward_lazy(
   return k.call();
 }
 
-at::Tensor leaky_relu_lazy(const at::Tensor& self, const at::Scalar& negative_slope) {
+at::Tensor leaky_relu_lazy(
+    const at::Tensor& self,
+    const at::Scalar& negative_slope) {
   PT_LAZY_TRACE;
   LazyOp<at::Tensor> k{"aten::leaky_relu", {self, negative_slope}};
   return k.call();
@@ -5850,8 +5884,7 @@ optimizer_sparse_adagrad_with_valid_count_hpu_lazy(
   hl_tensors.push_back(GetOrCreateHbLazyTensor(moments_in, c10::kHPU));
   hl_tensors.push_back(GetOrCreateHbLazyTensor(indices, c10::kHPU));
   hl_tensors.push_back(GetOrCreateHbLazyTensor(learning_rate, c10::kHPU));
-  hl_tensors.push_back(
-      GetOrCreateHbLazyTensor(valid_count_tensor, c10::kHPU));
+  hl_tensors.push_back(GetOrCreateHbLazyTensor(valid_count_tensor, c10::kHPU));
 
   for (auto& i : hl_tensors) {
     node->AddInput(i.GetIrValue());
@@ -6882,7 +6915,10 @@ Tensor& linspace_out_hpu_lazy(
 
   std::vector<int64_t> out_shape = {step_corrected};
   LazyOp<at::Tensor&> k(
-      "aten::linspace", {start, temp_end, step_corrected, out}, {}, {out_shape});
+      "aten::linspace",
+      {start, temp_end, step_corrected, out},
+      {},
+      {out_shape});
   return k.call(out);
 }
 
