@@ -13,6 +13,7 @@
 #include <algorithm>
 #include <mutex>
 
+#include "habana_bridge/kernel/hpu_shape_inference.h"
 #include "habana_device/HPUCheck.h"
 #include "habana_device/PinnedMemoryAllocator.h"
 #include "habana_device/hpu_cached_devices.h"
@@ -710,7 +711,7 @@ synapse_helpers::tensor habana_helpers::duplicate_tensor_in_memory_section(
     const synapse_helpers::tensor& tensor,
     synapse_helpers::graph& graph) {
   if (graph.is_dynamic_graph()) {
-    habana::HabanaOperator::update_shape_info(graph, tensor.pt_shape());
+    habana::ShapeInference::UpdateShapeInfo(graph, tensor.pt_shape());
   }
 
   if (graph.is_dry_run()) {
@@ -747,7 +748,7 @@ synapse_helpers::tensor habana_helpers::
         std::vector<int64_t>& strides,
         const uint64_t offset) {
   if (graph.is_dynamic_graph()) {
-    habana::HabanaOperator::update_shape_info(graph, sizes);
+    habana::ShapeInference::UpdateShapeInfo(graph, sizes);
   }
 
   if (graph.is_dry_run()) {

@@ -2742,7 +2742,7 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
         // For Dynamic shapes in case of cash hit, we need to run
         // shape inference for determining the output shape and
         // persistent intermediates
-        run_shape_inference(ShapeInference::InferencePass::OUTPUT_SHAPE);
+        run_shape_inference(ShapeInfo::InferencePass::OUTPUT_SHAPE);
       }
 
       PT_BRIDGE_DEBUG(
@@ -2790,9 +2790,9 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
   // the shape inference only for once for max shapes
   if (ranges.empty() == false) {
     // run min shape inference pass
-    run_shape_inference(ShapeInference::InferencePass::MIN_SHAPE);
+    run_shape_inference(ShapeInfo::InferencePass::MIN_SHAPE);
     // run max shape inference pass
-    run_shape_inference(ShapeInference::InferencePass::MAX_SHAPE);
+    run_shape_inference(ShapeInfo::InferencePass::MAX_SHAPE);
   }
 
   std::stringstream ss;
@@ -2892,7 +2892,7 @@ void HabanaLaunchOpPT::clear(bool is_shape_inference) {
     pt_stack = nullptr;
     pt_stack_sh.clear();
     num_tensor_inputs = 0;
-    habana::HabanaOperator::Reset();
+    habana::ShapeInference::Reset();
   }
 
   value_to_ivalue.clear();
@@ -3013,7 +3013,7 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
   //
   // Set the habana operators to capture data
   if (refine_ds_enabled_) {
-    habana::HabanaOperator::Capture((void*)&m_map_shape);
+    habana::ShapeInference::Capture(&m_map_shape);
   }
 
   // Keep a handle to the stack for future use
@@ -3465,16 +3465,16 @@ void HabanaLaunchOpPT::run_pass() {
 }
 
 void HabanaLaunchOpPT::run_shape_inference(
-    const ShapeInference::InferencePass& pass) {
+    const ShapeInfo::InferencePass& pass) {
   torch::jit::Stack new_stack;
   torch::jit::Stack* old_stack = nullptr;
   std::vector<IValPtrShared> old_pt_stack_sh;
-  if ((pass == ShapeInference::InferencePass::MIN_SHAPE) ||
-      (pass == ShapeInference::InferencePass::MAX_SHAPE)) {
+  if ((pass == ShapeInfo::InferencePass::MIN_SHAPE) ||
+      (pass == ShapeInfo::InferencePass::MAX_SHAPE)) {
     old_stack = pt_stack;
     old_pt_stack_sh = pt_stack_sh;
     pt_stack_sh.clear();
-    if (pass == ShapeInference::InferencePass::MIN_SHAPE) {
+    if (pass == ShapeInfo::InferencePass::MIN_SHAPE) {
       new_stack = CreateStack(*pt_stack, min_input_tshapes);
     } else {
       new_stack = CreateStack(*pt_stack, max_input_tshapes);

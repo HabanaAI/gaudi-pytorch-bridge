@@ -18,17 +18,6 @@
 
 using tensor_name_generator = synapse_helpers::detail::tensor_name_generator;
 
-void* habana::HabanaOperator::m_shape_inference(nullptr);
-
-void habana::HabanaOperator::Capture(void* shape_inference) {
-  HABANA_ASSERT(shape_inference);
-  m_shape_inference = shape_inference;
-}
-
-void habana::HabanaOperator::Reset() {
-  m_shape_inference = nullptr;
-}
-
 const std::array<int64_t, 4>& habana::HabanaOperator::getPermuteOrder(
     const LayoutFormat target_layout,
     bool to_device) {
@@ -140,50 +129,6 @@ size_t habana::HabanaOperator::GetRecipeKey(
   return key;
 }
 
-std::string habana::HabanaOperator::update_shape_info(
-    synapse_helpers::graph& graph,
-    const std::vector<int64_t>& sizes) {
-  std::string tensor_name;
-  if (graph.is_dynamic_graph()) {
-    HABANA_ASSERT(habana::HabanaOperator::m_shape_inference);
-    habana::ShapeInference* p =
-        static_cast<habana::ShapeInference*>(m_shape_inference);
-    tensor_name = tensor_name_generator::get_next_tensor_name();
-    // We only care about the shape during shape inference, hence
-    // passing a dummy type of Undefined when creating the shape tensor
-    auto shape = habana_helpers::TensorShape(sizes, c10::ScalarType::Undefined);
-    switch (p->m_pass) {
-      case ShapeInference::InferencePass::MIN_SHAPE:
-        p->m_min_shapes.insert({tensor_name, shape});
-        break;
-      case ShapeInference::InferencePass::MAX_SHAPE:
-        p->m_max_shapes.insert({tensor_name, shape});
-        break;
-      case ShapeInference::InferencePass::OUTPUT_SHAPE:
-        p->m_actual_shapes.insert({tensor_name, shape});
-        break;
-      default:
-        HABANA_ASSERT(0);
-    }
-  }
-  return tensor_name;
-}
-
-std::tuple<std::vector<int64_t>, std::vector<int64_t>> habana::HabanaOperator::
-    GetMinMaxShape(const std::string& syn_tensor_name) {
-  std::vector<int64_t> min, max;
-  if (habana::HabanaOperator::m_shape_inference) {
-    habana::ShapeInference* p =
-        static_cast<habana::ShapeInference*>(m_shape_inference);
-    if (p->m_min_shapes.count(syn_tensor_name) &&
-        p->m_max_shapes.count(syn_tensor_name)) {
-      min = p->m_min_shapes.at(syn_tensor_name).get_dims();
-      max = p->m_max_shapes.at(syn_tensor_name).get_dims();
-    }
-  }
-  return std::make_tuple(min, max);
-}
-
 synapse_helpers::tensor& habana::HabanaOperator::AllocateSynapseInput(
     synapse_helpers::graph& graph,
     const at::Tensor& input,
@@ -195,7 +140,7 @@ synapse_helpers::tensor& habana::HabanaOperator::AllocateSynapseInput(
   std::string syn_tensor_name;
   if (graph.is_dynamic_graph()) {
     syn_tensor_name =
-        habana::HabanaOperator::update_shape_info(graph, input.sizes().vec());
+        habana::ShapeInference::UpdateShapeInfo(graph, input.sizes().vec());
   }
 
   if (is_shape_tensor == false) {
@@ -218,7 +163,8 @@ synapse_helpers::tensor& habana::HabanaOperator::AllocateSynapseInput(
     }
   } else {
     std::vector<int64_t> min_shape, max_shape;
-    std::tie(min_shape, max_shape) = GetMinMaxShape(syn_tensor_name);
+    std::tie(min_shape, max_shape) =
+        habana::ShapeInference::GetMinMaxShape(syn_tensor_name);
     auto syn_shape_input = habana_helpers::create_shape_tensor(
         input, graph, is_persistent, false, min_shape, max_shape);
     p_context_->syn_inputs_.emplace_back(std::move(syn_shape_input));
@@ -247,8 +193,9 @@ void habana::HabanaOperator::AllocateSynapseOutput(
   std::vector<int64_t> min_shape, max_shape;
   if (graph.is_dynamic_graph()) {
     auto syn_tensor_name =
-        habana::HabanaOperator::update_shape_info(graph, output.sizes().vec());
-    std::tie(min_shape, max_shape) = GetMinMaxShape(syn_tensor_name);
+        habana::ShapeInference::UpdateShapeInfo(graph, output.sizes().vec());
+    std::tie(min_shape, max_shape) =
+        habana::ShapeInference::GetMinMaxShape(syn_tensor_name);
   }
 
   if (is_shape_tensor == false) {
@@ -270,8 +217,9 @@ void habana::HabanaOperator::AllocateSynapseOutput(
   std::vector<int64_t> min_shape, max_shape;
   if (graph.is_dynamic_graph()) {
     auto syn_tensor_name =
-        habana::HabanaOperator::update_shape_info(graph, output.sizes().vec());
-    std::tie(min_shape, max_shape) = GetMinMaxShape(syn_tensor_name);
+        habana::ShapeInference::UpdateShapeInfo(graph, output.sizes().vec());
+    std::tie(min_shape, max_shape) =
+        habana::ShapeInference::GetMinMaxShape(syn_tensor_name);
   }
   if (is_shape_tensor == false) {
     p_context_->syn_outputs_.emplace_back(habana_helpers::create_tensor(

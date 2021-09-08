@@ -359,8 +359,8 @@ class HabanaLaunchOpPT {
       const HabanaOperatorPtr& habana_op,
       at::Tensor& pt_tensor,
       const int64_t input_idx);
-  habana::ShapeInference m_map_shape;
-  void run_shape_inference(const ShapeInference::InferencePass& pass);
+  habana::ShapeInfo m_map_shape;
+  void run_shape_inference(const ShapeInfo::InferencePass& pass);
   void run_pass();
   torch::jit::Stack CreateStack(
       const torch::jit::Stack& stack,

@@ -10,13 +10,15 @@
 #pragma once
 #include <iostream>
 #include "habana_helpers/tensor_shape.h"
+#include "synapse_helpers/graph.h"
 
 namespace habana {
 
 using NameShapeMap =
     std::unordered_map<std::string, habana_helpers::TensorShape>;
 
-struct ShapeInference {
+class ShapeInfo {
+ public:
   enum class InferencePass {
     OUTPUT_SHAPE = 0,
     MIN_SHAPE = 1,
@@ -24,36 +26,55 @@ struct ShapeInference {
     INVALID = 3
   };
 
-  InferencePass m_pass;
-  NameShapeMap m_min_shapes;
-  NameShapeMap m_max_shapes;
-  NameShapeMap m_actual_shapes;
-
-  virtual ~ShapeInference() {
+  virtual ~ShapeInfo() {
     m_pass = InferencePass::INVALID;
     m_min_shapes.clear();
     m_max_shapes.clear();
     m_actual_shapes.clear();
   }
+
+  InferencePass m_pass;
+  NameShapeMap m_min_shapes;
+  NameShapeMap m_max_shapes;
+  NameShapeMap m_actual_shapes;
 };
 
-inline std::ostream& operator<<(
+class ShapeInference {
+ public:
+  /*
+   * Sets the structure where min & max shapes are set for
+   * capture
+   */
+  static void Capture(ShapeInfo* shape_info);
+
+  /*
+   * Reset the shape_info structure
+   */
+  static void Reset();
+
+  /*
+   * Method to update and store the shape information for
+   * specified tensor
+   */
+  static std::string UpdateShapeInfo(
+      synapse_helpers::graph& graph,
+      const std::vector<int64_t>& sizes);
+  /*
+   * Get the shape of the Min & Max tensor values for the specified
+   * tensor name
+   */
+  static std::tuple<std::vector<int64_t>, std::vector<int64_t>> GetMinMaxShape(
+      const std::string& syn_tensor_name);
+
+ private:
+  /*
+   * Stores all the shape information
+   */
+  static ShapeInfo* m_shape_info;
+};
+
+std::ostream& operator<<(
     std::ostream& stream,
-    const ShapeInference::InferencePass& value) {
-  switch (value) {
-    case ShapeInference::InferencePass::OUTPUT_SHAPE:
-      stream << "OUTPUT_SHAPE";
-      return stream;
-    case ShapeInference::InferencePass::MIN_SHAPE:
-      stream << "MIN_SHAPE";
-      return stream;
-    case ShapeInference::InferencePass::MAX_SHAPE:
-      stream << "MAX_SHAPE";
-      return stream;
-    default:
-      stream << "INVALID";
-      return stream;
-  }
-}
+    const ShapeInfo::InferencePass& value);
 
 }; // namespace habana

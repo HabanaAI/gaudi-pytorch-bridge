@@ -375,6 +375,17 @@ class tensor final {
   uint64_t host_ptr_size_{0};
   const uint64_t offset_{0};
   synTensorType tensor_type_{DATA_TENSOR};
+  /*
+   * This pt_shape_ tensor is used to store the shape
+   * as we from pytorch tensor. This value is only
+   * used for propogating the shape value when creating
+   * placeholder tensor for shape inference. The format
+   * of shape stored in pt_shape_ does not match with the
+   * format stored in 'shape_'.
+   * Currently the only way to populate the pt_shape_ is
+   * during creation of place holder with the shape of
+   * pytorch tensor
+   */
   std::vector<int64_t> pt_shape_;
   static bool generate_placeholder_;
 };

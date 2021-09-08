@@ -277,20 +277,7 @@ class HabanaOperator {
     p_context_->syn_input_orig_.clear();
   }
 
-  static void Capture(void* map_shape);
-  static void Reset();
-
-  // counter to keep track of pytorch tensors created
-  static void* m_shape_inference;
-
-  static std::string update_shape_info(
-      synapse_helpers::graph& graph,
-      const std::vector<int64_t>& sizes);
-
  protected:
-  std::tuple<std::vector<int64_t>, std::vector<int64_t>> GetMinMaxShape(
-      const std::string& syn_tensor_name);
-
   virtual void AddNodeToSynapseGraph(
       synapse_helpers::graph& graph,
       void* params,
