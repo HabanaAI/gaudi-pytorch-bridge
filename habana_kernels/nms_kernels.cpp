@@ -10,6 +10,7 @@
 #include <perf_lib_layer_params.h>
 #include <torch/script.h>
 
+#include "habana_bridge/kernel/hpu_shape_inference.h"
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
 #include "habana_helpers/graph.h"
@@ -19,9 +20,11 @@
 #include "habana_kernels/nms_kernels.h"
 #include "habana_kernels/tensor_shape_kernels.h"
 #include "habana_kernels/topk_kernels.h"
+#include "synapse_helpers/tensor_builder_base.h"
 
 using namespace torch;
 using namespace habana;
+using tensor_name_generator = synapse_helpers::detail::tensor_name_generator;
 
 void FilterAndSqueezeOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
@@ -111,10 +114,18 @@ void PostNmsOperator::AllocateAndAddSynapseNode(
   auto valid_box_ids = inputs[1].toTensor();
 
   ns_PostNms::Params params;
-  params.max_output_size = static_cast<int>(box_ids.sizes()[2]);
+  if (graph.is_dynamic_graph() && (!graph.is_dry_run())) {
+    std::string tensor_name = tensor_name_generator::get_next_tensor_name();
+    std::vector<int64_t> min, max;
+    std::tie(min, max) = habana::ShapeInference::GetMinMaxShape(tensor_name);
+    params.max_output_size = static_cast<int>(max[0]);
+  } else {
+    params.max_output_size = static_cast<int>(box_ids.sizes()[2]);
+  }
+
   auto box_id_out = habana_helpers::createPTTensor(
       box_ids,
-      {params.max_output_size},
+      {static_cast<int>(box_ids.sizes()[2])},
       box_ids.options(),
       is_output_persistent[0]);
   auto valid_box_id_out = habana_helpers::createPTTensor(
@@ -127,7 +138,12 @@ void PostNmsOperator::AllocateAndAddSynapseNode(
   auto shape_tensor = habana_helpers::createPTTensor(
       valid_box_ids, {5}, valid_box_ids.options(), is_output_persistent[2]);
   synDataType synType = syn_type_uint32;
-  AllocateSynapseOutput(graph, shape_tensor, synType, is_output_persistent[2]);
+  AllocateSynapseOutput(
+      graph,
+      shape_tensor,
+      synType,
+      is_output_persistent[2],
+      graph.is_dynamic_graph() ? true : false);
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 

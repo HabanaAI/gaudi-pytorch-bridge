@@ -206,7 +206,6 @@ class tensor_builder_base {
 
   ConcreteBuilder& mark_shape_tensor() {
     tensor_type_ = SHAPE_TENSOR;
-    is_persistent_ = true;
     data_type_ = syn_type_uint32;
     return static_cast<ConcreteBuilder&>(*this);
   }

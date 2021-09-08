@@ -100,10 +100,9 @@ void PtTensorInfo::update_shape_syn() {
     //    syn_shape_[i] = val;
     //  }
     //} break;
-    // case DEVICE_SHAPE_TENSOR:
-    // device shape tensors are still 5-element (SYN_MAX_TENSOR_DIM)
-    //  syn_shape_ = {SYN_MAX_TENSOR_DIM, 0, 0, 0, 0};
-    //  break;
+    case DEVICE_SHAPE_TENSOR:
+      syn_shape_ = {SYN_MAX_TENSOR_DIM, 0, 0, 0, 0};
+      break;
     case TENSOR_TYPE_MAX:
     default:
       TORCH_CHECK(false, "Unreachable condition.");

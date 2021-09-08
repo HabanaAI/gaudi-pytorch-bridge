@@ -2215,8 +2215,15 @@ void UniqueOperator::AllocateAndAddSynapseNode(
   p_context_->params_.emplace<ns_UniqueKernel::Params>(params);
   p_context_->params_size_ = sizeof(params);
 
-  AllocateSynapseOutputs(
-      graph, {output_feature_map, valid_count}, is_output_persistent);
+  AllocateSynapseOutput(graph, output_feature_map, is_output_persistent[0]);
+  synDataType synType = syn_type_uint32;
+  AllocateSynapseOutput(
+      graph,
+      valid_count,
+      synType,
+      is_output_persistent[1],
+      graph.is_dynamic_graph() ? true : false);
+
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 

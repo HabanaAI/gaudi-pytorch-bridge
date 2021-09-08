@@ -103,7 +103,12 @@ void NonZeroOperator::AllocateAndAddSynapseNode(
   // shape_tensor is of type UINT32 not supported by ScalarType, use synDataType
   synDataType synType = syn_type_uint32;
   AllocateSynapseOutput(graph, cordinates_of_true, is_output_persistent[0]);
-  AllocateSynapseOutput(graph, shape_tensor, synType, is_output_persistent[1]);
+  AllocateSynapseOutput(
+      graph,
+      shape_tensor,
+      synType,
+      is_output_persistent[1],
+      graph.is_dynamic_graph() ? true : false);
   AddNodeToSynapseGraph(graph, nullptr, 0);
 }
 

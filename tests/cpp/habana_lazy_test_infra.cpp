@@ -10,7 +10,30 @@
 
 #include "habana_lazy_test_infra.h"
 
+#include "pytorch_helpers/habana_helpers/logging.h"
+
 namespace habana_lazy_test {
+
+void print_tensor_details(torch::Tensor& t, std::string tname) {
+  PT_TEST_DEBUG(
+      "PTI_DBG :: tensor ",
+      tname,
+      " :",
+      " dim=",
+      t.dim(),
+      ", shape=",
+      t.sizes(),
+      ", stride=",
+      t.strides(),
+      ", layout=",
+      t.layout(),
+      (t.has_storage() ? (t.is_cpu() ? ", contents" : "") : ", place_holder"));
+  if (t.has_storage()) {
+    if (t.is_cpu()) {
+      PT_TEST_DEBUG(t);
+    }
+  }
+}
 
 // Create a 3 Node vector from first level IR
 // This is what is expected after a post order traversal

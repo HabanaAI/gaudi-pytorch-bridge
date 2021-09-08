@@ -704,7 +704,6 @@ synapse_helpers::tensor habana_helpers::create_shape_tensor(
             .with_dynamic_shape(dynamic_shape);
     if (!is_device_shape_tensor) {
       builder.mark_shape_tensor();
-      builder.mark_persistence(false);
     } else {
       builder.mark_device_shape_tensor();
       builder.mark_persistence(persistent);
