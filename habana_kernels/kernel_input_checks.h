@@ -1553,6 +1553,8 @@ static const std::
                   at::ScalarType::BFloat16,
                   at::ScalarType::Double,
                   at::ScalarType::Char,
+                  at::ScalarType::Int,
+                  at::ScalarType::Long,
                   at::ScalarType::Byte}},
             },
             {
