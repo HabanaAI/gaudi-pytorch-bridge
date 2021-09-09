@@ -218,8 +218,8 @@ class LazyOp {
 
  private:
   bool isMetadataCandidate(const at::IValue& input) const {
-    return input.isBool() || input.isGenerator() || input.isDevice() ||
-        input.isIntList() || input.isDoubleList() || input.isBoolList() ||
+    return input.isBool() || input.isDevice() || input.isIntList() ||
+        input.isDoubleList() || input.isBoolList() || input.isString() ||
         input.isNone();
   }
 
