@@ -389,7 +389,7 @@ prelu:
 
 random_:
   custom_fill_params: FillRandomParams
-  dtypes: [BFloat16, Float]
+  dtypes: [BFloat16, Float, Int]
   func_ns_hpu: true
   guid: random_uniform_fwd
   inplace_ids: [0]
@@ -398,7 +398,7 @@ random_:
 
 random_.from:
   custom_fill_params: FillRandomFromParams
-  dtypes: [BFloat16, Float]
+  dtypes: [BFloat16, Float, Int]
   func_ns_hpu: true
   guid: random_uniform_fwd
   inplace_ids: [0]
@@ -407,7 +407,7 @@ random_.from:
 
 random_.to:
   custom_fill_params: FillRandomToParams
-  dtypes: [BFloat16, Float]
+  dtypes: [BFloat16, Float, Int]
   func_ns_hpu: true
   guid: random_uniform_fwd
   inplace_ids: [0]

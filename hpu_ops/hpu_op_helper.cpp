@@ -165,9 +165,10 @@ std::vector<synapse_helpers::tensor> HabanaOperatorHelper::BuildOp(
   std::vector<synTensor> node_outputs;
 
   for (const auto& attr : node_output_attrs) {
-    if (attr.final_node and IsOutFn()) {
-      // HandleOutFn() placed the output in p_context_->syn_outputs_
-      outputs.emplace_back(std::move(p_context_->syn_outputs_.at(0).ref()));
+    if (attr.final_node and IsOutputAvailable()) {
+      // HandleOutFn/HandleInplaceFn placed the output in syn_outputs_
+      int index = m_is_outfn ? 0 : m_inplace_id;
+      outputs.emplace_back(std::move(p_context_->syn_outputs_.at(index).ref()));
     } else {
       const auto& t = at::detail::make_tensor<c10::TensorImpl>(
           c10::DispatchKeySet{

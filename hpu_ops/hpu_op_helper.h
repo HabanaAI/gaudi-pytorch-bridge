@@ -75,8 +75,8 @@ class HabanaOperatorHelper : public HabanaOperator {
     return m_scalar_id;
   }
 
-  bool IsOutFn() const {
-    return m_is_outfn;
+  bool IsOutputAvailable() const {
+    return m_is_outfn or m_inplace_id >= 0;
   }
 
   void set_layouts(
@@ -86,7 +86,6 @@ class HabanaOperatorHelper : public HabanaOperator {
     kernel_meta_data_.output_layout = std::move(out_layouts);
   }
 
- private:
   virtual void CustomHandler(synapse_helpers::graph&, at::Stack&) {}
 
   virtual std::shared_ptr<void> FillParams(const at::Stack&, size_t& size) {
@@ -98,6 +97,7 @@ class HabanaOperatorHelper : public HabanaOperator {
     return {};
   }
 
+ private:
   void HandleScalarToTensor(
       synapse_helpers::graph& graph,
       const at::Stack& stack);

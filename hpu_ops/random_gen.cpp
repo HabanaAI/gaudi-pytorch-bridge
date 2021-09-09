@@ -57,6 +57,15 @@ static std::shared_ptr<void> RandomUniformParams(
       break;
   }
 
+  PT_KERNEL_DEBUG(
+      __func__,
+      " low: ",
+      params->low,
+      " high: ",
+      params->high,
+      " seed: ",
+      params->seed);
+
   return params;
 }
 
@@ -98,6 +107,33 @@ void RandomOp::AddNode(
     synapse_helpers::graph& graph,
     at::Stack& stack,
     const std::vector<bool>& is_output_persistent_list) {
+  if (ScalarType() == c10::ScalarType::Int) {
+    size_t size = 0;
+    auto rand_params = FillParams(stack, size);
+    auto rand = BuildOp(
+        graph,
+        "random_uniform_fwd_f32",
+        {},
+        {{stack_tensor(stack, 0).sizes()}},
+        rand_params.get(),
+        size);
+
+    PARAMS_STUB(ns_CastKernel::IntParams);
+    params->cast_mode = _CastIntMode_t::TRUNCATE;
+    auto cast = BuildOp(
+        graph,
+        "cast_f32_to_i32",
+        {rand[0].get()},
+        {{stack_tensor(stack, 0).sizes(),
+          ScalarType(),
+          is_output_persistent_list[0],
+          true}},
+        params.get(),
+        size);
+    syn_out(0) = std::move(cast[0]);
+    return;
+  }
+
   kernel_meta_data_.tpc_input_order = {habana::NO_INPUTS};
   HabanaOperatorHelper::AddNode(graph, stack, is_output_persistent_list);
 }

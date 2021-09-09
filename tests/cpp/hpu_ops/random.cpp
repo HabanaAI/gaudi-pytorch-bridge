@@ -41,11 +41,11 @@ TEST_F(HpuOpTest, random_from) {
 }
 
 TEST_F(HpuOpTest, random_to) {
-  GenerateInputs(1);
+  GenerateInputs(1, torch::kInt);
   SetSeed();
   auto result1 = GetHpuInput(0).random_(1000);
 
-  GenerateInputs(1);
+  GenerateInputs(1, torch::kInt);
   SetSeed();
   auto result2 = GetHpuInput(0).random_(1000);
 
