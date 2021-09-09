@@ -15,8 +15,11 @@
 #include "habana_helpers/graph.h"
 #include "habana_helpers/tensor_utils.h"
 #include "habana_helpers/unused_macro.h"
+#include "habana_kernels/binary_kernels.h"
 #include "habana_kernels/loss_kernels.h"
+#include "habana_kernels/reduction_kernels.h"
 #include "habana_kernels/tensor_shape_kernels.h"
+#include "habana_kernels/threshold_kernels.h"
 #include "habana_kernels/unary_kernels.h"
 #include "simple_generic_kernel.h"
 #include "synapse_helpers/recipe.h"
@@ -846,6 +849,330 @@ Tensor mse_loss_backward_hpu(
   return out.at(0);
 }
 
+std::vector<int64_t> KlDivOperator::compute_output_shape(
+    const at::Tensor& self,
+    int64_t reduction) {
+  if (reduction == at::Reduction::Reduction::None) {
+    return self.sizes().vec();
+  } else {
+    return {1};
+  }
+}
+
+void KlDivOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 4,
+      "Incorrect size of inputs expected for kl_div operator");
+  TORCH_CHECK(inputs[0].isTensor(), "Input type expected to be tensor");
+  TORCH_CHECK(inputs[1].isTensor(), "Input type expected to be tensor");
+  TORCH_CHECK(inputs[2].isInt(), "Input type expected to be integer");
+  TORCH_CHECK(inputs[3].isBool(), "Input type expected to be boolean");
+
+  auto self = inputs[0].toTensor();
+  auto target = inputs[1].toTensor();
+  int64_t reduction = inputs[2].toInt();
+  bool log_target = inputs[3].toBool();
+
+  torch::jit::Stack stack;
+  HabanaOperatorPtr log_exp_op;
+  HabanaOperatorPtr threshold_op;
+  if (log_target) {
+    log_exp_op = static_cast<HabanaOperatorPtr>(
+        make_operator<ExpOperator>(self.device().index(), self.scalar_type()));
+    stack = {IValue(target)};
+    log_exp_op->SetSynapseInput(p_context_->syn_inputs_[1]);
+    log_exp_op->AllocateAndAddSynapseNode(graph, stack, false);
+    stack.clear();
+
+  } else {
+    log_exp_op = static_cast<HabanaOperatorPtr>(
+        make_operator<LogOperator>(self.device().index(), self.scalar_type()));
+    stack = {IValue(target)};
+    log_exp_op->SetSynapseInput(p_context_->syn_inputs_[1]);
+    log_exp_op->AllocateAndAddSynapseNode(graph, stack, false);
+    stack.clear();
+
+    threshold_op = make_operator<ThresholdBackwardOperator>(
+        self.device().index(), self.scalar_type());
+    threshold_op->SetSynapseInput(log_exp_op->GetSynOutputs()[0]);
+    threshold_op->SetSynapseInput(p_context_->syn_inputs_[1]);
+    stack = {IValue(log_exp_op->GetOutputs()[0]), IValue(target), IValue(0.0f)};
+    threshold_op->AllocateAndAddSynapseNode(graph, stack, false);
+    stack.clear();
+  }
+
+  auto sub_op =
+      make_operator<SubOperator>(self.device().index(), self.scalar_type());
+  (log_target) ? sub_op->SetSynapseInput(p_context_->syn_inputs_[1])
+               : sub_op->SetSynapseInput(threshold_op->GetSynOutputs()[0]);
+  sub_op->SetSynapseInput(p_context_->syn_inputs_[0]);
+  stack = {
+      (log_target) ? IValue(target) : IValue(threshold_op->GetOutputs()[0]),
+      IValue(self),
+      IValue(1)};
+  sub_op->AllocateAndAddSynapseNode(graph, stack, false);
+  stack.clear();
+
+  auto mul_op1 =
+      make_operator<MulOperator>(self.device().index(), self.scalar_type());
+  (log_target) ? mul_op1->SetSynapseInput(log_exp_op->GetSynOutputs()[0])
+               : mul_op1->SetSynapseInput(p_context_->syn_inputs_[1]);
+  mul_op1->SetSynapseInput(sub_op->GetSynOutputs()[0]);
+  stack = {
+      (log_target) ? IValue(log_exp_op->GetOutputs()[0]) : IValue(target),
+      IValue(sub_op->GetOutputs()[0])};
+  mul_op1->AllocateAndAddSynapseNode(
+      graph,
+      stack,
+      (reduction == at::Reduction::Reduction::None) ? is_output_persistent
+                                                    : false);
+  stack.clear();
+
+  if (reduction != at::Reduction::Reduction::None) {
+    auto sum_mean_op = (reduction == at::Reduction::Reduction::Sum)
+        ? static_cast<HabanaOperatorPtr>(make_operator<SumOperator>(
+              self.device().index(), self.scalar_type()))
+        : static_cast<HabanaOperatorPtr>(make_operator<MeanOperator>(
+              self.device().index(), self.scalar_type()));
+    sum_mean_op->SetSynapseInput(mul_op1->GetSynOutputs()[0]);
+    stack = {IValue(mul_op1->GetOutputs()[0]), IValue(self.scalar_type())};
+    sum_mean_op->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+    stack.clear();
+
+    p_context_->syn_outputs_.emplace_back(
+        std::move(sum_mean_op->GetSynOutputs()[0]));
+    p_context_->pt_outputs_.emplace_back(
+        std::move(sum_mean_op->GetOutputs()[0]));
+  } else {
+    p_context_->syn_outputs_.emplace_back(
+        std::move(mul_op1->GetSynOutputs()[0]));
+    p_context_->pt_outputs_.emplace_back(std::move(mul_op1->GetOutputs()[0]));
+  }
+}
+
+Tensor kl_div_hpu(
+    const Tensor& self,
+    const Tensor& target,
+    int64_t reduction,
+    bool log_target) {
+  PT_KERNEL_BEGIN;
+
+  at::ScalarType scalar_type = self.scalar_type();
+  std::string node_type =
+      "kl_div_" + habana_helpers::name_suffix_from_type(scalar_type);
+
+  size_t device_id = self.device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+
+  // Build Params for the graph
+  std::vector<c10::IValue> stack = {
+      IValue(self), IValue{target}, IValue(reduction), IValue(log_target)};
+
+  // Assign Inputs to the Operator
+  std::vector<at::Tensor> pt_inputs{self, target};
+
+  KlDivOperator Op(device_id, scalar_type);
+  size_t key = Op.GetRecipeKey(node_type, stack);
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    Tensor output;
+    if (reduction == at::Reduction::Reduction::None) {
+      output = habana_helpers::createPTTensor(self, true);
+    } else {
+      output = habana_helpers::createPTTensor(
+          self, {1}, self.options(), self.suggest_memory_format(), true);
+    }
+    Op.SetPTInputs(pt_inputs);
+    Op.SetPTOutput(output);
+    Op.Execute(key);
+  } else {
+    // Create Graph
+    auto graph = habana_helpers::create_graph(device_id, node_type);
+
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
+
+    Op.AllocateAndAddSynapseNode(graph, stack, true);
+
+    // compile and execute the graph
+    Op.Compile(graph);
+  }
+
+  std::vector<at::Tensor> out = Op.GetOutputs();
+  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
+
+  if (reduction != at::Reduction::Reduction::None) {
+    // Note: pytorch expects 0d tensor (scalar)
+    out.at(0).unsafeGetTensorImpl()->set_sizes_and_strides({}, {});
+  }
+
+  PT_KERNEL_END;
+  return out.at(0);
+}
+void KlDivBwdOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 5,
+      "Incorrect size of inputs expected for kl_div backward operator");
+  TORCH_CHECK(inputs[0].isTensor(), "Input type expected to be tensor");
+  TORCH_CHECK(inputs[1].isTensor(), "Input type expected to be tensor");
+  TORCH_CHECK(inputs[2].isTensor(), "Input type expected to be tensor");
+  TORCH_CHECK(inputs[3].isInt(), "Input type expected to be integer");
+  TORCH_CHECK(inputs[4].isBool(), "Input type expected to be boolean");
+
+  auto grad_out = inputs[0].toTensor();
+  auto self = inputs[1].toTensor();
+  auto target = inputs[2].toTensor();
+  int64_t reduction = inputs[3].toInt();
+  bool log_target = inputs[4].toBool();
+
+  torch::jit::Stack stack;
+  HabanaOperatorPtr exp_op;
+  if (log_target) {
+    exp_op = static_cast<HabanaOperatorPtr>(
+        make_operator<ExpOperator>(self.device().index(), self.scalar_type()));
+    stack = {IValue(target)};
+    exp_op->SetSynapseInput(p_context_->syn_inputs_[2]);
+    exp_op->AllocateAndAddSynapseNode(graph, stack, false);
+    stack.clear();
+  }
+
+  if (reduction != at::Reduction::Reduction::None) {
+    auto shape = self.sizes().vec();
+    int flattened_size = std::accumulate(
+        shape.cbegin(), shape.cend(), 1, std::multiplies<int>());
+    int64_t data[1];
+    data[0] = flattened_size;
+    IntArrayRef size_arr(data, 1);
+    auto sum_mean_op = (reduction == at::Reduction::Reduction::Sum)
+        ? static_cast<HabanaOperatorPtr>(make_operator<ReduceSumBwdOperator>(
+              self.device().index(), self.scalar_type()))
+        : static_cast<HabanaOperatorPtr>(make_operator<ReduceMeanBwdOperator>(
+              self.device().index(), self.scalar_type()));
+    sum_mean_op->SetSynapseInput(p_context_->syn_inputs_[0]);
+    stack = {IValue(grad_out), IValue(size_arr), IValue(0)};
+    sum_mean_op->AllocateAndAddSynapseNode(graph, stack, false);
+    stack.clear();
+
+    auto shape1 = self.sizes().vec();
+    auto reshape_op = make_operator<ReshapeOperator>(
+        self.device().index(), self.scalar_type());
+    reshape_op->SetSynapseInput(sum_mean_op->GetSynOutputs()[0]);
+    stack = {IValue(sum_mean_op->GetOutputs()[0]), IValue(shape1)};
+    reshape_op->AllocateAndAddSynapseNode(graph, stack, false);
+    stack.clear();
+
+    auto mul_op1 =
+        make_operator<MulOperator>(self.device().index(), self.scalar_type());
+    mul_op1->SetSynapseInput(reshape_op->GetSynOutputs()[0]);
+    (log_target) ? mul_op1->SetSynapseInput(exp_op->GetSynOutputs()[0])
+                 : mul_op1->SetSynapseInput(p_context_->syn_inputs_[2]);
+    stack = {
+        IValue(reshape_op->GetOutputs()[0]),
+        (log_target) ? IValue(exp_op->GetOutputs()[0]) : IValue(target)};
+    mul_op1->AllocateAndAddSynapseNode(graph, stack, false);
+    stack.clear();
+
+    auto mul_op3 =
+        make_operator<MulOperator>(self.device().index(), self.scalar_type());
+    mul_op3->SetSynapseInput(mul_op1->GetSynOutputs()[0]);
+    stack = {IValue(mul_op1->GetOutputs()[0]), IValue(-1)};
+    mul_op3->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+    stack.clear();
+
+    p_context_->syn_outputs_.emplace_back(
+        std::move(mul_op3->GetSynOutputs()[0]));
+    p_context_->pt_outputs_.emplace_back(std::move(mul_op3->GetOutputs()[0]));
+  } else {
+    auto mul_op2 =
+        make_operator<MulOperator>(self.device().index(), self.scalar_type());
+    mul_op2->SetSynapseInput(p_context_->syn_inputs_[0]);
+    (log_target) ? mul_op2->SetSynapseInput(exp_op->GetSynOutputs()[0])
+                 : mul_op2->SetSynapseInput(p_context_->syn_inputs_[2]);
+    stack = {
+        IValue(grad_out),
+        (log_target) ? IValue(exp_op->GetOutputs()[0]) : IValue(target)};
+    mul_op2->AllocateAndAddSynapseNode(graph, stack, false);
+    stack.clear();
+
+    auto mul_op4 =
+        make_operator<MulOperator>(self.device().index(), self.scalar_type());
+    mul_op4->SetSynapseInput(mul_op2->GetSynOutputs()[0]);
+    stack = {IValue(mul_op2->GetOutputs()[0]), IValue(-1)};
+    mul_op4->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+    stack.clear();
+
+    p_context_->syn_outputs_.emplace_back(
+        std::move(mul_op4->GetSynOutputs()[0]));
+    p_context_->pt_outputs_.emplace_back(std::move(mul_op4->GetOutputs()[0]));
+  }
+}
+
+Tensor kl_div_backward_hpu(
+    const Tensor& grad_output,
+    const Tensor& self,
+    const Tensor& target,
+    int64_t reduction,
+    bool log_target) {
+  PT_KERNEL_BEGIN;
+
+  // Convert 0D tensor to 1D tensor before passing to Synapse
+  if (grad_output.dim() == 0) {
+    grad_output.unsafeGetTensorImpl()->set_sizes_and_strides({1}, {1});
+  }
+
+  at::ScalarType scalar_type = self.scalar_type();
+  std::string node_type =
+      "kl_div_backward_" + habana_helpers::name_suffix_from_type(scalar_type);
+
+  size_t device_id = self.device().index();
+  auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
+
+  // Build Params for the graph
+  std::vector<c10::IValue> stack = {
+      IValue{grad_output},
+      IValue{self},
+      IValue{target},
+      IValue{reduction},
+      IValue{log_target}};
+
+  // Assign Inputs to the Operator
+  std::vector<at::Tensor> pt_inputs{grad_output, target};
+
+  KlDivBwdOperator Op(device_id, scalar_type);
+  size_t key = Op.GetRecipeKey(node_type, stack);
+  if (device.get_recipe_handle_cache().isCached(key)) {
+    PT_KERNEL_DEBUG("Cache hit key:", key);
+    auto output =
+        at::empty(self.sizes(), self.options(), self.suggest_memory_format());
+    Op.SetPTInputs(pt_inputs);
+    Op.SetPTOutput(output);
+    Op.Execute(key);
+  } else {
+    // Create Graph
+    auto graph = habana_helpers::create_graph(device_id, node_type);
+
+    // Assign Inputs to the Operator
+    Op.AllocateSynapseInputs(graph, pt_inputs, true);
+
+    // Build Params for the graph
+    Op.AllocateAndAddSynapseNode(graph, stack, true);
+
+    // compile and execute the graph
+    Op.Compile(graph);
+  }
+
+  std::vector<at::Tensor> out = Op.GetOutputs();
+  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
+
+  PT_KERNEL_END;
+  return out.at(0);
+}
+
 std::vector<int64_t> BceFwdOperator::compute_output_shape(
     const at::Tensor& self,
     int64_t reduction) {
@@ -1304,6 +1631,16 @@ static auto& KernelRegistry =
             "aten::mse_loss_backward",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<MSELossBwdOperator>(device_id, node_type);
+            })
+        .add(
+            "aten::kl_div",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<KlDivOperator>(device_id, node_type);
+            })
+        .add(
+            "aten::kl_div_backward",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<KlDivBwdOperator>(device_id, node_type);
             })
         .add(
             "aten::nll_loss_forward",

@@ -41,6 +41,88 @@ TEST_F(LazyLossKernelTest, MseLossTest) {
   EXPECT_EQ(allclose(out2, exp2), true);
 }
 
+TEST_F(LazyLossKernelTest, KLDivLossTest) {
+  auto kl_div_test = [](Tensor& input,
+                        Tensor& target,
+                        Tensor& grad_out,
+                        int64_t reduction,
+                        bool log_target,
+                        bool is_zero) {
+    if (!is_zero) {
+      input = torch::_softmax(input, 0, false);
+      target = torch::_softmax(target, 0, false);
+    }
+
+    auto hinput = input.to(torch::kHPU);
+    auto htarget = target.to(torch::kHPU);
+    auto hgrad_out = grad_out.to(torch::kHPU);
+
+    torch::Tensor hout1 = torch::kl_div(hinput, htarget, reduction, log_target);
+    torch::Tensor hout2 = torch::kl_div_backward(
+        hgrad_out, hinput, htarget, reduction, log_target);
+
+    auto out1 = hout1.to(torch::kCPU);
+    auto out2 = hout2.to(torch::kCPU);
+
+    auto exp1 = kl_div(input, target, reduction, log_target);
+    auto exp2 = kl_div_backward(grad_out, input, target, reduction, log_target);
+
+    EXPECT_EQ(allclose(out1, exp1), true);
+    EXPECT_EQ(allclose(out2, exp2), true);
+
+    return true;
+  };
+
+  // 1D test case.
+  torch::Tensor input = torch::randn({9});
+  torch::Tensor target = torch::randn({9});
+  torch::Tensor grad_out = torch::randn({1});
+  torch::Tensor grad_out_none = torch::randn({9});
+  auto reduction = at::Reduction::Mean;
+  kl_div_test(input, target, grad_out, reduction, true, false);
+  kl_div_test(input, target, grad_out, reduction, false, false);
+  reduction = at::Reduction::Sum;
+  kl_div_test(input, target, grad_out, reduction, true, false);
+  kl_div_test(input, target, grad_out, reduction, false, false);
+  reduction = at::Reduction::None;
+  kl_div_test(input, target, grad_out_none, reduction, true, false);
+  kl_div_test(input, target, grad_out_none, reduction, false, false);
+
+  ////3D test case.
+  input = torch::randn({4, 2, 2});
+  target = torch::randn({4, 2, 2});
+  grad_out_none = torch::randn({4, 2, 2});
+  grad_out = torch::randn({1});
+  reduction = at::Reduction::Mean;
+  kl_div_test(input, target, grad_out, reduction, true, false);
+  kl_div_test(input, target, grad_out, reduction, false, false);
+  reduction = at::Reduction::Sum;
+  kl_div_test(input, target, grad_out, reduction, true, false);
+  kl_div_test(input, target, grad_out, reduction, false, false);
+  reduction = at::Reduction::None;
+  kl_div_test(input, target, grad_out_none, reduction, true, false);
+  kl_div_test(input, target, grad_out_none, reduction, false, false);
+
+  // 0 values test case.
+  input = torch::tensor(
+      {0.0, 0.0, 0.25, 0.0, 0.25, 0.0, 0.25, 0.25, 0.0},
+      torch::dtype(torch::kFloat));
+  target = torch::tensor(
+      {0.25, 0.0, 0.25, 0.0, 0.25, 0.0, 0.0, 0.25, 0.0},
+      torch::dtype(torch::kFloat));
+  grad_out = torch::randn({1}, torch::dtype(torch::kFloat));
+  grad_out_none = torch::randn({9}, torch::dtype(torch::kFloat));
+  reduction = at::Reduction::Mean;
+  kl_div_test(input, target, grad_out, reduction, true, false);
+  kl_div_test(input, target, grad_out, reduction, false, true);
+  reduction = at::Reduction::Sum;
+  kl_div_test(input, target, grad_out, reduction, true, true);
+  kl_div_test(input, target, grad_out, reduction, false, true);
+  reduction = at::Reduction::None;
+  kl_div_test(input, target, grad_out_none, reduction, true, true);
+  kl_div_test(input, target, grad_out_none, reduction, false, true);
+}
+
 TEST_F(LazyLossKernelTest, NllLossFwdTest) {
   torch::Tensor input = torch::randn({10, 4}, torch::requires_grad(true));
   torch::Tensor hinput = input.to(torch::kHPU);

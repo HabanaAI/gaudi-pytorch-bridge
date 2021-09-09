@@ -3265,6 +3265,37 @@ Tensor binary_cross_entropy_with_logits_hpu_lazy(
   return result;
 }
 
+Tensor kl_div_hpu_lazy(
+    const Tensor& self,
+    const Tensor& target,
+    int64_t reduction,
+    bool log_target) {
+  PT_LAZY_TRACE;
+
+  LazyOp<at::Tensor> k(
+      "aten::kl_div",
+      {self, target, reduction, log_target},
+      {2, 3}, // metadata_indices
+      {KlDivOperator::compute_output_shape(self, reduction)});
+  return k.call();
+}
+
+Tensor kl_div_backward_hpu_lazy(
+    const Tensor& grad_output,
+    const Tensor& self,
+    const Tensor& target,
+    int64_t reduction,
+    bool log_target) {
+  PT_LAZY_TRACE;
+
+  LazyOp<at::Tensor> k(
+      "aten::kl_div_backward",
+      {grad_output, self, target, reduction, log_target},
+      {3, 4}, // metadata_indices
+      {self.sizes().vec()});
+  return k.call();
+}
+
 std::tuple<Tensor, Tensor, Tensor> batch_norm_hpu_lazy(
     const Tensor& input,
     const Tensor& weight,

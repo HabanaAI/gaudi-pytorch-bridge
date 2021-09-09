@@ -414,6 +414,17 @@ at::Tensor binary_cross_entropy_with_logits_hpu_lazy(
     const c10::optional<at::Tensor>& weight,
     const c10::optional<at::Tensor>& pos_weight,
     int64_t reduction);
+at::Tensor kl_div_hpu_lazy(
+    const at::Tensor& input,
+    const at::Tensor& target,
+    int64_t reduction,
+    bool log_target);
+at::Tensor kl_div_backward_hpu_lazy(
+    const at::Tensor& grad,
+    const at::Tensor& input,
+    const at::Tensor& target,
+    int64_t reduction,
+    bool log_target);
 std::tuple<at::Tensor, at::Tensor, at::Tensor> batch_norm_hpu_lazy(
     const at::Tensor& input,
     const at::Tensor& weight,

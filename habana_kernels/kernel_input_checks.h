@@ -78,6 +78,18 @@ class OpAttributeCheck {
           {5,
            {c10::IValue(at::Reduction::Reduction::Mean),
             c10::IValue(at::Reduction::Reduction::Sum)}}}},
+        // checking for reduction = Mean or Sum or None
+        {"kl_div",
+         {{3,
+           {c10::IValue(at::Reduction::Reduction::None),
+            c10::IValue(at::Reduction::Reduction::Mean),
+            c10::IValue(at::Reduction::Reduction::Sum)}}}},
+        // checking for reduction = Mean or Sum or None
+        {"kl_div_backward",
+         {{4,
+           {c10::IValue(at::Reduction::Reduction::None),
+            c10::IValue(at::Reduction::Reduction::Mean),
+            c10::IValue(at::Reduction::Reduction::Sum)}}}},
         // checking scale = 1 & input_scale = 1
         {"elu",
          {{3, {c10::IValue(1), c10::IValue(1.0)}},
@@ -626,6 +638,14 @@ static const std::
                   at::ScalarType::Char,
                   at::ScalarType::Float,
                   at::ScalarType::Long}},
+            },
+            {
+                "kl_div",
+                {{at::ScalarType::Float, at::ScalarType::BFloat16}},
+            },
+            {
+                "kl_div_backward",
+                {{at::ScalarType::Float, at::ScalarType::BFloat16}},
             },
             {
                 "binary_cross_entropy_backward",

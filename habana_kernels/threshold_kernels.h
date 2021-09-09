@@ -7,6 +7,7 @@
  *
  ******************************************************************************
  */
+#pragma once
 #include "habana_operator.h"
 
 namespace habana {

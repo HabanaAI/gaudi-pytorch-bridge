@@ -1578,6 +1578,53 @@ Tensor hpu_wrap::mse_loss_backward(
     return mse_loss_backward_hpu(grad_output, self, target, reduction);
   }
 };
+
+Tensor hpu_wrap::kl_div(
+    const Tensor& self,
+    const Tensor& target,
+    int64_t reduction,
+    bool log_target) {
+  OpAttributeCheck* check_handle = OpAttributeCheck::get_instance();
+  std::vector<c10::IValue> op_stack = {
+      IValue(self), IValue(target), IValue(reduction), IValue(log_target)};
+  check_handle->hpu_check_ivalues("kl_div", op_stack);
+  if (!(hpu_check_inputs_impl("kl_div", {self, target}) &&
+        check_handle->get_status())) {
+    return AtenHpuTypeDefault::kl_div(self, target, reduction, log_target);
+  }
+  if (GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 0) {
+    return kl_div_hpu_lazy(self, target, reduction, log_target);
+  } else {
+    return kl_div_hpu(self, target, reduction, log_target);
+  }
+};
+
+Tensor hpu_wrap::kl_div_backward(
+    const Tensor& grad,
+    const Tensor& self,
+    const Tensor& target,
+    int64_t reduction,
+    bool log_target) {
+  OpAttributeCheck* check_handle = OpAttributeCheck::get_instance();
+  std::vector<c10::IValue> op_stack = {
+      IValue(grad),
+      IValue(self),
+      IValue(target),
+      IValue(reduction),
+      IValue(log_target)};
+  check_handle->hpu_check_ivalues("kl_div_backward", op_stack);
+  if (!(hpu_check_inputs_impl("kl_div_backward", {grad, self, target}) &&
+        (check_handle->get_status()))) {
+    return AtenHpuTypeDefault::kl_div_backward(
+        grad, self, target, reduction, log_target);
+  }
+  if (GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 0) {
+    return kl_div_backward_hpu_lazy(grad, self, target, reduction, log_target);
+  } else {
+    return kl_div_backward_hpu(grad, self, target, reduction, log_target);
+  }
+};
+
 Tensor hpu_wrap::binary_cross_entropy(
     const Tensor& self,
     const Tensor& target,

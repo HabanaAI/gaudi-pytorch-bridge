@@ -131,6 +131,45 @@ class MSELossBwdOperator : public HabanaOperator {
   static std::vector<int64_t> compute_output_shape(const at::Tensor& self);
 };
 
+// KlDiv Operator
+class KlDivOperator : public HabanaOperator {
+ public:
+  KlDivOperator(const int device_id, c10::ScalarType scalarType)
+      : HabanaOperator(
+            "kl_div_" + habana_helpers::name_suffix_from_type(scalarType)) {
+    this->CreateSynContext(device_id);
+    kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
+    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
+  }
+
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+
+  static std::vector<int64_t> compute_output_shape(
+      const at::Tensor& self,
+      int64_t reduction);
+};
+
+// KlDivBwd Operator
+class KlDivBwdOperator : public HabanaOperator {
+ public:
+  KlDivBwdOperator(const int device_id, c10::ScalarType scalarType)
+      : HabanaOperator(
+            "kl_div_backward_" +
+            habana_helpers::name_suffix_from_type(scalarType)) {
+    this->CreateSynContext(device_id);
+    kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
+    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
+  }
+
+  virtual void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+};
+
 // BceFwd Operator
 class BceFwdOperator : public HabanaOperator {
  public:

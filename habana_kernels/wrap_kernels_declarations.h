@@ -368,6 +368,17 @@ struct hpu_wrap {
       const at::Tensor& self,
       const at::Tensor& target,
       int64_t reduction);
+  static at::Tensor kl_div(
+      const at::Tensor& input,
+      const at::Tensor& target,
+      int64_t reduction,
+      bool log_target);
+  static at::Tensor kl_div_backward(
+      const at::Tensor& grad,
+      const at::Tensor& input,
+      const at::Tensor& target,
+      int64_t reduction,
+      bool log_target);
   static at::Tensor binary_cross_entropy(
       const at::Tensor& self,
       const at::Tensor& target,

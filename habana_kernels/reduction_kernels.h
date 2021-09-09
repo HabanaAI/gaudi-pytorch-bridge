@@ -332,5 +332,36 @@ class AllOutOperator : public HabanaOperator {
       torch::jit::Stack& inputs,
       bool is_output_persistent = false) override;
 };
+// Reduce Sum Backward Operator.
+class ReduceSumBwdOperator : public HabanaOperator {
+ public:
+  ReduceSumBwdOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator(
+            "reduce_sum_bwd_" +
+            habana_helpers::name_suffix_from_type(scalarType)) {
+    this->CreateSynContext(device_id);
+  }
+
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+};
+
+// Reduce Mean Backward Operator.
+class ReduceMeanBwdOperator : public HabanaOperator {
+ public:
+  ReduceMeanBwdOperator(int device_id, c10::ScalarType scalarType)
+      : HabanaOperator(
+            "reduce_mean_bwd_" +
+            habana_helpers::name_suffix_from_type(scalarType)) {
+    this->CreateSynContext(device_id);
+  }
+
+  void AllocateAndAddSynapseNode(
+      synapse_helpers::graph& graph,
+      torch::jit::Stack& inputs,
+      bool is_output_persistent = false) override;
+};
 
 } // namespace habana

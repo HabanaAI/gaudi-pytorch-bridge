@@ -1878,6 +1878,75 @@ Tensor argmax_hpu(
   return out.at(0);
 }
 
+void ReduceSumBwdOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 3,
+      "Incorrect size of inputs expected for ReduceSumBwd operator");
+  TORCH_CHECK(
+      inputs[0].isTensor(),
+      "Input arg1 expected to be tensor for ReduceSumBwd operator");
+  TORCH_CHECK(
+      inputs[1].isIntList(),
+      "Input arg2 expected to be int list for ReduceSumBwd operator");
+  TORCH_CHECK(
+      inputs[2].isInt(),
+      "Input arg3 expected to be a integer for ReduceSumBwd operator");
+
+  auto grad_out = inputs[0].toTensor();
+  auto grad_inp_size = inputs[1].toIntList();
+  auto reduce_dim = inputs[2].toInt();
+
+  int64_t data[grad_inp_size.size()];
+  std::copy(grad_inp_size.begin(), grad_inp_size.end(), data);
+  IntArrayRef dim_arr(data, grad_inp_size.size());
+
+  ns_Reduction::Params params{};
+  params.reductionDimension = reduce_dim;
+
+  auto output = habana_helpers::createPTTensor(
+      grad_out, dim_arr, grad_out.options(), is_output_persistent);
+  AllocateSynapseOutputs(graph, {output}, {is_output_persistent});
+  AddNodeToSynapseGraph(graph, &params, sizeof(params));
+}
+
+void ReduceMeanBwdOperator::AllocateAndAddSynapseNode(
+    synapse_helpers::graph& graph,
+    torch::jit::Stack& inputs,
+    bool is_output_persistent) {
+  TORCH_CHECK(
+      inputs.size() == 3,
+      "Incorrect size of inputs expected for ReduceMeanBwd operator");
+  TORCH_CHECK(
+      inputs[0].isTensor(),
+      "Input arg1 expected to be tensor for ReduceMeanBwd operator");
+  TORCH_CHECK(
+      inputs[1].isIntList(),
+      "Input arg2 expected to be int list for ReduceMeanBwd operator");
+  TORCH_CHECK(
+      inputs[2].isInt(),
+      "Input arg3 expected to be an integer for ReduceMeanBwd Opeator");
+
+  auto grad_out = inputs[0].toTensor();
+  auto grad_inp_size = inputs[1].toIntList();
+  auto reduce_dim = inputs[2].toInt();
+
+  int64_t data[grad_inp_size.size()];
+  std::copy(grad_inp_size.begin(), grad_inp_size.end(), data);
+  IntArrayRef dim_arr(data, grad_inp_size.size());
+
+  ns_Reduction::Params params{};
+  params.reductionDimension = reduce_dim;
+
+  auto output = habana_helpers::createPTTensor(
+      grad_out, dim_arr, grad_out.options(), is_output_persistent);
+
+  AllocateSynapseOutputs(graph, {output}, {is_output_persistent});
+  AddNodeToSynapseGraph(graph, &params, sizeof(params));
+}
+
 static auto& KernelRegistry =
     habana::KernelRegistry()
         .add(
