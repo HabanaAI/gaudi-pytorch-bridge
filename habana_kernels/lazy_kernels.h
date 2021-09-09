@@ -9,6 +9,7 @@
  */
 #pragma once
 
+#include <tuple>
 #include <utility>
 
 #include "habana_kernels/kernel_utils.h"
@@ -37,6 +38,23 @@ template <class F, class... Ts>
 void for_each_in_tuple(std::tuple<Ts...>& tuple, F func) {
   for_each_in_tuple(tuple, func, std::make_index_sequence<sizeof...(Ts)>());
 }
+
+template <class...>
+struct conjunction : std::true_type {};
+
+template <class B1>
+struct conjunction<B1> : B1 {};
+
+template <class B1, class... Bn>
+struct conjunction<B1, Bn...>
+    : std::conditional_t<bool(B1::value), conjunction<Bn...>, B1> {};
+
+template <typename Tuple>
+struct is_tuple_of_tensor_ref;
+
+template <typename... Ts>
+struct is_tuple_of_tensor_ref<std::tuple<Ts...>>
+    : conjunction<std::is_same<at::Tensor&, Ts>...> {};
 
 // TODO: Ideally we want a variant of HABANA_ASSERT like
 // TORCH_INTERNAL_ASSERT_DEBUG_ONLY
@@ -115,7 +133,7 @@ class LazyOp {
   virtual ~LazyOp() = default;
 
   template <typename T = ReturnType>
-  typename std::enable_if<std::tuple_size<T>::value >= 2, T>::type call() {
+  typename std::enable_if<not is_tuple_of_tensor_ref<T>::value, T>::type call() {
     auto node = create_node();
     auto results = get_result();
     int i = 0;
@@ -142,6 +160,13 @@ class LazyOp {
     }
 
     return results;
+  }
+
+  template <typename T = ReturnType>
+  typename std::enable_if<is_tuple_of_tensor_ref<T>::value, T>::type call(
+      T tensors) {
+    // TODO fill body
+    return tensors;
   }
 
   template <typename T = ReturnType>
@@ -261,8 +286,9 @@ class LazyOp {
   }
 
   template <typename T = ReturnType>
-  typename std::enable_if<std::tuple_size<T>::value >= 2, ReturnType>::type
-  get_result() {
+  typename std::enable_if<not is_tuple_of_tensor_ref<T>::value, ReturnType>::
+      type
+      get_result() {
     // Get results from derived class when index is negative
     if (m_out_index < 0) {
       return get_result_overrideable();
@@ -552,91 +578,4 @@ class LazyCompareOp : public LazyOp<ReturnType> {
     return result;
   }
 };
-
-template <
-    typename ReturnType = std::tuple<at::Tensor, at::Tensor, at::Tensor>,
-    typename NodeConstruct = void>
-class HabanaNMSLazy : public LazyOp<ReturnType> {
- public:
-  explicit HabanaNMSLazy(
-      const std::vector<at::IValue>& inputs,
-      const std::vector<std::vector<int64_t>>& out_shapes = {})
-      : LazyOp<ReturnType>("hpu::habana_nms", inputs, {}, out_shapes, -1) {}
-
-  virtual ~HabanaNMSLazy() = default;
-
-  template <typename T = ReturnType>
-  typename std::enable_if<std::tuple_size<T>::value >= 3, T>::type call() {
-    return LazyOp<ReturnType>::call();
-  }
-
- protected:
-  virtual ReturnType get_result_overrideable() {
-    ReturnType results;
-    auto inputs = LazyOp<ReturnType>::get_inputs();
-    auto scores = inputs[1].toTensor();
-    auto box_id_out_shape = LazyOp<ReturnType>::get_out_shapes()[0];
-    auto valid_box_id_out_shape = LazyOp<ReturnType>::get_out_shapes()[1];
-    auto shape_tensor_shape = LazyOp<ReturnType>::get_out_shapes()[2];
-    std::get<0>(results) = empty_hpu_lazy(
-        box_id_out_shape,
-        scores.options().dtype(c10::ScalarType::Int),
-        scores.suggest_memory_format(),
-        false);
-    std::get<1>(results) = empty_hpu_lazy(
-        valid_box_id_out_shape,
-        scores.options().dtype(c10::ScalarType::Int),
-        scores.suggest_memory_format(),
-        false);
-    std::get<2>(results) = empty_hpu_lazy(
-        shape_tensor_shape,
-        scores.options().dtype(c10::ScalarType::Int),
-        scores.suggest_memory_format(),
-        false);
-    return results;
-  }
-};
-
-template <
-    typename ReturnType = std::tuple<at::Tensor, at::Tensor>,
-    typename NodeConstruct = void>
-class Unique : public LazyOp<ReturnType> {
- public:
-  explicit Unique(
-      const std::vector<at::IValue>& inputs,
-      std::set<size_t> metadata_indices = {},
-      const std::vector<std::vector<int64_t>>& out_shapes = {})
-      : LazyOp<ReturnType>(
-            "hpu::_unique2",
-            inputs,
-            metadata_indices,
-            out_shapes,
-            -1) {}
-
-  virtual ~Unique() = default;
-
-  template <typename T = ReturnType>
-  typename std::enable_if<std::tuple_size<T>::value >= 2, T>::type call() {
-    return LazyOp<ReturnType>::call();
-  }
-
- protected:
-  virtual ReturnType get_result_overrideable() {
-    ReturnType results;
-    auto inputs = LazyOp<ReturnType>::get_inputs();
-    auto self = inputs[0].toTensor();
-    int elements = self.numel();
-    auto output_shape = at::DimVector{elements};
-    auto valid_shape = at::DimVector{1};
-    std::get<0>(results) = empty_hpu_lazy(
-        output_shape, self.options(), self.suggest_memory_format(), false);
-    std::get<1>(results) = empty_hpu_lazy(
-        valid_shape,
-        self.options().dtype(c10::ScalarType::Int),
-        self.suggest_memory_format(),
-        false);
-    return results;
-  }
-};
-
 } // namespace habana_lazy

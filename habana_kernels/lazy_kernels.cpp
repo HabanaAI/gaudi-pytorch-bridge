@@ -6874,12 +6874,40 @@ std::tuple<Tensor, Tensor, Tensor> unique2_hpu_lazy(
     bool return_counts) {
   PT_LAZY_TRACE;
 
+  struct Unique : LazyOp<std::tuple<at::Tensor, at::Tensor>> {
+    explicit Unique(
+        const std::vector<at::IValue>& inputs,
+        const std::set<size_t>& metadata_indices = {},
+        const std::vector<std::vector<int64_t>>& out_shapes = {})
+        : LazyOp<std::tuple<at::Tensor, at::Tensor>>(
+              "hpu::_unique2",
+              inputs,
+              metadata_indices,
+              out_shapes,
+              -1) {}
+
+    std::tuple<at::Tensor, at::Tensor> get_result_overrideable() override {
+      auto inputs = get_inputs();
+      auto self = inputs[0].toTensor();
+      int elements = self.numel();
+      auto output_shape = at::DimVector{elements};
+      auto valid_shape = at::DimVector{1};
+      auto result0 = empty_hpu_lazy(
+          output_shape, self.options(), self.suggest_memory_format(), false);
+      auto result1 = empty_hpu_lazy(
+          valid_shape,
+          self.options().dtype(c10::ScalarType::Int),
+          self.suggest_memory_format(),
+          false);
+      return {result0, result1};
+    }
+  };
+
   int elements = self.numel();
   std::vector<int64_t> feature_map_shape{elements};
   std::vector<int64_t> valid_count_shape{1};
   // Add unique_2 node
-  using T = std::tuple<at::Tensor, at::Tensor>;
-  Unique<T> k(
+  Unique k(
       {IValue(self),
        IValue(sorted),
        IValue(return_inverse),
@@ -7046,11 +7074,50 @@ Tensor habana_nms_hpu_lazy(
     float score_threshold) {
   PT_LAZY_TRACE;
 
+  struct HabanaNMSLazy
+      : LazyOp<std::tuple<at::Tensor, at::Tensor, at::Tensor>> {
+   public:
+    explicit HabanaNMSLazy(
+        const std::vector<at::IValue>& inputs,
+        const std::vector<std::vector<int64_t>>& out_shapes = {})
+        : LazyOp<std::tuple<at::Tensor, at::Tensor, at::Tensor>>(
+              "hpu::habana_nms",
+              inputs,
+              {},
+              out_shapes,
+              -1) {}
+
+    std::tuple<at::Tensor, at::Tensor, at::Tensor> get_result_overrideable()
+        override {
+      std::tuple<at::Tensor, at::Tensor, at::Tensor> results;
+      auto inputs = get_inputs();
+      auto scores = inputs[1].toTensor();
+      auto box_id_out_shape = get_out_shapes()[0];
+      auto valid_box_id_out_shape = get_out_shapes()[1];
+      auto shape_tensor_shape = get_out_shapes()[2];
+      std::get<0>(results) = empty_hpu_lazy(
+          box_id_out_shape,
+          scores.options().dtype(c10::ScalarType::Int),
+          scores.suggest_memory_format(),
+          false);
+      std::get<1>(results) = empty_hpu_lazy(
+          valid_box_id_out_shape,
+          scores.options().dtype(c10::ScalarType::Int),
+          scores.suggest_memory_format(),
+          false);
+      std::get<2>(results) = empty_hpu_lazy(
+          shape_tensor_shape,
+          scores.options().dtype(c10::ScalarType::Int),
+          scores.suggest_memory_format(),
+          false);
+      return results;
+    }
+  };
+
   std::vector<int64_t> box_id_out_shape{scores.sizes()[0]};
   std::vector<int64_t> valid_box_id_out_shape{1};
   std::vector<int64_t> shape_tensor_shape{5};
-  using T = std::tuple<at::Tensor, at::Tensor, at::Tensor>;
-  HabanaNMSLazy<T> k(
+  HabanaNMSLazy k(
       {boxes, scores, Scalar(iou_threshold), Scalar(score_threshold)},
       {box_id_out_shape, valid_box_id_out_shape, shape_tensor_shape});
   auto result_nms = k.call();
