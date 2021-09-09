@@ -70,6 +70,124 @@ TEST_F(LazyNormKernelTest, InstanceNormChLast) {
   EXPECT_EQ(allclose(result_lazy.to("cpu"), result_cpu, 0.01, 0.01), true);
 }
 
+TEST_F(LazyNormKernelTest, InstanceNorm3dFwdBwd) {
+  if (std::getenv("PT_HPU_LAZY_MODE") != NULL &&
+      strcmp(std::getenv("PT_HPU_LAZY_MODE"), "0") == 0) {
+    GTEST_SKIP();
+  }
+  auto batch_dim = 1;
+  auto channel_dim = 320;
+  auto depth_dim = 8;
+  auto height_dim = 8;
+  auto width_dim = 8;
+  auto num_el = batch_dim * channel_dim * depth_dim * height_dim * width_dim;
+  auto input_tensor = torch::randn(
+      {batch_dim, channel_dim, depth_dim, height_dim, width_dim},
+      torch::dtype(torch::kFloat).requires_grad(true));
+  torch::Tensor tHabanaX = input_tensor.to(torch::kHPU).detach();
+  tHabanaX.requires_grad_(true);
+
+  at::Tensor weight = torch::randn(
+      channel_dim, torch::dtype(torch::kFloat).requires_grad(true));
+  torch::Tensor tWeight = weight.to(torch::kHPU).detach();
+  tWeight.requires_grad_(true);
+
+  at::Tensor bias = torch::randn(
+      channel_dim, torch::dtype(torch::kFloat).requires_grad(true));
+  torch::Tensor tBias = bias.to(torch::kHPU).detach();
+  tBias.requires_grad_(true);
+
+  auto mean = torch::randn(
+      channel_dim, torch::dtype(torch::kFloat).requires_grad(false));
+  torch::Tensor tHabanaMean = mean.to(torch::kHPU);
+
+  auto var = torch::ones(
+      channel_dim, torch::dtype(torch::kFloat).requires_grad(false));
+  torch::Tensor tHabanaVar = var.to(torch::kHPU);
+
+  constexpr float mom = 0.1;
+  constexpr float eps = 1e-5;
+  auto result_cpu = torch::instance_norm(
+      input_tensor, weight, bias, mean, var, true, mom, eps, false);
+  auto grad_out = torch::ones_like(result_cpu);
+  auto hgrad_out = grad_out.to(torch::kHPU).detach();
+  hgrad_out.requires_grad_(true);
+  result_cpu.backward(grad_out);
+  auto grad_in = input_tensor.grad();
+
+  auto result_lazy = torch::instance_norm(
+      tHabanaX, tWeight, tBias, tHabanaMean, tHabanaVar, true, mom, eps, false);
+  auto result_lazy_hpu = result_lazy.to(torch::kCPU);
+  result_lazy.backward(hgrad_out);
+  auto hgrad_in = tHabanaX.grad();
+  auto hgrad_in_hpu = hgrad_in.to(torch::kCPU);
+
+  EXPECT_EQ(
+      allclose(result_lazy_hpu, result_cpu, 0.01, 0.01) &&
+          allclose(hgrad_in_hpu, grad_in, 0.01, 0.01),
+      true);
+}
+
+TEST_F(LazyNormKernelTest, InstanceNorm3dChLastFwdBwd) {
+  if (std::getenv("PT_HPU_LAZY_MODE") != NULL &&
+      strcmp(std::getenv("PT_HPU_LAZY_MODE"), "0") == 0) {
+    GTEST_SKIP();
+  }
+  auto batch_dim = 1;
+  auto channel_dim = 320;
+  auto depth_dim = 8;
+  auto height_dim = 8;
+  auto width_dim = 8;
+  auto num_el = batch_dim * channel_dim * depth_dim * height_dim * width_dim;
+  auto input_tensor = torch::randn(
+      {batch_dim, channel_dim, depth_dim, height_dim, width_dim},
+      torch::dtype(torch::kFloat).requires_grad(true));
+  torch::Tensor tHabanaX = input_tensor.to(torch::kHPU)
+                               .contiguous(c10::MemoryFormat::ChannelsLast3d)
+                               .detach();
+  tHabanaX.requires_grad_(true);
+
+  at::Tensor weight = torch::randn(
+      channel_dim, torch::dtype(torch::kFloat).requires_grad(true));
+  torch::Tensor tWeight = weight.to(torch::kHPU).detach();
+  tWeight.requires_grad_(true);
+
+  at::Tensor bias = torch::randn(
+      channel_dim, torch::dtype(torch::kFloat).requires_grad(true));
+  torch::Tensor tBias = bias.to(torch::kHPU).detach();
+  tBias.requires_grad_(true);
+
+  auto mean = torch::randn(
+      channel_dim, torch::dtype(torch::kFloat).requires_grad(false));
+  torch::Tensor tHabanaMean = mean.to(torch::kHPU);
+
+  auto var = torch::ones(
+      channel_dim, torch::dtype(torch::kFloat).requires_grad(false));
+  torch::Tensor tHabanaVar = var.to(torch::kHPU);
+
+  constexpr float mom = 0.1;
+  constexpr float eps = 1e-5;
+  auto result_cpu = torch::instance_norm(
+      input_tensor, weight, bias, mean, var, true, mom, eps, false);
+  auto grad_out = torch::ones_like(result_cpu);
+  auto hgrad_out = grad_out.to(torch::kHPU).detach();
+  hgrad_out.requires_grad_(true);
+  result_cpu.backward(grad_out);
+  auto grad_in = input_tensor.grad();
+
+  auto result_lazy = torch::instance_norm(
+      tHabanaX, tWeight, tBias, tHabanaMean, tHabanaVar, true, mom, eps, false);
+  auto result_lazy_hpu = result_lazy.to(torch::kCPU);
+  result_lazy.backward(hgrad_out);
+  auto hgrad_in = tHabanaX.grad();
+  auto hgrad_in_hpu = hgrad_in.to(torch::kCPU);
+
+  EXPECT_EQ(
+      allclose(result_lazy_hpu, result_cpu, 0.01, 0.01) &&
+          allclose(hgrad_in_hpu, grad_in, 0.01, 0.01),
+      true);
+}
+
 TEST_F(LazyNormKernelTest, LayerNormBackwardExecute) {
   auto input_grad =
       torch::arange(480, torch::dtype(torch::kFloat).requires_grad(false))

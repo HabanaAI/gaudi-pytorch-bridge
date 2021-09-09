@@ -304,6 +304,7 @@ at::Tensor get_tensor_for_scalar(
 
 Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
   PT_LAZY_TRACE;
+  auto is_5d_tensor = self.dim() == 5;
   if (habana_helpers::is_unsupported_type(self.scalar_type())) {
     // only dst can be unsupported dtype since copy_h2d and empty_hpu calls
     // would fallback to cpu for unsupported dtypes
@@ -340,9 +341,15 @@ Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
       auto src_data = hb_tensor.CurrentTensorData();
       if (copy_transpose_valid(self, src)) {
         permuted = true;
-        int64_t dim_chl_pos[] = {0, 2, 3, 1};
-        at::IntArrayRef chl_pos = dim_chl_pos;
-        self = permute_cl_hpu_lazy(src, chl_pos);
+        if (is_5d_tensor) {
+          int64_t dim_chl_pos[] = {0, 2, 3, 4, 1};
+          at::IntArrayRef chl_pos = dim_chl_pos;
+          self = permute_cl_hpu_lazy(src, chl_pos);
+        } else {
+          int64_t dim_chl_pos[] = {0, 2, 3, 1};
+          at::IntArrayRef chl_pos = dim_chl_pos;
+          self = permute_cl_hpu_lazy(src, chl_pos);
+        }
       } else if (!permuted) {
         if (hb_tensor.getTensorUniqueId() == hlresult.getTensorUniqueId()) {
           return self;
@@ -405,9 +412,15 @@ Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
       auto src_data = hb_tensor.CurrentTensorData();
       if (copy_transpose_valid(self, src)) {
         permuted = true;
-        int64_t dim_chl_pos[] = {0, 2, 3, 1};
-        at::IntArrayRef chl_pos = dim_chl_pos;
-        self = permute_cl_hpu_lazy(src, chl_pos);
+        if (is_5d_tensor) {
+          int64_t dim_chl_pos[] = {0, 2, 3, 4, 1};
+          at::IntArrayRef chl_pos = dim_chl_pos;
+          self = permute_cl_hpu_lazy(src, chl_pos);
+        } else {
+          int64_t dim_chl_pos[] = {0, 2, 3, 1};
+          at::IntArrayRef chl_pos = dim_chl_pos;
+          self = permute_cl_hpu_lazy(src, chl_pos);
+        }
       } else if (!permuted || storage_attached) {
         if (storage_attached) {
           if (hb_tensor.getTensorUniqueId() == hlresult.getTensorUniqueId()) {
@@ -475,6 +488,7 @@ Tensor& copy_hpu_lazy_D2H(Tensor& self, const Tensor& src, bool non_blocking) {
       IsHbLazyTensor(src),
       "Habana Lazy : trying to copy back a tensor which does not have a lazy tensor");
 
+  auto is_5d_tensor = src.dim() == 5;
   // If src is a lazy tensor make sure the execution till the point of src
   // getting flled has finished before we start copying
   HbLazyTensor hb_tensor = GetHbLazyTensor(src);
@@ -491,13 +505,31 @@ Tensor& copy_hpu_lazy_D2H(Tensor& self, const Tensor& src, bool non_blocking) {
         sizes[out_pos[1]],
         sizes[out_pos[2]],
         sizes[out_pos[3]]};
-    auto new_strides =
-        CalculateStrides(swapped_sizes, c10::MemoryFormat::Contiguous);
-    auto strided_tensor =
-        as_strided_hpu_lazy(src, swapped_sizes, new_strides, 0);
-    auto permute_tensor = permute_cl_hpu_lazy(strided_tensor, {3, 2, 0, 1});
-    HbLazyTensor hb_tensor = GetHbLazyTensor(permute_tensor);
-    tensor_data = hb_tensor.GetHbLazyTensorData();
+    std::vector<int> out_pos_5d = {2, 3, 4, 1, 0};
+    std::vector<long int> swapped_sizes_5d = {
+        sizes[out_pos_5d[0]],
+        sizes[out_pos_5d[1]],
+        sizes[out_pos_5d[2]],
+        sizes[out_pos_5d[3]],
+        sizes[out_pos_5d[4]]};
+    if (is_5d_tensor) {
+      auto new_strides =
+          CalculateStrides5d(swapped_sizes_5d, c10::MemoryFormat::Contiguous);
+      auto strided_tensor =
+          as_strided_hpu_lazy(src, swapped_sizes_5d, new_strides, 0);
+      auto permute_tensor =
+          permute_cl_hpu_lazy(strided_tensor, {4, 3, 0, 1, 2});
+      HbLazyTensor hb_tensor = GetHbLazyTensor(permute_tensor);
+      tensor_data = hb_tensor.GetHbLazyTensorData();
+    } else {
+      auto new_strides =
+          CalculateStrides(swapped_sizes, c10::MemoryFormat::Contiguous);
+      auto strided_tensor =
+          as_strided_hpu_lazy(src, swapped_sizes, new_strides, 0);
+      auto permute_tensor = permute_cl_hpu_lazy(strided_tensor, {3, 2, 0, 1});
+      HbLazyTensor hb_tensor = GetHbLazyTensor(permute_tensor);
+      tensor_data = hb_tensor.GetHbLazyTensorData();
+    }
   }
   TORCH_CHECK(
       tensor_data, "Trying to copy from lazy tensor with no backend memory");
@@ -4756,7 +4788,18 @@ void adjustPTSizesLazy(Tensor& t) {
       sizes[out_pos[1]],
       sizes[out_pos[2]],
       sizes[out_pos[3]]};
-  t.unsafeGetTensorImpl()->set_sizes_contiguous(swapped_sizes);
+  std::vector<int> out_pos_5d = {0, 4, 1, 2, 3};
+  std::vector<long int> swapped_sizes_5d = {
+      sizes[out_pos_5d[0]],
+      sizes[out_pos_5d[1]],
+      sizes[out_pos_5d[2]],
+      sizes[out_pos_5d[3]],
+      sizes[out_pos_5d[4]]};
+  if (t.dim() == 5) {
+    t.unsafeGetTensorImpl()->set_sizes_contiguous(swapped_sizes_5d);
+  } else {
+    t.unsafeGetTensorImpl()->set_sizes_contiguous(swapped_sizes);
+  }
   // For 4D tensors we need to make sure that we generate the PT channel last
   // strides. Also as its a front end tensor, there may be a backend tensor
   // already if so, change dims for that tensor too.

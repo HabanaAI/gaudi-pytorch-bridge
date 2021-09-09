@@ -1,3 +1,4 @@
+from copy import deepcopy
 import torch
 import torch.nn.functional as F
 import pytest
@@ -31,6 +32,11 @@ batch_norm_test_case_list_1d_ncl = [
 
 layer_norm_test_case_list = [(2, 5, 10, 10)]
 
+instance_norm3d_test_case_list = [
+    # N, C, D, H, W
+    (1, 256, 16, 16, 16),
+    (1, 320, 8, 8, 8)
+]
 
 @pytest.mark.parametrize("N, H, W, C", layer_norm_test_case_list)
 @pytest.mark.parametrize("split_dim", [1, 2, 3])
@@ -284,6 +290,73 @@ def test_hpu_lp_norm_op_fwd_bwd(N, H, lp_norm_op, value):
     bwd_tensors = [torch.randn(N, H)]
     evaluate_fwd_bwd_kernel(kernel=lp_norm_op, tensor_list_bwd=bwd_tensors,
         kernel_params_fwd=kernel_params_fwd)
+
+#Instance Norm bwd is not suported in legacy eager mode
+@pytest.mark.skipif(os.getenv("PT_HPU_LAZY_MODE") is not None and os.getenv("PT_HPU_LAZY_MODE") == "0",
+    reason="Instance Norm bwd is not suported in legacy eager mode")
+@pytest.mark.parametrize("N, C, D, H, W", instance_norm3d_test_case_list)
+def test_hpu_instance_norm_3d_fwd_bwd(N, C, D, H, W):
+    hpu = torch.device('hpu')
+    cpu = torch.device('cpu')
+
+    input_nchw = torch.randn((N, C, D, H, W), dtype=torch.float, requires_grad=True)
+
+    kernel = torch.nn.InstanceNorm3d(C, affine=True)
+    kernel_copy = deepcopy(kernel)
+
+    #cpu forward
+    out_cpu = kernel(input_nchw)
+
+    #hpu forward
+    input_nchw_hpu = input_nchw.to(hpu).detach()
+    input_nchw_hpu.requires_grad = True
+    kernel_hpu = kernel_copy.to(hpu)
+    out_hpu = kernel_hpu(input_nchw_hpu)
+
+    #cpu bwd
+    out_cpu_bwd = torch.ones_like(out_cpu)
+    out_cpu.backward(out_cpu_bwd)
+    input_nchw_bwd = input_nchw.grad
+
+    #hpu bwd
+    out_hpu.backward(out_cpu_bwd.to(hpu))
+    tt = input_nchw_hpu.grad.to(cpu)
+
+    numpy.testing.assert_allclose(tt.detach().numpy(), input_nchw_bwd.detach().numpy(), atol=0.01, rtol=0.01, equal_nan=True)
+
+#Instance Norm bwd is not suported in legacy eager mode
+@pytest.mark.skipif(os.environ.get("PT_HPU_LAZY_MODE") is not None and os.environ.get("PT_HPU_LAZY_MODE") == "0",
+    reason="Instance Norm bwd is not suported in legacy eager mode")
+@pytest.mark.parametrize("N, C, D, H, W", instance_norm3d_test_case_list)
+def test_hpu_instance_norm_3d_chlast_fwd_bwd(N, C, D, H, W):
+    hpu = torch.device('hpu')
+    cpu = torch.device('cpu')
+
+    input_nchw = torch.randn((N, C, D, H, W), dtype=torch.float, requires_grad=True)
+
+    kernel = torch.nn.InstanceNorm3d(C, affine=True)
+    kernel_copy = deepcopy(kernel)
+
+    #cpu forward
+    out_cpu = kernel(input_nchw)
+
+    #hpu forward
+    input_nhwc_hpu = input_nchw.contiguous(memory_format=torch.channels_last_3d).to(hpu).detach()
+    input_nhwc_hpu.requires_grad = True
+    kernel_hpu = kernel_copy.to(hpu)
+    out_hpu = kernel_hpu(input_nhwc_hpu)
+    tt = out_hpu.to(cpu)
+
+    #cpu bwd
+    out_cpu_bwd = torch.ones_like(out_cpu)
+    out_cpu.backward(out_cpu_bwd)
+    input_nchw_bwd = input_nchw.grad
+
+    #hpu bwd
+    out_hpu.backward(out_cpu_bwd.contiguous(memory_format=torch.channels_last_3d).to(hpu))
+    tt = input_nhwc_hpu.grad.to(cpu)
+
+    numpy.testing.assert_allclose(tt.detach().numpy(), input_nchw_bwd.detach().numpy(), atol=0.01, rtol=0.01, equal_nan=True)
 
 if __name__ == "__main__":
     test_hpu_native_layer_norm(*layer_norm_test_case_list[0], 1)
