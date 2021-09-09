@@ -293,6 +293,8 @@ class device {
     return max_recipe_limit_in_queue_;
   }
 
+  static std::set<synDeviceType> get_supported_devices();
+
  private:
   friend class stream;
   static synapse_error_v<std::shared_ptr<device>> create(

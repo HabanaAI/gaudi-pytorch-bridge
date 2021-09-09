@@ -377,6 +377,9 @@ std::ostream& operator<<(std::ostream& stream, const device& syn_device) {
     case synDeviceGaudiM:
       stream << " GaudiM ";
       break;
+    case synDeviceGaudi2:
+      stream << " Gaudi2 ";
+      break;
     default:
       stream << " UNKNOWN ";
   }
@@ -710,6 +713,13 @@ void device::record_and_wait_for_event(
       std::move(done_callback));
   record_stream.register_pending_event(event_ref);
   event_ref->stream_wait_event(other_stream);
+}
+
+std::set<synDeviceType> device::get_supported_devices() {
+  return {
+      synDeviceType::synDeviceGaudi,
+      synDeviceType::synDeviceGaudiM,
+      synDeviceType::synDeviceGaudi2};
 }
 
 void owned_device_ptr::device_ptr_deleter::operator()(device_ptr* ptr) {
