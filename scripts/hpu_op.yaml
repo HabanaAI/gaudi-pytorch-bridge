@@ -335,6 +335,12 @@ mse_loss_backward.grad_input:
   dtypes: [BFloat16, Float]
   guid: mse_loss_bwd
 
+mv.out:
+  custom_output_shape: MvOpsOutputShape
+  dtypes: [BFloat16, Float, Short, Int]
+  op_base_class: MvOpOut
+  guid: mv
+
 neg.out:
   dtypes: [BFloat16, Float, Int]
   guid: neg_fwd
@@ -506,4 +512,4 @@ elu_backward:
   custom_fill_params: FillEluBackwardParams
   dtypes: [BFloat16, Float]
   guid: elu_bwd
-  out_ids: [0]
+  out_ids: [0] 

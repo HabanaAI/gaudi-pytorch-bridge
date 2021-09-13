@@ -178,6 +178,7 @@ class HabanaOperatorHelper : public HabanaOperator {
   static sizes_vec GridSampler2dOutputShape(const at::Stack&, bool = false);
   static sizes_vec MseLossBwdOutputShape(const at::Stack&, bool = false);
   static sizes_vec MseLossOutputShape(const at::Stack&, bool = false);
+  static sizes_vec MvOpsOutputShape(const at::Stack&, bool = false);
   static sizes_vec PowOutputShape(const at::Stack&, bool = false);
 };
 
