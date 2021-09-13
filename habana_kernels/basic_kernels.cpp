@@ -30,6 +30,24 @@ using namespace torch;
 #define PT_KERNEL_END (void)(0)
 #endif
 
+static void print_stride_warning(const Tensor& src, const Tensor& dst) {
+  if (src.strides() != dst.strides())
+    PT_KERNEL_WARN(
+        "src device: ",
+        src.device(),
+        " src.strides(): ",
+        src.strides(),
+        " src.sizes(): ",
+        src.sizes(),
+        "\ndst device: ",
+        dst.device(),
+        " dst.strides(): ",
+        dst.strides(),
+        " dst.sizes(): ",
+        dst.sizes(),
+        "\nData will be copied with with basic memcopy so you can expect wrong results");
+}
+
 // Add new src->dst cast mappings to this
 std::map<c10::ScalarType, std::vector<c10::ScalarType>> const
     d2d_copy_supported_casts{
@@ -165,82 +183,50 @@ Tensor& copy_hpu_(Tensor& self, const Tensor& src, bool non_blocking) {
 
   if (src_device == c10::DeviceType::CPU &&
       dst_device == c10::DeviceType::HPU) {
-    // check if strides along any dim of CPU src tensor is 0. Since HPU does not
-    // understand stride = 0, therefore force tensor to contiguous before
-    // triggering DMA to HPU
-    auto cond = std::all_of(
-        src.strides().cbegin(), src.strides().cend(), [](int64_t x) {
-          return x >= 1;
-        });
-    auto src_contiguous = src;
-    if (!cond) {
-      src_contiguous = src.contiguous(src.suggest_memory_format());
-    }
-    auto _src = dst.scalar_type() != src_contiguous.scalar_type()
-        ? src_contiguous.to(dst.scalar_type())
-        : src_contiguous;
-    HABANA_ASSERT(dst.nbytes() >= _src.nbytes());
-    habana_helpers::copy_data_to_device(_src, dst, non_blocking);
+    // CPU/source tensor should have same dtype as dst & should be contiguous
+    // before H2D DMA is triggered
+    auto src_contiguous =
+        src.to(dst.scalar_type()).contiguous(src.suggest_memory_format());
+    TORCH_CHECK(dst.nbytes() >= src_contiguous.nbytes());
+    habana_helpers::copy_data_to_device(src_contiguous, dst, non_blocking);
+    print_stride_warning(src_contiguous, dst);
   } else if (
       src_device == c10::DeviceType::HPU &&
       dst_device == c10::DeviceType::CPU) {
-    HABANA_ASSERT(dst.nbytes() >= src.nbytes());
-    if (dst.nbytes() > src.nbytes()) {
-      // special handling for int to long cast. Needed in saving checkpoints for
-      // RN50 lazy The long integer tensor that is used by PT for BN exp
-      // averaging (num_batches_tracked) is converted into int in lazy mode. It
-      // needs to be converted back to long while saving the checkpoint
-      if ((src.scalar_type() == c10::ScalarType::Int) &&
-          (dst.scalar_type() == c10::ScalarType::Long)) {
-        Tensor dst_tmp = at::empty(
-            dst.sizes(),
-            at::CPU(at::kInt).options(),
-            dst.suggest_memory_format());
-        habana_helpers::copy_data_to_host(src, dst_tmp, non_blocking);
-        dst = dst_tmp.to(c10::ScalarType::Long);
-      } else if (
-          (src.scalar_type() == c10::ScalarType::Float) &&
-          (dst.scalar_type() == c10::ScalarType::Double)) {
-        // Handle Float to Double D2H
-        Tensor dst_tmp = at::empty(
-            dst.sizes(),
-            at::CPU(at::kFloat).options(),
-            dst.suggest_memory_format());
-        habana_helpers::copy_data_to_host(src, dst_tmp, non_blocking);
-        dst = dst_tmp.to(c10::ScalarType::Double);
-
-      } else {
-        HABANA_ASSERT(dst.nbytes() != src.nbytes());
-        PT_KERNEL_WARN(
-            "copy_hpu_ doesn't support ",
-            src.scalar_type(),
-            " to ",
-            dst.scalar_type(),
-            "copy");
-      }
+    // HPU/source tensor should be contiguous before D2H DMA is triggered
+    auto src_contiguous = src.contiguous(src.suggest_memory_format());
+    if (src_contiguous.scalar_type() != dst.scalar_type()) {
+      // if src & dst dtypes different, create an intermediate CPU tensor of
+      // same dtype as src
+      // Note this also covers special handling for int -> long or float ->
+      // double casts. Needed in saving checkpoints for RN50 lazy The long
+      // integer tensor that is used by PT for BN exp averaging
+      // (num_batches_tracked) is converted into int in lazy mode. It needs to
+      // be converted back to long while saving the checkpoint
+      auto dst_intermediate = at::empty_like(
+          dst,
+          dst.options().dtype(src_contiguous.scalar_type()),
+          dst.suggest_memory_format());
+      // Is there any reason why this check cannot be strict equality?
+      TORCH_CHECK(dst_intermediate.nbytes() >= src_contiguous.nbytes());
+      habana_helpers::copy_data_to_host(
+          src_contiguous, dst_intermediate, non_blocking);
+      dst = dst_intermediate.to(dst.scalar_type());
     } else {
-      habana_helpers::copy_data_to_host(src, dst, non_blocking);
+      // Is there any reason why this check cannot be strict equality?
+      TORCH_CHECK(dst.nbytes() >= src_contiguous.nbytes());
+      habana_helpers::copy_data_to_host(src_contiguous, dst, non_blocking);
     }
+    print_stride_warning(src_contiguous, dst);
   } else if (
       src_device == c10::DeviceType::HPU &&
       dst_device == c10::DeviceType::HPU) {
     do_d2d_copy(dst, src, non_blocking);
+    print_stride_warning(src, dst);
   } else {
     PT_KERNEL_FATAL(
         "copy_hpu_ doesn't support ", src_device, " to ", dst_device, "copy");
   }
-
-  if (src.strides() != dst.strides())
-    PT_KERNEL_WARN(
-        "src.strides(): ",
-        src.strides(),
-        " src.sizes(): ",
-        src.sizes(),
-        "\ndst.strides(): ",
-        dst.strides(),
-        " dst.sizes(): ",
-        dst.sizes(),
-        "\nData will be copied with with basic memcopy so you can expect wrong results");
 
   PT_KERNEL_END;
   return dst;

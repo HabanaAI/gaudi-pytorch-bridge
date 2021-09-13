@@ -64,7 +64,10 @@ TEST_P(FallbackTest, Inplace) {
   EXPECT_EQ(t.storage().data_ptr().get(), res.storage().data_ptr().get());
 }
 
-TEST_P(FallbackTest, NonSupportedAsStrided) {
+// Test disabled since we do not want to support CPU Fallback for as_strided.
+// Enable this test when strided tensors are completely supported on HPU and
+// move it to appropriate test file
+/*TEST_P(FallbackTest, NonSupportedAsStrided) {
   torch::Tensor A = torch::rand({3, 3, 3, 3, 3});
   torch::Tensor hA = A.to(torch::kHPU);
   at::Tensor Out = A.as_strided({2, 2}, {1, 2});
@@ -74,4 +77,4 @@ TEST_P(FallbackTest, NonSupportedAsStrided) {
   hOut.div_(4);
 
   EXPECT_TRUE(allclose(Out, hOut.to("cpu"))) << Out << hOut.to("cpu");
-}
+}*/

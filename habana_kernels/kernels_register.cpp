@@ -64,8 +64,10 @@ Tensor hpu_wrap::as_strided(
     IntArrayRef size,
     IntArrayRef stride,
     c10::optional<int64_t> storage_offset) {
-  if (!hpu_check_inputs_impl("as_strided", {self}))
-    return AtenHpuTypeDefault::as_strided(self, size, stride, storage_offset);
+  // No CPU fallback for as_strided since H2D & D2H DMA support only contiguous
+  // tensor transfers
+  // if (!hpu_check_inputs_impl("as_strided", {self}))
+  //  return AtenHpuTypeDefault::as_strided(self, size, stride, storage_offset);
 
   if (GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 0) {
     return as_strided_hpu_lazy(self, size, stride, storage_offset);
@@ -3615,8 +3617,11 @@ const at::Tensor& hpu_wrap::as_strided_(
     at::IntArrayRef size,
     at::IntArrayRef stride,
     c10::optional<int64_t> storage_offset) {
-  if (!hpu_check_inputs_impl("as_strided_", {self}))
-    return AtenHpuTypeDefault::as_strided_(self, size, stride, storage_offset);
+  // No CPU fallback for as_strided_ since H2D & D2H DMA support only contiguous
+  // tensor transfers
+  // if (!hpu_check_inputs_impl("as_strided_", {self}))
+  //  return AtenHpuTypeDefault::as_strided_(self, size, stride,
+  //  storage_offset);
 
   return at::native::as_strided_(self, size, stride, std::move(storage_offset));
 }

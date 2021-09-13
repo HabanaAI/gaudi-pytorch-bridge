@@ -867,7 +867,7 @@ Tensor as_strided_hpu_lazy(
       }
       return result;
     } else {
-      return AtenHpuTypeDefault::as_strided(self, size, stride, storage_offset);
+      TORCH_CHECK(0, "as_strided with FCD stride != 1 not supported");
     }
     flush_op(self);
     return self;
