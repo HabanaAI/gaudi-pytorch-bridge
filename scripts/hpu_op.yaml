@@ -371,6 +371,13 @@ neg_:
   guid: neg_fwd
   inplace_ids: [0]
 
+nll_loss_forward.output:
+  custom_fill_params: FillNllLossParams
+  custom_output_shape: NllLossOutputShape
+  dtypes: [BFloat16, Float, Long]
+  guid: nll_loss_fwd
+  op_base_class: NllLoss
+
 pow.Scalar_out:
   custom_output_shape: PowOutputShape
   dtypes: [BFloat16, Float]

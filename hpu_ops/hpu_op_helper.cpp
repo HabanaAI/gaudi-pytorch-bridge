@@ -111,11 +111,20 @@ void HabanaOperatorHelper::HandleOutFn(
     return;
   }
 
-  p_context_->pt_outputs_.emplace_back(stack.back().toTensor());
-  p_context_->syn_outputs_.emplace_back(
-      habana_helpers::duplicate_tensor_in_memory_section(
-          p_context_->syn_inputs_.back(), graph));
-  p_context_->syn_inputs_.pop_back();
+  int stack_size = stack.size();
+  int syn_inputs_size = p_context_->syn_inputs_.size();
+
+  for (int i = m_num_out_tensors; i > 0; --i) {
+    p_context_->pt_outputs_.emplace_back(stack.at(stack_size - i).toTensor());
+    p_context_->syn_outputs_.emplace_back(
+        habana_helpers::duplicate_tensor_in_memory_section(
+            p_context_->syn_inputs_.at(syn_inputs_size - i), graph));
+  }
+
+  // Remove the out tensors from syn inputs
+  p_context_->syn_inputs_.erase(
+      p_context_->syn_inputs_.end() - m_num_out_tensors,
+      p_context_->syn_inputs_.end());
 }
 
 void HabanaOperatorHelper::HandleInplaceFn(

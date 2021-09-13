@@ -164,9 +164,51 @@ class LazyOp {
 
   template <typename T = ReturnType>
   typename std::enable_if<is_tuple_of_tensor_ref<T>::value, T>::type call(
-      T tensors) {
-    // TODO fill body
-    return tensors;
+      T results) {
+    const auto& node = create_node();
+    int i = 0;
+    std::vector<HbLazyTensor> hl_tensors;
+    hl_tensors.reserve(std::tuple_size<T>::value);
+    const auto& out_shapes = m_out_shapes;
+    auto context = habana_lazy_executor.getDeviceExecutionContext();
+
+    TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
+        out_shapes.size() == std::tuple_size<T>::value);
+
+    for_each_in_tuple(
+        results,
+        [&node, &i, &hl_tensors, out_shapes, context](const auto& result) {
+          auto hl_result = GetHbLazyTensor(result);
+          updateDstDependencies(hl_result, result, true);
+          ir::Value& out = hl_result.CurrentIrValue();
+          out.SetNode(
+              node,
+              hl_result.GetDevice(),
+              hl_result.GetSizes(),
+              hl_result.dtype_optional(),
+              i);
+          const auto& out_shape = out_shapes.at(i);
+          if (result.sizes() != out_shape) {
+            auto impl = hl_result.getAttachedTensorImpl();
+            THHTensor_resizeNd(
+                impl, out_shape.size(), out_shape.data(), nullptr);
+            result.unsafeGetTensorImpl()->set_sizes_contiguous(out_shape);
+          }
+          hl_tensors.push_back(hl_result);
+          context->MarkTensorStatus(
+              hl_result.getTensorUniqueId(),
+              LazyTensorExecutionStatus::kREGISTERED);
+          ++i;
+        });
+
+    if (m_flush_op) {
+      HbLazyTensor::SyncTensorsGraph(&hl_tensors);
+    }
+    if (m_random_flush) {
+      flushWithMarkStep();
+    }
+
+    return results;
   }
 
   template <typename T = ReturnType>

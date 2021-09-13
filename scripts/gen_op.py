@@ -152,14 +152,7 @@ namespace habana {{
 
 _OPCLASS_HEADER = """struct {cname} : {op_base_class} {{
   {cname}(int device_id, c10::ScalarType scalar_type) :
-      {op_base_class}(device_id, \"{guid}_\", scalar_type, {out_id}, {inplace_id}, {scalar_id}, {is_out_fn}) {{}}{compute_output_shape}{custom_handler}{fill_params}
-}};
-"""
-
-_OPCLASS_HEADER_WITH_LAYOUTS = """struct {cname} : {op_base_class} {{
-  {cname}(int device_id, c10::ScalarType scalar_type) :
-      {op_base_class}(device_id, \"{guid}_\", scalar_type, {out_id}, {inplace_id}, {scalar_id}, {is_out_fn}) {{
-        set_layouts({{{in_layouts}}}, {{{out_layouts}}});
+      {op_base_class}(device_id, \"{guid}_\", scalar_type, {out_id}, {inplace_id}, {scalar_id}, {is_out_fn}) {{{ctor_extra_calls}
   }}{compute_output_shape}{custom_handler}{fill_params}
 }};
 """
@@ -516,7 +509,7 @@ def generate_entry_debug_code(t, fname, params):
 
 
 def lazyop(
-    ctxop, tfetcher, fn, fname, aten_sig, rtype, param_vars, meta_vars, ce_param_vars
+    ctxop, tfetcher, fn, fname, aten_sig, rtype, param_vars, meta_vars, lazyop_call_args
 ):
     schema_fn = ctxop.func_ns() + "::" + get_aten_opname(aten_sig).split(".")[0]
     code = ""
@@ -559,10 +552,7 @@ def lazyop(
 
         code += "};\n"
 
-    if len(ce_param_vars):
-        code += "  return hpu_op.call({})".format(", ".join(ce_param_vars))
-    else:
-        code += "  return hpu_op.call()"
+    code += "  return hpu_op.call({})".format(lazyop_call_args)
     return code + ";\n}"
 
 
@@ -577,7 +567,7 @@ def bitwise_ops_alt_guid(guid):
     return code
 
 
-def get_hpuop_class_impl(ctxop, fname, cname):
+def get_hpuop_class_impl(ctxop, fname, cname, num_out_tensors):
     guid = ctxop.get_guid()
     out_ids = ctxop.get_out_ids()
     inplace_ids = ctxop.get_inplace_ids()
@@ -606,10 +596,9 @@ def get_hpuop_class_impl(ctxop, fname, cname):
         _COMPUTE_OUTPUT_SHAPE.format(body=output_shape_fn) if output_shape_fn else ""
     )
 
+    custom_handler = ""
     if fname.startswith("bitwise_"):
         custom_handler = _CUSTOM_HANDLER.format(body=bitwise_ops_alt_guid(guid))
-    else:
-        custom_handler = ""
 
     if custom_fill_params:
         assert (
@@ -631,6 +620,7 @@ def get_hpuop_class_impl(ctxop, fname, cname):
     else:
         fill_params = ""
 
+    ctor_extra_calls = []
     layouts = ctxop.get_layouts()
     if len(layouts):
         assert len(layouts) == 2, "Define both input and output layouts."
@@ -638,33 +628,26 @@ def get_hpuop_class_impl(ctxop, fname, cname):
         assert len(layouts[1]), "Output layouts size should be atleast 1."
         in_layouts = ", ".join(["LayoutFormat::" + l for l in layouts[0]])
         out_layouts = ", ".join(["LayoutFormat::" + l for l in layouts[1]])
-        return _OPCLASS_HEADER_WITH_LAYOUTS.format(
-            op_base_class=op_base_class,
-            cname=cname,
-            guid=guid,
-            out_id=out_id,
-            inplace_id=inplace_id,
-            scalar_id=scalar_id,
-            is_out_fn=str(is_out_fn(fname)).lower(),
-            in_layouts=in_layouts,
-            out_layouts=out_layouts,
-            compute_output_shape=compute_output_shape,
-            custom_handler=custom_handler,
-            fill_params=fill_params,
+        ctor_extra_calls.append(
+            "SetLayouts({{{}}}, {{{}}});".format(in_layouts, out_layouts)
         )
-    else:
-        return _OPCLASS_HEADER.format(
-            op_base_class=op_base_class,
-            cname=cname,
-            guid=guid,
-            out_id=out_id,
-            inplace_id=inplace_id,
-            scalar_id=scalar_id,
-            is_out_fn=str(is_out_fn(fname)).lower(),
-            compute_output_shape=compute_output_shape,
-            custom_handler=custom_handler,
-            fill_params=fill_params,
-        )
+
+    if is_out_fn(fname) and num_out_tensors > 1:
+        ctor_extra_calls.append("SetNumOutTensors({});".format(num_out_tensors))
+
+    return _OPCLASS_HEADER.format(
+        op_base_class=op_base_class,
+        cname=cname,
+        guid=guid,
+        out_id=out_id,
+        inplace_id=inplace_id,
+        scalar_id=scalar_id,
+        is_out_fn=str(is_out_fn(fname)).lower(),
+        ctor_extra_calls="".join(["\n" + " " * 8 + c for c in ctor_extra_calls]),
+        compute_output_shape=compute_output_shape,
+        custom_handler=custom_handler,
+        fill_params=fill_params,
+    )
 
 
 class TensorFetcher(object):
@@ -719,7 +702,7 @@ def generate_code(ctx, tree, rwxtree, fname, aten_sig, sig, rwsig, params):
     tfetcher = TensorFetcher("metatens")
     param_vars = []
     meta_param_vars = []
-    ce_param_vars = []
+    call_args = []
     for p in params:
         ptype = param_type(p)
         cptype = type_core(ptype)
@@ -752,12 +735,18 @@ def generate_code(ctx, tree, rwxtree, fname, aten_sig, sig, rwsig, params):
         else:
             xname = tfetcher.add(pname, True)
             meta_param_vars.append(xname)
-            ce_param_vars.append(pname)
+            call_args.append(pname)
 
     rtype = get_return_type_str(rwxtree, rwsig)
     opname = get_aten_opname(aten_sig)
     ctxop = ctx.get_op(opname)
     fn = ctx.get_function(fname)
+
+    lazyop_call_args = ""
+    if len(call_args):
+        lazyop_call_args = "{}".format(", ".join(call_args))
+        if type_core(tree.children[0]) == "std::tuple":
+            lazyop_call_args = "{}({})".format(rtype, lazyop_call_args)
 
     lazy_code += lazyop(
         ctxop,
@@ -768,11 +757,11 @@ def generate_code(ctx, tree, rwxtree, fname, aten_sig, sig, rwsig, params):
         rtype,
         param_vars,
         meta_param_vars,
-        ce_param_vars,
+        lazyop_call_args,
     )
 
     hpuop_class = opname.replace(".", "_")
-    kernel_code = get_hpuop_class_impl(ctxop, fname, hpuop_class)
+    kernel_code = get_hpuop_class_impl(ctxop, fname, hpuop_class, len(call_args))
 
     return lazy_code, kernel_code, hpuop_class, ctxop
 

@@ -79,11 +79,15 @@ class HabanaOperatorHelper : public HabanaOperator {
     return m_is_outfn or m_inplace_id >= 0;
   }
 
-  void set_layouts(
+  void SetLayouts(
       std::vector<LayoutFormat> in_layouts,
       std::vector<LayoutFormat> out_layouts) {
     kernel_meta_data_.input_layout = std::move(in_layouts);
     kernel_meta_data_.output_layout = std::move(out_layouts);
+  }
+
+  void SetNumOutTensors(int n) {
+    m_num_out_tensors = n;
   }
 
   virtual void CustomHandler(synapse_helpers::graph&, at::Stack&) {}
@@ -157,6 +161,7 @@ class HabanaOperatorHelper : public HabanaOperator {
   const int m_inplace_id;
   const int m_scalar_id;
   const bool m_is_outfn;
+  int m_num_out_tensors = 1;
 
   std::unordered_map<int, at::Scalar> m_scalar_inputs;
 
@@ -169,6 +174,7 @@ class HabanaOperatorHelper : public HabanaOperator {
   static std::shared_ptr<void> FillGridSamplerParams(const at::Stack&, size_t&);
   static std::shared_ptr<void> FillHardSigmoidParams(const at::Stack&, size_t&);
   static std::shared_ptr<void> FillMseLossParams(const at::Stack&, size_t&);
+  static std::shared_ptr<void> FillNllLossParams(const at::Stack&, size_t&);
   static std::shared_ptr<void> FillRandomFromParams(const at::Stack&, size_t&);
   static std::shared_ptr<void> FillRandomParams(const at::Stack&, size_t&);
   static std::shared_ptr<void> FillRandomToParams(const at::Stack&, size_t&);
@@ -181,6 +187,7 @@ class HabanaOperatorHelper : public HabanaOperator {
   static sizes_vec MseLossBwdOutputShape(const at::Stack&, bool = false);
   static sizes_vec MseLossOutputShape(const at::Stack&, bool = false);
   static sizes_vec MvOpsOutputShape(const at::Stack&, bool = false);
+  static sizes_vec NllLossOutputShape(const at::Stack&, bool = false);
   static sizes_vec PowOutputShape(const at::Stack&, bool = false);
   static sizes_vec ResizeOutputShape(const at::Stack&, bool = false);
 };
