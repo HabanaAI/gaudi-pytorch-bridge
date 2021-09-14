@@ -24,13 +24,33 @@ abs.out:
   dtypes: [BFloat16, Float]
   guid: abs_fwd
 
+acos:
+  dtypes: [Float]
+  guid: acos_fwd
+  out_ids: [0]
+
 acos.out:
   dtypes: [Float]
   guid: acos_fwd
 
+acos_:
+  dtypes: [Float]
+  guid: acos_fwd
+  inplace_ids: [0]
+
+acosh:
+  dtypes: [Float]
+  guid: acosh_fwd
+  out_ids: [0]
+
 acosh.out:
   dtypes: [Float]
   guid: acosh_fwd
+
+acosh_:
+  dtypes: [Float]
+  guid: acosh_fwd
+  inplace_ids: [0]
 
 add.out:
   dtypes: [BFloat16, Float, Short, Int]
@@ -53,6 +73,11 @@ addcmul.out:
   op_base_class: AddCOpOut
   scalar_ids: [3]
 
+asin:
+  dtypes: [Float]
+  guid: asin_fwd
+  out_ids: [0]
+
 asin.out:
   dtypes: [Float]
   guid: asin_fwd
@@ -62,17 +87,47 @@ asin_:
   guid: asin_fwd
   inplace_ids: [0]
 
+asinh:
+  dtypes: [Float]
+  guid: asinh_fwd
+  out_ids: [0]
+
 asinh.out:
   dtypes: [Float]
   guid: asinh_fwd
+
+asinh_:
+  dtypes: [Float]
+  guid: asinh_fwd
+  inplace_ids: [0]
+
+atan:
+  dtypes: [Float]
+  guid: atan_fwd
+  out_ids: [0]
 
 atan.out:
   dtypes: [Float]
   guid: atan_fwd
 
+atan_:
+  dtypes: [Float]
+  guid: atan_fwd
+  inplace_ids: [0]
+
+atanh:
+  dtypes: [Float]
+  guid: atanh_fwd
+  out_ids: [0]
+
 atanh.out:
   dtypes: [Float]
   guid: atanh_fwd
+
+atanh_:
+  dtypes: [Float]
+  guid: atanh_fwd
+  inplace_ids: [0]
 
 bitwise_and.Scalar_out:
   dtypes: [Int, Short, Byte, Char]
@@ -190,9 +245,24 @@ cos.out:
   dtypes: [BFloat16, Float]
   guid: cos_fwd
 
+cos_:
+  dtypes: [BFloat16, Float]
+  guid: cos_fwd
+  inplace_ids: [0]
+
+cosh:
+  dtypes: [Float]
+  guid: cosh_fwd
+  out_ids: [0]
+
 cosh.out:
   dtypes: [Float]
   guid: cosh_fwd
+
+cosh_:
+  dtypes: [Float]
+  guid: cosh_fwd
+  inplace_ids: [0]
 
 cumprod:
   custom_fill_params: FillCumsumParams
@@ -225,14 +295,6 @@ cumsum_:
   dtypes: [BFloat16, Float, Int]
   guid: cumsum_fwd
   inplace_ids: [0]
-
-grid_sampler_2d:
-  custom_fill_params: FillGridSamplerParams
-  custom_output_shape: GridSampler2dOutputShape
-  dtypes: [BFloat16, Float]
-  guid: grid_sampler_fwd
-  out_ids: [0]
-  layouts: [[NHWC, NCHW], [NHWC]]
 
 elu.out:
   dtypes: [BFloat16, Float]
@@ -285,18 +347,18 @@ exp2_:
 floor:
   dtypes: [BFloat16, Float]
   guid: floor_fwd
-  out_ids: [0]
   legacy_eager: true
+  out_ids: [0]
+
+floor.out:
+  dtypes: [BFloat16, Float]
+  guid: floor_fwd
 
 floor_:
   dtypes: [BFloat16, Float]
   guid: floor_fwd
   inplace_ids: [0]
   legacy_eager: true
-
-floor.out:
-  dtypes: [BFloat16, Float]
-  guid: floor_fwd
 
 ge.Scalar_out:
   dtypes: [BFloat16, Float, Int, Char, Byte]
@@ -308,6 +370,16 @@ ge.Tensor_out:
   dtypes: [BFloat16, Float, Int, Char, Byte]
   guid: greater_equal_fwd
   op_base_class: CompareHabanaOperator
+
+grid_sampler_2d:
+  custom_fill_params: FillGridSamplerParams
+  custom_output_shape: GridSampler2dOutputShape
+  dtypes: [BFloat16, Float]
+  guid: grid_sampler_fwd
+  layouts:
+  - [NHWC, NCHW]
+  - [NHWC]
+  out_ids: [0]
 
 gt.Scalar_out:
   dtypes: [BFloat16, Float, Int, Char, Byte]
@@ -403,8 +475,8 @@ mse_loss_backward.grad_input:
 mv.out:
   custom_output_shape: MvOpsOutputShape
   dtypes: [BFloat16, Float, Short, Int]
-  op_base_class: MvOpOut
   guid: mv
+  op_base_class: MvOpOut
 
 neg.out:
   dtypes: [BFloat16, Float, Int]
@@ -520,6 +592,12 @@ sign.out:
   dtypes: [BFloat16, Float]
   guid: sign_fwd
 
+sin:
+  dtypes: [BFloat16, Float]
+  guid: sin_fwd
+  legacy_eager: true
+  out_ids: [0]
+
 sin.out:
   dtypes: [BFloat16, Float]
   guid: sin_fwd
@@ -533,15 +611,10 @@ sinh.out:
   dtypes: [Float]
   guid: sinh_fwd
 
-smooth_l1_loss_backward.grad_input:
-  custom_output_shape: SmoothL1LossBackwardOutputShape
+smooth_l1_loss:
+  custom_output_shape: SmoothL1LossOutputShape
   dtypes: [BFloat16, Float]
-  op_base_class: SmoothL1LossBwdOperator
-
-smooth_l1_loss_backward:
-  custom_output_shape: SmoothL1LossBackwardOutputShape
-  dtypes: [BFloat16, Float]
-  op_base_class: SmoothL1LossBwdOperator
+  op_base_class: SmoothL1LossOperator
   out_ids: [0]
 
 smooth_l1_loss.out:
@@ -549,11 +622,16 @@ smooth_l1_loss.out:
   dtypes: [BFloat16, Float]
   op_base_class: SmoothL1LossOperator
 
-smooth_l1_loss:
-  custom_output_shape: SmoothL1LossOutputShape
+smooth_l1_loss_backward:
+  custom_output_shape: SmoothL1LossBackwardOutputShape
   dtypes: [BFloat16, Float]
-  op_base_class: SmoothL1LossOperator
+  op_base_class: SmoothL1LossBwdOperator
   out_ids: [0]
+
+smooth_l1_loss_backward.grad_input:
+  custom_output_shape: SmoothL1LossBackwardOutputShape
+  dtypes: [BFloat16, Float]
+  op_base_class: SmoothL1LossBwdOperator
 
 sqrt:
   dtypes: [BFloat16, Float]
@@ -584,6 +662,11 @@ tanh.out:
   dtypes: [BFloat16, Float]
   guid: tanh_fwd
   legacy_eager: true
+
+tanh_:
+  dtypes: [BFloat16, Float]
+  guid: tanh_fwd
+  inplace_ids: [0]
 
 tanh_backward.grad_input:
   dtypes: [BFloat16, Float]

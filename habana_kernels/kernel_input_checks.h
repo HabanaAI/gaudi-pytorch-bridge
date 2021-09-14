@@ -1454,64 +1454,6 @@ static const std::
                   at::ScalarType::Bool}},
             },
             {
-                "asin",
-                {{at::ScalarType::Float, at::ScalarType::Double}},
-            },
-            {
-                "acos",
-                {{at::ScalarType::Float, at::ScalarType::Double}},
-            },
-            {
-                "acosh",
-                {{at::ScalarType::Float, at::ScalarType::Double}},
-            },
-            {
-                "asinh",
-                {{at::ScalarType::Float, at::ScalarType::Double}},
-            },
-            {
-                "atan",
-                {{at::ScalarType::Float, at::ScalarType::Double}},
-            },
-            {
-                "atanh",
-                {{at::ScalarType::Float, at::ScalarType::Double}},
-            },
-            {
-                "cosh",
-                {{at::ScalarType::Float, at::ScalarType::Double}},
-            },
-            {
-                "acos_",
-                {{at::ScalarType::Float, at::ScalarType::Double}},
-            },
-            {
-                "acosh_",
-                {{at::ScalarType::Float, at::ScalarType::Double}},
-            },
-            {
-                "asinh_",
-                {{at::ScalarType::Float, at::ScalarType::Double}},
-            },
-            {
-                "atan_",
-                {{at::ScalarType::Float, at::ScalarType::Double}},
-            },
-            {
-                "atanh_",
-                {{at::ScalarType::Float, at::ScalarType::Double}},
-            },
-            {
-                "cos_",
-                {{at::ScalarType::Float,
-                  at::ScalarType::BFloat16,
-                  at::ScalarType::Double}},
-            },
-            {
-                "cosh_",
-                {{at::ScalarType::Float, at::ScalarType::Double}},
-            },
-            {
                 "add",
                 {{at::ScalarType::Short,
                   at::ScalarType::Int,
@@ -2217,10 +2159,6 @@ static const std::
                 {{at::ScalarType::Float,
                   at::ScalarType::BFloat16,
                   at::ScalarType::Double}},
-            },
-            {
-                "asin_",
-                {{at::ScalarType::Float, at::ScalarType::Double}},
             },
             {
                 "averaged_loss",

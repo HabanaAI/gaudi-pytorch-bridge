@@ -2677,11 +2677,6 @@ static auto& KernelRegistry =
               return std::make_shared<NegOperator>(device_id, node_type);
             })
         .add(
-            "aten::sin",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<SinOperator>(device_id, node_type);
-            })
-        .add(
             "aten::sign",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<SignOperator>(device_id, node_type);

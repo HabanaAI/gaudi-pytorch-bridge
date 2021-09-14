@@ -19,7 +19,7 @@ LazyRsub<at::Tensor>::LazyRsub(
     const std::function<sizes_vec(const at::Stack&, bool)>& out_shapes_fn)
     : habana_lazy::LazyOp<at::Tensor>("aten::sub", inputs, out_shapes_fn) {
   static_cast<void>(qualstring);
-  auto sub_inputs = inputs;
+  auto& sub_inputs = get_inputs();
   std::swap(sub_inputs.at(0), sub_inputs.at(1));
   const auto& self = sub_inputs.at(0).toTensor();
   const auto& other = sub_inputs.at(1).toTensor();
@@ -30,7 +30,6 @@ LazyRsub<at::Tensor>::LazyRsub(
   if (other.scalar_type() != result_type) {
     sub_inputs.at(1) = other.to(result_type);
   }
-  set_inputs(sub_inputs);
 }
 
 template <>

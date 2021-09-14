@@ -22,22 +22,6 @@ using namespace at;
 using namespace habana;
 using namespace habana_lazy;
 
-#define HPU_WRAP_OP(opcode) hpu_wrap::opcode
-#define HPU_LAZY_FUNC_NAME(op_code) op_code##_hpu_lazy
-#define HPU_LAZY_FUNC_NAME_INPLACE(op_code) op_code##hpu_lazy_
-#define HPU_LAZY_WRAP_FUNCTION(op_code)                 \
-  at::Tensor HPU_WRAP_OP(op_code)(const Tensor& self) { \
-    if (!hpu_check_inputs_impl(#op_code, {self}))       \
-      return AtenHpuTypeDefault::op_code(self);         \
-    return HPU_LAZY_FUNC_NAME(op_code)(self);           \
-  }
-#define HPU_LAZY_WRAP_FUNCTION_INPLACE(op_code)       \
-  at::Tensor& HPU_WRAP_OP(op_code)(Tensor & self) {   \
-    if (!hpu_check_inputs_impl(#op_code, {self}))     \
-      return AtenHpuTypeDefault::op_code(self);       \
-    return HPU_LAZY_FUNC_NAME_INPLACE(op_code)(self); \
-  }
-
 Tensor& hpu_wrap::copy_(Tensor& self, const Tensor& src, bool non_blocking) {
   if (src.device().type() == c10::DeviceType::HPU &&
       self.device().type() == c10::DeviceType::HPU) {
@@ -3641,47 +3625,6 @@ const at::Tensor& hpu_wrap::as_strided_(
 
   return as_strided_hpu_lazy_(self, size, stride, storage_offset);
 }
-
-at::Tensor hpu_wrap::asin(const at::Tensor& self) {
-  if (!hpu_check_inputs_impl("asin", {self}))
-    return AtenHpuTypeDefault::asin(self);
-  return asin_hpu_lazy(self);
-}
-HPU_LAZY_WRAP_FUNCTION(acos)
-
-at::Tensor hpu_wrap::acosh(const at::Tensor& self) {
-  if (!hpu_check_inputs_impl("acosh", {self}))
-    return AtenHpuTypeDefault::acosh(self);
-  return acosh_hpu_lazy(self);
-}
-at::Tensor hpu_wrap::asinh(const at::Tensor& self) {
-  if (!hpu_check_inputs_impl("asinh", {self}))
-    return AtenHpuTypeDefault::asinh(self);
-  return asinh_hpu_lazy(self);
-}
-at::Tensor hpu_wrap::atan(const at::Tensor& self) {
-  if (!hpu_check_inputs_impl("atan", {self}))
-    return AtenHpuTypeDefault::atan(self);
-  return atan_hpu_lazy(self);
-}
-at::Tensor hpu_wrap::atanh(const at::Tensor& self) {
-  if (!hpu_check_inputs_impl("atanh", {self}))
-    return AtenHpuTypeDefault::atanh(self);
-  return atanh_hpu_lazy(self);
-}
-at::Tensor hpu_wrap::cosh(const at::Tensor& self) {
-  if (!hpu_check_inputs_impl("cosh", {self}))
-    return AtenHpuTypeDefault::cosh(self);
-  return cosh_hpu_lazy(self);
-}
-
-HPU_LAZY_WRAP_FUNCTION_INPLACE(acos_)
-HPU_LAZY_WRAP_FUNCTION_INPLACE(acosh_)
-HPU_LAZY_WRAP_FUNCTION_INPLACE(asinh_)
-HPU_LAZY_WRAP_FUNCTION_INPLACE(atan_)
-HPU_LAZY_WRAP_FUNCTION_INPLACE(atanh_)
-HPU_LAZY_WRAP_FUNCTION_INPLACE(cos_)
-HPU_LAZY_WRAP_FUNCTION_INPLACE(cosh_)
 
 std::vector<at::Tensor> hpu_wrap::split(
     const at::Tensor& self,

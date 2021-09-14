@@ -33,25 +33,8 @@ const at::Tensor& as_strided_hpu_lazy_(
     at::IntArrayRef size,
     at::IntArrayRef stride,
     c10::optional<int64_t> storage_offset);
-at::Tensor asin_hpu_lazy(const at::Tensor& self);
-at::Tensor acosh_hpu_lazy(const at::Tensor& self);
-at::Tensor asinh_hpu_lazy(const at::Tensor& self);
-at::Tensor atan_hpu_lazy(const at::Tensor& self);
-at::Tensor atanh_hpu_lazy(const at::Tensor& self);
-at::Tensor cosh_hpu_lazy(const at::Tensor& self);
 at::Tensor sin_hpu_lazy(const at::Tensor& self);
 at::Tensor cos_hpu_lazy(const at::Tensor& self);
-
-at::Tensor& acosh_hpu_lazy_(at::Tensor& self);
-at::Tensor& asinh_hpu_lazy_(at::Tensor& self);
-at::Tensor& atan_hpu_lazy_(at::Tensor& self);
-at::Tensor& atanh_hpu_lazy_(at::Tensor& self);
-at::Tensor& cos_hpu_lazy_(at::Tensor& self);
-at::Tensor& cosh_hpu_lazy_(at::Tensor& self);
-at::Tensor& tanh_hpu_lazy_(at::Tensor& self);
-
-HPU_LAZY_FUNC_DECL(acos)
-HPU_LAZY_FUNC_DECL_INPLACE(acos_)
 at::Tensor& set_hpu_lazy_(
     at::Tensor& self,
     at::Storage source,
