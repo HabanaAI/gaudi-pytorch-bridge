@@ -573,6 +573,7 @@ inline bool is_hpu_supported_transpose_type(const c10::ScalarType pt_type) {
     case c10::ScalarType::Byte:
     case c10::ScalarType::Char:
     case c10::ScalarType::Short:
+    case c10::ScalarType::Bool:
       return true;
     default:
       return false;
@@ -834,8 +835,8 @@ void FlattenOperator::AllocateAndAddSynapseNode(
     // 1, 3, 0], with start_dim=1, end_dim=2. It's clear we want result shape
     // [0, 3, 0] but passing [0, -1, 0] to infer_size means the -1 can take on
     // any value and satisfy the constraints.
-    auto slice_numel =
-        multiply_integers(self.sizes().slice(start_dim, end_dim - start_dim + 1));
+    auto slice_numel = multiply_integers(
+        self.sizes().slice(start_dim, end_dim - start_dim + 1));
     shape.reserve(self.dim() - end_dim + start_dim);
     for (int64_t i = 0; i < start_dim; i++) {
       shape.push_back(self.size(i));
