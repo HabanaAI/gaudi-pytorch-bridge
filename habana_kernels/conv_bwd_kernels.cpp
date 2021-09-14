@@ -104,6 +104,12 @@ void Conv3dInputDifferentiationOperator::AllocateAndAddSynapseNode(
   p_context_->params_.emplace<synConvolution3DParams>(syn_params);
   p_context_->params_size_ = sizeof(syn_params);
 
+  // Allocate Shape Tensor
+  if (graph.is_dynamic_graph()) {
+    auto result_shape = habana_helpers::createPTTensor(grad_input_nhwc, true);
+    AllocateSynapseInput(graph, result_shape, true, true);
+  }
+
   AllocateSynapseOutput(graph, grad_input_nhwc, is_output_persistent);
   AddNodeToSynapseGraph(graph, &syn_params, sizeof(syn_params));
 }
@@ -166,6 +172,12 @@ void ConvInputDifferentiationOperator::AllocateAndAddSynapseNode(
 
   p_context_->params_.emplace<synConvolutionParams>(syn_params);
   p_context_->params_size_ = sizeof(syn_params);
+
+  // Allocate Shape Tensor
+  if (graph.is_dynamic_graph()) {
+    auto result_shape = habana_helpers::createPTTensor(grad_input_nhwc, true);
+    AllocateSynapseInput(graph, result_shape, true, true);
+  }
 
   AllocateSynapseOutput(graph, grad_input_nhwc, is_output_persistent);
   AddNodeToSynapseGraph(graph, &syn_params, sizeof(syn_params));
