@@ -47,6 +47,7 @@ class MaxDimOperator : public HabanaOperator {
       int64_t dim,
       bool keepdim) {
     auto shape_out = self.sizes().vec();
+    dim = at::maybe_wrap_dim(dim, self.dim());
     if (keepdim == true) {
       shape_out[dim] = 1;
     } else {
