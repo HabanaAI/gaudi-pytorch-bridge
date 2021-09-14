@@ -1823,12 +1823,6 @@ static const std::
                   at::ScalarType::Double}},
             },
             {
-                "sqrt",
-                {{at::ScalarType::Float,
-                  at::ScalarType::BFloat16,
-                  at::ScalarType::Double}},
-            },
-            {
                 "tanh",
                 {{at::ScalarType::Float,
                   at::ScalarType::BFloat16,

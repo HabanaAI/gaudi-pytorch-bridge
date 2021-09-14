@@ -137,9 +137,15 @@ at::Tensor pow_tensor_tensor_hpu_lazy(
 at::Tensor& pow_tensor_tensor_hpu_lazy_(
     at::Tensor& self,
     const at::Tensor& other);
-at::Tensor pow_tensor_scalar_hpu_lazy(const at::Tensor& self, const at::Scalar& other);
-at::Tensor& pow_tensor_scalar_hpu_lazy_(at::Tensor& self, const at::Scalar& other);
-at::Tensor pow_scalar_tensor_hpu_lazy(const at::Scalar& other, const at::Tensor& self);
+at::Tensor pow_tensor_scalar_hpu_lazy(
+    const at::Tensor& self,
+    const at::Scalar& other);
+at::Tensor& pow_tensor_scalar_hpu_lazy_(
+    at::Tensor& self,
+    const at::Scalar& other);
+at::Tensor pow_scalar_tensor_hpu_lazy(
+    const at::Scalar& other,
+    const at::Tensor& self);
 at::Tensor maximum_hpu_lazy(const at::Tensor& self, const at::Tensor& other);
 at::Tensor minimum_hpu_lazy(const at::Tensor& self, const at::Tensor& other);
 at::Tensor gt_tensor_hpu_lazy(const at::Tensor& self, const at::Tensor& other);
@@ -162,7 +168,9 @@ at::Tensor ge_tensor_hpu_lazy(const at::Tensor& self, const at::Tensor& other);
 at::Tensor le_scalar_hpu_lazy(const at::Tensor& self, const at::Scalar& other);
 at::Tensor le_tensor_hpu_lazy(const at::Tensor& self, const at::Tensor& other);
 at::Tensor eq_tensor_hpu_lazy(const at::Tensor& self, const at::Tensor& other);
-at::Tensor eq_tensor_scalar_hpu_lazy(const at::Tensor& self, const at::Scalar& other);
+at::Tensor eq_tensor_scalar_hpu_lazy(
+    const at::Tensor& self,
+    const at::Scalar& other);
 at::Tensor lt_scalar_hpu_lazy(const at::Tensor& self, const at::Scalar& other);
 at::Tensor lt_tensor_hpu_lazy(const at::Tensor& self, const at::Tensor& other);
 at::Tensor upsample_nearest2d_hpu_lazy(
@@ -701,13 +709,17 @@ at::Tensor& elu_hpu_lazy_(
     const at::Scalar& input_scale);
 at::Tensor relu_hpu_lazy(const at::Tensor& input);
 at::Tensor& relu_hpu_lazy_(at::Tensor& self);
-at::Tensor& leaky_relu_lazy_(at::Tensor& self, const at::Scalar& negative_slope);
+at::Tensor& leaky_relu_lazy_(
+    at::Tensor& self,
+    const at::Scalar& negative_slope);
 at::Tensor leaky_relu_backward_lazy(
     const at::Tensor& grad_output,
     const at::Tensor& self,
     const at::Scalar& negative_slope,
     bool self_is_result);
-at::Tensor leaky_relu_lazy(const at::Tensor& self, const at::Scalar& negative_slope);
+at::Tensor leaky_relu_lazy(
+    const at::Tensor& self,
+    const at::Scalar& negative_slope);
 at::Tensor leaky_relu_backward(
     const at::Tensor& grad_output,
     const at::Tensor& self,
@@ -725,7 +737,6 @@ at::Tensor hardsigmoid_backward_hpu_lazy(
     const at::Tensor& grad_output,
     const at::Tensor& self);
 
-at::Tensor sqrt_hpu_lazy(const at::Tensor& input);
 at::Tensor sqrt_hpu_lazy_(at::Tensor& input);
 at::Tensor tanh_hpu_lazy(const at::Tensor& input);
 at::Tensor& tanh_hpu_lazy_(at::Tensor& self);
@@ -905,8 +916,12 @@ at::Tensor remainder_tensor_hpu_lazy(
 at::Tensor& remainder_tensor_hpu_lazy_(
     at::Tensor& self,
     const at::Tensor& other);
-at::Tensor remainder_scalar_hpu_lazy(const at::Tensor& self, const at::Scalar& other);
-at::Tensor& remainder_scalar_hpu_lazy_(at::Tensor& self, const at::Scalar& other);
+at::Tensor remainder_scalar_hpu_lazy(
+    const at::Tensor& self,
+    const at::Scalar& other);
+at::Tensor& remainder_scalar_hpu_lazy_(
+    at::Tensor& self,
+    const at::Scalar& other);
 at::Tensor& remainder_tensor_hpu_lazy_out(
     const at::Tensor& self,
     const at::Tensor& other,

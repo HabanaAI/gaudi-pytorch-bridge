@@ -5713,30 +5713,6 @@ Tensor sqrt_hpu_lazy_(Tensor& input) {
   flush_op(input);
   return input;
 }
-Tensor sqrt_hpu_lazy(const Tensor& input) {
-  PT_LAZY_TRACE;
-  auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHPU);
-
-  auto node = ir::Node::Create(
-      Symbol::fromQualString("aten::sqrt"), {hl_input.GetIrValue()});
-  auto shape_out = input.sizes();
-  auto result = empty_hpu_lazy(
-      shape_out, input.options(), input.suggest_memory_format(), false);
-  auto hl_result = GetHbLazyTensor(result);
-  ir::Value& out = hl_result.CurrentIrValue();
-  out.m_index = 0;
-  out.SetNode(
-      node,
-      hl_result.GetDevice(),
-      hl_result.GetSizes(),
-      hl_result.dtype_optional());
-  updateDstDependencies(hl_result, result);
-  std::vector<at::Tensor> input_pt_vec{input};
-  node->AddInputPtTensors(input_pt_vec);
-
-  flush_op(result);
-  return result;
-}
 
 Tensor tanh_hpu_lazy(const Tensor& input) {
   PT_LAZY_TRACE;

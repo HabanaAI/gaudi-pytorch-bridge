@@ -449,6 +449,11 @@ sinh.out:
   dtypes: [Float]
   guid: sinh_fwd
 
+sqrt:
+  dtypes: [BFloat16, Float]
+  guid: sqrt_fwd
+  out_ids: [0]
+
 sqrt.out:
   dtypes: [BFloat16, Float]
   guid: sqrt_fwd

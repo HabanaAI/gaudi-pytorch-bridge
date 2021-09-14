@@ -23,8 +23,8 @@ struct hpu_wrap {
       int64_t dim,
       c10::optional<at::ScalarType> dtype);
   static at::Tensor& linspace_out(
-      const at::Scalar &start,
-      const at::Scalar &end,
+      const at::Scalar& start,
+      const at::Scalar& end,
       c10::optional<int64_t> steps,
       at::Tensor& out);
   static at::Tensor silu(const at::Tensor& self);
@@ -96,7 +96,10 @@ struct hpu_wrap {
       const at::Tensor& tensor1,
       const at::Tensor& tensor2,
       const at::Scalar& alpha);
-  static at::Tensor& add_(at::Tensor& self, const at::Scalar& other, const at::Scalar& alpha);
+  static at::Tensor& add_(
+      at::Tensor& self,
+      const at::Scalar& other,
+      const at::Scalar& alpha);
   static at::Tensor& add_(
       at::Tensor& self,
       const at::Tensor& other,
@@ -113,7 +116,10 @@ struct hpu_wrap {
       const at::Tensor& self,
       const at::Scalar& other,
       const at::Scalar& alpha);
-  static at::Tensor& sub_(at::Tensor& self, const at::Scalar& other, const at::Scalar& alpha);
+  static at::Tensor& sub_(
+      at::Tensor& self,
+      const at::Scalar& other,
+      const at::Scalar& alpha);
   static at::Tensor rsub(
       const at::Tensor& self,
       const at::Scalar& other,
@@ -627,7 +633,9 @@ struct hpu_wrap {
       const at::Scalar& input_scale);
   static at::Tensor relu(const at::Tensor& input);
   static at::Tensor& relu_(at::Tensor& self);
-  static at::Tensor& leaky_relu_(at::Tensor& self, const at::Scalar& negative_slope);
+  static at::Tensor& leaky_relu_(
+      at::Tensor& self,
+      const at::Scalar& negative_slope);
   static at::Tensor leaky_relu_backward(
       const at::Tensor& grad_output,
       const at::Tensor& self,
@@ -645,7 +653,6 @@ struct hpu_wrap {
   static at::Tensor hardsigmoid_backward(
       const at::Tensor& grad_output,
       const at::Tensor& self);
-  static at::Tensor sqrt(const at::Tensor& input);
   static at::Tensor tanh(const at::Tensor& input);
   static at::Tensor& tanh_(at::Tensor& self);
   static at::Tensor& tanh_out(const at::Tensor& self, at::Tensor& out);

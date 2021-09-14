@@ -3084,17 +3084,6 @@ at::Tensor hpu_wrap::hardsigmoid_backward(
   return hardsigmoid_backward_hpu_lazy(grad_output, self);
 }
 
-Tensor hpu_wrap::sqrt(const Tensor& input) {
-  if (!hpu_check_inputs_impl("sqrt", {input}))
-    return AtenHpuTypeDefault::sqrt(input);
-
-  if (GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 0) {
-    return sqrt_hpu_lazy(input);
-
-  } else {
-    return sqrt_hpu(input);
-  }
-};
 Tensor hpu_wrap::tanh(const Tensor& input) {
   if (!hpu_check_inputs_impl("tanh", {input}))
     return AtenHpuTypeDefault::tanh(input);

@@ -108,7 +108,9 @@ at::Tensor pow_tensor_tensor_hpu(
     const at::Tensor& self,
     const at::Tensor& other);
 at::Tensor& pow_tensor_tensor_hpu_(at::Tensor& self, const at::Tensor& other);
-at::Tensor pow_tensor_scalar_hpu(const at::Tensor& self, const at::Scalar& other);
+at::Tensor pow_tensor_scalar_hpu(
+    const at::Tensor& self,
+    const at::Scalar& other);
 at::Tensor random_shuffle_tensor_hpu(
     const at::Tensor& self,
     const at::Tensor& seed);
@@ -131,14 +133,18 @@ at::Tensor& eq_tensor_out_hpu(
     const at::Tensor& self,
     const at::Tensor& other);
 at::Tensor eq_tensor_hpu(const at::Tensor& self, const at::Tensor& other);
-at::Tensor eq_tensor_scalar_hpu(const at::Tensor& self, const at::Scalar& other);
+at::Tensor eq_tensor_scalar_hpu(
+    const at::Tensor& self,
+    const at::Scalar& other);
 at::Tensor lt_scalar_hpu(const at::Tensor& self, at::Scalar other);
 at::Tensor lt_tensor_hpu(const at::Tensor& self, const at::Tensor& other);
 at::Tensor remainder_tensor_hpu(
     const at::Tensor& self,
     const at::Tensor& other);
 at::Tensor& remainder_tensor_hpu_(at::Tensor& self, const at::Tensor& other);
-at::Tensor remainder_scalar_hpu(const at::Tensor& self, const at::Scalar& other);
+at::Tensor remainder_scalar_hpu(
+    const at::Tensor& self,
+    const at::Scalar& other);
 at::Tensor& remainder_scalar_hpu_(at::Tensor& self, const at::Scalar& other);
 at::Tensor& remainder_tensor_hpu_out(
     const at::Tensor& self,
@@ -657,7 +663,6 @@ at::Tensor sigmoid_hpu(const at::Tensor& input);
 at::Tensor sigmoid_backward_hpu(
     const at::Tensor& grad_in,
     const at::Tensor& input);
-at::Tensor sqrt_hpu(const at::Tensor& input);
 at::Tensor tanh_hpu(const at::Tensor& input);
 at::Tensor& tanh_hpu_(at::Tensor& self);
 at::Tensor& tanh_out_hpu(at::Tensor& out, const at::Tensor& self);
