@@ -270,6 +270,7 @@ void HlExec::Create(
     std::shared_ptr<Data> d = inp.m_data_ptr.lock();
     t->setType(c10::TensorType::create(
         d->logical_element_type, d->device, d->sizes.size(), false));
+    t->setDebugName(inp.ToString());
     ir_map[ir::Output(inp)] = t;
   }
 
@@ -288,7 +289,9 @@ void HlExec::Create(
       // reuse the same graph when the scalar values change.
       auto c = mp_g_->insertConstant(scalar_const);
       ir_map[node->GetOutput(0)] = c;
-    } else if (node->ToString().find("hpu::input") != std::string::npos) {
+    } else if (
+        std::string(node->op().toQualString()).find("hpu::input") !=
+        std::string::npos) {
       // Its a tensor, should already be there in the value maps
       HABANA_ASSERT(ir_map.find(node->GetOutput(0)) != ir_map.end());
     } else {
@@ -347,6 +350,7 @@ void HlExec::Create(
                 irout_val.get_device(),
                 irout_val.get_dims(),
                 false));
+            jit_value_out->setDebugName(irout_val.ToString());
           }
         }
       }

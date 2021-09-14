@@ -227,14 +227,14 @@ void testDifferentiate() {
   ASSERT_EQ(grad_spec.df_input_vjps, expected_input_vjps);
   ASSERT_EQ(grad_spec.df_output_vjps, expected_output_vjps);
   testing::FileCheck()
-      .check_count("aten::mul", 2)
-      ->check("aten::size")
-      ->check("aten::add")
+      .check_count("= aten::mul", 2)
+      ->check("= aten::size")
+      ->check("= aten::add")
       ->run(*grad_spec.f);
   testing::FileCheck()
-      .check("prim::GradOf[name=\"aten::add\"]")
-      ->check_count("prim::GradOf[name=\"aten::mul\"]", 2)
-      ->check_count("AutogradAdd", 2)
+      .check("= prim::GradOf[name=\"aten::add\"]")
+      ->check_count("= prim::GradOf[name=\"aten::mul\"]", 2)
+      ->check_count("= AutogradAdd", 2)
       ->run(*grad_spec.df);
 }
 
@@ -307,15 +307,15 @@ void testDifferentiateWithRequiresGrad(std::string graph_string) {
   ASSERT_EQ(grad_spec.df_input_vjps, expected_input_vjps);
   ASSERT_EQ(grad_spec.df_output_vjps, expected_output_vjps);
   testing::FileCheck()
-      .check("aten::mul")
-      ->check_count("aten::add", 2)
-      ->check("aten::mul")
-      ->check("aten::size")
-      ->check("aten::add")
+      .check("= aten::mul")
+      ->check_count("= aten::add", 2)
+      ->check("= aten::mul")
+      ->check("= aten::size")
+      ->check("= aten::add")
       ->run(*grad_spec.f);
 
   testing::FileCheck()
-      .check_count("prim::GradOf[name=\"aten::mul\"]", 1, /*exactly*/ true)
+      .check_count("= prim::GradOf[name=\"aten::mul\"]", 1, /*exactly*/ true)
       ->run(*grad_spec.df);
 }
 

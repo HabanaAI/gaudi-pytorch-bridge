@@ -41,6 +41,7 @@ void RemoveInplaceOps(Block* block) {
       const std::string& newNodeStr =
           inPlaceToOutOfPlace.at(node->kind().toQualString());
       auto newNode = graph->create(Symbol::fromQualString(newNodeStr));
+      newNode->copyAttributes(*node);
       newNode->insertBefore(node);
       newNode->setScope(node->scope());
       // copy inputs

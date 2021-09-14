@@ -51,6 +51,8 @@ void fuse_bn_relu(std::shared_ptr<Graph>& graph) {
         WithInsertPoint insert_point(node);
         auto new_threshold_backward = graph->create(
             op, {node->input(0), u_node->output(0), node->input(2)}, 1);
+        new_threshold_backward->output(0)->copyMetadata(node->output(0));
+        new_threshold_backward->copyAttributes(*node);
         graph->insertNode(new_threshold_backward);
         node->output(0)->replaceAllUsesWith(new_threshold_backward->output(0));
         node->destroy();
