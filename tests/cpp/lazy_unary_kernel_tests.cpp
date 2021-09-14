@@ -507,6 +507,21 @@ TEST_F(LazyUnaryKernelTest, ClampTest) {
   EXPECT_EQ(allclose(hout, cpu_out, 0.001, 0.001, /*equal_nan*/ true), true);
 }
 
+TEST_F(LazyUnaryKernelTest, ClampInPlaceTest1) {
+  auto options = torch::TensorOptions().dtype(torch::kInt32);
+  auto input_tensor = torch::randint(-100, 100, {9}, options);
+  auto hinput = input_tensor.to(torch::kHPU);
+  Scalar min_value(0);
+  Scalar max_value(19);
+  torch::Tensor cpu_out = torch::clamp_(input_tensor, min_value, max_value);
+
+  torch::Tensor hresult = torch::clamp_(hinput, min_value, max_value);
+  auto hout = hresult.to(torch::kCPU);
+  EXPECT_EQ(allclose(hout, cpu_out, 0.001, 0.001, /*equal_nan*/ true), true);
+  EXPECT_EQ(
+      allclose(input_tensor, cpu_out, 0.001, 0.001, /*equal_nan*/ true), true);
+}
+
 TEST_F(LazyUnaryKernelTest, ClampInPlaceTest) {
   auto input_tensor = torch::randn({8, 24, 24, 3});
   auto hinput = input_tensor.to(torch::kHPU);

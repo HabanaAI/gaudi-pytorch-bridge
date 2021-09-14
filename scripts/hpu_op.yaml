@@ -126,6 +126,20 @@ ceil_:
   guid: ceil_fwd
   inplace_ids: [0]
 
+clamp:
+  custom_fill_params: FillClampParams
+  dtypes: [BFloat16, Float, Int]
+  guid: clamp_fwd
+  out_ids: [0]
+  legacy_eager: true
+
+clamp_:
+  custom_fill_params: FillClampParams
+  dtypes: [BFloat16, Float, Int]
+  guid: clamp_fwd
+  inplace_ids: [0]
+  legacy_eager: true
+
 clamp.out:
   custom_fill_params: FillClampParams
   dtypes: [BFloat16, Float, Int]
@@ -152,6 +166,13 @@ clamp_min.out:
   custom_fill_params: FillClampMinParams
   dtypes: [BFloat16, Float, Int]
   guid: clamp_fwd
+
+clamp_min:
+  custom_fill_params: FillClampMinParams
+  dtypes: [BFloat16, Float, Int]
+  guid: clamp_fwd
+  out_ids: [0]
+  legacy_eager: true
 
 clamp_min_:
   custom_fill_params: FillClampMinParams

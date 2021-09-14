@@ -2687,22 +2687,6 @@ static auto& KernelRegistry =
               return std::make_shared<SignOperator>(device_id, node_type);
             })
         .add(
-            "aten::clamp",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<ClampOperator>(device_id, node_type);
-            })
-        .add(
-            "aten::clamp_",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<ClampInplaceOperator>(
-                  device_id, node_type);
-            })
-        .add(
-            "aten::clamp_min",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<ClampMinOperator>(device_id, node_type);
-            })
-        .add(
             "aten::reciprocal",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<ReciprocalOperator>(device_id, node_type);
