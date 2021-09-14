@@ -229,6 +229,18 @@ c10::intrusive_ptr<ProcessGroupHCL::WorkHCL> ProcessGroupHCL::initWork(
       outputs, devices, hcl_comms);
 }
 
+#define RETURN_DUMMY_IF_SINGLE_WORKER()                              \
+  if (this->size_ == 1) {                                            \
+    PT_DISTRIBUTED_DEBUG(                                            \
+        "Process Group Size == 1 --> Returning Dummy Work obj.");    \
+    std::vector<at::Tensor> outputs = {};                            \
+    std::vector<int> devices = {};                                   \
+    std::vector<std::shared_ptr<hcl_communicator>> hcl_comms = {};   \
+    auto dummy_work = c10::make_intrusive<ProcessGroupHCL::WorkHCL>( \
+        outputs, devices, hcl_comms);                                \
+    return dummy_work;                                               \
+  }
+
 // Get the list of devices from list of tensors
 std::vector<int> getDeviceList(const std::vector<at::Tensor>& tensors) {
   std::vector<int> res;
@@ -288,6 +300,7 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCL::hclcollective(
 c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCL::broadcast(
     std::vector<at::Tensor>& tensors,
     const BroadcastOptions& opts) {
+  RETURN_DUMMY_IF_SINGLE_WORKER()
   return hclcollective(
       tensors,
       tensors,
@@ -305,6 +318,8 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCL::allreduce(
     std::vector<at::Tensor>& tensors,
     const AllreduceOptions& opts) {
   // Pre-processing
+  RETURN_DUMMY_IF_SINGLE_WORKER()
+
   std::vector<at::Tensor> tmp_tensors;
   for (size_t i = 0; i < tensors.size(); ++i) {
     synDataType dtype = getHCLDataType(tensors[i].scalar_type());
@@ -394,6 +409,7 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCL::allgather(
     std::vector<std::vector<at::Tensor>>& outputTensors,
     std::vector<at::Tensor>& inputTensors,
     const AllgatherOptions& opts) {
+  RETURN_DUMMY_IF_SINGLE_WORKER()
   auto outputFlattened =
       flatten_for_scatter_gather(outputTensors, inputTensors, size_);
 
@@ -500,6 +516,7 @@ c10::intrusive_ptr<ProcessGroup::Work> ProcessGroupHCL::barrier(
   std::vector<std::shared_ptr<hcl_communicator>> comms;
   std::vector<int> res;
   std::vector<at::Tensor> outputs;
+  RETURN_DUMMY_IF_SINGLE_WORKER()
 
   for (size_t i = 0; i < hcl_communicator_.size(); i++) {
     hcl_communicator_[i]->barrier();
