@@ -895,10 +895,12 @@ void HabanaLaunchOpPT::ProcessSynapseShapeTensors(
         habanaOp->GetSynInputs().back();
     if (maybe_syn_shape_tensor.is_shape_tensor()) {
       auto pt_shape_tensor = habanaOp->GetInputs().back();
-      std::cout << "[Dyn WARN] Adding shapeTensor{ "
-                << maybe_syn_shape_tensor.name()
-                << " } and PT Tensor with index ="
-                << habanaOp->GetInputs().size() - 1 << " to PtTensorInfo\n";
+      PT_BRIDGE_WARN(
+          "[Dyn WARN] Adding shapeTensor{ ",
+          maybe_syn_shape_tensor.name(),
+          " } and PT Tensor with index =",
+          habanaOp->GetInputs().size() - 1,
+          " to PtTensorInfo\n");
       std::string irn{"%shapeInput_"};
       irn += std::to_string(shape_index);
       shape_index++;
@@ -2650,6 +2652,7 @@ void HabanaLaunchOpPT::AdjustInputLayout() {
 torch::jit::Stack HabanaLaunchOpPT::CreateStack(
     const torch::jit::Stack& stack,
     habana_helpers::DynamicBucketInfo::InpTensorShapes& dynamic_shapes) {
+  PT_BRIDGE_BEGIN;
   torch::jit::Stack new_stack;
 
   for (size_t i = 0; i < stack.size(); ++i) {
@@ -2669,6 +2672,7 @@ torch::jit::Stack HabanaLaunchOpPT::CreateStack(
       new_stack.push_back(stack[i]);
     }
   }
+  PT_BRIDGE_END;
   return new_stack;
 }
 
@@ -2676,22 +2680,35 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
   PT_BRIDGE_BEGIN;
   auto& device = synapse_helpers::HPURegistrar::get_device();
 
-  std::cout << "PTI_DBG :: DYNAMIC SHAPE FLOW ENABLED" << '\n';
-  std::cout << "PTI_DBG :: JIT IR Graph"
-            << "----" << '\n'
-            << jit_ir_graph->toString() << "PTI_DBG :: JIT IT Graph"
-            << "----" << '\n';
+  PT_BRIDGE_DEBUG("PTI_DBG :: DYNAMIC SHAPE FLOW ENABLED");
+  PT_BRIDGE_DEBUG(
+      "PTI_DBG :: JIT IR Graph----",
+      jit_ir_graph->toString(),
+      " PTI_DBG :: JIT IT Graph----\n");
   std::shared_ptr<RecipeArgumentSpec> rargpsh =
       std::make_shared<RecipeArgumentSpec>(jit_ir_graph, input_refs);
-  std::cout << "PTI_DBG :: " << __FUNCTION__ << ':' << __LINE__ << " :: "
-            << "graph_hash_code : " << rargpsh->graphHashCode() << ", "
-            << "hash_code : " << rargpsh->hashCode() << '\n';
+  PT_BRIDGE_DEBUG(
+      "PTI_DBG :: ",
+      __FUNCTION__,
+      ':',
+      __LINE__,
+      " :: ",
+      "graph_hash_code : ",
+      rargpsh->graphHashCode(),
+      ", ",
+      "hash_code : ",
+      rargpsh->hashCode());
 
   std::shared_ptr<habana_helpers::DynamicBucketInfo> dbipsh =
       DynamicBucketInfoMap::get_instance().get(rargpsh);
   if (nullptr == dbipsh) {
-    std::cout << "PTI_DBG :: " << __FUNCTION__ << ':' << __LINE__ << " :: "
-              << "Creating new DynamicBucketInfo" << '\n';
+    PT_BRIDGE_DEBUG(
+        "PTI_DBG :: ",
+        __FUNCTION__,
+        ':',
+        __LINE__,
+        " :: ",
+        "Creating new DynamicBucketInfo");
     auto dbi = habana_helpers::DynamicBucketInfo();
     dbipsh = std::make_shared<habana_helpers::DynamicBucketInfo>(dbi);
     DynamicBucketInfoMap::get_instance().add(rargpsh, dbipsh);
@@ -2705,18 +2722,32 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
 
   cur_ds_token_ = dbipsh->GetTokenForBucketId(bucket_id);
   if (ranges.empty()) {
-    std::cout << "PTI_DBG :: " << __FUNCTION__ << ':' << __LINE__ << " :: "
-              << "working on exact graph with cur_ds_token : " << cur_ds_token_
-              << '\n'
-              << "Returned bucket id : " << bucket_id << '\n'
-              << (*dbipsh);
+    PT_BRIDGE_DEBUG(
+        "PTI_DBG :: ",
+        __FUNCTION__,
+        ':',
+        __LINE__,
+        " :: ",
+        "working on exact graph with cur_ds_token : ",
+        cur_ds_token_,
+        "\n",
+        "Returned bucket id : ",
+        bucket_id);
+    PT_BRIDGE_DEBUG(*dbipsh);
   } else {
-    std::cout << "PTI_DBG :: " << __FUNCTION__ << ':' << __LINE__ << " :: "
-              << "working on dynamic graph with cur_ds_token : "
-              << cur_ds_token_ << '\n'
-              << "Returned bucket id : " << bucket_id << '\n'
-              << (*dbipsh);
-    std::cout << "Received ranges ::" << '\n' << ranges;
+    PT_BRIDGE_DEBUG(
+        "PTI_DBG :: ",
+        __FUNCTION__,
+        ':',
+        __LINE__,
+        " :: ",
+        "working on exact graph with cur_ds_token : ",
+        cur_ds_token_,
+        "\n",
+        "Returned bucket id : ",
+        bucket_id);
+    PT_BRIDGE_DEBUG(*dbipsh);
+    PT_BRIDGE_DEBUG("Received ranges ::\n", ranges);
 
     min_input_tshapes.insert(
         ranges.min_shapes.begin(), ranges.min_shapes.end());
@@ -3452,6 +3483,7 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
 }
 
 void HabanaLaunchOpPT::run_pass() {
+  PT_BRIDGE_BEGIN;
   auto& device = synapse_helpers::HPURegistrar::get_device();
 
   //
@@ -3466,10 +3498,12 @@ void HabanaLaunchOpPT::run_pass() {
   // clear the data that has been setup as part of the above
   // method
   clear(true);
+  PT_BRIDGE_END;
 }
 
 void HabanaLaunchOpPT::run_shape_inference(
     const ShapeInfo::InferencePass& pass) {
+  PT_BRIDGE_BEGIN;
   torch::jit::Stack new_stack;
   torch::jit::Stack* old_stack = nullptr;
   std::vector<IValPtrShared> old_pt_stack_sh;
@@ -3499,5 +3533,6 @@ void HabanaLaunchOpPT::run_shape_inference(
     pt_stack = old_stack;
     pt_stack_sh = old_pt_stack_sh;
   }
+  PT_BRIDGE_END;
 }
 } // namespace habana

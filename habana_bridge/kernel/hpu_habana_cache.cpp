@@ -378,6 +378,7 @@ void RecipeValueSpec::update_patching_table(
     std::shared_ptr<std::vector<IValPtrShared>>& dma_inputs,
     const habana::NameShapeMap& m_actual_shapes,
     bool enable_tensor_release) {
+  PT_BRIDGE_BEGIN;
   // Patch the input buffers
   // Running index on dtensorinfos
   size_t ridx = 0;
@@ -687,6 +688,7 @@ void RecipeValueSpec::update_patching_table(
         ", mismatch with num_tinfos",
         num_tinfos);
   }
+  PT_BRIDGE_END;
 }
 
 void RecipeValueSpec::populate_syn_tensor_ids() {
