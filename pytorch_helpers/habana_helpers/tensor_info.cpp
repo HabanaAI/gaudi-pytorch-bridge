@@ -12,26 +12,25 @@ void PtTensorInfo::populate_tinfo(
   syn_name_ = sn;
 
   buffer_ = pt_tensor.data_ptr();
+  buffer_start_ = pt_tensor.storage().data_ptr().get();
+
   numel_ = pt_tensor.numel();
   size_ = pt_tensor.nbytes();
-  storage_data_ptr_ = reinterpret_cast<synapse_helpers::device_ptr>(
-      pt_tensor.storage().data_ptr().get());
-  dma_cb_ = dma_cb;
-
   shape_ = pt_tensor.sizes().vec();
-  tensor_type_ = stt;
-
-  update_shape_values();
   strides_ = pt_tensor.strides().vec();
   topts_ = pt_tensor.options();
   mf_ = pt_tensor.suggest_memory_format();
 
+  offset_ = (get_buffer_syn() - get_buffer_start_syn());
+  is_view_tensor_ = (offset_ != 0);
+
+  dma_cb_ = dma_cb;
+
+  tensor_type_ = stt;
+
   watch_ = wflag;
 
-  synapse_helpers::device_ptr buffer_ptr =
-      reinterpret_cast<synapse_helpers::device_ptr>(pt_tensor.data_ptr());
-  is_view_tensor_ = (storage_data_ptr_ != buffer_ptr);
-  offset_ = (buffer_ptr - storage_data_ptr_);
+  update_shape_syn();
 }
 
 PtTensorInfo::PtTensorInfo(const IValPtrShared& ivpsh)
@@ -60,7 +59,7 @@ PtTensorInfo::PtTensorInfo(
   populate_tinfo(pt_tensor, sn, irn, wflag, stt, dma_cb);
 }
 
-void PtTensorInfo::update_shape_values() {
+void PtTensorInfo::update_shape_syn() {
   switch (tensor_type_) {
     case DATA_TENSOR:
       break;
@@ -70,7 +69,7 @@ void PtTensorInfo::update_shape_values() {
       for (size_t i = 0; i < shape_.size(); ++i) {
         // Reverse PyTorch shapes for synapse tensor shape patching
         if (i < shape_.size()) {
-          shape_values_[i] = shape_[shape_.size() - 1 - i];
+          syn_shape_[i] = shape_[shape_.size() - 1 - i];
         }
       }
     } break;
@@ -84,12 +83,12 @@ void PtTensorInfo::update_shape_values() {
     //  for (uint64_t i = 0; i < shape_ndim_; i++) {
     //    // Reverse PyTorch shapes for synapse tensor shape patching
     //    auto val = pt_tensor_cpu[shape_ndim_ - 1 - i].item<int>();
-    //    shape_values_[i] = val;
+    //    syn_shape_[i] = val;
     //  }
     //} break;
     // case DEVICE_SHAPE_TENSOR:
     // device shape tensors are still 5-element (SYN_MAX_TENSOR_DIM)
-    //  shape_values_ = {SYN_MAX_TENSOR_DIM, 0, 0, 0, 0};
+    //  syn_shape_ = {SYN_MAX_TENSOR_DIM, 0, 0, 0, 0};
     //  break;
     case TENSOR_TYPE_MAX:
     default:

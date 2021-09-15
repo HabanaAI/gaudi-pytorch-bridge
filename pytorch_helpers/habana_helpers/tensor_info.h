@@ -56,10 +56,17 @@ class PtTensorInfo {
     return buffer_;
   }
   uint64_t get_buffer_syn() const {
-    return reinterpret_cast<uint64_t>(buffer_);
+    return reinterpret_cast<synapse_helpers::device_ptr>(buffer_);
   }
   void set_buffer(void* bp) {
     buffer_ = bp;
+  }
+
+  void* get_buffer_start() const {
+    return buffer_start_;
+  }
+  synapse_helpers::device_ptr get_buffer_start_syn() const {
+    return reinterpret_cast<synapse_helpers::device_ptr>(buffer_start_);
   }
 
   bool is_duplicate() const {
@@ -98,10 +105,8 @@ class PtTensorInfo {
   //   For the rest of the tensors offset will be used to calculate the buffer.
   void patch_exact(const at::Tensor& pt_tensor) {
     buffer_ = pt_tensor.data_ptr();
-    storage_data_ptr_ = reinterpret_cast<synapse_helpers::device_ptr>(
-        pt_tensor.storage().data_ptr().get());
-    auto new_offset = reinterpret_cast<synapse_helpers::device_ptr>(buffer_) -
-        storage_data_ptr_;
+    buffer_start_ = pt_tensor.storage().data_ptr().get();
+    auto new_offset = get_buffer_syn() - get_buffer_start_syn();
     TORCH_CHECK(
         offset_ == new_offset,
         "offset_ ",
@@ -110,13 +115,12 @@ class PtTensorInfo {
         new_offset);
   }
   void patch(const PtTensorInfo& t) {
-    storage_data_ptr_ = t.storage_data_ptr_;
-    buffer_ = (void*)(storage_data_ptr_ + offset_);
+    buffer_start_ = t.buffer_start_;
+    buffer_ = (void*)(get_buffer_start_syn() + offset_);
   }
   void patch(const at::Tensor& pt_tensor) {
-    storage_data_ptr_ = reinterpret_cast<synapse_helpers::device_ptr>(
-        pt_tensor.storage().data_ptr().get());
-    buffer_ = (void*)(storage_data_ptr_ + offset_);
+    buffer_start_ = pt_tensor.storage().data_ptr().get();
+    buffer_ = (void*)(get_buffer_start_syn() + offset_);
   }
 
   friend std::ostream& operator<<(std::ostream& O, const PtTensorInfo& t);
@@ -152,17 +156,6 @@ class PtTensorInfo {
   bool watch_enabled() const {
     return watch_;
   }
-
-  synapse_helpers::device_ptr get_storage_data_ptr() const {
-    return storage_data_ptr_;
-  }
-  void set_storage_data_ptr(synapse_helpers::device_ptr ptr) {
-    storage_data_ptr_ = ptr;
-  }
-
-  void* get_buffer_start() const {
-    return (void*)storage_data_ptr_;
-  }
   synapse_helpers::device_ptr get_offset() const {
     return offset_;
   }
@@ -178,7 +171,7 @@ class PtTensorInfo {
       numel_ *= i;
     }
     size_ = numel_ * itemsize;
-    update_shape_values();
+    update_shape_syn();
   }
 
   void set_strides(const std::vector<int64_t>& strides) {
@@ -200,8 +193,8 @@ class PtTensorInfo {
   synTensorType tensor_type() {
     return tensor_type_;
   }
-  const std::array<uint32_t, SYN_GAUDI_MAX_TENSOR_DIM>& shape_values() {
-    return shape_values_;
+  const std::array<uint32_t, SYN_GAUDI_MAX_TENSOR_DIM>& syn_shape() {
+    return syn_shape_;
   }
 
   size_t get_dma_tensor_idx() const {
@@ -221,7 +214,7 @@ class PtTensorInfo {
   IVal iv_{};
 
   void* buffer_{nullptr};
-  synapse_helpers::device_ptr storage_data_ptr_{0};
+  void* buffer_start_{nullptr};
   // offset is used for view tensor only
   synapse_helpers::device_ptr offset_{0};
   std::string ir_name_;
@@ -242,7 +235,7 @@ class PtTensorInfo {
   c10::MemoryFormat mf_;
 
   synTensorType tensor_type_{DATA_TENSOR};
-  std::array<uint32_t, SYN_GAUDI_MAX_TENSOR_DIM> shape_values_{0};
+  std::array<uint32_t, SYN_GAUDI_MAX_TENSOR_DIM> syn_shape_{0};
   // uint64_t shape_ndim_{0};
 
   size_t dma_tensor_idx_{ULONG_MAX};
@@ -255,5 +248,5 @@ class PtTensorInfo {
       const bool wflag,
       const synTensorType stt,
       const getDMAInputTensorCBType dma_cb);
-  void update_shape_values();
+  void update_shape_syn();
 };

@@ -327,7 +327,7 @@ void RecipeValueSpec::d2h_dbuff(size_t buf_idx) {
   auto syn_error = device.copy_data_to_host(
       (uint64_t)dtensorinfos->at(buf_idx).get_buffer(),
       (void*)htensor_wbuff,
-      dtensorinfos->at(buf_idx).get_storage_data_ptr(),
+      dtensorinfos->at(buf_idx).get_buffer_start_syn(),
       buf_size,
       [&copyDone]() { copyDone = true; });
   TORCH_CHECK(syn_error.status == 0, syn_error.error);
@@ -742,7 +742,7 @@ void RecipeValueSpec::patch_launch_info(
         }
         case SHAPE_TENSOR:
         case INPUT_DESCRIBING_SHAPE_TENSOR: {
-          const auto& tsv = ti.shape_values();
+          const auto& tsv = ti.syn_shape();
           syn_launch_info_vec.emplace_back(synLaunchTensorInfoExt{
               ti.get_syn_namec_str(),
               0,
@@ -752,7 +752,7 @@ void RecipeValueSpec::patch_launch_info(
           break;
         }
         case DATA_TENSOR_DYNAMIC: {
-          const auto& tsv = ti.shape_values();
+          const auto& tsv = ti.syn_shape();
           syn_launch_info_vec.emplace_back(synLaunchTensorInfoExt{
               ti.get_syn_namec_str(),
               ti.get_buffer_syn(),
@@ -762,7 +762,7 @@ void RecipeValueSpec::patch_launch_info(
           break;
         }
         case DEVICE_SHAPE_TENSOR: {
-          const auto& tsv = ti.shape_values();
+          const auto& tsv = ti.syn_shape();
           syn_launch_info_vec.emplace_back(synLaunchTensorInfoExt{
               ti.get_syn_namec_str(),
               ti.get_buffer_syn(),
