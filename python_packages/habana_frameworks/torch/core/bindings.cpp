@@ -75,6 +75,10 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   });
   m.def("_hb_get_default_device", []() { return GetCurrentThreadDevice(); });
   m.def("is_available", []() { return IsAvailable(); });
+  m.def("is_enabled_weight_permute_pass", []() {
+    return habana_lazy::exec::OptPassCfg::GetInstance()
+        ->IsEnabledWeightPermutePass();
+  });
 
   // Lazy apis
   m.def(
