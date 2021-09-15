@@ -788,6 +788,10 @@ struct hpu_wrap {
       c10::optional<at::IntArrayRef> output_size,
       at::IntArrayRef input_size,
       c10::optional<at::ArrayRef<double>> scale_factors);
+  static at::Tensor upsample_nearest3d(
+      const at::Tensor& input,
+      c10::optional<at::IntArrayRef> output_size,
+      c10::optional<at::ArrayRef<double>> scale_factors);
   static at::Tensor remainder(const at::Tensor& self, const at::Tensor& other);
   static at::Tensor remainder(const at::Tensor& self, const at::Scalar& other);
   static at::Tensor& remainder_(at::Tensor& self, const at::Tensor& other);

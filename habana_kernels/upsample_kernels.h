@@ -68,4 +68,15 @@ class UpsampleNearest2dBackwardOperator : public UpsampleBackwardOperator {
   }
 };
 
+// To Do : Use kernel_meta_data 5D tensor layout once it is defined in synapse
+// Currently 4D layout i.e. NHWC is passed for both Upsample nearest 2d and 3d
+class UpsampleNearest3dOperator : public UpsampleOperator {
+ public:
+  UpsampleNearest3dOperator(int device_id, c10::ScalarType scalarType)
+      : UpsampleOperator(
+            device_id,
+            "resize_fwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
+  }
+};
+
 } // namespace habana

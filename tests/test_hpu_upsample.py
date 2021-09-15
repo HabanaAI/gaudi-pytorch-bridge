@@ -105,6 +105,49 @@ def test_hpu_interpolate_nearest2d_fwd_bwd_chnlast(N, H, W, C, out_h, out_w, ker
         kernel=kernel_op, tensor_list_bwd=bwd_tensors, kernel_params_fwd=kernel_params
     )
 
+# upsample nearest 3d test case lists
+test_case_upsample_3d_scale = [
+    # N, D, H, W, C, scale
+    (2, 3, 3, 4, 1, 2.0),
+    (2, 5, 4, 3, 3, 3.0)
+    ]
+
+test_case_upsample_3d_scales = [
+    # N, D, H, W, C, scale_d, scale_h, scale_w
+    (2, 3, 3, 4, 1, 1.0, 1.0, 1.0),
+    (2, 5, 4, 3, 3, 2.0, 3.0, 4.0)
+    ]
+
+test_case_upsample_3d_out = [
+    # N, D, H, W, C, out_d, out_h, out_w
+    (2, 3, 3, 4, 1, 6, 3, 8),
+    (2, 5, 4, 3, 3, 10, 12, 15)
+    ]
+
+@pytest.mark.parametrize("N, D, H, W, C, scale", test_case_upsample_3d_scale)
+def test_up_sample_3d_scale_fwd(N, D, H, W, C, scale):
+    in_tensor = torch.randn(N, C, D, H, W)
+    kernel = torch.nn.Upsample(scale_factor = scale, mode = "nearest")
+    hpu_result = kernel(in_tensor.to(hpu))
+    cpu_result = kernel(in_tensor)
+    compare_tensors(hpu_result, cpu_result, atol = 0.001, rtol = 0.001)
+
+@pytest.mark.parametrize("N, D, H, W, C, scale_d, scale_h, scale_w", test_case_upsample_3d_scales)
+def test_up_sample_3d_scales_fwd(N, D, H, W, C, scale_d, scale_h, scale_w):
+    in_tensor = torch.randn(N, C, D, H, W)
+    kernel = torch.nn.Upsample(scale_factor = (scale_d, scale_h, scale_w), mode = "nearest")
+    hpu_result = kernel(in_tensor.to(hpu))
+    cpu_result = kernel(in_tensor)
+    compare_tensors(hpu_result, cpu_result, atol = 0.001, rtol = 0.001)
+
+@pytest.mark.parametrize("N, D, H, W, C, out_d, out_h, out_w", test_case_upsample_3d_out)
+def test_up_sample_3d_out_fwd(N, D, H, W, C, out_d, out_h, out_w):
+    in_tensor = torch.randn(N, C, D, H, W)
+    kernel = torch.nn.Upsample(size = (out_d, out_h, out_w), mode = "nearest")
+    hpu_result = kernel(in_tensor.to(hpu))
+    cpu_result = kernel(in_tensor)
+    compare_tensors(hpu_result, cpu_result, atol = 0.001, rtol = 0.001)
+
 if __name__ == "__main__":
     test_hpu_interpolate_nearest2d_fwd_bwd_chnlast(*test_case_list4[0], *op_list[0])
 
