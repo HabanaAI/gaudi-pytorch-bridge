@@ -1397,7 +1397,7 @@ habana::MatmulBackwardOperator::MatBwSize(
   } else if (static_cast<int64_t>(dim_out) == (dim1 - dim2)) {
     /* out = torch.matmul(mat1, mat2.unsqueeze(dim2)).squeeze(-1) */
     std::vector<int64_t> reshape2_sizes{mat2.sizes().vec()};
-    reshape2_sizes.push_back(1);
+    reshape2_sizes.push_back(dim2);
     syn_input2 =
         MatBwReshape(graph, mat2, reshape2_sizes, std::move(syn_input2));
 
@@ -1412,7 +1412,7 @@ habana::MatmulBackwardOperator::MatBwSize(
     stack.clear();
 
     std::vector<int64_t> reshape1_sizes{matmul->GetOutputs()[0].sizes().vec()};
-    reshape1_sizes.erase(reshape1_sizes.cbegin());
+    reshape1_sizes.pop_back();
     MatBwReshape(
         graph,
         matmul->GetOutputs()[0],
