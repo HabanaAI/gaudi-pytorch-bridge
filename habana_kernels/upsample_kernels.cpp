@@ -223,8 +223,8 @@ void UpsampleBackwardOperator::AllocateAndAddSynapseNode(
   auto grad_size = inputs[2].toIntList();
 
   TORCH_CHECK(
-      grad_output.ndimension() == 4,
-      "It is expected grad input tensor dimension equals to 4, but got size ",
+      grad_output.ndimension() == 4 || grad_output.ndimension() == 5,
+      "It is expected grad input tensor dimension equals to either 4 or 5, but got dim ",
       grad_output.ndimension());
 
   c10::optional<IntArrayRef> output_size;
@@ -248,8 +248,8 @@ void UpsampleBackwardOperator::AllocateAndAddSynapseNode(
       output_size1.has_value() || scales1.has_value(),
       "output_size and scales in UpsampleBackward are empty");
 
-  // TPC kernel runs only ChannelLast format
-  // TPC kernel supports only 4D Tensor
+  // TPC kernel runs only ChannelLast or ChannelLast3d format
+  // TPC kernel supports only 4D or 5D Tensor
   c10::MemoryFormat memory_format =
       habana_helpers::get_memory_format({&grad_output});
   auto output = habana_helpers::createPTTensor(
@@ -260,8 +260,14 @@ void UpsampleBackwardOperator::AllocateAndAddSynapseNode(
       is_output_persistent);
 
   // Setup resize params, TF uses same
+  auto is_grad_input_5d = is_tensor_5d(grad_output.sizes().vec());
   auto syn_resize_params = synapse_resize_params_builder(
-      RESIZE_INTER_NEAREST, FLOOR, ASYMMETRIC_MODE, output_size, scales);
+      RESIZE_INTER_NEAREST,
+      FLOOR,
+      ASYMMETRIC_MODE,
+      output_size,
+      scales,
+      is_grad_input_5d);
 
   p_context_->params_.emplace<ns_ResizeKernel::Params>(syn_resize_params);
   p_context_->params_size_ = sizeof(syn_resize_params);
@@ -293,7 +299,7 @@ void UpsampleOperator::SetPTOutputs(torch::jit::Stack& inputs) {
       : c10::nullopt;
 
   auto is_input_5d = is_tensor_5d(input.sizes().vec());
-  // Set ChannelLast for 4D Tensor or ChannelLast 5D Tensor
+  // Set ChannelLast for 4D Tensor or ChannelLast3d for 5D Tensor
   auto tpc_memory_format = is_input_5d ? c10::MemoryFormat::ChannelsLast3d
                                        : c10::MemoryFormat::ChannelsLast;
   std::vector<int64_t> shape_out = compute_output_shape(
@@ -308,8 +314,12 @@ void UpsampleBackwardOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   at::Tensor grad_output = inputs[0].toTensor();
   auto grad_size = inputs[2].toIntList();
   std::vector<int64_t> grad_out_shape = grad_size.vec();
-  auto output = at::empty(
-      grad_out_shape, grad_output.options(), c10::MemoryFormat::ChannelsLast);
+  auto is_grad_input_5d = is_tensor_5d(grad_output.sizes().vec());
+  // Set ChannelLast for 4D Tensor or ChannelLast3d for 5D Tensor
+  auto tpc_memory_format = is_grad_input_5d ? c10::MemoryFormat::ChannelsLast3d
+                                            : c10::MemoryFormat::ChannelsLast;
+  auto output =
+      at::empty(grad_out_shape, grad_output.options(), tpc_memory_format);
   std::vector<at::Tensor> v{output};
   HabanaOperator::SetPTOutputs(v);
 }
@@ -383,10 +393,14 @@ Tensor upsample_backward_op_hpu(
   auto input_size = stack[2].toIntList();
 
   Tensor grad_output_nhwc = grad_output;
+  auto is_upsample_3d = is_tensor_5d(grad_output.sizes().vec());
   int64_t pos_in[] = {0, 2, 3, 1};
+  int64_t pos_in_3d[] = {0, 2, 3, 4, 1};
   std::vector<const at::Tensor*> pt_in{&grad_output};
   std::vector<at::Tensor*> pt_out{&grad_output_nhwc};
   IntArrayRef new_dim_pos_in = pos_in;
+  if (is_upsample_3d) // 5D input
+    new_dim_pos_in = pos_in_3d;
   std::vector<const IntArrayRef*> pt_new_pos{&new_dim_pos_in};
   c10::MemoryFormat memory_format =
       habana_helpers::get_memory_format({&grad_output});
@@ -397,12 +411,20 @@ Tensor upsample_backward_op_hpu(
   permuted_sizes[1] = input_size[2];
   permuted_sizes[2] = input_size[3];
   permuted_sizes[3] = input_size[1];
+  if (is_upsample_3d) // 5D input
+  {
+    permuted_sizes[0] = input_size[0];
+    permuted_sizes[1] = input_size[2];
+    permuted_sizes[2] = input_size[3];
+    permuted_sizes[3] = input_size[4];
+    permuted_sizes[4] = input_size[1];
+  }
 
   // Overwriting the grad_output with the permuted grad_ouput so that the inputs
   // is in channels last from this point
   stack[0] = IValue(grad_output_nhwc);
   stack[2] = IValue(permuted_sizes);
-  auto upsample_nearest2d_backward = [&] {
+  auto upsample_nearest_backward = [&] {
     size_t device_id = grad_output.device().index();
     auto& device = synapse_helpers::HPURegistrar::get_device(device_id);
     size_t key = Op->GetRecipeKey(node_type, stack);
@@ -427,11 +449,14 @@ Tensor upsample_backward_op_hpu(
     return out[0];
   };
   Tensor output;
-  auto output_nhwc = upsample_nearest2d_backward();
+  auto output_nhwc = upsample_nearest_backward();
   pt_in = {&output_nhwc};
   pt_out = {&output};
   int64_t pos_out[] = {0, 3, 1, 2};
+  int64_t pos_out_3d[] = {0, 4, 1, 2, 3};
   IntArrayRef new_dim_pos_out = pos_out;
+  if (is_upsample_3d) // 5D input
+    new_dim_pos_out = pos_out_3d;
   std::vector<const IntArrayRef*> pt_new_pos1 = {&new_dim_pos_out};
   habana_helpers::change_tensors_to_memory_format(
       pt_out, pt_in, pt_new_pos1, memory_format);
@@ -504,6 +529,31 @@ Tensor upsample_nearest2d_backward_hpu(
   return grad_input;
 }
 
+Tensor upsample_nearest3d_backward_hpu(
+    const Tensor& grad_output,
+    c10::optional<at::IntArrayRef> output_size,
+    at::IntArrayRef input_size,
+    c10::optional<at::ArrayRef<double>> scale_factors) {
+  PT_KERNEL_BEGIN;
+  // Create the operator
+  at::ScalarType scalar_type = grad_output.scalar_type();
+  size_t device_id = grad_output.device().index();
+  habana::UpsampleNearest3dBackwardOperator Op(device_id, scalar_type);
+  std::string node_type =
+      "resize_bwd_" + habana_helpers::name_suffix_from_type(scalar_type);
+  // Build Params for the graph
+  // output_size and scale_factor are not necessary.
+  // However added to the stack to avoid compiler unsed variable warnings
+  std::vector<c10::IValue> stack = {
+      IValue(grad_output),
+      IValue(output_size),
+      IValue(input_size),
+      IValue(scale_factors)};
+  auto grad_input = upsample_backward_op_hpu(stack, node_type, &Op);
+  PT_KERNEL_END;
+  return grad_input;
+}
+
 static auto& KernelRegistry =
     habana::KernelRegistry()
         .add(
@@ -522,5 +572,11 @@ static auto& KernelRegistry =
             "aten::upsample_nearest3d.vec",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<UpsampleNearest3dOperator>(
+                  device_id, node_type);
+            })
+        .add(
+            "aten::upsample_nearest3d_backward.vec",
+            [](const int device_id, c10::ScalarType node_type) {
+              return std::make_shared<UpsampleNearest3dBackwardOperator>(
                   device_id, node_type);
             });

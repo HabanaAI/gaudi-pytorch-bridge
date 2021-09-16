@@ -79,4 +79,12 @@ class UpsampleNearest3dOperator : public UpsampleOperator {
   }
 };
 
+class UpsampleNearest3dBackwardOperator : public UpsampleBackwardOperator {
+ public:
+  UpsampleNearest3dBackwardOperator(int device_id, c10::ScalarType scalarType)
+      : UpsampleBackwardOperator(
+            device_id,
+            "resize_bwd_" + habana_helpers::name_suffix_from_type(scalarType)) {
+  }
+};
 } // namespace habana

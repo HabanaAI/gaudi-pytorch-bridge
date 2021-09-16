@@ -178,6 +178,11 @@ at::Tensor upsample_nearest3d_hpu_lazy(
     const at::Tensor& input,
     c10::optional<at::IntArrayRef> output_size,
     c10::optional<at::ArrayRef<double>> scale_factors);
+at::Tensor upsample_nearest3d_backward_hpu_lazy(
+    const at::Tensor& grad_output,
+    c10::optional<at::IntArrayRef> output_size,
+    at::IntArrayRef input_size,
+    c10::optional<at::ArrayRef<double>> scale_factors);
 at::Tensor convolution_hpu_lazy(
     const at::Tensor& input,
     const at::Tensor& weight,

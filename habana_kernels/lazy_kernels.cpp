@@ -5520,6 +5520,54 @@ Tensor upsample_nearest3d_hpu_lazy(
   return result;
 }
 
+Tensor upsample_nearest3d_backward_hpu_lazy(
+    const Tensor& grad_output,
+    c10::optional<at::IntArrayRef> output_size,
+    at::IntArrayRef input_size,
+    c10::optional<at::ArrayRef<double>> scale_factors) {
+  PT_LAZY_TRACE;
+  Tensor grad_output_cast = grad_output;
+  if (grad_output.scalar_type() == c10::ScalarType::Byte) {
+    // u8 -> f32
+    LazyOp<at::Tensor> k_{
+        "hpu::cast",
+        {grad_output, c10::ScalarType::Float},
+        {},
+        {grad_output.sizes().vec()}};
+    grad_output_cast = k_.call();
+  }
+  std::vector<int64_t> permuted_sizes = input_size.vec();
+  permuted_sizes[0] = input_size[0];
+  permuted_sizes[1] = input_size[2];
+  permuted_sizes[2] = input_size[3];
+  permuted_sizes[3] = input_size[4];
+  permuted_sizes[4] = input_size[1];
+  LazyOp<at::Tensor> k(
+      "aten::upsample_nearest3d_backward",
+      {grad_output_cast, output_size, permuted_sizes, scale_factors},
+      {1, 2, 3},
+      {input_size.vec()});
+  auto result = k.call();
+  if (grad_output.scalar_type() == c10::ScalarType::Byte) {
+    auto result_cast = result;
+    // f32 -> i32
+    LazyOp<at::Tensor> k_{
+        "hpu::cast",
+        {result_cast, c10::ScalarType::Int},
+        {},
+        {result_cast.sizes().vec()}};
+    result_cast = k_.call();
+    // i32 -> u8
+    LazyOp<at::Tensor> k{
+        "hpu::cast",
+        {result_cast, grad_output.scalar_type()},
+        {},
+        {result_cast.sizes().vec()}};
+    result = k.call();
+  }
+  return result;
+}
+
 Tensor sigmoid_hpu_lazy(const Tensor& input) {
   PT_LAZY_TRACE;
   auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHPU);

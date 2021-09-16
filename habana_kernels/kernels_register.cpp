@@ -3751,6 +3751,24 @@ Tensor hpu_wrap::upsample_nearest3d(
   }
 };
 
+Tensor hpu_wrap::upsample_nearest3d_backward(
+    const Tensor& grad_output,
+    c10::optional<at::IntArrayRef> output_size,
+    at::IntArrayRef input_size,
+    c10::optional<at::ArrayRef<double>> scale_factors) {
+  if (!hpu_check_inputs_impl("upsample_nearest3d_backward", {grad_output}))
+    return AtenHpuTypeDefault::upsample_nearest3d_backward(
+        grad_output, output_size, input_size, scale_factors);
+
+  if (GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 0) {
+    return upsample_nearest3d_backward_hpu_lazy(
+        grad_output, output_size, input_size, scale_factors);
+  } else {
+    return upsample_nearest3d_backward_hpu(
+        grad_output, output_size, input_size, scale_factors);
+  }
+};
+
 Scalar hpu_wrap::_local_scalar_dense(const Tensor& self) {
   if (GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 0) {
     return _local_scalar_dense_hpu_lazy(self);

@@ -1337,6 +1337,13 @@ static const std::
                   at::ScalarType::Float}},
             },
             {
+                "upsample_nearest3d_backward",
+                {{at::ScalarType::Double,
+                  at::ScalarType::BFloat16,
+                  at::ScalarType::Byte,
+                  at::ScalarType::Float}},
+            },
+            {
                 "ones_like",
                 {{at::ScalarType::Double,
                   at::ScalarType::BFloat16,
