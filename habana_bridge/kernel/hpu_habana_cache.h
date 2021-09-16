@@ -30,7 +30,7 @@
 #include "synapse_helpers/graph.h"
 
 #define PGM_LRU_MAX_EAGER_NRECIPES 9000
-#define PGM_LRU_MAX_LAZY_NRECIPES 100
+#define PGM_LRU_MAX_LAZY_NRECIPES 2500
 #define PGM_LRU_MIN_NRECIPES 3
 
 namespace habana {
