@@ -259,6 +259,8 @@ def adjust_learning_rate(optimizer, epoch, lr_vec):
 #permute the params from filters first (KCRS) to filters last(RSCK) or vice versa.
 #and permute from RSCK to KCRS is used for checkpoint saving
 def permute_params(model, to_filters_last, lazy_mode):
+    if htcore.is_enabled_weight_permute_pass() is True:
+        return
     with torch.no_grad():
         for name, param in model.named_parameters():
             if(param.ndim == 4):
@@ -275,6 +277,8 @@ def permute_params(model, to_filters_last, lazy_mode):
 
 
 def permute_momentum(optimizer, to_filters_last, lazy_mode):
+    if htcore.is_enabled_weight_permute_pass() is True:
+        return
     # Permute the momentum buffer before using for checkpoint
     for group in optimizer.param_groups:
         for p in group['params']:

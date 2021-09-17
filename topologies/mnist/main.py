@@ -275,6 +275,8 @@ def parse_args():
 def permute_params_on_device(args, model):
     if args.run_lazy_mode:
         import habana_frameworks.torch.core as htcore
+        if htcore.is_enabled_weight_permute_pass() is True:
+            return
 
     with torch.no_grad():
         for name, param in model.named_parameters():
