@@ -213,7 +213,7 @@ void HlExec::GetOrCreate(
 
   if (std::getenv("PT_HPU_LAZY_CACHE_DISABLE")) {
     mp_g_ = std::make_shared<Graph>();
-    Create(po_data.post_order, po_data.inputs, po_data.outputs, stack);
+    Create(po_data.post_order, po_data.inputs, po_data.outputs, orig_stack);
     PruneDuplicateGraphInputs(parent_vec, is_duplicate_vec);
     return;
   }
