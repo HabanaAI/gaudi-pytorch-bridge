@@ -414,22 +414,25 @@ void CoalescedStringentPooling::print_pool_stats() const {
 
 Chunk* CoalescedStringentPooling::get_any_available_free_chunk(
     uint64_t size) const {
-  Bin* bin = bin_utils->BinForSize(size);
-  for (auto citer = bin->free_chunks.begin(); citer != bin->free_chunks.end();
-       ++citer) {
-    Chunk* chunk = *citer;
-    HABANA_ASSERT(!chunk->used);
+  uint64_t bin_index = bin_utils->BinIndexForSize(size);
+  for (; bin_index < kNumBins; bin_index++) {
+    Bin* b = bin_utils->BinFromIndex(bin_index);
+    for (auto citer = b->free_chunks.begin(); citer != b->free_chunks.end();
+         ++citer) {
+      Chunk* chunk = *citer;
+      HABANA_ASSERT(!chunk->used);
 
-    if (chunk->size >= size) {
-      PT_SYNHELPER_DEBUG(
-          "POOL:: Return bigger chunk :: ",
-          chunk,
-          " chunk size :: ",
-          chunk->size,
-          " requested size :: ",
-          size);
+      if (chunk->size >= size) {
+        PT_SYNHELPER_DEBUG(
+            "POOL:: Return bigger chunk :: ",
+            chunk,
+            " chunk size :: ",
+            chunk->size,
+            " requested size :: ",
+            size);
 
-      return chunk;
+        return chunk;
+      }
     }
   }
   PT_SYNHELPER_DEBUG("POOL:: no bigger chunks !!");
@@ -527,9 +530,11 @@ Chunk* CoalescedStringentPooling::try_block_splitting(uint64_t size) const {
   if (chunk) {
     PT_SYNHELPER_DEBUG(
         "Get any available free chunk:: ", chunk, " of Size:: ", chunk->size);
-    bin_utils->RemoveFreeChunkFromBin(chunk);
-    try_splitting_chunks(chunk, size);
-    bin_utils->InsertFreeChunkIntoBin(chunk);
+    if (chunk->size > size) {
+      bin_utils->RemoveFreeChunkFromBin(chunk);
+      try_splitting_chunks(chunk, size);
+      bin_utils->InsertFreeChunkIntoBin(chunk);
+    }
     PT_SYNHELPER_DEBUG(
         "After split chunk:: ", chunk, " of Size:: ", chunk->size);
     return chunk;
@@ -770,7 +775,6 @@ void CoalescedStringentPooling::try_splitting_chunks(
   chunks[new_chunk->memptr] = new_chunk;
   // Add the newly free chunk to the free bin.
   bin_utils->InsertFreeChunkIntoBin(new_chunk);
-  chunks[new_chunk->memptr] = new_chunk;
 
   PT_SYNHELPER_DEBUG(
       "new chunk::",
