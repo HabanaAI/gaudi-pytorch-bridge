@@ -794,9 +794,7 @@ void ReshapeOperator::AllocateAndAddSynapseNode(
 
   // Allocate Shape tensor
   if (graph.is_dynamic_graph()) {
-    auto result_shape = habana_helpers::createPTTensor(
-        self, inferred_size, self.options(), memory_format, true);
-    AllocateSynapseInput(graph, result_shape, true, true);
+    AllocateSynapseShapeTensor(graph, output);
   }
 
   AllocateSynapseOutput(graph, output, is_output_persistent);

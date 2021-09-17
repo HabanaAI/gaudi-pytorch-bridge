@@ -17,6 +17,8 @@
 #include <torch/csrc/jit/ir/ir.h>
 
 #include "habana_helpers/logging.h"
+#include "synapse_helpers/habana_tensor.h"
+
 #include "synapse_helpers/device_types.h"
 #include "synapse_helpers/graph.h"
 
@@ -36,6 +38,7 @@ typedef void (
 class PtTensorInfo {
  public:
   PtTensorInfo(const IValPtrShared& ivpsh);
+  PtTensorInfo(const synapse_helpers::tensor& st, const std::string& irn);
   PtTensorInfo(
       const IValPtrShared& ivp,
       const std::string& sn,
@@ -231,8 +234,9 @@ class PtTensorInfo {
 
   std::vector<int64_t> shape_;
   std::vector<int64_t> strides_;
-  c10::TensorOptions topts_;
+
   c10::MemoryFormat mf_;
+  c10::TensorOptions topts_;
 
   synTensorType tensor_type_{DATA_TENSOR};
   std::array<uint32_t, SYN_GAUDI_MAX_TENSOR_DIM> syn_shape_{0};

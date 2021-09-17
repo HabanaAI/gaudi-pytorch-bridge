@@ -488,19 +488,8 @@ void RecipeValueSpec::update_patching_table(
     }
   }
 
-  // Patch the shape tensor inputs if there are any
-  if (num_shape_tensors) {
-    size_t shape_start = num_inputs + num_induplicates + num_dma_inputs;
-    size_t shape_end = shape_start + num_shape_tensors;
-    for (; ridx < shape_end; ridx++) {
-      auto& ti = dtensorinfos->at(ridx);
-      auto tshape{ti.get_shape()};
-      at::TensorOptions topts(ti.get_topts());
-      // TODO: Create storageless tensor
-      auto pt_shape = at::empty(tshape, topts, ti.get_mf());
-      ti.patch_exact(pt_shape);
-    }
-  }
+  // Shape tensor patching is already done from name shape map
+  ridx = ridx + num_shape_tensors;
 
   if (enable_tensor_release) {
     // TODO : Creation of output tensors and associated patching should

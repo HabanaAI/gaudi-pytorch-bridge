@@ -22,6 +22,7 @@
 #include <string>
 
 #include "habana_helpers/logging.h"
+
 #include "synapse_helpers/synapse_error.h"
 #include "synapse_helpers/value_or_ref.h"
 
@@ -231,7 +232,8 @@ class tensor final {
 
   static tensor create_placeholder(
       synDeviceId device_id,
-      const std::vector<int64_t>& pt_shape);
+      const std::vector<int64_t>& pt_shape,
+      const std::vector<int64_t>& pt_stride);
 
   synTensor& get() {
     return tensor_;
@@ -303,6 +305,16 @@ class tensor final {
 
   std::vector<int64_t> pt_shape() const {
     return pt_shape_;
+  }
+  std::vector<int64_t> pt_strides() const {
+    return pt_strides_;
+  }
+
+  void set_pt_info(
+      const std::vector<int64_t>& pt_shape,
+      const std::vector<int64_t>& pt_stride) {
+    pt_shape_ = pt_shape;
+    pt_strides_ = pt_stride;
   }
 
   friend std::ostream& operator<<(std::ostream& out, const tensor& rhs);
@@ -387,16 +399,14 @@ class tensor final {
   synTensorType tensor_type_{DATA_TENSOR};
   /*
    * This pt_shape_ tensor is used to store the shape
-   * as we from pytorch tensor. This value is only
+   * as we receive from pytorch tensor. This value is only
    * used for propogating the shape value when creating
    * placeholder tensor for shape inference. The format
    * of shape stored in pt_shape_ does not match with the
    * format stored in 'shape_'.
-   * Currently the only way to populate the pt_shape_ is
-   * during creation of place holder with the shape of
-   * pytorch tensor
    */
   std::vector<int64_t> pt_shape_;
+  std::vector<int64_t> pt_strides_;
   static bool generate_placeholder_;
 };
 

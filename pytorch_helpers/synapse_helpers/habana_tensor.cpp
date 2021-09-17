@@ -21,6 +21,11 @@ namespace synapse_helpers {
 
 bool tensor::generate_placeholder_{false};
 
+void tensor::shape_t::set_rank(dimension_count_t rank) noexcept {
+  HABANA_ASSERT(rank.value <= HABANA_DIM_MAX);
+  rank_ = rank;
+}
+
 std::ostream& operator<<(
     std::ostream& out,
     const synTensorDescriptor& syn_tensor) {
@@ -63,11 +68,6 @@ std::ostream& operator<<(
       HABANA_ASSERT(false);
   }
   return out;
-}
-
-void tensor::shape_t::set_rank(dimension_count_t rank) noexcept {
-  HABANA_ASSERT(rank.value <= HABANA_DIM_MAX);
-  rank_ = rank;
 }
 
 std::string tensor::shape_t::debug_string() const {
@@ -408,7 +408,8 @@ void tensor::cleanup() {
 
 tensor tensor::create_placeholder(
     synDeviceId syn_device,
-    const std::vector<int64_t>& pt_shape) {
+    const std::vector<int64_t>& pt_shape,
+    const std::vector<int64_t>& pt_stride) {
   auto name = detail::tensor_name_generator::generate();
   tensor tensor{
       syn_device,
@@ -420,6 +421,7 @@ tensor tensor::create_placeholder(
       nullptr};
   tensor.set_placeholder();
   tensor.pt_shape_ = pt_shape;
+  tensor.pt_strides_ = pt_stride;
 
   return tensor;
 }

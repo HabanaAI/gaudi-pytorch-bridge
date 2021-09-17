@@ -1,5 +1,4 @@
 #include "habana_helpers/tensor_info.h"
-#include "synapse_helpers/habana_tensor.h"
 
 void PtTensorInfo::populate_tinfo(
     const at::Tensor& pt_tensor,
@@ -18,8 +17,9 @@ void PtTensorInfo::populate_tinfo(
   size_ = pt_tensor.nbytes();
   shape_ = pt_tensor.sizes().vec();
   strides_ = pt_tensor.strides().vec();
-  topts_ = pt_tensor.options();
+
   mf_ = pt_tensor.suggest_memory_format();
+  topts_ = pt_tensor.options();
 
   offset_ = (get_buffer_syn() - get_buffer_start_syn());
   is_view_tensor_ = (offset_ != 0);
@@ -29,6 +29,22 @@ void PtTensorInfo::populate_tinfo(
   tensor_type_ = stt;
 
   watch_ = wflag;
+
+  update_shape_syn();
+}
+
+PtTensorInfo::PtTensorInfo(
+    const synapse_helpers::tensor& st,
+    const std::string& irn) {
+  ir_name_ = irn;
+  syn_name_ = st.name();
+  tensor_type_ = SHAPE_TENSOR;
+
+  // Populate the synapse shapes directly from the input syn tensor.
+  numel_ = st.num_elements();
+  size_ = st.size_bytes();
+  shape_ = st.pt_shape();
+  strides_ = st.pt_strides();
 
   update_shape_syn();
 }
@@ -73,7 +89,6 @@ void PtTensorInfo::update_shape_syn() {
       }
     } break;
     // TODO: Fix handling for shape tensors
-    // case SHAPE_TENSOR:
     // case INPUT_DESCRIBING_SHAPE_TENSOR: {
     //  shape_ndim_ = pt_tensor.numel();
     //  at::Tensor pt_tensor_cpu =

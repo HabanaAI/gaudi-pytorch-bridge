@@ -1442,13 +1442,7 @@ void SliceOperator::AllocateAndAddSynapseNode(
     // only if there is another dimension with size 1 in the tensor.
     TORCH_CHECK(step <= 1, "strided slice not supported on FCD");
   }
-  // Allocate Shape tensor
-  if (graph.is_dynamic_graph()) {
-    auto shape = compute_output_shape(self, dim, start, end, step);
-    auto result_shape = habana_helpers::createPTTensor(
-        self, shape, self.options(), self.suggest_memory_format(), true);
-    AllocateSynapseInput(graph, result_shape, true, true);
-  }
+
   auto output =
       AllocateOutputTensor(self, dim, start, end, step, is_output_persistent);
   std::vector<const at::Tensor*> pt_outputs{&output};
@@ -1464,6 +1458,11 @@ void SliceOperator::AllocateAndAddSynapseNode(
   params.starts[0] = start;
   params.ends[0] = end;
   params.steps[0] = step;
+
+  // Allocate Shape tensor
+  if (graph.is_dynamic_graph()) {
+    AllocateSynapseShapeTensor(graph, output);
+  }
 
   AllocateSynapseOutput(graph, output, is_output_persistent);
   AddNodeToSynapseGraph(graph, &params, sizeof(params));

@@ -82,8 +82,7 @@ void UniformOperator::AllocateAndAddSynapseNode(
 
   // Allocate Shape Tensor
   if (graph.is_dynamic_graph()) {
-    auto result_shape = habana_helpers::createPTTensor(self, true);
-    AllocateSynapseInput(graph, result_shape, true, true);
+    AllocateSynapseShapeTensor(graph, self);
   }
 
   AllocateSynapseOutput(graph, self, is_output_persistent);
@@ -277,8 +276,7 @@ void NormalOperator::AllocateAndAddSynapseNode(
 
   // Allocate Shape Tensor
   if (graph.is_dynamic_graph()) {
-    auto result_shape = habana_helpers::createPTTensor(self, true);
-    AllocateSynapseInput(graph, result_shape, true, true);
+    AllocateSynapseShapeTensor(graph, self);
   }
 
   AllocateSynapseOutput(graph, self, is_output_persistent);

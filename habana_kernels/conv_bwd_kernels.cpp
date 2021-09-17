@@ -106,8 +106,7 @@ void Conv3dInputDifferentiationOperator::AllocateAndAddSynapseNode(
 
   // Allocate Shape Tensor
   if (graph.is_dynamic_graph()) {
-    auto result_shape = habana_helpers::createPTTensor(grad_input_nhwc, true);
-    AllocateSynapseInput(graph, result_shape, true, true);
+    AllocateSynapseShapeTensor(graph, grad_input_nhwc);
   }
 
   AllocateSynapseOutput(graph, grad_input_nhwc, is_output_persistent);
@@ -175,8 +174,7 @@ void ConvInputDifferentiationOperator::AllocateAndAddSynapseNode(
 
   // Allocate Shape Tensor
   if (graph.is_dynamic_graph()) {
-    auto result_shape = habana_helpers::createPTTensor(grad_input_nhwc, true);
-    AllocateSynapseInput(graph, result_shape, true, true);
+    AllocateSynapseShapeTensor(graph, grad_input_nhwc);
   }
 
   AllocateSynapseOutput(graph, grad_input_nhwc, is_output_persistent);

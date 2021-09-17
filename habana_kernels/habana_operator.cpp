@@ -175,6 +175,17 @@ void habana::HabanaOperator::AllocateSynapseInputs(
   }
 }
 
+// Create synapse shape tensor without corresponding pt_tensor
+synapse_helpers::tensor& habana::HabanaOperator::AllocateSynapseShapeTensor(
+    synapse_helpers::graph& graph,
+    const at::Tensor& input) {
+  auto syn_shape_input =
+      habana_helpers::create_shape_tensor(input, graph, false, false);
+  p_context_->syn_inputs_.emplace_back(std::move(syn_shape_input));
+
+  return p_context_->syn_inputs_.back();
+}
+
 void habana::HabanaOperator::AllocateSynapseOutput(
     synapse_helpers::graph& graph,
     const at::Tensor& output,

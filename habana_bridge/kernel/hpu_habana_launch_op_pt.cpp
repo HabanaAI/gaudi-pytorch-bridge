@@ -875,29 +875,13 @@ void HabanaLaunchOpPT::ProcessSynapseOutputs(
 void HabanaLaunchOpPT::ProcessSynapseShapeTensors(
     const HabanaOperatorPtr& habanaOp,
     torch::jit::Node* node) {
-  // TODO: Handle Multiple Shape tensors
-  auto num_pt = habanaOp->GetInputs().size();
-  auto num_syn = habanaOp->GetSynInputs().size();
-  if (num_pt != 0 && num_syn != 0) {
-    synapse_helpers::tensor& maybe_syn_shape_tensor =
-        habanaOp->GetSynInputs().back();
+  for (synapse_helpers::tensor& maybe_syn_shape_tensor :
+       habanaOp->GetSynInputs()) {
     if (maybe_syn_shape_tensor.is_shape_tensor()) {
-      auto pt_shape_tensor = habanaOp->GetInputs().back();
-      PT_BRIDGE_WARN(
-          "[Dyn WARN] Adding shapeTensor{ ",
-          maybe_syn_shape_tensor.name(),
-          " } and PT Tensor with index =",
-          habanaOp->GetInputs().size() - 1,
-          " to PtTensorInfo\n");
       std::string irn{"%shapeInput_"};
       irn += std::to_string(shape_index);
       shape_index++;
-      PtTensorInfo ti(
-          pt_shape_tensor,
-          maybe_syn_shape_tensor.name(),
-          irn,
-          watch_tensor_flag_,
-          maybe_syn_shape_tensor.tensor_type());
+      PtTensorInfo ti(maybe_syn_shape_tensor, irn);
       shape_tensor_tinfos.emplace_back(ti);
     }
   }
@@ -2396,7 +2380,7 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel(
     // are populated
     TORCH_CHECK(
         (rv.num_inputs + rv.num_induplicates + rv.num_dma_inputs +
-             rv.num_intermediates ==
+             rv.num_shape_tensors + rv.num_intermediates ==
          rv.dtensorinfos->size()),
         "num_inputs ",
         rv.num_inputs,
@@ -2406,6 +2390,8 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel(
         rv.num_dma_inputs,
         " num_intermediates ",
         rv.num_intermediates,
+        " num_shape_tensors ",
+        rv.num_shape_tensors,
         " are not adding up to #dtensorinfos ",
         rv.dtensorinfos->size());
 

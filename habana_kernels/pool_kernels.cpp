@@ -350,13 +350,7 @@ void MaxPool2dWithIndicesBackwardOutOperator::AllocateAndAddSynapseNode(
 
   // Allocate Shape tensor
   if (graph.is_dynamic_graph()) {
-    auto result_shape = habana_helpers::createPTTensor(
-        grad_input,
-        grad_input.sizes(),
-        grad_input.options(),
-        grad_input.suggest_memory_format(),
-        true);
-    AllocateSynapseInput(graph, result_shape, true, true);
+    AllocateSynapseShapeTensor(graph, grad_input);
   }
 
   AllocateSynapseOutput(graph, {grad_input}, is_output_persistent);
@@ -844,16 +838,6 @@ void AvgPool2dOperator::AllocateAndAddSynapseNode(
       input.suggest_memory_format(),
       is_output_persistent);
 
-  if (graph.is_dynamic_graph()) {
-    auto result_shape = habana_helpers::createPTTensor(
-        input,
-        {out_shape[0], out_shape[1], out_shape[2], out_shape[3]},
-        input.options(),
-        input.suggest_memory_format(),
-        true);
-    AllocateSynapseInput(graph, result_shape, true, true);
-  }
-
   AllocateSynapseOutput(graph, output_nhwc, is_output_persistent);
   AddNodeToSynapseGraph(graph, &syn_pool_params, sizeof(syn_pool_params));
 }
@@ -1038,14 +1022,9 @@ void AvgPool2dBackwardOutOperator::AllocateAndAddSynapseNode(
 
   // Allocate Shape tensor
   if (graph.is_dynamic_graph()) {
-    auto result_shape = habana_helpers::createPTTensor(
-        grad_input_nhwc,
-        grad_input_nhwc.sizes(),
-        grad_input_nhwc.options(),
-        grad_input_nhwc.suggest_memory_format(),
-        true);
-    AllocateSynapseInput(graph, result_shape, true, true);
+    AllocateSynapseShapeTensor(graph, grad_input_nhwc);
   }
+
   AllocateSynapseOutput(graph, grad_input_nhwc, is_output_persistent);
   AddNodeToSynapseGraph(graph, &syn_pool_params, sizeof(syn_pool_params));
 }

@@ -508,7 +508,8 @@ synapse_helpers::tensor habana_helpers::create_tensor(
 
   if (graph.is_dry_run()) {
     // For dry run mode, just create a placeholder tensor
-    return synapse_helpers::tensor::create_placeholder(devid, shape.vec());
+    return synapse_helpers::tensor::create_placeholder(
+        devid, shape.vec(), stride.vec());
   }
 
   std::vector<int64_t> min, max;
@@ -560,7 +561,7 @@ synapse_helpers::tensor habana_helpers::create_tensor(
   if (graph.is_dry_run()) {
     // For dry run mode, just create a placeholder tensor
     return synapse_helpers::tensor::create_placeholder(
-        tensor.device().index(), tensor.sizes().vec());
+        tensor.device().index(), tensor.sizes().vec(), tensor.strides().vec());
   }
 
   std::vector<int64_t> min, max;
@@ -626,7 +627,7 @@ synapse_helpers::tensor habana_helpers::create_tensor(
   if (graph.is_dry_run()) {
     // For dry run mode, just create a placeholder tensor
     return synapse_helpers::tensor::create_placeholder(
-        tensor.device().index(), tensor.sizes().vec());
+        tensor.device().index(), tensor.sizes().vec(), tensor.strides().vec());
   }
 
   std::vector<int64_t> min, max;
@@ -679,7 +680,7 @@ synapse_helpers::tensor habana_helpers::create_shape_tensor(
   if (graph.is_dry_run()) {
     // For dry run mode, just create a placeholder tensor
     return synapse_helpers::tensor::create_placeholder(
-        tensor.device().index(), tensor.sizes().vec());
+        tensor.device().index(), tensor.sizes().vec(), tensor.strides().vec());
   }
 
   std::vector<int64_t> min, max;
@@ -711,7 +712,11 @@ synapse_helpers::tensor habana_helpers::create_shape_tensor(
     auto variant = builder.build(
         synapse_helpers::HPURegistrar::get_device(tensor.device().index()),
         graph.get_graph_handle());
-    return absl::get<synapse_helpers::tensor>(std::move(variant));
+    synapse_helpers::tensor syn_tensor =
+        absl::get<synapse_helpers::tensor>(std::move(variant));
+    syn_tensor.set_pt_info(tensor.sizes().vec(), tensor.strides().vec());
+
+    return syn_tensor;
   }
   uint64_t syn_offset = tensor.storage_offset() * tensor.itemsize();
   auto builder =
@@ -728,7 +733,11 @@ synapse_helpers::tensor habana_helpers::create_shape_tensor(
   auto variant = builder.build(
       synapse_helpers::HPURegistrar::get_device(tensor.device().index()),
       graph.get_graph_handle());
-  return absl::get<synapse_helpers::tensor>(std::move(variant));
+  synapse_helpers::tensor syn_tensor =
+      absl::get<synapse_helpers::tensor>(std::move(variant));
+  syn_tensor.set_pt_info(tensor.sizes().vec(), tensor.strides().vec());
+
+  return syn_tensor;
 }
 
 std::tuple<std::vector<synapse_helpers::tensor>, std::vector<synTensor>>
@@ -784,7 +793,7 @@ synapse_helpers::tensor habana_helpers::duplicate_tensor_in_memory_section(
   if (graph.is_dry_run()) {
     // In case of dry run mode, just create a place holder
     return synapse_helpers::tensor::create_placeholder(
-        tensor.device_id(), tensor.pt_shape());
+        tensor.device_id(), tensor.pt_shape(), tensor.pt_strides());
   }
 
   TORCH_CHECK(
@@ -821,7 +830,7 @@ synapse_helpers::tensor habana_helpers::
   if (graph.is_dry_run()) {
     // For dry run mode, just create a placeholder tensor
     return synapse_helpers::tensor::create_placeholder(
-        tensor.device_id(), sizes);
+        tensor.device_id(), sizes, strides);
   }
 
   TORCH_CHECK(

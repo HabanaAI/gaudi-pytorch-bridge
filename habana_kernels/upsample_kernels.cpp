@@ -206,9 +206,7 @@ void UpsampleOperator::AllocateAndAddSynapseNode(
 
   // Allocate Shape tensor
   if (graph.is_dynamic_graph()) {
-    auto result_shape = habana_helpers::createPTTensor(
-        input, shape_out, input.options(), memory_format, true);
-    AllocateSynapseInput(graph, result_shape, true, true);
+    AllocateSynapseShapeTensor(graph, output);
   }
 
   AllocateSynapseOutput(graph, output, is_output_persistent);
@@ -274,13 +272,7 @@ void UpsampleBackwardOperator::AllocateAndAddSynapseNode(
 
   // Allocate Shape tensor
   if (graph.is_dynamic_graph()) {
-    auto result_shape = habana_helpers::createPTTensor(
-        grad_output,
-        grad_out_shape,
-        grad_output.options(),
-        memory_format,
-        true);
-    AllocateSynapseInput(graph, result_shape, true, true);
+    AllocateSynapseShapeTensor(graph, output);
   }
 
   AllocateSynapseOutput(graph, output, is_output_persistent);
