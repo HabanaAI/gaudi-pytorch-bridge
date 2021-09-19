@@ -8,6 +8,8 @@ class HabanaAeonTransforms:
             raise ValueError("torch_transforms should be of type torchvision.transforms")
         self.transforms = torch_transforms.transforms
         self.transforms_config = {}
+        self.is_train = False
+        self.is_val = False
 
     def _parse_transforms(self):
         for t in self.transforms:
@@ -23,15 +25,26 @@ class HabanaAeonTransforms:
     def _handle_resize_crop(self, t):
         if not isinstance(t, transforms.RandomResizedCrop) and not isinstance(t, transforms.CenterCrop) and not isinstance(t, transforms.Resize):
             raise ValueError("not a Crop/Resize transform")
+        if isinstance(t, transforms.CenterCrop) or isinstance(t, transforms.Resize):
+            self.is_val = True
+        if isinstance(t, transforms.RandomResizedCrop):
+            self.is_train = True
+
         size = t.size
-        h = size[0]
-        w = size[1]
+        if isinstance(t, transforms.Resize):
+            h = size
+            w = size
+        else:
+            h = size[0]
+            w = size[1]
         self.transforms_config["height"] = h
         self.transforms_config["width"] = w
 
     def _handle_random_horizontal_flip(self, t):
         if not isinstance(t, transforms.RandomHorizontalFlip):
             raise ValueError("not a RandomHorizontalFlip transform")
+        if isinstance(t, transforms.RandomHorizontalFlip):
+            self.is_train = True
         if t.p != 0.5:
             raise ValueError("aeon RandomHorizontalFlip supports only probability of 0.5")
         self.transforms_config["flip_enable"] = True
@@ -57,6 +70,8 @@ class HabanaAeonTransforms:
 
     def get_aeon_transforms(self):
         self._parse_transforms()
-        return self.transforms_config
+        if (self.is_train and self.is_val) or (not self.is_train and not self.is_val):
+            raise ValueError("Could not determine if running on train or validation mode")
+        return self.transforms_config, self.is_train
 
 

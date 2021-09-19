@@ -16,7 +16,7 @@ def _get_world_size():
         return 1
 
 def _get_rank():
-    if not _is_distributed():
+    if _is_distributed():
         return dist.get_rank()
     else:
         return 0
@@ -66,8 +66,6 @@ def get_aeon_config(aeon_data_dir, manifest_filename, transforms, batch_size, wo
         "etl": (image_config, label_config),
         "augmentation": [augmentation_config],
         "batch_size": batch_size,
-        "instance_id": instance_id,
-        "num_instances": num_instances,
         "file_shuffle_seed": 5,
         "iteration_mode": "ONCE"
     }
@@ -75,6 +73,8 @@ def get_aeon_config(aeon_data_dir, manifest_filename, transforms, batch_size, wo
         aeon_config["decode_thread_count"] = workers
         aeon_config["fread_thread_count"] = 4
         aeon_config["shuffle_manifest"] = True
+        aeon_config["instance_id"] = instance_id
+        aeon_config["num_instances"] = num_instances
     else:
         aeon_config["decode_thread_count"] = 1
         aeon_config["fread_thread_count"] = 1

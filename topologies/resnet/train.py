@@ -300,11 +300,11 @@ def main(args):
             torch.multiprocessing.set_start_method('spawn')
         except RuntimeError:
             pass
-    else:
+    elif args.dl_worker_type == "HABANA":
         try:
-            import habana_torch_dataloader
+            import habana_accelerated_dataloader
         except ImportError:
-            assert False, "Could Not import habana_torch_dataloader"
+            assert False, "Could Not import habana_accelerated_dataloader"
 
     if args.run_lazy_mode:
         os.environ["PT_HPU_LAZY_MODE"] = "1"
@@ -361,8 +361,8 @@ def main(args):
 
         if args.dl_worker_type == "MP":
             data_loader_type = torch.utils.data.DataLoader
-        else:
-            data_loader_type = habana_torch_dataloader.DataLoader
+        elif args.dl_worker_type == "HABANA":
+            data_loader_type = habana_accelerated_dataloader.HabanaAcceleratedDataLoader
 
         data_loader = data_loader_type(
             dataset, batch_size=args.batch_size, sampler=train_sampler,
@@ -493,7 +493,7 @@ def main(args):
     for epoch in range(args.start_epoch, args.epochs):
         trainMetaData.set_current_epoch_no(epoch)
 
-        if args.distributed and not args.synthetic_data:
+        if args.distributed and not args.synthetic_data and args.dl_worker_type != "HABANA":
             train_sampler.set_epoch(epoch)
 
         if lr_scheduler is None:
@@ -580,8 +580,8 @@ def parse_args():
     parser.add_argument('-b', '--batch-size', default=32, type=int)
     parser.add_argument('--epochs', default=90, type=int, metavar='N',
                         help='number of total epochs to run')
-    parser.add_argument('--dl-worker-type', default='MT', type=lambda x: x.upper(),
-                        choices = ["MT", "MP"], help='select multithreading or multiprocessing')
+    parser.add_argument('--dl-worker-type', default='MP', type=lambda x: x.upper(),
+                        choices = ["MP", "HABANA"], help='select multiprocessing or habana accelerated')
     parser.add_argument('-j', '--workers', default=8, type=int, metavar='N',
                         help='number of data loading workers (default: 8)')
     parser.add_argument('--process-per-node', default=8, type=int, metavar='N',

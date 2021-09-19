@@ -24,10 +24,11 @@
 using nlohmann::json;
 
 namespace py = pybind11;
+namespace aeondataloader = scaleoutdemoloader;
 
-class AeonPytorchDL {
+class HabanaAcceleratedPytorchDL {
  public:
-  AeonPytorchDL(
+  HabanaAcceleratedPytorchDL(
       py::dict dict_config,
       bool pin_memory,
       bool use_prefetch,
@@ -56,7 +57,7 @@ class AeonPytorchDL {
     }
   }
 
-  ~AeonPytorchDL() {
+  ~HabanaAcceleratedPytorchDL() {
     if (m_use_prefetch) {
       stopRunningThread();
     }
@@ -76,7 +77,7 @@ class AeonPytorchDL {
     }
   }
 
-  AeonPytorchDL* getIter() {
+  HabanaAcceleratedPytorchDL* getIter() {
     aeondataloader::data_loader_reset(m_loader);
     m_user_idx = 0;
     m_aeon_idx = 0;
@@ -168,8 +169,8 @@ class AeonPytorchDL {
   void runPrefetchThread() {
     // Always try to stop before running
     stopRunningThread();
-    m_prefetchThread =
-        std::thread(&AeonPytorchDL::addPytorchPairToQueueThread, this);
+    m_prefetchThread = std::thread(
+        &HabanaAcceleratedPytorchDL::addPytorchPairToQueueThread, this);
   }
 
   void stopRunningThread() {
@@ -218,13 +219,13 @@ class AeonPytorchDL {
   void* m_loader;
 };
 
-PYBIND11_MODULE(aeon_app, m) {
+PYBIND11_MODULE(habana_dl_app, m) {
   m.doc() = "pybind11 wrapper for aeon-pytorch generation";
 
-  py::class_<AeonPytorchDL>(m, "AeonPytorchDL")
-      .def(py::init<py::dict, bool, bool>())
-      .def("__iter__", &AeonPytorchDL::getIter)
-      .def("__next__", &AeonPytorchDL::getNextTensorTuple)
-      .def("__len__", &AeonPytorchDL::getLength)
-      .def("getRecordCount", &AeonPytorchDL::getRecordCount);
+  py::class_<HabanaAcceleratedPytorchDL>(m, "HabanaAcceleratedPytorchDL")
+      .def(py::init<py::dict, bool, bool, bool>())
+      .def("__iter__", &HabanaAcceleratedPytorchDL::getIter)
+      .def("__next__", &HabanaAcceleratedPytorchDL::getNextTensorTuple)
+      .def("__len__", &HabanaAcceleratedPytorchDL::getLength)
+      .def("getRecordCount", &HabanaAcceleratedPytorchDL::getRecordCount);
 }

@@ -10,7 +10,7 @@
 
 #pragma once
 
-namespace aeondataloader {
+namespace scaleoutdemoloader {
 enum LoaderDataType {
   IMAGE,
   LABEL,
@@ -29,4 +29,4 @@ void data_loader_inc(void* loader);
 void data_loader_reset(void* loader);
 
 uint64_t get_database_size(void* data_loader);
-} // namespace aeondataloader
+} // namespace scaleoutdemoloader
