@@ -11,9 +11,7 @@
 #include "generated/hpu_op.h"
 
 namespace habana {
-sizes_vec HabanaOperatorHelper::NllLossOutputShape(
-    const at::Stack& stack,
-    bool) {
+sizes_vec NllLossOutputShape(const at::Stack& stack, bool) {
   const torch::Tensor& target = stack_tensor(stack, 1);
   int64_t reduction = stack.at(3).toInt();
   if (reduction == at::Reduction::Reduction::None) {
@@ -22,9 +20,7 @@ sizes_vec HabanaOperatorHelper::NllLossOutputShape(
   return {{}, {}};
 }
 
-std::shared_ptr<void> HabanaOperatorHelper::FillNllLossParams(
-    const at::Stack& stack,
-    size_t& size) {
+std::shared_ptr<void> FillNllLossParams(const at::Stack& stack, size_t& size) {
   int64_t reduction = stack.at(3).toInt();
   PARAMS_STUB(ns_NLLLossKernel::ParamsOptionalIgnoreIndex);
 

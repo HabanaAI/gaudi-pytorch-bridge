@@ -21,25 +21,19 @@ static sizes_vec MseLossFwdBwdOutputShape(
   return {{}};
 }
 
-sizes_vec HabanaOperatorHelper::MseLossOutputShape(
-    const at::Stack& stack,
-    bool) {
+sizes_vec MseLossOutputShape(const at::Stack& stack, bool) {
   const torch::Tensor& self = stack_tensor(stack, 0);
   int64_t reduction = stack.at(2).toInt();
   return MseLossFwdBwdOutputShape(self, reduction);
 }
 
-sizes_vec HabanaOperatorHelper::MseLossBwdOutputShape(
-    const at::Stack& stack,
-    bool) {
+sizes_vec MseLossBwdOutputShape(const at::Stack& stack, bool) {
   const torch::Tensor& self = stack_tensor(stack, 0);
   int64_t reduction = stack.at(3).toInt();
   return MseLossFwdBwdOutputShape(self, reduction);
 }
 
-std::shared_ptr<void> HabanaOperatorHelper::FillMseLossParams(
-    const at::Stack& stack,
-    size_t& size) {
+std::shared_ptr<void> FillMseLossParams(const at::Stack& stack, size_t& size) {
   PARAMS_STUB(ns_MSELossKernel::Params);
 
   auto mode = stack.at(stack.at(2).isInt() ? 2 : 3).toInt();

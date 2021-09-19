@@ -14,9 +14,7 @@ using at::native::detail::GridSamplerInterpolation;
 using at::native::detail::GridSamplerPadding;
 
 namespace habana {
-sizes_vec HabanaOperatorHelper::GridSampler2dOutputShape(
-    const at::Stack& stack,
-    bool isLowering) {
+sizes_vec GridSampler2dOutputShape(const at::Stack& stack, bool isLowering) {
   constexpr int SELF_POS = 0;
   constexpr int GRID_POS = 1;
   auto self = stack.at(SELF_POS).toTensor();
@@ -51,7 +49,7 @@ sizes_vec HabanaOperatorHelper::GridSampler2dOutputShape(
   }
 }
 
-std::shared_ptr<void> HabanaOperatorHelper::FillGridSamplerParams(
+std::shared_ptr<void> FillGridSamplerParams(
     const at::Stack& stack,
     size_t& size) {
   PARAMS_STUB(ns_GridSample::Params);

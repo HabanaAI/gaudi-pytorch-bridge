@@ -11,9 +11,7 @@
 #include "generated/hpu_op.h"
 
 namespace habana {
-sizes_vec HabanaOperatorHelper::BinaryOutputShape(
-    const at::Stack& stack,
-    bool) {
+sizes_vec BinaryOutputShape(const at::Stack& stack, bool) {
   const torch::Tensor& self = stack_tensor(stack, 0);
   const torch::Tensor& other = stack_tensor(stack, 1);
   return {at::infer_size(self.sizes(), other.sizes())};
@@ -85,7 +83,7 @@ void BinaryOp::AddNode(
     binaryop_inputs.at(cast_index) = cast.at(0).get();
   }
 
-  auto outshape = HabanaOperatorHelper::BinaryOutputShape(stack)[0];
+  auto outshape = BinaryOutputShape(stack)[0];
 
   auto op = BuildOp(
       graph,

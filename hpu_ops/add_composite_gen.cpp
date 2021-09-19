@@ -12,9 +12,7 @@
 
 namespace habana {
 
-sizes_vec HabanaOperatorHelper::AddCOpsOutputShape(
-    const at::Stack& stack,
-    bool) {
+sizes_vec AddCOpsOutputShape(const at::Stack& stack, bool) {
   const torch::Tensor& self = stack_tensor(stack, 0);
   const torch::Tensor& other1 = stack_tensor(stack, 1);
   const torch::Tensor& other2 = stack_tensor(stack, 2);
@@ -77,7 +75,7 @@ void AddCOpOut::AddNode(
   // Finally add op with self
   std::vector<synTensor> add_op_inputs{
       vectSynTensor.at(0), variable_op[0].get()};
-  auto outshape = HabanaOperatorHelper::AddCOpsOutputShape(stack)[0];
+  auto outshape = AddCOpsOutputShape(stack)[0];
 
   auto add_op = BuildOp(
       graph,

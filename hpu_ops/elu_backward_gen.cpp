@@ -11,7 +11,7 @@
 #include "generated/hpu_op.h"
 
 namespace habana {
-std::shared_ptr<void> HabanaOperatorHelper::FillEluBackwardParams(
+std::shared_ptr<void> FillEluBackwardParams(
     const at::Stack& stack,
     size_t& size) {
   PARAMS_STUB(ns_EluKernel::ParamsV2);

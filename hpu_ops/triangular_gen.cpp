@@ -11,9 +11,7 @@
 #include "generated/hpu_op.h"
 
 namespace habana {
-std::shared_ptr<void> HabanaOperatorHelper::FillTriuParams(
-    const at::Stack& stack,
-    size_t& size) {
+std::shared_ptr<void> FillTriuParams(const at::Stack& stack, size_t& size) {
   PARAMS_STUB(ns_MatrixBandPartKernel::triParams);
   auto self = stack.at(0).toTensor();
   auto diagonal = stack.at(1).toInt();
@@ -25,9 +23,7 @@ std::shared_ptr<void> HabanaOperatorHelper::FillTriuParams(
   return params;
 }
 
-std::shared_ptr<void> HabanaOperatorHelper::FillTrilParams(
-    const at::Stack& stack,
-    size_t& size) {
+std::shared_ptr<void> FillTrilParams(const at::Stack& stack, size_t& size) {
   PARAMS_STUB(ns_MatrixBandPartKernel::triParams);
   auto self = stack.at(0).toTensor();
   auto diagonal = stack.at(1).toInt();

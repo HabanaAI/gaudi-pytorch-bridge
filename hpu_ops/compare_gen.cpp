@@ -44,7 +44,7 @@ void CompareHabanaOperator::AddNode(
 
   // Extract guid without the dtype suffix
   const std::string& guid = guid_.substr(0, guid_.find_last_of('_') + 1);
-  auto outshape = HabanaOperatorHelper::BinaryOutputShape(stack)[0];
+  auto outshape = BinaryOutputShape(stack)[0];
 
   // Construct inputs for compare op considering the cast output
   std::vector<synTensor> syn_inputs;

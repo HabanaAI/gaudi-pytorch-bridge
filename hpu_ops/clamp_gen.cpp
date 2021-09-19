@@ -24,9 +24,7 @@ static std::shared_ptr<void> ClampParams(
   return params;
 }
 
-std::shared_ptr<void> HabanaOperatorHelper::FillClampParams(
-    const at::Stack& stack,
-    size_t& size) {
+std::shared_ptr<void> FillClampParams(const at::Stack& stack, size_t& size) {
   if (c10::isFloatingType(stack[0].toTensor().scalar_type())) {
     float min = stack[1].isScalar() ? stack[1].toScalar().to<float>()
                                     : -std::numeric_limits<float>::max();
@@ -42,9 +40,7 @@ std::shared_ptr<void> HabanaOperatorHelper::FillClampParams(
   }
 }
 
-std::shared_ptr<void> HabanaOperatorHelper::FillClampMinParams(
-    const at::Stack& stack,
-    size_t& size) {
+std::shared_ptr<void> FillClampMinParams(const at::Stack& stack, size_t& size) {
   if (c10::isFloatingType(stack[0].toTensor().scalar_type())) {
     return ClampParams(
         stack[1].toScalar().toFloat(), std::numeric_limits<float>::max(), size);
@@ -53,9 +49,7 @@ std::shared_ptr<void> HabanaOperatorHelper::FillClampMinParams(
       stack[1].toScalar().toInt(), std::numeric_limits<int>::max(), size);
 }
 
-std::shared_ptr<void> HabanaOperatorHelper::FillClampMaxParams(
-    const at::Stack& stack,
-    size_t& size) {
+std::shared_ptr<void> FillClampMaxParams(const at::Stack& stack, size_t& size) {
   if (c10::isFloatingType(stack[0].toTensor().scalar_type())) {
     return ClampParams(
         -std::numeric_limits<float>::max(),

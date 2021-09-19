@@ -43,6 +43,25 @@ std::vector<c10::optional<at::Tensor>> GetMetaOptTensorList(
   return metatensors;
 }
 
+HabanaOperatorHelper::HabanaOperatorHelper(
+    int device_id,
+    const std::string& guid,
+    c10::ScalarType scalar_type,
+    int out_id,
+    int inplace_id,
+    int scalar_id,
+    bool is_outfn)
+    : HabanaOperator(guid + habana_helpers::name_suffix_from_type(scalar_type)),
+      m_scalar_type{scalar_type},
+      m_out_id{out_id},
+      m_inplace_id{inplace_id},
+      m_scalar_id{scalar_id},
+      m_is_outfn{is_outfn} {
+  CreateSynContext(device_id);
+  kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
+  kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
+}
+
 void HabanaOperatorHelper::HandleScalarToTensor(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
@@ -83,7 +102,7 @@ void HabanaOperatorHelper::HandleFn(
     return;
   }
 
-  const auto& outshapes = ComputeOutputShapes(stack);
+  const auto& outshapes = ComputeOutputShapes(stack, true);
   const auto& t = stack.at(m_out_id).toTensor();
 
   HABANA_ASSERT(

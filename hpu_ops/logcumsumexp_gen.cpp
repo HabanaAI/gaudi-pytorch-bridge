@@ -26,8 +26,7 @@ void LogCumsumExp::AddNode(
 
   // Fill params for cumsum
   size_t size = 0;
-  const auto& cumsum_params =
-      HabanaOperatorHelper::FillCumsumParams(stack, size);
+  const auto& cumsum_params = FillCumsumParams(stack, size);
 
   // cumsum on output of exp
   auto cumsum = BuildOp(

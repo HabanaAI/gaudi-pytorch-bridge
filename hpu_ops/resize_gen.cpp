@@ -10,9 +10,7 @@
 #include "generated/hpu_op.h"
 
 namespace habana {
-sizes_vec HabanaOperatorHelper::ResizeOutputShape(
-    const at::Stack& stack,
-    bool) {
+sizes_vec ResizeOutputShape(const at::Stack& stack, bool) {
   return {stack.at(1).toIntVector()};
 }
 

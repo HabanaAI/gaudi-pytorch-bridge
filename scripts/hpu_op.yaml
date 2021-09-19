@@ -217,7 +217,7 @@ elu.out:
   dtypes: [BFloat16, Float]
   guid: elu_fwd
   tpc_param:
-    name: ns_EluKernel
+    name: ns_EluKernel::Params
     params:
     - [1, float]
 
@@ -307,7 +307,7 @@ leaky_relu.out:
   dtypes: [BFloat16, Float]
   guid: leakyrelu_fwd
   tpc_param:
-    name: ns_LeakyReluKernel
+    name: ns_LeakyReluKernel::Params
     params:
     - [1, double]
 

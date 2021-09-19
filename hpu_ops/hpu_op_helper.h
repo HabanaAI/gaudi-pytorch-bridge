@@ -49,18 +49,7 @@ class HabanaOperatorHelper : public HabanaOperator {
       int out_id,
       int inplace_id,
       int scalar_id,
-      bool is_outfn)
-      : HabanaOperator(
-            guid + habana_helpers::name_suffix_from_type(scalar_type)),
-        m_scalar_type{scalar_type},
-        m_out_id{out_id},
-        m_inplace_id{inplace_id},
-        m_scalar_id{scalar_id},
-        m_is_outfn{is_outfn} {
-    CreateSynContext(device_id);
-    kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
-    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
-  }
+      bool is_outfn);
 
  protected:
   const c10::ScalarType& ScalarType() const {
@@ -90,16 +79,30 @@ class HabanaOperatorHelper : public HabanaOperator {
     m_num_out_tensors = n;
   }
 
-  virtual void CustomHandler(synapse_helpers::graph&, at::Stack&) {}
-
-  virtual std::shared_ptr<void> FillParams(const at::Stack&, size_t& size) {
-    size = 0;
-    return nullptr;
+  void SetFillParams(
+      std::function<std::shared_ptr<void>(const at::Stack&, size_t&)> fn) {
+    m_fill_params = std::move(fn);
   }
 
-  virtual sizes_vec ComputeOutputShapes(const at::Stack&) {
+  std::shared_ptr<void> FillParams(const at::Stack& stack, size_t& size) {
+    return m_fill_params ? m_fill_params(stack, size) : nullptr;
+  }
+
+  void SetComputeOutputShapes(
+      std::function<sizes_vec(const at::Stack&, bool)> fn) {
+    m_compute_output_shapes = std::move(fn);
+  }
+
+  sizes_vec ComputeOutputShapes(
+      const at::Stack& stack,
+      bool is_lowering = false) {
+    if (m_compute_output_shapes) {
+      return m_compute_output_shapes(stack, is_lowering);
+    }
     return {};
   }
+
+  virtual void CustomHandler(synapse_helpers::graph&, at::Stack&) {}
 
  private:
   void HandleScalarToTensor(
@@ -164,32 +167,8 @@ class HabanaOperatorHelper : public HabanaOperator {
   int m_num_out_tensors = 1;
 
   std::unordered_map<int, at::Scalar> m_scalar_inputs;
-
- public:
-  static std::shared_ptr<void> FillClampMaxParams(const at::Stack&, size_t&);
-  static std::shared_ptr<void> FillClampMinParams(const at::Stack&, size_t&);
-  static std::shared_ptr<void> FillClampParams(const at::Stack&, size_t&);
-  static std::shared_ptr<void> FillCumsumParams(const at::Stack&, size_t&);
-  static std::shared_ptr<void> FillEluBackwardParams(const at::Stack&, size_t&);
-  static std::shared_ptr<void> FillGridSamplerParams(const at::Stack&, size_t&);
-  static std::shared_ptr<void> FillHardSigmoidParams(const at::Stack&, size_t&);
-  static std::shared_ptr<void> FillMseLossParams(const at::Stack&, size_t&);
-  static std::shared_ptr<void> FillNllLossParams(const at::Stack&, size_t&);
-  static std::shared_ptr<void> FillRandomFromParams(const at::Stack&, size_t&);
-  static std::shared_ptr<void> FillRandomParams(const at::Stack&, size_t&);
-  static std::shared_ptr<void> FillRandomToParams(const at::Stack&, size_t&);
-  static std::shared_ptr<void> FillTrilParams(const at::Stack&, size_t&);
-  static std::shared_ptr<void> FillTriuParams(const at::Stack&, size_t&);
-
-  static sizes_vec AddCOpsOutputShape(const at::Stack&, bool = false);
-  static sizes_vec BinaryOutputShape(const at::Stack&, bool = false);
-  static sizes_vec GridSampler2dOutputShape(const at::Stack&, bool = false);
-  static sizes_vec MseLossBwdOutputShape(const at::Stack&, bool = false);
-  static sizes_vec MseLossOutputShape(const at::Stack&, bool = false);
-  static sizes_vec MvOpsOutputShape(const at::Stack&, bool = false);
-  static sizes_vec NllLossOutputShape(const at::Stack&, bool = false);
-  static sizes_vec PowOutputShape(const at::Stack&, bool = false);
-  static sizes_vec ResizeOutputShape(const at::Stack&, bool = false);
+  std::function<std::shared_ptr<void>(const at::Stack&, size_t&)> m_fill_params;
+  std::function<sizes_vec(const at::Stack&, bool)> m_compute_output_shapes;
 };
 
 #define PARAMS_STUB(structname) \
@@ -230,6 +209,11 @@ class HabanaOperatorHelper : public HabanaOperator {
            {});                                                                \
     T get_result_overrideable() override;                                      \
   };
+
+#define FILL_PARAMS_DECL(fn) \
+  std::shared_ptr<void> fn(const at::Stack&, size_t&);
+
+#define OUTSHAPE_DECL(fn) sizes_vec fn(const at::Stack&, bool = false);
 
 #define HPU_SUPPORTED_DTYPES(fn, supported_dtypes)                       \
   const static std::unordered_set<c10::ScalarType> fn##_supported_dtypes \

@@ -69,9 +69,7 @@ static std::shared_ptr<void> RandomUniformParams(
   return params;
 }
 
-std::shared_ptr<void> HabanaOperatorHelper::FillRandomParams(
-    const at::Stack& stack,
-    size_t& size) {
+std::shared_ptr<void> FillRandomParams(const at::Stack& stack, size_t& size) {
   return RandomUniformParams(
       stack_tensor(stack, 0).scalar_type(),
       c10::nullopt,
@@ -80,7 +78,7 @@ std::shared_ptr<void> HabanaOperatorHelper::FillRandomParams(
       size);
 }
 
-std::shared_ptr<void> HabanaOperatorHelper::FillRandomFromParams(
+std::shared_ptr<void> FillRandomFromParams(
     const at::Stack& stack,
     size_t& size) {
   return RandomUniformParams(
@@ -92,9 +90,7 @@ std::shared_ptr<void> HabanaOperatorHelper::FillRandomFromParams(
       size);
 }
 
-std::shared_ptr<void> HabanaOperatorHelper::FillRandomToParams(
-    const at::Stack& stack,
-    size_t& size) {
+std::shared_ptr<void> FillRandomToParams(const at::Stack& stack, size_t& size) {
   return RandomUniformParams(
       stack_tensor(stack, 0).scalar_type(),
       c10::nullopt,

@@ -12,9 +12,7 @@
 
 namespace habana {
 
-std::shared_ptr<void> HabanaOperatorHelper::FillHardSigmoidParams(
-    const at::Stack&,
-    size_t& size) {
+std::shared_ptr<void> FillHardSigmoidParams(const at::Stack&, size_t& size) {
   PARAMS_STUB(ns_HardSigmoidKernel::Params);
   constexpr float alpha = 1 / 6.0f;
   constexpr float beta = 1 / 2.0f;

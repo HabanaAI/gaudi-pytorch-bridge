@@ -32,9 +32,7 @@ at::Tensor LazyCumsum<at::Tensor>::get_result_overrideable() {
       t.sizes(), options, t.suggest_memory_format(), false);
 }
 
-std::shared_ptr<void> HabanaOperatorHelper::FillCumsumParams(
-    const at::Stack& stack,
-    size_t& size) {
+std::shared_ptr<void> FillCumsumParams(const at::Stack& stack, size_t& size) {
   PARAMS_STUB(ns_CumSumKernel::Params);
   auto self = stack.at(0).toTensor();
   auto dim = at::maybe_wrap_dim(stack.at(1).toInt(), self.dim(), true);

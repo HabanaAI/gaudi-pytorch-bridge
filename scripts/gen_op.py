@@ -117,6 +117,10 @@ class HpuOp{{
 {op_base_classes}
 
 {lazy_classes}
+
+{fill_params_decls}
+
+{outshapes_decls}
 }}  // namespace habana
 """
 
@@ -153,7 +157,7 @@ namespace habana {{
 _OPCLASS_HEADER = """struct {cname} : {op_base_class} {{
   {cname}(int device_id, c10::ScalarType scalar_type) :
       {op_base_class}(device_id, \"{guid}_\", scalar_type, {out_id}, {inplace_id}, {scalar_id}, {is_out_fn}) {{{ctor_extra_calls}
-  }}{compute_output_shape}{custom_handler}{fill_params}
+  }}{custom_handler}
 }};
 """
 
@@ -165,25 +169,11 @@ _CUSTOM_HANDLER = """
     {body}
   }}"""
 
-_COMPUTE_OUTPUT_SHAPE = """
-
-  sizes_vec ComputeOutputShapes(const Stack& stack) override {{
-    return {body}(stack, true);
-  }}"""
-
-_FILL_PARAMS1 = """
-
-  std::shared_ptr<void> FillParams(const at::Stack& stack, size_t& size) override {{
-    return HabanaOperatorHelper::{fn}(stack, size);
-  }}"""
-
-_FILL_PARAMS2 = """
-
-  std::shared_ptr<void> FillParams(const at::Stack& stack, size_t& size) override {{
-    using T = {ns_param}::Params;
-    size = sizeof(T);
-    return std::make_shared<T>(T{{{args}}});
-  }}"""
+_FILL_PARAMS = """[](const at::Stack& stack, size_t& size) {{
+            using T = {ns_param};
+            size = sizeof(T);
+            return std::make_shared<T>(T{{{args}}});
+        }}"""
 
 
 class Op(object):
@@ -535,7 +525,7 @@ def lazyop(
             ctxop.get_custom_output_shape() is None
         ), "Both use_meta and custom_output_shape are defined for {}".format(fname)
 
-        assert fn, "{} does not exists in aten"
+        assert fn, "{} does not exists in aten.".format(fname)
 
         code += tfetcher.generate_meta_fetches()
         code += "  at::TensorList metavar = {}({});\n".format(fn, ", ".join(meta_vars))
@@ -548,7 +538,7 @@ def lazyop(
         )
         output_shape_fn = ctxop.get_custom_output_shape()
         if output_shape_fn:
-            code += ", HabanaOperatorHelper::{}".format(output_shape_fn)
+            code += ", {}".format(output_shape_fn)
 
         code += "};\n"
 
@@ -592,33 +582,10 @@ def get_hpuop_class_impl(ctxop, fname, cname, num_out_tensors):
     inplace_id = inplace_ids[0] if inplace_ids else -1
     scalar_id = scalar_ids[0] if scalar_ids else -1
 
-    compute_output_shape = (
-        _COMPUTE_OUTPUT_SHAPE.format(body=output_shape_fn) if output_shape_fn else ""
-    )
-
-    custom_handler = ""
     if fname.startswith("bitwise_"):
         custom_handler = _CUSTOM_HANDLER.format(body=bitwise_ops_alt_guid(guid))
-
-    if custom_fill_params:
-        assert (
-            tpc_param is None
-        ), "Should not define both tpc_param and custom_fill_params for {}".format(
-            fname
-        )
-        fill_params = _FILL_PARAMS1.format(fn=custom_fill_params)
-    elif tpc_param:
-        params = []
-        for param_data in tpc_param["params"]:
-            if len(param_data):
-                idx, cast_type = param_data
-                params.append("stack[{}].toScalar().to<{}>()".format(idx, cast_type))
-            else:
-                params.append("{}")
-        args = ", ".join(params)
-        fill_params = _FILL_PARAMS2.format(ns_param=tpc_param["name"], args=args)
     else:
-        fill_params = ""
+        custom_handler = ""
 
     ctor_extra_calls = []
     layouts = ctxop.get_layouts()
@@ -635,6 +602,30 @@ def get_hpuop_class_impl(ctxop, fname, cname, num_out_tensors):
     if is_out_fn(fname) and num_out_tensors > 1:
         ctor_extra_calls.append("SetNumOutTensors({});".format(num_out_tensors))
 
+    if output_shape_fn:
+        ctor_extra_calls.append("SetComputeOutputShapes({});".format(output_shape_fn))
+
+    if custom_fill_params:
+        ctor_extra_calls.append("SetFillParams({});".format(custom_fill_params))
+
+    if tpc_param:
+        assert (
+            custom_fill_params is None
+        ), "Should not define both `tpc_param` and `custom_fill_params` for {}".format(
+            fname
+        )
+        params = []
+        for param_data in tpc_param["params"]:
+            if len(param_data):
+                idx, cast_type = param_data
+                params.append("stack[{}].toScalar().to<{}>()".format(idx, cast_type))
+            else:
+                params.append("{}")
+        fill_params = _FILL_PARAMS.format(
+            ns_param=tpc_param["name"], args=", ".join(params)
+        )
+        ctor_extra_calls.append("SetFillParams({});".format(fill_params))
+
     return _OPCLASS_HEADER.format(
         op_base_class=op_base_class,
         cname=cname,
@@ -644,9 +635,7 @@ def get_hpuop_class_impl(ctxop, fname, cname, num_out_tensors):
         scalar_id=scalar_id,
         is_out_fn=str(is_out_fn(fname)).lower(),
         ctor_extra_calls="".join(["\n" + " " * 8 + c for c in ctor_extra_calls]),
-        compute_output_shape=compute_output_shape,
         custom_handler=custom_handler,
-        fill_params=fill_params,
     )
 
 
@@ -1003,6 +992,28 @@ def generate_lazy_hclasses(fgens):
     return code
 
 
+def generate_fill_params_hdecls(fgens):
+    code = ""
+    fns = set()
+    for fgen in fgens:
+        fn = fgen.ctxop.get_custom_fill_params()
+        if fn and fn not in fns:
+            code += "FILL_PARAMS_DECL({})\n".format(fn)
+            fns.add(fn)
+    return code
+
+
+def generate_outshapes_hdecls(fgens):
+    code = ""
+    fns = set()
+    for fgen in fgens:
+        fn = fgen.ctxop.get_custom_output_shape()
+        if fn and fn not in fns:
+            code += "OUTSHAPE_DECL({})\n".format(fn)
+            fns.add(fn)
+    return code
+
+
 def gen_output_file(args, name):
     if not args.output_folder:
         return sys.stdout
@@ -1039,6 +1050,8 @@ def generate(args):
 
     op_base_classes = generate_op_base_hclasses(fgens)
     lazy_classes = generate_lazy_hclasses(fgens)
+    fill_params_decls = generate_fill_params_hdecls(fgens)
+    outshapes_decls = generate_outshapes_hdecls(fgens)
 
     (
         dtype_defs,
@@ -1057,6 +1070,8 @@ def generate(args):
             hfuncs=hfunctions,
             op_base_classes=op_base_classes,
             lazy_classes=lazy_classes,
+            fill_params_decls=fill_params_decls,
+            outshapes_decls=outshapes_decls,
         ),
         file=gen_h_output_file(args),
     )
