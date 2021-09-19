@@ -748,7 +748,6 @@ at::Tensor hardsigmoid_backward_hpu_lazy(
     const at::Tensor& grad_output,
     const at::Tensor& self);
 
-at::Tensor sqrt_hpu_lazy_(at::Tensor& input);
 at::Tensor tanh_hpu_lazy(const at::Tensor& input);
 at::Tensor& tanh_hpu_lazy_(at::Tensor& self);
 at::Tensor& tanh_out_hpu_lazy(at::Tensor& out, const at::Tensor& self);

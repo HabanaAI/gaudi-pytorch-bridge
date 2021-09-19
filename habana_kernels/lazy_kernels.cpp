@@ -5728,37 +5728,6 @@ Tensor hardsigmoid_backward_hpu_lazy(
   return k.call();
 }
 
-// make sqrt as inplace op for workaround in SW-26172
-Tensor sqrt_hpu_lazy_(Tensor& input) {
-  PT_LAZY_TRACE;
-  auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHPU);
-  updateDstDependencies(hl_input, input, true);
-  auto node = ir::Node::Create(
-      Symbol::fromQualString("aten::sqrt_"), {hl_input.GetIrValue()});
-
-  ir::Value& out = hl_input.CurrentIrValue();
-  out.m_index = 0;
-  out.SetNode(
-      node,
-      hl_input.GetDevice(),
-      hl_input.GetSizes(),
-      hl_input.dtype_optional());
-
-  std::vector<at::Tensor> input_pt_vec{input};
-  node->AddInputPtTensors(input_pt_vec);
-  // As its an inplace op and we want this op to execute
-  // we want to wind back status of this tensor to registered
-  // so that when post order is created, we actually execute it
-  auto context =
-      habana_lazy_executor.getDeviceExecutionContext(input.device().index());
-  // context->MarkTensorRegistered(hl_input.getTensorUniqueId());
-  context->MarkTensorStatus(
-      hl_input.getTensorUniqueId(), LazyTensorExecutionStatus::kREGISTERED);
-
-  flush_op(input);
-  return input;
-}
-
 Tensor tanh_hpu_lazy(const Tensor& input) {
   PT_LAZY_TRACE;
   auto hl_input = GetOrCreateHbLazyTensor(input, c10::kHPU);
