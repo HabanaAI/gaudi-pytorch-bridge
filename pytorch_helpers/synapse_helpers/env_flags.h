@@ -154,10 +154,6 @@ struct PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES {
   static constexpr bool default_value = false;
 };
 
-struct PT_HPU_ENABLE_INTERMEDIATE_TENSOR_RELEASE {
-  static constexpr bool default_value = true;
-};
-
 struct PT_HPU_ERROR_HANDLER {
   static constexpr bool default_value = true;
 };

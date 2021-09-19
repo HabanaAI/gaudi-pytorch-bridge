@@ -248,11 +248,13 @@ class MetaData {
       return at::hash_combine(
           h, c10::WeakIValue(v).hash()); // hash() moved to WeakIvalue
     } else {
-      PT_LAZY_WARN(
-          "Metadata of type ",
-          v.type()->str(),
-          " is not hashed. Might get false Lazy IR Cache hits, ",
-          "if the value of the constant metadata changes");
+      if (!v.isNone()) {
+        PT_LAZY_WARN(
+            "Metadata of type ",
+            v.type()->str(),
+            " is not hashed. Might get false Lazy IR Cache hits, ",
+            "if the value of the constant metadata changes");
+      }
     }
     return h;
   }

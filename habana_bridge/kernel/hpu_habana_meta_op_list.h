@@ -14,22 +14,16 @@
 #include <unordered_set>
 #include "habana_helpers/logging.h"
 
+namespace habana {
+
 class HabanaMetaOpList {
  private:
-  const static std::unordered_set<std::string> HabanaMetaOpsList;
+  const static std::unordered_set<std::string> meta_ops;
 
  public:
-  static bool isHabanaMetaOp(std::string opName);
+  static bool isHabanaMetaOp(std::string op_name) {
+    return (meta_ops.find(op_name) != meta_ops.end());
+  }
 };
 
-const std::unordered_set<std::string> HabanaMetaOpList::HabanaMetaOpsList = {
-    // Add aten string here for ops to support
-    // e.g  :: "aten::view"
-    "aten::size",
-    "prim::dtype"};
-
-bool HabanaMetaOpList::isHabanaMetaOp(std::string opName) {
-  if (HabanaMetaOpsList.find(opName) != HabanaMetaOpsList.end())
-    return true;
-  return false;
-}
+} // namespace habana

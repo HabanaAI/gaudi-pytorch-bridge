@@ -28,12 +28,15 @@
 #include <ATen/Tensor.h>
 #include <absl/hash/hash.h>
 #include <absl/types/variant.h>
+
 #include <torch/csrc/jit/ir/ir.h>
 #include <torch/csrc/jit/runtime/argument_spec.h>
 #include <torch/csrc/jit/runtime/interpreter.h>
 
 #include "habana_bridge/kernel/hpu_habana_cache.h"
+#include "habana_bridge/kernel/hpu_habana_meta_op_list.h"
 #include "habana_bridge/kernel/hpu_shape_inference.h"
+
 #include "habana_kernels/habana_operator.h"
 
 namespace habana {

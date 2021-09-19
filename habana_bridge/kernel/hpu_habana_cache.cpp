@@ -8,25 +8,31 @@
  ******************************************************************************
  */
 
+#include "habana_bridge/kernel/hpu_habana_cache.h"
+
 #include <algorithm>
 #include <chrono>
 #include <iomanip>
 #include <sstream>
 
-#include "habana_bridge/kernel/hpu_habana_cache.h"
 #include "habana_device/HPUAllocator.h"
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
+
 #include "habana_helpers/logging.h"
 #include "habana_helpers/tensor_info.h"
 #include "habana_helpers/tensor_utils.h"
+
 #include "synapse_helpers/env_flags.h"
 
 namespace habana {
 
+// static initializations
 std::mutex RecipeCacheLRU::mutex_;
 RecipeCacheLRU* RecipeCacheLRU::instance_ = nullptr;
 size_t RecipeCacheLRU::max_size_ = PGM_LRU_MAX_LAZY_NRECIPES;
+
+size_t RecipeValueSpec::count = 0;
 size_t RecipeValueSpec::recipe_count = 0;
 size_t RecipeValueSpec::total_recipe_ntbytes = 0;
 
@@ -379,10 +385,6 @@ void RecipeValueSpec::update_patching_table(
     const habana::NameShapeMap& m_actual_shapes,
     bool enable_tensor_release) {
   PT_BRIDGE_BEGIN;
-  // Patch the input buffers
-  // Running index on dtensorinfos
-  size_t ridx = 0;
-
   if (dynamic_graph) {
     for (size_t i = 0; i < dtensorinfos->size(); ++i) {
       auto& ti = dtensorinfos->at(i);
@@ -407,6 +409,10 @@ void RecipeValueSpec::update_patching_table(
       }
     }
   }
+
+  // Patch the input buffers
+  // Running index on dtensorinfos
+  size_t ridx = 0;
 
   std::unordered_map<size_t, IValPtrShared> inputIVpshMap;
   for (auto const& input : input_refs) {
@@ -514,40 +520,38 @@ void RecipeValueSpec::update_patching_table(
           "non tensor tinfo found for persistent intermediates");
       auto tshape{ti.get_shape()};
 
-      if (GET_ENV_FLAG(PT_HPU_ENABLE_INTERMEDIATE_TENSOR_RELEASE)) {
-        if (ti.is_duplicate()) {
-          auto ti_parent_index = ti.get_parent_index();
-          auto pt_parent_index = ti_parent_index - intermediates_start;
-          TORCH_CHECK(
-              pt_parent_index < aten_intermediates.size(),
-              "out of range duplicate intermediate tensor index ",
-              pt_parent_index,
-              " #aten_intermediates ",
-              aten_intermediates.size());
+      if (ti.is_duplicate()) {
+        auto ti_parent_index = ti.get_parent_index();
+        auto pt_parent_index = ti_parent_index - intermediates_start;
+        TORCH_CHECK(
+            pt_parent_index < aten_intermediates.size(),
+            "out of range duplicate intermediate tensor index ",
+            pt_parent_index,
+            " #aten_intermediates ",
+            aten_intermediates.size());
 
-          auto pt_parent = aten_intermediates[pt_parent_index];
+        auto pt_parent = aten_intermediates[pt_parent_index];
 
-          auto pt_sizes{ti.get_shape()};
-          auto pt_strides{ti.get_strides()};
-          long pt_offset = (long)ti.get_offset() / pt_parent.itemsize();
-          auto pt_opt_offset = c10::make_optional(pt_offset);
+        auto pt_sizes{ti.get_shape()};
+        auto pt_strides{ti.get_strides()};
+        long pt_offset = (long)ti.get_offset() / pt_parent.itemsize();
+        auto pt_opt_offset = c10::make_optional(pt_offset);
 
-          at::Tensor pt_intermediate =
-              at::as_strided(pt_parent, pt_sizes, pt_strides, pt_opt_offset);
+        at::Tensor pt_intermediate =
+            at::as_strided(pt_parent, pt_sizes, pt_strides, pt_opt_offset);
 
-          PT_BRIDGE_DEBUG(
-              "HabanaOp recipe cache hit :: Intermediate : Duplicate with shape : ",
-              tshape);
+        PT_BRIDGE_DEBUG(
+            "HabanaOp recipe cache hit :: Intermediate : Duplicate with shape : ",
+            tshape);
 
-          aten_intermediates.push_back(pt_intermediate);
-        } else {
-          auto pt_intermediate = at::empty(tshape, ti.get_topts(), ti.get_mf());
-          PT_BRIDGE_DEBUG(
-              "HabanaOp recipe cache hit :: Intermediate : Creating new with shape : ",
-              tshape);
+        aten_intermediates.push_back(pt_intermediate);
+      } else {
+        auto pt_intermediate = at::empty(tshape, ti.get_topts(), ti.get_mf());
+        PT_BRIDGE_DEBUG(
+            "HabanaOp recipe cache hit :: Intermediate : Creating new with shape : ",
+            tshape);
 
-          aten_intermediates.push_back(pt_intermediate);
-        }
+        aten_intermediates.push_back(pt_intermediate);
       }
       auto& rv_intermediate_tensor = aten_intermediates.at(intermediate_idx++);
 
@@ -609,9 +613,7 @@ void RecipeValueSpec::update_patching_table(
       }
     }
 
-    // Patch the duplicates if there are any
-    // Dead code : currently num_outduplicates should always be 0
-    // TODO : Clean up this
+    // Patch the duplicates of output that are going back to graph
     size_t outduplicates_end = outputs_end + num_outduplicates;
     if (num_outduplicates) {
       for (; ridx < outduplicates_end; ridx++) {
@@ -619,12 +621,6 @@ void RecipeValueSpec::update_patching_table(
         dtensorinfos->at(ridx).patch(dtensorinfos->at(parent_idx));
       }
     }
-
-    TORCH_CHECK(
-        num_outduplicates == 0,
-        "Encountering non zero value ",
-        num_outduplicates,
-        " for num_outduplicates");
 
     TORCH_CHECK(
         ridx == outduplicates_end,
@@ -826,14 +822,12 @@ void RecipeValueSpec::launch(
     // wait for input DMA to complete before launching the compute.
     device.add_wait_events_on_stream(inDevPtr, stream_handle);
 
-    if (GET_ENV_FLAG(PT_HPU_ENABLE_INTERMEDIATE_TENSOR_RELEASE)) {
-      // Hold on to the pytorch tensors for the intermediates untill the recipe
-      // execution completes
-      for (auto& tensor : aten_intermediates) {
-        ptRefs.push_back(std::move(tensor));
-      }
-      aten_intermediates.clear();
+    // Hold on to the pytorch tensors for the intermediates untill the recipe
+    // execution completes
+    for (auto& tensor : aten_intermediates) {
+      ptRefs.push_back(std::move(tensor));
     }
+    aten_intermediates.clear();
 
     outDevPtr.reserve(
         num_outputs + num_input_to_outduplicates +
@@ -1046,13 +1040,13 @@ bool RecipeCacheLRU::drop_lru_impl(size_t& recipe_count, bool mem_exhausted) {
     // otherwise the caller need to wait
     if (lit->second->get_use_flag() == false) {
       if (mem_exhausted) {
-        PT_BRIDGE_DEBUG(
+        PT_BRIDGE_WARN(
             "memory exhausted : removing recipe, key ",
             lit->first->hashCode(),
             ", size ",
             synapse_helpers::get_mem_str(lit->second->ntensorbytes));
       } else {
-        PT_BRIDGE_DEBUG(
+        PT_BRIDGE_WARN(
             "lru max size ",
             max_size_,
             " reached : removing recipe, key ",
@@ -1069,14 +1063,14 @@ bool RecipeCacheLRU::drop_lru_impl(size_t& recipe_count, bool mem_exhausted) {
       list_.erase(lit);
       dropped = true;
 
-      PT_BRIDGE_DEBUG(
+      PT_BRIDGE_WARN(
           "after dropping lru recipe, #recipes ",
           RecipeValueSpec::recipe_count,
           ", total size of graph recipes ",
           synapse_helpers::get_mem_str(RecipeValueSpec::total_recipe_ntbytes));
     } else {
       use_count++;
-      PT_BRIDGE_DEBUG(
+      PT_BRIDGE_WARN(
           "all recipes are in use used_recipe_count=",
           use_count,
           " can not drop any recipe");
