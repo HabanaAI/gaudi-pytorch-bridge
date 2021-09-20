@@ -2266,7 +2266,9 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel(
         node, syn_graph_ptr->get_node_indices());
     syn_graph_ptr->clear_node_indices();
 
-    ProcessSynapseShapeTensors(HabanaKernel, node);
+    if (!is_shape_inference) {
+      ProcessSynapseShapeTensors(HabanaKernel, node);
+    }
 
     // Get the output tensors created back from the kernel and do the
     // subsequent processing.
@@ -2279,7 +2281,7 @@ void HabanaLaunchOpPT::CompileAndExecuteHabanaFusedOpKernel(
     // corresponding ValPtr in the IR graph. These are either duplicate of
     // some inputs or persistent intermediates required by the kernel.
     auto patch_info = HabanaKernel->getAppendedTensorInfos();
-    if (!patch_info.empty()) {
+    if (!patch_info.empty() && !is_shape_inference) {
       for (const auto& p : patch_info) {
         void* buffp = p.second.data_ptr();
 
