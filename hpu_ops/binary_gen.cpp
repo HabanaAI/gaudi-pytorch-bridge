@@ -28,8 +28,8 @@ void BinaryOp::AddNode(
   const at::Tensor& other = stack_tensor(stack, 1);
   const at::ScalarType& result_type = at::result_type(self, other);
 
-  bool do_alpha_mul =
-      ScalarInputs().size() and ScalarInputs().at(ScalarId()).toFloat() != 1.;
+  bool do_alpha_mul = ScalarInputs().size() and
+      ScalarInputs().at(ScalarId()[0]).toFloat() != 1.;
   int cast_index = -1;
   if (self.scalar_type() != result_type and
       other.scalar_type() == result_type) {
@@ -45,7 +45,7 @@ void BinaryOp::AddNode(
 
   if (do_alpha_mul) {
     size_t size = 0;
-    const at::Scalar& val = ScalarInputs().at(ScalarId());
+    const at::Scalar& val = ScalarInputs().at(ScalarId()[0]);
     PARAMS_STUB(ns_ConstantKernel::Params);
     if (result_type == c10::ScalarType::Int) {
       get<int>(params->constant) = val.to<int>();

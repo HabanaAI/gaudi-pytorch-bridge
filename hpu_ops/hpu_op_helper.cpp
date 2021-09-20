@@ -47,14 +47,14 @@ HabanaOperatorHelper::HabanaOperatorHelper(
     int device_id,
     const std::string& guid,
     c10::ScalarType scalar_type,
-    int out_id,
-    int inplace_id,
-    int scalar_id,
+    std::vector<int> res_ids,
+    std::vector<int> inplace_ids,
+    std::vector<int> scalar_ids,
     bool is_outfn)
     : HabanaOperator(guid + habana_helpers::name_suffix_from_type(scalar_type)),
-      m_out_id{out_id},
-      m_inplace_id{inplace_id},
-      m_scalar_id{scalar_id},
+      m_res_ids{std::move(res_ids)},
+      m_inplace_ids{std::move(inplace_ids)},
+      m_scalar_ids{std::move(scalar_ids)},
       m_is_outfn{is_outfn},
       m_scalar_type{scalar_type} {
   CreateSynContext(device_id);
@@ -65,47 +65,46 @@ HabanaOperatorHelper::HabanaOperatorHelper(
 void HabanaOperatorHelper::HandleScalarToTensor(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  if (m_scalar_id < 0) {
+  if (m_scalar_ids.empty()) {
     return;
   }
 
-  const at::Scalar& val = stack.at(m_scalar_id).toScalar();
-  const at::ScalarType& val_type = m_promote_type ? val.type() : ScalarType();
-  m_scalar_inputs.emplace(m_scalar_id, val);
+  for (int m_scalar_id : m_scalar_ids) {
+    at::Scalar val = stack.at(m_scalar_id).toScalar();
+    m_scalar_inputs.emplace(m_scalar_id, val);
 
-  size_t size = 0;
-  PARAMS_STUB(ns_ConstantKernel::Params);
-  if (val_type == c10::ScalarType::Int or val_type == c10::ScalarType::Long) {
-    get<int>(params->constant) = val.to<int>();
-  } else {
-    get<float>(params->constant) = val.to<float>();
+    size_t size = 0;
+    PARAMS_STUB(ns_ConstantKernel::Params);
+    if (m_scalar_type == c10::ScalarType::Int) {
+      get<int>(params->constant) = val.to<int>();
+    } else {
+      get<float>(params->constant) = val.to<float>();
+    }
+
+    auto const_out = BuildOp(
+        graph,
+        "constant_" + habana_helpers::name_suffix_from_type(m_scalar_type),
+        {},
+        {{1, m_scalar_type}},
+        params.get(),
+        size);
+
+    // Set output from constant as input to this node at index m_scalar_id
+    p_context_->syn_inputs_.emplace(
+        p_context_->syn_inputs_.cbegin() + m_scalar_id,
+        std::move(const_out[0]));
   }
-
-  auto const_out = BuildOp(
-      graph,
-      "constant_" + habana_helpers::name_suffix_from_type(val_type),
-      {},
-      {{1, val_type}},
-      params.get(),
-      size);
-
-  // Set output from constant as input to this node at index m_scalar_id
-  p_context_->syn_inputs_.emplace(
-      p_context_->syn_inputs_.cbegin() + m_scalar_id, std::move(const_out[0]));
 }
 
 void HabanaOperatorHelper::HandleFn(
     synapse_helpers::graph& graph,
     const at::Stack& stack,
     const std::vector<bool>& is_output_persistent_list) {
-  // TODO Handle multiple outputs
-  if (m_out_id < 0) {
+  if (m_res_ids.empty()) {
     return;
   }
 
   const auto& outshapes = ComputeOutputShapes(stack, true);
-  const auto& t = stack.at(m_out_id).toTensor();
-  const auto& dtype = m_promote_type ? ScalarType() : t.scalar_type();
 
   HABANA_ASSERT(
       outshapes.empty() || outshapes.size() == is_output_persistent_list.size(),
@@ -117,8 +116,11 @@ void HabanaOperatorHelper::HandleFn(
   for (unsigned i = 0; i < is_output_persistent_list.size(); ++i) {
     // Use sizes of tensor at m_out_id if ComputeOutputShapes() is not
     // implemented
+    const auto& t = stack.at(m_res_ids.at(i)).toTensor();
+    const auto& dtype = m_promote_type ? ScalarType() : t.scalar_type();
     const auto& outshape = outshapes.empty() ? t.sizes() : outshapes[i];
     bool is_output_persistent = is_output_persistent_list[i];
+
     const auto& output = habana_helpers::createPTTensor(
         t, outshape, t.options().dtype(dtype), is_output_persistent);
     AllocateSynapseOutput(graph, output, is_output_persistent);
@@ -151,15 +153,17 @@ void HabanaOperatorHelper::HandleOutFn(
 void HabanaOperatorHelper::HandleInplaceFn(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  if (m_inplace_id < 0) {
+  if (m_inplace_ids.empty()) {
     return;
   }
 
-  // Index can vary in syn_inputs_ and in stack
-  p_context_->syn_outputs_.emplace_back(
-      habana_helpers::duplicate_tensor_in_memory_section(
-          p_context_->syn_inputs_[m_inplace_id], graph));
-  p_context_->pt_outputs_.emplace_back(stack[m_inplace_id].toTensor());
+  for (int inplace_id : m_inplace_ids) {
+    // Index can vary in syn_inputs_ and in stack
+    p_context_->syn_outputs_.emplace_back(
+        habana_helpers::duplicate_tensor_in_memory_section(
+            p_context_->syn_inputs_[inplace_id], graph));
+    p_context_->pt_outputs_.emplace_back(stack[inplace_id].toTensor());
+  }
 }
 
 void HabanaOperatorHelper::HandleTypePromotion(
@@ -271,12 +275,14 @@ std::vector<synapse_helpers::tensor> HabanaOperatorHelper::BuildOp(
     size_t param_size) {
   std::vector<synapse_helpers::tensor> outputs;
   std::vector<synTensor> node_outputs;
+  int available_output_id = 0;
+  int persistent_output_id = 0;
 
   for (const auto& attr : node_output_attrs) {
     if (attr.final_node and IsOutputAvailable()) {
       // HandleOutFn/HandleInplaceFn placed the output in syn_outputs_
-      int index = m_is_outfn ? 0 : m_inplace_id;
-      outputs.emplace_back(std::move(p_context_->syn_outputs_.at(index).ref()));
+      outputs.emplace_back(
+          std::move(p_context_->syn_outputs_.at(available_output_id++).ref()));
     } else {
       const auto& t = at::detail::make_tensor<c10::TensorImpl>(
           c10::DispatchKeySet{
@@ -287,11 +293,12 @@ std::vector<synapse_helpers::tensor> HabanaOperatorHelper::BuildOp(
       outputs.emplace_back(
           habana_helpers::create_tensor(t, graph, attr.persistent, attr.dtype));
       if (attr.persistent) {
-        // TODO: Handle when a node produces multiple outputs
         HABANA_ASSERT(
-            m_out_id >= 0, "Out id cannot be negative for persistent output");
+            m_res_ids.at(persistent_output_id) >= 0,
+            "Out id cannot be negative for persistent output");
         const auto& impl =
-            p_context_->pt_outputs_.at(m_out_id).unsafeGetTensorImpl();
+            p_context_->pt_outputs_.at(m_res_ids.at(persistent_output_id++))
+                .unsafeGetTensorImpl();
         impl->set_sizes_contiguous(attr.sizes);
         impl->set_storage_and_dtype(
             impl->storage(), c10::scalarTypeToTypeMeta(attr.dtype));

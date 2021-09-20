@@ -157,7 +157,7 @@ namespace habana {{
 
 _OPCLASS_HEADER = """struct {cname} : {op_base_class} {{
   {cname}(int device_id, c10::ScalarType scalar_type) :
-      {op_base_class}(device_id, \"{guid}_\", scalar_type, {out_id}, {inplace_id}, {scalar_id}, {is_out_fn}) {{{ctor_extra_calls}
+      {op_base_class}(device_id, \"{guid}_\", scalar_type, {{{out_ids}}}, {{{inplace_ids}}}, {{{scalar_ids}}}, {is_out_fn}) {{{ctor_extra_calls}
   }}{custom_handler}
 }};
 """
@@ -215,13 +215,13 @@ class Op(object):
         return self.op.get("custom_output_shape", None)
 
     def get_inplace_ids(self):
-        return self.op.get("inplace_ids", None)
+        return self.op.get("inplace_ids", [])
 
     def get_out_ids(self):
-        return self.op.get("out_ids", None)
+        return self.op.get("out_ids", [])
 
     def get_scalar_ids(self):
-        return self.op.get("scalar_ids", None)
+        return self.op.get("scalar_ids", [])
 
     def is_legacy_reqd(self):
         return self.op.get("legacy_eager", False)
@@ -581,20 +581,15 @@ def get_hpuop_class_impl(ctxop, fname, cname, num_out_tensors):
     output_shape_fn = ctxop.get_custom_output_shape()
     promote_type = ctxop.supports_type_promotion()
 
-    assert (
-        (out_ids is None) ^ (inplace_ids is None) ^ is_out_fn(fname)
-    ), "Either `out_ids` or `inplace_ids` should be defined for {}".format(fname)
+    assert len(out_ids) ^ len(inplace_ids) ^ is_out_fn(fname), (
+        "`out_ids` or `inplace_ids` should not be defined for {}".format(fname)
+        if is_out_fn(fname)
+        else "Either `out_ids` or `inplace_ids` should be defined for {}".format(fname)
+    )
 
-    if out_ids:
-        assert len(out_ids) == 1, "Multiple `out_ids` is not yet supported"
-    if inplace_ids:
-        assert len(inplace_ids) == 1, "Multiple `inplace_ids` is not yet supported"
-    if scalar_ids:
-        assert len(scalar_ids) == 1, "Multiple `scalar_ids` is not yet supported"
-
-    out_id = out_ids[0] if out_ids else -1
-    inplace_id = inplace_ids[0] if inplace_ids else -1
-    scalar_id = scalar_ids[0] if scalar_ids else -1
+    out_ids = ", ".join([str(o) for o in out_ids])
+    inplace_ids = ", ".join([str(i) for i in inplace_ids])
+    scalar_ids = ", ".join([str(s) for s in scalar_ids])
 
     if fname.startswith("bitwise_"):
         custom_handler = _CUSTOM_HANDLER.format(body=bitwise_ops_alt_guid(guid))
@@ -647,9 +642,9 @@ def get_hpuop_class_impl(ctxop, fname, cname, num_out_tensors):
         op_base_class=op_base_class,
         cname=cname,
         guid=guid,
-        out_id=out_id,
-        inplace_id=inplace_id,
-        scalar_id=scalar_id,
+        out_ids=out_ids,
+        inplace_ids=inplace_ids,
+        scalar_ids=scalar_ids,
         is_out_fn=str(is_out_fn(fname)).lower(),
         ctor_extra_calls="".join(["\n" + " " * 8 + c for c in ctor_extra_calls]),
         custom_handler=custom_handler,

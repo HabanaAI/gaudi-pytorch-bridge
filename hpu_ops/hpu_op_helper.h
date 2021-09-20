@@ -46,9 +46,9 @@ class HabanaOperatorHelper : public HabanaOperator {
       int device_id,
       const std::string& guid,
       c10::ScalarType scalar_type,
-      int out_id,
-      int inplace_id,
-      int scalar_id,
+      std::vector<int> res_ids,
+      std::vector<int> inplace_ids,
+      std::vector<int> scalar_ids,
       bool is_outfn);
 
  protected:
@@ -60,12 +60,12 @@ class HabanaOperatorHelper : public HabanaOperator {
     return m_scalar_inputs;
   }
 
-  int ScalarId() const {
-    return m_scalar_id;
+  std::vector<int> ScalarId() const {
+    return m_scalar_ids;
   }
 
   bool IsOutputAvailable() const {
-    return m_is_outfn or m_inplace_id >= 0;
+    return m_is_outfn or m_inplace_ids.size();
   }
 
   void SetLayouts(
@@ -175,9 +175,9 @@ class HabanaOperatorHelper : public HabanaOperator {
       const std::vector<bool>&);
 
  private:
-  const int m_out_id;
-  const int m_inplace_id;
-  const int m_scalar_id;
+  const std::vector<int> m_res_ids;
+  const std::vector<int> m_inplace_ids;
+  const std::vector<int> m_scalar_ids;
   const bool m_is_outfn;
 
   c10::ScalarType m_scalar_type;
@@ -198,17 +198,17 @@ class HabanaOperatorHelper : public HabanaOperator {
     op(int device_id,                       \
        const std::string& guid,             \
        c10::ScalarType scalar_type,         \
-       int out_id,                          \
-       int inplace_id,                      \
-       int scalar_id,                       \
+       const std::vector<int>& res_ids,     \
+       const std::vector<int>& inplace_ids, \
+       const std::vector<int>& scalar_ids,  \
        bool is_outfn)                       \
         : HabanaOperatorHelper(             \
               device_id,                    \
               guid,                         \
               scalar_type,                  \
-              out_id,                       \
-              inplace_id,                   \
-              scalar_id,                    \
+              res_ids,                      \
+              inplace_ids,                  \
+              scalar_ids,                   \
               is_outfn){};                  \
     void AddNode(                           \
         synapse_helpers::graph&,            \

@@ -34,9 +34,10 @@ void AddCOpOut::AddNode(
   std::vector<synTensor> variable_op_inputs{
       vectSynTensor.at(1), vectSynTensor.at(2)};
   // if scalar mul if required, only then do cast and do the mult
-  if (ScalarInputs().size() and ScalarInputs().at(ScalarId()).toFloat() != 1.) {
+  if (ScalarInputs().size() and
+      ScalarInputs().at(ScalarId()[0]).toFloat() != 1.) {
     size_t size = 0;
-    const at::Scalar& scalarVal = ScalarInputs().at(ScalarId());
+    const at::Scalar& scalarVal = ScalarInputs().at(ScalarId()[0]);
     PARAMS_STUB(ns_ConstantKernel::Params);
     if (scalarVal.isIntegral(/*include bools*/ false)) {
       get<int>(params->constant) = scalarVal.to<int>();
