@@ -232,6 +232,10 @@ void updateDstDependencies(
     HbLazyTensor& hl_dst,
     const Tensor& dst,
     bool in_place) {
+  if (GET_ENV_FLAG(PT_HPU_LAZY_MODE) == 2) {
+    return;
+  };
+
   auto view = hl_dst.getView();
   // FIXME: deactivating code to add control edge for updating views of the
   // tensors
@@ -370,7 +374,8 @@ Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
             hlresult.GetSizes(),
             hlresult.dtype_optional());
         node->AddInputPtTensors(input_pt_vec);
-        // updatet the view if any
+        flush_op({src, self});
+        // update the view if any
         updateDstDependencies(hlresult, self);
       }
     } else {
@@ -442,7 +447,8 @@ Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
               hlresult.GetSizes(),
               hlresult.dtype_optional());
           node->AddInputPtTensors(input_pt_vec);
-          // updatet the view if any
+          flush_op({src, self});
+          // update the view if any
           updateDstDependencies(hlresult, self);
         } else {
           node = ir::Node::Create(
@@ -457,7 +463,8 @@ Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
               hlresult.GetSizes(),
               hlresult.dtype_optional());
           node->AddInputPtTensors(input_pt_vec);
-          // updatet the view if any
+          flush_op(self);
+          // update the view if any
           updateDstDependencies(hlresult, self);
         }
       }
@@ -817,6 +824,7 @@ Tensor as_strided_hpu_lazy(
     IntArrayRef size_in,
     IntArrayRef stride_in,
     c10::optional<int64_t> storage_offset) {
+  PT_LAZY_TRACE;
   IntArrayRef size = size_in;
   bool is_0d_tensor = false;
   std::vector<int64_t> initvec{1};
@@ -2192,6 +2200,8 @@ Tensor& scatter_inplace_src_hpu_lazy(
       hl_result.GetSizes(),
       hl_result.dtype_optional());
 
+  flush_op(result);
+
   // Add a control_edge node
   updateDstDependencies(hl_self, self, true);
 
@@ -2236,6 +2246,8 @@ Tensor& scatter_inplace_value_hpu_lazy(
       hl_result.GetDevice(),
       hl_result.GetSizes(),
       hl_result.dtype_optional());
+
+  flush_op(result);
 
   // Add a control_edge node
   updateDstDependencies(hl_self, self, true);
@@ -2325,6 +2337,8 @@ Tensor& scatter_add_inplace_src_hpu_lazy(
       hl_result.GetDevice(),
       hl_result.GetSizes(),
       hl_result.dtype_optional());
+
+  flush_op(result);
 
   // Add a control_edge node
   updateDstDependencies(hl_self, self, true);
