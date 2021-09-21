@@ -134,6 +134,19 @@ class LazyOp {
     }
   }
 
+  explicit LazyOp(
+      const std::string& qualstring,
+      const std::vector<at::IValue>& inputs,
+      std::vector<std::vector<int64_t>> out_shapes,
+      const c10::ScalarType scalar_type) noexcept
+      : m_symbol{at::Symbol::fromQualString(qualstring)},
+        m_metadata_indices{},
+        m_out_shapes{std::move(out_shapes)},
+        m_out_index{},
+        m_scalar_type(scalar_type) {
+    set_inputs(inputs);
+  }
+
   virtual ~LazyOp() = default;
 
   template <typename T = ReturnType>
@@ -365,13 +378,29 @@ class LazyOp {
       auto t = get_inputs().at(m_out_index).toTensor();
       const auto& out_shape =
           m_out_shapes.empty() ? t.sizes() : m_out_shapes[0];
-      return empty_hpu_lazy(
-          out_shape, t.options(), t.suggest_memory_format(), false);
+      if (m_scalar_type != c10::ScalarType::Undefined) {
+        return empty_hpu_lazy(
+            out_shape,
+            t.options().dtype(m_scalar_type),
+            t.suggest_memory_format(),
+            false);
+      } else {
+        return empty_hpu_lazy(
+            out_shape, t.options(), t.suggest_memory_format(), false);
+      }
     }
 
     const auto& t = m_out_meta_tensors[0];
-    return empty_hpu_lazy(
-        t.sizes(), t.options(), t.suggest_memory_format(), false);
+    if (m_scalar_type != c10::ScalarType::Undefined) {
+      return empty_hpu_lazy(
+          t.sizes(),
+          t.options().dtype(m_scalar_type),
+          t.suggest_memory_format(),
+          false);
+    } else {
+      return empty_hpu_lazy(
+          t.sizes(), t.options(), t.suggest_memory_format(), false);
+    }
   }
 
   template <typename N = NodeConstruct>
@@ -520,6 +549,7 @@ class LazyOp {
   // eager way of executing using lazy infrastructure.
   const bool m_flush_op = GET_ENV_FLAG(PT_HPU_LAZY_MODE) == 2;
   const bool m_random_flush = GET_ENV_FLAG(PT_HPU_LAZY_MODE) == 3;
+  c10::ScalarType m_scalar_type = c10::ScalarType::Undefined;
 };
 
 template <typename ReturnType>

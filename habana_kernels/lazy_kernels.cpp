@@ -1513,7 +1513,10 @@ Tensor ne_scalar_hpu_lazy(const Tensor& self, const Scalar& other) {
 
   if (self.scalar_type() == c10::ScalarType::Byte) {
     LazyOp<at::Tensor> k_{
-        "hpu::cast", {self, c10::ScalarType::Int}, {}, {self.sizes().vec()}};
+        "hpu::cast",
+        {self, c10::ScalarType::Int},
+        {self.sizes().vec()},
+        c10::ScalarType::Int};
     self_cast = k_.call();
   }
 
@@ -2316,45 +2319,47 @@ Tensor& scatter_add_inplace_src_hpu_lazy(
   return self;
 }
 
-Tensor index_hpu_lazy(const at::Tensor& self, at::TensorList indices) {
+Tensor index_hpu_lazy(const at::Tensor& self, at::TensorList indices_in) {
   PT_LAZY_TRACE;
-  // fallback to cpu for boolean indexing
-  // https://jira.habana-labs.com/browse/SW-37171
-  if (indices[0].scalar_type() == c10::ScalarType::Bool) {
-    c10::List<c10::optional<at::Tensor>> indices_list{};
-    auto tensorlist = indices.vec();
-    indices_list.reserve(tensorlist.size());
-    for (size_t i = 0; i < tensorlist.size(); i++) {
-      indices_list.push_back(c10::make_optional(tensorlist[i]));
+  std::vector<Tensor> indices_vec{indices_in.vec()};
+  std::vector<Tensor> indices_vec_out{};
+  // for case where indices are Boolean tensor(s), convert these to integer
+  // indices using nonzero operator before calling index
+  if (indices_vec[0].scalar_type() == c10::ScalarType::Bool) {
+    for (size_t i = 0; i < indices_vec.size(); i++) {
+      auto list = torch::nonzero_numpy(indices_vec.at(i));
+      indices_vec_out.insert(
+          indices_vec_out.cend(), list.cbegin(), list.cend());
     }
-    return AtenHpuTypeDefault::index(self, indices_list);
   }
-  // https://jira.habana-labs.com/browse/SW-39448
+  at::TensorList indices =
+      (indices_vec[0].scalar_type() == c10::ScalarType::Bool) ? indices_vec_out
+                                                              : indices_vec;
+
+  // for this particular indices configuration gather_mxnet throws GC
+  // compilation error, therefore use simple gather for now
   if (indices.size() == 1 && indices[0].dim() == 1) {
-    Tensor output = gather_src_hpu_lazy(self, 0, indices[0], false);
-    return output;
+    auto shape = GatherOperator::compute_output_shape(self, 0, indices[0]);
+    LazyOp<at::Tensor> k{
+        "aten::gather", {self, 0, indices[0], false}, {1, 3}, {shape}};
+    return k.call();
   }
 
-  // cast input to fp32, int32 not supported yet
-  HbLazyTensor hl_self = GetOrCreateHbLazyTensor(self, self.device());
+  // additional casts inserted for handling dtypes other than f32/bf16 because
+  // gather_mxnet TPC kernel used supports only f32/bf16
   at::Tensor self_cast = self;
-  // Remove this cast node once TPC kernel is available
-  // JIRA <https://jira.habana-labs.com/browse/SW-37171>
   if (self.scalar_type() != c10::ScalarType::Double &&
-      self.scalar_type() != c10::ScalarType::Float) {
-    auto node = std::make_shared<ir::Cast>(self, c10::ScalarType::Float, true);
-    at::TensorOptions hb_options = self.options().dtype(c10::ScalarType::Float);
-    self_cast = empty_hpu_lazy(
-        self.sizes(), hb_options, self.suggest_memory_format(), false);
-    auto hl_cast = GetHbLazyTensor(self_cast);
-    ir::Value& out = hl_cast.CurrentIrValue();
-    out.m_index = 0;
-    out.SetNode(
-        node,
-        hl_cast.GetDevice(),
-        hl_cast.GetSizes(),
-        hl_cast.dtype_optional());
+      self.scalar_type() != c10::ScalarType::Float &&
+      self.scalar_type() != c10::ScalarType::BFloat16) {
+    // i8/i16/i32 -> f32
+    LazyOp<at::Tensor> k_{
+        "hpu::cast",
+        {self, c10::ScalarType::Float},
+        {self.sizes().vec()},
+        c10::ScalarType::Float};
+    self_cast = k_.call();
   }
+
   LazyOp<at::Tensor> k{
       "aten::index",
       {self_cast, indices},
@@ -2363,31 +2368,16 @@ Tensor index_hpu_lazy(const at::Tensor& self, at::TensorList indices) {
   auto result = k.call();
 
   if (self.scalar_type() != c10::ScalarType::Double &&
-      self.scalar_type() != c10::ScalarType::Float) {
-    at::TensorOptions hb_options = self.options();
-    auto type = self.scalar_type();
-
-    if (self.scalar_type() == c10::ScalarType::Long) {
-      type = c10::ScalarType::Int;
-      hb_options = hb_options.dtype(c10::ScalarType::Int);
-    }
-    auto node = std::make_shared<ir::Cast>(result, type, true);
-    auto result_cast = empty_hpu_lazy(
-        result.sizes(), hb_options, result.suggest_memory_format(), false);
-
-    auto hl_cast = GetHbLazyTensor(result_cast);
-    ir::Value& out = hl_cast.CurrentIrValue();
-    out.m_index = 0;
-    out.SetNode(
-        node,
-        hl_cast.GetDevice(),
-        hl_cast.GetSizes(),
-        hl_cast.dtype_optional());
-    updateDstDependencies(hl_cast, result_cast);
-    flush_op(result_cast);
-    return result_cast;
+      self.scalar_type() != c10::ScalarType::Float &&
+      self.scalar_type() != c10::ScalarType::BFloat16) {
+    auto out_type = (self.scalar_type() == c10::ScalarType::Long)
+        ? (c10::ScalarType::Int)
+        : self.scalar_type();
+    LazyOp<at::Tensor> k_{
+        "hpu::cast", {result, out_type}, {result.sizes().vec()}, out_type};
+    return k_.call();
   }
-  flush_op(result);
+
   return result;
 }
 
@@ -5358,8 +5348,8 @@ Tensor upsample_nearest2d_hpu_lazy(
     LazyOp<at::Tensor> k_{
         "hpu::cast",
         {input, c10::ScalarType::Float},
-        {},
-        {input.sizes().vec()}};
+        {input.sizes().vec()},
+        c10::ScalarType::Float};
     input_cast = k_.call();
   }
   ir::NodePtr node = std::make_shared<ir::UpsampleNearest2d>(
@@ -5387,15 +5377,15 @@ Tensor upsample_nearest2d_hpu_lazy(
     LazyOp<at::Tensor> k_{
         "hpu::cast",
         {result_cast, c10::ScalarType::Int},
-        {},
-        {result_cast.sizes().vec()}};
+        {result_cast.sizes().vec()},
+        c10::ScalarType::Int};
     result_cast = k_.call();
     // i32 -> u8
     LazyOp<at::Tensor> k{
         "hpu::cast",
         {result_cast, input.scalar_type()},
-        {},
-        {result_cast.sizes().vec()}};
+        {result_cast.sizes().vec()},
+        input.scalar_type()};
     result = k.call();
   }
   return result;
@@ -5413,8 +5403,8 @@ Tensor upsample_nearest2d_backward_hpu_lazy(
     LazyOp<at::Tensor> k_{
         "hpu::cast",
         {grad_output, c10::ScalarType::Float},
-        {},
-        {grad_output.sizes().vec()}};
+        {grad_output.sizes().vec()},
+        c10::ScalarType::Float};
     grad_output_cast = k_.call();
   }
   auto memory_format = grad_output_cast.suggest_memory_format();
@@ -5446,15 +5436,15 @@ Tensor upsample_nearest2d_backward_hpu_lazy(
     LazyOp<at::Tensor> k_{
         "hpu::cast",
         {result_cast, c10::ScalarType::Int},
-        {},
-        {result_cast.sizes().vec()}};
+        {result_cast.sizes().vec()},
+        c10::ScalarType::Int};
     result_cast = k_.call();
     // i32 -> u8
     LazyOp<at::Tensor> k{
         "hpu::cast",
         {result_cast, grad_output.scalar_type()},
-        {},
-        {result_cast.sizes().vec()}};
+        {result_cast.sizes().vec()},
+        grad_output.scalar_type()};
     result = k.call();
   }
   return result;
@@ -5471,8 +5461,8 @@ Tensor upsample_nearest3d_hpu_lazy(
     LazyOp<at::Tensor> k_{
         "hpu::cast",
         {input, c10::ScalarType::Float},
-        {},
-        {input.sizes().vec()}};
+        {input.sizes().vec()},
+        c10::ScalarType::Float};
     input_cast = k_.call();
   }
   auto memory_format = input_cast.suggest_memory_format();
@@ -5492,15 +5482,15 @@ Tensor upsample_nearest3d_hpu_lazy(
     LazyOp<at::Tensor> k_{
         "hpu::cast",
         {result_cast, c10::ScalarType::Int},
-        {},
-        {result_cast.sizes().vec()}};
+        {result_cast.sizes().vec()},
+        c10::ScalarType::Int};
     result_cast = k_.call();
     // i32 -> u8
     LazyOp<at::Tensor> k{
         "hpu::cast",
         {result_cast, input.scalar_type()},
-        {},
-        {result_cast.sizes().vec()}};
+        {result_cast.sizes().vec()},
+        input.scalar_type()};
     result = k.call();
   }
   return result;
@@ -5518,8 +5508,8 @@ Tensor upsample_nearest3d_backward_hpu_lazy(
     LazyOp<at::Tensor> k_{
         "hpu::cast",
         {grad_output, c10::ScalarType::Float},
-        {},
-        {grad_output.sizes().vec()}};
+        {grad_output.sizes().vec()},
+        c10::ScalarType::Float};
     grad_output_cast = k_.call();
   }
   std::vector<int64_t> permuted_sizes = input_size.vec();
@@ -5540,15 +5530,15 @@ Tensor upsample_nearest3d_backward_hpu_lazy(
     LazyOp<at::Tensor> k_{
         "hpu::cast",
         {result_cast, c10::ScalarType::Int},
-        {},
-        {result_cast.sizes().vec()}};
+        {result_cast.sizes().vec()},
+        c10::ScalarType::Int};
     result_cast = k_.call();
     // i32 -> u8
     LazyOp<at::Tensor> k{
         "hpu::cast",
         {result_cast, grad_output.scalar_type()},
-        {},
-        {result_cast.sizes().vec()}};
+        {result_cast.sizes().vec()},
+        grad_output.scalar_type()};
     result = k.call();
   }
   return result;
