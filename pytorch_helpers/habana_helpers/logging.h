@@ -16,8 +16,11 @@
 #include <utility>
 #include "pytorch_helpers/synapse_helpers/env_flags.h"
 #define FMT_HEADER_ONLY
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wsign-compare"
 #include "spdlog/common.h"
 #include "spdlog/fmt/bundled/format.h"
+#pragma GCC diagnostic pop
 
 // Redefining c10 StringUtils functions here as distributed and syn
 // helpers are independent of  torch libraries
