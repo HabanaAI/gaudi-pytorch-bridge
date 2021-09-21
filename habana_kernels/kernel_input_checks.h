@@ -429,6 +429,13 @@ static const std::
                at::ScalarType::Long,
                at::ScalarType::Float,
                at::ScalarType::Double}}},
+            {"masked_select",
+             {{at::ScalarType::Double,
+               at::ScalarType::BFloat16,
+               at::ScalarType::Int,
+               at::ScalarType::Float,
+               at::ScalarType::Long},
+              {at::ScalarType::Bool}}},
             {
                 "index_add_",
                 {{at::ScalarType::Double,

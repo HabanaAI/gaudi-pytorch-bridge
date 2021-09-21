@@ -146,3 +146,17 @@ TEST_F(LazyMaskKernelTest, MaskedFillScalarInplaceLongTest) {
   Tensor hOut = result.to(kCPU);
   EXPECT_TRUE(allclose(hOut, cpuOut));
 }
+
+TEST_F(LazyMaskKernelTest, MaskedSelectTest) {
+  const std::vector<int64_t> dimensions{3, 3};
+  torch::Tensor A = torch::randn(dimensions);
+  torch::Tensor mask = A.ge(0.5);
+  auto cpuOut = torch::masked_select(A, mask);
+
+  auto hA = A.to(torch::kHPU);
+  auto hMask = mask.to(torch::kHPU);
+  auto result = torch::masked_select(hA, hMask);
+  Tensor hOut = result.to(kCPU);
+
+  EXPECT_TRUE(allclose(hOut, cpuOut));
+}

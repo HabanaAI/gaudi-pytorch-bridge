@@ -956,6 +956,30 @@ Tensor& hpu_wrap::masked_fill_(
     return masked_fill_scalar_hpu_(self, mask, value);
   }
 };
+Tensor hpu_wrap::masked_select(const Tensor& self, const Tensor& mask) {
+  if (!hpu_check_inputs_impl("masked_select", {self, mask}))
+    return AtenHpuTypeDefault::masked_select(self, mask);
+
+  std::vector<Tensor> idx;
+
+  if (mask.dim() == 0) {
+    idx = mask.unsqueeze(0).nonzero().unbind(1);
+  } else {
+    idx = mask.nonzero().unbind(1);
+  }
+
+  c10::List<c10::optional<Tensor>> converted_inds;
+  converted_inds.reserve(idx.size());
+  for (size_t i = 0; i < idx.size(); ++i) {
+    const auto& ind = idx[i];
+    if (ind.defined()) {
+      converted_inds.push_back(ind.to(ind.options().device("hpu")));
+    } else {
+      converted_inds.push_back(std::move(idx[i]));
+    }
+  }
+  return hpu_wrap::index(self, converted_inds);
+};
 Tensor hpu_wrap::gather(
     const Tensor& self,
     int64_t dim_,
