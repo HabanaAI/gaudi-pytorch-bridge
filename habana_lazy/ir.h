@@ -248,7 +248,7 @@ class MetaData {
       return at::hash_combine(
           h, c10::WeakIValue(v).hash()); // hash() moved to WeakIvalue
     } else {
-      if (!v.isNone()) {
+      if (!v.isNone() && !v.isDevice()) {
         PT_LAZY_WARN(
             "Metadata of type ",
             v.type()->str(),
