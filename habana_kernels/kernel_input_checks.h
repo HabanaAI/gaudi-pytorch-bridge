@@ -1434,8 +1434,6 @@ static const std::
                 "index",
                 {{at::ScalarType::Double,
                   at::ScalarType::BFloat16,
-                  at::ScalarType::Short,
-                  at::ScalarType::Byte,
                   at::ScalarType::Int,
                   at::ScalarType::Bool,
                   at::ScalarType::Char,

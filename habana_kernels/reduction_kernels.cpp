@@ -905,7 +905,7 @@ void SumOperator::AllocateAndAddSynapseNode(
       is_output_persistent);
 
   auto ndim = self.dim();
-  int64_t data[4];
+  int64_t data[HABANA_DIM_MAX];
   for (int i = 0; i < ndim; i++) {
     data[i] = i;
   }
@@ -924,7 +924,7 @@ void SumOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   Tensor self = inputs[0].toTensor();
   Tensor output;
   auto ndim = self.dim();
-  int64_t data[4];
+  int64_t data[HABANA_DIM_MAX];
   for (int i = 0; i < ndim; i++) {
     data[i] = i;
   }
@@ -1030,7 +1030,7 @@ void MeanOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   Tensor self = inputs[0].toTensor();
   Tensor output;
   auto ndim = self.dim();
-  int64_t data[4];
+  int64_t data[HABANA_DIM_MAX];
   for (int i = 0; i < ndim; i++) {
     data[i] = i;
   }
@@ -1109,7 +1109,7 @@ void ProdOperator::AllocateAndAddSynapseNode(
       at::MemoryFormat::Contiguous,
       is_output_persistent);
   auto ndim = self.dim();
-  int64_t data[4];
+  int64_t data[HABANA_DIM_MAX];
   for (int i = 0; i < ndim; i++) {
     data[i] = i;
   }
@@ -1128,7 +1128,7 @@ void ProdOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   Tensor self = inputs[0].toTensor();
   Tensor output;
   auto ndim = self.dim();
-  int64_t data[4];
+  int64_t data[HABANA_DIM_MAX];
   for (int i = 0; i < ndim; i++) {
     data[i] = i;
   }

@@ -423,7 +423,7 @@ Tensor maybe_contiguous(const Tensor& self) {
     if ((self.suggest_memory_format() != c10::MemoryFormat::ChannelsLast) &&
         (self.suggest_memory_format() != c10::MemoryFormat::ChannelsLast3d)) {
       PT_LAZY_DEBUG("Changing src tensor to contiguous before D2H");
-      output = self.expand_as(self).contiguous();
+      output = self.contiguous();
     }
   }
 
@@ -4419,8 +4419,14 @@ Tensor permute_cl_hpu_lazy(const Tensor& self, IntArrayRef dims_) {
   return result;
 }
 
-Tensor permute_hpu_lazy(const Tensor& self, IntArrayRef dims_) {
+Tensor permute_hpu_lazy(const Tensor& self, IntArrayRef dims_in) {
   PT_LAZY_TRACE;
+  auto dims_vec = dims_in.vec();
+  for (unsigned i = 0; i < dims_in.size(); i++) {
+    dims_vec[i] =
+        at::maybe_wrap_dim(dims_in[i], self.dim(), /*wrap_scalar=*/true);
+  }
+  IntArrayRef dims_(dims_vec);
   ir::NodePtr node = std::make_shared<ir::Permute>(self, dims_);
   std::vector<int64_t> new_sizes, new_strides;
   std::tie(new_sizes, new_strides) =

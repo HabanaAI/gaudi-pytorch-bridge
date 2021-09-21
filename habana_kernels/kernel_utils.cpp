@@ -12,6 +12,7 @@
 #include <perf_lib_layer_params.h>
 #include "habana_device/HPUCheck.h"
 #include "habana_device/hpu_cached_devices.h"
+#include "habana_kernels/compare_kernels.h"
 #include "habana_kernels/kernel_recipe_signature.h"
 #include "kernel_utils.h"
 #include "synapse_helpers/recipe.h"
@@ -83,8 +84,9 @@ std::map<std::pair<c10::ScalarType, c10::ScalarType>, std::string>
         {{c10::ScalarType::Float, c10::ScalarType::BFloat16},
          "cast_f32_to_bf16"},
         {{c10::ScalarType::Byte, c10::ScalarType::Int}, "cast_u8_to_i32"},
-        {{c10::ScalarType::Int, c10::ScalarType::Byte}, "cast_i32_to_u8"},
+        {{c10::ScalarType::Byte, c10::ScalarType::Bool}, "cast_u8_to_i8"},
         {{c10::ScalarType::Byte, c10::ScalarType::Float}, "cast_u8_to_f32"},
+        {{c10::ScalarType::Int, c10::ScalarType::Byte}, "cast_i32_to_u8"},
         {{c10::ScalarType::Int, c10::ScalarType::Short}, "cast_i32_to_i16"},
     };
 
@@ -312,23 +314,38 @@ void CastOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(
       inputs[0].isTensor(),
       "Input arg1 expected to be tensor for cast operator");
-
   auto self = inputs[0].toTensor();
   auto type = inputs[1].toScalarType();
-  auto output = habana_helpers::createPTTensor(
-      self,
-      self.sizes(),
-      self.options(),
-      self.suggest_memory_format(),
-      type,
-      is_output_persistent);
+  if (self.scalar_type() == c10::ScalarType::Byte &&
+      type == c10::ScalarType::Bool) {
+    // cast doesn't handle Byte->Bool: So, use gt op.
+    torch::jit::Stack stack;
+    auto device_id = self.device().index();
+    auto scalar_type = self.scalar_type();
+    auto gt_op = make_operator<habana::GtOperator>(device_id, scalar_type);
+    gt_op->SetSynapseInput(p_context_->syn_inputs_[0]);
+    stack.emplace_back(IValue(self));
+    stack.emplace_back(IValue(0));
+    gt_op->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
+    stack.clear();
+    p_context_->syn_outputs_.emplace_back(std::move(gt_op->GetSynOutputs()[0]));
+    p_context_->pt_outputs_.emplace_back(gt_op->GetOutputs()[0]);
+  } else {
+    auto output = habana_helpers::createPTTensor(
+        self,
+        self.sizes(),
+        self.options(),
+        self.suggest_memory_format(),
+        type,
+        is_output_persistent);
 
-  ns_CastKernel::Params params = synapse_cast_params_builder();
-  p_context_->params_.emplace<ns_CastKernel::Params>(params);
-  p_context_->params_size_ = sizeof(params);
+    ns_CastKernel::Params params = synapse_cast_params_builder();
+    p_context_->params_.emplace<ns_CastKernel::Params>(params);
+    p_context_->params_size_ = sizeof(params);
 
-  AllocateSynapseOutput(graph, output, is_output_persistent);
-  AddNodeToSynapseGraph(graph, &params, sizeof(params));
+    AllocateSynapseOutput(graph, output, is_output_persistent);
+    AddNodeToSynapseGraph(graph, &params, sizeof(params));
+  }
 }
 
 void CastOutOperator::AllocateAndAddSynapseNode(
