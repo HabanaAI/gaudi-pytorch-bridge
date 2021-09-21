@@ -35,26 +35,26 @@ bool StaticPooling::pool_create(synDeviceId deviceID, uint64_t size) const {
   uint64_t free_mem, total_mem;
   synStatus status = synDeviceGetMemoryInfo(deviceID, &free_mem, &total_mem);
   if (synStatus::synSuccess != status) {
-    PT_SYNHELPER_DEBUG(
+    PT_DEVMEM_DEBUG(
         "POOL:: Cannot obtain device memory info. Status: ", status);
   }
   if (size > free_mem) {
-    PT_SYNHELPER_DEBUG("POOL:: requested size is more than avaiable memory");
+    PT_DEVMEM_DEBUG("POOL:: requested size is more than avaiable memory");
     size = 0.9 * free_mem;
-    PT_SYNHELPER_DEBUG("POOL:: set new pool size : ", size);
+    PT_DEVMEM_DEBUG("POOL:: set new pool size : ", size);
   }
   max_pool_size = size;
 
   auto p = allocateHostMemory(simple_pool_t);
   if (!p) {
-    PT_SYNHELPER_DEBUG("POOL:: Cannot obtain pool memory");
+    PT_DEVMEM_DEBUG("POOL:: Cannot obtain pool memory");
     return false;
   }
 
   status = synDeviceMalloc(pool_id, size, 0, 0, &p->memptr);
   if (synStatus::synSuccess != status) {
     freeHostMemory(p);
-    PT_SYNHELPER_FATAL(
+    PT_DEVMEM_FATAL(
         "POOL:: Cannot obtain device memory size. Status: ", status);
     return false;
   }
@@ -63,7 +63,7 @@ bool StaticPooling::pool_create(synDeviceId deviceID, uint64_t size) const {
   p->end = p->next + size;
   p->_start = nullptr;
   p->_top = p->_start;
-  PT_SYNHELPER_DEBUG("POOL:: simple static pool created");
+  PT_DEVMEM_DEBUG("POOL:: simple static pool created");
   pool_allocator::print_device_memory_stats(pool_id);
   prealloc_pool = p;
   stats.pool_id = pool_id;
@@ -101,10 +101,10 @@ void StaticPooling::pool_destroy() const {
     }
     freeHostMemory(s_pool);
     s_pool = nullptr;
-    PT_SYNHELPER_DEBUG("POOL:: simple static pool destroyed");
+    PT_DEVMEM_DEBUG("POOL:: simple static pool destroyed");
   } else {
-    PT_SYNHELPER_DEBUG("POOL:: cannot destroy pool -- active blocks !!");
-    PT_SYNHELPER_DEBUG("POOL:: total active blocks :: ", block_count);
+    PT_DEVMEM_DEBUG("POOL:: cannot destroy pool -- active blocks !!");
+    PT_DEVMEM_DEBUG("POOL:: total active blocks :: ", block_count);
   }
 }
 
@@ -130,11 +130,10 @@ void StaticPooling::print_pool_stats() const {
     }
     chunk = chunk->next;
   }
-  PT_SYNHELPER_DEBUG("POOL:: total_blocks in the pool :: ", total_blocks);
-  PT_SYNHELPER_DEBUG("POOL:: free chunks in the pool :: ", free_chunks);
-  PT_SYNHELPER_DEBUG(
-      "POOL:: free chunks size in the pool :: ", free_chunks_size);
-  PT_SYNHELPER_DEBUG("POOL::{}", pool_status.str());
+  PT_DEVMEM_DEBUG("POOL:: total_blocks in the pool :: ", total_blocks);
+  PT_DEVMEM_DEBUG("POOL:: free chunks in the pool :: ", free_chunks);
+  PT_DEVMEM_DEBUG("POOL:: free chunks size in the pool :: ", free_chunks_size);
+  PT_DEVMEM_DEBUG("POOL::{}", pool_status.str());
   free_chunks = 0;
   free_chunks_size = 0;
   pool_status.str("");
@@ -147,7 +146,7 @@ void* StaticPooling::get_free_chunk(void* ptr, uint64_t size) const {
   // same sized free blocks are reused
   while (chunk != nullptr) {
     if ((chunk->size != size) || (chunk->used)) {
-      // PT_SYNHELPER_DEBUG("POOL:: size = ", size, " chunk->size = ",
+      // PT_DEVMEM_DEBUG("POOL:: size = ", size, " chunk->size = ",
       // chunk->size, " chunk->used = ", chunk->used);
       chunk = chunk->next;
       continue;
@@ -162,11 +161,11 @@ void* StaticPooling::reuse_chunks(uint64_t size) const {
   auto chunk = p->_start;
   auto free_chunk = (Poolchunk*)get_free_chunk(chunk, size);
   if (free_chunk == nullptr) {
-    PT_SYNHELPER_DEBUG("POOL:: no more reusable chunk: extend pool !!");
+    PT_DEVMEM_DEBUG("POOL:: no more reusable chunk: extend pool !!");
     // print_pool_stats();
     return nullptr;
   }
-  PT_SYNHELPER_DEBUG("POOL:: reusing preallocated chunk");
+  PT_DEVMEM_DEBUG("POOL:: reusing preallocated chunk");
   free_chunk->used = true;
   stats.UpdateStats(free_chunk->size, true);
   return (void*)free_chunk->memptr;
@@ -177,7 +176,7 @@ void* StaticPooling::pool_alloc_chunk(uint64_t size, bool is_workspace) const {
   size = pool_allocator::block_align(size);
   simple_pool_t* p = prealloc_pool;
   if (prealloc_pool != p) {
-    PT_SYNHELPER_FATAL("POOL:: alloc unknown pool !!");
+    PT_DEVMEM_FATAL("POOL:: alloc unknown pool !!");
   }
 
   auto old_chunk = reuse_chunks(size);
@@ -192,14 +191,14 @@ void* StaticPooling::pool_alloc_chunk(uint64_t size, bool is_workspace) const {
     // TBD: implement better algorithms
     pool_allocator::print_device_memory_stats(pool_id);
     print_pool_stats();
-    PT_SYNHELPER_DEBUG("POOL:: pool exhausted !! deframgment pool ?");
+    PT_DEVMEM_DEBUG("POOL:: pool exhausted !! deframgment pool ?");
     return nullptr;
   }
 
   // create a chunk
   auto chunk = allocateHostMemory(Poolchunk);
   if (!chunk) {
-    PT_SYNHELPER_DEBUG("POOL:: Cannot create a chunk");
+    PT_DEVMEM_DEBUG("POOL:: Cannot create a chunk");
     return nullptr;
   }
   chunk->memptr = (uint64_t)p->next;
@@ -218,7 +217,7 @@ void* StaticPooling::pool_alloc_chunk(uint64_t size, bool is_workspace) const {
   p->next += size;
   allocted_block_size += size;
   ++block_count;
-  PT_SYNHELPER_DEBUG("POOL:: Allocated block_count :: ", block_count);
+  PT_DEVMEM_DEBUG("POOL:: Allocated block_count :: ", block_count);
   bytes_in_use += size;
   stats.UpdateStats(chunk->size, true, is_workspace);
   return (void*)chunk->memptr;
@@ -227,7 +226,7 @@ void* StaticPooling::pool_alloc_chunk(uint64_t size, bool is_workspace) const {
 void StaticPooling::pool_free_chunk(void* ptr) const {
   const std::lock_guard<std::mutex> lock(sp_mutex);
   simple_pool_t* s_pool = prealloc_pool;
-  PT_SYNHELPER_DEBUG("POOL:: freeing block_count :: ", block_count);
+  PT_DEVMEM_DEBUG("POOL:: freeing block_count :: ", block_count);
   auto chunk = s_pool->_start;
   while (chunk != nullptr) {
     if (chunk->memptr == (uint64_t)ptr) {
@@ -241,7 +240,7 @@ void StaticPooling::pool_free_chunk(void* ptr) const {
   stats.UpdateStats(chunk->size, false);
   if (block_count == 0) {
     print_pool_stats();
-    PT_SYNHELPER_DEBUG("POOL:: All blocks freed before pool deletion !");
+    PT_DEVMEM_DEBUG("POOL:: All blocks freed before pool deletion !");
   }
 }
 
@@ -253,7 +252,7 @@ bool StaticPooling::is_mem_threshold_hit() const {
 }
 
 void* StaticPooling::extend_high_memory_allocation(uint64_t size) const {
-  PT_SYNHELPER_DEBUG(
+  PT_DEVMEM_DEBUG(
       "POOL:: Dynamic Pool - extending high memory allocation not supported size::",
       size);
   return nullptr;
@@ -310,7 +309,7 @@ void DynamicPooling::freeUnusedBlocks(Block* block) const {
         uint64_t ptr_address{reinterpret_cast<uint64_t>(block->memptr)};
         auto status{synDeviceFree(pool_id, ptr_address, 0)};
         if (status) {
-          PT_SYNHELPER_DEBUG(
+          PT_DEVMEM_DEBUG(
               "POOL:: freeUnusedBlocks synDeviceFree failed :: ", status);
         }
       }
@@ -350,7 +349,7 @@ Block* DynamicPooling::requestNewBlock(uint64_t size) const {
   // create block header
   auto block = allocateHostMemory(Block);
   if (!block) {
-    PT_SYNHELPER_DEBUG("POOL:: Cannot create block header");
+    PT_DEVMEM_DEBUG("POOL:: Cannot create block header");
     return nullptr;
   }
 
@@ -359,18 +358,18 @@ Block* DynamicPooling::requestNewBlock(uint64_t size) const {
     pool_allocator::print_device_memory_stats(pool_id);
     freeUnusedBlocks(pool_start);
     pool_allocator::print_device_memory_stats(pool_id);
-    PT_SYNHELPER_DEBUG("POOL:: Reusing freed fragments for size :: ", size);
+    PT_DEVMEM_DEBUG("POOL:: Reusing freed fragments for size :: ", size);
     auto status = synDeviceMalloc(pool_id, size, 0, 0, &block->memptr);
     if (synStatus::synSuccess != status) {
       freeHostMemory(block);
-      PT_SYNHELPER_DEBUG(
+      PT_DEVMEM_DEBUG(
           "POOL:: Cannot obtain device memory size. Status: ", status);
       return nullptr;
     }
   }
   // std::cerr << "POOL:: synDeviceMalloc :: block->memptr :: "<<
   // (uint64_t*)block->memptr << " size :: " << size <<std::endl;
-  PT_SYNHELPER_DEBUG("POOL:: Creating a new block of size :: ", size);
+  PT_DEVMEM_DEBUG("POOL:: Creating a new block of size :: ", size);
   return block;
 }
 
@@ -383,7 +382,7 @@ Block* DynamicPooling::equalFit(uint64_t size) const {
       continue;
     }
     // Found the block:
-    PT_SYNHELPER_DEBUG(
+    PT_DEVMEM_DEBUG(
         "POOL:: Reusing Block of size :: ",
         size,
         "  in block size :: ",
@@ -431,7 +430,7 @@ void* DynamicPooling::allocBlock(uint64_t size) const {
 
 bool DynamicPooling::pool_create(synDeviceId deviceID, uint64_t size) const {
   const std::lock_guard<std::mutex> lock(vp_mutex);
-  PT_SYNHELPER_DEBUG("POOL:: Dynamic Pool Initiated");
+  PT_DEVMEM_DEBUG("POOL:: Dynamic Pool Initiated");
   size = pool_allocator::block_align(size);
   pool_id = deviceID;
   stats.pool_id = pool_id;
@@ -443,7 +442,7 @@ void DynamicPooling::pool_destroy() const {
   const std::lock_guard<std::mutex> lock(vp_mutex);
   freeBlocks(pool_start);
   pool_start = nullptr;
-  PT_SYNHELPER_DEBUG("POOL:: Dynamic Pool destroyed");
+  PT_DEVMEM_DEBUG("POOL:: Dynamic Pool destroyed");
   return;
 }
 
@@ -466,7 +465,7 @@ bool DynamicPooling::is_mem_threshold_hit() const {
   uint64_t free_mem, total_mem;
   auto status = synDeviceGetMemoryInfo(pool_id, &free_mem, &total_mem);
   if (synStatus::synSuccess != status) {
-    PT_SYNHELPER_DEBUG(
+    PT_DEVMEM_DEBUG(
         "POOL:: Cannot obtain device memory info. Status: ", status);
     return false;
   }
@@ -476,7 +475,7 @@ bool DynamicPooling::is_mem_threshold_hit() const {
 }
 
 void* DynamicPooling::extend_high_memory_allocation(uint64_t size) const {
-  PT_SYNHELPER_DEBUG(
+  PT_DEVMEM_DEBUG(
       "POOL:: Dynamic Pool - extending high memory allocation not supported size::",
       size);
   return nullptr;

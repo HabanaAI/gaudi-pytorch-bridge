@@ -41,7 +41,7 @@ bool StaticCoalescedPooling::pool_create(synDeviceId deviceID, uint64_t size)
   uint64_t free_mem, total_mem;
   status = synDeviceGetMemoryInfo(deviceID, &free_mem, &total_mem);
   if (synStatus::synSuccess != status) {
-    PT_SYNHELPER_DEBUG(
+    PT_DEVMEM_DEBUG(
         "POOL:: Cannot obtain device memory info. Status: ", status);
   }
 
@@ -49,7 +49,7 @@ bool StaticCoalescedPooling::pool_create(synDeviceId deviceID, uint64_t size)
   if ((size > free_mem) || (size == DEFAULT_POOL_SIZE)) {
     // setting the pool size to 99% of available memory in case of failure
     size = 0.99 * free_mem;
-    PT_SYNHELPER_DEBUG(
+    PT_DEVMEM_DEBUG(
         "POOL:: use 99% of freepool size, free mem :: ",
         free_mem,
         " size used for pool :: ",
@@ -59,14 +59,14 @@ bool StaticCoalescedPooling::pool_create(synDeviceId deviceID, uint64_t size)
 
   auto p = new simple_coalesced_pool_t();
   if (!p) {
-    PT_SYNHELPER_DEBUG("POOL:: Cannot obtain pool memory");
+    PT_DEVMEM_DEBUG("POOL:: Cannot obtain pool memory");
     return false;
   }
 
   status = synDeviceMalloc(pool_id, size, 0, 0, &p->basememptr);
   if (synStatus::synSuccess != status) {
     delete (p);
-    PT_SYNHELPER_FATAL(
+    PT_DEVMEM_FATAL(
         "POOL:: Cannot obtain device memory size. Status: ", status);
     return false;
   }
@@ -78,12 +78,12 @@ bool StaticCoalescedPooling::pool_create(synDeviceId deviceID, uint64_t size)
   p->end = p->basememptr + size;
   p->start = nullptr;
   p->top = p->start;
-  PT_SYNHELPER_DEBUG("POOL:: static coalesced pool created");
+  PT_DEVMEM_DEBUG("POOL:: static coalesced pool created");
   print_device_memory_stats(pool_id);
   prealloc_pool = p;
 
   // StaticCoalescedPooling::print_pool_stats();
-  PT_SYNHELPER_DEBUG(
+  PT_DEVMEM_DEBUG(
       "POOL:: Pool Created :: base host :: ",
       p,
       " base ptr :: ",
@@ -112,8 +112,8 @@ void StaticCoalescedPooling::pool_destroy() const {
   StaticCoalescedPooling::print_pool_stats();
 
   if ((s_pool) && (chunk_count != 0)) {
-    PT_SYNHELPER_DEBUG("POOL:: warning -- active chunks !!");
-    PT_SYNHELPER_DEBUG("POOL:: total active chunks :: ", chunk_count);
+    PT_DEVMEM_DEBUG("POOL:: warning -- active chunks !!");
+    PT_DEVMEM_DEBUG("POOL:: total active chunks :: ", chunk_count);
   }
 
   if (s_pool) {
@@ -137,7 +137,7 @@ void StaticCoalescedPooling::pool_destroy() const {
     free_list.clear();
     delete (s_pool);
     s_pool = nullptr;
-    PT_SYNHELPER_DEBUG("POOL:: static coalesced pool destroyed");
+    PT_DEVMEM_DEBUG("POOL:: static coalesced pool destroyed");
   }
 }
 
@@ -154,7 +154,7 @@ bool StaticCoalescedPooling::is_mem_threshold_hit() const {
 
 void* StaticCoalescedPooling::extend_high_memory_allocation(
     uint64_t size) const {
-  PT_SYNHELPER_DEBUG(
+  PT_DEVMEM_DEBUG(
       "POOL:: extending high memory allocation not supported size::", size);
   return nullptr;
 }
@@ -197,14 +197,14 @@ void StaticCoalescedPooling::print_pool_stats() const {
       cntgs_free_chunks_size = 0;
 
       if (chunk->prev && !chunk->prev->used && chunk->prev->size) {
-        PT_SYNHELPER_DEBUG(
+        PT_DEVMEM_DEBUG(
             "POOL:: can be merged :: chunk :: ",
             chunk->memptr,
             " with prev :: ",
             chunk->prev->memptr);
       }
       if (chunk->next && !chunk->next->used && chunk->next->size) {
-        PT_SYNHELPER_DEBUG(
+        PT_DEVMEM_DEBUG(
             "POOL:: can be merged :: chunk :: ",
             chunk->memptr,
             " with next :: ",
@@ -212,24 +212,22 @@ void StaticCoalescedPooling::print_pool_stats() const {
       }
     }
   }
-  PT_SYNHELPER_DEBUG("POOL:: total_chunks in the pool :: ", total_chunks);
-  PT_SYNHELPER_DEBUG("POOL:: total_size in the pool :: ", total_size);
-  PT_SYNHELPER_DEBUG("POOL:: occupied_chunks in the pool :: ", occupied_chunks);
-  PT_SYNHELPER_DEBUG(
-      "POOL:: occupied_chunks size in the pool :: ", occupied_size);
-  PT_SYNHELPER_DEBUG("POOL:: free chunks in the pool :: ", free_chunks);
-  PT_SYNHELPER_DEBUG(
-      "POOL:: free chunks size in the pool :: ", free_chunks_size);
-  PT_SYNHELPER_DEBUG(
+  PT_DEVMEM_DEBUG("POOL:: total_chunks in the pool :: ", total_chunks);
+  PT_DEVMEM_DEBUG("POOL:: total_size in the pool :: ", total_size);
+  PT_DEVMEM_DEBUG("POOL:: occupied_chunks in the pool :: ", occupied_chunks);
+  PT_DEVMEM_DEBUG("POOL:: occupied_chunks size in the pool :: ", occupied_size);
+  PT_DEVMEM_DEBUG("POOL:: free chunks in the pool :: ", free_chunks);
+  PT_DEVMEM_DEBUG("POOL:: free chunks size in the pool :: ", free_chunks_size);
+  PT_DEVMEM_DEBUG(
       "POOL:: max contigous chunks size in the pool :: ",
       max_cntgs_free_chunks_size);
-  PT_SYNHELPER_DEBUG(
+  PT_DEVMEM_DEBUG(
       "POOL:: total_extra_spaced_chunks in the pool  :: ",
       total_extra_spaced_chunks);
-  PT_SYNHELPER_DEBUG(
+  PT_DEVMEM_DEBUG(
       "POOL:: total_extra_size in the pool chunks :: ", total_exta_size);
-  PT_SYNHELPER_DEBUG("POOL::{}", pool_status.str());
-  PT_SYNHELPER_DEBUG(
+  PT_DEVMEM_DEBUG("POOL::{}", pool_status.str());
+  PT_DEVMEM_DEBUG(
       "POOL::Fragmentation = ",
       1 - ((double)max_cntgs_free_chunks_size / free_chunks_size));
   total_chunks = 0;
@@ -262,7 +260,7 @@ Chunk* StaticCoalescedPooling::get_any_available_free_chunk(
   auto it = free_list.lower_bound(&key);
   if (it != free_list.end()) {
     auto chunk = *it;
-    PT_SYNHELPER_DEBUG(
+    PT_DEVMEM_DEBUG(
         "POOL:: Return bigger chunk :: ",
         chunk,
         " chunk size :: ",
@@ -271,7 +269,7 @@ Chunk* StaticCoalescedPooling::get_any_available_free_chunk(
         size);
     return chunk;
   }
-  PT_SYNHELPER_DEBUG("POOL:: no bigger chunks !!");
+  PT_DEVMEM_DEBUG("POOL:: no bigger chunks !!");
   return nullptr;
 }
 
@@ -298,7 +296,7 @@ Chunk* StaticCoalescedPooling::defragment_on_reuse(void* ptr, uint64_t size)
   auto curr_size = p->end - p->next;
   // do not defragment until pool touches 75% capacity
   if (curr_size >= (0.75 * max_pool_size)) {
-    PT_SYNHELPER_DEBUG(
+    PT_DEVMEM_DEBUG(
         "POOL:: more than 75% pool available, not defragmenting, \
             current size :: ",
         curr_size,
@@ -335,7 +333,7 @@ uint64_t StaticCoalescedPooling::getContigousChunkSize(Chunk* chunk) const {
     temp2 = temp2->next;
   };
   ctgs_chunks_size += chunk->size;
-  PT_SYNHELPER_DEBUG(
+  PT_DEVMEM_DEBUG(
       "POOL:: ctgs_chunks_size available :: ",
       ctgs_chunks_size,
       " ctgs_chunks :: ",
@@ -352,7 +350,7 @@ bool StaticCoalescedPooling::isContigousBlockAvailable(uint64_t size) const {
     if (!chunk->used && (chunk->size != 0)) {
       ctgs_chunks_size = getContigousChunkSize(chunk);
       if (ctgs_chunks_size >= size) {
-        PT_SYNHELPER_DEBUG(
+        PT_DEVMEM_DEBUG(
             "POOL:: ctgs_chunks_size available for defragmentation");
         return true;
       }
@@ -371,21 +369,20 @@ Chunk* StaticCoalescedPooling::try_defragmenting(void* ptr, uint64_t size)
   bool isFreeBlockAvailble = false;
   uint16_t counter = 0;
   if (free_list.empty()) {
-    PT_SYNHELPER_DEBUG("POOL:: no free blocks availabe: ");
+    PT_DEVMEM_DEBUG("POOL:: no free blocks availabe: ");
     return nullptr;
   }
   do {
     isFreeBlockAvailble = pool_defragment(size);
     counter++;
     if (isFreeBlockAvailble) {
-      PT_SYNHELPER_DEBUG(
-          "POOL:: free block available for use for size : ", size);
+      PT_DEVMEM_DEBUG("POOL:: free block available for use for size : ", size);
       break;
     }
     // worse case :parse the entire list once for every chunk to find free
     // blocks
     if (counter > free_list.size()) {
-      PT_SYNHELPER_DEBUG(
+      PT_DEVMEM_DEBUG(
           "POOL:: no more contigous chunks to accomodate request in the pool !");
       break;
     }
@@ -395,7 +392,7 @@ Chunk* StaticCoalescedPooling::try_defragmenting(void* ptr, uint64_t size)
   auto free_chunk = get_free_chunk(size);
   if (free_chunk == nullptr) {
     if (isFreeBlockAvailble) {
-      PT_SYNHELPER_DEBUG(
+      PT_DEVMEM_DEBUG(
           "POOL:: Free blocks available -- block split, p->end :: ",
           p->end,
           " p->next :: ",
@@ -404,11 +401,11 @@ Chunk* StaticCoalescedPooling::try_defragmenting(void* ptr, uint64_t size)
           max_pool_size);
       isFreeBlockAvailble = false;
     }
-    PT_SYNHELPER_DEBUG(
+    PT_DEVMEM_DEBUG(
         "POOL:: no more reusable chunk after defragment: extend pool !!");
     return nullptr;
   }
-  PT_SYNHELPER_DEBUG(
+  PT_DEVMEM_DEBUG(
       "POOL:: reusing chunk after defragment:: ",
       free_chunk->memptr,
       " req size :: ",
@@ -425,12 +422,11 @@ Chunk* StaticCoalescedPooling::reuse_chunks(uint64_t size) const {
     simple_coalesced_pool_t* p = (simple_coalesced_pool_t*)prealloc_pool;
     return defragment_on_reuse(p, size);
 #else
-    PT_SYNHELPER_DEBUG(
-        "POOL:: no more reusable chunk: defragment or extend !!");
+    PT_DEVMEM_DEBUG("POOL:: no more reusable chunk: defragment or extend !!");
     return nullptr;
 #endif
   }
-  PT_SYNHELPER_DEBUG(
+  PT_DEVMEM_DEBUG(
       "POOL:: reusing chunk :: ",
       free_chunk->memptr,
       " req size :: ",
@@ -445,14 +441,14 @@ Chunk* StaticCoalescedPooling::try_block_splitting(uint64_t size) const {
   Chunk* big_chunk = nullptr;
   big_chunk = get_any_available_free_chunk(size);
   if (big_chunk) {
-    PT_SYNHELPER_DEBUG(
+    PT_DEVMEM_DEBUG(
         "Get any available free chunk:: ",
         big_chunk,
         " of Size:: ",
         big_chunk->size);
     auto split_chunk = try_splitting_chunks(big_chunk, size);
     if (split_chunk) {
-      PT_SYNHELPER_DEBUG(
+      PT_DEVMEM_DEBUG(
           "POOL:: bigger chunk split :: big_chunk :: ",
           big_chunk,
           " big_chunk size :: ",
@@ -473,14 +469,14 @@ void* StaticCoalescedPooling::pool_alloc_chunk(uint64_t size, bool is_workspace)
   size = block_align(size);
 
   if (size > max_pool_size) {
-    PT_SYNHELPER_DEBUG("POOL:: alloc size exceeds max size !!");
+    PT_DEVMEM_DEBUG("POOL:: alloc size exceeds max size !!");
     return nullptr;
   }
   simple_coalesced_pool_t* p = (simple_coalesced_pool_t*)prealloc_pool;
   if (prealloc_pool != p) {
-    PT_SYNHELPER_FATAL("POOL:: alloc unknown pool !!");
+    PT_DEVMEM_FATAL("POOL:: alloc unknown pool !!");
   }
-  PT_SYNHELPER_DEBUG(
+  PT_DEVMEM_DEBUG(
       "POOL:: pool_alloc_chunk request in pool :: ", p, " for size :: ", size);
   auto old_chunk = reuse_chunks(size);
   if (old_chunk) {
@@ -489,7 +485,7 @@ void* StaticCoalescedPooling::pool_alloc_chunk(uint64_t size, bool is_workspace)
     auto nextptr = old_chunk->next ? old_chunk->next->memptr : 0;
     // extra space available in blocks after split/coalasce
     old_chunk->extra_space = old_chunk->size - size;
-    PT_SYNHELPER_DEBUG(
+    PT_DEVMEM_DEBUG(
         "POOL:: pool_alloc_chunk allocated reuse chunk :: base:: ",
         old_chunk,
         " chunk memptr ::",
@@ -541,14 +537,14 @@ void* StaticCoalescedPooling::pool_alloc_chunk(uint64_t size, bool is_workspace)
     }
     print_device_memory_stats(pool_id);
     print_pool_stats();
-    PT_SYNHELPER_DEBUG("POOL:: pool exhausted !! for size :: ", size);
+    PT_DEVMEM_DEBUG("POOL:: pool exhausted !! for size :: ", size);
     return nullptr;
   }
 
   // create a chunk
   Chunk* chunk = new Chunk();
   if (!chunk) {
-    PT_SYNHELPER_DEBUG("POOL:: Cannot create a chunk");
+    PT_DEVMEM_DEBUG("POOL:: Cannot create a chunk");
     return nullptr;
   }
   chunk->memptr = (uint64_t)p->next;
@@ -573,7 +569,7 @@ void* StaticCoalescedPooling::pool_alloc_chunk(uint64_t size, bool is_workspace)
 
   auto prevptr = chunk->prev ? chunk->prev->memptr : 0;
   auto nextptr = chunk->next ? chunk->next->memptr : 0;
-  PT_SYNHELPER_DEBUG(
+  PT_DEVMEM_DEBUG(
       "POOL:: pool_alloc_chunk allocated :: base:: ",
       chunk,
       " chunk memptr ::",
@@ -586,7 +582,7 @@ void* StaticCoalescedPooling::pool_alloc_chunk(uint64_t size, bool is_workspace)
       size,
       " chunk size :: ",
       chunk->size);
-  PT_SYNHELPER_DEBUG("POOL:: Allocated chunk_count :: ", chunk_count);
+  PT_DEVMEM_DEBUG("POOL:: Allocated chunk_count :: ", chunk_count);
 
   chunks[chunk->memptr] = chunk;
   bytes_in_use += chunk->size;
@@ -603,7 +599,7 @@ bool StaticCoalescedPooling::canMergeNextChunk(Chunk* chunk, uint64_t size)
 
 bool StaticCoalescedPooling::canMergePreviousChunk(Chunk* chunk, uint64_t size)
     const {
-  PT_SYNHELPER_DEBUG("POOL:: Next chunk is not contigous or free ", size);
+  PT_DEVMEM_DEBUG("POOL:: Next chunk is not contigous or free ", size);
 
   return (
       !chunk->used && chunk->prev && !chunk->prev->used && chunk->prev->size &&
@@ -612,7 +608,7 @@ bool StaticCoalescedPooling::canMergePreviousChunk(Chunk* chunk, uint64_t size)
 
 Chunk* StaticCoalescedPooling::try_splitting_chunks(Chunk* chunk, uint64_t size)
     const {
-  PT_SYNHELPER_DEBUG(
+  PT_DEVMEM_DEBUG(
       "split chunk::",
       chunk,
       " Prev:: ",
@@ -622,7 +618,7 @@ Chunk* StaticCoalescedPooling::try_splitting_chunks(Chunk* chunk, uint64_t size)
       " next:: ",
       (chunk->next ? chunk->next->memptr : 0));
   if (chunk->size < size) {
-    PT_SYNHELPER_DEBUG(
+    PT_DEVMEM_DEBUG(
         "POOL:: chunk cant be split, chunk is smaller. chunk size:: ",
         chunk->size,
         " split size:: ",
@@ -662,7 +658,7 @@ Chunk* StaticCoalescedPooling::try_splitting_chunks(Chunk* chunk, uint64_t size)
   // insert new chunk to chunks
   chunks[new_chunk->memptr] = new_chunk;
 
-  PT_SYNHELPER_DEBUG(
+  PT_DEVMEM_DEBUG(
       "new chunk::",
       new_chunk,
       " prev:: ",
@@ -671,7 +667,7 @@ Chunk* StaticCoalescedPooling::try_splitting_chunks(Chunk* chunk, uint64_t size)
       new_chunk->memptr,
       " next:: ",
       (new_chunk->next ? new_chunk->next->memptr : 0));
-  PT_SYNHELPER_DEBUG(
+  PT_DEVMEM_DEBUG(
       "modified chunk::",
       chunk,
       " prev:: ",
@@ -684,7 +680,7 @@ Chunk* StaticCoalescedPooling::try_splitting_chunks(Chunk* chunk, uint64_t size)
 }
 
 Chunk* StaticCoalescedPooling::merge(Chunk* c1, Chunk* c2) const {
-  PT_SYNHELPER_DEBUG(
+  PT_DEVMEM_DEBUG(
       "Merge C1::",
       c1,
       " prev:: ",
@@ -693,7 +689,7 @@ Chunk* StaticCoalescedPooling::merge(Chunk* c1, Chunk* c2) const {
       c1->memptr,
       " next:: ",
       (c1->next ? c1->next->memptr : 0));
-  PT_SYNHELPER_DEBUG(
+  PT_DEVMEM_DEBUG(
       "Merge C2::",
       c2,
       " prev:: ",
@@ -703,12 +699,12 @@ Chunk* StaticCoalescedPooling::merge(Chunk* c1, Chunk* c2) const {
       " next:: ",
       (c2->next ? c2->next->memptr : 0));
   if (c1->used || c2->used) {
-    PT_SYNHELPER_DEBUG(" Chunk is in use, cannot merge ");
+    PT_DEVMEM_DEBUG(" Chunk is in use, cannot merge ");
     return nullptr;
   }
 
   if (c2->prev != c1) {
-    PT_SYNHELPER_FATAL(
+    PT_DEVMEM_FATAL(
         "Invalid c2 prev pointer prev->",
         c2->prev->memptr,
         " not equal to c1::",
@@ -717,7 +713,7 @@ Chunk* StaticCoalescedPooling::merge(Chunk* c1, Chunk* c2) const {
   }
   // check if c1 and c2 address are contigous(addtional check)
   if ((c1->memptr + c1->size) != c2->memptr) {
-    PT_SYNHELPER_FATAL(
+    PT_DEVMEM_FATAL(
         "c1 & c2 are not contigous c1->memptr:: ",
         c1->memptr,
         " c2-?memptr:",
@@ -768,7 +764,7 @@ Chunk* StaticCoalescedPooling::merge(Chunk* c1, Chunk* c2) const {
 
   free_list.insert(c1);
 
-  PT_SYNHELPER_DEBUG(
+  PT_DEVMEM_DEBUG(
       "Merged Chunk C1::",
       c1,
       " prev:: ",
@@ -803,20 +799,20 @@ bool StaticCoalescedPooling::merge_chunks(
 
     if (new_chunk && new_chunk->size >= size) {
       isFreeBlockAvailble = true;
-      PT_SYNHELPER_DEBUG(
+      PT_DEVMEM_DEBUG(
           "POOL:: pool defragmentation succeeded for requested size :: ",
           size,
           " chunk->size :: ",
           new_chunk->size);
       if (size < DEFRAGMENT_TH(new_chunk->size)) {
-        PT_SYNHELPER_DEBUG(
+        PT_DEVMEM_DEBUG(
             "POOL:: try block splitting for size :: ",
             size,
             " in chunk of chunk->size :: ",
             new_chunk->size);
         auto split_chunk = try_splitting_chunks(new_chunk, size);
         if (split_chunk) {
-          PT_SYNHELPER_DEBUG(
+          PT_DEVMEM_DEBUG(
               "POOL:: chunk splitted successfully :: newchunk :: ",
               split_chunk,
               " new chunk size :: ",
@@ -835,7 +831,7 @@ bool StaticCoalescedPooling::merge_chunks(
 
 bool StaticCoalescedPooling::pool_defragment(uint64_t size) const {
   bool isFreeBlockAvailble = false;
-  PT_SYNHELPER_DEBUG("POOL:: Try to coalesce and split if needed");
+  PT_DEVMEM_DEBUG("POOL:: Try to coalesce and split if needed");
   std::list<uint64_t> to_merge;
   // check previous chunks
   for (auto& chunk : free_list) {
@@ -889,7 +885,7 @@ bool StaticCoalescedPooling::pool_defragment(uint64_t size) const {
 void StaticCoalescedPooling::pool_free_chunk(void* ptr) const {
   const std::lock_guard<std::mutex> lock(sp_mutex);
   if ((uint64_t)ptr == 0) {
-    PT_SYNHELPER_DEBUG("POOL:: null ptr");
+    PT_DEVMEM_DEBUG("POOL:: null ptr");
     return;
   }
 

@@ -28,26 +28,26 @@ device_memory::device_memory(device& device) : device_{device} {
   switch (pool_strategy_) {
     case pool_allocator::strategy_bump:
       try {
-        PT_SYNHELPER_DEBUG("strategy_bump with size :: ", pool_size_);
+        PT_DEVMEM_DEBUG("strategy_bump with size :: ", pool_size_);
         suballoc_ =
             new pool_allocator::SubAllocator(new pool_allocator::StaticPooling);
         if (suballoc_ == nullptr) {
-          PT_SYNHELPER_FATAL("unable to create pool allocator");
+          PT_DEVMEM_FATAL("unable to create pool allocator");
         }
       } catch (...) {
-        PT_SYNHELPER_FATAL("unknown pool error ");
+        PT_DEVMEM_FATAL("unknown pool error ");
       }
       break;
     case pool_allocator::strategy_dynamic:
       try {
-        PT_SYNHELPER_DEBUG("strategy_dynamic :: ", pool_size_);
+        PT_DEVMEM_DEBUG("strategy_dynamic :: ", pool_size_);
         suballoc_ = new pool_allocator::SubAllocator(
             new pool_allocator::DynamicPooling);
         if (suballoc_ == nullptr) {
-          PT_SYNHELPER_FATAL("unable to create pool allocator");
+          PT_DEVMEM_FATAL("unable to create pool allocator");
         }
       } catch (...) {
-        PT_SYNHELPER_FATAL("unknown pool error ");
+        PT_DEVMEM_FATAL("unknown pool error ");
       }
       break;
     case pool_allocator::startegy_static_coalesce_with_memthreshold:
@@ -55,52 +55,52 @@ device_memory::device_memory(device& device) : device_{device} {
        * we remove it later and enable for all startegy by default */
       enable_mem_threshold_check = true;
       try {
-        PT_SYNHELPER_DEBUG("startegy_static_coalesce :: ", pool_size_);
+        PT_DEVMEM_DEBUG("startegy_static_coalesce :: ", pool_size_);
         suballoc_ = new pool_allocator::SubAllocator(
             new pool_allocator::StaticCoalescedPooling);
         if (suballoc_ == nullptr) {
-          PT_SYNHELPER_FATAL("unable to create pool allocator");
+          PT_DEVMEM_FATAL("unable to create pool allocator");
         }
       } catch (...) {
-        PT_SYNHELPER_FATAL("unknown pool error ");
+        PT_DEVMEM_FATAL("unknown pool error ");
       }
       break;
     case pool_allocator::startegy_static_coalesce:
       try {
-        PT_SYNHELPER_DEBUG("startegy_static_coalesce :: ", pool_size_);
+        PT_DEVMEM_DEBUG("startegy_static_coalesce :: ", pool_size_);
         suballoc_ = new pool_allocator::SubAllocator(
             new pool_allocator::StaticCoalescedPooling);
         if (suballoc_ == nullptr) {
-          PT_SYNHELPER_FATAL("unable to create pool allocator");
+          PT_DEVMEM_FATAL("unable to create pool allocator");
         }
       } catch (...) {
-        PT_SYNHELPER_FATAL("unknown pool error ");
+        PT_DEVMEM_FATAL("unknown pool error ");
       }
       break;
     case pool_allocator::startegy_coalesce_stringent:
       try {
-        PT_SYNHELPER_DEBUG("startegy_coalesce_stringent:: ", pool_size_);
+        PT_DEVMEM_DEBUG("startegy_coalesce_stringent:: ", pool_size_);
         uint64_t max_merge_count = GET_ENV_FLAG(PT_HPU_POOL_MAX_MERGE_COUNT);
         bool enable_lfu_merging = GET_ENV_FLAG(PT_HPU_POOL_ENABLE_LFU_MERGE);
         suballoc_ = new pool_allocator::SubAllocator(
             new pool_allocator::CoalescedStringentPooling(
                 max_merge_count, enable_lfu_merging));
         if (suballoc_ == nullptr) {
-          PT_SYNHELPER_FATAL("unable to create pool allocator");
+          PT_DEVMEM_FATAL("unable to create pool allocator");
         }
       } catch (...) {
-        PT_SYNHELPER_FATAL("unknown pool error ");
+        PT_DEVMEM_FATAL("unknown pool error ");
       }
       break;
     case pool_allocator::strategy_none:
       suballoc_ = nullptr;
       break;
     default:
-      PT_SYNHELPER_FATAL("unsupported pool strategy");
+      PT_DEVMEM_FATAL("unsupported pool strategy");
       break;
   }
   if (suballoc_ && !suballoc_->pool_create(device_.id(), pool_size_)) {
-    PT_SYNHELPER_FATAL("pool creation failed");
+    PT_DEVMEM_FATAL("pool creation failed");
   }
 
   if (pool_strategy_ != pool_allocator::startegy_static_coalesce) {
@@ -111,7 +111,7 @@ device_memory::device_memory(device& device) : device_{device} {
     synDeviceAttribute* deviceAttr = deviceAttrs.data();
     auto status = synDeviceGetAttribute(dram_info, deviceAttr, 2, device_.id());
     if (synStatus::synSuccess != status) {
-      PT_SYNHELPER_FATAL("Cannot obtain dram info. Status: ", status);
+      PT_DEVMEM_FATAL("Cannot obtain dram info. Status: ", status);
     }
     log_DRAM_start(dram_info[0]);
     log_DRAM_size(dram_info[1]);
@@ -138,7 +138,7 @@ synStatus device_memory::alloc(void** v_ptr, uint64_t size, bool is_workspace) {
     ptr = (uint64_t)suballoc_->pool_alloc_chunk(size, is_workspace);
 
     if ((void*)ptr == nullptr) {
-      PT_SYNHELPER_DEBUG("pooling allocator failed, requested size ", size);
+      PT_DEVMEM_DEBUG("pooling allocator failed, requested size ", size);
       status = synFail;
     }
 
@@ -147,7 +147,7 @@ synStatus device_memory::alloc(void** v_ptr, uint64_t size, bool is_workspace) {
     status = synDeviceMalloc(device_.id(), size, 0, 0, &ptr);
 
     if (synStatus::synSuccess != status) {
-      PT_SYNHELPER_DEBUG("synDeviceMalloc failed, requested size ", size);
+      PT_DEVMEM_DEBUG("synDeviceMalloc failed, requested size ", size);
     } else {
       *v_ptr = reinterpret_cast<void*>(ptr);
     }
@@ -167,7 +167,7 @@ synStatus device_memory::deallocate(void* ptr) {
   } else {
     uint64_t ptr_address{reinterpret_cast<uint64_t>(ptr)};
     auto status{synDeviceFree(device_.id(), ptr_address, 0)};
-    PT_SYNHELPER_DEBUG("SynDeviceFree Failed.", status);
+    PT_DEVMEM_DEBUG("SynDeviceFree Failed.", status);
   }
   return status;
 }
@@ -184,7 +184,7 @@ synStatus device_memory::malloc(void** v_ptr, uint64_t size) {
         handle_id_generator_.get(), ptr_with_size{nullptr, size});
 
     if (!inserted) {
-      PT_SYNHELPER_FATAL("Handle ", mem_handle(iter->first), " already exists");
+      PT_DEVMEM_FATAL("Handle ", mem_handle(iter->first), " already exists");
     }
 
     ptr = mem_handle::reinterpret_to_pointer(mem_handle(iter->first));
@@ -216,14 +216,14 @@ synStatus device_memory::free(void* free_ptr) {
         reinterpret_cast<uint64_t>(free_ptr));
 
     if (h.offset() != 0) {
-      PT_SYNHELPER_FATAL("Cannot free offseted handle ", h);
+      PT_DEVMEM_FATAL("Cannot free offseted handle ", h);
     }
 
     std::unique_lock<std::mutex> lock(mutex_);
     const auto id = h.id();
     auto iter = handle2pointer_.find(id);
     if (iter == handle2pointer_.end()) {
-      PT_SYNHELPER_FATAL("Handle ", h, " does not exist");
+      PT_DEVMEM_FATAL("Handle ", h, " does not exist");
     }
 
     void* ptr;
@@ -267,7 +267,7 @@ void* device_memory::workspace_alloc(
       while (recipe_counter.get_count() > 1) {
         recipe_counter.wait_for_next_decrease_call();
       }
-      PT_SYNHELPER_DEBUG(
+      PT_DEVMEM_DEBUG(
           "requested size > size, free the buffer and reallocte current size::",
           ws_size,
           " requested size::",
@@ -295,14 +295,14 @@ void* device_memory::workspace_alloc(
 // special case handling for preallocated buffer
 void device_memory::fix_address(void* ptr) {
   if (ptr == nullptr) {
-    PT_SYNHELPER_FATAL("fix_address ptr is null");
+    PT_DEVMEM_FATAL("fix_address ptr is null");
   }
 
   auto h =
       mem_handle::reinterpret_from_pointer(reinterpret_cast<uint64_t>(ptr));
 
   if (h.offset() != 0) {
-    PT_SYNHELPER_FATAL("Cannot fix offseted handle ", h);
+    PT_DEVMEM_FATAL("Cannot fix offseted handle ", h);
   }
 
   get_pointer(h);
@@ -310,7 +310,7 @@ void device_memory::fix_address(void* ptr) {
 
 void device_memory::check_and_limit_recipe_execution() {
   auto& recipe_counter = device_.get_active_recipe_counter();
-  PT_SYNHELPER_DEBUG("Recipes in queue", recipe_counter.get_count());
+  PT_DEVMEM_DEBUG("Recipes in queue", recipe_counter.get_count());
   uint32_t counter_state{0};
   if (recipe_counter.get_count() > device_.GetMaxRecipeLimitInQueue()) {
     do {
@@ -354,7 +354,7 @@ device_ptr device_memory::get_pointer(mem_handle h) {
     std::unique_lock<std::mutex> lock(mutex_);
     auto iter = handle2pointer_.find(h.id());
     if (iter == handle2pointer_.end()) {
-      PT_SYNHELPER_FATAL("Handle ", h.unoffseted(), " does not exist");
+      PT_DEVMEM_FATAL("Handle ", h.unoffseted(), " does not exist");
     }
 
     std::tie(ptr, size) = iter->second;
@@ -377,7 +377,7 @@ device_ptr device_memory::get_pointer(mem_handle h) {
     if (!recipe_counter.is_zero()) {
       do {
         counter_state = recipe_counter.wait_for_next_decrease_call();
-        PT_SYNHELPER_DEBUG(
+        PT_DEVMEM_DEBUG(
             "retrying memory alloc, ",
             "waiting for recipe launch completion, recipe count ",
             counter_state,
@@ -387,7 +387,7 @@ device_ptr device_memory::get_pointer(mem_handle h) {
         if (ptr == nullptr) {
           MemoryStats stats;
           get_memory_stats(&stats);
-          PT_SYNHELPER_DEBUG("Retry Memory Stats", stats.DebugString());
+          PT_DEVMEM_DEBUG("Retry Memory Stats", stats.DebugString());
         }
       } while (counter_state > 1 && ptr == nullptr);
     }
@@ -396,14 +396,14 @@ device_ptr device_memory::get_pointer(mem_handle h) {
   if (ptr == nullptr) {
     MemoryStats stats;
     get_memory_stats(&stats);
-    PT_SYNHELPER_DEBUG("Memory Stats", stats.DebugString());
-    PT_SYNHELPER_FATAL("Allocation failed for size::", size);
+    PT_DEVMEM_DEBUG("Memory Stats", stats.DebugString());
+    PT_DEVMEM_FATAL("Allocation failed for size::", size);
   }
 
   const auto offset = h.offset();
 
   if (offset >= size) {
-    PT_SYNHELPER_FATAL("Trying to access out of bounds of resource");
+    PT_DEVMEM_FATAL("Trying to access out of bounds of resource");
   }
 
   return reinterpret_cast<device_ptr>(ptr) + offset;

@@ -91,6 +91,22 @@ static RT<T> getenv_numeric(
     errno = 0;
     char* err;
     T env = static_cast<T>(strtonum(e, &err, 0));
+    std::string str = std::string(e);
+    if (!env) {
+      e = (std::string("0x") + str)
+              .c_str(); // add 0x prefix to FFFF and such strings to make it
+                        // valid which is otherwise invalid.
+      env = static_cast<T>(strtonum(
+          e,
+          &err,
+          0)); // converts such valid strings (such as 0xFFFF) to unsinged long.
+      if (*err)
+        Logger::habana_assert(
+            __func__,
+            __FILE__,
+            static_cast<uint32_t>(__LINE__),
+            "Invalid string");
+    }
     if (errno) {
       PT_SYNHELPER_FATAL(
           "Environment variable \"",

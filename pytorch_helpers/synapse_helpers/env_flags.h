@@ -213,6 +213,22 @@ struct PT_ENABLE_SYNLAUNCH_TIME_CAPTURE {
   static constexpr bool default_value = false;
 };
 
+struct PT_HPU_LOG_MOD_MASK : public std::numeric_limits<unsigned long> {
+  static constexpr unsigned long default_value = UINT64_MAX;
+};
+
+struct PT_HPU_LOG_TYPE_MASK : public std::numeric_limits<unsigned long> {
+  static constexpr unsigned long default_value = 3;
+};
+
+struct PT_HPU_PGM_ENABLE_CACHE : public std::numeric_limits<unsigned long> {
+  static constexpr unsigned long default_value = 0;
+};
+
+struct PT_HPU_LOG_NODE_MASK : public std::numeric_limits<unsigned long> {
+  static constexpr unsigned long default_value = 0;
+};
+
 // Overloads for different type of default value
 
 template <class T>

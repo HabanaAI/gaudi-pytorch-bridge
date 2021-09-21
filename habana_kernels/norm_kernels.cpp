@@ -1263,21 +1263,6 @@ void LayerNormOperator::AllocateAndAddSynapseNode(
       multiply_integers(input_shape.cbegin(), input_shape.cbegin() + axis);
   int64_t n =
       multiply_integers(input_shape.cbegin() + axis, input_shape.cend());
-  // PT_HABANA_ENABLE_GRAPHMODE_LAYERNORM_FUSION Env variable is added as WA
-  // only for BERT graph mode and it should not be enabled in other cases.
-  static const std::string graphFusionEnvValue =
-      "PT_HABANA_ENABLE_GRAPHMODE_LAYERNORM_FUSION";
-  const char* graphFusionValue = get2env(graphFusionEnvValue.c_str());
-  if (graphFusionValue) {
-    int isFusionEnabled =
-        std::stoi(get2env("PT_HABANA_ENABLE_GRAPHMODE_LAYERNORM_FUSION"));
-    if (isFusionEnabled && m == 1) {
-      m = input.size(0) * input.size(1);
-      if (n != input.size(2)) {
-        n = input.size(2);
-      }
-    }
-  }
 
   std::vector<int64_t> shape_mean{m, 1};
   IntArrayRef meanArray(shape_mean.data(), shape_mean.size());
@@ -1379,18 +1364,6 @@ void LayerNormOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   const int axis = input_ndim - normalized_ndim;
   int64_t m =
       multiply_integers(input_shape.cbegin(), input_shape.cbegin() + axis);
-  // PT_HABANA_ENABLE_GRAPHMODE_LAYERNORM_FUSION Env variable is added as WA
-  // only for BERT graph mode and it should not be enabled in other cases.
-  static const std::string graphFusionEnvValue =
-      "PT_HABANA_ENABLE_GRAPHMODE_LAYERNORM_FUSION";
-  const char* graphFusionValue = get2env(graphFusionEnvValue.c_str());
-  if (graphFusionValue) {
-    int isFusionEnabled =
-        std::stoi(get2env("PT_HABANA_ENABLE_GRAPHMODE_LAYERNORM_FUSION"));
-    if (isFusionEnabled && m == 1) {
-      m = input.size(0) * input.size(1);
-    }
-  }
 
   auto outputs = AllocatePTOutputs(input, bias, weight, m, {true, true, true});
   std::vector<at::Tensor> v{
@@ -1536,22 +1509,6 @@ void LayerNormBackwardOperator::AllocateAndAddSynapseNode(
       multiply_integers(input_shape.cbegin(), input_shape.cbegin() + axis);
   int64_t n =
       multiply_integers(input_shape.cbegin() + axis, input_shape.cend());
-
-  // PT_HABANA_ENABLE_GRAPHMODE_LAYERNORM_FUSION Env variable is added as WA
-  // only for BERT graph mode and it should not be enabled in other cases.
-  static const std::string graphFusionEnvValue =
-      "PT_HABANA_ENABLE_GRAPHMODE_LAYERNORM_FUSION";
-  const char* graphFusionValue = get2env(graphFusionEnvValue.c_str());
-  if (graphFusionValue) {
-    int isFusionEnabled =
-        std::stoi(get2env("PT_HABANA_ENABLE_GRAPHMODE_LAYERNORM_FUSION"));
-    if (isFusionEnabled && m == 1) {
-      m = X.size(0) * X.size(1);
-      if (n != X.size(2)) {
-        n = X.size(2);
-      }
-    }
-  }
 
   // Add Reshape node for input to graph for input.view({m,n})
   auto reshape_op_x =

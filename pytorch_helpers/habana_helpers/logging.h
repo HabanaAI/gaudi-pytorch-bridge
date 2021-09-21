@@ -95,27 +95,6 @@ void habana_assert(
 
 } // namespace Logger
 
-inline char* get2env(const char* a) {
-  std::string b; // new Option
-  // Get new options
-  if (0 == strcmp("PT_HABANA_LOG_MOD_MASK", a))
-    b = "PT_HPU_LOG_MOD_MASK";
-  else if (0 == strcmp("PT_HABANA_LOG_TYPE_MASK", a))
-    b = "PT_HPU_LOG_TYPE_MASK";
-  else if (0 == strcmp("PT_HABANA_ENABLE_GRAPHMODE_LAYERNORM_FUSION", a))
-    b = "PT_HPU_ENABLE_GRAPHMODE_LAYERNORM_FUSION";
-  else if (0 == strcmp("HABANA_PGM_ENABLE_CACHE", a))
-    b = "PT_HPU_PGM_ENABLE_CACHE";
-
-  // Search
-  char* mask = getenv(a);
-  if (mask != nullptr) {
-    return mask;
-  } else {
-    return getenv(b.c_str());
-  }
-}
-
 class PtLogger {
  private:
   static PtLogger* instance;
@@ -123,16 +102,15 @@ class PtLogger {
   unsigned long type_mask_;
 
   PtLogger() {
-    char* mask = get2env("PT_HABANA_LOG_MOD_MASK");
-    char* node_mask_ptr = std::getenv("PT_HPU_LOG_NODE_MASK");
+    module_mask_ = GET_ENV_FLAG(PT_HPU_LOG_MOD_MASK);
+    type_mask_ = GET_ENV_FLAG(PT_HPU_LOG_TYPE_MASK);
+
     char* gc_log_level_ptr = std::getenv("PT_HPU_SYN_LOG_LEVEL");
 
     unsigned long node_id = 0;
-    unsigned long node_id_mask = 0;
+    unsigned long node_id_mask = GET_ENV_FLAG(PT_HPU_LOG_NODE_MASK);
 
-    if (node_mask_ptr != nullptr) {
-      node_id_mask = std::stoul(node_mask_ptr, nullptr, 16);
-
+    if (node_id_mask) {
       // multinode can be either rank or id
       char* node_id_ptr = std::getenv("ID");
       if (node_id_ptr != nullptr) {
@@ -141,7 +119,7 @@ class PtLogger {
     }
 
     if (gc_log_level_ptr != nullptr) {
-      if (node_mask_ptr != nullptr) {
+      if (node_id_mask) {
         if ((node_id_mask & (1 << node_id)) == 1) {
           setenv("LOG_LEVEL_ALL", gc_log_level_ptr, 1);
         }
@@ -150,33 +128,22 @@ class PtLogger {
       }
     }
 
-    if (mask != nullptr) {
-      module_mask_ = std::stoul(mask, nullptr, 16); // expects hex
-
-      // retain the default mask for other nodes
-      if (node_mask_ptr != nullptr) {
+    // retain the default mask for other nodes
+    if (module_mask_) {
+      if (node_id_mask) {
         if ((node_id_mask & (1 << node_id)) == 0) {
-          module_mask_ = INT64_MAX;
+          module_mask_ = UINT64_MAX;
         }
       }
-
-    } else {
-      // enable all modules by default
-      module_mask_ = INT64_MAX;
     }
-
-    mask = get2env("PT_HABANA_LOG_TYPE_MASK");
-    if (mask != nullptr) {
-      type_mask_ = std::stoul(mask, nullptr, 16); // expects hex
-
-      // retain the default mask for other nodes
-      if (node_mask_ptr != nullptr) {
+    // retain the default mask for other nodes
+    if (type_mask_) {
+      if (node_id_mask) {
         if ((node_id_mask & (1 << node_id)) == 0) {
           type_mask_ = TypeMask::FATAL + TypeMask::WARNING;
         }
       }
     } else {
-      // enable fatal errors and warnings by default
       type_mask_ = TypeMask::FATAL + TypeMask::WARNING;
       // Always set the debug logs for lazy and bridge so that
       // we get the detailed info on the graphs etc that was launched
@@ -237,6 +204,7 @@ class PtLogger {
     STATS = 0x100,
     TEST = 0x200,
     DYNAMIC_SHAPE = 0x400,
+    DEVMEM = 0x800,
   };
 };
 
@@ -299,6 +267,9 @@ class PTFuncLog {
 #define PT_SYNHELPER_FATAL(...) \
   PT_MOD_FATAL(PtLogger::ModuleMask::SYNHELPER, __VA_ARGS__)
 
+#define PT_DEVMEM_FATAL(...) \
+  PT_MOD_FATAL(PtLogger::ModuleMask::DEVMEM, __VA_ARGS__)
+
 #define PT_DISTRIBUTED_FATAL(...) \
   PT_MOD_FATAL(PtLogger::ModuleMask::DISTRIBUTED, __VA_ARGS__)
 
@@ -337,6 +308,9 @@ class PTFuncLog {
 
 #define PT_SYNHELPER_WARN(...) \
   PT_MOD_WARN(PtLogger::ModuleMask::SYNHELPER, __VA_ARGS__)
+
+#define PT_DEVMEM_WARN(...) \
+  PT_MOD_WARN(PtLogger::ModuleMask::DEVMEM, __VA_ARGS__)
 
 #define PT_DISTRIBUTED_WARN(...) \
   PT_MOD_WARN(PtLogger::ModuleMask::DISTRIBUTED, __VA_ARGS__)
@@ -383,6 +357,7 @@ class PTFuncLog {
 #define PT_OTHER_OPS_BEGIN PT_MOD_BEGIN(PtLogger::ModuleMask::KERNEL)
 #define PT_BRIDGE_BEGIN PT_MOD_BEGIN(PtLogger::ModuleMask::BRIDGE)
 #define PT_SYNHELPER_BEGIN PT_MOD_BEGIN(PtLogger::ModuleMask::SYNHELPER)
+#define PT_DEVMEM_BEGIN PT_MOD_BEGIN(PtLogger::ModuleMask::DEVMEM)
 #define PT_DISTRIBUTED_BEGIN PT_MOD_BEGIN(PtLogger::ModuleMask::DISTRIBUTED)
 #define PT_LAZY_BEGIN PT_MOD_BEGIN(PtLogger::ModuleMask::LAZY)
 
@@ -398,6 +373,7 @@ class PTFuncLog {
 #define PT_KERNEL_END PT_MOD_END(PtLogger::ModuleMask::KERNEL)
 #define PT_BRIDGE_END PT_MOD_END(PtLogger::ModuleMask::BRIDGE)
 #define PT_SYNHELPER_END PT_MOD_END(PtLogger::ModuleMask::SYNHELPER)
+#define PT_DEVMEM_END PT_MOD_END(PtLogger::ModuleMask::DEVMEM)
 #define PT_DISTRIBUTED_END PT_MOD_END(PtLogger::ModuleMask::DISTRIBUTED)
 #define PT_LAZY_END PT_MOD_END(PtLogger::ModuleMask::LAZY)
 
@@ -424,6 +400,8 @@ class PTFuncLog {
 #define PT_DYNAMIC_SHAPE_TRACE \
   PT_MOD_TRACE(                \
       PtLogger::ModuleMask::DYNAMIC_SHAPE, __PRETTY_FUNCTION__, __FUNCTION__)
+#define PT_DEVMEM_TRACE \
+  PT_MOD_TRACE(PtLogger::ModuleMask::DEVMEM, __PRETTY_FUNCTION__, __FUNCTION__)
 
 /************************DEBUG MACROS************************************/
 #define PT_MOD_DEBUG(MOD, ...)                             \
@@ -449,6 +427,8 @@ class PTFuncLog {
   PT_MOD_DEBUG(PtLogger::ModuleMask::BRIDGE, __VA_ARGS__)
 #define PT_SYNHELPER_DEBUG(...) \
   PT_MOD_DEBUG(PtLogger::ModuleMask::SYNHELPER, __VA_ARGS__)
+#define PT_DEVMEM_DEBUG(...) \
+  PT_MOD_DEBUG(PtLogger::ModuleMask::DEVMEM, __VA_ARGS__)
 #define PT_DISTRIBUTED_DEBUG(...) \
   PT_MOD_DEBUG(PtLogger::ModuleMask::DISTRIBUTED, __VA_ARGS__)
 #define PT_LAZY_DEBUG(...) PT_MOD_DEBUG(PtLogger::ModuleMask::LAZY, __VA_ARGS__)

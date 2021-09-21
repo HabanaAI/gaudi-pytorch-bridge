@@ -45,10 +45,10 @@ void print_device_memory_stats(synDeviceId deviceID) {
   uint64_t free_mem, total_mem;
   auto status = synDeviceGetMemoryInfo(deviceID, &free_mem, &total_mem);
   if (synStatus::synSuccess != status) {
-    PT_DEVICE_FATAL(
+    PT_DEVMEM_FATAL(
         "POOL:: Cannot obtain device memory size. Status: ", status);
   }
-  PT_DEVICE_DEBUG(
+  PT_DEVMEM_DEBUG(
       "POOL:: Device memory size: total= ", total_mem, " free = ", free_mem);
 }
 
