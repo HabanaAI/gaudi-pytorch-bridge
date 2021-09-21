@@ -8,6 +8,11 @@ test_case_list = [
     (500, 10,),
 ]
 
+test_case_list1 = [
+    # N, C, beta
+    (500, 10, 1),
+]
+
 test_case_list_4d = [
     # N, C, H, W
     (5, 3, 2, 4),
@@ -88,6 +93,40 @@ def test_hpu_mseloss_fwd_bwd(N, C, mode):
         bwd_tensors = [torch.randn(N, C)]
     else:
         bwd_tensors = [torch.randn(1)]
+    evaluate_fwd_bwd_kernel(
+        kernel=kernel, tensor_list_bwd=bwd_tensors, kernel_params_fwd=kernel_params_fwd
+    )
+
+
+@pytest.mark.parametrize("N, C, beta", test_case_list1)
+@pytest.mark.parametrize("mode", ["mean", "sum", "none"])
+def test_hpu_smooth_l1_loss(N, C, beta, mode):
+    # TODO: extend that test to all features
+    kernel = F.smooth_l1_loss
+    kernel_params = {
+        "input": torch.randn(N, C),
+        "target": torch.randn(N, C),
+        "reduction": mode,
+        "beta": beta,
+    }
+    evaluate_fwd_kernel(kernel=kernel, kernel_params=kernel_params)
+
+
+@pytest.mark.parametrize("N, C, beta", test_case_list1)
+@pytest.mark.parametrize("mode", ["mean", "sum", "none"])
+def test_hpu_smooth_l1_loss_fwd_bwd(N, C, beta, mode):
+    # TODO: extend that test to all features
+    kernel = F.smooth_l1_loss
+    kernel_params_fwd = {
+        "input": torch.randn(N, C, requires_grad=True),
+        "target": torch.randn(N, C),
+        "reduction": mode,
+        "beta": beta,
+    }
+    if mode == "none":
+        bwd_tensors = [torch.randn(N, C)]
+    else:
+        bwd_tensors = [torch.ones(1)]
     evaluate_fwd_bwd_kernel(
         kernel=kernel, tensor_list_bwd=bwd_tensors, kernel_params_fwd=kernel_params_fwd
     )

@@ -482,6 +482,28 @@ sinh.out:
   dtypes: [Float]
   guid: sinh_fwd
 
+smooth_l1_loss_backward.grad_input:
+  custom_output_shape: SmoothL1LossBackwardOutputShape
+  dtypes: [BFloat16, Float]
+  op_base_class: SmoothL1LossBwdOperator
+
+smooth_l1_loss_backward:
+  custom_output_shape: SmoothL1LossBackwardOutputShape
+  dtypes: [BFloat16, Float]
+  op_base_class: SmoothL1LossBwdOperator
+  out_ids: [0]
+
+smooth_l1_loss.out:
+  custom_output_shape: SmoothL1LossOutputShape
+  dtypes: [BFloat16, Float]
+  op_base_class: SmoothL1LossOperator
+
+smooth_l1_loss:
+  custom_output_shape: SmoothL1LossOutputShape
+  dtypes: [BFloat16, Float]
+  op_base_class: SmoothL1LossOperator
+  out_ids: [0]
+
 sqrt:
   dtypes: [BFloat16, Float]
   guid: sqrt_fwd
