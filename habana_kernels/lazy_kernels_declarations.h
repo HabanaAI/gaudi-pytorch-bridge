@@ -28,7 +28,11 @@ at::Tensor as_strided_hpu_lazy(
     at::IntArrayRef size,
     at::IntArrayRef stride,
     c10::optional<int64_t> storage_offset);
-
+const at::Tensor& as_strided_hpu_lazy_(
+    const at::Tensor& self,
+    at::IntArrayRef size,
+    at::IntArrayRef stride,
+    c10::optional<int64_t> storage_offset);
 at::Tensor asin_hpu_lazy(const at::Tensor& self);
 at::Tensor acosh_hpu_lazy(const at::Tensor& self);
 at::Tensor asinh_hpu_lazy(const at::Tensor& self);

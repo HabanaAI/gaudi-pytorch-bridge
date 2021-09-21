@@ -3649,7 +3649,7 @@ const at::Tensor& hpu_wrap::as_strided_(
   //  return AtenHpuTypeDefault::as_strided_(self, size, stride,
   //  storage_offset);
 
-  return at::native::as_strided_(self, size, stride, std::move(storage_offset));
+  return as_strided_hpu_lazy_(self, size, stride, storage_offset);
 }
 
 at::Tensor hpu_wrap::asin(const at::Tensor& self) {

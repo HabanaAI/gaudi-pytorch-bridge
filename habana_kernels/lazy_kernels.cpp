@@ -914,6 +914,43 @@ Tensor as_strided_hpu_lazy(
   }
 };
 
+const Tensor& as_strided_hpu_lazy_(
+    const Tensor& self,
+    IntArrayRef size,
+    IntArrayRef stride,
+    c10::optional<int64_t> storage_offset) {
+  // We only support contiguous chunks of data to be taken as strided,
+  // as Device doesnt support strided tensors we dont support that case
+  std::vector<int64_t> stride_computed(size.size(), 0);
+  habana_helpers::recalc_strides(stride_computed, size.vec());
+  if ((stride.size() == 0) || (stride.vec() == stride_computed)) {
+    int64_t offset = storage_offset ? storage_offset.value() : 0;
+    ir::NodePtr node =
+        std::make_shared<ir::AsStrided>(self, size, stride, offset);
+    self.unsafeGetTensorImpl()->set_sizes_and_strides(size, stride);
+
+    auto hb_result = GetHbLazyTensor(self);
+    // update of lazy tensor size is required for permute pass to see output
+    // with updated shape
+    hb_result.setTensorSize(size.vec());
+    ir::Value& out = hb_result.CurrentIrValue();
+    out.m_index = 0;
+    out.SetNode(
+        node,
+        hb_result.GetDevice(),
+        hb_result.GetSizes(),
+        hb_result.dtype_optional());
+    // update the view if any
+    updateDstDependencies(hb_result, self);
+    flush_op(self);
+    return self;
+  } else {
+    TORCH_CHECK(
+        0,
+        "as_strided_ called with strides creating non-contiguous output tensor not supported");
+  }
+};
+
 void AddMemcpy(Tensor& src, Tensor& dst) {
   auto hl_dst = GetOrCreateHbLazyTensor(dst);
   auto hl_src = GetHbLazyTensor(src);
