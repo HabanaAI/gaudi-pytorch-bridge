@@ -69,6 +69,7 @@ add_library(habana_pytorch_plugin SHARED
   pytorch_helpers/habana_helpers/tensor_utils.cpp
   pytorch_helpers/habana_helpers/tensor_shape.cpp
   pytorch_helpers/habana_helpers/dynamic_bucket_info.cpp
+  pytorch_helpers/serialize/export.cpp
   habana_hooks/HabanaHooks.cpp
   habana_kernels/aten_hpu_type_default.cpp
   habana_kernels/basic_kernels.cpp
@@ -130,6 +131,7 @@ add_library(habana_pytorch_plugin SHARED
   habana_lazy/passes/weight_permute_graph.cpp
   habana_lazy/hpu_lazy_cache.cpp
   habana_lazy/lazy_executor.cpp
+  habana_lazy/visualize.cpp
 )
 add_subdirectory(hpu_ops)
 target_compile_features(habana_pytorch_plugin PRIVATE cxx_std_14)

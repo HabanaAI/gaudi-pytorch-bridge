@@ -205,6 +205,14 @@ struct PT_HPU_MAX_ACCUM_SIZE : public std::numeric_limits<std::size_t> {
       std::numeric_limits<std::size_t>::max();
 };
 
+struct PT_HPU_GRAPH_DUMP : public std::numeric_limits<unsigned> {
+  static constexpr unsigned default_value = 0;
+};
+
+struct PT_HPU_GRAPH_DUMP_PREFIX {
+  static constexpr const char* default_value = ".";
+};
+
 // Overloads for different type of default value
 
 template <class T>

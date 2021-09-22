@@ -247,6 +247,7 @@ class HlExec {
       torch::jit::Stack& stack);
 
   GraphPtr mp_g_;
+  size_t m_g_hash_;
   std::map<HabanaLazyTensorPtr, JitValuePtr> m_tensorbind_;
 };
 

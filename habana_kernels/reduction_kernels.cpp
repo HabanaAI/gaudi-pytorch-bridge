@@ -1641,12 +1641,9 @@ Tensor all_hpu(const Tensor& self) {
   torch::jit::Stack stack = {IValue(self)};
 
   habana_lazy::transform_graph(graph);
-  // reset instance count so that graph_id always remains same
-  // this ensures that we get a cache hit if inputs have not changed
-  HabanaLaunchOpPT::instance_count_ = 0;
 
   // Execute OP graph
-  HabanaLaunchOpPT launch{graph, false};
+  HabanaLaunchOpPT launch{graph, false, "all"};
   launch.run(stack);
 
   // Pop output from stack
@@ -1670,11 +1667,9 @@ Tensor all_dim_hpu(const Tensor& self, int64_t dim, bool keepdim) {
   torch::jit::Stack stack = {IValue(self), IValue(dim), IValue(keepdim)};
 
   habana_lazy::transform_graph(graph);
-  // reset instance count so that graph_id always remains same
-  // this ensures that we get a cache hit if inputs have not changed
-  HabanaLaunchOpPT::instance_count_ = 0;
+
   // Execute OP graph
-  HabanaLaunchOpPT launch{graph, false};
+  HabanaLaunchOpPT launch{graph, false, "all_dim"};
   launch.run(stack);
 
   // Pop output from stack

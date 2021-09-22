@@ -511,12 +511,9 @@ Tensor ne_tensor_hpu(const Tensor& self_in, const Tensor& other_in) {
   torch::jit::Stack stack = {self, other};
 
   habana_lazy::transform_graph(graph);
-  // reset instance count so that graph_id always remains same
-  // this ensures that we get a cache hit if inputs have not changed
-  HabanaLaunchOpPT::instance_count_ = 0;
 
   // Execute OP graph
-  HabanaLaunchOpPT launch{graph, false};
+  HabanaLaunchOpPT launch{graph, false, "ne_tensor"};
   launch.run(stack);
 
   // Pop output from stack
@@ -554,12 +551,8 @@ Tensor ne_scalar_hpu(const Tensor& self_in, Scalar other) {
 
   habana_lazy::transform_graph(graph);
 
-  // reset instance count so that graph_id always remains same
-  // this ensures that we get a cache hit if inputs have not changed
-  HabanaLaunchOpPT::instance_count_ = 0;
-
   // Execute OP graph
-  HabanaLaunchOpPT launch{graph, false};
+  HabanaLaunchOpPT launch{graph, false, "ne_scalar"};
   launch.run(stack);
 
   // Pop output from stack

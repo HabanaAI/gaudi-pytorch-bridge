@@ -65,15 +65,28 @@ LayoutFormat getLayoutFromDims(const std::vector<int64_t>& dims);
 class HabanaLaunchOpPT {
  public:
   explicit HabanaLaunchOpPT(const torch::jit::Node* node, bool dbg);
+  // Lazy mode graphs
   explicit HabanaLaunchOpPT(
       std::shared_ptr<torch::jit::Graph> graph,
       bool dbg,
+      size_t graph_index,
       const char* name = nullptr);
+  // Eager mode graphs
+  explicit HabanaLaunchOpPT(
+      std::shared_ptr<torch::jit::Graph> graph,
+      bool dbg,
+      const std::string& name);
   ~HabanaLaunchOpPT();
   void run(torch::jit::Stack& stack);
 
   static std::unordered_set<std::string> watchlist_;
-  static size_t instance_count_;
+
+ protected:
+  explicit HabanaLaunchOpPT(
+      std::shared_ptr<torch::jit::Graph> graph,
+      bool dbg,
+      const std::string& name,
+      const std::string& id);
 
  private:
   std::string op_name;
@@ -261,6 +274,9 @@ class HabanaLaunchOpPT {
   void GetSynapseInputs(
       const HabanaOperatorPtr& habana_op,
       torch::jit::Node* node);
+  const std::string& GetSynapseGraphName() const {
+    return id_str;
+  }
   void ProcessPersistentNodeOutput(
       const IValPtrShared& ivpsh,
       const ValPtr& vp,

@@ -28,6 +28,7 @@
 #include "passes/weight_permute_graph.h"
 #include "pytorch_helpers/habana_device/hpu_cached_devices.h"
 #include "synapse_helpers/device.h"
+#include "visualize.h"
 
 namespace habana_lazy {
 namespace exec {
@@ -35,10 +36,12 @@ OptPassCfg* OptPassCfg::p_instance_ = nullptr;
 
 HlExec::HlExec() {
   mp_g_ = std::make_shared<Graph>();
+  m_g_hash_ = 0;
 }
 
 HlExec::HlExec(ScopePtr scope) {
   mp_g_ = std::make_shared<Graph>(scope);
+  m_g_hash_ = 0;
 }
 
 void HlExec::Launch(torch::jit::Stack& stack) {
@@ -57,7 +60,8 @@ void HlExec::Launch(torch::jit::Stack& stack) {
   // save the graph for perf mode
   context->saveGraph(mp_g_);
 
-  habana::HabanaLaunchOpPT launch{mp_g_, false};
+  auto graphIndex = visualize::GetGraphIndex(m_g_hash_);
+  habana::HabanaLaunchOpPT launch{mp_g_, false, graphIndex};
   launch.run(stack);
 
   context->setExecutionMode(kLAZY);
@@ -212,22 +216,24 @@ void HlExec::GetOrCreate(
   FindDuplicateInStack(po_data, stack, parent_vec, is_duplicate_vec);
   PruneDuplicateStackInputs(stack, is_duplicate_vec);
 
+  m_g_hash_ = habana_lazy::LazyArgumentSpec(
+                  true,
+                  stack,
+                  po_data.post_order_nodes_hash,
+                  po_data.inputs,
+                  po_data.value_input_nodes_map,
+                  po_data.outputs,
+                  parent_vec)
+                  .hashCode();
+
   if (std::getenv("PT_HPU_LAZY_CACHE_DISABLE")) {
     mp_g_ = std::make_shared<Graph>();
     Create(po_data.post_order, po_data.inputs, po_data.outputs, orig_stack);
     PruneDuplicateGraphInputs(parent_vec, is_duplicate_vec);
     return;
   }
-  auto las = habana_lazy::LazyArgumentSpec(
-      true,
-      stack,
-      po_data.post_order_nodes_hash,
-      po_data.inputs,
-      po_data.value_input_nodes_map,
-      po_data.outputs,
-      parent_vec);
   mp_g_ = habana_lazy::LazyGraphCache::GetLazyCache().GetOptimizedJITGraph(
-      las.hashCode());
+      m_g_hash_);
 
   // Cache miss
   // ==========
@@ -240,9 +246,10 @@ void HlExec::GetOrCreate(
     // Optimization is done during Create() itself
     Create(po_data.post_order, po_data.inputs, po_data.outputs, orig_stack);
     PruneDuplicateGraphInputs(parent_vec, is_duplicate_vec);
-    LazyGraphCache::GetLazyCache().Add(las.hashCode(), mp_g_);
+    LazyGraphCache::GetLazyCache().Add(m_g_hash_, mp_g_);
   } else {
     PT_LAZY_DEBUG("JIT Cache hit");
+    visualize::DumpCachedGraph(mp_g_, m_g_hash_);
   }
 }
 
@@ -362,6 +369,8 @@ void HlExec::Create(
 
 void HlExec::Optimize(torch::jit::Stack& stack) {
   PT_LAZY_TRACE;
+  visualize::DumpPreGraph(mp_g_, m_g_hash_);
+
   // Permute Pass to insert permute nodes should be run before any other JIT
   // optimization pass. Reason for this is because Permute pass relies on extra
   // information (e.g. dims) for each tensor added at JIT graph graph creation
@@ -371,22 +380,27 @@ void HlExec::Optimize(torch::jit::Stack& stack) {
   // will not have required extra information for permute pass to work properly.
   if (OptPassCfg::GetInstance()->IsEnabledPermutePass()) {
     InsertPermute_graph(mp_g_, stack);
+    visualize::DumpOptimizedGraph(mp_g_, m_g_hash_, "insert_permute");
   }
 
   if (OptPassCfg::GetInstance()->IsEnabledWeightPermutePass()) {
     InsertWeightPermute_graph(mp_g_, stack);
+    visualize::DumpOptimizedGraph(mp_g_, m_g_hash_, "insert_weight_permute");
   }
 
   if (OptPassCfg::GetInstance()->IsEnabledFuseTMM()) {
     fuse_mm_transpose(mp_g_);
+    visualize::DumpOptimizedGraph(mp_g_, m_g_hash_, "fuse_mm_transpose");
   }
 
   if (OptPassCfg::GetInstance()->IsEnabledFuseBnRelu()) {
     fuse_bn_relu(mp_g_);
+    visualize::DumpOptimizedGraph(mp_g_, m_g_hash_, "fuse_bn_relu");
   }
 
   if (OptPassCfg::GetInstance()->IsEnabledReplaceInplaceOps()) {
     replace_inplace_ops(mp_g_);
+    visualize::DumpOptimizedGraph(mp_g_, m_g_hash_, "replace_inplace_ops");
     OptPassCfg::GetInstance()->SetDeadCodeElimination(true);
   }
 
@@ -394,27 +408,37 @@ void HlExec::Optimize(torch::jit::Stack& stack) {
       OptPassCfg::GetInstance()->IsEnabledDeadCodeElimination() ||
       OptPassCfg::GetInstance()->IsEnabledFuseBnRelu()) {
     torch::jit::EliminateDeadCode(mp_g_);
+    visualize::DumpOptimizedGraph(mp_g_, m_g_hash_, "eliminate_dead_code");
   }
 
   if (OptPassCfg::GetInstance()->IsEnabledCSEElimination()) {
     torch::jit::EliminateCommonSubexpression(mp_g_);
+    visualize::DumpOptimizedGraph(
+        mp_g_, m_g_hash_, "eliminate_common_subexpression");
   }
 
   if (OptPassCfg::GetInstance()->IsEnabledConstPooling()) {
     torch::jit::ConstantPooling(mp_g_);
+    visualize::DumpOptimizedGraph(mp_g_, m_g_hash_, "constant_pooling");
   }
 
   if (OptPassCfg::GetInstance()->IsEnabledPeepholeOpt()) {
     torch::jit::PeepholeOptimize(mp_g_);
+    visualize::DumpOptimizedGraph(mp_g_, m_g_hash_, "peephole_optimize");
   }
 
   if (OptPassCfg::GetInstance()->IsEnabledSubgraphRewrite()) {
     transform_graph(mp_g_);
+    visualize::DumpOptimizedGraph(mp_g_, m_g_hash_, "transform_graph");
   }
 
   if (OptPassCfg::GetInstance()->IsEnabledReplaceViews()) {
     replace_views_with_reshapes(mp_g_);
+    visualize::DumpOptimizedGraph(
+        mp_g_, m_g_hash_, "replace_views_with_reshapes");
   }
+
+  visualize::DumpPostGraph(mp_g_, m_g_hash_);
 }
 
 } // namespace exec

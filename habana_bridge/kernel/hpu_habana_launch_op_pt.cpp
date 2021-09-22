@@ -54,7 +54,6 @@ const std::unordered_set<std::string> HabanaMetaOpList::meta_ops = {
     "aten::size",
     "prim::dtype"};
 
-size_t HabanaLaunchOpPT::instance_count_ = 0;
 std::unordered_set<std::string> HabanaLaunchOpPT::watchlist_ = {};
 //--------------------------------------
 
@@ -111,6 +110,19 @@ bool dropCachedRecipe_LRU(size_t& recipe_count) {
   return dropped;
 }
 
+std::string makeOpName(const char* name) {
+  std::string op_name =
+      (name ? std::string(name) : std::string("HabanaLaunchOp"));
+  std::replace(op_name.begin(), op_name.end(), ':', '_');
+  return op_name;
+}
+
+std::string makeIdStr(const char* name, size_t graph_index) {
+  std::ostringstream oss;
+  oss << makeOpName(name) << '_' << graph_index;
+  return oss.str();
+}
+
 HabanaLaunchOpPT::HabanaLaunchOpPT(const torch::jit::Node* node, bool dbg)
     : HabanaLaunchOpPT(
           node->g(attr::Subgraph),
@@ -120,15 +132,27 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(const torch::jit::Node* node, bool dbg)
 HabanaLaunchOpPT::HabanaLaunchOpPT(
     std::shared_ptr<torch::jit::Graph> graph,
     bool dbg,
+    size_t graph_index,
     const char* name)
-    : jit_ir_graph{std::move(graph)}, debug(dbg) {
+    : HabanaLaunchOpPT(
+          std::move(graph),
+          dbg,
+          makeOpName(name),
+          makeIdStr(name, graph_index)) {}
+
+HabanaLaunchOpPT::HabanaLaunchOpPT(
+    std::shared_ptr<torch::jit::Graph> graph,
+    bool dbg,
+    const std::string& name)
+    : op_name(name), jit_ir_graph{std::move(graph)}, debug(dbg), id_str(name) {}
+
+HabanaLaunchOpPT::HabanaLaunchOpPT(
+    std::shared_ptr<torch::jit::Graph> graph,
+    bool dbg,
+    const std::string& name,
+    const std::string& id)
+    : op_name(name), jit_ir_graph{std::move(graph)}, debug(dbg), id_str(id) {
   refine_ds_enabled_ = GET_ENV_FLAG(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
-  op_name = (name ? std::string(name) : std::string("HabanaLaunchOp"));
-  std::replace(op_name.begin(), op_name.end(), ':', '_');
-  std::ostringstream oss;
-  oss << op_name << '_' << instance_count_;
-  instance_count_++;
-  id_str = oss.str();
 
   PT_BRIDGE_DEBUG("Creating : ", id_str);
   if (!HPUDeviceAllocator::drop_cached_recipe_cb) {
@@ -2761,9 +2785,8 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
     run_shape_inference(ShapeInfo::InferencePass::MAX_SHAPE);
   }
 
-  std::stringstream ss;
-  ss << op_name << "_" << instance_count_;
-  auto syn_graph = habana_helpers::create_graph(device.id(), ss.str());
+  auto syn_graph =
+      habana_helpers::create_graph(device.id(), GetSynapseGraphName());
   syn_graph.set_dynamic_graph(!ranges.empty());
   AdjustInputLayout();
   PT_BRIDGE_DEBUG("run CompileAndExecuteHabanaFusedOpKernel");
@@ -3051,9 +3074,8 @@ void HabanaLaunchOpPT::run(torch::jit::Stack& stack) {
   //<Decription> This is the main function that
   //  a. creates the HabanaLaunchOp
   //  b. compiles and executes the same
-  std::stringstream ss;
-  ss << op_name << "_" << instance_count_;
-  auto syn_graph = habana_helpers::create_graph(device.id(), ss.str());
+  auto syn_graph =
+      habana_helpers::create_graph(device.id(), GetSynapseGraphName());
   CompileAndExecuteHabanaFusedOpKernel(syn_graph);
 
   // clear the context
@@ -3073,9 +3095,8 @@ void HabanaLaunchOpPT::run_pass() {
 
   //
   // Run the compile and execute method to infer the shapes
-  std::stringstream ss;
-  ss << op_name << "_" << instance_count_;
-  auto syn_graph = habana_helpers::create_graph(device.id(), ss.str(), true);
+  auto syn_graph =
+      habana_helpers::create_graph(device.id(), GetSynapseGraphName(), true);
   syn_graph.set_dynamic_graph(true);
   AdjustInputLayout();
   CompileAndExecuteHabanaFusedOpKernel(syn_graph, true);
