@@ -8,23 +8,23 @@ import copy
 import torch.utils.data
 import torchvision.datasets
 
-import habana_accelerated_dataloader.habana_dl_app
+import habana_dataloader.habana_dl_app
 from .aeon_config import get_aeon_config
 from .aeon_transformers import HabanaAeonTransforms
 from .aeon_manifest import generate_aeon_manifest
 
 
-class HabanaAcceleratedDataLoader(torch.utils.data.DataLoader):
+class HabanaDataLoader(torch.utils.data.DataLoader):
     def __init__(self, *args, **kwargs):
         keyword_args = copy.deepcopy(kwargs)
-        keyword_args.update(dict(zip(inspect.getfullargspec(super(HabanaAcceleratedDataLoader, self).__init__).args[1:], args)))
+        keyword_args.update(dict(zip(inspect.getfullargspec(super(HabanaDataLoader, self).__init__).args[1:], args)))
 
         self.fallback_activated = False
 
         try:
             self._handle_vars(keyword_args)
             if not isinstance(self.dataset, torchvision.datasets.ImageFolder):
-                raise ValueError("HabanaAcceleratedDataLoader supports only ImageFolder as dataset")
+                raise ValueError("HabanaDataLoader supports only ImageFolder as dataset")
             torch_transforms = self.dataset.transform
             aeon_data_dir = self.dataset.root
 
@@ -32,7 +32,7 @@ class HabanaAcceleratedDataLoader(torch.utils.data.DataLoader):
             aeon_transform_config, is_train = ht.get_aeon_transforms()
             manifest_filename = generate_aeon_manifest(aeon_data_dir)
             aeon_config_json = get_aeon_config(aeon_data_dir, manifest_filename, aeon_transform_config, self.batch_size, self.num_workers, is_train)
-            self.aeon = habana_accelerated_dataloader.habana_dl_app.HabanaAcceleratedPytorchDL(aeon_config_json,
+            self.aeon = habana_dataloader.habana_dl_app.HabanaAcceleratedPytorchDL(aeon_config_json,
                                                                       True, # pin_memory
                                                                       True, # drop_last
                                                                       False # channels-last
@@ -41,7 +41,7 @@ class HabanaAcceleratedDataLoader(torch.utils.data.DataLoader):
         except ValueError as e:
             print(f"Failed to initialize Habana Dataloader, error: {str(e)}\nRunning with PyTorch Dataloader")
             self.fallback_activated = True
-            super(HabanaAcceleratedDataLoader, self).__init__(*args, **kwargs)
+            super(HabanaDataLoader, self).__init__(*args, **kwargs)
 
     def __len__(self):
         if self.fallback_activated:

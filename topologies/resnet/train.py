@@ -302,9 +302,9 @@ def main(args):
             pass
     elif args.dl_worker_type == "HABANA":
         try:
-            import habana_accelerated_dataloader
+            import habana_dataloader
         except ImportError:
-            assert False, "Could Not import habana_accelerated_dataloader"
+            assert False, "Could Not import habana_dataloader"
 
     if args.run_lazy_mode:
         os.environ["PT_HPU_LAZY_MODE"] = "1"
@@ -362,7 +362,7 @@ def main(args):
         if args.dl_worker_type == "MP":
             data_loader_type = torch.utils.data.DataLoader
         elif args.dl_worker_type == "HABANA":
-            data_loader_type = habana_accelerated_dataloader.HabanaAcceleratedDataLoader
+            data_loader_type = habana_dataloader.HabanaDataLoader
 
         data_loader = data_loader_type(
             dataset, batch_size=args.batch_size, sampler=train_sampler,
