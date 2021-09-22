@@ -26,8 +26,9 @@
 #include "habana_kernels/habana_operator.h"
 
 namespace habana_helpers {
-extern std::map<std::pair<c10::ScalarType, c10::ScalarType>, c10::ScalarType>
-    promote_dtype;
+extern const std::
+    map<std::pair<c10::ScalarType, c10::ScalarType>, c10::ScalarType>
+        promote_dtype;
 extern std::map<std::pair<c10::ScalarType, c10::ScalarType>, std::string>
     cast_map;
 

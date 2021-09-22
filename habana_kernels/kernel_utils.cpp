@@ -22,32 +22,26 @@ using namespace torch;
  * @param key: dtype tensor1, dtype tensor2
  * @param value: dtype promoted tensor
  **/
-std::map<std::pair<c10::ScalarType, c10::ScalarType>, c10::ScalarType>
+const std::map<std::pair<c10::ScalarType, c10::ScalarType>, c10::ScalarType>
     habana_helpers::promote_dtype{
-        {{c10::ScalarType::Char, c10::ScalarType::Int}, c10::ScalarType::Int},
-        {{c10::ScalarType::Int, c10::ScalarType::Char}, c10::ScalarType::Int},
-        {{c10::ScalarType::Byte, c10::ScalarType::Int}, c10::ScalarType::Int},
-        {{c10::ScalarType::Int, c10::ScalarType::Byte}, c10::ScalarType::Int},
-        {{c10::ScalarType::Float, c10::ScalarType::Int},
-         c10::ScalarType::Float},
-        {{c10::ScalarType::Int, c10::ScalarType::Float},
-         c10::ScalarType::Float},
-        {{c10::ScalarType::BFloat16, c10::ScalarType::Float},
-         c10::ScalarType::Float},
-        {{c10::ScalarType::Float, c10::ScalarType::BFloat16},
-         c10::ScalarType::Float},
-        {{c10::ScalarType::Byte, c10::ScalarType::Float},
-         c10::ScalarType::Float},
-        {{c10::ScalarType::Float, c10::ScalarType::Byte},
-         c10::ScalarType::Float},
-        {{c10::ScalarType::Float, c10::ScalarType::Char},
-         c10::ScalarType::Float},
-        {{c10::ScalarType::BFloat16, c10::ScalarType::Char},
-         c10::ScalarType::BFloat16},
-        {{c10::ScalarType::Char, c10::ScalarType::Float},
-         c10::ScalarType::Float},
-        {{c10::ScalarType::Char, c10::ScalarType::BFloat16},
-         c10::ScalarType::BFloat16},
+        // clang-format off
+        {{c10::ScalarType::Char,      c10::ScalarType::Int},        c10::ScalarType::Int},
+        {{c10::ScalarType::Int,       c10::ScalarType::Char},       c10::ScalarType::Int},
+        {{c10::ScalarType::Byte,      c10::ScalarType::Int},        c10::ScalarType::Int},
+        {{c10::ScalarType::Int,       c10::ScalarType::Byte},       c10::ScalarType::Int},
+        {{c10::ScalarType::Float,     c10::ScalarType::Int},        c10::ScalarType::Float},
+        {{c10::ScalarType::Int,       c10::ScalarType::Float},      c10::ScalarType::Float},
+        {{c10::ScalarType::BFloat16,  c10::ScalarType::Float},      c10::ScalarType::Float},
+        {{c10::ScalarType::Float,     c10::ScalarType::BFloat16},   c10::ScalarType::Float},
+        {{c10::ScalarType::Byte,      c10::ScalarType::Float},      c10::ScalarType::Float},
+        {{c10::ScalarType::Float,     c10::ScalarType::Byte},       c10::ScalarType::Float},
+        {{c10::ScalarType::Float,     c10::ScalarType::Char},       c10::ScalarType::Float},
+        {{c10::ScalarType::BFloat16,  c10::ScalarType::Char},       c10::ScalarType::BFloat16},
+        {{c10::ScalarType::Char,      c10::ScalarType::Float},      c10::ScalarType::Float},
+        {{c10::ScalarType::Char,      c10::ScalarType::BFloat16},   c10::ScalarType::BFloat16},
+        {{c10::ScalarType::Int,       c10::ScalarType::BFloat16},   c10::ScalarType::BFloat16},
+        {{c10::ScalarType::BFloat16,  c10::ScalarType::Int},        c10::ScalarType::BFloat16},
+        // clang-format on
     };
 
 /** @brief This data structure is used to map src & dst (for a cast) to
@@ -75,6 +69,7 @@ std::map<std::pair<c10::ScalarType, c10::ScalarType>, std::string>
         {{c10::ScalarType::Short, c10::ScalarType::Bool}, "cast_i16_to_i8"},
         {{c10::ScalarType::Short, c10::ScalarType::Char}, "cast_i16_to_i8"},
         {{c10::ScalarType::Int, c10::ScalarType::Char}, "cast_i32_to_i8"},
+        {{c10::ScalarType::Int, c10::ScalarType::BFloat16}, "cast_i32_to_bf16"},
         {{c10::ScalarType::Int, c10::ScalarType::Float}, "cast_i32_to_f32"},
         // c10::Long dtype is treated as Int for Synapse tensors,
         // therefore we are casting from i32 to f32
