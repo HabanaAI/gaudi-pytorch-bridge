@@ -46,6 +46,18 @@ def _get_modules_directory():
 
     return None
 
+def is_habana_avaialble():
+    from subprocess import check_output, STDOUT
+    cmd = 'hl-smi -v'
+    status = False
+    try:
+        result = check_output(cmd, stderr=STDOUT, shell=True).decode()
+        if result.find('Habana') != -1:
+            status = True
+    except Exception as e:
+        status = False
+    return status
+
 
 def load_habana_module():
     """Load habana libs"""
