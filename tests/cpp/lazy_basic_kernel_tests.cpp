@@ -171,3 +171,18 @@ TEST_F(LazyBasicKernelTest, asStridedOnlyGraph) {
   Tensor out = hB.to(kCPU);
   unsetenv("PT_HPU_LOWER_AS_STRIDED");
 }
+
+TEST_F(LazyBasicKernelTest, weightsharinggraphcycle) {
+  torch::Tensor A = torch::randn({16});
+  torch::Tensor B = torch::randn({16});
+  auto C = B.add(A);
+  C.copy_(B);
+
+  auto hA = A.to(torch::kHPU);
+  auto hB = B.to(torch::kHPU);
+
+  auto hC = hB.add(hA);
+  hC.copy_(hB);
+
+  EXPECT_EQ(allclose(C, hC.cpu(), 0.001, 0.001), true);
+}

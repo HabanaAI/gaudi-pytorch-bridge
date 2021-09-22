@@ -323,64 +323,56 @@ Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
     auto fb_src = src.cpu();
     return fb_self.copy_(fb_src);
   }
-  if (to_lower_as_strided()) {
-    ir::NodePtr node;
-    std::vector<at::Tensor> input_pt_vec;
-    HbLazyTensor hb_tensor = GetOrCreateHbLazyTensor(src, src.device());
-    auto hlresult = GetOrCreateHbLazyTensor(self, src.device());
-    bool permuted = false;
-    /* We can't create a long/double target in the device. Even a cast will not
-      work as these data types are not available within the device. The only way
-      to make progress is to just do a normal D2D so that the target will also
-      be the same as source, and when we want to pull this out to CPU, the D2H
-      will handle the type conversion*/
-    if ((self.scalar_type() == c10::ScalarType::Long) ||
-        (self.scalar_type() == c10::ScalarType::Double) ||
-        (src.dtype() == self.dtype())) {
-      // If both src and dst are already processed ,  go and do the DMA dont
-      // wait Else , If we already have storage in dst, add memcopy node to lazy
-      // graph and we want to copy to existing tensor and not a new one
-      // Kernel expects us to pass dst as second input in that case
-      auto result_data = hlresult.CurrentTensorData();
-      auto src_data = hb_tensor.CurrentTensorData();
-      if (copy_transpose_valid(self, src)) {
-        permuted = true;
-        if (is_5d_tensor) {
-          int64_t dim_chl_pos[] = {0, 2, 3, 4, 1};
-          at::IntArrayRef chl_pos = dim_chl_pos;
-          self = permute_cl_hpu_lazy(src, chl_pos);
-        } else {
-          int64_t dim_chl_pos[] = {0, 2, 3, 1};
-          at::IntArrayRef chl_pos = dim_chl_pos;
-          self = permute_cl_hpu_lazy(src, chl_pos);
-        }
-      } else if (!permuted) {
-        if (hb_tensor.getTensorUniqueId() == hlresult.getTensorUniqueId()) {
-          return self;
-        }
-        node = ir::Node::Create(
-            Symbol::fromQualString("hpu::habana_d2d_memcpy_other"),
-            {hb_tensor.GetIrValue(), hlresult.GetIrValue()});
-        input_pt_vec.push_back(src);
-        input_pt_vec.push_back(self);
-        auto context = habana_lazy_executor.getDeviceExecutionContext(
-            self.device().index());
-        context->MarkTensorRegistered(hlresult.getTensorUniqueId());
-        ir::Value& out = hlresult.CurrentIrValue();
-        out.m_index = 0;
-        out.SetNode(
-            node,
-            hlresult.GetDevice(),
-            hlresult.GetSizes(),
-            hlresult.dtype_optional());
-        node->AddInputPtTensors(input_pt_vec);
-        flush_op({src, self});
-        // update the view if any
-        updateDstDependencies(hlresult, self);
+
+  ir::NodePtr node;
+  std::vector<at::Tensor> input_pt_vec;
+  HbLazyTensor hb_tensor = GetOrCreateHbLazyTensor(src, src.device());
+  auto hlresult = GetOrCreateHbLazyTensor(self, src.device());
+  bool permuted = false;
+  /* We can't create a long/double target in the device. Even a cast will not
+    work as these data types are not available within the device. The only way
+    to make progress is to just do a normal D2D so that the target will also
+    be the same as source, and when we want to pull this out to CPU, the D2H
+    will handle the type conversion*/
+  if ((self.scalar_type() == c10::ScalarType::Long) ||
+      (self.scalar_type() == c10::ScalarType::Double) ||
+      (src.dtype() == self.dtype())) {
+    // If both src and dst are already processed ,  go and do the DMA dont
+    // wait Else , If we already have storage in dst, add memcopy node to lazy
+    // graph and we want to copy to existing tensor and not a new one
+    // Kernel expects us to pass dst as second input in that case
+    auto result_data = hlresult.CurrentTensorData();
+    auto src_data = hb_tensor.CurrentTensorData();
+    if (copy_transpose_valid(self, src)) {
+      permuted = true;
+      if (is_5d_tensor) {
+        int64_t dim_chl_pos[] = {0, 2, 3, 4, 1};
+        at::IntArrayRef chl_pos = dim_chl_pos;
+        self = permute_cl_hpu_lazy(src, chl_pos);
+      } else {
+        int64_t dim_chl_pos[] = {0, 2, 3, 1};
+        at::IntArrayRef chl_pos = dim_chl_pos;
+        self = permute_cl_hpu_lazy(src, chl_pos);
       }
-    } else {
-      node = std::make_shared<ir::Cast>(src, self.scalar_type(), non_blocking);
-      auto hlresult = GetHbLazyTensor(self);
+    } else if (!permuted) {
+      if (hb_tensor.getTensorUniqueId() == hlresult.getTensorUniqueId()) {
+        return self;
+      }
+
+      if (!hlresult.CurrentIrValue().IsHpuInputNode()) {
+        // add control edge to avoid GC error " writing to already registered
+        // graph output"
+        updateDstDependencies(hlresult, self, true);
+      }
+
+      node = ir::Node::Create(
+          Symbol::fromQualString("hpu::habana_d2d_memcpy_other"),
+          {hb_tensor.GetIrValue(), hlresult.GetIrValue()});
+      input_pt_vec.push_back(src);
+      input_pt_vec.push_back(self);
+      auto context =
+          habana_lazy_executor.getDeviceExecutionContext(self.device().index());
+      context->MarkTensorRegistered(hlresult.getTensorUniqueId());
       ir::Value& out = hlresult.CurrentIrValue();
       out.m_index = 0;
       out.SetNode(
@@ -388,103 +380,27 @@ Tensor& copy_hpu_lazy_D2D(Tensor& self, const Tensor& src, bool non_blocking) {
           hlresult.GetDevice(),
           hlresult.GetSizes(),
           hlresult.dtype_optional());
-      // updatet the view if any
+      node->AddInputPtTensors(input_pt_vec);
+      flush_op({src, self});
+      // update the view if any
       updateDstDependencies(hlresult, self);
     }
-
-    flush_op(self);
-    return self;
   } else {
-    ir::NodePtr node;
-    std::vector<at::Tensor> input_pt_vec;
-    HbLazyTensor hb_tensor = GetOrCreateHbLazyTensor(src, src.device());
-    auto hlresult = GetOrCreateHbLazyTensor(self, src.device());
-    bool permuted = false;
-    bool storage_attached = hlresult.isStorageAttached();
-    /* We can't create a long/double target in the device. Even a cast will not
-      work as these data types are not available within the device. The only way
-      to make progress is to just do a normal D2D so that the target will also
-      be the same as source, and when we want to pull this out to CPU, the D2H
-      will handle the type conversion*/
-    if ((self.scalar_type() == c10::ScalarType::Long) ||
-        (self.scalar_type() == c10::ScalarType::Double) ||
-        (src.dtype() == self.dtype())) {
-      // If both src and dst are already processed ,  go and do the DMA dont
-      // wait Else , If we already have storage in dst, add memcopy node to lazy
-      // graph and we want to copy to existing tensor and not a new one
-      // Kernel expects us to pass dst as second input in that case
-      auto result_data = hlresult.CurrentTensorData();
-      auto src_data = hb_tensor.CurrentTensorData();
-      if (copy_transpose_valid(self, src)) {
-        permuted = true;
-        if (is_5d_tensor) {
-          int64_t dim_chl_pos[] = {0, 2, 3, 4, 1};
-          at::IntArrayRef chl_pos = dim_chl_pos;
-          self = permute_cl_hpu_lazy(src, chl_pos);
-        } else {
-          int64_t dim_chl_pos[] = {0, 2, 3, 1};
-          at::IntArrayRef chl_pos = dim_chl_pos;
-          self = permute_cl_hpu_lazy(src, chl_pos);
-        }
-      } else if (!permuted || storage_attached) {
-        if (storage_attached) {
-          if (hb_tensor.getTensorUniqueId() == hlresult.getTensorUniqueId()) {
-            return self;
-          }
-          node = ir::Node::Create(
-              Symbol::fromQualString("hpu::habana_d2d_memcpy_other"),
-              {hb_tensor.GetIrValue(), hlresult.GetIrValue()});
-          input_pt_vec.push_back(src);
-          input_pt_vec.push_back(self);
-          auto context = habana_lazy_executor.getDeviceExecutionContext(
-              self.device().index());
-          context->MarkTensorRegistered(hlresult.getTensorUniqueId());
-          ir::Value& out = hlresult.CurrentIrValue();
-          out.m_index = 0;
-          out.SetNode(
-              node,
-              hlresult.GetDevice(),
-              hlresult.GetSizes(),
-              hlresult.dtype_optional());
-          node->AddInputPtTensors(input_pt_vec);
-          flush_op({src, self});
-          // update the view if any
-          updateDstDependencies(hlresult, self);
-        } else {
-          node = ir::Node::Create(
-              Symbol::fromQualString("hpu::habana_d2d_memcpy"),
-              {hb_tensor.GetIrValue()});
-          input_pt_vec.push_back(src);
-          ir::Value& out = hlresult.CurrentIrValue();
-          out.m_index = 0;
-          out.SetNode(
-              node,
-              hlresult.GetDevice(),
-              hlresult.GetSizes(),
-              hlresult.dtype_optional());
-          node->AddInputPtTensors(input_pt_vec);
-          flush_op(self);
-          // update the view if any
-          updateDstDependencies(hlresult, self);
-        }
-      }
-    } else {
-      node = std::make_shared<ir::Cast>(src, self.scalar_type(), non_blocking);
-      auto hlresult = GetHbLazyTensor(self);
-      ir::Value& out = hlresult.CurrentIrValue();
-      out.m_index = 0;
-      out.SetNode(
-          node,
-          hlresult.GetDevice(),
-          hlresult.GetSizes(),
-          hlresult.dtype_optional());
-      // updatet the view if any
-      updateDstDependencies(hlresult, self);
-    }
-
-    flush_op(self);
-    return self;
+    node = std::make_shared<ir::Cast>(src, self.scalar_type(), non_blocking);
+    auto hlresult = GetHbLazyTensor(self);
+    ir::Value& out = hlresult.CurrentIrValue();
+    out.m_index = 0;
+    out.SetNode(
+        node,
+        hlresult.GetDevice(),
+        hlresult.GetSizes(),
+        hlresult.dtype_optional());
+    // updatet the view if any
+    updateDstDependencies(hlresult, self);
   }
+
+  flush_op(self);
+  return self;
 }
 
 Tensor& copy_hpu_lazy_D2H(Tensor& self, const Tensor& src, bool non_blocking) {
