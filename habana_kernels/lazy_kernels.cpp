@@ -286,7 +286,7 @@ void updateDstDependencies(
 
 at::Tensor get_tensor_for_scalar(
     float alpha,
-    const at::TensorOptions& options = {}) {
+    const at::TensorOptions& options) {
   at::Tensor alpha_tensor;
 
   auto context = habana_lazy_executor.getDeviceExecutionContext(0);

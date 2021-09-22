@@ -27,6 +27,10 @@ void updateDstDependencies(
 
 void flushWithMarkStep();
 
+at::Tensor get_tensor_for_scalar(
+    float alpha,
+    const at::TensorOptions& options = {});
+
 template <class F, class... Ts, std::size_t... Is>
 void for_each_in_tuple(
     std::tuple<Ts...>& tuple,
@@ -400,7 +404,36 @@ class LazyOp {
               auto val = GetIrValueForScalar(t.item());
               values.emplace_back(val);
             } else {
-              auto tinput = t.to(c10::kHPU);
+              at::Tensor tinput;
+              // If the CPU tensor is a wrapped number, then use
+              // get_tensor_for_scalar method to retrieve cached HPU tensors for
+              // the scalar value
+              if ((t.device().type() == c10::DeviceType::CPU)
+                  // is_wrapped_number: True if a tensor was auto-wrapped from a
+                  // C++ or Python number.
+                  && (t.unsafeGetTensorImpl()->is_wrapped_number())) {
+                // Set the dtype for the HPU tensor.
+                //   Double : Float
+                //   Long : Int
+                //   Everything else is passed with the dtype of CPU tensor
+                at::TensorOptions topt = {};
+                auto dtype = t.scalar_type();
+                switch (dtype) {
+                  case at::ScalarType::Double:
+                    topt = at::TensorOptions().dtype(at::ScalarType::Float);
+                    break;
+                  case at::ScalarType::Long:
+                    topt = at::TensorOptions().dtype(at::ScalarType::Int);
+                    break;
+                  default:
+                    topt = at::TensorOptions().dtype(dtype);
+                    break;
+                }
+                tinput = get_tensor_for_scalar(t.item().toFloat(), topt);
+              } else {
+                // Use non_blocking .to()
+                tinput = t.to(c10::kHPU, true);
+              }
               auto val = GetHbLazyTensor(tinput).GetIrValue();
               values.emplace_back(val);
               input_pt_vec.emplace_back(tinput);
