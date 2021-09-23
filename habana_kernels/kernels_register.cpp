@@ -1954,6 +1954,36 @@ Tensor hpu_wrap::frobenius_norm(const Tensor& self) {
   return FrobeniusNorm::apply(self);
 }
 
+Tensor hpu_wrap::frobenius_norm(
+    const Tensor& self,
+    at::IntArrayRef dim,
+    bool keepdim) {
+  if (!hpu_check_inputs_impl("frobenius_norm", {self}))
+    return AtenHpuTypeDefault::frobenius_norm(self);
+  static_cast<void>(dim);
+  static_cast<void>(keepdim);
+
+  struct FrobeniusNorm : public torch::autograd::Function<FrobeniusNorm> {
+    static at::Tensor forward(
+        torch::autograd::AutogradContext*,
+        const at::Tensor& self) {
+      return frobenius_norm_hpu_lazy(self);
+    }
+
+    // Implemented for convention, not to be invoked
+    static torch::autograd::variable_list backward(
+        torch::autograd::AutogradContext*,
+        const torch::autograd::variable_list&) {
+      HABANA_ASSERT(
+          0 &&
+          "autograd::Function<FrobeniusNorm>::backward - should not be reached.");
+      return {};
+    }
+  };
+
+  return FrobeniusNorm::apply(self);
+}
+
 Tensor hpu_wrap::instance_norm(
     const Tensor& input,
     const c10::optional<Tensor>& weight_opt,

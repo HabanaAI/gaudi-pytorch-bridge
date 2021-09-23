@@ -522,3 +522,12 @@ TEST_F(LazyNormKernelTest, BatchNormBackwardAdd) {
 
   EXPECT_EQ(allclose(tWeight.to(torch::kCPU), weight, 0.0001), true);
 }
+
+TEST_F(LazyNormKernelTest, FrobNormDimTest) {
+  torch::Tensor A = torch::randn({2, 2}, torch::requires_grad(false));
+  torch::Tensor hA = A.to(torch::kHPU);
+  torch::Tensor hOut = torch::frobenius_norm(hA, {}, false);
+  torch::Tensor Out = torch::frobenius_norm(A, {}, false);
+
+  EXPECT_EQ(allclose(hOut.to(torch::kCPU), Out, 0.0001), true);
+}

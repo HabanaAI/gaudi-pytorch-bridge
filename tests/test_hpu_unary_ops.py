@@ -164,6 +164,12 @@ def test_hpu_unary_op_erf(N, H, W, C, unary_op, dtype, tol):
     evaluate_fwd_kernel(kernel=unary_op, kernel_params=kernel_params, atol=tol, rtol=tol)
 
 @pytest.mark.parametrize("N, H, W, C", test_case_list)
+@pytest.mark.parametrize("unary_op", [torch.norm])
+def test_hpu_unary_op_frobenius_norm(N, H, W, C, unary_op):
+    kernel_params = {'input': torch.randn(N, C, H, W)}
+    evaluate_fwd_kernel(kernel=unary_op, kernel_params=kernel_params, atol=.001, rtol=.001)
+
+@pytest.mark.parametrize("N, H, W, C", test_case_list)
 def test_hpu_unary_op_clamp(N, H, W, C):
     kernel_params = {'input': torch.randn(N, C, H, W),
                      'min': -0.25,
