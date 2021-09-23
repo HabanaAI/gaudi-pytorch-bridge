@@ -255,14 +255,12 @@ void ReduceOperator::AllocateAndAddSynapseNode(
     // not merged), will be optimized out by GC
     auto ReshapeOp = make_operator<ReshapeOperator>(
         this->p_context_->device_id_, self.scalar_type());
-    auto& reshape_syn =
-        ReshapeOp->SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+    ReshapeOp->SetSynapseInput(p_context_->syn_inputs_[0]);
     // Build Params for the graph
     std::vector<c10::IValue> stack;
     stack.emplace_back(IValue(self));
     stack.emplace_back(IValue(shape));
     ReshapeOp->AllocateAndAddSynapseNode(graph, stack, false);
-    p_context_->syn_inputs_[0] = std::move(reshape_syn);
 
     auto self_reshaped = ReshapeOp->GetOutputs()[0];
     int64_t reshaped_in_dim_data[reshaped_in_dim_size];
@@ -1229,22 +1227,19 @@ void AnyDimOutOperator::AllocateAndAddSynapseNode(
   // Create the operator
   auto intToFloatOp =
       make_operator<CastOperator>(this->p_context_->device_id_, node_type);
-  auto& float_syn =
-      intToFloatOp->SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+  intToFloatOp->SetSynapseInput(p_context_->syn_inputs_[0]);
 
   // Build Params for the graph
   std::vector<c10::IValue> stack{IValue(self), IValue(c10::ScalarType::Float)};
   intToFloatOp->AllocateAndAddSynapseNode(graph, stack, false);
 
-  synapse_helpers::tensor& float_syn_tensor = intToFloatOp->GetSynOutputs()[0];
   auto output_float = intToFloatOp->GetOutputs()[0];
-  p_context_->syn_inputs_[0] = std::move(float_syn);
   stack.clear();
 
   // Reduction operation - Create the operator
   auto sumOp = make_operator<SumDimOperator>(
       this->p_context_->device_id_, c10::ScalarType::Float);
-  sumOp->SetSynapseInput(std::move(float_syn_tensor));
+  sumOp->SetSynapseInput(intToFloatOp->GetSynOutputs()[0]);
 
   // Build Params for the graph
   c10::optional<ScalarType> dtype = output_float.scalar_type();
@@ -1361,22 +1356,19 @@ void AnyDimOperator::AllocateAndAddSynapseNode(
   // Create the operator
   auto intToFloatOp =
       make_operator<CastOperator>(this->p_context_->device_id_, node_type);
-  auto& float_syn =
-      intToFloatOp->SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+  intToFloatOp->SetSynapseInput(p_context_->syn_inputs_[0]);
 
   // Build Params for the graph
   std::vector<c10::IValue> stack{IValue(self), IValue(c10::ScalarType::Float)};
   intToFloatOp->AllocateAndAddSynapseNode(graph, stack, false);
 
-  synapse_helpers::tensor& float_syn_tensor = intToFloatOp->GetSynOutputs()[0];
   auto output_float = intToFloatOp->GetOutputs()[0];
-  p_context_->syn_inputs_[0] = std::move(float_syn);
   stack.clear();
 
   // Reduction operation - Create the operator
   auto sumOp = make_operator<SumDimOperator>(
       this->p_context_->device_id_, c10::ScalarType::Float);
-  sumOp->SetSynapseInput(std::move(float_syn_tensor));
+  sumOp->SetSynapseInput(intToFloatOp->GetSynOutputs()[0]);
 
   // Build Params for the graph
   c10::optional<ScalarType> dtype = output_float.scalar_type();
@@ -1391,7 +1383,7 @@ void AnyDimOperator::AllocateAndAddSynapseNode(
   // Create the operator
   auto grtOp = make_operator<GeOperator>(
       this->p_context_->device_id_, sumOp->GetOutputs()[0].scalar_type());
-  grtOp->SetSynapseInput(std::move(sumOp->GetSynOutputs()[0]));
+  grtOp->SetSynapseInput(sumOp->GetSynOutputs()[0]);
   Scalar compareOne = 1.0;
   // Build Params for the graph
   stack.emplace_back(IValue(sumOp->GetOutputs()[0]));
@@ -1465,23 +1457,19 @@ void AnyOperator::AllocateAndAddSynapseNode(
     // Create the operator
     auto intToFloatOp =
         make_operator<CastOperator>(this->p_context_->device_id_, node_type);
-    auto& float_syn =
-        intToFloatOp->SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+    intToFloatOp->SetSynapseInput(p_context_->syn_inputs_[0]);
 
     // Build Params for the graph
     std::vector<c10::IValue> stack{
         IValue(self), IValue(c10::ScalarType::Float)};
     intToFloatOp->AllocateAndAddSynapseNode(graph, stack, false);
-    synapse_helpers::tensor& float_syn_tensor =
-        intToFloatOp->GetSynOutputs()[0];
     auto output_float = intToFloatOp->GetOutputs()[0];
-    p_context_->syn_inputs_[0] = std::move(float_syn);
     stack.clear();
 
     // Reduction operation - Create the operator
     auto sumOp = make_operator<SumOperator>(
         this->p_context_->device_id_, c10::ScalarType::Float);
-    sumOp->SetSynapseInput(std::move(float_syn_tensor));
+    sumOp->SetSynapseInput(intToFloatOp->GetSynOutputs()[0]);
 
     // Build Params for the graph
     c10::optional<ScalarType> dtype = output_float.scalar_type();
@@ -1493,7 +1481,7 @@ void AnyOperator::AllocateAndAddSynapseNode(
     // Create the operator
     auto grtOp = make_operator<GeOperator>(
         this->p_context_->device_id_, sumOp->GetOutputs()[0].scalar_type());
-    grtOp->SetSynapseInput(std::move(sumOp->GetSynOutputs()[0]));
+    grtOp->SetSynapseInput(sumOp->GetSynOutputs()[0]);
     Scalar compareOne = 1.0;
     // Build Params for the graph
     stack.emplace_back(IValue(sumOp->GetOutputs()[0]));
@@ -1509,13 +1497,11 @@ void AnyOperator::AllocateAndAddSynapseNode(
     // Create the operator
     auto anyDimOp = make_operator<AnyDimOperator>(
         this->p_context_->device_id_, self.scalar_type());
-    auto& anyDim_syn =
-        anyDimOp->SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+    anyDimOp->SetSynapseInput(p_context_->syn_inputs_[0]);
 
     // Build Params for the graph
     std::vector<c10::IValue> stack{IValue(self), IValue(dim), IValue(keepdim)};
     anyDimOp->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
-    p_context_->syn_inputs_[0] = std::move(anyDim_syn);
     p_context_->syn_outputs_.emplace_back(
         std::move(anyDimOp->GetSynOutputs()[0]));
     p_context_->pt_outputs_.emplace_back(anyDimOp->GetOutputs()[0]);
@@ -1594,20 +1580,17 @@ void GradSumToSizeOperator::AllocateAndAddSynapseNode(
 
   auto sum_op = make_operator<SumDimOperator>(device_id, scalar_type);
   if (!reduce_dims.empty()) {
-    auto& syn_arg0 =
-        sum_op->SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+    sum_op->SetSynapseInput(p_context_->syn_inputs_[0]);
     torch::jit::Stack stack = {
         IValue(self), IValue(reduce_dims), IValue(true), IValue(scalar_type)};
     sum_op->AllocateAndAddSynapseNode(
         graph, stack, leading_dims ? false : is_output_persistent);
-    p_context_->syn_inputs_[0] = std::move(syn_arg0);
   }
 
   if (leading_dims) {
     auto reshape_op = make_operator<ReshapeOperator>(
         self.device().index(), self.scalar_type());
-    UNUSED auto& syn_arg0 =
-        reshape_op->SetSynapseInput(std::move(sum_op->GetSynOutputs()[0]));
+    reshape_op->SetSynapseInput(sum_op->GetSynOutputs()[0]);
     torch::jit::Stack stack = {IValue(sum_op->GetOutputs()[0]), IValue(shape)};
     reshape_op->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
     p_context_->syn_outputs_.emplace_back(
@@ -1624,13 +1607,11 @@ void GradSumToSizeOperator::AllocateAndAddSynapseNode(
       // Adding an identity node which results in creation of output as
       // as tensor aliased to input (within GC)
       auto identityOp = make_operator<IdentityOperator>(device_id, scalar_type);
-      auto& syn_arg0 =
-          identityOp->SetSynapseInput(std::move(p_context_->syn_inputs_[0]));
+      identityOp->SetSynapseInput(p_context_->syn_inputs_[0]);
 
       torch::jit::Stack stack = {IValue(self)};
       identityOp->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
 
-      p_context_->syn_inputs_[0] = std::move(syn_arg0);
       p_context_->syn_outputs_.emplace_back(
           std::move(identityOp->GetSynOutputs()[0]));
       p_context_->pt_outputs_.emplace_back(
