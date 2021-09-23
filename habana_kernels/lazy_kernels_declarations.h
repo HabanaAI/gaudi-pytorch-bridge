@@ -777,8 +777,6 @@ at::Tensor sgn_hpu_lazy(const at::Tensor& input);
 at::Tensor& sgn_hpu_lazy_(at::Tensor& self);
 at::Tensor log_hpu_lazy(const at::Tensor& input);
 at::Tensor& log_hpu_lazy_(at::Tensor& self);
-at::Tensor log2_hpu_lazy(const at::Tensor& input);
-at::Tensor& log2_hpu_lazy_(at::Tensor& self);
 at::Tensor& clamp_hpu_lazy_(
     at::Tensor& self,
     const c10::optional<at::Scalar>& min,

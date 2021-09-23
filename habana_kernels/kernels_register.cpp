@@ -3530,22 +3530,12 @@ Tensor& hpu_wrap::log_(Tensor& self) {
 Tensor hpu_wrap::log2(const Tensor& input) {
   if (!hpu_check_inputs_impl("log2", {input}))
     return AtenHpuTypeDefault::log2(input);
-
-  if (GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 0) {
-    return log2_hpu_lazy(input);
-  } else {
-    return log2_hpu(input);
-  }
+  return log2_hpu(input);
 };
 Tensor& hpu_wrap::log2_(Tensor& self) {
   if (!hpu_check_inputs_impl("log2_", {self}))
     return AtenHpuTypeDefault::log2_(self);
-
-  if (GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 0) {
-    return log2_hpu_lazy_(self);
-  } else {
-    return log2_hpu_(self);
-  }
+  return log2_hpu_(self);
 }
 Tensor hpu_wrap::argmax(
     const at::Tensor& self,
