@@ -62,7 +62,6 @@ PtTensorInfo::PtTensorInfo(
 void PtTensorInfo::update_shape_syn() {
   switch (tensor_type_) {
     case DATA_TENSOR:
-      break;
     case SHAPE_TENSOR:
     case DATA_TENSOR_DYNAMIC: {
       HABANA_ASSERT(SYN_GAUDI_MAX_TENSOR_DIM >= shape_.size());

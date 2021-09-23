@@ -729,15 +729,6 @@ void RecipeValueSpec::patch_launch_info(
     PtTensorInfo& ti = dtensorinfos->at(i);
     if (ti.is_tensor()) {
       switch (ti.tensor_type()) {
-        case DATA_TENSOR: {
-          syn_launch_info_vec.emplace_back(synLaunchTensorInfoExt{
-              ti.get_syn_namec_str(),
-              ti.get_buffer_syn(),
-              ti.tensor_type(),
-              {0},
-              tensor_ids[tensor_idx++]});
-          break;
-        }
         case SHAPE_TENSOR:
         case INPUT_DESCRIBING_SHAPE_TENSOR: {
           const auto& tsv = ti.syn_shape();
@@ -749,6 +740,7 @@ void RecipeValueSpec::patch_launch_info(
               tensor_ids[tensor_idx++]});
           break;
         }
+        case DATA_TENSOR:
         case DATA_TENSOR_DYNAMIC: {
           const auto& tsv = ti.syn_shape();
           syn_launch_info_vec.emplace_back(synLaunchTensorInfoExt{

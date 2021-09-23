@@ -723,15 +723,11 @@ synapse_helpers::tensor& EmbeddingBagSumForwardOperator::AllocateSynapseInput(
     synapse_helpers::graph& graph,
     const at::Tensor& input,
     bool is_persistent,
-    bool is_shape_tensor,
-    const std::vector<int64_t> min,
-    const std::vector<int64_t> max) {
-  if (is_shape_tensor) {
-    // We have to add logic to create a shape tensor here
-  }
+    bool is_shape_tensor) {
+  static_cast<void>(is_shape_tensor);
   if (valid_input_idx.count(input_idx)) {
     auto syn_tensor_input = habana_helpers::create_tensor(
-        input, graph, is_persistent, c10::nullopt, min, max);
+        input, graph, is_persistent, c10::nullopt);
 
     p_context_->syn_inputs_.emplace_back(std::move(syn_tensor_input));
 
@@ -869,16 +865,11 @@ synapse_helpers::tensor& EmbeddingBagSumBackwardOperator::AllocateSynapseInput(
     synapse_helpers::graph& graph,
     const at::Tensor& input,
     bool is_persistent,
-    bool is_shape_tensor,
-    const std::vector<int64_t> min,
-    const std::vector<int64_t> max) {
-  if (is_shape_tensor) {
-    // We have to add logic to create a shape tensor here
-  }
-
+    bool is_shape_tensor) {
+  static_cast<void>(is_shape_tensor);
   if (valid_input_idx.count(input_idx)) {
     auto syn_tensor_input = habana_helpers::create_tensor(
-        input, graph, is_persistent, c10::nullopt, min, max);
+        input, graph, is_persistent, c10::nullopt);
 
     p_context_->syn_inputs_.emplace_back(std::move(syn_tensor_input));
 

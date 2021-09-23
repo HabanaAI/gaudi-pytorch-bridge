@@ -32,7 +32,7 @@ using namespace torch;
 
 static void print_stride_warning(const Tensor& src, const Tensor& dst) {
   if (src.strides() != dst.strides())
-    PT_KERNEL_WARN(
+    PT_KERNEL_DEBUG(
         "src device: ",
         src.device(),
         " src.strides(): ",

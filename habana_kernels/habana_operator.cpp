@@ -133,15 +133,8 @@ synapse_helpers::tensor& habana::HabanaOperator::AllocateSynapseInput(
     synapse_helpers::graph& graph,
     const at::Tensor& input,
     bool is_persistent,
-    bool is_shape_tensor,
-    const std::vector<int64_t> min,
-    const std::vector<int64_t> max) {
+    bool is_shape_tensor) {
   // TORCH_CHECK(input != nullptr, "Input cannot be null");
-  std::string syn_tensor_name;
-  if (graph.is_dynamic_graph()) {
-    syn_tensor_name =
-        habana::ShapeInference::UpdateShapeInfo(graph, input.sizes().vec());
-  }
 
   if (is_shape_tensor == false) {
     if (p_context_->is_duplicate_input_) {
@@ -158,15 +151,12 @@ synapse_helpers::tensor& habana::HabanaOperator::AllocateSynapseInput(
       p_context_->syn_inputs_.emplace_back(std::move(syn_tensor_input));
     } else {
       auto syn_tensor_input = habana_helpers::create_tensor(
-          input, graph, is_persistent, c10::nullopt, min, max);
+          input, graph, is_persistent, c10::nullopt);
       p_context_->syn_inputs_.emplace_back(std::move(syn_tensor_input));
     }
   } else {
-    std::vector<int64_t> min_shape, max_shape;
-    std::tie(min_shape, max_shape) =
-        habana::ShapeInference::GetMinMaxShape(syn_tensor_name);
-    auto syn_shape_input = habana_helpers::create_shape_tensor(
-        input, graph, is_persistent, false, min_shape, max_shape);
+    auto syn_shape_input =
+        habana_helpers::create_shape_tensor(input, graph, is_persistent, false);
     p_context_->syn_inputs_.emplace_back(std::move(syn_shape_input));
   }
 
@@ -190,20 +180,12 @@ void habana::HabanaOperator::AllocateSynapseOutput(
     const at::Tensor& output,
     bool is_persistent,
     bool is_shape_tensor) {
-  std::vector<int64_t> min_shape, max_shape;
-  if (graph.is_dynamic_graph()) {
-    auto syn_tensor_name =
-        habana::ShapeInference::UpdateShapeInfo(graph, output.sizes().vec());
-    std::tie(min_shape, max_shape) =
-        habana::ShapeInference::GetMinMaxShape(syn_tensor_name);
-  }
-
   if (is_shape_tensor == false) {
     p_context_->syn_outputs_.emplace_back(habana_helpers::create_tensor(
-        output, graph, is_persistent, c10::nullopt, min_shape, max_shape));
+        output, graph, is_persistent, c10::nullopt));
   } else {
     p_context_->syn_outputs_.emplace_back(habana_helpers::create_shape_tensor(
-        output, graph, is_persistent, true, min_shape, max_shape));
+        output, graph, is_persistent, true));
   }
   p_context_->pt_outputs_.emplace_back(output);
 }
@@ -215,18 +197,13 @@ void habana::HabanaOperator::AllocateSynapseOutput(
     bool is_persistent,
     bool is_shape_tensor) {
   std::vector<int64_t> min_shape, max_shape;
-  if (graph.is_dynamic_graph()) {
-    auto syn_tensor_name =
-        habana::ShapeInference::UpdateShapeInfo(graph, output.sizes().vec());
-    std::tie(min_shape, max_shape) =
-        habana::ShapeInference::GetMinMaxShape(syn_tensor_name);
-  }
+
   if (is_shape_tensor == false) {
-    p_context_->syn_outputs_.emplace_back(habana_helpers::create_tensor(
-        output, graph, is_persistent, synType, min_shape, max_shape));
+    p_context_->syn_outputs_.emplace_back(
+        habana_helpers::create_tensor(output, graph, is_persistent, synType));
   } else {
     p_context_->syn_outputs_.emplace_back(habana_helpers::create_shape_tensor(
-        output, graph, is_persistent, true, min_shape, max_shape));
+        output, graph, is_persistent, true));
   }
   p_context_->pt_outputs_.emplace_back(output);
 }

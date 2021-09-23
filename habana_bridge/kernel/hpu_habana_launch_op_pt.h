@@ -257,13 +257,11 @@ class HabanaLaunchOpPT {
   void HandleUnmappedTensor(
       CValPtr value_in,
       const HabanaOperatorPtr& habana_op,
-      SharedSynTensorOrRefListPtr& tensorList,
-      const int64_t input_idx = -1);
+      SharedSynTensorOrRefListPtr& tensorList);
   void HandleMappedandUnmappedTensor(
       CValPtr value_in,
       const HabanaOperatorPtr& habana_op,
-      SharedSynTensorOrRefListPtr& tensorList,
-      const int64_t input_idx = -1);
+      SharedSynTensorOrRefListPtr& tensorList);
   void GetSynapseInputs(
       const HabanaOperatorPtr& habana_op,
       torch::jit::Node* node);
@@ -360,8 +358,7 @@ class HabanaLaunchOpPT {
 
   synapse_helpers::tensor& AllocateSynapseTensor(
       const HabanaOperatorPtr& habana_op,
-      at::Tensor& pt_tensor,
-      const int64_t input_idx);
+      at::Tensor& pt_tensor);
   habana::ShapeInfo m_map_shape;
   void run_shape_inference(const ShapeInfo::InferencePass& pass);
   void run_pass();

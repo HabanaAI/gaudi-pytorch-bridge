@@ -499,9 +499,41 @@ synapse_helpers::tensor habana_helpers::create_tensor(
     bool persistent,
     int devid,
     const c10::ScalarType dtype) {
+  std::string syn_tensor_name;
+  // In case of dynamic graph update the name shape map
+  if (graph.is_dynamic_graph()) {
+    syn_tensor_name =
+        habana::ShapeInference::UpdateShapeInfo(graph, shape.vec());
+  }
+
   if (graph.is_dry_run()) {
     // For dry run mode, just create a placeholder tensor
     return synapse_helpers::tensor::create_placeholder(devid, shape.vec());
+  }
+
+  std::vector<int64_t> min, max;
+  if (graph.is_dynamic_graph()) {
+    std::tie(min, max) =
+        habana::ShapeInference::GetMinMaxShape(syn_tensor_name);
+  }
+
+  if (min.size() && max.size() && (min != max)) {
+    auto dynamic_shape = synapse_helpers::tensor::dynamic_shape_t{
+        synapse_helpers::to_shape_t(min), synapse_helpers::to_shape_t(max)};
+    // Create the max stride
+    std::vector<int64_t> max_stride(max.size());
+    max_stride[max.size() - 1] = 1;
+    for (size_t d = max.size() - 1; d > 0; --d) {
+      max_stride[d - 1] = max_stride[d] * max[d];
+    }
+    auto variant = synapse_helpers::tensor_builder(
+                       max, max_stride, pytorch_to_synapse_type(dtype))
+                       .mark_persistence(persistent)
+                       .with_dynamic_shape(dynamic_shape)
+                       .build(
+                           synapse_helpers::HPURegistrar::get_device(devid),
+                           graph.get_graph_handle());
+    return absl::get<synapse_helpers::tensor>(std::move(variant));
   }
 
   auto variant = synapse_helpers::tensor_builder(
@@ -517,16 +549,27 @@ synapse_helpers::tensor habana_helpers::create_tensor(
     const at::Tensor& tensor,
     synapse_helpers::graph& graph,
     bool persistent,
-    const c10::optional<c10::ScalarType> dtype,
-    const std::vector<int64_t> min,
-    const std::vector<int64_t> max) {
+    const c10::optional<c10::ScalarType> dtype) {
+  std::string syn_tensor_name;
+  // In case of dynamic graph update the name shape map
+  if (graph.is_dynamic_graph()) {
+    syn_tensor_name =
+        habana::ShapeInference::UpdateShapeInfo(graph, tensor.sizes().vec());
+  }
+
   if (graph.is_dry_run()) {
     // For dry run mode, just create a placeholder tensor
     return synapse_helpers::tensor::create_placeholder(
         tensor.device().index(), tensor.sizes().vec());
   }
 
-  if (min.size() && max.size()) {
+  std::vector<int64_t> min, max;
+  if (graph.is_dynamic_graph()) {
+    std::tie(min, max) =
+        habana::ShapeInference::GetMinMaxShape(syn_tensor_name);
+  }
+
+  if (min.size() && max.size() && (min != max)) {
     auto dynamic_shape = synapse_helpers::tensor::dynamic_shape_t{
         synapse_helpers::to_shape_t(min), synapse_helpers::to_shape_t(max)};
     // Create the max stride
@@ -572,16 +615,27 @@ synapse_helpers::tensor habana_helpers::create_tensor(
     const at::Tensor& tensor,
     synapse_helpers::graph& graph,
     bool persistent,
-    const synDataType synType,
-    const std::vector<int64_t> min,
-    const std::vector<int64_t> max) {
+    const synDataType synType) {
+  std::string syn_tensor_name;
+  // In case of dynamic graph update the name shape map
+  if (graph.is_dynamic_graph()) {
+    syn_tensor_name =
+        habana::ShapeInference::UpdateShapeInfo(graph, tensor.sizes().vec());
+  }
+
   if (graph.is_dry_run()) {
     // For dry run mode, just create a placeholder tensor
     return synapse_helpers::tensor::create_placeholder(
         tensor.device().index(), tensor.sizes().vec());
   }
 
-  if (min.size() && max.size()) {
+  std::vector<int64_t> min, max;
+  if (graph.is_dynamic_graph()) {
+    std::tie(min, max) =
+        habana::ShapeInference::GetMinMaxShape(syn_tensor_name);
+  }
+
+  if (min.size() && max.size() && (min != max)) {
     auto dynamic_shape = synapse_helpers::tensor::dynamic_shape_t{
         synapse_helpers::to_shape_t(min), synapse_helpers::to_shape_t(max)};
     // Create the max stride
@@ -614,16 +668,27 @@ synapse_helpers::tensor habana_helpers::create_shape_tensor(
     const at::Tensor& tensor,
     synapse_helpers::graph& graph,
     bool persistent,
-    bool is_device_shape_tensor,
-    const std::vector<int64_t> min,
-    const std::vector<int64_t> max) {
+    bool is_device_shape_tensor) {
+  std::string syn_tensor_name;
+  // In case of dynamic graph update the name shape map
+  if (graph.is_dynamic_graph()) {
+    syn_tensor_name =
+        habana::ShapeInference::UpdateShapeInfo(graph, tensor.sizes().vec());
+  }
+
   if (graph.is_dry_run()) {
     // For dry run mode, just create a placeholder tensor
     return synapse_helpers::tensor::create_placeholder(
         tensor.device().index(), tensor.sizes().vec());
   }
 
-  if (min.size() && max.size()) {
+  std::vector<int64_t> min, max;
+  if (graph.is_dynamic_graph()) {
+    std::tie(min, max) =
+        habana::ShapeInference::GetMinMaxShape(syn_tensor_name);
+  }
+
+  if (min.size() && max.size() && (min != max)) {
     auto dynamic_shape = synapse_helpers::tensor::dynamic_shape_t{
         synapse_helpers::to_shape_t(min), synapse_helpers::to_shape_t(max)};
     // Create the max stride
@@ -655,8 +720,10 @@ synapse_helpers::tensor habana_helpers::create_shape_tensor(
           .set_offset(syn_offset);
   if (!is_device_shape_tensor) {
     builder.mark_shape_tensor();
+    builder.mark_persistence(false);
   } else {
     builder.mark_device_shape_tensor();
+    builder.mark_persistence(persistent);
   }
   auto variant = builder.build(
       synapse_helpers::HPURegistrar::get_device(tensor.device().index()),

@@ -154,9 +154,7 @@ class HabanaOperator {
       synapse_helpers::graph& graph,
       const at::Tensor& input,
       bool is_persistent = false,
-      bool is_shape_tensor = false,
-      const std::vector<int64_t> min = {},
-      const std::vector<int64_t> max = {});
+      bool is_shape_tensor = false);
 
   //
   // If Synapse tensor is already exists for the py torch tensor, we just add
