@@ -180,7 +180,12 @@ ProcessGroupHCCL::~ProcessGroupHCCL() {
   destroy();
 }
 
-void ProcessGroupHCCL::destroy() {}
+void ProcessGroupHCCL::destroy() {
+  for (auto element : hccl_communicator_) {
+    hcclCommDestroy(*(element.second));
+  }
+  hccl_communicator_ = {};
+}
 
 void ProcessGroupHCCL::abort() {
   destroy();
