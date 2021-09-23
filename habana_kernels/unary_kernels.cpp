@@ -2640,11 +2640,6 @@ static auto& KernelRegistry =
               return std::make_shared<AbsInplaceOperator>(device_id, node_type);
             })
         .add(
-            "aten::round",
-            [](const int device_id, c10::ScalarType node_type) {
-              return std::make_shared<RoundOperator>(device_id, node_type);
-            })
-        .add(
             "aten::tanh",
             [](const int device_id, c10::ScalarType node_type) {
               return std::make_shared<TanhOperator>(device_id, node_type);

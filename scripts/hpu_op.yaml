@@ -687,6 +687,20 @@ resize_:
   inplace_ids: [0]
   op_base_class: ResizeHabanaOperator
 
+round:
+  custom_fill_params: FillRoundParams
+  dtypes: [BFloat16, Float]
+  guid: round_fwd
+  out_ids: [0]
+  legacy_eager: true
+
+round_:
+  custom_fill_params: FillRoundParams
+  dtypes: [BFloat16, Float]
+  guid: round_fwd
+  inplace_ids: [0]
+  legacy_eager: true
+
 round.out:
   dtypes: [BFloat16, Float]
   guid: round_fwd

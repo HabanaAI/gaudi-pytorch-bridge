@@ -3424,23 +3424,12 @@ Tensor& hpu_wrap::abs_(Tensor& self) {
 Tensor hpu_wrap::round(const Tensor& self) {
   if (!hpu_check_inputs_impl("round", {self}))
     return AtenHpuTypeDefault::round(self);
-
-  if (GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 0) {
-    return round_hpu_lazy(self);
-
-  } else {
-    return round_hpu(self);
-  }
+  return round_hpu(self);
 };
 Tensor& hpu_wrap::round_(Tensor& self) {
   if (!hpu_check_inputs_impl("round_", {self}))
     return AtenHpuTypeDefault::round_(self);
-
-  if (GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 0) {
-    return round_hpu_lazy_(self);
-  } else {
-    return round_hpu_(self);
-  }
+  return round_hpu_(self);
 };
 Tensor hpu_wrap::rsqrt(const Tensor& self) {
   if (!hpu_check_inputs_impl("rsqrt", {self}))

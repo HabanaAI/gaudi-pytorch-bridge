@@ -761,8 +761,6 @@ at::Tensor log_hpu_lazy(const at::Tensor& input);
 at::Tensor& log_hpu_lazy_(at::Tensor& self);
 at::Tensor abs_hpu_lazy(const at::Tensor& input);
 at::Tensor& abs_hpu_lazy_(at::Tensor& self);
-at::Tensor round_hpu_lazy(const at::Tensor& self);
-at::Tensor& round_hpu_lazy_(at::Tensor& self);
 at::Tensor rsqrt_hpu_lazy(const at::Tensor& self);
 at::Tensor& rsqrt_hpu_lazy_(at::Tensor& self);
 at::Tensor isfinite_hpu_lazy(const at::Tensor& self);
