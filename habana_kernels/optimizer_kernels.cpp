@@ -619,15 +619,11 @@ void OptimizerFusedAdagradOperator::AllocateAndAddSynapseNode(
 
   for (auto i = 0; i < num_params; i++) {
     auto op = make_operator<OptimizerAdagradOperator>(device_id, scalar_type);
-    auto& syn_grad = op->SetSynapseInput(std::move(p_context_->syn_inputs_[i]));
-    auto& syn_wt =
-        op->SetSynapseInput(std::move(p_context_->syn_inputs_[num_params + i]));
-    auto& syn_var = op->SetSynapseInput(
-        std::move(p_context_->syn_inputs_[2 * num_params + i]));
-    auto& syn_epoch_num =
-        op->SetSynapseInput(std::move(p_context_->syn_inputs_[3 * num_params]));
-    auto& syn_lr = op->SetSynapseInput(
-        std::move(p_context_->syn_inputs_[3 * num_params + 1]));
+    op->SetSynapseInput(p_context_->syn_inputs_[i]);
+    op->SetSynapseInput(p_context_->syn_inputs_[num_params + i]);
+    op->SetSynapseInput(p_context_->syn_inputs_[2 * num_params + i]);
+    op->SetSynapseInput(p_context_->syn_inputs_[3 * num_params]);
+    op->SetSynapseInput(p_context_->syn_inputs_[3 * num_params + 1]);
 
     stack.emplace_back(IValue(gradients.get(i)));
     stack.emplace_back(IValue(weights.get(i)));
@@ -641,12 +637,6 @@ void OptimizerFusedAdagradOperator::AllocateAndAddSynapseNode(
     op->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
 
     stack.clear();
-
-    p_context_->syn_inputs_[i] = std::move(syn_grad);
-    p_context_->syn_inputs_[num_params + i] = std::move(syn_wt);
-    p_context_->syn_inputs_[2 * num_params + i] = std::move(syn_var);
-    p_context_->syn_inputs_[3 * num_params] = std::move(syn_epoch_num);
-    p_context_->syn_inputs_[3 * num_params + 1] = std::move(syn_lr);
 
     p_context_->syn_outputs_.emplace_back(std::move(op->GetSynOutputs()[0]));
     p_context_->pt_outputs_.emplace_back(op->GetOutputs()[0]);
@@ -817,11 +807,9 @@ void OptimizerFusedSGDOperator::AllocateAndAddSynapseNode(
 
   for (auto i = 0; i < num_params; i++) {
     auto op = make_operator<OptimizerSGDOperator>(device_id, scalar_type);
-    auto& syn_grad = op->SetSynapseInput(std::move(p_context_->syn_inputs_[i]));
-    auto& syn_wt =
-        op->SetSynapseInput(std::move(p_context_->syn_inputs_[num_params + i]));
-    auto& syn_lr =
-        op->SetSynapseInput(std::move(p_context_->syn_inputs_[2 * num_params]));
+    op->SetSynapseInput(p_context_->syn_inputs_[i]);
+    op->SetSynapseInput(p_context_->syn_inputs_[num_params + i]);
+    op->SetSynapseInput(p_context_->syn_inputs_[2 * num_params]);
 
     stack.emplace_back(IValue(gradients.get(i)));
     stack.emplace_back(IValue(weights.get(i)));
@@ -834,10 +822,6 @@ void OptimizerFusedSGDOperator::AllocateAndAddSynapseNode(
     op->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
 
     stack.clear();
-
-    p_context_->syn_inputs_[i] = std::move(syn_grad);
-    p_context_->syn_inputs_[num_params + i] = std::move(syn_wt);
-    p_context_->syn_inputs_[2 * num_params] = std::move(syn_lr);
 
     p_context_->syn_outputs_.emplace_back(std::move(op->GetSynOutputs()[0]));
     p_context_->pt_outputs_.emplace_back(op->GetOutputs()[0]);
@@ -1014,15 +998,11 @@ void OptimizerFusedSGDMomentumOperator::AllocateAndAddSynapseNode(
   for (auto i = 0; i < num_params; i++) {
     auto op =
         make_operator<OptimizerSGDMomentumOperator>(device_id, scalar_type);
-    auto& syn_grad = op->SetSynapseInput(std::move(p_context_->syn_inputs_[i]));
-    auto& syn_wt =
-        op->SetSynapseInput(std::move(p_context_->syn_inputs_[num_params + i]));
-    auto& syn_momentum = op->SetSynapseInput(
-        std::move(p_context_->syn_inputs_[2 * num_params + i]));
-    auto& syn_epoch_num =
-        op->SetSynapseInput(std::move(p_context_->syn_inputs_[3 * num_params]));
-    auto& syn_lr = op->SetSynapseInput(
-        std::move(p_context_->syn_inputs_[3 * num_params + 1]));
+    op->SetSynapseInput(p_context_->syn_inputs_[i]);
+    op->SetSynapseInput(p_context_->syn_inputs_[num_params + i]);
+    op->SetSynapseInput(p_context_->syn_inputs_[2 * num_params + i]);
+    op->SetSynapseInput(p_context_->syn_inputs_[3 * num_params]);
+    op->SetSynapseInput(p_context_->syn_inputs_[3 * num_params + 1]);
 
     stack.emplace_back(IValue(gradients.get(i)));
     stack.emplace_back(IValue(weights.get(i)));
@@ -1037,12 +1017,6 @@ void OptimizerFusedSGDMomentumOperator::AllocateAndAddSynapseNode(
     op->AllocateAndAddSynapseNode(graph, stack, is_output_persistent);
 
     stack.clear();
-
-    p_context_->syn_inputs_[i] = std::move(syn_grad);
-    p_context_->syn_inputs_[num_params + i] = std::move(syn_wt);
-    p_context_->syn_inputs_[2 * num_params + i] = std::move(syn_momentum);
-    p_context_->syn_inputs_[3 * num_params] = std::move(syn_epoch_num);
-    p_context_->syn_inputs_[3 * num_params + 1] = std::move(syn_lr);
 
     p_context_->syn_outputs_.emplace_back(std::move(op->GetSynOutputs()[0]));
 
