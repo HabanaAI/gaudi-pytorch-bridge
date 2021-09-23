@@ -3500,22 +3500,12 @@ Tensor hpu_wrap::cos(const Tensor& self) {
 Tensor hpu_wrap::floor(const Tensor& input) {
   if (!hpu_check_inputs_impl("floor", {input}))
     return AtenHpuTypeDefault::floor(input);
-
-  if (GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 0) {
-    return floor_hpu_lazy(input);
-  } else {
-    return floor_hpu(input);
-  }
+  return floor_hpu(input);
 };
 Tensor& hpu_wrap::floor_(Tensor& self) {
   if (!hpu_check_inputs_impl("floor_", {self}))
     return AtenHpuTypeDefault::floor_(self);
-
-  if (GET_ENV_FLAG(PT_HPU_LAZY_MODE) != 0) {
-    return floor_hpu_lazy_(self);
-  } else {
-    return floor_hpu_(self);
-  }
+  return floor_hpu_(self);
 };
 
 Tensor hpu_wrap::log(const Tensor& input) {

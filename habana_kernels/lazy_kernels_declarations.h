@@ -771,8 +771,6 @@ at::Tensor sign_hpu_lazy(const at::Tensor& input);
 at::Tensor& sign_hpu_lazy_(at::Tensor& self);
 at::Tensor sgn_hpu_lazy(const at::Tensor& input);
 at::Tensor& sgn_hpu_lazy_(at::Tensor& self);
-at::Tensor floor_hpu_lazy(const at::Tensor& input);
-at::Tensor& floor_hpu_lazy_(at::Tensor& self);
 at::Tensor log_hpu_lazy(const at::Tensor& input);
 at::Tensor& log_hpu_lazy_(at::Tensor& self);
 at::Tensor log2_hpu_lazy(const at::Tensor& input);
