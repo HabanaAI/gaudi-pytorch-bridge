@@ -618,18 +618,18 @@ def get_return_type_str(t, orig_sig):
     assert fname.data == "fnname"
     token = fname.children[0]
     assert isinstance(token, lark.lexer.Token)
-    return orig_sig[0: token.column - 2]
+    return orig_sig[0 : token.column - 2]
 
 
-def generate_entry_debug_code(t, fname, params, fname_ns=None):
+def generate_entry_debug_code(t, schema_fn, params, fname_ns=None):
     # Emits debug code for a given intercepted ATEN type function.
 
     code = "  PT_FALLBACK_TRACE;\n"
     code += "  PT_FALLBACK_CHECK;\n"
     if fname_ns is not None:
-        code += '  HPU_FALLBACK_COUNTER("{}::{}");\n'.format(fname_ns, fname)
+        code += '  HPU_FALLBACK_COUNTER("{}::{}");\n'.format(fname_ns, schema_fn)
 
-    code += '  PT_FALLBACK_DEBUG("CPU fallback {} :"'.format(fname)
+    code += '  PT_FALLBACK_DEBUG("CPU fallback {} :"'.format(schema_fn)
     for p in params:
         ptype = param_type(p)
         cptype = type_core(ptype)
@@ -760,14 +760,14 @@ def generate_outfn_result_copy(dest, src):
     return "  habana_lazy::HpuUpdateTensors({{{}}}, {{{}}}, {{0}});\n".format(dest, src)
 
 
-def generate_aten_out(ctx, tree, rwxtree, fname, sig, rwsig, params, fnopts):
+def generate_aten_out(ctx, tree, rwxtree, fname, sig, rwsig, params, fnopts, schema_fn):
     rtype = tree.children[0]
     num_outputs = None
     if type_core(rtype) == "std::tuple":
         num_outputs = len(get_template_type_list(rtype))
 
     code = "{} {{\n".format(sig)
-    code += generate_entry_debug_code(tree, fname, params)
+    code += generate_entry_debug_code(tree, schema_fn, params)
 
     param_vars = get_param_names(params)
 
@@ -814,11 +814,13 @@ def type_opt_core(t):
             return type_core(c.children[0])
 
 
-def generate_aten_to_hpu(ctx, tree, rwxtree, fname, sig, rwsig, params, fnopts):
+def generate_aten_to_hpu(
+    ctx, tree, rwxtree, fname, sig, rwsig, params, fnopts, schema_fn
+):
     ref_param = get_reference_param(params, fnopts=fnopts)
 
     code = "{} {{\n".format(sig)
-    code += generate_entry_debug_code(tree, fname, params, fname_ns="aten")
+    code += generate_entry_debug_code(tree, schema_fn, params, fname_ns="aten")
     hpu_ref_param = param_name(ref_param) if ref_param else None
     tfetcher = TensorFetcher("hputens")
     param_vars = []
@@ -917,18 +919,19 @@ def get_hpu_wrapper(fndef, ctx):
         return "AtenHpuTypeDefault::{}".format(x)
 
     sig, fname, xfname = get_function_signature(rwxtree, rwsig, gen_fnname)
+    schema_fn = fndef.aten_sig.split("(")[0].split("::")[1]
     if not is_blacklisted_fn(fname, mapsig):
         ofnopts = get_outfn_options(fname, mapsig)
         rfnopts = get_remapfn_options(fname, mapsig)
         if ofnopts is not None:
             code = generate_aten_out(
-                ctx, tree, rwxtree, fname, sig, rwsig, params, ofnopts
+                ctx, tree, rwxtree, fname, sig, rwsig, params, ofnopts, schema_fn
             )
         elif rfnopts is not None:
             code = generate_aten_remap(ctx, fname, sig, params, rfnopts)
         else:
             code = generate_aten_to_hpu(
-                ctx, tree, rwxtree, fname, sig, rwsig, params, fnopts
+                ctx, tree, rwxtree, fname, sig, rwsig, params, fnopts, schema_fn
             )
     else:
         code = None
@@ -1096,7 +1099,7 @@ def check_overrides(overrides, overridden):
     misses = 0
     for mapsig, cpp_sig in overrides.items():
         mapsig_key = get_mapsig_key(mapsig)
-        if not mapsig_key in overridden:
+        if mapsig_key not in overridden:
             misses += 1
             print(
                 "hpu_wrap function missed override: {}; // {}".format(cpp_sig, mapsig),
