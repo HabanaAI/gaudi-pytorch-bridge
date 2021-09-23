@@ -620,6 +620,20 @@ TEST_F(LazyUnaryKernelTest, TopkTest) {
   EXPECT_EQ(allclose(cout, hout, 0.001, 0.001), true);
 }
 
+TEST_F(LazyUnaryKernelTest, TopkTestFalse) {
+  auto self = torch::randint(0, 1000, {16, 8}, torch::dtype(torch::kInt64));
+  auto hself = self.to(torch::kHPU);
+
+  auto out_cpu = at::topk(self, 4, 1, false, true);
+  at::Tensor cout = std::get<0>(out_cpu);
+  auto out_hpu = at::topk(hself, 4, 1, false, true);
+  at::Tensor hout = std::get<0>(out_hpu).to(torch::kCPU);
+
+  EXPECT_EQ(cout.sizes().vec() == hout.sizes().vec(), true);
+
+  EXPECT_EQ(allclose(cout, hout, 0.001, 0.001), true);
+}
+
 TEST_F(LazyUnaryKernelTest, SortTest) {
   auto self = torch::randn({3, 5});
   auto hself = self.to(torch::kHPU);

@@ -5009,7 +5009,7 @@ std::tuple<Tensor&, Tensor&> topk_out_hpu_lazy(
   return AtenHpuTypeDefault::topk_out(
       self, k, dim_, largest, sorted, values, indices);
 }
-std::tuple<Tensor, Tensor> topk_hpu_lazy(
+std::tuple<Tensor, Tensor> topk_hpu_lazy_impl(
     const Tensor& self,
     int64_t k,
     int64_t dim,
@@ -5060,6 +5060,26 @@ std::tuple<Tensor, Tensor> topk_hpu_lazy(
 
   Kernel kernel{self, k, dim, largest, sorted};
   return kernel.call();
+}
+
+// WA around for https://jira.habana-labs.com/browse/SW-57705
+std::tuple<Tensor, Tensor> topk_hpu_lazy(
+    const Tensor& self,
+    int64_t k,
+    int64_t dim,
+    bool largest,
+    bool sorted) {
+  PT_LAZY_TRACE;
+  if (false == largest) {
+    auto input = at::neg(self);
+    auto result = topk_hpu_lazy_impl(input, k, dim, true, sorted);
+    auto values = std::get<0>(result);
+    values = at::neg(values);
+    auto indices = std::get<1>(result);
+    std::tuple<Tensor, Tensor> final_result = {values, indices};
+    return final_result;
+  }
+  return topk_hpu_lazy_impl(self, k, dim, largest, sorted);
 }
 
 std::tuple<Tensor, Tensor> sort_hpu_lazy(

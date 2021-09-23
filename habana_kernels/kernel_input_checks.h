@@ -121,7 +121,7 @@ class OpAttributeCheck {
         // checking for thresold = 0
         {"threshold_backward", {{3, {c10::IValue(0), c10::IValue(0.0)}}}},
         // checking for largest = true, sorted = true
-        {"topk", {{4, {c10::IValue(true)}}, {5, {c10::IValue(true)}}}},
+        {"topk", {{5, {c10::IValue(true)}}}},
     };
   }
 
@@ -1748,7 +1748,9 @@ static const std::
                 "topk",
                 {{at::ScalarType::Float,
                   at::ScalarType::BFloat16,
-                  at::ScalarType::Double}},
+                  at::ScalarType::Double,
+                  at::ScalarType::Int,
+                  at::ScalarType::Long}},
             },
             {
                 "sort",
