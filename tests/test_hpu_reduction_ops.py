@@ -60,6 +60,15 @@ reduction_dim_int_list = [
     (torch.argmax, 0, False),
 ]
 
+reduction_dim_int_list_chlast = [
+    (torch.argmax, 1, False),
+    (torch.argmax, 2, False),
+    (torch.argmax, 1, True),
+    (torch.argmax, None, True),
+    # (torch.argmax, 3, True),
+    (torch.argmax, 0, False),
+]
+
 data_type_list = [
     (torch.float, 0.001)
 ]
@@ -95,6 +104,17 @@ def test_hpu_reduction_op_dim_int(N, C, H, W, reduction_op, dims, keepdims, dtyp
                      'dim': dims,
                      'keepdim': keepdims}
     evaluate_fwd_kernel(kernel=reduction_op, kernel_params=kernel_params, atol=tol, rtol=tol)
+
+
+@pytest.mark.parametrize("N, C, H, W", test_case_list)
+@pytest.mark.parametrize("reduction_op, dims, keepdims", reduction_dim_int_list_chlast)
+@pytest.mark.parametrize("dtype, tol", data_type_list)
+def test_hpu_reduction_op_dim_int_chlast(N, C, H, W, reduction_op, dims, keepdims, dtype, tol):
+    kernel_params = {'input': torch.randn(N, C, H, W).to(dtype).contiguous(memory_format=torch.channels_last),
+                     'dim': dims,
+                     'keepdim': keepdims}
+    evaluate_fwd_kernel(kernel=reduction_op, kernel_params=kernel_params, atol=tol, rtol=tol)
+
 
 @pytest.mark.parametrize("N, C, H, W", test_case_list)
 @pytest.mark.parametrize("dims, keepdims", reduction_dim_list_out)
@@ -156,6 +176,7 @@ def test_hpu_compareAll_dim_op(N, C, H, W, compare_op, dims, keepdims):
 
 if __name__ == '__main__':
     test_hpu_reduction_op(*test_case_list[0], reduction_op_list[0], reduction_dim_list[0])
+    test_hpu_reduction_op_dim_int_chlast(*test_case_list[0], reduction_dim_int_list_chlast[0])
     test_hpu_reduction_op_dim_int(*test_case_list[0], reduction_dim_int_list[0])
     test_hpu_reduction_out_op(*test_case_list[0], reduction_op_list[0], reduction_dim_list[0])
     test_hpu_reduction_all_op(*test_case_list[0], reduction_op_list[0])
